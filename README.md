@@ -1,110 +1,159 @@
-# Genix Apolo CAD
+<p align="center">
+  <img src="docs/cover.png" width="660" alt="Genix Apolo CAD — faja transportadora modelada en Apolo">
+</p>
 
-CAD paramétrico para maquinaria industrial y robótica con **diseño asistido por IA** como núcleo del producto.
+<h1 align="center">Genix Apolo CAD</h1>
 
-## Arquitectura (Fases 1–6)
+<p align="center">
+  <b>CAD paramétrico 3D <i>agente-nativo</i> para maquinaria industrial.</b><br>
+  Pensado para ser <b>conducido por un agente de IA</b> (Claude Opus u otros) vía <b>MCP</b> — o a mano desde el navegador.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT">
+  <img src="https://img.shields.io/badge/python-3.11–3.13-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/kernel-OCCT%20%2F%20build123d-orange.svg" alt="OCCT">
+  <img src="https://img.shields.io/badge/MCP-54%20tools-8A2BE2.svg" alt="MCP 54 tools">
+  <img src="https://img.shields.io/badge/tests-527%20passing-brightgreen.svg" alt="527 tests">
+</p>
+
+---
+
+## Qué es
+
+Apolo es un CAD paramétrico **headless** para diseñar máquinas reales. Su diferenciador
+**no es el kernel** (usa OpenCascade, como FreeCAD) sino su **arquitectura agente-nativa**:
+
+> Toda operación es un **comando** contra una API. El documento entero es un **log de
+> comandos** editable. Y los mismos JSON Schemas que generan la interfaz generan también las
+> **tools del agente**. Una sola fuente de verdad.
+
+El resultado es que un agente de IA puede **diseñar máquinas completas de principio a fin** —no
+solo autocompletar— y **verificarlas**: detectar interferencias, simular gravedad, mirar un
+render (visión) y emitir planos de taller fabricables. Es interoperable por STEP, manejable por
+humano **o** por IA, y utilizable como **backend headless** que otras herramientas/agentes
+invocan.
+
+**Vertical del MVP:** transportadores / manejo de materiales.
+
+## Lo que lo hace distinto
+
+- 🤖 **Agente-nativo de verdad.** No es un chatbot pegado a un CAD: el agente es un cliente de
+  primera clase de la misma API que la UI. Diseña, mide, valida y corrige por sí mismo.
+- 🧾 **Documento = log de comandos** (event-sourced). La geometría nunca se guarda → archivos
+  de KB, undo/redo gratis, edición paramétrica de cualquier comando pasado.
+- 🧬 **Schema-driven.** Añadir un comando al registro lo hace aparecer en la toolbar, los
+  diálogos, el panel de propiedades **y** en las tools del agente, sin tocar nada más.
+- 🔢 **Variables y expresiones.** Cualquier campo numérico acepta `"=expresión"` (`=ancho-2*perfil`).
+  Cambiar una variable regenera todo el modelo.
+- 🎯 **Selectores declarativos** de aristas/caras (por dirección, cara, longitud, cercanía) —
+  adiós al frágil *topological naming problem*.
+- 🧱 **Plantillas de máquina = super-comandos** (p. ej. `create_belt_conveyor`, `create_take_up`):
+  heredan edición paramétrica, undo, BOM y exposición al agente gratis.
+
+## Cómo se usa
+
+### ▶ Por agente de IA (MCP) — el modo principal
+
+Apolo se opera, sobre todo, **conversando con un agente**. Expone **54 tools MCP**, así que
+cualquier cliente compatible con MCP (Claude Code, Claude Desktop, etc.) con un modelo capaz
+—**Claude Opus** u otros— puede diseñar máquinas enteras. El repo incluye `.mcp.json`:
+
+```jsonc
+{
+  "mcpServers": {
+    "apolo-cad": {
+      "command": ".venv/Scripts/python.exe",
+      "args": ["-m", "apolo.mcp_server"],
+      "env": { "APOLO_URL": "http://127.0.0.1:8000" }
+    }
+  }
+}
+```
+
+Con el servidor arriba, le pides a tu agente, en lenguaje natural:
+
+> *«Diseña una faja transportadora de 4 m × 600 mm para paquetes de 1–15 kg, con motorreductor
+> de eje hueco y tensado tipo trotadora. Valida que no haya interferencias y muéstrame un render.»*
+
+Y el agente:
+1. **Modela** con `run_batch` (lotes **atómicos**: un solo regenerate, un solo paso de undo),
+   referenciando piezas del mismo lote con `$k` y cotas con `=expresión`.
+2. **Percibe** con `render_view` (le devuelve una imagen → *visión*), `get_topology`, `measure`.
+3. **Valida** con `check_interference`, `engineering_check`, `gravity_test` (simula qué se cae).
+4. **Documenta** con `drawing` / `drawing_set` / `assembly_manual` → planos de taller, lista de
+   corte, BOM y manual de armado paso a paso.
+
+El **núcleo de escritura es mínimo** (`run_command` / `run_batch` / `edit_command` + `undo`/`redo`
++ `set_variable`) y cubre **todo** el registro de comandos — no hay una tool por comando. El resto
+de las 54 tools son de lectura, percepción, planos y validación. Todo lo que hace el agente queda
+en el log: editable, deshacible y reproducible. Los cambios aparecen **en vivo** en el navegador.
+
+### 🖱 A mano (interfaz web)
+
+Viewport three.js con materiales PBR, sombras y ViewCube; ribbon schema-driven (Crear / Croquis /
+Modificar / Ensamblar / Biblioteca / Robótica); panel de propiedades paramétrico; atajos tipo
+"CAD pro" (mover/rotar con snap, aislar, encuadrar, medir, sección). El agente y la UI son **dos
+clientes iguales** de la misma API: lo que hace uno, el otro lo ve.
+
+## Galería
+
+| Faja transportadora (vertical del MVP) | Puerta plegable — madera + vidrio translúcido |
+|---|---|
+| <img src="docs/cover.png" width="420"> | <img src="docs/showcase-door.png" width="420"> |
+
+*Renders sombreados generados por el propio motor (`render_view`, VTK) — los mismos que el agente
+usa para auto-revisarse visualmente.*
+
+## Arquitectura
 
 ```
-ui/        React + TypeScript + three.js  ─┐
-                                           ├─►  core/apolo/api    FastAPI (REST + WebSocket)
-core/apolo/agent   Agente Claude (tool use)┘            │
-                                                        ▼
-                                          core/apolo/doc        Documento = log de comandos
-                                          core/apolo/commands   Registro (schemas pydantic)
-                                          core/apolo/kernel     build123d / OpenCascade
+   Agente IA (MCP) ──┐        ┌── React + three.js (UI web)        clientes iguales
+                     ▼        ▼                                    de la misma API
+                core/apolo/api      FastAPI · REST + WebSocket
+                     │
+                     ▼
+   doc        documento = log de comandos (event-sourced · undo/redo · .apolo de KBs)
+   commands   registro de comandos + JSON Schemas  (una sola fuente de verdad)
+   kernel     build123d / OpenCascade  (geometría B-rep, render, medición, picking)
+   library    catálogo (191 refs) · BOM · super-comandos de máquina
+   assembly   juntas · mates · restricciones · conectividad / gravedad
+   drawing    planos 2D pro  (HLR → SVG/DXF/PDF · cortes · cotas · juego de planos)
+   physics    gravedad / estabilidad  (MuJoCo)
 ```
 
-Principios:
-- **API-first / IA-nativa**: toda operación es un comando contra el kernel headless. La UI y el agente IA son dos clientes de la misma API.
-- **El documento es el log de comandos** (event-sourcing): undo/redo, edición paramétrica de cualquier comando pasado y persistencia salen gratis.
-- **UI dirigida por esquemas**: la toolbar, los diálogos y el panel de propiedades se generan del JSON Schema de cada comando. Añadir un comando al registro lo hace aparecer en la UI **y** en las tools del agente sin tocar nada más.
-- **La IA nunca genera geometría**: propone lotes de comandos (tarjetas Aceptar/Rechazar) que el kernel ejecuta de forma determinista. Las referencias entre acciones de un lote usan `$k`.
+Fronteras limpias y no negociables: `kernel` (geometría pura) ⟂ `commands/registry`
+(operaciones + schemas) ⟂ `doc` (log/estado) ⟂ `api` (transporte) ⟂ `agent`/`mcp` (clientes IA)
+⟂ `ui`. Diseñado para crecer a gran escala (muchos comandos, módulos y clientes).
 
-## Sistema paramétrico (Fase 2)
+## Capacidades
 
-- **Variables de proyecto** (`ƒx Variables` en la toolbar): cada variable es un comando `set_variable` en la cabecera del log. Cambiar una variable regenera todo el modelo.
-- **Expresiones en cualquier campo numérico**: escribe `=L/2`, `=ancho - 2*perfil`, etc. Operadores `+ - * / ** %`, paréntesis, `pi` y funciones `sqrt sin cos tan abs min max floor ceil round` (trigonometría en grados). Evaluador AST con lista blanca: sin `eval`.
-- **Vista previa en vivo** en Propiedades: los cambios se aplican con debounce y toda la sesión de ajustes ocupa **un solo paso de deshacer** (edición coalescente).
-- **El agente IA diseña paramétrico**: define variables en sus lotes y referencia el resto de medidas con expresiones.
-- **Viewport**: gizmo de mover/rotar (emite comandos `transform`), selección múltiple (Ctrl+clic y Shift+arrastrar para recuadro) y plano de sección X/Y/Z con deslizador.
-
-## Biblioteca, ensamblajes y BOM (Fase 3)
-
-- **Catálogo de componentes** (`📚 Catálogo` en la toolbar, `core/apolo/library/catalog.py`): perfiles, rodillos, motorreductores, patas, guardas y sensores, con geometría paramétrica, especificaciones y pesos. Filtros por categoría y búsqueda por specs. Los componentes cortables aceptan longitud a medida (también `=expresión`).
-- **`create_conveyor` — plantilla de transportador como super-comando**: una sola entrada del historial genera bastidor (largueros 40x80), rodillos, 4 patas regulables, arriostrado y motor opcional. Seleccionar cualquier pieza muestra el formulario del transportador completo: cambiar largo/paso/rodillo regenera todo. Acepta expresiones (`largo: "=L"`).
-- **`attach` — mates por anclas**: posiciona un sólido haciendo coincidir su ancla (`centro/base/tope/min_x/max_x/min_y/max_y`, calculadas de la caja envolvente) con la del destino, con desfase opcional. Cubre mates de coincidencia y distancia; la alineación de ejes por rotación llegará con la cinemática (F6).
-- **BOM** (botón `BOM` en la barra superior): lista de materiales agrupada por referencia + longitud de corte con pesos unitarios y totales; export CSV (`/api/bom.csv`).
-- **El agente IA usa la biblioteca**: tool `get_catalog`, prefiere componentes de catálogo, y para transportadores usa `create_conveyor` eligiendo rodillo por capacidad y paso por tamaño de paquete.
-
-## Agente validador (Fase 4)
-
-- **IA Nivel 2 — generación de código**: comando `run_script` que ejecuta scripts build123d en un **sandbox** (subproceso aislado con timeout de 60 s y caché por hash, `core/apolo/sandbox.py`); el script ve `V` (las variables del proyecto). El agente **prueba su código con la tool `test_script` antes de proponerlo** y la tarjeta de acción muestra el código completo para tu revisión — esa revisión humana es la frontera de seguridad.
-- **IA Nivel 3 — bucle de validación**: tools `engineering_check` (reglas del vertical en `core/apolo/library/rules.py`: apoyo ≥3 rodillos, kg/rodillo vs capacidad, ancho útil, potencia de motor con recomendación de catálogo), `check_interference` (booleanas OCCT con prefiltro bbox) y `render_view` (**visión**: el agente mira un render PNG de la escena). El agente valida un transportador ANTES de proponerlo y verifica el montaje después de que aceptes.
-- **Panel Validar** en la UI: datos del paquete → interferencias + reglas con recomendaciones.
-
-## Planos 2D (Fase 5)
-
-- Pestaña **Planos**: lámina generada al vuelo desde el modelo actual mediante **eliminación de líneas ocultas** (HLR de OpenCascade). Siempre sincronizada con la escena — no hay planos desfasados.
-- Disposición en **primer diedro** (alzado, planta bajo el alzado, perfil a la derecha) + vista isométrica; **escala normalizada** (1:1…1:200) común a las vistas ortográficas; **cotas generales** por vista; marco y **cajetín** con proyecto, fecha, escala y lámina.
-- Opciones: A3/A4 y líneas ocultas (a trazos). Export **SVG**, **DXF** (capas VISIBLE/OCULTA/COTAS/MARCO, importable en cualquier CAD) y **PDF** a tamaño real de papel (`core/apolo/drawing/`).
-
-## Planos pro (Fase 12)
-
-- **Callouts de taladros automáticos**: la proyección detecta los círculos de cada vista (centro y radio exactos del HLR), los agrupa por diámetro y rotula «4×Ø9», «Ø24»… con directriz. Los que quedarían ilegibles a la escala elegida se omiten solos.
-- **CORTE A-A** (`section=true`): media vista seccionada por el plano central YZ con las **caras de corte rellenas** (sección plana exacta de OCCT, agujeros como anillos interiores) y la traza del plano con flechas y letras «A» en la planta. En DXF las caras van a la capa CORTE.
-- **Globos + lista de materiales en lámina** (`bom=true`): tabla N.º/Ref/Descripción/Cant en el cuadrante del perfil y globos numerados sobre la planta con directriz a la pieza representante de cada fila.
-- **Cotas por sólido** (`dims=id1,id2`): selecciona piezas en el árbol y acótalas individualmente sobre la planta (hasta 3, apiladas, con su nombre).
-- Todo combinable desde la pestaña **Planos** (checkboxes) o por query string en `/api/drawing.svg|dxf|pdf` — el agente y el MCP generan las mismas láminas que la UI.
-
-## Sketcher restringido (Fase 11)
-
-- **Croquis 2D con solver de restricciones** (`core/apolo/kernel/sketch_solver.py`, mínimos cuadrados con scipy — sin dependencias nativas frágiles): dibuja **a ojo**, restringe (horizontal, vertical, longitud, distancia, coincidente, paralela, perpendicular, ángulo, radio, punto-en-línea, igual longitud, fijar) y el solver hace las posiciones **exactas** (tolerancia 1 µm, doble pasada). Los croquis imposibles fallan con diagnóstico de las restricciones en conflicto.
-- **Comandos `sketch_extrude` y `sketch_revolve`**: el croquis vive en los parámetros del comando → edición paramétrica del perfil, undo y persistencia gratis. Líneas + arcos en lazo cerrado; círculos como agujeros. **Las cotas aceptan `=expresiones`** — cambiar una variable redimensiona el croquis y regenera el sólido.
-- **Editor 2D** (`✏ Croquis` en la toolbar): herramientas punto/línea/círculo/selección, botones de restricción contextuales, «⚙ Resolver» con snap visual y diagnóstico, extruir/revolucionar, y «✏ Editar croquis…» desde Propiedades para piezas existentes.
-- **El agente croquiza validando**: tool `test_sketch` (resuelve sin tocar el documento e itera sobre el diagnóstico antes de proponer).
-
-## IA-first flagship (Fase 10)
-
-- **Servidor MCP** (`core/apolo/mcp_server.py`): Apolo como tools estándar MCP — cualquier agente (Claude Code, Claude Desktop…) puede diseñar: 18 tools (escena, schemas, catálogo, comandos, lotes `$k`, variables, validaciones, **render con imagen para visión**, proyectos, BOM, STEP a archivo). Es un cliente fino de la API HTTP: las mismas operaciones que la UI, y los cambios aparecen **en vivo en el navegador**. El repo incluye `.mcp.json`; en Claude Code basta abrir el proyecto (requiere el servidor corriendo).
-- **⚡ Modo auto** en el chat: el agente ejecuta los lotes directamente, **verifica** (interferencias, reglas, render) y **corrige** (`undo_last` + nuevo lote) sin pedir aprobación paso a paso. Opt-in por conmutador; todo queda en el historial y es deshacible.
-- **Memoria de proyecto**: el agente guarda notas persistentes (`save_note`) en el documento — decisiones y supuestos que reaparecen en futuras sesiones.
-
-## Producto (Fase 9)
-
-- **Pantalla Inicio** (`⌂ Apolo CAD`): proyectos en SQLite con **autoguardado en cada operación** (el documento es el log de comandos: pesa KBs), plantillas (vacío / transportador / brazo), abrir/duplicar/borrar, y doble clic en el nombre para renombrar. Al arrancar se abre el último proyecto.
-- **Revisiones**: instantáneas con nota, restaurables ("antes de cambiar el paso…").
-- **Configuraciones (variantes)**: en `ƒx Variables`, guarda los valores actuales como variante ("2 metros", "3 metros") y aplícala con un clic — regenera el modelo entero en un solo paso de deshacer. La tabla de variantes de Fusion, sobre nuestro sistema de variables.
-- **Medir** (`📏` en el viewport): distancia y ΔX/ΔY/ΔZ entre dos puntos clicados.
-- **Apariencia**: color por pieza desde Propiedades (persistido en el `.apolo`).
-- Base de datos en `data/apolo.db` (configurable con `APOLO_DB`).
-
-## Ensamblajes reales (Fase 8)
-
-- **Instancias**: las piezas repetidas comparten una geometría canónica (definición) y solo difieren en su matriz 4×4 (`core/apolo/kernel/matrix.py`). Un transportador de 47 piezas viaja como 5 definiciones (~64 KB en vez de cientos); el viewport comparte `BufferGeometry` entre ocurrencias. Las operaciones que alteran la geometría (fillet, taladro, booleana) convierten la pieza en única automáticamente.
-- **Mates con orientación**: `attach` ahora también orienta (`align_my`/`align_to` gira la pieza sobre su centro para alinear ejes) antes de llevar ancla contra ancla.
-- **Sub-ensamblajes en el árbol**: las piezas de un mismo comando (transportador, brazo, patrón) se agrupan en nodos colapsables; clic en la cabecera selecciona el conjunto.
-- **Colisión en pose**: las interferencias se pueden comprobar con el mecanismo posado (`joint_values` en `/api/checks`, botón «💥 Colisión en pose» en Cinemática, y el agente vía `check_interference`). Los contactos padre-hijo de las juntas se excluyen (son por diseño), así el informe solo muestra colisiones reales.
-
-## Modelado completo + import (Fase 7)
-
-- **Selectores declarativos de aristas/caras** (`core/apolo/kernel/selectors.py`): nunca índices (adiós al *topological naming problem* clásico). Modos: todas, por dirección, por cara del bbox, por longitud, o "cerca de un punto" — que es lo que genera el clic 📍 en el viewport. El agente usa los semánticos ("aristas verticales" = dirección z); tú, el picking.
-- **Operaciones nuevas**: redondeo (fillet), chaflán, vaciado (shell), taladro con caladrillo (sin referencias de cara: punto + eje + Ø, pasante o ciego), patrón circular, espejo, **revolución** (perfil [r,z]) y **polígono extruido** — piezas de revolución y prismáticas arbitrarias sin tocar el sandbox.
-- **Import STEP** (botón en la barra superior): el archivo queda embebido en el documento (`.apolo` v2 con `attachments/`, retrocompatible) para que el log siga siendo reproducible. Opción de separar cada sólido en una pieza.
-- Errores OCCT capturados con consejo ("radio imposible: prueba menor o menos aristas").
-
-## Robótica (Fase 6)
-
-- **Juntas cinemáticas como comandos** (`add_joint`): fija, giratoria, continua o prismática entre dos sólidos (padre → hijo), con validación de árbol (un padre por hijo, sin ciclos) e **integridad referencial**: no puedes borrar un sólido con juntas sin quitar antes la junta.
-- **`create_robot_arm`**: brazo articulado de 4 ejes (giro de base, hombro, codo, muñeca) con sus juntas ya encadenadas, parametrizado por alcance.
-- **Panel Cinemática**: deslizadores por junta que mueven el modelo en el viewport (cinemática directa client-side, solo previsualización — "Pose cero" restaura; el gizmo se desactiva mientras hay pose).
-- **Export URDF y SDF** (`core/apolo/robotics/`): ZIP con `robot.urdf`/`model.sdf` + mallas STL por eslabón, masas e inercias estimadas, límites en radianes/metros. Compatible ROS/Gazebo/Isaac Sim.
-- Pospuesto de la F6 original: el **sketcher PlaneGCS** (el vertical no lo ha exigido aún) y el **empaquetado Tauri** (requiere toolchain Rust; mejor como paso de distribución dedicado).
+- **Modelado** — primitivas, fillet/chaflán/shell/taladro, patrones, espejo, revolución,
+  extrusión, **sweep/loft** (incl. lazo cerrado y hélice), **chapa metálica** con desplegado a
+  plano DXF/SVG, **croquis 2D restringido** (solver propio scipy), import **STEP**.
+- **Ensamblaje y cinemática** — **mates persistentes** por caras (re-resueltos al editar),
+  **juntas** (fija/giratoria/continua/prismática), **restricciones** de riel y N-GDL,
+  **motion study** (anima las juntas y escanea colisiones a lo largo del recorrido).
+- **Biblioteca y BOM** — **catálogo de 191 referencias** poblado con dimensiones de **norma**
+  (ISO/ASTM/DIN/EN: rodamientos, perfiles, tornillería, carpintería, herraje…) + super-comandos
+  (`create_belt_conveyor`, `create_weldment`, `create_frame`, `create_sheet_metal`,
+  `create_take_up`, `create_drive_roller`, brazo robótico). BOM con lista de corte y export CSV.
+- **Validación de ingeniería** — `engineering_check` (reglas del vertical: velocidad de banda,
+  par del motor, apoyo…), `check_interference` (booleanas OCCT), y **validación de ensamblaje
+  por gravedad** (declara uniones/anclajes y simula *qué se cae* con cascos convexos en MuJoCo).
+- **Planos de fabricación PRO** — proyecciones HLR → SVG/DXF/PDF, cotas con flechas y tolerancias,
+  **cortes** A-A/B-B con rayado por material, **detalle**, **cajetín** + revisiones,
+  **juego de planos** completo, **acotado automático** de agujeros, **vista explosionada**,
+  GD&T ligero, **manual de ensamblaje** paso a paso, e **iso sombreada a color** tipo Inventor.
+  Todo por una **spec declarativa** (`drawing(spec)`) que el agente compone.
+- **IA** — servidor MCP (54 tools), render con **visión**, memoria de sesión del agente, modo
+  auto del chat (ejecuta → verifica → corrige).
 
 ## Requisitos
 
-- Python 3.11–3.13 (con wheels binarios de OCP/build123d)
+- Python 3.11–3.13 (wheels binarios de OCP/build123d)
 - Node.js 18+
-- Clave del API de Anthropic para el asistente IA (`ANTHROPIC_API_KEY`)
+- *(Opcional)* Clave del API de Anthropic (`ANTHROPIC_API_KEY`) para el asistente IA embebido en la UI
 
 ## Instalación
 
@@ -123,42 +172,41 @@ npm run build    # genera ui/dist, que sirve el propio servidor
 ## Arranque
 
 ```powershell
-$env:ANTHROPIC_API_KEY = "sk-ant-..."   # opcional pero recomendado (asistente IA)
+$env:ANTHROPIC_API_KEY = "sk-ant-..."   # opcional (asistente IA de la UI)
 .venv\Scripts\python -m uvicorn apolo.api.main:app --port 8000
 ```
 
-Abrir <http://localhost:8000>. Para desarrollo de la UI con recarga en vivo: `cd ui; npm run dev` (proxy a :8000) y abrir <http://localhost:5173>.
-
-Variables opcionales: `APOLO_MODEL` (por defecto `claude-opus-4-8`).
-
-## Prueba rápida
-
-En el chat del asistente: *«crea un marco de perfil 40x40 de 2000×1000 mm»* → revisar la propuesta → **Aceptar todo** → el marco aparece en el viewport. Selecciona un larguero, cambia el largo en Propiedades y **Aplicar y regenerar**. **Exportar STEP** para abrirlo en cualquier CAD.
+Abrir <http://localhost:8000>. Para conectar un **agente por MCP**, deja el servidor corriendo y
+apunta tu cliente MCP al `.mcp.json` del repo. Variables opcionales: `APOLO_MODEL` (por defecto
+`claude-opus-4-8`), `APOLO_DB` (ruta de la base SQLite).
 
 ## Tests
 
 ```powershell
-.venv\Scripts\python -m pytest tests
+.venv\Scripts\python -m pytest tests -q   # 527 tests
 ```
 
-Cubren: kernel (volúmenes/bbox de cada comando), documento (undo/redo, edición paramétrica con regeneración, round-trip `.apolo`), expresiones y variables, biblioteca/BOM/transportador, sandbox y validaciones (reglas, interferencias, render), API completa y agente (tools, validación, SSE, degradación sin clave).
+Cubren kernel (volúmenes/bbox por comando), documento (undo/redo, regeneración incremental,
+round-trip `.apolo`), expresiones y variables, biblioteca/BOM/super-comandos, ensamblaje y
+cinemática, validaciones (reglas, interferencias, gravedad), planos, física y el cliente MCP.
 
 ## Formato `.apolo`
 
-ZIP con `manifest.json` (versión, nombre, unidades, visibilidad) y `commands.json` (el log completo). Abrir un archivo = reproducir su log.
+ZIP con `manifest.json` (versión, nombre, unidades, visibilidad) + `commands.json` (el log
+completo) + `attachments/`. Abrir un archivo = **reproducir su log**. La geometría nunca se
+serializa → archivos de KBs y autosave barato.
 
-## Hoja de ruta
+## Estado
 
-- **F2** ✅ Variables de proyecto y expresiones (`=L/2`), vista previa en vivo, gizmo, selección por recuadro, secciones.
-- **F3** ✅ Biblioteca de componentes del vertical, mates por anclas (`attach`), BOM con export CSV, transportador paramétrico (`create_conveyor`).
-- **F4** ✅ Agente validador: sandbox `run_script` + `test_script`, reglas de ingeniería, interferencias y `render_view` con visión.
-- **F5** ✅ Planos 2D: proyecciones HLR, lámina con escala normalizada, cotas y cajetín; export SVG/DXF/PDF.
-- **F6** ✅ Robótica: juntas, brazo de 4 ejes, panel Cinemática y export URDF/SDF.
-- **F7** ✅ Modelado completo: selectores de aristas/caras, fillet/chaflán/shell/taladro/patrones/espejo/revolución/polígono, import STEP con `.apolo` v2.
-- **F8** ✅ Ensamblajes: instancias con definiciones compartidas, mates con orientación, árbol agrupado, colisión en pose.
-- **F9** ✅ Producto: Inicio multiproyecto con autoguardado, revisiones, configuraciones, Medir, colores.
-- **F10** ✅ IA-first: servidor MCP (18 tools, render con visión, `.mcp.json`), modo auto del chat, memoria de proyecto.
-- **F11** ✅ Sketcher restringido: solver propio (scipy), croquis como comandos con cotas paramétricas, editor 2D, `test_sketch` del agente.
-- **F12** ✅ Planos pro: callouts Ø automáticos, CORTE A-A con caras rellenas, globos + BOM en lámina, cotas por sólido.
+MVP coherente y bien arquitecturado en su nicho: kernel a nivel de FreeCAD, con una **capacidad
+agente-nativa que ningún CAD grande tiene**. No persigue paridad función-por-función con
+Fusion/SolidWorks (es una **cuña**, no un reemplazo general). Fuera de alcance deliberado: CAM,
+FEA real, PCB, nube multiusuario.
 
-**Camino a paridad-Fusion (V2): COMPLETADO.** Fuera de alcance deliberado: CAM, FEA real, PCB, nube multiusuario. Backlog opcional: empaquetado Tauri, plantillas AGV, sweep/loft desde croquis.
+## Licencia
+
+[MIT](LICENSE) © 2026 Mario Rojas.
+
+Construido sobre software libre excelente: [OpenCascade](https://www.opencascade.com/) (LGPL),
+[build123d](https://github.com/gumyr/build123d) (Apache-2.0), [FastAPI](https://fastapi.tiangolo.com/) (MIT),
+[three.js](https://threejs.org/) (MIT) y [MuJoCo](https://mujoco.org/) (Apache-2.0).
