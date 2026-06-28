@@ -1,0 +1,678 @@
+import { create } from "zustand";
+import { api, connectWs } from "../api";
+import { reportError } from "../errorlog";
+import type {
+  CatalogItem, ChatAction, ChatMsg, CommandSchema, ConnectivityOut, DropResult, FeatureOut, GravityResult,
+  KinematicsOut, MateRow, MotionKeyframe, RailConstraint, SceneOut,
+} from "../types";
+
+type BottomPanel = "none" | "history" | "bom" | "checks" | "kin" | "mates" | "fisica" | "ensamblaje";
+
+const NO_FEATURES: FeatureOut[] = [];
+
+// throttle del solver de restricciones de riel mientras se arrastra un driver
+let solveTimer: number | null = null;
+
+/** Selector estable: nunca devuelve un array recién creado (evita bucles de render). */
+export const selectFeatures = (s: { scene: SceneOut | null }): FeatureOut[] =>
+  s.scene?.features ?? NO_FEATURES;
+
+interface AppState {
+  schemas: CommandSchema[];
+  scene: SceneOut | null;
+  catalog: CatalogItem[];
+  selection: string[];
+  dialogSchema: CommandSchema | null;
+  showVariables: boolean;
+  showLibrary: boolean;
+  showDrawing: boolean;
+  showHome: boolean;
+  sketcherOpen: boolean;
+  sketcherInitial: { commandId: string; type: string; params: Record<string, unknown> } | null;
+  bottomPanel: BottomPanel;
+  kinematics: KinematicsOut | null;
+  constraints: RailConstraint[];
+  mates: MateRow[];
+  motion: MotionKeyframe[];
+  jointValues: Record<string, number>;
+  physicsResult: DropResult | null;
+  physicsPlaying: boolean;
+  physicsSpeed: number;
+  physicsToken: number;
+  gravityResult: GravityResult | null;  // caída de la máquina animada en el viewport (mallas reales)
+  gravityPlaying: boolean;
+  gravitySpeed: number;
+  gravityToken: number;
+  connectivity: ConnectivityOut | null;  // uniones declaradas (fijadores + anclajes a tierra)
+  contextMenu: { x: number; y: number; targetId: string | null } | null;
+  showShortcuts: boolean;
+  pickRequest: ((point: [number, number, number]) => void) | null;
+  error: string | null;
+  busy: boolean;
+  busyLabel: string | null;
+  blocking: boolean;
+  chat: ChatMsg[];
+  chatBusy: boolean;
+  showHistory: boolean;
+
+  init: () => Promise<void>;
+  refresh: () => Promise<void>;
+  select: (ids: string[]) => void;
+  toggleSelect: (id: string) => void;
+  openDialog: (schema: CommandSchema | null) => void;
+  openVariables: (open: boolean) => void;
+  openLibrary: (open: boolean) => void;
+  openDrawing: (open: boolean) => void;
+  openHome: (open: boolean) => void;
+  adoptScene: (scene: SceneOut) => void;
+  openSketcher: (initial?: { commandId: string; type: string; params: Record<string, unknown> }) => void;
+  closeSketcher: () => void;
+  setBottomPanel: (panel: BottomPanel) => void;
+  refreshKinematics: () => Promise<void>;
+  setJointValue: (name: string, value: number) => void;
+  driveJoint: (name: string, value: number) => void;
+  setJointValues: (values: Record<string, number>) => void;
+  resetJointValues: () => void;
+  deleteJoint: (name: string) => Promise<void>;
+  refreshMotion: () => Promise<void>;
+  saveMotion: (keyframes: MotionKeyframe[]) => Promise<void>;
+  setPhysicsResult: (result: DropResult | null) => void;
+  setPhysicsPlaying: (playing: boolean) => void;
+  setPhysicsSpeed: (speed: number) => void;
+  clearPhysics: () => void;
+  setGravityResult: (result: GravityResult | null) => void;
+  setGravityPlaying: (playing: boolean) => void;
+  setGravitySpeed: (speed: number) => void;
+  clearGravity: () => void;
+  refreshConnectivity: () => Promise<void>;
+  declareStructure: () => Promise<void>;
+  deleteFastener: (name: string) => Promise<void>;
+  deleteGround: (name: string) => Promise<void>;
+  groundSelection: () => Promise<void>;
+  fastenSelection: () => Promise<void>;
+  refreshMates: () => Promise<void>;
+  deleteMate: (name: string) => Promise<void>;
+  requestPick: (cb: ((point: [number, number, number]) => void) | null) => void;
+  importStep: (file: File, split: boolean) => Promise<void>;
+  setError: (msg: string | null) => void;
+  toggleHistory: () => void;
+
+  runCommand: (type: string, params: Record<string, unknown>) => Promise<boolean>;
+  editCommand: (id: string, params: Record<string, unknown>, transient?: boolean) => Promise<boolean>;
+  saveVariable: (name: string, expression: string) => Promise<boolean>;
+  deleteVariable: (name: string) => Promise<boolean>;
+  undo: () => Promise<void>;
+  redo: () => Promise<void>;
+  toggleVisibility: (id: string) => Promise<void>;
+  newProject: () => Promise<void>;
+  openProject: (file: File) => Promise<void>;
+  openProjectById: (id: number) => Promise<void>;
+  createProject: (name: string, template: string | null) => Promise<void>;
+  duplicateProject: (id: number) => Promise<void>;
+  deleteProject: (id: number) => Promise<void>;
+  saveRevision: (note: string) => Promise<void>;
+  restoreRevision: (id: number) => Promise<void>;
+  /** Envuelve cualquier promesa con el indicador global de carga (para componentes que llaman api.* directo). */
+  runTracked: <T>(label: string, fn: () => Promise<T>, opts?: { blocking?: boolean }) => Promise<T | null>;
+
+  // ergonomía "CAD pro"
+  clearSelection: () => void;
+  selectAll: () => void;
+  deleteSelection: () => Promise<void>;
+  duplicateSelection: () => Promise<void>;
+  nudgeSelection: (dx: number, dy: number, dz: number) => Promise<void>;
+  bulkVisibility: (ids: string[], visible: boolean) => Promise<void>;
+  hideSelection: () => Promise<void>;
+  isolate: (ids?: string[]) => Promise<void>;
+  showAll: () => Promise<void>;
+  openContextMenu: (cm: { x: number; y: number; targetId: string | null } | null) => void;
+  toggleShortcuts: (open?: boolean) => void;
+
+  autoMode: boolean;
+  setAutoMode: (on: boolean) => void;
+  sendChat: (text: string) => Promise<void>;
+  resolveActions: (msgIndex: number, accept: boolean) => Promise<void>;
+}
+
+// Texto amistoso para el indicador de carga, derivado del prefijo de la etiqueta técnica
+// (la etiqueta técnica se conserva intacta para el log de errores). Fuente ÚNICA del
+// "qué está pasando" que ven el badge de la barra de estado y el overlay bloqueante.
+const BUSY_TEXT: Record<string, string> = {
+  runCommand: "Ejecutando comando…",
+  editCommand: "Aplicando cambio…",
+  setVariable: "Regenerando modelo…",
+  deleteVariable: "Regenerando modelo…",
+  undo: "Deshaciendo…",
+  redo: "Rehaciendo…",
+  importStep: "Importando STEP…",
+  openProject: "Abriendo proyecto…",
+  openProjectById: "Abriendo proyecto…",
+  newProject: "Creando proyecto…",
+  createProject: "Creando proyecto…",
+  restoreRevision: "Restaurando revisión…",
+  duplicateProject: "Duplicando proyecto…",
+  deleteProject: "Eliminando proyecto…",
+  saveRevision: "Guardando revisión…",
+  applyConfiguration: "Aplicando configuración…",
+  saveConfiguration: "Guardando configuración…",
+  deleteConfiguration: "Eliminando configuración…",
+  deleteSelection: "Eliminando…",
+  duplicateSelection: "Duplicando…",
+  nudgeSelection: "Moviendo…",
+  bulkVisibility: "Actualizando visibilidad…",
+  visibility: "Actualizando visibilidad…",
+  deleteJoint: "Eliminando junta…",
+  deleteMate: "Eliminando unión…",
+  declareStructure: "Auto-declarando estructura…",
+  deleteFastener: "Eliminando unión…",
+  deleteGround: "Eliminando anclaje…",
+  acceptActions: "Aplicando acciones…",
+  checks: "Comprobando…",
+  drop: "Simulando…",
+  scanMotion: "Comprobando recorrido…",
+  bom: "Cargando lista de materiales…",
+  mates: "Cargando ensamblaje…",
+  drawing: "Generando plano…",
+};
+const busyText = (label: string): string => BUSY_TEXT[label.split(":")[0]] ?? "Trabajando…";
+
+// Contadores de operaciones en curso (la store es instancia única → estado de módulo aislado y
+// seguro). El CONTADOR evita el bug del booleano: que una operación que termina apague el
+// indicador mientras otra sigue corriendo (awaits solapados).
+let pendingCount = 0;
+let blockingCount = 0;
+
+type GuardOpts = { label?: string; blocking?: boolean };
+
+async function guard<T>(
+  set: (s: Partial<AppState>) => void,
+  fn: () => Promise<T>,
+  labelOrOpts: string | GuardOpts = "acción",
+): Promise<T | null> {
+  const opts: GuardOpts = typeof labelOrOpts === "string" ? { label: labelOrOpts } : labelOrOpts;
+  const label = opts.label ?? "acción";
+  pendingCount++;
+  if (opts.blocking) blockingCount++;
+  set({ busy: true, busyLabel: busyText(label), blocking: blockingCount > 0, error: null });
+  try {
+    return await fn();
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    set({ error: message });
+    reportError("action", message, { action: label });
+    return null;
+  } finally {
+    pendingCount = Math.max(0, pendingCount - 1);
+    if (opts.blocking) blockingCount = Math.max(0, blockingCount - 1);
+    if (pendingCount === 0) {
+      blockingCount = 0;
+      set({ busy: false, busyLabel: null, blocking: false });
+    } else {
+      set({ blocking: blockingCount > 0 });
+    }
+  }
+}
+
+export const useStore = create<AppState>((set, get) => ({
+  schemas: [],
+  scene: null,
+  catalog: [],
+  selection: [],
+  dialogSchema: null,
+  showVariables: false,
+  showLibrary: false,
+  showDrawing: false,
+  showHome: false,
+  sketcherOpen: false,
+  sketcherInitial: null,
+  bottomPanel: "none",
+  kinematics: null,
+  constraints: [],
+  mates: [],
+  motion: [],
+  jointValues: {},
+  physicsResult: null,
+  physicsPlaying: false,
+  physicsSpeed: 1.0,
+  physicsToken: 0,
+  gravityResult: null,
+  gravityPlaying: false,
+  gravitySpeed: 1.0,
+  gravityToken: 0,
+  connectivity: null,
+  contextMenu: null,
+  showShortcuts: false,
+  pickRequest: null,
+  error: null,
+  busy: false,
+  busyLabel: null,
+  blocking: false,
+  chat: [],
+  chatBusy: false,
+  autoMode: false,
+  showHistory: false,
+
+  init: async () => {
+    const [schemas, scene, catalog] = await Promise.all([api.schemas(), api.scene(), api.catalog()]);
+    set({ schemas, scene, catalog });
+    void get().refreshKinematics();
+    connectWs(() => {
+      if (!get().busy) void get().refresh();
+    });
+  },
+
+  refresh: async () => {
+    const scene = await api.scene();
+    const valid = new Set(scene.features.map((f) => f.id));
+    set({ scene, selection: get().selection.filter((id) => valid.has(id)) });
+    get().clearPhysics(); // el modelo cambió → las cajas soltadas dejan de ser válidas
+    get().clearGravity();
+    void get().refreshKinematics();
+  },
+
+  refreshKinematics: async () => {
+    try {
+      const [kinematics, constraints] = await Promise.all([api.kinematics(), api.constraints()]);
+      const names = new Set(kinematics.joints.map((j) => j.name));
+      const values = Object.fromEntries(
+        Object.entries(get().jointValues).filter(([name]) => names.has(name)),
+      );
+      set({ kinematics, constraints, jointValues: values });
+    } catch {
+      /* sin cinemática disponible */
+    }
+  },
+
+  setJointValue: (name, value) => set({ jointValues: { ...get().jointValues, [name]: value } }),
+
+  // Mueve un driver y RESUELVE las juntas dependientes (restricción de riel) en
+  // vivo. El feedback es inmediato (set local); el solve va con throttle ligero
+  // para no saturar el endpoint mientras se arrastra el slider.
+  driveJoint: (name, value) => {
+    set({ jointValues: { ...get().jointValues, [name]: value } });
+    if (get().constraints.length === 0) return;
+    if (solveTimer !== null) clearTimeout(solveTimer);
+    solveTimer = window.setTimeout(() => {
+      solveTimer = null;
+      const current = get().jointValues;
+      void api
+        .solveConstraints(current)
+        .then((r) => set({ jointValues: { ...get().jointValues, ...r.values } }))
+        .catch(() => {});
+    }, 40);
+  },
+
+  setJointValues: (values) => set({ jointValues: values }),
+  resetJointValues: () => set({ jointValues: {} }),
+
+  refreshMotion: async () => {
+    try {
+      set({ motion: (await api.motion()).keyframes });
+    } catch {
+      /* sin motion disponible */
+    }
+  },
+  saveMotion: async (keyframes) => {
+    try {
+      set({ motion: (await api.saveMotion(keyframes)).keyframes });
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+    }
+  },
+
+  // Física (drop-test): estado efímero, NO persiste. El token++ dispara el rebuild
+  // de las cajas en el viewport (patrón overlay efímero).
+  setPhysicsResult: (result) =>
+    set({ physicsResult: result, physicsPlaying: !!result, physicsToken: get().physicsToken + 1 }),
+  setPhysicsPlaying: (playing) => set({ physicsPlaying: playing }),
+  setPhysicsSpeed: (speed) => set({ physicsSpeed: speed }),
+  clearPhysics: () =>
+    set({ physicsResult: null, physicsPlaying: false, physicsToken: get().physicsToken + 1 }),
+
+  // Gravedad de la máquina: anima las MALLAS REALES en el viewport (no overlay). Efímero,
+  // NO persiste. token++ dispara el rebuild del animador; clearGravity restaura las mallas.
+  setGravityResult: (result) =>
+    set({ gravityResult: result, gravityPlaying: !!result, gravityToken: get().gravityToken + 1 }),
+  setGravityPlaying: (playing) => set({ gravityPlaying: playing }),
+  setGravitySpeed: (speed) => set({ gravitySpeed: speed }),
+  clearGravity: () =>
+    set({ gravityResult: null, gravityPlaying: false, gravityToken: get().gravityToken + 1 }),
+
+  requestPick: (cb) => set({ pickRequest: cb }),
+
+  importStep: async (file, split) => {
+    const scene = await guard(set, () => api.importStep(file, split), { label: "importStep", blocking: true });
+    if (scene) set({ scene });
+  },
+
+  deleteJoint: async (name) => {
+    const scene = await guard(set, () => api.deleteJoint(name), `deleteJoint:${name}`);
+    if (scene) {
+      set({ scene });
+      void get().refreshKinematics();
+    }
+  },
+
+  refreshMates: async () => {
+    try {
+      set({ mates: await api.mates() });
+    } catch {
+      /* sin mates disponibles */
+    }
+  },
+
+  deleteMate: async (name) => {
+    const scene = await guard(set, () => api.deleteMate(name), `deleteMate:${name}`);
+    if (scene) {
+      set({ scene });
+      void get().refreshMates();
+    }
+  },
+
+  // ---- conectividad de ensamblaje (uniones declaradas) ----
+  refreshConnectivity: async () => {
+    try {
+      set({ connectivity: await api.connectivity() });
+    } catch {
+      /* sin conectividad disponible */
+    }
+  },
+  declareStructure: async () => {
+    const scene = await guard(set, () => api.declareStructure(), "declareStructure");
+    if (scene) {
+      set({ scene });
+      void get().refreshConnectivity();
+      void get().refreshKinematics();
+    }
+  },
+  deleteFastener: async (name) => {
+    const scene = await guard(set, () => api.deleteFastener(name), `deleteFastener:${name}`);
+    if (scene) {
+      set({ scene });
+      void get().refreshConnectivity();
+    }
+  },
+  deleteGround: async (name) => {
+    const scene = await guard(set, () => api.deleteGround(name), `deleteGround:${name}`);
+    if (scene) {
+      set({ scene });
+      void get().refreshConnectivity();
+    }
+  },
+  groundSelection: async () => {
+    const ids = get().selection;
+    if (ids.length !== 1) return;
+    const ok = await get().runCommand("ground", { name: `g${Date.now()}`, feature: ids[0] });
+    if (ok) void get().refreshConnectivity();
+  },
+  fastenSelection: async () => {
+    const ids = get().selection;
+    if (ids.length !== 2) return;
+    const ok = await get().runCommand("fasten", { name: `f${Date.now()}`, a: ids[0], b: ids[1], kind: "perno" });
+    if (ok) void get().refreshConnectivity();
+  },
+
+  select: (ids) => set({ selection: ids }),
+  toggleSelect: (id) => {
+    const current = get().selection;
+    set({
+      selection: current.includes(id) ? current.filter((s) => s !== id) : [...current, id],
+    });
+  },
+
+  // ---- ergonomía "CAD pro" ----
+  clearSelection: () => set({ selection: [] }),
+  selectAll: () => set({ selection: (get().scene?.features ?? []).filter((f) => f.visible).map((f) => f.id) }),
+  openContextMenu: (cm) => set({ contextMenu: cm }),
+  toggleShortcuts: (open) => set({ showShortcuts: open ?? !get().showShortcuts }),
+
+  bulkVisibility: async (ids, visible) => {
+    if (!ids.length) return;
+    const scene = await guard(set, () => api.bulkVisibility(ids, visible), "bulkVisibility");
+    if (scene) set({ scene });
+  },
+  hideSelection: async () => {
+    await get().bulkVisibility(get().selection, false);
+  },
+  isolate: async (ids) => {
+    const keep = new Set(ids ?? get().selection);
+    if (!keep.size) return;
+    const hide = (get().scene?.features ?? []).filter((f) => f.visible && !keep.has(f.id)).map((f) => f.id);
+    await get().bulkVisibility(hide, false);
+  },
+  showAll: async () => {
+    const hidden = (get().scene?.features ?? []).filter((f) => !f.visible).map((f) => f.id);
+    await get().bulkVisibility(hidden, true);
+  },
+  deleteSelection: async () => {
+    const ids = get().selection;
+    if (!ids.length) return;
+    const actions = ids.map((id) => ({ type: "delete_feature", params: { feature: id } }));
+    const scene = await guard(set, () => api.runBatch(actions), "deleteSelection");
+    if (scene) {
+      set({ scene, selection: [] });
+      void get().refreshKinematics();
+    }
+  },
+  duplicateSelection: async () => {
+    const ids = get().selection;
+    if (!ids.length) return;
+    const actions = ids.map((id) => ({ type: "duplicate_feature", params: { feature: id } }));
+    const scene = await guard(set, () => api.runBatch(actions), "duplicateSelection");
+    if (scene) {
+      set({ scene });
+      void get().refreshKinematics();
+    }
+  },
+  nudgeSelection: async (dx, dy, dz) => {
+    const ids = get().selection;
+    if (!ids.length) return;
+    const t = { x: dx, y: dy, z: dz };
+    const actions = ids.map((id) => ({ type: "transform", params: { feature: id, translate: t } }));
+    const scene = await guard(set, () => api.runBatch(actions), "nudgeSelection");
+    if (scene) {
+      set({ scene });
+      void get().refreshKinematics();
+    }
+  },
+  openDialog: (schema) => set({ dialogSchema: schema }),
+  openVariables: (open) => set({ showVariables: open }),
+  openLibrary: (open) => set({ showLibrary: open }),
+  openDrawing: (open) => set({ showDrawing: open }),
+  openHome: (open) => set({ showHome: open }),
+  openSketcher: (initial) => set({ sketcherOpen: true, sketcherInitial: initial ?? null }),
+  closeSketcher: () => set({ sketcherOpen: false, sketcherInitial: null }),
+
+  /** Adopta una escena venida de abrir/crear/restaurar proyecto. */
+  adoptScene: (scene) => {
+    set({ scene, selection: [], chat: [], jointValues: {}, showHome: false });
+    get().clearPhysics();
+    get().clearGravity();
+    void get().refreshKinematics();
+  },
+  setBottomPanel: (panel) => set({ bottomPanel: panel, showHistory: panel === "history" }),
+  setError: (msg) => set({ error: msg }),
+  toggleHistory: () => {
+    const next = get().bottomPanel === "history" ? "none" : "history";
+    set({ bottomPanel: next, showHistory: next === "history" });
+  },
+
+  runCommand: async (type, params) => {
+    const scene = await guard(set, () => api.runCommand(type, params), `runCommand:${type}`);
+    if (scene) {
+      set({ scene, dialogSchema: null });
+      void get().refreshKinematics();
+    }
+    return scene !== null;
+  },
+
+  editCommand: async (id, params, transient = false) => {
+    const scene = await guard(
+      set,
+      () => api.editCommand(id, params, transient),
+      `editCommand:${id}${transient ? ":live" : ""}`,
+    );
+    if (scene) set({ scene });
+    return scene !== null;
+  },
+
+  saveVariable: async (name, expression) => {
+    const scene = await guard(set, () => api.setVariable(name, expression), `setVariable:${name}`);
+    if (scene) set({ scene });
+    return scene !== null;
+  },
+
+  deleteVariable: async (name) => {
+    const scene = await guard(set, () => api.deleteVariable(name), `deleteVariable:${name}`);
+    if (scene) set({ scene });
+    return scene !== null;
+  },
+
+  undo: async () => {
+    const scene = await guard(set, () => api.undo(), "undo");
+    if (scene) {
+      set({ scene });
+      void get().refreshKinematics();
+    }
+  },
+  redo: async () => {
+    const scene = await guard(set, () => api.redo(), "redo");
+    if (scene) {
+      set({ scene });
+      void get().refreshKinematics();
+    }
+  },
+
+  toggleVisibility: async (id) => {
+    const feat = get().scene?.features.find((f) => f.id === id);
+    if (!feat) return;
+    const scene = await guard(set, () => api.setVisibility(id, !feat.visible), `visibility:${id}`);
+    if (scene) set({ scene });
+  },
+
+  newProject: async () => {
+    const scene = await guard(set, () => api.newProject("Sin título"), { label: "newProject", blocking: true });
+    if (scene) {
+      set({ scene, selection: [], chat: [] });
+      get().clearPhysics();
+      get().clearGravity();
+    }
+  },
+
+  openProject: async (file) => {
+    const scene = await guard(set, () => api.openProject(file), { label: "openProject", blocking: true });
+    if (scene) {
+      set({ scene, selection: [] });
+      get().clearPhysics();
+      get().clearGravity();
+    }
+  },
+
+  // Operaciones de proyecto pesadas (reemplazan la escena) → bloqueantes; alimentan el
+  // overlay global y simplifican HomeScreen (antes tenía su propio `busy` local duplicado).
+  openProjectById: async (id) => {
+    const scene = await guard(set, () => api.openProjectById(id), { label: "openProjectById", blocking: true });
+    if (scene) get().adoptScene(scene);
+  },
+  createProject: async (name, template) => {
+    const scene = await guard(set, () => api.createProject(name, template), { label: "createProject", blocking: true });
+    if (scene) get().adoptScene(scene);
+  },
+  duplicateProject: async (id) => {
+    await guard(set, () => api.duplicateProject(id), { label: "duplicateProject", blocking: true });
+  },
+  deleteProject: async (id) => {
+    await guard(set, () => api.deleteProject(id), "deleteProject");
+  },
+  saveRevision: async (note) => {
+    await guard(set, () => api.saveRevision(note), "saveRevision");
+  },
+  restoreRevision: async (id) => {
+    const scene = await guard(set, () => api.restoreRevision(id), { label: "restoreRevision", blocking: true });
+    if (scene) get().adoptScene(scene);
+  },
+  runTracked: (label, fn, opts) => guard(set, fn, { label, blocking: opts?.blocking }),
+
+  setAutoMode: (on) => set({ autoMode: on }),
+
+  sendChat: async (text) => {
+    const history = get().chat.filter((m) => m.content.trim() !== "");
+    const messages = [...history.map((m) => ({ role: m.role, content: m.content })), { role: "user", content: text }];
+    const auto = get().autoMode;
+    set({
+      chat: [...get().chat, { role: "user", content: text }, { role: "assistant", content: "" }],
+      chatBusy: true,
+    });
+
+    const patchLast = (patch: Partial<ChatMsg>) => {
+      const chat = [...get().chat];
+      chat[chat.length - 1] = { ...chat[chat.length - 1], ...patch };
+      set({ chat });
+    };
+
+    try {
+      const res = await api.chat(messages, auto);
+      if (!res.ok || !res.body) throw new Error(`Error ${res.status} del servidor`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buffer.indexOf("\n\n")) >= 0) {
+          const frame = buffer.slice(0, idx).trim();
+          buffer = buffer.slice(idx + 2);
+          if (!frame.startsWith("data:")) continue;
+          const event = JSON.parse(frame.slice(5).trim());
+          if (event.type === "text") {
+            patchLast({ content: get().chat[get().chat.length - 1].content + event.text });
+          } else if (event.type === "tool") {
+            const last = get().chat[get().chat.length - 1];
+            patchLast({ tools: [...(last.tools ?? []), event.name as string] });
+          } else if (event.type === "actions") {
+            if (event.executed) {
+              // modo autónomo: el lote ya se ejecutó; refrescar escena en vivo
+              const chat = [...get().chat];
+              const last = chat[chat.length - 1];
+              chat[chat.length - 1] = {
+                ...last,
+                actions: [...(last.actions ?? []), ...(event.actions as ChatAction[])],
+                actionsStatus: "accepted",
+              };
+              set({ chat });
+              void get().refresh();
+            } else {
+              patchLast({ actions: event.actions as ChatAction[], actionsStatus: "pending" });
+            }
+          } else if (event.type === "error") {
+            patchLast({ error: event.message });
+          }
+        }
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      patchLast({ error: message });
+      reportError("chat", message);
+    } finally {
+      set({ chatBusy: false });
+    }
+  },
+
+  resolveActions: async (msgIndex, accept) => {
+    const chat = [...get().chat];
+    const msg = chat[msgIndex];
+    if (!msg?.actions || msg.actionsStatus !== "pending") return;
+
+    if (!accept) {
+      chat[msgIndex] = { ...msg, actionsStatus: "rejected" };
+      set({ chat });
+      return;
+    }
+    const scene = await guard(set, () => api.runBatch(msg.actions!), "acceptActions");
+    chat[msgIndex] = { ...msg, actionsStatus: scene ? "accepted" : "error" };
+    set(scene ? { chat, scene } : { chat });
+    if (scene) void get().refreshKinematics();
+  },
+}));

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "apolo-cad": {
+      "command": ".venv\\Scripts\\python.exe",
+      "args": ["-m", "apolo.mcp_server"],
+      "env": {
+        "APOLO_URL": "http://127.0.0.1:8000"
+      }
+    }
+  }
+}

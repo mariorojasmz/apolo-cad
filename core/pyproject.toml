@@ -1,0 +1,33 @@
+[project]
+name = "apolo-core"
+version = "0.1.0"
+description = "Genix Apolo CAD - nucleo de geometria, documento y API"
+requires-python = ">=3.11"
+dependencies = [
+    "build123d>=0.8",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "anthropic>=0.40",
+    "pydantic>=2.6",
+    "python-multipart>=0.0.9",
+    "matplotlib>=3.8",
+    "ezdxf>=1.3",
+    "mcp>=1.2",
+    "httpx>=0.27",
+    "scipy>=1.12",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27"]
+# Física de cuerpos rígidos (drop-test). MuJoCo (Apache) en vez de PyBullet:
+# PyBullet no publica wheel para Python 3.13 y compilar requiere MSVC.
+physics = ["mujoco>=3.9", "pillow>=10"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["apolo*"]
+

@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "apolo",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "apolo.api.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload", "--reload-dir", "core"],
+      "port": 8000
+    },
+    {
+      "name": "ui-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "ui", "--", "--port", "5199", "--strictPort"],
+      "port": 5199,
+      "autoPort": false
+    },
+    {
+      "name": "ui-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--prefix", "ui", "--", "--port", "5198", "--strictPort"],
+      "port": 5198,
+      "autoPort": false
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+Marca,Pieza,Cant,Material,Seccion (mm),Largo (mm),Union,Tornilleria
+P1-IZQ,Jamba izquierda,1,Madera tornillo,70x70,2500,a tope (recibe rieles),recibe 4 tornillos O6x100 por cara exterior (z=2071/2101/2450/2480)
+P1-DER,Jamba derecha,1,Madera tornillo,70x70,2500,a tope (ESPEJO),recibe 4 tornillos O6x100 por cara exterior (z=2071/2101/2450/2480)
+P2,Dintel (cabezal),1,Madera tornillo,70x70,2010,a tope entre jambas,2 tornillos O6x100 en cada testa + 3 tornillos O4.5x90 por cara superior a x=-503/0/503
+P3,Travesano,1,Madera tornillo,70x70,2010,a tope entre jambas,2 tornillos O6x100 en cada testa + 3 tornillos O4.5x90 por cara inferior a x=-503/0/503
+P4,Parteluz (ventana),3,Madera tornillo,50x42,309,a tope entre dintel y travesano,1 tornillo O4.5x90 en cada testa (arriba y abajo)
+TORNILLOS,Tirafondo avellanado O6 x 100,8,Acero,-,esquinas (2 por esquina),pre-taladro guia O4 + paso O6.5
+TORNILLOS,Tirafondo avellanado O4.5 x 90,6,Acero,-,parteluces (1 por extremo),pre-taladro guia O3 + paso O5

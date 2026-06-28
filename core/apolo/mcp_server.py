@@ -1,0 +1,791 @@
+"""Servidor MCP de Genix Apolo CAD (stdio).
+
+Expone el CAD como tools estándar MCP para que CUALQUIER agente (Claude Code,
+Claude Desktop…) pueda diseñar en Apolo. Es un cliente fino de la API HTTP:
+exactamente las mismas operaciones que la UI y el chat integrado, y los
+cambios aparecen en vivo en el navegador (WebSocket).
+
+Uso:  python -m apolo.mcp_server   (APOLO_URL configura el servidor, por
+defecto http://127.0.0.1:8000 — el servidor Apolo debe estar corriendo).
+"""
+
+from __future__ import annotations
+
+import json
+import os
+
+import httpx
+from mcp.server.fastmcp import FastMCP, Image
+
+APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
+
+mcp = FastMCP(
+    "apolo-cad",
+    instructions=(
+        "CAD paramétrico Genix Apolo. Unidades mm, eje Z arriba, primitivas centradas. "
+        "El documento es un log de comandos: cada operación es editable y deshacible. "
+        "Consulta get_command_schemas para los parámetros de cada comando; usa '$k' en lotes "
+        "para referenciar sólidos creados en el mismo lote, y '=expresión' en campos numéricos "
+        "para usar variables del proyecto (resuélvelas con resolve_expression y consulta la "
+        "gramática con get_expression_grammar). Verifica tus montajes con check_interference y "
+        "render_view (highlight_ids resalta una pieza; combínalo con set_visibility para aislar). "
+        "Para elegir bien una arista/cara antes de fillet/chamfer/drill/add_mate, mira la geometría "
+        "con get_topology(id) y traduce a un selector declarativo (cara/direccion/longitud/cerca). "
+        "Antes de escribir, PRUEBA en seco con test_sketch/test_script (no tocan el "
+        "documento) y valida una faja por sus parámetros con engineering_check(conveyor=...). "
+        "get_command(id) devuelve los parámetros actuales de un comando para editarlo. Si una "
+        "llamada falla con error de conexión, el servidor Apolo no está arrancado "
+        "(uvicorn apolo.api.main:app --port 8000)."
+    ),
+)
+
+
+def _api(method: str, path: str, **kwargs):
+    try:
+        with httpx.Client(base_url=APOLO_URL, timeout=120) as client:
+            response = client.request(method, path, **kwargs)
+    except httpx.ConnectError as exc:
+        raise RuntimeError(
+            f"No hay conexión con Apolo en {APOLO_URL}: arranca el servidor "
+            "(uvicorn apolo.api.main:app --port 8000)"
+        ) from exc
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("detail", response.text)
+        except Exception:
+            detail = response.text
+        raise RuntimeError(f"Apolo rechazó la operación ({response.status_code}): {detail}")
+    return response
+
+
+def _scene_brief(payload: dict, detail: str = "diff") -> dict:
+    """Resumen sin mallas (las mallas son para el viewport, no para el agente).
+
+    detail controla qué sólidos se listan tras una mutación:
+      - "full"    → todos los sólidos de la escena (con bbox).
+      - "diff"    → solo los del/los comando(s) afectado(s) por esta operación
+                    (`affected_command_ids`). Si no hay afectados (consultas), lista
+                    todos. Es el default: evita volcar cientos de sólidos al editar uno.
+      - "summary" → solo id/nombre/comando de los afectados (sin bbox/volumen).
+    Siempre incluye `total_solidos` (conteo de la escena) y `solidos_mostrados`.
+    """
+    doc = payload.get("document", {})
+    feats = payload.get("features", [])
+    total = payload.get("total_features", len(feats))
+    affected = set(payload.get("affected_command_ids") or [])
+
+    if detail == "full" or (detail == "diff" and not affected):
+        shown = feats
+    else:
+        shown = [f for f in feats if f["command_id"] in affected]
+
+    if detail == "summary":
+        solidos = [
+            {"id": f["id"], "nombre": f["name"], "comando": f["command_id"]} for f in shown
+        ]
+    else:
+        solidos = [
+            {
+                "id": f["id"],
+                "nombre": f["name"],
+                "visible": f["visible"],
+                "bbox": f["bbox"],
+                "volumen_mm3": f["volume_mm3"],
+                "componente": f["component"],
+                "comando": f["command_id"],
+            }
+            for f in shown
+        ]
+    # `variables` es verboso (~33 entradas) y se repetía en CADA mutación. Lo incluimos
+    # solo cuando aporta: vista completa, consulta (sin afectados) o cuando la operación
+    # tocó alguna variable (su command_id es un set_variable). Las mutaciones de geometría
+    # —el caso común— ya no lo arrastran. Para verlas siempre, usar get_scene.
+    var_ids = {c["id"] for c in doc.get("commands", []) if c.get("type") == "set_variable"}
+    include_vars = detail == "full" or not affected or bool(affected & var_ids)
+    out = {
+        "proyecto": doc.get("name"),
+        "configuraciones": doc.get("configurations"),
+        "puede_deshacer": doc.get("can_undo"),
+        "puede_rehacer": doc.get("can_redo"),
+        "total_solidos": total,
+        "solidos_mostrados": len(solidos),
+        "solidos": solidos,
+    }
+    if include_vars:
+        out["variables"] = doc.get("variables")
+    return out
+
+
+# ----------------------------------------------------------------- consulta
+@mcp.tool()
+def get_scene() -> str:
+    """Estado actual del modelo: sólidos (id, nombre, bbox, volumen, componente),
+    variables del proyecto y configuraciones."""
+    return json.dumps(_scene_brief(_api("GET", "/api/scene").json()), ensure_ascii=False)
+
+
+@mcp.tool()
+def get_command_schemas(command_type: str | None = None) -> str:
+    """Comandos CAD con su JSON Schema de parámetros. Consúltalo antes de
+    run_command/run_batch. Sin argumento lista TODOS (es grande, ~77 KB); pasa
+    `command_type` (p. ej. "create_belt_conveyor") para traer SOLO ese schema."""
+    if command_type:
+        return json.dumps(
+            _api("GET", f"/api/schemas/{command_type}").json(), ensure_ascii=False
+        )
+    return json.dumps(_api("GET", "/api/schemas").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def get_catalog(category: str | None = None, names_only: bool = False) -> str:
+    """Catálogo de componentes industriales (perfiles, rodillos, motorreductores,
+    patas, guardas, sensores) con especificaciones y pesos. Es grande (~73 KB);
+    filtra con `category` (p. ej. 'motorreductores', 'tubos_estructurales',
+    'rodamientos', 'tornilleria', 'tensores_trotadora') y usa `names_only=True`
+    para traer solo ref/name/category (payload ligero)."""
+    params: dict = {}
+    if category:
+        params["category"] = category
+    if names_only:
+        params["names_only"] = "true"
+    return json.dumps(_api("GET", "/api/catalog", params=params).json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def get_bom() -> str:
+    """Lista de materiales del modelo actual, agrupada por referencia y longitud
+    (las piezas a-medida idénticas se agrupan e incluyen peso por volumen×densidad)."""
+    return json.dumps(_api("GET", "/api/bom").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def set_material(feature: str, material: str | None = None) -> str:
+    """Fija (anula) el material de un sólido para el BOM/peso/rayado de sección.
+    material=None vuelve al automático (catálogo o heurística por nombre).
+    Ej.: 'acero', 'aluminio', 'acero inoxidable', 'laton', 'madera', 'vidrio'."""
+    payload = _api("POST", f"/api/features/{feature}/material", json={"material": material}).json()
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def set_vertical(vertical: str) -> str:
+    """Define el vertical del proyecto ('metalmecanica' | 'carpinteria'), que fija el
+    material por defecto de las piezas a-medida NO reconocidas (acero | madera)."""
+    payload = _api("POST", "/api/vertical", json={"vertical": vertical}).json()
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def get_kinematics() -> str:
+    """Juntas cinemáticas del modelo (nombre, tipo, padre/hijo, eje, límites)."""
+    return json.dumps(_api("GET", "/api/kinematics").json(), ensure_ascii=False)
+
+
+# ----------------------------------------------------------------- modelado
+@mcp.tool()
+def run_command(type: str, params: dict, detail: str = "diff") -> str:
+    """Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos
+    aceptan '=expresión' con variables del proyecto. `detail`: "diff" (def.) devuelve
+    solo los sólidos nuevos + `total_solidos`; "full" toda la escena; "summary" solo
+    id/nombre de lo nuevo. El bloque `variables` solo aparece si la operación tocó
+    alguna (o detail="full"); usa get_scene para verlas siempre."""
+    payload = _api("POST", "/api/commands", json={"type": type, "params": params}).json()
+    return json.dumps(_scene_brief(payload, detail), ensure_ascii=False)
+
+
+@mcp.tool()
+def run_batch(actions: list[dict], detail: str = "diff") -> str:
+    """Ejecuta un lote ordenado de comandos [{type, params}, …]. Usa '$k' en los
+    campos de id de feature para referenciar el sólido creado por la k-ésima
+    acción del lote. `detail`: "diff" (def.) devuelve solo los sólidos creados por el
+    lote + `total_solidos`; "full" toda la escena; "summary" solo id/nombre."""
+    payload = _api("POST", "/api/commands/batch", json={"actions": actions}).json()
+    return json.dumps(_scene_brief(payload, detail), ensure_ascii=False)
+
+
+@mcp.tool()
+def edit_command(command_id: str, params: dict, merge: bool = True, detail: str = "diff") -> str:
+    """Edita los parámetros de un comando pasado y regenera (edición paramétrica del
+    historial). Por defecto hace PATCH (`merge=True`): combina con los params actuales,
+    así que basta enviar los campos a cambiar. Merge SUPERFICIAL: un sub-objeto
+    (position, rotation) se reemplaza entero. `merge=False` reemplaza todos los params
+    (los omitidos vuelven a su default). `detail` como en run_command."""
+    payload = _api(
+        "PUT",
+        f"/api/commands/{command_id}",
+        params={"merge": str(merge).lower()},
+        json={"params": params},
+    ).json()
+    return json.dumps(_scene_brief(payload, detail), ensure_ascii=False)
+
+
+@mcp.tool()
+def edit_batch(edits: list[dict], merge: bool = True, detail: str = "diff") -> str:
+    """Edita VARIOS comandos en UN lote ATÓMICO: un solo regenerate y un solo paso de
+    undo (frente a N round-trips + N regenerates de llamar edit_command en bucle). Úsalo
+    al reparametrizar muchas piezas a la vez. edits = [{"command_id": "c38", "params":
+    {...}}, …]. PATCH por defecto (merge=True, superficial: un sub-objeto position/rotation
+    se reemplaza entero); merge=False reemplaza todos los params. Si una edición falla,
+    revierte TODO el lote. `detail` como en run_command (y `variables` solo aparece si el
+    lote tocó alguna)."""
+    payload = _api(
+        "PATCH",
+        "/api/commands/batch",
+        params={"merge": str(merge).lower()},
+        json={"edits": edits},
+    ).json()
+    return json.dumps(_scene_brief(payload, detail), ensure_ascii=False)
+
+
+@mcp.tool()
+def undo() -> str:
+    """Deshace la última operación."""
+    return json.dumps(_scene_brief(_api("POST", "/api/undo").json()), ensure_ascii=False)
+
+
+@mcp.tool()
+def set_variable(name: str, expression: str) -> str:
+    """Define o actualiza una variable de proyecto (p. ej. L = 2000). Cambiarla
+    regenera todo lo que la usa."""
+    payload = _api("POST", "/api/variables", json={"name": name, "expression": expression}).json()
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+# -------------------------------------------------------------- validación
+@mcp.tool()
+def check_interference(joint_values: dict | None = None) -> str:
+    """Interferencias entre sólidos (booleanas OCCT). Con joint_values
+    {junta: valor} comprueba la colisión del mecanismo EN POSE."""
+    payload = _api("POST", "/api/checks", json={"joint_values": joint_values or {}}).json()
+    return json.dumps(payload["interferencias"], ensure_ascii=False)
+
+
+@mcp.tool()
+def engineering_check(
+    carga_kg: float, largo_paquete_mm: float, velocidad_m_s: float,
+    ancho_paquete_mm: float | None = None, conveyor: dict | None = None,
+    conveyor_solid_ids: list[str] | None = None,
+) -> str:
+    """Valida un transportador contra las reglas del vertical (apoyo del paquete, capacidad
+    de rodillo, ancho útil, motorización, velocidad de banda, par del motor). Sin `conveyor`
+    valida la faja del documento (reconoce también fajas hechas 100% con primitivas por el
+    NOMBRE de las piezas: banda/tambor/rodillo/larguero). Con `conveyor` (dict {largo,ancho,
+    altura,paso,rodillo,motor}) valida esos parámetros ANTES de construirla (predictivo). Con
+    `conveyor_solid_ids` marcas qué sólidos forman la faja y se infieren del bounding box."""
+    payload = _api(
+        "POST",
+        "/api/checks",
+        json={
+            "carga_kg": carga_kg,
+            "largo_paquete_mm": largo_paquete_mm,
+            "ancho_paquete_mm": ancho_paquete_mm,
+            "velocidad_m_s": velocidad_m_s,
+            "conveyor": conveyor,
+            "conveyor_solid_ids": conveyor_solid_ids,
+        },
+    ).json()
+    return json.dumps(payload["ingenieria"], ensure_ascii=False)
+
+
+@mcp.tool()
+def render_view(
+    view: str = "iso",
+    highlight_ids: list[str] | None = None,
+    show_axes: bool = False,
+    show_bbox: bool = False,
+    joint_values: dict[str, float] | None = None,
+    fit_ids: list[str] | None = None,
+    zoom: float = 1.0,
+    proportional: bool = False,
+    views: list[str] | None = None,
+    labels: bool = False,
+    section: str | None = None,
+    shaded: bool = True,
+    isolate: list[str] | None = None,
+) -> Image:
+    """Render del modelo para VERLO (vistas: iso, frente, planta, lateral).
+    shaded=True (POR DEFECTO) → render SOMBREADO A COLOR (color real por pieza, igual que el
+    viewport web): más legible para distinguir piezas que la paleta por índice. Úsalo para
+    auto-revisar visualmente tu trabajo (combínalo con highlight_ids/isolate/views/section).
+    Pon shaded=False solo si quieres el render plano antiguo.
+    isolate (lista de ids) renderiza SOLO esas piezas — la forma LIMPIA de fotografiar una pieza
+    o sub-conjunto de cerca: aísla sobre una copia de la escena, SIN ocultar/restaurar nada en el
+    documento. Combínalo con zoom para un primer plano que llene el cuadro. (Prefiérelo a
+    set_visibility, que sí muta el documento en vivo.)
+    highlight_ids resalta esos sólidos y atenúa el resto (útil para señalar una
+    pieza concreta dentro del conjunto); show_axes dibuja los ejes del origen; show_bbox la caja
+    envolvente de lo resaltado.
+    views (lista de ≥2 vistas) compone varias en UNA imagen (menos oclusión, una sola
+    llamada). labels=True rotula el id de cada sólido (o solo los highlight_ids) sobre la
+    imagen → puedes mapear lo que ves a su comando. section ∈ {x,y,z} corta el modelo a la
+    mitad de ese eje para VER DENTRO (interferencias/encajes ocultos en el iso).
+    joint_values posa el mecanismo (CINEMÁTICA) antes de renderizar — p. ej.
+    {"J_pivote_izq": 40} pliega la puerta; las juntas dependientes (restricción de
+    riel) se resuelven solas. Así puedes VER un mecanismo en una pose sin moverlo
+    en el documento (read-only). Consulta las juntas con get_kinematics.
+    fit_ids encuadra la cámara en esas piezas (primer plano, el resto se sigue
+    dibujando); zoom>1 acerca; proportional=True muestra proporciones reales (en vez
+    del cubo) — recomendado para máquinas largas y bajas que si no salen aplastadas."""
+    params: dict = {
+        "view": view,
+        "show_axes": show_axes,
+        "show_bbox": show_bbox,
+        "zoom": zoom,
+        "proportional": str(proportional).lower(),
+    }
+    if highlight_ids:
+        params["highlight"] = ",".join(highlight_ids)
+    if fit_ids:
+        params["fit"] = ",".join(fit_ids)
+    if isolate:
+        params["isolate"] = ",".join(isolate)
+    if joint_values:
+        params["joints"] = json.dumps(joint_values)
+    if views:
+        params["views"] = ",".join(views)
+    if labels:
+        params["labels"] = "true"
+    if section:
+        params["section"] = section
+    if shaded:
+        params["shade"] = "true"
+    response = _api("GET", "/api/render.png", params=params)
+    return Image(data=response.content, format="png")
+
+
+@mcp.tool()
+def preview(
+    actions: list[dict], view: str = "iso", labels: bool = False, section: str | None = None
+) -> Image:
+    """GHOST RENDER: aplica `actions` (mismo formato que run_batch: [{type, params}, …])
+    sobre una COPIA del documento y devuelve el PNG resultante SIN tocar el modelo real
+    (los sólidos nuevos van resaltados). Úsalo para VER una propuesta de colocación antes
+    de ejecutarla de verdad con run_command/run_batch — equivocarse sale gratis. `labels`
+    rotula ids; `section` ∈ {x,y,z} corta para ver dentro."""
+    body: dict = {"actions": actions, "view": view, "labels": labels}
+    if section:
+        body["section"] = section
+    response = _api("POST", "/api/commands/preview", json=body)
+    return Image(data=response.content, format="png")
+
+
+# ---------------------------------------------------------------- proyectos
+@mcp.tool()
+def list_projects() -> str:
+    """Proyectos guardados (SQLite, con autoguardado)."""
+    return json.dumps(_api("GET", "/api/projects").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def open_project(project_id: int) -> str:
+    """Abre un proyecto por id."""
+    payload = _api("POST", f"/api/projects/{project_id}/open").json()
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+@mcp.tool()
+def create_project(name: str, template: str | None = None) -> str:
+    """Crea y abre un proyecto. template: null | 'transportador' | 'brazo'."""
+    payload = _api("POST", "/api/projects", json={"name": name, "template": template}).json()
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+@mcp.tool()
+def save_revision(note: str) -> str:
+    """Guarda una revisión (instantánea restaurable) del proyecto abierto."""
+    return json.dumps(_api("POST", "/api/revisions", json={"note": note}).json())
+
+
+@mcp.tool()
+def export_step(path: str) -> str:
+    """Exporta el modelo a un archivo STEP en la ruta local indicada."""
+    from pathlib import Path
+
+    data = _api("GET", "/api/export/step").content
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return f"STEP guardado en {target} ({len(data)} bytes)"
+
+
+@mcp.tool()
+def export_flat_pattern(feature_id: str, path: str) -> str:
+    """Exporta el patrón plano (desplegado) de una chapa metálica a un DXF local
+    para corte láser. feature_id es el id del sólido de la chapa (ver get_scene);
+    debe haberse creado con el comando create_sheet_metal."""
+    from pathlib import Path
+
+    data = _api("GET", f"/api/sheetmetal/{feature_id}/flat.dxf").content
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return f"Desplegado DXF guardado en {target} ({len(data)} bytes)"
+
+
+@mcp.tool()
+def drop_test(products: list[dict], path: str, seconds: float = 2.0, gravity: float = 9.81) -> str:
+    """Simula con FÍSICA (gravedad real, motor MuJoCo) la caída de cajas de 'producto'
+    sobre la escena actual (faja, mesa…) y guarda un GIF animado de la caída en `path`.
+    Cada producto es un dict {w,d,h (mm), x,y,z (mm pose inicial), mass (kg, opcional)}.
+    Devuelve las posiciones de reposo [x,y,z] mm y si el sistema se asentó (settled).
+    Es análisis read-only: NO modifica el modelo."""
+    from pathlib import Path
+
+    body = {"products": products, "seconds": seconds, "gravity": gravity}
+    summary = _api("POST", "/api/physics/drop", json=body).json()
+    gif = _api("POST", "/api/physics/drop.gif", json=body).content
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(gif)
+    return json.dumps(
+        {
+            "gif": str(target),
+            "bytes": len(gif),
+            "resting_mm": summary["resting"],
+            "settled": summary["settled"],
+            "frames": len(summary["frames"]),
+        },
+        ensure_ascii=False,
+    )
+
+
+# ---------------------------------------------------------- lectura/introspección
+@mcp.tool()
+def get_command(command_id: str) -> str:
+    """Devuelve {type, params} del comando indicado (su estado ACTUAL) para editarlo con
+    edit_command. Usa get_scene para ver los ids (campo 'comando' de cada sólido)."""
+    doc = _api("GET", "/api/document").json()
+    cmd = next((c for c in doc.get("commands", []) if c.get("id") == command_id), None)
+    if cmd is None:
+        raise RuntimeError(f"No existe el comando '{command_id}' en el documento")
+    return json.dumps({"type": cmd["type"], "params": cmd["params"]}, ensure_ascii=False)
+
+
+@mcp.tool()
+def test_sketch(sketch: dict) -> str:
+    """Prueba en seco un croquis: lo resuelve con el solver y devuelve {ok, residual,
+    diagnostico, ...} SIN crear geometría. Para iterar restricciones antes de extruir/barrer."""
+    return json.dumps(_api("POST", "/api/sketch/solve", json={"sketch": sketch}).json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def test_script(code: str) -> str:
+    """Prueba en seco un script build123d en el sandbox: devuelve {ok, volumen_mm3, bbox} o
+    {ok:false, error} SIN tocar el documento. Itera la geometría sin crear/deshacer sólidos."""
+    return json.dumps(_api("POST", "/api/script/test", json={"code": code}).json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def redo() -> str:
+    """Rehace la última operación deshecha."""
+    return json.dumps(_scene_brief(_api("POST", "/api/redo").json()), ensure_ascii=False)
+
+
+@mcp.tool()
+def get_mates() -> str:
+    """Mates de ensamblaje del documento (uniones persistentes entre piezas)."""
+    return json.dumps(_api("GET", "/api/mates").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def check_assembly(with_autodetect: bool = True) -> str:
+    """Validación de ensamblaje por CONECTIVIDAD: ¿cada pieza tiene un camino de sujeción
+    hasta el piso? Devuelve las piezas FLOTANTES (caerían bajo gravedad — eje suelto, rodillo
+    sin sujetar, guarda sin tornillo, motor flotando) y las AISLADAS (sin ninguna unión).
+    Determinista, sin motor de física. with_autodetect=True superpone (sin persistir) las
+    uniones detectadas por geometría → responde 'si fijara todo lo que se toca, ¿qué seguiría
+    flotando?'. Declara uniones reales con run_command(type='ground'|'fasten')."""
+    payload = _api("POST", "/api/assembly/soundness", json={"with_autodetect": with_autodetect}).json()
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def autodetect_connections() -> str:
+    """Propone uniones de ensamblaje desde la GEOMETRÍA (piezas que apoyan en el piso +
+    pares en contacto por caja envolvente), para poblar la conectividad de un modelo que no
+    la declara. Read-only: confirma las que quieras con run_command(type='ground'|'fasten').
+    Heurística por AABB (propone, no impone)."""
+    payload = _api("POST", "/api/assembly/autodetect", json={}).json()
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def declare_structure() -> str:
+    """Auto-declara la ESTRUCTURA real de la máquina (anclajes al piso + uniones de soporte) como
+    comandos PERSISTIDOS, de forma INTELIGENTE (grafo de soporte dirigido): NO fija las piezas que
+    cuelgan sin nada debajo (p. ej. rodillos de retorno). Idempotente (no duplica lo ya declarado).
+    Después, `gravity_test(with_autodetect=False)` es la prueba EXACTA: solo cae lo de verdad suelto.
+    Para corregir, borra una unión con `delete_connection(name)`. Devuelve el conteo y la lista de
+    uniones declaradas (con sus nombres)."""
+    _api("POST", "/api/assembly/declare")  # persiste; ignoramos el payload de escena (grande)
+    conn = _api("GET", "/api/connectivity").json()
+    return json.dumps(
+        {"grounds": len(conn["grounds"]), "fasteners": len(conn["fasteners"]),
+         "detalle": conn}, ensure_ascii=False)
+
+
+@mcp.tool()
+def get_connections() -> str:
+    """Uniones de ensamblaje DECLARADAS (persistidas) del documento: fijadores (a↔b) y anclajes a
+    tierra, con sus nombres (para borrarlas con delete_connection). Read-only."""
+    return json.dumps(_api("GET", "/api/connectivity").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def delete_connection(name: str) -> str:
+    """Borra una unión declarada por su NOMBRE (un fijador o un anclaje a tierra) — para corregir el
+    auto-declarado (quitar una unión falsa). Consulta los nombres con get_connections."""
+    try:
+        _api("DELETE", f"/api/fasteners/{name}")
+        return json.dumps({"borrado": name, "tipo": "fijador"}, ensure_ascii=False)
+    except Exception:  # noqa: BLE001 — si no es fijador, prueba como anclaje
+        _api("DELETE", f"/api/grounds/{name}")
+        return json.dumps({"borrado": name, "tipo": "anclaje"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def gravity_test(
+    with_autodetect: bool = True, exclude: list[str] | None = None,
+    seconds: float = 2.0, gravity: float = 9.81, path: str | None = None,
+) -> str:
+    """Simula la GRAVEDAD sobre TODA la máquina (cuerpos rígidos + colisión por casco
+    convexo, motor MuJoCo) y reporta qué piezas SE CAEN y cuáles aguantan. A diferencia
+    del chequeo estático, la FÍSICA decide si una pieza no-sujeta REPOSA sobre algo firme
+    (no cae) o cuelga en el aire (cae) — resuelve "quién aguanta a quién". with_autodetect
+    usa el contacto geométrico como estructura sujeta; `exclude` trata esas piezas como NO
+    sujetas ('¿y si a esta le falta el tornillo?') para ver si se caen. Si das `path`,
+    guarda además un GIF animado de la caída. Read-only: NO modifica el modelo."""
+    from pathlib import Path
+
+    body = {"with_autodetect": with_autodetect, "exclude": exclude or [],
+            "seconds": seconds, "gravity": gravity}
+    summary = _api("POST", "/api/assembly/stability", json=body).json()
+    out = {k: summary.get(k) for k in ("n_grounded", "n_dynamic", "fell", "estables", "settled", "mensaje")}
+    if path:
+        gif = _api("POST", "/api/assembly/stability.gif", json=body).content
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(gif)
+        out["gif"] = str(target)
+        out["bytes"] = len(gif)
+    return json.dumps(out, ensure_ascii=False)
+
+
+@mcp.tool()
+def get_motion() -> str:
+    """Estudio de movimiento: fotogramas de juntas y duración."""
+    return json.dumps(_api("GET", "/api/motion").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def get_agent_notes() -> str:
+    """Lee la memoria de sesión del agente (notas del proyecto)."""
+    return json.dumps(_api("GET", "/api/agent/notes").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def add_agent_note(text: str) -> str:
+    """Añade una nota a la memoria de sesión del agente (tope 30, persiste en el proyecto)."""
+    return json.dumps(_api("POST", "/api/agent/notes", json={"text": text}).json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def list_revisions() -> str:
+    """Lista las revisiones (instantáneas restaurables) del proyecto abierto."""
+    return json.dumps(_api("GET", "/api/revisions").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def restore_revision(revision_id: int) -> str:
+    """Restaura una revisión por id (red de seguridad tras ediciones arriesgadas)."""
+    payload = _api("POST", f"/api/revisions/{revision_id}/restore").json()
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+# ----------------------------------------------------- topología / selectores
+@mcp.tool()
+def get_topology(feature_id: str) -> str:
+    """Caras y aristas de un sólido con su geometría descriptiva (tipo plano/cilíndrico,
+    centro, normal/eje, área; longitud, dirección, radio de aristas). Úsalo para ELEGIR el
+    selector declarativo antes de fillet/chamfer/drill/add_mate: caras por orientación
+    (normal) → 'cara'/'direccion'; aristas largas → 'longitud'; cerca de un punto → 'cerca'.
+    Los 'idx' son solo referencia: la selección sigue siendo declarativa, no por id."""
+    return json.dumps(_api("GET", f"/api/features/{feature_id}/topology").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def measure(a: str, b: str, face_a: dict | None = None, face_b: dict | None = None) -> str:
+    """Distancia mínima (mm) y puntos más cercanos entre dos sólidos a y b (ids). El gap real
+    deja de ser ensayo-error. Opcional: face_a/face_b = selector declarativo (mode cara/direccion/
+    longitud/cerca) para medir contra UNA cara concreta. 0 = se tocan o solapan. Read-only."""
+    body: dict = {"a": a, "b": b}
+    if face_a:
+        body["face_a"] = face_a
+    if face_b:
+        body["face_b"] = face_b
+    return json.dumps(_api("POST", "/api/measure", json=body).json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def near(point: list[float], radius: float = 50.0) -> str:
+    """Features cuya caja envolvente está a ≤ radius mm de `point` ([x,y,z]), de más cerca a más
+    lejos. Consulta espacial: '¿qué pieza hay por aquí?'. Combínalo con pick_point. Read-only."""
+    return json.dumps(
+        _api("GET", "/api/near", params={"point": json.dumps(point), "radius": radius}).json(),
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def pick_point(
+    u: float,
+    v: float,
+    view: str = "iso",
+    fit_ids: list[str] | None = None,
+    zoom: float = 1.0,
+    proportional: bool = False,
+) -> str:
+    """PÍXEL→3D: 'señala' un punto en un render. (u,v) son coordenadas NORMALIZADAS [0,1] de la
+    imagen (0,0 = arriba-izquierda). Devuelve la feature/cara cuyo centro proyectado queda más
+    cerca + su coordenada mundo (snap a geometría con la MISMA cámara del render `view`). Así
+    seleccionas/ubicas apuntando en vez de calcular coordenadas. Úsalo sobre render_view(labels=True).
+    Read-only."""
+    params: dict = {"u": u, "v": v, "view": view, "zoom": zoom, "proportional": str(proportional).lower()}
+    if fit_ids:
+        params["fit"] = ",".join(fit_ids)
+    return json.dumps(_api("GET", "/api/pick", params=params).json(), ensure_ascii=False)
+
+
+# ----------------------------------------------------- despiece de fabricación
+@mcp.tool()
+def cut_list() -> str:
+    """Lista de corte de fabricación: piezas a CORTAR (a-medida + catálogo cortable)
+    agrupadas por (material, espesor, ancho, largo) con cantidad y área; totales por
+    material (m²/ml); y cédula de HERRAJE (catálogo no cortable: bisagras/tornillos/
+    correderas...). Une los sólidos de las uniones (una hoja = 2 largueros). Read-only.
+    El CSV está en GET /api/cutlist.csv."""
+    return json.dumps(_api("GET", "/api/cutlist.json").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def nesting(
+    mode: str = "2d", stock_w: float = 2440.0, stock_h: float = 1220.0,
+    material: str | None = None, kerf: float = 3.0,
+) -> str:
+    """Optimización de corte (nesting) para minimizar desperdicio. `mode`: "2d" (tableros/
+    vidrio en planchas stock_w×stock_h) o "1d" (barras/largueros de largo stock_w). `material`
+    filtra (madera/vidrio/acero...). Devuelve nº de planchas/barras y % de desperdicio; el
+    plano del acomodo está en GET /api/nesting.svg|dxf (mismos params). Read-only."""
+    params: dict = {"mode": mode, "stock_w": stock_w, "stock_h": stock_h, "kerf": kerf}
+    if material:
+        params["material"] = material
+    return json.dumps(_api("GET", "/api/nesting.json", params=params).json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def drawing_set(path: str, template: str = "generico", sheet: str = "A3", shaded: bool = False) -> str:
+    """Genera el JUEGO DE PLANOS profesional (PDF multipágina): conjunto con BOM + 1 lámina
+    por pieza ACOTADA + cédula de corte/herraje, y lo guarda en `path` (.pdf). `template`:
+    carpinteria/weldment/chapa/generico. `shaded=true`: el conjunto lleva isométrica SOMBREADA
+    a color (estilo Inventor). Devuelve nº de bytes guardados."""
+    import pathlib
+
+    resp = _api("GET", "/api/drawingset.pdf",
+                params={"template": template, "sheet": sheet, "shaded": shaded})
+    pathlib.Path(path).write_bytes(resp.content)
+    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def assembly_manual(path: str, sheet: str = "A3", isolate: list[str] | None = None,
+                    title: str | None = None) -> str:
+    """Genera el MANUAL DE ENSAMBLAJE paso a paso (instructivo de montaje, estilo Inventor/IKEA) en
+    PDF MULTIPÁGINA y lo guarda en `path` (.pdf): portada con la SECUENCIA de montaje + 1 lámina por
+    PASO. Cada paso muestra el render 3D acumulado (las piezas NUEVAS resaltadas a color, lo ya
+    montado en gris fantasma, cámara estable) + la lista de piezas/herraje del paso (con norma) + la
+    instrucción. La secuencia se DERIVA del modelo: orden del log de comandos (cómo se armó) +
+    agrupación por familias de catálogo (todo el herraje junto) y por nombre de pieza. A diferencia
+    del plano de CONJUNTO (drawing cutlist) que solo lista piezas, esto EXPLICA el armado paso a paso.
+    `isolate` (lista de ids) acota el manual a un SUB-ENSAMBLAJE (p. ej. una hoja: sus tablas + vidrio
+    + bisagras) sin tocar el documento; `title` rotula la portada/archivo. Devolverá nº de bytes.
+    (El render tarda; ~40 s en un modelo de ~80 piezas, mucho menos en un sub-ensamblaje.) Read-only."""
+    import pathlib
+
+    params: dict = {"sheet": sheet}
+    if isolate:
+        params["isolate"] = ",".join(isolate)
+    if title:
+        params["title"] = title
+    resp = _api("GET", "/api/assembly-manual.pdf", params=params)
+    pathlib.Path(path).write_bytes(resp.content)
+    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def drawing(spec: dict, path: str | None = None) -> str:
+    """Plano profesional por INTENCIÓN (el moat agente-nativo): UNA spec declara qué quieres y
+    el motor lo dibuja con cotas/cortes/detalles/cajetín pro. spec = {sheet:"A3", section:"x"/"y"/"z",
+    detail:{view,u,v,radius,scale}, dims:[ids] (tamaño), datum_dims:[ids] (posición desde la base),
+    bom:true, cutlist:true (tabla DESPIECE con L×A×E por tabla, globos en el alzado — para
+    ENSAMBLAJES, no solo el bbox), hardware:true (añade CÉDULA DE HERRAJE bajo el despiece, con
+    columna Norma — DIN/ISO/EN/ASTM — para los normalizados),
+    auto_dims:true (acota SOLO la posición x/y de cada agujero desde el datum — para FABRICAR),
+    interface_dims:true (cotas de MONTAJE: pitch centro-a-centro del patrón de agujeros + luz total — para acoplar),
+    explode:{axis:"x"/"y"/"z",factor} (VISTA EXPLOSIONADA: piezas separadas + globos de secuencia),
+    shaded:true (isométrica SOMBREADA a color, estilo Inventor, embebida en la lámina; pdf/svg),
+    notes:["...","..."] (bloque de NOTAS generales en la lámina),
+    assembly_notes:[] (auto-genera NOTAS DE MONTAJE desde el herraje) o ["..."] (notas explícitas),
+    member_detail:{member,pick:[t,w,l],locate:[ids],scale,name} (vista de DETALLE de UNA tabla con
+    sus mortajas/bisagras acotadas desde la base; reemplaza la planta),
+    isolate:[ids] (solo esas piezas, sin tocar el documento), format:"pdf"/"svg"/"dxf",
+    meta:{drawing_no,material,...}}. Con `path` guarda el archivo (pdf/dxf/svg); si format="svg" y sin
+    path devuelve el SVG (úsalo con show_widget para VER el plano inline). Read-only."""
+    import pathlib
+
+    resp = _api("POST", "/api/drawing/spec", json=spec)
+    if path:
+        pathlib.Path(path).write_bytes(resp.content)
+        return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+    if spec.get("format") == "svg":
+        return resp.text
+    return json.dumps(
+        {"ok": True, "bytes": len(resp.content), "hint": "pasa path=... para guardar el pdf/dxf"},
+        ensure_ascii=False,
+    )
+
+
+# ------------------------------------------------------------------ visibilidad
+@mcp.tool()
+def set_visibility(feature_id: str, visible: bool) -> str:
+    """Muestra u oculta un sólido individual (útil para aislar antes de render_view)."""
+    payload = _api("POST", f"/api/features/{feature_id}/visibility", json={"visible": visible}).json()
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+@mcp.tool()
+def set_visibility_bulk(feature_ids: list[str], visible: bool) -> str:
+    """Muestra u oculta varios sólidos a la vez (patrón aislar / mostrar todo)."""
+    payload = _api("POST", "/api/features/visibility", json={"ids": feature_ids, "visible": visible}).json()
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+# ------------------------------------------------------------------ expresiones
+@mcp.tool()
+def resolve_expression(expression: str) -> str:
+    """Evalúa una expresión (=expr) contra las variables del proyecto SIN modificar nada;
+    devuelve {ok, value} o {ok:false, error}. Para comprobar una fórmula antes de usarla."""
+    return json.dumps(
+        _api("GET", "/api/resolve-expression", params={"expr": expression}).json(),
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def get_expression_grammar() -> str:
+    """Funciones, constantes, operadores permitidos en los campos '=expr' y las variables
+    del proyecto disponibles. Consúltalo antes de escribir expresiones complejas."""
+    return json.dumps(_api("GET", "/api/expression-grammar").json(), ensure_ascii=False)
+
+
+if __name__ == "__main__":
+    mcp.run()
