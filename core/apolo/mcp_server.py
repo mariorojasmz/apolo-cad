@@ -296,42 +296,56 @@ def render_view(
     joint_values: dict[str, float] | None = None,
     fit_ids: list[str] | None = None,
     zoom: float = 1.0,
-    proportional: bool = False,
-    views: list[str] | None = None,
-    labels: bool = False,
     section: str | None = None,
-    shaded: bool = True,
     isolate: list[str] | None = None,
+    azimuth: float | None = None,
+    elevation: float | None = None,
+    measure: list[str] | None = None,
+    edges: bool = True,
+    xray: bool = False,
+    labels: bool = False,
+    roll: float = 0.0,
+    pan: list[float] | None = None,
 ) -> Image:
-    """Render del modelo para VERLO (vistas: iso, frente, planta, lateral).
-    shaded=True (POR DEFECTO) → render SOMBREADO A COLOR (color real por pieza, igual que el
-    viewport web): más legible para distinguir piezas que la paleta por índice. Úsalo para
-    auto-revisar visualmente tu trabajo (combínalo con highlight_ids/isolate/views/section).
-    Pon shaded=False solo si quieres el render plano antiguo.
+    """Render del modelo para VERLO. SIEMPRE motor VTK → sombreado SUAVE a color (color real por
+    pieza, igual que el viewport web), normales interpoladas, sin bandas ni cuadrícula: la captura
+    más limpia para auto-revisar tu trabajo. (Si el entorno no tuviera contexto OpenGL, da error
+    claro en vez de degradar a una imagen con rejilla.)
+    view ∈ {iso, frente, lateral, planta} elige el ángulo preset; azimuth/elevation (GRADOS) lo
+    ANULAN para enfocar desde un ÁNGULO LIBRE cuando ningún preset sirve (azimuth = giro alrededor
+    de Z, elevation = altura sobre el plano; override parcial: puedes dar solo uno).
     isolate (lista de ids) renderiza SOLO esas piezas — la forma LIMPIA de fotografiar una pieza
     o sub-conjunto de cerca: aísla sobre una copia de la escena, SIN ocultar/restaurar nada en el
-    documento. Combínalo con zoom para un primer plano que llene el cuadro. (Prefiérelo a
-    set_visibility, que sí muta el documento en vivo.)
-    highlight_ids resalta esos sólidos y atenúa el resto (útil para señalar una
-    pieza concreta dentro del conjunto); show_axes dibuja los ejes del origen; show_bbox la caja
-    envolvente de lo resaltado.
-    views (lista de ≥2 vistas) compone varias en UNA imagen (menos oclusión, una sola
-    llamada). labels=True rotula el id de cada sólido (o solo los highlight_ids) sobre la
-    imagen → puedes mapear lo que ves a su comando. section ∈ {x,y,z} corta el modelo a la
-    mitad de ese eje para VER DENTRO (interferencias/encajes ocultos en el iso).
-    joint_values posa el mecanismo (CINEMÁTICA) antes de renderizar — p. ej.
-    {"J_pivote_izq": 40} pliega la puerta; las juntas dependientes (restricción de
-    riel) se resuelven solas. Así puedes VER un mecanismo en una pose sin moverlo
-    en el documento (read-only). Consulta las juntas con get_kinematics.
-    fit_ids encuadra la cámara en esas piezas (primer plano, el resto se sigue
-    dibujando); zoom>1 acerca; proportional=True muestra proporciones reales (en vez
-    del cubo) — recomendado para máquinas largas y bajas que si no salen aplastadas."""
+    documento. Combínalo con fit_ids (encuadra en esas piezas) y zoom>1 (acerca) para un primer
+    plano que llene el cuadro. (Prefiérelo a set_visibility, que sí muta el documento en vivo.)
+    highlight_ids resalta esos sólidos y atenúa el resto; show_axes dibuja los ejes del origen;
+    show_bbox la caja envolvente de lo resaltado. section ∈ {x,y,z} corta el modelo a la mitad de
+    ese eje para VER DENTRO (interferencias/encajes ocultos).
+    joint_values posa el mecanismo (CINEMÁTICA) antes de renderizar — p. ej. {"j_tensor_cola": 12};
+    las juntas dependientes (restricción de riel) se resuelven solas → ves una pose sin mover el
+    documento (read-only). Consulta las juntas con get_kinematics.
+    measure=[idA, idB] dibuja una COTA (línea + "X mm") del gap mínimo entre dos piezas SOBRE el
+    render → ves la medida, no la calculas (reusa la distancia OCCT, misma que el tool measure).
+    Combínalo con isolate/fit_ids/zoom/azimuth para encuadrar la zona a acotar.
+    edges (def. True) dibuja las aristas vivas (creases/borde) → separa visualmente piezas
+    adyacentes del MISMO color; ponlo False si quieres el sombreado liso sin líneas.
+    xray=true (rayos-X): en vez de ocultar/atenuar a gris lo no resaltado, lo deja TRANSLÚCIDO EN SU
+    COLOR para ver una pieza INTERNA en su contexto sin cortar (combínalo con highlight_ids: la pieza
+    resaltada sale sólida y el resto translúcido). El vidrio ya sale translúcido siempre (no gris).
+    labels=true rotula el id de cada pieza SOBRE el render (billboard VTK) → lees el id directo en la
+    imagen para identificar y editar (combínalo con isolate/fit_ids para no saturar con 80 etiquetas).
+    roll (grados) gira la cámara sobre su eje de visión (3.er GDL: endereza una pieza inclinada);
+    pan=[px,py] desplaza el encuadre en el plano de vista (fracción de la semialtura; +px→derecha,
+    +py→arriba) para centrar un detalle fuera del centro sin aislar. azimuth/elevation siguen siendo
+    la ÓRBITA (cualquier dirección); en proyección ortográfica la distancia del ojo no afecta, así que
+    azimuth+elevation+roll+zoom+fit/pan cubren toda la cámara de inspección."""
     params: dict = {
         "view": view,
         "show_axes": show_axes,
         "show_bbox": show_bbox,
         "zoom": zoom,
-        "proportional": str(proportional).lower(),
+        "shade": "true",      # VTK siempre sombreado a color
+        "vtk_only": "true",   # fuerza VTK; sin fallback a matplotlib (captura limpia garantizada)
     }
     if highlight_ids:
         params["highlight"] = ",".join(highlight_ids)
@@ -341,14 +355,24 @@ def render_view(
         params["isolate"] = ",".join(isolate)
     if joint_values:
         params["joints"] = json.dumps(joint_values)
-    if views:
-        params["views"] = ",".join(views)
-    if labels:
-        params["labels"] = "true"
     if section:
         params["section"] = section
-    if shaded:
-        params["shade"] = "true"
+    if azimuth is not None:
+        params["azimuth"] = azimuth
+    if elevation is not None:
+        params["elevation"] = elevation
+    if measure and len(measure) == 2:
+        params["measure"] = ",".join(measure)
+    if not edges:
+        params["edges"] = "false"   # default del endpoint es true
+    if xray:
+        params["xray"] = "true"
+    if labels:
+        params["labels"] = "true"
+    if roll:
+        params["roll"] = roll
+    if pan and len(pan) == 2:
+        params["pan"] = ",".join(str(x) for x in pan)
     response = _api("GET", "/api/render.png", params=params)
     return Image(data=response.content, format="png")
 
@@ -643,16 +667,37 @@ def pick_point(
     view: str = "iso",
     fit_ids: list[str] | None = None,
     zoom: float = 1.0,
-    proportional: bool = False,
+    azimuth: float | None = None,
+    elevation: float | None = None,
+    isolate: list[str] | None = None,
+    section: str | None = None,
+    roll: float = 0.0,
+    pan: list[float] | None = None,
 ) -> str:
-    """PÍXEL→3D: 'señala' un punto en un render. (u,v) son coordenadas NORMALIZADAS [0,1] de la
-    imagen (0,0 = arriba-izquierda). Devuelve la feature/cara cuyo centro proyectado queda más
-    cerca + su coordenada mundo (snap a geometría con la MISMA cámara del render `view`). Así
-    seleccionas/ubicas apuntando en vez de calcular coordenadas. Úsalo sobre render_view(labels=True).
-    Read-only."""
-    params: dict = {"u": u, "v": v, "view": view, "zoom": zoom, "proportional": str(proportional).lower()}
+    """PÍXEL→3D: 'señala' un punto en un render y obtén qué pieza/cara hay ahí. (u,v) son
+    coordenadas NORMALIZADAS [0,1] de la imagen (0,0 = arriba-izquierda). Devuelve la feature/cara
+    cuyo centro proyectado queda más cerca + su coordenada mundo (snap a geometría con la MISMA
+    cámara del render VTK). Así seleccionas/ubicas apuntando en vez de calcular coordenadas.
+    IMPORTANTE: pasa los MISMOS `view`/`azimuth`/`elevation`/`roll`/`pan`/`fit_ids`/`zoom` que usaste
+    en `render_view` para esa imagen → así el píxel coincide con lo que viste (incluido el ángulo
+    libre, el roll y el encuadre desplazado). Si renderizaste AISLADO o SECCIONADO, pasa también los
+    mismos `isolate`/`section`: el pick solo considerará ese subconjunto recortado igual que la foto
+    (coherencia render↔pick). Read-only."""
+    params: dict = {"u": u, "v": v, "view": view, "zoom": zoom}
     if fit_ids:
         params["fit"] = ",".join(fit_ids)
+    if azimuth is not None:
+        params["azimuth"] = azimuth
+    if elevation is not None:
+        params["elevation"] = elevation
+    if isolate:
+        params["isolate"] = ",".join(isolate)
+    if section:
+        params["section"] = section
+    if roll:
+        params["roll"] = roll
+    if pan and len(pan) == 2:
+        params["pan"] = ",".join(str(x) for x in pan)
     return json.dumps(_api("GET", "/api/pick", params=params).json(), ensure_ascii=False)
 
 

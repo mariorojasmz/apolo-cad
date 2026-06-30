@@ -9,7 +9,6 @@ import type { SoundnessOut, StabilityOut } from "../types";
    Read-only salvo declarar/borrar uniones (comandos ground/fasten persistidos). */
 
 export default function AssemblyPanel() {
-  const open = useStore((s) => s.bottomPanel === "ensamblaje");
   const selection = useStore((s) => s.selection);
   const select = useStore((s) => s.select);
   const features = useStore(selectFeatures);
@@ -39,14 +38,12 @@ export default function AssemblyPanel() {
   }, [features]);
 
   useEffect(() => {
-    if (open) void refreshConnectivity();
-    else {
+    void refreshConnectivity();
+    return () => {
       clearGravity();
       setStab(null);
-    }
-  }, [open, refreshConnectivity, clearGravity]);
-
-  if (!open) return null;
+    };
+  }, [refreshConnectivity, clearGravity]);
 
   const nGrounds = connectivity?.grounds.length ?? 0;
   const nFast = connectivity?.fasteners.length ?? 0;

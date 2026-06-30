@@ -136,7 +136,129 @@ cd ui ; npm run build             # bundle de la UI
   `render_view`) usa VTK cuando `shade` y NO hay `views`/`labels`; esos dos y cualquier fallo de VTK (sin
   contexto OpenGL) caen a matplotlib (try/except → fallback robusto, nunca 500). `proportional` se ignora en
   VTK (siempre proporciones reales). Tests `test_render_vtk.py` (se auto-saltan sin OpenGL). **Límite**: VTK
-  no cubre aún multivista ni etiquetas (siguen en matplotlib con la malla fina). **GOTCHA que costó depurar**:
+  no cubre aún multivista ni etiquetas (siguen en matplotlib con la malla fina).
+  **(2026-06-29) CÁMARA DE ÁNGULO LIBRE en `render_view` (`azimuth`/`elevation`)**: los 4 presets
+  (iso/frente/lateral/planta) no bastan para inspeccionar una cara/detalle en ángulo arbitrario (p. ej. el
+  `iso` mira casi a lo largo del eje de un rodillo → inútil). Ahora `render_view`/`/api/render.png` aceptan
+  `azimuth`/`elevation` (GRADOS, convención de `view_init` de matplotlib) que **anulan** el ángulo del preset
+  `view` (override PARCIAL: dar solo uno conserva el otro). Implementación de bajo coste porque AMBOS motores
+  ya piensan en `(elev, azim)`: NEW `render.py::resolve_angles(view, azimuth, elevation)` = fuente única que
+  parte de `VIEW_ANGLES[view]` y sustituye lo que se pase; la usan `apply_camera` (matplotlib) y
+  `render_scene_vtk` (VTK) → MISMO punto de vista en las dos vías. Threaded por `render_scene_png`/`_draw_view`,
+  `/api/render.png` (query `azimuth`/`elevation`) y el tool MCP `render_view`. Aplica a **vista única**; en
+  **multivista** (`views`) se ignora. **`pick` NO cambia** (los params son opcionales; al no pasarlos, usa el
+  preset → coherencia render↔pick intacta).
+  **(2026-06-29) `render_view` es VTK PURO** (decisión del usuario: que la captura limpia se encargue de TODO,
+  sin generar la imagen matplotlib con cuadrícula). El tool MCP `render_view` **perdió** `views`/`labels`/
+  `shaded`/`proportional` (cosas exclusivas de matplotlib o que VTK ignora) y ahora SIEMPRE envía `shade=true`
+  + el flag nuevo **`vtk_only=true`** del endpoint: exige VTK, ignora multivista/etiquetas y **no cae a
+  matplotlib** (sin OpenGL → **503 claro**, nunca una imagen con rejilla). El endpoint `/api/render.png`
+  CONSERVA matplotlib para el resto (fallback normal cuando `vtk_only` no se pide, multivista/labels por HTTP,
+  y la plomería interna que NO pasa por el endpoint: `pick` píxel→3D, GIFs de física en `physics/anim.py`, la
+  iso sombreada embebida en planos). O sea: matplotlib no se borró (es load-bearing) — solo se le cerró la
+  puerta al tool MCP. Combínalo con `isolate`/`fit_ids`/`zoom` para fotografiar una pieza de cerca desde
+  cualquier ángulo. Verificado: 526 tests (`resolve_angles` unit, VTK ≠ preset, multivista ignora az/el,
+  endpoint `vtk_only` 200/503) + e2e por HTTP sobre la faja (rodillo a `azimuth=-72/elevation=18` oblicuo
+  imposible con preset; `vtk_only=true` da VTK limpio y la multivista por HTTP sigue saliendo en matplotlib).
+  **Límite/follow-up**: [RESUELTO 2026-06-29 → roll/pan añadidos y labels portados a VTK; ver nota de "CÁMARA
+  MÁS LIBRE" abajo. Queda solo la MULTIVISTA en matplotlib, follow-up deliberado.]
+  **(2026-06-29) `pick_point` a ÁNGULO LIBRE** (cierra el lazo ver→identificar→editar): `pick_point`
+  (`kernel/pick.py`, píxel→pieza/cara por snap al candidato más cercano) ahora acepta `azimuth`/`elevation`
+  y, sobre todo, **proyecta como el render VTK** — antes usaba matplotlib en PERSPECTIVA + caja CÚBICA
+  (descuadraba el píxel vs lo que se ve). Fix: `ax.set_proj_type("ortho")` + `proportional=True` (proporciones
+  reales como VTK) + `figsize` con el aspecto de la ventana VTK (0.78) + reenvío de `azimuth`/`elevation` a
+  `apply_camera`/`resolve_angles`. Reusa la maquinaria de matplotlib (handedness ya probada por los tests) →
+  bajo riesgo. Plumbing: `/api/pick` y el tool MCP `pick_point` ganan `azimuth`/`elevation` y **pierden
+  `proportional`** (ahora siempre real, coherente con `render_view`). Uso: pasa al pick los MISMOS
+  `view`/`azimuth`/`elevation`/`fit_ids`/`zoom` del `render_view`. Verificado e2e por HTTP sobre la faja a
+  `azimuth=-120/elevation=20` (no-preset): pick(0.5,0.5) con fit en el motor → `c134` (guarda que lo envuelve,
+  la pieza al frente); pick en la zona de la banda → `c354` (mesa) → discrimina por posición y coincide con
+  la imagen. **Límite honesto**: consistencia APROXIMADA (matplotlib-orto vs VTK difieren en el margen de
+  encuadre/escala) — fiable para IDENTIFICAR la pieza/cara, no sub-píxel; exactitud total = follow-up con la
+  matriz de cámara VTK. `pick` aún no honra `isolate`/`section` (proyecta toda la escena; pasa los mismos
+  `fit_ids`). Sin OpenGL el render cae a matplotlib (persp+cubo) y el pick orto no casaría con esa imagen
+  degradada (borde raro). 528 tests (`test_pick.py`: separación a ángulo libre + dict válido).
+  **Reiniciar API + host MCP** (el host re-registra `render_view`/`pick_point` con la firma nueva — `render_view`
+  sin `views`/`labels`/`shaded`/`proportional` y `pick_point` sin `proportional`, ambos con `azimuth`/`elevation`;
+  la API en `--reload` ya sirve `azimuth`/`elevation`/`vtk_only`).
+  **(2026-06-29) MEDIR DESDE LA IMAGEN — cota sobre el render VTK** (cierra el "ver→medir"; el agente ya no
+  infiere dimensiones de bboxes): `render_view(measure=[idA, idB])` dibuja una COTA — línea + etiqueta "X mm"
+  del **gap mínimo OCCT** entre dos piezas — ENCIMA del render. Reusa `measure_distance` (que ya devuelve
+  `dist_mm`+`punto_a`/`punto_b`), sin geometría nueva. NEW `render_vtk.py::_dimension_actors(p1,p2,label,scale)`
+  (línea `vtkLineSource` + esferas en extremos + etiqueta `vtkBillboardTextActor3D` que siempre mira a la
+  cámara con fondo blanco para legibilidad). `render_scene_vtk(..., dimension={"p1","p2","label"})` la pinta en
+  una **2.ª capa de renderer** (`SetNumberOfLayers(2)`, `overlay.SetActiveCamera(cam)` comparte vista,
+  `PreserveColorBufferOn`+`PreserveDepthBufferOff`) → la cota se ve SIEMPRE encima, sin ocluirse, a cualquier
+  ángulo. El endpoint `/api/render.png` gana `measure="a,b"`: calcula `measure_distance` sobre las shapes
+  RENDERIZADAS (override si hay pose `joints`) y pasa la `dimension`; id inexistente → 404; **solo vía VTK**
+  (multivista/matplotlib lo ignoran). Tool MCP `render_view(measure=[idA,idB])`. Pillow NO se usó (es opcional);
+  todo VTK-nativo. Verificado e2e por HTTP sobre la faja: `measure=c412_rodillo,c413_rodillo` → cota "3692 mm"
+  a lo largo de la banda, encima de la geometría, valor == `/api/measure`. 530 tests (`test_render_vtk.py`
+  dimensión, `test_api.py` measure 200 + 404). **Límite/follow-up**: v1 = gap entre DOS piezas enteras; medir
+  contra una CARA (`face_a/face_b`, ya en `/api/measure`), centro-a-centro, cotas L×A×H de una pieza, y barra de
+  escala global = follow-ups. **Reiniciar host MCP** para `render_view` con `measure`.
+  **(2026-06-29) BORDES NÍTIDOS + PICK EXACTO** (2 follow-ups del motor VTK). **(a) Aristas de feature**:
+  NEW `render_vtk.py::_edges_actor(vertices, triangles)` (`vtkFeatureEdges`, ángulo 35° = creases+borde,
+  color casi negro, `SetResolveCoincidentTopologyToPolygonOffset` anti z-fighting). En el loop de mallas, por
+  pieza visible/resaltada, se añade su actor de aristas (NO en los fantasmas atenuados). Flag `edges` (def.
+  **True**) en `render_scene_vtk`/`/api/render.png`/`render_view` → separa visualmente piezas adyacentes del
+  MISMO color y da look técnico (como el web). Opt-out con `edges=False`. **(b) Pick EXACTO**: `pick_point`
+  dejó la proyección matplotlib-aproximada y ahora usa la **matriz de cámara VTK** (`_vtk_projector`:
+  `GetCompositeProjectionTransformMatrix` sobre la MISMA cámara que el render — `_setup_camera` extraído y
+  COMPARTIDO por render y pick). Es matriz pura: NO llama `Render()` → **sin contexto OpenGL** (verificado).
+  Si VTK no está, cae a matplotlib-orto (que coincide con el render-fallback de matplotlib). Plumbing: el bloque
+  de cámara de `render_scene_vtk` se extrajo a `_setup_camera(ren, bmins, bmaxs, *, view, azimuth, elevation,
+  zoom)`; `_H=0.78` (aspecto ventana) compartido. Verificado: pick del centro con fit en una pieza → su
+  centroide a **dist_norm 0.0** (sub-píxel exacto; antes el matplotlib-aprox erraba a la pieza vecina), y sigue
+  discriminando por posición. 532 tests (`test_render_vtk.py` edges-toggle, `test_pick.py` `_vtk_projector`
+  centra el bbox). e2e sobre la faja: aristas nítidas en las guardas/agujeros del motor; pick exacto. **Reiniciar
+  host MCP** para `render_view(edges=...)`.
+  **(2026-06-29) RAYOS-X / TRANSPARENCIA + VIDRIO + COHERENCIA isolate/section EN EL PICK** (2 follow-ups del
+  motor VTK). **(a) Rayos-X (`xray`, def. False) + vidrio**: hasta ahora lo no-resaltado salía gris opaco-fantasma
+  y el VIDRIO salía gris opaco (la puerta lo notaba, la faja no). Ahora `render_scene_vtk`/`/api/render.png`/
+  `render_view` aceptan `xray=True`: lo NO resaltado se vuelve translúcido EN SU COLOR (no gris, no oculto) →
+  ves una pieza INTERNA en su contexto sin cortar (con `highlight_ids`: la resaltada sólida, el resto translúcido
+  a color; sin highlight, TODO translúcido). El **vidrio sale SIEMPRE translúcido** (op 0.34) vía
+  `_is_glass(feat)` (material override o nombre `vidrio|cristal|glass|templado`, espejo del `isGlass` del web).
+  Cuando hay translucidez se activa **depth peeling** (`ren.SetUseDepthPeeling` + `rw.SetAlphaBitPlanes(1)` +
+  `SetMultiSamples(0)`) → transparencia orden-independiente CORRECTA (capas bien superpuestas); sin translucidez
+  se conserva MSAA 8. El peeling exige MSAA 0 → para no perder antialiasing en translúcidos se activa **FXAA**
+  (`ren.SetUseFXAA(True)`, AA de post-proceso screen-space) → bordes nítidos también en xray/vidrio (2026-06-29).
+  Las aristas (`edges`) se omiten en lo muy tenue (op ≤ 0.25). **OJO de uso**: el rayos-X solo es legible ACOTADO
+  (`isolate`/`highlight` a 2-3 piezas); con toda la escena translúcida los colores se mezclan en una sopa turbia
+  — para ENTENDER geometría, el default es render sólido + `isolate` (nítido) y `section` para ver dentro. **(b) Coherencia isolate/section en el `pick`**: `pick_point` ya no proyecta SIEMPRE toda la
+  escena; acepta `isolate`/`section` (cableados en `/api/pick` y el tool `pick_point`) y resuelve las shapes UNA
+  vez con `_resolved_shapes` (filtra a las piezas aisladas — forzando mostrarlas como el render aislado — y/o
+  recorta con `_clip_to_section` usando el MISMO centro que el render) → pasa los MISMOS `isolate`/`section`/`fit`/
+  `zoom`/`azimuth`/`elevation` del `render_view` y el píxel coincide con lo aislado/seccionado que ves. Verificado
+  e2e: rayos-X del motor (contexto translúcido a color, depth-peeling capando bien); vidrio de la puerta id 28
+  translúcido (se ve el travesaño de madera A TRAVÉS); pick aislado del motor c126 / vidrio c42 → `dist_norm 0.0`
+  (exacto), section devuelve pieza válida del corte. 538 tests (`test_render_vtk.py` xray/glass, `test_pick.py`
+  `_resolved_shapes`/isolate/section, `test_api.py` xray + pick honra isolate/section). **Reiniciar host MCP**
+  para `render_view(xray=...)` y `pick_point(isolate=,section=)`.
+  **(2026-06-29) CÁMARA MÁS LIBRE (roll/pan) + LABELS PORTADOS A VTK** (2 follow-ups del motor VTK). **(a)
+  Roll + pan**: `_setup_camera` (compartida render↔pick) gana `roll` (grados, gira sobre el eje de visión =
+  3.er GDL rotacional vía `cam.Roll`) y `pan=[px,py]` (desplaza el FOCO en el plano de vista, fracción de la
+  semialtura: +px→derecha, +py→arriba — en orto la distancia del ojo es irrelevante, así que pan ES la
+  'posición de cámara' lateral). Cableados en `render_scene_vtk`/`/api/render.png`/`render_view` y en
+  `_vtk_projector`/`pick_point`/`/api/pick` (mismo `_setup_camera` → el pick coincide con el roll/pan del
+  render). matplotlib (fallback sin OpenGL + multivista): `apply_camera` gana `roll` (`view_init(roll=)`, mpl
+  ≥3.6, try/except defensivo); `pan` es solo-VTK. NOTA arquitectura: azimuth/elevation YA son la ÓRBITA
+  (cualquier dirección sobre la esfera) → azimuth+elevation+roll+zoom+fit/pan cubren TODA la cámara de
+  inspección; una 'posición de ojo' arbitraria no añade nada en ortográfica (solo dirección+roll+escala+foco
+  importan), por eso NO se expuso un free-eye redundante. **(b) Labels en VTK** (re-expuestos en `render_view`,
+  ahora VTK-nativos = captura limpia, no la rejilla matplotlib que motivó quitarlos): `labels=True` rotula el
+  id de cada pieza con `_label_actor` (billboard post-it). **GOTCHA**: el billboard de texto en el renderer
+  PRINCIPAL crashea VTK off-screen (access violation en `Render()`); se pintan en la **capa overlay** (la misma
+  que la cota — `vtkBillboardTextActor3D` ahí sí funciona) → bonus: los rótulos nunca se ocluyen. El endpoint
+  ahora manda a VTK toda VISTA ÚNICA shaded/vtk_only INCLUIDOS labels (antes labels forzaba matplotlib); solo la
+  MULTIVISTA (`views`) sigue en matplotlib (`vtk_only`+`views` → 400 claro). **DECISIÓN multivista**: NO se
+  porta a VTK (no la echo en falta: ángulo libre + roll + varias llamadas + el sistema de `drawing` la cubren;
+  los viewports en mosaico añadirían complejidad/aspecto/coste de test por poco valor) — follow-up si hace
+  falta. 544 tests (`test_render_vtk.py` roll/pan/labels, `test_pick.py` `_vtk_projector` pan, `test_render_frame.py`
+  roll mpl, `test_api.py` labels/roll/pan + vtk_only+views→400). e2e sobre la faja: roll 25° (máquina ladeada),
+  pan (primer plano desplazado), labels (ids legibles sobre las piezas), pick con roll coherente. **Reiniciar
+  host MCP** para `render_view(labels=,roll=,pan=)` y `pick_point(roll=,pan=)`. **GOTCHA que costó depurar**:
   un `python.exe` huérfano (hijo de un uvicorn muerto) **retenía el handle del socket :8000** y servía código
   viejo → mis cambios "no aparecían" aunque el worker `--reload` recargara; se detecta con
   `Get-NetTCPConnection -LocalPort 8000` (el OwningProcess NO es el worker real) y se cura matando al huérfano
@@ -409,6 +531,19 @@ cd ui ; npm run build             # bundle de la UI
 
 ## Convenciones y lecciones aprendidas
 
+- **NOMBRES POR ROL, no por medida (convención, 2026-06-29)**. El nombre de una pieza describe su **ROL/función**
+  («Larguero (+Y)», «Travesaño inferior», «Pata», «Reductor»), **NUNCA una dimensión MUTABLE** (sección 80x40x3,
+  Ø50, 2mm…) que ya vive en la geometría/variables. Razón: el nombre que copia una cota la **duplica**, y al
+  reparametrizar (cambiar `sec_larg_w`, etc.) el nombre queda MINTIENDO sin que nadie lo note. La medida es un dato
+  DERIVADO: la UI del árbol la **muestra EN VIVO** (calculada del bbox), el BOM/lista-de-corte/planos la calculan de
+  la geometría — nadie la lee del nombre. **EXCEPCIÓN**: identificadores ESTABLES de placa/función que el sistema sí
+  lee y que NO cambian al reparametrizar — **grado de material** («A36», que `resolve_material` usa para inferir
+  acero) y **specs de nameplate** (motor «1.5HP 1750rpm», reductor «1:30») — pueden quedar en el nombre hasta que se
+  capturen como propiedad/variable (follow-up: `pot_motor_kW` variable + `set_material` por pieza para sacar A36 del
+  nombre). Al renombrar piezas estructurales para validación, conserva las palabras de ROL que lee el detector
+  (`larguero`/`travesaño`/`pata`/`motor`…) y el grado de material. **Árbol del modelo**: agrupa por ROL (no por
+  comando) — une piezas iguales creadas por comandos distintos (un travesaño suelto + un patrón de travesaños
+  iguales caían en grupos separados); y muestra la medida del bbox «L × A × H mm» en cada fila/grupo, siempre actual.
 - **OCCT no es thread-safe**: TODO acceso al documento pasa por `apolo.state.STATE_LOCK`
   (RLock). Notificar por WebSocket solo DESPUÉS de construir el payload.
 - Los tests no ejecutan el lifespan de FastAPI → no tocan la DB SQLite (`data/apolo.db`).
@@ -490,7 +625,7 @@ cd ui ; npm run build             # bundle de la UI
   junta. `POST /api/constraints/solve` (read-only) lo aplica en vivo (arrastre en la UI). La FK
   reutilizable de un punto vive en `robotics/pose.py::feature_location`.
 
-## Estado: V1·V2·V3·V4 COMPLETADAS + pulido post-V4 + FAJA DE BANDA + CATÁLOGO DE NORMAS (2026-06-15) + RESTRICCIÓN RIEL-CARRETE (A1·riel) + CATÁLOGO DE CARPINTERÍA + FIX VALIDACIÓN/INTERPENETRACIÓN + EBANISTERÍA + HERRAJE PULIDO + RENDER CON POSE (MCP) + MATES ÁNGULO/PARALELO + LOTE=1 REGENERATE + REGENERATE INCREMENTAL + MESH CACHEADO + VIDRIO TRANSLÚCIDO + HERRAJE PUERTA CORREDIZA REAL (U-100/D-100) (2026-06-17) + ERGONOMÍA MCP (retorno diff · edit PATCH · schema único · encuadre render) + PATTERN_GROUP (arrayar grupos, 36 comandos, 2026-06-23) + EDIT_BATCH + VARIABLES ON-CHANGE (ergonomía MCP, 2026-06-24) + AUTORÍA AGENTE-NATIVA: PERCEPCIÓN (multivista/etiquetas/sección) + MEDICIÓN + PÍXEL→3D + PREVIEW + INTENCIÓN (center_in/distribute) + N-GDL (add_constraint) (2026-06-24) + SISTEMA DE PLANOS PROFESIONAL A–G (cotas+normas · corte+nesting · detalle/cortes/rayado · cajetín+revisiones · juego de planos · DXF lineweight/PDF multipágina/A0-A4 · planos por INTENCIÓN · pulido de encuadre: escalas intermedias + globos en fila · DESPIECE ACOTADO POR PIEZA: tabla L×A×E + detalle de tabla con mortajas + cotas de montaje · PLAN PRO DE PLANOS COMPLETO 5/5 [juego completo · acota solo · herraje en lámina · explosionada · GD&T · fix layout iso/cajetín · COLOR tipo Inventor: iso sombreada] · PLANO DE ENSAMBLAJE PRO: norma en BOM/cédula · NOTAS DE MONTAJE · cotas de interfaz/pitch · cross-ref globo→hoja · MANUAL DE ENSAMBLAJE paso a paso [secuencia del log + render acumulado con highlight fantasma + cámara estable]) (48 tools · 39 comandos, 2026-06-24) · MATERIALES POLÍMEROS (pvc/caucho/carton, 2026-06-25) · VALIDACIÓN DE ENSAMBLAJE / SOUNDNESS (conectividad: ground/fasten + chequeo estático + autodetección, Fase 0+1; SIM DE GRAVEDAD de toda la máquina con casco convexo [gravity_test/exclude → "ver qué se cae"], Fase 2; UI panel "Montaje" [validar/gravedad] + CAÍDA ANIMADA EN EL VIEWPORT 3D [mallas reales, no GIF] + UNIONES DECLARADAS + PRUEBA EXACTA [auto-declarado por grafo de soporte dirigido; tools MCP declare_structure/get_connections/delete_connection], Fase 3; 2026-06-26 → 54 tools · 41 comandos) · RENDER VTK (sombreado suave como el web, anti-rayas) + ISOLATE en render_view (sin mutar doc, fuerza-mostrar) (2026-06-26) · SUPER-COMANDO `create_take_up` (tensor de cola trotadora: rodillo+rodamientos+seeger+eje fijo+perno pasante; componentes SEPARADOS+mapeados [soporte C + PERNO-Mxx]) + SUPER-COMANDO `create_drive_roller` (rodillo motriz: take-up un lado + eje largo Ø35 al reductor; reusa helpers de take_up.py, 43 comandos, 2026-06-27) · TENSOR REAL de tornillo (perno horizontal que atraviesa el eje roscado + soporte C de una pieza soldado al larguero; `dir_tensor`) + doc de montaje en los rodillos, instalados Ø35 en faja-paqueteria-4m (2026-06-27) · 527 tests · catálogo 191 refs
+## Estado: V1·V2·V3·V4 COMPLETADAS + pulido post-V4 + FAJA DE BANDA + CATÁLOGO DE NORMAS (2026-06-15) + RESTRICCIÓN RIEL-CARRETE (A1·riel) + CATÁLOGO DE CARPINTERÍA + FIX VALIDACIÓN/INTERPENETRACIÓN + EBANISTERÍA + HERRAJE PULIDO + RENDER CON POSE (MCP) + MATES ÁNGULO/PARALELO + LOTE=1 REGENERATE + REGENERATE INCREMENTAL + MESH CACHEADO + VIDRIO TRANSLÚCIDO + HERRAJE PUERTA CORREDIZA REAL (U-100/D-100) (2026-06-17) + ERGONOMÍA MCP (retorno diff · edit PATCH · schema único · encuadre render) + PATTERN_GROUP (arrayar grupos, 36 comandos, 2026-06-23) + EDIT_BATCH + VARIABLES ON-CHANGE (ergonomía MCP, 2026-06-24) + AUTORÍA AGENTE-NATIVA: PERCEPCIÓN (multivista/etiquetas/sección) + MEDICIÓN + PÍXEL→3D + PREVIEW + INTENCIÓN (center_in/distribute) + N-GDL (add_constraint) (2026-06-24) + SISTEMA DE PLANOS PROFESIONAL A–G (cotas+normas · corte+nesting · detalle/cortes/rayado · cajetín+revisiones · juego de planos · DXF lineweight/PDF multipágina/A0-A4 · planos por INTENCIÓN · pulido de encuadre: escalas intermedias + globos en fila · DESPIECE ACOTADO POR PIEZA: tabla L×A×E + detalle de tabla con mortajas + cotas de montaje · PLAN PRO DE PLANOS COMPLETO 5/5 [juego completo · acota solo · herraje en lámina · explosionada · GD&T · fix layout iso/cajetín · COLOR tipo Inventor: iso sombreada] · PLANO DE ENSAMBLAJE PRO: norma en BOM/cédula · NOTAS DE MONTAJE · cotas de interfaz/pitch · cross-ref globo→hoja · MANUAL DE ENSAMBLAJE paso a paso [secuencia del log + render acumulado con highlight fantasma + cámara estable]) (48 tools · 39 comandos, 2026-06-24) · MATERIALES POLÍMEROS (pvc/caucho/carton, 2026-06-25) · VALIDACIÓN DE ENSAMBLAJE / SOUNDNESS (conectividad: ground/fasten + chequeo estático + autodetección, Fase 0+1; SIM DE GRAVEDAD de toda la máquina con casco convexo [gravity_test/exclude → "ver qué se cae"], Fase 2; UI panel "Montaje" [validar/gravedad] + CAÍDA ANIMADA EN EL VIEWPORT 3D [mallas reales, no GIF] + UNIONES DECLARADAS + PRUEBA EXACTA [auto-declarado por grafo de soporte dirigido; tools MCP declare_structure/get_connections/delete_connection], Fase 3; 2026-06-26 → 54 tools · 41 comandos) · RENDER VTK (sombreado suave como el web, anti-rayas) + ISOLATE en render_view (sin mutar doc, fuerza-mostrar) (2026-06-26) · SUPER-COMANDO `create_take_up` (tensor de cola trotadora: rodillo+rodamientos+seeger+eje fijo+perno pasante; componentes SEPARADOS+mapeados [soporte C + PERNO-Mxx]) + SUPER-COMANDO `create_drive_roller` (rodillo motriz: take-up un lado + eje largo Ø35 al reductor; reusa helpers de take_up.py, 43 comandos, 2026-06-27) · TENSOR REAL de tornillo (perno horizontal que atraviesa el eje roscado + soporte C de una pieza soldado al larguero; `dir_tensor`) + doc de montaje en los rodillos, instalados Ø35 en faja-paqueteria-4m (2026-06-27) · PERNO TENSOR ALLEN (socket_cap DIN 912) + CINEMÁTICA DEL TENSADO (junta prismática j_tensor_cola) (2026-06-27) · ESTUDIOS DE MOVIMIENTO CON NOMBRE (varias cinemáticas reproducibles por separado: Document.motion dict[str,list]; UI chips por estudio con ▶ propio + lista de juntas con scroll acotado; migración lista→dict; faja id 38 con «Levantar mesa» + «Tensar cola») (2026-06-28) · ÁRBOL DEL MODELO REDISEÑADO (filas 1 línea + buscador + iconos lucide + acciones al hover + agrupación por subsistema) + SCROLLBARS TEMÁTICOS + SISTEMA DE VENTANAS ACOPLABLES estilo VS 2022 (Dockview 7: acoplar/redimensionar/pestañas/persistencia; viewport centro fijo bloqueado) (solo-frontend, 2026-06-29) · CÁMARA DE ÁNGULO LIBRE en render_view (azimuth/elevation) + render_view VTK PURO (vtk_only, sin captura matplotlib por MCP) + pick_point a ÁNGULO LIBRE (orto+real como VTK) + COTA SOBRE EL RENDER (render_view measure=[a,b] dibuja línea+«X mm» del gap OCCT en capa overlay) + BORDES NÍTIDOS (aristas de feature, def. on) + PICK EXACTO (matriz de cámara VTK, sub-píxel) + RAYOS-X/TRANSPARENCIA (xray: contexto translúcido a color, depth-peeling) + VIDRIO TRANSLÚCIDO EN VTK + COHERENCIA isolate/section EN EL PICK + CÁMARA MÁS LIBRE (roll + pan, render↔pick) + LABELS PORTADOS A VTK (billboard en capa overlay) (2026-06-29) · VALIDACIÓN DE INGENIERÍA UNIVERSAL DE LA FAJA (detect_conveyor enriquecido por VARIABLES del proyecto + nombres: reconoce motor/tambor/rpm/eje a-medida; chequeos estructurales NUEVOS: flecha del bastidor [viga 5wL⁴/384EI vs L/250] + flexión del eje; library/structural.py + materials E/σy; 10/10 reglas OK en faja id 38) (2026-06-29) · TRANSMISIÓN POR FAJA DE POTENCIA (builder v_pulley = polea en V/sheave sección A/B + familia POLEA-V comercial, catálogo 191→197; faja id 38 convertida de acople directo a faja en V: motorreductor reubicado abajo+outboard a C=260mm, 2 poleas Ø110 1:1 [conserva 0.348 m/s], lazo de faja vertical + guarda envolvente, eje de salida; 0 colisiones nuevas) (2026-06-29) · 551 tests · catálogo 197 refs
 
 > **Resumen vivo**: V1+V2 (12 fases, abajo) ✅ · V3 (7 bloques, diseño de máquina pro) ✅ · V4
 > (T1·T2·V2·V1·G1·G2·G3·F1·F1·A, sistema) ✅. **Pulido post-V4**: lavado de cara UI (ribbon + lucide),
@@ -609,8 +744,28 @@ y refactorizó el motor a regeneración incremental, todo por API.
 > +`joint_pairs`). API `GET/PUT /api/motion`, `POST /api/motion/scan`. UI: sección **Animación**
 > dentro de KinematicsPanel (capturar fotograma desde los sliders, lista, ▶ Reproducir con bucle
 > `requestAnimationFrame` que interpola y hace `setJointValues` bulk, 💥 Comprobar recorrido).
-> 218 tests. **Follow-up**: easing, exportar vídeo/GIF, multi-estudio, física/gravedad
+> 218 tests. **Follow-up**: easing, exportar vídeo/GIF, ~~multi-estudio~~ ✅ (2026-06-28), física/gravedad
 > (vía export URDF→PyBullet).
+>
+> **Bloque #6·multi-estudio ✅ (2026-06-28). Estudios de movimiento CON NOMBRE.** A raíz de que la faja
+> `faja-paqueteria-4m` (id 38) tiene ya DOS mecanismos con juntas (la **mesa que se levanta** + el **tensor
+> del rodillo de cola** `j_tensor_cola`) pero el sistema solo soportaba UN motion study (`Document.motion`
+> era una lista única) → el usuario veía un solo «▶ Reproducir» enterrado que siempre animaba la mesa, sin
+> poder reproducir las cinemáticas por separado. `Document.motion` pasó de `list[dict]` a **`dict[str,
+> list[dict]]`** (nombre→fotogramas); `set_motion(name, keyframes)` (lista vacía → borra) + `delete_motion(name)`;
+> **migración** en `from_apolo_bytes` (lista vieja → `{"Estudio 1": [...]}`, cubre SQLite/revisiones/.apolo).
+> API: `GET /api/motion`→`{studies:[{name,keyframes,duration}]}`, `PUT {name,keyframes}`, `DELETE {name}`,
+> `POST /api/motion/scan {name,steps}`. `robotics/motion.py` SIN cambios (sigue tomando una lista). UI
+> (`KinematicsPanel.tsx`): la sección «Animación» única se volvió **«Estudios de movimiento»** con una fila de
+> **chips** (uno por estudio: nombre · nº fotogramas · **▶ propio** · ✕) + «➕ Nuevo estudio» (borrador hasta
+> capturar el 1.er fotograma); el editor (capturar/borrar fotograma, 💥 comprobar recorrido) opera sobre el
+> **estudio activo**; el bucle `requestAnimationFrame` usa los keyframes del estudio que se reproduce
+> (`playingStudy`). **Fix de layout** (causa de «único botón que alcanzo a ver»): la lista de juntas `.kin-grid`
+> va en `.kin-joints` con **altura acotada + scroll** (max-height 240px) → los controles de Estudios quedan
+> siempre a la vista. El «estudio activo» es estado de UI (no se persiste cuál); los estudios sí. 520 tests
+> (`test_motion.py`: named studies + migración lista→dict). En la faja id 38 quedan creados **«Levantar mesa»**
+> (4 fotogramas, mesa) y **«Tensar cola»** (`j_tensor_cola` 0→12). Solo-UI+API aditivo → `cd ui; npm run build`
+> + recargar; el `--reload` de la API ya sirve los endpoints nuevos.
 >
 > **Bloque #5 ✅ (2026-06-13). Soldadura / weldments.** Comando `create_weldment` (super-comando
 > tipo conveyor, categoría biblioteca): bastidor rectangular ancho×fondo×alto + perfil del
@@ -735,7 +890,7 @@ y refactorizó el motor a regeneración incremental, todo por API.
     en vivo al arrastrar el driver (throttle 40 ms). Verificado: 0.000 mm fuera del riel de 0→60° (tope del
     mecanismo a ~62°). 332 tests (`tests/test_constraints.py`). **Follow-up**: multi-restricción/N-GDL,
     solver de lazo genérico, editor visual de restricciones.
-- **A2 · Motion study**: easing, exportar vídeo/GIF, multi-estudio. `[follow-up B6]`
+- **A2 · Motion study**: easing, exportar vídeo/GIF, ~~multi-estudio~~ ✅ (2026-06-28, estudios con nombre). `[follow-up B6]`
 
 ## Validación / ingeniería (analítico, barato)
 
@@ -750,6 +905,110 @@ y refactorizó el motor a regeneración incremental, todo por API.
   Fallback `_conveyor_params_from_doc → detect_conveyor` en `/api/checks` y el agente. 267 tests.
   Verificado por MCP en la faja con mesa: detecta y avisa 15 m/min vs 20 objetivo (el diagnóstico
   que antes era manual). **Follow-up**: deflexión de viga del bastidor, voladizo de tambores.
+  - **Validación de ingeniería UNIVERSAL — enriquecida por VARIABLES + chequeos estructurales (2026-06-29)**.
+    A raíz de que la faja real `faja-paqueteria-4m` (id 38) está HECHA A MANO (motor/tambor/eje a-medida,
+    `component=null`) y `detect_conveyor` solo miraba specs de catálogo → caía a `_detect_by_name` y perdía
+    motor/rpm/Ø-tambor/par. Ahora `detect_conveyor(scene, variables)` y `_detect_by_name(scene, variables)`
+    pasan por **`_enrich_conveyor`**, que RELLENA lo que falta con las **variables del proyecto** y los
+    nombres: `tambor_d` (var `diam_tambor` o el mayor cilindro rodillo/tambor/polea), `rpm_motor` (var
+    `rpm_salida`, o `rpm_motor/ratio_red`), **motor a-medida** (`motor="documento"` + potencia parseada del
+    nombre — entre candidatos motor/reductor toma el de mayor HP/kW legible, así el "Motor 1.5HP" gana al
+    "Reductor 1:30" sin potencia → `motor_kW`; deriva `torque_Nm`=P·η/ω), `eje_d` (var `diam_eje` o Ø del
+    nombre), y **`frame`** (`_frame_from_scene`: sección del larguero [ancho Y × alto Z, pared de `esp_larg`/
+    nombre], material vía `resolve_material`, **vano** = mayor hueco entre patas, longitud, y peso transportado
+    de banda+mesa+estructura por volumen×densidad). 2 chequeos nuevos en `conveyor_engineering_check`:
+    **flecha del bastidor** (larguero = viga simplemente apoyada, carga repartida `5wL⁴/384EI`, admisible
+    L/250) y **flexión del eje** del tambor (`σ=32·(F·L/4)/πd³`, carga radial ≈ 2× fuerza de arrastre, admisible
+    σy/2 — estimación). NEW `library/structural.py` (puro: `rect_tube_inertia_mm4`, `beam_udl_deflection_mm`,
+    `shaft_bending_stress_mpa`) + `materials.py` gana `young_modulus`/`yield_strength` (E y σy por material,
+    reusan `_norm`). La motorización acepta el motor a-medida (`motor_kW`, sin `CATALOG["documento"]`). Cableado:
+    `/api/checks` y el tool del agente pasan `DOC.variables_resolved` a `detect_conveyor`. 551 tests
+    (`test_structural.py`, `test_validation.py`: enriquecido por vars / chequeos estructurales / flecha-error).
+    **Verificado e2e en la faja id 38**: las 10 reglas OK — velocidad 0.348 m/s, motor 1.119 kW (del "1.5HP"),
+    par 155.7 N·m ≥ 7.5, **flecha 0.21 mm ≪ 6.41 admisible** (vano 1603 mm, tubo 40×80×3 acero), eje Ø30 a 17 MPa
+    ≪ 125. **Límite honesto**: la flexión del eje es estimación (carga radial aproximada, apoyo ≈ ancho); el
+    voladizo REAL del eje motriz (cantilever al reductor) y leer densidad/material del catálogo (no por nombre)
+    quedan de follow-up. Las variables se identifican por nombre convencional (`diam_tambor`, `rpm_salida`…) — el
+    super-comando y las fajas del agente los usan; degrada con elegancia si faltan.
+  - **Transmisión por FAJA DE POTENCIA (poleas en V) + conversión de la faja id 38 (2026-06-29)**. A pedido del
+    usuario, la faja pasó de **motorreductor de acople DIRECTO al eje** a **transmisión por faja en V con 2 poleas**.
+    **Catálogo**: builder NEW `builders.py::v_pulley` (polea en V/sheave = disco con N canales trapezoidales en V por
+    revolución + taladro; sección A `groove_top≈13/pitch15`, B `≈17/19`) + familia YAML `POLEA-V` en `85_transmision.yaml`
+    (6 refs comerciales sección A/B, Ø en pulgadas, ISO 4183) → **catálogo 191→197**. La FAJA en V no es ítem de
+    catálogo (consumible cortado a medida): se modela como **lazo racetrack** (run_script) entre los 2 centros.
+    **Diseño (buenas prácticas)**: poleas Ø110 (sección B) **1:1** (el reductor sigue reduciendo → conserva 0.348 m/s;
+    la faja solo TRANSMITE y desplaza el reductor fuera del eje); **distancia entre centros C=260 mm** (≈2.4·Ø, dentro
+    del rango V-belt); motorreductor reubicado **abajo (−260 Z) y outboard (+Y)** para que su eje de salida alinee con
+    la polea conducida sin chocar larguero/bastidor; faja VERTICAL; **guarda envolvente** (shell) sobre poleas+faja;
+    eje de salida Ø28 conectando reductor→polea motriz. **Cirugía MCP** sobre id 38 (event-sourced, paramétrico):
+    `edit_batch` bajó el conjunto (reductor c124 + barreno c125 del eje-hueco + motor c126 + bornes c127 + cubierta
+    c128, todos anclados a `drum_cz`/`larg_inner_y`); `set_visibility_bulk` ocultó lo obsoleto del acople directo
+    (brazo de torque c129 + guardas c134/c140/c143 → la guarda de faja las reemplaza); `run_batch` insertó las 2 poleas
+    (`POLEA-VB-4`) + faja + guarda; `create_cylinder` el eje de salida. Verificado: render lateral (faja vertical entre
+    poleas) + rayos-X 3/4 (conjunto con guarda) + `check_interference` → **0 colisiones nuevas** (lo que sale es
+    intencional: motor↔reductor acople preexistente, faja↔poleas asiento, eje↔guarda paso). **LECCIONES**: (1) **añadir
+    YAML nuevo NO recarga el worker** (uvicorn `--reload` vigila `.py`, no `.yaml`) → tras editar el YAML hay que tocar
+    un `.py` para forzar la recarga del catálogo, si no `insert_component` da "componente desconocido". (2) Reubicar un
+    sub-conjunto hecho a mano **cascada por sus dependencias acopladas**: mover el reductor rompió el `drill_hole` c125
+    (eje hueco) a coords fijas → incluirlo en el mismo `edit_batch`. (3) Las ediciones por API se autoguardan en SQLite
+    → tras la recarga del worker, `open_project(38)` restaura la cirugía. **Follow-ups**: borrar (no solo ocultar) las 4
+    piezas obsoletas con `/api/commands/remove`; base regulable real para tensar; renombrar el eje c413 («largo al
+    reductor» ya no aplica); engineering_check podría validar la relación de poleas/longitud de faja.
+    **Retoques tras revisión del usuario (2026-06-29)**: (a) **guardas obsoletas BORRADAS** (no solo ocultas):
+    el brazo de torque + las 3 guardas del acople directo eran booleanas con **barrenos y fijadores
+    auto-declarados** colgando → borrar el sub-grafo COMPLETO requirió primero `DELETE /api/fasteners/{name}`
+    de los 15 fijadores que las referenciaban, luego `/api/commands/remove` de las 13 (cajas+cortes+barrenos+
+    booleanas); quedó SOLO la guarda de faja. (b) **El motorreductor flotaba** (relocado sin apoyo). 1.er intento = bancada de
+    4 patas al PISO → el usuario lo corrigió con una foto de referencia: el soporte NO va FUERA del bastidor en
+    el piso, va **colgado del propio bastidor**. Fix final: **ménsula de motor atornillada al larguero** (placa
+    vertical bolted al larguero +Y + repisa horizontal bajo el motorreductor); `fasten` ménsula↔larguero (soldadura)
+    + reductor/motor↔ménsula (perno) → el conjunto se sujeta por la ménsula→larguero→patas→piso. `gravity_test`
+    pasó de **6 caídas a 0** («todo sujeto a tierra»). De paso se declararon las uniones de los **rodillos de
+    retorno** (ménsula↔larguero soldada + rodillo↔ménsula con perno) que el grafo dirigido no ancla por «colgar»,
+    y se borró un fijador OBSOLETO reductor↔eje-del-tambor (del acople directo, ya no aplica con la faja).
+    **Nota mecánica**: en transmisión por faja la polea va por FUERA del rodamiento (correcto), así que el motor
+    queda al costado del extremo motriz — pero **soportado por la ménsula del bastidor**, no por patas propias.
+    **REDISEÑO PROFESIONAL del accionamiento (2026-06-29)**: el usuario rechazó (con foto de referencia) los
+    soportes pobres («apenas pegan, colisionan, sin ingeniería ni estética») y pidió la disposición real: **motor
+    DEBAJO de la mesa, dentro del bastidor, y faja de potencia en DIAGONAL**. Rehecho: (1) motorreductor reubicado
+    **transversal bajo la mesa** (eje a lo largo de Y, a `x≈3340` para librar la pata de cabecera, `z≈585` bajo la
+    banda de retorno), corrido a `y≈155-410` para librar la línea de postes; (2) **faja en V DIAGONAL** (~30°) —
+    el `run_script` del lazo pasó de vertical a un **racetrack orientado**: 2 cilindros en los centros + un `Box`
+    girado `Rotation(0,-ang,0)` sobre el eje de la línea (`ang=atan2(Δz,Δx)`); ambas poleas en el plano `y=555`
+    (por fuera del rodamiento); (3) **guarda diagonal** (shell `Box` orientado con el mismo ángulo, sigue la faja);
+    (4) **sub-bastidor de motor REAL** (run_script `Sub-bastidor de motor (cuna)`): **4 postes** que cuelgan de los
+    largueros + **2 travesaños** + **placa base** = cuna rígida y simétrica bajo la mesa (reemplaza la ménsula que
+    apenas tocaba); `fasten` postes↔largueros (soldadura) + reductor/motor↔cuna (perno). Verificado:
+    `check_interference` → **0 colisiones del soporte** (lo que sale es interno del motorreductor —acople/cubierta/
+    bornes— y la faja asentando en las poleas, intencional); `gravity_test` → **0 caídas** (la cuna→largueros→patas→
+    piso). **Lección de diseño**: para un accionamiento creíble, el motor va bajo la cama con la faja en diagonal y
+    un sub-bastidor que cuelga de AMBOS largueros (no una ménsula a un lado); el racetrack de la faja debe
+    orientarse al ángulo real de la línea de centros, no asumir vertical/horizontal.
+    **Afinado por revisión del usuario (2026-06-29)**: (a) el motor estaba lejos del tambor (lado mid-span de la
+    pata de cabecera) → reubicado al OTRO lado de la pata, **junto al rodillo motriz** (`x3340→3650`, faja más
+    corta C≈258 mm); el sub-bastidor se reconstruyó con los postes librando el eje de salida y el tambor (colisión
+    eje↔poste de 3237 mm³ eliminada). (b) **patas más gruesas**: `sec_pata 50→63.5` (HSS 2.5″, `esp_pata 3`) — elegí
+    2.5″ sobre 3″ como ingeniero porque 3″ obligaba a placas base de 150 (la de 120 fue dimensionada para 2″) y
+    apretaba el motor contra el tambor; a 2.5″ el roce pata↔arandela de anclaje queda en **5.2 mm³** (contacto
+    despreciable, no interpenetración). 0 colisiones del soporte, `gravity_test` 0 caídas. **Lección**: engrosar un
+    miembro cascada a su herraje (las patas a las arandelas de anclaje) y a las holguras vecinas (el motor a la pata/
+    tambor) — hay que reposicionar en consecuencia, no solo cambiar la sección. **Follow-up**: placas base a 150 +
+    pernos recolocados para patas ≥3″; base regulable (rieles ranurados) en la cuna para tensar la faja.
+    **Patas 3″ + PIES NIVELADORES (2026-06-29)**: el usuario pidió patas de 3″ y reguladores de altura en la base.
+    Truco de ingeniería que evitó el rework de placas/pernos: en vez de pelear con la placa de 120 vs la pata de
+    76, **elevé la base de la pata 60 mm** (`pata_alto = larg_bot - placa_thk - 60`, `pata_cz = placa_thk + 60 +
+    pata_alto/2`) y metí el **pie nivelador** en ese hueco (run_script `Pies niveladores`: vástago roscado Ø24 +
+    tuerca de regulación hexagonal + contratuerca por pata, `RegularPolygon(22,6)` extruido). Al elevar la pata,
+    su base (z70) queda POR ENCIMA de los pernos de anclaje (z≤30) → el roce pata↔perno de 419 mm³ **desaparece**
+    sin tocar las placas ni los pernos. La altura de trabajo no cambia (el tope de la pata sigue en `larg_bot`; el
+    pie absorbe el ajuste). `fasten` pie↔placa (perno) + pie↔pata (perno) ×6; `gravity_test` 0 caídas (83/83).
+    **Lección**: a veces el fix elegante NO es modificar lo que estorba (placa/pernos) sino **reposicionar** la
+    pieza (elevarla sobre el componente nuevo) para que el conflicto se disuelva — y de paso añade la función
+    pedida (regulación de altura). (c) **Largueros a HSS
+    4″×2″** (101.6×50.8×3, medida comercial Perú): editar las variables `sec_larg_w`/`sec_larg_h` (80/40→101.6/
+    50.8) cascadeó limpio — el larguero crece hacia abajo, las patas se acortan (734 mm) y la altura de trabajo
+    (mesa 846-848) queda intacta. **Lección**: borrar piezas auto-declaradas exige limpiar antes sus fijadores;
+    una pieza relocada necesita su propio apoyo declarado para no «caer» en la prueba de gravedad.
 - **V2 ✅ (2026-06-15) · Catálogo ampliado** (data-driven): +4 builders en `library/builders.py`
   (`pillow_block`, `endstop`, `leveling_foot`, `tensioner`) + 4 familias YAML
   (`95_chumaceras`, `96_topes`, `97_pies_niveladores`, familia TENSOR en `85_transmision`) → 12
@@ -904,6 +1163,93 @@ y refactorizó el motor a regeneración incremental, todo por API.
   "Comprobando…" + viewport-busy en Validar (read-only), "Generando plano…" en Planos, skeleton en BOM, overlay
   "Abriendo proyecto…" al abrir proyecto, y el contador SIEMPRE vuelve a 0 (idle limpio, 0 errores de consola).
   Build verde (tsc+vite). **Solo frontend** → rebuild de la UI (`npm run build`) y recargar; sin reiniciar API/MCP.
+
+- **UI·Árbol del modelo rediseñado ✅ (2026-06-29)** (a raíz de «¿se puede mejorar el árbol del modelo?», como
+  experto UX). El árbol (`panels/Tree.tsx`) tenía 4 problemas: nombres que **envolvían a 2–3 líneas** (con 82
+  sólidos se veían ~10), el dato repetido (`50x50x2 A36`) dominaba y enterraba lo distintivo, **sin buscador**,
+  agrupación **solo por comando** (plana), ojo emoji (`👁`/`—`) y la columna `cN` como ruido. Rediseño **solo-frontend
+  aditivo**: (1) **filas de una línea** con ellipsis + tooltip de nombre completo (~3× más piezas visibles); (2)
+  **buscador** arriba (filtra por nombre/id/referencia, auto-expande coincidencias); (3) **iconos lucide**
+  consistentes (`Eye`/`EyeOff`, icono por tipo vía `iconFor`, icono por subsistema); (4) **acciones al hover**
+  (Enfocar/Aislar/Eliminar) en vez del único «borrar» fijo; (5) **`cN` tenue** (solo al pasar el cursor); (6) los
+  **hijos de un grupo muestran solo el sufijo** distintivo «(2)/(3)…» (la base va en la cabecera). **Agrupación por
+  SUBSISTEMA** en 2 niveles (subsistema → grupo de comando → piezas): el subsistema de cada grupo se deriva, en
+  orden, de (a) **super-comando** (`CMD2SUB`: take_up/drive_roller→Rodillos, weldment/frame→Estructura), (b)
+  **categoría de catálogo** (`CAT2SUB`, voto dominante; usa el `catalog` ya cargado en el store), (c) **palabra
+  clave del NOMBRE** (`NAME2SUB` regex: pata/larguero/travesaño→Estructura, rodillo/tambor/eje→Rodillos,
+  motor/reductor→Transmisión, banda/mesa→Banda y mesa, perno/tornillo/`\bm\d`→Tornillería, etc.) — **clave para
+  máquinas hechas a MANO** (esta faja: 64/82 piezas sin `component` de catálogo → antes todo caía en «A medida»), y
+  (d) como último recurso el **primer token** del nombre (bucket dinámico auto-nombrado). Orden de render: ORDER
+  fijo conocido → buckets dinámicos (por nº de piezas) → «A medida»/«Otros» al final. Verificado e2e en `ui-preview`
+  (build prod, StrictMode-safe) sobre la faja id 38: distribución sensata (Estructura 22 · Transmisión 5 · Rodillos
+  24 · Banda y mesa 7 · Tornillería 21 · Guardas 1 · «Caja»/«Brazo» dinámicos 1+1 = 82), buscador «tensor»→11,
+  acciones de fila presentes, 0 errores de consola. CSS nuevo en `styles.css` (`.tree-search`/`.sub-head`/
+  `.count-badge`/`.row-actions`/`.lvl1`/`.lvl2`/`.fid` tenue). **Límite honesto**: la clasificación por nombre es
+  heurística (regex de palabras clave); piezas mal nombradas caen a un bucket por su 1.er token o a «A medida».
+  **Colapsar todo (2026-06-29)**: botón `ChevronsDownUp` en la cabecera del árbol (`collapseAll`) que pliega de UNA
+  vez TODOS los nodos (subsistemas + grupos de comando: añade todos los `sub:`/`cmd:` keys al set `collapsed`) → deja
+  solo la lista de subsistemas; se deshabilita cuando ya está todo colapsado (feedback) y se rehabilita al expandir
+  algo. Solo colapsar (no hay expand-all, a pedido del usuario). **Solo
+  frontend** → `cd ui; npm run build` + recargar; sin reiniciar API/MCP. **Follow-up**: sección «Uniones ·
+  cinemática» (juntas/mates/fasteners/grounds) como nodo del árbol + navegación por teclado (era el tier 3 del plan).
+
+- **UI·Scrollbars temáticos + árbol redimensionable ✅ (2026-06-29, Fase 1)** (a raíz de «los scroll bar son feos,
+  no combinan; quita el horizontal del árbol y deja redimensionar ese lado»). Solo-frontend. (1) **Scrollbars
+  finos integrados** (antes TODAS nativas): `::-webkit-scrollbar` (thumb `--panel3`→`--muted` al hover, track
+  transparente, 10px) + `scrollbar-width:thin; scrollbar-color` (Firefox), globales en `styles.css`. (2) **Sin barra
+  horizontal en el árbol**: `.tree { overflow: hidden auto }` (y `.kin-joints`) — causa raíz: con `overflow-y:auto`
+  el otro eje (`visible`) se computa `auto` por spec → cualquier desborde sub-píxel sacaba la barra. (3) **Árbol
+  redimensionable por el borde**: nuevo `panels/Workspace.tsx` con `useSplitter({axis:"x", storageKey:"apolo.tree.w"})`
+  (mismo patrón que RightDock/BottomDock) → columna `--tree-w` en `.workspace` + `SplitHandle`. *Nota*: la Fase 2
+  (Dockview) sustituyó este `Workspace`/splitter manual, pero los scrollbars y el `overflow` son permanentes.
+
+- **UI·Sistema de ventanas acoplables estilo VS 2022 (Dockview) ✅ (2026-06-29, Fase 2)** (a raíz de «como VS 2022:
+  acoplar paneles en varios lados, redimensionar por borde, mover, pestañas»; investigado en web). Motor: **`dockview-react`
+  7.0.2** (MIT, cero deps de terceros, tema por CSS vars) — elegido sobre rc-dock/react-mosaic/flexlayout tras
+  comparativa (cobertura VS + licencia + mantenimiento). Alcance de esta iteración: **acoplar + redimensionar +
+  pestañas + persistencia** (sin flotantes ni auto-hide; Dockview los soporta → follow-up). Arquitectura:
+  - NEW `dock/DockShell.tsx`: `<DockviewReact>` ocupa la fila workspace; registry id→componente para
+    viewport/tree/properties/chat + los 7 paneles-herramienta (cada uno envuelto en `.dock-pane` que llena el panel,
+    conservando su scroll interno). Tema base `themeAbyss` remapeado a los tokens de Apolo vía
+    `.apolo-dock .dockview-theme-abyss { --dv-color-abyss*: var(--bg/--panel/--accent…) }`. **onReady**: restaura
+    `localStorage["apolo.layout.v1"]` con `api.fromJSON` (try/catch → si falla, layout por defecto), persiste con
+    `onDidLayoutChange` (debounce 300ms → `api.toJSON()`), y sincroniza `dockPanels` al store (resaltado de StatusBar).
+  - NEW `dock/dockApi.ts`: singleton del `DockviewApi` + helpers `togglePanel`/`resetLayout`/`buildDefaultLayout`/
+    `lockViewport`/`syncDockPanels`. Layout por defecto: **viewport (centro) · árbol (izq) · propiedades+chat (pestañas, der)**.
+  - **VIEWPORT = centro fijo bloqueado** (`vp.group.locked=true` + `tabComponent:"locked"` sin botón cerrar +
+    `renderer:"always"`) → **nunca se re-monta** (verificado: tras docking/reset el `<canvas>` es el MISMO nodo →
+    contexto WebGL intacto). **GOTCHA crítico resuelto**: `resetLayout` hacía `api.clear()`, que destruía el viewport →
+    su cleanup de three.js lanzaba `this.traverse is not a function` (bug LATENTE, nunca antes ejecutado porque el
+    viewport jamás se desmontaba) y el crash en el unmount vaciaba el dock. Fix: `resetLayout` cierra todo MENOS el
+    viewport y re-acopla alrededor (no lo destruye). El bug de `dispose` queda latente (inalcanzable: la pestaña no
+    cierra y no se desmonta) → follow-up blindarlo.
+  - Migración del shell: `App.tsx` renderiza `<DockShell/>` (grid de 4 filas, sin la del bottom-dock); **borrados**
+    `RightDock.tsx`/`BottomDock.tsx`/`Workspace.tsx`; el store perdió `bottomPanel`/`setBottomPanel`/`showHistory`/
+    `toggleHistory` y ganó `dockPanels`/`setDockPanels`; los 7 paneles dejaron el auto-gate `if(bottomPanel!==x)return null`
+    y refrescan **al montar** (Dockview los monta solo cuando están presentes; `renderer` por defecto `onlyWhenVisible`);
+    StatusBar conmuta vía `togglePanel` + botón **«Restablecer layout»**. Modales/overlays siguen fuera del dock.
+  - Verificado e2e en `ui-preview` sobre faja id 38: layout por defecto (Árbol·Vista 3D·Propiedades+Asistente IA en
+    pestañas), toggle de StatusBar acopla/cierra paneles con resaltado reactivo, **resize por sash** (247→327px),
+    **persistencia** (toJSON guardado; tras recargar restaura «Cinemática»), pestaña del viewport SIN cerrar, reset
+    preserva el canvas (mismo nodo), 0 errores de consola. **Límite honesto**: el screenshot del capturador agota
+    tiempo por el rAF continuo del viewport (verificado por DOM, no por imagen); drag-to-dock con guías (mover una
+    pestaña a otra zona) es función nativa de Dockview no simulable por script — probar en vivo. **Solo frontend +
+    1 dependencia** → `cd ui; npm run build` + recargar; sin reiniciar API/MCP. **Follow-ups**: ventanas flotantes,
+    auto-hide/pin (Dockview los trae), blindar el `dispose` del viewport.
+  - **Fix de fila muerta + limpieza de CSS (2026-06-29)**: tras la migración quedaba una **barra muerta de 28px**
+    entre el dock y la StatusBar. Causa: `.statusbar { grid-row: 5 }` (resto del layout viejo de 5 filas) apuntaba a
+    una fila implícita, dejando VACÍA la fila 4 (`--status-h`) del nuevo grid de 4 filas. Fix: `.statusbar` →
+    `grid-row: 4`; el dock recuperó esos 28px (gap dock↔status = 0). **Lección**: los `grid-row` numéricos explícitos
+    son frágiles al cambiar el `grid-template-rows` — al quitar una fila hay que reindexar los hijos posteriores.
+    Borrado además el CSS muerto de la migración: `.bottomdock`/`.dock-head`/`.dock-body` y `.right-dock` (sus
+    componentes ya no existen; verificado que no se usan en ningún `.tsx`).
+  - **Fix overlay del viewport vs ViewCube (2026-06-29)**: la barra de vistas/herramientas (`.viewport-overlay`:
+    ISO/Frente/Lateral/Planta/Alambre/Mover/Rotar/Medir/Sección) estaba en `top:8 right:8` — la MISMA esquina donde
+    `viewcube.ts` dibuja el mini-cubo (top-right del canvas, 96px + margen 10, vía `setScissor`/`setViewport`) → los
+    botones semi-opacos TAPABAN el cubo. Fix: `.viewport-overlay` → `left:8px` (arriba-IZQUIERDA), dejando el ViewCube
+    despejado en su esquina convencional (Fusion/Inventor/SolidWorks). El cubo siempre se dibujaba; solo había que
+    liberarle la esquina (sin tocar su código). Top-left estaba libre (status=abajo-izq, rotate-panel=arriba-centro).
+    Verificado por DOM (`cubeZoneClear:true`). Solo-CSS.
 
 - **U1 · Refactor `Viewport.tsx`** (resto): extraer picking/box-select/medición/sección/cinemática/
   gizmo a módulos propios (ya se extrajeron el render PBR, la física de producto, el shell de UI y los
@@ -1297,9 +1643,12 @@ pero los keyframes del plegado (solve 2D) hay que **recalcularlos** porque el of
 ### ✅ Validación / motor
 - **Agrupar las dos mitades A/B de cada bisagra** (barriles coaxiales) para que el scan no las marque como
   contacto (hoy intencional pero ruidoso, como rodillo-en-riel).
-- **`engineering_check` no detecta la faja de banda**: `rules.py::detect_conveyor` busca categoría `perfiles`,
-  no `tubos_estructurales` (el bastidor real de la faja).
-- **Ampliar análisis**: deflexión de viga del bastidor, voladizo de tambores. `[V1]`
+- ~~**`engineering_check` no detecta la faja de banda**~~ ✅ RESUELTO 2026-06-29 (ver "Validación de ingeniería
+  universal" abajo): la detección se enriquece con las VARIABLES del proyecto + nombres (reconoce el motor
+  a-medida, el tambor, las rpm, el eje y el bastidor de tubo).
+- ~~**Ampliar análisis**: deflexión de viga del bastidor, voladizo de tambores~~ ✅ 2026-06-29 (flecha del
+  larguero como viga simplemente apoyada + flexión del eje del tambor). Follow-up: voladizo real (cantilever)
+  del eje motriz hacia el reductor; leer densidad/material de catálogo en vez de heurística por nombre. `[V1]`
 
 ### 🖥️ UI / deuda técnica
 - **Refactor de `Viewport.tsx` (U1)**: extraer picking/box-select/medición/sección/cinemática/gizmo a

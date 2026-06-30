@@ -586,17 +586,36 @@ def pick_endpoint(
     view: str = "iso",
     fit: str | None = None,
     zoom: float = 1.0,
-    proportional: bool = False,
+    azimuth: float | None = None,
+    elevation: float | None = None,
+    isolate: str | None = None,
+    section: str | None = None,
+    roll: float = 0.0,
+    pan: str | None = None,
 ) -> dict:
-    """Píxel→3D: para el punto (u,v) NORMALIZADO [0,1] de un render (vista `view`), devuelve
-    la feature/cara cuyo centro proyectado queda más cerca (snap a geometría). Read-only."""
+    """Píxel→3D: para el punto (u,v) NORMALIZADO [0,1] de un render (vista `view`, opcionalmente a
+    ÁNGULO LIBRE `azimuth`/`elevation`, `roll`, `pan`), devuelve la feature/cara cuyo centro proyectado
+    queda más cerca (snap a geometría). Usa la misma cámara que el render VTK (orto, proporciones reales).
+    Pasa los MISMOS view/azimuth/elevation/roll/pan/fit/zoom/isolate/section que usaste en el render: con
+    `isolate` (CSV de ids) el pick solo considera esas piezas y con `section` ∈ {x,y,z} las recorta
+    igual que la foto → coherencia render↔pick. Read-only."""
     from apolo.kernel.pick import pick_point
 
     fit_ids = [s.strip() for s in fit.split(",") if s.strip()] if fit else None
+    isolate_ids = [s.strip() for s in isolate.split(",") if s.strip()] if isolate else None
+    pan_xy = None
+    if pan:
+        try:
+            pan_xy = [float(s) for s in pan.split(",")]
+            assert len(pan_xy) == 2
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="pan debe ser 'px,py' (dos números)") from exc
     with STATE_LOCK:
         try:
             return pick_point(
-                DOC.scene, view, u, v, fit_ids=fit_ids, zoom=zoom, proportional=proportional
+                DOC.scene, view, u, v, fit_ids=fit_ids, zoom=zoom,
+                azimuth=azimuth, elevation=elevation, isolate=isolate_ids, section=section,
+                roll=roll, pan=pan_xy,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -834,7 +853,7 @@ def run_checks(body: ChecksIn) -> dict:
                 or _conveyor_params_from_doc(DOC)
                 or (infer_from_solids(DOC.scene, body.conveyor_solid_ids)
                     if body.conveyor_solid_ids else None)
-                or detect_conveyor(DOC.scene)
+                or detect_conveyor(DOC.scene, DOC.variables_resolved)
             )
             if conveyor:
                 ingenieria = conveyor_engineering_check(
@@ -1107,32 +1126,51 @@ def assembly_stability_gif(body: StabilityIn) -> Response:
 
 # --------------------------------------------------------------- motion study
 class MotionIn(BaseModel):
+    name: str
     keyframes: list[dict] = []
 
 
+class MotionDeleteIn(BaseModel):
+    name: str
+
+
 class ScanIn(BaseModel):
+    name: str
     steps: int = 24
+
+
+def _motion_studies() -> list[dict]:
+    from apolo.robotics.motion import duration
+
+    return [
+        {"name": n, "keyframes": kfs, "duration": duration(kfs)}
+        for n, kfs in sorted(DOC.motion.items())
+    ]
 
 
 @app.get("/api/motion")
 def get_motion() -> dict:
-    from apolo.robotics.motion import duration
-
     with STATE_LOCK:
-        return {"keyframes": DOC.motion, "duration": duration(DOC.motion)}
+        return {"studies": _motion_studies()}
 
 
 @app.put("/api/motion")
 def put_motion(body: MotionIn) -> dict:
-    from apolo.robotics.motion import duration
-
     with STATE_LOCK:
         try:
-            DOC.set_motion(body.keyframes)
+            DOC.set_motion(body.name, body.keyframes)
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         _autosave()
-        return {"ok": True, "keyframes": DOC.motion, "duration": duration(DOC.motion)}
+        return {"ok": True, "studies": _motion_studies()}
+
+
+@app.delete("/api/motion")
+def delete_motion(body: MotionDeleteIn) -> dict:
+    with STATE_LOCK:
+        DOC.delete_motion(body.name)
+        _autosave()
+        return {"ok": True, "studies": _motion_studies()}
 
 
 @app.post("/api/motion/scan")
@@ -1140,7 +1178,7 @@ def scan_motion(body: ScanIn) -> dict:
     from apolo.robotics.motion import scan_collisions
 
     with STATE_LOCK:
-        return {"colisiones": scan_collisions(DOC, DOC.motion, body.steps)}
+        return {"colisiones": scan_collisions(DOC, DOC.motion.get(body.name, []), body.steps)}
 
 
 def _robot_export(builder) -> bytes:
@@ -1224,6 +1262,14 @@ def render_png(
     section: str | None = None,
     shade: bool = False,
     isolate: str | None = None,
+    azimuth: float | None = None,
+    elevation: float | None = None,
+    vtk_only: bool = False,
+    measure: str | None = None,
+    edges: bool = True,
+    xray: bool = False,
+    roll: float = 0.0,
+    pan: str | None = None,
 ) -> Response:
     """Render de la escena. `highlight` = CSV de ids a resaltar (el resto se atenúa);
     `shade`=true usa el COLOR real por pieza (igual que el viewport web) en vez de la paleta
@@ -1237,13 +1283,35 @@ def render_png(
     `fit` = CSV de ids para encuadrar la cámara en esas piezas (primer plano);
     `zoom`>1 acerca; `proportional`=true ciñe los ejes al bbox con proporciones reales
     (recomendado para máquinas largas y bajas). `views` = CSV de vistas (≥2) para componer
-    varias en una imagen; `labels`=true rotula ids; `section` ∈ {x,y,z} corta para ver dentro."""
+    varias en una imagen; `labels`=true rotula ids; `section` ∈ {x,y,z} corta para ver dentro.
+    `azimuth`/`elevation` (grados) fijan la cámara a un ÁNGULO LIBRE (anulan el preset `view`;
+    override parcial); aplican a vista única (con `views`/multivista se ignoran).
+    `vtk_only`=true EXIGE el motor VTK (sombreado suave): ignora multivista/etiquetas y NO cae a
+    matplotlib (sin OpenGL → 503 claro). Lo usa el tool MCP `render_view` para garantizar capturas
+    limpias VTK; el resto de la API conserva matplotlib (fallback/multivista/labels/plomería).
+    `measure`="a,b" (dos ids) dibuja una COTA (línea + "X mm" del gap mínimo OCCT entre las dos
+    piezas) ENCIMA del render (solo vía VTK; en multivista/matplotlib se ignora).
+    `xray`=true (rayos-X, solo VTK): lo NO resaltado se vuelve translúcido EN SU COLOR (no oculto)
+    para ver una pieza interna en su contexto sin cortar; el vidrio siempre sale translúcido.
+    `labels`=true rotula el id de cada pieza sobre el render (VTK billboard en vista única; matplotlib
+    en multivista). `roll` (grados) gira la cámara sobre su eje de visión; `pan`="px,py" desplaza el
+    encuadre en el plano de vista (fracción de la semialtura; +px→derecha, +py→arriba) — ambos solo
+    vía VTK (vista única)."""
     from apolo.kernel.render import render_scene_png
 
     highlight_ids = [s.strip() for s in highlight.split(",") if s.strip()] if highlight else None
     fit_ids = [s.strip() for s in fit.split(",") if s.strip()] if fit else None
     isolate_ids = [s.strip() for s in isolate.split(",") if s.strip()] if isolate else None
     view_list = [s.strip() for s in views.split(",") if s.strip()] if views else None
+    pan_xy = None
+    if pan:
+        try:
+            pan_xy = [float(s) for s in pan.split(",")]
+            assert len(pan_xy) == 2
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="pan debe ser 'px,py' (dos números)") from exc
+    if vtk_only and view_list:
+        raise HTTPException(status_code=400, detail="vtk_only no soporta multivista (views); usa matplotlib o llamadas por vista")
     with STATE_LOCK:
         scene = DOC.scene
         if isolate_ids:
@@ -1263,10 +1331,33 @@ def render_png(
 
             vals = solve_constraints(DOC.joints, DOC.constraints, vals)
             override, _ = posed_shapes(DOC, vals)
-        # render sombreado de UNA vista → VTK (normales suaves, como el viewport web);
-        # multivista/etiquetas o fallo de VTK (sin OpenGL) → matplotlib (fallback robusto)
+        # COTA: distancia mínima entre dos piezas → la dibuja la vía VTK encima de la geometría.
+        # Usa las shapes RENDERIZADAS (override si hay pose) para que coincida con lo que se ve.
+        dimension = None
+        if measure:
+            from apolo.kernel.measure import measure_distance
+
+            parts = [s.strip() for s in measure.split(",") if s.strip()]
+            if len(parts) != 2:
+                raise HTTPException(status_code=400, detail="measure: pasa exactamente dos ids 'a,b'")
+            a_id, b_id = parts
+            fa, fb = DOC.scene.get(a_id), DOC.scene.get(b_id)
+            if fa is None or fb is None:
+                missing = a_id if fa is None else b_id
+                raise HTTPException(status_code=404, detail=f"measure: no existe el sólido '{missing}'")
+            sa = override.get(a_id, fa.shape) if override else fa.shape
+            sb = override.get(b_id, fb.shape) if override else fb.shape
+            try:
+                m = measure_distance(sa, sb)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            dimension = {"p1": m["punto_a"], "p2": m["punto_b"], "label": f"{m['dist_mm']:g} mm"}
+        # render sombreado de UNA vista → VTK (normales suaves, como el viewport web; incluye
+        # labels/rótulos billboard). SOLO la MULTIVISTA (views) o un fallo de VTK (sin OpenGL) →
+        # matplotlib. vtk_only=true (lo usa el tool MCP render_view): EXIGE VTK y NO cae a
+        # matplotlib (si no hay OpenGL → 503 claro, no una imagen con cuadrícula).
         png = None
-        if shade and not view_list and not labels:
+        if (vtk_only or shade) and not view_list:
             try:
                 from apolo.kernel.render_vtk import render_scene_vtk
 
@@ -1276,10 +1367,17 @@ def render_png(
                     fit_ids=fit_ids, zoom=zoom, section=section,
                     show_axes=show_axes, show_bbox=show_bbox, colors=_feature_colors(),
                     ignore_visibility=bool(isolate_ids),
+                    azimuth=azimuth, elevation=elevation, dimension=dimension, edges=edges,
+                    xray=xray, labels=labels, roll=roll, pan=pan_xy,
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
-            except Exception:  # noqa: BLE001 — sin contexto OpenGL u otro fallo VTK
+            except Exception as exc:  # noqa: BLE001 — sin contexto OpenGL u otro fallo VTK
+                if vtk_only:
+                    raise HTTPException(
+                        status_code=503,
+                        detail=f"Render VTK no disponible (¿sin contexto OpenGL?): {exc}",
+                    ) from exc
                 import logging
 
                 logging.getLogger("uvicorn.error").warning(
@@ -1295,6 +1393,7 @@ def render_png(
                     views=view_list, labels=labels, section=section,
                     colors=_feature_colors() if shade else None,
                     ignore_visibility=bool(isolate_ids),
+                    azimuth=azimuth, elevation=elevation, roll=roll,
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc

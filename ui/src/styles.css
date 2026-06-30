@@ -38,9 +38,22 @@ body {
   overflow: hidden;
 }
 
+/* scrollbars temáticos (finos, integrados con el tema oscuro). Chromium + Firefox. */
+* { scrollbar-width: thin; scrollbar-color: var(--panel3) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--panel3);
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+::-webkit-scrollbar-corner { background: transparent; }
+
 .app {
   display: grid;
-  grid-template-rows: var(--header-h) auto minmax(0, 1fr) auto var(--status-h);
+  grid-template-rows: var(--header-h) auto minmax(0, 1fr) var(--status-h);
   height: 100vh;
   min-height: 0;
 }
@@ -138,44 +151,110 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .cmd-btn span { max-width: 80px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------------------------------------------------------- workspace */
-.workspace {
-  display: grid;
-  grid-template-columns: 230px minmax(0, 1fr) var(--dock-w, 340px);
-  grid-template-rows: minmax(0, 1fr); /* fila única acotada al alto del workspace: evita que el right-dock crezca y desborde sobre el dock inferior */
-  min-height: 0; min-width: 0;
+/* ----- shell de ventanas acoplables (Dockview) ----- */
+.apolo-dock { grid-row: 3; display: flex; min-height: 0; min-width: 0; }
+.apolo-dock > * { flex: 1 1 auto; min-width: 0; min-height: 0; }
+/* cada panel llena su contenedor de Dockview; su scroll interno se conserva */
+.dock-pane { height: 100%; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.dock-pane > * { flex: 1 1 auto; min-height: 0; min-width: 0; }
+.dock-viewport { display: block; } /* el viewport gestiona su propio tamaño (ResizeObserver) */
+.dock-viewport > .viewport { height: 100%; }
+.dv-tab-locked { display: inline-flex; align-items: center; padding: 0 10px; font-size: 12px; }
+
+/* tema oscuro de Apolo sobre el tema base "abyss" de Dockview (remapeo de su paleta) */
+.apolo-dock .dockview-theme-abyss {
+  --dv-color-abyss-dark: var(--bg);
+  --dv-color-abyss: var(--panel);
+  --dv-color-abyss-light: var(--bg2);
+  --dv-color-abyss-lighter: var(--panel2);
+  --dv-color-abyss-accent: var(--accent);
+  --dv-color-abyss-primary-text: var(--text);
+  --dv-color-abyss-secondary-text: var(--muted);
+  --dv-paneview-active-outline-color: var(--accent);
+  --dv-tabs-and-actions-container-height: 30px;
+  --dv-icon-hover-background-color: var(--panel2);
+  --dv-tabs-container-scrollbar-color: var(--panel3);
 }
 
-/* divisores arrastrables (right-dock, bottom-dock) */
+/* divisores arrastrables (heredados; útiles si se reusa useSplitter) */
 .split-handle { flex: none; background: transparent; }
 .split-handle:hover, .split-handle:active { background: var(--accent-soft); }
 .split-y { height: 6px; cursor: row-resize; }
 .split-x { width: 6px; cursor: col-resize; }
 
-.tree { background: var(--panel); border-right: 1px solid var(--border); padding: 10px; overflow-y: auto; }
+.tree { background: var(--panel); border-right: 1px solid var(--border); padding: 10px; overflow: hidden auto; }
 .tree ul { list-style: none; margin: 0; padding: 0; }
+.tree-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.tree-top h3 { margin: 0; }
+.tree-top-right { display: flex; align-items: center; gap: 6px; }
+.tree-count { font-size: 11px; color: var(--muted); }
+.tree-collapse {
+  display: inline-flex; align-items: center; border: none; background: transparent;
+  color: var(--muted); padding: 2px 4px; border-radius: var(--radius, 6px); cursor: pointer;
+}
+.tree-collapse:hover:not(:disabled) { color: var(--text); background: var(--panel2); }
+.tree-collapse:disabled { opacity: 0.35; cursor: default; }
+/* buscador */
+.tree-search { position: relative; display: flex; align-items: center; margin-bottom: 8px; }
+.tree-search svg { position: absolute; left: 7px; color: var(--muted); pointer-events: none; }
+.tree-search input {
+  width: 100%; height: 28px; padding: 0 24px 0 26px; font-size: 12px;
+  background: var(--panel2); border: 1px solid var(--border); border-radius: var(--radius, 6px); color: inherit;
+}
+.tree-search .clear {
+  position: absolute; right: 4px; border: none; background: transparent; color: var(--muted);
+  font-size: 15px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
 .tree li {
-  display: flex; align-items: center; gap: 6px;
-  padding: 3px 6px; border-radius: 5px; cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  padding: 2px 6px; border-radius: 5px; cursor: pointer; font-size: 12px;
 }
 .tree li:hover { background: var(--panel2); }
 .tree li.selected { background: rgba(79, 127, 224, 0.25); }
-.tree li.indent { margin-left: 14px; }
-.tree-group { display: block !important; padding: 0 !important; }
+.tree li.lvl1 { margin-left: 12px; }
+.tree li.lvl2 { margin-left: 24px; }
+.tree .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree .name.muted { color: var(--muted); }
+.tree .type-ic { color: var(--muted); flex-shrink: 0; }
+.tree-group { display: block !important; padding: 0 !important; margin: 0 !important; }
 .tree-group:hover { background: transparent !important; }
 .group-head {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 6px; min-width: 0;
   padding: 3px 6px; border-radius: 5px; cursor: pointer; font-size: 12px;
 }
 .group-head:hover { background: var(--panel2); }
 .group-head.selected { background: rgba(79, 127, 224, 0.25); }
+.group-head.lvl1 { margin-left: 12px; }
+.sub-head { font-size: 12px; }
+.sub-head strong { letter-spacing: .01em; }
 .tree-group ul { list-style: none; margin: 0; padding: 0; }
-.tree .eye { border: none; padding: 0 2px; font-size: 11px; }
+.tree .eye { display: inline-flex; align-items: center; border: none; background: transparent; padding: 0 1px; color: var(--muted); flex-shrink: 0; cursor: pointer; }
+.tree .eye:hover { color: inherit; }
+.count-badge {
+  font-size: 10px; color: var(--accent); background: var(--accent-soft, rgba(79,127,224,.15));
+  padding: 0 6px; border-radius: 9px; flex-shrink: 0;
+}
+.head-eye {
+  display: inline-flex; align-items: center; border: none; background: transparent; color: var(--muted);
+  padding: 0 1px; cursor: pointer; flex-shrink: 0; opacity: 0; transition: opacity .12s;
+}
+.group-head:hover .head-eye { opacity: 1; }
+/* acciones por fila: aparecen al pasar el cursor */
+.tree .row-actions { display: inline-flex; gap: 1px; flex-shrink: 0; opacity: 0; transition: opacity .12s; }
+.tree li:hover .row-actions { opacity: 1; }
+.tree .row-actions button {
+  display: inline-flex; align-items: center; border: none; background: transparent; color: var(--muted);
+  padding: 0 2px; cursor: pointer;
+}
+.tree .row-actions button:hover { color: inherit; }
+.tree .row-actions button:last-child:hover { color: var(--err); }
 .swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
 
 .viewport { position: relative; min-width: 0; }
 .viewport canvas { display: block; }
+/* barra de vistas/herramientas: arriba-IZQUIERDA, para no tapar el ViewCube (esquina sup. derecha) */
 .viewport-overlay {
-  position: absolute; top: 8px; right: 8px;
+  position: absolute; top: 8px; left: 8px;
   display: flex; flex-direction: column; gap: 4px;
 }
 .viewport-overlay button {
@@ -223,14 +302,6 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .rp-axis.active.rp-z { background: #4f7fe0; border-color: #4f7fe0; }
 .live-angle { color: var(--accent); font-weight: 600; margin-left: 6px; }
 
-.right-dock {
-  display: grid;
-  grid-template-rows: minmax(0, var(--props-h, 1fr)) 6px minmax(0, 1fr);
-  background: var(--panel);
-  border-left: 1px solid var(--border);
-  min-height: 0; min-width: 0;
-  overflow: hidden;
-}
 .properties { min-height: 0; }
 
 /* --------------------------------------------------------- properties */
@@ -294,28 +365,9 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
   background: var(--panel);
   padding: 8px 12px;
 }
-.bottomdock {
-  grid-row: 4; /* fila propia: si está cerrado (null) la fila auto colapsa a 0 */
-  display: grid; grid-template-rows: 6px auto minmax(0, 1fr);
-  height: var(--bottomdock-h, 220px);
-  background: var(--panel); border-top: 1px solid var(--border);
-  box-shadow: var(--shadow-2); min-height: 0;
-}
-.bottomdock .split-handle { background: var(--border); }
-.bottomdock .split-handle:hover { background: var(--accent-soft); }
-.dock-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--border);
-  font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;
-}
-.dock-head button { border: none; padding: 4px 6px; color: var(--muted); }
-.dock-head button:hover { color: var(--text); background: var(--panel2); }
-.dock-body { overflow: auto; min-height: 0; scrollbar-gutter: stable; }
-.dock-body .history { padding-top: 4px; }
-
 /* ------------------------------------------------------------ status bar */
 .statusbar {
-  grid-row: 5; /* siempre la última fila, aunque el dock (fila 4) esté ausente */
+  grid-row: 4; /* última fila del shell (header · ribbon · dock · status) */
   display: flex; align-items: center; gap: 2px;
   height: var(--status-h); padding: 0 8px;
   background: var(--panel); border-top: 1px solid var(--border); font-size: 11px;
@@ -437,6 +489,26 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .kin-value { flex: 0 0 64px; text-align: right; color: var(--accent); font-variant-numeric: tabular-nums; }
 .kin-row > button, .kin-row .ghost, .kin-row .fid { flex: 0 0 auto; }
 
+/* lista de juntas con altura acotada: deja los controles de Estudios siempre a la vista */
+.kin-joints { max-height: 240px; overflow: hidden auto; padding-right: 4px; }
+.kin-anim { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+
+/* chips de estudios de movimiento (uno por animación, con su ▶ propio) */
+.study-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.study-chip {
+  display: flex; align-items: center; gap: 2px;
+  border: 1px solid var(--border); border-radius: var(--radius, 6px);
+  background: var(--accent-soft, rgba(0,0,0,0.04)); padding: 2px;
+}
+.study-chip.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.study-chip .study-name {
+  display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2;
+  background: none; border: none; padding: 3px 6px; cursor: pointer; font-size: 12px; color: inherit;
+}
+.study-chip .study-meta { font-size: 9px; opacity: 0.65; }
+.study-chip .study-play { padding: 2px 7px; }
+.study-chip .study-play.active { background: var(--accent); color: #fff; }
+
 /* ----------------------------------------------------------- inicio/producto */
 .brand-btn { border: none; font-weight: 600; color: #fff; font-size: 13px; padding: 4px 8px; }
 .modal-home { width: 820px; max-width: 94vw; max-height: 90vh; overflow-y: auto; }
@@ -521,13 +593,18 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .ctx-item.danger:hover { background: #3a2027; }
 .ctx-sep { height: 1px; background: var(--border); margin: 4px 2px; }
 
-/* botón eliminar por fila del árbol: aparece al pasar el cursor */
-.tree li .row-del {
-  border: none; background: transparent; color: var(--muted);
-  margin-left: auto; padding: 0 4px; opacity: 0; flex: none;
+/* id de comando/sólido: ruido para el humano → tenue y solo al pasar el cursor */
+.tree .fid { font-size: 10px; color: var(--muted); flex-shrink: 0; opacity: .4; }
+.tree li .fid { opacity: 0; transition: opacity .12s; }
+.tree li:hover .fid { opacity: .55; }
+.group-head .fid { margin-left: 2px; }
+
+/* medidas EN VIVO (calculadas del bbox, nunca obsoletas): visibles pero discretas */
+.tree .dim {
+  font-size: 10px; color: var(--muted); flex-shrink: 0; margin-left: 6px;
+  opacity: .65; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.tree li:hover .row-del { opacity: 1; }
-.tree li .row-del:hover { color: var(--err); background: transparent; }
+.tree li:hover .dim, .group-head:hover .dim { opacity: .9; }
 
 .prop-actions { display: flex; gap: 6px; margin-bottom: 10px; }
 .prop-actions button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; }

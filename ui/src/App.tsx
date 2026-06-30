@@ -2,9 +2,7 @@ import { useEffect } from "react";
 import { useStore } from "./state/store";
 import TopBar from "./panels/TopBar";
 import Ribbon from "./panels/Ribbon";
-import Tree from "./panels/Tree";
-import RightDock from "./panels/RightDock";
-import BottomDock from "./panels/BottomDock";
+import DockShell from "./dock/DockShell";
 import StatusBar from "./panels/StatusBar";
 import CommandDialog from "./panels/CommandDialog";
 import VariablesDialog from "./panels/VariablesDialog";
@@ -16,7 +14,6 @@ import ContextMenu from "./panels/ContextMenu";
 import ShortcutsHelp from "./panels/ShortcutsHelp";
 import TopProgress from "./panels/TopProgress";
 import BusyOverlay from "./panels/BusyOverlay";
-import Viewport from "./viewport/Viewport";
 
 export default function App() {
   const init = useStore((s) => s.init);
@@ -33,12 +30,7 @@ export default function App() {
       <TopProgress />
       <TopBar />
       <Ribbon />
-      <main className="workspace">
-        <Tree />
-        <Viewport />
-        <RightDock />
-      </main>
-      <BottomDock />
+      <DockShell />
       <StatusBar />
       <CommandDialog />
       <VariablesDialog />

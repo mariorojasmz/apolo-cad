@@ -207,6 +207,34 @@ def pulley(pitch_d: float, width: float, bore_d: float = 0.0, flange_d: float = 
     return build
 
 
+def v_pulley(outer_d: float, width: float, bore_d: float = 0.0, grooves: int = 1,
+            groove_top: float = 13.0, groove_depth: float = 11.0, groove_pitch: float = 15.0):
+    """Polea en V (sheave) para FAJA DE POTENCIA: disco macizo con N canales en V
+    (trapezoidales) en la llanta + taladro central, por revolución (eje Z local → al
+    girar 90° sobre X queda en Y, como el tambor). Medidas tipo sección A (groove_top≈13,
+    pitch≈15) o B (≈17 / ≈19); `outer_d` = Ø exterior comercial, `width` = ancho de la llanta."""
+
+    def build(_length=None):
+        ro = outer_d / 2.0
+        rb = max(bore_d / 2.0, 0.0)
+        hw = width / 2.0
+        n = max(1, int(grooves))
+        gd = max(min(groove_depth, ro - rb - 4.0), 1.0)   # no llegar al taladro
+        gt = min(groove_top, width / n * 0.8)             # cabe N canales en el ancho
+        e = groove_pitch
+        centers = sorted((i - (n - 1) / 2.0) * e for i in range(n))
+        pts = [(rb, -hw), (ro, -hw)]
+        for zc in centers:                                # llanta con N muescas en V
+            pts.append((ro, max(zc - gt / 2.0, -hw)))
+            pts.append((ro - gd, zc))
+            pts.append((ro, min(zc + gt / 2.0, hw)))
+        pts.append((ro, hw))
+        pts.append((rb, hw))
+        return make_revolution(pts)
+
+    return build
+
+
 def pillow_block(d: float, D: float, B: float, plate_w: float, plate_h: float, plate_t: float):
     """Chumacera/soporte de rodamiento: anillo (eje Z, con agujero de eje) + placa
     de montaje debajo. d/D = Ø interior/exterior del rodamiento, B = ancho."""
@@ -634,6 +662,7 @@ BUILDERS = {
     "linear_rail": linear_rail,
     "linear_block": linear_block,
     "pulley": pulley,
+    "v_pulley": v_pulley,  # polea en V (sheave) para faja de potencia, sección A/B (ISO 4183)
     "pillow_block": pillow_block,
     "endstop": endstop,
     "leveling_foot": leveling_foot,

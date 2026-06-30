@@ -9,7 +9,6 @@ import type { ChecksOut } from "../types";
 const ICONS: Record<string, string> = { ok: "✓", aviso: "⚠", error: "✕" };
 
 export default function ChecksPanel() {
-  const open = useStore((s) => s.bottomPanel === "checks");
   const runTracked = useStore((s) => s.runTracked);
   const [carga, setCarga] = useState("15");
   const [largoPaq, setLargoPaq] = useState("400");
@@ -17,8 +16,6 @@ export default function ChecksPanel() {
   const [velocidad, setVelocidad] = useState("0.5");
   const [result, setResult] = useState<ChecksOut | null>(null);
   const [busy, setBusy] = useState(false);
-
-  if (!open) return null;
 
   const run = async () => {
     setBusy(true);

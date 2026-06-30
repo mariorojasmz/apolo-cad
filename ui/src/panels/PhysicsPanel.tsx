@@ -41,7 +41,6 @@ function seedRows(): Row[] {
 }
 
 export default function PhysicsPanel() {
-  const open = useStore((s) => s.bottomPanel === "fisica");
   const result = useStore((s) => s.physicsResult);
   const playing = useStore((s) => s.physicsPlaying);
   const setPhysicsResult = useStore((s) => s.setPhysicsResult);
@@ -54,12 +53,8 @@ export default function PhysicsPanel() {
   const [fps, setFps] = useState("24");
   const [busy, setBusy] = useState(false);
 
-  // al cerrar el panel, retira las cajas del viewport
-  useEffect(() => {
-    if (!open) clearPhysics();
-  }, [open, clearPhysics]);
-
-  if (!open) return null;
+  // al desmontar el panel (cerrarlo en el dock), retira las cajas del viewport
+  useEffect(() => () => clearPhysics(), [clearPhysics]);
 
   const setCell = (i: number, key: keyof Row, value: string) =>
     setRows(rows.map((r, j) => (j === i ? { ...r, [key]: value } : r)));

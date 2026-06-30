@@ -70,7 +70,7 @@ class Document:
         self.colors: dict[str, str] = {}  # feature_id → color hex (apariencia)
         self.materials: dict[str, str] = {}  # feature_id → material (override BOM/peso)
         self.vertical: str = "metalmecanica"  # default de material para piezas no reconocidas
-        self.motion: list[dict] = []  # fotogramas clave [{t, values:{junta:valor}}] (motion study)
+        self.motion: dict[str, list[dict]] = {}  # estudios con nombre → fotogramas [{t, values:{junta:valor}}]
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
         self._seq = 0
         self._undo: list[dict] = []
@@ -426,8 +426,12 @@ class Document:
         """Material por defecto de piezas a-medida no reconocidas (según vertical)."""
         return "madera" if self.vertical == "carpinteria" else "acero"
 
-    def set_motion(self, keyframes: list[dict]) -> None:
-        """Define los fotogramas clave del motion study (metadato, no geometría)."""
+    def set_motion(self, name: str, keyframes: list[dict]) -> None:
+        """Define los fotogramas clave de un estudio de movimiento CON NOMBRE (metadato, no
+        geometría). Lista vacía → borra el estudio. Pueden coexistir varios estudios."""
+        name = str(name).strip()
+        if not name:
+            raise DocumentError("El estudio de movimiento necesita un nombre")
         clean: list[dict] = []
         for kf in keyframes:
             try:
@@ -440,7 +444,14 @@ class Document:
             if not isinstance(values, dict):
                 raise DocumentError("Los valores del fotograma deben ser {junta: valor}")
             clean.append({"t": t, "values": {str(n): float(v) for n, v in values.items()}})
-        self.motion = sorted(clean, key=lambda k: k["t"])
+        if clean:
+            self.motion[name] = sorted(clean, key=lambda k: k["t"])
+        else:
+            self.motion.pop(name, None)
+
+    def delete_motion(self, name: str) -> None:
+        """Elimina un estudio de movimiento por nombre (no falla si no existe)."""
+        self.motion.pop(str(name).strip(), None)
 
     def set_visibility(self, feature_id: str, visible: bool) -> None:
         if feature_id not in self.scene:
@@ -529,7 +540,9 @@ class Document:
         doc.colors = manifest.get("colors", {})
         doc.materials = manifest.get("materials", {})
         doc.vertical = manifest.get("vertical", "metalmecanica")
-        doc.motion = manifest.get("motion", [])
+        _m = manifest.get("motion", {})
+        # migración: proyectos viejos guardaban el motion como UNA lista de fotogramas
+        doc.motion = ({"Estudio 1": _m} if _m else {}) if isinstance(_m, list) else dict(_m)
         doc.agent_notes = manifest.get("agent_notes", [])
         doc._seq = manifest.get("seq", len(commands))
         doc.regenerate()

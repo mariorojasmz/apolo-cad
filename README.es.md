@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/python-3.11–3.13-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/kernel-OCCT%20%2F%20build123d-orange.svg" alt="OCCT">
   <img src="https://img.shields.io/badge/MCP-54%20tools-8A2BE2.svg" alt="MCP 54 tools">
-  <img src="https://img.shields.io/badge/tests-527%20passing-brightgreen.svg" alt="527 tests">
+  <img src="https://img.shields.io/badge/tests-551%20passing-brightgreen.svg" alt="551 tests">
 </p>
 
 ---
@@ -118,7 +118,7 @@ usa para auto-revisarse visualmente.*
    doc        documento = log de comandos (event-sourced · undo/redo · .apolo de KBs)
    commands   registro de comandos + JSON Schemas  (una sola fuente de verdad)
    kernel     build123d / OpenCascade  (geometría B-rep, render, medición, picking)
-   library    catálogo (191 refs) · BOM · super-comandos de máquina
+   library    catálogo (197 refs) · BOM · super-comandos de máquina
    assembly   juntas · mates · restricciones · conectividad / gravedad
    drawing    planos 2D pro  (HLR → SVG/DXF/PDF · cortes · cotas · juego de planos)
    physics    gravedad / estabilidad  (MuJoCo)
@@ -136,7 +136,7 @@ Fronteras limpias y no negociables: `kernel` (geometría pura) ⟂ `commands/reg
 - **Ensamblaje y cinemática** — **mates persistentes** por caras (re-resueltos al editar),
   **juntas** (fija/giratoria/continua/prismática), **restricciones** de riel y N-GDL,
   **motion study** (anima las juntas y escanea colisiones a lo largo del recorrido).
-- **Biblioteca y BOM** — **catálogo de 191 referencias** poblado con dimensiones de **norma**
+- **Biblioteca y BOM** — **catálogo de 197 referencias** poblado con dimensiones de **norma**
   (ISO/ASTM/DIN/EN: rodamientos, perfiles, tornillería, carpintería, herraje…) + super-comandos
   (`create_belt_conveyor`, `create_weldment`, `create_frame`, `create_sheet_metal`,
   `create_take_up`, `create_drive_roller`, brazo robótico). BOM con lista de corte y export CSV.
@@ -185,7 +185,7 @@ apunta tu cliente MCP al `.mcp.json` del repo. Variables opcionales: `APOLO_MODE
 ## Tests
 
 ```powershell
-.venv\Scripts\python -m pytest tests -q   # 527 tests
+.venv\Scripts\python -m pytest tests -q   # 551 tests
 ```
 
 Cubren kernel (volúmenes/bbox por comando), documento (undo/redo, regeneración incremental,

@@ -39,6 +39,29 @@ HATCH = {
 }
 DEFAULT_HATCH = "ansi31"
 
+# módulo de Young E (MPa = N/mm²) y límite elástico (MPa) por material, para los
+# chequeos estructurales (flecha de viga, flexión de eje). Valores nominales típicos.
+YOUNG_MPA = {
+    "acero": 200000.0,
+    "acero inoxidable": 193000.0,
+    "aluminio": 69000.0,
+    "laton": 100000.0,
+    "zinc": 108000.0,
+    "madera": 11000.0,   # pino/MDF aprox. (flexión)
+    "vidrio": 70000.0,
+    "pvc": 3000.0,
+    "caucho": 50.0,
+}
+DEFAULT_YOUNG = 200000.0  # acero
+YIELD_MPA = {
+    "acero": 250.0,             # A36
+    "acero inoxidable": 215.0,  # AISI 304
+    "aluminio": 240.0,          # 6061-T6 aprox.
+    "laton": 200.0,
+    "madera": 40.0,
+}
+DEFAULT_YIELD = 250.0  # acero A36
+
 # palabras clave para inferir el material de piezas a-medida (sin componente de catálogo)
 _GLASS_WORDS = ("vidrio", "cristal", "glass")
 _STEEL_WORDS = (
@@ -76,6 +99,16 @@ def density(material: str | None) -> float:
 def hatch_pattern(material: str | None) -> str:
     """Nombre del patrón de rayado de sección para el material dado."""
     return HATCH.get(_norm(material), DEFAULT_HATCH)
+
+
+def young_modulus(material: str | None) -> float:
+    """Módulo de Young E (MPa) del material (DEFAULT_YOUNG si no se reconoce)."""
+    return YOUNG_MPA.get(_norm(material), DEFAULT_YOUNG)
+
+
+def yield_strength(material: str | None) -> float:
+    """Límite elástico (MPa) del material (DEFAULT_YIELD si no se reconoce)."""
+    return YIELD_MPA.get(_norm(material), DEFAULT_YIELD)
 
 
 def resolve_material(feat, catalog: dict | None = None, default: str = "acero") -> str:

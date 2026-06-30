@@ -13,7 +13,6 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default function MatesPanel() {
-  const open = useStore((s) => s.bottomPanel === "mates");
   const mates = useStore((s) => s.mates);
   const refreshMates = useStore((s) => s.refreshMates);
   const deleteMate = useStore((s) => s.deleteMate);
@@ -22,12 +21,10 @@ export default function MatesPanel() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
     setLoading(true);
     void Promise.resolve(refreshMates()).finally(() => setLoading(false));
-  }, [open, refreshMates]);
+  }, [refreshMates]);
 
-  if (!open) return null;
   const featName = (id: string) => features?.find((f) => f.id === id)?.name ?? id;
 
   return (

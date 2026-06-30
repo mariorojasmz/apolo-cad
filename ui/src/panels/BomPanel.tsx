@@ -7,18 +7,14 @@ import type { BomRow } from "../types";
    longitud de corte. Se refresca con cada cambio del documento. */
 
 export default function BomPanel() {
-  const open = useStore((s) => s.bottomPanel === "bom");
   const scene = useStore((s) => s.scene);
   const [rows, setRows] = useState<BomRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
     setLoading(true);
     api.bom().then(setRows).catch(() => setRows([])).finally(() => setLoading(false));
-  }, [open, scene]);
-
-  if (!open) return null;
+  }, [scene]);
 
   const total = rows.reduce((acc, r) => acc + (r.peso_total_kg ?? 0), 0);
 

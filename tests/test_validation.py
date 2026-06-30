@@ -231,6 +231,78 @@ def test_api_checks_detects_manual_conveyor(client):
     assert not any("No hay ningún transportador" in c["detalle"] for c in data["ingenieria"])
 
 
+# --------------------- faja a-mano enriquecida por VARIABLES + chequeos estructurales
+def _belt_doc_with_vars():
+    """Faja de banda hecha a MANO (motor/tambor/eje a-medida, sin catálogo) con los
+    datos de ingeniería en las VARIABLES del proyecto — como la faja real id 38."""
+    d = Document()
+    for n, e in [("diam_tambor", "114"), ("rpm_salida", "58.33"), ("esp_larg", "3"), ("diam_eje", "35")]:
+        d.execute("set_variable", {"name": n, "expression": e})
+    for y in (460, -460):  # 2 largueros tubo 80×40, 4 m
+        d.execute("create_box", {"name": "Larguero 80x40x3 A36", "width": 4000, "depth": 40,
+                                 "height": 80, "position": {"y": y, "z": 806}})
+    for x in (250, 1750, 3250):  # 3 pares de patas → vanos de 1500
+        for y in (460, -460):
+            d.execute("create_box", {"name": "Pata 50x50x2 A36", "width": 50, "depth": 50,
+                                     "height": 750, "position": {"x": x, "y": y, "z": 388}})
+    d.execute("create_box", {"name": "Banda PVC 2mm 700", "width": 3900, "depth": 700,
+                             "height": 4, "position": {"z": 848}})
+    d.execute("create_cylinder", {"name": "Rodillo motriz", "radius": 57, "height": 700,
+                                  "position": {"x": 1950, "z": 791}, "rotation": {"x": 90}})
+    d.execute("create_cylinder", {"name": "Eje motriz Ø35", "radius": 17.5, "height": 900,
+                                  "position": {"x": 1950, "z": 791}, "rotation": {"x": 90}})
+    # el reductor (SIN potencia en el nombre) va ANTES que el motor: el detector debe
+    # quedarse con la potencia del MOTOR, no del reductor
+    d.execute("create_box", {"name": "Reductor helicoidal 1:30 eje hueco", "width": 160, "depth": 150,
+                             "height": 170, "position": {"x": 2050, "y": 560, "z": 791}})
+    d.execute("create_box", {"name": "Motor 1.5HP 1750rpm 220V 3F", "width": 240, "depth": 150,
+                             "height": 150, "position": {"x": 1800, "y": 560, "z": 791}})
+    return d
+
+
+def test_detect_conveyor_enriched_by_variables():
+    from apolo.library.rules import detect_conveyor
+
+    d = _belt_doc_with_vars()
+    conv = detect_conveyor(d.scene, d.variables_resolved)
+    assert conv is not None and conv["tipo"] == "banda"
+    assert conv["tambor_d"] == pytest.approx(114, abs=1)        # de la variable diam_tambor
+    assert conv["rpm_motor"] == pytest.approx(58.33, abs=0.1)   # de rpm_salida
+    assert conv["motor"] == "documento"                          # motor a-medida reconocido
+    assert conv["motor_kW"] == pytest.approx(1.5 * 0.7457, abs=0.01)  # 1.5HP parseado del nombre
+    assert conv["torque_Nm"] and conv["torque_Nm"] > 0           # par derivado de potencia/rpm
+    assert conv["eje_d"] == pytest.approx(35, abs=0.1)
+    fr = conv["frame"]
+    assert fr["span_mm"] == pytest.approx(1500, abs=1)           # vano entre patas
+    assert fr["width"] == pytest.approx(40, abs=1) and fr["depth"] == pytest.approx(80, abs=1)
+    assert fr["wall"] == pytest.approx(3, abs=0.1) and fr["material"] == "acero"
+
+
+def test_structural_checks_present_and_pass():
+    from apolo.library.rules import conveyor_engineering_check, detect_conveyor
+
+    d = _belt_doc_with_vars()
+    conv = detect_conveyor(d.scene, d.variables_resolved)
+    checks = {c["regla"]: c for c in conveyor_engineering_check(conv, 75, 600, 0.35, 400)}
+    assert "velocidad de banda" in checks            # ahora la faja a-mano sí se valida
+    assert checks["flecha del bastidor"]["estado"] == "ok"   # tubo 80×40 sobre 1.5 m sobra
+    assert checks["flexión del eje"]["estado"] == "ok"
+    # 1.5HP del motor (no el reductor sin HP) cubre de sobra los ~0.07 kW requeridos
+    assert checks["motorización"]["estado"] == "ok"
+
+
+def test_deflection_check_errors_on_long_thin_span():
+    """Un vano largo con sección débil y mucha carga → la flecha supera 2·(L/250)."""
+    conv = {
+        "tipo": "banda", "largo": 6000, "ancho": 600, "motor": "ninguno",
+        "frame": {"span_mm": 6000, "length_mm": 6000, "width": 40, "depth": 40, "wall": 2,
+                  "material": "acero", "carried_kg": 300, "n_largueros": 2},
+    }
+    checks = {c["regla"]: c for c in conveyor_engineering_check(conv, 500, 600, 0.0)}
+    assert checks["flecha del bastidor"]["estado"] == "error"
+    assert "vano" in checks["flecha del bastidor"]["recomendacion"].lower()
+
+
 def test_run_script_via_api(client):
     r = client.post("/api/commands", json={"type": "run_script", "params": {"code": SCRIPT_OK}})
     assert r.status_code == 200

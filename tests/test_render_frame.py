@@ -1,7 +1,7 @@
 """Encuadre del render: fit_ids, zoom y modo proporcional (mejora #4)."""
 
 from apolo.doc import Document
-from apolo.kernel.render import render_scene_png
+from apolo.kernel.render import render_scene_png, resolve_angles
 
 PNG = b"\x89PNG"
 
@@ -73,3 +73,39 @@ def test_render_section_clips():
 def test_render_defaults_still_identical_after_refactor():
     """El camino por defecto (1 vista, sin params nuevos) sigue dando PNG válido."""
     assert render_scene_png(_long_scene(), view="frente")[:4] == PNG
+
+
+# --- enfoque por ángulo libre (azimuth/elevation) ---
+
+def test_resolve_angles_preset_and_override():
+    assert resolve_angles("iso") == (22, -55)            # preset intacto
+    assert resolve_angles("iso", azimuth=10) == (22, 10)  # override parcial: solo azimuth
+    assert resolve_angles("iso", elevation=5) == (5, -55)  # override parcial: solo elevation
+    assert resolve_angles("iso", azimuth=10, elevation=5) == (5, 10)  # ambos
+    assert resolve_angles("desconocido") == (22, -55)    # vista inexistente → iso
+
+
+def test_render_free_angle_changes_output():
+    scene = _long_scene()
+    preset = render_scene_png(scene, view="iso")
+    free = render_scene_png(scene, view="iso", azimuth=120, elevation=10)
+    partial = render_scene_png(scene, view="iso", azimuth=120)  # override parcial
+    assert free[:4] == PNG and partial[:4] == PNG
+    assert preset != free      # un ángulo libre cambia la imagen
+    assert preset != partial   # override parcial también
+
+
+def test_render_free_angle_ignored_in_multiview():
+    """En multivista cada vista nombrada conserva su preset (az/el se ignoran)."""
+    scene = _long_scene()
+    a = render_scene_png(scene, views=["iso", "frente"])
+    b = render_scene_png(scene, views=["iso", "frente"], azimuth=120, elevation=10)
+    assert a == b
+
+
+def test_render_roll_changes_output():
+    """roll (3.er GDL de cámara) gira sobre el eje de visión en la vía matplotlib (fallback)."""
+    scene = _long_scene()
+    a = render_scene_png(scene, view="iso")
+    b = render_scene_png(scene, view="iso", roll=30)
+    assert b[:4] == PNG and a != b

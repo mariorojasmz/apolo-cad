@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/python-3.11–3.13-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/kernel-OCCT%20%2F%20build123d-orange.svg" alt="OCCT">
   <img src="https://img.shields.io/badge/MCP-54%20tools-8A2BE2.svg" alt="MCP 54 tools">
-  <img src="https://img.shields.io/badge/tests-527%20passing-brightgreen.svg" alt="527 tests">
+  <img src="https://img.shields.io/badge/tests-551%20passing-brightgreen.svg" alt="551 tests">
 </p>
 
 ---
@@ -119,7 +119,7 @@ to visually self-review.*
    doc        document = command log (event-sourced · undo/redo · KB-sized .apolo)
    commands   command registry + JSON Schemas  (single source of truth)
    kernel     build123d / OpenCascade  (B-rep geometry, render, measure, picking)
-   library    catalog (191 refs) · BOM · machine super-commands
+   library    catalog (197 refs) · BOM · machine super-commands
    assembly   joints · mates · constraints · connectivity / gravity
    drawing    pro 2D drawings  (HLR → SVG/DXF/PDF · sections · dimensions · drawing sets)
    physics    gravity / stability  (MuJoCo)
@@ -137,7 +137,7 @@ scale (many commands, modules and clients).
 - **Assembly & kinematics** — **persistent face mates** (re-solved on edit), **joints**
   (fixed/revolute/continuous/prismatic), **rail and N-DOF constraints**, **motion study** (animate
   the joints and scan collisions along the path).
-- **Library & BOM** — a **191-reference catalog** populated from real **standard** dimensions
+- **Library & BOM** — a **197-reference catalog** populated from real **standard** dimensions
   (ISO/ASTM/DIN/EN: bearings, profiles, fasteners, joinery, hardware…) + super-commands
   (`create_belt_conveyor`, `create_weldment`, `create_frame`, `create_sheet_metal`,
   `create_take_up`, `create_drive_roller`, robot arm). BOM with cut list and CSV export.
@@ -186,7 +186,7 @@ your MCP client at the repo's `.mcp.json`. Optional env vars: `APOLO_MODEL` (def
 ## Tests
 
 ```powershell
-.venv\Scripts\python -m pytest tests -q   # 527 tests
+.venv\Scripts\python -m pytest tests -q   # 551 tests
 ```
 
 They cover the kernel (per-command volumes/bboxes), the document (undo/redo, incremental

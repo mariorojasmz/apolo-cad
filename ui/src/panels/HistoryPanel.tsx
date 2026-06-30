@@ -4,8 +4,7 @@ import { useStore } from "../state/store";
 
 export default function HistoryPanel() {
   const doc = useStore((s) => s.scene?.document);
-  const show = useStore((s) => s.showHistory);
-  if (!show || !doc) return null;
+  if (!doc) return null;
 
   return (
     <section className="history">

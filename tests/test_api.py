@@ -410,6 +410,93 @@ def test_render_proportional_query(client):
     assert resp.status_code == 200 and resp.headers["content-type"] == "image/png"
 
 
+def test_render_free_angle_query(client):
+    """azimuth/elevation devuelven un PNG (vía VTK con shade, o fallback matplotlib sin OpenGL)."""
+    client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 400, "depth": 120, "height": 120}}
+    )
+    resp = client.get("/api/render.png", params={"shade": True, "azimuth": 40, "elevation": 15})
+    assert resp.status_code == 200 and resp.headers["content-type"] == "image/png"
+    assert resp.content[:4] == b"\x89PNG"
+
+
+def test_render_vtk_only_query(client):
+    """vtk_only=true exige VTK: o 200 PNG (con OpenGL) o 503 claro (sin OpenGL) — NUNCA matplotlib."""
+    client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 400, "depth": 120, "height": 120}}
+    )
+    resp = client.get("/api/render.png", params={"vtk_only": True})
+    assert resp.status_code in (200, 503)
+    if resp.status_code == 200:
+        assert resp.headers["content-type"] == "image/png" and resp.content[:4] == b"\x89PNG"
+
+
+def test_render_measure_dimension(client):
+    """measure=a,b dibuja la cota: 200 PNG (o 503 sin OpenGL); id inexistente → 404."""
+    a = client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 100, "depth": 100, "height": 100, "position": {"x": -300}}}
+    ).json()["affected_command_ids"][0]
+    b = client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 100, "depth": 100, "height": 100, "position": {"x": 300}}}
+    ).json()["affected_command_ids"][0]
+    resp = client.get("/api/render.png", params={"vtk_only": True, "measure": f"{a},{b}"})
+    assert resp.status_code in (200, 503)
+    if resp.status_code == 200:
+        assert resp.content[:4] == b"\x89PNG"
+    # id inexistente → 404
+    bad = client.get("/api/render.png", params={"vtk_only": True, "measure": f"{a},NO-EXISTE"})
+    assert bad.status_code == 404
+
+
+def test_render_xray_query(client):
+    """xray=true exige VTK: 200 PNG (con OpenGL) o 503 (sin) — nunca matplotlib."""
+    a = client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 100, "depth": 100, "height": 100, "position": {"x": -200}}}
+    ).json()["affected_command_ids"][0]
+    client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 100, "depth": 100, "height": 100, "position": {"x": 200}}}
+    )
+    resp = client.get("/api/render.png", params={"vtk_only": True, "xray": True, "highlight": a})
+    assert resp.status_code in (200, 503)
+    if resp.status_code == 200:
+        assert resp.content[:4] == b"\x89PNG"
+
+
+def test_render_labels_roll_pan_query(client):
+    """labels/roll/pan vía VTK: 200 PNG (con OpenGL) o 503 (sin); pan mal formado → 400."""
+    client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 400, "depth": 120, "height": 120}}
+    )
+    resp = client.get("/api/render.png", params={"vtk_only": True, "labels": True, "roll": 25, "pan": "0.3,0.1"})
+    assert resp.status_code in (200, 503)
+    if resp.status_code == 200:
+        assert resp.content[:4] == b"\x89PNG"
+    bad = client.get("/api/render.png", params={"vtk_only": True, "pan": "nope"})
+    assert bad.status_code == 400
+    # vtk_only no soporta multivista → 400 claro
+    mv = client.get("/api/render.png", params={"vtk_only": True, "views": "iso,frente"})
+    assert mv.status_code == 400
+
+
+def test_pick_honors_isolate_and_section(client):
+    """El pick respeta isolate (solo esas piezas) y section (recorta como la foto)."""
+    a = client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 100, "depth": 100, "height": 100, "position": {"x": -600}}}
+    ).json()["affected_command_ids"][0]
+    client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 100, "depth": 100, "height": 100, "position": {"x": 0}}}
+    )
+    b = client.post(
+        "/api/commands", json={"type": "create_box", "params": {"width": 100, "depth": 100, "height": 100, "position": {"x": 600}}}
+    ).json()["affected_command_ids"][0]
+    # con isolate=[a,b] el pick del centro nunca devuelve la caja del medio
+    p = client.get("/api/pick", params={"u": 0.5, "v": 0.5, "view": "frente", "isolate": f"{a},{b}"}).json()
+    assert p["feature_id"] in {a, b}
+    # con section devuelve un id válido (la vía de recorte funciona)
+    s = client.get("/api/pick", params={"u": 0.5, "v": 0.5, "view": "frente", "section": "x"}).json()
+    assert "feature_id" in s
+
+
 def test_shape_render_cache_reuses_and_recomputes():
     """El caché de render (mesh/volumen/bbox) reutiliza por identidad de shape y
     recalcula para un shape distinto. Lo aprovecha scene_payload con el regenerate

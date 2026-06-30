@@ -95,7 +95,7 @@ def test_family_expands_to_variants():
 def test_all_new_families_present():
     assert len(refs_in_category("tornilleria")) == 6
     assert len(refs_in_category("guias_lineales")) == 10  # 5 rieles + 5 carros
-    assert len(refs_in_category("transmision")) == 8  # 5 poleas + 3 tensores (V2)
+    assert len(refs_in_category("transmision")) == 14  # 5 poleas dentadas + 3 tensores + 6 poleas en V
     # V2: chumaceras, topes, pies niveladores
     assert len(refs_in_category("chumaceras")) == 3
     assert len(refs_in_category("topes")) == 3
@@ -126,7 +126,7 @@ def test_all_new_families_present():
     # tornillería comercial para tensores (DIN 933 / 934)
     assert len(refs_in_category("pernos")) == 4
     assert len(refs_in_category("tuercas")) == 4
-    assert len(CATALOG) == 191
+    assert len(CATALOG) == 197  # +6 poleas en V (faja de potencia)
 
 
 def test_door_sliding_hardware():

@@ -178,9 +178,14 @@ export interface MotionKeyframe {
   values: Record<string, number>;
 }
 
-export interface MotionOut {
+export interface MotionStudy {
+  name: string;
   keyframes: MotionKeyframe[];
   duration: number;
+}
+
+export interface MotionOut {
+  studies: MotionStudy[];
 }
 
 export interface MateRow {

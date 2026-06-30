@@ -24,10 +24,36 @@ def _shape_of(feat, shapes_override):
     return shapes_override.get(feat.id, feat.shape) if shapes_override else feat.shape
 
 
-def apply_camera(ax, bmins, bmaxs, *, zoom: float = 1.0, proportional: bool = False, view: str = "iso"):
+def resolve_angles(
+    view: str = "iso", azimuth: float | None = None, elevation: float | None = None
+) -> tuple[float, float]:
+    """Resuelve los ángulos (elev, azim) de cámara en GRADOS (convención de view_init de
+    matplotlib). Parte del preset nombrado `view` y, si se pasan, `elevation`/`azimuth` los
+    ANULAN (override parcial permitido: dar solo uno conserva el otro del preset). Fuente única
+    compartida por apply_camera (matplotlib) y render_scene_vtk (VTK) → mismo punto de vista."""
+    base_elev, base_azim = VIEW_ANGLES.get(view, VIEW_ANGLES["iso"])
+    elev = base_elev if elevation is None else float(elevation)
+    azim = base_azim if azimuth is None else float(azimuth)
+    return elev, azim
+
+
+def apply_camera(
+    ax,
+    bmins,
+    bmaxs,
+    *,
+    zoom: float = 1.0,
+    proportional: bool = False,
+    view: str = "iso",
+    azimuth: float | None = None,
+    elevation: float | None = None,
+    roll: float = 0.0,
+):
     """Fija límites/box_aspect/ángulos del Axes3D para una caja envolvente dada. ÚNICA
     fuente de verdad de la cámara → la comparten render_scene_png y el pick (kernel/pick.py),
-    de modo que proyectar mundo→pantalla coincida con lo que se dibuja. Devuelve (half, center)."""
+    de modo que proyectar mundo→pantalla coincida con lo que se dibuja. `azimuth`/`elevation`
+    (grados) anulan el ángulo del preset `view` si se pasan; `roll` (grados) gira sobre el eje de
+    visión. Devuelve (half, center)."""
     import numpy as np
 
     bmins = np.asarray(bmins, dtype=float)
@@ -47,8 +73,11 @@ def apply_camera(ax, bmins, bmaxs, *, zoom: float = 1.0, proportional: bool = Fa
         ax.set_ylim(center[1] - half, center[1] + half)
         ax.set_zlim(max(0.0, center[2] - half), center[2] + half)
         ax.set_box_aspect((1, 1, 1))
-    elev, azim = VIEW_ANGLES.get(view, VIEW_ANGLES["iso"])
-    ax.view_init(elev=elev, azim=azim)
+    elev, azim = resolve_angles(view, azimuth, elevation)
+    try:
+        ax.view_init(elev=elev, azim=azim, roll=roll)   # roll: matplotlib ≥3.6
+    except TypeError:
+        ax.view_init(elev=elev, azim=azim)
     return half, center
 
 
@@ -100,6 +129,9 @@ def _draw_view(
     title: str,
     colors: dict | None = None,
     frame_bbox=None,
+    azimuth: float | None = None,
+    elevation: float | None = None,
+    roll: float = 0.0,
 ) -> None:
     """Dibuja UNA vista de la escena en el Axes3D `ax` (extraído para reusarlo en
     subplots multivista). Replica el comportamiento histórico de render_scene_png."""
@@ -157,7 +189,10 @@ def _draw_view(
         bmins, bmaxs = fmins, fmaxs
     else:
         bmins, bmaxs = mins, maxs
-    half, _ = apply_camera(ax, bmins, bmaxs, zoom=zoom, proportional=proportional, view=view)
+    half, _ = apply_camera(
+        ax, bmins, bmaxs, zoom=zoom, proportional=proportional, view=view,
+        azimuth=azimuth, elevation=elevation, roll=roll,
+    )
 
     if show_axes:
         axlen = half * 0.6
@@ -202,6 +237,9 @@ def render_scene_png(
     colors: dict | None = None,
     frame_bbox=None,
     ignore_visibility: bool = False,
+    azimuth: float | None = None,
+    elevation: float | None = None,
+    roll: float = 0.0,
 ) -> bytes:
     """`fit_ids` encuadra la cámara solo en esos sólidos (primer plano; el resto se
     sigue dibujando). `zoom>1` acerca (`<1` aleja). `proportional=True` ciñe los ejes
@@ -210,7 +248,11 @@ def render_scene_png(
     `views` (≥2) compone varias vistas en una sola imagen (subplots 2 columnas) — menos
     oclusión en una sola llamada. `labels=True` rotula el id de cada sólido (o solo los
     `highlight_ids`) sobre la imagen. `section` ∈ {x,y,z} recorta cada sólido a la mitad
-    coord ≤ centro de ese eje para VER DENTRO."""
+    coord ≤ centro de ese eje para VER DENTRO.
+
+    `azimuth`/`elevation` (grados) anulan el ángulo del preset `view` (override parcial
+    permitido). Solo se aplican en vista ÚNICA; en multivista (`views`) se ignoran (cada
+    vista nombrada conserva su preset)."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -255,6 +297,10 @@ def render_scene_png(
             show_axes=show_axes, show_bbox=show_bbox, zoom=zoom, proportional=proportional,
             labels=labels, section=section, scene_lohi=scene_lohi, title=title, colors=colors,
             frame_bbox=frame_bbox,
+            # az/el solo en vista única; en multivista cada vista mantiene su preset
+            azimuth=azimuth if n == 1 else None,
+            elevation=elevation if n == 1 else None,
+            roll=roll if n == 1 else 0.0,
         )
         if clean:  # sin ejes/grid/etiquetas (para embeber el sombreado en una lámina)
             ax.set_axis_off()

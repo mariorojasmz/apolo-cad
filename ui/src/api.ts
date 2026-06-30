@@ -78,17 +78,23 @@ export const api = {
   deleteJoint: (name: string) =>
     fetch(`/api/joints/${encodeURIComponent(name)}`, { method: "DELETE" }).then((r) => json<SceneOut>(r)),
   motion: () => fetch("/api/motion").then((r) => json<MotionOut>(r)),
-  saveMotion: (keyframes: MotionKeyframe[]) =>
+  saveMotion: (name: string, keyframes: MotionKeyframe[]) =>
     fetch("/api/motion", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keyframes }),
+      body: JSON.stringify({ name, keyframes }),
     }).then((r) => json<MotionOut>(r)),
-  scanMotion: (steps: number) =>
+  deleteMotionStudy: (name: string) =>
+    fetch("/api/motion", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).then((r) => json<MotionOut>(r)),
+  scanMotion: (name: string, steps: number) =>
     fetch("/api/motion/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ steps }),
+      body: JSON.stringify({ name, steps }),
     }).then((r) => json<{ colisiones: { t: number; interferencias: unknown[] }[] }>(r)),
   constraints: () => fetch("/api/constraints").then((r) => json<RailConstraint[]>(r)),
   solveConstraints: (values: Record<string, number>) =>

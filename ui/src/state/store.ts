@@ -3,10 +3,8 @@ import { api, connectWs } from "../api";
 import { reportError } from "../errorlog";
 import type {
   CatalogItem, ChatAction, ChatMsg, CommandSchema, ConnectivityOut, DropResult, FeatureOut, GravityResult,
-  KinematicsOut, MateRow, MotionKeyframe, RailConstraint, SceneOut,
+  KinematicsOut, MateRow, MotionKeyframe, MotionStudy, RailConstraint, SceneOut,
 } from "../types";
-
-type BottomPanel = "none" | "history" | "bom" | "checks" | "kin" | "mates" | "fisica" | "ensamblaje";
 
 const NO_FEATURES: FeatureOut[] = [];
 
@@ -29,11 +27,12 @@ interface AppState {
   showHome: boolean;
   sketcherOpen: boolean;
   sketcherInitial: { commandId: string; type: string; params: Record<string, unknown> } | null;
-  bottomPanel: BottomPanel;
+  dockPanels: string[]; // ids de paneles presentes en el layout de Dockview (resaltado de StatusBar)
   kinematics: KinematicsOut | null;
   constraints: RailConstraint[];
   mates: MateRow[];
-  motion: MotionKeyframe[];
+  motionStudies: MotionStudy[];
+  activeStudy: string | null;
   jointValues: Record<string, number>;
   physicsResult: DropResult | null;
   physicsPlaying: boolean;
@@ -53,7 +52,6 @@ interface AppState {
   blocking: boolean;
   chat: ChatMsg[];
   chatBusy: boolean;
-  showHistory: boolean;
 
   init: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -67,7 +65,7 @@ interface AppState {
   adoptScene: (scene: SceneOut) => void;
   openSketcher: (initial?: { commandId: string; type: string; params: Record<string, unknown> }) => void;
   closeSketcher: () => void;
-  setBottomPanel: (panel: BottomPanel) => void;
+  setDockPanels: (ids: string[]) => void;
   refreshKinematics: () => Promise<void>;
   setJointValue: (name: string, value: number) => void;
   driveJoint: (name: string, value: number) => void;
@@ -75,7 +73,9 @@ interface AppState {
   resetJointValues: () => void;
   deleteJoint: (name: string) => Promise<void>;
   refreshMotion: () => Promise<void>;
-  saveMotion: (keyframes: MotionKeyframe[]) => Promise<void>;
+  saveMotion: (name: string, keyframes: MotionKeyframe[]) => Promise<void>;
+  deleteStudy: (name: string) => Promise<void>;
+  setActiveStudy: (name: string | null) => void;
   setPhysicsResult: (result: DropResult | null) => void;
   setPhysicsPlaying: (playing: boolean) => void;
   setPhysicsSpeed: (speed: number) => void;
@@ -95,7 +95,6 @@ interface AppState {
   requestPick: (cb: ((point: [number, number, number]) => void) | null) => void;
   importStep: (file: File, split: boolean) => Promise<void>;
   setError: (msg: string | null) => void;
-  toggleHistory: () => void;
 
   runCommand: (type: string, params: Record<string, unknown>) => Promise<boolean>;
   editCommand: (id: string, params: Record<string, unknown>, transient?: boolean) => Promise<boolean>;
@@ -225,11 +224,12 @@ export const useStore = create<AppState>((set, get) => ({
   showHome: false,
   sketcherOpen: false,
   sketcherInitial: null,
-  bottomPanel: "none",
+  dockPanels: [],
   kinematics: null,
   constraints: [],
   mates: [],
-  motion: [],
+  motionStudies: [],
+  activeStudy: null,
   jointValues: {},
   physicsResult: null,
   physicsPlaying: false,
@@ -250,7 +250,6 @@ export const useStore = create<AppState>((set, get) => ({
   chat: [],
   chatBusy: false,
   autoMode: false,
-  showHistory: false,
 
   init: async () => {
     const [schemas, scene, catalog] = await Promise.all([api.schemas(), api.scene(), api.catalog()]);
@@ -307,18 +306,39 @@ export const useStore = create<AppState>((set, get) => ({
 
   refreshMotion: async () => {
     try {
-      set({ motion: (await api.motion()).keyframes });
+      const studies = (await api.motion()).studies;
+      const active = get().activeStudy;
+      set({
+        motionStudies: studies,
+        activeStudy: studies.some((s) => s.name === active)
+          ? active
+          : studies[0]?.name ?? null,
+      });
     } catch {
       /* sin motion disponible */
     }
   },
-  saveMotion: async (keyframes) => {
+  saveMotion: async (name, keyframes) => {
     try {
-      set({ motion: (await api.saveMotion(keyframes)).keyframes });
+      const studies = (await api.saveMotion(name, keyframes)).studies;
+      set({ motionStudies: studies, activeStudy: studies.some((s) => s.name === name) ? name : get().activeStudy });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : String(e) });
     }
   },
+  deleteStudy: async (name) => {
+    try {
+      const studies = (await api.deleteMotionStudy(name)).studies;
+      const active = get().activeStudy;
+      set({
+        motionStudies: studies,
+        activeStudy: active === name ? (studies[0]?.name ?? null) : active,
+      });
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+    }
+  },
+  setActiveStudy: (name) => set({ activeStudy: name }),
 
   // Física (drop-test): estado efímero, NO persiste. El token++ dispara el rebuild
   // de las cajas en el viewport (patrón overlay efímero).
@@ -490,12 +510,8 @@ export const useStore = create<AppState>((set, get) => ({
     get().clearGravity();
     void get().refreshKinematics();
   },
-  setBottomPanel: (panel) => set({ bottomPanel: panel, showHistory: panel === "history" }),
+  setDockPanels: (ids) => set({ dockPanels: ids }),
   setError: (msg) => set({ error: msg }),
-  toggleHistory: () => {
-    const next = get().bottomPanel === "history" ? "none" : "history";
-    set({ bottomPanel: next, showHistory: next === "history" });
-  },
 
   runCommand: async (type, params) => {
     const scene = await guard(set, () => api.runCommand(type, params), `runCommand:${type}`);

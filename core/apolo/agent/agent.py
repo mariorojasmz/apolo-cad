@@ -387,7 +387,7 @@ def run_validation_tool(doc: Document, name: str, tool_input: dict):
             conveyor = (
                 tool_input.get("conveyor")
                 or _conveyor_params_from_doc(doc)
-                or detect_conveyor(doc.scene)
+                or detect_conveyor(doc.scene, doc.variables_resolved)
             )
         if not conveyor:
             return json.dumps(
