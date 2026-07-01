@@ -344,6 +344,22 @@ cd ui ; npm run build             # bundle de la UI
   (mass.py usa materials.py; _link_physics sigue por categoría) — unificar es follow-up. Follow-ups:
   frente B (costo en catálogo → BOM costeado → cotización), campo `funcion`/rol estructurado,
   export STL/glTF (plan en `docs/checklist-cad-ia.md`).
+  **(2026-07-01, Frente C) Regla de redundancia refinada + faja 38 APROBADA**: una unión DIMENSIONADA
+  en camino de carga redundante reporta **"ok" con nota honesta** (antes "aviso"): la redundancia es
+  FAVORABLE estructuralmente y no es accionable — en una máquina bien arriostrada casi todo camino es
+  múltiple y la memoria jamás saldría limpia (test renombrado `test_redundant_path_is_ok_with_honest_detail`).
+  Las 119 uniones de la faja id 38 se CURARON en un solo `edit_batch` (merge): **58 reclasificadas a
+  `contacto`** (la autodetección había declarado "soldadura" donde no la hay: banda↔mesa/travesaños
+  [desliza], perno de anclaje↔placa [la unión real es pie_placa_*], internos del tensor, drum_banda
+  [fricción], tensor↔larguero salvo el soporte C), **20 pernos dimensionados** (pie_placa/pie_pata/
+  rod_men M12×1, chum_mensula M14×2 [UCP207 N=17], nmrv_eje M10×2 [= prisioneros; el par va por
+  CHAVETA — agent_note], nmrv_brazo RECLASIFICADO a perno M10×6 [brida]) y **41 soldaduras con
+  garganta** (pata↔travesaño 3/140, larguero↔travesaño 3/120, mesa/repisa↔travesaño 3/80, ménsulas
+  4/100, soporte C del tensor 4/100, drum_eje 4/110, disco_pata 4/120). Resultado: `engineering_check`
+  **12/12 ingeniería + 64/64 estructura, 0 avisos** → memoria regenerada **VEREDICTO: APROBADO**
+  (planos/faja-4m-memoria.pdf). Revisión guardada. **Lección**: curar la conectividad auto-detectada
+  (reclasificar lo que no es soldadura) es tan importante como dimensionar — un fastener "soldadura"
+  entre la banda y la mesa es un error de MODELO, no un pendiente de cálculo.
 - **FRENTE B — COSTO + BOM COSTEADO + COTIZACIÓN (2026-07-01)**: monetiza el Frente A (el vertical
   del negocio es COTIZAR transportadores). **(1) NEW `library/costing.py`** (puro, sobre
   `bom_from_scene` — misma agrupación del BOM): 3 fuentes de costo DECLARADAS por fila

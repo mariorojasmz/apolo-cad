@@ -96,9 +96,9 @@ def test_parallel_fasteners_same_pair_combine_bolts():
         assert "4× M10" in r["detalle"]
 
 
-def test_redundant_path_reports_indeterminate():
-    # el motor cuelga por DOS caminos distintos (dos vigas) → quitar una unión no
-    # lo suelta: carga estáticamente indeterminada → aviso honesto
+def test_redundant_path_is_ok_with_honest_detail():
+    # el motor cuelga por DOS caminos distintos (dos vigas): la redundancia es
+    # FAVORABLE y no accionable → "ok" con nota honesta (reparto indeterminado)
     doc = Document("t")
     base = _box(doc, "Base", 100, z=50)
     v1 = _box(doc, "Viga A", 100, x=-100, z=150)
@@ -112,7 +112,7 @@ def test_redundant_path_reports_indeterminate():
     checks = _structure(doc)
     m_rules = [c for c in checks if c["regla"] in ("unión apernada · m1", "unión apernada · m2")]
     assert len(m_rules) == 2
-    assert all(c["estado"] == "aviso" and "redundante" in c["detalle"] for c in m_rules)
+    assert all(c["estado"] == "ok" and "redundante" in c["detalle"] for c in m_rules)
 
 
 # ------------------------------------------------------------------ soldaduras

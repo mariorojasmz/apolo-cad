@@ -9,9 +9,10 @@ carga), estas reglas aplican a CUALQUIER ensamblaje con uniones declaradas:
 - estabilidad al vuelco (COG vs huella de apoyo).
 
 La CARGA de cada unión sale del grafo de conectividad (`hanging_load_kg`:
-masa que pierde tierra al quitar la arista) — honesto: una unión redundante se
-reporta como "no determinable", no se inventa un número. Mismo formato de regla
-que rules.py ({regla, estado, detalle, recomendacion?, calc?}).
+masa que pierde tierra al quitar la arista) — honesto: una unión DIMENSIONADA en
+camino redundante se reporta "ok" con nota (la redundancia es favorable y no es
+accionable; el reparto exacto exigiría FEA), nunca con un número inventado. Mismo
+formato de regla que rules.py ({regla, estado, detalle, recomendacion?, calc?}).
 
 Orquestador puro: recibe dicts (scene/fasteners/grounds/joints/mates), nunca
 `Document` — frontera library ⟂ doc.
@@ -85,10 +86,13 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
                 ))
                 continue
             if load_kg is None:
+                # la redundancia es FAVORABLE estructuralmente (camino de carga
+                # múltiple) y no es accionable — un aviso debe serlo
                 checks.append(_check(
-                    f"unión apernada · {f.get('name')}", "aviso",
-                    f"{label}: unión redundante (camino de carga múltiple) — el reparto "
-                    "es estáticamente indeterminado sin FEA; se asume compartida.",
+                    f"unión apernada · {f.get('name')}", "ok",
+                    f"{label}: {qty}× {size} en camino de carga redundante — favorable "
+                    "estructuralmente; el reparto no es determinable sin FEA, se asume "
+                    "compartida entre caminos.",
                 ))
                 continue
             load_n = load_kg * G
@@ -131,8 +135,10 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
                 continue
             if load_kg is None:
                 checks.append(_check(
-                    f"soldadura · {f.get('name')}", "aviso",
-                    f"{label}: unión redundante — carga compartida no determinable.",
+                    f"soldadura · {f.get('name')}", "ok",
+                    f"{label}: cordón a={throat:g}/L={length:g} en camino de carga "
+                    "redundante — favorable estructuralmente; reparto no determinable "
+                    "sin FEA, se asume compartido.",
                 ))
                 continue
             load_n = load_kg * G
