@@ -1,0 +1,29 @@
+category: rodillos
+components:
+  - ref: RODILLO-50
+    name: Rodillo Ø50
+    description: Rodillo de gravedad/transporte Ø50x1.5 acero zincado, eje Ø12.
+    builder: roller
+    params: {diameter: 50, shaft_d: 12}
+    weight: 1.9
+    cuttable: true
+    default_length: 600
+    specs: {diametro_mm: 50, espesor_mm: 1.5, material: acero zincado, capacidad_kg: 35, eje_mm: 12}
+  - ref: RODILLO-60
+    name: Rodillo Ø60
+    description: Rodillo Ø60x2 acero zincado para cargas medias, eje Ø14.
+    builder: roller
+    params: {diameter: 60, shaft_d: 14}
+    weight: 2.9
+    cuttable: true
+    default_length: 600
+    specs: {diametro_mm: 60, espesor_mm: 2.0, material: acero zincado, capacidad_kg: 60, eje_mm: 14}
+  - ref: RODILLO-80
+    name: Rodillo Ø80
+    description: Rodillo Ø80x3 acero para palets y cargas pesadas, eje Ø20.
+    builder: roller
+    params: {diameter: 80, shaft_d: 20}
+    weight: 5.7
+    cuttable: true
+    default_length: 850
+    specs: {diametro_mm: 80, espesor_mm: 3.0, material: acero, capacidad_kg: 180, eje_mm: 20}

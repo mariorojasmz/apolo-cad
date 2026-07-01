@@ -1,0 +1,9 @@
+category: tableros
+components:
+  - ref: TABLERO-5040
+    name: Tablero de control 500x400x200
+    description: Gabinete metálico IP54 500x400x200 mm para variador, protecciones, contactor y borneras.
+    builder: box
+    params: {width: 500, depth: 200, height: 400}
+    weight: 12.0
+    specs: {ancho_mm: 500, alto_mm: 400, fondo_mm: 200, proteccion: IP54, material: "acero pintado"}

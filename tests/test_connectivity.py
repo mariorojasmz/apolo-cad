@@ -147,3 +147,63 @@ def test_soundness_with_autodetect_overlay():
     extra_grounds = {g["feature"] for g in det["grounds"]}
     rep = _report(doc, extra_edges=extra_edges, extra_grounds=extra_grounds)
     assert rep["floating"] == [air]
+
+
+# ------------------------------------------------ dimensionamiento del fijador (Frente A)
+def test_fasten_with_size_and_qty_roundtrip():
+    doc = Document("t")
+    a = _box(doc, "A", 50)
+    b = _box(doc, "B", 150)
+    doc.execute("ground", {"name": "g1", "feature": a})
+    doc.execute("fasten", {"name": "f1", "a": a, "b": b, "kind": "perno", "size": "M10", "qty": 4})
+    assert doc.fasteners["f1"]["size"] == "M10"
+    assert doc.fasteners["f1"]["qty"] == 4
+    # sobrevive a serializar/abrir (.apolo) — el log replaya el spec completo
+    doc2 = Document.from_apolo_bytes(doc.to_apolo_bytes())
+    assert doc2.fasteners["f1"]["size"] == "M10"
+    assert doc2.fasteners["f1"]["qty"] == 4
+    # y a undo/redo
+    doc.undo()
+    assert "f1" not in doc.fasteners
+    doc.redo()
+    assert doc.fasteners["f1"]["qty"] == 4
+
+
+def test_fasten_weld_with_throat_and_length():
+    doc = Document("t")
+    a = _box(doc, "A", 50)
+    b = _box(doc, "B", 150)
+    doc.execute(
+        "fasten",
+        {"name": "w1", "a": a, "b": b, "kind": "soldadura", "throat_mm": 4, "length_mm": 200},
+    )
+    assert doc.fasteners["w1"]["throat_mm"] == 4
+    assert doc.fasteners["w1"]["length_mm"] == 200
+
+
+def test_fasten_without_sizing_still_works():
+    # retrocompatibilidad: el log viejo (sin size/qty) ejecuta idéntico
+    doc = Document("t")
+    a = _box(doc, "A", 50)
+    b = _box(doc, "B", 150)
+    doc.execute("fasten", {"name": "f1", "a": a, "b": b, "kind": "perno"})
+    assert "size" not in doc.fasteners["f1"]
+    assert "qty" not in doc.fasteners["f1"]
+
+
+def test_fasten_rejects_bad_metric():
+    from apolo.commands.registry import CommandError
+
+    doc = Document("t")
+    a = _box(doc, "A", 50)
+    b = _box(doc, "B", 150)
+    with pytest.raises(CommandError):
+        doc.execute("fasten", {"name": "f1", "a": a, "b": b, "size": "10mm"})
+
+
+def test_fasten_schema_exposes_sizing_fields():
+    from apolo.commands.registry import REGISTRY
+
+    props = REGISTRY["fasten"].model.model_json_schema()["properties"]
+    for field in ("size", "qty", "throat_mm", "length_mm"):
+        assert field in props

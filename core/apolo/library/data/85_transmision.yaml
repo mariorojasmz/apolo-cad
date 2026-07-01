@@ -1,0 +1,45 @@
+category: transmision
+# Poleas / piñones de transmisión, por diámetro primitivo. Builder pulley:
+# cuerpo con pestañas y taladro central, por revolución.
+families:
+  - family: "POLEA"
+    name_tpl: "Polea {ref}"
+    description_tpl: "Polea/piñón Ø primitivo {pitch_d} mm, ancho {width}, taladro {bore_d}."
+    builder: pulley
+    param_keys: [pitch_d, width, bore_d]
+    weight_formula: "7.85e-6 * 0.6 * pitch_d * pitch_d * width"
+    specs_common: {tipo: "polea dentada", material: "aluminio/acero"}
+    variants:
+      - {ref: "POLEA-40", pitch_d: 40, width: 16, bore_d: 10}
+      - {ref: "POLEA-60", pitch_d: 60, width: 20, bore_d: 12}
+      - {ref: "POLEA-80", pitch_d: 80, width: 20, bore_d: 15}
+      - {ref: "POLEA-100", pitch_d: 100, width: 25, bore_d: 20}
+      - {ref: "POLEA-125", pitch_d: 125, width: 25, bore_d: 25}
+  # Poleas en V (sheaves) para FAJA DE POTENCIA. Medidas comerciales: sección A (faja
+  # de 13 mm) y B (17 mm), Ø exterior por pulgadas, taladro al eje. Builder v_pulley.
+  - family: "POLEA-V"
+    name_tpl: "Polea en V {ref} (secc {section}, {grooves}C, Ø{outer_d})"
+    description_tpl: "Polea en V sección {section}, Ø ext {outer_d} mm, {grooves} canal(es), taladro {bore_d} mm (transmisión por faja de potencia)."
+    builder: v_pulley
+    param_keys: [outer_d, width, bore_d, grooves, groove_top, groove_depth, groove_pitch]
+    weight_formula: "7.85e-6 * 0.5 * outer_d * outer_d * width"
+    specs_common: {tipo: "polea en V", material: "acero", norma: "ISO 4183"}
+    variants:
+      - {ref: "POLEA-VA-3", section: "A", outer_d: 80,  width: 20, bore_d: 19, grooves: 1, groove_top: 13, groove_depth: 11, groove_pitch: 15}
+      - {ref: "POLEA-VA-4", section: "A", outer_d: 106, width: 20, bore_d: 24, grooves: 1, groove_top: 13, groove_depth: 11, groove_pitch: 15}
+      - {ref: "POLEA-VB-4", section: "B", outer_d: 110, width: 26, bore_d: 35, grooves: 1, groove_top: 17, groove_depth: 14, groove_pitch: 19}
+      - {ref: "POLEA-VB-4-2C", section: "B", outer_d: 110, width: 45, bore_d: 35, grooves: 2, groove_top: 17, groove_depth: 14, groove_pitch: 19}
+      - {ref: "POLEA-VB-5", section: "B", outer_d: 135, width: 26, bore_d: 35, grooves: 1, groove_top: 17, groove_depth: 14, groove_pitch: 19}
+      - {ref: "POLEA-VB-6", section: "B", outer_d: 160, width: 26, bore_d: 35, grooves: 1, groove_top: 17, groove_depth: 14, groove_pitch: 19}
+  # Tensores de banda: polea tensora pequeña + soporte/bracket. Builder tensioner.
+  - family: "TENSOR"
+    name_tpl: "Tensor de banda {ref}"
+    description_tpl: "Tensor de banda: polea Ø{pitch_d} ancho {width} sobre soporte {bracket_w}×{bracket_h}."
+    builder: tensioner
+    param_keys: [pitch_d, width, bracket_w, bracket_h, bracket_t]
+    weight_formula: "2.7e-6 * 0.6 * pitch_d * pitch_d * width + 7.85e-6 * bracket_w * bracket_h * bracket_t"
+    specs_common: {tipo: "tensor de banda", material: "aluminio"}
+    variants:
+      - {ref: "TENSOR-40", pitch_d: 40, width: 16, bracket_w: 50, bracket_h: 80, bracket_t: 8}
+      - {ref: "TENSOR-50", pitch_d: 50, width: 20, bracket_w: 60, bracket_h: 100, bracket_t: 10}
+      - {ref: "TENSOR-60", pitch_d: 60, width: 25, bracket_w: 70, bracket_h: 120, bracket_t: 10}

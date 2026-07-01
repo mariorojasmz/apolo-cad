@@ -1,0 +1,19 @@
+﻿category: pernos
+# Tornillos Allen de cabeza cilíndrica con hexágono interior (DIN 912), grado 8.8 (alta
+# resistencia, comerciales). Se giran con llave Allen. La cabeza (Ø≈1.5·d, alto≈d) y el hueco
+# hexagonal se derivan de d en el builder; la rosca se modela lisa. El largo del vástago lo fija
+# quien lo usa (p. ej. el tensor de cola/motriz). `across_flats`/`head_h` quedan en specs solo
+# para el cálculo de peso.
+# cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+families:
+  - name_tpl: "Tornillo Allen {ref} 8.8"
+    description_tpl: "Tornillo Allen (cabeza cilíndrica, hexágono interior) {ref} DIN 912 8.8 (se gira con llave Allen)."
+    builder: socket_cap
+    param_keys: [d]
+    weight_formula: "7.85e-6 * (0.785 * d * d * 60 + 0.785 * (1.5*d) * (1.5*d) * d)"
+    specs_common: {tipo: "tornillo Allen cabeza cilíndrica", material: "acero grado 8.8", grado: "8.8", norma: "DIN 912"}
+    variants:
+      - {ref: "PERNO-M10", d: 10, across_flats: 17, head_h: 10.0, cost: 0.35}
+      - {ref: "PERNO-M12", d: 12, across_flats: 18, head_h: 12.0, cost: 0.5}
+      - {ref: "PERNO-M16", d: 16, across_flats: 24, head_h: 16.0, cost: 0.9}
+      - {ref: "PERNO-M20", d: 20, across_flats: 30, head_h: 20.0, cost: 1.6}

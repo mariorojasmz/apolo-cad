@@ -1,0 +1,12 @@
+category: tensores_trotadora
+families:
+  - builder: take_up
+    name_tpl: "Tensor trotadora eje Ø{shaft_d}"
+    description_tpl: "Conjunto tensor tipo trotadora: soporte en «C» + tornillo M{bolt_d} VERTICAL que pasa por el agujero transversal del eje (Ø{shaft_d} mm). Tensa sin chumacera; uno por lado."
+    param_keys: [shaft_d, bolt_d, arm, plate_t, width]
+    cuttable: false
+    specs_common: {tipo: "take-up tipo trotadora (M16 vertical pasante + soporte en C)", material: "acero"}
+    weight_formula: "7.85e-6 * (2*width*arm*plate_t + width*plate_t*(shaft_d + 6 + 2*plate_t) + 3.1416*(bolt_d/2)**2*(shaft_d + 6 + 2*plate_t + 2*bolt_d))"
+    variants:
+      - {ref: TENSOR-TROT-20, shaft_d: 20, bolt_d: 12, arm: 45, plate_t: 8, width: 40}
+      - {ref: TENSOR-TROT-25, shaft_d: 25, bolt_d: 16, arm: 50, plate_t: 10, width: 44}

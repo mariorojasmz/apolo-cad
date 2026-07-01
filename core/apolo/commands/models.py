@@ -958,6 +958,16 @@ class FastenParams(BaseModel):
     a: str = Field(..., title="Sólido A", description="id de feature")
     b: str = Field(..., title="Sólido B", description="id de feature")
     kind: Literal["perno", "soldadura", "pegado", "contacto"] = Field("perno", title="Tipo de unión")
+    size: str | None = Field(
+        None, pattern=r"^M\d{1,2}$", title="Métrica del perno",
+        description="solo kind='perno' (M6–M24); si falta, el chequeo la reporta como no verificable",
+    )
+    qty: int | None = Field(None, ge=1, le=100, title="Nº de pernos de la unión")
+    throat_mm: float | None = Field(
+        None, gt=0, title="Garganta del cordón (mm)",
+        description="solo kind='soldadura'; garganta a = 0.707·cateto",
+    )
+    length_mm: float | None = Field(None, gt=0, title="Longitud total de cordón (mm)")
     nota: str = Field("", max_length=120, title="Nota")
 
 

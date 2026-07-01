@@ -1,0 +1,11 @@
+category: guardas
+components:
+  - ref: GUARDA-150
+    name: Guarda lateral h150
+    description: Chapa guía lateral de 150 mm de alto, 6 mm de espesor.
+    builder: guard
+    params: {thickness: 6, height: 150}
+    weight: 7.1
+    cuttable: true
+    default_length: 1000
+    specs: {alto_mm: 150, espesor_mm: 6, material: acero pintado}

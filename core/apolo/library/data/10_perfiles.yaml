@@ -1,0 +1,47 @@
+category: perfiles
+components:
+  - ref: PERFIL-2020
+    name: Perfil 20x20
+    description: Perfil de aluminio ranurado 20x20, módulo 20.
+    builder: profile
+    params: {size: "20x20"}
+    weight: 0.5
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "20x20", material: aluminio, modulo_mm: 20}
+  - ref: PERFIL-3030
+    name: Perfil 30x30
+    description: Perfil de aluminio ranurado 30x30, módulo 30.
+    builder: profile
+    params: {size: "30x30"}
+    weight: 0.9
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "30x30", material: aluminio, modulo_mm: 30}
+  - ref: PERFIL-4040
+    name: Perfil 40x40
+    description: Perfil de aluminio ranurado 40x40, módulo 40. El caballo de batalla de bastidores.
+    builder: profile
+    params: {size: "40x40"}
+    weight: 1.6
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "40x40", material: aluminio, modulo_mm: 40}
+  - ref: PERFIL-4080
+    name: Perfil 40x80
+    description: Perfil de aluminio ranurado 40x80 para largueros y vigas.
+    builder: profile
+    params: {size: "40x80"}
+    weight: 3.0
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "40x80", material: aluminio, modulo_mm: 40}
+  - ref: PERFIL-4545
+    name: Perfil 45x45
+    description: Perfil de aluminio ranurado serie 45 (compatible Bosch).
+    builder: profile
+    params: {size: "45x45"}
+    weight: 2.0
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "45x45", material: aluminio, modulo_mm: 45}

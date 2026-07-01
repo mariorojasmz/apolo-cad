@@ -1,0 +1,11 @@
+category: patas
+components:
+  - ref: PATA-REG
+    name: Pata regulable
+    description: Pata de perfil 40x40 con placa base 120x120; la longitud es la altura total.
+    builder: leg
+    params: {}
+    weight: 2.1
+    cuttable: true
+    default_length: 600
+    specs: {perfil: "40x40", placa_mm: "120x120", carga_kg: 250}

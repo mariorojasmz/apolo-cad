@@ -1,0 +1,63 @@
+category: bisagras
+# Bisagras de carpintería. butt_hinge = pala/libro (fija); piano_hinge = continua
+# (cortable a lo largo, kg/m); euro_hinge = cazoleta Ø35 de mueble (fija).
+families:
+  - family: "BIS"
+    name_tpl: "Bisagra de pala {leaf_h} mm"
+    description_tpl: "Bisagra libro {leaf_w}×{leaf_h} mm, pala {leaf_t} mm, nudillo Ø{knuckle_d}."
+    builder: butt_hinge
+    param_keys: [leaf_w, leaf_h, leaf_t, knuckle_d]
+    specs_common: {tipo: "bisagra de pala", material: "acero zincado", norma: "EN 1935"}
+    variants:
+      - {ref: "BIS-50", leaf_w: 44, leaf_h: 50, leaf_t: 2.0, knuckle_d: 8, weight: 0.05}
+      - {ref: "BIS-63", leaf_w: 54, leaf_h: 63, leaf_t: 2.5, knuckle_d: 9, weight: 0.09}
+      - {ref: "BIS-75", leaf_w: 70, leaf_h: 75, leaf_t: 3.0, knuckle_d: 11, weight: 0.16}
+      - {ref: "BIS-100", leaf_w: 89, leaf_h: 100, leaf_t: 3.0, knuckle_d: 13, weight: 0.28}
+
+  - family: "BIS-PIANO"
+    name_tpl: "Bisagra piano {leaf_w} mm"
+    description_tpl: "Bisagra continua (piano) ancho {leaf_w} mm, pala {leaf_t} mm. Cortable a medida."
+    builder: piano_hinge
+    param_keys: [leaf_w, leaf_t, knuckle_d]
+    cuttable: true
+    default_length: 1000
+    specs_common: {tipo: "bisagra continua (piano)", material: "acero zincado", norma: "EN 1935"}
+    variants:
+      - {ref: "BIS-PIANO-32", leaf_w: 32, leaf_t: 1.2, knuckle_d: 6, weight: 0.5}
+      - {ref: "BIS-PIANO-40", leaf_w: 40, leaf_t: 1.5, knuckle_d: 8, weight: 0.8}
+
+  - family: "BIS-EURO"
+    name_tpl: "Bisagra cazoleta Ø{cup_d}"
+    description_tpl: "Bisagra europea de cazoleta Ø{cup_d} mm (mueble), brazo {arm_len} mm."
+    builder: euro_hinge
+    param_keys: [cup_d, cup_depth, arm_len, plate_w, plate_h, plate_t]
+    specs_common: {tipo: "bisagra europea de cazoleta", material: "níquel satinado"}
+    variants:
+      - {ref: "BIS-EURO-26", cup_d: 26, cup_depth: 11, arm_len: 42, plate_w: 18, plate_h: 40, plate_t: 2.5, weight: 0.05}
+      - {ref: "BIS-EURO-35", cup_d: 35, cup_depth: 12, arm_len: 52, plate_w: 20, plate_h: 45, plate_t: 3.0, weight: 0.08}
+
+  # MEDIA bisagra: se insertan A (side 1) + B (side -1) coaxiales, cada una fija a su
+  # panel → articulación FIEL en la animación (cada pala gira con su hoja). Barril FINO
+  # (knuckle_d 7/9): en un plegable el nudillo vive en el hueco entre hojas y fija su
+  # mínimo (gap ≥ Ø barril); un barril fino permite cerrar el gap → menos paso de luz.
+  - family: "BIS-H"
+    name_tpl: "Media bisagra {leaf_h} ({lado})"
+    description_tpl: "Media bisagra {leaf_h} mm, pala {lado}, barril fino Ø{knuckle_d}. Inserta A+B coaxiales para articular fiel."
+    builder: butt_hinge_half
+    param_keys: [leaf_w_each, leaf_h, leaf_t, knuckle_d, side]
+    specs_common: {tipo: "media bisagra split (barril fino)", material: "acero zincado", norma: "EN 1935"}
+    variants:
+      - {ref: "BIS-H-75-A", leaf_w_each: 30, leaf_h: 75, leaf_t: 3.0, knuckle_d: 3, side: 1, lado: "A", weight: 0.06}
+      - {ref: "BIS-H-75-B", leaf_w_each: 30, leaf_h: 75, leaf_t: 3.0, knuckle_d: 3, side: -1, lado: "B", weight: 0.06}
+      - {ref: "BIS-H-100-A", leaf_w_each: 38, leaf_h: 100, leaf_t: 3.0, knuckle_d: 4, side: 1, lado: "A", weight: 0.12}
+      - {ref: "BIS-H-100-B", leaf_w_each: 38, leaf_h: 100, leaf_t: 3.0, knuckle_d: 4, side: -1, lado: "B", weight: 0.12}
+
+  - family: "BIS-RES"
+    name_tpl: "Bisagra resorte {leaf_h} mm"
+    description_tpl: "Bisagra de resorte / soft-close {leaf_w}×{leaf_h} mm, caja de resorte Ø{spring_d}."
+    builder: spring_hinge
+    param_keys: [leaf_w, leaf_h, leaf_t, knuckle_d, spring_d]
+    specs_common: {tipo: "bisagra de resorte (soft-close)", material: "acero zincado", norma: "EN 1935"}
+    variants:
+      - {ref: "BIS-RES-75", leaf_w: 70, leaf_h: 75, leaf_t: 3.0, knuckle_d: 11, spring_d: 18, weight: 0.20}
+      - {ref: "BIS-RES-100", leaf_w: 89, leaf_h: 100, leaf_t: 3.0, knuckle_d: 13, spring_d: 22, weight: 0.34}

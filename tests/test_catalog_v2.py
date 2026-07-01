@@ -6,8 +6,10 @@ from apolo.commands.models import InsertComponentParams
 from apolo.library.catalog import CATALOG, build_component
 
 NUEVOS = {
-    "CHUM-6205": "chumaceras",
-    "CHUM-6206": "chumaceras",
+    "UCP205": "chumaceras",
+    "UCP206": "chumaceras",
+    "UCF207": "chumaceras",
+    "UCFL207": "chumaceras",
     "TOPE-M6-30": "topes",
     "TOPE-M8-40": "topes",
     "TOPE-M10-50": "topes",
@@ -38,7 +40,7 @@ def test_nuevos_en_enum_insert_component():
 
 def test_chumacera_tiene_agujero_de_eje():
     """La chumacera debe tener el taladro del rodamiento (anillo, no disco macizo)."""
-    macizo, _ = build_component("CHUM-6205")
+    macizo, _ = build_component("UCP205")
     # el volumen es bastante menor que el de su bbox (placa + anillo con hueco)
     bb = macizo.bounding_box()
     caja = bb.size.X * bb.size.Y * bb.size.Z

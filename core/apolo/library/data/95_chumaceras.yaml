@@ -1,0 +1,65 @@
+﻿category: chumaceras
+# Chumaceras de PIE tipo UCP (soporte + rodamiento de inserto), cotas comerciales
+# UCP2xx (FYH/NTN/estándar). Builder pillow_block: cuerpo fundido acampanado + base de
+# 2 patas ranuradas + inserto con collar/prisioneros + grasera. El nº = serie del bore.
+# Cotas (mm): H altura al centro del eje, H1 altura total, L largo, J entre pernos,
+# A ancho de base, N Ø agujero de perno, Bi ancho del inserto, s espesor de base.
+# C_kN = capacidad dinámica del INSERTO UC2xx (≡ rodamiento 62xx, nominal NSK/NTN,
+# ±10% entre fabricantes) para la vida L10 (engineering/bearings.py).
+# Verificadas contra tablas UCP publicadas (FYH/NTN/AUbearing/Mechforged).
+# cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+families:
+  - family: "UCP"
+    name_tpl: "Chumacera de pie {ref}"
+    description_tpl: "Soporte de pie con rodamiento de inserto, eje Ø{d} mm, altura al centro {H} mm, pernos a {J} mm; hierro fundido."
+    builder: pillow_block
+    param_keys: [d, H, H1, L, J, A, N, Bi, s]
+    specs_common:
+      tipo: "chumacera de pie (UCP) con rodamiento de inserto"
+      material: "hierro fundido"
+      montaje: "2 pernos, base con agujeros ranurados"
+      norma: "estándar comercial UC/UCP (FYH/NTN)"
+    variants:
+      - {ref: "UCP204", d: 20, H: 33.3, H1: 65, L: 127, J: 95,  A: 38, N: 12, Bi: 31.0, s: 12.7, C_kN: 12.7, carga_kg: 100, cost: 9, weight: 0.62}
+      - {ref: "UCP205", d: 25, H: 36.5, H1: 71, L: 140, J: 105, A: 38, N: 13, Bi: 34.1, s: 14.3, C_kN: 14.0, carga_kg: 130, cost: 11, weight: 0.78}
+      - {ref: "UCP206", d: 30, H: 42.9, H1: 82, L: 165, J: 121, A: 44, N: 17, Bi: 38.1, s: 15.9, C_kN: 19.5, carga_kg: 180, cost: 14, weight: 1.10}
+      - {ref: "UCP207", d: 35, H: 47.6, H1: 92, L: 167, J: 127, A: 48, N: 17, Bi: 42.9, s: 17.5, C_kN: 25.5, carga_kg: 250, cost: 18, weight: 1.35}
+      - {ref: "UCP208", d: 40, H: 49.2, H1: 99, L: 184, J: 137, A: 52, N: 17, Bi: 49.2, s: 19.0, C_kN: 30.7, carga_kg: 320, cost: 22, weight: 1.65}
+  # --- Chumaceras de BRIDA CUADRADA de 4 pernos (UCF): para atornillar a una cara
+  # VERTICAL, eje perpendicular al plano de montaje. Cotas verificadas (KG/NTN/Timken).
+  - family: "UCF"
+    name_tpl: "Chumacera de brida cuadrada {ref}"
+    description_tpl: "Soporte de brida CUADRADA (4 pernos) con rodamiento de inserto, eje Ø{d} mm, brida {size_w}×{size_w} mm, pernos a {bolt_span} mm; hierro fundido."
+    builder: flange_bearing
+    param_keys: [d, flange, size_w, size_h, bolt_span, N, Bi, s]
+    specs_common:
+      tipo: "chumacera de brida cuadrada (UCF), 4 pernos"
+      material: "hierro fundido"
+      montaje: "4 pernos a cara vertical (eje perpendicular)"
+      norma: "estándar comercial UC/UCF (FYH/NTN)"
+      flange: "cuadrada"
+    variants:
+      - {ref: "UCF204", d: 20, flange: "cuadrada", size_w: 86,  size_h: 86,  bolt_span: 63.5, N: 12, Bi: 31.0, s: 13, C_kN: 12.7, carga_kg: 100, cost: 10, weight: 0.55}
+      - {ref: "UCF205", d: 25, flange: "cuadrada", size_w: 95,  size_h: 95,  bolt_span: 70,   N: 12, Bi: 34.1, s: 14, C_kN: 14.0, carga_kg: 130, cost: 12, weight: 0.73}
+      - {ref: "UCF206", d: 30, flange: "cuadrada", size_w: 108, size_h: 108, bolt_span: 83,   N: 12, Bi: 38.1, s: 15, C_kN: 19.5, carga_kg: 180, cost: 15, weight: 1.02}
+      - {ref: "UCF207", d: 35, flange: "cuadrada", size_w: 117, size_h: 117, bolt_span: 92,   N: 14, Bi: 42.9, s: 16, C_kN: 25.5, carga_kg: 250, cost: 19, weight: 1.33}
+      - {ref: "UCF208", d: 40, flange: "cuadrada", size_w: 130, size_h: 130, bolt_span: 102,  N: 16, Bi: 49.2, s: 18, C_kN: 30.7, carga_kg: 320, cost: 23, weight: 1.67}
+  # --- Chumaceras de BRIDA OVAL de 2 pernos (UCFL): cara vertical, 2 pernos en el eje
+  # largo del óvalo. Cotas de 205/206 verificadas; 204/207/208 del patrón de la serie.
+  - family: "UCFL"
+    name_tpl: "Chumacera de brida oval {ref}"
+    description_tpl: "Soporte de brida OVAL (2 pernos) con rodamiento de inserto, eje Ø{d} mm, brida {size_w}×{size_h} mm, pernos a {bolt_span} mm; hierro fundido."
+    builder: flange_bearing
+    param_keys: [d, flange, size_w, size_h, bolt_span, N, Bi, s]
+    specs_common:
+      tipo: "chumacera de brida oval (UCFL), 2 pernos"
+      material: "hierro fundido"
+      montaje: "2 pernos a cara vertical (eje perpendicular)"
+      norma: "estándar comercial UC/UCFL (FYH/NTN)"
+      flange: "oval"
+    variants:
+      - {ref: "UCFL204", d: 20, flange: "oval", size_w: 118, size_h: 62, bolt_span: 90,  N: 12, Bi: 31.0, s: 13, C_kN: 12.7, carga_kg: 100, cost: 8, weight: 0.60}
+      - {ref: "UCFL205", d: 25, flange: "oval", size_w: 130, size_h: 68, bolt_span: 99,  N: 13, Bi: 34.1, s: 14, C_kN: 14.0, carga_kg: 130, cost: 10, weight: 0.80}
+      - {ref: "UCFL206", d: 30, flange: "oval", size_w: 148, size_h: 80, bolt_span: 117, N: 14, Bi: 38.1, s: 16, C_kN: 19.5, carga_kg: 180, cost: 13, weight: 1.20}
+      - {ref: "UCFL207", d: 35, flange: "oval", size_w: 161, size_h: 86, bolt_span: 130, N: 17, Bi: 42.9, s: 17, C_kN: 25.5, carga_kg: 250, cost: 17, weight: 1.55}
+      - {ref: "UCFL208", d: 40, flange: "oval", size_w: 175, size_h: 95, bolt_span: 137, N: 17, Bi: 49.2, s: 18, C_kN: 30.7, carga_kg: 320, cost: 21, weight: 1.90}

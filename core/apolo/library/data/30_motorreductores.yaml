@@ -1,0 +1,34 @@
+category: motorreductores
+# Motorreductores helicoidales (motor + reductor). Builder: motor. El cuerpo del motor
+# (motor_d, motor_len) usa dimensiones aprox del frame IEC real (TEFC): 037->IEC71,
+# 075->IEC80, 150->IEC90. box_size = tamaño representativo del reductor.
+# cost = USD REFERENCIAL (mercado aprox.; actualizar con proveedor para cotizar en firme).
+components:
+  - ref: MOTOR-037
+    name: Motorreductor 0.37 kW
+    description: Motorreductor de engranajes helicoidales 0.37 kW, salida 50 rpm, motor IEC 71.
+    builder: motor
+    params: {box_size: 120, motor_d: 140, motor_len: 245}
+    weight: 11.0
+    specs: {potencia_kW: 0.37, rpm_salida: 50, torque_Nm: 70, tension: "230/400V", frame_IEC: 71, cost: 380}
+  - ref: MOTOR-075
+    name: Motorreductor 0.75 kW
+    description: Motorreductor de engranajes helicoidales 0.75 kW, salida 60 rpm, motor IEC 80.
+    builder: motor
+    params: {box_size: 140, motor_d: 160, motor_len: 275}
+    weight: 16.0
+    specs: {potencia_kW: 0.75, rpm_salida: 60, torque_Nm: 120, tension: "230/400V", frame_IEC: 80, cost: 520}
+  - ref: MOTOR-150
+    name: Motorreductor 1.5 kW
+    description: Motorreductor de engranajes helicoidales 1.5 kW, salida 70 rpm, motor IEC 90.
+    builder: motor
+    params: {box_size: 160, motor_d: 175, motor_len: 305}
+    weight: 24.0
+    specs: {potencia_kW: 1.5, rpm_salida: 70, torque_Nm: 205, tension: "400V", frame_IEC: 90, cost: 690}
+  - ref: MOTOR-150-EH
+    name: Motorreductor 1.5 kW eje hueco
+    description: Motorreductor helicoidal 1.5 kW (2 HP) de EJE HUECO para montaje directo sobre el eje del tambor motriz; salida ~188 rpm para faja de banda con variador; motor IEC 90.
+    builder: motor
+    params: {box_size: 160, motor_d: 175, motor_len: 305, shaft_d: 30, shaft_len: 110}
+    weight: 25.0
+    specs: {potencia_kW: 1.5, potencia_HP: 2, rpm_salida: 188, torque_Nm: 65, tension: "220/380V", tipo: "eje hueco / shaft-mount", frame_IEC: 90, cost: 750}

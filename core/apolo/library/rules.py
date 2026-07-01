@@ -12,6 +12,7 @@ import re
 from collections import Counter
 
 from .catalog import CATALOG, category_refs_sorted
+from .engineering.belt import belt_power_kw, belt_pull_n, belt_startup_torque_nm, estimate_belt_kg
 from .materials import density, resolve_material, yield_strength, young_modulus
 from .structural import beam_udl_deflection_mm, rect_tube_inertia_mm4, shaft_bending_stress_mpa
 
@@ -66,10 +67,23 @@ def _vol_safe(f) -> float:
         return 0.0
 
 
-def _check(regla: str, estado: str, detalle: str, recomendacion: str | None = None) -> dict:
+def _check(
+    regla: str,
+    estado: str,
+    detalle: str,
+    recomendacion: str | None = None,
+    *,
+    calc: dict | None = None,
+) -> dict:
+    """Una regla del reporte. `calc` (opcional, Frente A) enriquece la regla con el
+    CÁLCULO detrás del veredicto — lo consume la memoria de cálculo:
+    {titulo, entradas: {k: "valor unidad"}, formula, sustitucion, resultado,
+    criterio, fs: float|None}. Sin `calc`, el formato queda byte-idéntico al histórico."""
     out = {"regla": regla, "estado": estado, "detalle": detalle}
     if recomendacion:
         out["recomendacion"] = recomendacion
+    if calc:
+        out["calc"] = calc
     return out
 
 
@@ -90,13 +104,17 @@ def band_speed_m_s(rpm_salida: float, tambor_d_mm: float) -> float:
     return rpm_salida * math.pi * tambor_d_mm / 60000.0
 
 
-def recommend_motor(carga_kg: float, largo_mm: float, largo_paquete_mm: float, velocidad_m_s: float) -> str:
-    p_req = required_power_kw(carga_kg, largo_mm, largo_paquete_mm, velocidad_m_s)
+def recommend_motor_kw(p_req: float) -> str:
+    """Ref de motorreductor comercial más chico que cubre `p_req` kW."""
     refs = category_refs_sorted("motorreductores", "potencia_kW")
     for ref in refs:
         if CATALOG[ref].specs["potencia_kW"] >= p_req:
             return ref
     return refs[-1]
+
+
+def recommend_motor(carga_kg: float, largo_mm: float, largo_paquete_mm: float, velocidad_m_s: float) -> str:
+    return recommend_motor_kw(required_power_kw(carga_kg, largo_mm, largo_paquete_mm, velocidad_m_s))
 
 
 def recommend_roller(carga_kg: float, largo_paquete_mm: float, paso_mm: float) -> str:
@@ -187,15 +205,25 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
                  and any(w in _name(f) for w in ("motor", "reductor", "motorreductor"))]
         if cands:
             base["motor"] = "documento"
-            # de todos los candidatos (motor + reductor), el de mayor potencia LEGIBLE en
-            # el nombre — así el "Motor 1.5HP" gana al "Reductor 1:30" (que no la lleva)
-            kw = max((_parse_power_kw(getattr(f, "name", "")) or 0.0 for f in cands), default=0.0)
+            # de todos los candidatos (motor + reductor), el de mayor potencia CONOCIDA:
+            # specs de catálogo (potencia_kW — un NMRV insertado la lleva) o legible en el
+            # nombre — así el "Motor 1.5HP" gana al "Reductor 1:30" (que no la lleva)
+            kw, kw_comp = 0.0, None
+            for f in cands:
+                comp = CATALOG.get(getattr(f, "component", None) or "")
+                spec_kw = float((comp.specs or {}).get("potencia_kW") or 0.0) if comp else 0.0
+                name_kw = _parse_power_kw(getattr(f, "name", "")) or 0.0
+                if max(spec_kw, name_kw) > kw:
+                    kw, kw_comp = max(spec_kw, name_kw), comp
             if kw > 0:
                 base["motor_kW"] = kw
                 if not base.get("torque_Nm") and base.get("rpm_motor"):
                     omega = base["rpm_motor"] * 2.0 * math.pi / 60.0
                     if omega > 0:
-                        base["torque_Nm"] = round(kw * 1000.0 * EFFICIENCY / omega, 1)
+                        # un sinfín-corona rinde ~0.7-0.8 (mucho menos que un helicoidal)
+                        eff = 0.75 if (kw_comp is not None
+                                       and kw_comp.category == "motorreductores_sinfin") else EFFICIENCY
+                        base["torque_Nm"] = round(kw * 1000.0 * eff / omega, 1)
     if not base.get("eje_d"):
         ed = _f(v.get("diam_eje"))
         if ed is None:
@@ -203,6 +231,13 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
                          if getattr(f, "visible", True) and "eje" in _name(f)), None)
             ed = _parse_diam(getattr(ejef, "name", "")) if ejef is not None else None
         base["eje_d"] = ed
+    if not base.get("banda_kg"):
+        bandas = [f for f in scene.values()
+                  if getattr(f, "visible", True)
+                  and any(w in _name(f) for w in ("banda", "cinta", "faja"))]
+        kg = sum(_vol_safe(f) * density(resolve_material(f)) for f in bandas)
+        if kg > 0:
+            base["banda_kg"] = round(kg, 2)
     if base.get("frame") is None:
         base["frame"] = _frame_from_scene(scene, v)
     return base
@@ -227,7 +262,7 @@ def detect_conveyor(scene: dict, variables: dict | None = None) -> dict | None:
         ref = getattr(feat, "component", None)
         comp = CATALOG.get(ref) if ref else None
         if comp is not None:
-            if comp.category == "motorreductores":
+            if comp.category in ("motorreductores", "motorreductores_sinfin"):
                 motors.append((feat, ref))
             elif comp.category == "rodillos":
                 rollers.append((feat, ref))
@@ -397,6 +432,17 @@ def conveyor_engineering_check(
 
     # 0 · velocidad de banda (faja con tambor motorizado)
     if v_real is not None:
+        calc_v = {
+            "titulo": "Velocidad de banda",
+            "entradas": {"rpm de salida": f"{rpm_motor:g} rpm", "Ø tambor": f"{tambor_d:g} mm",
+                         "objetivo": f"{velocidad_m_s:g} m/s" if velocidad_m_s else "—"},
+            "formula": "v = n·π·Ø / 60000",
+            "sustitucion": f"v = {rpm_motor:g}·π·{tambor_d:g} / 60000",
+            "resultado": f"v = {v_real:.3f} m/s ({v_real * 60:.1f} m/min)",
+            "criterio": (f"v ≥ 0.9 × objetivo = {0.9 * velocidad_m_s:.3f} m/s"
+                         if velocidad_m_s else "informativo"),
+            "fs": round(v_real / velocidad_m_s, 2) if velocidad_m_s else None,
+        }
         det = (f"El accionamiento ({rpm_motor:g} rpm × Ø{tambor_d:g}) da "
                f"{v_real:.3f} m/s ({v_real * 60:.1f} m/min).")
         if velocidad_m_s and velocidad_m_s > 0 and v_real < 0.9 * velocidad_m_s:
@@ -404,9 +450,10 @@ def conveyor_engineering_check(
                 "velocidad de banda", "aviso",
                 det + f" Por debajo del objetivo {velocidad_m_s:g} m/s ({velocidad_m_s * 60:.1f} m/min).",
                 "Usa un tambor de mayor Ø o un motorreductor de más rpm.",
+                calc=calc_v,
             ))
         else:
-            checks.append(_check("velocidad de banda", "ok", det))
+            checks.append(_check("velocidad de banda", "ok", det, calc=calc_v))
 
     # 1 · apoyo del paquete
     if tipo == "banda":
@@ -438,10 +485,21 @@ def conveyor_engineering_check(
     # 2 · capacidad del rodillo
     carga_por_rodillo = carga_kg / max(1, support_count)
     capacidad = float(rodillo.specs["capacidad_kg"])
+    calc_rod = {
+        "titulo": "Capacidad de rodillo",
+        "entradas": {"carga por paquete": f"{carga_kg:g} kg", "apoyos": f"{support_count}",
+                     "rodillo": f"{rodillo_ref} ({capacidad:g} kg/ud)"},
+        "formula": "P = carga / n_apoyos",
+        "sustitucion": f"P = {carga_kg:g} / {max(1, support_count)}",
+        "resultado": f"P = {carga_por_rodillo:.1f} kg/rodillo",
+        "criterio": f"P ≤ {capacidad:g} kg (capacidad de catálogo)",
+        "fs": round(capacidad / carga_por_rodillo, 2) if carga_por_rodillo > 0 else None,
+    }
     if carga_por_rodillo <= capacidad:
         checks.append(_check(
             "capacidad de rodillo", "ok",
             f"{carga_por_rodillo:.1f} kg/rodillo ≤ {capacidad:g} kg ({rodillo_ref}).",
+            calc=calc_rod,
         ))
     else:
         sugerido = recommend_roller(carga_kg, largo_paquete_mm, paso or largo_paquete_mm / 3.0)
@@ -449,6 +507,7 @@ def conveyor_engineering_check(
             "capacidad de rodillo", "error",
             f"{carga_por_rodillo:.1f} kg/rodillo supera los {capacidad:g} kg del {rodillo_ref}.",
             f"Usa {sugerido} o añade más rodillos.",
+            calc=calc_rod,
         ))
 
     # 3 · ancho útil
@@ -469,55 +528,137 @@ def conveyor_engineering_check(
                 f"Aumenta el ancho total a ≥ {ancho_paquete_mm + 2 * RAIL_W + 44:.0f} mm.",
             ))
 
-    # 4 · motorización (catálogo, o motor a-medida del documento con potencia parseada)
-    p_req = required_power_kw(carga_kg, largo, largo_paquete_mm, v_eff)
-    sugerido = recommend_motor(carga_kg, largo, largo_paquete_mm, v_eff)
+    # 4 · motorización — una BANDA sobre cama desliza (μ≈0.33, engineering/belt.py),
+    # MUY distinto de la rodadura (μ=0.06) del transportador de rodillos.
+    n_paq = max(1, math.floor(largo / (largo_paquete_mm * 2.0))) if largo_paquete_mm > 0 else 1
+    incline = float(conveyor.get("inclinacion_deg") or 0.0)
+    if tipo == "banda":
+        banda_kg = float(conveyor.get("banda_kg") or estimate_belt_kg(largo, ancho))
+        pull_n = belt_pull_n(n_paq * carga_kg, banda_kg, incline_deg=incline)
+        p_req = belt_power_kw(pull_n, v_eff, EFFICIENCY, POWER_MARGIN)
+        calc_pull = {
+            "titulo": "Arrastre de banda sobre cama",
+            "entradas": {"carga simultánea": f"{n_paq} paq × {carga_kg:g} kg",
+                         "peso de banda": f"{banda_kg:.1f} kg",
+                         "μ banda-cama": "0.33 (PVC/acero)",
+                         "inclinación": f"{incline:g}°"},
+            "formula": "F = g·(μ·(m_carga + m_banda) + m_carga·sen θ)",
+            "sustitucion": (f"F = 9.81·(0.33·({n_paq * carga_kg:g} + {banda_kg:.1f}) + "
+                            f"{n_paq * carga_kg:g}·sen {incline:g}°)"),
+            "resultado": f"F = {pull_n:.1f} N",
+            "criterio": "informativo (alimenta potencia y par)",
+            "fs": None,
+        }
+        checks.append(_check(
+            "arrastre de banda", "ok",
+            f"Fuerza de arrastre efectiva {pull_n:.1f} N "
+            f"(banda sobre cama, μ=0.33, {n_paq} paquete(s) + {banda_kg:.1f} kg de banda).",
+            calc=calc_pull,
+        ))
+    else:
+        pull_n = required_force_n(carga_kg, largo, largo_paquete_mm)
+        p_req = required_power_kw(carga_kg, largo, largo_paquete_mm, v_eff)
+    sugerido = recommend_motor_kw(p_req)
     p_motor = conveyor.get("motor_kW")
     if p_motor is None and motor_ref not in ("ninguno", "documento") and motor_ref in CATALOG:
         p_motor = CATALOG[motor_ref].specs.get("potencia_kW")
     motor_label = "El motor del documento" if motor_ref == "documento" else motor_ref
+    mu_label = "0.33 banda-cama" if tipo == "banda" else "0.06 rodadura"
+    calc_mot = {
+        "titulo": "Motorización",
+        "entradas": {"arrastre F": f"{pull_n:.1f} N", "velocidad": f"{v_eff:g} m/s",
+                     "η": f"{EFFICIENCY}", "margen": f"{POWER_MARGIN}x", "μ": mu_label},
+        "formula": "P = F·v / η · margen",
+        "sustitucion": f"P = {pull_n:.1f}·{v_eff:g} / {EFFICIENCY} · {POWER_MARGIN}",
+        "resultado": f"P requerida = {p_req:.2f} kW",
+        "criterio": "P motor ≥ P requerida",
+        "fs": round(float(p_motor) / p_req, 2) if (p_motor and p_req > 0) else None,
+    }
     if p_motor is not None:
         p_motor = float(p_motor)
         if p_motor >= p_req:
             checks.append(_check(
                 "motorización", "ok",
                 f"{motor_label} ({p_motor:g} kW) ≥ {p_req:.2f} kW requeridos (margen {POWER_MARGIN}x incluido).",
+                calc=calc_mot,
             ))
         else:
             checks.append(_check(
                 "motorización", "error",
                 f"{motor_label} ({p_motor:g} kW) insuficiente: se requieren {p_req:.2f} kW.",
                 f"Usa {sugerido}.",
+                calc=calc_mot,
             ))
     elif motor_ref == "documento":
         checks.append(_check(
             "motorización", "aviso",
             f"Motor presente pero sin potencia legible en el nombre; para {v_eff:g} m/s se necesitan ≥ {p_req:.2f} kW.",
             "Indica la potencia en el nombre del motor (p. ej. '1.5HP' o '1.1 kW').",
+            calc=calc_mot,
         ))
     elif v_eff > 0:
         checks.append(_check(
             "motorización", "aviso",
             f"Transportador sin motor; para {v_eff:g} m/s se necesitan ≥ {p_req:.2f} kW.",
             f"Añade {sugerido} ({CATALOG[sugerido].specs['potencia_kW']} kW).",
+            calc=calc_mot,
         ))
     else:
         checks.append(_check("motorización", "ok", "Transportador de gravedad (sin motor)."))
 
     # 5 · par del motor en el tambor (faja con tambor motorizado)
     if torque_nm and tambor_d:
-        par_req = required_force_n(carga_kg, largo, largo_paquete_mm) * (tambor_d / 2.0 / 1000.0)
+        par_req = pull_n * (tambor_d / 2.0 / 1000.0)
+        calc_par = {
+            "titulo": "Par en el tambor motriz",
+            "entradas": {"arrastre F": f"{pull_n:.1f} N", "Ø tambor": f"{tambor_d:g} mm",
+                         "par disponible": f"{torque_nm:g} N·m"},
+            "formula": "T = F·r",
+            "sustitucion": f"T = {pull_n:.1f}·{tambor_d / 2.0 / 1000.0:.4f}",
+            "resultado": f"T requerido = {par_req:.1f} N·m",
+            "criterio": "T motor ≥ T requerido",
+            "fs": round(float(torque_nm) / par_req, 2) if par_req > 0 else None,
+        }
         if torque_nm >= par_req:
             checks.append(_check(
                 "par del motor", "ok",
                 f"Par disponible {torque_nm:g} N·m ≥ {par_req:.1f} N·m requeridos en el tambor Ø{tambor_d:g}.",
+                calc=calc_par,
             ))
         else:
             checks.append(_check(
                 "par del motor", "error",
                 f"Par del motor {torque_nm:g} N·m < {par_req:.1f} N·m requeridos en el tambor Ø{tambor_d:g}.",
                 "Usa un motorreductor de mayor par o un tambor de menor Ø.",
+                calc=calc_par,
             ))
+        # 5b · par de ARRANQUE (solo banda: vencer fricción estática + inercia)
+        if tipo == "banda":
+            par_arr = belt_startup_torque_nm(pull_n, tambor_d)
+            calc_arr = {
+                "titulo": "Par de arranque",
+                "entradas": {"T régimen": f"{par_req:.1f} N·m", "factor de arranque": "1.6",
+                             "par disponible": f"{torque_nm:g} N·m"},
+                "formula": "T_arr = F·r · 1.6",
+                "sustitucion": f"T_arr = {par_req:.1f} · 1.6",
+                "resultado": f"T_arr = {par_arr:.1f} N·m",
+                "criterio": "T motor ≥ T_arr",
+                "fs": round(float(torque_nm) / par_arr, 2) if par_arr > 0 else None,
+            }
+            if torque_nm >= par_arr:
+                checks.append(_check(
+                    "par de arranque", "ok",
+                    f"Par disponible {torque_nm:g} N·m ≥ {par_arr:.1f} N·m de arranque (factor 1.6).",
+                    calc=calc_arr,
+                ))
+            else:
+                checks.append(_check(
+                    "par de arranque", "aviso",
+                    f"Par {torque_nm:g} N·m < {par_arr:.1f} N·m de arranque (factor 1.6): "
+                    "puede costarle arrancar a plena carga.",
+                    "Sube un tamaño de motorreductor o arranca en vacío.",
+                    calc=calc_arr,
+                ))
 
     # 6 · velocidad ↔ rodillo (informativo)
     if v_eff > 0:
@@ -549,38 +690,66 @@ def conveyor_engineering_check(
         q = total_kg * 9.81 / n_larg / max(length, 1.0)  # N/mm por larguero
         defl = beam_udl_deflection_mm(q, span, e_mpa, inertia)
         allow = span / DEFLECTION_RATIO
+        calc_fle = {
+            "titulo": "Flecha del bastidor",
+            "entradas": {"vano L": f"{span:.0f} mm",
+                         "sección": f"{frame['width']:.0f}×{frame['depth']:.0f}×{frame['wall']:.0f} mm",
+                         "E": f"{e_mpa:.0f} MPa ({material})",
+                         "I": f"{inertia:.3g} mm⁴",
+                         "carga": f"{total_kg:.0f} kg / {n_larg} larguero(s)"},
+            "formula": "δ = 5·w·L⁴ / (384·E·I)",
+            "sustitucion": f"δ = 5·{q:.3g}·{span:.0f}⁴ / (384·{e_mpa:.0f}·{inertia:.3g})",
+            "resultado": f"δ = {defl:.2f} mm",
+            "criterio": f"δ ≤ L/{DEFLECTION_RATIO:.0f} = {allow:.2f} mm",
+            "fs": round(allow / defl, 2) if defl > 0 else None,
+        }
         det = (f"Flecha ≈ {defl:.2f} mm en un vano de {span:.0f} mm "
                f"(admisible L/{DEFLECTION_RATIO:.0f} = {allow:.2f} mm; {material}, sección "
                f"{frame['width']:.0f}×{frame['depth']:.0f}×{frame['wall']:.0f}, {total_kg:.0f} kg sobre {n_larg} larguero(s)).")
         if defl <= allow:
-            checks.append(_check("flecha del bastidor", "ok", det))
+            checks.append(_check("flecha del bastidor", "ok", det, calc=calc_fle))
         elif defl <= 2 * allow:
             checks.append(_check(
                 "flecha del bastidor", "aviso", det,
                 "Acerca las patas (menor vano), usa un larguero de mayor canto o añade apoyos.",
+                calc=calc_fle,
             ))
         else:
             checks.append(_check(
                 "flecha del bastidor", "error", det,
                 "Vano excesivo: añade patas intermedias o un perfil de mayor inercia.",
+                calc=calc_fle,
             ))
 
     # 9 · flexión del eje del tambor motorizado (estimación: carga radial ≈ 2× fuerza de arrastre)
     eje_d = conveyor.get("eje_d")
     if eje_d and tambor_d:
-        f_rad = 2.0 * required_force_n(carga_kg, largo, largo_paquete_mm)
+        f_rad = 2.0 * pull_n
         span_eje = float(ancho)  # apoyo entre rodamientos ≈ ancho de banda
         sigma = shaft_bending_stress_mpa(f_rad, span_eje, float(eje_d))
         material = (frame or {}).get("material") or "acero"
         allow = yield_strength(material) / SHAFT_SAFETY
+        calc_eje = {
+            "titulo": "Flexión del eje del tambor",
+            "entradas": {"carga radial": f"{f_rad:.1f} N (≈2×arrastre)",
+                         "luz entre apoyos": f"{span_eje:.0f} mm",
+                         "Ø eje": f"{float(eje_d):.0f} mm",
+                         "σy": f"{yield_strength(material):.0f} MPa ({material})"},
+            "formula": "σ = 32·(F·L/4) / (π·d³)",
+            "sustitucion": f"σ = 32·({f_rad:.1f}·{span_eje:.0f}/4) / (π·{float(eje_d):.0f}³)",
+            "resultado": f"σ = {sigma:.1f} MPa",
+            "criterio": f"σ ≤ σy/{SHAFT_SAFETY:.0f} = {allow:.0f} MPa",
+            "fs": round(allow / sigma, 2) if sigma > 0 else None,
+        }
         det = (f"Eje Ø{float(eje_d):.0f} a flexión ≈ {sigma:.0f} MPa entre apoyos de {span_eje:.0f} mm "
                f"(admisible σy/{SHAFT_SAFETY:.0f} = {allow:.0f} MPa, {material}). Estimación.")
         if sigma <= allow:
-            checks.append(_check("flexión del eje", "ok", det))
+            checks.append(_check("flexión del eje", "ok", det, calc=calc_eje))
         else:
             checks.append(_check(
                 "flexión del eje", "error", det,
                 "Usa un eje de mayor Ø o acerca los rodamientos (menor luz entre apoyos).",
+                calc=calc_eje,
             ))
 
     return checks

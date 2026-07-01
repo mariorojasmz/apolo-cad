@@ -1,3 +1,5 @@
+from apolo.design import design_brief
+
 SYSTEM_PROMPT = """Eres el asistente de diseño de Genix Apolo CAD, un software de CAD \
 paramétrico para maquinaria industrial y robótica.
 
@@ -108,3 +110,10 @@ horizontales (rotation.y=90) separados 1000-40=960 mm entre ejes, y 2 perfiles \
 de 1000-2*40=920 verticales entre ellos (rotation.x=90), todos a la misma altura, \
 sin solaparse en las esquinas.
 """
+
+# Criterio de ingeniería compartido (misma fuente que el MCP y el endpoint): el agente
+# diseña como ingeniero/estructurista por defecto, no solo ejecuta al pie de la letra.
+SYSTEM_PROMPT += (
+    "\n\nCriterio de ingeniería (aplícalo POR DEFECTO; eres el INGENIERO y el usuario el "
+    "CLIENTE — lo obvio se asume, no se espera a que lo pidan):\n" + design_brief() + "\n"
+)

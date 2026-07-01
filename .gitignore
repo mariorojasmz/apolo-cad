@@ -7,5 +7,14 @@ ui/node_modules/
 ui/dist/
 .pytest_cache/
 logs/
-data/
+# SOLO el data/ de la RAÍZ (SQLite de proyectos). OJO: la regla genérica "data/"
+# ignoraba también core/apolo/library/data/ (el CATÁLOGO YAML, código fuente).
+/data/
 .claude/settings.local.json
+
+# volcados de runtime en la raíz (curl de depuración)
+/scene.json
+/connectivity.json
+
+# Datasheets de fabricante (referencia local; copyright del proveedor, NO redistribuir en el repo público)
+docs/datasheets/*.pdf

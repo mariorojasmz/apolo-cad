@@ -11,6 +11,8 @@ Los componentes del catálogo la referencian por nombre (campo `builder`).
 
 from __future__ import annotations
 
+import math
+
 from build123d import Box, Cylinder, Pos, Rotation
 
 from apolo.kernel.shapes import make_rect_tube, make_revolution, make_structural_profile
@@ -76,32 +78,84 @@ def box(width: float, depth: float, height: float):
 
 def motor(box_size: float, motor_d: float, motor_len: float,
           shaft_d: float | None = None, shaft_len: float | None = None):
-    """Motorreductor realista = reductor (caja) + motor (cilindro lateral) + EJE de
-    salida + caja de bornes + patas de fijación. Dimensiones de detalle derivadas de
-    `box_size` si no se indican (escala con el tamaño). Sigue siendo UNA Feature."""
+    """Motorreductor HELICOIDAL EN LÍNEA (coaxial, tipo SEW R / NORD): motor IEC (cilindro) +
+    campana adaptadora + caja reductora coaxial + eje de salida coaxial en el extremo OPUESTO al
+    motor, con patas (foot-mounted) y caja de bornes. Eje común = X local; origen en el centro de
+    la caja reductora. `box_size` ≈ Ø de la caja reductora; `motor_d`/`motor_len` = cuerpo IEC;
+    `shaft_d`/`shaft_len` = eje de salida. Una sola Feature."""
 
     def build(_length=None):
-        gearbox = Box(box_size, box_size, box_size * 1.15)
-        rotor = (
-            Pos(box_size / 2 + motor_len / 2, 0, 0)
-            * Rotation(0, 90, 0)
-            * Cylinder(motor_d / 2.0, motor_len)
-        )
-        # eje de salida (hueco del reductor), saliendo por el costado -Y
-        sd = shaft_d if shaft_d is not None else box_size * 0.16
-        sl = shaft_len if shaft_len is not None else box_size * 0.55
-        out_shaft = Pos(0, -box_size / 2 - sl / 2, 0) * Rotation(90, 0, 0) * Cylinder(sd / 2.0, sl)
-        # caja de bornes sobre el motor
-        tw, td, th = box_size * 0.5, box_size * 0.42, box_size * 0.36
-        term = Pos(box_size / 2 + motor_len / 2, 0, motor_d / 2 + th * 0.35) * Box(tw, td, th)
-        # patas de fijación bajo el reductor
-        foot = Box(box_size * 1.3, box_size * 0.16, box_size * 0.12)
-        base_z = -box_size * 1.15 / 2 - box_size * 0.06
-        feet = (
-            Pos(0, box_size * 0.34, base_z) * foot
-            + Pos(0, -box_size * 0.34, base_z) * foot
-        )
-        return gearbox + rotor + out_shaft + term + feet
+        gd = box_size
+        gl = box_size * 0.95
+        sd = shaft_d if shaft_d is not None else box_size * 0.22
+        sl = shaft_len if shaft_len is not None else box_size * 0.6
+        md = motor_d
+        # caja reductora coaxial, centrada en el origen (eje X)
+        gearbox = Pos(0, 0, 0) * Rotation(0, 90, 0) * Cylinder(gd / 2.0, gl)
+        # campana adaptadora motor -> reductor (lado -X de la caja)
+        bell = Pos(-gl / 2.0 - md * 0.14, 0, 0) * Rotation(0, 90, 0) * Cylinder(gd * 0.42, md * 0.34)
+        # motor IEC (cilindro) en -X
+        mx = -gl / 2.0 - md * 0.28 - motor_len / 2.0
+        rotor = Pos(mx, 0, 0) * Rotation(0, 90, 0) * Cylinder(md / 2.0, motor_len)
+        # cubierta del ventilador (extremo -X del motor)
+        fan = Pos(mx - motor_len / 2.0 - md * 0.05, 0, 0) * Rotation(0, 90, 0) * Cylinder(md * 0.40, md * 0.20)
+        # caja de bornes arriba del motor
+        term = Pos(mx, 0, md * 0.57) * Box(motor_len * 0.42, md * 0.42, md * 0.26)
+        # eje de salida COAXIAL (+X, extremo opuesto al motor)
+        out_shaft = Pos(gl / 2.0 + sl / 2.0 - 6.0, 0, 0) * Rotation(0, 90, 0) * Cylinder(sd / 2.0, sl)
+        # patas de fijación (2 rieles) bajo el conjunto motor+caja
+        foot_cx = (mx + gl / 2.0) / 2.0
+        foot_len = (gl / 2.0 - (mx - motor_len / 2.0)) * 0.92
+        foot = Box(foot_len, md * 0.16, md * 0.13)
+        feet = (Pos(foot_cx, md * 0.30, -md / 2.0) * foot
+                + Pos(foot_cx, -md * 0.30, -md / 2.0) * foot)
+        return gearbox + bell + rotor + fan + term + out_shaft + feet
+
+    return build
+
+
+def worm_gearmotor(center_distance: float, bore_d: float, motor_d: float, motor_len: float):
+    """Motorreductor SINFÍN-CORONA tipo NMRV: caja de corona con eje HUECO pasante (para montar
+    DIRECTO sobre el eje del tambor motriz) + brida de salida con círculo de pernos + tapa NMRV,
+    y el MOTOR PERPENDICULAR (a 90°, tornillo sin fin) con ventilador y bornes. `center_distance`
+    = tamaño NMRV (mm, distancia entre centros); `bore_d` = Ø del eje hueco de salida. El barreno
+    de salida va a lo largo de Y local (eje del tambor): al insertarlo sobre un eje/tambor en Y se
+    coloca sin rotación. Envolvente de caja/brida/motor escalado del tamaño (representativo;
+    verificar cotas exactas con el proveedor). Requiere brazo de torque aparte (anti-giro)."""
+    import math
+
+    cd = float(center_distance)
+    Hw = cd * 1.7        # tamaño en el plano de la corona (X, Z) ~ Ø rueda + carcasa
+    Hy = cd * 1.3        # ancho AXIAL (Y, a lo largo del eje hueco): la caja es MÁS PLANA en el eje
+    FD = cd * 1.7        # Ø de la brida de salida (~ tamaño de la cara)
+    CV = cd * 0.95       # Ø de la tapa NMRV
+    br = bore_d / 2.0
+
+    def build(_length=None):
+        # caja de la corona (más ancha en X/Z que en el eje Y) con barreno pasante (eje hueco) en Y
+        solid = Box(Hw, Hy, Hw) - Rotation(90, 0, 0) * Cylinder(br + 1.5, Hy + 60)
+        # brida de salida (lado máquina, -Y) + cubo con bore chavetado
+        fl_y = -Hy / 2.0 - 11.0
+        solid = solid + (Pos(0, fl_y, 0) * Rotation(90, 0, 0) * Cylinder(FD / 2.0, 22)
+                         - Pos(0, fl_y, 0) * Rotation(90, 0, 0) * Cylinder(br + 1.5, 40))
+        solid = solid + (Pos(0, fl_y + 7, 0) * Rotation(90, 0, 0) * Cylinder(br + 16, 40)
+                         - Pos(0, fl_y + 7, 0) * Rotation(90, 0, 0) * Cylinder(br + 1.5, 60))
+        # tapa NMRV (lado exterior, +Y)
+        solid = solid + Pos(0, Hy / 2.0 + 7, 0) * Rotation(90, 0, 0) * Cylinder(CV / 2.0, 15)
+        # círculo de pernos de la brida (6)
+        rbc = FD / 2.0 - cd * 0.13
+        for i in range(6):
+            a = math.radians(60.0 * i + 30.0)
+            solid = solid + Pos(rbc * math.cos(a), fl_y, rbc * math.sin(a)) * Rotation(90, 0, 0) * Cylinder(4.5, 26)
+        # sinfín + motor PERPENDICULAR (eje X), offset abajo (-Z, hacia el tornillo sin fin)
+        zoff = -Hw * 0.42
+        wx = -Hw * 0.55
+        mx = -Hw * 0.6 - motor_len / 2.0
+        solid = solid + Pos(wx, 0, zoff) * Box(Hw * 0.5, Hy * 0.85, Hw * 0.7)             # carcasa del sinfín
+        solid = solid + Pos(mx, 0, zoff) * Rotation(0, 90, 0) * Cylinder(motor_d / 2.0, motor_len)   # motor
+        solid = solid + Pos(mx - motor_len / 2.0 - 15, 0, zoff) * Rotation(0, 90, 0) * Cylinder(motor_d * 0.38, 30)  # ventilador
+        solid = solid + Pos(mx, 0, zoff + motor_d * 0.5 + 12) * Box(motor_len * 0.42, motor_d * 0.5, motor_d * 0.3)  # bornes
+        return solid
 
     return build
 
@@ -235,15 +289,114 @@ def v_pulley(outer_d: float, width: float, bore_d: float = 0.0, grooves: int = 1
     return build
 
 
-def pillow_block(d: float, D: float, B: float, plate_w: float, plate_h: float, plate_t: float):
-    """Chumacera/soporte de rodamiento: anillo (eje Z, con agujero de eje) + placa
-    de montaje debajo. d/D = Ø interior/exterior del rodamiento, B = ancho."""
+def pillow_block(d: float, H: float, H1: float, L: float, J: float,
+                 A: float, N: float, Bi: float, s: float):
+    """Chumacera de PIE tipo UCP (soporte con rodamiento de inserto): cuerpo fundido
+    acampanado sobre base de 2 patas con agujeros ranurados + inserto con collar y 2
+    prisioneros + grasera. Cotas comerciales UCP2xx (mm): d=Ø eje, H=altura al centro
+    del eje, H1=altura total, L=largo, J=distancia entre pernos, A=ancho de base,
+    N=Ø agujero de perno, Bi=ancho del inserto, s=espesor de base. Marco canónico:
+    EJE del rodamiento a lo largo de Y, base abajo (-Z), ORIGEN en el centro del
+    barreno (para insertarlo directamente sobre el eje)."""
 
     def build(_length=None):
-        ri, ro, hz = d / 2.0, D / 2.0, B / 2.0
-        ring = make_revolution([(ri, -hz), (ro, -hz), (ro, hz), (ri, hz)])
-        plate = Pos(0, 0, -hz - plate_t / 2.0) * Box(plate_w, plate_h, plate_t)
-        return ring + plate
+        Rh = H1 - H                        # radio de la campana (tope del cuerpo)
+        zb0, zb1 = -H, -H + s              # base: cara inferior / superior
+        hw = Bi                            # ancho axial del cuerpo (= inserto)
+
+        # --- base de 2 patas (obround: caja central + 2 semicírculos) ---
+        base = Pos(0, 0, zb0 + s / 2.0) * Box(L - A, A, s)
+        base = base + Pos(-(L - A) / 2.0, 0, zb0 + s / 2.0) * Cylinder(A / 2.0, s)
+        base = base + Pos((L - A) / 2.0, 0, zb0 + s / 2.0) * Cylinder(A / 2.0, s)
+
+        # --- pedestal fundido: revolución (eje Z) recortada al ancho del cuerpo ---
+        flare = make_revolution([
+            (0.0, zb1 - 0.5 * s),
+            (A * 0.62, zb1 - 0.5 * s),
+            (Rh * 0.62, 0.0),
+            (0.0, 0.0),
+        ])
+        flare = flare & (Pos(0, 0, 0) * Box(4.0 * L, hw, 4.0 * H1))
+
+        # --- campana del rodamiento (cilindro, eje Y) ---
+        boss = Pos(0, 0, 0) * Rotation(90, 0, 0) * Cylinder(Rh, hw)
+
+        body = base + flare + boss
+
+        # --- inserto: collar saliente (+Y) + 2 prisioneros ---
+        cor, cw = 0.66 * d, 0.36 * d
+        cy = hw / 2.0 + cw / 2.0 - 2.0
+        body = body + Pos(0, cy, 0) * Rotation(90, 0, 0) * Cylinder(cor, cw)
+        for ang in (40.0, -40.0):
+            a = math.radians(ang)
+            body = body + Pos(cor * math.sin(a), cy, cor * math.cos(a)) * \
+                Rotation(0, ang, 0) * Cylinder(0.09 * d, 0.5 * d)
+
+        # --- grasera (niple de engrase) en el tope ---
+        body = body + Pos(0, 0, Rh - 2.0) * Cylinder(0.085 * d, 0.55 * d)
+
+        # --- barrenos: pernos ranurados en la base + barreno del eje ---
+        for xf in (-J / 2.0, J / 2.0):
+            slot = Pos(xf, 0, zb0 + s / 2.0) * Box(0.5 * N, N, s + 6.0)
+            slot = slot + Pos(xf - 0.25 * N, 0, zb0 + s / 2.0) * Cylinder(N / 2.0, s + 6.0)
+            slot = slot + Pos(xf + 0.25 * N, 0, zb0 + s / 2.0) * Cylinder(N / 2.0, s + 6.0)
+            body = body - slot
+        body = body - Pos(0, 0, 0) * Rotation(90, 0, 0) * Cylinder(d / 2.0, L)
+
+        return body
+
+    return build
+
+
+def flange_bearing(d: float, flange: str, size_w: float, size_h: float,
+                   bolt_span: float, N: float, Bi: float, s: float):
+    """Chumacera de BRIDA (rodamiento de inserto en soporte embridado) para atornillar a
+    una cara VERTICAL — eje PERPENDICULAR al plano de montaje. flange='cuadrada' → UCF
+    (brida cuadrada, 4 pernos); flange='oval' → UCFL (brida oval, 2 pernos). Cotas
+    comerciales (mm): d=Ø eje, size_w×size_h=brida (lado cuadrado / largo×ancho del óvalo),
+    bolt_span=distancia entre centros de pernos, N=Ø agujero de perno, Bi=ancho del inserto,
+    s=espesor de la brida. Reusa el inserto con collar+prisioneros+grasera de la UCP. Marco
+    canónico: EJE del rodamiento a lo largo de Y, ORIGEN en el centro del barreno, brida en
+    +Y (cara de montaje contra la pared), campana+inserto hacia -Y."""
+
+    def build(_length=None):
+        hw = Bi / 2.0
+        boss_r = 1.08 * d                      # cubo del rodamiento (OD ~2.15·d)
+        yc = hw + s / 2.0                       # centro de la placa (cara montaje en +Y)
+
+        # --- brida (placa) en el plano X-Z, espesor s en Y ---
+        if flange == "oval":
+            plate = Pos(0, yc, 0) * Box(size_w - size_h, s, size_h)
+            plate = plate + Pos(-(size_w - size_h) / 2.0, yc, 0) * Rotation(90, 0, 0) * Cylinder(size_h / 2.0, s)
+            plate = plate + Pos((size_w - size_h) / 2.0, yc, 0) * Rotation(90, 0, 0) * Cylinder(size_h / 2.0, s)
+            bolt_xz = [(-bolt_span / 2.0, 0.0), (bolt_span / 2.0, 0.0)]
+        else:                                   # cuadrada (4 pernos)
+            plate = Pos(0, yc, 0) * Box(size_w, s, size_h)
+            h = bolt_span / 2.0
+            bolt_xz = [(-h, -h), (h, -h), (-h, h), (h, h)]
+
+        # --- cubo/campana del rodamiento (cilindro eje Y): del frente a dentro de la brida ---
+        boss = Pos(0, s / 2.0, 0) * Rotation(90, 0, 0) * Cylinder(boss_r, Bi + s)
+        body = plate + boss
+
+        # --- inserto: collar saliente (-Y, frente) + 2 prisioneros ---
+        cor, cw = 0.66 * d, 0.36 * d
+        cy = -hw - cw / 2.0 + 2.0
+        body = body + Pos(0, cy, 0) * Rotation(90, 0, 0) * Cylinder(cor, cw)
+        for ang in (40.0, -40.0):
+            a = math.radians(ang)
+            body = body + Pos(cor * math.sin(a), cy, cor * math.cos(a)) * \
+                Rotation(0, ang, 0) * Cylinder(0.09 * d, 0.5 * d)
+
+        # --- grasera en el tope del cubo ---
+        body = body + Pos(0, s / 2.0, boss_r - 2.0) * Cylinder(0.085 * d, 0.55 * d)
+
+        # --- barrenos de perno (eje Y) + barreno del eje ---
+        for bx, bz in bolt_xz:
+            body = body - Pos(bx, yc, bz) * Rotation(90, 0, 0) * Cylinder(N / 2.0, s + 6.0)
+        body = body - Pos(0, 0, 0) * Rotation(90, 0, 0) * Cylinder(d / 2.0, Bi + s + 20.0)
+
+        return body
 
     return build
 
@@ -654,6 +807,7 @@ BUILDERS = {
     "drum": drum,  # tambor/polea motriz con eje
     "box": box,
     "motor": motor,
+    "worm_gearmotor": worm_gearmotor,  # motorreductor sinfín-corona NMRV, eje hueco + motor perpendicular (frame IEC real)
     "leg": leg,
     "guard": guard,
     "sensor": sensor,
@@ -663,7 +817,8 @@ BUILDERS = {
     "linear_block": linear_block,
     "pulley": pulley,
     "v_pulley": v_pulley,  # polea en V (sheave) para faja de potencia, sección A/B (ISO 4183)
-    "pillow_block": pillow_block,
+    "pillow_block": pillow_block,      # chumacera de pie UCP
+    "flange_bearing": flange_bearing,  # chumacera de brida UCF/UCFL
     "endstop": endstop,
     "leveling_foot": leveling_foot,
     "tensioner": tensioner,

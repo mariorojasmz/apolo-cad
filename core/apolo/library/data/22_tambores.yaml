@@ -1,0 +1,47 @@
+category: tambores
+components:
+  - ref: TAMBOR-80
+    name: Tambor Ø80
+    description: Tambor/polea motriz Ø80 con eje pasante Ø25, ancho de cara a medida.
+    builder: drum
+    params: {diameter: 80, shaft_d: 25}
+    weight: 9.0
+    cuttable: true
+    default_length: 500
+    specs: {diametro_mm: 80, eje_mm: 25, material: acero, tipo: tambor motriz/reenvío}
+  - ref: TAMBOR-100
+    name: Tambor Ø100
+    description: Tambor/polea motriz Ø100 con eje pasante Ø30 para cargas medias.
+    builder: drum
+    params: {diameter: 100, shaft_d: 30}
+    weight: 13.0
+    cuttable: true
+    default_length: 500
+    specs: {diametro_mm: 100, eje_mm: 30, material: acero, tipo: tambor motriz/reenvío}
+  - ref: TAMBOR-120
+    name: Tambor Ø120
+    description: Tambor/polea motriz Ø120 con eje pasante Ø35 para cargas pesadas.
+    builder: drum
+    params: {diameter: 120, shaft_d: 35}
+    weight: 18.0
+    cuttable: true
+    default_length: 600
+    specs: {diametro_mm: 120, eje_mm: 35, material: acero, tipo: tambor motriz/reenvío}
+  - ref: TAMBOR-102
+    name: Tambor motriz Ø101.6 (4")
+    description: Tambor motriz Ø101.6 (4") engomado (lagging) con eje pasante Ø25, para faja de banda.
+    builder: drum
+    params: {diameter: 101.6, shaft_d: 25, lagging: 6}
+    weight: 14.0
+    cuttable: true
+    default_length: 650
+    specs: {diametro_mm: 101.6, eje_mm: 25, lagging_mm: 6, material: acero, tipo: tambor motriz engomado}
+  - ref: TAMBOR-102-COLA
+    name: Tambor de cola Ø101.6 (4")
+    description: Tambor de cola/tensor Ø101.6 (4") liso, eje fijo Ø25 con rodamientos internos, para tensión tipo trotadora.
+    builder: drum
+    params: {diameter: 101.6, shaft_d: 25, stub: 90, shaft_hole_d: 16.5, hole_inset: 22}
+    weight: 13.0
+    cuttable: true
+    default_length: 650
+    specs: {diametro_mm: 101.6, eje_mm: 25, stub_mm: 90, shaft_hole_mm: 16.5, hole_inset_mm: 22, material: acero, tipo: tambor de cola eje fijo (agujero M16 pasante)}

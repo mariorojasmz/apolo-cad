@@ -1,0 +1,14 @@
+category: tornilleria_madera
+# Tirafondos / tornillos de madera (cabeza avellanada plana). Pieza fija; peso total.
+families:
+  - family: "TIRAFONDO"
+    name_tpl: "Tirafondo {d}×{length}"
+    description_tpl: "Tornillo de madera Ø{d}×{length} mm, cabeza avellanada Ø{head_d}."
+    builder: wood_screw
+    param_keys: [d, length, head_d]
+    specs_common: {tipo: "tirafondo (madera)", material: "acero zincado"}
+    variants:
+      - {ref: "TIRAFONDO-3x16", d: 3.0, length: 16, head_d: 6, weight: 0.001}
+      - {ref: "TIRAFONDO-4x40", d: 4.0, length: 40, head_d: 8, weight: 0.004}
+      - {ref: "TIRAFONDO-45x50", d: 4.5, length: 50, head_d: 9, weight: 0.006}
+      - {ref: "TIRAFONDO-5x60", d: 5.0, length: 60, head_d: 10, weight: 0.009}

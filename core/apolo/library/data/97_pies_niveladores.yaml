@@ -1,0 +1,15 @@
+category: pies_niveladores
+# Pies niveladores ajustables: vástago roscado (eje Z) sobre un disco de apoyo.
+# Builder leveling_foot.
+families:
+  - family: "PIE"
+    name_tpl: "Pie nivelador {ref}"
+    description_tpl: "Pie nivelador M{rosca}, ajuste {altura} mm, disco Ø{disco_d} mm."
+    builder: leveling_foot
+    param_keys: [rosca, altura, disco_d, disco_t]
+    weight_formula: "7.85e-6 * 0.785 * (rosca * rosca * altura + disco_d * disco_d * disco_t)"
+    specs_common: {tipo: "pie nivelador", material: "acero zincado", ajustable: true}
+    variants:
+      - {ref: "PIE-M8-30", rosca: 8, altura: 30, disco_d: 60, disco_t: 10, carga_kg: 120}
+      - {ref: "PIE-M10-40", rosca: 10, altura: 40, disco_d: 75, disco_t: 12, carga_kg: 200}
+      - {ref: "PIE-M12-50", rosca: 12, altura: 50, disco_d: 90, disco_t: 14, carga_kg: 350}

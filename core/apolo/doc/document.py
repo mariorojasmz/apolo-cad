@@ -71,6 +71,7 @@ class Document:
         self.materials: dict[str, str] = {}  # feature_id → material (override BOM/peso)
         self.vertical: str = "metalmecanica"  # default de material para piezas no reconocidas
         self.motion: dict[str, list[dict]] = {}  # estudios con nombre → fotogramas [{t, values:{junta:valor}}]
+        self.requirements: dict = {}  # bases de diseño del proyecto (carga, velocidad, producto…)
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
         self._seq = 0
         self._undo: list[dict] = []
@@ -453,6 +454,39 @@ class Document:
         """Elimina un estudio de movimiento por nombre (no falla si no existe)."""
         self.motion.pop(str(name).strip(), None)
 
+    # claves de requisitos con convención NUMÉRICA (se coercionan a float > 0)
+    _REQ_NUMERIC = (
+        "carga_kg", "largo_paquete_mm", "ancho_paquete_mm", "alto_paquete_mm",
+        "velocidad_m_s", "inclinacion_deg", "temperatura_c",
+    )
+
+    def set_requirements(self, fields: dict) -> None:
+        """Define las BASES DE DISEÑO del proyecto (metadato, como motion): contra
+        qué se valida la máquina. Reemplaza el dict completo; `{}` las borra.
+        Claves de convención numéricas (carga_kg, velocidad_m_s, …) se validan
+        como float; el resto son texto libre (producto, entorno, normativa, notas)."""
+        if not isinstance(fields, dict):
+            raise DocumentError("Los requisitos deben ser un objeto {clave: valor}")
+        clean: dict = {}
+        for key, value in fields.items():
+            key = str(key).strip()
+            if not key or value is None or value == "":
+                continue
+            if key in self._REQ_NUMERIC:
+                try:
+                    num = float(value)
+                except (TypeError, ValueError) as exc:
+                    raise DocumentError(f"El requisito '{key}' debe ser numérico") from exc
+                # la inclinación puede ser 0 o negativa (declive); el resto, positivo
+                if key != "inclinacion_deg" and num <= 0:
+                    raise DocumentError(f"El requisito '{key}' debe ser > 0")
+                clean[key] = num
+            elif isinstance(value, (str, int, float, bool)):
+                clean[key] = value
+            else:
+                raise DocumentError(f"El requisito '{key}' debe ser escalar (texto o número)")
+        self.requirements = clean
+
     def set_visibility(self, feature_id: str, visible: bool) -> None:
         if feature_id not in self.scene:
             raise DocumentError(f"No existe el sólido '{feature_id}'")
@@ -504,6 +538,7 @@ class Document:
                         "materials": self.materials,
                         "vertical": self.vertical,
                         "motion": self.motion,
+                        "requirements": self.requirements,
                         "agent_notes": self.agent_notes,
                     },
                     indent=2,
@@ -543,6 +578,7 @@ class Document:
         _m = manifest.get("motion", {})
         # migración: proyectos viejos guardaban el motion como UNA lista de fotogramas
         doc.motion = ({"Estudio 1": _m} if _m else {}) if isinstance(_m, list) else dict(_m)
+        doc.requirements = manifest.get("requirements", {})
         doc.agent_notes = manifest.get("agent_notes", [])
         doc._seq = manifest.get("seq", len(commands))
         doc.regenerate()

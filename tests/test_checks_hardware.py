@@ -41,7 +41,7 @@ def test_api_checks_excludes_seated_fastener():
         "width": 100, "depth": 100, "height": 100}})
     # chumacera real (NO es hardware: se chequea) + tornillo embebido (sí excluido)
     client.post("/api/commands", json={"type": "insert_component", "params": {
-        "component": "CHUM-6205", "position": {"x": 0, "z": 60}}})
+        "component": "UCP205", "position": {"x": 0, "z": 60}}})
     client.post("/api/commands", json={"type": "insert_component", "params": {
         "component": "DIN912-M8", "position": {"x": 0, "z": 60}}})
     checks = client.post("/api/checks", json={}).json()["interferencias"]

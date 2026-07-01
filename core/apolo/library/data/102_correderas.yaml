@@ -1,0 +1,15 @@
+category: correderas
+# Correderas de cajón telescópicas (simplificadas). Cortables a lo largo (kg/m);
+# default_length = longitud típica del cajón.
+families:
+  - family: "CORR"
+    name_tpl: "Corredera cajón {width}×{height}"
+    description_tpl: "Corredera telescópica de cajón, sección {width}×{height} mm. Cortable a medida."
+    builder: drawer_slide
+    param_keys: [width, height, wall]
+    cuttable: true
+    default_length: 450
+    specs_common: {tipo: "corredera de cajón", material: "acero zincado"}
+    variants:
+      - {ref: "CORR-12", width: 12, height: 45, wall: 1.5, weight: 0.9}
+      - {ref: "CORR-17", width: 17, height: 53, wall: 2.0, weight: 1.4}

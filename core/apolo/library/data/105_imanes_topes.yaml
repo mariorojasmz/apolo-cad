@@ -1,0 +1,12 @@
+category: imanes_topes
+# Topes / cierres magnéticos (magnetic catches): carcasa con imanes + placa de contacto.
+families:
+  - family: "IMAN"
+    name_tpl: "Cierre magnético {body_l} mm"
+    description_tpl: "Tope/cierre magnético, carcasa {body_l}×{body_w}×{body_h} mm."
+    builder: magnetic_catch
+    param_keys: [body_l, body_w, body_h]
+    specs_common: {tipo: "cierre magnético", material: "acero zincado"}
+    variants:
+      - {ref: "IMAN-CHICO", body_l: 34, body_w: 14, body_h: 12, weight: 0.02}
+      - {ref: "IMAN-GRANDE", body_l: 48, body_w: 18, body_h: 16, weight: 0.04}

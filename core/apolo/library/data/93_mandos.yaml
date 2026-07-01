@@ -1,0 +1,16 @@
+category: mandos
+components:
+  - ref: ESTOP-40
+    name: Paro de emergencia Ø40
+    description: Pulsador de emergencia tipo hongo Ø40 mm, retención por giro, contacto NC de apertura positiva (ISO 13850).
+    builder: box
+    params: {width: 72, depth: 72, height: 70}
+    weight: 0.15
+    specs: {tipo: "hongo Ø40", contacto: "NC apertura positiva", norma: "ISO 13850"}
+  - ref: BOTONERA-2
+    name: Botonera marcha/paro
+    description: Botonera de 2 pulsadores Ø22 (marcha verde / paro rojo) con potenciómetro de velocidad.
+    builder: box
+    params: {width: 80, depth: 60, height: 120}
+    weight: 0.3
+    specs: {pulsadores: 2, diametro: "Ø22", incluye: "potenciómetro 10kOhm"}

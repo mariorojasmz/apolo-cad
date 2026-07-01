@@ -96,8 +96,8 @@ def test_all_new_families_present():
     assert len(refs_in_category("tornilleria")) == 6
     assert len(refs_in_category("guias_lineales")) == 10  # 5 rieles + 5 carros
     assert len(refs_in_category("transmision")) == 14  # 5 poleas dentadas + 3 tensores + 6 poleas en V
-    # V2: chumaceras, topes, pies niveladores
-    assert len(refs_in_category("chumaceras")) == 3
+    # V2: chumaceras (UCP204-208 pie + UCF204-208 brida cuad. + UCFL204-208 brida oval), topes, pies
+    assert len(refs_in_category("chumaceras")) == 15
     assert len(refs_in_category("topes")) == 3
     assert len(refs_in_category("pies_niveladores")) == 3
     # realismo: familia de tambores motrices/reenvío con eje
@@ -126,7 +126,9 @@ def test_all_new_families_present():
     # tornillería comercial para tensores (DIN 933 / 934)
     assert len(refs_in_category("pernos")) == 4
     assert len(refs_in_category("tuercas")) == 4
-    assert len(CATALOG) == 197  # +6 poleas en V (faja de potencia)
+    # motorreductores sinfín-corona NMRV (eje hueco, montaje directo sobre el eje)
+    assert len(refs_in_category("motorreductores_sinfin")) == 8
+    assert len(CATALOG) == 217  # chumaceras: UCP204-208 pie + UCF/UCFL204-208 de brida (5→15)
 
 
 def test_door_sliding_hardware():
@@ -171,12 +173,28 @@ def test_realism_shafts_and_motor():
     assert math.isclose(bb.max.Z - bb.min.Z, 500 + 2 * 40, abs_tol=0.5)
     assert math.isclose(bb.max.X - bb.min.X, 80, abs_tol=0.5)
 
-    # motorreductor enriquecido (box_size=140): eje de salida sale por -Y; patas bajo el reductor
+    # motorreductor HELICOIDAL EN LÍNEA (box_size=140): motor+caja+eje coaxiales en X, con patas
     shp, _ = build_component("MOTOR-075")
     bb = shp.bounding_box()
     assert shp.volume > 0
-    assert bb.min.Y < -70   # eje de salida más allá del costado del reductor
-    assert bb.min.Z < -82   # patas por debajo de la caja del reductor
+    assert (bb.max.X - bb.min.X) > (bb.max.Y - bb.min.Y) * 1.5  # conjunto largo en X (coaxial)
+    assert bb.max.X > 130   # eje de salida coaxial sobresale por +X
+    assert bb.min.Z < -70   # patas por debajo del conjunto
+
+
+def test_worm_gearmotor_nmrv():
+    # NMRV sinfín-corona: eje HUECO de salida (Y) + motor PERPENDICULAR (X)
+    shp, cut = build_component("NMRV-075")
+    assert cut is None          # no cortable
+    assert shp.volume > 0
+    bb = shp.bounding_box()
+    # el motor perpendicular alarga el envolvente a lo largo de X (más que la caja en Y)
+    assert (bb.max.X - bb.min.X) > (bb.max.Y - bb.min.Y)
+    c = CATALOG["NMRV-075"]
+    assert c.category == "motorreductores_sinfin"
+    assert c.specs["bore_d"] == 28
+    assert c.specs["montaje"].startswith("eje hueco")
+    assert not c.cuttable
 
 
 def test_rail_is_cuttable():

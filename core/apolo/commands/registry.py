@@ -720,11 +720,18 @@ def _exec_fasten(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: F
     """Declara un fijador rígido A↔B (estructural; no mueve geometría)."""
     from apolo.assembly.connectivity import ConnectivityError, register_fastener
 
+    spec = {"name": p.name, "a": p.a, "b": p.b, "kind": p.kind, "nota": p.nota}
+    # dimensionamiento opcional (Frente A): métrica/cantidad del perno, cordón de soldadura
+    if p.size:
+        spec["size"] = p.size
+    if p.qty:
+        spec["qty"] = p.qty
+    if p.throat_mm:
+        spec["throat_mm"] = p.throat_mm
+    if p.length_mm:
+        spec["length_mm"] = p.length_mm
     try:
-        register_fastener(
-            fasteners, cmd_id,
-            {"name": p.name, "a": p.a, "b": p.b, "kind": p.kind, "nota": p.nota},
-        )
+        register_fastener(fasteners, cmd_id, spec)
     except ConnectivityError as exc:
         raise CommandError(str(exc)) from exc
 

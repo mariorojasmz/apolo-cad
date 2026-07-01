@@ -1,0 +1,9 @@
+category: variadores
+components:
+  - ref: VFD-1K5-220
+    name: Variador 1.5 kW 220V 3F
+    description: Variador de frecuencia (VFD) 1.5 kW / 2 HP, salida 220 V trifásica, control vectorial sensorless + STO, para faja de banda 0.5-1.0 m/s.
+    builder: box
+    params: {width: 90, depth: 160, height: 200}
+    weight: 1.2
+    specs: {potencia_kW: 1.5, potencia_HP: 2, tension: "220V 3F", corriente_A: 8.5, control: "vectorial sensorless", proteccion: STO}

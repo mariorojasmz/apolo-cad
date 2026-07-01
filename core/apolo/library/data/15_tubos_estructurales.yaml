@@ -1,0 +1,31 @@
+category: tubos_estructurales
+# Tubos estructurales HSS cuadrados y rectangulares según ASTM A500 (Gr.B/C).
+# Medida nominal = dimensión exterior real (convención HSS), en pulgadas → mm
+# (1"=25.4). Espesor de pared comercial representativo por sección (1/8"=3.2,
+# 3/16"=4.8, 1/4"=6.4 mm); admite otros calibres editando `wall`.
+families:
+  - builder: rect_tube
+    name_tpl: 'Tubo HSS {nominal}'
+    description_tpl: 'Tubo estructural HSS {nominal} ({width}x{height} mm), pared {wall} mm (ASTM A500 Gr.B).'
+    param_keys: [width, height, wall]
+    cuttable: true
+    default_length: 6000
+    specs_common: {material: "acero ASTM A500 Gr.B", perfil: "tubo rectangular", norma: "ASTM A500"}
+    weight_formula: "7.85e-6 * (width*height - (width-2*wall)*(height-2*wall)) * 1000"
+    variants:
+      - {ref: TUBO-1X1, nominal: '1"x1"', width: 25.4, height: 25.4, wall: 3.2}
+      - {ref: TUBO-1.5X1.5, nominal: '1.5"x1.5"', width: 38.1, height: 38.1, wall: 3.2}
+      - {ref: TUBO-2X2, nominal: '2"x2"', width: 50.8, height: 50.8, wall: 3.2}
+      - {ref: TUBO-2.5X2.5, nominal: '2.5"x2.5"', width: 63.5, height: 63.5, wall: 4.8}
+      - {ref: TUBO-3X3, nominal: '3"x3"', width: 76.2, height: 76.2, wall: 4.8}
+      - {ref: TUBO-4X4, nominal: '4"x4"', width: 101.6, height: 101.6, wall: 6.4}
+      - {ref: TUBO-5X5, nominal: '5"x5"', width: 127.0, height: 127.0, wall: 6.4}
+      - {ref: TUBO-6X6, nominal: '6"x6"', width: 152.4, height: 152.4, wall: 6.4}
+      - {ref: TUBO-2X1, nominal: '2"x1"', width: 50.8, height: 25.4, wall: 3.2}
+      - {ref: TUBO-3X2, nominal: '3"x2"', width: 76.2, height: 50.8, wall: 4.8}
+      - {ref: TUBO-4X2, nominal: '4"x2"', width: 101.6, height: 50.8, wall: 4.8}
+      - {ref: TUBO-4X3, nominal: '4"x3"', width: 101.6, height: 76.2, wall: 4.8}
+      - {ref: TUBO-6X4, nominal: '6"x4"', width: 152.4, height: 101.6, wall: 6.4}
+      - {ref: TUBO-6X2, nominal: '6"x2"', width: 152.4, height: 50.8, wall: 4.8}
+      - {ref: TUBO-8X4, nominal: '8"x4"', width: 203.2, height: 101.6, wall: 6.4}
+      - {ref: TUBO-3X1.5, nominal: '3"x1.5"', width: 76.2, height: 38.1, wall: 3.2}

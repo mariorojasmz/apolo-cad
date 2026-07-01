@@ -1,0 +1,15 @@
+category: topes
+# Topes / end-stops regulables: vástago roscado (eje Z) sobre una base cuadrada.
+# Builder endstop.
+families:
+  - family: "TOPE"
+    name_tpl: "Tope {ref}"
+    description_tpl: "Tope regulable M{d}, vástago {altura} mm, base {base_ancho} mm."
+    builder: endstop
+    param_keys: [d, altura, base_ancho, base_t]
+    weight_formula: "2.7e-6 * (0.785 * d * d * altura + base_ancho * base_ancho * base_t)"
+    specs_common: {tipo: "tope regulable", material: "aluminio"}
+    variants:
+      - {ref: "TOPE-M6-30", d: 6, altura: 30, base_ancho: 60, base_t: 8}
+      - {ref: "TOPE-M8-40", d: 8, altura: 40, base_ancho: 80, base_t: 10}
+      - {ref: "TOPE-M10-50", d: 10, altura: 50, base_ancho: 100, base_t: 12}

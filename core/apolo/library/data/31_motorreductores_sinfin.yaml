@@ -1,0 +1,34 @@
+﻿category: motorreductores_sinfin
+# Motorreductores de TORNILLO SIN FIN - CORONA, tipo NMRV (Motovario y compatibles:
+# Transtecno, Varvel, Bonfiglioli VF...). Eje de salida HUECO para montaje DIRECTO sobre
+# el eje del tambor motriz; motor PERPENDICULAR (a 90 grados). El numero de la referencia =
+# distancia entre centros (mm). Builder: worm_gearmotor.
+#
+# COTAS: el diametro del eje hueco de salida (bore_d, tol H8) y el chavetero (b x t) estan
+# VERIFICADOS contra el catalogo oficial Motovario "NMRV/NMRVpower" (rev0 2017, pag. 102).
+# El cuerpo del MOTOR (motor_d, motor_len) usa dimensiones aprox del frame IEC real (TEFC).
+# El envolvente de la caja de corona/brida es representativo (escalado de la distancia entre
+# centros ~1.7x). Para geometria 100% fiel de un tamano concreto, importar el STEP del proveedor.
+# cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+families:
+  - family: "NMRV"
+    name_tpl: "Motorreductor sinfin-corona {ref}"
+    description_tpl: "Reductor de tornillo sin fin NMRV, distancia entre centros {center_distance} mm, eje HUECO de salida Ø{bore_d} mm (H8) con chavetero {chavetero_b}x{chavetero_t}, motor IEC {frame_IEC}. Montaje directo sobre el eje (shaft-mount) + brazo de torque; relaciones {relaciones}."
+    builder: worm_gearmotor
+    param_keys: [center_distance, bore_d, motor_d, motor_len]
+    specs_common:
+      tipo: "sinfin-corona (worm) NMRV"
+      montaje: "eje hueco / shaft-mount"
+      relaciones: "7.5-100"
+      rendimiento: "~0.7-0.85"
+      norma: "Motovario NMRV (cat. rev0 2017)"
+      cotas_verificadas: "bore + chavetero (pag.102); motor = frame IEC aprox; caja representativa"
+    variants:
+      - {ref: "NMRV-030", center_distance: 30,  bore_d: 14, chavetero_b: 5,  chavetero_t: 16.3, motor_d: 120, motor_len: 215, frame_IEC: 63,  potencia_kW: 0.18, cost: 120, weight: 4.5}
+      - {ref: "NMRV-040", center_distance: 40,  bore_d: 18, chavetero_b: 6,  chavetero_t: 20.8, motor_d: 140, motor_len: 245, frame_IEC: 71,  potencia_kW: 0.25, cost: 150, weight: 7.0}
+      - {ref: "NMRV-050", center_distance: 50,  bore_d: 25, chavetero_b: 8,  chavetero_t: 28.3, motor_d: 160, motor_len: 275, frame_IEC: 80,  potencia_kW: 0.55, cost: 200, weight: 11.0}
+      - {ref: "NMRV-063", center_distance: 63,  bore_d: 25, chavetero_b: 8,  chavetero_t: 28.3, motor_d: 175, motor_len: 305, frame_IEC: 90,  potencia_kW: 1.1, cost: 280,  weight: 18.0}
+      - {ref: "NMRV-075", center_distance: 75,  bore_d: 28, chavetero_b: 8,  chavetero_t: 31.3, motor_d: 175, motor_len: 305, frame_IEC: 90,  potencia_kW: 1.5, cost: 380,  weight: 28.0}
+      - {ref: "NMRV-090", center_distance: 90,  bore_d: 35, chavetero_b: 10, chavetero_t: 38.3, motor_d: 195, motor_len: 345, frame_IEC: 100, potencia_kW: 2.2, cost: 520,  weight: 45.0}
+      - {ref: "NMRV-110", center_distance: 110, bore_d: 42, chavetero_b: 12, chavetero_t: 45.3, motor_d: 260, motor_len: 440, frame_IEC: 132, potencia_kW: 4.0, cost: 850,  weight: 75.0}
+      - {ref: "NMRV-130", center_distance: 130, bore_d: 45, chavetero_b: 14, chavetero_t: 48.8, motor_d: 315, motor_len: 545, frame_IEC: 160, potencia_kW: 5.5, cost: 1200,  weight: 110.0}

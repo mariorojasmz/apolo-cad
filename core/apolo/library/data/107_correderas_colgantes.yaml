@@ -1,0 +1,20 @@
+category: correderas_colgantes
+# Correderas colgantes de 4 ruedas para puerta corrediza/plegable top-hung.
+# Cuerpo body_l (a lo largo del riel) × body_w (fondo) × body_h (alto) + perno colgante.
+# Datos reales: Ducasse D-100 (Promart) — 80×45×28 mm, 4 ruedas de acero, capacidad
+# 100 kg, hoja ≤ 150 cm, espesor de puerta ≥ 20 mm, ranura 9×15 mm en el canto, riel U-100.
+families:
+  - family: "CORR-D"
+    name_tpl: "Corredera colgante D-{capacidad_kg}"
+    description_tpl: "Corredera colgante de 4 ruedas, cuerpo {body_l}×{body_h}×{body_w} mm. Capacidad {capacidad_kg} kg; riel U compatible."
+    builder: door_carriage
+    param_keys: [body_l, body_w, body_h, wheel_d]
+    specs_common:
+      tipo: "corredera colgante 4 ruedas"
+      material: "acero zincado"
+      compatible_riel: "RIEL-U100"
+      espesor_min_puerta_mm: 20
+      ranura_mm: "9 x 15"
+    variants:
+      - {ref: "CORR-D100", body_l: 80, body_w: 28, body_h: 45, wheel_d: 14, capacidad_kg: 100, ancho_max_puerta_mm: 1500, weight: 0.35}
+      - {ref: "CORR-D80",  body_l: 70, body_w: 24, body_h: 40, wheel_d: 12, capacidad_kg: 80,  ancho_max_puerta_mm: 1200, weight: 0.28}

@@ -1,0 +1,58 @@
+﻿category: rodamientos
+# Rodamientos rígidos de bolas métricos. Dimensiones de contorno d×D×B según ISO 15
+# (series 6000 extra-ligera, 6200 ligera, 6300 media, 6400 pesada). Modelados como
+# anillo macizo por revolución (sin pistas/bolas); el peso es la aproximación del
+# anillo de acero. Familia paramétrica: una geometría, N variantes.
+# C_kN = capacidad de carga dinámica NOMINAL (ISO 281) para la vida L10; valores
+# aproximados de catálogos NSK/NTN (varían ±10% entre fabricantes — verificar con
+# el proveedor para una selección crítica). La consume engineering/bearings.py.
+# cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+families:
+  - name_tpl: "Rodamiento {ref}"
+    description_tpl: "Rígido de bolas {ref} (d{d}×D{D}×B{B}, ISO 15)."
+    builder: bearing
+    param_keys: [d, D, B]
+    weight_formula: "7.85e-6 * 0.785 * (D*D - d*d) * B"
+    specs_common: {tipo: "rígido de bolas", material: "acero al cromo", norma: "ISO 15"}
+    variants:
+      - {ref: "6000", serie: "6000", d: 10, D: 26, B: 8, C_kN: 4.55}
+      - {ref: "6001", serie: "6000", d: 12, D: 28, B: 8, C_kN: 5.1}
+      - {ref: "6002", serie: "6000", d: 15, D: 32, B: 9, C_kN: 5.6}
+      - {ref: "6003", serie: "6000", d: 17, D: 35, B: 10, C_kN: 6.0}
+      - {ref: "6004", serie: "6000", d: 20, D: 42, B: 12, C_kN: 9.4}
+      - {ref: "6005", serie: "6000", d: 25, D: 47, B: 12, C_kN: 10.1}
+      - {ref: "6006", serie: "6000", d: 30, D: 55, B: 13, C_kN: 13.2}
+      - {ref: "6007", serie: "6000", d: 35, D: 62, B: 14, C_kN: 16.0}
+      - {ref: "6008", serie: "6000", d: 40, D: 68, B: 15, C_kN: 16.8}
+      - {ref: "6009", serie: "6000", d: 45, D: 75, B: 16, C_kN: 20.9}
+      - {ref: "6010", serie: "6000", d: 50, D: 80, B: 16, C_kN: 21.8}
+      - {ref: "6200", serie: "6200", d: 10, D: 30, B: 9, C_kN: 5.1}
+      - {ref: "6201", serie: "6200", d: 12, D: 32, B: 10, C_kN: 6.8}
+      - {ref: "6202", serie: "6200", d: 15, D: 35, B: 11, C_kN: 7.65}
+      - {ref: "6203", serie: "6200", d: 17, D: 40, B: 12, C_kN: 9.55}
+      - {ref: "6204", serie: "6200", d: 20, D: 47, B: 14, C_kN: 12.7, cost: 4}
+      - {ref: "6205", serie: "6200", d: 25, D: 52, B: 15, C_kN: 14.0, cost: 4.5}
+      - {ref: "6206", serie: "6200", d: 30, D: 62, B: 16, C_kN: 19.5, cost: 5.5}
+      - {ref: "6207", serie: "6200", d: 35, D: 72, B: 17, C_kN: 25.5, cost: 7}
+      - {ref: "6208", serie: "6200", d: 40, D: 80, B: 18, C_kN: 30.7, cost: 8.5}
+      - {ref: "6209", serie: "6200", d: 45, D: 85, B: 19, C_kN: 33.2, cost: 10}
+      - {ref: "6210", serie: "6200", d: 50, D: 90, B: 20, C_kN: 35.1, cost: 12}
+      - {ref: "6300", serie: "6300", d: 10, D: 35, B: 11, C_kN: 8.1}
+      - {ref: "6301", serie: "6300", d: 12, D: 37, B: 12, C_kN: 9.7}
+      - {ref: "6302", serie: "6300", d: 15, D: 42, B: 13, C_kN: 11.4}
+      - {ref: "6303", serie: "6300", d: 17, D: 47, B: 14, C_kN: 13.6}
+      - {ref: "6304", serie: "6300", d: 20, D: 52, B: 15, C_kN: 15.9}
+      - {ref: "6305", serie: "6300", d: 25, D: 62, B: 17, C_kN: 22.5}
+      - {ref: "6306", serie: "6300", d: 30, D: 72, B: 19, C_kN: 28.1}
+      - {ref: "6307", serie: "6300", d: 35, D: 80, B: 21, C_kN: 33.2}
+      - {ref: "6308", serie: "6300", d: 40, D: 90, B: 23, C_kN: 41.0}
+      - {ref: "6309", serie: "6300", d: 45, D: 100, B: 25, C_kN: 52.7}
+      - {ref: "6310", serie: "6300", d: 50, D: 110, B: 27, C_kN: 61.8}
+      - {ref: "6403", serie: "6400", d: 17, D: 62, B: 17, C_kN: 22.9}
+      - {ref: "6404", serie: "6400", d: 20, D: 72, B: 19, C_kN: 30.7}
+      - {ref: "6405", serie: "6400", d: 25, D: 80, B: 21, C_kN: 36.0}
+      - {ref: "6406", serie: "6400", d: 30, D: 90, B: 23, C_kN: 43.5}
+      - {ref: "6407", serie: "6400", d: 35, D: 100, B: 25, C_kN: 55.3}
+      - {ref: "6408", serie: "6400", d: 40, D: 110, B: 27, C_kN: 63.5}
+      - {ref: "6409", serie: "6400", d: 45, D: 120, B: 29, C_kN: 76.1}
+      - {ref: "6410", serie: "6400", d: 50, D: 130, B: 31, C_kN: 87.1}

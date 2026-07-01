@@ -1,0 +1,21 @@
+category: rieles_corredera
+# Rieles U para puertas corredizas/colgantes (perfil en U, canal abierto por abajo).
+# Cortables a lo largo (kg/m); default_length = largo de rollo comercial.
+# Datos reales: Ducasse U-100 (Promart) — acero galvanizado, 35×35, rollo 3 m,
+# trabaja con sistemas D-80/D-100, fijación cada 500 mm.
+families:
+  - family: "RIEL-U"
+    name_tpl: "Riel U {width} (colgante)"
+    description_tpl: "Riel U {width}×{height} mm para puerta corrediza/colgante. Acero galvanizado, cortable; fijar cada 500 mm."
+    builder: door_rail
+    param_keys: [width, height, wall]
+    cuttable: true
+    default_length: 3000
+    specs_common:
+      tipo: "riel U colgante"
+      material: "acero zincado"
+      montaje: "perforar/fijar cada 500 mm"
+      compatible_corredera: "D-80 / D-100"
+    variants:
+      - {ref: "RIEL-U100", width: 35, height: 35, wall: 1.5, weight: 1.2}
+      - {ref: "RIEL-U80", width: 28, height: 28, wall: 1.5, weight: 0.95}

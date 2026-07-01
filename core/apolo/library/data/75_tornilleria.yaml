@@ -1,0 +1,18 @@
+category: tornilleria
+# Tornillos Allen de cabeza cilíndrica DIN 912 (longitud nominal por tamaño).
+# Builder screw: vástago + cabeza por revolución. Peso aprox. de acero.
+families:
+  - family: "DIN912"
+    name_tpl: "Tornillo Allen {ref}"
+    description_tpl: "DIN 912 cabeza cilíndrica M{d}×{length} (Allen)."
+    builder: screw
+    param_keys: [d, length, head_d, head_h]
+    weight_formula: "7.85e-6 * 0.785 * (d*d*length + head_d*head_d*head_h)"
+    specs_common: {tipo: "cabeza cilíndrica hueca", material: "acero 12.9", norma: "DIN 912"}
+    variants:
+      - {ref: "DIN912-M4", d: 4, length: 16, head_d: 7, head_h: 4}
+      - {ref: "DIN912-M5", d: 5, length: 20, head_d: 8.5, head_h: 5}
+      - {ref: "DIN912-M6", d: 6, length: 25, head_d: 10, head_h: 6}
+      - {ref: "DIN912-M8", d: 8, length: 30, head_d: 13, head_h: 8}
+      - {ref: "DIN912-M10", d: 10, length: 35, head_d: 16, head_h: 10}
+      - {ref: "DIN912-M12", d: 12, length: 40, head_d: 18, head_h: 12}

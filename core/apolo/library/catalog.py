@@ -48,6 +48,7 @@ CATEGORIES = [
     "bisagras", "tiradores", "correderas", "tornilleria_madera",
     "cerraduras", "imanes_topes",
     "rieles_corredera", "correderas_colgantes",
+    "motorreductores_sinfin",
 ]
 
 

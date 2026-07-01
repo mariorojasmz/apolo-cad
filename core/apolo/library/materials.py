@@ -62,6 +62,23 @@ YIELD_MPA = {
 }
 DEFAULT_YIELD = 250.0  # acero A36
 
+# costo de MATERIA PRIMA (USD/kg) por material — REFERENCIAL (mercado LatAm aprox.,
+# 2026): actualizar con el proveedor/región para cotizar en firme. Lo consume
+# `library/costing.py` (costeo de piezas a medida y fallback de catálogo sin `cost`).
+COST_PER_KG_USD = {
+    "acero": 1.5,
+    "acero inoxidable": 5.5,
+    "aluminio": 4.5,
+    "laton": 8.0,
+    "zinc": 3.0,
+    "madera": 1.2,
+    "vidrio": 2.0,
+    "pvc": 2.5,
+    "caucho": 3.5,
+    "carton": 0.5,
+}
+DEFAULT_COST_PER_KG = 1.5  # acero
+
 # palabras clave para inferir el material de piezas a-medida (sin componente de catálogo)
 _GLASS_WORDS = ("vidrio", "cristal", "glass")
 _STEEL_WORDS = (
@@ -109,6 +126,11 @@ def young_modulus(material: str | None) -> float:
 def yield_strength(material: str | None) -> float:
     """Límite elástico (MPa) del material (DEFAULT_YIELD si no se reconoce)."""
     return YIELD_MPA.get(_norm(material), DEFAULT_YIELD)
+
+
+def cost_per_kg(material: str | None) -> float:
+    """Costo de materia prima (USD/kg) del material — referencial."""
+    return COST_PER_KG_USD.get(_norm(material), DEFAULT_COST_PER_KG)
 
 
 def resolve_material(feat, catalog: dict | None = None, default: str = "acero") -> str:

@@ -1,0 +1,32 @@
+category: guias_lineales
+# Guías lineales de recirculación de bolas (tipo HIWIN HGR/HGW), por tamaño.
+# El RIEL es cortable (kg/m); el CARRO es una pieza fija con canal inferior.
+families:
+  - family: "RIEL"
+    name_tpl: "Riel lineal {ref}"
+    description_tpl: "Riel guía lineal tamaño {size} ({width}×{height} mm), cortable."
+    builder: linear_rail
+    param_keys: [width, height]
+    cuttable: true
+    default_length: 1000
+    weight_formula: "7.85e-3 * width * height"
+    specs_common: {tipo: "riel recirculación de bolas", material: "acero templado"}
+    variants:
+      - {ref: "RIEL-15", size: 15, width: 15, height: 15}
+      - {ref: "RIEL-20", size: 20, width: 20, height: 17.5}
+      - {ref: "RIEL-25", size: 25, width: 23, height: 22}
+      - {ref: "RIEL-30", size: 30, width: 28, height: 26}
+      - {ref: "RIEL-35", size: 35, width: 34, height: 29}
+  - family: "CARRO"
+    name_tpl: "Carro lineal {ref}"
+    description_tpl: "Carro/patín para riel tamaño {size}."
+    builder: linear_block
+    param_keys: [width, length, height, bore]
+    weight_formula: "7.85e-6 * 0.7 * width * length * height"
+    specs_common: {tipo: "patín de bolas", material: "acero"}
+    variants:
+      - {ref: "CARRO-15", size: 15, width: 34, length: 57, height: 24, bore: 16}
+      - {ref: "CARRO-20", size: 20, width: 44, length: 72, height: 30, bore: 21}
+      - {ref: "CARRO-25", size: 25, width: 48, length: 84, height: 36, bore: 24}
+      - {ref: "CARRO-30", size: 30, width: 60, length: 98, height: 42, bore: 29}
+      - {ref: "CARRO-35", size: 35, width: 70, length: 112, height: 48, bore: 35}

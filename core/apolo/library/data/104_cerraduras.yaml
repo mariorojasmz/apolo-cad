@@ -1,0 +1,12 @@
+category: cerraduras
+# Cerraduras de embutir (mortise locks): cuerpo + placa frontal + pestillo + bombín.
+families:
+  - family: "CERR"
+    name_tpl: "Cerradura embutir {case_h} mm"
+    description_tpl: "Cerradura de embutir, cuerpo {case_w}×{case_h}×{case_t}, pestillo Ø{bolt_d}."
+    builder: mortise_lock
+    param_keys: [case_w, case_h, case_t, face_w, face_h, bolt_d]
+    specs_common: {tipo: "cerradura de embutir", material: "acero zincado"}
+    variants:
+      - {ref: "CERR-EMB-S", case_w: 60, case_h: 130, case_t: 16, face_w: 24, face_h: 170, bolt_d: 14, weight: 0.45}
+      - {ref: "CERR-EMB-L", case_w: 72, case_h: 165, case_t: 20, face_w: 24, face_h: 220, bolt_d: 16, weight: 0.70}

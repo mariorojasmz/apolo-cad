@@ -1,0 +1,26 @@
+category: tiradores
+# Tiradores y pomos de carpintería/mueble. pull_handle = manija de barra (fija,
+# cc = distancia entre centros); knob = pomo por revolución.
+families:
+  - family: "TIR"
+    name_tpl: "Tirador barra {cc} mm"
+    description_tpl: "Tirador de barra, entrecentros {cc} mm, Ø{bar_d}, vuelo {proj} mm."
+    builder: pull_handle
+    param_keys: [cc, bar_d, proj]
+    specs_common: {tipo: "tirador de barra", material: "acero inoxidable"}
+    variants:
+      - {ref: "TIR-96", cc: 96, bar_d: 10, proj: 32, weight: 0.10}
+      - {ref: "TIR-128", cc: 128, bar_d: 12, proj: 35, weight: 0.16}
+      - {ref: "TIR-160", cc: 160, bar_d: 12, proj: 35, weight: 0.20}
+      - {ref: "TIR-192", cc: 192, bar_d: 14, proj: 38, weight: 0.30}
+
+  - family: "POMO"
+    name_tpl: "Pomo Ø{base_d} mm"
+    description_tpl: "Pomo de mueble Ø{base_d} mm, alto {height} mm."
+    builder: knob
+    param_keys: [base_d, height, stem_d]
+    specs_common: {tipo: "pomo", material: "latón"}
+    variants:
+      - {ref: "POMO-25", base_d: 25, height: 26, stem_d: 10, weight: 0.04}
+      - {ref: "POMO-30", base_d: 30, height: 30, stem_d: 12, weight: 0.06}
+      - {ref: "POMO-35", base_d: 35, height: 32, stem_d: 12, weight: 0.09}
