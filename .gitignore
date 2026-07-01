@@ -18,3 +18,4 @@ logs/
 
 # Datasheets de fabricante (referencia local; copyright del proveedor, NO redistribuir en el repo público)
 docs/datasheets/*.pdf
+ui/tsconfig.tsbuildinfo
