@@ -70,7 +70,7 @@ def test_totals_and_most_expensive():
 def test_cuttable_component_costs_per_meter():
     doc = Document("t")
     doc.execute("insert_component", {"component": "TUBO-2X2", "position": {"x": 0, "y": 0, "z": 0},
-                                     "cut_length": 2000})
+                                     "length": 2000})
     rows = costed_bom(doc.scene)
     r = rows[0]
     # sin precio explícito: estimación por peso (que ya viene por longitud) — nunca None
@@ -117,3 +117,57 @@ def test_quote_endpoint():
     r = client.get("/api/quote.pdf", params={"margin_pct": 30, "currency": "USD"})
     assert r.status_code == 200
     assert r.content[:4] == b"%PDF"
+
+
+# ---------------------------------------------------- Frente C: moneda / fx / cost_por_m
+def test_requirements_accept_currency_and_fx():
+    doc = Document("t")
+    doc.set_requirements({"carga_kg": 10, "largo_paquete_mm": 400,
+                          "moneda": "PEN", "tipo_cambio": 3.75})
+    assert doc.requirements["moneda"] == "PEN"
+    assert doc.requirements["tipo_cambio"] == 3.75
+
+
+def test_quote_fx_scales_amounts():
+    doc = _doc()
+    data = scene_costing(doc.scene)
+    directo = data["totales"]["total_usd"]
+    pages = quotation_pages(doc.scene, margin_pct=0, tax_pct=0, currency="PEN", fx=3.75)
+    texts = [lb.text for lb in pages[0].labels]
+    assert any(f"{directo * 3.75:,.2f} PEN" in t for t in texts)
+    assert any("tipo de cambio 3.75" in t for t in texts)  # nota de conversión
+
+
+def test_quote_endpoint_uses_project_currency():
+    api.DOC = _doc()
+    api.DOC.set_requirements({"carga_kg": 10, "largo_paquete_mm": 400,
+                              "moneda": "PEN", "tipo_cambio": 3.75})
+    client = TestClient(api.app)
+    r = client.get("/api/quote.pdf")
+    assert r.status_code == 200
+    assert r.content[:4] == b"%PDF"
+
+
+def test_cuttable_profile_uses_cost_por_m():
+    doc = Document("t")
+    doc.execute("insert_component", {"component": "TUBO-2X2", "position": {"x": 0, "y": 0, "z": 0},
+                                     "length": 2000})
+    rows = costed_bom(doc.scene)
+    r = rows[0]
+    assert r["costo_fuente"] == "catálogo (USD/m)"
+    from apolo.library.catalog import CATALOG
+    expected = CATALOG["TUBO-2X2"].specs["cost_por_m"] * 2.0
+    assert r["costo_ud_usd"] == pytest.approx(expected, rel=1e-6)
+
+
+def test_export_stl_endpoint():
+    api.DOC = Document("stl-test")
+    api.DOC.execute("create_box", {"name": "Caja", "width": 50, "depth": 50, "height": 50})
+    client = TestClient(api.app)
+    r = client.get("/api/export/stl")
+    assert r.status_code == 200
+    # STL binario: 80 bytes de header + uint32 con nº de triángulos (>0)
+    assert len(r.content) > 84
+    import struct
+    n_tri = struct.unpack("<I", r.content[80:84])[0]
+    assert n_tri >= 12  # una caja tesela a >=12 triángulos

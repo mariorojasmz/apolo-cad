@@ -1,4 +1,5 @@
 category: tubos_estructurales
+# cost_por_m = USD/m REFERENCIAL (peso/m x USD/kg del material x 1.8 comercial; actualizar con proveedor).
 # Tubos estructurales HSS cuadrados y rectangulares según ASTM A500 (Gr.B/C).
 # Medida nominal = dimensión exterior real (convención HSS), en pulgadas → mm
 # (1"=25.4). Espesor de pared comercial representativo por sección (1/8"=3.2,
@@ -13,19 +14,19 @@ families:
     specs_common: {material: "acero ASTM A500 Gr.B", perfil: "tubo rectangular", norma: "ASTM A500"}
     weight_formula: "7.85e-6 * (width*height - (width-2*wall)*(height-2*wall)) * 1000"
     variants:
-      - {ref: TUBO-1X1, nominal: '1"x1"', width: 25.4, height: 25.4, wall: 3.2}
-      - {ref: TUBO-1.5X1.5, nominal: '1.5"x1.5"', width: 38.1, height: 38.1, wall: 3.2}
-      - {ref: TUBO-2X2, nominal: '2"x2"', width: 50.8, height: 50.8, wall: 3.2}
-      - {ref: TUBO-2.5X2.5, nominal: '2.5"x2.5"', width: 63.5, height: 63.5, wall: 4.8}
-      - {ref: TUBO-3X3, nominal: '3"x3"', width: 76.2, height: 76.2, wall: 4.8}
-      - {ref: TUBO-4X4, nominal: '4"x4"', width: 101.6, height: 101.6, wall: 6.4}
-      - {ref: TUBO-5X5, nominal: '5"x5"', width: 127.0, height: 127.0, wall: 6.4}
-      - {ref: TUBO-6X6, nominal: '6"x6"', width: 152.4, height: 152.4, wall: 6.4}
-      - {ref: TUBO-2X1, nominal: '2"x1"', width: 50.8, height: 25.4, wall: 3.2}
-      - {ref: TUBO-3X2, nominal: '3"x2"', width: 76.2, height: 50.8, wall: 4.8}
-      - {ref: TUBO-4X2, nominal: '4"x2"', width: 101.6, height: 50.8, wall: 4.8}
-      - {ref: TUBO-4X3, nominal: '4"x3"', width: 101.6, height: 76.2, wall: 4.8}
-      - {ref: TUBO-6X4, nominal: '6"x4"', width: 152.4, height: 101.6, wall: 6.4}
-      - {ref: TUBO-6X2, nominal: '6"x2"', width: 152.4, height: 50.8, wall: 4.8}
-      - {ref: TUBO-8X4, nominal: '8"x4"', width: 203.2, height: 101.6, wall: 6.4}
-      - {ref: TUBO-3X1.5, nominal: '3"x1.5"', width: 76.2, height: 38.1, wall: 3.2}
+      - {ref: TUBO-1X1, nominal: '1"x1"', width: 25.4, height: 25.4, wall: 3.2, cost_por_m: 6.0}
+      - {ref: TUBO-1.5X1.5, nominal: '1.5"x1.5"', width: 38.1, height: 38.1, wall: 3.2, cost_por_m: 9.5}
+      - {ref: TUBO-2X2, nominal: '2"x2"', width: 50.8, height: 50.8, wall: 3.2, cost_por_m: 12.9}
+      - {ref: TUBO-2.5X2.5, nominal: '2.5"x2.5"', width: 63.5, height: 63.5, wall: 4.8, cost_por_m: 23.9}
+      - {ref: TUBO-3X3, nominal: '3"x3"', width: 76.2, height: 76.2, wall: 4.8, cost_por_m: 29.1}
+      - {ref: TUBO-4X4, nominal: '4"x4"', width: 101.6, height: 101.6, wall: 6.4, cost_por_m: 51.7}
+      - {ref: TUBO-5X5, nominal: '5"x5"', width: 127.0, height: 127.0, wall: 6.4, cost_por_m: 65.4}
+      - {ref: TUBO-6X6, nominal: '6"x6"', width: 152.4, height: 152.4, wall: 6.4, cost_por_m: 79.2}
+      - {ref: TUBO-2X1, nominal: '2"x1"', width: 50.8, height: 25.4, wall: 3.2, cost_por_m: 9.5}
+      - {ref: TUBO-3X2, nominal: '3"x2"', width: 76.2, height: 50.8, wall: 4.8, cost_por_m: 23.9}
+      - {ref: TUBO-4X2, nominal: '4"x2"', width: 101.6, height: 50.8, wall: 4.8, cost_por_m: 29.1}
+      - {ref: TUBO-4X3, nominal: '4"x3"', width: 101.6, height: 76.2, wall: 4.8, cost_por_m: 34.2}
+      - {ref: TUBO-6X4, nominal: '6"x4"', width: 152.4, height: 101.6, wall: 6.4, cost_por_m: 65.4}
+      - {ref: TUBO-6X2, nominal: '6"x2"', width: 152.4, height: 50.8, wall: 4.8, cost_por_m: 39.4}
+      - {ref: TUBO-8X4, nominal: '8"x4"', width: 203.2, height: 101.6, wall: 6.4, cost_por_m: 79.2}
+      - {ref: TUBO-3X1.5, nominal: '3"x1.5"', width: 76.2, height: 38.1, wall: 3.2, cost_por_m: 14.6}

@@ -1,4 +1,5 @@
 category: tubos_circulares
+# cost_por_m = USD/m REFERENCIAL (peso/m x USD/kg del material x 1.8 comercial; actualizar con proveedor).
 # Tubos estructurales redondos (round HSS, ASTM A500). Ø exterior nominal en
 # pulgadas → mm (OD = pulgadas × 25.4; a diferencia de pipe NPS). Pared comercial
 # típica por diámetro; admite otros calibres editando `wall`.
@@ -12,13 +13,13 @@ families:
     specs_common: {material: "acero ASTM A500", perfil: "tubo redondo", norma: "ASTM A500 round HSS"}
     weight_formula: "7.85e-6 * 0.785398 * (od*od - (od - 2*wall)*(od - 2*wall)) * 1000"
     variants:
-      - {ref: TUBOR-1, nominal: 'Ø1"', od: 25.4, wall: 2.0}
-      - {ref: TUBOR-1.25, nominal: 'Ø1.25"', od: 31.75, wall: 2.0}
-      - {ref: TUBOR-1.5, nominal: 'Ø1.5"', od: 38.1, wall: 2.5}
-      - {ref: TUBOR-2, nominal: 'Ø2"', od: 50.8, wall: 3.0}
-      - {ref: TUBOR-2.5, nominal: 'Ø2.5"', od: 63.5, wall: 3.0}
-      - {ref: TUBOR-3, nominal: 'Ø3"', od: 76.2, wall: 3.5}
-      - {ref: TUBOR-3.5, nominal: 'Ø3.5"', od: 88.9, wall: 4.0}
-      - {ref: TUBOR-4, nominal: 'Ø4"', od: 101.6, wall: 4.0}
-      - {ref: TUBOR-5, nominal: 'Ø5"', od: 127.0, wall: 5.0}
-      - {ref: TUBOR-6, nominal: 'Ø6"', od: 152.4, wall: 5.0}
+      - {ref: TUBOR-1, nominal: 'Ø1"', od: 25.4, wall: 2.0, cost_por_m: 3.1}
+      - {ref: TUBOR-1.25, nominal: 'Ø1.25"', od: 31.75, wall: 2.0, cost_por_m: 4.0}
+      - {ref: TUBOR-1.5, nominal: 'Ø1.5"', od: 38.1, wall: 2.5, cost_por_m: 5.9}
+      - {ref: TUBOR-2, nominal: 'Ø2"', od: 50.8, wall: 3.0, cost_por_m: 9.5}
+      - {ref: TUBOR-2.5, nominal: 'Ø2.5"', od: 63.5, wall: 3.0, cost_por_m: 12.1}
+      - {ref: TUBOR-3, nominal: 'Ø3"', od: 76.2, wall: 3.5, cost_por_m: 16.9}
+      - {ref: TUBOR-3.5, nominal: 'Ø3.5"', od: 88.9, wall: 4.0, cost_por_m: 22.6}
+      - {ref: TUBOR-4, nominal: 'Ø4"', od: 101.6, wall: 4.0, cost_por_m: 26.0}
+      - {ref: TUBOR-5, nominal: 'Ø5"', od: 127.0, wall: 5.0, cost_por_m: 40.6}
+      - {ref: TUBOR-6, nominal: 'Ø6"', od: 152.4, wall: 5.0, cost_por_m: 49.1}

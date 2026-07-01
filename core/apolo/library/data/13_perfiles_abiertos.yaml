@@ -1,4 +1,5 @@
 category: perfiles_abiertos
+# cost_por_m = USD/m REFERENCIAL (peso/m x USD/kg del material x 1.8 comercial; actualizar con proveedor).
 # Perfiles estructurales ABIERTOS (no huecos): ángulos L (EN 10056-1), canales U
 # tipo UPN (DIN 1026-1) y vigas I tipo IPE (EN 10365). Dimensiones nominales en mm.
 # Modelo prismático simplificado: SIN radios de acuerdo ni conicidad de ala (el peso
@@ -13,14 +14,14 @@ families:
     specs_common: {material: "acero S275JR", perfil: "ángulo L lados iguales", norma: "EN 10056-1"}
     weight_formula: "7.85e-6 * (2*leg*t - t*t) * 1000"
     variants:
-      - {ref: ANG-25X3, leg: 25, t: 3}
-      - {ref: ANG-30X3, leg: 30, t: 3}
-      - {ref: ANG-40X4, leg: 40, t: 4}
-      - {ref: ANG-50X5, leg: 50, t: 5}
-      - {ref: ANG-60X6, leg: 60, t: 6}
-      - {ref: ANG-75X6, leg: 75, t: 6}
-      - {ref: ANG-80X8, leg: 80, t: 8}
-      - {ref: ANG-100X10, leg: 100, t: 10}
+      - {ref: ANG-25X3, leg: 25, t: 3, cost_por_m: 3.0}
+      - {ref: ANG-30X3, leg: 30, t: 3, cost_por_m: 3.6}
+      - {ref: ANG-40X4, leg: 40, t: 4, cost_por_m: 6.4}
+      - {ref: ANG-50X5, leg: 50, t: 5, cost_por_m: 10.1}
+      - {ref: ANG-60X6, leg: 60, t: 6, cost_por_m: 14.5}
+      - {ref: ANG-75X6, leg: 75, t: 6, cost_por_m: 18.3}
+      - {ref: ANG-80X8, leg: 80, t: 8, cost_por_m: 25.8}
+      - {ref: ANG-100X10, leg: 100, t: 10, cost_por_m: 40.3}
   - builder: channel
     name_tpl: 'Canal {ref}'
     description_tpl: 'Perfil U tipo UPN {ref} (h{h}×b{b}, alma {tw} / ala {tf} mm) (DIN 1026-1).'
@@ -30,13 +31,13 @@ families:
     specs_common: {material: "acero S275JR", perfil: "canal U (UPN)", norma: "DIN 1026-1"}
     weight_formula: "7.85e-6 * (h*tw + 2*tf*(b - tw)) * 1000"
     variants:
-      - {ref: UPN-80, h: 80, b: 45, tw: 6, tf: 8}
-      - {ref: UPN-100, h: 100, b: 50, tw: 6, tf: 8.5}
-      - {ref: UPN-120, h: 120, b: 55, tw: 7, tf: 9}
-      - {ref: UPN-140, h: 140, b: 60, tw: 7, tf: 10}
-      - {ref: UPN-160, h: 160, b: 65, tw: 7.5, tf: 10.5}
-      - {ref: UPN-180, h: 180, b: 70, tw: 8, tf: 11}
-      - {ref: UPN-200, h: 200, b: 75, tw: 8.5, tf: 11.5}
+      - {ref: UPN-80, h: 80, b: 45, tw: 6, tf: 8, cost_por_m: 23.4}
+      - {ref: UPN-100, h: 100, b: 50, tw: 6, tf: 8.5, cost_por_m: 28.6}
+      - {ref: UPN-120, h: 120, b: 55, tw: 7, tf: 9, cost_por_m: 36.1}
+      - {ref: UPN-140, h: 140, b: 60, tw: 7, tf: 10, cost_por_m: 43.2}
+      - {ref: UPN-160, h: 160, b: 65, tw: 7.5, tf: 10.5, cost_por_m: 51.0}
+      - {ref: UPN-180, h: 180, b: 70, tw: 8, tf: 11, cost_por_m: 59.4}
+      - {ref: UPN-200, h: 200, b: 75, tw: 8.5, tf: 11.5, cost_por_m: 68.4}
   - builder: i_beam
     name_tpl: 'Viga {ref}'
     description_tpl: 'Viga doble T tipo IPE {ref} (h{h}×b{b}, alma {tw} / ala {tf} mm) (EN 10365).'
@@ -46,10 +47,10 @@ families:
     specs_common: {material: "acero S275JR", perfil: "viga I (IPE)", norma: "EN 10365"}
     weight_formula: "7.85e-6 * (h*tw + 2*tf*(b - tw)) * 1000"
     variants:
-      - {ref: IPE-80, h: 80, b: 46, tw: 3.8, tf: 5.2}
-      - {ref: IPE-100, h: 100, b: 55, tw: 4.1, tf: 5.7}
-      - {ref: IPE-120, h: 120, b: 64, tw: 4.4, tf: 6.3}
-      - {ref: IPE-140, h: 140, b: 73, tw: 4.7, tf: 6.9}
-      - {ref: IPE-160, h: 160, b: 82, tw: 5.0, tf: 7.4}
-      - {ref: IPE-180, h: 180, b: 91, tw: 5.3, tf: 8.0}
-      - {ref: IPE-200, h: 200, b: 100, tw: 5.6, tf: 8.5}
+      - {ref: IPE-80, h: 80, b: 46, tw: 3.8, tf: 5.2, cost_por_m: 15.7}
+      - {ref: IPE-100, h: 100, b: 55, tw: 4.1, tf: 5.7, cost_por_m: 21.0}
+      - {ref: IPE-120, h: 120, b: 64, tw: 4.4, tf: 6.3, cost_por_m: 27.1}
+      - {ref: IPE-140, h: 140, b: 73, tw: 4.7, tf: 6.9, cost_por_m: 33.9}
+      - {ref: IPE-160, h: 160, b: 82, tw: 5.0, tf: 7.4, cost_por_m: 41.1}
+      - {ref: IPE-180, h: 180, b: 91, tw: 5.3, tf: 8.0, cost_por_m: 49.3}
+      - {ref: IPE-200, h: 200, b: 100, tw: 5.6, tf: 8.5, cost_por_m: 57.8}

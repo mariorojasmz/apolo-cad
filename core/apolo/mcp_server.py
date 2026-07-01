@@ -466,6 +466,21 @@ def export_step(path: str) -> str:
 
 
 @mcp.tool()
+def export_stl(path: str, tolerance: float = 0.5) -> str:
+    """Exporta los sólidos VISIBLES como UN STL binario (malla) en la ruta local
+    indicada — para impresión 3D, visores de malla o simuladores externos.
+    `tolerance` = desviación máxima de teselado en mm (menor = más fino y pesado).
+    Para CAD/interop usa export_step (B-rep exacto); el STL es malla aproximada."""
+    from pathlib import Path
+
+    data = _api("GET", "/api/export/stl", params={"tolerance": tolerance}).content
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return f"STL guardado en {target} ({len(data)} bytes)"
+
+
+@mcp.tool()
 def export_flat_pattern(feature_id: str, path: str) -> str:
     """Exporta el patrón plano (desplegado) de una chapa metálica a un DXF local
     para corte láser. feature_id es el id del sólido de la chapa (ver get_scene);
@@ -830,7 +845,7 @@ def calc_report(path: str, carga_kg: float | None = None, largo_paquete_mm: floa
 
 @mcp.tool()
 def quotation(path: str, margin_pct: float = 25.0, tax_pct: float = 0.0,
-              currency: str = "USD") -> str:
+              currency: str | None = None, fx: float | None = None) -> str:
     """Genera la COTIZACIÓN del proyecto (PDF multipágina) y la guarda en `path` (.pdf):
     resumen económico (catálogo vs fabricación, desglose por categoría, margen %,
     impuesto % opcional, PRECIO DE VENTA, ítem más costoso, notas comerciales) + detalle
@@ -839,8 +854,12 @@ def quotation(path: str, margin_pct: float = 25.0, tax_pct: float = 0.0,
     el diseño; la cotización lo VENDE). Precios referenciales — confirmar con proveedor."""
     import pathlib
 
-    resp = _api("GET", "/api/quote.pdf",
-                params={"margin_pct": margin_pct, "tax_pct": tax_pct, "currency": currency})
+    params: dict = {"margin_pct": margin_pct, "tax_pct": tax_pct}
+    if currency:
+        params["currency"] = currency
+    if fx is not None:
+        params["fx"] = fx
+    resp = _api("GET", "/api/quote.pdf", params=params)
     pathlib.Path(path).write_bytes(resp.content)
     return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
 

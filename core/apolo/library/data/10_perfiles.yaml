@@ -1,4 +1,5 @@
 category: perfiles
+# cost_por_m = USD/m REFERENCIAL (peso/m x USD/kg del material x 1.8 comercial; actualizar con proveedor).
 components:
   - ref: PERFIL-2020
     name: Perfil 20x20
@@ -8,7 +9,7 @@ components:
     weight: 0.5
     cuttable: true
     default_length: 1000
-    specs: {seccion: "20x20", material: aluminio, modulo_mm: 20}
+    specs: {seccion: "20x20", material: aluminio, modulo_mm: 20, cost_por_m: 4.0}
   - ref: PERFIL-3030
     name: Perfil 30x30
     description: Perfil de aluminio ranurado 30x30, módulo 30.
@@ -17,7 +18,7 @@ components:
     weight: 0.9
     cuttable: true
     default_length: 1000
-    specs: {seccion: "30x30", material: aluminio, modulo_mm: 30}
+    specs: {seccion: "30x30", material: aluminio, modulo_mm: 30, cost_por_m: 7.3}
   - ref: PERFIL-4040
     name: Perfil 40x40
     description: Perfil de aluminio ranurado 40x40, módulo 40. El caballo de batalla de bastidores.
@@ -26,7 +27,7 @@ components:
     weight: 1.6
     cuttable: true
     default_length: 1000
-    specs: {seccion: "40x40", material: aluminio, modulo_mm: 40}
+    specs: {seccion: "40x40", material: aluminio, modulo_mm: 40, cost_por_m: 13.0}
   - ref: PERFIL-4080
     name: Perfil 40x80
     description: Perfil de aluminio ranurado 40x80 para largueros y vigas.
@@ -35,7 +36,7 @@ components:
     weight: 3.0
     cuttable: true
     default_length: 1000
-    specs: {seccion: "40x80", material: aluminio, modulo_mm: 40}
+    specs: {seccion: "40x80", material: aluminio, modulo_mm: 40, cost_por_m: 24.3}
   - ref: PERFIL-4545
     name: Perfil 45x45
     description: Perfil de aluminio ranurado serie 45 (compatible Bosch).
@@ -44,4 +45,4 @@ components:
     weight: 2.0
     cuttable: true
     default_length: 1000
-    specs: {seccion: "45x45", material: aluminio, modulo_mm: 45}
+    specs: {seccion: "45x45", material: aluminio, modulo_mm: 45, cost_por_m: 16.2}

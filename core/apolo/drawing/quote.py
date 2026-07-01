@@ -28,7 +28,7 @@ def _money(x: float | None, currency: str) -> str:
 
 def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
                   totals: dict, margin_pct: float, tax_pct: float, currency: str,
-                  n_rows: int, base_meta: dict) -> SheetModel:
+                  n_rows: int, base_meta: dict, fx_note: str | None = None) -> SheetModel:
     m = SheetModel(W, H)
     m.rect(10, 10, W - 20, H - 20, "frame")
     m.labels.append(Label(16, H - 24, "COTIZACIÓN", 8.0, anchor="start"))
@@ -95,6 +95,8 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
         "No incluye transporte, instalación ni puesta en marcha, salvo pacto expreso.",
         "Validez de la oferta: 15 días calendario.",
     ]
+    if fx_note:
+        notas.insert(1, fx_note)
     # wrap a 60 chars: las notas quedan a la izquierda de la tabla de revisiones
     # del cajetín (x ≥ 107) — sin solaparse aunque el proyecto tenga muchas revisiones
     idx = 1
@@ -109,14 +111,35 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
 
 def quotation_pages(scene: dict, *, project_name: str = "Sin título",
                     requirements: dict | None = None, margin_pct: float = 25.0,
-                    tax_pct: float = 0.0, currency: str = "USD",
+                    tax_pct: float = 0.0, currency: str = "USD", fx: float = 1.0,
                     meta: dict | None = None, sheet: str = "A4") -> list[SheetModel]:
-    """Cotización multipágina: [resumen económico + N hojas de detalle de partidas]."""
+    """Cotización multipágina: [resumen económico + N hojas de detalle de partidas].
+    `fx` = tipo de cambio sobre USD (solo PRESENTACIÓN: los costos se almacenan en
+    USD; con fx≠1 la conversión se declara en las notas)."""
     from apolo.library.costing import scene_costing
 
     W, H = SHEETS.get(sheet, SHEETS["A4"])
     data = scene_costing(scene)
     rows, totals = data["rows"], data["totales"]
+    fx = float(fx) if fx and fx > 0 else 1.0
+    if fx != 1.0:
+        rows = [
+            {**r,
+             "costo_ud_usd": None if r.get("costo_ud_usd") is None else round(r["costo_ud_usd"] * fx, 2),
+             "costo_total_usd": None if r.get("costo_total_usd") is None else round(r["costo_total_usd"] * fx, 2)}
+            for r in rows
+        ]
+        top = totals.get("item_mas_costoso")
+        totals = {
+            **totals,
+            "catalogo_usd": round(totals["catalogo_usd"] * fx, 2),
+            "fabricacion_usd": round(totals["fabricacion_usd"] * fx, 2),
+            "total_usd": round(totals["total_usd"] * fx, 2),
+            "por_categoria": {k: round(v * fx, 2) for k, v in totals.get("por_categoria", {}).items()},
+            "item_mas_costoso": (
+                {**top, "costo_total_usd": round(top["costo_total_usd"] * fx, 2)} if top else None
+            ),
+        }
 
     detail = [
         [r["ref"], str(r["descripcion"])[:36], r["cantidad"],
@@ -137,10 +160,12 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
         "revisions": (meta or {}).get("revisions", []),
         "n_sheets": n_pages,
     }
+    fx_note = (f"Montos convertidos de USD a {currency} a tipo de cambio {fx:g} "
+               "(los costos base se mantienen en USD)." if fx != 1.0 else None)
     pages = [_summary_page(W, H, project_name=project_name,
                            requirements=requirements or {}, totals=totals,
                            margin_pct=margin_pct, tax_pct=tax_pct, currency=currency,
-                           n_rows=len(rows), base_meta=base_meta)]
+                           n_rows=len(rows), base_meta=base_meta, fx_note=fx_note)]
     headers = ["Ref", "Descripción", "Cant", f"{currency}/ud", f"{currency} total", "Fuente del precio"]
     col_w = [26.0, 78.0, 12.0, 24.0, 28.0, 70.0]
     for k in range(n_detail_pages):

@@ -11,8 +11,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-DENSITY_KG_MM3 = {"perfiles": 2.7e-6, "patas": 2.7e-6}  # aluminio; resto acero
-DEFAULT_DENSITY = 7.85e-6
 JOINT_TYPE_URDF = {"fija": "fixed", "giratoria": "revolute", "continua": "continuous", "prismatica": "prismatic"}
 
 
@@ -33,11 +31,15 @@ class KinLink:
 
 
 def _link_physics(feat) -> tuple[float, tuple, tuple]:
+    """Masa/COM/bbox de un eslabón para URDF/SDF/MuJoCo. Densidad UNIFICADA con
+    `materials.py` (resolve_material: override → catálogo → heurística por nombre) —
+    la misma fuente que mass-properties/cutlist; antes usaba una tabla por categoría
+    (solo perfiles/patas=aluminio) que divergía del resto del sistema."""
     from apolo.library.catalog import CATALOG
+    from apolo.library.materials import density as mat_density
+    from apolo.library.materials import resolve_material
 
-    density = DEFAULT_DENSITY
-    if feat.component and feat.component in CATALOG:
-        density = DENSITY_KG_MM3.get(CATALOG[feat.component].category, DEFAULT_DENSITY)
+    density = mat_density(resolve_material(feat, CATALOG))
     volume = max(float(feat.shape.volume), 1.0)
     bb = feat.shape.bounding_box()
     com = ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)

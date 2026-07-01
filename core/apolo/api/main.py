@@ -1862,19 +1862,25 @@ def calc_report_pdf(
 
 
 @app.get("/api/quote.pdf")
-def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0, currency: str = "USD",
+def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
+              currency: str | None = None, fx: float | None = None,
               sheet: str = "A4") -> Response:
     """COTIZACIÓN en PDF multipágina: resumen económico (desglose por categoría, margen,
     impuesto opcional, PRECIO DE VENTA, ítem más costoso, notas comerciales) + detalle
-    de partidas (BOM costeado completo con la fuente de cada precio). Read-only."""
+    de partidas (BOM costeado completo con la fuente de cada precio). `currency`/`fx`
+    (tipo de cambio sobre USD, solo presentación) caen a los requisitos del proyecto
+    (claves `moneda`/`tipo_cambio`); los params explícitos ganan. Read-only."""
     from apolo.drawing import sheets_to_pdf
     from apolo.drawing.quote import quotation_pages
 
     with STATE_LOCK:
+        req = DOC.requirements or {}
+        cur = currency or str(req.get("moneda") or "USD")
+        fx_eff = fx if fx is not None else float(req.get("tipo_cambio") or 1.0)
         pages = quotation_pages(
             DOC.scene, project_name=DOC.name or "Sin título",
             requirements=DOC.requirements, margin_pct=margin_pct, tax_pct=tax_pct,
-            currency=currency, meta=_drawing_meta(),
+            currency=cur, fx=fx_eff, meta=_drawing_meta(),
         )
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
@@ -1999,6 +2005,21 @@ def export_step() -> FileResponse:
         tmp = Path(tempfile.mkstemp(suffix=".step")[1])
         export_step_file(shapes, str(tmp))
     return FileResponse(tmp, filename=f"{DOC.name or 'modelo'}.step", media_type="model/step")
+
+
+@app.get("/api/export/stl")
+def export_stl_endpoint(tolerance: float = 0.5) -> FileResponse:
+    """Exporta los sólidos VISIBLES como UN STL binario (malla; para impresión 3D /
+    visores externos). `tolerance` = desviación máxima de teselado en mm. Read-only."""
+    from build123d import Compound, export_stl
+
+    with STATE_LOCK:
+        shapes = [f.shape for f in DOC.scene.values() if f.visible]
+        if not shapes:
+            raise HTTPException(status_code=400, detail="No hay sólidos visibles que exportar")
+        tmp = Path(tempfile.mkstemp(suffix=".stl")[1])
+        export_stl(Compound(children=shapes), str(tmp), tolerance=tolerance)
+    return FileResponse(tmp, filename=f"{DOC.name or 'modelo'}.stl", media_type="model/stl")
 
 
 @app.get("/api/project/file")

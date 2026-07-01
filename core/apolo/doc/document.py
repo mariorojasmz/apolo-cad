@@ -457,7 +457,7 @@ class Document:
     # claves de requisitos con convención NUMÉRICA (se coercionan a float > 0)
     _REQ_NUMERIC = (
         "carga_kg", "largo_paquete_mm", "ancho_paquete_mm", "alto_paquete_mm",
-        "velocidad_m_s", "inclinacion_deg", "temperatura_c",
+        "velocidad_m_s", "inclinacion_deg", "temperatura_c", "tipo_cambio",
     )
 
     def set_requirements(self, fields: dict) -> None:
