@@ -17,11 +17,17 @@ import os
 import httpx
 from mcp.server.fastmcp import FastMCP, Image
 
+from apolo.design import design_brief
+
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
 mcp = FastMCP(
     "apolo-cad",
     instructions=(
+        # Criterio de ingeniería SIEMPRE presente (capa 1): el agente diseña como un
+        # ingeniero/estructurista por defecto, no solo ejecuta al pie de la letra.
+        # El detalle y los ejemplos están en el tool get_design_guidelines (capa 2).
+        design_brief() + "\n\n"
         "CAD paramétrico Genix Apolo. Unidades mm, eje Z arriba, primitivas centradas. "
         "El documento es un log de comandos: cada operación es editable y deshacible. "
         "Consulta get_command_schemas para los parámetros de cada comando; usa '$k' en lotes "
@@ -159,6 +165,17 @@ def get_bom() -> str:
 
 
 @mcp.tool()
+def get_costing() -> str:
+    """BOM COSTEADO en USD: cada fila del BOM con costo_ud/costo_total y su FUENTE
+    (precio referencial de catálogo / estimación de hardware peso×material×3 /
+    fabricación a medida peso×material×2.5) + totales por categoría, catálogo vs
+    fabricación y el ÍTEM MÁS COSTOSO. Úsalo para optimizar costos ('¿qué pieza es la
+    más cara?', comparar alternativas) y como base de la cotización. Precios
+    referenciales — confirmar con proveedor para cotizar en firme. Read-only."""
+    return json.dumps(_api("GET", "/api/costing.json").json(), ensure_ascii=False)
+
+
+@mcp.tool()
 def set_material(feature: str, material: str | None = None) -> str:
     """Fija (anula) el material de un sólido para el BOM/peso/rayado de sección.
     material=None vuelve al automático (catálogo o heurística por nombre).
@@ -179,6 +196,17 @@ def set_vertical(vertical: str) -> str:
 def get_kinematics() -> str:
     """Juntas cinemáticas del modelo (nombre, tipo, padre/hijo, eje, límites)."""
     return json.dumps(_api("GET", "/api/kinematics").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def get_design_guidelines() -> str:
+    """Criterio de INGENIERÍA que debes aplicar por DEFECTO al diseñar (máquinas, muebles,
+    estructuras, cualquier objeto): el decálogo completo con detalle, CÓMO verificar cada
+    regla en Apolo, cuándo preguntar vs. asumir, y ejemplos por dominio. Las instrucciones del
+    servidor ya traen el resumen; consulta ESTO cuando vayas a diseñar algo no trivial (añadir
+    una guarda, un soporte, un mueble) para no entregar piezas flotantes, sin montaje ni con la
+    forma equivocada. Recuerda: el usuario es el CLIENTE y tú el INGENIERO — lo obvio se asume."""
+    return json.dumps(_api("GET", "/api/design-guidelines").json(), ensure_ascii=False)
 
 
 # ----------------------------------------------------------------- modelado
@@ -262,29 +290,34 @@ def check_interference(joint_values: dict | None = None) -> str:
 
 @mcp.tool()
 def engineering_check(
-    carga_kg: float, largo_paquete_mm: float, velocidad_m_s: float,
-    ancho_paquete_mm: float | None = None, conveyor: dict | None = None,
-    conveyor_solid_ids: list[str] | None = None,
+    carga_kg: float | None = None, largo_paquete_mm: float | None = None,
+    velocidad_m_s: float | None = None, ancho_paquete_mm: float | None = None,
+    conveyor: dict | None = None, conveyor_solid_ids: list[str] | None = None,
 ) -> str:
-    """Valida un transportador contra las reglas del vertical (apoyo del paquete, capacidad
-    de rodillo, ancho útil, motorización, velocidad de banda, par del motor). Sin `conveyor`
-    valida la faja del documento (reconoce también fajas hechas 100% con primitivas por el
-    NOMBRE de las piezas: banda/tambor/rodillo/larguero). Con `conveyor` (dict {largo,ancho,
-    altura,paso,rodillo,motor}) valida esos parámetros ANTES de construirla (predictivo). Con
-    `conveyor_solid_ids` marcas qué sólidos forman la faja y se infieren del bounding box."""
-    payload = _api(
-        "POST",
-        "/api/checks",
-        json={
-            "carga_kg": carga_kg,
-            "largo_paquete_mm": largo_paquete_mm,
-            "ancho_paquete_mm": ancho_paquete_mm,
-            "velocidad_m_s": velocidad_m_s,
-            "conveyor": conveyor,
-            "conveyor_solid_ids": conveyor_solid_ids,
-        },
-    ).json()
-    return json.dumps(payload["ingenieria"], ensure_ascii=False)
+    """Valida el modelo con criterio de ingeniería. Devuelve DOS bloques: `ingenieria`
+    (reglas del transportador: apoyo del paquete, capacidad de rodillo, ancho útil,
+    motorización con μ real banda-cama, par + par de arranque, flecha del bastidor,
+    flexión del eje) y `estructura` (chequeo UNIVERSAL de cualquier ensamblaje: uniones
+    apernadas vs ISO 898-1, soldaduras, vida L10 de rodamientos, pandeo de patas,
+    vuelco). Sin argumentos usa los REQUISITOS guardados del proyecto (set_requirements);
+    los parámetros explícitos ganan. Sin `conveyor` valida la faja del documento; con
+    `conveyor` (dict {largo,ancho,altura,paso,rodillo,motor}) valida ANTES de construir;
+    `conveyor_solid_ids` marca qué sólidos forman la faja. Las reglas numéricas traen
+    `calc` (fórmula, sustitución, criterio, factor de seguridad)."""
+    body = {
+        "carga_kg": carga_kg,
+        "largo_paquete_mm": largo_paquete_mm,
+        "ancho_paquete_mm": ancho_paquete_mm,
+        "conveyor": conveyor,
+        "conveyor_solid_ids": conveyor_solid_ids,
+    }
+    if velocidad_m_s is not None:
+        body["velocidad_m_s"] = velocidad_m_s
+    payload = _api("POST", "/api/checks", json=body).json()
+    return json.dumps(
+        {"ingenieria": payload.get("ingenieria"), "estructura": payload.get("estructura")},
+        ensure_ascii=False,
+    )
 
 
 @mcp.tool()
@@ -638,6 +671,37 @@ def get_topology(feature_id: str) -> str:
 
 
 @mcp.tool()
+def get_requirements() -> str:
+    """BASES DE DISEÑO del proyecto (requisitos guardados: carga_kg, largo/ancho/
+    alto_paquete_mm, velocidad_m_s, inclinacion_deg, producto, entorno, normativa…).
+    engineering_check y la memoria de cálculo los usan como defaults. Read-only."""
+    return json.dumps(_api("GET", "/api/requirements").json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def set_requirements(fields: dict) -> str:
+    """Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).
+    Claves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,
+    alto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:
+    producto, entorno, normativa, notas. Con esto `engineering_check()` y `calc_report()`
+    funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto."""
+    return json.dumps(
+        _api("PUT", "/api/requirements", json={"fields": fields}).json(), ensure_ascii=False
+    )
+
+
+@mcp.tool()
+def get_mass_properties(ids: list[str] | None = None) -> str:
+    """Masa (kg), centro de gravedad (mm) y bbox por pieza y del CONJUNTO. Sin `ids`
+    analiza todas las piezas visibles; con ids solo esas (aunque estén ocultas). El
+    catálogo pesa por su ficha (dato de placa); lo a-medida por volumen × densidad del
+    material resuelto. Úsalo para vuelco/equilibrio (¿el COG cae dentro de la base?),
+    repartos de carga y BOM de pesos. Read-only."""
+    params = {"ids": ",".join(ids)} if ids else None
+    return json.dumps(_api("GET", "/api/mass-properties", params=params).json(), ensure_ascii=False)
+
+
+@mcp.tool()
 def measure(a: str, b: str, face_a: dict | None = None, face_b: dict | None = None) -> str:
     """Distancia mínima (mm) y puntos más cercanos entre dos sólidos a y b (ids). El gap real
     deja de ser ensayo-error. Opcional: face_a/face_b = selector declarativo (mode cara/direccion/
@@ -737,6 +801,46 @@ def drawing_set(path: str, template: str = "generico", sheet: str = "A3", shaded
 
     resp = _api("GET", "/api/drawingset.pdf",
                 params={"template": template, "sheet": sheet, "shaded": shaded})
+    pathlib.Path(path).write_bytes(resp.content)
+    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def calc_report(path: str, carga_kg: float | None = None, largo_paquete_mm: float | None = None,
+                ancho_paquete_mm: float | None = None, velocidad_m_s: float | None = None,
+                rev: str = "A", sheet: str = "A4") -> str:
+    """Genera la MEMORIA DE CÁLCULO (PDF multipágina) y la guarda en `path` (.pdf): portada
+    con BASES DE DISEÑO + índice de verificaciones + VEREDICTO (aprobado/con avisos/no
+    conforme), y una página por verificación con datos de entrada, FÓRMULA, sustitución
+    numérica, criterio de aceptación y FACTOR DE SEGURIDAD (motorización, par, flecha,
+    flexión de eje, pernos, soldaduras, L10, pandeo, vuelco…). Es el entregable que
+    JUSTIFICA el diseño ante el cliente. Sin argumentos usa los REQUISITOS guardados
+    (set_requirements); exige al menos carga y largo de paquete (aquí o en requisitos)."""
+    import pathlib
+
+    params: dict = {"rev": rev, "sheet": sheet}
+    for key, val in (("carga_kg", carga_kg), ("largo_paquete_mm", largo_paquete_mm),
+                     ("ancho_paquete_mm", ancho_paquete_mm), ("velocidad_m_s", velocidad_m_s)):
+        if val is not None:
+            params[key] = val
+    resp = _api("GET", "/api/calc-report.pdf", params=params)
+    pathlib.Path(path).write_bytes(resp.content)
+    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def quotation(path: str, margin_pct: float = 25.0, tax_pct: float = 0.0,
+              currency: str = "USD") -> str:
+    """Genera la COTIZACIÓN del proyecto (PDF multipágina) y la guarda en `path` (.pdf):
+    resumen económico (catálogo vs fabricación, desglose por categoría, margen %,
+    impuesto % opcional, PRECIO DE VENTA, ítem más costoso, notas comerciales) + detalle
+    de partidas = el BOM costeado completo con la FUENTE de cada precio (referencial de
+    catálogo / estimación). Complemento comercial de calc_report (la memoria justifica
+    el diseño; la cotización lo VENDE). Precios referenciales — confirmar con proveedor."""
+    import pathlib
+
+    resp = _api("GET", "/api/quote.pdf",
+                params={"margin_pct": margin_pct, "tax_pct": tax_pct, "currency": currency})
     pathlib.Path(path).write_bytes(resp.content)
     return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
 

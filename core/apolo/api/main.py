@@ -528,6 +528,21 @@ def get_feature_topology(feature_id: str) -> dict:
     return {"feature_id": feature_id, "name": feat.name, **topo}
 
 
+@app.get("/api/mass-properties")
+def mass_properties(ids: str | None = None) -> dict:
+    """Masa, centro de gravedad y bbox por pieza y del conjunto. Sin `ids`
+    (CSV) analiza todas las visibles; con ids las incluye aunque estén ocultas.
+    Catálogo pesa por ficha; a-medida por volumen × densidad. Read-only."""
+    from apolo.library.engineering.mass import scene_mass_properties
+
+    wanted = [s.strip() for s in ids.split(",") if s.strip()] if ids else None
+    with STATE_LOCK:
+        try:
+            return scene_mass_properties(DOC.scene, ids=wanted)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
+
+
 class MeasureIn(BaseModel):
     a: str
     b: str
@@ -795,6 +810,17 @@ def get_bom() -> list[dict]:
         return bom_from_scene(DOC.scene, DOC.default_material())
 
 
+@app.get("/api/costing.json")
+def get_costing() -> dict:
+    """BOM COSTEADO (misma agrupación del BOM + costo_ud/costo_total USD por fila con su
+    fuente: catálogo referencial / estimación hardware / fabricación) + totales por
+    categoría, catálogo vs fabricación e ítem más costoso. Read-only."""
+    from apolo.library.costing import scene_costing
+
+    with STATE_LOCK:
+        return scene_costing(DOC.scene, DOC.default_material())
+
+
 @app.get("/api/bom.csv")
 def get_bom_csv() -> Response:
     with STATE_LOCK:
@@ -845,7 +871,17 @@ def run_checks(body: ChecksIn) -> dict:
             interferencias["interferencias"].sort(key=lambda c: -c["volumen_mm3"])
         interferencias["avisos_pose"] = pose_warnings
         ingenieria = None
-        if body.carga_kg and body.largo_paquete_mm:
+        conveyor = None
+        # los REQUISITOS guardados (bases de diseño) rellenan lo que la llamada no
+        # trae — los parámetros explícitos siempre GANAN
+        req = DOC.requirements or {}
+        carga = body.carga_kg if body.carga_kg is not None else req.get("carga_kg")
+        largo_paq = (body.largo_paquete_mm if body.largo_paquete_mm is not None
+                     else req.get("largo_paquete_mm"))
+        ancho_paq = (body.ancho_paquete_mm if body.ancho_paquete_mm is not None
+                     else req.get("ancho_paquete_mm"))
+        velocidad = body.velocidad_m_s or float(req.get("velocidad_m_s") or 0)
+        if carga and largo_paq:
             from apolo.library.rules import detect_conveyor, infer_from_solids
 
             conveyor = (
@@ -855,13 +891,15 @@ def run_checks(body: ChecksIn) -> dict:
                     if body.conveyor_solid_ids else None)
                 or detect_conveyor(DOC.scene, DOC.variables_resolved)
             )
+            if conveyor and req.get("inclinacion_deg") and not conveyor.get("inclinacion_deg"):
+                conveyor["inclinacion_deg"] = req["inclinacion_deg"]
             if conveyor:
                 ingenieria = conveyor_engineering_check(
                     conveyor,
-                    carga_kg=body.carga_kg,
-                    largo_paquete_mm=body.largo_paquete_mm,
-                    velocidad_m_s=body.velocidad_m_s,
-                    ancho_paquete_mm=body.ancho_paquete_mm,
+                    carga_kg=carga,
+                    largo_paquete_mm=largo_paq,
+                    velocidad_m_s=velocidad,
+                    ancho_paquete_mm=ancho_paq,
                 )
             else:
                 ingenieria = [
@@ -871,7 +909,16 @@ def run_checks(body: ChecksIn) -> dict:
                         "detalle": "No hay ningún transportador en el documento que validar.",
                     }
                 ]
-    return {"interferencias": interferencias, "ingenieria": ingenieria}
+        # chequeo estructural UNIVERSAL (pernos/soldaduras/L10/pandeo/vuelco):
+        # aplica a cualquier ensamblaje, no exige carga ni faja detectada
+        from apolo.library.engineering.report import structure_engineering_check
+
+        estructura = structure_engineering_check(
+            DOC.scene, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
+            carga_kg=carga or 0.0,
+            rpm=(conveyor or {}).get("rpm_motor"),
+        )
+    return {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
 
 
 # -------------------------------------------------------------------- robótica
@@ -1173,6 +1220,28 @@ def delete_motion(body: MotionDeleteIn) -> dict:
         return {"ok": True, "studies": _motion_studies()}
 
 
+# ---------------------------------------------------- requisitos de proyecto
+class RequirementsIn(BaseModel):
+    fields: dict = {}
+
+
+@app.get("/api/requirements")
+def get_requirements() -> dict:
+    with STATE_LOCK:
+        return {"requirements": DOC.requirements}
+
+
+@app.put("/api/requirements")
+def put_requirements(body: RequirementsIn) -> dict:
+    with STATE_LOCK:
+        try:
+            DOC.set_requirements(body.fields)
+        except DocumentError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _autosave()
+        return {"ok": True, "requirements": DOC.requirements}
+
+
 @app.post("/api/motion/scan")
 def scan_motion(body: ScanIn) -> dict:
     from apolo.robotics.motion import scan_collisions
@@ -1432,6 +1501,16 @@ def expression_grammar() -> dict:
         "note": "Ángulos en grados (sin/cos/tan). Prefijo '=' en campos numéricos.",
         "example": "=largo/2 + sqrt(ancho)",
     }
+
+
+@app.get("/api/design-guidelines")
+def design_guidelines_endpoint() -> dict:
+    """Criterio de ingeniería que el agente debe aplicar POR DEFECTO al diseñar (sirve para
+    máquinas, muebles, estructuras, cualquier objeto): decálogo con detalle, cómo verificar
+    cada regla en Apolo, cuándo preguntar vs. asumir, y ejemplos. No depende del documento."""
+    from apolo.design import design_guidelines
+
+    return design_guidelines()
 
 
 # ------------------------------------------------------------------ física (drop-test)
@@ -1704,6 +1783,102 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{DOC.name or "juego"}-planos.pdf"'},
+    )
+
+
+@app.get("/api/calc-report.pdf")
+def calc_report_pdf(
+    carga_kg: float | None = None,
+    largo_paquete_mm: float | None = None,
+    ancho_paquete_mm: float | None = None,
+    velocidad_m_s: float | None = None,
+    rev: str = "A",
+    sheet: str = "A4",
+) -> Response:
+    """MEMORIA DE CÁLCULO en PDF multipágina: portada (bases de diseño + índice +
+    veredicto) + una página por verificación con su fórmula, sustitución, criterio y
+    factor de seguridad. Sin parámetros usa los REQUISITOS guardados del proyecto;
+    los explícitos ganan. Read-only."""
+    from datetime import date
+
+    from apolo.drawing import sheets_to_pdf
+    from apolo.drawing.calc_report import calc_report
+    from apolo.kernel.render import render_scene_png
+    from apolo.library.engineering.report import structure_engineering_check
+    from apolo.library.rules import conveyor_engineering_check as conv_check
+    from apolo.library.rules import detect_conveyor
+    from apolo.agent.agent import _conveyor_params_from_doc
+
+    with STATE_LOCK:
+        req = DOC.requirements or {}
+        carga = carga_kg if carga_kg is not None else req.get("carga_kg")
+        largo_paq = (largo_paquete_mm if largo_paquete_mm is not None
+                     else req.get("largo_paquete_mm"))
+        ancho_paq = (ancho_paquete_mm if ancho_paquete_mm is not None
+                     else req.get("ancho_paquete_mm"))
+        velocidad = velocidad_m_s if velocidad_m_s is not None else float(req.get("velocidad_m_s") or 0)
+        if not carga or not largo_paq:
+            raise HTTPException(
+                status_code=400,
+                detail="Faltan la carga y/o el largo de paquete: declara los requisitos con "
+                       "set_requirements (carga_kg, largo_paquete_mm, …) o pasa los parámetros.",
+            )
+        rules: list[dict] = []
+        conveyor = _conveyor_params_from_doc(DOC) or detect_conveyor(DOC.scene, DOC.variables_resolved)
+        if conveyor:
+            if req.get("inclinacion_deg") and not conveyor.get("inclinacion_deg"):
+                conveyor["inclinacion_deg"] = req["inclinacion_deg"]
+            rules += conv_check(conveyor, carga_kg=carga, largo_paquete_mm=largo_paq,
+                                velocidad_m_s=velocidad, ancho_paquete_mm=ancho_paq)
+        rules += structure_engineering_check(
+            DOC.scene, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
+            carga_kg=carga, rpm=(conveyor or {}).get("rpm_motor"),
+        )
+        png = None
+        try:
+            vis = {fid: f for fid, f in DOC.scene.items() if getattr(f, "visible", True)}
+            if vis:
+                png = render_scene_png(vis, view="iso", size_px=620, clean=True,
+                                       colors=_feature_colors())
+        except Exception:
+            png = None  # sin render la memoria sigue valiendo
+        meta = _drawing_meta()
+        meta["revisions"] = (meta.get("revisions") or []) + [
+            {"rev": rev, "date": date.today().isoformat(), "note": "Memoria de cálculo"}
+        ]
+        # los requisitos completos van a la portada; los efectivos ganan
+        req_efectivos = {**req, "carga_kg": carga, "largo_paquete_mm": largo_paq}
+        if ancho_paq:
+            req_efectivos["ancho_paquete_mm"] = ancho_paq
+        if velocidad:
+            req_efectivos["velocidad_m_s"] = velocidad
+        pages = calc_report(DOC.scene, rules=rules, requirements=req_efectivos,
+                            project_name=DOC.name or "Sin título", png=png, meta=meta,
+                            sheet=sheet)
+    return Response(
+        content=sheets_to_pdf(pages), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "proyecto"}-memoria-calculo.pdf"'},
+    )
+
+
+@app.get("/api/quote.pdf")
+def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0, currency: str = "USD",
+              sheet: str = "A4") -> Response:
+    """COTIZACIÓN en PDF multipágina: resumen económico (desglose por categoría, margen,
+    impuesto opcional, PRECIO DE VENTA, ítem más costoso, notas comerciales) + detalle
+    de partidas (BOM costeado completo con la fuente de cada precio). Read-only."""
+    from apolo.drawing import sheets_to_pdf
+    from apolo.drawing.quote import quotation_pages
+
+    with STATE_LOCK:
+        pages = quotation_pages(
+            DOC.scene, project_name=DOC.name or "Sin título",
+            requirements=DOC.requirements, margin_pct=margin_pct, tax_pct=tax_pct,
+            currency=currency, meta=_drawing_meta(),
+        )
+    return Response(
+        content=sheets_to_pdf(pages), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "proyecto"}-cotizacion.pdf"'},
     )
 
 
