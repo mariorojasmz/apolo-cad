@@ -23,6 +23,17 @@ React/three.js**. IA: Claude API en la nube vía `APOLO_MODEL` (por defecto
   para evitar nombrado topológico frágil.
 - **Plantillas de máquina = super-comandos** del registro (p. ej. `create_conveyor`),
   no scripts: así heredan edición paramétrica, undo, BOM y exposición al agente gratis.
+- **Criterio de ingeniería por defecto (NO solo ejecutar al pie de la letra)**: el agente
+  diseña como un ingeniero/estructurista (el usuario es el CLIENTE) y asume lo obvio —que la
+  pieza se sujete, que se pueda montar/desmontar con pernos, que la forma sirva a su función
+  (una guarda envolvente, no una caja recta)— sin esperar a que se lo pidan. Vale para CUALQUIER
+  objeto (máquina, mueble, estructura). Fuente ÚNICA en `core/apolo/design/guidelines.py`
+  (`design_brief()` resumen + `design_guidelines()` decálogo completo): se inyecta SIEMPRE en las
+  instrucciones del MCP y en el `SYSTEM_PROMPT` del chat (capa 1), y el detalle/ejemplos se
+  consultan bajo demanda con el tool MCP `get_design_guidelines` / `GET /api/design-guidelines`
+  (capa 2). Cada regla mapea a CÓMO verificarla en Apolo (gravity_test/check_interference/
+  cut_list/render_view) → el principio rector es: un 3D solo vale si es FABRICABLE y se SOSTIENE
+  en el mundo real. (2026-06-30; tool MCP 54→55; `tests/test_design_guidelines.py`.)
 
 ## Escala — mandato de arquitectura
 
@@ -282,6 +293,84 @@ cd ui ; npm run build             # bundle de la UI
   `test_measure.py`, `test_pick.py`, `test_api.py`(preview/measure/pick), `test_document.py`(preview),
   `test_relational.py`, `test_constraints.py`(+3). **Reiniciar API y proceso MCP del host** para registrar las
   tools nuevas. Plan vivo de las 5 fases (con follow-ups: datums, mirror_about_plane, IK, anotaciones de cota).
+- **FRENTE A — MOTOR DE CÁLCULO + MEMORIA DE CÁLCULO + REQUISITOS (2026-07-01)**: el agente pasa de
+  "modelador que verifica" a INGENIERO que calcula y justifica con factores de seguridad. **(1) NEW
+  paquete `library/engineering/`** (funciones PURAS, frontera library⟂doc; `structural.py` intacto):
+  `belt` (banda sobre cama deslizante μ=0.33 + par de arranque 1.6× — MUY distinto del μ=0.06 de
+  rodadura que queda SOLO para rodillos), `bolts` (ISO 898-1 + EN 1993-1-8: As por métrica M6–M24,
+  grados 4.6/8.8/10.9/12.9, αv 0.6/0.5), `welds` (τ=F/(a·L) vs 0.6·σy; `throat_mm` ES la garganta,
+  a=0.707·cateto), `bearings` (L10 ISO 281, objetivo 20 000 h / mínimo 5 000), `buckling` (Euler K=2
+  conservador + inercia MÍNIMA del tubo), `stability` (casco convexo 2D + margen del COG), `loads`
+  (**`hanging_load_kg`**: la carga de una unión = masa que PIERDE tierra al quitar su arista del grafo
+  de conectividad; unión redundante → None → aviso honesto, no un número inventado), `mass`
+  (masa/COM/bbox por pieza: catálogo pesa por FICHA, a-medida por volumen×densidad de
+  `resolve_material` — **NO toca `_link_physics`**, que calibra URDF/MuJoCo; divergencia documentada).
+  **(2) Catálogo**: `C_kN` (capacidad dinámica, nominal NSK/NTN ±10%) en los 41 rodamientos + 15
+  chumaceras UCP/UCF/UCFL; `grado: "8.8"` estructurado en pernos. **(3) `fasten` dimensionable**:
+  params opcionales `size` ("M10")/`qty`/`throat_mm`/`length_mm` (retrocompatible; sin ellos la unión
+  se reporta "no verificable"). **(4) Reglas**: `_check(calc=...)` — las reglas numéricas llevan bloque
+  `calc` {titulo, entradas, formula, sustitucion, resultado, criterio, fs} (formato viejo byte-idéntico
+  sin calc); reglas nuevas "arrastre de banda" y "par de arranque"; rama banda-sobre-cama en
+  motorización/par (peso REAL de la banda de la escena o `estimate_belt_kg`; `inclinacion_deg`). NEW
+  `engineering/report.py::structure_engineering_check` (UNIVERSAL, no exige faja ni carga): uniones
+  apernadas (utilización vs capacidad; varios fasten del MISMO par suman sus pernos), soldaduras, vida
+  L10 (reparto parejo, hipótesis declarada), pandeo de la pata más esbelta, vuelco (COG vs huella de
+  los grounds); las uniones SIN dimensionar se AGREGAN en una regla-resumen por tipo (una faja real
+  declara >100 — un aviso por unión ahogaría el reporte). `POST /api/checks` devuelve clave nueva
+  **`estructura`** (siempre; `ingenieria` intacta). `detect_conveyor` reconoce la categoría
+  `motorreductores_sinfin` y `_enrich_conveyor` lee `potencia_kW` de las SPECS del candidato (no solo
+  el nombre); torque derivado con **η=0.75 si es sinfín** (vs 0.85 helicoidal). **(5) Requisitos**:
+  `Document.requirements` (metadato de manifest, espejo EXACTO de motion — ni log ni checkpoints;
+  `set_requirements` valida claves numéricas de convención: carga_kg, largo/ancho/alto_paquete_mm,
+  velocidad_m_s, inclinacion_deg, temperatura_c + texto libre producto/entorno/normativa/notas);
+  GET/PUT `/api/requirements`; `/api/checks` y la memoria CAEN a los requisitos guardados (los params
+  explícitos GANAN) → `engineering_check()` funciona SIN argumentos. **(6) MEMORIA DE CÁLCULO**: NEW
+  `drawing/calc_report.py` (espejo de assembly_manual; A4 por defecto): portada (render + BASES DE
+  DISEÑO + índice de verificaciones con estado + **VEREDICTO** APROBADO/CON AVISOS/NO CONFORME) + 1
+  página por verificación (entradas → fórmula → sustitución → resultado → criterio → **FS**) + hoja de
+  cualitativas; `GET /api/calc-report.pdf` (params opcionales, 400 claro si faltan carga/largo) + tool
+  `calc_report(path,...)`. **Tools MCP 55→59** (`get_mass_properties`, `get_requirements`,
+  `set_requirements`, `calc_report`; `engineering_check` pasó sus params a opcionales y devuelve
+  {ingenieria, estructura}). **Verificado E2E en la faja id 38**: los requisitos SOBREVIVEN al
+  reinicio (autosave SQLite); 12/12 reglas de ingeniería OK (NMRV-090 reconocido: motorización FS
+  12.3, par 270 N·m, arranque FS 8.85); estructura limpia (L10/pandeo FS 1729/vuelco FS 4.0 + 2
+  avisos agregados honestos); unión de prueba M8×2 → regla CUANTITATIVA FS 713 (y undo limpio);
+  memoria de 13 páginas "APROBADO CON AVISOS" (`planos/faja-4m-memoria.pdf`); `gravity_test` 72/0 y
+  colisiones idénticas (physics intacta). 630 tests (+71: test_engineering, test_mass_properties,
+  test_engineering_rules, test_requirements, test_calc_report). **Reiniciar API + host MCP** para las
+  4 tools nuevas y las firmas cambiadas. **Límite honesto**: carga de pernos solo en uniones
+  no-redundantes (camino múltiple = indeterminado sin FEA → aviso); L10 con reparto parejo; pandeo/
+  vuelco heurísticos por bbox+nombre (hipótesis declaradas en cada regla); doble fuente de densidad
+  (mass.py usa materials.py; _link_physics sigue por categoría) — unificar es follow-up. Follow-ups:
+  frente B (costo en catálogo → BOM costeado → cotización), campo `funcion`/rol estructurado,
+  export STL/glTF (plan en `docs/checklist-cad-ia.md`).
+- **FRENTE B — COSTO + BOM COSTEADO + COTIZACIÓN (2026-07-01)**: monetiza el Frente A (el vertical
+  del negocio es COTIZAR transportadores). **(1) NEW `library/costing.py`** (puro, sobre
+  `bom_from_scene` — misma agrupación del BOM): 3 fuentes de costo DECLARADAS por fila
+  (`costo_fuente`): `specs.cost` del catálogo (USD/ud; en cortables `cost_por_m` USD/m, o `cost`
+  interpretado por metro) → estimación de hardware sin precio (peso × USD/kg del material ×
+  `HW_FACTOR`=3, piso $0.5) → fabricación a medida (peso × USD/kg × `FAB_FACTOR`=2.5 corte+
+  soldadura+acabado+merma). `costed_bom` (filas BOM + costo_ud/costo_total/fuente),
+  `costing_totals` (por categoría, catálogo vs fabricación, **ítem más costoso**), `scene_costing`.
+  **(2) `materials.py`**: `COST_PER_KG_USD` (10 materiales, referencial LatAm) + `cost_per_kg()`.
+  **(3) Catálogo**: `cost` REFERENCIAL (comentado "actualizar con proveedor") en NMRV-030..130
+  ($120-1200), MOTOR-037/075/150/150-EH ($380-750), UCP/UCF/UCFL 204-208 ($8-23), PERNO-M10..M20
+  ($0.35-1.6), rodamientos serie 6200 ($4-12); el resto cae a estimación. **(4) Endpoints/tools**:
+  `GET /api/costing.json` + tool **`get_costing`** (responde "¿qué pieza es la más cara?");
+  `GET /api/quote.pdf?margin_pct&tax_pct&currency` + tool **`quotation(path,...)`** → NEW
+  `drawing/quote.py`: COTIZACIÓN PDF A4 multipágina (resumen económico: desglose por categoría,
+  catálogo vs fabricación, margen %, impuesto % opcional, **PRECIO DE VENTA**, ítem más costoso,
+  notas comerciales honestas [precios referenciales, validez 15 días, no incluye
+  transporte/instalación] + detalle de partidas paginado con la FUENTE de cada precio; reusa
+  `_table_sheet` de sheetset + cajetín). **Tools MCP 59→61.** **Verificado E2E en la faja id 38**:
+  costo directo **$1 671.96** (fabricación $1 100.16 = 322 kg × factores + catálogo $571.80; más
+  caro = NMRV-090 $520; 29 partidas, 0 sin costo); cotización a margen 25% → venta **$2 089.95**
+  (matemática verificada), PDF de 3 páginas `planos/faja-4m-cotizacion.pdf`. 639 tests
+  (`test_costing.py`). **Reiniciar API + host MCP** para `get_costing`/`quotation`. **Límite
+  honesto**: precios y factores REFERENCIALES (las notas de la cotización lo declaran) — para
+  cotizar en firme se actualizan `cost` en YAML/`COST_PER_KG_USD` con el proveedor; la mano de
+  obra de ENSAMBLE no se modela aparte (va dentro de FAB_FACTOR). Follow-ups: `cost_por_m` real
+  en perfiles/tubos, moneda por proyecto (hoy etiqueta por llamada), UI de cotización.
 - **`pattern_group` — arrayar un GRUPO (2026-06-23)**. Comando nuevo (categoría `modificar`, 35→36 comandos):
   arraya **TODAS las features de un comando** `source` (un `command_id`: super-comando, `insert_component`,
   STEP con split, u otro patrón), no solo una como `pattern_linear`. Lineal (`count`/`spacing`) + **rejilla
@@ -625,7 +714,7 @@ cd ui ; npm run build             # bundle de la UI
   junta. `POST /api/constraints/solve` (read-only) lo aplica en vivo (arrastre en la UI). La FK
   reutilizable de un punto vive en `robotics/pose.py::feature_location`.
 
-## Estado: V1·V2·V3·V4 COMPLETADAS + pulido post-V4 + FAJA DE BANDA + CATÁLOGO DE NORMAS (2026-06-15) + RESTRICCIÓN RIEL-CARRETE (A1·riel) + CATÁLOGO DE CARPINTERÍA + FIX VALIDACIÓN/INTERPENETRACIÓN + EBANISTERÍA + HERRAJE PULIDO + RENDER CON POSE (MCP) + MATES ÁNGULO/PARALELO + LOTE=1 REGENERATE + REGENERATE INCREMENTAL + MESH CACHEADO + VIDRIO TRANSLÚCIDO + HERRAJE PUERTA CORREDIZA REAL (U-100/D-100) (2026-06-17) + ERGONOMÍA MCP (retorno diff · edit PATCH · schema único · encuadre render) + PATTERN_GROUP (arrayar grupos, 36 comandos, 2026-06-23) + EDIT_BATCH + VARIABLES ON-CHANGE (ergonomía MCP, 2026-06-24) + AUTORÍA AGENTE-NATIVA: PERCEPCIÓN (multivista/etiquetas/sección) + MEDICIÓN + PÍXEL→3D + PREVIEW + INTENCIÓN (center_in/distribute) + N-GDL (add_constraint) (2026-06-24) + SISTEMA DE PLANOS PROFESIONAL A–G (cotas+normas · corte+nesting · detalle/cortes/rayado · cajetín+revisiones · juego de planos · DXF lineweight/PDF multipágina/A0-A4 · planos por INTENCIÓN · pulido de encuadre: escalas intermedias + globos en fila · DESPIECE ACOTADO POR PIEZA: tabla L×A×E + detalle de tabla con mortajas + cotas de montaje · PLAN PRO DE PLANOS COMPLETO 5/5 [juego completo · acota solo · herraje en lámina · explosionada · GD&T · fix layout iso/cajetín · COLOR tipo Inventor: iso sombreada] · PLANO DE ENSAMBLAJE PRO: norma en BOM/cédula · NOTAS DE MONTAJE · cotas de interfaz/pitch · cross-ref globo→hoja · MANUAL DE ENSAMBLAJE paso a paso [secuencia del log + render acumulado con highlight fantasma + cámara estable]) (48 tools · 39 comandos, 2026-06-24) · MATERIALES POLÍMEROS (pvc/caucho/carton, 2026-06-25) · VALIDACIÓN DE ENSAMBLAJE / SOUNDNESS (conectividad: ground/fasten + chequeo estático + autodetección, Fase 0+1; SIM DE GRAVEDAD de toda la máquina con casco convexo [gravity_test/exclude → "ver qué se cae"], Fase 2; UI panel "Montaje" [validar/gravedad] + CAÍDA ANIMADA EN EL VIEWPORT 3D [mallas reales, no GIF] + UNIONES DECLARADAS + PRUEBA EXACTA [auto-declarado por grafo de soporte dirigido; tools MCP declare_structure/get_connections/delete_connection], Fase 3; 2026-06-26 → 54 tools · 41 comandos) · RENDER VTK (sombreado suave como el web, anti-rayas) + ISOLATE en render_view (sin mutar doc, fuerza-mostrar) (2026-06-26) · SUPER-COMANDO `create_take_up` (tensor de cola trotadora: rodillo+rodamientos+seeger+eje fijo+perno pasante; componentes SEPARADOS+mapeados [soporte C + PERNO-Mxx]) + SUPER-COMANDO `create_drive_roller` (rodillo motriz: take-up un lado + eje largo Ø35 al reductor; reusa helpers de take_up.py, 43 comandos, 2026-06-27) · TENSOR REAL de tornillo (perno horizontal que atraviesa el eje roscado + soporte C de una pieza soldado al larguero; `dir_tensor`) + doc de montaje en los rodillos, instalados Ø35 en faja-paqueteria-4m (2026-06-27) · PERNO TENSOR ALLEN (socket_cap DIN 912) + CINEMÁTICA DEL TENSADO (junta prismática j_tensor_cola) (2026-06-27) · ESTUDIOS DE MOVIMIENTO CON NOMBRE (varias cinemáticas reproducibles por separado: Document.motion dict[str,list]; UI chips por estudio con ▶ propio + lista de juntas con scroll acotado; migración lista→dict; faja id 38 con «Levantar mesa» + «Tensar cola») (2026-06-28) · ÁRBOL DEL MODELO REDISEÑADO (filas 1 línea + buscador + iconos lucide + acciones al hover + agrupación por subsistema) + SCROLLBARS TEMÁTICOS + SISTEMA DE VENTANAS ACOPLABLES estilo VS 2022 (Dockview 7: acoplar/redimensionar/pestañas/persistencia; viewport centro fijo bloqueado) (solo-frontend, 2026-06-29) · CÁMARA DE ÁNGULO LIBRE en render_view (azimuth/elevation) + render_view VTK PURO (vtk_only, sin captura matplotlib por MCP) + pick_point a ÁNGULO LIBRE (orto+real como VTK) + COTA SOBRE EL RENDER (render_view measure=[a,b] dibuja línea+«X mm» del gap OCCT en capa overlay) + BORDES NÍTIDOS (aristas de feature, def. on) + PICK EXACTO (matriz de cámara VTK, sub-píxel) + RAYOS-X/TRANSPARENCIA (xray: contexto translúcido a color, depth-peeling) + VIDRIO TRANSLÚCIDO EN VTK + COHERENCIA isolate/section EN EL PICK + CÁMARA MÁS LIBRE (roll + pan, render↔pick) + LABELS PORTADOS A VTK (billboard en capa overlay) (2026-06-29) · VALIDACIÓN DE INGENIERÍA UNIVERSAL DE LA FAJA (detect_conveyor enriquecido por VARIABLES del proyecto + nombres: reconoce motor/tambor/rpm/eje a-medida; chequeos estructurales NUEVOS: flecha del bastidor [viga 5wL⁴/384EI vs L/250] + flexión del eje; library/structural.py + materials E/σy; 10/10 reglas OK en faja id 38) (2026-06-29) · TRANSMISIÓN POR FAJA DE POTENCIA (builder v_pulley = polea en V/sheave sección A/B + familia POLEA-V comercial, catálogo 191→197; faja id 38 convertida de acople directo a faja en V: motorreductor reubicado abajo+outboard a C=260mm, 2 poleas Ø110 1:1 [conserva 0.348 m/s], lazo de faja vertical + guarda envolvente, eje de salida; 0 colisiones nuevas) (2026-06-29) · 551 tests · catálogo 197 refs
+## Estado: V1·V2·V3·V4 COMPLETADAS + pulido post-V4 + FAJA DE BANDA + CATÁLOGO DE NORMAS (2026-06-15) + RESTRICCIÓN RIEL-CARRETE (A1·riel) + CATÁLOGO DE CARPINTERÍA + FIX VALIDACIÓN/INTERPENETRACIÓN + EBANISTERÍA + HERRAJE PULIDO + RENDER CON POSE (MCP) + MATES ÁNGULO/PARALELO + LOTE=1 REGENERATE + REGENERATE INCREMENTAL + MESH CACHEADO + VIDRIO TRANSLÚCIDO + HERRAJE PUERTA CORREDIZA REAL (U-100/D-100) (2026-06-17) + ERGONOMÍA MCP (retorno diff · edit PATCH · schema único · encuadre render) + PATTERN_GROUP (arrayar grupos, 36 comandos, 2026-06-23) + EDIT_BATCH + VARIABLES ON-CHANGE (ergonomía MCP, 2026-06-24) + AUTORÍA AGENTE-NATIVA: PERCEPCIÓN (multivista/etiquetas/sección) + MEDICIÓN + PÍXEL→3D + PREVIEW + INTENCIÓN (center_in/distribute) + N-GDL (add_constraint) (2026-06-24) + SISTEMA DE PLANOS PROFESIONAL A–G (cotas+normas · corte+nesting · detalle/cortes/rayado · cajetín+revisiones · juego de planos · DXF lineweight/PDF multipágina/A0-A4 · planos por INTENCIÓN · pulido de encuadre: escalas intermedias + globos en fila · DESPIECE ACOTADO POR PIEZA: tabla L×A×E + detalle de tabla con mortajas + cotas de montaje · PLAN PRO DE PLANOS COMPLETO 5/5 [juego completo · acota solo · herraje en lámina · explosionada · GD&T · fix layout iso/cajetín · COLOR tipo Inventor: iso sombreada] · PLANO DE ENSAMBLAJE PRO: norma en BOM/cédula · NOTAS DE MONTAJE · cotas de interfaz/pitch · cross-ref globo→hoja · MANUAL DE ENSAMBLAJE paso a paso [secuencia del log + render acumulado con highlight fantasma + cámara estable]) (48 tools · 39 comandos, 2026-06-24) · MATERIALES POLÍMEROS (pvc/caucho/carton, 2026-06-25) · VALIDACIÓN DE ENSAMBLAJE / SOUNDNESS (conectividad: ground/fasten + chequeo estático + autodetección, Fase 0+1; SIM DE GRAVEDAD de toda la máquina con casco convexo [gravity_test/exclude → "ver qué se cae"], Fase 2; UI panel "Montaje" [validar/gravedad] + CAÍDA ANIMADA EN EL VIEWPORT 3D [mallas reales, no GIF] + UNIONES DECLARADAS + PRUEBA EXACTA [auto-declarado por grafo de soporte dirigido; tools MCP declare_structure/get_connections/delete_connection], Fase 3; 2026-06-26 → 54 tools · 41 comandos) · RENDER VTK (sombreado suave como el web, anti-rayas) + ISOLATE en render_view (sin mutar doc, fuerza-mostrar) (2026-06-26) · SUPER-COMANDO `create_take_up` (tensor de cola trotadora: rodillo+rodamientos+seeger+eje fijo+perno pasante; componentes SEPARADOS+mapeados [soporte C + PERNO-Mxx]) + SUPER-COMANDO `create_drive_roller` (rodillo motriz: take-up un lado + eje largo Ø35 al reductor; reusa helpers de take_up.py, 43 comandos, 2026-06-27) · TENSOR REAL de tornillo (perno horizontal que atraviesa el eje roscado + soporte C de una pieza soldado al larguero; `dir_tensor`) + doc de montaje en los rodillos, instalados Ø35 en faja-paqueteria-4m (2026-06-27) · PERNO TENSOR ALLEN (socket_cap DIN 912) + CINEMÁTICA DEL TENSADO (junta prismática j_tensor_cola) (2026-06-27) · ESTUDIOS DE MOVIMIENTO CON NOMBRE (varias cinemáticas reproducibles por separado: Document.motion dict[str,list]; UI chips por estudio con ▶ propio + lista de juntas con scroll acotado; migración lista→dict; faja id 38 con «Levantar mesa» + «Tensar cola») (2026-06-28) · ÁRBOL DEL MODELO REDISEÑADO (filas 1 línea + buscador + iconos lucide + acciones al hover + agrupación por subsistema) + SCROLLBARS TEMÁTICOS + SISTEMA DE VENTANAS ACOPLABLES estilo VS 2022 (Dockview 7: acoplar/redimensionar/pestañas/persistencia; viewport centro fijo bloqueado) (solo-frontend, 2026-06-29) · CÁMARA DE ÁNGULO LIBRE en render_view (azimuth/elevation) + render_view VTK PURO (vtk_only, sin captura matplotlib por MCP) + pick_point a ÁNGULO LIBRE (orto+real como VTK) + COTA SOBRE EL RENDER (render_view measure=[a,b] dibuja línea+«X mm» del gap OCCT en capa overlay) + BORDES NÍTIDOS (aristas de feature, def. on) + PICK EXACTO (matriz de cámara VTK, sub-píxel) + RAYOS-X/TRANSPARENCIA (xray: contexto translúcido a color, depth-peeling) + VIDRIO TRANSLÚCIDO EN VTK + COHERENCIA isolate/section EN EL PICK + CÁMARA MÁS LIBRE (roll + pan, render↔pick) + LABELS PORTADOS A VTK (billboard en capa overlay) (2026-06-29) · VALIDACIÓN DE INGENIERÍA UNIVERSAL DE LA FAJA (detect_conveyor enriquecido por VARIABLES del proyecto + nombres: reconoce motor/tambor/rpm/eje a-medida; chequeos estructurales NUEVOS: flecha del bastidor [viga 5wL⁴/384EI vs L/250] + flexión del eje; library/structural.py + materials E/σy; 10/10 reglas OK en faja id 38) (2026-06-29) · TRANSMISIÓN POR FAJA DE POTENCIA (builder v_pulley = polea en V/sheave sección A/B + familia POLEA-V comercial, catálogo 191→197; faja id 38 convertida de acople directo a faja en V: motorreductor reubicado abajo+outboard a C=260mm, 2 poleas Ø110 1:1 [conserva 0.348 m/s], lazo de faja vertical + guarda envolvente, eje de salida; 0 colisiones nuevas) (2026-06-29) · CRITERIO DE INGENIERÍA POR DEFECTO (decálogo de diseño-para-fabricación general —máquinas/muebles/estructuras— en `design/guidelines.py`; capa 1 inyectada SIEMPRE en instrucciones MCP + SYSTEM_PROMPT del chat, capa 2 tool MCP `get_design_guidelines`/`GET /api/design-guidelines`; el agente diseña como ingeniero/estructurista, asume soportes/pernos/forma-conforme sin que se lo pidan; 54→55 tools, 2026-06-30) · ACOPLE DIRECTO NMRV (faja en V DESCARTADA por capacidad —insuficiente en el lado lento/alto par—; tambor de eje VIVO + chumaceras + **motorreductor sinfín-corona NMRV de eje hueco montado sobre el eje** + brazo de torque; faja id 38) + FAMILIA PARAMÉTRICA DE MOTORREDUCTORES NMRV (builder `worm_gearmotor` + `data/31_motorreductores_sinfin.yaml`, 8 tamaños NMRV-030..130 de eje hueco, categoría `motorreductores_sinfin`; catálogo 197→205) (2026-06-30) · FRENTE A: MOTOR DE CÁLCULO (library/engineering/: pernos ISO 898-1 · soldaduras · vida L10 · pandeo Euler · vuelco COG-vs-huella · banda-sobre-cama μ=0.33 + par de arranque · carga por grafo de conectividad) + `fasten` dimensionable (size/qty/throat/length) + `get_mass_properties` + REQUISITOS DE PROYECTO (Document.requirements, checks sin args) + MEMORIA DE CÁLCULO PDF (calc_report: bases de diseño + fórmula/sustitución/FS por verificación + veredicto; 55→59 tools, 2026-07-01) + FRENTE B: COSTEO Y COTIZACIÓN (library/costing.py: BOM costeado con fuente por fila [catálogo referencial · hardware estimado · fabricación peso×material×factor] + `get_costing` + COTIZACIÓN PDF `quotation` con margen/impuesto/precio de venta; cost referencial en NMRV/MOTOR/chumaceras/pernos/6200; 59→61 tools, 2026-07-01) · 639 tests · catálogo 217 refs (chumaceras UCP de pie + UCF/UCFL de brida, realistas, 2026-07-01)
 
 > **Resumen vivo**: V1+V2 (12 fases, abajo) ✅ · V3 (7 bloques, diseño de máquina pro) ✅ · V4
 > (T1·T2·V2·V1·G1·G2·G3·F1·F1·A, sistema) ✅. **Pulido post-V4**: lavado de cara UI (ribbon + lucide),
@@ -1009,6 +1098,229 @@ y refactorizó el motor a regeneración incremental, todo por API.
     50.8) cascadeó limpio — el larguero crece hacia abajo, las patas se acortan (734 mm) y la altura de trabajo
     (mesa 846-848) queda intacta. **Lección**: borrar piezas auto-declaradas exige limpiar antes sus fijadores;
     una pieza relocada necesita su propio apoyo declarado para no «caer» en la prueba de gravedad.
+    **GUARDA con criterio de ingeniería (2026-06-30)**: la guarda de la faja en V (run_script `c613`) pasó de
+    una caja rectangular a **silueta redondeada de estadio** (dos casquetes r75 en los centros de polea + banda
+    tangente a `atan2(Δz,Δx)`, hueca pared 6 mm) — la forma clásica de guarda de poleas. Tras crítica del usuario
+    («un protector NO va completamente cerrado; la cara interior no va; falta soporte al bastidor; tiene que ser
+    montable/desmontable con pernos»): (1) **cara interior (-Y) ABIERTA** — el `inner` que se resta se desplaza/
+    ensancha en Y (`stad(R-t, yc=549, yw=70)` vs outer `557/66`) para que el vacío rebase el dorso → deja pared
+    perimetral + tapa exterior, dorso abierto (se monta contra la máquina y deja entrar los ejes); (2) **3 orejas
+    de montaje** (bosses con agujero M10) en el borde trasero a r88 de cada centro (caja girada `Rotation(0,-φ,0)`
+    al ángulo radial); (3) **agujero de paso de eje** Ø44 en la tapa exterior para el eje de la conducida (antes lo
+    interpenetraba); (4) **3 ménsulas** (run_script `c660` = standoff blocks) soldadas 2 al larguero +Y / 1 a la
+    **cuna** del motor; (5) **3 pernos M10** (run_script `c661`, cabeza Allen) guarda→ménsulas = desmontable.
+    **Conectividad corregida**: la autodetección había declarado la guarda **soldada a poleas/faja/eje (¡rotan!)**
+    — se borraron (`delete_connection auto_f_107/112/114/116/118`) y se declaró `fasten` solo a estructura estática
+    (ménsulas↔larguero/cuna soldadura, guarda/pernos↔ménsulas perno). Verificado: `check_interference` solo
+    contactos intencionales (soldadura ménsula↔cuna 8.1 cm³ confirma que la cuna es sólida ahí, no flota);
+    `gravity_test` exacto → 85 a tierra, 0 caídas (la guarda cuelga del bastidor). **Lección**: un protector se
+    abre al lado máquina, se SOPORTA al bastidor con ménsulas y se ATORNILLA (no es una cápsula cerrada flotante);
+    y NUNCA fijarlo a piezas que giran (poleas/faja/eje) — la autodetección por contacto AABB lo hace mal, hay que
+    corregirlo. **Follow-up**: ménsulas como L-angle real (hoy bloques), pernos de catálogo `PERNO-M10` para BOM.
+    **SOPORTE DE MOTOR compacto apoyado en las patas (2026-06-30)**: la «cuna» (run_script `c642`) era un cradle
+    de **ancho completo colgando de AMBOS largueros** (4 postes + 2 travesaños + placa, 11.8M mm³) — sobredimensionado,
+    cuando la **pata de cabecera c45_2 está a 26 mm** del motorreductor y baja DIRECTO al piso. Rediseñado a un
+    soporte compacto (**6.87M mm³, −42 %**): **viga transversal soldada a AMBAS patas de cabecera** (c45_2 +Y / c49_2
+    −Y) + 2 brazos cantiléver bajo el motorreductor + placa de montaje. **Conectividad**: borradas las soldaduras
+    cuna↔larguero (`delete_connection cuna_larguero_pY/nY`), declaradas cuna↔c45_2 / cuna↔c49_2 (soldadura);
+    motor/reductor↔cuna (perno) sobreviven al editar `c642` en sitio. `check_interference` → soldadura a cada pata
+    24.6 cm³ (apoyo sólido real); `gravity_test` exacto → 85 a tierra, 0 caídas (descarga por cuna→patas→piso, mejor
+    camino de carga que colgar de los largueros). **Lección**: si una pieza existente (pata al piso) está al lado,
+    APÓYATE en ella en vez de duplicar estructura colgante; el camino de carga corto al suelo es más rígido y liviano.
+    **NO bajé el motor** (lo pidió el usuario por miedo a que la faja al pandear lo roce): verificado por render
+    lateral que **la faja corre en el plano y≈555 y el cuerpo del motor está en y≈155 → ~270 mm de separación EN Y**,
+    así que el pandeo (unos mm en Z) no puede alcanzarlo; además bajar el motorreductor movería la polea motriz →
+    forzaría rehacer faja+guarda y restaría altura libre. **Lección**: antes de «mover para dar holgura», confirmar el
+    eje real del conflicto (aquí el huelgo es en Y, no en Z) — mover en Z no resuelve una separación en Y.
+    **TREN MOTRIZ CEÑIDO — plano de faja adentro, ejes acortados, guarda re-encajada (2026-06-30)**: tras revisión
+    del usuario (3 críticas válidas). (a) **Soporte inferior de la guarda flotando**: al rediseñar la cuna (compacta),
+    la ménsula inferior de la guarda (`c660` b3, anclada a la cuna vieja de ancho completo) quedó EN EL AIRE — el grafo
+    de conectividad seguía declarando `c660↔c642` (gravity pasaba) pero la geometría ya no tocaba; **lección**: al mover/
+    encoger una pieza, revisar las que se anclaban a ella, no fiarse de que gravity pase (la unión declarada sobrevive
+    al editar in situ aunque la geometría se separe). (b) **Eje motriz `c413_eje` muy largo** (`largo_eje_motor 230` →
+    y610, 55 mm pasado la polea, con agujero de paso en la tapa): el eje DEBE cruzar el larguero para llevar la polea
+    AFUERA (la faja libra el bastidor y se alinea con la motriz), pero el muñón pasado la polea era injustificado →
+    `largo_eje_motor 230→160` (termina en y540, DENTRO de la guarda) → se quitó el agujero de la tapa. (c) **Espacio
+    larguero↔polea excesivo** (52 mm cara-a-cara): la polea va afuera del larguero por la holgura de faja, pero 52 mm
+    sobraba → **plano de faja y555→y520** (huelgo 16 mm). Cascada coordinada por `edit_batch`: poleas `c610`/`c611`
+    (y555→520), faja `c612` (cy 555→520), eje reductor `c614` (acortado a y405-535), eje motriz `c413` (acortado), y
+    luego guarda `c613` recentrada+**angostada** (cy 526, ancho 66→48, dorso abierto rim y502 libra el larguero 490.8 por
+    11 mm) + ménsulas `c660`/pernos `c661` reposicionados (2 a larguero arriba, 1 que ahora SÍ baja a la cuna). C (entre
+    centros) intacto → faja/velocidad sin cambio (solo se desplazó en Y). Verificado: `c642↔c660` 2.8 cm³ (ménsula inf
+    apoyada en la cuna, ya no flota), `c413_eje↔c613` ELIMINADO, polea↔larguero sin colisión; `gravity_test` 85 a tierra
+    0 caídas. **Lección**: acercar una transmisión al bastidor reduce voladizo de ejes (mejor mecánica) pero obliga a
+    angostar la guarda para que su dorso abierto libre el larguero — mover el plano de faja cascada a poleas+faja+ambos
+    ejes+guarda+ménsulas, todo por el mismo offset en Y.
+    **VUELTA A ACOPLE DIRECTO — motorreductor de eje hueco sobre el eje (2026-06-30)**: el análisis de capacidad
+    de la faja en V (a pedido del usuario) reveló que era **insuficiente**: la faja iba en el lado LENTO/alto par
+    (58 rpm, 0.34 m/s, ~170 N·m → tensión efectiva ~3 100 N); una sola faja B da ~600-900 N → harían falta ~6-8
+    fajas. Raíz: **las fajas en V trabajan en alta velocidad/bajo par**; a 0.34 m/s la potencia por faja es ínfima.
+    Decisión del usuario: **acople directo** (elimina la faja de raíz). Cirugía event-sourced grande (borrado atómico
+    del sub-grafo por `POST /api/commands/remove` con piezas+fijadores JUNTOS para no dejar refs colgando —usar `curl`,
+    NO hay tool MCP de remove): (1) **borradas** la transmisión por faja (2 poleas, faja, guarda, ménsulas, pernos, eje
+    de salida) + cuna + **el super-comando `create_drive_roller`** (c413) con sus ~40 fijadores. El drive_roller se
+    descartó porque modela **eje FIJO + take-up** (el rodillo gira sobre el eje, sujeto por perno tensor) — INCOMPATIBLE
+    con accionamiento directo, que exige **eje VIVO** (gira con el tambor para que el reductor lo mueva) y el take-up va
+    en la COLA, no en la cabecera. (2) **Reconstruido el tambor motriz** por run_script: `c669` tambor Ø114 engomado
+    (barreno Ø44) + `c670` **eje vivo Ø40** + `c671` **2 chumaceras** (housings con barreno, atornilladas a los largueros
+    en el hueco tambor↔larguero). (3) **Motorreductor sinfín-corona NMRV de eje hueco** `c672` (a partir de FOTO de
+    referencia del usuario —era un NMRV, no un helicoidal en línea—: caja de corona con **barreno pasante Ø48** + **brida
+    de salida con círculo de pernos** + **tapa NMRV** + **motor PERPENDICULAR** [tornillo sin fin a 90°, eje X, offset
+    abajo] + ventilador + bornes) montado SOBRE el eje vivo del tambor + `c673`
+    **brazo de torque** anclado al larguero +Y (anti-giro). Conectividad: tambor→eje→chumaceras→largueros→patas→piso;
+    reductor→eje (chaveta) + brazo→larguero. **La cola (`c412`) conserva el tensado** (accionamiento en cabecera, tensado
+    en cola = estándar). Verificado: `check_interference` solo intencionales (brazo↔reductor 75.6cm³, brazo↔larguero
+    11.6cm³, eje↔larguero +Y 0.7cm³ = **agujero de paso** donde el eje cruza el bastidor hacia el reductor outboard);
+    `gravity_test` 70 a tierra, 0 caídas. **68 sólidos** (antes 85). **Lecciones**: (a) una faja en V va en el lado RÁPIDO
+    (motor→reductor), NUNCA en el lado lento (reductor→tambor) — ahí van cadena o acople directo; (b) un **tambor MOTRIZ
+    necesita eje VIVO + rodamientos fijos** (chumaceras), no el eje-fijo+take-up del super-comando `create_drive_roller`
+    (ese sirve para rodillos LIBRES/de tensión, no para el motriz); (c) el eje del tambor cruza el larguero (axis a media
+    altura del bastidor) → agujero de paso, no es colisión; (d) **el usuario reconoce el HARDWARE por foto** — pidió
+    el NMRV real (motor a 90°, eje hueco con brida+tapa) en vez del helicoidal en línea que asumí → modelar el tipo
+    correcto de motorreductor importa. **OJO ingeniería**: el sinfín-corona rinde **~0.7-0.8** (vs ~0.95 del helicoidal)
+    → baja el par disponible en el eje; conviene revalidar `engineering_check` (con esa η el margen de par sigue holgado
+    para 1.5HP·1:30 en esta faja). **Follow-up**: chaveta modelada, `create_drive_roller` podría ganar un modo
+    «eje vivo + chumaceras». [Chumaceras de catálogo ✅ 2026-07-01, ver abajo.]
+    **FAMILIA PARAMÉTRICA DE MOTORREDUCTORES NMRV (2026-06-30)**: a pedido del usuario (que quería «descargar todos los
+    modelos» de motorreductores) se optó por la vía escalable del catálogo en vez de acumular STEP pesados/estáticos
+    (los STEP de fabricante están tras login/configurador/licencia y NO son paramétricos; se reservan para importar la
+    pieza EXACTA al cotizar). NEW builder **`worm_gearmotor`** (`builders.py`): sinfín-corona NMRV = caja de corona con
+    **eje HUECO pasante** (barreno en Y local, para montaje directo sobre el eje del tambor) + **brida de salida con
+    círculo de pernos + tapa NMRV** + **motor PERPENDICULAR** (a 90°) con ventilador y bornes; envolvente escala de
+    `center_distance`. NEW familia **`data/31_motorreductores_sinfin.yaml`** (categoría **`motorreductores_sinfin`**,
+    añadida a `CATEGORIES`): 8 tamaños **NMRV-030/040/050/063/075/090/110/130**. **Ø del eje hueco (bore, tol H8) +
+    chavetero (b×t) VERIFICADOS** contra el catálogo oficial **Motovario «NMRV/NMRVpower» (rev0 2017, pág.102)** vía
+    WebSearch+WebFetch→pypdf (030→Ø14, 040→Ø18, 050→Ø25, 063→Ø25, 075→Ø28, 090→Ø35, 110→Ø42, 130→Ø45; coincidían exacto).
+    Envolvente de caja/brida y frame IEC **representativo** (escala del tamaño): la tabla del fabricante los codifica por
+    letras que no mapean 1:1 al modelo simplificado; para geometría 100% fiel de un tamaño, importar el STEP del proveedor.
+    **Catálogo 197→205 refs**; 557 tests (`test_catalog_datadriven.py::test_worm_gearmotor_nmrv` + conteo). Aparecen solos en la UI/BOM/
+    agente (enum dinámico). **Lección**: para una biblioteca reutilizable, familia paramétrica > pila de STEP (livianas,
+    editables, con BOM); el STEP es para la compra puntual. **Follow-up**: familia helicoidal en línea propia (hoy los
+    `motor` MOTOR-* la cubren), variantes de montaje (patas/brida), importar STEP oficial al cotizar.
+    **USADA en la faja id 38 (2026-06-30)**: el motorreductor NMRV hecho a mano (`c672`, run_script) se REEMPLAZÓ por el
+    componente de catálogo **`insert_component NMRV-090`** (`c682`) montado sobre el eje del tambor. Como el eje hueco del
+    NMRV-090 es Ø35 (= rodamiento 6207, el original), el eje vivo del tambor `c670` se ajustó **Ø40→Ø35** para calzar el
+    bore; el brazo de torque `c673` se reubicó (el NMRV-090 es más grande que el modelo a mano). **insert_component coloca
+    el ORIGEN LOCAL del builder en `position`** (no el centro del bbox) → como el `worm_gearmotor` tiene el barreno en el
+    origen (eje Y local), basta insertar en (x_tambor, y, z_tambor) rot=0 y el bore cae sobre el eje. Se eligió NMRV-090
+    (2.2 kW) sobre NMRV-063/075 (1.1-1.5 kW, más ajustado a 1.5HP) porque su bore Ø35 = eje/rodamiento estándar del tambor
+    (evita eje escalonado); holgado por el bajo rendimiento del sinfín. `check_interference` solo intencionales (brazo↔NMRV
+    junta anti-giro, brazo↔larguero), bore libra el eje; `gravity_test` 70 a tierra, 0 caídas. **68 sólidos.**
+    **Fix de proporciones del builder (2026-06-30)**: la 1.ª versión del `worm_gearmotor` hacía la caja de corona un
+    **cubo 2.4×cd** (inflada ~50 %); corregido a **caja `Hw=1.7×cd` (plano X-Z) × `Hy=1.3×cd` (axial, más PLANA en el eje)**
+    + brida `1.7×cd`, tapa `0.95×cd` (cotas de cuerpo del catálogo pág.101: NMRV-090 ~130-140 mm, no 216). El NMRV-090 de
+    la faja bajó de 20.2M→11.4M mm³ (−44 %) al regenerar. Reposicionado (Y=605) para librar la pata de cabecera c45_2 (el
+    motor Ø180 proyecta -X sobre ella) y eje acortado a y635 (no toca la tapa maciza). **Lección**: una caja de reductor
+    no es un cubo — es ~1.7×cd en el plano de la corona y más plana en el eje; el motor IEC suele ser más grande que la
+    caja del sinfín (es normal).
+    **Motores a frame IEC real (2026-06-30)**: se ajustó `motor_d`/`motor_len` al cuerpo IEC TEFC aprox en AMBAS familias
+    de motorreductores — NMRV sinfín (`31_...yaml`: IEC63→Ø120, 71→Ø140, 80→Ø160, 90→Ø175, 100→Ø195, 132→Ø260, 160→Ø315;
+    largos 215-545) y helicoidal (`30_motorreductores.yaml`: MOTOR-037→IEC71, 075→IEC80, 150→IEC90). Antes estaban ~20-30 %
+    chicos. **Gotcha reconfirmado**: editar solo YAML NO recarga el worker de uvicorn (vigila `.py`) — hubo que tocar
+    `builders.py` para que el catálogo relea las cotas nuevas. En la faja el NMRV-090 (c682) regeneró con motor Ø195 y se
+    reubicó a Y=610 (9 mm de la pata de cabecera c45_2, que el motor mayor casi rozaba); `check_interference` solo
+    intencionales, `gravity_test` 70 a tierra 0 caídas.
+    **BRIDA/DISCO DE REACCIÓN anti-giro (2026-06-30, corrección de diseño del usuario)**: el `c673` era un **bloque**
+    (`Box`) que hacía de brazo de torque pero estaba MAL UBICADO — atravesaba el eje vivo `c670` (colisión ~2.5 cm³) y se
+    enterraba en la caja. Rediseñado a la solución de manual para motorreductor de eje hueco: un **disco de reacción
+    atornillado a la BRIDA de salida del NMRV** (run_script `c673`, id estable → fasteners `nmrv_brazo`/`brazo_larguero`
+    sobreviven). Geometría: disco Ø160×16 coaxial con el eje, asentado sobre la cara de la brida (-Y) con **6 pernos en el
+    círculo de la brida** (r≈65) + **barreno central Ø46** por el que el eje Ø35 **pasa sin tocar** (5.5 mm de holgura →
+    fin de la colisión con el eje); una **pata baja al larguero** `c93` y se atornilla **POR DEBAJO del eje** (z728-768, el
+    eje en z773+) dando el brazo de palanca que absorbe el par y lo transfiere al bastidor. `check_interference`: las 2
+    únicas interferencias de `c673` son intencionales (`↔c682` pernos a la brida, `↔c93` pata al larguero); `gravity_test`
+    70 a tierra, 0 caídas. **Lección**: el anti-giro de un shaft-mount NO es un bloque que cruza el eje — es una brida/plato
+    de reacción atornillado a la salida con el barreno librando el eje y el anclaje al bastidor DESFASADO del eje (palanca).
+    **PUNTAL A LA PATA + ménsulas que LAPAN (2026-07-01, corrección del usuario)**: el usuario notó 2 apoyos malos.
+    (a) **`c673`**: la «pata al larguero» se HUNDÍA en el larguero (colisión 6.9 cm³) y el larguero (tubo de pared fina,
+    en voladizo 300 mm más allá de la pata de cabecera) es un apoyo pobre para reaccionar el par. Rediseñado: se quitó la
+    pata y se añadió un **puntal DIAGONAL** del disco a la **pata de cabecera `c45_2`** (columna maciza a piso) → triangula
+    la reacción del motor directo a la columna (camino de carga corto y rígido). El puntal se rutea **por DEBAJO del larguero**
+    (z<744, así libra el tubo aunque su Y lo cruce) desde el borde inferior del disco (x3795) hasta el cuerpo superior de la
+    pata (x3520). Se construye orientando un `Box` esbelto con `Rotation(0, ry, rz)` donde `rz=atan2(Δy,Δx)` (rumbo) y
+    `ry=-atan2(Δz,√(Δx²+Δy²))` (cabeceo) — fórmula verificada por bbox en `test_script`. Fastener `brazo_larguero`
+    (c673↔c93) BORRADO, `disco_pata` (c673↔c45_2 soldadura) declarado. (b) **`c685`**: las ménsulas de chumacera tenían una
+    **pared metida 3 mm en el costado** del larguero (colisión 11.2 cm³ ×2 = «apoya mal»). Rehechas a una **repisa que LAPA
+    bajo el larguero** (cara superior de la repisa a 0.6 mm bajo la cara inferior del tubo → **0 colisión**, apoyo plano) +
+    pestaña corta contra el alma **por debajo del eje** (z≤770 < eje 773.5, sin tocar el eje). La chumacera **apoya** en la
+    repisa (coplanar, 31 mm³). **Lección**: para reaccionar par o cargar un voladizo, triangular a una **columna** (pata a
+    piso) es más rígido que colgar de un tubo de pared fina; y una ménsula debe **lapar/apoyarse en cara plana**, no
+    enterrar un canto en el costado del perfil. Verificado: `check_interference` solo intencionales (`c45_2↔c673` 1.7 cm³
+    puntal soldado a la pata; chumacera↔repisa 31 mm³), `gravity_test` **72 a tierra, 0 caídas**. Revisión 66.
+    **Follow-up**: pernos de catálogo `PERNO-M10` (hoy cilindros) + buje de goma en el anclaje.
+    **REDUCCIÓN DE ANCHO 700→600 mm — reparametrización en cascada (2026-07-01)**: el usuario pidió bajar `ancho_banda`
+    de 700 a 600 y que «el resto» siguiera. `larg_inner_y = ancho_banda/2 + holgura_lado` ya propagaba el bastidor
+    (patas/largueros/travesaños/placas/pernos/mesa), pero MUCHAS piezas tenían valor fijo. **Regla de oro reconfirmada**:
+    los comandos **`create_*` y los super-comandos aceptan `=expr`** → se ataron y CASCADEAN a futuro; los **`run_script`
+    NO ven las variables del proyecto** (`NameError`) → van con valor fijo (hay que reeditarlos si cambia el ancho).
+    **Atados a variable (cascada)**: `long_tambor="ancho_banda+60"` (760→660); banda `belt_out/in_*` (c111-c117)
+    `height/depth="=ancho_banda"`(+2 el interior); repisas `c367/368` borde interior `=ancho_banda/2-20` (tapa la mesa);
+    eje motriz `c670` `height="=635+larg_inner_y"`, `y="=(635-larg_inner_y)/2"` (−390→635, +Y fijo al NMRV); **tensor de
+    cola `c412`** (super-comando) `ancho_banda="=long_tambor"` (760→660: rodillo/eje/rodamientos/soportes se angostan y los
+    soportes vuelven a topar el larguero en 390); chumaceras `c686/687` `y="=±(larg_inner_y-33)"` (bore ±357, collar a 1 mm
+    del larguero); rodillo de retorno `c120/c121` body `=ancho_banda`, eje `=2*(larg_inner_y-5)` (muñón sigue llegando a las
+    ménsulas). **Fijos a 600 (run_script)**: tambor `c669` (`Cylinder 760→660`, bore `800→700`); ménsulas `c685`; disco+puntal
+    `c673` (el puntal se re-apuntó a la pata movida — la pata `c45_2` cascó a y377-453 y el `P2` fijo del puntal ya no la
+    alcanzaba); pies niveladores `c647` (`ly 460→415` = nuevo centro de placa). Verificado: 0 colisiones nuevas (solo
+    intencionales: repisa↔travesaño, rodillo↔ménsula, puntal↔pata), `gravity_test` 72/0, `engineering_check` OK (flecha del
+    bastidor 0.07 mm, menor por menos carga). Revisión 67. **Lección**: al reparametrizar, lo `create_*`/super-comando con
+    `=expr` cascada solo; lo `run_script` hay que reeditarlo a mano (y OJO con lo que dependía de una pieza que SÍ se movió,
+    p. ej. un puntal que apunta a una pata). **Follow-up**: convertir tambor/ménsulas/disco/pies a `create_*`+`=expr` para
+    que un futuro cambio de ancho cascade 100%.
+    **Builder `motor` rediseñado a HELICOIDAL EN LÍNEA (2026-06-30)**: la familia helicoidal (MOTOR-037/075/150/150-EH)
+    dejó de ser el cubo genérico + motor perpendicular; ahora es un **motorreductor coaxial tipo SEW R / NORD**: motor IEC
+    (cilindro aleteado) + ventilador + caja de bornes + campana + **caja reductora coaxial + eje de salida coaxial** en el
+    extremo opuesto, con **patas** (foot-mounted). Eje común = X local. Así las 2 familias se distinguen: NMRV = sinfín a
+    90° (eje hueco), MOTOR-* = helicoidal en línea (eje macizo saliente). **Gotchas resueltos** (2 iteraciones): (a)
+    `Rotation(...) * Cylinder` PELADO (sin `Pos(...)` delante) da `ValueError: other must be a list of Locations` — todo
+    builder debe empezar cada término con `Pos(...) *`; (b) una pieza que solo TOCA por una línea/cara tangente (la caja
+    de bornes apoyada en el tope del cilindro del motor) NO fusiona → el `+` devuelve `ShapeList` (sin `.bounding_box`/
+    `.volume`) y rompe `insert_component`/`place` con el mismo `ValueError` — hay que SOLAPAR 3-8 mm cada junta (ventilador↔
+    motor, campana↔caja/motor, eje↔caja, bornes hundida en el cilindro). El super-comando `create_conveyor` sigue colgando
+    el motor bajo el larguero (rotación 0,0,90); cambia su orientación pero no rompe (proyectos viejos: id 18). 557 tests.
+    **Follow-up**: chavetero modelado en el bore del NMRV; variantes de montaje (brida B5) para ambas familias.
+    **CHUMACERAS DE PIE UCP realistas + cambio en la faja (2026-07-01, a pedido del usuario «lo más realista posible»)**:
+    la familia `chumaceras` era básica (`CHUM-6204/05/06` = un anillo sobre una placa plana) y la faja usaba `c671`
+    (2 CAJAS con barreno hechas a mano). Rehecho el builder **`pillow_block`** a una chumacera de PIE tipo **UCP** real:
+    **cuerpo fundido acampanado** (`make_revolution` recortado en Y con `&` para no salir del ancho del inserto) + **base
+    de 2 patas obround con agujeros RANURADOS** + **campana del rodamiento** (cilindro eje Y) + **inserto con collar
+    saliente y 2 PRISIONEROS** (set screws radiales) + **grasera** (niple) arriba; barreno del eje pasante. Marco canónico:
+    eje del rodamiento a lo largo de Y, base abajo, **ORIGEN en el centro del barreno** (se inserta directo sobre el eje).
+    Nueva firma `pillow_block(d,H,H1,L,J,A,N,Bi,s)` (9 cotas comerciales). Familia YAML **`UCP`** en `95_chumaceras.yaml`
+    con **5 medidas comerciales UCP204/205/206/207/208** (Ø20/25/30/35/40); cotas H/H1/L/J/A/N/Bi/s **verificadas** contra
+    tablas UCP publicadas (FYH/NTN/AUbearing/Mechforged, cruzadas 2 fuentes vía WebSearch/WebFetch). **Catálogo 205→207**
+    (chumaceras 3→5). `carga_kg`+`weight` reales por variante. **GOTCHA build123d confirmado**: en builders todo término
+    rotado empieza con `Pos(0,0,0)*Rotation(...)*...` (si no, `ValueError: other must be a list of Locations`); las piezas
+    de un mismo sólido deben SOLAPAR (la base obround, el flare y la campana se solapan). **Cambio en la faja id 38**: la
+    chumacera UCP de pie monta con base HORIZONTAL, pero el eje pasa junto a la cara interior del larguero (sin superficie
+    horizontal debajo) → se añadió una **ménsula (repisa + pared) soldada al larguero** (`c685`, run_script, 2 lados) sobre
+    la que asientan **2× `UCP207`** (`c686` +Y, `c687` −Y a rot z=180 para que el collar mire outboard) con el barreno sobre
+    el eje Ø35. Cirugía event-sourced: `run_batch` (ménsula+2 UCP) → `POST /api/commands/remove` de `c671`+sus 3 fasteners
+    (`eje_chumaceras`/`chum_larg_pY`/`chum_larg_nY`, juntos para no dejar refs colgando) → `run_batch` de 6 fasteners nuevos
+    (eje↔chumacera contacto ×2, chumacera↔ménsula perno ×2, ménsula↔larguero soldadura ×2). Verificado: `check_interference`
+    solo intencionales (ménsula↔larguero ~11 cm³ = cordón de soldadura, buen apoyo; sin colisión chumacera↔tambor/eje);
+    `gravity_test` **72 a tierra, 0 caídas** (eje→chumaceras→ménsulas→largueros→patas→piso). Revisión 65. **Lección**: una
+    chumacera de PIE (UCP) necesita base horizontal → si el eje corre junto a un alma vertical del bastidor, va sobre ménsula
+    soldada (o usar chumacera de BRIDA UCF/UCFL, que aperna a cara vertical). **Follow-up**: prisioneros
+    y pernos de base como refs de catálogo para BOM, chavetero.
+    **CHUMACERAS DE BRIDA UCF/UCFL (2026-07-01, continuación pedida por el usuario)**: familia de brida para atornillar a
+    una cara **VERTICAL** (eje perpendicular al plano de montaje) — lo correcto cuando el eje corre junto a un alma vertical
+    del bastidor (evita la ménsula que necesita la UCP de pie). Un builder ÚNICO **`flange_bearing(d, flange, size_w, size_h,
+    bolt_span, N, Bi, s)`** cubre ambas: `flange="cuadrada"` → **UCF** (brida cuadrada, 4 pernos en las esquinas) ·
+    `flange="oval"` → **UCFL** (brida oval/estadio, 2 pernos en el eje largo). Reusa el inserto (collar + 2 prisioneros +
+    grasera + barreno) de la UCP; marco canónico: eje del rodamiento a lo largo de Y, **ORIGEN en el barreno**, brida en +Y
+    (cara de montaje), cubo+inserto hacia −Y. **GOTCHA loader**: `param_keys` lee del **variant**, NO de `specs_common` →
+    `flange` debe ir en CADA variante (KeyError si solo en specs_common). Dos familias nuevas en `95_chumaceras.yaml` (misma
+    categoría `chumaceras`): **UCF204-208** (cotas verificadas KG/NTN: lado 86-130, pernos 63.5-102, M10-M14) y **UCFL204-208**
+    (205/206 verificadas; 204/207/208 del patrón de la serie — envolvente representativa). **Catálogo 207→217** (chumaceras
+    5→15: UCP + UCF + UCFL). Verificado por render (UCF cuadrada 4 pernos + UCFL oval 2 pernos, ambas con cubo/collar/
+    prisioneros/grasera). 559 tests (`test_catalog_v2.py` UCF207/UCFL207, `test_catalog_datadriven.py` conteos). La faja id 38
+    sigue con UCP de pie sobre ménsula (no se re-cambió); si se quisiera el montaje más limpio SIN ménsula, una UCFL/UCF
+    apernada a la cara interior del larguero sería la vía. **GOTCHA reload reconfirmado (Windows)**: uvicorn `--reload` va por
+    CONTENIDO (un `touch` sin cambio no dispara), y editar solo `.yaml` no recarga; además quedó un huérfano
+    `multiprocessing.spawn` (hijo de un worker muerto) reteniendo el socket :8000 → se localizó con `Get-NetTCPConnection`/
+    `Win32_Process` y se mató; reinicio SIN `--reload` para estabilidad. **Follow-up**: UCFL 204/207/208 contra datasheet,
+    prisioneros/pernos como refs para BOM, chavetero.
 - **V2 ✅ (2026-06-15) · Catálogo ampliado** (data-driven): +4 builders en `library/builders.py`
   (`pillow_block`, `endstop`, `leveling_foot`, `tensioner`) + 4 familias YAML
   (`95_chumaceras`, `96_topes`, `97_pies_niveladores`, familia TENSOR en `85_transmision`) → 12
