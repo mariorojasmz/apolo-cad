@@ -6,7 +6,7 @@ import {
   PenTool, Disc, Waypoints, Spline,
   Combine, Scissors, Drill, FlipHorizontal2, Rows3, CircleDot, Move3d, Magnet, Trash2,
   Link2, Bot, Cog,
-  History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor,
+  History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor, ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 
@@ -57,6 +57,7 @@ export function iconFor(type: string): LucideIcon {
 /** Iconos de los paneles inferiores (status bar + cabecera del dock). */
 export const PANEL_ICONS: Record<string, LucideIcon> = {
   history: History,
+  reqs: ClipboardList,
   bom: ListChecks,
   checks: ShieldCheck,
   kin: Activity,

@@ -76,6 +76,12 @@ export default function TopBar() {
             <button onClick={() => { close(); window.open("/api/export/step", "_blank"); }}>
               <Download size={15} /> Exportar STEP
             </button>
+            <button onClick={() => { close(); window.open("/api/export/stl", "_blank"); }}>
+              <Download size={15} /> Exportar STL
+            </button>
+            <button onClick={() => { close(); window.dispatchEvent(new CustomEvent("apolo:export-gltf")); }}>
+              <Download size={15} /> Exportar glTF
+            </button>
           </div>
         )}
       </span>

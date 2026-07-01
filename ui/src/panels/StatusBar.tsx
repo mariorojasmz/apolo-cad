@@ -9,6 +9,7 @@ import { togglePanel, resetLayout } from "../dock/dockApi";
 
 const PANELS = [
   { key: "history", label: "Historial" },
+  { key: "reqs", label: "Requisitos" },
   { key: "bom", label: "BOM" },
   { key: "checks", label: "Validar" },
   { key: "kin", label: "Cinemática" },

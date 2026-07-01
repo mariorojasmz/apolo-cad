@@ -360,6 +360,32 @@ cd ui ; npm run build             # bundle de la UI
   (planos/faja-4m-memoria.pdf). Revisión guardada. **Lección**: curar la conectividad auto-detectada
   (reclasificar lo que no es soldadura) es tan importante como dimensionar — un fastener "soldadura"
   entre la banda y la mesa es un error de MODELO, no un pendiente de cálculo.
+- **FRENTE C — CIERRE DE PENDIENTES (2026-07-01)**: **(1) Fix crítico de repo**: la regla genérica
+  `data/` del `.gitignore` ignoraba también `core/apolo/library/data/` — el CATÁLOGO YAML COMPLETO
+  (32 archivos, 217 refs) NUNCA se había versionado (el repo público de GitHub no podía cargar);
+  acotada a `/data/` (SQLite de la raíz) y el catálogo entró al repo. **(2) Follow-ups menores**:
+  requisitos ganan `moneda`/`tipo_cambio` (el `/api/quote.pdf` los usa de default; `fx` es SOLO
+  presentación sobre USD y se declara en las notas); `cost_por_m` REFERENCIAL en las 53 refs
+  cortables de perfiles/tubos (peso/m × USD/kg × 1.8, generado del propio catálogo);
+  `_link_physics` UNIFICADO a `resolve_material`+`density()` de materials.py (fin de la doble
+  fuente de densidad; gates: tests de robotics/physics/stability verdes + `gravity_test` de la
+  faja 72/0 idéntico); `GET /api/export/stl` + tool MCP **`export_stl`** (STL binario de los
+  visibles, tolerance en mm; tools 61→62 — **reiniciar host MCP**). **(3) UI web** (solo-frontend):
+  panel **«Requisitos»** nuevo (bases de diseño con GET/PUT + botones **Memoria de cálculo (PDF)**
+  [deshabilitado con hint si faltan carga/largo] y **Cotización (PDF)** con margen/impuesto/moneda/
+  tipo_cambio), registrado en dock/StatusBar/íconos (8 toggles); **BOM con toggle «Costos»**
+  (columnas USD/ud · USD total · fuente + totales catálogo/fabricación + ítem más costoso);
+  ChecksPanel se PRE-LLENA desde los requisitos guardados; menú Archivo gana **Exportar STL**
+  (endpoint) y **Exportar glTF** (CLIENT-side vía `viewport/exportGltf.ts` + GLTFExporter de
+  three.js sobre las mallas del viewport — cero backend, patrón CustomEvent como "apolo:fit").
+  Verificado e2e en `ui-preview` sobre la faja id 38: panel carga/guarda requisitos, BOM costeado
+  cuadra con `/api/costing.json` ($1 685.97 tras el fix de material de la ménsula), 0 errores de
+  consola. **GOTCHA zombie-socket reconfirmado**: un `multiprocessing.spawn` huérfano (hijo de un
+  uvicorn muerto) retuvo :8000 sirviendo código VIEJO — un "reinicio" que no verifica el dueño real
+  del socket VALIDA EN FALSO (el gate de gravedad hubo que repetirlo); detectar con
+  `Get-NetTCPConnection` + `Win32_Process` (busca el `--multiprocessing-fork` con parent muerto).
+  El trabajo quedó COMMITEADO en serie lógica (catálogo+previo · engineering+memoria · costeo+
+  endpoints · docs · faja APROBADO · menores · UI).
 - **FRENTE B — COSTO + BOM COSTEADO + COTIZACIÓN (2026-07-01)**: monetiza el Frente A (el vertical
   del negocio es COTIZAR transportadores). **(1) NEW `library/costing.py`** (puro, sobre
   `bom_from_scene` — misma agrupación del BOM): 3 fuentes de costo DECLARADAS por fila

@@ -172,6 +172,8 @@ const BUSY_TEXT: Record<string, string> = {
   bom: "Cargando lista de materiales…",
   mates: "Cargando ensamblaje…",
   drawing: "Generando plano…",
+  save_reqs: "Guardando requisitos…",
+  costing: "Calculando costos…",
 };
 const busyText = (label: string): string => BUSY_TEXT[label.split(":")[0]] ?? "Trabajando…";
 

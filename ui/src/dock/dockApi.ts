@@ -18,6 +18,7 @@ export interface PanelMeta {
 // forman el layout por defecto y no se listan aquí).
 export const TOOL_PANELS: PanelMeta[] = [
   { id: "history", title: "Historial", component: "history" },
+  { id: "reqs", title: "Requisitos", component: "reqs" },
   { id: "bom", title: "Lista de materiales", component: "bom" },
   { id: "checks", title: "Validaciones", component: "checks" },
   { id: "kin", title: "Cinemática", component: "kin" },

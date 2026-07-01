@@ -40,6 +40,46 @@ export interface BomRow {
   peso_total_kg: number | null;
 }
 
+/* Requisitos del proyecto (bases de diseño): claves numéricas de convención +
+   texto libre. Todas opcionales; el backend valida las numéricas. */
+export interface Requirements {
+  carga_kg?: number;
+  largo_paquete_mm?: number;
+  ancho_paquete_mm?: number;
+  alto_paquete_mm?: number;
+  velocidad_m_s?: number;
+  inclinacion_deg?: number;
+  temperatura_c?: number;
+  tipo_cambio?: number;
+  producto?: string;
+  entorno?: string;
+  normativa?: string;
+  notas?: string;
+  moneda?: string;
+  [key: string]: number | string | boolean | undefined;
+}
+
+/* BOM costeado (/api/costing.json): filas del BOM + costo con su fuente. */
+export interface CostRow extends BomRow {
+  costo_ud_usd: number | null;
+  costo_total_usd: number | null;
+  costo_fuente: string;
+}
+
+export interface CostTotals {
+  catalogo_usd: number;
+  fabricacion_usd: number;
+  total_usd: number;
+  por_categoria: Record<string, number>;
+  n_filas_sin_costo: number;
+  item_mas_costoso: { ref: string; descripcion: string; costo_total_usd: number } | null;
+}
+
+export interface CostingOut {
+  rows: CostRow[];
+  totales: CostTotals;
+}
+
 export interface CommandRecord {
   id: string;
   type: string;

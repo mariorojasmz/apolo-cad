@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "../state/store";
 import { api } from "../api";
 import type { ChecksOut } from "../types";
@@ -16,6 +16,19 @@ export default function ChecksPanel() {
   const [velocidad, setVelocidad] = useState("0.5");
   const [result, setResult] = useState<ChecksOut | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // pre-llenar desde los REQUISITOS guardados del proyecto (solo valor inicial)
+  useEffect(() => {
+    api.requirements()
+      .then(({ requirements: req }) => {
+        if (req.carga_kg) setCarga(String(req.carga_kg));
+        if (req.largo_paquete_mm) setLargoPaq(String(req.largo_paquete_mm));
+        if (req.ancho_paquete_mm) setAnchoPaq(String(req.ancho_paquete_mm));
+        if (req.velocidad_m_s) setVelocidad(String(req.velocidad_m_s));
+      })
+      .catch(() => { /* sin requisitos: quedan los defaults */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const run = async () => {
     setBusy(true);

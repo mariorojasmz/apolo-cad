@@ -8,6 +8,7 @@ import Tree from "../panels/Tree";
 import Properties from "../panels/Properties";
 import ChatPanel from "../chat/ChatPanel";
 import HistoryPanel from "../panels/HistoryPanel";
+import RequirementsPanel from "../panels/RequirementsPanel";
 import BomPanel from "../panels/BomPanel";
 import ChecksPanel from "../panels/ChecksPanel";
 import KinematicsPanel from "../panels/KinematicsPanel";
@@ -42,6 +43,7 @@ const COMPONENTS = {
   properties: pane(Properties),
   chat: pane(ChatPanel),
   history: pane(HistoryPanel),
+  reqs: pane(RequirementsPanel),
   bom: pane(BomPanel),
   checks: pane(ChecksPanel),
   kin: pane(KinematicsPanel),

@@ -1,7 +1,7 @@
 import type {
-  BomRow, CatalogItem, ChecksOut, CommandSchema, ConnectivityOut, DropRequest, DropResult, GravityResult,
-  KinematicsOut, MateRow, MotionKeyframe, MotionOut, ProjectInfo, RailConstraint, RevisionInfo, SceneOut,
-  SoundnessOut, StabilityOut, StabilityRequest,
+  BomRow, CatalogItem, ChecksOut, CommandSchema, ConnectivityOut, CostingOut, DropRequest, DropResult,
+  GravityResult, KinematicsOut, MateRow, MotionKeyframe, MotionOut, ProjectInfo, RailConstraint,
+  Requirements, RevisionInfo, SceneOut, SoundnessOut, StabilityOut, StabilityRequest,
 } from "./types";
 
 async function json<T>(res: Response): Promise<T> {
@@ -22,6 +22,15 @@ export const api = {
   scene: () => fetch("/api/scene").then((r) => json<SceneOut>(r)),
   catalog: () => fetch("/api/catalog").then((r) => json<CatalogItem[]>(r)),
   bom: () => fetch("/api/bom").then((r) => json<BomRow[]>(r)),
+  costing: () => fetch("/api/costing.json").then((r) => json<CostingOut>(r)),
+  requirements: () =>
+    fetch("/api/requirements").then((r) => json<{ requirements: Requirements }>(r)),
+  putRequirements: (fields: Requirements) =>
+    fetch("/api/requirements", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields }),
+    }).then((r) => json<{ ok: boolean; requirements: Requirements }>(r)),
   kinematics: () => fetch("/api/kinematics").then((r) => json<KinematicsOut>(r)),
 
   projects: () => fetch("/api/projects").then((r) => json<ProjectInfo[]>(r)),

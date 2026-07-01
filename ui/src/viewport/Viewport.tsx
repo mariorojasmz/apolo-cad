@@ -12,6 +12,7 @@ import { buildProductMeshes, createDropAnimator, disposeProducts, type DropAnima
 import { createGravityAnimator, type GravityAnimator } from "./gravity";
 import { installShortcuts, type ShortcutHandlers } from "./shortcuts";
 import { installHover } from "./hover";
+import { installGltfExport } from "./exportGltf";
 import Spinner from "../ui/Spinner";
 
 type GizmoMode = "off" | "translate" | "rotate";
@@ -323,6 +324,9 @@ export default function Viewport() {
     renderer.domElement.addEventListener("contextmenu", onContext);
     renderer.domElement.addEventListener("dblclick", onDblClick);
     window.addEventListener("apolo:fit", onFitEvent as EventListener);
+    const disposeGltfExport = installGltfExport(
+      group, () => useStore.getState().scene?.document.name ?? "modelo",
+    );
     const disposeHover = installHover({
       dom: renderer.domElement,
       camera,
@@ -342,6 +346,7 @@ export default function Viewport() {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("apolo:fit", onFitEvent as EventListener);
+      disposeGltfExport();
       disposeHover();
       dropAnimRef.current = null;
       gravityAnimRef.current = null;
