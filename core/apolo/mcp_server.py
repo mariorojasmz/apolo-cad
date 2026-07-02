@@ -181,7 +181,7 @@ def set_material(feature: str, material: str | None = None) -> str:
     material=None vuelve al automático (catálogo o heurística por nombre).
     Ej.: 'acero', 'aluminio', 'acero inoxidable', 'laton', 'madera', 'vidrio'."""
     payload = _api("POST", f"/api/features/{feature}/material", json={"material": material}).json()
-    return json.dumps(payload, ensure_ascii=False)
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
 
 
 @mcp.tool()
@@ -189,7 +189,8 @@ def set_vertical(vertical: str) -> str:
     """Define el vertical del proyecto ('metalmecanica' | 'carpinteria'), que fija el
     material por defecto de las piezas a-medida NO reconocidas (acero | madera)."""
     payload = _api("POST", "/api/vertical", json={"vertical": vertical}).json()
-    return json.dumps(payload, ensure_ascii=False)
+    # afecta a TODA la escena → resumen compacto sin mallas (no el payload crudo)
+    return json.dumps(_scene_brief(payload, "summary"), ensure_ascii=False)
 
 
 @mcp.tool()

@@ -3,8 +3,7 @@
 CAD paramétrico 3D para maquinaria industrial/robótica cuyo **diferenciador es el
 diseño asistido por IA** (agente-nativo, también manual). Vertical del MVP:
 transportadores / manejo de materiales. Stack: **Python (build123d/OCCT) + FastAPI +
-React/three.js**. IA: Claude API en la nube vía `APOLO_MODEL` (por defecto
-`claude-opus-4-8`).
+React/three.js**.
 
 ## Arquitectura (principios que NO se negocian)
 
@@ -386,6 +385,15 @@ cd ui ; npm run build             # bundle de la UI
   `Get-NetTCPConnection` + `Win32_Process` (busca el `--multiprocessing-fork` con parent muerto).
   El trabajo quedó COMMITEADO en serie lógica (catálogo+previo · engineering+memoria · costeo+
   endpoints · docs · faja APROBADO · menores · UI).
+- **Retorno compacto en set_material/set_visibility/set_vertical (2026-07-01)**: esas tools MCP
+  volcaban el payload CRUDO de `scene_payload` (CON mallas: ~957 KB en la faja de 72 sólidos) o el
+  brief sin `affected` (que cae a "todos"). Fix en dos capas: los endpoints
+  `/api/features/{id}/visibility|material` y `/api/features/visibility` (bulk) ahora DEVUELVEN el/los
+  `command_id` afectados desde el lambda de `_state_or_error` (aditivo: el payload completo sigue para
+  la UI), y en el cliente MCP `set_material` pasa por `_scene_brief` (diff → solo la pieza + total) y
+  `set_vertical` por `_scene_brief(summary)` (afecta a toda la escena → lista corta sin mallas).
+  Medido en vivo: 956 786 → **350 bytes** por mutación. Tests en `test_mcp_brief.py` (endpoints
+  adjuntan affected + brief recorta). **Reiniciar API + host MCP** para verlo por MCP.
 - **FRENTE B — COSTO + BOM COSTEADO + COTIZACIÓN (2026-07-01)**: monetiza el Frente A (el vertical
   del negocio es COTIZAR transportadores). **(1) NEW `library/costing.py`** (puro, sobre
   `bom_from_scene` — misma agrupación del BOM): 3 fuentes de costo DECLARADAS por fila

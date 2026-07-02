@@ -497,7 +497,11 @@ class VisibilityIn(BaseModel):
 
 @app.post("/api/features/{feature_id}/visibility")
 def set_visibility(feature_id: str, body: VisibilityIn) -> dict:
-    return _state_or_error(lambda: DOC.set_visibility(feature_id, body.visible))
+    # devuelve el command_id afectado → el cliente MCP recorta el retorno a la pieza
+    def run():
+        DOC.set_visibility(feature_id, body.visible)
+        return DOC.scene[feature_id].command_id
+    return _state_or_error(run)
 
 
 class BulkVisibilityIn(BaseModel):
@@ -511,6 +515,7 @@ def set_visibility_bulk(body: BulkVisibilityIn) -> dict:
     def run():
         for fid in body.ids:
             DOC.set_visibility(fid, body.visible)
+        return sorted({DOC.scene[fid].command_id for fid in body.ids if fid in DOC.scene})
     return _state_or_error(run)
 
 
@@ -786,7 +791,10 @@ class MaterialIn(BaseModel):
 
 @app.post("/api/features/{feature_id}/material")
 def set_feature_material(feature_id: str, body: MaterialIn) -> dict:
-    return _state_or_error(lambda: DOC.set_material(feature_id, body.material))
+    def run():
+        DOC.set_material(feature_id, body.material)
+        return DOC.scene[feature_id].command_id
+    return _state_or_error(run)
 
 
 class VerticalIn(BaseModel):

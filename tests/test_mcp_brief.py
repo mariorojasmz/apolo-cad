@@ -107,3 +107,57 @@ def test_brief_includes_variables_on_query():
     """Consulta (sin afectados, p. ej. get_scene): incluye variables."""
     p = _payload_cmds([_feat("c1", "c1")], [], _CMDS, [{"name": "R"}])
     assert "variables" in _scene_brief(p, "diff")
+
+
+# ---------------------------------------------- retorno compacto de visibilidad/material
+# (Frente C) Los endpoints de visibilidad/material adjuntan `affected_command_ids`
+# → el cliente MCP (que ya envuelve con _scene_brief) recorta a la pieza afectada
+# en vez de volcar la escena completa (~1 MB con mallas en una faja real).
+
+from fastapi.testclient import TestClient
+
+import apolo.api.main as api
+from apolo.doc.document import Document
+
+
+def _doc_two_boxes():
+    doc = Document("brief-vis")
+    a = doc.execute("create_box", {"name": "A", "width": 50, "depth": 50, "height": 50})
+    b = doc.execute("create_box", {"name": "B", "width": 50, "depth": 50, "height": 50,
+                                   "position": {"x": 200, "y": 0, "z": 0}})
+    return doc, a, b
+
+
+def test_visibility_endpoint_attaches_affected():
+    api.DOC, a, b = _doc_two_boxes()
+    client = TestClient(api.app)
+    r = client.post(f"/api/features/{a}/visibility", json={"visible": False})
+    assert r.status_code == 200
+    payload = r.json()
+    assert payload["affected_command_ids"] == [api.DOC.scene[a].command_id]
+    brief = _scene_brief(payload, "diff")
+    assert [s["id"] for s in brief["solidos"]] == [a]
+    assert brief["total_solidos"] == 2
+
+
+def test_visibility_bulk_endpoint_attaches_affected():
+    api.DOC, a, b = _doc_two_boxes()
+    client = TestClient(api.app)
+    r = client.post("/api/features/visibility", json={"ids": [a, b], "visible": False})
+    payload = r.json()
+    assert sorted(payload["affected_command_ids"]) == sorted(
+        {api.DOC.scene[a].command_id, api.DOC.scene[b].command_id}
+    )
+    brief = _scene_brief(payload, "diff")
+    assert sorted(s["id"] for s in brief["solidos"]) == sorted([a, b])
+
+
+def test_material_endpoint_attaches_affected():
+    api.DOC, a, b = _doc_two_boxes()
+    client = TestClient(api.app)
+    r = client.post(f"/api/features/{a}/material", json={"material": "acero"})
+    assert r.status_code == 200
+    payload = r.json()
+    assert payload["affected_command_ids"] == [api.DOC.scene[a].command_id]
+    brief = _scene_brief(payload, "diff")
+    assert [s["id"] for s in brief["solidos"]] == [a]  # solo la pieza, no la escena
