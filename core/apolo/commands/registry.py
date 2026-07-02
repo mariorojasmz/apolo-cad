@@ -45,6 +45,7 @@ from .models import (
     CreateTakeUpParams,
     CreateWeldmentParams,
     CreateStructuralProfileParams,
+    CreateGroupParams,
     DeleteParams,
     DistributeParams,
     DuplicateParams,
@@ -66,6 +67,7 @@ from .models import (
     SketchLoftParams,
     SketchRevolveParams,
     SketchSweepParams,
+    TransformGroupParams,
     TransformParams,
 )
 
@@ -90,6 +92,7 @@ class Feature:
     mesh_key: str | None = None
     matrix: list | None = None  # 4x4 por filas (kernel.matrix)
     material: str | None = None  # override explícito de material (set_material)
+    group: str | None = None  # DERIVADO: sub-ensamblaje al que pertenece (por command_id)
 
     def make_unique(self) -> None:
         """La geometría dejó de ser la canónica (fillet, taladro…)."""
@@ -746,6 +749,125 @@ def _exec_ground(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: G
         raise CommandError(str(exc)) from exc
 
 
+def _exec_create_group(
+    scene: Scene, cmd_id: str, p: "CreateGroupParams", *,
+    groups: dict, joints: dict, mates: dict, constraints: dict,
+) -> None:
+    """Declara un GRUPO/sub-ensamblaje por command_ids (V5.2). No muta geometría:
+    la membresía se deriva en cada regenerate (feat.group)."""
+    from apolo.assembly.groups import GroupError, register_group
+
+    try:
+        register_group(groups, cmd_id, {
+            "name": p.name, "members": p.members, "parent": p.parent, "role": p.role,
+        })
+    except GroupError as exc:
+        raise CommandError(str(exc)) from exc
+
+
+def _transform_point(w: list, pt) -> list[float]:
+    """Aplica una matriz 4×4 (filas) a un punto [x,y,z]."""
+    x, y, z = float(pt[0]), float(pt[1]), float(pt[2])
+    return [w[i][0] * x + w[i][1] * y + w[i][2] * z + w[i][3] for i in range(3)]
+
+
+def _transform_dir(w: list, v) -> list[float]:
+    """Aplica SOLO la rotación de una matriz 4×4 a una dirección [x,y,z]."""
+    x, y, z = float(v[0]), float(v[1]), float(v[2])
+    return [w[i][0] * x + w[i][1] * y + w[i][2] * z for i in range(3)]
+
+
+def _exec_transform_group(
+    scene: Scene, cmd_id: str, p: "TransformGroupParams", *,
+    groups: dict, joints: dict, mates: dict, constraints: dict,
+) -> None:
+    """Mueve un grupo ENTERO como cuerpo rígido (V5.2): todas sus piezas + las
+    juntas/restricciones internas. Rechaza uniones que cruzan la frontera."""
+    from apolo.assembly.groups import group_command_ids, group_features
+    from apolo.kernel.matrix import multiply, rotation_about_center, translation
+    from apolo.kernel.shapes import move_rotated_about
+
+    if p.group not in groups:
+        raise CommandError(f"No existe el grupo '{p.group}'")
+    # todos los members (incl. descendientes) deben tener piezas YA creadas en este
+    # punto del replay (la escena en este instante ES el log hasta aquí)
+    cmds = group_command_ids(groups, p.group, recursive=True)
+    present = {f.command_id for f in scene.values()}
+    missing = sorted(c for c in cmds if c not in present)
+    if missing:
+        raise CommandError(
+            f"El grupo '{p.group}' tiene comandos sin piezas en este punto del log "
+            f"({', '.join(missing[:4])}{'…' if len(missing) > 4 else ''}): declara el "
+            "transform_group DESPUÉS de crear todas sus piezas"
+        )
+    fids = set(group_features(scene, groups, p.group, recursive=True))
+    if not fids:
+        raise CommandError(f"El grupo '{p.group}' no tiene piezas que mover")
+
+    # frontera: juntas/mates/restricciones con UN extremo dentro → rechazo claro
+    for j in joints.values():
+        inside = (j["parent"] in fids) + (j["child"] in fids)
+        if inside == 1:
+            raise CommandError(
+                f"La junta '{j.get('name')}' cruza la frontera del grupo '{p.group}' "
+                "(un extremo fuera): incluye ambos cuerpos en el grupo o quita la junta"
+            )
+    for m in mates.values():
+        inside = (m["feature_a"] in fids) + (m["feature_b"] in fids)
+        if inside == 1:
+            raise CommandError(
+                f"El mate '{m.get('name')}' cruza la frontera del grupo '{p.group}': "
+                "solve_mates desharía el movimiento en silencio — inclúyelo o quítalo"
+            )
+
+    translate = p.translate.tuple()
+    rotate = p.rotate.tuple()
+    # centro del bbox CONJUNTO (cuerpo rígido: todas giran sobre el mismo punto)
+    import math
+
+    mins = [math.inf] * 3
+    maxs = [-math.inf] * 3
+    for fid in fids:
+        bb = scene[fid].shape.bounding_box()
+        for k, v in enumerate((bb.min.X, bb.min.Y, bb.min.Z)):
+            mins[k] = min(mins[k], v)
+        for k, v in enumerate((bb.max.X, bb.max.Y, bb.max.Z)):
+            maxs[k] = max(maxs[k], v)
+    center = tuple((mins[k] + maxs[k]) / 2.0 for k in range(3))
+
+    w = translation(*translate)
+    if any(rotate):
+        w = multiply(w, rotation_about_center(center, rotate))
+
+    for fid in fids:
+        feat = scene[fid]
+        if feat.matrix is not None:
+            feat.matrix = multiply(w, feat.matrix)
+        feat.shape = move_rotated_about(feat.shape, translate, rotate, center)
+    # juntas internas: el marco viaja con el grupo (origin punto, axis dirección)
+    for j in joints.values():
+        if j["parent"] in fids and j["child"] in fids:
+            if j.get("origin") is not None:
+                o = j["origin"]
+                no = _transform_point(w, (o["x"], o["y"], o["z"]) if isinstance(o, dict) else o)
+                j["origin"] = {"x": no[0], "y": no[1], "z": no[2]} if isinstance(o, dict) else no
+            if any(rotate) and j.get("axis") is not None:
+                a = j["axis"]
+                na = _transform_dir(w, (a["x"], a["y"], a["z"]) if isinstance(a, dict) else a)
+                j["axis"] = {"x": na[0], "y": na[1], "z": na[2]} if isinstance(a, dict) else na
+    # restricciones internas (su junta es interna): anchor/point puntos, axis dirección
+    internal_joints = {
+        name for name, j in joints.items() if j["parent"] in fids and j["child"] in fids
+    }
+    for con in constraints.values():
+        if con.get("joint") in internal_joints:
+            for key in ("anchor", "point"):
+                if con.get(key) is not None:
+                    con[key] = _transform_point(w, con[key])
+            if any(rotate) and con.get("axis") is not None:
+                con["axis"] = _transform_dir(w, con["axis"])
+
+
 def _exec_add_joinery(scene: Scene, cmd_id: str, p: AddJoineryParams) -> None:
     from build123d import Box, Cylinder, Pos, Rotation
 
@@ -1051,6 +1173,7 @@ class CommandSpec:
     wants_constraints: bool = False  # el ejecutor recibe además el registro de restricciones
     wants_attachments: bool = False  # el ejecutor recibe además los adjuntos del documento
     wants_connectivity: bool = False  # el ejecutor recibe además los fijadores + anclajes a tierra
+    wants_groups: bool = False  # firma kwargs: (scene, cmd_id, model, *, groups, joints, mates, constraints)
 
 
 REGISTRY: dict[str, CommandSpec] = {
@@ -1132,6 +1255,14 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec(
             "ground", "Anclaje a tierra", "ensamblaje", GroundParams, _exec_ground, wants_connectivity=True
         ),
+        CommandSpec(
+            "create_group", "Grupo / sub-ensamblaje", "ensamblaje", CreateGroupParams,
+            _exec_create_group, wants_groups=True,
+        ),
+        CommandSpec(
+            "transform_group", "Mover grupo", "ensamblaje", TransformGroupParams,
+            _exec_transform_group, wants_groups=True,
+        ),
         CommandSpec("boolean_op", "Booleana", "modificar", BooleanOpParams, _exec_boolean),
         CommandSpec("fillet", "Redondeo", "modificar", FilletParams, _exec_fillet),
         CommandSpec("chamfer", "Chaflán", "modificar", ChamferParams, _exec_chamfer),
@@ -1210,6 +1341,7 @@ def execute_command(
     constraints: dict | None = None,
     fasteners: dict | None = None,
     grounds: dict | None = None,
+    groups: dict | None = None,
 ) -> None:
     variables = variables if variables is not None else {}
     joints = joints if joints is not None else {}
@@ -1218,10 +1350,18 @@ def execute_command(
     constraints = constraints if constraints is not None else {}
     fasteners = fasteners if fasteners is not None else {}
     grounds = grounds if grounds is not None else {}
+    groups = groups if groups is not None else {}
     model = validate_params(cmd_type, params, variables)
     spec = REGISTRY[cmd_type]
     if spec.kind == "vars":
         spec.executor(variables, cmd_id, model)
+    elif spec.wants_groups:
+        # firma keyword-only uniforme para los comandos de grupo (evita la explosión
+        # combinatoria de ramas por flags): reciben todo lo que pueden necesitar
+        spec.executor(
+            scene, cmd_id, model,
+            groups=groups, joints=joints, mates=mates, constraints=constraints,
+        )
     elif spec.wants_joints and spec.wants_mates:
         spec.executor(scene, joints, mates, cmd_id, model)
     elif spec.wants_joints:

@@ -971,6 +971,40 @@ class FastenParams(BaseModel):
     nota: str = Field("", max_length=120, title="Nota")
 
 
+class CreateGroupParams(BaseModel):
+    """Declara un GRUPO / sub-ensamblaje con nombre: un conjunto de COMANDOS cuyas
+    piezas (presentes y futuras) se operan/muestran como unidad. La membresía es por
+    command_id (la unidad estable del log): editar un count o añadir instancias del
+    comando NO rompe el grupo. Anidable vía `parent` (el padre debe declararse antes).
+    Un comando vive en UN solo grupo. `role` opcional clasifica el subsistema
+    (estructura/transmision/rodillos/banda/guardas/tornilleria/electrico/otro u otro
+    texto corto) para consultas de ingeniería."""
+
+    # sin comas (el nombre se usa como token en los CSV de isolate/highlight)
+    name: str = Field(..., pattern=r"^[^\s,][^,]*$", max_length=40, title="Nombre")
+    members: list[str] = Field(
+        ..., min_length=1, max_length=500, title="Comandos miembro",
+        description="command_ids cuyas piezas forman el grupo (p. ej. ['c412', 'c455'])",
+    )
+    parent: str | None = Field(None, title="Grupo padre", description="anidación; el padre va antes en el log")
+    role: str | None = Field(
+        None, max_length=24, title="Rol del subsistema",
+        description="sugeridos: estructura, transmision, rodillos, banda, guardas, tornilleria, electrico, otro",
+    )
+
+
+class TransformGroupParams(BaseModel):
+    """Mueve/rota un GRUPO entero como cuerpo rígido (incluye sub-grupos): todas sus
+    piezas se trasladan y giran sobre el centro del bbox CONJUNTO. Las juntas y
+    restricciones INTERNAS (ambos extremos dentro del grupo) viajan con él; si una
+    junta/mate/restricción CRUZA la frontera del grupo, el comando se rechaza (mueve
+    primero la pieza suelta o incluye al otro extremo en el grupo). Acepta `=expr`."""
+
+    group: str = Field(..., max_length=40, title="Grupo")
+    translate: Vec3 = Field(default_factory=Vec3, title="Traslación", description="mm; acepta =expr")
+    rotate: Vec3 = Field(default_factory=Vec3, title="Rotación", description="grados sobre el centro del grupo; acepta =expr")
+
+
 class GroundParams(BaseModel):
     """Ancla un sólido a TIERRA (fijo al piso/cimiento). En la validación de ensamblaje las
     piezas ancladas son el origen del 'camino de sujeción': una pieza está bien sujeta si

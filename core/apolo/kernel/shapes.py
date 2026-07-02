@@ -143,6 +143,22 @@ def boolean_op(operation: str, target, tools: list):
     return result
 
 
+def move_rotated_about(shape, translate: tuple[float, float, float],
+                       rotate: tuple[float, float, float],
+                       center: tuple[float, float, float]):
+    """Rota la forma alrededor de un CENTRO explícito (no el suyo) y la traslada.
+    Para mover un GRUPO como cuerpo rígido: todas sus piezas giran sobre el mismo
+    punto (el centro del bbox conjunto), no cada una sobre sí misma."""
+    rx, ry, rz = rotate
+    if rx or ry or rz:
+        cx, cy, cz = center
+        shape = Pos(cx, cy, cz) * Rotation(rx, ry, rz) * Pos(-cx, -cy, -cz) * shape
+    tx, ty, tz = translate
+    if tx or ty or tz:
+        shape = Pos(tx, ty, tz) * shape
+    return shape
+
+
 def move_rotated_about_center(shape, translate: tuple[float, float, float], rotate: tuple[float, float, float]):
     """Rota la forma alrededor del centro de su caja envolvente y la traslada."""
     rx, ry, rz = rotate

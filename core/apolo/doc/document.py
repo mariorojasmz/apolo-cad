@@ -39,8 +39,9 @@ def _cmd_sig(prev: str, cmd: dict) -> str:
 
 def _copy_state(state: tuple) -> tuple:
     """Copia un estado (scene, variables, joints, mates, constraints, fasteners,
-    grounds) aislándolo: Features por shallow-copy (shape compartido), dicts por copia."""
-    scene, variables, joints, mates, constraints, fasteners, grounds = state
+    grounds, groups) aislándolo: Features por shallow-copy (shape compartido), dicts
+    por copia."""
+    scene, variables, joints, mates, constraints, fasteners, grounds, groups = state
     return (
         {fid: copy.copy(f) for fid, f in scene.items()},
         dict(variables),
@@ -49,6 +50,7 @@ def _copy_state(state: tuple) -> tuple:
         copy.deepcopy(constraints),
         copy.deepcopy(fasteners),
         copy.deepcopy(grounds),
+        copy.deepcopy(groups),
     )
 
 
@@ -65,6 +67,7 @@ class Document:
         self.constraints: dict[str, dict] = {}  # restricciones de riel (lazo cerrado)
         self.fasteners: dict[str, dict] = {}  # fijadores rígidos A↔B (conectividad de ensamblaje)
         self.grounds: dict[str, dict] = {}  # anclajes a tierra (validación de soundness)
+        self.groups: dict[str, dict] = {}  # sub-ensamblajes por command_ids (V5.2, del log)
         self.attachments: dict[str, bytes] = {}
         self.configurations: dict[str, dict[str, str]] = {}  # variante → {variable: expresión}
         self.colors: dict[str, str] = {}  # feature_id → color hex (apariencia)
@@ -118,14 +121,13 @@ class Document:
             else:
                 break
         if resume >= 0:
-            scene, variables, joints, mates, constraints, fasteners, grounds = _copy_state(
-                self._regen_ckpts[resume]
-            )
+            (scene, variables, joints, mates, constraints, fasteners, grounds,
+             groups) = _copy_state(self._regen_ckpts[resume])
             new_ckpts = {i: st for i, st in self._regen_ckpts.items() if i <= resume}
             start = resume + 1
         else:
-            scene, variables, joints, mates, constraints, fasteners, grounds = (
-                {}, {}, {}, {}, {}, {}, {}
+            scene, variables, joints, mates, constraints, fasteners, grounds, groups = (
+                {}, {}, {}, {}, {}, {}, {}, {}
             )
             new_ckpts = {}
             start = 0
@@ -137,13 +139,13 @@ class Document:
                 execute_command(
                     scene, cmd["id"], cmd["type"], cmd["params"],
                     variables, joints, self.attachments, mates, constraints,
-                    fasteners, grounds,
+                    fasteners, grounds, groups,
                 )
             except CommandError as exc:
                 raise DocumentError(f"Error al regenerar {cmd['id']} ({cmd['type']}): {exc}") from exc
             if i == last or i % self._REGEN_STRIDE == 0:
                 new_ckpts[i] = _copy_state(
-                    (scene, variables, joints, mates, constraints, fasteners, grounds)
+                    (scene, variables, joints, mates, constraints, fasteners, grounds, groups)
                 )
         for joint in joints.values():
             for ref in (joint["parent"], joint["child"]):
@@ -184,6 +186,11 @@ class Document:
             solve_mates(scene, mates)
         except MateError as exc:
             raise DocumentError(f"Error al resolver los mates: {exc}") from exc
+        # membresía de grupos: campo DERIVADO por command_id (integridad TOLERANTE —
+        # un member cuyo comando desapareció se reporta vía missing_members, no falla)
+        from apolo.assembly.groups import assign_feature_groups
+
+        assign_feature_groups(scene, groups)
         for fid, feat in scene.items():
             feat.visible = fid not in self.hidden
             feat.material = self.materials.get(fid)
@@ -193,6 +200,7 @@ class Document:
         self.constraints = constraints
         self.fasteners = fasteners
         self.grounds = grounds
+        self.groups = groups
         self.variables_raw = variables
         try:
             self.variables_resolved = resolve_all(variables)
