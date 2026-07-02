@@ -316,6 +316,33 @@ robustez 3 · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD:
 planos se DERIVAN del paramétrico (él es lienzo 2D manual — otra categoría). Medir
 progreso por PROFUNDIDAD del vertical, no por paridad de features.
 
+## Hoja de ruta V5 — "Apolo completo, agente-primero" (doctrina 2026-07-01)
+
+**Doctrina actualizada por el usuario**: la meta es que un ingeniero especializado que
+usa Apolo **nunca necesite SW/Inventor para terminar su trabajo** en el vertical. NO es
+paridad de las ~3000 funciones de SW: es COMPLETITUD DE FLUJO de las ~40 que un
+ingeniero de máquinas usa de verdad — y cada una nace agente-nativa (comando
+schema-driven + tool/lectura MCP + verificable por el agente: el ingeniero la PIDE, no
+la clickea). La cuña sigue siendo el vertical; dentro de él, Apolo lo es TODO.
+
+Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
+- **Tier 1 — bloqueantes diarios**: (1) croquis robusto → reemplazar el solver scipy por
+  **PlaneGCS** (FreeCAD, LGPL); (2) **sub-ensamblajes de primera clase** (escena anidada;
+  el pendiente arquitectónico mayor — habilita layouts multi-máquina y miles de piezas);
+  (3) **modelado directo básico** sobre STEP importado (mover/borrar cara, offset);
+  (4) **ajustes/tolerancias ISO 286** (H7/g6) integrados en cotas y asientos;
+  (5) **chapa avanzada** (multi-pliegue, cutouts en pestañas, K-factor por material).
+- **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), **FEA estático
+  lineal** integrado (CalculiX/sfepy como proceso externo, resultado a la memoria de
+  cálculo), roscas (cosméticas en plano + specs BOM), weldments con ingletes reales,
+  **export DWG** (el entregable político de los clientes AutoCAD).
+- **Tier 3 — consolidación**: render fotorrealista (Blender headless), PDM ligero
+  multiusuario, plantillas de plano por empresa, normas del vertical (CEMA/ISO 5048 en
+  las reglas → memoria NORMATIVA, no solo honesta).
+
+Criterio de "hecho" por ítem: usable por chat/MCP + schema-driven + tests + verificado
+E2E en un modelo real. Un ítem por vez, con plan formal ("procede con V5.<n>").
+
 ## Pendientes (follow-ups vivos, todo por demanda)
 
 - **Cinemática/ensamblaje**: multi-mate acoplado por sólido (hoy 1 mate/hijo), conectores
