@@ -764,9 +764,17 @@ points: {"p1": [x,y], ...} (posiciones APROXIMADAS: el solver las hace exactas);
 entities: line {id, from, to} | circle {id, center, radius} | arc {id, center, from, to, ccw};
 constraints: horizontal/vertical {entity} | length {entity, value} | distance {a, b, value}
 | coincident {a, b} | parallel/perpendicular {a, b} | angle {a, b, value°}
-| radius {entity, value} | point_on_line {point, entity} | equal_length {a, b} | fix {point}.
+| radius {entity, value} (círculo o arco) | point_on_line {point, entity}
+| equal_length {a, b} | fix {point}
+| tangent {a, b} (línea↔círculo/arco o curva↔curva) | symmetric {a, b, line}
+| equal_radius {a, b} | concentric {a, b} | midpoint {point, entity}
+| distance_point_line {point, entity, value}.
 Las líneas/arcos deben encadenar en un lazo cerrado; los círculos son agujeros
-(o el perfil, si no hay lazo). Los valores numéricos aceptan '=expresión'."""
+(o el perfil, si no hay lazo). Los valores numéricos aceptan '=expresión'.
+El solve (test_sketch / POST /api/sketch/solve) devuelve además dof (grados de
+libertad restantes; 0 = totalmente restringido), redundantes y conflictivas
+(restricciones identificadas por nombre) — úsalo para iterar hasta dof=0 sin
+redundancias."""
 
 
 class SketchExtrudeParams(BaseModel):

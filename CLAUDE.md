@@ -59,12 +59,12 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-02)**: 706 tests · 64 tools MCP · 46 comandos · catálogo 217
-  refs · roadmaps V1–V4 completos · Frente A (motor de cálculo + memoria + requisitos),
-  Frente B (costeo + cotización) y Frente C (uniones curadas, UI de entregables,
-  export STL/glTF) cerrados · V5.2 + V5.2b (sub-ensamblajes + `insert_project`)
-  cerrados. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria
-  **APROBADO**) y `layout-planta-demo` (id 53, 149 sólidos, 2 instancias del 38 + mesa).
+- **Estado actual (2026-07-02)**: 728 tests · 64 tools MCP · 46 comandos · catálogo 217
+  refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · V5.1 (croquis PlaneGCS),
+  V5.2 + V5.2b (sub-ensamblajes + `insert_project`) cerrados. Proyectos de referencia:
+  `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**), `layout-planta-demo`
+  (id 53, 149 sólidos, 2 instancias del 38 + mesa) y `biela-colisos-demo` (croquis con
+  tangencias/concéntricos, dof=0).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
   viewport — usar `vite preview`).
@@ -95,7 +95,18 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   atómico y 1 undo; `GET /api/schemas/{type}` para no volcar los ~77 KB de schemas.
 
 ### Comandos / modelado (46 comandos)
-- Primitivas + croquis restringido (solver scipy) + sweep/loft/hélice (lazo cerrado,
+- **Croquis 2D con PlaneGCS (V5.1)**: `kernel/sketch_solver.py` es una FACHADA de dos
+  motores — `sketch_gcs.py` (el solver del Sketcher de FreeCAD, pip `planegcs`, wheel
+  cp313; default) y `sketch_scipy.py` (fallback VIVO si no hay wheel; override env
+  `APOLO_SKETCH_SOLVER=scipy|planegcs`; los tests parametrizan ambos). GCS aporta
+  `dof`/`redundantes`/`conflictivas` en el retorno del solve (iterar hasta dof=0) y
+  6 tipos nuevos SOLO-GCS: tangent, symmetric, equal_radius, concentric, midpoint,
+  distance_point_line (+ `radius` ahora acepta ARCOS). El veredicto `ok` lo da un
+  VERIFICADOR geométrico común (mismas fórmulas en ambos motores). OJO sketch_geom:
+  si el lazo recorre un arco en reversa, el ccw efectivo se invierte (bug corregido).
+  SketcherDialog: herramienta Arco (3 clics: centro→inicio→fin) + botones nuevos +
+  panel DOF/redundantes/conflictivas. Arrastre en vivo (soft-constraints) PENDIENTE.
+- Primitivas + croquis restringido + sweep/loft/hélice (lazo cerrado,
   `is_frenet`) + chapa metálica con **desplegado DXF/SVG** (bend allowance, taladros
   proyectados al blank) + `add_joinery` (espiga/dado/dowel/rebaje — corta EN SITIO,
   conserva ids) + patrones (`count` por `=expr`; `pattern_group` arraya TODAS las
@@ -358,7 +369,8 @@ Veredicto: como CAD GENERAL ~10-15 % de la superficie de SW/Inventor (kernel niv
 FreeCAD; es una CUÑA, no un reemplazo); como herramienta del VERTICAL cubre ~80 % del
 flujo real (requisitos→3D validado→planos→memoria→cotización, autónomo — categoría que
 los grandes no ocupan). IA-nativa/API-first **9.5** ⭐ (el moat) · kernel OCCT 6 ·
-paramétrico 5 · croquis 3 (el eslabón más débil) · ensamblaje 4.5 (soundness/gravity es
+paramétrico 5 · croquis 5 (PlaneGCS: dof/redundantes/tangencias — subió de 3 en V5.1;
+falta arrastre en vivo y elipses/splines) · ensamblaje 4.5 (soundness/gravity es
 único) · planos 6 (sistema pro A-G) · simulación 3 (analítico con FS + MuJoCo, sin FEA)
 · entregables de negocio 6 (memoria+cotización) · interop 5.5 · rendimiento 4 ·
 robustez 3 · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
@@ -375,9 +387,8 @@ schema-driven + tool/lectura MCP + verificable por el agente: el ingeniero la PI
 la clickea). La cuña sigue siendo el vertical; dentro de él, Apolo lo es TODO.
 
 Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
-- **Tier 1 — bloqueantes diarios**: (1) croquis robusto → reemplazar el solver scipy por
-  **PlaneGCS** (FreeCAD, LGPL); (2) **sub-ensamblajes de primera clase** (escena anidada;
-  el pendiente arquitectónico mayor — habilita layouts multi-máquina y miles de piezas);
+- **Tier 1 — bloqueantes diarios**: (1) ~~croquis robusto PlaneGCS~~ **HECHO V5.1**;
+  (2) ~~sub-ensamblajes de primera clase~~ **HECHO V5.2/V5.2b** (grupos + insert_project);
   (3) **modelado directo básico** sobre STEP importado (mover/borrar cara, offset);
   (4) **ajustes/tolerancias ISO 286** (H7/g6) integrados en cotas y asientos;
   (5) **chapa avanzada** (multi-pliegue, cutouts en pestañas, K-factor por material).

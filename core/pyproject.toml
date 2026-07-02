@@ -16,6 +16,9 @@ dependencies = [
     "httpx>=0.27",
     "scipy>=1.12",
     "pyyaml>=6",
+    # solver de croquis 2D (el del Sketcher de FreeCAD, LGPL — wheels cp312/cp313
+    # win/linux). Si una plataforma no tuviera wheel, el solver cae al motor scipy.
+    "planegcs>=0.8",
 ]
 
 [project.optional-dependencies]

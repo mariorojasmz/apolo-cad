@@ -33,11 +33,14 @@ interface SolveResult {
   diagnostico: string[];
   restricciones: number;
   incognitas: number;
+  dof?: number | null; // grados de libertad restantes (motor PlaneGCS; null en scipy)
+  redundantes?: string[];
+  conflictivas?: string[];
 }
 
 const W = 520;
 const H = 390;
-type Tool = "sel" | "punto" | "linea" | "circulo";
+type Tool = "sel" | "punto" | "linea" | "circulo" | "arco";
 
 const EMPTY: SketchData = { points: {}, entities: [], constraints: [] };
 
@@ -53,6 +56,7 @@ export default function SketcherDialog() {
   const [tool, setTool] = useState<Tool>("punto");
   const [sel, setSel] = useState<string[]>([]);
   const [pendingLine, setPendingLine] = useState<string | null>(null);
+  const [pendingArc, setPendingArc] = useState<string[]>([]); // centro → inicio → fin
   const [name, setName] = useState("Croquis extruido");
   const [op, setOp] = useState<"extrude" | "revolve" | "sweep" | "loft">("extrude");
   const [plane, setPlane] = useState("xy");
@@ -76,6 +80,7 @@ export default function SketcherDialog() {
     setSolved(null);
     setSel([]);
     setPendingLine(null);
+    setPendingArc([]);
     if (initial) {
       const p = initial.params as Record<string, unknown>;
       setSketch((p.sketch as SketchData) ?? EMPTY);
@@ -153,21 +158,38 @@ export default function SketcherDialog() {
         }));
         setSeq(seq + 1);
       }
+    } else if (tool === "arco") {
+      // 3 clics: centro → inicio → fin (ccw); las posiciones las afina el solver
+      const next = [...pendingArc, pid];
+      if (next.length < 3) setPendingArc(next);
+      else {
+        const [center, from, to] = next;
+        if (from !== to) {
+          mutate((s) => ({
+            ...s,
+            entities: [...s.entities, { type: "arc", id: `a${seq}`, center, from, to, ccw: true }],
+          }));
+          setSeq(seq + 1);
+        }
+        setPendingArc([]);
+      }
     } else {
-      setSel((cur) => (cur.includes(pid) ? cur.filter((x) => x !== pid) : [...cur, pid].slice(-2)));
+      setSel((cur) => (cur.includes(pid) ? cur.filter((x) => x !== pid) : [...cur, pid].slice(-3)));
     }
   };
 
   const onEntityClick = (eid: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (tool === "sel") {
-      setSel((cur) => (cur.includes(eid) ? cur.filter((x) => x !== eid) : [...cur, eid].slice(-2)));
+      setSel((cur) => (cur.includes(eid) ? cur.filter((x) => x !== eid) : [...cur, eid].slice(-3)));
     }
   };
 
   const selPoints = sel.filter((id) => pts[id]);
   const selLines = sel.filter((id) => sketch.entities.find((e) => e.id === id && e.type === "line"));
   const selCircles = sel.filter((id) => sketch.entities.find((e) => e.id === id && e.type === "circle"));
+  const selArcs = sel.filter((id) => sketch.entities.find((e) => e.id === id && e.type === "arc"));
+  const selCurves = [...selCircles, ...selArcs]; // círculo o arco (tangencia/radios/concéntrico)
 
   const addConstraint = (c: Constraint) => {
     mutate((s) => ({ ...s, constraints: [...s.constraints, c] }));
@@ -249,11 +271,16 @@ export default function SketcherDialog() {
       <div className="modal modal-sketch" onClick={(e) => e.stopPropagation()}>
         <div className="drawing-toolbar">
           <h3>✏ Croquis</h3>
-          {(["punto", "linea", "circulo", "sel"] as Tool[]).map((t) => (
-            <button key={t} className={tool === t ? "active" : ""} onClick={() => { setTool(t); setPendingLine(null); }}>
-              {{ punto: "+ Punto", linea: "∕ Línea", circulo: "○ Círculo", sel: "⊹ Seleccionar" }[t]}
+          {(["punto", "linea", "circulo", "arco", "sel"] as Tool[]).map((t) => (
+            <button key={t} className={tool === t ? "active" : ""} onClick={() => { setTool(t); setPendingLine(null); setPendingArc([]); }}>
+              {{ punto: "+ Punto", linea: "∕ Línea", circulo: "○ Círculo", arco: "⌒ Arco", sel: "⊹ Seleccionar" }[t]}
             </button>
           ))}
+          {tool === "arco" && (
+            <span className="hint">
+              {["clic en el CENTRO", "clic en el INICIO", "clic en el FIN (ccw)"][pendingArc.length]}
+            </span>
+          )}
           <span className="spacer" />
           <button onClick={() => void solve()}>⚙ Resolver</button>
           <button className="ghost" onClick={closeSketcher}>Cancelar</button>
@@ -298,6 +325,28 @@ export default function SketcherDialog() {
                     style={{ cursor: "pointer" }} onClick={(e) => onEntityClick(ent.id, e)} />
                 );
               }
+              if (ent.type === "arc" && pts[ent.center!] && pts[ent.from!] && pts[ent.to!]) {
+                // polilínea muestreada (evita los flags de arco SVG con la y volteada)
+                const c = pts[ent.center!];
+                const f = pts[ent.from!];
+                const t2 = pts[ent.to!];
+                const r = Math.hypot(f[0] - c[0], f[1] - c[1]);
+                let a0 = Math.atan2(f[1] - c[1], f[0] - c[0]);
+                let a1 = Math.atan2(t2[1] - c[1], t2[0] - c[0]);
+                if (ent.ccw !== false && a1 <= a0) a1 += 2 * Math.PI;
+                if (ent.ccw === false && a1 >= a0) a1 -= 2 * Math.PI;
+                const n = 32;
+                const d = Array.from({ length: n + 1 }, (_, i) => {
+                  const a = a0 + ((a1 - a0) * i) / n;
+                  const [sx, sy] = toSvg([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]);
+                  return `${i === 0 ? "M" : "L"}${sx.toFixed(2)},${sy.toFixed(2)}`;
+                }).join(" ");
+                return (
+                  <path key={ent.id} d={d} fill="none"
+                    stroke={seld ? "#d8762e" : "#1d2a43"} strokeWidth={seld ? 3.5 : 2}
+                    style={{ cursor: "pointer" }} onClick={(e) => onEntityClick(ent.id, e)} />
+                );
+              }
               return null;
             })}
             {Object.entries(pts).map(([pid, p]) => {
@@ -323,8 +372,36 @@ export default function SketcherDialog() {
               <button disabled={selLines.length !== 2} onClick={() => addConstraint({ type: "parallel", a: selLines[0], b: selLines[1] })}>∥ Paral</button>
               <button disabled={selLines.length !== 2} onClick={() => addConstraint({ type: "perpendicular", a: selLines[0], b: selLines[1] })}>⊥ Perp</button>
               <button disabled={selLines.length !== 2} onClick={() => { const v = askValue("Ángulo (°)"); if (v !== null) addConstraint({ type: "angle", a: selLines[0], b: selLines[1], value: v }); }}>∠ Áng</button>
-              <button disabled={selCircles.length !== 1} onClick={() => { const v = askValue("Radio"); if (v !== null) addConstraint({ type: "radius", entity: selCircles[0], value: v }); }}>◌ Radio</button>
+              <button disabled={selCurves.length !== 1} onClick={() => { const v = askValue("Radio"); if (v !== null) addConstraint({ type: "radius", entity: selCurves[0], value: v }); }}>◌ Radio</button>
               <button disabled={selPoints.length !== 1} onClick={() => addConstraint({ type: "fix", point: selPoints[0] })}>📌 Fijar</button>
+              <button
+                disabled={!((selLines.length === 1 && selCurves.length === 1) || (selCurves.length === 2 && selLines.length === 0))}
+                title="Tangencia línea↔curva o curva↔curva"
+                onClick={() => {
+                  const [a, b] = selLines.length === 1 ? [selLines[0], selCurves[0]] : [selCurves[0], selCurves[1]];
+                  addConstraint({ type: "tangent", a, b });
+                }}
+              >⌒ Tang</button>
+              <button disabled={!(selPoints.length === 2 && selLines.length === 1)}
+                title="2 puntos simétricos respecto a una línea"
+                onClick={() => addConstraint({ type: "symmetric", a: selPoints[0], b: selPoints[1], line: selLines[0] })}
+              >⇋ Simetr</button>
+              <button disabled={selCurves.length !== 2}
+                title="Radios iguales (círculos/arcos)"
+                onClick={() => addConstraint({ type: "equal_radius", a: selCurves[0], b: selCurves[1] })}
+              >◎ R=</button>
+              <button disabled={selCurves.length !== 2}
+                title="Concéntricos (círculos/arcos)"
+                onClick={() => addConstraint({ type: "concentric", a: selCurves[0], b: selCurves[1] })}
+              >⊚ Conc</button>
+              <button disabled={!(selPoints.length === 1 && selLines.length === 1)}
+                title="Punto en el medio de una línea"
+                onClick={() => addConstraint({ type: "midpoint", point: selPoints[0], entity: selLines[0] })}
+              >÷ Medio</button>
+              <button disabled={!(selPoints.length === 1 && selLines.length === 1)}
+                title="Distancia punto-línea"
+                onClick={() => { const v = askValue("Distancia a la línea"); if (v !== null) addConstraint({ type: "distance_point_line", point: selPoints[0], entity: selLines[0], value: v }); }}
+              >⟂ DistPL</button>
             </div>
             <ul className="sketch-clist">
               {sketch.constraints.map((c, i) => (
@@ -338,11 +415,28 @@ export default function SketcherDialog() {
             </ul>
 
             {solved && (
-              <p className={solved.ok ? "estado-ok" : "estado-error"}>
-                {solved.ok
-                  ? `✓ resuelto (desvío ${solved.residual.toExponential(1)}; ${solved.restricciones} restricciones / ${solved.incognitas} incógnitas)`
-                  : `✕ ${solved.diagnostico.join("; ")}`}
-              </p>
+              <>
+                <p className={solved.ok ? "estado-ok" : "estado-error"}>
+                  {solved.ok
+                    ? `✓ resuelto (desvío ${solved.residual.toExponential(1)}; ${solved.restricciones} restricciones / ${solved.incognitas} incógnitas)`
+                    : `✕ ${solved.diagnostico.join("; ")}`}
+                </p>
+                {typeof solved.dof === "number" && (
+                  <p className={solved.dof === 0 ? "estado-ok" : "hint"} style={solved.dof > 0 ? { color: "#b8860b" } : undefined}>
+                    {solved.dof === 0
+                      ? "◉ totalmente restringido (0 grados de libertad)"
+                      : `◌ faltan restricciones: ${solved.dof} grado${solved.dof === 1 ? "" : "s"} de libertad`}
+                  </p>
+                )}
+                {(solved.redundantes?.length ?? 0) > 0 && (
+                  <p className="hint" style={{ color: "#b8860b" }}>
+                    ⚠ redundantes (sobran): {solved.redundantes!.join("; ")}
+                  </p>
+                )}
+                {(solved.conflictivas?.length ?? 0) > 0 && (
+                  <p className="estado-error">⛔ en conflicto: {solved.conflictivas!.join("; ")}</p>
+                )}
+              </>
             )}
 
             <h4>Operación</h4>

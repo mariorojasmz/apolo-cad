@@ -114,7 +114,13 @@ def sketch_to_face(sketch: dict):
             if ent["type"] == "line":
                 edges.append(Line(start, end))
             else:
-                mid = _arc_mid(coord(rep[ent["center"]]), start, end, bool(ent.get("ccw", True)))
+                # si el lazo recorre el arco EN REVERSA (start/end intercambiados por
+                # _chain_loop), el sentido efectivo se invierte — sin esto el punto
+                # medio cae del lado equivocado y la tapa se abomba hacia dentro
+                ccw = bool(ent.get("ccw", True))
+                if item["start"] != rep[ent["from"]]:
+                    ccw = not ccw
+                mid = _arc_mid(coord(rep[ent["center"]]), start, end, ccw)
                 edges.append(ThreePointArc(start, mid, end))
         face = make_face(edges)
         for circle in circles:  # círculos = agujeros

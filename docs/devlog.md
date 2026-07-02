@@ -2216,3 +2216,50 @@ conjunto motriz usa literales `Pos(3806,…)` en run_scripts → flota al encoge
 task pendiente de atarlo a variables). De paso: `GET /api/bom` ganó `by_group` (la
 función ya lo soportaba; el endpoint no lo exponía) y el filtro `diff` del MCP ahora
 matchea command_ids sintéticos por prefijo.
+
+## V5.1 — Croquis robusto: PlaneGCS (2026-07-02)
+
+Cierra el ítem (1) del Tier 1 — el eslabón más débil del kernel (croquis 3→5).
+
+**La premisa de F11 quedó obsoleta**: en 2026-06-11 se eligió el solver scipy propio
+porque PlaneGCS no tenía wheels Windows fiables. Hoy `planegcs` 0.8.0 (PyPI,
+2026-06-22) trae wheel cp313-win_amd64 de 397 KB (LGPL-2.1, bindings del solver del
+Sketcher de FreeCAD). El spike GO/NO-GO (5 criterios) pasó completo: exactitud +
+subrestringido cerca del boceto, slot con tangencias exacto, redundante detectada con
+tag, conflictivas identificadas, DOF correcto, y la cadena de 24 puntos con ángulos
+(donde scipy cae en mínimos locales) resuelta en 5.6 ms. Nota API: `SolveStatus.Success`
+y `Converged` son AMBOS "resuelto" (como en FreeCAD).
+
+**Arquitectura**: `sketch_solver.py` = FACHADA (SketchError, TOLERANCE, _index_sketch,
+describe_constraint, _pick_engine) → `sketch_gcs.py` (default) | `sketch_scipy.py`
+(fallback VIVO: sin wheel la instalación no rompe; override `APOLO_SKETCH_SOLVER`;
+los tests parametrizan AMBOS motores → el fallback se ejercita en cada CI). El
+veredicto `ok` lo da un VERIFICADOR geométrico común en sketch_gcs (mismas fórmulas
+y escalas que scipy) — independiente del status del solver. `coincident` no fusiona
+params (la salida necesita ambos ids; sketch_geom hace union-find aguas abajo);
+`fix` pasa de suave (peso 10) a exacto (params fijos); arcos vía `add_arc_cse` con
+arc-rules automáticas (sustituyen la `_arc_equal` implícita); arco cw = canónico ccw
+con start/end intercambiados.
+
+**Salida ampliada (aditiva)**: `dof` (grados de libertad restantes), `redundantes` y
+`conflictivas` (descripciones legibles vía tag→describe_constraint). 6 tipos nuevos
+SOLO-GCS: tangent (línea↔curva, curva↔curva), symmetric, equal_radius, concentric,
+midpoint, distance_point_line; `radius` acepta ARCOS. UI: herramienta Arco (3 clics,
+render por polilínea muestreada), 6 botones nuevos, panel DOF/redundantes/conflictivas
+(verificado en preview por DOM). SKETCH_DOC actualizado (fuente única agente/UI).
+
+**Bug pre-existente corregido** (sketch_geom.py): si `_chain_loop` recorre un arco EN
+REVERSA, el `ccw` efectivo debe invertirse — sin el fix el punto medio del
+ThreePointArc caía del lado equivocado (tapa abombada hacia DENTRO). Nunca se vio
+porque el único test con arco encadenaba hacia adelante.
+
+**Verificación**: los 13 tests de test_sketcher.py INTACTOS y verdes en ambos motores
+(contrato de compatibilidad); +22 en test_sketch_gcs.py (tangencias/slot con área
+analítica, arco cw, simetría, concéntrico, midpoint, dist punto-línea, radius de arco,
+DOF 0/1/2, redundante, conflictiva, zigzag de 24 pts con dof=0, tipo nuevo en scipy →
+error claro, endpoint con claves nuevas, extrude del slot). 728 tests. Ningún proyecto
+guardado contenía comandos sketch_* (riesgo de compatibilidad .apolo = cero,
+verificado offline contra la BD). E2E vivo por MCP: `biela-colisos-demo` — test_sketch
+iterativo devolvió ok/dof=0/sin redundantes a la primera; extrude 84 704.6 mm³ =
+analítico exacto (120·50 + π·25² − 2π·12²)·12; render limpio. Pendientes declarados:
+arrastre en vivo con soft-constraints, elipses/B-splines, cotas driven.

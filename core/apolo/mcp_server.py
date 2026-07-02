@@ -545,8 +545,13 @@ def get_command(command_id: str) -> str:
 
 @mcp.tool()
 def test_sketch(sketch: dict) -> str:
-    """Prueba en seco un croquis: lo resuelve con el solver y devuelve {ok, residual,
-    diagnostico, ...} SIN crear geometría. Para iterar restricciones antes de extruir/barrer."""
+    """Prueba en seco un croquis: lo resuelve con el solver (PlaneGCS) y devuelve {ok,
+    residual, diagnostico, dof, redundantes, conflictivas, ...} SIN crear geometría.
+    dof = grados de libertad restantes (0 = totalmente restringido); redundantes/
+    conflictivas identifican las restricciones culpables por nombre. Soporta tangent/
+    symmetric/equal_radius/concentric/midpoint/distance_point_line además de los tipos
+    clásicos (el formato completo está en el schema de sketch_extrude). Itera hasta
+    dof=0 sin redundantes antes de extruir/barrer."""
     return json.dumps(_api("POST", "/api/sketch/solve", json={"sketch": sketch}).json(), ensure_ascii=False)
 
 
