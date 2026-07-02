@@ -99,6 +99,7 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
                 "volumen_mm3": f["volume_mm3"],
                 "componente": f["component"],
                 "comando": f["command_id"],
+                **({"grupo": f["group"]} if f.get("group") else {}),
             }
             for f in shown
         ]
@@ -348,10 +349,12 @@ def render_view(
     view ∈ {iso, frente, lateral, planta} elige el ángulo preset; azimuth/elevation (GRADOS) lo
     ANULAN para enfocar desde un ÁNGULO LIBRE cuando ningún preset sirve (azimuth = giro alrededor
     de Z, elevation = altura sobre el plano; override parcial: puedes dar solo uno).
-    isolate (lista de ids) renderiza SOLO esas piezas — la forma LIMPIA de fotografiar una pieza
+    isolate (lista de ids o NOMBRES DE GRUPO — un grupo se expande a todas sus piezas, ver
+    get_groups) renderiza SOLO esas piezas — la forma LIMPIA de fotografiar una pieza
     o sub-conjunto de cerca: aísla sobre una copia de la escena, SIN ocultar/restaurar nada en el
     documento. Combínalo con fit_ids (encuadra en esas piezas) y zoom>1 (acerca) para un primer
     plano que llene el cuadro. (Prefiérelo a set_visibility, que sí muta el documento en vivo.)
+    highlight_ids y fit_ids también aceptan nombres de grupo.
     highlight_ids resalta esos sólidos y atenúa el resto; show_axes dibuja los ejes del origen;
     show_bbox la caja envolvente de lo resaltado. section ∈ {x,y,z} corta el modelo a la mitad de
     ese eje para VER DENTRO (interferencias/encajes ocultos).
@@ -707,6 +710,35 @@ def set_requirements(fields: dict) -> str:
 
 
 @mcp.tool()
+def auto_group(dry_run: bool = False) -> str:
+    """Auto-agrupa el modelo en SUB-ENSAMBLAJES por subsistema (Estructura,
+    Transmision, Rodillos y tambores, Banda y mesa, Rodamientos, Tornilleria,
+    Guardas…) usando la heurística super-comando → catálogo → palabra clave del
+    nombre. Idempotente (no duplica grupos ni re-agrupa lo agrupado); `dry_run=true`
+    solo PROPONE para revisar antes. Úsalo una vez para poblar un modelo existente;
+    después refina con create_group/edit_command."""
+    payload = _api("POST", "/api/assembly/auto-group", json={"dry_run": dry_run}).json()
+    if "features" in payload:
+        out = _scene_brief(payload, "summary")
+        out["proposal"] = payload.get("proposal")
+        out["created"] = payload.get("created")
+        return json.dumps(out, ensure_ascii=False)
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def get_groups() -> str:
+    """GRUPOS / sub-ensamblajes del documento: nombre, padre (anidación), rol, comandos
+    miembro y members faltantes. Los grupos se CREAN con run_command(type='create_group',
+    params={name, members:[command_ids], parent?, role?}) — la membresía es por COMANDO
+    (estable: las instancias nuevas de un patrón editado entran solas) — y se MUEVEN
+    enteros con run_command(type='transform_group', {group, translate, rotate}).
+    isolate/highlight/fit de render_view, pick_point, drawing y assembly_manual aceptan
+    NOMBRES de grupo directamente. Read-only."""
+    return json.dumps(_api("GET", "/api/groups").json(), ensure_ascii=False)
+
+
+@mcp.tool()
 def get_mass_properties(ids: list[str] | None = None) -> str:
     """Masa (kg), centro de gravedad (mm) y bbox por pieza y del CONJUNTO. Sin `ids`
     analiza todas las piezas visibles; con ids solo esas (aunque estén ocultas). El
@@ -875,7 +907,7 @@ def assembly_manual(path: str, sheet: str = "A3", isolate: list[str] | None = No
     instrucción. La secuencia se DERIVA del modelo: orden del log de comandos (cómo se armó) +
     agrupación por familias de catálogo (todo el herraje junto) y por nombre de pieza. A diferencia
     del plano de CONJUNTO (drawing cutlist) que solo lista piezas, esto EXPLICA el armado paso a paso.
-    `isolate` (lista de ids) acota el manual a un SUB-ENSAMBLAJE (p. ej. una hoja: sus tablas + vidrio
+    `isolate` (lista de ids o NOMBRES de grupo) acota el manual a un SUB-ENSAMBLAJE (p. ej. una hoja: sus tablas + vidrio
     + bisagras) sin tocar el documento; `title` rotula la portada/archivo. Devolverá nº de bytes.
     (El render tarda; ~40 s en un modelo de ~80 piezas, mucho menos en un sub-ensamblaje.) Read-only."""
     import pathlib

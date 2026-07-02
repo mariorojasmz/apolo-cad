@@ -52,14 +52,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 644 tests
+.\.venv\Scripts\python.exe -m pytest tests -q     # 676 tests
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **62 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-01)**: 644 tests · 62 tools MCP · 43 comandos · catálogo 217
+- **Estado actual (2026-07-01)**: 676 tests · 64 tools MCP · 45 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frente A (motor de cálculo + memoria + requisitos),
   Frente B (costeo + cotización) y Frente C (uniones curadas, UI de entregables,
   export STL/glTF) cerrados. Proyecto vivo de referencia: `faja-paqueteria-4m` (id 38,
@@ -93,7 +93,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   position/rotation se reemplaza ENTERO); `edit_batch` = N ediciones en UN regenerate
   atómico y 1 undo; `GET /api/schemas/{type}` para no volcar los ~77 KB de schemas.
 
-### Comandos / modelado (43 comandos)
+### Comandos / modelado (45 comandos)
 - Primitivas + croquis restringido (solver scipy) + sweep/loft/hélice (lazo cerrado,
   `is_frenet`) + chapa metálica con **desplegado DXF/SVG** (bend allowance, taladros
   proyectados al blank) + `add_joinery` (espiga/dado/dowel/rebaje — corta EN SITIO,
@@ -109,6 +109,34 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - `fasten`/`ground` (conectividad, `wants_connectivity`): `fasten` acepta dimensionamiento
   opcional `size`/`qty` (perno) y `throat_mm`/`length_mm` (soldadura; `throat` ES la
   garganta, a=0.707·cateto).
+
+### Sub-ensamblajes (grupos de primera clase, V5.2 — 2026-07-01)
+- **Grupos por COMMAND_IDs** (`assembly/groups.py` + comando `create_group` {name,
+  members, parent, role}): la unidad estable del log es el comando (los feature_ids
+  pueden desaparecer al editar counts) → TODAS las piezas presentes/futuras de esos
+  comandos pertenecen. Anidables (`parent` debe declararse ANTES → ciclos imposibles);
+  un comando vive en UN grupo; integridad TOLERANTE (member borrado → `missing_members`,
+  no falla). Campo DERIVADO `feat.group` asignado al final de cada regenerate;
+  checkpoints del incremental = 8-tupla (…, groups). Dispatch: flag `wants_groups` =
+  firma kwargs `(scene, cmd_id, model, *, groups, joints, mates, constraints)`.
+- **`transform_group`**: mueve/rota el grupo ENTERO (recursivo) como cuerpo rígido
+  sobre el centro del bbox CONJUNTO (`move_rotated_about` en kernel/shapes.py — la
+  rotación por pieza de `_world_move` es incorrecta para grupos); las juntas/
+  restricciones INTERNAS viajan con él; una junta/mate que CRUZA la frontera →
+  CommandError claro (verificado en la faja: mover "Rodillos" se rechaza por
+  `j_tensor_cola` hacia el larguero — correcto).
+- **isolate/highlight/fit aceptan NOMBRES de grupo** (`_expand_ids` en api/main.py,
+  cableado en render/pick/drawing_spec/assembly-manual; los nombres no admiten comas).
+  `GET /api/groups` + tools `get_groups`/`auto_group` (62→64 — reiniciar host MCP).
+- **`auto_group`** (`assembly/grouping.py::propose_groups` + POST
+  `/api/assembly/auto-group` con dry_run): la heurística de subsistemas del árbol
+  portada a backend (fuente única); idempotente; sin señal → sin grupo. El **manual de
+  ensamblaje** pagina por grupos cuando existen (faja: 13 pasos heurísticos → 6 = sus
+  sub-ensamblajes); **BOM** con `by_group=True` separa filas y da subtotales por grupo
+  (default byte-idéntico); **árbol UI** renderiza los grupos reales como nivel 1 (+
+  botón "crear grupo desde selección", acciones seleccionar/aislar rama) con fallback
+  heurístico para lo no agrupado. V5.2b pendiente: instanciar un PROYECTO dentro de
+  otro (layouts multi-máquina), `role` consumido por las reglas, drag&drop del árbol.
 
 ### Ensamblaje / cinemática / validación física
 - **Mates** (`assembly/mates.py`): coincidente/distancia/concéntrico/paralelo/ángulo por

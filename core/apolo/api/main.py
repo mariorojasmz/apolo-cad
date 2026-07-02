@@ -186,6 +186,17 @@ def variables_payload() -> list[dict]:
     ]
 
 
+def groups_payload() -> list[dict]:
+    """Grupos/sub-ensamblajes con sus members faltantes (integridad tolerante)."""
+    from apolo.assembly.groups import missing_members
+
+    gone = missing_members(DOC.scene, DOC.groups)
+    return [
+        {**g, "missing_members": gone.get(g["name"], [])}
+        for g in DOC.groups.values()
+    ]
+
+
 def document_payload() -> dict:
     return {
         "name": DOC.name,
@@ -194,8 +205,34 @@ def document_payload() -> dict:
         "can_redo": DOC.can_redo,
         "variables": variables_payload(),
         "configurations": sorted(DOC.configurations.keys()),
+        "groups": groups_payload(),
         "project_id": PROJECT_ID,
     }
+
+
+def _expand_ids(value) -> list[str] | None:
+    """Normaliza un CSV/lista de ids expandiendo cualquier token que sea el NOMBRE de
+    un GRUPO a sus feature_ids (recursivo con sub-grupos). Así isolate/highlight/fit
+    aceptan sub-ensamblajes por nombre sin cambiar firmas."""
+    from apolo.assembly.groups import group_features
+
+    if value is None:
+        return None
+    tokens = ([s.strip() for s in value.split(",")] if isinstance(value, str) else
+              [str(s).strip() for s in value])
+    tokens = [t for t in tokens if t]
+    if not tokens:
+        return None
+    out: list[str] = []
+    with STATE_LOCK:
+        for tok in tokens:
+            if tok in DOC.groups:
+                out.extend(group_features(DOC.scene, DOC.groups, tok, recursive=True))
+            else:
+                out.append(tok)
+    # dedup conservando orden
+    seen: set[str] = set()
+    return [x for x in out if not (x in seen or seen.add(x))]
 
 
 _DEF_MESH_CACHE: dict[str, dict] = {}
@@ -258,6 +295,7 @@ def scene_payload() -> dict:
             "command_type": cmd_types.get(feat.command_id),
             "component": feat.component,
             "cut_length": feat.cut_length,
+            "group": feat.group,
         }
         if def_mesh is not None:
             definitions[feat.mesh_key] = def_mesh
@@ -533,6 +571,13 @@ def get_feature_topology(feature_id: str) -> dict:
     return {"feature_id": feature_id, "name": feat.name, **topo}
 
 
+@app.get("/api/groups")
+def get_groups_endpoint() -> dict:
+    """Grupos/sub-ensamblajes del documento (con members faltantes). Read-only."""
+    with STATE_LOCK:
+        return {"groups": groups_payload()}
+
+
 @app.get("/api/mass-properties")
 def mass_properties(ids: str | None = None) -> dict:
     """Masa, centro de gravedad y bbox por pieza y del conjunto. Sin `ids`
@@ -621,8 +666,8 @@ def pick_endpoint(
     igual que la foto → coherencia render↔pick. Read-only."""
     from apolo.kernel.pick import pick_point
 
-    fit_ids = [s.strip() for s in fit.split(",") if s.strip()] if fit else None
-    isolate_ids = [s.strip() for s in isolate.split(",") if s.strip()] if isolate else None
+    fit_ids = _expand_ids(fit)  # acepta NOMBRES de grupo (V5.2)
+    isolate_ids = _expand_ids(isolate)
     pan_xy = None
     if pan:
         try:
@@ -1092,6 +1137,31 @@ def assembly_declare() -> dict:
         return _state_or_error(lambda: execute_batch(DOC, actions))
 
 
+class AutoGroupIn(BaseModel):
+    dry_run: bool = False
+
+
+@app.post("/api/assembly/auto-group")
+def assembly_auto_group(body: AutoGroupIn) -> dict:
+    """Auto-agrupa el modelo en SUB-ENSAMBLAJES por subsistema (misma heurística del
+    árbol: super-comando → catálogo → palabra clave del nombre). Idempotente (omite
+    grupos ya existentes y comandos ya agrupados); con `dry_run` solo PROPONE sin
+    mutar. Los grupos quedan como comandos `create_group` del log (undo/persistencia)."""
+    from apolo.assembly.grouping import propose_groups
+    from apolo.batch import execute_batch
+    from apolo.library.catalog import CATALOG
+
+    with STATE_LOCK:
+        proposal = propose_groups(DOC.scene, DOC.commands, CATALOG, DOC.groups)
+        if body.dry_run or not proposal:
+            return {"dry_run": body.dry_run, "proposal": proposal, "created": 0}
+        actions = [{"type": "create_group", "params": g} for g in proposal]
+        payload = _state_or_error(lambda: execute_batch(DOC, actions))
+    payload["proposal"] = proposal
+    payload["created"] = len(proposal)
+    return payload
+
+
 @app.post("/api/assembly/soundness")
 def assembly_soundness(body: SoundnessIn) -> dict:
     """Validación de ensamblaje: ¿cada pieza tiene un camino de sujeción hasta el
@@ -1376,9 +1446,9 @@ def render_png(
     vía VTK (vista única)."""
     from apolo.kernel.render import render_scene_png
 
-    highlight_ids = [s.strip() for s in highlight.split(",") if s.strip()] if highlight else None
-    fit_ids = [s.strip() for s in fit.split(",") if s.strip()] if fit else None
-    isolate_ids = [s.strip() for s in isolate.split(",") if s.strip()] if isolate else None
+    highlight_ids = _expand_ids(highlight)  # acepta NOMBRES de grupo (V5.2)
+    fit_ids = _expand_ids(fit)
+    isolate_ids = _expand_ids(isolate)
     view_list = [s.strip() for s in views.split(",") if s.strip()] if views else None
     pan_xy = None
     if pan:
@@ -1909,7 +1979,7 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
     with STATE_LOCK:
         scene = DOC.scene
         if isolate:
-            ids = [s.strip() for s in isolate.split(",") if s.strip()]
+            ids = _expand_ids(isolate) or []  # acepta NOMBRES de grupo (V5.2)
             scene = {fid: DOC.scene[fid] for fid in ids if fid in DOC.scene}
             if not scene:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
@@ -1959,7 +2029,8 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
     with STATE_LOCK:
         scene = DOC.scene
         if spec.isolate:
-            scene = {fid: scene[fid] for fid in spec.isolate if fid in scene}
+            iso = _expand_ids(spec.isolate) or []  # acepta NOMBRES de grupo (V5.2)
+            scene = {fid: scene[fid] for fid in iso if fid in scene}
             if not scene:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
         try:

@@ -22,14 +22,21 @@ def _base_name(name: str) -> str:
     return _INSTANCE_SUFFIX.sub("", name or "").strip()
 
 
-def bom_from_scene(scene: dict, default_material: str = "acero") -> list[dict]:
+def bom_from_scene(scene: dict, default_material: str = "acero",
+                   by_group: bool = False) -> list[dict]:
+    """BOM agrupado por referencia+corte (catálogo) o firma geométrica (a medida).
+    Con `by_group=True` (V5.2) cada fila lleva además su `grupo` (sub-ensamblaje) y
+    las piezas iguales de grupos DISTINTOS salen en filas separadas — para subtotales
+    por sub-ensamblaje. El default es byte-idéntico al histórico."""
     rows: dict[tuple, dict] = {}
     for sid, feat in scene.items():
+        grp = getattr(feat, "group", None) if by_group else None
         component = getattr(feat, "component", None)
         if component and component in CATALOG:
             comp = CATALOG[component]
             cut = getattr(feat, "cut_length", None)
-            key = (component, round(cut, 1) if cut else None)
+            key = (component, round(cut, 1) if cut else None, grp) if by_group else (
+                component, round(cut, 1) if cut else None)
             if key not in rows:
                 unit_weight = (
                     comp.weight * (cut / 1000.0) if comp.cuttable and cut else comp.weight
@@ -45,6 +52,7 @@ def bom_from_scene(scene: dict, default_material: str = "acero") -> list[dict]:
                     "peso_unitario_kg": round(unit_weight, 3),
                     "peso_total_kg": 0.0,
                     "_rep": sid,  # pieza representante (globos en lámina)
+                    **({"grupo": grp} if by_group else {}),
                 }
             rows[key]["cantidad"] += 1
         else:
@@ -66,6 +74,8 @@ def bom_from_scene(scene: dict, default_material: str = "acero") -> list[dict]:
             # material + volumen + bbox): patrones, espejos y copias idénticos colapsan
             # en una fila con su cantidad, sin confundir piezas DISTINTAS.
             key = ("__custom__", base, mat, round(vol, 1) if vol is not None else None, dims)
+            if by_group:
+                key = key + (grp,)
             if key not in rows:
                 rows[key] = {
                     "ref": "A-MEDIDA",
@@ -78,6 +88,7 @@ def bom_from_scene(scene: dict, default_material: str = "acero") -> list[dict]:
                     "peso_unitario_kg": round(vol * density(mat), 3) if vol is not None else None,
                     "peso_total_kg": None,
                     "_rep": sid,
+                    **({"grupo": grp} if by_group else {}),
                 }
             rows[key]["cantidad"] += 1
 

@@ -51,24 +51,31 @@ def _pretty(tok: str, is_hw: bool) -> str:
 
 
 def assembly_steps(scene: dict, commands: list[dict], catalog) -> list[dict]:
-    """Deriva los PASOS de montaje: agrupa las features visibles (herraje por familia de
-    catálogo; a medida por token inicial del nombre) y ordena por su primera aparición en el
-    log de comandos. Devuelve [{label, ids, first, is_hw}] ya ordenado."""
+    """Deriva los PASOS de montaje. Las features con GRUPO declarado (sub-ensamblaje
+    V5.2, `feat.group`) forman un paso por grupo (label = nombre del grupo); las no
+    agrupadas caen a la heurística de siempre (herraje por familia de catálogo; a medida
+    por token inicial del nombre). Todo ordenado por primera aparición en el log.
+    Devuelve [{label, ids, first, is_hw}] ya ordenado."""
     cmd_index = {c["id"]: i for i, c in enumerate(commands)}
     groups: dict[tuple, dict] = {}
     for fid, f in scene.items():
         if not getattr(f, "visible", True):
             continue
-        comp = catalog.get(getattr(f, "component", None) or "")
-        if comp is not None:                 # herraje: agrupa por familia
-            key, tok, is_hw = ("hw", comp.category), comp.category, True
-        else:                                 # a medida: token inicial del nombre (split _ y espacio)
-            name = (f.name or fid).strip()
-            tok = (name.split() or [name])[0].split("_")[0]
-            key, is_hw = ("p", tok.lower()), False
+        declared = getattr(f, "group", None)
+        if declared:                          # sub-ensamblaje declarado: un paso por grupo
+            key, tok, is_hw = ("grp", declared), declared, False
+        else:
+            comp = catalog.get(getattr(f, "component", None) or "")
+            if comp is not None:              # herraje: agrupa por familia
+                key, tok, is_hw = ("hw", comp.category), comp.category, True
+            else:                             # a medida: token inicial del nombre (split _ y espacio)
+                name = (f.name or fid).strip()
+                tok = (name.split() or [name])[0].split("_")[0]
+                key, is_hw = ("p", tok.lower()), False
         g = groups.get(key)
         if g is None:
-            g = groups[key] = {"label": _pretty(tok, is_hw), "ids": [], "first": 1 << 30, "is_hw": is_hw}
+            label = tok if key[0] == "grp" else _pretty(tok, is_hw)
+            g = groups[key] = {"label": label, "ids": [], "first": 1 << 30, "is_hw": is_hw}
         g["ids"].append(fid)
         g["first"] = min(g["first"], cmd_index.get(getattr(f, "command_id", ""), 1 << 30))
     return sorted(groups.values(), key=lambda g: (g["first"], g["label"]))

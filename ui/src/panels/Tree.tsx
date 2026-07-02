@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   Search, Eye, EyeOff, Focus, Filter, Trash2, ChevronRight, ChevronDown, ChevronsDownUp,
-  Frame, Cog, Cylinder, CircleDot, Bolt, Shield, Gauge, Wrench, Box, Layers, Table,
+  Frame, Cog, Cylinder, CircleDot, Bolt, Shield, Gauge, Wrench, Box, Boxes, Layers, Table,
   type LucideIcon,
 } from "lucide-react";
 import { selectFeatures, useStore } from "../state/store";
@@ -146,18 +146,37 @@ export default function Tree() {
     );
   }, [features, query]);
 
-  // agrupar por ROL (no por comando: une piezas iguales de comandos distintos),
-  // luego repartir cada grupo de rol en su subsistema
-  const tree = useMemo(() => {
-    const byRole = new Map<string, FeatureOut[]>();
-    for (const f of filtered) {
-      const role = roleOf(f);
-      const list = byRole.get(role) ?? [];
+  // 1) los GRUPOS DECLARADOS del documento (sub-ensamblajes V5.2, feat.group)
+  //    renderizan PRIMERO como nivel 1; 2) lo NO agrupado cae a la heurística de
+  //    siempre (subsistema por comando/catálogo/nombre). Dentro de cada nivel 1 las
+  //    piezas se sub-agrupan por ROL igual que antes.
+  const [tree, realGroups] = useMemo(() => {
+    const declared = filtered.filter((f) => f.group);
+    const rest = filtered.filter((f) => !f.group);
+    const byRoleOf = (items: FeatureOut[]) => {
+      const m = new Map<string, FeatureOut[]>();
+      for (const f of items) {
+        const role = roleOf(f);
+        const list = m.get(role) ?? [];
+        list.push(f);
+        m.set(role, list);
+      }
+      return m;
+    };
+    const out: [string, [string, FeatureOut[]][]][] = [];
+    const real = new Set<string>();
+    const byGroup = new Map<string, FeatureOut[]>();
+    for (const f of declared) {
+      const list = byGroup.get(f.group!) ?? [];
       list.push(f);
-      byRole.set(role, list);
+      byGroup.set(f.group!, list);
+    }
+    for (const [gname, items] of byGroup) {
+      real.add(gname);
+      out.push([gname, [...byRoleOf(items)]]);
     }
     const buckets = new Map<string, [string, FeatureOut[]][]>();
-    for (const [role, members] of byRole) {
+    for (const [role, members] of byRoleOf(rest)) {
       const sub = subsystemOfGroup(members);
       const arr = buckets.get(sub) ?? [];
       arr.push([role, members]);
@@ -169,9 +188,8 @@ export default function Tree() {
       .filter((k) => !ORDER.includes(k))
       .sort((a, b) => count(b) - count(a));
     const tail = ["A medida", "Otros"].filter((s) => buckets.has(s));
-    return [...known, ...dynamic, ...tail].map(
-      (s) => [s, buckets.get(s)!] as [string, [string, FeatureOut[]][]],
-    );
+    for (const s of [...known, ...dynamic, ...tail]) out.push([s, buckets.get(s)!]);
+    return [out, real] as const;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, catBySub]);
 
@@ -253,6 +271,21 @@ export default function Tree() {
         <div className="tree-top-right">
           <button
             className="tree-collapse"
+            title="Crear grupo (sub-ensamblaje) desde la selección"
+            disabled={selection.length === 0}
+            onClick={() => {
+              const name = window.prompt("Nombre del grupo (sub-ensamblaje):");
+              if (!name) return;
+              const members = [...new Set(
+                features.filter((f) => selection.includes(f.id)).map((f) => f.command_id),
+              )];
+              void runCommand("create_group", { name: name.trim(), members });
+            }}
+          >
+            <Boxes size={14} />
+          </button>
+          <button
+            className="tree-collapse"
             title="Colapsar todo"
             disabled={allCollapsed}
             onClick={collapseAll}
@@ -286,7 +319,7 @@ export default function Tree() {
           const subKey = `sub:${sub}`;
           const subIds = groups.flatMap(([, m]) => m.map((f) => f.id));
           const allVisible = subIds.every((id) => features.find((f) => f.id === id)?.visible);
-          const SubIcon = SUB_ICON[sub] ?? Box;
+          const SubIcon = realGroups.has(sub) ? Boxes : (SUB_ICON[sub] ?? Box);
           return (
             <li key={subKey} className="tree-group">
               <div className="group-head sub-head" onClick={() => toggleCollapse(subKey)}>
@@ -294,6 +327,24 @@ export default function Tree() {
                 <SubIcon size={15} className="type-ic" aria-hidden />
                 <strong className="name">{sub}</strong>
                 <span className="count-badge">{subIds.length}</span>
+                {realGroups.has(sub) && (
+                  <>
+                    <button
+                      className="head-eye"
+                      title="Seleccionar el sub-ensamblaje"
+                      onClick={(e) => { e.stopPropagation(); select(subIds); }}
+                    >
+                      <Boxes size={13} />
+                    </button>
+                    <button
+                      className="head-eye"
+                      title="Aislar el sub-ensamblaje (ocultar el resto)"
+                      onClick={(e) => { e.stopPropagation(); void isolate(subIds); }}
+                    >
+                      <Filter size={13} />
+                    </button>
+                  </>
+                )}
                 <button
                   className="head-eye"
                   title={allVisible ? "Ocultar todo" : "Mostrar todo"}

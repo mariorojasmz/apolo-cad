@@ -17,6 +17,7 @@ export interface FeatureOut {
   command_type: string | null;
   component: string | null;
   cut_length: number | null;
+  group: string | null;
 }
 
 export interface CatalogItem {
@@ -86,6 +87,16 @@ export interface CommandRecord {
   params: Record<string, unknown>;
 }
 
+/* Sub-ensamblaje declarado (V5.2): grupo con nombre por command_ids, anidable. */
+export interface GroupOut {
+  name: string;
+  parent: string | null;
+  role: string | null;
+  members: string[];
+  command_id: string;
+  missing_members: string[];
+}
+
 export interface VariableOut {
   name: string;
   expression: string;
@@ -100,6 +111,7 @@ export interface DocumentOut {
   can_redo: boolean;
   variables: VariableOut[];
   configurations: string[];
+  groups: GroupOut[];
   project_id: number | null;
 }
 
