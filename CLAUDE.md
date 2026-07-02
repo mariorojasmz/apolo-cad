@@ -302,16 +302,19 @@ mapa/convenciones + actualizar los conteos de "Estado actual". La NARRATIVA larg
 amerita, se appendea a `docs/devlog.md`. No duplicar: si una lección ya existe, afinarla
 en su sitio. Este archivo se carga en CADA sesión — cada línea cuesta contexto.
 
-## Madurez — línea base (2026-06-17, escala vs incumbente maduro = 10)
+## Madurez — línea base (act. 2026-07-01, escala vs incumbente maduro = 10)
 
-Cuando el usuario pregunte cómo madura Apolo, comparar contra esto. Veredicto base: MVP
-coherente en su nicho, kernel nivel FreeCAD, con capacidad agente-nativa que ningún
-grande tiene (~5-15 % de la superficie de Fusion/SolidWorks; es una CUÑA, no un
-reemplazo). IA-nativa/API-first **9** ⭐ (el moat) · kernel OCCT 6 · paramétrico 4-5 ·
-croquis 3 · ensamblaje 3-4 · planos 4→6 (sistema pro) · simulación 2 (analítico+MuJoCo,
-sin FEA) · interop 5 · rendimiento 4 · robustez 3 · CAM 0 (deliberado) · colaboración 1 ·
-ecosistema 1. Medir progreso por PROFUNDIDAD del vertical (catálogo + validación real +
-entregables fabricables/cotizables), no por paridad de features.
+Cuando el usuario pregunte cómo madura Apolo, comparar contra esto y reportar qué subió.
+Veredicto: como CAD GENERAL ~10-15 % de la superficie de SW/Inventor (kernel nivel
+FreeCAD; es una CUÑA, no un reemplazo); como herramienta del VERTICAL cubre ~80 % del
+flujo real (requisitos→3D validado→planos→memoria→cotización, autónomo — categoría que
+los grandes no ocupan). IA-nativa/API-first **9.5** ⭐ (el moat) · kernel OCCT 6 ·
+paramétrico 5 · croquis 3 (el eslabón más débil) · ensamblaje 4.5 (soundness/gravity es
+único) · planos 6 (sistema pro A-G) · simulación 3 (analítico con FS + MuJoCo, sin FEA)
+· entregables de negocio 6 (memoria+cotización) · interop 5.5 · rendimiento 4 ·
+robustez 3 · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
+planos se DERIVAN del paramétrico (él es lienzo 2D manual — otra categoría). Medir
+progreso por PROFUNDIDAD del vertical, no por paridad de features.
 
 ## Pendientes (follow-ups vivos, todo por demanda)
 
