@@ -2170,3 +2170,49 @@ como **proceso externo** para evitar contaminación. Verificar licencia vigente 
 
 CAM, FEA real grado Fusion (aplazado), PCB/electrónica, nube multiusuario, diseño
 generativo topológico. Backlog opcional bajo demanda: empaquetado Tauri, plantillas AGV.
+
+## V5.2b — `insert_project`: proyecto dentro de proyecto (2026-07-02)
+
+Cierra el ítem (2) del Tier 1: layouts multi-máquina. Comando nº 46, construido
+directamente sobre los grupos de V5.2.
+
+**Decisiones de diseño** (el detalle operativo vive en CLAUDE.md § Sub-ensamblajes):
+
+- **Snapshot embebido, NO enlace vivo**: la capa API materializa `project_id` →
+  attachment (.apolo del origen, content-addressed SHA256[:16]) igual que
+  `/api/import`. Tres doctrinas a la vez: el `.apolo` del layout es AUTOCONTENIDO,
+  `commands/` no conoce `projects.py`, y los tests no tocan SQLite. Refresh explícito
+  = `edit_command {"attachment": ""}` (mismo hash si el origen no cambió → no-op).
+- **Sandbox replay** (`doc/subproject.py`): `from_apolo_bytes(regenerate=False)` +
+  pisar los `set_variable` con los overrides ANTES del único regenerate → namespaces
+  de variables aislados por construcción; `"=expr"` en overrides resuelve contra el
+  ANFITRIÓN (resolve_params es recursivo — gratis). Caché por (digest, overrides),
+  cap 8 FIFO: N instancias iguales = 1 replay. `MAX_DEPTH=3` (los snapshots anidados
+  son autocontenidos; ciclo A-en-A imposible por copia + guard en la API).
+- **Emisión prefijada**: fids y command_ids sintéticos `{cmd}_{orig}` (preservan la
+  exclusión intra-comando de check_interference y la membresía de grupos); juntas y
+  rail-constraints viajan con origin/axis transformados; fasteners con su
+  dimensionamiento; grounds bajo `keep_grounds` (editable); grupos internos del origen
+  = grupos REALES de A anidados `"{name}/{grupo}"` bajo el raíz. **Mates BAKED**: la
+  pose ya la resolvió el sandbox; re-registrarlos exigiría transformar refs
+  declarativas (frágil) y pagar solve_mates por instancia en cada regenerate, para
+  nada — la instancia es rígida y "editar B se hace en B".
+- Dispatch: flag nuevo `wants_all` (firma kwargs total), sin tocar `wants_groups`.
+- Fixes de paso en document.py: `preview()` no copiaba attachments (afectaba también
+  a previsualizar import_step) y el regenerate pisaba `feat.material` de executor.
+- Cero endpoints nuevos, cero tools MCP nuevas, cero cambios de UI (schema-driven).
+
+**Verificación**: 30 tests nuevos (706 total) — prefijado, overrides, transform del
+grupo raíz con juntas, keep_grounds, undo/redo, round-trip autocontenido, recursión
+y MAX_DEPTH, caché e instancing de mallas, colisión de nombres con rollback, API
+(materialización con FakeStore, refresh, auto-referencia 400, batch, isolate por
+nombre, preview sin mutar). E2E real: `layout-planta-demo` (id 53) = 2 instancias de
+`faja-paqueteria-4m` (id 38) + mesa transfer a-medida; 149/149 sujetas (grounds
+importados), 0 interferencias entre instancias, gravity limpio, BOM `by_group` con
+subtotales por instancia/sub-ensamblaje, manual paginado por grupos, refresh no-op
+verificado por hash. Hallazgo del E2E: el 38 es solo PARCIALMENTE paramétrico (el
+conjunto motriz usa literales `Pos(3806,…)` en run_scripts → flota al encoger
+`largo_total` — mismo comportamiento editando la variable en el propio 38; queda
+task pendiente de atarlo a variables). De paso: `GET /api/bom` ganó `by_group` (la
+función ya lo soportaba; el endpoint no lo exponía) y el filtro `diff` del MCP ahora
+matchea command_ids sintéticos por prefijo.

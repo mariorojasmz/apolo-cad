@@ -391,9 +391,49 @@ class CommandIn(BaseModel):
     params: dict = {}
 
 
+def _materialize_insert_project(cmd_type: str, params: dict) -> dict:
+    """V5.2b: convierte project_id → attachment embebido (snapshot .apolo) para
+    insert_project. Solo la capa API conoce el ProjectStore (el executor es puro y
+    el .apolo del layout queda autocontenido). Content-addressed: re-materializar
+    sin cambios en el origen reusa el mismo hash (regenerate no-op). Llamar SIEMPRE
+    bajo STATE_LOCK (muta DOC.attachments)."""
+    if cmd_type != "insert_project" or not isinstance(params, dict) or params.get("attachment"):
+        return params
+    pid = params.get("project_id")
+    if pid is None:
+        return params  # el validador pydantic del comando dará el error claro
+    if STORE is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No hay almacén de proyectos: insert_project necesita la API con startup",
+        )
+    if PROJECT_ID is not None and int(pid) == PROJECT_ID:
+        raise HTTPException(
+            status_code=400, detail="Un proyecto no puede instanciarse dentro de sí mismo"
+        )
+    try:
+        data = STORE.load_bytes(int(pid))
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {**params, "attachment": DOC.add_attachment(data)}
+
+
+def _materialize_edit(command_id: str, params: dict, merge: bool) -> dict:
+    """Pre-materializa un edit sobre un insert_project (refresh: {'attachment': ''}).
+    Devuelve los params COMPLETOS ya fusionados y materializados; re-fusionarlos
+    después (merge) es idempotente."""
+    cmd = next((c for c in DOC.commands if c["id"] == command_id), None)
+    if cmd is None or cmd["type"] != "insert_project":
+        return params
+    full = {**cmd["params"], **params} if merge else params
+    return _materialize_insert_project("insert_project", full)
+
+
 @app.post("/api/commands")
 def post_command(cmd: CommandIn) -> dict:
-    return _state_or_error(lambda: DOC.execute(cmd.type, cmd.params))
+    return _state_or_error(
+        lambda: DOC.execute(cmd.type, _materialize_insert_project(cmd.type, cmd.params))
+    )
 
 
 class BatchIn(BaseModel):
@@ -405,7 +445,13 @@ def post_batch(batch: BatchIn) -> dict:
     from apolo.batch import execute_batch
 
     return _state_or_error(
-        lambda: execute_batch(DOC, [{"type": a.type, "params": a.params} for a in batch.actions])
+        lambda: execute_batch(
+            DOC,
+            [
+                {"type": a.type, "params": _materialize_insert_project(a.type, a.params)}
+                for a in batch.actions
+            ],
+        )
     )
 
 
@@ -422,7 +468,13 @@ class EditBatchIn(BaseModel):
 def patch_batch(batch: EditBatchIn, merge: bool = False) -> dict:
     return _state_or_error(
         lambda: DOC.edit_many(
-            [{"command_id": e.command_id, "params": e.params} for e in batch.edits],
+            [
+                {
+                    "command_id": e.command_id,
+                    "params": _materialize_edit(e.command_id, e.params, merge),
+                }
+                for e in batch.edits
+            ],
             merge=merge,
         )
     )
@@ -446,7 +498,10 @@ def preview_commands(body: PreviewIn) -> Response:
     with STATE_LOCK:
         try:
             scene, new_ids = DOC.preview(
-                [{"type": a.type, "params": a.params} for a in body.actions]
+                [
+                    {"type": a.type, "params": _materialize_insert_project(a.type, a.params)}
+                    for a in body.actions
+                ]
             )
         except (CommandError, DocumentError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -468,7 +523,12 @@ class ParamsIn(BaseModel):
 @app.put("/api/commands/{command_id}")
 def edit_command(command_id: str, body: ParamsIn, transient: bool = False, merge: bool = False) -> dict:
     return _state_or_error(
-        lambda: DOC.edit(command_id, body.params, coalesce=transient, merge=merge)
+        lambda: DOC.edit(
+            command_id,
+            _materialize_edit(command_id, body.params, merge),
+            coalesce=transient,
+            merge=merge,
+        )
     )
 
 
@@ -858,9 +918,11 @@ def get_catalog(category: str | None = None, names_only: bool = False) -> list[d
 
 
 @app.get("/api/bom")
-def get_bom() -> list[dict]:
+def get_bom(by_group: bool = False) -> list[dict]:
+    """Con `by_group=true` cada fila lleva su `grupo` (sub-ensamblaje) y las piezas
+    iguales de grupos distintos salen separadas — subtotales por grupo/instancia."""
     with STATE_LOCK:
-        return bom_from_scene(DOC.scene, DOC.default_material())
+        return bom_from_scene(DOC.scene, DOC.default_material(), by_group=by_group)
 
 
 @app.get("/api/costing.json")

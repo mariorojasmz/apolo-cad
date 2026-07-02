@@ -83,7 +83,13 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
     if detail == "full" or (detail == "diff" and not affected):
         shown = feats
     else:
-        shown = [f for f in feats if f["command_id"] in affected]
+        # prefijo: las piezas de un insert_project llevan command_id sintético
+        # '{cmd}_{cmd_origen}' — también son "del comando afectado"
+        shown = [
+            f for f in feats
+            if f["command_id"] in affected
+            or any(f["command_id"].startswith(a + "_") for a in affected)
+        ]
 
     if detail == "summary":
         solidos = [

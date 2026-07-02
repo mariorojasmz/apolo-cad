@@ -193,7 +193,9 @@ class Document:
         assign_feature_groups(scene, groups)
         for fid, feat in scene.items():
             feat.visible = fid not in self.hidden
-            feat.material = self.materials.get(fid)
+            # .get con default: un executor puede haber seteado ya el material de la
+            # pieza (insert_project importa los del proyecto origen) — no pisarlo
+            feat.material = self.materials.get(fid, feat.material)
         self.scene = scene
         self.joints = joints
         self.mates = mates
@@ -334,6 +336,8 @@ class Document:
         clone.hidden = set(self.hidden)
         clone._seq = self._seq
         clone.variables_raw = dict(self.variables_raw)
+        clone.attachments = dict(self.attachments)  # import_step/insert_project los leen
+        clone.materials = dict(self.materials)
         clone._regen_sigs = list(self._regen_sigs)
         clone._regen_ckpts = dict(self._regen_ckpts)  # comparte refs de shape OCCT (read-only)
         if actions:
@@ -561,7 +565,9 @@ class Document:
         Path(path).write_bytes(self.to_apolo_bytes())
 
     @classmethod
-    def from_apolo_bytes(cls, data: bytes) -> "Document":
+    def from_apolo_bytes(cls, data: bytes, *, regenerate: bool = True) -> "Document":
+        """Con ``regenerate=False`` devuelve el documento SIN reproducir el log —
+        para editarlo antes del primer replay (sandbox de insert_project)."""
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
                 manifest = json.loads(zf.read("manifest.json"))
@@ -589,7 +595,8 @@ class Document:
         doc.requirements = manifest.get("requirements", {})
         doc.agent_notes = manifest.get("agent_notes", [])
         doc._seq = manifest.get("seq", len(commands))
-        doc.regenerate()
+        if regenerate:
+            doc.regenerate()
         return doc
 
     @classmethod

@@ -1005,6 +1005,52 @@ class TransformGroupParams(BaseModel):
     rotate: Vec3 = Field(default_factory=Vec3, title="Rotación", description="grados sobre el centro del grupo; acepta =expr")
 
 
+class InsertProjectParams(BaseModel):
+    """Instancia un PROYECTO guardado COMPLETO como sub-ensamblaje (layouts
+    multi-máquina, V5.2b). Da `project_id` (descúbrelo con list_projects): la API
+    embebe su SNAPSHOT .apolo como attachment, así el layout queda AUTOCONTENIDO y
+    los cambios posteriores en el proyecto origen NO se propagan solos. Refresh
+    explícito: edita este comando con {"attachment": ""} (merge) para re-embeber la
+    versión actual del origen. Editar el INTERIOR de la instancia se hace ABRIENDO
+    el proyecto origen, no aquí (aquí solo overrides/posición/rotación). Crea un
+    grupo raíz `name` (y los grupos internos del origen como '{name}/{grupo}'):
+    isolate/transform_group/BOM/manual lo tratan como sub-ensamblaje. `overrides`
+    pisa variables del origen — parametricidad por instancia (dos fajas de largos
+    distintos). Las juntas/restricciones/fijadores/anclajes internos viajan; los
+    mates del origen llegan ya resueltos (baked)."""
+
+    project_id: int | None = Field(
+        None, ge=1, title="Proyecto",
+        description="id del proyecto guardado (list_projects); la API lo materializa a attachment",
+    )
+    attachment: str = Field(
+        "", title="Snapshot",
+        description="hash del .apolo embebido (lo rellena la API; vacío = (re)materializar desde project_id)",
+    )
+    # sin comas (token en los CSV de isolate/highlight) ni '/' (separador de los
+    # nombres de grupo internos '{name}/{grupo}')
+    name: str = Field(
+        ..., pattern=r"^[^\s,/][^,/]*$", max_length=30, title="Nombre",
+        description="nombre de la instancia = grupo raíz (único en el documento)",
+    )
+    overrides: dict[str, float] = Field(
+        default_factory=dict, title="Overrides",
+        description='pisa variables del origen: {"largo": 3000} o {"largo": "=L_faja2"} (=expr usa variables de ESTE proyecto)',
+    )
+    position: Vec3 = Field(default_factory=Vec3, title="Posición")
+    rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
+    keep_grounds: bool = Field(
+        True, title="Conservar anclajes",
+        description="importa los anclajes a tierra del origen (máquina apoyada en piso sigue apoyada); desactívalo al elevarla",
+    )
+
+    @model_validator(mode="after")
+    def _source_required(self) -> "InsertProjectParams":
+        if self.project_id is None and not self.attachment:
+            raise ValueError("indica project_id (o un attachment ya materializado)")
+        return self
+
+
 class GroundParams(BaseModel):
     """Ancla un sólido a TIERRA (fijo al piso/cimiento). En la validación de ensamblaje las
     piezas ancladas son el origen del 'camino de sujeción': una pieza está bien sujeta si

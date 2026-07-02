@@ -59,11 +59,12 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-01)**: 676 tests · 64 tools MCP · 45 comandos · catálogo 217
+- **Estado actual (2026-07-02)**: 706 tests · 64 tools MCP · 46 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frente A (motor de cálculo + memoria + requisitos),
   Frente B (costeo + cotización) y Frente C (uniones curadas, UI de entregables,
-  export STL/glTF) cerrados. Proyecto vivo de referencia: `faja-paqueteria-4m` (id 38,
-  72 sólidos, memoria de cálculo **APROBADO**).
+  export STL/glTF) cerrados · V5.2 + V5.2b (sub-ensamblajes + `insert_project`)
+  cerrados. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria
+  **APROBADO**) y `layout-planta-demo` (id 53, 149 sólidos, 2 instancias del 38 + mesa).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
   viewport — usar `vite preview`).
@@ -93,7 +94,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   position/rotation se reemplaza ENTERO); `edit_batch` = N ediciones en UN regenerate
   atómico y 1 undo; `GET /api/schemas/{type}` para no volcar los ~77 KB de schemas.
 
-### Comandos / modelado (45 comandos)
+### Comandos / modelado (46 comandos)
 - Primitivas + croquis restringido (solver scipy) + sweep/loft/hélice (lazo cerrado,
   `is_frenet`) + chapa metálica con **desplegado DXF/SVG** (bend allowance, taladros
   proyectados al blank) + `add_joinery` (espiga/dado/dowel/rebaje — corta EN SITIO,
@@ -135,8 +136,25 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   sub-ensamblajes); **BOM** con `by_group=True` separa filas y da subtotales por grupo
   (default byte-idéntico); **árbol UI** renderiza los grupos reales como nivel 1 (+
   botón "crear grupo desde selección", acciones seleccionar/aislar rama) con fallback
-  heurístico para lo no agrupado. V5.2b pendiente: instanciar un PROYECTO dentro de
-  otro (layouts multi-máquina), `role` consumido por las reglas, drag&drop del árbol.
+  heurístico para lo no agrupado. V5.2b pendiente: `role` consumido por las reglas,
+  drag&drop del árbol.
+- **`insert_project` (V5.2b — 2026-07-02)**: instancia un PROYECTO guardado completo
+  como sub-ensamblaje (layouts multi-máquina). SNAPSHOT embebido: la capa API
+  materializa `project_id`→attachment (`_materialize_insert_project`, espejo de
+  `/api/import`; auto-referencia → 400) → el `.apolo` del layout es AUTOCONTENIDO.
+  Executor `wants_all` (firma kwargs total) + sandbox replay en `doc/subproject.py`
+  (caché por digest+overrides cap 8, `MAX_DEPTH=3`; `from_apolo_bytes(regenerate=False)`
+  para pisar `set_variable` ANTES del replay → namespaces aislados). Emite TODO
+  prefijado: fids/command_ids sintéticos `{cmd}_{orig}` (preserva `same_command_pairs`
+  y membresía), juntas/constraints con origin/axis transformados, fasteners con
+  dimensionamiento, grounds (param `keep_grounds`), grupos internos REALES anidados
+  `"{name}/{grupo}"` bajo el raíz `name`; los MATES llegan BAKED (no se re-registran).
+  `overrides` = parametricidad por instancia (`=expr` resuelve contra variables del
+  ANFITRIÓN); refresh = `edit_command {"attachment": ""}` (content-addressed → no-op si
+  el origen no cambió). **Editar B se hace ABRIENDO B**, no desde el layout. OJO: el
+  override solo cascadea lo que el DONANTE ató a variables (el 38 tiene run_scripts con
+  literales → conjunto motriz flotante al encoger; es gap del donante, no del comando).
+  `GET /api/bom?by_group=true` expone los subtotales por grupo/instancia.
 
 ### Ensamblaje / cinemática / validación física
 - **Mates** (`assembly/mates.py`): coincidente/distancia/concéntrico/paralelo/ángulo por
@@ -308,7 +326,10 @@ paso (secuencia derivada del log; `isolate` para sub-ensamblajes). Detector de s
   python del venv).
 - **Cirugía + `--reload`**: cualquier script offline que `import apolo.*` recompila
   `.pyc` → recarga el worker → blanquea el DOC en memoria. El autosave SQLite ya guardó:
-  `open_project(id)` recupera.
+  `open_project(id)` recupera. Dos ediciones `.py` seguidas = dos reloads: si el 2º
+  interrumpe el load del startup (KeyboardInterrupt a medio regenerate), el fallback
+  CREA un proyecto "Sin título" vacío y lo deja como reciente — reabrir el real y
+  borrar el basura desde la UI.
 - Fotografiar piezas = `render_view(isolate=…, zoom)`, NO ocultar/restaurar en vivo.
 - Flujo con el usuario: él testea la UI a mano; los errores caen en `logs/errors.log`;
   al decir «revisa» → leer, agrupar por causa raíz, parchear y limpiar el log.

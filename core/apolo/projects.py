@@ -73,12 +73,16 @@ class ProjectStore:
                 (doc.name, _now(), len(doc.scene), doc.to_apolo_bytes(), project_id),
             )
 
-    def load(self, project_id: int) -> Document:
+    def load_bytes(self, project_id: int) -> bytes:
+        """Bytes .apolo crudos (sin regenerar) — snapshot para insert_project."""
         with self._conn() as con:
             row = con.execute("SELECT data FROM projects WHERE id=?", (project_id,)).fetchone()
         if row is None:
             raise KeyError(f"No existe el proyecto {project_id}")
-        return Document.from_apolo_bytes(row[0])
+        return row[0]
+
+    def load(self, project_id: int) -> Document:
+        return Document.from_apolo_bytes(self.load_bytes(project_id))
 
     def delete(self, project_id: int) -> None:
         with self._conn() as con:
