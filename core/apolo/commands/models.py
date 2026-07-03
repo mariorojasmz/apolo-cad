@@ -637,6 +637,45 @@ class FilletParams(BaseModel):
     radius: float = Field(3, gt=0, le=1000, title="Radio", description="mm")
 
 
+class DeleteFacesParams(BaseModel):
+    """Borra CARAS de un sólido y CURA el hueco extendiendo las vecinas (modelado
+    directo, V5.3): quitar fillets, barrenos o bosses de un STEP de fabricante — o
+    de cualquier sólido. Un barreno suele ser cilindro + cono de avellanado y un
+    fillet una CADENA de caras: usa mode=cerca con count>1 (mira get_topology para
+    verlas) o tangentes=true para expandir la selección a la cadena tangente.
+    Para MOVER un barreno: delete_faces del barreno viejo + drill_hole nuevo (queda
+    paramétrico). Si las vecinas no pueden cerrar el hueco, el comando falla con
+    un error claro (no rompe el sólido)."""
+
+    feature: str = Field(..., title="Sólido", description="id de feature")
+    faces: EdgeSelector = Field(
+        ..., title="Caras", json_schema_extra={"x-selector": "face"}
+    )
+    tangentes: bool = Field(
+        False, title="Expandir cadena de fillet",
+        description="expande a las caras CURVAS vecinas tangentes o de MISMO radio (el anillo "
+                    "completo del fillet); las planas no se agregan (chaflanes: cerca+count)",
+    )
+
+
+class PushFaceParams(BaseModel):
+    """Empuja o jala UNA cara PLANA extruyendo su contorno (modelado directo, V5.3):
+    distance>0 añade material (JALAR), <0 quita (EMPUJAR). Casos: alargar/acortar
+    un eje importado, engrosar una brida, rebajar una base. Semántica honesta: las
+    paredes nuevas salen RECTAS (no extiende caras inclinadas vecinas). Para caras
+    cilíndricas (barrenos) usa delete_faces + drill_hole."""
+
+    feature: str = Field(..., title="Sólido", description="id de feature")
+    face: EdgeSelector = Field(
+        ..., title="Cara", json_schema_extra={"x-selector": "face"},
+        description="debe resolver a UNA cara plana (cerca con count=1, o cara del bbox)",
+    )
+    distance: float = Field(
+        ..., ge=-10000, le=10000, title="Distancia",
+        description="mm; >0 jala (añade material), <0 empuja (quita); acepta =expresión",
+    )
+
+
 class ChamferParams(BaseModel):
     """Achaflana aristas de un sólido con la distancia dada."""
 

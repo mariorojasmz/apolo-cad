@@ -59,12 +59,12 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-02)**: 728 tests · 64 tools MCP · 46 comandos · catálogo 217
+- **Estado actual (2026-07-03)**: 741 tests · 64 tools MCP · 48 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · V5.1 (croquis PlaneGCS),
-  V5.2 + V5.2b (sub-ensamblajes + `insert_project`) cerrados. Proyectos de referencia:
-  `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**), `layout-planta-demo`
-  (id 53, 149 sólidos, 2 instancias del 38 + mesa) y `biela-colisos-demo` (croquis con
-  tangencias/concéntricos, dof=0).
+  V5.2 + V5.2b (sub-ensamblajes + `insert_project`) y V5.3 (modelado directo) cerrados.
+  Proyectos de referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria
+  **APROBADO**), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo`
+  (croquis dof=0) y `pieza-proveedor-demo` (STEP round-trip defeatureado).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
   viewport — usar `vite preview`).
@@ -94,7 +94,18 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   position/rotation se reemplaza ENTERO); `edit_batch` = N ediciones en UN regenerate
   atómico y 1 undo; `GET /api/schemas/{type}` para no volcar los ~77 KB de schemas.
 
-### Comandos / modelado (46 comandos)
+### Comandos / modelado (48 comandos)
+- **Modelado directo (V5.3, `kernel/direct.py`)**: `delete_faces` (OCCT Defeaturing:
+  borra caras y CURA extendiendo las vecinas — quitar fillets/barrenos/bosses de un
+  STEP; flag `tangentes` expande a la cadena de caras CURVAS tangentes **o de mismo
+  radio** — dos tramos de fillet en esquina viva NO son G1; las planas nunca entran
+  a la expansión o la cadena se fuga al sólido) y `push_face` (prisma+booleana sobre
+  UNA cara PLANA; ±distance con `=expr`; paredes nuevas RECTAS — no extiende caras
+  inclinadas vecinas; normal EXTERIOR verificada con clasificador de sólido, nunca
+  `normal_at` a ciegas: las caras STEP vienen REVERSED). Gotchas: cuando OCCT no
+  puede curar devuelve el sólido INTACTO (no-op detectado por caras+volumen → error);
+  mover un barreno = `delete_faces` + `drill_hole` nuevo; `SetOffsetOnFace` (resize
+  radial de barrenos) NO funciona en OCP 7.8.1 (spike NO-GO) — pendiente.
 - **Croquis 2D con PlaneGCS (V5.1)**: `kernel/sketch_solver.py` es una FACHADA de dos
   motores — `sketch_gcs.py` (el solver del Sketcher de FreeCAD, pip `planegcs`, wheel
   cp313; default) y `sketch_scipy.py` (fallback VIVO si no hay wheel; override env
@@ -368,7 +379,8 @@ Cuando el usuario pregunte cómo madura Apolo, comparar contra esto y reportar q
 Veredicto: como CAD GENERAL ~10-15 % de la superficie de SW/Inventor (kernel nivel
 FreeCAD; es una CUÑA, no un reemplazo); como herramienta del VERTICAL cubre ~80 % del
 flujo real (requisitos→3D validado→planos→memoria→cotización, autónomo — categoría que
-los grandes no ocupan). IA-nativa/API-first **9.5** ⭐ (el moat) · kernel OCCT 6 ·
+los grandes no ocupan). IA-nativa/API-first **9.5** ⭐ (el moat) · kernel OCCT 6.5
+(V5.3: modelado directo básico) ·
 paramétrico 5 · croquis 5 (PlaneGCS: dof/redundantes/tangencias — subió de 3 en V5.1;
 falta arrastre en vivo y elipses/splines) · ensamblaje 4.5 (soundness/gravity es
 único) · planos 6 (sistema pro A-G) · simulación 3 (analítico con FS + MuJoCo, sin FEA)
@@ -389,7 +401,7 @@ la clickea). La cuña sigue siendo el vertical; dentro de él, Apolo lo es TODO.
 Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
 - **Tier 1 — bloqueantes diarios**: (1) ~~croquis robusto PlaneGCS~~ **HECHO V5.1**;
   (2) ~~sub-ensamblajes de primera clase~~ **HECHO V5.2/V5.2b** (grupos + insert_project);
-  (3) **modelado directo básico** sobre STEP importado (mover/borrar cara, offset);
+  (3) ~~modelado directo básico~~ **HECHO V5.3** (delete_faces + push_face);
   (4) **ajustes/tolerancias ISO 286** (H7/g6) integrados en cotas y asientos;
   (5) **chapa avanzada** (multi-pliegue, cutouts en pestañas, K-factor por material).
 - **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), **FEA estático

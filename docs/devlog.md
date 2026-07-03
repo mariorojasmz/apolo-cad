@@ -2263,3 +2263,40 @@ verificado offline contra la BD). E2E vivo por MCP: `biela-colisos-demo` — tes
 iterativo devolvió ok/dof=0/sin redundantes a la primera; extrude 84 704.6 mm³ =
 analítico exacto (120·50 + π·25² − 2π·12²)·12; render limpio. Pendientes declarados:
 arrastre en vivo con soft-constraints, elipses/B-splines, cotas driven.
+
+## V5.3 — Modelado directo básico: delete_faces + push_face (2026-07-03)
+
+Cierra el ítem (3) del Tier 1: el STEP de fabricante deja de ser un ladrillo.
+
+**Spike GO/NO-GO** (patrón V5.1): Defeaturing GO (fillet/barreno/STEP round-trip
+curados a volumen exacto en ~40 ms; gotcha: cara incurable → OCCT devuelve el sólido
+INTACTO sin error — se detecta comparando nº de caras + volumen). Prisma+booleana GO
+(± exactos, cara con agujero extiende el agujero, STEP con caras REVERSED manejado
+con `BRepClass3d_SolidClassifier` — nunca `normal_at` a ciegas). `SetOffsetOnFace`
+NO-GO definitivo (StdFail_NotDone o sólido vacío en todas las variantes de OCP
+7.8.1) → sin `offset_face`; resize de barreno = receta delete+redrill; pendiente.
+
+**Kernel** `kernel/direct.py` (wrappers OCCT puros, frontera de topology.py):
+`remove_faces` (Defeaturing + validación + detección de no-op), `push_pull` (solo
+PLANE; prisma comparte el borde exacto de la cara → booleana robusta; semántica
+honesta: paredes rectas), `expand_tangent` (BFS por aristas compartidas). Lección de
+diseño descubierta por los tests: dos tramos de fillet que se encuentran en una
+esquina viva NO son G1 entre sí → la cadena expande por tangencia **o mismo radio**
+(BRepAdaptor cylinder/sphere/torus-menor), y las caras PLANAS nunca entran (el fillet
+es tangente a sus caras base por construcción — sin ese corte la cadena se fuga al
+sólido entero). Comandos `delete_faces` (flag `tangentes`) y `push_face` (±distance
+con `=expr`), patrón fillet (mutación en sitio + make_unique → mates/juntas
+sobreviven; guarda contra mode="todas"). Cero cambios de UI (SelectorField universal
+con picker), cero tools MCP.
+
+**Verificación**: 13 tests nuevos (741 total) — volúmenes analíticos SIEMPRE (nunca
+conteos de caras: el resultado de Defeaturing puede variar entre versiones OCCT),
+cadena tangente desde una cara, errores accionables, paramétrico `=h_extra`,
+roundtrip .apolo con STEP (el log re-resuelve el selector), instancing, API HTTP.
+E2E vivo (`pieza-proveedor-demo`): soporte nativo con fillet r6 + 2 barrenos →
+export STEP → import (volumen idéntico 138 636.4) → cirugía en UN batch: quitar el
+anillo de fillet (tangentes desde 1 cara), MOVER un barreno (delete+redrill) y
+alargar con `push_face distance="=extra"` → 377 716.8 mm³ = analítico exacto; editar
+la variable 25→10 re-ejecutó todo el log de modelado directo → 236 073.0 = exacto.
+Fuera de alcance declarado: move_face real, push-pull con extensión de caras
+inclinadas, offset de B-splines, hole recognition.

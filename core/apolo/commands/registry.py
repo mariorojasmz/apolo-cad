@@ -46,6 +46,7 @@ from .models import (
     CreateWeldmentParams,
     CreateStructuralProfileParams,
     CreateGroupParams,
+    DeleteFacesParams,
     DeleteParams,
     DistributeParams,
     DuplicateParams,
@@ -60,6 +61,7 @@ from .models import (
     PatternCircularParams,
     PatternGroupParams,
     PatternLinearParams,
+    PushFaceParams,
     RunScriptParams,
     SetVariableParams,
     SheetMetalParams,
@@ -361,6 +363,49 @@ def _resolve_sel(shape, selector, kind: str):
         return resolve_faces(shape, selector.model_dump(exclude_none=True))
     except SelectorError as exc:
         raise CommandError(str(exc)) from exc
+
+
+def _exec_delete_faces(scene: Scene, cmd_id: str, p: DeleteFacesParams) -> None:
+    """Modelado directo (V5.3): borra caras y cura el hueco. Muta EN SITIO
+    (conserva feature_id — mates/juntas sobreviven)."""
+    from apolo.kernel.direct import DirectError, expand_tangent, remove_faces
+
+    feat = _require(scene, p.feature)
+    if p.faces.mode == "todas":
+        raise CommandError(
+            "Borrar TODAS las caras destruiría el sólido: usa delete_feature, o un "
+            "selector acotado (cerca/cara/direccion)"
+        )
+    faces = _resolve_sel(feat.shape, p.faces, "face")
+    try:
+        if p.tangentes:
+            faces = expand_tangent(feat.shape, faces)
+        result = remove_faces(feat.shape, faces)
+    except DirectError as exc:
+        raise CommandError(
+            f"No se pudo curar el hueco de {len(faces)} cara(s): {exc}"
+        ) from exc
+    feat.shape = result
+    feat.make_unique()
+
+
+def _exec_push_face(scene: Scene, cmd_id: str, p: PushFaceParams) -> None:
+    """Modelado directo (V5.3): empuja/jala una cara plana. Muta EN SITIO."""
+    from apolo.kernel.direct import DirectError, push_pull
+
+    feat = _require(scene, p.feature)
+    faces = _resolve_sel(feat.shape, p.face, "face")
+    if len(faces) != 1:
+        raise CommandError(
+            f"push_face necesita EXACTAMENTE una cara y tu selector devolvió "
+            f"{len(faces)}: usa cerca con count=1 o cara del bbox"
+        )
+    try:
+        result = push_pull(feat.shape, faces[0], p.distance)
+    except DirectError as exc:
+        raise CommandError(str(exc)) from exc
+    feat.shape = result
+    feat.make_unique()
 
 
 def _exec_fillet(scene: Scene, cmd_id: str, p: FilletParams) -> None:
@@ -1424,6 +1469,8 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec("chamfer", "Chaflán", "modificar", ChamferParams, _exec_chamfer),
         CommandSpec("shell", "Vaciado", "modificar", ShellParams, _exec_shell),
         CommandSpec("drill_hole", "Taladro", "modificar", DrillHoleParams, _exec_drill_hole),
+        CommandSpec("delete_faces", "Borrar caras", "modificar", DeleteFacesParams, _exec_delete_faces),
+        CommandSpec("push_face", "Empujar/Jalar cara", "modificar", PushFaceParams, _exec_push_face),
         CommandSpec("add_joinery", "Unión de ebanistería", "modificar", AddJoineryParams, _exec_add_joinery),
         CommandSpec("transform", "Mover / Rotar", "modificar", TransformParams, _exec_transform),
         CommandSpec("center_in", "Centrar en", "modificar", CenterInParams, _exec_center_in),
