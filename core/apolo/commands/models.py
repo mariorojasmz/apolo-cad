@@ -714,6 +714,26 @@ class DrillHoleParams(BaseModel):
     depth: float = Field(0, ge=0, le=5000, title="Profundidad", description="mm, 0 = pasante")
     counterbore_d: float | None = Field(None, gt=0, le=600, title="Ø caladrillo", description="mm")
     counterbore_depth: float | None = Field(None, gt=0, le=500, title="Prof. caladrillo", description="mm")
+    fit: str = Field(
+        "", max_length=6, title="Ajuste ISO 286",
+        description="clase de AGUJERO (H7, G7, JS7, K7…) — anotación para el plano y "
+                    "la verificación de asientos; la geometría queda al nominal",
+    )
+
+    @field_validator("fit")
+    @classmethod
+    def _fit_is_hole_class(cls, v: str) -> str:
+        if not v:
+            return ""
+        from apolo.library.engineering.fits import parse_fit
+
+        try:
+            _, letter, grade = parse_fit(v)
+        except KeyError as exc:
+            raise ValueError(str(exc)) from exc
+        if not letter[0].isupper():
+            raise ValueError(f"'{v}' es clase de EJE; un taladro lleva clase de AGUJERO (p. ej. H7)")
+        return f"{letter}{grade}"
 
 
 class PatternCircularParams(BaseModel):

@@ -2300,3 +2300,42 @@ alargar con `push_face distance="=extra"` → 377 716.8 mm³ = analítico exacto
 la variable 25→10 re-ejecutó todo el log de modelado directo → 236 073.0 = exacto.
 Fuera de alcance declarado: move_face real, push-pull con extensión de caras
 inclinadas, offset de B-splines, hole recognition.
+
+## V5.4 — Ajustes y tolerancias ISO 286 en cotas y asientos (2026-07-03)
+
+Cierra el ítem (4) del Tier 1: un plano de Apolo ya sirve para MECANIZAR y el
+agente RECOMIENDA/VERIFICA los ajustes de asiento.
+
+**Decisión tablas-vs-fórmulas**: tablas transcritas de ISO 286-1 (IT5–IT11 ×
+13 franjas 1–500 mm + desviaciones fundamentales de eje g/f/h/k/m/n/p) y los
+AGUJEROS derivados con las reglas exactas de la norma (H→EI=0; G/F espejo;
+JS ±IT/2; K/M/N/P grados 6–7 → ES = −ei + Δ, Δ = ITn−IT(n−1) — verificada
+contra 5 valores publicados independientes). Sin fórmula i=0.45·∛D (redondeos
+frágiles). 22 spot-checks parametrizados cubren todas las letras y franjas. El
+bore de rodamiento/inserto NO es ISO 286: ISO 492 clase Normal (0/−t).
+
+**Dónde vive el fit**: taladros en `drill_hole.fit` ("H7", validador exige clase
+de agujero; anotación pura — geometría al nominal); ejes por NOMBRE («Eje motriz
+Ø35 h7», la convención ya bendecida del grado de material); catálogo `bore_fit:
+H8` en el NMRV. **Planos**: la capa API arma el mapa Ø→fit automático (drill_hole
+∪ nombres) + override `hole_fits` del spec; `_hole_callouts` matchea por distancia
+≤0.11 (el Ø de vista viene redondeado a 0.1) y rotula CON límites: "Ø35 h7
+(0/-0.025)". Retro byte-idéntico sin fits. **Asientos**: `_fit_checks` en
+report.py — pares por fastener/junta/mate concéntrico + Ø nominal coincidente;
+`SEAT_RECOMMENDATIONS` por tipo de montaje (inserto UC → h7 desliza, fijan
+prisioneros; prensado anillo giratorio → k6); estados honestos (sin fit = aviso
+con receta; k6 en inserto = ERROR con recomendación); hipótesis de montaje
+declarada en el detalle. Tool `get_fit` + `GET /api/fits` (64→65). Expresiones
+`=fit_max(...)` y GD&T declarados FUERA.
+
+**Verificación**: 43 tests nuevos (784 total). E2E vivo en la faja real (id 38):
+eje motriz renombrado «Ø35 h7» → regla "asiento ISO 286 · UCP207" OK con calc
+(juego −12…+25 µm, transición); cambiado a k6 → ERROR "el inserto UC debe
+DESLIZAR… cambia a h7"; lámina del eje+chumaceras con callout "Ø35 h7 (0/-0.025)"
+automático desde el nombre; h7 restaurado (es el fit correcto — queda declarado).
+BONUS: la regla detectó sola los 6207 del tensor de cola y avisa que su eje no
+declara ajuste — la detección generaliza. Matiz honesto documentado: la hipótesis
+por categoría (rodamientos → anillo giratorio) no distingue el tensor de EJE FIJO
+(ahí el anillo interior es estacionario → g6/h6, no k6); como es AVISO con la
+hipótesis declarada, no engaña — refinamiento pendiente (leer "eje fijo" del
+nombre).

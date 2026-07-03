@@ -999,5 +999,23 @@ def get_expression_grammar() -> str:
     return json.dumps(_api("GET", "/api/expression-grammar").json(), ensure_ascii=False)
 
 
+@mcp.tool()
+def get_fit(nominal_mm: float, hole: str = "", shaft: str = "") -> str:
+    """Límites y análisis de AJUSTE ISO 286 (V5.4) — consúltalo al DISEÑAR un asiento.
+    Con `hole` (H7/G7/JS7/K7/M7/N7/P7…) y `shaft` (g6/h7/js6/k6/m6/n6/p6…): análisis
+    completo del ajuste — juego/transición/apriete con juego_min/max en µm. Con uno
+    solo: sus límites (ei/es µm, lo/hi mm) sobre el nominal. Criterio de asientos:
+    inserto de chumacera UC → eje h7 (desliza; fijan los prisioneros); rodamiento
+    prensado con anillo interior giratorio → k6. Los taladros llevan `fit` en
+    drill_hole y los ejes la clase en el NOMBRE («Eje motriz Ø35 h7») — el plano
+    rotula "Ø35 h7 (0/-0.025)" y engineering_check verifica el asiento. Read-only."""
+    params = {"nominal": nominal_mm}
+    if hole:
+        params["hole"] = hole
+    if shaft:
+        params["shaft"] = shaft
+    return json.dumps(_api("GET", "/api/fits", params=params).json(), ensure_ascii=False)
+
+
 if __name__ == "__main__":
     mcp.run()

@@ -34,6 +34,14 @@ from .bolts import (
     bolt_utilization,
 )
 from .buckling import BUCKLING_FS, euler_critical_load_n, rect_tube_min_inertia_mm4
+from .fits import (
+    SEAT_RECOMMENDATIONS,
+    bearing_seat_check,
+    fit_check,
+    fit_limits,
+    format_fit_label,
+    parse_fit,
+)
 from .loads import hanging_load_kg
 from .stability import convex_hull_2d, hull_margin_mm
 from .welds import weld_allowable_mpa, weld_throat_stress_mpa
@@ -45,7 +53,9 @@ __all__ = [
     "L10_MIN_H",
     "L10_TARGET_H",
     "STARTUP_FACTOR",
+    "SEAT_RECOMMENDATIONS",
     "TENSILE_AREA_MM2",
+    "bearing_seat_check",
     "belt_power_kw",
     "belt_pull_n",
     "belt_startup_torque_nm",
@@ -55,6 +65,10 @@ __all__ = [
     "convex_hull_2d",
     "estimate_belt_kg",
     "euler_critical_load_n",
+    "fit_check",
+    "fit_limits",
+    "format_fit_label",
+    "parse_fit",
     "hanging_load_kg",
     "hull_margin_mm",
     "l10_hours",

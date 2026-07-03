@@ -1917,7 +1917,7 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
         try:
             pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
-                              colors=_feature_colors())
+                              colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(
@@ -2079,6 +2079,54 @@ class DrawingSpecIn(BaseModel):
     notes: list[str] = []        # bloque de NOTAS generales en la lámina (Fase 5)
     assembly_notes: list[str] | None = None  # NOTAS DE MONTAJE: null=off · []=auto del herraje · [..]=explícitas
     shaded: bool = False         # isométrica SOMBREADA a color (estilo Inventor)
+    hole_fits: dict[str, str] = {}  # {"20": "H7"} Ø_nominal→clase ISO 286; se mergea SOBRE el mapa automático (V5.4)
+
+
+_SHAFT_FIT_RE = None  # compilado perezoso en _hole_fit_map
+
+
+def _hole_fit_map(doc) -> dict[float, str]:
+    """Mapa AUTOMÁTICO Ø_nominal → clase ISO 286 para los callouts del plano (V5.4):
+    (1) comandos drill_hole con `fit`; (2) NOMBRES de features «… Ø35 h7» (ejes —
+    convención bendecida, como el grado de material). Colisión en el mismo Ø: gana
+    el drill_hole (los círculos HLR no distinguen origen; documentado)."""
+    import re
+
+    global _SHAFT_FIT_RE
+    if _SHAFT_FIT_RE is None:
+        _SHAFT_FIT_RE = re.compile(
+            r"Ø\s*(\d+(?:\.\d+)?)\s+((?:js|[gfhkmnp]))(\d{1,2})\b"
+        )
+    out: dict[float, str] = {}
+    for feat in doc.scene.values():
+        m = _SHAFT_FIT_RE.search(getattr(feat, "name", "") or "")
+        if m:
+            out[float(m.group(1))] = f"{m.group(2)}{m.group(3)}"
+    for cmd in doc.commands:
+        if cmd.get("type") == "drill_hole" and cmd.get("params", {}).get("fit"):
+            try:
+                dia = float(cmd["params"].get("diameter", 0))
+            except (TypeError, ValueError):
+                continue  # diámetro por "=expresión": se omite del mapa automático
+            if dia > 0:
+                out[dia] = cmd["params"]["fit"]
+    return out
+
+
+@app.get("/api/fits")
+def get_fits(nominal: float, hole: str = "", shaft: str = "") -> dict:
+    """Límites ISO 286 (V5.4): con `hole` y `shaft` devuelve el análisis del ajuste
+    (juego/transición/apriete); con uno solo, sus límites. Read-only."""
+    from apolo.library.engineering.fits import fit_check, fit_limits
+
+    try:
+        if hole and shaft:
+            return fit_check(nominal, hole, shaft)
+        if hole or shaft:
+            return fit_limits(nominal, hole or shaft)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc).strip("'\"")) from exc
+    raise HTTPException(status_code=400, detail="Indica hole (H7) y/o shaft (g6)")
 
 
 @app.post("/api/drawing/spec")
@@ -2095,6 +2143,12 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
             scene = {fid: scene[fid] for fid in iso if fid in scene}
             if not scene:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
+        fits_map = _hole_fit_map(DOC)
+        for k, v in (spec.hole_fits or {}).items():  # override del agente encima del auto
+            try:
+                fits_map[float(k)] = v
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"hole_fits: clave '{k}' no es un Ø numérico")
         try:
             model = compose_sheet(
                 scene, sheet=spec.sheet, include_hidden=spec.include_hidden, project_name=DOC.name,
@@ -2105,6 +2159,7 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
                 hardware=spec.hardware, explode=spec.explode,
                 notes=spec.notes or None, assembly_notes=spec.assembly_notes,
                 shaded=spec.shaded, colors=_feature_colors(),
+                hole_fits=fits_map or None,
                 meta={**_drawing_meta(), **(spec.meta or {})},
             )
         except ValueError as exc:

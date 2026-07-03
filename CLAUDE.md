@@ -59,12 +59,13 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-03)**: 741 tests · 64 tools MCP · 48 comandos · catálogo 217
+- **Estado actual (2026-07-03)**: 784 tests · 65 tools MCP · 48 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · V5.1 (croquis PlaneGCS),
-  V5.2 + V5.2b (sub-ensamblajes + `insert_project`) y V5.3 (modelado directo) cerrados.
-  Proyectos de referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria
-  **APROBADO**), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo`
-  (croquis dof=0) y `pieza-proveedor-demo` (STEP round-trip defeatureado).
+  V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado directo) y V5.4
+  (ajustes ISO 286) cerrados. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 72
+  sólidos, memoria **APROBADO**, eje motriz «Ø35 h7»), `layout-planta-demo` (id 53,
+  149 sólidos), `biela-colisos-demo` (croquis dof=0) y `pieza-proveedor-demo` (STEP
+  round-trip defeatureado).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
   viewport — usar `vite preview`).
@@ -198,7 +199,17 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ### Ingeniería / negocio (Frentes A/B)
 - **`library/engineering/`** (puro): `belt` (banda-sobre-cama μ=0.33 + par de arranque
   1.6× — el μ=0.06 de rodadura queda SOLO para rodillos), `bolts` (ISO 898-1/EN 1993-1-8),
-  `welds`, `bearings` (L10, `C_kN` de specs), `buckling` (Euler K=2, inercia mínima),
+  `welds`, `bearings` (L10, `C_kN` de specs), **`fits` (ISO 286, V5.4)**: TABLAS IT5-11
+  + desviaciones de eje 1–500 mm (agujeros derivados por reglas de la norma; K-P solo
+  grados 6-7), `fit_limits`/`fit_check`/`bearing_seat_check` (bore ISO 492 Normal) +
+  `SEAT_RECOMMENDATIONS` por tipo de montaje (inserto UC → eje h7 DESLIZA; prensado
+  anillo giratorio → k6); regla `asiento ISO 286 · {ref}` en report.py detecta pares
+  eje↔rodamiento (fastener/junta/mate concéntrico + Ø coincidente): sin fit → aviso,
+  k6 en inserto UC → ERROR. El fit del EJE va en el NOMBRE («Eje motriz Ø35 h7»), el
+  del taladro en `drill_hole.fit` (H7); el plano rotula "Ø35 h7 (0/-0.025)" automático
+  (mapa de la capa API + override `hole_fits` del drawing spec); consulta: tool
+  `get_fit` / `GET /api/fits` (65 tools — reiniciar host MCP). `buckling` (Euler K=2,
+  inercia mínima),
   `stability` (COG vs casco de apoyos), `loads` (`hanging_load_kg`: carga de una unión =
   masa que pierde tierra al quitar su arista; redundante → None), `mass`
   (`get_mass_properties`: catálogo pesa por FICHA, a-medida volumen×densidad), `report`
@@ -383,7 +394,8 @@ los grandes no ocupan). IA-nativa/API-first **9.5** ⭐ (el moat) · kernel OCCT
 (V5.3: modelado directo básico) ·
 paramétrico 5 · croquis 5 (PlaneGCS: dof/redundantes/tangencias — subió de 3 en V5.1;
 falta arrastre en vivo y elipses/splines) · ensamblaje 4.5 (soundness/gravity es
-único) · planos 6 (sistema pro A-G) · simulación 3 (analítico con FS + MuJoCo, sin FEA)
+único) · planos 6.5 (sistema pro A-G + ajustes ISO 286 en callouts, V5.4) · simulación
+3 (analítico con FS + MuJoCo, sin FEA)
 · entregables de negocio 6 (memoria+cotización) · interop 5.5 · rendimiento 4 ·
 robustez 3 · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
 planos se DERIVAN del paramétrico (él es lienzo 2D manual — otra categoría). Medir
@@ -402,7 +414,7 @@ Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
 - **Tier 1 — bloqueantes diarios**: (1) ~~croquis robusto PlaneGCS~~ **HECHO V5.1**;
   (2) ~~sub-ensamblajes de primera clase~~ **HECHO V5.2/V5.2b** (grupos + insert_project);
   (3) ~~modelado directo básico~~ **HECHO V5.3** (delete_faces + push_face);
-  (4) **ajustes/tolerancias ISO 286** (H7/g6) integrados en cotas y asientos;
+  (4) ~~ajustes/tolerancias ISO 286~~ **HECHO V5.4** (fits + asientos + callouts);
   (5) **chapa avanzada** (multi-pliegue, cutouts en pestañas, K-factor por material).
 - **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), **FEA estático
   lineal** integrado (CalculiX/sfepy como proceso externo, resultado a la memoria de

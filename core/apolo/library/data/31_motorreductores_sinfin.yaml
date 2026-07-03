@@ -22,6 +22,7 @@ families:
       relaciones: "7.5-100"
       rendimiento: "~0.7-0.85"
       norma: "Motovario NMRV (cat. rev0 2017)"
+      bore_fit: "H8"  # tolerancia ISO 286 del eje hueco de salida (catalogo Motovario)
       cotas_verificadas: "bore + chavetero (pag.102); motor = frame IEC aprox; caja representativa"
     variants:
       - {ref: "NMRV-030", center_distance: 30,  bore_d: 14, chavetero_b: 5,  chavetero_t: 16.3, motor_d: 120, motor_len: 215, frame_IEC: 63,  potencia_kW: 0.18, cost: 120, weight: 4.5}

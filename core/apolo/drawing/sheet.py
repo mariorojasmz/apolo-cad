@@ -134,8 +134,24 @@ def _place_view(model: SheetModel, view: ViewProjection, cx: float, cy: float, s
     return (cx - w / 2, cy - h / 2, w, h), tx
 
 
-def _hole_callouts(model: SheetModel, view: ViewProjection, tx, scale: float) -> None:
-    """Agrupa los círculos de la vista por diámetro y rotula 'n×Ød' con directriz."""
+def _fit_for_dia(dia: float, hole_fits: dict[float, str] | None) -> str | None:
+    """Ajuste ISO 286 del Ø detectado (matching por distancia mínima ≤ 0.11 —
+    el diámetro de la vista viene redondeado a 0.1, nunca comparar por igualdad)."""
+    if not hole_fits:
+        return None
+    best = min(hole_fits.items(), key=lambda kv: abs(kv[0] - dia), default=None)
+    if best is not None and abs(best[0] - dia) <= 0.11:
+        return best[1]
+    return None
+
+
+def _hole_callouts(
+    model: SheetModel, view: ViewProjection, tx, scale: float,
+    hole_fits: dict[float, str] | None = None,
+) -> None:
+    """Agrupa los círculos de la vista por diámetro y rotula 'n×Ød' con directriz.
+    Con `hole_fits` {Ø_nominal → clase ISO 286} el rótulo incluye clase y límites:
+    "4×Ø20 H7 (+0.021/0)"."""
     groups: dict[float, list[tuple[float, float, float]]] = {}
     for c in view.circles:
         groups.setdefault(round(2 * c[2], 1), []).append(c)
@@ -147,7 +163,14 @@ def _hole_callouts(model: SheetModel, view: ViewProjection, tx, scale: float) ->
         ex, ey = sx + 4.5 + i * 1.5, sy + 4.5 + i * 1.5
         model.lines.append(Line(sx, sy, ex, ey, "dim"))
         n = len(circles)
-        text = f"{n}×Ø{dia:g}" if n > 1 else f"Ø{dia:g}"
+        fit = _fit_for_dia(dia, hole_fits)
+        if fit:
+            from apolo.library.engineering.fits import format_fit_label
+
+            base = format_fit_label(dia, fit)
+            text = f"{n}×{base}" if n > 1 else base
+        else:
+            text = f"{n}×Ø{dia:g}" if n > 1 else f"Ø{dia:g}"
         model.labels.append(Label(ex + 0.8, ey, text, 2.8, anchor="start"))
 
 
@@ -314,6 +337,7 @@ def compose_sheet(
     assembly_notes: list[str] | None = None,  # bloque NOTAS DE MONTAJE: None=off · []=auto-semilla del herraje · [..]=explícitas
     show_iso: bool = True,  # incluir la isométrica (las láminas por pieza la omiten: 3 vistas bastan)
     shaded: bool = False,  # isométrica SOMBREADA a color (estilo Inventor) en vez del alambre
+    hole_fits: dict[float, str] | None = None,  # {Ø_nominal → "H7"}: callouts con clase+límites ISO 286 (V5.4)
     colors: dict | None = None,  # color por pieza para el sombreado (= viewport web: DOC.colors+paleta)
     sheet_refs: dict | None = None,  # {_rep id → nº de hoja} → columna "Hoja" en el DESPIECE (cross-ref globo→lámina de detalle)
 ) -> SheetModel:
@@ -370,7 +394,7 @@ def compose_sheet(
         _dim_h(model, rx, ry, rw, dims[h_axis])
         _dim_v(model, rx, ry, rh, dims[v_axis])
         model.labels.append(Label(cx, ry - 14.5, VIEW_TITLES[name], 3.6))
-        _hole_callouts(model, view, tx, scale)
+        _hole_callouts(model, view, tx, scale, hole_fits)
         for cv in view.circles:  # marca de centro (cruz de ejes) en cada agujero
             ccx, ccy = tx((cv[0], cv[1]))
             center_mark(model, ccx, ccy, cv[2] * scale)

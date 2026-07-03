@@ -66,7 +66,8 @@ def _table_sheet(title: str, headers: list[str], rows: list[list], col_w: list[f
 
 def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str = "generico",
               meta: dict | None = None, sheet: str = "A3", shaded: bool = False,
-              colors: dict | None = None) -> list[SheetModel]:
+              colors: dict | None = None,
+              hole_fits: dict[float, str] | None = None) -> list[SheetModel]:
     """Juego de planos PRO (paquete de fabricación): [conjunto con DESPIECE+globos,
     1 lámina por pieza acotada, LISTA DE CORTE, CÉDULA DE HERRAJE]. `template` =
     carpinteria/weldment/chapa/generico (carpinteria/generico incluyen la cédula de herraje)."""
@@ -102,6 +103,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     # para placas/bridas de interfaz simples (spec interface_dims=true).
     pages.append(compose_sheet(scene, cutlist=True, hardware=True, assembly_notes=[],
                                shaded=shaded, colors=colors, sheet_refs=sheet_refs,
+                               hole_fits=hole_fits,
                                project_name=f"{project_name} · CONJUNTO", sheet=sheet, meta=page_meta(1)))
     # 2..) una lámina por pieza (sólido aislado, acotado overall + agujeros Ø)
     for r in rows:
@@ -115,7 +117,8 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         # color de la pieza para su iso sombreada (= el color de su feature representante en el web)
         pc = {"P": colors.get(r["_rep"])} if colors else None
         pages.append(compose_sheet({"P": feat}, auto_dims=True, show_iso=shaded, shaded=shaded,
-                                   colors=pc, sheet=sheet, project_name=title, meta=pm))
+                                   colors=pc, sheet=sheet, project_name=title, meta=pm,
+                                   hole_fits=hole_fits))
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)
     cl_rows = [[r["material"], f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}",
                 r["cantidad"], r["nombre"]] for r in rows]
