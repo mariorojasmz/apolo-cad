@@ -128,6 +128,12 @@ def yield_strength(material: str | None) -> float:
     return YIELD_MPA.get(_norm(material), DEFAULT_YIELD)
 
 
+def has_yield(material: str | None) -> bool:
+    """True si el límite elástico del material está TABULADO (no un default). El FEA
+    lo exige: caer a 250 MPa en silencio sería mentir en el factor de seguridad."""
+    return _norm(material) in YIELD_MPA
+
+
 def cost_per_kg(material: str | None) -> float:
     """Costo de materia prima (USD/kg) del material — referencial."""
     return COST_PER_KG_USD.get(_norm(material), DEFAULT_COST_PER_KG)

@@ -2371,3 +2371,46 @@ con ezdxf: blank 600×349.59292 EXACTO vs cálculo a mano, cutouts/círculos/4 l
 pliegue en posición exacta; K vivo: `set_material` inox → blank 350.22124 (delta
 +0.62832 = 4·Δk·t·π/2, exacto) y label «K=0.45»; sección del render confirma el perfil
 C con hems. Revisión 70 guardada.
+
+## V5.6 — FEA estático lineal integrado (2026-07-03) — primer ítem del Tier 2
+
+La memoria de cálculo pasa de solo fórmulas de norma a ESFUERZOS REALES: tool
+`fea_static` (66ª) analiza UNA pieza con malla tetraédrica P2 + elasticidad lineal y
+devuelve σ_vm máx con ubicación, desplazamiento, FS = σy/σ_vm, hipótesis declaradas y
+un FRINGE von Mises en PNG (el agente VE dónde está el esfuerzo).
+
+**Stack (spike GO en 5/5 criterios)**: gmsh 4.15.2 (wheel win_amd64, malla desde STEP
+con su OCC embebido — puente SIEMPRE por archivo, nunca punteros nativos entre builds
+de OCCT) + scikit-fem 12.0.2 (solver puro Python BSD, solo numpy/scipy) + meshio.
+sfepy y CalculiX = NO-GO: sin wheels de Windows (la trampa PyBullet de V4). Spike:
+viga en voladizo 100×10×10 → δ = 0.2005 mm vs 0.2000 analítico (err 0.3 %), σ_vm a
+media luz 30.3 vs 30.0 MPa (1.1 %), 10 ciclos gmsh initialize/finalize estables, STEP
+real de Apolo malla OK. Los P1 tienen shear-locking a flexión → **ElementTetP2**
+obligatorio (el spike lo demuestra).
+
+**Arquitectura**: paquete propio `core/apolo/fea/` (mesher/solver/static/fringe) con
+extra pip `[fea]` y patrón `_require_fea` (espejo de MuJoCo). Patrón DOS LOCKS: bajo
+STATE_LOCK se resuelven material/selectores de caras (FaceDesc: centro+área puros) y
+se exporta el STEP; el mallado+solve corre FUERA (solo `FEA_LOCK`, gmsh es
+single-instance global) → el análisis no serializa al server. Match cara OCCT ↔
+superficie gmsh por centro (1e-3·diag) + área (±1 %); sin match → 400 con candidatas.
+Persistencia: metadato `Document.fea` (manifest, como motion/requirements) con
+`volumen_mm3` → `_fea_rules()` inyecta la página en /api/checks y la memoria, y si la
+geometría cambió >0.1 % degrada a AVISO "re-ejecutar". `has_yield()` nuevo: material
+sin σy tabulado exige `yield_mpa` explícito (caer a 250 en silencio = mentir en el FS).
+
+**Gotchas cazados**: `gmsh.initialize(interruptible=False)` obligatorio (instala
+handler de SIGINT y los endpoints sync de FastAPI corren en threadpool → 500 "signal
+only works in main thread"); la fuente de VTK no tiene 'σ' (títulos ASCII); paredes
+delgadas disparan la cuenta de tets.
+
+**Verificación**: 15 tests (815 total) — voladizo anclado, tracción 25 MPa/0.0125 mm
+±3 %, presión≡compresión, peso propio vs qL⁴/8EI, cap de tets, 400 sin deps (corre
+SIEMPRE con monkeypatch), staleness, manifest round-trip, fringe PNG cacheado sin
+re-solve. E2E vivo en la faja id 38: pata HSS 76.2×76.2×3 con F=800 N (masa real
+325.5 kg + carga viva repartida en 6 patas) + peso propio → σ_vm 1.5 MPa, δ 0.0032 mm
+(≡ FL/EA analítico 0.0031), FS 170 "ok" (a la pata la gobierna el PANDEO, no el
+esfuerzo — la regla de Euler ya lo cubre aparte); fringe correcto (compresión uniforme
++ concentración en la base); memoria PDF con la verificación "14. FEA estático lineal
+· Pata A36 OK" (fórmula/sustitución/FS/hipótesis). Nota de rendimiento: el HSS de
+pared 3 mm costó 112 s (14.6k tets P2) — `mesh_size_mm` es el control; documentado.

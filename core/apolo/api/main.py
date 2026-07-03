@@ -1033,6 +1033,7 @@ def run_checks(body: ChecksIn) -> dict:
             carga_kg=carga or 0.0,
             rpm=(conveyor or {}).get("rpm_motor"),
         )
+        estructura += _fea_rules()  # resultados FEA guardados (con chequeo de vigencia)
     return {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
 
 
@@ -1698,6 +1699,174 @@ def physics_drop_gif(body: DropIn) -> Response:
     return Response(content=gif, media_type="image/gif")
 
 
+# ---------------------------------------------------------------- FEA (V5.6)
+class FeaLoadIn(BaseModel):
+    selector: dict                        # selector declarativo de caras cargadas
+    force_n: list[float] | None = None    # fuerza TOTAL [Fx,Fy,Fz] N (repartida F/área)
+    pressure_mpa: float | None = None     # presión normal ENTRANTE a la cara
+
+
+class FeaStaticIn(BaseModel):
+    feature_id: str
+    fixed: dict                           # selector declarativo de caras EMPOTRADAS
+    loads: list[FeaLoadIn] = []
+    material: str | None = None           # gana sobre resolve_material
+    yield_mpa: float | None = None        # obligatorio si el material no tiene σy tabulado
+    self_weight: bool = False
+    mesh_size_mm: float | None = None
+    fs_min: float = 2.0
+    save: bool = True                     # persistir el resumen en DOC.fea (memoria)
+
+
+_LAST_FEA_FIELD: dict = {}  # feature_id → FeaField del último solve (fringe, no persiste)
+
+
+def _fea_static_run(body: FeaStaticIn):
+    """Patrón dos-locks: (a) STATE_LOCK resuelve material/selectores y exporta el
+    STEP; (b) SIN lock (solo FEA_LOCK interno) malla y resuelve; (c) STATE_LOCK
+    persiste el resumen. El solve nunca serializa al resto del server."""
+    import shutil
+    import tempfile
+
+    from apolo.fea import FeaError
+    from apolo.fea.mesher import FaceDesc
+    from apolo.kernel.selectors import SelectorError, resolve_faces
+    from apolo.library.catalog import CATALOG
+    from apolo.library.materials import (
+        density, has_yield, resolve_material, yield_strength, young_modulus,
+    )
+
+    with STATE_LOCK:
+        feat = DOC.scene.get(body.feature_id)
+        if feat is None:
+            raise HTTPException(status_code=404, detail=f"No existe la pieza '{body.feature_id}'")
+        material = body.material or resolve_material(feat, CATALOG, DOC.default_material())
+        if body.yield_mpa is not None:
+            sy = float(body.yield_mpa)
+        elif has_yield(material):
+            sy = yield_strength(material)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El material '{material}' no tiene límite elástico tabulado: "
+                       f"pasa yield_mpa explícito (el FS saldría de un default y mentiría)",
+            )
+        e_mpa, rho = young_modulus(material), density(material)
+        try:
+            fixed = [FaceDesc.from_face(f) for f in resolve_faces(feat.shape, body.fixed)]
+            loads = []
+            for ld in body.loads:
+                descs = [FaceDesc.from_face(f) for f in resolve_faces(feat.shape, ld.selector)]
+                loads.append({"descs": descs, "force_n": ld.force_n,
+                              "pressure_mpa": ld.pressure_mpa})
+        except SelectorError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_step_")
+        step = str(Path(tmp_dir) / "pieza.step")
+        export_step_file([feat.shape], step)
+        pieza, vol = feat.name, float(feat.shape.volume)
+
+    try:
+        from apolo.fea.static import run_static_analysis
+
+        resumen, field = run_static_analysis(
+            step, pieza=pieza, fixed=fixed, loads=loads, e_mpa=e_mpa,
+            yield_mpa=sy, density_kg_mm3=rho, material=material,
+            self_weight=body.self_weight, mesh_size_mm=body.mesh_size_mm,
+            fs_min=body.fs_min,
+        )
+    except FeaError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    resumen["feature_id"] = body.feature_id
+    resumen["volumen_mm3"] = round(vol, 1)
+    if body.save:
+        with STATE_LOCK:
+            DOC.set_fea_result(body.feature_id, resumen)
+            _autosave()
+    _LAST_FEA_FIELD.clear()
+    _LAST_FEA_FIELD[body.feature_id] = field
+    return resumen, field
+
+
+@app.post("/api/fea/static")
+def fea_static(body: FeaStaticIn) -> dict:
+    """FEA estático lineal de UNA pieza (malla tet P2 + elasticidad lineal).
+    Read-only sobre la geometría; el resumen se guarda como metadato para la
+    memoria de cálculo (save=false para no persistir)."""
+    resumen, _ = _fea_static_run(body)
+    return resumen
+
+
+@app.post("/api/fea/static.png")
+def fea_static_png(body: FeaStaticIn) -> Response:
+    """Igual que /api/fea/static pero devuelve el FRINGE von Mises (PNG, mapa de
+    colores + barra de escala) del campo resuelto."""
+    from apolo.fea.fringe import fringe_png
+
+    resumen, field = _fea_static_run(body)
+    png = fringe_png(field, title=f"von Mises [MPa] · {resumen['pieza']} · FS={resumen['fs']}")
+    return Response(content=png, media_type="image/png")
+
+
+@app.get("/api/fea/{feature_id}")
+def get_fea(feature_id: str) -> dict:
+    with STATE_LOCK:
+        res = DOC.fea.get(feature_id)
+        if res is None:
+            raise HTTPException(status_code=404, detail="La pieza no tiene FEA guardado")
+        return res
+
+
+@app.get("/api/fea/{feature_id}/fringe.png")
+def get_fea_fringe(feature_id: str) -> Response:
+    """Fringe del ÚLTIMO análisis de la pieza SIN re-resolver (campo en memoria del
+    proceso; si el server se reinició, re-ejecuta POST /api/fea/static)."""
+    from apolo.fea.fringe import fringe_png
+
+    field = _LAST_FEA_FIELD.get(feature_id)
+    if field is None:
+        raise HTTPException(status_code=404,
+                            detail="No hay campo FEA en memoria para esa pieza: "
+                                   "corre POST /api/fea/static primero")
+    with STATE_LOCK:
+        res = DOC.fea.get(feature_id) or {}
+    title = f"von Mises [MPa] · {res.get('pieza', feature_id)} · FS={res.get('fs')}"
+    return Response(content=fringe_png(field, title=title), media_type="image/png")
+
+
+def _fea_rules() -> list[dict]:
+    """Convierte los resultados FEA guardados (DOC.fea) en reglas para checks y
+    memoria, con chequeo de VIGENCIA: si la pieza ya no existe o su volumen cambió
+    >0.1 % desde el análisis, la regla degrada a aviso (re-ejecutar). Llamar bajo
+    STATE_LOCK."""
+    rules: list[dict] = []
+    for fid, res in DOC.fea.items():
+        regla = f"FEA · {res.get('pieza', fid)}"
+        feat = DOC.scene.get(fid)
+        if feat is None:
+            rules.append({"regla": regla, "estado": "aviso",
+                          "detalle": "La pieza del análisis FEA ya no existe en la escena.",
+                          "recomendacion": "Borra el resultado o re-ejecuta fea_static."})
+            continue
+        vol_ref = float(res.get("volumen_mm3") or 0)
+        vol_now = float(getattr(feat.shape, "volume", 0) or 0)
+        if vol_ref and abs(vol_now - vol_ref) > 1e-3 * vol_ref:
+            rules.append({"regla": regla, "estado": "aviso",
+                          "detalle": f"La geometría cambió desde el análisis "
+                                     f"({vol_ref:.0f} → {vol_now:.0f} mm³): resultado obsoleto.",
+                          "recomendacion": "Re-ejecuta fea_static para refrescar el FS."})
+            continue
+        rule = {"regla": regla, "estado": res.get("estado", "aviso"),
+                "detalle": res.get("detalle", ""), "calc": res.get("calc")}
+        if res.get("estado") == "error":
+            rule["recomendacion"] = "Refuerza la pieza o reduce la carga (FS < 1.2)."
+        rules.append(rule)
+    return rules
+
+
 # --------------------------------------------------------------------- planos
 def _feature_colors() -> dict:
     """Color por pieza IDÉNTICO al viewport web (DOC.colors asignados, o paleta por índice de
@@ -1983,6 +2152,7 @@ def calc_report_pdf(
             DOC.scene, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
             carga_kg=carga, rpm=(conveyor or {}).get("rpm_motor"),
         )
+        rules += _fea_rules()  # página FEA en la memoria (con chequeo de vigencia)
         png = None
         try:
             vis = {fid: f for fid, f in DOC.scene.items() if getattr(f, "visible", True)}

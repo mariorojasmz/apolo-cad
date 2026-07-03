@@ -59,10 +59,11 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-03)**: 800 tests · 65 tools MCP · 48 comandos · catálogo 217
+- **Estado actual (2026-07-03)**: 815 tests · 66 tools MCP · 48 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · **TIER 1 COMPLETO**: V5.1
   (croquis PlaneGCS), V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado
-  directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados. Proyectos de
+  directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados · Tier 2 iniciado:
+  V5.6 (FEA estático lineal) cerrado. Proyectos de
   referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**, eje motriz
   «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo` (croquis
   dof=0), `pieza-proveedor-demo` (STEP round-trip defeatureado) y `guarda-banda-demo`
@@ -204,6 +205,17 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **Física (MuJoCo)**: `gravity_test` (piezas sujetas=estáticas, resto cae; casco
   CONVEXO con caché por referencia fuerte al shape), `drop_test` (producto, AABB),
   animación en el viewport con las mallas reales.
+- **FEA estático lineal (V5.6, `core/apolo/fea/`)**: tool `fea_static` (una PIEZA:
+  malla tet P2 gmsh + elasticidad lineal scikit-fem; extra pip `[fea]` — sfepy/CalculiX
+  NO-GO sin wheels) → σ_vm máx + FS=σy/σ_vm + fringe PNG; resumen persiste en
+  `Document.fea` (metadato manifest) → página en la memoria con aviso de VIGENCIA si el
+  volumen cambió. Gotchas: `gmsh.initialize(interruptible=False)` (endpoints sync =
+  threadpool, signal solo va en main thread); patrón DOS LOCKS (STATE_LOCK resuelve
+  selectores/STEP, el solve corre FUERA con `FEA_LOCK` propio — gmsh es single-instance
+  global); paredes delgadas (HSS) disparan tets → minutos (la pata 76×76×3 = 112 s;
+  `mesh_size_mm` es el control); σ_vm pegado al empotramiento = concentración numérica
+  (`max_en_encastre` lo marca); material sin σy tabulado exige `yield_mpa`
+  (`has_yield`, no se miente con defaults).
 - **Interferencias**: `check_interference` (booleanas OCCT; excluye pares de junta,
   `same_command_pairs` y hardware tornillería/rodamientos) + `interpenetration_report`
   (exceso vs pose de diseño en pares con junta).
@@ -407,7 +419,8 @@ los grandes no ocupan). IA-nativa/API-first **9.5** ⭐ (el moat) · kernel OCCT
 paramétrico 5 · croquis 5 (PlaneGCS: dof/redundantes/tangencias — subió de 3 en V5.1;
 falta arrastre en vivo y elipses/splines) · ensamblaje 4.5 (soundness/gravity es
 único) · planos 6.5 (sistema pro A-G + ajustes ISO 286 en callouts, V5.4) · simulación
-3 (analítico con FS + MuJoCo, sin FEA)
+4.5 (analítico con FS + MuJoCo + FEA estático lineal de pieza con fringe, V5.6 — lo que
+separa de 6+ es contacto/no-lineal/multicuerpo)
 · entregables de negocio 6 (memoria+cotización) · interop 5.5 · rendimiento 4 ·
 robustez 3 · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
 planos se DERIVAN del paramétrico (él es lienzo 2D manual — otra categoría). Medir
@@ -429,10 +442,10 @@ Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
   (4) ~~ajustes/tolerancias ISO 286~~ **HECHO V5.4** (fits + asientos + callouts);
   (5) ~~chapa avanzada~~ **HECHO V5.5** (flaps con child + cutouts en pestañas + K por
   material). **TIER 1 COMPLETO (2026-07-03)** — lo siguiente sale del Tier 2.
-- **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), **FEA estático
-  lineal** integrado (CalculiX/sfepy como proceso externo, resultado a la memoria de
-  cálculo), roscas (cosméticas en plano + specs BOM), weldments con ingletes reales,
-  **export DWG** (el entregable político de los clientes AutoCAD).
+- **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), ~~FEA estático
+  lineal~~ **HECHO V5.6** (gmsh + scikit-fem, NO CalculiX/sfepy — sin wheels Windows;
+  resultado a la memoria), roscas (cosméticas en plano + specs BOM), weldments con
+  ingletes reales, **export DWG** (el entregable político de los clientes AutoCAD).
 - **Tier 3 — consolidación**: render fotorrealista (Blender headless), PDM ligero
   multiusuario, plantillas de plano por empresa, normas del vertical (CEMA/ISO 5048 en
   las reglas → memoria NORMATIVA, no solo honesta).
@@ -464,7 +477,8 @@ E2E en un modelo real. Un ítem por vez, con plan formal ("procede con V5.<n>").
 
 ## Fuera de alcance deliberado
 
-CAM, FEA real grado Fusion (aplazado hasta que el negocio lo pida — el analítico cubre
-~80 % por ~5 % del coste), PCB/electrónica, nube multiusuario, diseño generativo.
+CAM, FEA grado Fusion (multicuerpo/contacto/no-lineal — el estático lineal de pieza ya
+existe en V5.6; el resto aplazado hasta que el negocio lo pida), PCB/electrónica, nube
+multiusuario, diseño generativo.
 Referencia de librerías candidatas (con licencias) para futuras adopciones: ver
 `docs/devlog.md` § "Catálogo de librerías candidatas".

@@ -1019,5 +1019,46 @@ def get_fit(nominal_mm: float, hole: str = "", shaft: str = "") -> str:
     return json.dumps(_api("GET", "/api/fits", params=params).json(), ensure_ascii=False)
 
 
+@mcp.tool()
+def fea_static(feature_id: str, fixed: dict, loads: list[dict] | None = None,
+               material: str = "", yield_mpa: float = 0.0,
+               self_weight: bool = False, mesh_size_mm: float = 0.0,
+               fs_min: float = 2.0, fringe_path: str = "") -> str:
+    """FEA ESTÁTICO LINEAL de UNA pieza (V5.6): malla tet P2 (gmsh) + elasticidad
+    lineal (scikit-fem). Devuelve σ_vm máx (MPa) con su ubicación, desplazamiento
+    máx (mm), FS = σy/σ_vm (criterio: ≥2 estático, <1.2 sobrecargada) y las
+    HIPÓTESIS declaradas; el resumen se GUARDA y entra solo a la memoria de cálculo
+    (con aviso automático si la geometría cambia después). `fixed` y
+    `loads[].selector` son selectores declarativos de CARAS ({mode: cara|direccion|
+    cerca…} — elige con get_topology); cada load lleva force_n=[Fx,Fy,Fz] (fuerza
+    TOTAL en N, repartida sobre la cara) O pressure_mpa (normal entrante);
+    self_weight añade el peso propio. `fringe_path` guarda el PNG del campo von
+    Mises (mapa de colores + escala) — MÍRALO: te dice DÓNDE está el esfuerzo.
+    Material/σy salen de la pieza (si el material no tiene σy tabulado, pasa
+    yield_mpa). GOTCHA: σ_vm máx pegado al empotramiento suele ser concentración
+    numérica del encastre ideal (el retorno lo marca con max_en_encastre).
+    Read-only sobre la geometría; tarda unos segundos (malla gruesa por defecto,
+    afina con mesh_size_mm)."""
+    from pathlib import Path
+
+    body: dict = {"feature_id": feature_id, "fixed": fixed, "loads": loads or [],
+                  "self_weight": self_weight, "fs_min": fs_min}
+    if material:
+        body["material"] = material
+    if yield_mpa:
+        body["yield_mpa"] = yield_mpa
+    if mesh_size_mm:
+        body["mesh_size_mm"] = mesh_size_mm
+    resumen = _api("POST", "/api/fea/static", json=body).json()
+    if fringe_path:
+        # el campo del solve queda cacheado en el server → el fringe NO re-resuelve
+        png = _api("GET", f"/api/fea/{feature_id}/fringe.png").content
+        target = Path(fringe_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(png)
+        resumen["fringe"] = str(target)
+    return json.dumps(resumen, ensure_ascii=False)
+
+
 if __name__ == "__main__":
     mcp.run()

@@ -75,6 +75,7 @@ class Document:
         self.vertical: str = "metalmecanica"  # default de material para piezas no reconocidas
         self.motion: dict[str, list[dict]] = {}  # estudios con nombre → fotogramas [{t, values:{junta:valor}}]
         self.requirements: dict = {}  # bases de diseño del proyecto (carga, velocidad, producto…)
+        self.fea: dict[str, dict] = {}  # feature_id → resumen del último FEA (metadato)
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
         self._seq = 0
         self._undo: list[dict] = []
@@ -466,6 +467,18 @@ class Document:
         """Elimina un estudio de movimiento por nombre (no falla si no existe)."""
         self.motion.pop(str(name).strip(), None)
 
+    def set_fea_result(self, feature_id: str, summary: dict | None) -> None:
+        """Guarda (o borra con None) el resumen del último FEA de una pieza.
+        Metadato de manifest (como motion/requirements): NO entra al log ni a los
+        checkpoints; la memoria de cálculo lo consume con chequeo de vigencia."""
+        fid = str(feature_id).strip()
+        if not fid:
+            raise DocumentError("El resultado FEA necesita el id de la pieza")
+        if summary is None:
+            self.fea.pop(fid, None)
+        else:
+            self.fea[fid] = dict(summary)
+
     # claves de requisitos con convención NUMÉRICA (se coercionan a float > 0)
     _REQ_NUMERIC = (
         "carga_kg", "largo_paquete_mm", "ancho_paquete_mm", "alto_paquete_mm",
@@ -551,6 +564,7 @@ class Document:
                         "vertical": self.vertical,
                         "motion": self.motion,
                         "requirements": self.requirements,
+                        "fea": self.fea,
                         "agent_notes": self.agent_notes,
                     },
                     indent=2,
@@ -593,6 +607,7 @@ class Document:
         # migración: proyectos viejos guardaban el motion como UNA lista de fotogramas
         doc.motion = ({"Estudio 1": _m} if _m else {}) if isinstance(_m, list) else dict(_m)
         doc.requirements = manifest.get("requirements", {})
+        doc.fea = manifest.get("fea", {})
         doc.agent_notes = manifest.get("agent_notes", [])
         doc._seq = manifest.get("seq", len(commands))
         if regenerate:

@@ -26,6 +26,9 @@ dev = ["pytest>=8", "httpx>=0.27"]
 # Física de cuerpos rígidos (drop-test). MuJoCo (Apache) en vez de PyBullet:
 # PyBullet no publica wheel para Python 3.13 y compilar requiere MSVC.
 physics = ["mujoco>=3.9", "pillow>=10"]
+# FEA estático lineal (V5.6). gmsh (GPL, malla tet) + scikit-fem (BSD, solver puro
+# Python) — sfepy y CalculiX se descartaron por NO tener wheels de Windows.
+fea = ["gmsh>=4.13", "scikit-fem>=11", "meshio>=5"]
 
 [build-system]
 requires = ["setuptools>=68"]
