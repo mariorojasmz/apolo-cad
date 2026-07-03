@@ -1340,12 +1340,13 @@ def _exec_create_frame(scene: Scene, cmd_id: str, p: CreateFrameParams) -> None:
 
 
 def _exec_create_sheet_metal(scene: Scene, cmd_id: str, p: SheetMetalParams) -> None:
-    from apolo.library.sheetmetal import sheet_metal_solid
+    from apolo.library.sheetmetal import flaps_from_specs, sheet_metal_solid
 
     try:
         base = sheet_metal_solid(
             p.ancho, p.fondo, p.espesor, p.lados, p.altura_pestana, p.angulo, p.radio,
             holes=[(h.x, h.y, h.d) for h in p.holes],
+            flaps=flaps_from_specs(p.flaps),
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Chapa: {exc}") from exc

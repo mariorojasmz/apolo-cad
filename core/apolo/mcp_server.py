@@ -494,7 +494,9 @@ def export_stl(path: str, tolerance: float = 0.5) -> str:
 def export_flat_pattern(feature_id: str, path: str) -> str:
     """Exporta el patrón plano (desplegado) de una chapa metálica a un DXF local
     para corte láser. feature_id es el id del sólido de la chapa (ver get_scene);
-    debe haberse creado con el comando create_sheet_metal."""
+    debe haberse creado con el comando create_sheet_metal. Soporta las pestañas
+    ricas de V5.5 (multi-pliegue, taladros/recortes en pestañas — proyectados al
+    blank) y K-factor por material (k_factor vacío = tabla según material)."""
     from pathlib import Path
 
     data = _api("GET", f"/api/sheetmetal/{feature_id}/flat.dxf").content

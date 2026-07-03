@@ -59,13 +59,14 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-03)**: 784 tests · 65 tools MCP · 48 comandos · catálogo 217
-  refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · V5.1 (croquis PlaneGCS),
-  V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado directo) y V5.4
-  (ajustes ISO 286) cerrados. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 72
-  sólidos, memoria **APROBADO**, eje motriz «Ø35 h7»), `layout-planta-demo` (id 53,
-  149 sólidos), `biela-colisos-demo` (croquis dof=0) y `pieza-proveedor-demo` (STEP
-  round-trip defeatureado).
+- **Estado actual (2026-07-03)**: 800 tests · 65 tools MCP · 48 comandos · catálogo 217
+  refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · **TIER 1 COMPLETO**: V5.1
+  (croquis PlaneGCS), V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado
+  directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados. Proyectos de
+  referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**, eje motriz
+  «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo` (croquis
+  dof=0), `pieza-proveedor-demo` (STEP round-trip defeatureado) y `guarda-banda-demo`
+  (chapa en C con hems, DXF verificado a mano).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
   viewport — usar `vite preview`).
@@ -118,6 +119,17 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   si el lazo recorre un arco en reversa, el ccw efectivo se invierte (bug corregido).
   SketcherDialog: herramienta Arco (3 clics: centro→inicio→fin) + botones nuevos +
   panel DOF/redundantes/conflictivas. Arrastre en vivo (soft-constraints) PENDIENTE.
+- **Chapa avanzada (V5.5, `library/sheetmetal.py`)**: `create_sheet_metal` acepta
+  `flaps` (lista de FlapSpec: pestaña por lado con `child` de un nivel — perfiles
+  C/Z/hem, `direccion` interior/exterior — + `holes`/`cutouts` propios) y `k_factor`
+  None = **K por material** (`K_FACTOR_BY_MATERIAL`: acero 0.40, inox 0.45, alu/latón
+  0.35; resuelto en la capa API con `resolve_material`). Convención de features en
+  pestaña: `u` a lo largo del pliegue ALINEADA AL EJE MUNDIAL (0=centro), `v` desde el
+  BORDE LIBRE (métrica en que 3D y desplegado coinciden sin conocer el radio); feature
+  que invade la zona de pliegue → rechazo con el dominio válido. Proyección al flat:
+  offset padre = `BA_p+(altura−OSSB_p)−v`, hijo = `strip_total−v`. La vía simple
+  (lados/altura) se NORMALIZA a flaps → un solo camino, flat byte-idéntico (test de
+  igualdad exacta). Gotcha: el pliegue HIJO queda vivo (sin fillet, fallback G2).
 - Primitivas + croquis restringido + sweep/loft/hélice (lazo cerrado,
   `is_frenet`) + chapa metálica con **desplegado DXF/SVG** (bend allowance, taladros
   proyectados al blank) + `add_joinery` (espiga/dado/dowel/rebaje — corta EN SITIO,
@@ -415,7 +427,8 @@ Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
   (2) ~~sub-ensamblajes de primera clase~~ **HECHO V5.2/V5.2b** (grupos + insert_project);
   (3) ~~modelado directo básico~~ **HECHO V5.3** (delete_faces + push_face);
   (4) ~~ajustes/tolerancias ISO 286~~ **HECHO V5.4** (fits + asientos + callouts);
-  (5) **chapa avanzada** (multi-pliegue, cutouts en pestañas, K-factor por material).
+  (5) ~~chapa avanzada~~ **HECHO V5.5** (flaps con child + cutouts en pestañas + K por
+  material). **TIER 1 COMPLETO (2026-07-03)** — lo siguiente sale del Tier 2.
 - **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), **FEA estático
   lineal** integrado (CalculiX/sfepy como proceso externo, resultado a la memoria de
   cálculo), roscas (cosméticas en plano + specs BOM), weldments con ingletes reales,
@@ -433,10 +446,10 @@ E2E en un modelo real. Un ítem por vez, con plan formal ("procede con V5.<n>").
   por ancla/arista, master-slider "Apertura %", easing/exportar vídeo del motion.
 - **Validación**: agrupar mitades A/B de bisagra en el scan; voladizo real del eje motriz
   (cantilever); par de apriete (`torque`) en specs de tornillería.
-- **Geometría/catálogo**: cola de milano e ingletes; canteado; G2 chapa (cutouts
-  rectangulares, K-factor por material); G3 ingletes reales en weldments; chaveta
-  modelada en bores; prisioneros/pernos de chumacera como refs para BOM; más familias
-  bajo demanda.
+- **Geometría/catálogo**: cola de milano e ingletes; canteado; chapa: child >1 nivel,
+  hem 180°, alivios de esquina, editor de flaps en Propiedades; G3 ingletes reales en
+  weldments; chaveta modelada en bores; prisioneros/pernos de chumacera como refs para
+  BOM; más familias bajo demanda.
 - **Física**: cascos convexos en drop_test (hoy AABB), export SDF sin juntas, sim en
   tiempo real.
 - **Ingeniería/negocio**: campo `funcion`/rol estructurado por pieza (grafo de

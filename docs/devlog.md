@@ -2339,3 +2339,35 @@ por categoría (rodamientos → anillo giratorio) no distingue el tensor de EJE 
 (ahí el anillo interior es estacionario → g6/h6, no k6); como es AVISO con la
 hipótesis declarada, no engaña — refinamiento pendiente (leer "eje fijo" del
 nombre).
+
+## V5.5 — Chapa avanzada: multi-pliegue, cutouts en pestañas, K por material (2026-07-03) — TIER 1 COMPLETO
+
+Último ítem del Tier 1. `create_sheet_metal` gana `flaps: list[FlapSpec]` (pestaña por
+lado con `child` de un nivel — C/Z/hem, interior/exterior — y `holes`/`cutouts`
+propios) y `k_factor: float | None` (None = por material: acero 0.40, inox 0.45,
+alu/latón 0.35, resuelto en la capa API con `resolve_material` — patrón del BOM).
+
+**Decisión clave — convención u,v**: `u` corre a lo largo del pliegue ALINEADA AL EJE
+MUNDIAL (0=centro, como los holes de base — sin pitfalls de espejo); `v` se mide desde
+el BORDE LIBRE de la pestaña, la única métrica en que el 3D plegado y el desarrollo
+coinciden EXACTO sin conocer el radio. Proyección al flat: offset del padre desde su
+línea de pliegue = `BA_p + (altura−OSSB_p) − v`; del hijo = `strip_total − v`. Feature
+que invade la zona de pliegue → ValueError con el dominio válido en el mensaje.
+
+**Arquitectura**: un solo camino — la vía simple (lados/altura/angulo) se NORMALIZA a
+flaps; el muro se construye canónico en el marco local (hijo pivota sobre el borde
+libre, cutters de holes/cutouts restados en local) y UNA transformación rígida por
+lado lo coloca. Retro verificada con test de igualdad EXACTA (ring/lines/circles) del
+flat clásico vs su equivalente en flaps, y acero=0.40 == el default viejo 0.4 (el
+único proyecto guardado con chapa resuelve a acero → blank byte-idéntico). El pliegue
+hijo queda vivo (sin fillet — fallback ya aceptado en G2; el desarrollo lleva su radio
+igual). Fuera de alcance: child >1 nivel, hem 180°, ingletes/alivios, cutouts en base.
+
+**Verificación**: 16 tests nuevos (800 total) con anclas numéricas a mano (blank C
+197.79646; pliegue hijo by1+36.39823; holes padre/hijo; esquinas del cutout). E2E vivo
+por MCP en `guarda-banda-demo`: guarda en C 600×180 e=2, pestañas h=80 con hem h=12
+interior, 3 ventilaciones 60×20 + 2 barrenos Ø9 de montaje; DXF exportado y parseado
+con ezdxf: blank 600×349.59292 EXACTO vs cálculo a mano, cutouts/círculos/4 líneas de
+pliegue en posición exacta; K vivo: `set_material` inox → blank 350.22124 (delta
++0.62832 = 4·Δk·t·π/2, exacto) y label «K=0.45»; sección del render confirma el perfil
+C con hems. Revisión 70 guardada.

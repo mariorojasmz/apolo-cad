@@ -1772,11 +1772,20 @@ def _sheetmetal_flat(feature_id: str):
         if cmd is None or cmd["type"] != "create_sheet_metal":
             raise HTTPException(status_code=400, detail=f"'{feature_id}' no es una chapa metálica")
         try:
+            from apolo.library.catalog import CATALOG
+            from apolo.library.materials import resolve_material
+            from apolo.library.sheetmetal import flaps_from_specs, k_for_material
+
             p = SheetMetalParams.model_validate(resolve_params(cmd["params"], DOC.variables_resolved))
+            # K-factor: explícito gana; si no, por MATERIAL de la pieza (V5.5)
+            k = p.k_factor if p.k_factor is not None else k_for_material(
+                resolve_material(feat, CATALOG, DOC.default_material())
+            )
             return p.name, flat_pattern(
                 p.name, p.ancho, p.fondo, p.espesor, p.lados,
-                p.altura_pestana, p.angulo, p.radio, p.k_factor,
+                p.altura_pestana, p.angulo, p.radio, k,
                 holes=[(h.x, h.y, h.d) for h in p.holes],
+                flaps=flaps_from_specs(p.flaps),
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
