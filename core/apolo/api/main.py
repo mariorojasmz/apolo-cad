@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import tempfile
+import time
 import traceback
 from pathlib import Path
 
@@ -50,13 +51,37 @@ PALETTE = ["#5b8def", "#46b58a", "#c77d4f", "#8e6fd8", "#d8a03a", "#5fa8c9", "#c
 STORE = None
 PROJECT_ID: int | None = None
 
+# Salud de operación (V6.1): último fallo de autosave (Fix D) y fallo de arranque con
+# el proyecto reciente corrupto (Fix E). GET /api/health los expone; None = sano.
+AUTOSAVE_ERROR: str | None = None
+STARTUP_ERROR: str | None = None
+
+
+# backoff del autosave: reintentos con espera TOTAL ≤0.6 s (bajo STATE_LOCK, pero solo
+# se paga en el caso EXCEPCIONAL de fallo — el camino feliz guarda al primer intento).
+_AUTOSAVE_RETRIES = (0.0, 0.1, 0.5)
+
 
 def _autosave() -> None:
-    if STORE is not None and PROJECT_ID is not None:
+    """Autoguarda con reintentos. Éxito → limpia el flag AUTOSAVE_ERROR. Agotados los
+    reintentos → deja el flag (el payload y un WS lo exponen: el cliente SE ENTERA de que
+    el doc en memoria diverge de la BD) sin romper la operación en curso (Fix D)."""
+    global AUTOSAVE_ERROR
+    if STORE is None or PROJECT_ID is None:
+        return
+    last: Exception | None = None
+    for delay in _AUTOSAVE_RETRIES:
+        if delay:
+            time.sleep(delay)
         try:
             STORE.save(PROJECT_ID, DOC)
+            AUTOSAVE_ERROR = None
+            return
         except Exception as exc:  # el autosave nunca debe romper la operación
-            log_error("backend.autosave", repr(exc))
+            last = exc
+    AUTOSAVE_ERROR = repr(last)
+    log_error("backend.autosave", repr(last))
+    WS.notify_changed({"type": "autosave_failed", "error": AUTOSAVE_ERROR})
 
 
 # ------------------------------------------------------------------ websocket
@@ -73,43 +98,65 @@ class WsManager:
         if ws in self.clients:
             self.clients.remove(ws)
 
-    def notify_changed(self) -> None:
+    async def _safe_send(self, ws: WebSocket, payload: dict) -> None:
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            self.disconnect(ws)  # cliente muerto: se desecha, no se reintenta
+
+    def notify_changed(self, msg: dict | None = None) -> None:
         if not self.loop:
             return
+        payload = msg or {"type": "document_changed"}
         for ws in list(self.clients):
-            asyncio.run_coroutine_threadsafe(
-                ws.send_json({"type": "document_changed"}), self.loop
-            )
+            try:
+                asyncio.run_coroutine_threadsafe(self._safe_send(ws, payload), self.loop)
+            except Exception:
+                self.disconnect(ws)  # ni siquiera se pudo programar el envío
 
 
 WS = WsManager()
 
 
-@app.on_event("startup")
-async def _capture_loop() -> None:
-    global DOC, STORE, PROJECT_ID
-    WS.loop = asyncio.get_running_loop()
-    session_marker("Inicio de sesión del servidor")
-
-    import os
+def initialize_store(db_path: str) -> None:
+    """Inicializa el almacén y abre el proyecto reciente. Extraído del lifespan para
+    testearlo SIN FastAPI (los tests no ejecutan el startup). Robustez (Fix E): el
+    reciente se abre TOLERANTE (suprime comandos rotos en vez de negar la apertura); si
+    ni así abre (ZIP roto), se deja STARTUP_ERROR + un doc VACÍO en memoria con
+    PROJECT_ID=None (el autosave no-opea con None) y NO se crea un 'Sin título' que PISE
+    al reciente como más nuevo. STORE.create solo cuando la BD está de verdad VACÍA."""
+    global DOC, STORE, PROJECT_ID, STARTUP_ERROR
 
     from apolo.projects import ProjectStore
 
+    STORE = ProjectStore(db_path)
+    STARTUP_ERROR = None
+    with STATE_LOCK:
+        recent = STORE.most_recent_id()
+        if recent is None:
+            DOC = Document()
+            PROJECT_ID = STORE.create(DOC)
+            return
+        try:
+            DOC = STORE.load(recent, tolerant=True)
+            PROJECT_ID = recent
+        except Exception as exc:
+            STARTUP_ERROR = f"No se pudo abrir el proyecto reciente {recent}: {exc!r}"
+            log_error("backend.startup", STARTUP_ERROR)
+            DOC = Document()
+            PROJECT_ID = None  # el autosave no-opea → NO se sobrescribe el reciente corrupto
+
+
+@app.on_event("startup")
+async def _capture_loop() -> None:
+    import os
+
+    WS.loop = asyncio.get_running_loop()
+    session_marker("Inicio de sesión del servidor")
     db_path = os.environ.get(
         "APOLO_DB", str(Path(__file__).resolve().parents[3] / "data" / "apolo.db")
     )
-    STORE = ProjectStore(db_path)
-    with STATE_LOCK:
-        recent = STORE.most_recent_id()
-        if recent is not None:
-            try:
-                DOC = STORE.load(recent)
-                PROJECT_ID = recent
-            except Exception as exc:
-                log_error("backend.startup", f"No se pudo cargar el proyecto {recent}: {exc!r}")
-                PROJECT_ID = STORE.create(DOC)
-        else:
-            PROJECT_ID = STORE.create(DOC)
+    initialize_store(db_path)
 
 
 # -------------------------------------------------------- registro de errores
@@ -207,6 +254,10 @@ def document_payload() -> dict:
         "configurations": sorted(DOC.configurations.keys()),
         "groups": groups_payload(),
         "project_id": PROJECT_ID,
+        # robustez (V6.1): comandos suprimidos por una carga tolerante + estado del
+        # autosave (None = sano). La UI pinta un chip cuando el disco no responde.
+        "suppressed_commands": DOC.regen_suppressed,
+        "autosave_failed": AUTOSAVE_ERROR,
     }
 
 
@@ -239,10 +290,11 @@ _DEF_MESH_CACHE: dict[str, dict] = {}
 
 
 def _definition_mesh(key: str) -> dict | None:
-    from apolo.commands.registry import DEFINITIONS
+    from apolo.commands.registry import DEFINITIONS, touch_definition
 
     if key not in DEFINITIONS:
         return None
+    touch_definition(key)  # LRU: renderizar una definición la protege de la evicción (Fix A)
     if key not in _DEF_MESH_CACHE:
         if len(_DEF_MESH_CACHE) > 128:
             _DEF_MESH_CACHE.clear()
@@ -352,6 +404,29 @@ def get_schema(command_type: str) -> dict:
     if not res:
         raise HTTPException(status_code=404, detail=f"No existe el comando '{command_type}'")
     return res[0]
+
+
+@app.get("/api/health")
+def health() -> dict:
+    """Salud de operación (V6.1): integridad del documento en memoria + estado de la
+    capa de persistencia. Lectura pura bajo STATE_LOCK. ``ok`` es verde solo si NO hay
+    violaciones de integridad (los 'degradado' no cuentan) NI error de arranque. Sin
+    tool MCP: es telemetría de operación (la UI pinta un chip; V6.x si se pide agente)."""
+    with STATE_LOCK:
+        raw = DOC.check_integrity()
+        issues = [i for i in raw if not i.startswith("degradado")]
+        degraded = [i for i in raw if i.startswith("degradado")]
+        return {
+            "ok": not issues and not STARTUP_ERROR,
+            "issues": issues,
+            "degraded": degraded,
+            "suppressed_commands": getattr(DOC, "regen_suppressed", []),
+            "autosave_failed": AUTOSAVE_ERROR,
+            "startup_error": STARTUP_ERROR,
+            "project_id": PROJECT_ID,
+            "features": len(DOC.scene),
+            "commands": len(DOC.commands),
+        }
 
 
 @app.get("/api/scene")
@@ -786,9 +861,11 @@ def open_project_by_id(project_id: int) -> dict:
     store = _store_required()
     with STATE_LOCK:
         try:
-            DOC = store.load(project_id)
+            DOC = store.load(project_id, tolerant=True)  # suprime comandos rotos (schema drift)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except DocumentError as exc:  # ZIP roto / no regenera: 400 claro (antes: 500 opaco)
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         PROJECT_ID = project_id
         payload = scene_payload()
     WS.notify_changed()
@@ -850,9 +927,11 @@ def restore_revision(revision_id: int) -> dict:
     store = _store_required()
     with STATE_LOCK:
         try:
-            project_id, doc = store.load_revision(revision_id)
+            project_id, doc = store.load_revision(revision_id, tolerant=True)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except DocumentError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         DOC = doc
         PROJECT_ID = project_id
         _autosave()
@@ -2539,13 +2618,16 @@ def download_project() -> Response:
 
 @app.post("/api/project/open")
 async def open_project(file: UploadFile) -> dict:
-    global DOC
+    global DOC, PROJECT_ID
     data = await file.read()
     with STATE_LOCK:
         try:
-            DOC = Document.from_apolo_bytes(data)
+            DOC = Document.from_apolo_bytes(data, tolerant=True)
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        # E2: un proyecto NUEVO en la BD — el siguiente autosave NO debe pisar el que
+        # estaba abierto antes (sin esto, PROJECT_ID seguía apuntando al anterior)
+        PROJECT_ID = STORE.create(DOC) if STORE is not None else None
         payload = scene_payload()
     WS.notify_changed()
     return payload
@@ -2557,9 +2639,10 @@ class NewProjectIn(BaseModel):
 
 @app.post("/api/project/new")
 def new_project(body: NewProjectIn) -> dict:
-    global DOC
+    global DOC, PROJECT_ID
     with STATE_LOCK:
         DOC = Document(body.name)
+        PROJECT_ID = STORE.create(DOC) if STORE is not None else None  # E2: id propio
         payload = scene_payload()
     WS.notify_changed()
     return payload

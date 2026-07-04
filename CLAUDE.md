@@ -52,20 +52,23 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 676 tests
+.\.venv\Scripts\python.exe -m pytest tests -q     # 915 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-03)**: 887 tests · 66 tools MCP · 48 comandos · catálogo 217
-  refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · **TIER 1 COMPLETO**: V5.1
-  (croquis PlaneGCS), V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado
-  directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados · Tier 2: V5.6
-  (FEA estático lineal), V5.7 (roscas), V5.8 (ingletes) y V5.9 (export DWG) cerrados —
-  queda SOLO superficies básicas · Tier 3 iniciado: V5.10 (normas del vertical —
-  memoria NORMATIVA) cerrado. Proyectos de
+- **Estado actual (2026-07-04)**: 915 tests (+6 de tortura extendida vía `-m torture`) ·
+  66 tools MCP · 48 comandos · catálogo 217 refs · roadmaps V1–V4 completos · Frentes
+  A/B/C cerrados · **TIER 1 COMPLETO**: V5.1 (croquis PlaneGCS), V5.2 + V5.2b
+  (sub-ensamblajes + `insert_project`), V5.3 (modelado directo), V5.4 (ajustes ISO 286) y
+  V5.5 (chapa avanzada) cerrados · Tier 2: V5.6 (FEA estático lineal), V5.7 (roscas), V5.8
+  (ingletes) y V5.9 (export DWG) cerrados — superficies básicas quedan POR DEMANDA · Tier
+  3: V5.10 (normas del vertical — memoria NORMATIVA) cerrado · **ROADMAP V6 «Apolo
+  industrial» iniciado: V6.1 robustez industrial CERRADO** (contrato «nada tumba el
+  documento»: `check_integrity` + carga tolerante + atomicidad de regenerate + suite de
+  tortura + `GET /api/health`; robustez 3→6). Proyectos de
   referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**, eje motriz
   «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo` (croquis
   dof=0), `pieza-proveedor-demo` (STEP round-trip defeatureado) y `guarda-banda-demo`
@@ -336,7 +339,42 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   joints, mates, constraints, fasteners, grounds); los METADATOS de manifest (motion,
   requirements, colors, hidden, notas) NO van ahí ni al log.
 - Los tests no ejecutan el lifespan de FastAPI → no tocan la SQLite (`data/apolo.db`).
-  Patrón: `api.DOC = Document("t"); TestClient(api.app)`.
+  Patrón: `api.DOC = Document("t"); TestClient(api.app)`. El arranque real vive en
+  `initialize_store(db_path)` (extraído del lifespan para testearlo sin FastAPI).
+
+### Robustez / integridad (V6.1 — «nada tumba el documento»)
+- **`Document.check_integrity() → list[str]`** (READ-ONLY puro, no muta ni cachés):
+  invariantes accionables (features↔comando vivo, refs de juntas/mates/fasteners/grounds,
+  parents/ciclos de grupos, ckpts bien formados, seq monótono, variables coherentes). Una
+  entrada con prefijo `"degradado: "` NO es error (instancing perdido por evicción de
+  DEFINITIONS; el fallback de render lo cubre). `GET /api/health` la expone
+  (`ok/issues/degraded/suppressed_commands/autosave_failed/startup_error`); sin tool MCP.
+- **Modo estricto** (`document._STRICT`, env `APOLO_STRICT=1`): tras cada mutación, si hay
+  violaciones NO-degradadas → rollback + DocumentError. La tortura lo activa por
+  monkeypatch del ATRIBUTO (se lee como global del módulo, no se captura en local).
+- **`regenerate(tolerant=False)` es ATÓMICO**: todo se construye en LOCALES y solo al
+  final, en UN bloque que no puede lanzar, se vuelca a `self` (si algo revienta —executor,
+  ref colgando, mates, `resolve_all`— `self` queda INTACTO). `tolerant=True` (SOLO cargas)
+  SUPRIME el comando roto → `regen_suppressed` [{command_id,type,error}] y poda huérfanos;
+  el LOG jamás se toca. Las MUTACIONES cargan SIEMPRE estrictas.
+- **El snapshot de undo incluye la caché de regen** (`"regen"`): `_restore` la repone
+  ANTES de regenerar → el rollback resume del último checkpoint del log viejo (replay ~0)
+  e inmune a un fallo repetido. `undo/redo` son peek-then-commit (no sacan de la pila hasta
+  saber que la restauración sobrevivió). `_UNDO_CAP=50` (los snapshots retienen shapes).
+  Blindaje: ckpts corruptos → replay completo, NUNCA se lanza por culpa de la caché.
+- **Carga tolerante SOLO en rutas de carga** (arranque, open by id, upload, restore):
+  `from_apolo_bytes(..., tolerant=True)` / `ProjectStore.load(..., tolerant=True)`; el
+  payload lleva `suppressed_commands` + la UI un chip. Guardia de seq en `from_apolo_bytes`
+  (`max(seq, len(commands), max c-id)`) → sin colisión de ids aunque el log tenga huecos.
+- **Autosave durable** (`_autosave`): reintentos `(0,0.1,0.5)` s; agotados → `AUTOSAVE_ERROR`
+  en el payload + WS `autosave_failed` (el cliente SE ENTERA de que memoria ≠ disco).
+  Arranque sano: reciente corrupto → tolerante; si ni así abre → `STARTUP_ERROR` + doc
+  vacío con `PROJECT_ID=None` (NO crea «Sin título» que pise el reciente). `project/new` y
+  `project/open` (upload) crean id PROPIO (antes: el autosave pisaba el proyecto anterior).
+- **Tortura** en `tests/test_torture.py`: acotados sin marca (corren siempre), extendidos
+  `@pytest.mark.torture` (`pytest -m torture`; el `addopts = -m "not torture"` los excluye
+  por defecto — el conteo normal no baja). Baseline de perf en `docs/perf_baseline.json`
+  (regenerado con `scripts/perf_baseline.py`, máquina-dependiente).
 
 ### Paramétrico / modelado
 - **Disciplina paramétrica**: cota que no cuelga de variable/expresión NO sigue los
@@ -449,11 +487,34 @@ falta arrastre en vivo y elipses/splines) · ensamblaje 4.5 (soundness/gravity e
 separa de 6+ es contacto/no-lineal/multicuerpo)
 · entregables de negocio 6.5 (memoria NORMATIVA CEMA/ISO 5048 + cotización, V5.10) ·
 interop 6 (STEP/STL/DXF/SVG/glTF + DWG vía ODA, V5.9) · rendimiento 4 ·
-robustez 3 · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
+robustez **6** (V6.1: contrato de integridad + carga tolerante + atomicidad + tortura —
+subió de 3) · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
 planos se DERIVAN del paramétrico (él es lienzo 2D manual — otra categoría). Medir
 progreso por PROFUNDIDAD del vertical, no por paridad de features.
 
-## Hoja de ruta V5 — "Apolo completo, agente-primero" (doctrina 2026-07-01)
+## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
+
+El roadmap V5 (completitud de FLUJO del vertical) está **agotado**: lo que quedaba
+(superficies básicas, render bonito, plantillas de plano) es POR DEMANDA, no bloqueante.
+V6 ataca los ejes de MADUREZ más débiles del propio CLAUDE.md, empezando por el menos
+vistoso y más pro. Criterio de «hecho» = el de V5 **+ la tortura y el health quedan
+verdes**. Un ítem por vez, con plan formal.
+- **V6.1 Robustez industrial** — **HECHO (2026-07-04)**. Contrato «nada tumba el
+  documento»: tras cualquier fallo (excepción OCCT, comando inválido, .apolo corrupto,
+  fuzzing de undo/redo, autosave caído) el doc queda ÍNTEGRO Y VERIFICABLE. `check_integrity`
+  + `APOLO_STRICT` + `GET /api/health` + suite de tortura (primero roja) + atomicidad de
+  regenerate + carga tolerante + autosave durable + startup sano + LRU de DEFINITIONS +
+  insert_project pre-validado + WS resiliente. Madurez robustez 3→6.
+- **V6.2 Rendimiento** — open frío con caché BREP por firma, deltas de `scene_payload`,
+  dos-locks para gravity/render, debounce del autosave medido contra
+  `docs/perf_baseline.json`. Madurez 4→6.
+- **V6.3 Ensamblaje pro** — multi-mate por sólido, conectores por ancla, reporte de DOF. 4.5→6.
+- **V6.4 Paramétrico profundo** — faja 38 100 % paramétrica como caso testigo, tablas de
+  diseño. 5→6.5.
+- **V6.5 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
+- **V6.6 FEA de ensamblaje (bonded)**. 4.5→5.5.
+
+## Hoja de ruta V5 — "Apolo completo, agente-primero" (doctrina 2026-07-01) — AGOTADA
 
 **Doctrina actualizada por el usuario**: la meta es que un ingeniero especializado que
 usa Apolo **nunca necesite SW/Inventor para terminar su trabajo** en el vertical. NO es
@@ -504,7 +565,8 @@ E2E en un modelo real. Un ítem por vez, con plan formal ("procede con V5.<n>").
 - **UI**: refactor del interior de `Viewport.tsx` (picking/box-select/medición/sección/
   gizmo a módulos), picker de 2 sólidos para `add_joinery`, ventanas flotantes/auto-hide
   de Dockview, editar sweep/loft/chapa/mate desde Propiedades, nodo «Uniones» en el árbol.
-- **Perf**: carga inicial (OPEN) en frío, debounce de autosave.
+- **Perf**: carga inicial (OPEN) en frío y debounce del autosave → absorbidos por el
+  roadmap V6.2 (medir contra `docs/perf_baseline.json`).
 - **Limpieza**: proyectos basura id 26/27 y `perf-test-batch` (borrar desde la UI).
 
 ## Fuera de alcance deliberado

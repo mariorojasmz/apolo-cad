@@ -1,4 +1,4 @@
-import { Keyboard, LayoutDashboard } from "lucide-react";
+import { Keyboard, LayoutDashboard, AlertTriangle } from "lucide-react";
 import { useStore } from "../state/store";
 import { PANEL_ICONS } from "../ui/icons";
 import Spinner from "../ui/Spinner";
@@ -25,6 +25,10 @@ export default function StatusBar() {
   const toggleShortcuts = useStore((s) => s.toggleShortcuts);
   const busy = useStore((s) => s.busy);
   const busyLabel = useStore((s) => s.busyLabel);
+  // robustez (V6.1): el backend avisa si el autoguardado no llega al disco o si abrió
+  // un proyecto suprimiendo comandos rotos (schema drift)
+  const autosaveFailed = useStore((s) => s.scene?.document.autosave_failed ?? null);
+  const suppressed = useStore((s) => s.scene?.document.suppressed_commands?.length ?? 0);
 
   return (
     <footer className="statusbar">
@@ -44,6 +48,25 @@ export default function StatusBar() {
         );
       })}
       <span className="status-right">
+        {autosaveFailed && (
+          <span
+            className="busy-badge"
+            role="status"
+            style={{ color: "#d8703a" }}
+            title={`El autoguardado falló: ${autosaveFailed}. Tus cambios están en memoria pero NO en disco.`}
+          >
+            <AlertTriangle size={13} strokeWidth={1.9} /> Sin guardar
+          </span>
+        )}
+        {suppressed > 0 && (
+          <span
+            className="busy-badge"
+            style={{ color: "#d8703a" }}
+            title={`Se abrió el proyecto suprimiendo ${suppressed} comando(s) inválido(s). Revísalos en el Historial.`}
+          >
+            <AlertTriangle size={13} strokeWidth={1.9} /> {suppressed} suprimido{suppressed > 1 ? "s" : ""}
+          </span>
+        )}
         {busy && (
           <span className="busy-badge" role="status" aria-live="polite">
             <Spinner size={13} />

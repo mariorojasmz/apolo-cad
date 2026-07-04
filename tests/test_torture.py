@@ -377,6 +377,346 @@ def test_T7_tolerant_equals_strict_on_healthy_project():
     assert strict.to_apolo_bytes() == tol.to_apolo_bytes()
 
 
-# NOTA: la tortura de la CAPA API (T8 DEFINITIONS/LRU, T9 insert_project precheck,
-# T10 autosave, T11 startup, T12 project/new, T13 WS, T14 health) y los tests EXTENDIDOS
-# (@pytest.mark.torture) llegan con sus fixes en el commit V6.1b.
+# ================================================ T8 — DEFINITIONS: contrato + LRU
+
+
+def test_T8_scene_payload_covers_every_feature():
+    """Toda feature del payload tiene su malla propia O una definición presente en el
+    payload — nunca una referencia colgando (el fallback de render la cubre)."""
+    import apolo.api.main as api
+
+    old = api.DOC
+    try:
+        doc = Document("defs")
+        doc.execute_many([
+            {"type": "create_box", "params": {"width": 30 + i, "depth": 20, "height": 10,
+                                              "position": {"x": i * 60}}}
+            for i in range(50)
+        ])
+        api.DOC = doc
+        payload = api.scene_payload()
+        for feat in payload["features"]:
+            assert feat["mesh"] is not None or feat["mesh_key"] in payload["definitions"]
+        assert [i for i in doc.check_integrity() if not i.startswith("degradado")] == []
+    finally:
+        api.DOC = old
+
+
+def test_T8_definitions_lru_touch_survives_eviction():
+    """Tocar una definición vía el render (HIT) la protege de la evicción: registrar una
+    nueva desaloja la MENOS usada, no la tocada (LRU, no FIFO)."""
+    import apolo.commands.registry as reg
+    from apolo.api.main import _DEF_MESH_CACHE, _definition_mesh
+    from build123d import Box
+
+    saved = dict(reg.DEFINITIONS)
+    try:
+        reg.DEFINITIONS.clear()
+        _DEF_MESH_CACHE.clear()
+        cap = reg._DEFINITIONS_CAP
+        for i in range(cap):
+            reg.register_definition(f"k{i}", Box(10 + i * 0.1, 10, 10))
+        _definition_mesh("k0")  # touch la más vieja vía el render
+        reg.register_definition("k_new", Box(5, 5, 5))  # evicta la LRU real
+        assert "k0" in reg.DEFINITIONS       # sobrevivió por el touch
+        assert "k1" not in reg.DEFINITIONS   # la verdadera LRU cayó
+    finally:
+        reg.DEFINITIONS.clear()
+        reg.DEFINITIONS.update(saved)
+        _DEF_MESH_CACHE.clear()
+
+
+# ================================================ T9 — insert_project pre-validado
+
+
+def test_T9_insert_project_precheck_before_any_mutation():
+    """Una colisión de nombre INTERNO (junta) se detecta ANTES de emitir la primera
+    pieza: la escena destino queda vacía (no depende del rollback de _mutate)."""
+    from apolo.commands.registry import REGISTRY, CommandError, _exec_insert_project
+
+    donor, dids = _build_model(6)
+    donor_bytes = donor.to_apolo_bytes()
+    attachments = {"digest0": donor_bytes}
+    p = REGISTRY["insert_project"].model.model_validate({"attachment": "digest0", "name": "M1"})
+    scene: dict = {}
+    # una junta interna ya "ocupada": M1/j1 (la junta del donante prefijada)
+    joints = {"M1/j1": {"name": "M1/j1", "parent": "x", "child": "y",
+                        "axis": [0, 0, 1], "command_id": "pre"}}
+    with pytest.raises(CommandError):
+        _exec_insert_project(
+            scene, "cX", p, attachments=attachments, groups={}, joints=joints,
+            mates={}, constraints={}, fasteners={}, grounds={},
+        )
+    assert scene == {}  # NADA se emitió antes del error
+
+
+# ================================================ T10 — autosave durable (flag)
+
+
+class _FlakyStore:
+    """STORE falso cuyo save() falla las primeras `fail` veces (o siempre si fail<0)."""
+
+    def __init__(self, fail: int):
+        self.fail = fail
+        self.calls = 0
+        self.saved = 0
+
+    def save(self, project_id, doc):
+        self.calls += 1
+        if self.fail < 0 or self.calls <= self.fail:
+            raise RuntimeError("disco lleno (inyectado)")
+        self.saved += 1
+
+    def create(self, doc):
+        return 1
+
+
+@pytest.fixture()
+def api_client():
+    import apolo.api.main as api
+    from fastapi.testclient import TestClient
+
+    old = (api.DOC, api.STORE, api.PROJECT_ID, api.AUTOSAVE_ERROR, api.STARTUP_ERROR)
+    api.DOC = Document("torture-api")
+    api.AUTOSAVE_ERROR = None
+    api.STARTUP_ERROR = None
+    yield api, TestClient(api.app)
+    (api.DOC, api.STORE, api.PROJECT_ID, api.AUTOSAVE_ERROR, api.STARTUP_ERROR) = old
+
+
+def test_T10_autosave_transient_failure_recovers(api_client):
+    """Fallos transitorios de autosave (2×) los absorbe el retry: sin flag en el payload."""
+    api, client = api_client
+    api.STORE = _FlakyStore(fail=2)
+    api.PROJECT_ID = 1
+    r = client.post("/api/commands", json={"type": "create_box", "params": {"width": 50}})
+    assert r.status_code == 200
+    assert r.json()["document"]["autosave_failed"] is None
+
+
+def test_T10_autosave_persistent_failure_flags_and_recovers(api_client):
+    """Fallo persistente de autosave → flag en el payload; al sanar el disco, el flag se
+    limpia en la siguiente mutación."""
+    api, client = api_client
+    api.STORE = _FlakyStore(fail=-1)  # falla siempre
+    api.PROJECT_ID = 1
+    r = client.post("/api/commands", json={"type": "create_box", "params": {"width": 50}})
+    assert r.json()["document"]["autosave_failed"]  # flag encendido
+    api.STORE = _FlakyStore(fail=0)  # disco sano
+    r2 = client.post("/api/commands", json={"type": "create_box", "params": {"width": 60}})
+    assert r2.json()["document"]["autosave_failed"] is None  # se limpió
+
+
+# ================================================ T11 — startup con reciente corrupto
+
+
+def test_T11_startup_corrupt_recent_does_not_create_untitled(tmp_path):
+    """Si el proyecto reciente está corrupto y no abre ni tolerante, el arranque NO crea
+    un 'Sin título' vacío que lo pise: el reciente sigue siendo el corrupto y health lo
+    reporta con startup_error."""
+    import sqlite3
+
+    import apolo.api.main as api
+    from apolo.projects import ProjectStore
+
+    old = (api.DOC, api.STORE, api.PROJECT_ID, api.STARTUP_ERROR)
+    db = str(tmp_path / "corrupt.db")
+    store = ProjectStore(db)
+    with sqlite3.connect(db) as con:
+        cur = con.execute(
+            "INSERT INTO projects(name, updated_at, pieces, data) VALUES(?,?,?,?)",
+            ("roto", "2026-07-04T00:00:00", 0, b"esto no es un zip valido"),
+        )
+        corrupt_id = int(cur.lastrowid)
+    try:
+        api.initialize_store(db)  # extraído del lifespan (fase E)
+        assert store.most_recent_id() == corrupt_id  # NO se creó "Sin título"
+        assert len(store.list_projects()) == 1
+        assert api.STARTUP_ERROR
+    finally:
+        (api.DOC, api.STORE, api.PROJECT_ID, api.STARTUP_ERROR) = old
+
+
+# ================================================ T12 — project/new no pisa el anterior
+
+
+class _RecordingStore:
+    def __init__(self):
+        self.saves: list[int] = []
+        self._next = 100
+
+    def create(self, doc):
+        pid = self._next
+        self._next += 1
+        return pid
+
+    def save(self, project_id, doc):
+        self.saves.append(project_id)
+
+
+def test_T12_project_new_does_not_overwrite_previous(api_client):
+    """POST /api/project/new con PROJECT_ID=7 y luego una mutación: el autosave NO debe
+    ir al proyecto 7 (bug de pérdida de datos E2)."""
+    api, client = api_client
+    api.STORE = _RecordingStore()
+    api.PROJECT_ID = 7
+    client.post("/api/project/new", json={"name": "nuevo"})
+    client.post("/api/commands", json={"type": "create_box", "params": {"width": 40}})
+    assert 7 not in api.STORE.saves  # jamás sobrescribió el proyecto anterior
+
+
+# ================================================ T13 — WebSocket resiliente
+
+
+def test_T13_ws_drops_dead_client():
+    """Un cliente WS cuyo send falla se DESECHA de la lista y no propaga la excepción a
+    la mutación en curso."""
+    import asyncio
+    import threading
+
+    import apolo.api.main as api
+
+    loop = asyncio.new_event_loop()
+    t = threading.Thread(target=loop.run_forever, daemon=True)
+    t.start()
+
+    class _DeadWS:
+        async def send_json(self, _msg):
+            raise RuntimeError("cliente muerto")
+
+    old_clients, old_loop = list(api.WS.clients), api.WS.loop
+    dead = _DeadWS()
+    try:
+        api.WS.clients = [dead]
+        api.WS.loop = loop
+        api.WS.notify_changed()  # no debe lanzar
+        time.sleep(0.1)          # deja correr la coroutine en el loop de fondo
+        assert dead not in api.WS.clients  # se desechó el cliente muerto
+    finally:
+        api.WS.clients, api.WS.loop = old_clients, old_loop
+        loop.call_soon_threadsafe(loop.stop)
+
+
+# ================================================ T14 — GET /api/health
+
+
+def test_T14_health_green_and_red(api_client):
+    api, client = api_client
+    client.post("/api/commands", json={"type": "create_box", "params": {"width": 50}})
+    assert client.get("/api/health").json()["ok"] is True
+    # inyectar una junta huérfana a mano → health en rojo con un issue
+    api.DOC.joints["jbad"] = {"name": "jbad", "parent": "c1", "child": "fantasma",
+                              "axis": [0, 0, 1], "command_id": "c1"}
+    h = client.get("/api/health").json()
+    assert h["ok"] is False and len(h["issues"]) >= 1
+
+
+# ================================================================ EXTENDIDOS (torture)
+
+
+def _big_model(target: int) -> tuple[Document, list[str]]:
+    """Modelo grande (~target sólidos) barato: unas semillas + pattern_group masivo."""
+    doc = Document("big")
+    seeds = [
+        doc.execute("create_box", {"name": f"s{i}", "width": 40 + i, "depth": 30,
+                                    "height": 20, "position": {"x": i * 80}})
+        for i in range(5)
+    ]
+    per = max(2, target // len(seeds))
+    for i, s in enumerate(seeds):
+        doc.execute("pattern_group", {"source": s, "count": per, "spacing": {"y": (i + 1) * 90}})
+    return doc, seeds
+
+
+@pytest.mark.torture
+def test_torture_big_model_cold_and_edit_and_undo():
+    doc, seeds = _big_model(400)
+    n = len(doc.scene)
+    assert n >= 300
+    t0 = time.perf_counter()
+    _assert_replay_matches(doc)  # replay frío del log completo
+    print(f"\n[torture] replay frío {n} sólidos: {time.perf_counter() - t0:.1f}s")
+    doc.edit(seeds[0], {"width": 66, "depth": 30, "height": 20}, merge=True)  # edit temprano
+    assert doc.check_integrity() == []
+    for _ in range(10):
+        doc.undo()
+        doc.redo()
+    assert doc.check_integrity() == []
+    assert len(doc.scene) == n
+
+
+@pytest.mark.torture
+def test_torture_scene_payload_big_model():
+    import apolo.api.main as api
+
+    old = api.DOC
+    try:
+        doc, _ = _big_model(400)
+        api.DOC = doc
+        t0 = time.perf_counter()
+        payload = api.scene_payload()
+        print(f"\n[torture] scene_payload {len(payload['features'])} feats: "
+              f"{time.perf_counter() - t0:.1f}s")
+        for feat in payload["features"]:
+            assert feat["mesh"] is not None or feat["mesh_key"] in payload["definitions"]
+    finally:
+        api.DOC = old
+
+
+@pytest.mark.torture
+@pytest.mark.parametrize("seed", [1, 7, 99])
+def test_torture_fuzz_strict(seed):
+    """1000 ops con el modo ESTRICTO activo: cada mutación deja el doc íntegro o revierte."""
+    from apolo.doc import document as docmod
+
+    old_strict = docmod._STRICT
+    docmod._STRICT = True
+    try:
+        rng = random.Random(seed)
+        doc, ids = _build_model(30)
+        for _ in range(1000):
+            op = rng.choice(["execute", "edit", "undo", "redo", "remove"])
+            try:
+                if op == "execute":
+                    doc.execute("create_cylinder", {"radius": rng.randint(5, 30),
+                                                    "height": rng.randint(10, 60),
+                                                    "position": {"x": rng.randint(0, 9000)}})
+                elif op == "edit":
+                    geo = [c for c in doc.commands if c["type"] in ("create_box", "create_cylinder")]
+                    if geo:
+                        c = rng.choice(geo)
+                        doc.edit(c["id"], {"height": rng.randint(10, 90)}, merge=True)
+                elif op == "undo" and doc.can_undo:
+                    doc.undo()
+                elif op == "redo" and doc.can_redo:
+                    doc.redo()
+                elif op == "remove" and doc.commands:
+                    doc.remove_commands([rng.choice(doc.commands)["id"]])
+            except DocumentError:
+                pass
+        assert doc.check_integrity() == []
+    finally:
+        docmod._STRICT = old_strict
+
+
+@pytest.mark.torture
+def test_torture_definitions_eviction_with_payload():
+    """600 definiciones distintas con evicción intercalada: el payload nunca cuelga una
+    referencia (todas las evictadas caen al fallback de malla propia)."""
+    import apolo.api.main as api
+
+    old = api.DOC
+    try:
+        doc = Document("evict")
+        doc.execute_many([
+            {"type": "create_box", "params": {"width": 20 + i * 0.5, "depth": 15,
+                                              "height": 10, "position": {"x": i * 40}}}
+            for i in range(600)
+        ])
+        api.DOC = doc
+        payload = api.scene_payload()
+        for feat in payload["features"]:
+            assert feat["mesh"] is not None or feat["mesh_key"] in payload["definitions"]
+        assert [i for i in doc.check_integrity() if not i.startswith("degradado")] == []
+    finally:
+        api.DOC = old

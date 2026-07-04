@@ -2575,3 +2575,97 @@ de cola detectado), memoria PDF con 4 páginas "NORMA DE REFERENCIA" y portada
 "Normas aplicadas". El veredicto "APROBADO CON AVISOS" es PRE-existente (los
 avisos de asiento del 6207 del tensor, hallazgo bonus de V5.4) — la regla
 nueva no lo empeora.
+
+## V6.1 — Robustez industrial: «nada tumba el documento» (2026-07-04) — inicia el roadmap V6
+
+**Giro de rumbo (el POR QUÉ)**: el usuario pidió máxima ambición pro y avisó que había
+estado confiando en rumbos fáciles. Diagnóstico acordado: el roadmap V5 (completitud de
+FLUJO del vertical) se agotó; lo que quedaba era cosmética. Se abre el roadmap V6 «Apolo
+industrial», que ataca los ejes de madurez más débiles del propio CLAUDE.md — empezando
+por el menos vistoso y más pro: **robustez (3/10)**. Contrato del ítem: tras CUALQUIER
+fallo (excepción OCCT, comando inválido, .apolo corrupto, fuzzing de undo/redo, autosave
+caído) el documento queda ÍNTEGRO Y VERIFICABLE, nunca a medias. Filosofía NO negociable:
+**primero la suite de tortura (roja), después los fixes que la ponen verde.**
+
+**Dinámica del plan**: lo diseñó Fable 5 (dos exploraciones exhaustivas del código + un
+agente de diseño) en `docs/plans/V6.1-robustez-industrial.md`; lo ejecutó Opus 4.8 en
+sesión nueva. El plan traía un mapa de 9 áreas frágiles + 2 bugs de PÉRDIDA DE DATOS con
+evidencia de líneas.
+
+**Fase 0 — la vara de medir**. `Document.check_integrity() → list[str]` (READ-ONLY puro):
+features↔comando vivo (directo o sintético `{cmd}_{orig}` de insert_project), contrato de
+instancia `mesh_key⇔matrix` (mesh_key ∉ DEFINITIONS = `"degradado: "`, NO error — el
+fallback de render lo cubre), refs de juntas/mates/constraints/fasteners/grounds, parents
+y ciclos de grupos, ckpts bien formados, seq monótono, variables coherentes. Flag
+`document._STRICT` (env `APOLO_STRICT=1`): tras cada mutación, violaciones no-degradadas →
+rollback + DocumentError. `GET /api/health` expone `ok/issues/degraded/suppressed_commands/
+autosave_failed/startup_error/…`.
+
+**Fase 1 — la tortura, primero ROJA**. `tests/test_torture.py` (T1–T14 acotados + 4
+extendidos `@pytest.mark.torture`). `pytest.ini`: marker `torture` + `addopts = -m "not
+torture"` (compuerta: `--collect-only` sigue dando los 887 originales — 908 con los
+acotados). Mapa canónico al correrla: **13 rojos / 8 verdes**. Los rojos mapean 1:1 a los
+fixes: T3→peek-then-commit, T4→checkpoints blindados, T5→regenerate atómico,
+T6-seq→guardia de seq, T7×2→carga tolerante, T8-lru→LRU, T9→precheck de insert_project,
+T10×2→autosave durable, T11→startup sano, T12→project/new, T13→WS resiliente. Verdes
+esperados: T1 (pin de oro del fuzz undo/redo), T2 (la atomicidad de replay-loop ya la daba
+el commit-al-final), T6×4 (corruptor de ZIP/JSON), T8-render (el fallback ya existía),
+T14 (health ya construido en Fase 0). **Discrepancia documentada (Compuerta 2)**: el modo
+«param inexistente» del corruptor sale VERDE porque pydantic IGNORA claves extra a
+propósito (forward-compatible); el contrato real de schema drift es un VALOR inválido bajo
+el schema de hoy, así que T6-param-drift envenena `width=-5` (no una clave extra).
+
+**Fase 2 — fixes de `doc/` (regla: el camino sano byte-idéntico)**. `regenerate(tolerant=
+False)` reescrito ATÓMICO: todo en LOCALES, `variables_resolved` calculado ANTES de tocar
+`self`, y UN bloque final de asignaciones que no puede lanzar → si algo revienta (executor,
+ref colgando, mates, `resolve_all`) `self` queda intacto. `tolerant=True` (solo cargas)
+SUPRIME el comando roto (`regen_suppressed` [{command_id,type,error}]) y poda huérfanos
+—`_prune_or_raise` estricto lanza / tolerante elimina en memoria— sin tocar JAMÁS el log.
+El snapshot de undo gana la caché de regen (`"regen"`), que `_restore` repone ANTES de
+regenerar → rollback resume del último checkpoint del log viejo (replay ~0) e inmune a un
+fallo repetido; `undo/redo` peek-then-commit (no sacan de la pila hasta saber que la
+restauración sobrevivió); `_UNDO_CAP=50`. Blindaje `_ckpts_ok()`: ckpts corruptos →
+replay completo, nunca se lanza por la caché. Guardia de seq en `from_apolo_bytes`
+(`max(seq, len(commands), max c-id)`). Sutileza descubierta: los faults en el bucle de
+replay son atómicos SIN el fix (revientan antes de la asignación); el bug de atomicidad
+solo se OBSERVA con `resolve_all` (que en el código viejo iba DESPUÉS de asignar la escena)
+→ T5 se escribió como regenerate directo con escena que debe quedar vieja.
+
+**Fase 3 — fixes de `registry`/`api`**. DEFINITIONS pasa de FIFO ciego a **LRU**:
+`register_definition` toca (reinserta) una clave existente, `touch_definition` la llama el
+render en cada HIT → una definición con instancias vivas que se sigue renderizando no la
+desaloja un registro nuevo. `insert_project` gana `_insert_project_precheck`: computa TODOS
+los nombres/ids prospectivos (grupo raíz + internos, juntas, constraints, fasteners,
+grounds, fids) y choca contra el estado presente ANTES de emitir la primera pieza — un solo
+CommandError con la lista, sin depender del rollback. Autosave durable: reintentos
+`(0,0.1,0.5)` s; agotados → `AUTOSAVE_ERROR` en el payload + WS `autosave_failed` (el
+cliente SE ENTERA de que memoria≠disco). Startup extraído a `initialize_store(db_path)`
+(testeable sin FastAPI): reciente corrupto → tolerante; si ni así abre → `STARTUP_ERROR` +
+doc vacío con `PROJECT_ID=None`, NO crea «Sin título» que pise el reciente. **Bug E2
+(pérdida de datos)**: `project/new` y `project/open`(upload) creaban DOC nuevo sin tocar
+`PROJECT_ID` → el siguiente autosave SOBRESCRIBÍA el proyecto anterior; ahora crean id
+propio. WS: `_safe_send` con try/except que desecha al cliente muerto. Cargas por id/upload/
+restore pasan `tolerant=True` y capturan `DocumentError`→400 (antes: 500 opaco). UI: chip
+de «Sin guardar» / «N suprimidos» en StatusBar (`npm run build` verde).
+
+**Fase 4 — baseline de perf** (`scripts/perf_baseline.py`, read-only sobre la BD, mediana
+de 3). Contra los proyectos REALES: `open_frio_faja38 = 1.96 s` (72 sólidos, 309 comandos),
+`scene_payload_layout53 = 1.3 ms` (149 sólidos, 1.11 MB de payload), `autosave = 4.6 ms`,
+`fuzz_100ops = 1.49 s`. Commiteado en `docs/perf_baseline.json` como vara de V6.2.
+
+**Fase 5 — E2E vivo** (TestClient con lifespan real contra una COPIA de la BD vía
+`APOLO_DB` — protege los proyectos del usuario del autosave y esquiva el zombie-socket del
+:8000). **14/14 OK**: health verde al arrancar; faja 38 → 72 sólidos con `suppressed==[]`;
+layout 53 → 149 sólidos; re-guardado de la faja con CONTENIDO idéntico (el ZIP crudo difiere
+solo por el timestamp que `writestr` embebe — el commands.json/manifest.json son idénticos);
+upload truncado → 400 con el DOC intacto; upload con un create_box envenenado → 200
+tolerante con el comando reportado; BD copia read-only → `autosave_failed` encendido →
+permisos restaurados → flag limpio; health verde al final.
+
+**Resultado**: mapa ROJO→VERDE completo. **915 tests** (887 + 21 de tortura acotada + 7
+convencionales) + 6 de tortura extendida (`-m torture`, ~37 s: replay frío de 400 sólidos
+0.4 s, scene_payload 0.2 s, fuzz 1000×3 semillas con STRICT, evicción de 600 defs). Sin
+regresiones: el camino sano quedó byte-idéntico (los 887 originales verdes). Desviaciones
+documentadas: T6-param-drift (valor inválido, no clave extra) y el E2E vía TestClient sobre
+copia de BD en vez de uvicorn suelto (más seguro para los proyectos reales del usuario).
+Madurez robustez 3→6.

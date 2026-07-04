@@ -113,6 +113,9 @@ export interface DocumentOut {
   configurations: string[];
   groups: GroupOut[];
   project_id: number | null;
+  // robustez (V6.1): comandos suprimidos por una carga tolerante + estado del autosave
+  suppressed_commands?: { command_id: string | null; type: string; error: string }[];
+  autosave_failed?: string | null;
 }
 
 export interface ProjectInfo {

@@ -205,3 +205,29 @@ def test_invalid_params_rejected(doc):
     with pytest.raises((CommandError, DocumentError)):
         doc.execute("transform", {"feature": "no_existe"})
     assert doc.commands == []
+
+
+def test_definitions_lru_touch_and_eviction_order():
+    """DEFINITIONS es LRU (V6.1): un HIT (register o touch) reinserta al final; al
+    llenar el cap, la evicción saca la MENOS recientemente usada, no la más vieja por
+    orden de inserción."""
+    import apolo.commands.registry as reg
+    from build123d import Box
+
+    saved = dict(reg.DEFINITIONS)
+    try:
+        reg.DEFINITIONS.clear()
+        cap = reg._DEFINITIONS_CAP
+        for i in range(cap):
+            reg.register_definition(f"k{i}", Box(10 + i * 0.1, 10, 10))
+        reg.touch_definition("k0")  # k0 pasa a ser la más reciente
+        reg.register_definition("nueva", Box(5, 5, 5))  # evicta la LRU real (k1)
+        assert "k0" in reg.DEFINITIONS and "nueva" in reg.DEFINITIONS
+        assert "k1" not in reg.DEFINITIONS
+        # re-registrar una clave existente también la "toca" (no crece el dict)
+        n = len(reg.DEFINITIONS)
+        reg.register_definition("k0", Box(1, 1, 1))
+        assert len(reg.DEFINITIONS) == n
+    finally:
+        reg.DEFINITIONS.clear()
+        reg.DEFINITIONS.update(saved)

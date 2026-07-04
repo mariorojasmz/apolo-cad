@@ -105,14 +105,28 @@ class Feature:
 
 
 # Geometrías canónicas compartidas (centradas en su origen), por clave de contenido.
+# Caché LRU (V6.1, Fix A): la evicción saca la MENOS recientemente usada, y un HIT
+# (registro o teselado) la "toca" reinsertándola al final. Así una definición con
+# instancias VIVAS que se sigue renderizando no la desaloja un registro nuevo (antes
+# era FIFO ciego → se perdía el instancing de piezas en uso). El fallback de
+# scene_payload cubre igualmente cualquier desalojo (tesela el shape mundial).
 DEFINITIONS: dict[str, Any] = {}
 _DEFINITIONS_CAP = 256
 
 
 def register_definition(key: str, shape: Any) -> None:
-    if key not in DEFINITIONS and len(DEFINITIONS) >= _DEFINITIONS_CAP:
-        DEFINITIONS.pop(next(iter(DEFINITIONS)))
+    if key in DEFINITIONS:
+        DEFINITIONS.pop(key)  # touch: reinsertar al final (más recientemente usada)
+    elif len(DEFINITIONS) >= _DEFINITIONS_CAP:
+        DEFINITIONS.pop(next(iter(DEFINITIONS)))  # evicta la LRU (la primera)
     DEFINITIONS[key] = shape
+
+
+def touch_definition(key: str) -> None:
+    """Marca una definición como recién usada (la reinserta al final). La llama el
+    render en cada HIT para que las definiciones EN USO sobrevivan a la evicción LRU."""
+    if key in DEFINITIONS:
+        DEFINITIONS[key] = DEFINITIONS.pop(key)
 
 
 Scene = dict[str, Feature]
@@ -921,6 +935,45 @@ def _exec_transform_group(
                 con["axis"] = _transform_dir(w, con["axis"])
 
 
+def _insert_project_precheck(
+    cmd_id: str, sub, p: "InsertProjectParams", scene: Scene, groups: dict,
+    joints: Joints, constraints: dict, fasteners: dict, grounds: dict,
+) -> None:
+    """Pre-valida TODOS los nombres/ids prospectivos de la instancia contra el estado
+    YA presente, ANTES de emitir la primera pieza (Fix F): un solo CommandError con la
+    lista completa de colisiones, en vez de un críptico 'duplicado' a mitad de emisión
+    (con el rollback de _mutate como red pero sin depender de él). El cuerpo del executor
+    vuelve a validar al registrar cada entidad (defensa en profundidad)."""
+    clashes: list[str] = []
+    if p.name in groups:
+        clashes.append(f"grupo '{p.name}'")
+    for fid in sub.scene:
+        if f"{cmd_id}_{fid}" in scene:
+            clashes.append(f"sólido '{cmd_id}_{fid}'")
+    for jname in sub.joints:
+        if f"{p.name}/{jname}" in joints:
+            clashes.append(f"junta '{p.name}/{jname}'")
+    for cname in sub.constraints:
+        if f"{p.name}/{cname}" in constraints:
+            clashes.append(f"restricción '{p.name}/{cname}'")
+    for fname in sub.fasteners:
+        if f"{p.name}/{fname}" in fasteners:
+            clashes.append(f"fijador '{p.name}/{fname}'")
+    if p.keep_grounds:
+        for gname in sub.grounds:
+            if f"{p.name}/{gname}" in grounds:
+                clashes.append(f"anclaje '{p.name}/{gname}'")
+    for gname in sub.groups:
+        if f"{p.name}/{gname}" in groups:
+            clashes.append(f"grupo '{p.name}/{gname}'")
+    if clashes:
+        raise CommandError(
+            f"La instancia '{p.name}' colisiona con entidades ya presentes: "
+            + ", ".join(clashes)
+            + " — usa un nombre de instancia distinto"
+        )
+
+
 def _exec_insert_project(
     scene: Scene, cmd_id: str, p: "InsertProjectParams", *,
     attachments: dict, groups: dict, joints: Joints, mates: dict,
@@ -959,6 +1012,11 @@ def _exec_insert_project(
         raise CommandError(str(exc)) from exc
     if not sub.scene:
         raise CommandError("El proyecto instanciado no tiene sólidos")
+
+    # Fix F: pre-validar TODAS las colisiones ANTES de emitir la primera pieza
+    _insert_project_precheck(
+        cmd_id, sub, p, scene, groups, joints, constraints, fasteners, grounds
+    )
 
     pos, rot = p.position.tuple(), p.rotation.tuple()
     inst = compose_place(pos, rot)

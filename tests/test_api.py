@@ -537,3 +537,24 @@ def test_assembly_declare_and_delete(client):
 
     # 404 al borrar inexistente
     assert client.delete("/api/grounds/no_existe").status_code == 404
+
+
+def test_health_endpoint_ok_and_issue(client):
+    """GET /api/health verde en un doc sano; rojo (con issue) al inyectar una junta
+    huérfana. Sin startup_error ni autosave_failed en el camino sano."""
+    client.post("/api/commands", json={"type": "create_box", "params": {"width": 50}})
+    h = client.get("/api/health").json()
+    assert h["ok"] is True and h["issues"] == [] and h["startup_error"] is None
+    assert h["autosave_failed"] is None and h["features"] == 1
+    api.DOC.joints["jbad"] = {"name": "jbad", "parent": "c1", "child": "fantasma",
+                              "axis": [0, 0, 1], "command_id": "c1"}
+    bad = client.get("/api/health").json()
+    assert bad["ok"] is False and len(bad["issues"]) >= 1
+
+
+def test_document_payload_has_robustness_fields(client):
+    """El payload del documento expone los campos de robustez (suppressed_commands +
+    autosave_failed) para el chip de la UI."""
+    client.post("/api/commands", json={"type": "create_box", "params": {"width": 50}})
+    doc = client.get("/api/document").json()
+    assert doc["suppressed_commands"] == [] and doc["autosave_failed"] is None
