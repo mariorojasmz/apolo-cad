@@ -134,11 +134,11 @@ def euler_from_matrix(m: Mat) -> tuple[float, float, float]:
     return (math.degrees(rx), math.degrees(ry), math.degrees(rz))
 
 
-def direction_to_euler(direction) -> tuple[float, float, float]:
-    """Euler XYZ (grados) que lleva el eje Z a `direction` (vector 3D arbitrario).
-    Construye un frame ortonormal con Z=dir (Gram-Schmidt contra el eje de mundo
-    menos alineado) y extrae el euler — para orientar perfiles (extruidos en Z) a
-    lo largo de aristas en cualquier dirección."""
+def direction_frame(direction) -> tuple[tuple, tuple, tuple]:
+    """Frame ortonormal (x, y, z) con Z = `direction` normalizada (Gram-Schmidt
+    contra el eje de mundo menos alineado). Es la ÚNICA fuente del marco local de
+    un miembro (perfil extruido en Z): la librería de ingletes proyecta al vecino
+    en este mismo frame para que el azimut del corte case con el place."""
     dx, dy, dz = (float(c) for c in direction)
     n = math.sqrt(dx * dx + dy * dy + dz * dz)
     if n < 1e-9:
@@ -149,6 +149,14 @@ def direction_to_euler(direction) -> tuple[float, float, float]:
     xn = math.sqrt(x[0] ** 2 + x[1] ** 2 + x[2] ** 2)
     x = (x[0] / xn, x[1] / xn, x[2] / xn)
     y = (z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0])
+    return x, y, z
+
+
+def direction_to_euler(direction) -> tuple[float, float, float]:
+    """Euler XYZ (grados) que lleva el eje Z a `direction` (vector 3D arbitrario) —
+    para orientar perfiles (extruidos en Z) a lo largo de aristas en cualquier
+    dirección. Usa el frame de `direction_frame` (fuente única)."""
+    x, y, z = direction_frame(direction)
     return euler_from_matrix(frame((0.0, 0.0, 0.0), x, y, z))
 
 

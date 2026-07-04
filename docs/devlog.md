@@ -2454,3 +2454,46 @@ r=2.0 (esc 1:2) 0→270° en capa ROSCA; juego de planos con página CÉDULA
 forzada: "M8 · Rosca interior M8 - 6H (broca Ø6.8) · rosca · 4 · Placa de
 montaje A36 · ISO 262"; GET /api/threads 200/400 con lista de soportadas.
 Revisión 71. Pendiente declarado: coherencia fasten size ↔ taladro roscado.
+
+## V5.8 — Weldments con ingletes reales (2026-07-03)
+
+El pendiente G3 de larga data: `create_weldment`/`create_frame` construían las
+esquinas a TOPE y la lista de corte no decía nada del ángulo — un taller que
+fabrica un marco visto lo rehace a 45°. Parámetro nuevo `esquinas:
+"tope"|"inglete"` con default "tope" RETRO-SEGURO (los logs guardados regeneran
+byte-idéntico; los 16 tests históricos quedaron intactos, con test candado).
+
+**Decisión geométrica clave**: el corte es el plano BISECTOR de los dos miembros
+pasando por el NODO (`library/miter.py`, puro) — ambos comparten exactamente el
+mismo plano (casado perfecto), generaliza a cualquier θ/φ, y trae una propiedad
+ancla EXACTA para tests: como el plano pasa por un punto del eje y el centroide
+de la sección está en el eje, **V(miembro ingleteado) = A·span** para cualquier
+ángulo (verificado a 0.0000 % en el smoke). El miembro se construye en el marco
+local (extrusión Z, tools Box 3·L al bisector) ANTES del place; `base_key` con
+formato propio `|mtr|α@φ|` jamás colisiona con un recto. `direction_frame`
+extraída de `direction_to_euler` (kernel/matrix) = fuente única del frame local
+para que el azimut del corte case con la colocación.
+
+**Construcción del weldment caja** (documentada en el description = montaje):
+marcos superior e inferior picture-frame a 45° (miembros a longitud EXTERIOR =
+ancho/fondo — la punta cae sola en la esquina porque los nodos son las
+intersecciones de centrolíneas) + 4 postes A TOPE ENTRE los marcos (alto−2·sec)
++ anillos intermedios a tope (soportes ocultos). `frame_from_edges`: bisectriz
+solo en nodos de GRADO 2; colineal (tol 2°) → corte recto en el nodo; α>75° o
+grado ≥3 → tope (coping fuera de alcance). `Feature.miter` → BOM ("Perfil 40x40
+L=800 mm ∠45°/45°", clave de agrupación con el ángulo para no mezclar con
+rectos) + lista de corte (campos corte/angulo_1/angulo_2, celda "800×… ∠45°/45°"
+en el juego, 2 columnas nuevas al final del CSV). `cut_length` pasa a significar
+longitud EXTERIOR en ingleteados (lo que el taller corta y compra).
+
+**Verificación**: 13 tests nuevos (859 total) — candado retro, BOM inglete
+4×800∠45/45 + 4×600∠45/45 + 4×820, ancla V=A·760==A·(800−40), bbox del conjunto
+EXACTO 800×600×900, intermedios siguen a tope, no-interferencia (los planos
+compartidos cara-cara los excluye same_command_pairs), schema enum, cercha
+triangular con α por fórmula desde las direcciones (60° en el fixture 1000/800),
+grado 3 → tope, colineal → recto con contacto exacto en el nodo. Hallazgo
+lateral: el perfil T-slot siempre descompuso en 5 sólidos (núcleo+aletas) en
+cut_list — comportamiento histórico, no regresión. E2E vivo por MCP en
+`bastidor-inglete-demo` (revisión 72): render del marco picture-frame con los 4
+ingletes visibles y de la cercha con bisectrices 60°; interferencias vacías; BOM
+y juego de planos con ∠45°/45°.

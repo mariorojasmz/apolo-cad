@@ -88,6 +88,7 @@ class Feature:
     visible: bool = True
     component: str | None = None  # referencia de catálogo (BOM)
     cut_length: float | None = None  # longitud de corte si el componente es cortable
+    miter: tuple | None = None  # (α1, α2) grados de inglete por extremo (V5.8); None = recto
     # Instancias: si mesh_key no es None, la geometría canónica (compartida) está
     # en DEFINITIONS[mesh_key] y matrix la coloca en el mundo. El shape sigue
     # siendo el sólido mundial (booleanas, STEP, medidas): la instancia solo
@@ -1319,6 +1320,7 @@ def _emit_weldment_parts(scene: Scene, cmd_id: str, name: str, parts, position, 
         scene[fid] = Feature(
             fid, f"{name} · {part.name}", shape, cmd_id,
             component=part.component, cut_length=part.cut_length,
+            miter=getattr(part, "miter", None),
             mesh_key=part.base_key if matrix is not None else None, matrix=matrix,
         )
 
@@ -1329,6 +1331,7 @@ def _exec_create_weldment(scene: Scene, cmd_id: str, p: CreateWeldmentParams) ->
     try:
         parts = weldment_parts(
             p.ancho, p.fondo, p.alto, p.perfil, p.anillos_intermedios, p.cordones,
+            p.esquinas,
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Bastidor: {exc}") from exc
@@ -1339,7 +1342,7 @@ def _exec_create_frame(scene: Scene, cmd_id: str, p: CreateFrameParams) -> None:
     from apolo.library.frame import frame_from_edges
 
     try:
-        parts = frame_from_edges(p.nodes, p.edges, p.perfil, p.cordones)
+        parts = frame_from_edges(p.nodes, p.edges, p.perfil, p.cordones, p.esquinas)
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Esqueleto: {exc}") from exc
     _emit_weldment_parts(scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())

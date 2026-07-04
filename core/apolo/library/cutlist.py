@@ -48,14 +48,19 @@ def cut_list(scene: dict) -> list[dict]:
         if comp is not None and not comp.cuttable:
             continue  # herraje no cortable → cédula
         mat = resolve_material(f, CATALOG)
+        miter = getattr(f, "miter", None)
+        mtr = tuple(miter) if miter else None  # (α1, α2) — separa recto de ingleteado
         for solid in _solids(f.shape):
             t, w, l = _dims_sorted(solid)
-            key = (mat, t, w, l)
+            key = (mat, t, w, l, mtr)
             g = groups.get(key)
             if g is None:
                 g = groups[key] = {
                     "material": mat, "espesor_mm": t, "ancho_mm": w, "largo_mm": l,
                     "cantidad": 0, "nombre": f.name, "_rep": sid,
+                    "corte": "inglete" if mtr else "recto",
+                    "angulo_1": mtr[0] if mtr else None,
+                    "angulo_2": mtr[1] if mtr else None,
                 }
             g["cantidad"] += 1
     rows = list(groups.values())
@@ -146,10 +151,15 @@ def cut_list_csv(rows: list[dict], totals: dict | None = None) -> str:
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";", lineterminator="\n")
     w.writerow(["Material", "Espesor(mm)", "Ancho(mm)", "Largo(mm)", "Cant",
-                "Área ud(m²)", "Área total(m²)", "Pieza"])
+                "Área ud(m²)", "Área total(m²)", "Pieza", "Corte", "Ángulos"])
     for r in rows:
+        angs = ""
+        if r.get("corte") == "inglete":  # α None en un extremo = ese lado recto
+            angs = "/".join(f"{a:g}°" if a is not None else "0°"
+                            for a in (r.get("angulo_1"), r.get("angulo_2")))
         w.writerow([r["material"], r["espesor_mm"], r["ancho_mm"], r["largo_mm"],
-                    r["cantidad"], r["area_m2_ud"], r["area_m2_total"], r["nombre"]])
+                    r["cantidad"], r["area_m2_ud"], r["area_m2_total"], r["nombre"],
+                    r.get("corte", "recto"), angs])
     if totals:
         w.writerow([])
         w.writerow(["TOTALES por material", "", "", "", "piezas", "", "área m²", "largo m"])

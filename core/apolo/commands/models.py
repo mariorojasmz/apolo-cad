@@ -476,10 +476,13 @@ class CreateDriveRollerParams(BaseModel):
 
 
 class CreateWeldmentParams(BaseModel):
-    """Bastidor soldado paramétrico: 4 postes + perímetros superior/inferior (y
-    anillos intermedios opcionales) del perfil elegido, recortados a tope. Genera
-    la lista de corte (BOM) y cordones de soldadura opcionales. Editar cualquier
-    parámetro regenera el bastidor entero."""
+    """Bastidor soldado paramétrico con lista de corte (BOM) y cordones opcionales.
+    MONTAJE según `esquinas`: "tope" (histórico) = 4 postes a altura completa +
+    anillos recortados a escuadra entre postes; "inglete" (V5.8) = marcos superior
+    e inferior a INGLETE 45° tipo picture-frame (miembros a longitud EXTERIOR =
+    ancho/fondo, se sueldan por el plano del bisector) + 4 postes A TOPE ENTRE los
+    marcos (largo = alto − 2·sección) + anillos intermedios a tope (soportes
+    ocultos). Editar cualquier parámetro regenera el bastidor entero."""
 
     name: str = Field("Bastidor", title="Nombre")
     ancho: float = Field(800, gt=0, le=10000, title="Ancho (X)", description="mm")
@@ -491,6 +494,11 @@ class CreateWeldmentParams(BaseModel):
     )
     anillos_intermedios: int = Field(0, ge=0, le=20, title="Anillos intermedios")
     cordones: bool = Field(True, title="Cordones de soldadura")
+    esquinas: Literal["tope", "inglete"] = Field(
+        "tope", title="Esquinas",
+        description="tope = a escuadra (histórico); inglete = marcos sup/inf a 45° "
+                    "con longitud exterior en la lista de corte",
+    )
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
 
@@ -505,8 +513,11 @@ class CreateWeldmentParams(BaseModel):
 class CreateFrameParams(BaseModel):
     """Bastidor de esqueleto ARBITRARIO: nodos 3D + aristas (pares de índices) →
     un miembro de perfil del catálogo a lo largo de cada arista (cualquier
-    dirección), recortado a tope, con lista de corte (BOM) y cordones de soldadura
-    en los nodos. Para A-frames, trípodes, bastidores inclinados, cerchas."""
+    dirección), con lista de corte (BOM) y cordones de soldadura en los nodos.
+    Con `esquinas="inglete"` (V5.8): en nodos de GRADO 2 ambos miembros se cortan
+    al plano BISECTOR (α = 90−θ/2, casado perfecto) y corren hasta el nodo
+    (longitud exterior en la lista de corte); nodos de grado ≥3, colineales o con
+    ángulo muy cerrado (α>75°) siguen a tope. Para A-frames, trípodes, cerchas."""
 
     name: str = Field("Esqueleto", title="Nombre")
     nodes: list[list[float]] = Field(
@@ -522,6 +533,10 @@ class CreateFrameParams(BaseModel):
         json_schema_extra=lambda schema: schema.update({"enum": _profile_refs()}),
     )
     cordones: bool = Field(True, title="Cordones de soldadura")
+    esquinas: Literal["tope", "inglete"] = Field(
+        "tope", title="Esquinas",
+        description="tope = a escuadra (histórico); inglete = bisectriz en nodos de grado 2",
+    )
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
 

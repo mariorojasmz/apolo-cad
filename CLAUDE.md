@@ -59,11 +59,11 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-03)**: 846 tests · 66 tools MCP · 48 comandos · catálogo 217
+- **Estado actual (2026-07-03)**: 859 tests · 66 tools MCP · 48 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · **TIER 1 COMPLETO**: V5.1
   (croquis PlaneGCS), V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado
   directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados · Tier 2: V5.6
-  (FEA estático lineal) y V5.7 (roscas) cerrados. Proyectos de
+  (FEA estático lineal), V5.7 (roscas) y V5.8 (ingletes en weldments) cerrados. Proyectos de
   referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**, eje motriz
   «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo` (croquis
   dof=0), `pieza-proveedor-demo` (STEP round-trip defeatureado) y `guarda-banda-demo`
@@ -138,7 +138,12 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   features de un comando, rechaza fuentes con juntas) + `center_in`/`distribute`
   (colocación relacional, se reevalúa al regenerar) + `duplicate_feature`.
 - **Super-comandos**: `create_conveyor` (RODILLOS), `create_belt_conveyor` (BANDA),
-  `create_weldment`/`create_frame` (bastidores con lista de corte), `create_sheet_metal`,
+  `create_weldment`/`create_frame` (bastidores con lista de corte; `esquinas=
+  "tope"|"inglete"` V5.8 — inglete: corte por el plano BISECTOR del nodo en
+  `library/miter.py` (V exacto = A·span, ancla de tests), weldment = marcos sup/inf
+  45° picture-frame + postes A TOPE entre marcos, frame = bisectriz solo en nodos
+  grado 2 (colineal→recto, α>75° o grado≥3→tope); `Feature.miter` → BOM/lista de
+  corte con "∠45°/45°" y `cut_length` = longitud EXTERIOR), `create_sheet_metal`,
   `create_take_up` (tensor de cola trotadora: eje fijo + perno tensor Allen horizontal
   que atraviesa el eje roscado + soporte C soldado al larguero), `create_drive_roller`
   (idem con eje largo — OJO: eje FIJO, para tambor MOTRIZ real usa eje vivo + chumaceras),
@@ -451,8 +456,9 @@ Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
 - **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), ~~FEA estático
   lineal~~ **HECHO V5.6** (gmsh + scikit-fem, NO CalculiX/sfepy — sin wheels Windows;
   resultado a la memoria), ~~roscas~~ **HECHO V5.7** (thread en drill_hole + callout
-  + cosmético ISO 6410 + cédula), weldments con ingletes reales, **export DWG** (el
-  entregable político de los clientes AutoCAD).
+  + cosmético ISO 6410 + cédula), ~~weldments con ingletes reales~~ **HECHO V5.8**
+  (esquinas="inglete": bisector por nodo + ángulos en BOM/lista de corte), **export
+  DWG** (el entregable político de los clientes AutoCAD).
 - **Tier 3 — consolidación**: render fotorrealista (Blender headless), PDM ligero
   multiusuario, plantillas de plano por empresa, normas del vertical (CEMA/ISO 5048 en
   las reglas → memoria NORMATIVA, no solo honesta).
@@ -467,10 +473,11 @@ E2E en un modelo real. Un ítem por vez, con plan formal ("procede con V5.<n>").
 - **Validación**: agrupar mitades A/B de bisagra en el scan; voladizo real del eje motriz
   (cantilever); par de apriete (`torque`) en specs de tornillería; coherencia
   `fasten size` ↔ taladro roscado cercano (requiere matching geométrico perno↔taladro).
-- **Geometría/catálogo**: cola de milano e ingletes; canteado; chapa: child >1 nivel,
-  hem 180°, alivios de esquina, editor de flaps en Propiedades; G3 ingletes reales en
-  weldments; chaveta modelada en bores; prisioneros/pernos de chumacera como refs para
-  BOM; más familias bajo demanda.
+- **Geometría/catálogo**: cola de milano e ingletes de CARPINTERÍA; canteado; chapa:
+  child >1 nivel, hem 180°, alivios de esquina, editor de flaps en Propiedades;
+  coping/notching de tubos en nodos grado ≥3 (el inglete grado 2 ya está, V5.8);
+  chaveta modelada en bores; prisioneros/pernos de chumacera como refs para BOM; más
+  familias bajo demanda.
 - **Física**: cascos convexos en drop_test (hoy AABB), export SDF sin juntas, sim en
   tiempo real.
 - **Ingeniería/negocio**: campo `funcion`/rol estructurado por pieza (grafo de

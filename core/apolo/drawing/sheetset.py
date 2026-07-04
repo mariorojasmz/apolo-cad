@@ -125,8 +125,15 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
                                    colors=pc, sheet=sheet, project_name=title, meta=pm,
                                    hole_fits=hole_fits, hole_threads=hole_threads))
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)
-    cl_rows = [[r["material"], f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}",
-                r["cantidad"], r["nombre"]] for r in rows]
+    def _dims_cell(r):
+        base = f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}"
+        if r.get("corte") == "inglete":  # V5.8: el taller ve el ángulo por extremo
+            angs = "/".join(f"{a:g}°" if a is not None else "0°"
+                            for a in (r.get("angulo_1"), r.get("angulo_2")))
+            return f"{base} ∠{angs}"
+        return base
+
+    cl_rows = [[r["material"], _dims_cell(r), r["cantidad"], r["nombre"]] for r in rows]
     totals = cut_list_totals(rows)
     fin = " · ".join(f"{k}:{v['area_m2']}m²" for k, v in totals.items()) or "—"
     pages.append(_table_sheet("LISTA DE CORTE", ["Material", "L×An×Esp (mm)", "Cant", "Pieza"],

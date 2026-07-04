@@ -35,15 +35,20 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
         if component and component in CATALOG:
             comp = CATALOG[component]
             cut = getattr(feat, "cut_length", None)
-            key = (component, round(cut, 1) if cut else None, grp) if by_group else (
-                component, round(cut, 1) if cut else None)
+            miter = getattr(feat, "miter", None)
+            mtr = tuple(miter) if miter else None  # ingleteado ≠ recto del mismo largo
+            key = (component, round(cut, 1) if cut else None, mtr, grp) if by_group else (
+                component, round(cut, 1) if cut else None, mtr)
             if key not in rows:
                 unit_weight = (
                     comp.weight * (cut / 1000.0) if comp.cuttable and cut else comp.weight
                 )
+                angs = ""
+                if mtr:  # α None en un extremo = ese lado recto (0°)
+                    angs = " ∠" + "/".join(f"{a:g}°" if a is not None else "0°" for a in mtr)
                 rows[key] = {
                     "ref": comp.ref,
-                    "descripcion": comp.name + (f" L={cut:g} mm" if cut else ""),
+                    "descripcion": comp.name + (f" L={cut:g} mm" if cut else "") + angs,
                     "categoria": comp.category,
                     "material": (comp.specs or {}).get("material", ""),
                     "norma": (comp.specs or {}).get("norma", ""),
