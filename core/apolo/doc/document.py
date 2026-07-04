@@ -11,6 +11,8 @@ import copy
 import hashlib
 import io
 import json
+import os
+import re
 import zipfile
 from pathlib import Path
 
@@ -18,6 +20,16 @@ from apolo.commands.expressions import ExpressionError, resolve_all
 from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_command, validate_params
 
 FORMAT_VERSION = 2  # v2 añade attachments/ (archivos STEP importados); abre v1 sin cambios
+
+# Modo ESTRICTO (V6.1): tras cada mutación exitosa, si hay violaciones de integridad
+# el documento revierte en vez de quedar a medias. Off por defecto (la carga tolerante
+# y el fallback de render cubren los degradados en operación); la suite de tortura lo
+# activa por monkeypatch del ATRIBUTO ``document._STRICT`` — por eso se lee como global
+# del módulo en cada _check_strict (no se captura en un local).
+_STRICT = os.environ.get("APOLO_STRICT") == "1"
+
+# id de comando c-numérico (para la guardia de seq y check_integrity)
+_CID_RE = re.compile(r"^c(\d+)$")
 
 
 class DocumentError(Exception):
@@ -77,6 +89,9 @@ class Document:
         self.requirements: dict = {}  # bases de diseño del proyecto (carga, velocidad, producto…)
         self.fea: dict[str, dict] = {}  # feature_id → resumen del último FEA (metadato)
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
+        # comandos SUPRIMIDOS por una carga tolerante (transitorio: NUNCA se persiste en
+        # el manifest; se recalcula en cada regenerate — vacío en modo estricto)
+        self.regen_suppressed: list[dict] = []
         self._seq = 0
         self._undo: list[dict] = []
         self._redo: list[dict] = []
@@ -86,45 +101,134 @@ class Document:
         self._regen_sigs: list[str] = []
         self._regen_ckpts: dict[int, tuple] = {}
 
+    _UNDO_CAP = 50  # cota del historial de deshacer (los snapshots retienen la caché de regen)
+
     # ------------------------------------------------------------- estado
     def _snapshot(self) -> dict:
+        # la caché de regen viaja en el snapshot (Fix C): al restaurar se repone ANTES
+        # de regenerar → el rollback resume del último checkpoint del log viejo (replay
+        # de ~0 comandos) e inmune a un fallo repetido durante la propia restauración.
         return {
             "commands": copy.deepcopy(self.commands),
             "hidden": set(self.hidden),
             "seq": self._seq,
+            "regen": (list(self._regen_sigs), dict(self._regen_ckpts)),
         }
 
     def _restore(self, snap: dict) -> None:
         self.commands = copy.deepcopy(snap["commands"])
         self.hidden = set(snap["hidden"])
         self._seq = snap["seq"]
+        regen = snap.get("regen")
+        if regen is not None:
+            self._regen_sigs = list(regen[0])
+            self._regen_ckpts = dict(regen[1])  # comparte refs de shape OCCT (read-only)
         self.regenerate()
 
     _REGEN_STRIDE = 16  # cada cuántos comandos se guarda un checkpoint de estado
 
-    def regenerate(self) -> None:
+    def _ckpts_ok(self) -> bool:
+        """La caché de checkpoints es estructuralmente SANA (segura de usar): claves int
+        (no bool) en el rango del log y estado = tupla de 8 con dict en [0]. Cualquier
+        anomalía → el caller fuerza replay completo en vez de reventar (blindaje Fix B).
+        Las firmas (sigs) NO se validan: son strings y comparar con basura da False sin
+        petar, y un largo distinto es NORMAL entre append y regenerate."""
+        n = len(self.commands)
+        try:
+            for k, st in self._regen_ckpts.items():
+                if isinstance(k, bool) or not isinstance(k, int) or not (0 <= k < n):
+                    return False
+                if not (isinstance(st, tuple) and len(st) == 8 and isinstance(st[0], dict)):
+                    return False
+        except Exception:
+            return False
+        return True
+
+    def _prune_or_raise(self, scene, joints, mates, constraints, fasteners, grounds,
+                        tolerant: bool, suppressed: list) -> None:
+        """Valida que juntas/mates/restricciones/fijadores/anclajes referencian entidades
+        VIVAS. Estricto: lanza DocumentError al primer huérfano. Tolerante (solo en carga):
+        ELIMINA la entidad huérfana del estado EN MEMORIA (el LOG jamás se toca) y la
+        reporta en `suppressed`. Orden: juntas antes que restricciones (una restricción
+        cuya junta se podó también queda huérfana)."""
+        def bad(kind, name, cmd_id, msg) -> bool:
+            if tolerant:
+                suppressed.append({"command_id": cmd_id, "type": kind, "error": msg})
+                return True
+            raise DocumentError(msg)
+
+        for name in list(joints):
+            j = joints[name]
+            ref = next((r for r in (j["parent"], j["child"]) if r not in scene), None)
+            if ref is not None and bad("add_joint", name, j.get("command_id"),
+                    f"La junta '{name}' referencia el sólido '{ref}', que ya no existe: "
+                    "elimina primero la junta"):
+                del joints[name]
+        for name in list(mates):
+            m = mates[name]
+            ref = next((r for r in (m["feature_a"], m["feature_b"]) if r not in scene), None)
+            if ref is not None and bad("add_mate", name, m.get("command_id"),
+                    f"El mate '{name}' referencia el sólido '{ref}', que ya no existe: "
+                    "elimina primero el mate"):
+                del mates[name]
+        for name in list(constraints):
+            con = constraints[name]
+            if con["joint"] not in joints and bad("add_constraint", name, con.get("command_id"),
+                    f"La restricción '{name}' referencia la junta '{con['joint']}', "
+                    "que no existe: elimina primero la restricción"):
+                del constraints[name]
+        for name in list(fasteners):
+            f = fasteners[name]
+            ref = next((r for r in (f["a"], f["b"]) if r not in scene), None)
+            if ref is not None and bad("fasten", name, f.get("command_id"),
+                    f"El fijador '{name}' referencia el sólido '{ref}', que ya no existe: "
+                    "elimina primero el fijador"):
+                del fasteners[name]
+        for name in list(grounds):
+            g = grounds[name]
+            if g["feature"] not in scene and bad("ground", name, g.get("command_id"),
+                    f"El anclaje '{name}' referencia el sólido '{g['feature']}', que ya no existe: "
+                    "elimina primero el anclaje"):
+                del grounds[name]
+
+    def regenerate(self, *, tolerant: bool = False) -> None:
+        """Reproduce el log y REEMPLAZA el estado del documento de forma ATÓMICA: todo se
+        construye en variables LOCALES y solo al final, en UN bloque de asignaciones que
+        no puede lanzar, se vuelca a `self`. Si algo revienta antes (executor, referencia
+        colgando, mates, variables), `self` queda INTACTO (todo o nada — Fix C).
+
+        Con ``tolerant=True`` (SOLO en cargas: el arranque y las rutas de open/restore)
+        un comando que revienta se SUPRIME y se anota en `regen_suppressed`, y las
+        entidades huérfanas se podan del estado en memoria — el LOG nunca se toca. Las
+        MUTACIONES (_mutate/execute_many/edit_many) llaman SIEMPRE en modo estricto."""
+        from apolo.assembly.groups import assign_feature_groups
+        from apolo.assembly.mates import MateError, solve_mates
+
         # 1) firma acumulada por comando del log actual
         sigs: list[str] = []
         prev = ""
         for cmd in self.commands:
             prev = _cmd_sig(prev, cmd)
             sigs.append(prev)
-        # 2) primer índice que difiere respecto al último regenerate
+        # 2) caché incremental blindada (Fix B): si los checkpoints están corruptos, se
+        #    ignoran → replay completo, NUNCA se lanza por culpa de la caché
+        ckpts = self._regen_ckpts if self._ckpts_ok() else {}
         old = self._regen_sigs
+        # 3) primer índice que difiere respecto al último regenerate
         diverge = 0
         while diverge < len(sigs) and diverge < len(old) and sigs[diverge] == old[diverge]:
             diverge += 1
-        # 3) reanudar desde el checkpoint de mayor índice ANTERIOR al cambio
+        # 4) reanudar desde el checkpoint de mayor índice ANTERIOR al cambio
         resume = -1
-        for idx in sorted(self._regen_ckpts):
+        for idx in sorted(ckpts):
             if idx < diverge:
                 resume = idx
             else:
                 break
         if resume >= 0:
             (scene, variables, joints, mates, constraints, fasteners, grounds,
-             groups) = _copy_state(self._regen_ckpts[resume])
-            new_ckpts = {i: st for i, st in self._regen_ckpts.items() if i <= resume}
+             groups) = _copy_state(ckpts[resume])
+            new_ckpts = {i: st for i, st in ckpts.items() if i <= resume}
             start = resume + 1
         else:
             scene, variables, joints, mates, constraints, fasteners, grounds, groups = (
@@ -132,7 +236,8 @@ class Document:
             )
             new_ckpts = {}
             start = 0
-        # 4) ejecutar solo la cola (desde el primer cambio) y capturar checkpoints
+        suppressed: list[dict] = []
+        # 5) ejecutar solo la cola (desde el primer cambio) y capturar checkpoints
         last = len(self.commands) - 1
         for i in range(start, len(self.commands)):
             cmd = self.commands[i]
@@ -143,60 +248,43 @@ class Document:
                     fasteners, grounds, groups,
                 )
             except CommandError as exc:
-                raise DocumentError(f"Error al regenerar {cmd['id']} ({cmd['type']}): {exc}") from exc
+                if tolerant:
+                    suppressed.append(
+                        {"command_id": cmd["id"], "type": cmd["type"], "error": str(exc)}
+                    )
+                else:
+                    raise DocumentError(
+                        f"Error al regenerar {cmd['id']} ({cmd['type']}): {exc}"
+                    ) from exc
             if i == last or i % self._REGEN_STRIDE == 0:
                 new_ckpts[i] = _copy_state(
                     (scene, variables, joints, mates, constraints, fasteners, grounds, groups)
                 )
-        for joint in joints.values():
-            for ref in (joint["parent"], joint["child"]):
-                if ref not in scene:
-                    raise DocumentError(
-                        f"La junta '{joint['name']}' referencia el sólido '{ref}', que ya no existe: "
-                        "elimina primero la junta"
-                    )
-        for mate in mates.values():
-            for ref in (mate["feature_a"], mate["feature_b"]):
-                if ref not in scene:
-                    raise DocumentError(
-                        f"El mate '{mate['name']}' referencia el sólido '{ref}', que ya no existe: "
-                        "elimina primero el mate"
-                    )
-        for con in constraints.values():
-            if con["joint"] not in joints:
-                raise DocumentError(
-                    f"La restricción '{con['name']}' referencia la junta '{con['joint']}', "
-                    "que no existe: elimina primero la restricción"
-                )
-        for f in fasteners.values():
-            for ref in (f["a"], f["b"]):
-                if ref not in scene:
-                    raise DocumentError(
-                        f"El fijador '{f['name']}' referencia el sólido '{ref}', que ya no existe: "
-                        "elimina primero el fijador"
-                    )
-        for g in grounds.values():
-            if g["feature"] not in scene:
-                raise DocumentError(
-                    f"El anclaje '{g['name']}' referencia el sólido '{g['feature']}', que ya no existe: "
-                    "elimina primero el anclaje"
-                )
-        from apolo.assembly.mates import MateError, solve_mates
-
+        # 6) referencias colgando: estricto lanza, tolerante poda + reporta
+        self._prune_or_raise(
+            scene, joints, mates, constraints, fasteners, grounds, tolerant, suppressed
+        )
         try:
             solve_mates(scene, mates)
         except MateError as exc:
-            raise DocumentError(f"Error al resolver los mates: {exc}") from exc
+            if tolerant:
+                suppressed.append({"command_id": None, "type": "mates", "error": str(exc)})
+            else:
+                raise DocumentError(f"Error al resolver los mates: {exc}") from exc
         # membresía de grupos: campo DERIVADO por command_id (integridad TOLERANTE —
         # un member cuyo comando desapareció se reporta vía missing_members, no falla)
-        from apolo.assembly.groups import assign_feature_groups
-
         assign_feature_groups(scene, groups)
         for fid, feat in scene.items():
             feat.visible = fid not in self.hidden
             # .get con default: un executor puede haber seteado ya el material de la
             # pieza (insert_project importa los del proyecto origen) — no pisarlo
             feat.material = self.materials.get(fid, feat.material)
+        # variables resueltas en LOCAL (antes de tocar self: si truena, self intacto)
+        try:
+            variables_resolved = resolve_all(variables)
+        except ExpressionError as exc:
+            raise DocumentError(f"Error en las variables del proyecto: {exc}") from exc
+        # 7) BLOQUE ÚNICO de asignaciones — a partir de aquí NADA puede lanzar (atomicidad)
         self.scene = scene
         self.joints = joints
         self.mates = mates
@@ -205,13 +293,134 @@ class Document:
         self.grounds = grounds
         self.groups = groups
         self.variables_raw = variables
-        try:
-            self.variables_resolved = resolve_all(variables)
-        except ExpressionError as exc:
-            raise DocumentError(f"Error en las variables del proyecto: {exc}") from exc
-        # commit de la caché incremental SOLO tras un regenerate completo y válido
+        self.variables_resolved = variables_resolved
+        self.regen_suppressed = suppressed
         self._regen_sigs = sigs
         self._regen_ckpts = new_ckpts
+
+    # ------------------------------------------------- contrato de integridad (V6.1)
+    def check_integrity(self) -> list[str]:
+        """Verifica los INVARIANTES del documento y devuelve una lista de violaciones,
+        cada una un string ACCIONABLE (lista vacía = íntegro). Es READ-ONLY PURO: no
+        muta el documento ni ninguna caché, y NUNCA lanza (cualquier fallo interno se
+        reporta como violación). Una entrada con prefijo ``"degradado: "`` NO es un
+        error de corrección: solo señala pérdida de instancing (definición desalojada
+        de DEFINITIONS) que el fallback de render ya cubre — el modo estricto la ignora."""
+        from apolo.commands.registry import DEFINITIONS
+
+        issues: list[str] = []
+        log_ids = {c["id"] for c in self.commands}
+
+        def _cmd_alive(cid: str) -> bool:
+            # command_id directo del log, o sintético '{cmd}_{orig}' de insert_project
+            # cuyo prefijo (el comando anfitrión) sigue vivo
+            return cid in log_ids or cid.split("_", 1)[0] in log_ids
+
+        # features: id coherente, comando vivo, contrato de instancia (mesh_key⇔matrix)
+        for fid, feat in self.scene.items():
+            if feat.id != fid:
+                issues.append(f"la feature '{fid}' guarda id interno '{feat.id}' (deben coincidir)")
+            if not _cmd_alive(feat.command_id):
+                issues.append(
+                    f"la feature '{fid}' apunta al comando '{feat.command_id}', ausente del log"
+                )
+            if (feat.mesh_key is None) != (feat.matrix is None):
+                issues.append(
+                    f"la feature '{fid}' tiene instancia a medias "
+                    f"(mesh_key={feat.mesh_key!r}, matrix={'set' if feat.matrix else None})"
+                )
+            elif feat.mesh_key is not None and feat.mesh_key not in DEFINITIONS:
+                issues.append(
+                    f"degradado: la feature '{fid}' referencia la definición '{feat.mesh_key}', "
+                    "desalojada de DEFINITIONS (el render usa el shape mundial: solo se pierde instancing)"
+                )
+
+        # conectividad: toda referencia a una feature/junta debe existir
+        for jname, j in self.joints.items():
+            for ref in (j.get("parent"), j.get("child")):
+                if ref not in self.scene:
+                    issues.append(f"la junta '{jname}' referencia el sólido '{ref}', ausente de la escena")
+        for mname, m in self.mates.items():
+            for ref in (m.get("feature_a"), m.get("feature_b")):
+                if ref not in self.scene:
+                    issues.append(f"el mate '{mname}' referencia el sólido '{ref}', ausente de la escena")
+        for cname, con in self.constraints.items():
+            if con.get("joint") not in self.joints:
+                issues.append(f"la restricción '{cname}' referencia la junta '{con.get('joint')}', ausente")
+        for fname, f in self.fasteners.items():
+            for ref in (f.get("a"), f.get("b")):
+                if ref not in self.scene:
+                    issues.append(f"el fijador '{fname}' referencia el sólido '{ref}', ausente de la escena")
+        for gname, g in self.grounds.items():
+            if g.get("feature") not in self.scene:
+                issues.append(f"el anclaje '{gname}' referencia el sólido '{g.get('feature')}', ausente")
+
+        # grupos: parent declarado + sin ciclos. La membresía es TOLERANTE por diseño
+        # (un member cuyo comando se borró se reporta vía missing_members, no aquí).
+        for gname, g in self.groups.items():
+            parent = g.get("parent")
+            if parent is not None and parent not in self.groups:
+                issues.append(f"el grupo '{gname}' cuelga del padre '{parent}', que no existe")
+            seen: set[str] = set()
+            cur = gname
+            while cur is not None:
+                if cur in seen:
+                    issues.append(f"el grupo '{gname}' forma un ciclo de parents")
+                    break
+                seen.add(cur)
+                nxt = self.groups.get(cur)
+                cur = nxt.get("parent") if nxt else None
+
+        # caché de regeneración incremental (blindaje del fix B)
+        if len(self._regen_sigs) != len(self.commands):
+            issues.append(
+                f"_regen_sigs tiene {len(self._regen_sigs)} firmas para {len(self.commands)} comandos"
+            )
+        n = len(self.commands)
+        for k, st in self._regen_ckpts.items():
+            if not isinstance(k, int) or not (0 <= k < n):
+                issues.append(f"checkpoint con clave inválida {k!r} (fuera de [0,{n}))")
+            elif not (isinstance(st, tuple) and len(st) == 8 and isinstance(st[0], dict)):
+                issues.append(f"checkpoint {k} mal formado (se esperaba tupla de 8 con dict en [0])")
+
+        # seq monótono: nunca por debajo del mayor id c-numérico del log (evita colisiones)
+        max_suffix = 0
+        for cid in log_ids:
+            mo = _CID_RE.match(cid)
+            if mo:
+                max_suffix = max(max_suffix, int(mo.group(1)))
+        if self._seq < max_suffix:
+            issues.append(f"_seq={self._seq} es menor que el mayor id del log (c{max_suffix})")
+
+        # variables resueltas coherentes con las crudas
+        try:
+            expected = resolve_all(self.variables_raw)
+        except Exception as exc:  # variables circulares/inválidas: ES una violación
+            issues.append(f"las variables del proyecto no resuelven: {exc}")
+        else:
+            if expected != self.variables_resolved:
+                issues.append("variables_resolved no coincide con resolve_all(variables_raw)")
+
+        # dedup conservando orden (varias referencias pueden apuntar a lo mismo)
+        out: list[str] = []
+        for msg in issues:
+            if msg not in out:
+                out.append(msg)
+        return out
+
+    def _check_strict(self) -> None:
+        """En modo estricto, lanza si la integridad quedó violada (excluyendo los
+        'degradado', que el fallback de render cubre). El caller (_mutate/execute_many/
+        edit_many) revierte al snapshot previo, así una mutación nunca deja el doc a
+        medias. Se lee ``_STRICT`` como global del módulo para permitir el monkeypatch."""
+        if not _STRICT:
+            return
+        issues = [i for i in self.check_integrity() if not i.startswith("degradado")]
+        if issues:
+            raise DocumentError(
+                "El documento quedó en un estado inconsistente tras la operación:\n  - "
+                + "\n  - ".join(issues)
+            )
 
     def _mutate(self, fn, coalesce_key: str | None = None) -> None:
         """Aplica un cambio al log con rollback automático si la regeneración
@@ -221,11 +430,13 @@ class Document:
         try:
             fn()
             self.regenerate()
+            self._check_strict()
         except Exception:
             self._restore(snap)
             raise
         if not (coalesce_key and coalesce_key == self._coalesce_key):
             self._undo.append(snap)
+            del self._undo[: -self._UNDO_CAP]  # acota el historial (snapshots retienen caché)
         self._coalesce_key = coalesce_key
         self._redo.clear()
 
@@ -283,10 +494,12 @@ class Document:
                 params = resolve_refs(action.get("params") or {}, created)
                 created.append(self._append_record(action["type"], params))
             self.regenerate()
+            self._check_strict()
         except Exception:
             self._restore(snap)
             raise
         self._undo.append(snap)
+        del self._undo[: -self._UNDO_CAP]
         self._redo.clear()
         self._coalesce_key = None
         return [c for c in created if c is not None]
@@ -316,10 +529,12 @@ class Document:
                 self.commands[idx]["params"] = params
                 touched.append(cid)
             self.regenerate()
+            self._check_strict()
         except Exception:
             self._restore(snap)
             raise
         self._undo.append(snap)
+        del self._undo[: -self._UNDO_CAP]
         self._redo.clear()
         self._coalesce_key = None
         return touched
@@ -531,17 +746,38 @@ class Document:
         return bool(self._redo)
 
     def undo(self) -> None:
+        # patrón peek-then-commit (Fix C): NO se saca el snapshot de la pila hasta saber
+        # que la restauración sobrevivió. Si _restore revienta, se intenta volver al
+        # estado actual (los ckpts intactos lo hacen O(1)) y el historial NO se pierde.
         if not self._undo:
             raise DocumentError("Nada que deshacer")
-        self._redo.append(self._snapshot())
-        self._restore(self._undo.pop())
+        snap_actual = self._snapshot()
+        try:
+            self._restore(self._undo[-1])
+        except Exception:
+            try:
+                self._restore(snap_actual)
+            except Exception:
+                pass
+            raise
+        self._redo.append(snap_actual)
+        self._undo.pop()
         self._coalesce_key = None
 
     def redo(self) -> None:
         if not self._redo:
             raise DocumentError("Nada que rehacer")
-        self._undo.append(self._snapshot())
-        self._restore(self._redo.pop())
+        snap_actual = self._snapshot()
+        try:
+            self._restore(self._redo[-1])
+        except Exception:
+            try:
+                self._restore(snap_actual)
+            except Exception:
+                pass
+            raise
+        self._undo.append(snap_actual)
+        self._redo.pop()
         self._coalesce_key = None
 
     # --------------------------------------------------------- persistencia
@@ -579,9 +815,14 @@ class Document:
         Path(path).write_bytes(self.to_apolo_bytes())
 
     @classmethod
-    def from_apolo_bytes(cls, data: bytes, *, regenerate: bool = True) -> "Document":
+    def from_apolo_bytes(
+        cls, data: bytes, *, regenerate: bool = True, tolerant: bool = False
+    ) -> "Document":
         """Con ``regenerate=False`` devuelve el documento SIN reproducir el log —
-        para editarlo antes del primer replay (sandbox de insert_project)."""
+        para editarlo antes del primer replay (sandbox de insert_project). Con
+        ``tolerant=True`` (SOLO en rutas de CARGA: arranque, open, restore) un comando
+        que revienta se SUPRIME en vez de abortar la apertura — reportado en
+        ``regen_suppressed``, con el LOG intacto. Las mutaciones cargan estrictas."""
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
                 manifest = json.loads(zf.read("manifest.json"))
@@ -609,9 +850,17 @@ class Document:
         doc.requirements = manifest.get("requirements", {})
         doc.fea = manifest.get("fea", {})
         doc.agent_notes = manifest.get("agent_notes", [])
-        doc._seq = manifest.get("seq", len(commands))
+        # guardia de seq: el próximo cmd_id nunca debe colisionar con uno del log aunque
+        # el manifest venga sin `seq` o con un `seq` menor que el mayor c-id vivo (un log
+        # con removes deja huecos: len(commands) < max(sufijo)).
+        max_suffix = 0
+        for c in commands:
+            mo = _CID_RE.match(str(c.get("id", "")))
+            if mo:
+                max_suffix = max(max_suffix, int(mo.group(1)))
+        doc._seq = max(int(manifest.get("seq", 0) or 0), len(commands), max_suffix)
         if regenerate:
-            doc.regenerate()
+            doc.regenerate(tolerant=tolerant)
         return doc
 
     @classmethod

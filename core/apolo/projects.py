@@ -81,8 +81,10 @@ class ProjectStore:
             raise KeyError(f"No existe el proyecto {project_id}")
         return row[0]
 
-    def load(self, project_id: int) -> Document:
-        return Document.from_apolo_bytes(self.load_bytes(project_id))
+    def load(self, project_id: int, *, tolerant: bool = False) -> Document:
+        """Carga un proyecto. ``tolerant=True`` (rutas de apertura) suprime comandos
+        rotos en vez de negar la apertura (schema drift) — ver Document.regenerate."""
+        return Document.from_apolo_bytes(self.load_bytes(project_id), tolerant=tolerant)
 
     def delete(self, project_id: int) -> None:
         with self._conn() as con:
@@ -117,11 +119,11 @@ class ProjectStore:
             {"id": r[0], "note": r[1], "created_at": r[2], "pieces": r[3]} for r in rows
         ]
 
-    def load_revision(self, revision_id: int) -> tuple[int, Document]:
+    def load_revision(self, revision_id: int, *, tolerant: bool = False) -> tuple[int, Document]:
         with self._conn() as con:
             row = con.execute(
                 "SELECT project_id, data FROM revisions WHERE id=?", (revision_id,)
             ).fetchone()
         if row is None:
             raise KeyError(f"No existe la revisión {revision_id}")
-        return int(row[0]), Document.from_apolo_bytes(row[1])
+        return int(row[0]), Document.from_apolo_bytes(row[1], tolerant=tolerant)

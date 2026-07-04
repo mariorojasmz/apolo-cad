@@ -288,3 +288,66 @@ def test_apolo_roundtrip():
 def test_invalid_apolo_bytes():
     with pytest.raises(DocumentError):
         Document.from_apolo_bytes(b"esto no es un zip")
+
+
+# --------------------------------------------------- robustez V6.1 (unidades)
+def test_check_integrity_clean_and_detects_orphan():
+    """Un documento sano no reporta violaciones; una junta que apunta a un sólido
+    inexistente sí (contrato de integridad, READ-ONLY)."""
+    doc = Document()
+    a = doc.execute("create_box", {})
+    assert doc.check_integrity() == []
+    doc.joints["huerfana"] = {
+        "name": "huerfana", "parent": a, "child": "fantasma", "axis": [0, 0, 1],
+        "command_id": a,
+    }
+    issues = doc.check_integrity()
+    assert issues and any("huerfana" in i for i in issues)
+
+
+def test_undo_history_is_capped():
+    """El historial de deshacer está acotado a _UNDO_CAP (los snapshots retienen la
+    caché de regen: sin cota, una sesión larga crecería sin límite)."""
+    doc = Document()
+    for i in range(Document._UNDO_CAP + 20):
+        doc.execute("create_box", {"width": 10 + i})
+    assert len(doc._undo) == Document._UNDO_CAP
+
+
+def test_seq_guard_no_collision_after_removes_on_reload():
+    """Un log con removes deja max(c-id) > len(commands); al reabrir (aunque el manifest
+    trajera un seq menor) el próximo id NO colisiona con uno vivo."""
+    doc = Document()
+    ids = [doc.execute("create_box", {"width": 10 + i}) for i in range(5)]  # c1..c5
+    doc.remove_commands([ids[0], ids[1]])  # quedan c3,c4,c5 (len=3, max=5)
+    reopened = Document.from_apolo_bytes(doc.to_apolo_bytes())
+    reopened.execute("create_box", {"width": 99})
+    all_ids = [c["id"] for c in reopened.commands]
+    assert len(all_ids) == len(set(all_ids))
+
+
+def test_tolerant_load_preserves_log_and_reports():
+    """La carga tolerante suprime un comando roto (reportándolo) pero deja el LOG
+    intacto; el resto de las piezas viven."""
+    import io
+    import json
+    import zipfile
+
+    doc = Document()
+    doc.execute("create_box", {"width": 50})
+    doc.execute("create_box", {"width": 60, "position": {"x": 200}})
+    with zipfile.ZipFile(io.BytesIO(doc.to_apolo_bytes())) as zf:
+        blobs = {n: zf.read(n) for n in zf.namelist()}
+    cmds = json.loads(blobs["commands.json"])
+    cmds[-1]["params"]["width"] = -1  # inválido
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as zf:
+        for n, b in blobs.items():
+            zf.writestr(n, json.dumps(cmds) if n == "commands.json" else b)
+
+    d = Document.from_apolo_bytes(out.getvalue(), tolerant=True)
+    assert len(d.regen_suppressed) == 1 and len(d.scene) == 1
+    # el comando roto sigue en el log (se conserva al reguardar)
+    with zipfile.ZipFile(io.BytesIO(d.to_apolo_bytes())) as zf:
+        saved = json.loads(zf.read("commands.json"))
+    assert any(c["params"].get("width") == -1 for c in saved)
