@@ -14,6 +14,8 @@ Unidades: mm, kg.
 
 from __future__ import annotations
 
+from apolo.kernel.shapes import is_surface
+
 from ..catalog import CATALOG
 from ..materials import density, resolve_material
 
@@ -84,7 +86,8 @@ def scene_mass_properties(
             raise KeyError(f"Sólido(s) inexistente(s): {', '.join(missing)}")
         items = [(i, scene[i]) for i in ids]
     else:
-        items = [(i, f) for i, f in scene.items() if getattr(f, "visible", True)]
+        items = [(i, f) for i, f in scene.items()
+                 if getattr(f, "visible", True) and not is_surface(f.shape)]
 
     piezas = []
     total_m = 0.0

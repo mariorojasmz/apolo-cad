@@ -2680,3 +2680,50 @@ El pre-check es una condición NECESARIA (cero falsos positivos: solo rechaza lo
 igual saldría vacío). Sin blindar geometría fina (radio vs. caras adyacentes) para
 no arriesgar falsos positivos — el `try/except` de OCCT sigue de red. +2 tests
 (917 total). Con esto V6.1 queda cerrado al 100 %.
+
+## V5.11 — Superficies básicas (boundary/fill/thicken): CIERRA el Tier 2 (2026-07-04)
+
+Último ítem bloqueante del Tier 2 del roadmap V5 (estaba "POR DEMANDA"). Motivación pro:
+Apolo solo hacía sólidos y chapa desplegable; no podía modelar geometría de doble
+curvatura (chutes, tolvas, deflectores, guardas curvas) más que aproximándola. El combo
+real es **superficie de contorno → thicken → pared de chapa fabricable**.
+
+**Exploración previa (3 agentes en paralelo)** confirmó que build123d 0.10.0/OCP 7.8.1 ya
+trae todo lo geométrico (nada de kernel nuevo de fondo, solo cablearlo schema-driven) y
+—lo importante— produjo un **inventario de suposiciones de sólido** que una Face de volumen
+0 rompe: BOM/masa/costeo (filas de peso 0), proyección de secciones (`projection.py`:
+`not half.solids()` → tumba la vista), FEA (exige volumen 3D). Serialización, malla/render
+y export STEP/STL son agnósticos a la topología → funcionan solos (el log regenera, no
+guarda geometría).
+
+**Fase 0 (spike, firmas reales leídas en la fuente instalada)** fijó 3 desviaciones del
+plan: `Face.make_surface_patch` toma tuplas de 3 `(Edge, Face, ContinuityLevel.C1)` (no de
+2); `thicken(both=True)` engruesa `amount` COMPLETO a cada lado (espesor total 2×, no
+±t/2); la continuidad G1 falla en paredes perpendiculares (`Geom_RectangularTrimmedSurface::
+V1==V2`) — geométricamente correcto (un parche plano no puede ser tangente a muros
+verticales) → el comando lo captura con error accionable. Adyacencia arista→cara con
+`TopExp.MapShapesAndAncestors_s` + `list(TopTools_ListOfShape)` (iterable en Python).
+
+**Entregado**: `kernel/surface.py` (funciones puras `boundary_surface`/
+`fill_surface_from_edges`/`thicken_surface`, reusan `path_from_points` de sweep.py) +
+`is_surface` en `kernel/shapes.py` (caras y 0 sólidos). 3 comandos schema-driven
+(categoría "superficies", sin wants_* flags — las `=expr` se resuelven arriba):
+`boundary_surface` (contorno de curvas, `points` → parche no plano, `holes` → lazos
+interiores), `fill_surface` (parche sobre aristas de un sólido, `tangent` G1 opcional,
+emite Feature NUEVA sin mutar el target) y `thicken` (superficie → sólido, muta en sitio
+como fillet/shell). **Decisión de ingeniería**: una superficie desnuda es geometría de
+CONSTRUCCIÓN — `is_surface` la EXCLUYE de BOM (`bom.py`, cascada a costeo), masa
+(`mass.py`) y sección (`projection.py` filtra a sólidos, avisa si no queda ninguno); FEA
+(`api/main.py`) la rechaza pidiendo thicken. Línea de receta en `design/guidelines.py`
+(capa 2) para que el agente sepa que existe.
+
+**Verificación E2E (stack HTTP real, TestClient)**: deflector curvo de doble curvatura (2
+rectas + 2 arcos spline + punto de forma) → en escena con volumen 0 y MESH (renderiza) →
+excluido del BOM → la sección SVG no truena con la superficie presente (200, 21.5 KB) →
+`thicken 3mm` → sólido de 281 914 mm³ que YA entra al BOM → STEP del conjunto 93 KB. 21
+tests nuevos (`tests/test_surfaces.py`; áreas exactas, thicken paramétrico con `=esp`,
+both duplica, rechazos accionables, exclusión de construcción, sección robusta con y sin
+sólidos). 938 tests (48→51 comandos, 66 tools MCP sin cambio — MCP es THIN, run_command
+genérico). **Tier 2 CERRADO** → el roadmap V5 queda 100 % en lo bloqueante; el resto del
+Tier 3 (Blender/PDM/plantillas por empresa) es por demanda. Siguiente ítem pro: V6.1 ya
+está hecho → sigue V6.2 rendimiento.

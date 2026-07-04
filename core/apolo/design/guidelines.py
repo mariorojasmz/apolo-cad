@@ -103,9 +103,13 @@ DESIGN_RULES: list[dict[str, str]] = [
         "detalle": "Tableros y chapa salen de planchas (piensa en el despiece y el nesting); los "
         "perfiles, de barras a la medida comercial; los dobleces llevan radio mínimo; los "
         "agujeros, diámetros de broca estándar. No diseñes una pieza que ningún taller pueda "
-        "producir.",
+        "producir. Para geometría de doble curvatura del vertical (chutes, tolvas, deflectores, "
+        "guardas curvas): modela la SUPERFICIE con boundary_surface (contorno de curvas) o "
+        "fill_surface (parche sobre aristas), y dale espesor de chapa con thicken → pared "
+        "fabricable. Una superficie desnuda es geometría de construcción: no pesa ni entra al "
+        "BOM hasta engrosarla.",
         "verificar": "cut_list / nesting (corte real); export_flat_pattern (chapa desplegada a "
-        "DXF).",
+        "DXF); thicken (superficie → sólido de pared).",
     },
     {
         "clave": "normalizado",

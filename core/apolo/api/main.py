@@ -1815,10 +1815,18 @@ def _fea_static_run(body: FeaStaticIn):
         density, has_yield, resolve_material, yield_strength, young_modulus,
     )
 
+    from apolo.kernel.shapes import is_surface
+
     with STATE_LOCK:
         feat = DOC.scene.get(body.feature_id)
         if feat is None:
             raise HTTPException(status_code=404, detail=f"No existe la pieza '{body.feature_id}'")
+        if is_surface(feat.shape):
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{feat.name}' es una superficie (volumen 0); el FEA necesita un "
+                       f"sólido. Dale espesor con thicken antes de analizarla.",
+            )
         material = body.material or resolve_material(feat, CATALOG, DOC.default_material())
         if body.yield_mpa is not None:
             sy = float(body.yield_mpa)

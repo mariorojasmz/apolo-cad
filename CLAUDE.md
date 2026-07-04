@@ -52,19 +52,19 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 917 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 938 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-04)**: 917 tests (+6 de tortura extendida vía `-m torture`) ·
-  66 tools MCP · 48 comandos · catálogo 217 refs · roadmaps V1–V4 completos · Frentes
+- **Estado actual (2026-07-04)**: 938 tests (+6 de tortura extendida vía `-m torture`) ·
+  66 tools MCP · 51 comandos · catálogo 217 refs · roadmaps V1–V4 completos · Frentes
   A/B/C cerrados · **TIER 1 COMPLETO**: V5.1 (croquis PlaneGCS), V5.2 + V5.2b
   (sub-ensamblajes + `insert_project`), V5.3 (modelado directo), V5.4 (ajustes ISO 286) y
-  V5.5 (chapa avanzada) cerrados · Tier 2: V5.6 (FEA estático lineal), V5.7 (roscas), V5.8
-  (ingletes) y V5.9 (export DWG) cerrados — superficies básicas quedan POR DEMANDA · Tier
+  V5.5 (chapa avanzada) cerrados · **TIER 2 COMPLETO**: V5.6 (FEA estático lineal), V5.7
+  (roscas), V5.8 (ingletes), V5.9 (export DWG) y V5.11 (superficies básicas) cerrados · Tier
   3: V5.10 (normas del vertical — memoria NORMATIVA) cerrado · **ROADMAP V6 «Apolo
   industrial» iniciado: V6.1 robustez industrial CERRADO** (contrato «nada tumba el
   documento»: `check_integrity` + carga tolerante + atomicidad de regenerate + suite de
@@ -102,7 +102,18 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   position/rotation se reemplaza ENTERO); `edit_batch` = N ediciones en UN regenerate
   atómico y 1 undo; `GET /api/schemas/{type}` para no volcar los ~77 KB de schemas.
 
-### Comandos / modelado (48 comandos)
+### Comandos / modelado (51 comandos)
+- **Superficies básicas (V5.11, `kernel/surface.py`)**: `boundary_surface` (Face de un
+  contorno cerrado de curvas — `Face.make_surface`/BRepOffsetAPI_MakeFilling; `points` la
+  levantan a parche NO plano, `holes` = lazos interiores), `fill_surface` (parche sobre
+  aristas de un sólido — tapar huecos/bordes; `tangent` = continuidad G1 via
+  `make_surface_patch`, solo en continuación suave: falla en paredes perpendiculares con
+  aviso) y `thicken` (superficie → sólido de pared; `both` engruesa a CADA lado = espesor
+  total 2×; muta en sitio). Para chutes/tolvas/deflectores/guardas curvas: boundary/fill +
+  thicken. Una superficie DESNUDA (`is_surface` en `kernel/shapes.py`: caras y 0 sólidos)
+  es geometría de CONSTRUCCIÓN — EXCLUIDA de BOM/masa/costeo y de la vista de sección
+  (`projection.py` filtra a sólidos); FEA la rechaza pidiendo `thicken`. Gotcha: el log
+  regenera, no serializa geometría → sin cambios de persistencia.
 - **Modelado directo (V5.3, `kernel/direct.py`)**: `delete_faces` (OCCT Defeaturing:
   borra caras y CURA extendiendo las vecinas — quitar fillets/barrenos/bosses de un
   STEP; flag `tangentes` expande a la cadena de caras CURVAS tangentes **o de mismo
@@ -535,7 +546,9 @@ Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
   (4) ~~ajustes/tolerancias ISO 286~~ **HECHO V5.4** (fits + asientos + callouts);
   (5) ~~chapa avanzada~~ **HECHO V5.5** (flaps con child + cutouts en pestañas + K por
   material). **TIER 1 COMPLETO (2026-07-03)** — lo siguiente sale del Tier 2.
-- **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), ~~FEA estático
+- **Tier 2 — semanales — COMPLETO (2026-07-04)**: ~~superficies básicas
+  (boundary/fill/thicken)~~ **HECHO V5.11** (`kernel/surface.py`; superficie = geometría
+  de construcción hasta thicken), ~~FEA estático
   lineal~~ **HECHO V5.6** (gmsh + scikit-fem, NO CalculiX/sfepy — sin wheels Windows;
   resultado a la memoria), ~~roscas~~ **HECHO V5.7** (thread en drill_hole + callout
   + cosmético ISO 6410 + cédula), ~~weldments con ingletes reales~~ **HECHO V5.8**

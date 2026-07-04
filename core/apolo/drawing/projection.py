@@ -157,8 +157,18 @@ def section_projection(
     from apolo.library.catalog import CATALOG
     from apolo.library.materials import resolve_material
 
+    from apolo.kernel.shapes import is_surface
+
     idx, viewname, plane_name, to2d = _SECTION[axis]
-    compound = _scene_compound(scene)
+    # El corte solo aplica a SÓLIDOS: una superficie (volumen 0) no se secciona y
+    # tumbaría el `.solids()` de abajo. Se excluye; se avisa si no queda ningún sólido.
+    solids = [f.shape for f in scene.values() if f.visible and not is_surface(f.shape)]
+    if not solids:
+        raise ValueError(
+            f"El corte {axis.upper()}-{axis.upper()} no tiene ningún sólido que cortar "
+            f"(¿la escena solo tiene superficies? dales espesor con thicken)"
+        )
+    compound = solids[0] if len(solids) == 1 else Compound(children=solids)
     bb = compound.bounding_box()
     center = ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
     los = (bb.min.X, bb.min.Y, bb.min.Z)

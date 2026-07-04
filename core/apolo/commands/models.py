@@ -1022,6 +1022,60 @@ class SketchLoftParams(BaseModel):
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
 
 
+class CurveSpec(BaseModel):
+    """Una curva del contorno de una superficie: puntos [x,y,z] unidos recto a tramos,
+    o suave con spline. Acepta '=expresión' por componente."""
+
+    points: list[list[float]] = Field(
+        ..., min_length=2, title="Puntos", description="[x,y,z] (≥2); '=expresión' por componente",
+    )
+    smooth: bool = Field(False, title="Suave (spline)")
+
+
+class BoundarySurfaceParams(BaseModel):
+    """Superficie (Face) acotada por un contorno cerrado de curvas. Para geometría de
+    doble curvatura del vertical (chutes, tolvas, deflectores, guardas curvas): úsala
+    con `thicken` para darle espesor de chapa → pared fabricable. Una o varias curvas
+    que juntas cierren el lazo; `points` la levantan a un parche NO plano; `holes` abren
+    lazos interiores. Es geometría de CONSTRUCCIÓN (volumen 0) hasta engrosarla."""
+
+    name: str = Field("Superficie", title="Nombre")
+    curves: list[CurveSpec] = Field(..., min_length=1, title="Contorno")
+    points: list[list[float]] | None = Field(
+        None, title="Puntos de forma",
+        description="puntos 3D [x,y,z] que la superficie toca → parche no plano (opcional)",
+    )
+    holes: list[list[CurveSpec]] | None = Field(None, title="Huecos (lazos interiores)")
+    position: Vec3 = Field(default_factory=Vec3, title="Posición")
+    rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
+
+
+class FillSurfaceParams(BaseModel):
+    """Parche (Face) que cubre la región acotada por las aristas seleccionadas de un
+    sólido: tapar un hueco o cerrar un borde. tangent=True busca continuidad tangente
+    (G1) con las caras vecinas — solo posible en geometría de continuación suave; en
+    paredes perpendiculares avisa. Combínalo con `thicken` para hacerlo pared."""
+
+    name: str = Field("Parche", title="Nombre")
+    feature: str = Field(..., title="Sólido", description="id de feature")
+    edges: EdgeSelector = Field(
+        default_factory=EdgeSelector, title="Aristas del contorno",
+        json_schema_extra={"x-selector": "edge"},
+    )
+    tangent: bool = Field(False, title="Continuidad tangente (G1)")
+
+
+class ThickenParams(BaseModel):
+    """Da espesor a una superficie (de boundary_surface / fill_surface) a lo largo de su
+    normal → sólido de pared fabricable. `both` engruesa `thickness` a CADA lado (espesor
+    total 2×, centrado); `flip` invierte el lado. Muta la superficie en el sólido."""
+
+    feature: str = Field(..., title="Superficie", description="id de feature")
+    thickness: float = Field(3, gt=0, le=1000, title="Espesor", description="mm")
+    both: bool = Field(False, title="Ambos lados")
+    flip: bool = Field(False, title="Invertir lado")
+
+
 JOINT_TYPES = Literal["fija", "giratoria", "continua", "prismatica"]
 
 

@@ -38,6 +38,17 @@ def place(shape, position: tuple[float, float, float], rotation: tuple[float, fl
     return Pos(px, py, pz) * Rotation(rx, ry, rz) * shape
 
 
+def is_surface(shape) -> bool:
+    """True si el shape es geometría de SUPERFICIE: tiene caras pero CERO sólidos
+    (Face/Shell, volumen 0). Una superficie es geometría de construcción/referencia —
+    no se fabrica ni se cuenta en BOM/masa/sección— hasta que ``thicken`` la vuelve un
+    sólido. Ver kernel/surface.py."""
+    try:
+        return bool(shape.faces()) and not shape.solids()
+    except Exception:  # noqa: BLE001  # Wire/Vertex/None u objetos sin topología
+        return False
+
+
 def make_box(width: float, depth: float, height: float):
     return Box(width, depth, height)
 

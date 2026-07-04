@@ -31,6 +31,7 @@ from .models import (
     AddRailConstraintParams,
     AttachParams,
     BooleanOpParams,
+    BoundarySurfaceParams,
     CenterInParams,
     ChamferParams,
     CreateBeltConveyorParams,
@@ -52,6 +53,7 @@ from .models import (
     DuplicateParams,
     DrillHoleParams,
     FastenParams,
+    FillSurfaceParams,
     FilletParams,
     GroundParams,
     ImportStepParams,
@@ -70,6 +72,7 @@ from .models import (
     SketchLoftParams,
     SketchRevolveParams,
     SketchSweepParams,
+    ThickenParams,
     TransformGroupParams,
     TransformParams,
 )
@@ -629,6 +632,47 @@ def _exec_sketch_loft(scene: Scene, cmd_id: str, p: SketchLoftParams) -> None:
         raise CommandError(f"Transición: {exc}") from exc
     shape = place(base, p.position.tuple(), p.rotation.tuple())
     scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+
+
+def _exec_boundary_surface(scene: Scene, cmd_id: str, p: BoundarySurfaceParams) -> None:
+    from apolo.kernel.surface import SurfaceError, boundary_surface
+
+    try:
+        base = boundary_surface(p.curves, points=p.points, holes=p.holes)
+    except SurfaceError as exc:
+        raise CommandError(f"Superficie: {exc}") from exc
+    shape = place(base, p.position.tuple(), p.rotation.tuple())
+    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+
+
+def _exec_fill_surface(scene: Scene, cmd_id: str, p: FillSurfaceParams) -> None:
+    from apolo.kernel.surface import SurfaceError, fill_surface_from_edges
+
+    feat = _require(scene, p.feature)
+    edges = _resolve_sel(feat.shape, p.edges, "edge")
+    try:
+        patch = fill_surface_from_edges(feat.shape, edges, tangent=p.tangent)
+    except SurfaceError as exc:
+        raise CommandError(f"Parche: {exc}") from exc
+    scene[cmd_id] = Feature(cmd_id, p.name, patch, cmd_id)
+
+
+def _exec_thicken(scene: Scene, cmd_id: str, p: ThickenParams) -> None:
+    from apolo.kernel.shapes import is_surface
+    from apolo.kernel.surface import SurfaceError, thicken_surface
+
+    feat = _require(scene, p.feature)
+    if not is_surface(feat.shape):
+        raise CommandError(
+            f"Engrosar necesita una SUPERFICIE (de boundary_surface o fill_surface); "
+            f"'{feat.name}' no lo es (¿ya es un sólido?)"
+        )
+    try:
+        solid = thicken_surface(feat.shape, p.thickness, both=p.both, flip=p.flip)
+    except SurfaceError as exc:
+        raise CommandError(f"Engrosar: {exc}") from exc
+    feat.shape = solid
+    feat.make_unique()
 
 
 def _exec_create_revolve(scene: Scene, cmd_id: str, p: CreateRevolveParams) -> None:
@@ -1484,6 +1528,9 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec("sketch_revolve", "Croquis revolucionado", "croquis", SketchRevolveParams, _exec_sketch_revolve),
         CommandSpec("sketch_sweep", "Barrido", "croquis", SketchSweepParams, _exec_sketch_sweep),
         CommandSpec("sketch_loft", "Transición", "croquis", SketchLoftParams, _exec_sketch_loft),
+        CommandSpec("boundary_surface", "Superficie de contorno", "superficies", BoundarySurfaceParams, _exec_boundary_surface),
+        CommandSpec("fill_surface", "Parche de superficie", "superficies", FillSurfaceParams, _exec_fill_surface),
+        CommandSpec("thicken", "Engrosar superficie", "superficies", ThickenParams, _exec_thicken),
         CommandSpec("create_revolve", "Revolución", "crear", CreateRevolveParams, _exec_create_revolve),
         CommandSpec(
             "create_extrude_poly", "Polígono extruido", "crear", CreateExtrudePolyParams, _exec_create_extrude_poly
