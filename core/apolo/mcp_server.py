@@ -952,6 +952,9 @@ def drawing(spec: dict, path: str | None = None) -> str:
     member_detail:{member,pick:[t,w,l],locate:[ids],scale,name} (vista de DETALLE de UNA tabla con
     sus mortajas/bisagras acotadas desde la base; reemplaza la planta),
     isolate:[ids] (solo esas piezas, sin tocar el documento), format:"pdf"/"svg"/"dxf",
+    hole_fits:{"20":"H7"} y hole_threads:{"6.8":"M8"} (overrides de los callouts de ajuste/rosca —
+    los drill_hole con fit/thread ya se rotulan SOLOS: "Ø20 H7 (+0.021/0)" y "M8 - 6H (broca Ø6.8)"
+    + cosmético ISO 6410 en capa DXF ROSCA),
     meta:{drawing_no,material,...}}. Con `path` guarda el archivo (pdf/dxf/svg); si format="svg" y sin
     path devuelve el SVG (úsalo con show_widget para VER el plano inline). Read-only."""
     import pathlib
@@ -1010,7 +1013,9 @@ def get_fit(nominal_mm: float, hole: str = "", shaft: str = "") -> str:
     inserto de chumacera UC → eje h7 (desliza; fijan los prisioneros); rodamiento
     prensado con anillo interior giratorio → k6. Los taladros llevan `fit` en
     drill_hole y los ejes la clase en el NOMBRE («Eje motriz Ø35 h7») — el plano
-    rotula "Ø35 h7 (0/-0.025)" y engineering_check verifica el asiento. Read-only."""
+    rotula "Ø35 h7 (0/-0.025)" y engineering_check verifica el asiento. Para taladros
+    ROSCADOS usa el campo `thread` de drill_hole ("M8": taladra a la broca Ø6.8 y el
+    plano rotula la rosca; ficha en GET /api/threads). Read-only."""
     params = {"nominal": nominal_mm}
     if hole:
         params["hole"] = hole

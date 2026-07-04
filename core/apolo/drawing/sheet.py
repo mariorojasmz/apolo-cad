@@ -69,6 +69,19 @@ class Circle:
 
 
 @dataclass
+class Arc:
+    """Arco de circunferencia (grados CCW desde +X). Hoy lo usa el cosmético de
+    ROSCA (ISO 6410: 3/4 de vuelta en trazo fino al Ø nominal, capa DXF ROSCA)."""
+
+    x: float
+    y: float
+    r: float
+    a1: float
+    a2: float
+    kind: str = "thread"
+
+
+@dataclass
 class Polygon:
     rings: list[list[tuple[float, float]]]  # anillo 0 = contorno; resto = agujeros
     kind: str = "corte"
@@ -93,6 +106,7 @@ class SheetModel:
     lines: list[Line] = field(default_factory=list)
     labels: list[Label] = field(default_factory=list)
     circles: list[Circle] = field(default_factory=list)
+    arcs: list[Arc] = field(default_factory=list)
     polygons: list[Polygon] = field(default_factory=list)
     images: list[Image] = field(default_factory=list)
     meta: dict = field(default_factory=dict)
@@ -148,10 +162,14 @@ def _fit_for_dia(dia: float, hole_fits: dict[float, str] | None) -> str | None:
 def _hole_callouts(
     model: SheetModel, view: ViewProjection, tx, scale: float,
     hole_fits: dict[float, str] | None = None,
+    hole_threads: dict[float, str] | None = None,
 ) -> None:
     """Agrupa los círculos de la vista por diámetro y rotula 'n×Ød' con directriz.
     Con `hole_fits` {Ø_nominal → clase ISO 286} el rótulo incluye clase y límites:
-    "4×Ø20 H7 (+0.021/0)"."""
+    "4×Ø20 H7 (+0.021/0)". Con `hole_threads` {Ø_broca → designación M…} el rótulo
+    es de ROSCA ("4×M8 - 6H (broca Ø6.8)") + arco cosmético ISO 6410 al Ø nominal
+    (3/4 de vuelta, trazo fino); thread se evalúa ANTES que fit (si una broca
+    coincide con un Ø liso mapeado, gana la rosca — mismo caveat que los fits)."""
     groups: dict[float, list[tuple[float, float, float]]] = {}
     for c in view.circles:
         groups.setdefault(round(2 * c[2], 1), []).append(c)
@@ -163,8 +181,20 @@ def _hole_callouts(
         ex, ey = sx + 4.5 + i * 1.5, sy + 4.5 + i * 1.5
         model.lines.append(Line(sx, sy, ex, ey, "dim"))
         n = len(circles)
-        fit = _fit_for_dia(dia, hole_fits)
-        if fit:
+        thread = _fit_for_dia(dia, hole_threads)  # mismo matching por distancia
+        fit = None if thread else _fit_for_dia(dia, hole_fits)
+        if thread:
+            from apolo.library.engineering.threads import (
+                format_thread_label, thread_spec,
+            )
+
+            text = format_thread_label(thread, n)
+            r_nom = thread_spec(thread)["nominal_mm"] / 2.0 * scale
+            if r_nom >= 0.9:  # cosmético ISO 6410 sobre CADA agujero del grupo
+                for (hx, hy, _hr) in circles:
+                    px, py = tx((hx, hy))
+                    model.arcs.append(Arc(px, py, r_nom, 0.0, 270.0, "thread"))
+        elif fit:
             from apolo.library.engineering.fits import format_fit_label
 
             base = format_fit_label(dia, fit)
@@ -338,6 +368,7 @@ def compose_sheet(
     show_iso: bool = True,  # incluir la isométrica (las láminas por pieza la omiten: 3 vistas bastan)
     shaded: bool = False,  # isométrica SOMBREADA a color (estilo Inventor) en vez del alambre
     hole_fits: dict[float, str] | None = None,  # {Ø_nominal → "H7"}: callouts con clase+límites ISO 286 (V5.4)
+    hole_threads: dict[float, str] | None = None,  # {Ø_broca → "M8"}: callout de rosca + cosmético ISO 6410 (V5.7)
     colors: dict | None = None,  # color por pieza para el sombreado (= viewport web: DOC.colors+paleta)
     sheet_refs: dict | None = None,  # {_rep id → nº de hoja} → columna "Hoja" en el DESPIECE (cross-ref globo→lámina de detalle)
 ) -> SheetModel:
@@ -394,7 +425,7 @@ def compose_sheet(
         _dim_h(model, rx, ry, rw, dims[h_axis])
         _dim_v(model, rx, ry, rh, dims[v_axis])
         model.labels.append(Label(cx, ry - 14.5, VIEW_TITLES[name], 3.6))
-        _hole_callouts(model, view, tx, scale, hole_fits)
+        _hole_callouts(model, view, tx, scale, hole_fits, hole_threads)
         for cv in view.circles:  # marca de centro (cruz de ejes) en cada agujero
             ccx, ccy = tx((cv[0], cv[1]))
             center_mark(model, ccx, ccy, cv[2] * scale)

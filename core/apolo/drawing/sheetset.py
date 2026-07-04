@@ -67,10 +67,15 @@ def _table_sheet(title: str, headers: list[str], rows: list[list], col_w: list[f
 def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str = "generico",
               meta: dict | None = None, sheet: str = "A3", shaded: bool = False,
               colors: dict | None = None,
-              hole_fits: dict[float, str] | None = None) -> list[SheetModel]:
+              hole_fits: dict[float, str] | None = None,
+              hole_threads: dict[float, str] | None = None,
+              thread_rows: list[dict] | None = None) -> list[SheetModel]:
     """Juego de planos PRO (paquete de fabricación): [conjunto con DESPIECE+globos,
     1 lámina por pieza acotada, LISTA DE CORTE, CÉDULA DE HERRAJE]. `template` =
-    carpinteria/weldment/chapa/generico (carpinteria/generico incluyen la cédula de herraje)."""
+    carpinteria/weldment/chapa/generico (carpinteria/generico incluyen la cédula de
+    herraje). `hole_threads` rotula roscas en las láminas; `thread_rows` (V5.7,
+    de `_thread_schedule`) añade las roscas a la CÉDULA — y la fuerza aunque no
+    haya herraje: la lista de machuelos es dato de compra/taller."""
     from apolo.commands.registry import Feature
     from apolo.library.cutlist import cut_list, cut_list_totals, hardware_schedule
 
@@ -78,7 +83,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     base.setdefault("date", date.today().isoformat())
     rows = cut_list(scene)
     hw = hardware_schedule(scene)
-    want_hw = bool(hw) and template in ("carpinteria", "generico")
+    want_hw = (bool(hw) and template in ("carpinteria", "generico")) or bool(thread_rows)
     n = 1 + len(rows) + 1 + (1 if want_hw else 0)
     pages: list[SheetModel] = []
 
@@ -103,7 +108,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     # para placas/bridas de interfaz simples (spec interface_dims=true).
     pages.append(compose_sheet(scene, cutlist=True, hardware=True, assembly_notes=[],
                                shaded=shaded, colors=colors, sheet_refs=sheet_refs,
-                               hole_fits=hole_fits,
+                               hole_fits=hole_fits, hole_threads=hole_threads,
                                project_name=f"{project_name} · CONJUNTO", sheet=sheet, meta=page_meta(1)))
     # 2..) una lámina por pieza (sólido aislado, acotado overall + agujeros Ø)
     for r in rows:
@@ -118,7 +123,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         pc = {"P": colors.get(r["_rep"])} if colors else None
         pages.append(compose_sheet({"P": feat}, auto_dims=True, show_iso=shaded, shaded=shaded,
                                    colors=pc, sheet=sheet, project_name=title, meta=pm,
-                                   hole_fits=hole_fits))
+                                   hole_fits=hole_fits, hole_threads=hole_threads))
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)
     cl_rows = [[r["material"], f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}",
                 r["cantidad"], r["nombre"]] for r in rows]
@@ -131,6 +136,11 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     if want_hw:
         hw_rows = [[h["ref"], h["nombre"], h["categoria"], h["cantidad"], f"{h['peso_total_kg']:g} kg"]
                    for h in hw]
+        for t in thread_rows or []:  # roscas (V5.7): operación de taller con norma
+            piezas = ", ".join(t.get("piezas", [])[:2])
+            hw_rows.append([t["designacion"],
+                            f"Rosca interior {t['etiqueta']}", "rosca",
+                            t["cantidad"], f"{piezas} · {t['norma']}"])
         pages.append(_table_sheet("CÉDULA DE HERRAJE", ["Ref", "Descripción", "Categoría", "Cant", "Peso"],
                                   hw_rows, [28, 60, 32, 14, 36], sheet=sheet,
                                   meta=page_meta(len(pages) + 1)))

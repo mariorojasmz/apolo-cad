@@ -2414,3 +2414,43 @@ esfuerzo — la regla de Euler ya lo cubre aparte); fringe correcto (compresión
 + concentración en la base); memoria PDF con la verificación "14. FEA estático lineal
 · Pata A36 OK" (fórmula/sustitución/FS/hipótesis). Nota de rendimiento: el HSS de
 pared 3 mm costó 112 s (14.6k tets P2) — `mesh_size_mm` es el control; documentado.
+
+## V5.7 — Roscas: cosméticas en plano + specs BOM (2026-07-03)
+
+El defecto de entregable más frecuente del Tier 2: un taladro roscado salía como
+"Ø8" a secas (el taller no sabía que iba machuelado) y el 3D era incorrecto (el
+agujero pre-machuelado debe ser la BROCA Ø6.8). `drill_hole` gana `thread`
+("M8", "M10x1.25"): el 3D taladra a la broca de machuelado PUBLICADA (DIN 336 —
+para pasos finos difiere de d−p: M10×1.25 → 8.8, no 8.75), `diameter` se ignora
+documentado, y fit⊕thread son excluyentes (sistemas de tolerancia distintos; la
+rosca interior va 6H fija).
+
+**threads.py** (patrón fits.py, puro): COARSE M3–M36 + FINE comunes,
+`parse_thread` (normaliza "m8x1.25"→"M8" porque 1.25 ES el grueso),
+`thread_spec` (área resistente REUSA la tabla ISO 898-1 de bolts.py — fuente
+única; el resto por As=(π/4)(d−0.9382p)², verificado <1 % contra la tabla),
+`format_thread_label` → "4×M8 - 6H (broca Ø6.8)".
+
+**Plano**: `SheetModel` ganó la primitiva `Arc` (no existía — solo
+Line/Label/Circle/Polygon/Image) con render en los 3 exportadores: SVG path A
+fino 0.25 (el flip h−y PRESERVA la orientación visual → sweep=0), DXF capa
+nueva ROSCA (ACI 3, lineweight 13 — trazo fino ISO 6410), PDF patches.Arc. El
+cosmético es el arco de 3/4 de vuelta (0→270°) al Ø NOMINAL sobre cada círculo
+de broca. Mapa automático `_hole_thread_map` (espejo de `_hole_fit_map`) +
+override `hole_threads` en el drawing spec; en `_hole_callouts` thread se
+evalúa ANTES que fit; kwargs nuevos default None → firmas y tests V5.4
+INTACTOS. La CÉDULA del juego gana filas de machuelos vía `_thread_schedule`
+(agrupa por designación con piezas y norma) y se FUERZA aunque no haya herraje
+(la lista de machuelos es dato de compra/taller). `GET /api/threads` para
+consulta; MCP sin tool nueva (run_command cubre la escritura — el executor
+resuelve la broca solo).
+
+**Verificación**: 31 tests nuevos (846 total; retro fits/drawing intactos) con
+las 16 brocas publicadas parametrizadas. E2E vivo por MCP en
+`placa-roscada-demo`: placa 150×100×15 con 4×M8 + Ø20 H7 — volumen quitado
+6891.4 vs 6891.6 mm³ teórico (broca Ø6.8 EXACTA); SVG con ambos callouts
+("4×M8 - 6H (broca Ø6.8)" y "Ø20 H7 (+0.021/0)" conviviendo); DXF con 4 ARCs
+r=2.0 (esc 1:2) 0→270° en capa ROSCA; juego de planos con página CÉDULA
+forzada: "M8 · Rosca interior M8 - 6H (broca Ø6.8) · rosca · 4 · Placa de
+montaje A36 · ISO 262"; GET /api/threads 200/400 con lista de soportadas.
+Revisión 71. Pendiente declarado: coherencia fasten size ↔ taladro roscado.

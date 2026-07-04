@@ -59,11 +59,11 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-03)**: 815 tests · 66 tools MCP · 48 comandos · catálogo 217
+- **Estado actual (2026-07-03)**: 846 tests · 66 tools MCP · 48 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · **TIER 1 COMPLETO**: V5.1
   (croquis PlaneGCS), V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado
-  directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados · Tier 2 iniciado:
-  V5.6 (FEA estático lineal) cerrado. Proyectos de
+  directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados · Tier 2: V5.6
+  (FEA estático lineal) y V5.7 (roscas) cerrados. Proyectos de
   referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**, eje motriz
   «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo` (croquis
   dof=0), `pieza-proveedor-demo` (STEP round-trip defeatureado) y `guarda-banda-demo`
@@ -232,8 +232,14 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   k6 en inserto UC → ERROR. El fit del EJE va en el NOMBRE («Eje motriz Ø35 h7»), el
   del taladro en `drill_hole.fit` (H7); el plano rotula "Ø35 h7 (0/-0.025)" automático
   (mapa de la capa API + override `hole_fits` del drawing spec); consulta: tool
-  `get_fit` / `GET /api/fits` (65 tools — reiniciar host MCP). `buckling` (Euler K=2,
-  inercia mínima),
+  `get_fit` / `GET /api/fits` (65 tools — reiniciar host MCP). **`threads` (ISO
+  261/262, V5.7)**: `drill_hole.thread` ("M8", "M10x1.25") taladra a la BROCA de
+  machuelado PUBLICADA (M8→Ø6.8, `diameter` se ignora; fit⊕thread excluyentes — la
+  rosca interior es 6H fija) y el plano rotula "4×M8 - 6H (broca Ø6.8)" + arco
+  cosmético ISO 6410 (3/4 de vuelta al Ø nominal, `Arc` en SheetModel, capa DXF
+  ROSCA fina); la CÉDULA del juego gana filas de machuelos (y se fuerza aunque no
+  haya herraje); consulta `GET /api/threads`; roscas EXTERIORES fuera de alcance
+  (por nombre, como los fits). `buckling` (Euler K=2, inercia mínima),
   `stability` (COG vs casco de apoyos), `loads` (`hanging_load_kg`: carga de una unión =
   masa que pierde tierra al quitar su arista; redundante → None), `mass`
   (`get_mass_properties`: catálogo pesa por FICHA, a-medida volumen×densidad), `report`
@@ -444,8 +450,9 @@ Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
   material). **TIER 1 COMPLETO (2026-07-03)** — lo siguiente sale del Tier 2.
 - **Tier 2 — semanales**: superficies básicas (boundary/fill/thicken), ~~FEA estático
   lineal~~ **HECHO V5.6** (gmsh + scikit-fem, NO CalculiX/sfepy — sin wheels Windows;
-  resultado a la memoria), roscas (cosméticas en plano + specs BOM), weldments con
-  ingletes reales, **export DWG** (el entregable político de los clientes AutoCAD).
+  resultado a la memoria), ~~roscas~~ **HECHO V5.7** (thread en drill_hole + callout
+  + cosmético ISO 6410 + cédula), weldments con ingletes reales, **export DWG** (el
+  entregable político de los clientes AutoCAD).
 - **Tier 3 — consolidación**: render fotorrealista (Blender headless), PDM ligero
   multiusuario, plantillas de plano por empresa, normas del vertical (CEMA/ISO 5048 en
   las reglas → memoria NORMATIVA, no solo honesta).
@@ -458,7 +465,8 @@ E2E en un modelo real. Un ítem por vez, con plan formal ("procede con V5.<n>").
 - **Cinemática/ensamblaje**: multi-mate acoplado por sólido (hoy 1 mate/hijo), conectores
   por ancla/arista, master-slider "Apertura %", easing/exportar vídeo del motion.
 - **Validación**: agrupar mitades A/B de bisagra en el scan; voladizo real del eje motriz
-  (cantilever); par de apriete (`torque`) en specs de tornillería.
+  (cantilever); par de apriete (`torque`) en specs de tornillería; coherencia
+  `fasten size` ↔ taladro roscado cercano (requiere matching geométrico perno↔taladro).
 - **Geometría/catálogo**: cola de milano e ingletes; canteado; chapa: child >1 nivel,
   hem 180°, alivios de esquina, editor de flaps en Propiedades; G3 ingletes reales en
   weldments; chaveta modelada en bores; prisioneros/pernos de chumacera como refs para

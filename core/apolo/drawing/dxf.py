@@ -19,6 +19,7 @@ LAYERS = {
     "dim": ("COTAS", 5, "CONTINUOUS", 25),
     "center": ("EJES", 1, "CENTER", 25),
     "corte": ("CORTE", 4, "CONTINUOUS", 35),
+    "thread": ("ROSCA", 3, "CONTINUOUS", 13),  # cosmético ISO 6410: trazo FINO
 }
 
 
@@ -52,6 +53,10 @@ def sheet_to_dxf(model: SheetModel) -> bytes:
     for c in model.circles:
         layer = "CORTE" if c.kind == "corte" else "COTAS"
         msp.add_circle((c.x, c.y), c.r, dxfattribs={"layer": layer})
+
+    for a in model.arcs:
+        layer = LAYERS.get(a.kind, LAYERS["thread"])[0]
+        msp.add_arc((a.x, a.y), a.r, a.a1, a.a2, dxfattribs={"layer": layer})
 
     for lab in model.labels:
         msp.add_text(

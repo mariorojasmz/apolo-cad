@@ -2095,7 +2095,9 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
         try:
             pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
-                              colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None)
+                              colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
+                              hole_threads=_hole_thread_map(DOC) or None,
+                              thread_rows=_thread_schedule(DOC) or None)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(
@@ -2259,6 +2261,7 @@ class DrawingSpecIn(BaseModel):
     assembly_notes: list[str] | None = None  # NOTAS DE MONTAJE: null=off · []=auto del herraje · [..]=explícitas
     shaded: bool = False         # isométrica SOMBREADA a color (estilo Inventor)
     hole_fits: dict[str, str] = {}  # {"20": "H7"} Ø_nominal→clase ISO 286; se mergea SOBRE el mapa automático (V5.4)
+    hole_threads: dict[str, str] = {}  # {"6.8": "M8"} Ø_broca→rosca; se mergea SOBRE el mapa automático (V5.7)
 
 
 _SHAFT_FIT_RE = None  # compilado perezoso en _hole_fit_map
@@ -2292,6 +2295,56 @@ def _hole_fit_map(doc) -> dict[float, str]:
     return out
 
 
+def _hole_thread_map(doc) -> dict[float, str]:
+    """Mapa AUTOMÁTICO Ø_broca → designación de rosca (V5.7) desde los comandos
+    drill_hole con `thread`. El círculo HLR que sale al plano es el de la BROCA
+    (M8 → Ø6.8) — si una broca coincide con el Ø de un agujero liso mapeado, gana
+    la rosca (los círculos HLR no distinguen origen; mismo caveat que los fits)."""
+    from apolo.library.engineering.threads import thread_designation, thread_spec
+
+    out: dict[float, str] = {}
+    for cmd in doc.commands:
+        thr = cmd.get("params", {}).get("thread") if cmd.get("type") == "drill_hole" else None
+        if thr:
+            try:
+                des = thread_designation(thr)
+                out[thread_spec(des)["broca_mm"]] = des
+            except KeyError:
+                continue  # rosca inválida en un log viejo: no rompe el plano
+    return out
+
+
+def _thread_schedule(doc) -> list[dict]:
+    """Roscas agrupadas por designación para la CÉDULA del juego de planos (V5.7):
+    [{designacion, etiqueta, cantidad, broca_mm, piezas, norma}]."""
+    from apolo.library.engineering.threads import (
+        format_thread_label, thread_designation, thread_spec,
+    )
+
+    groups: dict[str, dict] = {}
+    for cmd in doc.commands:
+        if cmd.get("type") != "drill_hole":
+            continue
+        thr = cmd.get("params", {}).get("thread")
+        if not thr:
+            continue
+        try:
+            des = thread_designation(thr)
+            spec = thread_spec(des)
+        except KeyError:
+            continue
+        g = groups.setdefault(des, {
+            "designacion": des, "etiqueta": format_thread_label(des),
+            "cantidad": 0, "broca_mm": spec["broca_mm"], "piezas": [], "norma": spec["norma"],
+        })
+        g["cantidad"] += 1
+        feat = doc.scene.get(cmd.get("params", {}).get("feature"))
+        name = getattr(feat, "name", None)
+        if name and name not in g["piezas"]:
+            g["piezas"].append(name)
+    return sorted(groups.values(), key=lambda g: g["designacion"])
+
+
 @app.get("/api/fits")
 def get_fits(nominal: float, hole: str = "", shaft: str = "") -> dict:
     """Límites ISO 286 (V5.4): con `hole` y `shaft` devuelve el análisis del ajuste
@@ -2306,6 +2359,18 @@ def get_fits(nominal: float, hole: str = "", shaft: str = "") -> dict:
     except KeyError as exc:
         raise HTTPException(status_code=400, detail=str(exc).strip("'\"")) from exc
     raise HTTPException(status_code=400, detail="Indica hole (H7) y/o shaft (g6)")
+
+
+@app.get("/api/threads")
+def get_threads(size: str) -> dict:
+    """Ficha de una rosca métrica ISO 261/262 (V5.7): paso, broca de machuelado
+    publicada, área resistente y norma. Read-only."""
+    from apolo.library.engineering.threads import thread_spec
+
+    try:
+        return thread_spec(size)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc).strip("'\"")) from exc
 
 
 @app.post("/api/drawing/spec")
@@ -2328,6 +2393,12 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
                 fits_map[float(k)] = v
             except (TypeError, ValueError):
                 raise HTTPException(status_code=400, detail=f"hole_fits: clave '{k}' no es un Ø numérico")
+        threads_map = _hole_thread_map(DOC)
+        for k, v in (spec.hole_threads or {}).items():  # override espejo (V5.7)
+            try:
+                threads_map[float(k)] = v
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"hole_threads: clave '{k}' no es un Ø numérico")
         try:
             model = compose_sheet(
                 scene, sheet=spec.sheet, include_hidden=spec.include_hidden, project_name=DOC.name,
@@ -2338,7 +2409,7 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
                 hardware=spec.hardware, explode=spec.explode,
                 notes=spec.notes or None, assembly_notes=spec.assembly_notes,
                 shaded=spec.shaded, colors=_feature_colors(),
-                hole_fits=fits_map or None,
+                hole_fits=fits_map or None, hole_threads=threads_map or None,
                 meta={**_drawing_meta(), **(spec.meta or {})},
             )
         except ValueError as exc:

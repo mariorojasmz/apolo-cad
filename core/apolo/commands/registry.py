@@ -484,9 +484,15 @@ def _exec_drill_hole(scene: Scene, cmd_id: str, p: DrillHoleParams) -> None:
     )
     entry = p.position.tuple()
     depth = p.depth if p.depth > 0 else through
-    tools = [_drill_tool(p.diameter, depth + 0.01, entry, direction)]
+    if p.thread:  # roscado: el 3D lleva la BROCA de machuelado (diameter se ignora)
+        from apolo.library.engineering.threads import thread_spec
+
+        dia = thread_spec(p.thread)["broca_mm"]
+    else:
+        dia = p.diameter
+    tools = [_drill_tool(dia, depth + 0.01, entry, direction)]
     if p.counterbore_d and p.counterbore_depth:
-        if p.counterbore_d <= p.diameter:
+        if p.counterbore_d <= dia:
             raise CommandError("El caladrillo debe ser mayor que el diámetro del taladro")
         tools.append(_drill_tool(p.counterbore_d, p.counterbore_depth, entry, direction))
     result = feat.shape

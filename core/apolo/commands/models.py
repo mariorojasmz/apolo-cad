@@ -772,7 +772,8 @@ DRILL_AXES = Literal["x", "-x", "y", "-y", "z", "-z"]
 
 class DrillHoleParams(BaseModel):
     """Taladro: avanza desde el punto de entrada en la dirección del eje.
-    depth=0 lo hace pasante. Caladrillo (counterbore) opcional."""
+    depth=0 lo hace pasante. Caladrillo (counterbore) opcional. Con `thread`
+    (rosca M8, M10x1.25…) el 3D taladra a la BROCA DE MACHUELADO."""
 
     feature: str = Field(..., title="Sólido", description="id de feature")
     position: Vec3 = Field(..., title="Punto de entrada")
@@ -785,6 +786,13 @@ class DrillHoleParams(BaseModel):
         "", max_length=6, title="Ajuste ISO 286",
         description="clase de AGUJERO (H7, G7, JS7, K7…) — anotación para el plano y "
                     "la verificación de asientos; la geometría queda al nominal",
+    )
+    thread: str = Field(
+        "", max_length=12, title="Rosca (machuelo)",
+        description="métrica ISO ('M8', 'M10x1.25'): el 3D taladra a la BROCA de "
+                    "machuelado publicada (M8→Ø6.8) e IGNORA `diameter`; el plano "
+                    "rotula 'M8 - 6H (broca Ø6.8)' + cosmético ISO 6410 en capa "
+                    "ROSCA. Incompatible con `fit` (la rosca interior es 6H)",
     )
 
     @field_validator("fit")
@@ -801,6 +809,27 @@ class DrillHoleParams(BaseModel):
         if not letter[0].isupper():
             raise ValueError(f"'{v}' es clase de EJE; un taladro lleva clase de AGUJERO (p. ej. H7)")
         return f"{letter}{grade}"
+
+    @field_validator("thread")
+    @classmethod
+    def _thread_known(cls, v: str) -> str:
+        if not v:
+            return ""
+        from apolo.library.engineering.threads import thread_designation
+
+        try:
+            return thread_designation(v)
+        except KeyError as exc:
+            raise ValueError(str(exc).strip("'\"")) from exc
+
+    @model_validator(mode="after")
+    def _fit_xor_thread(self):
+        if self.fit and self.thread:
+            raise ValueError(
+                "fit y thread son excluyentes: la rosca interior va 6H (ISO 262); "
+                "el ajuste ISO 286 es para agujeros LISOS"
+            )
+        return self
 
 
 class PatternCircularParams(BaseModel):

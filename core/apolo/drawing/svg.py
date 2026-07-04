@@ -71,6 +71,20 @@ def sheet_to_svg(model: SheetModel) -> str:
                 f'<circle cx="{c.x:.2f}" cy="{h - c.y:.2f}" r="{c.r:.2f}" '
                 f'fill="#fdfdfb" stroke="#3a5e9c" stroke-width="0.4"/>'
             )
+    for a in model.arcs:
+        # arco CCW en coords de modelo; el flip h−y preserva la orientación VISUAL
+        # → en el sistema y-abajo del SVG el sweep es 0; 3/4 de vuelta → large-arc=1
+        import math as _m
+
+        x1 = a.x + a.r * _m.cos(_m.radians(a.a1))
+        y1 = h - (a.y + a.r * _m.sin(_m.radians(a.a1)))
+        x2 = a.x + a.r * _m.cos(_m.radians(a.a2))
+        y2 = h - (a.y + a.r * _m.sin(_m.radians(a.a2)))
+        large = 1 if (a.a2 - a.a1) % 360.0 > 180.0 else 0
+        parts.append(
+            f'<path d="M {x1:.2f} {y1:.2f} A {a.r:.2f} {a.r:.2f} 0 {large} 0 '
+            f'{x2:.2f} {y2:.2f}" fill="none" stroke="#16181d" stroke-width="0.25"/>'
+        )
     for lab in model.labels:
         x, y = lab.x, h - lab.y
         transform = f' transform="rotate(-{lab.rotation:g} {x:.2f} {y:.2f})"' if lab.rotation else ""

@@ -76,6 +76,13 @@ def _figure(model: SheetModel):
         for c in model.circles:
             ax.add_patch(MplCircle((c.x, c.y), c.r, facecolor="#fdfdfb", edgecolor="#3a5e9c", lw=0.7))
 
+    if model.arcs:  # cosmético de rosca (ISO 6410): arco fino al Ø nominal
+        from matplotlib.patches import Arc as MplArc
+
+        for a in model.arcs:
+            ax.add_patch(MplArc((a.x, a.y), 2 * a.r, 2 * a.r, theta1=a.a1,
+                                theta2=a.a2, lw=0.35, color="#16181d"))
+
     for lab in model.labels:
         ax.text(
             lab.x,
