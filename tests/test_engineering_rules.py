@@ -249,3 +249,76 @@ def test_checks_endpoint_returns_estructura():
     assert "interferencias" in data and "ingenieria" in data
     assert isinstance(data["estructura"], list)
     assert any(c["regla"].startswith("unión apernada") for c in data["estructura"])
+
+
+# ------------------------------------------------- V5.10: normas del vertical
+_BASE_BANDA = {"largo": 4000, "ancho": 600, "altura": 800, "paso": 300,
+               "rodillo": "RODILLO-50", "motor": "MOTOR-150", "tambor_d": 114,
+               "rpm_motor": 58, "torque_Nm": 156, "tipo": "banda"}
+
+
+def test_slider_bed_candado_retro_y_cita_cema():
+    # sin `soporte` → default cama: MISMOS kW que siempre + cita CEMA (solo texto)
+    checks = conveyor_engineering_check(dict(_BASE_BANDA), 30, 600, 0.35)
+    # ancla absoluta: n_paq=3, banda 13.44 kg → F=334.9 N → P=0.179 kW
+    assert _p_req(checks) == pytest.approx(0.18, abs=0.005)
+    arr = _rule(checks, "arrastre de banda")
+    assert "CEMA" in arr["calc"]["norma"] and "slider bed" in arr["calc"]["norma"]
+    assert "CEMA" in _rule(checks, "motorización")["calc"]["norma"]
+    assert "DIN 22101" in _rule(checks, "par de arranque")["calc"]["norma"]
+
+
+def test_soporte_rodillos_usa_iso5048():
+    cama = conveyor_engineering_check(dict(_BASE_BANDA), 30, 600, 0.35)
+    idlers = conveyor_engineering_check({**_BASE_BANDA, "soporte": "rodillos",
+                                         "q_ro_kg_m": 1.5}, 30, 600, 0.35)
+    arr = _rule(idlers, "arrastre de banda")
+    assert "ISO 5048" in arr["calc"]["norma"]
+    assert "C(L)" in arr["calc"]["entradas"]
+    assert "interpolado" in arr["calc"]["entradas"]["C(L)"]  # L=4 m < 80 m
+    # la rodadura sobre idlers pide MUCHA menos potencia que el deslizamiento
+    assert _p_req(idlers) < _p_req(cama)
+    assert "ISO 5048" in _rule(idlers, "motorización")["calc"]["norma"]
+
+
+def test_eytelwein_presente_y_honesto():
+    checks = conveyor_engineering_check(dict(_BASE_BANDA), 30, 600, 0.35)
+    eyt = _rule(checks, "adherencia del tambor motriz")
+    assert eyt is not None
+    assert eyt["calc"]["fs"] is None                 # sin t2_n no se inventa FS
+    assert "T2_min" in eyt["calc"]["resultado"]
+    assert "Eytelwein" in eyt["calc"]["norma"]
+    assert eyt["estado"] == "aviso"                  # sin tensor detectado
+    # con tensor declarado → ok informativo
+    ok = conveyor_engineering_check({**_BASE_BANDA, "tiene_tensor": True}, 30, 600, 0.35)
+    assert _rule(ok, "adherencia del tambor motriz")["estado"] == "ok"
+    # con t2_n explícito → FS real
+    fs = conveyor_engineering_check({**_BASE_BANDA, "t2_n": 500.0}, 30, 600, 0.35)
+    assert _rule(fs, "adherencia del tambor motriz")["calc"]["fs"] is not None
+
+
+def test_eytelwein_mu_engomado_vs_liso():
+    from apolo.library.engineering.iso5048 import eytelwein_t2_min_n
+
+    lis = conveyor_engineering_check(dict(_BASE_BANDA), 30, 600, 0.35)
+    eng = conveyor_engineering_check({**_BASE_BANDA, "tambor_engomado": True}, 30, 600, 0.35)
+    t2_lis = float(re.search(r"T2_min = ([\d.]+) N",
+                             _rule(lis, "adherencia")["calc"]["resultado"]).group(1))
+    t2_eng = float(re.search(r"T2_min = ([\d.]+) N",
+                             _rule(eng, "adherencia")["calc"]["resultado"]).group(1))
+    assert t2_eng < t2_lis  # el lagging agarra más → exige menos T2
+    assert "0.35" in _rule(eng, "adherencia")["calc"]["entradas"]["μ tambor"]
+    assert "0.25" in _rule(lis, "adherencia")["calc"]["entradas"]["μ tambor"]
+
+
+def test_enrich_deriva_senales_de_la_escena():
+    from apolo.library.rules import _enrich_conveyor
+
+    doc = Document("t-senales")
+    _box(doc, "Mesa desliz. 2mm A36", 100)
+    _box(doc, "Tambor motriz (engomado, eje vivo)", 100, x=200)
+    _box(doc, "Tensor de cola · Perno tensor", 100, x=400)
+    base = _enrich_conveyor({"tipo": "banda", "largo": 4000}, doc.scene, {})
+    assert base["soporte"] == "cama"
+    assert base["tambor_engomado"] is True
+    assert base["tiene_tensor"] is True

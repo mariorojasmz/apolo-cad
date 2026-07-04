@@ -2,7 +2,10 @@
 
 El coeficiente 0.06 de `rules.py::FRICTION_COEFF` es de RODADURA (transportador
 de rodillos). Una BANDA que desliza sobre cama de acero fricciona mucho más:
-μ ≈ 0.30–0.35 (banda PVC / chapa). Estas funciones modelan ese caso, con
+μ ≈ 0.30–0.35 (banda PVC / chapa) — es el factor SLIDER BED que publica CEMA
+para unit handling (V5.10: la memoria lo cita como método CEMA slider-bed; los
+números NO cambiaron). Para banda sobre RODILLOS (idlers) aplica ISO 5048 /
+DIN 22101 → `engineering/iso5048.py`. Estas funciones modelan la cama, con
 componente de inclinación y par de arranque.
 
 Unidades: mm, kg, N, kW, N·m, grados. g = 9.81 m/s².

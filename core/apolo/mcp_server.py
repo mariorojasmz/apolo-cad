@@ -304,8 +304,10 @@ def engineering_check(
 ) -> str:
     """Valida el modelo con criterio de ingeniería. Devuelve DOS bloques: `ingenieria`
     (reglas del transportador: apoyo del paquete, capacidad de rodillo, ancho útil,
-    motorización con μ real banda-cama, par + par de arranque, flecha del bastidor,
-    flexión del eje) y `estructura` (chequeo UNIVERSAL de cualquier ensamblaje: uniones
+    motorización por CONSTRUCCIÓN — CEMA slider-bed si banda sobre cama / ISO 5048-DIN
+    22101 si banda sobre rodillos —, par + par de arranque, adherencia del tambor
+    motriz Euler-Eytelwein con la T2 mínima que el tensor debe garantizar, flecha del
+    bastidor, flexión del eje) y `estructura` (chequeo UNIVERSAL de cualquier ensamblaje: uniones
     apernadas vs ISO 898-1, soldaduras, vida L10 de rodamientos, pandeo de patas,
     vuelco). Sin argumentos usa los REQUISITOS guardados del proyecto (set_requirements);
     los parámetros explícitos ganan. Sin `conveyor` valida la faja del documento; con

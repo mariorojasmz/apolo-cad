@@ -240,6 +240,40 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
             base["banda_kg"] = round(kg, 2)
     if base.get("frame") is None:
         base["frame"] = _frame_from_scene(scene, v)
+    # --- señales normativas (V5.10): la regla elige el MÉTODO por construcción
+    if "soporte" not in base and base.get("tipo") == "banda":
+        # cama deslizante (slider bed) si hay mesa/cama visible; si no y hay
+        # rodillos portantes → idlers; default honesto del vertical: cama
+        tiene_cama = any(
+            getattr(f, "visible", True)
+            and any(w in _name(f) for w in ("cama", "mesa", "desliz"))
+            for f in scene.values()
+        )
+        base["soporte"] = "cama" if (tiene_cama or not base.get("n_rodillos")) else "rodillos"
+    if "tambor_engomado" not in base:
+        base["tambor_engomado"] = any(
+            getattr(f, "visible", True)
+            and "tambor" in _name(f)
+            and any(w in _name(f) for w in ("engomado", "lagging", "goma"))
+            for f in scene.values()
+        )
+    if "tiene_tensor" not in base:
+        base["tiene_tensor"] = any(
+            getattr(f, "visible", True)
+            and any(w in _name(f) for w in ("tensor", "trotadora", "take-up", "take up", "templador"))
+            for f in scene.values()
+        )
+    if not base.get("q_ro_kg_m") and base.get("largo"):
+        # masa por metro de partes giratorias (rodillos de catálogo, por FICHA)
+        kg = 0.0
+        for f in scene.values():
+            if not getattr(f, "visible", True):
+                continue
+            comp = CATALOG.get(getattr(f, "component", None) or "")
+            if comp is not None and comp.category == "rodillos":
+                kg += float(comp.weight or 0.0)
+        if kg > 0:
+            base["q_ro_kg_m"] = round(kg / (base["largo"] / 1000.0), 3)
     return base
 
 
@@ -532,15 +566,55 @@ def conveyor_engineering_check(
     # MUY distinto de la rodadura (μ=0.06) del transportador de rodillos.
     n_paq = max(1, math.floor(largo / (largo_paquete_mm * 2.0))) if largo_paquete_mm > 0 else 1
     incline = float(conveyor.get("inclinacion_deg") or 0.0)
-    if tipo == "banda":
+    soporte = conveyor.get("soporte", "cama")
+    metodo_norma = None  # norma del método de arrastre/potencia elegido (V5.10)
+    if tipo == "banda" and soporte == "rodillos":
+        # banda sobre RODILLOS (idlers) → método ISO 5048 / DIN 22101
+        from .engineering.iso5048 import F_ISO, c_coefficient, effective_tension_n
+
+        banda_kg = float(conveyor.get("banda_kg") or estimate_belt_kg(largo, ancho))
+        l_m = largo / 1000.0
+        q_g = n_paq * carga_kg / l_m
+        q_b = banda_kg / (2.0 * l_m)  # masa de UN tramo por metro (el lazo pesa 2·q_B)
+        q_ro = float(conveyor.get("q_ro_kg_m") or 0.0)  # giratorias agregadas (ida+retorno)
+        h_m = l_m * math.sin(math.radians(incline))
+        cc = c_coefficient(l_m)
+        pull_n = effective_tension_n(F_ISO, l_m, q_ro, 0.0, q_b, q_g,
+                                     delta_deg=incline, h_m=h_m)
+        p_req = belt_power_kw(pull_n, v_eff, EFFICIENCY, POWER_MARGIN)
+        metodo_norma = "ISO 5048 / DIN 22101"
+        calc_pull = {
+            "titulo": "Tensión efectiva (banda sobre rodillos)",
+            "entradas": {"q_G carga": f"{q_g:.2f} kg/m", "q_B banda": f"{q_b:.2f} kg/m",
+                         "q_RO giratorias": f"{q_ro:.2f} kg/m",
+                         "f": f"{F_ISO} (rodadura idlers)",
+                         "C(L)": f"{cc:.2f} (L={l_m:g} m"
+                                 + ("; <80 m: interpolado, referencial)" if l_m < 80 else ")"),
+                         "inclinación": f"{incline:g}°"},
+            "formula": "F_U = C(L)·f·L·g·(q_RO + (2·q_B + q_G)·cos δ) + q_G·H·g",
+            "sustitucion": (f"F_U = {cc:.2f}·{F_ISO}·{l_m:g}·9.81·({q_ro:.2f} + "
+                            f"(2·{q_b:.2f} + {q_g:.2f})·cos {incline:g}°) + elevación"),
+            "resultado": f"F_U = {pull_n:.1f} N",
+            "criterio": "informativo (alimenta potencia y par)",
+            "fs": None,
+            "norma": "ISO 5048 / DIN 22101",
+        }
+        checks.append(_check(
+            "arrastre de banda", "ok",
+            f"Tensión efectiva {pull_n:.1f} N (banda sobre rodillos, método ISO 5048: "
+            f"f={F_ISO}, C(L)={cc:.2f}).",
+            calc=calc_pull,
+        ))
+    elif tipo == "banda":
         banda_kg = float(conveyor.get("banda_kg") or estimate_belt_kg(largo, ancho))
         pull_n = belt_pull_n(n_paq * carga_kg, banda_kg, incline_deg=incline)
         p_req = belt_power_kw(pull_n, v_eff, EFFICIENCY, POWER_MARGIN)
+        metodo_norma = "CEMA (unit handling) — slider bed"
         calc_pull = {
-            "titulo": "Arrastre de banda sobre cama",
+            "titulo": "Arrastre de banda sobre cama (método CEMA slider-bed)",
             "entradas": {"carga simultánea": f"{n_paq} paq × {carga_kg:g} kg",
                          "peso de banda": f"{banda_kg:.1f} kg",
-                         "μ banda-cama": "0.33 (PVC/acero)",
+                         "μ banda-cama": "0.33 (PVC/acero, CEMA slider bed 0.30–0.35)",
                          "inclinación": f"{incline:g}°"},
             "formula": "F = g·(μ·(m_carga + m_banda) + m_carga·sen θ)",
             "sustitucion": (f"F = 9.81·(0.33·({n_paq * carga_kg:g} + {banda_kg:.1f}) + "
@@ -548,6 +622,7 @@ def conveyor_engineering_check(
             "resultado": f"F = {pull_n:.1f} N",
             "criterio": "informativo (alimenta potencia y par)",
             "fs": None,
+            "norma": "CEMA (unit handling) — slider bed, μ = 0.30–0.35",
         }
         checks.append(_check(
             "arrastre de banda", "ok",
@@ -563,7 +638,10 @@ def conveyor_engineering_check(
     if p_motor is None and motor_ref not in ("ninguno", "documento") and motor_ref in CATALOG:
         p_motor = CATALOG[motor_ref].specs.get("potencia_kW")
     motor_label = "El motor del documento" if motor_ref == "documento" else motor_ref
-    mu_label = "0.33 banda-cama" if tipo == "banda" else "0.06 rodadura"
+    if tipo == "banda":
+        mu_label = "ISO 5048 f=0.02" if soporte == "rodillos" else "0.33 banda-cama (CEMA)"
+    else:
+        mu_label = "0.06 rodadura"
     calc_mot = {
         "titulo": "Motorización",
         "entradas": {"arrastre F": f"{pull_n:.1f} N", "velocidad": f"{v_eff:g} m/s",
@@ -574,6 +652,8 @@ def conveyor_engineering_check(
         "criterio": "P motor ≥ P requerida",
         "fs": round(float(p_motor) / p_req, 2) if (p_motor and p_req > 0) else None,
     }
+    if metodo_norma:
+        calc_mot["norma"] = metodo_norma
     if p_motor is not None:
         p_motor = float(p_motor)
         if p_motor >= p_req:
@@ -644,6 +724,8 @@ def conveyor_engineering_check(
                 "resultado": f"T_arr = {par_arr:.1f} N·m",
                 "criterio": "T motor ≥ T_arr",
                 "fs": round(float(torque_nm) / par_arr, 2) if par_arr > 0 else None,
+                "norma": "factor 1.6 — práctica industrial 1.5–2.0, coherente con "
+                         "DIN 22101 (arranque)",
             }
             if torque_nm >= par_arr:
                 checks.append(_check(
@@ -659,6 +741,53 @@ def conveyor_engineering_check(
                     "Sube un tamaño de motorreductor o arranca en vacío.",
                     calc=calc_arr,
                 ))
+
+    # 5c · adherencia del tambor motriz (Euler-Eytelwein, V5.10): el tambor solo
+    # transmite F_U si el ramal flojo lleva tensión T2 ≥ F_U/(e^{μα}−1) — es lo que
+    # el TENSOR debe garantizar. El modelo no declara la tensión real del tensor →
+    # se reporta la T2 MÍNIMA requerida (honesto, patrón hanging_load); con `t2_n`
+    # explícito en el dict se calcula el FS real.
+    if tipo == "banda" and tambor_d and pull_n > 0:
+        from .engineering.iso5048 import (
+            MU_DRUM, eytelwein_fs, eytelwein_ratio, eytelwein_t2_min_n,
+        )
+
+        engomado = bool(conveyor.get("tambor_engomado"))
+        mu_t = MU_DRUM["engomado"] if engomado else MU_DRUM["liso"]
+        alpha = 180.0  # abrace típico con tensor de cola
+        t2_min = eytelwein_t2_min_n(pull_n, mu_t, alpha)
+        t2_real = conveyor.get("t2_n")
+        ratio = eytelwein_ratio(mu_t, alpha)
+        calc_eyt = {
+            "titulo": "Adherencia del tambor motriz (Euler-Eytelwein)",
+            "entradas": {"F_U (arrastre)": f"{pull_n:.1f} N",
+                         "μ tambor": f"{mu_t:g} ({'engomado' if engomado else 'acero liso'})",
+                         "α abrace": f"{alpha:g}°",
+                         "e^(μα)": f"{ratio:.2f}"},
+            "formula": "T2_min = F_U / (e^(μα) − 1)",
+            "sustitucion": f"T2_min = {pull_n:.1f} / ({ratio:.2f} − 1)",
+            "resultado": f"T2_min = {t2_min:.1f} N",
+            "criterio": "el tensor debe garantizar T2 ≥ T2_min (si no, la banda patina)",
+            "fs": (round(eytelwein_fs(pull_n + float(t2_real), float(t2_real), mu_t, alpha), 2)
+                   if t2_real else None),
+            "norma": "Euler-Eytelwein (ISO 5048 · DIN 22101 · CEMA)",
+        }
+        if conveyor.get("tiene_tensor"):
+            checks.append(_check(
+                "adherencia del tambor motriz", "ok",
+                f"Tambor {'engomado' if engomado else 'liso'} (μ={mu_t:g}, α={alpha:g}°): "
+                f"el tensor debe garantizar T2 ≥ {t2_min:.1f} N para transmitir "
+                f"{pull_n:.1f} N sin patinar (hay tensor en el modelo).",
+                calc=calc_eyt,
+            ))
+        else:
+            checks.append(_check(
+                "adherencia del tambor motriz", "aviso",
+                f"Sin tensor detectado: la banda necesita T2 ≥ {t2_min:.1f} N en el ramal "
+                f"flojo para no patinar (tambor {'engomado' if engomado else 'liso'}, μ={mu_t:g}).",
+                "Añade un tensor (take-up) o verifica la tensión de montaje de la banda.",
+                calc=calc_eyt,
+            ))
 
     # 6 · velocidad ↔ rodillo (informativo)
     if v_eff > 0:

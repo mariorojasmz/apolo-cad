@@ -95,3 +95,23 @@ def test_endpoint_400_without_data():
     r = client.get("/api/calc-report.pdf")
     assert r.status_code == 400
     assert "set_requirements" in r.json()["detail"]
+
+
+# ------------------------------------------------- V5.10: memoria NORMATIVA
+def test_norma_de_referencia_en_pagina_y_portada():
+    rules = [dict(RULES[0]), {**RULES[1], "calc": {**RULES[1]["calc"],
+             "norma": "CEMA (unit handling) — slider bed, μ = 0.30–0.35"}}]
+    pages = calc_report(_scene(), rules=rules, requirements=REQ)
+    textos = " | ".join(lb.text for p in pages for lb in p.labels)
+    assert "NORMA DE REFERENCIA" in textos
+    assert "CEMA" in textos
+    # portada: línea "Normas aplicadas"
+    portada = " | ".join(lb.text for lb in pages[0].labels)
+    assert "Normas aplicadas" in portada
+
+
+def test_reglas_sin_norma_no_pintan_la_linea():
+    pages = calc_report(_scene(), rules=RULES, requirements=REQ)  # RULES sin norma
+    textos = " | ".join(lb.text for p in pages for lb in p.labels)
+    assert "NORMA DE REFERENCIA" not in textos
+    assert "Normas aplicadas" not in textos

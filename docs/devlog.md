@@ -2531,3 +2531,47 @@ las 7 capas de Apolo sobreviven (VISIBLE/OCULTA/MARCO/COTAS/EJES/CORTE/ROSCA) y
 tests "reales" pasaron a la primera porque el usuario instaló ODA mientras se
 escribía el código — el test del árbol fake hubo que blindarlo contra un ODA
 real presente (apuntar primero a ruta inexistente para forzar el glob).
+
+## V5.10 — Normas del vertical: memoria NORMATIVA (2026-07-03) — primer ítem del Tier 3
+
+Las reglas de conveyor pasaban de honestas a defendibles: ahora citan NORMA. El
+matiz técnico que gobierna el ítem: **ISO 5048/DIN 22101 aplican a banda sobre
+RODILLOS (idlers, f≈0.02 + coeficiente C(L))**; una banda sobre CAMA deslizante
+—la construcción de la faja 38— se rige por fricción de deslizamiento, y el
+μ=0.33 que ya usábamos ES el factor slider-bed que publica CEMA. El método se
+elige POR CONSTRUCCIÓN (señal `soporte` derivada del modelo: pieza cama/mesa →
+CEMA; rodillos portantes → ISO 5048), así los números históricos de la faja NO
+cambian — solo ganan cita.
+
+**`engineering/iso5048.py`** (patrón fits: docstring con norma + tablas +
+funciones puras): tabla C(L) con los valores ampliamente publicados (C(80)=1.92
+… C(1000)=1.09; la zona L<80 m marcada como interpolación REFERENCIAL — en
+fajas cortas dominan las resistencias secundarias), resistencia principal
+F_H = f·L·g·(q_RO+q_RU+(2q_B+q_G)cosδ), elevación, F_U = C·F_H+F_St, potencia,
+y Euler-Eytelwein (e^{μα}, T2_min, FS). Anclas a mano en tests: F_H=1549.98 N,
+F_U=2758.96 N, P=4.869 kW, e^{0.35π}=3.003, T2_min=499.3 N.
+
+**Regla NUEVA "adherencia del tambor motriz (Euler-Eytelwein)"**: el tambor
+solo transmite F_U si el ramal flojo lleva T2 ≥ F_U/(e^{μα}−1). μ por el NOMBRE
+del tambor (engomado/lagging → 0.35; liso → 0.25), α=180°. Honestidad patrón
+hanging_load: el modelo no declara la tensión real del tensor → se reporta la
+T2 MÍNIMA requerida con fs=None (con `t2_n` explícito sí hay FS); ok
+informativo si hay tensor detectado, aviso si no. `_enrich_conveyor` deriva
+soporte/tambor_engomado/tiene_tensor/q_ro_kg_m del modelo — CERO campos nuevos
+en requirements.
+
+**Memoria**: el dict `calc` gana campo opcional `norma` → `_section_page`
+pinta "NORMA DE REFERENCIA" (retro gratis: sin norma no aparece) y la portada
+lista "Normas aplicadas: CEMA · Euler-Eytelwein…" bajo BASES DE DISEÑO.
+
+**Verificación**: 19 tests nuevos (887 total) — C(L) contra publicados +
+monotonía, anclas a mano, candado retro (los MISMOS 0.18 kW del fixture
+slider-bed histórico), rama rodillos → ISO 5048 con P distinta, Eytelwein
+μ 0.35/0.25 y honestidad fs=None, señales derivadas de escena por nombres,
+NORMA en labels de la memoria y ausencia sin norma. E2E vivo en la faja 38:
+motorización cita CEMA slider-bed con 0.18 kW idénticos (soporte="cama" por la
+mesa — el corazón del ítem), Eytelwein ok con μ=0.35 y T2_min=167.1 N (tensor
+de cola detectado), memoria PDF con 4 páginas "NORMA DE REFERENCIA" y portada
+"Normas aplicadas". El veredicto "APROBADO CON AVISOS" es PRE-existente (los
+avisos de asiento del 6207 del tensor, hallazgo bonus de V5.4) — la regla
+nueva no lo empeora.

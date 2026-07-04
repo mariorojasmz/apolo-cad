@@ -59,12 +59,13 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-03)**: 868 tests · 66 tools MCP · 48 comandos · catálogo 217
+- **Estado actual (2026-07-03)**: 887 tests · 66 tools MCP · 48 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · **TIER 1 COMPLETO**: V5.1
   (croquis PlaneGCS), V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado
   directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados · Tier 2: V5.6
   (FEA estático lineal), V5.7 (roscas), V5.8 (ingletes) y V5.9 (export DWG) cerrados —
-  del Tier 2 queda SOLO superficies básicas. Proyectos de
+  queda SOLO superficies básicas · Tier 3 iniciado: V5.10 (normas del vertical —
+  memoria NORMATIVA) cerrado. Proyectos de
   referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**, eje motriz
   «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo` (croquis
   dof=0), `pieza-proveedor-demo` (STEP round-trip defeatureado) y `guarda-banda-demo`
@@ -252,10 +253,18 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   (`structure_engineering_check` UNIVERSAL: pernos/soldaduras/L10/pandeo/vuelco; uniones
   sin dimensionar se AGREGAN en una regla-resumen; redundante+dimensionada = **ok** con
   nota honesta — la redundancia es favorable y no accionable).
-- **Reglas de conveyor** (`library/rules.py`): 12 reglas; `detect_conveyor` se enriquece
+- **Reglas de conveyor** (`library/rules.py`): 13 reglas; `detect_conveyor` se enriquece
   con VARIABLES del proyecto + nombres + specs de catálogo (reconoce
   `motorreductores_sinfin`; η=0.75 sinfín vs 0.85 helicoidal); las reglas numéricas llevan
-  bloque `calc` {titulo, entradas, formula, sustitucion, resultado, criterio, fs}.
+  bloque `calc` {titulo, entradas, formula, sustitucion, resultado, criterio, fs,
+  norma?}. **Normativas (V5.10)**: el método de arrastre se elige POR CONSTRUCCIÓN
+  (`soporte` derivado del modelo: cama/mesa → CEMA slider-bed μ=0.33, números
+  HISTÓRICOS intactos; rodillos portantes → ISO 5048/DIN 22101 en
+  `engineering/iso5048.py` con C(L) — L<80 m es interpolación referencial de la
+  tabla); regla "adherencia del tambor motriz" (Euler-Eytelwein: T2_min =
+  F_U/(e^{μα}−1), μ 0.35 engomado/0.25 liso por NOMBRE del tambor, fs solo con
+  `t2_n` declarado — no se inventa la tensión del tensor); la memoria pinta "NORMA
+  DE REFERENCIA" por verificación y "Normas aplicadas" en portada.
 - **Requisitos** (`Document.requirements`, metadato de manifest espejo de motion):
   carga_kg, largo/ancho/alto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c,
   tipo_cambio (numéricas validadas) + producto/entorno/normativa/notas/moneda.
@@ -438,8 +447,8 @@ falta arrastre en vivo y elipses/splines) · ensamblaje 4.5 (soundness/gravity e
 único) · planos 6.5 (sistema pro A-G + ajustes ISO 286 en callouts, V5.4) · simulación
 4.5 (analítico con FS + MuJoCo + FEA estático lineal de pieza con fringe, V5.6 — lo que
 separa de 6+ es contacto/no-lineal/multicuerpo)
-· entregables de negocio 6 (memoria+cotización) · interop 6 (STEP/STL/DXF/SVG/glTF +
-DWG vía ODA, V5.9) · rendimiento 4 ·
+· entregables de negocio 6.5 (memoria NORMATIVA CEMA/ISO 5048 + cotización, V5.10) ·
+interop 6 (STEP/STL/DXF/SVG/glTF + DWG vía ODA, V5.9) · rendimiento 4 ·
 robustez 3 · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
 planos se DERIVAN del paramétrico (él es lienzo 2D manual — otra categoría). Medir
 progreso por PROFUNDIDAD del vertical, no por paridad de features.
@@ -467,8 +476,9 @@ Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
   (esquinas="inglete": bisector por nodo + ángulos en BOM/lista de corte), ~~export
   DWG~~ **HECHO V5.9** (ODA File Converter + odafc; juego = ZIP por lámina).
 - **Tier 3 — consolidación**: render fotorrealista (Blender headless), PDM ligero
-  multiusuario, plantillas de plano por empresa, normas del vertical (CEMA/ISO 5048 en
-  las reglas → memoria NORMATIVA, no solo honesta).
+  multiusuario, plantillas de plano por empresa, ~~normas del vertical~~ **HECHO
+  V5.10** (CEMA slider-bed / ISO 5048-DIN 22101 por construcción + Euler-Eytelwein →
+  memoria NORMATIVA).
 
 Criterio de "hecho" por ítem: usable por chat/MCP + schema-driven + tests + verificado
 E2E en un modelo real. Un ítem por vez, con plan formal ("procede con V5.<n>").

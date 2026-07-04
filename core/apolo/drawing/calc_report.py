@@ -78,6 +78,13 @@ def _cover(W: float, H: float, *, project_name: str, png: bytes | None,
     for row in reqs[:10]:
         m.labels.append(Label(18, y, row[:60], 2.7, anchor="start"))
         y -= 4.4
+    # normas aplicadas por las verificaciones (V5.10) — memoria NORMATIVA
+    normas = sorted({str(r.get("calc", {}).get("norma", "")).split(" — ")[0].split(",")[0]
+                     for r in rules if r.get("calc", {}).get("norma")})
+    if normas:
+        m.labels.append(Label(18, y, ("Normas aplicadas: " + " · ".join(normas))[:62],
+                              2.7, anchor="start"))
+        y -= 4.4
     if png:
         _embed(m, png, (16, 58, 118, max(y - 62, 40)))
 
@@ -145,7 +152,8 @@ def _section_page(W: float, H: float, *, idx: int, n_sections: int, page_no: int
     rx = W * 0.55
     yy = H - 40
     for header, key in (("FÓRMULA", "formula"), ("SUSTITUCIÓN", "sustitucion"),
-                        ("RESULTADO", "resultado"), ("CRITERIO DE ACEPTACIÓN", "criterio")):
+                        ("RESULTADO", "resultado"), ("CRITERIO DE ACEPTACIÓN", "criterio"),
+                        ("NORMA DE REFERENCIA", "norma")):
         if not calc.get(key):
             continue
         m.labels.append(Label(rx, yy, header, 3.2, anchor="start"))
