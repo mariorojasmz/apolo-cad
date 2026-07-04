@@ -2587,9 +2587,8 @@ fallo (excepción OCCT, comando inválido, .apolo corrupto, fuzzing de undo/redo
 caído) el documento queda ÍNTEGRO Y VERIFICABLE, nunca a medias. Filosofía NO negociable:
 **primero la suite de tortura (roja), después los fixes que la ponen verde.**
 
-**Dinámica del plan**: lo diseñó Fable 5 (dos exploraciones exhaustivas del código + un
-agente de diseño) en `docs/plans/V6.1-robustez-industrial.md`; lo ejecutó Opus 4.8 en
-sesión nueva. El plan traía un mapa de 9 áreas frágiles + 2 bugs de PÉRDIDA DE DATOS con
+**Diseño del plan**: `docs/plans/V6.1-robustez-industrial.md` partió de dos exploraciones
+exhaustivas del código y traía un mapa de 9 áreas frágiles + 2 bugs de PÉRDIDA DE DATOS con
 evidencia de líneas.
 
 **Fase 0 — la vara de medir**. `Document.check_integrity() → list[str]` (READ-ONLY puro):
