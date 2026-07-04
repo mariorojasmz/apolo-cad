@@ -1980,6 +1980,23 @@ def sheetmetal_flat_dxf(feature_id: str) -> Response:
     )
 
 
+@app.get("/api/sheetmetal/{feature_id}/flat.dwg")
+def sheetmetal_flat_dwg(feature_id: str) -> Response:
+    """Desplegado en DWG (V5.9) — requiere ODA File Converter instalado."""
+    from apolo.drawing import DwgError, sheet_to_dwg
+
+    name, model = _sheetmetal_flat(feature_id)
+    try:
+        data = sheet_to_dwg(model)
+    except DwgError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=data,
+        media_type="application/acad",
+        headers={"Content-Disposition": f'attachment; filename="{name or "chapa"}-flat.dwg"'},
+    )
+
+
 @app.get("/api/drawing.pdf")
 def drawing_pdf(sheet: str = "A3", hidden: bool = False, dims: str = "", section: bool = False, bom: bool = False) -> Response:
     from apolo.drawing import sheet_to_pdf
@@ -2103,6 +2120,38 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{DOC.name or "juego"}-planos.pdf"'},
+    )
+
+
+@app.get("/api/drawingset.dwg")
+def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
+    """Juego de planos en DWG (V5.9): como DWG no es multipágina, devuelve un ZIP con
+    un DWG por lámina. Requiere ODA File Converter instalado."""
+    import io as _io
+    import zipfile
+
+    from apolo.drawing import DwgError, sheet_set, sheet_to_dwg
+
+    with STATE_LOCK:
+        try:
+            pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
+                              meta=_drawing_meta(), sheet=sheet,
+                              colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
+                              hole_threads=_hole_thread_map(DOC) or None,
+                              thread_rows=_thread_schedule(DOC) or None)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        base = (DOC.name or "juego").replace("/", "-")
+    buf = _io.BytesIO()
+    try:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for i, page in enumerate(pages, start=1):
+                zf.writestr(f"{base}-hoja-{i:02d}.dwg", sheet_to_dwg(page))
+    except DwgError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=buf.getvalue(), media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{base}-planos-dwg.zip"'},
     )
 
 
@@ -2419,6 +2468,15 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
     if spec.format == "dxf":
         return Response(content=sheet_to_dxf(model), media_type="application/dxf",
                         headers={"Content-Disposition": "attachment; filename=plano.dxf"})
+    if spec.format == "dwg":  # V5.9: DXF convertido con ODA File Converter
+        from apolo.drawing import DwgError, sheet_to_dwg
+
+        try:
+            data = sheet_to_dwg(model)
+        except DwgError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return Response(content=data, media_type="application/acad",
+                        headers={"Content-Disposition": "attachment; filename=plano.dwg"})
     return Response(content=sheet_to_pdf(model), media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{DOC.name or "plano"}.pdf"'})
 

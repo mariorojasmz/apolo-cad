@@ -496,7 +496,8 @@ def export_flat_pattern(feature_id: str, path: str) -> str:
     para corte láser. feature_id es el id del sólido de la chapa (ver get_scene);
     debe haberse creado con el comando create_sheet_metal. Soporta las pestañas
     ricas de V5.5 (multi-pliegue, taladros/recortes en pestañas — proyectados al
-    blank) y K-factor por material (k_factor vacío = tabla según material)."""
+    blank) y K-factor por material (k_factor vacío = tabla según material).
+    ¿DWG? GET /api/sheetmetal/{id}/flat.dwg (V5.9, requiere ODA File Converter)."""
     from pathlib import Path
 
     data = _api("GET", f"/api/sheetmetal/{feature_id}/flat.dxf").content
@@ -857,7 +858,8 @@ def drawing_set(path: str, template: str = "generico", sheet: str = "A3", shaded
     """Genera el JUEGO DE PLANOS profesional (PDF multipágina): conjunto con BOM + 1 lámina
     por pieza ACOTADA + cédula de corte/herraje, y lo guarda en `path` (.pdf). `template`:
     carpinteria/weldment/chapa/generico. `shaded=true`: el conjunto lleva isométrica SOMBREADA
-    a color (estilo Inventor). Devuelve nº de bytes guardados."""
+    a color (estilo Inventor). Devuelve nº de bytes guardados. ¿DWG para clientes AutoCAD?
+    GET /api/drawingset.dwg = ZIP con un DWG por lámina (V5.9, requiere ODA File Converter)."""
     import pathlib
 
     resp = _api("GET", "/api/drawingset.pdf",
@@ -951,7 +953,8 @@ def drawing(spec: dict, path: str | None = None) -> str:
     assembly_notes:[] (auto-genera NOTAS DE MONTAJE desde el herraje) o ["..."] (notas explícitas),
     member_detail:{member,pick:[t,w,l],locate:[ids],scale,name} (vista de DETALLE de UNA tabla con
     sus mortajas/bisagras acotadas desde la base; reemplaza la planta),
-    isolate:[ids] (solo esas piezas, sin tocar el documento), format:"pdf"/"svg"/"dxf",
+    isolate:[ids] (solo esas piezas, sin tocar el documento), format:"pdf"/"svg"/"dxf"/"dwg"
+    (dwg V5.9: requiere ODA File Converter instalado — sin él, 400 con la instrucción),
     hole_fits:{"20":"H7"} y hole_threads:{"6.8":"M8"} (overrides de los callouts de ajuste/rosca —
     los drill_hole con fit/thread ya se rotulan SOLOS: "Ø20 H7 (+0.021/0)" y "M8 - 6H (broca Ø6.8)"
     + cosmético ISO 6410 en capa DXF ROSCA),

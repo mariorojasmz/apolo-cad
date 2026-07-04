@@ -59,11 +59,12 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-03)**: 859 tests · 66 tools MCP · 48 comandos · catálogo 217
+- **Estado actual (2026-07-03)**: 868 tests · 66 tools MCP · 48 comandos · catálogo 217
   refs · roadmaps V1–V4 completos · Frentes A/B/C cerrados · **TIER 1 COMPLETO**: V5.1
   (croquis PlaneGCS), V5.2 + V5.2b (sub-ensamblajes + `insert_project`), V5.3 (modelado
   directo), V5.4 (ajustes ISO 286) y V5.5 (chapa avanzada) cerrados · Tier 2: V5.6
-  (FEA estático lineal), V5.7 (roscas) y V5.8 (ingletes en weldments) cerrados. Proyectos de
+  (FEA estático lineal), V5.7 (roscas), V5.8 (ingletes) y V5.9 (export DWG) cerrados —
+  del Tier 2 queda SOLO superficies básicas. Proyectos de
   referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**, eje motriz
   «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo` (croquis
   dof=0), `pieza-proveedor-demo` (STEP round-trip defeatureado) y `guarda-banda-demo`
@@ -274,7 +275,12 @@ L×A×E + globos + cédula de herraje con norma + 1 lámina por pieza con acotad
 de agujeros + lista de corte), nesting 1D/2D, explosionada, GD&T ligero, notas de
 montaje, cotas de interfaz, iso SOMBREADA a color (= colores del viewport), **planos por
 INTENCIÓN** (`POST /api/drawing/spec` / tool `drawing`), **manual de ensamblaje** paso a
-paso (secuencia derivada del log; `isolate` para sub-ensamblajes). Detector de solapes:
+paso (secuencia derivada del log; `isolate` para sub-ensamblajes), **export DWG (V5.9,
+`drawing/dwg.py`)**: DXF→DWG R2018 (AC1032) vía ODA File Converter con
+`ezdxf.addons.odafc` — format="dwg" en el spec, `flat.dwg` de chapa y
+`GET /api/drawingset.dwg` = ZIP con un DWG por lámina (DWG no es multipágina); sin ODA
+→ 400 amable con la URL de descarga; `_discover()` busca la carpeta VERSIONADA del
+instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de solapes:
 `scripts/_check_overlaps.py`.
 
 ### Catálogo (data-driven, 217 refs)
@@ -432,7 +438,8 @@ falta arrastre en vivo y elipses/splines) · ensamblaje 4.5 (soundness/gravity e
 único) · planos 6.5 (sistema pro A-G + ajustes ISO 286 en callouts, V5.4) · simulación
 4.5 (analítico con FS + MuJoCo + FEA estático lineal de pieza con fringe, V5.6 — lo que
 separa de 6+ es contacto/no-lineal/multicuerpo)
-· entregables de negocio 6 (memoria+cotización) · interop 5.5 · rendimiento 4 ·
+· entregables de negocio 6 (memoria+cotización) · interop 6 (STEP/STL/DXF/SVG/glTF +
+DWG vía ODA, V5.9) · rendimiento 4 ·
 robustez 3 · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
 planos se DERIVAN del paramétrico (él es lienzo 2D manual — otra categoría). Medir
 progreso por PROFUNDIDAD del vertical, no por paridad de features.
@@ -457,8 +464,8 @@ Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
   lineal~~ **HECHO V5.6** (gmsh + scikit-fem, NO CalculiX/sfepy — sin wheels Windows;
   resultado a la memoria), ~~roscas~~ **HECHO V5.7** (thread en drill_hole + callout
   + cosmético ISO 6410 + cédula), ~~weldments con ingletes reales~~ **HECHO V5.8**
-  (esquinas="inglete": bisector por nodo + ángulos en BOM/lista de corte), **export
-  DWG** (el entregable político de los clientes AutoCAD).
+  (esquinas="inglete": bisector por nodo + ángulos en BOM/lista de corte), ~~export
+  DWG~~ **HECHO V5.9** (ODA File Converter + odafc; juego = ZIP por lámina).
 - **Tier 3 — consolidación**: render fotorrealista (Blender headless), PDM ligero
   multiusuario, plantillas de plano por empresa, normas del vertical (CEMA/ISO 5048 en
   las reglas → memoria NORMATIVA, no solo honesta).

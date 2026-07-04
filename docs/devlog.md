@@ -2497,3 +2497,37 @@ cut_list — comportamiento histórico, no regresión. E2E vivo por MCP en
 `bastidor-inglete-demo` (revisión 72): render del marco picture-frame con los 4
 ingletes visibles y de la cercha con bisectrices 60°; interferencias vacías; BOM
 y juego de planos con ∠45°/45°.
+
+## V5.9 — Export DWG (2026-07-03)
+
+El entregable "político": los clientes AutoCAD piden DWG, no DXF. No hay writer
+DWG en pip; la vía del ecosistema no-Autodesk (FreeCAD incluido) es el ODA File
+Converter (gratuito, instalación manual — el usuario lo instaló en la sesión:
+27.1.0) invocado por `ezdxf.addons.odafc`, que ya venía con el ezdxf 1.4.4.
+
+**`drawing/dwg.py`** (patrón de dependencia externa opcional, como MuJoCo/FEA):
+`_discover()` cubre el gotcha real — el instalador de ODA usa carpeta VERSIONADA
+(`C:\Program Files\ODA\ODAFileConverter 27.1.0\`) y el default de ezdxf apunta a
+la carpeta sin versión → glob de `ODA\*\ODAFileConverter.exe` + set de
+`ezdxf.options` (la más nueva si hay varias). Sin conversor → `DwgError` amable
+con la URL de opendesign.com (400 en la API). `dxf_to_dwg_bytes` convierte por
+archivos temporales con un Lock propio (proceso externo, una conversión a la
+vez); default R2018 = AC1032 (AutoCAD 2018+).
+
+**Superficie**: `format="dwg"` en el drawing por intención (la tool MCP `drawing`
+lo pasa tal cual — CERO tools nuevas), `GET /api/sheetmetal/{id}/flat.dwg`
+(desplegado de chapa para el taller AutoCAD) y `GET /api/drawingset.dwg` = ZIP
+con un DWG por lámina (DWG no es multipágina; decisión declarada). Solo
+docstrings en MCP.
+
+**Verificación**: 9 tests (868 total) — contrato SIEMPRE (400 con
+"opendesign.com" en spec/flat/set sin ODA, descubrimiento de carpeta versionada
+con árbol fake forzando la ruta inexistente primero) + conversión real (magic
+AC10, round-trip `odafc.readfile` con capas). E2E vivo por MCP en
+bastidor-inglete-demo: `drawing {format:"dwg"}` → 115 KB AC1032; round-trip →
+las 7 capas de Apolo sobreviven (VISIBLE/OCULTA/MARCO/COTAS/EJES/CORTE/ROSCA) y
+3073 entidades; `drawingset.dwg` → ZIP con 20 láminas DWG todas AC1032;
+`flat.dwg` de la guarda de chapa → 200 AC1032. Curiosidad de la sesión: los
+tests "reales" pasaron a la primera porque el usuario instaló ODA mientras se
+escribía el código — el test del árbol fake hubo que blindarlo contra un ODA
+real presente (apuntar primero a ruta inexistente para forzar el glob).
