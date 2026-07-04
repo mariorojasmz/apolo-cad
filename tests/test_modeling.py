@@ -63,6 +63,26 @@ def test_fillet_impossible_radius_rejected():
     assert len(doc.commands) == 1  # rollback
 
 
+def test_fillet_error_reports_edge_ceiling():
+    """Fix H (V6.1): el error de un redondeo imposible nombra el TOPE — la longitud de
+    la arista más corta seleccionada — para que el radio sea accionable."""
+    doc = Document()
+    b = doc.execute("create_box", {"width": 20, "depth": 20, "height": 20})
+    with pytest.raises(DocumentError, match="arista más corta.*20"):
+        doc.execute("fillet", {"feature": b, "edges": {"mode": "todas"}, "radius": 50})
+
+
+def test_shell_thickness_too_large_precheck():
+    """Fix H (V6.1): un espesor que se come más de la mitad de la dimensión menor se
+    RECHAZA con un mensaje claro ANTES de llamar a OCCT (pre-check por bbox)."""
+    doc = Document()
+    b = doc.execute("create_box", {"width": 60, "depth": 60, "height": 20})  # dim menor = 20
+    with pytest.raises(DocumentError, match="dimensión menor.*20"):
+        doc.execute("shell", {"feature": b, "openings": {"mode": "cara", "face": "tope"},
+                              "thickness": 12})  # 2*12=24 >= 20 → vacío garantizado
+    assert len(doc.commands) == 1  # rollback, doc intacto
+
+
 def test_chamfer_and_shell():
     doc = Document()
     b = doc.execute("create_box", {"width": 60, "depth": 60, "height": 60})

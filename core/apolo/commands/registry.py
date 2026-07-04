@@ -423,6 +423,15 @@ def _exec_push_face(scene: Scene, cmd_id: str, p: PushFaceParams) -> None:
     feat.make_unique()
 
 
+def _shortest_edge_mm(edges) -> float | None:
+    """Longitud de la arista más corta de la selección (None si no se puede medir).
+    Da el TOPE accionable de un radio/distancia cuando OCCT rechaza la operación."""
+    try:
+        return min(e.length for e in edges)
+    except Exception:
+        return None
+
+
 def _exec_fillet(scene: Scene, cmd_id: str, p: FilletParams) -> None:
     from build123d import fillet
 
@@ -431,9 +440,13 @@ def _exec_fillet(scene: Scene, cmd_id: str, p: FilletParams) -> None:
     try:
         result = fillet(edges, radius=p.radius)
     except Exception as exc:
+        # Fix H (V6.1): mensaje accionable con el tope real en vez del crudo C++
+        short = _shortest_edge_mm(edges)
+        tope = (f" La arista más corta seleccionada mide {short:.1f} mm; el radio debe ser "
+                f"bastante menor que eso.") if short else ""
         raise CommandError(
-            f"Redondeo imposible (radio {p.radius:g} en {len(edges)} aristas): prueba un radio menor "
-            f"o menos aristas. Detalle OCCT: {exc}"
+            f"Redondeo imposible (radio {p.radius:g} mm en {len(edges)} aristas): prueba un radio "
+            f"menor o menos aristas.{tope}"
         ) from exc
     feat.shape = result
     feat.make_unique()
@@ -447,8 +460,12 @@ def _exec_chamfer(scene: Scene, cmd_id: str, p: ChamferParams) -> None:
     try:
         result = chamfer(edges, length=p.distance)
     except Exception as exc:
+        short = _shortest_edge_mm(edges)
+        tope = (f" La arista más corta seleccionada mide {short:.1f} mm; la distancia debe ser "
+                f"menor.") if short else ""
         raise CommandError(
-            f"Chaflán imposible (distancia {p.distance:g}): prueba una distancia menor. Detalle: {exc}"
+            f"Chaflán imposible (distancia {p.distance:g} mm en {len(edges)} aristas): prueba una "
+            f"distancia menor.{tope}"
         ) from exc
     feat.shape = result
     feat.make_unique()
@@ -458,6 +475,16 @@ def _exec_shell(scene: Scene, cmd_id: str, p: ShellParams) -> None:
     from build123d import offset
 
     feat = _require(scene, p.feature)
+    # Fix H (V6.1): pre-check barato — un espesor que se come más de la mitad de la
+    # dimensión MENOR deja la pieza sin cavidad (condición NECESARIA, sin falsos
+    # positivos: solo rechaza lo que igual saldría vacío). Mensaje limpio antes de OCCT.
+    bb = feat.shape.bounding_box()
+    min_dim = min(bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z)
+    if 2 * p.thickness >= min_dim:
+        raise CommandError(
+            f"Vaciado imposible: un espesor de {p.thickness:g} mm no cabe en la pieza "
+            f"(su dimensión menor es {min_dim:.1f} mm; el espesor debe ser < {min_dim / 2:.1f} mm)"
+        )
     openings = _resolve_sel(feat.shape, p.openings, "face")
     try:
         result = offset(feat.shape, amount=-p.thickness, openings=openings)

@@ -52,14 +52,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 915 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 917 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-04)**: 915 tests (+6 de tortura extendida vía `-m torture`) ·
+- **Estado actual (2026-07-04)**: 917 tests (+6 de tortura extendida vía `-m torture`) ·
   66 tools MCP · 48 comandos · catálogo 217 refs · roadmaps V1–V4 completos · Frentes
   A/B/C cerrados · **TIER 1 COMPLETO**: V5.1 (croquis PlaneGCS), V5.2 + V5.2b
   (sub-ensamblajes + `insert_project`), V5.3 (modelado directo), V5.4 (ajustes ISO 286) y
@@ -375,6 +375,11 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   `@pytest.mark.torture` (`pytest -m torture`; el `addopts = -m "not torture"` los excluye
   por defecto — el conteo normal no baja). Baseline de perf en `docs/perf_baseline.json`
   (regenerado con `scripts/perf_baseline.py`, máquina-dependiente).
+- **Errores accionables de OCCT** (Fix H): fillet/chamfer nombran el TOPE (arista más
+  corta seleccionada) al fallar; `shell` pre-valida por bbox (`2·espesor ≥ dimensión
+  menor` → rechazo limpio ANTES de OCCT, condición NECESARIA sin falsos positivos). La
+  positividad ya la da pydantic (`gt=0`); no se blinda geometría fina (radio vs. caras
+  vecinas) para no arriesgar falsos positivos — el `try/except` de OCCT queda de red.
 
 ### Paramétrico / modelado
 - **Disciplina paramétrica**: cota que no cuelga de variable/expresión NO sigue los

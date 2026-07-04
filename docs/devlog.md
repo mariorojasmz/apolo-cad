@@ -2669,3 +2669,15 @@ regresiones: el camino sano quedó byte-idéntico (los 887 originales verdes). D
 documentadas: T6-param-drift (valor inválido, no clave extra) y el E2E vía TestClient sobre
 copia de BD en vez de uvicorn suelto (más seguro para los proyectos reales del usuario).
 Madurez robustez 3→6.
+
+**Cierre — Fix H (área oportunista del plan, completada 2026-07-04):** el plan dejó
+Fix H («mensajes OCCT opacos en fillet/chamfer/shell») como opcional. Se cerró para
+NO dejar V6.1 a medias: `radio/distancia/espesor > 0` ya lo garantiza pydantic
+(`gt=0`), así que el valor añadido es (a) enriquecer el `CommandError` de
+fillet/chamfer con el TOPE real —la longitud de la arista más corta seleccionada— y
+(b) un **pre-check barato de shell por bbox**: si `2·espesor ≥ dimensión menor` la
+pieza quedaría sin cavidad → se rechaza con mensaje claro ANTES de llamar a OCCT.
+El pre-check es una condición NECESARIA (cero falsos positivos: solo rechaza lo que
+igual saldría vacío). Sin blindar geometría fina (radio vs. caras adyacentes) para
+no arriesgar falsos positivos — el `try/except` de OCCT sigue de red. +2 tests
+(917 total). Con esto V6.1 queda cerrado al 100 %.
