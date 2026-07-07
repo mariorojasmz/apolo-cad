@@ -106,6 +106,7 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
                 "componente": f["component"],
                 "comando": f["command_id"],
                 **({"grupo": f["group"]} if f.get("group") else {}),
+                **({"boceto": True} if f.get("is_guide") else {}),
             }
             for f in shown
         ]

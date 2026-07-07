@@ -6,7 +6,7 @@ import { useStore } from "../state/store";
    - acciones de vista/gizmo/sección/medida → handlers locales del Viewport
    Se instala una vez; lee los handlers por getter para no capturar closures viejos. */
 
-type GizmoMode = "off" | "translate" | "rotate";
+type GizmoMode = "off" | "translate" | "rotate" | "scale";
 
 export interface ShortcutHandlers {
   fitTo: () => void;
@@ -17,7 +17,7 @@ export interface ShortcutHandlers {
   cycleSection: () => void;
   toggleMeasure: () => void;
   nudge: (dx: number, dy: number, dz: number) => void;
-  isBusy: () => boolean; // gizmo arrastrando o box-select activo
+  isBusy: () => boolean; // gizmo/box-select/arrastre-directo en curso
 }
 
 function closeTopModal(s: ReturnType<typeof useStore.getState>): void {

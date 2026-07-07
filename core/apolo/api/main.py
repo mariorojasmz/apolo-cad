@@ -348,6 +348,7 @@ def scene_payload() -> dict:
             "component": feat.component,
             "cut_length": feat.cut_length,
             "group": feat.group,
+            "is_guide": feat.is_guide,
         }
         if def_mesh is not None:
             definitions[feat.mesh_key] = def_mesh
@@ -689,6 +690,20 @@ def set_visibility_bulk(body: BulkVisibilityIn) -> dict:
         for fid in body.ids:
             DOC.set_visibility(fid, body.visible)
         return sorted({DOC.scene[fid].command_id for fid in body.ids if fid in DOC.scene})
+    return _state_or_error(run)
+
+
+class SketchGuideIn(BaseModel):
+    guide: bool
+
+
+@app.post("/api/features/{feature_id}/sketch-guide")
+def set_sketch_guide(feature_id: str, body: SketchGuideIn) -> dict:
+    """Marca/desmarca un sólido (y las piezas de su comando) como boceto-guía (blockout):
+    geometría de intención excluida de BOM/masa/interferencia/FEA que el agente consume."""
+    def run():
+        DOC.set_sketch_guide(feature_id, body.guide)
+        return DOC.scene[feature_id].command_id
     return _state_or_error(run)
 
 
@@ -1826,6 +1841,11 @@ def _fea_static_run(body: FeaStaticIn):
                 status_code=400,
                 detail=f"'{feat.name}' es una superficie (volumen 0); el FEA necesita un "
                        f"sólido. Dale espesor con thicken antes de analizarla.",
+            )
+        if getattr(feat, "is_guide", False):
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{feat.name}' es un boceto-guía (blockout), no una pieza a analizar.",
             )
         material = body.material or resolve_material(feat, CATALOG, DOC.default_material())
         if body.yield_mpa is not None:

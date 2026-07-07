@@ -4,10 +4,16 @@ import * as THREE from "three";
    suelo receptor de sombras. Mantiene la cámara/controles/gizmo en Viewport.tsx
    (acoplados al picking) — aquí solo lo que define el "aspecto". */
 
+export const BACKGROUND = 0x1b1e24; // color de fondo del viewport (fuente única)
+export const BACKGROUND_CSS = "#" + BACKGROUND.toString(16).padStart(6, "0"); // mismo color para el <div>
+
 export function createRenderer(): THREE.WebGLRenderer {
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  // alpha:true → el canvas es TRANSPARENTE donde no hay geometría. El color de fondo lo pinta el
+  // <div> contenedor por CSS (ver BACKGROUND_CSS): así el fondo NO pasa por el tone-mapping del
+  // EffectComposer/OutputPass (que lo teñía de gris al aplicarle ACES al color de limpiado).
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setClearColor(0x1b1e24);
+  renderer.setClearColor(BACKGROUND, 0); // alpha 0 = fondo transparente (deja ver el CSS del div)
   renderer.localClippingEnabled = true; // el plano de sección depende de esto
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;

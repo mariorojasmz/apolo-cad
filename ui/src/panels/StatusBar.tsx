@@ -16,6 +16,7 @@ const PANELS = [
   { key: "mates", label: "Ensamblaje" },
   { key: "fisica", label: "Física" },
   { key: "ensamblaje", label: "Montaje" },
+  { key: "boceto", label: "Boceto" },
 ] as const;
 
 export default function StatusBar() {

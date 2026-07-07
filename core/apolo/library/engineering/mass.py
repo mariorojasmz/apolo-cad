@@ -87,7 +87,8 @@ def scene_mass_properties(
         items = [(i, scene[i]) for i in ids]
     else:
         items = [(i, f) for i, f in scene.items()
-                 if getattr(f, "visible", True) and not is_surface(f.shape)]
+                 if getattr(f, "visible", True) and not is_surface(f.shape)
+                 and not getattr(f, "is_guide", False)]
 
     piezas = []
     total_m = 0.0

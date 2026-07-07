@@ -30,7 +30,8 @@ def interference_report(
     exclude_pairs descarta parejas que se tocan por diseño (eslabones unidos
     por una junta). exclude_ids saca features del análisis por completo
     (p. ej. tornillería/rodamientos asentados en su alojamiento)."""
-    feats = [f for f in scene.values() if f.visible and (only is None or f.id in only)]
+    feats = [f for f in scene.values()
+             if f.visible and not getattr(f, "is_guide", False) and (only is None or f.id in only)]
     if exclude_ids:
         feats = [f for f in feats if f.id not in exclude_ids]
 

@@ -32,8 +32,8 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
     por sub-ensamblaje. El default es byte-idéntico al histórico."""
     rows: dict[tuple, dict] = {}
     for sid, feat in scene.items():
-        if is_surface(feat.shape):
-            continue  # superficie desnuda = geometría de construcción, no es pieza (dale thicken)
+        if is_surface(feat.shape) or getattr(feat, "is_guide", False):
+            continue  # superficie desnuda o boceto-guía = geometría de construcción, no es pieza
         grp = getattr(feat, "group", None) if by_group else None
         component = getattr(feat, "component", None)
         if component and component in CATALOG:

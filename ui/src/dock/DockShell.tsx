@@ -15,6 +15,7 @@ import KinematicsPanel from "../panels/KinematicsPanel";
 import MatesPanel from "../panels/MatesPanel";
 import PhysicsPanel from "../panels/PhysicsPanel";
 import AssemblyPanel from "../panels/AssemblyPanel";
+import SketchBlockPanel from "../panels/SketchBlockPanel";
 import Viewport from "../viewport/Viewport";
 import { setDockApi, buildDefaultLayout, lockViewport, syncDockPanels, LAYOUT_KEY } from "./dockApi";
 
@@ -50,6 +51,7 @@ const COMPONENTS = {
   mates: pane(MatesPanel),
   fisica: pane(PhysicsPanel),
   ensamblaje: pane(AssemblyPanel),
+  boceto: pane(SketchBlockPanel),
 };
 
 // pestaña sin botón de cerrar para el viewport (centro fijo)

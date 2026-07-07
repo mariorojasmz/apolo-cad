@@ -59,20 +59,13 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-04)**: 938 tests (+6 de tortura extendida vía `-m torture`) ·
-  66 tools MCP · 51 comandos · catálogo 217 refs · roadmaps V1–V4 completos · Frentes
-  A/B/C cerrados · **TIER 1 COMPLETO**: V5.1 (croquis PlaneGCS), V5.2 + V5.2b
-  (sub-ensamblajes + `insert_project`), V5.3 (modelado directo), V5.4 (ajustes ISO 286) y
-  V5.5 (chapa avanzada) cerrados · **TIER 2 COMPLETO**: V5.6 (FEA estático lineal), V5.7
-  (roscas), V5.8 (ingletes), V5.9 (export DWG) y V5.11 (superficies básicas) cerrados · Tier
-  3: V5.10 (normas del vertical — memoria NORMATIVA) cerrado · **ROADMAP V6 «Apolo
-  industrial» iniciado: V6.1 robustez industrial CERRADO** (contrato «nada tumba el
-  documento»: `check_integrity` + carga tolerante + atomicidad de regenerate + suite de
-  tortura + `GET /api/health`; robustez 3→6). Proyectos de
-  referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria **APROBADO**, eje motriz
-  «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos), `biela-colisos-demo` (croquis
-  dof=0), `pieza-proveedor-demo` (STEP round-trip defeatureado) y `guarda-banda-demo`
-  (chapa en C con hems, DXF verificado a mano).
+- **Estado actual (2026-07-04)**: 938 tests (+6 tortura vía `-m torture`) · 66 tools MCP ·
+  51 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
+  «Apolo industrial» iniciado: V6.1 robustez CERRADO** («nada tumba el documento»:
+  `check_integrity` + carga tolerante + atomicidad + tortura + `GET /api/health`; robustez
+  3→6). Proyectos de referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria APROBADO,
+  eje motriz «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos) y `guarda-banda-demo`
+  (chapa en C con hems, DXF verificado).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
   viewport — usar `vite preview`).
@@ -478,7 +471,43 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   `overflow: hidden auto` para matar la barra horizontal fantasma.
 - `npm run dev` + StrictMode remonta el viewport y lo rompe → `vite preview` (config
   `ui-preview`). El screenshot automatizado del viewport se agota por el rAF continuo:
-  verificar por DOM/snapshot.
+  verificar por DOM/snapshot (además el rAF se PAUSA en pestaña de fondo → `g.visible` que
+  fija el animate loop queda stale, y `await requestAnimationFrame` en `preview_eval` cuelga;
+  para verificar lógica de overlay, leer `ctx.handles.children`/params vía `preview_eval`
+  exponiendo `ctx`+`useStore` a `window`, no la visibilidad).
+- **`editCommand` de la UI (PUT `/api/commands/{id}`) por defecto REEMPLAZA los params, no
+  mergea** (el default REST es `merge=false`; solo la tool MCP hace PATCH). Un edit PARCIAL
+  —estirón de caja `{width}`, cota exacta `{height}`— BORRA los params hermanos (height/name/
+  position caen al default del schema → la caja colapsa y `isAxisAligned` falla → los tiradores
+  del overlay no reconstruyen). Los edits de cota de `create_box` pasan `merge=true`
+  (`api.editCommand(id, params, transient, merge)`); los forms schema-driven mandan todos los
+  campos → replace es inocuo ahí.
+- **Overlay de tiradores de caja (`handles.ts::boxDimsFromBbox`)**: la puerta ya NO es
+  `isAxisAligned` contra params — deriva las dims del BBOX y sana cotas borradas (cajas víctimas
+  del bug de replace recuperan tiradores y se auto-sanan al primer estirón vía el merge). Excluye
+  cajas ROTADAS (param numérico que no cuadra con su eje → OBB pendiente) y PARAMÉTRICAS (cota
+  `"=expr"` → no romper el vínculo con variables). Añade LÍNEAS GUÍA punteadas (rectángulo de base
+  + eje vertical central, `guideLines()` en Viewport, `depthTest` off, `raycast` no-op, geometría
+  disposada en el clear por `kind:"guide"`) para leer la caja en el espacio (estilo TinkerCad).
+- **Contorno de selección (silueta, estilo TinkerCad)**: el viewport renderiza por un
+  `EffectComposer` (`Viewport.tsx`, NO `renderer.render` directo): `RenderPass` → `OutlinePass`
+  (silueta cian `visibleEdgeColor` — SOLO el contorno proyectado de la pieza, no las aristas
+  interiores que ve la cámara) → `OutputPass`. Reemplazó el viejo tinte `emissive` de selección
+  (`applySelection`, borrado) y el pre-resaltado de HOVER (`hover.ts`, borrado — el glow emissive
+  al pasar el cursor «prendía» la pieza; el contorno de selección ya basta). Las mallas
+  seleccionadas se recolectan CADA frame en el animate
+  (`selMeshes` desde `selectionRef` → robusto a reconstrucciones). Gotcha crítico: el RT del
+  composer DEBE ser `HalfFloatType` + `samples:4` — HalfFloat preserva el HDR lineal para que
+  `OutputPass` aplique ACES+sRGB al final (sin doble tone-mapping: three NO tonemapea al renderizar
+  a un RT ≠ null), y `samples:4` conserva el MSAA que el composer perdería si no. El ViewCube sigue
+  dibujándose tras `composer.render()` (autoClear=false). El tinte rojizo de "guardando" (`applySaveTint`)
+  es INDEPENDIENTE (clona material + emissive) y coexiste con el contorno. GOTCHA del FONDO: el
+  `OutputPass` tonemapea TODO el frame incluido el color de limpiado (el render directo NO lo hacía) →
+  el fondo salía teñido de gris. Solución: el canvas es TRANSPARENTE (`alpha:true` + `setClearColor(
+  BACKGROUND, 0)`) y el color de fondo lo pinta el `<div>` contenedor por CSS (`mount.style.background
+  = BACKGROUND_CSS`) → el fondo NO pasa por el tone-mapping y queda EXACTO (0x1b1e24 = rgb(27,30,36)).
+  `BACKGROUND`/`BACKGROUND_CSS` en `scene-setup.ts` = fuente única. Las mallas OPACAS se dibujan sobre
+  la transparencia (verificado: centro opaco, esquinas alpha 0 → se ve el CSS).
 
 ### Mantenimiento de este CLAUDE.md (responsabilidad del agente)
 Actualízalo al cerrar trabajo relevante, pero **CONCISO**: una entrada nueva = 2-6
@@ -488,25 +517,16 @@ mapa/convenciones + actualizar los conteos de "Estado actual". La NARRATIVA larg
 amerita, se appendea a `docs/devlog.md`. No duplicar: si una lección ya existe, afinarla
 en su sitio. Este archivo se carga en CADA sesión — cada línea cuesta contexto.
 
-## Madurez — línea base (act. 2026-07-01, escala vs incumbente maduro = 10)
-
-Cuando el usuario pregunte cómo madura Apolo, comparar contra esto y reportar qué subió.
-Veredicto: como CAD GENERAL ~10-15 % de la superficie de SW/Inventor (kernel nivel
-FreeCAD; es una CUÑA, no un reemplazo); como herramienta del VERTICAL cubre ~80 % del
-flujo real (requisitos→3D validado→planos→memoria→cotización, autónomo — categoría que
-los grandes no ocupan). IA-nativa/API-first **9.5** ⭐ (el moat) · kernel OCCT 6.5
-(V5.3: modelado directo básico) ·
-paramétrico 5 · croquis 5 (PlaneGCS: dof/redundantes/tangencias — subió de 3 en V5.1;
-falta arrastre en vivo y elipses/splines) · ensamblaje 4.5 (soundness/gravity es
-único) · planos 6.5 (sistema pro A-G + ajustes ISO 286 en callouts, V5.4) · simulación
-4.5 (analítico con FS + MuJoCo + FEA estático lineal de pieza con fringe, V5.6 — lo que
-separa de 6+ es contacto/no-lineal/multicuerpo)
-· entregables de negocio 6.5 (memoria NORMATIVA CEMA/ISO 5048 + cotización, V5.10) ·
-interop 6 (STEP/STL/DXF/SVG/glTF + DWG vía ODA, V5.9) · rendimiento 4 ·
-robustez **6** (V6.1: contrato de integridad + carga tolerante + atomicidad + tortura —
-subió de 3) · CAM 0 (deliberado) · colaboración 1 · ecosistema 1. Vs AutoCAD: nuestros
-planos se DERIVAN del paramétrico (él es lienzo 2D manual — otra categoría). Medir
-progreso por PROFUNDIDAD del vertical, no por paridad de features.
+## Madurez — línea base (act. 2026-07-04, escala vs incumbente maduro = 10)
+Cuando el usuario pregunte cómo madura Apolo, comparar contra esto. Veredicto: como CAD
+GENERAL ~10-15 % de SW/Inventor (kernel nivel FreeCAD — una CUÑA, no un reemplazo); como
+herramienta del VERTICAL cubre ~80 % del flujo (requisitos→3D validado→planos→memoria→
+cotización, autónomo — categoría que los grandes no ocupan). Ejes: IA-nativa/API-first **9.5**
+(el moat) · kernel OCCT 6.5 · paramétrico 5 · croquis 5 (PlaneGCS; falta arrastre en vivo) ·
+ensamblaje 4.5 (soundness/gravity es único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+
+FEA lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 4 · robustez 6
+(V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1. Medir progreso por PROFUNDIDAD del
+vertical, no por paridad de features.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -530,62 +550,24 @@ verdes**. Un ítem por vez, con plan formal.
 - **V6.5 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
 - **V6.6 FEA de ensamblaje (bonded)**. 4.5→5.5.
 
-## Hoja de ruta V5 — "Apolo completo, agente-primero" (doctrina 2026-07-01) — AGOTADA
+## Hoja de ruta V5 — AGOTADA (completitud de flujo del vertical)
+Doctrina (usuario): el ingeniero del vertical **nunca necesita SW/Inventor** — completitud de
+FLUJO (~40 funciones agente-nativas: comando schema-driven + lectura MCP + verificable), no
+paridad de 3000. **Todo V5 está HECHO** — Tier 1: croquis PlaneGCS · sub-ensamblajes +
+insert_project · modelado directo · ISO 286 · chapa avanzada. Tier 2: superficies · FEA lineal ·
+roscas · ingletes · export DWG. Tier 3: normas CEMA/ISO 5048. El detalle de cada ítem vive en su
+sección del Mapa y en git/devlog. Lo que resta del Tier 3 (render fotorrealista, PDM, plantillas
+de plano por empresa) es POR DEMANDA. Criterio de "hecho": usable por chat/MCP + schema-driven +
+tests + E2E real; un ítem por vez con plan formal.
 
-**Doctrina actualizada por el usuario**: la meta es que un ingeniero especializado que
-usa Apolo **nunca necesite SW/Inventor para terminar su trabajo** en el vertical. NO es
-paridad de las ~3000 funciones de SW: es COMPLETITUD DE FLUJO de las ~40 que un
-ingeniero de máquinas usa de verdad — y cada una nace agente-nativa (comando
-schema-driven + tool/lectura MCP + verificable por el agente: el ingeniero la PIDE, no
-la clickea). La cuña sigue siendo el vertical; dentro de él, Apolo lo es TODO.
-
-Ordenado por frecuencia de bloqueo real (qué obliga hoy a abrir SW):
-- **Tier 1 — bloqueantes diarios**: (1) ~~croquis robusto PlaneGCS~~ **HECHO V5.1**;
-  (2) ~~sub-ensamblajes de primera clase~~ **HECHO V5.2/V5.2b** (grupos + insert_project);
-  (3) ~~modelado directo básico~~ **HECHO V5.3** (delete_faces + push_face);
-  (4) ~~ajustes/tolerancias ISO 286~~ **HECHO V5.4** (fits + asientos + callouts);
-  (5) ~~chapa avanzada~~ **HECHO V5.5** (flaps con child + cutouts en pestañas + K por
-  material). **TIER 1 COMPLETO (2026-07-03)** — lo siguiente sale del Tier 2.
-- **Tier 2 — semanales — COMPLETO (2026-07-04)**: ~~superficies básicas
-  (boundary/fill/thicken)~~ **HECHO V5.11** (`kernel/surface.py`; superficie = geometría
-  de construcción hasta thicken), ~~FEA estático
-  lineal~~ **HECHO V5.6** (gmsh + scikit-fem, NO CalculiX/sfepy — sin wheels Windows;
-  resultado a la memoria), ~~roscas~~ **HECHO V5.7** (thread en drill_hole + callout
-  + cosmético ISO 6410 + cédula), ~~weldments con ingletes reales~~ **HECHO V5.8**
-  (esquinas="inglete": bisector por nodo + ángulos en BOM/lista de corte), ~~export
-  DWG~~ **HECHO V5.9** (ODA File Converter + odafc; juego = ZIP por lámina).
-- **Tier 3 — consolidación**: render fotorrealista (Blender headless), PDM ligero
-  multiusuario, plantillas de plano por empresa, ~~normas del vertical~~ **HECHO
-  V5.10** (CEMA slider-bed / ISO 5048-DIN 22101 por construcción + Euler-Eytelwein →
-  memoria NORMATIVA).
-
-Criterio de "hecho" por ítem: usable por chat/MCP + schema-driven + tests + verificado
-E2E en un modelo real. Un ítem por vez, con plan formal ("procede con V5.<n>").
-
-## Pendientes (follow-ups vivos, todo por demanda)
-
-- **Cinemática/ensamblaje**: multi-mate acoplado por sólido (hoy 1 mate/hijo), conectores
-  por ancla/arista, master-slider "Apertura %", easing/exportar vídeo del motion.
-- **Validación**: agrupar mitades A/B de bisagra en el scan; voladizo real del eje motriz
-  (cantilever); par de apriete (`torque`) en specs de tornillería; coherencia
-  `fasten size` ↔ taladro roscado cercano (requiere matching geométrico perno↔taladro).
-- **Geometría/catálogo**: cola de milano e ingletes de CARPINTERÍA; canteado; chapa:
-  child >1 nivel, hem 180°, alivios de esquina, editor de flaps en Propiedades;
-  coping/notching de tubos en nodos grado ≥3 (el inglete grado 2 ya está, V5.8);
-  chaveta modelada en bores; prisioneros/pernos de chumacera como refs para BOM; más
-  familias bajo demanda.
-- **Física**: cascos convexos en drop_test (hoy AABB), export SDF sin juntas, sim en
-  tiempo real.
-- **Ingeniería/negocio**: campo `funcion`/rol estructurado por pieza (grafo de
-  conocimiento), reordenar el manual de ensamblaje por grafo de soporte (hoy orden del
-  log), explosionada en render 3D, UCFL 204/207/208 contra datasheet, L10 con reparto
-  real (hoy parejo), unificación fina de reglas de flecha con carga puntual.
-- **UI**: refactor del interior de `Viewport.tsx` (picking/box-select/medición/sección/
-  gizmo a módulos), picker de 2 sólidos para `add_joinery`, ventanas flotantes/auto-hide
-  de Dockview, editar sweep/loft/chapa/mate desde Propiedades, nodo «Uniones» en el árbol.
-- **Perf**: carga inicial (OPEN) en frío y debounce del autosave → absorbidos por el
-  roadmap V6.2 (medir contra `docs/perf_baseline.json`).
-- **Limpieza**: proyectos basura id 26/27 y `perf-test-batch` (borrar desde la UI).
+## Pendientes (follow-ups vivos, por demanda)
+- **Cinemática/ensamblaje**: multi-mate por sólido (hoy 1/hijo), conectores por ancla, master-slider "Apertura %", exportar vídeo del motion.
+- **Validación**: agrupar mitades A/B de bisagra; voladizo real del eje motriz; `torque` en tornillería; coherencia `fasten size` ↔ taladro roscado cercano.
+- **Geometría/catálogo**: cola de milano/ingletes de CARPINTERÍA; canteado; chapa (child >1 nivel, hem 180°, alivios, editor de flaps); coping/notching grado ≥3; chaveta en bores; más familias.
+- **Física**: cascos convexos en drop_test (hoy AABB), export SDF, sim en tiempo real.
+- **Ingeniería/negocio**: `funcion`/rol por pieza, manual reordenado por grafo de soporte, explosionada 3D, L10 con reparto real.
+- **UI**: refactor de `Viewport.tsx` (picking/medición/sección/gizmo a módulos), picker 2 sólidos para `add_joinery`, editar sweep/loft/chapa/mate desde Propiedades.
+- **Perf**: absorbido por V6.2 (medir contra `docs/perf_baseline.json`).
 
 ## Fuera de alcance deliberado
 

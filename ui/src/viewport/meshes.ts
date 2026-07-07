@@ -1,7 +1,10 @@
 import * as THREE from "three";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { CatalogItem, FeatureOut, Mesh as MeshPayload } from "../types";
-import { buildEdgeMaterial, buildSolidMaterial, isGlass, resolveMaterialParams } from "./materials";
+import {
+  buildEdgeMaterial, buildGuideEdgeMaterial, buildGuideMaterial,
+  buildSolidMaterial, isGlass, resolveMaterialParams,
+} from "./materials";
 
 export type Shading = "solid" | "wire";
 
@@ -33,8 +36,11 @@ export function buildMesh(
 ): THREE.Mesh {
   const params = resolveMaterialParams(feat, catalogByRef);
   const glass = isGlass(feat, catalogByRef);
-  const material = buildSolidMaterial(feat, params, shading === "wire", planes, glass);
-  const lineMaterial = buildEdgeMaterial(planes);
+  const guide = feat.is_guide === true;  // boceto-guía: translúcido ámbar, no es pieza real
+  const material = guide
+    ? buildGuideMaterial(planes)
+    : buildSolidMaterial(feat, params, shading === "wire", planes, glass);
+  const lineMaterial = guide ? buildGuideEdgeMaterial(planes) : buildEdgeMaterial(planes);
 
   let mesh: THREE.Mesh;
   let edgesGeom: THREE.EdgesGeometry;
@@ -75,7 +81,7 @@ export function buildMesh(
     edgesGeom = new THREE.EdgesGeometry(geometry, 25);
   }
 
-  mesh.castShadow = !glass; // el vidrio translúcido no proyecta sombra opaca
+  mesh.castShadow = !glass && !guide; // vidrio/boceto translúcidos no proyectan sombra opaca
   mesh.receiveShadow = true;
   mesh.userData.featureId = feat.id;
   mesh.userData.p0 = mesh.position.clone();

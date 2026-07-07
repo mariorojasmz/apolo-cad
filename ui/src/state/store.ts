@@ -97,12 +97,23 @@ interface AppState {
   setError: (msg: string | null) => void;
 
   runCommand: (type: string, params: Record<string, unknown>) => Promise<boolean>;
-  editCommand: (id: string, params: Record<string, unknown>, transient?: boolean) => Promise<boolean>;
+  editCommand: (id: string, params: Record<string, unknown>, transient?: boolean, merge?: boolean) => Promise<boolean>;
+  // Variantes SILENCIOSAS para manipulación directa (estirar/rotar/mover): sin barra global de carga
+  // (`busy`), serializadas/coalescidas en una cola de fondo → fluidas, sin pisarse. `syncing` = # en
+  // vuelo. `blockedIds` = piezas cuyo guardado FALLÓ (bloqueadas: tinte rojo + no manipulables hasta
+  // que el auto-reintento las guarde). `retryBlocked` reintenta ya (manual).
+  syncing: number;
+  blockedIds: string[];
+  runCommandSilent: (type: string, params: Record<string, unknown>) => Promise<boolean>;
+  editCommandSilent: (id: string, params: Record<string, unknown>, merge?: boolean) => Promise<boolean>;
+  retryBlocked: (id: string) => void;
   saveVariable: (name: string, expression: string) => Promise<boolean>;
   deleteVariable: (name: string) => Promise<boolean>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   toggleVisibility: (id: string) => Promise<void>;
+  toggleGuide: (ids?: string[]) => Promise<void>;
+  newGuideBox: () => Promise<void>;
   newProject: () => Promise<void>;
   openProject: (file: File) => Promise<void>;
   openProjectById: (id: number) => Promise<void>;
@@ -127,6 +138,16 @@ interface AppState {
   openContextMenu: (cm: { x: number; y: number; targetId: string | null } | null) => void;
   toggleShortcuts: (open?: boolean) => void;
 
+  // Boceto de masas — snapping del gizmo (Fase 2)
+  snapEnabled: boolean;
+  snapStep: number;
+  toggleSnap: () => void;
+  setSnapStep: (n: number) => void;
+
+  // Boceto de masas — primitivas + fusión (Fase 3C)
+  newPrimitive: (kind: "box" | "cylinder") => Promise<void>; // 3C soltar primitiva real
+  fuseSelection: () => Promise<void>; // 3C fusión booleana con guarda de conectividad
+
   autoMode: boolean;
   setAutoMode: (on: boolean) => void;
   sendChat: (text: string) => Promise<void>;
@@ -141,6 +162,7 @@ const BUSY_TEXT: Record<string, string> = {
   editCommand: "Aplicando cambio…",
   setVariable: "Regenerando modelo…",
   deleteVariable: "Regenerando modelo…",
+  guide: "Marcando boceto…",
   undo: "Deshaciendo…",
   redo: "Rehaciendo…",
   importStep: "Importando STEP…",
@@ -214,6 +236,93 @@ async function guard<T>(
   }
 }
 
+// Sincronización de FONDO para manipulación directa: sin barra global (`busy`), el preview optimista
+// del viewport ya muestra el resultado. `syncing` cuenta las operaciones en vuelo.
+type SetFn = (s: Partial<AppState>) => void;
+let syncingCount = 0;
+
+/** Reintenta ante fallo TRANSITORIO (red/servidor ocupado) antes de rendirse. */
+async function withRetry<T>(run: () => Promise<T>, tries = 2, delayMs = 350): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    if (tries > 0) { await new Promise((r) => setTimeout(r, delayMs)); return withRetry(run, tries - 1, delayMs); }
+    throw e;
+  }
+}
+
+// COALESCING de ediciones por command_id: mientras se guarda una caja, las siguientes ediciones NO se
+// encolan una a una; se guarda solo la ÚLTIMA (los estados intermedios de un arrastre no importan) →
+// la cola queda ACOTADA (máx. 1 en vuelo + 1 pendiente por pieza), sin bloquear al usuario ni crecer.
+const editPending = new Map<string, { params: Record<string, unknown>; merge: boolean }>();
+const editInFlight = new Set<string>();
+const editDrain = new Map<string, { p: Promise<boolean>; resolve: (b: boolean) => void }>();
+
+// BLOQUEO como ÚLTIMO RECURSO: si un guardado FALLA (tras los reintentos inmediatos) la pieza queda
+// bloqueada (tinte rojo + no manipulable) con AUTO-REINTENTO de backoff creciente; al recuperarse se
+// desbloquea. `blockedInfo` guarda el reintento + su timer por id.
+const blockedInfo = new Map<string, { retry: () => void; timer: number; delay: number }>();
+function markBlocked(set: SetFn, id: string, retry: () => void): void {
+  const prev = blockedInfo.get(id);
+  if (prev) clearTimeout(prev.timer);
+  const delay = Math.min(prev ? prev.delay * 2 : 2000, 30000); // backoff 2s→30s
+  const timer = window.setTimeout(retry, delay);
+  blockedInfo.set(id, { retry, timer, delay });
+  set({ blockedIds: [...blockedInfo.keys()] });
+}
+function unblock(set: SetFn, id: string): void {
+  const b = blockedInfo.get(id);
+  if (!b) return;
+  clearTimeout(b.timer);
+  blockedInfo.delete(id);
+  set({ blockedIds: [...blockedInfo.keys()] });
+}
+
+function pumpEdit(set: SetFn, id: string): void {
+  if (editInFlight.has(id) || !editPending.has(id)) return;
+  editInFlight.add(id);
+  syncingCount++; set({ syncing: syncingCount });
+  const next = editPending.get(id)!;
+  editPending.delete(id);
+  void withRetry(() => api.editCommand(id, next.params, false, next.merge))
+    .then((scene) => { if (scene) set({ scene }); return true; })
+    .catch((e) => { const m = e instanceof Error ? e.message : String(e); set({ error: `No se pudo guardar; reintentando… (${m})` }); reportError("action", m, { action: "sync" }); return false; })
+    .then((ok) => {
+      syncingCount = Math.max(0, syncingCount - 1); set({ syncing: syncingCount });
+      editInFlight.delete(id);
+      if (ok) unblock(set, id); // guardó bien → desbloquea (si estaba bloqueada)
+      else markBlocked(set, id, () => { editPending.set(id, next); pumpEdit(set, id); }); // falló → bloquea + auto-reintento
+      if (editPending.has(id)) pumpEdit(set, id); // llegó una edición más nueva → guárdala
+      else { const d = editDrain.get(id); editDrain.delete(id); d?.resolve(ok); } // cola de la pieza DRENADA
+    });
+}
+
+// Cola serializada (para transforms: rotar/mover/subir-Z, que son deltas y no se pueden coalescer).
+let syncTail: Promise<unknown> = Promise.resolve();
+function enqueueSilent(set: SetFn, id: string, run: () => Promise<SceneOut>): Promise<boolean> {
+  const p = syncTail.then(async () => {
+    syncingCount++;
+    set({ syncing: syncingCount });
+    try {
+      const scene = await withRetry(run);
+      if (scene) set({ scene });
+      if (id) unblock(set, id);
+      return scene !== null;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      set({ error: `No se pudo guardar; reintentando… (${message})` });
+      reportError("action", message, { action: "sync" });
+      if (id) markBlocked(set, id, () => { void enqueueSilent(set, id, run); }); // falló → bloquea + auto-reintento
+      return false;
+    } finally {
+      syncingCount = Math.max(0, syncingCount - 1);
+      set({ syncing: syncingCount });
+    }
+  });
+  syncTail = p.catch(() => false);
+  return p;
+}
+
 export const useStore = create<AppState>((set, get) => ({
   schemas: [],
   scene: null,
@@ -252,6 +361,8 @@ export const useStore = create<AppState>((set, get) => ({
   chat: [],
   chatBusy: false,
   autoMode: false,
+  snapEnabled: false, // "Pegar" (imán) apagado por defecto — se activa a propósito (F4A/F4D)
+  snapStep: 10,
 
   init: async () => {
     const [schemas, scene, catalog] = await Promise.all([api.schemas(), api.scene(), api.catalog()]);
@@ -524,15 +635,27 @@ export const useStore = create<AppState>((set, get) => ({
     return scene !== null;
   },
 
-  editCommand: async (id, params, transient = false) => {
+  editCommand: async (id, params, transient = false, merge = false) => {
     const scene = await guard(
       set,
-      () => api.editCommand(id, params, transient),
+      () => api.editCommand(id, params, transient, merge),
       `editCommand:${id}${transient ? ":live" : ""}`,
     );
     if (scene) set({ scene });
     return scene !== null;
   },
+
+  syncing: 0,
+  blockedIds: [],
+  runCommandSilent: (type, params) => enqueueSilent(set, String(params.feature ?? ""), () => api.runCommand(type, params)),
+  editCommandSilent: (id, params, merge = false) => {
+    editPending.set(id, { params, merge }); // el ÚLTIMO gana (coalescing)
+    let d = editDrain.get(id);
+    if (!d) { let resolve!: (b: boolean) => void; const p = new Promise<boolean>((r) => (resolve = r)); d = { p, resolve }; editDrain.set(id, d); }
+    pumpEdit(set, id);
+    return d.p; // resuelve cuando la cola de esta pieza DRENA (para el tinte "guardando")
+  },
+  retryBlocked: (id) => { const b = blockedInfo.get(id); if (b) { clearTimeout(b.timer); b.retry(); } },
 
   saveVariable: async (name, expression) => {
     const scene = await guard(set, () => api.setVariable(name, expression), `setVariable:${name}`);
@@ -566,6 +689,76 @@ export const useStore = create<AppState>((set, get) => ({
     if (!feat) return;
     const scene = await guard(set, () => api.setVisibility(id, !feat.visible), `visibility:${id}`);
     if (scene) set({ scene });
+  },
+
+  toggleGuide: async (ids) => {
+    const feats = get().scene?.features ?? [];
+    const targets = ids ?? get().selection;
+    if (!targets.length) return;
+    // si TODOS ya son boceto → desmarcar (convertir en pieza real); si no → marcar todos
+    const guide = !targets.every((id) => feats.find((f) => f.id === id)?.is_guide);
+    let scene = null;
+    for (const id of targets) {
+      scene = await guard(set, () => api.setSketchGuide(id, guide), `guide:${id}`);
+    }
+    if (scene) set({ scene });
+  },
+
+  newGuideBox: async () => {
+    const before = new Set((get().scene?.features ?? []).map((f) => f.id));
+    const ok = await get().runCommand("create_box", { name: "Boceto", width: 200, depth: 200, height: 200 });
+    if (!ok) return;
+    const created = (get().scene?.features ?? []).filter((f) => !before.has(f.id)).map((f) => f.id);
+    let scene = null;
+    for (const id of created) {
+      scene = await guard(set, () => api.setSketchGuide(id, true), `guide:${id}`);
+    }
+    if (created.length) set({ ...(scene ? { scene } : {}), selection: created });
+  },
+
+  // 3C: suelta una primitiva REAL (no guía) y la selecciona para colocarla con gizmo+snap
+  newPrimitive: async (kind) => {
+    const type = kind === "cylinder" ? "create_cylinder" : "create_box";
+    const params = kind === "cylinder"
+      ? { name: "Cilindro", radius: 60, height: 200 }
+      : { name: "Bloque", width: 200, depth: 200, height: 200 };
+    const before = new Set((get().scene?.features ?? []).map((f) => f.id));
+    const ok = await get().runCommand(type, params);
+    if (!ok) return;
+    const created = (get().scene?.features ?? []).filter((f) => !before.has(f.id)).map((f) => f.id);
+    if (created.length) set({ selection: created });
+  },
+
+  // 3C: fusión booleana (union) de la selección. GUARDA: boolean_op consume ids y reasigna
+  // el resultado → rompería juntas/mates/fasteners/grounds; se BLOQUEA si alguna pieza los tiene.
+  fuseSelection: async () => {
+    const sel = get().selection;
+    if (sel.length < 2) {
+      set({ error: "Selecciona 2 o más sólidos que se solapen para fusionar." });
+      return;
+    }
+    // refresca conectividad/uniones para que la guarda sea fiable
+    await get().refreshMates();
+    await get().refreshConnectivity();
+    const st = get();
+    const referenced = new Set<string>();
+    for (const m of st.mates) { referenced.add(m.feature_a); referenced.add(m.feature_b); }
+    for (const f of st.connectivity?.fasteners ?? []) { referenced.add(f.a); referenced.add(f.b); }
+    for (const g of st.connectivity?.grounds ?? []) referenced.add(g.feature);
+    for (const j of st.kinematics?.joints ?? []) { referenced.add(j.parent); referenced.add(j.child); }
+    const blocked = sel.filter((id) => referenced.has(id));
+    if (blocked.length) {
+      set({
+        error:
+          "No se puede fusionar: alguna pieza tiene uniones declaradas (juntas/mates/fasteners). " +
+          "Fusionar rompería esas referencias — quítalas primero, o fusiona piezas sin conectividad.",
+      });
+      return;
+    }
+    const ok = await get().runCommand("boolean_op", {
+      operation: "union", target: sel[0], tools: sel.slice(1), name: "Fusión",
+    });
+    if (ok) set({ selection: [] });
   },
 
   newProject: async () => {
@@ -612,6 +805,9 @@ export const useStore = create<AppState>((set, get) => ({
   runTracked: (label, fn, opts) => guard(set, fn, { label, blocking: opts?.blocking }),
 
   setAutoMode: (on) => set({ autoMode: on }),
+
+  toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+  setSnapStep: (n) => set({ snapStep: Number.isFinite(n) && n > 0 ? n : 1 }),
 
   sendChat: async (text) => {
     const history = get().chat.filter((m) => m.content.trim() !== "");

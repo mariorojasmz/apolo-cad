@@ -77,3 +77,29 @@ export function buildEdgeMaterial(planes: THREE.Plane[]): THREE.LineBasicMateria
     clippingPlanes: planes.length ? planes : undefined,
   });
 }
+
+export const GUIDE_COLOR = 0xffab40; // ámbar: boceto-guía (blockout), geometría de intención
+
+/* Boceto-guía: relleno translúcido ámbar + aristas marcadas. Se distingue al instante de
+   una pieza real; no escribe profundidad (se ve lo de detrás), como el vidrio. */
+export function buildGuideMaterial(planes: THREE.Plane[]): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: new THREE.Color(GUIDE_COLOR),
+    metalness: 0.0,
+    roughness: 0.9,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false,
+    clippingPlanes: planes.length ? planes : undefined,
+  });
+}
+
+export function buildGuideEdgeMaterial(planes: THREE.Plane[]): THREE.LineBasicMaterial {
+  return new THREE.LineBasicMaterial({
+    color: GUIDE_COLOR,
+    transparent: true,
+    opacity: 0.95,
+    clippingPlanes: planes.length ? planes : undefined,
+  });
+}

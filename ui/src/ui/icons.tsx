@@ -6,7 +6,7 @@ import {
   PenTool, Disc, Waypoints, Spline,
   Combine, Scissors, Drill, FlipHorizontal2, Rows3, CircleDot, Move3d, Magnet, Trash2,
   Link2, Bot, Cog,
-  History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor, ClipboardList,
+  History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor, ClipboardList, Blocks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,4 +64,5 @@ export const PANEL_ICONS: Record<string, LucideIcon> = {
   mates: Boxes,
   fisica: Atom,
   ensamblaje: Anchor,
+  boceto: Blocks,
 };

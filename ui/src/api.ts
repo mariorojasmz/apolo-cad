@@ -215,8 +215,8 @@ export const api = {
       body: JSON.stringify({ actions: actions.map((a) => ({ type: a.type, params: a.params })) }),
     }).then((r) => json<SceneOut>(r)),
 
-  editCommand: (id: string, params: Record<string, unknown>, transient = false) =>
-    fetch(`/api/commands/${id}?transient=${transient}`, {
+  editCommand: (id: string, params: Record<string, unknown>, transient = false, merge = false) =>
+    fetch(`/api/commands/${id}?transient=${transient}&merge=${merge}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ params }),
@@ -242,6 +242,13 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ visible }),
+    }).then((r) => json<SceneOut>(r)),
+
+  setSketchGuide: (id: string, guide: boolean) =>
+    fetch(`/api/features/${id}/sketch-guide`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guide }),
     }).then((r) => json<SceneOut>(r)),
 
   bulkVisibility: (ids: string[], visible: boolean) =>

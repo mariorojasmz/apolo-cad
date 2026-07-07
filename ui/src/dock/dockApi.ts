@@ -25,6 +25,7 @@ export const TOOL_PANELS: PanelMeta[] = [
   { id: "mates", title: "Ensamblaje", component: "mates" },
   { id: "fisica", title: "Física", component: "fisica" },
   { id: "ensamblaje", title: "Montaje", component: "ensamblaje" },
+  { id: "boceto", title: "Boceto de masas", component: "boceto" },
 ];
 
 let _api: DockviewApi | null = null;

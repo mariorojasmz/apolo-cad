@@ -100,6 +100,7 @@ class Feature:
     matrix: list | None = None  # 4x4 por filas (kernel.matrix)
     material: str | None = None  # override explícito de material (set_material)
     group: str | None = None  # DERIVADO: sub-ensamblaje al que pertenece (por command_id)
+    is_guide: bool = False  # DERIVADO: boceto-guía (blockout) — fuera de BOM/masa/interferencia/FEA
 
     def make_unique(self) -> None:
         """La geometría dejó de ser la canónica (fillet, taladro…)."""

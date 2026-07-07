@@ -84,6 +84,7 @@ class Document:
         self.configurations: dict[str, dict[str, str]] = {}  # variante → {variable: expresión}
         self.colors: dict[str, str] = {}  # feature_id → color hex (apariencia)
         self.materials: dict[str, str] = {}  # feature_id → material (override BOM/peso)
+        self.sketch_guides: set[str] = set()  # command_ids de boceto-guía (blockout): fuera de BOM/masa/interferencia/FEA; el agente los consume y borra
         self.vertical: str = "metalmecanica"  # default de material para piezas no reconocidas
         self.motion: dict[str, list[dict]] = {}  # estudios con nombre → fotogramas [{t, values:{junta:valor}}]
         self.requirements: dict = {}  # bases de diseño del proyecto (carga, velocidad, producto…)
@@ -279,6 +280,8 @@ class Document:
             # .get con default: un executor puede haber seteado ya el material de la
             # pieza (insert_project importa los del proyecto origen) — no pisarlo
             feat.material = self.materials.get(fid, feat.material)
+            # boceto-guía DERIVADO por command_id (como la membresía de grupos)
+            feat.is_guide = feat.command_id in self.sketch_guides
         # variables resueltas en LOCAL (antes de tocar self: si truena, self intacto)
         try:
             variables_resolved = resolve_all(variables)
@@ -554,6 +557,7 @@ class Document:
         clone.variables_raw = dict(self.variables_raw)
         clone.attachments = dict(self.attachments)  # import_step/insert_project los leen
         clone.materials = dict(self.materials)
+        clone.sketch_guides = set(self.sketch_guides)
         clone._regen_sigs = list(self._regen_sigs)
         clone._regen_ckpts = dict(self._regen_ckpts)  # comparte refs de shape OCCT (read-only)
         if actions:
@@ -736,6 +740,22 @@ class Document:
             self.hidden.add(feature_id)
         self.scene[feature_id].visible = visible
 
+    def set_sketch_guide(self, feature_id: str, guide: bool) -> None:
+        """Marca/desmarca el sólido (y TODAS las piezas de su comando) como boceto-guía
+        (blockout): geometría de INTENCIÓN excluida de BOM/masa/interferencia/FEA. Metadato
+        de manifest (como colors/materials): no entra al log ni a los checkpoints."""
+        feat = self.scene.get(feature_id)
+        if feat is None:
+            raise DocumentError(f"No existe el sólido '{feature_id}'")
+        cmd_id = feat.command_id
+        if guide:
+            self.sketch_guides.add(cmd_id)
+        else:
+            self.sketch_guides.discard(cmd_id)
+        for f in self.scene.values():  # un comando puede emitir varias piezas (create_frame)
+            if f.command_id == cmd_id:
+                f.is_guide = guide
+
     # --------------------------------------------------------- undo / redo
     @property
     def can_undo(self) -> bool:
@@ -797,6 +817,7 @@ class Document:
                         "configurations": self.configurations,
                         "colors": self.colors,
                         "materials": self.materials,
+                        "sketch_guides": sorted(self.sketch_guides),
                         "vertical": self.vertical,
                         "motion": self.motion,
                         "requirements": self.requirements,
@@ -843,6 +864,7 @@ class Document:
         doc.configurations = manifest.get("configurations", {})
         doc.colors = manifest.get("colors", {})
         doc.materials = manifest.get("materials", {})
+        doc.sketch_guides = set(manifest.get("sketch_guides", []))
         doc.vertical = manifest.get("vertical", "metalmecanica")
         _m = manifest.get("motion", {})
         # migración: proyectos viejos guardaban el motion como UNA lista de fotogramas

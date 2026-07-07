@@ -302,6 +302,28 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .rp-axis.active.rp-z { background: #4f7fe0; border-color: #4f7fe0; }
 .live-angle { color: var(--accent); font-weight: 600; margin-left: 6px; }
 
+/* Barra contextual de la selección (reemplaza el menú del clic derecho): abajo-centro,
+   aparece al seleccionar. Acciones que antes vivían en el menú contextual del viewport. */
+.selection-bar {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 3px; z-index: 6;
+  background: rgba(18, 20, 25, 0.86); backdrop-filter: blur(5px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-1); padding: 4px 7px;
+}
+.selection-bar button {
+  background: rgba(28, 31, 38, 0.92); border-color: var(--border);
+  padding: 5px 9px; display: flex; align-items: center; justify-content: center;
+}
+.selection-bar button:hover:not(:disabled) { background: rgba(42, 46, 55, 0.97); }
+.selection-bar button.danger { color: #f0a3a3; }
+.selection-bar button.danger:hover { background: #3a2027; border-color: #6b3540; }
+.selection-bar .sb-count {
+  color: var(--muted); font-size: 11px; padding: 0 5px; max-width: 170px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.selection-bar .overlay-sep { width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
+
 .properties { min-height: 0; }
 
 /* --------------------------------------------------------- properties */

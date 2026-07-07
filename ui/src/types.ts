@@ -18,6 +18,7 @@ export interface FeatureOut {
   component: string | null;
   cut_length: number | null;
   group: string | null;
+  is_guide?: boolean;  // boceto-guía (blockout): geometría de intención, fuera de BOM/masa/interferencia
 }
 
 export interface CatalogItem {
