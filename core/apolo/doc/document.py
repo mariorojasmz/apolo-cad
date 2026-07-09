@@ -301,6 +301,45 @@ class Document:
         self._regen_sigs = sigs
         self._regen_ckpts = new_ckpts
 
+    def _try_warm(self, warm) -> None:
+        """Siembra la caché de regeneración desde un blob de geomcache YA deserializado
+        (V6.2a): ``warm = (cached_sigs, state, definitions)``. Si ``cached_sigs`` es
+        PREFIJO (o igual) de las firmas del log cargado, re-registra las definiciones
+        canónicas y siembra ``_regen_sigs``/``_regen_ckpts`` con el estado del último
+        comando cacheado → el siguiente ``regenerate()`` reanuda de ese checkpoint (replay
+        de solo la cola). NUNCA lanza: ante cualquier duda deja el doc virgen (replay
+        completo). El caller valida integridad tras regenerar y descarta si algo huele mal."""
+        try:
+            cached_sigs, state, definitions = warm
+        except Exception:
+            return
+        if not cached_sigs or not isinstance(cached_sigs, list):
+            return
+        # firmas del log realmente cargado
+        sigs: list[str] = []
+        prev = ""
+        for cmd in self.commands:
+            prev = _cmd_sig(prev, cmd)
+            sigs.append(prev)
+        # las firmas cacheadas deben ser PREFIJO (o iguales) de las del log (el log pudo
+        # crecer desde la última caché; si en cambio DIVERGE o es más largo → descartar)
+        n = len(cached_sigs)
+        if n > len(sigs) or sigs[:n] != list(cached_sigs):
+            return
+        # re-registrar las definiciones canónicas: sin esto los mesh_key de la escena
+        # restaurada cuelgan (instancing perdido → payload explota; check_integrity lo
+        # marcaría 'degradado'). El camino feliz NO debe caer ahí.
+        try:
+            from apolo.commands.registry import register_definition
+
+            for key, shape in definitions.items():
+                register_definition(key, shape)
+        except Exception:
+            return
+        # sembrar: el estado del último comando cacheado como checkpoint en n-1
+        self._regen_sigs = list(cached_sigs)
+        self._regen_ckpts = {n - 1: state}
+
     # ------------------------------------------------- contrato de integridad (V6.1)
     def check_integrity(self) -> list[str]:
         """Verifica los INVARIANTES del documento y devuelve una lista de violaciones,
@@ -837,13 +876,19 @@ class Document:
 
     @classmethod
     def from_apolo_bytes(
-        cls, data: bytes, *, regenerate: bool = True, tolerant: bool = False
+        cls, data: bytes, *, regenerate: bool = True, tolerant: bool = False, warm=None
     ) -> "Document":
         """Con ``regenerate=False`` devuelve el documento SIN reproducir el log —
         para editarlo antes del primer replay (sandbox de insert_project). Con
         ``tolerant=True`` (SOLO en rutas de CARGA: arranque, open, restore) un comando
         que revienta se SUPRIME en vez de abortar la apertura — reportado en
-        ``regen_suppressed``, con el LOG intacto. Las mutaciones cargan estrictas."""
+        ``regen_suppressed``, con el LOG intacto. Las mutaciones cargan estrictas.
+
+        ``warm`` (V6.2a): tupla de geomcache YA deserializada ``(sigs, state,
+        definitions)`` que evita el replay del log si sus firmas son prefijo del log
+        cargado (open caliente). Cinturón y tirantes: tras regenerar de la caché se
+        verifica la integridad y, si hay violaciones NO-degradadas, se descarta la caché
+        y se replaya en frío. La caché NUNCA es autoritativa (el .apolo lo es)."""
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
                 manifest = json.loads(zf.read("manifest.json"))
@@ -882,7 +927,16 @@ class Document:
                 max_suffix = max(max_suffix, int(mo.group(1)))
         doc._seq = max(int(manifest.get("seq", 0) or 0), len(commands), max_suffix)
         if regenerate:
+            if warm is not None:
+                doc._try_warm(warm)  # siembra la caché de regen si la firma es prefijo
             doc.regenerate(tolerant=tolerant)
+            if warm is not None:
+                # cinturón y tirantes: una caché válida no debe dejar violaciones (más allá
+                # de 'degradado', que el fallback de render cubre). Si las hay → replay frío.
+                if any(not i.startswith("degradado") for i in doc.check_integrity()):
+                    doc._regen_sigs = []
+                    doc._regen_ckpts = {}
+                    doc.regenerate(tolerant=tolerant)
         return doc
 
     @classmethod

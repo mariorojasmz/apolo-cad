@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import tempfile
 import time
 import traceback
@@ -62,6 +63,28 @@ STARTUP_ERROR: str | None = None
 _AUTOSAVE_RETRIES = (0.0, 0.1, 0.5)
 
 
+def _write_geom_cache() -> None:
+    """Escribe la caché de geometría (open caliente, V6.2a) si la firma del log cambió
+    respecto a lo ya persistido. Bajo STATE_LOCK (pack toca shapes = OCCT). Best-effort: un
+    fallo aquí NUNCA rompe la operación. Kill-switch APOLO_GEOM_CACHE=0.
+    NOTA (Fase A): corre inline tras el autosave; la Fase D lo mueve al flush con debounce."""
+    if STORE is None or PROJECT_ID is None or os.environ.get("APOLO_GEOM_CACHE") == "0":
+        return
+    sig = DOC._regen_sigs[-1] if DOC._regen_sigs else None
+    if sig is None:
+        return
+    try:
+        if STORE.geom_cache_sig(PROJECT_ID) == sig:
+            return  # la geometría no cambió: no re-empacar (el pack es lo caro)
+        from apolo.doc.geomcache import pack
+
+        blob = pack(DOC)
+        if blob is not None:
+            STORE.save_geom_cache(PROJECT_ID, sig, blob)
+    except Exception as exc:  # la caché es best-effort: perderla solo cuesta un replay
+        log_error("backend.geomcache", repr(exc))
+
+
 def _autosave() -> None:
     """Autoguarda con reintentos. Éxito → limpia el flag AUTOSAVE_ERROR. Agotados los
     reintentos → deja el flag (el payload y un WS lo exponen: el cliente SE ENTERA de que
@@ -76,6 +99,7 @@ def _autosave() -> None:
         try:
             STORE.save(PROJECT_ID, DOC)
             AUTOSAVE_ERROR = None
+            _write_geom_cache()  # open caliente (V6.2a); best-effort, no rompe el autosave
             return
         except Exception as exc:  # el autosave nunca debe romper la operación
             last = exc
@@ -149,8 +173,6 @@ def initialize_store(db_path: str) -> None:
 
 @app.on_event("startup")
 async def _capture_loop() -> None:
-    import os
-
     WS.loop = asyncio.get_running_loop()
     session_marker("Inicio de sesión del servidor")
     db_path = os.environ.get(

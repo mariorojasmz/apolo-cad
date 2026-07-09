@@ -720,3 +720,69 @@ def test_torture_definitions_eviction_with_payload():
         assert [i for i in doc.check_integrity() if not i.startswith("degradado")] == []
     finally:
         api.DOC = old
+
+
+# ================================================ V6.2a — caché de geometría (open caliente)
+
+
+@pytest.mark.torture
+@pytest.mark.parametrize("seed", [3, 11])
+def test_torture_geomcache_warm_fuzz_strict(seed):
+    """Ciclo ESTRICTO save→pack→load-warm→mutar (40 vueltas): el open caliente reproduce
+    EXACTO el frío y deja el doc íntegro, caiga donde caiga la firma cacheada."""
+    from apolo.doc import document as docmod
+    from apolo.doc.geomcache import pack, unpack
+
+    old_strict = docmod._STRICT
+    docmod._STRICT = True
+    try:
+        rng = random.Random(seed)
+        doc, ids = _build_model(20)
+        for _ in range(40):
+            warm = unpack(pack(doc))
+            apolo = doc.to_apolo_bytes()
+            hot = Document.from_apolo_bytes(apolo, warm=warm)
+            cold = Document.from_apolo_bytes(apolo)
+            assert sorted(hot.scene) == sorted(cold.scene)
+            for fid in cold.scene:
+                assert abs(hot.scene[fid].shape.volume - cold.scene[fid].shape.volume) < 1e-6
+            assert hot.check_integrity() == []
+            op = rng.choice(["execute", "edit", "undo", "redo"])
+            try:
+                if op == "execute":
+                    doc.execute("create_box", {"width": rng.randint(20, 80),
+                                               "position": {"x": rng.randint(0, 5000)}})
+                elif op == "edit":
+                    geo = [c for c in doc.commands if c["type"] in ("create_box", "create_cylinder")]
+                    if geo:
+                        doc.edit(rng.choice(geo)["id"], {"height": rng.randint(10, 90)}, merge=True)
+                elif op == "undo" and doc.can_undo:
+                    doc.undo()
+                elif op == "redo" and doc.can_redo:
+                    doc.redo()
+            except DocumentError:
+                pass
+    finally:
+        docmod._STRICT = old_strict
+
+
+@pytest.mark.torture
+def test_torture_geomcache_open_caliente_faster():
+    """El open CALIENTE (caché sembrada) es < 0.5× del frío en el mismo run (razón gruesa,
+    máquina-independiente). Vara de la Fase A."""
+    from apolo.doc.geomcache import pack, unpack
+
+    doc, _ = _big_model(400)
+    apolo = doc.to_apolo_bytes()
+    warm = unpack(pack(doc))
+    assert warm is not None
+
+    t0 = time.perf_counter()
+    Document.from_apolo_bytes(apolo)  # frío: replay completo
+    cold = time.perf_counter() - t0
+    t1 = time.perf_counter()
+    hot_doc = Document.from_apolo_bytes(apolo, warm=warm)  # caliente: reanuda del checkpoint
+    hot = time.perf_counter() - t1
+    print(f"\n[torture] open frío {cold:.2f}s vs caliente {hot:.2f}s ({hot / cold:.0%})")
+    assert hot_doc.check_integrity() == []
+    assert hot < cold * 0.5

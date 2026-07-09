@@ -7,6 +7,7 @@ Las revisiones son instantáneas manuales con nota, restaurables.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -39,6 +40,16 @@ class ProjectStore:
                     created_at TEXT NOT NULL,
                     pieces INTEGER DEFAULT 0,
                     data BLOB NOT NULL
+                );
+                -- Caché de geometría por firma (V6.2a): estado regenerado + definiciones
+                -- canónicas para el OPEN CALIENTE. LOCAL, nunca dentro del .apolo (pickle
+                -- de origen propio). `sig` = última firma del log (saber si está al día sin
+                -- deserializar). Cascada al borrar el proyecto. Perderla solo cuesta replay.
+                CREATE TABLE IF NOT EXISTS geom_cache(
+                    project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+                    sig TEXT NOT NULL,
+                    data BLOB NOT NULL,
+                    updated_at TEXT NOT NULL
                 );
                 """
             )
@@ -83,10 +94,55 @@ class ProjectStore:
 
     def load(self, project_id: int, *, tolerant: bool = False) -> Document:
         """Carga un proyecto. ``tolerant=True`` (rutas de apertura) suprime comandos
-        rotos en vez de negar la apertura (schema drift) — ver Document.regenerate."""
-        return Document.from_apolo_bytes(self.load_bytes(project_id), tolerant=tolerant)
+        rotos en vez de negar la apertura (schema drift) — ver Document.regenerate.
+        Open CALIENTE (V6.2a): si hay caché de geometría al día, se pasa como ``warm=`` a
+        ``from_apolo_bytes`` para reanudar del checkpoint en vez de replayar (kill-switch
+        ``APOLO_GEOM_CACHE=0``). La caché nunca es autoritativa: el .apolo lo es."""
+        warm = None
+        if os.environ.get("APOLO_GEOM_CACHE") != "0":
+            row = self.load_geom_cache(project_id)
+            if row is not None:
+                from apolo.doc.geomcache import unpack
+
+                warm = unpack(row[1])
+        return Document.from_apolo_bytes(
+            self.load_bytes(project_id), tolerant=tolerant, warm=warm
+        )
+
+    # -------------------------------------------------------- caché de geometría
+    def save_geom_cache(self, project_id: int, sig: str, blob: bytes) -> None:
+        """Persiste (o reemplaza) la caché de geometría de un proyecto. INSERT OR REPLACE
+        respeta la FK a projects (solo se cachea un proyecto existente)."""
+        with self._conn() as con:
+            con.execute(
+                "INSERT OR REPLACE INTO geom_cache(project_id, sig, data, updated_at) "
+                "VALUES(?,?,?,?)",
+                (project_id, sig, blob, _now()),
+            )
+
+    def geom_cache_sig(self, project_id: int) -> str | None:
+        """Solo la firma cacheada (sin deserializar el blob) — guard barato de escritura:
+        no re-empacar si la geometría no cambió respecto a lo ya persistido."""
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT sig FROM geom_cache WHERE project_id=?", (project_id,)
+            ).fetchone()
+        return row[0] if row else None
+
+    def load_geom_cache(self, project_id: int) -> tuple[str, bytes] | None:
+        """(sig, blob) de la caché de geometría, o None si no hay."""
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT sig, data FROM geom_cache WHERE project_id=?", (project_id,)
+            ).fetchone()
+        return (row[0], row[1]) if row else None
+
+    def delete_geom_cache(self, project_id: int) -> None:
+        with self._conn() as con:
+            con.execute("DELETE FROM geom_cache WHERE project_id=?", (project_id,))
 
     def delete(self, project_id: int) -> None:
+        # geom_cache cascada por la FK; revisions también (ON DELETE CASCADE + PRAGMA)
         with self._conn() as con:
             con.execute("DELETE FROM projects WHERE id=?", (project_id,))
 
