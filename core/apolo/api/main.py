@@ -346,20 +346,58 @@ def _cached_render(shape, want_mesh: bool) -> dict:
     return data
 
 
-def scene_payload() -> dict:
+# Revisión de GEOMETRÍA por feature (V6.2b): sube cuando el shape de la feature cambia de
+# IDENTIDAD. El regenerate incremental conserva la MISMA referencia de shape para lo no
+# tocado → rev estable = exactamente la señal que necesita el cliente para NO reconstruir
+# esa malla. Ref fuerte al shape (como _SHAPE_CACHE) evita reuso de id() estando en caché.
+_GEOM_REVS: dict[str, tuple] = {}
+
+
+def _geom_rev(fid: str, shape) -> int:
+    prev = _GEOM_REVS.get(fid)
+    if prev is not None and prev[0] is shape:
+        return prev[1]
+    rev = (prev[1] + 1) if prev is not None else 1
+    _GEOM_REVS[fid] = (shape, rev)
+    return rev
+
+
+def scene_payload(known: dict | None = None) -> dict:
+    """Payload de escena. Con ``known`` (delta, V6.2b) = ``{"revs": {fid: rev}, "defs":
+    [mesh_keys]}`` las features cuya geometría el cliente YA tiene (rev coincide) van con
+    ``mesh=null`` + ``same=true`` (metadatos SIEMPRE: name/color/visible/group cambian sin
+    tocar geometría) y las definiciones ya conocidas se omiten. ``known=None`` (default) =
+    payload COMPLETO idéntico al de siempre + el campo ``rev`` por feature (aditivo)."""
     from apolo.kernel.matrix import to_column_major16
+
+    known_revs = (known or {}).get("revs") or {}
+    known_defs = set((known or {}).get("defs") or [])
 
     features = []
     definitions: dict[str, dict] = {}
     cmd_types = {c["id"]: c["type"] for c in DOC.commands}
+    live: set[str] = set()
     for i, feat in enumerate(DOC.scene.values()):
+        live.add(feat.id)
+        rev = _geom_rev(feat.id, feat.shape)
+        color = DOC.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
+        if known_revs.get(feat.id) == rev:
+            # geometría sin cambios: el cliente conserva su malla/bbox/volumen (los mergea de
+            # su estado anterior). Solo mandamos id + rev + señal + metadatos VOLÁTILES (los
+            # que cambian sin tocar geometría). Ni teselar ni tocar la definición.
+            features.append({
+                "id": feat.id, "rev": rev, "same": True,
+                "name": feat.name, "color": color,
+                "visible": feat.visible, "group": feat.group,
+            })
+            continue
         def_mesh = _definition_mesh(feat.mesh_key) if feat.mesh_key and feat.matrix else None
-        rd = _cached_render(feat.shape, want_mesh=def_mesh is None)  # mesh solo si no es instancia
+        rd = _cached_render(feat.shape, want_mesh=def_mesh is None)
         entry = {
             "id": feat.id,
             "name": feat.name,
             "visible": feat.visible,
-            "color": DOC.colors.get(feat.id) or PALETTE[i % len(PALETTE)],
+            "color": color,
             "volume_mm3": rd["volume"],
             "bbox": rd["bbox"],
             "mesh": None,
@@ -371,14 +409,19 @@ def scene_payload() -> dict:
             "cut_length": feat.cut_length,
             "group": feat.group,
             "is_guide": feat.is_guide,
+            "rev": rev,
         }
         if def_mesh is not None:
-            definitions[feat.mesh_key] = def_mesh
             entry["mesh_key"] = feat.mesh_key
             entry["matrix"] = to_column_major16(feat.matrix)
+            if feat.mesh_key not in known_defs:  # la definición solo si el cliente no la tiene
+                definitions[feat.mesh_key] = def_mesh
         else:
             entry["mesh"] = rd["mesh"]
         features.append(entry)
+    # podar revs de features que ya no existen (evita crecer sin límite entre proyectos)
+    for gone in [f for f in _GEOM_REVS if f not in live]:
+        del _GEOM_REVS[gone]
     return {
         "features": features,
         "definitions": definitions,
@@ -456,6 +499,22 @@ def health() -> dict:
 def get_scene() -> dict:
     with STATE_LOCK:
         return scene_payload()
+
+
+class SceneDeltaIn(BaseModel):
+    # geometría que el cliente YA tiene: rev por feature + claves de definición conocidas
+    revs: dict[str, int] = {}
+    defs: list[str] = []
+
+
+@app.post("/api/scene/delta")
+def get_scene_delta(body: SceneDeltaIn) -> dict:
+    """Escena en forma DELTA (V6.2b): mismo shape que GET /api/scene, pero las features
+    cuya geometría no cambió respecto a lo que declara el cliente van con ``mesh=null`` +
+    ``same=true`` y sin re-enviar sus definiciones. Lo usa el refresh por WebSocket (los
+    metadatos —color/visibilidad/grupo— siempre llegan)."""
+    with STATE_LOCK:
+        return scene_payload(known={"revs": body.revs, "defs": body.defs})
 
 
 @app.get("/api/document")

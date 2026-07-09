@@ -26,6 +26,24 @@ export function geometryFrom(payload: MeshPayload): THREE.BufferGeometry {
   return toCreasedNormals(geometry, CREASE_ANGLE);
 }
 
+/** Materiales (sólido/vidrio/guía) + material de aristas para una feature. Fuente ÚNICA
+ * usada por buildMesh (malla nueva) y applyAppearance (reuso de geometría, V6.2b). */
+function buildMaterials(
+  feat: FeatureOut,
+  shading: Shading,
+  planes: THREE.Plane[],
+  catalogByRef: Map<string, CatalogItem> | null,
+): { material: THREE.Material; lineMaterial: THREE.Material; glass: boolean; guide: boolean } {
+  const params = resolveMaterialParams(feat, catalogByRef);
+  const glass = isGlass(feat, catalogByRef);
+  const guide = feat.is_guide === true; // boceto-guía: translúcido ámbar, no es pieza real
+  const material = guide
+    ? buildGuideMaterial(planes)
+    : buildSolidMaterial(feat, params, shading === "wire", planes, glass);
+  const lineMaterial = guide ? buildGuideEdgeMaterial(planes) : buildEdgeMaterial(planes);
+  return { material, lineMaterial, glass, guide };
+}
+
 export function buildMesh(
   feat: FeatureOut,
   shading: Shading,
@@ -34,13 +52,7 @@ export function buildMesh(
   shared: Map<string, SharedGeom>,
   catalogByRef: Map<string, CatalogItem> | null,
 ): THREE.Mesh {
-  const params = resolveMaterialParams(feat, catalogByRef);
-  const glass = isGlass(feat, catalogByRef);
-  const guide = feat.is_guide === true;  // boceto-guía: translúcido ámbar, no es pieza real
-  const material = guide
-    ? buildGuideMaterial(planes)
-    : buildSolidMaterial(feat, params, shading === "wire", planes, glass);
-  const lineMaterial = guide ? buildGuideEdgeMaterial(planes) : buildEdgeMaterial(planes);
+  const { material, lineMaterial, glass, guide } = buildMaterials(feat, shading, planes, catalogByRef);
 
   let mesh: THREE.Mesh;
   let edgesGeom: THREE.EdgesGeometry;
@@ -84,6 +96,7 @@ export function buildMesh(
   mesh.castShadow = !glass && !guide; // vidrio/boceto translúcidos no proyectan sombra opaca
   mesh.receiveShadow = true;
   mesh.userData.featureId = feat.id;
+  mesh.userData.shared = !!defMesh; // instancia → geometría/aristas COMPARTIDAS (no disponer aquí)
   mesh.userData.p0 = mesh.position.clone();
   mesh.userData.q0 = mesh.quaternion.clone();
 
@@ -91,4 +104,51 @@ export function buildMesh(
   edges.raycast = () => undefined; // las aristas no capturan clics
   mesh.add(edges);
   return mesh;
+}
+
+/** Reconstruye SOLO los materiales de una malla existente (V6.2b): cuando la geometría no
+ * cambió (rev estable) pero sí un metadato de apariencia (color/material/guía), se reusa la
+ * geometría —lo caro— y se cambian los materiales. Dispone los materiales viejos. */
+export function applyAppearance(
+  mesh: THREE.Mesh,
+  feat: FeatureOut,
+  shading: Shading,
+  planes: THREE.Plane[],
+  catalogByRef: Map<string, CatalogItem> | null,
+): void {
+  const { material, lineMaterial, glass, guide } = buildMaterials(feat, shading, planes, catalogByRef);
+  (mesh.material as THREE.Material).dispose();
+  mesh.material = material;
+  const edges = mesh.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments | undefined;
+  if (edges) {
+    (edges.material as THREE.Material).dispose();
+    edges.material = lineMaterial;
+  }
+  mesh.castShadow = !glass && !guide;
+}
+
+/** Firma de APARIENCIA de una feature (barata): decide si applyAppearance debe correr para
+ * una malla de geometría estable. NO incluye la geometría (esa la cubre `rev`). */
+export function appearanceSig(feat: FeatureOut): string {
+  // color (albedo), component (metalness/roughness del catálogo), name (regex de vidrio),
+  // is_guide (translúcido ámbar) — todo lo que buildMaterials/isGlass leen de la feature.
+  return `${feat.color}|${feat.component ?? ""}|${feat.name}|${feat.is_guide ? 1 : 0}`;
+}
+
+/** Dispone una malla y sus aristas. NO toca geometría/aristas COMPARTIDAS de instancias
+ * (esas las gestiona el pool `shared`); sí dispone siempre los materiales (por-malla). */
+export function disposeMesh(mesh: THREE.Mesh): void {
+  (mesh.material as THREE.Material).dispose();
+  const edges = mesh.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments | undefined;
+  if (edges) (edges.material as THREE.Material).dispose();
+  if (!mesh.userData.shared) {
+    mesh.geometry.dispose();
+    (edges?.geometry as THREE.BufferGeometry | undefined)?.dispose();
+  }
+}
+
+/** Dispone una entrada del pool de geometrías compartidas (cuando ninguna malla la usa). */
+export function disposeSharedGeom(entry: SharedGeom): void {
+  entry.geom.dispose();
+  entry.edges.dispose();
 }

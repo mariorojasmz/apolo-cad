@@ -20,6 +20,14 @@ async function json<T>(res: Response): Promise<T> {
 export const api = {
   schemas: () => fetch("/api/schemas").then((r) => json<CommandSchema[]>(r)),
   scene: () => fetch("/api/scene").then((r) => json<SceneOut>(r)),
+  // Escena en forma DELTA (V6.2b): manda lo que el cliente ya tiene (rev por feature +
+  // claves de definición) → el server responde solo la geometría que cambió.
+  sceneDelta: (revs: Record<string, number>, defs: string[]) =>
+    fetch("/api/scene/delta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ revs, defs }),
+    }).then((r) => json<SceneOut>(r)),
   catalog: () => fetch("/api/catalog").then((r) => json<CatalogItem[]>(r)),
   bom: () => fetch("/api/bom").then((r) => json<BomRow[]>(r)),
   costing: () => fetch("/api/costing.json").then((r) => json<CostingOut>(r)),

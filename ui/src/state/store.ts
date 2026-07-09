@@ -338,6 +338,27 @@ function enqueueSilent(set: SetFn, id: string, run: () => Promise<SceneOut>): Pr
   return p;
 }
 
+/** Reconstruye una SceneOut COMPLETA a partir de un delta (V6.2b): las features `same`
+ * heredan la geometría (mesh/bbox/volumen/mesh_key/matrix) de la escena anterior y solo
+ * reciben los metadatos volátiles; las demás llegan completas. Definiciones = las previas
+ * (las `same` las conservan) + las nuevas del delta, podadas a las realmente referenciadas. */
+function mergeSceneDelta(prev: SceneOut, delta: SceneOut): SceneOut {
+  const prevById = new Map(prev.features.map((f) => [f.id, f]));
+  const features = delta.features.map((f) => {
+    if (!f.same) return f; // geometría nueva/cambiada: viene completa
+    const old = prevById.get(f.id);
+    if (!old) return f; // no debería pasar (same ⇒ el cliente la declaró), pero seguro
+    // conserva la geometría anterior; sobrescribe solo lo volátil que trae el delta
+    return { ...old, rev: f.rev, name: f.name, color: f.color, visible: f.visible, group: f.group };
+  });
+  const allDefs = { ...prev.definitions, ...delta.definitions };
+  const definitions: Record<string, (typeof allDefs)[string]> = {};
+  for (const f of features) {
+    if (f.mesh_key && allDefs[f.mesh_key]) definitions[f.mesh_key] = allDefs[f.mesh_key];
+  }
+  return { features, definitions, document: delta.document };
+}
+
 export const useStore = create<AppState>((set, get) => ({
   schemas: [],
   scene: null,
@@ -400,7 +421,19 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   refresh: async () => {
-    const scene = await api.scene();
+    // Refresco por DELTA (V6.2b): si ya hay escena, declaramos lo que tenemos (rev por
+    // feature + definiciones) y el server manda solo la geometría que cambió; mergeamos
+    // conservando las mallas de las piezas 'same'. Sin escena previa → carga completa.
+    const prev = get().scene;
+    let scene: SceneOut;
+    if (prev) {
+      const revs: Record<string, number> = {};
+      for (const f of prev.features) revs[f.id] = f.rev ?? 0;
+      const delta = await api.sceneDelta(revs, Object.keys(prev.definitions));
+      scene = mergeSceneDelta(prev, delta);
+    } else {
+      scene = await api.scene();
+    }
     const valid = new Set(scene.features.map((f) => f.id));
     set({ scene, selection: get().selection.filter((id) => valid.has(id)) });
     get().clearPhysics(); // el modelo cambió → las cajas soltadas dejan de ser válidas

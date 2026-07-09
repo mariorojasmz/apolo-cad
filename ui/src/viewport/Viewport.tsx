@@ -5,7 +5,10 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import { queuedEditParams, selectFeatures, useStore } from "../state/store";
 import type { FeatureOut, JointOut } from "../types";
-import { buildMesh, type Shading, type SharedGeom } from "./meshes";
+import {
+  applyAppearance, appearanceSig, buildMesh, disposeMesh, disposeSharedGeom,
+  type Shading, type SharedGeom,
+} from "./meshes";
 import { BACKGROUND_CSS, createGround, createLights, createRenderer, updateGround } from "./scene-setup";
 import { setupEnvironment } from "./environment";
 import { createViewCube } from "./viewcube";
@@ -301,6 +304,13 @@ export default function Viewport() {
   const isDraggingObjRef = useRef(false); // agarrar-y-mover directo (F4A) en curso
   const didFitRef = useRef(false);
   const handlersRef = useRef<ShortcutHandlers | null>(null);
+  // reuso de mallas (V6.2b): diff persistente entre pasadas. builtRef = lo construido por
+  // fid (rev + firma de apariencia); sharedRef = pool de geometrías de instancia (persiste
+  // entre pasadas); buildKeyRef = clave de invalidación TOTAL (shading/sección/catálogo).
+  const builtRef = useRef<Map<string, { rev: number; mesh: THREE.Mesh; app: string; key: string | null }>>(new Map());
+  const sharedRef = useRef<Map<string, SharedGeom>>(new Map());
+  const buildKeyRef = useRef<string>("");
+  const buildCountRef = useRef(0); // # de mallas construidas (E2E: verificar reuso, V6.2b)
 
   const featuresRef = useRef(features);
   featuresRef.current = features;
@@ -453,6 +463,17 @@ export default function Viewport() {
     scene.add(handlesGroup);
     const ctx: Ctx = { scene, camera, controls, gizmo, renderer, group, meshes: new Map(), dir, ground, handles: handlesGroup };
     ctxRef.current = ctx;
+    // ctx fresco → resetea el diff de mallas (V6.2b): builtRef apuntaba al group anterior
+    builtRef.current.clear();
+    sharedRef.current.clear();
+    buildKeyRef.current = "";
+    // hook de depuración/E2E (V6.2b): identidad de mallas + contador de builds para
+    // verificar el reuso sin depender del screenshot (que se cuelga por el rAF).
+    (window as unknown as { __apolo?: unknown }).__apolo = {
+      meshIds: () => [...ctx.meshes].map(([id, m]) => [id, m.uuid]),
+      builds: () => buildCountRef.current,
+      store: useStore,
+    };
 
     function commitGizmo() {
       const mesh = gizmo.object as THREE.Mesh | undefined;
@@ -1126,23 +1147,75 @@ export default function Viewport() {
     };
   }, []);
 
-  // ------------------------------------------------------- reconstruir mallas
+  // -------------------------------- reconstruir mallas (diff persistente, V6.2b)
+  // En vez de tirar y reconstruir TODAS las mallas en cada cambio de escena, se diffea por
+  // fid usando `rev` (revisión de geometría del server): solo la pieza cuyo shape cambió se
+  // reconstruye; las demás conservan su malla three.js (lo caro es teselar + aristas). Un
+  // metadato de apariencia (color/material/guía) rehace solo el material. Shading/sección/
+  // catálogo cambian el material/recorte de TODAS → rebuild total (como antes).
   useEffect(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
     ctx.gizmo.detach();
-    ctx.group.clear();
-    ctx.meshes.clear();
     const planes = sectionPlanes(sectionAxis, sectionPos, features);
     const catalogByRef = new Map(catalog.map((c) => [c.ref, c]));
-    // geometrías compartidas por definición (instancias): una sola por clave
-    const shared = new Map<string, SharedGeom>();
+    const built = builtRef.current;
+    const shared = sharedRef.current;
+
+    // Invalidación TOTAL: los planos de sección dependen del bbox del modelo (cambian al
+    // editar con sección activa) → su firma entra en la clave; shading/catálogo también.
+    const planeSig = planes
+      .map((p) => `${p.normal.x},${p.normal.y},${p.normal.z},${p.constant.toFixed(2)}`)
+      .join(";");
+    const buildKey = `${shading}|${planeSig}|${catalog.length}`;
+    if (buildKey !== buildKeyRef.current) {
+      for (const e of built.values()) disposeMesh(e.mesh);
+      ctx.group.clear();
+      ctx.meshes.clear();
+      built.clear();
+      for (const g of shared.values()) disposeSharedGeom(g);
+      shared.clear();
+      buildKeyRef.current = buildKey;
+    }
+
+    // 1) (re)construir lo nuevo o de rev distinto; actualizar apariencia en sitio el resto
+    const desired = new Set<string>();
     for (const feat of features) {
       if (!feat.visible) continue;
+      desired.add(feat.id);
+      const rev = feat.rev ?? 0;
+      const app = appearanceSig(feat);
+      const prev = built.get(feat.id);
+      if (prev && prev.rev === rev) {
+        if (prev.app !== app) {
+          applyAppearance(prev.mesh, feat, shading, planes, catalogByRef);
+          prev.app = app;
+        }
+        continue; // geometría REUSADA (lo caro no se repite)
+      }
+      if (prev) { ctx.group.remove(prev.mesh); disposeMesh(prev.mesh); }
       const mesh = buildMesh(feat, shading, planes, definitions, shared, catalogByRef);
+      buildCountRef.current++;
       ctx.meshes.set(feat.id, mesh);
       ctx.group.add(mesh);
+      built.set(feat.id, { rev, mesh, app, key: feat.mesh_key });
     }
+    // 2) quitar mallas de fids desaparecidos o que se ocultaron
+    for (const [fid, e] of [...built]) {
+      if (!desired.has(fid)) {
+        ctx.group.remove(e.mesh);
+        disposeMesh(e.mesh);
+        built.delete(fid);
+        ctx.meshes.delete(fid);
+      }
+    }
+    // 3) podar geometrías de instancia que ya ninguna malla usa
+    const usedKeys = new Set<string>();
+    for (const e of built.values()) if (e.key) usedKeys.add(e.key);
+    for (const [k, g] of [...shared]) {
+      if (!usedKeys.has(k)) { disposeSharedGeom(g); shared.delete(k); }
+    }
+
     applyKinematicPoses(ctx.meshes, kinJoints, jointValues);
     attachGizmo(ctx, selection, gizmoMode, jointValues);
     updateGround(ctx.ground, ctx.dir, new THREE.Box3().setFromObject(ctx.group));
