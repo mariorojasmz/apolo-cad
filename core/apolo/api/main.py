@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 import tempfile
+import threading
 import time
 import traceback
 from pathlib import Path
@@ -56,6 +57,13 @@ PROJECT_ID: int | None = None
 # el proyecto reciente corrupto (Fix E). GET /api/health los expone; None = sano.
 AUTOSAVE_ERROR: str | None = None
 STARTUP_ERROR: str | None = None
+
+# Dos-locks (V6.2c): las simulaciones físicas (MuJoCo, potencialmente segundos) corren
+# BAJO PHYSICS_LOCK y FUERA de STATE_LOCK → no congelan las mutaciones/lecturas del doc.
+# Regla de oro: bajo STATE_LOCK se EXTRAE geometría (OCCT, cascos/bbox); el bucle de
+# integración corre desde datos PUROS. PHYSICS_LOCK serializa sims entre sí (no contra el
+# doc). El render tiene su propio RENDER_LOCK en kernel/render_vtk.py.
+PHYSICS_LOCK = threading.Lock()
 
 
 # backoff del autosave: reintentos con espera TOTAL ≤0.6 s (bajo STATE_LOCK, pero solo
@@ -1445,15 +1453,21 @@ class StabilityIn(BaseModel):
 
 
 def _stability(body: StabilityIn) -> dict:
+    """Dos-locks (V6.2c): (a) STATE_LOCK extrae la geometría (grafo de sujeción + cascos
+    convexos) → snapshot PURO; (b) PHYSICS_LOCK corre el bucle MuJoCo FUERA del lock del
+    doc → una gravedad de varios segundos no congela las mutaciones/lecturas del server."""
     from apolo.physics import PhysicsError
-    from apolo.physics.stability import stability_test
+    from apolo.physics.stability import prepare_stability, simulate_stability
 
     try:
-        return stability_test(
-            DOC.scene, DOC.joints, DOC.mates, DOC.fasteners, DOC.grounds,
-            seconds=body.seconds, gravity=body.gravity, fps=body.fps,
-            with_autodetect=body.with_autodetect, exclude=body.exclude,
-        )
+        with STATE_LOCK:
+            snap = prepare_stability(
+                DOC.scene, DOC.joints, DOC.mates, DOC.fasteners, DOC.grounds,
+                seconds=body.seconds, gravity=body.gravity, fps=body.fps,
+                with_autodetect=body.with_autodetect, exclude=body.exclude,
+            )
+        with PHYSICS_LOCK:
+            return simulate_stability(snap)
     except PhysicsError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1465,8 +1479,7 @@ def assembly_stability(body: StabilityIn) -> dict:
     CAYERON (desplazamiento del centro de masa) y cuáles aguantaron. Read-only.
     `frames` se omite por defecto (es grande); pide `include_frames` para animar la
     caída en el viewport, o usa el endpoint .gif."""
-    with STATE_LOCK:
-        res = _stability(body)
+    res = _stability(body)
     if body.include_frames:
         return res
     return {k: v for k, v in res.items() if k != "frames"}
@@ -1477,11 +1490,11 @@ def assembly_stability_gif(body: StabilityIn) -> Response:
     """GIF animado de la caída: la estructura sujeta de fondo + las piezas que caen."""
     from apolo.physics.anim import render_drop_gif
 
-    with STATE_LOCK:
-        res = _stability(body)
-        if not res["products"]:
-            raise HTTPException(status_code=400, detail=res.get("mensaje", "nada que simular"))
-        dynamic_ids = {p["id"] for p in res["products"]}
+    res = _stability(body)  # simulación bajo dos-locks (no bajo STATE_LOCK)
+    if not res["products"]:
+        raise HTTPException(status_code=400, detail=res.get("mensaje", "nada que simular"))
+    dynamic_ids = {p["id"] for p in res["products"]}
+    with STATE_LOCK:  # el GIF tesela la escena estática de fondo (OCCT) → bajo el lock
         static_scene = {fid: f for fid, f in DOC.scene.items() if fid not in dynamic_ids}
         gif = render_drop_gif(static_scene, res["products"], res["frames"], fps=body.fps)
     return Response(content=gif, media_type="image/gif")
@@ -1737,46 +1750,57 @@ def render_png(
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
             dimension = {"p1": m["punto_a"], "p2": m["punto_b"], "label": f"{m['dist_mm']:g} mm"}
-        # render sombreado de UNA vista → VTK (normales suaves, como el viewport web; incluye
-        # labels/rótulos billboard). SOLO la MULTIVISTA (views) o un fallo de VTK (sin OpenGL) →
-        # matplotlib. vtk_only=true (lo usa el tool MCP render_view): EXIGE VTK y NO cae a
-        # matplotlib (si no hay OpenGL → 503 claro, no una imagen con cuadrícula).
-        png = None
+        # Dos-locks del render (V6.2c): bajo STATE_LOCK solo se EXTRAE la geometría (teselado
+        # con caché) a un snapshot de datos PUROS; el render VTK (depth-peeling/FXAA, lo lento)
+        # corre FUERA del lock → una foto no congela las mutaciones. SOLO la MULTIVISTA (views) o
+        # un fallo de VTK (sin OpenGL) → matplotlib. vtk_only=true (tool MCP render_view): EXIGE
+        # VTK y NO cae a matplotlib (si no hay OpenGL → 503 claro, no una imagen con cuadrícula).
+        feat_colors = _feature_colors()
+        snapshot = None
         if (vtk_only or shade) and not view_list:
             try:
-                from apolo.kernel.render_vtk import render_scene_vtk
+                from apolo.kernel.render_vtk import extract_render_scene
 
-                png = render_scene_vtk(
+                snapshot = extract_render_scene(
                     scene, view,
                     highlight_ids=highlight_ids, shapes_override=override,
                     fit_ids=fit_ids, zoom=zoom, section=section,
-                    show_axes=show_axes, show_bbox=show_bbox, colors=_feature_colors(),
+                    show_axes=show_axes, show_bbox=show_bbox, colors=feat_colors,
                     ignore_visibility=bool(isolate_ids),
                     azimuth=azimuth, elevation=elevation, dimension=dimension, edges=edges,
                     xray=xray, labels=labels, roll=roll, pan=pan_xy,
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
-            except Exception as exc:  # noqa: BLE001 — sin contexto OpenGL u otro fallo VTK
-                if vtk_only:
-                    raise HTTPException(
-                        status_code=503,
-                        detail=f"Render VTK no disponible (¿sin contexto OpenGL?): {exc}",
-                    ) from exc
-                import logging
+    # FUERA de STATE_LOCK: render VTK (bajo RENDER_LOCK) desde el snapshot de datos puros
+    png = None
+    if snapshot is not None:
+        try:
+            from apolo.kernel.render_vtk import RENDER_LOCK, render_snapshot_vtk
 
-                logging.getLogger("uvicorn.error").warning(
-                    "VTK render falló; usando matplotlib", exc_info=True
-                )
-                png = None
-        if png is None:
+            with RENDER_LOCK:
+                png = render_snapshot_vtk(snapshot)
+        except Exception as exc:  # noqa: BLE001 — sin contexto OpenGL u otro fallo VTK
+            if vtk_only:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Render VTK no disponible (¿sin contexto OpenGL?): {exc}",
+                ) from exc
+            import logging
+
+            logging.getLogger("uvicorn.error").warning(
+                "VTK render falló; usando matplotlib", exc_info=True
+            )
+            png = None
+    if png is None:  # matplotlib (multivista/fallback): tesela dentro → bajo STATE_LOCK
+        with STATE_LOCK:
             try:
                 png = render_scene_png(
                     scene, view,
                     highlight_ids=highlight_ids, show_axes=show_axes, show_bbox=show_bbox,
                     shapes_override=override, fit_ids=fit_ids, zoom=zoom, proportional=proportional,
                     views=view_list, labels=labels, section=section,
-                    colors=_feature_colors() if shade else None,
+                    colors=feat_colors if shade else None,
                     ignore_visibility=bool(isolate_ids),
                     azimuth=azimuth, elevation=elevation, roll=roll,
                 )
@@ -1848,15 +1872,19 @@ class DropIn(BaseModel):
 
 
 def _drop(body: DropIn) -> dict:
-    """Corre el drop-test sobre la escena actual (read-only). 400 si falta el motor."""
-    from apolo.physics import PhysicsError, drop_test
+    """Corre el drop-test sobre la escena actual (read-only). Dos-locks (V6.2c):
+    STATE_LOCK hornea la escena estática (AABB, OCCT); el bucle MuJoCo corre bajo
+    PHYSICS_LOCK, fuera del lock del doc. 400 si falta el motor o los datos no valen."""
+    from apolo.physics import PhysicsError, prepare_drop, simulate_drop
 
     products = [p.model_dump() for p in body.products]
-    with STATE_LOCK:
-        try:
-            return drop_test(DOC.scene, products, body.seconds, body.gravity, body.fps)
-        except PhysicsError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
+        with STATE_LOCK:
+            snap = prepare_drop(DOC.scene, products, body.seconds, body.gravity, body.fps)
+        with PHYSICS_LOCK:
+            return simulate_drop(snap)
+    except PhysicsError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/physics/drop")

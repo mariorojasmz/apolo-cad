@@ -9,12 +9,24 @@ posiciones de reposo. Es análisis: no muta el documento. MuJoCo trabaja en SI �
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, field
 
 MM = 0.001  # mm → m
 
 
 class PhysicsError(Exception):
     pass
+
+
+@dataclass
+class DropSnapshot:
+    """Datos PUROS del drop-test (V6.2c): el XML de MuJoCo (escena estática horneada como
+    AABB + productos dinámicos) + metadatos. El trabajo OCCT (bbox de la escena) queda en
+    ``prepare_drop`` bajo STATE_LOCK; ``simulate_drop`` corre desde aquí sin tocar OCCT."""
+    xml: str
+    seconds: float
+    fps: int
+    named: list = field(default_factory=list)  # [(name, meta)]
 
 
 def _require_mujoco():
@@ -70,11 +82,9 @@ def _static_geoms(scene) -> str:
     return "\n".join(parts)
 
 
-def drop_test(scene, products, seconds: float = 2.0, gravity: float = 9.81, fps: int = 20) -> dict:
-    """Simula la caída de `products` sobre `scene`. Cada producto es un dict con
-    w/d/h (mm), x/y/z (mm, pose inicial) y mass opcional (kg). Devuelve
-    {frames:[{t, poses:{name: mat4x4 mm}}], resting:{name:[x,y,z] mm}, settled, products}."""
-    mujoco = _require_mujoco()
+def prepare_drop(scene, products, seconds: float = 2.0, gravity: float = 9.81, fps: int = 20) -> DropSnapshot:
+    """FASE OCCT (bajo STATE_LOCK): AABB de la escena estática + cajas dinámicas de los
+    productos → un XML de MuJoCo horneado. NO corre la simulación (V6.2c)."""
     if not products:
         raise PhysicsError("Indica al menos un producto que dejar caer")
     seconds = max(0.1, min(float(seconds), 30.0))
@@ -103,11 +113,19 @@ def drop_test(scene, products, seconds: float = 2.0, gravity: float = 9.81, fps:
         f"{_static_geoms(scene)}\n{''.join(bodies)}"
         f"</worldbody></mujoco>"
     )
+    return DropSnapshot(xml=xml, seconds=seconds, fps=fps, named=named)
+
+
+def simulate_drop(snap: DropSnapshot) -> dict:
+    """FASE MuJoCo (fuera de STATE_LOCK, bajo PHYSICS_LOCK): construye el mundo desde el
+    XML horneado y corre el bucle de integración. NO toca OCCT (V6.2c)."""
+    mujoco = _require_mujoco()
     try:
-        model = mujoco.MjModel.from_xml_string(xml)
+        model = mujoco.MjModel.from_xml_string(snap.xml)
     except Exception as exc:  # noqa: BLE001
         raise PhysicsError(f"No se pudo construir el mundo físico: {exc}") from exc
     data = mujoco.MjData(model)
+    named = snap.named
 
     def bid(name):
         return mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name)
@@ -118,8 +136,8 @@ def drop_test(scene, products, seconds: float = 2.0, gravity: float = 9.81, fps:
         poses = {name: _pose_matrix(data.xpos[i], data.xquat[i]) for name, i in ids.items()}
         return {"t": round(t, 3), "poses": poses}
 
-    steps = max(1, int(seconds / model.opt.timestep))
-    sample_every = max(1, steps // fps)
+    steps = max(1, int(snap.seconds / model.opt.timestep))
+    sample_every = max(1, steps // snap.fps)
     mujoco.mj_forward(model, data)
     frames = [capture(0.0)]
     for s in range(1, steps + 1):
@@ -131,3 +149,12 @@ def drop_test(scene, products, seconds: float = 2.0, gravity: float = 9.81, fps:
     settled = bool(math.sqrt(sum(float(v) ** 2 for v in data.qvel)) < 0.05) if model.nv else True
     return {"frames": frames, "resting": resting, "settled": settled,
             "products": [{"name": n, **meta} for n, meta in named]}
+
+
+def drop_test(scene, products, seconds: float = 2.0, gravity: float = 9.81, fps: int = 20) -> dict:
+    """Simula la caída de `products` sobre `scene`. Cada producto es un dict con
+    w/d/h (mm), x/y/z (mm, pose inicial) y mass opcional (kg). Devuelve
+    {frames:[{t, poses:{name: mat4x4 mm}}], resting:{name:[x,y,z] mm}, settled, products}.
+    Wrapper de prepare_drop + simulate_drop (la API los llama por separado para el
+    patrón dos-locks, V6.2c)."""
+    return simulate_drop(prepare_drop(scene, products, seconds, gravity, fps))

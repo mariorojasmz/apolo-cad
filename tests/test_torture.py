@@ -786,3 +786,99 @@ def test_torture_geomcache_open_caliente_faster():
     print(f"\n[torture] open frío {cold:.2f}s vs caliente {hot:.2f}s ({hot / cold:.0%})")
     assert hot_doc.check_integrity() == []
     assert hot < cold * 0.5
+
+
+# ==================================================== V6.2c — dos-locks (concurrencia)
+
+
+@pytest.mark.torture
+def test_torture_gravity_does_not_block_mutations():
+    """Una gravedad de varios segundos corre FUERA de STATE_LOCK (V6.2c): una mutación
+    lanzada MIENTRAS la sim está en su fase larga entra al lock casi al instante (< 1 s),
+    no espera a que termine. El Event garantiza el solape (sin sleeps ciegos)."""
+    import threading
+
+    import apolo.api.main as api
+    import apolo.physics.stability as stab
+
+    old = (api.DOC, api.STORE, api.PROJECT_ID, stab.simulate_stability)
+    try:
+        doc, _ = _build_model(40)
+        api.DOC = doc
+        api.STORE = None
+        api.PROJECT_ID = None
+        started = threading.Event()
+        orig = stab.simulate_stability
+
+        def slow(snap):
+            started.set()
+            time.sleep(2.0)   # fase "larga" de la sim, FUERA de STATE_LOCK
+            return orig(snap)
+
+        stab.simulate_stability = slow
+        errbox: dict = {}
+
+        def run():
+            try:
+                api._stability(api.StabilityIn(seconds=0.5))
+            except Exception as exc:  # noqa: BLE001
+                errbox["e"] = repr(exc)
+
+        t = threading.Thread(target=run)
+        t.start()
+        assert started.wait(15), "la simulación no arrancó"
+        t0 = time.perf_counter()
+        with api.STATE_LOCK:
+            api.DOC.execute("create_box", {"width": 33})
+        dt = time.perf_counter() - t0
+        t.join(20)
+        assert not errbox, errbox
+        print(f"\n[torture] mutación durante gravity: {dt * 1000:.0f} ms")
+        assert dt < 1.0, f"la mutación esperó {dt:.2f}s (STATE_LOCK bloqueado por la sim)"
+    finally:
+        api.DOC, api.STORE, api.PROJECT_ID, stab.simulate_stability = old
+
+
+@pytest.mark.torture
+def test_torture_render_does_not_block_mutations(api_client):
+    """Un render VTK lento (depth-peeling) corre FUERA de STATE_LOCK (V6.2c): una mutación
+    durante el render entra al lock casi al instante. Además, la mutación INVALIDA los
+    shapes mientras el render corre con SU snapshot → el render termina 200 sin excepción
+    (carrera de regenerate: el snapshot son datos puros, no refs a shapes vivos)."""
+    import threading
+
+    import apolo.kernel.render_vtk as rvtk
+
+    api, client = api_client
+    doc, _ = _build_model(30)
+    api.DOC = doc
+    api.STORE = None
+    api.PROJECT_ID = None
+    started = threading.Event()
+    orig = rvtk.render_snapshot_vtk
+
+    def slow(snap):
+        started.set()
+        time.sleep(2.0)              # "render" largo, sin OpenGL real
+        return b"\x89PNG-fake"
+
+    rvtk.render_snapshot_vtk = slow
+    try:
+        holder: dict = {}
+
+        def render():
+            holder["r"] = client.get("/api/render.png?vtk_only=true&shade=true")
+
+        t = threading.Thread(target=render)
+        t.start()
+        assert started.wait(15), "el render no arrancó"
+        t0 = time.perf_counter()
+        m = client.post("/api/commands", json={"type": "create_box", "params": {"width": 40}})
+        dt = time.perf_counter() - t0
+        t.join(20)
+        assert m.status_code == 200
+        assert holder["r"].status_code == 200  # el render terminó pese a la mutación concurrente
+        print(f"\n[torture] mutación durante render: {dt * 1000:.0f} ms")
+        assert dt < 1.0, f"la mutación esperó {dt:.2f}s (STATE_LOCK bloqueado por el render)"
+    finally:
+        rvtk.render_snapshot_vtk = orig

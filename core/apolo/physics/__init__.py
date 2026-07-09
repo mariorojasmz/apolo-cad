@@ -4,6 +4,6 @@ PyBullet no tiene wheel para Python 3.13 (requiere compilar); MuJoCo (Apache) s√
 que es el motor embebido. Solo `sim.py` lo importa, de forma perezosa.
 """
 
-from .sim import PhysicsError, drop_test
+from .sim import PhysicsError, drop_test, prepare_drop, simulate_drop
 
-__all__ = ["PhysicsError", "drop_test"]
+__all__ = ["PhysicsError", "drop_test", "prepare_drop", "simulate_drop"]

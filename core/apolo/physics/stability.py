@@ -20,11 +20,28 @@ sujetara.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, field
 
 from apolo.physics.sim import MM, PhysicsError, _pose_matrix, _require_mujoco
 from apolo.robotics.model import _link_physics, _safe_name
 
 _FELL_MM = 15.0  # desplazamiento del centro de masa que cuenta como "se cayó/movió"
+
+
+@dataclass
+class StabilitySnapshot:
+    """Datos PUROS del mundo físico (V6.2c): el XML de MuJoCo con la geometría ya
+    horneada (cascos convexos como cadenas de vértices) + metadatos. Todo el trabajo
+    OCCT (cascos, masa, volumen) queda en ``prepare_stability`` (bajo STATE_LOCK); la
+    simulación (``simulate_stability``) corre desde este snapshot SIN tocar OCCT."""
+    xml: str | None
+    seconds: float
+    fps: int
+    initial: dict = field(default_factory=dict)   # name → com (mm)
+    names: dict = field(default_factory=dict)      # name → feature_id
+    products: list = field(default_factory=list)
+    n_grounded: int = 0
+    early: dict | None = None  # resultado inmediato si no hay piezas dinámicas
 
 
 def _grounded_set(scene, joints, mates, fasteners, grounds, with_autodetect, exclude):
@@ -46,15 +63,14 @@ def _grounded_set(scene, joints, mates, fasteners, grounds, with_autodetect, exc
     return grounded
 
 
-def stability_test(
+def prepare_stability(
     scene, joints, mates, fasteners, grounds, *,
     seconds: float = 2.0, gravity: float = 9.81, fps: int = 12,
     with_autodetect: bool = False, exclude=None,
-) -> dict:
-    """Simula la gravedad sobre la máquina. Devuelve {fell, estables, products,
-    frames, settled, n_grounded, n_dynamic}. `products`/`frames` tienen el formato
-    de drop_test → se reusa `anim.render_drop_gif` (con la escena estática de fondo)."""
-    mujoco = _require_mujoco()
+) -> StabilitySnapshot:
+    """FASE OCCT (bajo STATE_LOCK): grafo de sujeción + cascos convexos + masa/volumen
+    por pieza → un XML de MuJoCo con la geometría horneada. NO corre la simulación.
+    Devuelve un StabilitySnapshot de datos PUROS (V6.2c)."""
     from apolo.physics.hull import hull_vertices
 
     seconds = max(0.1, min(float(seconds), 30.0))
@@ -102,9 +118,12 @@ def stability_test(
             names[name] = fid
 
     if not products:
-        return {"n_grounded": len(grounded), "n_dynamic": 0, "fell": [], "estables": [],
-                "settled": True, "products": [], "frames": [],
-                "mensaje": "Ninguna pieza dinámica: todo está sujeto a tierra."}
+        return StabilitySnapshot(
+            xml=None, seconds=seconds, fps=fps, n_grounded=len(grounded),
+            early={"n_grounded": len(grounded), "n_dynamic": 0, "fell": [], "estables": [],
+                   "settled": True, "products": [], "frames": [],
+                   "mensaje": "Ninguna pieza dinámica: todo está sujeto a tierra."},
+        )
 
     xml = (
         f'<mujoco><option gravity="0 0 -{gravity}" timestep="0.004"/>'
@@ -112,11 +131,22 @@ def stability_test(
         f'<geom name="floor" type="plane" size="100 100 0.1"/>'
         f'{"".join(statics)}{"".join(bodies)}</worldbody></mujoco>'
     )
+    return StabilitySnapshot(xml=xml, seconds=seconds, fps=fps, initial=initial,
+                             names=names, products=products, n_grounded=len(grounded))
+
+
+def simulate_stability(snap: StabilitySnapshot) -> dict:
+    """FASE MuJoCo (fuera de STATE_LOCK, bajo PHYSICS_LOCK): construye el mundo desde el
+    XML horneado del snapshot y corre el bucle de integración. NO toca OCCT (V6.2c)."""
+    if snap.early is not None:
+        return snap.early
+    mujoco = _require_mujoco()
     try:
-        model = mujoco.MjModel.from_xml_string(xml)
+        model = mujoco.MjModel.from_xml_string(snap.xml)
     except Exception as exc:  # noqa: BLE001
         raise PhysicsError(f"No se pudo construir el mundo físico: {exc}") from exc
     data = mujoco.MjData(model)
+    initial, names, products = snap.initial, snap.names, snap.products
 
     ids = {name: mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name) for name in initial}
 
@@ -124,8 +154,8 @@ def stability_test(
         return {"t": round(t, 3),
                 "poses": {n: _pose_matrix(data.xpos[i], data.xquat[i]) for n, i in ids.items()}}
 
-    steps = max(1, int(seconds / model.opt.timestep))
-    sample_every = max(1, steps // fps)
+    steps = max(1, int(snap.seconds / model.opt.timestep))
+    sample_every = max(1, steps // snap.fps)
     mujoco.mj_forward(model, data)
     frames = [capture(0.0)]
     for s in range(1, steps + 1):
@@ -143,6 +173,22 @@ def stability_test(
         (fell if drop > _FELL_MM else estables).append(row)
     fell.sort(key=lambda r: -r["caida_mm"])
     settled = bool(math.sqrt(sum(float(v) ** 2 for v in data.qvel)) < 0.05) if model.nv else True
-    return {"n_grounded": len(grounded), "n_dynamic": len(products),
+    return {"n_grounded": snap.n_grounded, "n_dynamic": len(products),
             "fell": fell, "estables": estables, "settled": settled,
             "products": products, "frames": frames}
+
+
+def stability_test(
+    scene, joints, mates, fasteners, grounds, *,
+    seconds: float = 2.0, gravity: float = 9.81, fps: int = 12,
+    with_autodetect: bool = False, exclude=None,
+) -> dict:
+    """Simula la gravedad sobre la máquina. Devuelve {fell, estables, products,
+    frames, settled, n_grounded, n_dynamic}. `products`/`frames` tienen el formato
+    de drop_test → se reusa `anim.render_drop_gif` (con la escena estática de fondo).
+    Wrapper de prepare_stability + simulate_stability (la API los llama por separado
+    para el patrón dos-locks, V6.2c)."""
+    return simulate_stability(prepare_stability(
+        scene, joints, mates, fasteners, grounds, seconds=seconds, gravity=gravity,
+        fps=fps, with_autodetect=with_autodetect, exclude=exclude,
+    ))
