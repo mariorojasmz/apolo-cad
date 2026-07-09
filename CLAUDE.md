@@ -482,6 +482,30 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   del overlay no reconstruyen). Los edits de cota de `create_box` pasan `merge=true`
   (`api.editCommand(id, params, transient, merge)`); los forms schema-driven mandan todos los
   campos → replace es inocuo ahí.
+- **Sync de manipulación directa (coalescing, `store.ts::pumpEdit`)**: los estirones/cotas commitean
+  con `editCommandSilent` (cola por command_id, el ÚLTIMO gana: 1 en vuelo + 1 pendiente). GOTCHA:
+  la escena que devuelve el servidor se aplica SOLO si NO hay una edición más nueva en cola
+  (`!editPending.has(id)`); si se aplicara la respuesta INTERMEDIA, el preview PARPADEARÍA a un tamaño
+  viejo antes de llegar al final. El preview optimista (mesh escalado + `rebuildOverlayFromMesh`) se
+  mantiene hasta la respuesta ÚLTIMA. Los transforms (mover/rotar/subir-Z) van por cola SERIALIZADA
+  (`enqueueSilent`, son deltas) → ahí cada escena SÍ se aplica (estado acumulado correcto, sin parpadeo).
+- **WebSocket `document_changed` DEBE debouncearse (`store.ts::connectWs`)**: el servidor emite
+  `document_changed` por CADA comando (incluidos los NUESTROS) → un `refresh()` por evento reproducía
+  cada tamaño intermedio (2º camino del PARPADEO, INDEPENDIENTE de `pumpEdit`; el `if (!busy)` viejo NO
+  lo frenaba porque el sync silencioso mantiene `busy=false`). Fix: debounce 250 ms + gate
+  `if (s.busy || s.syncing > 0) return` (no refrescar mientras haya ediciones silenciosas propias en
+  vuelo — su respuesta ya trae la escena final; los cambios EXTERNOS del agente/MCP/otro cliente se
+  refrescan al calmarse). Lección: al depurar «flicker» de sync hay DOS caminos que aplican escena
+  (respuesta de `editCommand` + refresh del WS) — revisar AMBOS.
+- **Tinte rojizo = SOLO guardado FALLIDO** (`Viewport.tsx::applyBlockedTint`): tiñe únicamente piezas
+  en `blockedRef` (guardado que falló y se reintenta → aviso de «no está en disco»). Se RETIRÓ el
+  tinte «guardando» de 400 ms (`saveTintFid`/`withSaveTint`): en modelos grandes el regen supera 400 ms
+  y prendía en CADA edición → parecía un spinner de carga permanente que el usuario no quería.
+- **Agarrar-y-mover con DEAD-ZONE (`Viewport.tsx`, `movePick`)**: al hacer pointerdown sobre un
+  sólido se SELECCIONA y se arma un `movePick` PENDIENTE (`active:false`); el arrastre real (mover
+  la pieza + `transform`) solo se activa al superar `DRAG_THRESHOLD_PX = 5` px (= umbral de
+  `onClick`). Bajo el umbral, el pointerup es solo un CLIC → no mueve ni comitea (antes: cualquier
+  temblor de 1-2 px movía la pieza, porque el commit-guard era 0.01 mm en MUNDO, no en pantalla).
 - **Overlay de tiradores de caja (`handles.ts::boxDimsFromBbox`)**: la puerta ya NO es
   `isAxisAligned` contra params — deriva las dims del BBOX y sana cotas borradas (cajas víctimas
   del bug de replace recuperan tiradores y se auto-sanan al primer estirón vía el merge). Excluye

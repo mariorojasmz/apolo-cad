@@ -257,6 +257,15 @@ async function withRetry<T>(run: () => Promise<T>, tries = 2, delayMs = 350): Pr
 const editPending = new Map<string, { params: Record<string, unknown>; merge: boolean }>();
 const editInFlight = new Set<string>();
 const editDrain = new Map<string, { p: Promise<boolean>; resolve: (b: boolean) => void }>();
+// Última edición ENCOLADA por command_id (viva mientras haya cola/vuelo; se limpia al drenar con éxito).
+// Fuente FRESCA de params para commits encadenados: durante estirones rápidos el coalescing suprime las
+// escenas intermedias → st.scene queda RETRASADO; leer de ahí ancla el siguiente commit a params viejos.
+const lastQueuedEdit = new Map<string, Record<string, unknown>>();
+/** Params de la última edición silenciosa aún sin drenar para `id` (undefined si no hay). */
+export function queuedEditParams(id: string): Record<string, unknown> | undefined {
+  return lastQueuedEdit.get(id);
+}
+let wsRefreshTimer: ReturnType<typeof setTimeout> | null = null; // debounce del refresh por WebSocket
 
 // BLOQUEO como ÚLTIMO RECURSO: si un guardado FALLA (tras los reintentos inmediatos) la pieza queda
 // bloqueada (tinte rojo + no manipulable) con AUTO-REINTENTO de backoff creciente; al recuperarse se
@@ -284,12 +293,18 @@ function pumpEdit(set: SetFn, id: string): void {
   syncingCount++; set({ syncing: syncingCount });
   const next = editPending.get(id)!;
   editPending.delete(id);
+  let respScene: SceneOut | null = null; // escena de ESTA respuesta; solo se aplica si es la ÚLTIMA
   void withRetry(() => api.editCommand(id, next.params, false, next.merge))
-    .then((scene) => { if (scene) set({ scene }); return true; })
+    .then((scene) => { respScene = scene ?? null; return true; })
     .catch((e) => { const m = e instanceof Error ? e.message : String(e); set({ error: `No se pudo guardar; reintentando… (${m})` }); reportError("action", m, { action: "sync" }); return false; })
     .then((ok) => {
       syncingCount = Math.max(0, syncingCount - 1); set({ syncing: syncingCount });
       editInFlight.delete(id);
+      // Aplica la escena del servidor SOLO si NO hay una edición MÁS NUEVA en cola: si la hay, esta
+      // respuesta es de un tamaño INTERMEDIO/viejo → aplicarla haría PARPADEAR el preview a ese tamaño
+      // antes de llegar al final. El preview optimista se mantiene hasta la respuesta ÚLTIMA (cola drenada).
+      if (ok && respScene && !editPending.has(id)) set({ scene: respScene });
+      if (ok && !editPending.has(id)) lastQueuedEdit.delete(id); // drenado: st.scene vuelve a ser la fuente
       if (ok) unblock(set, id); // guardó bien → desbloquea (si estaba bloqueada)
       else markBlocked(set, id, () => { editPending.set(id, next); pumpEdit(set, id); }); // falló → bloquea + auto-reintento
       if (editPending.has(id)) pumpEdit(set, id); // llegó una edición más nueva → guárdala
@@ -369,7 +384,18 @@ export const useStore = create<AppState>((set, get) => ({
     set({ schemas, scene, catalog });
     void get().refreshKinematics();
     connectWs(() => {
-      if (!get().busy) void get().refresh();
+      // `document_changed` llega por CADA comando del servidor — INCLUIDOS los nuestros. Refrescar por
+      // cada evento reproduciría cada tamaño intermedio (PARPADEO) durante la manipulación directa.
+      // Debounce + gate: espera a que se calme y NO refresques si aún hay ediciones silenciosas propias
+      // en vuelo (su respuesta ya trae la escena final autoritativa). Solo refresca por cambios EXTERNOS
+      // (agente/MCP/otro cliente) una vez que todo está quieto.
+      if (wsRefreshTimer) clearTimeout(wsRefreshTimer);
+      wsRefreshTimer = setTimeout(() => {
+        wsRefreshTimer = null;
+        const s = get();
+        if (s.busy || s.syncing > 0) return; // ocupados con lo nuestro → nuestra propia respuesta cierra el estado
+        void s.refresh();
+      }, 250);
     });
   },
 
@@ -650,6 +676,7 @@ export const useStore = create<AppState>((set, get) => ({
   runCommandSilent: (type, params) => enqueueSilent(set, String(params.feature ?? ""), () => api.runCommand(type, params)),
   editCommandSilent: (id, params, merge = false) => {
     editPending.set(id, { params, merge }); // el ÚLTIMO gana (coalescing)
+    lastQueuedEdit.set(id, params); // fuente fresca para el SIGUIENTE commit (st.scene se retrasa)
     let d = editDrain.get(id);
     if (!d) { let resolve!: (b: boolean) => void; const p = new Promise<boolean>((r) => (resolve = r)); d = { p, resolve }; editDrain.set(id, d); }
     pumpEdit(set, id);

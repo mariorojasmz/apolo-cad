@@ -3,7 +3,7 @@ import { Copy, Crop, EyeOff, Focus, Trash2 } from "lucide-react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
-import { selectFeatures, useStore } from "../state/store";
+import { queuedEditParams, selectFeatures, useStore } from "../state/store";
 import type { FeatureOut, JointOut } from "../types";
 import { buildMesh, type Shading, type SharedGeom } from "./meshes";
 import { BACKGROUND_CSS, createGround, createLights, createRenderer, updateGround } from "./scene-setup";
@@ -127,10 +127,11 @@ function buildOverlay(
   g: THREE.Group, feat: { command_type?: string | null } | undefined,
   min: number[], max: number[], cmdParams: Record<string, unknown>, camera: THREE.PerspectiveCamera,
 ): void {
-  while (g.children.length) { // sprites → material propio; guía → geometría propia; el resto son singletons
+  while (g.children.length) { // sprites/flechas/cono → material propio; guía → geometría propia; las geometrías de flecha/cono son singletons
     const c = g.children[0] as THREE.Sprite & THREE.LineSegments;
     if ((c as THREE.Sprite).isSprite) (c.material as THREE.Material).dispose();
     else if (c.userData?.kind === "guide") c.geometry.dispose();
+    else if (c.userData?.ownMat) ((c as unknown as THREE.Mesh).material as THREE.Material).dispose();
     g.remove(c);
   }
   if (!feat) return;
@@ -146,15 +147,16 @@ function buildOverlay(
   for (const a of ROT_AXES) {
     const follow: RotFollow = { min: [min[0], min[1], min[2]], max: [max[0], max[1], max[2]], axis: a.letter, m, ...rf[a.letter] };
     const ud = { kind: "rot", letter: a.letter, axis: a.axis.toArray(), sizePx: 15, rotFollow: follow };
+    const arrowMat = ROT_MAT[a.letter].clone(); // material PROPIO → el hover lo tinta sin tocar el compartido
+    const arrow = new THREE.Mesh(rotArrowGeom(), arrowMat); // flecha visible (2D plana)
+    arrow.renderOrder = 104;
+    arrow.userData = { ...ud, ownMat: true, baseColor: arrowMat.color.getHex(), baseOpacity: arrowMat.opacity, baseRenderOrder: 104 };
+    applyRotArrowPose(arrow, follow, camera);
     const hit = new THREE.Mesh(rotHitGeom(), ROT_HIT_MAT); // región de clic ampliada (invisible)
     hit.renderOrder = 103;
-    hit.userData = ud;
+    hit.userData = { ...ud, twin: arrow }; // hover sobre la zona ampliada → resalta la flecha visible
     applyRotArrowPose(hit, follow, camera);
     g.add(hit);
-    const arrow = new THREE.Mesh(rotArrowGeom(), ROT_MAT[a.letter]); // flecha visible (2D plana)
-    arrow.renderOrder = 104;
-    arrow.userData = { ...ud };
-    applyRotArrowPose(arrow, follow, camera);
     g.add(arrow);
   }
   if (feat.command_type === "create_box" && boxDimsFromBbox(min, max, cmdParams)) {
@@ -170,12 +172,13 @@ function buildOverlay(
     hs.position.set(hp[0], hp[1], hp[2]);
     Object.assign(hs.userData, { kind: "height", minZ: min[2], maxZ: max[2], cx: hp[0], cy: hp[1], sizePx: 13 });
     g.add(hs);
-    const cone = new THREE.Mesh(ZCONE_GEOM, ZCONE_MAT);
+    const coneMat = ZCONE_MAT.clone(); // material PROPIO → el hover lo tinta sin tocar el compartido
+    const cone = new THREE.Mesh(ZCONE_GEOM, coneMat);
     cone.position.copy(zLiftPoint(min, max)); // inicial; el loop lo recoloca (alterna arriba/abajo + gap de pantalla)
     cone.renderOrder = 105;
     // ALTERNA según la cámara (una sola a la vez, siempre visible): arriba=+Z sobre el top, abajo=−Z bajo la
     // base. `armZ` = altura de las flechas de giro (para quedar por ENCIMA). Tamaño/gap de pantalla constante.
-    cone.userData = { kind: "zlift", sizePx: 15, cx: center.x, cy: center.y, topZ: max[2], botZ: min[2], armZ: 0.2 * (max[2] - min[2]) / 2, gapPx: 48 };
+    cone.userData = { kind: "zlift", ownMat: true, baseColor: coneMat.color.getHex(), baseOpacity: coneMat.opacity, baseRenderOrder: 105, sizePx: 15, cx: center.x, cy: center.y, topZ: max[2], botZ: min[2], armZ: 0.2 * (max[2] - min[2]) / 2, gapPx: 48 };
     g.add(cone);
   }
 }
@@ -561,7 +564,7 @@ export default function Viewport() {
           ch.position.set(ud.cx, ud.cy, faceZ + dir * d * base * ud.gapPx);
           ch.rotation.set(above ? 0 : Math.PI, 0, 0); // apunta +Z (arriba) o −Z (abajo)
         }
-        if (ud.sizePx) ch.scale.setScalar(cam.distanceTo(ch.position) * base * ud.sizePx);
+        if (ud.sizePx) ch.scale.setScalar(cam.distanceTo(ch.position) * base * ud.sizePx * (ud.hoverScale ?? 1));
       }
     };
     // reconstruye el overlay YA (sin esperar al servidor) desde el bbox VIVO de la malla del preview →
@@ -577,22 +580,18 @@ export default function Viewport() {
       const cp = useStore.getState().scene?.document.commands.find((c) => c.id === feat.command_id)?.params ?? {};
       buildOverlay(ctx.handles, feat, [_pbox.min.x, _pbox.min.y, _pbox.min.z], [_pbox.max.x, _pbox.max.y, _pbox.max.z], { ...cp, ...dimEdit }, camera);
     };
-    // TINTE de "guardando" (estilo TinkerCad): si una sincronización de fondo tarda >400 ms, la pieza
-    // se tiñe de rojizo hasta que el servidor confirma. Solo el caso RARO (docs grandes) lo dispara.
-    // Clona el material (no muta compartidos) y SIGUE a la pieza aunque el rebuild reemplace la malla.
-    let saveTintFid: string | null = null;
+    // TINTE de FALLO de guardado: una pieza cuyo guardado FALLÓ (y se reintenta en segundo plano) se
+    // tiñe de rojizo hasta que persiste, para avisar que ese cambio aún NO está en disco. Durante el
+    // guardado NORMAL (aunque tarde) NO se tiñe nada — la sincronización es silenciosa. Clona el material
+    // (no muta compartidos) y se recalcula cada frame → robusto a que el rebuild reemplace la malla.
     const tinted = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>(); // malla → material original
-    const applySaveTint = () => {
-      // piezas a tintar: la que GUARDA (lento) + las BLOQUEADAS (guardado fallido). Robusto a que el
-      // rebuild reemplace la malla (se recalcula el conjunto cada frame; clona → no muta compartidos).
-      const wantIds = new Set<string>(blockedRef.current);
-      if (saveTintFid) wantIds.add(saveTintFid);
+    const applyBlockedTint = () => {
       const want = new Set<THREE.Mesh>();
-      for (const id of wantIds) { const mm = ctx.meshes.get(id) as THREE.Mesh | undefined; if (mm) want.add(mm); }
-      for (const [mesh, orig] of tinted) { // restaura las que ya no deben tintarse
+      for (const id of blockedRef.current) { const mm = ctx.meshes.get(id) as THREE.Mesh | undefined; if (mm) want.add(mm); }
+      for (const [mesh, orig] of tinted) { // restaura las que ya no están bloqueadas
         if (!want.has(mesh)) { (mesh.material as THREE.Material).dispose?.(); mesh.material = orig; tinted.delete(mesh); }
       }
-      for (const mesh of want) { // tinta las nuevas
+      for (const mesh of want) { // tinta las nuevas (guardado fallido)
         if (tinted.has(mesh) || Array.isArray(mesh.material) || !mesh.material) continue;
         const orig = mesh.material;
         const clone = (orig as THREE.MeshStandardMaterial).clone();
@@ -600,16 +599,12 @@ export default function Viewport() {
         mesh.material = clone; tinted.set(mesh, orig);
       }
     };
-    const withSaveTint = (fid: string, p: Promise<unknown>) => {
-      const t = window.setTimeout(() => { saveTintFid = fid; }, 400);
-      void p.finally(() => { window.clearTimeout(t); if (saveTintFid === fid) saveTintFid = null; });
-    };
     const animate = () => {
       frame = requestAnimationFrame(animate);
       controls.update();
       dropAnimRef.current?.tick(performance.now()); // anima las cajas del drop-test
       gravityAnimRef.current?.tick(performance.now()); // anima la caída de las mallas reales
-      applySaveTint(); // tinte "guardando" si un sync de fondo se demora
+      applyBlockedTint(); // tinte rojizo SOLO en piezas con guardado fallido (no en guardado normal)
       updateHandleSprites(); // tamaño constante de los cuadritos + altura sigue la cámara
       // contorno de selección: recolecta las mallas seleccionadas (robusto a reconstrucciones)
       selMeshes.length = 0;
@@ -658,8 +653,10 @@ export default function Viewport() {
     };
 
     // ---------------------------- agarrar-y-mover / estirar por caras / recuadro
+    const DRAG_THRESHOLD_PX = 5; // dead-zone: hay que arrastrar > 5 px para MOVER (si no, es solo clic → seleccionar; = umbral de onClick)
     let boxStart: [number, number] | null = null;
-    let movePick: { fid: string; mesh: THREE.Mesh; startPlane: THREE.Vector3; startPos: THREE.Vector3 } | null = null;
+    // `active` = ya cruzó el umbral (empezó a mover de verdad); `downXY` = px del pointerdown para medirlo.
+    let movePick: { fid: string; mesh: THREE.Mesh; startPlane: THREE.Vector3; startPos: THREE.Vector3; downXY: [number, number]; active: boolean } | null = null;
     let stretchPick:
       | { kind: "corner" | "edge"; fid: string; cmdId: string; mesh: THREE.Mesh; startPos: THREE.Vector3;
           startScale: THREE.Vector3; startDims: [number, number, number]; baseZ: number; affects: StretchAffect[] }
@@ -749,10 +746,9 @@ export default function Viewport() {
         const mesh = hits[0].object as THREE.Mesh;
         const z = hits[0].point.z;
         const startPlane = rayPlanePoint(raycaster.ray, z) ?? hits[0].point.clone();
-        movePick = { fid, mesh, startPlane, startPos: mesh.position.clone() };
-        dragHideHandles = true; // ocultos mientras se mueve (el bbox queda stale)
-        isDraggingObjRef.current = true;
-        controls.enabled = false;
+        // PENDIENTE: aún no movemos. Solo se activa el arrastre al superar DRAG_THRESHOLD_PX (ver
+        // onPointerMove) → un clic con temblor de 1-2 px solo SELECCIONA, no mueve (como TinkerCad).
+        movePick = { fid, mesh, startPlane, startPos: mesh.position.clone(), downXY: [e.clientX, e.clientY], active: false };
         e.preventDefault();
       } else {
         boxStart = [e.clientX, e.clientY];
@@ -761,13 +757,41 @@ export default function Viewport() {
         e.preventDefault();
       }
     };
-    // hover de los tiradores: el sprite bajo el cursor se tiñe de acento
-    let hoveredHandle: THREE.Sprite | null = null;
-    const setHandleColor = (sp: THREE.Sprite, color: number) => (sp.material as THREE.SpriteMaterial).color.setHex(color);
+    // hover de los tiradores: resalta el que está bajo el cursor. Cuadrito (sprite) → tinte azul; flecha de
+    // rotación / cono subir-bajar (mesh con material PROPIO) → se aclara, opacidad plena, CRECE y pasa AL
+    // FRENTE (renderOrder) → cuando las flechas se solapan en piezas pequeñas se ve cuál se va a clicar.
+    let hoveredHandle: THREE.Object3D | null = null;
+    const _hoverWhite = new THREE.Color(0xffffff);
+    const setHandleHover = (obj: THREE.Object3D, on: boolean) => {
+      if ((obj as THREE.Sprite).isSprite) {
+        ((obj as THREE.Sprite).material as THREE.SpriteMaterial).color.setHex(on ? 0x4f8bff : obj.userData.baseColor);
+        return;
+      }
+      const m = (obj as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      if (on) {
+        m.color.setHex(obj.userData.baseColor).lerp(_hoverWhite, 0.55); // conserva el matiz del eje, pero POP
+        m.opacity = 1;
+        obj.userData.hoverScale = 1.32; // lo aplica el loop de escala (tamaño de pantalla constante)
+        obj.renderOrder = 130; // por encima del resto del overlay → al frente aunque se solapen
+      } else {
+        m.color.setHex(obj.userData.baseColor);
+        m.opacity = obj.userData.baseOpacity ?? 1;
+        obj.userData.hoverScale = 1;
+        obj.renderOrder = obj.userData.baseRenderOrder ?? obj.renderOrder;
+      }
+    };
+    // objeto a RESALTAR para un hit: el sprite es él mismo; la zona de clic ampliada de rotación apunta a su
+    // flecha visible (`twin`); el cono es él mismo. null si el hit no es un tirador resaltable.
+    const hoverTarget = (o: THREE.Object3D): THREE.Object3D | null => {
+      if ((o as THREE.Sprite).isSprite) return o;
+      if (o.userData?.kind === "rot") return (o.userData.twin as THREE.Object3D | undefined) ?? o;
+      if (o.userData?.kind === "zlift") return o;
+      return null;
+    };
     const hoverHandles = (e: PointerEvent) => {
       const g = ctx.handles;
       if (!g.visible) {
-        if (hoveredHandle) { setHandleColor(hoveredHandle, hoveredHandle.userData.baseColor); hoveredHandle = null; }
+        if (hoveredHandle) { setHandleHover(hoveredHandle, false); hoveredHandle = null; }
         return;
       }
       const rect = renderer.domElement.getBoundingClientRect();
@@ -776,11 +800,11 @@ export default function Viewport() {
         camera,
       );
       const hit = raycaster.intersectObjects(g.children, false)[0];
-      const sp = hit && (hit.object as THREE.Sprite).isSprite ? (hit.object as THREE.Sprite) : null;
-      if (sp === hoveredHandle) return;
-      if (hoveredHandle) setHandleColor(hoveredHandle, hoveredHandle.userData.baseColor);
-      hoveredHandle = sp;
-      if (sp) setHandleColor(sp, 0x4f8bff);
+      const target = hit ? hoverTarget(hit.object) : null;
+      if (target === hoveredHandle) return;
+      if (hoveredHandle) setHandleHover(hoveredHandle, false);
+      hoveredHandle = target;
+      if (target) setHandleHover(target, true);
     };
     const onPointerMove = (e: PointerEvent) => {
       if (!rotatePick && !stretchPick && !movePick && !boxStart) { hoverHandles(e); return; }
@@ -843,6 +867,13 @@ export default function Viewport() {
         return;
       }
       if (movePick) { // arrastre directo: desliza el sólido por el plano de trabajo (XY)
+        if (!movePick.active) { // dead-zone: ¿ya se arrastró lo suficiente para considerarlo MOVER?
+          if (Math.hypot(e.clientX - movePick.downXY[0], e.clientY - movePick.downXY[1]) < DRAG_THRESHOLD_PX) return;
+          movePick.active = true; // cruzó el umbral → ahora sí arrastra (oculta tiradores, congela órbita)
+          dragHideHandles = true;
+          isDraggingObjRef.current = true;
+          controls.enabled = false;
+        }
         const rect = renderer.domElement.getBoundingClientRect();
         const pointer = new THREE.Vector2(
           ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -891,10 +922,10 @@ export default function Viewport() {
           // OPTIMISTA: fija el preview al valor commiteado y DÉJALO (sin snap-back); el rebuild lo reemplaza sin salto.
           rp.mesh.quaternion.copy(rp.q0);
           rp.mesh.rotateOnWorldAxis(rp.axis, THREE.MathUtils.degToRad(deg));
-          withSaveTint(rp.fid, useStore.getState().runCommandSilent("transform", {
+          void useStore.getState().runCommandSilent("transform", {
             feature: rp.fid,
             rotate: { x: rp.letter === "x" ? deg : 0, y: rp.letter === "y" ? deg : 0, z: rp.letter === "z" ? deg : 0 },
-          }));
+          });
           rebuildOverlayFromMesh(rp.fid); // reubica las flechas al instante (caja rotada → sin cuadritos)
         } else {
           rp.mesh.quaternion.copy(rp.q0); // no giró → restaura
@@ -920,8 +951,13 @@ export default function Viewport() {
         // OPTIMISTA: el preview arrastrado SE QUEDA (sin snap-back); el rebuild trae la geometría real
         // y hace el swap sin salto. Solo se restaura si NO hubo cambio.
         const restore = () => { if (sp.kind !== "zlift") sp.mesh.scale.copy(sp.startScale); sp.mesh.position.copy(sp.startPos); };
+        // `position` del comando ≠ centro en MUNDO: los `transform` del log (arrastres previos) se re-aplican
+        // ENCIMA en cada regenerate → el commit debe ser params.position + delta, NUNCA el centro de mundo.
+        // La base sale de la última edición ENCOLADA si existe (st.scene se retrasa por el coalescing en
+        // estirones rápidos — anclar a la escena vieja hacía derivar la caja), y si no, de la escena.
         const basePos = (id: string) => {
-          const q = st.scene?.document.commands.find((c) => c.id === id)?.params.position as { x?: number; y?: number; z?: number } | undefined;
+          const q = (queuedEditParams(id)?.position ??
+            st.scene?.document.commands.find((c) => c.id === id)?.params.position) as { x?: number; y?: number; z?: number } | undefined;
           return { x: q?.x ?? 0, y: q?.y ?? 0, z: q?.z ?? 0 };
         };
         if (sp.kind === "corner" || sp.kind === "edge") {
@@ -941,7 +977,7 @@ export default function Viewport() {
           // ATÓMICO: cotas + posición (para fijar el ancla) en UN solo editCommand → 1 regeneración, sin comando transform extra
           const bp = basePos(sp.cmdId);
           edit.position = { x: r2(bp.x + t.x), y: r2(bp.y + t.y), z: r2(bp.z + t.z) };
-          withSaveTint(sp.fid, st.editCommandSilent(sp.cmdId, edit, true)); // silencioso + serializado + tinte si tarda
+          void st.editCommandSilent(sp.cmdId, edit, true); // guardado silencioso + coalescing (último gana)
           rebuildOverlayFromMesh(sp.fid, edit); // overlay al instante (no espera al servidor)
         } else if (sp.kind === "height") {
           const cz = sp.anchorZ + distanceAlongAxis(new THREE.Vector3(sp.startPos.x, sp.startPos.y, sp.anchorZ), WORLD_Z, raycaster.ray);
@@ -949,12 +985,12 @@ export default function Viewport() {
           if (Math.abs(newH - sp.startDims[2]) <= 0.1) { restore(); return; }
           const dzc = (cz + sp.anchorZ) / 2 - sp.startPos.z;
           const bp = basePos(sp.cmdId);
-          withSaveTint(sp.fid, st.editCommandSilent(sp.cmdId, { height: newH, position: { x: r2(bp.x), y: r2(bp.y), z: r2(bp.z + dzc) } }, true));
+          void st.editCommandSilent(sp.cmdId, { height: newH, position: { x: r2(bp.x), y: r2(bp.y), z: r2(bp.z + dzc) } }, true);
           rebuildOverlayFromMesh(sp.fid, { height: newH });
         } else if (sp.kind === "zlift") {
           const dz = snap(distanceAlongAxis(sp.anchor, WORLD_Z, raycaster.ray));
           if (Math.abs(dz) <= 0.1) { restore(); return; }
-          withSaveTint(sp.fid, st.runCommandSilent("transform", { feature: sp.fid, translate: { x: 0, y: 0, z: Math.round(dz * 1000) / 1000 } }));
+          void st.runCommandSilent("transform", { feature: sp.fid, translate: { x: 0, y: 0, z: Math.round(dz * 1000) / 1000 } });
           rebuildOverlayFromMesh(sp.fid);
         }
         return;
@@ -962,6 +998,7 @@ export default function Viewport() {
       if (movePick) { // fin del arrastre directo → commit del movimiento (o restaura si no movió)
         const mp = movePick;
         movePick = null;
+        if (!mp.active) return; // nunca cruzó el umbral → fue solo un CLIC: ya seleccionó, no mover ni comitear
         dragHideHandles = false; // reaparecen al soltar
         isDraggingObjRef.current = false;
         controls.enabled = !(gizmo as unknown as { dragging?: boolean }).dragging;
@@ -970,7 +1007,7 @@ export default function Viewport() {
         const dy = mp.mesh.position.y - mp.startPos.y;
         if (Math.hypot(dx, dy) > 1e-2) {
           const r3 = (v: number) => Math.round(v * 1000) / 1000;
-          withSaveTint(mp.fid, useStore.getState().runCommandSilent("transform", { feature: mp.fid, translate: { x: r3(dx), y: r3(dy), z: 0 } }));
+          void useStore.getState().runCommandSilent("transform", { feature: mp.fid, translate: { x: r3(dx), y: r3(dy), z: 0 } });
           rebuildOverlayFromMesh(mp.fid); // overlay sigue a la pieza al instante
         } else {
           mp.mesh.position.copy(mp.startPos); // no movió → deja el mesh donde estaba
