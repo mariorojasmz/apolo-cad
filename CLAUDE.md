@@ -52,14 +52,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 971 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 981 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-09)**: 971 tests (+11 tortura vía `-m torture`) · 66 tools MCP ·
+- **Estado actual (2026-07-09)**: 981 tests (+12 tortura vía `-m torture`) · 66 tools MCP ·
   51 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
   «Apolo industrial»: V6.1 robustez + V6.2 rendimiento CERRADOS**. V6.1 («nada tumba el
   documento»: `check_integrity` + carga tolerante + atomicidad + `GET /api/health`; robustez
@@ -361,16 +361,26 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   crudos, otros solo tras `BRepBuilderAPI_Copy`, la copia rompe a los primeros) → `pack`
   serializa el TopoDS CRUDO (no el wrapper build123d, que lleva joints frágiles) y VERIFICA
   cada shape deserializando: crudo→copia→None (`_serialize_robust`). Faja 38: frío 3–23 s →
-  caliente 0.04 s.
+  caliente 0.04 s. V6.2e: `pack` empaca el checkpoint ORGÁNICO del último comando
+  (`_regen_ckpts[len-1]`, PRE-finalización), NO el estado post-mates — si no, la cola
+  ejecutaría contra geometría desplazada por los mates y los selectores de posición diferirían
+  del frío; devuelve None si `regen_suppressed` (doc tolerante no se cachea) o si el ckpt no
+  existe. `from_apolo_bytes` con `warm`: si el regenerate sembrado LANZA (no solo si viola
+  integridad) → descarta y replay frío. `ProjectStore.load` PUEBLA la caché en el open frío
+  (~40 ms) — un proyecto que solo se abre nunca la poblaría vía el flush.
 - **Deltas de `scene_payload`** (`api/main.py`): `_geom_rev(fid, shape)` = revisión por
   IDENTIDAD del shape (el regen incremental la preserva para lo NO re-ejecutado; editar el
   comando *i* re-ejecuta *i*..fin → esos rev suben). `scene_payload(known={"revs","defs"})`:
   las features cuya geometría el cliente ya tiene van `same:true` + solo metadatos volátiles
   (id/rev/name/color/visible/group). `POST /api/scene/delta` lo usa el refresh por WS.
-  `known=None` = payload completo + `rev` aditivo. UI: `mergeSceneDelta` (store) hereda la
-  geometría anterior; el viewport diffea por `rev` (builtRef Map) → solo reconstruye la
-  pieza cambiada, la apariencia se rehace en sitio (`applyAppearance`). Hook E2E `window.
-  __apolo` (meshIds/builds/store). Layout 53: 1.1 MB → 31 KB sin cambios.
+  `known=None` = payload completo + `rev` aditivo. `is_guide` va también en la entrada `same`
+  (V6.2e Fix 7: el toggle de guía es metadato, rev estable). V6.2e Fix 2: `SCENE_EPOCH`
+  (uuid por PROCESO) en el payload; el cliente lo devuelve en el delta y, si no coincide
+  (restart del API → los revs renacieron en 1 y colisionarían), el server manda el payload
+  COMPLETO; `connectWs` fuerza refresh completo en cada RECONEXIÓN. UI: `mergeSceneDelta`
+  (store) hereda la geometría anterior; el viewport diffea por `rev` (builtRef Map) → solo
+  reconstruye la pieza cambiada, la apariencia se rehace en sitio (`applyAppearance`). Hook E2E
+  `window.__apolo` (meshIds/builds/store). Layout 53: 1.1 MB → 31 KB sin cambios.
 - **Dos-locks render/física** (`RENDER_LOCK` en `render_vtk.py`, `PHYSICS_LOCK` en
   `api/main.py`): regla de oro — bajo STATE_LOCK se EXTRAE geometría (OCCT: teselado/cascos
   → datos PUROS); fuera solo se procesan arrays. `render_scene_vtk` → `extract_render_scene`
@@ -379,13 +389,17 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   (bucle mj_step, PHYSICS_LOCK); wrappers para compat. Mutación durante render/gravity < 1 s.
   Follow-up: `export_stl`, `drawing_spec` (su HLR es OCCT, no puede salir del lock).
 - **Autosave debounced** (`_AutosaveScheduler` en `api/main.py`): `_autosave()` ya NO escribe
-  inline — marca sucio + arma un flush ÚNICO (debounce 500 ms, techo 3 s). `_do_flush` toma
-  `to_apolo_bytes()` + `pack()` BAJO STATE_LOCK y escribe SQLite FUERA (durabilidad V6.1
-  intacta: reintentos, `AUTOSAVE_ERROR` + WS; la caché de geometría es best-effort aparte).
-  Flush FORZOSO (`_flush_autosave`) en shutdown, cambio de proyecto (open/new/create),
-  save_revision y restore. `GET /api/health` → `autosave_pending`. Tests: `_flush_autosave()`
-  fuerza el guardado antes de leer disco; los fixtures con STORE hacen `_autosave_sched.
-  cancel()` en teardown (sin Timers huérfanos). Ráfaga de 20 mutaciones = 1 escritura.
+  inline — marca sucio + arma un flush ÚNICO (debounce 500 ms, techo 3 s). `_flush_body` toma
+  `to_apolo_bytes()` + `pack()` + STORE/PROJECT_ID BAJO STATE_LOCK (snapshot atómico) y escribe
+  SQLite FUERA (durabilidad V6.1 intacta: reintentos, `AUTOSAVE_ERROR` + WS — también ante
+  fallo de SERIALIZACIÓN; la caché de geometría es best-effort aparte). V6.2e Fix 1: ORDEN
+  ÚNICO DE LOCKS `_flush_lock → STATE_LOCK` (jamás al revés → sin deadlock switch↔Timer);
+  `_flush_lock` se sostiene TODO el flush (reintentos incluidos) → sin carrera de bytes viejos
+  pisando nuevos; el cambio de proyecto usa `_project_switch()` (flush del doc actual + swap
+  ATÓMICO bajo ambos locks → sin corrupción cruzada A/B). `pending()` = sucio O flush en vuelo.
+  Flush FORZOSO en shutdown/restore; `GET /api/health` → `autosave_pending`. Tests:
+  `_flush_autosave()` antes de leer disco; fixtures con STORE hacen `_autosave_sched.cancel()`
+  en teardown. Ráfaga de 20 mutaciones = 1 escritura.
 
 ### Robustez / integridad (V6.1 — «nada tumba el documento»)
 - **`Document.check_integrity() → list[str]`** (READ-ONLY puro, no muta ni cachés):
@@ -635,6 +649,14 @@ tests + E2E real; un ítem por vez con plan formal.
 - **Ingeniería/negocio**: `funcion`/rol por pieza, manual reordenado por grafo de soporte, explosionada 3D, L10 con reparto real.
 - **UI**: refactor de `Viewport.tsx` (picking/medición/sección/gizmo a módulos), picker 2 sólidos para `add_joinery`, editar sweep/loft/chapa/mate desde Propiedades.
 - **Perf**: absorbido por V6.2 (medir contra `docs/perf_baseline.json`).
+- **V6.2e (follow-ups anotados de la revisión)**: `applyAppearance` × tinte de bloqueo — si
+  una malla tintada (guardado fallido) recibe un cambio de apariencia externo, invalidar la
+  entrada del mapa de tinte antes de reemplazar el material (hoy: material stale al
+  desbloquear; caso estrecho); GIF de física — el bucle de compose matplotlib sigue bajo
+  STATE_LOCK (la sim ya salió); `RenderSnapshot` guarda `Vector` de build123d (convertir a
+  `np.ndarray` por pureza/perf); `duplicate_project` corre sin `STATE_LOCK` (pre-existente);
+  wrapper `render_scene_vtk` toma RENDER_LOCK sosteniendo STATE_LOCK (footgun sin call sites,
+  solo tests); snap-back del preview optimista cuando el guardado falla.
 
 ## Fuera de alcance deliberado
 

@@ -2792,3 +2792,48 @@ save_revision y restore. `GET /api/health` → `autosave_pending`. Tests V6.1 ad
 
 **Cierre**: 971 tests (+11 tortura). Madurez rendimiento 4→6. El detalle por línea vive en
 CLAUDE.md § Rendimiento (V6.2).
+
+---
+
+## V6.2e — Correcciones de la revisión adversarial de V6.2 (2026-07-09)
+
+Una revisión adversarial de los 4 commits de V6.2 encontró 2 ALTOS + 5 MEDIOS. Cerrados
+antes de sellar V6.2.
+
+**Fix 1 (ALTA) — Flush del autosave atómico.** `_do_flush` capturaba `STORE/PROJECT_ID`
+FUERA del `STATE_LOCK` que serializa `DOC` → interleaving: el Timer de A lee `project_id=A`,
+se preempta, el usuario abre B (swap de DOC/PROJECT_ID), el Timer reanuda y hace
+`save_raw(A, bytes_de_B)` → corrupción cruzada SILENCIOSA. Fix: (a) capturar STORE/PROJECT_ID
+DENTRO del mismo `STATE_LOCK` del snapshot (`_flush_body`); (b) `_flush_lock` sostenido TODO
+el flush (reintentos incluidos) → sin carrera de bytes viejos pisando nuevos; (c) el cambio
+de proyecto usa `_project_switch()` — flush del doc actual + swap ATÓMICO bajo
+`_flush_lock`+`STATE_LOCK`, ORDEN ÚNICO GLOBAL `_flush_lock → STATE_LOCK` (jamás al revés →
+sin deadlock switch↔Timer); (d) fallo de SERIALIZACIÓN también enciende `AUTOSAVE_ERROR`+WS
+(antes moría en el excepthook del Timer con dirty limpio); (e) `pending()` = sucio O flush en
+vuelo. Tests: corrupción cruzada (nombre por-save), fallo de serialización, no-deadlock con
+Events + timeouts.
+
+**Fix 2 (ALTA) — Epoch de proceso para los revs.** `_GEOM_REVS` vive en el proceso pero el
+navegador lo sobrevive; tras un restart del API los revs renacen en 1 y COLISIONAN con los
+del cliente → el delta respondería `same:true` con geometría VIEJA para siempre. Fix:
+`SCENE_EPOCH = uuid4` por proceso en el payload; el cliente lo devuelve en el delta y, si no
+coincide, el server manda el payload COMPLETO; `connectWs` fuerza refresh completo en cada
+reconexión (`onopen` tras `onclose`).
+
+**Fix 3 (MEDIA) — Equivalencia warm≠frío con mates.** `pack` empacaba el estado
+POST-finalización (`solve_mates` aplicados), pero la cola del regenerate ejecuta PRE-mates →
+un `center_in`/`near` en la cola (o tras el open) veía geometría desplazada. Fix: `pack`
+empaca el checkpoint ORGÁNICO del último comando (`_regen_ckpts[len-1]`, capturado dentro del
+bucle, pre-finalización). **Fix 4**: `pack` → None si `regen_suppressed` (doc tolerante no se
+cachea). **Fix 5**: `from_apolo_bytes` envuelve el regenerate SEMBRADO en try/except → si
+LANZA (no solo si viola integridad) descarta y replay frío (cubre `duplicate`). **Fix 6**:
+`ProjectStore.load` PUEBLA la caché en el open frío (~40 ms) — un proyecto que solo se abre
+nunca la poblaría vía el flush post-mutación. **Fix 7**: `is_guide` va en la entrada `same`
+del delta (toggle de guía es metadato) + en `mergeSceneDelta`.
+
+**Bajas**: `load_geom_cache` en try/except (una página corrupta no tumba el open sano);
+`mergeSceneDelta` descarta una entrada `same` sin prev; comentario de footgun en el wrapper
+`render_scene_vtk`. Follow-ups anotados en CLAUDE.md § Pendientes (applyAppearance×tinte, GIF
+compose fuera del lock, RenderSnapshot Vector→ndarray, etc.).
+
+**Cierre**: baseline sin cambios de números (verificado). Suite + tortura verdes. V6.2 SELLADO.
