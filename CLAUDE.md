@@ -615,17 +615,40 @@ mapa/convenciones + actualizar los conteos de "Estado actual". La NARRATIVA larg
 amerita, se appendea a `docs/devlog.md`. No duplicar: si una lección ya existe, afinarla
 en su sitio. Este archivo se carga en CADA sesión — cada línea cuesta contexto.
 
-## Madurez — línea base (act. 2026-07-04, escala vs incumbente maduro = 10)
-Cuando el usuario pregunte cómo madura Apolo, comparar contra esto. Veredicto: como CAD
-GENERAL ~10-15 % de SW/Inventor (kernel nivel FreeCAD — una CUÑA, no un reemplazo); como
-herramienta del VERTICAL cubre ~80 % del flujo (requisitos→3D validado→planos→memoria→
-cotización, autónomo — categoría que los grandes no ocupan). Ejes: IA-nativa/API-first **9.5**
-(el moat) · kernel OCCT 6.5 · paramétrico 5 · croquis 5 (PlaneGCS; falta arrastre en vivo) ·
-ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF; soundness/
-gravity sigue siendo único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+FEA lineal; falta
-contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) · robustez 6 (V6.1) ·
-CAM 0 (deliberado) · colaboración/ecosistema 1. Medir progreso por PROFUNDIDAD del vertical,
-no por paridad de features.
+## Objetivo final — doctrina de RESULTADOS (usuario, 2026-07-10)
+
+Apolo **NO persigue paridad de herramientas** con SolidWorks/Inventor: esas son
+herramientas PARA HUMANOS (manipulación manual) y ese costo nos lo ahorramos. El objetivo
+final es que el **ingeniero digital (agente IA) entregue RESULTADOS iguales o MEJORES que
+lo que un despacho competente TERMINA en SW/Inventor**: 3D validado + juego de planos de
+taller + memoria de cálculo + BOM/cotización + manual. La vara es el ENTREGABLE terminado
+(calidad Y tiempo), no la lista de features. Corolarios:
+- Una función solo importa si mejora un entregable final; las que existen para trabajo
+  manual humano NO se portan.
+- La madurez se mide con **benchmarks de entregables** (misma máquina: paquete Apolo vs
+  paquete terminado a mano en SW/Inventor), no solo por ejes de features.
+- Donde el incumbente no entrega nada INTEGRADO (memoria de cálculo con normas,
+  cotización, validación de sujeción/gravedad) Apolo ya supera; donde el humano pule a
+  mano (el último kilómetro del plano: soldadura ISO 2553, tolerancias generales ISO
+  2768, acabados, criterio de acotado) Apolo debe cerrar la brecha con CRITERIO
+  automático — es exactamente donde un agente con guidelines brilla.
+
+## Madurez — línea base (act. 2026-07-10, escala vs incumbente maduro = 10)
+Cuando el usuario pregunte cómo madura Apolo, comparar contra esto Y contra la doctrina
+de RESULTADOS de arriba. Veredicto por FEATURES: como CAD GENERAL ~10-15 % de SW/Inventor
+(kernel nivel FreeCAD — una CUÑA, no un reemplazo); como herramienta del VERTICAL cubre
+~80 % del flujo autónomo — categoría que los grandes no ocupan. Ejes: IA-nativa/API-first
+**9.5** (el moat) · kernel OCCT 6.5 · paramétrico 5 · croquis 5 (PlaneGCS; falta arrastre
+en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
+soundness/gravity sigue siendo único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+FEA
+lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
+robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
+Veredicto por RESULTADOS (vs paquete TERMINADO a mano, para el vertical): memoria de
+cálculo/cotización/validación de ensamblaje = **ya supera** (el incumbente no lo integra;
+el humano lo hace en Excel) · 3D validado = iguala en calidad, supera ~100× en tiempo ·
+manual de ensamblaje = comparable · **planos de taller ~65 %** (falta el último
+kilómetro: ISO 2553/2768, acabados, stack-up de cadenas de cotas, criterio de acotado) ·
+**FEA firmable ~45 %** (falta ensamblaje/contacto) · render comercial ~50 % (por demanda).
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -655,6 +678,23 @@ verdes**. Un ítem por vez, con plan formal.
   diseño. 5→6.5.
 - **V6.5 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
 - **V6.6 FEA de ensamblaje (bonded)**. 4.5→5.5.
+
+## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
+
+Ejecuta la doctrina de RESULTADOS: cerrar los entregables donde el paquete Apolo aún
+pierde contra el terminado a mano en SW/Inventor. Definir cada ítem con plan formal al
+cerrar V6; orden tentativo por impacto en el entregable:
+- **V7.1 Benchmark testigo**: misma máquina (faja 38 o clasificadora) — paquete Apolo
+  completo vs paquete de referencia estilo despacho; rúbrica por entregable, brechas
+  accionables. La rúbrica se vuelve el test de regresión de CALIDAD del producto.
+- **V7.2 Último kilómetro del plano**: símbolos de soldadura ISO 2553 (los weldments ya
+  saben garganta/longitud), tolerancias generales ISO 2768 en cajetín, acabados
+  superficiales, notas de proceso, criterio de acotado por FUNCIÓN (datum = cara de
+  montaje) — planos 6.5→8 SIN retoque humano.
+- **V7.3 Stack-up de cadenas de cotas** (análogo a TolAnalyst pero automático): el
+  agente verifica que la suma de tolerancias de la cadena cierra el ajuste declarado.
+- **V7.4 FEA firmable** (absorbe V6.6 si no se hizo): ensamblaje bonded + reporte
+  integrado a la memoria.
 
 ## Hoja de ruta V5 — AGOTADA (completitud de flujo del vertical)
 Doctrina (usuario): el ingeniero del vertical **nunca necesita SW/Inventor** — completitud de
