@@ -47,6 +47,12 @@ def _assert_scene_equal(a: Document, b: Document) -> None:
         for axis in ("min", "max"):
             for c in ("X", "Y", "Z"):
                 assert abs(getattr(getattr(ab, axis), c) - getattr(getattr(bb, axis), c)) < 1e-6
+    # conectividad resuelta idéntica (mates desplazan geometría → ya cubierto por bbox arriba;
+    # esto verifica que las DECLARACIONES también coinciden — V6.2e Fix 3)
+    assert set(a.joints) == set(b.joints)
+    assert set(a.mates) == set(b.mates)
+    assert set(a.fasteners) == set(b.fasteners)
+    assert set(a.grounds) == set(b.grounds)
 
 
 # =========================================================== pack / unpack básicos
@@ -243,6 +249,105 @@ def test_store_warm_roundtrip(tmp_path):
 
     store.delete(pid)  # cascada: borra también la caché
     assert store.geom_cache_sig(pid) is None
+
+
+# ============================================ V6.2e Fixes 3–6
+
+
+def test_warm_open_with_mates_positions_match_cold():
+    """Fix 3: pack empaca el checkpoint ORGÁNICO (pre-finalización). Un mate desplaza B; la
+    cola (un center_in que LEE la posición de B en tiempo de ejecución) debe correr contra la
+    geometría PRE-mates, igual que el replay frío. Con el estado POST-mates, C se centraría en
+    el sitio equivocado (sobre A, no sobre la posición original de B)."""
+    doc = Document("mate")
+    a = doc.execute("create_box", {"name": "A", "width": 100, "depth": 100, "height": 40})
+    b = doc.execute("create_box", {"name": "B", "width": 40, "depth": 40, "height": 40,
+                                   "position": {"x": 500, "y": 300, "z": 200}})
+    doc.execute("add_mate", {
+        "name": "m1", "type": "coincidente", "feature_a": a, "feature_b": b,
+        "ref_a": {"mode": "cara", "face": "tope"}, "ref_b": {"mode": "cara", "face": "base"},
+    })
+    warm = unpack(pack(doc))  # caché en el PREFIJO [A, B, mate] — B declarado en x=500
+    assert warm is not None
+    # cola: C centrado en X sobre B (center_in lee la posición de B al ejecutar = PRE-mates)
+    c = doc.execute("create_box", {"name": "C", "width": 20, "depth": 20, "height": 20,
+                                   "position": {"x": -999}})
+    doc.execute("center_in", {"feature": c, "into": b, "axes": ["x"]})
+    apolo = doc.to_apolo_bytes()
+
+    hot = Document.from_apolo_bytes(apolo, warm=warm)
+    _assert_scene_equal(hot, Document.from_apolo_bytes(apolo))
+    cbb = hot.scene[c].shape.bounding_box()
+    assert abs((cbb.min.X + cbb.max.X) / 2 - 500) < 1.0  # sobre la posición PRE-mates de B (~500)
+
+
+def test_pack_none_if_suppressed():
+    """Fix 4: un doc con comandos SUPRIMIDOS (carga tolerante) NO se cachea (el warm reportaría
+    suppressed=[] enmascarando el chip y podría servir una escena sin la pieza)."""
+    doc, _ = _model(4)
+    doc.regen_suppressed = [{"command_id": "c1", "type": "create_box", "error": "boom"}]
+    assert pack(doc) is None
+
+
+def test_warm_seeded_regenerate_raise_falls_back_cold():
+    """Fix 5: si el regenerate con la caché SEMBRADA lanza (excepción arbitraria en la cola),
+    from_apolo_bytes descarta la caché y replaya en FRÍO, sin propagar la excepción."""
+    import apolo.commands.registry as reg
+    import apolo.doc.document as docmod  # noqa: F401  (execute_command es de aquí)
+
+    doc, _ = _model(6)
+    warm = unpack(pack(doc))
+    doc.execute("create_box", {"name": "tail", "width": 33, "position": {"x": 9000}})
+    apolo = doc.to_apolo_bytes()
+
+    spec = reg.REGISTRY["create_box"]
+    orig = spec.executor
+    calls = {"n": 0}
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:  # la 1ª llamada (replay de la cola sembrada) revienta
+            raise reg.CommandError("flaky boom (inyectado)")
+        return orig(*a, **k)
+
+    spec.executor = flaky
+    try:
+        hot = Document.from_apolo_bytes(apolo, warm=warm)  # no debe lanzar → fallback frío
+    finally:
+        spec.executor = orig
+    _assert_scene_equal(hot, Document.from_apolo_bytes(apolo))
+    assert hot.check_integrity() == []
+
+
+def test_cold_open_populates_cache(tmp_path):
+    """Fix 6: un proyecto que solo se ABRE puebla la caché en el primer open (frío) → el
+    segundo open es CALIENTE sin mutaciones de por medio."""
+    import apolo.doc.document as docmod
+
+    from apolo.projects import ProjectStore
+
+    store = ProjectStore(str(tmp_path / "f.db"))
+    doc, _ = _model(6)
+    pid = store.create(doc)
+    assert store.geom_cache_sig(pid) is None  # create no puebla la caché
+
+    d1 = store.load(pid)  # 1er open FRÍO → Fix 6 puebla
+    assert store.geom_cache_sig(pid) == d1._regen_sigs[-1]
+
+    calls = {"n": 0}
+    orig = docmod.execute_command
+
+    def spy(*a, **k):
+        calls["n"] += 1
+        return orig(*a, **k)
+
+    docmod.execute_command = spy
+    try:
+        d2 = store.load(pid)  # 2º open: CALIENTE (0 replays)
+    finally:
+        docmod.execute_command = orig
+    assert calls["n"] == 0
+    assert d2.check_integrity() == []
 
 
 def test_kill_switch_skips_warm(tmp_path, monkeypatch):

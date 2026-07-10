@@ -106,17 +106,38 @@ class ProjectStore:
         rotos en vez de negar la apertura (schema drift) — ver Document.regenerate.
         Open CALIENTE (V6.2a): si hay caché de geometría al día, se pasa como ``warm=`` a
         ``from_apolo_bytes`` para reanudar del checkpoint en vez de replayar (kill-switch
-        ``APOLO_GEOM_CACHE=0``). La caché nunca es autoritativa: el .apolo lo es."""
+        ``APOLO_GEOM_CACHE=0``). La caché nunca es autoritativa: el .apolo lo es.
+        V6.2e Fix 6: si NO hubo warm-hit útil o la caché estaba de una firma vieja, se PUEBLA
+        aquí (pack+save, ~40 ms) — un proyecto que solo se ABRE jamás la poblaría vía el flush
+        post-mutación y abriría frío para siempre (agravado por bumps de epoch del formato)."""
+        cache_on = os.environ.get("APOLO_GEOM_CACHE") != "0"
         warm = None
-        if os.environ.get("APOLO_GEOM_CACHE") != "0":
-            row = self.load_geom_cache(project_id)
+        cached_sig = None
+        if cache_on:
+            try:  # V6.2e: una página corrupta de geom_cache no debe tumbar el open del .apolo sano
+                row = self.load_geom_cache(project_id)
+            except Exception:
+                row = None
             if row is not None:
                 from apolo.doc.geomcache import unpack
 
+                cached_sig = row[0]
                 warm = unpack(row[1])
-        return Document.from_apolo_bytes(
+        doc = Document.from_apolo_bytes(
             self.load_bytes(project_id), tolerant=tolerant, warm=warm
         )
+        if cache_on:
+            sig = doc._regen_sigs[-1] if doc._regen_sigs else None
+            if sig is not None and (warm is None or cached_sig != sig):
+                try:
+                    from apolo.doc.geomcache import pack
+
+                    blob = pack(doc)
+                    if blob is not None:
+                        self.save_geom_cache(project_id, sig, blob)
+                except Exception:  # best-effort: perder la caché solo cuesta un replay
+                    pass
+        return doc
 
     # -------------------------------------------------------- caché de geometría
     def save_geom_cache(self, project_id: int, sig: str, blob: bytes) -> None:

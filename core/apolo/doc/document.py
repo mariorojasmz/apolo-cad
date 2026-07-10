@@ -929,14 +929,25 @@ class Document:
         if regenerate:
             if warm is not None:
                 doc._try_warm(warm)  # siembra la caché de regen si la firma es prefijo
-            doc.regenerate(tolerant=tolerant)
-            if warm is not None:
-                # cinturón y tirantes: una caché válida no debe dejar violaciones (más allá
-                # de 'degradado', que el fallback de render cubre). Si las hay → replay frío.
-                if any(not i.startswith("degradado") for i in doc.check_integrity()):
+                # cinturón y tirantes: el regenerate SEMBRADO no debe (a) LANZAR ni (b) dejar
+                # violaciones no-degradadas. En cualquiera de los dos → descartar la caché y
+                # replay FRÍO. (a) cubre una excepción arbitraria de OCCT en la cola / un
+                # DocumentError de resolve_all / un ckpt corrupto (V6.2e Fix 5); (b) lo de V6.2a.
+                cold_needed = False
+                try:
+                    doc.regenerate(tolerant=tolerant)
+                except Exception:  # noqa: BLE001 — el regenerate con la caché sembrada reventó
+                    cold_needed = True
+                else:
+                    cold_needed = any(
+                        not i.startswith("degradado") for i in doc.check_integrity()
+                    )
+                if cold_needed:
                     doc._regen_sigs = []
                     doc._regen_ckpts = {}
-                    doc.regenerate(tolerant=tolerant)
+                    doc.regenerate(tolerant=tolerant)  # frío: si ESTE lanza, el doc sí está roto
+            else:
+                doc.regenerate(tolerant=tolerant)
         return doc
 
     @classmethod

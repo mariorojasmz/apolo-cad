@@ -104,23 +104,30 @@ def _wrap_topods(topods):
 
 
 def pack(doc) -> bytes | None:
-    """Serializa el estado regenerado del doc (8-tupla final + definiciones canónicas
-    usadas por la escena) con su firma. Los shapes van como bytes de BinTools (crudos), NO
-    picklando el wrapper. NO incluye el log (vive en el ``.apolo``). Devuelve None ante
-    CUALQUIER fallo. No muta el documento (el estado se aísla con _copy_state; se picklea
-    una COPIA de los Features con ``shape=None``)."""
+    """Serializa el estado regenerado del doc (8-tupla + definiciones canónicas usadas por la
+    escena) con su firma. Los shapes van como bytes de BinTools (crudos), NO picklando el
+    wrapper. NO incluye el log (vive en el ``.apolo``). Devuelve None ante CUALQUIER fallo. No
+    muta el documento (se picklea una COPIA de los Features con ``shape=None``).
+
+    V6.2e: empaca el checkpoint ORGÁNICO del ÚLTIMO comando (``_regen_ckpts[len-1]``, capturado
+    DENTRO del bucle de regenerate, ANTES de la finalización: solve_mates/assign_groups), NO el
+    estado post-finalización. Sembrar un ckpt post-mates desplazaría la geometría base → la cola
+    (caso prefijo o un comando nuevo tras el open) ejecutaría contra shapes ya movidos por los
+    mates y los selectores sensibles a posición (near/cara/center_in) diferirían del replay frío.
+    Fix 4: un doc con comandos SUPRIMIDOS (carga tolerante) NO se cachea (el warm posterior
+    reportaría suppressed=[] enmascarando el chip y podría servir una escena sin la pieza)."""
     try:
         from apolo.commands.registry import DEFINITIONS
         from apolo.doc.document import _copy_state
 
         if not doc._regen_sigs:
             return None  # documento vacío: nada que cachear
-        state = _copy_state(
-            (
-                doc.scene, doc.variables_raw, doc.joints, doc.mates, doc.constraints,
-                doc.fasteners, doc.grounds, doc.groups,
-            )
-        )
+        if getattr(doc, "regen_suppressed", None):
+            return None  # Fix 4: doc tolerante con comandos rotos → jamás cachear
+        ckpt = doc._regen_ckpts.get(len(doc.commands) - 1)  # Fix 3: ckpt ORGÁNICO (pre-mates)
+        if ckpt is None:
+            return None  # sin ckpt del último comando (ckpts purgados) → replay frío
+        state = _copy_state(ckpt)  # aísla ANTES de vaciar shapes (no corromper el ckpt del doc)
         scene = state[0]  # dict fid -> Feature (COPIAS: shape compartido, seguro de vaciar)
         scene_shapes: dict[str, bytes] = {}
         for fid, feat in scene.items():
@@ -129,7 +136,7 @@ def pack(doc) -> bytes | None:
                 return None
             scene_shapes[fid] = blob
             feat.shape = None  # el Feature se picklea SIN el wrapper frágil
-        keys = {f.mesh_key for f in doc.scene.values() if f.mesh_key is not None}
+        keys = {f.mesh_key for f in scene.values() if f.mesh_key is not None}
         definitions: dict[str, bytes] = {}
         for k in keys:
             if k in DEFINITIONS:

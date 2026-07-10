@@ -524,7 +524,11 @@ def render_snapshot_vtk(snap: RenderSnapshot) -> bytes:
 def render_scene_vtk(scene: dict, view: str = "iso", **kwargs) -> bytes:
     """Wrapper de conveniencia (extract + render en una sola llamada). La API usa las dos
     mitades por separado para el patrón dos-locks (extract bajo STATE_LOCK, render bajo
-    RENDER_LOCK). Aquí toma RENDER_LOCK; el caller debe sostener STATE_LOCK (OCCT)."""
+    RENDER_LOCK). Aquí toma RENDER_LOCK; el caller debe sostener STATE_LOCK (OCCT).
+    OJO: toma RENDER_LOCK SOSTENIENDO STATE_LOCK (orden STATE_LOCK→RENDER_LOCK, opuesto al
+    dos-locks) → footgun si algo tomara STATE_LOCK bajo RENDER_LOCK; hoy no hay call sites de
+    producción (solo tests/compat), por eso es seguro. Producción usa extract+render por
+    separado."""
     snap = extract_render_scene(scene, view, **kwargs)
     with RENDER_LOCK:
         return render_snapshot_vtk(snap)
