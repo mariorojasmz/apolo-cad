@@ -65,6 +65,28 @@ def build_component(ref: str, length: float | None = None):
     return comp.builder(None), None
 
 
+# Anclas de conexión LOCALES (coords en el frame propio del builder, antes de colocar) por
+# FAMILIA de catálogo (V6.3b). El executor `insert_component` las transforma a mundo con la
+# pose. Las 3 familias listadas en el plan; el patrón queda, el catálogo crece por demanda.
+#  - chumaceras UCP/UCF/UCFL (pillow_block/flange_bearing): eje del rodamiento a lo largo de Y
+#    local, origen en el centro del barreno → "centro".
+#  - motorreductores sinfín NMRV (worm_gearmotor): eje hueco de salida a lo largo de Y local,
+#    origen en el centro → "bore".
+_CATEGORY_ANCHORS: dict[str, dict] = {
+    "chumaceras": {"centro": {"origin": [0.0, 0.0, 0.0], "axis": [0.0, 1.0, 0.0]}},
+    "motorreductores_sinfin": {"bore": {"origin": [0.0, 0.0, 0.0], "axis": [0.0, 1.0, 0.0]}},
+}
+
+
+def component_anchors(comp: "Component") -> dict | None:
+    """Anclas LOCALES (frame del builder) del componente, o None si su familia no publica.
+    Devuelve una COPIA fresca (el executor la transforma a mundo y la asigna a la Feature)."""
+    tmpl = _CATEGORY_ANCHORS.get(comp.category)
+    if tmpl is None:
+        return None
+    return {n: {"origin": list(a["origin"]), "axis": list(a["axis"])} for n, a in tmpl.items()}
+
+
 def refs_in_category(category: str) -> list[str]:
     """Referencias de una categoría, en orden de definición del catálogo."""
     return [ref for ref, c in CATALOG.items() if c.category == category]

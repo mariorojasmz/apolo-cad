@@ -163,3 +163,24 @@ def direction_to_euler(direction) -> tuple[float, float, float]:
 def to_column_major16(m: Mat) -> list[float]:
     """Para three.js Matrix4.fromArray (orden por columnas)."""
     return [round(m[row][col], 6) for col in range(4) for row in range(4)]
+
+
+def transform_anchors(m: Mat, anchors: dict | None) -> dict | None:
+    """Nuevo dict de anclas (V6.3b) con origin/axis transformados por la rígida `m` (origin =
+    punto: R·o+t; axis = dirección: R·a). REEMPLAZA — no muta el dict de entrada (los
+    checkpoints del regenerate comparten la referencia por el shallow copy de Feature)."""
+    if not anchors:
+        return anchors
+
+    def _pt(p):
+        x, y, z = float(p[0]), float(p[1]), float(p[2])
+        return [m[i][0] * x + m[i][1] * y + m[i][2] * z + m[i][3] for i in range(3)]
+
+    def _dir(v):
+        x, y, z = float(v[0]), float(v[1]), float(v[2])
+        return [m[i][0] * x + m[i][1] * y + m[i][2] * z for i in range(3)]
+
+    return {
+        name: {"origin": _pt(a["origin"]), "axis": _dir(a["axis"])}
+        for name, a in anchors.items()
+    }

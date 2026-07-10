@@ -975,7 +975,8 @@ def set_sketch_guide(feature_id: str, body: SketchGuideIn) -> dict:
 @app.get("/api/features/{feature_id}/topology")
 def get_feature_topology(feature_id: str) -> dict:
     """Caras y aristas de un sólido con su geometría (tipo, centro, normal/eje,
-    longitud, radio) para elegir el SELECTOR declarativo. Read-only."""
+    longitud, radio) para elegir el SELECTOR declarativo. Incluye las ANCLAS de conexión
+    con nombre (V6.3b) para matear por `{"mode":"ancla","name":...}`. Read-only."""
     from apolo.kernel.topology import feature_topology
 
     with STATE_LOCK:
@@ -983,7 +984,8 @@ def get_feature_topology(feature_id: str) -> dict:
         if feat is None:
             raise HTTPException(status_code=404, detail=f"No existe el sólido '{feature_id}'")
         topo = feature_topology(feat.shape)
-    return {"feature_id": feature_id, "name": feat.name, **topo}
+        anchors = feat.anchors or {}
+    return {"feature_id": feature_id, "name": feat.name, "anchors": anchors, **topo}
 
 
 @app.get("/api/groups")

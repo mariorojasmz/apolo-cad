@@ -104,11 +104,56 @@ def _project_on_axis(point, p0, axis):
     return (p0[0] + axis[0] * t, p0[1] + axis[1] * t, p0[2] + axis[2] * t)
 
 
-def connector_of(shape, ref: dict):
-    """Devuelve (origen, eje) del conector resuelto sobre `shape`. Cara plana →
-    centro + normal; cara cilíndrica → punto SOBRE EL EJE + eje de revolución."""
+def _circular_edge_frame(shape, ref: dict):
+    """(centro, eje) de una ARISTA CIRCULAR (borde de un barreno/tapa) vía BRepAdaptor_Curve
+    → gp_Circ. Arista no circular → MateError claro."""
+    from apolo.kernel.selectors import resolve_edges
+
     try:
-        faces = resolve_faces(shape, ref or {"mode": "todas"})
+        edges = resolve_edges(shape, ref)
+    except SelectorError as exc:
+        raise MateError(f"Referencia de arista inválida: {exc}") from exc
+    try:
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        from OCP.GeomAbs import GeomAbs_Circle
+
+        curve = BRepAdaptor_Curve(edges[0].wrapped)
+        if curve.GetType() != GeomAbs_Circle:
+            raise MateError("La arista del mate debe ser CIRCULAR (borde de un barreno/tapa)")
+        circ = curve.Circle()
+        loc, d = circ.Location(), circ.Axis().Direction()
+        return (loc.X(), loc.Y(), loc.Z()), _normalize((d.X(), d.Y(), d.Z()))
+    except MateError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise MateError("No se pudo extraer el círculo de la arista del mate") from exc
+
+
+def connector_of(feat, ref: dict):
+    """Devuelve (origen, eje) del conector resuelto. `feat` es una Feature (o, por compat, un
+    shape pelado — sin anclas entonces). Modos:
+    - ancla: {"mode":"ancla","name":...} → frame publicado en `feat.anchors` (coords mundo).
+    - arista: {"entidad":"arista", ...selector...} → arista CIRCULAR → (centro, eje del círculo).
+    - cara (default): plana → centro + normal; cilíndrica → punto SOBRE EL EJE + eje."""
+    ref = ref or {"mode": "todas"}
+    shape = getattr(feat, "shape", feat)
+    if ref.get("mode") == "ancla" or ref.get("entidad") == "ancla":
+        anchors = getattr(feat, "anchors", None) or {}
+        name = ref.get("name")
+        a = anchors.get(name)
+        if a is None:
+            disponibles = ", ".join(sorted(anchors)) or "ninguna"
+            raise MateError(
+                f"El sólido no publica un ancla '{name}' (anclas disponibles: {disponibles})"
+            )
+        return (
+            tuple(float(v) for v in a["origin"]),
+            _normalize(tuple(float(v) for v in a["axis"])),
+        )
+    if ref.get("entidad") == "arista":
+        return _circular_edge_frame(shape, ref)
+    try:
+        faces = resolve_faces(shape, ref)
     except SelectorError as exc:
         raise MateError(f"Referencia de mate inválida: {exc}") from exc
     face = faces[0]
@@ -204,10 +249,12 @@ def _desired_current_frames(a_origin, a_axis, b_origin, b_axis, mate_type, value
 def _solve_one(scene: dict, mate: dict) -> None:
     from build123d import Pos, Rotation
 
+    from apolo.kernel.matrix import transform_anchors
+
     feat_a = scene[mate["feature_a"]]
     feat_b = scene[mate["feature_b"]]
-    a_origin, a_axis = connector_of(feat_a.shape, mate.get("ref_a"))
-    b_origin, b_axis = connector_of(feat_b.shape, mate.get("ref_b"))
+    a_origin, a_axis = connector_of(feat_a, mate.get("ref_a"))
+    b_origin, b_axis = connector_of(feat_b, mate.get("ref_b"))
 
     desired, current = _desired_current_frames(
         a_origin, a_axis, b_origin, b_axis,
@@ -220,6 +267,8 @@ def _solve_one(scene: dict, mate: dict) -> None:
     feat_b.shape = Pos(*t) * Rotation(*euler) * feat_b.shape
     if feat_b.matrix is not None:
         feat_b.matrix = multiply(delta, feat_b.matrix)
+    if feat_b.anchors:  # las anclas viajan con la pieza (REEMPLAZAR, no mutar)
+        feat_b.anchors = transform_anchors(delta, feat_b.anchors)
 
 
 # --------------------------------------------------------------- multi-mate (V6.3a)
@@ -300,8 +349,8 @@ def _solve_multi(scene: dict, child_fid: str, child_mates: list) -> None:
     c = np.array([(bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2])
     # conectores base (una sola extracción OCCT cada uno): el del padre (ya resuelto) y el de
     # B en su pose actual — rígidamente unidos, se transforman analíticamente en el bucle.
-    a_conns = [connector_of(scene[m["feature_a"]].shape, m.get("ref_a")) for m in child_mates]
-    b_conns = [connector_of(feat_b.shape, m.get("ref_b")) for m in child_mates]
+    a_conns = [connector_of(scene[m["feature_a"]], m.get("ref_a")) for m in child_mates]
+    b_conns = [connector_of(feat_b, m.get("ref_b")) for m in child_mates]
 
     def _rt(x):
         """(t, R) del vector 6-DOF. La pose de un punto p: R·(p−c)+c+t; de una dir: R·d."""
@@ -361,6 +410,9 @@ def _solve_multi(scene: dict, child_fid: str, child_mates: list) -> None:
     feat_b.shape = Pos(float(trans[0]), float(trans[1]), float(trans[2])) * Rotation(*euler) * feat_b.shape
     if feat_b.matrix is not None:
         feat_b.matrix = multiply(delta, feat_b.matrix)
+    if feat_b.anchors:  # las anclas viajan con la pieza (REEMPLAZAR, no mutar)
+        from apolo.kernel.matrix import transform_anchors
+        feat_b.anchors = transform_anchors(delta, feat_b.anchors)
 
 
 def solve_mates(scene: dict, mates: dict) -> None:

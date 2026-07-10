@@ -37,7 +37,9 @@ import pickle
 # Un bump invalida todas las cachés viejas → replay frío la primera vez. Documentar aquí:
 #  v1 (2026-07-09): formato inicial de V6.2a.
 #  v2 (2026-07-09): shapes por BinTools crudo (antes: pickle del wrapper build123d, frágil).
-GEOM_CACHE_EPOCH = 2
+#  v3 (2026-07-09): V6.3b — Feature.anchors nuevo campo; un ckpt viejo restauraría Features
+#    SIN anclas mientras el replay frío las tendría → invalidar (el open re-puebla).
+GEOM_CACHE_EPOCH = 3
 
 
 def _versions() -> dict:

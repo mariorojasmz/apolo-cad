@@ -81,6 +81,21 @@ def test_basic_emission_prefixed(donor):
     assert host.scene[f"{cid}_{ids['torre']}"].material == "aluminio"
 
 
+def test_anchors_transformed_to_host_world():
+    """V6.3b: las anclas del origen (chumacera→'centro') llegan al anfitrión TRANSFORMADAS a
+    su mundo por la pose de la instancia, no stale en coordenadas del origen."""
+    donor = Document("donante-chumacera")
+    ch = donor.execute("insert_component", {"component": "UCP205", "position": {"x": 10, "y": 0, "z": 0}})
+    host = Document("layout")
+    digest = host.add_attachment(donor.to_apolo_bytes())
+    cid = host.execute("insert_project", {"attachment": digest, "name": "M1",
+                                          "position": {"x": 100, "y": 200, "z": 0}})
+    feat = host.scene[f"{cid}_{ch}"]
+    # el origen local (10,0,0) desplazado por la instancia (100,200,0) → (110,200,0)
+    assert feat.anchors["centro"]["origin"] == pytest.approx([110, 200, 0])
+    assert feat.anchors["centro"]["axis"] == pytest.approx([0, 1, 0])
+
+
 def test_root_and_internal_groups(donor):
     data, ids = donor
     host, _, cid = _host_with(data)

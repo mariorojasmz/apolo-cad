@@ -101,6 +101,12 @@ class Feature:
     material: str | None = None  # override explícito de material (set_material)
     group: str | None = None  # DERIVADO: sub-ensamblaje al que pertenece (por command_id)
     is_guide: bool = False  # DERIVADO: boceto-guía (blockout) — fuera de BOM/masa/interferencia/FEA
+    # Anclas de conexión con nombre (V6.3b): {name: {"origin":[x,y,z], "axis":[x,y,z]}} en
+    # coords MUNDO. Las publican los executors al colocar el componente (chumacera→"centro",
+    # NMRV→"bore", faja→"eje_motriz"/"eje_cola"); TODO camino que mueva el shape después
+    # (mates, transform_group, insert_project) las transforma. REEMPLAZAR el dict, jamás
+    # mutarlo in-place (los checkpoints comparten la referencia por el shallow copy).
+    anchors: dict | None = None
 
     def make_unique(self) -> None:
         """La geometría dejó de ser la canónica (fillet, taladro…)."""
@@ -978,11 +984,15 @@ def _exec_transform_group(
     if any(rotate):
         w = multiply(w, rotation_about_center(center, rotate))
 
+    from apolo.kernel.matrix import transform_anchors
+
     for fid in fids:
         feat = scene[fid]
         if feat.matrix is not None:
             feat.matrix = multiply(w, feat.matrix)
         feat.shape = move_rotated_about(feat.shape, translate, rotate, center)
+        if feat.anchors:  # las anclas viajan con el grupo (REEMPLAZAR, no mutar)
+            feat.anchors = transform_anchors(w, feat.anchors)
     # juntas internas: el marco viaja con el grupo (origin punto, axis dirección)
     for j in joints.values():
         if j["parent"] in fids and j["child"] in fids:
@@ -1110,6 +1120,9 @@ def _exec_insert_project(
             register_definition(key, feat.shape)
             nf.mesh_key, nf.matrix = key, inst
         nf.group = None  # derivado: se reasigna al final del regenerate
+        if feat.anchors:  # anclas del origen → mundo del anfitrión (REEMPLAZAR: nf es shallow copy)
+            from apolo.kernel.matrix import transform_anchors
+            nf.anchors = transform_anchors(inst, feat.anchors)
         scene[nf.id] = nf
 
     # juntas internas: prefijadas y transformadas (origin punto, axis dirección)
@@ -1313,7 +1326,7 @@ def _exec_run_script(scene: Scene, cmd_id: str, p: RunScriptParams, resolved_var
 
 
 def _exec_insert_component(scene: Scene, cmd_id: str, p: InsertComponentParams) -> None:
-    from apolo.library.catalog import CATALOG, build_component
+    from apolo.library.catalog import CATALOG, build_component, component_anchors
 
     comp = CATALOG[p.component]
     try:
@@ -1325,6 +1338,12 @@ def _exec_insert_component(scene: Scene, cmd_id: str, p: InsertComponentParams) 
         scene, cmd_id, p.name or comp.name, base, key,
         p.position.tuple(), p.rotation.tuple(), component=p.component, cut_length=cut,
     )
+    # anclas de conexión con nombre (V6.3b): frame LOCAL del builder → mundo por la pose
+    local = component_anchors(comp)
+    feat = scene[cmd_id]
+    if local and feat.matrix is not None:
+        from apolo.kernel.matrix import transform_anchors
+        feat.anchors = transform_anchors(feat.matrix, local)
 
 
 _ANCHOR_FNS = {
@@ -1367,6 +1386,19 @@ def _exec_attach(scene: Scene, cmd_id: str, p: AttachParams) -> None:
     _world_move(feat, delta, (0, 0, 0))
 
 
+def _publish_axis_anchor(scene: Scene, fid: str, name: str) -> None:
+    """Publica un ancla de EJE (V6.3b) en la Feature `fid` — un rodillo/tambor es un cilindro
+    con eje Z en su frame propio (canónico); su `matrix` mapea ese frame a mundo. No-op si el
+    fid no existe o no es instancia (sin matrix). REEMPLAZA el dict de anclas (checkpoint-safe)."""
+    feat = scene.get(fid)
+    if feat is None or feat.matrix is None:
+        return
+    from apolo.kernel.matrix import transform_anchors
+
+    world = transform_anchors(feat.matrix, {name: {"origin": [0.0, 0.0, 0.0], "axis": [0.0, 0.0, 1.0]}})
+    feat.anchors = {**(feat.anchors or {}), **world}
+
+
 def _exec_create_conveyor(scene: Scene, cmd_id: str, p: CreateConveyorParams) -> None:
     from apolo.kernel.matrix import compose_place, multiply
     from apolo.library.conveyor import conveyor_parts
@@ -1379,6 +1411,7 @@ def _exec_create_conveyor(scene: Scene, cmd_id: str, p: CreateConveyorParams) ->
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Transportador: {exc}") from exc
     cmd_matrix = compose_place(p.position.tuple(), p.rotation.tuple())
+    roller_idx: list[int] = []
     for part in parts:
         shape = place(part.shape, p.position.tuple(), p.rotation.tuple())
         fid = f"{cmd_id}_{part.suffix}"
@@ -1391,6 +1424,12 @@ def _exec_create_conveyor(scene: Scene, cmd_id: str, p: CreateConveyorParams) ->
             component=part.component, cut_length=part.cut_length,
             mesh_key=part.base_key if matrix is not None else None, matrix=matrix,
         )
+        if part.suffix.startswith("rod") and part.suffix[3:].isdigit():
+            roller_idx.append(int(part.suffix[3:]))
+    # eje de cola (rodillo de entrada, -X) y motriz (rodillo de descarga, +X)
+    if roller_idx:
+        _publish_axis_anchor(scene, f"{cmd_id}_rod{min(roller_idx)}", "eje_cola")
+        _publish_axis_anchor(scene, f"{cmd_id}_rod{max(roller_idx)}", "eje_motriz")
 
 
 def _exec_create_belt_conveyor(scene: Scene, cmd_id: str, p: CreateBeltConveyorParams) -> None:
@@ -1406,6 +1445,8 @@ def _exec_create_belt_conveyor(scene: Scene, cmd_id: str, p: CreateBeltConveyorP
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Faja de banda: {exc}") from exc
     _emit_weldment_parts(scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
+    _publish_axis_anchor(scene, f"{cmd_id}_tambor_motriz", "eje_motriz")
+    _publish_axis_anchor(scene, f"{cmd_id}_tambor_cola", "eje_cola")
 
 
 def _exec_create_take_up(scene: Scene, cmd_id: str, p: CreateTakeUpParams) -> None:

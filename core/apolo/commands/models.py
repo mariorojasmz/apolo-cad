@@ -697,15 +697,22 @@ class RunScriptParams(BaseModel):
 class EdgeSelector(BaseModel):
     """Selección declarativa de aristas/caras (estable ante regeneraciones):
     todas | direccion (paralelas a x/y/z) | cara (del bbox) | longitud (rango)
-    | cerca (la más próxima a un punto, lo que genera el clic en el viewport)."""
+    | cerca (la más próxima a un punto, lo que genera el clic en el viewport)
+    | ancla (mate: frame de conexión con nombre publicado por el componente, `name`).
+    En mates, `entidad`="arista" resuelve la selección como ARISTA CIRCULAR (borde de un
+    barreno/tapa) en vez de como cara (default); "ancla" = frame nombrado (usa `name`)."""
 
-    mode: Literal["todas", "direccion", "cara", "longitud", "cerca"] = Field("todas", title="Modo")
+    mode: Literal["todas", "direccion", "cara", "longitud", "cerca", "ancla"] = Field("todas", title="Modo")
     direction: Literal["x", "y", "z"] | None = Field(None, title="Dirección")
     face: Literal["tope", "base", "min_x", "max_x", "min_y", "max_y"] | None = Field(None, title="Cara")
     min: float | None = Field(None, title="Longitud mín.", description="mm")
     max: float | None = Field(None, title="Longitud máx.", description="mm")
     point: list[float] | None = Field(None, title="Punto", description="[x,y,z] mm")
     count: int = Field(1, ge=1, le=200, title="Cuántas")
+    entidad: Literal["cara", "arista", "ancla"] | None = Field(
+        None, title="Entidad", description="mates: cara (def.) | arista (circular) | ancla",
+    )
+    name: str | None = Field(None, max_length=40, title="Ancla", description="nombre del ancla (entidad/modo 'ancla')")
 
 
 class FilletParams(BaseModel):
