@@ -59,6 +59,18 @@ def test_guide_survives_roundtrip_and_regenerate():
     assert doc2.scene[a].is_guide is True
 
 
+def test_orphan_sketch_guides_pruned_on_load():
+    """Una guía-huérfana (command_id de un comando ya podado del log) es metadato benigno;
+    la carga (from_apolo_bytes) la poda para que el manifest no acumule basura. La guía
+    VIVA sobrevive; la huérfana desaparece (V6.4d Fix 5a)."""
+    doc, a, _ = _two_overlapping_boxes()
+    doc.set_sketch_guide(a, True)
+    doc.sketch_guides.add("c9999")  # huérfana sintética: ningún comando la respalda
+    doc2 = Document.from_apolo_bytes(doc.to_apolo_bytes())
+    assert a in doc2.sketch_guides and doc2.scene[a].is_guide is True  # la viva sobrevive
+    assert "c9999" not in doc2.sketch_guides  # la huérfana se podó
+
+
 def test_endpoint_set_sketch_guide_and_scene_payload():
     doc, a, _ = _two_overlapping_boxes()
     api.DOC = doc

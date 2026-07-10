@@ -609,6 +609,97 @@ def scene_payload(known: dict | None = None) -> dict:
     }
 
 
+def _feature_brief(fid: str, feat) -> dict:
+    """Sólido SIN malla para el brief del agente (V6.5a): los MISMOS campos que arma el
+    cliente MCP en `_scene_brief`, para que la lectura filtrada y la mutación se vean igual.
+    Reusa `_cached_render` (bbox/volumen por identidad de shape, sin teselar)."""
+    rd = _cached_render(feat.shape, want_mesh=False)
+    out = {
+        "id": fid,
+        "nombre": feat.name,
+        "visible": feat.visible,
+        "bbox": rd["bbox"],
+        "volumen_mm3": rd["volume"],
+        "comando": feat.command_id,
+    }
+    if feat.component:
+        out["componente"] = feat.component
+    if feat.group:
+        out["grupo"] = feat.group
+    if getattr(feat, "is_guide", False):
+        out["boceto"] = True
+    return out
+
+
+def _scene_filtered(ids, name, limit, offset) -> dict:
+    """Brief LIGERO (sin mallas) filtrado por ids/nombres de grupo (`_expand_ids`) y/o
+    substring del nombre, con paginación defensiva. Declara `total_filtrado`/`truncado`
+    (sin caps silenciosos). Presupuesto: una lectura de rutina < ~10 KB a 1000 piezas."""
+    items = list(DOC.scene.items())
+    if ids is not None:
+        wanted = set(_expand_ids(ids) or [])
+        items = [(fid, f) for fid, f in items if fid in wanted]
+    if name:
+        nl = name.lower()
+        items = [(fid, f) for fid, f in items if nl in (f.name or "").lower()]
+    total_filtrado = len(items)
+    off = max(0, int(offset or 0))
+    lim = 200 if limit is None else int(limit)
+    page = items[off:] if lim < 0 else items[off:off + lim]
+    return {
+        "proyecto": DOC.name,
+        "configuraciones": sorted(DOC.configurations.keys()),
+        "puede_deshacer": DOC.can_undo,
+        "puede_rehacer": DOC.can_redo,
+        "total_solidos": len(DOC.scene),
+        "total_filtrado": total_filtrado,
+        "offset": off,
+        "solidos_mostrados": len(page),
+        "truncado": off + len(page) < total_filtrado,
+        "solidos": [_feature_brief(fid, f) for fid, f in page],
+    }
+
+
+def scene_summary_dict() -> dict:
+    """Resumen por GRUPO (V6.5a): por cada grupo de nivel superior, n_piezas + masa +
+    bbox conjunto (RECURSIVO, incluye sub-grupos) + nombres de sub-grupos; más un bloque
+    «(sin grupo)», totales y variables. La vista con la que el agente ENTRA a un proyecto
+    grande sin volcar la escena (~30 líneas para 5000 piezas)."""
+    from apolo.assembly.groups import children_of, group_features
+    from apolo.library.engineering.mass import scene_mass_properties
+
+    scene, groups = DOC.scene, DOC.groups
+    mat = DOC.default_material()
+
+    def agg(fids):
+        if not fids:
+            return {"n_piezas": 0, "masa_kg": 0.0, "bbox_mm": [0, 0, 0]}
+        mp = scene_mass_properties(scene, ids=fids, default_material=mat)["total"]
+        return {"n_piezas": len(fids), "masa_kg": mp["masa_kg"], "bbox_mm": mp["bbox_mm"]}
+
+    rows = []
+    for g in groups.values():
+        if g.get("parent"):
+            continue  # solo nivel superior; los sub-grupos se listan por nombre para drill-down
+        fids = group_features(scene, groups, g["name"], recursive=True)
+        rows.append({
+            "grupo": g["name"], "rol": g.get("role"),
+            **agg(fids), "sub_grupos": children_of(groups, g["name"]),
+        })
+
+    sin_grupo = [fid for fid, f in scene.items() if not f.group]
+    total = scene_mass_properties(scene, default_material=mat)["total"]
+    return {
+        "proyecto": DOC.name,
+        "total_solidos": len(scene),
+        "masa_total_kg": total["masa_kg"],
+        "bbox_conjunto_mm": total["bbox_mm"],
+        "grupos": rows,
+        "sin_grupo": agg(sin_grupo),
+        "variables": variables_payload(),
+    }
+
+
 def _normalize_affected(v) -> list[str]:
     """Normaliza el retorno de una mutación a una lista de command_ids afectados.
     execute→str, execute_many/edit→list|str, lambdas sin retorno→[]."""
@@ -676,9 +767,30 @@ def health() -> dict:
 
 
 @app.get("/api/scene")
-def get_scene() -> dict:
+def get_scene(
+    ids: str | None = None,
+    name: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> dict:
+    """Sin parámetros: escena COMPLETA con mallas (para el viewport) — compat byte-idéntico.
+    Con `ids` (CSV de feature_ids o NOMBRES de grupo, vía `_expand_ids`), `name` (substring del
+    nombre, case-insensitive), `limit` (default 200) u `offset`: BRIEF ligero SIN mallas,
+    filtrado y paginado, con `total_solidos`/`total_filtrado`/`truncado`. La vía de escala del
+    agente (V6.5a): ninguna lectura de rutina debe volcar la escena entera."""
     with STATE_LOCK:
-        return scene_payload()
+        if ids is None and name is None and limit is None and not offset:
+            return scene_payload()
+        return _scene_filtered(ids, name, limit, offset)
+
+
+@app.get("/api/scene/summary")
+def get_scene_summary() -> dict:
+    """Resumen agregado por GRUPO (V6.5a): n_piezas + masa + bbox conjunto por sub-ensamblaje
+    de nivel superior (recursivo) + «(sin grupo)» + totales + variables. Punto de entrada del
+    agente a un proyecto grande. Read-only."""
+    with STATE_LOCK:
+        return scene_summary_dict()
 
 
 class SceneDeltaIn(BaseModel):
@@ -827,15 +939,31 @@ class PreviewIn(BaseModel):
     view: str = "iso"
     labels: bool = False
     section: str | None = None
+    data: bool = False  # V6.5d: en vez del PNG, devuelve datos del fantasma (bbox/volumen + colisiones nuevas)
+
+
+def _preview_new_feats(scene: dict, new_ids) -> list[str]:
+    """Feature_ids de los sólidos NUEVOS del preview (incluye el prefijo sintético de
+    insert_project: '{cmd}_{orig}')."""
+    new = set(new_ids)
+    return [
+        fid for fid, f in scene.items()
+        if f.command_id in new or any(f.command_id.startswith(a + "_") for a in new)
+    ]
 
 
 @app.post("/api/commands/preview")
-def preview_commands(body: PreviewIn) -> Response:
-    """Ghost render: aplica `actions` (formato batch) sobre una COPIA del documento y
-    devuelve el PNG resultante SIN tocar el documento real (los sólidos nuevos van
-    resaltados). Para que el agente VEA una propuesta antes de ejecutarla con run_batch."""
+def preview_commands(body: PreviewIn):
+    """Ghost: aplica `actions` (formato batch) sobre una COPIA del documento SIN tocar el
+    modelo real. `data=false` (default, compat) → PNG con los sólidos nuevos resaltados.
+    `data=true` (V6.5d) → JSON `{fantasmas:[{name,bbox,volumen_mm3}], colisiones_nuevas:[...]}`:
+    las colisiones SOLO de los fantasmas (contra la escena y entre sí, excluyendo hardware y
+    parejas por diseño) → el agente prueba N colocaciones y compromete 1 sin generar escombro."""
+    from types import SimpleNamespace
+
     from apolo.commands.registry import CommandError
     from apolo.kernel.render import render_scene_png
+    from apolo.library.checks import hardware_ids, joint_pairs, same_command_pairs
 
     with STATE_LOCK:
         try:
@@ -847,11 +975,30 @@ def preview_commands(body: PreviewIn) -> Response:
             )
         except (CommandError, DocumentError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        new = set(new_ids)
-        hl = [fid for fid, f in scene.items() if f.command_id in new] or None
+        new_feats = _preview_new_feats(scene, new_ids)
+        if body.data:
+            shim = SimpleNamespace(scene=scene)
+            rep = interference_report(
+                scene, focus=set(new_feats),
+                exclude_pairs=joint_pairs(DOC) | same_command_pairs(shim),
+                exclude_ids=hardware_ids(shim),
+            )
+            fantasmas = [
+                {"id": fid, "name": scene[fid].name,
+                 "bbox": bbox_payload(scene[fid].shape),
+                 "volumen_mm3": round(float(scene[fid].shape.volume), 1)}
+                for fid in new_feats
+            ]
+            colisiones = [
+                {"a": c["a"], "nombre_a": c["nombre_a"], "b": c["b"],
+                 "nombre_b": c["nombre_b"], "tipo": "solape", "volumen_mm3": c["volumen_mm3"]}
+                for c in rep["interferencias"]
+            ]
+            return {"fantasmas": fantasmas, "colisiones_nuevas": colisiones}
         try:
             png = render_scene_png(
-                scene, body.view, highlight_ids=hl, labels=body.labels, section=body.section
+                scene, body.view, highlight_ids=new_feats or None,
+                labels=body.labels, section=body.section,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -974,19 +1121,26 @@ def set_sketch_guide(feature_id: str, body: SketchGuideIn) -> dict:
 
 
 @app.get("/api/features/{feature_id}/topology")
-def get_feature_topology(feature_id: str) -> dict:
+def get_feature_topology(
+    feature_id: str, only: str | None = None, min_mm: float = 0.0
+) -> dict:
     """Caras y aristas de un sólido con su geometría (tipo, centro, normal/eje,
     longitud, radio) para elegir el SELECTOR declarativo. Incluye las ANCLAS de conexión
-    con nombre (V6.3b) para matear por `{"mode":"ancla","name":...}`. Read-only."""
+    con nombre (V6.3b) para matear por `{"mode":"ancla","name":...}`. `only` acota a
+    `caras`|`aristas`|`anclas`; `min_mm` omite aristas/caras menores (micro-fillets, taladros
+    diminutos = el grueso del ruido en piezas mecanizadas). Read-only."""
     from apolo.kernel.topology import feature_topology
 
     with STATE_LOCK:
         feat = DOC.scene.get(feature_id)
         if feat is None:
             raise HTTPException(status_code=404, detail=f"No existe el sólido '{feature_id}'")
-        topo = feature_topology(feat.shape)
+        topo = feature_topology(feat.shape, only=only, min_mm=min_mm)
         anchors = feat.anchors or {}
-    return {"feature_id": feature_id, "name": feat.name, "anchors": anchors, **topo}
+    out = {"feature_id": feature_id, "name": feat.name, **topo}
+    if only in (None, "", "anclas"):  # anclas solo en la vista completa o si se piden
+        out["anchors"] = anchors
+    return out
 
 
 @app.get("/api/groups")
@@ -1047,19 +1201,53 @@ def measure_endpoint(body: MeasureIn) -> dict:
 
 
 @app.get("/api/near")
-def near_endpoint(point: str, radius: float = 50.0) -> dict:
-    """Features cuya caja envolvente queda a ≤ radius mm de `point` (JSON [x,y,z]),
-    ordenadas por cercanía. Read-only."""
-    from apolo.kernel.measure import features_near
+def near_endpoint(
+    point: str | None = None,
+    feature: str | None = None,
+    box: str | None = None,
+    radius: float = 50.0,
+    limit: int = 20,
+) -> dict:
+    """Features cercanas por caja envolvente, ordenadas de más cerca a más lejos (V6.5b).
+    Exactamente UNO de: `point` (JSON [x,y,z] — «¿qué hay por aquí?»), `feature` (id —
+    «¿qué rodea a X?», excluyéndolo) o `box` (JSON [[min],[max]] — «¿qué hay en esta región?»).
+    `radius` (mm) + `limit`. Barrido O(n) sobre AABBs. Read-only."""
+    from apolo.kernel.measure import features_near, features_near_box, features_near_feature
 
-    try:
-        pt = json.loads(point)
-        assert isinstance(pt, (list, tuple)) and len(pt) == 3
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"point debe ser JSON [x,y,z]: {exc}") from exc
+    dados = [k for k, v in (("point", point), ("feature", feature), ("box", box)) if v is not None]
+    if len(dados) != 1:
+        raise HTTPException(
+            status_code=400, detail="Da EXACTAMENTE uno de: point, feature, box"
+        )
+    lim = limit if limit and limit > 0 else None
     with STATE_LOCK:
-        cercanas = features_near(DOC.scene, pt, radius)
-    return {"point": pt, "radius": radius, "cercanas": cercanas}
+        if feature is not None:
+            if feature not in DOC.scene:
+                raise HTTPException(status_code=404, detail=f"No existe el sólido '{feature}'")
+            cercanas = features_near_feature(DOC.scene, feature, radius, limit=lim)
+            modo = {"feature": feature}
+        elif box is not None:
+            try:
+                bx = json.loads(box)
+                assert (isinstance(bx, (list, tuple)) and len(bx) == 2
+                        and all(len(p) == 3 for p in bx))
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400, detail=f"box debe ser JSON [[min_x,min_y,min_z],[max...]]: {exc}"
+                ) from exc
+            cercanas = features_near_box(DOC.scene, bx, radius, limit=lim)
+            modo = {"box": bx}
+        else:
+            try:
+                pt = json.loads(point)
+                assert isinstance(pt, (list, tuple)) and len(pt) == 3
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400, detail=f"point debe ser JSON [x,y,z]: {exc}"
+                ) from exc
+            cercanas = features_near(DOC.scene, pt, radius, limit=lim)
+            modo = {"point": pt}
+    return {**modo, "radius": radius, "cercanas": cercanas}
 
 
 @app.get("/api/pick")
@@ -1329,6 +1517,7 @@ class ChecksIn(BaseModel):
     joint_values: dict[str, float] = {}
     conveyor: dict | None = None  # validación predictiva: params de faja a evaluar sin construirla
     conveyor_solid_ids: list[str] | None = None  # marca explícita de los sólidos que forman la faja
+    interference_ids: list[str] | None = None  # V6.5b: acota la interferencia a pares que tocan estos ids/grupos
 
 
 @app.post("/api/checks")
@@ -1347,10 +1536,14 @@ def run_checks(body: ChecksIn) -> dict:
             from apolo.robotics.pose import posed_shapes
 
             shapes_override, pose_warnings = posed_shapes(DOC, body.joint_values)
+        # V6.5b: `interference_ids` acota a las parejas donde participa un id/grupo dado
+        # (O(k·n)) — el agente valida SU zona de trabajo, no la máquina entera.
+        focus = _expand_ids(body.interference_ids) if body.interference_ids else None
         interferencias = interference_report(
             DOC.scene, shapes_override=shapes_override,
             exclude_pairs=jpairs | same_command_pairs(DOC),
             exclude_ids=hardware_ids(DOC),
+            focus=focus,
         )
         if shapes_override is not None:  # interpenetración de cuerpos con junta compartida
             interferencias["interferencias"] += interpenetration_report(
@@ -1408,6 +1601,36 @@ def run_checks(body: ChecksIn) -> dict:
         )
         estructura += _fea_rules()  # resultados FEA guardados (con chequeo de vigencia)
     return {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
+
+
+class VerifyIn(BaseModel):
+    checks: list[dict] = []
+
+
+@app.post("/api/verify")
+def verify_endpoint(body: VerifyIn) -> dict:
+    """Lote de ASERCIONES numéricas (V6.5c), READ-ONLY: el agente declara sus invariantes
+    (distancia/volumen/bbox/sin_interferencia/existe) y las verifica en UNA llamada en vez de
+    encadenar N `measure` + aritmética mental. Devuelve `{ok, resultados:[{check,ok,actual,
+    esperado}]}`. La interferencia se reusa acotada (V6.5b) con las exclusiones normales."""
+    from apolo.library.checks import hardware_ids, joint_pairs, same_command_pairs
+    from apolo.library.verify import run_verify
+
+    with STATE_LOCK:
+        excl_pairs = joint_pairs(DOC) | same_command_pairs(DOC)
+        excl_ids = hardware_ids(DOC)
+
+        def interference_fn(focus):
+            focus_ids = _expand_ids(focus) if focus else None
+            return interference_report(
+                DOC.scene, focus=focus_ids, exclude_pairs=excl_pairs, exclude_ids=excl_ids
+            )["interferencias"]
+
+        resultados = run_verify(
+            DOC.scene, body.checks,
+            expand=lambda v: _expand_ids(v) or [], interference_fn=interference_fn,
+        )
+    return {"ok": all(r["ok"] for r in resultados), "resultados": resultados}
 
 
 # -------------------------------------------------------------------- robótica
@@ -2042,7 +2265,8 @@ def expression_grammar() -> dict:
         "variables": project_vars,
         "note": ("Ángulos en grados (sin/cos/tan). Prefijo '=' en campos numéricos. "
                  "Condicionales para tablas de diseño: '=3 if largo>3500 else 2' (la rama "
-                 "no tomada no se evalúa). Sin texto, listas ni funciones propias."),
+                 "no tomada no se evalúa). 'and'/'or' colapsan a 1.0/0.0 (booleanos), NO al "
+                 "operando: el idiom 'x or 5' NO devuelve 5. Sin texto, listas ni funciones propias."),
         "example": "=3 if largo_total > 3500 else 2",
     }
 

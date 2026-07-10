@@ -146,6 +146,20 @@ DESIGN_RULES: list[dict[str, str]] = [
     },
 ]
 
+# Doctrina de ESCALA (V6.5): cómo trabaja el agente un proyecto de MUCHAS piezas sin
+# ahogarse en contexto ni entrar en bucles. Va en el resumen SIEMPRE presente (capa 1).
+ESCALA_DOCTRINE = (
+    "Escala (proyectos grandes, >~150 piezas): tu recurso escaso es el CONTEXTO. Entra por "
+    "get_scene(summary=true) —resumen por grupo—, NO vuelques la escena completa de rutina; "
+    "trabaja por GRUPOS (pasa nombres de grupo como ids en get_scene/near/check_interference/"
+    "verify/render) y filtra las lecturas (get_scene ids/name, get_topology only/min_mm). "
+    "Coloca con snap_to (junto a B con holgura, sin aritmética), ENSAYA con preview(data=true) "
+    "antes de mutar, y COMPRUEBA con verify (aserciones de distancia/bbox/sin_interferencia), no "
+    "con cálculo mental; valida tu zona con check_interference(ids=...) acotada, no la máquina "
+    "entera. Si la escena plana no basta, estructura con create_group/auto_group o divide en "
+    "sub-proyectos (insert_project)."
+)
+
 CUANDO_PREGUNTAR = {
     "asume": [
         "Soportes, anclajes y caminos de carga (que nada flote).",
@@ -202,6 +216,7 @@ def design_brief() -> str:
         "función: material/acabado, cotas críticas o de interfaz, cargas y restricciones del "
         "sitio. Detalle y ejemplos: get_design_guidelines() (o GET /api/design-guidelines)."
     )
+    lineas += ["", ESCALA_DOCTRINE]
     return "\n".join(lineas)
 
 
@@ -211,6 +226,7 @@ def design_guidelines() -> dict:
     return {
         "principio": DESIGN_PRINCIPLE,
         "reglas": DESIGN_RULES,
+        "escala": ESCALA_DOCTRINE,
         "cuando_preguntar": CUANDO_PREGUNTAR,
         "ejemplos": EJEMPLOS,
         "nota": "Vale para cualquier objeto (máquina, mueble, estructura, pieza). El objetivo "

@@ -72,6 +72,7 @@ from .models import (
     SketchLoftParams,
     SketchRevolveParams,
     SketchSweepParams,
+    SnapToParams,
     ThickenParams,
     TransformGroupParams,
     TransformParams,
@@ -1389,6 +1390,36 @@ def _exec_attach(scene: Scene, cmd_id: str, p: AttachParams) -> None:
     _world_move(feat, delta, (0, 0, 0))
 
 
+def _exec_snap_to(scene: Scene, cmd_id: str, p: SnapToParams) -> None:
+    """Pega `feature` contra el `lado` del bbox de `target` a `gap` mm, opcionalmente
+    centrando en los ejes de `alinear`. Relacional: se reevalúa al regenerar (mueve en
+    sitio con la MISMA rígida que center_in/attach → conserva matrix/anclas)."""
+    if p.feature == p.target:
+        raise CommandError("Un sólido no puede colocarse junto a sí mismo")
+    feat = _require(scene, p.feature)
+    target = _require(scene, p.target)
+    fb = feat.shape.bounding_box()
+    tb = target.shape.bounding_box()
+    fmin = [fb.min.X, fb.min.Y, fb.min.Z]
+    fmax = [fb.max.X, fb.max.Y, fb.max.Z]
+    tmin = [tb.min.X, tb.min.Y, tb.min.Z]
+    tmax = [tb.max.X, tb.max.Y, tb.max.Z]
+    sign, axis = p.lado[0], p.lado[1]
+    i = {"x": 0, "y": 1, "z": 2}[axis]
+    t = [0.0, 0.0, 0.0]
+    if sign == "+":  # pieza en el lado +eje: su cara min queda a gap del max del target
+        t[i] = (tmax[i] + p.gap) - fmin[i]
+    else:            # pieza en el lado -eje: su cara max queda a gap del min del target
+        t[i] = (tmin[i] - p.gap) - fmax[i]
+    fc = _bbox_center(feat.shape)
+    tc = _bbox_center(target.shape)
+    for ax in p.alinear:
+        j = {"x": 0, "y": 1, "z": 2}[ax]
+        if j != i:  # no tocar el eje del snap
+            t[j] = tc[j] - fc[j]
+    _world_move(feat, tuple(t), (0, 0, 0))
+
+
 def _publish_axis_anchor(scene: Scene, fid: str, name: str) -> None:
     """Publica un ancla de EJE (V6.3b) en la Feature `fid` — un rodillo/tambor es un cilindro
     con eje Z en su frame propio (canónico); su `matrix` mapea ese frame a mundo. No-op si el
@@ -1663,6 +1694,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec("center_in", "Centrar en", "modificar", CenterInParams, _exec_center_in),
         CommandSpec("distribute", "Repartir", "modificar", DistributeParams, _exec_distribute),
         CommandSpec("attach", "Ensamblar", "modificar", AttachParams, _exec_attach),
+        CommandSpec("snap_to", "Colocar junto a", "modificar", SnapToParams, _exec_snap_to),
         CommandSpec("pattern_linear", "Patrón lineal", "modificar", PatternLinearParams, _exec_pattern),
         CommandSpec(
             "pattern_circular", "Patrón circular", "modificar", PatternCircularParams, _exec_pattern_circular
@@ -1790,7 +1822,7 @@ def _schema_entry(spec) -> dict:
 
 
 def command_schemas(command_type: str | None = None) -> list[dict]:
-    """JSON Schema de los comandos. Sin argumento devuelve los 35; con `command_type`
+    """JSON Schema de los comandos. Sin argumento devuelve TODOS; con `command_type`
     devuelve una lista con solo ese (vacía si no existe)."""
     if command_type is not None:
         if command_type not in REGISTRY:

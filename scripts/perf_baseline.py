@@ -186,7 +186,11 @@ def main() -> None:
     medidas["fuzz_100ops_s"] = _median_time(_fuzz)
 
     out = {
-        "nota": "línea base de V6.2 (máquina-dependiente); compara solo contra la misma máquina",
+        "nota": (
+            "linea base de perf (maquina-dependiente; compara solo contra la misma maquina). "
+            "Re-medida en V6.4d: la fuente 'faja' es el proyecto 38 con el log PODADO de V6.4 "
+            "(V6.4b 701->328 + poda residual V6.4d -> 312 comandos, 74 solidos)."
+        ),
         "host": platform.node(),
         "plataforma": platform.platform(),
         "python": sys.version.split()[0],

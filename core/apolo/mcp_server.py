@@ -132,9 +132,36 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
 
 # ----------------------------------------------------------------- consulta
 @mcp.tool()
-def get_scene() -> str:
-    """Estado actual del modelo: sólidos (id, nombre, bbox, volumen, componente),
-    variables del proyecto y configuraciones."""
+def get_scene(
+    ids: list[str] | None = None,
+    name: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    summary: bool = False,
+) -> str:
+    """Estado del modelo. Sin argumentos: TODA la escena (sólidos con id/nombre/bbox/volumen/
+    componente + variables + configuraciones) — cuidado en proyectos grandes.
+    Para trabajar a ESCALA (miles de piezas) usa los filtros y NO vuelques la escena entera:
+    - `summary=true`: entra por aquí — resumen por GRUPO (n_piezas, masa, bbox conjunto,
+      sub-grupos) + «(sin grupo)» + totales + variables. La vista de una ojeada del proyecto.
+    - `ids`: lista de feature_ids O NOMBRES DE GRUPO (se expanden a sus piezas) → solo esas.
+    - `name`: substring del nombre (case-insensitive), p. ej. "chumacera".
+    - `limit` (def. 200) + `offset`: paginación; la respuesta trae `total_filtrado` y
+      `truncado` (sin recortes silenciosos). Los briefs filtrados NO traen mallas ni variables
+      (pídelas con summary o get_scene() sin filtros)."""
+    if summary:
+        return json.dumps(_api("GET", "/api/scene/summary").json(), ensure_ascii=False)
+    params: dict = {}
+    if ids:
+        params["ids"] = ",".join(ids) if isinstance(ids, list) else str(ids)
+    if name:
+        params["name"] = name
+    if limit is not None:
+        params["limit"] = limit
+    if offset:
+        params["offset"] = offset
+    if params:  # brief filtrado/paginado ya listo desde el servidor (sin mallas)
+        return json.dumps(_api("GET", "/api/scene", params=params).json(), ensure_ascii=False)
     return json.dumps(_scene_brief(_api("GET", "/api/scene").json()), ensure_ascii=False)
 
 
@@ -166,10 +193,13 @@ def get_catalog(category: str | None = None, names_only: bool = False) -> str:
 
 
 @mcp.tool()
-def get_bom() -> str:
+def get_bom(by_group: bool = False) -> str:
     """Lista de materiales del modelo actual, agrupada por referencia y longitud
-    (las piezas a-medida idénticas se agrupan e incluyen peso por volumen×densidad)."""
-    return json.dumps(_api("GET", "/api/bom").json(), ensure_ascii=False)
+    (las piezas a-medida idénticas se agrupan e incluyen peso por volumen×densidad).
+    Con `by_group=true` cada fila lleva su sub-ensamblaje y las piezas iguales de grupos
+    distintos salen separadas (subtotales por grupo/instancia — útil a escala)."""
+    params = {"by_group": "true"} if by_group else None
+    return json.dumps(_api("GET", "/api/bom", params=params).json(), ensure_ascii=False)
 
 
 @mcp.tool()
@@ -290,10 +320,15 @@ def set_variable(name: str, expression: str) -> str:
 
 # -------------------------------------------------------------- validación
 @mcp.tool()
-def check_interference(joint_values: dict | None = None) -> str:
-    """Interferencias entre sólidos (booleanas OCCT). Con joint_values
-    {junta: valor} comprueba la colisión del mecanismo EN POSE."""
-    payload = _api("POST", "/api/checks", json={"joint_values": joint_values or {}}).json()
+def check_interference(joint_values: dict | None = None, ids: list[str] | None = None) -> str:
+    """Interferencias entre sólidos (booleanas OCCT). Con joint_values {junta: valor}
+    comprueba la colisión del mecanismo EN POSE. Con `ids` (feature_ids o NOMBRES DE GRUPO)
+    ACOTA a las parejas donde participa al menos uno de ellos (O(k·n) en vez de O(n²)):
+    valida TU zona de trabajo tras una operación en vez de la máquina entera. Sin `ids` = global."""
+    body: dict = {"joint_values": joint_values or {}}
+    if ids:
+        body["interference_ids"] = ids
+    payload = _api("POST", "/api/checks", json=body).json()
     return json.dumps(payload["interferencias"], ensure_ascii=False)
 
 
@@ -425,17 +460,24 @@ def render_view(
 
 @mcp.tool()
 def preview(
-    actions: list[dict], view: str = "iso", labels: bool = False, section: str | None = None
-) -> Image:
-    """GHOST RENDER: aplica `actions` (mismo formato que run_batch: [{type, params}, …])
-    sobre una COPIA del documento y devuelve el PNG resultante SIN tocar el modelo real
-    (los sólidos nuevos van resaltados). Úsalo para VER una propuesta de colocación antes
-    de ejecutarla de verdad con run_command/run_batch — equivocarse sale gratis. `labels`
-    rotula ids; `section` ∈ {x,y,z} corta para ver dentro."""
-    body: dict = {"actions": actions, "view": view, "labels": labels}
+    actions: list[dict], view: str = "iso", labels: bool = False,
+    section: str | None = None, data: bool = False,
+):
+    """GHOST: aplica `actions` (mismo formato que run_batch: [{type, params}, …]) sobre una
+    COPIA del documento SIN tocar el modelo real — ensaya una colocación y equivocarte sale
+    gratis (sin escombro de log). Dos modos:
+    - `data=false` (default): devuelve el PNG con los sólidos nuevos resaltados (para VERLO).
+      `labels` rotula ids; `section` ∈ {x,y,z} corta para ver dentro.
+    - `data=true` (V6.5d): devuelve JSON `{fantasmas:[{name,bbox,volumen_mm3}], colisiones_
+      nuevas:[{a,b,tipo,volumen_mm3}]}` — las colisiones SOLO de los fantasmas (contra la escena
+      y entre sí). Prueba N colocaciones con datos EXACTOS y compromete la buena con run_batch,
+      sin mutar el documento. (No trae imagen; usa data=false o render_view para verla.)"""
+    body: dict = {"actions": actions, "view": view, "labels": labels, "data": data}
     if section:
         body["section"] = section
     response = _api("POST", "/api/commands/preview", json=body)
+    if data:
+        return json.dumps(response.json(), ensure_ascii=False)
     return Image(data=response.content, format="png")
 
 
@@ -727,13 +769,24 @@ def restore_revision(revision_id: int) -> str:
 
 # ----------------------------------------------------- topología / selectores
 @mcp.tool()
-def get_topology(feature_id: str) -> str:
+def get_topology(feature_id: str, only: str | None = None, min_mm: float = 0.0) -> str:
     """Caras y aristas de un sólido con su geometría descriptiva (tipo plano/cilíndrico,
     centro, normal/eje, área; longitud, dirección, radio de aristas). Úsalo para ELEGIR el
     selector declarativo antes de fillet/chamfer/drill/add_mate: caras por orientación
     (normal) → 'cara'/'direccion'; aristas largas → 'longitud'; cerca de un punto → 'cerca'.
-    Los 'idx' son solo referencia: la selección sigue siendo declarativa, no por id."""
-    return json.dumps(_api("GET", f"/api/features/{feature_id}/topology").json(), ensure_ascii=False)
+    Los 'idx' son solo referencia: la selección sigue siendo declarativa, no por id.
+    A ESCALA (piezas con muchos taladros): `only` ∈ {caras|aristas|anclas} trae solo esa
+    familia; `min_mm` omite aristas más cortas que ese valor y caras menores que min_mm²
+    (filtra los micro-fillets/agujeros diminutos, el grueso del ruido)."""
+    params: dict = {}
+    if only:
+        params["only"] = only
+    if min_mm:
+        params["min_mm"] = min_mm
+    return json.dumps(
+        _api("GET", f"/api/features/{feature_id}/topology", params=params).json(),
+        ensure_ascii=False,
+    )
 
 
 @mcp.tool()
@@ -810,13 +863,44 @@ def measure(a: str, b: str, face_a: dict | None = None, face_b: dict | None = No
 
 
 @mcp.tool()
-def near(point: list[float], radius: float = 50.0) -> str:
-    """Features cuya caja envolvente está a ≤ radius mm de `point` ([x,y,z]), de más cerca a más
-    lejos. Consulta espacial: '¿qué pieza hay por aquí?'. Combínalo con pick_point. Read-only."""
-    return json.dumps(
-        _api("GET", "/api/near", params={"point": json.dumps(point), "radius": radius}).json(),
-        ensure_ascii=False,
-    )
+def near(
+    point: list[float] | None = None,
+    feature: str | None = None,
+    box: list[list[float]] | None = None,
+    radius: float = 50.0,
+    limit: int = 20,
+) -> str:
+    """Consulta espacial por caja envolvente, de más cerca a más lejos. Da EXACTAMENTE uno de:
+    - `point` [x,y,z]: '¿qué pieza hay por aquí?' (combínalo con pick_point).
+    - `feature` (id): '¿qué RODEA a X?' — distancia AABB-AABB al resto, excluyendo X.
+    - `box` [[min_x,min_y,min_z],[max_x,max_y,max_z]]: '¿qué hay en esta REGIÓN?'.
+    `radius` mm (radius=0 con box/feature = solo lo que lo toca) + `limit` (def. 20). Read-only."""
+    params: dict = {"radius": radius, "limit": limit}
+    if feature is not None:
+        params["feature"] = feature
+    elif box is not None:
+        params["box"] = json.dumps(box)
+    elif point is not None:
+        params["point"] = json.dumps(point)
+    else:
+        raise RuntimeError("near necesita uno de: point, feature, box")
+    return json.dumps(_api("GET", "/api/near", params=params).json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def verify(checks: list[dict]) -> str:
+    """Verifica en UNA llamada un lote de ASERCIONES numéricas sobre el modelo (READ-ONLY) —
+    declara tus INVARIANTES y compruébalas de golpe en vez de encadenar N measure + aritmética
+    mental. Devuelve {ok, resultados:[{check, ok, actual, esperado}]}. Cada aserción es un dict
+    con `tipo` (y un `nombre` opcional para etiquetarla):
+    - {tipo:"distancia", a, b, min?|max?|entre?:[lo,hi]} — gap OCCT entre dos sólidos.
+    - {tipo:"volumen", id?|grupo?|ids?, min?|max?|entre?} — volumen (suma si son varios).
+    - {tipo:"bbox", id?|grupo?|ids?, eje:"x"|"y"|"z", min?|max?|entre?} — tamaño de la caja conjunta.
+    - {tipo:"sin_interferencia", ids?} — 0 colisiones (acotado a ids/grupos; sin ids = global).
+    - {tipo:"existe", id?|name?} — el id existe / hay piezas cuyo nombre contiene name.
+    `id`/`grupo`/`ids` aceptan NOMBRES de grupo (se expanden). Úsalo tras snap_to/mover para
+    confirmar holguras y no-colisión sin ojímetro."""
+    return json.dumps(_api("POST", "/api/verify", json={"checks": checks}).json(), ensure_ascii=False)
 
 
 @mcp.tool()

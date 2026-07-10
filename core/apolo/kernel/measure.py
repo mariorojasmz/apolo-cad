@@ -26,20 +26,69 @@ def measure_distance(shape_a, shape_b) -> dict:
     }
 
 
-def features_near(scene: dict, point, radius: float) -> list[dict]:
-    """Features visibles cuya caja envolvente queda a ≤ `radius` mm de `point` (distancia
-    del punto a la AABB), ordenadas de más cerca a más lejos. Consulta espacial barata."""
-    px, py, pz = (float(point[0]), float(point[1]), float(point[2]))
+def _aabb_gap(amin, amax, bmin, bmax) -> float:
+    """Distancia mínima entre dos AABB (0 si se solapan). Un punto es un AABB degenerado
+    (amin == amax); así la consulta por punto/feature/caja comparte una sola fórmula."""
+    d2 = 0.0
+    for i in range(3):
+        if amax[i] < bmin[i]:
+            sep = bmin[i] - amax[i]
+        elif bmax[i] < amin[i]:
+            sep = amin[i] - bmax[i]
+        else:
+            sep = 0.0
+        d2 += sep * sep
+    return d2 ** 0.5
+
+
+def _near_from_box(
+    scene: dict, qmin, qmax, radius: float, exclude: set | None = None, limit: int | None = None
+) -> list[dict]:
+    """Features visibles cuya AABB queda a ≤ `radius` mm de la caja de consulta [qmin,qmax],
+    ordenadas de más cerca a más lejos. Barrido O(n) sobre AABBs (sin índice espacial)."""
+    exclude = exclude or set()
     out: list[dict] = []
     for fid, f in scene.items():
-        if not getattr(f, "visible", True):
+        if fid in exclude or not getattr(f, "visible", True):
             continue
         bb = f.shape.bounding_box()
-        cx = min(max(px, bb.min.X), bb.max.X)
-        cy = min(max(py, bb.min.Y), bb.max.Y)
-        cz = min(max(pz, bb.min.Z), bb.max.Z)
-        d = ((cx - px) ** 2 + (cy - py) ** 2 + (cz - pz) ** 2) ** 0.5
+        d = _aabb_gap(
+            qmin, qmax,
+            [bb.min.X, bb.min.Y, bb.min.Z], [bb.max.X, bb.max.Y, bb.max.Z],
+        )
         if d <= radius:
             out.append({"id": fid, "nombre": f.name, "dist_mm": round(d, 3)})
     out.sort(key=lambda e: e["dist_mm"])
-    return out
+    return out[:limit] if limit is not None else out
+
+
+def features_near(scene: dict, point, radius: float, limit: int | None = None) -> list[dict]:
+    """Features visibles cuya caja envolvente queda a ≤ `radius` mm de `point` (distancia
+    del punto a la AABB), ordenadas de más cerca a más lejos. Consulta espacial barata."""
+    p = [float(point[0]), float(point[1]), float(point[2])]
+    return _near_from_box(scene, p, p, radius, limit=limit)
+
+
+def features_near_feature(
+    scene: dict, feature_id: str, radius: float, limit: int | None = None
+) -> list[dict]:
+    """«¿Qué rodea a X?»: features cuya AABB queda a ≤ `radius` mm de la AABB del sólido
+    `feature_id`, EXCLUYÉNDOLO. Distancia AABB-AABB, ordenada por cercanía."""
+    f = scene.get(feature_id)
+    if f is None:
+        raise KeyError(feature_id)
+    bb = f.shape.bounding_box()
+    return _near_from_box(
+        scene,
+        [bb.min.X, bb.min.Y, bb.min.Z], [bb.max.X, bb.max.Y, bb.max.Z],
+        radius, exclude={feature_id}, limit=limit,
+    )
+
+
+def features_near_box(scene: dict, box, radius: float, limit: int | None = None) -> list[dict]:
+    """«¿Qué hay en esta región?»: features cuya AABB queda a ≤ `radius` mm de la caja
+    `box` = [[min_x,min_y,min_z],[max_x,max_y,max_z]] (radius=0 = solo lo que la toca)."""
+    (mn, mx) = box
+    qmin = [float(mn[0]), float(mn[1]), float(mn[2])]
+    qmax = [float(mx[0]), float(mx[1]), float(mx[2])]
+    return _near_from_box(scene, qmin, qmax, radius, limit=limit)

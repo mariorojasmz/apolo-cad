@@ -25,15 +25,22 @@ def interference_report(
     shapes_override: dict | None = None,
     exclude_pairs: set[frozenset] | None = None,
     exclude_ids: set[str] | None = None,
+    focus: set[str] | list[str] | None = None,
 ) -> dict:
     """shapes_override permite analizar formas posadas (colisión en pose).
     exclude_pairs descarta parejas que se tocan por diseño (eslabones unidos
     por una junta). exclude_ids saca features del análisis por completo
-    (p. ej. tornillería/rodamientos asentados en su alojamiento)."""
+    (p. ej. tornillería/rodamientos asentados en su alojamiento).
+
+    `focus` (V6.5b) ACOTA a las parejas donde participa AL MENOS un id del conjunto
+    (O(k·n) en vez de O(n²)): el agente valida su zona de trabajo tras una operación
+    sin recorrer la máquina entera. Difiere de `only` (que restringe AMBOS extremos al
+    subconjunto): `focus` conserva las colisiones contra el resto de la escena."""
     feats = [f for f in scene.values()
              if f.visible and not getattr(f, "is_guide", False) and (only is None or f.id in only)]
     if exclude_ids:
         feats = [f for f in feats if f.id not in exclude_ids]
+    focus = set(focus) if focus is not None else None
 
     def shape_of(f):
         return shapes_override.get(f.id, f.shape) if shapes_override else f.shape
@@ -44,6 +51,8 @@ def interference_report(
     for i, a in enumerate(feats):
         for b in feats[i + 1:]:
             if exclude_pairs and frozenset((a.id, b.id)) in exclude_pairs:
+                continue
+            if focus is not None and a.id not in focus and b.id not in focus:
                 continue
             if _bboxes_overlap(boxes[a.id], boxes[b.id]):
                 candidates.append((a, b))

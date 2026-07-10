@@ -1,28 +1,28 @@
 {
-  "nota": "línea base de V6.2 (máquina-dependiente); compara solo contra la misma máquina",
+  "nota": "linea base de perf (maquina-dependiente; compara solo contra la misma maquina). Re-medida en V6.4d: la fuente 'faja' es el proyecto 38 con el log PODADO de V6.4 (V6.4b 701->328 + poda residual V6.4d -> 312 comandos, 74 solidos).",
   "host": "Mario-LapTrab",
   "plataforma": "Windows-11-10.0.26200-SP0",
   "python": "3.13.5",
-  "commit": "269eec7adfdecf1c64c6c5c79c4f2d09f1b7caee",
+  "commit": "6f788df8e55c9a4ad0642405d121f984241f6633",
   "reps": 3,
   "fuentes": {
     "faja": "proyecto 38",
     "layout": "proyecto 53"
   },
   "medidas_s": {
-    "open_frio_faja_s": 3.1539,
-    "geom_cache_write_faja_s": 0.0404,
-    "open_caliente_faja_s": 0.0359,
-    "regenerate_edit_temprano_s": 0.0107,
+    "open_frio_faja_s": 1.8172,
+    "geom_cache_write_faja_s": 0.0277,
+    "open_caliente_faja_s": 0.0245,
+    "regenerate_edit_temprano_s": 0.0053,
     "scene_payload_layout_s": 0.0012,
-    "autosave_faja_s": 0.0046,
-    "fuzz_100ops_s": 1.4762
+    "autosave_faja_s": 0.0028,
+    "fuzz_100ops_s": 1.2405
   },
   "conteos": {
-    "faja_solidos": 82,
-    "faja_comandos": 701,
+    "faja_solidos": 74,
+    "faja_comandos": 312,
     "layout_solidos": 149,
-    "payload_bytes": 1116900,
-    "scene_delta_nochange_bytes": 31353
+    "payload_bytes": 1116973,
+    "scene_delta_nochange_bytes": 34257
   }
 }

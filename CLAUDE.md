@@ -52,22 +52,24 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1039 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1078 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **68 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **69 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-10)**: 1039 tests (+15 tortura vía `-m torture`) · 68 tools MCP ·
-  51 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
-  «Apolo industrial»: V6.1 robustez + V6.2 rendimiento + V6.3 ensamblaje pro CERRADOS**. V6.1
+- **Estado actual (2026-07-10)**: 1078 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
+  52 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
+  «Apolo industrial»: V6.1 robustez + V6.2 rendimiento + V6.3 ensamblaje pro + V6.4 paramétrico
+  profundo + V6.5 MCP a escala CERRADOS**. V6.1
   («nada tumba el documento»: `check_integrity` + carga tolerante + atomicidad + `GET /api/health`;
   robustez 3→6). V6.2 (open caliente por caché BREP + deltas de escena + dos-locks render/física +
   autosave debounced; rendimiento 4→6). V6.3 (multi-mate por sólido + conectores por ancla/arista +
   reporte de DOF; ensamblaje 4.5→6). Proyectos de referencia: `faja-paqueteria-4m`
-  (id 38, 82 sólidos, memoria APROBADO,
-  eje motriz «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos) y `guarda-banda-demo`
+  (id 38, 74 sólidos, 312 comandos, memoria APROBADO, eje motriz «Ø35 h7»; V6.4d: juntas
+  paramétricas —j_trav/j_tensor/z de j_mesa siguen a `long_centros`/`drum_cz`— + basura
+  UI podada), `layout-planta-demo` (id 53, 149 sólidos) y `guarda-banda-demo`
   (chapa en C con hems, DXF verificado).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
@@ -97,8 +99,20 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   `variables` solo si cambió; `edit_command` hace PATCH (merge superficial: un sub-objeto
   position/rotation se reemplaza ENTERO); `edit_batch` = N ediciones en UN regenerate
   atómico y 1 undo; `GET /api/schemas/{type}` para no volcar los ~77 KB de schemas.
+- **Lectura a ESCALA (V6.5)**: ninguna lectura de rutina vuelca la escena entera.
+  `get_scene(summary=true)` (`GET /api/scene/summary`) = resumen por GRUPO (n_piezas/masa/
+  bbox conjunto/sub-grupos + «(sin grupo)» + totales + variables) — la vista de ENTRADA a un
+  proyecto grande; `get_scene(ids|name|limit|offset)` filtra por grupos/nombres y pagina un
+  brief SIN mallas (declara `total_filtrado`/`truncado`, sin caps silenciosos). `get_topology
+  (only, min_mm)` poda micro-fillets/taladros; `get_bom(by_group)`; `near(feature|box)` (AABB-
+  AABB, «qué rodea a X»/«qué hay en la región»); `check_interference(ids=...)` acotada O(k·n)
+  (`focus` en `interference_report`); `verify` (aserciones en lote, `library/verify.py` puro,
+  inyecta expand+interference_fn); `preview(data=true)` (fantasmas+colisiones sin PNG). Los
+  briefs filtrados los arma el SERVIDOR (`_scene_filtered`/`_feature_brief`, mismos campos que
+  `_scene_brief` del MCP) reusando `_expand_ids`; `get_scene()` sin params = payload completo
+  con mallas byte-idéntico (compat viewport). Presupuesto: <10 KB/lectura a 1000 piezas.
 
-### Comandos / modelado (51 comandos)
+### Comandos / modelado (52 comandos)
 - **Superficies básicas (V5.11, `kernel/surface.py`)**: `boundary_surface` (Face de un
   contorno cerrado de curvas — `Face.make_surface`/BRepOffsetAPI_MakeFilling; `points` la
   levantan a parche NO plano, `holes` = lazos interiores), `fill_surface` (parche sobre
@@ -147,8 +161,10 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   `is_frenet`) + chapa metálica con **desplegado DXF/SVG** (bend allowance, taladros
   proyectados al blank) + `add_joinery` (espiga/dado/dowel/rebaje — corta EN SITIO,
   conserva ids) + patrones (`count` por `=expr`; `pattern_group` arraya TODAS las
-  features de un comando, rechaza fuentes con juntas) + `center_in`/`distribute`
-  (colocación relacional, se reevalúa al regenerar) + `duplicate_feature`.
+  features de un comando, rechaza fuentes con juntas) + `center_in`/`distribute`/`snap_to`
+  (colocación relacional, se reevalúa al regenerar; `snap_to` V6.5 = «junto a B hacia ±eje
+  con gap g / a ras», bbox-a-bbox + `alinear` para centrar en los otros ejes — para caras
+  arbitrarias/cilíndricas están los mates) + `duplicate_feature`.
 - **Super-comandos**: `create_conveyor` (RODILLOS), `create_belt_conveyor` (BANDA),
   `create_weldment`/`create_frame` (bastidores con lista de corte; `esquinas=
   "tope"|"inglete"` V5.8 — inglete: corte por el plano BISECTOR del nodo en
@@ -698,9 +714,29 @@ verdes**. Un ítem por vez, con plan formal.
   reescritos con `V[...]`; E2E `largo_total=3200` → todo el motriz sigue, 0 colisiones nuevas).
   (c) Tablas de diseño: `set_configuration`/`PUT`, grilla variables×variantes en VariablesDialog,
   tools MCP save/apply_configuration, puente requisitos→variables explícito; E2E: variantes «4m
-  estándar»↔«3.2m compacta» alternadas, el modelo salta completo. Paramétrico 5→6.5.
-- **V6.5 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
-- **V6.6 FEA de ensamblaje (bonded)**. 4.5→5.5.
+  estándar»↔«3.2m compacta» alternadas, el modelo salta completo. (d) **Remate V6.4d
+  (2026-07-10)**: las 15 juntas dejan de ser 100 % literales — `j_trav1..5` x→`100+k*(long_centros
+  -200)/4` y z→`z_mesa_bot-sec_trav/2`, `j_mesa1..4` z→`z_mesa_bot+esp_mesa/2`, `j_tensor_cola`
+  z→`drum_cz`; radios de banda/rodillo→`rad_tambor+esp_banda`/`rad_tambor`/`diam_rodillo/2` (todo
+  resuelto EXACTO antes de atar; las juntas son anclas cinemáticas, mueven 0 geometría de pieza).
+  Basura viva podada (`c1099` Boceto + 14 transforms + `c765` Viga trazada → 82→74 sólidos, 328→312
+  comandos). Guías-huérfanas podadas en la carga (Fix 5a). Baseline re-medido (312 cmds; open frío
+  3.15→1.8 s). E2E: apply_configuration «3.2m compacta» → j_trav5 a 2906 dentro del bastidor, 0
+  colisiones nuevas → vuelta a «4m estándar», revisión guardada. Paramétrico 5→6.5.
+- **V6.5 MCP a escala** — **HECHO (2026-07-10)**. Ergonomía del agente para proyectos de
+  MILES de piezas (el ingeniero digital produce los entregables → su percepción/acción ES
+  infraestructura). (A) Lectura acotada: `get_scene(ids|name|limit|offset)` filtra/pagina
+  (brief sin mallas) y `get_scene(summary=true)` = resumen por grupo (n_piezas/masa/bbox) — la
+  vista de entrada; `get_topology(only|min_mm)` poda el ruido; `get_bom(by_group)`. (B)
+  Consultas espaciales: `near(feature|box)` («¿qué rodea a X?»/«¿qué hay en la región?») +
+  `check_interference(ids=...)` acotada O(k·n). (C) Verbos de intención: comando `snap_to`
+  (junto a B con gap, relacional) + tool `verify` (aserciones distancia/volumen/bbox/
+  sin_interferencia/existe en lote). (D) `preview(data=true)` = fantasmas + colisiones nuevas
+  sin mutar el doc. (E) Doctrina de escala en `design_brief()` (capa 1 SIEMPRE). Presupuesto:
+  lectura de rutina < 10 KB a 1000 piezas (verificado: grupo filtrado 9.4 KB, summary 0.45 KB).
+  52 comandos · 69 tools. IA-nativa/API-first sigue 9.5 (el moat, más profundo).
+- **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
+- **V6.7 FEA de ensamblaje (bonded)**. 4.5→5.5.
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
 
@@ -716,7 +752,7 @@ cerrar V6; orden tentativo por impacto en el entregable:
   montaje) — planos 6.5→8 SIN retoque humano.
 - **V7.3 Stack-up de cadenas de cotas** (análogo a TolAnalyst pero automático): el
   agente verifica que la suma de tolerancias de la cadena cierra el ajuste declarado.
-- **V7.4 FEA firmable** (absorbe V6.6 si no se hizo): ensamblaje bonded + reporte
+- **V7.4 FEA firmable** (absorbe V6.7 si no se hizo): ensamblaje bonded + reporte
   integrado a la memoria.
 
 ## Hoja de ruta V5 — AGOTADA (completitud de flujo del vertical)
@@ -750,7 +786,7 @@ tests + E2E real; un ítem por vez con plan formal.
 - **Física**: cascos convexos en drop_test (hoy AABB), export SDF, sim en tiempo real.
 - **Ingeniería/negocio**: `funcion`/rol por pieza, manual reordenado por grafo de soporte, explosionada 3D, L10 con reparto real.
 - **UI**: refactor de `Viewport.tsx` (picking/medición/sección/gizmo a módulos), picker 2 sólidos para `add_joinery`, editar sweep/loft/chapa/mate desde Propiedades.
-- **V6.4 (follow-ups anotados)**: (1) el **drag&drop del viewport emite `transform` con literales** — patrón sistémico que generó los ~400 comandos de escombro que V6.4b podó; hacer que el arrastre limpie/coalesca sus transforms o emita paramétrico (fuera de alcance de V6.4). (2) **import/export CSV** de la tabla de diseño. (3) **`ancho_banda` < ~540 rompe c339** (Ménsula rodillo retorno: su `depth` se vuelve ≤0 — límite pre-existente del modelo, no de V6.4; parametrizar la ménsula con piso mínimo). (4) run_scripts del motriz (c673/c703/c704) siguen `largo_total` (shift x) pero NO la ANCHURA (`ancho_banda`/`larg_inner_y` en sus coords y) ni `drum_cz` (z) — por demanda.
+- **V6.4 (follow-ups anotados)**: (1) el **drag&drop del viewport emite `transform` con literales** — patrón sistémico que generó los ~400 comandos de escombro que V6.4b podó; hacer que el arrastre limpie/coalesca sus transforms o emita paramétrico (fuera de alcance de V6.4). (2) **import/export CSV** de la tabla de diseño. (3) **`ancho_banda` < ~540 rompe c339** (Ménsula rodillo retorno: su `depth` se vuelve ≤0 — límite pre-existente del modelo, no de V6.4; parametrizar la ménsula con piso mínimo). (4) run_scripts del motriz (c673/c703/c704) siguen `largo_total` (shift x) pero NO la ANCHURA (`ancho_banda`/`larg_inner_y` en sus coords y) ni `drum_cz` (z) — por demanda. (5) **V6.4d — cotas que quedan LITERALES a propósito** (la regla resolver-exacto-antes-de-atar lo exige): `j_mesa1..4` x (550/1452/2354/3255 = centros de sección REDONDEADOS; la fórmula de centro da 550.75/1452.25/… no-exacta → literal; benigno: la x de una junta prismática-z es ancla cinemática, mueve 0 pieza). `c120/c121` z=707 (rodillo de retorno) y `c339-342` z=737.5 (su ménsula): alturas del conjunto de retorno, CONSTANTES entre las dos variantes (no cuelgan de `largo_total`); la z de la ménsula no tiene expresión limpia → ambas literales para no divergir rodillo↔ménsula. Atar por demanda si se parametriza la altura.
 - **Perf**: absorbido por V6.2 (medir contra `docs/perf_baseline.json`).
 - **V6.2e (follow-ups anotados de la revisión)**: `applyAppearance` × tinte de bloqueo — si
   una malla tintada (guardado fallido) recibe un cambio de apariencia externo, invalidar la

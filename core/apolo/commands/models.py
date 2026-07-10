@@ -271,6 +271,29 @@ class AttachParams(BaseModel):
     )
 
 
+class SnapToParams(BaseModel):
+    """Coloca un sólido JUNTO a otro por sus cajas envolventes, sin aritmética: traslada
+    `feature` para que su cara enfrentada quede a `gap` mm del `lado` del bbox de `target`
+    (p. ej. lado='+x' pega la pieza contra el max_x del target; gap=0 = a ras). Con `alinear`
+    la centra además en esos ejes (los distintos del snap). Es «junto a B hacia d con gap g»
+    en UNA llamada. Se REEVALÚA al regenerar (relacional persistente, como center_in): si el
+    target se mueve o cambia de tamaño, la pieza lo sigue. Trabaja sobre las cajas envolventes;
+    para caras arbitrarias/cilíndricas usa mates (add_mate coincidente/distancia)."""
+
+    feature: str = Field(..., title="Sólido a colocar", description="id de feature")
+    target: str = Field(..., title="Sólido de referencia", description="id de feature")
+    lado: Literal["+x", "-x", "+y", "-y", "+z", "-z"] = Field(
+        "+x", title="Lado", description="lado del target contra el que se pega la pieza",
+    )
+    gap: float = Field(
+        0.0, ge=0, title="Holgura", description="mm entre las piezas; acepta =expresión",
+    )
+    alinear: list[Literal["x", "y", "z"]] = Field(
+        default_factory=list, title="Centrar en ejes",
+        description="ejes en que centrar la pieza dentro del target (además del snap)",
+    )
+
+
 class CreateConveyorParams(BaseModel):
     """Transportador de rodillos completo y paramétrico: largueros 40x80,
     rodillos del catálogo, 4 patas regulables, arriostrado y motor opcional.

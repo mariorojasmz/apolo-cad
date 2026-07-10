@@ -3004,3 +3004,128 @@ requisitos son metadato FUERA del log → geometría stale. E2E sobre la faja: v
 
 **Verificación**: `pytest tests -q` 1039 verde · `pytest -m torture` 15 verde · `npm run build`
 (tsc+vite) verde. Paramétrico 5→6.5.
+
+## V6.5 — MCP a escala: ergonomía del agente para miles de piezas (2026-07-10)
+
+**Doctrina.** El ingeniero digital (agente IA) es quien PRODUCE los entregables → su interfaz
+de percepción/acción ES infraestructura de producción. Estaba calibrada para ~82 piezas; el
+objetivo: trabajar proyectos de MILES de piezas sin ahogarse en contexto ni entrar en bucles.
+Diagnóstico del propio agente: (1) su recurso escaso es el CONTEXTO — cada byte de retorno
+compite con el razonamiento; (2) no «ve» geometría, la calcula — cada cálculo hecho a mano es
+un bucle en potencia. Principio rector: **el agente declara INTENCIÓN y consume RESÚMENES; el
+kernel calcula las respuestas exactas.** Regla de presupuesto: ninguna lectura de rutina supera
+~10 KB en un proyecto de 1000 piezas. El MCP sigue THIN: la única tool NUEVA es `verify`; el
+resto GENERALIZA tools existentes (compat byte-idéntica sin params nuevos).
+
+**Fase A — lectura acotada y resumida (`feat: V6.5a`).** `GET /api/scene` gana `ids` (CSV de
+feature_ids o NOMBRES de grupo, vía `_expand_ids`) / `name` (substring) / `limit` (def. 200) /
+`offset` → BRIEF ligero SIN mallas (`_scene_filtered` + `_feature_brief`, mismos campos que el
+`_scene_brief` del cliente MCP), con `total_solidos`/`total_filtrado`/`truncado` (sin caps
+silenciosos). Sin params = payload completo con mallas byte-idéntico (compat viewport: hay tests
+del delta que dependen de él). `GET /api/scene/summary` (`scene_summary_dict`) = resumen por
+GRUPO de nivel superior (n_piezas + masa + bbox conjunto RECURSIVO + sub_grupos por nombre) +
+«(sin grupo)» + totales + variables — la vista de ENTRADA a un proyecto grande. `get_topology`
+gana `only` (caras|aristas|anclas) y `min_mm` (poda micro-fillets/taladros). `get_bom` expone
+`by_group` (el endpoint ya lo soportaba). **Cifras medidas** (modelo sintético 1041 piezas por
+`pattern_group`, dos grupos): brief filtrado al grupo de trabajo (49 piezas) = **9.4 KB**;
+`summary` completo = **0.45 KB**; sin filtrar, la escena serían cientos de KB con mallas.
+
+**Fase B — consultas espaciales (`feat: V6.5b`).** `near` generalizado (`kernel/measure.py`,
+helper único `_aabb_gap` con el punto como AABB degenerado): además de `point`, acepta `feature`
+(«¿qué RODEA a X?» — distancia AABB-AABB al resto, excluyendo X) y `box` («¿qué hay en esta
+REGIÓN?»); `radius`+`limit`. Barrido O(n) sobre AABBs — NO se construyó índice espacial (medir
+primero; follow-up si duele a 5000). `interference_report` gana `focus` (parejas donde participa
+AL MENOS un id, O(k·n)) — difiere de `only` (que restringe AMBOS extremos): `focus` CONSERVA las
+colisiones del subconjunto contra el resto de la escena. `POST /api/checks` lo expone como
+`interference_ids` (expandido con `_expand_ids`) → `check_interference(ids=...)` valida la zona
+de trabajo, no la máquina entera. Test: `focus` == subconjunto EXACTO de la global.
+
+**Fase C — verbos de intención y aserciones (`feat: V6.5c`).** Comando nuevo `snap_to`
+(schema-driven → UI + agente gratis): `{feature, target, lado:±x|±y|±z, gap (=expr ok), alinear:
+[ejes]}` → traslada `feature` para que su cara de bbox enfrentada quede a `gap` mm del `lado` del
+bbox de `target` (gap=0 = a ras), centrando en los ejes de `alinear`. Es «junto a B hacia d con
+gap g» en UNA llamada sin aritmética del agente. **Relacional** (patrón `center_in`: se reevalúa
+al regenerar con el MISMO `_world_move` → conserva matrix/anclas): si el target se mueve o cambia
+de tamaño, la pieza lo sigue. NO reemplaza los mates: bbox-a-bbox; para caras arbitrarias/
+cilíndricas siguen los mates (documentado en el `description`). Tool nueva `verify` (`POST
+/api/verify`, READ-ONLY; `library/verify.py` PURO con `expand`/`interference_fn` inyectados para
+no cruzar la frontera de capas): lote de aserciones `distancia`/`volumen`/`bbox`/
+`sin_interferencia`/`existe` → `[{check, ok, actual, esperado}]`. Mata el patrón «6 measure
+sueltos + aritmética mental»: el agente declara las invariantes ANTES y las verifica DESPUÉS en
+una llamada. `id`/`grupo`/`ids` aceptan nombres de grupo. 68→69 tools (reiniciar host MCP).
+
+**Fase D — dry-run con datos (`feat: V6.5d`).** `preview` gana `data=true`: además del PNG
+(default, compat), devuelve `{fantasmas:[{name,bbox,volumen_mm3}], colisiones_nuevas:[...]}` — las
+colisiones SOLO de los fantasmas (reusa la interferencia acotada de la Fase B, `focus` a los ids
+nuevos, excluyendo hardware/parejas por diseño vía un shim `SimpleNamespace(scene=...)`). El
+agente prueba N colocaciones y compromete 1 SIN mutar el documento ni generar escombro de log (la
+lección de los ~400 comandos podados en V6.4). Test: el documento queda INTACTO (firma del log
+idéntica); comando inválido → 400 sin efectos.
+
+**Fase E — doctrina de jerarquía + cierre.** `ESCALA_DOCTRINE` en `design/guidelines.py`, inyectada
+en `design_brief()` (capa 1, SIEMPRE en instrucciones MCP + SYSTEM_PROMPT) y expuesta en
+`design_guidelines()`: «en proyectos grandes entra por `get_scene(summary=true)`, trabaja por
+GRUPOS, valida con `check_interference(ids=...)`, ensaya con `preview(data=true)` y comprueba con
+`verify`, no con aritmética mental; estructura con create_group/auto_group o divide en
+sub-proyectos». **Verificación**: `pytest tests -q` **1077 verde** (+38 nuevos: escala/espaciales/
+snap_to/verify/preview) · `pytest -m torture` 15 verde · imports/health verdes. Roadmap: croquis
+vivo → V6.6, FEA de ensamblaje → V6.7. IA-nativa/API-first sigue 9.5, el moat, ahora más profundo.
+
+## V6.4d — Remate de la revisión de V6.4 (2026-07-10)
+
+La revisión adversarial de V6.4 (a/b/c) aprobó lo sustantivo pero halló **residuos entre plan y
+ejecución**; este remate los cierra. Ejecutado sobre el proyecto 38 VIVO (API+MCP) con revisión
+previa «pre V6.4d» (id 78) por seguridad.
+
+**Fix 5a (código + test) — guías huérfanas.** `Document.from_apolo_bytes` ahora poda las entradas
+de `sketch_guides` (metadato = command_ids) cuyo comando ya no existe en el log. Se eligió la ruta
+de CARGA, NO `remove_commands`, porque `sketch_guides` NO viaja en los snapshots de undo
+(`_snapshot`/`_restore` llevan commands/hidden/seq/regen, no el metadato): podarlo en la mutación
+lo perdería al deshacer el remove. Conserva el criterio `_cmd_alive` (id directo o sintético
+`{cmd}_{orig}` de insert_project). Test nuevo: una guía-huérfana sintética `c9999` se poda en el
+round-trip, la viva sobrevive.
+
+**Fix 2 — las 15 juntas dejan de ser 100 % literales.** `get_command` reveló los 80 campos
+literales. Por `edit_batch` (atómico, 1 undo), enviando el `origin` completo (un sub-objeto se
+reemplaza entero): `j_trav1..5` x→`100+k*(long_centros-200)/4`, z→`z_mesa_bot-sec_trav/2`;
+`j_mesa1..4` z→`z_mesa_bot+esp_mesa/2`; `j_tensor_cola` z→`drum_cz`. Cada candidata se verificó con
+`resolve_expression` ANTES de atar. **Reconciliación honesta**: `j_trav2/4` x resolvían a
+1001.5/2804.5 (los literales 1001/2804 eran REDONDEOS de los centros reales de sección) — se
+ataron a la fórmula porque el origen de una junta prismática-z es un ancla cinemática que mueve 0
+geometría de pieza (confirmado: el `edit_batch` devolvió 0 sólidos afectados) y 1001.5/2804.5 =
+centro EXACTO del travesaño hijo. `j_mesa1..4` x (centros redondeados, sin fórmula exacta) se
+dejaron LITERALES + anotadas (regla resolver-exacto: no inventar una falsa).
+
+**Fix 3 — residuos dimensionales.** `belt_out_tail/drive` (c111/c112) radius 59→`rad_tambor+
+esp_banda`, `belt_in` (c115/c116) 57→`rad_tambor`, `rodillo_body` (c120) 25→`diam_rodillo/2` (todos
+EXACTOS, geometría byte-idéntica → 0 sólidos afectados). Las z=707 (rodillo retorno c120/c121) y
+z=737.5 (su ménsula c339-342) se dejaron literales: son alturas CONSTANTES entre las dos variantes
+y la z de la ménsula no tiene expresión limpia (mantener rodillo↔ménsula consistentes).
+
+**Fix 4 — poda de basura viva.** `POST /api/commands/remove` de `c1099` («Boceto» 200×200×45, era
+guía) + sus 14 transforms (c1100-c1113, el patrón sistémico de drag&drop con literales) + `c765`
+(«Viga trazada» flotante, 7 sólidos). Conteo confirmado ANTES mirando la escena: 82→74 sólidos,
+328→312 comandos. `check_integrity` limpio; ni mates ni grupos referenciaban las basuras (grep del
+log lo confirmó antes de podar).
+
+**Fix 6 — E2E de cierre.** `apply_configuration("3.2m compacta")` (long_centros 3806→3006): las
+juntas SIGUEN — `j_trav5` a 2906 (centro del último travesaño, dentro del bastidor que ahora acaba
+en x=3103), `j_trav2/3/4` a 801.5/1503/2204.5; el conjunto motriz (tambor, motor, chumaceras) se
+corre −800. `check_interference`: EXACTAMENTE las mismas 20 parejas de contacto intencional que en
+4m → **0 colisiones nuevas**. Render limpio (sin la basura podada). Vuelta a «4m estándar»
+(4000/600, 74 sólidos) + revisión «V6.4d» (id 79).
+
+**Fix 5b (datos) — verificado + limpio durable.** La carga con el Fix 5a ya había limpiado sola
+las 25 guías-huérfanas de V6.4b (podadas al recargar el worker con `--reload` + autosave); tras el
+Fix 4 quedó 1 nueva (`c1099`). Script offline (API detenida): el manifest crudo tenía 1
+guía-huérfana → tras la carga 0, sólidos/comandos intactos → re-guardado durable (registro
+principal del proyecto 38 limpio).
+
+**Fix 1 — baseline re-medido.** `scripts/perf_baseline.py` (API detenida) contra el proyecto 38
+podado: `faja_comandos` 701→312, `faja_solidos` 82→74, `open_frio_faja_s` 3.15→~1.8. `nota`
+actualizada con la fuente (log PODADO de V6.4) en ASCII para no romper el `print` en consola cp1252.
+
+**Menores.** `GET /api/expression-grammar` documenta ahora que `and`/`or` colapsan a 1.0/0.0 (el
+idiom `x or 5` NO devuelve 5). Las tools MCP `save/apply_configuration` se estrenaron en vivo en el
+Fix 6. **Verificación**: `pytest tests -q` **1078 verde** (+1 nuevo: guía huérfana) · `pytest -m
+torture` 15 verde · `GET /api/health` limpio (0 issues) tras cada mutación.

@@ -930,7 +930,18 @@ class Document:
         doc.configurations = manifest.get("configurations", {})
         doc.colors = manifest.get("colors", {})
         doc.materials = manifest.get("materials", {})
-        doc.sketch_guides = set(manifest.get("sketch_guides", []))
+        # sketch_guides es metadato (command_ids): poda las entradas cuyo comando ya
+        # NO existe en el log — huérfanas benignas que dejan las cirugías/podas de
+        # comandos. Se hace SOLO en la carga (no en remove_commands) porque el metadato
+        # NO viaja en los snapshots de undo: podarlo durante la mutación lo perdería al
+        # deshacer el remove. Se conserva el criterio de _cmd_alive (id directo del log o
+        # sintético '{cmd}_{orig}' de insert_project cuyo prefijo sigue vivo).
+        _log_ids = {c["id"] for c in commands}
+        doc.sketch_guides = {
+            cid
+            for cid in manifest.get("sketch_guides", [])
+            if cid in _log_ids or cid.split("_", 1)[0] in _log_ids
+        }
         doc.vertical = manifest.get("vertical", "metalmecanica")
         _m = manifest.get("motion", {})
         # migración: proyectos viejos guardaban el motion como UNA lista de fotogramas

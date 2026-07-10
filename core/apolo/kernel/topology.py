@@ -105,14 +105,33 @@ def _edge_entry(idx: int, edge) -> dict:
     return entry
 
 
-def feature_topology(shape) -> dict:
+def feature_topology(shape, only: str | None = None, min_mm: float = 0.0) -> dict:
     """Enumera caras y aristas del `shape` con su geometría descriptiva.
 
     Devuelve ``{"faces": [...], "edges": [...]}``. Los índices (``idx``) son
     estables dentro de una misma geometría y sirven solo de referencia para el
     agente; la SELECCIÓN sigue siendo declarativa (por orientación, longitud,
     proximidad), no por idx.
+
+    `only` acota la salida (``"caras"`` | ``"aristas"``; cualquier otro valor —p. ej.
+    ``"anclas"``— devuelve ninguna de las dos, dejando solo las anclas que añade el
+    endpoint). `min_mm` filtra el RUIDO de piezas con muchos taladros: omite aristas
+    más cortas que `min_mm` y caras cuya área es menor que ``min_mm²`` (los micro-fillets
+    y agujeros diminutos, que suelen ser el grueso de la enumeración).
     """
-    faces = [_face_entry(i, f) for i, f in enumerate(shape.faces())]
-    edges = [_edge_entry(i, e) for i, e in enumerate(shape.edges())]
-    return {"faces": faces, "edges": edges}
+    key = (only or "").strip().lower()
+    want_faces = key in ("", "caras")
+    want_edges = key in ("", "aristas")
+    out: dict = {}
+    if want_faces:
+        faces = [_face_entry(i, f) for i, f in enumerate(shape.faces())]
+        if min_mm > 0:
+            area_min = min_mm * min_mm
+            faces = [f for f in faces if f.get("area", float("inf")) >= area_min]
+        out["faces"] = faces
+    if want_edges:
+        edges = [_edge_entry(i, e) for i, e in enumerate(shape.edges())]
+        if min_mm > 0:
+            edges = [e for e in edges if e.get("length", float("inf")) >= min_mm]
+        out["edges"] = edges
+    return out
