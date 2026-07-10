@@ -114,6 +114,7 @@ export interface DocumentOut {
   can_redo: boolean;
   variables: VariableOut[];
   configurations: string[];
+  configuration_values?: Record<string, Record<string, string>>;  // V6.4c: {variante: {var: expr}}
   groups: GroupOut[];
   project_id: number | null;
   // robustez (V6.1): comandos suprimidos por una carga tolerante + estado del autosave

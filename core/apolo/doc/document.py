@@ -650,6 +650,27 @@ class Document:
             raise DocumentError("No hay variables que guardar: define variables primero")
         self.configurations[name] = dict(self.variables_raw)
 
+    def set_configuration(self, name: str, values: dict[str, str]) -> None:
+        """Edición EXPLÍCITA de una variante (V6.4c, tablas de diseño): `values` = {variable:
+        expresión} que sobreescribe esa variante SIN aplicarla al modelo (a diferencia de
+        `save_configuration`, que solo captura el snapshot actual). Base = la variante existente
+        si la hay, si no las variables actuales; se validan: variables existentes, expresiones
+        que parsean y sin ciclos (resolviendo el conjunto combinado). No toca el log ni la
+        geometría — la variante se materializa al `apply_configuration`."""
+        unknown = [v for v in values if v not in self.variables_raw]
+        if unknown:
+            raise DocumentError(
+                f"No existe{'n' if len(unknown) > 1 else ''} la variable "
+                f"{', '.join(sorted(unknown))}: define las variables antes de la variante"
+            )
+        base = dict(self.configurations.get(name) or self.variables_raw)
+        base.update({k: str(v) for k, v in values.items()})
+        try:
+            resolve_all(base)
+        except ExpressionError as exc:
+            raise DocumentError(f"Configuración '{name}' inválida: {exc}") from None
+        self.configurations[name] = base
+
     def apply_configuration(self, name: str) -> None:
         """Aplica una variante: edita los set_variable correspondientes y
         regenera (un único paso de deshacer)."""

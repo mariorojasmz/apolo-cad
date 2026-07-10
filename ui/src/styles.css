@@ -557,6 +557,11 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 }
 .cfg-section { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px; }
 .cfg-section h4 { margin: 0 0 4px; }
+/* Tabla de diseño (V6.4c): grilla variables x variantes con celdas editables */
+.cfg-table td.muted { color: var(--muted, #8a93a6); }
+.cfg-table .cfg-col-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cfg-table input.cfg-cell { width: 100%; min-width: 78px; box-sizing: border-box; font-size: 12px; padding: 2px 4px; }
+.req-to-var { margin-left: 6px; font-size: 11px; padding: 1px 6px; }
 .color-cell { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
 .color-cell input[type="color"] { width: 42px; height: 22px; padding: 0; border: none; background: none; }
 

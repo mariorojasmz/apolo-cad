@@ -52,14 +52,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1028 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1039 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **66 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **68 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-10)**: 1028 tests (+15 tortura vía `-m torture`) · 66 tools MCP ·
+- **Estado actual (2026-07-10)**: 1039 tests (+15 tortura vía `-m torture`) · 68 tools MCP ·
   51 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
   «Apolo industrial»: V6.1 robustez + V6.2 rendimiento + V6.3 ensamblaje pro CERRADOS**. V6.1
   («nada tumba el documento»: `check_integrity` + carga tolerante + atomicidad + `GET /api/health`;
@@ -461,10 +461,26 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
 
 ### Paramétrico / modelado
 - **Disciplina paramétrica**: cota que no cuelga de variable/expresión NO sigue los
-  cambios. Los `create_*` y super-comandos aceptan `=expr` y CASCADEAN; los `run_script`
-  NO ven las variables del proyecto (van con valor fijo → reeditar a mano al
-  reparametrizar). Al reparametrizar, ojo con piezas que dependían de OTRA que sí se
-  movió (un puntal que apunta a una pata).
+  cambios. Los `create_*`, super-comandos Y `run_script` cascadean: el `run_script` SÍ ve
+  las variables del proyecto vía `V["nombre"]` (el sandbox inyecta `V = resolve_all(vars)`;
+  `test_script` también) → escríbelo con `V[...]`, no con literales (el gap de la faja 38
+  era de AUTORÍA, no de mecánica — corregido en V6.4b). GOTCHA del shift: `Pos(...)*result`
+  falla si `result` es una ShapeList (partes disjuntas = lista); traslada a nivel de
+  coordenada (`Pos(x+dx,...)*shape`) o compón un Compound. Al reparametrizar, ojo con
+  piezas que dependían de OTRA que sí se movió (un puntal que apunta a una pata).
+- **Expresiones con CONDICIONALES (V6.4a)**: los campos `=expr` aceptan ternario
+  `a if cond else b` (PEREZOSO — la rama no tomada no se evalúa), comparadores
+  `< <= > >= == !=` (encadenados) y `and`/`or` — para tablas de diseño
+  («`=3 if largo_total>3500 else 2`»). Sin strings/listas/`in`/`is`/lambda.
+- **Tablas de diseño (variantes, V6.4c)**: `Document.configurations = {variante: {var: expr}}`
+  (metadato de manifest). `save_configuration` captura el snapshot ACTUAL; `set_configuration`
+  (`PUT /api/configurations/{name}`) edita una variante con `{var: expr}` EXPLÍCITO SIN
+  aplicarla (valida existencia/parseo/ciclos); `apply_configuration` reescribe las variables y
+  regenera TODO (un solo undo). Payload `configuration_values` alimenta la grilla variables×
+  variantes del VariablesDialog (celdas editables → PUT). Tools MCP `save_configuration`/
+  `apply_configuration`. Puente requisitos→variables EXPLÍCITO (botón «→ var» en Requisitos =
+  crea el `set_variable`): NUNCA implícito (`=req.x`) porque los requisitos son metadato FUERA
+  del log → un puente implícito no cambiaría las firmas del regenerate = geometría stale.
 - **Nombres por ROL, no por medida** («Larguero (+Y)», nunca «80x40x3»): la medida es
   dato derivado (árbol/BOM la calculan en vivo). EXCEPCIÓN: grado de material («A36») y
   nameplate («1.5HP 1750rpm») que el sistema LEE del nombre.
@@ -638,7 +654,8 @@ Cuando el usuario pregunte cómo madura Apolo, comparar contra esto Y contra la 
 de RESULTADOS de arriba. Veredicto por FEATURES: como CAD GENERAL ~10-15 % de SW/Inventor
 (kernel nivel FreeCAD — una CUÑA, no un reemplazo); como herramienta del VERTICAL cubre
 ~80 % del flujo autónomo — categoría que los grandes no ocupan. Ejes: IA-nativa/API-first
-**9.5** (el moat) · kernel OCCT 6.5 · paramétrico 5 · croquis 5 (PlaneGCS; falta arrastre
+**9.5** (el moat) · kernel OCCT 6.5 · paramétrico 6.5 (V6.4: condicionales + faja 38 100 %
+paramétrica + tablas de diseño) · croquis 5 (PlaneGCS; falta arrastre
 en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
 soundness/gravity sigue siendo único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+FEA
 lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
@@ -674,8 +691,14 @@ verdes**. Un ítem por vez, con plan formal.
   Grübler, `get_dof`). Verificado E2E: chumacera concéntrica por ancla contra un eje (centro
   medido sobre el eje); `get_dof` sobre la faja 38 (82 sólidos, 256 GDL, sin crash). Fix 0
   residual: autosave limpia `dirty` bajo `_flush_lock`. Ensamblaje 4.5→6.
-- **V6.4 Paramétrico profundo** — faja 38 100 % paramétrica como caso testigo, tablas de
-  diseño. 5→6.5.
+- **V6.4 Paramétrico profundo** — **HECHO (2026-07-10)**. (a) Motor de expresiones con
+  CONDICIONALES (ternario perezoso + comparadores + and/or) para tablas de diseño. (b) Faja 38
+  100 % paramétrica: log podado 701→328 (poda de escombro de UI verificada — 82 piezas bit-
+  idénticas), conjunto motriz sigue a `largo_total` (posiciones create/insert + 6 run_scripts
+  reescritos con `V[...]`; E2E `largo_total=3200` → todo el motriz sigue, 0 colisiones nuevas).
+  (c) Tablas de diseño: `set_configuration`/`PUT`, grilla variables×variantes en VariablesDialog,
+  tools MCP save/apply_configuration, puente requisitos→variables explícito; E2E: variantes «4m
+  estándar»↔«3.2m compacta» alternadas, el modelo salta completo. Paramétrico 5→6.5.
 - **V6.5 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
 - **V6.6 FEA de ensamblaje (bonded)**. 4.5→5.5.
 
@@ -727,6 +750,7 @@ tests + E2E real; un ítem por vez con plan formal.
 - **Física**: cascos convexos en drop_test (hoy AABB), export SDF, sim en tiempo real.
 - **Ingeniería/negocio**: `funcion`/rol por pieza, manual reordenado por grafo de soporte, explosionada 3D, L10 con reparto real.
 - **UI**: refactor de `Viewport.tsx` (picking/medición/sección/gizmo a módulos), picker 2 sólidos para `add_joinery`, editar sweep/loft/chapa/mate desde Propiedades.
+- **V6.4 (follow-ups anotados)**: (1) el **drag&drop del viewport emite `transform` con literales** — patrón sistémico que generó los ~400 comandos de escombro que V6.4b podó; hacer que el arrastre limpie/coalesca sus transforms o emita paramétrico (fuera de alcance de V6.4). (2) **import/export CSV** de la tabla de diseño. (3) **`ancho_banda` < ~540 rompe c339** (Ménsula rodillo retorno: su `depth` se vuelve ≤0 — límite pre-existente del modelo, no de V6.4; parametrizar la ménsula con piso mínimo). (4) run_scripts del motriz (c673/c703/c704) siguen `largo_total` (shift x) pero NO la ANCHURA (`ancho_banda`/`larg_inner_y` en sus coords y) ni `drum_cz` (z) — por demanda.
 - **Perf**: absorbido por V6.2 (medir contra `docs/perf_baseline.json`).
 - **V6.2e (follow-ups anotados de la revisión)**: `applyAppearance` × tinte de bloqueo — si
   una malla tintada (guardado fallido) recibe un cambio de apariencia externo, invalidar la

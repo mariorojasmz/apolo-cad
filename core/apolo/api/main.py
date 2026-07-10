@@ -443,6 +443,7 @@ def document_payload() -> dict:
         "can_redo": DOC.can_redo,
         "variables": variables_payload(),
         "configurations": sorted(DOC.configurations.keys()),
+        "configuration_values": {k: dict(v) for k, v in DOC.configurations.items()},  # V6.4c: tabla
         "groups": groups_payload(),
         "project_id": PROJECT_ID,
         # robustez (V6.1): comandos suprimidos por una carga tolerante + estado del
@@ -1231,6 +1232,16 @@ class ConfigIn(BaseModel):
 @app.post("/api/configurations")
 def save_configuration(body: ConfigIn) -> dict:
     return _state_or_error(lambda: DOC.save_configuration(body.name.strip()))
+
+
+class ConfigValuesIn(BaseModel):
+    values: dict[str, str]  # {variable: expresión} — V6.4c edición explícita de una variante
+
+
+@app.put("/api/configurations/{name}")
+def set_configuration(name: str, body: ConfigValuesIn) -> dict:
+    """Edita una variante con {variable: expresión} explícito (tabla de diseño) SIN aplicarla."""
+    return _state_or_error(lambda: DOC.set_configuration(name, body.values))
 
 
 @app.post("/api/configurations/{name}/apply")

@@ -2949,3 +2949,58 @@ restaurado al terminar.
 sin cambios de firma → host MCP no requiere reinicio · tests nuevos en `test_anchors.py` (Fix 1/2:
 transform mueve ancla, rotación gira el eje, repro rígido transform+mate, center_in, undo/redo,
 duplicate/pattern heredan y matean). Ensamblaje se mantiene en 6.
+
+## V6.4 — Paramétrico profundo: condicionales + faja 38 paramétrica + tablas de diseño (2026-07-10)
+
+Cuarto ítem de V6 (paramétrico 5→6.5). Tres frentes: MOTOR (pequeño), CIRUGÍA del proyecto real 38
+(el grueso), PRODUCTO (tablas de diseño sobre `configurations`).
+
+**Fase A — condicionales en expresiones (`feat: V6.4a`, commit f948b89).** `expressions.py` gana
+`ast.IfExp` (ternario PEREZOSO — solo evalúa la rama tomada, una `1/0` en la rama no tomada no
+revienta), `ast.Compare` (`< <= > >= == !=`, encadenados `a<b<c` con corto-circuito, colapsan a
+1.0/0.0; `in`/`is` validados y rechazados por adelantado) y `ast.BoolOp` (`and`/`or`). Fuera:
+strings/listas/atributos/índices/lambda. `GET /api/expression-grammar` + hint del VariablesDialog.
+El caso `x if 1 else 2` pasa de prohibido a permitido en el test de seguridad.
+
+**Fase B — cirugía de la faja 38.** Red de seguridad primero: `save_revision` id 75 verificada en la
+BD. Auditoría read-only del log (script solo-JSON, sin importar apolo): **cierre de dependencias
+CONSERVADOR** — KEEP = structural ∪ productoras-de-pieza-viva, fixpoint sumando inputs de boolean y
+mutadores sobre KEEP. Reveló que la clasificación ingenua marca como muertos los INPUTS de los
+boolean_op vivos (c38/c41/c42… alimentan largueros/patas): borrarlos rompería el modelo. El cierre
+correcto dio **373 comandos muertos, TODOS en el rango de ids 701–1098** (el tramo de escombro de
+drag&drop de la UI), ninguno produce pieza viva, ningún `delete_feature` muerto resucita algo, cero
+refs vivas→muertas. **Poda atómica (`POST /api/commands/remove`, 373 ids): 701→328 comandos, las 82
+piezas con volúmenes+bboxes BIT-IDÉNTICOS**, integridad limpia. (No podé c765/c1099 —«basura viva»
+que el plan mencionaba— por ser piezas vivas; quedan como follow-up conservador.)
+
+Reparametrización: (1) posiciones del conjunto motriz `edit_batch` (c670 eje, c682 NMRV, c686/687
+chumaceras, c412 take-up → `=long_centros`/`=drum_cz`; verificado exacto con `resolve_expression`,
+0 movimiento). (2) **Los 6 run_scripts reescritos para leer `V[...]`** — CLAUDE.md:464 estaba
+DESACTUALIZADO («run_script NO ve variables»): el sandbox SÍ inyecta `V = resolve_all(vars)` (y
+`test_script` también). Diagnóstico clave por sonda (`largo_total=3200`): TODA la región motriz
+(extremo + última pata) traslada RÍGIDAMENTE `Δx = long_centros−3806` → los scripts complejos
+(c673 disco, c703/c704 ménsula motor) se parametrizan con un shift uniforme en x (a nivel de
+coordenada `Pos(x+dx,…)*shape` — el `Pos(dx,…)*result` peló ShapeList de partes disjuntas), los
+simples (c669 tambor, c685 ménsulas, c647 pies) por sustitución directa. Cada reescritura validada
+en seco con `test_script` (volumen/bbox idénticos) antes de aplicar; tras aplicar, las 82 piezas
+bit-idénticas al baseline 4000.
+
+**E2E de aceptación (el caso que fallaba)**: `largo_total=3200` → long_centros=3006, y TODO el
+conjunto motriz sigue (tambor 3006, eje 3006, NMRV 2810.8, chumaceras 3006, ménsulas 3006, disco/
+ménsula-motor/tornillería −800) — antes de V6.4b el tambor/disco/ménsulas se quedaban en 3806
+partiendo el conjunto. `check_interference` idéntico a 4000 (27 contactos pre-existentes, 0 nuevos).
+`ancho_banda=500` topa un límite PRE-EXISTENTE de c339 (Ménsula rodillo retorno, `depth`≤0 — no
+regresión, el regenerate atómico lo rechaza). Restaurado a 4000/600 (82 piezas idénticas al original),
+`save_revision` id 76 «V6.4 paramétrica».
+
+**Fase C — tablas de diseño (`feat: V6.4c`).** `Document.set_configuration(name, values)` edita una
+variante con `{var: expr}` EXPLÍCITO sin aplicarla (valida existencia/parseo/ciclos); `PUT
+/api/configurations/{name}`; payload `configuration_values` alimenta la grilla variables×variantes
+del VariablesDialog (celdas editables → PUT, ▸ aplica). Tools MCP `save_configuration`/
+`apply_configuration` (66→68 — reiniciar host MCP para verlas). Puente requisitos→variables EXPLÍCITO
+(botón «→ var» en RequirementsPanel = crea el `set_variable`): NUNCA implícito (`=req.x`) porque los
+requisitos son metadato FUERA del log → geometría stale. E2E sobre la faja: variantes «4m estándar»
+(4000) y «3.2m compacta» (3200); alternar por API salta el modelo completo (tambor 3806↔3006).
+
+**Verificación**: `pytest tests -q` 1039 verde · `pytest -m torture` 15 verde · `npm run build`
+(tsc+vite) verde. Paramétrico 5→6.5.

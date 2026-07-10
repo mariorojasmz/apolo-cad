@@ -82,6 +82,13 @@ export const api = {
     fetch(`/api/configurations/${encodeURIComponent(name)}/apply`, { method: "POST" }).then((r) =>
       json<SceneOut>(r),
     ),
+  // V6.4c: edición explícita de una variante {variable: expresión} (tabla de diseño), sin aplicar
+  setConfiguration: (name: string, values: Record<string, string>) =>
+    fetch(`/api/configurations/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    }).then((r) => json<SceneOut>(r)),
   deleteConfiguration: (name: string) =>
     fetch(`/api/configurations/${encodeURIComponent(name)}`, { method: "DELETE" }).then((r) =>
       json<SceneOut>(r),

@@ -467,6 +467,24 @@ def save_revision(note: str) -> str:
 
 
 @mcp.tool()
+def save_configuration(name: str) -> str:
+    """Guarda una CONFIGURACIÓN (variante = tabla de diseño) con los valores ACTUALES de todas
+    las variables del proyecto. Aplícala luego con apply_configuration para saltar el modelo
+    entero a esa variante (un solo undo). Ver las variables con get_scene."""
+    payload = _api("POST", "/api/configurations", json={"name": name}).json()
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+@mcp.tool()
+def apply_configuration(name: str) -> str:
+    """Aplica una CONFIGURACIÓN guardada: reescribe las variables a los valores de esa variante
+    y regenera el modelo COMPLETO (un solo paso de deshacer). Úsalo para alternar entre
+    variantes de diseño (p. ej. '4m estándar' ↔ '3.2m compacta')."""
+    payload = _api("POST", f"/api/configurations/{name}/apply").json()
+    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+@mcp.tool()
 def export_step(path: str) -> str:
     """Exporta el modelo a un archivo STEP en la ruta local indicada."""
     from pathlib import Path

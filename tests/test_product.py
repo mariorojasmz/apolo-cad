@@ -169,6 +169,55 @@ def test_configurations_api(client):
     assert client.post("/api/configurations/corta/apply").status_code == 400
 
 
+# ---------------------------------------- V6.4c: edición explícita de variantes (tablas de diseño)
+def test_set_configuration_explicit():
+    doc = Document()
+    doc.execute("set_variable", {"name": "L", "expression": "2000"})
+    doc.execute("set_variable", {"name": "W", "expression": "600"})
+    doc.execute("create_box", {"width": "=L", "depth": "=W"})
+    doc.set_configuration("compacta", {"L": "1200"})           # explícito, sin aplicar
+    assert doc.configurations["compacta"] == {"L": "1200", "W": "600"}  # el resto hereda lo actual
+    assert doc.variables_resolved["L"] == 2000                 # el modelo NO cambió
+    doc.apply_configuration("compacta")
+    assert doc.variables_resolved["L"] == 1200
+    doc.set_configuration("compacta", {"L": "1500"})           # editar variante existente
+    assert doc.configurations["compacta"]["L"] == "1500"
+
+
+def test_set_configuration_validates():
+    doc = Document()
+    doc.execute("set_variable", {"name": "L", "expression": "10"})
+    with pytest.raises(DocumentError, match="No existe"):
+        doc.set_configuration("v", {"nope": "5"})              # variable inexistente
+    with pytest.raises(DocumentError, match="inválida|circular"):
+        doc.set_configuration("v", {"L": "L"})                 # ciclo
+    with pytest.raises(DocumentError, match="inválida|cero"):
+        doc.set_configuration("v", {"L": "1/0"})               # expresión inválida
+
+
+def test_set_configuration_condicional_v6_4a():
+    """La variante puede usar los condicionales de V6.4a."""
+    doc = Document()
+    doc.execute("set_variable", {"name": "largo", "expression": "4000"})
+    doc.execute("set_variable", {"name": "n", "expression": "2"})
+    doc.set_configuration("auto", {"n": "3 if largo > 3500 else 2"})
+    doc.apply_configuration("auto")
+    assert doc.variables_resolved["n"] == 3
+
+
+def test_set_configuration_api(client):
+    client.post("/api/variables", json={"name": "L", "expression": "500"})
+    client.post("/api/commands", json={"type": "create_box", "params": {"width": "=L"}})
+    r = client.put("/api/configurations/corta", json={"values": {"L": "300"}})
+    assert r.status_code == 200
+    assert "corta" in r.json()["document"]["configurations"]
+    assert r.json()["document"]["configuration_values"]["corta"]["L"] == "300"
+    r = client.post("/api/configurations/corta/apply")
+    bbox = r.json()["features"][0]["bbox"]
+    assert bbox["max"][0] - bbox["min"][0] == pytest.approx(300, abs=1e-3)
+    assert client.put("/api/configurations/x", json={"values": {"nope": "1"}}).status_code == 400
+
+
 def test_color_api(client):
     r = client.post("/api/commands", json={"type": "create_box", "params": {}})
     fid = r.json()["features"][0]["id"]

@@ -9,6 +9,7 @@ export default function VariablesDialog() {
   const show = useStore((s) => s.showVariables);
   const variables = useStore((s) => s.scene?.document.variables) ?? [];
   const configurations = useStore((s) => s.scene?.document.configurations) ?? [];
+  const configurationValues = useStore((s) => s.scene?.document.configuration_values) ?? {};
   const openVariables = useStore((s) => s.openVariables);
   const saveVariable = useStore((s) => s.saveVariable);
   const deleteVariable = useStore((s) => s.deleteVariable);
@@ -121,25 +122,65 @@ export default function VariablesDialog() {
         </form>
 
         <div className="cfg-section">
-          <h4>Configuraciones (variantes)</h4>
+          <h4>Tabla de diseño (variantes)</h4>
           <p className="hint">
-            Una configuración guarda los valores de todas las variables. Aplicarla regenera el modelo
-            entero (un solo paso de deshacer).
+            Cada columna es una variante. Edita una celda para fijar la expresión de esa variable en
+            esa variante (no cambia el modelo). <strong>▸ Aplicar</strong> reescribe las variables y
+            regenera todo (un solo paso de deshacer).
           </p>
-          {configurations.length > 0 && (
-            <ul className="rev-list">
-              {configurations.map((c) => (
-                <li key={c}>
-                  <strong>{c}</strong>
-                  <span>
-                    <button disabled={busy} onClick={() => void cfgAction("applyConfiguration", () => api.applyConfiguration(c))}>Aplicar</button>{" "}
-                    <button className="ghost" disabled={busy} onClick={() => void cfgAction("deleteConfiguration", () => api.deleteConfiguration(c))}>
-                      ✕
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
+          {configurations.length > 0 ? (
+            <div style={{ overflowX: "auto" }}>
+              <table className="vars-table cfg-table">
+                <thead>
+                  <tr>
+                    <th>Variable</th>
+                    <th>Actual</th>
+                    {configurations.map((c) => (
+                      <th key={c}>
+                        <div className="cfg-col-head">
+                          <strong>{c}</strong>
+                          <span className="row-actions">
+                            <button type="button" disabled={busy} title="Aplicar esta variante"
+                              onClick={() => void cfgAction("applyConfiguration", () => api.applyConfiguration(c))}>▸</button>
+                            <button type="button" className="ghost" disabled={busy} title="Borrar variante"
+                              onClick={() => void cfgAction("deleteConfiguration", () => api.deleteConfiguration(c))}>✕</button>
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {variables.map((v) => (
+                    <tr key={v.name}>
+                      <td><code>{v.name}</code></td>
+                      <td className="muted">{v.expression}</td>
+                      {configurations.map((c) => {
+                        const cell = configurationValues[c]?.[v.name] ?? "";
+                        return (
+                          <td key={c}>
+                            <input
+                              key={`${c}|${cell}`}   // remonta si el valor cambia (input no controlado)
+                              className="cfg-cell"
+                              defaultValue={cell}
+                              disabled={busy}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              onBlur={(e) => {
+                                const val = e.target.value.trim();
+                                if (val && val !== cell)
+                                  void cfgAction("setConfiguration", () => api.setConfiguration(c, { [v.name]: val }));
+                              }}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="hint">Aún no hay variantes. Crea una desde los valores actuales abajo.</p>
           )}
           <div className="vars-form">
             <input
@@ -154,7 +195,7 @@ export default function VariablesDialog() {
                 setCfgName("");
               }}
             >
-              Guardar valores actuales
+              Nueva variante desde la actual
             </button>
           </div>
         </div>

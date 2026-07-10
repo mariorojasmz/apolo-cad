@@ -53,6 +53,16 @@ export default function RequirementsPanel() {
     setSavedAt(null);
   };
 
+  // Puente EXPLÍCITO requisitos → variables (V6.4c): materializa el requisito como un
+  // set_variable del proyecto (que SÍ entra al log y cascadea al regenerar). Deliberadamente NO
+  // es implícito (=req.carga_kg): los requisitos son metadato de manifest FUERA del log, no
+  // cambian las firmas del regenerate → un puente implícito dejaría geometría STALE en silencio.
+  const useAsVariable = async (key: string, value: string) => {
+    if (!value) return;
+    const scene = await runTracked("req_to_var", () => api.setVariable(key, value));
+    if (scene) useStore.setState({ scene });
+  };
+
   const save = async () => {
     setBusy(true);
     setError(null);
@@ -100,6 +110,15 @@ export default function RequirementsPanel() {
           <label key={f.key}>
             {f.label}{" "}
             <input value={fields[f.key] ?? ""} onChange={(e) => set(f.key, e.target.value)} />
+            <button
+              type="button"
+              className="ghost req-to-var"
+              disabled={!fields[f.key] || busy}
+              title={`Crear la variable de proyecto '${f.key}' con este valor (entra al log y cascadea)`}
+              onClick={() => void useAsVariable(f.key, fields[f.key] ?? "")}
+            >
+              → var
+            </button>
           </label>
         ))}
         {TXT_FIELDS.map((f) => (
