@@ -2026,9 +2026,13 @@ def expression_grammar() -> dict:
         "constants": sorted(ALLOWED_CONSTANTS),
         "operators": ["+", "-", "*", "/", "//", "%", "**"],
         "unary": ["+", "-"],
+        "comparators": ["<", "<=", ">", ">=", "==", "!="],
+        "conditionals": ["a if cond else b", "and", "or"],
         "variables": project_vars,
-        "note": "Ángulos en grados (sin/cos/tan). Prefijo '=' en campos numéricos.",
-        "example": "=largo/2 + sqrt(ancho)",
+        "note": ("Ángulos en grados (sin/cos/tan). Prefijo '=' en campos numéricos. "
+                 "Condicionales para tablas de diseño: '=3 if largo>3500 else 2' (la rama "
+                 "no tomada no se evalúa). Sin texto, listas ni funciones propias."),
+        "example": "=3 if largo_total > 3500 else 2",
     }
 
 

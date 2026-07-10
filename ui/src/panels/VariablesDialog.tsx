@@ -56,7 +56,8 @@ export default function VariablesDialog() {
         <h3>Variables del proyecto</h3>
         <p className="hint">
           Úsalas en cualquier campo numérico escribiendo <code>=nombre</code> o una fórmula como{" "}
-          <code>=L/2 - 40</code>. Cambiar una variable regenera todo el modelo.
+          <code>=L/2 - 40</code>. Admite condicionales para tablas de diseño:{" "}
+          <code>=3 if largo &gt; 3500 else 2</code>. Cambiar una variable regenera todo el modelo.
         </p>
 
         {variables.length > 0 && (

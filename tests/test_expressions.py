@@ -50,12 +50,51 @@ def test_division_by_zero():
         "[1][0]",
         "'a' + 'b'",
         "lambda: 1",
-        "x if 1 else 2",
+        "1 in [1, 2]",   # ast.In sigue prohibido
+        "x is 1",         # ast.Is sigue prohibido
     ],
 )
 def test_unsafe_expressions_rejected(malicious):
     with pytest.raises(ExpressionError):
         eval_expression(malicious, {"x": 1})
+
+
+# ------------------------------------------------ condicionales (V6.4a: tablas de diseño)
+def test_ternario():
+    assert eval_expression("3 if largo > 3500 else 2", {"largo": 4000}) == 3
+    assert eval_expression("3 if largo > 3500 else 2", {"largo": 3000}) == 2
+
+
+def test_comparadores():
+    assert eval_expression("largo >= 4000", {"largo": 4000}) == 1
+    assert eval_expression("largo < 4000", {"largo": 4000}) == 0
+    assert eval_expression("largo == 600", {"largo": 600}) == 1
+    assert eval_expression("largo != 600", {"largo": 600}) == 0
+
+
+def test_comparadores_encadenados():
+    assert eval_expression("0 < x < 10", {"x": 5}) == 1
+    assert eval_expression("0 < x < 10", {"x": 50}) == 0
+
+
+def test_booleanos():
+    assert eval_expression("(largo > 3000) and (ancho < 700)", {"largo": 4000, "ancho": 600}) == 1
+    assert eval_expression("(largo > 3000) or (ancho > 700)", {"largo": 1000, "ancho": 600}) == 0
+
+
+def test_ternario_evalua_solo_la_rama_tomada():
+    """La rama NO tomada no se evalúa → una división por cero ahí no revienta."""
+    assert eval_expression("5 if largo > 0 else 1/0", {"largo": 100}) == 5
+    assert eval_expression("1/0 if largo < 0 else 7", {"largo": 100}) == 7
+
+
+def test_condicionales_anidados_en_configuracion():
+    """El caso real: nº de soportes según largo, en cascada de variables."""
+    resolved = resolve_all({
+        "largo_total": "4000",
+        "n_soportes": "3 if largo_total > 3500 else (2 if largo_total > 2000 else 1)",
+    })
+    assert resolved["n_soportes"] == 3
 
 
 def test_resolve_all_with_cross_references():

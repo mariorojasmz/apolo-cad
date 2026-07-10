@@ -39,6 +39,17 @@ _BINOPS = {
     ast.Pow: lambda a, b: a**b,
 }
 
+# Comparadores para condicionales de tablas de diseño (V6.4a). Devuelven True/False; el
+# nodo Compare los colapsa a 1.0/0.0 para que el resto del motor siga siendo numérico.
+_CMPOPS = {
+    ast.Lt: lambda a, b: a < b,
+    ast.LtE: lambda a, b: a <= b,
+    ast.Gt: lambda a, b: a > b,
+    ast.GtE: lambda a, b: a >= b,
+    ast.Eq: lambda a, b: a == b,
+    ast.NotEq: lambda a, b: a != b,
+}
+
 
 class ExpressionError(Exception):
     pass
@@ -78,6 +89,26 @@ def eval_expression(expr: str, variables: dict[str, float] | Any) -> float:
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
             value = ev(node.operand)
             return -value if isinstance(node.op, ast.USub) else value
+        # Condicionales para tablas de diseño (V6.4a): ternario perezoso + comparadores +
+        # and/or. Nada de strings/in/is/lambda: los constantes no numéricas siguen rechazadas.
+        if isinstance(node, ast.IfExp):  # a if cond else b — evalúa SOLO la rama tomada
+            return ev(node.body) if ev(node.test) != 0 else ev(node.orelse)
+        if isinstance(node, ast.Compare):  # a<b, a<=b<c (encadenado), a==b… → 1.0/0.0
+            if any(type(op) not in _CMPOPS for op in node.ops):  # rechaza in/is aunque corto-circuite
+                raise ExpressionError(f"Comparador no permitido en '{expr}'")
+            left = ev(node.left)
+            for op, comparator in zip(node.ops, node.comparators):
+                right = ev(comparator)
+                if not _CMPOPS[type(op)](left, right):
+                    return 0.0  # corto-circuito como Python (a<b<c = a<b and b<c)
+                left = right
+            return 1.0
+        if isinstance(node, ast.BoolOp):  # and/or con corto-circuito → 1.0/0.0
+            if isinstance(node.op, ast.And):
+                return 1.0 if all(ev(v) != 0 for v in node.values) else 0.0
+            if isinstance(node.op, ast.Or):
+                return 1.0 if any(ev(v) != 0 for v in node.values) else 0.0
+            raise ExpressionError(f"Operador booleano no permitido en '{expr}'")
         if isinstance(node, ast.Call):
             if not isinstance(node.func, ast.Name) or node.func.id not in ALLOWED_FUNCS:
                 raise ExpressionError(f"Función no permitida en '{expr}'")
