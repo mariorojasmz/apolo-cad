@@ -56,10 +56,10 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **67 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **66 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-09)**: 1019 tests (+15 tortura vía `-m torture`) · 67 tools MCP ·
+- **Estado actual (2026-07-10)**: 1028 tests (+15 tortura vía `-m torture`) · 66 tools MCP ·
   51 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
   «Apolo industrial»: V6.1 robustez + V6.2 rendimiento + V6.3 ensamblaje pro CERRADOS**. V6.1
   («nada tumba el documento»: `check_integrity` + carga tolerante + atomicidad + `GET /api/health`;
@@ -672,6 +672,16 @@ tests + E2E real; un ítem por vez con plan formal.
   motion; anclas en más familias de catálogo (por demanda); DOF con residuo del solver
   persistido (hoy el `overconstrained` del solver no se guarda: el conteo Grübler es el signal
   en vivo, pues el solver ya rechaza los conflictos reales en la mutación).
+- **V6.3d (follow-ups anotados de la revisión)**: (1) **`mirror` no propaga anclas** —
+  reflejar un frame invierte la mano del eje; se omite deliberadamente (duplicate/pattern SÍ
+  las heredan desde V6.3d Fix 2). (2) **Divergencia anti-paralela del multi-mate**: los
+  residuos de `paralelo`/`concentrico` aceptan ejes INVERTIDOS (solo penalizan la
+  colinealidad, no el sentido); el camino cerrado 1-mate SÍ fija el sentido → al BORRAR un
+  mate de un hijo multi-mate la pieza puede «saltar» 180°. (3) **Tolerancia angular ×L** en
+  hijos muy grandes (~4 m): el residuo angular escala con el brazo → afinar el peso relativo
+  posición/ángulo del `least_squares` por tamaño del sólido. (4) **`EdgeSelector` compartido**:
+  los modos `ancla`/`entidad` (conectores de mate) contaminan el schema de `fillet`/`chamfer`/
+  etc. donde no aplican — hoy dan error CLARO (no silencioso); separar el schema por demanda.
 - **Validación**: agrupar mitades A/B de bisagra; voladizo real del eje motriz; `torque` en tornillería; coherencia `fasten size` ↔ taladro roscado cercano.
 - **Geometría/catálogo**: cola de milano/ingletes de CARPINTERÍA; canteado; chapa (child >1 nivel, hem 180°, alivios, editor de flaps); coping/notching grado ≥3; chaveta en bores; más familias.
 - **Física**: cascos convexos en drop_test (hoy AABB), export SDF, sim en tiempo real.

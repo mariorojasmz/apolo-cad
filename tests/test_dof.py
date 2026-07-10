@@ -133,10 +133,15 @@ def test_payload_contrato():
 
 
 def test_guias_excluidas():
+    """Un boceto-guía (blockout) NO es pieza del ensamblaje → cubre la rama dof.py:54-55."""
     d = Document()
-    d.execute("create_box", {"name": "real"})
+    real = d.execute("create_box", {"name": "real"})
+    guia = d.execute("create_box", {"name": "guia", "position": {"x": 300}})
+    d.set_sketch_guide(guia, True)  # marca la 2ª caja como boceto-guía
     rep = _report(d)
-    assert len(rep["features"]) == 1  # sin guías declaradas
+    ids = {f["id"] for f in rep["features"]}
+    assert ids == {real}  # la guía quedó fuera del reporte
+    assert len(rep["features"]) == 1
 
 
 def test_api_dof_endpoint():

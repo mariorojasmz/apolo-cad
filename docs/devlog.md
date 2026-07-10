@@ -2901,3 +2901,51 @@ en :8000 con código viejo → la verificación de la UI se apoyó en `npm run b
 verde) + `test_api_dof_endpoint` + el bloque replica los patrones existentes; el render de la
 Fase B se sustituyó por la medición numérica (más fuerte que un render). Plan movido a
 `docs/plans/done/`.
+
+## V6.3d — Correcciones de la revisión de V6.3 (2026-07-10)
+
+La revisión de V6.3 encontró **1 bug real de corrección** + correcciones menores + saldar el E2E
+por MCP que se había sustituido por medición numérica (zombie-socket). Todo cerrado:
+
+**Fix 1 — `_world_move` no transformaba las anclas (EL bug).** `commands/registry.py::_world_move`
+reasignaba `feat.shape` y, si era instancia, `feat.matrix`, pero NUNCA `feat.anchors` → tras un
+`transform`/`center_in`/`distribute`/`attach` el conector por ancla quedaba STALE en la pose
+original y un mate concéntrico por ancla mateaba con un frame viejo (la chumacera acababa 100 mm
+fuera del eje). Fix: la matriz mundo rígida `w = T·T(c)·R·T(-c)` (c = centro del bbox = el MISMO
+que usa `move_rotated_about_center`) hoy se calcula también cuando `matrix is None` si hay anclas,
+y se aplica `transform_anchors(w, feat.anchors)` (REEMPLAZA, nunca muta — contrato de checkpoints).
+
+**Fix 2 — copias sin anclas.** `duplicate_feature`, `pattern_linear`, `pattern_circular` y
+`pattern_group` creaban copias SIN `anchors` (ausente, no stale) → una chumacera duplicada/arrayada
+perdía su «centro» y no podía matearse por ancla. Fix: transformar las anclas de la fuente con el
+offset/rotación de cada copia (`transform_anchors` con la matriz de traslación o
+`axis_rotation_about_point`). **`mirror` queda EXCLUIDO deliberadamente** (reflejar un frame invierte
+la mano del eje) — anotado en CLAUDE.md § Pendientes.
+
+**Fix 3 — docs.** `mcp.list_tools()` en el venv da **66 tools** (CLAUDE.md decía 67); tests reales
+1028 con los nuevos (decía 1019). `dof_report` (docstring + `nota` del payload) ahora declara que
+las piezas de un `insert_project` traen sus mates internos BAKED (no re-registrados) → se reportan
+«libre» aunque en el donante estuvieran acopladas. § Pendientes gana: divergencia anti-paralela del
+multi-mate (los residuos de paralelo/concéntrico aceptan ejes invertidos; al borrar un mate la pieza
+puede «saltar» 180°), tolerancia angular ×L en hijos muy grandes, y contaminación del `EdgeSelector`
+compartido (modos ancla/entidad aparecen en fillet/chamfer — error claro, no silencioso).
+
+**Fix 4 — `test_guias_excluidas` con dientes.** No creaba ninguna guía (no probaba la rama
+`dof.py:54-55`). Ahora crea 2 cajas, marca una con `set_sketch_guide` y assert que NO aparece en el
+reporte de DOF.
+
+**Fix 5 — E2E real por MCP (deuda del criterio V5).** Se investigó el «zombie» de :8000: NO era un
+huérfano — el uvicorn `--reload` vivo (con su hijo `multiprocessing.spawn` de anaconda, padre vivo)
+era el dueño legítimo del puerto y ya había recargado el código nuevo. Verificado EN VIVO por tools
+MCP `apolo-cad` sobre un proyecto nuevo: (1) chumacera UCP205 insertada en (0,-300,0) → ancla centro
+[0,-300,0]; `transform +Z 300` → `get_topology` reporta ancla [0,-300,**300**] (Fix 1 PROBADO en
+vivo, no stale); (2) 2ª chumacera insertada FUERA del eje (z=0) + `add_mate` concéntrico por ancla →
+saltó a x≈0, z=300 SOBRE el eje (Y = grado libre del concéntrico); (3) `get_dof` → eje libre (6 GDL),
+cada chumacera parcial con **2 GDL** y `restringido_por: mate:m_chumX`, 0 sobre-restringidas; (4)
+`render_view` iso confirma el eje atravesando el barreno de ambas chumaceras. Proyecto 38 del usuario
+restaurado al terminar.
+
+**Verificación**: `pytest tests -q` 1028 (1027 pass + 1 skip) verde · `pytest -m torture` 15 verde ·
+sin cambios de firma → host MCP no requiere reinicio · tests nuevos en `test_anchors.py` (Fix 1/2:
+transform mueve ancla, rotación gira el eje, repro rígido transform+mate, center_in, undo/redo,
+duplicate/pattern heredan y matean). Ensamblaje se mantiene en 6.

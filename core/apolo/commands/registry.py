@@ -218,17 +218,24 @@ def _exec_boolean(scene: Scene, cmd_id: str, p: BooleanOpParams) -> None:
 
 
 def _world_move(feat: Feature, translate, rotate) -> None:
-    """Aplica la transformación mundial al shape y, si la feature es una
-    instancia, compone también su matriz (W = T·T(c)·R·T(-c))."""
-    if feat.matrix is not None:
-        from apolo.kernel.matrix import multiply, rotation_about_center, translation
+    """Aplica la transformación mundial `W = T·T(c)·R·T(-c)` (c = centro del bbox = el mismo
+    que usa move_rotated_about_center) al shape y compone la MISMA rígida en la matriz de
+    instancia y en las anclas (V6.3d Fix 1: los conectores por ancla deben viajar con el shape;
+    lo usan transform/center_in/distribute/attach). REEMPLAZA los dicts, jamás los muta."""
+    if feat.matrix is not None or feat.anchors:
+        from apolo.kernel.matrix import (
+            multiply, rotation_about_center, transform_anchors, translation,
+        )
 
         bb = feat.shape.bounding_box()
         center = ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
         w = translation(*translate)
         if any(rotate):
             w = multiply(w, rotation_about_center(center, rotate))
-        feat.matrix = multiply(w, feat.matrix)
+        if feat.matrix is not None:
+            feat.matrix = multiply(w, feat.matrix)
+        if feat.anchors:
+            feat.anchors = transform_anchors(w, feat.anchors)
     feat.shape = move_rotated_about_center(feat.shape, translate, rotate)
 
 
@@ -277,7 +284,7 @@ def _exec_distribute(scene: Scene, cmd_id: str, p: DistributeParams) -> None:
 
 
 def _exec_pattern(scene: Scene, cmd_id: str, p: PatternLinearParams) -> None:
-    from apolo.kernel.matrix import multiply, translation
+    from apolo.kernel.matrix import multiply, transform_anchors, translation
 
     feat = _require(scene, p.feature)
     if p.spacing.tuple() == (0, 0, 0):
@@ -286,15 +293,13 @@ def _exec_pattern(scene: Scene, cmd_id: str, p: PatternLinearParams) -> None:
     for i in range(1, p.count):
         copy = linear_copy(feat.shape, i, p.spacing.tuple())
         fid = f"{cmd_id}_{i}"
-        matrix = (
-            multiply(translation(sx * i, sy * i, sz * i), feat.matrix)
-            if feat.matrix is not None
-            else None
-        )
+        off = translation(sx * i, sy * i, sz * i)
+        matrix = multiply(off, feat.matrix) if feat.matrix is not None else None
         scene[fid] = Feature(
             fid, f"{feat.name} ({i + 1})", copy, cmd_id,
             component=feat.component, cut_length=feat.cut_length,
             mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
+            anchors=transform_anchors(off, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
         )
 
 
@@ -304,7 +309,7 @@ _PATTERN_GROUP_MAX = 2000  # tope de sólidos generados por pattern_group (prote
 def _exec_pattern_group(scene: Scene, joints, mates, cmd_id: str, p: PatternGroupParams) -> None:
     """Arraya todas las features del comando `source` en línea (count/spacing) y opcional
     rejilla (count2/spacing2). Bloquea si la fuente está referenciada por juntas/mates."""
-    from apolo.kernel.matrix import multiply, translation
+    from apolo.kernel.matrix import multiply, transform_anchors, translation
 
     src = [f for f in scene.values() if f.command_id == p.source]
     if not src:
@@ -344,13 +349,13 @@ def _exec_pattern_group(scene: Scene, joints, mates, cmd_id: str, p: PatternGrou
                     feat.id[len(p.source) + 1:] if feat.id.startswith(p.source + "_") else feat.id
                 )
                 fid = f"{cmd_id}_{i}_{k}_{suffix}"
-                matrix = (
-                    multiply(translation(*off), feat.matrix) if feat.matrix is not None else None
-                )
+                off_m = translation(*off)
+                matrix = multiply(off_m, feat.matrix) if feat.matrix is not None else None
                 scene[fid] = Feature(
                     fid, f"{feat.name} ({i + 1},{k + 1})", copy, cmd_id,
                     component=feat.component, cut_length=feat.cut_length,
                     mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
+                    anchors=transform_anchors(off_m, feat.anchors),  # V6.3d Fix 2: copia hereda anclas
                 )
 
 
@@ -360,18 +365,18 @@ def _exec_delete(scene: Scene, cmd_id: str, p: DeleteParams) -> None:
 
 
 def _exec_duplicate(scene: Scene, cmd_id: str, p: DuplicateParams) -> None:
-    from apolo.kernel.matrix import multiply, translation
+    from apolo.kernel.matrix import multiply, transform_anchors, translation
 
     feat = _require(scene, p.feature)
     off = p.offset.tuple()
     copy = linear_copy(feat.shape, 1, off)  # clona y traslada por el desfase
-    matrix = (
-        multiply(translation(*off), feat.matrix) if feat.matrix is not None else None
-    )
+    off_m = translation(*off)
+    matrix = multiply(off_m, feat.matrix) if feat.matrix is not None else None
     scene[cmd_id] = Feature(
         cmd_id, f"{feat.name} (copia)", copy, cmd_id,
         component=feat.component, cut_length=feat.cut_length,
         mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
+        anchors=transform_anchors(off_m, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
     )
 
 
@@ -561,7 +566,7 @@ def _exec_drill_hole(scene: Scene, cmd_id: str, p: DrillHoleParams) -> None:
 def _exec_pattern_circular(scene: Scene, cmd_id: str, p: PatternCircularParams) -> None:
     from build123d import Pos, Rotation
 
-    from apolo.kernel.matrix import axis_rotation_about_point, multiply
+    from apolo.kernel.matrix import axis_rotation_about_point, multiply, transform_anchors
 
     feat = _require(scene, p.feature)
     ap = p.axis_point.tuple()
@@ -576,15 +581,13 @@ def _exec_pattern_circular(scene: Scene, cmd_id: str, p: PatternCircularParams) 
         }[p.axis_dir]
         copy = Pos(*ap) * rot * Pos(-ap[0], -ap[1], -ap[2]) * feat.shape
         fid = f"{cmd_id}_{i}"
-        matrix = (
-            multiply(axis_rotation_about_point(ap, p.axis_dir, angle), feat.matrix)
-            if feat.matrix is not None
-            else None
-        )
+        off = axis_rotation_about_point(ap, p.axis_dir, angle)
+        matrix = multiply(off, feat.matrix) if feat.matrix is not None else None
         scene[fid] = Feature(
             fid, f"{feat.name} ({i + 1})", copy, cmd_id,
             component=feat.component, cut_length=feat.cut_length,
             mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
+            anchors=transform_anchors(off, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
         )
 
 

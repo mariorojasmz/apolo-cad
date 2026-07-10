@@ -15,6 +15,11 @@ aunque sea perfectamente válido (las restricciones son consistentes y el solver
 satisface). Los conflictos REALES (restricciones que no se pueden cumplir a la vez) los
 detecta el solver de mates en la mutación (MateError + rollback), no este conteo — por eso
 un doc que regeneró bien nunca trae `overconstrained` del solver. El payload lo declara.
+
+INSERT_PROJECT: las piezas de un sub-ensamblaje insertado (V5.2b) llegan con sus mates
+INTERNOS ya BAKED (no se re-registran en `Document.mates` por diseño) → este conteo las ve
+sin restricción de mate y las reporta «libre» aunque en el donante estuvieran acopladas. Es
+esperado: el reporte cuenta las restricciones VIVAS del documento anfitrión, no las horneadas.
 """
 
 from __future__ import annotations
@@ -97,7 +102,9 @@ def dof_report(
         "nota": (
             "Conteo heurístico (Grübler): no detecta redundancia geométrica; un "
             "'sobre_restringido' por conteo puede ser redundancia benigna. Los conflictos "
-            "REALES los rechaza el solver de mates en la edición."
+            "REALES los rechaza el solver de mates en la edición. Las piezas de un "
+            "insert_project traen sus mates internos BAKED (no re-registrados) → se reportan "
+            "'libre' aunque en el donante estuvieran acopladas."
         ),
     }
 
