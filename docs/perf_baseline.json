@@ -1,25 +1,28 @@
 {
-  "nota": "línea base de V6.1 (máquina-dependiente); compara solo contra la misma máquina",
+  "nota": "línea base de V6.2 (máquina-dependiente); compara solo contra la misma máquina",
   "host": "Mario-LapTrab",
   "plataforma": "Windows-11-10.0.26200-SP0",
   "python": "3.13.5",
-  "commit": "dcc7efd041fac106512c089c24e93a093ca2bd2a",
+  "commit": "269eec7adfdecf1c64c6c5c79c4f2d09f1b7caee",
   "reps": 3,
   "fuentes": {
     "faja": "proyecto 38",
     "layout": "proyecto 53"
   },
   "medidas_s": {
-    "open_frio_faja_s": 1.9624,
-    "regenerate_edit_temprano_s": 0.006,
-    "scene_payload_layout_s": 0.0013,
+    "open_frio_faja_s": 3.1539,
+    "geom_cache_write_faja_s": 0.0404,
+    "open_caliente_faja_s": 0.0359,
+    "regenerate_edit_temprano_s": 0.0107,
+    "scene_payload_layout_s": 0.0012,
     "autosave_faja_s": 0.0046,
-    "fuzz_100ops_s": 1.4939
+    "fuzz_100ops_s": 1.4762
   },
   "conteos": {
-    "faja_solidos": 72,
-    "faja_comandos": 309,
+    "faja_solidos": 82,
+    "faja_comandos": 701,
     "layout_solidos": 149,
-    "payload_bytes": 1112579
+    "payload_bytes": 1116900,
+    "scene_delta_nochange_bytes": 31353
   }
 }

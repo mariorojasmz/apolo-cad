@@ -342,6 +342,12 @@ class _FakeStore:
             raise KeyError(f"No existe el proyecto {project_id}")
         return self.data[project_id]
 
+    def save_raw(self, project_id, name, pieces, data):  # V6.2d: el flush debounced escribe aquí
+        pass
+
+    def save_geom_cache(self, project_id, sig, blob):
+        pass
+
 
 @pytest.fixture()
 def api_env(donor):
@@ -351,6 +357,7 @@ def api_env(donor):
     api.STORE = _FakeStore({38: data})
     api.PROJECT_ID = 99
     yield TestClient(api.app), ids
+    api._autosave_sched.cancel()  # V6.2d: sin Timers huérfanos
     api.DOC, api.STORE, api.PROJECT_ID = old
 
 

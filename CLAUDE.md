@@ -52,18 +52,20 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 938 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 971 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-04)**: 938 tests (+6 tortura vía `-m torture`) · 66 tools MCP ·
+- **Estado actual (2026-07-09)**: 971 tests (+11 tortura vía `-m torture`) · 66 tools MCP ·
   51 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
-  «Apolo industrial» iniciado: V6.1 robustez CERRADO** («nada tumba el documento»:
-  `check_integrity` + carga tolerante + atomicidad + tortura + `GET /api/health`; robustez
-  3→6). Proyectos de referencia: `faja-paqueteria-4m` (id 38, 72 sólidos, memoria APROBADO,
+  «Apolo industrial»: V6.1 robustez + V6.2 rendimiento CERRADOS**. V6.1 («nada tumba el
+  documento»: `check_integrity` + carga tolerante + atomicidad + `GET /api/health`; robustez
+  3→6). V6.2 (open caliente por caché BREP + deltas de escena + dos-locks render/física +
+  autosave debounced; rendimiento 4→6). Proyectos de referencia: `faja-paqueteria-4m`
+  (id 38, 82 sólidos, memoria APROBADO,
   eje motriz «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos) y `guarda-banda-demo`
   (chapa en C con hems, DXF verificado).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
@@ -346,6 +348,45 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   Patrón: `api.DOC = Document("t"); TestClient(api.app)`. El arranque real vive en
   `initialize_store(db_path)` (extraído del lifespan para testearlo sin FastAPI).
 
+### Rendimiento (V6.2 — mide contra `docs/perf_baseline.json`, host-dependiente)
+- **Open caliente por caché de geometría** (`doc/geomcache.py`): `pack(doc)`/`unpack(blob)`
+  persisten el ESTADO regenerado (8-tupla final + definiciones canónicas de la escena)
+  indexado por la firma acumulada del log. `from_apolo_bytes(warm=...)` reanuda del
+  checkpoint si la firma cacheada es PREFIJO del log (replay ~0) + `check_integrity`
+  cinturón-y-tirantes → si hay violaciones no-degradadas, descarta y replaya frío. Vive
+  SOLO en la SQLite local (tabla `geom_cache`), JAMÁS en el `.apolo` (geometría nunca se
+  guarda + pickle de origen subido = RCE). Kill-switch `APOLO_GEOM_CACHE=0`. Perderla solo
+  cuesta un replay (nunca es autoritativa). Gotcha BinTools: `serialize_shape` SIEMPRE da
+  bytes pero `deserialize_shape` revienta por-shape de forma caprichosa (unos round-trip-ean
+  crudos, otros solo tras `BRepBuilderAPI_Copy`, la copia rompe a los primeros) → `pack`
+  serializa el TopoDS CRUDO (no el wrapper build123d, que lleva joints frágiles) y VERIFICA
+  cada shape deserializando: crudo→copia→None (`_serialize_robust`). Faja 38: frío 3–23 s →
+  caliente 0.04 s.
+- **Deltas de `scene_payload`** (`api/main.py`): `_geom_rev(fid, shape)` = revisión por
+  IDENTIDAD del shape (el regen incremental la preserva para lo NO re-ejecutado; editar el
+  comando *i* re-ejecuta *i*..fin → esos rev suben). `scene_payload(known={"revs","defs"})`:
+  las features cuya geometría el cliente ya tiene van `same:true` + solo metadatos volátiles
+  (id/rev/name/color/visible/group). `POST /api/scene/delta` lo usa el refresh por WS.
+  `known=None` = payload completo + `rev` aditivo. UI: `mergeSceneDelta` (store) hereda la
+  geometría anterior; el viewport diffea por `rev` (builtRef Map) → solo reconstruye la
+  pieza cambiada, la apariencia se rehace en sitio (`applyAppearance`). Hook E2E `window.
+  __apolo` (meshIds/builds/store). Layout 53: 1.1 MB → 31 KB sin cambios.
+- **Dos-locks render/física** (`RENDER_LOCK` en `render_vtk.py`, `PHYSICS_LOCK` en
+  `api/main.py`): regla de oro — bajo STATE_LOCK se EXTRAE geometría (OCCT: teselado/cascos
+  → datos PUROS); fuera solo se procesan arrays. `render_scene_vtk` → `extract_render_scene`
+  (STATE_LOCK, con `_RENDER_MESH_CACHE` por id(shape)) + `render_snapshot_vtk` (RENDER_LOCK).
+  `stability_test`/`drop_test` → `prepare_*` (XML MuJoCo horneado, STATE_LOCK) + `simulate_*`
+  (bucle mj_step, PHYSICS_LOCK); wrappers para compat. Mutación durante render/gravity < 1 s.
+  Follow-up: `export_stl`, `drawing_spec` (su HLR es OCCT, no puede salir del lock).
+- **Autosave debounced** (`_AutosaveScheduler` en `api/main.py`): `_autosave()` ya NO escribe
+  inline — marca sucio + arma un flush ÚNICO (debounce 500 ms, techo 3 s). `_do_flush` toma
+  `to_apolo_bytes()` + `pack()` BAJO STATE_LOCK y escribe SQLite FUERA (durabilidad V6.1
+  intacta: reintentos, `AUTOSAVE_ERROR` + WS; la caché de geometría es best-effort aparte).
+  Flush FORZOSO (`_flush_autosave`) en shutdown, cambio de proyecto (open/new/create),
+  save_revision y restore. `GET /api/health` → `autosave_pending`. Tests: `_flush_autosave()`
+  fuerza el guardado antes de leer disco; los fixtures con STORE hacen `_autosave_sched.
+  cancel()` en teardown (sin Timers huérfanos). Ráfaga de 20 mutaciones = 1 escritura.
+
 ### Robustez / integridad (V6.1 — «nada tumba el documento»)
 - **`Document.check_integrity() → list[str]`** (READ-ONLY puro, no muta ni cachés):
   invariantes accionables (features↔comando vivo, refs de juntas/mates/fasteners/grounds,
@@ -548,9 +589,9 @@ herramienta del VERTICAL cubre ~80 % del flujo (requisitos→3D validado→plano
 cotización, autónomo — categoría que los grandes no ocupan). Ejes: IA-nativa/API-first **9.5**
 (el moat) · kernel OCCT 6.5 · paramétrico 5 · croquis 5 (PlaneGCS; falta arrastre en vivo) ·
 ensamblaje 4.5 (soundness/gravity es único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+
-FEA lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 4 · robustez 6
-(V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1. Medir progreso por PROFUNDIDAD del
-vertical, no por paridad de features.
+FEA lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
+robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1. Medir progreso por
+PROFUNDIDAD del vertical, no por paridad de features.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -565,9 +606,11 @@ verdes**. Un ítem por vez, con plan formal.
   + `APOLO_STRICT` + `GET /api/health` + suite de tortura (primero roja) + atomicidad de
   regenerate + carga tolerante + autosave durable + startup sano + LRU de DEFINITIONS +
   insert_project pre-validado + WS resiliente. Madurez robustez 3→6.
-- **V6.2 Rendimiento** — open frío con caché BREP por firma, deltas de `scene_payload`,
-  dos-locks para gravity/render, debounce del autosave medido contra
-  `docs/perf_baseline.json`. Madurez 4→6.
+- **V6.2 Rendimiento** — **HECHO (2026-07-09)**. Open caliente por caché BREP por firma
+  (faja 38: open frío 3–23 s → caliente 0.04 s) + deltas de `scene_payload` (layout 53:
+  1.1 MB → 31 KB) + reuso de mallas en el viewport (solo la pieza editada se reconstruye) +
+  dos-locks render/física (mutación durante render/gravity < 1 s) + autosave debounced
+  (ráfaga de 20 → 1 escritura). Baseline regenerado. Madurez rendimiento 4→6.
 - **V6.3 Ensamblaje pro** — multi-mate por sólido, conectores por ancla, reporte de DOF. 4.5→6.
 - **V6.4 Paramétrico profundo** — faja 38 100 % paramétrica como caso testigo, tablas de
   diseño. 5→6.5.

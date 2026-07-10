@@ -454,18 +454,22 @@ def test_T9_insert_project_precheck_before_any_mutation():
 
 
 class _FlakyStore:
-    """STORE falso cuyo save() falla las primeras `fail` veces (o siempre si fail<0)."""
+    """STORE falso cuyo save_raw() falla las primeras `fail` veces (o siempre si fail<0).
+    V6.2d: el flush con debounce escribe por save_raw (bytes ya serializados)."""
 
     def __init__(self, fail: int):
         self.fail = fail
         self.calls = 0
         self.saved = 0
 
-    def save(self, project_id, doc):
+    def save_raw(self, project_id, name, pieces, data):
         self.calls += 1
         if self.fail < 0 or self.calls <= self.fail:
             raise RuntimeError("disco lleno (inyectado)")
         self.saved += 1
+
+    def save_geom_cache(self, project_id, sig, blob):
+        pass
 
     def create(self, doc):
         return 1
@@ -481,30 +485,35 @@ def api_client():
     api.AUTOSAVE_ERROR = None
     api.STARTUP_ERROR = None
     yield api, TestClient(api.app)
+    api._autosave_sched.cancel()  # V6.2d: sin Timers huérfanos que disparen en otra prueba
     (api.DOC, api.STORE, api.PROJECT_ID, api.AUTOSAVE_ERROR, api.STARTUP_ERROR) = old
 
 
 def test_T10_autosave_transient_failure_recovers(api_client):
-    """Fallos transitorios de autosave (2×) los absorbe el retry: sin flag en el payload."""
+    """Fallos transitorios de autosave (2×) los absorbe el retry: sin flag tras el flush.
+    V6.2d: el guardado es debounced → se fuerza con _flush_autosave (antes era inline)."""
     api, client = api_client
     api.STORE = _FlakyStore(fail=2)
     api.PROJECT_ID = 1
     r = client.post("/api/commands", json={"type": "create_box", "params": {"width": 50}})
     assert r.status_code == 200
-    assert r.json()["document"]["autosave_failed"] is None
+    api._flush_autosave()
+    assert api.AUTOSAVE_ERROR is None  # los 2 fallos los absorbió el retry
 
 
 def test_T10_autosave_persistent_failure_flags_and_recovers(api_client):
-    """Fallo persistente de autosave → flag en el payload; al sanar el disco, el flag se
-    limpia en la siguiente mutación."""
+    """Fallo persistente de autosave → flag encendido tras el flush; al sanar el disco, el
+    flag se limpia en el siguiente flush (V6.2d: debounced)."""
     api, client = api_client
     api.STORE = _FlakyStore(fail=-1)  # falla siempre
     api.PROJECT_ID = 1
-    r = client.post("/api/commands", json={"type": "create_box", "params": {"width": 50}})
-    assert r.json()["document"]["autosave_failed"]  # flag encendido
+    client.post("/api/commands", json={"type": "create_box", "params": {"width": 50}})
+    api._flush_autosave()
+    assert api.AUTOSAVE_ERROR  # flag encendido
     api.STORE = _FlakyStore(fail=0)  # disco sano
-    r2 = client.post("/api/commands", json={"type": "create_box", "params": {"width": 60}})
-    assert r2.json()["document"]["autosave_failed"] is None  # se limpió
+    client.post("/api/commands", json={"type": "create_box", "params": {"width": 60}})
+    api._flush_autosave()
+    assert api.AUTOSAVE_ERROR is None  # se limpió
 
 
 # ================================================ T11 — startup con reciente corrupto
@@ -550,8 +559,11 @@ class _RecordingStore:
         self._next += 1
         return pid
 
-    def save(self, project_id, doc):
+    def save_raw(self, project_id, name, pieces, data):
         self.saves.append(project_id)
+
+    def save_geom_cache(self, project_id, sig, blob):
+        pass
 
 
 def test_T12_project_new_does_not_overwrite_previous(api_client):
@@ -562,7 +574,75 @@ def test_T12_project_new_does_not_overwrite_previous(api_client):
     api.PROJECT_ID = 7
     client.post("/api/project/new", json={"name": "nuevo"})
     client.post("/api/commands", json={"type": "create_box", "params": {"width": 40}})
+    api._flush_autosave()  # V6.2d: fuerza el flush debounced
     assert 7 not in api.STORE.saves  # jamás sobrescribió el proyecto anterior
+    assert api.STORE.saves  # sí guardó (en el proyecto NUEVO, no en el 7)
+
+
+# ================================================ V6.2d — autosave con debounce
+
+
+def _long_debounce(api):
+    """Ventana de debounce larga → ningún Timer dispara durante la prueba (determinista):
+    solo cuentan los flush FORZOSOS. Devuelve un restaurador."""
+    old = (api._AUTOSAVE_DEBOUNCE, api._AUTOSAVE_CEILING)
+    api._AUTOSAVE_DEBOUNCE, api._AUTOSAVE_CEILING = 10.0, 30.0
+
+    def restore():
+        api._AUTOSAVE_DEBOUNCE, api._AUTOSAVE_CEILING = old
+
+    return restore
+
+
+def test_T15_autosave_debounce_coalesces_burst(api_client):
+    """Ráfaga de 20 mutaciones → UNA escritura a disco (el debounce las coalesce), no 20
+    (V6.2d). Con la ventana larga, nada se escribe hasta el flush forzoso."""
+    api, client = api_client
+    store = _RecordingStore()
+    api.STORE = store
+    api.PROJECT_ID = store.create(api.DOC)
+    restore = _long_debounce(api)
+    try:
+        for i in range(20):
+            client.post("/api/commands", json={"type": "create_box", "params": {"width": 20 + i}})
+        assert store.saves == []          # todo dentro de la ventana → nada en disco aún
+        api._flush_autosave()
+        assert len(store.saves) == 1      # 20 mutaciones = 1 escritura
+    finally:
+        restore()
+
+
+def test_T15_autosave_flush_on_shutdown(api_client):
+    """Mutación + shutdown inmediato: el pendiente se vuelca (no se pierde en la ventana)."""
+    api, client = api_client
+    store = _RecordingStore()
+    api.STORE = store
+    api.PROJECT_ID = store.create(api.DOC)
+    restore = _long_debounce(api)
+    try:
+        client.post("/api/commands", json={"type": "create_box", "params": {"width": 40}})
+        assert store.saves == []          # aún en la ventana
+        api._flush_autosave()             # = lo que hace el handler de shutdown
+        assert store.saves                # el shutdown persistió el pendiente
+    finally:
+        restore()
+
+
+def test_T15_autosave_flush_forced_on_project_switch(api_client):
+    """Cambiar de proyecto FUERZA el flush del doc actual ANTES de reemplazarlo → los
+    cambios pendientes de A no se pierden ni se escriben al proyecto B (V6.2d)."""
+    api, client = api_client
+    store = _RecordingStore()
+    api.STORE = store
+    api.PROJECT_ID = 500  # proyecto A
+    restore = _long_debounce(api)
+    try:
+        client.post("/api/commands", json={"type": "create_box", "params": {"width": 40}})
+        assert store.saves == []          # pendiente (ventana larga)
+        client.post("/api/project/new", json={"name": "B"})  # cambio → flush forzoso de A
+        assert 500 in store.saves         # A se persistió ANTES de cambiar de proyecto
+    finally:
+        restore()
 
 
 # ================================================ T13 — WebSocket resiliente

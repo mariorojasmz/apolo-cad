@@ -84,6 +84,15 @@ class ProjectStore:
                 (doc.name, _now(), len(doc.scene), doc.to_apolo_bytes(), project_id),
             )
 
+    def save_raw(self, project_id: int, name: str, pieces: int, data: bytes) -> None:
+        """Guarda BYTES ya serializados (V6.2d): el flush con debounce toma
+        ``to_apolo_bytes()`` bajo STATE_LOCK y escribe aquí FUERA del lock."""
+        with self._conn() as con:
+            con.execute(
+                "UPDATE projects SET name=?, updated_at=?, pieces=?, data=? WHERE id=?",
+                (name, _now(), pieces, data, project_id),
+            )
+
     def load_bytes(self, project_id: int) -> bytes:
         """Bytes .apolo crudos (sin regenerar) — snapshot para insert_project."""
         with self._conn() as con:

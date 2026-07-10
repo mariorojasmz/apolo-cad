@@ -105,12 +105,14 @@ def client(tmp_path):
     api.STORE = ProjectStore(tmp_path / "api.db")
     api.PROJECT_ID = api.STORE.create(api.DOC)
     yield TestClient(api.app)
+    api._autosave_sched.cancel()  # V6.2d: sin Timers huérfanos que disparen en otra prueba
     api.STORE = None
     api.PROJECT_ID = None
 
 
 def test_autosave_on_mutation(client):
     client.post("/api/commands", json={"type": "create_box", "params": {}})
+    api._flush_autosave()  # V6.2d: el autosave es debounced → forzarlo antes de leer disco
     saved = api.STORE.load(api.PROJECT_ID)
     assert len(saved.scene) == 1  # el autosave persistió la caja
 
@@ -135,6 +137,7 @@ def test_projects_api_flow(client):
     # renombrar
     r = client.patch("/api/projects/current", json={"name": "Renombrado"})
     assert r.json()["document"]["name"] == "Renombrado"
+    api._flush_autosave()  # V6.2d: el autosave es debounced → forzarlo antes de leer disco
     assert api.STORE.load(first_id).name == "Renombrado"
 
 

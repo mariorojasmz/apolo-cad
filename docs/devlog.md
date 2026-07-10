@@ -2727,3 +2727,68 @@ sólidos). 938 tests (48→51 comandos, 66 tools MCP sin cambio — MCP es THIN,
 genérico). **Tier 2 CERRADO** → el roadmap V5 queda 100 % en lo bloqueante; el resto del
 Tier 3 (Blender/PDM/plantillas por empresa) es por demanda. Siguiente ítem pro: V6.1 ya
 está hecho → sigue V6.2 rendimiento.
+
+---
+
+## V6.2 — Rendimiento «Apolo industrial» (2026-07-09)
+
+Segundo ítem del roadmap V6. Cuatro frentes, un commit por fase, tortura + health verdes
+tras cada uno; baseline regenerado (`docs/perf_baseline.json`, host Mario-LapTrab).
+
+**A · Open frío → caliente (caché BREP por firma).** Abrir un proyecto replayaba el log
+completo (faja 38: 701 comandos, ~3 s en proceso caliente, ~23 s en frío). Nueva caché
+(`doc/geomcache.py`) persiste el ESTADO regenerado —la 8-tupla final + las definiciones
+canónicas de la escena— indexado por la firma acumulada del log; `from_apolo_bytes(warm=)`
+reanuda del checkpoint (replay ~0) si la firma cacheada es PREFIJO del log, con
+`check_integrity` cinturón-y-tirantes (si hay violaciones no-degradadas, descarta y replaya
+frío). Vive SOLO en la SQLite local (tabla `geom_cache`), JAMÁS en el `.apolo` (la geometría
+nunca se guarda; un `.apolo` lo sube el usuario → despicklearlo = RCE). Kill-switch
+`APOLO_GEOM_CACHE=0`. **Gotcha BinTools (destapado por el baseline de la Fase E)**: el primer
+diseño pickleaba el wrapper build123d, que lleva estado (`joints`/`children`) y NO
+round-trip-ea → `unpack` fallaba en la faja y CAÍA a replay frío SIN avisar (los tests
+sintéticos de primitivas no tienen wrappers frágiles → pasaban en verde; el open «caliente»
+de 3.2 s era en realidad un frío enmascarado). Peor: `serialize_shape` del TopoDS crudo
+SIEMPRE da bytes, pero `deserialize_shape` revienta por-shape de forma caprichosa —unos
+round-trip-ean crudos, otros solo tras `BRepBuilderAPI_Copy` (aplana refs de geometría), y
+la copia ROMPE a los primeros—. Solución (`_serialize_robust`): por shape, intenta crudo y
+VERIFICA deserializando (el fallo de BinTools salta al LEER); si no, intenta la copia y
+verifica; si ninguno, None → pack cae → replay frío. Resultado real: faja 38 open frío
+3–23 s → **caliente 0.036 s** (unpack de 82 shapes = 17 ms), Δvolumen ~7e-12, integridad e
+instancing limpios. Escritura cableada al autosave (Fase D la mueve al flush).
+
+**B · Deltas de `scene_payload` + reuso de mallas.** El refresh por WS bajaba
+`GET /api/scene` COMPLETO (~1.1 MB) y el viewport reconstruía TODAS las mallas three.js.
+`_geom_rev(fid, shape)` = revisión por IDENTIDAD del shape (el regen incremental la preserva
+para lo NO re-ejecutado; editar el comando *i* re-ejecuta *i*..fin → esos rev suben, por eso
+un edit temprano reconstruye la cola, no «solo la pieza»). `scene_payload(known={revs,defs})`
+manda `same:true` + solo metadatos volátiles para lo que el cliente ya tiene; `POST
+/api/scene/delta` lo usa el refresh. UI: `mergeSceneDelta` hereda la geometría anterior; el
+viewport diffea por `rev` (`builtRef` Map) → reconstruye solo lo cambiado, la apariencia se
+rehace en sitio (`applyAppearance`); pool `shared` de instancias persiste con disposal por
+uso. Medido: layout 53 delta sin cambios **1.1 MB → 31 KB (2.8 %)**. E2E (browser, DB
+scratch aislada, hook `window.__apolo`): append → +1 build, 10 mallas reusadas (mismas
+instancias); recolor → 0 builds, material intercambiado.
+
+**C · Dos-locks render/física.** `render_view` teselaba + corría VTK bajo STATE_LOCK;
+`gravity_test`/`drop_test` corrían el bucle mj_step bajo el lock → un render o sim larga
+congelaba TODO. Regla de oro: bajo STATE_LOCK se EXTRAE geometría (OCCT → datos PUROS);
+fuera solo arrays. `extract_render_scene` (STATE_LOCK, con `_RENDER_MESH_CACHE`) +
+`render_snapshot_vtk` (RENDER_LOCK); `prepare_stability`/`prepare_drop` (XML MuJoCo horneado,
+STATE_LOCK) + `simulate_*` (PHYSICS_LOCK). Render byte-IDÉNTICO al anterior verificado en 6
+configs (normal/highlight/xray/labels/bbox+axes/fit). Concurrencia (torture, Event): mutación
+durante gravity de 2 s = 5 ms, durante render de 2 s = 491 ms (< 1 s); el render termina 200
+pese a que la mutación invalida los shapes (snapshot = datos puros). Follow-up: `export_stl`,
+`drawing_spec` (su HLR es OCCT, no sale del lock).
+
+**D · Autosave con debounce + pack en el flush.** `_autosave()` escribía inline tras cada
+mutación. `_AutosaveScheduler`: marca sucio + arma un flush ÚNICO (debounce 500 ms, techo
+3 s); `_do_flush` toma `to_apolo_bytes()` + `pack()` BAJO STATE_LOCK y escribe SQLite FUERA
+(durabilidad V6.1 intacta: reintentos, `AUTOSAVE_ERROR` + WS; la caché de geometría es
+best-effort aparte). Flush FORZOSO en shutdown, cambio de proyecto (open/new/create),
+save_revision y restore. `GET /api/health` → `autosave_pending`. Tests V6.1 adaptados
+(`_flush_autosave()` fuerza antes de leer disco; fixtures con STORE hacen
+`_autosave_sched.cancel()` en teardown; dobles pasan a `save_raw`). Ráfaga de 20 mutaciones =
+1 escritura.
+
+**Cierre**: 971 tests (+11 tortura). Madurez rendimiento 4→6. El detalle por línea vive en
+CLAUDE.md § Rendimiento (V6.2).

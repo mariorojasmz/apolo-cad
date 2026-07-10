@@ -105,6 +105,19 @@ def main() -> None:
     conteos["faja_solidos"] = len(faja_doc.scene)
     conteos["faja_comandos"] = len(faja_doc.commands)
 
+    # 1b) OPEN CALIENTE (V6.2a): con la caché poblada. Mide unpack + warm-open (= lo que hace
+    # store.load en producción); el coste del pack (escritura) va aparte.
+    from apolo.doc.geomcache import pack, unpack
+
+    medidas["geom_cache_write_faja_s"] = _median_time(lambda: pack(faja_doc))
+    _blob = pack(faja_doc)
+    if _blob is not None and unpack(_blob) is not None:
+        medidas["open_caliente_faja_s"] = _median_time(
+            lambda: Document.from_apolo_bytes(faja_bytes, warm=unpack(_blob))
+        )
+    else:
+        medidas["open_caliente_faja_s"] = None
+
     # 2) regenerate tras editar el PRIMER set_variable (+0): mide el peor caso incremental
     var_cmd = next((c for c in faja_doc.commands if c["type"] == "set_variable"), None)
     if var_cmd is not None:
@@ -125,8 +138,16 @@ def main() -> None:
     old_doc = api.DOC
     api.DOC = layout_doc
     try:
+        api._GEOM_REVS.clear()
         medidas["scene_payload_layout_s"] = _median_time(api.scene_payload)
-        conteos["payload_bytes"] = len(json.dumps(api.scene_payload()).encode())
+        full = api.scene_payload()
+        conteos["payload_bytes"] = len(json.dumps(full).encode())
+        # 3b) delta de escena SIN cambios (V6.2b): bytes del delta vs payload completo
+        known = {"revs": {f["id"]: f["rev"] for f in full["features"]},
+                 "defs": list(full["definitions"].keys())}
+        conteos["scene_delta_nochange_bytes"] = len(
+            json.dumps(api.scene_payload(known=known)).encode()
+        )
     finally:
         api.DOC = old_doc
 
@@ -165,7 +186,7 @@ def main() -> None:
     medidas["fuzz_100ops_s"] = _median_time(_fuzz)
 
     out = {
-        "nota": "línea base de V6.1 (máquina-dependiente); compara solo contra la misma máquina",
+        "nota": "línea base de V6.2 (máquina-dependiente); compara solo contra la misma máquina",
         "host": platform.node(),
         "plataforma": platform.platform(),
         "python": sys.version.split()[0],
