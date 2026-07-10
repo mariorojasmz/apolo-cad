@@ -1622,6 +1622,16 @@ def assembly_soundness(body: SoundnessIn) -> dict:
         return report
 
 
+@app.get("/api/assembly/dof")
+def assembly_dof() -> dict:
+    """Reporte de GRADOS DE LIBERTAD (V6.3c): por sólido, ¿cuántos GDL le quedan tras
+    ground/juntas/mates? Conteo Grübler determinista, sin OCCT. Read-only."""
+    from apolo.assembly.dof import dof_report
+
+    with STATE_LOCK:
+        return dof_report(DOC.scene, DOC.joints, DOC.mates, DOC.grounds)
+
+
 class StabilityIn(BaseModel):
     seconds: float = 2.0
     gravity: float = 9.81

@@ -321,6 +321,24 @@ export interface StabilityOut {
   mensaje?: string;
 }
 
+// Reporte de grados de libertad del ensamblaje (V6.3c, conteo Grübler).
+export interface DofFeature {
+  id: string;
+  name: string;
+  dof: number;
+  estado: "fijo" | "parcial" | "libre" | "sobre_restringido";
+  restringido_por: string[];
+}
+
+export interface DofOut {
+  features: DofFeature[];
+  total_dof: number;
+  libres: number;
+  sobre_restringidos: number;
+  resumen: string;
+  nota: string;
+}
+
 export interface StabilityRequest {
   with_autodetect?: boolean;
   exclude?: string[];

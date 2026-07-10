@@ -52,19 +52,20 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 981 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1019 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **64 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **67 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-09)**: 981 tests (+12 tortura vía `-m torture`) · 66 tools MCP ·
+- **Estado actual (2026-07-09)**: 1019 tests (+15 tortura vía `-m torture`) · 67 tools MCP ·
   51 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
-  «Apolo industrial»: V6.1 robustez + V6.2 rendimiento CERRADOS**. V6.1 («nada tumba el
-  documento»: `check_integrity` + carga tolerante + atomicidad + `GET /api/health`; robustez
-  3→6). V6.2 (open caliente por caché BREP + deltas de escena + dos-locks render/física +
-  autosave debounced; rendimiento 4→6). Proyectos de referencia: `faja-paqueteria-4m`
+  «Apolo industrial»: V6.1 robustez + V6.2 rendimiento + V6.3 ensamblaje pro CERRADOS**. V6.1
+  («nada tumba el documento»: `check_integrity` + carga tolerante + atomicidad + `GET /api/health`;
+  robustez 3→6). V6.2 (open caliente por caché BREP + deltas de escena + dos-locks render/física +
+  autosave debounced; rendimiento 4→6). V6.3 (multi-mate por sólido + conectores por ancla/arista +
+  reporte de DOF; ensamblaje 4.5→6). Proyectos de referencia: `faja-paqueteria-4m`
   (id 38, 82 sólidos, memoria APROBADO,
   eje motriz «Ø35 h7»), `layout-planta-demo` (id 53, 149 sólidos) y `guarda-banda-demo`
   (chapa en C con hems, DXF verificado).
@@ -209,10 +210,28 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   `GET /api/bom?by_group=true` expone los subtotales por grupo/instancia.
 
 ### Ensamblaje / cinemática / validación física
-- **Mates** (`assembly/mates.py`): coincidente/distancia/concéntrico/paralelo/ángulo por
-  caras, re-resueltos en `regenerate` (1 mate por hijo, árbol). **Riel lazo-cerrado**
-  (`add_rail_constraint`) + **N-GDL** (`add_constraint`: least_squares global;
+- **Mates** (`assembly/mates.py`): coincidente/distancia/concéntrico/paralelo/ángulo,
+  re-resueltos en `regenerate`. **MULTI-MATE (V6.3a)**: un sólido puede ser hijo de ≥2 mates
+  (grafo hijo→padres = DAG multi-padre; lazos A↔B rechazados como ciclo). Solver de DOS
+  caminos: 1 mate/hijo → camino cerrado exacto `_solve_one` (pose determinista, INTACTO); ≥2
+  → `_solve_multi` (least_squares 6-DOF, rotación sobre el CENTRO de B — sobre el origen no
+  converge si B está lejos; residuos por tipo `_mate_residuals` consistentes con
+  `_desired_current_frames`, cada mate restringe solo sus GDL naturales). Conflicto (costo >
+  1e-3 tras 1 reintento con perturbación fija) → MateError nombrando los mates → rollback.
+  **Conectores (V6.3b)**: cara plana/cilíndrica, ARISTA CIRCULAR (`{"entidad":"arista"}` →
+  centro+eje del círculo) o ANCLA con nombre (`{"mode":"ancla","name":...}` → `Feature.anchors`,
+  frames MUNDO publicados por los executors: chumacera→"centro", NMRV→"bore", faja→
+  "eje_motriz"/"eje_cola"; se re-calculan en cada regenerate y toda transformación las mueve —
+  `kernel.matrix.transform_anchors`, REEMPLAZA nunca muta; `get_topology` las lista). **Riel
+  lazo-cerrado** (`add_rail_constraint`) + **N-GDL** (`add_constraint`: least_squares global;
   punto_en_recta/plano/coincidente/distancia). FK de un punto: `robotics/pose.py`.
+- **Reporte de DOF (V6.3c, `assembly/dof.py`)**: `dof_report(scene,joints,mates,grounds)` puro
+  (sin Document/OCCT) — por sólido, 6 GDL menos ground (−6)/junta (fija−6, gir/cont/pris−5)/
+  mates (coincidente−3, distancia−3, concéntrico−4, paralelo−2, ángulo−1); estado fijo/parcial/
+  libre/sobre_restringido. Conteo Grübler HEURÍSTICO (no ve redundancia geométrica; el
+  sobre_restringido por conteo puede ser benigno — los conflictos REALES los rechaza el solver
+  de mates). `GET /api/assembly/dof` + tool `get_dof` + bloque en AssemblyPanel. Las juntas,
+  que en el resto son solo visualización, aquí SÍ cuentan como restricción.
 - **Estudios de movimiento CON NOMBRE**: `Document.motion: dict[str, list]` (metadato de
   manifest), `set_motion`/`delete_motion`, scan de colisiones por recorrido.
 - **Conectividad/soundness** (`assembly/connectivity.py` + `autodetect.py`): grafo
@@ -602,10 +621,11 @@ GENERAL ~10-15 % de SW/Inventor (kernel nivel FreeCAD — una CUÑA, no un reemp
 herramienta del VERTICAL cubre ~80 % del flujo (requisitos→3D validado→planos→memoria→
 cotización, autónomo — categoría que los grandes no ocupan). Ejes: IA-nativa/API-first **9.5**
 (el moat) · kernel OCCT 6.5 · paramétrico 5 · croquis 5 (PlaneGCS; falta arrastre en vivo) ·
-ensamblaje 4.5 (soundness/gravity es único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+
-FEA lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
-robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1. Medir progreso por
-PROFUNDIDAD del vertical, no por paridad de features.
+ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF; soundness/
+gravity sigue siendo único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+FEA lineal; falta
+contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) · robustez 6 (V6.1) ·
+CAM 0 (deliberado) · colaboración/ecosistema 1. Medir progreso por PROFUNDIDAD del vertical,
+no por paridad de features.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -625,7 +645,12 @@ verdes**. Un ítem por vez, con plan formal.
   1.1 MB → 31 KB) + reuso de mallas en el viewport (solo la pieza editada se reconstruye) +
   dos-locks render/física (mutación durante render/gravity < 1 s) + autosave debounced
   (ráfaga de 20 → 1 escritura). Baseline regenerado. Madurez rendimiento 4→6.
-- **V6.3 Ensamblaje pro** — multi-mate por sólido, conectores por ancla, reporte de DOF. 4.5→6.
+- **V6.3 Ensamblaje pro** — **HECHO (2026-07-09)**. Multi-mate por sólido (DAG multi-padre +
+  solver acoplado least_squares por hijo, camino 1-mate intacto) + conectores por ANCLA con
+  nombre (chumacera/NMRV/faja) y por ARISTA CIRCULAR + reporte de DOF (`assembly/dof.py`,
+  Grübler, `get_dof`). Verificado E2E: chumacera concéntrica por ancla contra un eje (centro
+  medido sobre el eje); `get_dof` sobre la faja 38 (82 sólidos, 256 GDL, sin crash). Fix 0
+  residual: autosave limpia `dirty` bajo `_flush_lock`. Ensamblaje 4.5→6.
 - **V6.4 Paramétrico profundo** — faja 38 100 % paramétrica como caso testigo, tablas de
   diseño. 5→6.5.
 - **V6.5 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
@@ -642,7 +667,11 @@ de plano por empresa) es POR DEMANDA. Criterio de "hecho": usable por chat/MCP +
 tests + E2E real; un ítem por vez con plan formal.
 
 ## Pendientes (follow-ups vivos, por demanda)
-- **Cinemática/ensamblaje**: multi-mate por sólido (hoy 1/hijo), conectores por ancla, master-slider "Apertura %", exportar vídeo del motion.
+- **Cinemática/ensamblaje**: LAZOS CERRADOS de mates (A↔B, hoy rechazados como ciclo — el
+  multi-mate V6.3 solo abre DAG multi-padre); master-slider "Apertura %", exportar vídeo del
+  motion; anclas en más familias de catálogo (por demanda); DOF con residuo del solver
+  persistido (hoy el `overconstrained` del solver no se guarda: el conteo Grübler es el signal
+  en vivo, pues el solver ya rechaza los conflictos reales en la mutación).
 - **Validación**: agrupar mitades A/B de bisagra; voladizo real del eje motriz; `torque` en tornillería; coherencia `fasten size` ↔ taladro roscado cercano.
 - **Geometría/catálogo**: cola de milano/ingletes de CARPINTERÍA; canteado; chapa (child >1 nivel, hem 180°, alivios, editor de flaps); coping/notching grado ≥3; chaveta en bores; más familias.
 - **Física**: cascos convexos en drop_test (hoy AABB), export SDF, sim en tiempo real.

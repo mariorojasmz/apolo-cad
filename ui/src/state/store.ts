@@ -193,6 +193,7 @@ const BUSY_TEXT: Record<string, string> = {
   scanMotion: "Comprobando recorrido…",
   bom: "Cargando lista de materiales…",
   mates: "Cargando ensamblaje…",
+  dof: "Calculando grados de libertad…",
   drawing: "Generando plano…",
   save_reqs: "Guardando requisitos…",
   costing: "Calculando costos…",

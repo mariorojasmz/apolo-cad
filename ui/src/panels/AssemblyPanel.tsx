@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { selectFeatures, useStore } from "../state/store";
-import type { SoundnessOut, StabilityOut } from "../types";
+import type { DofOut, SoundnessOut, StabilityOut } from "../types";
+
+const DOF_ICON: Record<string, string> = {
+  fijo: "🔒", parcial: "↔", libre: "⚪", sobre_restringido: "⚠",
+};
 
 /* Panel Ensamblaje: declara las UNIONES reales (qué está soldado/atornillado/anclado al
    piso) y valida con gravedad. Con uniones declaradas, la "prueba EXACTA" usa solo esas
@@ -30,6 +34,8 @@ export default function AssemblyPanel() {
   const [autodetect, setAutodetect] = useState(true);
   const [sound, setSound] = useState<SoundnessOut | null>(null);
   const [stab, setStab] = useState<StabilityOut | null>(null);
+  const [dof, setDof] = useState<DofOut | null>(null);
+  const [dofOpen, setDofOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const nameOf = useMemo(() => {
@@ -53,6 +59,16 @@ export default function AssemblyPanel() {
     setBusy(true);
     const r = await runTracked("soundness", () => api.soundness(autodetect));
     if (r) setSound(r);
+    setBusy(false);
+  };
+
+  const reportDof = async () => {
+    setBusy(true);
+    const r = await runTracked("dof", () => api.dof());
+    if (r) {
+      setDof(r);
+      setDofOpen(true);
+    }
     setBusy(false);
   };
 
@@ -156,6 +172,7 @@ export default function AssemblyPanel() {
           <input type="checkbox" checked={autodetect} onChange={(e) => setAutodetect(e.target.checked)} /> auto
         </label>
         <button disabled={busy} onClick={() => void validate()}>Validar (¿qué flota?)</button>
+        <button disabled={busy} onClick={() => void reportDof()} title="Grados de libertad por pieza (conteo Grübler)">GDL</button>
       </div>
 
       <p className="hint">
@@ -170,6 +187,38 @@ export default function AssemblyPanel() {
             : `✓ Las ${sound.n_total} piezas tienen sujeción al piso`}
           {!sound.has_ground && " · nada anclado a tierra todavía"}
         </p>
+      )}
+
+      {dof && (
+        <div style={{ marginTop: 4 }}>
+          <p
+            className={dof.sobre_restringidos ? "estado-aviso" : "estado-ok"}
+            style={{ cursor: "pointer" }}
+            onClick={() => setDofOpen((o) => !o)}
+            title="Clic: desplegar/plegar el detalle por pieza"
+          >
+            {dofOpen ? "▾" : "▸"} GDL: {dof.resumen}
+          </p>
+          {dofOpen && (
+            <>
+              <div className="kin-grid" style={{ maxHeight: 200, overflowY: "auto" }}>
+                {dof.features.map((f) => (
+                  <div
+                    className={`kin-row ${selection.includes(f.id) ? "active" : ""}`}
+                    key={f.id}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => select([f.id])}
+                    title={f.restringido_por.length ? f.restringido_por.join(", ") : "sin restricciones"}
+                  >
+                    <span className="kin-info">{DOF_ICON[f.estado] ?? ""} {nameOf(f.id)}</span>
+                    <span className="kin-value">{f.estado === "sobre_restringido" ? "sobre-restr." : `${f.dof} GDL`}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="hint">{dof.nota}</p>
+            </>
+          )}
+        </div>
       )}
 
       {stab && (

@@ -2837,3 +2837,67 @@ del delta (toggle de guía es metadato) + en `mergeSceneDelta`.
 compose fuera del lock, RenderSnapshot Vector→ndarray, etc.).
 
 **Cierre**: baseline sin cambios de números (verificado). Suite + tortura verdes. V6.2 SELLADO.
+
+## V6.3 — Ensamblaje pro: multi-mate, conectores por ancla, reporte de DOF (2026-07-09)
+
+Tercer ítem del roadmap V6. Madurez ensamblaje 4.5→6. Cuatro fases con commits separados;
+suite 981→1019 tests + 12→15 torturas, todo verde; `GET /api/health` sano.
+
+**Fase 0 — residuo de V6.2e (autosave).** `_fire` limpiaba `dirty` ANTES de adquirir
+`_flush_lock`. En la carrera con un `_project_switch` que ganara el lock primero, `take_pending`
+veía `dirty=False` y NO persistía el doc VIEJO → las últimas mutaciones (<=3 s) se evaporaban
+(lost update; `pending()` parpadeaba a False). Fix: `_fire` ya no limpia dirty; el clear ocurre
+DENTRO de `_flush_lock` (en `_run`, que sigue flusheando incondicionalmente — el switch ya
+consumió dirty vía take_pending → es una reescritura del proyecto ACTUAL, inocua). Test de
+carrera con Events forzando el interleaving.
+
+**Fase A — multi-mate por sólido.** El grafo hijo→padres pasa de ÁRBOL (1 mate/hijo) a DAG
+multi-padre; se quita la guarda de mates.py y se generaliza `_mate_ancestors` a multi-padre
+(lazos cerrados A↔B siguen rechazados como ciclo — fuera de alcance). `solve_mates` en dos
+caminos: 1 mate/hijo → camino cerrado exacto `_solve_one` INTACTO (pose determinista bit-a-bit;
+ningún test de pose existente cambia); ≥2 → `_solve_multi`, que resuelve la pose 6-DOF por
+`scipy.least_squares` (`x_scale='jac'`) sobre `[tx,ty,tz, rotvec]`. Residuos por tipo
+(`_mate_residuals`) CONSISTENTES con `_desired_current_frames` (a residuo 0 coinciden con el
+camino cerrado — probado con frames sintéticos), pero cada mate restringe SOLO sus GDL naturales
+(coincidente/distancia = along + normal anti-paralela; concéntrico = 2 puntos del eje a la recta,
+deja deslizar/girar; paralelo = cross; ángulo = escalar; angulares escalados ×L del bbox). GOTCHA
+clave de convergencia: la rotación se parametriza SOBRE EL CENTRO de B, no sobre el origen del
+mundo — con el origen, si B está lejos, rotar lo desplaza enormemente y el solver cambia posición
+por giro sin converger. Orden topológico Kahn determinista. Conflicto (costo > 1e-3 tras 1
+reintento con perturbación FIJA) → MateError nombrando los mates y su residuo → en estricto,
+rollback. Interference/soundness ya no asumían 1/hijo (interference excluye por junta+
+same_command, no por mate; connectivity itera mates.values()).
+
+**Fase B — conectores por ancla y arista circular.** (1) ARISTAS CIRCULARES: `{"entidad":
+"arista", ...selector...}` resuelve el borde de un barreno/tapa a (centro, eje del círculo) vía
+BRepAdaptor_Curve→gp_Circ. (2) ANCLAS con nombre: `Feature.anchors` (dict MUNDO), publicadas por
+los executors al colocar el componente y RE-calculadas en cada regenerate (sin estado que
+envejezca): chumaceras UCP/UCF/UCFL→"centro" (eje del rodamiento Y, origen en el barreno), NMRV
+worm_gearmotor→"bore", create_belt_conveyor→"eje_motriz"/"eje_cola" (tambores), create_conveyor→
+ejes de los rodillos extremos. `connector_of` acepta la Feature y gana el modo `{"mode":"ancla",
+"name":...}`. TODO camino que mueve el shape tras el executor transforma las anclas
+(`kernel.matrix.transform_anchors`, REEMPLAZA nunca muta — los checkpoints comparten la referencia
+por el shallow copy): `_solve_one`, `_solve_multi`, `transform_group`, `insert_project`.
+`get_topology` las lista (MCP thin: el hueco es de LECTURA). Bump `GEOM_CACHE_EPOCH` 2→3 (un ckpt
+viejo restauraría Features sin anclas). E2E medido: chumacera UCP205 mateada concéntrica por ancla
+'centro' contra un eje cilíndrico → su centro cae exacto sobre el eje (200,·,300) y el ancla viaja
+con la pieza (no stale); pin concéntrico al borde de un barreno → se centra en él.
+
+**Fase C — reporte de DOF.** `assembly/dof.py::dof_report(scene,joints,mates,grounds)` puro (sin
+Document/OCCT): por sólido, 6 GDL menos ground (−6)/junta (fija−6, gir/cont/pris−5)/mates
+(coincidente−3, distancia−3, concéntrico−4, paralelo−2, ángulo−1); estado fijo/parcial/libre/
+sobre_restringido + `restringido_por`. Conteo Grübler HEURÍSTICO — no ve redundancia geométrica
+(coincidente+concéntrico = 7 removidos se marca sobre_restringido aunque sea válido); los
+conflictos REALES los rechaza el solver de mates en la mutación, así que un doc regenerado no trae
+`overconstrained` del solver (parámetro opcional para completitud). Las juntas, que en el resto de
+Apolo son solo visualización, aquí SÍ cuentan como restricción (lectura útil). `GET /api/assembly/
+dof` + tool `get_dof` (67 tools) + bloque expandible en AssemblyPanel (junto a soundness). E2E:
+`get_dof` sobre la faja 38 (82 sólidos, 15 juntas, 25 grounds) → 81 piezas, 256 GDL, 41 libres, 0
+sobre-restringidas, grounds→fijo, sin crash. Consistencia con soundness: una pieza floating sin
+nada = 6 GDL (libre).
+
+**Cierre**: baseline sin regenerar (nada toca los caminos medidos). Un servidor del usuario corría
+en :8000 con código viejo → la verificación de la UI se apoyó en `npm run build` (tsc estricto
+verde) + `test_api_dof_endpoint` + el bloque replica los patrones existentes; el render de la
+Fase B se sustituyó por la medición numérica (más fuerte que un render). Plan movido a
+`docs/plans/done/`.

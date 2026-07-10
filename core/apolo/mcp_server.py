@@ -581,6 +581,18 @@ def get_mates() -> str:
 
 
 @mcp.tool()
+def get_dof() -> str:
+    """Reporte de GRADOS DE LIBERTAD del ensamblaje (análogo 3D del dof/redundantes del
+    croquis): por sólido, cuántos GDL le quedan tras ground/juntas/mates y su estado
+    (fijo | parcial | libre | sobre_restringido) + qué lo restringe. Conteo Grübler
+    determinista. OJO: el conteo es heurístico (no ve redundancia geométrica); un
+    'sobre_restringido' puede ser redundancia benigna — los conflictos REALES los rechaza
+    el solver de mates al editar. Útil para responder '¿qué puede moverse y qué está
+    sobre-restringido?'."""
+    return json.dumps(_api("GET", "/api/assembly/dof").json(), ensure_ascii=False)
+
+
+@mcp.tool()
 def check_assembly(with_autodetect: bool = True) -> str:
     """Validación de ensamblaje por CONECTIVIDAD: ¿cada pieza tiene un camino de sujeción
     hasta el piso? Devuelve las piezas FLOTANTES (caerían bajo gravedad — eje suelto, rodillo

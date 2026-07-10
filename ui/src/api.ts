@@ -1,5 +1,5 @@
 import type {
-  BomRow, CatalogItem, ChecksOut, CommandSchema, ConnectivityOut, CostingOut, DropRequest, DropResult,
+  BomRow, CatalogItem, ChecksOut, CommandSchema, ConnectivityOut, CostingOut, DofOut, DropRequest, DropResult,
   GravityResult, KinematicsOut, MateRow, MotionKeyframe, MotionOut, ProjectInfo, RailConstraint,
   Requirements, RevisionInfo, SceneOut, SoundnessOut, StabilityOut, StabilityRequest,
 } from "./types";
@@ -168,6 +168,8 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ with_autodetect: withAutodetect }),
     }).then((r) => json<SoundnessOut>(r)),
+
+  dof: () => fetch("/api/assembly/dof").then((r) => json<DofOut>(r)),
 
   stability: (body: StabilityRequest) =>
     fetch("/api/assembly/stability", {
