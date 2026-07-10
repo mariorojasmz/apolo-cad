@@ -21,12 +21,13 @@ export const api = {
   schemas: () => fetch("/api/schemas").then((r) => json<CommandSchema[]>(r)),
   scene: () => fetch("/api/scene").then((r) => json<SceneOut>(r)),
   // Escena en forma DELTA (V6.2b): manda lo que el cliente ya tiene (rev por feature +
-  // claves de definición) → el server responde solo la geometría que cambió.
-  sceneDelta: (revs: Record<string, number>, defs: string[]) =>
+  // claves de definición + el epoch del proceso, V6.2e) → el server responde solo la
+  // geometría que cambió, o el payload completo si el epoch no coincide (restart del API).
+  sceneDelta: (revs: Record<string, number>, defs: string[], epoch: string | undefined) =>
     fetch("/api/scene/delta", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ revs, defs }),
+      body: JSON.stringify({ revs, defs, epoch }),
     }).then((r) => json<SceneOut>(r)),
   catalog: () => fetch("/api/catalog").then((r) => json<CatalogItem[]>(r)),
   bom: () => fetch("/api/bom").then((r) => json<BomRow[]>(r)),
@@ -297,13 +298,20 @@ export const api = {
     }),
 };
 
-export function connectWs(onChanged: () => void): () => void {
+export function connectWs(onChanged: () => void, onReconnect?: () => void): () => void {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   let ws: WebSocket | null = null;
   let closed = false;
+  let hadOpen = false; // ¿ya hubo una conexión antes? → distinguir la primera de una reconexión
 
   const open = () => {
     ws = new WebSocket(`${proto}://${location.host}/ws`);
+    ws.onopen = () => {
+      // reconexión (V6.2e Fix 2): pudimos perder `document_changed` mientras estuvo caído
+      // (o el API reinició y los revs renacieron) → refresco COMPLETO, no delta.
+      if (hadOpen) onReconnect?.();
+      hadOpen = true;
+    };
     ws.onmessage = (ev) => {
       try {
         if (JSON.parse(ev.data).type === "document_changed") onChanged();

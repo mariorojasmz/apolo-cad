@@ -54,7 +54,7 @@ interface AppState {
   chatBusy: boolean;
 
   init: () => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (full?: boolean) => Promise<void>;
   select: (ids: string[]) => void;
   toggleSelect: (id: string) => void;
   openDialog: (schema: CommandSchema | null) => void;
@@ -344,19 +344,23 @@ function enqueueSilent(set: SetFn, id: string, run: () => Promise<SceneOut>): Pr
  * (las `same` las conservan) + las nuevas del delta, podadas a las realmente referenciadas. */
 function mergeSceneDelta(prev: SceneOut, delta: SceneOut): SceneOut {
   const prevById = new Map(prev.features.map((f) => [f.id, f]));
-  const features = delta.features.map((f) => {
-    if (!f.same) return f; // geometría nueva/cambiada: viene completa
+  const features: FeatureOut[] = [];
+  for (const f of delta.features) {
+    if (!f.same) { features.push(f); continue } // geometría nueva/cambiada: viene completa
     const old = prevById.get(f.id);
-    if (!old) return f; // no debería pasar (same ⇒ el cliente la declaró), pero seguro
-    // conserva la geometría anterior; sobrescribe solo lo volátil que trae el delta
-    return { ...old, rev: f.rev, name: f.name, color: f.color, visible: f.visible, group: f.group };
-  });
+    if (!old) continue; // `same` sin prev (no debería pasar): descartar (evita feature sin malla)
+    // conserva la geometría anterior; sobrescribe solo lo VOLÁTIL que trae el delta
+    features.push({
+      ...old, rev: f.rev, name: f.name, color: f.color,
+      visible: f.visible, group: f.group, is_guide: f.is_guide, // V6.2e Fix 7: guía es metadato
+    });
+  }
   const allDefs = { ...prev.definitions, ...delta.definitions };
   const definitions: Record<string, (typeof allDefs)[string]> = {};
   for (const f of features) {
     if (f.mesh_key && allDefs[f.mesh_key]) definitions[f.mesh_key] = allDefs[f.mesh_key];
   }
-  return { features, definitions, document: delta.document };
+  return { features, definitions, document: delta.document, epoch: delta.epoch };
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -417,19 +421,24 @@ export const useStore = create<AppState>((set, get) => ({
         if (s.busy || s.syncing > 0) return; // ocupados con lo nuestro → nuestra propia respuesta cierra el estado
         void s.refresh();
       }, 250);
+    }, () => {
+      void get().refresh(true); // reconexión (V6.2e Fix 2): refresco COMPLETO por si perdimos cambios
     });
   },
 
-  refresh: async () => {
+  refresh: async (full = false) => {
     // Refresco por DELTA (V6.2b): si ya hay escena, declaramos lo que tenemos (rev por
     // feature + definiciones) y el server manda solo la geometría que cambió; mergeamos
-    // conservando las mallas de las piezas 'same'. Sin escena previa → carga completa.
-    const prev = get().scene;
+    // conservando las mallas de las piezas 'same'. `full` (reconexión) o sin escena previa →
+    // carga completa.
+    const prev = full ? null : get().scene;
     let scene: SceneOut;
     if (prev) {
       const revs: Record<string, number> = {};
       for (const f of prev.features) revs[f.id] = f.rev ?? 0;
-      const delta = await api.sceneDelta(revs, Object.keys(prev.definitions));
+      // el epoch le dice al server si nuestros revs son de ESTE proceso (V6.2e Fix 2): si el
+      // API reinició, responde el payload completo con el epoch nuevo → mergeSceneDelta lo usa.
+      const delta = await api.sceneDelta(revs, Object.keys(prev.definitions), prev.epoch);
       scene = mergeSceneDelta(prev, delta);
     } else {
       scene = await api.scene();

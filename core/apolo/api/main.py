@@ -8,6 +8,7 @@ propone el agente).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import tempfile
@@ -80,34 +81,49 @@ _AUTOSAVE_CEILING = 3.0    # s máx. desde la primera pendiente
 _GEOM_MARK: tuple[int, str] | None = None
 
 
-def _do_flush() -> None:
-    """Escribe el autosave AHORA. (a) BAJO STATE_LOCK: serializa el .apolo + empaca la caché
-    de geometría (OCCT) + escalares; (b) FUERA del lock: escribe SQLite con la MISMA
-    durabilidad de V6.1 (reintentos, AUTOSAVE_ERROR + WS al agotarse). Corre en el hilo del
-    Timer (o del flush forzoso), nunca sostiene STATE_LOCK durante la escritura a disco."""
+# Serializa los flushes REALES entre sí (Timer + forzoso). ORDEN GLOBAL DE LOCKS (V6.2e
+# Fix 1): _flush_lock SIEMPRE se adquiere ANTES que STATE_LOCK, nunca al revés → sin deadlock
+# entre un flush del Timer (que quiere STATE_LOCK) y un cambio de proyecto (que quiere
+# flushear). Sostenerlo durante TODOS los reintentos evita que un flush con bytes VIEJOS pise
+# a otro con bytes NUEVOS (los reintentos duermen hasta 0.6 s > el debounce de 0.5 s).
+_flush_lock = threading.Lock()
+
+
+def _flush_body() -> None:
+    """Cuerpo del flush del autosave. Asume ``_flush_lock`` sostenido. (a) BAJO STATE_LOCK:
+    captura STORE/PROJECT_ID + serializa el .apolo + empaca la caché — TODO atómico con el
+    doc (un cambio de proyecto swapea DOC y PROJECT_ID bajo el MISMO lock, así que jamás se
+    escribe el proyecto A con bytes de B). (b) escribe SQLite con reintentos (durabilidad
+    V6.1). Si el caller YA sostiene STATE_LOCK (camino de switch), la escritura ocurre bajo él
+    — aceptable, es raro. Un fallo de SERIALIZACIÓN también enciende AUTOSAVE_ERROR + WS (antes
+    moría en el excepthook del Timer con `dirty` ya limpio = contrato V6.1 «el cliente se
+    entera» roto para fallos de serialización)."""
     global AUTOSAVE_ERROR, _GEOM_MARK
-    store, project_id = STORE, PROJECT_ID
-    if store is None or project_id is None:
-        return
-    with STATE_LOCK:  # snapshot atómico de lo que va a disco (to_apolo_bytes lee el log; pack, OCCT)
-        name, pieces, data = DOC.name, len(DOC.scene), DOC.to_apolo_bytes()
-        sig = DOC._regen_sigs[-1] if DOC._regen_sigs else None
-        geom_blob = None
-        if (sig is not None and os.environ.get("APOLO_GEOM_CACHE") != "0"
-                and _GEOM_MARK != (project_id, sig)):
-            try:
+    with STATE_LOCK:  # snapshot ATÓMICO con el doc (STORE/PROJECT_ID/bytes de la MISMA foto)
+        store, project_id = STORE, PROJECT_ID
+        if store is None or project_id is None:
+            return
+        try:
+            name, pieces, data = DOC.name, len(DOC.scene), DOC.to_apolo_bytes()
+            sig = DOC._regen_sigs[-1] if DOC._regen_sigs else None
+            geom_blob = None
+            if (sig is not None and os.environ.get("APOLO_GEOM_CACHE") != "0"
+                    and _GEOM_MARK != (project_id, sig)):
                 from apolo.doc.geomcache import pack
 
                 geom_blob = pack(DOC)
-            except Exception:  # la caché es best-effort: perderla solo cuesta un replay
-                geom_blob = None
+        except Exception as exc:  # noqa: BLE001 — fallo de SERIALIZACIÓN: el cliente SE ENTERA
+            AUTOSAVE_ERROR = repr(exc)
+            log_error("backend.autosave", repr(exc))
+            WS.notify_changed({"type": "autosave_failed", "error": AUTOSAVE_ERROR})
+            return
     last: Exception | None = None
     for delay in _AUTOSAVE_RETRIES:
         if delay:
             time.sleep(delay)
         try:
             store.save_raw(project_id, name, pieces, data)  # durabilidad: reintentado
-        except Exception as exc:  # el autosave nunca debe romper la operación
+        except Exception as exc:  # noqa: BLE001 — el autosave nunca rompe la operación
             last = exc
             continue
         AUTOSAVE_ERROR = None
@@ -115,7 +131,7 @@ def _do_flush() -> None:
             try:
                 store.save_geom_cache(project_id, sig, geom_blob)
                 _GEOM_MARK = (project_id, sig)
-            except Exception as exc2:  # perderla solo cuesta un replay
+            except Exception as exc2:  # noqa: BLE001 — perderla solo cuesta un replay
                 log_error("backend.geomcache", repr(exc2))
         return
     AUTOSAVE_ERROR = repr(last)
@@ -124,15 +140,16 @@ def _do_flush() -> None:
 
 
 class _AutosaveScheduler:
-    """Programador del flush con debounce (V6.2d). `schedule()` marca sucio y (re)arma un
-    Timer; `flush()` fuerza el guardado ya (shutdown / cambio de proyecto / tests). Su lock
-    es PROPIO (no STATE_LOCK): solo protege el estado del programador."""
+    """Programador del flush con debounce (V6.2d/e). ``self._lock`` es un LEAF que solo
+    protege el estado del programador; los flushes REALES se serializan con ``_flush_lock``
+    (orden global _flush_lock→STATE_LOCK). ``pending()`` = sucio O flush en vuelo."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._timer: threading.Timer | None = None
         self._first: float | None = None   # monotonic de la primera mutación pendiente
         self._dirty = False
+        self._flushing = False              # hay un flush REAL en vuelo (para pending())
 
     def schedule(self) -> None:
         # sin almacén/proyecto no hay adónde guardar (la mayoría de tests) → no armar Timer
@@ -157,11 +174,22 @@ class _AutosaveScheduler:
             if not self._dirty:
                 return
             self._dirty = False
-        _do_flush()
+        self._run()
+
+    def _run(self) -> None:
+        """Un flush REAL bajo _flush_lock (marca _flushing para pending())."""
+        with _flush_lock:
+            with self._lock:
+                self._flushing = True
+            try:
+                _flush_body()
+            finally:
+                with self._lock:
+                    self._flushing = False
 
     def flush(self, *, force: bool = False) -> None:
-        """Vuelca ya lo pendiente (síncrono). `force=True` guarda aunque no esté sucio
-        (persistir de inmediato un doc recién restaurado/abierto)."""
+        """Flush forzoso SÍNCRONO. Adquiere _flush_lock SIEMPRE (aunque no esté sucio) →
+        ESPERA a un flush del Timer en vuelo antes de volver. Cancela el Timer pendiente."""
         with self._lock:
             if self._timer is not None:
                 self._timer.cancel()
@@ -170,15 +198,13 @@ class _AutosaveScheduler:
             self._dirty = False
             self._first = None
         if do_it:
-            _do_flush()
+            self._run()
+        else:
+            with _flush_lock:  # nada que guardar, pero espera al Timer en vuelo (disco al día)
+                pass
 
-    def pending(self) -> bool:
-        with self._lock:
-            return self._dirty
-
-    def cancel(self) -> None:
-        """Cancela el flush pendiente SIN guardar (teardown de tests: evita que un Timer
-        huérfano dispare durante otra prueba)."""
+    def clear(self) -> None:
+        """Limpia el estado pendiente SIN guardar (teardown de tests: sin Timers huérfanos)."""
         with self._lock:
             if self._timer is not None:
                 self._timer.cancel()
@@ -186,19 +212,54 @@ class _AutosaveScheduler:
             self._dirty = False
             self._first = None
 
+    def take_pending(self) -> bool:
+        """Lee y LIMPIA el estado pendiente, devolviendo si HABÍA cambios sin guardar. Lo
+        llama el switch de proyecto bajo _flush_lock+STATE_LOCK: si True, el switch hace un
+        _flush_body ANTES del swap (ninguna mutación puede colarse — la mutación toma
+        STATE_LOCK para poner dirty). Evita escribir el proyecto viejo si no tenía cambios."""
+        with self._lock:
+            was = self._dirty
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+            self._dirty = False
+            self._first = None
+            return was
+
+    def pending(self) -> bool:
+        with self._lock:
+            return self._dirty or self._flushing
+
+    def cancel(self) -> None:
+        self.clear()
+
 
 _autosave_sched = _AutosaveScheduler()
 
 
 def _autosave() -> None:
     """Programa el autoguardado con debounce (V6.2d): marca sucio y arma el flush único. Ya
-    NO escribe inline (una ráfaga de 20 ediciones = ≤2 escrituras a disco, no 20)."""
+    NO escribe inline (una ráfaga de 20 ediciones = 1 escritura a disco, no 20)."""
     _autosave_sched.schedule()
 
 
 def _flush_autosave(*, force: bool = False) -> None:
-    """Fuerza el flush pendiente AHORA (shutdown, cambio de proyecto, restore, tests)."""
+    """Fuerza el flush pendiente AHORA (shutdown, restore, tests). Espera al Timer en vuelo."""
     _autosave_sched.flush(force=force)
+
+
+@contextlib.contextmanager
+def _project_switch():
+    """Cambio de proyecto ATÓMICO (V6.2e Fix 1): persiste el doc ACTUAL (si tenía cambios
+    pendientes) y cede el control con STATE_LOCK sostenido para el swap → sin ventana donde
+    una mutación al doc VIEJO se evapore ni donde el proyecto A se pise con bytes de B. Orden
+    global de locks: _flush_lock → STATE_LOCK (el switch adquiere _flush_lock ANTES; jamás al
+    revés → sin deadlock con el flush del Timer)."""
+    with _flush_lock:
+        with STATE_LOCK:
+            if _autosave_sched.take_pending():
+                _flush_body()  # persiste el doc ACTUAL (PROJECT_ID aún es el viejo)
+            yield              # el endpoint swapea DOC/PROJECT_ID aquí, bajo ambos locks
 
 
 # ------------------------------------------------------------------ websocket
@@ -452,6 +513,13 @@ def _cached_render(shape, want_mesh: bool) -> dict:
 # esa malla. Ref fuerte al shape (como _SHAPE_CACHE) evita reuso de id() estando en caché.
 _GEOM_REVS: dict[str, tuple] = {}
 
+# Epoch de PROCESO de la escena (V6.2e Fix 2): los revs viven en el proceso pero el navegador
+# lo sobrevive; tras un restart del API los revs renacen en 1 y COLISIONAN con los del cliente
+# → el delta respondería `same:true` con geometría vieja. Un uuid nuevo por arranque invalida
+# los revs del cliente: si el `epoch` que manda en el delta no coincide, se le da el payload
+# COMPLETO (known vacío). Cambiar de proyecto NO cambia el epoch (los revs se podan por fid).
+SCENE_EPOCH = __import__("uuid").uuid4().hex
+
 
 def _geom_rev(fid: str, shape) -> int:
     prev = _GEOM_REVS.get(fid)
@@ -489,6 +557,7 @@ def scene_payload(known: dict | None = None) -> dict:
                 "id": feat.id, "rev": rev, "same": True,
                 "name": feat.name, "color": color,
                 "visible": feat.visible, "group": feat.group,
+                "is_guide": feat.is_guide,  # V6.2e Fix 7: toggle de guía es metadato (rev estable)
             })
             continue
         def_mesh = _definition_mesh(feat.mesh_key) if feat.mesh_key and feat.matrix else None
@@ -527,6 +596,7 @@ def scene_payload(known: dict | None = None) -> dict:
         "definitions": definitions,
         "document": document_payload(),
         "total_features": len(features),
+        "epoch": SCENE_EPOCH,  # V6.2e Fix 2: el cliente lo devuelve en el delta (aditivo)
     }
 
 
@@ -603,9 +673,11 @@ def get_scene() -> dict:
 
 
 class SceneDeltaIn(BaseModel):
-    # geometría que el cliente YA tiene: rev por feature + claves de definición conocidas
+    # geometría que el cliente YA tiene: rev por feature + claves de definición conocidas +
+    # el epoch del proceso con el que las obtuvo (V6.2e Fix 2)
     revs: dict[str, int] = {}
     defs: list[str] = []
+    epoch: str | None = None
 
 
 @app.post("/api/scene/delta")
@@ -613,9 +685,12 @@ def get_scene_delta(body: SceneDeltaIn) -> dict:
     """Escena en forma DELTA (V6.2b): mismo shape que GET /api/scene, pero las features
     cuya geometría no cambió respecto a lo que declara el cliente van con ``mesh=null`` +
     ``same=true`` y sin re-enviar sus definiciones. Lo usa el refresh por WebSocket (los
-    metadatos —color/visibilidad/grupo— siempre llegan)."""
+    metadatos —color/visibilidad/grupo— siempre llegan). Si el ``epoch`` del cliente no
+    coincide con el del PROCESO (restart del API → los revs renacieron), se ignora ``known``
+    y se devuelve el payload COMPLETO con el epoch nuevo (V6.2e Fix 2)."""
     with STATE_LOCK:
-        return scene_payload(known={"revs": body.revs, "defs": body.defs})
+        known = None if body.epoch != SCENE_EPOCH else {"revs": body.revs, "defs": body.defs}
+        return scene_payload(known=known)
 
 
 @app.get("/api/document")
@@ -1039,8 +1114,7 @@ class ProjectIn(BaseModel):
 def create_project(body: ProjectIn) -> dict:
     global DOC, PROJECT_ID
     store = _store_required()
-    _flush_autosave()  # V6.2d: persiste lo pendiente del doc ACTUAL antes de reemplazarlo
-    with STATE_LOCK:
+    with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO (sin corrupción cruzada)
         DOC = Document(body.name)
         if body.template == "transportador":
             DOC.execute("set_variable", {"name": "L", "expression": "2000"})
@@ -1057,8 +1131,7 @@ def create_project(body: ProjectIn) -> dict:
 def open_project_by_id(project_id: int) -> dict:
     global DOC, PROJECT_ID
     store = _store_required()
-    _flush_autosave()  # V6.2d: persiste lo pendiente del doc ACTUAL antes de cambiar
-    with STATE_LOCK:
+    with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO (sin corrupción cruzada)
         try:
             DOC = store.load(project_id, tolerant=True)  # suprime comandos rotos (schema drift)
         except KeyError as exc:
@@ -1125,8 +1198,7 @@ def list_revisions() -> list[dict]:
 def restore_revision(revision_id: int) -> dict:
     global DOC, PROJECT_ID
     store = _store_required()
-    _flush_autosave()  # V6.2d: persiste el doc ACTUAL antes de reemplazarlo por la revisión
-    with STATE_LOCK:
+    with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO
         try:
             project_id, doc = store.load_revision(revision_id, tolerant=True)
         except KeyError as exc:
@@ -2854,8 +2926,7 @@ def download_project() -> Response:
 async def open_project(file: UploadFile) -> dict:
     global DOC, PROJECT_ID
     data = await file.read()
-    _flush_autosave()  # V6.2d: persiste lo pendiente del doc ACTUAL antes de cambiar
-    with STATE_LOCK:
+    with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO
         try:
             DOC = Document.from_apolo_bytes(data, tolerant=True)
         except DocumentError as exc:
@@ -2875,8 +2946,7 @@ class NewProjectIn(BaseModel):
 @app.post("/api/project/new")
 def new_project(body: NewProjectIn) -> dict:
     global DOC, PROJECT_ID
-    _flush_autosave()  # V6.2d: persiste lo pendiente del doc ACTUAL antes de cambiar
-    with STATE_LOCK:
+    with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO
         DOC = Document(body.name)
         PROJECT_ID = STORE.create(DOC) if STORE is not None else None  # E2: id propio
         payload = scene_payload()

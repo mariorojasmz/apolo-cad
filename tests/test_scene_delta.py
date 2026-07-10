@@ -92,10 +92,51 @@ def test_delta_endpoint_roundtrip(doc10):
 
     client = TestClient(api.app)
     full = client.get("/api/scene").json()
-    body = _known(full)
+    body = {**_known(full), "epoch": full["epoch"]}  # epoch correcto → delta real
     delta = client.post("/api/scene/delta", json=body).json()
     assert all(f.get("same") is True for f in delta["features"])
     assert delta["definitions"] == {}
+
+
+# ============================================ V6.2e Fix 2 — epoch de proceso
+
+
+def test_full_payload_has_epoch(doc10):
+    payload = api.scene_payload()
+    assert isinstance(payload.get("epoch"), str) and payload["epoch"]
+
+
+def test_delta_stale_epoch_returns_full(doc10):
+    from fastapi.testclient import TestClient
+
+    client = TestClient(api.app)
+    full = client.get("/api/scene").json()
+    known = {"revs": {f["id"]: f["rev"] for f in full["features"]},
+             "defs": list(full["definitions"].keys())}
+    # epoch STALE (restart del API simulado) → payload COMPLETO, ninguna feature 'same'
+    stale = client.post("/api/scene/delta", json={**known, "epoch": "epoch-viejo"}).json()
+    assert all(not f.get("same") for f in stale["features"])
+    assert all(f["mesh"] is not None or f["mesh_key"] in stale["definitions"]
+               for f in stale["features"])
+    # epoch CORRECTO → sí hay 'same'
+    fresh = client.post("/api/scene/delta", json={**known, "epoch": full["epoch"]}).json()
+    assert all(f.get("same") for f in fresh["features"])
+
+
+# ============================================ V6.2e Fix 7 — is_guide en same
+
+
+def test_delta_same_carries_is_guide(doc10):
+    full = api.scene_payload()
+    known = _known(full)
+    fid = full["features"][2]["id"]
+    # marcar como boceto-guía: metadato (no cambia geometría → rev estable → 'same')
+    doc10.sketch_guides.add(fid)
+    doc10.regenerate()
+    d = api.scene_payload(known=known)
+    f = next(x for x in d["features"] if x["id"] == fid)
+    assert f.get("same") is True
+    assert f["is_guide"] is True  # el toggle de guía viaja en la entrada same (Fix 7)
 
 
 def test_delta_nochange_is_tiny_vs_full():

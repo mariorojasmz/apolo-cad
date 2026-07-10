@@ -139,6 +139,7 @@ export interface SceneOut {
   features: FeatureOut[];
   definitions: Record<string, Mesh>;
   document: DocumentOut;
+  epoch?: string;  // epoch de proceso (V6.2e): invalida los revs del cliente tras un restart
 }
 
 export interface CommandSchema {

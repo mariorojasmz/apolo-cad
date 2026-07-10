@@ -645,6 +645,113 @@ def test_T15_autosave_flush_forced_on_project_switch(api_client):
         restore()
 
 
+# ================================================ V6.2e Fix 1 — flush atómico
+
+
+class _NameStore:
+    """Registra (project_id, name) de cada save_raw → detecta corrupción cruzada."""
+
+    def __init__(self):
+        self.saves: list[tuple] = []
+        self._next = 1
+
+    def create(self, doc):
+        self._next += 1
+        return self._next
+
+    def save_raw(self, project_id, name, pieces, data):
+        self.saves.append((project_id, name))
+
+    def save_geom_cache(self, project_id, sig, blob):
+        pass
+
+
+def test_T16_project_switch_no_cross_corruption(api_client):
+    """El flush ATÓMICO del switch persiste el doc VIEJO con SU id y SU contenido, jamás el
+    id de A con los bytes de B (V6.2e Fix 1). El flush + swap ocurren bajo _flush_lock +
+    STATE_LOCK → ninguna mutación se cuela ni se cruzan los bytes."""
+    api, client = api_client
+    store = _NameStore()
+    api.STORE = store
+    api.PROJECT_ID = 1
+    api.DOC = Document("proyecto-A")
+    restore = _long_debounce(api)
+    try:
+        client.post("/api/commands", json={"type": "create_box", "params": {"width": 40}})
+        assert store.saves == []  # pendiente (ventana larga)
+        client.post("/api/project/new", json={"name": "proyecto-B"})  # switch atómico
+        # A se persistió con SU id y SU nombre (no con los de B)
+        assert (1, "proyecto-A") in store.saves
+        # jamás se escribió el id de A con el nombre/bytes de B (la corrupción cruzada)
+        assert not any(pid == 1 and name == "proyecto-B" for pid, name in store.saves)
+    finally:
+        restore()
+
+
+def test_T16_serialization_failure_flags_and_notifies(api_client):
+    """Un fallo de SERIALIZACIÓN en el flush (no de disco) enciende AUTOSAVE_ERROR (antes
+    moría en el excepthook del Timer con dirty limpio = el cliente NO se enteraba)."""
+    api, client = api_client
+    api.STORE = _RecordingStore()
+    api.PROJECT_ID = api.STORE.create(api.DOC)
+    client.post("/api/commands", json={"type": "create_box", "params": {"width": 40}})
+
+    def boom():
+        raise RuntimeError("serialize boom (inyectado)")
+
+    api.DOC.to_apolo_bytes = boom  # fallo de serialización en el flush
+    api._flush_autosave()
+    assert api.AUTOSAVE_ERROR and "boom" in api.AUTOSAVE_ERROR
+
+
+@pytest.mark.torture
+def test_torture_flush_switch_no_deadlock(api_client):
+    """Orden global _flush_lock→STATE_LOCK: un flush del Timer en vuelo (sostiene
+    _flush_lock, espera STATE_LOCK) + un cambio de proyecto concurrente (espera _flush_lock)
+    TERMINAN ambos, no se cuelgan. Un Event sincroniza el solape; los timeouts detectan el
+    deadlock (V6.2e Fix 1)."""
+    import threading
+
+    api, client = api_client
+    api.STORE = _RecordingStore()
+    api.PROJECT_ID = api.STORE.create(api.DOC)
+    api.DOC = Document("A")
+    api.DOC.execute("create_box", {"width": 40})  # algo que serializar
+
+    entered = threading.Event()
+    release = threading.Event()
+
+    def hold_state():
+        with api.STATE_LOCK:  # bloquea STATE_LOCK → el flush del Timer se queda esperándolo
+            entered.set()
+            release.wait(8)
+
+    holder = threading.Thread(target=hold_state, daemon=True)
+    holder.start()
+    assert entered.wait(5)
+
+    flush_done = threading.Event()
+    switch_done = threading.Event()
+
+    def timer_flush():
+        api._autosave_sched._run()  # _flush_lock → (espera) STATE_LOCK
+        flush_done.set()
+
+    def do_switch():
+        with api._project_switch():  # (espera) _flush_lock → STATE_LOCK
+            api.PROJECT_ID = 777
+        switch_done.set()
+
+    tf = threading.Thread(target=timer_flush, daemon=True)
+    sw = threading.Thread(target=do_switch, daemon=True)
+    tf.start()
+    sw.start()
+    # ambos hilos ya contienden por los locks (STATE_LOCK lo tiene holder). Soltarlo:
+    release.set()
+    assert flush_done.wait(8), "el flush del Timer se colgó (deadlock)"
+    assert switch_done.wait(8), "el switch se colgó (deadlock)"
+
+
 # ================================================ T13 — WebSocket resiliente
 
 
