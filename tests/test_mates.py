@@ -120,8 +120,9 @@ def test_validaciones():
     _coincide(d, a, b)
     with pytest.raises(DocumentError, match="existe"):
         _coincide(d, a, b)  # nombre duplicado
-    with pytest.raises(DocumentError, match="árbol|mateado"):
-        d.execute("add_mate", {"name": "m2", "type": "coincidente", "feature_a": a, "feature_b": b})
+    # V6.3a: un 2º mate al mismo hijo YA se permite (multi-mate) — antes se rechazaba
+    d.execute("add_mate", {"name": "m2", "type": "coincidente", "feature_a": a, "feature_b": b})
+    assert "m2" in d.mates
     c = d.execute("create_box", {"name": "C", "width": 20, "depth": 20, "height": 20})
     with pytest.raises(DocumentError, match="consigo mismo"):
         d.execute("add_mate", {"name": "m3", "type": "coincidente", "feature_a": c, "feature_b": c})
@@ -150,6 +151,147 @@ def test_roundtrip_preserva_mates():
     d2 = Document.from_apolo_bytes(d.to_apolo_bytes())
     assert list(d2.mates.keys()) == ["m1"]
     assert d2.scene[b].shape.bounding_box().min.Z == pytest.approx(20, abs=1e-3)
+
+
+# ========================================================= V6.3a — multi-mate
+def test_residuos_consistentes_con_camino_cerrado():
+    """Equivalencia (cada tipo, tol 1e-6): la POSE que produce el camino cerrado
+    (`_desired_current_frames`) deja los residuos del solver multi-mate en ~0 → ambas
+    semánticas coinciden a residuo cero. Se usan frames SINTÉTICOS (no geometría) para no
+    depender de que el selector declarativo re-resuelva a la misma cara tras rotar B."""
+    from apolo.assembly.mates import _desired_current_frames, _mate_residuals, _normalize
+
+    a_o = (1.0, 2.0, 3.0)
+    a_ax = _normalize((0.2, 0.3, 1.0))          # eje del padre arbitrario (no axial)
+    b_o0 = (10.0, -5.0, 7.0)                     # conector ACTUAL de B (para paralelo/angulo)
+    b_ax0 = _normalize((1.0, 0.4, 0.1))
+    L = 40.0
+
+    for tipo, value in [("coincidente", 0.0), ("distancia", 25.0),
+                        ("concentrico", 12.0), ("paralelo", 0.0), ("angulo", 30.0)]:
+        desired, _cur = _desired_current_frames(a_o, a_ax, b_o0, b_ax0, tipo, value, False)
+        # el conector de B tras el camino cerrado = origen + eje Z del frame `desired`
+        b_o = (desired[0][3], desired[1][3], desired[2][3])
+        b_ax = (desired[0][2], desired[1][2], desired[2][2])
+        r = _mate_residuals(a_o, a_ax, b_o, b_ax, tipo, value, False, L)
+        assert max(abs(x) for x in r) < 1e-6, f"{tipo}: residuo no nulo {r}"
+
+
+def test_multi_mate_placa_dos_coincidentes_ortogonales():
+    """Una placa coincidente a un piso (+Z) Y a una pared (+X): se asienta en la esquina
+    (z del piso, x de la pared); el deslizamiento libre (Y) queda en el guess."""
+    d = Document()
+    piso = d.execute("create_box", {"name": "piso", "width": 400, "depth": 400, "height": 20})
+    pared = d.execute("create_box", {"name": "pared", "width": 20, "depth": 400, "height": 200,
+                                     "position": {"x": -100, "z": 0}})
+    placa = d.execute("create_box", {"name": "placa", "width": 100, "depth": 100, "height": 10,
+                                     "position": {"x": 0, "y": 0, "z": 200}})
+    d.execute("add_mate", {"name": "m_piso", "type": "coincidente", "feature_a": piso,
+                           "feature_b": placa, "ref_a": {"mode": "cara", "face": "tope"},
+                           "ref_b": {"mode": "cara", "face": "base"}})
+    d.execute("add_mate", {"name": "m_pared", "type": "coincidente", "feature_a": pared,
+                           "feature_b": placa, "ref_a": {"mode": "cara", "face": "max_x"},
+                           "ref_b": {"mode": "cara", "face": "min_x"}})
+    bb = d.scene[placa].shape.bounding_box()
+    assert bb.min.Z == pytest.approx(10, abs=1e-2)   # a ras del tope del piso (z=+10)
+    assert bb.min.X == pytest.approx(-90, abs=1e-2)  # a ras de la cara +X de la pared (x=-90)
+
+
+def test_multi_mate_mensula_coincidente_y_concentrico():
+    """Ménsula coincidente a una placa base + concéntrica a un pin vertical: se asienta en Z
+    y su barreno queda centrado sobre el eje del pin (X,Y). La ménsula (B) es hijo de AMBOS."""
+    d = Document()
+    base = d.execute("create_box", {"name": "base", "width": 200, "depth": 200, "height": 20})
+    pin = d.execute("create_cylinder", {"name": "pin", "radius": 5, "height": 120, "axis": "z",
+                                        "position": {"x": 50, "y": 0, "z": 0}})
+    mensula = d.execute("create_box", {"name": "mensula", "width": 60, "depth": 60, "height": 20,
+                                       "position": {"x": 50, "y": 0, "z": 200}})
+    d.execute("drill_hole", {"feature": mensula, "position": {"x": 50, "y": 0, "z": 190},
+                             "axis": "z", "diameter": 10.5, "depth": 0})
+    d.execute("add_mate", {"name": "m_seat", "type": "coincidente", "feature_a": base,
+                           "feature_b": mensula, "ref_a": {"mode": "cara", "face": "tope"},
+                           "ref_b": {"mode": "cara", "face": "base"}})
+    d.execute("add_mate", {"name": "m_pin", "type": "concentrico", "feature_a": pin,
+                           "feature_b": mensula,
+                           "ref_a": {"mode": "cerca", "point": [55, 0, 60]},     # pared del pin
+                           "ref_b": {"mode": "cerca", "point": [55.25, 0, 200]}})  # pared del barreno
+    bb = d.scene[mensula].shape.bounding_box()
+    assert bb.min.Z == pytest.approx(10, abs=1e-2)                       # asentada en la base
+    assert (bb.min.X + bb.max.X) / 2 == pytest.approx(50, abs=1e-2)      # barreno sobre el pin
+    assert (bb.min.Y + bb.max.Y) / 2 == pytest.approx(0, abs=1e-2)
+
+
+def test_multi_mate_conflicto_imposible():
+    """Dos 'distancia' contradictorias sobre el mismo hijo → MateError nombrando los mates."""
+    d = Document()
+    a, b = _two_boxes(d)
+    d.execute("add_mate", {"name": "d1", "type": "distancia", "feature_a": a, "feature_b": b,
+                           "ref_a": {"mode": "cara", "face": "tope"},
+                           "ref_b": {"mode": "cara", "face": "base"}, "value": 10})
+    with pytest.raises(DocumentError, match="d2|d1|satisfacer"):
+        d.execute("add_mate", {"name": "d2", "type": "distancia", "feature_a": a, "feature_b": b,
+                               "ref_a": {"mode": "cara", "face": "tope"},
+                               "ref_b": {"mode": "cara", "face": "base"}, "value": 80})
+
+
+def test_multi_mate_ciclo_multipadre_rechazado():
+    """C con dos padres (A, B) es válido; cerrar el lazo (C→A) se rechaza como ciclo."""
+    d = Document()
+    a = d.execute("create_box", {"name": "A", "width": 200, "depth": 200, "height": 20})
+    b = d.execute("create_box", {"name": "B", "width": 20, "depth": 200, "height": 200,
+                                 "position": {"x": -120}})
+    c = d.execute("create_box", {"name": "C", "width": 60, "depth": 60, "height": 10,
+                                 "position": {"z": 150}})
+    d.execute("add_mate", {"name": "m1", "type": "coincidente", "feature_a": a, "feature_b": c,
+                           "ref_a": {"mode": "cara", "face": "tope"},
+                           "ref_b": {"mode": "cara", "face": "base"}})
+    d.execute("add_mate", {"name": "m2", "type": "coincidente", "feature_a": b, "feature_b": c,
+                           "ref_a": {"mode": "cara", "face": "max_x"},
+                           "ref_b": {"mode": "cara", "face": "min_x"}})  # C: dos padres, OK
+    with pytest.raises(DocumentError, match="ciclo"):
+        d.execute("add_mate", {"name": "m3", "type": "coincidente", "feature_a": c, "feature_b": a})
+
+
+def test_multi_mate_regenera_tras_editar_padre():
+    """Editar la geometría del padre re-resuelve el multi-mate (persistente)."""
+    d = Document()
+    piso = d.execute("create_box", {"name": "piso", "width": 400, "depth": 400, "height": 20})
+    pared = d.execute("create_box", {"name": "pared", "width": 20, "depth": 400, "height": 200,
+                                     "position": {"x": -100, "z": 0}})
+    placa = d.execute("create_box", {"name": "placa", "width": 100, "depth": 100, "height": 10,
+                                     "position": {"x": 0, "y": 0, "z": 200}})
+    d.execute("add_mate", {"name": "m_piso", "type": "coincidente", "feature_a": piso,
+                           "feature_b": placa, "ref_a": {"mode": "cara", "face": "tope"},
+                           "ref_b": {"mode": "cara", "face": "base"}})
+    d.execute("add_mate", {"name": "m_pared", "type": "coincidente", "feature_a": pared,
+                           "feature_b": placa, "ref_a": {"mode": "cara", "face": "max_x"},
+                           "ref_b": {"mode": "cara", "face": "min_x"}})
+    assert d.scene[placa].shape.bounding_box().min.Z == pytest.approx(10, abs=1e-2)
+    # subir el piso a alto 60 (tope z=+30) → la placa sigue asentada
+    piso_cmd = d.commands[0]["id"]
+    d.edit(piso_cmd, {"name": "piso", "width": 400, "depth": 400, "height": 60})
+    assert d.scene[placa].shape.bounding_box().min.Z == pytest.approx(30, abs=1e-2)
+
+
+def test_multi_mate_undo_redo():
+    d = Document()
+    piso = d.execute("create_box", {"name": "piso", "width": 400, "depth": 400, "height": 20})
+    pared = d.execute("create_box", {"name": "pared", "width": 20, "depth": 400, "height": 200,
+                                     "position": {"x": -100, "z": 0}})
+    placa = d.execute("create_box", {"name": "placa", "width": 100, "depth": 100, "height": 10,
+                                     "position": {"x": 0, "y": 0, "z": 200}})
+    d.execute("add_mate", {"name": "m_piso", "type": "coincidente", "feature_a": piso,
+                           "feature_b": placa, "ref_a": {"mode": "cara", "face": "tope"},
+                           "ref_b": {"mode": "cara", "face": "base"}})
+    d.execute("add_mate", {"name": "m_pared", "type": "coincidente", "feature_a": pared,
+                           "feature_b": placa, "ref_a": {"mode": "cara", "face": "max_x"},
+                           "ref_b": {"mode": "cara", "face": "min_x"}})
+    assert d.scene[placa].shape.bounding_box().min.X == pytest.approx(-90, abs=1e-2)
+    d.undo()  # quita m_pared → placa vuelve a 1 mate (solo el piso)
+    assert "m_pared" not in d.mates
+    d.redo()
+    assert "m_pared" in d.mates
+    assert d.scene[placa].shape.bounding_box().min.X == pytest.approx(-90, abs=1e-2)
 
 
 # ----------------------------------------------------------------- API HTTP

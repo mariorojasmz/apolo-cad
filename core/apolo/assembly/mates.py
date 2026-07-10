@@ -4,9 +4,21 @@ regeneración (a diferencia de `attach`, que es one-shot por anclas de bbox).
 Un mate referencia una CARA en cada pieza (plana → normal; cilíndrica → eje) y,
 en `solve_mates`, recoloca la pieza B para satisfacer la relación respecto a la
 pieza A (que actúa de base). Igual que las juntas: nombrado, con integridad
-referencial, estructura de árbol (un mate por hijo, sin ciclos). Pragmático y
-coherente con `robotics/pose.py`: trabaja con frames; reporta error claro si no
-puede extraer la geometría en vez de colocar mal.
+referencial, sin ciclos. Pragmático y coherente con `robotics/pose.py`: trabaja
+con frames; reporta error claro si no puede extraer la geometría en vez de colocar
+mal.
+
+MULTI-MATE (V6.3a): un sólido puede ser B (hijo) de VARIOS mates a la vez (placa
+coincidente sobre dos rieles; ménsula coincidente a una cara + concéntrica a un
+eje). El grafo hijo→padres es un DAG multi-padre (los lazos cerrados A↔B siguen
+FUERA de alcance: `register_mate` los rechaza como ciclo). El solver tiene DOS
+caminos: un hijo con UN mate usa el camino cerrado exacto (`_solve_one`, INTACTO —
+pose determinista bit-a-bit como siempre); un hijo con ≥2 mates resuelve su pose
+6-DOF por `least_squares` con residuos por tipo (`_mate_residuals`) CONSISTENTES
+con la semántica del camino cerrado (a residuo 0 coinciden con `_desired_current_
+frames`), pero cada mate solo restringe SUS grados de libertad naturales (un
+coincidente no fija el deslizamiento en el plano ni el giro sobre la normal; un
+concéntrico deja deslizar y girar sobre el eje).
 """
 
 from __future__ import annotations
@@ -115,15 +127,21 @@ def connector_of(shape, ref: dict):
 
 # ----------------------------------------------------------- validación/registro
 def _mate_ancestors(mates: dict, feature_id: str) -> set:
-    """Ancestros de una pieza por la cadena de mates (feature_b → feature_a)."""
+    """Ancestros de una pieza en el DAG de mates (feature_b → feature_a), MULTI-PADRE:
+    un hijo puede tener varios padres (varios mates), así que se recorre el grafo entero
+    (no una cadena única). Cierra ante ciclos vía el conjunto `seen`."""
+    parents_of: dict[str, list[str]] = {}
+    for m in mates.values():
+        parents_of.setdefault(m["feature_b"], []).append(m["feature_a"])
     seen: set = set()
-    current = feature_id
-    while True:
-        mate = next((m for m in mates.values() if m["feature_b"] == current), None)
-        if mate is None or mate["feature_a"] in seen:
-            return seen
-        seen.add(mate["feature_a"])
-        current = mate["feature_a"]
+    stack = list(parents_of.get(feature_id, ()))
+    while stack:
+        p = stack.pop()
+        if p in seen:
+            continue
+        seen.add(p)
+        stack.extend(parents_of.get(p, ()))
+    return seen
 
 
 def register_mate(scene: dict, mates: dict, cmd_id: str, spec: dict) -> None:
@@ -137,12 +155,13 @@ def register_mate(scene: dict, mates: dict, cmd_id: str, spec: dict) -> None:
         raise MateError("Un mate no puede unir un sólido consigo mismo")
     if spec["type"] not in MATE_TYPES:
         raise MateError(f"Tipo de mate desconocido '{spec['type']}' ({', '.join(MATE_TYPES)})")
-    if any(m["feature_b"] == spec["feature_b"] for m in mates.values()):
+    # V6.3a: se PERMITE ≥2 mates al mismo hijo (multi-mate). El único límite es el ciclo:
+    # si B ya es ancestro de A en el DAG, añadir A→B cerraría un lazo (A↔B fuera de alcance).
+    if spec["feature_b"] in _mate_ancestors(mates, spec["feature_a"]) \
+            or spec["feature_b"] == spec["feature_a"]:
         raise MateError(
-            f"El sólido '{spec['feature_b']}' ya está mateado por otra relación (estructura de árbol)"
+            "El mate crearía un ciclo de ensamblaje (lazo cerrado A↔B fuera de alcance)"
         )
-    if spec["feature_b"] in _mate_ancestors(mates, spec["feature_a"]):
-        raise MateError("El mate crearía un ciclo de ensamblaje")
     mates[name] = {**spec, "command_id": cmd_id}
 
 
@@ -203,22 +222,170 @@ def _solve_one(scene: dict, mate: dict) -> None:
         feat_b.matrix = multiply(delta, feat_b.matrix)
 
 
+# --------------------------------------------------------------- multi-mate (V6.3a)
+_MATE_TOL = 1e-3  # residuo (mm-equiv) por mate por encima del cual se declara conflicto
+# perturbación FIJA (determinista — nada de random/tiempo, rompería la reproducibilidad de
+# los tests) del guess si el least_squares no converge desde la identidad (guess degenerado,
+# p. ej. una rotación de 180° que atasca el gradiente): un segundo intento con un pequeño
+# giro sesga la búsqueda fuera del mínimo local.
+_MATE_RETRY_PERTURB = (0.0, 0.0, 0.0, 0.37, 0.29, 0.19)
+
+
+def _char_length(shape) -> float:
+    """Longitud característica del sólido (mayor extensión del bbox) para escalar los
+    residuos angulares a mm y que el costo mezcle unidades comparables. Fallback 1.0."""
+    try:
+        bb = shape.bounding_box()
+        ext = max(bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z)
+        return float(ext) if ext > 1e-6 else 1.0
+    except Exception:  # noqa: BLE001
+        return 1.0
+
+
+def _mate_residuals(a_origin, a_axis, b_origin, b_axis, mate_type, value, flip, L):
+    """Residuos (mm-equivalentes) de UN mate dada la pose actual del conector de B
+    (`b_origin`, `b_axis`) frente al conector del padre A. 0 = satisfecho. CONSISTENTE con
+    `_desired_current_frames`: al evaluar la pose que produce el camino cerrado, todos los
+    residuos son 0 (probado). Cada mate restringe SOLO sus GDL naturales.
+
+    Longitud del bloque por tipo (fija, para least_squares): coincidente/distancia=4,
+    concentrico=6, paralelo=3, angulo=1. Los términos angulares se escalan ×L."""
+    n_a = _normalize(a_axis)
+    n_b = _normalize(b_axis)
+    d = (b_origin[0] - a_origin[0], b_origin[1] - a_origin[1], b_origin[2] - a_origin[2])
+    if mate_type in ("coincidente", "distancia"):
+        # posición: proyección de (o_b−o_a) sobre n_a = value (0 para coincidente)
+        along = _dot(n_a, d) - value
+        # orientación: normal de B ANTI-paralela a n_a (caras enfrentadas) — dirección
+        # DEFINIDA (n_b→−n_a), no un cross ambiguo que aceptaría también n_b=+n_a
+        align = [(n_b[i] + n_a[i]) * L for i in range(3)]
+        return [along, *align]
+    if mate_type == "concentrico":
+        # ejes colineales: dos puntos del eje de B a distancia perpendicular 0 de la recta
+        # (a_origin, n_a). NO fija ni el deslizamiento a lo largo ni el giro axial.
+        out: list[float] = []
+        for s in (0.0, L):
+            p = (b_origin[0] + n_b[0] * s, b_origin[1] + n_b[1] * s, b_origin[2] + n_b[2] * s)
+            w = (p[0] - a_origin[0], p[1] - a_origin[1], p[2] - a_origin[2])
+            proj = _dot(w, n_a)
+            out.extend((w[0] - n_a[0] * proj, w[1] - n_a[1] * proj, w[2] - n_a[2] * proj))
+        return out
+    if mate_type == "paralelo":
+        # ejes paralelos (cualquiera de los dos sentidos): cross = 0. No mueve posición.
+        c = _cross(n_b, n_a)
+        return [c[0] * L, c[1] * L, c[2] * L]
+    if mate_type == "angulo":
+        ang = math.degrees(math.acos(max(-1.0, min(1.0, _dot(n_a, n_b)))))
+        return [math.radians(ang - value) * L]
+    raise MateError(f"Tipo de mate desconocido '{mate_type}'")
+
+
+def _solve_multi(scene: dict, child_fid: str, child_mates: list) -> None:
+    """Resuelve la pose 6-DOF del hijo `child_fid` para satisfacer SIMULTÁNEAMENTE ≥2 mates
+    (least_squares sobre [tx,ty,tz, rvx,rvy,rvz], vector de rotación de scipy). La ROTACIÓN se
+    parametriza SOBRE EL CENTRO de B (no el origen del mundo): si B está lejos del origen,
+    rotar sobre el origen lo desplaza enormemente y acopla mal traslación↔rotación (el solver
+    cambia posición por giro y no converge). Guess inicial = identidad (deja B donde el executor
+    lo puso). Si no converge, reintenta UNA vez con una perturbación fija. Costo final >
+    tolerancia → MateError nombrando los mates y su residuo. Aplica la pose por el MISMO camino
+    que `_solve_one` (transform del shape + matrix si es instancia)."""
+    import numpy as np
+    from build123d import Pos, Rotation
+    from scipy.optimize import least_squares
+    from scipy.spatial.transform import Rotation as SciRot
+
+    feat_b = scene[child_fid]
+    L = _char_length(feat_b.shape)
+    bb = feat_b.shape.bounding_box()
+    c = np.array([(bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2])
+    # conectores base (una sola extracción OCCT cada uno): el del padre (ya resuelto) y el de
+    # B en su pose actual — rígidamente unidos, se transforman analíticamente en el bucle.
+    a_conns = [connector_of(scene[m["feature_a"]].shape, m.get("ref_a")) for m in child_mates]
+    b_conns = [connector_of(feat_b.shape, m.get("ref_b")) for m in child_mates]
+
+    def _rt(x):
+        """(t, R) del vector 6-DOF. La pose de un punto p: R·(p−c)+c+t; de una dir: R·d."""
+        t = np.asarray(x[:3], dtype=float)
+        Rm = SciRot.from_rotvec(np.asarray(x[3:], dtype=float)).as_matrix()
+        return t, Rm
+
+    def _conns(x):
+        t, Rm = _rt(x)
+        out = []
+        for (b_o, b_a) in b_conns:
+            o = Rm @ (np.asarray(b_o) - c) + c + t
+            a = Rm @ np.asarray(b_a)
+            out.append((tuple(o), tuple(a)))
+        return out
+
+    def resid(x):
+        out: list[float] = []
+        for (a_o, a_a), (b_o, b_a), m in zip(a_conns, _conns(x), child_mates):
+            out.extend(_mate_residuals(
+                a_o, a_a, b_o, b_a, m["type"], float(m.get("value", 0.0)),
+                bool(m.get("flip", False)), L,
+            ))
+        return out
+
+    def per_mate_error(x) -> list[float]:
+        errs = []
+        for (a_o, a_a), (b_o, b_a), m in zip(a_conns, _conns(x), child_mates):
+            r = _mate_residuals(a_o, a_a, b_o, b_a, m["type"], float(m.get("value", 0.0)),
+                                bool(m.get("flip", False)), L)
+            errs.append(math.sqrt(sum(v * v for v in r)))
+        return errs
+
+    x0 = np.zeros(6)
+    sol = least_squares(resid, x0, x_scale="jac")
+    if max(per_mate_error(sol.x)) > _MATE_TOL:
+        sol = least_squares(resid, x0 + np.asarray(_MATE_RETRY_PERTURB), x_scale="jac")
+    errs = per_mate_error(sol.x)
+    if max(errs) > _MATE_TOL:
+        detalle = ", ".join(
+            f"'{m['name']}' queda a {e:.2f} mm de satisfacerse"
+            for m, e in zip(child_mates, errs) if e > _MATE_TOL
+        )
+        raise MateError(
+            f"No se pueden satisfacer a la vez los mates del sólido '{child_fid}': {detalle}"
+        )
+
+    t, Rm = _rt(sol.x)
+    trans = c - Rm @ c + t  # traslación efectiva del delta (rotación sobre el centro c)
+    delta = [
+        [float(Rm[0][0]), float(Rm[0][1]), float(Rm[0][2]), float(trans[0])],
+        [float(Rm[1][0]), float(Rm[1][1]), float(Rm[1][2]), float(trans[1])],
+        [float(Rm[2][0]), float(Rm[2][1]), float(Rm[2][2]), float(trans[2])],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    euler = euler_from_matrix(delta)
+    feat_b.shape = Pos(float(trans[0]), float(trans[1]), float(trans[2])) * Rotation(*euler) * feat_b.shape
+    if feat_b.matrix is not None:
+        feat_b.matrix = multiply(delta, feat_b.matrix)
+
+
 def solve_mates(scene: dict, mates: dict) -> None:
-    """Recoloca las piezas mateadas en orden de dependencia (padres antes que
-    hijos). El árbol está garantizado por register_mate (1 mate por hijo, sin ciclos)."""
+    """Recoloca las piezas mateadas en orden de dependencia (padres antes que hijos). El grafo
+    hijo→padres es un DAG multi-padre garantizado sin ciclos por `register_mate`. Un hijo con
+    UN mate va por el camino cerrado exacto (`_solve_one`); con ≥2 mates, por `_solve_multi`
+    (least_squares acoplado). Orden topológico determinista (Kahn, empates por id de sólido)."""
     if not mates:
         return
-    by_child = {m["feature_b"]: m for m in mates.values()}
+    by_child: dict[str, list] = {}
+    for m in mates.values():
+        by_child.setdefault(m["feature_b"], []).append(m)
     pending = set(by_child)
-    progress = True
-    while pending and progress:
-        progress = False
-        for child in list(pending):
-            parent = by_child[child]["feature_a"]
-            if parent in pending:
-                continue  # el padre es a su vez hijo de otro mate aún sin resolver
-            _solve_one(scene, by_child[child])
+    while pending:
+        # un hijo está listo cuando TODOS sus padres ya están resueltos (no pendientes)
+        ready = sorted(
+            c for c in pending
+            if all(m["feature_a"] not in pending for m in by_child[c])
+        )
+        if not ready:
+            raise MateError("No se pudieron resolver los mates (ciclo de ensamblaje)")
+        for child in ready:
+            cms = by_child[child]
+            if len(cms) == 1:
+                _solve_one(scene, cms[0])
+            else:
+                _solve_multi(scene, child, cms)
             pending.discard(child)
-            progress = True
-    if pending:
-        raise MateError("No se pudieron resolver los mates (ciclo de ensamblaje)")

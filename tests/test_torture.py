@@ -940,6 +940,48 @@ def test_torture_fuzz_strict(seed):
 
 
 @pytest.mark.torture
+@pytest.mark.parametrize("seed", [2, 23, 71])
+def test_torture_multimate_strict(seed):
+    """Fuzz de multi-mate (V6.3a) bajo modo ESTRICTO: un hijo con ≥2 mates + ediciones que
+    mueven los padres. Cada mutación deja el doc ÍNTEGRO o revierte (un multi-mate que se
+    vuelve imposible lanza MateError → rollback atómico, jamás corrompe el estado)."""
+    from apolo.doc import document as docmod
+
+    old_strict = docmod._STRICT
+    docmod._STRICT = True
+    try:
+        rng = random.Random(seed)
+        d = Document()
+        piso = d.execute("create_box", {"name": "piso", "width": 400, "depth": 400, "height": 20})
+        pared = d.execute("create_box", {"name": "pared", "width": 20, "depth": 400,
+                                         "height": 200, "position": {"x": -100}})
+        placa = d.execute("create_box", {"name": "placa", "width": 80, "depth": 80,
+                                         "height": 10, "position": {"z": 200}})
+        d.execute("add_mate", {"name": "m_piso", "type": "coincidente", "feature_a": piso,
+                               "feature_b": placa, "ref_a": {"mode": "cara", "face": "tope"},
+                               "ref_b": {"mode": "cara", "face": "base"}})
+        d.execute("add_mate", {"name": "m_pared", "type": "coincidente", "feature_a": pared,
+                               "feature_b": placa, "ref_a": {"mode": "cara", "face": "max_x"},
+                               "ref_b": {"mode": "cara", "face": "min_x"}})
+        piso_cmd = d.commands[0]["id"]
+        for _ in range(200):
+            op = rng.choice(["edit_piso", "undo", "redo"])
+            try:
+                if op == "edit_piso":
+                    d.edit(piso_cmd, {"name": "piso", "width": 400, "depth": 400,
+                                      "height": rng.randint(10, 120)}, merge=True)
+                elif op == "undo" and d.can_undo:
+                    d.undo()
+                elif op == "redo" and d.can_redo:
+                    d.redo()
+            except DocumentError:
+                pass
+            assert d.check_integrity() == []
+    finally:
+        docmod._STRICT = old_strict
+
+
+@pytest.mark.torture
 def test_torture_definitions_eviction_with_payload():
     """600 definiciones distintas con evicción intercalada: el payload nunca cuelga una
     referencia (todas las evictadas caen al fallback de malla propia)."""
