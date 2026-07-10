@@ -9,9 +9,16 @@ DÓNDE VIVE: SOLO en la SQLite local (tabla ``geom_cache`` de ``projects.py``), 
 dentro del ``.apolo``. Dos razones no negociables:
  1. «La geometría nunca se guarda» — el documento sigue siendo el log puro, portable, de
     KBs; el ``.apolo`` no engorda.
- 2. Seguridad: el blob usa pickle (copyreg de build123d) y un ``.apolo`` es un archivo que
-    el usuario SUBE → despicklear origen no confiable = RCE. La SQLite es local y propia.
+ 2. Seguridad: el blob usa pickle y un ``.apolo`` es un archivo que el usuario SUBE →
+    despicklear origen no confiable = RCE. La SQLite es local y propia.
 Perder la caché solo cuesta un replay: NUNCA es autoritativa (el ``.apolo`` lo es).
+
+SERIALIZACIÓN de shapes: los shapes van como bytes de BinTools (``serialize_shape`` sobre
+el ``TopoDS_Shape`` crudo), NO picklando el wrapper de build123d. El wrapper puede llevar
+estado build123d (``joints``/``children``) que NO round-trip-ea por pickle (revienta al
+deserializar en ciertas piezas); el BinTools del TopoDS crudo sí es fiable. Al restaurar,
+el shape se re-envuelve por su tipo TopoDS (Solid/Compound/…): las operaciones de Apolo
+(volumen/bbox/teselado/booleanas) son de ``Shape``, la subclase primitiva no importa.
 
 Kill-switch: ``APOLO_GEOM_CACHE=0`` desactiva lectura y escritura (ver ``ProjectStore``).
 
@@ -29,7 +36,8 @@ import pickle
 #    _cmd_sig no lo detecta: depende solo de params, no del código del executor).
 # Un bump invalida todas las cachés viejas → replay frío la primera vez. Documentar aquí:
 #  v1 (2026-07-09): formato inicial de V6.2a.
-GEOM_CACHE_EPOCH = 1
+#  v2 (2026-07-09): shapes por BinTools crudo (antes: pickle del wrapper build123d, frágil).
+GEOM_CACHE_EPOCH = 2
 
 
 def _versions() -> dict:
@@ -46,11 +54,61 @@ def _versions() -> dict:
     return {"build123d": v("build123d"), "ocp": v("cadquery-ocp")}
 
 
+def _serialize_robust(shape) -> bytes | None:
+    """Serializa un ``TopoDS_Shape`` a bytes que GARANTIZADO deserializan. BinTools es
+    caprichoso por-shape: ``serialize_shape`` siempre da bytes, pero ``deserialize_shape``
+    revienta (``BinTools_ShapeSet::ReadGeometry`` / ``NCollection_IndexedMap`` fuera de
+    rango) para ciertos shapes — y CUÁLES depende del shape: unos round-trip-ean crudos y
+    otros solo tras una copia profunda (``BRepBuilderAPI_Copy`` aplana las refs de
+    geometría), pero la copia ROMPE a los primeros. Por eso: intenta crudo, VERIFICA
+    deserializando (el fallo salta al LEER, no al escribir); si falla, intenta la copia y
+    verifica; si ninguno round-trip-ea, None → pack entero cae y se replaya en frío."""
+    from build123d.persistence import deserialize_shape, serialize_shape
+
+    def _ok(candidate) -> bytes | None:
+        blob = serialize_shape(candidate)
+        if blob is None:
+            return None
+        try:
+            deserialize_shape(blob)  # el fallo de BinTools ocurre al LEER, no al escribir
+        except Exception:
+            return None
+        return blob
+
+    blob = _ok(shape)
+    if blob is not None:
+        return blob
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+
+    copier = BRepBuilderAPI_Copy(shape)
+    copier.Perform(shape)
+    return _ok(copier.Shape())
+
+
+def _wrap_topods(topods):
+    """Envuelve un ``TopoDS_Shape`` crudo en el tipo de build123d que corresponde a su
+    ShapeType (Solid/Compound/…). Todas las ops de Apolo son de ``Shape``, así que la
+    subclase PRIMITIVA original (Box/Cylinder) no importa — solo la familia topológica."""
+    import build123d as bd
+    from OCP.TopAbs import (
+        TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL,
+        TopAbs_SOLID, TopAbs_VERTEX, TopAbs_WIRE,
+    )
+
+    cls = {
+        TopAbs_COMPOUND: bd.Compound, TopAbs_COMPSOLID: bd.Compound,
+        TopAbs_SOLID: bd.Solid, TopAbs_SHELL: bd.Shell, TopAbs_FACE: bd.Face,
+        TopAbs_WIRE: bd.Wire, TopAbs_EDGE: bd.Edge, TopAbs_VERTEX: bd.Vertex,
+    }.get(topods.ShapeType(), bd.Shape)
+    return cls(topods)
+
+
 def pack(doc) -> bytes | None:
     """Serializa el estado regenerado del doc (8-tupla final + definiciones canónicas
-    usadas por la escena) con su firma acumulada. NO incluye el log (eso vive en el
-    ``.apolo``). Devuelve None ante CUALQUIER fallo — un shape no serializable no debe
-    tumbar nada. No muta el documento (pickle copia; el estado se aísla con _copy_state)."""
+    usadas por la escena) con su firma. Los shapes van como bytes de BinTools (crudos), NO
+    picklando el wrapper. NO incluye el log (vive en el ``.apolo``). Devuelve None ante
+    CUALQUIER fallo. No muta el documento (el estado se aísla con _copy_state; se picklea
+    una COPIA de los Features con ``shape=None``)."""
     try:
         from apolo.commands.registry import DEFINITIONS
         from apolo.doc.document import _copy_state
@@ -63,15 +121,29 @@ def pack(doc) -> bytes | None:
                 doc.fasteners, doc.grounds, doc.groups,
             )
         )
+        scene = state[0]  # dict fid -> Feature (COPIAS: shape compartido, seguro de vaciar)
+        scene_shapes: dict[str, bytes] = {}
+        for fid, feat in scene.items():
+            blob = _serialize_robust(feat.shape.wrapped)
+            if blob is None:  # serialize_shape devuelve None ante fallo (no lanza)
+                return None
+            scene_shapes[fid] = blob
+            feat.shape = None  # el Feature se picklea SIN el wrapper frágil
         keys = {f.mesh_key for f in doc.scene.values() if f.mesh_key is not None}
-        definitions = {k: DEFINITIONS[k] for k in keys if k in DEFINITIONS}
+        definitions: dict[str, bytes] = {}
+        for k in keys:
+            if k in DEFINITIONS:
+                blob = _serialize_robust(DEFINITIONS[k].wrapped)
+                if blob is not None:
+                    definitions[k] = blob
         return pickle.dumps(
             {
                 "epoch": GEOM_CACHE_EPOCH,
                 "versions": _versions(),
                 "sigs": list(doc._regen_sigs),
-                "state": state,
-                "definitions": definitions,
+                "state": state,             # Features con shape=None + dicts planos
+                "scene_shapes": scene_shapes,  # fid -> bytes (BinTools del TopoDS crudo)
+                "definitions": definitions,    # mesh_key -> bytes
             },
             protocol=pickle.HIGHEST_PROTOCOL,
         )
@@ -80,13 +152,15 @@ def pack(doc) -> bytes | None:
 
 
 def unpack(blob: bytes | None) -> tuple[list, tuple, dict] | None:
-    """Valida epoch/versiones + sanidad estructural y devuelve ``(sigs, state,
-    definitions)``. Devuelve None ante cualquier mismatch o corrupción — el caller cae a
-    replay frío limpio. SOLO se llama sobre blobs de la SQLite propia (nunca del .apolo)."""
+    """Valida epoch/versiones + sanidad estructural, reconstruye los shapes (BinTools) y
+    devuelve ``(sigs, state, definitions)``. Devuelve None ante cualquier mismatch o
+    corrupción. SOLO se llama sobre blobs de la SQLite propia (nunca del .apolo)."""
     if not blob:
         return None
     try:
-        data = pickle.loads(blob)
+        from build123d.persistence import deserialize_shape
+
+        data = pickle.loads(blob)  # el state NO lleva shapes → pickle no toca BinTools aquí
         if not isinstance(data, dict):
             return None
         if data.get("epoch") != GEOM_CACHE_EPOCH:
@@ -95,17 +169,25 @@ def unpack(blob: bytes | None) -> tuple[list, tuple, dict] | None:
             return None
         sigs = data.get("sigs")
         state = data.get("state")
+        scene_shapes = data.get("scene_shapes")
         definitions = data.get("definitions")
-        # sanidad estructural mínima: no confiar en el blob (blindaje V6.1)
         if not (
             isinstance(sigs, list)
             and all(isinstance(s, str) for s in sigs)
             and isinstance(state, tuple)
             and len(state) == 8
             and isinstance(state[0], dict)
+            and isinstance(scene_shapes, dict)
             and isinstance(definitions, dict)
         ):
             return None
-        return sigs, state, definitions
+        scene = state[0]
+        for fid, feat in scene.items():
+            raw = scene_shapes.get(fid)
+            if raw is None:  # falta el shape de una feature → caché inservible
+                return None
+            feat.shape = _wrap_topods(deserialize_shape(raw))
+        defs = {k: _wrap_topods(deserialize_shape(b)) for k, b in definitions.items()}
+        return sigs, state, defs
     except Exception:
         return None

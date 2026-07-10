@@ -125,6 +125,36 @@ def test_warm_prefix_replays_only_tail():
     assert hot.check_integrity() == []
 
 
+def test_warm_open_with_catalog_components():
+    """Regresión (V6.2, formato v2): un modelo con COMPONENTES de catálogo (create_conveyor)
+    tiene wrappers build123d con estado (joints/children) que NO round-trip-ean por pickle.
+    El formato v2 serializa el TopoDS crudo (BinTools) → el warm es REAL, no un fallback frío
+    silencioso. Sin la corrección, unpack devolvía None y se replayaba en frío sin avisar."""
+    import apolo.doc.document as docmod
+
+    doc = Document("conveyor")
+    doc.execute("create_conveyor", {"largo": 800, "ancho": 400, "altura": 500, "paso": 100})
+    apolo = doc.to_apolo_bytes()
+    warm = unpack(pack(doc))
+    assert warm is not None  # el modelo con componentes SÍ round-trip-ea (era el bug)
+
+    calls = {"n": 0}
+    orig = docmod.execute_command
+
+    def spy(*a, **k):
+        calls["n"] += 1
+        return orig(*a, **k)
+
+    docmod.execute_command = spy
+    try:
+        hot = Document.from_apolo_bytes(apolo, warm=warm)
+    finally:
+        docmod.execute_command = orig
+    assert calls["n"] == 0  # replay REAL de 0 comandos (no fallback frío)
+    _assert_scene_equal(hot, Document.from_apolo_bytes(apolo))
+    assert hot.check_integrity() == []
+
+
 def test_warm_full_match_replays_nothing():
     """Caché al día (log sin cambios): 0 ejecuciones de comando en el open caliente."""
     import apolo.doc.document as docmod
