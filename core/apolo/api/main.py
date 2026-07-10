@@ -994,7 +994,9 @@ def preview_commands(body: PreviewIn):
                  "nombre_b": c["nombre_b"], "tipo": "solape", "volumen_mm3": c["volumen_mm3"]}
                 for c in rep["interferencias"]
             ]
-            return {"fantasmas": fantasmas, "colisiones_nuevas": colisiones}
+            # NO caps silenciosos: si la interferencia acotada recortó a MAX_PAIRS, se declara
+            return {"fantasmas": fantasmas, "colisiones_nuevas": colisiones,
+                    "truncado": rep["truncado"]}
         try:
             png = render_scene_png(
                 scene, body.view, highlight_ids=new_feats or None,
@@ -1622,9 +1624,9 @@ def verify_endpoint(body: VerifyIn) -> dict:
 
         def interference_fn(focus):
             focus_ids = _expand_ids(focus) if focus else None
-            return interference_report(
+            return interference_report(  # reporte COMPLETO: run_verify propaga `truncado`
                 DOC.scene, focus=focus_ids, exclude_pairs=excl_pairs, exclude_ids=excl_ids
-            )["interferencias"]
+            )
 
         resultados = run_verify(
             DOC.scene, body.checks,

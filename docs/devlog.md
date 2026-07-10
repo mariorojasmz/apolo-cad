@@ -3129,3 +3129,36 @@ actualizada con la fuente (log PODADO de V6.4) en ASCII para no romper el `print
 idiom `x or 5` NO devuelve 5). Las tools MCP `save/apply_configuration` se estrenaron en vivo en el
 Fix 6. **Verificación**: `pytest tests -q` **1078 verde** (+1 nuevo: guía huérfana) · `pytest -m
 torture` 15 verde · `GET /api/health` limpio (0 issues) tras cada mutación.
+
+## V6.5 — cierre de la revisión (CIERRE PENDIENTE, 2026-07-10)
+
+La revisión adversarial de V6.5 aprobó las 5 fases pero dejó 6 items de cierre. Resueltos:
+
+1. **[código] `verify.py` sin_interferencia no degrada a global**: si `ids`/`grupo` se DECLARAN
+   pero no resuelven a nada (typo), ahora devuelve `{ok:false, error:"sin piezas"}` en vez de caer
+   SILENCIOSAMENTE al chequeo global O(n²) — lo contrario de la doctrina de escala que esta
+   versión instaura. Sin scope declarado sigue siendo global explícito (documentado). + test.
+2. **[código] Propagar `truncado`**: `interference_fn` (el shim del endpoint `verify`) ahora
+   devuelve el REPORTE completo (no solo la lista) → `verify sin_interferencia` y
+   `preview(data=true)` propagan la bandera `truncado` del recorte a `MAX_PAIRS=400`. NO más caps
+   silenciosos (coherente con la doctrina del propio plan).
+3. **[código] Docstring de la tool `verify`**: `id` es un feature_id ÚNICO (NO expande nombres de
+   grupo; solo `grupo`/`ids` lo hacen) — corregido en mcp_server.py.
+4. **[docs] CLAUDE.md § Pendientes**: anotados 6 follow-ups sin código (summary cuenta ocultas/
+   superficies/guías dentro de grupos → masa por grupo puede descuadrar; `near limit` sin
+   `truncado`; `only` inválido en topology → dict vacío silencioso; `get_scene(ids=[])` cae al
+   brief completo; `focus` O(n²) en Python en checks.py; sin índice espacial — medir antes).
+5. **[E2E] flujo por MCP VIVO** sobre la faja 38 REAL (ejercido contra la API, autoritativa — el
+   host MCP necesita reinicio para exponer las FIRMAS nuevas de `get_scene`/`check_interference`,
+   requisito ya documentado; las tools proxean 1:1 estos endpoints): `get_scene(summary)`
+   **3809 B** (6 grupos + variables) → `get_scene(ids=Rodamientos)` **867 B** (3 piezas,
+   `truncado=false`) → `near(c669)` **604 B** → `verify` [distancia=666 ok · sin_interferencia(
+   Rodamientos)=0 ok · **sin_interferencia("NoExiste") → error «sin piezas»** (item 1) ·
+   existe(chumacera)=3] → `preview(data=true)` [fantasmas=1, colisiones_nuevas=2, **`truncado`
+   presente** (item 2)] → `check_interference(ids=Rodamientos)` [12 parejas, 0 colisiones]. La
+   faja 38 quedó ÍNTEGRA (74/312, health 0 issues). Presupuesto de bytes cumplido: el summary
+   escala con GRUPOS (no con piezas) y el brief filtrado <1 KB.
+6. **[commit]** este cierre + los planes `V6.5-mcp-a-escala.md` y `V6.4d-remate-revision.md`
+   movidos a `done/`.
+
+Suite: **1079 verde** (+1: verify con ids no-resueltos) · tortura 15 verde.

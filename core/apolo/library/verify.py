@@ -66,7 +66,8 @@ def _combined_bbox(scene: dict, fids: list[str]) -> tuple[list[float], list[floa
 
 def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn) -> list[dict]:
     """Ejecuta cada aserción. `expand(tokens) -> list[str]` resuelve grupos→ids;
-    `interference_fn(focus_ids | None) -> list[colisiones]` corre la interferencia acotada."""
+    `interference_fn(focus_ids | None) -> {interferencias, truncado, ...}` corre la
+    interferencia acotada (focus=None = global) y devuelve el REPORTE completo."""
     out: list[dict] = []
     for spec in checks:
         tipo = spec.get("tipo")
@@ -112,11 +113,22 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn) -> l
                             "esperado": esperado, "eje": eje, "n_piezas": len(fids)})
 
             elif tipo == "sin_interferencia":
-                fids = _ids_of(spec, scene, expand) or None
-                cols = interference_fn(fids)
-                out.append({"check": label, "tipo": tipo, "ok": len(cols) == 0,
-                            "actual": len(cols), "esperado": {"max": 0},
-                            "colisiones": cols[:10]})
+                # ids/grupo DECLARADOS que no resuelven a nada (typo) → error, NO degradar
+                # SILENCIOSAMENTE al chequeo global O(n²) (contradice la doctrina de escala).
+                # Sin scope declarado = global explícito (comportamiento documentado).
+                declarado = spec.get("ids") or spec.get("grupo") or spec.get("id")
+                fids = _ids_of(spec, scene, expand)
+                if declarado and not fids:
+                    out.append({"check": label, "tipo": tipo, "ok": False, "error": "sin piezas"})
+                    continue
+                rep = interference_fn(fids or None)
+                cols = rep["interferencias"]
+                entry = {"check": label, "tipo": tipo, "ok": len(cols) == 0,
+                         "actual": len(cols), "esperado": {"max": 0},
+                         "colisiones": cols[:10]}
+                if rep.get("truncado"):
+                    entry["truncado"] = True  # NO caps silenciosos: se declara el recorte
+                out.append(entry)
 
             elif tipo == "existe":
                 if spec.get("id"):

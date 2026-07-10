@@ -52,14 +52,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1078 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1079 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **69 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-10)**: 1078 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
+- **Estado actual (2026-07-10)**: 1079 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
   52 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
   «Apolo industrial»: V6.1 robustez + V6.2 rendimiento + V6.3 ensamblaje pro + V6.4 paramétrico
   profundo + V6.5 MCP a escala CERRADOS**. V6.1
@@ -787,6 +787,14 @@ tests + E2E real; un ítem por vez con plan formal.
 - **Ingeniería/negocio**: `funcion`/rol por pieza, manual reordenado por grafo de soporte, explosionada 3D, L10 con reparto real.
 - **UI**: refactor de `Viewport.tsx` (picking/medición/sección/gizmo a módulos), picker 2 sólidos para `add_joinery`, editar sweep/loft/chapa/mate desde Propiedades.
 - **V6.4 (follow-ups anotados)**: (1) el **drag&drop del viewport emite `transform` con literales** — patrón sistémico que generó los ~400 comandos de escombro que V6.4b podó; hacer que el arrastre limpie/coalesca sus transforms o emita paramétrico (fuera de alcance de V6.4). (2) **import/export CSV** de la tabla de diseño. (3) **`ancho_banda` < ~540 rompe c339** (Ménsula rodillo retorno: su `depth` se vuelve ≤0 — límite pre-existente del modelo, no de V6.4; parametrizar la ménsula con piso mínimo). (4) run_scripts del motriz (c673/c703/c704) siguen `largo_total` (shift x) pero NO la ANCHURA (`ancho_banda`/`larg_inner_y` en sus coords y) ni `drum_cz` (z) — por demanda. (5) **V6.4d — cotas que quedan LITERALES a propósito** (la regla resolver-exacto-antes-de-atar lo exige): `j_mesa1..4` x (550/1452/2354/3255 = centros de sección REDONDEADOS; la fórmula de centro da 550.75/1452.25/… no-exacta → literal; benigno: la x de una junta prismática-z es ancla cinemática, mueve 0 pieza). `c120/c121` z=707 (rodillo de retorno) y `c339-342` z=737.5 (su ménsula): alturas del conjunto de retorno, CONSTANTES entre las dos variantes (no cuelgan de `largo_total`); la z de la ménsula no tiene expresión limpia → ambas literales para no divergir rodillo↔ménsula. Atar por demanda si se parametriza la altura.
+- **V6.5 (follow-ups anotados de la revisión, sin código)**: (1) `get_scene(summary=true)`
+  cuenta piezas ocultas/superficies/guías DENTRO de cada grupo, que el total global excluye → la
+  masa por grupo puede descuadrar contra el total. (2) `near` con `limit` recorta sin declarar
+  `truncado`. (3) `get_topology(only=...)` con un `only` inválido devuelve dict vacío en silencio
+  (no error). (4) MCP `get_scene(ids=[])` (lista VACÍA, falsy) cae al brief completo — no es «cero
+  piezas». (5) el bucle de `focus` en `interference_report` (checks.py) itera O(n²) en Python con
+  skip barato; reestructurar a focus×resto cuando duela a miles de piezas. (6) NO hay índice
+  espacial: `near`/interferencia son barridos O(n) sobre AABBs (medir antes de construir R-tree).
 - **Perf**: absorbido por V6.2 (medir contra `docs/perf_baseline.json`).
 - **V6.2e (follow-ups anotados de la revisión)**: `applyAppearance` × tinte de bloqueo — si
   una malla tintada (guardado fallido) recibe un cambio de apariencia externo, invalidar la

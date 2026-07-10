@@ -898,8 +898,9 @@ def verify(checks: list[dict]) -> str:
     - {tipo:"bbox", id?|grupo?|ids?, eje:"x"|"y"|"z", min?|max?|entre?} — tamaño de la caja conjunta.
     - {tipo:"sin_interferencia", ids?} — 0 colisiones (acotado a ids/grupos; sin ids = global).
     - {tipo:"existe", id?|name?} — el id existe / hay piezas cuyo nombre contiene name.
-    `id`/`grupo`/`ids` aceptan NOMBRES de grupo (se expanden). Úsalo tras snap_to/mover para
-    confirmar holguras y no-colisión sin ojímetro."""
+    `grupo`/`ids` aceptan NOMBRES de grupo (se expanden); `id` es un feature_id único (NO se
+    expande). `sin_interferencia` con ids/grupo que no resuelven a nada → error «sin piezas»
+    (no degrada al chequeo global). Úsalo tras snap_to/mover para confirmar holguras sin ojímetro."""
     return json.dumps(_api("POST", "/api/verify", json={"checks": checks}).json(), ensure_ascii=False)
 
 

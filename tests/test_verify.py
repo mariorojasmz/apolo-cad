@@ -73,6 +73,21 @@ def test_sin_interferencia_pass_and_fail():
     assert bad["colisiones"] and {bad["colisiones"][0]["a"], bad["colisiones"][0]["b"]} == {a, c}
 
 
+def test_sin_interferencia_ids_no_resueltos_no_degradan_a_global():
+    """ids/grupo DECLARADOS que no resuelven (typo) → error «sin piezas», NO el chequeo global
+    O(n²) silencioso (CIERRE V6.5 item 1). Un choque real presente lo delataría si degradara."""
+    doc, a, b = _scene()
+    doc.execute("create_box", {"name": "Choque", "width": 40, "depth": 40, "height": 40,
+                               "position": {"x": 20}})  # solapa A → global lo detectaría
+    out = _run(doc, [
+        {"tipo": "sin_interferencia", "ids": ["grupo_inexistente"]},
+        {"tipo": "sin_interferencia", "grupo": "NoExiste"},
+    ])["resultados"]
+    assert out[0]["ok"] is False and out[0].get("error") == "sin piezas"
+    assert "colisiones" not in out[0]  # NO corrió el chequeo global (no degradó)
+    assert out[1]["ok"] is False and out[1].get("error") == "sin piezas"
+
+
 def test_existe_id_and_name():
     doc, a, b = _scene()
     out = _run(doc, [
