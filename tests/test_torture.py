@@ -704,6 +704,59 @@ def test_T16_serialization_failure_flags_and_notifies(api_client):
     assert api.AUTOSAVE_ERROR and "boom" in api.AUTOSAVE_ERROR
 
 
+def test_fase0_dirty_survives_until_flush_lock(api_client):
+    """V6.3 Fase 0: `_fire` NO limpia `dirty` antes de adquirir _flush_lock. Si el clear se
+    adelantara, un _project_switch que gane _flush_lock primero vería dirty=False (take_pending)
+    y NO persistiría el doc VIEJO → lost update. Con el fix, mientras _flush_lock está tomado,
+    un _fire concurrente se queda bloqueado en _run SIN haber limpiado dirty (pending() sigue
+    True) → el switch/flush ve el estado pendiente y lo persiste."""
+    import threading
+    import time
+
+    api, client = api_client
+    store = _RecordingStore()
+    api.STORE = store
+    api.PROJECT_ID = 500
+    api.DOC = Document("A")
+    api.DOC.execute("create_box", {"width": 40})
+    sched = api._autosave_sched
+    sched.clear()
+    sched.schedule()  # marca dirty (arma un Timer que cancelamos: controlamos a mano)
+    with sched._lock:
+        if sched._timer is not None:
+            sched._timer.cancel()
+            sched._timer = None
+        sched._first = None
+
+    held = threading.Event()
+    let_go = threading.Event()
+
+    def hold_flush():
+        with api._flush_lock:  # sostiene _flush_lock → _fire/_run no pueden consumir dirty
+            held.set()
+            let_go.wait(5)
+
+    holder = threading.Thread(target=hold_flush, daemon=True)
+    holder.start()
+    assert held.wait(5)
+
+    fired = threading.Event()
+
+    def fire():
+        sched._fire()  # con el bug limpiaría dirty ANTES de bloquearse en _flush_lock
+        fired.set()
+
+    t = threading.Thread(target=fire, daemon=True)
+    t.start()
+    time.sleep(0.25)  # _fire ya ejecutó su sección self._lock y está bloqueado en _flush_lock
+    assert sched.pending()  # FIX: dirty sigue True (con el bug: pending() sería False)
+    assert not fired.is_set()  # sigue bloqueado
+
+    let_go.set()  # soltar _flush_lock → _fire completa su flush
+    assert fired.wait(5)
+    assert 500 in store.saves  # A se persistió: sin lost update
+
+
 @pytest.mark.torture
 def test_torture_flush_switch_no_deadlock(api_client):
     """Orden global _flush_lock→STATE_LOCK: un flush del Timer en vuelo (sostiene

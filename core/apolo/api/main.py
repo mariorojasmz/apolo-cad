@@ -173,13 +173,21 @@ class _AutosaveScheduler:
             self._first = None
             if not self._dirty:
                 return
-            self._dirty = False
+        # V6.3 Fase 0: NO se limpia `dirty` aquí. El clear ocurre DENTRO de _flush_lock (en
+        # _run) para que un _project_switch que gane _flush_lock primero vea dirty=True vía
+        # take_pending y persista el doc VIEJO antes del swap — si se adelantara al lock, esas
+        # últimas mutaciones de A se evaporarían (lost update; pending() parpadeaba a False).
         self._run()
 
     def _run(self) -> None:
-        """Un flush REAL bajo _flush_lock (marca _flushing para pending())."""
+        """Un flush REAL bajo _flush_lock (marca _flushing para pending()). Limpia `dirty`
+        DENTRO del lock (V6.3 Fase 0): el clear no puede adelantarse a que otro flush —el del
+        switch— consuma el estado pendiente. Sigue flusheando incondicionalmente (el switch,
+        que ya consumió dirty vía take_pending, lo dejó en False → aquí es una reescritura del
+        proyecto ACTUAL, correcta e inocua; nunca un lost update)."""
         with _flush_lock:
             with self._lock:
+                self._dirty = False
                 self._flushing = True
             try:
                 _flush_body()
@@ -189,13 +197,13 @@ class _AutosaveScheduler:
 
     def flush(self, *, force: bool = False) -> None:
         """Flush forzoso SÍNCRONO. Adquiere _flush_lock SIEMPRE (aunque no esté sucio) →
-        ESPERA a un flush del Timer en vuelo antes de volver. Cancela el Timer pendiente."""
+        ESPERA a un flush del Timer en vuelo antes de volver. Cancela el Timer pendiente. El
+        clear de `dirty` lo hace _run bajo _flush_lock (V6.3 Fase 0), no aquí."""
         with self._lock:
             if self._timer is not None:
                 self._timer.cancel()
                 self._timer = None
             do_it = self._dirty or force
-            self._dirty = False
             self._first = None
         if do_it:
             self._run()
