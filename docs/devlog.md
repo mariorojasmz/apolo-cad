@@ -3162,3 +3162,68 @@ La revisión adversarial de V6.5 aprobó las 5 fases pero dejó 6 items de cierr
    movidos a `done/`.
 
 Suite: **1079 verde** (+1: verify con ids no-resueltos) · tortura 15 verde.
+
+## V7.1 — Benchmark testigo: el paquete Apolo vs el paquete de despacho (2026-07-10) — inicia el roadmap V7
+
+Primer ítem de V7 «Resultados sobre el incumbente». La doctrina de RESULTADOS dice que la vara
+es el ENTREGABLE terminado, no la lista de features; hasta ahora el «~65 % de planos» y demás
+eran ESTIMADOS. V7.1 los **MIDE**: produce el paquete completo de la faja 38 con lo que Apolo
+tiene HOY, lo califica contra una rúbrica de nivel despacho con EVIDENCIA por puntaje, y entrega
+el backlog de brechas que ordena V7.2/7.3/7.4. **No añade features — mide** (regla 1: un
+entregable feo se PUNTÚA mal, no se arregla; solo se corrige un crash/bug de generación).
+
+**Producción del paquete (Fase A).** `scripts/benchmark_package.py` = cliente HTTP PURO de la API
+(NO importa `apolo.*` → no dispara el reload que blanquea el DOC, gotcha de la casa). Abre la faja
+38, cronometra CADA artefacto (API caliente; el open se mide aparte) y escribe `paquete.md` con
+tiempos+bytes. **24/24 artefactos en 411.9 s** (≈ 6.9 min) autónomos → `docs/benchmark/faja38/
+2026-07-10/`: validación (interferencias/soundness/gravity/DOF/verify), juego de planos (32 pág PDF
++ DWG por ODA + GA + lista de corte + nesting), memoria (17 pág), BOM/costeo/cotización, manual (8
+pág), STEP + 3 renders. Los cuellos son gráficos (manual 148 s, juego 88 s, DWG 63 s, GA 45 s,
+memoria 34 s). Único cambio persistente al modelo: `set_requirements` carga 30→75 kg (alineado a la
+variable de diseño `carga_max=75`, el requisito previo era incoherente). Dos bugs de MI generación
+corregidos para poder medir (no del modelo): `assembly_notes:True`→`[]` en el GA, y una aserción
+`verify` mal especificada (pedí la coordenada absoluta de z cuando `bbox` da el TAMAÑO del eje).
+
+**Calificación (Fases B/C).** Rúbrica versionada `docs/benchmark/rubrica-v1.md` (anclas duras: 0
+ausente … 3 nivel despacho … 4 supera; no se relaja entre corridas). Autocalifiqué con evidencia
+por puntaje + spot-checks obligatorios; la re-auditoría de Fable y la lectura del CLIENTE mandan.
+
+| Entregable | Peso | Puntaje | % | Lectura |
+|---|---:|:--:|---:|---|
+| E3 · Memoria de cálculo | 20 | 3.40 | **85 %** | Donde ganamos: 15 verif.+FEA, fórmula/norma/FS trazable. |
+| E4 · BOM + cotización | 15 | 3.00 | 75 % | Fiel a la escena, pesos exactos, fuentes/márgenes declarados. |
+| E6 · Paquete e interop | 10 | 3.00 | 75 % | STEP re-importable, índice reproducible por script, tiempos. |
+| E1 · 3D validado | 15 | 2.75 | 69 % | Máquina completa; le restan detalles (1 flotante, 5 pernos). |
+| E2 · Juego de planos | 30 | 2.14 | **53.6 %** | Donde perdemos: sin ISO 2553/2768/acabados (último kilómetro). |
+| E5 · Manual de ensamblaje | 10 | 2.00 | 50 % | Paginado por sub-ensamblajes; falta orden por grafo de soporte. |
+| **GLOBAL** | 100 | | **≈ 67 %** | 67 % de nivel despacho; el TIEMPO (6.9 min) es ~10³× a favor. |
+
+**Spot-checks (todos cuadran).** BOM peso=volumen×densidad: Pata 4.65 kg, Larguero 27.53 kg, Mesa
+8.49 kg exactos. Memoria: arrastre CEMA F=771.8 N y par T=44.0 N·m reproducidos a mano; cotización
+1710.03×1.25×1.13=2415.42 USD. Cotas de lámina (eje Ø35 h7·1025, pata 76.2·674.4, tambor Ø114·660)
+concuerdan con el 3D. **Hallazgos reales cazados por el spot-check** (no se «arreglaron» — se
+puntuaron): (a) **19 pernos M12 de anclaje, no 24** — 5 de 6 placas con 3/4 pernos (el patrón
+anidado propagó 3 de 4; el BOM reporta 19 FIELMENTE → defecto de modelo, no de BOM); (b) `c704`
+«Tornillería ménsula soporte motor» **flotante** (gravity la deja caer 452 mm), sin grupo y sin
+clasificar como herraje — se filtró por tres grietas a la vez; (c) 2 avisos de la memoria = los
+6207 del tensor en un eje Ø35 sin ajuste ISO 286 declarado. Parametricidad (E1.4=4): «3.2m
+compacta»↔«4m estandar» EN VIVO con el tren motriz siguiendo, 20 interferencias idénticas y 0
+colisiones nuevas, retorno bit-idéntico.
+
+**Backlog priorizado de V7** (peso × distancia a 3) — las 5 brechas top:
+1. **ISO 2553 soldadura** en las láminas (E2.4=1, pri 60) → V7.2. Los weldments ya saben garganta/L.
+2. **Acabados superficiales + notas de proceso** por pieza (E2.5=1, pri 60) → V7.2.
+3. **ISO 2768 general + callouts de rosca/bore** (E2.3=2, pri 30) → V7.2.
+4. **Acotado por FUNCIÓN (datums de montaje)** + suficiencia en miembros complejos (E2.2=2, pri 30)
+   → V7.2 (+ V7.3 stack-up).
+5. **Patrón de anclaje incompleto / `c704` flotante** (E1.1, E1.2 = 2, pri 15 c/u) → fix del modelo
+   38 + un lint de entrega (barreno sin perno / pieza sin grupo NI unión) como follow-up de V6.1.
+
+Las **4 primeras son TODAS de planos** → confirma que V7.2 «último kilómetro del plano» es LA
+prioridad, con soldadura y acabados en cabeza. El estimado previo del CLAUDE.md (planos ~65 %) era
+optimista: medido 53.6 %. La memoria (85 %) y BOM/cotización (75 %) confirman «ya supera al
+despacho-en-Excel». La rúbrica queda como test de regresión de CALIDAD: correr
+`benchmark_package.py` + re-calificar tras cada V7.x.
+
+Suite: **1079 verde** · tortura 15 verde (V7.1 no toca código de núcleo: solo un script nuevo +
+docs). Faja 38 ÍNTEGRA en «4m estandar» (74/312, health 0 issues).

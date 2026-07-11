@@ -319,6 +319,11 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   costeado, 3 fuentes DECLARADAS por fila: specs.cost / estimación peso×material×3 /
   fabricación peso×material×2.5) · `drawing/quote.py` (COTIZACIÓN: margen/impuesto/
   moneda+fx de presentación/precio de venta/ítem más costoso/notas honestas).
+- **Benchmark de entregables (V7.1)**: `scripts/benchmark_package.py` (cliente HTTP PURO —
+  no importa `apolo.*`, NO dispara el reload que blanquea el DOC) regenera el paquete
+  completo de un proyecto a `docs/benchmark/<proy>/<fecha>/` cronometrando cada artefacto;
+  `docs/benchmark/rubrica-v1.md` (anclas duras, versionada) lo califica = test de regresión
+  de CALIDAD. Correrlo + re-calificar tras cada V7.x. Testigo faja 38: `.../faja38/2026-07-10/`.
 
 ### Planos 2D (sistema PRO completo, fases A–G)
 `drawing/` (compositor `SheetModel` → SVG/PDF/DXF, HLR): cotas con flechas/tolerancia/
@@ -676,12 +681,18 @@ en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + repor
 soundness/gravity sigue siendo único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+FEA
 lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
 robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (vs paquete TERMINADO a mano, para el vertical): memoria de
-cálculo/cotización/validación de ensamblaje = **ya supera** (el incumbente no lo integra;
-el humano lo hace en Excel) · 3D validado = iguala en calidad, supera ~100× en tiempo ·
-manual de ensamblaje = comparable · **planos de taller ~65 %** (falta el último
-kilómetro: ISO 2553/2768, acabados, stack-up de cadenas de cotas, criterio de acotado) ·
-**FEA firmable ~45 %** (falta ensamblaje/contacto) · render comercial ~50 % (por demanda).
+Veredicto por RESULTADOS (**MEDIDO** en V7.1, benchmark testigo de la faja 38 vs la
+rúbrica-v1 de nivel despacho — `docs/benchmark/faja38/2026-07-10/calificacion.md`; global
+del paquete ≈ **67 %** de nivel despacho, producido de punta a punta por API en **6.9 min**
+autónomo — la métrica de TIEMPO es ~10³× a favor): memoria de cálculo = **85 %** (ya
+supera al despacho-en-Excel: 15 verif.+FEA con fórmula/norma/FS trazable) · BOM/cotización
+= **75 %** (fiel, pesos exactos, fuentes/márgenes declarados) · 3D validado = **69 %**
+(máquina completa; le restan detalles: 1 flotante, 5 pernos de patrón) · **planos de taller
+= 53.6 %** (era estimado ~65 %; el más pesado y donde perdemos — falta el último kilómetro:
+ISO 2553/2768, acabados, datums por función) · manual = **50 %** (paginado por
+sub-ensamblajes; falta orden por grafo de soporte) · **FEA firmable ~45 %** (falta
+ensamblaje/contacto) · render comercial ~50 % (por demanda). Las 4 brechas top son TODAS de
+planos → V7.2 «último kilómetro» es LA prioridad, con ISO 2553 y acabados en cabeza.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -743,9 +754,16 @@ verdes**. Un ítem por vez, con plan formal.
 Ejecuta la doctrina de RESULTADOS: cerrar los entregables donde el paquete Apolo aún
 pierde contra el terminado a mano en SW/Inventor. Definir cada ítem con plan formal al
 cerrar V6; orden tentativo por impacto en el entregable:
-- **V7.1 Benchmark testigo**: misma máquina (faja 38 o clasificadora) — paquete Apolo
-  completo vs paquete de referencia estilo despacho; rúbrica por entregable, brechas
-  accionables. La rúbrica se vuelve el test de regresión de CALIDAD del producto.
+- **V7.1 Benchmark testigo** — **HECHO (2026-07-10)**. Paquete completo de la faja 38
+  producido de punta a punta por API (`scripts/benchmark_package.py`, cliente HTTP puro →
+  sin el reload que blanquea el DOC) en **411.9 s** autónomo: validación + juego de planos
+  (32 pág PDF + DWG) + memoria + BOM/costeo/cotización + manual + STEP + renders (24/24
+  artefactos, `docs/benchmark/faja38/2026-07-10/`). Calificado contra `rubrica-v1.md` (anclas
+  duras, versionada = test de regresión de CALIDAD) con evidencia y spot-checks: **global
+  ≈ 67 %** de nivel despacho (memoria 85 % · BOM/cotización 75 % · 3D 69 % · **planos 53.6 %**
+  · manual 50 %). Las 4 brechas top son de planos → confirma V7.2 como prioridad. Hallazgos
+  reales cazados por spot-check: 5 placas de anclaje con 3/4 pernos, `c704` flotante/sin
+  grupo, 2 avisos ISO 286 del eje del tensor. La rúbrica NO se relaja entre corridas.
 - **V7.2 Último kilómetro del plano**: símbolos de soldadura ISO 2553 (los weldments ya
   saben garganta/longitud), tolerancias generales ISO 2768 en cajetín, acabados
   superficiales, notas de proceso, criterio de acotado por FUNCIÓN (datum = cara de
