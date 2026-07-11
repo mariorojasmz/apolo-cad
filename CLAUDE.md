@@ -785,14 +785,27 @@ cerrar V6; orden tentativo por impacto en el entregable:
   perfil de catálogo rotulada). (D) `benchmark_package.py`: exit≠0 ante fallos, gate
   `--expect`/health, `--out` por slug del proyecto, `--checks` para proyectos ≠38, fila propia
   de validacion.json. Suite + tortura verdes.
-- **V7.2 Último kilómetro del plano**: símbolos de soldadura ISO 2553 (los weldments ya
-  saben garganta/longitud), tolerancias generales ISO 2768 en cajetín, acabados
-  superficiales, notas de proceso, criterio de acotado por FUNCIÓN (datum = cara de
-  montaje) — planos 6.5→8 SIN retoque humano.
+- **V7.2 Último kilómetro del plano** — **EN CURSO (Opus, plan
+  `docs/plans/V7.2-ultimo-kilometro-plano.md`)**: símbolos de soldadura ISO 2553 en el GA
+  (los datos throat/length YA existen en `DOC.fasteners`; gotcha: el drawing layer no los
+  recibe — cablearlos), ISO 2768-mK en cajetín, acabados ISO 1302 por proceso inferido +
+  Ra 1.6 en asientos con fit (las primitivas GD&T existen SIN cablear en
+  `dimensions.py:131-172`), acotado por FUNCIÓN (datum = cara de montaje + diagnóstico de
+  callouts ausentes en ménsulas). Objetivo medible: E2 2.14→≥2.85 (~71 %), global ~73-75 %.
+- **V7.2b Barrida de residuos baratos** (tras V7.2; juntos suben el global a ~78-80 %):
+  (1) manual por GRAFO DE SOPORTE (no orden del log; chumaceras antes que el motor que
+  soportan) + texto específico por paso + fusionar pasos huérfanos de 1 pieza — manual
+  50 %→~75 %; (2) citar NORMA en las 15 verificaciones cuantitativas de la memoria (hoy
+  4/15, E3.3) — memoria 80 %→~85-90 %; (3) lints pre-entrega: «barreno sin perno» y
+  «pieza sin grupo NI unión declarada» (habrían cazado solos los defectos del 38);
+  (4) E1 residual: pernos de anclaje → catálogo DIN 933, fit ISO 286 del eje del tensor
+  para sus 6207 (mata los 2 avisos vivos de la memoria).
 - **V7.3 Stack-up de cadenas de cotas** (análogo a TolAnalyst pero automático): el
   agente verifica que la suma de tolerancias de la cadena cierra el ajuste declarado.
+  Natural DESPUÉS de V7.2 (usa los datums/fits que V7.2 cablea).
 - **V7.4 FEA firmable** (absorbe V6.7 si no se hizo): ensamblaje bonded + reporte
-  integrado a la memoria.
+  integrado a la memoria. FEA firmable hoy ≈45 %.
+- Orden V7.3 vs V7.4: decidir por demanda del negocio al cerrar V7.2b.
 
 ## Hoja de ruta V5 — AGOTADA (completitud de flujo del vertical)
 Doctrina (usuario): el ingeniero del vertical **nunca necesita SW/Inventor** — completitud de
