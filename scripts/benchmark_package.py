@@ -271,7 +271,7 @@ def main() -> None:
             "sheet": "A3", "cutlist": True, "hardware": True, "shaded": True,
             "assembly_notes": [], "format": "pdf",  # []=auto-semilla de notas de montaje del herraje
             "notes": ["Cotas en mm salvo indicación.",
-                      "Tolerancia general ISO 2768-m (no rotulada por el sistema — ver informe)."],
+                      "Tolerancia general ISO 2768-mK (en cajetín); soldadura ISO 2553 (símbolos en el GA)."],
             "meta": {"drawing_no": f"GA-P{args.project}-001", "material": "A36 / catálogo",
                      "title": f"{proj_name.upper()} — CONJUNTO GENERAL"},
         }

@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from .dimensions import baseline_dims, center_mark, linear_dim, notes_block
+from .dimensions import baseline_dims, center_mark, linear_dim, notes_block, weld_symbol
 from .projection import (
     ViewProjection,
     detail_view,
@@ -163,26 +163,33 @@ def _hole_callouts(
     model: SheetModel, view: ViewProjection, tx, scale: float,
     hole_fits: dict[float, str] | None = None,
     hole_threads: dict[float, str] | None = None,
+    *, min_r_paper: float = 0.8, max_groups: int = 4,
 ) -> None:
     """Agrupa los círculos de la vista por diámetro y rotula 'n×Ød' con directriz.
     Con `hole_fits` {Ø_nominal → clase ISO 286} el rótulo incluye clase y límites:
     "4×Ø20 H7 (+0.021/0)". Con `hole_threads` {Ø_broca → designación M…} el rótulo
     es de ROSCA ("4×M8 - 6H (broca Ø6.8)") + arco cosmético ISO 6410 al Ø nominal
     (3/4 de vuelta, trazo fino); thread se evalúa ANTES que fit (si una broca
-    coincide con un Ø liso mapeado, gana la rosca — mismo caveat que los fits)."""
+    coincide con un Ø liso mapeado, gana la rosca — mismo caveat que los fits).
+
+    `min_r_paper` = radio mínimo en papel (mm) para rotular; en una lámina de taller
+    por pieza se baja (V7.2 D1: nunca silenciar un barreno funcional de una pieza larga
+    a escala pequeña). Un barreno con fit/rosca mapeada rotula SIEMPRE (piso 0.2).
+    `max_groups` = nº de diámetros distintos rotulados (se sube en láminas por pieza)."""
     groups: dict[float, list[tuple[float, float, float]]] = {}
     for c in view.circles:
         groups.setdefault(round(2 * c[2], 1), []).append(c)
-    for i, (dia, circles) in enumerate(sorted(groups.items())[:4]):
+    for i, (dia, circles) in enumerate(sorted(groups.items())[:max_groups]):
         cx_v, cy_v, r = circles[0]
-        if r * scale < 0.8:
-            continue  # demasiado pequeño en papel para rotular
-        sx, sy = tx((cx_v + r * 0.7071, cy_v + r * 0.7071))
-        ex, ey = sx + 4.5 + i * 1.5, sy + 4.5 + i * 1.5
-        model.lines.append(Line(sx, sy, ex, ey, "dim"))
         n = len(circles)
         thread = _fit_for_dia(dia, hole_threads)  # mismo matching por distancia
         fit = None if thread else _fit_for_dia(dia, hole_fits)
+        floor = 0.2 if (thread or fit) else min_r_paper  # los funcionales rotulan siempre
+        if r * scale < floor:
+            continue  # demasiado pequeño en papel para rotular (y no es funcional)
+        sx, sy = tx((cx_v + r * 0.7071, cy_v + r * 0.7071))
+        ex, ey = sx + 4.5 + i * 1.5, sy + 4.5 + i * 1.5
+        model.lines.append(Line(sx, sy, ex, ey, "dim"))
         if thread:
             from apolo.library.engineering.threads import (
                 format_thread_label, thread_spec,
@@ -202,6 +209,10 @@ def _hole_callouts(
         else:
             text = f"{n}×Ø{dia:g}" if n > 1 else f"Ø{dia:g}"
         model.labels.append(Label(ex + 0.8, ey, text, 2.8, anchor="start"))
+        if fit:  # V7.2 C3: asiento ISO 286 = superficie mecanizada fina → Ra 1.6 TRAS el callout
+            from .dimensions import surface_finish
+            tw = len(text) * 2.8 * 0.55  # ancho aprox. del rótulo → coloca el ✓ a su derecha
+            surface_finish(model, ex + 0.8 + tw + 1.5, ey - 0.8, "1.6", size=2.6)
 
 
 def _dim_h_at(model: SheetModel, x1: float, x2: float, y: float, value: float, name: str = "") -> None:
@@ -346,6 +357,68 @@ def _assembly_notes_auto(scene: dict) -> list[str]:
     return out
 
 
+def _bbox_vol(feat) -> float:
+    """Volumen del bbox de una feature (para elegir la pieza representante de una lámina)."""
+    try:
+        bb = feat.shape.bounding_box()
+        return (bb.max.X - bb.min.X) * (bb.max.Y - bb.min.Y) * (bb.max.Z - bb.min.Z)
+    except Exception:
+        return 0.0
+
+
+def _weld_anchor(fa, fb) -> tuple[float, float, float]:
+    """Punto aproximado del cordón entre dos piezas: centro del solape de sus bboxes;
+    si no solapan en un eje, punto medio de los centros de ese eje."""
+    ba, bb = fa.shape.bounding_box(), fb.shape.bounding_box()
+
+    def mid(a0, a1, b0, b1):
+        lo, hi = max(a0, b0), min(a1, b1)
+        return (lo + hi) / 2 if lo <= hi else ((a0 + a1) + (b0 + b1)) / 4
+
+    return (
+        mid(ba.min.X, ba.max.X, bb.min.X, bb.max.X),
+        mid(ba.min.Y, ba.max.Y, bb.min.Y, bb.max.Y),
+        mid(ba.min.Z, ba.max.Z, bb.min.Z, bb.max.Z),
+    )
+
+
+def _place_weld_symbols(model, fasteners, scene, placed, center3, *, max_symbols=6):
+    """Símbolos de soldadura ISO 2553 en la vista de CONJUNTO (alzado). Agrupa los
+    cordones tipo 'soldadura' por (garganta, longitud) → UN símbolo «típ. ×N» por grupo
+    anclado al centro del solape del par representante. Solo dibuja pares con AMBAS
+    piezas en la escena mostrada → NO-OP en las láminas por pieza (a/b no coinciden con
+    el id sintético). Cap `max_symbols`; el resto lo declara el llamador en una nota.
+    Devuelve (n_grupos_dibujados, n_grupos_total, hay_sin_cota, n_cordones)."""
+    if not fasteners or "alzado" not in placed:
+        return (0, 0, False, 0)
+    welds = [f for f in fasteners.values()
+             if f.get("kind") == "soldadura" and f.get("a") in scene and f.get("b") in scene]
+    if not welds:
+        return (0, 0, False, 0)
+    (_rect, tx) = placed["alzado"]
+    groups: dict[tuple, list] = {}
+    for f in welds:
+        groups.setdefault((f.get("throat_mm"), f.get("length_mm")), []).append(f)
+    # OJO: (throat, length) puede traer None (cordón sin dimensionar) — el sort key usa
+    # centinelas (None al final entre empates) para no comparar None < float (TypeError).
+    ordered = sorted(groups.items(), key=lambda kv: (
+        -len(kv[1]), kv[0][0] is None, kv[0][0] or 0.0, kv[0][1] is None, kv[0][1] or 0.0))
+    hay_sin_cota = any(k[0] is None for k in groups)
+    for i, ((throat, length), members) in enumerate(ordered[:max_symbols]):
+        rep = members[0]
+        try:
+            pt = _weld_anchor(scene[rep["a"]], scene[rep["b"]])
+            wx, wy = tx(world_to_view("alzado", pt, center3))
+        except Exception:
+            continue
+        # abanica la directriz en diagonal (una posición POR símbolo, i<max_symbols=6)
+        # para separar símbolos con anclas co-ubicadas; con %4 los pares (0,4) y (1,5)
+        # compartían offset y se solapaban exactamente
+        lead = (9.0 + i * 5.0, 7.0 + i * 5.5)
+        weld_symbol(model, wx, wy, throat=throat, length=length, count=len(members), lead=lead)
+    return (min(len(groups), max_symbols), len(groups), hay_sin_cota, len(welds))
+
+
 def compose_sheet(
     scene: dict,
     sheet: str = "A3",
@@ -371,6 +444,8 @@ def compose_sheet(
     hole_threads: dict[float, str] | None = None,  # {Ø_broca → "M8"}: callout de rosca + cosmético ISO 6410 (V5.7)
     colors: dict | None = None,  # color por pieza para el sombreado (= viewport web: DOC.colors+paleta)
     sheet_refs: dict | None = None,  # {_rep id → nº de hoja} → columna "Hoja" en el DESPIECE (cross-ref globo→lámina de detalle)
+    fasteners: dict | None = None,  # DOC.fasteners → símbolos de soldadura ISO 2553 en el conjunto (V7.2 A); NO-OP en láminas por pieza
+    shop_notes: bool = False,  # notas de taller de lámina por pieza: tolerancia ISO 2768 + proceso/acabado ISO 1302 + protección (V7.2 B/C)
 ) -> SheetModel:
     if sheet not in SHEETS:
         raise ValueError(f"Lámina desconocida '{sheet}' (usa A3 o A4)")
@@ -425,13 +500,18 @@ def compose_sheet(
         _dim_h(model, rx, ry, rw, dims[h_axis])
         _dim_v(model, rx, ry, rh, dims[v_axis])
         model.labels.append(Label(cx, ry - 14.5, VIEW_TITLES[name], 3.6))
-        _hole_callouts(model, view, tx, scale, hole_fits, hole_threads)
+        # láminas de taller por pieza: no silenciar barrenos funcionales de piezas largas
+        # a escala pequeña, y admitir más diámetros distintos (V7.2 D1)
+        _hole_callouts(model, view, tx, scale, hole_fits, hole_threads,
+                       min_r_paper=0.2 if shop_notes else 0.8,
+                       max_groups=8 if shop_notes else 4)
         for cv in view.circles:  # marca de centro (cruz de ejes) en cada agujero
             ccx, ccy = tx((cv[0], cv[1]))
             center_mark(model, ccx, ccy, cv[2] * scale)
         if auto_dims and view.circles:  # acotado automático: posición x/y de cada agujero
             from .autodim import auto_hole_dims
-            auto_hole_dims(model, view, rect, tx)
+            # datum «A» marcado en las láminas de taller por pieza (V7.2 D2)
+            auto_hole_dims(model, view, rect, tx, datum=shop_notes)
         if interface_dims and len(view.circles) >= 2:  # patrón de montaje: pitch centro-a-centro
             from .autodim import mounting_pattern_dims
             # si auto_dims también está, empujar el pitch más afuera para no solaparse con sus escaleras
@@ -467,6 +547,13 @@ def compose_sheet(
             entries.append((py, round(bb.min.Z - model_min_z, 1), feat.name[:10]))
         baseline_dims(model, datum_y, entries, vertical=True, along=arx - 2,
                       base_offset=6.0, offset_step=6.0)
+
+    # SÍMBOLOS DE SOLDADURA ISO 2553 (V7.2 A): cordones tipo 'soldadura' del modelo,
+    # agrupados «típ. ×N» sobre el alzado del conjunto. NO-OP en láminas por pieza.
+    # Solo pares con AMBAS piezas VISIBLES (un cordón hacia una pieza oculta anclaría
+    # su símbolo a geometría que no está dibujada).
+    _weld_scene = scene if include_hidden else {fid: f for fid, f in scene.items() if f.visible}
+    _weld_stats = _place_weld_symbols(model, fasteners, _weld_scene, placed, center3)
 
     # CORTE (A-A / B-B / C-C según eje) en el cuadrante de la isométrica
     if section:
@@ -672,11 +759,36 @@ def compose_sheet(
                 baseline_dims(model, mdatum_y, entries, vertical=True, along=mrx - 2,
                               base_offset=6.0, offset_step=6.0)
 
-    # bloques de NOTAS (hueco medio-izquierdo): generales (NOTAS) y de montaje (NOTAS DE
-    # MONTAJE), apilados verticalmente sin solaparse (notes_block devuelve su borde inferior).
+    # V7.2 — notas AUTO de taller: (B/C) tolerancia ISO 2768 + proceso/acabado ISO 1302
+    # + protección, inferidos de la pieza REPRESENTANTE (mayor bbox entre las visibles;
+    # en una lámina por pieza es la única); (A) leyenda de soldadura del conjunto.
+    _rep_finish: str | None = None
+    _auto_notes: list[str] = []
+    if shop_notes and visible_scene:
+        from apolo.library.catalog import CATALOG
+        from apolo.library.materials import resolve_material
+
+        from .process import finish_label, infer_process
+        from .process import shop_notes as _shop_note_lines
+
+        rep = max(visible_scene.values(), key=_bbox_vol)
+        comp = CATALOG.get(getattr(rep, "component", None) or "")
+        _rep_finish = finish_label(infer_process(rep, comp)["ra"])
+        _auto_notes += _shop_note_lines(rep, comp, resolve_material(rep, CATALOG))
+    _wn_drawn, _wn_groups, _wn_sincota, _wn_total = _weld_stats
+    if _wn_total:  # honestidad: declara agrupación y cordones sin dimensionar
+        _auto_notes.append("Soldadura: símbolos ISO 2553 · a = garganta de filete (mm).")
+        if _wn_groups > _wn_drawn:
+            _auto_notes.append("Resto de cordones: ver despiece/memoria de cálculo.")
+        if _wn_sincota:
+            _auto_notes.append("Cordones sin dimensionar: ver memoria de cálculo.")
+
+    # bloques de NOTAS (hueco medio-izquierdo): generales (NOTAS + auto de taller) y de
+    # montaje (NOTAS DE MONTAJE), apilados sin solaparse (notes_block devuelve su borde inf).
     notes_y = ay0 + ah * 0.50
-    if notes:
-        notes_y = notes_block(model, MARGIN + 6, notes_y, list(notes)) - 4.0
+    _general = list(notes or []) + _auto_notes
+    if _general:
+        notes_y = notes_block(model, MARGIN + 6, notes_y, _general) - 4.0
     if assembly_notes is not None:
         am = list(assembly_notes) if assembly_notes else _assembly_notes_auto(visible_scene)
         if am:
@@ -694,9 +806,9 @@ def compose_sheet(
         "scale": scale_label, "sheet": sheet,
         "sheet_no": m.get("sheet_no", 1), "n_sheets": m.get("n_sheets", 1),
         "material": m.get("material") or dominant_material(scene) or "—",
-        "finish": m.get("finish", "—"),
+        "finish": m.get("finish") or _rep_finish or "—",
         "weight_kg": m["weight_kg"] if m.get("weight_kg") is not None else scene_weight_kg(scene),
-        "tolerance": m.get("tolerance", "±0.5"), "units": "mm",
+        "tolerance": m.get("tolerance", "ISO 2768-mK"), "units": "mm",
         "drawn_by": m.get("drawn_by", ""), "checked_by": m.get("checked_by", ""),
         "approved_by": m.get("approved_by", ""),
         "date": m.get("date", date.today().isoformat()),

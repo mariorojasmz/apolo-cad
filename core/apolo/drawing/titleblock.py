@@ -98,7 +98,7 @@ def draw_title_block(model, fields: dict) -> None:
     _txt(model, c1 + 2, y0 + TITLE_H * 0.34, 2.3, "Acabado / Peso")
     _txt(model, c1 + 2, y0 + TITLE_H * 0.10, 2.6, f"{f.get('finish', '—')} · {f.get('weight_kg', 0)} kg")
     _txt(model, c2 + 2, y0 + TITLE_H * 0.34, 2.3, "Tol. gral / Unid.")
-    _txt(model, c2 + 2, y0 + TITLE_H * 0.10, 2.6, f"{f.get('tolerance', '±0.5')} · {f.get('units', 'mm')}")
+    _txt(model, c2 + 2, y0 + TITLE_H * 0.10, 2.6, f"{f.get('tolerance', 'ISO 2768-mK')} · {f.get('units', 'mm')}")
     _txt(model, c3 + 2, y0 + TITLE_H * 0.34, 2.3, "Escala / Hoja")
     _txt(model, c3 + 2, y0 + TITLE_H * 0.10, 2.6,
          f"{f.get('scale', '')} · {f.get('sheet_no', 1)}/{f.get('n_sheets', 1)} {f.get('sheet', '')}")

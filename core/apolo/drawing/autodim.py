@@ -9,17 +9,24 @@ juntos dan "Ø + dónde". Cubre taladros, clavijas y tornillos (todo lo circular
 from __future__ import annotations
 
 
-def auto_hole_dims(model, view, rect, tx, *, max_unique: int = 6) -> int:
+def auto_hole_dims(model, view, rect, tx, *, max_unique: int = 6, datum: bool = False) -> int:
     """Acota la posición (x,y) de los agujeros de `view` desde la esquina inferior-izquierda de la
     pieza: una escalera de cotas X por debajo (más allá de la cota general) y otra Y a la izquierda.
-    Dedup por valor para no apilar cotas repetidas. Devuelve nº de agujeros vistos."""
-    from .dimensions import baseline_dims
+    Dedup por valor para no apilar cotas repetidas. Devuelve nº de agujeros vistos.
+
+    `datum=True` (V7.2 D2): marca esa esquina de referencia con la bandera de DATUM «A»
+    (símbolo GD&T) para que el taller lea las posiciones DESDE un origen declarado — la
+    arista inferior-izquierda de una placa fabricada es su cara de referencia/montaje. Es
+    el fallback honesto del plan: sin señal de contraparte, el datum es la esquina real."""
+    from .dimensions import baseline_dims, datum_flag
 
     if not view.circles:
         return 0
     rx, ry, rw, rh = rect
     minx, miny = view.bounds[0], view.bounds[1]
     dx_paper, dy_paper = tx((minx, miny))  # esquina datum en papel
+    if datum:  # bandera de datum «A» sobre la arista de referencia (esquina inf-izq)
+        datum_flag(model, rx - 8.0, ry + 1.5, "A", size=4.0)
     holes = sorted(view.circles, key=lambda c: (c[0], c[1]))
 
     # X: posiciones horizontales únicas, escalera por DEBAJO (tras la cota general)

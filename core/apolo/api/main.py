@@ -2547,6 +2547,7 @@ def _sheet_model(sheet: str, hidden: bool, dims: str = "", section: bool = False
             return compose_sheet(
                 DOC.scene, sheet=sheet, include_hidden=hidden, project_name=DOC.name,
                 dims_features=dims_features, section=section, bom=bom, meta=_drawing_meta(),
+                fasteners=DOC.fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 (no-op sin cordones)
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -2761,7 +2762,8 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
                               colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
                               hole_threads=_hole_thread_map(DOC) or None,
-                              thread_rows=_thread_schedule(DOC) or None)
+                              thread_rows=_thread_schedule(DOC) or None,
+                              fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(
@@ -2785,7 +2787,8 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
                               meta=_drawing_meta(), sheet=sheet,
                               colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
                               hole_threads=_hole_thread_map(DOC) or None,
-                              thread_rows=_thread_schedule(DOC) or None)
+                              thread_rows=_thread_schedule(DOC) or None,
+                              fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         base = (DOC.name or "juego").replace("/", "-")
@@ -3107,6 +3110,7 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
                 notes=spec.notes or None, assembly_notes=spec.assembly_notes,
                 shaded=spec.shaded, colors=_feature_colors(),
                 hole_fits=fits_map or None, hole_threads=threads_map or None,
+                fasteners=DOC.fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 en el conjunto/GA
                 meta={**_drawing_meta(), **(spec.meta or {})},
             )
         except ValueError as exc:

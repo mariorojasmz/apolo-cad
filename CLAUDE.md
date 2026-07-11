@@ -1,4 +1,4 @@
-# Genix Apolo CAD
+﻿# Genix Apolo CAD
 
 CAD paramétrico 3D para maquinaria industrial/robótica cuyo **diferenciador es el
 diseño asistido por IA** (agente-nativo, también manual). Vertical del MVP:
@@ -52,14 +52,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1089 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1104 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **69 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-11)**: 1089 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
+- **Estado actual (2026-07-11)**: 1104 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
   52 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -335,6 +335,30 @@ paso (secuencia derivada del log; `isolate` para sub-ensamblajes), **export DWG 
 → 400 amable con la URL de descarga; `_discover()` busca la carpeta VERSIONADA del
 instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de solapes:
 `scripts/_check_overlaps.py`.
+- **Último kilómetro del plano (V7.2, sin retoque humano)**: (A) **soldadura ISO 2553** —
+  `compose_sheet(fasteners=DOC.fasteners)` dibuja `weld_symbol()` (`dimensions.py`, directriz+
+  flecha+triángulo de filete «aX/L») en el CONJUNTO agrupando cordones por (garganta,longitud)
+  → «típ. ×N», tope 6 símbolos (resto→nota) anclados al centro del solape de bboxes proyectado
+  al alzado; NO-OP en láminas por pieza (a/b no están ambos en la escena aislada). El gotcha
+  era que el drawing layer no recibía `DOC.fasteners` → cableado en `_sheet_model`/`drawing_spec`/
+  `sheet_set`/drawingset. (B) **ISO 2768-mK** = default de `meta["tolerance"]` en cajetín + nota
+  general en cada lámina de pieza. (C) **acabados ISO 1302** — `drawing/process.py::infer_process`
+  (perfil/tubo→sierra Ra12.5 · nombre con fit «Ø35 h7»→torneado Ra3.2 · espesor bbox ≤6mm sin
+  catálogo→láser+plegado Ra12.5 · resto→mecanizado Ra6.3) pinta el Ra en el cajetín + notas de
+  taller (romper aristas, primer+esmalte acero / no-pintar inox); `surface_finish` Ra1.6 TRAS
+  cada callout con fit ISO 286. (D) **acotado por función** — `auto_hole_dims(datum=True)` marca
+  la bandera de DATUM «A» en la arista de referencia + `min_r_paper` bajado en láminas por pieza
+  (no silenciar un barreno funcional de una pieza larga a escala pequeña; los con fit/rosca
+  rotulan SIEMPRE) + pitch de montaje activo. Todo esto SOLO en `shop_notes=True` (láminas por
+  pieza del `sheet_set`) salvo la soldadura (conjunto). Sin capa DXF nueva (reusa dim/visible/
+  frame). GOTCHA de diagnóstico: la «ménsula de chumacera» del testigo NO recibía callouts porque
+  NO tiene barrenos modelados (run_script de cajas planas) — es gap de MODELO (el UCP no puede
+  atornillarse), no filtro; el drawing es fiel al modelo. GOTCHA del agrupador: `throat_mm` puede
+  ser None (soldadura auto sin dimensionar) — el sort de grupos usa CENTINELAS (None < float era
+  TypeError→500 ante empates de conteo). GOTCHA de `infer_process`: la rama «sierra» exige
+  `component.category` y los miembros de weldment NO lo llevan → caen a «mecanizado Ra 6.3»
+  (fix en V7.2b). Testigo: `docs/benchmark/faja-paqueteria-4m/2026-07-11-v72/` (E2 53.6→71.4 %
+  re-auditado, global 68→~73 %).
 
 ### Catálogo (data-driven, 217 refs)
 - YAML en `library/data/` (prefijo numérico ordena) + builders genéricos en
@@ -673,25 +697,30 @@ de RESULTADOS de arriba. Veredicto por FEATURES: como CAD GENERAL ~10-15 % de SW
 **9.5** (el moat) · kernel OCCT 6.5 · paramétrico 6.5 (V6.4: condicionales + faja 38 100 %
 paramétrica + tablas de diseño) · croquis 5 (PlaneGCS; falta arrastre
 en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
-soundness/gravity sigue siendo único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+FEA
+soundness/gravity sigue siendo único) · planos 7.5 (V7.2: soldadura ISO 2553 + tol. ISO 2768 +
+acabados ISO 1302 + datums, sin retoque humano) · simulación 4.5 (analítico+MuJoCo+FEA
 lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
 robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (**MEDIDO** en V7.1 + re-auditoría, **re-calificado tras V7.1c** —
+Veredicto por RESULTADOS (**MEDIDO** en V7.1 + re-auditoría, **re-calificado tras V7.1c y V7.2** —
 benchmark testigo de la faja 38 vs la rúbrica-v1 de nivel despacho;
-`docs/benchmark/faja-paqueteria-4m/2026-07-11/calificacion.md`, base honesta = el 62 %
-re-auditado, no la autocalificación 67 %; producido de punta a punta por API en ~7 min
-autónomo — la métrica de TIEMPO es ~10³× a favor, estimado): global del paquete ≈ **68 %**
-de nivel despacho (era 62 %). Memoria de cálculo = **80 %** (V7.1c: lee del MODELO — 6 patas,
-2 largueros, eje Ø35, L10 con la tensión de banda (T1+T2)/2; falta citar norma en las 15
-verif. cuantitativas para subir E3.3) · BOM/cotización = **75 %** (fiel, pesos exactos,
-fuentes/márgenes declarados) · 3D validado = **81 %** (V7.1c: 24 pernos de anclaje —patrón
-c1114 paramétrico— y c704 declarado → **0 flotantes**) · **planos de taller = 53.6 %** (V7.1c
-subió E2.1/E2.6: compras fuera de la lista de corte y de las láminas —juego 32→22 pág—,
-títulos reales, cédula = BOM; SIGUE siendo la brecha top: falta el último kilómetro ISO
-2553/2768/acabados/datums) · manual = **50 %** (paginado por sub-ensamblajes; falta orden por
-grafo de soporte) · **FEA firmable ~45 %** (falta ensamblaje/contacto) · render comercial
-~50 % (por demanda). La brecha top sigue siendo planos → **V7.2 «último kilómetro» es LA
-prioridad** (memoria-lee-del-modelo YA cerrada en V7.1c).
+`docs/benchmark/faja-paqueteria-4m/2026-07-11-v72/calificacion.md`, base honesta = las anclas
+duras + spot-checks; producido de punta a punta por API en ~82 s autónomo — la métrica de TIEMPO
+es ~10³× a favor, estimado): global del paquete ≈ **73 %** de nivel despacho (era 68 %;
+autocalificación 74 % corregida por la re-auditoría). Memoria
+de cálculo = **80 %** (V7.1c: lee del MODELO — 6 patas, 2 largueros, eje Ø35, L10 con la tensión
+de banda (T1+T2)/2; falta citar norma en las 15 verif. cuantitativas para subir E3.3) ·
+BOM/cotización = **75 %** (fiel, pesos exactos, fuentes/márgenes declarados) · 3D validado =
+**81 %** (V7.1c: 24 pernos de anclaje —patrón c1114 paramétrico— y c704 declarado → **0
+flotantes**) · **planos de taller = 71.4 %** (V7.2 subió E2.3/4 a 3, E2.5 a 2.5 y E2.2 a 2.5:
+soldadura ISO 2553 típ. en el GA —spot-check 1:1 contra los 41 fasteners—, tol. general ISO
+2768-mK en cajetín, acabados ISO 1302 por proceso + Ra 1.6 en asientos, datum «A» +
+Ø/posición/pitch por pieza; residuales: la rama «sierra» de `infer_process` no dispara en
+miembros de weldment —salen «Ra 6.3» en vez de acabado de laminación—, el datum es la esquina
+de referencia y la ménsula de chumacera carece de barrenos modelados —gap de MODELO) · manual
+= **50 %** (paginado por sub-ensamblajes; falta orden por grafo de soporte) · **FEA firmable
+~45 %** (falta ensamblaje/contacto) · render comercial ~50 % (por demanda). La brecha top pasa
+a ser **manual (E5, 50 %)** + el residuo de acotado/proceso (E2.2 datum por cara real, sierra
+en weldments, barrenos del UCP en el modelo).
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -739,13 +768,18 @@ cerrar V6; orden tentativo por impacto en el entregable:
   pernos paramétricos + `c704` declarado → 0 flotantes); compras fuera de lista de corte y
   láminas (juego 32→22 pág, por `_PURCHASE_RE`); script endurecido (exit≠0, gate `--expect`,
   `--out` por slug, `--checks`). Detalle: calificacion.md 2026-07-11 + devlog.
-- **V7.2 Último kilómetro del plano** — **EN CURSO (Opus, plan
-  `docs/plans/V7.2-ultimo-kilometro-plano.md`)**: símbolos de soldadura ISO 2553 en el GA
-  (los datos throat/length YA existen en `DOC.fasteners`; gotcha: el drawing layer no los
-  recibe — cablearlos), ISO 2768-mK en cajetín, acabados ISO 1302 por proceso inferido +
-  Ra 1.6 en asientos con fit (las primitivas GD&T existen SIN cablear en
-  `dimensions.py:131-172`), acotado por FUNCIÓN (datum = cara de montaje + diagnóstico de
-  callouts ausentes en ménsulas). Objetivo medible: E2 2.14→≥2.85 (~71 %), global ~73-75 %.
+- **V7.2 Último kilómetro del plano** — **HECHO (2026-07-11)**. Cierra el «último kilómetro» del
+  juego de planos con CRITERIO automático (sin retoque humano): (A) **soldadura ISO 2553** en el
+  GA (`weld_symbol` + `compose_sheet(fasteners=…)`, agrupada «típ. ×N», 6 símbolos + resto→nota),
+  (B) **ISO 2768-mK** en cajetín + nota por pieza, (C) **acabados ISO 1302** por proceso inferido
+  (`drawing/process.py`) + Ra 1.6 en asientos con fit, (D) **acotado por función** (datum «A» +
+  Ø/posición/pitch, filtro de tamaño bajado en láminas por pieza). **MEDIDO + re-auditado**: E2
+  2.14→**2.86** (53.6→**71.4 %**, cumple la meta ≥2.85 por poco; la re-auditoría bajó E2.5 a 2.5
+  —rama «sierra» muerta en weldments— y el cierre arregló un TypeError con `throat_mm=None` en
+  empates del agrupador), global 68→**≈73 %**; re-calificado en `docs/benchmark/
+  faja-paqueteria-4m/2026-07-11-v72/calificacion.md` (con sección RE-AUDITORÍA). E2.2 en **2.5**
+  (declarado): datum de esquina, no cara funcional; ménsula de chumacera sin barrenos de UCP en
+  el MODELO (gap de E1.1). La brecha top pasa a ser el manual (E5=50 %).
 - **V7.2b Barrida de residuos baratos** (tras V7.2; juntos suben el global a ~78-80 %):
   (1) manual por GRAFO DE SOPORTE (no orden del log; chumaceras antes que el motor que
   soportan) + texto específico por paso + fusionar pasos huérfanos de 1 pieza — manual
@@ -753,7 +787,10 @@ cerrar V6; orden tentativo por impacto en el entregable:
   4/15, E3.3) — memoria 80 %→~85-90 %; (3) lints pre-entrega: «barreno sin perno» y
   «pieza sin grupo NI unión declarada» (habrían cazado solos los defectos del 38);
   (4) E1 residual: pernos de anclaje → catálogo DIN 933, fit ISO 286 del eje del tensor
-  para sus 6207 (mata los 2 avisos vivos de la memoria).
+  para sus 6207 (mata los 2 avisos vivos de la memoria); (5) `infer_process`: «sierra»
+  para miembros de weldment (hoy caen a mecanizado — pasar la categoría del perfil o
+  inferir por sección+`cut_length`), «plegado» solo con pliegue real, torneado por
+  asiento con fit; evidencias PNG del benchmark = página real del PDF, no re-render.
 - **V7.3 Stack-up de cadenas de cotas** (análogo a TolAnalyst pero automático): el
   agente verifica que la suma de tolerancias de la cadena cierra el ajuste declarado.
   Natural DESPUÉS de V7.2 (usa los datums/fits que V7.2 cablea).

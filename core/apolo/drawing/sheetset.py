@@ -95,7 +95,8 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
               colors: dict | None = None,
               hole_fits: dict[float, str] | None = None,
               hole_threads: dict[float, str] | None = None,
-              thread_rows: list[dict] | None = None) -> list[SheetModel]:
+              thread_rows: list[dict] | None = None,
+              fasteners: dict | None = None) -> list[SheetModel]:
     """Juego de planos PRO (paquete de fabricación): [conjunto con DESPIECE+globos,
     1 lámina por pieza acotada, LISTA DE CORTE, CÉDULA DE HERRAJE]. `template` =
     carpinteria/weldment/chapa/generico (carpinteria/generico incluyen la cédula de
@@ -137,6 +138,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     pages.append(compose_sheet(scene, cutlist=True, hardware=True, assembly_notes=[],
                                shaded=shaded, colors=colors, sheet_refs=sheet_refs,
                                hole_fits=hole_fits, hole_threads=hole_threads,
+                               fasteners=fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 en el GA
                                project_name=f"{project_name} · CONJUNTO", sheet=sheet, meta=page_meta(1)))
     # 2..) una lámina por pieza (sólido aislado, acotado overall + agujeros Ø)
     for r in rows:
@@ -154,7 +156,9 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         pc = {"P": colors.get(r["_rep"])} if colors else None
         pages.append(compose_sheet({"P": feat}, auto_dims=True, show_iso=shaded, shaded=shaded,
                                    colors=pc, sheet=sheet, project_name=title, meta=pm,
-                                   hole_fits=hole_fits, hole_threads=hole_threads))
+                                   hole_fits=hole_fits, hole_threads=hole_threads,
+                                   interface_dims=True,  # V7.2 D3: pitch del patrón de montaje en cada pieza
+                                   shop_notes=True))  # V7.2 B/C: tolerancia ISO 2768 + proceso/acabado
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)
     def _dims_cell(r):
         base = f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}"

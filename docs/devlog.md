@@ -3290,3 +3290,89 @@ con fila+bytes propios, hint de regenerar a carpeta FECHADA nueva (el testigo no
 Suite completa + tortura verdes. La conclusión estratégica se mantiene: **planos (53.6 %) siguen
 siendo LA brecha** → V7.2 «último kilómetro» (ISO 2553/2768/acabados/datums). Memoria-lee-del-modelo
 queda CERRADA. El testigo 2026-07-10 NO se tocó (referencia histórica).
+
+## V7.2 — Último kilómetro del plano: ISO 2553 · ISO 2768 · ISO 1302 · datums (2026-07-11)
+
+El benchmark testigo dejó a los **planos de taller como LA brecha (E2 = 53.6 %)**: el paquete tenía
+GA + láminas + cédula + lista de corte, pero le faltaba lo que un despacho «pule a mano» en el
+último kilómetro — símbolos de soldadura, tolerancia general, acabados, datums por función. V7.2 lo
+cierra con CRITERIO automático (el dato ya vive en el modelo: los fasteners saben garganta/longitud,
+los fits saben asiento, el catálogo sabe proceso), NO con plantillas manuales por hoja. Un frente
+por vez; suite + tortura verdes.
+
+**Reconocimiento (medido en el proyecto 38 vivo antes de diseñar):** 41 fasteners `soldadura` reales
+(throat 3/4 mm, longitudes 60–140), agrupables en 8 combos (garganta,longitud). Y el diagnóstico que
+CONTRADIJO la premisa del plan: la «Ménsula de chumacera» (c685) que el plan creía «con barrenos sin
+callout» resultó ser un `run_script` de DOS cajas planas 182×106×13 con CERO aristas circulares — no
+es un filtro que las mate, es que **no tiene barrenos modelados** (el UCP no puede atornillarse). Se
+reportó como gap de MODELO (E1.1), no se inventaron barrenos. El barrido de las 19 piezas confirmó
+que las de barrenos alineados SÍ reciben callout; el único fallo de detección real es 1 soporte de
+motor con un barreno en eje no ortogonal (HLR lo ve como elipse — fuera de alcance).
+
+**A · Soldadura ISO 2553 en el GA.** `weld_symbol(model, ax, ay, throat, length, count)` en
+`drawing/dimensions.py` (directriz+flecha al nudo + línea de referencia + triángulo de filete +
+texto «aX L ×N típ.», compuesto de `Line`+`Label` → exporta sin tocar exportadores, patrón de
+`datum_flag`). `compose_sheet(fasteners=…)` (nuevo param) agrupa los cordones tipo `soldadura` con
+AMBAS piezas en la escena por (garganta,longitud), dibuja hasta 6 símbolos «típ. ×N» anclados al
+centro del solape de bboxes proyectado al alzado, y el resto → nota general. Es NO-OP en las láminas
+por pieza (la escena aislada `{"P":feat}` no contiene los ids reales a/b). GOTCHA CENTRAL resuelto:
+el drawing layer NO recibía `DOC.fasteners` — se cableó en `_sheet_model`, `drawing_spec`,
+`sheet_set` (al conjunto) y ambos `drawingset`. La leyenda declara la agrupación y los cordones sin
+dimensionar remiten a la memoria (el plano y la memoria dicen LO MISMO; report.py no inventa a3 por
+defecto, marca «no verificable» → el plano tampoco inventa). Escalonado en abanico diagonal + tope 6
+para no chocar con los globos del despiece (verificado con `_check_overlaps`: 0 solapes nuevos).
+
+**B · Tolerancia general ISO 2768-mK.** Default de `meta["tolerance"]` en `compose_sheet` y el
+fallback de `titleblock` pasan de «±0.5» a «ISO 2768-mK» (el override por spec sigue). Nota
+«Tolerancias sin indicar: ISO 2768-mK · cotas en mm» en cada lámina de pieza (vía `shop_notes`).
+
+**C · Acabados ISO 1302 + notas de proceso.** `drawing/process.py::infer_process(feat, component)`
+(función PURA): catálogo perfil/tubo→sierra (Ra 12.5); nombre con ajuste ISO 286 «Ø35 h7»→torneado
+(Ra 3.2); espesor mínimo del bbox ≤6 mm sin catálogo→corte láser+plegado (Ra 12.5); resto→mecanizado
+(Ra 6.3). El Ra del proceso llena la celda «Acabado» del cajetín; `shop_notes()` genera las notas de
+taller (romper aristas 0.5×45°; primer+esmalte si acero, no-pintar si inox/galv). `_hole_callouts`
+cablea `surface_finish` Ra 1.6 TRAS cada callout con fit ISO 286 (asiento de rodamiento/eje = super-
+ficie fina). Verificado: el eje muestra «Ø35 h7 (0/-0.025)» + ✓ Ra 1.6, torneado Ra 3.2 en cajetín.
+
+**D · Acotado por función.** `auto_hole_dims(datum=True)` marca la bandera de datum «A» en la arista
+de referencia (esquina inf-izq = la que ya acotaba; fallback honesto del plan: sin señal de contra-
+parte, el datum es la esquina real). El filtro `r*scale<0.8` de `_hole_callouts` se parametrizó
+(`min_r_paper`, bajado a 0.2 en láminas por pieza; los barrenos con fit/rosca rotulan SIEMPRE) — así
+el Ø del larguero a 1:14, antes silenciado, ahora rotula (plan D1 «nunca silenciar un barreno
+funcional»). Pitch de montaje (`interface_dims`) activo en cada lámina por pieza. Todo bajo el nuevo
+flag `shop_notes` (láminas por pieza del `sheet_set`); el conjunto solo recibe la soldadura.
+
+**Verificación E2E + re-benchmark.** 14 tests nuevos (`tests/test_drawing_v72.py`; total 1089→1103),
+suite + tortura verdes. Servidor arrancado con el código final; `benchmark_package.py --project 38
+--expect largo_total=4000 --template weldment --out …/2026-07-11-v72` → 25/25 artefactos OK en 114 s;
+el `juego.pdf` (22 pág) verificado por texto (pypdf) tiene ISO 2768-mK, ISO 2553, «a3 140 ×6 típ.»,
+proceso/Ra por pieza, «Ø35 h7» + Ra 1.6. Re-calificado E2 completo contra la rúbrica-v1 (anclas NO
+relajadas): **E2 2.14→2.93 (53.6→73.2 %)** — E2.3/E2.4/E2.5 subieron a 3, E2.2 a **2.5** (declarado:
+el datum es la esquina de referencia, no la cara funcional, y la ménsula de chumacera necesita sus
+barrenos de UCP en el MODELO; 1 barreno no-ortogonal sin detectar), E2.1/E2.6/E2.7 mantienen 3.
+**Global 68→≈74 %.** El testigo 2026-07-11 (V7.1c) NO se pisó (carpeta `-v72` nueva). La brecha top
+pasa a ser el **manual (E5=50 %)** y el residuo de acotado funcional. Spot-checks: «a3 140 ×6» ⇄ 6
+fasteners pata↔travesaño con throat 3/L140; celdas Ra ⇄ proceso inferido por pieza. Sin capa DXF
+nueva (los símbolos reusan COTAS/VISIBLE/MARCO) → DWG intacto.
+
+## V7.2 re-auditoría y cierre (Fable, 2026-07-11)
+
+Dos auditorías independientes sobre el trabajo de Opus (diff de código + PDFs/datos del
+paquete v72). El dato es honesto: el spot-check de soldadura cuadra 1:1 (6 grupos «típ.»
+del GA = los 41 fasteners soldadura agrupados por garganta/longitud, singleton a4×110/120
+fuera del tope declarados), ISO 2768-mK en 22/22 páginas, aritmética limpia. Correcciones
+del cierre: (1) CRÍTICO arreglado — `_place_weld_symbols` con `throat_mm=None` en empate
+de conteo lanzaba TypeError (None < float) = 500 en el juego con soldaduras auto sin
+dimensionar; sort con centinelas + test `test_weld_symbols_mixed_none_throat_tie` +
+abanico sin `%4` (símbolos 0/4 y 1/5 se solapaban) + filtro de piezas visibles en el call
+site. (2) La desviación del punto A.4 del plan quedó JUSTIFICADA: la memoria no aplica
+default a cordones sin dimensionar (report.py:133 los agrega en regla-resumen), así que
+el símbolo sin cota + «ver memoria» es lo que mantiene plano⇄memoria coherentes; rotular
+a=3 inventado los desincronizaría. (3) Re-auditoría de nota: E2.5 3→2.5 — la rama
+«sierra» de `infer_process` nunca dispara en miembros de weldment (sin
+`component.category`) → patas/travesaños/largueros salen «mecanizado Ra 6.3» en vez de
+acabado de laminación; además «plegado» en repisa sin pliegue. E2 2.93→**2.86 (71.4 %)**
+— la meta ≥2.85 se cumple por poco — y global 74→**≈73 %**. Reservas anotadas: designación
+junto a (no sobre) la línea de referencia, «0 solapes nuevos» solo texto-vs-texto,
+evidencia PNG del eje degenerada. Brechas nuevas → V7.2b(5). Suite 1089+nuevos y tortura
+verdes con los fixes.

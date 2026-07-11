@@ -156,6 +156,43 @@ def datum_flag(model: "SheetModel", x: float, y: float, letter: str, *, size: fl
     ]
 
 
+def weld_symbol(
+    model: "SheetModel", ax: float, ay: float, *,
+    throat: float | None = None, length: float | None = None, count: int = 1,
+    lead: tuple[float, float] = (9.0, 7.0), ref_len: float = 16.0, size: float = 3.0,
+) -> None:
+    """Símbolo de soldadura ISO 2553 anclado al punto de la unión `(ax, ay)` (papel).
+
+    Dibuja: directriz con FLECHA al punto de unión + línea de referencia horizontal +
+    triángulo de FILETE (lado flecha) sobre ella + texto «aX» (garganta) · «L»
+    (longitud) · «×N típ.» (cordón típico agrupado). `throat=None` → sin cota numérica
+    (cordón sin dimensionar; el llamador añade la nota general «ver memoria»).
+
+    Compuesto de Line(kind="dim"|"visible")+Label → exporta a SVG/PDF/DXF sin tocar
+    los exportadores (mismo patrón que `datum_flag`/`surface_finish`)."""
+    from .sheet import Label, Line
+
+    kx, ky = ax + lead[0], ay + lead[1]  # codo de la directriz
+    model.lines.append(Line(ax, ay, kx, ky, "dim"))
+    _arrow(model, ax, ay, kx - ax, ky - ay)  # flecha en el punto de unión
+    model.lines.append(Line(kx, ky, kx + ref_len, ky, "dim"))  # línea de referencia
+    t0, th = kx + 1.5, size * 1.25  # triángulo de filete junto al codo
+    model.lines += [
+        Line(t0, ky, t0, ky + th, "visible"),         # cateto vertical
+        Line(t0, ky + th, t0 + size, ky, "visible"),  # hipotenusa
+        Line(t0, ky, t0 + size, ky, "visible"),       # base
+    ]
+    parts: list[str] = []
+    if throat:
+        parts.append(f"a{throat:g}")
+    if length:
+        parts.append(f"{length:g}")
+    if count > 1:
+        parts.append(f"×{count} típ.")
+    if parts:
+        model.labels.append(Label(t0 + size + 1.2, ky + 0.4, " ".join(parts), size * 0.82, anchor="start"))
+
+
 def feature_control_frame(model: "SheetModel", x: float, y: float, symbol: str, tol: str,
                           datums: tuple = (), *, size: float = 5.0) -> float:
     """Marco de control de feature GD&T: [símbolo | tolerancia | datum...]. Devuelve el ancho total."""
