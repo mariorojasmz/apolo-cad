@@ -681,18 +681,21 @@ en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + repor
 soundness/gravity sigue siendo único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+FEA
 lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
 robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (**MEDIDO** en V7.1, benchmark testigo de la faja 38 vs la
-rúbrica-v1 de nivel despacho — `docs/benchmark/faja38/2026-07-10/calificacion.md`; global
-del paquete ≈ **67 %** de nivel despacho, producido de punta a punta por API en **6.9 min**
-autónomo — la métrica de TIEMPO es ~10³× a favor): memoria de cálculo = **85 %** (ya
-supera al despacho-en-Excel: 15 verif.+FEA con fórmula/norma/FS trazable) · BOM/cotización
-= **75 %** (fiel, pesos exactos, fuentes/márgenes declarados) · 3D validado = **69 %**
-(máquina completa; le restan detalles: 1 flotante, 5 pernos de patrón) · **planos de taller
-= 53.6 %** (era estimado ~65 %; el más pesado y donde perdemos — falta el último kilómetro:
-ISO 2553/2768, acabados, datums por función) · manual = **50 %** (paginado por
+Veredicto por RESULTADOS (**MEDIDO** en V7.1 + re-auditoría, benchmark testigo de la faja
+38 vs la rúbrica-v1 de nivel despacho — `docs/benchmark/faja38/2026-07-10/calificacion.md`;
+global del paquete ≈ **62 %** de nivel despacho (autocalificación 67 % corregida por la
+re-auditoría, regla 3), producido de punta a punta por API en **6.9 min** autónomo — la
+métrica de TIEMPO es ~10³× a favor, estimado): memoria de cálculo = **70 %** (fórmula/
+sustitución impecable y trazable, PERO datos de entrada con defaults que contradicen el
+modelo: 8 patas vs 6, Ø30 vs Ø35, L10 sin tensión de banda — fix barato que la devuelve a
+~85 %) · BOM/cotización = **75 %** (fiel, pesos exactos, fuentes/márgenes declarados) · 3D
+validado = **69 %** (máquina completa; le restan detalles: 1 flotante, 5 pernos de patrón)
+· **planos de taller = 46.4 %** (era estimado ~65 %; el más pesado y donde perdemos —
+último kilómetro ISO 2553/2768/acabados/datums + lista de corte que mezcla COMPRAS con
+fabricación + tubos sin espesor de pared en lámina) · manual = **50 %** (paginado por
 sub-ensamblajes; falta orden por grafo de soporte) · **FEA firmable ~45 %** (falta
-ensamblaje/contacto) · render comercial ~50 % (por demanda). Las 4 brechas top son TODAS de
-planos → V7.2 «último kilómetro» es LA prioridad, con ISO 2553 y acabados en cabeza.
+ensamblaje/contacto) · render comercial ~50 % (por demanda). Las brechas top siguen siendo
+de planos → V7.2 «último kilómetro» es LA prioridad; la #2 es memoria-lee-del-modelo.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -759,11 +762,13 @@ cerrar V6; orden tentativo por impacto en el entregable:
   sin el reload que blanquea el DOC) en **411.9 s** autónomo: validación + juego de planos
   (32 pág PDF + DWG) + memoria + BOM/costeo/cotización + manual + STEP + renders (24/24
   artefactos, `docs/benchmark/faja38/2026-07-10/`). Calificado contra `rubrica-v1.md` (anclas
-  duras, versionada = test de regresión de CALIDAD) con evidencia y spot-checks: **global
-  ≈ 67 %** de nivel despacho (memoria 85 % · BOM/cotización 75 % · 3D 69 % · **planos 53.6 %**
-  · manual 50 %). Las 4 brechas top son de planos → confirma V7.2 como prioridad. Hallazgos
-  reales cazados por spot-check: 5 placas de anclaje con 3/4 pernos, `c704` flotante/sin
-  grupo, 2 avisos ISO 286 del eje del tensor. La rúbrica NO se relaja entre corridas.
+  duras, versionada = test de regresión de CALIDAD) con evidencia y spot-checks; la
+  RE-AUDITORÍA (regla 3, sección final de calificacion.md) corrigió la autocalificación
+  67 %→**global ≈ 62 %** (memoria 85→70 % por datos de entrada con defaults vs modelo ·
+  planos 53.6→46.4 % por lista de corte con compras y tubos sin espesor · BOM 75 % · 3D
+  69 % · manual 50 %). Hallazgos cazados: 5 placas de anclaje con 3/4 pernos, `c704`
+  flotante/sin grupo, memoria divide entre 8 patas cuando hay 6, L10 ignora la tensión de
+  banda. La rúbrica NO se relaja entre corridas; brechas 9-13 nuevas en calificacion.md.
 - **V7.2 Último kilómetro del plano**: símbolos de soldadura ISO 2553 (los weldments ya
   saben garganta/longitud), tolerancias generales ISO 2768 en cajetín, acabados
   superficiales, notas de proceso, criterio de acotado por FUNCIÓN (datum = cara de

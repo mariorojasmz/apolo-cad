@@ -238,3 +238,58 @@ prioridad**, con soldadura ISO 2553 y acabados empatados en cabeza. Ese ranking 
   requisito previo de 30 kg era incoherente con el modelo). Único cambio persistente.
 - E1.4 dejó 2 pasos de undo (apply 3.2m + apply 4m); la geometría quedó en **«4m estandar»** idéntica
   al baseline. No se «arregló» ningún entregable para subir nota (regla 1).
+
+---
+
+# RE-AUDITORÍA (Fable, 2026-07-10) — regla 3 de la rúbrica
+
+Contrapeso a la autocalificación: 3 auditorías independientes (PDFs por texto extraído,
+JSONs recomputados con stdlib, script/docs contra el plan). **Los números de arriba son
+honestos** — 30+ cifras recomputadas coinciden, los spot-checks se reproducen, la rúbrica
+no se relajó respecto al plan. Pero la calificación fue **autocomplaciente por omisión**:
+citó evidencia equivocada en un criterio, describió retoques blandos donde los duros son
+otros, y no auditó los DATOS DE ENTRADA de la memoria contra el propio modelo. Puntajes
+corregidos (solo a la baja; nada estaba desinflado):
+
+| Criterio | Opus | Fable | Por qué |
+|---|:---:|:---:|---|
+| E2.1 Completitud del juego | 3 | **2** | La LISTA DE CORTE (pág 31) manda cortar como materia prima 19 pernos M12 («acero 61×26×26»), 16 pies niveladores, la banda PVC y el tambor de caucho — mezcla COMPRAS con fabricación; ~8/29 láminas son «planos de fabricación» de ítems de compra; hojas 31-32 con cajetín «Sin título»; despiece del GA truncado a 12 filas. Un despacho no lo entrega así. |
+| E2.3 Tolerancias | 2 | 2 | Puntaje se sostiene pero la EVIDENCIA era falsa: el cajetín NO dice «Tol. gral —», dice **«±0.5 · mm»** en las 32 láminas (verificado). Un ±0.5 genérico sin clase ISO 2768 sigue sin ser nivel despacho. |
+| E2.6 Legibilidad/consistencia | 3 | **2** | Hojas «Sin título»; despiece truncado; inconsistencias de cantidad ENTRE entregables (ménsula de chumacera: 2 en cutlist/GA vs 1 en BOM; pies niveladores: 5 en GA, 16 en cutlist, 1 fila BOM con «longitud 3250 mm»); el «1 solape» del detector quedó sin verificación independiente. |
+| E3.2 Datos de entrada | 3 | **2** | La memoria CONTRADICE el modelo: pandeo divide entre **8 patas** cuando hay 6 (¡la propia lámina dice «Pata A36 · 6×»!); flecha entre **4 largueros** cuando hay 2; flexión usa **Ø30** cuando el eje es Ø35 h7 en todo el paquete. Defaults silenciosos — exactamente lo que E3.2 prohíbe. |
+| E3.3 Trazabilidad | 4 | **3** | «Norma citada por verificación» solo en 4/15 cuantitativas (CEMA ×2, DIN 22101, Euler-Eytelwein); velocidad/rodillo/par/flecha/flexión/L10/pandeo/vuelco/FEA sin norma. La fórmula+sustitución sí es impecable y reproducible. |
+| E3.5 ¿La firmaría? | 3 | **2** | Con los datos de entrada erróneos (8 patas, Ø30) y L10 con P=75 kg/4 que IGNORA la tensión de banda que la propia memoria calcula 2 págs antes (T2≥385 N) → L10 = 761 millones de horas, número que un despacho tacharía. La devolvería para corrección antes de firmar. |
+
+E2.2 se queda en 2 pero el retoque REAL es otro: **ningún tubo estructural declara espesor
+de pared en su lámina** (pata pág 25: solo 76.2/674.4 — el «3» del HSS no aparece; con solo
+la lámina no se sabe si es tubo o barra) y las **ménsulas atornilladas no rotulan ningún
+barreno** (chumacera pág 7, motor pág 26). E5.1 se queda en 2 (la banda en paso 2 antes de
+los tambores es discutible — deslizar el lazo sobre el bastidor antes de montar tambores es
+práctica real; chumaceras después del motor sigue siendo el defecto).
+
+## Puntaje global RE-AUDITADO
+
+| Entregable | Opus | Fable | % |
+|---|:---:|:---:|---:|
+| E1 · 3D validado | 2.75 | 2.75 | 68.8 % |
+| E2 · Juego de planos | 2.14 | **1.86** | **46.4 %** |
+| E3 · Memoria de cálculo | 3.40 | **2.80** | **70.0 %** |
+| E4 · BOM + cotización | 3.00 | 3.00 | 75.0 % |
+| E5 · Manual | 2.00 | 2.00 | 50.0 % |
+| E6 · Paquete e interop | 3.00 | 3.00 | 75.0 % |
+| **GLOBAL** | ≈67 % | | **≈ 62 %** |
+
+La conclusión estratégica NO cambia — se REFUERZA: los planos caen a 46.4 % (V7.2 aún más
+prioritario) y la memoria, nuestro entregable estrella, baja a 70 % por un defecto NUEVO y
+barato de arreglar: **leer los conteos del MODELO** (n patas, n largueros, Ø real del eje,
+L10 con la tensión calculada) en vez de defaults. Ese fix devuelve E3 a ~85 % legítimo.
+
+## Brechas NUEVAS de la re-auditoría (se suman al backlog de Fase C)
+
+| # | Brecha | Pri | Módulo |
+|--:|---|--:|---|
+| 9 | Memoria con datos del MODELO: n patas/largueros del grafo, Ø del eje real, L10 con tensión de banda (E3.2=2, E3.5=2) | **40** | `library/rules.py` / `engineering` (los conteos ya existen en la escena) |
+| 10 | Excluir ítems de COMPRA (catálogo/herraje) de láminas de fabricación y lista de corte (E2.1=2) | 30 | `drawing/sheet_set.py` |
+| 11 | Espesor de pared de tubos + barrenos de ménsulas en sus láminas (E2.2) | 30 | `drawing/` acotado (parte de V7.2 datums) |
+| 12 | Título real en hojas 31-32 + consistencia de cantidades BOM↔cutlist↔GA (E2.6=2) | 20 | `drawing/sheet_set.py` + investigar cuál miente |
+| 13 | Script: exit code ≠0 ante fallos, gate de health/variante, genericidad `--project` honesta | 10 | `scripts/benchmark_package.py` |

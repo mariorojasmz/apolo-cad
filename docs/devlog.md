@@ -3227,3 +3227,19 @@ despacho-en-Excel». La rúbrica queda como test de regresión de CALIDAD: corre
 
 Suite: **1079 verde** · tortura 15 verde (V7.1 no toca código de núcleo: solo un script nuevo +
 docs). Faja 38 ÍNTEGRA en «4m estandar» (74/312, health 0 issues).
+
+## V7.1 re-auditoría (Fable, 2026-07-10)
+
+Contrapeso de la regla 3 de la rúbrica: 3 auditorías independientes (PDFs por texto,
+JSONs recomputados, script vs plan). Los NÚMEROS de la calificación de Opus son honestos
+(30+ cifras recomputadas coinciden; rúbrica no relajada), pero hubo autocomplacencia por
+omisión: global corregido 67 %→**62 %**. Correcciones: E2.1 3→2 (lista de corte manda
+cortar pernos/pies/banda como materia prima; ~8 láminas de ítems de compra), E2.6 3→2
+(hojas «Sin título», cantidades inconsistentes BOM↔cutlist↔GA), E3.2 3→2 (la memoria
+divide entre 8 patas cuando hay 6 — la propia lámina dice «6×» —, 4 largueros cuando hay
+2, eje Ø30 cuando es Ø35), E3.3 4→3 (norma solo en 4/15), E3.5 3→2 (L10 con P=75 kg/4
+ignora la tensión de banda que la misma memoria calcula → 761M horas, un despacho lo
+tacha). La evidencia de E2.3 era falsa (el cajetín dice «±0.5 · mm», no «—») aunque la
+conclusión sobrevive. La conclusión estratégica se REFUERZA: planos 46.4 % (V7.2 aún más
+prioritario) y un fix barato nuevo —memoria-lee-del-modelo— devuelve E3 a ~85 %. Brechas
+9-13 añadidas a calificacion.md; fixes en docs/plans/V7.1c-fixes-re-auditoria.md.
