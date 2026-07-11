@@ -1,7 +1,7 @@
-# Paquete benchmark — faja-paqueteria-4m (proyecto 38)
+﻿# Paquete benchmark — faja-paqueteria-4m (proyecto 38)
 
 - **Generado**: 2026-07-11T10:37:02
-- **Commit de código**: `2a555cc`
+- **Commit de código**: `11cb203`
 - **Proyecto**: id 38 · variante `largo_total=4000.0` · 25 llamadas
 - **Health al abrir**: ok=True · features=79 · commands=324 · suppressed=[]
 - **Open (API en frío/caliente)**: 6.94s — *medido aparte, NO cuenta en el total de generación* (la tesis del ~100× es la generación de entregables).
