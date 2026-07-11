@@ -60,17 +60,12 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
 - **Estado actual (2026-07-11)**: 1089 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
-  52 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** (§ Hoja de ruta V5) · **V6
-  «Apolo industrial»: V6.1 robustez + V6.2 rendimiento + V6.3 ensamblaje pro + V6.4 paramétrico
-  profundo + V6.5 MCP a escala CERRADOS**. V6.1
-  («nada tumba el documento»: `check_integrity` + carga tolerante + atomicidad + `GET /api/health`;
-  robustez 3→6). V6.2 (open caliente por caché BREP + deltas de escena + dos-locks render/física +
-  autosave debounced; rendimiento 4→6). V6.3 (multi-mate por sólido + conectores por ancla/arista +
-  reporte de DOF; ensamblaje 4.5→6). Proyectos de referencia: `faja-paqueteria-4m`
-  (id 38, 74 sólidos, 312 comandos, memoria APROBADO, eje motriz «Ø35 h7»; V6.4d: juntas
-  paramétricas —j_trav/j_tensor/z de j_mesa siguen a `long_centros`/`drum_cz`— + basura
-  UI podada), `layout-planta-demo` (id 53, 149 sólidos) y `guarda-banda-demo`
-  (chapa en C con hems, DXF verificado).
+  52 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
+  CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
+  paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
+  Convenciones. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 74 sólidos, 312
+  comandos, 100 % paramétrica, memoria APROBADO, eje motriz «Ø35 h7»), `layout-planta-demo`
+  (id 53, 149 sólidos) y `guarda-banda-demo` (chapa en C con hems, DXF verificado).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
   viewport — usar `vite preview`).
@@ -705,51 +700,20 @@ El roadmap V5 (completitud de FLUJO del vertical) está **agotado**: lo que qued
 V6 ataca los ejes de MADUREZ más débiles del propio CLAUDE.md, empezando por el menos
 vistoso y más pro. Criterio de «hecho» = el de V5 **+ la tortura y el health quedan
 verdes**. Un ítem por vez, con plan formal.
-- **V6.1 Robustez industrial** — **HECHO (2026-07-04)**. Contrato «nada tumba el
-  documento»: tras cualquier fallo (excepción OCCT, comando inválido, .apolo corrupto,
-  fuzzing de undo/redo, autosave caído) el doc queda ÍNTEGRO Y VERIFICABLE. `check_integrity`
-  + `APOLO_STRICT` + `GET /api/health` + suite de tortura (primero roja) + atomicidad de
-  regenerate + carga tolerante + autosave durable + startup sano + LRU de DEFINITIONS +
-  insert_project pre-validado + WS resiliente. Madurez robustez 3→6.
-- **V6.2 Rendimiento** — **HECHO (2026-07-09)**. Open caliente por caché BREP por firma
-  (faja 38: open frío 3–23 s → caliente 0.04 s) + deltas de `scene_payload` (layout 53:
-  1.1 MB → 31 KB) + reuso de mallas en el viewport (solo la pieza editada se reconstruye) +
-  dos-locks render/física (mutación durante render/gravity < 1 s) + autosave debounced
-  (ráfaga de 20 → 1 escritura). Baseline regenerado. Madurez rendimiento 4→6.
-- **V6.3 Ensamblaje pro** — **HECHO (2026-07-09)**. Multi-mate por sólido (DAG multi-padre +
-  solver acoplado least_squares por hijo, camino 1-mate intacto) + conectores por ANCLA con
-  nombre (chumacera/NMRV/faja) y por ARISTA CIRCULAR + reporte de DOF (`assembly/dof.py`,
-  Grübler, `get_dof`). Verificado E2E: chumacera concéntrica por ancla contra un eje (centro
-  medido sobre el eje); `get_dof` sobre la faja 38 (82 sólidos, 256 GDL, sin crash). Fix 0
-  residual: autosave limpia `dirty` bajo `_flush_lock`. Ensamblaje 4.5→6.
-- **V6.4 Paramétrico profundo** — **HECHO (2026-07-10)**. (a) Motor de expresiones con
-  CONDICIONALES (ternario perezoso + comparadores + and/or) para tablas de diseño. (b) Faja 38
-  100 % paramétrica: log podado 701→328 (poda de escombro de UI verificada — 82 piezas bit-
-  idénticas), conjunto motriz sigue a `largo_total` (posiciones create/insert + 6 run_scripts
-  reescritos con `V[...]`; E2E `largo_total=3200` → todo el motriz sigue, 0 colisiones nuevas).
-  (c) Tablas de diseño: `set_configuration`/`PUT`, grilla variables×variantes en VariablesDialog,
-  tools MCP save/apply_configuration, puente requisitos→variables explícito; E2E: variantes «4m
-  estándar»↔«3.2m compacta» alternadas, el modelo salta completo. (d) **Remate V6.4d
-  (2026-07-10)**: las 15 juntas dejan de ser 100 % literales — `j_trav1..5` x→`100+k*(long_centros
-  -200)/4` y z→`z_mesa_bot-sec_trav/2`, `j_mesa1..4` z→`z_mesa_bot+esp_mesa/2`, `j_tensor_cola`
-  z→`drum_cz`; radios de banda/rodillo→`rad_tambor+esp_banda`/`rad_tambor`/`diam_rodillo/2` (todo
-  resuelto EXACTO antes de atar; las juntas son anclas cinemáticas, mueven 0 geometría de pieza).
-  Basura viva podada (`c1099` Boceto + 14 transforms + `c765` Viga trazada → 82→74 sólidos, 328→312
-  comandos). Guías-huérfanas podadas en la carga (Fix 5a). Baseline re-medido (312 cmds; open frío
-  3.15→1.8 s). E2E: apply_configuration «3.2m compacta» → j_trav5 a 2906 dentro del bastidor, 0
-  colisiones nuevas → vuelta a «4m estándar», revisión guardada. Paramétrico 5→6.5.
-- **V6.5 MCP a escala** — **HECHO (2026-07-10)**. Ergonomía del agente para proyectos de
-  MILES de piezas (el ingeniero digital produce los entregables → su percepción/acción ES
-  infraestructura). (A) Lectura acotada: `get_scene(ids|name|limit|offset)` filtra/pagina
-  (brief sin mallas) y `get_scene(summary=true)` = resumen por grupo (n_piezas/masa/bbox) — la
-  vista de entrada; `get_topology(only|min_mm)` poda el ruido; `get_bom(by_group)`. (B)
-  Consultas espaciales: `near(feature|box)` («¿qué rodea a X?»/«¿qué hay en la región?») +
-  `check_interference(ids=...)` acotada O(k·n). (C) Verbos de intención: comando `snap_to`
-  (junto a B con gap, relacional) + tool `verify` (aserciones distancia/volumen/bbox/
-  sin_interferencia/existe en lote). (D) `preview(data=true)` = fantasmas + colisiones nuevas
-  sin mutar el doc. (E) Doctrina de escala en `design_brief()` (capa 1 SIEMPRE). Presupuesto:
-  lectura de rutina < 10 KB a 1000 piezas (verificado: grupo filtrado 9.4 KB, summary 0.45 KB).
-  52 comandos · 69 tools. IA-nativa/API-first sigue 9.5 (el moat, más profundo).
+- **V6.1 Robustez** — **HECHO (2026-07-04)**: «nada tumba el documento» (`check_integrity`
+  + `APOLO_STRICT` + health + tortura + regenerate atómico + carga tolerante + autosave
+  durable). 3→6. Detalle: § Robustez/integridad.
+- **V6.2 Rendimiento** — **HECHO (2026-07-09)**: caché BREP (open 3–23 s→0.04 s) + deltas
+  de escena (1.1 MB→31 KB) + dos-locks + autosave debounced. 4→6. Detalle: § Rendimiento.
+- **V6.3 Ensamblaje pro** — **HECHO (2026-07-09)**: multi-mate (DAG multi-padre) +
+  conectores por ancla/arista circular + reporte de DOF. 4.5→6. Detalle: § Ensamblaje.
+- **V6.4 Paramétrico profundo** — **HECHO (2026-07-10, remate V6.4d)**: expresiones con
+  condicionales + faja 38 100 % paramétrica (log 701→312, juntas con expresiones, tren
+  motriz sigue a `largo_total`) + tablas de diseño (variantes E2E «4m»↔«3.2m»). 5→6.5.
+  Detalle: § Paramétrico/modelado y follow-ups en Pendientes.
+- **V6.5 MCP a escala** — **HECHO (2026-07-10)**: lectura acotada/paginada + summary por
+  grupo + `near`/interferencia acotada + `snap_to`/`verify` + preview con datos; rutina
+  < 10 KB a 1000 piezas. Detalle: § Lectura a ESCALA.
 - **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
 - **V6.7 FEA de ensamblaje (bonded)**. 4.5→5.5.
 
@@ -758,33 +722,18 @@ verdes**. Un ítem por vez, con plan formal.
 Ejecuta la doctrina de RESULTADOS: cerrar los entregables donde el paquete Apolo aún
 pierde contra el terminado a mano en SW/Inventor. Definir cada ítem con plan formal al
 cerrar V6; orden tentativo por impacto en el entregable:
-- **V7.1 Benchmark testigo** — **HECHO (2026-07-10)**. Paquete completo de la faja 38
-  producido de punta a punta por API (`scripts/benchmark_package.py`, cliente HTTP puro →
-  sin el reload que blanquea el DOC) en **411.9 s** autónomo: validación + juego de planos
-  (32 pág PDF + DWG) + memoria + BOM/costeo/cotización + manual + STEP + renders (24/24
-  artefactos, `docs/benchmark/faja38/2026-07-10/`). Calificado contra `rubrica-v1.md` (anclas
-  duras, versionada = test de regresión de CALIDAD) con evidencia y spot-checks; la
-  RE-AUDITORÍA (regla 3, sección final de calificacion.md) corrigió la autocalificación
-  67 %→**global ≈ 62 %** (memoria 85→70 % por datos de entrada con defaults vs modelo ·
-  planos 53.6→46.4 % por lista de corte con compras y tubos sin espesor · BOM 75 % · 3D
-  69 % · manual 50 %). Hallazgos cazados: 5 placas de anclaje con 3/4 pernos, `c704`
-  flotante/sin grupo, memoria divide entre 8 patas cuando hay 6, L10 ignora la tensión de
-  banda. La rúbrica NO se relaja entre corridas; brechas 9-13 nuevas en calificacion.md.
-- **V7.1c Fixes de la re-auditoría** — **HECHO (2026-07-11)**. Cerró las brechas 9-13 (62 %→
-  **68 %**, re-calificado en `docs/benchmark/faja-paqueteria-4m/2026-07-11/`). (A) La memoria
-  lee del MODELO, no defaults: pandeo cuenta las patas por ROL (`_LEG_RE`, 6 no 8 — piezas que
-  MENCIONAN «pata» ya no cuentan), flecha los largueros por rol (`_LARG_RE`, 2 no 4), Ø del eje
-  motriz por rol+geometría/nombre (`_EJE_RE`, Ø35 no la variable stale 30 ni el tambor Ø114) y
-  L10 con la carga radial de banda `(T1+T2)/2` (`conveyor["bearing_radial_n"]` sembrado por la
-  regla de adherencia → `structure_engineering_check(belt_radial_n=…)`). (B) Cirugía 38: patrón
-  de anclaje completado a 24 pernos (comando `c1114` = c147 replicado por el 3×2 de las placas,
-  paramétrico) + `c704` declarado (fasten→c703 + grupo Transmision) → **0 flotantes**, gravity
-  sin caídas (rev 80). (C) `sheet_set`/`cutlist`: las piezas de COMPRA a-medida (pernos/pies/
-  banda, por ROL en `_PURCHASE_RE`) salen de la lista de corte y de las láminas → van a la
-  cédula, que cuenta como el BOM (juego 32→22 pág, títulos reales en hojas de tabla, sección de
-  perfil de catálogo rotulada). (D) `benchmark_package.py`: exit≠0 ante fallos, gate
-  `--expect`/health, `--out` por slug del proyecto, `--checks` para proyectos ≠38, fila propia
-  de validacion.json. Suite + tortura verdes.
+- **V7.1 Benchmark testigo** — **HECHO (2026-07-10)**. Paquete completo de la faja 38 por
+  API en 411.9 s autónomo (24/24 artefactos, `docs/benchmark/faja38/2026-07-10/`),
+  calificado contra `rubrica-v1.md` con spot-checks; la RE-AUDITORÍA (regla 3) corrigió la
+  autocalificación 67 %→**62 %** y cazó: memoria con defaults contra el modelo (8 patas vs
+  6, Ø30 vs 35, L10 sin tensión de banda), lista de corte con compras, 5 placas con 3/4
+  pernos, `c704` flotante. Detalle: calificacion.md + devlog.
+- **V7.1c Fixes de la re-auditoría** — **HECHO (2026-07-11)**. Brechas 9-13 cerradas, 62 %→
+  **68 %** (re-calificado en `docs/benchmark/faja-paqueteria-4m/2026-07-11/`): la memoria lee
+  del MODELO por ROL (`_LEG_RE`/`_LARG_RE`/`_EJE_RE`, L10 con `(T1+T2)/2`); cirugía 38 (24
+  pernos paramétricos + `c704` declarado → 0 flotantes); compras fuera de lista de corte y
+  láminas (juego 32→22 pág, por `_PURCHASE_RE`); script endurecido (exit≠0, gate `--expect`,
+  `--out` por slug, `--checks`). Detalle: calificacion.md 2026-07-11 + devlog.
 - **V7.2 Último kilómetro del plano** — **EN CURSO (Opus, plan
   `docs/plans/V7.2-ultimo-kilometro-plano.md`)**: símbolos de soldadura ISO 2553 en el GA
   (los datos throat/length YA existen en `DOC.fasteners`; gotcha: el drawing layer no los
