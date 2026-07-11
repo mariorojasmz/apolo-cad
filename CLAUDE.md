@@ -681,21 +681,22 @@ en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + repor
 soundness/gravity sigue siendo único) · planos 6.5 · simulación 4.5 (analítico+MuJoCo+FEA
 lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
 robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (**MEDIDO** en V7.1 + re-auditoría, benchmark testigo de la faja
-38 vs la rúbrica-v1 de nivel despacho — `docs/benchmark/faja38/2026-07-10/calificacion.md`;
-global del paquete ≈ **62 %** de nivel despacho (autocalificación 67 % corregida por la
-re-auditoría, regla 3), producido de punta a punta por API en **6.9 min** autónomo — la
-métrica de TIEMPO es ~10³× a favor, estimado): memoria de cálculo = **70 %** (fórmula/
-sustitución impecable y trazable, PERO datos de entrada con defaults que contradicen el
-modelo: 8 patas vs 6, Ø30 vs Ø35, L10 sin tensión de banda — fix barato que la devuelve a
-~85 %) · BOM/cotización = **75 %** (fiel, pesos exactos, fuentes/márgenes declarados) · 3D
-validado = **69 %** (máquina completa; le restan detalles: 1 flotante, 5 pernos de patrón)
-· **planos de taller = 46.4 %** (era estimado ~65 %; el más pesado y donde perdemos —
-último kilómetro ISO 2553/2768/acabados/datums + lista de corte que mezcla COMPRAS con
-fabricación + tubos sin espesor de pared en lámina) · manual = **50 %** (paginado por
-sub-ensamblajes; falta orden por grafo de soporte) · **FEA firmable ~45 %** (falta
-ensamblaje/contacto) · render comercial ~50 % (por demanda). Las brechas top siguen siendo
-de planos → V7.2 «último kilómetro» es LA prioridad; la #2 es memoria-lee-del-modelo.
+Veredicto por RESULTADOS (**MEDIDO** en V7.1 + re-auditoría, **re-calificado tras V7.1c** —
+benchmark testigo de la faja 38 vs la rúbrica-v1 de nivel despacho;
+`docs/benchmark/faja-paqueteria-4m/2026-07-11/calificacion.md`, base honesta = el 62 %
+re-auditado, no la autocalificación 67 %; producido de punta a punta por API en ~7 min
+autónomo — la métrica de TIEMPO es ~10³× a favor, estimado): global del paquete ≈ **68 %**
+de nivel despacho (era 62 %). Memoria de cálculo = **80 %** (V7.1c: lee del MODELO — 6 patas,
+2 largueros, eje Ø35, L10 con la tensión de banda (T1+T2)/2; falta citar norma en las 15
+verif. cuantitativas para subir E3.3) · BOM/cotización = **75 %** (fiel, pesos exactos,
+fuentes/márgenes declarados) · 3D validado = **81 %** (V7.1c: 24 pernos de anclaje —patrón
+c1114 paramétrico— y c704 declarado → **0 flotantes**) · **planos de taller = 53.6 %** (V7.1c
+subió E2.1/E2.6: compras fuera de la lista de corte y de las láminas —juego 32→22 pág—,
+títulos reales, cédula = BOM; SIGUE siendo la brecha top: falta el último kilómetro ISO
+2553/2768/acabados/datums) · manual = **50 %** (paginado por sub-ensamblajes; falta orden por
+grafo de soporte) · **FEA firmable ~45 %** (falta ensamblaje/contacto) · render comercial
+~50 % (por demanda). La brecha top sigue siendo planos → **V7.2 «último kilómetro» es LA
+prioridad** (memoria-lee-del-modelo YA cerrada en V7.1c).
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -769,6 +770,21 @@ cerrar V6; orden tentativo por impacto en el entregable:
   69 % · manual 50 %). Hallazgos cazados: 5 placas de anclaje con 3/4 pernos, `c704`
   flotante/sin grupo, memoria divide entre 8 patas cuando hay 6, L10 ignora la tensión de
   banda. La rúbrica NO se relaja entre corridas; brechas 9-13 nuevas en calificacion.md.
+- **V7.1c Fixes de la re-auditoría** — **HECHO (2026-07-11)**. Cerró las brechas 9-13 (62 %→
+  **68 %**, re-calificado en `docs/benchmark/faja-paqueteria-4m/2026-07-11/`). (A) La memoria
+  lee del MODELO, no defaults: pandeo cuenta las patas por ROL (`_LEG_RE`, 6 no 8 — piezas que
+  MENCIONAN «pata» ya no cuentan), flecha los largueros por rol (`_LARG_RE`, 2 no 4), Ø del eje
+  motriz por rol+geometría/nombre (`_EJE_RE`, Ø35 no la variable stale 30 ni el tambor Ø114) y
+  L10 con la carga radial de banda `(T1+T2)/2` (`conveyor["bearing_radial_n"]` sembrado por la
+  regla de adherencia → `structure_engineering_check(belt_radial_n=…)`). (B) Cirugía 38: patrón
+  de anclaje completado a 24 pernos (comando `c1114` = c147 replicado por el 3×2 de las placas,
+  paramétrico) + `c704` declarado (fasten→c703 + grupo Transmision) → **0 flotantes**, gravity
+  sin caídas (rev 80). (C) `sheet_set`/`cutlist`: las piezas de COMPRA a-medida (pernos/pies/
+  banda, por ROL en `_PURCHASE_RE`) salen de la lista de corte y de las láminas → van a la
+  cédula, que cuenta como el BOM (juego 32→22 pág, títulos reales en hojas de tabla, sección de
+  perfil de catálogo rotulada). (D) `benchmark_package.py`: exit≠0 ante fallos, gate
+  `--expect`/health, `--out` por slug del proyecto, `--checks` para proyectos ≠38, fila propia
+  de validacion.json. Suite + tortura verdes.
 - **V7.2 Último kilómetro del plano**: símbolos de soldadura ISO 2553 (los weldments ya
   saben garganta/longitud), tolerancias generales ISO 2768 en cajetín, acabados
   superficiales, notas de proceso, criterio de acotado por FUNCIÓN (datum = cara de

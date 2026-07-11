@@ -16,21 +16,36 @@ proyecto (no defaults) → fija los requisitos una vez con set_requirements y el
 reproducible. Los tiempos se miden con la API CALIENTE (el open se hace y mide aparte, y
 NO cuenta en el total de artefactos: la tesis del ~100× es la generación, no el open).
 
+Alcance: las aserciones `verify` (ids/nombres/holguras) y los títulos por defecto están
+CALIBRADOS al proyecto 38. Para otro proyecto: `--project N --checks mis_checks.json`
+(el resto —planos/memoria/BOM/cotización/manual/STEP/render— es genérico y usa el NOMBRE
+real del proyecto y los REQUISITOS guardados). Sin `--checks` en un proyecto ≠ 38 la fase
+`verify` se OMITE (no se inventa). Código de salida ≠0 si algún artefacto falla.
+
 Uso:
     .\.venv\Scripts\python.exe scripts\benchmark_package.py ^
-        [--out docs\benchmark\faja38\<AAAA-MM-DD>] [--project 38] [--url http://127.0.0.1:8000]
+        [--project 38] [--out docs\benchmark\<slug>\<AAAA-MM-DD>] [--expect largo_total=4000] ^
+        [--checks ruta.json] [--force] [--url http://127.0.0.1:8000]
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 import httpx
+
+
+def _slug(name: str) -> str:
+    """Slug de carpeta a partir del nombre del proyecto (para el --out por defecto)."""
+    s = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+    return s or "proyecto"
 
 # Artefactos PESADOS (render VTK por página / HLR de muchas piezas) → timeout amplio.
 TIMEOUT = httpx.Timeout(30.0, read=1200.0)
@@ -51,7 +66,7 @@ class Bench:
             "bytes": nbytes, "seconds": round(seconds, 3),
             "status": status, "note": note,
         })
-        flag = "OK " if status == "ok" else "!! "
+        flag = {"ok": "OK ", "skip": ".. "}.get(status, "!! ")
         size = f"{nbytes:>9,}B" if nbytes is not None else "         "
         print(f"  {flag}[{phase}] {label:<34} {seconds:7.3f}s {size}  {note}")
 
@@ -109,7 +124,9 @@ def _git_commit() -> str:
 
 
 # ---- A1: aserciones de invariantes clave (parametricidad + existencia + holguras) ----
-VERIFY_CHECKS = [
+# ESPECÍFICAS del proyecto 38 (ids/nombres de esa faja). Para otro proyecto se pasan por
+# `--checks ruta.json` (mismo formato); sin ellas la fase `verify` se OMITE con nota.
+VERIFY_CHECKS_38 = [
     {"nombre": "largo_total -> bastidor (x)", "tipo": "bbox", "grupo": "Estructura",
      "eje": "x", "entre": [3950, 4100]},
     {"nombre": "ancho_banda -> banda (y)", "tipo": "bbox", "id": "c119", "eje": "y",
@@ -134,30 +151,72 @@ VERIFY_CHECKS = [
 def main() -> None:
     ap = argparse.ArgumentParser()
     hoy = datetime.now().strftime("%Y-%m-%d")
-    ap.add_argument("--out", default=str(Path("docs") / "benchmark" / "faja38" / hoy))
+    ap.add_argument("--out", default=None,
+                    help="carpeta de salida; por defecto docs/benchmark/<slug-del-proyecto>/<hoy>")
     ap.add_argument("--project", type=int, default=38)
     ap.add_argument("--url", default="http://127.0.0.1:8000")
     ap.add_argument("--template", default="generico", help="drawing_set: generico/weldment/chapa")
+    ap.add_argument("--expect", default=None,
+                    help="var esperada de la variante activa, p. ej. largo_total=4000 (gate)")
+    ap.add_argument("--checks", default=None,
+                    help="JSON con las aserciones `verify` (para un proyecto ≠ 38)")
+    ap.add_argument("--force", action="store_true",
+                    help="genera aunque el gate de estado (health/variante) falle")
     args = ap.parse_args()
 
-    out = Path(args.out)
-    (out / "planos").mkdir(parents=True, exist_ok=True)
-    (out / "render").mkdir(parents=True, exist_ok=True)
-
-    print(f"== Paquete benchmark · proyecto {args.project} · {args.url} · out={out} ==")
+    print(f"== Paquete benchmark · proyecto {args.project} · {args.url} ==")
     with httpx.Client(base_url=args.url, timeout=TIMEOUT) as client:
-        b = Bench(client, out)
-
         # --- OPEN (medido aparte; NO cuenta en el total de artefactos) ---
         t0 = time.perf_counter()
         r = client.post(f"/api/projects/{args.project}/open")
         r.raise_for_status()
         open_s = time.perf_counter() - t0
         doc = r.json().get("document", {})
+        proj_name = doc.get("name") or f"proyecto-{args.project}"
         variables = {v["name"]: v["value"] for v in doc.get("variables", [])}
         health = client.get("/api/health").json()
-        print(f"  -- open {open_s:.3f}s · {r.json().get('total_features')} sólidos · "
+        print(f"  -- open {open_s:.3f}s · {r.json().get('total_features')} sólidos · «{proj_name}» · "
               f"largo_total={variables.get('largo_total')} · health.ok={health.get('ok')}")
+
+        # --- GATE de estado (D2): NO generar un paquete sobre un doc degradado o la
+        # variante equivocada; el testigo debe salir de un modelo sano y conocido.
+        problems: list[str] = []
+        if not health.get("ok"):
+            problems.append(f"health.ok=false (issues={health.get('issues')})")
+        if health.get("suppressed_commands"):
+            problems.append(f"suppressed_commands={health.get('suppressed_commands')}")
+        if args.expect:
+            k, _, want = args.expect.partition("=")
+            k, want = k.strip(), want.strip()
+            got = variables.get(k)
+
+            def _matches(g: object) -> bool:
+                if g is None:
+                    return False
+                if str(g) == want:
+                    return True
+                try:
+                    return f"{float(g):g}" == want
+                except (TypeError, ValueError):
+                    return False
+
+            if not _matches(got):
+                problems.append(f"variante: {k}={got}, esperada {want}")
+        if problems:
+            print("  !! GATE de estado:")
+            for p in problems:
+                print(f"     - {p}")
+            if not args.force:
+                print("  Abortado (usa --force para generar de todos modos).")
+                sys.exit(2)
+            print("  --force: se genera de todos modos.")
+
+        # resuelto el nombre real → carpeta por defecto con su slug (D3)
+        out = Path(args.out) if args.out else Path("docs") / "benchmark" / _slug(proj_name) / hoy
+        (out / "planos").mkdir(parents=True, exist_ok=True)
+        (out / "render").mkdir(parents=True, exist_ok=True)
+        print(f"  -- out={out}")
+        b = Bench(client, out)
 
         # =============================== A1 · Validación ===============================
         validacion: dict = {"generado": datetime.now().isoformat(timespec="seconds"),
@@ -180,13 +239,26 @@ def main() -> None:
             "A1", "gravity (autodetect)", "POST", "/api/assembly/stability",
             json={"with_autodetect": True, "exclude": [], "seconds": 2.0, "gravity": 9.81})
         validacion["dof"] = b.fetch_json("A1", "grados de libertad", "GET", "/api/assembly/dof")
-        validacion["verify"] = b.fetch_json("A1", "verify invariantes", "POST", "/api/verify",
-                                            json={"checks": VERIFY_CHECKS})
+        # aserciones `verify`: 38 por defecto, cualquier proyecto vía --checks; si no, omitir
+        if args.checks:
+            verify_checks = json.loads(Path(args.checks).read_text(encoding="utf-8"))
+        elif args.project == 38:
+            verify_checks = VERIFY_CHECKS_38
+        else:
+            verify_checks = None
+        if verify_checks:
+            validacion["verify"] = b.fetch_json("A1", "verify invariantes", "POST", "/api/verify",
+                                                json={"checks": verify_checks})
+        else:
+            validacion["verify"] = None
+            b._record("A1", "verify invariantes (omitido)", None, None, 0.0, "skip",
+                      "proyecto ≠ 38 y sin --checks")
         validacion["engineering_check"] = b.fetch_json(
             "A1", "engineering_check (requisitos)", "POST", "/api/checks", json={})
-        (out / "validacion.json").write_bytes(
-            json.dumps(validacion, indent=2, ensure_ascii=False).encode("utf-8"))
-        print(f"  -> validacion.json ({(out / 'validacion.json').stat().st_size:,} B)")
+        vbytes = (out / "validacion.json")
+        vbytes.write_bytes(json.dumps(validacion, indent=2, ensure_ascii=False).encode("utf-8"))
+        b._record("A1", "validacion.json (índice)", "validacion.json",
+                  vbytes.stat().st_size, 0.0, "ok")
 
         # ================================ A2 · Planos =================================
         b.fetch_file("A2", "juego de planos (PDF)", "GET", "/api/drawingset.pdf",
@@ -200,8 +272,8 @@ def main() -> None:
             "assembly_notes": [], "format": "pdf",  # []=auto-semilla de notas de montaje del herraje
             "notes": ["Cotas en mm salvo indicación.",
                       "Tolerancia general ISO 2768-m (no rotulada por el sistema — ver informe)."],
-            "meta": {"drawing_no": "GA-FAJA38-001", "material": "A36 / catálogo",
-                     "title": "FAJA TRANSPORTADORA 4 m — CONJUNTO GENERAL"},
+            "meta": {"drawing_no": f"GA-P{args.project}-001", "material": "A36 / catálogo",
+                     "title": f"{proj_name.upper()} — CONJUNTO GENERAL"},
         }
         b.fetch_file("A2", "hoja de conjunto GA (PDF)", "POST", "/api/drawing/spec",
                      "planos/conjunto_GA.pdf", json=ga_spec)
@@ -239,29 +311,37 @@ def main() -> None:
                      "render/planta.png", params={**common, "view": "planta"})
 
         # ================================ A7 · Índice ================================
-        write_index(out, args, variables, health, open_s, b.records)
+        write_index(out, proj_name, args, variables, health, open_s, b.records)
 
-    ok = sum(1 for r in b.records if r["status"] == "ok")
-    err = [r for r in b.records if r["status"] != "ok"]
-    total_s = sum(r["seconds"] for r in b.records)
-    print(f"\n== {ok}/{len(b.records)} artefactos OK · total generación {total_s:.1f}s "
-          f"(open {open_s:.2f}s aparte) ==")
+    ok = [r for r in b.records if r["status"] == "ok"]
+    skipped = [r for r in b.records if r["status"] == "skip"]
+    err = [r for r in b.records if r["status"] == "error"]
+    total_s = sum(r["seconds"] for r in ok)  # = el mismo total que paquete.md
+    print(f"\n== {len(ok)}/{len(b.records)} artefactos OK"
+          + (f" · {len(skipped)} omitidos" if skipped else "")
+          + (f" · {len(err)} EN ERROR" if err else "")
+          + f" · total generación {total_s:.1f}s (open {open_s:.2f}s aparte) ==")
     for r in err:
         print(f"  !! {r['label']}: {r['note']}")
+    # D1: código de salida ≠0 ante fallos → sirve como test de regresión en CI
+    if err:
+        sys.exit(1)
 
 
-def write_index(out: Path, args, variables: dict, health: dict, open_s: float,
-                records: list[dict]) -> None:
+def write_index(out: Path, proj_name: str, args, variables: dict, health: dict,
+                open_s: float, records: list[dict]) -> None:
     ok = [r for r in records if r["status"] == "ok"]
+    skipped = [r for r in records if r["status"] == "skip"]
     total_s = sum(r["seconds"] for r in ok)
     total_b = sum(r["bytes"] or 0 for r in ok)
+    nueva = Path("docs") / "benchmark" / _slug(proj_name) / datetime.now().strftime("%Y-%m-%d")
     lines = [
-        "# Paquete benchmark — Faja transportadora 4 m (proyecto 38)",
+        f"# Paquete benchmark — {proj_name} (proyecto {args.project})",
         "",
         f"- **Generado**: {datetime.now().isoformat(timespec='seconds')}",
         f"- **Commit de código**: `{_git_commit()}`",
         f"- **Proyecto**: id {args.project} · variante `largo_total={variables.get('largo_total')}` "
-        f"(«4m estandar») · {len([r for r in records])} llamadas",
+        f"· {len(records)} llamadas" + (f" ({len(skipped)} omitidas)" if skipped else ""),
         f"- **Health al abrir**: ok={health.get('ok')} · features={health.get('features')} · "
         f"commands={health.get('commands')} · suppressed={health.get('suppressed_commands')}",
         f"- **Open (API en frío/caliente)**: {open_s:.2f}s — *medido aparte, NO cuenta en el "
@@ -270,7 +350,8 @@ def write_index(out: Path, args, variables: dict, health: dict, open_s: float,
         f"{total_b:,} bytes.",
         "",
         "Regenerable con `.\\.venv\\Scripts\\python.exe scripts\\benchmark_package.py "
-        f"--out {args.out}` (API caliente, requisitos guardados en el proyecto).",
+        f"--out {nueva.as_posix()}` (API caliente, requisitos guardados en el proyecto). "
+        "**Usa una carpeta FECHADA nueva — el paquete testigo comiteado NO se pisa.**",
         "",
         "## Artefactos (cronometrados de verdad)",
         "",
@@ -280,7 +361,7 @@ def write_index(out: Path, args, variables: dict, health: dict, open_s: float,
     for i, r in enumerate(records, 1):
         f = r["file"] or "—"
         by = f"{r['bytes']:,}" if r["bytes"] is not None else "—"
-        st = "✓" if r["status"] == "ok" else f"✗ {r['note']}"
+        st = {"ok": "✓", "skip": f"— omitido ({r['note']})"}.get(r["status"], f"✗ {r['note']}")
         lines.append(f"| {i} | {r['phase']} · {r['label']} | `{f}` | {r['seconds']:.3f} | {by} | {st} |")
     lines += [
         "",

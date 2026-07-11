@@ -27,6 +27,15 @@ _HP_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*hp", re.I)
 _KW_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*kw", re.I)
 _SECTION_RE = re.compile(r"(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+)")  # 80x40x3
 _DIAM_RE = re.compile(r"[øØ⌀]\s*(\d+(?:[.,]\d+)?)", re.I)
+# ROL al inicio del nombre (convención rol-primero): distingue una PATA/LARGUERO de
+# verdad de una pieza que solo MENCIONA una pata/larguero ("Ménsula … → larguero + pata").
+# "zapata"/"perfil" no empiezan por el rol, así que quedan fuera.
+_LEG_RE = re.compile(r"^\s*pata\b", re.I)
+_LARG_RE = re.compile(r"^\s*larguero\b", re.I)
+# el ROL "eje" (nombre —o su parte tras " · "— empieza por "eje"): distingue el EJE de un
+# tambor/rodillo/motor que solo MENCIONAN un eje ("Tambor motriz (… eje vivo)", "Rodillo
+# (eje Ø12)", "Motorreductor (eje hueco)").
+_EJE_RE = re.compile(r"^\s*eje\b", re.I)
 
 
 def _f(x) -> float | None:
@@ -136,12 +145,17 @@ def _frame_from_scene(scene: dict, variables: dict | None) -> dict | None:
     pared), material, VANO máximo entre patas, longitud total y peso transportado
     (estructura+banda+mesa, sin la carga del producto)."""
     v = variables or {}
-    largueros = [f for f in scene.values()
-                 if getattr(f, "visible", True)
-                 and ("larguero" in _name(f) or "perfil" in _name(f))]
-    if not largueros:
+    candidatas = [f for f in scene.values()
+                  if getattr(f, "visible", True)
+                  and ("larguero" in _name(f) or "perfil" in _name(f))]
+    if not candidatas:
         return None
-    f0 = largueros[0]
+    # los largueros REALES (los que reciben la flecha) llevan el rol "larguero" al inicio
+    # del nombre → no cuentan las ménsulas que solo lo MENCIONAN ("… bajo el larguero",
+    # "… → larguero + pata"). Sin ninguno nombrado (bastidor de perfiles a mano) se cae al
+    # conteo permisivo de candidatas.
+    beams = [f for f in candidatas if _LARG_RE.match(_name(f))] or candidatas
+    f0 = beams[0]
     b = _bbox_safe(f0)
     if b is None:
         return None
@@ -150,9 +164,11 @@ def _frame_from_scene(scene: dict, variables: dict | None) -> dict | None:
     length = round(b.max.X - b.min.X, 1)  # longitud de la viga
     wall = _f(v.get("esp_larg")) or _parse_wall(getattr(f0, "name", "")) or 3.0
     material = resolve_material(f0)
-    # vano: mayor hueco entre patas (apoyos); sin ≥2 patas → la longitud completa
+    # vano: mayor hueco entre patas (apoyos); sin ≥2 patas → la longitud completa.
+    # Solo cuentan las patas por ROL (no piezas que mencionan "pata"), para no meter
+    # posiciones espurias en el reparto del vano.
     patas = [f for f in scene.values()
-             if getattr(f, "visible", True) and "pata" in _name(f)]
+             if getattr(f, "visible", True) and _LEG_RE.match(_name(f))]
     xs = sorted({round((bb.min.X + bb.max.X) / 2.0, 1)
                  for f in patas if (bb := _bbox_safe(f))})
     span = max((b2 - a for a, b2 in zip(xs, xs[1:])), default=0.0)
@@ -174,7 +190,7 @@ def _frame_from_scene(scene: dict, variables: dict | None) -> dict | None:
         "wall": round(float(wall), 1),
         "material": material,
         "carried_kg": round(carried, 2),
-        "n_largueros": len(largueros),
+        "n_largueros": len(beams),
     }
 
 
@@ -225,11 +241,37 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
                                        and kw_comp.category == "motorreductores_sinfin") else EFFICIENCY
                         base["torque_Nm"] = round(kw * 1000.0 * eff / omega, 1)
     if not base.get("eje_d"):
-        ed = _f(v.get("diam_eje"))
+        # Ø del eje MOTRIZ (lo consume el check de flexión): sale del propio eje —nombre
+        # «Ø35» o geometría del cilindro—, NO de la variable diam_eje que puede quedar
+        # stale respecto al modelo. La variable es el ÚLTIMO recurso (faja sin geometría).
+        # Solo piezas cuyo ROL es "eje" (no un tambor/rodillo/motor que lo mencionan).
+        def _is_eje(f):
+            name = _name(f)
+            return bool(_EJE_RE.match(name.split("·")[-1].strip()) or _EJE_RE.match(name))
+
+        ejes = [f for f in scene.values()
+                if getattr(f, "visible", True) and _is_eje(f)]
+
+        def _eje_diam(f):
+            d = _parse_diam(getattr(f, "name", "") or "")
+            if d:
+                return d
+            bb = _bbox_safe(f)
+            if bb is None:
+                return None
+            dims = sorted((bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z))
+            # eje = cilindro: las dos extensiones menores (el Ø) casi iguales
+            if dims[1] > 0 and abs(dims[0] - dims[1]) / dims[1] < 0.1:
+                return round(dims[1], 1)
+            return None
+
+        # el eje MOTRIZ (por rol en el nombre) manda; si no, el de mayor Ø detectado
+        motriz = next((f for f in ejes
+                       if any(w in _name(f) for w in ("motriz", "motor"))), None)
+        ed = _eje_diam(motriz) if motriz is not None else None
         if ed is None:
-            ejef = next((f for f in scene.values()
-                         if getattr(f, "visible", True) and "eje" in _name(f)), None)
-            ed = _parse_diam(getattr(ejef, "name", "")) if ejef is not None else None
+            cand = [d for f in ejes if (d := _eje_diam(f))]
+            ed = max(cand) if cand else _f(v.get("diam_eje"))
         base["eje_d"] = ed
     if not base.get("banda_kg"):
         bandas = [f for f in scene.values()
@@ -758,6 +800,14 @@ def conveyor_engineering_check(
         t2_min = eytelwein_t2_min_n(pull_n, mu_t, alpha)
         t2_real = conveyor.get("t2_n")
         ratio = eytelwein_ratio(mu_t, alpha)
+        # carga radial por rodamiento del eje del tambor por la TENSIÓN DE BANDA: con
+        # abrace ~180° los dos ramales tiran casi paralelos → la envoltura suma T1+T2,
+        # repartida entre los 2 rodamientos del eje. T2 = t2_n declarado o T2_min de
+        # adherencia; T1 = T2 + F_U. Lo consume la vida L10 (structure_engineering_check),
+        # que sin esto usaría solo el peso del producto (que en realidad lo lleva la mesa).
+        t2_used = float(t2_real) if t2_real else t2_min
+        conveyor["pull_n"] = round(pull_n, 1)
+        conveyor["bearing_radial_n"] = round((pull_n + 2.0 * t2_used) / 2.0, 1)
         calc_eyt = {
             "titulo": "Adherencia del tambor motriz (Euler-Eytelwein)",
             "entradas": {"F_U (arrastre)": f"{pull_n:.1f} N",

@@ -1600,6 +1600,7 @@ def run_checks(body: ChecksIn) -> dict:
             DOC.scene, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
             carga_kg=carga or 0.0,
             rpm=(conveyor or {}).get("rpm_motor"),
+            belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
         )
         estructura += _fea_rules()  # resultados FEA guardados (con chequeo de vigencia)
     return {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
@@ -2848,6 +2849,7 @@ def calc_report_pdf(
         rules += structure_engineering_check(
             DOC.scene, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
             carga_kg=carga, rpm=(conveyor or {}).get("rpm_motor"),
+            belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
         )
         rules += _fea_rules()  # página FEA en la memoria (con chequeo de vigencia)
         png = None

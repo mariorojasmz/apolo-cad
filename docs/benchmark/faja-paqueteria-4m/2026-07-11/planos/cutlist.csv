@@ -1,0 +1,24 @@
+Material;Espesor(mm);Ancho(mm);Largo(mm);Cant;Área ud(m²);Área total(m²);Pieza;Corte;Ángulos
+acero;2.0;600.0;901.5;4;0.5409;2.1636;Mesa desliz. 2mm A36 (secc 1);recto;
+acero;6.0;110.0;3606.0;2;0.3967;0.7934;Repisa apoyo mesa (+Y);recto;
+acero;8.0;50.0;128.0;1;0.0064;0.0064;Ménsula soporte motorreductor (brida sup. → larguero + pata);recto;
+acero;10.0;120.0;120.0;6;0.0144;0.0864;Placa de anclaje A36;recto;
+acero;13.0;106.0;182.0;2;0.0193;0.0386;Ménsulas de chumacera (lapa bajo el larguero);recto;
+acero;13.0;30.0;75.0;4;0.0022;0.0088;Ménsula rodillo retorno;recto;
+acero;20.7;24.0;30.0;1;0.0007;0.0007;Ménsula soporte motorreductor (brida sup. → larguero + pata);recto;
+acero;35.0;35.0;1025.0;1;0.0359;0.0359;Eje motriz vivo Ø35 h7;recto;
+acero;35.0;35.0;738.0;1;0.0258;0.0258;Tensor de cola · Eje fijo (roscado p/ perno);recto;
+acero;40.0;40.0;780.0;5;0.0312;0.156;Travesaño superior A36;recto;
+acero;40.0;40.0;754.6;3;0.0302;0.0906;Travesaño inferior A36;recto;
+acero;49.8;70.0;78.0;2;0.0055;0.011;Tensor de cola · Soporte en C 9.5mm (1);recto;
+acero;50.0;50.0;770.0;2;0.0385;0.077;Rodillo retorno Ø50 (eje Ø12);recto;
+acero;50.8;101.6;4000.0;2;0.4064;0.8128;Larguero A36 (+Y);recto;
+acero;76.2;76.2;674.4;6;0.0514;0.3084;Pata A36;recto;
+acero;102.0;223.2;368.0;1;0.0821;0.0821;Ménsula soporte motorreductor (brida sup. → larguero + pata);recto;
+acero;114.0;114.0;660.0;1;0.0752;0.0752;Tensor de cola · Rodillo de cola;recto;
+acero;136.6;178.7;370.4;1;0.0662;0.0662;Disco de reacción anti-giro + puntal a la pata;recto;
+caucho;114.0;114.0;660.0;1;0.0752;0.0752;Tambor motriz (engomado, eje vivo);recto;
+
+TOTALES por material;;;;piezas;;área m²;largo m
+acero;;;;45;;4.839;35.43
+caucho;;;;1;;0.075;0.66

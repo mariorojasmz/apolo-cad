@@ -16,6 +16,32 @@ from .titleblock import draw_title_block
 SHEETS = {"A3": (420.0, 297.0), "A4": (297.0, 210.0)}
 
 
+_PROFILE_CATS = {"perfiles", "perfiles_abiertos", "tubos_estructurales", "tubos_circulares"}
+
+
+def _profile_section(feat) -> str | None:
+    """Designación de sección de un perfil/tubo de catálogo («HSS 76.2×76.2×3») para
+    rotularla en la lámina — con solo la vista de la pieza el taller debe saber si es
+    tubo o barra y su pared. None si la pieza no es un perfil de catálogo."""
+    from apolo.library.catalog import CATALOG
+
+    comp = CATALOG.get(getattr(feat, "component", None) or "")
+    if comp is None or comp.category not in _PROFILE_CATS:
+        return None
+    specs = comp.specs or {}
+    w, h, wall = specs.get("width"), specs.get("height"), specs.get("wall")
+    if w and h:
+        cuerpo = f"{w:g}×{h:g}" + (f"×{wall:g}" if wall else "")
+    elif specs.get("seccion"):
+        cuerpo = str(specs["seccion"])
+    else:
+        return None
+    prefijo = "HSS " if comp.category == "tubos_estructurales" else ""
+    if comp.category == "tubos_circulares" and specs.get("d"):
+        cuerpo = f"Ø{specs['d']:g}" + (f"×{wall:g}" if wall else "")
+    return f"{prefijo}{cuerpo}"
+
+
 def _pick_solid(shape, t: float, w: float, l: float):
     """Sólido de `shape` cuyas dimensiones ordenadas == (t,w,l) (descompone compounds)."""
     try:
@@ -83,7 +109,9 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     base.setdefault("date", date.today().isoformat())
     rows = cut_list(scene)
     hw = hardware_schedule(scene)
-    want_hw = (bool(hw) and template in ("carpinteria", "generico")) or bool(thread_rows)
+    # la cédula lista TODO lo que se COMPRA (catálogo + herraje a-medida): un taller la
+    # necesita en cualquier plantilla, no solo carpintería/genérico.
+    want_hw = bool(hw) or bool(thread_rows)
     n = 1 + len(rows) + 1 + (1 if want_hw else 0)
     pages: list[SheetModel] = []
 
@@ -117,7 +145,10 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
             continue
         solid = _pick_solid(rep.shape, r["espesor_mm"], r["ancho_mm"], r["largo_mm"])
         feat = Feature(id="P", name=r["nombre"], shape=solid, command_id="P")
+        seccion = _profile_section(rep)
         title = f"{r['nombre']} · {r['cantidad']}× · {r['material']}"
+        if seccion:  # sección de catálogo → el taller sabe tubo/barra y pared
+            title += f" · {seccion}"
         pm = {**page_meta(len(pages) + 1), "material": r["material"]}
         # color de la pieza para su iso sombreada (= el color de su feature representante en el web)
         pc = {"P": colors.get(r["_rep"])} if colors else None
@@ -138,7 +169,8 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     fin = " · ".join(f"{k}:{v['area_m2']}m²" for k, v in totals.items()) or "—"
     pages.append(_table_sheet("LISTA DE CORTE", ["Material", "L×An×Esp (mm)", "Cant", "Pieza"],
                               cl_rows, [30, 48, 14, 78], sheet=sheet,
-                              meta={**page_meta(len(pages) + 1), "finish": fin[:24]}))
+                              meta={**page_meta(len(pages) + 1), "finish": fin[:24],
+                                    "project": f"{project_name} · LISTA DE CORTE"}))
     # CÉDULA DE HERRAJE (catálogo no cortable: bisagras/tornillos/correderas…) — página propia
     if want_hw:
         hw_rows = [[h["ref"], h["nombre"], h["categoria"], h["cantidad"], f"{h['peso_total_kg']:g} kg"]
@@ -150,5 +182,6 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
                             t["cantidad"], f"{piezas} · {t['norma']}"])
         pages.append(_table_sheet("CÉDULA DE HERRAJE", ["Ref", "Descripción", "Categoría", "Cant", "Peso"],
                                   hw_rows, [28, 60, 32, 14, 36], sheet=sheet,
-                                  meta=page_meta(len(pages) + 1)))
+                                  meta={**page_meta(len(pages) + 1),
+                                        "project": f"{project_name} · CÉDULA DE HERRAJE"}))
     return pages

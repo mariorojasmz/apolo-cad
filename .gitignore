@@ -19,3 +19,11 @@ logs/
 # Datasheets de fabricante (referencia local; copyright del proveedor, NO redistribuir en el repo público)
 docs/datasheets/*.pdf
 ui/tsconfig.tsbuildinfo
+
+# Paquetes benchmark: conservar el TEXTO (md/json/csv) y los PDF legibles como testigo
+# diffeable; ignorar los binarios pesados y regenerables (STEP/DWG/renders — geometría e
+# imágenes que git no sabe diffear y que se regeneran con benchmark_package.py)
+docs/benchmark/**/*.step
+docs/benchmark/**/*.dwg
+docs/benchmark/**/*.zip
+docs/benchmark/**/render/

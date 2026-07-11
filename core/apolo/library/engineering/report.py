@@ -23,7 +23,7 @@ from __future__ import annotations
 import math
 
 from ..materials import resolve_material, yield_strength, young_modulus
-from ..rules import _check, _parse_diam, _parse_wall, _SECTION_RE
+from ..rules import _check, _LEG_RE, _parse_diam, _parse_wall, _SECTION_RE
 from .bearings import L10_MIN_H, L10_TARGET_H, l10_hours
 from .bolts import TENSILE_AREA_MM2, bolt_shear_capacity_n
 from .buckling import BUCKLING_FS, euler_critical_load_n, rect_tube_min_inertia_mm4
@@ -189,7 +189,8 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
     return checks
 
 
-def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None) -> list[dict]:
+def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None,
+                    belt_radial_n: float | None = None) -> list[dict]:
     from ..catalog import CATALOG
 
     catalog = catalog if catalog is not None else CATALOG
@@ -211,7 +212,19 @@ def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None) -> list[
         )]
     checks: list[dict] = []
     n = len(bearings)
-    p_kn = max(carga_kg, 0.0) * G / 1000.0 / n  # hipótesis: carga repartida pareja
+    if belt_radial_n and belt_radial_n > 0:
+        # en una faja la carga radial DOMINANTE del rodamiento es la TENSIÓN DE BANDA
+        # (T1+T2)/2 por eje — el peso del producto lo lleva la mesa/cama, no los
+        # rodamientos. Ignorarla daba una L10 fantasiosa (cientos de millones de horas).
+        p_kn = belt_radial_n / 1000.0
+        carga_P_txt = (f"{p_kn:.3f} kN (= (T1+T2)/2 de la banda, repartida entre los 2 "
+                       f"rodamientos del eje del tambor)")
+        det_reparto = "carga = tensión de banda (T1+T2)/2 por eje"
+    else:
+        p_kn = max(carga_kg, 0.0) * G / 1000.0 / n  # hipótesis: carga repartida pareja
+        carga_P_txt = (f"{p_kn:.3f} kN (= {carga_kg:g} kg / {n} rodamientos — "
+                       f"hipótesis reparto parejo)")
+        det_reparto = f"{n} rodamiento(s), reparto parejo — estimación"
     worst = None
     for fid, f, comp in bearings:
         c_kn = float(comp.specs["C_kN"])
@@ -223,7 +236,7 @@ def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None) -> list[
     calc = {
         "titulo": "Vida L10 del rodamiento más cargado",
         "entradas": {"rodamiento": f"{comp.ref} (C = {c_kn:g} kN)",
-                     "carga P": f"{p_kn:.3f} kN (= {carga_kg:g} kg / {n} rodamientos — hipótesis reparto parejo)",
+                     "carga P": carga_P_txt,
                      "velocidad": f"{rpm:g} rpm"},
         "formula": "L10h = (C/P)³ · 10⁶ / (60·n)",
         "sustitucion": f"L10h = ({c_kn:g}/{p_kn:.3f})³ · 10⁶ / (60·{rpm:g})",
@@ -232,7 +245,7 @@ def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None) -> list[
         "fs": None if math.isinf(hours) else round(hours / L10_TARGET_H, 2),
     }
     det = (f"{comp.ref} ({f.name}): L10 ≈ {hours_txt} con P = {p_kn:.3f} kN a {rpm:g} rpm "
-           f"({n} rodamiento(s), reparto parejo — estimación).")
+           f"({det_reparto}).")
     if hours < L10_MIN_H:
         checks.append(_check(
             "vida L10 de rodamientos", "error", det,
@@ -249,15 +262,17 @@ def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None) -> list[
 
 
 def _buckling_checks(scene, masses, catalog, carga_kg: float) -> list[dict]:
-    legs = [(fid, f) for fid, f in scene.items()
-            if getattr(f, "visible", True) and "pata" in _name(f) and "zapata" not in _name(f)]
-    if not legs:
+    # una PATA de verdad lleva el rol "pata" al inicio del nombre (convención rol-primero):
+    # así no cuentan piezas que solo la MENCIONAN ("Ménsula … → larguero + pata", "Disco …
+    # a la pata"), que inflaban el reparto de carga (n patas). "zapata" no empieza por "pata".
+    candidatas = [(fid, f) for fid, f in scene.items()
+                  if getattr(f, "visible", True) and _LEG_RE.match(_name(f))]
+    if not candidatas:
         return []
-    total_kg = sum(masses.values()) + max(carga_kg, 0.0)
-    n = len(legs)
-    p_leg = total_kg * G / n
-    worst = None
-    for fid, f in legs:
+    # solo las COLUMNAS verticales (largo ≥ 50 mm) reparten la carga axial y pandean;
+    # las placas/pies que comparten el rol quedan fuera del conteo
+    columns = []
+    for fid, f in candidatas:
         try:
             bb = f.shape.bounding_box()
         except Exception:
@@ -267,6 +282,14 @@ def _buckling_checks(scene, masses, catalog, carga_kg: float) -> list[dict]:
         length = bb.max.Z - bb.min.Z
         if length < 50:  # placa/pie, no columna
             continue
+        columns.append((fid, f, w, d, length))
+    if not columns:
+        return []
+    total_kg = sum(masses.values()) + max(carga_kg, 0.0)
+    n = len(columns)
+    p_leg = total_kg * G / n
+    worst = None
+    for fid, f, w, d, length in columns:
         m = _SECTION_RE.search(getattr(f, "name", "") or "")
         if m:
             w, d = float(m.group(1)), float(m.group(2))
@@ -277,14 +300,12 @@ def _buckling_checks(scene, masses, catalog, carga_kg: float) -> list[dict]:
         fs = pcr / p_leg if p_leg > 0 else float("inf")
         if worst is None or fs < worst[2]:
             worst = (fid, f, fs, pcr, w, d, wall, length)
-    if worst is None:
-        return []
     fid, f, fs, pcr, w, d, wall, length = worst
     calc = {
         "titulo": "Pandeo de la pata más esbelta",
         "entradas": {"pata": f.name, "sección": f"{w:.0f}×{d:.0f}×{wall:g} mm",
                      "longitud": f"{length:.0f} mm", "K": "2.0 (empotrada-libre, conservador)",
-                     "carga/pata": f"{p_leg:.0f} N (= {sum(masses.values()) + carga_kg:.0f} kg / {len(legs)} patas)"},
+                     "carga/pata": f"{p_leg:.0f} N (= {total_kg:.0f} kg / {n} patas)"},
         "formula": "Pcr = π²·E·I / (K·L)²",
         "sustitucion": f"Pcr = π²·E·I_min / (2·{length:.0f})²",
         "resultado": f"Pcr = {pcr:,.0f} N → FS = {fs:.1f}",
@@ -498,6 +519,7 @@ def structure_engineering_check(
     catalog: dict | None = None,
     carga_kg: float = 0.0,
     rpm: float | None = None,
+    belt_radial_n: float | None = None,
     default_material: str = "acero",
 ) -> list[dict]:
     """Chequeo estructural del ensamblaje completo (no exige que sea una faja).
@@ -516,7 +538,7 @@ def structure_engineering_check(
     }
     checks: list[dict] = []
     checks += _fastener_checks(scene, graph, masses, fasteners, catalog)
-    checks += _bearing_checks(scene, catalog, carga_kg, rpm)
+    checks += _bearing_checks(scene, catalog, carga_kg, rpm, belt_radial_n)
     checks += _fit_checks(scene, fasteners, joints, mates, catalog)
     checks += _buckling_checks(scene, masses, catalog, carga_kg)
     checks += _tipping_check(scene, grounds, catalog, carga_kg)

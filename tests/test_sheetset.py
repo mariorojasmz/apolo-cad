@@ -86,3 +86,50 @@ def test_sheet_set_cross_reference_hoja_column():
     # y esas son las hojas reales: pages[1] = larguero, pages[2] = travesaño
     assert any("larguero" in l.text for l in pages[1].labels)
     assert any("travesano" in l.text for l in pages[2].labels)
+
+
+# --------------------------------------------- V7.1c C: compras vs fabricación + títulos
+def test_purchase_items_excluded_from_cutlist_and_in_cedula():
+    from apolo.library.cutlist import cut_list, hardware_schedule
+
+    doc = Document()
+    doc.execute("create_box", {"name": "Larguero A36", "width": 2000, "depth": 40,
+                               "height": 80, "position": {"z": 800}})
+    doc.execute("create_box", {"name": "Perno anclaje M12 + arandela", "width": 12,
+                               "depth": 12, "height": 60, "position": {"x": 100}})
+    doc.execute("create_box", {"name": "Pies niveladores (regulables)", "width": 40,
+                               "depth": 40, "height": 30, "position": {"x": 200}})
+    doc.execute("create_box", {"name": "Banda PVC 2mm 700 (lazo cerrado)", "width": 2000,
+                               "depth": 600, "height": 2, "position": {"x": 300, "z": 850}})
+    cl_names = " ".join(r["nombre"] for r in cut_list(doc.scene))
+    assert "Larguero" in cl_names
+    assert "Perno" not in cl_names and "niveladores" not in cl_names and "Banda" not in cl_names
+    hw_names = " ".join(h["nombre"] for h in hardware_schedule(doc.scene))
+    assert "Perno" in hw_names and "niveladores" in hw_names and "Banda" in hw_names
+
+
+def test_fab_piece_that_mentions_perno_stays_in_cutlist():
+    from apolo.library.cutlist import cut_list
+
+    doc = Document()
+    # el EJE se fabrica aunque su nombre MENCIONE un perno; no es compra
+    doc.execute("create_box", {"name": "Tensor de cola · Eje fijo (roscado p/ perno)",
+                               "width": 35, "depth": 400, "height": 35})
+    assert any("Eje fijo" in r["nombre"] for r in cut_list(doc.scene))
+
+
+def test_table_sheets_have_real_title():
+    doc = Document()
+    doc.execute("create_box", {"name": "tabla", "width": 300, "depth": 18, "height": 1200})
+    pages = sheet_set(doc.scene, project_name="Faja 4m")
+    corte = next(pg for pg in pages if any(l.text == "LISTA DE CORTE" for l in pg.labels))
+    txt = " ".join(l.text for l in corte.labels)
+    assert "Faja 4m" in txt and "Sin título" not in txt
+
+
+def test_profile_section_labeled_on_part_sheet():
+    doc = Document()
+    doc.execute("insert_component", {"component": "TUBO-3X3", "position": {"x": 0, "y": 0, "z": 0}})
+    pages = sheet_set(doc.scene)
+    part_txt = " ".join(l.text for pg in pages[1:2] for l in pg.labels)
+    assert "HSS" in part_txt and "76.2" in part_txt

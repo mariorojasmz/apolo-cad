@@ -187,6 +187,24 @@ def test_stout_leg_buckling_ok():
     assert rule["estado"] == "ok"
 
 
+# -------- V7.1c A1: el pandeo cuenta las patas del MODELO, no piezas que las MENCIONAN
+def test_buckling_counts_only_role_legs():
+    doc = Document("t")
+    for i in range(6):
+        doc.execute("create_box", {"name": "Pata A36", "width": 76, "depth": 76,
+                                   "height": 700, "position": {"x": i * 200, "y": 0, "z": 350}})
+    # dos piezas que solo MENCIONAN una pata (altas, antes contaban como columnas → 8)
+    doc.execute("create_box", {"name": "Ménsula soporte motor (brida → larguero + pata)",
+                               "width": 80, "depth": 80, "height": 200,
+                               "position": {"x": 1200, "y": 0, "z": 400}})
+    doc.execute("create_box", {"name": "Disco de reacción + puntal a la pata",
+                               "width": 80, "depth": 80, "height": 200,
+                               "position": {"x": 1400, "y": 0, "z": 400}})
+    calc = _rule(_structure(doc), "pandeo")["calc"]
+    assert "/ 6 patas" in calc["entradas"]["carga/pata"]
+    assert "8 patas" not in calc["entradas"]["carga/pata"]
+
+
 # --------------------------------------------------------------------- vuelco
 def test_cog_outside_base_is_error():
     doc = Document("t")
@@ -322,3 +340,73 @@ def test_enrich_deriva_senales_de_la_escena():
     assert base["soporte"] == "cama"
     assert base["tambor_engomado"] is True
     assert base["tiene_tensor"] is True
+
+
+# --------------------------------------- V7.1c A: la memoria lee del MODELO, no defaults
+def test_frame_counts_only_role_largueros():
+    # 2 largueros REALES + 2 ménsulas que solo MENCIONAN el larguero (antes → n=4)
+    from apolo.library.rules import _frame_from_scene
+
+    doc = Document("t")
+    for y in (-300, 300):
+        doc.execute("create_box", {"name": f"Larguero A36 ({'+' if y > 0 else '-'}Y)",
+                                   "width": 4000, "depth": 40, "height": 80,
+                                   "position": {"x": 2000, "y": y, "z": 800}})
+    doc.execute("create_box", {"name": "Ménsulas de chumacera (lapa bajo el larguero)",
+                               "width": 100, "depth": 100, "height": 60,
+                               "position": {"x": 500, "y": 300, "z": 760}})
+    doc.execute("create_box", {"name": "Ménsula soporte motor (brida sup. → larguero + pata)",
+                               "width": 100, "depth": 100, "height": 60,
+                               "position": {"x": 3000, "y": 300, "z": 760}})
+    frame = _frame_from_scene(doc.scene, {})
+    assert frame["n_largueros"] == 2
+
+
+def test_eje_diam_from_name_beats_stale_variable():
+    # el eje motriz Ø35 en el nombre gana a una variable diam_eje stale = 30 Y a un
+    # TAMBOR/rodillo/motor que solo MENCIONAN un eje (no son el eje)
+    from apolo.library.rules import _enrich_conveyor
+
+    doc = Document("t")
+    doc.execute("create_box", {"name": "Tambor motriz (engomado, eje vivo)", "width": 114,
+                               "depth": 660, "height": 114, "position": {"x": 500, "y": 0, "z": 800}})
+    doc.execute("create_box", {"name": "Rodillo retorno Ø50 (eje Ø12)", "width": 50,
+                               "depth": 660, "height": 50, "position": {"x": 1000, "y": 0, "z": 700}})
+    doc.execute("create_box", {"name": "Eje motriz vivo Ø35 h7", "width": 35, "depth": 1000,
+                               "height": 35, "position": {"x": 0, "y": 0, "z": 800}})
+    base = _enrich_conveyor({"tipo": "banda", "largo": 4000}, doc.scene, {"diam_eje": 30})
+    assert base["eje_d"] == 35
+
+
+def test_eje_diam_from_geometry_when_name_has_no_diam():
+    from apolo.library.rules import _enrich_conveyor
+
+    doc = Document("t")
+    # eje motriz sin Ø en el nombre: se lee del cilindro (dos extensiones menores ≈ Ø40)
+    doc.execute("create_box", {"name": "Eje motriz", "width": 40, "depth": 1000,
+                               "height": 40, "position": {"x": 0, "y": 0, "z": 800}})
+    base = _enrich_conveyor({"tipo": "banda", "largo": 4000}, doc.scene, {})
+    assert base["eje_d"] == pytest.approx(40, abs=0.5)
+
+
+def test_conveyor_check_stashes_bearing_radial_from_belt_tension():
+    conveyor = dict(_BASE_BANDA)
+    conveyor_engineering_check(conveyor, 75, 400, 0.35)
+    # (T1+T2)/2 con T2 = T2_min de adherencia: debe ser MUCHO mayor que el peso/rodamiento
+    assert conveyor["bearing_radial_n"] > 0
+    assert conveyor["pull_n"] > 0
+    # con un solo paquete de 75 kg / 2 rodamientos el peso sería ~368 N; la tensión de banda
+    # (F_U del arrastre) empuja la carga radial bastante por encima de eso
+    assert conveyor["bearing_radial_n"] > 400
+
+
+def test_l10_uses_belt_tension_when_provided():
+    doc = Document("t")
+    doc.execute("insert_component", {"component": "6207", "position": {"x": 0, "y": 0, "z": 0}})
+    sin_banda = _rule(_structure(doc, carga_kg=75.0, rpm=100.0), "vida L10")
+    con_banda = _rule(_structure(doc, carga_kg=75.0, rpm=100.0, belt_radial_n=800.0), "vida L10")
+    p_sin = float(sin_banda["calc"]["entradas"]["carga P"].split(" kN")[0])
+    p_con = float(con_banda["calc"]["entradas"]["carga P"].split(" kN")[0])
+    assert p_con > p_sin                       # la banda carga más que el peso repartido
+    assert p_con == pytest.approx(0.8, abs=1e-3)  # 800 N = 0.8 kN
+    assert "(T1+T2)/2" in con_banda["calc"]["entradas"]["carga P"]
