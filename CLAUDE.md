@@ -714,6 +714,11 @@ verdes**. Un ítem por vez, con plan formal.
 - **V6.5 MCP a escala** — **HECHO (2026-07-10)**: lectura acotada/paginada + summary por
   grupo + `near`/interferencia acotada + `snap_to`/`verify` + preview con datos; rutina
   < 10 KB a 1000 piezas. Detalle: § Lectura a ESCALA.
+- **V6.5b MCP: acción con contrato** — PLANEADO (`docs/plans/V6.5b-mcp-accion-con-
+  contrato.md`, ejecutar DESPUÉS de V7.2 — ambos tocan api/main.py): `expect` en
+  run_batch/edit_batch (aserciones de `verify` con rollback atómico si fallan),
+  comando `join_bolted` (taladros alineados + pernos de catálogo + fasten en 1),
+  errores 404 con «¿quisiste decir…?», briefing compacto en `open_project`.
 - **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
 - **V6.7 FEA de ensamblaje (bonded)**. 4.5→5.5.
 
