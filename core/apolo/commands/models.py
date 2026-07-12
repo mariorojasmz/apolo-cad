@@ -1276,6 +1276,8 @@ class JoinBoltedParams(BaseModel):
     def _patron_positive(cls, v):
         if v is not None and (v[0] < 1 or v[1] < 1):
             raise ValueError("patron debe ser [n, m] con n, m ≥ 1")
+        if v is not None and v[0] * v[1] > 100:  # V6.5c: mismo tope que count (n·m booleanas)
+            raise ValueError(f"patron [{v[0]}, {v[1]}] = {v[0] * v[1]} pernos supera el tope de 100")
         return v
 
 

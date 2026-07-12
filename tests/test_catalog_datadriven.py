@@ -1,4 +1,4 @@
-"""Catálogo data-driven (V3 bloque #1): loader YAML, familias paramétricas y
+﻿"""Catálogo data-driven (V3 bloque #1): loader YAML, familias paramétricas y
 builders geométricos genéricos. Verifica la migración 1:1 de los 14 componentes
 originales y las 4 familias nuevas sembradas."""
 import math
@@ -125,10 +125,10 @@ def test_all_new_families_present():
     assert len(refs_in_category("correderas_colgantes")) == 2
     # tornillería comercial para tensores (DIN 912) + pernos hex DIN 933 de join_bolted (V6.5b)
     assert len(refs_in_category("pernos")) == 13  # 4 Allen (socket_cap) + 9 hex (M6–M24)
-    assert len(refs_in_category("tuercas")) == 4
+    assert len(refs_in_category("tuercas")) == 9  # M6-M24 DIN 934, pareja del DIN 933 (V6.5c)
     # motorreductores sinfín-corona NMRV (eje hueco, montaje directo sobre el eje)
     assert len(refs_in_category("motorreductores_sinfin")) == 8
-    assert len(CATALOG) == 226  # +9 pernos hex DIN 933 (M6–M24) para join_bolted (V6.5b)
+    assert len(CATALOG) == 231  # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c)
 
 
 def test_door_sliding_hardware():

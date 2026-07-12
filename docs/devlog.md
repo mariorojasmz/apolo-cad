@@ -3451,3 +3451,24 @@ sin decirlo el error, y campo desconocido en aserción falla en silencio («feat
 piezas», 3 round-trips perdidos). Fixes 1/3/menores → docs/plans/V6.5c-fixes-revision.md;
 gotchas vivos anotados en el mapa. Proyecto de prueba del E2E: «test-v65b-contrato»
 (placas + join_bolted M12 2×2). Suite + tortura verdes tras el fix de locks.
+
+## V6.5c — fixes de la revisión, implementados por Fable (2026-07-12)
+
+Por primera vez el revisor implementa (pedido del usuario). Los 2 MAYORES + menores de
+la revisión de V6.5b, con test nuevo por cada uno (tests/test_v65c_fixes.py, 11 tests):
+(1) `$k` del expect resuelve a los FEATURE_IDS del comando k — multi-sólido expande en
+`ids` (join_bolted con `expect volumen ids=["$3"]` ya no da falso rollback); en campo
+singular con varios sólidos → error accionable con los fids, nunca elige uno (gotcha
+cazado en el camino: el atributo es `Feature.command_id`, no `.command`). (2) join_bolted
+valida caras PLANAS ⊥ eje en el CONTACTO y en los ASIENTOS exteriores (≥50 % de la
+huella, `_planar_area_at` sobre GeomType.PLANE): la placa rotada 30° que antes producía
+pernos flotantes ahora es error claro pidiendo mates; el asiento exterior mata también el
+caso L-de-canto (grip inflado). (3) Ingeniería del perno: protrusión = 0.8·d + 3·paso
+grueso ISO 261 (M12: largo 35→40), TUERCA DIN 934 insertada por perno (familia
+TUERCA-M6..M24 completada en el YAML, 226→231 refs, tabla HEX_NUT_MM en bolts.py),
+edge-check también con count=1, tope patron n·m ≤ 100. (4) Errores accionables: clave
+desconocida en aserción → «no reconocida (válidas: …)» (antes «sin piezas» silencioso);
+«sin piezas» nombra los tokens + sugerencia; existe{id} dice qué id falta; `$0` explica
+el 1-indexado; un command_id multi-sólido sugiere sus fids hijos (no «¿c3?→c3»);
+notas_agente del briefing acotado a 20 + `notas_truncadas`. Un test pre-existente de
+verify se actualizó al mensaje nuevo (assert startswith, cambio intencional).

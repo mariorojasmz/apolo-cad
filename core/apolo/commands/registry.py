@@ -936,6 +936,52 @@ def _join_bolted_geometry(a_shape, b_shape, p: "JoinBoltedParams") -> dict:
     foot_min = [max(amin[k], bmin[k]) for k in range(3)]
     foot_max = [min(amax[k], bmax[k]) for k in range(3)]
 
+    # V6.5c (Fix 2 de la revisión): validar que la unión es de PLACAS cara a cara —
+    # caras PLANAS ⊥ eje de apilado tanto en el CONTACTO como en los ASIENTOS exteriores
+    # (cabeza y tuerca necesitan apoyo plano). Una pieza ROTADA (caras inclinadas) o un
+    # perfil no prismático (L de canto: sin cara plana en el plano exterior) se RECHAZA
+    # con error accionable en vez de producir pernos flotantes/oblicuos en silencio.
+    foot_area = overlap[inplane[0]] * overlap[inplane[1]]
+    a_below = (amin[stack] + amax[stack]) <= (bmin[stack] + bmax[stack])
+    contact_a = amax[stack] if a_below else amin[stack]
+    contact_b = bmin[stack] if a_below else bmax[stack]
+    ext_head = o_max  # cara exterior donde asienta la CABEZA (lado b si a está abajo)
+    ext_nut = o_min   # cara exterior donde asienta la TUERCA
+
+    def _planar_area_at(shape, coord: float, tol: float = 0.6) -> float:
+        """Suma el área de caras PLANAS ⊥ al eje de apilado en el plano `coord`."""
+        from build123d import GeomType
+
+        total = 0.0
+        for face in shape.faces():
+            try:
+                if face.geom_type != GeomType.PLANE:
+                    continue
+                c = face.center()
+                if abs((c.X, c.Y, c.Z)[stack] - coord) > tol:
+                    continue
+                n = face.normal_at(c)
+                if abs((n.X, n.Y, n.Z)[stack]) < 0.99:
+                    continue
+                total += float(face.area)
+            except Exception:
+                continue
+        return total
+
+    _MIN_SEAT = 0.5  # fracción mínima de la huella con apoyo plano
+    seats = [
+        ("contacto", a_shape, contact_a), ("contacto", b_shape, contact_b),
+        ("asiento exterior", b_shape if a_below else a_shape, ext_head),
+        ("asiento exterior", a_shape if a_below else b_shape, ext_nut),
+    ]
+    for what, shp, coord in seats:
+        if _planar_area_at(shp, coord) < _MIN_SEAT * foot_area:
+            raise CommandError(
+                f"join_bolted v1 une PLACAS/perfiles cara a cara: falta cara PLANA ⊥ al eje "
+                f"{axname[stack]} en el plano de {what} (pieza rotada, curva o no prismática "
+                "en el eje de apilado). Usa add_mate coincidente + drill_hole/fasten manual."
+            )
+
     if p.patron:
         nu, nv = int(p.patron[0]), int(p.patron[1])
     else:
@@ -949,6 +995,11 @@ def _join_bolted_geometry(a_shape, b_shape, p: "JoinBoltedParams") -> dict:
     def positions(ax: int, n: int) -> list[float]:
         lo, hi = foot_min[ax] + edge, foot_max[ax] - edge
         center = (foot_min[ax] + foot_max[ax]) / 2.0
+        if hi < lo - tol:  # V6.5c (4a): también con n=1 debe caber el borde ≥1.5·d
+            raise CommandError(
+                f"La huella de solape ({foot_max[ax] - foot_min[ax]:.0f} mm en {axname[ax]}) no "
+                f"admite ni un perno {size} con distancia al borde ≥{edge:g} mm: usa un perno menor."
+            )
         if n <= 1:
             return [center]
         if p.spacing:
@@ -968,7 +1019,13 @@ def _join_bolted_geometry(a_shape, b_shape, p: "JoinBoltedParams") -> dict:
         return [lo + (hi - lo) * i / (n - 1) for i in range(n)]
 
     us, vs = positions(u, nu), positions(v, nv)
-    bolt_len = commercial_length(grip + max(6.0, round(0.8 * d)))
+    # V6.5c (Fix 3): protrusión = tuerca (0.8·d) + 3 filetes de sobra (3·paso grueso
+    # ISO 261), no solo la altura de la tuerca (quedaba a ras sin rosca sobrante).
+    from apolo.library.engineering.threads import COARSE
+
+    paso = COARSE.get(size, (0.125 * d, 0.0))[0]
+    protrusion = 0.8 * d + 3.0 * paso
+    bolt_len = commercial_length(grip + protrusion)
     return {
         "d": d, "clear": clear, "af": af, "head_h": head_h, "size": size,
         "stack": stack, "u": u, "v": v, "us": us, "vs": vs,
@@ -983,8 +1040,9 @@ def _exec_join_bolted(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str,
     from build123d import Pos, Rotation
 
     from apolo.assembly.connectivity import ConnectivityError, register_fastener
-    from apolo.library.builders import hex_bolt
+    from apolo.library.builders import hex_bolt, hex_nut
     from apolo.library.catalog import CATALOG
+    from apolo.library.engineering.bolts import hex_nut_mm
 
     if p.a == p.b:
         raise CommandError("join_bolted une dos piezas distintas (a ≠ b)")
@@ -992,16 +1050,22 @@ def _exec_join_bolted(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str,
     b = _require(scene, p.b)
     g = _join_bolted_geometry(a.shape, b.shape, p)
     ref = f"PERNO-HEX-{g['size']}"
+    nut_ref = f"TUERCA-{g['size']}"
     if ref not in CATALOG:
         raise CommandError(
             f"Perno {g['size']} sin referencia de catálogo '{ref}': tamaños M6–M24 (DIN 933)."
         )
+    try:
+        nut_af, nut_m = hex_nut_mm(g["size"])
+    except KeyError as exc:
+        raise CommandError(str(exc)) from exc
 
     stack, u, v = g["stack"], g["u"], g["v"]
     outward = [0.0, 0.0, 0.0]
     outward[stack] = 1.0
     rot = {0: (0.0, 90.0, 0.0), 1: (-90.0, 0.0, 0.0), 2: (0.0, 0.0, 0.0)}[stack]  # local +Z → +eje
     bolt_base = hex_bolt(g["d"], g["af"], g["head_h"])(g["bolt_len"])
+    nut_base = hex_nut(g["d"], nut_af, nut_m)()  # DIN 934 (V6.5c): la unión pasante lleva tuerca
     margin = 5.0
     n_bolt = 0
     for pu in g["us"]:
@@ -1020,6 +1084,13 @@ def _exec_join_bolted(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str,
             shape = Pos(*origin) * Rotation(*rot) * bolt_base
             scene[fid] = Feature(
                 fid, f"Perno {g['size']}×{g['bolt_len']:g} {p.norma}", shape, cmd_id, component=ref,
+            )
+            # tuerca sobre el vástago que sobresale (centrada bajo el asiento exterior o_min)
+            n_origin = list(pt)
+            n_origin[stack] = g["o_min"] - nut_m / 2.0
+            scene[f"{cmd_id}_tuerca{n_bolt}"] = Feature(
+                f"{cmd_id}_tuerca{n_bolt}", f"Tuerca {g['size']} DIN 934",
+                Pos(*n_origin) * Rotation(*rot) * nut_base, cmd_id, component=nut_ref,
             )
     a.make_unique()
     b.make_unique()

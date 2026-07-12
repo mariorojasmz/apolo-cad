@@ -84,6 +84,30 @@ def format_failures(results: list[dict]) -> str:
     return "\n".join(lines)
 
 
+# claves válidas por tipo de aserción (V6.5c): una clave DESCONOCIDA es error accionable,
+# no un fallo silencioso «sin piezas» (le costó 3 round-trips al propio agente).
+_COMMON_KEYS = {"tipo", "nombre", "min", "max", "entre"}
+_KEYS_BY_TIPO = {
+    "distancia": _COMMON_KEYS | {"a", "b"},
+    "volumen": _COMMON_KEYS | {"id", "ids", "grupo"},
+    "bbox": _COMMON_KEYS | {"id", "ids", "grupo", "eje"},
+    "sin_interferencia": _COMMON_KEYS | {"id", "ids", "grupo"},
+    "existe": _COMMON_KEYS | {"id", "name"},
+}
+
+
+def _spec_tokens(spec: dict) -> list[str]:
+    """Los tokens de selección declarados en la aserción (para nombrarlos al fallar)."""
+    toks: list[str] = []
+    if spec.get("id"):
+        toks.append(str(spec["id"]))
+    if spec.get("grupo"):
+        toks.append(str(spec["grupo"]))
+    for t in spec.get("ids") or []:
+        toks.append(str(t))
+    return toks
+
+
 def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, suggest=None) -> list[dict]:
     """Ejecuta cada aserción. `expand(tokens) -> list[str]` resuelve grupos→ids;
     `interference_fn(focus_ids | None) -> {interferencias, truncado, ...}` corre la
@@ -91,11 +115,27 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, sugg
     `suggest(missing) -> str` (V6.5b, frente C) es un sufijo « ¿Quisiste decir…?» opcional
     que se anexa a los errores de id inexistente (inyectado por la API; default '')."""
     sug = suggest or (lambda _m: "")
+
+    def _sin_piezas(spec: dict) -> str:
+        toks = _spec_tokens(spec)
+        if not toks:
+            return "sin piezas (la aserción no declara id/ids/grupo)"
+        return f"sin piezas (no resolvió: {', '.join(toks)}){sug(toks[0])}"
+
     out: list[dict] = []
     for spec in checks:
         tipo = spec.get("tipo")
         label = spec.get("nombre") or tipo or "?"
         try:
+            known = _KEYS_BY_TIPO.get(tipo)
+            if known is not None:
+                extras = sorted(set(spec) - known)
+                if extras:
+                    out.append({"check": label, "tipo": tipo, "ok": False,
+                                "error": f"clave(s) no reconocida(s) en '{tipo}': "
+                                         f"{', '.join(extras)} (válidas: "
+                                         f"{', '.join(sorted(known - {'tipo', 'nombre'}))})"})
+                    continue
             if tipo == "distancia":
                 a, b = spec.get("a"), spec.get("b")
                 if a not in scene or b not in scene:
@@ -111,7 +151,7 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, sugg
             elif tipo == "volumen":
                 fids = _ids_of(spec, scene, expand)
                 if not fids:
-                    out.append({"check": label, "tipo": tipo, "ok": False, "error": "sin piezas"})
+                    out.append({"check": label, "tipo": tipo, "ok": False, "error": _sin_piezas(spec)})
                     continue
                 vol = round(sum(float(scene[f].shape.volume) for f in fids), 1)
                 ok, esperado = _cmp(vol, spec)
@@ -121,7 +161,7 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, sugg
             elif tipo == "bbox":
                 fids = _ids_of(spec, scene, expand)
                 if not fids:
-                    out.append({"check": label, "tipo": tipo, "ok": False, "error": "sin piezas"})
+                    out.append({"check": label, "tipo": tipo, "ok": False, "error": _sin_piezas(spec)})
                     continue
                 eje = spec.get("eje", "x")
                 if eje not in _AXIS:
@@ -142,7 +182,7 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, sugg
                 declarado = spec.get("ids") or spec.get("grupo") or spec.get("id")
                 fids = _ids_of(spec, scene, expand)
                 if declarado and not fids:
-                    out.append({"check": label, "tipo": tipo, "ok": False, "error": "sin piezas"})
+                    out.append({"check": label, "tipo": tipo, "ok": False, "error": _sin_piezas(spec)})
                     continue
                 rep = interference_fn(fids or None)
                 cols = rep["interferencias"]
@@ -156,7 +196,10 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, sugg
             elif tipo == "existe":
                 if spec.get("id"):
                     ok = spec["id"] in scene
-                    out.append({"check": label, "tipo": tipo, "ok": ok, "actual": ok})
+                    entry = {"check": label, "tipo": tipo, "ok": ok, "actual": ok}
+                    if not ok:  # V6.5c: decir QUÉ id no existe + sugerencia
+                        entry["error"] = f"sólido inexistente '{spec['id']}'{sug(spec['id'])}"
+                    out.append(entry)
                 else:
                     nm = (spec.get("name") or "").lower()
                     matches = [fid for fid, f in scene.items() if nm and nm in (f.name or "").lower()]

@@ -46,6 +46,14 @@ HEX_HEAD_MM = {
     "M24": (36.0, 15.0),
 }
 
+# Tuerca HEXAGONAL DIN 934 por métrica: (entrecaras s, altura m) mm. Pareja del DIN 933
+# en la unión pasante (join_bolted, V6.5c); coincide con las fichas TUERCA-* del catálogo.
+HEX_NUT_MM = {
+    "M6": (10.0, 5.0), "M8": (13.0, 6.5), "M10": (17.0, 8.0), "M12": (18.0, 10.0),
+    "M14": (21.0, 11.0), "M16": (24.0, 13.0), "M18": (27.0, 15.0), "M20": (30.0, 16.0),
+    "M24": (36.0, 19.0),
+}
+
 # Longitudes de vástago COMERCIALES (mm) para redondear el largo del perno al alza.
 STD_LENGTHS = [
     10, 12, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100,
@@ -76,6 +84,14 @@ def hex_head_mm(size: str) -> tuple[float, float]:
     if key not in HEX_HEAD_MM:
         raise KeyError(f"Métrica '{size}' sin cabeza tabulada (soportadas: {', '.join(HEX_HEAD_MM)})")
     return HEX_HEAD_MM[key]
+
+
+def hex_nut_mm(size: str) -> tuple[float, float]:
+    """(entrecaras, altura m) de la tuerca hexagonal DIN 934, o KeyError con mensaje claro."""
+    key = _norm(size)
+    if key not in HEX_NUT_MM:
+        raise KeyError(f"Métrica '{size}' sin tuerca tabulada (soportadas: {', '.join(HEX_NUT_MM)})")
+    return HEX_NUT_MM[key]
 
 
 def commercial_length(min_len: float) -> float:

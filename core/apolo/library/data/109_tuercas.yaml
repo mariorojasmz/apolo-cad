@@ -9,7 +9,12 @@ families:
     weight_formula: "7.85e-6 * (0.866 * across_flats * across_flats - 0.785 * d * d) * thickness"
     specs_common: {tipo: "tuerca hexagonal", material: "acero grado 8", norma: "DIN 934"}
     variants:
+      - {ref: "TUERCA-M6", d: 6, across_flats: 10, thickness: 5.0}
+      - {ref: "TUERCA-M8", d: 8, across_flats: 13, thickness: 6.5}
       - {ref: "TUERCA-M10", d: 10, across_flats: 17, thickness: 8.0}
       - {ref: "TUERCA-M12", d: 12, across_flats: 18, thickness: 10.0}
+      - {ref: "TUERCA-M14", d: 14, across_flats: 21, thickness: 11.0}
       - {ref: "TUERCA-M16", d: 16, across_flats: 24, thickness: 13.0}
+      - {ref: "TUERCA-M18", d: 18, across_flats: 27, thickness: 15.0}
       - {ref: "TUERCA-M20", d: 20, across_flats: 30, thickness: 16.0}
+      - {ref: "TUERCA-M24", d: 24, across_flats: 36, thickness: 19.0}

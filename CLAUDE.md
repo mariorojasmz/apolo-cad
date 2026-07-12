@@ -61,8 +61,8 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **69 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-11)**: 1134 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
-  53 comandos · catálogo 226 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
+- **Estado actual (2026-07-11)**: 1145 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
+  53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
   Convenciones. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 74 sólidos, 312
@@ -105,12 +105,14 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   mass + selectores de verify/expect) traen **«¿quisiste decir…?»** (`_suggest_ids`: difflib
   sobre fids+command_ids+grupos + substring de nombre). `open_project` devuelve `briefing`
   compacto (`_open_briefing`: summary por grupo + variables + requisitos + notas + salud +
-  variantes) → arranque de sesión en 1 llamada. GOTCHAS vivos (fixes en plan V6.5c): `$k`
-  del expect resuelve a COMMAND_ID → con comandos MULTI-sólido (join_bolted, create_*) las
-  aserciones dan «sin piezas» = falso rollback (usa los fids reales mientras tanto); las
-  referencias son 1-INDEXADAS (`$1` = primera acción); campo desconocido en una aserción
-  (p. ej. `feature` en vez de `id`) falla en SILENCIO como «sin piezas»; join_bolted v1 NO
-  valida contacto plano (pieza rotada → pernos flotantes silenciosos — verificar con render).
+  variantes; `notas_agente` acotado a las últimas 20 + `notas_truncadas`) → arranque de
+  sesión en 1 llamada. **V6.5c (cierre de revisión, 2026-07-12)**: `$k` del expect resuelve
+  a los FEATURE_IDS del comando (multi-sólido expande en `ids`; en campo singular con varios
+  sólidos → error accionable, nunca elige uno); las referencias son 1-INDEXADAS (`$1` =
+  primera acción; `$0` lo explica el error); clave DESCONOCIDA en una aserción → error
+  «no reconocida» con las válidas (antes: «sin piezas» silencioso); «sin piezas» nombra los
+  tokens que no resolvieron + sugerencia; un command_id multi-sólido sugerido → sus fids
+  hijos, no él mismo.
 - **Lectura a ESCALA (V6.5)**: ninguna lectura de rutina vuelca la escena entera.
   `get_scene(summary=true)` (`GET /api/scene/summary`) = resumen por GRUPO (n_piezas/masa/
   bbox conjunto/sub-grupos + «(sin grupo)» + totales + variables) — la vista de ENTRADA a un
@@ -124,7 +126,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   `_scene_brief` del MCP) reusando `_expand_ids`; `get_scene()` sin params = payload completo
   con mallas byte-idéntico (compat viewport). Presupuesto: <10 KB/lectura a 1000 piezas.
 
-### Comandos / modelado (52 comandos)
+### Comandos / modelado (53 comandos)
 - **Superficies básicas (V5.11, `kernel/surface.py`)**: `boundary_surface` (Face de un
   contorno cerrado de curvas — `Face.make_surface`/BRepOffsetAPI_MakeFilling; `points` la
   levantan a parche NO plano, `holes` = lazos interiores), `fill_surface` (parche sobre
@@ -197,11 +199,14 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   inserta la tornillería HEX DIN 933 de catálogo (`PERNO-HEX-M6..M24`, `pernos` ahora en
   `HARDWARE_CATS` → fuera de interferencia/lista de corte) y declara el `fasten` dimensionado
   (`jb_{cmd_id}`). Cara de contacto AUTO por solape de cajas (`_join_bolted_geometry`, puro
-  sobre bboxes → paramétrico: si una pieza crece, el patrón se recentra); patrón `count`
-  (fila) o `patron` [n,m] centrado en la huella con borde ≥1.5·d y paso ≥2.5·d; largo de perno
-  = grip + protrusión redondeado a comercial. v1: caras PLANAS paralelas a un plano principal
-  EN CONTACTO — separadas/inclinadas → error claro pidiendo snap_to/mates. Mata el flujo
-  manual de 6-10 llamadas (de donde nació el defecto «19 de 24 pernos»).
+  → paramétrico: si una pieza crece, el patrón se recentra); patrón `count` (fila) o `patron`
+  [n,m] (tope n·m ≤ 100) centrado en la huella con borde ≥1.5·d (también con n=1) y paso
+  ≥2.5·d. **V6.5c**: VALIDA caras PLANAS ⊥ al eje en el contacto Y en los asientos
+  exteriores (≥50 % de la huella; pieza rotada/no prismática → error claro pidiendo mates —
+  antes aceptaba en silencio con pernos flotantes); largo = grip + tuerca (0.8·d) + 3
+  filetes (paso ISO 261) redondeado a comercial; inserta también la TUERCA DIN 934 de
+  catálogo (`TUERCA-M6..M24`, cara opuesta). Separadas → error claro pidiendo snap_to.
+  Mata el flujo manual de 6-10 llamadas (de donde nació el defecto «19 de 24 pernos»).
 
 ### Sub-ensamblajes (grupos de primera clase, V5.2 — 2026-07-01)
 - **Grupos por COMMAND_IDs** (`assembly/groups.py` + comando `create_group` {name,
@@ -777,7 +782,13 @@ verdes**. Un ítem por vez, con plan formal.
   + pernos HEX DIN 933 de catálogo + fasten dimensionado en 1; contacto AUTO por bboxes),
   errores 404 con «¿quisiste decir…?» (`_suggest_ids`), briefing compacto en `open_project`.
   Detalle: § Ergonomía MCP y § super-comandos.
-- **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
+- **V6.5c Fixes de la revisión** — **HECHO (2026-07-12, implementado por Fable)**: `$k`
+  del expect → feature_ids reales (multi-sólido); join_bolted valida caras planas de
+  contacto/asiento + tuerca DIN 934 + protrusión con filetes + edge en n=1 + tope de
+  patrón; clave desconocida/«sin piezas» con error accionable y sugerencia; `$0` explica
+  el 1-indexado; briefing con techo de notas. Detalle: § Ergonomía MCP y § join_bolted.
+- **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5. PLANEADO
+  (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)**. 4.5→5.5.
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
@@ -820,11 +831,13 @@ cerrar V6; orden tentativo por impacto en el entregable:
   para miembros de weldment (hoy caen a mecanizado — pasar la categoría del perfil o
   inferir por sección+`cut_length`), «plegado» solo con pliegue real, torneado por
   asiento con fit; evidencias PNG del benchmark = página real del PDF, no re-render.
-- **V7.3 Stack-up de cadenas de cotas** (análogo a TolAnalyst pero automático): el
-  agente verifica que la suma de tolerancias de la cadena cierra el ajuste declarado.
-  Natural DESPUÉS de V7.2 (usa los datums/fits que V7.2 cablea).
-- **V7.4 FEA firmable** (absorbe V6.7 si no se hizo): ensamblaje bonded + reporte
-  integrado a la memoria. FEA firmable hoy ≈45 %.
+- **V7.3 Stack-up de cadenas de cotas** — PLANEADO (`docs/plans/V7.3-stackup-cadenas-
+  cotas.md`; prerrequisito: V7.2b): motor puro peor-caso+RSS con ISO 2768/286, cadenas
+  declaradas como metadato paramétrico, cadena auto del patrón de pernos, sección en la
+  memoria.
+- **V7.4 FEA firmable** — PLANEADO (`docs/plans/V7.4-fea-firmable.md`; absorbe V6.7):
+  ensamblaje BONDED multi-material (BooleanFragments + physical groups), BCs desde
+  grounds/requirements, sección en memoria con FS por pieza. ≈45 %→~70 %.
 - Orden V7.3 vs V7.4: decidir por demanda del negocio al cerrar V7.2b.
 
 ## Hoja de ruta V5 — AGOTADA (completitud de flujo del vertical)

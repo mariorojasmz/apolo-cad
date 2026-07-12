@@ -479,7 +479,7 @@ def _expand_ids(value) -> list[str] | None:
 
 
 def _verify_checks(scene: dict, checks: list[dict]) -> list[dict]:
-    """Evalúa un lote de ASERCIONES `verify` (V6.5c) sobre `scene` con la resolución de
+    """Evalúa un lote de ASERCIONES `verify` (V6.5) sobre `scene` con la resolución de
     grupos (`_expand_ids`) y la interferencia acotada + exclusiones normales (hardware,
     parejas de junta, mismo super-comando). Fuente ÚNICA compartida por el endpoint
     /api/verify y el CONTRATO `expect` de los lotes (V6.5b). Llamar bajo STATE_LOCK."""
@@ -503,16 +503,61 @@ def _verify_checks(scene: dict, checks: list[dict]) -> list[dict]:
 
 def _contract_verify(expect: list[dict]):
     """Callback de CONTRATO para execute_many/edit_many (V6.5b, frente A): resuelve los `$k`
-    de las aserciones contra los command_ids creados/editados por el lote y las evalúa con
-    `_verify_checks`. Corre DENTRO del lote (tras el regenerate) → si falla, el lote se
-    revierte por completo. None si no hay aserciones (comportamiento byte-idéntico)."""
+    de las aserciones contra los FEATURE_IDS reales del comando k-ésimo (V6.5c: un comando
+    MULTI-sólido —join_bolted, create_*— expande a todos sus fids en campos de lista; en un
+    campo de UN id exige que el comando haya creado UN solo sólido o falla con error
+    accionable, nunca elige uno en silencio) y las evalúa con `_verify_checks`. Corre DENTRO
+    del lote (tras el regenerate) → si falla, el lote se revierte por completo. None si no
+    hay aserciones (comportamiento byte-idéntico)."""
     if not expect:
         return None
     from apolo.batch import resolve_refs
+    from apolo.commands.registry import CommandError
+
+    _SINGULAR = ("id", "a", "b")  # campos de UN solo sólido en las aserciones
 
     def cb(scene: dict, created: list[str]) -> list[dict]:
-        checks = resolve_refs(expect, created)  # $k → command_id (== feature_id si mono-sólido)
-        return _verify_checks(scene, checks)
+        def fids_of(cmd_id: str) -> list[str]:
+            return [fid for fid, f in scene.items()
+                    if getattr(f, "command_id", None) == cmd_id]
+
+        def resolve(tok, *, plural: bool):
+            if not (isinstance(tok, str) and tok.startswith("$") and tok[1:].isdigit()):
+                return tok
+            cmd_id = resolve_refs(tok, created)  # valida rango (1-indexado) → command_id
+            fids = fids_of(cmd_id)
+            if not fids:
+                raise CommandError(
+                    f"La aserción usa '{tok}' pero el comando {cmd_id} no creó sólidos "
+                    "(¿set_variable/fasten?) — aserta sobre una acción que cree geometría."
+                )
+            if plural:
+                return fids
+            if len(fids) == 1:
+                return fids[0]
+            listado = ", ".join(fids[:3]) + ("…" if len(fids) > 3 else "")
+            raise CommandError(
+                f"La aserción usa '{tok}' en un campo de UN sólido, pero el comando {cmd_id} "
+                f"creó {len(fids)} ({listado}) — usa `ids` (acepta la referencia y se expande) "
+                "o un fid concreto."
+            )
+
+        def resolve_spec(spec: dict) -> dict:
+            out = {}
+            for k, v in spec.items():
+                if k == "ids" and isinstance(v, list):
+                    acc: list = []
+                    for tok in v:
+                        r = resolve(tok, plural=True)
+                        acc.extend(r) if isinstance(r, list) else acc.append(r)
+                    out[k] = acc
+                elif k in _SINGULAR:
+                    out[k] = resolve(v, plural=False)
+                else:
+                    out[k] = v
+            return out
+
+        return _verify_checks(scene, [resolve_spec(s) for s in expect])
 
     return cb
 
@@ -524,9 +569,17 @@ def _suggest_ids(missing, limit: int = 3) -> list[str]:
     import difflib
 
     missing_s = str(missing)
+    # V6.5c: un COMMAND_ID vivo cuyo comando creó fids con sufijo (multi-sólido) no debe
+    # sugerirse a sí mismo («¿c3? → c3») — sugiere sus sólidos hijos.
+    if missing_s not in DOC.scene and any(c["id"] == missing_s for c in DOC.commands):
+        kids = [fid for fid, f in DOC.scene.items()
+                if getattr(f, "command_id", None) == missing_s][:limit]
+        if kids:
+            return kids
     pool = list(dict.fromkeys(
         list(DOC.scene.keys()) + [c["id"] for c in DOC.commands] + list(DOC.groups.keys())
     ))
+    pool = [p for p in pool if p != missing_s]
     hits = difflib.get_close_matches(missing_s, pool, n=limit, cutoff=0.55)
     low = missing_s.lower()
     if len(low) >= 3:  # nombre parcial → sus piezas (los ids fuzzy no lo captan)
@@ -781,15 +834,20 @@ def _open_briefing() -> dict:
     <10 KB en un proyecto grande (sin mallas, resumen por grupo)."""
     raw = DOC.check_integrity()
     issues = [i for i in raw if not i.startswith("degradado")]
+    notas = list(DOC.agent_notes)
     brief = {
         "resumen": scene_summary_dict(),  # proyecto/totales/grupos/sin_grupo/variables
         "requisitos": DOC.requirements,
-        "notas_agente": list(DOC.agent_notes),
+        # V6.5c: el ÚNICO campo sin techo natural — últimas 20 y recorte DECLARADO
+        "notas_agente": notas[-20:],
         "salud": {
             "ok": not issues and not STARTUP_ERROR,
             "suprimidos": getattr(DOC, "regen_suppressed", []),
         },
     }
+    if len(notas) > 20:
+        brief["notas_truncadas"] = len(notas) - 20  # sin caps silenciosos
+
     if DOC.configurations:  # tablas de diseño: variantes disponibles
         brief["configuraciones"] = sorted(DOC.configurations.keys())
     return brief

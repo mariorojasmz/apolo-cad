@@ -83,9 +83,11 @@ def test_sin_interferencia_ids_no_resueltos_no_degradan_a_global():
         {"tipo": "sin_interferencia", "ids": ["grupo_inexistente"]},
         {"tipo": "sin_interferencia", "grupo": "NoExiste"},
     ])["resultados"]
-    assert out[0]["ok"] is False and out[0].get("error") == "sin piezas"
+    # V6.5c: el error ahora NOMBRA los tokens que no resolvieron («sin piezas (no resolvió: …)»)
+    assert out[0]["ok"] is False and out[0].get("error", "").startswith("sin piezas")
+    assert "grupo_inexistente" in out[0]["error"]
     assert "colisiones" not in out[0]  # NO corrió el chequeo global (no degradó)
-    assert out[1]["ok"] is False and out[1].get("error") == "sin piezas"
+    assert out[1]["ok"] is False and out[1].get("error", "").startswith("sin piezas")
 
 
 def test_existe_id_and_name():

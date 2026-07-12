@@ -15,7 +15,10 @@ def resolve_refs(value, created: list[str | None]):
     if isinstance(value, str) and value.startswith("$") and value[1:].isdigit():
         idx = int(value[1:]) - 1
         if idx < 0 or idx >= len(created) or created[idx] is None:
-            raise CommandError(f"Referencia '{value}' inválida en el lote")
+            raise CommandError(
+                f"Referencia '{value}' inválida en el lote (las acciones se numeran desde $1; "
+                f"este lote tiene {len(created)})"
+            )
         return created[idx]
     if isinstance(value, list):
         return [resolve_refs(v, created) for v in value]
