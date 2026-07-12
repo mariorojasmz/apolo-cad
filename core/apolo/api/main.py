@@ -478,6 +478,80 @@ def _expand_ids(value) -> list[str] | None:
     return [x for x in out if not (x in seen or seen.add(x))]
 
 
+def _verify_checks(scene: dict, checks: list[dict]) -> list[dict]:
+    """Evalúa un lote de ASERCIONES `verify` (V6.5c) sobre `scene` con la resolución de
+    grupos (`_expand_ids`) y la interferencia acotada + exclusiones normales (hardware,
+    parejas de junta, mismo super-comando). Fuente ÚNICA compartida por el endpoint
+    /api/verify y el CONTRATO `expect` de los lotes (V6.5b). Llamar bajo STATE_LOCK."""
+    from apolo.library.checks import hardware_ids, joint_pairs, same_command_pairs
+    from apolo.library.verify import run_verify
+
+    excl_pairs = joint_pairs(DOC) | same_command_pairs(DOC)
+    excl_ids = hardware_ids(DOC)
+
+    def interference_fn(focus):
+        focus_ids = _expand_ids(focus) if focus else None
+        return interference_report(  # reporte COMPLETO: run_verify propaga `truncado`
+            scene, focus=focus_ids, exclude_pairs=excl_pairs, exclude_ids=excl_ids
+        )
+
+    return run_verify(
+        scene, checks, expand=lambda v: _expand_ids(v) or [],
+        interference_fn=interference_fn, suggest=_suggest_suffix,
+    )
+
+
+def _contract_verify(expect: list[dict]):
+    """Callback de CONTRATO para execute_many/edit_many (V6.5b, frente A): resuelve los `$k`
+    de las aserciones contra los command_ids creados/editados por el lote y las evalúa con
+    `_verify_checks`. Corre DENTRO del lote (tras el regenerate) → si falla, el lote se
+    revierte por completo. None si no hay aserciones (comportamiento byte-idéntico)."""
+    if not expect:
+        return None
+    from apolo.batch import resolve_refs
+
+    def cb(scene: dict, created: list[str]) -> list[dict]:
+        checks = resolve_refs(expect, created)  # $k → command_id (== feature_id si mono-sólido)
+        return _verify_checks(scene, checks)
+
+    return cb
+
+
+def _suggest_ids(missing, limit: int = 3) -> list[str]:
+    """Feature_ids candidatos para un id que no existe (V6.5b, frente C): fuzzy match sobre
+    el universo vigente (fids + command_ids + nombres de grupo) + substring de NOMBRE de
+    pieza. Un id inventado deja de costar un round-trip a ciegas. Llamar bajo STATE_LOCK."""
+    import difflib
+
+    missing_s = str(missing)
+    pool = list(dict.fromkeys(
+        list(DOC.scene.keys()) + [c["id"] for c in DOC.commands] + list(DOC.groups.keys())
+    ))
+    hits = difflib.get_close_matches(missing_s, pool, n=limit, cutoff=0.55)
+    low = missing_s.lower()
+    if len(low) >= 3:  # nombre parcial → sus piezas (los ids fuzzy no lo captan)
+        for fid, feat in DOC.scene.items():
+            if fid not in hits and low in (feat.name or "").lower():
+                hits.append(fid)
+    return hits[:limit]
+
+
+def _suggest_suffix(missing) -> str:
+    """« ¿Quisiste decir: c682 (Chumacera UCP207), c680?»  o  '' si nada se parece."""
+    sug = _suggest_ids(missing)
+    if not sug:
+        return ""
+    def annot(fid: str) -> str:
+        feat = DOC.scene.get(fid)
+        return f"{fid} ({feat.name})" if feat is not None and feat.name else fid
+    return " ¿Quisiste decir: " + ", ".join(annot(s) for s in sug) + "?"
+
+
+def _not_found(missing, kind: str = "sólido") -> HTTPException:
+    """404 con candidatos cercanos («¿quisiste decir…?»). Llamar bajo STATE_LOCK."""
+    return HTTPException(status_code=404, detail=f"No existe el {kind} '{missing}'{_suggest_suffix(missing)}")
+
+
 _DEF_MESH_CACHE: dict[str, dict] = {}
 
 
@@ -700,6 +774,27 @@ def scene_summary_dict() -> dict:
     }
 
 
+def _open_briefing() -> dict:
+    """Briefing compacto de APERTURA (V6.5b, frente D): resumen por grupo + variables (de
+    scene_summary_dict) + requisitos + notas del agente + salud (ok/suprimidos) + variantes de
+    diseño. Arrancar una sesión pasa de 4-5 llamadas a 1. Llamar bajo STATE_LOCK. Presupuesto:
+    <10 KB en un proyecto grande (sin mallas, resumen por grupo)."""
+    raw = DOC.check_integrity()
+    issues = [i for i in raw if not i.startswith("degradado")]
+    brief = {
+        "resumen": scene_summary_dict(),  # proyecto/totales/grupos/sin_grupo/variables
+        "requisitos": DOC.requirements,
+        "notas_agente": list(DOC.agent_notes),
+        "salud": {
+            "ok": not issues and not STARTUP_ERROR,
+            "suprimidos": getattr(DOC, "regen_suppressed", []),
+        },
+    }
+    if DOC.configurations:  # tablas de diseño: variantes disponibles
+        brief["configuraciones"] = sorted(DOC.configurations.keys())
+    return brief
+
+
 def _normalize_affected(v) -> list[str]:
     """Normaliza el retorno de una mutación a una lista de command_ids afectados.
     execute→str, execute_many/edit→list|str, lambdas sin retorno→[]."""
@@ -892,21 +987,25 @@ def post_command(cmd: CommandIn) -> dict:
 
 class BatchIn(BaseModel):
     actions: list[CommandIn]
+    # CONTRATO opcional (V6.5b, frente A): aserciones estilo `verify` que deben cumplirse
+    # tras el lote; si alguna falla, el lote se revierte por completo (doc intacto).
+    expect: list[dict] = []
 
 
 @app.post("/api/commands/batch")
 def post_batch(batch: BatchIn) -> dict:
     from apolo.batch import execute_batch
 
-    return _state_or_error(
-        lambda: execute_batch(
-            DOC,
-            [
-                {"type": a.type, "params": _materialize_insert_project(a.type, a.params)}
-                for a in batch.actions
-            ],
-        )
+    actions = [
+        {"type": a.type, "params": _materialize_insert_project(a.type, a.params)}
+        for a in batch.actions
+    ]
+    payload = _state_or_error(
+        lambda: execute_batch(DOC, actions, verify=_contract_verify(batch.expect))
     )
+    if batch.expect:  # el lote sobrevivió al contrato (si no, ContractError → 400)
+        payload["contrato"] = {"n_aserciones": len(batch.expect), "ok": True}
+    return payload
 
 
 class EditOne(BaseModel):
@@ -916,22 +1015,24 @@ class EditOne(BaseModel):
 
 class EditBatchIn(BaseModel):
     edits: list[EditOne]
+    expect: list[dict] = []  # CONTRATO opcional (V6.5b): igual que en /api/commands/batch
 
 
 @app.patch("/api/commands/batch")
 def patch_batch(batch: EditBatchIn, merge: bool = False) -> dict:
-    return _state_or_error(
-        lambda: DOC.edit_many(
-            [
-                {
-                    "command_id": e.command_id,
-                    "params": _materialize_edit(e.command_id, e.params, merge),
-                }
-                for e in batch.edits
-            ],
-            merge=merge,
-        )
+    edits = [
+        {
+            "command_id": e.command_id,
+            "params": _materialize_edit(e.command_id, e.params, merge),
+        }
+        for e in batch.edits
+    ]
+    payload = _state_or_error(
+        lambda: DOC.edit_many(edits, merge=merge, verify=_contract_verify(batch.expect))
     )
+    if batch.expect:
+        payload["contrato"] = {"n_aserciones": len(batch.expect), "ok": True}
+    return payload
 
 
 class PreviewIn(BaseModel):
@@ -1013,6 +1114,9 @@ class ParamsIn(BaseModel):
 
 @app.put("/api/commands/{command_id}")
 def edit_command(command_id: str, body: ParamsIn, transient: bool = False, merge: bool = False) -> dict:
+    with STATE_LOCK:  # 404 con «¿quisiste decir…?» antes de mutar (V6.5b, frente C)
+        if not any(c["id"] == command_id for c in DOC.commands):
+            raise _not_found(command_id, kind="comando")
     return _state_or_error(
         lambda: DOC.edit(
             command_id,
@@ -1136,7 +1240,7 @@ def get_feature_topology(
     with STATE_LOCK:
         feat = DOC.scene.get(feature_id)
         if feat is None:
-            raise HTTPException(status_code=404, detail=f"No existe el sólido '{feature_id}'")
+            raise _not_found(feature_id)
         topo = feature_topology(feat.shape, only=only, min_mm=min_mm)
         anchors = feat.anchors or {}
     out = {"feature_id": feature_id, "name": feat.name, **topo}
@@ -1164,7 +1268,7 @@ def mass_properties(ids: str | None = None) -> dict:
         try:
             return scene_mass_properties(DOC.scene, ids=wanted)
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
+            raise _not_found(exc.args[0]) from exc
 
 
 class MeasureIn(BaseModel):
@@ -1185,8 +1289,7 @@ def measure_endpoint(body: MeasureIn) -> dict:
         fa = DOC.scene.get(body.a)
         fb = DOC.scene.get(body.b)
         if fa is None or fb is None:
-            missing = body.a if fa is None else body.b
-            raise HTTPException(status_code=404, detail=f"No existe el sólido '{missing}'")
+            raise _not_found(body.a if fa is None else body.b)
         sa, sb = fa.shape, fb.shape
         try:
             if body.face_a:
@@ -1225,7 +1328,7 @@ def near_endpoint(
     with STATE_LOCK:
         if feature is not None:
             if feature not in DOC.scene:
-                raise HTTPException(status_code=404, detail=f"No existe el sólido '{feature}'")
+                raise _not_found(feature)
             cercanas = features_near_feature(DOC.scene, feature, radius, limit=lim)
             modo = {"feature": feature}
         elif box is not None:
@@ -1341,6 +1444,7 @@ def open_project_by_id(project_id: int) -> dict:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         PROJECT_ID = project_id
         payload = scene_payload()
+        payload["briefing"] = _open_briefing()  # V6.5b: arranque de sesión en 1 llamada
     WS.notify_changed()
     return payload
 
@@ -1616,23 +1720,8 @@ def verify_endpoint(body: VerifyIn) -> dict:
     (distancia/volumen/bbox/sin_interferencia/existe) y las verifica en UNA llamada en vez de
     encadenar N `measure` + aritmética mental. Devuelve `{ok, resultados:[{check,ok,actual,
     esperado}]}`. La interferencia se reusa acotada (V6.5b) con las exclusiones normales."""
-    from apolo.library.checks import hardware_ids, joint_pairs, same_command_pairs
-    from apolo.library.verify import run_verify
-
     with STATE_LOCK:
-        excl_pairs = joint_pairs(DOC) | same_command_pairs(DOC)
-        excl_ids = hardware_ids(DOC)
-
-        def interference_fn(focus):
-            focus_ids = _expand_ids(focus) if focus else None
-            return interference_report(  # reporte COMPLETO: run_verify propaga `truncado`
-                DOC.scene, focus=focus_ids, exclude_pairs=excl_pairs, exclude_ids=excl_ids
-            )
-
-        resultados = run_verify(
-            DOC.scene, body.checks,
-            expand=lambda v: _expand_ids(v) or [], interference_fn=interference_fn,
-        )
+        resultados = _verify_checks(DOC.scene, body.checks)
     return {"ok": all(r["ok"] for r in resultados), "resultados": resultados}
 
 

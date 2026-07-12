@@ -261,13 +261,25 @@ def run_command(type: str, params: dict, detail: str = "diff") -> str:
 
 
 @mcp.tool()
-def run_batch(actions: list[dict], detail: str = "diff") -> str:
+def run_batch(actions: list[dict], detail: str = "diff", expect: list[dict] | None = None) -> str:
     """Ejecuta un lote ordenado de comandos [{type, params}, …]. Usa '$k' en los
     campos de id de feature para referenciar el sólido creado por la k-ésima
     acción del lote. `detail`: "diff" (def.) devuelve solo los sólidos creados por el
-    lote + `total_solidos`; "full" toda la escena; "summary" solo id/nombre."""
-    payload = _api("POST", "/api/commands/batch", json={"actions": actions}).json()
-    return json.dumps(_scene_brief(payload, detail), ensure_ascii=False)
+    lote + `total_solidos`; "full" toda la escena; "summary" solo id/nombre.
+    `expect` (CONTRATO, V6.5b) = lista de ASERCIONES estilo verify (distancia/volumen/bbox/
+    sin_interferencia/existe) que DEBEN cumplirse tras el lote; si alguna falla, el lote se
+    revierte POR COMPLETO (el documento queda intacto, sin escombro) y el error lista lo
+    fallido (medido vs esperado). Los `$k` valen también en las aserciones (referencian lo
+    recién creado). Muta con contrato cuando el resultado deba cumplir una condición y ahórrate
+    el ciclo mutar→leer→verificar→undo."""
+    body: dict = {"actions": actions}
+    if expect:
+        body["expect"] = expect
+    payload = _api("POST", "/api/commands/batch", json=body).json()
+    out = _scene_brief(payload, detail)
+    if "contrato" in payload:
+        out["contrato"] = payload["contrato"]
+    return json.dumps(out, ensure_ascii=False)
 
 
 @mcp.tool()
@@ -287,21 +299,31 @@ def edit_command(command_id: str, params: dict, merge: bool = True, detail: str 
 
 
 @mcp.tool()
-def edit_batch(edits: list[dict], merge: bool = True, detail: str = "diff") -> str:
+def edit_batch(
+    edits: list[dict], merge: bool = True, detail: str = "diff", expect: list[dict] | None = None
+) -> str:
     """Edita VARIOS comandos en UN lote ATÓMICO: un solo regenerate y un solo paso de
     undo (frente a N round-trips + N regenerates de llamar edit_command en bucle). Úsalo
     al reparametrizar muchas piezas a la vez. edits = [{"command_id": "c38", "params":
     {...}}, …]. PATCH por defecto (merge=True, superficial: un sub-objeto position/rotation
     se reemplaza entero); merge=False reemplaza todos los params. Si una edición falla,
-    revierte TODO el lote. `detail` como en run_command (y `variables` solo aparece si el
-    lote tocó alguna)."""
+    revierte TODO el lote. `expect` (CONTRATO, V6.5b) = aserciones estilo verify que deben
+    cumplirse tras el lote; si alguna falla, se revierte TODO (doc intacto) — úsalo para
+    reparametrizar con garantía (p. ej. tras encoger, `sin_interferencia`). `detail` como en
+    run_command (y `variables` solo aparece si el lote tocó alguna)."""
+    body: dict = {"edits": edits}
+    if expect:
+        body["expect"] = expect
     payload = _api(
         "PATCH",
         "/api/commands/batch",
         params={"merge": str(merge).lower()},
-        json={"edits": edits},
+        json=body,
     ).json()
-    return json.dumps(_scene_brief(payload, detail), ensure_ascii=False)
+    out = _scene_brief(payload, detail)
+    if "contrato" in payload:
+        out["contrato"] = payload["contrato"]
+    return json.dumps(out, ensure_ascii=False)
 
 
 @mcp.tool()
@@ -490,9 +512,15 @@ def list_projects() -> str:
 
 @mcp.tool()
 def open_project(project_id: int) -> str:
-    """Abre un proyecto por id."""
+    """Abre un proyecto por id. Devuelve además un `briefing` compacto (V6.5b) para arrancar la
+    sesión en UNA llamada: resumen por GRUPO (n_piezas/masa/bbox) + variables + requisitos +
+    notas del agente + salud (ok/suprimidos) + variantes de diseño. Ya NO hace falta encadenar
+    get_scene(summary)+get_requirements+get_agent_notes al abrir."""
     payload = _api("POST", f"/api/projects/{project_id}/open").json()
-    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+    out = _scene_brief(payload)
+    if "briefing" in payload:
+        out["briefing"] = payload["briefing"]
+    return json.dumps(out, ensure_ascii=False)
 
 
 @mcp.tool()

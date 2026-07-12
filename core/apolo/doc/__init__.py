@@ -1,3 +1,3 @@
-from .document import Document, DocumentError
+from .document import ContractError, Document, DocumentError
 
-__all__ = ["Document", "DocumentError"]
+__all__ = ["ContractError", "Document", "DocumentError"]

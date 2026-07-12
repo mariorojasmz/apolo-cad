@@ -22,7 +22,9 @@ React/three.js**. IA: Claude API en la nube vía `APOLO_MODEL` (por defecto
   toolbar, los diálogos, el panel Propiedades y las **tools del agente**. Una sola
   fuente de verdad. El MCP es THIN: núcleo de escritura mínimo (`run_command`/`run_batch`
   con `$k` + `edit_command`/`edit_batch` + undo/redo cubren TODO el registro; NO hay tool
-  por comando) — auditado: los huecos siempre han sido de LECTURA, no de escritura.
+  por comando) — auditado: los huecos siempre han sido de LECTURA, no de escritura. Los
+  lotes aceptan **CONTRATO** (`expect`, V6.5b): aserciones que deben cumplirse tras el
+  regenerate o el lote se revierte por completo (mata-bucles del flujo mutar→leer→undo).
 - **Expresiones**: cualquier campo numérico acepta `"=expresión"` con variables del
   proyecto (motor AST en `commands/expressions.py`). Las variables son comandos
   `set_variable` en la cabecera del log; cambiarlas regenera todo.
@@ -59,8 +61,8 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **69 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-11)**: 1104 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
-  52 comandos · catálogo 217 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
+- **Estado actual (2026-07-11)**: 1134 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
+  53 comandos · catálogo 226 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
   Convenciones. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 74 sólidos, 312
@@ -94,6 +96,16 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   `variables` solo si cambió; `edit_command` hace PATCH (merge superficial: un sub-objeto
   position/rotation se reemplaza ENTERO); `edit_batch` = N ediciones en UN regenerate
   atómico y 1 undo; `GET /api/schemas/{type}` para no volcar los ~77 KB de schemas.
+- **Acción con contrato (V6.5b)**: `run_batch`/`edit_batch` aceptan `expect` = aserciones
+  estilo `verify` (mismo `_verify_checks` que `/api/verify`; `$k` resueltos contra lo creado);
+  tras el regenerate, si alguna falla → `ContractError` y `execute_many`/`edit_many` revierten
+  el lote CONSUMIENDO el snapshot (sin entrada de undo fantasma; doc bit-idéntico) — patrón
+  callback `verify(scene, created)` corriendo DENTRO del try. Éxito → `contrato:{n_aserciones,
+  ok}`; sin `expect` = byte-idéntico. Errores 404 de id (near/measure/get_topology/edit_command/
+  mass + selectores de verify/expect) traen **«¿quisiste decir…?»** (`_suggest_ids`: difflib
+  sobre fids+command_ids+grupos + substring de nombre). `open_project` devuelve `briefing`
+  compacto (`_open_briefing`: summary por grupo + variables + requisitos + notas + salud +
+  variantes) → arranque de sesión en 1 llamada.
 - **Lectura a ESCALA (V6.5)**: ninguna lectura de rutina vuelca la escena entera.
   `get_scene(summary=true)` (`GET /api/scene/summary`) = resumen por GRUPO (n_piezas/masa/
   bbox conjunto/sub-grupos + «(sin grupo)» + totales + variables) — la vista de ENTRADA a un
@@ -174,6 +186,17 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - `fasten`/`ground` (conectividad, `wants_connectivity`): `fasten` acepta dimensionamiento
   opcional `size`/`qty` (perno) y `throat_mm`/`length_mm` (soldadura; `throat` ES la
   garganta, a=0.707·cateto).
+- **`join_bolted` (V6.5b, super-comando `wants_connectivity`)**: une A y B con un patrón de
+  pernos en UN comando — taladra barrenos de PASO alineados (broca ISO 273 serie media,
+  tabla en `engineering/bolts.py`: M12→Ø13.5) en AMBAS piezas EN SITIO (conserva ids/juntas),
+  inserta la tornillería HEX DIN 933 de catálogo (`PERNO-HEX-M6..M24`, `pernos` ahora en
+  `HARDWARE_CATS` → fuera de interferencia/lista de corte) y declara el `fasten` dimensionado
+  (`jb_{cmd_id}`). Cara de contacto AUTO por solape de cajas (`_join_bolted_geometry`, puro
+  sobre bboxes → paramétrico: si una pieza crece, el patrón se recentra); patrón `count`
+  (fila) o `patron` [n,m] centrado en la huella con borde ≥1.5·d y paso ≥2.5·d; largo de perno
+  = grip + protrusión redondeado a comercial. v1: caras PLANAS paralelas a un plano principal
+  EN CONTACTO — separadas/inclinadas → error claro pidiendo snap_to/mates. Mata el flujo
+  manual de 6-10 llamadas (de donde nació el defecto «19 de 24 pernos»).
 
 ### Sub-ensamblajes (grupos de primera clase, V5.2 — 2026-07-01)
 - **Grupos por COMMAND_IDs** (`assembly/groups.py` + comando `create_group` {name,
@@ -743,11 +766,12 @@ verdes**. Un ítem por vez, con plan formal.
 - **V6.5 MCP a escala** — **HECHO (2026-07-10)**: lectura acotada/paginada + summary por
   grupo + `near`/interferencia acotada + `snap_to`/`verify` + preview con datos; rutina
   < 10 KB a 1000 piezas. Detalle: § Lectura a ESCALA.
-- **V6.5b MCP: acción con contrato** — PLANEADO (`docs/plans/V6.5b-mcp-accion-con-
-  contrato.md`, ejecutar DESPUÉS de V7.2 — ambos tocan api/main.py): `expect` en
-  run_batch/edit_batch (aserciones de `verify` con rollback atómico si fallan),
-  comando `join_bolted` (taladros alineados + pernos de catálogo + fasten en 1),
-  errores 404 con «¿quisiste decir…?», briefing compacto en `open_project`.
+- **V6.5b MCP: acción con contrato** — **HECHO (2026-07-11)**: `expect` en run_batch/
+  edit_batch (aserciones de `verify` con rollback atómico + `ContractError` si fallan;
+  `$k` resueltos contra lo creado), super-comando `join_bolted` (taladros de paso alineados
+  + pernos HEX DIN 933 de catálogo + fasten dimensionado en 1; contacto AUTO por bboxes),
+  errores 404 con «¿quisiste decir…?» (`_suggest_ids`), briefing compacto en `open_project`.
+  Detalle: § Ergonomía MCP y § super-comandos.
 - **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5.
 - **V6.7 FEA de ensamblaje (bonded)**. 4.5→5.5.
 

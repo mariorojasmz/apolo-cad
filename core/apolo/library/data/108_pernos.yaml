@@ -17,3 +17,23 @@ families:
       - {ref: "PERNO-M12", d: 12, across_flats: 18, head_h: 12.0, cost: 0.5}
       - {ref: "PERNO-M16", d: 16, across_flats: 24, head_h: 16.0, cost: 0.9}
       - {ref: "PERNO-M20", d: 20, across_flats: 30, head_h: 20.0, cost: 1.6}
+  # Pernos de cabeza HEXAGONAL DIN 933 (ISO 4017) 8.8, la tornillería estructural más común.
+  # Los usa el super-comando join_bolted (V6.5b) para materializar una unión atornillada: el
+  # largo del vástago lo fija join_bolted (grip + protrusión), aquí el peso es de un perno de
+  # ~40 mm (REFERENCIAL). across_flats/head_h = cabeza DIN 933 (espejo de HEX_HEAD_MM en bolts.py).
+  - name_tpl: "Perno hexagonal {ref} 8.8"
+    description_tpl: "Perno cabeza hexagonal {ref} DIN 933 8.8 (unión atornillada; largo a medida)."
+    builder: hex_bolt
+    param_keys: [d, across_flats, head_h]
+    weight_formula: "7.85e-6 * (0.785 * d * d * 40 + 0.866 * across_flats * across_flats * head_h)"
+    specs_common: {tipo: "perno cabeza hexagonal", material: "acero grado 8.8", grado: "8.8", norma: "DIN 933"}
+    variants:
+      - {ref: "PERNO-HEX-M6", d: 6, across_flats: 10, head_h: 4.0, cost: 0.06}
+      - {ref: "PERNO-HEX-M8", d: 8, across_flats: 13, head_h: 5.3, cost: 0.1}
+      - {ref: "PERNO-HEX-M10", d: 10, across_flats: 16, head_h: 6.4, cost: 0.18}
+      - {ref: "PERNO-HEX-M12", d: 12, across_flats: 18, head_h: 7.5, cost: 0.28}
+      - {ref: "PERNO-HEX-M14", d: 14, across_flats: 21, head_h: 8.8, cost: 0.42}
+      - {ref: "PERNO-HEX-M16", d: 16, across_flats: 24, head_h: 10.0, cost: 0.6}
+      - {ref: "PERNO-HEX-M18", d: 18, across_flats: 27, head_h: 11.5, cost: 0.85}
+      - {ref: "PERNO-HEX-M20", d: 20, across_flats: 30, head_h: 12.5, cost: 1.1}
+      - {ref: "PERNO-HEX-M24", d: 24, across_flats: 36, head_h: 15.0, cost: 1.9}

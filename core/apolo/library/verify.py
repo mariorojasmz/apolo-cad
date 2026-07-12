@@ -64,10 +64,33 @@ def _combined_bbox(scene: dict, fids: list[str]) -> tuple[list[float], list[floa
     return gmin, gmax
 
 
-def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn) -> list[dict]:
+def format_failures(results: list[dict]) -> str:
+    """Mensaje accionable de un CONTRATO incumplido (V6.5b, frente A): lista las aserciones
+    fallidas con medido vs esperado. Puro (reusa el formato de `run_verify`); lo consume
+    ``ContractError`` para que el rollback del lote informe QUÉ falló."""
+    fails = [r for r in results if not r.get("ok")]
+    lines = [
+        f"Contrato incumplido: {len(fails)} de {len(results)} aserciones fallaron "
+        "(el lote se revirtió por completo; el documento quedó INTACTO):"
+    ]
+    for r in fails:
+        label = r.get("check") or r.get("tipo") or "?"
+        if r.get("error"):
+            lines.append(f"  - {label}: {r['error']}")
+        else:
+            lines.append(
+                f"  - {label}: medido {r.get('actual')} vs esperado {r.get('esperado')}"
+            )
+    return "\n".join(lines)
+
+
+def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, suggest=None) -> list[dict]:
     """Ejecuta cada aserción. `expand(tokens) -> list[str]` resuelve grupos→ids;
     `interference_fn(focus_ids | None) -> {interferencias, truncado, ...}` corre la
-    interferencia acotada (focus=None = global) y devuelve el REPORTE completo."""
+    interferencia acotada (focus=None = global) y devuelve el REPORTE completo.
+    `suggest(missing) -> str` (V6.5b, frente C) es un sufijo « ¿Quisiste decir…?» opcional
+    que se anexa a los errores de id inexistente (inyectado por la API; default '')."""
+    sug = suggest or (lambda _m: "")
     out: list[dict] = []
     for spec in checks:
         tipo = spec.get("tipo")
@@ -78,7 +101,7 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn) -> l
                 if a not in scene or b not in scene:
                     falta = a if a not in scene else b
                     out.append({"check": label, "tipo": tipo, "ok": False,
-                                "error": f"sólido inexistente '{falta}'"})
+                                "error": f"sólido inexistente '{falta}'{sug(falta)}"})
                     continue
                 dist = measure_distance(scene[a].shape, scene[b].shape)["dist_mm"]
                 ok, esperado = _cmp(dist, spec)

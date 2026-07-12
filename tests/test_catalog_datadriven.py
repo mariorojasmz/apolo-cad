@@ -123,12 +123,12 @@ def test_all_new_families_present():
     # herraje de puerta corrediza/colgante (Ducasse U-100 / D-100)
     assert len(refs_in_category("rieles_corredera")) == 2
     assert len(refs_in_category("correderas_colgantes")) == 2
-    # tornillería comercial para tensores (DIN 933 / 934)
-    assert len(refs_in_category("pernos")) == 4
+    # tornillería comercial para tensores (DIN 912) + pernos hex DIN 933 de join_bolted (V6.5b)
+    assert len(refs_in_category("pernos")) == 13  # 4 Allen (socket_cap) + 9 hex (M6–M24)
     assert len(refs_in_category("tuercas")) == 4
     # motorreductores sinfín-corona NMRV (eje hueco, montaje directo sobre el eje)
     assert len(refs_in_category("motorreductores_sinfin")) == 8
-    assert len(CATALOG) == 217  # chumaceras: UCP204-208 pie + UCF/UCFL204-208 de brida (5→15)
+    assert len(CATALOG) == 226  # +9 pernos hex DIN 933 (M6–M24) para join_bolted (V6.5b)
 
 
 def test_door_sliding_hardware():

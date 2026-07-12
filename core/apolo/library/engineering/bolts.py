@@ -31,6 +31,58 @@ GRADES = {
     "12.9": (1200.0, 1080.0),
 }
 
+# Ø de la broca de PASO ISO 273 (serie MEDIA) por métrica del perno (mm). Un agujero de
+# paso deja holgura radial para el vástago (M12→Ø13.5): la unión atornillada la usa en
+# AMBAS piezas (join_bolted, V6.5b). Serie fina/gruesa por demanda.
+CLEARANCE_HOLE_MM = {
+    "M6": 6.6, "M8": 9.0, "M10": 11.0, "M12": 13.5, "M14": 15.5,
+    "M16": 17.5, "M18": 20.0, "M20": 22.0, "M24": 26.0,
+}
+
+# Cabeza HEXAGONAL DIN 933 / ISO 4017 por métrica: (entrecaras s, altura de cabeza k) mm.
+HEX_HEAD_MM = {
+    "M6": (10.0, 4.0), "M8": (13.0, 5.3), "M10": (16.0, 6.4), "M12": (18.0, 7.5),
+    "M14": (21.0, 8.8), "M16": (24.0, 10.0), "M18": (27.0, 11.5), "M20": (30.0, 12.5),
+    "M24": (36.0, 15.0),
+}
+
+# Longitudes de vástago COMERCIALES (mm) para redondear el largo del perno al alza.
+STD_LENGTHS = [
+    10, 12, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100,
+    110, 120, 130, 140, 150, 160, 180, 200,
+]
+
+
+def _norm(size: str) -> str:
+    return size.strip().upper()
+
+
+def nominal_diameter_mm(size: str) -> float:
+    """Ø nominal del perno (M12 → 12.0)."""
+    return float(_norm(size).lstrip("M"))
+
+
+def clearance_hole_mm(size: str) -> float:
+    """Ø de la broca de paso ISO 273 serie media, o KeyError con mensaje claro."""
+    key = _norm(size)
+    if key not in CLEARANCE_HOLE_MM:
+        raise KeyError(f"Métrica '{size}' sin broca de paso tabulada (soportadas: {', '.join(CLEARANCE_HOLE_MM)})")
+    return CLEARANCE_HOLE_MM[key]
+
+
+def hex_head_mm(size: str) -> tuple[float, float]:
+    """(entrecaras, altura) de la cabeza hexagonal DIN 933, o KeyError con mensaje claro."""
+    key = _norm(size)
+    if key not in HEX_HEAD_MM:
+        raise KeyError(f"Métrica '{size}' sin cabeza tabulada (soportadas: {', '.join(HEX_HEAD_MM)})")
+    return HEX_HEAD_MM[key]
+
+
+def commercial_length(min_len: float) -> float:
+    """Menor longitud comercial ≥ min_len (o la mayor tabulada si se pasa)."""
+    return next((L for L in STD_LENGTHS if L >= min_len), float(STD_LENGTHS[-1]))
+
+
 # γM2 de EN 1993-1-8 (uniones): factor parcial de resistencia.
 GAMMA_M2 = 1.25
 

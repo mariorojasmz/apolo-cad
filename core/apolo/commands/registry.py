@@ -59,6 +59,7 @@ from .models import (
     ImportStepParams,
     InsertComponentParams,
     InsertProjectParams,
+    JoinBoltedParams,
     MirrorParams,
     PatternCircularParams,
     PatternGroupParams,
@@ -888,6 +889,154 @@ def _exec_fasten(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: F
         raise CommandError(str(exc)) from exc
 
 
+def _join_bolted_geometry(a_shape, b_shape, p: "JoinBoltedParams") -> dict:
+    """Resuelve la geometría de la unión atornillada (V6.5b) SIN mutar: cara de contacto por
+    solape de cajas, eje de apilado, huella, patrón centrado con distancia al borde ≥1.5·d y
+    largo de perno comercial. Devuelve todo lo que el executor necesita o lanza CommandError
+    accionable. Puro sobre bboxes → parametrizable (si una pieza crece, el patrón se recentra)."""
+    from apolo.library.engineering.bolts import (
+        clearance_hole_mm, commercial_length, hex_head_mm, nominal_diameter_mm,
+    )
+
+    size = p.size.strip().upper()
+    try:
+        d = nominal_diameter_mm(size)
+        clear = clearance_hole_mm(size)
+        af, head_h = hex_head_mm(size)
+    except KeyError as exc:
+        raise CommandError(str(exc)) from exc
+
+    ab = a_shape.bounding_box()
+    bb = b_shape.bounding_box()
+    amin = [ab.min.X, ab.min.Y, ab.min.Z]
+    amax = [ab.max.X, ab.max.Y, ab.max.Z]
+    bmin = [bb.min.X, bb.min.Y, bb.min.Z]
+    bmax = [bb.max.X, bb.max.Y, bb.max.Z]
+    overlap = [min(amax[k], bmax[k]) - max(amin[k], bmin[k]) for k in range(3)]
+    stack = min(range(3), key=lambda k: overlap[k])  # eje de menor solape = normal de contacto
+    inplane = [k for k in range(3) if k != stack]
+    axname = {0: "X", 1: "Y", 2: "Z"}
+    tol = 1e-6
+
+    if overlap[inplane[0]] <= tol or overlap[inplane[1]] <= tol:
+        raise CommandError(
+            "Las piezas no comparten una huella de contacto (sus cajas no se solapan en el plano): "
+            "colócalas cara a cara (snap_to/attach) o únelas con add_mate."
+        )
+    gap = -overlap[stack]
+    if gap > 0.5:
+        raise CommandError(
+            f"Las piezas están separadas {gap:.1f} mm en el eje {axname[stack]}: acércalas hasta el "
+            "contacto (snap_to gap=0) o usa add_mate coincidente — join_bolted requiere caras en contacto."
+        )
+
+    o_min = min(amin[stack], bmin[stack])
+    o_max = max(amax[stack], bmax[stack])
+    grip = o_max - o_min
+    foot_min = [max(amin[k], bmin[k]) for k in range(3)]
+    foot_max = [min(amax[k], bmax[k]) for k in range(3)]
+
+    if p.patron:
+        nu, nv = int(p.patron[0]), int(p.patron[1])
+    else:
+        nu, nv = max(1, int(p.count)), 1
+    # u = eje in-plane más largo (la fila corre por ahí); v = el corto
+    u, v = sorted(inplane, key=lambda k: foot_max[k] - foot_min[k], reverse=True)
+    edge = 1.5 * d
+
+    min_pitch = 2.5 * d  # paso mínimo estructural centro-a-centro (~2.5·d)
+
+    def positions(ax: int, n: int) -> list[float]:
+        lo, hi = foot_min[ax] + edge, foot_max[ax] - edge
+        center = (foot_min[ax] + foot_max[ax]) / 2.0
+        if n <= 1:
+            return [center]
+        if p.spacing:
+            pts = [center + p.spacing * (i - (n - 1) / 2.0) for i in range(n)]
+            if min(pts) < lo - tol or max(pts) > hi + tol:
+                raise CommandError(
+                    f"El patrón {nu}×{nv} con paso {p.spacing:g} mm no cabe en la huella "
+                    f"({foot_max[ax] - foot_min[ax]:.0f} mm en {axname[ax]}) respetando el borde ≥{edge:g} mm."
+                )
+            return pts
+        if hi - lo < (n - 1) * min_pitch - tol:  # no cabe el borde + el paso mínimo
+            raise CommandError(
+                f"La huella de solape ({foot_max[ax] - foot_min[ax]:.0f} mm en {axname[ax]}) es muy pequeña "
+                f"para {n} pernos {size} con distancia al borde ≥{edge:g} mm y paso ≥{min_pitch:g} mm: "
+                "reduce count/patrón o el perno."
+            )
+        return [lo + (hi - lo) * i / (n - 1) for i in range(n)]
+
+    us, vs = positions(u, nu), positions(v, nv)
+    bolt_len = commercial_length(grip + max(6.0, round(0.8 * d)))
+    return {
+        "d": d, "clear": clear, "af": af, "head_h": head_h, "size": size,
+        "stack": stack, "u": u, "v": v, "us": us, "vs": vs,
+        "o_min": o_min, "o_max": o_max, "grip": grip, "bolt_len": bolt_len,
+    }
+
+
+def _exec_join_bolted(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: JoinBoltedParams) -> None:
+    """Super-comando de unión atornillada (V6.5b): taladra barrenos de paso alineados en A y B
+    (EN SITIO, conserva ids), inserta la tornillería DIN 933 de catálogo y declara el fijador
+    dimensionado. Un solo comando editable/deshacible con BOM/memoria heredados."""
+    from build123d import Pos, Rotation
+
+    from apolo.assembly.connectivity import ConnectivityError, register_fastener
+    from apolo.library.builders import hex_bolt
+    from apolo.library.catalog import CATALOG
+
+    if p.a == p.b:
+        raise CommandError("join_bolted une dos piezas distintas (a ≠ b)")
+    a = _require(scene, p.a)
+    b = _require(scene, p.b)
+    g = _join_bolted_geometry(a.shape, b.shape, p)
+    ref = f"PERNO-HEX-{g['size']}"
+    if ref not in CATALOG:
+        raise CommandError(
+            f"Perno {g['size']} sin referencia de catálogo '{ref}': tamaños M6–M24 (DIN 933)."
+        )
+
+    stack, u, v = g["stack"], g["u"], g["v"]
+    outward = [0.0, 0.0, 0.0]
+    outward[stack] = 1.0
+    rot = {0: (0.0, 90.0, 0.0), 1: (-90.0, 0.0, 0.0), 2: (0.0, 0.0, 0.0)}[stack]  # local +Z → +eje
+    bolt_base = hex_bolt(g["d"], g["af"], g["head_h"])(g["bolt_len"])
+    margin = 5.0
+    n_bolt = 0
+    for pu in g["us"]:
+        for pv in g["vs"]:
+            pt = [0.0, 0.0, 0.0]
+            pt[u], pt[v] = pu, pv
+            entry = list(pt)
+            entry[stack] = g["o_min"] - margin
+            tool = _drill_tool(g["clear"], g["grip"] + 2 * margin, tuple(entry), tuple(outward))
+            a.shape = a.shape - tool
+            b.shape = b.shape - tool
+            origin = list(pt)
+            origin[stack] = g["o_max"]  # cabeza en la cara exterior, vástago hacia dentro
+            n_bolt += 1
+            fid = f"{cmd_id}_perno{n_bolt}"
+            shape = Pos(*origin) * Rotation(*rot) * bolt_base
+            scene[fid] = Feature(
+                fid, f"Perno {g['size']}×{g['bolt_len']:g} {p.norma}", shape, cmd_id, component=ref,
+            )
+    a.make_unique()
+    b.make_unique()
+    for feat in (a, b):
+        if getattr(feat.shape, "volume", 1.0) <= 0:
+            raise CommandError("Los taladros vaciaron una pieza: revisa la métrica y el patrón")
+
+    fname = f"jb_{cmd_id}"
+    try:
+        register_fastener(fasteners, cmd_id, {
+            "name": fname, "a": p.a, "b": p.b, "kind": "perno",
+            "size": g["size"], "qty": n_bolt, "nota": p.name,
+        })
+    except ConnectivityError as exc:
+        raise CommandError(str(exc)) from exc
+
+
 def _exec_ground(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: GroundParams) -> None:
     """Ancla una pieza a tierra (origen del camino de sujeción)."""
     from apolo.assembly.connectivity import ConnectivityError, register_ground
@@ -1673,6 +1822,10 @@ REGISTRY: dict[str, CommandSpec] = {
         ),
         CommandSpec(
             "ground", "Anclaje a tierra", "ensamblaje", GroundParams, _exec_ground, wants_connectivity=True
+        ),
+        CommandSpec(
+            "join_bolted", "Unión atornillada", "ensamblaje", JoinBoltedParams,
+            _exec_join_bolted, wants_connectivity=True,
         ),
         CommandSpec(
             "create_group", "Grupo / sub-ensamblaje", "ensamblaje", CreateGroupParams,

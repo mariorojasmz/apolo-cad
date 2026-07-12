@@ -160,6 +160,18 @@ ESCALA_DOCTRINE = (
     "sub-proyectos (insert_project)."
 )
 
+# Doctrina de ACCIÓN (V6.5b): cómo MUTAR sin dejar el documento a medias ni componer a mano
+# lo que un verbo de intención hace coherente. Va en el resumen SIEMPRE presente (capa 1).
+ACCION_DOCTRINE = (
+    "Acción con contrato (mutaciones fiables): cuando el resultado de un lote deba cumplir una "
+    "condición (una holgura, sin interferencia, una cota), pásala como `expect` en run_batch/"
+    "edit_batch (aserciones estilo verify) — si el contrato no se cumple, el lote se revierte "
+    "POR COMPLETO y te dice qué falló, en vez de dejar el modelo a medias y tener que leer→undo. "
+    "Para uniones ATORNILLADAS usa el super-comando join_bolted (taladra ambas piezas, inserta "
+    "la tornillería de catálogo y declara el fijador dimensionado en UNA operación coherente), "
+    "no compongas taladros + pernos + fasten a mano (de ese flujo manual nacen los defectos)."
+)
+
 CUANDO_PREGUNTAR = {
     "asume": [
         "Soportes, anclajes y caminos de carga (que nada flote).",
@@ -216,7 +228,7 @@ def design_brief() -> str:
         "función: material/acabado, cotas críticas o de interfaz, cargas y restricciones del "
         "sitio. Detalle y ejemplos: get_design_guidelines() (o GET /api/design-guidelines)."
     )
-    lineas += ["", ESCALA_DOCTRINE]
+    lineas += ["", ESCALA_DOCTRINE, "", ACCION_DOCTRINE]
     return "\n".join(lineas)
 
 
@@ -227,6 +239,7 @@ def design_guidelines() -> dict:
         "principio": DESIGN_PRINCIPLE,
         "reglas": DESIGN_RULES,
         "escala": ESCALA_DOCTRINE,
+        "accion": ACCION_DOCTRINE,
         "cuando_preguntar": CUANDO_PREGUNTAR,
         "ejemplos": EJEMPLOS,
         "nota": "Vale para cualquier objeto (máquina, mueble, estructura, pieza). El objetivo "

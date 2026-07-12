@@ -24,8 +24,11 @@ def resolve_refs(value, created: list[str | None]):
     return value
 
 
-def execute_batch(doc: Document, actions: list[dict]) -> list[str]:
+def execute_batch(doc: Document, actions: list[dict], verify=None) -> list[str]:
     """Ejecuta un lote ATÓMICO resolviendo '$k'. Devuelve los cmd_ids. Delega en
     Document.execute_many → UN solo regenerate y UN solo paso de undo para todo el
-    lote (antes: un regenerate por acción, O(N²) en booleanas → timeouts)."""
-    return doc.execute_many(actions)
+    lote (antes: un regenerate por acción, O(N²) en booleanas → timeouts).
+
+    `verify` (V6.5b) = contrato opcional del lote: callback ``(scene, created) -> results``
+    que, si alguna aserción falla, revierte todo el lote (ContractError)."""
+    return doc.execute_many(actions, verify=verify)

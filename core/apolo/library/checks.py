@@ -132,7 +132,7 @@ def interpenetration_report(scene: dict, posed: dict, pairs: set[frozenset],
     return out
 
 
-HARDWARE_CATS = {"tornilleria", "rodamientos"}
+HARDWARE_CATS = {"tornilleria", "rodamientos", "pernos"}
 
 
 def hardware_ids(doc) -> set[str]:

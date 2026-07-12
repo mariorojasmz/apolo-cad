@@ -3376,3 +3376,55 @@ acabado de laminación; además «plegado» en repisa sin pliegue. E2 2.93→**2
 junto a (no sobre) la línea de referencia, «0 solapes nuevos» solo texto-vs-texto,
 evidencia PNG del eje degenerada. Brechas nuevas → V7.2b(5). Suite 1089+nuevos y tortura
 verdes con los fixes.
+
+## V6.5b — MCP: acción con contrato (Opus, 2026-07-11)
+
+Cuatro frentes mata-bucles sobre la ACCIÓN del ingeniero digital (V6.5 resolvió la
+PERCEPCIÓN a escala). Origen: análisis de fricción del propio agente; el defecto «19 de
+24 pernos» del benchmark nació del flujo manual multi-llamada.
+
+**A · Contrato `expect` en lotes.** `run_batch`/`edit_batch` aceptan `expect` = aserciones
+estilo `verify`. `execute_many`/`edit_many` reciben un callback `verify(scene, created)` que
+corre DENTRO del `try` tras `regenerate()`+`_check_strict()`: si alguna aserción falla →
+`ContractError` (DocumentError) → el `except` existente `_restore(snap)` + re-raise, así el
+snapshot se CONSUME sin dejar entrada de undo fantasma (patrón peek-then-commit de V6.1) y el
+doc queda bit-idéntico al previo. El callback lo arma la API (`_contract_verify`): `resolve_refs`
+resuelve los `$k` de las aserciones contra los command_ids del lote (mono-sólido: cmd_id ==
+feature_id) y `_verify_checks` (extraído del endpoint `/api/verify`, fuente única con
+expand+interferencia acotada+exclusiones) los evalúa. Éxito → `contrato:{n_aserciones, ok}`;
+sin `expect` = byte-idéntico. El agente pasa de mutar→leer→verificar→undo (4+ round-trips, doc
+a medias) a UNA llamada que o cumple el contrato o no existió. Tortura: contrato fallido
+repetido en modo estricto no corrompe (verificado).
+
+**B · `join_bolted` (super-comando 53).** Une A y B con un patrón de pernos en UN comando:
+`_join_bolted_geometry` (puro sobre bboxes) detecta la cara de contacto por solape de cajas
+(eje de menor solape = normal), valida huella y separación (gap>0.5mm → error pidiendo
+snap_to/mates), centra el patrón (`count` fila o `patron` n×m) en la huella con borde ≥1.5·d
+y paso ≥2.5·d, y computa el largo de perno = grip+protrusión redondeado a comercial. El
+executor taladra barrenos de PASO (broca ISO 273 serie media, tabla nueva en
+`engineering/bolts.py`: M12→Ø13.5) en AMBAS piezas EN SITIO (`a.shape -= tool`, `make_unique`
+→ conserva ids/juntas), inserta la tornillería HEX DIN 933 (familia catálogo nueva
+`PERNO-HEX-M6..M24`, builder `hex_bolt`, orientada con local +Z→+eje de apilado, cabeza en la
+cara exterior) y declara el `fasten` dimensionado `jb_{cmd_id}`. `pernos` entró a
+`HARDWARE_CATS` → los pernos quedan fuera de interferencia y de la lista de corte. Paramétrico:
+si una pieza crece/se mueve, el patrón se recentra al regenerar (verificado). v1: caras planas
+paralelas a un plano principal EN CONTACTO. Mata el flujo de 6-10 llamadas coherentes a mano.
+
+**C · Errores con sugerencia.** `_suggest_ids` (difflib sobre fids+command_ids+grupos +
+substring de nombre de pieza) alimenta `_not_found`, cableado en near/measure/get_topology/
+edit_command/mass-properties y en los selectores de `verify`/`expect` (vía `suggest=` inyectado
+a `run_verify`). Un id inventado (`c682_0` cuando el real es `c682`) deja de costar un
+round-trip a ciegas: el 404 trae «¿Quisiste decir: c682 (Chumacera UCP207), c680?». Sin nada
+cercano → 404 limpio sin ruido. `_expand_ids` NO cambia (isolate/highlight toleran tokens
+inexistentes por diseño; la sugerencia va en los 404 de lectura puntual).
+
+**D · Briefing de apertura.** `open_project` devuelve `briefing` (`_open_briefing`): summary
+por grupo (de `scene_summary_dict`: n_piezas/masa/bbox/variables) + requisitos + notas del
+agente + salud (ok/suprimidos) + variantes de diseño. Arrancar una sesión pasa de 4-5 llamadas
+a 1.
+
+**E · Cierre.** Doctrina de ACCIÓN añadida a `design_brief()` (capa 1 siempre presente):
+«muta con CONTRATO cuando el resultado deba cumplir una condición» + «usa join_bolted, no
+compongas taladros y pernos a mano». Suite 1104→1134 (+30: contrato 10, sugerencias 7,
+join_bolted 10, briefing 3) y tortura verdes; comandos 52→53, catálogo 217→226. Nota:
+reiniciar el host MCP (cambian firmas de run_batch/edit_batch/open_project y hay comando nuevo).

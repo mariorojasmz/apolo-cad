@@ -36,6 +36,19 @@ class DocumentError(Exception):
     pass
 
 
+class ContractError(DocumentError):
+    """El contrato `expect` de un lote no se cumplió (V6.5b, frente A): el lote se revirtió
+    POR COMPLETO (el documento quedó intacto, sin entrada de undo fantasma) y el mensaje
+    lista las aserciones fallidas con esperado vs medido. Lleva los `results` crudos por si
+    el caller quiere estructurarlos. Es DocumentError → la API lo devuelve como 400 claro."""
+
+    def __init__(self, results: list[dict]):
+        from apolo.library.verify import format_failures
+
+        self.results = results
+        super().__init__(format_failures(results))
+
+
 # --------- regeneración incremental: firma por comando + snapshot de estado ---------
 # Seguridad: los ejecutores NUNCA mutan el shape OCCT in-place (siempre reasignan
 # feat.shape o crean Features nuevas), así que un shallow-copy de cada Feature
@@ -518,13 +531,18 @@ class Document:
         self._mutate(apply)
         return holder["id"]
 
-    def execute_many(self, actions: list[dict]) -> list[str]:
+    def execute_many(self, actions: list[dict], verify=None) -> list[str]:
         """Ejecuta un lote ATÓMICO con UN solo regenerate y UN solo paso de undo.
         '$k' (1-based) referencia el cmd_id de la k-ésima acción del lote. NO
         pre-valida por comando: el regenerate final valida en orden con el dict de
         variables en construcción (así un set_variable seguido de su uso en el mismo
         lote funciona). Si la resolución de '$k' o el regenerate fallan, revierte
-        TODO el lote (o todo o nada)."""
+        TODO el lote (o todo o nada).
+
+        `verify` (V6.5b, frente A) = callback opcional ``(scene, created) -> results``
+        que evalúa el CONTRATO del lote tras el regenerate; si alguna aserción falla,
+        el lote se revierte por completo y se lanza ContractError. Como corre DENTRO del
+        try, el snapshot se CONSUME sin dejar entrada de undo fantasma."""
         from apolo.batch import resolve_refs  # perezoso: evita ciclo document<->batch
 
         if not actions:
@@ -537,6 +555,10 @@ class Document:
                 created.append(self._append_record(action["type"], params))
             self.regenerate()
             self._check_strict()
+            if verify is not None:
+                results = verify(self.scene, [c for c in created if c is not None])
+                if any(not r.get("ok") for r in results):
+                    raise ContractError(results)
         except Exception:
             self._restore(snap)
             raise
@@ -546,13 +568,16 @@ class Document:
         self._coalesce_key = None
         return [c for c in created if c is not None]
 
-    def edit_many(self, edits: list[dict], merge: bool = False) -> list[str]:
+    def edit_many(self, edits: list[dict], merge: bool = False, verify=None) -> list[str]:
         """Edita VARIOS comandos en UN lote atómico: un solo regenerate y un solo paso
         de undo. edits = [{"command_id": "...", "params": {...}}, ...]. Como execute_many,
         NO pre-valida por comando (el regenerate final valida con las variables en
         construcción, así editar un set_variable + su uso en el mismo lote funciona).
         Rollback total si algo falla. merge=True hace PATCH superficial por comando (un
-        sub-objeto como position/rotation se reemplaza entero), igual que edit."""
+        sub-objeto como position/rotation se reemplaza entero), igual que edit.
+
+        `verify` (V6.5b) = contrato del lote, igual que en execute_many (recibe los
+        command_ids TOCADOS como `created` → `$k` referencia el k-ésimo editado)."""
         if not edits:
             return []
         snap = self._snapshot()
@@ -572,6 +597,10 @@ class Document:
                 touched.append(cid)
             self.regenerate()
             self._check_strict()
+            if verify is not None:
+                results = verify(self.scene, touched)
+                if any(not r.get("ok") for r in results):
+                    raise ContractError(results)
         except Exception:
             self._restore(snap)
             raise
