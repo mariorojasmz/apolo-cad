@@ -3428,3 +3428,26 @@ a 1.
 compongas taladros y pernos a mano». Suite 1104→1134 (+30: contrato 10, sugerencias 7,
 join_bolted 10, briefing 3) y tortura verdes; comandos 52→53, catálogo 217→226. Nota:
 reiniciar el host MCP (cambian firmas de run_batch/edit_batch/open_project y hay comando nuevo).
+
+## V6.5b revisión (Fable, 2026-07-11)
+
+Revisión adversarial de 869f1ea: 1 revisor de código (52 tool-uses, 7 sondas propias) +
+E2E vivo por MCP del propio agente. EL NÚCLEO ES SÓLIDO — atomicidad del contrato
+verificada empíricamente (.apolo byte-idéntico tras fallo, snapshot consumido, pila de
+undo intacta), join_bolted con taladros ISO 273 EXACTOS al mm³ (verificado por volumen),
+borde 1.5·d exacto, DIN 933 al BOM como catálogo, error de no-contacto ejemplar,
+sugerencias y briefing (4.4 KB) funcionando. Hallazgos: (1) MAYOR — $k del expect
+resuelve a command_id, no a feature_ids → comandos multi-sólido (incluido join_bolted)
+dan falso rollback de lotes correctos (reproducido); (2) MAYOR — regresión de
+thread-safety: el refactor sacó _materialize_insert_project/_materialize_edit del
+STATE_LOCK (mutan/leen DOC fuera del lock; carrera vs autosave/switch) — ARREGLADO en el
+commit de cierre (materialización dentro del lambda de _state_or_error); (3) MAYOR —
+join_bolted acepta en silencio contacto inclinado (placa a 30° → pernos flotando, grip
+66.7; el plan exigía error claro); (4-8) menores: protrusión sin filetes de sobra, sin
+tuercas/arandelas, count=1 sin edge-check, sugerencias ausentes en existe/volumen y
+circulares en command_ids, patron sin tope n·m, HARDWARE_CATS cambia interferencias de
+proyectos viejos con Allen, notas_agente sin techo. E2E vivo además cazó: $k es 1-based
+sin decirlo el error, y campo desconocido en aserción falla en silencio («feature» → «sin
+piezas», 3 round-trips perdidos). Fixes 1/3/menores → docs/plans/V6.5c-fixes-revision.md;
+gotchas vivos anotados en el mapa. Proyecto de prueba del E2E: «test-v65b-contrato»
+(placas + join_bolted M12 2×2). Suite + tortura verdes tras el fix de locks.

@@ -996,13 +996,16 @@ class BatchIn(BaseModel):
 def post_batch(batch: BatchIn) -> dict:
     from apolo.batch import execute_batch
 
-    actions = [
-        {"type": a.type, "params": _materialize_insert_project(a.type, a.params)}
-        for a in batch.actions
-    ]
-    payload = _state_or_error(
-        lambda: execute_batch(DOC, actions, verify=_contract_verify(batch.expect))
-    )
+    # OJO: _materialize_insert_project muta DOC.attachments → DEBE correr bajo
+    # STATE_LOCK (dentro del lambda de _state_or_error), no antes.
+    def _run():
+        actions = [
+            {"type": a.type, "params": _materialize_insert_project(a.type, a.params)}
+            for a in batch.actions
+        ]
+        return execute_batch(DOC, actions, verify=_contract_verify(batch.expect))
+
+    payload = _state_or_error(_run)
     if batch.expect:  # el lote sobrevivió al contrato (si no, ContractError → 400)
         payload["contrato"] = {"n_aserciones": len(batch.expect), "ok": True}
     return payload
@@ -1020,16 +1023,18 @@ class EditBatchIn(BaseModel):
 
 @app.patch("/api/commands/batch")
 def patch_batch(batch: EditBatchIn, merge: bool = False) -> dict:
-    edits = [
-        {
-            "command_id": e.command_id,
-            "params": _materialize_edit(e.command_id, e.params, merge),
-        }
-        for e in batch.edits
-    ]
-    payload = _state_or_error(
-        lambda: DOC.edit_many(edits, merge=merge, verify=_contract_verify(batch.expect))
-    )
+    # OJO: _materialize_edit lee DOC.commands → bajo STATE_LOCK (dentro del lambda).
+    def _run():
+        edits = [
+            {
+                "command_id": e.command_id,
+                "params": _materialize_edit(e.command_id, e.params, merge),
+            }
+            for e in batch.edits
+        ]
+        return DOC.edit_many(edits, merge=merge, verify=_contract_verify(batch.expect))
+
+    payload = _state_or_error(_run)
     if batch.expect:
         payload["contrato"] = {"n_aserciones": len(batch.expect), "ok": True}
     return payload

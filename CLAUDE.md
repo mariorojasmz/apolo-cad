@@ -105,7 +105,12 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   mass + selectores de verify/expect) traen **«¿quisiste decir…?»** (`_suggest_ids`: difflib
   sobre fids+command_ids+grupos + substring de nombre). `open_project` devuelve `briefing`
   compacto (`_open_briefing`: summary por grupo + variables + requisitos + notas + salud +
-  variantes) → arranque de sesión en 1 llamada.
+  variantes) → arranque de sesión en 1 llamada. GOTCHAS vivos (fixes en plan V6.5c): `$k`
+  del expect resuelve a COMMAND_ID → con comandos MULTI-sólido (join_bolted, create_*) las
+  aserciones dan «sin piezas» = falso rollback (usa los fids reales mientras tanto); las
+  referencias son 1-INDEXADAS (`$1` = primera acción); campo desconocido en una aserción
+  (p. ej. `feature` en vez de `id`) falla en SILENCIO como «sin piezas»; join_bolted v1 NO
+  valida contacto plano (pieza rotada → pernos flotantes silenciosos — verificar con render).
 - **Lectura a ESCALA (V6.5)**: ninguna lectura de rutina vuelca la escena entera.
   `get_scene(summary=true)` (`GET /api/scene/summary`) = resumen por GRUPO (n_piezas/masa/
   bbox conjunto/sub-grupos + «(sin grupo)» + totales + variables) — la vista de ENTRADA a un
