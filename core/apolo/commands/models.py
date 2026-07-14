@@ -428,6 +428,12 @@ class CreateTakeUpParams(BaseModel):
     dir_tensor: float = Field(-1, title="Dirección del tensor (X)", description="-1 hacia -X (cola), +1 hacia +X (cabeza): hacia qué extremo apunta la cabeza del perno")
     engomado: bool = Field(False, title="Engomado (lagging)", description="rodillo de cola normalmente bare; engomar es del tambor motriz")
     holgura_eje: float = Field(20, ge=0, le=100, title="Holgura del eje (en desuso)", description="EN DESUSO: el recorrido lo da el claro entre aletas")
+    eje_fit: str | None = Field(
+        None, max_length=6, title="Ajuste ISO 286 del eje",
+        description="clase del asiento del eje (p. ej. 'g6' — eje FIJO/anillo interior "
+                    "estacionario, carga rotatoria exterior): se anota en el nombre del eje "
+                    "y la memoria verifica el asiento del rodamiento contra la norma",
+    )
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
 

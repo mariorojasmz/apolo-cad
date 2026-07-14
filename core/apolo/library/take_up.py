@@ -152,14 +152,18 @@ def _shaft_with_holes(bore: float, length: float, bolt_d: float, y_off: float, h
 # ---------------------------------------------------------------- super-comandos
 
 def take_up_parts(diam_rodillo, ancho_banda, rodamiento, perno, espesor_soporte,
-                  voladizo, engomado, dir_tensor=-1.0) -> list[ConveyorPart]:
-    """Rodillo de COLA tensable: eje fijo + TENSOR (soporte «C» + perno longitudinal) en AMBOS extremos."""
+                  voladizo, engomado, dir_tensor=-1.0, eje_fit=None) -> list[ConveyorPart]:
+    """Rodillo de COLA tensable: eje fijo + TENSOR (soporte «C» + perno longitudinal) en AMBOS extremos.
+    `eje_fit` (p. ej. 'g6') se anota en el NOMBRE del eje → la memoria verifica el asiento del
+    rodamiento (eje FIJO = anillo interior estacionario, asiento holgado g6/h6)."""
     bore, big, width_b, bolt_d, cara, half = _common(rodamiento, perno, diam_rodillo, ancho_banda, voladizo)
 
     parts = [_roller_body(diam_rodillo, cara, big, engomado, "Rodillo de cola")]
     holes = [_ybr(half, voladizo, 1.0), _ybr(half, voladizo, -1.0)]
     eje_ext = voladizo - _EJE_GAP   # el eje se queda corto del alma (alma sólida)
-    parts.append(ConveyorPart("eje", "Eje fijo (roscado p/ perno)",
+    eje_name = (f"Eje fijo Ø{bore:g} {eje_fit} (roscado p/ perno)" if eje_fit
+                else "Eje fijo (roscado p/ perno)")
+    parts.append(ConveyorPart("eje", eje_name,
                               _shaft_with_holes(bore, cara + 2.0 * eje_ext, bolt_d, 0.0, holes), None, None))
     parts += _bearing_seeger_parts(rodamiento, big, width_b, half)
     for i, sgn in enumerate((-1.0, 1.0), start=1):

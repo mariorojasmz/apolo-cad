@@ -449,9 +449,16 @@ def _fit_checks(scene, fasteners, joints, mates, catalog) -> list[dict]:
             if d is None or abs(d - bore) > 0.6:
                 continue
             seen.add(key)
-            # hipótesis de montaje DECLARADA (nunca silenciosa): por categoría
-            mount = ("chumacera_inserto" if comp.category == "chumaceras"
-                     else "rodamiento_anillo_giratorio")
+            # hipótesis de montaje DECLARADA (nunca silenciosa): por categoría y por el
+            # ROL del eje. Un eje FIJO (nombre «eje fijo») lleva el anillo interior
+            # ESTACIONARIO y la carga rotatoria en el exterior → asiento holgado g6/h6
+            # (no k6 de prensado): es el caso del tensor de cola trotadora.
+            if comp.category == "chumaceras":
+                mount = "chumacera_inserto"
+            elif re.search(r"\beje\s+fijo\b|\bfij[oa]\b", getattr(shaft, "name", "") or "", re.I):
+                mount = "rodamiento_anillo_fijo"
+            else:
+                mount = "rodamiento_anillo_giratorio"
             rec = SEAT_RECOMMENDATIONS[mount]
             fit = shaft_fit(shaft)
             regla = f"asiento ISO 286 · {comp.ref}"

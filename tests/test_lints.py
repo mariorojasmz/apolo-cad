@@ -36,6 +36,20 @@ def test_hole_without_bolt_warns():
     assert _regla(checks, "pre-entrega · pieza sin grupo") is None  # placa aterrizada
 
 
+def test_hole_with_amedida_bolt_no_warning():
+    """Un perno MODELADO a-medida (no catálogo, nombre «Perno…», como los de anclaje de
+    la faja 38) en el eje del barreno cuenta como fijado → sin aviso (era falso positivo)."""
+    doc = Document()
+    placa = doc.execute("create_box", {"name": "Placa de anclaje A36", "width": 120,
+                                       "depth": 80, "height": 12, "position": {"z": 6}})
+    doc.execute("drill_hole", {"feature": placa, "position": {"x": 30, "y": 20, "z": -6},
+                               "axis": "z", "diameter": 14, "depth": 0})
+    doc.execute("create_box", {"name": "Perno anclaje M12 + arandela", "width": 18,
+                               "depth": 18, "height": 60, "position": {"x": 30, "y": 20, "z": 20}})
+    doc.execute("ground", {"name": "g1", "feature": placa})
+    assert _regla(_lints(doc), "pre-entrega · barreno sin perno") is None
+
+
 def test_loose_part_warns():
     """Una pieza sin grupo NI unión declarada → 1 aviso."""
     doc = Document()
@@ -48,6 +62,27 @@ def test_loose_part_warns():
     r = _regla(checks, "pre-entrega · pieza sin grupo")
     assert r is not None and r["estado"] == "aviso"
     assert "Chatarra" in r["detalle"] and "1 pieza" in r["detalle"]
+
+
+def test_hole_lint_resolves_parametric_position():
+    """Los barrenos posicionados por «=expresión» (modelos paramétricos como la faja 38)
+    se resuelven con el `resolve` inyectado — antes reventaban /api/checks con 500."""
+    from apolo.commands.expressions import resolve_params
+
+    doc = Document()
+    doc.execute("set_variable", {"name": "hx", "expression": "40"})
+    placa = doc.execute("create_box", {"name": "Placa", "width": 120, "depth": 80,
+                                       "height": 12, "position": {"z": 6}})
+    doc.execute("drill_hole", {"feature": placa, "position": {"x": "=hx", "y": 0, "z": -6},
+                               "axis": "z", "diameter": 13, "depth": 0})
+    doc.execute("ground", {"name": "g1", "feature": placa})
+    resolve = lambda p: resolve_params(p, doc.variables_resolved)  # noqa: E731
+    checks = predelivery_lints(doc.scene, doc.commands, doc.fasteners, doc.grounds,
+                               doc.joints, doc.mates, resolve=resolve)
+    r = _regla(checks, "pre-entrega · barreno sin perno")
+    assert r is not None and "x≈40" in r["detalle"]     # expresión resuelta a 40
+    # sin resolver, el barreno paramétrico se SALTA en vez de reventar
+    assert _lints(doc) == [] or _regla(_lints(doc), "pre-entrega · barreno sin perno") is None
 
 
 def test_healthy_model_no_lints():

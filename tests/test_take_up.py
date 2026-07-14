@@ -157,3 +157,15 @@ def test_shaft_has_transverse_hole_for_perno():
     largo = bb.max.Y - bb.min.Y
     solido = math.pi * (35.0 / 2.0) ** 2 * largo
     assert eje.shape.volume < solido * 0.99   # hay material removido (agujeros transversales)
+
+
+def test_take_up_eje_fit_annotates_shaft_name():
+    """V7.2b D: `eje_fit` anota la clase ISO 286 en el nombre del eje FIJO (Ø del
+    rodamiento + fit) para que la memoria verifique el asiento del rodamiento."""
+    d = _doc(rodamiento="6207", eje_fit="g6")
+    eje = next(f for f in d.scene.values() if "Eje fijo" in f.name)
+    assert "Ø35 g6" in eje.name              # 6207 → Ø35, fit g6 anotado
+    # sin eje_fit el nombre queda como el histórico (sin fit)
+    d2 = _doc()
+    eje2 = next(f for f in d2.scene.values() if "Eje fijo" in f.name)
+    assert "g6" not in eje2.name and "Eje fijo (roscado p/ perno)" in eje2.name

@@ -14,6 +14,7 @@ formato que `_check` ({regla, estado, detalle, recomendacion?}); lista vacía = 
 from __future__ import annotations
 
 import math
+import re
 
 from apolo.kernel.shapes import is_surface
 
@@ -23,6 +24,18 @@ from .rules import _check
 # barrenos de PASO en rango de perno estructural (M6→Ø6.5 … M20→Ø22, serie media)
 _HOLE_MIN_MM, _HOLE_MAX_MM = 7.0, 22.0
 _AXIS_VEC = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
+# tornillería MODELADA a-medida (no catálogo): un perno hecho a mano lleva el rol en el
+# nombre — un barreno con un perno así NO está «sin perno» (falso positivo en la faja 38)
+_BOLT_NAME_RE = re.compile(r"\b(perno|tornillo|tuerca|bulón|bulon|esp[aá]rrago|allen|"
+                           r"bolt|screw|stud|nut)\b", re.I)
+
+
+def _is_bolt(feat, catalog) -> bool:
+    """¿La pieza es tornillería (catálogo o modelada a-medida por su nombre/rol)?"""
+    comp = catalog.get(getattr(feat, "component", None) or "")
+    if comp is not None and comp.category in HARDWARE_CATS:
+        return True
+    return bool(_BOLT_NAME_RE.search(getattr(feat, "name", "") or ""))
 
 
 def _bbox_center(feat) -> tuple[float, float, float] | None:
@@ -43,51 +56,51 @@ def _perp_dist(c, p0, u) -> float:
 
 
 def _bolt_lines(scene, catalog) -> list[tuple]:
-    """Centros (mundo) de la tornillería presente: un perno/tuerca en el eje de un
-    barreno lo deja a distancia perpendicular ~0 de la recta del taladro."""
+    """Centros (mundo) de la tornillería presente (catálogo O a-medida por nombre): un
+    perno/tuerca en el eje de un barreno lo deja a distancia perpendicular ~0 de la recta."""
     out = []
     for feat in scene.values():
         if not getattr(feat, "visible", True):
             continue
-        comp = catalog.get(getattr(feat, "component", None) or "")
-        if comp is not None and comp.category in HARDWARE_CATS:
+        if _is_bolt(feat, catalog):
             c = _bbox_center(feat)
             if c is not None:
                 out.append(c)
     return out
 
 
-def _hole_bolt_lint(scene, commands, catalog) -> list[dict]:
+def _hole_bolt_lint(scene, commands, catalog, resolve) -> list[dict]:
     bolts = _bolt_lines(scene, catalog)
     sin_perno: list[str] = []
     for cmd in commands:
         if cmd.get("type") != "drill_hole":
             continue
-        p = cmd.get("params", {})
-        if p.get("thread"):
-            continue  # roscado = para machuelo, no perno pasante
         try:
+            # el modelo puede tener Ø/posición/profundidad por "=expresión" → resolver
+            # contra las variables (inyectado); todo el cuerpo es defensivo: un comando
+            # raro se SALTA, jamás tumba el lint (ni /api/checks)
+            p = resolve(cmd.get("params", {}) or {})
+            if p.get("thread"):
+                continue  # roscado = para machuelo, no perno pasante
             dia = float(p.get("diameter", 0))
-        except (TypeError, ValueError):
-            continue  # Ø por "=expresión": no evaluable aquí
-        depth = p.get("depth", 0) or 0
-        try:
-            if float(depth) > 0:
+            depth = float(p.get("depth", 0) or 0)
+            if depth > 0:
                 continue  # taladro CIEGO: no es de paso de perno
-        except (TypeError, ValueError):
-            continue
-        if not (_HOLE_MIN_MM <= dia <= _HOLE_MAX_MM):
-            continue
-        feat = scene.get(p.get("feature"))
-        if feat is None or not getattr(feat, "visible", True):
-            continue
-        pos = p.get("position") or {}
-        p0 = (float(pos.get("x", 0)), float(pos.get("y", 0)), float(pos.get("z", 0)))
-        u = _AXIS_VEC.get(p.get("axis", "z"), _AXIS_VEC["z"])
-        tol = max(dia, 6.0)
-        if not any(_perp_dist(c, p0, u) <= tol for c in bolts):
-            nombre = getattr(feat, "name", None) or p.get("feature")
+            if not (_HOLE_MIN_MM <= dia <= _HOLE_MAX_MM):
+                continue
+            feat = scene.get(cmd.get("params", {}).get("feature"))
+            if feat is None or not getattr(feat, "visible", True):
+                continue
+            pos = p.get("position") or {}
+            p0 = (float(pos.get("x", 0)), float(pos.get("y", 0)), float(pos.get("z", 0)))
+            u = _AXIS_VEC.get(p.get("axis", "z"), _AXIS_VEC["z"])
+            tol = max(dia, 6.0)
+            if any(_perp_dist(c, p0, u) <= tol for c in bolts):
+                continue
+            nombre = getattr(feat, "name", None) or cmd.get("params", {}).get("feature")
             sin_perno.append(f"{nombre} (Ø{dia:g} en x≈{p0[0]:.0f},y≈{p0[1]:.0f},z≈{p0[2]:.0f})")
+        except Exception:  # noqa: BLE001 — un comando no resoluble no rompe el lint
+            continue
     if not sin_perno:
         return []
     ejemplo = "; ".join(sin_perno[:6]) + ("…" if len(sin_perno) > 6 else "")
@@ -120,9 +133,8 @@ def _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog) -> list[
             continue
         if getattr(feat, "group", None) or fid in connected:
             continue
-        comp = catalog.get(getattr(feat, "component", None) or "")
-        if comp is not None and comp.category in HARDWARE_CATS:
-            continue  # el herraje normalizado lo cubre su fasten/super-comando
+        if _is_bolt(feat, catalog):
+            continue  # tornillería (catálogo o a-medida): la cubre su fasten/super-comando
         try:
             if is_surface(feat.shape):
                 continue  # superficie de construcción: fuera de BOM/masa/unión
@@ -141,15 +153,19 @@ def _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog) -> list[
 
 
 def predelivery_lints(scene, commands, fasteners, grounds, joints, mates, *,
-                      catalog=None) -> list[dict]:
+                      catalog=None, resolve=None) -> list[dict]:
     """Lints pre-entrega: barrenos sin perno + piezas sin grupo ni unión. Devuelve una
-    lista de avisos (formato `_check`); vacía si el modelo está sano."""
+    lista de avisos (formato `_check`); vacía si el modelo está sano. `resolve(params)`
+    (inyectado por la API) sustituye las "=expresión" de los comandos por su valor —
+    los modelos paramétricos posicionan los barrenos con expresiones; sin resolver
+    (default identidad) un barreno parametrizado simplemente se salta."""
     from .catalog import CATALOG
 
     catalog = catalog if catalog is not None else CATALOG
+    resolve = resolve or (lambda p: p)
     if not scene:
         return []
     out: list[dict] = []
-    out += _hole_bolt_lint(scene, commands or [], catalog)
+    out += _hole_bolt_lint(scene, commands or [], catalog, resolve)
     out += _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog)
     return out

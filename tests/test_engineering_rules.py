@@ -366,6 +366,24 @@ def test_all_structure_calcs_cite_norma():
     assert any("Pandeo" in t for t in titulos) and any("L10" in t for t in titulos)
 
 
+def test_fixed_shaft_seat_g6_is_ok():
+    """V7.2b D: un EJE FIJO (anillo interior estacionario, carga rotatoria exterior —
+    el tensor de cola) con g6 es correcto → ok; el MISMO g6 en un eje giratorio patina."""
+    def _eje_con_6207(nombre):
+        doc = Document("t")
+        eje = doc.execute("create_box", {"name": nombre, "width": 35, "depth": 35,
+                                         "height": 300, "position": {"z": 400}})
+        ucp = doc.execute("insert_component", {"component": "6207",
+                                               "position": {"x": 0, "y": 0, "z": 400}})
+        doc.execute("add_joint", {"name": "j1", "type": "giratoria", "parent": eje, "child": ucp})
+        return _rule(_structure(doc), "asiento ISO 286")
+
+    fijo = _eje_con_6207("Eje fijo Ø35 g6")
+    assert fijo is not None and fijo["estado"] == "ok"      # anillo interior estacionario → g6 ok
+    girat = _eje_con_6207("Eje motriz Ø35 g6")
+    assert girat["estado"] != "ok"                          # giratorio: g6 no recomendado (k6)
+
+
 def test_eytelwein_mu_engomado_vs_liso():
     from apolo.library.engineering.iso5048 import eytelwein_t2_min_n
 

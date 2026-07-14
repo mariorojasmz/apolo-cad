@@ -1,0 +1,3697 @@
+{
+  "generado": "2026-07-14T00:24:07",
+  "proyecto_id": 38,
+  "interferencias": {
+    "solidos": 75,
+    "parejas_analizadas": 150,
+    "truncado": false,
+    "interferencias": [
+      {
+        "a": "c673",
+        "nombre_a": "Disco de reacción anti-giro + puntal a la pata",
+        "b": "c682",
+        "nombre_b": "Motorreductor NMRV-090 (eje hueco, i=30)",
+        "volumen_mm3": 12697.5
+      },
+      {
+        "a": "c703",
+        "nombre_a": "Ménsula soporte motorreductor (brida sup. → larguero + pata)",
+        "b": "c704",
+        "nombre_b": "Tornillería ménsula soporte motor",
+        "volumen_mm3": 10695.8
+      },
+      {
+        "a": "c53_1",
+        "nombre_a": "Travesaño superior A36 (2)",
+        "b": "c367",
+        "nombre_b": "Repisa apoyo mesa (+Y)",
+        "volumen_mm3": 10560.0
+      },
+      {
+        "a": "c53_1",
+        "nombre_a": "Travesaño superior A36 (2)",
+        "b": "c368",
+        "nombre_b": "Repisa apoyo mesa (-Y)",
+        "volumen_mm3": 10560.0
+      },
+      {
+        "a": "c53_2",
+        "nombre_a": "Travesaño superior A36 (3)",
+        "b": "c367",
+        "nombre_b": "Repisa apoyo mesa (+Y)",
+        "volumen_mm3": 10560.0
+      },
+      {
+        "a": "c53_2",
+        "nombre_a": "Travesaño superior A36 (3)",
+        "b": "c368",
+        "nombre_b": "Repisa apoyo mesa (-Y)",
+        "volumen_mm3": 10560.0
+      },
+      {
+        "a": "c53_3",
+        "nombre_a": "Travesaño superior A36 (4)",
+        "b": "c367",
+        "nombre_b": "Repisa apoyo mesa (+Y)",
+        "volumen_mm3": 10560.0
+      },
+      {
+        "a": "c53_3",
+        "nombre_a": "Travesaño superior A36 (4)",
+        "b": "c368",
+        "nombre_b": "Repisa apoyo mesa (-Y)",
+        "volumen_mm3": 10560.0
+      },
+      {
+        "a": "c52",
+        "nombre_a": "Travesaño superior A36",
+        "b": "c367",
+        "nombre_b": "Repisa apoyo mesa (+Y)",
+        "volumen_mm3": 5280.0
+      },
+      {
+        "a": "c52",
+        "nombre_a": "Travesaño superior A36",
+        "b": "c368",
+        "nombre_b": "Repisa apoyo mesa (-Y)",
+        "volumen_mm3": 5280.0
+      },
+      {
+        "a": "c53_4",
+        "nombre_a": "Travesaño superior A36 (5)",
+        "b": "c367",
+        "nombre_b": "Repisa apoyo mesa (+Y)",
+        "volumen_mm3": 5280.0
+      },
+      {
+        "a": "c53_4",
+        "nombre_a": "Travesaño superior A36 (5)",
+        "b": "c368",
+        "nombre_b": "Repisa apoyo mesa (-Y)",
+        "volumen_mm3": 5280.0
+      },
+      {
+        "a": "c682",
+        "nombre_a": "Motorreductor NMRV-090 (eje hueco, i=30)",
+        "b": "c704",
+        "nombre_b": "Tornillería ménsula soporte motor",
+        "volumen_mm3": 2915.4
+      },
+      {
+        "a": "c93",
+        "nombre_a": "Larguero A36 (+Y)",
+        "b": "c704",
+        "nombre_b": "Tornillería ménsula soporte motor",
+        "volumen_mm3": 2714.3
+      },
+      {
+        "a": "c45_2",
+        "nombre_a": "Pata A36 (3)",
+        "b": "c673",
+        "nombre_b": "Disco de reacción anti-giro + puntal a la pata",
+        "volumen_mm3": 1811.3
+      },
+      {
+        "a": "c45_2",
+        "nombre_a": "Pata A36 (3)",
+        "b": "c704",
+        "nombre_b": "Tornillería ménsula soporte motor",
+        "volumen_mm3": 1357.2
+      },
+      {
+        "a": "c122",
+        "nombre_a": "Rodillo retorno Ø50 (eje Ø12)",
+        "b": "c339",
+        "nombre_b": "Ménsula rodillo retorno",
+        "volumen_mm3": 904.8
+      },
+      {
+        "a": "c122",
+        "nombre_a": "Rodillo retorno Ø50 (eje Ø12)",
+        "b": "c340",
+        "nombre_b": "Ménsula rodillo retorno",
+        "volumen_mm3": 904.8
+      },
+      {
+        "a": "c123_1",
+        "nombre_a": "Rodillo retorno Ø50 (eje Ø12) (2)",
+        "b": "c341",
+        "nombre_b": "Ménsula rodillo retorno",
+        "volumen_mm3": 904.8
+      },
+      {
+        "a": "c123_1",
+        "nombre_a": "Rodillo retorno Ø50 (eje Ø12) (2)",
+        "b": "c342",
+        "nombre_b": "Ménsula rodillo retorno",
+        "volumen_mm3": 904.8
+      }
+    ],
+    "avisos_pose": []
+  },
+  "conectividad": {
+    "fasteners": [
+      {
+        "name": "auto_f_1",
+        "a": "c44",
+        "b": "c56",
+        "kind": "soldadura",
+        "nota": "'Pata 50x50x2 A36' ↔ 'Travesaño inf 40x40x2 A36'",
+        "throat_mm": 3.0,
+        "length_mm": 140.0,
+        "command_id": "c439"
+      },
+      {
+        "name": "auto_f_2",
+        "a": "c58",
+        "b": "c44",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' soporta 'Pata 50x50x2 A36'",
+        "command_id": "c440"
+      },
+      {
+        "name": "auto_f_3",
+        "a": "c44",
+        "b": "c93",
+        "kind": "contacto",
+        "nota": "'Pata 50x50x2 A36' soporta 'Larguero 80x40x3 A36 (+Y)'",
+        "command_id": "c441"
+      },
+      {
+        "name": "auto_f_4",
+        "a": "c45_1",
+        "b": "c57_1",
+        "kind": "soldadura",
+        "nota": "'Pata 50x50x2 A36 (2)' ↔ 'Travesaño inf 40x40x2 A36 (2)'",
+        "throat_mm": 3.0,
+        "length_mm": 140.0,
+        "command_id": "c442"
+      },
+      {
+        "name": "auto_f_5",
+        "a": "c63_1",
+        "b": "c45_1",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (2)' soporta 'Pata 50x50x2 A36 (2)'",
+        "command_id": "c443"
+      },
+      {
+        "name": "auto_f_6",
+        "a": "c45_1",
+        "b": "c93",
+        "kind": "contacto",
+        "nota": "'Pata 50x50x2 A36 (2)' soporta 'Larguero 80x40x3 A36 (+Y)'",
+        "command_id": "c444"
+      },
+      {
+        "name": "auto_f_7",
+        "a": "c45_2",
+        "b": "c57_2",
+        "kind": "soldadura",
+        "nota": "'Pata 50x50x2 A36 (3)' ↔ 'Travesaño inf 40x40x2 A36 (3)'",
+        "throat_mm": 3.0,
+        "length_mm": 140.0,
+        "command_id": "c445"
+      },
+      {
+        "name": "auto_f_8",
+        "a": "c63_2",
+        "b": "c45_2",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (3)' soporta 'Pata 50x50x2 A36 (3)'",
+        "command_id": "c446"
+      },
+      {
+        "name": "auto_f_9",
+        "a": "c45_2",
+        "b": "c93",
+        "kind": "contacto",
+        "nota": "'Pata 50x50x2 A36 (3)' soporta 'Larguero 80x40x3 A36 (+Y)'",
+        "command_id": "c447"
+      },
+      {
+        "name": "auto_f_10",
+        "a": "c48",
+        "b": "c56",
+        "kind": "soldadura",
+        "nota": "'Pata 50x50x2 A36' ↔ 'Travesaño inf 40x40x2 A36'",
+        "throat_mm": 3.0,
+        "length_mm": 140.0,
+        "command_id": "c448"
+      },
+      {
+        "name": "auto_f_11",
+        "a": "c64",
+        "b": "c48",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' soporta 'Pata 50x50x2 A36'",
+        "command_id": "c449"
+      },
+      {
+        "name": "auto_f_12",
+        "a": "c48",
+        "b": "c95",
+        "kind": "contacto",
+        "nota": "'Pata 50x50x2 A36' soporta 'Larguero 80x40x3 A36 (-Y)'",
+        "command_id": "c450"
+      },
+      {
+        "name": "auto_f_13",
+        "a": "c49_1",
+        "b": "c57_1",
+        "kind": "soldadura",
+        "nota": "'Pata 50x50x2 A36 (2)' ↔ 'Travesaño inf 40x40x2 A36 (2)'",
+        "throat_mm": 3.0,
+        "length_mm": 140.0,
+        "command_id": "c451"
+      },
+      {
+        "name": "auto_f_14",
+        "a": "c69_1",
+        "b": "c49_1",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (2)' soporta 'Pata 50x50x2 A36 (2)'",
+        "command_id": "c452"
+      },
+      {
+        "name": "auto_f_15",
+        "a": "c49_1",
+        "b": "c95",
+        "kind": "contacto",
+        "nota": "'Pata 50x50x2 A36 (2)' soporta 'Larguero 80x40x3 A36 (-Y)'",
+        "command_id": "c453"
+      },
+      {
+        "name": "auto_f_16",
+        "a": "c49_2",
+        "b": "c57_2",
+        "kind": "soldadura",
+        "nota": "'Pata 50x50x2 A36 (3)' ↔ 'Travesaño inf 40x40x2 A36 (3)'",
+        "throat_mm": 3.0,
+        "length_mm": 140.0,
+        "command_id": "c454"
+      },
+      {
+        "name": "auto_f_17",
+        "a": "c69_2",
+        "b": "c49_2",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (3)' soporta 'Pata 50x50x2 A36 (3)'",
+        "command_id": "c455"
+      },
+      {
+        "name": "auto_f_18",
+        "a": "c49_2",
+        "b": "c95",
+        "kind": "contacto",
+        "nota": "'Pata 50x50x2 A36 (3)' soporta 'Larguero 80x40x3 A36 (-Y)'",
+        "command_id": "c456"
+      },
+      {
+        "name": "auto_f_19",
+        "a": "c52",
+        "b": "c93",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36' ↔ 'Larguero 80x40x3 A36 (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c457"
+      },
+      {
+        "name": "auto_f_20",
+        "a": "c52",
+        "b": "c95",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36' ↔ 'Larguero 80x40x3 A36 (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c458"
+      },
+      {
+        "name": "auto_f_21",
+        "a": "c52",
+        "b": "c119",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36' ↔ 'Banda PVC 2mm 700 (lazo cerrado)'",
+        "command_id": "c459"
+      },
+      {
+        "name": "auto_f_22",
+        "a": "c52",
+        "b": "c351",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36' soporta 'Mesa desliz. 2mm A36 (secc 1)'",
+        "command_id": "c460"
+      },
+      {
+        "name": "auto_f_23",
+        "a": "c52",
+        "b": "c367",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36' ↔ 'Repisa apoyo mesa (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c461"
+      },
+      {
+        "name": "auto_f_24",
+        "a": "c52",
+        "b": "c368",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36' ↔ 'Repisa apoyo mesa (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c462"
+      },
+      {
+        "name": "auto_f_25",
+        "a": "c53_1",
+        "b": "c93",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (2)' ↔ 'Larguero 80x40x3 A36 (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c463"
+      },
+      {
+        "name": "auto_f_26",
+        "a": "c53_1",
+        "b": "c95",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (2)' ↔ 'Larguero 80x40x3 A36 (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c464"
+      },
+      {
+        "name": "auto_f_27",
+        "a": "c53_1",
+        "b": "c119",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (2)' ↔ 'Banda PVC 2mm 700 (lazo cerrado)'",
+        "command_id": "c465"
+      },
+      {
+        "name": "auto_f_28",
+        "a": "c53_1",
+        "b": "c351",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (2)' soporta 'Mesa desliz. 2mm A36 (secc 1)'",
+        "command_id": "c466"
+      },
+      {
+        "name": "auto_f_29",
+        "a": "c53_1",
+        "b": "c352",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (2)' soporta 'Mesa desliz. 2mm A36 (secc 2)'",
+        "command_id": "c467"
+      },
+      {
+        "name": "auto_f_30",
+        "a": "c53_1",
+        "b": "c367",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (2)' ↔ 'Repisa apoyo mesa (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c468"
+      },
+      {
+        "name": "auto_f_31",
+        "a": "c53_1",
+        "b": "c368",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (2)' ↔ 'Repisa apoyo mesa (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c469"
+      },
+      {
+        "name": "auto_f_32",
+        "a": "c53_2",
+        "b": "c93",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (3)' ↔ 'Larguero 80x40x3 A36 (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c470"
+      },
+      {
+        "name": "auto_f_33",
+        "a": "c53_2",
+        "b": "c95",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (3)' ↔ 'Larguero 80x40x3 A36 (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c471"
+      },
+      {
+        "name": "auto_f_34",
+        "a": "c53_2",
+        "b": "c119",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (3)' ↔ 'Banda PVC 2mm 700 (lazo cerrado)'",
+        "command_id": "c472"
+      },
+      {
+        "name": "auto_f_35",
+        "a": "c53_2",
+        "b": "c352",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (3)' soporta 'Mesa desliz. 2mm A36 (secc 2)'",
+        "command_id": "c473"
+      },
+      {
+        "name": "auto_f_36",
+        "a": "c53_2",
+        "b": "c353",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (3)' soporta 'Mesa desliz. 2mm A36 (secc 3)'",
+        "command_id": "c474"
+      },
+      {
+        "name": "auto_f_37",
+        "a": "c53_2",
+        "b": "c367",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (3)' ↔ 'Repisa apoyo mesa (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c475"
+      },
+      {
+        "name": "auto_f_38",
+        "a": "c53_2",
+        "b": "c368",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (3)' ↔ 'Repisa apoyo mesa (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c476"
+      },
+      {
+        "name": "auto_f_39",
+        "a": "c53_3",
+        "b": "c93",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (4)' ↔ 'Larguero 80x40x3 A36 (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c477"
+      },
+      {
+        "name": "auto_f_40",
+        "a": "c53_3",
+        "b": "c95",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (4)' ↔ 'Larguero 80x40x3 A36 (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c478"
+      },
+      {
+        "name": "auto_f_41",
+        "a": "c53_3",
+        "b": "c119",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (4)' ↔ 'Banda PVC 2mm 700 (lazo cerrado)'",
+        "command_id": "c479"
+      },
+      {
+        "name": "auto_f_42",
+        "a": "c53_3",
+        "b": "c353",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (4)' soporta 'Mesa desliz. 2mm A36 (secc 3)'",
+        "command_id": "c480"
+      },
+      {
+        "name": "auto_f_43",
+        "a": "c53_3",
+        "b": "c354",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (4)' soporta 'Mesa desliz. 2mm A36 (secc 4)'",
+        "command_id": "c481"
+      },
+      {
+        "name": "auto_f_44",
+        "a": "c53_3",
+        "b": "c367",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (4)' ↔ 'Repisa apoyo mesa (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c482"
+      },
+      {
+        "name": "auto_f_45",
+        "a": "c53_3",
+        "b": "c368",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (4)' ↔ 'Repisa apoyo mesa (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c483"
+      },
+      {
+        "name": "auto_f_46",
+        "a": "c53_4",
+        "b": "c93",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (5)' ↔ 'Larguero 80x40x3 A36 (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c484"
+      },
+      {
+        "name": "auto_f_47",
+        "a": "c53_4",
+        "b": "c95",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (5)' ↔ 'Larguero 80x40x3 A36 (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 120.0,
+        "command_id": "c485"
+      },
+      {
+        "name": "auto_f_48",
+        "a": "c53_4",
+        "b": "c119",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (5)' ↔ 'Banda PVC 2mm 700 (lazo cerrado)'",
+        "command_id": "c486"
+      },
+      {
+        "name": "auto_f_49",
+        "a": "c53_4",
+        "b": "c354",
+        "kind": "contacto",
+        "nota": "'Travesaño sup 40x40x2 A36 (5)' soporta 'Mesa desliz. 2mm A36 (secc 4)'",
+        "command_id": "c487"
+      },
+      {
+        "name": "auto_f_50",
+        "a": "c53_4",
+        "b": "c367",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (5)' ↔ 'Repisa apoyo mesa (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c488"
+      },
+      {
+        "name": "auto_f_51",
+        "a": "c53_4",
+        "b": "c368",
+        "kind": "soldadura",
+        "nota": "'Travesaño sup 40x40x2 A36 (5)' ↔ 'Repisa apoyo mesa (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 80.0,
+        "command_id": "c489"
+      },
+      {
+        "name": "auto_f_52",
+        "a": "c58",
+        "b": "c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' ↔ 'Perno anclaje M12 + arandela'",
+        "command_id": "c490"
+      },
+      {
+        "name": "auto_f_53",
+        "a": "c58",
+        "b": "c148_0_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' ↔ 'Perno anclaje M12 + arandela (1,2)'",
+        "command_id": "c491"
+      },
+      {
+        "name": "auto_f_54",
+        "a": "c58",
+        "b": "c148_1_0_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' ↔ 'Perno anclaje M12 + arandela (2,1)'",
+        "command_id": "c492"
+      },
+      {
+        "name": "auto_f_55",
+        "a": "c58",
+        "b": "c148_1_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' ↔ 'Perno anclaje M12 + arandela (2,2)'",
+        "command_id": "c493"
+      },
+      {
+        "name": "auto_f_56",
+        "a": "c63_1",
+        "b": "c149_1_0_0_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (2)' ↔ 'Perno anclaje M12 + arandela (1,2) (2,1)'",
+        "command_id": "c494"
+      },
+      {
+        "name": "auto_f_57",
+        "a": "c63_1",
+        "b": "c149_1_0_1_0_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (2)' ↔ 'Perno anclaje M12 + arandela (2,1) (2,1)'",
+        "command_id": "c495"
+      },
+      {
+        "name": "auto_f_58",
+        "a": "c63_1",
+        "b": "c149_1_0_1_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (2)' ↔ 'Perno anclaje M12 + arandela (2,2) (2,1)'",
+        "command_id": "c496"
+      },
+      {
+        "name": "auto_f_59",
+        "a": "c63_2",
+        "b": "c149_2_0_0_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (3)' ↔ 'Perno anclaje M12 + arandela (1,2) (3,1)'",
+        "command_id": "c497"
+      },
+      {
+        "name": "auto_f_60",
+        "a": "c63_2",
+        "b": "c149_2_0_1_0_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (3)' ↔ 'Perno anclaje M12 + arandela (2,1) (3,1)'",
+        "command_id": "c498"
+      },
+      {
+        "name": "auto_f_61",
+        "a": "c63_2",
+        "b": "c149_2_0_1_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (3)' ↔ 'Perno anclaje M12 + arandela (2,2) (3,1)'",
+        "command_id": "c499"
+      },
+      {
+        "name": "auto_f_62",
+        "a": "c64",
+        "b": "c149_0_1_0_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' ↔ 'Perno anclaje M12 + arandela (1,2) (1,2)'",
+        "command_id": "c500"
+      },
+      {
+        "name": "auto_f_63",
+        "a": "c64",
+        "b": "c149_0_1_1_0_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' ↔ 'Perno anclaje M12 + arandela (2,1) (1,2)'",
+        "command_id": "c501"
+      },
+      {
+        "name": "auto_f_64",
+        "a": "c64",
+        "b": "c149_0_1_1_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36' ↔ 'Perno anclaje M12 + arandela (2,2) (1,2)'",
+        "command_id": "c502"
+      },
+      {
+        "name": "auto_f_65",
+        "a": "c69_1",
+        "b": "c149_1_1_0_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (2)' ↔ 'Perno anclaje M12 + arandela (1,2) (2,2)'",
+        "command_id": "c503"
+      },
+      {
+        "name": "auto_f_66",
+        "a": "c69_1",
+        "b": "c149_1_1_1_0_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (2)' ↔ 'Perno anclaje M12 + arandela (2,1) (2,2)'",
+        "command_id": "c504"
+      },
+      {
+        "name": "auto_f_67",
+        "a": "c69_1",
+        "b": "c149_1_1_1_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (2)' ↔ 'Perno anclaje M12 + arandela (2,2) (2,2)'",
+        "command_id": "c505"
+      },
+      {
+        "name": "auto_f_68",
+        "a": "c69_2",
+        "b": "c149_2_1_0_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (3)' ↔ 'Perno anclaje M12 + arandela (1,2) (3,2)'",
+        "command_id": "c506"
+      },
+      {
+        "name": "auto_f_69",
+        "a": "c69_2",
+        "b": "c149_2_1_1_0_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (3)' ↔ 'Perno anclaje M12 + arandela (2,1) (3,2)'",
+        "command_id": "c507"
+      },
+      {
+        "name": "auto_f_70",
+        "a": "c69_2",
+        "b": "c149_2_1_1_1_c147",
+        "kind": "contacto",
+        "nota": "'Placa anclaje 120x120x10 A36 (3)' ↔ 'Perno anclaje M12 + arandela (2,2) (3,2)'",
+        "command_id": "c508"
+      },
+      {
+        "name": "auto_f_74",
+        "a": "c93",
+        "b": "c367",
+        "kind": "soldadura",
+        "nota": "'Larguero 80x40x3 A36 (+Y)' ↔ 'Repisa apoyo mesa (+Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 100.0,
+        "command_id": "c512"
+      },
+      {
+        "name": "auto_f_75",
+        "a": "c93",
+        "b": "c412_rodillo",
+        "kind": "contacto",
+        "nota": "'Larguero 80x40x3 A36 (+Y)' ↔ 'Tensor de cola · Rodillo de cola'",
+        "command_id": "c513"
+      },
+      {
+        "name": "auto_f_76",
+        "a": "c93",
+        "b": "c412_eje",
+        "kind": "contacto",
+        "nota": "'Larguero 80x40x3 A36 (+Y)' ↔ 'Tensor de cola · Eje fijo (roscado p/ perno)'",
+        "command_id": "c514"
+      },
+      {
+        "name": "auto_f_77",
+        "a": "c93",
+        "b": "c412_rod2",
+        "kind": "contacto",
+        "nota": "'Larguero 80x40x3 A36 (+Y)' ↔ 'Tensor de cola · Rodamiento 6206 (2)'",
+        "command_id": "c515"
+      },
+      {
+        "name": "auto_f_78",
+        "a": "c93",
+        "b": "c412_seeger2",
+        "kind": "contacto",
+        "nota": "'Larguero 80x40x3 A36 (+Y)' ↔ 'Tensor de cola · Seeger retención (2)'",
+        "command_id": "c516"
+      },
+      {
+        "name": "auto_f_79",
+        "a": "c93",
+        "b": "c412_soporte2",
+        "kind": "soldadura",
+        "nota": "'Larguero 80x40x3 A36 (+Y)' ↔ 'Tensor de cola · Soporte en C 9.5mm (2)'",
+        "throat_mm": 4.0,
+        "length_mm": 100.0,
+        "command_id": "c517"
+      },
+      {
+        "name": "auto_f_84",
+        "a": "c95",
+        "b": "c368",
+        "kind": "soldadura",
+        "nota": "'Larguero 80x40x3 A36 (-Y)' ↔ 'Repisa apoyo mesa (-Y)'",
+        "throat_mm": 3.0,
+        "length_mm": 100.0,
+        "command_id": "c522"
+      },
+      {
+        "name": "auto_f_85",
+        "a": "c95",
+        "b": "c412_rodillo",
+        "kind": "contacto",
+        "nota": "'Larguero 80x40x3 A36 (-Y)' ↔ 'Tensor de cola · Rodillo de cola'",
+        "command_id": "c523"
+      },
+      {
+        "name": "auto_f_86",
+        "a": "c95",
+        "b": "c412_eje",
+        "kind": "contacto",
+        "nota": "'Larguero 80x40x3 A36 (-Y)' ↔ 'Tensor de cola · Eje fijo (roscado p/ perno)'",
+        "command_id": "c524"
+      },
+      {
+        "name": "auto_f_87",
+        "a": "c95",
+        "b": "c412_rod1",
+        "kind": "contacto",
+        "nota": "'Larguero 80x40x3 A36 (-Y)' ↔ 'Tensor de cola · Rodamiento 6206 (1)'",
+        "command_id": "c525"
+      },
+      {
+        "name": "auto_f_88",
+        "a": "c95",
+        "b": "c412_seeger1",
+        "kind": "contacto",
+        "nota": "'Larguero 80x40x3 A36 (-Y)' ↔ 'Tensor de cola · Seeger retención (1)'",
+        "command_id": "c526"
+      },
+      {
+        "name": "auto_f_89",
+        "a": "c95",
+        "b": "c412_soporte1",
+        "kind": "soldadura",
+        "nota": "'Larguero 80x40x3 A36 (-Y)' ↔ 'Tensor de cola · Soporte en C 9.5mm (1)'",
+        "throat_mm": 4.0,
+        "length_mm": 100.0,
+        "command_id": "c527"
+      },
+      {
+        "name": "auto_f_95",
+        "a": "c119",
+        "b": "c351",
+        "kind": "contacto",
+        "nota": "'Banda PVC 2mm 700 (lazo cerrado)' ↔ 'Mesa desliz. 2mm A36 (secc 1)'",
+        "command_id": "c533"
+      },
+      {
+        "name": "auto_f_96",
+        "a": "c119",
+        "b": "c352",
+        "kind": "contacto",
+        "nota": "'Banda PVC 2mm 700 (lazo cerrado)' ↔ 'Mesa desliz. 2mm A36 (secc 2)'",
+        "command_id": "c534"
+      },
+      {
+        "name": "auto_f_97",
+        "a": "c119",
+        "b": "c353",
+        "kind": "contacto",
+        "nota": "'Banda PVC 2mm 700 (lazo cerrado)' ↔ 'Mesa desliz. 2mm A36 (secc 3)'",
+        "command_id": "c535"
+      },
+      {
+        "name": "auto_f_98",
+        "a": "c119",
+        "b": "c354",
+        "kind": "contacto",
+        "nota": "'Banda PVC 2mm 700 (lazo cerrado)' ↔ 'Mesa desliz. 2mm A36 (secc 4)'",
+        "command_id": "c536"
+      },
+      {
+        "name": "auto_f_99",
+        "a": "c119",
+        "b": "c367",
+        "kind": "contacto",
+        "nota": "'Banda PVC 2mm 700 (lazo cerrado)' ↔ 'Repisa apoyo mesa (+Y)'",
+        "command_id": "c537"
+      },
+      {
+        "name": "auto_f_100",
+        "a": "c119",
+        "b": "c368",
+        "kind": "contacto",
+        "nota": "'Banda PVC 2mm 700 (lazo cerrado)' ↔ 'Repisa apoyo mesa (-Y)'",
+        "command_id": "c538"
+      },
+      {
+        "name": "auto_f_101",
+        "a": "c119",
+        "b": "c412_rodillo",
+        "kind": "contacto",
+        "nota": "'Banda PVC 2mm 700 (lazo cerrado)' ↔ 'Tensor de cola · Rodillo de cola'",
+        "command_id": "c539"
+      },
+      {
+        "name": "auto_f_102",
+        "a": "c119",
+        "b": "c412_eje",
+        "kind": "contacto",
+        "nota": "'Banda PVC 2mm 700 (lazo cerrado)' ↔ 'Tensor de cola · Eje fijo (roscado p/ perno)'",
+        "command_id": "c540"
+      },
+      {
+        "name": "auto_f_124",
+        "a": "c351",
+        "b": "c352",
+        "kind": "soldadura",
+        "nota": "'Mesa desliz. 2mm A36 (secc 1)' ↔ 'Mesa desliz. 2mm A36 (secc 2)'",
+        "throat_mm": 3.0,
+        "length_mm": 60.0,
+        "command_id": "c562"
+      },
+      {
+        "name": "auto_f_125",
+        "a": "c367",
+        "b": "c351",
+        "kind": "contacto",
+        "nota": "'Repisa apoyo mesa (+Y)' soporta 'Mesa desliz. 2mm A36 (secc 1)'",
+        "command_id": "c563"
+      },
+      {
+        "name": "auto_f_126",
+        "a": "c368",
+        "b": "c351",
+        "kind": "contacto",
+        "nota": "'Repisa apoyo mesa (-Y)' soporta 'Mesa desliz. 2mm A36 (secc 1)'",
+        "command_id": "c564"
+      },
+      {
+        "name": "auto_f_127",
+        "a": "c352",
+        "b": "c353",
+        "kind": "soldadura",
+        "nota": "'Mesa desliz. 2mm A36 (secc 2)' ↔ 'Mesa desliz. 2mm A36 (secc 3)'",
+        "throat_mm": 3.0,
+        "length_mm": 60.0,
+        "command_id": "c565"
+      },
+      {
+        "name": "auto_f_128",
+        "a": "c367",
+        "b": "c352",
+        "kind": "contacto",
+        "nota": "'Repisa apoyo mesa (+Y)' soporta 'Mesa desliz. 2mm A36 (secc 2)'",
+        "command_id": "c566"
+      },
+      {
+        "name": "auto_f_129",
+        "a": "c368",
+        "b": "c352",
+        "kind": "contacto",
+        "nota": "'Repisa apoyo mesa (-Y)' soporta 'Mesa desliz. 2mm A36 (secc 2)'",
+        "command_id": "c567"
+      },
+      {
+        "name": "auto_f_130",
+        "a": "c353",
+        "b": "c354",
+        "kind": "soldadura",
+        "nota": "'Mesa desliz. 2mm A36 (secc 3)' ↔ 'Mesa desliz. 2mm A36 (secc 4)'",
+        "throat_mm": 3.0,
+        "length_mm": 60.0,
+        "command_id": "c568"
+      },
+      {
+        "name": "auto_f_131",
+        "a": "c367",
+        "b": "c353",
+        "kind": "contacto",
+        "nota": "'Repisa apoyo mesa (+Y)' soporta 'Mesa desliz. 2mm A36 (secc 3)'",
+        "command_id": "c569"
+      },
+      {
+        "name": "auto_f_132",
+        "a": "c368",
+        "b": "c353",
+        "kind": "contacto",
+        "nota": "'Repisa apoyo mesa (-Y)' soporta 'Mesa desliz. 2mm A36 (secc 3)'",
+        "command_id": "c570"
+      },
+      {
+        "name": "auto_f_133",
+        "a": "c367",
+        "b": "c354",
+        "kind": "contacto",
+        "nota": "'Repisa apoyo mesa (+Y)' soporta 'Mesa desliz. 2mm A36 (secc 4)'",
+        "command_id": "c571"
+      },
+      {
+        "name": "auto_f_134",
+        "a": "c368",
+        "b": "c354",
+        "kind": "contacto",
+        "nota": "'Repisa apoyo mesa (-Y)' soporta 'Mesa desliz. 2mm A36 (secc 4)'",
+        "command_id": "c572"
+      },
+      {
+        "name": "auto_f_135",
+        "a": "c412_rodillo",
+        "b": "c412_eje",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Rodillo de cola' ↔ 'Tensor de cola · Eje fijo (roscado p/ perno)'",
+        "command_id": "c573"
+      },
+      {
+        "name": "auto_f_136",
+        "a": "c412_rodillo",
+        "b": "c412_rod1",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Rodillo de cola' ↔ 'Tensor de cola · Rodamiento 6206 (1)'",
+        "command_id": "c574"
+      },
+      {
+        "name": "auto_f_137",
+        "a": "c412_rodillo",
+        "b": "c412_seeger1",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Rodillo de cola' ↔ 'Tensor de cola · Seeger retención (1)'",
+        "command_id": "c575"
+      },
+      {
+        "name": "auto_f_138",
+        "a": "c412_rodillo",
+        "b": "c412_rod2",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Rodillo de cola' ↔ 'Tensor de cola · Rodamiento 6206 (2)'",
+        "command_id": "c576"
+      },
+      {
+        "name": "auto_f_139",
+        "a": "c412_rodillo",
+        "b": "c412_seeger2",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Rodillo de cola' ↔ 'Tensor de cola · Seeger retención (2)'",
+        "command_id": "c577"
+      },
+      {
+        "name": "auto_f_140",
+        "a": "c412_eje",
+        "b": "c412_rod1",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Eje fijo (roscado p/ perno)' ↔ 'Tensor de cola · Rodamiento 6206 (1)'",
+        "command_id": "c578"
+      },
+      {
+        "name": "auto_f_141",
+        "a": "c412_eje",
+        "b": "c412_seeger1",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Eje fijo (roscado p/ perno)' ↔ 'Tensor de cola · Seeger retención (1)'",
+        "command_id": "c579"
+      },
+      {
+        "name": "auto_f_142",
+        "a": "c412_eje",
+        "b": "c412_rod2",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Eje fijo (roscado p/ perno)' ↔ 'Tensor de cola · Rodamiento 6206 (2)'",
+        "command_id": "c580"
+      },
+      {
+        "name": "auto_f_143",
+        "a": "c412_eje",
+        "b": "c412_seeger2",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Eje fijo (roscado p/ perno)' ↔ 'Tensor de cola · Seeger retención (2)'",
+        "command_id": "c581"
+      },
+      {
+        "name": "auto_f_144",
+        "a": "c412_eje",
+        "b": "c412_soporte1",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Eje fijo (roscado p/ perno)' ↔ 'Tensor de cola · Soporte en C 9.5mm (1)'",
+        "command_id": "c582"
+      },
+      {
+        "name": "auto_f_145",
+        "a": "c412_eje",
+        "b": "c412_perno1",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Eje fijo (roscado p/ perno)' ↔ 'Tensor de cola · Perno tensor PERNO-M16×90 (1)'",
+        "command_id": "c583"
+      },
+      {
+        "name": "auto_f_146",
+        "a": "c412_eje",
+        "b": "c412_soporte2",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Eje fijo (roscado p/ perno)' ↔ 'Tensor de cola · Soporte en C 9.5mm (2)'",
+        "command_id": "c584"
+      },
+      {
+        "name": "auto_f_147",
+        "a": "c412_eje",
+        "b": "c412_perno2",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Eje fijo (roscado p/ perno)' ↔ 'Tensor de cola · Perno tensor PERNO-M16×90 (2)'",
+        "command_id": "c585"
+      },
+      {
+        "name": "auto_f_148",
+        "a": "c412_rod1",
+        "b": "c412_seeger1",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Rodamiento 6206 (1)' ↔ 'Tensor de cola · Seeger retención (1)'",
+        "command_id": "c586"
+      },
+      {
+        "name": "auto_f_149",
+        "a": "c412_rod2",
+        "b": "c412_seeger2",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Rodamiento 6206 (2)' ↔ 'Tensor de cola · Seeger retención (2)'",
+        "command_id": "c587"
+      },
+      {
+        "name": "auto_f_150",
+        "a": "c412_soporte1",
+        "b": "c412_perno1",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Soporte en C 9.5mm (1)' ↔ 'Tensor de cola · Perno tensor PERNO-M16×90 (1)'",
+        "command_id": "c588"
+      },
+      {
+        "name": "auto_f_151",
+        "a": "c412_soporte2",
+        "b": "c412_perno2",
+        "kind": "contacto",
+        "nota": "'Tensor de cola · Soporte en C 9.5mm (2)' ↔ 'Tensor de cola · Perno tensor PERNO-M16×90 (2)'",
+        "command_id": "c589"
+      },
+      {
+        "name": "men1_larg",
+        "a": "c339",
+        "b": "c93",
+        "kind": "soldadura",
+        "nota": "",
+        "throat_mm": 4.0,
+        "length_mm": 100.0,
+        "command_id": "c630"
+      },
+      {
+        "name": "men2_larg",
+        "a": "c340",
+        "b": "c95",
+        "kind": "soldadura",
+        "nota": "",
+        "throat_mm": 4.0,
+        "length_mm": 100.0,
+        "command_id": "c631"
+      },
+      {
+        "name": "men3_larg",
+        "a": "c341",
+        "b": "c93",
+        "kind": "soldadura",
+        "nota": "",
+        "throat_mm": 4.0,
+        "length_mm": 100.0,
+        "command_id": "c632"
+      },
+      {
+        "name": "men4_larg",
+        "a": "c342",
+        "b": "c95",
+        "kind": "soldadura",
+        "nota": "",
+        "throat_mm": 4.0,
+        "length_mm": 100.0,
+        "command_id": "c633"
+      },
+      {
+        "name": "rod1_men1",
+        "a": "c122",
+        "b": "c339",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c634"
+      },
+      {
+        "name": "rod1_men2",
+        "a": "c122",
+        "b": "c340",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c635"
+      },
+      {
+        "name": "rod2_men3",
+        "a": "c123_1",
+        "b": "c341",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c636"
+      },
+      {
+        "name": "rod2_men4",
+        "a": "c123_1",
+        "b": "c342",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c637"
+      },
+      {
+        "name": "pie_placa_1",
+        "a": "c647",
+        "b": "c58",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c648"
+      },
+      {
+        "name": "pie_placa_2",
+        "a": "c647",
+        "b": "c64",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c649"
+      },
+      {
+        "name": "pie_placa_3",
+        "a": "c647",
+        "b": "c63_1",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c650"
+      },
+      {
+        "name": "pie_placa_4",
+        "a": "c647",
+        "b": "c69_1",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c651"
+      },
+      {
+        "name": "pie_placa_5",
+        "a": "c647",
+        "b": "c63_2",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c652"
+      },
+      {
+        "name": "pie_placa_6",
+        "a": "c647",
+        "b": "c69_2",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c653"
+      },
+      {
+        "name": "pie_pata_1",
+        "a": "c647",
+        "b": "c44",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c654"
+      },
+      {
+        "name": "pie_pata_2",
+        "a": "c647",
+        "b": "c48",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c655"
+      },
+      {
+        "name": "pie_pata_3",
+        "a": "c647",
+        "b": "c45_1",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c656"
+      },
+      {
+        "name": "pie_pata_4",
+        "a": "c647",
+        "b": "c49_1",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c657"
+      },
+      {
+        "name": "pie_pata_5",
+        "a": "c647",
+        "b": "c45_2",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c658"
+      },
+      {
+        "name": "pie_pata_6",
+        "a": "c647",
+        "b": "c49_2",
+        "kind": "perno",
+        "nota": "",
+        "size": "M12",
+        "qty": 1,
+        "command_id": "c659"
+      },
+      {
+        "name": "drum_eje",
+        "a": "c669",
+        "b": "c670",
+        "kind": "soldadura",
+        "nota": "Tambor chavetado al eje vivo",
+        "throat_mm": 4.0,
+        "length_mm": 110.0,
+        "command_id": "c674"
+      },
+      {
+        "name": "drum_banda",
+        "a": "c669",
+        "b": "c119",
+        "kind": "contacto",
+        "nota": "Banda envuelve el tambor motriz",
+        "command_id": "c678"
+      },
+      {
+        "name": "nmrv_eje",
+        "a": "c682",
+        "b": "c670",
+        "kind": "perno",
+        "nota": "NMRV de eje hueco montado sobre el eje vivo (chaveta)",
+        "size": "M10",
+        "qty": 2,
+        "command_id": "c683"
+      },
+      {
+        "name": "nmrv_brazo",
+        "a": "c682",
+        "b": "c673",
+        "kind": "perno",
+        "nota": "Brazo de torque solidario al NMRV (anti-giro)",
+        "size": "M10",
+        "qty": 6,
+        "command_id": "c684"
+      },
+      {
+        "name": "eje_chum_pY",
+        "a": "c670",
+        "b": "c686",
+        "kind": "contacto",
+        "nota": "Eje vivo apoyado en la chumacera UCP207 (+Y)",
+        "command_id": "c688"
+      },
+      {
+        "name": "eje_chum_nY",
+        "a": "c670",
+        "b": "c687",
+        "kind": "contacto",
+        "nota": "Eje vivo apoyado en la chumacera UCP207 (-Y)",
+        "command_id": "c689"
+      },
+      {
+        "name": "chum_mensula_pY",
+        "a": "c686",
+        "b": "c685",
+        "kind": "perno",
+        "nota": "Chumacera +Y atornillada a la ménsula",
+        "size": "M14",
+        "qty": 2,
+        "command_id": "c690"
+      },
+      {
+        "name": "chum_mensula_nY",
+        "a": "c687",
+        "b": "c685",
+        "kind": "perno",
+        "nota": "Chumacera -Y atornillada a la ménsula",
+        "size": "M14",
+        "qty": 2,
+        "command_id": "c691"
+      },
+      {
+        "name": "mensula_larg_pY",
+        "a": "c685",
+        "b": "c93",
+        "kind": "soldadura",
+        "nota": "Ménsula soldada al larguero +Y",
+        "throat_mm": 4.0,
+        "length_mm": 100.0,
+        "command_id": "c692"
+      },
+      {
+        "name": "mensula_larg_nY",
+        "a": "c685",
+        "b": "c95",
+        "kind": "soldadura",
+        "nota": "Ménsula soldada al larguero -Y",
+        "throat_mm": 4.0,
+        "length_mm": 100.0,
+        "command_id": "c693"
+      },
+      {
+        "name": "disco_pata",
+        "a": "c673",
+        "b": "c45_2",
+        "kind": "soldadura",
+        "nota": "Puntal del disco de reacción soldado a la pata de cabecera (anti-giro anclado a la columna)",
+        "throat_mm": 4.0,
+        "length_mm": 120.0,
+        "command_id": "c694"
+      },
+      {
+        "name": "men_motor_brida",
+        "a": "c703",
+        "b": "c682",
+        "kind": "perno",
+        "nota": "Ménsula atornillada a la brida superior del NMRV (asiento)",
+        "size": "M8",
+        "qty": 4,
+        "command_id": "c705"
+      },
+      {
+        "name": "men_motor_larguero",
+        "a": "c703",
+        "b": "c93",
+        "kind": "perno",
+        "nota": "Ménsula atornillada al larguero c93 (placa dorsal)",
+        "size": "M12",
+        "qty": 4,
+        "command_id": "c706"
+      },
+      {
+        "name": "men_motor_pata",
+        "a": "c703",
+        "b": "c45_2",
+        "kind": "perno",
+        "nota": "Puntal de la ménsula atornillado a la pata c45_2 (camino a tierra)",
+        "size": "M12",
+        "qty": 2,
+        "command_id": "c707"
+      },
+      {
+        "name": "tornilleria_men_motor",
+        "a": "c704",
+        "b": "c703",
+        "kind": "contacto",
+        "nota": "Tornillería (pernos) de la ménsula del motor, solidaria a la ménsula c703",
+        "command_id": "c1120"
+      },
+      {
+        "name": "anchor_new_1_placa",
+        "a": "c64",
+        "b": "c1114_0_1_c147",
+        "kind": "contacto",
+        "nota": "Placa de anclaje ↔ perno (4º barreno)",
+        "command_id": "c1121"
+      },
+      {
+        "name": "anchor_new_2_placa",
+        "a": "c63_1",
+        "b": "c1114_1_0_c147",
+        "kind": "contacto",
+        "nota": "Placa de anclaje ↔ perno (4º barreno)",
+        "command_id": "c1122"
+      },
+      {
+        "name": "anchor_new_3_placa",
+        "a": "c69_1",
+        "b": "c1114_1_1_c147",
+        "kind": "contacto",
+        "nota": "Placa de anclaje ↔ perno (4º barreno)",
+        "command_id": "c1123"
+      },
+      {
+        "name": "anchor_new_4_placa",
+        "a": "c63_2",
+        "b": "c1114_2_0_c147",
+        "kind": "contacto",
+        "nota": "Placa de anclaje ↔ perno (4º barreno)",
+        "command_id": "c1124"
+      },
+      {
+        "name": "anchor_new_5_placa",
+        "a": "c69_2",
+        "b": "c1114_2_1_c147",
+        "kind": "contacto",
+        "nota": "Placa de anclaje ↔ perno (4º barreno)",
+        "command_id": "c1125"
+      }
+    ],
+    "grounds": [
+      {
+        "name": "auto_g_1",
+        "feature": "c63_1",
+        "nota": "base en z≈0.0 (apoya en el piso)",
+        "command_id": "c414"
+      },
+      {
+        "name": "auto_g_2",
+        "feature": "c58",
+        "nota": "base en z≈0.0 (apoya en el piso)",
+        "command_id": "c415"
+      },
+      {
+        "name": "auto_g_3",
+        "feature": "c64",
+        "nota": "base en z≈0.0 (apoya en el piso)",
+        "command_id": "c416"
+      },
+      {
+        "name": "auto_g_4",
+        "feature": "c149_1_1_1_0_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c417"
+      },
+      {
+        "name": "auto_g_5",
+        "feature": "c149_0_1_1_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c418"
+      },
+      {
+        "name": "auto_g_6",
+        "feature": "c149_1_0_1_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c419"
+      },
+      {
+        "name": "auto_g_7",
+        "feature": "c149_0_1_0_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c420"
+      },
+      {
+        "name": "auto_g_8",
+        "feature": "c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c421"
+      },
+      {
+        "name": "auto_g_9",
+        "feature": "c69_1",
+        "nota": "base en z≈0.0 (apoya en el piso)",
+        "command_id": "c422"
+      },
+      {
+        "name": "auto_g_10",
+        "feature": "c148_0_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c423"
+      },
+      {
+        "name": "auto_g_11",
+        "feature": "c149_1_0_1_0_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c424"
+      },
+      {
+        "name": "auto_g_12",
+        "feature": "c149_2_1_0_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c425"
+      },
+      {
+        "name": "auto_g_13",
+        "feature": "c69_2",
+        "nota": "base en z≈0.0 (apoya en el piso)",
+        "command_id": "c426"
+      },
+      {
+        "name": "auto_g_14",
+        "feature": "c149_1_1_1_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c427"
+      },
+      {
+        "name": "auto_g_15",
+        "feature": "c149_2_0_1_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c428"
+      },
+      {
+        "name": "auto_g_16",
+        "feature": "c149_2_0_0_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c429"
+      },
+      {
+        "name": "auto_g_17",
+        "feature": "c149_2_1_1_0_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c430"
+      },
+      {
+        "name": "auto_g_18",
+        "feature": "c63_2",
+        "nota": "base en z≈0.0 (apoya en el piso)",
+        "command_id": "c431"
+      },
+      {
+        "name": "auto_g_19",
+        "feature": "c148_1_0_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c432"
+      },
+      {
+        "name": "auto_g_20",
+        "feature": "c149_0_1_1_0_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c433"
+      },
+      {
+        "name": "auto_g_21",
+        "feature": "c148_1_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c434"
+      },
+      {
+        "name": "auto_g_22",
+        "feature": "c149_1_1_0_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c435"
+      },
+      {
+        "name": "auto_g_23",
+        "feature": "c149_2_1_1_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c436"
+      },
+      {
+        "name": "auto_g_24",
+        "feature": "c149_2_0_1_0_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c437"
+      },
+      {
+        "name": "auto_g_25",
+        "feature": "c149_1_0_0_1_c147",
+        "nota": "base en z≈-40.0 (apoya en el piso)",
+        "command_id": "c438"
+      },
+      {
+        "name": "anchor_new_1",
+        "feature": "c1114_0_1_c147",
+        "nota": "Perno de anclaje embebido en el piso (base z≈-40)",
+        "command_id": "c1115"
+      },
+      {
+        "name": "anchor_new_2",
+        "feature": "c1114_1_0_c147",
+        "nota": "Perno de anclaje embebido en el piso (base z≈-40)",
+        "command_id": "c1116"
+      },
+      {
+        "name": "anchor_new_3",
+        "feature": "c1114_1_1_c147",
+        "nota": "Perno de anclaje embebido en el piso (base z≈-40)",
+        "command_id": "c1117"
+      },
+      {
+        "name": "anchor_new_4",
+        "feature": "c1114_2_0_c147",
+        "nota": "Perno de anclaje embebido en el piso (base z≈-40)",
+        "command_id": "c1118"
+      },
+      {
+        "name": "anchor_new_5",
+        "feature": "c1114_2_1_c147",
+        "nota": "Perno de anclaje embebido en el piso (base z≈-40)",
+        "command_id": "c1119"
+      }
+    ]
+  },
+  "soundness_declarada": {
+    "has_ground": true,
+    "n_total": 79,
+    "n_grounded": 79,
+    "n_floating": 0,
+    "grounded": [
+      "c1114_0_1_c147",
+      "c1114_1_0_c147",
+      "c1114_1_1_c147",
+      "c1114_2_0_c147",
+      "c1114_2_1_c147",
+      "c119",
+      "c122",
+      "c123_1",
+      "c147",
+      "c148_0_1_c147",
+      "c148_1_0_c147",
+      "c148_1_1_c147",
+      "c149_0_1_0_1_c147",
+      "c149_0_1_1_0_c147",
+      "c149_0_1_1_1_c147",
+      "c149_1_0_0_1_c147",
+      "c149_1_0_1_0_c147",
+      "c149_1_0_1_1_c147",
+      "c149_1_1_0_1_c147",
+      "c149_1_1_1_0_c147",
+      "c149_1_1_1_1_c147",
+      "c149_2_0_0_1_c147",
+      "c149_2_0_1_0_c147",
+      "c149_2_0_1_1_c147",
+      "c149_2_1_0_1_c147",
+      "c149_2_1_1_0_c147",
+      "c149_2_1_1_1_c147",
+      "c339",
+      "c340",
+      "c341",
+      "c342",
+      "c351",
+      "c352",
+      "c353",
+      "c354",
+      "c367",
+      "c368",
+      "c412_eje",
+      "c412_perno1",
+      "c412_perno2",
+      "c412_rod1",
+      "c412_rod2",
+      "c412_rodillo",
+      "c412_seeger1",
+      "c412_seeger2",
+      "c412_soporte1",
+      "c412_soporte2",
+      "c44",
+      "c45_1",
+      "c45_2",
+      "c48",
+      "c49_1",
+      "c49_2",
+      "c52",
+      "c53_1",
+      "c53_2",
+      "c53_3",
+      "c53_4",
+      "c56",
+      "c57_1",
+      "c57_2",
+      "c58",
+      "c63_1",
+      "c63_2",
+      "c64",
+      "c647",
+      "c669",
+      "c670",
+      "c673",
+      "c682",
+      "c685",
+      "c686",
+      "c687",
+      "c69_1",
+      "c69_2",
+      "c703",
+      "c704",
+      "c93",
+      "c95"
+    ],
+    "floating": [],
+    "isolated": [],
+    "components": [
+      [
+        "c1114_0_1_c147",
+        "c1114_1_0_c147",
+        "c1114_1_1_c147",
+        "c1114_2_0_c147",
+        "c1114_2_1_c147",
+        "c119",
+        "c122",
+        "c123_1",
+        "c147",
+        "c148_0_1_c147",
+        "c148_1_0_c147",
+        "c148_1_1_c147",
+        "c149_0_1_0_1_c147",
+        "c149_0_1_1_0_c147",
+        "c149_0_1_1_1_c147",
+        "c149_1_0_0_1_c147",
+        "c149_1_0_1_0_c147",
+        "c149_1_0_1_1_c147",
+        "c149_1_1_0_1_c147",
+        "c149_1_1_1_0_c147",
+        "c149_1_1_1_1_c147",
+        "c149_2_0_0_1_c147",
+        "c149_2_0_1_0_c147",
+        "c149_2_0_1_1_c147",
+        "c149_2_1_0_1_c147",
+        "c149_2_1_1_0_c147",
+        "c149_2_1_1_1_c147",
+        "c339",
+        "c340",
+        "c341",
+        "c342",
+        "c351",
+        "c352",
+        "c353",
+        "c354",
+        "c367",
+        "c368",
+        "c412_eje",
+        "c412_perno1",
+        "c412_perno2",
+        "c412_rod1",
+        "c412_rod2",
+        "c412_rodillo",
+        "c412_seeger1",
+        "c412_seeger2",
+        "c412_soporte1",
+        "c412_soporte2",
+        "c44",
+        "c45_1",
+        "c45_2",
+        "c48",
+        "c49_1",
+        "c49_2",
+        "c52",
+        "c53_1",
+        "c53_2",
+        "c53_3",
+        "c53_4",
+        "c56",
+        "c57_1",
+        "c57_2",
+        "c58",
+        "c63_1",
+        "c63_2",
+        "c64",
+        "c647",
+        "c669",
+        "c670",
+        "c673",
+        "c682",
+        "c685",
+        "c686",
+        "c687",
+        "c69_1",
+        "c69_2",
+        "c703",
+        "c704",
+        "c93",
+        "c95"
+      ]
+    ],
+    "floating_detail": []
+  },
+  "soundness_autodetect": {
+    "has_ground": true,
+    "n_total": 79,
+    "n_grounded": 79,
+    "n_floating": 0,
+    "grounded": [
+      "c1114_0_1_c147",
+      "c1114_1_0_c147",
+      "c1114_1_1_c147",
+      "c1114_2_0_c147",
+      "c1114_2_1_c147",
+      "c119",
+      "c122",
+      "c123_1",
+      "c147",
+      "c148_0_1_c147",
+      "c148_1_0_c147",
+      "c148_1_1_c147",
+      "c149_0_1_0_1_c147",
+      "c149_0_1_1_0_c147",
+      "c149_0_1_1_1_c147",
+      "c149_1_0_0_1_c147",
+      "c149_1_0_1_0_c147",
+      "c149_1_0_1_1_c147",
+      "c149_1_1_0_1_c147",
+      "c149_1_1_1_0_c147",
+      "c149_1_1_1_1_c147",
+      "c149_2_0_0_1_c147",
+      "c149_2_0_1_0_c147",
+      "c149_2_0_1_1_c147",
+      "c149_2_1_0_1_c147",
+      "c149_2_1_1_0_c147",
+      "c149_2_1_1_1_c147",
+      "c339",
+      "c340",
+      "c341",
+      "c342",
+      "c351",
+      "c352",
+      "c353",
+      "c354",
+      "c367",
+      "c368",
+      "c412_eje",
+      "c412_perno1",
+      "c412_perno2",
+      "c412_rod1",
+      "c412_rod2",
+      "c412_rodillo",
+      "c412_seeger1",
+      "c412_seeger2",
+      "c412_soporte1",
+      "c412_soporte2",
+      "c44",
+      "c45_1",
+      "c45_2",
+      "c48",
+      "c49_1",
+      "c49_2",
+      "c52",
+      "c53_1",
+      "c53_2",
+      "c53_3",
+      "c53_4",
+      "c56",
+      "c57_1",
+      "c57_2",
+      "c58",
+      "c63_1",
+      "c63_2",
+      "c64",
+      "c647",
+      "c669",
+      "c670",
+      "c673",
+      "c682",
+      "c685",
+      "c686",
+      "c687",
+      "c69_1",
+      "c69_2",
+      "c703",
+      "c704",
+      "c93",
+      "c95"
+    ],
+    "floating": [],
+    "isolated": [],
+    "components": [
+      [
+        "c1114_0_1_c147",
+        "c1114_1_0_c147",
+        "c1114_1_1_c147",
+        "c1114_2_0_c147",
+        "c1114_2_1_c147",
+        "c119",
+        "c122",
+        "c123_1",
+        "c147",
+        "c148_0_1_c147",
+        "c148_1_0_c147",
+        "c148_1_1_c147",
+        "c149_0_1_0_1_c147",
+        "c149_0_1_1_0_c147",
+        "c149_0_1_1_1_c147",
+        "c149_1_0_0_1_c147",
+        "c149_1_0_1_0_c147",
+        "c149_1_0_1_1_c147",
+        "c149_1_1_0_1_c147",
+        "c149_1_1_1_0_c147",
+        "c149_1_1_1_1_c147",
+        "c149_2_0_0_1_c147",
+        "c149_2_0_1_0_c147",
+        "c149_2_0_1_1_c147",
+        "c149_2_1_0_1_c147",
+        "c149_2_1_1_0_c147",
+        "c149_2_1_1_1_c147",
+        "c339",
+        "c340",
+        "c341",
+        "c342",
+        "c351",
+        "c352",
+        "c353",
+        "c354",
+        "c367",
+        "c368",
+        "c412_eje",
+        "c412_perno1",
+        "c412_perno2",
+        "c412_rod1",
+        "c412_rod2",
+        "c412_rodillo",
+        "c412_seeger1",
+        "c412_seeger2",
+        "c412_soporte1",
+        "c412_soporte2",
+        "c44",
+        "c45_1",
+        "c45_2",
+        "c48",
+        "c49_1",
+        "c49_2",
+        "c52",
+        "c53_1",
+        "c53_2",
+        "c53_3",
+        "c53_4",
+        "c56",
+        "c57_1",
+        "c57_2",
+        "c58",
+        "c63_1",
+        "c63_2",
+        "c64",
+        "c647",
+        "c669",
+        "c670",
+        "c673",
+        "c682",
+        "c685",
+        "c686",
+        "c687",
+        "c69_1",
+        "c69_2",
+        "c703",
+        "c704",
+        "c93",
+        "c95"
+      ]
+    ],
+    "floating_detail": [],
+    "autodetect": {
+      "floor_z": -40.0,
+      "n_grounds": 30,
+      "n_contactos": 176
+    }
+  },
+  "gravity_declarada": {
+    "n_grounded": 79,
+    "n_dynamic": 0,
+    "fell": [],
+    "estables": [],
+    "settled": true,
+    "products": [],
+    "mensaje": "Ninguna pieza dinámica: todo está sujeto a tierra."
+  },
+  "gravity_autodetect": {
+    "n_grounded": 79,
+    "n_dynamic": 0,
+    "fell": [],
+    "estables": [],
+    "settled": true,
+    "products": [],
+    "mensaje": "Ninguna pieza dinámica: todo está sujeto a tierra."
+  },
+  "dof": {
+    "features": [
+      {
+        "id": "c1114_0_1_c147",
+        "name": "Perno anclaje M12 + arandela (1,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:anchor_new_1"
+        ]
+      },
+      {
+        "id": "c1114_1_0_c147",
+        "name": "Perno anclaje M12 + arandela (2,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:anchor_new_2"
+        ]
+      },
+      {
+        "id": "c1114_1_1_c147",
+        "name": "Perno anclaje M12 + arandela (2,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:anchor_new_3"
+        ]
+      },
+      {
+        "id": "c1114_2_0_c147",
+        "name": "Perno anclaje M12 + arandela (3,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:anchor_new_4"
+        ]
+      },
+      {
+        "id": "c1114_2_1_c147",
+        "name": "Perno anclaje M12 + arandela (3,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:anchor_new_5"
+        ]
+      },
+      {
+        "id": "c119",
+        "name": "Banda PVC 2mm 700 (lazo cerrado)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c122",
+        "name": "Rodillo retorno Ø50 (eje Ø12)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c123_1",
+        "name": "Rodillo retorno Ø50 (eje Ø12) (2)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c147",
+        "name": "Perno anclaje M12 + arandela",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_8"
+        ]
+      },
+      {
+        "id": "c148_0_1_c147",
+        "name": "Perno anclaje M12 + arandela (1,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_10"
+        ]
+      },
+      {
+        "id": "c148_1_0_c147",
+        "name": "Perno anclaje M12 + arandela (2,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_19"
+        ]
+      },
+      {
+        "id": "c148_1_1_c147",
+        "name": "Perno anclaje M12 + arandela (2,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_21"
+        ]
+      },
+      {
+        "id": "c149_0_1_0_1_c147",
+        "name": "Perno anclaje M12 + arandela (1,2) (1,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_7"
+        ]
+      },
+      {
+        "id": "c149_0_1_1_0_c147",
+        "name": "Perno anclaje M12 + arandela (2,1) (1,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_20"
+        ]
+      },
+      {
+        "id": "c149_0_1_1_1_c147",
+        "name": "Perno anclaje M12 + arandela (2,2) (1,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_5"
+        ]
+      },
+      {
+        "id": "c149_1_0_0_1_c147",
+        "name": "Perno anclaje M12 + arandela (1,2) (2,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_25"
+        ]
+      },
+      {
+        "id": "c149_1_0_1_0_c147",
+        "name": "Perno anclaje M12 + arandela (2,1) (2,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_11"
+        ]
+      },
+      {
+        "id": "c149_1_0_1_1_c147",
+        "name": "Perno anclaje M12 + arandela (2,2) (2,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_6"
+        ]
+      },
+      {
+        "id": "c149_1_1_0_1_c147",
+        "name": "Perno anclaje M12 + arandela (1,2) (2,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_22"
+        ]
+      },
+      {
+        "id": "c149_1_1_1_0_c147",
+        "name": "Perno anclaje M12 + arandela (2,1) (2,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_4"
+        ]
+      },
+      {
+        "id": "c149_1_1_1_1_c147",
+        "name": "Perno anclaje M12 + arandela (2,2) (2,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_14"
+        ]
+      },
+      {
+        "id": "c149_2_0_0_1_c147",
+        "name": "Perno anclaje M12 + arandela (1,2) (3,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_16"
+        ]
+      },
+      {
+        "id": "c149_2_0_1_0_c147",
+        "name": "Perno anclaje M12 + arandela (2,1) (3,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_24"
+        ]
+      },
+      {
+        "id": "c149_2_0_1_1_c147",
+        "name": "Perno anclaje M12 + arandela (2,2) (3,1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_15"
+        ]
+      },
+      {
+        "id": "c149_2_1_0_1_c147",
+        "name": "Perno anclaje M12 + arandela (1,2) (3,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_12"
+        ]
+      },
+      {
+        "id": "c149_2_1_1_0_c147",
+        "name": "Perno anclaje M12 + arandela (2,1) (3,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_17"
+        ]
+      },
+      {
+        "id": "c149_2_1_1_1_c147",
+        "name": "Perno anclaje M12 + arandela (2,2) (3,2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_23"
+        ]
+      },
+      {
+        "id": "c339",
+        "name": "Ménsula rodillo retorno",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c340",
+        "name": "Ménsula rodillo retorno",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c341",
+        "name": "Ménsula rodillo retorno",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c342",
+        "name": "Ménsula rodillo retorno",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c351",
+        "name": "Mesa desliz. 2mm A36 (secc 1)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_mesa1"
+        ]
+      },
+      {
+        "id": "c352",
+        "name": "Mesa desliz. 2mm A36 (secc 2)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_mesa2"
+        ]
+      },
+      {
+        "id": "c353",
+        "name": "Mesa desliz. 2mm A36 (secc 3)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_mesa3"
+        ]
+      },
+      {
+        "id": "c354",
+        "name": "Mesa desliz. 2mm A36 (secc 4)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_mesa4"
+        ]
+      },
+      {
+        "id": "c367",
+        "name": "Repisa apoyo mesa (+Y)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c368",
+        "name": "Repisa apoyo mesa (-Y)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c412_eje",
+        "name": "Tensor de cola · Eje fijo Ø35 g6 (roscado p/ perno)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_tensor_cola"
+        ]
+      },
+      {
+        "id": "c412_perno1",
+        "name": "Tensor de cola · Perno tensor Allen PERNO-M16×90 (1)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c412_perno2",
+        "name": "Tensor de cola · Perno tensor Allen PERNO-M16×90 (2)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c412_rod1",
+        "name": "Tensor de cola · Rodamiento 6207 (1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:j_fix_rod1_cola"
+        ]
+      },
+      {
+        "id": "c412_rod2",
+        "name": "Tensor de cola · Rodamiento 6207 (2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:j_fix_rod2_cola"
+        ]
+      },
+      {
+        "id": "c412_rodillo",
+        "name": "Tensor de cola · Rodillo de cola",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:j_fix_rodillo_cola"
+        ]
+      },
+      {
+        "id": "c412_seeger1",
+        "name": "Tensor de cola · Seeger retención (1)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:j_fix_seeger1_cola"
+        ]
+      },
+      {
+        "id": "c412_seeger2",
+        "name": "Tensor de cola · Seeger retención (2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:j_fix_seeger2_cola"
+        ]
+      },
+      {
+        "id": "c412_soporte1",
+        "name": "Tensor de cola · Soporte en C 9.5mm (1)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c412_soporte2",
+        "name": "Tensor de cola · Soporte en C 9.5mm (2)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c44",
+        "name": "Pata A36",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c45_1",
+        "name": "Pata A36 (2)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c45_2",
+        "name": "Pata A36 (3)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c48",
+        "name": "Pata A36",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c49_1",
+        "name": "Pata A36 (2)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c49_2",
+        "name": "Pata A36 (3)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c52",
+        "name": "Travesaño superior A36",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_trav1"
+        ]
+      },
+      {
+        "id": "c53_1",
+        "name": "Travesaño superior A36 (2)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_trav2"
+        ]
+      },
+      {
+        "id": "c53_2",
+        "name": "Travesaño superior A36 (3)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_trav3"
+        ]
+      },
+      {
+        "id": "c53_3",
+        "name": "Travesaño superior A36 (4)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_trav4"
+        ]
+      },
+      {
+        "id": "c53_4",
+        "name": "Travesaño superior A36 (5)",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:j_trav5"
+        ]
+      },
+      {
+        "id": "c56",
+        "name": "Travesaño inferior A36",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c57_1",
+        "name": "Travesaño inferior A36 (2)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c57_2",
+        "name": "Travesaño inferior A36 (3)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c58",
+        "name": "Placa de anclaje A36",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_2"
+        ]
+      },
+      {
+        "id": "c63_1",
+        "name": "Placa de anclaje A36 (2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_1"
+        ]
+      },
+      {
+        "id": "c63_2",
+        "name": "Placa de anclaje A36 (3)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_18"
+        ]
+      },
+      {
+        "id": "c64",
+        "name": "Placa de anclaje A36",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_3"
+        ]
+      },
+      {
+        "id": "c647",
+        "name": "Pies niveladores (regulables)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c669",
+        "name": "Tambor motriz (engomado, eje vivo)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c670",
+        "name": "Eje motriz vivo Ø35 h7",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c673",
+        "name": "Disco de reacción anti-giro + puntal a la pata",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c682",
+        "name": "Motorreductor NMRV-090 (eje hueco, i=30)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c685",
+        "name": "Ménsulas de chumacera (lapa bajo el larguero)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c686",
+        "name": "Chumacera motriz (+Y)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c687",
+        "name": "Chumacera motriz (-Y)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c69_1",
+        "name": "Placa de anclaje A36 (2)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_9"
+        ]
+      },
+      {
+        "id": "c69_2",
+        "name": "Placa de anclaje A36 (3)",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "tierra:auto_g_13"
+        ]
+      },
+      {
+        "id": "c703",
+        "name": "Ménsula soporte motorreductor (brida sup. → larguero + pata)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c704",
+        "name": "Tornillería ménsula soporte motor",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c93",
+        "name": "Larguero A36 (+Y)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c95",
+        "name": "Larguero A36 (-Y)",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      }
+    ],
+    "total_dof": 214,
+    "libres": 34,
+    "sobre_restringidos": 0,
+    "resumen": "79 piezas · 214 GDL · 34 libres",
+    "nota": "Conteo heurístico (Grübler): no detecta redundancia geométrica; un 'sobre_restringido' por conteo puede ser redundancia benigna. Los conflictos REALES los rechaza el solver de mates en la edición. Las piezas de un insert_project traen sus mates internos BAKED (no re-registrados) → se reportan 'libre' aunque en el donante estuvieran acopladas."
+  },
+  "verify": {
+    "ok": true,
+    "resultados": [
+      {
+        "check": "largo_total -> bastidor (x)",
+        "tipo": "bbox",
+        "ok": true,
+        "actual": 4000.0,
+        "esperado": {
+          "entre": [
+            3950.0,
+            4100.0
+          ]
+        },
+        "eje": "x",
+        "n_piezas": 25
+      },
+      {
+        "check": "ancho_banda -> banda (y)",
+        "tipo": "bbox",
+        "ok": true,
+        "actual": 600.0,
+        "esperado": {
+          "entre": [
+            590.0,
+            610.0
+          ]
+        },
+        "eje": "y",
+        "n_piezas": 1
+      },
+      {
+        "check": "diam_tambor -> banda envuelve (z-size)",
+        "tipo": "bbox",
+        "ok": true,
+        "actual": 118.0,
+        "esperado": {
+          "entre": [
+            112.0,
+            124.0
+          ]
+        },
+        "eje": "z",
+        "n_piezas": 1
+      },
+      {
+        "check": "eje motriz Ø35 h7 existe",
+        "tipo": "existe",
+        "ok": true,
+        "actual": 1,
+        "ids": [
+          "c670"
+        ]
+      },
+      {
+        "check": "motorreductor NMRV existe",
+        "tipo": "existe",
+        "ok": true,
+        "actual": 1,
+        "ids": [
+          "c682"
+        ]
+      },
+      {
+        "check": "tambor motriz existe",
+        "tipo": "existe",
+        "ok": true,
+        "actual": 1,
+        "ids": [
+          "c669"
+        ]
+      },
+      {
+        "check": "tensor de cola existe",
+        "tipo": "existe",
+        "ok": true,
+        "actual": 10,
+        "ids": [
+          "c412_rodillo",
+          "c412_eje",
+          "c412_rod1",
+          "c412_seeger1",
+          "c412_rod2",
+          "c412_seeger2",
+          "c412_soporte1",
+          "c412_perno1",
+          "c412_soporte2",
+          "c412_perno2"
+        ]
+      },
+      {
+        "check": "chumaceras sin choque",
+        "tipo": "sin_interferencia",
+        "ok": true,
+        "actual": 0,
+        "esperado": {
+          "max": 0
+        },
+        "colisiones": []
+      },
+      {
+        "check": "banda envuelve tambor motriz",
+        "tipo": "distancia",
+        "ok": true,
+        "actual": 0.0,
+        "esperado": {
+          "max": 5.0
+        }
+      },
+      {
+        "check": "banda envuelve rodillo cola",
+        "tipo": "distancia",
+        "ok": true,
+        "actual": 0.0,
+        "esperado": {
+          "max": 5.0
+        }
+      }
+    ]
+  },
+  "engineering_check": {
+    "interferencias": {
+      "solidos": 75,
+      "parejas_analizadas": 150,
+      "truncado": false,
+      "interferencias": [
+        {
+          "a": "c673",
+          "nombre_a": "Disco de reacción anti-giro + puntal a la pata",
+          "b": "c682",
+          "nombre_b": "Motorreductor NMRV-090 (eje hueco, i=30)",
+          "volumen_mm3": 12697.5
+        },
+        {
+          "a": "c703",
+          "nombre_a": "Ménsula soporte motorreductor (brida sup. → larguero + pata)",
+          "b": "c704",
+          "nombre_b": "Tornillería ménsula soporte motor",
+          "volumen_mm3": 10695.8
+        },
+        {
+          "a": "c53_1",
+          "nombre_a": "Travesaño superior A36 (2)",
+          "b": "c367",
+          "nombre_b": "Repisa apoyo mesa (+Y)",
+          "volumen_mm3": 10560.0
+        },
+        {
+          "a": "c53_1",
+          "nombre_a": "Travesaño superior A36 (2)",
+          "b": "c368",
+          "nombre_b": "Repisa apoyo mesa (-Y)",
+          "volumen_mm3": 10560.0
+        },
+        {
+          "a": "c53_2",
+          "nombre_a": "Travesaño superior A36 (3)",
+          "b": "c367",
+          "nombre_b": "Repisa apoyo mesa (+Y)",
+          "volumen_mm3": 10560.0
+        },
+        {
+          "a": "c53_2",
+          "nombre_a": "Travesaño superior A36 (3)",
+          "b": "c368",
+          "nombre_b": "Repisa apoyo mesa (-Y)",
+          "volumen_mm3": 10560.0
+        },
+        {
+          "a": "c53_3",
+          "nombre_a": "Travesaño superior A36 (4)",
+          "b": "c367",
+          "nombre_b": "Repisa apoyo mesa (+Y)",
+          "volumen_mm3": 10560.0
+        },
+        {
+          "a": "c53_3",
+          "nombre_a": "Travesaño superior A36 (4)",
+          "b": "c368",
+          "nombre_b": "Repisa apoyo mesa (-Y)",
+          "volumen_mm3": 10560.0
+        },
+        {
+          "a": "c52",
+          "nombre_a": "Travesaño superior A36",
+          "b": "c367",
+          "nombre_b": "Repisa apoyo mesa (+Y)",
+          "volumen_mm3": 5280.0
+        },
+        {
+          "a": "c52",
+          "nombre_a": "Travesaño superior A36",
+          "b": "c368",
+          "nombre_b": "Repisa apoyo mesa (-Y)",
+          "volumen_mm3": 5280.0
+        },
+        {
+          "a": "c53_4",
+          "nombre_a": "Travesaño superior A36 (5)",
+          "b": "c367",
+          "nombre_b": "Repisa apoyo mesa (+Y)",
+          "volumen_mm3": 5280.0
+        },
+        {
+          "a": "c53_4",
+          "nombre_a": "Travesaño superior A36 (5)",
+          "b": "c368",
+          "nombre_b": "Repisa apoyo mesa (-Y)",
+          "volumen_mm3": 5280.0
+        },
+        {
+          "a": "c682",
+          "nombre_a": "Motorreductor NMRV-090 (eje hueco, i=30)",
+          "b": "c704",
+          "nombre_b": "Tornillería ménsula soporte motor",
+          "volumen_mm3": 2915.4
+        },
+        {
+          "a": "c93",
+          "nombre_a": "Larguero A36 (+Y)",
+          "b": "c704",
+          "nombre_b": "Tornillería ménsula soporte motor",
+          "volumen_mm3": 2714.3
+        },
+        {
+          "a": "c45_2",
+          "nombre_a": "Pata A36 (3)",
+          "b": "c673",
+          "nombre_b": "Disco de reacción anti-giro + puntal a la pata",
+          "volumen_mm3": 1811.3
+        },
+        {
+          "a": "c45_2",
+          "nombre_a": "Pata A36 (3)",
+          "b": "c704",
+          "nombre_b": "Tornillería ménsula soporte motor",
+          "volumen_mm3": 1357.2
+        },
+        {
+          "a": "c122",
+          "nombre_a": "Rodillo retorno Ø50 (eje Ø12)",
+          "b": "c339",
+          "nombre_b": "Ménsula rodillo retorno",
+          "volumen_mm3": 904.8
+        },
+        {
+          "a": "c122",
+          "nombre_a": "Rodillo retorno Ø50 (eje Ø12)",
+          "b": "c340",
+          "nombre_b": "Ménsula rodillo retorno",
+          "volumen_mm3": 904.8
+        },
+        {
+          "a": "c123_1",
+          "nombre_a": "Rodillo retorno Ø50 (eje Ø12) (2)",
+          "b": "c341",
+          "nombre_b": "Ménsula rodillo retorno",
+          "volumen_mm3": 904.8
+        },
+        {
+          "a": "c123_1",
+          "nombre_a": "Rodillo retorno Ø50 (eje Ø12) (2)",
+          "b": "c342",
+          "nombre_b": "Ménsula rodillo retorno",
+          "volumen_mm3": 904.8
+        }
+      ],
+      "avisos_pose": []
+    },
+    "ingenieria": [
+      {
+        "regla": "velocidad de banda",
+        "estado": "ok",
+        "detalle": "El accionamiento (58.3333 rpm × Ø114) da 0.348 m/s (20.9 m/min).",
+        "calc": {
+          "titulo": "Velocidad de banda",
+          "entradas": {
+            "rpm de salida": "58.3333 rpm",
+            "Ø tambor": "114 mm",
+            "objetivo": "0.35 m/s"
+          },
+          "formula": "v = n·π·Ø / 60000",
+          "sustitucion": "v = 58.3333·π·114 / 60000",
+          "resultado": "v = 0.348 m/s (20.9 m/min)",
+          "criterio": "v ≥ 0.9 × objetivo = 0.315 m/s",
+          "fs": 0.99,
+          "norma": "CEMA (velocidad de banda / unit handling)"
+        }
+      },
+      {
+        "regla": "apoyo del paquete",
+        "estado": "ok",
+        "detalle": "Soporte continuo por la banda/mesa (no aplica el paso de rodillos)."
+      },
+      {
+        "regla": "capacidad de rodillo",
+        "estado": "ok",
+        "detalle": "10.7 kg/rodillo ≤ 35 kg (RODILLO-50).",
+        "calc": {
+          "titulo": "Capacidad de rodillo",
+          "entradas": {
+            "carga por paquete": "75 kg",
+            "apoyos": "7",
+            "rodillo": "RODILLO-50 (35 kg/ud)"
+          },
+          "formula": "P = carga / n_apoyos",
+          "sustitucion": "P = 75 / 7",
+          "resultado": "P = 10.7 kg/rodillo",
+          "criterio": "P ≤ 35 kg (capacidad de catálogo)",
+          "fs": 3.27,
+          "norma": "CEMA (clasificación de carga de rodillos/idlers) — ficha de fabricante"
+        }
+      },
+      {
+        "regla": "ancho útil",
+        "estado": "ok",
+        "detalle": "516 mm útiles para paquete de 400 mm."
+      },
+      {
+        "regla": "arrastre de banda",
+        "estado": "ok",
+        "detalle": "Fuerza de arrastre efectiva 771.8 N (banda sobre cama, μ=0.33, 3 paquete(s) + 13.4 kg de banda).",
+        "calc": {
+          "titulo": "Arrastre de banda sobre cama (método CEMA slider-bed)",
+          "entradas": {
+            "carga simultánea": "3 paq × 75 kg",
+            "peso de banda": "13.4 kg",
+            "μ banda-cama": "0.33 (PVC/acero, CEMA slider bed 0.30–0.35)",
+            "inclinación": "0°"
+          },
+          "formula": "F = g·(μ·(m_carga + m_banda) + m_carga·sen θ)",
+          "sustitucion": "F = 9.81·(0.33·(225 + 13.4) + 225·sen 0°)",
+          "resultado": "F = 771.8 N",
+          "criterio": "informativo (alimenta potencia y par)",
+          "fs": null,
+          "norma": "CEMA (unit handling) — slider bed, μ = 0.30–0.35"
+        }
+      },
+      {
+        "regla": "motorización",
+        "estado": "ok",
+        "detalle": "El motor del documento (2.2 kW) ≥ 0.41 kW requeridos (margen 1.3x incluido).",
+        "calc": {
+          "titulo": "Motorización",
+          "entradas": {
+            "arrastre F": "771.8 N",
+            "velocidad": "0.35 m/s",
+            "η": "0.85",
+            "margen": "1.3x",
+            "μ": "0.33 banda-cama (CEMA)"
+          },
+          "formula": "P = F·v / η · margen",
+          "sustitucion": "P = 771.8·0.35 / 0.85 · 1.3",
+          "resultado": "P requerida = 0.41 kW",
+          "criterio": "P motor ≥ P requerida",
+          "fs": 5.33,
+          "norma": "CEMA (unit handling) — slider bed"
+        }
+      },
+      {
+        "regla": "par del motor",
+        "estado": "ok",
+        "detalle": "Par disponible 270.1 N·m ≥ 44.0 N·m requeridos en el tambor Ø114.",
+        "calc": {
+          "titulo": "Par en el tambor motriz",
+          "entradas": {
+            "arrastre F": "771.8 N",
+            "Ø tambor": "114 mm",
+            "par disponible": "270.1 N·m"
+          },
+          "formula": "T = F·r",
+          "sustitucion": "T = 771.8·0.0570",
+          "resultado": "T requerido = 44.0 N·m",
+          "criterio": "T motor ≥ T requerido",
+          "fs": 6.14,
+          "norma": "criterio de diseño: par en el tambor T = F·r"
+        }
+      },
+      {
+        "regla": "par de arranque",
+        "estado": "ok",
+        "detalle": "Par disponible 270.1 N·m ≥ 70.4 N·m de arranque (factor 1.6).",
+        "calc": {
+          "titulo": "Par de arranque",
+          "entradas": {
+            "T régimen": "44.0 N·m",
+            "factor de arranque": "1.6",
+            "par disponible": "270.1 N·m"
+          },
+          "formula": "T_arr = F·r · 1.6",
+          "sustitucion": "T_arr = 44.0 · 1.6",
+          "resultado": "T_arr = 70.4 N·m",
+          "criterio": "T motor ≥ T_arr",
+          "fs": 3.84,
+          "norma": "factor 1.6 — práctica industrial 1.5–2.0, coherente con DIN 22101 (arranque)"
+        }
+      },
+      {
+        "regla": "adherencia del tambor motriz",
+        "estado": "ok",
+        "detalle": "Tambor engomado (μ=0.35, α=180°): el tensor debe garantizar T2 ≥ 385.3 N para transmitir 771.8 N sin patinar (hay tensor en el modelo).",
+        "calc": {
+          "titulo": "Adherencia del tambor motriz (Euler-Eytelwein)",
+          "entradas": {
+            "F_U (arrastre)": "771.8 N",
+            "μ tambor": "0.35 (engomado)",
+            "α abrace": "180°",
+            "e^(μα)": "3.00"
+          },
+          "formula": "T2_min = F_U / (e^(μα) − 1)",
+          "sustitucion": "T2_min = 771.8 / (3.00 − 1)",
+          "resultado": "T2_min = 385.3 N",
+          "criterio": "el tensor debe garantizar T2 ≥ T2_min (si no, la banda patina)",
+          "fs": null,
+          "norma": "Euler-Eytelwein (ISO 5048 · DIN 22101 · CEMA)"
+        }
+      },
+      {
+        "regla": "velocidad",
+        "estado": "ok",
+        "detalle": "0.35 m/s requiere 134 rpm en rodillo Ø50 (ajustable con la transmisión)."
+      },
+      {
+        "regla": "geometría",
+        "estado": "ok",
+        "detalle": "Altura de trabajo 848 mm; largo 4000 mm."
+      },
+      {
+        "regla": "flecha del bastidor",
+        "estado": "ok",
+        "detalle": "Flecha ≈ 0.11 mm en un vano de 1603 mm (admisible L/250 = 6.41 mm; acero, sección 51×102×3, 239 kg sobre 2 larguero(s)).",
+        "calc": {
+          "titulo": "Flecha del bastidor",
+          "entradas": {
+            "vano L": "1603 mm",
+            "sección": "51×102×3 mm",
+            "E": "200000 MPa (acero)",
+            "I": "1.18e+06 mm⁴",
+            "carga": "239 kg / 2 larguero(s)"
+          },
+          "formula": "δ = 5·w·L⁴ / (384·E·I)",
+          "sustitucion": "δ = 5·0.293·1603⁴ / (384·200000·1.18e+06)",
+          "resultado": "δ = 0.11 mm",
+          "criterio": "δ ≤ L/250 = 6.41 mm",
+          "fs": 59.87,
+          "norma": "criterio de serviciabilidad L/250 (práctica AISC)"
+        }
+      },
+      {
+        "regla": "flexión del eje",
+        "estado": "ok",
+        "detalle": "Eje Ø35 a flexión ≈ 55 MPa entre apoyos de 600 mm (admisible σy/2 = 125 MPa, acero). Estimación.",
+        "calc": {
+          "titulo": "Flexión del eje del tambor",
+          "entradas": {
+            "carga radial": "1543.5 N (≈2×arrastre)",
+            "luz entre apoyos": "600 mm",
+            "Ø eje": "35 mm",
+            "σy": "250 MPa (acero)"
+          },
+          "formula": "σ = 32·(F·L/4) / (π·d³)",
+          "sustitucion": "σ = 32·(1543.5·600/4) / (π·35³)",
+          "resultado": "σ = 55.0 MPa",
+          "criterio": "σ ≤ σy/2 = 125 MPa",
+          "fs": 2.27,
+          "norma": "criterio σ_adm = 0.6·σy (ref. ASME B106.1M — ejes)"
+        }
+      }
+    ],
+    "estructura": [
+      {
+        "regla": "soldadura · auto_f_1",
+        "estado": "ok",
+        "detalle": "auto_f_1 (Pata A36 ↔ Travesaño inferior A36): cordón a=3/L=140 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_4",
+        "estado": "ok",
+        "detalle": "auto_f_4 (Pata A36 (2) ↔ Travesaño inferior A36 (2)): cordón a=3/L=140 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_7",
+        "estado": "ok",
+        "detalle": "auto_f_7 (Pata A36 (3) ↔ Travesaño inferior A36 (3)): cordón a=3/L=140 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_10",
+        "estado": "ok",
+        "detalle": "auto_f_10 (Pata A36 ↔ Travesaño inferior A36): cordón a=3/L=140 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_13",
+        "estado": "ok",
+        "detalle": "auto_f_13 (Pata A36 (2) ↔ Travesaño inferior A36 (2)): cordón a=3/L=140 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_16",
+        "estado": "ok",
+        "detalle": "auto_f_16 (Pata A36 (3) ↔ Travesaño inferior A36 (3)): cordón a=3/L=140 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_19",
+        "estado": "ok",
+        "detalle": "auto_f_19 (Travesaño superior A36 ↔ Larguero A36 (+Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_20",
+        "estado": "ok",
+        "detalle": "auto_f_20 (Travesaño superior A36 ↔ Larguero A36 (-Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_23",
+        "estado": "ok",
+        "detalle": "auto_f_23 (Travesaño superior A36 ↔ Repisa apoyo mesa (+Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_24",
+        "estado": "ok",
+        "detalle": "auto_f_24 (Travesaño superior A36 ↔ Repisa apoyo mesa (-Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_25",
+        "estado": "ok",
+        "detalle": "auto_f_25 (Travesaño superior A36 (2) ↔ Larguero A36 (+Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_26",
+        "estado": "ok",
+        "detalle": "auto_f_26 (Travesaño superior A36 (2) ↔ Larguero A36 (-Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_30",
+        "estado": "ok",
+        "detalle": "auto_f_30 (Travesaño superior A36 (2) ↔ Repisa apoyo mesa (+Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_31",
+        "estado": "ok",
+        "detalle": "auto_f_31 (Travesaño superior A36 (2) ↔ Repisa apoyo mesa (-Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_32",
+        "estado": "ok",
+        "detalle": "auto_f_32 (Travesaño superior A36 (3) ↔ Larguero A36 (+Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_33",
+        "estado": "ok",
+        "detalle": "auto_f_33 (Travesaño superior A36 (3) ↔ Larguero A36 (-Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_37",
+        "estado": "ok",
+        "detalle": "auto_f_37 (Travesaño superior A36 (3) ↔ Repisa apoyo mesa (+Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_38",
+        "estado": "ok",
+        "detalle": "auto_f_38 (Travesaño superior A36 (3) ↔ Repisa apoyo mesa (-Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_39",
+        "estado": "ok",
+        "detalle": "auto_f_39 (Travesaño superior A36 (4) ↔ Larguero A36 (+Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_40",
+        "estado": "ok",
+        "detalle": "auto_f_40 (Travesaño superior A36 (4) ↔ Larguero A36 (-Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_44",
+        "estado": "ok",
+        "detalle": "auto_f_44 (Travesaño superior A36 (4) ↔ Repisa apoyo mesa (+Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_45",
+        "estado": "ok",
+        "detalle": "auto_f_45 (Travesaño superior A36 (4) ↔ Repisa apoyo mesa (-Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_46",
+        "estado": "ok",
+        "detalle": "auto_f_46 (Travesaño superior A36 (5) ↔ Larguero A36 (+Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_47",
+        "estado": "ok",
+        "detalle": "auto_f_47 (Travesaño superior A36 (5) ↔ Larguero A36 (-Y)): cordón a=3/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_50",
+        "estado": "ok",
+        "detalle": "auto_f_50 (Travesaño superior A36 (5) ↔ Repisa apoyo mesa (+Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_51",
+        "estado": "ok",
+        "detalle": "auto_f_51 (Travesaño superior A36 (5) ↔ Repisa apoyo mesa (-Y)): cordón a=3/L=80 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_74",
+        "estado": "ok",
+        "detalle": "auto_f_74 (Larguero A36 (+Y) ↔ Repisa apoyo mesa (+Y)): cordón a=3/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_79",
+        "estado": "ok",
+        "detalle": "auto_f_79 (Larguero A36 (+Y) ↔ Tensor de cola · Soporte en C 9.5mm (2)): cordón a=4/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_84",
+        "estado": "ok",
+        "detalle": "auto_f_84 (Larguero A36 (-Y) ↔ Repisa apoyo mesa (-Y)): cordón a=3/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_89",
+        "estado": "ok",
+        "detalle": "auto_f_89 (Larguero A36 (-Y) ↔ Tensor de cola · Soporte en C 9.5mm (1)): cordón a=4/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_124",
+        "estado": "ok",
+        "detalle": "auto_f_124 (Mesa desliz. 2mm A36 (secc 1) ↔ Mesa desliz. 2mm A36 (secc 2)): cordón a=3/L=60 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_127",
+        "estado": "ok",
+        "detalle": "auto_f_127 (Mesa desliz. 2mm A36 (secc 2) ↔ Mesa desliz. 2mm A36 (secc 3)): cordón a=3/L=60 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · auto_f_130",
+        "estado": "ok",
+        "detalle": "auto_f_130 (Mesa desliz. 2mm A36 (secc 3) ↔ Mesa desliz. 2mm A36 (secc 4)): cordón a=3/L=60 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · men1_larg",
+        "estado": "ok",
+        "detalle": "men1_larg (Ménsula rodillo retorno ↔ Larguero A36 (+Y)): cordón a=4/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · men2_larg",
+        "estado": "ok",
+        "detalle": "men2_larg (Ménsula rodillo retorno ↔ Larguero A36 (-Y)): cordón a=4/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · men3_larg",
+        "estado": "ok",
+        "detalle": "men3_larg (Ménsula rodillo retorno ↔ Larguero A36 (+Y)): cordón a=4/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · men4_larg",
+        "estado": "ok",
+        "detalle": "men4_larg (Ménsula rodillo retorno ↔ Larguero A36 (-Y)): cordón a=4/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "unión apernada · rod1_men1",
+        "estado": "ok",
+        "detalle": "rod1_men1 (Rodillo retorno Ø50 (eje Ø12) ↔ Ménsula rodillo retorno): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · rod1_men2",
+        "estado": "ok",
+        "detalle": "rod1_men2 (Rodillo retorno Ø50 (eje Ø12) ↔ Ménsula rodillo retorno): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · rod2_men3",
+        "estado": "ok",
+        "detalle": "rod2_men3 (Rodillo retorno Ø50 (eje Ø12) (2) ↔ Ménsula rodillo retorno): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · rod2_men4",
+        "estado": "ok",
+        "detalle": "rod2_men4 (Rodillo retorno Ø50 (eje Ø12) (2) ↔ Ménsula rodillo retorno): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_placa_1",
+        "estado": "ok",
+        "detalle": "pie_placa_1 (Pies niveladores (regulables) ↔ Placa de anclaje A36): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_placa_2",
+        "estado": "ok",
+        "detalle": "pie_placa_2 (Pies niveladores (regulables) ↔ Placa de anclaje A36): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_placa_3",
+        "estado": "ok",
+        "detalle": "pie_placa_3 (Pies niveladores (regulables) ↔ Placa de anclaje A36 (2)): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_placa_4",
+        "estado": "ok",
+        "detalle": "pie_placa_4 (Pies niveladores (regulables) ↔ Placa de anclaje A36 (2)): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_placa_5",
+        "estado": "ok",
+        "detalle": "pie_placa_5 (Pies niveladores (regulables) ↔ Placa de anclaje A36 (3)): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_placa_6",
+        "estado": "ok",
+        "detalle": "pie_placa_6 (Pies niveladores (regulables) ↔ Placa de anclaje A36 (3)): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_pata_1",
+        "estado": "ok",
+        "detalle": "pie_pata_1 (Pies niveladores (regulables) ↔ Pata A36): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_pata_2",
+        "estado": "ok",
+        "detalle": "pie_pata_2 (Pies niveladores (regulables) ↔ Pata A36): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_pata_3",
+        "estado": "ok",
+        "detalle": "pie_pata_3 (Pies niveladores (regulables) ↔ Pata A36 (2)): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_pata_4",
+        "estado": "ok",
+        "detalle": "pie_pata_4 (Pies niveladores (regulables) ↔ Pata A36 (2)): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_pata_5",
+        "estado": "ok",
+        "detalle": "pie_pata_5 (Pies niveladores (regulables) ↔ Pata A36 (3)): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · pie_pata_6",
+        "estado": "ok",
+        "detalle": "pie_pata_6 (Pies niveladores (regulables) ↔ Pata A36 (3)): 1× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "soldadura · drum_eje",
+        "estado": "ok",
+        "detalle": "drum_eje (Tambor motriz (engomado, eje vivo) ↔ Eje motriz vivo Ø35 h7): cordón a=4/L=110 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "unión apernada · nmrv_eje",
+        "estado": "ok",
+        "detalle": "nmrv_eje (Motorreductor NMRV-090 (eje hueco, i=30) ↔ Eje motriz vivo Ø35 h7): 2× M10 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · nmrv_brazo",
+        "estado": "ok",
+        "detalle": "nmrv_brazo (Motorreductor NMRV-090 (eje hueco, i=30) ↔ Disco de reacción anti-giro + puntal a la pata): 6× M10 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · chum_mensula_pY",
+        "estado": "ok",
+        "detalle": "chum_mensula_pY (Chumacera motriz (+Y) ↔ Ménsulas de chumacera (lapa bajo el larguero)): 2× M14 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · chum_mensula_nY",
+        "estado": "ok",
+        "detalle": "chum_mensula_nY (Chumacera motriz (-Y) ↔ Ménsulas de chumacera (lapa bajo el larguero)): 2× M14 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "soldadura · mensula_larg_pY",
+        "estado": "ok",
+        "detalle": "mensula_larg_pY (Ménsulas de chumacera (lapa bajo el larguero) ↔ Larguero A36 (+Y)): cordón a=4/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · mensula_larg_nY",
+        "estado": "ok",
+        "detalle": "mensula_larg_nY (Ménsulas de chumacera (lapa bajo el larguero) ↔ Larguero A36 (-Y)): cordón a=4/L=100 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "soldadura · disco_pata",
+        "estado": "ok",
+        "detalle": "disco_pata (Disco de reacción anti-giro + puntal a la pata ↔ Pata A36 (3)): cordón a=4/L=120 en camino de carga redundante — favorable estructuralmente; reparto no determinable sin FEA, se asume compartido."
+      },
+      {
+        "regla": "unión apernada · men_motor_brida",
+        "estado": "ok",
+        "detalle": "men_motor_brida (Ménsula soporte motorreductor (brida sup. → larguero + pata) ↔ Motorreductor NMRV-090 (eje hueco, i=30)): 4× M8 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · men_motor_larguero",
+        "estado": "ok",
+        "detalle": "men_motor_larguero (Ménsula soporte motorreductor (brida sup. → larguero + pata) ↔ Larguero A36 (+Y)): 4× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "unión apernada · men_motor_pata",
+        "estado": "ok",
+        "detalle": "men_motor_pata (Ménsula soporte motorreductor (brida sup. → larguero + pata) ↔ Pata A36 (3)): 2× M12 en camino de carga redundante — favorable estructuralmente; el reparto no es determinable sin FEA, se asume compartida entre caminos."
+      },
+      {
+        "regla": "vida L10 de rodamientos",
+        "estado": "ok",
+        "detalle": "6207 (Tensor de cola · Rodamiento 6207 (1)): L10 ≈ 10,328,837 h con P = 0.771 kN a 58.3333 rpm (carga = tensión de banda (T1+T2)/2 por eje).",
+        "calc": {
+          "titulo": "Vida L10 del rodamiento más cargado",
+          "entradas": {
+            "rodamiento": "6207 (C = 25.5 kN)",
+            "carga P": "0.771 kN (= (T1+T2)/2 de la banda, repartida entre los 2 rodamientos del eje del tambor)",
+            "velocidad": "58.3333 rpm"
+          },
+          "formula": "L10h = (C/P)³ · 10⁶ / (60·n)",
+          "sustitucion": "L10h = (25.5/0.771)³ · 10⁶ / (60·58.3333)",
+          "resultado": "L10 = 10,328,837 h",
+          "criterio": "≥ 20,000 h objetivo (≥ 5,000 h mínimo)",
+          "fs": 516.44,
+          "norma": "ISO 281 (vida nominal L10 del rodamiento)"
+        }
+      },
+      {
+        "regla": "asiento ISO 286 · 6207",
+        "estado": "ok",
+        "detalle": "6207 montado en 'Tensor de cola · Eje fijo Ø35 g6 (roscado p/ perno)': eje g6, juego -3…+25 µm (transicion).",
+        "calc": {
+          "titulo": "Asiento ISO 286: 6207 en eje Ø35",
+          "entradas": {
+            "eje": "Ø35 g6 (-9/-25 µm)",
+            "bore": "Ø35 +0/−12 µm (ISO 492 clase Normal)",
+            "montaje": "rodamiento anillo fijo — anillo interior ESTACIONARIO → deslizante/juego"
+          },
+          "formula": "juego = bore − eje",
+          "sustitucion": "juego = (−12…0) − (-25…-9) µm",
+          "resultado": "juego -3…+25 µm (transicion)",
+          "criterio": "clases aceptables: f6, g6, h6, js6 (típico g6)",
+          "fs": null,
+          "norma": "ISO 286 · ISO 492 (asiento de rodamiento, clase Normal)"
+        }
+      },
+      {
+        "regla": "asiento ISO 286 · 6207",
+        "estado": "ok",
+        "detalle": "6207 montado en 'Tensor de cola · Eje fijo Ø35 g6 (roscado p/ perno)': eje g6, juego -3…+25 µm (transicion).",
+        "calc": {
+          "titulo": "Asiento ISO 286: 6207 en eje Ø35",
+          "entradas": {
+            "eje": "Ø35 g6 (-9/-25 µm)",
+            "bore": "Ø35 +0/−12 µm (ISO 492 clase Normal)",
+            "montaje": "rodamiento anillo fijo — anillo interior ESTACIONARIO → deslizante/juego"
+          },
+          "formula": "juego = bore − eje",
+          "sustitucion": "juego = (−12…0) − (-25…-9) µm",
+          "resultado": "juego -3…+25 µm (transicion)",
+          "criterio": "clases aceptables: f6, g6, h6, js6 (típico g6)",
+          "fs": null,
+          "norma": "ISO 286 · ISO 492 (asiento de rodamiento, clase Normal)"
+        }
+      },
+      {
+        "regla": "asiento ISO 286 · UCP207",
+        "estado": "ok",
+        "detalle": "UCP207 montado en 'Eje motriz vivo Ø35 h7': eje h7, juego -12…+25 µm (transicion).",
+        "calc": {
+          "titulo": "Asiento ISO 286: UCP207 en eje Ø35",
+          "entradas": {
+            "eje": "Ø35 h7 (+0/-25 µm)",
+            "bore": "Ø35 +0/−12 µm (ISO 492 clase Normal)",
+            "montaje": "chumacera inserto — el eje debe DESLIZAR en el inserto UC; la fijación la dan los prisioneros/collar"
+          },
+          "formula": "juego = bore − eje",
+          "sustitucion": "juego = (−12…0) − (-25…+0) µm",
+          "resultado": "juego -12…+25 µm (transicion)",
+          "criterio": "clases aceptables: g6, h6, h7, js6 (típico h7)",
+          "fs": null,
+          "norma": "ISO 286 · ISO 492 (asiento de rodamiento, clase Normal)"
+        }
+      },
+      {
+        "regla": "asiento ISO 286 · UCP207",
+        "estado": "ok",
+        "detalle": "UCP207 montado en 'Eje motriz vivo Ø35 h7': eje h7, juego -12…+25 µm (transicion).",
+        "calc": {
+          "titulo": "Asiento ISO 286: UCP207 en eje Ø35",
+          "entradas": {
+            "eje": "Ø35 h7 (+0/-25 µm)",
+            "bore": "Ø35 +0/−12 µm (ISO 492 clase Normal)",
+            "montaje": "chumacera inserto — el eje debe DESLIZAR en el inserto UC; la fijación la dan los prisioneros/collar"
+          },
+          "formula": "juego = bore − eje",
+          "sustitucion": "juego = (−12…0) − (-25…+0) µm",
+          "resultado": "juego -12…+25 µm (transicion)",
+          "criterio": "clases aceptables: g6, h6, h7, js6 (típico h7)",
+          "fs": null,
+          "norma": "ISO 286 · ISO 492 (asiento de rodamiento, clase Normal)"
+        }
+      },
+      {
+        "regla": "pandeo de patas",
+        "estado": "ok",
+        "detalle": "Pata A36 (3): FS de pandeo 1280.2 (Pcr 852,563 N vs 666 N/pata; K=2 conservador, sección 76×76×3).",
+        "calc": {
+          "titulo": "Pandeo de la pata más esbelta",
+          "entradas": {
+            "pata": "Pata A36 (3)",
+            "sección": "76×76×3 mm",
+            "longitud": "674 mm",
+            "K": "2.0 (empotrada-libre, conservador)",
+            "carga/pata": "666 N (= 407 kg / 6 patas)"
+          },
+          "formula": "Pcr = π²·E·I / (K·L)²",
+          "sustitucion": "Pcr = π²·E·I_min / (2·674)²",
+          "resultado": "Pcr = 852,563 N → FS = 1280.2",
+          "criterio": "FS ≥ 3",
+          "fs": 1280.17,
+          "norma": "pandeo de Euler (EN 1993-1-1 §6.3 como marco)"
+        }
+      },
+      {
+        "regla": "estabilidad al vuelco",
+        "estado": "ok",
+        "detalle": "COG a 375 mm del borde de la base de apoyo (mínimo requerido 95 mm; producto no incluido).",
+        "calc": {
+          "titulo": "Estabilidad al vuelco",
+          "entradas": {
+            "masa total": "332.324 kg (sin producto)",
+            "COG": "(2091, 100, 722) mm",
+            "base de apoyo": "4 vértices, dim. menor 951 mm"
+          },
+          "formula": "margen = dist(COG_xy, borde de la base de apoyo)",
+          "sustitucion": "margen(2091, 100) sobre el casco convexo de los apoyos",
+          "resultado": "margen = 375 mm",
+          "criterio": "≥ 10% de la base menor = 95 mm",
+          "fs": 3.94,
+          "norma": "criterio de diseño: equilibrio estático (COG dentro de la huella de apoyo)"
+        }
+      },
+      {
+        "regla": "FEA · Pata A36",
+        "estado": "ok",
+        "detalle": "σ_vm máx = 1.5 MPa en (337.89, 378.01, 71.92), desplazamiento máx = 0.003 mm, FS = 170.47",
+        "calc": {
+          "titulo": "FEA estático lineal · Pata A36",
+          "entradas": {
+            "material": "acero (E=200000 MPa, ν=0.3, σy=250 MPa)",
+            "cargas": "F=(0, 0, -800) N (|F|=800 N); peso propio (ρ=7.85e-06 kg/mm³, g=9.81)",
+            "malla": "tet P2 · 14600 elementos · size 10.0 mm",
+            "sujecion": "empotramiento en 1 cara(s)"
+          },
+          "formula": "FS = σy / σ_vm,max (von Mises)",
+          "sustitucion": "FS = 250 / 1.5",
+          "resultado": "FS = 170.47 · σ_vm,max = 1.5 MPa · δ_max = 0.003 mm",
+          "criterio": "FS ≥ 2 (estático); 1.2–2 justo; <1.2 sobrecargada",
+          "fs": 170.47
+        }
+      }
+    ]
+  }
+}

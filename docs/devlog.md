@@ -3540,3 +3540,41 @@ de bbox <0.75) para distinguir placa plana («corte láser») de chapa plegada (
 (E3) `has_fit` (param de la capa API) fuerza torneado aunque el nombre no traiga el token.
 Tests: larguero create_box→sierra; miembro weldment→sierra; placa plana→sin «plegado»; chapa
 con pestaña→«plegado»; `has_fit`→torneado; los 4 casos históricos intactos.
+
+### D+F live (mismo día, tras arreglar el servidor degradado)
+
+El servidor local estaba WEDGED (`/api/health` colgado >30 s, un `multiprocessing.spawn`
+hijo reteniendo `STATE_LOCK`); se mató el árbol uvicorn y se relanzó plain (sin `--reload`,
+estable para el benchmark). Con el usuario autorizando («tú encárgate») se hicieron D+F. El
+modelo real destapó DOS defectos de mi código de esta sesión, ambos corregidos con test:
+
+1. **Lint reventaba `/api/checks` con 500** (`could not convert string to float: '=larg_cy-40'`):
+   los barrenos del 38 se posicionan por EXPRESIÓN. Fix: inyectar un `resolve` (la API pasa
+   `resolve_params(p, DOC.variables_resolved)`) + cuerpo del lint totalmente defensivo (un
+   comando no resoluble se salta, jamás tumba el endpoint). Test con posición `=expr`.
+2. **Lint «barreno sin perno» daba 8 falsos positivos** en el 38: sus 24 pernos de anclaje son
+   MODELADOS a-medida («Perno anclaje M12 + arandela», boolean_op c147 + patrones), no catálogo,
+   y `_bolt_lines` solo contaba catálogo. Fix: `_is_bolt` reconoce tornillería por NOMBRE
+   (`perno|tornillo|tuerca|…`) además de catálogo (usado también para excluirla del lint de
+   pieza-suelta). Test con perno a-medida en el eje del barreno.
+3. **`infer_process` clasificaba un tubo HSS hueco como «corte láser + plegado»**: el larguero
+   c93 (bbox 50.8×101.6×4000, fill 0.17, pared ~3 mm) tiene t_eff≈3 ≤6 → la rama chapa lo
+   agarraba ANTES que la de perfil. Fix: perfil ANTES que chapa + `_is_profile_box` exige cota
+   transversal mínima ≥10 mm (el bbox transversal de un tubo hueco es el envolvente exterior
+   50×100, no el espesor; un fleje 2×50×1000 sí es chapa). Test con tubo hueco → sierra.
+
+**D · fit del eje del tensor**: el eje es FIJO (anillo interior estacionario, carga rotatoria
+exterior) → asiento holgado g6 (no k6 de prensado). Se añadió `create_take_up.eje_fit` (anota
+«Ø{bore} {fit}» en el nombre del eje) + `report.py` detecta el eje fijo por nombre → mount
+`rodamiento_anillo_fijo` (SEAT_RECOMMENDATIONS ya lo tenía, típico g6). `edit_command c412
+{eje_fit:"g6"}` (el MCP dio timeout a los 180 s pero el server COMPLETÓ el regenerate —gotcha
+conocido; el eje quedó «Ø35 g6»). `engineering_check` del 38: **2 avisos → 0**. Revisión 82
+guardada; `save_revision 81` de seguridad antes de tocar nada.
+
+**F · re-benchmark MEDIDO** a `docs/benchmark/faja-paqueteria-4m/2026-07-14/` (25/25 artefactos,
+197.5 s). Re-grade honesto en su `calificacion.md`: **73 %→~77 %** (E1 81→85, E2 71.4→73.2,
+E3 80→85, E5 50→62.5). La meta del plan (78-80 %) NO se alcanzó por ~1-3 pts y se declara; la
+brecha top sigue siendo el manual (E5) y E2.2. **D.1 (pernos de anclaje→catálogo DIN 933)
+DIFERIDO**: los pernos están presentes/unidos y el lint ya no los marca; canjearlos es cirugía
+de patrón+fasteners de alto riesgo sobre un testigo comiteado por una mejora cosmética de BOM
+que no cierra ningún aviso. E4 (evidencias = página real del PDF) diferido: sin `fitz` en el venv.

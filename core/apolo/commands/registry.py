@@ -1709,7 +1709,7 @@ def _exec_create_take_up(scene: Scene, cmd_id: str, p: CreateTakeUpParams) -> No
     try:
         parts = take_up_parts(
             p.diam_rodillo, p.ancho_banda, p.rodamiento, p.perno, p.espesor_soporte,
-            p.voladizo, p.engomado, p.dir_tensor,
+            p.voladizo, p.engomado, p.dir_tensor, eje_fit=p.eje_fit,
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Tensor de cola: {exc}") from exc

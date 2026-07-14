@@ -1772,10 +1772,12 @@ def run_checks(body: ChecksIn) -> dict:
         estructura += _fea_rules()  # resultados FEA guardados (con chequeo de vigencia)
         # V7.2b: lints pre-entrega (barreno sin perno · pieza sin grupo ni unión) —
         # olvidos de MODELADO que el chequeo estructural no ve; vacíos si el modelo está sano
+        from apolo.commands.expressions import resolve_params
         from apolo.library.lints import predelivery_lints
 
         estructura += predelivery_lints(
             DOC.scene, DOC.commands, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
+            resolve=lambda p: resolve_params(p, DOC.variables_resolved),
         )
     return {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
 

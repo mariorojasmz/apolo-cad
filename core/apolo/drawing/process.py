@@ -34,11 +34,13 @@ def _sorted_dims(feat) -> tuple[float, float, float] | None:
 
 def _is_profile_box(dims: tuple[float, float, float]) -> bool:
     """Un sólido a-medida (sin catálogo) con UNA dimensión mucho mayor que las otras
-    dos y una sección estructural (≤ 200 mm) es un PERFIL/barra cortado a medida →
-    se aserra (no se mecaniza). Umbrales conservadores para no morder bloques macizos:
-    largo ≥ 300 mm, esbeltez largo/sección ≥ 4, sección ≤ 200 mm."""
+    dos y una SECCIÓN estructural (ambas cotas transversales 10–200 mm) es un PERFIL/
+    barra cortado a medida → se aserra. La cota transversal mínima ≥ 10 mm distingue
+    un PERFIL (macizo o TUBO hueco: su bbox transversal es el envolvente exterior, p.
+    ej. 50×100) de una CHAPA/fleje (una cota transversal es el espesor, < 10 mm).
+    Umbrales conservadores para no morder bloques macizos: largo ≥ 300 mm, esbeltez ≥ 4."""
     s0, s1, s2 = dims
-    return s2 >= 300.0 and s1 > 0.0 and s2 / s1 >= 4.0 and s1 <= 200.0
+    return (s2 >= 300.0 and s0 >= 10.0 and s1 <= 200.0 and s1 > 0.0 and s2 / s1 >= 4.0)
 
 
 def _wall_thickness(feat) -> float | None:
@@ -83,13 +85,16 @@ def infer_process(feat, component=None, *, has_fit: bool = False) -> dict:
     if has_fit or _FIT_RE.search(name):
         return {"key": "torneado", "label": "torneado", "ra": _RA["torneado"]}
     dims = _sorted_dims(feat)
+    # PERFIL antes que chapa: un tubo estructural hueco tiene pared fina (t_eff ≤ 6) pero
+    # es esbelto con sección compacta → se aserra, NO es chapa láser (era el fallo en los
+    # largueros HSS de la faja 38, que salían «corte láser + plegado»).
+    if component is None and dims is not None and _is_profile_box(dims):
+        return {"key": "sierra", "label": "corte en sierra · perfil laminado", "ra": _RA["sierra"]}
     twall = _wall_thickness(feat)  # espesor efectivo 2·V/A (robusto a chapa plegada)
     if component is None and twall is not None and twall <= 6.0:
         bent = _sheet_is_bent(feat)  # E2: «+ plegado» solo con pliegue real
         return {"key": "laser_pliegue", "ra": _RA["laser_pliegue"],
                 "label": "corte láser + plegado" if bent else "corte láser"}
-    if component is None and dims is not None and _is_profile_box(dims):
-        return {"key": "sierra", "label": "corte en sierra · perfil laminado", "ra": _RA["sierra"]}
     return {"key": "mecanizado", "label": "mecanizado / corte general", "ra": _RA["mecanizado"]}
 
 
