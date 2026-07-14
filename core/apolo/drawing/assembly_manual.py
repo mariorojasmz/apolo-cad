@@ -75,10 +75,133 @@ def assembly_steps(scene: dict, commands: list[dict], catalog) -> list[dict]:
         g = groups.get(key)
         if g is None:
             label = tok if key[0] == "grp" else _pretty(tok, is_hw)
-            g = groups[key] = {"label": label, "ids": [], "first": 1 << 30, "is_hw": is_hw}
+            g = groups[key] = {"label": label, "ids": [], "first": 1 << 30, "is_hw": is_hw,
+                               "declared": key[0] == "grp"}
         g["ids"].append(fid)
         g["first"] = min(g["first"], cmd_index.get(getattr(f, "command_id", ""), 1 << 30))
     return sorted(groups.values(), key=lambda g: (g["first"], g["label"]))
+
+
+# --------------------------------------------------------------- orden por soporte (V7.2b A)
+def _support_depth(scene: dict, grounded: set, supports: list, level: list) -> dict:
+    """Profundidad de SOPORTE por pieza (0 = toca el piso). Relajación de camino más
+    largo: una pieza va 1 nivel por encima de su soporte más profundo; una unión de
+    mismo-nivel (soldadura lateral) iguala. Solo alcanza las piezas con camino a tierra."""
+    depth = {fid: 0 for fid in grounded}
+    for _ in range(len(scene) + 1):
+        changed = False
+        for lo, hi in supports:
+            base = depth.get(lo)
+            if base is not None and depth.get(hi, -1) < base + 1:
+                depth[hi] = base + 1
+                changed = True
+        for a, b in level:
+            da, db = depth.get(a), depth.get(b)
+            if da is not None and (db is None or db < da):
+                depth[b] = da
+                changed = True
+            elif db is not None and (da is None or da < db):
+                depth[a] = db
+                changed = True
+        if not changed:
+            break
+    return depth
+
+
+def order_by_support(scene: dict, stages: list[dict]) -> list[dict]:
+    """Reordena los PASOS por el grafo de soporte dirigido (V7.2b): una pieza se monta
+    DESPUÉS de todo lo que la soporta (tierra → arriba), así las chumaceras van antes
+    que su eje y el eje antes que el motor que cuelga de él. Dentro del mismo nivel
+    topológico conserva el orden por sub-ensamblaje (sort ESTABLE). Fusiona los pasos
+    HUÉRFANOS (una pieza suelta a-medida) al paso del sub-ensamblaje al que se une en
+    el grafo. Sin estructura (ni soporte ni soldadura lateral) devuelve los pasos
+    intactos → fallback al orden del log."""
+    from apolo.assembly.autodetect import detect_structure
+
+    det = detect_structure(scene)
+    supports = [(f["a"], f["b"]) for f in det["fasteners"] if f.get("direction") == "soporte"]
+    level = [(f["a"], f["b"]) for f in det["fasteners"] if f.get("direction") == "mismo_nivel"]
+    if not supports and not level:
+        return stages  # sin señal de estructura: no reordenar
+    grounded = {g["feature"] for g in det["grounds"]}
+    depth = _support_depth(scene, grounded, supports, level)
+    neigh: dict[str, set] = {}
+    for a, b in supports + level:
+        neigh.setdefault(a, set()).add(b)
+        neigh.setdefault(b, set()).add(a)
+    stage_of = {fid: st for st in stages for fid in st["ids"]}
+
+    def _is_subassembly(st: dict) -> bool:
+        # destino de fusión válido: un sub-ensamblaje REAL (grupo declarado o paso de
+        # varias piezas), nunca otra pieza suelta ni una familia de herraje (accesoria)
+        return bool(st.get("declared") or (len(st["ids"]) > 1 and not st["is_hw"]))
+
+    survivors: list[dict] = []
+    for st in stages:
+        if len(st["ids"]) == 1 and not st["is_hw"] and not st.get("declared"):
+            fid = st["ids"][0]
+            cands = [stage_of[n] for n in neigh.get(fid, ())
+                     if n in stage_of and stage_of[n] is not st and _is_subassembly(stage_of[n])]
+            if cands:  # fusiona al vecino-soporte de menor rango (declarado gana)
+                target = min(cands, key=lambda c: (
+                    0 if c.get("declared") else 1,
+                    min((depth.get(i, 1 << 30) for i in c["ids"]), default=1 << 30),
+                ))
+                target["ids"].append(fid)
+                continue  # el huérfano deja de ser un paso propio
+        survivors.append(st)
+
+    maxd = max(depth.values(), default=0)
+
+    def rank(st: dict) -> int:
+        ds = [depth[i] for i in st["ids"] if i in depth]
+        return min(ds) if ds else maxd + 1  # piezas sin soporte conocido → al final
+
+    return sorted(survivors, key=rank)  # estable: mismo rango conserva el orden previo
+
+
+# --------------------------------------------------------------- instrucción por familia (V7.2b A)
+_INSTR = {
+    "estructura": "Presentar, escuadrar y soldar al conjunto (cordón de filete donde esté dimensionado).",
+    "chumacera": "Montar sobre el eje, alinear y atornillar la chumacera/rodamiento a su base.",
+    "apernado": "Atornillar a las piezas ya montadas y apretar en cruz al par indicado.",
+    "catalogo": "Instalar el componente según las indicaciones del fabricante.",
+    "herraje": "Instala el herraje de este paso y fíjalo a las piezas ya montadas según el modelo.",
+    "generico": "Monta y fija estas piezas sobre el conjunto, respetando las cotas del despiece.",
+}
+_BEARING_CATS = {"rodamientos", "chumaceras"}
+_PROFILE_CATS = {"perfiles", "perfiles_abiertos", "tubos_estructurales", "tubos_circulares"}
+_BOLT_CATS = {"pernos", "tornilleria"}
+
+
+def _family_head(stage: dict, scene: dict, catalog) -> str:
+    """Texto de instrucción según la FAMILIA del paso (V7.2b A.2): perfiles soldados,
+    herraje apernado, chumaceras, catálogo o genérico — leído de nombres y catálogo."""
+    ids = stage["ids"]
+    cats: set = set()
+    for fid in ids:
+        comp = catalog.get(getattr(scene.get(fid), "component", None) or "")
+        if comp is not None:
+            cats.add(comp.category)
+    text = (stage.get("label") or "").lower() + " " + " ".join(
+        (getattr(scene.get(fid), "name", "") or "").lower() for fid in ids)
+    bearing = bool(cats & _BEARING_CATS) or any(
+        k in text for k in ("chumacera", "rodamiento", "ucp", "ucf", "ucfl"))
+    if stage["is_hw"]:
+        if cats & _BOLT_CATS or "torniller" in text or "perno" in text:
+            return _INSTR["apernado"]
+        if bearing:
+            return _INSTR["chumacera"]
+        return _INSTR["herraje"]
+    if bearing:
+        return _INSTR["chumacera"]
+    if cats & _PROFILE_CATS or any(k in text for k in (
+            "larguero", "travesa", "perfil", "tubo", "poste", "pata", "marco",
+            "bastidor", "viga", "columna", "miembro", "cordón", "cordon")):
+        return _INSTR["estructura"]
+    if cats:
+        return _INSTR["catalogo"]
+    return _INSTR["generico"]
 
 
 def _scene_bbox(scene: dict):
@@ -132,11 +255,8 @@ def _step_rows(stage_scene: dict) -> list[str]:
     return rows
 
 
-def _instruction(stage: dict, n_new: int, n_done: int, n_total: int) -> str:
-    if stage["is_hw"]:
-        head = "Instala el herraje de este paso y fíjalo a las piezas ya montadas según el modelo."
-    else:
-        head = "Monta y fija estas piezas sobre el conjunto, respetando las cotas del despiece."
+def _instruction(stage: dict, scene: dict, catalog, n_new: int, n_done: int, n_total: int) -> str:
+    head = _family_head(stage, scene, catalog)
     return f"{head} Se añaden {n_new} pieza(s); montadas {n_done} de {n_total}."
 
 
@@ -201,6 +321,7 @@ def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "S
     if not vis:
         raise ValueError("Escena vacía: nada que ensamblar")
     stages = assembly_steps(scene, commands, CATALOG)
+    stages = order_by_support(vis, stages)  # V7.2b A: orden por soporte + fusión de huérfanos
     if not stages:
         raise ValueError("No se pudo derivar la secuencia de ensamblaje")
     bbox = _scene_bbox(vis)
@@ -232,7 +353,7 @@ def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "S
                                highlight_ids=list(st["ids"]), clean=True, colors=colors,
                                frame_bbox=bbox)
         stage_scene = {fid: scene[fid] for fid in st["ids"]}
-        instr = _instruction(st, len(st["ids"]), len(cumulative), len(vis))
+        instr = _instruction(st, scene, CATALOG, len(st["ids"]), len(cumulative), len(vis))
         pages.append(_step_page(
             W, H, step_no=k, n_steps=n, page_no=k + 1, n_pages=n + 1, stage=st,
             rows=_step_rows(stage_scene), instruction=instr, png=png, base_meta=base_meta,

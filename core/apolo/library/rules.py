@@ -518,6 +518,7 @@ def conveyor_engineering_check(
             "criterio": (f"v ≥ 0.9 × objetivo = {0.9 * velocidad_m_s:.3f} m/s"
                          if velocidad_m_s else "informativo"),
             "fs": round(v_real / velocidad_m_s, 2) if velocidad_m_s else None,
+            "norma": "CEMA (velocidad de banda / unit handling)",
         }
         det = (f"El accionamiento ({rpm_motor:g} rpm × Ø{tambor_d:g}) da "
                f"{v_real:.3f} m/s ({v_real * 60:.1f} m/min).")
@@ -570,6 +571,7 @@ def conveyor_engineering_check(
         "resultado": f"P = {carga_por_rodillo:.1f} kg/rodillo",
         "criterio": f"P ≤ {capacidad:g} kg (capacidad de catálogo)",
         "fs": round(capacidad / carga_por_rodillo, 2) if carga_por_rodillo > 0 else None,
+        "norma": "CEMA (clasificación de carga de rodillos/idlers) — ficha de fabricante",
     }
     if carga_por_rodillo <= capacidad:
         checks.append(_check(
@@ -694,8 +696,9 @@ def conveyor_engineering_check(
         "criterio": "P motor ≥ P requerida",
         "fs": round(float(p_motor) / p_req, 2) if (p_motor and p_req > 0) else None,
     }
-    if metodo_norma:
-        calc_mot["norma"] = metodo_norma
+    # el método de arrastre (CEMA / ISO 5048) fija la norma del cálculo de potencia;
+    # sin él (rodillos de gravedad) el balance P = F·v/η es criterio de diseño, no norma
+    calc_mot["norma"] = metodo_norma or "criterio de diseño: P = F·v/η con margen de servicio"
     if p_motor is not None:
         p_motor = float(p_motor)
         if p_motor >= p_req:
@@ -740,6 +743,7 @@ def conveyor_engineering_check(
             "resultado": f"T requerido = {par_req:.1f} N·m",
             "criterio": "T motor ≥ T requerido",
             "fs": round(float(torque_nm) / par_req, 2) if par_req > 0 else None,
+            "norma": "criterio de diseño: par en el tambor T = F·r",
         }
         if torque_nm >= par_req:
             checks.append(_check(
@@ -881,6 +885,7 @@ def conveyor_engineering_check(
             "resultado": f"δ = {defl:.2f} mm",
             "criterio": f"δ ≤ L/{DEFLECTION_RATIO:.0f} = {allow:.2f} mm",
             "fs": round(allow / defl, 2) if defl > 0 else None,
+            "norma": f"criterio de serviciabilidad L/{DEFLECTION_RATIO:.0f} (práctica AISC)",
         }
         det = (f"Flecha ≈ {defl:.2f} mm en un vano de {span:.0f} mm "
                f"(admisible L/{DEFLECTION_RATIO:.0f} = {allow:.2f} mm; {material}, sección "
@@ -919,6 +924,7 @@ def conveyor_engineering_check(
             "resultado": f"σ = {sigma:.1f} MPa",
             "criterio": f"σ ≤ σy/{SHAFT_SAFETY:.0f} = {allow:.0f} MPa",
             "fs": round(allow / sigma, 2) if sigma > 0 else None,
+            "norma": "criterio σ_adm = 0.6·σy (ref. ASME B106.1M — ejes)",
         }
         det = (f"Eje Ø{float(eje_d):.0f} a flexión ≈ {sigma:.0f} MPa entre apoyos de {span_eje:.0f} mm "
                f"(admisible σy/{SHAFT_SAFETY:.0f} = {allow:.0f} MPa, {material}). Estimación.")

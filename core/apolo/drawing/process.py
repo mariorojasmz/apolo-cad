@@ -22,33 +22,74 @@ _FIT_RE = re.compile(r"Ø\s*\d+(?:\.\d+)?\s+(?:js|[gfhkmnp])\d", re.I)
 _RA = {"torneado": 3.2, "mecanizado": 6.3, "sierra": 12.5, "laser_pliegue": 12.5}
 
 
-def _min_extent(feat) -> float | None:
-    """Espesor mínimo del bbox (mm) — señal de chapa. None si no se puede medir."""
+def _sorted_dims(feat) -> tuple[float, float, float] | None:
+    """Dimensiones del bbox ordenadas (mm), (menor, media, mayor). None si no mide."""
     try:
         bb = feat.shape.bounding_box()
-        return round(min(bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z), 1)
+        d = sorted((bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z))
+        return (round(d[0], 1), round(d[1], 1), round(d[2], 1))
     except Exception:
         return None
 
 
-def infer_process(feat, component=None) -> dict:
+def _is_profile_box(dims: tuple[float, float, float]) -> bool:
+    """Un sólido a-medida (sin catálogo) con UNA dimensión mucho mayor que las otras
+    dos y una sección estructural (≤ 200 mm) es un PERFIL/barra cortado a medida →
+    se aserra (no se mecaniza). Umbrales conservadores para no morder bloques macizos:
+    largo ≥ 300 mm, esbeltez largo/sección ≥ 4, sección ≤ 200 mm."""
+    s0, s1, s2 = dims
+    return s2 >= 300.0 and s1 > 0.0 and s2 / s1 >= 4.0 and s1 <= 200.0
+
+
+def _wall_thickness(feat) -> float | None:
+    """Espesor de pared EFECTIVO (mm) = 2·V/A — robusto para chapa PLEGADA, cuyo
+    bbox mínimo es la altura de la pestaña, no el espesor del material. Una placa
+    plana da su espesor; un bloque macizo da un valor grande. None si no mide."""
+    try:
+        vol = float(feat.shape.volume)
+        area = float(feat.shape.area)
+        return (2.0 * vol / area) if area > 0 else None
+    except Exception:
+        return None
+
+
+def _sheet_is_bent(feat) -> bool:
+    """Chapa CON pliegue real: su volumen llena mucho menos que su bbox (forma en
+    L/U/C). Una placa PLANA llena su bbox (fill ≈ 1) → corte láser sin plegado."""
+    try:
+        bb = feat.shape.bounding_box()
+        bbvol = (bb.max.X - bb.min.X) * (bb.max.Y - bb.min.Y) * (bb.max.Z - bb.min.Z)
+        vol = float(feat.shape.volume)
+        return bbvol > 0.0 and (vol / bbvol) < 0.75
+    except Exception:
+        return False
+
+
+def infer_process(feat, component=None, *, has_fit: bool = False) -> dict:
     """Proceso de fabricación de `feat` → {"key", "label", "ra"}.
 
     Orden de señales (la primera que aplica gana): catálogo perfil/tubo → corte en
-    sierra (o en inglete si `feat.miter`); nombre con ajuste ISO 286 → torneado;
-    espesor mínimo del bbox ≤6 mm SIN componente de catálogo → corte láser + plegado
-    (chapa); resto → mecanizado/corte general."""
+    sierra (o en inglete si `feat.miter`); ajuste ISO 286 (en el nombre o `has_fit`
+    de la capa API) → torneado; espesor mínimo del bbox ≤6 mm SIN catálogo → corte
+    láser (+ plegado SOLO si el sólido está plegado de verdad); sección esbelta
+    constante SIN catálogo → perfil aserrado (V7.2b E: cazan los largueros/patas
+    modelados como `create_box`, que antes caían a «mecanizado»); resto → mecanizado."""
     name = getattr(feat, "name", "") or ""
     cat = getattr(component, "category", None)
     if cat in _PROFILE_CATS:
         ingl = bool(getattr(feat, "miter", None))
         return {"key": "sierra", "ra": _RA["sierra"],
                 "label": "corte en inglete" if ingl else "corte en sierra"}
-    if _FIT_RE.search(name):
+    if has_fit or _FIT_RE.search(name):
         return {"key": "torneado", "label": "torneado", "ra": _RA["torneado"]}
-    tmin = _min_extent(feat)
-    if component is None and tmin is not None and tmin <= 6.0:
-        return {"key": "laser_pliegue", "label": "corte láser + plegado", "ra": _RA["laser_pliegue"]}
+    dims = _sorted_dims(feat)
+    twall = _wall_thickness(feat)  # espesor efectivo 2·V/A (robusto a chapa plegada)
+    if component is None and twall is not None and twall <= 6.0:
+        bent = _sheet_is_bent(feat)  # E2: «+ plegado» solo con pliegue real
+        return {"key": "laser_pliegue", "ra": _RA["laser_pliegue"],
+                "label": "corte láser + plegado" if bent else "corte láser"}
+    if component is None and dims is not None and _is_profile_box(dims):
+        return {"key": "sierra", "label": "corte en sierra · perfil laminado", "ra": _RA["sierra"]}
     return {"key": "mecanizado", "label": "mecanizado / corte general", "ra": _RA["mecanizado"]}
 
 

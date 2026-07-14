@@ -61,7 +61,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **69 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-11)**: 1145 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
+- **Estado actual (2026-07-13)**: 1159 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -392,6 +392,26 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   `component.category` y los miembros de weldment NO lo llevan → caen a «mecanizado Ra 6.3»
   (fix en V7.2b). Testigo: `docs/benchmark/faja-paqueteria-4m/2026-07-11-v72/` (E2 53.6→71.4 %
   re-auditado, global 68→~73 %).
+- **Barrida de residuos (V7.2b, código HECHO — 2026-07-13)**: cierra residuos rankeados
+  por las re-auditorías. (A) **Manual por GRAFO DE SOPORTE** (`assembly_manual.py::
+  order_by_support`): reordena los pasos por `detect_structure` (tierra→arriba: chumacera
+  antes que su eje, eje antes que el motor que cuelga), fusiona los pasos HUÉRFANOS (una
+  pieza suelta a-medida) al sub-ensamblaje vecino en el grafo, y da texto por FAMILIA
+  (`_family_head`: perfiles→soldar, herraje→apretar en cruz, chumaceras→montar sobre el eje);
+  sin estructura → fallback al orden del log. (B) **Norma en las 15 verificaciones
+  cuantitativas** (campo `calc.norma` en `rules.py`+`report.py`): L10→ISO 281, pernos→EN
+  1993-1-8·ISO 898-1, soldadura→EN 1993-1-8, pandeo→Euler(EN 1993-1-1), flecha→L/240 (AISC),
+  eje→0.6·σy (ASME B106.1M), vuelco/velocidad/capacidad→CEMA o «criterio de diseño» HONESTO
+  (nunca cita inventada). (C) **Lints pre-entrega** (`library/lints.py::predelivery_lints`,
+  puro): «barreno de paso Ø7-22 sin perno en su eje» + «pieza sin grupo NI unión declarada»
+  (excluye guías/superficies/herraje) → avisos en `estructura` de `/api/checks`; vacío si
+  sano (habrían cazado los 5 pernos faltantes y `c704` del 38). (E) **`infer_process`
+  robusto**: caja esbelta a-medida (largo≥300, esbeltez≥4, sección≤200) → **sierra** (caza
+  los largueros/patas modelados como `create_box`, el residuo real —los miembros de weldment
+  YA traían `component`); espesor efectivo `2·V/A` (no bbox-min, roto por la pestaña) para
+  chapa; «+ plegado» solo con pliegue real (fill de bbox <0.75); `has_fit` fuerza torneado.
+  **PENDIENTE (live)**: D (cirugía del 38: pernos de anclaje→catálogo DIN 933 + fit del eje
+  del tensor «Ø35 g6») + F (re-benchmark medido + re-grade) — requieren API sana supervisada.
 
 ### Catálogo (data-driven, 217 refs)
 - YAML en `library/data/` (prefijo numérico ordena) + builders genéricos en
@@ -820,17 +840,20 @@ cerrar V6; orden tentativo por impacto en el entregable:
   faja-paqueteria-4m/2026-07-11-v72/calificacion.md` (con sección RE-AUDITORÍA). E2.2 en **2.5**
   (declarado): datum de esquina, no cara funcional; ménsula de chumacera sin barrenos de UCP en
   el MODELO (gap de E1.1). La brecha top pasa a ser el manual (E5=50 %).
-- **V7.2b Barrida de residuos baratos** (tras V7.2; juntos suben el global a ~78-80 %):
-  (1) manual por GRAFO DE SOPORTE (no orden del log; chumaceras antes que el motor que
-  soportan) + texto específico por paso + fusionar pasos huérfanos de 1 pieza — manual
-  50 %→~75 %; (2) citar NORMA en las 15 verificaciones cuantitativas de la memoria (hoy
-  4/15, E3.3) — memoria 80 %→~85-90 %; (3) lints pre-entrega: «barreno sin perno» y
-  «pieza sin grupo NI unión declarada» (habrían cazado solos los defectos del 38);
-  (4) E1 residual: pernos de anclaje → catálogo DIN 933, fit ISO 286 del eje del tensor
-  para sus 6207 (mata los 2 avisos vivos de la memoria); (5) `infer_process`: «sierra»
-  para miembros de weldment (hoy caen a mecanizado — pasar la categoría del perfil o
-  inferir por sección+`cut_length`), «plegado» solo con pliegue real, torneado por
-  asiento con fit; evidencias PNG del benchmark = página real del PDF, no re-render.
+- **V7.2b Barrida de residuos baratos** — **CÓDIGO HECHO (2026-07-13); D+F LIVE PENDIENTES**.
+  Frentes A/B/C/E landeados con tests (suite 1159 verde + tortura): (A) manual por GRAFO
+  DE SOPORTE (`order_by_support`: tierra→arriba, fusión de huérfanos, texto por familia);
+  (B) NORMA en las 15 verificaciones cuantitativas (`calc.norma`, cita real o «criterio de
+  diseño» honesto); (C) lints pre-entrega («barreno sin perno» + «pieza sin grupo ni unión»,
+  `library/lints.py` → `/api/checks`); (E) `infer_process` robusto (caja esbelta→sierra vía
+  geometría —el gap real era el `create_box`, no el weldment que YA trae `component`—,
+  espesor `2·V/A`, «+ plegado» solo con pliegue real, `has_fit`→torneado). Detalle en el
+  Mapa § Último kilómetro. **Pendiente LIVE** (requiere API sana + modelo 38 supervisado):
+  D — cirugía del 38 (24 pernos de anclaje → catálogo DIN 933 M12, fit «Ø35 g6» al eje del
+  tensor para sus 6207 → mata los 2 avisos vivos); F — re-benchmark MEDIDO a carpeta fechada
+  nueva + re-grade honesto de E5/E3.3/E1/E2.5 (meta global ~78-80 %; declarar si no llega).
+  E4 (evidencias = página real del PDF) diferido: sin `pymupdf`/`fitz` en el venv ni endpoint
+  SheetModel→PNG. **NO marcar V7.2b «HECHO» hasta cerrar D+F con la nota medida.**
 - **V7.3 Stack-up de cadenas de cotas** — PLANEADO (`docs/plans/V7.3-stackup-cadenas-
   cotas.md`; prerrequisito: V7.2b): motor puro peor-caso+RSS con ISO 2768/286, cadenas
   declaradas como metadato paramétrico, cadena auto del patrón de pernos, sección en la

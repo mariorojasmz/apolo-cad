@@ -110,6 +110,7 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
                 "resultado": f"u = {util:.2f} ({util * 100:.0f}% de la capacidad a cortante)",
                 "criterio": "u ≤ 0.7 holgado · 0.7–1.0 justo · >1.0 sobrecargada",
                 "fs": round(1.0 / util, 2) if util > 0 else None,
+                "norma": "EN 1993-1-8 · ISO 898-1 (capacidad a cortante del perno)",
             }
             det = (f"{label}: {load_kg:.1f} kg cuelgan de {qty_par}× {size} → "
                    f"utilización {util * 100:.0f}% a cortante.")
@@ -155,6 +156,7 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
                 "resultado": f"τ = {tau:.1f} MPa",
                 "criterio": f"τ ≤ 0.6·σy = {allow:.0f} MPa",
                 "fs": round(allow / tau, 2) if tau > 0 else None,
+                "norma": "EN 1993-1-8 (tensión en la garganta del cordón)",
             }
             det = f"{label}: τ = {tau:.1f} MPa en la garganta vs {allow:.0f} MPa admisibles."
             if tau > allow:
@@ -243,6 +245,7 @@ def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None,
         "resultado": f"L10 = {hours_txt}",
         "criterio": f"≥ {L10_TARGET_H:,.0f} h objetivo (≥ {L10_MIN_H:,.0f} h mínimo)",
         "fs": None if math.isinf(hours) else round(hours / L10_TARGET_H, 2),
+        "norma": "ISO 281 (vida nominal L10 del rodamiento)",
     }
     det = (f"{comp.ref} ({f.name}): L10 ≈ {hours_txt} con P = {p_kn:.3f} kN a {rpm:g} rpm "
            f"({det_reparto}).")
@@ -311,6 +314,7 @@ def _buckling_checks(scene, masses, catalog, carga_kg: float) -> list[dict]:
         "resultado": f"Pcr = {pcr:,.0f} N → FS = {fs:.1f}",
         "criterio": f"FS ≥ {BUCKLING_FS:g}",
         "fs": round(fs, 2),
+        "norma": "pandeo de Euler (EN 1993-1-1 §6.3 como marco)",
     }
     det = (f"{f.name}: FS de pandeo {fs:.1f} (Pcr {pcr:,.0f} N vs {p_leg:.0f} N/pata; "
            f"K=2 conservador, sección {w:.0f}×{d:.0f}×{wall:g}).")
@@ -359,6 +363,7 @@ def _tipping_check(scene, grounds, catalog, carga_kg: float) -> list[dict]:
         "resultado": f"margen = {margin:.0f} mm",
         "criterio": f"≥ 10% de la base menor = {need:.0f} mm",
         "fs": round(margin / need, 2) if need > 0 else None,
+        "norma": "criterio de diseño: equilibrio estático (COG dentro de la huella de apoyo)",
     }
     det = (f"COG a {margin:.0f} mm del borde de la base de apoyo "
            f"(mínimo requerido {need:.0f} mm; producto no incluido).")
@@ -479,6 +484,7 @@ def _fit_checks(scene, fasteners, joints, mates, catalog) -> list[dict]:
                               f"({seat['tipo']})"),
                 "criterio": f"clases aceptables: {', '.join(seat['recomendados'])} (típico {seat['tipico']})",
                 "fs": None,
+                "norma": "ISO 286 · ISO 492 (asiento de rodamiento, clase Normal)",
             }
             det = (f"{comp.ref} montado en '{shaft.name}': eje {sh['fit']}, juego "
                    f"{seat['juego_min_um']:+g}…{seat['juego_max_um']:+g} µm ({seat['tipo']}).")

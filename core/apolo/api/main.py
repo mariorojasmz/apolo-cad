@@ -1770,6 +1770,13 @@ def run_checks(body: ChecksIn) -> dict:
             belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
         )
         estructura += _fea_rules()  # resultados FEA guardados (con chequeo de vigencia)
+        # V7.2b: lints pre-entrega (barreno sin perno · pieza sin grupo ni unión) —
+        # olvidos de MODELADO que el chequeo estructural no ve; vacíos si el modelo está sano
+        from apolo.library.lints import predelivery_lints
+
+        estructura += predelivery_lints(
+            DOC.scene, DOC.commands, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
+        )
     return {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
 
 

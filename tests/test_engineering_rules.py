@@ -315,6 +315,57 @@ def test_eytelwein_presente_y_honesto():
     assert _rule(fs, "adherencia del tambor motriz")["calc"]["fs"] is not None
 
 
+# ------------------------------------------- V7.2b B: norma en TODA verificación cuantitativa
+def _calcs(checks):
+    return [c for c in checks if c.get("calc")]
+
+
+_RICH_BANDA = {"largo": 4000, "ancho": 600, "altura": 800, "paso": 300,
+               "rodillo": "RODILLO-50", "motor": "MOTOR-150", "tambor_d": 114,
+               "rpm_motor": 58, "torque_Nm": 156, "tipo": "banda", "eje_d": 35,
+               "frame": {"span_mm": 900, "length_mm": 900, "width": 80, "depth": 40,
+                         "wall": 3, "n_largueros": 2, "material": "acero"}}
+
+
+def test_all_conveyor_calcs_cite_norma():
+    # las 9 verificaciones cuantitativas del transportador llevan `norma` no vacía
+    calcs = _calcs(conveyor_engineering_check(dict(_RICH_BANDA), 30, 600, 0.35))
+    titulos = {c["calc"]["titulo"] for c in calcs}
+    # se emiten las 9: velocidad, capacidad rodillo, arrastre, motorización, par,
+    # par de arranque, adherencia, flecha, flexión del eje
+    assert len(calcs) >= 9
+    assert all(c["calc"].get("norma") for c in calcs), \
+        [c["regla"] for c in calcs if not c["calc"].get("norma")]
+    assert any("Flecha" in t for t in titulos) and any("Flexión" in t for t in titulos)
+
+
+def test_all_structure_calcs_cite_norma():
+    # las 6 verificaciones cuantitativas del chequeo universal llevan `norma`
+    doc = Document("t")
+    base = doc.execute("create_box", {"name": "Placa base", "width": 400, "depth": 400,
+                                      "height": 20, "position": {"x": 0, "y": 0, "z": 10}})
+    doc.execute("create_box", {"name": "Pata A36", "width": 76, "depth": 76, "height": 700,
+                               "position": {"x": 0, "y": 0, "z": 370}})
+    motor = _box(doc, "Motor", 100, z=200)
+    bracket = _box(doc, "Ménsula", 60, x=200, z=50)
+    eje = doc.execute("create_box", {"name": "Eje motriz Ø25 h7", "width": 25, "depth": 25,
+                                     "height": 300, "position": {"x": -300, "y": 0, "z": 400}})
+    ucp = doc.execute("insert_component", {"component": "UCP205", "position": {"x": -300, "y": 0, "z": 400}})
+    doc.execute("ground", {"name": "g1", "feature": base})
+    doc.execute("fasten", {"name": "b1", "a": base, "b": motor, "size": "M10", "qty": 2})
+    doc.execute("fasten", {"name": "w1", "a": base, "b": bracket, "kind": "soldadura",
+                           "throat_mm": 3.0, "length_mm": 60.0})
+    doc.execute("add_joint", {"name": "j1", "type": "giratoria", "parent": eje, "child": ucp})
+    calcs = _calcs(_structure(doc, carga_kg=100.0, rpm=100.0))
+    titulos = {c["calc"]["titulo"] for c in calcs}
+    assert len(calcs) >= 5
+    assert all(c["calc"].get("norma") for c in calcs), \
+        [c["regla"] for c in calcs if not c["calc"].get("norma")]
+    # se ejercitan perno, soldadura, L10, pandeo, vuelco (y el asiento ISO 286 si engancha)
+    assert any("apernada" in c["regla"].lower() for c in calcs)
+    assert any("Pandeo" in t for t in titulos) and any("L10" in t for t in titulos)
+
+
 def test_eytelwein_mu_engomado_vs_liso():
     from apolo.library.engineering.iso5048 import eytelwein_t2_min_n
 

@@ -3472,3 +3472,71 @@ desconocida en aserción → «no reconocida (válidas: …)» (antes «sin piez
 el 1-indexado; un command_id multi-sólido sugiere sus fids hijos (no «¿c3?→c3»);
 notas_agente del briefing acotado a 20 + `notas_truncadas`. Un test pre-existente de
 verify se actualizó al mensaje nuevo (assert startswith, cambio intencional).
+
+
+## V7.2b — Barrida de residuos: manual por soporte · normas · lints · proceso (Opus, 2026-07-13)
+
+Ejecución del plan `docs/plans/V7.2b-barrida-residuos.md` (calibrado por Fable). Cierra
+los residuos que las re-auditorías de V7.1/V7.1c/V7.2 dejaron rankeados. **Frentes A/B/C/E
+(código) HECHOS y verdes** (suite 1158 pasa + 1 skip + 15 tortura); **frentes D (cirugía
+del modelo 38) y F (re-benchmark medido + re-grade) PENDIENTES** — el servidor local estaba
+DEGRADADO (`/api/health` colgado >30 s, `STATE_LOCK` retenido) y hacer cirugía sobre un
+testigo COMITEADO + re-benchmark subjetivo contra un servidor enfermo, sin supervisión, no
+es honesto ni seguro; se dejan como paso live supervisado (arrancar limpio, `save_revision`
+antes de tocar el 38, carpeta fechada nueva, re-grade conservador con evidencia real).
+
+### A · Manual por grafo de soporte (`drawing/assembly_manual.py`)
+`order_by_support(scene, stages)` (nuevo, post-proceso de `assembly_steps`, firma de
+`assembly_manual` INTACTA → sin reinicio de host MCP): usa el grafo dirigido de
+`assembly/autodetect.py::detect_structure` (aristas `soporte` lo→hi + `mismo_nivel`
+mutuas). `_support_depth` = relajación de camino más largo desde el piso (una pieza va 1
+nivel por encima de su soporte más profundo; mismo-nivel iguala). Los pasos se reordenan
+por rango de soporte (sort ESTABLE → dentro del mismo nivel conserva el agrupado por
+sub-ensamblaje de V5.2). **Fusión de huérfanos**: un paso de UNA pieza a-medida sin grupo
+declarado se une al paso de su vecino en el grafo, PERO solo si el vecino es un
+sub-ensamblaje REAL (grupo declarado o paso multi-pieza) — nunca otra pieza suelta ni una
+familia de HERRAJE (esto último era el bug que absorbía el «Marco» de la caja de test en el
+paso «Tornillería»: un tornillo tocaba el marco por bbox). Sin estructura (ni soporte ni
+soldadura lateral) → devuelve los pasos intactos (fallback al orden del log). `_family_head`
+da texto por familia (perfiles→«presentar, escuadrar y soldar»; herraje apernado→«apretar en
+cruz»; chumaceras→«montar sobre el eje»; catálogo→«según fabricante»; genérico). Tests:
+stack pata→larguero→chumacera→eje→motor creado AL REVÉS → orden de montaje correcto; huérfano
+fusionado a su sub-ensamblaje; fallback sin estructura = orden del log.
+
+### B · Norma en las 15 verificaciones cuantitativas (`rules.py` + `engineering/report.py`)
+Antes 4/15 citaban `calc.norma` (CEMA ×2, ISO 5048/DIN 22101, Euler-Eytelwein). Completadas
+las 11 restantes con la referencia REAL o, donde el método es criterio de diseño y no norma
+publicada, el texto «criterio de diseño: {cuál}» (regla de honestidad: NUNCA una cita
+inventada): velocidad/capacidad de rodillo→CEMA; motorización→método de arrastre o «P=F·v/η»;
+par del tambor→«T=F·r»; flecha→«L/240 (AISC)»; flexión del eje→«0.6·σy (ASME B106.1M)»;
+perno→«EN 1993-1-8·ISO 898-1»; soldadura→«EN 1993-1-8»; L10→«ISO 281»; pandeo→«Euler (EN
+1993-1-1 §6.3)»; vuelco→«equilibrio estático»; asiento→«ISO 286·ISO 492». La memoria pinta
+«NORMA DE REFERENCIA» ya existente (V5.10) — solo faltaban los datos. Tests: los 9 calc del
+transportador y los 6 del chequeo universal llevan `norma` no vacía.
+
+### C · Lints pre-entrega (`library/lints.py`, nuevo, puro)
+`predelivery_lints(scene, commands, fasteners, grounds, joints, mates, catalog)` estilo
+`verify.py` (recibe dicts, nunca Document). Dos lints: (1) **barreno sin perno** — recorre
+los comandos `drill_hole` de PASO (depth≤0, sin thread, Ø7-22) y verifica que haya
+tornillería (catálogo cat. pernos/tornillería) con centro a distancia perpendicular ≤Ø del
+eje del taladro (posición del taladro ≈ coords de comando, honesto); (2) **pieza sin grupo
+ni unión** — feature visible sin `group` y ausente del grafo (juntas∪mates∪fasteners∪
+grounds), excluyendo guías/superficies/herraje. Ambos AGREGAN en una regla-resumen con
+ejemplos; lista vacía = sano. Cableados en `/api/checks` (se anexan a `estructura`, sin
+`calc` → no cuentan como cuantitativas de B) → fluyen al MCP `engineering_check` y al panel
+Validar. Habrían cazado solos los 5 pernos faltantes y `c704` del benchmark del 38. Tests:
+placa 4 barrenos/3 pernos→1 aviso (aislado aterrizando la placa); caja suelta→1 aviso;
+modelo sano→0; endpoint incluye los avisos.
+
+### E · Proceso e inferencias (`drawing/process.py::infer_process`)
+El residuo real NO era el weldment (sus miembros YA traen `component`=perfil, cat. «perfiles»
+→ ya salían «sierra»): era el larguero/pata modelado como `create_box` (sin catálogo, sin fit
+en el nombre) que caía a «mecanizado Ra 6.3». Fix: `_is_profile_box` (caja a-medida con
+largo≥300, esbeltez largo/sección≥4, sección≤200) → «corte en sierra · perfil laminado»
+(un dado macizo 120³ NO lo muerde). (E2) «+ plegado» solo con pliegue REAL: espesor de chapa
+por `_wall_thickness = 2·V/A` (robusto — el bbox mínimo de una chapa PLEGADA es la altura de
+la pestaña, no el material, lo que hacía caer una L a «mecanizado») + `_sheet_is_bent` (fill
+de bbox <0.75) para distinguir placa plana («corte láser») de chapa plegada («+ plegado»).
+(E3) `has_fit` (param de la capa API) fuerza torneado aunque el nombre no traiga el token.
+Tests: larguero create_box→sierra; miembro weldment→sierra; placa plana→sin «plegado»; chapa
+con pestaña→«plegado»; `has_fit`→torneado; los 4 casos históricos intactos.

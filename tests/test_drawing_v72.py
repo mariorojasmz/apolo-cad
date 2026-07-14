@@ -117,6 +117,62 @@ def test_infer_process_four_cases():
     assert infer_process(doc.scene[tubo], comp)["key"] == "sierra"
 
 
+# --------------------------------------------------- V7.2b E: proceso e inferencias
+def test_infer_process_slender_box_is_sawn():
+    """E1: un larguero/pata modelado como create_box (sin catálogo) es un perfil
+    aserrado, no «mecanizado» (era el residuo de la faja 38)."""
+    doc = Document()
+    larg = doc.execute("create_box", {"name": "Larguero A36 (+Y)", "width": 4000,
+                                      "depth": 40, "height": 80})
+    proc = infer_process(doc.scene[larg], None)
+    assert proc["key"] == "sierra" and "perfil" in proc["label"]
+    # un bloque macizo NO es perfil (no lo muerde el heurístico)
+    blk = doc.execute("create_box", {"name": "Dado macizo", "width": 120, "depth": 120,
+                                     "height": 120, "position": {"x": 6000}})
+    assert infer_process(doc.scene[blk], None)["key"] == "mecanizado"
+
+
+def test_infer_process_weldment_member_is_sawn():
+    """Un miembro de weldment (perfil de catálogo) rotula sierra."""
+    doc = Document()
+    cid = doc.execute("create_weldment", {"ancho": 800, "fondo": 600, "alto": 700,
+                                          "perfil": "PERFIL-4040", "cordones": False})
+    from apolo.library.catalog import CATALOG
+    member = next(f for f in doc.scene.values()
+                  if f.command_id == cid and (CATALOG.get(f.component or "") is not None))
+    comp = CATALOG.get(member.component)
+    assert infer_process(member, comp)["key"] == "sierra"
+
+
+def test_flat_plate_has_no_plegado():
+    """E2: una placa plana de ≤6 mm es «corte láser», SIN «plegado» (no hay pliegue)."""
+    doc = Document()
+    fid = doc.execute("create_box", {"name": "Repisa 6mm A36", "width": 400,
+                                     "depth": 300, "height": 6})
+    proc = infer_process(doc.scene[fid], None)
+    assert proc["key"] == "laser_pliegue"
+    assert "plegado" not in proc["label"] and "láser" in proc["label"]
+
+
+def test_bent_sheet_keeps_plegado():
+    """Una chapa CON pliegue real (create_sheet_metal con pestaña) sí lleva «plegado»."""
+    doc = Document()
+    cid = doc.execute("create_sheet_metal", {"ancho": 300, "fondo": 200, "espesor": 2,
+                                             "altura_pestana": 60, "lados": ["frente"]})
+    part = next(f for f in doc.scene.values() if f.command_id == cid)
+    assert "plegado" in infer_process(part, None)["label"]
+
+
+def test_infer_process_has_fit_forces_turning():
+    """E3: una pieza con fit ISO 286 declarado (mapa de la capa API) es torneada
+    aunque su nombre no traiga el token."""
+    doc = Document()
+    fid = doc.execute("create_box", {"name": "Eje del tensor", "width": 35, "depth": 35,
+                                     "height": 300})
+    assert infer_process(doc.scene[fid], None)["key"] != "torneado"          # sin señal
+    assert infer_process(doc.scene[fid], None, has_fit=True)["key"] == "torneado"
+
+
 def test_finish_cell_from_process():
     """El cajetín pinta el Ra del proceso en la celda «Acabado» cuando shop_notes=True."""
     doc = Document()
