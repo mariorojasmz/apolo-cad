@@ -421,11 +421,13 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   **0 avisos** (antes 2). El lint «barreno sin perno» reconoce ahora tornillería a-medida por
   NOMBRE (los 24 pernos del 38 son boolean_op, no catálogo) → 0 falsos positivos; un resolvedor de
   expresiones evita el 500 con posiciones paramétricas `=expr`. (F) re-benchmark MEDIDO:
-  **73 %→~77 %** (E3.3 15/15 normas · E1 0 avisos · E2.5 sierra en largueros · E5 manual por
-  soporte, pernos de anclaje del paso 4→2). NO llegó a la meta 78-80 % (declarado en
-  `calificacion.md`). **DIFERIDO D.1** (pernos de anclaje→catálogo DIN 933): cirugía de patrón+
-  fasteners de alto riesgo sobre un testigo comiteado por una mejora COSMÉTICA de BOM que no cierra
-  ningún aviso; los pernos ya están presentes/unidos y el lint no los marca.
+  **73 %→~74 % re-auditado** (autocalificación 77 % corregida — la re-auditoría por texto de PDF
+  cazó 3 defectos NUEVOS: la lámina del eje del tensor rotula «Ø35 h7» siendo g6 —`_hole_fit_map`
+  es GLOBAL por Ø nominal y el h7 del motriz pisa al g6 cuando dos ejes comparten Ø—; falsos
+  «sierra» en tambor engomado/rodillos —la heurística esbelta no excluye piezas de revolución—;
+  chumaceras en paso 6 DESPUÉS del motor en el manual). Meta 78-80 % a ~4-6 pts. **DIFERIDO D.1**
+  (pernos de anclaje→catálogo DIN 933): cirugía de alto riesgo por mejora cosmética de BOM.
+  Fixes → `docs/plans/V7.2c-fixes-re-auditoria.md`.
 
 ### Catálogo (data-driven, 217 refs)
 - YAML en `library/data/` (prefijo numérico ordena) + builders genéricos en
@@ -768,23 +770,22 @@ soundness/gravity sigue siendo único) · planos 7.5 (V7.2: soldadura ISO 2553 +
 acabados ISO 1302 + datums, sin retoque humano) · simulación 4.5 (analítico+MuJoCo+FEA
 lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
 robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (**MEDIDO**, **re-calificado tras V7.2b** — benchmark testigo de la
-faja 38 vs la rúbrica-v1 de nivel despacho; `docs/benchmark/faja-paqueteria-4m/2026-07-14/
-calificacion.md`, base honesta = anclas duras + verificación por ruta de código sobre el modelo
-real —sin `fitz` para rasterizar páginas—; producido de punta a punta por API en ~198 s autónomo
-— la métrica de TIEMPO es ~10³× a favor, estimado): global del paquete ≈ **77 %** de nivel
-despacho (era 73 % en V7.2; la meta del plan 78-80 % NO se alcanzó por ~1-3 pts, declarado).
-Memoria de cálculo = **85 %** (V7.2b: las 15 verif. cuantitativas citan norma —ISO 281/EN
-1993-1-8/CEMA/…— o «criterio de diseño» honesto) · BOM/cotización = **75 %** (fiel, pesos
-exactos, fuentes/márgenes declarados; los 24 pernos de anclaje siguen a-medida —D.1 diferido) ·
-3D validado = **85 %** (V7.2b: eje del tensor «Ø35 g6» → `engineering_check` con **0 avisos**;
-0 flotantes) · **planos de taller = 73.2 %** (V7.2b subió E2.5 a 3: los largueros HSS huecos
-rotulan **sierra** —perfil-antes-que-chapa—, la repisa plana sin «+ plegado» falso, el eje del
-tensor torneado; residual E2.2: datum de esquina, ménsula de chumacera sin barrenos de UCP en el
-MODELO) · manual = **62.5 %** (V7.2b: orden por GRAFO DE SOPORTE —los pernos de anclaje del paso
-4→2— + texto por familia; techo: 6 grupos gruesos, sin pulido de página) · **FEA firmable ~45 %**
-(falta ensamblaje/contacto) · render comercial ~50 % (por demanda). La brecha top sigue siendo
-**manual (E5, 62.5 %)** + E2.2 (datum por cara funcional, barrenos del UCP en el modelo).
+Veredicto por RESULTADOS (**MEDIDO**, **re-calificado tras V7.2b + re-auditoría** — benchmark
+testigo de la faja 38 vs la rúbrica-v1; `docs/benchmark/faja-paqueteria-4m/2026-07-14/
+calificacion.md` con sección RE-AUDITORÍA por texto extraído de los PDFs; producido por API en
+~198 s autónomo — la métrica de TIEMPO es ~10³× a favor, estimado): global ≈ **74 %** de nivel
+despacho (autocalificación 77 % corregida; era 73 % en V7.2 — la meta 78-80 % queda a ~4-6 pts).
+Memoria de cálculo = **82.5 %** (16/16 cuantitativas citan norma o «criterio de diseño»; citas
+flojas: σy/2 aplicado vs «0.6·σy ASME» citado, «L/250 práctica AISC») · BOM/cotización = **75 %**
+(fiel; los 24 pernos de anclaje siguen a-medida —D.1 diferido) · 3D validado = **84.4 %** (eje
+del tensor «Ø35 g6» → `engineering_check` **0 avisos**; 0 flotantes) · **planos de taller =
+69.6 %** (sierra en largueros/patas ✓ PERO: la lámina del eje del tensor rotula «Ø35 h7» siendo
+g6 —`_hole_fit_map` global por Ø, el h7 del motriz pisa al g6, regresión del fix D—; falsos
+«sierra» en tambor engomado y rodillos; residual E2.2 datum/ménsula) · manual = **56.3 %**
+(pernos de anclaje al paso 2 ✓ PERO chumaceras en paso 6 DESPUÉS del motor —la inversión que
+order_by_support prometía matar— y «apretar en cruz» ausente) · **FEA firmable ~45 %** · render
+comercial ~50 % (por demanda). Brechas top: E5 manual + fit-map por pieza + sierra en cilindros
+(plan V7.2c) + E2.2 (datum por cara funcional, barrenos del UCP en el modelo).
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -851,19 +852,17 @@ cerrar V6; orden tentativo por impacto en el entregable:
   faja-paqueteria-4m/2026-07-11-v72/calificacion.md` (con sección RE-AUDITORÍA). E2.2 en **2.5**
   (declarado): datum de esquina, no cara funcional; ménsula de chumacera sin barrenos de UCP en
   el MODELO (gap de E1.1). La brecha top pasa a ser el manual (E5=50 %).
-- **V7.2b Barrida de residuos baratos** — **HECHO (2026-07-14, MEDIDO ~73 %→~77 %)**. A/B/C/E
-  landeados con tests (suite 1164 verde + tortura) + D/F live cerrados: (A) manual por GRAFO
-  DE SOPORTE (`order_by_support`: tierra→arriba, fusión de huérfanos, texto por familia — en el
-  38 los pernos de anclaje suben del paso 4→2); (B) NORMA en las 15 verificaciones cuantitativas
-  (`calc.norma`, cita real o «criterio de diseño» honesto); (C) lints pre-entrega («barreno sin
-  perno» reconoce tornillería catálogo Y a-medida + «pieza sin grupo ni unión», `library/lints.py`
-  → `/api/checks`, con resolvedor de `=expr`); (E) `infer_process` robusto (perfil-antes-que-chapa
-  con cota transversal ≥10 mm → tubo HSS hueco → sierra; «+ plegado» solo con pliegue real;
-  `has_fit`→torneado); (D) `create_take_up.eje_fit`+`report.py` mount `rodamiento_anillo_fijo`
-  → eje del tensor «Ø35 g6» → 0 avisos en el 38; (F) re-benchmark medido en `docs/benchmark/
-  faja-paqueteria-4m/2026-07-14/` (E3 80→85 % · E1 81→85 % · E2.5→3 · E5 50→62.5 %). Meta 78-80 %
-  NO alcanzada por ~1-3 pts (declarado). **Diferido D.1** (pernos de anclaje→catálogo DIN 933):
-  cosmético de BOM, alto riesgo, no cierra aviso. Detalle en Mapa § Último kilómetro + `calificacion.md`.
+- **V7.2b Barrida de residuos baratos** — **HECHO (2026-07-14, MEDIDO 73 %→~74 % re-auditado;
+  autocalificación 77 % corregida)**. A/B/C/E landeados con tests (suite 1164 + tortura) + D/F
+  live: (A) manual por GRAFO DE SOPORTE (pernos de anclaje paso 4→2 ✓; PERO chumaceras quedan
+  en paso 6 tras el motor — la cola transmisión sigue heurística); (B) NORMA en las 16
+  cuantitativas (citas flojas: σy/2 vs «0.6·σy ASME», «L/250 práctica AISC»); (C) lints
+  pre-entrega (`library/lints.py` → `/api/checks`; sin rastro en validacion.json — serializar);
+  (E) `infer_process`: sierra en largueros/patas ✓ PERO sobre-dispara en tambor engomado y
+  rodillos; (D) eje del tensor «Ø35 g6» → 0 avisos ✓ PERO su LÁMINA rotula «h7» (colisión de
+  `_hole_fit_map` global por Ø — regresión). Meta 78-80 % queda a ~4-6 pts. **Diferido D.1**
+  (pernos→catálogo: cosmético, alto riesgo). RE-AUDITORÍA en `calificacion.md` 2026-07-14;
+  fixes → plan V7.2c.
 - **V7.3 Stack-up de cadenas de cotas** — PLANEADO (`docs/plans/V7.3-stackup-cadenas-
   cotas.md`; prerrequisito: V7.2b): motor puro peor-caso+RSS con ISO 2768/286, cadenas
   declaradas como metadato paramétrico, cadena auto del patrón de pernos, sección en la

@@ -89,6 +89,51 @@ Global = 0.15·85 + 0.30·73.2 + 0.20·85 + 0.15·75 + 0.10·62.5 + 0.10·75 = *
 > (datum de esquina, no cara funcional; ménsula de chumacera sin barrenos de UCP en el MODELO),
 > y E4/E6 no se tocaron.
 
+---
+
+# RE-AUDITORÍA (Fable, 2026-07-14) — regla 3 de la rúbrica
+
+Auditoría independiente por TEXTO extraído de los PDFs (lo que el calificador no pudo
+hacer sin `fitz`) + JSON + causa raíz en código. **Los avances son reales** (pernos de
+anclaje al paso 2 ✓, 16/16 cuantitativas con norma visible en el PDF ✓, sierra en
+largueros/patas ✓, «Ø35 g6» en nombre/BOM/memoria ✓, 0 avisos ✓, testigos previos y
+rúbrica intactos ✓, bytes 10/10 exactos ✓) **pero la verificación «por ruta de código»
+no vio 3 defectos NUEVOS en los artefactos** y la nota quedó inflada ~2.5 pts:
+
+| Criterio | Opus | Fable | Evidencia |
+|---|:---:|:---:|---|
+| E2.3 | 3 | **2.5** | **La lámina del eje del tensor (juego pág 10) rotula «Ø35 h7 (0/-0.025)» siendo g6** — regresión del propio fix D: `_hole_fit_map` (api/main.py:~3131) es un mapa global POR Ø NOMINAL y el h7 del eje motriz (también Ø35) pisa al g6. Nombre, BOM y memoria dicen g6; la lámina dice h7 → el taller mecaniza MAL el asiento. Un fit equivocado es peor que uno ausente. |
+| E2.5 | 3 | **2.5** | La heurística «caja esbelta → sierra» SOBRE-dispara: el **tambor motriz engomado** (pág 20) y los **2 rodillos** (pág 14/18) rotulan «corte en sierra · perfil laminado» — son piezas torneadas/fabricadas, no perfiles aserrados. 3 falsos positivos nuevos no declarados. |
+| E5.1 | 3 | **2.5** | Las **chumaceras UCP207 van en el paso 6, DESPUÉS del motorreductor (paso 5)** — exactamente la inversión que `order_by_support` prometía matar (el NMRV de eje hueco se desliza sobre un eje que las chumaceras aún no sostienen). El eje sí va antes que el motor. |
+| E5.2 | 2 | 2 | «Apretar en cruz» NO aparece en ninguna página: el paso 2 (Tornillería, 24 pernos — el paso de herraje por excelencia) lleva el texto GENÉRICO; el paso 1 «soldar» incluye pies niveladores y disco anti-giro que se ATORNILLAN. |
+| E3.3 | 4 | **3.5** | Dos citas flojas: la verif. 9 (pág 10) aplica σ ≤ **σy/2** = 125 MPa pero cita «0.6·σy (ASME B106.1M)» (0.6·250 = 150 ≠ 125 — conservador pero la cita no corresponde a la fórmula); «L/250 (práctica AISC)» — L/240 es lo típico AISC, L/250 es más Eurocode; el plan pedía L/240. |
+| E1 | 3.40 | **3.375** | El 3.40 no sale de ningún desglose de sub-criterios (nota ajustada hacia el 85 % bonito). Lo defendible: E1.2 3→3.5 por 0 avisos → (3+3.5+3+4)/4 = 3.375 (84.4 %). Las 20 interferencias (hasta 12.7 cm³) siguen en validacion.json sin re-justificar. |
+
+Otros hallazgos: los **lints pre-entrega no dejan rastro en validacion.json** («presentes
+y vacíos» no es auditable — el benchmark debe serializar la sección aunque esté vacía);
+`paquete.md` registra commit `d7c91f9` pero el paquete requiere código de `13e0b7a`
+(árbol sucio al generar — trazabilidad rota); la «revisión de seguridad» previa a la
+cirugía solo consta en el commit, no en el artefacto; la verif. FEA (17ª) sin norma;
+3 láminas comparten título «Ménsula soporte motorreductor» con pesos distintos.
+
+## Puntaje RE-AUDITADO
+
+| Entregable | Opus | Fable | % |
+|---|:---:|:---:|---:|
+| E1 | 3.40 | **3.375** | 84.4 % |
+| E2 | 2.93 | **2.79** | 69.6 % |
+| E3 | 3.40 | **3.30** | 82.5 % |
+| E4 | 3.00 | 3.00 | 75.0 % |
+| E5 | 2.50 | **2.25** | 56.3 % |
+| E6 | 3.00 | 3.00 | 75.0 % |
+| **GLOBAL** | ≈77 % | | **≈ 74 %** |
+
+Global = 0.15·84.4 + 0.30·69.6 + 0.20·82.5 + 0.15·75 + 0.10·56.3 + 0.10·75 = **74.4 %**.
+El salto 73→74 es real pero modesto; **la meta 78-80 % queda a ~4-6 pts**, no a 1-3.
+La lección estructural: «verificado por ruta de código» NO sustituye mirar el artefacto —
+los 3 defectos nuevos (fit pisado, sierra en tambores, motor antes que chumaceras) solo
+se ven en el ENTREGABLE. Brechas nuevas → plan V7.2c.
+
 ## Diferido con rationale (no se hizo, se declara)
 
 - **D.1 · Pernos de anclaje → catálogo DIN 933**: NO ejecutado. Los 24 pernos (c147 boolean_op

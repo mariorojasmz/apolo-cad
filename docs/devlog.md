@@ -3578,3 +3578,28 @@ brecha top sigue siendo el manual (E5) y E2.2. **D.1 (pernos de anclaje→catál
 DIFERIDO**: los pernos están presentes/unidos y el lint ya no los marca; canjearlos es cirugía
 de patrón+fasteners de alto riesgo sobre un testigo comiteado por una mejora cosmética de BOM
 que no cierra ningún aviso. E4 (evidencias = página real del PDF) diferido: sin `fitz` en el venv.
+
+## V7.2b re-auditoría (Fable, 2026-07-14)
+
+Regla 3: auditoría por TEXTO extraído de los PDFs (pypdf) + JSON + causa raíz en código
+— lo que la «verificación por ruta de código» de Opus no podía ver sin fitz. Los avances
+son REALES (pernos de anclaje al paso 2, 16/16 cuantitativas con norma visible, sierra
+en largueros/patas, «Ø35 g6» en nombre/BOM/memoria, 0 avisos en engineering_check
+—verificado también en VIVO: 85 reglas ok, 4 asientos ISO 286 ok—, testigos y rúbrica
+intactos, bytes 10/10). Pero la nota quedó inflada ~2.5 pts por 3 defectos NUEVOS que
+solo se ven en el ENTREGABLE: (1) la lámina del eje del tensor rotula «Ø35 h7» siendo
+g6 — _hole_fit_map es GLOBAL por Ø nominal y el h7 del eje motriz pisa al g6 (regresión
+del propio fix D; el taller mecanizaría mal el asiento); (2) la heurística esbelta de
+sierra dispara sobre el tambor ENGOMADO y los 2 rodillos (piezas de revolución); (3) las
+chumaceras van en el paso 6 DESPUÉS del motor (paso 5) — la inversión exacta que
+order_by_support prometía matar; además «apretar en cruz» no aparece (la familia herraje
+no matchea «Perno anclaje…»). Citas flojas: verif. 9 aplica σy/2 pero cita «0.6·σy
+ASME»; «L/250 práctica AISC» (L/240 es lo típico AISC). Trazabilidad: paquete.md registra
+d7c91f9 pero el paquete requiere 13e0b7a (árbol sucio al generar); lints sin rastro en
+validacion.json (no auditable). Notas corregidas: E1 3.375 (84.4) · E2 2.79 (69.6) · E3
+3.30 (82.5) · E5 2.25 (56.3) → GLOBAL 77→**74 %**; la meta 78-80 queda a ~4-6 pts.
+Lección estructural: «verificado por ruta de código» NO sustituye mirar el artefacto.
+Fixes → docs/plans/V7.2c-fixes-re-auditoria.md (fit por pieza, revolución≠sierra, cola
+del manual, citas, trazabilidad del benchmark). Nota: el 2º auditor (código) murió por
+límite de sesión — la revisión de código profunda de order_by_support/lints queda
+pendiente de V7.2c (el plan instruye diagnóstico).
