@@ -20,6 +20,9 @@ DENSITY_KG_MM3 = {
     "aluminio": 2.70e-6,
     "laton": 8.5e-6,
     "zinc": 7.1e-6,
+    # las especies van ANTES de "madera": `_norm` devuelve la primera clave que sea
+    # subcadena, así "madera copaiba" resuelve a copaiba y no al genérico.
+    "copaiba": 6.5e-7,  # ~650 kg/m³ (Copaifera sp., IIAP Perú 0.61-0.65)
     "madera": 5.0e-7,   # ~500 kg/m³ (pino/MDF aprox.)
     "vidrio": 2.5e-6,   # ~2500 kg/m³
     "pvc": 1.4e-6,      # ~1400 kg/m³ (banda transportadora PVC, perfil plástico)
@@ -30,6 +33,7 @@ DEFAULT_DENSITY = 7.85e-6  # acero
 
 # patrón de rayado de sección por material (lo consumen los exportadores)
 HATCH = {
+    "copaiba": "madera",
     "madera": "madera",      # veta/diagonal suave
     "vidrio": "vidrio",      # líneas finas muy juntas
     "acero": "ansi31",       # diagonal 45 estándar
@@ -47,6 +51,7 @@ YOUNG_MPA = {
     "aluminio": 69000.0,
     "laton": 100000.0,
     "zinc": 108000.0,
+    "copaiba": 11000.0,  # MOE flexión medido 112 000 kg/cm² (IIAP Perú)
     "madera": 11000.0,   # pino/MDF aprox. (flexión)
     "vidrio": 70000.0,
     "pvc": 3000.0,
@@ -58,6 +63,10 @@ YIELD_MPA = {
     "acero inoxidable": 215.0,  # AISI 304
     "aluminio": 240.0,          # 6061-T6 aprox.
     "laton": 200.0,
+    # La madera no fluye: rompe. Para las especies tabulamos el MOR (tensión de
+    # ROTURA en flexión), así que el "FS" que reportan los chequeos es contra
+    # rotura y el criterio de aceptación es FS >= 4 (no >= 1.5 como en acero).
+    "copaiba": 72.0,     # MOR flexión 736 kg/cm² (IIAP Perú) → σ_adm = MOR/4 ≈ 18 MPa
     "madera": 40.0,
 }
 DEFAULT_YIELD = 250.0  # acero A36
@@ -71,6 +80,7 @@ COST_PER_KG_USD = {
     "aluminio": 4.5,
     "laton": 8.0,
     "zinc": 3.0,
+    "copaiba": 1.6,     # aserrada y seca, referencial LatAm
     "madera": 1.2,
     "vidrio": 2.0,
     "pvc": 2.5,

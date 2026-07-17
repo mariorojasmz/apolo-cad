@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 
 import httpx
 from mcp.server.fastmcp import FastMCP, Image
@@ -20,6 +21,13 @@ from mcp.server.fastmcp import FastMCP, Image
 from apolo.design import design_brief
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
+
+# Presupuesto TOTAL de espera de un lote antes de devolver el recibo (V6.5e). 90 s deja
+# colchón bajo los 120 s de httpx y los ~180 s del host MCP: el recibo llega ANTES de que
+# cualquiera de las dos capas corte, así que un lote lento ya no puede dejar ciego al
+# agente. Cada poll individual es corto (_JOB_POLL_S) — el httpx de 120 se queda como está.
+APOLO_MCP_WAIT_S = float(os.environ.get("APOLO_MCP_WAIT_S", "90"))
+_JOB_POLL_S = 20.0
 
 mcp = FastMCP(
     "apolo-cad",
@@ -60,8 +68,63 @@ def _api(method: str, path: str, **kwargs):
             detail = response.json().get("detail", response.text)
         except Exception:
             detail = response.text
-        raise RuntimeError(f"Apolo rechazó la operación ({response.status_code}): {detail}")
+        raise _reject(response.status_code, detail)
     return response
+
+
+def _reject(status: int, detail) -> RuntimeError:
+    """Error de rechazo — fuente única del texto. Un job fallido lo reusa: para el agente
+    un ContractError diferido se ve IGUAL que el 400 de hoy."""
+    return RuntimeError(f"Apolo rechazó la operación ({status}): {detail}")
+
+
+def _submit_and_wait(method: str, path: str, body: dict, params: dict | None = None):
+    """Envía una mutación por lote como JOB y la espera (V6.5e) → (payload, job_id).
+
+    El camino seguro NO puede ser opt-in: el agente no sabe de antemano cuánto tardará un
+    lote, así que run_batch/edit_batch SIEMPRE encolan. Devuelve:
+      - (payload, None) si el job terminó dentro del presupuesto → la tool responde
+        EXACTAMENTE lo de hoy;
+      - (None, job_id) si no llegó → RECIBO, no error (el resultado no se pierde, se
+        difiere: sigue en el servidor esperando a get_job).
+    `estado=error` → RuntimeError con el detail (UX idéntica al 400 actual).
+    """
+    p = {**(params or {}), "async": "true"}
+    response = _api(method, path, params=p, json=body)
+    if response.status_code != 202:  # servidor sin jobs (no debería): payload directo
+        return response.json(), None
+    job_id = response.json()["job_id"]
+    deadline = time.monotonic() + APOLO_MCP_WAIT_S
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None, job_id
+        job = _api(
+            "GET", f"/api/jobs/{job_id}", params={"wait_s": min(_JOB_POLL_S, remaining)}
+        ).json()
+        if job["estado"] == "ok":
+            return job["resultado"], None
+        if job["estado"] == "error":
+            raise _reject(job.get("http_status") or 400, job.get("error"))
+
+
+def _job_receipt(job_id: str, estado: str = "corriendo") -> str:
+    return json.dumps(
+        {
+            "job": job_id,
+            "estado": estado,
+            "seguir": f"llama get_job('{job_id}') para recoger el resultado",
+        },
+        ensure_ascii=False,
+    )
+
+
+def _job_result(payload: dict, detail: str) -> dict:
+    """Brief del resultado de un job = el MISMO retorno que la vía síncrona."""
+    out = _scene_brief(payload, detail)
+    if "contrato" in payload:
+        out["contrato"] = payload["contrato"]
+    return out
 
 
 def _scene_brief(payload: dict, detail: str = "diff") -> dict:
@@ -271,15 +334,17 @@ def run_batch(actions: list[dict], detail: str = "diff", expect: list[dict] | No
     revierte POR COMPLETO (el documento queda intacto, sin escombro) y el error lista lo
     fallido (medido vs esperado). Los `$k` valen también en las aserciones (referencian lo
     recién creado). Muta con contrato cuando el resultado deba cumplir una condición y ahórrate
-    el ciclo mutar→leer→verificar→undo."""
+    el ciclo mutar→leer→verificar→undo.
+    El lote se ejecuta como JOB: si tarda más que el presupuesto de espera, en vez de un error
+    de timeout recibes un RECIBO {"job": id} y lo recoges con get_job(id) — el resultado nunca
+    se pierde, solo se difiere. NO reenvíes el lote al recibir un recibo (lo duplicarías)."""
     body: dict = {"actions": actions}
     if expect:
         body["expect"] = expect
-    payload = _api("POST", "/api/commands/batch", json=body).json()
-    out = _scene_brief(payload, detail)
-    if "contrato" in payload:
-        out["contrato"] = payload["contrato"]
-    return json.dumps(out, ensure_ascii=False)
+    payload, job_id = _submit_and_wait("POST", "/api/commands/batch", body)
+    if job_id:
+        return _job_receipt(job_id)
+    return json.dumps(_job_result(payload, detail), ensure_ascii=False)
 
 
 @mcp.tool()
@@ -310,19 +375,39 @@ def edit_batch(
     revierte TODO el lote. `expect` (CONTRATO, V6.5b) = aserciones estilo verify que deben
     cumplirse tras el lote; si alguna falla, se revierte TODO (doc intacto) — úsalo para
     reparametrizar con garantía (p. ej. tras encoger, `sin_interferencia`). `detail` como en
-    run_command (y `variables` solo aparece si el lote tocó alguna)."""
+    run_command (y `variables` solo aparece si el lote tocó alguna).
+    Como run_batch, se ejecuta como JOB: si tarda, devuelve un RECIBO {"job": id} en vez de un
+    error de timeout → recógelo con get_job(id) y NO reenvíes el lote."""
     body: dict = {"edits": edits}
     if expect:
         body["expect"] = expect
-    payload = _api(
-        "PATCH",
-        "/api/commands/batch",
-        params={"merge": str(merge).lower()},
-        json=body,
-    ).json()
-    out = _scene_brief(payload, detail)
-    if "contrato" in payload:
-        out["contrato"] = payload["contrato"]
+    payload, job_id = _submit_and_wait(
+        "PATCH", "/api/commands/batch", body, params={"merge": str(merge).lower()}
+    )
+    if job_id:
+        return _job_receipt(job_id)
+    return json.dumps(_job_result(payload, detail), ensure_ascii=False)
+
+
+@mcp.tool()
+def get_job(job_id: str, detail: str = "diff", wait_s: float = 20) -> str:
+    """Recoge el resultado de un lote que devolvió un RECIBO {"job": id} (run_batch/
+    edit_batch tardaron más que el presupuesto de espera). Espera hasta `wait_s` segundos
+    (long-poll: responde en cuanto el job termina) y devuelve lo MISMO que habría devuelto
+    el lote (sólidos + `contrato`), o `{"estado": "corriendo"}` si aún no acaba — vuelve a
+    llamar. El resultado queda CACHEADO: re-preguntar es SIEMPRE seguro (no re-ejecuta nada).
+    Si el lote falló (p. ej. contrato incumplido) da el mismo error que daría en directo, y
+    el documento quedó intacto.
+    Job desconocido (404) = el servidor se reinició o el job ya se desalojó: el lote PUDO
+    haber aplicado (el autosave lo habría guardado) → verifícalo con get_scene antes de nada.
+    NUNCA reintentes el lote a ciegas: lo duplicarías."""
+    job = _api("GET", f"/api/jobs/{job_id}", params={"wait_s": wait_s}).json()
+    if job["estado"] == "error":
+        raise _reject(job.get("http_status") or 400, job.get("error"))
+    if job["estado"] != "ok":
+        return _job_receipt(job_id, job["estado"])
+    out = _job_result(job.get("resultado") or {}, detail)
+    out["job"] = job_id
     return json.dumps(out, ensure_ascii=False)
 
 

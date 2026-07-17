@@ -58,10 +58,10 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **69 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **70 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-14)**: 1164 tests (+15 tortura vía `-m torture`) · 69 tools MCP ·
+- **Estado actual (2026-07-16)**: 1197 tests (+15 tortura vía `-m torture`) · 70 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -113,6 +113,22 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   «no reconocida» con las válidas (antes: «sin piezas» silencioso); «sin piezas» nombra los
   tokens que no resolvieron + sugerencia; un command_id multi-sólido sugerido → sus fids
   hijos, no él mismo.
+- **Jobs asíncronos (V6.5e, `api/jobs.py`)**: ninguna mutación larga vive dentro de una
+  request. `POST`/`PATCH /api/commands/batch?async=true` → `202 {job_id}` y el MISMO closure
+  del endpoint corre en un worker (`JobStore`: cola FIFO, UN worker daemon —STATE_LOCK
+  serializa igual y el orden importa—, retención de los 20 TERMINADOS, en memoria);
+  `GET /api/jobs/{id}?wait_s=0..30` = long-poll. **Sin `?async` todo es byte-idéntico** (la UI
+  ni se entera). El cliente fino SIEMPRE encola (el camino seguro no puede ser opt-in: el
+  agente no sabe qué tardará) y espera `APOLO_MCP_WAIT_S` (90 s, bajo los 120 de httpx y los
+  ~180 del host); si no llega → **RECIBO** `{job, seguir}` en vez de error → tool `get_job`
+  (resultado cacheado: re-preguntar es seguro). Un ContractError diferido se ve igual que el
+  400 de hoy (`_describe_error` duck-tipea `status_code`/`detail` → jobs.py no importa
+  FastAPI). **Regla de lock HOJA**: el `_cv` del store jamás se sostiene llamando al closure
+  (que toma STATE_LOCK) — el worker corre `fn()` sin lock propio y escribe el resultado
+  DESPUÉS. `WS.notify_changed` (`run_coroutine_threadsafe`) y el autosave (Timer) ya eran
+  thread-safe → sin camino paralelo. GOTCHA: 404 de job tras un reload NO significa «no
+  aplicó» (los jobs viven en memoria, el autosave ya guardó) → verificar con get_scene/health,
+  nunca reintentar el lote a ciegas (el mensaje del 404 lo dice).
 - **Lectura a ESCALA (V6.5)**: ninguna lectura de rutina vuelca la escena entera.
   `get_scene(summary=true)` (`GET /api/scene/summary`) = resumen por GRUPO (n_piezas/masa/
   bbox conjunto/sub-grupos + «(sin grupo)» + totales + variables) — la vista de ENTRADA a un
@@ -278,6 +294,16 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   que en el resto son solo visualización, aquí SÍ cuentan como restricción.
 - **Estudios de movimiento CON NOMBRE**: `Document.motion: dict[str, list]` (metadato de
   manifest), `set_motion`/`delete_motion`, scan de colisiones por recorrido.
+- **GIF del motion (2026-07-16, `robotics/anim.py`)**: `POST /api/motion.gif` {name, steps,
+  fps, pingpong, view/azimuth/elevation/zoom/size_px} → animación del estudio pintada con el
+  MISMO motor VTK que `render_view` (espejo de `/api/physics/drop.gif`, pero cinemática).
+  Dos-locks: `extract_motion_frames` (FK + teselado, bajo STATE_LOCK) → snapshots puros;
+  `render_motion_gif` (bucle VTK + Pillow) fuera, bajo RENDER_LOCK. GOTCHA: la CÁMARA se fija
+  a la UNIÓN de los bbox de todo el recorrido (pisando `fmins`/`fmaxs` del snapshot) — si no,
+  cada fotograma se re-encuadra a su bbox y el mecanismo «respira»/salta; `fit_ids` explícito
+  gana. `pingpong` añade la vuelta sin repetir extremos. Duración 0 → UN fotograma.
+  El teselado NO se cachea entre fotogramas (cada pose crea shapes nuevos) → coste ≈ steps ×
+  escena; sin tool MCP (reiniciar host para añadirla).
 - **Conectividad/soundness** (`assembly/connectivity.py` + `autodetect.py`): grafo
   juntas∪mates∪fasteners con semilla `grounds`; `detect_structure` = grafo de soporte
   DIRIGIDO (auto-declara ground/fasten inteligente); `soundness_report` (qué flota).
@@ -428,6 +454,16 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   chumaceras en paso 6 DESPUÉS del motor en el manual). Meta 78-80 % a ~4-6 pts. **DIFERIDO D.1**
   (pernos de anclaje→catálogo DIN 933): cirugía de alto riesgo por mejora cosmética de BOM.
   Fixes → `docs/plans/V7.2c-fixes-re-auditoria.md`.
+
+### Materiales (`library/materials.py`)
+- Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
+  catálogo → heurística por nombre → default del VERTICAL: `set_vertical('carpinteria')`
+  = madera, si no acero). **Especies de madera van ANTES de `"madera"` en los dicts**:
+  `_norm` devuelve la primera clave que sea SUBCADENA, así «madera copaiba» resuelve a
+  copaiba y no al genérico. `copaiba` (2026-07-16): 650 kg/m³, E=11 GPa, MOR 72 MPa,
+  1.6 USD/kg (IIAP Perú). GOTCHA: en madera `YIELD_MPA` tabula el **MOR (rotura)**, no un
+  límite elástico → el «FS» que reportan los chequeos es contra ROTURA y el criterio es
+  FS ≥ 4 (σ_adm = MOR/4), no ≥ 1.5 como en acero.
 
 ### Catálogo (data-driven, 217 refs)
 - YAML en `library/data/` (prefijo numérico ordena) + builders genéricos en
@@ -615,7 +651,9 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
 - Editar `position` por REST la REEMPLAZA entera (reenviar x,y,z); la tool MCP
   `edit_command` fusiona (merge) por defecto.
 - Lotes grandes por HTTP secuencial superan el timeout de 180 s del cliente aunque el
-  servidor termine → lotes (`run_batch`/`edit_batch`) o timeout ≥540 s.
+  servidor termine → usa lotes (`run_batch`/`edit_batch`). El «timeout ≥540 s» quedó
+  OBSOLETO para el MCP (V6.5e: los lotes son jobs con recibo, un timeout ya no ciega al
+  agente); solo aplica a scripts REST propios que llamen al endpoint sin `?async`.
 
 ### Ingeniería mecánica (lecciones de diseño)
 - Bisagra de pliegue: el eje va en la **CARA hacia la que pliega** (offset ±esp/2), no en
@@ -819,6 +857,10 @@ verdes**. Un ítem por vez, con plan formal.
   contacto/asiento + tuerca DIN 934 + protrusión con filetes + edge en n=1 + tope de
   patrón; clave desconocida/«sin piezas» con error accionable y sugerencia; `$0` explica
   el 1-indexado; briefing con techo de notas. Detalle: § Ergonomía MCP y § join_bolted.
+- **V6.5e MCP: jobs asíncronos** — **HECHO (2026-07-16)**: las mutaciones por lote se
+  encolan como job con recibo (`?async=true` → `202 {job_id}` + long-poll `get_job`); el
+  cliente fino espera 90 s y devuelve el RECIBO si no llega — un timeout ya no deja al
+  agente ciego ni lo empuja a REST crudo (evidencia: perezosa 66). Detalle: § Ergonomía MCP.
 - **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5. PLANEADO
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)**. 4.5→5.5.
@@ -884,8 +926,9 @@ tests + E2E real; un ítem por vez con plan formal.
 
 ## Pendientes (follow-ups vivos, por demanda)
 - **Cinemática/ensamblaje**: LAZOS CERRADOS de mates (A↔B, hoy rechazados como ciclo — el
-  multi-mate V6.3 solo abre DAG multi-padre); master-slider "Apertura %", exportar vídeo del
-  motion; anclas en más familias de catálogo (por demanda); DOF con residuo del solver
+  multi-mate V6.3 solo abre DAG multi-padre); master-slider "Apertura %"; GIF del motion HECHO
+  (2026-07-16, § Ensamblaje) — falta MP4 y tool MCP; anclas en más familias de catálogo (por
+  demanda); DOF con residuo del solver
   persistido (hoy el `overconstrained` del solver no se guarda: el conteo Grübler es el signal
   en vivo, pues el solver ya rechaza los conflictos reales en la mutación).
 - **V6.3d (follow-ups anotados de la revisión)**: (1) **`mirror` no propaga anclas** —
@@ -912,6 +955,13 @@ tests + E2E real; un ítem por vez con plan formal.
   piezas». (5) el bucle de `focus` en `interference_report` (checks.py) itera O(n²) en Python con
   skip barato; reestructurar a focus×resto cuando duela a miles de piezas. (6) NO hay índice
   espacial: `near`/interferencia son barridos O(n) sobre AABBs (medir antes de construir R-tree).
+- **V6.5e (follow-ups anotados)**: (1) extender `?async` a `run_command` suelto y a
+  `insert_project` (los únicos otros caminos que pueden tardar minutos) = ~10 líneas con la
+  infra de jobs ya limpia: `_sync_or_job(tipo, _work, async_)` en el endpoint + el cliente
+  usando `_submit_and_wait`; deliberadamente FUERA de V6.5e (el modo de fallo medido era de
+  LOTES). (2) los jobs no se cancelan (no se puede interrumpir OCCT a media regeneración de
+  forma segura) ni se persisten (son recibos, no datos). (3) sin porcentaje de progreso: el
+  regenerate no tiene uno honesto que medir.
 - **Perf**: absorbido por V6.2 (medir contra `docs/perf_baseline.json`).
 - **V6.2e (follow-ups anotados de la revisión)**: `applyAppearance` × tinte de bloqueo — si
   una malla tintada (guardado fallido) recibe un cambio de apariencia externo, invalidar la

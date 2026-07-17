@@ -17,7 +17,15 @@ import time
 import traceback
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,6 +45,7 @@ from apolo.library import (
 from apolo.state import STATE_LOCK
 
 from .errorlog import log_error, session_marker
+from .jobs import JOB_UNKNOWN, JobStore
 
 app = FastAPI(title="Genix Apolo CAD", version="0.1.0")
 app.add_middleware(
@@ -65,6 +74,12 @@ STARTUP_ERROR: str | None = None
 # integración corre desde datos PUROS. PHYSICS_LOCK serializa sims entre sí (no contra el
 # doc). El render tiene su propio RENDER_LOCK en kernel/render_vtk.py.
 PHYSICS_LOCK = threading.Lock()
+
+# Jobs (V6.5e): las mutaciones por lote pueden ENCOLARSE (?async=true) y recogerse por
+# recibo → un timeout del cliente ya no deja al agente ciego. El worker corre el MISMO
+# closure que el endpoint (misma atomicidad/undo/contratos/autosave), solo que fuera de
+# la request. Vive en MEMORIA: un reload los pierde (son recibos, no datos).
+JOBS = JobStore()
 
 
 # backoff del autosave: reintentos con espera TOTAL ≤0.6 s (solo se paga en el caso
@@ -1050,8 +1065,21 @@ class BatchIn(BaseModel):
     expect: list[dict] = []
 
 
+def _sync_or_job(tipo: str, work, async_: bool):
+    """Ejecuta ``work`` (el closure COMPLETO del endpoint) o lo encola como job (V6.5e).
+
+    Sin ``?async``: byte-idéntico a antes de V6.5e (los clientes existentes ni se enteran).
+    Con él: 202 + recibo al instante y el MISMO closure corre en el worker → misma
+    atomicidad, mismo undo, mismos contratos, mismo autosave, cero código duplicado."""
+    if not async_:
+        return work()
+    return JSONResponse(
+        status_code=202, content={"job_id": JOBS.submit(tipo, work), "estado": "encolado"}
+    )
+
+
 @app.post("/api/commands/batch")
-def post_batch(batch: BatchIn) -> dict:
+def post_batch(batch: BatchIn, async_: bool = Query(False, alias="async")):
     from apolo.batch import execute_batch
 
     # OJO: _materialize_insert_project muta DOC.attachments → DEBE correr bajo
@@ -1063,10 +1091,13 @@ def post_batch(batch: BatchIn) -> dict:
         ]
         return execute_batch(DOC, actions, verify=_contract_verify(batch.expect))
 
-    payload = _state_or_error(_run)
-    if batch.expect:  # el lote sobrevivió al contrato (si no, ContractError → 400)
-        payload["contrato"] = {"n_aserciones": len(batch.expect), "ok": True}
-    return payload
+    def _work() -> dict:
+        payload = _state_or_error(_run)
+        if batch.expect:  # el lote sobrevivió al contrato (si no, ContractError → 400)
+            payload["contrato"] = {"n_aserciones": len(batch.expect), "ok": True}
+        return payload
+
+    return _sync_or_job("run_batch", _work, async_)
 
 
 class EditOne(BaseModel):
@@ -1080,7 +1111,9 @@ class EditBatchIn(BaseModel):
 
 
 @app.patch("/api/commands/batch")
-def patch_batch(batch: EditBatchIn, merge: bool = False) -> dict:
+def patch_batch(
+    batch: EditBatchIn, merge: bool = False, async_: bool = Query(False, alias="async")
+):
     # OJO: _materialize_edit lee DOC.commands → bajo STATE_LOCK (dentro del lambda).
     def _run():
         edits = [
@@ -1092,10 +1125,31 @@ def patch_batch(batch: EditBatchIn, merge: bool = False) -> dict:
         ]
         return DOC.edit_many(edits, merge=merge, verify=_contract_verify(batch.expect))
 
-    payload = _state_or_error(_run)
-    if batch.expect:
-        payload["contrato"] = {"n_aserciones": len(batch.expect), "ok": True}
-    return payload
+    def _work() -> dict:
+        payload = _state_or_error(_run)
+        if batch.expect:
+            payload["contrato"] = {"n_aserciones": len(batch.expect), "ok": True}
+        return payload
+
+    return _sync_or_job("edit_batch", _work, async_)
+
+
+@app.get("/api/jobs")
+def list_jobs() -> dict:
+    """Los últimos jobs retenidos, sin `resultado` (payload grande). Telemetría."""
+    return {"jobs": JOBS.briefs()}
+
+
+@app.get("/api/jobs/{job_id}")
+def get_job(job_id: str, wait_s: float = 0.0) -> dict:
+    """Estado/resultado de un job (V6.5e). ``wait_s`` (0..30) = long-poll: responde en
+    cuanto termina. El resultado queda CACHEADO → re-preguntar es siempre seguro."""
+    job = JOBS.get(job_id, wait_s=wait_s)
+    if job is None:
+        raise HTTPException(
+            status_code=404, detail=JOB_UNKNOWN.format(job_id=job_id, retention=JOBS.retention)
+        )
+    return job
 
 
 class PreviewIn(BaseModel):
@@ -2164,6 +2218,54 @@ def scan_motion(body: ScanIn) -> dict:
 
     with STATE_LOCK:
         return {"colisiones": scan_collisions(DOC, DOC.motion.get(body.name, []), body.steps)}
+
+
+class MotionGifIn(BaseModel):
+    name: str
+    steps: int = 48          # intervalos del recorrido (steps+1 fotogramas)
+    fps: int = 12
+    pingpong: bool = False   # añade la vuelta → el bucle no salta al reiniciar
+    view: str = "iso"
+    azimuth: float | None = None
+    elevation: float | None = None
+    zoom: float = 1.0
+    size_px: int = 720
+    edges: bool = True
+
+
+@app.post("/api/motion.gif")
+def motion_gif(body: MotionGifIn) -> Response:
+    """GIF animado de un estudio de movimiento CON NOMBRE: interpola las juntas a lo largo
+    del recorrido y pinta cada fotograma con el MISMO motor VTK que `render_view`, con la
+    cámara FIJA a todo el recorrido (si no, el encuadre 'respira' al moverse el mecanismo).
+    Espejo de `/api/physics/drop.gif` pero para cinemática, no para física."""
+    from apolo.robotics.anim import extract_motion_frames, render_motion_gif
+
+    with STATE_LOCK:  # FASE OCCT: FK + teselado → snapshots de datos PUROS
+        kfs = DOC.motion.get(body.name)
+        if not kfs:
+            disponibles = ", ".join(sorted(DOC.motion)) or "ninguno"
+            raise HTTPException(
+                status_code=404,
+                detail=f"No existe el estudio de movimiento '{body.name}' (hay: {disponibles})",
+            )
+        try:
+            snaps = extract_motion_frames(
+                DOC, kfs, steps=body.steps, pingpong=body.pingpong,
+                view=body.view, azimuth=body.azimuth, elevation=body.elevation,
+                zoom=body.zoom, size_px=body.size_px, colors=_feature_colors(),
+                edges=body.edges,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # FUERA de STATE_LOCK: el bucle VTK (lo lento) corre bajo RENDER_LOCK
+    try:
+        gif = render_motion_gif(snaps, fps=body.fps)
+    except RuntimeError as exc:  # sin Pillow
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 — sin contexto OpenGL u otro fallo VTK
+        raise HTTPException(status_code=503, detail=f"El render VTK falló: {exc}") from exc
+    return Response(content=gif, media_type="image/gif")
 
 
 def _robot_export(builder) -> bytes:
