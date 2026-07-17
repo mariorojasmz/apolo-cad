@@ -128,7 +128,11 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   DESPUÉS. `WS.notify_changed` (`run_coroutine_threadsafe`) y el autosave (Timer) ya eran
   thread-safe → sin camino paralelo. GOTCHA: 404 de job tras un reload NO significa «no
   aplicó» (los jobs viven en memoria, el autosave ya guardó) → verificar con get_scene/health,
-  nunca reintentar el lote a ciegas (el mensaje del 404 lo dice).
+  nunca reintentar el lote a ciegas (el mensaje del 404 lo dice). **Guardia de proyecto**
+  (auditoría V6.5e): un job encolado captura `PROJECT_ID` al encolar y lo revalida DENTRO de
+  la adquisición del RLock que ejecuta el lote (check+mutación atómicos) — si el proyecto
+  activo cambió (open/new ganaron la carrera a la cola) → 409 y el lote NO aplica al proyecto
+  equivocado; `restore_revision` conserva el id → aplica sobre lo restaurado, como en sync.
 - **Lectura a ESCALA (V6.5)**: ninguna lectura de rutina vuelca la escena entera.
   `get_scene(summary=true)` (`GET /api/scene/summary`) = resumen por GRUPO (n_piezas/masa/
   bbox conjunto/sub-grupos + «(sin grupo)» + totales + variables) — la vista de ENTRADA a un

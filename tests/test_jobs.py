@@ -217,6 +217,55 @@ def test_unexpected_error_is_500_and_worker_survives():
     assert store.get(ok, wait_s=10)["resultado"] == {"vivo": True}
 
 
+# ------------------------------------------------------------- 4b. carrera de proyecto
+def test_queued_job_rejects_project_switch():
+    """Un job ENCOLADO no puede mutar el proyecto EQUIVOCADO (auditoría V6.5e): si el
+    proyecto activo cambió entre el submit y la ejecución (open_project ganó la carrera
+    a un lote esperando detrás de otro), el job muere en 409 y el proyecto nuevo queda
+    INTACTO. En el mundo sync esto no podía pasar (la request serializaba tras
+    STATE_LOCK); la cola le abría una puerta lateral."""
+    api.DOC = Document("proyecto-A")
+    old_pid = api.PROJECT_ID
+    client = TestClient(api.app)
+    gate = threading.Event()
+    api.JOBS.submit("bloqueo", lambda: (gate.wait(10), {})[1])  # ocupa el worker
+
+    r = client.post("/api/commands/batch", params={"async": "true"},
+                    json={"actions": _boxes()})
+    assert r.status_code == 202
+    jid = r.json()["job_id"]
+
+    # el usuario abre OTRO proyecto mientras el lote espera en cola (swap como el de
+    # open_project: DOC y PROJECT_ID cambian juntos)
+    api.DOC = Document("proyecto-B")
+    api.PROJECT_ID = (old_pid or 0) + 999
+    gate.set()
+    try:
+        job = _await_job(client, jid)
+    finally:
+        api.PROJECT_ID = old_pid
+
+    assert job["estado"] == "error"
+    assert job["http_status"] == 409
+    assert "proyecto activo cambió" in job["error"]
+    assert len(api.DOC.scene) == 0  # proyecto-B quedó intacto: el lote de A NO aplicó
+
+
+def test_queued_job_applies_when_project_unchanged():
+    """La guardia no puede dar falsos positivos: sin switch de por medio, el job
+    encolado aplica normal (mismo PROJECT_ID al encolar y al ejecutar)."""
+    api.DOC = Document("proyecto-quieto")
+    client = TestClient(api.app)
+    gate = threading.Event()
+    api.JOBS.submit("bloqueo", lambda: (gate.wait(10), {})[1])
+    r = client.post("/api/commands/batch", params={"async": "true"},
+                    json={"actions": _boxes()})
+    gate.set()
+    job = _await_job(client, r.json()["job_id"])
+    assert job["estado"] == "ok"
+    assert len(api.DOC.scene) == 2
+
+
 # ------------------------------------------------------------------ 5. retención / 404
 def test_eviction_keeps_last_terminated():
     store = JobStore(retention=3)

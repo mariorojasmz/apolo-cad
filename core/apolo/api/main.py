@@ -1073,8 +1073,30 @@ def _sync_or_job(tipo: str, work, async_: bool):
     atomicidad, mismo undo, mismos contratos, mismo autosave, cero código duplicado."""
     if not async_:
         return work()
+    # Un job ENCOLADO no puede aplicar al proyecto EQUIVOCADO (auditoría V6.5e): se
+    # captura el proyecto destino al encolar (lectura de global sin STATE_LOCK: el 202
+    # debe ser instantáneo aunque haya un regenerate en curso) y se revalida DENTRO de
+    # la misma adquisición del RLock que ejecuta el lote — check+mutación atómicos, sin
+    # TOCTOU. Restaura las semánticas del mundo sync, donde el switch serializaba tras
+    # STATE_LOCK. `restore_revision` conserva el PROJECT_ID → el lote aplica sobre la
+    # revisión restaurada, igual que aplicaría en sync.
+    expected = PROJECT_ID
+
+    def guarded():
+        with STATE_LOCK:
+            if PROJECT_ID != expected:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"El proyecto activo cambió mientras el lote esperaba en cola "
+                        f"(era {expected}, ahora {PROJECT_ID}): el lote NO se aplicó. "
+                        f"Abre el proyecto correcto y reenvíalo."
+                    ),
+                )
+            return work()
+
     return JSONResponse(
-        status_code=202, content={"job_id": JOBS.submit(tipo, work), "estado": "encolado"}
+        status_code=202, content={"job_id": JOBS.submit(tipo, guarded), "estado": "encolado"}
     )
 
 
