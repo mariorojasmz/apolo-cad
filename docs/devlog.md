@@ -3603,3 +3603,64 @@ Fixes → docs/plans/V7.2c-fixes-re-auditoria.md (fit por pieza, revolución≠s
 del manual, citas, trazabilidad del benchmark). Nota: el 2º auditor (código) murió por
 límite de sesión — la revisión de código profunda de order_by_support/lints queda
 pendiente de V7.2c (el plan instruye diagnóstico).
+
+
+## V7.2c — cierre de los 3 defectos de la re-auditoría (Opus, 2026-07-18)
+
+Ejecución del plan `docs/plans/V7.2c-fixes-re-auditoria.md`. Los 3 defectos NUEVOS que la
+re-auditoría cazó por texto de PDF (y la «ruta de código» no vio) + citas flojas +
+trazabilidad. Suite **1212 passed, 1 skipped** + **15 tortura verdes**; +16 tests nuevos.
+
+**Fix 1 · fit POR PIEZA (mayor)**. `_hole_fit_map` (api/main.py) era un mapa GLOBAL por Ø
+nominal y el 38 tiene DOS ejes Ø35 (motriz h7, tensor g6) → el h7 pisaba al g6 y la lámina
+del tensor rotulaba «Ø35 h7» siendo g6 (el taller mecanizaría MAL el asiento; regresión del
+propio fix D de V7.2b). Se separó en `_feature_fit_maps(doc)` = {feature_id → {Ø→clase}} de SU
+nombre «… Ø35 g6» + los `drill_hole.fit` que la perforan; `_scene_fit_map(doc, scene)` mergea
+para una vista de conjunto/GA y OMITE un Ø en CONFLICTO (dos clases distintas → mejor ausente
+que equivocado). `_hole_fit_map = _scene_fit_map(doc, doc.scene)`. `sheet_set` gana `piece_fits`
+= el mapa por-feature: cada lámina por pieza usa `piece_fits.get(_rep)` (su clase), el GA usa
+el global conflict-free; `drawing_spec` computa desde la escena EFECTIVA (aislar un eje da SU
+fit). Tests: dos ejes Ø35 h7/g6 → cada lámina la suya, el GA no rotula el Ø en conflicto.
+
+**Fix 2 · revolución ≠ sierra (mayor)**. La heurística «caja esbelta → sierra» (V7.2b E)
+disparaba sobre el tambor motriz ENGOMADO y los 2 rodillos (piezas torneadas/fabricadas). Se
+añadió `process.py::_is_revolution(feat,name)` ANTES de la rama de perfil esbelto: por ROL en
+el nombre (tambor/rodillo/rodete/polea/husillo/cilindro) o por geometría (sección transversal
+~cuadrada, dos cotas del bbox ≈ iguales = el Ø, + fill ≈ π/4 ±10 % = cilindro macizo). «eje» se
+EXCLUYE del regex a propósito: un eje real trae fit ISO 286 (→ torneado ya) y un prisma cuadrado
+llamado «Eje…» no es de revolución (respeta el test `has_fit_forces_turning`). Un tubo hueco
+(fill « π/4) o un prisma macizo (fill ≈ 1) NO se muerden → los largueros/patas HSS siguen sierra.
+Verificado sobre cilindros reales: tambor macizo fill 0.785→torneado, rodillo hueco por nombre→
+torneado, HSS cuadrado hueco/barra maciza→sierra.
+
+**Fix 3 · cola del manual (mayor)**. Diagnóstico: la chumacera apoya sobre el larguero (soporte)
+pero el eje CRUZA su bore → `detect_structure` los clasifica `mismo_nivel` (co-extensos en z), no
+soporte; el motor de eje hueco cuelga del eje → también `mismo_nivel`. Así chumacera=eje=motor
+quedan al MISMO rango de soporte y el sort estable los ordenaba por el log (motor antes que
+chumacera → paso 6 tras el 5). Fix: `order_by_support` DESEMPATA al mismo rango por familia
+(`_family_order`: rodamientos/chumaceras 0 < neutro 1 < motores/reductores 2 — criterio de
+montaje real: el motor desliza sobre un eje que las chumaceras YA sostienen). Test sintético:
+larguero→(chumacera,eje,motor coextensos) → orden estricto Chumacera<Eje<Motor.
+
+**Fix 4 · «apretar en cruz»**. Los 24 pernos del 38 son a-medida («Perno anclaje M12 + arandela»,
+sin componente) → el paso NO es is_hw y `_family_head` caía al texto genérico. Se amplió el
+matcher de tornillería por NOMBRE (perno/tornillo/tuerca/arandela/anclaje) → «apernado» aunque
+no sea catálogo; y un paso estructural MIXTO (soldar + pies niveladores/disco anti-giro) conserva
+el «soldar» y suma una línea «…apretar en cruz al par» sin que un perno le robe la cabecera
+(orden estructura-antes-que-perno).
+
+**Fix 5 · menores de honestidad**. `rules.py`: flecha **L/240 (AISC, carga total)** (era L/250 —
+alinea con la doctrina V7.2b y CLAUDE.md; cambia allow de span/250 a span/240, sin voltear
+veredictos del 38) y eje **σ_adm = 0.5·σy** en la cita (antes «0.6·σy ASME» con fórmula σy/2 —
+ahora cita=fórmula, «más estricto que ASME B106.1M»). `fea/static.py`: `calc.norma` = «FEA
+estático lineal — criterio de diseño FS = σy/σ_vm». `sheetset.py`: sufijo «(k/n)» en el título
+de láminas que comparten nombre (multi-sólido, p. ej. 3 ménsulas del motorreductor; el título del
+cajetín trunca a 34 chars → el «(» del sufijo es la marca estable). `benchmark_package.py`:
+`validacion["lints_pre_entrega"]` serializado APARTE aunque esté vacío (auditable) + `_git_commit`
+marca «+ cambios sin commitear» con `git status --porcelain`.
+
+**Pendiente de correr**: re-benchmark a carpeta fechada nueva + re-grade E2.3/E2.5/E5/E3.3 (y E3.3
+citas) vs rúbrica-v1 desde el 74 % re-auditado — requiere un servidor limpio (el :8000 vivo tenía
+un worker con python de anaconda —gotcha del socket-zombie— y dos uvicorns). Esperado honesto:
+~76-78 %. Verificar por TEXTO extraído las 3 claims: lámina del tensor dice g6, tambor/rodillos
+sin «sierra», chumaceras antes que el motor.

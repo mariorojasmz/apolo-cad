@@ -61,7 +61,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **70 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-16)**: 1197 tests (+15 tortura vía `-m torture`) · 70 tools MCP ·
+- **Estado actual (2026-07-18)**: 1213 tests (+15 tortura vía `-m torture`) · 70 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -458,6 +458,27 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   chumaceras en paso 6 DESPUÉS del motor en el manual). Meta 78-80 % a ~4-6 pts. **DIFERIDO D.1**
   (pernos de anclaje→catálogo DIN 933): cirugía de alto riesgo por mejora cosmética de BOM.
   Fixes → `docs/plans/V7.2c-fixes-re-auditoria.md`.
+- **V7.2c — cierre de los 3 defectos de la re-auditoría (2026-07-18)**: (1) **fit POR PIEZA**
+  en las láminas — `_hole_fit_map` (api/main.py) ya NO es un mapa global por Ø: `_feature_fit_maps`
+  da {feature_id → {Ø→clase}} (nombre «… Ø35 g6» + su `drill_hole.fit`) y `sheet_set(piece_fits=…)`
+  rotula CADA lámina con EL SUYO (el h7 del motriz no pisa al g6 del tensor); el GA (`_scene_fit_map`)
+  OMITE un Ø en conflicto (mejor ausente que equivocado); `drawing_spec` computa el mapa desde la
+  escena EFECTIVA (aislar un eje da SU fit). (2) **revolución ≠ sierra** — `drawing/process.py::
+  _is_revolution` (por ROL en el nombre tambor/rodillo/polea, o geometría: sección ~cuadrada +
+  fill ≈ π/4 ±10 %) va ANTES de la rama de perfil esbelto → el tambor engomado/rodillos rotulan
+  torneado/fabricado, no sierra; un tubo hueco (fill « π/4) o prisma macizo (fill ≈ 1) NO se muerden.
+  «eje» se EXCLUYE del regex (un eje real trae fit → ya es torneado; un prisma «Eje…» no es de
+  revolución). (3) **cola del manual** — `order_by_support` DESEMPATA por familia (`_family_order`:
+  rodamientos/chumaceras 0 < neutro 1 < motores/reductores 2) los pasos al MISMO rango de soporte
+  (el eje cruza el bore de la chumacera → `detect_structure` los deja `mismo_nivel`, no soporte →
+  empataban y el log ordenaba mal); `_family_head` reconoce tornillería a-medida por nombre
+  (perno/tornillo/tuerca/arandela/anclaje) → «apretar en cruz» aunque no sea catálogo, y un paso
+  estructural mixto (pies niveladores/disco anti-giro) suma una línea de apriete sin perder el
+  «soldar». Citas (`rules.py`): flecha **L/240 (AISC)** (era L/250, alinea con la doctrina) y eje
+  **σ_adm = 0.5·σy** (cita = fórmula, «más estricto que ASME B106.1M»; antes citaba 0.6·σy con
+  fórmula σy/2); FEA (`fea/static.py`) gana `calc.norma`. Multi-sólido: sufijo «(k/n)» en el título
+  de láminas que comparten nombre. Benchmark (`scripts/benchmark_package.py`): serializa
+  `lints_pre_entrega` en validacion.json aunque esté vacío + `_git_commit` marca árbol sucio.
 
 ### Materiales (`library/materials.py`)
 - Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
@@ -641,7 +662,11 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   SOLAPAR 0.5–8 mm (tangentes → Compound; disjuntas → ShapeList sin `.volume`);
   `build_component(ref, L)` ignora `L` si el componente no es `cuttable`.
 - Caja orientada en el espacio: `Rotation(0, ry, rz)` con `rz=atan2(Δy,Δx)` (rumbo) y
-  `ry=-atan2(Δz,√(Δx²+Δy²))` (cabeceo) — verificada por bbox en `test_script`.
+  `ry=-atan2(Δz,√(Δx²+Δy²))` (cabeceo). **GOTCHA (perezosa V2)**: con Δx<0 (rz≈180°) el
+  orden de rotaciones INVIERTE el cabeceo → la caja cae en la DIAGONAL OPUESTA del MISMO
+  bbox (bbox/measure dan "bien"; el síntoma medible es la interferencia contra vecinos).
+  Método robusto: `Plane(origin=centro, x_dir=dirección, z_dir=normal) * Box(...)` con
+  ejes explícitos; validar orientación con render AISLADO + interferencia, no con bbox.
 
 ### Cirugía de modelos (event-sourced)
 - Para canjear sub-ensamblajes: **borrar el sub-grafo COMPLETO de comandos** con
@@ -909,6 +934,15 @@ cerrar V6; orden tentativo por impacto en el entregable:
   `_hole_fit_map` global por Ø — regresión). Meta 78-80 % queda a ~4-6 pts. **Diferido D.1**
   (pernos→catálogo: cosmético, alto riesgo). RE-AUDITORÍA en `calificacion.md` 2026-07-14;
   fixes → plan V7.2c.
+- **V7.2c Fixes de la re-auditoría** — **HECHO (código+tests, 2026-07-18)**. Cierra los 3
+  defectos NUEVOS que solo se veían en el ENTREGABLE + citas + trazabilidad: (1) fit POR PIEZA
+  (`_feature_fit_maps`/`_scene_fit_map` + `sheet_set(piece_fits=…)`: cada lámina SU clase, el GA
+  omite el Ø en conflicto); (2) revolución ≠ sierra (`process.py::_is_revolution` antes de la rama
+  esbelta: tambor/rodillos → torneado); (3) cola del manual (`order_by_support` desempata por
+  familia rodamientos<neutro<motores + `_family_head` reconoce tornillería a-medida → «apretar en
+  cruz»); citas flecha L/240·eje 0.5·σy·FEA norma; sufijo «(k/n)» multi-sólido; benchmark serializa
+  lints + marca árbol sucio. Suite + tortura verdes. Detalle: § Planos 2D (V7.2c). Re-benchmark y
+  re-grade E2.3/E2.5/E5/E3.3 vs rúbrica-v1 → pendiente de correr (servidor limpio).
 - **V7.3 Stack-up de cadenas de cotas** — PLANEADO (`docs/plans/V7.3-stackup-cadenas-
   cotas.md`; prerrequisito: V7.2b): motor puro peor-caso+RSS con ISO 2768/286, cadenas
   declaradas como metadato paramétrico, cadena auto del patrón de pernos, sección en la

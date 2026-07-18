@@ -117,10 +117,18 @@ class Bench:
 
 
 def _git_commit() -> str:
+    """Commit corto + bandera de ÁRBOL SUCIO (V7.2c): si hay cambios sin commitear, el
+    paquete NO corresponde a un commit limpio → decirlo (el 2026-07-14 apuntaba a un
+    commit que aún no incluía el código real)."""
     try:
-        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
+        h = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
     except Exception:
         return "desconocido"
+    try:
+        dirty = subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
+    except Exception:
+        dirty = ""
+    return f"{h} + cambios sin commitear" if dirty else h
 
 
 # ---- A1: aserciones de invariantes clave (parametricidad + existencia + holguras) ----
@@ -255,6 +263,17 @@ def main() -> None:
                       "proyecto ≠ 38 y sin --checks")
         validacion["engineering_check"] = b.fetch_json(
             "A1", "engineering_check (requisitos)", "POST", "/api/checks", json={})
+        # lints pre-entrega (V7.2c): serializados APARTE aunque estén vacíos — «presentes
+        # y vacíos» dentro de `estructura` no era auditable; una lista vacía prueba que
+        # corrieron y el modelo está sano (barrenos sin perno, piezas sin unión).
+        _eng = validacion["engineering_check"] or {}
+        validacion["lints_pre_entrega"] = [
+            r for r in (_eng.get("estructura") or [])
+            if str(r.get("regla", "")).startswith("pre-entrega")
+        ]
+        _n_lints = len(validacion["lints_pre_entrega"])
+        b._record("A1", "lints pre-entrega (serializados)", None, None, 0.0, "ok",
+                  f"{_n_lints} aviso(s)" + (" — modelo sano" if not _n_lints else ""))
         vbytes = (out / "validacion.json")
         vbytes.write_bytes(json.dumps(validacion, indent=2, ensure_ascii=False).encode("utf-8"))
         b._record("A1", "validacion.json (índice)", "validacion.json",

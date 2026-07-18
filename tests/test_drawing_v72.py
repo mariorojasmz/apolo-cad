@@ -185,6 +185,50 @@ def test_infer_process_has_fit_forces_turning():
     assert infer_process(doc.scene[fid], None, has_fit=True)["key"] == "torneado"
 
 
+# --------------------------------------------- V7.2c: revolución no es «sierra»
+def test_revolution_drum_is_turned_not_sawn():
+    """V7.2c fix 2: el tambor motriz engomado (cilindro macizo, fill ≈ π/4) rotula
+    torneado/fabricado, NO «corte en sierra» (era un falso positivo del heurístico
+    esbelto)."""
+    doc = Document()
+    tid = doc.execute("run_script", {"name": "Tambor motriz engomado",
+                                     "code": "from build123d import Cylinder\nresult = Cylinder(radius=57, height=650)"})
+    proc = infer_process(doc.scene[tid], None)
+    assert proc["key"] == "torneado" and "sierra" not in proc["label"]
+
+
+def test_revolution_hollow_roller_by_name_is_turned():
+    """Un rodillo HUECO (fill « π/4) no lo caza la geometría, pero el ROL en el nombre
+    (rodillo) sí → torneado/fabricado, no sierra."""
+    doc = Document()
+    rid = doc.execute("run_script", {"name": "Rodillo de retorno",
+                                     "code": "from build123d import Cylinder\nresult = Cylinder(radius=50.8, height=640) - Cylinder(radius=45, height=641)"})
+    proc = infer_process(doc.scene[rid], None)
+    assert proc["key"] == "torneado" and "sierra" not in proc["label"]
+
+
+def test_revolution_geometry_without_name_token():
+    """Un cilindro macizo SIN token de rol en el nombre igual se detecta por geometría."""
+    doc = Document()
+    cid = doc.execute("run_script", {"name": "Pieza cilíndrica",
+                                     "code": "from build123d import Cylinder\nresult = Cylinder(radius=30, height=400)"})
+    assert infer_process(doc.scene[cid], None)["key"] == "torneado"
+
+
+def test_revolution_does_not_catch_hollow_square_tube():
+    """Un tubo HSS cuadrado hueco (sección cuadrada pero fill « π/4) NO es revolución →
+    sigue siendo «corte en sierra» (no se lo lleva la rama de torneado)."""
+    doc = Document()
+    l = doc.execute("run_script", {"name": "Larguero A36 HSS",
+                                   "code": "from build123d import Box\nresult = Box(4000,50,50) - Box(4001,44,44)"})
+    proc = infer_process(doc.scene[l], None)
+    assert proc["key"] == "sierra"
+    # y una barra maciza cuadrada (fill ≈ 1) tampoco → sierra por perfil
+    b = doc.execute("create_box", {"name": "Barra 50", "width": 50, "depth": 50,
+                                   "height": 600, "position": {"x": 6000}})
+    assert infer_process(doc.scene[b], None)["key"] == "sierra"
+
+
 def test_finish_cell_from_process():
     """El cajetín pinta el Ra del proceso en la celda «Acabado» cuando shop_notes=True."""
     doc = Document()
@@ -218,6 +262,59 @@ def test_process_note_no_paint_for_inox():
     fid = doc.execute("create_box", {"name": "Guarda inox", "width": 400, "depth": 300, "height": 3})
     notes = shop_notes(doc.scene[fid], None, "acero inoxidable")
     assert any("no pintar" in n.lower() for n in notes)
+
+
+# ------------------------------------------ V7.2c fix 1 · fit POR PIEZA en las láminas
+def _two_shafts_diff_fit() -> Document:
+    """Dos ejes cilíndricos Ø35 con fits distintos en el nombre (motriz h7, tensor g6),
+    como el proyecto 38 (dos ejes de igual Ø nominal)."""
+    doc = Document()
+    doc.execute("run_script", {"name": "Eje motriz Ø35 h7",
+                               "code": "from build123d import Cylinder\nresult = Cylinder(radius=17.5, height=400)"})
+    doc.execute("run_script", {"name": "Tensor de cola · Eje fijo Ø35 g6",
+                               "code": "from build123d import Cylinder\nresult = Cylinder(radius=17.5, height=350)"})
+    return doc
+
+
+def test_feature_fit_maps_are_per_piece():
+    """`_feature_fit_maps` da un mapa por feature: cada eje conserva SU clase, sin pisarse."""
+    from apolo.api.main import _feature_fit_maps
+
+    doc = _two_shafts_diff_fit()
+    per = _feature_fit_maps(doc)
+    fits = sorted(m[35.0] for m in per.values() if 35.0 in m)
+    assert fits == ["g6", "h7"]  # los dos coexisten (antes el segundo pisaba al primero)
+
+
+def test_ga_fit_map_omits_conflicting_diameter():
+    """En el GA, un Ø con dos clases distintas (h7 y g6 en Ø35) se OMITE — mejor ausente
+    que equivocado (antes «el último gana» mentía)."""
+    from apolo.api.main import _hole_fit_map, _scene_fit_map
+
+    doc = _two_shafts_diff_fit()
+    assert 35.0 not in _hole_fit_map(doc)  # conflicto → no se rotula en el conjunto
+    # aislar UN eje sí da su clase (la lámina/vista acotada no tiene conflicto)
+    tensor = next(fid for fid, f in doc.scene.items() if "Tensor" in f.name)
+    assert _scene_fit_map(doc, {tensor: doc.scene[tensor]}) == {35.0: "g6"}
+
+
+def test_sheet_set_labels_each_shaft_with_its_own_fit():
+    """Cada lámina por pieza rotula EL SUYO: la del eje motriz «h7», la del tensor «g6»
+    — la regresión del fix D era que ambas decían «h7» (mapa global por Ø)."""
+    from apolo.api.main import _feature_fit_maps, _hole_fit_map
+
+    doc = _two_shafts_diff_fit()
+    pages = sheet_set(doc.scene, project_name="Faja",
+                      piece_fits=_feature_fit_maps(doc), hole_fits=_hole_fit_map(doc) or None)
+    # solo láminas por pieza (llevan nota de taller «Proceso:»); excluye el CONJUNTO,
+    # cuyo despiece lista ambos nombres «… h7»/«… g6» y confundiría el filtro
+    parts = [p for p in pages if any("Proceso:" in l.text for l in p.labels)]
+    motriz = next(p for p in parts if any("motriz" in l.text.lower() for l in p.labels))
+    tensor = next(p for p in parts if any("tensor" in l.text.lower() for l in p.labels))
+    mtxt = " ".join(l.text for l in motriz.labels)
+    ttxt = " ".join(l.text for l in tensor.labels)
+    assert "h7" in mtxt and "g6" not in mtxt   # la del motriz, su h7
+    assert "g6" in ttxt and "h7" not in ttxt   # la del tensor, su g6
 
 
 # --------------------------------------------------------------- D · acotado por función

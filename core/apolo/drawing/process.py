@@ -11,12 +11,19 @@ material resuelto (para la nota de protección superficial).
 
 from __future__ import annotations
 
+import math
 import re
 
 # categorías de catálogo que se cortan a medida en sierra (perfiles y tubos)
 _PROFILE_CATS = {"perfiles", "perfiles_abiertos", "tubos_estructurales", "tubos_circulares"}
 # ajuste ISO 286 en el nombre («Ø35 h7», «Ø 20 k6») → superficie torneada de asiento
 _FIT_RE = re.compile(r"Ø\s*\d+(?:\.\d+)?\s+(?:js|[gfhkmnp])\d", re.I)
+# ROL de pieza de REVOLUCIÓN en el nombre (V7.2c): un tambor/rodillo/polea es torneado
+# o fabricado, NO un perfil aserrado. «eje» se EXCLUYE a propósito: un eje real ya trae
+# fit ISO 286 en el nombre (→ torneado) y un prisma cuadrado llamado «Eje …» no es de
+# revolución — la geometría (fill ≈ π/4) lo decide, no el nombre.
+_REVOLUTION_RE = re.compile(r"\b(tambor|rodillo|rodete|polea|husillo|cilindro)\b", re.I)
+_CYL_FILL = math.pi / 4.0  # un cilindro macizo llena π/4 de su bbox
 
 # Ra (µm) representativo por familia de proceso (ISO 1302, acabado GENERAL)
 _RA = {"torneado": 3.2, "mecanizado": 6.3, "sierra": 12.5, "laser_pliegue": 12.5}
@@ -55,6 +62,38 @@ def _wall_thickness(feat) -> float | None:
         return None
 
 
+def _is_revolution(feat, name: str) -> bool:
+    """¿Pieza de REVOLUCIÓN (cilindro/tambor/rodillo/polea)? V7.2c — por el ROL en el
+    nombre (tambor/rodillo/…) o por geometría: una sección transversal ~cuadrada (dos
+    cotas del bbox ≈ iguales = el diámetro) con un volumen que llena ≈ π/4 de su bbox
+    (cilindro macizo ±10 %). Distingue un tambor/rodillo TORNEADO de un perfil/tubo
+    esbelto de sección compacta que sí se ASERRA — el tambor motriz engomado y los
+    rodillos de la faja 38 salían «corte en sierra» (3 falsos positivos). Un tubo hueco
+    (fill « π/4) o un prisma macizo (fill ≈ 1) NO son revolución → no se muerden."""
+    if _REVOLUTION_RE.search(name):
+        return True
+    dims = _sorted_dims(feat)
+    if dims is None:
+        return False
+    s0, s1, s2 = dims
+    if s0 <= 0.0 or s1 <= 0.0 or s2 <= 0.0:
+        return False
+    # el Ø aparece como DOS cotas ≈ iguales del bbox: las dos menores en un cilindro
+    # largo (D,D,L), las dos mayores en un disco (t,D,D) — basta que UNA pareja empate
+    round_section = (abs(s1 - s0) <= 0.10 * s1) or (abs(s2 - s1) <= 0.10 * s2)
+    if not round_section:
+        return False
+    try:
+        bb = feat.shape.bounding_box()
+        bbvol = (bb.max.X - bb.min.X) * (bb.max.Y - bb.min.Y) * (bb.max.Z - bb.min.Z)
+        vol = float(feat.shape.volume)
+    except Exception:
+        return False
+    if bbvol <= 0.0:
+        return False
+    return abs(vol / bbvol - _CYL_FILL) <= 0.10 * _CYL_FILL  # cilindro macizo ≈ π/4 ±10 %
+
+
 def _sheet_is_bent(feat) -> bool:
     """Chapa CON pliegue real: su volumen llena mucho menos que su bbox (forma en
     L/U/C). Una placa PLANA llena su bbox (fill ≈ 1) → corte láser sin plegado."""
@@ -72,10 +111,11 @@ def infer_process(feat, component=None, *, has_fit: bool = False) -> dict:
 
     Orden de señales (la primera que aplica gana): catálogo perfil/tubo → corte en
     sierra (o en inglete si `feat.miter`); ajuste ISO 286 (en el nombre o `has_fit`
-    de la capa API) → torneado; espesor mínimo del bbox ≤6 mm SIN catálogo → corte
-    láser (+ plegado SOLO si el sólido está plegado de verdad); sección esbelta
-    constante SIN catálogo → perfil aserrado (V7.2b E: cazan los largueros/patas
-    modelados como `create_box`, que antes caían a «mecanizado»); resto → mecanizado."""
+    de la capa API) → torneado; pieza de REVOLUCIÓN (tambor/rodillo/polea por rol o
+    cilindro por geometría, V7.2c) → torneado/fabricado; sección esbelta constante SIN
+    catálogo → perfil aserrado (V7.2b E: cazan los largueros/patas modelados como
+    `create_box`); espesor mínimo del bbox ≤6 mm SIN catálogo → corte láser (+ plegado
+    SOLO si el sólido está plegado de verdad); resto → mecanizado."""
     name = getattr(feat, "name", "") or ""
     cat = getattr(component, "category", None)
     if cat in _PROFILE_CATS:
@@ -84,6 +124,12 @@ def infer_process(feat, component=None, *, has_fit: bool = False) -> dict:
                 "label": "corte en inglete" if ingl else "corte en sierra"}
     if has_fit or _FIT_RE.search(name):
         return {"key": "torneado", "label": "torneado", "ra": _RA["torneado"]}
+    # REVOLUCIÓN antes que la sierra esbelta (V7.2c): un tambor/rodillo/polea (por rol o
+    # por geometría cilíndrica) es torneado/fabricado, no un perfil aserrado. Va tras el
+    # catálogo (un tubo de catálogo SÍ se asierra) y tras el fit (un eje con fit ya salió).
+    if _is_revolution(feat, name):
+        return {"key": "torneado", "label": "torneado / fabricado (revolución)",
+                "ra": _RA["torneado"]}
     dims = _sorted_dims(feat)
     # PERFIL antes que chapa: un tubo estructural hueco tiene pared fina (t_eff ≤ 6) pero
     # es esbelto con sección compacta → se aserra, NO es chapa láser (era el fallo en los

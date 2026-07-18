@@ -5,7 +5,9 @@ import importlib.util
 import pytest
 
 from apolo.doc import Document
-from apolo.drawing.assembly_manual import assembly_manual, assembly_steps, order_by_support
+from apolo.drawing.assembly_manual import (
+    _family_head, assembly_manual, assembly_steps, order_by_support,
+)
 from apolo.library.catalog import CATALOG
 
 _HAS_MPL = importlib.util.find_spec("matplotlib") is not None
@@ -88,6 +90,23 @@ def test_orphan_step_merges_into_subassembly():
     assert cart in torre["ids"]                        # se fusionó al sub-ensamblaje
 
 
+def test_order_by_support_family_tiebreak_bearing_before_motor():
+    """V7.2c fix 3: chumacera, eje y motor coextensos en z (el eje cruza el bore, el
+    motor cuelga del eje → mismo_nivel, MISMO rango de soporte). El desempate por
+    familia monta la chumacera ANTES que el motor — el motor de eje hueco desliza sobre
+    un eje que las chumaceras ya sostienen. Creados en orden log motor→eje→chumacera
+    para probar que el tie-break, no el log, decide."""
+    doc = Document()
+    _box(doc, "Larguero X", 400, 80, 40, x=200, y=40, z=20)          # piso
+    _box(doc, "Motor NMRV sinfin", 120, 120, 120, x=250, y=40, z=100)  # cuelga del eje
+    _box(doc, "Eje motriz", 300, 40, 40, x=200, y=40, z=100)          # cruza el bore
+    _box(doc, "Chumacera UCP207", 80, 90, 120, x=60, y=40, z=100)     # sostiene el eje
+    stages = order_by_support(doc.scene, assembly_steps(doc.scene, doc.commands, CATALOG), CATALOG)
+    labels = [s["label"] for s in stages]
+    assert labels == ["Larguero", "Chumacera", "Eje", "Motor"]
+    assert labels.index("Chumacera") < labels.index("Motor")  # el fix explícito
+
+
 def test_order_by_support_fallback_no_structure():
     """Sin estructura (piezas separadas, sin soporte) el orden del log queda intacto."""
     doc = Document()
@@ -97,6 +116,57 @@ def test_order_by_support_fallback_no_structure():
     base = assembly_steps(doc.scene, doc.commands, CATALOG)
     out = order_by_support(doc.scene, base)
     assert [s["label"] for s in out] == [s["label"] for s in base]  # sin reordenar
+
+
+# ------------------------------------------------- V7.2c fix 4: texto por familia
+def test_family_head_amedida_bolts_apretar_en_cruz():
+    """V7.2c fix 4: un paso de tornillería MODELADA a-medida (no catálogo, «Perno
+    anclaje M12…», como los 24 de la faja 38) NO es is_hw pero SÍ recibe la cabecera
+    «apretar en cruz» — antes caía al texto genérico."""
+    doc = Document()
+    for i in range(4):
+        doc.execute("create_box", {"name": "Perno anclaje M12 + arandela", "width": 18,
+                                   "depth": 18, "height": 60, "position": {"x": i * 100}})
+    stages = assembly_steps(doc.scene, doc.commands, CATALOG)
+    perno = next(s for s in stages if "Perno" in s["label"])
+    assert not perno["is_hw"]  # a-medida, sin componente de catálogo
+    assert "apretar en cruz" in _family_head(perno, doc.scene, CATALOG).lower()
+
+
+def test_family_head_catalog_bolts_still_apernado():
+    """Regresión: la tornillería de CATÁLOGO (is_hw) sigue recibiendo «apretar en cruz»."""
+    doc = Document()
+    doc.execute("insert_component", {"component": "DIN912-M6", "position": {"x": 0}})
+    stages = assembly_steps(doc.scene, doc.commands, CATALOG)
+    torn = next(s for s in stages if s["is_hw"])
+    assert "apretar en cruz" in _family_head(torn, doc.scene, CATALOG).lower()
+
+
+def test_family_head_mixed_structure_and_bolted_adds_note():
+    """Un paso estructural (soldado) que ADEMÁS trae piezas atornilladas (pies
+    niveladores) conserva la instrucción de soldar y suma una línea de «apretar en
+    cruz» — sin que un perno le robe la cabecera al paso mayormente soldado."""
+    doc = Document()
+    l = doc.execute("create_box", {"name": "Larguero A36 (+Y)", "width": 2000, "depth": 40,
+                                   "height": 80, "position": {"z": 200}})
+    p = doc.execute("create_box", {"name": "Pies niveladores (regulables)", "width": 40,
+                                   "depth": 40, "height": 30, "position": {"x": 100}})
+    doc.execute("create_group", {"name": "Bastidor base", "members": [l, p]})
+    stages = assembly_steps(doc.scene, doc.commands, CATALOG)
+    base = next(s for s in stages if s["label"] == "Bastidor base")
+    head = _family_head(base, doc.scene, CATALOG).lower()
+    assert "soldar" in head and "apretar en cruz" in head
+
+
+def test_family_head_pure_structure_no_bolt_note():
+    """Un paso solo estructural (sin atornillados) NO suma la nota de apriete."""
+    doc = Document()
+    doc.execute("create_box", {"name": "Larguero A36 (+Y)", "width": 2000, "depth": 40,
+                               "height": 80})
+    stages = assembly_steps(doc.scene, doc.commands, CATALOG)
+    larg = next(s for s in stages if "Larguero" in s["label"])
+    head = _family_head(larg, doc.scene, CATALOG).lower()
+    assert "soldar" in head and "apretar en cruz" not in head
 
 
 @pytest.mark.skipif(not _HAS_MPL, reason="requiere matplotlib para el render 3D")

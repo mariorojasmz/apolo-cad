@@ -94,6 +94,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
               meta: dict | None = None, sheet: str = "A3", shaded: bool = False,
               colors: dict | None = None,
               hole_fits: dict[float, str] | None = None,
+              piece_fits: dict[str, dict[float, str]] | None = None,
               hole_threads: dict[float, str] | None = None,
               thread_rows: list[dict] | None = None,
               fasteners: dict | None = None) -> list[SheetModel]:
@@ -102,7 +103,14 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     carpinteria/weldment/chapa/generico (carpinteria/generico incluyen la cédula de
     herraje). `hole_threads` rotula roscas en las láminas; `thread_rows` (V5.7,
     de `_thread_schedule`) añade las roscas a la CÉDULA — y la fuerza aunque no
-    haya herraje: la lista de machuelos es dato de compra/taller."""
+    haya herraje: la lista de machuelos es dato de compra/taller.
+
+    `hole_fits` = mapa Ø→clase del CONJUNTO (GA, conflicto de Ø ya resuelto por el
+    llamador); `piece_fits` = mapa POR feature_id (V7.2c) para las láminas por pieza —
+    cada lámina rotula EL SUYO, así el h7 de un eje no pisa el g6 de otro con igual Ø.
+    Sin `piece_fits`, cada lámina cae al `hole_fits` global (compat)."""
+    from collections import Counter
+
     from apolo.commands.registry import Feature
     from apolo.library.cutlist import cut_list, cut_list_totals, hardware_schedule
 
@@ -141,6 +149,11 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
                                fasteners=fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 en el GA
                                project_name=f"{project_name} · CONJUNTO", sheet=sheet, meta=page_meta(1)))
     # 2..) una lámina por pieza (sólido aislado, acotado overall + agujeros Ø)
+    # títulos duplicados (varios sólidos DISTINTOS de un mismo comando, p. ej. las 3
+    # ménsulas del motorreductor) → sufijo «(k/n)» para no compartir título (V7.2c)
+    valid_names = [r["nombre"] for r in rows if scene.get(r["_rep"]) is not None]
+    name_counts = Counter(valid_names)
+    name_seen: dict[str, int] = {}
     for r in rows:
         rep = scene.get(r["_rep"])
         if rep is None:
@@ -148,15 +161,21 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         solid = _pick_solid(rep.shape, r["espesor_mm"], r["ancho_mm"], r["largo_mm"])
         feat = Feature(id="P", name=r["nombre"], shape=solid, command_id="P")
         seccion = _profile_section(rep)
-        title = f"{r['nombre']} · {r['cantidad']}× · {r['material']}"
+        disp_name = r["nombre"]
+        if name_counts[r["nombre"]] > 1:  # desambigua sólidos distintos del mismo comando
+            k = name_seen[r["nombre"]] = name_seen.get(r["nombre"], 0) + 1
+            disp_name = f"{r['nombre']} ({k}/{name_counts[r['nombre']]})"
+        title = f"{disp_name} · {r['cantidad']}× · {r['material']}"
         if seccion:  # sección de catálogo → el taller sabe tubo/barra y pared
             title += f" · {seccion}"
         pm = {**page_meta(len(pages) + 1), "material": r["material"]}
         # color de la pieza para su iso sombreada (= el color de su feature representante en el web)
         pc = {"P": colors.get(r["_rep"])} if colors else None
+        # fits de ESTA pieza (V7.2c): su mapa por-feature si lo hay; si no, el global
+        pfits = piece_fits.get(r["_rep"]) if piece_fits is not None else hole_fits
         pages.append(compose_sheet({"P": feat}, auto_dims=True, show_iso=shaded, shaded=shaded,
                                    colors=pc, sheet=sheet, project_name=title, meta=pm,
-                                   hole_fits=hole_fits, hole_threads=hole_threads,
+                                   hole_fits=pfits or None, hole_threads=hole_threads,
                                    interface_dims=True,  # V7.2 D3: pitch del patrón de montaje en cada pieza
                                    shop_notes=True))  # V7.2 B/C: tolerancia ISO 2768 + proceso/acabado
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)

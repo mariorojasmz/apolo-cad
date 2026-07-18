@@ -108,16 +108,22 @@ def _support_depth(scene: dict, grounded: set, supports: list, level: list) -> d
     return depth
 
 
-def order_by_support(scene: dict, stages: list[dict]) -> list[dict]:
+def order_by_support(scene: dict, stages: list[dict], catalog=None) -> list[dict]:
     """Reordena los PASOS por el grafo de soporte dirigido (V7.2b): una pieza se monta
     DESPUÉS de todo lo que la soporta (tierra → arriba), así las chumaceras van antes
     que su eje y el eje antes que el motor que cuelga de él. Dentro del mismo nivel
-    topológico conserva el orden por sub-ensamblaje (sort ESTABLE). Fusiona los pasos
-    HUÉRFANOS (una pieza suelta a-medida) al paso del sub-ensamblaje al que se une en
-    el grafo. Sin estructura (ni soporte ni soldadura lateral) devuelve los pasos
-    intactos → fallback al orden del log."""
+    topológico DESEMPATA por familia (V7.2c): rodamientos/chumaceras ANTES que
+    motores/reductores — el motor de eje hueco desliza sobre un eje que las chumaceras
+    ya sostienen, y detect_structure los deja al MISMO nivel (el eje cruza el bore →
+    mismo_nivel, no soporte). A igual familia, conserva el orden por sub-ensamblaje
+    (sort ESTABLE). Fusiona los pasos HUÉRFANOS (una pieza suelta a-medida) al paso del
+    sub-ensamblaje al que se une en el grafo. Sin estructura (ni soporte ni soldadura
+    lateral) devuelve los pasos intactos → fallback al orden del log."""
     from apolo.assembly.autodetect import detect_structure
 
+    if catalog is None:
+        from apolo.library.catalog import CATALOG
+        catalog = CATALOG
     det = detect_structure(scene)
     supports = [(f["a"], f["b"]) for f in det["fasteners"] if f.get("direction") == "soporte"]
     level = [(f["a"], f["b"]) for f in det["fasteners"] if f.get("direction") == "mismo_nivel"]
@@ -157,7 +163,31 @@ def order_by_support(scene: dict, stages: list[dict]) -> list[dict]:
         ds = [depth[i] for i in st["ids"] if i in depth]
         return min(ds) if ds else maxd + 1  # piezas sin soporte conocido → al final
 
-    return sorted(survivors, key=rank)  # estable: mismo rango conserva el orden previo
+    # a IGUAL rango de soporte, la familia decide: rodamientos/chumaceras (0) antes que
+    # lo neutro (1) antes que motores/reductores (2) — criterio de montaje real
+    return sorted(survivors, key=lambda st: (rank(st), _family_order(st, scene, catalog)))
+
+
+_MOTOR_TOKENS = ("motor", "reductor", "nmrv", "sinfín", "sinfin", "gearmotor")
+
+
+def _family_order(stage: dict, scene: dict, catalog) -> int:
+    """Prioridad de montaje por familia para DESEMPATAR pasos al mismo nivel de soporte
+    (V7.2c): 0 = rodamientos/chumaceras (se montan primero, sostienen el eje), 1 =
+    neutro, 2 = motores/reductores (cuelgan del eje que las chumaceras ya sostienen)."""
+    cats: set = set()
+    for fid in stage["ids"]:
+        comp = catalog.get(getattr(scene.get(fid), "component", None) or "")
+        if comp is not None:
+            cats.add(comp.category)
+    text = (stage.get("label") or "").lower() + " " + " ".join(
+        (getattr(scene.get(fid), "name", "") or "").lower() for fid in stage["ids"])
+    if bool(cats & _BEARING_CATS) or any(
+            k in text for k in ("chumacera", "rodamiento", "ucp", "ucf", "ucfl")):
+        return 0
+    if any(k in text for k in _MOTOR_TOKENS):
+        return 2
+    return 1
 
 
 # --------------------------------------------------------------- instrucción por familia (V7.2b A)
@@ -172,11 +202,23 @@ _INSTR = {
 _BEARING_CATS = {"rodamientos", "chumaceras"}
 _PROFILE_CATS = {"perfiles", "perfiles_abiertos", "tubos_estructurales", "tubos_circulares"}
 _BOLT_CATS = {"pernos", "tornilleria"}
+# tornillería MODELADA a-medida (no catálogo): en la faja 38 los pernos de anclaje son
+# boolean_op «Perno anclaje M12 + arandela», sin `component` → el paso NO es is_hw y el
+# texto genérico se colaba (faltaba «apretar en cruz»). Amplía el matcher por nombre.
+_BOLT_TOKENS = ("torniller", "perno", "tornillo", "tuerca", "arandela", "anclaje")
+_STRUCT_TOKENS = ("larguero", "travesa", "perfil", "tubo", "poste", "pata", "marco",
+                  "bastidor", "viga", "columna", "miembro", "cordón", "cordon")
+# componentes ATORNILLADOS que suelen viajar en un paso estructural (soldar) pero se
+# fijan con pernos: se les añade una línea de «apretar en cruz» sin robar la instrucción
+_MIXED_BOLTED_TOKENS = _BOLT_TOKENS + ("nivelador", "anti-giro", "antigiro", "anti giro")
 
 
 def _family_head(stage: dict, scene: dict, catalog) -> str:
-    """Texto de instrucción según la FAMILIA del paso (V7.2b A.2): perfiles soldados,
-    herraje apernado, chumaceras, catálogo o genérico — leído de nombres y catálogo."""
+    """Texto de instrucción según la FAMILIA del paso (V7.2b A.2, ampliado V7.2c):
+    perfiles soldados, herraje/tornillería apernado (catálogo O a-medida por nombre),
+    chumaceras, catálogo o genérico — leído de nombres y catálogo. Un paso estructural
+    que además trae piezas atornilladas (pies niveladores, disco anti-giro) suma una
+    línea de «apretar en cruz» sin perder su instrucción de soldadura."""
     ids = stage["ids"]
     cats: set = set()
     for fid in ids:
@@ -187,18 +229,23 @@ def _family_head(stage: dict, scene: dict, catalog) -> str:
         (getattr(scene.get(fid), "name", "") or "").lower() for fid in ids)
     bearing = bool(cats & _BEARING_CATS) or any(
         k in text for k in ("chumacera", "rodamiento", "ucp", "ucf", "ucfl"))
+    bolt = bool(cats & _BOLT_CATS) or any(k in text for k in _BOLT_TOKENS)
+    structure = bool(cats & _PROFILE_CATS) or any(k in text for k in _STRUCT_TOKENS)
     if stage["is_hw"]:
-        if cats & _BOLT_CATS or "torniller" in text or "perno" in text:
+        if bolt:
             return _INSTR["apernado"]
         if bearing:
             return _INSTR["chumacera"]
         return _INSTR["herraje"]
     if bearing:
         return _INSTR["chumacera"]
-    if cats & _PROFILE_CATS or any(k in text for k in (
-            "larguero", "travesa", "perfil", "tubo", "poste", "pata", "marco",
-            "bastidor", "viga", "columna", "miembro", "cordón", "cordon")):
-        return _INSTR["estructura"]
+    if structure:  # estructura primero: un paso mayormente soldado no lo roba un perno
+        base = _INSTR["estructura"]
+        if any(k in text for k in _MIXED_BOLTED_TOKENS):  # paso mixto: hay atornillados
+            base += " Los componentes atornillados (pies, disco anti-giro) se fijan con pernos: apretar en cruz al par."
+        return base
+    if bolt:  # tornillería a-medida (sin catálogo, no is_hw): también «apretar en cruz»
+        return _INSTR["apernado"]
     if cats:
         return _INSTR["catalogo"]
     return _INSTR["generico"]
@@ -321,7 +368,7 @@ def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "S
     if not vis:
         raise ValueError("Escena vacía: nada que ensamblar")
     stages = assembly_steps(scene, commands, CATALOG)
-    stages = order_by_support(vis, stages)  # V7.2b A: orden por soporte + fusión de huérfanos
+    stages = order_by_support(vis, stages, CATALOG)  # V7.2b A: orden por soporte + fusión de huérfanos
     if not stages:
         raise ValueError("No se pudo derivar la secuencia de ensamblaje")
     bbox = _scene_bbox(vis)

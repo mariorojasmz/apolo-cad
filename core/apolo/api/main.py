@@ -3046,6 +3046,7 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
             pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
                               colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
+                              piece_fits=_feature_fit_maps(DOC) or None,  # V7.2c: cada lámina, SU fit
                               hole_threads=_hole_thread_map(DOC) or None,
                               thread_rows=_thread_schedule(DOC) or None,
                               fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
@@ -3071,6 +3072,7 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
             pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
                               meta=_drawing_meta(), sheet=sheet,
                               colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
+                              piece_fits=_feature_fit_maps(DOC) or None,  # V7.2c: cada lámina, SU fit
                               hole_threads=_hole_thread_map(DOC) or None,
                               thread_rows=_thread_schedule(DOC) or None,
                               fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
@@ -3252,11 +3254,12 @@ class DrawingSpecIn(BaseModel):
 _SHAFT_FIT_RE = None  # compilado perezoso en _hole_fit_map
 
 
-def _hole_fit_map(doc) -> dict[float, str]:
-    """Mapa AUTOMÁTICO Ø_nominal → clase ISO 286 para los callouts del plano (V5.4):
-    (1) comandos drill_hole con `fit`; (2) NOMBRES de features «… Ø35 h7» (ejes —
-    convención bendecida, como el grado de material). Colisión en el mismo Ø: gana
-    el drill_hole (los círculos HLR no distinguen origen; documentado)."""
+def _feature_fit_maps(doc) -> dict[str, dict[float, str]]:
+    """Fits ISO 286 POR feature (V7.2c): cada feature_id → {Ø_nominal → clase} de SU
+    nombre («… Ø35 g6») + los drill_hole que la perforan con `fit`. Es la fuente para
+    las LÁMINAS POR PIEZA: cada pieza rotula EL SUYO, sin que el fit de un eje pise al
+    de otro que comparte Ø nominal (regresión del fix D — el 38 tiene DOS ejes Ø35, el
+    motriz h7 y el tensor g6)."""
     import re
 
     global _SHAFT_FIT_RE
@@ -3264,20 +3267,49 @@ def _hole_fit_map(doc) -> dict[float, str]:
         _SHAFT_FIT_RE = re.compile(
             r"Ø\s*(\d+(?:\.\d+)?)\s+((?:js|[gfhkmnp]))(\d{1,2})\b"
         )
-    out: dict[float, str] = {}
-    for feat in doc.scene.values():
+    per: dict[str, dict[float, str]] = {}
+    for fid, feat in doc.scene.items():
         m = _SHAFT_FIT_RE.search(getattr(feat, "name", "") or "")
         if m:
-            out[float(m.group(1))] = f"{m.group(2)}{m.group(3)}"
+            per.setdefault(fid, {})[float(m.group(1))] = f"{m.group(2)}{m.group(3)}"
     for cmd in doc.commands:
         if cmd.get("type") == "drill_hole" and cmd.get("params", {}).get("fit"):
             try:
                 dia = float(cmd["params"].get("diameter", 0))
             except (TypeError, ValueError):
                 continue  # diámetro por "=expresión": se omite del mapa automático
-            if dia > 0:
-                out[dia] = cmd["params"]["fit"]
+            tgt = cmd["params"].get("feature")
+            if dia > 0 and tgt and tgt in doc.scene:
+                per.setdefault(tgt, {})[dia] = cmd["params"]["fit"]
+    return per
+
+
+def _scene_fit_map(doc, scene) -> dict[float, str]:
+    """Mapa Ø_nominal → clase ISO 286 para una VISTA de CONJUNTO/GA que abarca `scene`
+    (V7.2c): mergea los fits por-feature (`_feature_fit_maps`) y, ante CONFLICTO (mismo
+    Ø con clases distintas en piezas distintas), OMITE ese Ø — en un GA un fit
+    equivocado es PEOR que uno ausente (antes «el último gana» pisaba g6 con h7). Cada
+    lámina por pieza no usa esto sino su mapa por-feature."""
+    per = _feature_fit_maps(doc)
+    out: dict[float, str] = {}
+    conflict: set[float] = set()
+    for fid in scene:
+        for dia, cls in per.get(fid, {}).items():
+            if dia in out and out[dia] != cls:
+                conflict.add(dia)
+            else:
+                out[dia] = cls
+    for dia in conflict:
+        out.pop(dia, None)
     return out
+
+
+def _hole_fit_map(doc) -> dict[float, str]:
+    """Mapa AUTOMÁTICO Ø_nominal → clase ISO 286 para el CONJUNTO/GA (V5.4, endurecido
+    en V7.2c): drill_hole con `fit` + NOMBRES «… Ø35 h7». Conflicto de Ø (dos ejes de
+    igual Ø con fits distintos) → se OMITE ese Ø en vez de mentir. Las láminas por
+    pieza usan `_feature_fit_maps` (cada pieza, el suyo)."""
+    return _scene_fit_map(doc, doc.scene)
 
 
 def _hole_thread_map(doc) -> dict[float, str]:
@@ -3372,7 +3404,9 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
             scene = {fid: scene[fid] for fid in iso if fid in scene}
             if not scene:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
-        fits_map = _hole_fit_map(DOC)
+        # el mapa de fits se construye desde la escena EFECTIVA (post-isolate): aislar un
+        # solo eje muestra SU fit sin conflicto con otro Ø igual del resto (V7.2c)
+        fits_map = _scene_fit_map(DOC, scene)
         for k, v in (spec.hole_fits or {}).items():  # override del agente encima del auto
             try:
                 fits_map[float(k)] = v

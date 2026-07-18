@@ -151,6 +151,7 @@ def run_static_analysis(step_path: str, *, pieza: str,
             ),
             "criterio": f"FS ≥ {fs_min:g} (estático); 1.2–{fs_min:g} justo; <1.2 sobrecargada",
             "fs": fs,
+            "norma": "FEA estático lineal — criterio de diseño FS = σy/σ_vm (von Mises)",
         },
     }
     return resumen, field

@@ -20,8 +20,8 @@ FRICTION_COEFF = 0.06  # rodadura + cojinetes
 EFFICIENCY = 0.85
 POWER_MARGIN = 1.3
 RAIL_W = 40.0
-DEFLECTION_RATIO = 250.0  # flecha admisible del bastidor = L / 250
-SHAFT_SAFETY = 2.0        # factor de seguridad sobre el límite elástico del eje
+DEFLECTION_RATIO = 240.0  # flecha admisible del bastidor = L / 240 (AISC, carga total)
+SHAFT_SAFETY = 2.0        # factor de seguridad sobre el límite elástico del eje (σ_adm = σy/2)
 
 _HP_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*hp", re.I)
 _KW_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*kw", re.I)
@@ -885,7 +885,7 @@ def conveyor_engineering_check(
             "resultado": f"δ = {defl:.2f} mm",
             "criterio": f"δ ≤ L/{DEFLECTION_RATIO:.0f} = {allow:.2f} mm",
             "fs": round(allow / defl, 2) if defl > 0 else None,
-            "norma": f"criterio de serviciabilidad L/{DEFLECTION_RATIO:.0f} (práctica AISC)",
+            "norma": f"criterio de serviciabilidad L/{DEFLECTION_RATIO:.0f} (AISC, carga total)",
         }
         det = (f"Flecha ≈ {defl:.2f} mm en un vano de {span:.0f} mm "
                f"(admisible L/{DEFLECTION_RATIO:.0f} = {allow:.2f} mm; {material}, sección "
@@ -924,7 +924,7 @@ def conveyor_engineering_check(
             "resultado": f"σ = {sigma:.1f} MPa",
             "criterio": f"σ ≤ σy/{SHAFT_SAFETY:.0f} = {allow:.0f} MPa",
             "fs": round(allow / sigma, 2) if sigma > 0 else None,
-            "norma": "criterio σ_adm = 0.6·σy (ref. ASME B106.1M — ejes)",
+            "norma": "criterio conservador σ_adm = 0.5·σy (más estricto que ASME B106.1M — ejes)",
         }
         det = (f"Eje Ø{float(eje_d):.0f} a flexión ≈ {sigma:.0f} MPa entre apoyos de {span_eje:.0f} mm "
                f"(admisible σy/{SHAFT_SAFETY:.0f} = {allow:.0f} MPa, {material}). Estimación.")

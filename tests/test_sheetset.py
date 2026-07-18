@@ -127,6 +127,29 @@ def test_table_sheets_have_real_title():
     assert "Faja 4m" in txt and "Sin título" not in txt
 
 
+def test_multisolid_same_name_gets_disambiguating_suffix():
+    """V7.2c: varios sólidos DISTINTOS con el mismo nombre (p. ej. 3 ménsulas del
+    motorreductor) → cada lámina lleva sufijo «(k/n)» para no compartir título."""
+    doc = Document()
+    for i, (w, d, h) in enumerate([(120, 80, 10), (140, 90, 12), (160, 100, 14)]):
+        doc.execute("create_box", {"name": "Ménsula soporte motorreductor", "width": w,
+                                   "depth": d, "height": h, "position": {"x": i * 300}})
+    pages = sheet_set(doc.scene, project_name="Faja")
+    # el título del cajetín se trunca a 34 chars → el «(» del sufijo es la marca estable
+    # (el nº de hoja «k/5» no lleva paréntesis, así no colisiona)
+    suffixes = {s for p in pages for l in p.labels for s in ("(1/3", "(2/3", "(3/3")
+                if s in l.text}
+    assert suffixes == {"(1/3", "(2/3", "(3/3"}  # las 3 láminas quedan desambiguadas
+
+
+def test_single_solid_title_has_no_suffix():
+    """Una pieza única NO recibe sufijo (el título queda limpio)."""
+    doc = Document()
+    doc.execute("create_box", {"name": "Placa única", "width": 120, "depth": 80, "height": 10})
+    part = sheet_set(doc.scene)[1]
+    assert not any("(1/1)" in l.text for l in part.labels)
+
+
 def test_profile_section_labeled_on_part_sheet():
     doc = Document()
     doc.execute("insert_component", {"component": "TUBO-3X3", "position": {"x": 0, "y": 0, "z": 0}})
