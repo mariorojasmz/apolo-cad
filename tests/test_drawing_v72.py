@@ -215,6 +215,21 @@ def test_revolution_geometry_without_name_token():
     assert infer_process(doc.scene[cid], None)["key"] == "torneado"
 
 
+def test_revolution_does_not_catch_bracket_named_after_roller():
+    """Un SOPORTE nombrado por el rodillo que sostiene («Ménsula rodillo retorno») NO es
+    de revolución — el guarda de bracket suprime el match por nombre y la geometría (una
+    placa, fill ≈ 1) decide → mecanizado, no torneado (falso positivo cazado en el
+    benchmark del 38)."""
+    doc = Document()
+    fid = doc.execute("create_box", {"name": "Ménsula rodillo retorno", "width": 120,
+                                     "depth": 80, "height": 10})
+    assert infer_process(doc.scene[fid], None)["key"] != "torneado"
+    # el rodillo REAL (cilindro) sí es torneado
+    rid = doc.execute("run_script", {"name": "Rodillo retorno Ø50",
+                                     "code": "from build123d import Cylinder\nresult = Cylinder(radius=25, height=600)"})
+    assert infer_process(doc.scene[rid], None)["key"] == "torneado"
+
+
 def test_revolution_does_not_catch_hollow_square_tube():
     """Un tubo HSS cuadrado hueco (sección cuadrada pero fill « π/4) NO es revolución →
     sigue siendo «corte en sierra» (no se lo lleva la rama de torneado)."""

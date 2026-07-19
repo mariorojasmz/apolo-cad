@@ -23,6 +23,12 @@ _FIT_RE = re.compile(r"Ø\s*\d+(?:\.\d+)?\s+(?:js|[gfhkmnp])\d", re.I)
 # fit ISO 286 en el nombre (→ torneado) y un prisma cuadrado llamado «Eje …» no es de
 # revolución — la geometría (fill ≈ π/4) lo decide, no el nombre.
 _REVOLUTION_RE = re.compile(r"\b(tambor|rodillo|rodete|polea|husillo|cilindro)\b", re.I)
+# piezas SOPORTE nombradas por el componente que sostienen («Ménsula rodillo retorno»,
+# «Soporte de tambor») NO son de revolución: el nombre lleva el rol pero la pieza es un
+# bracket/placa. El guarda solo suprime el match POR NOMBRE — la geometría (fill ≈ π/4)
+# sigue cazando un bracket que fuese cilíndrico (rarísimo).
+_BRACKET_RE = re.compile(
+    r"\b(m[eé]nsula|soporte|placa|brida|cartela|base|tapa|abrazadera|guarda)\b", re.I)
 _CYL_FILL = math.pi / 4.0  # un cilindro macizo llena π/4 de su bbox
 
 # Ra (µm) representativo por familia de proceso (ISO 1302, acabado GENERAL)
@@ -69,8 +75,10 @@ def _is_revolution(feat, name: str) -> bool:
     (cilindro macizo ±10 %). Distingue un tambor/rodillo TORNEADO de un perfil/tubo
     esbelto de sección compacta que sí se ASERRA — el tambor motriz engomado y los
     rodillos de la faja 38 salían «corte en sierra» (3 falsos positivos). Un tubo hueco
-    (fill « π/4) o un prisma macizo (fill ≈ 1) NO son revolución → no se muerden."""
-    if _REVOLUTION_RE.search(name):
+    (fill « π/4) o un prisma macizo (fill ≈ 1) NO son revolución → no se muerden. Un
+    SOPORTE nombrado por su rodillo/tambor («Ménsula rodillo retorno») NO cuenta por
+    nombre — el guarda de bracket lo excluye y la geometría decide."""
+    if _REVOLUTION_RE.search(name) and not _BRACKET_RE.search(name):
         return True
     dims = _sorted_dims(feat)
     if dims is None:
