@@ -3659,8 +3659,19 @@ cajetín trunca a 34 chars → el «(» del sufijo es la marca estable). `benchm
 `validacion["lints_pre_entrega"]` serializado APARTE aunque esté vacío (auditable) + `_git_commit`
 marca «+ cambios sin commitear» con `git status --porcelain`.
 
-**Pendiente de correr**: re-benchmark a carpeta fechada nueva + re-grade E2.3/E2.5/E5/E3.3 (y E3.3
-citas) vs rúbrica-v1 desde el 74 % re-auditado — requiere un servidor limpio (el :8000 vivo tenía
-un worker con python de anaconda —gotcha del socket-zombie— y dos uvicorns). Esperado honesto:
-~76-78 %. Verificar por TEXTO extraído las 3 claims: lámina del tensor dice g6, tambor/rodillos
-sin «sierra», chumaceras antes que el motor.
+**Re-benchmark MEDIDO + verificado en el artefacto (2026-07-18)**. Servidor LIMPIO (maté los dos
+uvicorn `--reload` y el worker con python de anaconda —el socket-zombie del gotcha— y levanté un
+uvicorn single-process del venv). `benchmark_package.py --project 38 --expect largo_total=4000`:
+26/26 artefactos, ~80 s, commit `3a2030f` limpio. Verificado por **TEXTO extraído con pypdf** (lo
+que V7.2b NO hizo) mapeando página→pieza vía `cutlist.json`: (1) lámina del **eje motriz → h7**,
+lámina del **tensor → g6** (cada eje el suyo, el GA omite el Ø35 en conflicto); (2) **tambor
+motriz y los 2 rodillos → «torneado/fabricado (revolución)»**, `Ménsula rodillo retorno` →
+mecanizado; (3) manual: **Rodamientos paso 4 < Transmisión paso 6** + «apretar en cruz» en el paso
+1 (Tornillería) y en el 2 (Estructura mixta). El primer benchmark cazó un **falso positivo nuevo**
+que yo introduje —`Ménsula rodillo retorno` (bracket) salía «torneado» porque el regex de nombre
+matchea «rodillo»— → guarda `_BRACKET_RE` + test + segunda corrida limpia (esa fue la lección de
+V7.2b aplicada: mirar el artefacto, no la ruta de código). Re-grade honesto en
+`docs/benchmark/faja-paqueteria-4m/2026-07-18/calificacion.md`: **74 %→≈78 %** (E2 2.79→2.93, E3
+3.30→3.35, E5 2.25→3.00), toca el borde inferior de la meta 78-80 %. Residuales declarados: FEA
+guardado del 38 predata el `calc.norma` (16/17), E2.2 (datum/ménsula sin barrenos UCP en el
+modelo), orden fino inter-grupo del manual, D.1 pernos.

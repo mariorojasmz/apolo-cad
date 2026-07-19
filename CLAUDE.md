@@ -834,25 +834,23 @@ de RESULTADOS de arriba. Veredicto por FEATURES: como CAD GENERAL ~10-15 % de SW
 paramétrica + tablas de diseño) · croquis 5 (PlaneGCS; falta arrastre
 en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
 soundness/gravity sigue siendo único) · planos 7.5 (V7.2: soldadura ISO 2553 + tol. ISO 2768 +
-acabados ISO 1302 + datums, sin retoque humano) · simulación 4.5 (analítico+MuJoCo+FEA
-lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 · rendimiento 6 (V6.2) ·
-robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (**MEDIDO**, **re-calificado tras V7.2b + re-auditoría** — benchmark
-testigo de la faja 38 vs la rúbrica-v1; `docs/benchmark/faja-paqueteria-4m/2026-07-14/
-calificacion.md` con sección RE-AUDITORÍA por texto extraído de los PDFs; producido por API en
-~198 s autónomo — la métrica de TIEMPO es ~10³× a favor, estimado): global ≈ **74 %** de nivel
-despacho (autocalificación 77 % corregida; era 73 % en V7.2 — la meta 78-80 % queda a ~4-6 pts).
-Memoria de cálculo = **82.5 %** (16/16 cuantitativas citan norma o «criterio de diseño»; citas
-flojas: σy/2 aplicado vs «0.6·σy ASME» citado, «L/250 práctica AISC») · BOM/cotización = **75 %**
-(fiel; los 24 pernos de anclaje siguen a-medida —D.1 diferido) · 3D validado = **84.4 %** (eje
-del tensor «Ø35 g6» → `engineering_check` **0 avisos**; 0 flotantes) · **planos de taller =
-69.6 %** (sierra en largueros/patas ✓ PERO: la lámina del eje del tensor rotula «Ø35 h7» siendo
-g6 —`_hole_fit_map` global por Ø, el h7 del motriz pisa al g6, regresión del fix D—; falsos
-«sierra» en tambor engomado y rodillos; residual E2.2 datum/ménsula) · manual = **56.3 %**
-(pernos de anclaje al paso 2 ✓ PERO chumaceras en paso 6 DESPUÉS del motor —la inversión que
-order_by_support prometía matar— y «apretar en cruz» ausente) · **FEA firmable ~45 %** · render
-comercial ~50 % (por demanda). Brechas top: E5 manual + fit-map por pieza + sierra en cilindros
-(plan V7.2c) + E2.2 (datum por cara funcional, barrenos del UCP en el modelo).
+acabados ISO 1302 + datums · V7.2c: fit por lámina, revolución≠sierra, sin retoque humano) ·
+simulación 4.5 (analítico+MuJoCo+FEA lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 ·
+rendimiento 6 (V6.2) · robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
+Veredicto por RESULTADOS (**MEDIDO**, **re-calificado tras V7.2c** — benchmark testigo de la faja
+38 vs la rúbrica-v1; `docs/benchmark/faja-paqueteria-4m/2026-07-18/calificacion.md`, verificado
+por TEXTO extraído de los PDFs con pypdf; producido por API en ~80 s autónomo sobre servidor
+limpio — la métrica de TIEMPO es ~10³× a favor, estimado): global ≈ **78 %** de nivel despacho
+(74 % en V7.2b re-auditado; toca el borde inferior de la meta 78-80 %). Los 3 defectos de la
+re-auditoría CERRADOS y verificados en el artefacto: lámina del tensor dice **g6** (motriz h7,
+cada eje el suyo), tambor/rodillos **torneados** (no sierra), chumaceras **paso 4 < motor paso 6**
++ «apretar en cruz». Memoria = **83.8 %** (citas alineadas: 0.5·σy y L/240; residual: FEA guardado
+del 38 predata el `calc.norma`) · BOM/cotización = **75 %** (D.1 pernos a-medida diferido) · 3D
+validado = **84.4 %** (0 avisos, 0 flotantes) · **planos de taller = 73.2 %** (fit por lámina +
+revolución torneada; residual E2.2 datum/ménsula-sin-barrenos-UCP) · manual = **75 %** (orden por
+soporte + familia + «apretar en cruz»; residual: orden fino inter-grupo heurístico) · **FEA
+firmable ~45 %** · render comercial ~50 % (por demanda). Brechas top: E2.2 (datum por cara
+funcional + barrenos del UCP en el modelo) + orden fino del manual.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -934,15 +932,19 @@ cerrar V6; orden tentativo por impacto en el entregable:
   `_hole_fit_map` global por Ø — regresión). Meta 78-80 % queda a ~4-6 pts. **Diferido D.1**
   (pernos→catálogo: cosmético, alto riesgo). RE-AUDITORÍA en `calificacion.md` 2026-07-14;
   fixes → plan V7.2c.
-- **V7.2c Fixes de la re-auditoría** — **HECHO (código+tests, 2026-07-18)**. Cierra los 3
+- **V7.2c Fixes de la re-auditoría** — **HECHO (MEDIDO 74 %→≈78 %, 2026-07-18)**. Cierra los 3
   defectos NUEVOS que solo se veían en el ENTREGABLE + citas + trazabilidad: (1) fit POR PIEZA
   (`_feature_fit_maps`/`_scene_fit_map` + `sheet_set(piece_fits=…)`: cada lámina SU clase, el GA
   omite el Ø en conflicto); (2) revolución ≠ sierra (`process.py::_is_revolution` antes de la rama
-  esbelta: tambor/rodillos → torneado); (3) cola del manual (`order_by_support` desempata por
-  familia rodamientos<neutro<motores + `_family_head` reconoce tornillería a-medida → «apretar en
-  cruz»); citas flecha L/240·eje 0.5·σy·FEA norma; sufijo «(k/n)» multi-sólido; benchmark serializa
-  lints + marca árbol sucio. Suite + tortura verdes. Detalle: § Planos 2D (V7.2c). Re-benchmark y
-  re-grade E2.3/E2.5/E5/E3.3 vs rúbrica-v1 → pendiente de correr (servidor limpio).
+  esbelta: tambor/rodillos → torneado; guarda `_BRACKET_RE` para no morder «Ménsula rodillo…»);
+  (3) cola del manual (`order_by_support` desempata por familia rodamientos<neutro<motores +
+  `_family_head` reconoce tornillería a-medida → «apretar en cruz»); citas flecha L/240·eje 0.5·σy·
+  FEA norma; sufijo «(k/n)» multi-sólido; benchmark serializa lints + marca árbol sucio (untracked
+  excluido). Suite 1213 + tortura verdes. **Re-benchmark MEDIDO + verificado por TEXTO de PDF**
+  (`docs/benchmark/faja-paqueteria-4m/2026-07-18/`): las 3 claims cerradas en el artefacto (tensor
+  g6, tambor/rodillos torneados, chumaceras paso 4 < motor paso 6). Meta 78-80 % tocada por el
+  borde. Detalle: § Planos 2D (V7.2c). **Diferido**: D.1 (pernos→catálogo) + FEA guardado del 38
+  (predata el `calc.norma`; un `fea_static` nuevo lo trae) + E2.2 (datum por cara funcional).
 - **V7.3 Stack-up de cadenas de cotas** — PLANEADO (`docs/plans/V7.3-stackup-cadenas-
   cotas.md`; prerrequisito: V7.2b): motor puro peor-caso+RSS con ISO 2768/286, cadenas
   declaradas como metadato paramétrico, cadena auto del patrón de pernos, sección en la
