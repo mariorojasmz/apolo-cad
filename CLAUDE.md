@@ -862,22 +862,21 @@ soundness/gravity sigue siendo único) · planos 7.5 (V7.2: soldadura ISO 2553 +
 acabados ISO 1302 + datums · V7.2c: fit por lámina, revolución≠sierra, sin retoque humano) ·
 simulación 4.5 (analítico+MuJoCo+FEA lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 ·
 rendimiento 6 (V6.2) · robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (**MEDIDO**, **re-calificado tras V7.2c + re-auditoría** — benchmark
-testigo de la faja 38 vs la rúbrica-v1; `docs/benchmark/faja-paqueteria-4m/2026-07-18/
-calificacion.md` con sección RE-AUDITORÍA; verificado por TEXTO extraído de los PDFs con pypdf,
-reproducido independiente; producido por API en ~80 s autónomo — la métrica de TIEMPO es ~10³× a
-favor, estimado): global ≈ **77 %** de nivel despacho (autocalificación 78 % corregida; 74 % en
-V7.2b). Los 3 defectos de la re-auditoría CERRADOS y verificados: lámina del tensor **g6** con
-sus desviaciones ISO 286 (motriz h7, cada eje el suyo), tambor/rodillos **torneados**, chumaceras
-**paso 4 < motor paso 6**. PERO el patrón se repitió — regresión nueva: la Tornillería de anclaje
-quedó en el PASO 1 antes que la Estructura («Ménsula soporte motorreductor» clasificaba la
-Estructura como familia motores por substring; E5.1 3→2.5) — FIX ya landeado en el cierre de la
-re-auditoría (guarda de bracket en `_family_order` + matcher de tornillería anclado + sufijo
-(k/n) sobrevive al corte de 34 chars), el próximo benchmark lo mide. Memoria = **83.8 %** ·
-BOM/cotización = **75 %** (D.1 diferido) · 3D validado = **84.4 %** (0 avisos, 0 flotantes) ·
-**planos de taller = 73.2 %** (residual E2.2 datum/ménsula-sin-barrenos-UCP) · manual =
-**68.8 %** (inversión del paso 1 en este testigo; con el fix → ~75 legítimo) · **FEA firmable
-~45 %** · render ~50 %. Brechas top: E2.2 + re-medir el manual con el fix.
+Veredicto por RESULTADOS (**MEDIDO** — benchmark testigo de la faja 38 vs la rúbrica-v1;
+`docs/benchmark/faja-paqueteria-4m/2026-07-20/calificacion.md`; verificado por TEXTO extraído
+de los PDFs con pypdf; producido por API en 88 s autónomo — la métrica de TIEMPO es ~10³× a
+favor, estimado): global ≈ **78 %** de nivel despacho, tocando el borde inferior de la meta
+78-80 % por fin LEGÍTIMO (77 % re-auditado el 2026-07-18 con la regresión dentro; 74 % en
+V7.2b). El cierre de la re-auditoría de V7.2c —medido ahora en el artefacto— subió E5 a 3.0:
+el manual ordena **Estructura (paso 1) → Tornillería (paso 2)** con Rodamientos (paso 4) antes
+del motor (paso 6), y el sufijo (k/n) de las 3 láminas de la ménsula sobrevive al corte del
+cajetín. Memoria = **83.8 %** (+ sección de stack-up V7.3) · BOM/cotización = **75 %** (D.1
+diferido) · 3D validado = **84.4 %** (0 avisos, 0 flotantes) · **planos de taller = 73.2 %**
+(residual E2.2 datum/ménsula-sin-barrenos-UCP) · manual = **75 %** (orden por grafo de soporte,
+regresión cerrada) · **FEA firmable ~45 %** · render ~50 %. **V7.3 (stack-up de cadenas de
+cotas)** añade una capacidad que ningún incumbente entrega INTEGRADA a la memoria sin add-in
+(TolAnalyst) — no sube nota porque la rúbrica-v1 aún no la puntúa. Brechas top: E2.2 (datum por
+cara funcional + barrenos del UCP en el modelo) + orden fino inter-grupo del manual.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
