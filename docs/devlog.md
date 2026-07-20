@@ -3675,3 +3675,28 @@ V7.2b aplicada: mirar el artefacto, no la ruta de código). Re-grade honesto en
 3.30→3.35, E5 2.25→3.00), toca el borde inferior de la meta 78-80 %. Residuales declarados: FEA
 guardado del 38 predata el `calc.norma` (16/17), E2.2 (datum/ménsula sin barrenos UCP en el
 modelo), orden fino inter-grupo del manual, D.1 pernos.
+
+## V7.2c re-auditoría y cierre (Fable, 2026-07-18)
+
+Regla 3: dos auditorías independientes (artefactos por texto extraído REPRODUCIENDO la
+verificación del calificador sin confiar en ella, y código con sondas propias). Las 3
+claims están genuinamente cerradas — g6 con SUS desviaciones (-0.009/-0.025, verificado
+también por mí directamente), revolución torneada sin perder la sierra de perfiles
+(diff completo de las 22 láminas: solo cambió lo declarado), chumaceras paso 4 < motor
+paso 6, citas alineadas por CONSTANTE compartida (DEFLECTION_RATIO=240 alimenta criterio
+y etiqueta), fit por pieza bien construido (mapa por feature_id, GA omite solo el Ø en
+conflicto, valores de fit_limits). PERO el patrón de las iteraciones se cumplió: 1
+regresión nueva en el testigo — la Tornillería de anclaje quedó en el PASO 1 antes que
+la Estructura («Atornillar a las piezas ya montadas» con CERO montadas): _family_order
+clasificaba por substring y la «Ménsula soporte motorreductor» convertía la Estructura
+en familia motores → perdía el desempate. El mismo falso positivo por token que
+_is_revolution acababa de curar. Además el sufijo (k/n) moría en el corte [:34] del
+cajetín (el test pasaba de chiripa asertando «(1/3» sin cierre) y el flag de árbol sucio
+ignoraba TODO lo untracked. FIXES DE CIERRE (por Fable, 4 tests de regresión): guarda de
+bracket POR PIEZA en _family_order, _BOLT_START_RE anclado al inicio en _family_head,
+nombre recortado para que el sufijo sobreviva (gotcha en el camino: la local no puede
+llamarse `base` — pisaba la variable de cierre de page_meta y rompía el cajetín), árbol
+sucio cuenta untracked salvo docs/benchmark/. Nota re-auditada sobre ESTE artefacto:
+E5 3.0→2.75 → global 78→**77 %**; con los fixes el próximo benchmark debería medir ~78
+legítimo. Latentes documentados: _BRACKET_RE puede resucitar sierra en un rodillo hueco
+con token de bracket; placa cuadrada con barreno grande (fill≈π/4) puede caer a torneado.

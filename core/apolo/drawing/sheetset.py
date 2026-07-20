@@ -164,7 +164,16 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         disp_name = r["nombre"]
         if name_counts[r["nombre"]] > 1:  # desambigua sólidos distintos del mismo comando
             k = name_seen[r["nombre"]] = name_seen.get(r["nombre"], 0) + 1
-            disp_name = f"{r['nombre']} ({k}/{name_counts[r['nombre']]})"
+            suf = f" ({k}/{name_counts[r['nombre']]})"
+            # el cajetín trunca el título a 34 chars (titleblock): recorta el NOMBRE para
+            # que el sufijo desambiguador SOBREVIVA al corte (cierre re-auditoría V7.2c —
+            # la ménsula del motorreductor salía 3 veces con título idéntico).
+            # OJO: no llamar «base» a esta local — pisaría la variable de cierre de
+            # page_meta() (mismo scope de función).
+            nombre_base = r["nombre"]
+            if len(nombre_base) + len(suf) > 34:
+                nombre_base = nombre_base[: 34 - len(suf)].rstrip()
+            disp_name = nombre_base + suf
         title = f"{disp_name} · {r['cantidad']}× · {r['material']}"
         if seccion:  # sección de catálogo → el taller sabe tubo/barra y pared
             title += f" · {seccion}"

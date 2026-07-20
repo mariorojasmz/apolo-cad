@@ -53,6 +53,66 @@ cerrado, pero el orden fino inter-grupo sigue siendo heurístico (grupos gruesos
 
 Global = 0.15·84.4 + 0.30·73.2 + 0.20·83.8 + 0.15·75 + 0.10·75 + 0.10·75 = **77.6 % ≈ 78 %**.
 
+---
+
+# RE-AUDITORÍA (Fable, 2026-07-18) — regla 3 de la rúbrica
+
+Dos auditorías independientes (artefactos por texto extraído, reproduciendo la
+verificación del calificador sin confiar en ella + código de los 3 commits con sondas
+propias). **Las 3 claims están genuinamente cerradas** — reproducido: g6 con SUS
+desviaciones ISO 286 correctas (−0.009/−0.025, no copiadas de h7), las 3 piezas de
+revolución torneadas sin perder la sierra de perfiles (diff de las 22 láminas: solo
+cambió lo declarado), chumaceras (paso 4) antes que el motor (paso 6), citas
+alineadas con la fórmula (`DEFLECTION_RATIO=240` alimenta criterio Y etiqueta — no
+pueden divergir), lints serializados, testigos previos y rúbrica intactos. El fit por
+pieza está bien construido (mapa por feature_id, GA omite solo el Ø en conflicto,
+valores de `fit_limits`).
+
+**Pero el patrón de las iteraciones se cumplió otra vez — 1 regresión nueva en el
+artefacto, no declarada:**
+
+- **E5.1 3→2.5 · la Tornillería de anclaje quedó en el PASO 1, ANTES que la Estructura**
+  (manual pág 2: «Atornillar a las piezas ya montadas…» con CERO piezas montadas; en
+  2026-07-14 el orden era Estructura→Tornillería, correcto). Causa raíz reproducida por
+  ambos auditores: `_family_order` clasificaba por SUBSTRING sobre el texto concatenado
+  del paso — «Ménsula soporte **motorreductor**» en la Estructura matchea «motor» →
+  familia motores (2) → la Tornillería (1) le gana el desempate. El mismo falso positivo
+  por token que `_is_revolution` acababa de curar con `_BRACKET_RE`, sin aplicar la
+  guarda aquí. La calificación citó ese paso 1 como evidencia de éxito sin notar la
+  inversión. (A favor, no declarado: la Banda pasó del absurdo paso 3 de 07-14 —antes
+  que los tambores que envuelve— al paso 5 ✓.)
+- **Sufijo «(k/n)» INVISIBLE en el artefacto**: el código existe pero `titleblock`
+  trunca el título a 34 chars y el nombre real de la ménsula (~50 chars) se comía el
+  sufijo — las 3 láminas (págs 4/8/17) siguen con título idéntico. El test pasaba de
+  chiripa (asertaba «(1/3» sin paréntesis de cierre, justo lo que el corte dejaba con
+  nombres cortos).
+- Menores latentes (no manifiestos en el 38): `_family_head` daba «apretar en cruz» a
+  piezas que solo MENCIONAN un perno («Eje fijo (roscado p/ perno)»); `_BRACKET_RE`
+  puede resucitar «sierra» en un rodillo hueco con token de bracket en el nombre; una
+  placa cuadrada con barreno grande (fill ≈ π/4) puede caer a «torneado»; el flag de
+  árbol sucio con `--untracked-files=no` ignoraba TODO lo untracked (un `.py` nuevo sin
+  commitear no marcaba sucio).
+
+**FIXES APLICADOS en el commit de cierre de esta re-auditoría** (con 4 tests de
+regresión): guarda de bracket en `_family_order` (por pieza, espejo de `_is_revolution`)
+· matcher de tornillería ANCLADO al inicio del nombre en `_family_head` · el sufijo
+«(k/n)» recorta el nombre para sobrevivir al corte de 34 chars · el flag de árbol sucio
+cuenta untracked salvo `docs/benchmark/`. El manual del PRÓXIMO benchmark ordena
+Estructura antes que Tornillería (verificado por test con la ménsula real).
+
+## Puntaje RE-AUDITADO (sobre ESTE artefacto, previo a los fixes)
+
+| Entregable | Opus | Fable | % |
+|---|:---:|:---:|---:|
+| E5 · Manual | 3.00 | **2.75** | 68.8 % |
+| (resto sin cambios) | | | |
+| **GLOBAL** | ≈78 % | | **≈ 77 %** |
+
+Global = 0.15·84.4 + 0.30·73.2 + 0.20·83.8 + 0.15·75 + 0.10·68.8 + 0.10·75 = **77.0 %**.
+La meta 78-80 % NO se toca todavía: queda a ~1-3 pts, y el camino es el próximo
+re-benchmark con los fixes de cierre (manual sin la inversión → E5.1=3 legítimo ≈ 77.6)
++ los residuales declarados (E2.2 datum/ménsula-UCP, orden fino inter-grupo).
+
 > **Honesto**: el salto **74 %→≈78 %** es REAL y esta vez VERIFICADO en el artefacto (no por
 > ruta de código). Toca el borde inferior de la meta 78-80 %. Reparte entre E5 (+18.7 pts:
 > manual por soporte con desempate de familia + «apretar en cruz»), E2 (+3.6 pts: cada lámina

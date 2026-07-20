@@ -156,3 +156,18 @@ def test_profile_section_labeled_on_part_sheet():
     pages = sheet_set(doc.scene)
     part_txt = " ".join(l.text for pg in pages[1:2] for l in pg.labels)
     assert "HSS" in part_txt and "76.2" in part_txt
+
+
+def test_long_name_suffix_survives_titleblock_truncation():
+    """Cierre re-auditoría V7.2c: con un nombre LARGO (el real de la ménsula, ~50 chars)
+    el sufijo «(k/n)» debe sobrevivir al corte de 34 chars del cajetín — antes moría en
+    el truncado y las 3 láminas salían con título idéntico."""
+    doc = Document()
+    name = "Ménsula soporte motorreductor (brida sup. a larguero y pata)"
+    for i, (w, d, h) in enumerate([(120, 80, 10), (140, 90, 12), (160, 100, 14)]):
+        doc.execute("create_box", {"name": name, "width": w, "depth": d, "height": h,
+                                   "position": {"x": i * 300}})
+    pages = sheet_set(doc.scene, project_name="Faja")
+    texts = [" ".join(l.text for l in p.labels) for p in pages]
+    for suf in ("(1/3)", "(2/3)", "(3/3)"):  # CON paréntesis de cierre: sufijo completo
+        assert any(suf in t for t in texts), f"sufijo {suf} ausente (murió en el corte)"

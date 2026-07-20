@@ -61,7 +61,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **70 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-18)**: 1213 tests (+15 tortura vía `-m torture`) · 70 tools MCP ·
+- **Estado actual (2026-07-18)**: 1217 tests (+15 tortura vía `-m torture`) · 70 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -479,6 +479,15 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   fórmula σy/2); FEA (`fea/static.py`) gana `calc.norma`. Multi-sólido: sufijo «(k/n)» en el título
   de láminas que comparten nombre. Benchmark (`scripts/benchmark_package.py`): serializa
   `lints_pre_entrega` en validacion.json aunque esté vacío + `_git_commit` marca árbol sucio.
+  **GOTCHAS del cierre de la re-auditoría (2026-07-18)**: los matchers por SUBSTRING sobre nombres
+  se muerden con brackets — `_family_order` clasificaba la Estructura como «motores» por la
+  «Ménsula soporte motorreductor» (Tornillería al paso 1 con 0 piezas montadas) → guarda de
+  bracket POR PIEZA (espejo de `_BRACKET_RE`); `_family_head` daba «apretar en cruz» a nombres que
+  MENCIONAN un perno → matcher anclado al inicio (`_BOLT_START_RE`); el sufijo «(k/n)» moría en el
+  corte `[:34]` del cajetín → el nombre se recorta para que el sufijo sobreviva (OJO: la local de
+  ese bloque NO puede llamarse `base` — pisa la variable de cierre de `page_meta`); el flag de
+  árbol sucio cuenta untracked SALVO `docs/benchmark/`. Regla general: todo matcher nuevo por
+  nombre necesita su guarda de bracket/anclaje y un test con el nombre REAL del 38.
 
 ### Materiales (`library/materials.py`)
 - Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
@@ -837,20 +846,22 @@ soundness/gravity sigue siendo único) · planos 7.5 (V7.2: soldadura ISO 2553 +
 acabados ISO 1302 + datums · V7.2c: fit por lámina, revolución≠sierra, sin retoque humano) ·
 simulación 4.5 (analítico+MuJoCo+FEA lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 ·
 rendimiento 6 (V6.2) · robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (**MEDIDO**, **re-calificado tras V7.2c** — benchmark testigo de la faja
-38 vs la rúbrica-v1; `docs/benchmark/faja-paqueteria-4m/2026-07-18/calificacion.md`, verificado
-por TEXTO extraído de los PDFs con pypdf; producido por API en ~80 s autónomo sobre servidor
-limpio — la métrica de TIEMPO es ~10³× a favor, estimado): global ≈ **78 %** de nivel despacho
-(74 % en V7.2b re-auditado; toca el borde inferior de la meta 78-80 %). Los 3 defectos de la
-re-auditoría CERRADOS y verificados en el artefacto: lámina del tensor dice **g6** (motriz h7,
-cada eje el suyo), tambor/rodillos **torneados** (no sierra), chumaceras **paso 4 < motor paso 6**
-+ «apretar en cruz». Memoria = **83.8 %** (citas alineadas: 0.5·σy y L/240; residual: FEA guardado
-del 38 predata el `calc.norma`) · BOM/cotización = **75 %** (D.1 pernos a-medida diferido) · 3D
-validado = **84.4 %** (0 avisos, 0 flotantes) · **planos de taller = 73.2 %** (fit por lámina +
-revolución torneada; residual E2.2 datum/ménsula-sin-barrenos-UCP) · manual = **75 %** (orden por
-soporte + familia + «apretar en cruz»; residual: orden fino inter-grupo heurístico) · **FEA
-firmable ~45 %** · render comercial ~50 % (por demanda). Brechas top: E2.2 (datum por cara
-funcional + barrenos del UCP en el modelo) + orden fino del manual.
+Veredicto por RESULTADOS (**MEDIDO**, **re-calificado tras V7.2c + re-auditoría** — benchmark
+testigo de la faja 38 vs la rúbrica-v1; `docs/benchmark/faja-paqueteria-4m/2026-07-18/
+calificacion.md` con sección RE-AUDITORÍA; verificado por TEXTO extraído de los PDFs con pypdf,
+reproducido independiente; producido por API en ~80 s autónomo — la métrica de TIEMPO es ~10³× a
+favor, estimado): global ≈ **77 %** de nivel despacho (autocalificación 78 % corregida; 74 % en
+V7.2b). Los 3 defectos de la re-auditoría CERRADOS y verificados: lámina del tensor **g6** con
+sus desviaciones ISO 286 (motriz h7, cada eje el suyo), tambor/rodillos **torneados**, chumaceras
+**paso 4 < motor paso 6**. PERO el patrón se repitió — regresión nueva: la Tornillería de anclaje
+quedó en el PASO 1 antes que la Estructura («Ménsula soporte motorreductor» clasificaba la
+Estructura como familia motores por substring; E5.1 3→2.5) — FIX ya landeado en el cierre de la
+re-auditoría (guarda de bracket en `_family_order` + matcher de tornillería anclado + sufijo
+(k/n) sobrevive al corte de 34 chars), el próximo benchmark lo mide. Memoria = **83.8 %** ·
+BOM/cotización = **75 %** (D.1 diferido) · 3D validado = **84.4 %** (0 avisos, 0 flotantes) ·
+**planos de taller = 73.2 %** (residual E2.2 datum/ménsula-sin-barrenos-UCP) · manual =
+**68.8 %** (inversión del paso 1 en este testigo; con el fix → ~75 legítimo) · **FEA firmable
+~45 %** · render ~50 %. Brechas top: E2.2 + re-medir el manual con el fix.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -932,19 +943,23 @@ cerrar V6; orden tentativo por impacto en el entregable:
   `_hole_fit_map` global por Ø — regresión). Meta 78-80 % queda a ~4-6 pts. **Diferido D.1**
   (pernos→catálogo: cosmético, alto riesgo). RE-AUDITORÍA en `calificacion.md` 2026-07-14;
   fixes → plan V7.2c.
-- **V7.2c Fixes de la re-auditoría** — **HECHO (MEDIDO 74 %→≈78 %, 2026-07-18)**. Cierra los 3
-  defectos NUEVOS que solo se veían en el ENTREGABLE + citas + trazabilidad: (1) fit POR PIEZA
-  (`_feature_fit_maps`/`_scene_fit_map` + `sheet_set(piece_fits=…)`: cada lámina SU clase, el GA
-  omite el Ø en conflicto); (2) revolución ≠ sierra (`process.py::_is_revolution` antes de la rama
-  esbelta: tambor/rodillos → torneado; guarda `_BRACKET_RE` para no morder «Ménsula rodillo…»);
-  (3) cola del manual (`order_by_support` desempata por familia rodamientos<neutro<motores +
-  `_family_head` reconoce tornillería a-medida → «apretar en cruz»); citas flecha L/240·eje 0.5·σy·
-  FEA norma; sufijo «(k/n)» multi-sólido; benchmark serializa lints + marca árbol sucio (untracked
-  excluido). Suite 1213 + tortura verdes. **Re-benchmark MEDIDO + verificado por TEXTO de PDF**
-  (`docs/benchmark/faja-paqueteria-4m/2026-07-18/`): las 3 claims cerradas en el artefacto (tensor
-  g6, tambor/rodillos torneados, chumaceras paso 4 < motor paso 6). Meta 78-80 % tocada por el
-  borde. Detalle: § Planos 2D (V7.2c). **Diferido**: D.1 (pernos→catálogo) + FEA guardado del 38
-  (predata el `calc.norma`; un `fea_static` nuevo lo trae) + E2.2 (datum por cara funcional).
+- **V7.2c Fixes de la re-auditoría** — **HECHO (MEDIDO 74 %→≈77 % re-auditado, 2026-07-18;
+  autocalificación 78 % corregida)**. Cierra los 3 defectos NUEVOS que solo se veían en el
+  ENTREGABLE + citas + trazabilidad: (1) fit POR PIEZA (`_feature_fit_maps`/`_scene_fit_map` +
+  `sheet_set(piece_fits=…)`: cada lámina SU clase, el GA omite el Ø en conflicto); (2) revolución
+  ≠ sierra (`_is_revolution` + guarda `_BRACKET_RE`); (3) cola del manual (desempate por familia
+  rodamientos<neutro<motores + «apretar en cruz» a-medida); citas L/240 · 0.5·σy · FEA norma;
+  benchmark serializa lints. **Re-benchmark verificado por TEXTO de PDF** (`2026-07-18/`): las 3
+  claims cerradas (tensor g6 con desviaciones ISO 286 correctas, tambor/rodillos torneados,
+  chumaceras paso 4 < motor paso 6). PERO la re-auditoría cazó la REGRESIÓN de la iteración:
+  Tornillería de anclaje al PASO 1 antes que la Estructura (la «Ménsula soporte motorreductor»
+  clasificaba la Estructura como motores por substring → perdía el desempate; E5 3→2.75) y el
+  sufijo «(k/n)» moría en el corte de 34 chars del cajetín — AMBOS arreglados en el cierre de la
+  re-auditoría (guarda de bracket en `_family_order`, matcher de tornillería ANCLADO al inicio
+  del nombre, nombre recortado para que el sufijo sobreviva, árbol sucio cuenta untracked salvo
+  docs/benchmark/) con 4 tests de regresión; el próximo benchmark lo mide (~78 esperado).
+  **Diferido**: D.1 (pernos→catálogo) + FEA guardado del 38 (predata el `calc.norma`) + E2.2
+  (datum por cara funcional). Detalle: § Planos 2D (V7.2c) + calificacion.md 2026-07-18.
 - **V7.3 Stack-up de cadenas de cotas** — PLANEADO (`docs/plans/V7.3-stackup-cadenas-
   cotas.md`; prerrequisito: V7.2b): motor puro peor-caso+RSS con ISO 2768/286, cadenas
   declaradas como metadato paramétrico, cadena auto del patrón de pernos, sección en la

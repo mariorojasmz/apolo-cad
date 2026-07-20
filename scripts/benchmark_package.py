@@ -125,13 +125,15 @@ def _git_commit() -> str:
     except Exception:
         return "desconocido"
     try:
-        # --untracked-files=no: solo CÓDIGO tracked modificado/staged cuenta como «sucio»
-        # (la propia carpeta de salida del benchmark es untracked y NO debe marcar sucio —
-        # el caso real de V7.2b era un .py modificado sin commitear, que sí aparece aquí)
-        dirty = subprocess.check_output(
-            ["git", "status", "--porcelain", "--untracked-files=no"], text=True).strip()
+        # V7.2c (re-auditoría): untracked SÍ cuenta como sucio (un .py NUEVO sin commitear
+        # también es código no trazable) — solo se excluye docs/benchmark/, la propia
+        # salida del benchmark (que siempre es untracked al generar).
+        lines = subprocess.check_output(
+            ["git", "status", "--porcelain"], text=True).splitlines()
+        dirty = [ln for ln in lines
+                 if ln.strip() and "docs/benchmark/" not in ln.replace("\\", "/")]
     except Exception:
-        dirty = ""
+        dirty = []
     return f"{h} + cambios sin commitear" if dirty else h
 
 

@@ -169,6 +169,49 @@ def test_family_head_pure_structure_no_bolt_note():
     assert "soldar" in head and "apretar en cruz" not in head
 
 
+# --------------------------------------- cierre re-auditoría V7.2c: guardas de matcher
+def test_family_order_bracket_named_after_motor_stays_neutral():
+    """La Estructura que contiene una «Ménsula soporte motorreductor» NO es familia
+    motores (guarda de bracket, espejo de _is_revolution): sin la guarda, la Tornillería
+    de anclaje le ganaba el desempate y salía en el paso 1 con cero piezas montadas."""
+    from apolo.drawing.assembly_manual import _family_order
+
+    doc = Document()
+    a = doc.execute("create_box", {"name": "Larguero A36 (+Y)", "width": 2000, "depth": 40,
+                                   "height": 80})
+    b = doc.execute("create_box", {"name": "Ménsula soporte motorreductor (brida sup.)",
+                                   "width": 120, "depth": 80, "height": 10,
+                                   "position": {"x": 500}})
+    doc.execute("create_group", {"name": "Estructura", "members": [a, b]})
+    stages = assembly_steps(doc.scene, doc.commands, CATALOG)
+    est = next(s for s in stages if s["label"] == "Estructura")
+    assert _family_order(est, doc.scene, CATALOG) == 1  # neutro, NO motores (2)
+
+
+def test_family_order_real_motor_still_family_2():
+    """Regresión: un paso con un motorreductor REAL sigue siendo familia motores."""
+    from apolo.drawing.assembly_manual import _family_order
+
+    doc = Document()
+    m = doc.execute("create_box", {"name": "Motorreductor NMRV-090 (eje hueco)",
+                                   "width": 300, "depth": 200, "height": 250})
+    doc.execute("create_group", {"name": "Transmision", "members": [m]})
+    stages = assembly_steps(doc.scene, doc.commands, CATALOG)
+    tr = next(s for s in stages if s["label"] == "Transmision")
+    assert _family_order(tr, doc.scene, CATALOG) == 2
+
+
+def test_family_head_piece_mentioning_perno_is_not_tornilleria():
+    """«Eje libre (roscado p/ perno)» MENCIONA un perno pero no ES tornillería: no debe
+    heredar «apretar en cruz» (el matcher va anclado al inicio del nombre)."""
+    doc = Document()
+    doc.execute("create_box", {"name": "Eje libre (roscado p/ perno)", "width": 35,
+                               "depth": 35, "height": 700})
+    stages = assembly_steps(doc.scene, doc.commands, CATALOG)
+    eje = stages[0]
+    assert "apretar en cruz" not in _family_head(eje, doc.scene, CATALOG).lower()
+
+
 @pytest.mark.skipif(not _HAS_MPL, reason="requiere matplotlib para el render 3D")
 def test_assembly_manual_pages_render():
     doc = Document()

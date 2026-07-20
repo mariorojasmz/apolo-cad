@@ -169,23 +169,37 @@ def order_by_support(scene: dict, stages: list[dict], catalog=None) -> list[dict
 
 
 _MOTOR_TOKENS = ("motor", "reductor", "nmrv", "sinfín", "sinfin", "gearmotor")
+_BEARING_TOKENS = ("chumacera", "rodamiento", "ucp", "ucf", "ucfl")
 
 
 def _family_order(stage: dict, scene: dict, catalog) -> int:
     """Prioridad de montaje por familia para DESEMPATAR pasos al mismo nivel de soporte
     (V7.2c): 0 = rodamientos/chumaceras (se montan primero, sostienen el eje), 1 =
-    neutro, 2 = motores/reductores (cuelgan del eje que las chumaceras ya sostienen)."""
+    neutro, 2 = motores/reductores (cuelgan del eje que las chumaceras ya sostienen).
+
+    Guarda de BRACKET (cierre de la re-auditoría V7.2c): la clasificación es POR PIEZA y
+    una ménsula/soporte nombrada por lo que sostiene («Ménsula soporte motorreductor» en
+    la Estructura) NO clasifica el paso como la familia de lo sostenido — sin la guarda,
+    la Estructura del 38 caía a familia «motores» y la Tornillería de anclaje le ganaba
+    el desempate (paso 1 con texto físicamente imposible). Misma doctrina que el
+    _BRACKET_RE de infer_process."""
+    from apolo.drawing.process import _BRACKET_RE
+
     cats: set = set()
     for fid in stage["ids"]:
         comp = catalog.get(getattr(scene.get(fid), "component", None) or "")
         if comp is not None:
             cats.add(comp.category)
-    text = (stage.get("label") or "").lower() + " " + " ".join(
-        (getattr(scene.get(fid), "name", "") or "").lower() for fid in stage["ids"])
-    if bool(cats & _BEARING_CATS) or any(
-            k in text for k in ("chumacera", "rodamiento", "ucp", "ucf", "ucfl")):
+
+    def hit(s: str, tokens) -> bool:
+        return any(k in s for k in tokens) and not _BRACKET_RE.search(s)
+
+    label = (stage.get("label") or "").lower()
+    names = [(getattr(scene.get(fid), "name", "") or "").lower() for fid in stage["ids"]]
+    if bool(cats & _BEARING_CATS) or hit(label, _BEARING_TOKENS) or any(
+            hit(n, _BEARING_TOKENS) for n in names):
         return 0
-    if any(k in text for k in _MOTOR_TOKENS):
+    if hit(label, _MOTOR_TOKENS) or any(hit(n, _MOTOR_TOKENS) for n in names):
         return 2
     return 1
 
@@ -206,6 +220,10 @@ _BOLT_CATS = {"pernos", "tornilleria"}
 # boolean_op «Perno anclaje M12 + arandela», sin `component` → el paso NO es is_hw y el
 # texto genérico se colaba (faltaba «apretar en cruz»). Amplía el matcher por nombre.
 _BOLT_TOKENS = ("torniller", "perno", "tornillo", "tuerca", "arandela", "anclaje")
+# el matcher de TORNILLERÍA va ANCLADO al inicio del nombre (cierre re-auditoría V7.2c):
+# «Perno anclaje M12» ES tornillería; «Eje fijo (roscado p/ perno)» o «Placa portapernos»
+# solo la MENCIONAN — con substring heredaban «apretar en cruz» sin serlo.
+_BOLT_START_RE = re.compile(r"^\s*(?:torniller|perno|tornillo|tuerca|arandela)", re.IGNORECASE)
 _STRUCT_TOKENS = ("larguero", "travesa", "perfil", "tubo", "poste", "pata", "marco",
                   "bastidor", "viga", "columna", "miembro", "cordón", "cordon")
 # componentes ATORNILLADOS que suelen viajar en un paso estructural (soldar) pero se
@@ -229,7 +247,10 @@ def _family_head(stage: dict, scene: dict, catalog) -> str:
         (getattr(scene.get(fid), "name", "") or "").lower() for fid in ids)
     bearing = bool(cats & _BEARING_CATS) or any(
         k in text for k in ("chumacera", "rodamiento", "ucp", "ucf", "ucfl"))
-    bolt = bool(cats & _BOLT_CATS) or any(k in text for k in _BOLT_TOKENS)
+    # tornillería SOLO si alguna pieza (o el label) EMPIEZA por un token de tornillería
+    # (cierre re-auditoría V7.2c: «Eje fijo (roscado p/ perno)» no es tornillería)
+    bolt = bool(cats & _BOLT_CATS) or _BOLT_START_RE.match(stage.get("label") or "") is not None or any(
+        _BOLT_START_RE.match(getattr(scene.get(fid), "name", "") or "") for fid in ids)
     structure = bool(cats & _PROFILE_CATS) or any(k in text for k in _STRUCT_TOKENS)
     if stage["is_hw"]:
         if bolt:
