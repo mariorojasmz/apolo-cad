@@ -856,6 +856,31 @@ def get_motion() -> str:
 
 
 @mcp.tool()
+def get_stackup(scope: str = "all") -> str:
+    """Evalúa las CADENAS DE COTAS (stack-up, V7.3): por cadena da el cierre nominal, el
+    intervalo por PEOR CASO y por RSS (√Σt²), y el veredicto contra el requisito. Incluye
+    las cadenas auto del patrón de pernos (join_bolted = cerrada por construcción). Verifica
+    que la suma de tolerancias cierra el ajuste declarado SIN encadenar N measure. scope =
+    all | declared | auto. Read-only."""
+    return json.dumps(_api("GET", "/api/stackup", params={"scope": scope}).json(), ensure_ascii=False)
+
+
+@mcp.tool()
+def set_stackup(name: str, eslabones: list, requisito: dict | None = None) -> str:
+    """Declara una CADENA DE COTAS 1D con nombre (metadato del proyecto, se persiste;
+    lista de eslabones vacía → la borra). Cada eslabón es UNO de:
+    - {nombre, nominal_mm, sentido:±1, tol} — cota literal; nominal_mm acepta '=expr'
+      (sigue a las variables → la cadena se re-verifica al cambiarlas).
+    - {id, eje:x|y|z, sentido:±1, tol?} — mide el BBOX VIVO de esa pieza (auto-actualiza).
+    `tol` es UNA fuente: {"pm":0.2} (± mm) · {"fit":"h7"} (ISO 286) · {"iso2768":"m"} (general)
+    · {"lim":[lo,hi]} (límites absolutos). `requisito` de cierre: {min_mm|max_mm|entre:[a,b]}.
+    Devuelve la evaluación inmediata (peor caso + RSS + veredicto). La memoria de cálculo
+    incluye una sección con las cadenas declaradas."""
+    body = {"name": name, "eslabones": eslabones, "requisito": requisito or {}}
+    return json.dumps(_api("PUT", "/api/stackup", json=body).json(), ensure_ascii=False)
+
+
+@mcp.tool()
 def get_agent_notes() -> str:
     """Lee la memoria de sesión del agente (notas del proyecto)."""
     return json.dumps(_api("GET", "/api/agent/notes").json(), ensure_ascii=False)

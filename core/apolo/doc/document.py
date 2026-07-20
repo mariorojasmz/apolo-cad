@@ -102,6 +102,7 @@ class Document:
         self.motion: dict[str, list[dict]] = {}  # estudios con nombre → fotogramas [{t, values:{junta:valor}}]
         self.requirements: dict = {}  # bases de diseño del proyecto (carga, velocidad, producto…)
         self.fea: dict[str, dict] = {}  # feature_id → resumen del último FEA (metadato)
+        self.stackups: dict[str, dict] = {}  # cadenas de cotas con nombre (V7.3) → {eslabones, requisito}
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
         # comandos SUPRIMIDOS por una carga tolerante (transitorio: NUNCA se persiste en
         # el manifest; se recalcula en cada regenerate — vacío en modo estricto)
@@ -775,6 +776,43 @@ class Document:
         """Elimina un estudio de movimiento por nombre (no falla si no existe)."""
         self.motion.pop(str(name).strip(), None)
 
+    def set_stackup(self, name: str, eslabones: list[dict], requisito: dict | None = None) -> None:
+        """Declara una CADENA DE COTAS con nombre (metadato de manifest, como motion: NO
+        entra al log ni a los checkpoints). Cada eslabón: {nombre, nominal_mm (número o
+        '=expr'), sentido:±1, tol}; o {id, eje} para medir el bbox vivo de una pieza. La
+        evaluación (resolver nominales/ids + peor caso/RSS) la hace la capa API. Lista de
+        eslabones vacía → borra la cadena."""
+        name = str(name).strip()
+        if not name:
+            raise DocumentError("La cadena de cotas necesita un nombre")
+        if not eslabones:
+            self.stackups.pop(name, None)
+            return
+        clean: list[dict] = []
+        for e in eslabones:
+            if not isinstance(e, dict):
+                raise DocumentError("Cada eslabón debe ser un objeto")
+            if e.get("id"):  # eslabón medido del bbox vivo de una pieza
+                clean.append({
+                    "id": str(e["id"]), "eje": str(e.get("eje", "x")),
+                    "sentido": 1 if int(e.get("sentido", 1)) >= 0 else -1,
+                    "tol": e.get("tol"), "nombre": e.get("nombre"),
+                })
+            elif "nominal_mm" in e:
+                clean.append({
+                    "nombre": str(e.get("nombre", "eslabón")),
+                    "nominal_mm": e["nominal_mm"],  # número o "=expr" (lo resuelve la API)
+                    "sentido": 1 if int(e.get("sentido", 1)) >= 0 else -1,
+                    "tol": e.get("tol") or {"pm": 0.0},
+                })
+            else:
+                raise DocumentError("Cada eslabón necesita 'nominal_mm' o 'id' (pieza)")
+        self.stackups[name] = {"eslabones": clean, "requisito": requisito or {}}
+
+    def delete_stackup(self, name: str) -> None:
+        """Elimina una cadena de cotas por nombre (no falla si no existe)."""
+        self.stackups.pop(str(name).strip(), None)
+
     def set_fea_result(self, feature_id: str, summary: dict | None) -> None:
         """Guarda (o borra con None) el resumen del último FEA de una pieza.
         Metadato de manifest (como motion/requirements): NO entra al log ni a los
@@ -911,6 +949,7 @@ class Document:
                         "motion": self.motion,
                         "requirements": self.requirements,
                         "fea": self.fea,
+                        "stackups": self.stackups,
                         "agent_notes": self.agent_notes,
                     },
                     indent=2,
@@ -977,6 +1016,7 @@ class Document:
         doc.motion = ({"Estudio 1": _m} if _m else {}) if isinstance(_m, list) else dict(_m)
         doc.requirements = manifest.get("requirements", {})
         doc.fea = manifest.get("fea", {})
+        doc.stackups = manifest.get("stackups", {})  # cadenas de cotas (V7.3)
         doc.agent_notes = manifest.get("agent_notes", [])
         # guardia de seq: el próximo cmd_id nunca debe colisionar con uno del log aunque
         # el manifest venga sin `seq` o con un `seq` menor que el mayor c-id vivo (un log

@@ -2234,6 +2234,193 @@ def put_requirements(body: RequirementsIn) -> dict:
         return {"ok": True, "requirements": DOC.requirements}
 
 
+# ------------------------------------------------ cadenas de cotas / stack-up (V7.3)
+class StackupIn(BaseModel):
+    name: str
+    eslabones: list[dict] = []
+    requisito: dict = {}
+
+
+class StackupDeleteIn(BaseModel):
+    name: str
+
+
+def _resolve_nominal(val, variables: dict) -> float:
+    """Un nominal puede ser número o '=expr' (sigue a las variables del proyecto)."""
+    from apolo.commands.expressions import eval_expression
+
+    if isinstance(val, str) and val.strip().startswith("="):
+        return float(eval_expression(val.strip()[1:], variables))
+    return float(val)
+
+
+def _stackup_link_from_feature(fid: str, eje: str, tol) -> dict | None:
+    """Eslabón medido del BBOX VIVO de una pieza (la cadena se re-mide sola). El tol es
+    el declarado, o el fit de la pieza (por nombre), o ISO 2768-m por defecto."""
+    feat = DOC.scene.get(fid)
+    if feat is None:
+        return None
+    bb = feat.shape.bounding_box()
+    span = {"x": bb.max.X - bb.min.X, "y": bb.max.Y - bb.min.Y,
+            "z": bb.max.Z - bb.min.Z}.get(str(eje).lower())
+    if span is None:
+        return None
+    return {"nombre": f"{feat.name} ({eje})", "nominal_mm": round(float(span), 4),
+            "tol": tol or {"iso2768": "m"}}
+
+
+def _evaluate_stackups(scope: str = "all") -> list[dict]:
+    """Evalúa las cadenas DECLARADAS (`DOC.stackups`, resolviendo nominales '=expr' y
+    eslabones por id contra el bbox vivo) y, si scope incluye auto, las cadenas
+    AUTO del patrón de pernos. Llamar bajo STATE_LOCK. Devuelve [{name, tipo, ...}]."""
+    from apolo.library.engineering.stackup import stack_up
+
+    variables = dict(DOC.variables_resolved)
+    out: list[dict] = []
+    if scope in ("all", "declared"):
+        for name, spec in sorted(DOC.stackups.items()):
+            eslabones = []
+            faltan = []
+            for e in spec.get("eslabones", []):
+                if e.get("id"):
+                    link = _stackup_link_from_feature(e["id"], e.get("eje", "x"), e.get("tol"))
+                    if link is None:
+                        faltan.append(e["id"])
+                        continue
+                    link["sentido"] = e.get("sentido", 1)
+                    if e.get("nombre"):
+                        link["nombre"] = e["nombre"]
+                    eslabones.append(link)
+                else:
+                    eslabones.append({
+                        "nombre": e.get("nombre", "eslabón"),
+                        "nominal_mm": _resolve_nominal(e["nominal_mm"], variables),
+                        "sentido": e.get("sentido", 1), "tol": e.get("tol") or {"pm": 0.0},
+                    })
+            if not eslabones:
+                out.append({"name": name, "tipo": "declarada", "error": "sin eslabones resolubles",
+                            "faltan": faltan})
+                continue
+            rep = stack_up(eslabones, spec.get("requisito") or None)
+            rep.update({"name": name, "tipo": "declarada"})
+            if faltan:
+                rep["piezas_no_encontradas"] = faltan
+            out.append(rep)
+    if scope in ("all", "auto"):
+        out.extend(_auto_bolt_stackups())
+    return out
+
+
+def _auto_bolt_stackups() -> list[dict]:
+    """Cadenas AUTO del patrón de pernos (V7.3 C). Un `join_bolted` taladra AMBAS piezas
+    a la vez → los barrenos quedan alineados POR CONSTRUCCIÓN (cadena cerrada, sin holgura
+    de posición que verificar). Un perno DECLARADO a mano (fasten con `size`) une dos
+    patrones taladrados por separado, pero Apolo NO conoce sus tolerancias de posición
+    reales → se reporta la HOLGURA de paso disponible (Ø_paso−Ø_perno)/2 como dato
+    INFORMATIVO (sin veredicto: fabricar la demanda sería inventar). Llamar bajo
+    STATE_LOCK."""
+    from apolo.library.engineering.bolts import clearance_hole_mm, nominal_diameter_mm
+
+    cmd_type = {c["id"]: c.get("type") for c in DOC.commands}
+    out: list[dict] = []
+    for name, f in sorted(DOC.fasteners.items()):
+        if f.get("kind") != "perno" or not f.get("size"):
+            continue
+        size = str(f["size"])
+        es_join = cmd_type.get(f.get("command_id")) == "join_bolted" or name.startswith("jb_")
+        if es_join:
+            out.append({
+                "name": f"pernos {name}", "tipo": "auto-perno",
+                "cerrada_por_construccion": True, "ok_peor_caso": True,
+                "detalle": f"{size}: barrenos taladrados a la vez en ambas piezas "
+                           "(join_bolted) → alineados por construcción, sin holgura de posición.",
+            })
+            continue
+        try:
+            clear, d = clearance_hole_mm(size), nominal_diameter_mm(size)
+        except KeyError:
+            continue
+        holgura = round((clear - d) / 2.0, 4)
+        out.append({
+            "name": f"pernos {name}", "tipo": "auto-perno",
+            "cerrada_por_construccion": False, "informativo": True,
+            "holgura_mm": holgura,
+            "detalle": f"{size}: holgura de paso {holgura:g} mm/lado disponible (broca "
+                       f"Ø{clear:g}). Declara la tolerancia de posición de los patrones "
+                       "(set_stackup) para verificar el ensamble.",
+        })
+    return out
+
+
+def _stackup_rules() -> list[dict]:
+    """Reglas de memoria (con `calc`) de las cadenas de cotas para `calc_report`. Vacío
+    si no hay cadenas declaradas ni pernos → la sección no aparece. Llamar bajo STATE_LOCK."""
+    from apolo.library.engineering.stackup import stackup_rule
+
+    rules: list[dict] = []
+    try:
+        chains = _evaluate_stackups("all")
+    except Exception:  # noqa: BLE001 — la memoria no debe caerse por una cadena rota
+        return rules
+    for c in chains:
+        if c.get("error"):
+            continue
+        if c.get("tipo") == "declarada":
+            rules.append(stackup_rule(c["name"], c))
+        elif c.get("cerrada_por_construccion"):
+            rules.append({
+                "regla": f"cadena de cotas · {c['name']}",
+                "estado": "ok", "detalle": c["detalle"],
+                "calc": {
+                    "titulo": f"Ensamble de pernos — {c['name']}",
+                    "entradas": {"método": "taladrado conjunto (join_bolted)"},
+                    "formula": "barrenos alineados por construcción",
+                    "sustitucion": "—", "resultado": "cierra por construcción",
+                    "criterio": "sin holgura de posición requerida",
+                    "norma": "ISO 2768-1 (no aplica: patrón único)",
+                },
+            })
+        # los pernos manuales INFORMATIVOS (sin veredicto) NO van a la memoria como páginas
+        # (serían decenas de bajo valor); están en GET /api/stackup para el agente.
+    return rules
+
+
+@app.get("/api/stackup")
+def get_stackup(scope: str = "all") -> dict:
+    """Evalúa las cadenas de cotas (declaradas + auto de pernos): peor caso, RSS y
+    veredicto por cadena. scope = all | declared | auto. Read-only."""
+    with STATE_LOCK:
+        try:
+            chains = _evaluate_stackups(scope)
+        except Exception as exc:  # noqa: BLE001 — una cadena rota no debe tumbar el endpoint
+            raise HTTPException(status_code=400, detail=f"Error evaluando la cadena: {exc}") from exc
+    # el `ok` global solo pesa las cadenas CON veredicto (declaradas + join_bolted);
+    # las informativas (pernos manuales sin tolerancia de posición) no cuentan.
+    ok = all(c.get("ok_peor_caso", True) for c in chains
+             if "error" not in c and not c.get("informativo"))
+    return {"ok": ok, "cadenas": chains}
+
+
+@app.put("/api/stackup")
+def put_stackup(body: StackupIn) -> dict:
+    with STATE_LOCK:
+        try:
+            DOC.set_stackup(body.name, body.eslabones, body.requisito)
+            chains = _evaluate_stackups("declared")
+        except (DocumentError, ValueError, KeyError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _autosave()
+        return {"ok": True, "cadenas": chains}
+
+
+@app.delete("/api/stackup")
+def delete_stackup(body: StackupDeleteIn) -> dict:
+    with STATE_LOCK:
+        DOC.delete_stackup(body.name)
+        _autosave()
+        return {"ok": True}
+
+
 @app.post("/api/motion/scan")
 def scan_motion(body: ScanIn) -> dict:
     from apolo.robotics.motion import scan_collisions
@@ -3142,6 +3329,7 @@ def calc_report_pdf(
             belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
         )
         rules += _fea_rules()  # página FEA en la memoria (con chequeo de vigencia)
+        rules += _stackup_rules()  # V7.3: cadenas de cotas (stack-up) declaradas/auto
         png = None
         try:
             vis = {fid: f for fid, f in DOC.scene.items() if getattr(f, "visible", True)}

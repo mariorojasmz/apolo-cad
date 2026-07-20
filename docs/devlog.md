@@ -3700,3 +3700,40 @@ sucio cuenta untracked salvo docs/benchmark/. Nota re-auditada sobre ESTE artefa
 E5 3.0→2.75 → global 78→**77 %**; con los fixes el próximo benchmark debería medir ~78
 legítimo. Latentes documentados: _BRACKET_RE puede resucitar sierra en un rodillo hueco
 con token de bracket; placa cuadrada con barreno grande (fill≈π/4) puede caer a torneado.
+
+## V7.3 — Stack-up de cadenas de cotas (Opus, 2026-07-20)
+
+Análogo automático a TolAnalyst, acotado honestamente a cadenas LINEALES 1D. Motor PURO
+`library/engineering/stackup.py`: `iso2768_linear(dim,clase)` (tabla ISO 2768-1, el número
+del «ISO 2768-mK» del cajetín de V7.2) + `stack_up(eslabones,requisito)` que da cierre
+nominal, intervalo por PEOR CASO y por RSS (√Σ(t/2)²) y veredicto. Cada eslabón lleva UNA
+fuente de tolerancia: ±explícito, fit ISO 286 (banda ASIMÉTRICA exacta vía `fit_limits`),
+ISO 2768 general por rango, o límites absolutos. Ancla dura en tests: una cadena agujero
+H7(+1) − eje h7(−1) reproduce EXACTO el juego min/max de `fit_check` (la tabla ISO 286
+verificada por otro camino). Cadenas DECLARADAS = metadato de manifest `Document.stackups`
+(espejo de motion: NO al log ni a checkpoints, sobrevive save/load); un eslabón `{id,eje}`
+mide el BBOX VIVO (auto-remide al regenerar) y `nominal_mm:"=expr"` sigue las variables →
+la cadena se re-verifica al cambiar la variante. `GET/PUT/DELETE /api/stackup` + tools
+`get_stackup`/`set_stackup`.
+
+DESVIACIÓN DEL PLAN (declarada): el plan pedía set_stackup/delete_stackup como COMANDOS de
+registro (53→55). Eso CONTRADICE la arquitectura no-negociable — un metadato en el log
+rompería la invariante de checkpoints (el metadato jamás va a la 8-tupla). Seguí el patrón
+de motion/requirements: endpoint dedicado, NO comando. 53 comandos (sin cambio), 72 tools.
+
+Cadena AUTO del patrón de pernos (frente C): un join_bolted taladra AMBAS piezas juntas →
+«cerrada por construcción» (sin holgura de posición que verificar). GOTCHA DE HONESTIDAD
+cazado en el E2E vivo: un primer intento daba veredicto de PEOR CASO a los pernos DECLARADOS
+a mano (fasten con size) inventándoles una tolerancia de posición ISO 2768-m a 100 mm — y
+luego los fallaba contra mi propia invención (3 de 23 salían «no cierra» en el 38). Eso es
+exactamente fabricar-un-número-y-juzgar-contra-él. Corregido: los pernos manuales son
+INFORMATIVOS (reportan la holgura de paso disponible (Ø_paso−Ø_perno)/2), SIN veredicto y sin
+bajar el ok global; solo join_bolted da una cadena auto con verdict. Sección «Cadenas de
+cotas» en la memoria (`_stackup_rules`): solo las DECLARADAS (con verdict) + join_bolted;
+los 23 informativos NO son páginas (serían decenas de bajo valor) — están en GET /api/stackup
+para el agente.
+
+E2E vivo en la faja 38 (por REST, el host MCP necesita reinicio para las 2 tools nuevas): 2
+cadenas testigo declaradas y persistidas — «asiento eje motriz Ø35» (fit: juego bore−eje
+[0,0.046] ⊆ requisito [0,0.05], DESLIZA ✓) y «altura bastidor soldado» (bbox vivo pata+larguero
+776 mm, peor caso [773.2,778.8] ⊆ [770,782] ✓). 14 tests nuevos (7 motor puro + 7 API).

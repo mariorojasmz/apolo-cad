@@ -58,10 +58,10 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **70 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **72 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-18)**: 1217 tests (+15 tortura vía `-m torture`) · 70 tools MCP ·
+- **Estado actual (2026-07-20)**: 1232 tests (+15 tortura vía `-m torture`) · 72 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -355,6 +355,22 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   (`structure_engineering_check` UNIVERSAL: pernos/soldaduras/L10/pandeo/vuelco; uniones
   sin dimensionar se AGREGAN en una regla-resumen; redundante+dimensionada = **ok** con
   nota honesta — la redundancia es favorable y no accionable).
+- **Stack-up de cadenas de cotas (V7.3, `engineering/stackup.py`)**: motor PURO peor caso +
+  RSS (√Σt²) de una cadena 1D. `iso2768_linear(dim,clase)` (tabla ISO 2768-1, el NÚMERO del
+  «ISO 2768-mK» del cajetín) + `stack_up(eslabones,requisito)`: cada eslabón `{nombre,
+  nominal_mm,sentido:±1,tol}` con tol de UNA fuente — `{pm}`/`{fit:"h7"}` (banda ISO 286
+  asimétrica vía `fit_limits`)/`{iso2768:"m"}`/`{lim:[lo,hi]}`; reporte con cierre nominal,
+  intervalo peor caso, RSS y veredicto contra `{min_mm|max_mm|entre}`. Cadenas DECLARADAS =
+  metadato de manifest `Document.stackups` (espejo de `motion`: NO al log ni a checkpoints;
+  `set_stackup`/`delete_stackup`); eslabón `{id,eje}` mide el BBOX VIVO (auto-remide) y
+  `nominal_mm:"=expr"` sigue las variables. `GET/PUT/DELETE /api/stackup` + tools
+  `get_stackup`/`set_stackup` (**endpoint, NO comando de registro** — meterlo al log rompería
+  la invariante de checkpoints; el plan decía «comandos 53→55» pero la arquitectura manda:
+  53 comandos, 72 tools). Cadena AUTO del patrón de pernos: `join_bolted` = «cerrada por
+  construcción» (taladra ambas piezas juntas); perno manual con `size` = HOLGURA de paso
+  informativa SIN veredicto (fabricar la demanda de posición sería inventar). Sección
+  «Cadenas de cotas» en la memoria (`_stackup_rules`, solo declaradas + construcción) —
+  vacía si no hay cadenas.
 - **Reglas de conveyor** (`library/rules.py`): 13 reglas; `detect_conveyor` se enriquece
   con VARIABLES del proyecto + nombres + specs de catálogo (reconoce
   `motorreductores_sinfin`; η=0.75 sinfín vs 0.85 helicoidal); las reglas numéricas llevan
@@ -960,10 +976,16 @@ cerrar V6; orden tentativo por impacto en el entregable:
   docs/benchmark/) con 4 tests de regresión; el próximo benchmark lo mide (~78 esperado).
   **Diferido**: D.1 (pernos→catálogo) + FEA guardado del 38 (predata el `calc.norma`) + E2.2
   (datum por cara funcional). Detalle: § Planos 2D (V7.2c) + calificacion.md 2026-07-18.
-- **V7.3 Stack-up de cadenas de cotas** — PLANEADO (`docs/plans/V7.3-stackup-cadenas-
-  cotas.md`; prerrequisito: V7.2b): motor puro peor-caso+RSS con ISO 2768/286, cadenas
-  declaradas como metadato paramétrico, cadena auto del patrón de pernos, sección en la
-  memoria.
+- **V7.3 Stack-up de cadenas de cotas** — **HECHO (2026-07-20)**: motor puro peor-caso+RSS
+  (`engineering/stackup.py`) con ISO 2768-1 + ISO 286 (fits asimétricos exactos, ancla dura
+  en tests contra `fit_check`); cadenas declaradas como metadato de manifest `Document.stackups`
+  (eslabón por `{id,eje}` mide bbox vivo, `nominal_mm:"=expr"` sigue variables); `GET/PUT/DELETE
+  /api/stackup` + tools `get_stackup`/`set_stackup` (endpoint, no comando — 72 tools); cadena
+  auto de pernos (join_bolted = cerrada por construcción, manual = holgura informativa sin
+  veredicto); sección en la memoria. E2E vivo en la faja 38: 2 cadenas testigo cierran
+  (asiento eje Ø35 h7 juego [0,0.046] ⊆ [0,0.05] · altura bastidor 776 [773.2,778.8] ⊆
+  [770,782]). Detalle: § Ingeniería (Stack-up). Desviación del plan declarada: metadato-endpoint,
+  NO comando de registro (el plan pedía comandos 53→55, pero eso rompería checkpoints).
 - **V7.4 FEA firmable** — PLANEADO (`docs/plans/V7.4-fea-firmable.md`; absorbe V6.7):
   ensamblaje BONDED multi-material (BooleanFragments + physical groups), BCs desde
   grounds/requirements, sección en memoria con FS por pieza. ≈45 %→~70 %.
