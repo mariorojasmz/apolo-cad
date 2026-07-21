@@ -135,7 +135,10 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     for r in rows:
         if scene.get(r["_rep"]) is None:
             continue
-        sheet_refs[r["_rep"]] = _pg
+        # clave por FILA (_rep + dims), no solo _rep: un comando MULTI-sólido comparte
+        # _rep entre varias filas (las 3 ménsulas del motorreductor) y el mapa colapsaba
+        # a la ÚLTIMA hoja — el despiece mandaba las 3 a «Hoja 17» (auditoría V7.3).
+        sheet_refs[(r["_rep"], r["largo_mm"], r["ancho_mm"], r["espesor_mm"])] = _pg
         _pg += 1
 
     # 1) CONJUNTO con DESPIECE (L×A×E) + globos + columna Hoja + CÉDULA DE HERRAJE + NOTAS DE

@@ -158,6 +158,28 @@ def test_profile_section_labeled_on_part_sheet():
     assert "HSS" in part_txt and "76.2" in part_txt
 
 
+def test_multisolid_despiece_hoja_column_maps_each_row_to_its_sheet():
+    """Auditoría V7.3: un comando MULTI-sólido (3 sólidos de dims distintas en un solo
+    feature) comparte `_rep` entre sus filas del despiece → el mapa {_rep→hoja} colapsaba
+    a la ÚLTIMA lámina (las 3 ménsulas decían «Hoja 17»). Con la clave por FILA, cada
+    renglón apunta a SU lámina (2, 3 y 4)."""
+    doc = Document()
+    a = doc.execute("create_box", {"name": "Ménsula multi", "width": 128, "depth": 50,
+                                   "height": 8, "position": {"x": -300}})
+    b = doc.execute("create_box", {"name": "Ménsula multi", "width": 30, "depth": 24,
+                                   "height": 21, "position": {"x": 0}})
+    c = doc.execute("create_box", {"name": "Ménsula multi", "width": 80, "depth": 40,
+                                   "height": 10, "position": {"x": 300}})
+    doc.execute("boolean_op", {"name": "Ménsula multi", "operation": "union",
+                               "target": a, "tools": [b, c]})
+    pages = sheet_set(doc.scene, project_name="Faja")
+    ga_labels = {l.text for l in pages[0].labels}
+    # las 3 láminas de pieza son las hojas 2, 3 y 4 → la columna Hoja del despiece debe
+    # referenciar LAS TRES (antes: solo «4», tres veces)
+    for hoja in ("2", "3", "4"):
+        assert hoja in ga_labels, f"la Hoja {hoja} no aparece en el despiece (mapa colapsado)"
+
+
 def test_long_name_suffix_survives_titleblock_truncation():
     """Cierre re-auditoría V7.2c: con un nombre LARGO (el real de la ménsula, ~50 chars)
     el sufijo «(k/n)» debe sobrevivir al corte de 34 chars del cajetín — antes moría en

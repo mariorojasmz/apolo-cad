@@ -683,7 +683,10 @@ def compose_sheet(
             _cl_cells = lambda i, row: (
                 str(i + 1), str(row["nombre"])[:16], str(row["material"])[:13],
                 f"{row['largo_mm']:g}×{row['ancho_mm']:g}×{row['espesor_mm']:g}",
-                str(sheet_refs.get(row["_rep"], "")), str(row["cantidad"]),
+                # clave por FILA (multi-sólido comparte _rep); fallback compat al _rep pelado
+                str(sheet_refs.get((row["_rep"], row["largo_mm"], row["ancho_mm"],
+                                    row["espesor_mm"]), sheet_refs.get(row["_rep"], ""))),
+                str(row["cantidad"]),
             )
         else:
             _cl_cols = [("N.º", 8), ("Pieza", 40), ("Material", 34), ("L×A×E (mm)", 64), ("Cant", 14)]

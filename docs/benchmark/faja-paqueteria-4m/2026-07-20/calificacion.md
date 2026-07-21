@@ -72,3 +72,47 @@ Global = 0.15·84.4 + 0.30·73.2 + 0.20·83.8 + 0.15·75 + 0.10·75 + 0.10·75 =
 - **2 cadenas de cotas declaradas** (metadato, se persisten): «asiento eje motriz Ø35» y
   «altura bastidor soldado». Es la declaración de un artefacto de ingeniería real (como los
   requisitos), no una modificación de geometría. Único cambio persistente de esta corrida.
+  (Post-re-auditoría: la cadena del bastidor se re-declaró con ISO 2768-**m** — coherente
+  con el «ISO 2768-mK» de las láminas; con «c» era conservadora pero incoherente de base.
+  Cierra igual: [774.9, 777.1] ⊆ [770, 782].)
+
+---
+
+# RE-AUDITORÍA (Fable, 2026-07-20) — regla 3 de la rúbrica
+
+Dos auditorías independientes (código del commit d3bd91d con reproducciones en worktree
+aislado; artefactos con diff página-a-página contra 2026-07-18) + reproducción propia.
+
+**El ≈78 % ES honesto — el más limpio de la serie**: base correcta (77 re-auditado),
+aritmética exacta (77.63), el salto viene íntegro de E5 y está medido en el artefacto,
+E3 no se infló por el stack-up, y **por primera vez el diff contra el testigo anterior
+no muestra NINGÚN cambio no declarado** (solo el swap de pasos 1↔2 del manual, los 3
+títulos con sufijo y las 2 páginas nuevas de la memoria; el resto byte-idéntico). Los
+números del stack-up del PDF cuadran exactos con el endpoint vivo. **La nota se
+sostiene.** Nota fina: 77.6 → «≈78» es redondeo; se declara como borde inferior.
+
+**Pero la capa API del stack-up shipeó con 2 fallas de integridad/honestidad**
+(reproducidas por el revisor contra el commit y por el auditor Fable en vivo — no
+afectan al PAQUETE testigo, sí al uso del feature):
+1. **Envenenamiento persistente**: una cadena INVÁLIDA (tol desconocida, `=expr` roto →
+   además 500) quedaba GUARDADA tras el 400 → `GET /api/stackup` reventaba para siempre
+   (ocultando todas las cadenas) y la memoria perdía la sección entera en silencio. El
+   anti-patrón persistir-antes-de-validar que `execute_many` resuelve con snapshot.
+2. **Veredicto falso en cadena incompleta**: con una pieza faltante (p. ej. tras borrar
+   un comando) se evaluaba el resto y daba `ok=True` — el cierre de una cadena a la que
+   le falta un eslabón no significa nada. Exactamente la clase de deshonestidad que el
+   commit presumía haber cuidado en los pernos.
+
+**FIXES DEL CIERRE (Fable, mismos commits de cierre, 7 tests de regresión nuevos)**:
+evaluación AISLADA por cadena (una mala = entrada `{error}`, jamás tumba GET/memoria) ·
+PUT con ROLLBACK (cadena que no evalúa no se persiste; editar una buena con versión mala
+restaura la previa) · cadena incompleta = error honesto sin veredicto + baja el `ok`
+global + AVISO en memoria (patrón vigencia-FEA) · `scope` inválido → 400 · tol ausente
+rotulada «±0 (referencia)» · requisito contradictorio (`entre`+`min/max`) rechazado ·
+heurística `jb_` por nombre eliminada (solo el comando join_bolted da «cerrada por
+construcción») · size sin tabla = entrada informativa, no desaparición · **«Hoja 17» del
+despiece ARREGLADO** (pre-existente, emparentado con el sufijo (k/n): las filas de un
+comando multi-sólido compartían `_rep` y el mapa colapsaba a la última lámina — clave
+por fila; las 3 ménsulas ya apuntan a SUS hojas 4/8/17). Residual declarado del motor:
+`bolt_pattern_budget` usa la fórmula de fijador FIJO (hasta 2× conservadora para pernos
+flotantes — documentado, nunca optimista).

@@ -3737,3 +3737,34 @@ E2E vivo en la faja 38 (por REST, el host MCP necesita reinicio para las 2 tools
 cadenas testigo declaradas y persistidas — «asiento eje motriz Ø35» (fit: juego bore−eje
 [0,0.046] ⊆ requisito [0,0.05], DESLIZA ✓) y «altura bastidor soldado» (bbox vivo pata+larguero
 776 mm, peor caso [773.2,778.8] ⊆ [770,782] ✓). 14 tests nuevos (7 motor puro + 7 API).
+
+## V7.3 re-auditoría y cierre (Fable, 2026-07-20)
+
+Regla 3, con doble escepticismo (revisar trabajo propio-de-la-otra-sesión): 2 auditores
+independientes + reproducción propia ANTES de tocar nada. Veredicto del benchmark: el
+≈78 % es HONESTO y el más limpio de la serie — diff página-a-página contra 2026-07-18
+sin UN solo cambio no declarado (primera iteración sin regresión nueva en el artefacto),
+números del stack-up del PDF exactos contra el endpoint vivo, base y aritmética
+correctas. El motor puro también pasó: RSS con fits asimétricos verificado a mano,
+ancla H7/h7 legítima, sentido −1 correcto.
+
+PERO la capa API del stack-up shipeó con 2 fallas de primera línea (reproducidas por el
+revisor contra d3bd91d en worktree aislado y por mí en vivo): (1) ENVENENAMIENTO — una
+cadena inválida quedaba persistida tras el 400 (persistir-antes-de-validar, el
+anti-patrón que execute_many resuelve con snapshot y el implementador conocía) → GET
+/api/stackup 400 para siempre ocultando TODAS las cadenas, memoria sin sección en
+silencio, y el veneno sobrevivía reloads vía autosave; con "=expr" roto era además 500
+pelado (ExpressionError no es ValueError). (2) VEREDICTO FALSO — cadena con pieza
+faltante se evaluaba parcial con ok=True: la misma clase de deshonestidad que el commit
+presumía haber cuidado en los pernos, escapada en la puerta de al lado. Fixes del
+cierre (míos, 7 tests de regresión): aislamiento por cadena, rollback en PUT, cadena
+incompleta = error + aviso en memoria (patrón vigencia-FEA) + baja el ok global, scope
+inválido 400, «±0 (referencia)» declarado, requisito entre+min/max rechazado, jb_ solo
+por comando, size sin tabla = informativo. Y el «Hoja 17» del despiece (pre-existente,
+cazado por el auditor de artefactos): las filas de un comando multi-sólido comparten
+_rep y el mapa {_rep→hoja} colapsaba a la última lámina — clave por fila (_rep,dims)
+con fallback compat; test con boolean_op union de 3 sólidos. La cadena del bastidor se
+re-declaró con ISO 2768-m (coherente con el mK de las láminas; con "c" cerraba pero con
+base incoherente). Lección repetida 2 veces ya: el implementador que caza un bug de
+honestidad en el frente A lo reintroduce en el frente B — la re-auditoría cruzada no es
+opcional.

@@ -23,7 +23,7 @@ import math
 
 from .fits import fit_limits
 
-# ISO 2768-1 (tolerancias generales lineales, mm) — ± por clase y rango nominal.
+# ISO 2768-1 (tolerancias generales lineales, mm) — ± por clase (f/m/c/v) y rango nominal.
 # Rangos: 0.5–3, 3–6, 6–30, 30–120, 120–400, 400–1000, 1000–2000, 2000–4000 mm.
 _ISO2768_RANGES = (3.0, 6.0, 30.0, 120.0, 400.0, 1000.0, 2000.0, 4000.0)
 ISO2768_LINEAR: dict[str, tuple[float, ...]] = {
@@ -47,7 +47,7 @@ def iso2768_linear(dim_mm: float, clase: str = "m") -> float:
     for hi, tol in zip(_ISO2768_RANGES, ISO2768_LINEAR[clase]):
         if d <= hi:
             if tol is None:
-                raise KeyError(f"ISO 2768-{clase} no cubre Ø{d:g} mm en ese rango")
+                raise KeyError(f"ISO 2768-{clase} no cubre la cota {d:g} mm en ese rango")
             return float(tol)
     raise KeyError(f"Nominal {d:g} mm fuera de rango")  # inalcanzable
 
@@ -63,6 +63,8 @@ def _resolve_tol(nominal_mm: float, tol: dict) -> tuple[float, float, str]:
     (kind, val), = tol.items()
     if kind == "pm":
         t = abs(float(val))
+        if t == 0.0:  # tol ausente/cero: cota de REFERENCIA — se declara, no se esconde
+            return (0.0, 0.0, "±0 (referencia, sin tolerancia declarada)")
         return (-t, t, f"±{t:g}")
     if kind == "fit":
         lim = fit_limits(nominal_mm, str(val))
@@ -80,6 +82,10 @@ def _resolve_tol(nominal_mm: float, tol: dict) -> tuple[float, float, str]:
 
 def _verdict(lo: float, hi: float, requisito: dict) -> tuple[bool, str]:
     """¿El intervalo [lo, hi] de cierre CUMPLE el requisito? Devuelve (ok, detalle)."""
+    if requisito.get("entre") is not None and (
+            requisito.get("min_mm") is not None or requisito.get("max_mm") is not None):
+        # V7.3 auditoría: min_mm/max_mm PISABAN los límites de `entre` en silencio
+        raise ValueError("requisito contradictorio: usa `entre` O `min_mm`/`max_mm`, no ambos")
     req_lo = req_hi = None
     if requisito.get("entre") is not None:
         req_lo, req_hi = float(requisito["entre"][0]), float(requisito["entre"][1])
@@ -205,7 +211,11 @@ def bolt_pattern_budget(clearance_hole_mm: float, bolt_dia_mm: float,
     """Cadena de un PATRÓN de pernos que debe ensamblar (V7.3 C): el presupuesto de
     posición por lado es ``(Ø_paso − Ø_perno)/2`` (holgura radial del barreno de paso);
     debe cubrir la suma de tolerancias de POSICIÓN de los barrenos que se enfrentan
-    (peor caso) — o la raíz cuadrada de su suma (RSS). Puro."""
+    (peor caso) — o la raíz cuadrada de su suma (RSS). Puro.
+
+    HIPÓTESIS declarada: fórmula de fijador FIJO (el perno se centra en un solo barreno).
+    Para pernos FLOTANTES en ambas placas (perno + tuerca, el caso de join_bolted) el
+    presupuesto real es hasta 2× → este veredicto es CONSERVADOR, nunca optimista."""
     budget = (float(clearance_hole_mm) - float(bolt_dia_mm)) / 2.0
     wc = float(sum(abs(t) for t in pos_tols_mm))
     rss = math.sqrt(sum(t * t for t in pos_tols_mm))

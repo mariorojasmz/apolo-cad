@@ -2272,40 +2272,54 @@ def _stackup_link_from_feature(fid: str, eje: str, tol) -> dict | None:
 def _evaluate_stackups(scope: str = "all") -> list[dict]:
     """Evalúa las cadenas DECLARADAS (`DOC.stackups`, resolviendo nominales '=expr' y
     eslabones por id contra el bbox vivo) y, si scope incluye auto, las cadenas
-    AUTO del patrón de pernos. Llamar bajo STATE_LOCK. Devuelve [{name, tipo, ...}]."""
+    AUTO del patrón de pernos. Llamar bajo STATE_LOCK. Devuelve [{name, tipo, ...}].
+
+    AISLAMIENTO POR CADENA (cierre de la auditoría V7.3): una cadena que no evalúa
+    (tol desconocida, '=expr' roto, fit fuera de tabla) sale como entrada `{error}` —
+    JAMÁS lanza, para que una cadena mala no oculte a las demás ni tumbe GET/memoria.
+    Una cadena con piezas FALTANTES no se evalúa parcial (el cierre de una cadena
+    incompleta no significa nada): entrada `{error}` con los ids que faltan."""
     from apolo.library.engineering.stackup import stack_up
 
     variables = dict(DOC.variables_resolved)
     out: list[dict] = []
     if scope in ("all", "declared"):
         for name, spec in sorted(DOC.stackups.items()):
-            eslabones = []
-            faltan = []
-            for e in spec.get("eslabones", []):
-                if e.get("id"):
-                    link = _stackup_link_from_feature(e["id"], e.get("eje", "x"), e.get("tol"))
-                    if link is None:
-                        faltan.append(e["id"])
-                        continue
-                    link["sentido"] = e.get("sentido", 1)
-                    if e.get("nombre"):
-                        link["nombre"] = e["nombre"]
-                    eslabones.append(link)
-                else:
-                    eslabones.append({
-                        "nombre": e.get("nombre", "eslabón"),
-                        "nominal_mm": _resolve_nominal(e["nominal_mm"], variables),
-                        "sentido": e.get("sentido", 1), "tol": e.get("tol") or {"pm": 0.0},
+            try:
+                eslabones = []
+                faltan = []
+                for e in spec.get("eslabones", []):
+                    if e.get("id"):
+                        link = _stackup_link_from_feature(e["id"], e.get("eje", "x"), e.get("tol"))
+                        if link is None:
+                            faltan.append(e["id"])
+                            continue
+                        link["sentido"] = e.get("sentido", 1)
+                        if e.get("nombre"):
+                            link["nombre"] = e["nombre"]
+                        eslabones.append(link)
+                    else:
+                        eslabones.append({
+                            "nombre": e.get("nombre", "eslabón"),
+                            "nominal_mm": _resolve_nominal(e["nominal_mm"], variables),
+                            "sentido": e.get("sentido", 1), "tol": e.get("tol") or {"pm": 0.0},
+                        })
+                if faltan:  # cadena INCOMPLETA → error honesto, nunca veredicto parcial
+                    out.append({
+                        "name": name, "tipo": "declarada", "faltan": faltan,
+                        "error": f"piezas no encontradas: {', '.join(faltan)} — la cadena "
+                                 "no se evalúa incompleta (re-declárala o repón las piezas)",
                     })
-            if not eslabones:
-                out.append({"name": name, "tipo": "declarada", "error": "sin eslabones resolubles",
-                            "faltan": faltan})
-                continue
-            rep = stack_up(eslabones, spec.get("requisito") or None)
-            rep.update({"name": name, "tipo": "declarada"})
-            if faltan:
-                rep["piezas_no_encontradas"] = faltan
-            out.append(rep)
+                    continue
+                if not eslabones:
+                    out.append({"name": name, "tipo": "declarada",
+                                "error": "sin eslabones resolubles"})
+                    continue
+                rep = stack_up(eslabones, spec.get("requisito") or None)
+                rep.update({"name": name, "tipo": "declarada"})
+                out.append(rep)
+            except Exception as exc:  # noqa: BLE001 — aislamiento por cadena
+                out.append({"name": name, "tipo": "declarada", "error": str(exc)})
     if scope in ("all", "auto"):
         out.extend(_auto_bolt_stackups())
     return out
@@ -2327,7 +2341,9 @@ def _auto_bolt_stackups() -> list[dict]:
         if f.get("kind") != "perno" or not f.get("size"):
             continue
         size = str(f["size"])
-        es_join = cmd_type.get(f.get("command_id")) == "join_bolted" or name.startswith("jb_")
+        # SOLO el comando join_bolted garantiza taladrado conjunto (V7.3 auditoría:
+        # un fasten MANUAL que el usuario nombre «jb_x» NO debe heredar el veredicto)
+        es_join = cmd_type.get(f.get("command_id")) == "join_bolted"
         if es_join:
             out.append({
                 "name": f"pernos {name}", "tipo": "auto-perno",
@@ -2338,7 +2354,9 @@ def _auto_bolt_stackups() -> list[dict]:
             continue
         try:
             clear, d = clearance_hole_mm(size), nominal_diameter_mm(size)
-        except KeyError:
+        except KeyError as exc:  # size fuera de tabla: entrada informativa, NO desaparición
+            out.append({"name": f"pernos {name}", "tipo": "auto-perno", "informativo": True,
+                        "detalle": f"{size}: sin broca de paso tabulada ({exc}); sin dato."})
             continue
         holgura = round((clear - d) / 2.0, 4)
         out.append({
@@ -2358,12 +2376,17 @@ def _stackup_rules() -> list[dict]:
     from apolo.library.engineering.stackup import stackup_rule
 
     rules: list[dict] = []
-    try:
-        chains = _evaluate_stackups("all")
-    except Exception:  # noqa: BLE001 — la memoria no debe caerse por una cadena rota
-        return rules
+    chains = _evaluate_stackups("all")  # aislada por cadena: nunca lanza
     for c in chains:
         if c.get("error"):
+            if c.get("tipo") == "declarada":
+                # V7.3 auditoría: una cadena declarada que no evalúa (pieza borrada,
+                # '=expr' roto) APARECE como aviso — patrón vigencia-FEA, nunca silencio.
+                rules.append({
+                    "regla": f"cadena de cotas · {c['name']}",
+                    "estado": "aviso",
+                    "detalle": f"La cadena declarada no se pudo evaluar: {c['error']}",
+                })
             continue
         if c.get("tipo") == "declarada":
             rules.append(stackup_rule(c["name"], c))
@@ -2389,26 +2412,42 @@ def _stackup_rules() -> list[dict]:
 def get_stackup(scope: str = "all") -> dict:
     """Evalúa las cadenas de cotas (declaradas + auto de pernos): peor caso, RSS y
     veredicto por cadena. scope = all | declared | auto. Read-only."""
+    if scope not in ("all", "declared", "auto"):  # V7.3 auditoría: typo ≠ lista vacía silenciosa
+        raise HTTPException(status_code=400,
+                            detail=f"scope '{scope}' inválido (usa all | declared | auto)")
     with STATE_LOCK:
-        try:
-            chains = _evaluate_stackups(scope)
-        except Exception as exc:  # noqa: BLE001 — una cadena rota no debe tumbar el endpoint
-            raise HTTPException(status_code=400, detail=f"Error evaluando la cadena: {exc}") from exc
-    # el `ok` global solo pesa las cadenas CON veredicto (declaradas + join_bolted);
+        chains = _evaluate_stackups(scope)  # aislada por cadena: nunca lanza por una mala
+    # el `ok` global pesa las cadenas CON veredicto (declaradas + join_bolted) — y una
+    # cadena DECLARADA en error también lo baja (declaraste algo que no se puede verificar);
     # las informativas (pernos manuales sin tolerancia de posición) no cuentan.
-    ok = all(c.get("ok_peor_caso", True) for c in chains
-             if "error" not in c and not c.get("informativo"))
+    ok = True
+    for c in chains:
+        if c.get("informativo"):
+            continue
+        if c.get("error") or not c.get("ok_peor_caso", True):
+            ok = False
     return {"ok": ok, "cadenas": chains}
 
 
 @app.put("/api/stackup")
 def put_stackup(body: StackupIn) -> dict:
     with STATE_LOCK:
+        prev = DOC.stackups.get(body.name)  # para rollback si la cadena no evalúa
         try:
             DOC.set_stackup(body.name, body.eslabones, body.requisito)
-            chains = _evaluate_stackups("declared")
-        except (DocumentError, ValueError, KeyError) as exc:
+        except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        chains = _evaluate_stackups("declared")
+        mine = next((c for c in chains if c.get("name") == body.name.strip()), None)
+        if mine is not None and mine.get("error"):
+            # V7.3 auditoría: una cadena que NO evalúa no se persiste (antes quedaba
+            # guardada y envenenaba GET/memoria para siempre) — rollback + 400.
+            if prev is None:
+                DOC.stackups.pop(body.name.strip(), None)
+            else:
+                DOC.stackups[body.name.strip()] = prev
+            raise HTTPException(status_code=400,
+                                detail=f"La cadena no evalúa (no se guardó): {mine['error']}")
         _autosave()
         return {"ok": True, "cadenas": chains}
 

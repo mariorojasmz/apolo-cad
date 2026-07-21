@@ -61,7 +61,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **72 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-20)**: 1232 tests (+15 tortura vía `-m torture`) · 72 tools MCP ·
+- **Estado actual (2026-07-20)**: 1237 tests (+15 tortura vía `-m torture`) · 72 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -370,7 +370,13 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   construcción» (taladra ambas piezas juntas); perno manual con `size` = HOLGURA de paso
   informativa SIN veredicto (fabricar la demanda de posición sería inventar). Sección
   «Cadenas de cotas» en la memoria (`_stackup_rules`, solo declaradas + construcción) —
-  vacía si no hay cadenas.
+  vacía si no hay cadenas. **Cierre de auditoría V7.3**: evaluación AISLADA por cadena
+  (una mala = `{error}`, jamás tumba GET/memoria) · PUT con ROLLBACK (cadena que no
+  evalúa NO se persiste — persistir-antes-de-validar envenenaba el endpoint) · cadena
+  con pieza FALTANTE = error sin veredicto + aviso en memoria (jamás veredicto parcial)
+  · «cerrada por construcción» SOLO por comando join_bolted (no por nombre `jb_*`) · la
+  columna «Hoja» del despiece mapea por FILA `(_rep, dims)` — un comando multi-sólido
+  comparte `_rep` y el mapa por `_rep` pelado colapsaba a la última lámina («Hoja 17»).
 - **Reglas de conveyor** (`library/rules.py`): 13 reglas; `detect_conveyor` se enriquece
   con VARIABLES del proyecto + nombres + specs de catálogo (reconoce
   `motorreductores_sinfin`; η=0.75 sinfín vs 0.85 helicoidal); las reglas numéricas llevan
