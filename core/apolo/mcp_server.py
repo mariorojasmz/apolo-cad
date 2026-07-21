@@ -1324,5 +1324,55 @@ def fea_static(feature_id: str, fixed: dict, loads: list[dict] | None = None,
     return json.dumps(resumen, ensure_ascii=False)
 
 
+@mcp.tool()
+def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
+                 carga_kg: float = 0.0, self_weight: bool = True,
+                 yield_mpa: float = 0.0, loads: list[dict] | None = None,
+                 fixed_pieces: list[str] | None = None, mesh_size_mm: float = 0.0,
+                 fs_min: float = 2.0, fringe_path: str = "") -> str:
+    """FEA ESTÁTICO LINEAL BONDED de un SUB-ENSAMBLAJE (V7.4): el bastidor SOLDADO
+    completo (N sólidos PEGADOS, nodos compartidos en las interfaces = sin contacto)
+    bajo la carga de diseño, MULTI-MATERIAL, con σ_vm y FS reportados POR PIEZA (la
+    gobernante es la de menor FS). Pasa `group` (nombre de sub-ensamblaje) o `ids`
+    (piezas sueltas + `name`). El empotramiento se DERIVA de los grounds (base de las
+    patas/placas ancladas a piso) — o pasa `fixed_pieces`; la carga se DERIVA de
+    requirements.carga_kg repartida sobre la cama/mesa (nómbrala cama/mesa/deck) — o
+    `carga_kg`, o `loads` explícitos [{feature_id, selector, force_n|pressure_mpa}].
+    `self_weight` (por defecto SÍ) añade el peso propio con densidad por pieza. El
+    HERRAJE de catálogo (motor/rodamientos/pernos) se EXCLUYE de la malla y su peso
+    entra como carga sustituta DECLARADA. `yield_mpa` = σy de respaldo para piezas sin
+    σy tabulado. El resumen se GUARDA y entra a la memoria (aviso automático si la
+    geometría cambia). `fringe_path` guarda el PNG del campo — MÍRALO. GOTCHA: el
+    solve del bastidor puede tardar MINUTOS; invoca con mesh_size_mm GENEROSO primero
+    (malla gruesa) y afina después. El FEA CONTRASTA la verificación analítica de
+    flecha/pandeo (dos caminos al mismo número = confianza para firmar)."""
+    from pathlib import Path
+
+    body: dict = {"self_weight": self_weight, "fs_min": fs_min, "loads": loads or []}
+    if group:
+        body["group"] = group
+    if ids:
+        body["ids"] = ids
+    if name:
+        body["name"] = name
+    if carga_kg:
+        body["carga_kg"] = carga_kg
+    if yield_mpa:
+        body["yield_mpa"] = yield_mpa
+    if fixed_pieces:
+        body["fixed_pieces"] = fixed_pieces
+    if mesh_size_mm:
+        body["mesh_size_mm"] = mesh_size_mm
+    resumen = _api("POST", "/api/fea/assembly", json=body).json()
+    if fringe_path:
+        gname = resumen.get("grupo", group or name)
+        png = _api("GET", f"/api/fea/group/{gname}/fringe.png").content
+        target = Path(fringe_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(png)
+        resumen["fringe"] = str(target)
+    return json.dumps(resumen, ensure_ascii=False)
+
+
 if __name__ == "__main__":
     mcp.run()

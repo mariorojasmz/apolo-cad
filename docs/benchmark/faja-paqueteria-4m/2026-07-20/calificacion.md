@@ -116,3 +116,27 @@ comando multi-sólido compartían `_rep` y el mapa colapsaba a la última lámin
 por fila; las 3 ménsulas ya apuntan a SUS hojas 4/8/17). Residual declarado del motor:
 `bolt_pattern_budget` usa la fórmula de fijador FIJO (hasta 2× conservadora para pernos
 flotantes — documentado, nunca optimista).
+
+---
+
+# Nota de capacidad V7.4 — FEA de ensamblaje BONDED (2026-07-21, sin re-calificar)
+
+V7.4 añade FEA estático lineal de un SUB-ENSAMBLAJE pegado (bonded, multi-material, FS por
+pieza) integrado a la memoria. **No sube la nota GLOBAL**: la rúbrica-v1 no tiene criterio
+de FEA-ensamblaje (candidato a rúbrica-v2, como el stack-up de V7.3). Se anota la capacidad,
+medida en el testigo:
+
+- E2E vivo en el 38 (bastidor portante, 16 pza, patas fijas a piso, carga 75 kg + peso
+  propio): **FS gobernante 93.5** en la pata, σ_vm 2.67 MPa, **δ 0.021 mm ≤ L/240** — todas
+  las piezas OK. Persistido como `group:Bastidor portante` en el proyecto 38.
+- **Contraste con la analítica** (dos caminos independientes, C.2 del plan): la flecha del
+  FEA (0.021 mm) es del mismo orden que la analítica del bastidor (0.11 mm, FS 62) y el FS de
+  la pata bonded (93.5) es coherente con el FEA de la pata sola (170, más alto por aislada) →
+  confianza para firmar.
+- **Honestidad del feature**: la GUARDA de cuerpo rígido cazó que los pies niveladores del 38
+  quedan a 13.1 mm de las patas (soldaduras no modeladas como caras compartidas) → un primer
+  run habría reportado 597 km de desplazamiento (matriz singular). El sistema ERRA nombrando
+  la pieza suelta en vez de emitir basura; el E2E se resolvió anclando las patas por su base
+  (la ruta real al piso). Es un hallazgo de MODELO (gap del 38), no del código.
+- «FEA firmable» pasa de ≈45 % a ~70 % (eje de features). Residual: mallado de chapa fina
+  (la mesa de 2 mm), ν por material tabulado, huella real del herraje excluido.

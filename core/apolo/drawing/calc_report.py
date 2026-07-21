@@ -147,6 +147,14 @@ def _section_page(W: float, H: float, *, idx: int, n_sections: int, page_no: int
         for ln in _wrap("Recomendación: " + str(rule["recomendacion"]), 58)[:4]:
             m.labels.append(Label(18, y, ln, 2.7, anchor="start"))
             y -= 4.2
+    # tabla por pieza (FEA de ensamblaje: σ_vm / FS por pieza) — bajo la verificación
+    if rule.get("tabla"):
+        y -= 3
+        m.labels.append(Label(16, y, "RESULTADO POR PIEZA", 3.2, anchor="start"))
+        y -= 5.5
+        for row in rule["tabla"][:12]:
+            m.labels.append(Label(18, y, str(row)[:64], 2.6, anchor="start"))
+            y -= 4.0
 
     # columna derecha: el cálculo (fórmula → sustitución → resultado → criterio → FS)
     rx = W * 0.55

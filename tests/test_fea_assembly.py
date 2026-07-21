@@ -1,0 +1,211 @@
+"""FEA de ENSAMBLAJE BONDED (V7.4): gmsh fragment (interfaces compartidas) +
+scikit-fem multi-material (E/ν por elemento). Los numéricos exigen el extra [fea]
+(skip si no está); el contrato de la API (400 sin solve, vigencia, roundtrip) corre
+SIEMPRE."""
+import importlib.util
+
+import pytest
+from fastapi.testclient import TestClient
+
+import apolo.api.main as api
+from apolo.doc import Document
+from apolo.fea import FeaError
+
+_FEA_OK = (importlib.util.find_spec("gmsh") is not None
+           and importlib.util.find_spec("skfem") is not None)
+requires_fea = pytest.mark.skipif(not _FEA_OK, reason="extra [fea] no instalado")
+
+# viga 200×20×20 PARTIDA en dos cajas de 100 pegadas en x=100; F=200 N en −Z en la punta:
+# I = 20·20³/12 = 13333.3 mm⁴ · δ = FL³/3EI = 0.2000 mm · σ raíz = FL·(h/2)/I = 30 MPa
+LT, SEG, W, HH, FZ = 200.0, 100.0, 20.0, 20.0, 200.0
+DELTA_TEO = FZ * LT**3 / (3 * 200000.0 * (W * HH**3 / 12))   # 0.2 mm
+SIGMA_ROOT = (FZ * LT) * (HH / 2) / (W * HH**3 / 12)          # 30 MPa
+
+
+def _two_box(tmp_path, overlap=0.0):
+    from build123d import Box, Pos, export_step
+    from apolo.fea.mesher import FaceDesc, PieceMesh
+
+    b1 = Pos(SEG / 2, 0, 0) * Box(SEG, W, HH)              # x: 0..100
+    b2 = Pos(SEG + SEG / 2 - overlap, 0, 0) * Box(SEG, W, HH)  # x: 100-ov..200-ov
+    s1 = str(tmp_path / "b1.step"); export_step(b1, s1)
+    s2 = str(tmp_path / "b2.step"); export_step(b2, s2)
+    pieces = [PieceMesh(key="b1", step_path=s1), PieceMesh(key="b2", step_path=s2)]
+
+    def descs(shape, xval):
+        return [FaceDesc.from_face(f) for f in shape.faces()
+                if abs(f.center().X - xval) < 1e-6]
+
+    return pieces, descs(b1, 0.0), descs(b2, 200.0 - overlap)
+
+
+# --------------------------------------------------- solver bonded anclado a viga
+@requires_fea
+def test_bonded_cantilever_continuous_and_matches_beam(tmp_path):
+    from apolo.fea.mesher import mesh_assembly
+    from apolo.fea.solver import solve_assembly_elasticity
+
+    pieces, fixed, load = _two_box(tmp_path)
+    msh = str(tmp_path / "asm.msh")
+    meta = mesh_assembly(pieces, fixed, {"load_0": load}, msh, mesh_size_mm=4.0)
+    assert meta["shared_volumes"] == 0 and not meta["absorbidas"]
+    assert {g["key"] for g in meta["piece_groups"]} == {"b1", "b2"}
+
+    pm = [{"name": g["name"], "key": g["key"], "e_mpa": 200000.0, "nu": 0.3,
+           "density_kg_mm3": 7.85e-6} for g in meta["piece_groups"]]
+    field, per = solve_assembly_elasticity(
+        msh, pieces=pm, loads=[{"group": "load_0", "force_n": [0, 0, -FZ]}])
+
+    # la viga bonded se comporta como una sola: δ ±8 %, σ raíz ±20 % (concentración)
+    assert field.u_max_mm == pytest.approx(DELTA_TEO, rel=0.08)
+    assert SIGMA_ROOT * 0.85 <= field.vm_max <= SIGMA_ROOT * 1.6
+    # CONTINUIDAD en la interfaz x=100: |u| suave (nodos compartidos = bonded)
+    import numpy as np
+    xc = field.coords[0]
+    near = np.abs(xc - 100.0) < 3.0
+    u_teo_100 = FZ * 100.0**2 * (3 * LT - 100.0) / (6 * 200000.0 * (W * HH**3 / 12))
+    assert field.u_mag_nodal[near].mean() == pytest.approx(u_teo_100, rel=0.12)
+    # per-piece: la raíz (b1) sufre más que la punta (b2)
+    by = {r.key: r for r in per}
+    assert by["b1"].vm_max > by["b2"].vm_max
+
+
+@requires_fea
+def test_multimaterial_distinct_fs_and_overlap_declared(tmp_path):
+    from apolo.fea.mesher import mesh_assembly
+    from apolo.fea.solver import solve_assembly_elasticity
+
+    pieces, fixed, load = _two_box(tmp_path, overlap=3.0)   # solape de 3 mm
+    msh = str(tmp_path / "a.msh")
+    meta = mesh_assembly(pieces, fixed, {"load_0": load}, msh, mesh_size_mm=4.0)
+    assert meta["shared_volumes"] == 1                      # el solape lo detecta y declara
+
+    pm = [{"name": "piece_0", "key": "b1", "e_mpa": 200000.0, "nu": 0.30, "density_kg_mm3": 7.85e-6},
+          {"name": "piece_1", "key": "b2", "e_mpa": 70000.0, "nu": 0.33, "density_kg_mm3": 2.7e-6}]
+    _, per = solve_assembly_elasticity(
+        msh, pieces=pm, loads=[{"group": "load_0", "force_n": [0, 0, -FZ]}])
+    sy = {"b1": 250.0, "b2": 95.0}
+    fs = {r.key: sy[r.key] / r.vm_max for r in per}
+    assert fs["b1"] != pytest.approx(fs["b2"], rel=0.05)    # FS distintos por material
+
+
+@requires_fea
+def test_budget_exceeded_before_meshing(tmp_path):
+    """El presupuesto de tets se estima ANTES de mallar: malla fina en un bbox grande
+    → error accionable con la sugerencia de subir mesh_size."""
+    from apolo.fea.mesher import mesh_assembly
+
+    pieces, fixed, load = _two_box(tmp_path)
+    with pytest.raises(FeaError, match="mesh_size_mm"):
+        mesh_assembly(pieces, fixed, {"load_0": load}, str(tmp_path / "x.msh"),
+                      mesh_size_mm=0.4)  # ~millones de tets estimados
+
+
+def test_piece_cap_before_gmsh():
+    """El tope de piezas se valida ANTES de tocar gmsh (no necesita el extra [fea])."""
+    from apolo.fea.mesher import PieceMesh, mesh_assembly
+
+    pieces = [PieceMesh(key=f"p{i}", step_path="") for i in range(26)]
+    with pytest.raises(FeaError, match="tope"):
+        mesh_assembly(pieces, [], {}, "x.msh")
+
+
+@requires_fea
+def test_floating_piece_rejected(tmp_path):
+    """GUARDA de cuerpo rígido: una pieza SUELTA (no pegada al bastidor anclado) → error
+    nombrándola, NUNCA un desplazamiento basura de matriz singular."""
+    from build123d import Box, Pos, export_step
+    from apolo.fea.mesher import FaceDesc, PieceMesh, mesh_assembly
+
+    b1 = Pos(50, 0, 0) * Box(100, 20, 20)              # x 0..100 (se ancla en x=0)
+    b2 = Pos(160, 0, 0) * Box(100, 20, 20)             # x 110..210: SEPARADA 10 mm de b1
+    s1 = str(tmp_path / "b1.step"); export_step(b1, s1)
+    s2 = str(tmp_path / "b2.step"); export_step(b2, s2)
+    pieces = [PieceMesh(key="anclada", step_path=s1), PieceMesh(key="suelta", step_path=s2)]
+    fixed = [FaceDesc.from_face(f) for f in b1.faces() if abs(f.center().X - 0.0) < 1e-6]
+    load = [FaceDesc.from_face(f) for f in b2.faces() if abs(f.center().X - 210.0) < 1e-6]
+    with pytest.raises(FeaError, match="SUELTA"):
+        mesh_assembly(pieces, fixed, {"load_0": load}, str(tmp_path / "x.msh"), mesh_size_mm=5.0)
+
+
+# --------------------------------------------------------- contrato de API (sin solve)
+def _client(doc):
+    api.DOC = doc
+    return TestClient(api.app)
+
+
+def test_api_needs_group_or_ids_400():
+    client = _client(Document("t"))
+    r = client.post("/api/fea/assembly", json={})
+    assert r.status_code == 400 and "group" in r.json()["detail"].lower()
+
+
+def test_api_group_only_hardware_400():
+    doc = Document("t")
+    h = doc.execute("insert_component", {"component": "PERNO-M12", "position": {"x": 0, "y": 0, "z": 0}})
+    doc.execute("create_group", {"name": "Solo herraje", "members": [h]})
+    r = _client(doc).post("/api/fea/assembly", json={"group": "Solo herraje"})
+    assert r.status_code == 400 and "estructural" in r.json()["detail"].lower()
+
+
+def test_api_no_ground_no_fixed_400():
+    doc = Document("t")
+    a = doc.execute("create_box", {"name": "Larguero A36", "width": 40, "depth": 40, "height": 200})
+    b = doc.execute("create_box", {"name": "Pata A36", "width": 40, "depth": 40, "height": 200,
+                                   "position": {"x": 100}})
+    doc.execute("create_group", {"name": "Estructura", "members": [a, b]})
+    r = _client(doc).post("/api/fea/assembly", json={"group": "Estructura"})
+    assert r.status_code == 400 and "empotramiento" in r.json()["detail"].lower()
+
+
+def test_api_manifest_roundtrip_group_key():
+    doc = Document("t")
+    doc.set_fea_result("group:Estructura", {
+        "grupo": "Estructura", "tipo": "ensamblaje_bonded", "fs": 3.4, "estado": "ok",
+        "volumen_mm3": 50000.0, "piezas_fids": ["c1"]})
+    clone = Document.from_apolo_bytes(doc.to_apolo_bytes(), regenerate=False)
+    assert clone.fea["group:Estructura"]["fs"] == 3.4
+    assert clone.fea["group:Estructura"]["tipo"] == "ensamblaje_bonded"
+
+
+def test_fea_rules_group_vigencia_missing_piece():
+    doc = Document("t")
+    a = doc.execute("create_box", {"name": "Larguero", "width": 40, "depth": 40, "height": 200})
+    vol = float(doc.scene[a].shape.volume)
+    api.DOC = doc
+    doc.set_fea_result("group:Estructura", {
+        "grupo": "Estructura", "tipo": "ensamblaje_bonded", "fs": 3.0, "estado": "ok",
+        "volumen_mm3": vol, "piezas_fids": [a], "calc": {"titulo": "x", "fs": 3.0},
+        "detalle": "ok"})
+    reglas = api._fea_rules()
+    assert reglas and reglas[0]["estado"] == "ok" and reglas[0]["regla"].startswith("FEA bastidor")
+    # la pieza desaparece de la escena → la regla degrada a aviso (vigencia)
+    doc.scene.pop(a)
+    reglas = api._fea_rules()
+    assert reglas[0]["estado"] == "aviso" and "existen" in reglas[0]["detalle"]
+
+
+# --------------------------------------------------------------- E2E por la API
+@requires_fea
+def test_api_e2e_column_bonded():
+    doc = Document("asm-e2e")
+    pata = doc.execute("create_box", {"name": "Pata A36", "width": 30, "depth": 30,
+                                      "height": 100, "position": {"z": 50}})       # z 0..100
+    cama = doc.execute("create_box", {"name": "Cama mesa A36", "width": 30, "depth": 30,
+                                      "height": 20, "position": {"z": 110}})       # z 100..120
+    doc.execute("create_group", {"name": "Estructura", "members": [pata, cama]})
+    doc.grounds["g1"] = {"feature": pata}   # pata anclada a piso
+    client = _client(doc)
+    r = client.post("/api/fea/assembly", json={"group": "Estructura", "carga_kg": 50,
+                                               "self_weight": True, "mesh_size_mm": 6.0})
+    assert r.status_code == 200, r.json()
+    res = r.json()
+    assert res["tipo"] == "ensamblaje_bonded" and res["n_piezas"] == 2
+    assert {p["feature_id"] for p in res["piezas"]} == {pata, cama}
+    assert res["fs"] is not None and res["estado"] in ("ok", "aviso", "error")
+    # la regla entra a la memoria con tabla por pieza
+    reglas = [x for x in client.post("/api/checks", json={}).json()["estructura"]
+              if x["regla"].startswith("FEA bastidor")]
+    assert reglas and reglas[0].get("calc") and reglas[0].get("tabla")
+    # fringe cacheado sin re-resolver
+    assert client.get("/api/fea/group/Estructura/fringe.png").content[:8] == b"\x89PNG\r\n\x1a\n"

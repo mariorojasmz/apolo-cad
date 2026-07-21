@@ -61,7 +61,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **72 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-20)**: 1237 tests (+15 tortura vía `-m torture`) · 72 tools MCP ·
+- **Estado actual (2026-07-21)**: 1248 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -325,6 +325,32 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   `mesh_size_mm` es el control); σ_vm pegado al empotramiento = concentración numérica
   (`max_en_encastre` lo marca); material sin σy tabulado exige `yield_mpa`
   (`has_yield`, no se miente con defaults).
+- **FEA de ENSAMBLAJE BONDED (V7.4, `fea/assembly.py`)**: tool `fea_assembly` +
+  `POST /api/fea/assembly` — el bastidor SOLDADO completo (N sólidos PEGADOS) bajo la
+  carga de diseño, MULTI-MATERIAL, con σ_vm y FS reportados POR PIEZA (gobierna el mínimo).
+  `mesher.py::mesh_assembly` importa un STEP por pieza y los FRAGMENTA juntos
+  (`occ.fragment` + `removeAllDuplicates` → interfaces con nodos COMPARTIDOS = pegado, sin
+  pares de contacto; physical group `piece_<i>` por sólido, el solape de diseño se asigna a
+  la pieza declarada antes y se declara); `solver.py::solve_assembly_elasticity` toma E/ν
+  POR ELEMENTO vía los subdominios de la malla (forma bilineal custom = idéntica a
+  `linear_elasticity` en material homogéneo, verificado). Deriva el EMPOTRAMIENTO de los
+  `grounds` (base de las piezas ancladas) y la CARGA de `requirements.carga_kg` repartida
+  sobre la cama/mesa (`_BED_RE`, o `loads` explícitos {feature_id, selector, force_n}); el
+  HERRAJE de catálogo se EXCLUYE de la malla y su peso entra como carga sustituta DECLARADA.
+  **GUARDA de cuerpo rígido** (`_assert_bonded_to_ground`): toda pieza debe compartir
+  interfaz con la componente que toca el empotramiento — una SUELTA = modo rígido → matriz
+  singular → error nombrándola (NUNCA un desplazamiento basura), + backstop en el solver
+  (u>1e5 mm → error). Tope 25 piezas + estimador de tets pre-malla (avisa antes de mallar).
+  Vigencia por volumen CONJUNTO (clave `group:<nombre>` en `DOC.fea`); memoria: sección
+  «FEA del bastidor» + tabla por pieza + flecha vs L/240 que CONTRASTA la verificación
+  analítica (dos caminos al mismo número = confianza para firmar). Bonded lineal es la
+  hipótesis CORRECTA para un bastidor soldado, no un atajo. **E2E faja 38** (bastidor
+  portante, 16 pza, patas fijas a piso): FS gob 93.5 en la pata, δ=0.021 mm ≤ L/240 —
+  coherente con la flecha analítica (0.11 mm, FS 62) y el FEA de la pata sola (FS 170).
+  GOTCHA del modelo 38: los pies niveladores quedan a 13 mm de las patas (soldaduras NO
+  modeladas como caras compartidas) → la guarda los detecta correctamente; se anclan las
+  patas por su base (la ruta real al piso). Follow-ups: mallado de chapa fina (mesa 2 mm),
+  ν por material tabulado, huella real del herraje excluido.
 - **Interferencias**: `check_interference` (booleanas OCCT; excluye pares de junta,
   `same_command_pairs` y hardware tornillería/rodamientos) + `interpenetration_report`
   (exceso vs pose de diseño en pares con junta).
@@ -866,7 +892,8 @@ paramétrica + tablas de diseño) · croquis 5 (PlaneGCS; falta arrastre
 en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
 soundness/gravity sigue siendo único) · planos 7.5 (V7.2: soldadura ISO 2553 + tol. ISO 2768 +
 acabados ISO 1302 + datums · V7.2c: fit por lámina, revolución≠sierra, sin retoque humano) ·
-simulación 4.5 (analítico+MuJoCo+FEA lineal; falta contacto/no-lineal) · negocio 6.5 · interop 6 ·
+simulación 5 (analítico+MuJoCo+FEA lineal de pieza Y de ENSAMBLAJE bonded multi-material V7.4;
+falta contacto/no-lineal) · negocio 6.5 · interop 6 ·
 rendimiento 6 (V6.2) · robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
 Veredicto por RESULTADOS (**MEDIDO** — benchmark testigo de la faja 38 vs la rúbrica-v1;
 `docs/benchmark/faja-paqueteria-4m/2026-07-20/calificacion.md`; verificado por TEXTO extraído
@@ -879,10 +906,13 @@ del motor (paso 6), y el sufijo (k/n) de las 3 láminas de la ménsula sobrevive
 cajetín. Memoria = **83.8 %** (+ sección de stack-up V7.3) · BOM/cotización = **75 %** (D.1
 diferido) · 3D validado = **84.4 %** (0 avisos, 0 flotantes) · **planos de taller = 73.2 %**
 (residual E2.2 datum/ménsula-sin-barrenos-UCP) · manual = **75 %** (orden por grafo de soporte,
-regresión cerrada) · **FEA firmable ~45 %** · render ~50 %. **V7.3 (stack-up de cadenas de
-cotas)** añade una capacidad que ningún incumbente entrega INTEGRADA a la memoria sin add-in
-(TolAnalyst) — no sube nota porque la rúbrica-v1 aún no la puntúa. Brechas top: E2.2 (datum por
-cara funcional + barrenos del UCP en el modelo) + orden fino inter-grupo del manual.
+regresión cerrada) · **FEA firmable ~45 %→~70 % (V7.4: bonded de ensamblaje multi-material,
+FS por pieza, integrado a la memoria + guarda de cuerpo rígido)** · render ~50 %. **V7.3
+(stack-up de cadenas de cotas)** y **V7.4 (FEA bonded de ensamblaje)** añaden capacidades que
+ningún incumbente entrega INTEGRADAS a la memoria sin add-in (TolAnalyst / Simulation) — no
+suben la nota GLOBAL porque la rúbrica-v1 aún no las puntúa (candidatas a v2). Brechas top:
+E2.2 (datum por cara funcional + barrenos del UCP en el modelo) + orden fino inter-grupo del
+manual + mallado de chapa fina en el FEA de ensamblaje.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -922,7 +952,7 @@ verdes**. Un ítem por vez, con plan formal.
   agente ciego ni lo empuja a REST crudo (evidencia: perezosa 66). Detalle: § Ergonomía MCP.
 - **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5. PLANEADO
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
-- **V6.7 FEA de ensamblaje (bonded)**. 4.5→5.5.
+- **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
 
@@ -991,10 +1021,17 @@ cerrar V6; orden tentativo por impacto en el entregable:
   (asiento eje Ø35 h7 juego [0,0.046] ⊆ [0,0.05] · altura bastidor 776 [773.2,778.8] ⊆
   [770,782]). Detalle: § Ingeniería (Stack-up). Desviación del plan declarada: metadato-endpoint,
   NO comando de registro (el plan pedía comandos 53→55, pero eso rompería checkpoints).
-- **V7.4 FEA firmable** — PLANEADO (`docs/plans/V7.4-fea-firmable.md`; absorbe V6.7):
-  ensamblaje BONDED multi-material (BooleanFragments + physical groups), BCs desde
-  grounds/requirements, sección en memoria con FS por pieza. ≈45 %→~70 %.
-- Orden V7.3 vs V7.4: decidir por demanda del negocio al cerrar V7.2b.
+- **V7.4 FEA firmable** — **HECHO (2026-07-21, absorbe V6.7)**: FEA estático lineal BONDED de
+  SUB-ENSAMBLAJE (`fea/assembly.py` + `mesh_assembly` con `occ.fragment` → interfaces
+  compartidas + `solve_assembly_elasticity` con E/ν por elemento), multi-material, FS POR PIEZA,
+  BCs derivadas de grounds/requirements, herraje excluido con carga sustituta declarada, GUARDA
+  de cuerpo rígido (pieza suelta → error nombrándola, nunca desplazamiento basura), sección
+  integrada a la memoria con tabla por pieza + flecha vs L/240 que CONTRASTA la analítica. tool
+  `fea_assembly` (72→73). E2E faja 38: bastidor portante FS gob 93.5, δ 0.021 mm ≤ L/240,
+  coherente con la flecha analítica (0.11 mm, FS 62). ≈45 %→~70 %. Detalle: § FEA de ENSAMBLAJE.
+  Desviación del plan declarada: tool NUEVO `fea_assembly` (no `fea_static+group`: inputs
+  distintos —grounds/carga derivados— hacen más limpio un tool aparte). La rúbrica-v1 no puntúa
+  FEA-ensamblaje → capacidad anotada, sin subir nota GLOBAL sin medir.
 
 ## Hoja de ruta V5 — AGOTADA (completitud de flujo del vertical)
 Doctrina (usuario): el ingeniero del vertical **nunca necesita SW/Inventor** — completitud de

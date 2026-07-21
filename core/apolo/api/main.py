@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import json
 import os
+import re
 import tempfile
 import threading
 import time
@@ -2863,6 +2864,31 @@ class FeaStaticIn(BaseModel):
     save: bool = True                     # persistir el resumen en DOC.fea (memoria)
 
 
+class FeaAsmLoadIn(BaseModel):
+    feature_id: str                       # la carga se resuelve contra ESTA pieza
+    selector: dict                        # selector declarativo de sus caras
+    force_n: list[float] | None = None
+    pressure_mpa: float | None = None
+
+
+class FeaAssemblyIn(BaseModel):
+    """FEA BONDED de un sub-ensamblaje (V7.4): un GRUPO o lista de piezas pegadas."""
+    group: str | None = None              # nombre de grupo (o usa ids)
+    ids: list[str] | None = None          # o piezas explícitas
+    name: str | None = None               # etiqueta si se pasan ids sueltos
+    carga_kg: float | None = None         # carga de diseño (si None → requirements.carga_kg)
+    self_weight: bool = True              # peso propio (por defecto SÍ en un bastidor)
+    yield_mpa: float | None = None        # σy de respaldo para piezas sin σy tabulado
+    loads: list[FeaAsmLoadIn] = []        # cargas EXPLÍCITAS (si vacío → auto sobre la cama/mesa)
+    fixed_pieces: list[str] | None = None  # empotrar la base de estas piezas (si None → grounds ∩ grupo)
+    mesh_size_mm: float | None = None
+    fs_min: float = 2.0
+    save: bool = True
+
+# rol de superficie de carga (recibe el producto): la cama/mesa/deck del transportador
+_BED_RE = re.compile(r"\b(cama|mesa|bed|deck|tablero|placa\s*sup|superficie\s*de\s*carga)\b", re.I)
+
+
 _LAST_FEA_FIELD: dict = {}  # feature_id → FeaField del último solve (fringe, no persiste)
 
 
@@ -2969,6 +2995,199 @@ def fea_static_png(body: FeaStaticIn) -> Response:
     return Response(content=png, media_type="image/png")
 
 
+def _fea_assembly_run(body: FeaAssemblyIn):
+    """FEA BONDED de un sub-ensamblaje (V7.4). Patrón dos-locks igual que la pieza:
+    (a) STATE_LOCK expande el grupo, resuelve material/selectores, deriva
+    empotramiento (grounds) y carga (requisitos sobre la cama), exporta un STEP por
+    pieza; (b) SIN lock malla+resuelve (bonded); (c) STATE_LOCK persiste (clave
+    `group:<nombre>`, vigencia por volumen conjunto). El herraje de catálogo se EXCLUYE
+    de la malla y su peso entra como carga sustituta DECLARADA."""
+    import shutil
+    import tempfile
+
+    from apolo.assembly.groups import group_features
+    from apolo.fea import FeaError
+    from apolo.fea.mesher import FaceDesc
+    from apolo.kernel.selectors import SelectorError, resolve_faces
+    from apolo.kernel.shapes import is_surface
+    from apolo.library.catalog import CATALOG
+    from apolo.library.checks import hardware_ids
+    from apolo.library.engineering.mass import feature_mass
+    from apolo.library.materials import (
+        density, has_yield, resolve_material, yield_strength, young_modulus,
+    )
+
+    tmp_dir = None
+    with STATE_LOCK:
+        if body.group:
+            fids = group_features(DOC.scene, DOC.groups, body.group, recursive=True)
+            grupo = body.group
+            if not fids:
+                raise HTTPException(status_code=404,
+                                    detail=f"El grupo '{body.group}' no existe o no tiene piezas")
+        elif body.ids:
+            fids = [f for f in body.ids if f in DOC.scene]
+            grupo = body.name or "selección"
+            if not fids:
+                raise HTTPException(status_code=404,
+                                    detail="Ninguna de las piezas (ids) existe en la escena")
+        else:
+            raise HTTPException(status_code=400, detail="Da un group o una lista de ids")
+
+        hw = hardware_ids(DOC)
+        grounded = {g["feature"] for g in DOC.grounds.values()}
+        tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_asm_step_")
+
+        pieces_in: list[dict] = []
+        excluded: list[dict] = []
+        struct_ids: list[str] = []
+        feat_by_id: dict = {}
+        try:
+            for fid in fids:
+                feat = DOC.scene.get(fid)
+                if feat is None:
+                    continue
+                feat_by_id[fid] = feat
+                if is_surface(feat.shape) or getattr(feat, "is_guide", False):
+                    continue  # superficie/guía = geometría de construcción, fuera de la malla
+                material = resolve_material(feat, CATALOG, DOC.default_material())
+                if fid in hw:
+                    fm = feature_mass(feat, CATALOG, DOC.default_material())
+                    excluded.append({"name": feat.name, "masa_kg": fm["masa_kg"]})
+                    continue
+                if has_yield(material):
+                    sy = yield_strength(material)
+                elif body.yield_mpa is not None:
+                    sy = float(body.yield_mpa)
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"'{feat.name}' es de '{material}' sin límite elástico tabulado: "
+                               f"pasa yield_mpa de respaldo (el FS saldría de un default y mentiría)",
+                    )
+                nu = 0.33 if "alumin" in material.lower() else 0.30
+                step = str(Path(tmp_dir) / f"{fid}.step")
+                export_step_file([feat.shape], step)
+                pieces_in.append({
+                    "key": fid, "name": feat.name, "step_path": step,
+                    "e_mpa": young_modulus(material), "nu": nu, "yield_mpa": sy,
+                    "density_kg_mm3": density(material), "material": material,
+                    "volumen_mm3": round(float(feat.shape.volume), 1),
+                })
+                struct_ids.append(fid)
+
+            if not pieces_in:
+                raise HTTPException(
+                    status_code=400,
+                    detail="El grupo no tiene piezas sólidas estructurales (solo herraje/superficies).",
+                )
+
+            # empotramiento: base de las piezas con ground ∩ grupo (o fixed_pieces explícito)
+            fix_ids = list(body.fixed_pieces) if body.fixed_pieces else [
+                i for i in struct_ids if i in grounded]
+            fix_ids = [i for i in fix_ids if i in feat_by_id]
+            if not fix_ids:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Sin empotramiento: ancla a piso (ground) las patas/placas del grupo "
+                           "o pasa fixed_pieces con las piezas a fijar por su base.",
+                )
+            fixed = []
+            for fid in fix_ids:
+                fixed += [FaceDesc.from_face(f)
+                          for f in resolve_faces(feat_by_id[fid].shape, {"mode": "cara", "face": "base"})]
+
+            # cargas: explícitas, o auto (producto + herraje) sobre la cama/mesa
+            carga = body.carga_kg if body.carga_kg is not None else (DOC.requirements or {}).get("carga_kg")
+            loads: list[dict] = []
+            if body.loads:
+                for ld in body.loads:
+                    f = feat_by_id.get(ld.feature_id) or DOC.scene.get(ld.feature_id)
+                    if f is None:
+                        raise HTTPException(status_code=404,
+                                            detail=f"La carga referencia '{ld.feature_id}', ausente de la escena")
+                    descs = [FaceDesc.from_face(x) for x in resolve_faces(f.shape, ld.selector)]
+                    loads.append({"descs": descs, "force_n": ld.force_n, "pressure_mpa": ld.pressure_mpa})
+            elif carga:
+                bed_ids = [i for i in struct_ids if _BED_RE.search(feat_by_id[i].name or "")]
+                if not bed_ids:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No encuentro la cama/mesa que recibe la carga: nómbrala "
+                               "(cama/mesa/deck/tablero) o pasa loads explícitos {feature_id, selector, force_n}.",
+                    )
+                bed_descs = []
+                for i in bed_ids:
+                    bed_descs += [FaceDesc.from_face(f)
+                                  for f in resolve_faces(feat_by_id[i].shape, {"mode": "cara", "face": "tope"})]
+                hw_kg = sum(e["masa_kg"] for e in excluded)
+                F = (float(carga) + hw_kg) * 9.81
+                loads.append({"descs": bed_descs, "force_n": [0.0, 0.0, -F]})
+        except SelectorError as exc:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise
+
+        params = {"grupo": grupo, "pieces": pieces_in, "fixed": fixed, "loads": loads,
+                  "excluded": excluded, "struct_ids": struct_ids}
+
+    try:
+        from apolo.fea.assembly import run_assembly_analysis
+
+        resumen, field = run_assembly_analysis(
+            params["pieces"], grupo=params["grupo"], fixed=params["fixed"],
+            loads=params["loads"], self_weight=body.self_weight,
+            excluded=params["excluded"], mesh_size_mm=body.mesh_size_mm, fs_min=body.fs_min,
+        )
+    except FeaError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    key = f"group:{params['grupo']}"
+    resumen["fea_key"] = key
+    resumen["volumen_mm3"] = round(sum(p["volumen_mm3"] for p in params["pieces"]), 1)
+    resumen["piezas_fids"] = params["struct_ids"]
+    if body.save:
+        with STATE_LOCK:
+            DOC.set_fea_result(key, resumen)
+            _autosave()
+    _LAST_FEA_FIELD.clear()
+    _LAST_FEA_FIELD[key] = field
+    return resumen, field
+
+
+@app.post("/api/fea/assembly")
+def fea_assembly(body: FeaAssemblyIn) -> dict:
+    """FEA estático lineal BONDED de un SUB-ENSAMBLAJE (V7.4): el bastidor pegado bajo
+    la carga de diseño, multi-material, con FS POR PIEZA. Deriva el empotramiento de
+    los grounds y la carga de los requisitos (sobre la cama) salvo override explícito.
+    El solve puede tardar MINUTOS: invoca con mesh_size_mm generoso primero."""
+    resumen, _ = _fea_assembly_run(body)
+    return resumen
+
+
+@app.post("/api/fea/assembly.png")
+def fea_assembly_png(body: FeaAssemblyIn) -> Response:
+    """Igual que /api/fea/assembly pero devuelve el FRINGE von Mises del ensamblaje."""
+    from apolo.fea.fringe import fringe_png
+
+    resumen, field = _fea_assembly_run(body)
+    png = fringe_png(field, title=f"von Mises [MPa] · {resumen['grupo']} · FS={resumen['fs']}")
+    return Response(content=png, media_type="image/png")
+
+
+@app.get("/api/fea/group/{name}")
+def get_fea_group(name: str) -> dict:
+    with STATE_LOCK:
+        res = DOC.fea.get(f"group:{name}")
+        if res is None:
+            raise HTTPException(status_code=404, detail="El grupo no tiene FEA guardado")
+        return res
+
+
 @app.get("/api/fea/{feature_id}")
 def get_fea(feature_id: str) -> dict:
     with STATE_LOCK:
@@ -2976,6 +3195,24 @@ def get_fea(feature_id: str) -> dict:
         if res is None:
             raise HTTPException(status_code=404, detail="La pieza no tiene FEA guardado")
         return res
+
+
+@app.get("/api/fea/group/{name}/fringe.png")
+def get_fea_group_fringe(name: str) -> Response:
+    """Fringe del ÚLTIMO análisis del ensamblaje SIN re-resolver (campo en memoria del
+    proceso; si el server se reinició, re-ejecuta POST /api/fea/assembly)."""
+    from apolo.fea.fringe import fringe_png
+
+    key = f"group:{name}"
+    field = _LAST_FEA_FIELD.get(key)
+    if field is None:
+        raise HTTPException(status_code=404,
+                            detail="No hay campo FEA en memoria para ese grupo: "
+                                   "corre POST /api/fea/assembly primero")
+    with STATE_LOCK:
+        res = DOC.fea.get(key) or {}
+    title = f"von Mises [MPa] · {res.get('grupo', name)} · FS={res.get('fs')}"
+    return Response(content=fringe_png(field, title=title), media_type="image/png")
 
 
 @app.get("/api/fea/{feature_id}/fringe.png")
@@ -2997,30 +3234,56 @@ def get_fea_fringe(feature_id: str) -> Response:
 
 def _fea_rules() -> list[dict]:
     """Convierte los resultados FEA guardados (DOC.fea) en reglas para checks y
-    memoria, con chequeo de VIGENCIA: si la pieza ya no existe o su volumen cambió
-    >0.1 % desde el análisis, la regla degrada a aviso (re-ejecutar). Llamar bajo
-    STATE_LOCK."""
+    memoria, con chequeo de VIGENCIA: si la pieza/ensamblaje ya no existe o su volumen
+    cambió >0.1 % desde el análisis, la regla degrada a aviso (re-ejecutar). Cubre el
+    FEA de PIEZA (clave=feature_id) y el de ENSAMBLAJE bonded (clave=`group:<nombre>`,
+    vigencia por volumen CONJUNTO de sus piezas). Llamar bajo STATE_LOCK."""
     rules: list[dict] = []
-    for fid, res in DOC.fea.items():
-        regla = f"FEA · {res.get('pieza', fid)}"
-        feat = DOC.scene.get(fid)
-        if feat is None:
-            rules.append({"regla": regla, "estado": "aviso",
-                          "detalle": "La pieza del análisis FEA ya no existe en la escena.",
-                          "recomendacion": "Borra el resultado o re-ejecuta fea_static."})
-            continue
+    for key, res in DOC.fea.items():
+        es_grupo = res.get("tipo") == "ensamblaje_bonded" or str(key).startswith("group:")
+        if es_grupo:
+            regla = f"FEA bastidor · {res.get('grupo', str(key).split(':', 1)[-1])}"
+            fids = res.get("piezas_fids") or []
+            faltan = [f for f in fids if f not in DOC.scene]
+            if faltan or not fids:
+                rules.append({"regla": regla, "estado": "aviso",
+                              "detalle": "Piezas del ensamblaje analizado ya no existen: "
+                                         f"{', '.join(faltan) if faltan else 'sin registro'}.",
+                              "recomendacion": "Re-ejecuta fea_assembly sobre el grupo."})
+                continue
+            vol_now = float(sum(float(getattr(DOC.scene[f].shape, "volume", 0) or 0) for f in fids))
+            cmd = "fea_assembly"
+        else:
+            regla = f"FEA · {res.get('pieza', key)}"
+            feat = DOC.scene.get(key)
+            if feat is None:
+                rules.append({"regla": regla, "estado": "aviso",
+                              "detalle": "La pieza del análisis FEA ya no existe en la escena.",
+                              "recomendacion": "Borra el resultado o re-ejecuta fea_static."})
+                continue
+            vol_now = float(getattr(feat.shape, "volume", 0) or 0)
+            cmd = "fea_static"
         vol_ref = float(res.get("volumen_mm3") or 0)
-        vol_now = float(getattr(feat.shape, "volume", 0) or 0)
         if vol_ref and abs(vol_now - vol_ref) > 1e-3 * vol_ref:
             rules.append({"regla": regla, "estado": "aviso",
                           "detalle": f"La geometría cambió desde el análisis "
                                      f"({vol_ref:.0f} → {vol_now:.0f} mm³): resultado obsoleto.",
-                          "recomendacion": "Re-ejecuta fea_static para refrescar el FS."})
+                          "recomendacion": f"Re-ejecuta {cmd} para refrescar el FS."})
             continue
         rule = {"regla": regla, "estado": res.get("estado", "aviso"),
                 "detalle": res.get("detalle", ""), "calc": res.get("calc")}
+        if es_grupo and res.get("piezas"):
+            # tabla por pieza en la memoria: las de MENOR FS primero (las que gobiernan)
+            filas = ["Pieza · σ_vm [MPa] · FS · estado"]
+            for p in res["piezas"][:8]:
+                fs_txt = f"{p['fs']:g}" if p.get("fs") is not None else "—"
+                filas.append(f"{str(p['pieza'])[:26]} · {p['sigma_vm_max_mpa']:g} · "
+                             f"{fs_txt} · {p.get('estado', '')}")
+            if len(res["piezas"]) > 8:
+                filas.append(f"… y {len(res['piezas']) - 8} pieza(s) más")
+            rule["tabla"] = filas
         if res.get("estado") == "error":
-            rule["recomendacion"] = "Refuerza la pieza o reduce la carga (FS < 1.2)."
+            rule["recomendacion"] = "Refuerza la pieza crítica o reduce la carga (FS < 1.2)."
         rules.append(rule)
     return rules
 

@@ -3768,3 +3768,63 @@ re-declaró con ISO 2768-m (coherente con el mK de las láminas; con "c" cerraba
 base incoherente). Lección repetida 2 veces ya: el implementador que caza un bug de
 honestidad en el frente A lo reintroduce en el frente B — la re-auditoría cruzada no es
 opcional.
+
+## V7.4 — FEA firmable: ensamblaje BONDED multi-material (Opus, 2026-07-21)
+
+Sube «FEA firmable» de ≈45 % a ~70 %: análisis estático lineal de un SUB-ENSAMBLAJE
+PEGADO — el bastidor completo bajo la carga de diseño, no una pata aislada. Absorbe el
+viejo V6.7. Bonded lineal es la hipótesis CORRECTA para un bastidor SOLDADO (lo que un
+despacho firma), no un atajo; contacto/no-lineal quedan fuera por doctrina.
+
+Núcleo en tres módulos con frontera limpia. `fea/mesher.py::mesh_assembly`: importa un
+STEP por pieza, los FRAGMENTA juntos (`occ.fragment` + `removeAllDuplicates`) → las caras
+de interfaz quedan COMPARTIDAS y el mallado comparte nodos ahí = pegado sin pares de
+contacto; un physical group `piece_<i>` por sólido (el volumen de SOLAPE de diseño se
+asigna a la pieza declarada antes y se cuenta/declara). `fea/solver.py::
+solve_assembly_elasticity`: E/ν POR ELEMENTO vía los subdominios de la malla (forma
+bilineal custom `2μ ε + λ tr(ε) I` con λ,μ interpolados P0 — verificada byte-idéntica a
+`skfem.linear_elasticity` en material homogéneo); σ_vm y FS = σy/σ_vm por PIEZA, gobierna
+el mínimo. `fea/assembly.py::run_assembly_analysis` orquesta y arma el resumen con el
+bloque `calc` en el formato de `rules._check` + hipótesis declaradas.
+
+Capa API (`_fea_assembly_run`, patrón dos-locks igual que la pieza): expande el grupo,
+DERIVA el empotramiento de los `grounds` (base de las piezas ancladas) y la carga de
+`requirements.carga_kg` repartida sobre la cama/mesa (`_BED_RE`), o acepta override
+explícito (`fixed_pieces`, `loads[{feature_id,selector,force_n}]`). El HERRAJE de catálogo
+(motor/rodamientos/pernos, `hardware_ids`) se EXCLUYE de la malla y su peso entra como
+carga sustituta DECLARADA — nunca silencioso. Persiste en `DOC.fea` con clave
+`group:<nombre>` (vigencia por volumen CONJUNTO de las piezas); `_fea_rules` degrada a
+aviso si una pieza desaparece o el volumen cambió. Memoria (`calc_report._section_page`):
+sección «FEA del bastidor» + tabla por pieza (σ_vm/FS/estado) + flecha vs L/240 que
+CONTRASTA la verificación analítica (dos caminos al mismo número = confianza para firmar).
+Tool MCP NUEVO `fea_assembly` (72→73; desviación declarada del plan, que pedía
+`fea_static+group` — los inputs distintos hacen más limpio un tool aparte).
+
+**La GUARDA de cuerpo rígido, la lección del E2E.** El primer run sobre las 25 piezas del
+grupo «Estructura» del 38 devolvió FS por pieza plausibles PERO un desplazamiento de
+**597 km** — una pieza SUELTA introduce un modo de cuerpo rígido → matriz singular → el
+solver directo devuelve basura finita. Reportar eso como análisis válido sería
+exactamente la clase de deshonestidad que la doctrina prohíbe. Fix: `_assert_bonded_to_
+ground` construye el grafo de adyacencia de piezas por interfaz compartida (getAdjacencies
+tras synchronize) y verifica por BFS que TODA pieza sea alcanzable desde las que tocan el
+empotramiento; una suelta → error NOMBRÁNDOLA, antes de mallar. Backstop en el solver
+(u>1e5 mm → error) por si un contacto por arista/punto escapa a la topología. La guarda
+reveló un rasgo real del modelo 38: los pies niveladores quedan a **13.1 mm** de las patas
+(las soldaduras no están modeladas como caras compartidas) → el marco superior es una
+componente aparte de las placas ancladas. Solución honesta del E2E: anclar las PATAS por su
+base (la ruta real al piso) y analizar el bastidor portante (16 pza). Resultado válido: FS
+gob **93.5** en la pata, σ_vm 2.67 MPa, δ **0.021 mm ≤ L/240** — coherente en régimen con
+la flecha analítica del 38 (0.11 mm, FS 62) y con el FEA de la pata sola (FS 170, más alto
+porque aislada). Persistido en el 38 como `group:Bastidor portante` (artefacto declarado,
+como los stack-ups de V7.3).
+
+Presupuesto: tope 25 piezas (validado antes de tocar gmsh) + estimador de tets pre-malla
+(bbox×6/size³ → avisó ~562k tets a 35 mm y sugirió 54; a 60 mm cerró en 15.8k tets, ~90 s).
+Tests (11 nuevos, `tests/test_fea_assembly.py`): viga bonded partida en dos cajas → δ y σ vs
+teoría ±8 %/±20 %, desplazamiento CONTINUO en la interfaz (nodos compartidos); multi-material
+acero+alu → FS distintos por pieza + solape declarado; presupuesto excedido antes de mallar;
+tope de piezas antes de gmsh; **pieza suelta → error nombrándola**; contrato de API (sin
+group/ids, solo-herraje, sin empotramiento, roundtrip de manifest, vigencia por grupo); E2E
+columna bonded por la API con memoria. Follow-ups: mallado de chapa fina (la mesa de 2 mm
+dispara tets), ν por material tabulado (hoy 0.3, 0.33 si «alumin»), huella real del herraje
+excluido (hoy sobre la cama, conservador).

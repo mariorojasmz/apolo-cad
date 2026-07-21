@@ -1,5 +1,6 @@
-"""FEA estático lineal de UNA pieza (V5.6): gmsh (malla tetraédrica desde STEP)
-+ scikit-fem (elasticidad lineal, elementos P2).
+"""FEA estático lineal: de UNA pieza (V5.6) y de un ENSAMBLAJE BONDED (V7.4) —
+gmsh (malla tetraédrica desde STEP, fragment para las interfaces compartidas) +
+scikit-fem (elasticidad lineal, elementos P2; E/ν por elemento en el ensamblaje).
 
 Análisis, no modelado: nunca muta el documento. Unidades consistentes mm + N + MPa
 (E en MPa con longitudes en mm → esfuerzos en MPa directo; peso propio en N/mm³).
