@@ -108,3 +108,40 @@ def test_lints_flow_through_checks_endpoint():
     client = TestClient(api.app)
     data = client.post("/api/checks", json={}).json()
     assert any(c["regla"].startswith("pre-entrega") for c in data["estructura"])
+
+
+def test_compound_tornilleria_counts_per_solid():
+    """Tornillería a-medida en COMPOUND (c704 del 38: 10 pernos en UN feature): el lint
+    reconoce CADA perno por su SÓLIDO — el centro del bbox del conjunto no cae en el eje
+    de ningún barreno (daba 16 falsos positivos en la auditoría de la brecha 1)."""
+    doc = Document()
+    placa = doc.execute("create_box", {"name": "Placa de anclaje", "width": 200,
+                                       "depth": 100, "height": 10, "position": {"z": 5}})
+    for x in (-60, 60):
+        doc.execute("drill_hole", {"feature": placa, "position": {"x": x, "y": 0, "z": 10},
+                                   "axis": "-z", "diameter": 13.5, "depth": 0})
+    doc.execute("ground", {"name": "g1", "feature": placa})
+    r = _regla(_lints(doc), "pre-entrega · barreno sin perno")
+    assert r is not None and "2 barreno" in r["detalle"]     # sin pernos → avisa
+    # UN feature con DOS pernos (compound): cada uno en su eje → 0 avisos
+    doc.execute("run_script", {"name": "Tornillería placa (par de pernos)",
+                               "code": "result = Pos(-60, 0, 0)*Cylinder(6, 40) + "
+                                       "Pos(60, 0, 0)*Cylinder(6, 40)"})
+    assert _regla(_lints(doc), "pre-entrega · barreno sin perno") is None
+
+
+def test_negative_axis_hole_matches_bolt():
+    """Un barreno con eje NEGATIVO ("-y") debe medir contra la recta Y: sin el strip del
+    signo, "-y" caía al default z y el perno coaxial no matcheaba (12 falsos positivos
+    en los barrenos horizontales de la ménsula del motor, brecha 1)."""
+    doc = Document()
+    placa = doc.execute("create_box", {"name": "Placa vertical", "width": 100,
+                                       "depth": 10, "height": 100, "position": {"z": 50}})
+    doc.execute("drill_hole", {"feature": placa, "position": {"x": 20, "y": 5, "z": 60},
+                               "axis": "-y", "diameter": 13.5, "depth": 0})
+    doc.execute("ground", {"name": "g1", "feature": placa})
+    r = _regla(_lints(doc), "pre-entrega · barreno sin perno")
+    assert r is not None                                     # sin perno → avisa
+    doc.execute("run_script", {"name": "Perno lateral M12",
+                               "code": "result = Pos(20, 20, 60)*Rotation(90,0,0)*Cylinder(6, 40)"})
+    assert _regla(_lints(doc), "pre-entrega · barreno sin perno") is None

@@ -3964,3 +3964,33 @@ del motor) con el fix barato al backlog (agrupar c1130-1137). Brechas top del ra
 datum funcional EJERCIDO (necesita una lámina con señal lateral y círculos — los barrenos
 de la ménsula del motor, emparenta con D.1) · micro-pasos del manual · convergencia de
 malla impresa en la memoria + chapa fina del FEA.
+
+## Brecha 1: barrenos de la ménsula del motor + 3 bugs cazados (Fable, 2026-07-22)
+
+La brecha top del ranking de la calificación, ejecutada el mismo día. Cirugía: **16
+taladros paramétricos** (`=long_centros±k`) — 10 en la ménsula c703 (4×Ø9 para los M8 de
+la brida, 4×Ø13.5 dorsales, 2×Ø13.5 del puntal), 4 pasos en el larguero c93 y 2 en la
+pata c45_2 (por AMBAS paredes del HSS, como los pernos reales que ya los cruzaban).
+
+**El contrato de run_batch pagó tres veces.** (1) Primer intento: la aserción
+`sin_interferencia` acotada cazó que quedaba solape c703↔c704 tras taladrar → las
+CABEZAS de los pernos dorsales en x=3855 se ENTIERRAN en el gusset g2 (y el sliver
+simétrico en 3735): dos pernos físicamente no instalables, defecto PRE-existente
+invisible hasta que los barrenos existieron. Fix de criterio: pernos dorsales reubicados
+ENTRE los gussets (`edit_batch` del script c704, x=long_centros∓31/+29, holgura de
+cabeza verificada). (2) Los solapes tolerados pernos↔piezas (c703 10.7k mm³, c93 2.7k,
+c45_2 1.4k) quedaron en CERO — solo sobrevive el puntal↔pata declarado (1.8k). (3) El
+lint «barreno sin perno» disparó 16 falsos positivos y la investigación encontró DOS
+bugs + una mejora: el matcher por nombre no reconocía «Tornillería…» ni plurales
+(`\bperno\b` no muerde «pernos»); un eje NEGATIVO («-y») caía al default z y la
+distancia perpendicular se medía contra la recta equivocada (los «-z» previos
+funcionaban de chiripa); y la tornillería en COMPOUND (c704: 10 pernos en UN feature)
+ahora expande centros POR SÓLIDO. 3 tests de regresión nuevos; 73 reglas / 0 avisos.
+
+E2E: paquete re-generado a `2026-07-22b/` (26/26, 170.9 s) — las 3 láminas de la ménsula
+del motor y la del larguero ganan callouts/posiciones/datum (antes CERO); E1.4 en vivo
+otra vez (3.2m↔4m con los 16 barrenos: la pata (3) conserva su volumen taladrado tras
+moverse 800 mm). Addendum en calificacion.md: **E2.2 2.75→3.0, global ≈78.6 % v1-comp /
+≈78.5 % v2**. Residual honesto declarado: el datum funcional COINCIDE con la esquina
+inf-izq en este modelo (los contactos caen en lados «min» o ⊥ a la vista de sus
+círculos) — el mecanismo elige por señal, el papel no lo distingue. Tests 1257→1259.

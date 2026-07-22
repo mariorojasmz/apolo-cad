@@ -25,9 +25,11 @@ from .rules import _check
 _HOLE_MIN_MM, _HOLE_MAX_MM = 7.0, 22.0
 _AXIS_VEC = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
 # tornillería MODELADA a-medida (no catálogo): un perno hecho a mano lleva el rol en el
-# nombre — un barreno con un perno así NO está «sin perno» (falso positivo en la faja 38)
+# nombre — un barreno con un perno así NO está «sin perno» (falso positivo en la faja 38).
+# `s?` cubre plurales («pernos») y «tornillería» va aparte: la c704 del 38 se llama
+# «Tornillería ménsula soporte motor» y el \b de «tornillo» no la muerde (brecha 1).
 _BOLT_NAME_RE = re.compile(r"\b(perno|tornillo|tuerca|bulón|bulon|esp[aá]rrago|allen|"
-                           r"bolt|screw|stud|nut)\b", re.I)
+                           r"bolt|screw|stud|nut)s?\b|torniller[ií]a", re.I)
 
 
 def _is_bolt(feat, catalog) -> bool:
@@ -57,12 +59,30 @@ def _perp_dist(c, p0, u) -> float:
 
 def _bolt_lines(scene, catalog) -> list[tuple]:
     """Centros (mundo) de la tornillería presente (catálogo O a-medida por nombre): un
-    perno/tuerca en el eje de un barreno lo deja a distancia perpendicular ~0 de la recta."""
+    perno/tuerca en el eje de un barreno lo deja a distancia perpendicular ~0 de la recta.
+    La tornillería puede venir en COMPOUND (c704 del 38: 10 pernos en UN feature) — el
+    centro del conjunto no cae en el eje de NINGÚN barreno (16 falsos positivos en la
+    auditoría de la brecha 1) → se expande POR SÓLIDO (cada perno da su centro)."""
     out = []
     for feat in scene.values():
         if not getattr(feat, "visible", True):
             continue
-        if _is_bolt(feat, catalog):
+        if not _is_bolt(feat, catalog):
+            continue
+        solids = []
+        try:
+            solids = list(feat.shape.solids())
+        except Exception:
+            solids = []
+        if len(solids) > 1:
+            for s in solids:
+                try:
+                    bb = s.bounding_box()
+                    out.append(((bb.min.X + bb.max.X) / 2.0, (bb.min.Y + bb.max.Y) / 2.0,
+                                (bb.min.Z + bb.max.Z) / 2.0))
+                except Exception:
+                    continue
+        else:
             c = _bbox_center(feat)
             if c is not None:
                 out.append(c)
@@ -93,7 +113,9 @@ def _hole_bolt_lint(scene, commands, catalog, resolve) -> list[dict]:
                 continue
             pos = p.get("position") or {}
             p0 = (float(pos.get("x", 0)), float(pos.get("y", 0)), float(pos.get("z", 0)))
-            u = _AXIS_VEC.get(p.get("axis", "z"), _AXIS_VEC["z"])
+            # el eje puede venir con signo ("-y"): para una RECTA el sentido no importa —
+            # sin el strip, "-y" caía al default z y medía contra la recta equivocada
+            u = _AXIS_VEC.get(str(p.get("axis", "z")).lstrip("+-"), _AXIS_VEC["z"])
             tol = max(dia, 6.0)
             if any(_perp_dist(c, p0, u) <= tol for c in bolts):
                 continue

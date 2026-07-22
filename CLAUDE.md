@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1257 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1259 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1257 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1259 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -941,11 +941,18 @@ planos = **74.1 %** (sigue siendo LA brecha, peso 30) · memoria = **83.8 % v1 /
 (E3.6 stack-up = 3; E3.7 FEA = 3.5 — contraste FEA 64.61 vs analítica 62 en el larguero, 4 %)
 · BOM/cotización = **75 %** (D.1 diferido) · manual = **75 %** (residual nuevo declarado:
 el herraje de chumacera sin grupo generó 2 micro-pasos — fusionar con Rodamientos, backlog)
-· paquete = **75 %** · **FEA firmable ~70 %** (V7.4/b) · render ~50 %. Brechas top
-(ranking de la calificación): datum funcional EJERCIDO en el testigo (modelar barrenos de
-la ménsula del motor → señal lateral con círculos; emparenta con D.1) · micro-pasos del
-manual (agrupar c1130-1137 en Rodamientos) · convergencia de malla impresa en la memoria +
-chapa fina en el FEA.
+· paquete = **75 %** · **FEA firmable ~70 %** (V7.4/b) · render ~50 %. **Addendum brecha 1
+(mismo día, corrida `2026-07-22b/`)**: barrenos de la ménsula del MOTOR modelados (16
+taladros paramétricos: c703 + pasos por ambas paredes de larguero c93 y pata c45_2) →
+E2.2 2.75→**3.0**, global **≈78.6 % v1-comp / ≈78.5 % v2**; el contrato cazó que 2 pernos
+dorsales tenían la CABEZA enterrada en el gusset (no instalables, pre-existente) →
+reubicados entre gussets; solapes tolerados pernos↔piezas ELIMINADOS (quedan solo el
+puntal↔pata declarado); 2 bugs del lint «barreno sin perno» corregidos con tests
+(«Tornillería»/plurales no matcheaban `\bperno\b`; eje «-y» caía al default z; compound
+expande por sólido). Residual honesto: el datum funcional COINCIDE con la esquina en este
+modelo (contactos en lados «min» o ⊥). Brechas top: micro-pasos del manual (agrupar
+c1130-1137 en Rodamientos) · convergencia de malla impresa en la memoria + chapa fina en
+el FEA · D.1 (24 pernos de anclaje).
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 

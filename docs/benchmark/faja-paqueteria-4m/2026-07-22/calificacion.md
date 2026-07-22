@@ -125,3 +125,52 @@ reproducible por script; STEP 3.5 MB exportado.
 3. **E3.7 → 4** (peso 20): imprimir la convergencia de malla en la memoria + mallar la
    chapa fina (follow-up V7.4 vivo).
 4. **E3.6 → 4**: cadenas para el resto de interfaces ajustadas (tensor, rodillos).
+
+---
+
+# ADDENDUM — brecha 1 atacada el mismo día (corrida `2026-07-22b/`)
+
+Tras la calificación de arriba se ejecutó la brecha 1 del ranking (barrenos de la
+ménsula del motorreductor) y se re-generó el paquete COMPLETO a `2026-07-22b/`
+(26/26 artefactos, 170.9 s). Lo que cambió, verificado por texto de PDF:
+
+- **Cirugía (16 taladros paramétricos en `=long_centros±k`)**: 10 en c703 (4×Ø9 brida
+  M8 + 4×Ø13.5 dorsal M12 + 2×Ø13.5 puntal), 4 en el larguero c93 y 2 en la pata c45_2
+  (pasos por AMBAS paredes del HSS, como los pernos reales). Contrato run_batch 5/5.
+- **Hallazgo de criterio (el contrato lo cazó)**: las CABEZAS de los pernos dorsales en
+  x=3855 se enterraban en el gusset de la ménsula — 2 pernos físicamente NO instalables
+  (defecto pre-existente). Fix: pernos dorsales reubicados ENTRE los gussets
+  (x=long_centros∓31/+29), con holgura de cabeza verificada.
+- **Solapes tolerados ELIMINADOS**: c703↔c704 (10 696 mm³), c93↔c704 (2 714) y
+  c45_2↔c704 (1 357) → 0 (los pernos pasan por barrenos reales). Queda solo el solape
+  declarado del puntal c673↔pata (1 811, estilo soldadura).
+- **Dos bugs del lint «barreno sin perno» cazados y corregidos** (con tests): (1) el
+  matcher por nombre no reconocía «Tornillería…» ni plurales («pernos») — `\bperno\b`
+  no muerde ninguno; (2) un eje NEGATIVO («-y») caía al default z y medía contra la
+  recta equivocada; además la tornillería en COMPOUND (c704: 10 pernos en un feature)
+  ahora expande por SÓLIDO. `/api/checks`: 73 reglas, 0 avisos, `lints: []`.
+- **Láminas (juego 2026-07-22b)**: pág 4 (placa puntal) «2×Ø13.5» + datum «A» +
+  posiciones 25/23; pág 17 (ménsula ppal) «3×Ø13.5» + «A» + posiciones 265/325; pág 15
+  (larguero) «4×Ø13.5» junto al Ø38 del eje. Antes: CERO callouts en las tres.
+- **E1.4 EN VIVO otra vez**: 3.2m ↔ 4m con los 16 barrenos dentro — la pata (3) conserva
+  su volumen taladrado tras moverse 800 mm, ménsula y larguero limpios en ambas
+  variantes.
+
+**Re-puntaje del addendum** (solo lo tocado, evidencia arriba):
+- **E2.2 2.75 → 3.0**: TODAS las piezas fabricadas con función de montaje llevan ya
+  callouts + posiciones desde datum declarado + pitch; nivel despacho. *Residual
+  honesto*: el datum funcional derivado de fasteners sigue COINCIDIENDO con la esquina
+  inf-izq en este modelo (los contactos caen en los lados «min» o ⊥ a la vista) — el
+  mecanismo elige por señal, pero el papel no lo distingue de la esquina.
+- E1 se SOSTIENE en 3.5 (el fix cabeza-gusset y los solapes eliminados refuerzan E1.1/
+  E1.2; los residuales D.1 y pies niveladores siguen).
+- E2 = (2.93·7 − 2.5 + 3.0)/7 = **3.00** (75.0 %).
+
+| GLOBAL | v1-comparable | v2 |
+|---|:---:|:---:|
+| calificación base (arriba) | 78.4 % | 78.2 % |
+| **con addendum brecha 1** | **≈ 78.6 %** | **≈ 78.5 %** |
+
+v1-comp = 0.15·87.5 + 0.30·75.0 + 0.20·83.75 + 0.15·75 + 0.10·75 + 0.10·75 = 78.6 %.
+Brechas siguientes del ranking (sin cambio): micro-pasos del manual · convergencia de
+malla en la memoria + chapa fina del FEA · D.1 (ahora solo los 24 pernos de anclaje).
