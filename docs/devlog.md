@@ -3934,3 +3934,33 @@ regresión (run_script de 2 placas de acero con «larguero» en el nombre) + ver
 el PDF del 38: pág 6 «1.93 kg» (antes 0.123/0.125 desde V7.2), pág 4 del motor intacta
 (0.402). Misma lección de siempre: los matchers por nombre son trampas — toda ruta que
 re-resuelva material debe preferir el dato DECLARADO (fila/override) al heurístico.
+
+## Re-benchmark con rúbrica-v2 (Fable, 2026-07-22)
+
+Primera corrida bajo la **rúbrica-v2** (`docs/benchmark/rubrica-v2.md`): v1 intacta (ni
+una ancla relajada) + DOS criterios nuevos en E3 que las capacidades de V7.3/V7.4 por fin
+permiten puntuar — E3.6 (stack-up: cadenas declaradas con peor caso+RSS, fuentes y
+veredicto) y E3.7 (FEA de pieza Y ensamblaje con FS por pieza, hipótesis impresas y
+CONTRASTE analítico). Consecuencia declarada: E3 promedia 7 criterios, así que toda
+calificación v2 reporta también el global v1-comparable para no romper la serie.
+
+Paquete del 38 regenerado por API viva en **128.7 s** (26/26 artefactos, commit `9c5bddb`
+limpio). Verificación por texto de PDF + spot-checks a mano (FS 250/3.87=64.6 ✓; stack-up
+776±1.1 ✓; posiciones de lámina 27.5/154.5/22 = bbox vivo ✓; 4 filas de BOM recalculadas
+con fórmula de ficha ✓) + **E1.4 EN VIVO**: variante 3.2m↔4m aplicada y revertida con la
+cirugía de V7.5 dentro — perno-UCP gap 0 en ambas variantes, placa limpia, estado final
+idéntico. La cirugía es 100 % paramétrica.
+
+**Global: 77.6 → ≈78.4 % v1-comparable · ≈78.2 % bajo v2.** La meta 78-80 deja de tocarse
+por el borde (serie medida: 74 → 77 → 77.6 → 78.4). Movió: E1.1 3→3.5 (ménsula
+atornillable con M14 reales a J=127) y E2.2 2.5→2.75 (lámina fabricable con posiciones/
+pitch/datum/peso 1.93 — el fix multi-sólido medido en el artefacto; el datum FUNCIONAL
+existe como mecanismo pero el testigo aún no lo ejerce: esquina honesta). E3.6=3,
+E3.7=3.5 (el contraste FEA 64.61 vs analítica 62 del larguero es el argumento de firma).
+Residual NUEVO cazado y declarado: el herraje de chumacera sin grupo generó DOS
+micro-pasos en el manual («Pernos» y «Tuercas» de 4 pza) que un despacho fusionaría con
+Rodamientos — E5 se sostiene en 3.0 (secuencia física correcta: tras Rodamientos, antes
+del motor) con el fix barato al backlog (agrupar c1130-1137). Brechas top del ranking:
+datum funcional EJERCIDO (necesita una lámina con señal lateral y círculos — los barrenos
+de la ménsula del motor, emparenta con D.1) · micro-pasos del manual · convergencia de
+malla impresa en la memoria + chapa fina del FEA.

@@ -439,8 +439,10 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **Benchmark de entregables (V7.1)**: `scripts/benchmark_package.py` (cliente HTTP PURO —
   no importa `apolo.*`, NO dispara el reload que blanquea el DOC) regenera el paquete
   completo de un proyecto a `docs/benchmark/<proy>/<fecha>/` cronometrando cada artefacto;
-  `docs/benchmark/rubrica-v1.md` (anclas duras, versionada) lo califica = test de regresión
-  de CALIDAD. Correrlo + re-calificar tras cada V7.x. Testigo faja 38: `.../faja38/2026-07-10/`.
+  la rúbrica versionada lo califica = test de regresión de CALIDAD (**vigente:
+  `rubrica-v2.md`** desde 2026-07-22 — v1 + E3.6 stack-up + E3.7 FEA, sin relajar anclas;
+  al calificar bajo v2 se reporta también el global v1-comparable para la serie). Correrlo
+  + re-calificar tras cada V7.x. Testigo faja 38: `.../faja-paqueteria-4m/2026-07-22/`.
 
 ### Planos 2D (sistema PRO completo, fases A–G)
 `drawing/` (compositor `SheetModel` → SVG/PDF/DXF, HLR): cotas con flechas/tolerancia/
@@ -924,30 +926,26 @@ acabados ISO 1302 + datums · V7.2c: fit por lámina, revolución≠sierra, sin 
 simulación 5 (analítico+MuJoCo+FEA lineal de pieza Y de ENSAMBLAJE bonded multi-material V7.4;
 falta contacto/no-lineal) · negocio 6.5 · interop 6 ·
 rendimiento 6 (V6.2) · robustez 6 (V6.1) · CAM 0 (deliberado) · colaboración/ecosistema 1.
-Veredicto por RESULTADOS (**MEDIDO** — benchmark testigo de la faja 38 vs la rúbrica-v1;
-`docs/benchmark/faja-paqueteria-4m/2026-07-20/calificacion.md`; verificado por TEXTO extraído
-de los PDFs con pypdf; producido por API en 88 s autónomo — la métrica de TIEMPO es ~10³× a
-favor, estimado): global ≈ **78 %** de nivel despacho, tocando el borde inferior de la meta
-78-80 % por fin LEGÍTIMO (77 % re-auditado el 2026-07-18 con la regresión dentro; 74 % en
-V7.2b). El cierre de la re-auditoría de V7.2c —medido ahora en el artefacto— subió E5 a 3.0:
-el manual ordena **Estructura (paso 1) → Tornillería (paso 2)** con Rodamientos (paso 4) antes
-del motor (paso 6), y el sufijo (k/n) de las 3 láminas de la ménsula sobrevive al corte del
-cajetín. Memoria = **83.8 %** (+ sección de stack-up V7.3) · BOM/cotización = **75 %** (D.1
-diferido) · 3D validado = **84.4 %** (0 avisos, 0 flotantes) · **planos de taller = 73.2 %**
-(residual E2.2 datum/ménsula-sin-barrenos-UCP) · manual = **75 %** (orden por grafo de soporte,
-regresión cerrada) · **FEA firmable ~45 %→~70 % (V7.4: bonded de ensamblaje multi-material,
-FS por pieza, integrado a la memoria + guarda de cuerpo rígido)** · render ~50 %. **V7.3
-(stack-up de cadenas de cotas)** y **V7.4 (FEA bonded de ensamblaje)** añaden capacidades que
-ningún incumbente entrega INTEGRADAS a la memoria sin add-in (TolAnalyst / Simulation) — no
-suben la nota GLOBAL porque la rúbrica-v1 aún no las puntúa (candidatas a v2). **V7.5
-(2026-07-22) atacó E2.2**: barrenos del UCP en el modelo (la ménsula ya es atornillable,
-lámina con 2×Ø15.5 + pitch 127 + posiciones) + datum por cara FUNCIONAL derivado de
-fasteners (mecanismo general; en la ménsula el datum queda de esquina — sus dos uniones
-son ⊥ a la planta, fallback correcto). Medición pendiente de re-benchmark. El peso de cajetín
-en láminas multi-sólido (pre-existente, ~16× menos) quedó CERRADO el mismo día (material
-de la fila en la Feature sintética). Brechas top: re-benchmark con rúbrica-v2 (puntuar
-V7.3/V7.4/V7.5) + orden fino inter-grupo del manual + mallado de chapa fina en el FEA
-de ensamblaje.
+Veredicto por RESULTADOS (**MEDIDO** — benchmark testigo de la faja 38, primera corrida bajo
+la **rúbrica-v2** (v1 + E3.6 stack-up + E3.7 FEA, sin relajar anclas);
+`docs/benchmark/faja-paqueteria-4m/2026-07-22/calificacion.md`; verificado por TEXTO de los
+PDFs con pypdf + spot-checks a mano + E1.4 en vivo; producido por API en 128.7 s autónomo —
+la métrica de TIEMPO es ~10³× a favor, estimado): global ≈ **78.4 % v1-comparable / 78.2 %
+bajo v2** — la meta 78-80 % deja de tocarse por el borde (serie: 74 → 77 → 77.6 → 78.4). Lo
+que movió (+0.8 medido): **E1.1 3→3.5** (V7.5: la ménsula de chumacera ya es ATORNILLABLE —
+4 barrenos Ø15.5 a J=127 + M14×50 + tuercas, 100 % paramétricos: variante 3.2m↔4m verificada
+en vivo con gap 0 perno-UCP) y **E2.2 2.5→2.75** (lámina fabricable con posiciones/pitch/
+datum/peso 1.93 kg — el fix multi-sólido medido; el datum FUNCIONAL existe pero el testigo
+aún no lo ejerce: uniones ⊥ a la planta → esquina honesta). Por eje: 3D = **87.5 %** ·
+planos = **74.1 %** (sigue siendo LA brecha, peso 30) · memoria = **83.8 % v1 / 83.0 % v2**
+(E3.6 stack-up = 3; E3.7 FEA = 3.5 — contraste FEA 64.61 vs analítica 62 en el larguero, 4 %)
+· BOM/cotización = **75 %** (D.1 diferido) · manual = **75 %** (residual nuevo declarado:
+el herraje de chumacera sin grupo generó 2 micro-pasos — fusionar con Rodamientos, backlog)
+· paquete = **75 %** · **FEA firmable ~70 %** (V7.4/b) · render ~50 %. Brechas top
+(ranking de la calificación): datum funcional EJERCIDO en el testigo (modelar barrenos de
+la ménsula del motor → señal lateral con círculos; emparenta con D.1) · micro-pasos del
+manual (agrupar c1130-1137 en Rodamientos) · convergencia de malla impresa en la memoria +
+chapa fina en el FEA.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
