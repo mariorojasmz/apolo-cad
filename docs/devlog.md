@@ -3828,3 +3828,54 @@ group/ids, solo-herraje, sin empotramiento, roundtrip de manifest, vigencia por 
 columna bonded por la API con memoria. Follow-ups: mallado de chapa fina (la mesa de 2 mm
 dispara tets), ν por material tabulado (hoy 0.3, 0.33 si «alumin»), huella real del herraje
 excluido (hoy sobre la cama, conservador).
+
+## V7.4b — cierre de auditoría del FEA firmable (Fable, 2026-07-22)
+
+La re-auditoría de V7.4 (protocolo regla 3: probes ejecutados + artefacto persistido +
+claims contra código) aprobó el núcleo CON RESERVAS: 5 hallazgos, 2 de ellos CONFIRMADOS
+POR EJECUCIÓN en el texto FIRMABLE de la memoria — la clase exacta de defecto que V7.4
+existe para evitar. Este cierre los arregla todos.
+
+1. **`calc.sustitucion` no reproducía el FS en multi-material** (probe: «FS = 95 / 32.0»
+   = 2.97 impreso junto a «FS gobernante = 6.6»): mezclaba el σy de la pieza GOBERNANTE
+   con el σ_vm GLOBAL, que puede vivir en otra pieza. Fix: los DOS números de la
+   gobernante (`gob['yield_mpa'] / gob['sigma_vm_max_mpa']`); de paso el sort de la tabla
+   pone fs=None AL FINAL (antes abría la tabla) y `piezas[0]` ES la gobernante.
+2. **La hipótesis del herraje MENTÍA con cargas explícitas** (probe: excluded=[Motor
+   30 kg] + loads → «su peso entra como carga sustituta» sin que nadie lo aplicara — el
+   `hw_kg` solo se suma en la rama auto sobre la cama). Fix: `run_assembly_analysis(...,
+   substitute_applied)` — la API lo pasa True SOLO en esa rama; si no, la hipótesis dice
+   «su peso NO está incluido en las cargas explícitas: añádelo a tus loads» y
+   `excluidos[].peso_incluido` lo expone. NO se auto-suma con loads explícitos: podría
+   DUPLICAR un peso que el usuario ya incluyó — declarar es lo honesto.
+3. **La exclusión no cubría el motor** pese a que el plan A.3/tool/docs lo prometían
+   (`HARDWARE_CATS` = tornillería/rodamientos/pernos): un grupo con motorreductor lo
+   habría mallado como sólido de acero. Fix: `FEA_HARDWARE_CATS` en `checks.py`
+   (+motorreductores, motorreductores_sinfin, chumaceras, tuercas —¡las DIN 934 de
+   join_bolted!—, tensores_trotadora, variadores, sensores, mandos) vía
+   `hardware_ids(doc, cats=…)`; HARDWARE_CATS INTACTO (semántica de interferencia/lista
+   de corte/lints — ampliarlo habría alterado esos chequeos).
+4. **`estado` ignoraba la flecha**: el criterio impreso es «FS ≥ min Y δ ≤ L/240» pero el
+   veredicto solo miraba FS. Fix: flecha incumplida degrada ok→aviso (el error queda
+   reservado al FS; el L global por bbox es un criterio grueso).
+5. **El estimador de tets sobre-bloqueaba**: pre-bloqueo movido a 4× el cap con mensaje
+   que declara «estimación por bbox, conservadora»; el cap duro 1× post-malla queda de
+   red. MEDIDO en el E2E: a 35 mm estimaba 562k y la realidad fueron **35 306 tets** —
+   un falso bloqueo de **16×** que había forzado el testigo a 60 mm sobre paredes HSS
+   de 3 mm. Menores: topes de piezas ANTES de `_require_fea` (el test del tope ahora sí
+   corre sin el extra), `occ.fragment` envuelto → FeaError accionable (antes 500 crudo),
+   «1104 tests» stale en CLAUDE.md.
+
+**E2E del 38 re-corrido a 35 mm** (187 s, 35.3k tets, 11.7k nodos): la malla fina cambia
+la pieza gobernante de la Pata (93.5 a 60 mm) al **Larguero (-Y) con FS 64.61** — y ese
+número queda a un 4 % de la verificación ANALÍTICA del larguero (FS 62): dos caminos
+independientes al mismo número, la definición operativa de «firmable». δ 0.0232 mm ≤
+L/240; sustitución «FS = 250 / 3.87» reproduce el 64.61 exacto. Persistido como
+`group:Bastidor portante`; memoria regenerada y VERIFICADA POR TEXTO DE PDF (pypdf):
+sección 18 con tabla por pieza (gobernante primero) y criterio FS+flecha.
+
+Decisión declarada: el fringe NO va embebido en la memoria (C.2 del plan V7.4 lo
+listaba) — consistente con V5.6, el fringe es artefacto aparte (`fringe_path`/endpoint
+PNG). Tests 11→14 (sustitución que reproduce el FS + hipótesis honesta en el mismo solve
+multi-material; estado por flecha; motor excluido sin solve; membresía de
+FEA_HARDWARE_CATS; rama auto con perno en el E2E de columna). Suite 1248→1251.

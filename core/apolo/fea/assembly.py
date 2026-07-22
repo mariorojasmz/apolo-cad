@@ -41,13 +41,15 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
                           self_weight: bool = False,
                           gravity: tuple[float, float, float] = (0.0, 0.0, -G_M_S2),
                           excluded: list[dict] | None = None,
+                          substitute_applied: bool = False,
                           mesh_size_mm: float | None = None,
                           fs_min: float = 2.0) -> tuple[dict, FeaField]:
     """FEA bonded end-to-end de un ensamblaje. `pieces`: [{key, name, step_path,
     e_mpa, nu, yield_mpa, density_kg_mm3, material, volumen_mm3}]. `loads`:
     [{"descs":[FaceDesc], "force_n"/"pressure_mpa"}]. `excluded`: herraje sacado de la
-    malla [{"name", "masa_kg"}] (su peso ya lo metió la API como load — aquí solo se
-    DECLARA). Devuelve (resumen, campo global para el fringe)."""
+    malla [{"name", "masa_kg"}]; `substitute_applied` dice si la API SÍ metió su peso
+    como carga sustituta (solo la rama auto sobre la cama lo hace) — la hipótesis lo
+    declara con VERDAD en ambos casos. Devuelve (resumen, campo global para el fringe)."""
     _require_fea()
     if not pieces:
         raise FeaError(f"El grupo '{grupo}' no tiene piezas sólidas que analizar")
@@ -110,9 +112,11 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
             "yield_mpa": round(sy, 1), "fs": fs, "estado": _estado(fs, fs_min),
             "desplazamiento_max_mm": round(r.u_max_mm, 4),
         })
-    piezas_out.sort(key=lambda d: (d["fs"] is not None, d["fs"] if d["fs"] is not None else 9e9))
-    fs_gobernante = next((d["fs"] for d in piezas_out if d["fs"] is not None), None)
-    pieza_critica = next((d["pieza"] for d in piezas_out if d["fs"] == fs_gobernante), "—")
+    # menor FS primero (gobierna); fs=None (σ_vm≈0, sin FS que reportar) AL FINAL
+    piezas_out.sort(key=lambda d: (d["fs"] is None, d["fs"] if d["fs"] is not None else 9e9))
+    gob = next((d for d in piezas_out if d["fs"] is not None), None)   # la GOBERNANTE
+    fs_gobernante = gob["fs"] if gob is not None else None
+    pieza_critica = gob["pieza"] if gob is not None else "—"
     estado = _estado(fs_gobernante, fs_min)
 
     # ¿el máximo global cae junto a un empotramiento? (concentración numérica)
@@ -126,6 +130,11 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
     span = float(max(coords[k].max() - coords[k].min() for k in range(3)))
     flecha_lim = span / 240.0
     flecha_ok = field.u_max_mm <= flecha_lim if span > 0 else None
+    # el criterio impreso es "FS ≥ min Y δ ≤ L/240": el veredicto debe respetar AMBOS
+    # (flecha incumplida degrada a aviso — el L global por bbox es un criterio grueso,
+    # el error queda reservado al FS)
+    if flecha_ok is False and estado == "ok":
+        estado = "aviso"
 
     cargas_txt = []
     for load in loads:
@@ -151,10 +160,17 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
     if excluded:
         masa_h = sum(float(e.get("masa_kg") or 0) for e in excluded)
         nombres = ", ".join(e["name"] for e in excluded[:6]) + (" …" if len(excluded) > 6 else "")
-        hipotesis.append(
-            f"herraje de catálogo EXCLUIDO de la malla ({len(excluded)} pza, {masa_h:.1f} kg: "
-            f"{nombres}) — su peso entra como carga sustituta, no como rigidez"
-        )
+        if substitute_applied:
+            hipotesis.append(
+                f"herraje de catálogo EXCLUIDO de la malla ({len(excluded)} pza, {masa_h:.1f} kg: "
+                f"{nombres}) — su peso entra como carga sustituta, no como rigidez"
+            )
+        else:
+            hipotesis.append(
+                f"herraje de catálogo EXCLUIDO de la malla ({len(excluded)} pza, {masa_h:.1f} kg: "
+                f"{nombres}) — su peso NO está incluido en las cargas explícitas: añádelo a "
+                f"tus loads si gravita sobre la estructura"
+            )
     if malla["shared_volumes"]:
         hipotesis.append(
             f"{malla['shared_volumes']} volumen(es) de SOLAPE asignados a la pieza declarada "
@@ -194,7 +210,8 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
         "estado": estado,
         "detalle": detalle,
         "cargas": cargas_txt,
-        "excluidos": [{"nombre": e["name"], "masa_kg": round(float(e.get("masa_kg") or 0), 2)}
+        "excluidos": [{"nombre": e["name"], "masa_kg": round(float(e.get("masa_kg") or 0), 2),
+                       "peso_incluido": substitute_applied}
                       for e in excluded],
         "piezas": piezas_out,
         "n_nodos": field.n_nodos,
@@ -212,8 +229,10 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
                 "sujecion": f"empotramiento en {len(fixed)} cara(s) con ground",
             },
             "formula": "FS_i = σy,i / σ_vm,max,i (von Mises por pieza) → gobierna el mínimo",
-            "sustitucion": (f"FS = {piezas_out[0]['yield_mpa']:g} / {field.vm_max:.1f}"
-                            if piezas_out else "—"),
+            # los DOS números de la pieza GOBERNANTE (en multi-material el σ_vm global
+            # puede vivir en otra pieza y la división no reproduciría el FS reportado)
+            "sustitucion": (f"FS = {gob['yield_mpa']:g} / {gob['sigma_vm_max_mpa']:g}"
+                            if gob is not None else "—"),
             "resultado": (
                 f"FS gobernante = {fs_gobernante} en «{pieza_critica}» · "
                 f"σ_vm,max = {field.vm_max:.1f} MPa · δ_max = {field.u_max_mm:.3f} mm "

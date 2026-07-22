@@ -3011,7 +3011,7 @@ def _fea_assembly_run(body: FeaAssemblyIn):
     from apolo.kernel.selectors import SelectorError, resolve_faces
     from apolo.kernel.shapes import is_surface
     from apolo.library.catalog import CATALOG
-    from apolo.library.checks import hardware_ids
+    from apolo.library.checks import FEA_HARDWARE_CATS, hardware_ids
     from apolo.library.engineering.mass import feature_mass
     from apolo.library.materials import (
         density, has_yield, resolve_material, yield_strength, young_modulus,
@@ -3034,7 +3034,9 @@ def _fea_assembly_run(body: FeaAssemblyIn):
         else:
             raise HTTPException(status_code=400, detail="Da un group o una lista de ids")
 
-        hw = hardware_ids(DOC)
+        # exclusión FEA: herraje + motores/chumaceras/tuercas/tensores (geometría
+        # representativa — mallarla mentiría rigidez y peso)
+        hw = hardware_ids(DOC, cats=FEA_HARDWARE_CATS)
         grounded = {g["feature"] for g in DOC.grounds.values()}
         tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_asm_step_")
 
@@ -3100,6 +3102,7 @@ def _fea_assembly_run(body: FeaAssemblyIn):
             # cargas: explícitas, o auto (producto + herraje) sobre la cama/mesa
             carga = body.carga_kg if body.carga_kg is not None else (DOC.requirements or {}).get("carga_kg")
             loads: list[dict] = []
+            sub_applied = False
             if body.loads:
                 for ld in body.loads:
                     f = feat_by_id.get(ld.feature_id) or DOC.scene.get(ld.feature_id)
@@ -3123,6 +3126,8 @@ def _fea_assembly_run(body: FeaAssemblyIn):
                 hw_kg = sum(e["masa_kg"] for e in excluded)
                 F = (float(carga) + hw_kg) * 9.81
                 loads.append({"descs": bed_descs, "force_n": [0.0, 0.0, -F]})
+                # SOLO esta rama mete el peso del herraje excluido como carga sustituta
+                sub_applied = True
         except SelectorError as exc:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -3131,7 +3136,8 @@ def _fea_assembly_run(body: FeaAssemblyIn):
             raise
 
         params = {"grupo": grupo, "pieces": pieces_in, "fixed": fixed, "loads": loads,
-                  "excluded": excluded, "struct_ids": struct_ids}
+                  "excluded": excluded, "struct_ids": struct_ids,
+                  "substitute_applied": sub_applied}
 
     try:
         from apolo.fea.assembly import run_assembly_analysis
@@ -3139,7 +3145,8 @@ def _fea_assembly_run(body: FeaAssemblyIn):
         resumen, field = run_assembly_analysis(
             params["pieces"], grupo=params["grupo"], fixed=params["fixed"],
             loads=params["loads"], self_weight=body.self_weight,
-            excluded=params["excluded"], mesh_size_mm=body.mesh_size_mm, fs_min=body.fs_min,
+            excluded=params["excluded"], substitute_applied=params["substitute_applied"],
+            mesh_size_mm=body.mesh_size_mm, fs_min=body.fs_min,
         )
     except FeaError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

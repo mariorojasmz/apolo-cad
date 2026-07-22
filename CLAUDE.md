@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1104 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1251 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **72 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-21)**: 1248 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1251 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -349,8 +349,19 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   coherente con la flecha analítica (0.11 mm, FS 62) y el FEA de la pata sola (FS 170).
   GOTCHA del modelo 38: los pies niveladores quedan a 13 mm de las patas (soldaduras NO
   modeladas como caras compartidas) → la guarda los detecta correctamente; se anclan las
-  patas por su base (la ruta real al piso). Follow-ups: mallado de chapa fina (mesa 2 mm),
-  ν por material tabulado, huella real del herraje excluido.
+  patas por su base (la ruta real al piso). **Cierre de auditoría V7.4b (2026-07-22)**:
+  `calc.sustitucion` = los DOS números de la pieza GOBERNANTE (el σ_vm global puede vivir
+  en OTRA pieza y la división no reproducía el FS en multi-material) · hipótesis del
+  herraje CONDICIONAL (`substitute_applied`: solo la rama auto sobre la cama mete el peso;
+  con `loads` explícitos declara «NO está incluido» — jamás miente; `excluidos[].peso_
+  incluido`) · `estado` degrada a aviso si `flecha_ok` es False (el criterio impreso es
+  FS **y** flecha) · exclusión FEA por **`FEA_HARDWARE_CATS`** (`checks.py`: HARDWARE_CATS
+  + motorreductores/chumaceras/tuercas/tensores/eléctricos vía `hardware_ids(doc, cats=…)`;
+  HARDWARE_CATS intacto — semántica de interferencia) · el estimador de tets pre-bloquea a
+  **4×** el cap (por bbox sobre-estima ~7× en bastidores dispersos, MEDIDO en el 38; el
+  cap duro 1× post-malla queda de red) · topes de piezas ANTES de `_require_fea` ·
+  `occ.fragment` envuelto → error accionable. Follow-ups: mallado de chapa fina (mesa
+  2 mm), ν por material tabulado, huella real del herraje excluido.
 - **Interferencias**: `check_interference` (booleanas OCCT; excluye pares de junta,
   `same_command_pairs` y hardware tornillería/rodamientos) + `interpenetration_report`
   (exceso vs pose de diseño en pares con junta).
@@ -1031,7 +1042,11 @@ cerrar V6; orden tentativo por impacto en el entregable:
   coherente con la flecha analítica (0.11 mm, FS 62). ≈45 %→~70 %. Detalle: § FEA de ENSAMBLAJE.
   Desviación del plan declarada: tool NUEVO `fea_assembly` (no `fea_static+group`: inputs
   distintos —grounds/carga derivados— hacen más limpio un tool aparte). La rúbrica-v1 no puntúa
-  FEA-ensamblaje → capacidad anotada, sin subir nota GLOBAL sin medir.
+  FEA-ensamblaje → capacidad anotada, sin subir nota GLOBAL sin medir. **Cierre de auditoría
+  V7.4b HECHO (2026-07-22)**: 5 hallazgos cerrados (2 confirmados por ejecución en el texto
+  firmable: sustitución inconsistente en multi-material + hipótesis del herraje no-verdadera
+  con loads explícitos; exclusión sin motor; estado sin flecha; estimador sobre-bloqueando
+  4-7×) — detalle § FEA de ENSAMBLAJE BONDED; E2E del 38 re-corrido a malla más fina.
 
 ## Hoja de ruta V5 — AGOTADA (completitud de flujo del vertical)
 Doctrina (usuario): el ingeniero del vertical **nunca necesita SW/Inventor** — completitud de

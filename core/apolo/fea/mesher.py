@@ -189,9 +189,7 @@ def mesh_assembly(pieces: list[PieceMesh], fixed: list[FaceDesc],
     ``piece_groups`` = [{idx, key, name, n_vols}] mapea cada pieza a su grupo.
     Serializado por FEA_LOCK (gmsh es global). Bonded lineal es la hipótesis CORRECTA
     para un bastidor SOLDADO — no un atajo."""
-    _require_fea()
-    import gmsh
-
+    # topes de entrada ANTES de exigir el extra [fea] o tocar gmsh (baratos y puros)
     if not pieces:
         raise FeaError("El ensamblaje no tiene piezas que mallar")
     if len(pieces) > MAX_PIECES:
@@ -199,6 +197,8 @@ def mesh_assembly(pieces: list[PieceMesh], fixed: list[FaceDesc],
             f"El ensamblaje tiene {len(pieces)} sólidos (tope {MAX_PIECES}): acota el grupo "
             f"o excluye el herraje. El bonded de tantas piezas no resuelve en tiempo útil."
         )
+    _require_fea()
+    import gmsh
 
     with FEA_LOCK:
         gmsh.initialize(interruptible=False)
@@ -221,24 +221,34 @@ def mesh_assembly(pieces: list[PieceMesh], fixed: list[FaceDesc],
                 vol_piece.extend([i] * len(vols))
             gmsh.model.occ.synchronize()
 
-            # estimación de tets ANTES de fragmentar/mallar (bbox × 6 / size³) — el
-            # explosivo se avisa temprano con la sugerencia; el cap duro post-malla queda de red
+            # estimación de tets ANTES de fragmentar/mallar (bbox × 6 / size³). La
+            # estimación por BBOX es CONSERVADORA en bastidores dispersos (medido ~7×
+            # sobre el real en la faja 38) → solo pre-bloquea si supera 4× el cap; el
+            # cap DURO post-malla (1×) queda de red.
             x0, y0, z0, x1, y1, z1 = gmsh.model.getBoundingBox(-1, -1)
             diag = math.dist((x0, y0, z0), (x1, y1, z1))
             size = float(mesh_size_mm) if mesh_size_mm else max(diag / 15.0, 1.0)
             bbox_vol = max((x1 - x0) * (y1 - y0) * (z1 - z0), 0.0)
             n_est = 6.0 * bbox_vol / (size ** 3) if size > 0 else 0.0
-            if n_est > MAX_TETS:
+            if n_est > 4 * MAX_TETS:
                 raise FeaError(
-                    f"Malla estimada ~{n_est:.0f} tets (cap {MAX_TETS}) con size {size:.1f} mm. "
-                    f"Sube mesh_size_mm (p. ej. {size * (n_est / MAX_TETS) ** (1 / 3):.0f}) "
+                    f"Malla estimada ~{n_est:.0f} tets (estimación por bbox, conservadora; "
+                    f"pre-bloqueo a {4 * MAX_TETS}, cap real {MAX_TETS}) con size {size:.1f} mm. "
+                    f"Sube mesh_size_mm (p. ej. {size * (n_est / (4 * MAX_TETS)) ** (1 / 3):.0f}) "
                     f"o acota el grupo a menos piezas."
                 )
 
             # 2) FRAGMENTAR todos los volúmenes juntos → interfaces coherentes (bonded)
-            out, outmap = gmsh.model.occ.fragment(all_vols, [])
-            gmsh.model.occ.removeAllDuplicates()
-            gmsh.model.occ.synchronize()
+            try:
+                out, outmap = gmsh.model.occ.fragment(all_vols, [])
+                gmsh.model.occ.removeAllDuplicates()
+                gmsh.model.occ.synchronize()
+            except Exception as exc:
+                raise FeaError(
+                    f"La fragmentación bonded falló (geometría sucia o solape degenerado): "
+                    f"{exc}. Corre check_interference sobre el grupo para localizar el par "
+                    f"problemático, o excluye la pieza sospechosa."
+                ) from exc
 
             # 3) asignar cada volumen resultante a la PRIMERA pieza que lo reclama
             #    (un volumen de SOLAPE aparece en varios inputs → gana el declarado antes;

@@ -71,22 +71,44 @@ def test_bonded_cantilever_continuous_and_matches_beam(tmp_path):
 
 
 @requires_fea
-def test_multimaterial_distinct_fs_and_overlap_declared(tmp_path):
-    from apolo.fea.mesher import mesh_assembly
-    from apolo.fea.solver import solve_assembly_elasticity
+def test_multimaterial_distinct_fs_sustitucion_and_honest_hardware(tmp_path):
+    """Multi-material end-to-end por run_assembly_analysis (UN solve, tres contratos):
+    FS distintos por pieza + solape declarado; `calc.sustitucion` REPRODUCE el FS
+    gobernante (auditoría V7.4b: antes mezclaba el σy gobernante con el σ_vm GLOBAL de
+    otra pieza); hipótesis del herraje HONESTA cuando su peso NO se aplicó."""
+    import re as _re
+
+    from apolo.fea.assembly import run_assembly_analysis
 
     pieces, fixed, load = _two_box(tmp_path, overlap=3.0)   # solape de 3 mm
-    msh = str(tmp_path / "a.msh")
-    meta = mesh_assembly(pieces, fixed, {"load_0": load}, msh, mesh_size_mm=4.0)
-    assert meta["shared_volumes"] == 1                      # el solape lo detecta y declara
+    pin = [
+        {"key": "b1", "name": "Raíz acero", "step_path": pieces[0].step_path,
+         "e_mpa": 200000.0, "nu": 0.30, "yield_mpa": 250.0,
+         "density_kg_mm3": 7.85e-6, "material": "acero", "volumen_mm3": 40000.0},
+        {"key": "b2", "name": "Punta aluminio", "step_path": pieces[1].step_path,
+         "e_mpa": 70000.0, "nu": 0.33, "yield_mpa": 95.0,
+         "density_kg_mm3": 2.7e-6, "material": "aluminio", "volumen_mm3": 40000.0},
+    ]
+    res, _ = run_assembly_analysis(
+        pin, grupo="probe", fixed=fixed,
+        loads=[{"descs": load, "force_n": [0, 0, -FZ]}],
+        excluded=[{"name": "Motor 2HP", "masa_kg": 30.0}], substitute_applied=False,
+        mesh_size_mm=4.0)
 
-    pm = [{"name": "piece_0", "key": "b1", "e_mpa": 200000.0, "nu": 0.30, "density_kg_mm3": 7.85e-6},
-          {"name": "piece_1", "key": "b2", "e_mpa": 70000.0, "nu": 0.33, "density_kg_mm3": 2.7e-6}]
-    _, per = solve_assembly_elasticity(
-        msh, pieces=pm, loads=[{"group": "load_0", "force_n": [0, 0, -FZ]}])
-    sy = {"b1": 250.0, "b2": 95.0}
-    fs = {r.key: sy[r.key] / r.vm_max for r in per}
+    assert res["shared_volumes"] == 1                       # el solape lo detecta y declara
+    fs = {p["feature_id"]: p["fs"] for p in res["piezas"]}
     assert fs["b1"] != pytest.approx(fs["b2"], rel=0.05)    # FS distintos por material
+    # la tabla abre con la GOBERNANTE (menor FS primero, None al final)
+    assert res["piezas"][0]["fs"] == res["fs"] and res["piezas"][0]["pieza"] == res["pieza_critica"]
+    # sustitución = los DOS números de la pieza gobernante → reproduce el FS reportado
+    m = _re.fullmatch(r"FS = ([\d.]+) / ([\d.]+)", res["calc"]["sustitucion"])
+    assert m, res["calc"]["sustitucion"]
+    assert float(m.group(1)) / float(m.group(2)) == pytest.approx(res["fs"], rel=0.02)
+    assert float(m.group(2)) == pytest.approx(res["piezas"][0]["sigma_vm_max_mpa"], rel=1e-6)
+    # herraje excluido con peso NO aplicado (cargas explícitas) → la hipótesis lo DICE
+    h = [x for x in res["hipotesis"] if "herraje" in x.lower()]
+    assert h and "NO está incluido" in h[0] and "carga sustituta" not in h[0]
+    assert res["excluidos"][0]["peso_incluido"] is False
 
 
 @requires_fea
@@ -128,6 +150,26 @@ def test_floating_piece_rejected(tmp_path):
         mesh_assembly(pieces, fixed, {"load_0": load}, str(tmp_path / "x.msh"), mesh_size_mm=5.0)
 
 
+@requires_fea
+def test_estado_degrades_on_flecha(tmp_path):
+    """El criterio impreso es «FS ≥ min Y δ ≤ L/240»: un bastidor con FS holgado pero
+    pasado de flecha debe salir «aviso», no «ok» (auditoría V7.4b). F=1200 N →
+    δ≈1.2 mm > L/240=0.833; σy=5000 (respaldo) → FS ≈ 17 ≫ 2."""
+    from apolo.fea.assembly import run_assembly_analysis
+
+    pieces, fixed, load = _two_box(tmp_path)
+    pin = [{"key": p.key, "name": p.key, "step_path": p.step_path,
+            "e_mpa": 200000.0, "nu": 0.30, "yield_mpa": 5000.0,
+            "density_kg_mm3": 7.85e-6, "material": "acero", "volumen_mm3": 40000.0}
+           for p in pieces]
+    res, _ = run_assembly_analysis(
+        pin, grupo="flecha", fixed=fixed,
+        loads=[{"descs": load, "force_n": [0, 0, -6 * FZ]}], mesh_size_mm=8.0)
+    assert res["flecha_ok"] is False
+    assert res["fs"] is not None and res["fs"] >= res["fs_min"]
+    assert res["estado"] == "aviso"
+
+
 # --------------------------------------------------------- contrato de API (sin solve)
 def _client(doc):
     api.DOC = doc
@@ -146,6 +188,29 @@ def test_api_group_only_hardware_400():
     doc.execute("create_group", {"name": "Solo herraje", "members": [h]})
     r = _client(doc).post("/api/fea/assembly", json={"group": "Solo herraje"})
     assert r.status_code == 400 and "estructural" in r.json()["detail"].lower()
+
+
+def test_api_motor_excluded_400():
+    """Un MOTORREDUCTOR también es herraje para el FEA (FEA_HARDWARE_CATS, V7.4b):
+    su geometría de catálogo es representativa — mallarlo mentiría rigidez y peso.
+    Grupo con SOLO el motor → 400 «sin piezas estructurales» = quedó excluido."""
+    doc = Document("t")
+    m = doc.execute("insert_component", {"component": "MOTOR-075", "position": {"x": 0, "y": 0, "z": 0}})
+    doc.execute("create_group", {"name": "Motriz", "members": [m]})
+    r = _client(doc).post("/api/fea/assembly", json={"group": "Motriz"})
+    assert r.status_code == 400 and "estructural" in r.json()["detail"].lower()
+
+
+def test_fea_hardware_cats_membership():
+    """El conjunto de exclusión FEA cubre lo prometido (motor/chumaceras/tuercas…)
+    SIN tocar HARDWARE_CATS (semántica de interferencia intacta)."""
+    from apolo.library.checks import FEA_HARDWARE_CATS, HARDWARE_CATS
+
+    assert HARDWARE_CATS == {"tornilleria", "rodamientos", "pernos"}
+    assert {"motorreductores", "motorreductores_sinfin", "chumaceras",
+            "tuercas", "tensores_trotadora"} <= FEA_HARDWARE_CATS
+    assert HARDWARE_CATS <= FEA_HARDWARE_CATS
+    assert "perfiles" not in FEA_HARDWARE_CATS and "tubos_estructurales" not in FEA_HARDWARE_CATS
 
 
 def test_api_no_ground_no_fixed_400():
@@ -193,7 +258,9 @@ def test_api_e2e_column_bonded():
                                       "height": 100, "position": {"z": 50}})       # z 0..100
     cama = doc.execute("create_box", {"name": "Cama mesa A36", "width": 30, "depth": 30,
                                       "height": 20, "position": {"z": 110}})       # z 100..120
-    doc.execute("create_group", {"name": "Estructura", "members": [pata, cama]})
+    perno = doc.execute("insert_component", {"component": "PERNO-M12",
+                                             "position": {"x": 40, "y": 0, "z": 110}})
+    doc.execute("create_group", {"name": "Estructura", "members": [pata, cama, perno]})
     doc.grounds["g1"] = {"feature": pata}   # pata anclada a piso
     client = _client(doc)
     r = client.post("/api/fea/assembly", json={"group": "Estructura", "carga_kg": 50,
@@ -203,6 +270,11 @@ def test_api_e2e_column_bonded():
     assert res["tipo"] == "ensamblaje_bonded" and res["n_piezas"] == 2
     assert {p["feature_id"] for p in res["piezas"]} == {pata, cama}
     assert res["fs"] is not None and res["estado"] in ("ok", "aviso", "error")
+    # el perno quedó EXCLUIDO y, en la rama AUTO (carga sobre la cama), su peso SÍ
+    # entró como carga sustituta — y la hipótesis lo declara con verdad
+    assert len(res["excluidos"]) == 1 and res["excluidos"][0]["peso_incluido"] is True
+    h = [x for x in res["hipotesis"] if "herraje" in x.lower()]
+    assert h and "carga sustituta" in h[0]
     # la regla entra a la memoria con tabla por pieza
     reglas = [x for x in client.post("/api/checks", json={}).json()["estructura"]
               if x["regla"].startswith("FEA bastidor")]

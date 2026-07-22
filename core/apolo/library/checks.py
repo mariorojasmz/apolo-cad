@@ -134,18 +134,29 @@ def interpenetration_report(scene: dict, posed: dict, pairs: set[frozenset],
 
 HARDWARE_CATS = {"tornilleria", "rodamientos", "pernos"}
 
+# Exclusión para el FEA de ensamblaje (V7.4b): además del herraje de interferencia,
+# todo componente de catálogo cuya geometría es REPRESENTATIVA, no estructural
+# (motores, chumaceras, tuercas, tensores, eléctricos) — mallarlo como sólido mentiría
+# rigidez y peso. NO ampliar HARDWARE_CATS: tiene semántica propia (interferencia/
+# lista de corte/lints) y cambiarlo alteraría esos chequeos.
+FEA_HARDWARE_CATS = HARDWARE_CATS | {
+    "motorreductores", "motorreductores_sinfin", "chumaceras", "tuercas",
+    "tensores_trotadora", "variadores", "sensores", "mandos",
+}
 
-def hardware_ids(doc) -> set[str]:
+
+def hardware_ids(doc, cats: set[str] = HARDWARE_CATS) -> set[str]:
     """Features cuyo componente es hardware normalizado (tornillería/rodamientos):
     se asientan en su alojamiento por diseño, así que se EXCLUYEN del chequeo de
-    interferencias (convención estándar para piezas normalizadas)."""
+    interferencias (convención estándar para piezas normalizadas). `cats` permite un
+    conjunto distinto (el FEA de ensamblaje usa FEA_HARDWARE_CATS)."""
     from apolo.library.catalog import CATALOG
 
     out: set[str] = set()
     for fid, feat in getattr(doc, "scene", {}).items():
         ref = getattr(feat, "component", None)
         comp = CATALOG.get(ref) if ref else None
-        if comp is not None and comp.category in HARDWARE_CATS:
+        if comp is not None and comp.category in cats:
             out.add(fid)
     return out
 
