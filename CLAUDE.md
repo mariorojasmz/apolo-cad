@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1256 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1257 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1256 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1257 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -560,9 +560,11 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   MODELO 38: la ménsula de chumacera (c685) ganó sus 4 barrenos Ø15.5 paramétricos
   (`=long_centros ± 63.5`, J=127 MEDIDO de los slots del UCP207, y=±357) + 4
   PERNO-HEX-M14×50 + 4 TUERCA-M14 vía run_batch con contrato — la lámina rotula
-  2×Ø15.5 + pitch 127 + posiciones y la cédula gana los M14; 0 lints. GOTCHA: el
-  cajetín de PESO en láminas de comandos multi-sólido rotula mal (~16× menos,
-  pre-existente — pendiente aparte).
+  2×Ø15.5 + pitch 127 + posiciones y la cédula gana los M14; 0 lints. GOTCHA (cerrado
+  el mismo día): la Feature SINTÉTICA de la lámina ({"P": feat}) debe llevar
+  `material=r["material"]` de la fila — sin él, el peso del cajetín re-resuelve por
+  heurística de NOMBRE y una placa de ACERO con «larguero» en el nombre (palabra de
+  `_WOOD_WORDS`) salía pesada como MADERA (0.123 vs 1.93 kg, pre-existente desde V7.2).
 
 ### Materiales (`library/materials.py`)
 - Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
@@ -941,10 +943,11 @@ suben la nota GLOBAL porque la rúbrica-v1 aún no las puntúa (candidatas a v2)
 (2026-07-22) atacó E2.2**: barrenos del UCP en el modelo (la ménsula ya es atornillable,
 lámina con 2×Ø15.5 + pitch 127 + posiciones) + datum por cara FUNCIONAL derivado de
 fasteners (mecanismo general; en la ménsula el datum queda de esquina — sus dos uniones
-son ⊥ a la planta, fallback correcto). Medición pendiente de re-benchmark. Brechas top:
-re-benchmark con rúbrica-v2 (puntuar V7.3/V7.4/V7.5) + orden fino inter-grupo del manual +
-mallado de chapa fina en el FEA de ensamblaje + peso de cajetín en láminas multi-sólido
-(pre-existente, detectado en V7.5).
+son ⊥ a la planta, fallback correcto). Medición pendiente de re-benchmark. El peso de cajetín
+en láminas multi-sólido (pre-existente, ~16× menos) quedó CERRADO el mismo día (material
+de la fila en la Feature sintética). Brechas top: re-benchmark con rúbrica-v2 (puntuar
+V7.3/V7.4/V7.5) + orden fino inter-grupo del manual + mallado de chapa fina en el FEA
+de ensamblaje.
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 

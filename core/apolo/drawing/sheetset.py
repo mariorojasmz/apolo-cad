@@ -168,7 +168,12 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         if rep is None:
             continue
         solid = _pick_solid(rep.shape, r["espesor_mm"], r["ancho_mm"], r["largo_mm"])
-        feat = Feature(id="P", name=r["nombre"], shape=solid, command_id="P")
+        # la Feature sintética DEBE llevar el material de la FILA: sin él, el peso del
+        # cajetín re-resuelve por HEURÍSTICA DE NOMBRE y una pieza de acero con palabra
+        # de carpintería en el nombre («…bajo el larguero») salía pesada como MADERA
+        # (~16× menos — bug del cajetín de la ménsula de chumacera del 38)
+        feat = Feature(id="P", name=r["nombre"], shape=solid, command_id="P",
+                       material=r["material"])
         seccion = _profile_section(rep)
         disp_name = r["nombre"]
         if name_counts[r["nombre"]] > 1:  # desambigua sólidos distintos del mismo comando

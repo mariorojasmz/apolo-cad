@@ -193,3 +193,25 @@ def test_long_name_suffix_survives_titleblock_truncation():
     texts = [" ".join(l.text for l in p.labels) for p in pages]
     for suf in ("(1/3)", "(2/3)", "(3/3)"):  # CON paréntesis de cierre: sufijo completo
         assert any(suf in t for t in texts), f"sufijo {suf} ausente (murió en el corte)"
+
+
+def test_lamina_weight_uses_row_material_not_name_heuristic():
+    """El cajetín «Acabado / Peso» de la lámina por pieza usa el material de la FILA del
+    despiece, no la heurística por NOMBRE: una pieza de ACERO (override set_material)
+    multi-sólido con palabra de carpintería en el nombre («larguero») salía pesada como
+    MADERA (~16× menos) — el bug del cajetín de la ménsula de chumacera del 38."""
+    import re
+
+    doc = Document()
+    fid = doc.execute("run_script", {
+        "name": "Placas bajo el larguero (par)",
+        "code": "result = Pos(0, 0, 0)*Box(100, 50, 10) + Pos(0, 120, 0)*Box(100, 50, 10)",
+    })
+    doc.scene[fid].material = "acero"   # override explícito (lo que hace set_material)
+    pages = sheet_set(doc.scene, project_name="X")
+    lam = pages[1]                      # lámina de la pieza (una placa 100×50×10)
+    kgs = [float(m.group(1)) for l in lam.labels
+           for m in [re.search(r"([\d.]+) kg", l.text)] if m]
+    # acero: 100×50×10 mm³ × 7.85e-6 = 0.3925 kg; con la heurística salía 0.025 (madera)
+    assert any(abs(v - 0.3925) < 0.01 for v in kgs), kgs
+    assert not any(abs(v - 0.025) < 0.005 for v in kgs), kgs

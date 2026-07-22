@@ -3920,3 +3920,17 @@ Hallazgo colateral verificado PRE-existente (testigo 2026-07-20 pág 6 ya lo ten
 peso del cajetín en láminas de comandos multi-sólido rotula ~16× menos (0.125 kg por
 placa de 1.93) — tarea aparte. Tests 1251→1256. Medición de E2.2 → próximo re-benchmark
 con rúbrica-v2 (que puntuará también V7.3 stack-up y V7.4 FEA bonded).
+
+## Fix: peso del cajetín en láminas multi-sólido (2026-07-22, mismo día)
+
+El hallazgo colateral de V7.5 cerrado en caliente. Causa raíz: la lámina por pieza
+construye una Feature SINTÉTICA ({"P": feat} con el sólido elegido por _pick_solid) SIN
+material → `scene_weight_kg` re-resuelve por HEURÍSTICA DE NOMBRE y «Ménsulas de
+chumacera (lapa bajo el **larguero**)» muerde `_WOOD_WORDS` → madera (500 kg/m³) → 0.123
+kg en vez de 1.93 (la fila del despiece siempre supo que era acero: el override de
+set_material vive en la feature REAL, que la sintética no heredaba). Fix de una línea en
+`sheetset.py`: `Feature(..., material=r["material"])` — la fila es la autoridad. Test de
+regresión (run_script de 2 placas de acero con «larguero» en el nombre) + verificado en
+el PDF del 38: pág 6 «1.93 kg» (antes 0.123/0.125 desde V7.2), pág 4 del motor intacta
+(0.402). Misma lección de siempre: los matchers por nombre son trampas — toda ruta que
+re-resuelva material debe preferir el dato DECLARADO (fila/override) al heurístico.
