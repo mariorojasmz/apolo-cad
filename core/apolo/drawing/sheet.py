@@ -446,6 +446,7 @@ def compose_sheet(
     sheet_refs: dict | None = None,  # {_rep id → nº de hoja} → columna "Hoja" en el DESPIECE (cross-ref globo→lámina de detalle)
     fasteners: dict | None = None,  # DOC.fasteners → símbolos de soldadura ISO 2553 en el conjunto (V7.2 A); NO-OP en láminas por pieza
     shop_notes: bool = False,  # notas de taller de lámina por pieza: tolerancia ISO 2768 + proceso/acabado ISO 1302 + protección (V7.2 B/C)
+    datum_side: "str | list[str] | None" = None,  # "+z"/"-x"/… o LISTA por peso (de fasteners, V7.5): cada vista usa el primer lado que proyecte como BORDE → el datum «A» y las posiciones se miden desde esa arista
 ) -> SheetModel:
     if sheet not in SHEETS:
         raise ValueError(f"Lámina desconocida '{sheet}' (usa A3 o A4)")
@@ -510,8 +511,24 @@ def compose_sheet(
             center_mark(model, ccx, ccy, cv[2] * scale)
         if auto_dims and view.circles:  # acotado automático: posición x/y de cada agujero
             from .autodim import auto_hole_dims
-            # datum «A» marcado en las láminas de taller por pieza (V7.2 D2)
-            auto_hole_dims(model, view, rect, tx, datum=shop_notes)
+            # datum «A» marcado en las láminas de taller por pieza (V7.2 D2). Con señal de
+            # cara FUNCIONAL (V7.5, derivada de los fasteners) las posiciones se miden desde
+            # ESA arista — la vista usa el PRIMER lado (por peso) que proyecte como borde;
+            # una cara ⊥ a la vista no da borde (la del perno siempre lo es en la vista de
+            # sus círculos) → se prueba el siguiente lado o cae al fallback de esquina.
+            d_edges = None
+            _sides = [datum_side] if isinstance(datum_side, str) else (datum_side or [])
+            for _s in _sides:
+                if not _s or len(_s) != 2:
+                    continue
+                _sgn, _ax = _s[0], _s[1].upper()
+                if _ax == h_axis:
+                    d_edges = {"x": "max" if _sgn == "+" else "min"}
+                    break
+                if _ax == v_axis:
+                    d_edges = {"y": "max" if _sgn == "+" else "min"}
+                    break
+            auto_hole_dims(model, view, rect, tx, datum=shop_notes, datum_edges=d_edges)
         if interface_dims and len(view.circles) >= 2:  # patrón de montaje: pitch centro-a-centro
             from .autodim import mounting_pattern_dims
             # si auto_dims también está, empujar el pitch más afuera para no solaparse con sus escaleras

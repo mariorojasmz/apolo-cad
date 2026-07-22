@@ -9,31 +9,42 @@ juntos dan "Ø + dónde". Cubre taladros, clavijas y tornillos (todo lo circular
 from __future__ import annotations
 
 
-def auto_hole_dims(model, view, rect, tx, *, max_unique: int = 6, datum: bool = False) -> int:
-    """Acota la posición (x,y) de los agujeros de `view` desde la esquina inferior-izquierda de la
-    pieza: una escalera de cotas X por debajo (más allá de la cota general) y otra Y a la izquierda.
-    Dedup por valor para no apilar cotas repetidas. Devuelve nº de agujeros vistos.
+def auto_hole_dims(model, view, rect, tx, *, max_unique: int = 6, datum: bool = False,
+                   datum_edges: dict | None = None) -> int:
+    """Acota la posición (x,y) de los agujeros de `view` desde la esquina datum de la
+    pieza: una escalera de cotas X por debajo (más allá de la cota general) y otra Y a la
+    izquierda. Dedup por valor para no apilar cotas repetidas. Devuelve nº de agujeros vistos.
 
-    `datum=True` (V7.2 D2): marca esa esquina de referencia con la bandera de DATUM «A»
-    (símbolo GD&T) para que el taller lea las posiciones DESDE un origen declarado — la
-    arista inferior-izquierda de una placa fabricada es su cara de referencia/montaje. Es
-    el fallback honesto del plan: sin señal de contraparte, el datum es la esquina real."""
+    `datum=True` (V7.2 D2): marca la esquina de referencia con la bandera de DATUM «A»
+    (símbolo GD&T) para que el taller lea las posiciones DESDE un origen declarado.
+    `datum_edges` (V7.5, E2.2) = {"x": "min"|"max", "y": "min"|"max"}: de qué BORDE de la
+    vista se miden las posiciones — la arista de la cara FUNCIONAL/de montaje derivada de
+    los fasteners declarados (el llamador la proyecta a la vista). Sin entrada para un eje
+    → borde "min" = comportamiento clásico (esquina inf-izq, el fallback honesto sin señal
+    de contraparte). La bandera «A» se dibuja en la esquina-origen resultante."""
     from .dimensions import baseline_dims, datum_flag
 
     if not view.circles:
         return 0
     rx, ry, rw, rh = rect
-    minx, miny = view.bounds[0], view.bounds[1]
-    dx_paper, dy_paper = tx((minx, miny))  # esquina datum en papel
-    if datum:  # bandera de datum «A» sobre la arista de referencia (esquina inf-izq)
-        datum_flag(model, rx - 8.0, ry + 1.5, "A", size=4.0)
+    minx, miny, maxx, maxy = view.bounds
+    edges = datum_edges or {}
+    ex_edge = edges.get("x", "min")
+    ey_edge = edges.get("y", "min")
+    ox = maxx if ex_edge == "max" else minx   # origen de medición (coords de vista)
+    oy = maxy if ey_edge == "max" else miny
+    dx_paper, dy_paper = tx((ox, oy))         # esquina datum en papel
+    if datum:  # bandera de datum «A» sobre la esquina-origen (la arista funcional con señal)
+        fx = rx + rw + 4.0 if ex_edge == "max" else rx - 8.0
+        fy = ry + rh - 1.5 if ey_edge == "max" else ry + 1.5
+        datum_flag(model, fx, fy, "A", size=4.0)
     holes = sorted(view.circles, key=lambda c: (c[0], c[1]))
 
     # X: posiciones horizontales únicas, escalera por DEBAJO (tras la cota general)
     seen_x: set[float] = set()
     ex: list[tuple[float, float, str]] = []
     for cx, cy, _r in holes:
-        v = round(cx - minx, 1)
+        v = round(abs(cx - ox), 1)
         if v in seen_x or v <= 0:
             continue
         seen_x.add(v)
@@ -48,7 +59,7 @@ def auto_hole_dims(model, view, rect, tx, *, max_unique: int = 6, datum: bool = 
     seen_y: set[float] = set()
     ey: list[tuple[float, float, str]] = []
     for cx, cy, _r in holes:
-        v = round(cy - miny, 1)
+        v = round(abs(cy - oy), 1)
         if v in seen_y or v <= 0:
             continue
         seen_y.add(v)

@@ -3879,3 +3879,44 @@ listaba) — consistente con V5.6, el fringe es artefacto aparte (`fringe_path`/
 PNG). Tests 11→14 (sustitución que reproduce el FS + hipótesis honesta en el mismo solve
 multi-material; estado por flecha; motor excluido sin solve; membresía de
 FEA_HARDWARE_CATS; rama auto con perno en el E2E de columna). Suite 1248→1251.
+
+## V7.5 — E2.2: datum por cara funcional + barrenos del UCP (Fable, 2026-07-22)
+
+Ataca el residual top de planos (E2.2: «Datums = caras de FUNCIÓN/montaje») en dos
+frentes, con la regla de MEDIR ANTES DE TALADRAR pagando de inmediato.
+
+**Modelo 38 (gap E1.1).** La ménsula de chumacera (c685, run_script con 2 placas
+182×106×13) no tenía los barrenos del UCP — el UCP207 no podía atornillarse y su lámina
+salía sin callouts. El reconocimiento vivo corrigió DOS asunciones del plan: la línea de
+centros del UCP no está en y=±388 (centro de placa) sino en **y=±357** (centro de la
+base), y el builder del UCP207 SÍ modela sus slots (4 medias cañas Ø17) → los centros de
+perno salen MEDIDOS de la topología: x = long_centros ± 63.5 (**J=127 exacto**), base
+17.5 de espesor → grip 30.5 → **M14×50**. Cirugía en UN `run_batch` con CONTRATO
+(volumen tallado esperado + bbox intacto + sin interferencia nueva + piezas creadas): 4
+`drill_hole` Ø15.5 EN SITIO (x paramétrico `=long_centros ± 63.5`) + 4 PERNO-HEX-M14×50 +
+4 TUERCA-M14 de catálogo. El primer intento del contrato falló a propósito: la aserción
+`sin_interferencia` acotada por ids barre esas piezas contra TODA la escena y cazó el
+solape PRE-existente c93↔c704 (tornillería del soporte motor) — se acotó a c685 y pasó
+5/5. Los fasten c690/691 ya declaraban M14×2 (V7.1c): faltaba la geometría, no el
+criterio. Resultado en el juego: lámina 6 con **2×Ø15.5 + pitch 127 (el J que el
+montador necesita) + posiciones 27.5/154.5/22 + datum «A»**, cédula con 4×M14 + 4
+tuercas, nota de montaje auto-sembrada, 0 lints, 0 avisos en 73 reglas.
+
+**Datum funcional (drawing).** `_piece_datum_sides(doc)` deriva de los FASTENERS los
+lados de las caras de montaje (soldadura 3 > perno 2 > contacto 1; eje del contacto =
+solape mínimo de bboxes, como el anclaje de soldaduras del GA; prohibido inferir por
+nombre — lección V7.2c). Devuelve LISTA ordenada por peso por una verdad geométrica que
+el plan no anticipó: la cara por la que ATRAVIESA un perno es siempre ⊥ a la vista que
+muestra sus círculos — el datum útil por vista viene de la SIGUIENTE unión (p. ej. la
+cara de apoyo). Cada vista usa el primer lado que proyecte como BORDE
+(`compose_sheet(datum_side=…)` → `auto_hole_dims(datum_edges=…)`: mide las posiciones
+desde esa arista, datum «A» en la esquina-origen); sin señal o cara ⊥ → fallback de
+esquina byte-igual (test de regresión). En la ménsula del 38 las DOS uniones son
+z-normales → su planta queda honestamente en esquina; el mecanismo queda probado
+sintéticamente (5 tests: derivación pura, soldadura>perno, borde funcional 30→70,
+lista por vista, ⊥→fallback).
+
+Hallazgo colateral verificado PRE-existente (testigo 2026-07-20 pág 6 ya lo tenía): el
+peso del cajetín en láminas de comandos multi-sólido rotula ~16× menos (0.125 kg por
+placa de 1.93) — tarea aparte. Tests 1251→1256. Medición de E2.2 → próximo re-benchmark
+con rúbrica-v2 (que puntuará también V7.3 stack-up y V7.4 FEA bonded).

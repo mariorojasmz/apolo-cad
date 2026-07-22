@@ -3543,6 +3543,7 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
                               colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
                               piece_fits=_feature_fit_maps(DOC) or None,  # V7.2c: cada lámina, SU fit
+                              piece_datums=_piece_datum_sides(DOC) or None,  # V7.5: datum funcional
                               hole_threads=_hole_thread_map(DOC) or None,
                               thread_rows=_thread_schedule(DOC) or None,
                               fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
@@ -3569,6 +3570,7 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
                               meta=_drawing_meta(), sheet=sheet,
                               colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
                               piece_fits=_feature_fit_maps(DOC) or None,  # V7.2c: cada lámina, SU fit
+                              piece_datums=_piece_datum_sides(DOC) or None,  # V7.5: datum funcional
                               hole_threads=_hole_thread_map(DOC) or None,
                               thread_rows=_thread_schedule(DOC) or None,
                               fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
@@ -3749,6 +3751,50 @@ class DrawingSpecIn(BaseModel):
 
 
 _SHAFT_FIT_RE = None  # compilado perezoso en _hole_fit_map
+
+
+def _piece_datum_sides(doc) -> dict[str, list[str]]:
+    """{feature_id → lados de sus caras FUNCIONALES, ordenados por peso: ["+z","-x",…]}
+    derivado de las uniones DECLARADAS (V7.5, E2.2): cada lado es el que MIRA a una
+    contraparte (soldadura > perno/tornillo > contacto; empate → mayor área). El eje del
+    contacto = el de SOLAPE MÍNIMO entre las cajas (la normal de la cara), mismo espíritu
+    que el anclaje de los símbolos de soldadura del GA. Se devuelve LISTA porque la cara
+    por la que atraviesa un perno siempre es ⊥ a la vista que muestra sus círculos: la
+    vista elige el PRIMER lado que proyecte como borde (p. ej. la cara de APOYO). Sin
+    unión declarada → la pieza no entra (fallback de esquina, honesto). PROHIBIDO inferir
+    por nombre (lección V7.2c de los brackets). Llamar bajo STATE_LOCK."""
+    W = {"soldadura": 3.0, "perno": 2.0, "tornillo": 2.0}
+    cand: dict[str, list[tuple[float, float, str]]] = {}
+    for f in doc.fasteners.values():
+        if not isinstance(f, dict):
+            continue
+        w = W.get((f.get("kind") or "").lower(), 1.0)
+        a, b = f.get("a"), f.get("b")
+        for me, other in ((a, b), (b, a)):
+            fa, fb = doc.scene.get(me), doc.scene.get(other)
+            if fa is None or fb is None:
+                continue
+            try:
+                ba, bb = fa.shape.bounding_box(), fb.shape.bounding_box()
+            except Exception:
+                continue
+            mna = (ba.min.X, ba.min.Y, ba.min.Z); mxa = (ba.max.X, ba.max.Y, ba.max.Z)
+            mnb = (bb.min.X, bb.min.Y, bb.min.Z); mxb = (bb.max.X, bb.max.Y, bb.max.Z)
+            ov = [min(mxa[k], mxb[k]) - max(mna[k], mnb[k]) for k in range(3)]
+            k = min(range(3), key=lambda i: ov[i])  # eje del contacto (solape mínimo)
+            if ov[k] > 25.0:
+                continue  # solape profundo en TODOS los ejes → no hay cara de contacto clara
+            area = max(ov[(k + 1) % 3], 0.0) * max(ov[(k + 2) % 3], 0.0)
+            sgn = "+" if (mnb[k] + mxb[k]) > (mna[k] + mxa[k]) else "-"
+            cand.setdefault(me, []).append((w, area, sgn + "xyz"[k]))
+    out: dict[str, list[str]] = {}
+    for fid, entries in cand.items():
+        sides: list[str] = []
+        for _, _, side in sorted(entries, key=lambda e: (-e[0], -e[1])):
+            if side not in sides:
+                sides.append(side)
+        out[fid] = sides[:3]
+    return out
 
 
 def _feature_fit_maps(doc) -> dict[str, dict[float, str]]:

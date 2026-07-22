@@ -54,18 +54,18 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1251 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1256 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1251 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1256 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
-  Convenciones. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 74 sólidos, 312
+  Convenciones. Proyectos de referencia: `faja-paqueteria-4m` (id 38, 87 sólidos, 336
   comandos, 100 % paramétrica, memoria APROBADO, eje motriz «Ø35 h7»), `layout-planta-demo`
   (id 53, 149 sólidos) y `guarda-banda-demo` (chapa en C con hems, DXF verificado).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
@@ -548,6 +548,22 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   árbol sucio cuenta untracked SALVO `docs/benchmark/`. Regla general: todo matcher nuevo por
   nombre necesita su guarda de bracket/anclaje y un test con el nombre REAL del 38.
 
+- **Datum por cara FUNCIONAL (V7.5, E2.2 — 2026-07-22)**: `_piece_datum_sides(doc)`
+  (api/main.py) deriva por pieza los lados de sus caras de montaje desde los FASTENERS
+  declarados (soldadura > perno > contacto; eje = solape mínimo de bboxes; PROHIBIDO
+  inferir por nombre) y devuelve LISTA ordenada por peso — porque la cara por la que
+  ATRAVIESA un perno siempre es ⊥ a la vista que muestra sus círculos: cada vista usa el
+  primer lado que proyecte como BORDE (p. ej. la cara de APOYO) y si ninguno lo hace cae
+  al fallback de esquina (honesto). Plomería espejo de `piece_fits`: `sheet_set(
+  piece_datums=…)` → `compose_sheet(datum_side=…)` → `auto_hole_dims(datum_edges=…)`
+  (mide las posiciones desde ese borde y pone el datum «A» en la esquina-origen).
+  MODELO 38: la ménsula de chumacera (c685) ganó sus 4 barrenos Ø15.5 paramétricos
+  (`=long_centros ± 63.5`, J=127 MEDIDO de los slots del UCP207, y=±357) + 4
+  PERNO-HEX-M14×50 + 4 TUERCA-M14 vía run_batch con contrato — la lámina rotula
+  2×Ø15.5 + pitch 127 + posiciones y la cédula gana los M14; 0 lints. GOTCHA: el
+  cajetín de PESO en láminas de comandos multi-sólido rotula mal (~16× menos,
+  pre-existente — pendiente aparte).
+
 ### Materiales (`library/materials.py`)
 - Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
   catálogo → heurística por nombre → default del VERTICAL: `set_vertical('carpinteria')`
@@ -921,9 +937,14 @@ regresión cerrada) · **FEA firmable ~45 %→~70 % (V7.4: bonded de ensamblaje 
 FS por pieza, integrado a la memoria + guarda de cuerpo rígido)** · render ~50 %. **V7.3
 (stack-up de cadenas de cotas)** y **V7.4 (FEA bonded de ensamblaje)** añaden capacidades que
 ningún incumbente entrega INTEGRADAS a la memoria sin add-in (TolAnalyst / Simulation) — no
-suben la nota GLOBAL porque la rúbrica-v1 aún no las puntúa (candidatas a v2). Brechas top:
-E2.2 (datum por cara funcional + barrenos del UCP en el modelo) + orden fino inter-grupo del
-manual + mallado de chapa fina en el FEA de ensamblaje.
+suben la nota GLOBAL porque la rúbrica-v1 aún no las puntúa (candidatas a v2). **V7.5
+(2026-07-22) atacó E2.2**: barrenos del UCP en el modelo (la ménsula ya es atornillable,
+lámina con 2×Ø15.5 + pitch 127 + posiciones) + datum por cara FUNCIONAL derivado de
+fasteners (mecanismo general; en la ménsula el datum queda de esquina — sus dos uniones
+son ⊥ a la planta, fallback correcto). Medición pendiente de re-benchmark. Brechas top:
+re-benchmark con rúbrica-v2 (puntuar V7.3/V7.4/V7.5) + orden fino inter-grupo del manual +
+mallado de chapa fina en el FEA de ensamblaje + peso de cajetín en láminas multi-sólido
+(pre-existente, detectado en V7.5).
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 
@@ -1047,6 +1068,14 @@ cerrar V6; orden tentativo por impacto en el entregable:
   firmable: sustitución inconsistente en multi-material + hipótesis del herraje no-verdadera
   con loads explícitos; exclusión sin motor; estado sin flecha; estimador sobre-bloqueando
   4-7×) — detalle § FEA de ENSAMBLAJE BONDED; E2E del 38 re-corrido a malla más fina.
+- **V7.5 E2.2: datum funcional + barrenos del UCP** — **HECHO (2026-07-22)**: cirugía del 38
+  (ménsula chumacera atornillable: 4 barrenos Ø15.5 paramétricos a J=127 medido + M14×50 +
+  tuercas, run_batch con contrato, 0 lints) + datum «A» por cara FUNCIONAL derivada de
+  fasteners (lista por peso, la vista elige el primer lado que proyecta como borde;
+  fallback de esquina honesto). E2E verificado por TEXTO de PDF (lámina 6: 2×Ø15.5 ·
+  pitch 127 · posiciones · datum · cédula con 4×M14+4×tuercas). Detalle § Planos 2D.
+  Medición → próximo re-benchmark (rúbrica-v2). Hallazgo colateral: peso de cajetín en
+  láminas multi-sólido mal (~16×, PRE-existente, tarea aparte).
 
 ## Hoja de ruta V5 — AGOTADA (completitud de flujo del vertical)
 Doctrina (usuario): el ingeniero del vertical **nunca necesita SW/Inventor** — completitud de

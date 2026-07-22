@@ -140,3 +140,17 @@ medida en el testigo:
   (la ruta real al piso). Es un hallazgo de MODELO (gap del 38), no del código.
 - «FEA firmable» pasa de ≈45 % a ~70 % (eje de features). Residual: mallado de chapa fina
   (la mesa de 2 mm), ν por material tabulado, huella real del herraje excluido.
+
+---
+
+# Nota de capacidad V7.5 — E2.2 atacado (2026-07-22, sin re-calificar)
+
+V7.5 cierra los dos gaps declarados de E2.2 sin subir la nota (la medición va en el
+próximo re-benchmark): (1) la ménsula de chumacera del 38 ya es ATORNILLABLE — 4 barrenos
+Ø15.5 paramétricos a J=127 (medido de los slots del UCP207) + 4 M14×50 + tuercas; su
+lámina rotula 2×Ø15.5 + pitch 127 + posiciones + datum «A» y la cédula gana los M14
+(verificado por texto de PDF). (2) Datum por cara FUNCIONAL derivado de los fasteners
+(lista por peso; cada vista usa el primer lado que proyecta como borde; fallback de
+esquina honesto — en esta ménsula ambas uniones son ⊥ a la planta y queda en esquina,
+que es lo correcto). Hallazgo colateral PRE-existente: el peso del cajetín en láminas
+multi-sólido rotula ~16× menos (ya estaba en este testigo, pág 6: 0.125 kg).

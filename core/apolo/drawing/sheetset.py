@@ -95,6 +95,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
               colors: dict | None = None,
               hole_fits: dict[float, str] | None = None,
               piece_fits: dict[str, dict[float, str]] | None = None,
+              piece_datums: "dict[str, list[str]] | None" = None,
               hole_threads: dict[float, str] | None = None,
               thread_rows: list[dict] | None = None,
               fasteners: dict | None = None) -> list[SheetModel]:
@@ -108,7 +109,12 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     `hole_fits` = mapa Ø→clase del CONJUNTO (GA, conflicto de Ø ya resuelto por el
     llamador); `piece_fits` = mapa POR feature_id (V7.2c) para las láminas por pieza —
     cada lámina rotula EL SUYO, así el h7 de un eje no pisa el g6 de otro con igual Ø.
-    Sin `piece_fits`, cada lámina cae al `hole_fits` global (compat)."""
+    Sin `piece_fits`, cada lámina cae al `hole_fits` global (compat).
+    `piece_datums` (V7.5, E2.2) = {feature_id → lados de cara FUNCIONAL ordenados por
+    peso, p. ej. ["+z","-x"]} (derivado de los fasteners por el llamador) — su lámina
+    mide las posiciones de agujero desde la arista del primer lado que proyecte como
+    borde en cada vista, con el datum «A» encima; sin entrada → esquina inf-izq
+    (fallback honesto)."""
     from collections import Counter
 
     from apolo.commands.registry import Feature
@@ -185,11 +191,14 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         pc = {"P": colors.get(r["_rep"])} if colors else None
         # fits de ESTA pieza (V7.2c): su mapa por-feature si lo hay; si no, el global
         pfits = piece_fits.get(r["_rep"]) if piece_fits is not None else hole_fits
+        # datum funcional de ESTA pieza (V7.5): la arista de su cara de montaje
+        pdatum = piece_datums.get(r["_rep"]) if piece_datums else None
         pages.append(compose_sheet({"P": feat}, auto_dims=True, show_iso=shaded, shaded=shaded,
                                    colors=pc, sheet=sheet, project_name=title, meta=pm,
                                    hole_fits=pfits or None, hole_threads=hole_threads,
                                    interface_dims=True,  # V7.2 D3: pitch del patrón de montaje en cada pieza
-                                   shop_notes=True))  # V7.2 B/C: tolerancia ISO 2768 + proceso/acabado
+                                   shop_notes=True,  # V7.2 B/C: tolerancia ISO 2768 + proceso/acabado
+                                   datum_side=pdatum))  # V7.5 E2.2: datum por cara funcional
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)
     def _dims_cell(r):
         base = f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}"
