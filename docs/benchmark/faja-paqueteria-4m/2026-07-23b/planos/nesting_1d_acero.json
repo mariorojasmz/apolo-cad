@@ -1,0 +1,7 @@
+{
+  "mode": "1d",
+  "stock_len_mm": 6000.0,
+  "n_barras": 6,
+  "desperdicio_pct": 1.6,
+  "n_piezas": 45
+}

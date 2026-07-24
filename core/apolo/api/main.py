@@ -3587,6 +3587,8 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
                               colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
                               piece_fits=_feature_fit_maps(DOC) or None,  # V7.2c: cada lámina, SU fit
                               piece_datums=_piece_datum_sides(DOC) or None,  # V7.5: datum funcional
+                              piece_datum_frames=_piece_datum_frame(DOC) or None,  # V7.6: A-B-C
+                              piece_pos_tols=_piece_pos_tols(DOC) or None,  # V7.6: tol. de posición
                               hole_threads=_hole_thread_map(DOC) or None,
                               thread_rows=_thread_schedule(DOC) or None,
                               fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
@@ -3614,6 +3616,8 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
                               colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
                               piece_fits=_feature_fit_maps(DOC) or None,  # V7.2c: cada lámina, SU fit
                               piece_datums=_piece_datum_sides(DOC) or None,  # V7.5: datum funcional
+                              piece_datum_frames=_piece_datum_frame(DOC) or None,  # V7.6: A-B-C
+                              piece_pos_tols=_piece_pos_tols(DOC) or None,  # V7.6: tol. de posición
                               hole_threads=_hole_thread_map(DOC) or None,
                               thread_rows=_thread_schedule(DOC) or None,
                               fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
@@ -3796,22 +3800,21 @@ class DrawingSpecIn(BaseModel):
 _SHAFT_FIT_RE = None  # compilado perezoso en _hole_fit_map
 
 
-def _piece_datum_sides(doc) -> dict[str, list[str]]:
-    """{feature_id → lados de sus caras FUNCIONALES, ordenados por peso: ["+z","-x",…]}
-    derivado de las uniones DECLARADAS (V7.5, E2.2): cada lado es el que MIRA a una
-    contraparte (soldadura > perno/tornillo > contacto; empate → mayor área). El eje del
-    contacto = el de SOLAPE MÍNIMO entre las cajas (la normal de la cara), mismo espíritu
-    que el anclaje de los símbolos de soldadura del GA. Se devuelve LISTA porque la cara
-    por la que atraviesa un perno siempre es ⊥ a la vista que muestra sus círculos: la
-    vista elige el PRIMER lado que proyecte como borde (p. ej. la cara de APOYO). Sin
-    unión declarada → la pieza no entra (fallback de esquina, honesto). PROHIBIDO inferir
-    por nombre (lección V7.2c de los brackets). Llamar bajo STATE_LOCK."""
+def _datum_candidates(doc) -> dict[str, list[tuple[float, float, str, str]]]:
+    """{feature_id → [(peso, área, lado, motivo)]} ordenado por (peso, área) desc.
+    Derivación común de las caras FUNCIONALES desde las uniones DECLARADAS (V7.5): cada
+    lado es el que MIRA a una contraparte (soldadura > perno/tornillo > contacto). El eje
+    del contacto = el de SOLAPE MÍNIMO entre las cajas (la normal de la cara), mismo
+    espíritu que el anclaje de los símbolos de soldadura del GA. `motivo` = la unión que
+    lo justifica (va a la leyenda de datums: sin ella el marco GD&T es decorativo).
+    PROHIBIDO inferir por nombre (lección V7.2c de los brackets). Llamar bajo STATE_LOCK."""
     W = {"soldadura": 3.0, "perno": 2.0, "tornillo": 2.0}
-    cand: dict[str, list[tuple[float, float, str]]] = {}
+    cand: dict[str, list[tuple[float, float, str, str]]] = {}
     for f in doc.fasteners.values():
         if not isinstance(f, dict):
             continue
-        w = W.get((f.get("kind") or "").lower(), 1.0)
+        kind = (f.get("kind") or "contacto").lower()
+        w = W.get(kind, 1.0)
         a, b = f.get("a"), f.get("b")
         for me, other in ((a, b), (b, a)):
             fa, fb = doc.scene.get(me), doc.scene.get(other)
@@ -3829,14 +3832,144 @@ def _piece_datum_sides(doc) -> dict[str, list[str]]:
                 continue  # solape profundo en TODOS los ejes → no hay cara de contacto clara
             area = max(ov[(k + 1) % 3], 0.0) * max(ov[(k + 2) % 3], 0.0)
             sgn = "+" if (mnb[k] + mxb[k]) > (mna[k] + mxa[k]) else "-"
-            cand.setdefault(me, []).append((w, area, sgn + "xyz"[k]))
+            motivo = f"{kind} a «{str(getattr(fb, 'name', other))[:26]}»"
+            cand.setdefault(me, []).append((w, area, sgn + "xyz"[k], motivo))
+    return {fid: sorted(e, key=lambda t: (-t[0], -t[1])) for fid, e in cand.items()}
+
+
+def _piece_datum_sides(doc) -> dict[str, list[str]]:
+    """{feature_id → lados de sus caras FUNCIONALES, ordenados por peso: ["+z","-x",…]}.
+    Se devuelve LISTA porque la cara por la que atraviesa un perno siempre es ⊥ a la vista
+    que muestra sus círculos: la vista elige el PRIMER lado que proyecte como borde
+    (p. ej. la cara de APOYO). Sin unión declarada → la pieza no entra (fallback de
+    esquina, honesto)."""
     out: dict[str, list[str]] = {}
-    for fid, entries in cand.items():
+    for fid, entries in _datum_candidates(doc).items():
         sides: list[str] = []
-        for _, _, side in sorted(entries, key=lambda e: (-e[0], -e[1])):
+        for _, _, side, _m in entries:
             if side not in sides:
                 sides.append(side)
         out[fid] = sides[:3]
+    return out
+
+
+def _piece_datum_frame(doc) -> dict[str, list[tuple[str, str, str]]]:
+    """Sistema de referencia GD&T por pieza (V7.6 A): {feature_id → [(letra, lado,
+    motivo)]} con A = cara funcional de mayor peso, B = la siguiente ORTOGONAL a A, y
+    C = la tercera ortogonal a ambas — el marco de referencia que exige un control de
+    posición. Solo se emiten las letras que las uniones REALES justifican: una pieza con
+    una sola cara de montaje se queda con «A» (inventar B/C sería mentir sobre cómo se
+    posiciona la pieza). Llamar bajo STATE_LOCK."""
+    out: dict[str, list[tuple[str, str, str]]] = {}
+    for fid, entries in _datum_candidates(doc).items():
+        chosen: list[tuple[str, str, str]] = []
+        used_axes: set[str] = set()
+        for _w, _a, side, motivo in entries:
+            axis = side[1]
+            if axis in used_axes:       # B y C deben ser ORTOGONALES a los anteriores
+                continue
+            used_axes.add(axis)
+            chosen.append(("ABC"[len(chosen)], side, motivo))
+            if len(chosen) == 3:
+                break
+        if chosen:
+            out[fid] = chosen
+    return out
+
+
+def _piece_pos_tols(doc) -> dict[str, dict[float, float]]:
+    """Tolerancia de POSICIÓN por pieza y Ø (V7.6 A): {feature_id → {Ø_barreno → t_mm}}.
+    `t` = presupuesto de ensamble de `bolt_pattern_budget` para el perno que ATRAVIESA
+    ese barreno — fijo `(Ø_paso−Ø_perno)/2` o FLOTANTE `(Ø_paso−Ø_perno)` si hay tuerca
+    en el mismo eje (el perno se acomoda en ambas piezas). Es el número que va DENTRO del
+    marco de control ⌖; sin perno identificable en el eje NO se emite entrada — una
+    tolerancia GD&T inventada es peor que su ausencia (el taller la fabrica). Varios
+    pernos con el mismo Ø → gana el presupuesto MENOR (conservador). Bajo STATE_LOCK."""
+    import re as _re
+
+    from apolo.commands.expressions import resolve_params
+    from apolo.library.catalog import CATALOG
+    from apolo.library.engineering.bolts import CLEARANCE_HOLE_MM
+    from apolo.library.engineering.stackup import bolt_pattern_budget
+    from apolo.library.lints import _AXIS_VEC, _is_bolt, _perp_dist
+
+    _M_RE = _re.compile(r"\bM(\d{1,2})(?:[×x]\d+)?\b")
+    _NUT_RE = _re.compile(r"\btuerca[s]?\b", _re.I)
+    # tabla ISO 273 INVERTIDA: Ø de paso → Ø nominal del perno (Ø13.5 = paso de un M12)
+    _ISO273_INV = {round(v, 1): float(k.lstrip("M")) for k, v in CLEARANCE_HOLE_MM.items()}
+
+    # 1) tornillería presente, POR SÓLIDO (un compound lleva N pernos: su centro conjunto
+    #    no cae en el eje de ninguno — la lección de la brecha 1)
+    herraje: list[tuple[tuple[float, float, float], float | None, bool]] = []
+    for feat in doc.scene.values():
+        if not getattr(feat, "visible", True) or not _is_bolt(feat, CATALOG):
+            continue
+        comp = CATALOG.get(getattr(feat, "component", None) or "")
+        nombre = getattr(feat, "name", "") or ""
+        d = None
+        m = _M_RE.search(nombre)
+        if m:
+            d = float(m.group(1))
+        elif comp is not None:
+            try:
+                d = float((comp.specs or {}).get("d"))
+            except (TypeError, ValueError):
+                d = None
+        # d=None NO descarta: la pieza sigue siendo PRESENCIA de tornillería en el eje
+        # (el Ø puede salir de la tabla ISO 273); solo se pierde como fuente de Ø
+        es_tuerca = bool(_NUT_RE.search(nombre)) or (
+            comp is not None and comp.category == "tuercas")
+        try:
+            solids = list(feat.shape.solids())
+        except Exception:
+            solids = []
+        for s in solids or [feat.shape]:
+            try:
+                bb = s.bounding_box()
+            except Exception:
+                continue
+            herraje.append((((bb.min.X + bb.max.X) / 2.0, (bb.min.Y + bb.max.Y) / 2.0,
+                             (bb.min.Z + bb.max.Z) / 2.0), d, es_tuerca))
+    if not herraje:
+        return {}
+
+    out: dict[str, dict[float, float]] = {}
+    for cmd in doc.commands:
+        if cmd.get("type") != "drill_hole":
+            continue
+        try:
+            p = resolve_params(cmd.get("params", {}) or {}, doc.variables_resolved)
+            if p.get("thread") or float(p.get("depth", 0) or 0) > 0:
+                continue                               # roscado o ciego: no es de paso
+            dia = float(p.get("diameter", 0))
+            fid = cmd.get("params", {}).get("feature")
+            if dia <= 0 or fid not in doc.scene:
+                continue
+            pos = p.get("position") or {}
+            p0 = (float(pos.get("x", 0)), float(pos.get("y", 0)), float(pos.get("z", 0)))
+            u = _AXIS_VEC.get(str(p.get("axis", "z")).lstrip("+-"), _AXIS_VEC["z"])
+            tol = max(dia, 6.0)
+            en_eje = [(d, nut) for c, d, nut in herraje if _perp_dist(c, p0, u) <= tol]
+            if not en_eje:
+                continue                               # sin tornillería en el eje → sin marco
+            # Ø del perno: la tabla de paso ISO 273 es la fuente NORMATIVA (un barreno de
+            # Ø13.5 ES el paso de un M12); si el Ø no está tabulado, el que declare la
+            # tornillería del eje (catálogo o «M14» en su nombre)
+            d_bolt = _ISO273_INV.get(round(dia, 1))
+            if d_bolt is None:
+                pernos = [d for d, nut in en_eje if not nut and d]
+                d_bolt = min(pernos) if pernos else None
+            if d_bolt is None or d_bolt >= dia:
+                continue                               # sin Ø de perno fiable → sin marco
+            flot = any(nut for _d, nut in en_eje)
+            t = bolt_pattern_budget(dia, d_bolt, [], flotante=flot)["presupuesto_mm"]
+            if t <= 0:
+                continue
+            key = round(dia, 1)
+            prev = out.setdefault(fid, {}).get(key)
+            out[fid][key] = t if prev is None else min(prev, t)
+        except Exception:  # noqa: BLE001 — un comando raro no rompe el juego de planos
+            continue
     return out
 
 

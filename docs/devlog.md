@@ -4029,3 +4029,46 @@ como proyecto propio.
 
 Calificación `2026-07-23/`: **E3.7 = 4 → global v2 ≈78.8 %** (v1-comparable 78.6 sin
 cambio — E3.6/E3.7 son criterios v2). Tests 1259→1260.
+
+## V7.6 fase A — GD&T funcional: el marco que sí sabe cuánto vale (Fable, 2026-07-23)
+
+Primera fase del plan «E2 fino». El diagnóstico que la define: **los siete criterios de
+E2 estaban en 3.0** — no quedaban brechas que cerrar, así que subir el entregable más
+pesado ya no es tapar huecos sino entregar lo que un despacho típico NO entrega. El plan
+incorporó por eso una advertencia de honestidad (el ancla de 4 es la más subjetiva de la
+escala) que esta calificación aplica contra sí misma.
+
+**La palanca estaba construida y sin usar**: `feature_control_frame` vivía en
+`dimensions.py` con CERO call sites desde su commit. Sumado a `_piece_datum_sides` (V7.5)
+y `bolt_pattern_budget` (V7.3), la fase fue conectar tres piezas existentes.
+
+`_piece_datum_frame` deriva el sistema de referencia por pieza: A = cara funcional de
+mayor peso; B y C **solo si son ortogonales** a las anteriores (dos datums en el mismo eje
+no orientan nada), cada una con el `motivo` que la justifica → LEYENDA en la lámina, sin
+la cual el marco sería decoración. `_piece_pos_tols` calcula la tolerancia del marco desde
+el presupuesto de ensamble REAL: `bolt_pattern_budget` gana `flotante=` (perno + TUERCA en
+el eje → holgura completa; solo perno → mitad), cerrando de paso el residual «hasta 2×
+conservador» declarado en V7.3. El Ø del perno sale de la **tabla ISO 273 invertida**
+(Ø13.5 ES el paso de un M12): fuente normativa que hizo pasar el alcance de 2 láminas a 5
+— la tornillería a-medida del 38 no declara su métrica en el nombre y sin la tabla se
+quedaba fuera.
+
+Detalles que un auditor habría cazado, cerrados en el camino: el símbolo de posición se
+DIBUJA (círculo + cruz) porque la fuente del PDF/DXF no garantiza el ⌖ U+2316 y un
+símbolo GD&T que sale como caja vacía es peor que ninguno; `_hole_callouts` ahora DEVUELVE
+el nº de marcos dibujados y la leyenda solo se emite si hubo alguno (la primera corrida
+dejó una leyenda huérfana en la pág 8, sin marco); y la nota de posición se acortó porque
+`notes_block` trunca a 60 chars (salía «tolerancia = pre…»).
+
+**Verificación**: 6 marcos en 5 láminas, larguero con A-B (dos soldaduras ortogonales),
+los 4 valores distintos recalculados a mano contra ISO 273 y la condición de fijador
+(Ø0.5 / 0.75 / 1.0 / **1.5** — este último es la ménsula de chumacera, la única unión con
+tuerca modelada, y por eso la única que recibe holgura completa: la prueba de que el
+número no es cosmético). Detector de solapes: **4 en 22 páginas con Y sin** GD&T, los
+mismos pre-existentes → E2.6 intacto.
+
+**E2.2 = 3.75, no 4** (aplicando la propia advertencia del plan): falta el glifo Ⓜ
+circulado, solo hay control de posición (sin perpendicularidad/planitud), el 38 no tiene
+piezas con tres contactos ortogonales que exhiban un A-B-C completo, y la tolerancia se
+asigna por Ø y no por patrón. Global v2 78.8 → **≈79.6 %**. Fase 100 % de CÓDIGO: el
+modelo 38 no se tocó — mejora que escala a cualquier proyecto, no al testigo.

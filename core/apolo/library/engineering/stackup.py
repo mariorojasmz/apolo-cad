@@ -207,20 +207,26 @@ def stackup_rule(name: str, report: dict) -> dict:
 
 
 def bolt_pattern_budget(clearance_hole_mm: float, bolt_dia_mm: float,
-                        pos_tols_mm: list[float]) -> dict:
+                        pos_tols_mm: list[float], *, flotante: bool = False) -> dict:
     """Cadena de un PATRÓN de pernos que debe ensamblar (V7.3 C): el presupuesto de
-    posición por lado es ``(Ø_paso − Ø_perno)/2`` (holgura radial del barreno de paso);
-    debe cubrir la suma de tolerancias de POSICIÓN de los barrenos que se enfrentan
-    (peor caso) — o la raíz cuadrada de su suma (RSS). Puro.
+    posición debe cubrir la suma de tolerancias de POSICIÓN de los barrenos que se
+    enfrentan (peor caso) — o la raíz cuadrada de su suma (RSS). Puro.
 
-    HIPÓTESIS declarada: fórmula de fijador FIJO (el perno se centra en un solo barreno).
-    Para pernos FLOTANTES en ambas placas (perno + tuerca, el caso de join_bolted) el
-    presupuesto real es hasta 2× → este veredicto es CONSERVADOR, nunca optimista."""
-    budget = (float(clearance_hole_mm) - float(bolt_dia_mm)) / 2.0
+    Dos condiciones de ensamble (ASME Y14.5 / ISO 2692), DECLARADAS en el retorno:
+    - **fijador FIJO** (`flotante=False`, por defecto): el perno queda fijo respecto a una
+      de las piezas (rosca en la placa, espárrago soldado) y solo la otra tiene holgura →
+      presupuesto ``(Ø_paso − Ø_perno)/2``. Es la hipótesis CONSERVADORA.
+    - **fijador FLOTANTE** (`flotante=True`): perno pasante con tuerca, ambas piezas con
+      barreno de paso (el caso de `join_bolted`) → el perno se acomoda en las dos y el
+      presupuesto es la holgura COMPLETA ``Ø_paso − Ø_perno``.
+    Elegir mal hacia flotante sería OPTIMISTA: solo declararlo cuando conste la tuerca."""
+    hole, bolt = float(clearance_hole_mm), float(bolt_dia_mm)
+    budget = (hole - bolt) if flotante else (hole - bolt) / 2.0
     wc = float(sum(abs(t) for t in pos_tols_mm))
     rss = math.sqrt(sum(t * t for t in pos_tols_mm))
     return {
         "presupuesto_mm": round(budget, 4),
+        "condicion": "flotante" if flotante else "fijo",
         "demanda_peor_caso_mm": round(wc, 4),
         "demanda_rss_mm": round(rss, 4),
         "ok_peor_caso": wc <= budget + 1e-9,

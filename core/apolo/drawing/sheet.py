@@ -164,7 +164,9 @@ def _hole_callouts(
     hole_fits: dict[float, str] | None = None,
     hole_threads: dict[float, str] | None = None,
     *, min_r_paper: float = 0.8, max_groups: int = 4,
-) -> None:
+    pos_tols: dict[float, float] | None = None,
+    datum_letters: tuple = (),
+) -> int:
     """Agrupa los círculos de la vista por diámetro y rotula 'n×Ød' con directriz.
     Con `hole_fits` {Ø_nominal → clase ISO 286} el rótulo incluye clase y límites:
     "4×Ø20 H7 (+0.021/0)". Con `hole_threads` {Ø_broca → designación M…} el rótulo
@@ -175,7 +177,10 @@ def _hole_callouts(
     `min_r_paper` = radio mínimo en papel (mm) para rotular; en una lámina de taller
     por pieza se baja (V7.2 D1: nunca silenciar un barreno funcional de una pieza larga
     a escala pequeña). Un barreno con fit/rosca mapeada rotula SIEMPRE (piso 0.2).
-    `max_groups` = nº de diámetros distintos rotulados (se sube en láminas por pieza)."""
+    `max_groups` = nº de diámetros distintos rotulados (se sube en láminas por pieza).
+    Devuelve el nº de MARCOS de control GD&T dibujados (V7.6 A): el llamador solo emite la
+    leyenda de datums si hubo alguno — una leyenda sin marco confunde al taller."""
+    n_frames = 0
     groups: dict[float, list[tuple[float, float, float]]] = {}
     for c in view.circles:
         groups.setdefault(round(2 * c[2], 1), []).append(c)
@@ -209,10 +214,20 @@ def _hole_callouts(
         else:
             text = f"{n}×Ø{dia:g}" if n > 1 else f"Ø{dia:g}"
         model.labels.append(Label(ex + 0.8, ey, text, 2.8, anchor="start"))
+        tw = len(text) * 2.8 * 0.55  # ancho aprox. del rótulo → lo que va a su derecha
         if fit:  # V7.2 C3: asiento ISO 286 = superficie mecanizada fina → Ra 1.6 TRAS el callout
             from .dimensions import surface_finish
-            tw = len(text) * 2.8 * 0.55  # ancho aprox. del rótulo → coloca el ✓ a su derecha
             surface_finish(model, ex + 0.8 + tw + 1.5, ey - 0.8, "1.6", size=2.6)
+        # V7.6 A: control de POSICIÓN bajo el callout — la tolerancia sale del presupuesto
+        # de ensamble del perno que atraviesa el barreno (nunca de una tabla genérica) y
+        # el marco de referencia, de las caras funcionales derivadas de las uniones
+        t_pos = (pos_tols or {}).get(round(dia, 1))
+        if t_pos and datum_letters:
+            from .dimensions import feature_control_frame
+            feature_control_frame(model, ex + 0.8, ey - 5.2, "posicion",
+                                  f"Ø{t_pos:g} M", tuple(datum_letters), size=3.4)
+            n_frames += 1
+    return n_frames
 
 
 def _dim_h_at(model: SheetModel, x1: float, x2: float, y: float, value: float, name: str = "") -> None:
@@ -447,6 +462,8 @@ def compose_sheet(
     fasteners: dict | None = None,  # DOC.fasteners → símbolos de soldadura ISO 2553 en el conjunto (V7.2 A); NO-OP en láminas por pieza
     shop_notes: bool = False,  # notas de taller de lámina por pieza: tolerancia ISO 2768 + proceso/acabado ISO 1302 + protección (V7.2 B/C)
     datum_side: "str | list[str] | None" = None,  # "+z"/"-x"/… o LISTA por peso (de fasteners, V7.5): cada vista usa el primer lado que proyecte como BORDE → el datum «A» y las posiciones se miden desde esa arista
+    datum_frame: "list[tuple[str, str, str]] | None" = None,  # [(letra, lado, motivo)] (V7.6): sistema de referencia A-B-C para el marco GD&T + su leyenda
+    pos_tols: "dict[float, float] | None" = None,  # {Ø → tolerancia de posición mm} (V7.6): presupuesto de ensamble del perno → marco ⌖
 ) -> SheetModel:
     if sheet not in SHEETS:
         raise ValueError(f"Lámina desconocida '{sheet}' (usa A3 o A4)")
@@ -488,6 +505,7 @@ def compose_sheet(
     iso_cell_h = max(iso_band_top - tb_top, 28.0)
     centers["iso"] = (ax0 + aw * 0.75, (tb_top + iso_band_top) / 2)
 
+    _gdt_frames = 0                # marcos de control dibujados (V7.6 A) → gate de la leyenda
     placed: dict[str, tuple] = {}  # name -> (rect, tx)
     for name in ("alzado", "lateral", "planta"):
         if name not in views:
@@ -503,9 +521,12 @@ def compose_sheet(
         model.labels.append(Label(cx, ry - 14.5, VIEW_TITLES[name], 3.6))
         # láminas de taller por pieza: no silenciar barrenos funcionales de piezas largas
         # a escala pequeña, y admitir más diámetros distintos (V7.2 D1)
-        _hole_callouts(model, view, tx, scale, hole_fits, hole_threads,
-                       min_r_paper=0.2 if shop_notes else 0.8,
-                       max_groups=8 if shop_notes else 4)
+        _gdt_frames += _hole_callouts(
+            model, view, tx, scale, hole_fits, hole_threads,
+            min_r_paper=0.2 if shop_notes else 0.8,
+            max_groups=8 if shop_notes else 4,
+            pos_tols=pos_tols,
+            datum_letters=tuple(d[0] for d in (datum_frame or []))) or 0
         for cv in view.circles:  # marca de centro (cruz de ejes) en cada agujero
             ccx, ccy = tx((cv[0], cv[1]))
             center_mark(model, ccx, ccy, cv[2] * scale)
@@ -795,6 +816,15 @@ def compose_sheet(
         comp = CATALOG.get(getattr(rep, "component", None) or "")
         _rep_finish = finish_label(infer_process(rep, comp)["ra"])
         _auto_notes += _shop_note_lines(rep, comp, resolve_material(rep, CATALOG))
+    # V7.6 A: LEYENDA de datums — sin ella el marco de control es decorativo. Cada letra
+    # nombra la unión REAL que la justifica (derivada de los fasteners, no del nombre).
+    if datum_frame and _gdt_frames:
+        _EJE = {"x": "X", "y": "Y", "z": "Z"}
+        for letra, lado, motivo in datum_frame[:3]:
+            cara = f"cara {lado[0]}{_EJE.get(lado[1].lower(), lado[1])}"
+            _auto_notes.append(f"Datum {letra}: {cara} — {motivo}.")
+        # OJO: notes_block trunca a 60 chars por línea — la nota debe caber entera
+        _auto_notes.append("Posición: máx. material (M); tol. = holgura de paso.")
     _wn_drawn, _wn_groups, _wn_sincota, _wn_total = _weld_stats
     if _wn_total:  # honestidad: declara agrupación y cordones sin dimensionar
         _auto_notes.append("Soldadura: símbolos ISO 2553 · a = garganta de filete (mm).")

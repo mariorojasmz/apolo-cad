@@ -122,7 +122,9 @@ def notes_block(model: "SheetModel", x: float, y_top: float, lines: list[str],
     row = size * 1.9
     model.labels.append(Label(x, y_top, title, size + 0.8, anchor="start"))
     y = y_top - row * 1.2
-    for i, ln in enumerate(lines[:8]):
+    # tope 10 (V7.6: la leyenda de datums añade hasta 4 líneas a las de taller; verificado
+    # sin solapes con scripts/_check_overlaps.py en el testigo del 38)
+    for i, ln in enumerate(lines[:10]):
         model.labels.append(Label(x, y, f"{i + 1}. {str(ln)[:60]}", size, anchor="start"))
         y -= row
     return y
@@ -195,8 +197,13 @@ def weld_symbol(
 
 def feature_control_frame(model: "SheetModel", x: float, y: float, symbol: str, tol: str,
                           datums: tuple = (), *, size: float = 5.0) -> float:
-    """Marco de control de feature GD&T: [símbolo | tolerancia | datum...]. Devuelve el ancho total."""
-    from .sheet import Label
+    """Marco de control de feature GD&T: [símbolo | tolerancia | datum...]. Devuelve el ancho total.
+
+    `symbol="posicion"` dibuja el símbolo ISO de POSICIÓN (círculo con cruz que sobresale)
+    con geometría, no con un glifo: la fuente del PDF/DXF no tiene garantizado el ⌖
+    (U+2316) y un símbolo GD&T que sale como caja vacía es peor que ninguno. Cualquier
+    otra cadena se rotula como texto (compat)."""
+    from .sheet import Arc, Label, Line
 
     h = size
     cells = [str(symbol), str(tol)] + [str(d) for d in datums]
@@ -204,6 +211,14 @@ def feature_control_frame(model: "SheetModel", x: float, y: float, symbol: str, 
     for k, c in enumerate(cells):
         w = h if k == 0 else max(h, len(c) * h * 0.55 + 2.2)
         model.rect(cx, y, w, h, "frame")
-        model.labels.append(Label(cx + w / 2, y + h * 0.28, c, h * 0.52))
+        if k == 0 and c == "posicion":   # símbolo ISO de posición, dibujado
+            mx, my, r = cx + w / 2, y + h / 2, h * 0.28
+            model.arcs.append(Arc(mx, my, r, 0.0, 360.0, "visible"))
+            model.lines += [
+                Line(mx - r * 1.55, my, mx + r * 1.55, my, "visible"),
+                Line(mx, my - r * 1.55, mx, my + r * 1.55, "visible"),
+            ]
+        else:
+            model.labels.append(Label(cx + w / 2, y + h * 0.28, c, h * 0.52))
         cx += w
     return cx - x

@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1260 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1267 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1260 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1267 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -578,6 +578,25 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   heurística de NOMBRE y una placa de ACERO con «larguero» en el nombre (palabra de
   `_WOOD_WORDS`) salía pesada como MADERA (0.123 vs 1.93 kg, pre-existente desde V7.2).
 
+- **GD&T funcional (V7.6 fase A, E2.2 — 2026-07-23)**: `feature_control_frame` (existía
+  en `dimensions.py` con CERO call sites) por fin cableado. `_piece_datum_frame(doc)`
+  (api/main.py) da el sistema de referencia por pieza `[(letra, lado, motivo)]` — A = cara
+  funcional de mayor peso, B/C solo si son ORTOGONALES a las anteriores (dos datums en el
+  mismo eje no orientan la pieza); el `motivo` («soldadura a «Larguero A36 (+Y)»») va a la
+  LEYENDA, sin la cual el marco es decorativo. `_piece_pos_tols(doc)` da {fid → {Ø → t}}
+  con `t` = presupuesto de ensamble de `bolt_pattern_budget`, que gana `flotante=` (perno
+  + TUERCA en el eje → holgura completa; solo perno → mitad: cierra el residual «2×
+  conservador» de V7.3). El Ø del perno sale de la tabla **ISO 273 INVERTIDA** (Ø13.5 ES
+  el paso de un M12) — fuente normativa que hace innecesario que la tornillería declare su
+  métrica; el sólido en el eje es el respaldo. Plomería espejo de `piece_fits`:
+  `sheet_set(piece_datum_frames=, piece_pos_tols=)` → `compose_sheet(datum_frame=,
+  pos_tols=)` → `_hole_callouts` (que ahora DEVUELVE el nº de marcos: la leyenda solo sale
+  si se dibujó alguno — una leyenda huérfana confunde al taller). El símbolo de posición se
+  DIBUJA (círculo + cruz) porque la fuente del PDF/DXF no garantiza el ⌖ U+2316. REGLA: sin
+  perno identificable en el eje NO se emite marco (una tolerancia GD&T inventada es peor
+  que su ausencia — el taller la fabrica). Testigo 38: 6 marcos en 5 láminas, larguero con
+  A-B, 0 solapes nuevos (detector idéntico con y sin GD&T).
+
 ### Materiales (`library/materials.py`)
 - Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
   catálogo → heurística por nombre → default del VERTICAL: `set_vertical('carpinteria')`
@@ -967,7 +986,13 @@ el FEA · D.1 (24 pernos de anclaje). **Brechas 2+3 CERRADAS (2026-07-23, testig
 Rodamientos) · convergencia de malla IMPRESA en la memoria (60→35 mm, gobernante hacia
 la analítica) + bloque «HIPÓTESIS Y ALCANCE» en el PDF + mesa 2 mm analizada como placa
 (FS 11.8, contrastada a mano) → **E3.7 = 4, global v2 ≈78.8 %** (v1-comp 78.6 sin
-cambio). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
+cambio). **V7.6 fase A (GD&T funcional, testigo `2026-07-23b/`)**: los 7 criterios de E2
+estaban en 3.0 → el trabajo pasa de «cerrar brechas» a «entregar lo que un despacho NO
+entrega». Marcos de posición con tolerancia derivada del presupuesto de ensamble +
+sistema A-B trazado a las uniones → **E2.2 = 3.75** (no 4: «M» tipográfico en vez de Ⓜ,
+solo posición sin perpendicularidad/planitud, el 38 no tiene piezas con 3 contactos
+ortogonales, tolerancia por Ø y no por patrón) → **global v2 ≈79.6 %**. Fase 100 % de
+CÓDIGO: el modelo no cambió, el generador mejoró (escala a todos los proyectos). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
 anclas por 24 inserts literales = regresión de parametricidad por cosmética de BOM (la
 cédula ya los lista como COMPRA; un ancla real no es DIN 933); si el negocio lo pide →
 familia «anclajes» + patrón de componentes. Brechas vivas: E2 fino (acabados/tolerancias)
