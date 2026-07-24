@@ -155,6 +155,24 @@ def _section_page(W: float, H: float, *, idx: int, n_sections: int, page_no: int
         for row in rule["tabla"][:12]:
             m.labels.append(Label(18, y, str(row)[:64], 2.6, anchor="start"))
             y -= 4.0
+    # hipótesis y alcance (FEA: lo que un ingeniero lee ANTES de firmar — bonded/lineal,
+    # exclusiones con su peso, alcance acotado, nota del analista)
+    if rule.get("hipotesis"):
+        y -= 3
+        m.labels.append(Label(16, y, "HIPÓTESIS Y ALCANCE", 3.2, anchor="start"))
+        y -= 5.5
+        flat: list[str] = []
+        for h in rule["hipotesis"]:
+            lns = _wrap("· " + str(h), 64)
+            flat.extend(lns[:2])
+        # tope 18: el ALCANCE y la nota del analista van al final de la lista y son
+        # justo lo que un revisor necesita leer — no pueden morir en el corte
+        for ln in flat[:18]:
+            m.labels.append(Label(18, y, ln, 2.4, anchor="start"))
+            y -= 3.8
+        if len(flat) > 18:
+            m.labels.append(Label(18, y, "…", 2.4, anchor="start"))
+            y -= 3.8
 
     # columna derecha: el cálculo (fórmula → sustitución → resultado → criterio → FS)
     rx = W * 0.55

@@ -3994,3 +3994,38 @@ moverse 800 mm). Addendum en calificacion.md: **E2.2 2.75→3.0, global ≈78.6 
 ≈78.5 % v2**. Residual honesto declarado: el datum funcional COINCIDE con la esquina
 inf-izq en este modelo (los contactos caen en lados «min» o ⊥ a la vista de sus
 círculos) — el mecanismo elige por señal, el papel no lo distingue. Tests 1257→1259.
+
+## Brechas 2+3 cerradas + D.1 retirado por decisión (Fable, 2026-07-23)
+
+**Brecha 2 (micro-pasos del manual)**: fix de MODELO, no de heurística — los 8 herrajes
+de chumacera (c1130-1137) agregados al grupo «Rodamientos» (edit del create_group c700
+con contrato de volumen conjunto). El manual vuelve a **6 pasos**: «Rodamientos (11
+pza)» absorbe pernos y tuercas con su cédula. E5 se SOSTIENE en 3.0 (arreglar un
+residual que no bajaba de 3 no sube de 3 — honestidad de anclas).
+
+**Brecha 3 (E3.7 → 4)**: tres piezas. (a) **Convergencia persistida e impresa**: al
+re-correr el mismo grupo con otra malla, el run previo pasa al historial (tope 3, el
+vigente deduplica su malla — sin eso la serie imprimía dos veces el mismo size con
+geometrías de distinta fecha); la memoria imprime «CONVERGENCIA DE MALLA: 60 mm → FS
+93.44 (Pata) · 35 mm → FS 66.49 (Larguero) ← VIGENTE», serie generada EN VIVO (74 s +
+176 s, geometría post-brecha-1: el FS gobernante subió 64.61→66.49 con los barrenos —
+coherente). (b) **Hipótesis EN el PDF**: el bloque «HIPÓTESIS Y ALCANCE» se imprime en
+la sección (tope 18 líneas — la primera pasada con tope 12 cortaba justo el alcance y la
+nota del analista, lo que más importa para firmar); `body.ids` acotado genera hipótesis
+de alcance automática y el param nuevo `nota` lleva la nota del analista. (c) **Chapa
+fina analizada**: la mesa de 2 mm como placa (`fea_static` c351, apoyo ±y en las
+repisas, 75/4 kg + banda + peso propio) → σ_vm 21.2 MPa, **FS 11.8**, δ 1.43 mm —
+contrastada a mano con teoría de franja apoyada (23.5 MPa, al 10 %). GOTCHA: la primera
+malla de 6 mm sobre 2 mm de espesor tardó >10 min en gmsh (el cliente murió por timeout
+pero el server TERMINÓ y persistió — el patrón «verificar, no reintentar» de V6.5e).
+
+**D.1 RETIRADO por decisión razonada** (no ejecutado): los 24 pernos de anclaje viven en
+patrones paramétricos anidados que siguen a las patas en las variantes; canjearlos por
+24 inserts de catálogo con posiciones literales sería una REGRESIÓN de parametricidad
+por cosmética de BOM — y la cédula ya los lista como COMPRA con peso, la memoria los
+verifica por los fasten declarados y un ancla real (expansión) ni siquiera es un DIN
+933. Si el negocio pide ref de catálogo: familia «anclajes» + patrón de componentes,
+como proyecto propio.
+
+Calificación `2026-07-23/`: **E3.7 = 4 → global v2 ≈78.8 %** (v1-comparable 78.6 sin
+cambio — E3.6/E3.7 son criterios v2). Tests 1259→1260.

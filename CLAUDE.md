@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1259 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1260 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1259 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1260 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -343,7 +343,17 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   (u>1e5 mm → error). Tope 25 piezas + estimador de tets pre-malla (avisa antes de mallar).
   Vigencia por volumen CONJUNTO (clave `group:<nombre>` en `DOC.fea`); memoria: sección
   «FEA del bastidor» + tabla por pieza + flecha vs L/240 que CONTRASTA la verificación
-  analítica (dos caminos al mismo número = confianza para firmar). Bonded lineal es la
+  analítica (dos caminos al mismo número = confianza para firmar). **Convergencia +
+  alcance (brechas 2+3, 2026-07-23)**: al re-correr el MISMO grupo con OTRO `mesh_size`,
+  el run previo pasa a `resumen["convergencia"]` (tope 3; el vigente DEDUPLICA su malla
+  del historial) y la memoria imprime la serie «CONVERGENCIA DE MALLA … ← VIGENTE» (con
+  historial el cupo de piezas de la tabla baja a 5 — tope 12 filas); `body.ids` acotado →
+  hipótesis de ALCANCE automática; `nota` (param nuevo del body/tool) = nota del ANALISTA
+  a hipótesis; el bloque «HIPÓTESIS Y ALCANCE» se IMPRIME en la memoria
+  (calc_report, tope 18 líneas — el alcance/nota van al final y no pueden morir en el
+  corte). La chapa fina se analiza APARTE como placa (`fea_static` de la mesa c351 del
+  38: apoyo ±y en repisas → FS 11.8, δ 1.43 mm, contrastado a mano al 10 %); mallarla
+  en el bonded sigue fuera (2 mm vs malla 35 mm). Bonded lineal es la
   hipótesis CORRECTA para un bastidor soldado, no un atajo. **E2E faja 38** (bastidor
   portante, 16 pza, patas fijas a piso): FS gob 93.5 en la pata, δ=0.021 mm ≤ L/240 —
   coherente con la flecha analítica (0.11 mm, FS 62) y el FEA de la pata sola (FS 170).
@@ -952,7 +962,16 @@ puntal↔pata declarado); 2 bugs del lint «barreno sin perno» corregidos con t
 expande por sólido). Residual honesto: el datum funcional COINCIDE con la esquina en este
 modelo (contactos en lados «min» o ⊥). Brechas top: micro-pasos del manual (agrupar
 c1130-1137 en Rodamientos) · convergencia de malla impresa en la memoria + chapa fina en
-el FEA · D.1 (24 pernos de anclaje).
+el FEA · D.1 (24 pernos de anclaje). **Brechas 2+3 CERRADAS (2026-07-23, testigo
+`2026-07-23/`)**: manual de vuelta a 6 pasos (los 8 herrajes agregados al grupo
+Rodamientos) · convergencia de malla IMPRESA en la memoria (60→35 mm, gobernante hacia
+la analítica) + bloque «HIPÓTESIS Y ALCANCE» en el PDF + mesa 2 mm analizada como placa
+(FS 11.8, contrastada a mano) → **E3.7 = 4, global v2 ≈78.8 %** (v1-comp 78.6 sin
+cambio). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
+anclas por 24 inserts literales = regresión de parametricidad por cosmética de BOM (la
+cédula ya los lista como COMPRA; un ancla real no es DIN 933); si el negocio lo pide →
+familia «anclajes» + patrón de componentes. Brechas vivas: E2 fino (acabados/tolerancias)
+· orden intra-grupo del manual · E3.6→4 (más cadenas).
 
 ## Hoja de ruta V6 — «Apolo industrial» (doctrina 2026-07-04)
 

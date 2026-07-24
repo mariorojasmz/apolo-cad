@@ -2884,6 +2884,7 @@ class FeaAssemblyIn(BaseModel):
     mesh_size_mm: float | None = None
     fs_min: float = 2.0
     save: bool = True
+    nota: str | None = None               # nota del ANALISTA (alcance/limitaciones) → hipótesis
 
 # rol de superficie de carga (recibe el producto): la cama/mesa/deck del transportador
 _BED_RE = re.compile(r"\b(cama|mesa|bed|deck|tablero|placa\s*sup|superficie\s*de\s*carga)\b", re.I)
@@ -3157,8 +3158,33 @@ def _fea_assembly_run(body: FeaAssemblyIn):
     resumen["fea_key"] = key
     resumen["volumen_mm3"] = round(sum(p["volumen_mm3"] for p in params["pieces"]), 1)
     resumen["piezas_fids"] = params["struct_ids"]
+    if body.ids:
+        # alcance ACOTADO (ids explícitos, no un grupo completo): declararlo — lo no
+        # incluido no aporta rigidez y sus pesos deben entrar como loads
+        resumen["hipotesis"].append(
+            f"alcance: análisis acotado a los {len(params['pieces'])} sólidos declarados "
+            f"(«{params['grupo']}») — lo no incluido no aporta rigidez; sus cargas entran "
+            f"como fuerzas aplicadas"
+        )
+    if body.nota:
+        resumen["hipotesis"].append(f"nota del analista: {body.nota}")
     if body.save:
         with STATE_LOCK:
+            # CONVERGENCIA de malla (E3.7): si ya había un análisis del MISMO grupo con
+            # OTRO mesh_size, el run anterior pasa al historial (tope 3) y la memoria
+            # imprime la serie — refinar y ver la gobernante estabilizarse es el
+            # argumento de firma
+            prev = DOC.fea.get(key)
+            hist = list((prev or {}).get("convergencia") or [])
+            if prev and prev.get("mesh_size_mm") not in (None, resumen.get("mesh_size_mm")):
+                hist.append({k2: prev.get(k2) for k2 in
+                             ("mesh_size_mm", "n_tets", "fs", "pieza_critica",
+                              "desplazamiento_max_mm")})
+            # el VIGENTE reemplaza cualquier entrada del historial con su MISMA malla
+            # (evita imprimir dos veces el mismo size con geometrías de distinta fecha)
+            hist = [h for h in hist if h.get("mesh_size_mm") != resumen.get("mesh_size_mm")]
+            if hist:
+                resumen["convergencia"] = hist[-3:]
             DOC.set_fea_result(key, resumen)
             _autosave()
     _LAST_FEA_FIELD.clear()
@@ -3280,15 +3306,32 @@ def _fea_rules() -> list[dict]:
         rule = {"regla": regla, "estado": res.get("estado", "aviso"),
                 "detalle": res.get("detalle", ""), "calc": res.get("calc")}
         if es_grupo and res.get("piezas"):
-            # tabla por pieza en la memoria: las de MENOR FS primero (las que gobiernan)
+            # tabla por pieza en la memoria: las de MENOR FS primero (las que gobiernan).
+            # Con historial de CONVERGENCIA el cupo de piezas baja a 5 (el tope del
+            # calc_report es 12 filas y la serie de malla vale más que la cola de FS altos)
+            conv = res.get("convergencia") or []
+            cap = 5 if conv else 8
             filas = ["Pieza · σ_vm [MPa] · FS · estado"]
-            for p in res["piezas"][:8]:
+            for p in res["piezas"][:cap]:
                 fs_txt = f"{p['fs']:g}" if p.get("fs") is not None else "—"
                 filas.append(f"{str(p['pieza'])[:26]} · {p['sigma_vm_max_mpa']:g} · "
                              f"{fs_txt} · {p.get('estado', '')}")
-            if len(res["piezas"]) > 8:
-                filas.append(f"… y {len(res['piezas']) - 8} pieza(s) más")
+            if len(res["piezas"]) > cap:
+                filas.append(f"… y {len(res['piezas']) - cap} pieza(s) más")
+            if conv:
+                filas.append("CONVERGENCIA DE MALLA (runs previos → vigente)")
+                for h in conv:
+                    filas.append(f"size {h.get('mesh_size_mm'):g} mm · FS {h.get('fs'):g} "
+                                 f"({str(h.get('pieza_critica', ''))[:18]}) · "
+                                 f"δ {h.get('desplazamiento_max_mm'):g} mm")
+                filas.append(f"size {res.get('mesh_size_mm'):g} mm · FS {res.get('fs'):g} "
+                             f"({str(res.get('pieza_critica', ''))[:18]}) · "
+                             f"δ {res.get('desplazamiento_max_mm'):g} mm ← VIGENTE")
             rule["tabla"] = filas
+        if es_grupo and res.get("hipotesis"):
+            # lo que un ingeniero lee ANTES de firmar (bonded/lineal, exclusiones,
+            # alcance acotado, nota del analista) → bloque «HIPÓTESIS Y ALCANCE»
+            rule["hipotesis"] = res["hipotesis"]
         if res.get("estado") == "error":
             rule["recomendacion"] = "Refuerza la pieza crítica o reduce la carga (FS < 1.2)."
         rules.append(rule)

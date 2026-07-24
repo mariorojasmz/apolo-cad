@@ -1329,7 +1329,7 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
                  carga_kg: float = 0.0, self_weight: bool = True,
                  yield_mpa: float = 0.0, loads: list[dict] | None = None,
                  fixed_pieces: list[str] | None = None, mesh_size_mm: float = 0.0,
-                 fs_min: float = 2.0, fringe_path: str = "") -> str:
+                 fs_min: float = 2.0, fringe_path: str = "", nota: str = "") -> str:
     """FEA ESTÁTICO LINEAL BONDED de un SUB-ENSAMBLAJE (V7.4): el bastidor SOLDADO
     completo (N sólidos PEGADOS, nodos compartidos en las interfaces = sin contacto)
     bajo la carga de diseño, MULTI-MATERIAL, con σ_vm y FS reportados POR PIEZA (la
@@ -1363,6 +1363,8 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
         body["fixed_pieces"] = fixed_pieces
     if mesh_size_mm:
         body["mesh_size_mm"] = mesh_size_mm
+    if nota:
+        body["nota"] = nota
     resumen = _api("POST", "/api/fea/assembly", json=body).json()
     if fringe_path:
         gname = resumen.get("grupo", group or name)

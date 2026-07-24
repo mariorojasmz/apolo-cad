@@ -233,6 +233,34 @@ def test_api_manifest_roundtrip_group_key():
     assert clone.fea["group:Estructura"]["tipo"] == "ensamblaje_bonded"
 
 
+def test_fea_rules_render_convergencia():
+    """La memoria imprime la serie de CONVERGENCIA de malla (E3.7): runs previos +
+    vigente; con historial el cupo de piezas baja a 5 (tope de 12 filas del calc_report)."""
+    doc = Document("t")
+    a = doc.execute("create_box", {"name": "Larguero", "width": 40, "depth": 40, "height": 200})
+    vol = float(doc.scene[a].shape.volumen if hasattr(doc.scene[a].shape, 'volumen') else doc.scene[a].shape.volume)
+    api.DOC = doc
+    doc.set_fea_result("group:B", {
+        "grupo": "B", "tipo": "ensamblaje_bonded", "fs": 64.61, "estado": "ok",
+        "mesh_size_mm": 35.0, "desplazamiento_max_mm": 0.023, "pieza_critica": "Larguero",
+        "volumen_mm3": vol, "piezas_fids": [a], "detalle": "ok",
+        "calc": {"titulo": "x", "fs": 64.61},
+        "piezas": [{"pieza": f"P{i}", "sigma_vm_max_mpa": 1.0, "fs": 100.0 + i,
+                    "estado": "ok"} for i in range(8)],
+        "hipotesis": ["ensamblaje PEGADO (bonded)", "alcance: prueba acotada"],
+        "convergencia": [{"mesh_size_mm": 60.0, "n_tets": 15826, "fs": 93.52,
+                          "pieza_critica": "Pata A36", "desplazamiento_max_mm": 0.0213}]})
+    reglas = [r for r in api._fea_rules() if r["regla"].startswith("FEA bastidor")]
+    tabla = reglas[0]["tabla"]
+    # las hipótesis pasan a la regla → bloque «HIPÓTESIS Y ALCANCE» de la memoria
+    assert reglas[0]["hipotesis"] == ["ensamblaje PEGADO (bonded)", "alcance: prueba acotada"]
+    assert any("CONVERGENCIA" in f for f in tabla)
+    assert any("60 mm" in f and "93.52" in f for f in tabla)          # el run previo
+    assert any("35 mm" in f and "VIGENTE" in f for f in tabla)        # el vigente
+    assert len(tabla) <= 12                                           # cabe en la página
+    assert any("y 3 pieza(s) más" in f for f in tabla)                # cupo 5 con historial
+
+
 def test_fea_rules_group_vigencia_missing_piece():
     doc = Document("t")
     a = doc.execute("create_box", {"name": "Larguero", "width": 40, "depth": 40, "height": 200})
@@ -262,11 +290,20 @@ def test_api_e2e_column_bonded():
                                              "position": {"x": 40, "y": 0, "z": 110}})
     doc.execute("create_group", {"name": "Estructura", "members": [pata, cama, perno]})
     doc.grounds["g1"] = {"feature": pata}   # pata anclada a piso
+    # run PREVIO simulado con OTRO mesh → debe pasar al historial de CONVERGENCIA
+    doc.set_fea_result("group:Estructura", {
+        "grupo": "Estructura", "tipo": "ensamblaje_bonded", "mesh_size_mm": 99.0,
+        "n_tets": 111, "fs": 1.23, "pieza_critica": "Pata A36",
+        "desplazamiento_max_mm": 0.5, "volumen_mm3": 1.0, "piezas_fids": [pata]})
     client = _client(doc)
     r = client.post("/api/fea/assembly", json={"group": "Estructura", "carga_kg": 50,
-                                               "self_weight": True, "mesh_size_mm": 6.0})
+                                               "self_weight": True, "mesh_size_mm": 6.0,
+                                               "nota": "alcance de prueba"})
     assert r.status_code == 200, r.json()
     res = r.json()
+    # convergencia: el run previo (99 mm) queda en el historial del vigente (6 mm)
+    assert res["convergencia"][0]["mesh_size_mm"] == 99.0
+    assert any("alcance de prueba" in h for h in res["hipotesis"])
     assert res["tipo"] == "ensamblaje_bonded" and res["n_piezas"] == 2
     assert {p["feature_id"] for p in res["piezas"]} == {pata, cama}
     assert res["fs"] is not None and res["estado"] in ("ok", "aviso", "error")
