@@ -4107,3 +4107,40 @@ y la tolerancia va sobre la cota general, no sobre tramos. Global v2 79.6 → **
 78.6 → 78.8 → 79.6 → 80.4) y con la vara v2, más exigente que aquella con la que se fijó
 — cruzada con dos criterios que se autocalifican 3.75 y declaran cuatro residuales cada
 uno. Tests 1267 → 1272.
+
+## V7.6 fase C — la lámina que el cliente lleva a la obra (Fable, 2026-07-23)
+
+Cierre de «E2 fino». Un despacho de máquina entrega GA + láminas de pieza + cédula +
+lista de corte; la hoja que casi nunca acompaña al paquete —y la primera que pide el
+constructor— es la **planta de instalación y anclaje**. Ahora el juego la trae (pág 21,
+23 páginas en total).
+
+Motor PURO (`library/engineering/installation.py`): `anchor_loads` reparte la carga con
+el método ELÁSTICO de grupo — el mismo que un grupo de pernos con momento — poniendo el
+peso en el COG real en vez de dividir a partes iguales. Con más de 3 apoyos el problema
+es hiperestático y la hipótesis se DECLARA en la lámina; un apoyo con reacción negativa
+se publica como TRACCIÓN (el anclaje debe resistir arranque) en vez de recortarse a cero.
+La lámina (`drawing/installation.py`) compone la huella en planta acotada entre ejes, una
+marca y su carga por apoyo, la tabla de datos (alturas de interfaz, holguras de servicio,
+suministro) y las notas de obra.
+
+**El defecto de criterio que cazó el E2E vale la fase entera**: la primera corrida dio
+**30 «apoyos»** porque el 38 declara `ground` también sobre los 24 pernos de anclaje →
+la carga por punto salía **diluida 5×** (19.6 kg en vez de 96.3). Un plano de instalación
+con ese número lleva a un anclaje subdimensionado — el tipo de error que no se ve en una
+revisión visual porque el número «parece razonable». La tornillería queda excluida de los
+apoyos, con test de regresión. (Segundo, menor: las claves del catálogo no son homogéneas
+—`potencia_kW`— así que el suministro se lee case-insensitive; sin potencia tabulada no
+se inventa el dato.)
+
+Verificación: 6 apoyos con **39.6 · 51.6 · 63.6 · 72.3 · 84.3 · 96.3 kg**, Σ = 407.7 kg
+contra masa+carga = 407.5 ✓ (equilibrio), y **máximo = 1.42× el uniforme** — justo lo que
+un reparto a partes iguales habría escondido. E2.1 = **3.75** (residuales: sin alzado de
+instalación, cotas de huella global y no por apoyo, sin recomendación de fundación,
+holgura derivada del ancho y no de una trayectoria de desmontaje).
+
+**V7.6 CERRADO**: E2 **75.0 → 83.0 %**, global v2 78.8 → **81.2 %** (serie: 74 → 77 →
+77.6 → 78.4 → 78.6 → 78.8 → 79.6 → 80.4 → 81.2). Las tres fases se autocalificaron 3.75 y
+ninguna 4, declarando cuatro residuales cada una: la nota es deliberadamente conservadora.
+Y las tres son 100 % de CÓDIGO — el modelo 38 no se tocó en ninguna, así que el salto se
+aplica a cualquier proyecto. Tests 1272 → 1281.

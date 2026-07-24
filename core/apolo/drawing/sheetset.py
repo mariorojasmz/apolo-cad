@@ -99,6 +99,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
               piece_datum_frames: "dict[str, list[tuple[str, str, str]]] | None" = None,
               piece_pos_tols: "dict[str, dict[float, float]] | None" = None,
               piece_dim_tols: "dict[str, dict[str, tuple]] | None" = None,
+              installation: "tuple[dict, dict] | None" = None,
               hole_threads: dict[float, str] | None = None,
               thread_rows: list[dict] | None = None,
               fasteners: dict | None = None) -> list[SheetModel]:
@@ -130,7 +131,10 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     # la cédula lista TODO lo que se COMPRA (catálogo + herraje a-medida): un taller la
     # necesita en cualquier plantilla, no solo carpintería/genérico.
     want_hw = bool(hw) or bool(thread_rows)
-    n = 1 + len(rows) + 1 + (1 if want_hw else 0)
+    # V7.6 C: lámina de INSTALACIÓN si el proyecto declara apoyos anclados (sin grounds
+    # no hay plano de obra que valga — mejor ausente que inventado)
+    want_inst = bool(installation and installation[0] and installation[1])
+    n = 1 + len(rows) + 1 + (1 if want_hw else 0) + (1 if want_inst else 0)
     pages: list[SheetModel] = []
 
     def page_meta(i):
@@ -213,6 +217,14 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
                                    datum_side=pdatum,  # V7.5 E2.2: datum por cara funcional
                                    datum_frame=pframe, pos_tols=ptols,  # V7.6 A: GD&T
                                    dim_tols=pdims))  # V7.6 B: tolerancia justificada
+    # PLANTA DE INSTALACIÓN Y ANCLAJE (V7.6 C): tras las láminas de pieza, antes de las
+    # tablas — es la hoja que el cliente separa para la obra civil
+    if want_inst:
+        from .installation import installation_sheet
+        datos, anclada = installation
+        pages.append(installation_sheet(anclada, datos, project_name=project_name,
+                                        sheet=sheet, meta=page_meta(len(pages) + 1)))
+
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)
     def _dims_cell(r):
         base = f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}"

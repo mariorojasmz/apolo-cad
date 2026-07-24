@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1272 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1281 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1272 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1281 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -611,6 +611,22 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   pata `674.4 ±0.8` y larguero `101.6 ±0.3` (verificados contra la tabla ISO 2768-1 m),
   0 solapes nuevos.
 
+- **Lámina de INSTALACIÓN (V7.6 fase C, E2.1 — 2026-07-23)**: la hoja que el cliente
+  lleva a la obra civil. `library/engineering/installation.py` (PURO): `anchor_loads(
+  supports, weight_n, cog_xy)` reparte la carga por apoyo con el método ELÁSTICO de grupo
+  (`R_i = W/N + W·e_y·(y_i−y_c)/Σ(y−y_c)² + W·e_x·(x_i−x_c)/Σ(x−x_c)²`, el mismo que un
+  grupo de pernos con momento) — con N>3 el problema es hiperestático y la hipótesis se
+  DECLARA; un `R_i` negativo se publica como TRACCIÓN (el anclaje resiste arranque), jamás
+  se recorta a cero. `drawing/installation.py::installation_sheet` compone planta de la
+  huella + cotas entre ejes + marca y carga por apoyo + tabla DATOS DE INSTALACIÓN +
+  notas. `_installation_data(doc)` (api/main.py) resuelve grounds/masa/COG/alturas/
+  holguras/suministro y devuelve ({}, {}) sin grounds (sin apoyos no hay plano de obra).
+  **GOTCHA cazado en el E2E**: los grounds del 38 incluyen los 24 PERNOS de anclaje → 30
+  «apoyos» y carga por punto diluida 5× (19.6 vs 96.3 kg: la obra habría subdimensionado)
+  → la tornillería (`_is_bolt`) se excluye de los apoyos, con test. Otro: las claves del
+  catálogo no son homogéneas (`potencia_kW`) → lectura case-insensitive. Testigo 38: 6
+  apoyos 39.6–96.3 kg (Σ = 407.7 vs 407.5 de masa+carga ✓), máx = 1.42× el uniforme.
+
 ### Materiales (`library/materials.py`)
 - Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
   catálogo → heurística por nombre → default del VERTICAL: `set_vertical('carpinteria')`
@@ -1011,8 +1027,12 @@ la memoria + ISO 13920-BF en el conjunto soldado → **E2.3 = 3.75** (residuales
 láminas la ejercen —el 38 tiene 2 cadenas—, asimétricas fuera de la cota general, clase
 13920 fija, tolerancia sobre la cota general y no sobre tramos) → **global v2 ≈80.4 %:
 la meta 78-80 % queda SUPERADA por primera vez**, y con la vara v2 (más exigente que
-aquella con la que se fijó). Ambas fases 100 % de CÓDIGO: el modelo no cambió, el
-generador mejoró (escala a todos los proyectos). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
+aquella con la que se fijó). **Fase C** (testigo `2026-07-23d/`): lámina de INSTALACIÓN
+(huella acotada + carga por apoyo con COG real 39.6–96.3 kg + holguras de servicio +
+suministro) → **E2.1 = 3.75** → **global v2 ≈81.2 %**. **V7.6 CERRADO: E2 75.0 → 83.0 %**
+(las tres fases a 3.75 y ninguna a 4, declarando 4 residuales cada una → nota
+deliberadamente conservadora). Las tres son 100 % de CÓDIGO: el modelo no cambió, el
+generador mejoró (escala a todos los proyectos, no es un testigo afinado a mano). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
 anclas por 24 inserts literales = regresión de parametricidad por cosmética de BOM (la
 cédula ya los lista como COMPRA; un ancla real no es DIN 933); si el negocio lo pide →
 familia «anclajes» + patrón de componentes. Brechas vivas: E2 fino (acabados/tolerancias)
