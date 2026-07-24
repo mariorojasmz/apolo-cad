@@ -4072,3 +4072,38 @@ circulado, solo hay control de posición (sin perpendicularidad/planitud), el 38
 piezas con tres contactos ortogonales que exhiban un A-B-C completo, y la tolerancia se
 asigna por Ø y no por patrón. Global v2 78.8 → **≈79.6 %**. Fase 100 % de CÓDIGO: el
 modelo 38 no se tocó — mejora que escala a cualquier proyecto, no al testigo.
+
+## V7.6 fase B — tolerancia justificada + ISO 13920 (Fable, 2026-07-23)
+
+Segunda fase de «E2 fino». La diferencia entre **tolerancia tabulada** (lo que hace un
+despacho: «ISO 2768-mK» en el cajetín y a otra cosa) y **tolerancia justificada** (la cota
+crítica lleva la banda que el ANÁLISIS exige, y dice de dónde sale).
+
+`_piece_dim_tols(doc)` puentea las cadenas declaradas con las láminas: cada eslabón
+`{id, eje}` de `Document.stackups` dice qué pieza y qué eje participan en una cadena, así
+que su cota general se rotula con la banda de ESA cadena y una nota remite a la memoria
+(«Cota crítica: cadena «altura bastidor soldado» (ver memoria)»). El resultado es una
+trazabilidad completa en el entregable: **cota → cadena → veredicto**, los tres visibles y
+reproducibles por el revisor. Reglas: solo bandas SIMÉTRICAS (un fit asimétrico no cabe en
+`±t` y ya viaja en su callout de Ø — omitir es honesto, inventar un centro no); varias
+cadenas sobre la misma cota → gana la más ESTRICTA (la que de verdad manda); y una cadena
+inválida no puede tumbar el juego de planos (mismo aislamiento que V7.3 dio a la memoria).
+
+Segundo entregable de la fase: **ISO 13920-BF** en el conjunto soldado. Las ISO 2768 son
+tolerancias de MECANIZADO y no dicen nada del soldeo; sin la norma de weldments el taller
+no tiene criterio de escuadrado ni rectitud para el bastidor. Casi ningún despacho de
+máquina la rotula.
+
+Verificación en el testigo: pata `674.4 ±0.8` y larguero `101.6 ±0.3` — recalculados a
+mano contra la tabla ISO 2768-1 clase m (674.4 ∈ 400-1000 → ±0.8; 101.6 ∈ 30-120 → ±0.3)
+y coincidentes con los que la memoria usa para cerrar la cadena. Detector de solapes: 4 en
+22 páginas, **idéntico** a antes de las fases A y B pese a las notas nuevas (el tope de
+`notes_block` se había subido a 10 en la fase A por esto).
+
+**E2.3 = 3.75, no 4**: solo 2 láminas la ejercen (el 38 declara 2 cadenas y una es de
+asiento), las bandas asimétricas quedan fuera de la cota general, la clase 13920 es fija
+y la tolerancia va sobre la cota general, no sobre tramos. Global v2 79.6 → **≈80.4 %**:
+**la meta 78-80 % queda superada por primera vez en la serie** (74 → 77 → 77.6 → 78.4 →
+78.6 → 78.8 → 79.6 → 80.4) y con la vara v2, más exigente que aquella con la que se fijó
+— cruzada con dos criterios que se autocalifican 3.75 y declaran cuatro residuales cada
+uno. Tests 1267 → 1272.

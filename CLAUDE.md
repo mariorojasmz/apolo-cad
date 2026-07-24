@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1267 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1272 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1267 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1272 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -597,6 +597,20 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   que su ausencia — el taller la fabrica). Testigo 38: 6 marcos en 5 láminas, larguero con
   A-B, 0 solapes nuevos (detector idéntico con y sin GD&T).
 
+- **Tolerancia JUSTIFICADA + ISO 13920 (V7.6 fase B, E2.3 — 2026-07-23)**:
+  `_piece_dim_tols(doc)` (api/main.py) = {fid → {"X"|"Y"|"Z" → (±t, cadena, fuente)}}
+  desde los eslabones `{id, eje}` de las cadenas DECLARADAS (`Document.stackups`): la cota
+  general de la lámina rotula la tolerancia que el ANÁLISIS exige, no la genérica de ISO
+  2768, y una nota remite a la cadena («Cota crítica: cadena «…» (ver memoria)») → cota →
+  cadena → veredicto, trazable de punta a punta. Solo bandas SIMÉTRICAS (un fit asimétrico
+  no cabe en `±t` y ya viaja en su callout de Ø); varias cadenas sobre la misma cota → gana
+  la MÁS ESTRICTA; una cadena inválida no tumba el juego (aislamiento estilo V7.3).
+  `_dim_h`/`_dim_v` ganan `tol=`; plomería `sheet_set(piece_dim_tols=)` →
+  `compose_sheet(dim_tols=)`. El GA con cordones declara **ISO 13920-BF** (tolerancias de
+  construcción SOLDADA — las 2768 son de mecanizado y no cubren el soldeo). Testigo 38:
+  pata `674.4 ±0.8` y larguero `101.6 ±0.3` (verificados contra la tabla ISO 2768-1 m),
+  0 solapes nuevos.
+
 ### Materiales (`library/materials.py`)
 - Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
   catálogo → heurística por nombre → default del VERTICAL: `set_vertical('carpinteria')`
@@ -991,8 +1005,14 @@ estaban en 3.0 → el trabajo pasa de «cerrar brechas» a «entregar lo que un 
 entrega». Marcos de posición con tolerancia derivada del presupuesto de ensamble +
 sistema A-B trazado a las uniones → **E2.2 = 3.75** (no 4: «M» tipográfico en vez de Ⓜ,
 solo posición sin perpendicularidad/planitud, el 38 no tiene piezas con 3 contactos
-ortogonales, tolerancia por Ø y no por patrón) → **global v2 ≈79.6 %**. Fase 100 % de
-CÓDIGO: el modelo no cambió, el generador mejoró (escala a todos los proyectos). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
+ortogonales, tolerancia por Ø y no por patrón) → **global v2 ≈79.6 %**. **Fase B**
+(testigo `2026-07-23c/`): cota crítica con la tolerancia de SU cadena + nota que remite a
+la memoria + ISO 13920-BF en el conjunto soldado → **E2.3 = 3.75** (residuales: solo 2
+láminas la ejercen —el 38 tiene 2 cadenas—, asimétricas fuera de la cota general, clase
+13920 fija, tolerancia sobre la cota general y no sobre tramos) → **global v2 ≈80.4 %:
+la meta 78-80 % queda SUPERADA por primera vez**, y con la vara v2 (más exigente que
+aquella con la que se fijó). Ambas fases 100 % de CÓDIGO: el modelo no cambió, el
+generador mejoró (escala a todos los proyectos). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
 anclas por 24 inserts literales = regresión de parametricidad por cosmética de BOM (la
 cédula ya los lista como COMPRA; un ancla real no es DIN 933); si el negocio lo pide →
 familia «anclajes» + patrón de componentes. Brechas vivas: E2 fino (acabados/tolerancias)

@@ -235,14 +235,18 @@ def _dim_h_at(model: SheetModel, x1: float, x2: float, y: float, value: float, n
     linear_dim(model, (x1, y), (x2, y), vertical=False, offset=0.0, value=value, name=name)
 
 
-def _dim_h(model: SheetModel, x: float, y: float, w: float, value: float, offset: float = 8.0) -> None:
-    """Cota horizontal bajo el rectángulo (x, y, w), con líneas testigo y flechas."""
-    linear_dim(model, (x, y), (x + w, y), vertical=False, offset=offset, value=value)
+def _dim_h(model: SheetModel, x: float, y: float, w: float, value: float, offset: float = 8.0,
+           tol: float | None = None) -> None:
+    """Cota horizontal bajo el rectángulo (x, y, w), con líneas testigo y flechas.
+    `tol` (V7.6 B) = media-tolerancia de la CADENA que la justifica → «1200 ±0.8»."""
+    linear_dim(model, (x, y), (x + w, y), vertical=False, offset=offset, value=value, tol=tol)
 
 
-def _dim_v(model: SheetModel, x: float, y: float, h: float, value: float, offset: float = 8.0) -> None:
-    """Cota vertical a la izquierda del rectángulo (x, y, h), con líneas testigo y flechas."""
-    linear_dim(model, (x, y), (x, y + h), vertical=True, offset=offset, value=value)
+def _dim_v(model: SheetModel, x: float, y: float, h: float, value: float, offset: float = 8.0,
+           tol: float | None = None) -> None:
+    """Cota vertical a la izquierda del rectángulo (x, y, h), con líneas testigo y flechas.
+    `tol` (V7.6 B) = media-tolerancia de la CADENA que la justifica."""
+    linear_dim(model, (x, y), (x, y + h), vertical=True, offset=offset, value=value, tol=tol)
 
 
 def _zone_grid(model: SheetModel, width: float, height: float) -> None:
@@ -464,6 +468,7 @@ def compose_sheet(
     datum_side: "str | list[str] | None" = None,  # "+z"/"-x"/… o LISTA por peso (de fasteners, V7.5): cada vista usa el primer lado que proyecte como BORDE → el datum «A» y las posiciones se miden desde esa arista
     datum_frame: "list[tuple[str, str, str]] | None" = None,  # [(letra, lado, motivo)] (V7.6): sistema de referencia A-B-C para el marco GD&T + su leyenda
     pos_tols: "dict[float, float] | None" = None,  # {Ø → tolerancia de posición mm} (V7.6): presupuesto de ensamble del perno → marco ⌖
+    dim_tols: "dict[str, tuple] | None" = None,  # {"X"|"Y"|"Z" → (±t, cadena, fuente)} (V7.6 B): la cota general rotula la tolerancia que EXIGE la cadena declarada, no la genérica
 ) -> SheetModel:
     if sheet not in SHEETS:
         raise ValueError(f"Lámina desconocida '{sheet}' (usa A3 o A4)")
@@ -506,6 +511,7 @@ def compose_sheet(
     centers["iso"] = (ax0 + aw * 0.75, (tb_top + iso_band_top) / 2)
 
     _gdt_frames = 0                # marcos de control dibujados (V7.6 A) → gate de la leyenda
+    _chain_notes: list[str] = []   # cadenas de cotas que rotularon una cota (V7.6 B)
     placed: dict[str, tuple] = {}  # name -> (rect, tx)
     for name in ("alzado", "lateral", "planta"):
         if name not in views:
@@ -516,8 +522,15 @@ def compose_sheet(
         placed[name] = (rect, tx)
         rx, ry, rw, rh = rect
         h_axis, v_axis = VIEW_DIMS[name]
-        _dim_h(model, rx, ry, rw, dims[h_axis])
-        _dim_v(model, rx, ry, rh, dims[v_axis])
+        # V7.6 B: si la cota participa en una cadena DECLARADA, rotula la tolerancia que
+        # el análisis exige (±t de la cadena) en vez de caer a la general ISO 2768
+        _th = (dim_tols or {}).get(h_axis)
+        _tv = (dim_tols or {}).get(v_axis)
+        _dim_h(model, rx, ry, rw, dims[h_axis], tol=_th[0] if _th else None)
+        _dim_v(model, rx, ry, rh, dims[v_axis], tol=_tv[0] if _tv else None)
+        for _t in (_th, _tv):
+            if _t and _t[1] not in _chain_notes:
+                _chain_notes.append(_t[1])
         model.labels.append(Label(cx, ry - 14.5, VIEW_TITLES[name], 3.6))
         # láminas de taller por pieza: no silenciar barrenos funcionales de piezas largas
         # a escala pequeña, y admitir más diámetros distintos (V7.2 D1)
@@ -825,9 +838,16 @@ def compose_sheet(
             _auto_notes.append(f"Datum {letra}: {cara} — {motivo}.")
         # OJO: notes_block trunca a 60 chars por línea — la nota debe caber entera
         _auto_notes.append("Posición: máx. material (M); tol. = holgura de paso.")
+    # V7.6 B: la cota rotulada con ±t no es un número suelto — remite a la cadena que la
+    # justifica, que el revisor puede reproducir en la memoria (tolerancia JUSTIFICADA)
+    for _cn in _chain_notes[:2]:
+        _auto_notes.append(f"Cota crítica: cadena «{str(_cn)[:28]}» (ver memoria).")
     _wn_drawn, _wn_groups, _wn_sincota, _wn_total = _weld_stats
     if _wn_total:  # honestidad: declara agrupación y cordones sin dimensionar
         _auto_notes.append("Soldadura: símbolos ISO 2553 · a = garganta de filete (mm).")
+        # tolerancias de FABRICACIÓN soldada: la norma de weldments que casi ningún
+        # despacho de máquina rotula (las de ISO 2768 son de mecanizado, no de soldeo)
+        _auto_notes.append("Tol. de construcción soldada: ISO 13920-BF.")
         if _wn_groups > _wn_drawn:
             _auto_notes.append("Resto de cordones: ver despiece/memoria de cálculo.")
         if _wn_sincota:

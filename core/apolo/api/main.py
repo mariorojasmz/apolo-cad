@@ -3589,6 +3589,7 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
                               piece_datums=_piece_datum_sides(DOC) or None,  # V7.5: datum funcional
                               piece_datum_frames=_piece_datum_frame(DOC) or None,  # V7.6: A-B-C
                               piece_pos_tols=_piece_pos_tols(DOC) or None,  # V7.6: tol. de posición
+                              piece_dim_tols=_piece_dim_tols(DOC) or None,  # V7.6b: tol. justificada
                               hole_threads=_hole_thread_map(DOC) or None,
                               thread_rows=_thread_schedule(DOC) or None,
                               fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
@@ -3618,6 +3619,7 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
                               piece_datums=_piece_datum_sides(DOC) or None,  # V7.5: datum funcional
                               piece_datum_frames=_piece_datum_frame(DOC) or None,  # V7.6: A-B-C
                               piece_pos_tols=_piece_pos_tols(DOC) or None,  # V7.6: tol. de posición
+                              piece_dim_tols=_piece_dim_tols(DOC) or None,  # V7.6b: tol. justificada
                               hole_threads=_hole_thread_map(DOC) or None,
                               thread_rows=_thread_schedule(DOC) or None,
                               fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
@@ -3874,6 +3876,43 @@ def _piece_datum_frame(doc) -> dict[str, list[tuple[str, str, str]]]:
                 break
         if chosen:
             out[fid] = chosen
+    return out
+
+
+def _piece_dim_tols(doc) -> dict[str, dict[str, tuple[float, str, str]]]:
+    """Tolerancia de la COTA GENERAL por pieza y eje (V7.6 B): {feature_id → {"X"|"Y"|"Z"
+    → (media_tol_mm, nombre_de_cadena, fuente)}}. Sale de los eslabones `{id, eje}` de las
+    cadenas DECLARADAS (`Document.stackups`): si una cota participa en una cadena, la
+    lámina rotula la tolerancia que el ANÁLISIS exige — no la genérica de ISO 2768 — y la
+    nota remite a la memoria. Es la diferencia entre «tolerancia tabulada» y «tolerancia
+    justificada».
+
+    Solo se rotulan bandas SIMÉTRICAS (±t): una banda asimétrica (fit ISO 286) no cabe en
+    el formato de cota general y ya viaja en su propio callout de Ø. Varias cadenas sobre
+    la misma cota → gana la MÁS ESTRICTA (la que de verdad manda). Bajo STATE_LOCK."""
+    from apolo.library.engineering.stackup import stack_up
+
+    out: dict[str, dict[str, tuple[float, str, str]]] = {}
+    for name, spec in sorted(getattr(doc, "stackups", {}).items()):
+        for e in (spec.get("eslabones") or []):
+            fid = e.get("id")
+            if not fid or fid not in doc.scene:
+                continue
+            eje = str(e.get("eje", "x")).upper()
+            try:
+                link = _stackup_link_from_feature(fid, e.get("eje", "x"), e.get("tol"))
+                if link is None:
+                    continue
+                det = stack_up([link])["eslabones"][0]
+                lo, hi = float(det["dev_lo_mm"]), float(det["dev_hi_mm"])
+                if abs(lo + hi) > 1e-9 or hi <= 0:
+                    continue           # asimétrica (fit) o sin banda → va en su callout
+                half = float(det["half_tol_mm"])
+            except Exception:  # noqa: BLE001 — una cadena mala no tumba el juego de planos
+                continue
+            prev = out.setdefault(fid, {}).get(eje)
+            if prev is None or half < prev[0]:
+                out[fid][eje] = (half, str(name), str(det.get("fuente", "")))
     return out
 
 

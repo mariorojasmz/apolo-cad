@@ -98,6 +98,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
               piece_datums: "dict[str, list[str]] | None" = None,
               piece_datum_frames: "dict[str, list[tuple[str, str, str]]] | None" = None,
               piece_pos_tols: "dict[str, dict[float, float]] | None" = None,
+              piece_dim_tols: "dict[str, dict[str, tuple]] | None" = None,
               hole_threads: dict[float, str] | None = None,
               thread_rows: list[dict] | None = None,
               fasteners: dict | None = None) -> list[SheetModel]:
@@ -203,13 +204,15 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
         # sistema A-B-C + tolerancia de posición de ESTA pieza (V7.6 A)
         pframe = piece_datum_frames.get(r["_rep"]) if piece_datum_frames else None
         ptols = piece_pos_tols.get(r["_rep"]) if piece_pos_tols else None
+        pdims = piece_dim_tols.get(r["_rep"]) if piece_dim_tols else None
         pages.append(compose_sheet({"P": feat}, auto_dims=True, show_iso=shaded, shaded=shaded,
                                    colors=pc, sheet=sheet, project_name=title, meta=pm,
                                    hole_fits=pfits or None, hole_threads=hole_threads,
                                    interface_dims=True,  # V7.2 D3: pitch del patrón de montaje en cada pieza
                                    shop_notes=True,  # V7.2 B/C: tolerancia ISO 2768 + proceso/acabado
                                    datum_side=pdatum,  # V7.5 E2.2: datum por cara funcional
-                                   datum_frame=pframe, pos_tols=ptols))  # V7.6 A: GD&T
+                                   datum_frame=pframe, pos_tols=ptols,  # V7.6 A: GD&T
+                                   dim_tols=pdims))  # V7.6 B: tolerancia justificada
     # LISTA DE CORTE (solo lo cortable, L×An×Esp en orden de carpintería)
     def _dims_cell(r):
         base = f"{r['largo_mm']:g}×{r['ancho_mm']:g}×{r['espesor_mm']:g}"
