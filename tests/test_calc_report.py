@@ -90,11 +90,15 @@ def test_endpoint_uses_saved_requirements():
 
 
 def test_endpoint_400_without_data():
+    """Documento VACÍO → 400 (no hay nada que documentar). El mensaje ya NO habla de
+    `set_requirements`: desde el segundo testigo (2026-07-24) la falta de requisitos del
+    vertical NO bloquea la memoria (se emiten las verificaciones universales declarando
+    lo omitido), así que el único 400 que queda es el del modelo sin piezas ni reglas."""
     api.DOC = Document("memoria-vacia")
     client = TestClient(api.app)
     r = client.get("/api/calc-report.pdf")
     assert r.status_code == 400
-    assert "set_requirements" in r.json()["detail"]
+    assert "nada que documentar" in r.json()["detail"]
 
 
 # ------------------------------------------------- V5.10: memoria NORMATIVA

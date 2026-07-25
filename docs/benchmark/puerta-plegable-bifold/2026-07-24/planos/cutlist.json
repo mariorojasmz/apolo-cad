@@ -1,0 +1,226 @@
+{
+  "lista_de_corte": [
+    {
+      "material": "acero",
+      "espesor_mm": 4.1,
+      "ancho_mm": 4.1,
+      "largo_mm": 85.5,
+      "cantidad": 6,
+      "nombre": "torn_par1_din clavija 1",
+      "_rep": "c330_pin1",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.0004,
+      "area_m2_total": 0.0024,
+      "largo_total_mm": 513.0
+    },
+    {
+      "material": "acero",
+      "espesor_mm": 5.6,
+      "ancho_mm": 5.6,
+      "largo_mm": 95.0,
+      "cantidad": 8,
+      "nombre": "torn_din_ji clavija 1",
+      "_rep": "c326_pin1",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.0005,
+      "area_m2_total": 0.004,
+      "largo_total_mm": 760.0
+    },
+    {
+      "material": "acero",
+      "espesor_mm": 24.0,
+      "ancho_mm": 24.0,
+      "largo_mm": 320.0,
+      "cantidad": 2,
+      "nombre": "Tirador H2",
+      "_rep": "c83",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.0077,
+      "area_m2_total": 0.0154,
+      "largo_total_mm": 640.0
+    },
+    {
+      "material": "acero zincado",
+      "espesor_mm": 35.0,
+      "ancho_mm": 35.0,
+      "largo_mm": 2010.0,
+      "cantidad": 1,
+      "nombre": "Riel U-100",
+      "_rep": "c283",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.0703,
+      "area_m2_total": 0.0703,
+      "largo_total_mm": 2010.0
+    },
+    {
+      "material": "madera",
+      "espesor_mm": 18.0,
+      "ancho_mm": 100.0,
+      "largo_mm": 2008.0,
+      "cantidad": 8,
+      "nombre": "Hoja 1",
+      "_rep": "c85",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.2008,
+      "area_m2_total": 1.6064,
+      "largo_total_mm": 16064.0
+    },
+    {
+      "material": "madera",
+      "espesor_mm": 18.0,
+      "ancho_mm": 100.0,
+      "largo_mm": 498.5,
+      "cantidad": 12,
+      "nombre": "H1 travesano medio",
+      "_rep": "c40",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.0498,
+      "area_m2_total": 0.5976,
+      "largo_total_mm": 5982.0
+    },
+    {
+      "material": "madera",
+      "espesor_mm": 42.0,
+      "ancho_mm": 50.0,
+      "largo_mm": 309.0,
+      "cantidad": 3,
+      "nombre": "Parteluz 1",
+      "_rep": "c80",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.0155,
+      "area_m2_total": 0.0465,
+      "largo_total_mm": 927.0
+    },
+    {
+      "material": "madera",
+      "espesor_mm": 70.0,
+      "ancho_mm": 70.0,
+      "largo_mm": 2500.0,
+      "cantidad": 2,
+      "nombre": "Marco jamba izq",
+      "_rep": "c33",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.175,
+      "area_m2_total": 0.35,
+      "largo_total_mm": 5000.0
+    },
+    {
+      "material": "madera",
+      "espesor_mm": 70.0,
+      "ancho_mm": 70.0,
+      "largo_mm": 2010.0,
+      "cantidad": 2,
+      "nombre": "Marco dintel",
+      "_rep": "c35",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.1407,
+      "area_m2_total": 0.2814,
+      "largo_total_mm": 4020.0
+    },
+    {
+      "material": "vidrio",
+      "espesor_mm": 8.0,
+      "ancho_mm": 304.5,
+      "largo_mm": 1814.0,
+      "cantidad": 4,
+      "nombre": "Vidrio H1",
+      "_rep": "c42",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.5524,
+      "area_m2_total": 2.2096,
+      "largo_total_mm": 7256.0
+    },
+    {
+      "material": "vidrio",
+      "espesor_mm": 8.0,
+      "ancho_mm": 309.0,
+      "largo_mm": 452.5,
+      "cantidad": 4,
+      "nombre": "Vidrio 1",
+      "_rep": "c76",
+      "corte": "recto",
+      "angulo_1": null,
+      "angulo_2": null,
+      "area_m2_ud": 0.1398,
+      "area_m2_total": 0.5592,
+      "largo_total_mm": 1810.0
+    }
+  ],
+  "totales": {
+    "acero": {
+      "piezas": 16,
+      "area_m2": 0.022,
+      "largo_m": 1.91
+    },
+    "acero zincado": {
+      "piezas": 1,
+      "area_m2": 0.07,
+      "largo_m": 2.01
+    },
+    "madera": {
+      "piezas": 27,
+      "area_m2": 2.882,
+      "largo_m": 31.99
+    },
+    "vidrio": {
+      "piezas": 8,
+      "area_m2": 2.769,
+      "largo_m": 9.07
+    }
+  },
+  "herraje": [
+    {
+      "ref": "BIS-H-75-A",
+      "nombre": "Media bisagra 75 (A)",
+      "categoria": "bisagras",
+      "material": "acero zincado",
+      "norma": "EN 1935",
+      "cantidad": 12,
+      "peso_ud_kg": 0.06,
+      "_rep": "c238",
+      "peso_total_kg": 0.72
+    },
+    {
+      "ref": "BIS-H-75-B",
+      "nombre": "Media bisagra 75 (B)",
+      "categoria": "bisagras",
+      "material": "acero zincado",
+      "norma": "EN 1935",
+      "cantidad": 12,
+      "peso_ud_kg": 0.06,
+      "_rep": "c237",
+      "peso_total_kg": 0.72
+    },
+    {
+      "ref": "CORR-D100",
+      "nombre": "Corredera colgante D-100",
+      "categoria": "correderas_colgantes",
+      "material": "acero zincado",
+      "norma": "",
+      "cantidad": 2,
+      "peso_ud_kg": 0.35,
+      "_rep": "c284",
+      "peso_total_kg": 0.7
+    }
+  ]
+}

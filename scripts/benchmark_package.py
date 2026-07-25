@@ -31,6 +31,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import re
 import subprocess
@@ -40,6 +41,14 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
+
+# la consola de Windows es cp1252: un solo carácter fuera de esa página (≠, ·, ✓…) en
+# CUALQUIER línea de progreso mata el script a mitad del paquete. Se descubrió al correr
+# el SEGUNDO testigo (el aviso «proyecto ≠ 38» solo aparece fuera del 38, así que diez
+# benchmarks no lo tocaron). `errors="replace"` degrada el glifo, jamás aborta la corrida.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def _slug(name: str) -> str:

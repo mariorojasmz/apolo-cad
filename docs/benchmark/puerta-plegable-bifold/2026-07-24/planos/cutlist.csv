@@ -1,0 +1,18 @@
+Material;Espesor(mm);Ancho(mm);Largo(mm);Cant;Área ud(m²);Área total(m²);Pieza;Corte;Ángulos
+acero;4.1;4.1;85.5;6;0.0004;0.0024;torn_par1_din clavija 1;recto;
+acero;5.6;5.6;95.0;8;0.0005;0.004;torn_din_ji clavija 1;recto;
+acero;24.0;24.0;320.0;2;0.0077;0.0154;Tirador H2;recto;
+acero zincado;35.0;35.0;2010.0;1;0.0703;0.0703;Riel U-100;recto;
+madera;18.0;100.0;2008.0;8;0.2008;1.6064;Hoja 1;recto;
+madera;18.0;100.0;498.5;12;0.0498;0.5976;H1 travesano medio;recto;
+madera;42.0;50.0;309.0;3;0.0155;0.0465;Parteluz 1;recto;
+madera;70.0;70.0;2500.0;2;0.175;0.35;Marco jamba izq;recto;
+madera;70.0;70.0;2010.0;2;0.1407;0.2814;Marco dintel;recto;
+vidrio;8.0;304.5;1814.0;4;0.5524;2.2096;Vidrio H1;recto;
+vidrio;8.0;309.0;452.5;4;0.1398;0.5592;Vidrio 1;recto;
+
+TOTALES por material;;;;piezas;;área m²;largo m
+acero;;;;16;;0.022;1.91
+acero zincado;;;;1;;0.07;2.01
+madera;;;;27;;2.882;31.99
+vidrio;;;;8;;2.769;9.07

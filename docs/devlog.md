@@ -4179,3 +4179,47 @@ Tests 1281 → 1291.
 testigo. Que las mejoras de código generalicen se presume, no se ha verificado — el
 siguiente paso acordado con el usuario es correr el paquete completo sobre un proyecto
 distinto (segundo testigo).
+
+## SEGUNDO TESTIGO — ¿el 82.8 % es del sistema o del testigo? (Fable, 2026-07-24)
+
+Diez iteraciones sobre la faja 38 habían dejado una afirmación cómoda sin verificar: «las
+mejoras son 100 % de código, así que escalan». Se corrió el paquete completo sobre el
+proyecto más LEJANO del catálogo — `puerta-plegable-bifold` (id 28): carpintería, madera,
+86 sólidos, sin soldadura, sin anclaje a piso, sin requisitos de transportador. Cuatro
+hallazgos, tres arreglados.
+
+**1. El script de benchmark crasheaba con cualquier proyecto ≠ 38.** `UnicodeEncodeError`
+al imprimir «≠» en la consola cp1252, en una línea que SOLO se ejecuta fuera del 38. La
+herramienta de medición impedía la medición que la habría descubierto. Fix:
+`reconfigure(encoding="utf-8", errors="replace")`.
+
+**2. La memoria de cálculo estaba PRESA del vertical transportadores.** 400 si faltaban
+`carga_kg`/`largo_paquete_mm` → ningún proyecto que no fuera una faja obtenía memoria (el
+entregable de peso 20), pese a que estructura, uniones, vuelco, FEA y cadenas de cotas son
+UNIVERSALES y ya se calculaban en `/api/checks`. Ahora se omiten las reglas de conveyor y
+la memoria se emite con lo universal **declarando lo no verificado** («alcance de la
+memoria»). El 28 pasó de 400 a memoria; el 38 conserva 23 págs · 89 OK · APROBADO.
+
+**3. «APROBADO CON AVISOS» con CERO verificaciones OK.** La primera memoria del 28
+aprobaba el vacío — el falso positivo exacto que la doctrina prohíbe, y aplicable al 38 en
+casos límite. `_verdict` ahora exige al menos un `ok`; sin ninguno, **NO CONCLUYENTE**.
+
+**4. ESTRUCTURAL — el 82.8 % es del sistema SOBRE UN MODELO BIEN DECLARADO.** En el 28 no
+se activaron GD&T, tolerancias de cadena, lámina de instalación, ISO 13920 ni par de
+apriete. Ninguna ausencia es un bug: es cada regla de honestidad haciendo su trabajo
+(sin fasteners no hay cara funcional ni perno en el eje; sin cordones no hay 13920; sin
+grounds no hay plano de obra; el herraje de carpintería no lleva métrica). Pero la
+conclusión es ineludible: **los entregables de alta nota se alimentan de lo que el modelo
+DECLARA**, y el 38 lo declara tras diez iteraciones de trabajo. En un proyecto sin
+declarar, el mismo código produce un paquete honesto pero mucho más pobre.
+
+**Lo que sí generalizó sin tocar nada**: 25/26 artefactos en 63 s sobre otro vertical —
+juego de planos (14 págs, ISO 2768, despiece), GA, lista de corte, nesting, BOM por grupo,
+costeo, cotización, manual de 14 págs, STEP, renders y validación. El motor de planos,
+BOM, manual e interop es genuinamente genérico. Los lints cazaron las 24 piezas sin unión
+del 28 — el dato que explica el hallazgo 4.
+
+**Implicación de producto anotada**: hoy la degradación es SILENCIOSA (quien no declara
+obtiene menos sin saber por qué). El siguiente paso natural es un «informe de completitud
+de declaración» al generar el paquete, que convierta esa degradación en guía accionable.
+Tests 1291 → 1297.

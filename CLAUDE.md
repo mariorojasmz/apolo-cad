@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1291 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1297 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1291 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1297 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -1049,7 +1049,19 @@ abajo→arriba → E5 3.00 → **3.625 (90.6 %)**, **global v2 ≈82.8 %** (seri
 81.2 → 82.8). Los ejes que quedan en 3.00 son **E4 (BOM/cotización, peso 15 — el
 menos trabajado del proyecto)** y **E6 (paquete/interop)**. RESERVA declarada: son
 diez iteraciones sobre el MISMO testigo; que las mejoras de código generalicen NO
-está verificado — toca correr el paquete sobre un segundo proyecto. **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
+está verificado — toca correr el paquete sobre un segundo proyecto.
+**SEGUNDO TESTIGO (2026-07-24, `docs/benchmark/puerta-plegable-bifold/2026-07-24/
+informe-generalizacion.md`)**: corrido el paquete sobre el proyecto más LEJANO
+(puerta de carpintería, id 28) — 25/26 artefactos en 63 s. 4 hallazgos: (1) el
+script de benchmark CRASHEABA con cualquier proyecto ≠38 (UnicodeEncodeError en
+cp1252 — la herramienta de medición impedía medir) · (2) la memoria estaba PRESA
+del vertical (400 sin carga_kg/largo_paquete: ningún proyecto no-faja tenía
+memoria) → ahora emite lo UNIVERSAL declarando lo omitido · (3) «APROBADO CON
+AVISOS» con 0 OK = aprobar el vacío → veredicto **NO CONCLUYENTE** · (4)
+ESTRUCTURAL: **el 82.8 % es del sistema SOBRE UN MODELO BIEN DECLARADO** — sin
+fasteners/cadenas/grounds declarados, GD&T, tolerancia justificada, instalación y
+par no se activan (correctamente: cada regla de honestidad funciona). 1-3
+arreglados con tests; cero regresión en el 38 (23 págs · 89 OK · APROBADO). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
 anclas por 24 inserts literales = regresión de parametricidad por cosmética de BOM (la
 cédula ya los lista como COMPRA; un ancla real no es DIN 933); si el negocio lo pide →
 familia «anclajes» + patrón de componentes. Brechas vivas: E2 fino (acabados/tolerancias)

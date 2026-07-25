@@ -1,0 +1,3247 @@
+{
+  "generado": "2026-07-24T20:33:10",
+  "proyecto_id": 28,
+  "interferencias": {
+    "solidos": 74,
+    "parejas_analizadas": 77,
+    "truncado": false,
+    "interferencias": [
+      {
+        "a": "c284",
+        "nombre_a": "Corredera D-100 izq",
+        "b": "c341",
+        "nombre_b": "H2 travesano sup",
+        "volumen_mm3": 14962.1
+      },
+      {
+        "a": "c285",
+        "nombre_a": "Corredera D-100 der",
+        "b": "c345",
+        "nombre_b": "H3 travesano sup",
+        "volumen_mm3": 14962.1
+      },
+      {
+        "a": "c237",
+        "nombre_a": "BISH k1 B 0",
+        "b": "c238",
+        "nombre_b": "BISH k1 A 0",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c239",
+        "nombre_a": "BISH k3 A 0",
+        "b": "c240",
+        "nombre_b": "BISH k3 B 0",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c241",
+        "nombre_a": "BISH k1 B 1",
+        "b": "c242",
+        "nombre_b": "BISH k1 A 1",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c243",
+        "nombre_a": "BISH k3 A 1",
+        "b": "c244",
+        "nombre_b": "BISH k3 B 1",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c245",
+        "nombre_a": "BISH k1 B 2",
+        "b": "c246",
+        "nombre_b": "BISH k1 A 2",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c247",
+        "nombre_a": "BISH k3 A 2",
+        "b": "c248",
+        "nombre_b": "BISH k3 B 2",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c249",
+        "nombre_a": "BISH k0 B 0",
+        "b": "c250",
+        "nombre_b": "BISH k0 A 0",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c251",
+        "nombre_a": "BISH k4 A 0",
+        "b": "c252",
+        "nombre_b": "BISH k4 B 0",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c253",
+        "nombre_a": "BISH k0 B 1",
+        "b": "c254",
+        "nombre_b": "BISH k0 A 1",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c255",
+        "nombre_a": "BISH k4 A 1",
+        "b": "c256",
+        "nombre_b": "BISH k4 B 1",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c373",
+        "nombre_a": "BISH k0 A 1med",
+        "b": "c374",
+        "nombre_b": "BISH k0 B 1med",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c375",
+        "nombre_a": "BISH k4 A 1med",
+        "b": "c376",
+        "nombre_b": "BISH k4 B 1med",
+        "volumen_mm3": 530.1
+      },
+      {
+        "a": "c33",
+        "nombre_a": "Marco jamba izq",
+        "b": "c250",
+        "nombre_b": "BISH k0 A 0",
+        "volumen_mm3": 265.1
+      },
+      {
+        "a": "c33",
+        "nombre_a": "Marco jamba izq",
+        "b": "c254",
+        "nombre_b": "BISH k0 A 1",
+        "volumen_mm3": 265.1
+      },
+      {
+        "a": "c33",
+        "nombre_a": "Marco jamba izq",
+        "b": "c373",
+        "nombre_b": "BISH k0 A 1med",
+        "volumen_mm3": 265.1
+      },
+      {
+        "a": "c34",
+        "nombre_a": "Marco jamba der",
+        "b": "c252",
+        "nombre_b": "BISH k4 B 0",
+        "volumen_mm3": 265.1
+      },
+      {
+        "a": "c34",
+        "nombre_a": "Marco jamba der",
+        "b": "c256",
+        "nombre_b": "BISH k4 B 1",
+        "volumen_mm3": 265.1
+      },
+      {
+        "a": "c34",
+        "nombre_a": "Marco jamba der",
+        "b": "c376",
+        "nombre_b": "BISH k4 B 1med",
+        "volumen_mm3": 265.1
+      }
+    ],
+    "avisos_pose": []
+  },
+  "conectividad": {
+    "fasteners": [],
+    "grounds": []
+  },
+  "soundness_declarada": {
+    "has_ground": false,
+    "n_total": 86,
+    "n_grounded": 0,
+    "n_floating": 86,
+    "grounded": [],
+    "floating": [
+      "c237",
+      "c238",
+      "c239",
+      "c240",
+      "c241",
+      "c242",
+      "c243",
+      "c244",
+      "c245",
+      "c246",
+      "c247",
+      "c248",
+      "c249",
+      "c250",
+      "c251",
+      "c252",
+      "c253",
+      "c254",
+      "c255",
+      "c256",
+      "c283",
+      "c284",
+      "c285",
+      "c326_pin1",
+      "c326_pin2",
+      "c327_pin1",
+      "c327_pin2",
+      "c328_pin1",
+      "c328_pin2",
+      "c329_pin1",
+      "c329_pin2",
+      "c33",
+      "c330_pin1",
+      "c331_pin1",
+      "c332_pin1",
+      "c333_pin1",
+      "c334_pin1",
+      "c335_pin1",
+      "c337",
+      "c338",
+      "c34",
+      "c341",
+      "c342",
+      "c345",
+      "c346",
+      "c349",
+      "c35",
+      "c350",
+      "c353",
+      "c354",
+      "c355",
+      "c356",
+      "c357",
+      "c358",
+      "c359",
+      "c36",
+      "c360",
+      "c373",
+      "c374",
+      "c375",
+      "c376",
+      "c40",
+      "c41",
+      "c42",
+      "c47",
+      "c48",
+      "c49",
+      "c54",
+      "c55",
+      "c56",
+      "c61",
+      "c62",
+      "c63",
+      "c76",
+      "c77",
+      "c78",
+      "c79",
+      "c80",
+      "c81",
+      "c82",
+      "c83",
+      "c84",
+      "c85",
+      "c87",
+      "c89",
+      "c91"
+    ],
+    "isolated": [
+      "c283",
+      "c326_pin1",
+      "c326_pin2",
+      "c327_pin1",
+      "c327_pin2",
+      "c328_pin1",
+      "c328_pin2",
+      "c329_pin1",
+      "c329_pin2",
+      "c330_pin1",
+      "c331_pin1",
+      "c332_pin1",
+      "c333_pin1",
+      "c334_pin1",
+      "c335_pin1",
+      "c35",
+      "c36",
+      "c41",
+      "c48",
+      "c55",
+      "c62",
+      "c76",
+      "c77",
+      "c78",
+      "c79",
+      "c80",
+      "c81",
+      "c82"
+    ],
+    "components": [
+      [
+        "c237",
+        "c238",
+        "c241",
+        "c242",
+        "c245",
+        "c246",
+        "c249",
+        "c250",
+        "c253",
+        "c254",
+        "c284",
+        "c33",
+        "c337",
+        "c338",
+        "c341",
+        "c342",
+        "c353",
+        "c354",
+        "c355",
+        "c356",
+        "c373",
+        "c374",
+        "c40",
+        "c42",
+        "c47",
+        "c49",
+        "c83",
+        "c85",
+        "c87"
+      ],
+      [
+        "c326_pin1"
+      ],
+      [
+        "c239",
+        "c240",
+        "c243",
+        "c244",
+        "c247",
+        "c248",
+        "c251",
+        "c252",
+        "c255",
+        "c256",
+        "c285",
+        "c34",
+        "c345",
+        "c346",
+        "c349",
+        "c350",
+        "c357",
+        "c358",
+        "c359",
+        "c360",
+        "c375",
+        "c376",
+        "c54",
+        "c56",
+        "c61",
+        "c63",
+        "c84",
+        "c89",
+        "c91"
+      ],
+      [
+        "c328_pin2"
+      ],
+      [
+        "c80"
+      ],
+      [
+        "c76"
+      ],
+      [
+        "c329_pin2"
+      ],
+      [
+        "c283"
+      ],
+      [
+        "c81"
+      ],
+      [
+        "c335_pin1"
+      ],
+      [
+        "c328_pin1"
+      ],
+      [
+        "c62"
+      ],
+      [
+        "c326_pin2"
+      ],
+      [
+        "c327_pin1"
+      ],
+      [
+        "c82"
+      ],
+      [
+        "c77"
+      ],
+      [
+        "c55"
+      ],
+      [
+        "c35"
+      ],
+      [
+        "c330_pin1"
+      ],
+      [
+        "c41"
+      ],
+      [
+        "c48"
+      ],
+      [
+        "c78"
+      ],
+      [
+        "c79"
+      ],
+      [
+        "c329_pin1"
+      ],
+      [
+        "c327_pin2"
+      ],
+      [
+        "c36"
+      ],
+      [
+        "c333_pin1"
+      ],
+      [
+        "c331_pin1"
+      ],
+      [
+        "c332_pin1"
+      ],
+      [
+        "c334_pin1"
+      ]
+    ],
+    "floating_detail": [
+      {
+        "id": "c237",
+        "nombre": "BISH k1 B 0"
+      },
+      {
+        "id": "c238",
+        "nombre": "BISH k1 A 0"
+      },
+      {
+        "id": "c239",
+        "nombre": "BISH k3 A 0"
+      },
+      {
+        "id": "c240",
+        "nombre": "BISH k3 B 0"
+      },
+      {
+        "id": "c241",
+        "nombre": "BISH k1 B 1"
+      },
+      {
+        "id": "c242",
+        "nombre": "BISH k1 A 1"
+      },
+      {
+        "id": "c243",
+        "nombre": "BISH k3 A 1"
+      },
+      {
+        "id": "c244",
+        "nombre": "BISH k3 B 1"
+      },
+      {
+        "id": "c245",
+        "nombre": "BISH k1 B 2"
+      },
+      {
+        "id": "c246",
+        "nombre": "BISH k1 A 2"
+      },
+      {
+        "id": "c247",
+        "nombre": "BISH k3 A 2"
+      },
+      {
+        "id": "c248",
+        "nombre": "BISH k3 B 2"
+      },
+      {
+        "id": "c249",
+        "nombre": "BISH k0 B 0"
+      },
+      {
+        "id": "c250",
+        "nombre": "BISH k0 A 0"
+      },
+      {
+        "id": "c251",
+        "nombre": "BISH k4 A 0"
+      },
+      {
+        "id": "c252",
+        "nombre": "BISH k4 B 0"
+      },
+      {
+        "id": "c253",
+        "nombre": "BISH k0 B 1"
+      },
+      {
+        "id": "c254",
+        "nombre": "BISH k0 A 1"
+      },
+      {
+        "id": "c255",
+        "nombre": "BISH k4 A 1"
+      },
+      {
+        "id": "c256",
+        "nombre": "BISH k4 B 1"
+      },
+      {
+        "id": "c283",
+        "nombre": "Riel U-100"
+      },
+      {
+        "id": "c284",
+        "nombre": "Corredera D-100 izq"
+      },
+      {
+        "id": "c285",
+        "nombre": "Corredera D-100 der"
+      },
+      {
+        "id": "c326_pin1",
+        "nombre": "torn_din_ji clavija 1"
+      },
+      {
+        "id": "c326_pin2",
+        "nombre": "torn_din_ji clavija 2"
+      },
+      {
+        "id": "c327_pin1",
+        "nombre": "torn_din_jd clavija 1"
+      },
+      {
+        "id": "c327_pin2",
+        "nombre": "torn_din_jd clavija 2"
+      },
+      {
+        "id": "c328_pin1",
+        "nombre": "torn_tra_ji clavija 1"
+      },
+      {
+        "id": "c328_pin2",
+        "nombre": "torn_tra_ji clavija 2"
+      },
+      {
+        "id": "c329_pin1",
+        "nombre": "torn_tra_jd clavija 1"
+      },
+      {
+        "id": "c329_pin2",
+        "nombre": "torn_tra_jd clavija 2"
+      },
+      {
+        "id": "c33",
+        "nombre": "Marco jamba izq"
+      },
+      {
+        "id": "c330_pin1",
+        "nombre": "torn_par1_din clavija 1"
+      },
+      {
+        "id": "c331_pin1",
+        "nombre": "torn_par1_tra clavija 1"
+      },
+      {
+        "id": "c332_pin1",
+        "nombre": "torn_par2_din clavija 1"
+      },
+      {
+        "id": "c333_pin1",
+        "nombre": "torn_par2_tra clavija 1"
+      },
+      {
+        "id": "c334_pin1",
+        "nombre": "torn_par3_din clavija 1"
+      },
+      {
+        "id": "c335_pin1",
+        "nombre": "torn_par3_tra clavija 1"
+      },
+      {
+        "id": "c337",
+        "nombre": "H1 travesano sup"
+      },
+      {
+        "id": "c338",
+        "nombre": "H1 travesano inf"
+      },
+      {
+        "id": "c34",
+        "nombre": "Marco jamba der"
+      },
+      {
+        "id": "c341",
+        "nombre": "H2 travesano sup"
+      },
+      {
+        "id": "c342",
+        "nombre": "H2 travesano inf"
+      },
+      {
+        "id": "c345",
+        "nombre": "H3 travesano sup"
+      },
+      {
+        "id": "c346",
+        "nombre": "H3 travesano inf"
+      },
+      {
+        "id": "c349",
+        "nombre": "H4 travesano sup"
+      },
+      {
+        "id": "c35",
+        "nombre": "Marco dintel"
+      },
+      {
+        "id": "c350",
+        "nombre": "H4 travesano inf"
+      },
+      {
+        "id": "c353",
+        "nombre": "H1 larguero del izq"
+      },
+      {
+        "id": "c354",
+        "nombre": "H1 larguero del der"
+      },
+      {
+        "id": "c355",
+        "nombre": "H2 larguero del izq"
+      },
+      {
+        "id": "c356",
+        "nombre": "H2 larguero del der"
+      },
+      {
+        "id": "c357",
+        "nombre": "H3 larguero del izq"
+      },
+      {
+        "id": "c358",
+        "nombre": "H3 larguero del der"
+      },
+      {
+        "id": "c359",
+        "nombre": "H4 larguero del izq"
+      },
+      {
+        "id": "c36",
+        "nombre": "Marco travesano"
+      },
+      {
+        "id": "c360",
+        "nombre": "H4 larguero del der"
+      },
+      {
+        "id": "c373",
+        "nombre": "BISH k0 A 1med"
+      },
+      {
+        "id": "c374",
+        "nombre": "BISH k0 B 1med"
+      },
+      {
+        "id": "c375",
+        "nombre": "BISH k4 A 1med"
+      },
+      {
+        "id": "c376",
+        "nombre": "BISH k4 B 1med"
+      },
+      {
+        "id": "c40",
+        "nombre": "H1 travesano medio"
+      },
+      {
+        "id": "c41",
+        "nombre": "H1 peinazo tras inf"
+      },
+      {
+        "id": "c42",
+        "nombre": "Vidrio H1"
+      },
+      {
+        "id": "c47",
+        "nombre": "H2 travesano medio"
+      },
+      {
+        "id": "c48",
+        "nombre": "H2 peinazo tras inf"
+      },
+      {
+        "id": "c49",
+        "nombre": "Vidrio H2"
+      },
+      {
+        "id": "c54",
+        "nombre": "H3 travesano medio"
+      },
+      {
+        "id": "c55",
+        "nombre": "H3 peinazo tras inf"
+      },
+      {
+        "id": "c56",
+        "nombre": "Vidrio H3"
+      },
+      {
+        "id": "c61",
+        "nombre": "H4 travesano medio"
+      },
+      {
+        "id": "c62",
+        "nombre": "H4 peinazo tras inf"
+      },
+      {
+        "id": "c63",
+        "nombre": "Vidrio H4"
+      },
+      {
+        "id": "c76",
+        "nombre": "Vidrio 1"
+      },
+      {
+        "id": "c77",
+        "nombre": "Vidrio 2"
+      },
+      {
+        "id": "c78",
+        "nombre": "Vidrio 3"
+      },
+      {
+        "id": "c79",
+        "nombre": "Vidrio 4"
+      },
+      {
+        "id": "c80",
+        "nombre": "Parteluz 1"
+      },
+      {
+        "id": "c81",
+        "nombre": "Parteluz 2"
+      },
+      {
+        "id": "c82",
+        "nombre": "Parteluz 3"
+      },
+      {
+        "id": "c83",
+        "nombre": "Tirador H2"
+      },
+      {
+        "id": "c84",
+        "nombre": "Tirador H3"
+      },
+      {
+        "id": "c85",
+        "nombre": "Hoja 1"
+      },
+      {
+        "id": "c87",
+        "nombre": "Hoja 2"
+      },
+      {
+        "id": "c89",
+        "nombre": "Hoja 3"
+      },
+      {
+        "id": "c91",
+        "nombre": "Hoja 4"
+      }
+    ]
+  },
+  "soundness_autodetect": {
+    "has_ground": true,
+    "n_total": 86,
+    "n_grounded": 82,
+    "n_floating": 4,
+    "grounded": [
+      "c237",
+      "c238",
+      "c239",
+      "c240",
+      "c241",
+      "c242",
+      "c243",
+      "c244",
+      "c245",
+      "c246",
+      "c247",
+      "c248",
+      "c249",
+      "c250",
+      "c251",
+      "c252",
+      "c253",
+      "c254",
+      "c255",
+      "c256",
+      "c283",
+      "c284",
+      "c285",
+      "c326_pin1",
+      "c326_pin2",
+      "c327_pin1",
+      "c327_pin2",
+      "c328_pin1",
+      "c328_pin2",
+      "c329_pin1",
+      "c329_pin2",
+      "c33",
+      "c330_pin1",
+      "c331_pin1",
+      "c332_pin1",
+      "c333_pin1",
+      "c334_pin1",
+      "c335_pin1",
+      "c337",
+      "c338",
+      "c34",
+      "c341",
+      "c342",
+      "c345",
+      "c346",
+      "c349",
+      "c35",
+      "c350",
+      "c353",
+      "c354",
+      "c355",
+      "c356",
+      "c357",
+      "c358",
+      "c359",
+      "c36",
+      "c360",
+      "c373",
+      "c374",
+      "c375",
+      "c376",
+      "c40",
+      "c42",
+      "c47",
+      "c49",
+      "c54",
+      "c56",
+      "c61",
+      "c63",
+      "c76",
+      "c77",
+      "c78",
+      "c79",
+      "c80",
+      "c81",
+      "c82",
+      "c83",
+      "c84",
+      "c85",
+      "c87",
+      "c89",
+      "c91"
+    ],
+    "floating": [
+      "c41",
+      "c48",
+      "c55",
+      "c62"
+    ],
+    "isolated": [
+      "c41",
+      "c48",
+      "c55",
+      "c62"
+    ],
+    "components": [
+      [
+        "c237",
+        "c238",
+        "c239",
+        "c240",
+        "c241",
+        "c242",
+        "c243",
+        "c244",
+        "c245",
+        "c246",
+        "c247",
+        "c248",
+        "c249",
+        "c250",
+        "c251",
+        "c252",
+        "c253",
+        "c254",
+        "c255",
+        "c256",
+        "c283",
+        "c284",
+        "c285",
+        "c326_pin1",
+        "c326_pin2",
+        "c327_pin1",
+        "c327_pin2",
+        "c328_pin1",
+        "c328_pin2",
+        "c329_pin1",
+        "c329_pin2",
+        "c33",
+        "c330_pin1",
+        "c331_pin1",
+        "c332_pin1",
+        "c333_pin1",
+        "c334_pin1",
+        "c335_pin1",
+        "c337",
+        "c338",
+        "c34",
+        "c341",
+        "c342",
+        "c345",
+        "c346",
+        "c349",
+        "c35",
+        "c350",
+        "c353",
+        "c354",
+        "c355",
+        "c356",
+        "c357",
+        "c358",
+        "c359",
+        "c36",
+        "c360",
+        "c373",
+        "c374",
+        "c375",
+        "c376",
+        "c40",
+        "c42",
+        "c47",
+        "c49",
+        "c54",
+        "c56",
+        "c61",
+        "c63",
+        "c76",
+        "c77",
+        "c78",
+        "c79",
+        "c80",
+        "c81",
+        "c82",
+        "c83",
+        "c84",
+        "c85",
+        "c87",
+        "c89",
+        "c91"
+      ],
+      [
+        "c62"
+      ],
+      [
+        "c55"
+      ],
+      [
+        "c41"
+      ],
+      [
+        "c48"
+      ]
+    ],
+    "floating_detail": [
+      {
+        "id": "c41",
+        "nombre": "H1 peinazo tras inf"
+      },
+      {
+        "id": "c48",
+        "nombre": "H2 peinazo tras inf"
+      },
+      {
+        "id": "c55",
+        "nombre": "H3 peinazo tras inf"
+      },
+      {
+        "id": "c62",
+        "nombre": "H4 peinazo tras inf"
+      }
+    ],
+    "autodetect": {
+      "floor_z": 0.0,
+      "n_grounds": 10,
+      "n_contactos": 137
+    }
+  },
+  "gravity_declarada": {
+    "n_grounded": 0,
+    "n_dynamic": 74,
+    "fell": [
+      {
+        "id": "c330_pin1",
+        "nombre": "torn_par1_din clavija 1",
+        "caida_mm": 354.2
+      },
+      {
+        "id": "c334_pin1",
+        "nombre": "torn_par3_din clavija 1",
+        "caida_mm": 354.0
+      },
+      {
+        "id": "c332_pin1",
+        "nombre": "torn_par2_din clavija 1",
+        "caida_mm": 350.6
+      },
+      {
+        "id": "c326_pin1",
+        "nombre": "torn_din_ji clavija 1",
+        "caida_mm": 334.8
+      },
+      {
+        "id": "c327_pin1",
+        "nombre": "torn_din_jd clavija 1",
+        "caida_mm": 334.0
+      },
+      {
+        "id": "c285",
+        "nombre": "Corredera D-100 der",
+        "caida_mm": 196.7
+      },
+      {
+        "id": "c284",
+        "nombre": "Corredera D-100 izq",
+        "caida_mm": 194.8
+      },
+      {
+        "id": "c331_pin1",
+        "nombre": "torn_par1_tra clavija 1",
+        "caida_mm": 190.8
+      },
+      {
+        "id": "c335_pin1",
+        "nombre": "torn_par3_tra clavija 1",
+        "caida_mm": 189.4
+      },
+      {
+        "id": "c333_pin1",
+        "nombre": "torn_par2_tra clavija 1",
+        "caida_mm": 186.1
+      },
+      {
+        "id": "c345",
+        "nombre": "H3 travesano sup",
+        "caida_mm": 181.7
+      },
+      {
+        "id": "c341",
+        "nombre": "H2 travesano sup",
+        "caida_mm": 181.5
+      },
+      {
+        "id": "c329_pin1",
+        "nombre": "torn_tra_jd clavija 1",
+        "caida_mm": 171.4
+      },
+      {
+        "id": "c250",
+        "nombre": "BISH k0 A 0",
+        "caida_mm": 152.9
+      },
+      {
+        "id": "c252",
+        "nombre": "BISH k4 B 0",
+        "caida_mm": 152.8
+      },
+      {
+        "id": "c376",
+        "nombre": "BISH k4 B 1med",
+        "caida_mm": 152.6
+      },
+      {
+        "id": "c241",
+        "nombre": "BISH k1 B 1",
+        "caida_mm": 148.5
+      },
+      {
+        "id": "c242",
+        "nombre": "BISH k1 A 1",
+        "caida_mm": 148.5
+      },
+      {
+        "id": "c243",
+        "nombre": "BISH k3 A 1",
+        "caida_mm": 148.5
+      },
+      {
+        "id": "c244",
+        "nombre": "BISH k3 B 1",
+        "caida_mm": 148.5
+      },
+      {
+        "id": "c237",
+        "nombre": "BISH k1 B 0",
+        "caida_mm": 148.4
+      },
+      {
+        "id": "c239",
+        "nombre": "BISH k3 A 0",
+        "caida_mm": 148.4
+      },
+      {
+        "id": "c240",
+        "nombre": "BISH k3 B 0",
+        "caida_mm": 147.9
+      },
+      {
+        "id": "c238",
+        "nombre": "BISH k1 A 0",
+        "caida_mm": 147.8
+      },
+      {
+        "id": "c84",
+        "nombre": "Tirador H3",
+        "caida_mm": 145.1
+      },
+      {
+        "id": "c83",
+        "nombre": "Tirador H2",
+        "caida_mm": 145.0
+      },
+      {
+        "id": "c47",
+        "nombre": "H2 travesano medio",
+        "caida_mm": 142.0
+      },
+      {
+        "id": "c251",
+        "nombre": "BISH k4 A 0",
+        "caida_mm": 141.4
+      },
+      {
+        "id": "c249",
+        "nombre": "BISH k0 B 0",
+        "caida_mm": 141.2
+      },
+      {
+        "id": "c375",
+        "nombre": "BISH k4 A 1med",
+        "caida_mm": 140.4
+      },
+      {
+        "id": "c374",
+        "nombre": "BISH k0 B 1med",
+        "caida_mm": 139.1
+      },
+      {
+        "id": "c373",
+        "nombre": "BISH k0 A 1med",
+        "caida_mm": 138.6
+      },
+      {
+        "id": "c54",
+        "nombre": "H3 travesano medio",
+        "caida_mm": 138.0
+      },
+      {
+        "id": "c40",
+        "nombre": "H1 travesano medio",
+        "caida_mm": 134.0
+      },
+      {
+        "id": "c61",
+        "nombre": "H4 travesano medio",
+        "caida_mm": 133.4
+      },
+      {
+        "id": "c329_pin2",
+        "nombre": "torn_tra_jd clavija 2",
+        "caida_mm": 126.9
+      },
+      {
+        "id": "c328_pin2",
+        "nombre": "torn_tra_ji clavija 2",
+        "caida_mm": 126.2
+      },
+      {
+        "id": "c337",
+        "nombre": "H1 travesano sup",
+        "caida_mm": 125.0
+      },
+      {
+        "id": "c349",
+        "nombre": "H4 travesano sup",
+        "caida_mm": 124.3
+      },
+      {
+        "id": "c49",
+        "nombre": "Vidrio H2",
+        "caida_mm": 115.7
+      },
+      {
+        "id": "c56",
+        "nombre": "Vidrio H3",
+        "caida_mm": 115.1
+      },
+      {
+        "id": "c42",
+        "nombre": "Vidrio H1",
+        "caida_mm": 110.3
+      },
+      {
+        "id": "c63",
+        "nombre": "Vidrio H4",
+        "caida_mm": 110.1
+      },
+      {
+        "id": "c328_pin1",
+        "nombre": "torn_tra_ji clavija 1",
+        "caida_mm": 89.4
+      },
+      {
+        "id": "c255",
+        "nombre": "BISH k4 A 1",
+        "caida_mm": 67.6
+      },
+      {
+        "id": "c253",
+        "nombre": "BISH k0 B 1",
+        "caida_mm": 67.0
+      },
+      {
+        "id": "c36",
+        "nombre": "Marco travesano",
+        "caida_mm": 40.0
+      },
+      {
+        "id": "c256",
+        "nombre": "BISH k4 B 1",
+        "caida_mm": 30.8
+      },
+      {
+        "id": "c79",
+        "nombre": "Vidrio 4",
+        "caida_mm": 30.7
+      },
+      {
+        "id": "c78",
+        "nombre": "Vidrio 3",
+        "caida_mm": 30.6
+      },
+      {
+        "id": "c77",
+        "nombre": "Vidrio 2",
+        "caida_mm": 30.5
+      },
+      {
+        "id": "c76",
+        "nombre": "Vidrio 1",
+        "caida_mm": 30.3
+      },
+      {
+        "id": "c82",
+        "nombre": "Parteluz 3",
+        "caida_mm": 27.2
+      },
+      {
+        "id": "c80",
+        "nombre": "Parteluz 1",
+        "caida_mm": 26.3
+      },
+      {
+        "id": "c35",
+        "nombre": "Marco dintel",
+        "caida_mm": 25.8
+      },
+      {
+        "id": "c81",
+        "nombre": "Parteluz 2",
+        "caida_mm": 25.5
+      },
+      {
+        "id": "c283",
+        "nombre": "Riel U-100",
+        "caida_mm": 23.1
+      },
+      {
+        "id": "c326_pin2",
+        "nombre": "torn_din_ji clavija 2",
+        "caida_mm": 21.8
+      },
+      {
+        "id": "c327_pin2",
+        "nombre": "torn_din_jd clavija 2",
+        "caida_mm": 21.8
+      },
+      {
+        "id": "c346",
+        "nombre": "H3 travesano inf",
+        "caida_mm": 18.9
+      },
+      {
+        "id": "c254",
+        "nombre": "BISH k0 A 1",
+        "caida_mm": 18.4
+      },
+      {
+        "id": "c245",
+        "nombre": "BISH k1 B 2",
+        "caida_mm": 16.9
+      },
+      {
+        "id": "c246",
+        "nombre": "BISH k1 A 2",
+        "caida_mm": 16.9
+      },
+      {
+        "id": "c247",
+        "nombre": "BISH k3 A 2",
+        "caida_mm": 16.9
+      },
+      {
+        "id": "c248",
+        "nombre": "BISH k3 B 2",
+        "caida_mm": 16.9
+      }
+    ],
+    "estables": [
+      {
+        "id": "c33",
+        "nombre": "Marco jamba izq",
+        "caida_mm": 2.6
+      },
+      {
+        "id": "c34",
+        "nombre": "Marco jamba der",
+        "caida_mm": 2.7
+      },
+      {
+        "id": "c85",
+        "nombre": "Hoja 1",
+        "caida_mm": 10.7
+      },
+      {
+        "id": "c87",
+        "nombre": "Hoja 2",
+        "caida_mm": 7.8
+      },
+      {
+        "id": "c89",
+        "nombre": "Hoja 3",
+        "caida_mm": 8.2
+      },
+      {
+        "id": "c91",
+        "nombre": "Hoja 4",
+        "caida_mm": 10.3
+      },
+      {
+        "id": "c338",
+        "nombre": "H1 travesano inf",
+        "caida_mm": 5.9
+      },
+      {
+        "id": "c342",
+        "nombre": "H2 travesano inf",
+        "caida_mm": 7.3
+      },
+      {
+        "id": "c350",
+        "nombre": "H4 travesano inf",
+        "caida_mm": 5.6
+      }
+    ],
+    "settled": false,
+    "products": [
+      {
+        "name": "c33",
+        "id": "c33",
+        "nombre": "Marco jamba izq",
+        "w": 70.0,
+        "d": 70.0,
+        "h": 2500.0,
+        "com": [
+          -1040.0,
+          0.0,
+          1250.0
+        ]
+      },
+      {
+        "name": "c34",
+        "id": "c34",
+        "nombre": "Marco jamba der",
+        "w": 70.0,
+        "d": 70.0,
+        "h": 2500.0,
+        "com": [
+          1040.0,
+          0.0,
+          1250.0
+        ]
+      },
+      {
+        "name": "c35",
+        "id": "c35",
+        "nombre": "Marco dintel",
+        "w": 2010.0,
+        "d": 70.0,
+        "h": 70.0,
+        "com": [
+          0.0,
+          0.0,
+          2465.0
+        ]
+      },
+      {
+        "name": "c36",
+        "id": "c36",
+        "nombre": "Marco travesano",
+        "w": 2010.0,
+        "d": 70.0,
+        "h": 70.0,
+        "com": [
+          0.0,
+          0.0,
+          2086.0
+        ]
+      },
+      {
+        "name": "c40",
+        "id": "c40",
+        "nombre": "H1 travesano medio",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          -753.75,
+          9.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c42",
+        "id": "c42",
+        "nombre": "Vidrio H1",
+        "w": 304.5,
+        "d": 8.0,
+        "h": 1814.0,
+        "com": [
+          -753.75,
+          -14.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c47",
+        "id": "c47",
+        "nombre": "H2 travesano medio",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          -251.25,
+          9.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c49",
+        "id": "c49",
+        "nombre": "Vidrio H2",
+        "w": 304.5,
+        "d": 8.0,
+        "h": 1814.0,
+        "com": [
+          -251.25,
+          -14.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c54",
+        "id": "c54",
+        "nombre": "H3 travesano medio",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          251.25,
+          9.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c56",
+        "id": "c56",
+        "nombre": "Vidrio H3",
+        "w": 304.5,
+        "d": 8.0,
+        "h": 1814.0,
+        "com": [
+          251.25,
+          -14.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c61",
+        "id": "c61",
+        "nombre": "H4 travesano medio",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          753.75,
+          9.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c63",
+        "id": "c63",
+        "nombre": "Vidrio H4",
+        "w": 304.5,
+        "d": 8.0,
+        "h": 1814.0,
+        "com": [
+          753.75,
+          -14.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c76",
+        "id": "c76",
+        "nombre": "Vidrio 1",
+        "w": 452.5,
+        "d": 8.0,
+        "h": 309.0,
+        "com": [
+          -753.75,
+          0.0,
+          2275.5
+        ]
+      },
+      {
+        "name": "c77",
+        "id": "c77",
+        "nombre": "Vidrio 2",
+        "w": 452.5,
+        "d": 8.0,
+        "h": 309.0,
+        "com": [
+          -251.25,
+          0.0,
+          2275.5
+        ]
+      },
+      {
+        "name": "c78",
+        "id": "c78",
+        "nombre": "Vidrio 3",
+        "w": 452.5,
+        "d": 8.0,
+        "h": 309.0,
+        "com": [
+          251.25,
+          0.0,
+          2275.5
+        ]
+      },
+      {
+        "name": "c79",
+        "id": "c79",
+        "nombre": "Vidrio 4",
+        "w": 452.5,
+        "d": 8.0,
+        "h": 309.0,
+        "com": [
+          753.75,
+          0.0,
+          2275.5
+        ]
+      },
+      {
+        "name": "c80",
+        "id": "c80",
+        "nombre": "Parteluz 1",
+        "w": 50.0,
+        "d": 42.0,
+        "h": 309.0,
+        "com": [
+          -502.5,
+          0.0,
+          2275.5
+        ]
+      },
+      {
+        "name": "c81",
+        "id": "c81",
+        "nombre": "Parteluz 2",
+        "w": 50.0,
+        "d": 42.0,
+        "h": 309.0,
+        "com": [
+          0.0,
+          0.0,
+          2275.5
+        ]
+      },
+      {
+        "name": "c82",
+        "id": "c82",
+        "nombre": "Parteluz 3",
+        "w": 50.0,
+        "d": 42.0,
+        "h": 309.0,
+        "com": [
+          502.5,
+          0.0,
+          2275.5
+        ]
+      },
+      {
+        "name": "c83",
+        "id": "c83",
+        "nombre": "Tirador H2",
+        "w": 24.0,
+        "d": 24.0,
+        "h": 320.0,
+        "com": [
+          -30.0,
+          32.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c84",
+        "id": "c84",
+        "nombre": "Tirador H3",
+        "w": 24.0,
+        "d": 24.0,
+        "h": 320.0,
+        "com": [
+          30.0,
+          32.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c85",
+        "id": "c85",
+        "nombre": "Hoja 1",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 2008.0,
+        "com": [
+          -753.75,
+          -9.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c87",
+        "id": "c87",
+        "nombre": "Hoja 2",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 2008.0,
+        "com": [
+          -251.25,
+          -9.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c89",
+        "id": "c89",
+        "nombre": "Hoja 3",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 2008.0,
+        "com": [
+          251.25,
+          -9.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c91",
+        "id": "c91",
+        "nombre": "Hoja 4",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 2008.0,
+        "com": [
+          753.75,
+          -9.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c237",
+        "id": "c237",
+        "nombre": "BISH k1 B 0",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -517.0,
+          -18.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c238",
+        "id": "c238",
+        "nombre": "BISH k1 A 0",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -488.0,
+          -18.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c239",
+        "id": "c239",
+        "nombre": "BISH k3 A 0",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          517.0,
+          -18.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c240",
+        "id": "c240",
+        "nombre": "BISH k3 B 0",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          488.0,
+          -18.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c241",
+        "id": "c241",
+        "nombre": "BISH k1 B 1",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -517.0,
+          -18.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c242",
+        "id": "c242",
+        "nombre": "BISH k1 A 1",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -488.0,
+          -18.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c243",
+        "id": "c243",
+        "nombre": "BISH k3 A 1",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          517.0,
+          -18.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c244",
+        "id": "c244",
+        "nombre": "BISH k3 B 1",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          488.0,
+          -18.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c245",
+        "id": "c245",
+        "nombre": "BISH k1 B 2",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -517.0,
+          -18.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c246",
+        "id": "c246",
+        "nombre": "BISH k1 A 2",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -488.0,
+          -18.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c247",
+        "id": "c247",
+        "nombre": "BISH k3 A 2",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          517.0,
+          -18.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c248",
+        "id": "c248",
+        "nombre": "BISH k3 B 2",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          488.0,
+          -18.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c249",
+        "id": "c249",
+        "nombre": "BISH k0 B 0",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -1019.5,
+          -18.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c250",
+        "id": "c250",
+        "nombre": "BISH k0 A 0",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -990.5,
+          -18.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c251",
+        "id": "c251",
+        "nombre": "BISH k4 A 0",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          1019.5,
+          -18.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c252",
+        "id": "c252",
+        "nombre": "BISH k4 B 0",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          990.5,
+          -18.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c253",
+        "id": "c253",
+        "nombre": "BISH k0 B 1",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -1019.5,
+          -18.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c254",
+        "id": "c254",
+        "nombre": "BISH k0 A 1",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -990.5,
+          -18.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c255",
+        "id": "c255",
+        "nombre": "BISH k4 A 1",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          1019.5,
+          -18.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c256",
+        "id": "c256",
+        "nombre": "BISH k4 B 1",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          990.5,
+          -18.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c283",
+        "id": "c283",
+        "nombre": "Riel U-100",
+        "w": 2010.0,
+        "d": 35.0,
+        "h": 35.0,
+        "com": [
+          0.0,
+          0.0,
+          2033.5
+        ]
+      },
+      {
+        "name": "c284",
+        "id": "c284",
+        "nombre": "Corredera D-100 izq",
+        "w": 80.0,
+        "d": 28.0,
+        "h": 61.0,
+        "com": [
+          -42.0,
+          0.0,
+          2013.5
+        ]
+      },
+      {
+        "name": "c285",
+        "id": "c285",
+        "nombre": "Corredera D-100 der",
+        "w": 80.0,
+        "d": 28.0,
+        "h": 61.0,
+        "com": [
+          42.0,
+          0.0,
+          2013.5
+        ]
+      },
+      {
+        "name": "c326_pin1",
+        "id": "c326_pin1",
+        "nombre": "torn_din_ji clavija 1",
+        "w": 95.0,
+        "d": 5.6,
+        "h": 5.600000000000364,
+        "com": [
+          -1025.0,
+          0.0,
+          2450.0
+        ]
+      },
+      {
+        "name": "c326_pin2",
+        "id": "c326_pin2",
+        "nombre": "torn_din_ji clavija 2",
+        "w": 95.0,
+        "d": 5.6,
+        "h": 5.600000000000364,
+        "com": [
+          -1025.0,
+          0.0,
+          2480.0
+        ]
+      },
+      {
+        "name": "c327_pin1",
+        "id": "c327_pin1",
+        "nombre": "torn_din_jd clavija 1",
+        "w": 95.0,
+        "d": 5.6,
+        "h": 5.600000000000364,
+        "com": [
+          1025.0,
+          0.0,
+          2450.0
+        ]
+      },
+      {
+        "name": "c327_pin2",
+        "id": "c327_pin2",
+        "nombre": "torn_din_jd clavija 2",
+        "w": 95.0,
+        "d": 5.6,
+        "h": 5.600000000000364,
+        "com": [
+          1025.0,
+          0.0,
+          2480.0
+        ]
+      },
+      {
+        "name": "c328_pin1",
+        "id": "c328_pin1",
+        "nombre": "torn_tra_ji clavija 1",
+        "w": 95.0,
+        "d": 5.6,
+        "h": 5.600000000000364,
+        "com": [
+          -1025.0,
+          0.0,
+          2071.0
+        ]
+      },
+      {
+        "name": "c328_pin2",
+        "id": "c328_pin2",
+        "nombre": "torn_tra_ji clavija 2",
+        "w": 95.0,
+        "d": 5.6,
+        "h": 5.600000000000364,
+        "com": [
+          -1025.0,
+          0.0,
+          2101.0
+        ]
+      },
+      {
+        "name": "c329_pin1",
+        "id": "c329_pin1",
+        "nombre": "torn_tra_jd clavija 1",
+        "w": 95.0,
+        "d": 5.6,
+        "h": 5.600000000000364,
+        "com": [
+          1025.0,
+          0.0,
+          2071.0
+        ]
+      },
+      {
+        "name": "c329_pin2",
+        "id": "c329_pin2",
+        "nombre": "torn_tra_jd clavija 2",
+        "w": 95.0,
+        "d": 5.6,
+        "h": 5.600000000000364,
+        "com": [
+          1025.0,
+          0.0,
+          2101.0
+        ]
+      },
+      {
+        "name": "c330_pin1",
+        "id": "c330_pin1",
+        "nombre": "torn_par1_din clavija 1",
+        "w": 4.100000000000023,
+        "d": 4.1,
+        "h": 85.5,
+        "com": [
+          -503.0,
+          0.0,
+          2455.0
+        ]
+      },
+      {
+        "name": "c331_pin1",
+        "id": "c331_pin1",
+        "nombre": "torn_par1_tra clavija 1",
+        "w": 4.100000000000023,
+        "d": 4.1,
+        "h": 85.5,
+        "com": [
+          -503.0,
+          0.0,
+          2096.0
+        ]
+      },
+      {
+        "name": "c332_pin1",
+        "id": "c332_pin1",
+        "nombre": "torn_par2_din clavija 1",
+        "w": 4.1,
+        "d": 4.1,
+        "h": 85.5,
+        "com": [
+          0.0,
+          0.0,
+          2455.0
+        ]
+      },
+      {
+        "name": "c333_pin1",
+        "id": "c333_pin1",
+        "nombre": "torn_par2_tra clavija 1",
+        "w": 4.1,
+        "d": 4.1,
+        "h": 85.5,
+        "com": [
+          0.0,
+          0.0,
+          2096.0
+        ]
+      },
+      {
+        "name": "c334_pin1",
+        "id": "c334_pin1",
+        "nombre": "torn_par3_din clavija 1",
+        "w": 4.100000000000023,
+        "d": 4.1,
+        "h": 85.5,
+        "com": [
+          503.0,
+          0.0,
+          2455.0
+        ]
+      },
+      {
+        "name": "c335_pin1",
+        "id": "c335_pin1",
+        "nombre": "torn_par3_tra clavija 1",
+        "w": 4.100000000000023,
+        "d": 4.1,
+        "h": 85.5,
+        "com": [
+          503.0,
+          0.0,
+          2096.0
+        ]
+      },
+      {
+        "name": "c337",
+        "id": "c337",
+        "nombre": "H1 travesano sup",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          -753.75,
+          9.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c338",
+        "id": "c338",
+        "nombre": "H1 travesano inf",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          -753.75,
+          9.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c341",
+        "id": "c341",
+        "nombre": "H2 travesano sup",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          -251.25,
+          9.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c342",
+        "id": "c342",
+        "nombre": "H2 travesano inf",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          -251.25,
+          9.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c345",
+        "id": "c345",
+        "nombre": "H3 travesano sup",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          251.25,
+          9.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c346",
+        "id": "c346",
+        "nombre": "H3 travesano inf",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          251.25,
+          9.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c349",
+        "id": "c349",
+        "nombre": "H4 travesano sup",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          753.75,
+          9.0,
+          1962.0
+        ]
+      },
+      {
+        "name": "c350",
+        "id": "c350",
+        "nombre": "H4 travesano inf",
+        "w": 498.5,
+        "d": 18.0,
+        "h": 100.0,
+        "com": [
+          753.75,
+          9.0,
+          54.0
+        ]
+      },
+      {
+        "name": "c373",
+        "id": "c373",
+        "nombre": "BISH k0 A 1med",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -990.5,
+          -18.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c374",
+        "id": "c374",
+        "nombre": "BISH k0 B 1med",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          -1019.5,
+          -18.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c375",
+        "id": "c375",
+        "nombre": "BISH k4 A 1med",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          1019.5,
+          -18.0,
+          1008.0
+        ]
+      },
+      {
+        "name": "c376",
+        "id": "c376",
+        "nombre": "BISH k4 B 1med",
+        "w": 32.0,
+        "d": 3.0,
+        "h": 75.0,
+        "com": [
+          990.5,
+          -18.0,
+          1008.0
+        ]
+      }
+    ]
+  },
+  "gravity_autodetect": {
+    "n_grounded": 82,
+    "n_dynamic": 0,
+    "fell": [],
+    "estables": [],
+    "settled": true,
+    "products": [],
+    "mensaje": "Ninguna pieza dinámica: todo está sujeto a tierra."
+  },
+  "dof": {
+    "features": [
+      {
+        "id": "c237",
+        "name": "BISH k1 B 0",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k1_B_0"
+        ]
+      },
+      {
+        "id": "c238",
+        "name": "BISH k1 A 0",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k1_A_0"
+        ]
+      },
+      {
+        "id": "c239",
+        "name": "BISH k3 A 0",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k3_A_0"
+        ]
+      },
+      {
+        "id": "c240",
+        "name": "BISH k3 B 0",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k3_B_0"
+        ]
+      },
+      {
+        "id": "c241",
+        "name": "BISH k1 B 1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k1_B_1"
+        ]
+      },
+      {
+        "id": "c242",
+        "name": "BISH k1 A 1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k1_A_1"
+        ]
+      },
+      {
+        "id": "c243",
+        "name": "BISH k3 A 1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k3_A_1"
+        ]
+      },
+      {
+        "id": "c244",
+        "name": "BISH k3 B 1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k3_B_1"
+        ]
+      },
+      {
+        "id": "c245",
+        "name": "BISH k1 B 2",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k1_B_2"
+        ]
+      },
+      {
+        "id": "c246",
+        "name": "BISH k1 A 2",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k1_A_2"
+        ]
+      },
+      {
+        "id": "c247",
+        "name": "BISH k3 A 2",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k3_A_2"
+        ]
+      },
+      {
+        "id": "c248",
+        "name": "BISH k3 B 2",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k3_B_2"
+        ]
+      },
+      {
+        "id": "c249",
+        "name": "BISH k0 B 0",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k0_B_0"
+        ]
+      },
+      {
+        "id": "c250",
+        "name": "BISH k0 A 0",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k0_A_0"
+        ]
+      },
+      {
+        "id": "c251",
+        "name": "BISH k4 A 0",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k4_A_0"
+        ]
+      },
+      {
+        "id": "c252",
+        "name": "BISH k4 B 0",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k4_B_0"
+        ]
+      },
+      {
+        "id": "c253",
+        "name": "BISH k0 B 1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k0_B_1"
+        ]
+      },
+      {
+        "id": "c254",
+        "name": "BISH k0 A 1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k0_A_1"
+        ]
+      },
+      {
+        "id": "c255",
+        "name": "BISH k4 A 1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k4_A_1"
+        ]
+      },
+      {
+        "id": "c256",
+        "name": "BISH k4 B 1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k4_B_1"
+        ]
+      },
+      {
+        "id": "c283",
+        "name": "Riel U-100",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c284",
+        "name": "Corredera D-100 izq",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_corr_izq"
+        ]
+      },
+      {
+        "id": "c285",
+        "name": "Corredera D-100 der",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_corr_der"
+        ]
+      },
+      {
+        "id": "c326_pin1",
+        "name": "torn_din_ji clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c326_pin2",
+        "name": "torn_din_ji clavija 2",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c327_pin1",
+        "name": "torn_din_jd clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c327_pin2",
+        "name": "torn_din_jd clavija 2",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c328_pin1",
+        "name": "torn_tra_ji clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c328_pin2",
+        "name": "torn_tra_ji clavija 2",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c329_pin1",
+        "name": "torn_tra_jd clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c329_pin2",
+        "name": "torn_tra_jd clavija 2",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c33",
+        "name": "Marco jamba izq",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c330_pin1",
+        "name": "torn_par1_din clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c331_pin1",
+        "name": "torn_par1_tra clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c332_pin1",
+        "name": "torn_par2_din clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c333_pin1",
+        "name": "torn_par2_tra clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c334_pin1",
+        "name": "torn_par3_din clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c335_pin1",
+        "name": "torn_par3_tra clavija 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c337",
+        "name": "H1 travesano sup",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_vsup1"
+        ]
+      },
+      {
+        "id": "c338",
+        "name": "H1 travesano inf",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_central1"
+        ]
+      },
+      {
+        "id": "c34",
+        "name": "Marco jamba der",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c341",
+        "name": "H2 travesano sup",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_vsup2"
+        ]
+      },
+      {
+        "id": "c342",
+        "name": "H2 travesano inf",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_central2"
+        ]
+      },
+      {
+        "id": "c345",
+        "name": "H3 travesano sup",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_vsup3"
+        ]
+      },
+      {
+        "id": "c346",
+        "name": "H3 travesano inf",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_central3"
+        ]
+      },
+      {
+        "id": "c349",
+        "name": "H4 travesano sup",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_vsup4"
+        ]
+      },
+      {
+        "id": "c35",
+        "name": "Marco dintel",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c350",
+        "name": "H4 travesano inf",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_central4"
+        ]
+      },
+      {
+        "id": "c353",
+        "name": "H1 larguero del izq",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_ldel1i"
+        ]
+      },
+      {
+        "id": "c354",
+        "name": "H1 larguero del der",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_ldel1d"
+        ]
+      },
+      {
+        "id": "c355",
+        "name": "H2 larguero del izq",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_ldel2i"
+        ]
+      },
+      {
+        "id": "c356",
+        "name": "H2 larguero del der",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_ldel2d"
+        ]
+      },
+      {
+        "id": "c357",
+        "name": "H3 larguero del izq",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_ldel3i"
+        ]
+      },
+      {
+        "id": "c358",
+        "name": "H3 larguero del der",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_ldel3d"
+        ]
+      },
+      {
+        "id": "c359",
+        "name": "H4 larguero del izq",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_ldel4i"
+        ]
+      },
+      {
+        "id": "c36",
+        "name": "Marco travesano",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c360",
+        "name": "H4 larguero del der",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_ldel4d"
+        ]
+      },
+      {
+        "id": "c373",
+        "name": "BISH k0 A 1med",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k0_A_med"
+        ]
+      },
+      {
+        "id": "c374",
+        "name": "BISH k0 B 1med",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k0_B_med"
+        ]
+      },
+      {
+        "id": "c375",
+        "name": "BISH k4 A 1med",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k4_A_med"
+        ]
+      },
+      {
+        "id": "c376",
+        "name": "BISH k4 B 1med",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_BISH_k4_B_med"
+        ]
+      },
+      {
+        "id": "c40",
+        "name": "H1 travesano medio",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_tmed1"
+        ]
+      },
+      {
+        "id": "c41",
+        "name": "H1 peinazo tras inf",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c42",
+        "name": "Vidrio H1",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_vidrio1"
+        ]
+      },
+      {
+        "id": "c47",
+        "name": "H2 travesano medio",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_tmed2"
+        ]
+      },
+      {
+        "id": "c48",
+        "name": "H2 peinazo tras inf",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c49",
+        "name": "Vidrio H2",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_vidrio2"
+        ]
+      },
+      {
+        "id": "c54",
+        "name": "H3 travesano medio",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_tmed3"
+        ]
+      },
+      {
+        "id": "c55",
+        "name": "H3 peinazo tras inf",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c56",
+        "name": "Vidrio H3",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_vidrio3"
+        ]
+      },
+      {
+        "id": "c61",
+        "name": "H4 travesano medio",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_tmed4"
+        ]
+      },
+      {
+        "id": "c62",
+        "name": "H4 peinazo tras inf",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c63",
+        "name": "Vidrio H4",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_vidrio4"
+        ]
+      },
+      {
+        "id": "c76",
+        "name": "Vidrio 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c77",
+        "name": "Vidrio 2",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c78",
+        "name": "Vidrio 3",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c79",
+        "name": "Vidrio 4",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c80",
+        "name": "Parteluz 1",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c81",
+        "name": "Parteluz 2",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c82",
+        "name": "Parteluz 3",
+        "dof": 6,
+        "estado": "libre",
+        "restringido_por": []
+      },
+      {
+        "id": "c83",
+        "name": "Tirador H2",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_tirador2"
+        ]
+      },
+      {
+        "id": "c84",
+        "name": "Tirador H3",
+        "dof": 0,
+        "estado": "fijo",
+        "restringido_por": [
+          "junta:fix_tirador3"
+        ]
+      },
+      {
+        "id": "c85",
+        "name": "Hoja 1",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:J_pivote_izq"
+        ]
+      },
+      {
+        "id": "c87",
+        "name": "Hoja 2",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:J_pliegue_izq"
+        ]
+      },
+      {
+        "id": "c89",
+        "name": "Hoja 3",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:J_pliegue_der"
+        ]
+      },
+      {
+        "id": "c91",
+        "name": "Hoja 4",
+        "dof": 1,
+        "estado": "parcial",
+        "restringido_por": [
+          "junta:J_pivote_der"
+        ]
+      }
+    ],
+    "total_dof": 184,
+    "libres": 30,
+    "sobre_restringidos": 0,
+    "resumen": "86 piezas · 184 GDL · 30 libres",
+    "nota": "Conteo heurístico (Grübler): no detecta redundancia geométrica; un 'sobre_restringido' por conteo puede ser redundancia benigna. Los conflictos REALES los rechaza el solver de mates en la edición. Las piezas de un insert_project traen sus mates internos BAKED (no re-registrados) → se reportan 'libre' aunque en el donante estuvieran acopladas."
+  },
+  "verify": null,
+  "engineering_check": {
+    "interferencias": {
+      "solidos": 74,
+      "parejas_analizadas": 77,
+      "truncado": false,
+      "interferencias": [
+        {
+          "a": "c284",
+          "nombre_a": "Corredera D-100 izq",
+          "b": "c341",
+          "nombre_b": "H2 travesano sup",
+          "volumen_mm3": 14962.1
+        },
+        {
+          "a": "c285",
+          "nombre_a": "Corredera D-100 der",
+          "b": "c345",
+          "nombre_b": "H3 travesano sup",
+          "volumen_mm3": 14962.1
+        },
+        {
+          "a": "c237",
+          "nombre_a": "BISH k1 B 0",
+          "b": "c238",
+          "nombre_b": "BISH k1 A 0",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c239",
+          "nombre_a": "BISH k3 A 0",
+          "b": "c240",
+          "nombre_b": "BISH k3 B 0",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c241",
+          "nombre_a": "BISH k1 B 1",
+          "b": "c242",
+          "nombre_b": "BISH k1 A 1",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c243",
+          "nombre_a": "BISH k3 A 1",
+          "b": "c244",
+          "nombre_b": "BISH k3 B 1",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c245",
+          "nombre_a": "BISH k1 B 2",
+          "b": "c246",
+          "nombre_b": "BISH k1 A 2",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c247",
+          "nombre_a": "BISH k3 A 2",
+          "b": "c248",
+          "nombre_b": "BISH k3 B 2",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c249",
+          "nombre_a": "BISH k0 B 0",
+          "b": "c250",
+          "nombre_b": "BISH k0 A 0",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c251",
+          "nombre_a": "BISH k4 A 0",
+          "b": "c252",
+          "nombre_b": "BISH k4 B 0",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c253",
+          "nombre_a": "BISH k0 B 1",
+          "b": "c254",
+          "nombre_b": "BISH k0 A 1",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c255",
+          "nombre_a": "BISH k4 A 1",
+          "b": "c256",
+          "nombre_b": "BISH k4 B 1",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c373",
+          "nombre_a": "BISH k0 A 1med",
+          "b": "c374",
+          "nombre_b": "BISH k0 B 1med",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c375",
+          "nombre_a": "BISH k4 A 1med",
+          "b": "c376",
+          "nombre_b": "BISH k4 B 1med",
+          "volumen_mm3": 530.1
+        },
+        {
+          "a": "c33",
+          "nombre_a": "Marco jamba izq",
+          "b": "c250",
+          "nombre_b": "BISH k0 A 0",
+          "volumen_mm3": 265.1
+        },
+        {
+          "a": "c33",
+          "nombre_a": "Marco jamba izq",
+          "b": "c254",
+          "nombre_b": "BISH k0 A 1",
+          "volumen_mm3": 265.1
+        },
+        {
+          "a": "c33",
+          "nombre_a": "Marco jamba izq",
+          "b": "c373",
+          "nombre_b": "BISH k0 A 1med",
+          "volumen_mm3": 265.1
+        },
+        {
+          "a": "c34",
+          "nombre_a": "Marco jamba der",
+          "b": "c252",
+          "nombre_b": "BISH k4 B 0",
+          "volumen_mm3": 265.1
+        },
+        {
+          "a": "c34",
+          "nombre_a": "Marco jamba der",
+          "b": "c256",
+          "nombre_b": "BISH k4 B 1",
+          "volumen_mm3": 265.1
+        },
+        {
+          "a": "c34",
+          "nombre_a": "Marco jamba der",
+          "b": "c376",
+          "nombre_b": "BISH k4 B 1med",
+          "volumen_mm3": 265.1
+        }
+      ],
+      "avisos_pose": []
+    },
+    "ingenieria": null,
+    "estructura": [
+      {
+        "regla": "estabilidad al vuelco",
+        "estado": "aviso",
+        "detalle": "Sin anclajes a tierra declarados — la huella de apoyo es desconocida.",
+        "recomendacion": "Declara los apoyos con `ground` (o declare_structure) para verificar el vuelco."
+      },
+      {
+        "regla": "pre-entrega · pieza sin grupo ni unión",
+        "estado": "aviso",
+        "detalle": "24 pieza(s) sin grupo NI unión declarada (Marco dintel, Marco travesano, Vidrio 1, Vidrio 2, Vidrio 3, Vidrio 4…) — flotarían (no tienen camino de carga a tierra ni pertenecen a un sub-ensamblaje).",
+        "recomendacion": "Agrúpalas (create_group), decláralas ground/fasten, o quítalas si son escombro."
+      }
+    ]
+  },
+  "lints_pre_entrega": [
+    {
+      "regla": "pre-entrega · pieza sin grupo ni unión",
+      "estado": "aviso",
+      "detalle": "24 pieza(s) sin grupo NI unión declarada (Marco dintel, Marco travesano, Vidrio 1, Vidrio 2, Vidrio 3, Vidrio 4…) — flotarían (no tienen camino de carga a tierra ni pertenecen a un sub-ensamblaje).",
+      "recomendacion": "Agrúpalas (create_group), decláralas ground/fasten, o quítalas si son escombro."
+    }
+  ]
+}

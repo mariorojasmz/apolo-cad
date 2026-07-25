@@ -43,9 +43,16 @@ _ESTADO = {"ok": "OK", "aviso": "AVISO", "error": "ERROR"}
 
 
 def _verdict(rules: list[dict]) -> str:
-    estados = {r.get("estado") for r in rules}
+    """Veredicto global de la memoria. «Aprobado» EXIGE que algo se haya verificado: un
+    documento con cero verificaciones OK no aprueba nada — aprueba el vacío. Hallazgo del
+    SEGUNDO testigo (2026-07-24): un proyecto sin uniones ni requisitos declarados salía
+    «APROBADO CON AVISOS» con 0 OK, que es exactamente la clase de falso positivo que la
+    doctrina prohíbe."""
+    estados = [r.get("estado") for r in rules]
     if "error" in estados:
         return "NO CONFORME"
+    if not any(e == "ok" for e in estados):
+        return "NO CONCLUYENTE"
     if "aviso" in estados:
         return "APROBADO CON AVISOS"
     return "APROBADO"

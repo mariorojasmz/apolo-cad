@@ -3675,14 +3675,15 @@ def calc_report_pdf(
         ancho_paq = (ancho_paquete_mm if ancho_paquete_mm is not None
                      else req.get("ancho_paquete_mm"))
         velocidad = velocidad_m_s if velocidad_m_s is not None else float(req.get("velocidad_m_s") or 0)
-        if not carga or not largo_paq:
-            raise HTTPException(
-                status_code=400,
-                detail="Faltan la carga y/o el largo de paquete: declara los requisitos con "
-                       "set_requirements (carga_kg, largo_paquete_mm, …) o pasa los parámetros.",
-            )
+        # carga/largo de paquete son requisitos del VERTICAL transportadores: sin ellos se
+        # omiten las reglas de conveyor y la memoria se emite igual con las verificaciones
+        # UNIVERSALES (estructura/uniones/vuelco + FEA + cadenas de cotas). Exigirlos para
+        # todo bloqueaba la memoria de cualquier proyecto que no fuera una faja — hallazgo
+        # del SEGUNDO testigo (puerta de carpintería, 2026-07-24).
+        sin_req_conveyor = not carga or not largo_paq
         rules: list[dict] = []
-        conveyor = _conveyor_params_from_doc(DOC) or detect_conveyor(DOC.scene, DOC.variables_resolved)
+        conveyor = None if sin_req_conveyor else (
+            _conveyor_params_from_doc(DOC) or detect_conveyor(DOC.scene, DOC.variables_resolved))
         if conveyor:
             if req.get("inclinacion_deg") and not conveyor.get("inclinacion_deg"):
                 conveyor["inclinacion_deg"] = req["inclinacion_deg"]
@@ -3690,11 +3691,31 @@ def calc_report_pdf(
                                 velocidad_m_s=velocidad, ancho_paquete_mm=ancho_paq)
         rules += structure_engineering_check(
             DOC.scene, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
-            carga_kg=carga, rpm=(conveyor or {}).get("rpm_motor"),
+            carga_kg=carga or 0.0, rpm=(conveyor or {}).get("rpm_motor"),
             belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
         )
         rules += _fea_rules()  # página FEA en la memoria (con chequeo de vigencia)
         rules += _stackup_rules()  # V7.3: cadenas de cotas (stack-up) declaradas/auto
+        if sin_req_conveyor:
+            # DECLARAR lo omitido: una memoria que calla lo que no verificó miente por
+            # ausencia. Va como regla-aviso, así viaja a la misma página que el resto.
+            rules.append({
+                "regla": "alcance de la memoria",
+                "estado": "aviso",
+                "detalle": "Sin `carga_kg` / `largo_paquete_mm` declarados: se OMITEN las "
+                           "verificaciones de transportador (arrastre, adherencia del tambor, "
+                           "capacidad, velocidad). Lo verificado aquí es estructural y de "
+                           "uniones.",
+                "recomendacion": "Declara los requisitos con set_requirements si el equipo "
+                                 "transporta producto.",
+            })
+        hay_piezas = any(getattr(f, "visible", True) for f in DOC.scene.values())
+        if not rules or not hay_piezas:
+            raise HTTPException(
+                status_code=400,
+                detail="No hay nada que documentar: el modelo está vacío o no declara "
+                       "uniones, apoyos ni requisitos. Modela/declara y reintenta.",
+            )
         png = None
         try:
             vis = {fid: f for fid, f in DOC.scene.items() if getattr(f, "visible", True)}
@@ -3708,7 +3729,13 @@ def calc_report_pdf(
             {"rev": rev, "date": date.today().isoformat(), "note": "Memoria de cálculo"}
         ]
         # los requisitos completos van a la portada; los efectivos ganan
-        req_efectivos = {**req, "carga_kg": carga, "largo_paquete_mm": largo_paq}
+        # sin requisitos de transportador NO se inyectan claves vacías a la portada (un
+        # «carga_kg: None» impreso es peor que la ausencia del renglón)
+        req_efectivos = dict(req)
+        if carga:
+            req_efectivos["carga_kg"] = carga
+        if largo_paq:
+            req_efectivos["largo_paquete_mm"] = largo_paq
         if ancho_paq:
             req_efectivos["ancho_paquete_mm"] = ancho_paq
         if velocidad:
