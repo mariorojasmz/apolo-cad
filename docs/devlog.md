@@ -4257,3 +4257,21 @@ pre-existente da el mismo ratio 2×): no es un defecto de las entidades nuevas.
 throttle en el SketcherDialog). Es React y su verificación es manual por el usuario, que
 es quien prueba la UI a mano en este proyecto. Croquis 5 → 6 (no 6.5: el ancla del plan
 incluía la UI). Tests 1297 → 1315.
+
+### V6.6 — cierre: la UI del croquis vivo (mismo día)
+
+El backend se había entregado dejando la UI declarada como pendiente «porque la verifica
+el usuario». Era una razón débil —el flujo de la casa es justamente que yo implemento la
+interfaz y él la prueba— así que se completó: **herramienta «∿ Spline»** (cada clic añade
+un punto de control, con botones para cerrarla como perfil o dejarla como tramo abierto),
+**«⬭ Elipse»** (clic en el centro + semiejes y rotación), dibujo de ambas en el canvas
+SVG (la elipse con `transform` sobre su centro; la spline como polilínea de control
+punteada — la curva exacta la construye build123d al extruir) y el **ARRASTRE** con la
+herramienta Seleccionar: dead-zone de 5 px antes de activar, cola EL-ÚLTIMO-GANA contra
+`/api/sketch/drag` (patrón `pumpEdit`: no una llamada por píxel), punto en verde mientras
+se arrastra y COMMIT de las posiciones resueltas al soltar.
+
+`npm run build` limpio (tsc + vite, 1828 módulos) y verificado que las cadenas nuevas
+están en el bundle servido. La prueba interactiva del diálogo queda para el usuario, como
+el resto de la UI. Croquis 5 → **6.5** (el ancla completa del plan) y **V6.6 pasa a
+`done/`: sin planes activos, todos los roadmaps V1–V7 cerrados**.

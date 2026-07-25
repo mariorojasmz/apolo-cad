@@ -189,8 +189,13 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   {sketch, point_id, target_xy} READ-ONLY — soft-constraint por SIEMBRA (el punto
   entra en el cursor y las DURAS mandan), funciona en los DOS motores porque no toca
   sus internos; devuelve `movido_mm`/`sigue_al_cursor` (con dof=0 el croquis no se
-  deforma y se DECLARA). UI del arrastre y de las herramientas Spline/Elipse:
-  PENDIENTE (React + verificación manual del usuario).
+  deforma y se DECLARA). **UI (SketcherDialog)**: herramientas «∿ Spline» (clics =
+  puntos de control → cerrar como perfil o dejar abierta) y «⬭ Elipse» (clic en el
+  centro + semiejes/rotación), dibujo de ambas en el canvas, y ARRASTRE de puntos con
+  la herramienta Seleccionar: dead-zone de 5 px + cola EL-ÚLTIMO-GANA contra
+  `/api/sketch/drag` (patrón `pumpEdit`, no una llamada por píxel), preview en verde
+  mientras se arrastra y COMMIT de las posiciones resueltas al soltar. `npm run build`
+  limpio; la prueba interactiva la hace el usuario (flujo de la casa).
 - **Chapa avanzada (V5.5, `library/sheetmetal.py`)**: `create_sheet_metal` acepta
   `flaps` (lista de FlapSpec: pestaña por lado con `child` de un nivel — perfiles
   C/Z/hem, `direccion` interior/exterior — + `holes`/`cutouts` propios) y `k_factor`
@@ -1000,7 +1005,7 @@ de RESULTADOS de arriba. Veredicto por FEATURES: como CAD GENERAL ~10-15 % de SW
 (kernel nivel FreeCAD — una CUÑA, no un reemplazo); como herramienta del VERTICAL cubre
 ~80 % del flujo autónomo — categoría que los grandes no ocupan. Ejes: IA-nativa/API-first
 **9.5** (el moat) · kernel OCCT 6.5 · paramétrico 6.5 (V6.4: condicionales + faja 38 100 %
-paramétrica + tablas de diseño) · croquis 6 (PlaneGCS + spline/elipse + drag backend V6.6; falta la UI del arrastre) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
+paramétrica + tablas de diseño) · croquis 6.5 (PlaneGCS + spline/elipse + arrastre en vivo, V6.6) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
 soundness/gravity sigue siendo único) · planos 7.5 (V7.2: soldadura ISO 2553 + tol. ISO 2768 +
 acabados ISO 1302 + datums · V7.2c: fit por lámina, revolución≠sierra, sin retoque humano) ·
 simulación 5 (analítico+MuJoCo+FEA lineal de pieza Y de ENSAMBLAJE bonded multi-material V7.4;
@@ -1113,10 +1118,10 @@ verdes**. Un ítem por vez, con plan formal.
   encolan como job con recibo (`?async=true` → `202 {job_id}` + long-poll `get_job`); el
   cliente fino espera 90 s y devuelve el RECIBO si no llega — un timeout ya no deja al
   agente ciego ni lo empuja a REST crudo (evidencia: perezosa 66). Detalle: § Ergonomía MCP.
-- **V6.6 Croquis vivo** — **BACKEND HECHO (2026-07-24)**: spline + elipse (geometría,
-  solver en ambos motores, extrusión) y `POST /api/sketch/drag` read-only; 18 tests
-  parametrizados. 5→6. **UI PENDIENTE** (herramientas Spline/Elipse y arrastre en el
-  SketcherDialog: React + verificación manual). Plan original
+- **V6.6 Croquis vivo** — **HECHO (2026-07-24)**: spline + elipse (geometría, solver en
+  ambos motores, extrusión), `POST /api/sketch/drag` read-only y la UI del
+  SketcherDialog (herramientas Spline/Elipse + arrastre con dead-zone y cola
+  el-último-gana). 18 tests parametrizados + build de UI limpio. 5→6.5. Plan
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
 

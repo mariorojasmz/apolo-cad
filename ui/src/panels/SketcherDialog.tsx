@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useStore } from "../state/store";
 
 /* Editor de croquis 2D restringido. Filosofía: dibuja A OJO, restringe, y el
@@ -7,13 +7,18 @@ import { useStore } from "../state/store";
 
 type Pt = [number, number];
 interface Entity {
-  type: "line" | "circle" | "arc";
+  type: "line" | "circle" | "arc" | "spline" | "ellipse";
   id: string;
   from?: string;
   to?: string;
   center?: string;
   radius?: number;
   ccw?: boolean;
+  points?: string[]; // spline (V6.6): puntos de CONTROL, son puntos del croquis
+  closed?: boolean;  // spline cerrada = contorno/agujero
+  rx?: number;       // elipse (V6.6)
+  ry?: number;
+  rotation?: number;
 }
 interface Constraint {
   type: string;
@@ -40,7 +45,7 @@ interface SolveResult {
 
 const W = 520;
 const H = 390;
-type Tool = "sel" | "punto" | "linea" | "circulo" | "arco";
+type Tool = "sel" | "punto" | "linea" | "circulo" | "arco" | "spline" | "elipse";
 
 const EMPTY: SketchData = { points: {}, entities: [], constraints: [] };
 
@@ -57,6 +62,8 @@ export default function SketcherDialog() {
   const [sel, setSel] = useState<string[]>([]);
   const [pendingLine, setPendingLine] = useState<string | null>(null);
   const [pendingArc, setPendingArc] = useState<string[]>([]); // centro → inicio → fin
+  const [pendingSpline, setPendingSpline] = useState<string[]>([]); // V6.6: clics = puntos de control
+  const [drag, setDrag] = useState<{ pid: string; x0: number; y0: number; live: boolean } | null>(null);
   const [name, setName] = useState("Croquis extruido");
   const [op, setOp] = useState<"extrude" | "revolve" | "sweep" | "loft">("extrude");
   const [plane, setPlane] = useState("xy");
@@ -173,9 +180,92 @@ export default function SketcherDialog() {
         }
         setPendingArc([]);
       }
+    } else if (tool === "spline") {
+      // V6.6: cada clic añade un punto de CONTROL; el botón «Cerrar spline» la crea
+      setPendingSpline((cur) => (cur.includes(pid) ? cur : [...cur, pid]));
+    } else if (tool === "elipse") {
+      // V6.6: el punto clicado es el CENTRO; semiejes por prompt (el solver los respeta)
+      const rx = Number(window.prompt("Semieje X de la elipse (mm):", "40"));
+      if (rx > 0) {
+        const ry = Number(window.prompt("Semieje Y (mm):", "25"));
+        if (ry > 0) {
+          const rot = Number(window.prompt("Rotación (grados):", "0")) || 0;
+          mutate((s) => ({
+            ...s,
+            entities: [...s.entities,
+              { type: "ellipse", id: `e${seq}`, center: pid, rx, ry, rotation: rot }],
+          }));
+          setSeq(seq + 1);
+        }
+      }
     } else {
       setSel((cur) => (cur.includes(pid) ? cur.filter((x) => x !== pid) : [...cur, pid].slice(-3)));
     }
+  };
+
+  /* V6.6 — ARRASTRE EN VIVO. pointerdown arma un drag PENDIENTE (live:false); solo pasa a
+     vivo tras superar la dead-zone de 5 px (mismo umbral que el click, como `movePick` del
+     viewport: sin esto un temblor de 1 px movería el punto). Durante el arrastre se llama
+     /api/sketch/drag con cola EL-ÚLTIMO-GANA (patrón `pumpEdit`, no una llamada por píxel):
+     el endpoint es read-only, así que soltar sin cambios no deja rastro. */
+  const dragBusy = useRef(false);
+  const dragNext = useRef<Pt | null>(null);
+
+  const pumpDrag = async (pid: string) => {
+    if (dragBusy.current) return;
+    const target = dragNext.current;
+    if (!target) return;
+    dragNext.current = null;
+    dragBusy.current = true;
+    try {
+      const res = await fetch("/api/sketch/drag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sketch, point_id: pid, target_xy: target }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        // preview: se pintan las posiciones resueltas SIN tocar el croquis de trabajo
+        setSolved(d);
+      }
+    } catch {
+      /* el arrastre es preview: un fallo de red no rompe el diálogo */
+    } finally {
+      dragBusy.current = false;
+      if (dragNext.current) void pumpDrag(pid);
+    }
+  };
+
+  const onPointPointerDown = (pid: string, e: React.PointerEvent) => {
+    if (tool !== "sel") return;         // arrastrar solo con la herramienta de selección
+    e.stopPropagation();
+    setDrag({ pid, x0: e.clientX, y0: e.clientY, live: false });
+  };
+
+  const onCanvasPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x0;
+    const dy = e.clientY - drag.y0;
+    if (!drag.live && Math.hypot(dx, dy) < 5) return;   // DEAD-ZONE
+    if (!drag.live) setDrag({ ...drag, live: true });
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragNext.current = toWorld(e.clientX - rect.left, e.clientY - rect.top);
+    void pumpDrag(drag.pid);
+  };
+
+  const onCanvasPointerUp = () => {
+    if (drag?.live && solved?.points) {
+      // al soltar, las posiciones resueltas se COMITEAN al croquis (un solo cambio)
+      const finales = solved.points;
+      mutate((s) => ({
+        ...s,
+        points: Object.fromEntries(
+          Object.entries(s.points).map(([k, v]) => [k, (finales[k] as Pt) ?? v]),
+        ),
+      }));
+    }
+    setDrag(null);
+    dragNext.current = null;
   };
 
   const onEntityClick = (eid: string, e: React.MouseEvent) => {
@@ -271,9 +361,10 @@ export default function SketcherDialog() {
       <div className="modal modal-sketch" onClick={(e) => e.stopPropagation()}>
         <div className="drawing-toolbar">
           <h3>✏ Croquis</h3>
-          {(["punto", "linea", "circulo", "arco", "sel"] as Tool[]).map((t) => (
-            <button key={t} className={tool === t ? "active" : ""} onClick={() => { setTool(t); setPendingLine(null); setPendingArc([]); }}>
-              {{ punto: "+ Punto", linea: "∕ Línea", circulo: "○ Círculo", arco: "⌒ Arco", sel: "⊹ Seleccionar" }[t]}
+          {(["punto", "linea", "circulo", "arco", "spline", "elipse", "sel"] as Tool[]).map((t) => (
+            <button key={t} className={tool === t ? "active" : ""} onClick={() => { setTool(t); setPendingLine(null); setPendingArc([]); setPendingSpline([]); }}>
+              {{ punto: "+ Punto", linea: "∕ Línea", circulo: "○ Círculo", arco: "⌒ Arco",
+                 spline: "∿ Spline", elipse: "⬭ Elipse", sel: "⊹ Seleccionar" }[t]}
             </button>
           ))}
           {tool === "arco" && (
@@ -281,6 +372,29 @@ export default function SketcherDialog() {
               {["clic en el CENTRO", "clic en el INICIO", "clic en el FIN (ccw)"][pendingArc.length]}
             </span>
           )}
+          {tool === "spline" && (
+            <span className="hint">
+              {pendingSpline.length < 3
+                ? `clic en los puntos de control (${pendingSpline.length}/3 mín.)`
+                : `${pendingSpline.length} puntos —`}
+              {pendingSpline.length >= 3 && (
+                <>
+                  <button onClick={() => {
+                    mutate((s) => ({ ...s, entities: [...s.entities,
+                      { type: "spline", id: `sp${seq}`, points: pendingSpline, closed: true }] }));
+                    setSeq(seq + 1); setPendingSpline([]);
+                  }}>cerrar (perfil)</button>
+                  <button onClick={() => {
+                    mutate((s) => ({ ...s, entities: [...s.entities,
+                      { type: "spline", id: `sp${seq}`, points: pendingSpline, closed: false }] }));
+                    setSeq(seq + 1); setPendingSpline([]);
+                  }}>abierta (tramo)</button>
+                </>
+              )}
+            </span>
+          )}
+          {tool === "elipse" && <span className="hint">clic en el punto que será el CENTRO</span>}
+          {tool === "sel" && <span className="hint">arrastra un punto: el solver mantiene las restricciones</span>}
           <span className="spacer" />
           <button onClick={() => void solve()}>⚙ Resolver</button>
           <button className="ghost" onClick={closeSketcher}>Cancelar</button>
@@ -294,7 +408,15 @@ export default function SketcherDialog() {
         </div>
 
         <div className="sketch-body">
-          <svg className="sketch-canvas" width={W} height={H} onClick={onCanvasClick}>
+          <svg
+            className="sketch-canvas"
+            width={W}
+            height={H}
+            onClick={onCanvasClick}
+            onPointerMove={onCanvasPointerMove}
+            onPointerUp={onCanvasPointerUp}
+            onPointerLeave={onCanvasPointerUp}
+          >
             <rect width={W} height={H} fill="#fdfdfb" />
             {(() => {
               const [ox, oy] = toSvg([0, 0]);
@@ -322,6 +444,30 @@ export default function SketcherDialog() {
                 return (
                   <circle key={ent.id} cx={cx} cy={cy} r={r} fill="none"
                     stroke={seld ? "#d8762e" : "#1d2a43"} strokeWidth={seld ? 3.5 : 2}
+                    style={{ cursor: "pointer" }} onClick={(e) => onEntityClick(ent.id, e)} />
+                );
+              }
+              if (ent.type === "ellipse" && pts[ent.center!]) {
+                // V6.6: elipse (rx/ry en mm → px; rotación con transform sobre su centro)
+                const [cx, cy] = toSvg(pts[ent.center!]);
+                return (
+                  <ellipse key={ent.id} cx={cx} cy={cy}
+                    rx={(ent.rx ?? 10) * scale} ry={(ent.ry ?? 10) * scale}
+                    transform={ent.rotation ? `rotate(${-ent.rotation} ${cx} ${cy})` : undefined}
+                    fill="none" stroke={seld ? "#d8762e" : "#1d2a43"} strokeWidth={seld ? 3.5 : 2}
+                    style={{ cursor: "pointer" }} onClick={(e) => onEntityClick(ent.id, e)} />
+                );
+              }
+              if (ent.type === "spline" && (ent.points ?? []).every((p) => pts[p])) {
+                // V6.6: polilínea de control (aproximación fiel para el editor; la curva
+                // exacta la construye build123d al extruir)
+                const ctrl = (ent.points ?? []).map((p) => toSvg(pts[p]));
+                const d = ctrl.map(([x, y]) => `${x},${y}`).join(" ");
+                const Tag = ent.closed ? "polygon" : "polyline";
+                return (
+                  <Tag key={ent.id} points={d} fill="none"
+                    stroke={seld ? "#d8762e" : "#1d2a43"} strokeWidth={seld ? 3.5 : 2}
+                    strokeDasharray="6 3"
                     style={{ cursor: "pointer" }} onClick={(e) => onEntityClick(ent.id, e)} />
                 );
               }
@@ -353,8 +499,18 @@ export default function SketcherDialog() {
               const [x, y] = toSvg(p);
               const seld = sel.includes(pid) || pendingLine === pid;
               return (
-                <g key={pid} style={{ cursor: "pointer" }} onClick={(e) => onPointClick(pid, e)}>
-                  <circle cx={x} cy={y} r={seld ? 7 : 5} fill={seld ? "#d8762e" : "#3a6fd8"} />
+                <g
+                  key={pid}
+                  style={{ cursor: tool === "sel" ? "grab" : "pointer" }}
+                  onClick={(e) => onPointClick(pid, e)}
+                  onPointerDown={(e) => onPointPointerDown(pid, e)}
+                >
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={seld || drag?.pid === pid ? 7 : 5}
+                    fill={drag?.pid === pid && drag.live ? "#2ea36b" : seld ? "#d8762e" : "#3a6fd8"}
+                  />
                   <text x={x + 8} y={y - 6} fontSize={10} fill="#5a6478">{pid}</text>
                 </g>
               );
