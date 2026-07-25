@@ -4223,3 +4223,37 @@ del 28 — el dato que explica el hallazgo 4.
 obtiene menos sin saber por qué). El siguiente paso natural es un «informe de completitud
 de declaración» al generar el paquete, que convierta esa degradación en guía accionable.
 Tests 1291 → 1297.
+
+## V6.6 — croquis vivo: spline, elipse y arrastre (BACKEND) (Fable, 2026-07-24)
+
+El último ítem de los roadmaps V1–V7, marcado «por demanda» desde que se escribió. Se
+implementa el BACKEND completo de sus dos frentes; la UI queda declarada pendiente.
+
+**Entidades nuevas.** `spline` (`{points:[pid…], closed}`) y `ellipse`
+(`{center, rx, ry, rotation}`). La decisión de diseño que las hace baratas: **sus puntos
+de control y su centro SON puntos del croquis**, no coordenadas sueltas — así el solver
+los mueve, se restringen con coincidente/distancia y se arrastran sin escribir una línea
+extra (el plan lo pedía «gratis» y así salió). La CURVA no se registra en el GCS, de modo
+que la tangencia a spline/elipse NO está soportada: se rechaza con error claro en vez de
+fingir que se cumple. Una cerrada actúa como contorno o agujero (misma regla que el
+círculo); una abierta es un tramo del lazo y respeta el recorrido en reversa, el gotcha
+que ya costó un bug con los arcos.
+
+**Arrastre.** `POST /api/sketch/drag` {sketch, point_id, target_xy}, READ-ONLY (es el
+preview que la UI pintará). Soft-constraint por **siembra**, no por peso: el punto entra
+al solver en la posición del cursor y las restricciones DURAS mandan. La ventaja es que
+funciona idéntico en los DOS motores porque no toca sus internos; la limitación se
+declara en la respuesta (`movido_mm`, `sigue_al_cursor`): con dof=0 el croquis no se
+deforma y el punto vuelve a su sitio — que es el comportamiento correcto, no un fallo.
+
+Verificado en ambos motores (18 tests parametrizados): área de elipse EXACTA contra
+π·rx·ry, rotación que intercambia el bbox sin cambiar el área, spline cerrada que extruye,
+restricción de distancia entre puntos de control que la spline sigue, elipse como agujero
+en un rectángulo (área = rect − π·rx·ry), y el arrastre manteniendo las cuatro longitudes
+del cuadrado. De paso se confirmó que `sketch_extrude` es SIMÉTRICO por diseño (el círculo
+pre-existente da el mismo ratio 2×): no es un defecto de las entidades nuevas.
+
+**Declarado PENDIENTE**: la UI (herramientas Spline/Elipse y el arrastre con dead-zone y
+throttle en el SketcherDialog). Es React y su verificación es manual por el usuario, que
+es quien prueba la UI a mano en este proyecto. Croquis 5 → 6 (no 6.5: el ancla del plan
+incluía la UI). Tests 1297 → 1315.

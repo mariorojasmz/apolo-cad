@@ -2563,6 +2563,44 @@ def solve_sketch_endpoint(body: SketchIn) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+class SketchDragIn(BaseModel):
+    """Arrastre de un punto del croquis (V6.6 A): el punto va al cursor y el croquis se
+    re-resuelve cumpliendo sus restricciones DURAS."""
+    sketch: dict
+    point_id: str
+    target_xy: list[float]
+
+
+@app.post("/api/sketch/drag")
+def drag_sketch_endpoint(body: SketchDragIn) -> dict:
+    """Re-resuelve el croquis con `point_id` SEMBRADO en `target_xy` — READ-ONLY (no
+    persiste: es el preview que la UI pinta durante el arrastre).
+
+    Soft-constraint por SIEMBRA, no por peso: el punto arrastrado entra al solver en la
+    posición del cursor y las restricciones DURAS mandan; lo que queda libre se mantiene
+    cerca del boceto (la regularización del motor). Funciona igual en los dos motores
+    —planegcs y scipy— porque no toca sus internos; a cambio, no es el DragPoint de
+    PlaneGCS: con dof=0 el croquis NO se deforma y el punto vuelve a su sitio, que es el
+    comportamiento correcto y así se declara en `movido_mm`."""
+    from apolo.kernel.sketch_solver import SketchError, solve_sketch
+
+    if body.point_id not in (body.sketch.get("points") or {}):
+        raise HTTPException(status_code=404,
+                            detail=f"El croquis no tiene el punto '{body.point_id}'")
+    if len(body.target_xy) < 2:
+        raise HTTPException(status_code=400, detail="target_xy = [x, y]")
+    tx, ty = float(body.target_xy[0]), float(body.target_xy[1])
+    semilla = {**body.sketch, "points": {**body.sketch["points"], body.point_id: [tx, ty]}}
+    try:
+        solved = solve_sketch(semilla)
+    except SketchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    px, py = solved["points"][body.point_id][:2]
+    solved["movido_mm"] = round(((px - tx) ** 2 + (py - ty) ** 2) ** 0.5, 4)
+    solved["sigue_al_cursor"] = solved["movido_mm"] <= 1e-3
+    return solved
+
+
 class ScriptTestIn(BaseModel):
     code: str
 

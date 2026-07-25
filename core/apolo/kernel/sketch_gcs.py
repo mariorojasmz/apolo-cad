@@ -244,6 +244,13 @@ def solve(sketch: dict) -> dict:
             gcs_arc[e["id"]] = s.add_arc_cse(
                 gcs_pt[e["center"]], gcs_pt[start], gcs_pt[end], r0, sa, ea
             )
+        elif e["type"] in ("spline", "ellipse"):
+            # V6.6: sus PUNTOS (control / centro) ya son puntos del croquis y el solver
+            # los mueve como cualquier otro — se restringen con coincidente/distancia.
+            # La CURVA no se registra en el GCS: las restricciones sobre la curva misma
+            # (tangencia a spline/elipse) NO están soportadas y se rechazan al validar,
+            # en vez de fingir que se cumplen.
+            pass
         else:
             raise SketchError(f"Tipo de entidad desconocido: '{e['type']}'")
 

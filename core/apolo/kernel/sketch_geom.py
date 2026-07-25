@@ -71,10 +71,33 @@ def _arc_mid(center, start, end, ccw: bool):
     return (center[0] + r * math.cos(am), center[1] + r * math.sin(am))
 
 
+def _closed_face(ent: dict, coord, rep: dict, radii: dict):
+    """Cara de una entidad CERRADA (V6.6): elipse o spline cerrada. Devuelve la Face en
+    coordenadas locales del croquis."""
+    from build123d import Ellipse, Plane, Pos, Rot, Spline, make_face
+
+    if ent["type"] == "ellipse":
+        cx, cy = coord(rep[ent["center"]])
+        rx, ry = float(ent["rx"]), float(ent["ry"])
+        if rx <= 0 or ry <= 0:
+            raise SketchError(f"La elipse '{ent['id']}' necesita rx y ry > 0")
+        face = Ellipse(rx, ry)
+        rot = float(ent.get("rotation", 0.0) or 0.0)
+        if rot:
+            face = Rot(0, 0, rot) * face
+        return Pos(cx, cy) * face
+    pts = [coord(rep[p]) for p in ent["points"]]
+    # spline CERRADA: build123d cierra el lazo repitiendo el primer punto (periódica
+    # daría una curva distinta a la que el usuario dibujó punto a punto)
+    if pts[0] != pts[-1]:
+        pts = pts + [pts[0]]
+    return make_face(Plane.XY * Spline(*[(x, y) for x, y in pts]))
+
+
 def sketch_to_face(sketch: dict):
     """Resuelve el croquis y construye la cara 2D (en coordenadas locales XY).
     Devuelve (face, solved)."""
-    from build123d import Circle, Line, Pos, ThreePointArc, make_face
+    from build123d import Circle, Line, Pos, Spline, ThreePointArc, make_face
 
     solved = solve_sketch(sketch)
     if not solved["ok"]:
@@ -90,6 +113,7 @@ def sketch_to_face(sketch: dict):
 
     segments = []
     circles = []
+    closed_shapes = []          # V6.6: elipses y splines CERRADAS (perfil o agujero)
     for ent in sketch.get("entities") or []:
         if ent["type"] == "line":
             a, b = rep[ent["from"]], rep[ent["to"]]
@@ -100,6 +124,18 @@ def sketch_to_face(sketch: dict):
             segments.append((rep[ent["from"]], rep[ent["to"]], ent))
         elif ent["type"] == "circle":
             circles.append(ent)
+        elif ent["type"] == "ellipse":
+            closed_shapes.append(ent)
+        elif ent["type"] == "spline":
+            # V6.6: los puntos de control son PUNTOS del croquis → el solver los mueve y
+            # se pueden restringir/arrastrar como cualquier otro (nada de coords sueltas)
+            ctrl = [rep[p] for p in (ent.get("points") or [])]
+            if len(ctrl) < 3:
+                raise SketchError(f"La spline '{ent['id']}' necesita al menos 3 puntos de control")
+            if ent.get("closed"):
+                closed_shapes.append(ent)
+            else:
+                segments.append((ctrl[0], ctrl[-1], ent))
         else:
             raise SketchError(f"Entidad desconocida '{ent['type']}'")
 
@@ -113,6 +149,11 @@ def sketch_to_face(sketch: dict):
             end = coord(item["end"])
             if ent["type"] == "line":
                 edges.append(Line(start, end))
+            elif ent["type"] == "spline":      # V6.6: tramo abierto del lazo
+                pts = [coord(rep[p]) for p in ent["points"]]
+                if item["start"] != rep[ent["points"][0]]:
+                    pts.reverse()              # el lazo la recorre en REVERSA
+                edges.append(Spline(*[(x, y) for x, y in pts]))
             else:
                 # si el lazo recorre el arco EN REVERSA (start/end intercambiados por
                 # _chain_loop), el sentido efectivo se invierte — sin esto el punto
@@ -126,12 +167,23 @@ def sketch_to_face(sketch: dict):
         for circle in circles:  # círculos = agujeros
             cx, cy = coord(rep[circle["center"]])
             face = face - Pos(cx, cy) * Circle(radii[circle["id"]])
-    elif circles:
-        cx, cy = coord(rep[circles[0]["center"]])
-        face = Pos(cx, cy) * Circle(radii[circles[0]["id"]])
-        for circle in circles[1:]:
-            hx, hy = coord(rep[circle["center"]])
-            face = face - Pos(hx, hy) * Circle(radii[circle["id"]])
+        for sh in closed_shapes:               # V6.6: elipse/spline cerrada = agujero
+            face = face - _closed_face(sh, coord, rep, radii)
+    elif circles or closed_shapes:
+        # el PRIMER cerrado es el contorno; el resto, agujeros (misma regla que círculos)
+        orden = ([("c", c) for c in circles] + [("s", s) for s in closed_shapes])
+        kind, first = orden[0]
+        if kind == "c":
+            cx, cy = coord(rep[first["center"]])
+            face = Pos(cx, cy) * Circle(radii[first["id"]])
+        else:
+            face = _closed_face(first, coord, rep, radii)
+        for kind, ent in orden[1:]:
+            if kind == "c":
+                hx, hy = coord(rep[ent["center"]])
+                face = face - Pos(hx, hy) * Circle(radii[ent["id"]])
+            else:
+                face = face - _closed_face(ent, coord, rep, radii)
     else:
         raise SketchError("El croquis no tiene entidades que formen un perfil")
 

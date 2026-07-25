@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1297 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1314 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1297 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1314 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -179,7 +179,18 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   VERIFICADOR geométrico común (mismas fórmulas en ambos motores). OJO sketch_geom:
   si el lazo recorre un arco en reversa, el ccw efectivo se invierte (bug corregido).
   SketcherDialog: herramienta Arco (3 clics: centro→inicio→fin) + botones nuevos +
-  panel DOF/redundantes/conflictivas. Arrastre en vivo (soft-constraints) PENDIENTE.
+  panel DOF/redundantes/conflictivas. **V6.6 (2026-07-24, BACKEND)**: entidades
+  **SPLINE** (`{points:[pid…], closed}`) y **ELIPSE** (`{center, rx, ry, rotation}`) —
+  sus puntos de control/centro SON puntos del croquis, así que el solver los mueve y
+  se restringen/arrastran como cualquier otro; la CURVA no se registra en el GCS →
+  tangencia a spline/elipse NO soportada (se rechaza, no se finge). Cerradas =
+  contorno o agujero (misma regla que el círculo); abierta = tramo del lazo (respeta
+  el recorrido en reversa, como el arco). **Arrastre**: `POST /api/sketch/drag`
+  {sketch, point_id, target_xy} READ-ONLY — soft-constraint por SIEMBRA (el punto
+  entra en el cursor y las DURAS mandan), funciona en los DOS motores porque no toca
+  sus internos; devuelve `movido_mm`/`sigue_al_cursor` (con dof=0 el croquis no se
+  deforma y se DECLARA). UI del arrastre y de las herramientas Spline/Elipse:
+  PENDIENTE (React + verificación manual del usuario).
 - **Chapa avanzada (V5.5, `library/sheetmetal.py`)**: `create_sheet_metal` acepta
   `flaps` (lista de FlapSpec: pestaña por lado con `child` de un nivel — perfiles
   C/Z/hem, `direccion` interior/exterior — + `holes`/`cutouts` propios) y `k_factor`
@@ -989,8 +1000,7 @@ de RESULTADOS de arriba. Veredicto por FEATURES: como CAD GENERAL ~10-15 % de SW
 (kernel nivel FreeCAD — una CUÑA, no un reemplazo); como herramienta del VERTICAL cubre
 ~80 % del flujo autónomo — categoría que los grandes no ocupan. Ejes: IA-nativa/API-first
 **9.5** (el moat) · kernel OCCT 6.5 · paramétrico 6.5 (V6.4: condicionales + faja 38 100 %
-paramétrica + tablas de diseño) · croquis 5 (PlaneGCS; falta arrastre
-en vivo) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
+paramétrica + tablas de diseño) · croquis 6 (PlaneGCS + spline/elipse + drag backend V6.6; falta la UI del arrastre) · ensamblaje 6 (V6.3: multi-mate + conectores por ancla/arista + reporte de DOF;
 soundness/gravity sigue siendo único) · planos 7.5 (V7.2: soldadura ISO 2553 + tol. ISO 2768 +
 acabados ISO 1302 + datums · V7.2c: fit por lámina, revolución≠sierra, sin retoque humano) ·
 simulación 5 (analítico+MuJoCo+FEA lineal de pieza Y de ENSAMBLAJE bonded multi-material V7.4;
@@ -1103,7 +1113,10 @@ verdes**. Un ítem por vez, con plan formal.
   encolan como job con recibo (`?async=true` → `202 {job_id}` + long-poll `get_job`); el
   cliente fino espera 90 s y devuelve el RECIBO si no llega — un timeout ya no deja al
   agente ciego ni lo empuja a REST crudo (evidencia: perezosa 66). Detalle: § Ergonomía MCP.
-- **V6.6 Croquis vivo** — arrastre soft-constraints, splines/elipses. 5→6.5. PLANEADO
+- **V6.6 Croquis vivo** — **BACKEND HECHO (2026-07-24)**: spline + elipse (geometría,
+  solver en ambos motores, extrusión) y `POST /api/sketch/drag` read-only; 18 tests
+  parametrizados. 5→6. **UI PENDIENTE** (herramientas Spline/Elipse y arrastre en el
+  SketcherDialog: React + verificación manual). Plan original
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
 
