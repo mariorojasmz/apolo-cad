@@ -4144,3 +4144,38 @@ holgura derivada del ancho y no de una trayectoria de desmontaje).
 ninguna 4, declarando cuatro residuales cada una: la nota es deliberadamente conservadora.
 Y las tres son 100 % de CÓDIGO — el modelo 38 no se tocó en ninguna, así que el salto se
 aplica a cualquier proyecto. Tests 1272 → 1281.
+
+## E5 — el manual que dice con qué llave y a qué par (Fable, 2026-07-24)
+
+Tras cerrar V7.6 el tablero cambió: E2 dejó de ser la brecha y los criterios en 3.00
+pasaron a ser E4, E5 y E6. Se ataca **E5** por ratio: solo tiene 2 criterios con peso 10,
+así que cada punto vale más que en cualquier otro eje.
+
+**Par de apriete calculado.** `bolts.py` gana `tightening_torque_nm` — `T = K·d·(0.7·A_s·
+R_y)`, con `TORQUE_K` por condición de rosca (seco 0.20 · zincado 0.18 · lubricado 0.14) —
+y `wrench_size_mm` (las entrecaras que ya tabulaba `HEX_HEAD_MM`). El manual pasa de
+«apretar en cruz» a «**M12 → 91 N·m (llave 18 mm)**», con la condición DECLARADA en la
+misma línea. No es una tabla copiada: sale del mismo módulo que dimensiona las uniones en
+la memoria, así que el par y la capacidad del perno no pueden divergir. Verificado contra
+tablas comerciales 8.8 en seco: M8 26 (~25) · M12 91 (~87) · M14 144 (~137) · M16 225
+(~214) — todos al ~5 %. Sin métrica identificable en el paso NO se emite nota: un par
+inventado aprieta de más o de menos, y ambas cosas rompen la unión.
+
+**Orden intra-paso.** `_step_rows` ordena las piezas del paso por la **z de la BASE**
+(no del centro: una pieza alta con base baja se monta antes que una plana apoyada
+encima). Cierra el residual «orden fino intra-grupo» que el manual arrastraba declarado
+desde V7.2b. En el 38 el paso 1 pasaba de «Placa (z 0) → **Disco anti-giro (z 692)** →
+**Ménsula motor (z 652)** → Pata (z 70)» a «Placa → Pies (z 10) → Patas (z 70) →
+Travesaños (z 100) → Ménsula (z 652) → Disco (z 692)»: el montador ya no lee «coloque el
+disco anti-giro» antes que las patas que lo sostienen.
+
+**E5.1 = 3.5 · E5.2 = 3.75 → E5 = 3.625 (90.6 %)**, global v2 81.2 → **≈82.8 %** (serie
+74 → 77 → 77.6 → 78.4 → 78.6 → 78.8 → 79.6 → 80.4 → 81.2 → 82.8). Residuales declarados:
+sin criterio de verificación por paso ni tiempos, sin explosionada, el grado se asume 8.8
+y la condición de rosca es fija (conservadora). 100 % de código: el 38 no se tocó.
+Tests 1281 → 1291.
+
+**Reserva metodológica anotada en la calificación**: son DIEZ iteraciones sobre el mismo
+testigo. Que las mejoras de código generalicen se presume, no se ha verificado — el
+siguiente paso acordado con el usuario es correr el paquete completo sobre un proyecto
+distinto (segundo testigo).

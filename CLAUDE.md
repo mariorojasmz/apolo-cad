@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1281 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1291 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1281 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-07-22)**: 1291 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -627,6 +627,17 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   catálogo no son homogéneas (`potencia_kW`) → lectura case-insensitive. Testigo 38: 6
   apoyos 39.6–96.3 kg (Σ = 407.7 vs 407.5 de masa+carga ✓), máx = 1.42× el uniforme.
 
+- **Manual: par de apriete CALCULADO + orden intra-paso (E5 — 2026-07-24)**:
+  `bolts.py::tightening_torque_nm(size, grade, condicion, precarga)` = `T = K·d·(0.7·A_s·
+  R_y)` con `TORQUE_K` (seco 0.20 · zincado 0.18 · lubricado 0.14) — verificado contra
+  tablas comerciales 8.8 al ~5 % (M12 → 91 vs ~87 N·m) — y `wrench_size_mm` (entrecaras).
+  `assembly_manual._torque_note` los inyecta por paso («M12 → 91 N·m (llave 18 mm)»,
+  condición DECLARADA); sin métrica identificable NO emite nota (un par inventado aprieta
+  de más o de menos y ambas rompen la unión). `_step_rows` ordena las piezas del paso por
+  **z de la BASE** (abajo→arriba): cierra el residual «orden fino intra-grupo» de V7.2b —
+  en el 38 el disco anti-giro (z 692) y la ménsula del motor (z 652) salían ANTES que las
+  patas (z 70). E5 3.00 → 3.625 (90.6 %), global v2 81.2 → ≈82.8 %.
+
 ### Materiales (`library/materials.py`)
 - Registro data-driven (densidad/rayado/E/σ/costo) + `resolve_material` (override →
   catálogo → heurística por nombre → default del VERTICAL: `set_vertical('carpinteria')`
@@ -1032,7 +1043,13 @@ aquella con la que se fijó). **Fase C** (testigo `2026-07-23d/`): lámina de IN
 suministro) → **E2.1 = 3.75** → **global v2 ≈81.2 %**. **V7.6 CERRADO: E2 75.0 → 83.0 %**
 (las tres fases a 3.75 y ninguna a 4, declarando 4 residuales cada una → nota
 deliberadamente conservadora). Las tres son 100 % de CÓDIGO: el modelo no cambió, el
-generador mejoró (escala a todos los proyectos, no es un testigo afinado a mano). **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
+generador mejoró (escala a todos los proyectos, no es un testigo afinado a mano).
+**E5 (2026-07-24)**: par de apriete calculado + llave por paso y orden intra-paso
+abajo→arriba → E5 3.00 → **3.625 (90.6 %)**, **global v2 ≈82.8 %** (serie 74 → … →
+81.2 → 82.8). Los ejes que quedan en 3.00 son **E4 (BOM/cotización, peso 15 — el
+menos trabajado del proyecto)** y **E6 (paquete/interop)**. RESERVA declarada: son
+diez iteraciones sobre el MISMO testigo; que las mejoras de código generalicen NO
+está verificado — toca correr el paquete sobre un segundo proyecto. **D.1 RETIRADO por decisión razonada**: sustituir los patrones paramétricos de
 anclas por 24 inserts literales = regresión de parametricidad por cosmética de BOM (la
 cédula ya los lista como COMPRA; un ancla real no es DIN 933); si el negocio lo pide →
 familia «anclajes» + patrón de componentes. Brechas vivas: E2 fino (acabados/tolerancias)

@@ -313,19 +313,63 @@ def _wrap(text: str, width: int) -> list[str]:
 
 
 def _step_rows(stage_scene: dict) -> list[str]:
-    """Líneas «N× descripción · norma» de las piezas/herraje que se añaden en el paso."""
+    """Líneas «N× descripción · norma» de las piezas/herraje que se añaden en el paso,
+    ordenadas de ABAJO hacia ARRIBA (V7.6 E5): dentro de un paso el montador coloca
+    primero lo que queda debajo — el residual «orden fino intra-grupo» que el manual
+    declaraba desde V7.2b. El criterio es la z de la BASE de cada pieza (no su centro:
+    una pieza alta con base baja se monta antes que una plana apoyada encima)."""
     from apolo.library.bom import bom_from_scene
 
+    def _z_base(fid: str) -> float:
+        try:
+            return float(stage_scene[fid].shape.bounding_box().min.Z)
+        except Exception:
+            return 0.0
+
+    orden = {fid: i for i, fid in enumerate(sorted(stage_scene, key=_z_base))}
     rows = []
     for r in bom_from_scene(stage_scene):
         norma = f" · {r['norma']}" if r.get("norma") else ""
-        rows.append(f"{r['cantidad']}x  {str(r['descripcion'])[:30]}{norma}")
-    return rows
+        rows.append((orden.get(r.get("_rep"), 1 << 20),
+                     f"{r['cantidad']}x  {str(r['descripcion'])[:30]}{norma}"))
+    return [txt for _k, txt in sorted(rows, key=lambda t: t[0])]
+
+
+_SIZE_RE = re.compile(r"\bM(\d{1,2})\b")
+
+
+def _torque_note(stage: dict, scene: dict, catalog) -> str:
+    """«Par de apriete: M12 → 91 N·m (llave 18 mm)» para las métricas presentes en el
+    paso (V7.6 E5): el par se CALCULA de la precarga de diseño, no se copia de una tabla
+    genérica. Sin métrica identificable no se emite nota — un par inventado aprieta de
+    más o de menos, y ambas cosas rompen la unión. Métricas ordenadas y sin repetir."""
+    from apolo.library.engineering.bolts import tightening_torque_nm, wrench_size_mm
+
+    sizes: set[str] = set()
+    for fid in stage["ids"]:
+        feat = scene.get(fid)
+        nombre = getattr(feat, "name", "") or ""
+        comp = catalog.get(getattr(feat, "component", None) or "")
+        cand = f"{nombre} {getattr(comp, 'ref', '') if comp is not None else ''}"
+        m = _SIZE_RE.search(cand)
+        if m:
+            sizes.add(f"M{m.group(1)}")
+    partes = []
+    for s in sorted(sizes, key=lambda x: int(x[1:]))[:3]:
+        try:
+            partes.append(f"{s} → {tightening_torque_nm(s):.0f} N·m "
+                          f"(llave {wrench_size_mm(s):g} mm)")
+        except KeyError:
+            continue                      # métrica sin tabla → se omite, no se inventa
+    if not partes:
+        return ""
+    return " Par de apriete (8.8, rosca seca): " + " · ".join(partes) + "."
 
 
 def _instruction(stage: dict, scene: dict, catalog, n_new: int, n_done: int, n_total: int) -> str:
     head = _family_head(stage, scene, catalog)
-    return f"{head} Se añaden {n_new} pieza(s); montadas {n_done} de {n_total}."
+    return (f"{head}{_torque_note(stage, scene, catalog)} "
+            f"Se añaden {n_new} pieza(s); montadas {n_done} de {n_total}.")
 
 
 def _cover_page(W: float, H: float, *, project_name: str, png: bytes, stages: list[dict],

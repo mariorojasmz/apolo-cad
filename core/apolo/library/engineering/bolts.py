@@ -147,3 +147,35 @@ def bolt_utilization(
         else bolt_shear_capacity_n(size, grade)
     )
     return per_bolt / cap if cap > 0 else float("inf")
+
+
+# coeficiente de par K (VDI 2230 / práctica de taller): relaciona el par aplicado con la
+# precarga real. Depende del estado de la rosca, no del grado del perno.
+TORQUE_K = {"seco": 0.20, "lubricado": 0.14, "zincado": 0.18}
+
+
+def tightening_torque_nm(size: str, grade: str = "8.8", *, condicion: str = "seco",
+                         precarga: float = 0.70) -> float:
+    """Par de APRIETE recomendado (N·m) para alcanzar la precarga de diseño.
+
+        F_pre = precarga · A_s · Ry        T = K · d · F_pre
+
+    `precarga` = fracción del límite elástico (0.70 = práctica estándar para uniones
+    estructurales atornilladas; VDI 2230 admite 0.6-0.9 según control). `condicion` fija
+    K (seco 0.20 · zincado 0.18 · lubricado 0.14): el mismo par da MÁS precarga con la
+    rosca lubricada, por eso se declara. Puro; KeyError con mensaje si la métrica, el
+    grado o la condición no están tabulados — nunca un default silencioso."""
+    a_s, _rm, _alpha = _lookup(size, grade)
+    ry = GRADES[grade][1]
+    if condicion not in TORQUE_K:
+        raise KeyError(f"Condición de rosca desconocida '{condicion}' "
+                       f"(soportadas: {', '.join(TORQUE_K)})")
+    f_pre = float(precarga) * a_s * ry            # N
+    d = nominal_diameter_mm(size)                  # mm
+    return TORQUE_K[condicion] * d * f_pre / 1000.0  # N·mm → N·m
+
+
+def wrench_size_mm(size: str) -> float:
+    """Entrecaras de la llave (mm) para la cabeza hexagonal de esa métrica — el dato que
+    el montador necesita para elegir la herramienta antes de subir al equipo."""
+    return hex_head_mm(size)[0]
