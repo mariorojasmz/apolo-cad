@@ -751,12 +751,25 @@ class Document:
 
     def set_motion(self, name: str, keyframes: list[dict]) -> None:
         """Define los fotogramas clave de un estudio de movimiento CON NOMBRE (metadato, no
-        geometría). Lista vacía → borra el estudio. Pueden coexistir varios estudios."""
+        geometría). Lista vacía → borra el estudio. Pueden coexistir varios estudios.
+        Formato de fotograma: {"t": segundos, "values": {junta: valor}} — los valores de
+        junta van ANIDADOS en "values"; claves sueltas al nivel superior se RECHAZAN
+        (aceptarlas en silencio producía estudios que "reproducían" sin mover nada)."""
         name = str(name).strip()
         if not name:
             raise DocumentError("El estudio de movimiento necesita un nombre")
         clean: list[dict] = []
         for kf in keyframes:
+            if not isinstance(kf, dict):
+                raise DocumentError(
+                    'Cada fotograma debe ser un dict {"t": segundos, "values": {junta: valor}}'
+                )
+            extras = sorted(set(map(str, kf)) - {"t", "values"})
+            if extras:
+                raise DocumentError(
+                    f"Claves desconocidas en el fotograma: {', '.join(extras)} — los valores "
+                    'de junta van ANIDADOS: {"t": segundos, "values": {junta: valor}}'
+                )
             try:
                 t = float(kf["t"])
             except (KeyError, TypeError, ValueError) as exc:
@@ -766,7 +779,22 @@ class Document:
             values = kf.get("values") or {}
             if not isinstance(values, dict):
                 raise DocumentError("Los valores del fotograma deben ser {junta: valor}")
-            clean.append({"t": t, "values": {str(n): float(v) for n, v in values.items()}})
+            desconocidas = sorted(set(map(str, values)) - set(self.joints))
+            if desconocidas:
+                validas = ", ".join(sorted(self.joints)) or "ninguna declarada"
+                raise DocumentError(
+                    f"Juntas desconocidas en el fotograma: {', '.join(desconocidas)} "
+                    f"(válidas: {validas})"
+                )
+            try:
+                vals = {str(n): float(v) for n, v in values.items()}
+            except (TypeError, ValueError) as exc:
+                raise DocumentError("Cada valor de junta debe ser numérico") from exc
+            clean.append({"t": t, "values": vals})
+        if clean and not any(k["values"] for k in clean):
+            raise DocumentError(
+                "El estudio no mueve ninguna junta: todos los fotogramas tienen 'values' vacío"
+            )
         if clean:
             self.motion[name] = sorted(clean, key=lambda k: k["t"])
         else:

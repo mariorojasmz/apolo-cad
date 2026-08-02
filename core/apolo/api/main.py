@@ -2461,12 +2461,28 @@ def delete_stackup(body: StackupDeleteIn) -> dict:
         return {"ok": True}
 
 
+def _motion_values_or_400(name: str, kfs: list[dict]) -> None:
+    """Estudio persistido sin ningún 'values' (formato viejo/mal formado): mejor un 400
+    accionable que 'reproducir' un recorrido que no mueve ninguna junta."""
+    if kfs and not any(k.get("values") for k in kfs):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"El estudio '{name}' no tiene valores de junta en ningún fotograma — "
+                'formato: {"t": segundos, "values": {junta: valor}}. Reescríbelo con '
+                "PUT /api/motion."
+            ),
+        )
+
+
 @app.post("/api/motion/scan")
 def scan_motion(body: ScanIn) -> dict:
     from apolo.robotics.motion import scan_collisions
 
     with STATE_LOCK:
-        return {"colisiones": scan_collisions(DOC, DOC.motion.get(body.name, []), body.steps)}
+        kfs = DOC.motion.get(body.name, [])
+        _motion_values_or_400(body.name, kfs)
+        return {"colisiones": scan_collisions(DOC, kfs, body.steps)}
 
 
 class MotionGifIn(BaseModel):
@@ -2498,6 +2514,7 @@ def motion_gif(body: MotionGifIn) -> Response:
                 status_code=404,
                 detail=f"No existe el estudio de movimiento '{body.name}' (hay: {disponibles})",
             )
+        _motion_values_or_400(body.name, kfs)
         try:
             snaps = extract_motion_frames(
                 DOC, kfs, steps=body.steps, pingpong=body.pingpong,

@@ -313,7 +313,15 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   de mates). `GET /api/assembly/dof` + tool `get_dof` + bloque en AssemblyPanel. Las juntas,
   que en el resto son solo visualización, aquí SÍ cuentan como restricción.
 - **Estudios de movimiento CON NOMBRE**: `Document.motion: dict[str, list]` (metadato de
-  manifest), `set_motion`/`delete_motion`, scan de colisiones por recorrido.
+  manifest), `set_motion`/`delete_motion`, scan de colisiones por recorrido. Fotograma =
+  `{"t": seg, "values": {junta: valor}}` — `set_motion` VALIDA (2026-08-01): claves sueltas
+  al nivel superior, juntas inexistentes, valores no numéricos o estudio todo-vacío →
+  DocumentError accionable (antes se aceptaban en silencio y el estudio «reproducía» sin
+  mover nada — UI y motion.gif estáticos); scan/gif dan 400 si un estudio persistido viejo
+  no trae `values`. OJO FK (`robotics/pose.py`): solo se mueven los HIJOS declarados de una
+  junta (sin flood por fijadores) — un cuerpo rígido multi-pieza se completa con juntas
+  `fija` colgadas del conductor; `Rotation(0,v,0)` de build123d gira HORARIO en XZ (+v en
+  junta Y = θ del respaldo SUBE, calibrar contra el código, no contra renders).
 - **GIF del motion (2026-07-16, `robotics/anim.py`)**: `POST /api/motion.gif` {name, steps,
   fps, pingpong, view/azimuth/elevation/zoom/size_px} → animación del estudio pintada con el
   MISMO motor VTK que `render_view` (espejo de `/api/physics/drop.gif`, pero cinemática).

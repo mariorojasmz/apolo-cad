@@ -84,6 +84,45 @@ def test_set_motion_validation():
         d.set_motion("  ", [{"t": 0, "values": {}}])         # nombre vacío
 
 
+def test_set_motion_rechaza_formato_plano():
+    """El bug real (2026-08-01): juntas al NIVEL SUPERIOR del fotograma se aceptaban en
+    silencio, values_at() devolvía {} en todo t y el estudio 'reproducía' sin mover nada
+    (UI y motion.gif estáticos sin error)."""
+    d = _arm_into_obstacle()
+    with pytest.raises(DocumentError, match="ANIDADOS"):
+        d.set_motion("X", [{"t": 0, "desliza": 50}])          # clave suelta arriba
+    with pytest.raises(DocumentError, match="desconocidas"):
+        d.set_motion("X", [{"t": 0, "values": {"no_existe": 1}}])   # junta inexistente
+    with pytest.raises(DocumentError, match="no mueve"):
+        d.set_motion("X", [{"t": 0, "values": {}}, {"t": 1, "values": {}}])  # todo vacío
+    with pytest.raises(DocumentError, match="numérico"):
+        d.set_motion("X", [{"t": 0, "values": {"desliza": "alto"}}])  # valor no numérico
+    assert d.motion == {}                                    # nada quedó persistido
+
+
+def test_api_motion_rechaza_formato_plano():
+    api.DOC = _arm_into_obstacle()
+    client = TestClient(api.app)
+    r = client.put("/api/motion", json={"name": "Mal", "keyframes": [
+        {"t": 0, "desliza": 0}, {"t": 1, "desliza": 50}]})
+    assert r.status_code == 400
+    assert "values" in r.json()["detail"]                    # el error enseña el formato
+    assert client.get("/api/motion").json() == {"studies": []}
+
+
+def test_api_motion_estudio_viejo_sin_values_da_400():
+    """Un estudio persistido en formato viejo (sin 'values' en ningún fotograma, p. ej.
+    cargado de un manifest antiguo que esquiva set_motion) → scan y gif dan 400 accionable
+    en vez de un recorrido estático."""
+    api.DOC = _arm_into_obstacle()
+    api.DOC.motion["Viejo"] = [{"t": 0, "desliza": 0}, {"t": 1, "desliza": 50}]
+    client = TestClient(api.app)
+    r = client.post("/api/motion/scan", json={"name": "Viejo", "steps": 5})
+    assert r.status_code == 400 and "values" in r.json()["detail"]
+    r = client.post("/api/motion.gif", json={"name": "Viejo", "steps": 5})
+    assert r.status_code == 400 and "values" in r.json()["detail"]
+
+
 # ------------------------------------------------------------------- scan
 def test_scan_detects_collision_along_travel():
     d = _arm_into_obstacle()
