@@ -1186,7 +1186,28 @@ verdes**. Un ítem por vez, con plan formal.
   contrato de 14 aserciones (distancias ≤0.001 a ambos largueros + sin_interferencia en 3
   POSES) verde A LA PRIMERA — la vara «cero lotes revertidos por trigonometría» cumplida
   (la sesión original: ~15 rondas y 4 lotes revertidos); original restaurado por revisión,
-  scan idéntico. Detalle en el cierre del plan.
+  scan idéntico. Detalle en el cierre del plan. **Test de generalización (2026-08-02,
+  sesión FRESCA con un solo prompt → camastro-playa-v2, id 71)**: 85 piezas en 46 min,
+  CERO errores/lotes revertidos, `arrastrar`/drill-por-cara/lotes/motion usados solos
+  (snap cara-a-cara no: diseñó EN PLANO — legítimo); PERO entregó cremalleras FLOTANTES
+  (124 mm de todo, pernos al aire) y 0 grounds/fasten declarados: validó lo que el prompt
+  pedía por su letra y saltó gravedad/sujeción → origen de V6.9.
+- **V6.9 Puerta de ENTREGA** — **EN PLAN** (`docs/plans/V6.9-puerta-de-entrega.md`,
+  nacido de la auditoría del 71): el checklist de cierre pasa de la MEMORIA del agente al
+  SISTEMA (mismo patrón que los contratos V6.5b). (A) tool `delivery_check` = semáforo
+  VERDE/AMARILLO/ROJO agregando interferencias + sujeción DECLARADA (soundness sin
+  autodetect) + lints pre-entrega + integridad + poses de los estudios (gravity opt-in);
+  (B) alarma ambiental en retornos de mutación con ≥5 sólidos y 0 grounds; (C) una línea
+  en design_brief: «no entregues en ROJO». E2E: el 71 debe salir ROJO nombrando las
+  cremalleras; 70 y 38 VERDES (sin falsos rojos o la puerta se ignora).
+- **Harness de auto-mejora** — **EN PLAN** (`docs/plans/harness-automejora.md`, pedido
+  del usuario 2026-08-02): loop maestro → ejecutor CIEGO → auditor → implementador sobre
+  Claude Code headless (`claude -p` + instancia B aislada: `-Port 8001` + `APOLO_DB`
+  propio — el maestro es inaccesible POR CONSTRUCCIÓN); formaliza el test de
+  generalización manual que originó V6.9. GOTCHA clave: el workspace del ejecutor va
+  FUERA del repo (el CLI hereda CLAUDE.md de los directorios padre → rompería la caja
+  negra). Convergencia = 2 iteraciones sin mejora en las MEDIANAS (N≥2 corridas/iter);
+  mejoras en rama `exp/<slug>` (código+prompt), merge lo aprueba el usuario.
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
 
