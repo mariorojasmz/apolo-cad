@@ -54,14 +54,14 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1314 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1355 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **78 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **79 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-08-01)**: 1343 tests (+15 tortura vía `-m torture`) · 78 tools MCP ·
+- **Estado actual (2026-08-02)**: 1355 tests (+15 tortura vía `-m torture`) · 79 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -380,6 +380,22 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **Conectividad/soundness** (`assembly/connectivity.py` + `autodetect.py`): grafo
   juntas∪mates∪fasteners con semilla `grounds`; `detect_structure` = grafo de soporte
   DIRIGIDO (auto-declara ground/fasten inteligente); `soundness_report` (qué flota).
+- **Puerta de ENTREGA (V6.9, 2026-08-02)**: tool `delivery_check` (`POST
+  /api/delivery-check` + agregador PURO `library/delivery.py`) = SEMÁFORO
+  VERDE/AMARILLO/ROJO de cierre — interferencias en diseño + sujeción DECLARADA
+  (soundness sin autodetect) + lints + integridad/suprimidos + colisión EN POSE en los
+  fotogramas de REPOSO de los estudios (extremos + dwells; el TRÁNSITO lo valida
+  scan_motion; asiento ≤ EXCESS_TOL_MM3 tolerado y DECLARADO `contactos_tolerados`) +
+  gravedad opt-in; lo no corrible va en `no_aplica`, jamás cuenta verde. EXCLUSIONES
+  UNIFICADAS diseño+pose (`_verify_checks` gana `extra_exclude_pairs/ids`; None =
+  contratos intactos): par con fasten declarado = contacto firmado; tornillería
+  a-medida (`_is_bolt`) = asentada — sin esto, solapes declarados reaparecían como
+  «colisión nueva» EN POSE (cazado en el 38). Tornillería flotante = AVISO, no ROJO
+  (no es nodo estructural). **Alarma ambiental**: `_state_or_error` añade
+  `aviso_estructura` a TODA mutación con ≥`MIN_SOLIDOS_SUJECION` (5) sólidos y 0
+  grounds (constantes en delivery.py; `_scene_brief` la pasa al agente; lecturas no);
+  `design_brief` cierra el lazo («no entregues en ROJO»). E2E: 71→ROJO · 70→VERDE ·
+  38→AMARILLO (aviso verdadero: 8 herrajes V7.5 sin fasten), cero falsos rojos.
 - **Física (MuJoCo)**: `gravity_test` (piezas sujetas=estáticas, resto cae; casco
   CONVEXO con caché por referencia fuerte al shape), `drop_test` (producto, AABB),
   animación en el viewport con las mallas reales.
@@ -1192,14 +1208,17 @@ verdes**. Un ítem por vez, con plan formal.
   (snap cara-a-cara no: diseñó EN PLANO — legítimo); PERO entregó cremalleras FLOTANTES
   (124 mm de todo, pernos al aire) y 0 grounds/fasten declarados: validó lo que el prompt
   pedía por su letra y saltó gravedad/sujeción → origen de V6.9.
-- **V6.9 Puerta de ENTREGA** — **EN PLAN** (`docs/plans/V6.9-puerta-de-entrega.md`,
-  nacido de la auditoría del 71): el checklist de cierre pasa de la MEMORIA del agente al
-  SISTEMA (mismo patrón que los contratos V6.5b). (A) tool `delivery_check` = semáforo
-  VERDE/AMARILLO/ROJO agregando interferencias + sujeción DECLARADA (soundness sin
-  autodetect) + lints pre-entrega + integridad + poses de los estudios (gravity opt-in);
-  (B) alarma ambiental en retornos de mutación con ≥5 sólidos y 0 grounds; (C) una línea
-  en design_brief: «no entregues en ROJO». E2E: el 71 debe salir ROJO nombrando las
-  cremalleras; 70 y 38 VERDES (sin falsos rojos o la puerta se ignora).
+- **V6.9 Puerta de ENTREGA** — **HECHO (2026-08-02)** (plan cerrado en
+  `docs/plans/done/V6.9-puerta-de-entrega.md`, nacido de la auditoría del 71): el
+  checklist de cierre pasó de la MEMORIA del agente al SISTEMA (patrón V6.5b). (A) tool
+  `delivery_check` = semáforo VERDE/AMARILLO/ROJO (79 tools); (B) alarma ambiental
+  `aviso_estructura` en toda mutación con ≥5 sólidos y 0 grounds; (C) design_brief:
+  «no entregues en ROJO». E2E cumplido: **71→ROJO** (sujeción · sin anclajes) ·
+  **70→VERDE** (asientos del trinquete tolerados y declarados) · **38→AMARILLO** (aviso
+  VERDADERO: 8 herrajes de chumacera V7.5 sin fasten) — cero falsos rojos. Los ajustes
+  que el E2E exigió (reposo = extremos+dwells · asiento ≤50 mm³ · exclusiones unificadas
+  diseño/pose · tornillería flotante = aviso) en § Puerta de ENTREGA del Mapa y en las
+  desviaciones del plan.
 - **Harness de auto-mejora** — **EN PLAN** (`docs/plans/harness-automejora.md`, pedido
   del usuario 2026-08-02): loop maestro → ejecutor CIEGO → auditor → implementador sobre
   Claude Code headless (`claude -p` + instancia B aislada: `-Port 8001` + `APOLO_DB`

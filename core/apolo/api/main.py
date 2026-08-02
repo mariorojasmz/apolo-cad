@@ -494,21 +494,26 @@ def _expand_ids(value) -> list[str] | None:
     return [x for x in out if not (x in seen or seen.add(x))]
 
 
-def _verify_checks(scene: dict, checks: list[dict]) -> list[dict]:
+def _verify_checks(scene: dict, checks: list[dict], *,
+                   extra_exclude_pairs: set | None = None,
+                   extra_exclude_ids: set | None = None) -> list[dict]:
     """Evalúa un lote de ASERCIONES `verify` (V6.5) sobre `scene` con la resolución de
     grupos (`_expand_ids`) y la interferencia acotada + exclusiones normales (hardware,
     parejas de junta, mismo super-comando). Fuente ÚNICA compartida por el endpoint
     /api/verify y el CONTRATO `expect` de los lotes (V6.5b). Llamar bajo STATE_LOCK.
     V6.8-C: `joint_values` por aserción (distancia/sin_interferencia) evalúa EN POSE —
-    la pose usa DOC (en ambos call sites `scene` ES DOC.scene, post-regenerate)."""
+    la pose usa DOC (en ambos call sites `scene` ES DOC.scene, post-regenerate).
+    `extra_exclude_pairs`/`extra_exclude_ids` (V6.9): exclusiones ADICIONALES de
+    interferencia que la puerta de entrega inyecta (pares con fasten declarado,
+    tornillería a-medida) — None = semántica de contratos intacta."""
     from apolo.library.checks import (
         hardware_ids, interpenetration_report, joint_pairs, same_command_pairs,
     )
     from apolo.library.verify import run_verify
 
     jpairs = joint_pairs(DOC)
-    excl_pairs = jpairs | same_command_pairs(DOC)
-    excl_ids = hardware_ids(DOC)
+    excl_pairs = jpairs | same_command_pairs(DOC) | (extra_exclude_pairs or set())
+    excl_ids = hardware_ids(DOC) | (extra_exclude_ids or set())
 
     def interference_fn(focus, shapes_override=None):
         focus_ids = _expand_ids(focus) if focus else None
@@ -916,6 +921,8 @@ def _normalize_affected(v) -> list[str]:
 
 
 def _state_or_error(fn):
+    from apolo.library.delivery import AVISO_SIN_ANCLAJES, MIN_SOLIDOS_SUJECION
+
     with STATE_LOCK:
         try:
             affected = fn()
@@ -923,6 +930,12 @@ def _state_or_error(fn):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         _autosave()
         payload = scene_payload()
+        # Alarma ambiental (V6.9-B): con ≥5 sólidos y CERO anclajes declarados, CADA
+        # retorno de mutación lo recuerda — stateless y molesto a propósito (como la
+        # alarma del tren de aterrizaje); se apaga al declarar el primer ground.
+        # Solo en mutaciones: las lecturas (get_scene etc.) no lo llevan.
+        if len(DOC.scene) >= MIN_SOLIDOS_SUJECION and not DOC.grounds:
+            payload["aviso_estructura"] = AVISO_SIN_ANCLAJES
     payload["affected_command_ids"] = _normalize_affected(affected)
     # avisar DESPUÉS de construir el payload: el refresh de los clientes no
     # compite con esta petición por las formas OCCT
@@ -2024,6 +2037,151 @@ def verify_endpoint(body: VerifyIn) -> dict:
     with STATE_LOCK:
         resultados = _verify_checks(DOC.scene, body.checks)
     return {"ok": all(r["ok"] for r in resultados), "resultados": resultados}
+
+
+def _delivery_poses(extra_pairs: set | None = None,
+                    extra_ids: set | None = None) -> list[dict] | None:
+    """Poses de REPOSO de los estudios de movimiento declarados, evaluadas EN POSE
+    (camino V6.8-C: `sin_interferencia` posada + interpenetración, caché por pose dentro
+    del lote de _verify_checks). REPOSO = donde el mecanismo DESCANSA: fotogramas
+    EXTREMOS (primero/último) + DWELLS (mismos values en ≥2 fotogramas consecutivos);
+    el TRÁNSITO interpolado (la espiga saltando dientes de la cremallera) no es una
+    pose de entrega — se valida con scan_motion. Contacto de ASIENTO ≤ EXCESS_TOL_MM3
+    (la pose rígida del FK no modela la complianza del apoyo: 2 mm³ de la barra en su
+    muesca no son una colisión) se tolera y se DECLARA (`contactos_tolerados`).
+    None = no hay estudios (el chequeo «no aplica» — jamás cuenta verde). Un estudio
+    malformado (formato viejo sin `values`, valores no numéricos) produce {estudio,
+    error}: la pose queda SIN verificar y la puerta lo DECLARA. Llamar bajo STATE_LOCK."""
+    from apolo.library.checks import EXCESS_TOL_MM3
+
+    if not DOC.motion:
+        return None
+    metas: list[dict] = []
+    errores: list[dict] = []
+    vistos: set = set()
+    for nombre, kfs in sorted(DOC.motion.items()):
+        cuadros: list[tuple] = []  # (t, vals) parseados del estudio
+        for kf in kfs or []:
+            values = kf.get("values") if isinstance(kf, dict) else None
+            if not isinstance(values, dict):
+                errores.append({"estudio": nombre, "error": "fotograma sin 'values' "
+                                "(formato viejo — re-guarda el estudio con set_motion)"})
+                cuadros = []
+                break
+            try:
+                vals = {str(k): float(v) for k, v in values.items()}
+            except (TypeError, ValueError):
+                errores.append({"estudio": nombre,
+                                "error": f"valores no numéricos en t={kf.get('t')}"})
+                cuadros = []
+                break
+            cuadros.append((kf.get("t"), vals))
+        if not cuadros:
+            continue
+        reposo = {0, len(cuadros) - 1}  # extremos: el estudio arranca y termina en reposo
+        for i in range(len(cuadros) - 1):
+            if cuadros[i][1] == cuadros[i + 1][1]:  # dwell = pose sostenida
+                reposo.update((i, i + 1))
+        for i in sorted(reposo):
+            t, vals = cuadros[i]
+            if not any(v != 0 for v in vals.values()):
+                continue  # pose de diseño: la cubre el chequeo de interferencias
+            key = tuple(sorted(vals.items()))
+            if key in vistos:
+                continue
+            vistos.add(key)
+            metas.append({"estudio": nombre, "t": t, "joint_values": vals})
+    checks = [{"tipo": "sin_interferencia", "joint_values": m["joint_values"],
+               "nombre": f"{m['estudio']}@t={m['t']}"} for m in metas]
+    # MISMAS exclusiones que el chequeo de diseño de la puerta (fasten declarado +
+    # tornillería): sin esto, un solape DECLARADO reaparecía como «colisión nueva»
+    # en pose (asimetría cazada en el E2E del 38: banda↔travesaño, rodillo↔ménsula).
+    resultados = (_verify_checks(DOC.scene, checks, extra_exclude_pairs=extra_pairs,
+                                 extra_exclude_ids=extra_ids) if checks else [])
+    out: list[dict] = []
+    for meta, res in zip(metas, resultados):
+        if res.get("error"):
+            out.append({**meta, "error": res["error"]})
+            continue
+        cols = res.get("colisiones") or []
+        reales = [c for c in cols if c.get("volumen_mm3", 0) > EXCESS_TOL_MM3]
+        entry = {**meta, "colisiones": reales}
+        if len(cols) > len(reales):
+            entry["contactos_tolerados"] = len(cols) - len(reales)
+        out.append(entry)
+    return out + errores
+
+
+class DeliveryIn(BaseModel):
+    con_gravedad: bool = False
+
+
+@app.post("/api/delivery-check")
+def delivery_check_endpoint(body: DeliveryIn) -> dict:
+    """PUERTA DE ENTREGA (V6.9): corre la batería de cierre y devuelve el SEMÁFORO
+    {veredicto VERDE|AMARILLO|ROJO, bloqueantes, avisos, no_aplica, resumen}. Agregación
+    PURA de chequeos existentes (library/delivery.py): interferencias en DISEÑO
+    (exclusiones normales) + sujeción DECLARADA (soundness SIN autodetect — la puerta
+    valida lo que el modelo declara, no lo que un detector adivina) + lints pre-entrega
+    + integridad/suprimidos + colisión EN POSE en los fotogramas de REPOSO de los
+    estudios declarados (extremos + dwells; asiento ≤ tolerancia declarado, no bloquea).
+    `con_gravedad` añade la simulación MuJoCo (cara; opt-in). Read-only."""
+    from apolo.assembly.connectivity import build_graph, soundness_report
+    from apolo.commands.expressions import resolve_params
+    from apolo.library.checks import hardware_ids, joint_pairs, same_command_pairs
+    from apolo.library.delivery import delivery_report
+    from apolo.library.lints import predelivery_lints
+
+    gravedad = None
+    if body.con_gravedad:
+        # dos-locks propio (_stability); with_autodetect=False: la puerta es DECLARADA
+        res = _stability(StabilityIn(with_autodetect=False))
+        gravedad = {k: res.get(k) for k in ("fell", "estables", "settled", "n_grounded")}
+
+    with STATE_LOCK:
+        # La puerta valida lo DECLARADO: un par unido por un fastener (soldadura/perno/
+        # contacto) es contacto INTENCIONAL declarado → se excluye igual que las parejas
+        # de junta (el solape puntal↔pata del 38 vive bajo su fasten). El volumen sigue
+        # visible en check_interference — declarar no lo esconde, lo firma. La
+        # TORNILLERÍA a-medida (por nombre/rol, misma convención que los lints V7.2b)
+        # se excluye como la de catálogo: asentada en su alojamiento por diseño.
+        from apolo.library.catalog import CATALOG
+        from apolo.library.lints import _is_bolt
+
+        fasten_pairs = {frozenset((f["a"], f["b"])) for f in DOC.fasteners.values()}
+        bolt_ids = {fid for fid, f in DOC.scene.items() if _is_bolt(f, CATALOG)}
+        rep_inter = interference_report(
+            DOC.scene,
+            exclude_pairs=joint_pairs(DOC) | same_command_pairs(DOC) | fasten_pairs,
+            exclude_ids=hardware_ids(DOC) | bolt_ids,
+        )
+        soundness = soundness_report(build_graph(
+            DOC.scene, DOC.joints, DOC.mates, DOC.fasteners, DOC.grounds))
+        # tornillería flotante NO bloquea (no es nodo estructural: la representa su
+        # fasten — convención del lint «pieza suelta») pero SÍ se declara como aviso.
+        tornilleria_flotante = [f for f in soundness.get("floating", []) if f in bolt_ids]
+        soundness = {**soundness,
+                     "floating": [f for f in soundness.get("floating", [])
+                                  if f not in bolt_ids],
+                     "isolated": [f for f in soundness.get("isolated", [])
+                                  if f not in bolt_ids]}
+        lints = predelivery_lints(
+            DOC.scene, DOC.commands, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
+            resolve=lambda p: resolve_params(p, DOC.variables_resolved),
+        )
+        return delivery_report(
+            n_solidos=len(DOC.scene),
+            interferencias=rep_inter["interferencias"],
+            interferencias_truncado=bool(rep_inter.get("truncado")),
+            soundness=soundness,
+            tornilleria_flotante=tornilleria_flotante,
+            lints=lints,
+            integridad=DOC.check_integrity(),
+            suprimidos=getattr(DOC, "regen_suppressed", []),
+            poses=_delivery_poses(fasten_pairs, bolt_ids),
+            gravedad=gravedad,
+            nombre_de=lambda fid: (getattr(DOC.scene.get(fid), "name", None) or str(fid)),
+        )
 
 
 # -------------------------------------------------------------------- robótica

@@ -197,6 +197,8 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
     }
     if include_vars:
         out["variables"] = doc.get("variables")
+    if payload.get("aviso_estructura"):  # alarma ambiental (V6.9-B): 0 anclajes declarados
+        out["aviso_estructura"] = payload["aviso_estructura"]
     return out
 
 
@@ -871,6 +873,26 @@ def delete_connection(name: str | None = None, names: list[str] | None = None) -
     payload = _api("POST", "/api/connections/remove", json={"names": wanted}).json()
     borradas = payload.get("conexiones_borradas", [])
     return json.dumps({"borradas": borradas, "n": len(borradas)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def delivery_check(con_gravedad: bool = False) -> str:
+    """LA PUERTA DE SALIDA (V6.9): antes de dar un proyecto por TERMINADO, corre TODA la
+    batería de cierre en UNA llamada y devuelve un SEMÁFORO accionable:
+    {veredicto: VERDE|AMARILLO|ROJO, bloqueantes, avisos, no_aplica, resumen}.
+    Chequeos: interferencias en diseño (exclusiones normales) · sujeción DECLARADA
+    (¿todo tiene camino de carga a tierra? — sin autodetect: cuenta lo que DECLARASTE
+    con ground/fasten) · lints pre-entrega (barreno sin perno, pieza suelta) · salud del
+    documento · colisión EN POSE en los fotogramas de REPOSO de los estudios de movimiento
+    declarados (extremos + poses sostenidas; el TRÁNSITO interpolado se valida con
+    scan_motion; el contacto de asiento ≤50 mm³ se tolera y se declara).
+    `con_gravedad=true` añade la simulación MuJoCo (cara; opt-in).
+    ROJO = defecto que el cliente verá (piezas flotantes, colisiones, poses rotas):
+    NO ENTREGUES EN ROJO — corrige (declare_structure / ground / fasten / reposiciona)
+    y re-corre hasta VERDE o AMARILLO declarando los avisos. `no_aplica` lista lo que
+    no pudo evaluarse — no cuenta como verde. Read-only."""
+    payload = _api("POST", "/api/delivery-check", json={"con_gravedad": con_gravedad}).json()
+    return json.dumps(payload, ensure_ascii=False)
 
 
 @mcp.tool()

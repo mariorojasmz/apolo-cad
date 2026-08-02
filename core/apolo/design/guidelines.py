@@ -136,13 +136,17 @@ DESIGN_RULES: list[dict[str, str]] = [
     {
         "clave": "validar",
         "titulo": "Valida antes de entregar",
-        "corto": "Tu sello: revisa visualmente, comprueba colisiones y gravedad, y que salgan "
-        "planos coherentes; reporta lo verificado con honestidad.",
+        "corto": "Tu sello: revisa visualmente, comprueba colisiones y gravedad, y cierra con "
+        "delivery_check — no entregues en ROJO.",
         "detalle": "Antes de dar algo por terminado: render_view para auto-revisarte; "
         "check_interference (colisiones = solo contacto intencional); gravity_test (0 caídas); y, "
-        "para fabricar, que el cut_list y los planos salgan coherentes. Di QUÉ verificaste y qué "
-        "encontraste; no afirmes que está bien sin haberlo comprobado.",
-        "verificar": "render_view + check_interference + gravity_test + drawing/cut_list.",
+        "para fabricar, que el cut_list y los planos salgan coherentes. El CIERRE es "
+        "delivery_check: un semáforo (VERDE/AMARILLO/ROJO) que corre toda la batería —"
+        "interferencias, sujeción declarada, lints, salud, poses— en una llamada; no des por "
+        "TERMINADO un proyecto en ROJO. Di QUÉ verificaste y qué encontraste; no afirmes que "
+        "está bien sin haberlo comprobado.",
+        "verificar": "delivery_check (el semáforo de cierre) + render_view + check_interference "
+        "+ gravity_test + drawing/cut_list.",
     },
 ]
 
@@ -227,6 +231,10 @@ def design_brief() -> str:
         "geométrica, holguras, estabilidad); PREGUNTA solo lo que no puedas deducir de la "
         "función: material/acabado, cotas críticas o de interfaz, cargas y restricciones del "
         "sitio. Detalle y ejemplos: get_design_guidelines() (o GET /api/design-guidelines)."
+    )
+    lineas.append(
+        "Antes de dar un proyecto por TERMINADO corre delivery_check (semáforo "
+        "VERDE/AMARILLO/ROJO de la batería de cierre); NO entregues en ROJO."
     )
     lineas += ["", ESCALA_DOCTRINE, "", ACCION_DOCTRINE]
     return "\n".join(lineas)
