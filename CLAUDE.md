@@ -61,7 +61,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **78 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-08-01)**: 1332 tests (+15 tortura vía `-m torture`) · 78 tools MCP ·
+- **Estado actual (2026-08-01)**: 1337 tests (+15 tortura vía `-m torture`) · 78 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -338,8 +338,20 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   mover nada — UI y motion.gif estáticos); scan/gif dan 400 si un estudio persistido viejo
   no trae `values`. OJO FK (`robotics/pose.py`): solo se mueven los HIJOS declarados de una
   junta (sin flood por fijadores) — un cuerpo rígido multi-pieza se completa con juntas
-  `fija` colgadas del conductor; `Rotation(0,v,0)` de build123d gira HORARIO en XZ (+v en
-  junta Y = θ del respaldo SUBE, calibrar contra el código, no contra renders).
+  `fija` colgadas del conductor, o con `add_joint(arrastrar=true)` que las materializa
+  (V6.8-D); `Rotation(0,v,0)` de build123d gira HORARIO en XZ (+v en junta Y = θ del
+  respaldo SUBE — `get_kinematics` publica la convención en `sentido`: se LEE, no se
+  calibra contra renders).
+- **Arrastre de cuerpo rígido (V6.8-D, 2026-08-01)**: `add_joint` gana `arrastrar`
+  (default **False** — True cambiaría el replay de logs viejos y chocaría con juntas fija
+  manuales posteriores): flood sobre el grafo de FIJADORES declarados hasta ese punto del
+  log, cada lado EXCLUYE el nodo contrario («sin cruzar esta junta»: el fijador del pivote
+  no fuga el flood) → juntas `fija` `jf_<junta>_<fid>` colgadas del conductor + reporte
+  `arrastre` {arrastrados, frontera, avisos} EN el dict de la junta (lo publica
+  get_kinematics; se recalcula en cada regenerate). La disputa es VIRAL (una pieza unida a
+  ambos lados vuelve ambiguo todo lo conectado a través de ella) → nada disputado se
+  arrastra + aviso accionable; ya-hijo-de-otra-junta / anclado-a-tierra se omiten con
+  aviso. Executor ahora `wants_all` (necesita fasteners/grounds).
 - **GIF del motion (2026-07-16, `robotics/anim.py`)**: `POST /api/motion.gif` {name, steps,
   fps, pingpong, view/azimuth/elevation/zoom/size_px} → animación del estudio pintada con el
   MISMO motor VTK que `render_view` (espejo de `/api/physics/drop.gif`, pero cinemática).
@@ -1151,10 +1163,10 @@ verdes**. Un ítem por vez, con plan formal.
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
 - **V6.8 MCP fluidez** — **EN CURSO** (plan `docs/plans/V6.8-mcp-fluidez.md`, nacido de la
-  retrospectiva del camastro 70): **A (lotes de apariencia/conexiones), B (`find_commands`) y
-  C (cinemática por MCP + contratos EN POSE) HECHOS (2026-08-01)** — detalle en § Lotes +
-  búsqueda en el log y § Cinemática por MCP; quedan D (FK `arrastrar` + signo documentado) y
-  E (snap cara-a-cara + drill por cara).
+  retrospectiva del camastro 70): **A (lotes de apariencia/conexiones), B (`find_commands`),
+  C (cinemática por MCP + contratos EN POSE) y D (arrastre de cuerpo rígido + signo
+  documentado) HECHOS (2026-08-01)** — detalle en § Lotes + búsqueda en el log, § Cinemática
+  por MCP y § Arrastre de cuerpo rígido; queda E (snap cara-a-cara + drill por cara).
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
 

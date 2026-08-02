@@ -1116,10 +1116,19 @@ JOINT_TYPES = Literal["fija", "giratoria", "continua", "prismatica"]
 
 
 class AddJointParams(BaseModel):
-    """Define una junta cinemática entre dos sólidos (padre → hijo). El hijo y
-    todo lo unido a él se mueve respecto al padre: giratoria/continua rotan
-    alrededor del eje (grados), prismática desliza a lo largo del eje (mm).
-    Cada sólido solo puede ser hijo de UNA junta (estructura de árbol)."""
+    """Define una junta cinemática entre dos sólidos (padre → hijo). El FK mueve
+    SOLO al hijo y a los hijos de juntas colgadas de él — NO a "todo lo unido":
+    un cuerpo rígido multi-pieza se completa con juntas 'fija', o con
+    `arrastrar=true`, que las materializa por ti: las piezas unidas al hijo por
+    FIJADORES declarados (fasten: perno/soldadura/pegado/contacto) y no
+    alcanzables desde el padre reciben juntas fija `jf_<junta>_<fid>`; una pieza
+    en disputa (alcanzable por ambos lados) NO se arrastra y queda en
+    `frontera` (visible en get_kinematics — tú decides). Declara las uniones
+    ANTES que la junta (el flood ve el log hasta este punto). SIGNO de
+    giratoria/continua: valor + = rotación HORARIA mirando desde el extremo
+    positivo del eje (convención Rotation de build123d) — calíbralo contra
+    get_kinematics, no contra un render. Prismática desliza en mm a lo largo
+    del eje. Cada sólido solo puede ser hijo de UNA junta (árbol)."""
 
     name: str = Field(..., pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=40, title="Nombre")
     type: JOINT_TYPES = Field("giratoria", title="Tipo")
@@ -1129,6 +1138,11 @@ class AddJointParams(BaseModel):
     axis: Vec3 = Field(default_factory=lambda: Vec3(z=1), title="Eje", description="dirección")
     lower: float = Field(-180, title="Límite inferior", description="grados o mm")
     upper: float = Field(180, title="Límite superior", description="grados o mm")
+    arrastrar: bool = Field(
+        False, title="Arrastrar cuerpo rígido",
+        description="materializa juntas fija jf_* hacia lo unido al hijo por fijadores "
+        "(no alcanzable desde el padre); False = comportamiento clásico",
+    )
 
 
 MATE_TYPES = Literal["coincidente", "distancia", "concentrico", "paralelo", "angulo"]

@@ -83,7 +83,9 @@ def build_kinematic_model(doc) -> dict:
 
 
 def joints_payload(doc) -> dict:
-    """Estado cinemático para la UI: juntas + raíces + errores."""
+    """Estado cinemático para la UI: juntas + raíces + errores. Las giratorias/
+    continuas llevan `sentido` (V6.8-D: la convención de signo se LEE aquí, no se
+    calibra contra renders) y las juntas con arrastre llevan su reporte."""
     model = build_kinematic_model(doc)
     return {
         "joints": [
@@ -97,6 +99,10 @@ def joints_payload(doc) -> dict:
                 "lower": j["lower"],
                 "upper": j["upper"],
                 "command_id": j["command_id"],
+                **({"sentido": "valor + = rotación HORARIA mirando desde el extremo "
+                               "positivo del eje (Rotation de build123d)"}
+                   if j["type"] in ("giratoria", "continua") else {}),
+                **({"arrastre": j["arrastre"]} if j.get("arrastre") else {}),
             }
             for j in model["joints"]
         ],

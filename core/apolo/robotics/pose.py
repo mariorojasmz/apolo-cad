@@ -4,6 +4,16 @@ Para comprobar colisiones del mecanismo en una pose concreta (lo mismo que el
 viewport hace visualmente). Soporta los ejes de junta alineados con X/Y/Z
 (los que generan nuestras plantillas); ejes arbitrarios se reportan como
 no soportados en lugar de calcular mal.
+
+REGLAS DEL FK (V6.8-D, aprendidas a golpes en el camastro 70):
+- Una junta mueve SOLO a los HIJOS DECLARADOS de su cadena (`by_child`): no hay
+  flood por fijadores. Un cuerpo rígido multi-pieza se completa con juntas
+  `fija` colgadas del conductor — o con `add_joint(arrastrar=true)`, que las
+  materializa desde el grafo de fijadores.
+- SIGNO: `Rotation` de build123d gira HORARIO mirando desde el extremo POSITIVO
+  del eje (p. ej. +v en una junta Y gira horario en el plano XZ). Calibrar
+  keyframes contra esta convención (get_kinematics la publica en `sentido`),
+  nunca contra un render.
 """
 
 from __future__ import annotations

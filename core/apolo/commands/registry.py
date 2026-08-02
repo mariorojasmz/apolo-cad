@@ -799,7 +799,81 @@ def _register_joint(scene: Scene, joints: Joints, cmd_id: str, spec: dict) -> No
     joints[name] = {**spec, "command_id": cmd_id}
 
 
-def _exec_add_joint(scene: Scene, joints: Joints, cmd_id: str, p: AddJointParams) -> None:
+def _joint_drag(scene: Scene, joints: Joints, fasteners: dict, grounds: dict,
+                cmd_id: str, p: AddJointParams) -> dict:
+    """Flood de ARRASTRE (V6.8-D): materializa como juntas `fija` el cuerpo rígido
+    colgado del hijo. Grafo = FIJADORES declarados hasta este punto del log (los
+    declarados después no existen aún → declarar uniones antes que juntas). Cada
+    flood EXCLUYE el nodo del lado contrario («sin cruzar esta junta»): así el
+    fijador del pivote no fuga un lado hacia el otro. Una pieza alcanzable por
+    AMBOS lados = disputa → `frontera`, no se arrastra (el agente decide);
+    ya-hija-de-otra-junta o anclada a tierra → se omite con aviso."""
+    ids = set(scene.keys())
+    adj: dict[str, set[str]] = {}
+    for f in fasteners.values():
+        a, b = f.get("a"), f.get("b")
+        if a in ids and b in ids and a != b:
+            adj.setdefault(a, set()).add(b)
+            adj.setdefault(b, set()).add(a)
+
+    def reach(seed: str, sin: str) -> set[str]:
+        seen, stack = {sin}, [seed]  # `sin` marcado visto = el flood no lo cruza
+        while stack:
+            n = stack.pop()
+            if n in seen:
+                continue
+            seen.add(n)
+            stack.extend(adj.get(n, ()))
+        return seen - {sin}
+
+    lado_hijo = reach(p.child, sin=p.parent)
+    lado_padre = reach(p.parent, sin=p.child)
+    frontera = sorted((lado_hijo & lado_padre) - {p.child, p.parent})
+    grounded = {g.get("feature") for g in grounds.values()}
+    con_junta = {j["child"] for j in joints.values()}
+    arrastrados: list[str] = []
+    avisos: list[str] = []
+    for fid in sorted(lado_hijo - lado_padre - {p.child}):
+        if fid in con_junta:
+            avisos.append(f"'{fid}' ya es hijo de otra junta — no se arrastra")
+            continue
+        if fid in grounded:
+            avisos.append(f"'{fid}' está anclado a tierra — no se arrastra")
+            continue
+        _register_joint(
+            scene, joints, cmd_id,
+            {
+                "name": f"jf_{p.name}_{fid}", "type": "fija", "parent": p.child,
+                "child": fid, "origin": [0.0, 0.0, 0.0], "axis": [0.0, 0.0, 1.0],
+                "lower": 0.0, "upper": 0.0,
+            },
+        )
+        arrastrados.append(fid)
+    if frontera:
+        # la disputa es VIRAL: una pieza unida a ambos lados hace ambiguo todo lo
+        # conectado a través de ella — se declara, no se adivina
+        avisos.append(
+            "piezas alcanzables desde AMBOS lados de la articulación (disputa): "
+            "revisa esos fijadores (¿cruzan la junta?) o declara la junta ANTES "
+            "de declararlos; nada disputado se arrastra"
+        )
+    if not arrastrados and not frontera and not adj.get(p.child):
+        avisos.append(
+            f"'{p.child}' no tiene fijadores declarados — nada que arrastrar "
+            "(declara las uniones con fasten ANTES de la junta)"
+        )
+    out: dict = {"arrastrados": arrastrados, "frontera": frontera[:20]}
+    if len(frontera) > 20:
+        out["frontera_total"] = len(frontera)
+    if avisos:
+        out["avisos"] = avisos[:20]
+    return out
+
+
+def _exec_add_joint(
+    scene: Scene, cmd_id: str, p: AddJointParams, *, attachments, groups, joints,
+    mates, constraints, fasteners, grounds,
+) -> None:
     _register_joint(
         scene, joints, cmd_id,
         {
@@ -808,6 +882,10 @@ def _exec_add_joint(scene: Scene, joints: Joints, cmd_id: str, p: AddJointParams
             "lower": p.lower, "upper": p.upper,
         },
     )
+    if p.arrastrar:
+        # metadato en la PROPIA junta (viaja en get_kinematics; se recalcula en
+        # cada regenerate con el estado del log en este punto)
+        joints[p.name]["arrastre"] = _joint_drag(scene, joints, fasteners, grounds, cmd_id, p)
 
 
 def _exec_add_mate(scene: Scene, mates: dict, cmd_id: str, p: AddMateParams) -> None:
@@ -1875,7 +1953,7 @@ REGISTRY: dict[str, CommandSpec] = {
             _exec_create_robot_arm, wants_joints=True,
         ),
         CommandSpec(
-            "add_joint", "Junta", "robotica", AddJointParams, _exec_add_joint, wants_joints=True
+            "add_joint", "Junta", "robotica", AddJointParams, _exec_add_joint, wants_all=True
         ),
         CommandSpec(
             "add_mate", "Mate", "ensamblaje", AddMateParams, _exec_add_mate, wants_mates=True

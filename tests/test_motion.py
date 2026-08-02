@@ -143,6 +143,111 @@ def test_scan_empty_without_keyframes():
     assert scan_collisions(d, [], steps=10) == []
 
 
+# ----------------------------------------- arrastre de cuerpo rígido (V6.8-D)
+def _respaldo(arrastrar=True):
+    """Espejo del camastro 70: cama (padre) + 2 largueros de respaldo unidos por un
+    listón vía FIJADORES (declarados ANTES de la junta). El bug real: sin arrastre,
+    el larguero B quedaba congelado en el aire (FK solo mueve hijos declarados)."""
+    d = Document()
+    cama = d.execute("create_box", {"name": "cama", "width": 400, "depth": 300, "height": 40})
+    ra = d.execute("create_box", {"name": "rail_a", "width": 300, "depth": 40, "height": 40,
+                                  "position": {"y": -100, "z": 100}})
+    rb = d.execute("create_box", {"name": "rail_b", "width": 300, "depth": 40, "height": 40,
+                                  "position": {"y": 100, "z": 100}})
+    li = d.execute("create_box", {"name": "liston", "width": 40, "depth": 240, "height": 20,
+                                  "position": {"z": 130}})
+    d.execute("fasten", {"name": "f_ra_li", "a": ra, "b": li, "kind": "perno"})
+    d.execute("fasten", {"name": "f_li_rb", "a": li, "b": rb, "kind": "perno"})
+    d.execute("add_joint", {"name": "bisagra", "type": "giratoria", "parent": cama,
+                            "child": ra, "axis": {"y": 1}, "origin": {"z": 100},
+                            "arrastrar": arrastrar})
+    return d, cama, ra, rb, li
+
+
+def test_add_joint_arrastrar_materializa_cuerpo_rigido():
+    from apolo.robotics.pose import posed_shapes
+
+    d, cama, ra, rb, li = _respaldo()
+    rep = d.joints["bisagra"]["arrastre"]
+    assert rep["arrastrados"] == sorted([li, rb]) and rep["frontera"] == []
+    assert d.joints[f"jf_bisagra_{li}"]["type"] == "fija"
+    assert d.joints[f"jf_bisagra_{rb}"]["parent"] == ra   # colgadas del CONDUCTOR
+    # FK: el cuerpo completo se mueve (antes: rail_b congelado en el aire)
+    override, warns = posed_shapes(d, {"bisagra": 90})
+    assert warns == []
+    dz = abs(override[rb].bounding_box().min.Z - d.scene[rb].shape.bounding_box().min.Z)
+    assert dz > 50
+    # el arrastre SOBREVIVE al regenerate (se recalcula del log, mismo resultado)
+    d.regenerate()
+    assert f"jf_bisagra_{rb}" in d.joints
+    assert d.joints["bisagra"]["arrastre"]["arrastrados"] == sorted([li, rb])
+
+
+def test_add_joint_arrastrar_false_es_comportamiento_clasico():
+    d, cama, ra, rb, li = _respaldo(arrastrar=False)
+    assert "arrastre" not in d.joints["bisagra"]
+    assert [n for n in d.joints if n.startswith("jf_")] == []
+
+
+def test_add_joint_arrastrar_disputa_va_a_frontera():
+    """Una pieza unida a AMBOS lados (el apoyo_barra del camastro) hace ambiguo todo lo
+    conectado a través de ella: NADA disputado se arrastra y el aviso lo explica. El
+    fijador del PIVOTE (ra↔cama) no fuga el flood: cada lado excluye el nodo contrario."""
+    d = Document()
+    cama = d.execute("create_box", {"name": "cama", "width": 400, "depth": 300, "height": 40})
+    ra = d.execute("create_box", {"name": "rail_a", "width": 300, "depth": 40, "height": 40,
+                                  "position": {"y": -100, "z": 100}})
+    li = d.execute("create_box", {"name": "liston", "width": 40, "depth": 240, "height": 20,
+                                  "position": {"z": 130}})
+    ap = d.execute("create_box", {"name": "apoyo", "width": 40, "depth": 40, "height": 60,
+                                  "position": {"x": 150, "z": 70}})
+    d.execute("fasten", {"name": "f_ra_li", "a": ra, "b": li, "kind": "perno"})
+    d.execute("fasten", {"name": "f_pivote", "a": ra, "b": cama, "kind": "perno"})  # cruza la junta
+    d.execute("fasten", {"name": "f_ap_li", "a": ap, "b": li, "kind": "contacto"})   # lado hijo
+    d.execute("fasten", {"name": "f_ap_cama", "a": ap, "b": cama, "kind": "contacto"})  # lado padre
+    d.execute("add_joint", {"name": "bisagra", "type": "giratoria", "parent": cama,
+                            "child": ra, "axis": {"y": 1}, "origin": {"z": 100},
+                            "arrastrar": True})
+    rep = d.joints["bisagra"]["arrastre"]
+    assert rep["arrastrados"] == []                       # la disputa es viral: nada se adivina
+    assert rep["frontera"] == sorted([li, ap])
+    assert any("disputa" in a for a in rep["avisos"])
+    assert [n for n in d.joints if n.startswith("jf_")] == []
+
+
+def test_add_joint_arrastrar_respeta_juntas_y_tierra():
+    d = Document()
+    cama = d.execute("create_box", {"name": "cama", "width": 400, "depth": 300, "height": 40})
+    ra = d.execute("create_box", {"name": "rail_a", "width": 300, "depth": 40, "height": 40,
+                                  "position": {"y": -100, "z": 100}})
+    rb = d.execute("create_box", {"name": "rail_b", "width": 300, "depth": 40, "height": 40,
+                                  "position": {"y": 100, "z": 100}})
+    li = d.execute("create_box", {"name": "liston", "width": 40, "depth": 240, "height": 20,
+                                  "position": {"z": 130}})
+    d.execute("fasten", {"name": "f_ra_li", "a": ra, "b": li, "kind": "perno"})
+    d.execute("fasten", {"name": "f_li_rb", "a": li, "b": rb, "kind": "perno"})
+    d.execute("add_joint", {"name": "j_li", "type": "fija", "parent": rb, "child": li})
+    d.execute("ground", {"name": "g_rb", "feature": rb})
+    d.execute("add_joint", {"name": "bisagra", "type": "giratoria", "parent": cama,
+                            "child": ra, "axis": {"y": 1}, "origin": {"z": 100},
+                            "arrastrar": True})
+    rep = d.joints["bisagra"]["arrastre"]
+    assert rep["arrastrados"] == []
+    assert any("ya es hijo" in a for a in rep["avisos"])
+    assert any("tierra" in a for a in rep["avisos"])
+
+
+def test_kinematics_payload_sentido_y_arrastre():
+    d, cama, ra, rb, li = _respaldo()
+    api.DOC = d
+    out = TestClient(api.app).get("/api/kinematics").json()
+    bis = next(j for j in out["joints"] if j["name"] == "bisagra")
+    assert "HORARIA" in bis["sentido"]                    # el signo se LEE, no se calibra
+    assert bis["arrastre"]["arrastrados"] == sorted([li, rb])
+    jf = next(j for j in out["joints"] if j["name"].startswith("jf_"))
+    assert "sentido" not in jf                            # fija no rota
+
+
 # ----------------------------------------------------------------- API HTTP
 def test_api_motion_crud():
     api.DOC = _arm_into_obstacle()
