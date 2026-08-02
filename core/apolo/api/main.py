@@ -1697,6 +1697,30 @@ def set_feature_color(feature_id: str, body: ColorIn) -> dict:
     return _state_or_error(lambda: DOC.set_color(feature_id, body.color))
 
 
+class BulkColorIn(BaseModel):
+    ids: list[str]
+    color: str | None = None  # null = volver al color automático
+
+
+@app.post("/api/features/color")
+def set_color_bulk(body: BulkColorIn) -> dict:
+    """Color en LOTE (V6.8-A): valida TODOS los ids ANTES de tocar nada (uno
+    inexistente → 404 con sugerencia y CERO efectos parciales) y aplica en una
+    pasada — un solo autosave/notify en vez de N llamadas."""
+    if not body.ids:
+        raise HTTPException(status_code=400, detail="La lista 'ids' no puede estar vacía")
+
+    def run():
+        for fid in body.ids:
+            if fid not in DOC.scene:
+                raise _not_found(fid)
+        for fid in body.ids:
+            DOC.set_color(fid, body.color)
+        return sorted({DOC.scene[fid].command_id for fid in body.ids})
+
+    return _state_or_error(run)
+
+
 class MaterialIn(BaseModel):
     material: str | None = None  # null = volver al material automático (heurística)
 
@@ -1706,6 +1730,29 @@ def set_feature_material(feature_id: str, body: MaterialIn) -> dict:
     def run():
         DOC.set_material(feature_id, body.material)
         return DOC.scene[feature_id].command_id
+    return _state_or_error(run)
+
+
+class BulkMaterialIn(BaseModel):
+    ids: list[str]
+    material: str | None = None  # null = volver al material automático (heurística)
+
+
+@app.post("/api/features/material")
+def set_material_bulk(body: BulkMaterialIn) -> dict:
+    """Material en LOTE (V6.8-A) — mismo contrato que el color bulk: validar
+    todo, aplicar todo, o 404 sin efectos parciales."""
+    if not body.ids:
+        raise HTTPException(status_code=400, detail="La lista 'ids' no puede estar vacía")
+
+    def run():
+        for fid in body.ids:
+            if fid not in DOC.scene:
+                raise _not_found(fid)
+        for fid in body.ids:
+            DOC.set_material(fid, body.material)
+        return sorted({DOC.scene[fid].command_id for fid in body.ids})
+
     return _state_or_error(run)
 
 
@@ -1992,6 +2039,44 @@ def delete_ground(name: str) -> dict:
     if g is None:
         raise HTTPException(status_code=404, detail=f"No existe el anclaje '{name}'")
     return _state_or_error(lambda: DOC.remove_commands([g["command_id"]]))
+
+
+class ConnectionsRemoveIn(BaseModel):
+    names: list[str]
+
+
+@app.post("/api/connections/remove")
+def remove_connections(body: ConnectionsRemoveIn) -> dict:
+    """Borra VARIAS uniones declaradas por nombre (fijadores y/o anclajes, V6.8-A)
+    en UN remove_commands atómico (1 undo). Un nombre inexistente → 404 nombrándolo
+    y NO se borra ninguna — sin estados a medias en cirugías. El payload lleva
+    `conexiones_borradas` [{name, tipo}]."""
+    names = list(dict.fromkeys(body.names))
+    if not names:
+        raise HTTPException(status_code=400, detail="La lista 'names' no puede estar vacía")
+    borradas: list[dict] = []
+
+    def run():
+        ids: list[str] = []
+        for name in names:
+            if name in DOC.fasteners:
+                conn, tipo = DOC.fasteners[name], "fijador"
+            elif name in DOC.grounds:
+                conn, tipo = DOC.grounds[name], "anclaje"
+            else:
+                validas = sorted(set(DOC.fasteners) | set(DOC.grounds))
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No existe la unión '{name}' — no se borró ninguna. "
+                    f"Declaradas: {', '.join(validas) or 'ninguna'}",
+                )
+            borradas.append({"name": name, "tipo": tipo})
+            ids.append(conn["command_id"])
+        return DOC.remove_commands(list(dict.fromkeys(ids)))
+
+    payload = _state_or_error(run)
+    payload["conexiones_borradas"] = borradas
+    return payload
 
 
 @app.post("/api/assembly/declare")

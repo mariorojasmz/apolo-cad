@@ -4,7 +4,7 @@ import pytest
 
 pytest.importorskip("mcp")  # el cliente MCP necesita el paquete mcp
 
-from apolo.mcp_server import _scene_brief
+from apolo.mcp_server import _one_or_many, _scene_brief
 
 
 def _feat(fid, cmd):
@@ -56,6 +56,16 @@ def test_brief_diff_empty_affected_returns_all():
     """Consultas (sin afectados): 'diff' no oculta la escena → devuelve todos."""
     p = _payload([_feat("c1", "c1"), _feat("c2", "c2")], affected=[])
     assert len(_scene_brief(p, "diff")["solidos"]) == 2
+
+
+def test_one_or_many_excluyentes():
+    """Params `x`/`xs` de las tools por lote (V6.8-A): exactamente uno de los dos."""
+    assert _one_or_many("c1", None) == ["c1"]
+    assert _one_or_many(None, ["c1", "c2"]) == ["c1", "c2"]
+    with pytest.raises(ValueError, match="exactamente uno"):
+        _one_or_many(None, None)
+    with pytest.raises(ValueError, match="exactamente uno"):
+        _one_or_many("c1", ["c2"])
 
 
 def test_brief_variable_edit_zero_solids():

@@ -247,6 +247,54 @@ def test_bulk_visibility_endpoint(client):
     assert all(f["visible"] for f in r.json()["features"])
 
 
+def _three_boxes(client) -> list[str]:
+    ids = []
+    for i in range(3):
+        r = client.post("/api/commands", json={
+            "type": "create_box", "params": {"position": {"x": i * 200}}})
+        ids.append(r.json()["features"][-1]["id"])
+    return ids
+
+
+def test_bulk_material_endpoint(client):
+    ids = _three_boxes(client)
+    r = client.post("/api/features/material", json={"ids": ids[:2], "material": "aluminio"})
+    assert r.status_code == 200
+    assert sorted(r.json()["affected_command_ids"]) == sorted(ids[:2])
+    assert api.DOC.materials == {ids[0]: "aluminio", ids[1]: "aluminio"}
+    # None en lote = volver al automático
+    r = client.post("/api/features/material", json={"ids": ids[:2], "material": None})
+    assert r.status_code == 200 and api.DOC.materials == {}
+
+
+def test_bulk_material_atomico_404_sin_efectos_parciales(client):
+    """El id malo va al FINAL: si el bulk aplicara incrementalmente, los primeros ya
+    estarían mutados al fallar — se valida TODO antes de tocar nada."""
+    ids = _three_boxes(client)
+    r = client.post("/api/features/material",
+                    json={"ids": ids + ["no_existe"], "material": "acero"})
+    assert r.status_code == 404 and "no_existe" in r.json()["detail"]
+    assert api.DOC.materials == {}
+    # lista vacía → 400 (casi seguro un bug del agente, no un no-op)
+    assert client.post("/api/features/material",
+                       json={"ids": [], "material": "acero"}).status_code == 400
+
+
+def test_bulk_color_endpoint(client):
+    ids = _three_boxes(client)
+    r = client.post("/api/features/color", json={"ids": ids[:2], "color": "#a9702f"})
+    assert r.status_code == 200
+    assert api.DOC.colors == {ids[0]: "#a9702f", ids[1]: "#a9702f"}
+    # atómico: id malo al final → cero cambios
+    r = client.post("/api/features/color",
+                    json={"ids": [ids[2], "fantasma"], "color": "#ffffff"})
+    assert r.status_code == 404
+    assert api.DOC.colors == {ids[0]: "#a9702f", ids[1]: "#a9702f"}
+    # None = reset en lote
+    client.post("/api/features/color", json={"ids": ids[:2], "color": None})
+    assert api.DOC.colors == {}
+
+
 def test_script_test_endpoint(client):
     # dry-run read-only: no crea features
     r = client.post("/api/script/test", json={"code": "result = Box(100, 50, 20)"})
@@ -537,6 +585,40 @@ def test_assembly_declare_and_delete(client):
 
     # 404 al borrar inexistente
     assert client.delete("/api/grounds/no_existe").status_code == 404
+
+
+def test_connections_remove_lote_atomico(client):
+    """POST /api/connections/remove (V6.8-A): N uniones (fijadores Y anclajes mezclados)
+    en un remove_commands atómico con 1 undo; un nombre inexistente → 404 y CERO borrados."""
+    client.post("/api/commands", json={"type": "create_box", "params": {
+        "name": "base", "width": 100, "depth": 100, "height": 20, "position": {"x": 50, "y": 0, "z": 10}}})
+    client.post("/api/commands", json={"type": "create_box", "params": {
+        "name": "encima", "width": 100, "depth": 100, "height": 180, "position": {"x": 50, "y": 0, "z": 110}}})
+    client.post("/api/assembly/declare")
+    conn = client.get("/api/connectivity").json()
+    n_f, n_g = len(conn["fasteners"]), len(conn["grounds"])
+    names = [conn["fasteners"][0]["name"], conn["grounds"][0]["name"]]
+
+    # nombre fantasma al final → 404 accionable y NO se borró ninguna
+    r = client.post("/api/connections/remove", json={"names": names + ["fantasma"]})
+    assert r.status_code == 404 and "fantasma" in r.json()["detail"]
+    conn2 = client.get("/api/connectivity").json()
+    assert len(conn2["fasteners"]) == n_f and len(conn2["grounds"]) == n_g
+
+    # lote real: fijador + anclaje en UNA llamada
+    r = client.post("/api/connections/remove", json={"names": names})
+    assert r.status_code == 200
+    assert {b["tipo"] for b in r.json()["conexiones_borradas"]} == {"fijador", "anclaje"}
+    conn3 = client.get("/api/connectivity").json()
+    assert len(conn3["fasteners"]) == n_f - 1 and len(conn3["grounds"]) == n_g - 1
+
+    # UN undo repone las dos (era un solo remove_commands)
+    client.post("/api/undo")
+    conn4 = client.get("/api/connectivity").json()
+    assert len(conn4["fasteners"]) == n_f and len(conn4["grounds"]) == n_g
+
+    # lista vacía → 400
+    assert client.post("/api/connections/remove", json={"names": []}).status_code == 400
 
 
 def test_health_endpoint_ok_and_issue(client):

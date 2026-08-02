@@ -127,6 +127,13 @@ def _job_result(payload: dict, detail: str) -> dict:
     return out
 
 
+def _one_or_many(one: str | None, many: list[str] | None, campo: str = "feature") -> list[str]:
+    """Normaliza los params excluyentes `x` (uno) / `xs` (lote) a una lista (V6.8-A)."""
+    if bool(one) == bool(many):
+        raise ValueError(f"Pasa exactamente uno de los dos: `{campo}` (uno) o `{campo}s` (lote)")
+    return [one] if one else list(many)
+
+
 def _scene_brief(payload: dict, detail: str = "diff") -> dict:
     """Resumen sin mallas (las mallas son para el viewport, no para el agente).
 
@@ -277,12 +284,31 @@ def get_costing() -> str:
 
 
 @mcp.tool()
-def set_material(feature: str, material: str | None = None) -> str:
-    """Fija (anula) el material de un sólido para el BOM/peso/rayado de sección.
-    material=None vuelve al automático (catálogo o heurística por nombre).
-    Ej.: 'acero', 'aluminio', 'acero inoxidable', 'laton', 'madera', 'vidrio'."""
-    payload = _api("POST", f"/api/features/{feature}/material", json={"material": material}).json()
+def set_material(
+    feature: str | None = None, material: str | None = None,
+    features: list[str] | None = None,
+) -> str:
+    """Fija (anula) el material de uno o VARIOS sólidos para el BOM/peso/rayado de
+    sección. Pasa `feature` (uno) o `features` (lote — N piezas en 1 llamada, atómico:
+    un id inexistente no aplica nada), no ambos. material=None vuelve al automático
+    (catálogo o heurística por nombre). Ej.: 'acero', 'aluminio', 'acero inoxidable',
+    'laton', 'madera', 'vidrio'."""
+    ids = _one_or_many(feature, features)
+    payload = _api("POST", "/api/features/material", json={"ids": ids, "material": material}).json()
     return json.dumps(_scene_brief(payload), ensure_ascii=False)
+
+
+@mcp.tool()
+def set_color(
+    color: str | None = None, feature: str | None = None,
+    features: list[str] | None = None,
+) -> str:
+    """Color de VISUALIZACIÓN de uno o VARIOS sólidos ('#rrggbb'; None = volver al color
+    automático). Pasa `feature` (uno) o `features` (lote — atómico), no ambos. Solo
+    apariencia del viewport/render — no toca material, BOM ni peso."""
+    ids = _one_or_many(feature, features)
+    payload = _api("POST", "/api/features/color", json={"ids": ids, "color": color}).json()
+    return json.dumps(_scene_brief(payload, "summary"), ensure_ascii=False)
 
 
 @mcp.tool()
@@ -810,15 +836,15 @@ def get_connections() -> str:
 
 
 @mcp.tool()
-def delete_connection(name: str) -> str:
-    """Borra una unión declarada por su NOMBRE (un fijador o un anclaje a tierra) — para corregir el
-    auto-declarado (quitar una unión falsa). Consulta los nombres con get_connections."""
-    try:
-        _api("DELETE", f"/api/fasteners/{name}")
-        return json.dumps({"borrado": name, "tipo": "fijador"}, ensure_ascii=False)
-    except Exception:  # noqa: BLE001 — si no es fijador, prueba como anclaje
-        _api("DELETE", f"/api/grounds/{name}")
-        return json.dumps({"borrado": name, "tipo": "anclaje"}, ensure_ascii=False)
+def delete_connection(name: str | None = None, names: list[str] | None = None) -> str:
+    """Borra una o VARIAS uniones declaradas por NOMBRE (fijadores o anclajes a tierra) —
+    para corregir el auto-declarado o para cirugías. Pasa `name` (una) o `names` (lote),
+    no ambos. El lote es ATÓMICO (1 undo): si un nombre no existe, no se borra ninguna.
+    Consulta los nombres con get_connections."""
+    wanted = _one_or_many(name, names, "name")
+    payload = _api("POST", "/api/connections/remove", json={"names": wanted}).json()
+    borradas = payload.get("conexiones_borradas", [])
+    return json.dumps({"borradas": borradas, "n": len(borradas)}, ensure_ascii=False)
 
 
 @mcp.tool()
