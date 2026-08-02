@@ -1177,13 +1177,16 @@ verdes**. Un ítem por vez, con plan formal.
   el-último-gana). 18 tests parametrizados + build de UI limpio. 5→6.5. Plan
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
-- **V6.8 MCP fluidez** — **CÓDIGO COMPLETO (2026-08-01)** (plan
-  `docs/plans/V6.8-mcp-fluidez.md`, nacido de la retrospectiva del camastro 70): A (lotes de
-  apariencia/conexiones) · B (`find_commands`) · C (cinemática por MCP + contratos EN POSE) ·
-  D (arrastre de cuerpo rígido + signo documentado) · E (snap cara-a-cara + drill por cara)
-  — detalle en sus secciones del Mapa. PENDIENTE la validación E2E final del plan:
-  re-modelar el respaldo del camastro solo con snap cara-a-cara («cero lotes revertidos por
-  trigonometría») en sesión viva tras reiniciar API + host MCP.
+- **V6.8 MCP fluidez** — **CERRADO (2026-08-02)** (plan en
+  `docs/plans/done/V6.8-mcp-fluidez.md`, nacido de la retrospectiva del camastro 70): A
+  (lotes de apariencia/conexiones) · B (`find_commands`) · C (cinemática por MCP + contratos
+  EN POSE) · D (arrastre de cuerpo rígido + signo documentado) · E (snap cara-a-cara + drill
+  por cara) — detalle en sus secciones del Mapa. **E2E validado en vivo** sobre el camastro
+  70: respaldo re-modelado con listones creados PLANOS + snap cara-a-cara, 1 run_batch con
+  contrato de 14 aserciones (distancias ≤0.001 a ambos largueros + sin_interferencia en 3
+  POSES) verde A LA PRIMERA — la vara «cero lotes revertidos por trigonometría» cumplida
+  (la sesión original: ~15 rondas y 4 lotes revertidos); original restaurado por revisión,
+  scan idéntico. Detalle en el cierre del plan.
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
 
