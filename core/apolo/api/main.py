@@ -1278,6 +1278,77 @@ def remove_commands_endpoint(body: RemoveIn) -> dict:
     return _state_or_error(lambda: DOC.remove_commands(body.ids))
 
 
+def _params_reference(params: dict, fid: str) -> str | None:
+    """Primera clave de params cuyo valor referencia el feature id: string igual,
+    lista que lo contiene, o un nivel de dict anidado (selectores {'cerca': fid}).
+    Búsqueda SUPERFICIAL por valores — no semántica profunda (V6.8-B)."""
+    for key, val in params.items():
+        if val == fid:
+            return key
+        if isinstance(val, list) and any(v == fid for v in val):
+            return key
+        if isinstance(val, dict) and any(v == fid for v in val.values()):
+            return key
+    return None
+
+
+def _command_resumen(cmd: dict) -> str:
+    """Etiqueta compacta de una fila del log: el `name` si existe, o «tipo sobre X»."""
+    p = cmd.get("params", {})
+    if p.get("name"):
+        return str(p["name"])
+    for k in ("feature", "feature_a", "target", "a", "parent", "members"):
+        v = p.get(k)
+        if v:
+            if isinstance(v, list):
+                v = ",".join(map(str, v[:3])) + ("…" if len(v) > 3 else "")
+            return f"{cmd['type']} sobre {v}"
+    return cmd["type"]
+
+
+@app.get("/api/commands")
+def find_commands_endpoint(
+    type: str | None = None, feature: str | None = None,
+    name: str | None = None, limit: int = 100,
+) -> dict:
+    """Busca en el LOG de comandos (V6.8-B): el command_id de una operación sin
+    deducirlo por aritmética de lotes. Al menos UN filtro es obligatorio (el log
+    entero ya lo da GET /api/document). Filas compactas [{id, type, resumen}].
+      - type: match exacto del tipo de comando.
+      - feature: comandos que CREARON ese feature id o lo REFERENCIAN en params.
+      - name: substring case-insensitive del param `name`.
+    Read-only. `total` declara el conteo sin recortar; `truncado` si limit lo cortó."""
+    if not (type or feature or name):
+        raise HTTPException(
+            status_code=400,
+            detail="Pasa al menos un filtro: type, feature o name "
+            "(el log completo está en GET /api/document)",
+        )
+    limit = max(1, int(limit))
+    with STATE_LOCK:
+        creator = None
+        if feature:
+            feat = DOC.scene.get(feature)
+            creator = feat.command_id if feat is not None else None
+        rows = []
+        for c in DOC.commands:
+            if type and c["type"] != type:
+                continue
+            params = c.get("params", {})
+            if name and name.lower() not in str(params.get("name", "")).lower():
+                continue
+            if feature:
+                es_creador = c["id"] in (feature, creator)
+                ref = _params_reference(params, feature)
+                if not es_creador and ref is None:
+                    continue
+            rows.append({"id": c["id"], "type": c["type"], "resumen": _command_resumen(c)})
+        if feature and not rows and creator is None:
+            # el id no existe ni se referencia → 404 con «¿quisiste decir…?»
+            raise _not_found(feature)
+    return {"total": len(rows), "truncado": len(rows) > limit, "commands": rows[:limit]}
+
+
 # ------------------------------------------------------------------ variables
 class VariableIn(BaseModel):
     name: str

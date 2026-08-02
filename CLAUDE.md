@@ -58,10 +58,10 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **73 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **75 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-07-22)**: 1314 tests (+15 tortura vía `-m torture`) · 73 tools MCP ·
+- **Estado actual (2026-08-01)**: 1328 tests (+15 tortura vía `-m torture`) · 75 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -145,6 +145,15 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   briefs filtrados los arma el SERVIDOR (`_scene_filtered`/`_feature_brief`, mismos campos que
   `_scene_brief` del MCP) reusando `_expand_ids`; `get_scene()` sin params = payload completo
   con mallas byte-idéntico (compat viewport). Presupuesto: <10 KB/lectura a 1000 piezas.
+- **Lotes + búsqueda en el log (V6.8 A+B, 2026-08-01)**: `set_material`/`set_color` (tool
+  nueva) aceptan `features` en LOTE (`POST /api/features/material|color` {ids,…}: valida TODO
+  antes de tocar nada — 404 con sugerencia y CERO efectos parciales; 1 autosave) y
+  `delete_connection` acepta `names` (`POST /api/connections/remove`: fijadores y anclajes
+  mezclados en UN remove_commands = 1 undo; nombre inexistente → no borra ninguna).
+  `find_commands` (`GET /api/commands`, type/feature/name combinables) = filas compactas
+  {id,type,resumen} del log — comandos que CREARON el feature O lo referencian por params
+  (búsqueda superficial, 1 nivel de dict); sin filtros → 400; feature inexistente → 404 con
+  «¿quisiste decir…?». Fin de la aritmética de ids y de las ~90 llamadas de a una.
 
 ### Comandos / modelado (53 comandos)
 - **Superficies básicas (V5.11, `kernel/surface.py`)**: `boundary_surface` (Face de un
@@ -1132,6 +1141,11 @@ verdes**. Un ítem por vez, con plan formal.
   el-último-gana). 18 tests parametrizados + build de UI limpio. 5→6.5. Plan
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
+- **V6.8 MCP fluidez** — **EN CURSO** (plan `docs/plans/V6.8-mcp-fluidez.md`, nacido de la
+  retrospectiva del camastro 70): **A (lotes de apariencia/conexiones) y B (`find_commands`)
+  HECHOS (2026-08-01)** — detalle en § Lotes + búsqueda en el log; quedan C (cinemática por
+  MCP + contratos EN POSE), D (FK `arrastrar` + signo documentado) y E (snap cara-a-cara +
+  drill por cara).
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
 

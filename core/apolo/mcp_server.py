@@ -749,6 +749,29 @@ def get_command(command_id: str) -> str:
 
 
 @mcp.tool()
+def find_commands(
+    type: str | None = None, feature: str | None = None,
+    name: str | None = None, limit: int = 100,
+) -> str:
+    """Busca COMANDOS en el log del documento y devuelve filas compactas
+    [{id, type, resumen}] — para encontrar el command_id que quieres editar/borrar
+    SIN deducirlo por aritmética de lotes. Al menos un filtro:
+      - type: tipo exacto ('chamfer', 'create_box', 'add_joint', …).
+      - feature: comandos que CREARON ese sólido o lo REFERENCIAN en sus params
+        (feature/feature_a/b, members, parent/child, selectores…).
+      - name: substring case-insensitive del nombre de la pieza.
+    Combínalos (type='chamfer', feature='c14' = los chaflanes sobre c14). Read-only."""
+    params: dict = {"limit": limit}
+    if type:
+        params["type"] = type
+    if feature:
+        params["feature"] = feature
+    if name:
+        params["name"] = name
+    return json.dumps(_api("GET", "/api/commands", params=params).json(), ensure_ascii=False)
+
+
+@mcp.tool()
 def test_sketch(sketch: dict) -> str:
     """Prueba en seco un croquis: lo resuelve con el solver (PlaneGCS) y devuelve {ok,
     residual, diagnostico, dof, redundantes, conflictivas, ...} SIN crear geometría.
