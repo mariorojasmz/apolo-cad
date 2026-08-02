@@ -272,13 +272,17 @@ class AttachParams(BaseModel):
 
 
 class SnapToParams(BaseModel):
-    """Coloca un sólido JUNTO a otro por sus cajas envolventes, sin aritmética: traslada
-    `feature` para que su cara enfrentada quede a `gap` mm del `lado` del bbox de `target`
-    (p. ej. lado='+x' pega la pieza contra el max_x del target; gap=0 = a ras). Con `alinear`
-    la centra además en esos ejes (los distintos del snap). Es «junto a B hacia d con gap g»
-    en UNA llamada. Se REEVALÚA al regenerar (relacional persistente, como center_in): si el
-    target se mueve o cambia de tamaño, la pieza lo sigue. Trabaja sobre las cajas envolventes;
-    para caras arbitrarias/cilíndricas usa mates (add_mate coincidente/distancia)."""
+    """Coloca un sólido JUNTO a otro sin aritmética, en dos modos. (1) BBOX (default):
+    traslada `feature` para que su cara enfrentada quede a `gap` mm del `lado` del bbox
+    de `target` (lado='+x' pega contra el max_x; gap=0 = a ras); `alinear` la centra
+    además en esos ejes. (2) CARA-A-CARA (V6.8-E, pasa `cara` + `cara_target`): APOYA la
+    cara PLANA de la pieza contra la cara PLANA del target — rota la pieza lo MÍNIMO para
+    dejar las normales anti-paralelas (la orientación se conserva todo lo posible: un
+    listón sobre un larguero inclinado se inclina con él, sin girar alrededor de la
+    normal) y alinea los centros de cara a `gap` mm + `deslizar` {u,v} en el plano del
+    target (u = eje MAYOR de la cara). `lado`/`alinear` se ignoran en este modo. Ambos
+    modos se REEVALÚAN al regenerar (relacional persistente): si el target se mueve o
+    cambia, la pieza lo sigue. Para caras cilíndricas usa mates (add_mate concéntrico)."""
 
     feature: str = Field(..., title="Sólido a colocar", description="id de feature")
     target: str = Field(..., title="Sólido de referencia", description="id de feature")
@@ -292,6 +296,27 @@ class SnapToParams(BaseModel):
         default_factory=list, title="Centrar en ejes",
         description="ejes en que centrar la pieza dentro del target (además del snap)",
     )
+    cara: "EdgeSelector | None" = Field(
+        None, title="Cara de la pieza", json_schema_extra={"x-selector": "face"},
+        description="modo cara-a-cara: cara PLANA de la pieza que APOYA (con cara_target)",
+    )
+    cara_target: "EdgeSelector | None" = Field(
+        None, title="Cara del target", json_schema_extra={"x-selector": "face"},
+        description="cara PLANA del target contra la que se apoya",
+    )
+    deslizar: "SlideUV" = Field(
+        default_factory=lambda: SlideUV(), title="Deslizar en el plano",
+        description="desplazamiento {u,v} mm en el plano de la cara target "
+        "(u = eje MAYOR de la cara, v = el menor); solo modo cara-a-cara",
+    )
+
+    @model_validator(mode="after")
+    def _face_mode_pair(self):
+        if (self.cara is None) != (self.cara_target is None):
+            raise ValueError(
+                "El modo cara-a-cara necesita `cara` Y `cara_target` (o ninguno = modo bbox)"
+            )
+        return self
 
 
 class CreateConveyorParams(BaseModel):
@@ -744,6 +769,16 @@ class EdgeSelector(BaseModel):
     name: str | None = Field(None, max_length=40, title="Ancla", description="nombre del ancla (entidad/modo 'ancla')")
 
 
+class SlideUV(BaseModel):
+    """Desplazamiento {u, v} en el PLANO de una cara (V6.8-E): u = eje MAYOR de la
+    cara (mayor extensión, signo hacia su componente mundial dominante positiva),
+    v = normal × u. Lo usan snap_to cara-a-cara (`deslizar`) y drill_hole (`en_cara`,
+    medido desde el CENTRO de la cara). Acepta '=expresión'."""
+
+    u: float = Field(0, title="u", description="mm a lo largo del eje MAYOR de la cara")
+    v: float = Field(0, title="v", description="mm a lo largo del eje menor")
+
+
 class FilletParams(BaseModel):
     """Redondea aristas de un sólido con el radio dado."""
 
@@ -824,11 +859,24 @@ DRILL_AXES = Literal["x", "-x", "y", "-y", "z", "-z"]
 class DrillHoleParams(BaseModel):
     """Taladro: avanza desde el punto de entrada en la dirección del eje.
     depth=0 lo hace pasante. Caladrillo (counterbore) opcional. Con `thread`
-    (rosca M8, M10x1.25…) el 3D taladra a la BROCA DE MACHUELADO."""
+    (rosca M8, M10x1.25…) el 3D taladra a la BROCA DE MACHUELADO.
+    Entrada DECLARATIVA (V6.8-E): en vez de `position`, pasa `cara` (selector de
+    cara PLANA) + `en_cara` {u,v} (mm desde el CENTRO de la cara; u = eje mayor) —
+    el taladro entra por ese punto y avanza por −normal (perpendicular a la cara,
+    aunque esté rotada) SIN trigonometría; un `axis` explícito gana sobre la normal.
+    `position` y `cara` son excluyentes; `en_cara` fuera de la cara → error."""
 
     feature: str = Field(..., title="Sólido", description="id de feature")
-    position: Vec3 = Field(..., title="Punto de entrada")
+    position: Vec3 | None = Field(None, title="Punto de entrada")
     axis: DRILL_AXES = Field("-z", title="Dirección de avance")
+    cara: EdgeSelector | None = Field(
+        None, title="Cara de entrada", json_schema_extra={"x-selector": "face"},
+        description="cara PLANA por la que entra el taladro (alternativa a position)",
+    )
+    en_cara: SlideUV = Field(
+        default_factory=SlideUV, title="Punto en la cara",
+        description="{u,v} mm desde el CENTRO de la cara (u = eje mayor); solo con `cara`",
+    )
     diameter: float = Field(8, gt=0, le=500, title="Diámetro", description="mm")
     depth: float = Field(0, ge=0, le=5000, title="Profundidad", description="mm, 0 = pasante")
     counterbore_d: float | None = Field(None, gt=0, le=600, title="Ø caladrillo", description="mm")
@@ -879,6 +927,15 @@ class DrillHoleParams(BaseModel):
             raise ValueError(
                 "fit y thread son excluyentes: la rosca interior va 6H (ISO 262); "
                 "el ajuste ISO 286 es para agujeros LISOS"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _position_xor_cara(self):
+        if (self.position is None) == (self.cara is None):
+            raise ValueError(
+                "Pasa exactamente uno: `position` (punto de entrada en mundo) o "
+                "`cara` + `en_cara` (entrada declarativa por cara, V6.8-E)"
             )
         return self
 

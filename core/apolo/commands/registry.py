@@ -241,6 +241,34 @@ def _world_move(feat: Feature, translate, rotate) -> None:
     feat.shape = move_rotated_about_center(feat.shape, translate, rotate)
 
 
+def _world_place(feat: Feature, translate, axis, angle_deg: float, center) -> None:
+    """Espejo de `_world_move` con rotación por EJE ARBITRARIO (axis-angle, mano
+    derecha — la misma convención de gp_Trsf/Shape.rotate): W = T · R(eje, θ sobre
+    `center`). Compone la MISMA rígida en la matriz de instancia y las anclas
+    (V6.8-E: el snap cara-a-cara la necesita — euler no expresa un eje inclinado)."""
+    rotating = abs(angle_deg) > 1e-9
+    if feat.matrix is not None or feat.anchors:
+        from apolo.kernel.matrix import (
+            multiply, rotation_axis_angle_about, transform_anchors, translation,
+        )
+
+        w = translation(*translate)
+        if rotating:
+            w = multiply(w, rotation_axis_angle_about(center, axis, angle_deg))
+        if feat.matrix is not None:
+            feat.matrix = multiply(w, feat.matrix)
+        if feat.anchors:
+            feat.anchors = transform_anchors(w, feat.anchors)
+    from build123d import Axis, Pos
+
+    shape = feat.shape
+    if rotating:
+        shape = shape.rotate(Axis(center, axis), angle_deg)
+    if any(translate):
+        shape = Pos(*translate) * shape
+    feat.shape = shape
+
+
 def _exec_transform(scene: Scene, cmd_id: str, p: TransformParams) -> None:
     feat = _require(scene, p.feature)
     _world_move(feat, p.translate.tuple(), p.rotate.tuple())
@@ -515,6 +543,74 @@ def _exec_shell(scene: Scene, cmd_id: str, p: ShellParams) -> None:
     feat.make_unique()
 
 
+def _v_sub(a, b):
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+
+def _v_dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _v_cross(a, b):
+    return (
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    )
+
+
+def _v_unit(a):
+    import math
+
+    n = math.sqrt(_v_dot(a, a))
+    if n < 1e-12:
+        raise CommandError("Vector nulo al construir el frame de la cara")
+    return (a[0] / n, a[1] / n, a[2] / n)
+
+
+def _planar_face_frame(feat, selector: dict | None, *, quien: str):
+    """(cara, origen, normal, u, v) de una cara PLANA elegida con el selector
+    declarativo (V6.8-E). u = eje de MAYOR extensión de la cara («eje mayor»), con
+    el signo hacia su componente mundial dominante positiva; v = normal × u (terna
+    derecha). Cara no plana → CommandError claro (las cilíndricas son territorio
+    de los mates, no se duplican aquí)."""
+    from apolo.kernel.selectors import SelectorError, resolve_faces
+
+    try:
+        faces = resolve_faces(feat.shape, selector or {"mode": "todas"})
+    except SelectorError as exc:
+        raise CommandError(f"Selector de {quien} inválido: {exc}") from exc
+    face = faces[0]
+    gt = str(getattr(face, "geom_type", "")).upper()
+    if "PLANE" not in gt:
+        raise CommandError(
+            f"La {quien} debe ser PLANA (es {gt.lower() or 'desconocida'}); "
+            "para caras cilíndricas usa add_mate concéntrico"
+        )
+    c = face.center()
+    o = (float(c.X), float(c.Y), float(c.Z))
+    nv = face.normal_at()
+    n = _v_unit((float(nv.X), float(nv.Y), float(nv.Z)))
+    ref = min(
+        ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
+        key=lambda w: abs(_v_dot(w, n)),
+    )
+    x0 = _v_unit(_v_cross(ref, n))
+    y0 = _v_cross(n, x0)
+    pts = [(float(v.X), float(v.Y), float(v.Z)) for v in face.vertices()]
+
+    def _spread(ax):
+        d = [_v_dot(_v_sub(pt, o), ax) for pt in pts]
+        return (max(d) - min(d)) if d else 0.0
+
+    u = x0 if _spread(x0) >= _spread(y0) else y0
+    dom = max(range(3), key=lambda i: abs(u[i]))
+    if u[dom] < 0:  # signo determinista: hacia la componente mundial dominante +
+        u = (-u[0], -u[1], -u[2])
+    v = _v_cross(n, u)
+    return face, o, n, u, v
+
+
 _DRILL_DIRS = {
     "x": (1, 0, 0), "-x": (-1, 0, 0),
     "y": (0, 1, 0), "-y": (0, -1, 0),
@@ -526,22 +622,50 @@ def _drill_tool(diameter: float, length: float, entry, direction):
     from build123d import Cylinder, Pos, Rotation
 
     cyl = Cylinder(diameter / 2.0, length)
-    if abs(direction[0]):
+    dx, dy, dz = (abs(direction[0]), abs(direction[1]), abs(direction[2]))
+    if dx > 1e-9 and dy < 1e-9 and dz < 1e-9:
         cyl = Rotation(0, 90, 0) * cyl
-    elif abs(direction[1]):
+    elif dy > 1e-9 and dx < 1e-9 and dz < 1e-9:
         cyl = Rotation(90, 0, 0) * cyl
+    elif dx > 1e-9 or dy > 1e-9:  # dirección ARBITRARIA (V6.8-E: drill por cara rotada)
+        from apolo.kernel.matrix import direction_to_euler
+
+        cyl = Rotation(*direction_to_euler(direction)) * cyl
     center = tuple(entry[i] + direction[i] * length / 2.0 for i in range(3))
     return Pos(*center) * cyl
 
 
 def _exec_drill_hole(scene: Scene, cmd_id: str, p: DrillHoleParams) -> None:
     feat = _require(scene, p.feature)
-    direction = _DRILL_DIRS[p.axis]
     bb = feat.shape.bounding_box()
     through = (
         abs(bb.max.X - bb.min.X) + abs(bb.max.Y - bb.min.Y) + abs(bb.max.Z - bb.min.Z) + 10
     )
-    entry = p.position.tuple()
+    if p.cara is not None:  # entrada DECLARATIVA por cara (V6.8-E)
+        face, o, n, u, v = _planar_face_frame(
+            feat, p.cara.model_dump(exclude_none=True), quien="cara del taladro"
+        )
+        du, dv = p.en_cara.u, p.en_cara.v
+        entry = tuple(o[i] + u[i] * du + v[i] * dv for i in range(3))
+        from build123d import Vertex
+
+        from apolo.kernel.measure import measure_distance
+
+        fuera = measure_distance(Vertex(*entry), face)["dist_mm"]
+        if fuera > 1e-6:
+            raise CommandError(
+                f"en_cara (u={du}, v={dv}) cae FUERA de la cara (a {round(fuera, 3)} mm "
+                "de su borde) — el taladro entraría al aire; u/v se miden desde el "
+                "CENTRO de la cara (u = eje mayor)"
+            )
+        # −normal = perpendicular a la cara; un `axis` EXPLÍCITO gana
+        if "axis" in p.model_fields_set:
+            direction = _DRILL_DIRS[p.axis]
+        else:
+            direction = (-n[0], -n[1], -n[2])
+    else:
+        entry = p.position.tuple()
+        direction = _DRILL_DIRS[p.axis]
     depth = p.depth if p.depth > 0 else through
     if p.thread:  # roscado: el 3D lleva la BROCA de machuelado (diameter se ignora)
         from apolo.library.engineering.threads import thread_spec
@@ -1688,12 +1812,54 @@ def _exec_attach(scene: Scene, cmd_id: str, p: AttachParams) -> None:
     _world_move(feat, delta, (0, 0, 0))
 
 
+def _exec_snap_face(scene: Scene, p: SnapToParams) -> None:
+    """Modo CARA-A-CARA (V6.8-E): apoya la cara PLANA de la pieza contra la cara
+    PLANA del target — normales anti-paralelas a `gap` mm, centros de cara alineados
+    + `deslizar` {u,v} en el plano del target. Colocación CERRADA (sin solver) con
+    rotación MÍNIMA: la orientación de la pieza se conserva todo lo posible (el
+    listón sobre el larguero inclinado se inclina con él, no gira alrededor de la
+    normal). Relacional: se reevalúa al regenerar como el modo bbox."""
+    import math
+
+    feat = _require(scene, p.feature)
+    target = _require(scene, p.target)
+    _f, oA, nA, _uA, _vA = _planar_face_frame(
+        feat, p.cara.model_dump(exclude_none=True), quien="cara de la pieza"
+    )
+    _f, oB, nB, uB, vB = _planar_face_frame(
+        target, p.cara_target.model_dump(exclude_none=True), quien="cara del target"
+    )
+    d = (-nB[0], -nB[1], -nB[2])  # la normal de la pieza debe terminar mirando al target
+    dot = max(-1.0, min(1.0, _v_dot(nA, d)))
+    center = _bbox_center(feat.shape)
+    if dot > 1.0 - 1e-12:
+        axis, angle = (0.0, 0.0, 1.0), 0.0
+    elif dot < -1.0 + 1e-12:
+        axis, angle = uB, 180.0  # anti-paralelas: media vuelta sobre un eje del plano
+    else:
+        axis = _v_unit(_v_cross(nA, d))
+        angle = math.degrees(math.acos(dot))
+    if angle:  # centro de la cara A tras la rotación (sobre el centro del bbox)
+        from apolo.kernel.matrix import rotation_axis_angle_about
+
+        m = rotation_axis_angle_about(center, axis, angle)
+        oA = tuple(
+            m[i][0] * oA[0] + m[i][1] * oA[1] + m[i][2] * oA[2] + m[i][3] for i in range(3)
+        )
+    du, dv = p.deslizar.u, p.deslizar.v
+    destino = tuple(oB[i] + nB[i] * p.gap + uB[i] * du + vB[i] * dv for i in range(3))
+    _world_place(feat, _v_sub(destino, oA), axis, angle, center)
+
+
 def _exec_snap_to(scene: Scene, cmd_id: str, p: SnapToParams) -> None:
     """Pega `feature` contra el `lado` del bbox de `target` a `gap` mm, opcionalmente
     centrando en los ejes de `alinear`. Relacional: se reevalúa al regenerar (mueve en
-    sitio con la MISMA rígida que center_in/attach → conserva matrix/anclas)."""
+    sitio con la MISMA rígida que center_in/attach → conserva matrix/anclas).
+    Con `cara`+`cara_target` despacha al modo cara-a-cara (V6.8-E)."""
     if p.feature == p.target:
         raise CommandError("Un sólido no puede colocarse junto a sí mismo")
+    if p.cara is not None:  # ambos-o-ninguno lo garantiza el modelo
+        return _exec_snap_face(scene, p)
     feat = _require(scene, p.feature)
     target = _require(scene, p.target)
     fb = feat.shape.bounding_box()

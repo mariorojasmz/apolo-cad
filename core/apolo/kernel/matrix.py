@@ -62,6 +62,34 @@ def rotation_about_center(center: tuple[float, float, float], rotation: tuple[fl
     )
 
 
+def rotation_axis_angle(axis, angle_deg: float) -> Mat:
+    """Rodrigues 4x4: rotación `angle_deg` alrededor de un EJE ARBITRARIO (vector
+    mundo, se normaliza), regla de la mano derecha — la misma convención que
+    gp_Trsf / Shape.rotate de build123d (V6.8-E: snap cara-a-cara)."""
+    ax, ay, az = (float(c) for c in axis)
+    n = math.sqrt(ax * ax + ay * ay + az * az)
+    if n < 1e-12:
+        raise ValueError("Eje de rotación nulo")
+    kx, ky, kz = ax / n, ay / n, az / n
+    th = math.radians(angle_deg)
+    c, s = math.cos(th), math.sin(th)
+    cc = 1.0 - c
+    return [
+        [c + kx * kx * cc, kx * ky * cc - kz * s, kx * kz * cc + ky * s, 0.0],
+        [ky * kx * cc + kz * s, c + ky * ky * cc, ky * kz * cc - kx * s, 0.0],
+        [kz * kx * cc - ky * s, kz * ky * cc + kx * s, c + kz * kz * cc, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+
+
+def rotation_axis_angle_about(point, axis, angle_deg: float) -> Mat:
+    """T(p) · R(eje, ángulo) · T(-p): rotación por eje arbitrario sobre un punto."""
+    return multiply(
+        multiply(translation(*point), rotation_axis_angle(axis, angle_deg)),
+        translation(-point[0], -point[1], -point[2]),
+    )
+
+
 _AXIS_VEC = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
 
 

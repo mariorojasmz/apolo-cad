@@ -61,7 +61,7 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **78 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-08-01)**: 1337 tests (+15 tortura vía `-m torture`) · 78 tools MCP ·
+- **Estado actual (2026-08-01)**: 1343 tests (+15 tortura vía `-m torture`) · 78 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -231,8 +231,8 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   conserva ids) + patrones (`count` por `=expr`; `pattern_group` arraya TODAS las
   features de un comando, rechaza fuentes con juntas) + `center_in`/`distribute`/`snap_to`
   (colocación relacional, se reevalúa al regenerar; `snap_to` V6.5 = «junto a B hacia ±eje
-  con gap g / a ras», bbox-a-bbox + `alinear` para centrar en los otros ejes — para caras
-  arbitrarias/cilíndricas están los mates) + `duplicate_feature`.
+  con gap g / a ras», bbox-a-bbox + `alinear` para centrar en los otros ejes; V6.8-E añade
+  el modo CARA-A-CARA — § Colocación declarativa — para cilíndricas siguen los mates) + `duplicate_feature`.
 - **Super-comandos**: `create_conveyor` (RODILLOS), `create_belt_conveyor` (BANDA),
   `create_weldment`/`create_frame` (bastidores con lista de corte; `esquinas=
   "tope"|"inglete"` V5.8 — inglete: corte por el plano BISECTOR del nodo en
@@ -342,6 +342,21 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   (V6.8-D); `Rotation(0,v,0)` de build123d gira HORARIO en XZ (+v en junta Y = θ del
   respaldo SUBE — `get_kinematics` publica la convención en `sentido`: se LEE, no se
   calibra contra renders).
+- **Colocación declarativa (V6.8-E, 2026-08-01)**: `snap_to` gana el modo **CARA-A-CARA**
+  (`cara`+`cara_target` selectores de cara PLANA, `gap`, `deslizar` {u,v}): apoya la cara de
+  la pieza contra la del target con rotación MÍNIMA (normales anti-paralelas; el listón
+  sobre el larguero inclinado se inclina con él SIN girar sobre la normal) — colocación
+  CERRADA sin solver, relacional (se reevalúa al regenerar), vía `_world_place` (espejo de
+  `_world_move` con rotación AXIS-ANGLE: `rotation_axis_angle*` en kernel/matrix, misma
+  convención que Shape.rotate). `drill_hole` gana entrada declarativa `cara`+`en_cara`
+  {u,v} (excluyente con `position`): entra por ese punto y avanza por −normal (un `axis`
+  explícito gana, detectado por `model_fields_set`); `en_cara` fuera de la cara → error.
+  Frame de cara: u = eje de MAYOR extensión (vértices), signo hacia la componente mundial
+  dominante +, v = n×u. Cara no plana → error que manda a los mates. GOTCHAS: la cara
+  «tope» (bbox) de una barra INCLINADA es su cara EXTREMO cuesta arriba — para la cara
+  superior inclinada usa `cerca` con un punto encima (get_topology da los centros); un
+  taladro OBLICUO explícito arranca EN el punto de entrada → la cuña cuesta-arriba
+  (⅔·r³·tanθ) queda sin remover, igual que en modo position.
 - **Arrastre de cuerpo rígido (V6.8-D, 2026-08-01)**: `add_joint` gana `arrastrar`
   (default **False** — True cambiaría el replay de logs viejos y chocaría con juntas fija
   manuales posteriores): flood sobre el grafo de FIJADORES declarados hasta ese punto del
@@ -1162,11 +1177,13 @@ verdes**. Un ítem por vez, con plan formal.
   el-último-gana). 18 tests parametrizados + build de UI limpio. 5→6.5. Plan
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
-- **V6.8 MCP fluidez** — **EN CURSO** (plan `docs/plans/V6.8-mcp-fluidez.md`, nacido de la
-  retrospectiva del camastro 70): **A (lotes de apariencia/conexiones), B (`find_commands`),
-  C (cinemática por MCP + contratos EN POSE) y D (arrastre de cuerpo rígido + signo
-  documentado) HECHOS (2026-08-01)** — detalle en § Lotes + búsqueda en el log, § Cinemática
-  por MCP y § Arrastre de cuerpo rígido; queda E (snap cara-a-cara + drill por cara).
+- **V6.8 MCP fluidez** — **CÓDIGO COMPLETO (2026-08-01)** (plan
+  `docs/plans/V6.8-mcp-fluidez.md`, nacido de la retrospectiva del camastro 70): A (lotes de
+  apariencia/conexiones) · B (`find_commands`) · C (cinemática por MCP + contratos EN POSE) ·
+  D (arrastre de cuerpo rígido + signo documentado) · E (snap cara-a-cara + drill por cara)
+  — detalle en sus secciones del Mapa. PENDIENTE la validación E2E final del plan:
+  re-modelar el respaldo del camastro solo con snap cara-a-cara («cero lotes revertidos por
+  trigonometría») en sesión viva tras reiniciar API + host MCP.
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
 
