@@ -12,6 +12,11 @@ Tipos v1:
   - ``bbox``      {id|grupo|ids, eje:x|y|z, min|max|entre} — tamaño de la caja conjunta.
   - ``sin_interferencia`` {ids?} — 0 colisiones (acotado a `ids`; sin ids = global).
   - ``existe``    {id|name} — el id existe / hay piezas cuyo nombre contiene `name`.
+
+Aserciones EN POSE (V6.8-C): ``distancia`` y ``sin_interferencia`` aceptan
+``joint_values`` {junta: valor} POR ASERCIÓN — se evalúan con el mecanismo POSADO
+(`pose_fn` inyectado, junto con el resto: la librería no ve el Document). Un
+contrato `expect` con poses = «este lote no puede romper ninguna pose declarada».
 """
 
 from __future__ import annotations
@@ -88,10 +93,10 @@ def format_failures(results: list[dict]) -> str:
 # no un fallo silencioso «sin piezas» (le costó 3 round-trips al propio agente).
 _COMMON_KEYS = {"tipo", "nombre", "min", "max", "entre"}
 _KEYS_BY_TIPO = {
-    "distancia": _COMMON_KEYS | {"a", "b"},
+    "distancia": _COMMON_KEYS | {"a", "b", "joint_values"},
     "volumen": _COMMON_KEYS | {"id", "ids", "grupo"},
     "bbox": _COMMON_KEYS | {"id", "ids", "grupo", "eje"},
-    "sin_interferencia": _COMMON_KEYS | {"id", "ids", "grupo"},
+    "sin_interferencia": _COMMON_KEYS | {"id", "ids", "grupo", "joint_values"},
     "existe": _COMMON_KEYS | {"id", "name"},
 }
 
@@ -108,13 +113,28 @@ def _spec_tokens(spec: dict) -> list[str]:
     return toks
 
 
-def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, suggest=None) -> list[dict]:
+def run_verify(
+    scene: dict, checks: list[dict], *, expand, interference_fn, suggest=None, pose_fn=None,
+) -> list[dict]:
     """Ejecuta cada aserción. `expand(tokens) -> list[str]` resuelve grupos→ids;
     `interference_fn(focus_ids | None) -> {interferencias, truncado, ...}` corre la
-    interferencia acotada (focus=None = global) y devuelve el REPORTE completo.
+    interferencia acotada (focus=None = global) y devuelve el REPORTE completo; si una
+    aserción trae `joint_values` se le pasa además el override posado como 2.º argumento.
     `suggest(missing) -> str` (V6.5b, frente C) es un sufijo « ¿Quisiste decir…?» opcional
-    que se anexa a los errores de id inexistente (inyectado por la API; default '')."""
+    que se anexa a los errores de id inexistente (inyectado por la API; default '').
+    `pose_fn(joint_values) -> {fid: shape posado} | None` (V6.8-C) posa el mecanismo para
+    las aserciones que lo pidan (None = pose de diseño); debe LANZAR con mensaje accionable
+    ante juntas desconocidas — un typo de junta jamás puede dar verde en silencio."""
     sug = suggest or (lambda _m: "")
+
+    def _pose_of(spec: dict):
+        """Override posado de la aserción, o None (sin pose / pose de diseño)."""
+        jv = spec.get("joint_values")
+        if not jv:
+            return None
+        if pose_fn is None:
+            raise ValueError("esta vía no soporta joint_values (pose no inyectada)")
+        return pose_fn(jv)
 
     def _sin_piezas(spec: dict) -> str:
         toks = _spec_tokens(spec)
@@ -143,10 +163,16 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, sugg
                     out.append({"check": label, "tipo": tipo, "ok": False,
                                 "error": f"sólido inexistente '{falta}'{sug(falta)}"})
                     continue
-                dist = measure_distance(scene[a].shape, scene[b].shape)["dist_mm"]
+                override = _pose_of(spec)
+                sa = override.get(a, scene[a].shape) if override else scene[a].shape
+                sb = override.get(b, scene[b].shape) if override else scene[b].shape
+                dist = measure_distance(sa, sb)["dist_mm"]
                 ok, esperado = _cmp(dist, spec)
-                out.append({"check": label, "tipo": tipo, "ok": ok,
-                            "actual": dist, "esperado": esperado})
+                entry = {"check": label, "tipo": tipo, "ok": ok,
+                         "actual": dist, "esperado": esperado}
+                if override is not None:
+                    entry["joint_values"] = spec["joint_values"]
+                out.append(entry)
 
             elif tipo == "volumen":
                 fids = _ids_of(spec, scene, expand)
@@ -184,11 +210,17 @@ def run_verify(scene: dict, checks: list[dict], *, expand, interference_fn, sugg
                 if declarado and not fids:
                     out.append({"check": label, "tipo": tipo, "ok": False, "error": _sin_piezas(spec)})
                     continue
-                rep = interference_fn(fids or None)
+                override = _pose_of(spec)
+                # el 2.º argumento solo si hay pose: los interference_fn de un solo
+                # argumento (tests, integraciones previas) siguen funcionando
+                rep = (interference_fn(fids or None, override) if override is not None
+                       else interference_fn(fids or None))
                 cols = rep["interferencias"]
                 entry = {"check": label, "tipo": tipo, "ok": len(cols) == 0,
                          "actual": len(cols), "esperado": {"max": 0},
                          "colisiones": cols[:10]}
+                if override is not None:
+                    entry["joint_values"] = spec["joint_values"]
                 if rep.get("truncado"):
                     entry["truncado"] = True  # NO caps silenciosos: se declara el recorte
                 out.append(entry)

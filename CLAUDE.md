@@ -58,10 +58,10 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
-- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **75 tools**. Requiere la
+- **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **78 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-08-01)**: 1328 tests (+15 tortura vía `-m torture`) · 75 tools MCP ·
+- **Estado actual (2026-08-01)**: 1332 tests (+15 tortura vía `-m torture`) · 78 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -154,6 +154,15 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   {id,type,resumen} del log — comandos que CREARON el feature O lo referencian por params
   (búsqueda superficial, 1 nivel de dict); sin filtros → 400; feature inexistente → 404 con
   «¿quisiste decir…?». Fin de la aritmética de ids y de las ~90 llamadas de a una.
+- **Cinemática por MCP + contratos EN POSE (V6.8-C, 2026-08-01)**: tools `set_motion`/
+  `scan_motion`/`motion_gif` (autoría de estudios sin REST crudo; el GIF se ESCRIBE a `path`)
+  y las aserciones `distancia`/`sin_interferencia` de `verify`/`expect` aceptan `joint_values`
+  POR ASERCIÓN → se evalúan con el mecanismo POSADO («este lote no rompe ninguna pose» como
+  contrato con rollback). `pose_fn` inyectado en `run_verify` (library sigue pura); en pose la
+  interferencia suma `interpenetration_report` (mismo camino que `/api/checks`); caché por pose
+  (N aserciones = 1 FK); GUARDA de junta desconocida → error accionable, nunca verde en
+  silencio (posed_shapes ignora nombres desconocidos — el typo pasaría sobre el diseño).
+  Todo-cero = pose de diseño. Costo declarado: ≈ un check_interference posado por pose.
 
 ### Comandos / modelado (53 comandos)
 - **Superficies básicas (V5.11, `kernel/surface.py`)**: `boundary_surface` (Face de un
@@ -1142,10 +1151,10 @@ verdes**. Un ítem por vez, con plan formal.
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
 - **V6.8 MCP fluidez** — **EN CURSO** (plan `docs/plans/V6.8-mcp-fluidez.md`, nacido de la
-  retrospectiva del camastro 70): **A (lotes de apariencia/conexiones) y B (`find_commands`)
-  HECHOS (2026-08-01)** — detalle en § Lotes + búsqueda en el log; quedan C (cinemática por
-  MCP + contratos EN POSE), D (FK `arrastrar` + signo documentado) y E (snap cara-a-cara +
-  drill por cara).
+  retrospectiva del camastro 70): **A (lotes de apariencia/conexiones), B (`find_commands`) y
+  C (cinemática por MCP + contratos EN POSE) HECHOS (2026-08-01)** — detalle en § Lotes +
+  búsqueda en el log y § Cinemática por MCP; quedan D (FK `arrastrar` + signo documentado) y
+  E (snap cara-a-cara + drill por cara).
 
 ## Hoja de ruta V7 — «Resultados sobre el incumbente» (doctrina 2026-07-10, tras V6)
 

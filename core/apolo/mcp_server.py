@@ -359,8 +359,10 @@ def run_batch(actions: list[dict], detail: str = "diff", expect: list[dict] | No
     sin_interferencia/existe) que DEBEN cumplirse tras el lote; si alguna falla, el lote se
     revierte POR COMPLETO (el documento queda intacto, sin escombro) y el error lista lo
     fallido (medido vs esperado). Los `$k` valen también en las aserciones (referencian lo
-    recién creado). Muta con contrato cuando el resultado deba cumplir una condición y ahórrate
-    el ciclo mutar→leer→verificar→undo.
+    recién creado). EN POSE (V6.8-C): `distancia`/`sin_interferencia` aceptan `joint_values`
+    {junta: valor} por aserción — «este lote no puede romper ninguna pose declarada» (costo ≈
+    un check_interference posado por pose distinta). Muta con contrato cuando el resultado deba
+    cumplir una condición y ahórrate el ciclo mutar→leer→verificar→undo.
     El lote se ejecuta como JOB: si tarda más que el presupuesto de espera, en vez de un error
     de timeout recibes un RECIBO {"job": id} y lo recoges con get_job(id) — el resultado nunca
     se pierde, solo se difiere. NO reenvíes el lote al recibir un recibo (lo duplicarías)."""
@@ -400,7 +402,8 @@ def edit_batch(
     se reemplaza entero); merge=False reemplaza todos los params. Si una edición falla,
     revierte TODO el lote. `expect` (CONTRATO, V6.5b) = aserciones estilo verify que deben
     cumplirse tras el lote; si alguna falla, se revierte TODO (doc intacto) — úsalo para
-    reparametrizar con garantía (p. ej. tras encoger, `sin_interferencia`). `detail` como en
+    reparametrizar con garantía (p. ej. tras encoger, `sin_interferencia`; con `joint_values`
+    por aserción, V6.8-C, el contrato protege también las POSES del mecanismo). `detail` como en
     run_command (y `variables` solo aparece si el lote tocó alguna).
     Como run_batch, se ejecuta como JOB: si tarda, devuelve un RECIBO {"job": id} en vez de un
     error de timeout → recógelo con get_job(id) y NO reenvíes el lote."""
@@ -905,6 +908,61 @@ def get_motion() -> str:
 
 
 @mcp.tool()
+def set_motion(name: str, keyframes: list[dict]) -> str:
+    """Define (o borra, con lista vacía) un ESTUDIO DE MOVIMIENTO con nombre — autoría de
+    cinemática sin salir del MCP (V6.8-C). Fotograma: {"t": segundos, "values": {junta:
+    valor}} — los valores van ANIDADOS en "values" (el formato plano se rechaza) y las
+    juntas se validan contra las declaradas (get_kinematics). OJO FK: una junta mueve solo
+    sus HIJOS declarados — completa un cuerpo rígido multi-pieza con juntas 'fija' colgadas
+    del conductor. Verifica el recorrido con scan_motion, míralo con motion_gif; en la UI
+    aparece en el panel Cinemática."""
+    payload = _api("PUT", "/api/motion", json={"name": name, "keyframes": keyframes}).json()
+    estudios = [
+        {"name": s["name"], "duration": s["duration"], "n_fotogramas": len(s["keyframes"])}
+        for s in payload.get("studies", [])
+    ]
+    return json.dumps({"ok": True, "estudios": estudios}, ensure_ascii=False)
+
+
+@mcp.tool()
+def scan_motion(name: str, steps: int = 24) -> str:
+    """Escanea las COLISIONES de un estudio de movimiento a lo largo del recorrido:
+    muestrea `steps` instantes (FK + interferencia por instante — costo ≈ steps ×
+    check_interference posado) y devuelve SOLO los que colisionan, con pares y volumen.
+    Lista vacía = recorrido limpio. Corre esto tras cada cambio del mecanismo; para
+    garantizarlo por CONTRATO en un lote usa `expect` con joint_values. Read-only."""
+    payload = _api("POST", "/api/motion/scan", json={"name": name, "steps": steps}).json()
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.tool()
+def motion_gif(
+    name: str, path: str, steps: int = 48, fps: int = 12, pingpong: bool = False,
+    view: str = "iso", azimuth: float | None = None, elevation: float | None = None,
+    zoom: float = 1.0, size_px: int = 720,
+) -> str:
+    """GIF animado de un estudio de movimiento, ESCRITO a `path` (las tools no devuelven
+    binarios). Cada fotograma se pinta con el mismo motor VTK que render_view, con la
+    cámara FIJA a la unión de todo el recorrido; `pingpong` añade la vuelta (bucle sin
+    salto). COSTO REAL: el teselado no se cachea entre fotogramas (≈ steps × render de la
+    escena) — en modelos grandes usa steps moderados (24-48) y baja size_px; si supera
+    ~2 min el cliente corta por timeout aunque el servidor termine."""
+    from pathlib import Path
+
+    body: dict = {"name": name, "steps": steps, "fps": fps, "pingpong": pingpong,
+                  "view": view, "zoom": zoom, "size_px": size_px}
+    if azimuth is not None:
+        body["azimuth"] = azimuth
+    if elevation is not None:
+        body["elevation"] = elevation
+    gif = _api("POST", "/api/motion.gif", json=body).content
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(gif)
+    return json.dumps({"gif": str(target), "bytes": len(gif)}, ensure_ascii=False)
+
+
+@mcp.tool()
 def get_stackup(scope: str = "all") -> str:
     """Evalúa las CADENAS DE COTAS (stack-up, V7.3): por cadena da el cierre nominal, el
     intervalo por PEOR CASO y por RSS (√Σt²), y el veredicto contra el requisito. Incluye
@@ -1087,7 +1145,10 @@ def verify(checks: list[dict]) -> str:
     - {tipo:"existe", id?|name?} — el id existe / hay piezas cuyo nombre contiene name.
     `grupo`/`ids` aceptan NOMBRES de grupo (se expanden); `id` es un feature_id único (NO se
     expande). `sin_interferencia` con ids/grupo que no resuelven a nada → error «sin piezas»
-    (no degrada al chequeo global). Úsalo tras snap_to/mover para confirmar holguras sin ojímetro."""
+    (no degrada al chequeo global). EN POSE (V6.8-C): `distancia` y `sin_interferencia` aceptan
+    `joint_values` {junta: valor} POR ASERCIÓN → se evalúan con el mecanismo POSADO (costo ≈ un
+    check_interference posado por pose distinta; junta desconocida = error, nunca verde en
+    silencio). Úsalo tras snap_to/mover para confirmar holguras sin ojímetro."""
     return json.dumps(_api("POST", "/api/verify", json={"checks": checks}).json(), ensure_ascii=False)
 
 

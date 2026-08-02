@@ -130,3 +130,86 @@ def test_run_verify_pure_is_read_only():
     )
     assert out[0]["ok"] is True
     assert doc.commands == before  # read-only
+
+
+# ------------------------------------------------- aserciones EN POSE (V6.8-C)
+def _mecanismo():
+    """base + brazo (junta prismática X) + obstáculo en x=300: en DISEÑO el brazo
+    (x -50..50) no toca el obstáculo (x 270..330, gap 220); posado a 300 lo invade.
+    El brazo es alto (z ±100) para que también muerda piezas elevadas."""
+    doc = Document("verify-pose")
+    base = doc.execute("create_box", {"name": "base", "width": 100, "depth": 100, "height": 100})
+    arm = doc.execute("create_box", {"name": "brazo", "width": 100, "depth": 60, "height": 200})
+    obst = doc.execute("create_box", {"name": "obst", "width": 60, "depth": 60, "height": 60,
+                                      "position": {"x": 300}})
+    doc.execute("add_joint", {"name": "desliza", "type": "prismatica", "parent": base,
+                              "child": arm, "axis": {"x": 1}, "lower": 0, "upper": 400})
+    return doc, base, arm, obst
+
+
+def test_distancia_en_pose():
+    doc, base, arm, obst = _mecanismo()
+    out = _run(doc, [
+        {"tipo": "distancia", "a": arm, "b": obst, "min": 100},  # diseño: 220 → ok
+        {"tipo": "distancia", "a": arm, "b": obst, "min": 100,
+         "joint_values": {"desliza": 300}},                       # posado: 0 → falla
+        {"tipo": "distancia", "a": arm, "b": obst, "min": 100,
+         "joint_values": {"desliza": 0}},                         # todo-cero = diseño → ok
+    ])["resultados"]
+    assert out[0]["ok"] is True and out[0]["actual"] == 220.0
+    assert out[1]["ok"] is False and out[1]["actual"] == 0.0
+    assert out[1]["joint_values"] == {"desliza": 300}  # la pose queda declarada en el resultado
+    assert out[2]["ok"] is True and out[2]["actual"] == 220.0
+
+
+def test_sin_interferencia_en_pose():
+    doc, base, arm, obst = _mecanismo()
+    out = _run(doc, [
+        {"tipo": "sin_interferencia", "ids": [arm, obst]},        # diseño limpio (base↔brazo
+        {"tipo": "sin_interferencia", "ids": [arm, obst],         #  es pareja de junta: excluida)
+         "joint_values": {"desliza": 300}},                       # posado: choque real
+    ])["resultados"]
+    assert out[0]["ok"] is True and out[0]["actual"] == 0
+    assert out[1]["ok"] is False and out[1]["actual"] >= 1
+    assert {out[1]["colisiones"][0]["a"], out[1]["colisiones"][0]["b"]} == {arm, obst}
+
+
+def test_pose_junta_desconocida_es_error_no_verde():
+    """Un typo de junta NO puede dar verde en silencio (posed_shapes ignora nombres
+    desconocidos → sin esta guarda la aserción pasaría sobre la pose de diseño)."""
+    doc, base, arm, obst = _mecanismo()
+    out = _run(doc, [
+        {"tipo": "sin_interferencia", "joint_values": {"deslisa": 300}},   # typo
+        {"tipo": "volumen", "id": arm, "min": 1, "joint_values": {"desliza": 300}},  # tipo sin pose
+    ])["resultados"]
+    assert out[0]["ok"] is False and "desconocidas" in out[0]["error"]
+    assert "desliza" in out[0]["error"]                       # sugiere las válidas
+    assert out[1]["ok"] is False and "no reconocida" in out[1]["error"]
+
+
+def test_expect_en_pose_revierte_el_lote():
+    """CONTRATO EN POSE: una pieza nueva limpia en diseño pero que invade el recorrido
+    del mecanismo → el lote se revierte por completo (el modo de fallo real del camastro:
+    pernos de cremallera que empalaban al puntal SOLO en la pose PLANO)."""
+    doc, base, arm, obst = _mecanismo()
+    api.DOC = doc
+    client = TestClient(api.app)
+    n_before = len(doc.commands)
+    nueva = {"type": "create_box", "params": {"name": "nueva", "width": 60, "depth": 60,
+                                              "height": 60, "position": {"x": 300, "z": 65}}}
+    r = client.post("/api/commands/batch", json={
+        "actions": [nueva],
+        "expect": [{"tipo": "sin_interferencia", "ids": ["$1"],
+                    "joint_values": {"desliza": 300}}],
+    })
+    assert r.status_code == 400 and "Contrato incumplido" in r.json()["detail"]
+    assert len(doc.commands) == n_before                      # revertido: doc intacto
+    assert not any(f.name == "nueva" for f in doc.scene.values())
+    # la MISMA pieza con una pose que no la toca → el contrato pasa
+    r = client.post("/api/commands/batch", json={
+        "actions": [nueva],
+        "expect": [{"tipo": "sin_interferencia", "ids": ["$1"],
+                    "joint_values": {"desliza": 100}}],
+    })
+    assert r.status_code == 200
+    assert len(doc.commands) == n_before + 1

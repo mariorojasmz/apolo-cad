@@ -498,22 +498,56 @@ def _verify_checks(scene: dict, checks: list[dict]) -> list[dict]:
     """Evalúa un lote de ASERCIONES `verify` (V6.5) sobre `scene` con la resolución de
     grupos (`_expand_ids`) y la interferencia acotada + exclusiones normales (hardware,
     parejas de junta, mismo super-comando). Fuente ÚNICA compartida por el endpoint
-    /api/verify y el CONTRATO `expect` de los lotes (V6.5b). Llamar bajo STATE_LOCK."""
-    from apolo.library.checks import hardware_ids, joint_pairs, same_command_pairs
+    /api/verify y el CONTRATO `expect` de los lotes (V6.5b). Llamar bajo STATE_LOCK.
+    V6.8-C: `joint_values` por aserción (distancia/sin_interferencia) evalúa EN POSE —
+    la pose usa DOC (en ambos call sites `scene` ES DOC.scene, post-regenerate)."""
+    from apolo.library.checks import (
+        hardware_ids, interpenetration_report, joint_pairs, same_command_pairs,
+    )
     from apolo.library.verify import run_verify
 
-    excl_pairs = joint_pairs(DOC) | same_command_pairs(DOC)
+    jpairs = joint_pairs(DOC)
+    excl_pairs = jpairs | same_command_pairs(DOC)
     excl_ids = hardware_ids(DOC)
 
-    def interference_fn(focus):
+    def interference_fn(focus, shapes_override=None):
         focus_ids = _expand_ids(focus) if focus else None
-        return interference_report(  # reporte COMPLETO: run_verify propaga `truncado`
-            scene, focus=focus_ids, exclude_pairs=excl_pairs, exclude_ids=excl_ids
+        rep = interference_report(  # reporte COMPLETO: run_verify propaga `truncado`
+            scene, focus=focus_ids, shapes_override=shapes_override,
+            exclude_pairs=excl_pairs, exclude_ids=excl_ids,
         )
+        if shapes_override is not None:  # pares con junta: interpenetración vs diseño,
+            rep["interferencias"] = rep["interferencias"] + interpenetration_report(
+                scene, shapes_override, jpairs  # mismo camino que /api/checks en pose
+            )
+        return rep
+
+    _pose_cache: dict = {}
+
+    def pose_fn(joint_values: dict):
+        """Override posado de una aserción (V6.8-C). Valida los NOMBRES de junta (un
+        typo jamás da verde en silencio) y cachea por valores: N aserciones sobre la
+        misma pose posan UNA vez. Todo-cero = pose de diseño (sin override)."""
+        desconocidas = sorted(set(map(str, joint_values)) - set(DOC.joints))
+        if desconocidas:
+            validas = ", ".join(sorted(DOC.joints)) or "ninguna declarada"
+            raise ValueError(
+                f"juntas desconocidas en joint_values: {', '.join(desconocidas)} "
+                f"(válidas: {validas})"
+            )
+        vals = {str(k): float(v) for k, v in joint_values.items()}
+        if not any(v != 0 for v in vals.values()):
+            return None
+        key = tuple(sorted(vals.items()))
+        if key not in _pose_cache:
+            from apolo.robotics.pose import posed_shapes
+
+            _pose_cache[key] = posed_shapes(DOC, vals)[0]
+        return _pose_cache[key]
 
     return run_verify(
         scene, checks, expand=lambda v: _expand_ids(v) or [],
-        interference_fn=interference_fn, suggest=_suggest_suffix,
+        interference_fn=interference_fn, suggest=_suggest_suffix, pose_fn=pose_fn,
     )
 
 
