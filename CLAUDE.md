@@ -395,7 +395,10 @@ cd ui ; npm run build             # bundle de la UI (tsc + vite)
   `aviso_estructura` a TODA mutación con ≥`MIN_SOLIDOS_SUJECION` (5) sólidos y 0
   grounds (constantes en delivery.py; `_scene_brief` la pasa al agente; lecturas no);
   `design_brief` cierra el lazo («no entregues en ROJO»). E2E: 71→ROJO · 70→VERDE ·
-  38→AMARILLO (aviso verdadero: 8 herrajes V7.5 sin fasten), cero falsos rojos.
+  38→AMARILLO (aviso verdadero: 8 herrajes V7.5 sin fasten), cero falsos rojos. El 38
+  se CURÓ (2026-08-03): 8 fasten `contacto` estilo c704 —perno→su chumacera,
+  tuerca→su perno; la unión dimensionada chum_mensula_pY/nY (M14 ×2) ya existía— →
+  **38 VERDE** (revisión 103 = estado previo).
 - **Física (MuJoCo)**: `gravity_test` (piezas sujetas=estáticas, resto cae; casco
   CONVEXO con caché por referencia fuerte al shape), `drop_test` (producto, AABB),
   animación en el viewport con las mallas reales.
@@ -1215,7 +1218,8 @@ verdes**. Un ítem por vez, con plan formal.
   `aviso_estructura` en toda mutación con ≥5 sólidos y 0 grounds; (C) design_brief:
   «no entregues en ROJO». E2E cumplido: **71→ROJO** (sujeción · sin anclajes) ·
   **70→VERDE** (asientos del trinquete tolerados y declarados) · **38→AMARILLO** (aviso
-  VERDADERO: 8 herrajes de chumacera V7.5 sin fasten) — cero falsos rojos. Los ajustes
+  VERDADERO: 8 herrajes de chumacera V7.5 sin fasten; CURADO 2026-08-03 con 8 contactos
+  estilo c704 → VERDE) — cero falsos rojos. Los ajustes
   que el E2E exigió (reposo = extremos+dwells · asiento ≤50 mm³ · exclusiones unificadas
   diseño/pose · tornillería flotante = aviso) en § Puerta de ENTREGA del Mapa y en las
   desviaciones del plan.
