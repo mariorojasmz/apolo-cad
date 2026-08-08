@@ -34,3 +34,6 @@ core/apolo/webui/
 core/MUJOCO_LOG.TXT
 /dist/
 /build/
+# CLI del registro MCP: binario descargado, se rebaja de la release oficial
+/mcp-publisher.exe
+/mcp-publisher.tar.gz
