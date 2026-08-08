@@ -101,12 +101,14 @@ equal clients** of the same API: what one does, the other sees.
 
 ## Gallery
 
-| Belt conveyor (the MVP vertical) | Folding door — wood + translucent glass |
+| Belt conveyor — maintenance lift, a declared motion study | Folding door — wood + translucent glass |
 |---|---|
-| <img src="docs/cover.png" width="420"> | <img src="docs/showcase-door.png" width="420"> |
+| <img src="docs/demo-faja.gif" width="420"> | <img src="docs/showcase-door.png" width="420"> |
 
-*Shaded renders produced by the engine itself (`render_view`, VTK) — the same ones the agent uses
-to visually self-review.*
+*Everything above is produced by the engine itself: shaded renders and animations come from
+`render_view` / `motion.gif` (VTK) — the very images the agent looks at to review its own work.
+The animation is a **named motion study**: the agent declares the joint keyframes, then scans the
+whole travel for collisions.*
 
 ## Architecture
 

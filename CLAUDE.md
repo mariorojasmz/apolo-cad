@@ -58,6 +58,17 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
+### Distribución (público desde 2026-08-08)
+Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`** · ficha en el
+**registro oficial MCP** (`io.github.mariorojasmz/apolo-cad`). `apolo/paths.py` es la fuente ÚNICA
+de rutas: en un checkout todo resuelve al repo como siempre; instalado, los datos del usuario van a
+`APOLO_HOME` (~/.apolo) y la UI se sirve del paquete (`apolo/webui`, la stagea `scripts/stage_ui.py`).
+Entry points `apolo` / `apolo-mcp`. **`planegcs` va con marcador de entorno** (solo hay wheels
+cp312/cp313 win+linux; fuera de ahí el sketcher cae al motor scipy — como dependencia dura rompía
+la instalación en macOS y Py3.11). **Para publicar una versión: `scripts/release.py --version X.Y.Z`**
+sincroniza pyproject + server.json (los DOS `version`) + las cifras de los 3 README, e imprime los
+comandos con credenciales (build/twine/mcp-publisher) que lanza una persona.
+
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **79 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.

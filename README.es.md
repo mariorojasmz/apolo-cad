@@ -100,12 +100,14 @@ clientes iguales** de la misma API: lo que hace uno, el otro lo ve.
 
 ## Galería
 
-| Faja transportadora (vertical del MVP) | Puerta plegable — madera + vidrio translúcido |
+| Faja transportadora — izado de mesa, un estudio de movimiento declarado | Puerta plegable — madera + vidrio translúcido |
 |---|---|
-| <img src="docs/cover.png" width="420"> | <img src="docs/showcase-door.png" width="420"> |
+| <img src="docs/demo-faja.gif" width="420"> | <img src="docs/showcase-door.png" width="420"> |
 
-*Renders sombreados generados por el propio motor (`render_view`, VTK) — los mismos que el agente
-usa para auto-revisarse visualmente.*
+*Todo lo de arriba lo produce el propio motor: los renders sombreados y las animaciones salen de
+`render_view` / `motion.gif` (VTK) — las mismas imágenes que el agente mira para revisar su propio
+trabajo. La animación es un **estudio de movimiento con nombre**: el agente declara los fotogramas
+de las juntas y luego escanea todo el recorrido buscando colisiones.*
 
 ## Arquitectura
 
