@@ -15,8 +15,8 @@
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT">
   <img src="https://img.shields.io/badge/python-3.11–3.13-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/kernel-OCCT%20%2F%20build123d-orange.svg" alt="OCCT">
-  <img src="https://img.shields.io/badge/MCP-54%20tools-8A2BE2.svg" alt="MCP 54 tools">
-  <img src="https://img.shields.io/badge/tests-551%20passing-brightgreen.svg" alt="551 tests">
+  <img src="https://img.shields.io/badge/MCP-79%20tools-8A2BE2.svg" alt="MCP 79 tools">
+  <img src="https://img.shields.io/badge/tests-1355%20passing-brightgreen.svg" alt="1355 tests">
 </p>
 
 ---
@@ -56,7 +56,7 @@ a **headless backend** that other tools/agents call.
 
 ### ▶ Via an AI agent (MCP) — the primary way
 
-You mostly operate Apolo **by talking to an agent**. It exposes **54 MCP tools**, so any
+You mostly operate Apolo **by talking to an agent**. It exposes **79 MCP tools**, so any
 MCP-compatible client (Claude Code, Claude Desktop, etc.) running a capable model —**Claude Opus**
 or others— can design entire machines. The repo ships a `.mcp.json`:
 
@@ -88,7 +88,7 @@ And the agent:
 
 The **write core is minimal** (`run_command` / `run_batch` / `edit_command` + `undo`/`redo` +
 `set_variable`) and covers the **entire** command registry — there is no tool per command. The
-rest of the 54 tools are for reading, perception, drawings and validation. Everything the agent
+rest of the 79 tools are for reading, perception, drawings and validation. Everything the agent
 does lives in the log: editable, undoable and reproducible. Changes show up **live** in the
 browser.
 
@@ -119,7 +119,7 @@ to visually self-review.*
    doc        document = command log (event-sourced · undo/redo · KB-sized .apolo)
    commands   command registry + JSON Schemas  (single source of truth)
    kernel     build123d / OpenCascade  (B-rep geometry, render, measure, picking)
-   library    catalog (197 refs) · BOM · machine super-commands
+   library    catalog (231 refs) · BOM · machine super-commands
    assembly   joints · mates · constraints · connectivity / gravity
    drawing    pro 2D drawings  (HLR → SVG/DXF/PDF · sections · dimensions · drawing sets)
    physics    gravity / stability  (MuJoCo)
@@ -137,7 +137,7 @@ scale (many commands, modules and clients).
 - **Assembly & kinematics** — **persistent face mates** (re-solved on edit), **joints**
   (fixed/revolute/continuous/prismatic), **rail and N-DOF constraints**, **motion study** (animate
   the joints and scan collisions along the path).
-- **Library & BOM** — a **197-reference catalog** populated from real **standard** dimensions
+- **Library & BOM** — a **231-reference catalog** populated from real **standard** dimensions
   (ISO/ASTM/DIN/EN: bearings, profiles, fasteners, joinery, hardware…) + super-commands
   (`create_belt_conveyor`, `create_weldment`, `create_frame`, `create_sheet_metal`,
   `create_take_up`, `create_drive_roller`, robot arm). BOM with cut list and CSV export.
@@ -149,7 +149,16 @@ scale (many commands, modules and clients).
   revisions, full **drawing sets**, **automatic hole dimensioning**, **exploded views**, light
   GD&T, step-by-step **assembly manuals**, and an **Inventor-style color shaded iso**. All from a
   **declarative spec** (`drawing(spec)`) the agent composes.
-- **AI** — MCP server (54 tools), **vision** rendering, agent session memory, chat auto mode
+- **FEA (linear static)** — per part (tet mesh + safety factor from σ_vm) and **bonded
+  multi-material assembly**: the whole welded frame under design load, with FS reported *per
+  piece* and deflection contrasted against the analytical check.
+- **Engineering deliverables** — this is where Apolo beats what a CAD ships by default: a
+  **calculation report** (A4 PDF with design basis, formula, substitution and safety factor per
+  check, each citing its standard — CEMA/ISO/DIN/EN/AISC), a **costed BOM and quotation**,
+  **tolerance stack-up** (worst-case + RSS over ISO 2768 / ISO 286), an **installation sheet**
+  (anchor load per support) and a **delivery check** — a green/amber/red gate that refuses to
+  call a design done while it still floats, collides or lacks declared fastening.
+- **AI** — MCP server (79 tools), **vision** rendering, agent session memory, chat auto mode
   (execute → verify → fix).
 
 ## Requirements
@@ -186,7 +195,7 @@ your MCP client at the repo's `.mcp.json`. Optional env vars: `APOLO_MODEL` (def
 ## Tests
 
 ```powershell
-.venv\Scripts\python -m pytest tests -q   # 551 tests
+.venv\Scripts\python -m pytest tests -q   # 1355 tests
 ```
 
 They cover the kernel (per-command volumes/bboxes), the document (undo/redo, incremental

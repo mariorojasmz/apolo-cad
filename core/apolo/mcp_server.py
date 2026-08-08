@@ -1508,5 +1508,10 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
     return json.dumps(resumen, ensure_ascii=False)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Punto de entrada del script `apolo-mcp` (y de `python -m apolo.mcp_server`)."""
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

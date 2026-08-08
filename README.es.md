@@ -15,8 +15,8 @@
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT">
   <img src="https://img.shields.io/badge/python-3.11–3.13-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/kernel-OCCT%20%2F%20build123d-orange.svg" alt="OCCT">
-  <img src="https://img.shields.io/badge/MCP-54%20tools-8A2BE2.svg" alt="MCP 54 tools">
-  <img src="https://img.shields.io/badge/tests-551%20passing-brightgreen.svg" alt="551 tests">
+  <img src="https://img.shields.io/badge/MCP-79%20tools-8A2BE2.svg" alt="MCP 79 tools">
+  <img src="https://img.shields.io/badge/tests-1355%20passing-brightgreen.svg" alt="1355 tests">
 </p>
 
 ---
@@ -57,7 +57,7 @@ invocan.
 
 ### ▶ Por agente de IA (MCP) — el modo principal
 
-Apolo se opera, sobre todo, **conversando con un agente**. Expone **54 tools MCP**, así que
+Apolo se opera, sobre todo, **conversando con un agente**. Expone **79 tools MCP**, así que
 cualquier cliente compatible con MCP (Claude Code, Claude Desktop, etc.) con un modelo capaz
 —**Claude Opus** u otros— puede diseñar máquinas enteras. El repo incluye `.mcp.json`:
 
@@ -88,7 +88,7 @@ Y el agente:
 
 El **núcleo de escritura es mínimo** (`run_command` / `run_batch` / `edit_command` + `undo`/`redo`
 + `set_variable`) y cubre **todo** el registro de comandos — no hay una tool por comando. El resto
-de las 54 tools son de lectura, percepción, planos y validación. Todo lo que hace el agente queda
+de las 79 tools son de lectura, percepción, planos y validación. Todo lo que hace el agente queda
 en el log: editable, deshacible y reproducible. Los cambios aparecen **en vivo** en el navegador.
 
 ### 🖱 A mano (interfaz web)
@@ -118,7 +118,7 @@ usa para auto-revisarse visualmente.*
    doc        documento = log de comandos (event-sourced · undo/redo · .apolo de KBs)
    commands   registro de comandos + JSON Schemas  (una sola fuente de verdad)
    kernel     build123d / OpenCascade  (geometría B-rep, render, medición, picking)
-   library    catálogo (197 refs) · BOM · super-comandos de máquina
+   library    catálogo (231 refs) · BOM · super-comandos de máquina
    assembly   juntas · mates · restricciones · conectividad / gravedad
    drawing    planos 2D pro  (HLR → SVG/DXF/PDF · cortes · cotas · juego de planos)
    physics    gravedad / estabilidad  (MuJoCo)
@@ -136,7 +136,7 @@ Fronteras limpias y no negociables: `kernel` (geometría pura) ⟂ `commands/reg
 - **Ensamblaje y cinemática** — **mates persistentes** por caras (re-resueltos al editar),
   **juntas** (fija/giratoria/continua/prismática), **restricciones** de riel y N-GDL,
   **motion study** (anima las juntas y escanea colisiones a lo largo del recorrido).
-- **Biblioteca y BOM** — **catálogo de 197 referencias** poblado con dimensiones de **norma**
+- **Biblioteca y BOM** — **catálogo de 231 referencias** poblado con dimensiones de **norma**
   (ISO/ASTM/DIN/EN: rodamientos, perfiles, tornillería, carpintería, herraje…) + super-comandos
   (`create_belt_conveyor`, `create_weldment`, `create_frame`, `create_sheet_metal`,
   `create_take_up`, `create_drive_roller`, brazo robótico). BOM con lista de corte y export CSV.
@@ -148,7 +148,16 @@ Fronteras limpias y no negociables: `kernel` (geometría pura) ⟂ `commands/reg
   **juego de planos** completo, **acotado automático** de agujeros, **vista explosionada**,
   GD&T ligero, **manual de ensamblaje** paso a paso, e **iso sombreada a color** tipo Inventor.
   Todo por una **spec declarativa** (`drawing(spec)`) que el agente compone.
-- **IA** — servidor MCP (54 tools), render con **visión**, memoria de sesión del agente, modo
+- **FEA (estático lineal)** — por PIEZA (malla tet + FS desde σ_vm) y de **ENSAMBLAJE bonded
+  multi-material**: el bastidor soldado completo bajo la carga de diseño, con FS reportado *por
+  pieza* y flecha contrastada contra la verificación analítica.
+- **Entregables de ingeniería** — aquí es donde Apolo supera lo que un CAD entrega de fábrica:
+  **memoria de cálculo** (PDF A4 con bases de diseño, fórmula, sustitución y FS por verificación,
+  cada una citando su norma — CEMA/ISO/DIN/EN/AISC), **BOM costeado y cotización**, **stack-up de
+  cadenas de cotas** (peor caso + RSS sobre ISO 2768 / ISO 286), **lámina de instalación** (carga
+  por apoyo) y una **puerta de entrega** — semáforo verde/ámbar/rojo que se niega a dar por
+  terminado un diseño que aún flota, choca o no tiene sujeción declarada.
+- **IA** — servidor MCP (79 tools), render con **visión**, memoria de sesión del agente, modo
   auto del chat (ejecuta → verifica → corrige).
 
 ## Requisitos
@@ -185,7 +194,7 @@ apunta tu cliente MCP al `.mcp.json` del repo. Variables opcionales: `APOLO_MODE
 ## Tests
 
 ```powershell
-.venv\Scripts\python -m pytest tests -q   # 551 tests
+.venv\Scripts\python -m pytest tests -q   # 1355 tests
 ```
 
 Cubren kernel (volúmenes/bbox por comando), documento (undo/redo, regeneración incremental,

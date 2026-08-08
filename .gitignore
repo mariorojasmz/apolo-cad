@@ -27,3 +27,10 @@ docs/benchmark/**/*.step
 docs/benchmark/**/*.dwg
 docs/benchmark/**/*.zip
 docs/benchmark/**/render/
+
+# Empaquetado: la UI se COPIA al paquete antes de construir la wheel (scripts/stage_ui.py)
+# — es artefacto de build, se regenera; y los dist/build de setuptools.
+core/apolo/webui/
+core/MUJOCO_LOG.TXT
+/dist/
+/build/

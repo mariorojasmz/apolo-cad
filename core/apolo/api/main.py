@@ -32,6 +32,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from apolo import paths as _paths
 from apolo.agent import chat_stream
 from apolo.commands import CommandError, command_schemas
 from apolo.doc import Document, DocumentError
@@ -353,10 +354,7 @@ def initialize_store(db_path: str) -> None:
 async def _capture_loop() -> None:
     WS.loop = asyncio.get_running_loop()
     session_marker("Inicio de sesión del servidor")
-    db_path = os.environ.get(
-        "APOLO_DB", str(Path(__file__).resolve().parents[3] / "data" / "apolo.db")
-    )
-    initialize_store(db_path)
+    initialize_store(_paths.db_path())
 
 
 @app.on_event("shutdown")
@@ -4858,6 +4856,8 @@ def agent_chat(body: ChatIn) -> StreamingResponse:
 
 
 # ------------------------------------------------------------------- UI build
-_ui_dist = Path(__file__).resolve().parents[3] / "ui" / "dist"
-if _ui_dist.is_dir():
+# `paths.ui_dist()` resuelve la UI empaquetada (instalación pip) o el build del
+# checkout; None = sin bundle → la API sirve solo /api (headless, útil para MCP).
+_ui_dist = _paths.ui_dist()
+if _ui_dist is not None:
     app.mount("/", StaticFiles(directory=str(_ui_dist), html=True), name="ui")

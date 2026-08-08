@@ -1,8 +1,28 @@
 [project]
-name = "apolo-core"
+name = "apolo-cad"
 version = "0.1.0"
-description = "Genix Apolo CAD - nucleo de geometria, documento y API"
+description = "CAD paramétrico 3D agente-nativo para maquinaria industrial, conducible por un agente de IA vía MCP"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Mario Rojas" }]
+keywords = [
+    "cad", "parametric-cad", "mcp", "model-context-protocol", "ai-agents",
+    "opencascade", "build123d", "cae", "conveyor", "mechanical-engineering",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Manufacturing",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "build123d>=0.8",
     "fastapi>=0.110",
@@ -16,24 +36,48 @@ dependencies = [
     "httpx>=0.27",
     "scipy>=1.12",
     "pyyaml>=6",
-    # solver de croquis 2D (el del Sketcher de FreeCAD, LGPL — wheels cp312/cp313
-    # win/linux). Si una plataforma no tuviera wheel, el solver cae al motor scipy.
-    "planegcs>=0.8",
+    # Solver de croquis 2D (el del Sketcher de FreeCAD, LGPL). Solo publica wheels
+    # cp312/cp313 para Windows y Linux x86_64 — en macOS o Python 3.11 pip tendría
+    # que compilar C++ y la instalación fallaría. El marcador lo instala EXACTAMENTE
+    # donde hay wheel; en el resto el sketcher cae solo al motor scipy (equivalente
+    # funcional, sin dof/redundantes). Forzarlo: pip install "apolo-cad[sketch]".
+    "planegcs>=0.8; python_version >= '3.12' and platform_system != 'Darwin'",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27"]
-# Física de cuerpos rígidos (drop-test). MuJoCo (Apache) en vez de PyBullet:
+# Solver PlaneGCS allí donde no hay wheel (compila desde el sdist: requiere toolchain C++).
+sketch = ["planegcs>=0.8"]
+# Física de cuerpos rígidos (drop-test, gravedad). MuJoCo (Apache) en vez de PyBullet:
 # PyBullet no publica wheel para Python 3.13 y compilar requiere MSVC.
 physics = ["mujoco>=3.9", "pillow>=10"]
 # FEA estático lineal (V5.6). gmsh (GPL, malla tet) + scikit-fem (BSD, solver puro
 # Python) — sfepy y CalculiX se descartaron por NO tener wheels de Windows.
 fea = ["gmsh>=4.13", "scikit-fem>=11", "meshio>=5"]
 
+[project.urls]
+Homepage = "https://github.com/mariorojasmz/apolo-cad"
+Repository = "https://github.com/mariorojasmz/apolo-cad"
+Issues = "https://github.com/mariorojasmz/apolo-cad/issues"
+
+[project.scripts]
+apolo = "apolo.cli:main"
+apolo-mcp = "apolo.mcp_server:main"
+
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["apolo*"]
 
+[tool.setuptools.package-data]
+# El catálogo (32 YAML) es DATO del paquete: sin él no hay biblioteca de componentes.
+# `webui/` es el bundle de la UI, opcional: se copia antes de construir la wheel
+# (scripts/stage_ui.py). Si no está, la API sirve solo /api y el MCP funciona igual.
+apolo = [
+    "library/data/*.yaml",
+    "library/data/*.yml",
+    "webui/index.html",
+    "webui/**/*",
+]

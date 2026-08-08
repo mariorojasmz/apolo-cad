@@ -12,7 +12,9 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-LOG_DIR = Path(__file__).resolve().parents[3] / "logs"
+from apolo import paths
+
+LOG_DIR = paths.logs_dir()
 LOG_FILE = LOG_DIR / "errors.log"
 
 _logger: logging.Logger | None = None
