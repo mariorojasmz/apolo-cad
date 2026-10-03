@@ -64,7 +64,7 @@ def build_urdf(doc, robot_name: str = "apolo_robot") -> tuple[str, dict[str, obj
         ET.SubElement(inertial, "mass", value=f"{link.mass_kg:.4f}")
         inertia = box_inertia(link.mass_kg, _mm2m(link.size))
         ET.SubElement(
-            inertia_el := inertial, "inertia",
+            inertial, "inertia",
             ixx=f"{inertia['ixx']:.6f}", iyy=f"{inertia['iyy']:.6f}", izz=f"{inertia['izz']:.6f}",
             ixy="0", ixz="0", iyz="0",
         )

@@ -1,5 +1,4 @@
 """F12 Planos pro: callouts de taladros, cotas por sólido, corte A-A, globos + BOM."""
-import math
 
 import pytest
 from fastapi.testclient import TestClient

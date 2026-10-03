@@ -63,7 +63,7 @@ def installation_sheet(scene: dict, data: dict, *, project_name: str = "Sin tít
             rect, tx = _place(m, view, W * 0.27, H * 0.55, scale)
             rx, ry, rw, rh = rect
             # marca de centro en cada apoyo + su etiqueta de carga
-            for i, a in enumerate(apoyos):
+            for a in apoyos:
                 px, py = tx((a["x_mm"], a["y_mm"]))
                 center_mark(m, px, py, 3.0)
                 m.labels.append(Label(px + 3.2, py + 1.6, f"{a['carga_kg']:g} kg", 2.4,

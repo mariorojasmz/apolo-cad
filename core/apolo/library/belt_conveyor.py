@@ -20,7 +20,7 @@ Disposición (Z arriba, transporte a lo largo de X; tambores en ±largo/2):
 
 from __future__ import annotations
 
-from build123d import Box, Cylinder, Rotation
+from build123d import Box, Cylinder
 
 from apolo.kernel.shapes import place
 

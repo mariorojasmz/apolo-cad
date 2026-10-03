@@ -1,0 +1,149 @@
+# CI de Apolo: el paquete de PyPI declara Python 3.11–3.13 y «OS Independent», pero hasta
+# aquí sólo se había probado en Windows + 3.13 (la máquina de Mario). Este workflow corre lo
+# mismo que el gate local (pytest, vitest + build de la UI, ruff) y además construye el
+# paquete, en la matriz que el paquete promete.
+#
+# Riesgos conocidos del PRIMER run en Linux (no se debilitó ningún test para esquivarlos;
+# si fallan, el arreglo va al código o a una guarda honesta, no a este archivo):
+#   - Render VTK off-screen: depende de Xvfb + Mesa (llvmpipe). Los tests de render se
+#     SALTAN si VTK lanza, pero un VTK que se cae con abort() mata el proceso de pytest.
+#   - Geometría: OCP 7.8.1 compilado para Linux (otro compilador, otra libm) puede diferir en
+#     el último decimal de lo que da en Windows; un test con tolerancia demasiado fina se ve
+#     aquí por primera vez. (build123d va con tope <0.11 en el pyproject: ver allí por qué.)
+#   - Tests sensibles a tiempos (jobs con long-poll, autosave con debounce, dos locks) en
+#     runners más lentos que la máquina de desarrollo.
+#   - Python 3.11: nunca se había corrido; ruff (target py311) ya revisa la sintaxis.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # Mismo rango que el extra `dev` de core/pyproject.toml. La configuración vive en
+      # core/pyproject.toml ([tool.ruff]); ruff.toml de la raíz la extiende a tests/ y scripts/.
+      - run: python -m pip install "ruff>=0.16,<0.17"
+      - run: ruff check core tests scripts
+
+  tests:
+    name: pytest (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    # La suite (1391 tests) tarda ~20 min en la máquina de desarrollo; los runners de 4 vCPU
+    # pueden tardar más.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12", "3.13"]
+        include:
+          - os: windows-latest
+            python: "3.13"
+    env:
+      # pdf.py/render.py ya fuerzan Agg; esto cubre cualquier otro import de pyplot.
+      # (Sin PYTHONUTF8 a propósito: Windows corre con cp1252 como en la máquina de Mario.)
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: core/pyproject.toml
+
+      # OCP y VTK enlazan libGL; gmsh (FLTK) pide GLU + Xcursor/Xft/Xinerama al importarse.
+      # Xvfb + Mesa (llvmpipe) dan el contexto OpenGL que el render off-screen de VTK 9.3
+      # necesita (sin display, VTK/X11 aborta el proceso en vez de lanzar una excepción).
+      - name: Librerías de sistema (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libegl1 libglu1-mesa \
+            libxrender1 libxext6 libxi6 libxfixes3 libxcursor1 libxft2 libxinerama1 \
+            libfontconfig1
+
+      # El runner de Windows no tiene GPU: el OpenGL del sistema es 1.1 y VTK pide >= 3.2.
+      # Esta acción instala Mesa (llvmpipe) para todo el sistema.
+      - name: OpenGL por software (Windows)
+        if: runner.os == 'Windows'
+        uses: pyvista/setup-headless-display-action@v5
+        with:
+          pyvista: false
+
+      # Extras: dev (pytest, pypdf, ruff), physics (MuJoCo) y fea (gmsh, scikit-fem). Los
+      # tests que los necesitan hacen importorskip: instalarlos es lo que hace que CORRAN.
+      - name: Instalar apolo-cad con extras
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./core[dev,physics,fea]"
+          python -m pip list
+
+      - name: pytest (Linux, bajo Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" python -m pytest tests -q
+
+      - name: pytest (Windows)
+        if: runner.os == 'Windows'
+        run: python -m pytest tests -q
+
+  ui:
+    name: UI (vitest + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  package:
+    name: build + twine check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install build twine
+      # Igual que scripts/release.py, sin la UI empaquetada (stage_ui.py): la wheel sin
+      # webui/ es válida (la API sirve sólo /api).
+      - run: python -m build core --outdir dist
+      - run: python -m twine check --strict dist/*
+      # El catálogo YAML es DATO del paquete: una wheel sin él instala una biblioteca vacía.
+      - name: La wheel trae el catálogo
+        run: |
+          python - <<'EOF'
+          import glob, sys, zipfile
+          wheel = glob.glob("dist/*.whl")[0]
+          yaml = [n for n in zipfile.ZipFile(wheel).namelist()
+                  if n.startswith("apolo/library/data/") and n.endswith(".yaml")]
+          print(f"{wheel}: {len(yaml)} YAML de catálogo")
+          sys.exit(0 if yaml else 1)
+          EOF

@@ -8,7 +8,6 @@ from __future__ import annotations
 import pytest
 
 from apolo.library.engineering.fits import (
-    SEAT_RECOMMENDATIONS,
     bearing_seat_check,
     fit_check,
     fit_limits,

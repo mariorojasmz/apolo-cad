@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import re
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .render import PALETTE, _clip_to_section, _shape_of, resolve_angles
 

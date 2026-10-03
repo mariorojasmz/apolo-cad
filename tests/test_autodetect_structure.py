@@ -46,9 +46,9 @@ def test_hanging_part_not_declared():
 
 def test_same_level_welded_declared():
     doc = Document("t")
-    base = _box(doc, "base", x=150, z=10, w=300, h=20)       # piso
-    l1 = _box(doc, "larguero1", x=25, z=120, w=50, h=200)    # 20..220 sobre la base
-    l2 = _box(doc, "larguero2", x=275, z=120, w=50, h=200)   # 20..220 sobre la base
+    _box(doc, "base", x=150, z=10, w=300, h=20)       # piso
+    _box(doc, "larguero1", x=25, z=120, w=50, h=200)    # 20..220 sobre la base
+    _box(doc, "larguero2", x=275, z=120, w=50, h=200)   # 20..220 sobre la base
     cross = _box(doc, "travesano", x=150, z=120, w=210, h=40)  # 100..140, mismo nivel, entre l1 y l2
     det = detect_structure(doc.scene)
     declared = _ids(det["fasteners"], "a", "b")

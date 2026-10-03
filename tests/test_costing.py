@@ -11,7 +11,7 @@ from apolo.doc.document import Document
 from apolo.drawing import sheets_to_pdf
 from apolo.drawing.quote import quotation_pages
 from apolo.library.catalog import CATALOG
-from apolo.library.costing import FAB_FACTOR, HW_FACTOR, costed_bom, costing_totals, scene_costing
+from apolo.library.costing import FAB_FACTOR, HW_FACTOR, costed_bom, scene_costing
 from apolo.library.materials import cost_per_kg
 
 
@@ -155,7 +155,6 @@ def test_cuttable_profile_uses_cost_por_m():
     rows = costed_bom(doc.scene)
     r = rows[0]
     assert r["costo_fuente"] == "catálogo (USD/m)"
-    from apolo.library.catalog import CATALOG
     expected = CATALOG["TUBO-2X2"].specs["cost_por_m"] * 2.0
     assert r["costo_ud_usd"] == pytest.approx(expected, rel=1e-6)
 

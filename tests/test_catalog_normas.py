@@ -3,8 +3,6 @@ redondo ASTM A500, y perfiles abiertos L (EN 10056) / UPN (DIN 1026) / IPE (EN 1
 Verifica geometría, conteos y que el peso (kg/m por área de sección) es razonable."""
 import math
 
-import pytest
-
 from apolo.library.catalog import CATALOG, build_component, refs_in_category
 
 

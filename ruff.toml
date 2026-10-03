@@ -1,0 +1,3 @@
+# La configuración de ruff vive en core/pyproject.toml ([tool.ruff]). Este archivo sólo la
+# extiende: sin él, tests/ y scripts/ (fuera de core/) caen a las reglas por defecto de ruff.
+extend = "core/pyproject.toml"

@@ -85,7 +85,6 @@ def _clip_to_section(shape, section: str, lo, hi):
     """Recorta `shape` a la mitad con coord ≤ centro del eje `section` (booleana con
     una semicaja, misma técnica que drawing/projection.py) → deja ver el interior.
     Devuelve el sólido recortado, o None si la intersección queda vacía."""
-    import numpy as np
     from build123d import Box, Pos
 
     idx = _AXIS_IDX.get(section)

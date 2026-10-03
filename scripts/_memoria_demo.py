@@ -9,7 +9,7 @@ from apolo.drawing.calc_report import calc_report  # noqa: E402
 from apolo.drawing.pdf import _figure  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
-from test_calc_report import REQ, RULES, _scene  # noqa: E402
+from test_calc_report import REQ, RULES  # noqa: E402
 
 from apolo.kernel.render import render_scene_png  # noqa: E402
 

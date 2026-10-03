@@ -24,7 +24,15 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "build123d>=0.8",
+    # Tope <0.11 = la serie probada (0.10 + OCP 7.8.1). Medido el 2026-10-03 con una instalación
+    # limpia (build123d 0.13 + OCP 8.0): OCP 8 quitó `TopTools_ListOfShape` y
+    # `TopTools_IndexedDataMapOfShapeListOfShape` → delete_faces (kernel/direct.py) y
+    # fill_surface tangente (kernel/surface.py) revientan. Subirlo es un port con plan.
+    "build123d>=0.8,<0.11",
+    # build123d 0.10 pide `ocp_gordon>=0.1.17` SIN tope, y ocp_gordon 0.3 importa `OCP.collections`
+    # (sólo existe en OCP 8): con OCP 7.8.1 build123d ni siquiera importa. Va mientras dure el
+    # tope de arriba (en el venv de desarrollo: 0.2.0; la limpia resuelve 0.2.2).
+    "ocp_gordon<0.3",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "anthropic>=0.40",
@@ -32,20 +40,39 @@ dependencies = [
     "python-multipart>=0.0.9",
     "matplotlib>=3.8",
     "ezdxf>=1.3",
-    "mcp>=1.2",
+    # Tope <2: mcp 2.x quitó `mcp.server.fastmcp` (FastMCP → MCPServer). Sin el tope, una
+    # instalación limpia trae la 2.x y `apolo-mcp` revienta al importar. Migrar es un plan aparte.
+    "mcp>=1.2,<2",
     "httpx>=0.27",
     "scipy>=1.12",
     "pyyaml>=6",
+    # Uso DIRECTO en core/apolo (render, pick, FEA, física, cinemática): se declara aunque
+    # build123d también lo traiga, para no depender de lo que arrastre otra librería.
+    "numpy>=2.4.6",
+    # VTK: lo importan render_vtk.py, pick.py y fea/fringe.py. Desde build123d 0.11 el OCP
+    # es «novtk» y ya no lo trae: sin esta línea, render_view queda sin motor.
+    # OJO con la DISTRIBUCIÓN, no sólo el módulo: cadquery-ocp 7.8.1 (build123d 0.10) en
+    # cp313 depende de `cadquery-vtk` (un rebuild de VTK 9.3.1 que instala los MISMOS
+    # módulos `vtk`/`vtkmodules`) y en el resto de versiones de `vtk`. Pedir `vtk` también
+    # en 3.13 instalaría dos VTK pisándose los archivos y rompería OCP. Si se sube a
+    # build123d >= 0.11 en todas partes, estas dos líneas pasan a ser `vtk` a secas.
+    "vtk>=9.3.1; python_version != '3.13'",
+    "cadquery-vtk>=9.3.1; python_version == '3.13'",
     # Solver de croquis 2D (el del Sketcher de FreeCAD, LGPL). Solo publica wheels
-    # cp312/cp313 para Windows y Linux x86_64 — en macOS o Python 3.11 pip tendría
-    # que compilar C++ y la instalación fallaría. El marcador lo instala EXACTAMENTE
-    # donde hay wheel; en el resto el sketcher cae solo al motor scipy (equivalente
-    # funcional, sin dof/redundantes). Forzarlo: pip install "apolo-cad[sketch]".
-    "planegcs>=0.8; python_version >= '3.12' and platform_system != 'Darwin'",
+    # cp312/cp313 para Windows y Linux x86_64 (manylinux) — en macOS, en Python 3.11 o
+    # 3.14, o en ARM (Linux aarch64, Windows ARM64) pip tendría que compilar C++ y la
+    # instalación fallaría. El marcador lo instala EXACTAMENTE donde hay wheel
+    # (`platform_machine` es `x86_64` en Linux y `AMD64` en Windows); en el resto el
+    # sketcher cae solo al motor scipy (equivalente funcional, sin dof/redundantes).
+    # Forzarlo: pip install "apolo-cad[sketch]".
+    "planegcs>=0.8; python_version >= '3.12' and python_version < '3.14' and (platform_system == 'Windows' or platform_system == 'Linux') and (platform_machine == 'x86_64' or platform_machine == 'AMD64')",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "httpx>=0.27"]
+# Lo que corre la suite y el CI. `pypdf` lo usa test_memoria_universal (lee el texto de la
+# memoria). Ruff cambia reglas entre versiones menores: se fija el minor para que el CI no
+# se ponga rojo solo con un upgrade.
+dev = ["pytest>=8", "httpx>=0.27", "pypdf>=6", "ruff>=0.16,<0.17"]
 # Solver PlaneGCS allí donde no hay wheel (compila desde el sdist: requiere toolchain C++).
 sketch = ["planegcs>=0.8"]
 # Física de cuerpos rígidos (drop-test, gravedad). MuJoCo (Apache) en vez de PyBullet:
@@ -81,3 +108,34 @@ apolo = [
     "webui/index.html",
     "webui/**/*",
 ]
+
+# Linter. Se corre desde la raíz del repo: `ruff check core tests scripts` (lo mismo hace el
+# CI). La raíz tiene un ruff.toml que extiende ESTA sección, así tests/ y scripts/ usan las
+# mismas reglas: la fuente única es ésta.
+[tool.ruff]
+# Ancho de facto del código, medido (2026-10-03): ~4 000 líneas pasan de 88, sólo ~740 de 100
+# (p99 = 103). E501 no está activo; el ancho sirve al formateo y a cuando se active.
+line-length = 100
+target-version = "py311"  # = requires-python: marca la sintaxis que 3.11 no entiende
+
+[tool.ruff.lint]
+# Empieza por lo que encuentra BUGS y hoy pasa limpio: los ~55 hallazgos que dio al activarlo
+# se corrigieron (sin cambio de comportamiento) en el mismo commit.
+select = [
+    "E9",   # el archivo no parsea
+    "E7",   # `== None`, `type(x) ==`, `except:` pelado…
+    "F",    # pyflakes: nombres indefinidos, imports/variables sin uso, redefiniciones
+    "W6",   # secuencias de escape inválidas (SyntaxWarning desde 3.12)
+    "B",    # bugbear: defaults mutables, closures en bucles, raise sin `from`…
+    "PLE",  # errores de pylint (`__init__` que retorna, `nonlocal` inválido…)
+    "T10",  # breakpoint()/pdb olvidados
+]
+ignore = [
+    "E701", "E702", "E731", "E741",  # estilo, no bugs (E741 = nombres `l`/`I`/`O`: 111 sitios)
+    "B905",  # zip() sin strict=: 22 sitios; poner strict cambia el comportamiento, va uno a uno
+    "B017",  # pytest.raises(Exception) en 5 tests: afinar la excepción es trabajo de cada test
+]
+# Aún NO activos, con lo que encontraban al medir: E501 (~740 líneas > 100), E402 (24:
+# scripts que tocan sys.path antes de importar), I (orden de imports, reescribe ~todo el repo),
+# UP/SIM/RUF/PL* (estilo y refactor: cientos de avisos, ninguno es un bug). Cada uno entra con
+# su propio commit que deje la suite en cero.

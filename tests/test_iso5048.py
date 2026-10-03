@@ -1,6 +1,5 @@
 """ISO 5048 / DIN 22101 + Euler-Eytelwein (V5.10): tabla C(L), resistencias y
 adherencia del tambor — anclas contra valores publicados y ejemplo a mano."""
-import math
 
 import pytest
 

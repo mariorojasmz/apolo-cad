@@ -135,7 +135,6 @@ def test_infer_process_slender_box_is_sawn():
 def test_infer_process_hollow_tube_is_sawn_not_laser():
     """E1 (fix real de la faja 38): un larguero HSS HUECO a-medida tiene pared fina
     (t_eff ≤6) pero es un perfil esbelto → sierra, NO «corte láser + plegado»."""
-    from build123d import Box
     doc = Document()
     # tubo 100×50×3, 4 m (como el larguero c93 de la faja): fill de bbox ~0.17
     fid = doc.execute("run_script", {"name": "Larguero A36 HSS",

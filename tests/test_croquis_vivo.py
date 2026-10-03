@@ -2,7 +2,6 @@
 de un punto (endpoint read-only). Los tests corren en los DOS motores (planegcs y scipy),
 como exige la fachada de V5.1."""
 import math
-import os
 
 import pytest
 from fastapi.testclient import TestClient

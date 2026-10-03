@@ -8,6 +8,11 @@ acomodo, exportable a SVG/DXF para CNC.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # sólo para las anotaciones; en runtime se importa dentro de la función
+    from apolo.drawing.sheet import SheetModel
+
 
 def nest_1d(lengths: list[float], stock_len: float, kerf: float = 3.0) -> list[list[tuple[float, float]]]:
     """First-Fit-Decreasing: acomoda cortes `lengths` en barras de `stock_len`.

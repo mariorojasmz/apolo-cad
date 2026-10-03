@@ -411,7 +411,7 @@ def write_index(out: Path, proj_name: str, args, variables: dict, health: dict,
         "- **Cotización**: margen 25 %, IVA 13 %, moneda USD (declarados en la llamada).",
     ]
     (out / "paquete.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"  -> paquete.md")
+    print("  -> paquete.md")
 
 
 if __name__ == "__main__":

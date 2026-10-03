@@ -106,7 +106,7 @@ def test_anchored_bolts_are_not_supports():
     dimensionaría de menos)."""
     doc = Document("inst")
     placas = _maquina(doc)
-    for i, p in enumerate(placas):
+    for i in range(len(placas)):
         b = doc.execute("insert_component", {
             "component": "PERNO-HEX-M12", "name": f"Perno anclaje M12 ({i})",
             "position": {"x": 0 if i % 2 == 0 else 1200, "y": 0 if i < 2 else 600, "z": 0}})

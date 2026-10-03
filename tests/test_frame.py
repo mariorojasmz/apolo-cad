@@ -75,8 +75,8 @@ def test_frame_validations():
 def test_frame_parametric_node_edit():
     d = Document()
     d.execute("set_variable", {"name": "H", "expression": "800"})
-    cid = d.execute("create_frame", {"nodes": [[0, 0, 0], [1000, 0, 0], [500, 0, "=H"]],
-                                     "edges": TRI_EDGES, "perfil": "PERFIL-4040", "cordones": False})
+    d.execute("create_frame", {"nodes": [[0, 0, 0], [1000, 0, 0], [500, 0, "=H"]],
+                               "edges": TRI_EDGES, "perfil": "PERFIL-4040", "cordones": False})
     top = lambda: max(f.shape.bounding_box().max.Z for f in _members(d))
     t1 = top()  # ~777 (miembros recortados sec en el ápice inclinado)
     var = next(c["id"] for c in d.commands if c["type"] == "set_variable")
@@ -120,7 +120,6 @@ def test_frame_inglete_triangulo():
         # ancla exacta: V = A·span para CUALQUIER ángulo (bisector por el nodo)
         assert f.shape.volume == pytest.approx(A * span, rel=1e-4), f.name
         # α por extremo desde las direcciones salientes del fixture
-        others = {(i, j) for (i, j) in TRI_EDGES}
         k_a = next(k for (m, k) in [(m, k) for m, k in TRI_EDGES] + [(k, m) for m, k in TRI_EDGES]
                    if m == i and k != j)
         k_b = next(k for (m, k) in [(m, k) for m, k in TRI_EDGES] + [(k, m) for m, k in TRI_EDGES]

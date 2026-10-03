@@ -4,8 +4,6 @@
 notas del agente + salud + variantes) para arrancar una sesión en UNA llamada en vez de 4-5.
 """
 
-import pytest
-
 import apolo.api.main as api
 from apolo.doc import Document
 from apolo.projects import ProjectStore

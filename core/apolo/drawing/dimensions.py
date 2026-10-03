@@ -10,6 +10,10 @@ con `world_to_view` + el transform de `_place_view`. Emite `Line(kind="dim"|"cen
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # sólo para las anotaciones: sheet.py importa este módulo (ciclo en runtime)
+    from .sheet import SheetModel
 
 ARROW = 1.8   # largo de la flecha (mm de papel)
 GAP = 1.0     # hueco entre la pieza y el arranque de la línea testigo

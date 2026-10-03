@@ -6,7 +6,6 @@ resultado exacto del Defeaturing puede variar entre versiones OCCT)."""
 
 from __future__ import annotations
 
-import io
 import math
 import os
 import tempfile

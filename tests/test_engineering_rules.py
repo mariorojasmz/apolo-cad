@@ -385,8 +385,6 @@ def test_fixed_shaft_seat_g6_is_ok():
 
 
 def test_eytelwein_mu_engomado_vs_liso():
-    from apolo.library.engineering.iso5048 import eytelwein_t2_min_n
-
     lis = conveyor_engineering_check(dict(_BASE_BANDA), 30, 600, 0.35)
     eng = conveyor_engineering_check({**_BASE_BANDA, "tambor_engomado": True}, 30, 600, 0.35)
     t2_lis = float(re.search(r"T2_min = ([\d.]+) N",

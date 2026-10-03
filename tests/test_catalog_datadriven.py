@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 import apolo.api.main as api
 from apolo.doc import Document
-from apolo.library.builders import BUILDERS
 from apolo.library.catalog import (
     CATALOG,
     build_component,

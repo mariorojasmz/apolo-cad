@@ -178,7 +178,7 @@ def test_instance_placement_transforms_joint(donor):
     data, ids = donor
     host = Document("layout")
     digest = host.add_attachment(data)
-    cid = host.execute("insert_project", {
+    host.execute("insert_project", {
         "attachment": digest, "name": "M1",
         "position": {"x": 500, "y": 0, "z": 0}, "rotation": {"x": 0, "y": 0, "z": 90},
     })

@@ -1,8 +1,10 @@
 """Export DWG (V5.9): conversión DXF→DWG con ODA File Converter (ezdxf.addons.odafc).
 
-Los tests de CONTRATO (error amable sin el conversor, descubrimiento de la carpeta
-versionada) corren SIEMPRE; los de conversión REAL exigen ODA instalado (skipif)."""
+Los tests de CONTRATO (error amable sin el conversor; el descubrimiento de la carpeta
+versionada, sólo en Windows) corren SIEMPRE; los de conversión REAL exigen ODA instalado
+(skipif)."""
 import io
+import sys
 import zipfile
 
 import pytest
@@ -65,6 +67,8 @@ def test_dxf_to_dwg_sin_oda_raises(monkeypatch):
         dxf_to_dwg_bytes(b"0\nEOF\n")
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="la carpeta versionada es del instalador de "
+                    "Windows: en Linux/macOS ezdxf ignora win_exec_path y busca en el PATH")
 def test_discover_carpeta_versionada(tmp_path):
     # el instalador de ODA crea C:\Program Files\ODA\ODAFileConverter 26.x\ (versionada);
     # se fuerza el escaneo apuntando primero a una ruta inexistente (si hay un ODA real

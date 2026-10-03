@@ -7,7 +7,6 @@ import pytest
 
 from apolo.assembly.groups import (
     GroupError,
-    assign_feature_groups,
     group_features,
     missing_members,
     register_group,
@@ -311,7 +310,7 @@ def test_bom_by_group_splits_and_default_identical():
 
     doc = Document("t")
     a = doc.execute("insert_component", {"component": "6207", "position": {"x": 0, "y": 0, "z": 0}})
-    b = doc.execute("insert_component", {"component": "6207", "position": {"x": 100, "y": 0, "z": 0}})
+    doc.execute("insert_component", {"component": "6207", "position": {"x": 100, "y": 0, "z": 0}})
     doc.execute("create_group", {"name": "Cola", "members": [a]})
     plain = bom_from_scene(doc.scene)
     assert len(plain) == 1 and plain[0]["cantidad"] == 2  # default: byte-idéntico

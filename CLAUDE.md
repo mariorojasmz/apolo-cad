@@ -60,6 +60,10 @@ cd ui ; npm test                  # vitest: gates de texto y de tamaño
 npm run build                     # bundle de la UI (tsc + vite)
 ```
 
+- **CI** (`.github/workflows/ci.yml`, en push a `main` y en PR): pytest en Linux 3.11–3.13 y
+  Windows 3.13, vitest + build de la UI, build + `twine check` del paquete y
+  `ruff check core tests scripts` (reglas en `[tool.ruff]` de `core/pyproject.toml`; ruff viene
+  en el extra `dev`).
 - Tortura: los casos extendidos llevan `@pytest.mark.torture` y `pytest.ini` los excluye por
   defecto. Baseline de rendimiento: `docs/perf_baseline.json` (`scripts/perf_baseline.py`,
   depende de la máquina).
@@ -78,8 +82,8 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 - `apolo/paths.py` es la fuente ÚNICA de rutas: en un checkout todo resuelve al repo
   (`ui_dist()` prefiere `ui/dist`); instalado, los datos van a `APOLO_HOME` (~/.apolo) y la UI
   sale del paquete (`apolo/webui`, la stagea `scripts/stage_ui.py`).
-- **`planegcs` va con marcador de entorno** (wheels sólo cp312/cp313 win+linux; fuera de ahí el
-  croquis cae a scipy): como dependencia dura rompía la instalación en macOS y Py3.11.
+- **`planegcs` va con marcador de entorno** (wheels sólo cp312/cp313 win+linux x86_64; fuera de
+  ahí el croquis cae a scipy): como dependencia dura rompía la instalación en macOS y Py3.11.
 - Publicar: § Publicación.
 
 ### Estado actual (2026-10-03)

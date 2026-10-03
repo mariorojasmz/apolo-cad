@@ -1,6 +1,5 @@
 """Mates persistentes (V3 bloque #2): relaciones de ensamblaje que se
 re-resuelven en cada regeneración (a diferencia de attach, one-shot)."""
-import math
 
 import pytest
 from fastapi.testclient import TestClient

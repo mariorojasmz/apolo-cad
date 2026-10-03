@@ -4405,7 +4405,7 @@ def _installation_data(doc) -> tuple[dict, dict]:
 
     # alturas de interfaz: la superficie que transporta (cama/mesa/banda) y el punto más alto
     z_top = z_all = 0.0
-    for fid, feat in doc.scene.items():
+    for feat in doc.scene.values():
         if not getattr(feat, "visible", True):
             continue
         try:
@@ -4419,7 +4419,7 @@ def _installation_data(doc) -> tuple[dict, dict]:
     # holgura de SERVICIO: lo que hay que dejar libre a un lado para extraer las piezas
     # que se mantienen (motorreductor, tambores) = su propia extensión transversal
     servicio = []
-    for fid, feat in doc.scene.items():
+    for feat in doc.scene.values():
         nombre = getattr(feat, "name", "") or ""
         if not _SERVICE_RE.search(nombre):
             continue
@@ -4431,7 +4431,7 @@ def _installation_data(doc) -> tuple[dict, dict]:
     servicio = sorted(servicio, key=lambda s: -s["holgura_mm"])[:2]
 
     suministro = []
-    for fid, feat in doc.scene.items():
+    for feat in doc.scene.values():
         comp = CATALOG.get(getattr(feat, "component", None) or "")
         if comp is None or "motorreductor" not in (comp.category or ""):
             continue
@@ -4751,13 +4751,13 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
             try:
                 fits_map[float(k)] = v
             except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail=f"hole_fits: clave '{k}' no es un Ø numérico")
+                raise HTTPException(status_code=400, detail=f"hole_fits: clave '{k}' no es un Ø numérico") from None
         threads_map = _hole_thread_map(DOC)
         for k, v in (spec.hole_threads or {}).items():  # override espejo (V5.7)
             try:
                 threads_map[float(k)] = v
             except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail=f"hole_threads: clave '{k}' no es un Ø numérico")
+                raise HTTPException(status_code=400, detail=f"hole_threads: clave '{k}' no es un Ø numérico") from None
         try:
             model = compose_sheet(
                 scene, sheet=spec.sheet, include_hidden=spec.include_hidden, project_name=DOC.name,

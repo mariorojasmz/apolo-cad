@@ -138,8 +138,8 @@ def test_autodetect_floor_and_contact():
 
 def test_soundness_with_autodetect_overlay():
     doc = Document("t")
-    floor = _box(doc, "piso", 50)
-    stack = _box(doc, "encima", 150)
+    _box(doc, "piso", 50)
+    _box(doc, "encima", 150)
     air = _box(doc, "aire", 600)
     # sin declarar nada, con la geometría: piso y apilado quedan sujetos, el del aire no
     det = detect_connections(doc.scene)

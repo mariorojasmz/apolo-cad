@@ -480,7 +480,6 @@ def compose_sheet(
     views = project_views(scene, wanted, include_hidden)
     dims = real_dims(scene)
     center3 = view_center(scene)
-    n_solidos = sum(1 for f in scene.values() if f.visible)
 
     model = SheetModel(width, height)
     model.rect(MARGIN, MARGIN, width - 2 * MARGIN, height - 2 * MARGIN)
@@ -667,7 +666,7 @@ def compose_sheet(
             ecenter = view_center(exp)
             i_ax = {"x": 0, "y": 1, "z": 2}.get(eax, 2)
             items = []
-            for fid, f in exp.items():
+            for f in exp.values():
                 if not getattr(f, "visible", True):
                     continue
                 bb = f.shape.bounding_box()

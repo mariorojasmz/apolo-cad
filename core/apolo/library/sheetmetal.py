@@ -326,7 +326,6 @@ def _side_dev(flap: Flap | None, espesor: float, k: float, radio_global: float) 
     dev = _SideDev(present=True, ossb=ossb_p)
     if flap.child is None:
         dev.strip = (flap.altura - ossb_p) + ba_p  # misma aritmética que la vía clásica
-        parent_face_end = dev.strip
     else:
         ch = flap.child
         r_c = ch.radio if ch.radio is not None else r_p
@@ -334,7 +333,6 @@ def _side_dev(flap: Flap | None, espesor: float, k: float, radio_global: float) 
         lp = flap.altura - ossb_p - ossb_c
         dev.child_fold = ba_p + lp
         dev.strip = ba_p + lp + ba_c + (ch.altura - ossb_c)
-        parent_face_end = ba_p + lp
         # features del HIJO: v desde SU borde libre → offset = strip_total − v
         for u, v, d in ch.holes:
             dev.holes.append((u, dev.strip - v, d))

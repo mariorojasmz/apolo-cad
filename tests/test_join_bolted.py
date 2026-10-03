@@ -92,8 +92,8 @@ def test_join_bolted_recenter_when_a_moves():
     """Paramétrico: mover A recentra el patrón sobre la nueva huella al regenerar."""
     doc = Document("jb-recenter")
     a, b = _two_plates(doc)
-    cid = doc.execute("join_bolted", {"a": a, "b": b, "size": "M10", "count": 2})
-    xs0 = sorted(round(f.shape.bounding_box().center().X, 1)
+    doc.execute("join_bolted", {"a": a, "b": b, "size": "M10", "count": 2})
+    xs0 =sorted(round(f.shape.bounding_box().center().X, 1)
                  for f in doc.scene.values() if f.component == "PERNO-HEX-M10")
     # mueve A a x∈[0,200]; la huella con B (x∈[-100,100]) pasa a [0,100] → patrón se recentra
     doc.edit(a, {"name": "Placa A", "width": 200, "depth": 100, "height": 10,
