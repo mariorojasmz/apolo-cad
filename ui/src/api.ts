@@ -18,7 +18,8 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export const api = {
-  schemas: () => fetch("/api/schemas").then((r) => json<CommandSchema[]>(r)),
+  // La vista PERSONA: pista, detalle y pestaña; la vista por defecto es la del agente.
+  schemas: () => fetch("/api/schemas?vista=persona").then((r) => json<CommandSchema[]>(r)),
   scene: () => fetch("/api/scene").then((r) => json<SceneOut>(r)),
   // Escena en forma DELTA (V6.2b): manda lo que el cliente ya tiene (rev por feature +
   // claves de definición + el epoch del proceso, V6.2e) → el server responde solo la

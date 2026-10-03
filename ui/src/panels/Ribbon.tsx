@@ -97,7 +97,7 @@ export default function Ribbon() {
             key={s.type}
             icon={iconFor(s.type)}
             label={s.title}
-            title={s.description}
+            title={s.title}
             onClick={() => openDialog(s)}
           />
         ))}

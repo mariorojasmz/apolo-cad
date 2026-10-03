@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../state/store";
 import type { FeatureOut, JsonSchema } from "../types";
 import Spinner from "../ui/Spinner";
+import Campo from "./Campo";
 
 /* Formulario generado automáticamente desde el JSON Schema (pydantic) de un
    comando. Los campos numéricos aceptan también expresiones paramétricas
@@ -9,7 +10,8 @@ import Spinner from "../ui/Spinner";
    Los campos opcionales de pydantic (`X | None` → `anyOf: [X, {type:"null"}]`) se
    desenvuelven: se pinta el widget de X y el valor VACÍO se manda como null (= el
    default del backend). Los sub-modelos (Hélice, {u,v}…) se pintan anidados; si son
-   opcionales, detrás de una casilla que los activa. */
+   opcionales, detrás de una casilla que los activa. El envoltorio de cada campo
+   (rótulo, unidad, ⓘ y pista) es `Campo`. */
 
 interface Props {
   schema: JsonSchema;
@@ -250,6 +252,7 @@ function normalize(schema: JsonSchema, values: Record<string, unknown>): Record<
 
 function SelectorField({
   label,
+  campo,
   selector,
   root,
   nullable,
@@ -257,6 +260,7 @@ function SelectorField({
   onChange,
 }: {
   label: string;
+  campo: JsonSchema; // metadatos del campo (ⓘ, pista)
   selector: JsonSchema; // EdgeSelector resuelto: de aquí salen los enums de modo/cara
   root: JsonSchema;
   nullable: boolean;
@@ -276,8 +280,7 @@ function SelectorField({
   };
 
   return (
-    <div className="field selector-field">
-      <label>{label}</label>
+    <Campo rotulo={label} campo={campo} className="selector-field">
       <div className="selector-row">
         <select
           value={v?.mode ?? ""}
@@ -322,8 +325,8 @@ function SelectorField({
             value={v.name ?? ""} onChange={(e) => onChange({ ...v, name: e.target.value })} />
         )}
       </div>
-      {v?.mode === "cerca" && picking && <span className="hint">Haz clic sobre el sólido en el viewport…</span>}
-    </div>
+      {v?.mode === "cerca" && picking && <span className="hint">Haz clic sobre la pieza en el viewport…</span>}
+    </Campo>
   );
 }
 
@@ -342,14 +345,11 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
   const { eff, nullable, multi } = unwrap(raw);
   const field = resolveRef(eff, root);
   const label = eff.title ?? field.title ?? name;
-  const unit = eff.description ?? "";
+  const meta = { rotulo: label, campo: eff };
 
   if (multi) {
     return (
-      <div className="field">
-        <label>
-          {label} <span className="unit">JSON</span>
-        </label>
+      <Campo {...meta} unidad="JSON">
         <textarea
           rows={2}
           style={{ width: "100%", fontFamily: "monospace" }}
@@ -357,7 +357,7 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
           value={jsonText(value)}
           onChange={(e) => onChange(e.target.value)}
         />
-      </div>
+      </Campo>
     );
   }
 
@@ -365,6 +365,7 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
     return (
       <SelectorField
         label={label}
+        campo={eff}
         selector={field}
         root={root}
         nullable={nullable}
@@ -381,22 +382,16 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
     const obj: Record<string, unknown> = vec3
       ? (isObj(value) ? value : { x: 0, y: 0, z: 0 })
       : { ...defaultValues(field, root), ...(isObj(value) ? value : {}) };
-    const header = nullable ? (
-      <div className="field-inline">
-        <label>{label}</label>
-        <input
-          type="checkbox"
-          checked={on}
-          title="Activar / dejar sin valor"
-          onChange={(e) => onChange(e.target.checked ? objectOrScalarDefault(eff, root) : null)}
-        />
-      </div>
-    ) : (
-      <label>{label}</label>
+    const casilla = nullable && (
+      <input
+        type="checkbox"
+        checked={on}
+        title="Activar / dejar sin valor"
+        onChange={(e) => onChange(e.target.checked ? objectOrScalarDefault(eff, root) : null)}
+      />
     );
     return (
-      <div className="field">
-        {header}
+      <Campo {...meta} enCabeza={casilla}>
         {on && vec3 && (
           <div className="vec3">
             {VEC_KEYS.map((axis) => (
@@ -426,31 +421,29 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
             ))}
           </div>
         )}
-      </div>
+      </Campo>
     );
   }
 
   if (FEATURE_FIELDS.has(name) && features) {
     return (
-      <div className="field">
-        <label>{label}</label>
+      <Campo {...meta}>
         <select value={(value as string) ?? ""} required={required} onChange={(e) => onChange(e.target.value)}>
-          <option value="">— elegir sólido —</option>
+          <option value="">— elegir pieza —</option>
           {features.map((f) => (
             <option key={f.id} value={f.id}>
               {f.name} ({f.id})
             </option>
           ))}
         </select>
-      </div>
+      </Campo>
     );
   }
 
   if (name === "tools" && field.type === "array" && features) {
     const selected = (value as string[]) ?? [];
     return (
-      <div className="field">
-        <label>{label}</label>
+      <Campo {...meta}>
         <select
           multiple
           value={selected}
@@ -462,17 +455,14 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
             </option>
           ))}
         </select>
-      </div>
+      </Campo>
     );
   }
 
   if (isMatrix(eff, root)) {
     const text = typeof value === "string" ? value : matrixToText(value);
     return (
-      <div className="field">
-        <label>
-          {label} {unit && <span className="unit">{unit}</span>}
-        </label>
+      <Campo {...meta}>
         <textarea
           rows={4}
           style={{ width: "100%", fontFamily: "monospace" }}
@@ -480,16 +470,13 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
           value={text}
           onChange={(e) => onChange(e.target.value)}
         />
-      </div>
+      </Campo>
     );
   }
 
   if (nullable && field.type === "array") {
     return (
-      <div className="field">
-        <label>
-          {label} {unit && <span className="unit">{unit}</span>}
-        </label>
+      <Campo {...meta}>
         <textarea
           rows={2}
           style={{ width: "100%", fontFamily: "monospace" }}
@@ -497,14 +484,13 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
           value={jsonText(value)}
           onChange={(e) => onChange(e.target.value)}
         />
-      </div>
+      </Campo>
     );
   }
 
   if (field.enum) {
     return (
-      <div className="field">
-        <label>{label}</label>
+      <Campo {...meta}>
         <select
           value={value === null || value === undefined ? "" : String(value)}
           onChange={(e) => onChange(nullable && e.target.value === "" ? null : e.target.value)}
@@ -516,25 +502,18 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
             </option>
           ))}
         </select>
-      </div>
+      </Campo>
     );
   }
 
   if (field.type === "boolean") {
-    return (
-      <div className="field field-inline">
-        <label>{label}</label>
-        <input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />
-      </div>
-    );
+    const casilla = <input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />;
+    return <Campo {...meta} enCabeza={casilla} />;
   }
 
   if (isNumeric(field)) {
     return (
-      <div className="field">
-        <label>
-          {label} {unit && <span className="unit">{unit}</span>}
-        </label>
+      <Campo {...meta}>
         <input
           type="text"
           inputMode="decimal"
@@ -543,20 +522,19 @@ function FieldView({ name, raw, root, value, onChange, features, required }: Fie
           value={String(value ?? "")}
           onChange={(e) => onChange(e.target.value)}
         />
-      </div>
+      </Campo>
     );
   }
 
   return (
-    <div className="field">
-      <label>{label}</label>
+    <Campo {...meta}>
       <input
         type="text"
         placeholder={nullable ? "(opcional)" : undefined}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
       />
-    </div>
+    </Campo>
   );
 }
 

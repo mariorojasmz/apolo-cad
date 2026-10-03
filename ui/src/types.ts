@@ -143,19 +143,31 @@ export interface SceneOut {
   epoch?: string;  // epoch de proceso (V6.2e): invalida los revs del cliente tras un restart
 }
 
+/* Pestaña del ribbon de una categoría (null = el comando no va al ribbon). */
+export interface Pestana {
+  orden: number;
+  rotulo: string;
+}
+
+/* Un comando en la vista PERSONA (`GET /api/schemas?vista=persona`). No trae la
+   `description` del agente a propósito: si una pantalla vuelve a pintarla, `tsc` falla. */
 export interface CommandSchema {
   type: string;
   title: string;
   category: string;
   kind: string;
-  description: string;
+  pestana: Pestana | null;
+  pista: string; // una frase: qué hace el comando
+  detalle: string; // la descripción técnica limpia; "" si es de una frase
   schema: JsonSchema;
 }
 
 export interface JsonSchema {
   type?: string;
   title?: string;
-  description?: string;
+  description?: string; // de un campo: va a su ⓘ
+  "x-unidad"?: string; // unidad que se rotula junto al campo («mm», «grados»)
+  "x-pista"?: string; // pista de un campo que anula a otro o depende de otro
   properties?: Record<string, JsonSchema>;
   required?: string[];
   enum?: (string | number)[];

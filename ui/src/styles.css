@@ -330,6 +330,43 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .properties { padding: 10px; overflow-y: auto; border-bottom: 1px solid var(--border); }
 .schema-form .field { margin-bottom: 7px; }
 .schema-form label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+/* forms/Campo.tsx: rótulo + unidad + ⓘ en una fila; la nota de la ⓘ baja a su propia línea */
+.campo-cabeza { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 5px; margin-bottom: 2px; }
+.schema-form .campo-cabeza label { margin-bottom: 0; }
+.campo-cabeza input[type="checkbox"] { width: auto; margin: 0; }
+
+/* ---------------------------------------------------- texto y ayuda (ui/) */
+/* Pista: N1, siempre visible, una frase */
+.pista { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.modal > .pista { margin: 0 0 10px; font-size: 12px; color: var(--text); }
+/* Ayuda: la ⓘ (botón, nunca submit) y su nota EN EL FLUJO, al final de la fila */
+.ayuda-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 1px; border: none; border-radius: 50%; color: var(--muted); line-height: 0;
+}
+.ayuda-btn:hover:not(:disabled), .ayuda-btn.abierta { color: var(--accent); background: transparent; }
+.ayuda-btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.ayuda-nota {
+  order: 1; flex-basis: 100%; margin: 3px 0 2px; padding: 5px 8px;
+  background: var(--bg2); border-left: 2px solid var(--accent); border-radius: var(--radius-sm);
+  color: var(--text); font-size: 11px; line-height: 1.45;
+}
+/* VerDetalle: <details> nativo, nace plegado */
+.ver-detalle { margin: 0 0 10px; font-size: 11px; }
+.ver-detalle summary { cursor: pointer; color: var(--muted); user-select: none; }
+.ver-detalle summary:hover { color: var(--text); }
+.ver-detalle-cuerpo {
+  margin-top: 6px; padding: 6px 9px; background: var(--bg2); border-radius: var(--radius-sm);
+  color: var(--text); line-height: 1.5;
+}
+/* textoTecnico: párrafos, viñetas y `código` del texto técnico del servidor */
+.ayuda-nota p, .ver-detalle-cuerpo p { margin: 0 0 5px; }
+.ayuda-nota p:last-child, .ver-detalle-cuerpo p:last-child { margin-bottom: 0; }
+.ayuda-nota ul, .ver-detalle-cuerpo ul { margin: 0 0 5px; padding-left: 16px; }
+.ayuda-nota code, .ver-detalle-cuerpo code {
+  font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.95em;
+  background: var(--panel2); border-radius: 3px; padding: 0 3px;
+}
 .field-inline { display: flex; align-items: center; gap: 8px; }
 .field-inline input { width: auto; }
 .vec3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }

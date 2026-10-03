@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2 hechas (vista persona + 53 pistas en el backend, huellas del agente intactas); faltan F3–F5 (UI y cierre) y que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
+nota: F0–F3 hechas (vista persona + 53 pistas en el backend, huellas del agente intactas; el diálogo de comando pinta pista + detalle plegado + ⓘ por campo); faltan F4–F5 (ribbon y cierre) y que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
 descripcion: Cada diálogo de comando te dice en una frase qué hace, el detalle técnico queda a un clic y aparece la pestaña Superficies en el ribbon
 ---
 
@@ -376,3 +376,46 @@ con `ensure_ascii=False`):
 | `SketchSweepParams.path` | sobra si hay hélice | Déjala vacía si el barrido sigue una hélice. |
 | `SheetMetalParams.flaps` | anula lados, altura y ángulo | Si defines pestañas aquí, reemplazan a los lados con pestaña, la altura y el ángulo de plegado. |
 | `SnapToParams.cara` | cambia de modo y anula lado y centrado | Si eliges ambas caras, se apoyan cara contra cara y no se usan el lado ni el centrado. |
+
+### F3 — piezas de texto y diálogo
+
+- Piezas nuevas, una por archivo: `ui/src/ui/Pista.tsx` (10 líneas), `Ayuda.tsx` (41: botón
+  `type="button"` con el `Info` de lucide, `aria-label` «Ayuda sobre «rótulo»», `aria-expanded`,
+  `aria-controls`; abierta, un bloque `role="note"` hermano del botón), `VerDetalle.tsx` (21,
+  `<details>` nativo) y `textoTecnico.tsx` (56). `ui/src/forms/Campo.tsx` (45): rótulo + unidad
+  (`x-unidad`) + ⓘ en una fila (`.campo-cabeza`, flex que envuelve: la nota de la ⓘ baja a su
+  propia línea con `order` + ancho completo, en el flujo), el control debajo y la `x-pista` al pie.
+  La ⓘ sale sólo si la `description` dice algo más que la unidad, y lleva la descripción COMPLETA
+  (excepción de parámetros).
+- `SchemaForm.tsx` **613 → 591** (trinquete de `tamanoArchivos.test.ts` bajado en el mismo
+  commit): todas las ramas de `FieldView` y `SelectorField` usan `Campo`; la `description` del
+  campo dejó de pintarse como «unidad». `CommandDialog.tsx` = título + `<Pista>` +
+  `<VerDetalle resumen="Detalle técnico">` (sólo con `detalle`) + formulario. `types.ts` según
+  D10 (`CommandSchema` sin `description`, con `pestana`/`pista`/`detalle`; `JsonSchema` con
+  `x-unidad`/`x-pista`); `api.ts` pide `?vista=persona`; clases en `styles.css`.
+- `tsc` hizo valer D10 en el acto: `Ribbon.tsx` dejó de compilar con `title={s.description}`. En
+  F3 pasa a `title={s.title}` (lo justo para compilar, ya es D9); los estáticos y las pestañas
+  derivadas quedan para F4.
+- Verificado: `npm test` 22 casos (18 de los gates + 4 de `textoTecnico.test.ts`) y
+  `npm run build` verdes. **En navegador**, contra una API levantada desde el worktree en
+  `127.0.0.1:8001` (base vacía, sin tocar :8000), leyendo el DOM:
+  - Taladro: ayuda visible **39 palabras** (pista 15 + «Cara de entrada» 10 + «Rosca» 14);
+    «Detalle técnico» plegado (`open = false`); **0 versiones** en todo el HTML del diálogo; 8 ⓘ,
+    todas `type="button"` y ninguna dentro de un `<label>`. La ⓘ de «Profundidad» abre
+    «mm, 0 = pasante» como `role="note"` dentro de su campo, debajo del rótulo
+    (`position: static`), el diálogo sigue abierto y el documento siguió con 0 comandos.
+    Desplegado, el detalle pinta `thread`, `position`, `cara`, `en_cara`, `axis` como `<code>`.
+  - Caja: sólo la pista (todas sus descripciones son la unidad → sin ⓘ; una frase → sin detalle).
+  - Propiedades de un Cilindro: los 6 campos con `Campo`, la ⓘ de «Eje» abre su nota y no
+    dispara ningún `PUT /api/commands` (en la red sólo los dos `POST` de crear Caja y Cilindro).
+
+**Desvíos del contrato, con su porqué:**
+- `textoTecnico` también arma párrafos y viñetas (`<p>`, `<ul>`), no sólo `<code>`: F1 conserva
+  la estructura de la docstring en `detalle` (`create_take_up`, `add_mate`) y en una línea
+  corrida se perdía. Un texto de una línea vuelve sin envoltorio (cabe en cualquier bloque).
+- Test extra `ui/src/ui/textoTecnico.test.ts` (sin DOM: mira los elementos devueltos).
+- Dos literales de `SchemaForm` que se tocaban al pasar a `Campo` dicen «pieza» en vez de
+  «sólido» («— elegir pieza —», «Haz clic sobre la pieza en el viewport…»), por la tabla de
+  vocabulario.
+- Visto y fuera de alcance (plan § Lo que NO hace): la ⓘ muestra la `description` del agente tal
+  cual, con su vocabulario («id de feature» en el campo `feature`, cuyo rótulo es «Sólido»).
