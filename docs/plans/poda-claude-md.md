@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 cerrada (inventario + carga medida, D2 confirmada con ajuste); falta F1–F4 y la prueba D7
+nota: F1–F3 hechas; falta F4: gate de tamaño + prueba D7 con claude -p tras el merge
 descripcion: Cada sesión del agente arranca con un CLAUDE.md de ≤ 30 KB; el detalle de cada paquete se lee sólo al trabajar en él
 ---
 
@@ -210,3 +210,52 @@ Lo que F0 cambió del contrato:
    y no con un subagente (ajuste en F4).
 3. Las `nota:` de V6.2e y V6.3d y `docs/devlog.md:2836` apuntan a «§ Pendientes», que se va:
    F2 las redirige a `docs/backlog.md`.
+
+**2026-10-03 — F1, anidados (commit `890db44`).** El mapa y las convenciones de paquete salen a
+diez CLAUDE.md anidados en formato D5. Tamaños (UTF-8, LF): `core/apolo` 4,1 KB (tope 10) ·
+`kernel` 3,9 · `commands` 5,0 · `doc` 5,4 · `assembly` 3,2 · `library` 9,0 · `drawing` 6,4 ·
+`fea` 3,2 · `api` 11,0 · `ui` 14,9 (tenía 9,2) = 66 KB en total, ninguno cerca del tope de 35.
+Sale lo derivable (listas de params, firmas `wants_*`, tabla de GDL, valores de K, conteos de
+familias, lista de paneles) y los números de E2E. Deriva corregida: `motion_gif` sí es tool;
+fuera los conteos viejos de tools; 16 normas, no 15; eje a 0.5·σy, no 0.6·σy; `_hole_fit_map`
+ya no es global; gotcha muerto de `infer_process`; `isAxisAligned`, `applySaveTint` y
+`preview_eval` fuera de la UI. **Desvíos del inventario**, por la regla «la regla va donde se
+hace el CAMBIO»: la FK, el GIF del estudio y la física van a `core/apolo/CLAUDE.md` (no a
+`assembly/`, porque el código vive en `robotics/` y `physics/`); los mapas de fit, datum, GD&T,
+tolerancias e instalación van a `api/` (viven en `api/main.py`; `drawing/` sólo enlaza); la
+validación de fotogramas a `doc/`; `anchor_loads`, el par de apriete y los ingletes a `library/`.
+
+**2026-10-03 — F2, crónica (commit `d182ade`).** Nacen `docs/roadmap.md` (12,8 KB: una línea por
+versión V5–V7 con link al plan, o devlog + commit si no hay plan), `docs/benchmark/README.md`
+(9,2 KB: cómo se corre, ejes de madurez, serie 62 → 82,8 %, reserva y segundo testigo) y
+`docs/backlog.md` (6,8 KB). Al devlog van la cura del 38 a VERDE y la historia del GIF (no tenían
+casa); las `nota:` de V6.2e y V6.3d y `devlog:2836` apuntan ahora al backlog. **Desvío**: las
+filas #193–#197 iban a la bitácora de V6.2e/V6.4d/V6.5/V6.5e; fueron a `docs/backlog.md` con link
+al plan de origen, porque el contrato dice que a los planes viejos sólo se les completa la
+`nota:`. Deriva corregida al mover: el manual por grafo de soporte ya existe y el par de apriete
+ya se calcula (salen del backlog como pendientes); V7 figura cerrada; el peso del cajetín
+multi-sólido se corrigió el mismo día.
+
+**2026-10-03 — F3, raíz.** El CLAUDE.md raíz pasa de 125,3 KB (128 318 bytes en `890db44`, con BOM)
+a **26,7 KB** (27 380 bytes UTF-8 con LF, sin BOM; 407 líneas). Por sección (KB): encabezado 0,6
+· arquitectura 1,9 · escala 0,9 · ejecutar + distribución + estado 2,3 · índice de anidados 2,2
+· gestión 1,5 · planes 3,6 · sesiones concurrentes 3,7 · publicación 0,5 · reglas transversales
+7,7 (locks 0,7 · log y regenerate 2,0 · paramétrico 1,3 · cirugía 1,1 · criterio de diseño 1,6
+· Windows 1,1) · doctrina 0,9 · punteros a roadmap/benchmark/backlog 0,7 · fuera de alcance 0,4.
+Queda sólo lo que el inventario manda a la raíz; el mapa, las convenciones de paquete, la
+madurez, las hojas de ruta y los pendientes se reemplazan por el índice y por punteros. Lo
+nuevo: el índice con la regla de carga medida («antes de editar, lee con `Read` un archivo del
+paquete»), los dos hechos de F0 en «Sesiones concurrentes» (los subagentes reciben la raíz del
+arranque de la sesión padre; en un worktree rige la raíz del checkout principal → verificar con
+`claude -p` tras el merge) y «Gestión» con los topes reales en vez del aviso de ~130 KB.
+Conteos verificados contra el código: 1375 tests (111 archivos, `--collect-only` con el
+`PYTHONPATH` del worktree) + 15 de tortura · 18 tests vitest (3 archivos) · 79 `@mcp.tool` · 53
+comandos (`len(REGISTRY)`) · 231 `ref:` en el catálogo. Deriva corregida: 1370 → 1375 tests;
+«FEA multicuerpo fuera de alcance» (el bonded de ensamblaje existe desde V7.4); «V6 cerrado»
+→ V1–V7 cerradas; la frase de `ui_dist()` «antes ganaba SIEMPRE la empaquetada» era crónica;
+regionalismos de la cultura («saltear», «se triá», «recién ahí», «acá») pasan a español neutro.
+**Por encima de la proyección de ~22 KB**: las secciones de cultura (planes + sesiones, 7,3 KB)
+quedaron enteras porque el contrato sólo permite comprimirlas si hace falta para el tope, y el
+índice pesa 2,2 KB. Si el gate de F4 aprieta, la palanca siguiente es la del inventario: la
+plantilla de planes a `docs/plans/README.md` (−1,5 KB) y la receta de robocopy a un doc aparte
+(−0,6 KB). Ningún anidado se tocó en F3.
