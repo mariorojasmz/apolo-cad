@@ -25,7 +25,8 @@ from .pistas import PESTANAS, PISTAS, PISTAS_CAMPO
 from .registry import REGISTRY, command_schemas
 
 #: La versión del roadmap («V6.8-E», «V5.2b»): el mismo regex que `HISTORIA` en
-#: `ui/src/textoDeAyuda.test.ts`. Va con `re.ASCII` porque en JS `\b` y `\w` son ASCII.
+#: `ui/src/textoDeAyuda.test.ts` (`tests/test_pistas.py` compara el texto del patrón). Va con
+#: `re.ASCII` porque en JS `\b` y `\w` son ASCII.
 _V = r"\bV\d+(?:\.\d+)?[a-z]?(?:-[A-Z])?(?![\w.])"
 _VERSION = re.compile(_V, re.ASCII)
 _SOLA = re.compile(rf"\s*\(\s*{_V}\s*\)", re.ASCII)  # «Pestañas ricas (V5.5)»
@@ -34,8 +35,9 @@ _CABEZA = re.compile(rf"(?<=\()\s*{_V}\s*[,:;]\s*", re.ASCII)  # «(V6.8-E, pasa
 _SUELTA = re.compile(rf"[ \t]*{_V}", re.ASCII)  # «desde V7.2»
 
 #: Oración nueva: signo de cierre, espacio y algo que arranca oración. Es `FIN_DE_ORACION`
-#: de `ui/src/textoDeAyuda.test.ts` (sin `re.ASCII`: el `\s` de JS es Unicode).
-FIN_DE_ORACION = re.compile(r"[.!?…]\s+(?=[A-ZÁÉÍÓÚÜÑ0-9¿¡«(\"])")
+#: de `ui/src/textoDeAyuda.test.ts` (sin `re.ASCII`: el `\s` de JS es Unicode); el texto
+#: del patrón es idéntico al de la UI y `tests/test_pistas.py` lo compara.
+FIN_DE_ORACION = re.compile(r'[.!?…]\s+(?=[A-ZÁÉÍÓÚÜÑ0-9¿¡«("])')
 
 #: Lista CERRADA de unidades que se rotulan junto al campo (D6), la más larga primero.
 UNIDADES = ("grados o mm", "mm", "grados")

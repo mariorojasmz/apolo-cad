@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 al volver
+nota: F0–F2 hechas (vista persona + 53 pistas en el backend, huellas del agente intactas); faltan F3–F5 (UI y cierre) y que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
 descripcion: Cada diálogo de comando te dice en una frase qué hace, el detalle técnico queda a un clic y aparece la pestaña Superficies en el ribbon
 ---
 
@@ -282,3 +282,97 @@ con `ensure_ascii=False`):
   última viñeta de `create_take_up`.
 - La limpieza de versiones sólo se aplica si el texto trae una (el retoque de espacios
   alrededor del corte no toca textos sin historia).
+
+### F2 — las pistas
+
+- 53 pistas de comando + las 6 de campo de D5 en `commands/pistas.py`, escritas leyendo la
+  docstring de cada modelo (qué hace por la persona, no cómo). Las tres de ejemplo de D4
+  (`drill_hole`, `fasten`, `create_group`) van textuales. Más larga: 116 caracteres
+  (`add_mate`); presupuesto D5 por diálogo: máx. **39 palabras** (`drill_hole`: 15 + 10 + 14),
+  luego `snap_to` 36 y `create_sheet_metal` 34.
+- Gate `tests/test_pistas.py` (80 casos): exactamente lo de D13 y además (a) cada pista de
+  campo llega de verdad a su diálogo por la vista persona, (b) la vista persona sirve las
+  pistas escritas, (c) el gate se prueba a sí mismo (12 textos que debe rebotar, 2 que debe
+  dejar pasar) y (d) **las copias de los regex en `vista_persona.py` (`FIN_DE_ORACION` y la
+  versión) son textualmente las de `textoDeAyuda.test.ts`**. Del estándar de la UI se LEEN por
+  parseo: de `tuteoNeutro.test.ts` `IMPERATIVOS` (62; falla si < 40), `OTRAS`, `CLITICOS`,
+  `SIN_TILDE`, `NO_ES_VOSEO`, el doble pronombre y las formas sueltas de `VOSEO` (se rearma
+  `CON_PRONOMBRE` igual que en TS) y `OTRO_REGISTRO`; de `textoDeAyuda.test.ts`
+  `FIN_DE_ORACION` y la regla de versión. Si el formato cambia, el parseo falla con «cambió el
+  estándar de Caronte».
+- Siglas que el gate acepta en mayúsculas (lista cerrada): STEP, BOM, ISO, DIN, DXF, DWG, SVG,
+  PDF, CSV, URDF, SDF, IA, FEA. «usted»/«ustedes» se suma a `OTRO_REGISTRO` (el gate de la UI no
+  lo trae como palabra suelta).
+- Lo que reveló el gate al escribirlas: `snap_to` daba 42 palabras con su pista de campo y
+  `drill_hole` 40 justas; se acortaron las dos. Un bug propio del gate: `ustedes?` exige
+  «ustede»; el caso «Si usted quiere…» lo cazó (va `usted(?:es)?`).
+- Huellas D1 después de F2: **las 5 idénticas a F0**.
+- Suite completa contra el código del worktree (`PYTHONPATH` a su `core/`, `-B`): **1515
+  tests, exit 0** (1514 pasan, 1 skip ya existente) = 1391 de antes + 44 de F1 + 80 de F2.
+- Fuera de alcance, como dice el plan: los rótulos fuera de vocabulario («Fijador», «Borrar
+  caras», «Grupo / sub-ensamblaje», «Mate») siguen en el payload; la pista no los repite.
+
+| tipo | rótulo | pista |
+|---|---|---|
+| `create_box` | Caja | Crea una pieza con forma de caja a partir de su ancho, fondo y alto. |
+| `create_cylinder` | Cilindro | Crea una pieza cilíndrica con su radio y altura, a lo largo del eje que elijas. |
+| `create_structural_profile` | Perfil estructural | Crea un perfil de aluminio ranurado de sección comercial, cortado al largo que necesites. |
+| `create_revolve` | Revolución | Crea una pieza de revolución haciendo girar un perfil de puntos alrededor de un eje. |
+| `create_extrude_poly` | Polígono extruido | Crea una pieza extruyendo un polígono de puntos hasta la altura que indiques. |
+| `import_step` | Importar STEP | Importa un archivo STEP como una sola pieza o separado en varias. |
+| `run_script` | Script IA | Crea una pieza con un script de Python, para formas que las demás herramientas no cubren. |
+| `sketch_extrude` | Croquis extruido | Extruye un croquis 2D con restricciones para convertirlo en una pieza. |
+| `sketch_revolve` | Croquis revolucionado | Hace girar un croquis 2D alrededor del eje Z para crear una pieza de revolución. |
+| `sketch_sweep` | Barrido | Crea una pieza haciendo recorrer un perfil de croquis por una trayectoria 3D o una hélice. |
+| `sketch_loft` | Transición | Crea una pieza que pasa suavemente entre varios perfiles de croquis a distintas alturas. |
+| `boundary_surface` | Superficie de contorno | Crea una superficie a partir de un contorno cerrado de curvas, para darle espesor después. |
+| `fill_surface` | Parche de superficie | Tapa un hueco o cierra un borde de una pieza con un parche de superficie. |
+| `thicken` | Engrosar superficie | Da espesor a una superficie para convertirla en una pieza de pared que se puede fabricar. |
+| `boolean_op` | Booleana | Suma, resta o interseca piezas: el resultado queda en la pieza objetivo y las herramientas desaparecen. |
+| `fillet` | Redondeo | Redondea las aristas elegidas de una pieza con el radio que indiques. |
+| `chamfer` | Chaflán | Achaflana las aristas elegidas de una pieza a la distancia que indiques. |
+| `shell` | Vaciado | Vacía una pieza dejando paredes del espesor que indiques, con las caras elegidas abiertas. |
+| `drill_hole` | Taladro | Hace un agujero en una pieza, desde un punto o sobre una de sus caras. |
+| `delete_faces` | Borrar caras | Elimina caras de una pieza, como un redondeo o un barreno, y cierra el hueco extendiendo las vecinas. |
+| `push_face` | Empujar/Jalar cara | Jala o empuja una cara plana de una pieza para añadirle o quitarle material. |
+| `add_joinery` | Unión de ebanistería | Talla el encaje de carpintería entre dos piezas de madera: espiga y mortaja, ranura, clavijas o rebaje. |
+| `transform` | Mover / Rotar | Mueve o gira una pieza; el giro es alrededor de su propio centro. |
+| `center_in` | Centrar en | Centra una pieza dentro de otra en los ejes que elijas y la recentra si la otra cambia. |
+| `distribute` | Repartir | Reparte varias piezas a distancias iguales entre dos posiciones de un eje. |
+| `attach` | Ensamblar | Lleva una pieza hasta otra haciendo coincidir un punto de cada una, como su base con el tope de la otra. |
+| `snap_to` | Colocar junto a | Coloca una pieza junto a otra o cara contra cara, y la sigue si la otra se mueve. |
+| `pattern_linear` | Patrón lineal | Crea copias de una pieza a distancias iguales en una dirección. |
+| `pattern_circular` | Patrón circular | Crea copias de una pieza repartidas por igual alrededor de un eje. |
+| `pattern_group` | Patrón de grupo | Repite en fila o en rejilla todas las piezas que creó un comando. |
+| `mirror_feature` | Espejo | Crea la copia simétrica de una pieza respecto a un plano. |
+| `duplicate_feature` | Duplicar | Crea una copia de una pieza, desplazada la distancia que indiques. |
+| `delete_feature` | Eliminar | Elimina una pieza del modelo. |
+| `add_mate` | Mate | Coloca una pieza respecto a otra por sus caras (a ras, a distancia o alineadas) y la mantiene así si la otra cambia. |
+| `add_rail_constraint` | Restricción de riel | Obliga a un punto de una pieza móvil a seguir una recta, como un carro que corre por un riel. |
+| `add_constraint` | Restricción | Obliga a un punto de una pieza móvil a quedarse en una recta, un plano, un punto o a una distancia. |
+| `fasten` | Fijador | Declara cómo están unidas dos piezas: perno, soldadura, pegado o contacto. |
+| `ground` | Anclaje a tierra | Fija una pieza al piso: desde ahí se comprueba que todas las demás estén sujetas. |
+| `join_bolted` | Unión atornillada | Atornilla dos piezas en contacto: taladra ambas y pone los pernos y tuercas de catálogo. |
+| `create_group` | Grupo / sub-ensamblaje | Reúne varias piezas en un grupo para moverlas y listarlas como una sola. |
+| `transform_group` | Mover grupo | Mueve o gira un grupo entero, con todas sus piezas, como si fuera una sola. |
+| `insert_component` | Componente | Inserta un componente del catálogo, con largo a medida si se puede cortar. |
+| `insert_project` | Insertar proyecto | Inserta un proyecto guardado como un grupo dentro de este, para armar una planta con varias máquinas. |
+| `create_conveyor` | Transportador | Crea un transportador de rodillos completo: largueros, rodillos, patas, arriostrado y motor opcional. |
+| `create_belt_conveyor` | Faja de banda | Crea una faja de banda completa: bastidor, cama, tambores, banda, tensor, motorreductor y guardas. |
+| `create_take_up` | Tensor de cola (trotadora) | Crea el rodillo de cola de una faja de banda, con el tensor tipo trotadora que tensa la banda. |
+| `create_drive_roller` | Rodillo motriz (trotadora) | Crea el rodillo motriz de una faja tipo trotadora, con eje largo para acoplar el motorreductor. |
+| `create_weldment` | Bastidor | Crea un bastidor soldado de perfiles con su lista de corte, con esquinas a tope o a inglete. |
+| `create_frame` | Esqueleto | Crea una estructura soldada de perfiles a partir de nodos y barras, como caballetes, trípodes o cerchas. |
+| `create_sheet_metal` | Chapa metálica | Crea una pieza de chapa plegada con pestañas y taladros, lista para sacar su desplegado de corte. |
+| `create_robot_arm` | Brazo robótico | Crea un brazo robótico de 4 ejes con sus juntas listas para moverlo y exportarlo. |
+| `add_joint` | Junta | Crea una junta para que una pieza gire o se deslice respecto a otra, con sus límites de recorrido. |
+| `set_variable` | Variable | Crea o cambia una variable que puedes usar en cualquier campo numérico; todo el modelo se actualiza con ella. |
+
+| campo (D5) | por qué lleva pista | pista |
+|---|---|---|
+| `DrillHoleParams.cara` | excluyente con el punto de entrada | Elige la cara o el punto de entrada, no ambos. |
+| `DrillHoleParams.thread` | anula el diámetro (y excluye el ajuste) | Con rosca se taladra a la broca de machuelo; el diámetro no se usa. |
+| `JoinBoltedParams.patron` | reemplaza al número de pernos | Si llenas el patrón de filas por columnas, reemplaza al número de pernos. |
+| `SketchSweepParams.path` | sobra si hay hélice | Déjala vacía si el barrido sigue una hélice. |
+| `SheetMetalParams.flaps` | anula lados, altura y ángulo | Si defines pestañas aquí, reemplazan a los lados con pestaña, la altura y el ángulo de plegado. |
+| `SnapToParams.cara` | cambia de modo y anula lado y centrado | Si eliges ambas caras, se apoyan cara contra cara y no se usan el lado ni el centrado. |
