@@ -1,0 +1,285 @@
+---
+estado: en curso   # implementado | en curso | sin verificar | descartado
+nota: implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D11 y D12 son extras vetables)
+descripcion: Si tú o el agente mandan un parámetro que no existe, Apolo lo rechaza y sugiere el correcto (antes lo ignoraba en silencio); tus proyectos guardados regeneran idénticos
+---
+
+# Un parámetro que no existe se rechaza con su corrección, y tus proyectos guardados regeneran idénticos
+
+## Estado y origen
+
+Pedido de Mario (2026-10-03), sobre la lista de pendientes de la auditoría de arquitectura:
+«me voy a ir por muchas horas, ejecuta todo los planes pendientes al final revisamos». Por eso el
+contrato se implementa **sin aprobación previa**: las decisiones D1–D13 quedan para que las vete al
+volver, y nada se mergea a `main` hasta entonces (rama de integración `worktree-auditoria-refactors`).
+
+Viene de la auditoría de arquitectura del núcleo event-sourced del mismo día (la que fijó el
+trinquete de 500 líneas, `tests/test_tamano_archivos.py`). Encontró cinco problemas en
+`commands/` y `doc/`; este plan toma cuatro:
+
+- el estado de regeneración posicional,
+- el despacho por flags,
+- los params no estrictos,
+- la clave de la caché de geometría.
+
+El quinto (partir `registry.py`) va en un plan aparte; aquí sólo sale de `registry.py` lo que una
+fase reescribe de todos modos.
+
+Evidencia: el propio código se describe como «explosión combinatoria»
+(`core/apolo/commands/registry.py:2257-2258`); el bump v4 de `GEOM_CACHE_EPOCH` llegó con meses de
+atraso (`core/apolo/doc/geomcache.py:42-47`); el agente manda parámetros inexistentes que Apolo
+ignora sin avisar (medido abajo).
+
+## El problema / lo que hay hoy
+
+### 1. El estado de regeneración es una 8-tupla posicional
+
+`(scene, variables, joints, mates, constraints, fasteners, grounds, groups)` se arma, se desarma o
+se mide en 14 sitios:
+
+| dónde | qué |
+|---|---|
+| `core/apolo/doc/document.py:65-79` | `_copy_state` desarma y rearma por posición |
+| `document.py:117` | `_regen_ckpts: dict[int, tuple]` |
+| `document.py:156` y `:439-440` | sanidad: `len(st) == 8 and isinstance(st[0], dict)` |
+| `document.py:244-245` | desarme desde el checkpoint |
+| `document.py:249-251` | 8 dicts vacíos en orden |
+| `document.py:260-264` | `execute_command` con 12 argumentos posicionales |
+| `document.py:275-277` | captura del checkpoint |
+| `document.py:279-281` | poda: 6 posicionales |
+| `document.py:305-311` | volcado a `self` |
+| `document.py:355` | siembra del open caliente |
+| `core/apolo/doc/geomcache.py:157-158` | `pack` toma `state[0]` |
+| `geomcache.py:208-218` | `unpack` valida `len(state) == 8` |
+| `tests/test_geomcache.py:69` | `len(state) == 8` |
+
+La firma de `execute_command` (`registry.py:2222-2235`) pone `attachments` ENTRE `joints` y `mates`:
+otro orden que el de la tupla. Los 12 argumentos son dicts del mismo tipo: un cruce no lanza nada,
+produce geometría equivocada. La raíz y `core/apolo/assembly/CLAUDE.md` documentan la «8-tupla»
+como contrato.
+
+### 2. El despacho elige la firma del executor por flags
+
+`CommandSpec` (`registry.py:2037-2052`) tiene `kind` más 8 booleanos `wants_*`. `execute_command`
+(`registry.py:2246-2278`) es una cadena de 11 ramas con 11 formas de llamada (9 posicionales, con
+`cmd_id` en la 2.ª, 3.ª o 4.ª posición; 2 keyword-only). 15 de los 53 executors salen de la forma
+por defecto `(scene, cmd_id, model)`. La precedencia es implícita (`pattern_group` funciona sólo
+porque `joints and mates` se evalúa antes que `joints`, `:2263-2266`); una combinación de flags sin
+rama propia cae en silencio en la primera que coincida, y nada lo valida al registrar.
+
+### 3. Los params no son estrictos ni versionados
+
+Ningún modelo fija `extra`: `_validate_model` (`registry.py:2184-2191`) DESCARTA en silencio toda
+clave desconocida y usa el default.
+
+Medido sobre `data/apolo.db` (abierta con `mode=ro`), validando cada comando con `extra="forbid"`
+por llamada y sus variables resueltas:
+
+| | documentos | comandos | con claves desconocidas |
+|---|---:|---:|---:|
+| proyectos | 25 | 2004 (+309 en el snapshot embebido del 53) | 8 (+6 en el snapshot) |
+| revisiones | 97 | 21 850 | 96 |
+| **total** | 122 | 23 854 | **104 (0,44 %)** |
+
+- **`pattern_linear.name`**: 102 veces en 17 documentos (el proyecto 38 `faja-paqueteria-4m`, testigo
+  del benchmark, y 16 revisiones). `pattern_linear` no tiene `name`: las copias se nombran solas
+  (`registry.py:329`). El agente cree que nombra las copias, y no pasa nada.
+- **`create_box.material`**: 2 veces, en el proyecto 65. El material es metadato (`set_material`),
+  no param, y los tests lo copian (`tests/test_v65c_fixes.py:25-29`).
+- Fuera de eso: 0 comandos que fallen la validación por otra causa, 0 tipos desconocidos.
+
+Consecuencias: un typo del agente pasa verde con el default; renombrar un campo cambia en silencio
+lo que hacen los logs viejos; no hay upcasters. Aparte, la validación de refs depende del catálogo
+VIVO (`models.py:190-195`; el executor indexa `CATALOG[ref]`, `registry.py:1757`).
+
+### 4. La caché de geometría no sabe qué executor cambió
+
+`_cmd_sig` (`document.py:58-62`) es sha1(firma previa + id + params): no incluye el tipo ni una
+versión del código. La vigencia depende de `GEOM_CACHE_EPOCH` (a mano) y de las versiones de
+build123d, OCP y Apolo: un cambio en UN executor obliga a subir el epoch, que invalida TODOS los
+proyectos. La tabla `geom_cache` guarda UNA fila por proyecto (`core/apolo/projects.py:48-53`) con el
+checkpoint del último comando, y el open caliente exige que las firmas cacheadas sean PREFIJO del
+log (`document.py:340-342`): la granularidad posible es por proyecto, no por entrada.
+
+## Lo que se revisó antes de escribir esto
+
+- **pydantic 2.13.4 (el del `.venv`) acepta `extra=` por llamada**: `Model.model_validate(raw,
+  extra="forbid")` reporta en UNA pasada las claves de más en todos los niveles (`pos.q`, dentro de
+  un `Vec3 | None`, `lst.0.k`), tipo `extra_forbidden`. Los `"=expr"` sin resolver dan
+  `float_parsing` y se filtran. Las claves ignoradas no entran a `model_fields_set` (lo usa
+  `drill_hole`, `registry.py:662`). → La entrada estricta NO toca los modelos ni el JSON Schema. El
+  pin es `pydantic>=2.6` y hay que subirlo.
+- **La UI devuelve enteros los params guardados** (`ui/src/forms/SchemaForm.tsx:569`, `:239-245`):
+  editar c45 del 38 desde Propiedades reenviaría su `name`. → Sólo se rechaza la clave que el
+  cliente INTRODUCE (D7).
+- **Los tests parchean y espían el despacho** (`spec.executor` en caliente:
+  `tests/test_geomcache.py:303-317`, `tests/test_torture.py:96-115`; espías de
+  `apolo.doc.document.execute_command`). → El despacho lee `spec.executor` en cada llamada, y el
+  regenerate sigue llamando una vez por comando a `document.execute_command`.
+- **`commands` no puede importar `doc`** (`document.py:20` importa `registry`). → `RegenState` vive
+  en `commands/`.
+- **`transform_group` muta juntas y restricciones en sitio** (`registry.py:1423-1443`). → `copy()`
+  conserva el `deepcopy` de todo lo que no es la escena, como `_copy_state`.
+- **`insert_project` embebe un `.apolo`** cuyo replay corre executors que los params del anfitrión no
+  nombran (`registry.py:1511-1519`). → La versión de un executor tiene que alcanzar al anfitrión (D9).
+- **`ProjectStore.load` ESCRIBE la caché** (`projects.py:129-139`) y `paths.db_path()` crea
+  carpetas. → El golden abre la SQLite por URI `mode=ro` y no usa ninguno de los dos.
+- **Trinquetes**: `registry.py` 2299, `document.py` 1084, `models.py` 1509, `agent/agent.py` 606.
+  Ninguno puede crecer: el código nuevo va a módulos nuevos, y F2 (que achica `registry.py`) va
+  antes que F4.
+
+## Decisiones (para vetar)
+
+- **D1. Un golden de los proyectos guardados es el gate de cada fase.** `scripts/golden_regen.py`
+  regenera en frío cada documento de una COPIA congelada de `data/apolo.db` y guarda una huella por
+  documento: por feature (id, nombre, `command_id`, volumen, área, bbox, n.º de caras y aristas,
+  `mesh_key`, `matrix`, anclas); juntas, mates, restricciones, fijadores, anclajes y grupos en JSON
+  canónico; variables resueltas, `regen_suppressed`, integridad (sin «degradado») y la ÚLTIMA FIRMA
+  del log. Cada fase compara contra la base de F0: cero diferencias, firmas incluidas.
+  *Porqué*: «byte-idéntico para logs válidos», y los 1391 tests no cubren los 122 documentos reales.
+- **D2. `RegenState` reemplaza a la tupla en todos lados.** Dataclass con `slots` y 8 campos con
+  nombre, en `core/apolo/commands/state.py`; `copy()` = puerto 1:1 de `_copy_state`; el blob de la
+  caché la guarda como dict POR NOMBRE (`to_plain`/`from_plain`). `GEOM_CACHE_EPOCH` 4 → 5, con su
+  motivo: la ÚNICA invalidación del plan. *Porqué*: cruzar dos dicts pasa a ser un `AttributeError`
+  al escribir el código, no geometría equivocada.
+- **D3. Una sola convención: `executor(ctx: ExecContext, cmd_id, params)`.** `ExecContext(state,
+  attachments)` expone los dicts VIVOS (`ctx.scene`, `ctx.joints`…) y `ctx.resolved_variables()`. Los
+  helpers puros conservan sus argumentos. *Porqué*: una sola forma de llamada; agregar contexto deja
+  de exigir un flag y una rama.
+- **D4. Sin adaptadores generados desde los flags.** Los 15 executors con flags migran juntos en F2
+  y los 8 `wants_*` se borran ahí; los 38 de forma `(scene, cmd_id, model)` pasan por UN adaptador
+  de transición (`convention="scene"`) que F3 elimina. *Porqué*: 15 ediciones bajo el golden son
+  menos riesgo que mantener la cadena de 11 ramas durante la migración.
+- **D5. `CommandSpec` y el despacho salen de `registry.py`** a `core/apolo/commands/spec.py`
+  (`__post_init__` que valida `kind`, `convention`, `version ≥ 1`; `run_executor(spec, ctx, cmd_id,
+  model)` que lee `spec.executor` en cada llamada). En `registry.py` quedan `REGISTRY`,
+  `validate_params` y un `execute_command(state, cmd_id, cmd_type, params, attachments=None)`
+  delgado. Un test exige que cada executor reciba exactamente `(ctx, cmd_id, p)`.
+- **D6. Entrada estricta y replay tolerante, con el MISMO modelo.** Entrada con `extra="forbid"` por
+  llamada, contando sólo `extra_forbidden` (`core/apolo/commands/strict.py`), en las cuatro puertas
+  de `Document` (`execute`, `edit`, `execute_many`, `edit_many` → cubren REST, lotes, jobs, preview y
+  MCP) y en `validate_actions` del agente. El regenerate valida con `extra="ignore"` EXPLÍCITO. Los
+  modelos no cambian. *Porqué*: «mutaciones estrictas, carga tolerante» ya es la regla de la casa.
+- **D7. Sólo se rechaza lo que el cliente introduce.** Un edit rechaza
+  `unknown_keys(nuevos) − unknown_keys(guardados)`, por ruta: una clave vieja ya guardada pasa y se
+  queda. *Porqué*: la UI reenvía los params guardados.
+- **D8. El rechazo enseña.** `CommandError` (→ 400, mismo texto en sync y en job) con el comando, la
+  ruta de cada clave desconocida, las claves válidas de ese nivel y «¿quisiste decir…?» (difflib);
+  `material` → `set_material`, `color` → `set_color`. En tuteo neutro.
+- **D9. `CommandSpec.version: int = 1` entra a la firma SÓLO si es ≠ 1**: con todo en v1, `_cmd_sig`
+  queda byte-idéntica. Subir la versión de X invalida sólo los proyectos que contienen X. Los
+  comandos COMPUESTOS (`composite=True`; hoy `insert_project`) llevan en su firma el resumen de TODAS
+  las versiones ≠ 1.
+- **D10. La regla del epoch queda escrita así** (raíz § Log, `commands/CLAUDE.md`, `doc/CLAUDE.md`):
+  cambiaste la geometría de UN executor con los mismos params → sube su `version`; algo compartido y
+  puedes nombrar todos sus usuarios → sube la versión de cada uno; algo que no puedes acotar (kernel,
+  builders, YAML del catálogo, `Feature`, `RegenState`, formato del blob) → bump de
+  `GEOM_CACHE_EPOCH`; la etapa final del regenerate (mates, grupos, visibilidad) → nada (no se cachea).
+- **D11. Trinquete de versiones (extra, vetable).** `tests/test_contrato_comandos.py` guarda
+  `{tipo: (version, sha1 del código del executor)}`: si el código cambió y la versión no, falla y
+  obliga a elegir (subir la versión, o actualizar sólo el hash si fue un refactor).
+- **D12. Ningún campo desaparece sin upcaster (extra, vetable).** El mismo archivo guarda las rutas
+  de campos de cada comando: quitar o renombrar un campo falla con un mensaje que pide conservarlo o
+  escribir un upcaster.
+- **D13. Los logs guardados no se tocan.** Las 104 claves viejas se quedan y el replay las sigue
+  ignorando; `pattern_linear` no gana `name` ni `create_box` gana `material`.
+
+## Alternativas descartadas
+
+- `NamedTuple` para el estado: sigue permitiendo desarmar por posición.
+- `RegenState` en `doc/`: import circular con `document.py:20`.
+- `extra="forbid"` en los modelos + recorrido que limpie en el replay: los 104 comandos dependerían
+  de ese recorrido y el JSON Schema publicado cambiaría.
+- `model_validator(mode="before")` con flag: cambia la base de ~60 clases de `models.py`.
+- Estricto sólo en la capa API: deja afuera al agente de la app y al preview.
+- Limpiar la clave vieja al editar: reescribe el log en silencio.
+- Versión por registro + upcasters desde ya: cambia el formato del log por cero renombres pendientes.
+- Versión automática (hash del código) en la firma: un comentario invalidaría la caché.
+- Adaptadores generados desde los flags para los 53 executors.
+- Caché con varios checkpoints: otra decisión, fuera de este plan.
+
+## Fases
+
+Cada fase la implementa un subagente opus en su worktree. Desde un worktree:
+`$env:PYTHONPATH = "$PWD\core"` y `python -B`. Ninguna fase toca `ui/`.
+
+**Gate común de F1 a F5**: pytest completo verde; golden contra la base de F0 con cero
+diferencias; `tests/test_tamano_archivos.py` verde (números que bajan, actualizados en el mismo
+commit); ningún archivo nuevo de más de 500 líneas.
+
+- **F0 — mide (sólo lectura, S · `scripts/`, `tests/`).** `scripts/golden_regen.py` (≤ 300 líneas):
+  `--freeze DESTINO` (copia con la API de backup de `sqlite3` desde `file:…?mode=ro` a
+  `$env:TEMP\apolo-golden\`; la SQLite de Mario nunca se abre en escritura), `--db COPIA --out
+  base.json [--revisions]` (huella de D1 con `Document.from_apolo_bytes(tolerant=True)` en frío;
+  limpia `DEFINITIONS` y la caché de `doc/subproject.py` antes de cada documento; no importa
+  `ProjectStore` ni `paths`), `--compare A B` (diff legible, código ≠ 0 si difiere), `--scan-keys`.
+  `tests/test_golden_regen.py`: dos documentos en una SQLite de `tmp_path`; huellas idénticas → sin
+  diff; un param cambiado → diff. Verifica: dos corridas seguidas dan cero diferencias; bitácora con
+  cantidad de documentos, tiempo, suprimidos y la tabla de `--scan-keys`.
+- **F1 — `RegenState` (M · `commands`, `doc`).** `commands/state.py`; los sitios de la tabla en
+  `document.py`; `pack`/`unpack` por nombre y epoch 5; `execute_command(state, cmd_id, cmd_type,
+  params, attachments=None)` con el cuerpo de ramas intacto; tests de aislamiento de `copy()`,
+  shape compartido (`is`) y blob v4 → `unpack` None; «8-tupla» → `RegenState` en los CLAUDE.md.
+- **F2 — despacho único (M · `commands`).** `ExecContext` en `state.py`; `CommandSpec` +
+  `run_executor` en `spec.py`; migra los 15 executors con flags y borra los 8 `wants_*`; test de
+  firmas. `registry.py` baja ≈ 60 líneas.
+- **F3 — los 38 restantes (M, mecánica · `commands`).** `scene` → `ctx.scene`; se borran
+  `convention` y la rama `scene`. `registry.py` no crece.
+- **F4 — entrada estricta (M · `commands`, `doc`, `agent`, `core/pyproject.toml`).**
+  `commands/strict.py` (D6–D8); `validate_params(…, strict=False, previous=None)`; `_validate_model`
+  con `extra` explícito; las cuatro puertas y `validate_actions`; pin de pydantic; trinquete de rutas
+  (D12). Tests `tests/test_params_estrictos.py` (anidadas, listas, `Optional`, lote revertido sin undo
+  fantasma, edit con y sin merge, caso c45 → 200, log viejo regenera igual, preview, agente, texto
+  con sugerencia y puntero a `set_material`). Los tests que mandaban claves inexistentes se corrigen
+  como bug del TEST (al menos `tests/test_v65c_fixes.py:25-29`), listados en la bitácora.
+- **F5 — versión por comando (S · `commands`, `doc`, `tests`, CLAUDE.md).** `CommandSpec.version` y
+  `composite`; etiqueta en `_cmd_sig` (D9); trinquete D11. Tests: `version=2` por monkeypatch cambia
+  las firmas desde su primer comando y no las de un proyecto que no lo usa; `insert_project` cambia
+  con cualquier versión ≠ 1; un blob v1 se descarta en el open. Regla D10 en los CLAUDE.md.
+- **F6 — verifica (S).** Golden COMPLETO (proyectos y revisiones) sobre una copia FRESCA de la base;
+  `pytest -m torture`. **Ajuste por la delegación**: el E2E no usa la API de Mario ni su base; corre
+  con una API levantada desde el worktree de integración en el puerto 8001 sobre una COPIA de
+  `data/apolo.db` puesta en el `data/` del worktree (ignorado por git): abrir el 38 dos veces (frío
+  con epoch 5, luego caliente con 0 replays), editar c45 → OK, `run_command` de `pattern_linear` con
+  `name` → 400 con las claves válidas, `run_batch` con `create_box.material` → el job falla con el
+  mismo texto y el puntero a `set_material`. Al cerrar: conteos de «Estado actual», backlog,
+  bitácora y frontmatter.
+
+## Lo que este plan NO hace
+
+- No parte `registry.py` (Feature/DEFINITIONS, colocación, helpers vectoriales duplicados en
+  `assembly/mates.py` y `robotics/urdf.py`, juntas, `join_bolted`, `transform_group`/`insert_project`,
+  super-comandos): va al plan de partición. Aquí sólo sale el bloque de despacho (D5).
+- No cambia el formato del `.apolo` ni del log, ni reescribe comandos guardados (D13).
+- No agrega `name` a `pattern_linear` ni `material` a `create_box` (va al backlog como decisión).
+- No escribe upcasters (0 renombres pendientes).
+- No toca la dependencia del catálogo vivo (las refs no se borran; va al backlog).
+- No revisa claves dentro de los campos libres `sketch: dict` ni de `overrides`.
+- No publica `additionalProperties: false` en los schemas.
+- No hace la caché más fina que por proyecto ni agrega un hash del catálogo a `_versions()`.
+- No unifica `SubprojectState` (`doc/subproject.py:33-43`) con `RegenState`.
+
+## Riesgos
+
+- **`copy()` comparte por error un dict mutable** → puerto 1:1 de `_copy_state`, test de
+  aislamiento campo por campo y el golden.
+- **El golden da falso verde o falso rojo** → test con diferencia inyectada; doble corrida en F0;
+  copia congelada; `DEFINITIONS` y caché de subproyectos limpias antes de cada documento.
+- **El golden escribe la SQLite de Mario** → sólo URI `mode=ro`, sin `ProjectStore` ni `paths`, sobre
+  una copia.
+- **La estrictez rompe clientes** (el agente manda `pattern_linear.name` por costumbre) → D8, D7 y
+  revisar `logs/errors.log` en el «revisa» siguiente.
+- **Usuarios de PyPI con pydantic viejo** → subir el pin.
+- **Los parches de los tests se saltan el despacho nuevo** → `run_executor` lee `spec.executor` en
+  cada llamada.
+- **El número del trinquete choca entre fases o con el plan de partir `main.py`** → orden F2 → F4,
+  número actualizado en el mismo commit, rebase justo antes de cada merge.
+- **D11 molesta en los refactors** → el mensaje distingue las dos salidas; es vetable.
+- **La partición futura mueve `Feature`** (el pickle del blob resuelve
+  `apolo.commands.registry.Feature`) → ese plan bumpea el epoch o deja un re-export.
+- **Se olvida subir una versión al cambiar un helper compartido** → la regla D10 en la raíz y en
+  `commands/CLAUDE.md`.
+
+## Bitácora
+
+_(vacía: se llena al cerrar cada fase)_
