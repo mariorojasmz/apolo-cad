@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D11 y D12 son extras vetables)
+nota: F0 hecha (golden, base fuera del repo en %TEMP%\apolo-golden); faltan F1–F6, sin mergear; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
 descripcion: Si tú o el agente mandan un parámetro que no existe, Apolo lo rechaza y sugiere el correcto (antes lo ignoraba en silencio); tus proyectos guardados regeneran idénticos
 ---
 
@@ -282,4 +282,44 @@ commit); ningún archivo nuevo de más de 500 líneas.
 
 ## Bitácora
 
-_(vacía: se llena al cerrar cada fase)_
+**2026-10-03 — F0, mide.** `scripts/golden_regen.py` (300 líneas) y `tests/test_golden_regen.py`
+(4 tests: dos corridas sobre la misma base → sin diferencias; un `width` cambiado en un proyecto
+→ el diff nombra ESE documento, su `volume` y su `last_sig`, y no los otros; `--freeze` no toca
+el origen y la copia da la misma huella; `--scan-keys` encuentra `pattern_linear.name`).
+
+- **Copia congelada**: `%TEMP%\apolo-golden\copia-f0.db` (API de backup desde `file:…?mode=ro`;
+  25 proyectos, 97 revisiones). SHA-256 y mtime de `data/apolo.db` idénticos antes y después
+  (`1119258C…`, 13:10:35); sin `-wal`/`-shm`.
+- **Base**: `%TEMP%\apolo-golden\base-f0-a.json` (7,3 MB, fuera del repo). Corrió sobre una copia
+  del código de `725aedf` (`%TEMP%\apolo-golden\code-f0`, con `PYTHONPATH` a esa carpeta), para
+  que escribir F1 en el worktree mientras corría no la contaminara.
+- **Números**: 122 documentos · 23 854 comandos · 6 738 sólidos · 1 257,8 s (21 min) · 0 errores
+  · integridad limpia en los 122. Suprimidos en UN documento: la revisión 60 (60 entradas:
+  `create_take_up` y `create_drive_roller` con «Voladizo mínimo 45 mm» y, en cascada, 58
+  `fasten` que apuntaban a sus piezas). Es un log viejo que el executor de hoy rechaza; la carga
+  tolerante lo abre igual. Los más lentos: revisiones 83 y 84 (189 y 171 s), proyecto 67 (145 s),
+  proyecto 66 (91 s), revisión 103 (78 s).
+- **Determinismo**: segunda corrida (`base-f0-b.json`, ya con el script recortado a 300 líneas:
+  prueba de paso que el recorte no cambió la huella) → `--compare`: **sin diferencias**.
+- **`--scan-keys`** (12,5 s; reproduce la tabla de «El problema» §3):
+
+  | | documentos | comandos | con claves desconocidas | fallan por otra causa | tipo desconocido |
+  |---|---:|---:|---:|---:|---:|
+  | proyectos | 25 | 2 004 | 8 | 0 | 0 |
+  | snapshots embebidos | 2 | 618 | 12 | 0 | 0 |
+  | revisiones | 97 | 21 850 | 96 | 0 | 0 |
+
+  | clave desconocida | veces | documentos |
+  |---|---:|---:|
+  | `pattern_linear.name` | 114 | 18 |
+  | `create_box.material` | 2 | 1 |
+
+  El snapshot embebido cuenta POR INSTANCIA: el 53 inserta dos veces el 38 (618 = 2 × 309 y
+  12 = 2 × 6); por eso aquí son 114 = 102 + 12 y 18 documentos (el 53 entra por sus snapshots).
+
+**Desvíos de F0**: la huella es un SUPERCONJUNTO de D1 (además: `component`, `cut_length`, `miter`,
+`material`, `group`, `visible`, `is_guide` y el orden de la escena), sin costo y con más poder de
+detección. Los floats se redondean a 10 cifras significativas (y |x| < 1e-9 → 0): inmune al
+ruido de último bit, sensible a cualquier cambio real (1e-6 mm en una cota de 4 m). Los tiempos
+van en `meta`, que `--compare` ignora. `--src` es explícito porque desde un worktree el
+`data/apolo.db` por defecto no existe. Conteo de tests de la raíz: 1391 → 1395.
