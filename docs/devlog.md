@@ -2833,7 +2833,7 @@ del delta (toggle de guía es metadato) + en `mergeSceneDelta`.
 
 **Bajas**: `load_geom_cache` en try/except (una página corrupta no tumba el open sano);
 `mergeSceneDelta` descarta una entrada `same` sin prev; comentario de footgun en el wrapper
-`render_scene_vtk`. Follow-ups anotados en CLAUDE.md § Pendientes (applyAppearance×tinte, GIF
+`render_scene_vtk`. Follow-ups anotados en [docs/backlog.md](backlog.md) (applyAppearance×tinte, GIF
 compose fuera del lock, RenderSnapshot Vector→ndarray, etc.).
 
 **Cierre**: baseline sin cambios de números (verificado). Suite + tortura verdes. V6.2 SELLADO.
@@ -4275,3 +4275,33 @@ se arrastra y COMMIT de las posiciones resueltas al soltar.
 están en el bundle servido. La prueba interactiva del diálogo queda para el usuario, como
 el resto de la UI. Croquis 5 → **6.5** (el ancla completa del plan) y **V6.6 pasa a
 `done/`: sin planes activos, todos los roadmaps V1–V7 cerrados**.
+
+## 2026-10-03 — Crónica movida desde CLAUDE.md (poda)
+
+Al podar el CLAUDE.md raíz (plan `docs/plans/poda-claude-md.md`) apareció crónica que no estaba
+en ningún plan ni en este devlog: sólo vivía en el CLAUDE.md y en mensajes de commit. Se guarda
+aquí, agrupada por tema. Las reglas que se derivan de ella viven en los CLAUDE.md por paquete; las
+hojas de ruta, en `docs/roadmap.md`; la serie de calificaciones, en `docs/benchmark/README.md`; y
+los pendientes, en `docs/backlog.md`.
+
+### Cura del 38: de AMARILLO a VERDE en la puerta de entrega (2026-08-03)
+
+Al estrenar V6.9, `delivery_check` del proyecto 38 dio **AMARILLO** con un aviso verdadero: los 8
+herrajes de chumacera que agregó la cirugía de V7.5 (4 PERNO-HEX-M14×50 + 4 TUERCA-M14) no
+estaban en el grafo de uniones declaradas. La unión DIMENSIONADA ya existía
+(`chum_mensula_pY`/`nY`: UCP207 ↔ ménsula, M14 ×2, `c690`/`c691`); lo que faltaba era atar las
+PIEZAS de herraje, con el patrón de la casa (`tornilleria_men_motor`/`c704`): 8 `fasten`
+«contacto» — cada perno a su chumacera (asiento de la cabeza en el slot) y cada tuerca a su perno
+(roscada, apretada bajo la ménsula). Revisión 103 = estado previo.
+
+Resultado: `delivery_check` del 38 **AMARILLO → VERDE** (interferencias, sujeción declarada,
+lints, salud y 2 poses ok). Fue un cambio de MODELO (SQLite), no de código; el commit `37f977c`
+sólo actualizó las dos menciones del estado del 38 en el CLAUDE.md.
+
+### GIF del estudio de movimiento: la tool llegó después (2026-07-16 → 2026-08-01)
+
+`POST /api/motion.gif` (`robotics/anim.py`, mismo motor VTK que `render_view`) llegó el
+2026-07-16, dentro del commit de V6.5e (`c34f5d6`), sin tool MCP. La tool `motion_gif` llegó con
+V6.8-C (`f765777`, 2026-08-01). El CLAUDE.md siguió diciendo «sin tool MCP» y «falta MP4 y tool
+MCP» hasta esta poda (deriva corregida al mover). Lo único pendiente es el MP4 (en
+`docs/backlog.md`).
