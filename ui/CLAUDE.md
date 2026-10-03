@@ -1,7 +1,9 @@
 # UI de Apolo (React + three.js + Dockview)
 
-Las convenciones técnicas de la UI (viewport, store, sync, layout) siguen por ahora en el
-CLAUDE.md raíz, § Convenciones › UI; se mudan acá en el plan de poda del raíz.
+Las convenciones técnicas de la UI (viewport, store, sync, layout) están al final, en
+«Convenciones técnicas»; el lado servidor de lo que consume (deltas de escena, `merge` del PUT),
+en [core/apolo/api](../core/apolo/api/CLAUDE.md). Lo transversal (worktrees, flujo de trabajo)
+está en el [CLAUDE.md raíz](../CLAUDE.md).
 
 **Todo texto que lee un usuario va de TÚ, en español neutro latinoamericano**: sin voseo, sin
 usted, sin españolismos. Vale para los strings de la UI, los mensajes de error de la API que
@@ -132,3 +134,86 @@ Por panel, no todo de una: leer cada pantalla entera y clasificar cada texto en 
 acción), **inconsistente** (una cosa con varios nombres) o **registro**. Primero lo que
 **miente** (texto que contradice lo que la pantalla hace) y lo que **evita un error caro**
 escondido. El estándar es el criterio, no la lista: la lista envejece con la primera fase.
+
+## Convenciones técnicas
+
+### Desarrollo y verificación
+
+- Preview: configs `ui-dev`/`ui-preview` en `.claude/launch.json`; el build de producción lo
+  sirve la API en :8000. `npm run dev` + StrictMode remonta el viewport y lo rompe: usar
+  `vite preview` (`ui-preview`). Gates: `npm test` (vitest) y `npm run build` (tsc + vite).
+- El screenshot automatizado del viewport se agota por el rAF continuo: verificar por DOM o por el
+  hook `window.__apolo` (`meshIds`, `builds`, `store`). El rAF se PAUSA en una pestaña de fondo
+  (lo que fija el animate loop, como `g.visible`, queda viejo) y un `await requestAnimationFrame`
+  desde la tool de JavaScript del navegador cuelga: para la lógica del overlay, leer estado
+  expuesto a `window` (`ctx.handles.children`, params), no la visibilidad.
+
+### Shell y paneles
+
+- Dockview: el viewport es el centro fijo y bloqueado que NUNCA se re-monta; el layout se
+  persiste y `resetLayout` no destruye el viewport.
+- Panel nuevo = 4 registros: `dock/dockApi.ts` `TOOL_PANELS` + `dock/DockShell.tsx` `COMPONENTS`
+  + `panels/StatusBar.tsx` `PANELS` + `ui/icons.tsx` `PANEL_ICONS`.
+- Feedback de carga global: `guard`/`runTracked` + `BUSY_TEXT` (store).
+- Otros paneles accionan el viewport por `CustomEvent` (`"apolo:fit"`, `"apolo:export-gltf"`)
+  para no acoplar el store a three.js. El glTF se exporta en el cliente
+  (`viewport/exportGltf.ts`); STEP/STL, por endpoint.
+
+### Layout
+
+- Toda región scrollable/flex necesita altura ACOTADA (`minmax(0,1fr)`): una fila implícita
+  `auto` crece hasta el hijo más alto y desborda. Los `grid-row` numéricos se rompen al cambiar
+  `grid-template-rows` (reindexar). `overflow: hidden auto` mata la barra horizontal fantasma.
+
+### Sync con el servidor
+
+- `api.editCommand` (PUT) REEMPLAZA los params por defecto (`merge=false`): un edit PARCIAL
+  (`{width}`) borra los hermanos y la caja colapsa al default del schema. Los edits de cota de
+  `create_box` pasan `merge=true`; los forms schema-driven mandan todos los campos (ahí reemplazar
+  es inocuo).
+- Manipulación directa (`store.ts::pumpEdit`): estirones y cotas van por `editCommandSilent`, una
+  cola por command_id donde el ÚLTIMO gana (1 en vuelo + 1 pendiente). La escena de la respuesta
+  se aplica SÓLO si no hay una edición más nueva en cola (`!editPending.has(id)`); si no, el
+  preview parpadea a un tamaño viejo. El preview optimista (malla escalada +
+  `rebuildOverlayFromMesh`) se mantiene hasta la última respuesta. Los transforms
+  (mover/rotar/subir-Z) son deltas: cola SERIALIZADA (`enqueueSilent`), y ahí cada escena sí se
+  aplica.
+- `document_changed` llega por CADA comando, incluidos los propios: `connectWs` espera 250 ms
+  (debounce) y no refresca si `busy || syncing > 0`. Al depurar un parpadeo hay DOS caminos que
+  aplican escena (respuesta de `editCommand` + refresh del WS): revisar ambos (commit `e2e15d8`).
+- El refresh es por DELTA: `mergeSceneDelta` hereda la geometría de las piezas `same` y el
+  viewport diffea por `rev` (sólo reconstruye la pieza cambiada; la apariencia se rehace en sitio
+  con `applyAppearance`). Cada RECONEXIÓN del WS fuerza un refresh completo (el `epoch` del
+  servidor pudo cambiar).
+
+### Viewport
+
+- Contorno de selección por `EffectComposer` (`RenderPass` → `OutlinePass` → `OutputPass`), no
+  `renderer.render` directo. El RT del composer DEBE ser `HalfFloatType` + `samples: 4`:
+  HalfFloat preserva el HDR lineal para que `OutputPass` aplique ACES + sRGB una sola vez (three no
+  tonemapea al renderizar a un RT), y `samples` conserva el MSAA. Las mallas seleccionadas se
+  recolectan cada frame desde `selectionRef` (robusto a reconstrucciones). El ViewCube se dibuja
+  tras `composer.render()` (`autoClear=false`).
+- Fondo: `OutputPass` tonemapea también el color de limpiado → el canvas es TRANSPARENTE
+  (`alpha: true`, clear alpha 0) y el fondo lo pinta el `<div>` por CSS. `BACKGROUND` /
+  `BACKGROUND_CSS` (`scene-setup.ts`) son la fuente única.
+- Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
+  para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
+  «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).
+- Agarrar y mover: el pointerdown selecciona y arma un `movePick` pendiente; el arrastre real
+  empieza al superar `DRAG_THRESHOLD_PX = 5` (= umbral de `onClick`). Bajo el umbral es un clic:
+  no mueve ni commitea.
+- Tiradores de caja (`handles.ts::boxDimsFromBbox`): dims desde el BBOX, sanando cotas borradas
+  (la caja se auto-sana al primer estirón vía `merge`). Excluye cajas ROTADAS (cota numérica que
+  no cuadra con su eje → OBB pendiente) y PARAMÉTRICAS (cota `"=expr"`: no romper el vínculo).
+  Las líneas guía van con `depthTest` off, `raycast` no-op y se liberan en el clear por
+  `kind: "guide"`.
+
+### Croquis (`panels/SketcherDialog.tsx`)
+
+- Herramientas Arco (centro → inicio → fin), Spline (clics = puntos de control; cerrar como
+  perfil o dejar abierta) y Elipse (centro + semiejes/rotación); panel DOF/redundantes/conflictivas.
+- Arrastre de puntos con Seleccionar: dead-zone de 5 px + cola el-último-gana contra
+  `POST /api/sketch/drag` (patrón `pumpEdit`, no una llamada por píxel); preview en verde mientras
+  se arrastra y COMMIT de las posiciones resueltas al soltar. Motor:
+  [kernel](../core/apolo/kernel/CLAUDE.md). [V6.6](../docs/plans/V6.6-croquis-vivo.md)
