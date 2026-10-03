@@ -215,4 +215,32 @@ worktree de integración en el puerto 8001 (base vacía, `data/` del worktree), 
 
 ## Bitácora
 
-_(vacía: se llena al cerrar cada fase)_
+### F0 — medición (2026-10-03, base `112a4e4`)
+
+Medido con `PYTHONPATH` al `core/` del worktree, sobre `command_schemas()`, con los regex
+EXACTOS de los gates de la UI: `HISTORIA` de `textoDeAyuda.test.ts` compilado con `re.ASCII`
+(en JS `\b` y `\w` son ASCII; sin el flag, Python los haría Unicode) y `FIN_DE_ORACION` sin
+`re.ASCII` (el `\s` de JS es Unicode, como el de Python).
+
+| Qué | Medida F0 | vs. el contrato |
+|---|---|---|
+| Comandos / categorías | 53 en 8 (modificar 19, biblioteca 9, ensamblaje 8, crear 7, croquis 4, superficies 3, robotica 2, variables 1) | = |
+| Descripciones de comando con versión | 9/53, los mismos 9 tipos | = |
+| Con backticks / más de una frase / > 120 car. | 25 / 40 / 40 (mediana 246, máx. 1100 `create_take_up`, total 18 679) | = |
+| Descripciones de campo (toda `description` del schema salvo la raíz) | 424 apariciones, **115 únicas**; con versión 2 (1 única: `SlideUV`); backticks 16 (7); > 1 frase 21 (9); > 120 car. 24 (12); la más larga 1065 | únicas, versión, backticks, > 120 y máximo =; «528 apariciones» y «> 1 frase 8» no se reproducen (otro criterio de recorrido): se toman los de aquí |
+| Pintadas junto al rótulo (simulación de `FieldView` en Python) | **87**, 43 no son una unidad exacta; 64 EMPIEZAN con «mm»/«grados»/«grados o mm» (las que `unidad_de` puede rotular) | = |
+| Rótulo visible con versión | sólo «Pestañas ricas (V5.5)» | = |
+| Versiones en el payload | 21 en 138 650 bytes | = |
+| Vocabulario (textos únicos de títulos + descripciones) | sólido 46, sólidos 8, feature 4 + features 4, fijador 3 + fijadores 4, conjunto 6, joint 4, sub-ensamblaje 4, sketch 2, snapshot 2, borrar 1, borra 1 | ≈ (feature 8 vs 9, sketch 2 vs 3) |
+| Primeras frases que ya servirían de pista | **18/53** (1 frase, ≤ 120, sin versión, sin backticks, sin `_`, sin vocabulario prohibido) | = |
+
+**Huellas D1** (sha256 de los bytes; los `json.dumps` sin `indent`, el de `command_schemas()`
+con `ensure_ascii=False`):
+
+| Qué lee el agente | sha256 | bytes |
+|---|---|---|
+| `GET /api/schemas` | `487256b0a958a7eb74b0337f925a466325ea4d372075cc277c0867e6f3aed53b` | 130 475 |
+| `GET /api/schemas/drill_hole` | `8a62d1be859f0f1c3620493c9bb0edeb0fc0f49b7eed6dfcf35d2006c36557ba` | 5 731 |
+| `command_schemas()` | `0f0db3c8fbde13ee1202b9c6977557b0eaa4ada1635963cfe2a449aac2638feb` | 138 650 |
+| `build_tools(True)` | `e5459ba9783de1ae782b1a3c7acc77d0869ebf58f50bbbc9dfbc3140240f6d92` | 156 869 |
+| `build_tools(False)` | `c6c2dad2b0082e92e01c859b1dc706ba919e72c94eefce3a996f7b35bc14e863` | 156 579 |
