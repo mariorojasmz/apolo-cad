@@ -35,7 +35,7 @@ from pydantic import BaseModel
 
 from apolo import paths as _paths
 from apolo.agent import AgentHooks, chat_stream
-from apolo.commands import CommandError, command_schemas
+from apolo.commands import CommandError, command_schemas, command_schemas_persona
 from apolo.doc import Document, DocumentError
 from apolo.kernel import bbox_payload, export_step_file, mesh_payload
 from apolo.library import (
@@ -944,8 +944,8 @@ def _state_or_error(fn):
 
 # ------------------------------------------------------------------ endpoints
 @app.get("/api/schemas")
-def get_schemas() -> list[dict]:
-    return command_schemas()
+def get_schemas(vista: str = Query("agente", pattern="^(agente|persona)$")) -> list[dict]:
+    return command_schemas() if vista == "agente" else command_schemas_persona()
 
 
 @app.get("/api/schemas/{command_type}")

@@ -244,3 +244,41 @@ con `ensure_ascii=False`):
 | `command_schemas()` | `0f0db3c8fbde13ee1202b9c6977557b0eaa4ada1635963cfe2a449aac2638feb` | 138 650 |
 | `build_tools(True)` | `e5459ba9783de1ae782b1a3c7acc77d0869ebf58f50bbbc9dfbc3140240f6d92` | 156 869 |
 | `build_tools(False)` | `c6c2dad2b0082e92e01c859b1dc706ba919e72c94eefce3a996f7b35bc14e863` | 156 579 |
+
+### F1 — vista persona en el backend
+
+- `core/apolo/commands/pistas.py` (sólo datos): `PESTANAS` con las 8 categorías (valor
+  `{"orden", "rotulo"}` o `None` para `variables`), `PISTAS` y `PISTAS_CAMPO` vacíos (la red de
+  D4 cubre hasta F2). `core/apolo/commands/vista_persona.py` (lógica): `command_schemas_persona()`,
+  `limpiar_historia()`, `frases()`, `primera_frase()`, `unidad_de()`. Export en
+  `commands/__init__.py`. 35 + 163 líneas.
+- Cada entrada persona: `type, title, category, kind, pestana, pista, detalle, schema`, armada
+  sobre `copy.deepcopy` de la del agente. El schema pierde la `description` raíz; todo
+  `title`/`description` a cualquier profundidad pasa por `limpiar_historia`; cada campo cuya
+  descripción EMPIEZA con «grados o mm»/«mm»/«grados» gana `x-unidad` (193 «mm», 73 «grados»,
+  2 «grados o mm», contando los x/y/z de posición y rotación); `x-pista` donde `PISTAS_CAMPO`
+  lo pide, en el modelo raíz o en un sub-modelo de `$defs`.
+- `GET /api/schemas?vista=persona` → 53 entradas, 0 versiones del roadmap en todo el payload
+  (130 774 bytes con el mismo `json.dumps` que dio 138 650 en el agente). `?vista=otra` → 422.
+- Tests: `tests/test_vista_persona.py`, 44 casos (vista agente intacta por HTTP y en memoria,
+  no-mutación, entrada sobre copia, 422, `/api/schemas/{type}` igual, claves de la entrada, sin
+  versiones, rótulo «Pestañas ricas» limpio, detalle vacío con una frase, párrafos y viñetas,
+  red de la primera frase, pista explícita gana, `x-unidad`, `x-pista` en raíz y en sub-modelo,
+  `PESTANAS` cubre, 14 casos de `limpiar_historia` con «220V», «Vista 3D» y `V["largo"]`
+  intactos, 13 de `unidad_de`, los casos de `frases` del gate de la UI).
+- Huellas D1 después de F1: **las 5 idénticas a F0**. Trinquete de tamaño verde (`main.py`
+  sigue en 4913).
+
+**Desvíos del contrato, con su porqué:**
+- `main.py`: cambian **tres** líneas, no dos (el import de `command_schemas_persona` + la firma
+  + el `return`); 0 netas, como pide D12. Sin el import habría que sumar una línea o importar
+  dentro de la función.
+- La entrada persona **no lleva `description`**: D10 la quita del tipo de la UI y el texto ya
+  viaja limpio en `detalle`; mandarla igual invitaba a volver a pintarla.
+- `limpiar_historia` además de quitar versiones **normaliza** la docstring a texto: une las
+  líneas cortadas por el ancho del código, conserva párrafos y viñetas «- …» (D6 pide el
+  detalle «con viñetas»). Una línea que vuelve a la sangría del guion cierra la viñeta: sin
+  esa regla, «Editar cualquier parámetro regenera el conjunto entero.» quedaba pegada a la
+  última viñeta de `create_take_up`.
+- La limpieza de versiones sólo se aplica si el texto trae una (el retoque de espacios
+  alrededor del corte no toca textos sin historia).
