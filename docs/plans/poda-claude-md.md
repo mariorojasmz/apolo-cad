@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1–F3 hechas; falta F4: gate de tamaño + prueba D7 con claude -p tras el merge
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: sin pendientes (D7 aprobada 20/20; no medido: sesión arrancada dentro de un worktree)
 descripcion: Cada sesión del agente arranca con un CLAUDE.md de ≤ 30 KB; el detalle de cada paquete se lee sólo al trabajar en él
 ---
 
@@ -269,3 +269,24 @@ con un link roto dio los dos errores. Tamaños al cerrar: raíz 26,7 · `core/ap
 11,0 · assembly 3,2 · commands 5,0 · doc 5,4 · drawing 6,4 · fea 3,2 · kernel 3,9 · library
 9,0 · ui 14,9 KB. Suite: 1379 tests (1375 + 4 del gate). Falta D7: corre con `claude -p`
 después del merge a `main`.
+
+**2026-10-03 — D7, sesión fresca: APROBADA, 20/20.** Mario mergeó `f3cde4e` a `main`. Se corrió
+`claude -p` desde el árbol principal, sólo con `Read`/`Grep`/`Glob`, sin MCP y con prohibido
+leer `docs/` y `.claude/`. El archivo de respuestas esperadas se sacó del árbol antes de correr.
+Salida textual en [poda-claude-md-d7-respuestas.md](poda-claude-md-d7-respuestas.md).
+
+Calificación contra [las respuestas esperadas](poda-claude-md-preguntas.md): **20 de 20
+correctas en lo esencial** (el umbral era 18). Cinco omiten un detalle secundario: la 1 (avisar
+por WebSocket después del payload), la 14 (el fit del eje va en el nombre), la 16 (la guardia
+de proyecto del FEA), la 18 (`_project_switch`) y la 20 (debounce de 250 ms). Se verificó con
+grep que las cinco reglas omitidas están en algún CLAUDE.md (raíz, `api`, `fea` o `library`):
+la sesión no las mencionó, pero la poda no las perdió.
+
+La sesión cargó, en orden, el CLAUDE.md global, la raíz y los 10 anidados. Esto confirma en una
+sesión real lo que F0 midió con canarios. Las dos preguntas que el inventario marcaba en riesgo
+pasaron:
+- la 10 (FK, archivos en `robotics/`) la respondió desde `core/apolo/CLAUDE.md`;
+- la 7 (bump de `GEOM_CACHE_EPOCH`) la respondió desde la raíz.
+
+Un tropiezo operativo: la primera corrida falló con `OAuth session expired`. La CLI necesitaba
+un `/login`, que hizo Mario, y no hubo cambio de plan.
