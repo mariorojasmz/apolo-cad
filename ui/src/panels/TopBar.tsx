@@ -8,20 +8,25 @@ import { useStore } from "../state/store";
 export default function TopBar() {
   const doc = useStore((s) => s.scene?.document);
   const busy = useStore((s) => s.busy);
-  const { undo, redo, openProject, showDrawing, openDrawing, importStep, openHome, adoptScene, setError } =
-    useStore();
+  const showDrawing = useStore((s) => s.showDrawing);
+  // Selectores por acción (no `useStore()` pelado): sin selector, la cabecera se re-renderizaba
+  // con CADA cambio de la store (p. ej. cada token del chat en streaming).
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  const openProject = useStore((s) => s.openProject);
+  const openDrawing = useStore((s) => s.openDrawing);
+  const importStep = useStore((s) => s.importStep);
+  const openHome = useStore((s) => s.openHome);
+  const renameProject = useStore((s) => s.renameProject);
   const fileRef = useRef<HTMLInputElement>(null);
   const stepRef = useRef<HTMLInputElement>(null);
   const [menu, setMenu] = useState(false);
   const close = () => setMenu(false);
 
+  // Mismo proyecto → NO `adoptScene` (borraría selección/chat/juntas); la store aplica solo la escena.
   const rename = () => {
     const next = window.prompt("Nombre del proyecto:", doc?.name ?? "");
-    if (next && next.trim()) {
-      import("../api").then(({ api }) =>
-        api.renameProject(next.trim()).then(adoptScene).catch((e) => setError(String(e))),
-      );
-    }
+    if (next && next.trim()) void renameProject(next.trim());
   };
 
   return (

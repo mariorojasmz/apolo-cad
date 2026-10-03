@@ -64,15 +64,17 @@ def db_path() -> str:
 def ui_dist() -> Path | None:
     """Carpeta del bundle de la UI, o `None` si no hay (la API queda headless).
 
-    Prioridad: UI empaquetada en la wheel > build del checkout. Así una instalación
-    de PyPI sirve la UI incluida, y en desarrollo gana lo que acabas de compilar.
+    Prioridad: en un checkout gana el build de `ui/dist` (lo que acabas de compilar) y la
+    UI empaquetada queda de respaldo; instalado, solo existe la empaquetada. Antes ganaba
+    SIEMPRE la empaquetada: tras un `stage_ui.py` de release, el checkout servía en :8000
+    ese bundle congelado y los cambios nuevos de la UI no se veían.
     """
     packaged = _PKG / "webui"
-    if (packaged / "index.html").is_file():
-        return packaged
     root = repo_root()
     if root is not None:
         built = root / "ui" / "dist"
         if (built / "index.html").is_file():
             return built
+    if (packaged / "index.html").is_file():
+        return packaged
     return None

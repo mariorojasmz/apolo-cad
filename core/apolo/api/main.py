@@ -16,6 +16,7 @@ import tempfile
 import threading
 import time
 import traceback
+import weakref
 from pathlib import Path
 
 from fastapi import (
@@ -3295,6 +3296,62 @@ _SERVICE_RE = re.compile(r"\b(motorreductor|motor|tambor|rodillo\s+de\s+cola)\b"
 
 
 _LAST_FEA_FIELD: dict = {}  # feature_id → FeaField del último solve (fringe, no persiste)
+# Dueño del campo en memoria: (PROJECT_ID, weakref al DOC del solve). Los feature_ids
+# («c12») se repiten entre proyectos → sin dueño, el fringe «sin re-resolver» serviría
+# el campo de OTRO proyecto tras abrir uno nuevo.
+_LAST_FEA_OWNER: tuple | None = None
+
+
+def _fea_owner() -> tuple:
+    """Identidad del documento activo (PROJECT_ID, DOC) para el patrón dos-locks del
+    FEA: se captura en la fase (a), BAJO STATE_LOCK, y se revalida en la (c)."""
+    return (PROJECT_ID, DOC)
+
+
+def _persist_fea_if_same_project(owner: tuple, key: str, resumen: dict, field,
+                                 save: bool, before_save=None) -> dict:
+    """Fase (c) del FEA: persiste el resumen y publica el campo SOLO si el documento
+    activo sigue siendo el del solve. El solve corre FUERA de STATE_LOCK (minutos): si
+    entretanto se abrió/creó otro proyecto o se restauró una revisión (DOC reemplazado),
+    guardar escribiría el resultado en el documento EQUIVOCADO → NO se guarda y se
+    devuelve el resultado con `aviso`. Mismo patrón que la guardia de jobs
+    (`_sync_or_job`): check + escritura atómicos en UNA adquisición del lock, sin TOCTOU.
+    `before_save(doc, resumen)` corre bajo el lock justo antes de guardar (historial de
+    convergencia del ensamblaje)."""
+    global _LAST_FEA_OWNER
+    pid, doc = owner
+    with STATE_LOCK:
+        if PROJECT_ID != pid or DOC is not doc:
+            if save:
+                resumen["guardado"] = False
+                resumen["aviso"] = (
+                    f"El proyecto activo cambió durante el análisis (era {pid}, ahora "
+                    f"{PROJECT_ID}): el resultado NO se guardó para no escribirlo en el "
+                    f"documento equivocado. Abre el proyecto analizado y re-ejecuta el FEA."
+                )
+            return resumen  # el campo tampoco se publica: es de otro documento
+        if save:
+            if before_save is not None:
+                before_save(DOC, resumen)
+            DOC.set_fea_result(key, resumen)
+            _autosave()
+        _LAST_FEA_FIELD.clear()
+        _LAST_FEA_FIELD[key] = field
+        _LAST_FEA_OWNER = (pid, weakref.ref(doc))
+    return resumen
+
+
+def _last_fea_field(key: str):
+    """Campo FEA en memoria de `key`, SOLO si pertenece al documento activo."""
+    with STATE_LOCK:
+        field = _LAST_FEA_FIELD.get(key)
+        if field is None or _LAST_FEA_OWNER is None:
+            return None
+        pid, ref = _LAST_FEA_OWNER
+        if pid != PROJECT_ID or ref() is not DOC:
+            _LAST_FEA_FIELD.clear()  # de otro proyecto: no retener su malla
+            return None
+        return field
 
 
 def _fea_static_run(body: FeaStaticIn):
@@ -3354,6 +3411,7 @@ def _fea_static_run(body: FeaStaticIn):
         step = str(Path(tmp_dir) / "pieza.step")
         export_step_file([feat.shape], step)
         pieza, vol = feat.name, float(feat.shape.volume)
+        owner = _fea_owner()
 
     try:
         from apolo.fea.static import run_static_analysis
@@ -3371,12 +3429,7 @@ def _fea_static_run(body: FeaStaticIn):
 
     resumen["feature_id"] = body.feature_id
     resumen["volumen_mm3"] = round(vol, 1)
-    if body.save:
-        with STATE_LOCK:
-            DOC.set_fea_result(body.feature_id, resumen)
-            _autosave()
-    _LAST_FEA_FIELD.clear()
-    _LAST_FEA_FIELD[body.feature_id] = field
+    _persist_fea_if_same_project(owner, body.feature_id, resumen, field, body.save)
     return resumen, field
 
 
@@ -3543,6 +3596,7 @@ def _fea_assembly_run(body: FeaAssemblyIn):
         params = {"grupo": grupo, "pieces": pieces_in, "fixed": fixed, "loads": loads,
                   "excluded": excluded, "struct_ids": struct_ids,
                   "substitute_applied": sub_applied}
+        owner = _fea_owner()
 
     try:
         from apolo.fea.assembly import run_assembly_analysis
@@ -3572,27 +3626,26 @@ def _fea_assembly_run(body: FeaAssemblyIn):
         )
     if body.nota:
         resumen["hipotesis"].append(f"nota del analista: {body.nota}")
-    if body.save:
-        with STATE_LOCK:
-            # CONVERGENCIA de malla (E3.7): si ya había un análisis del MISMO grupo con
-            # OTRO mesh_size, el run anterior pasa al historial (tope 3) y la memoria
-            # imprime la serie — refinar y ver la gobernante estabilizarse es el
-            # argumento de firma
-            prev = DOC.fea.get(key)
-            hist = list((prev or {}).get("convergencia") or [])
-            if prev and prev.get("mesh_size_mm") not in (None, resumen.get("mesh_size_mm")):
-                hist.append({k2: prev.get(k2) for k2 in
-                             ("mesh_size_mm", "n_tets", "fs", "pieza_critica",
-                              "desplazamiento_max_mm")})
-            # el VIGENTE reemplaza cualquier entrada del historial con su MISMA malla
-            # (evita imprimir dos veces el mismo size con geometrías de distinta fecha)
-            hist = [h for h in hist if h.get("mesh_size_mm") != resumen.get("mesh_size_mm")]
-            if hist:
-                resumen["convergencia"] = hist[-3:]
-            DOC.set_fea_result(key, resumen)
-            _autosave()
-    _LAST_FEA_FIELD.clear()
-    _LAST_FEA_FIELD[key] = field
+
+    def _convergencia(doc, resumen):
+        # CONVERGENCIA de malla (E3.7): si ya había un análisis del MISMO grupo con
+        # OTRO mesh_size, el run anterior pasa al historial (tope 3) y la memoria
+        # imprime la serie — refinar y ver la gobernante estabilizarse es el
+        # argumento de firma
+        prev = doc.fea.get(key)
+        hist = list((prev or {}).get("convergencia") or [])
+        if prev and prev.get("mesh_size_mm") not in (None, resumen.get("mesh_size_mm")):
+            hist.append({k2: prev.get(k2) for k2 in
+                         ("mesh_size_mm", "n_tets", "fs", "pieza_critica",
+                          "desplazamiento_max_mm")})
+        # el VIGENTE reemplaza cualquier entrada del historial con su MISMA malla
+        # (evita imprimir dos veces el mismo size con geometrías de distinta fecha)
+        hist = [h for h in hist if h.get("mesh_size_mm") != resumen.get("mesh_size_mm")]
+        if hist:
+            resumen["convergencia"] = hist[-3:]
+
+    _persist_fea_if_same_project(owner, key, resumen, field, body.save,
+                                 before_save=_convergencia)
     return resumen, field
 
 
@@ -3641,7 +3694,7 @@ def get_fea_group_fringe(name: str) -> Response:
     from apolo.fea.fringe import fringe_png
 
     key = f"group:{name}"
-    field = _LAST_FEA_FIELD.get(key)
+    field = _last_fea_field(key)
     if field is None:
         raise HTTPException(status_code=404,
                             detail="No hay campo FEA en memoria para ese grupo: "
@@ -3658,7 +3711,7 @@ def get_fea_fringe(feature_id: str) -> Response:
     proceso; si el server se reinició, re-ejecuta POST /api/fea/static)."""
     from apolo.fea.fringe import fringe_png
 
-    field = _LAST_FEA_FIELD.get(feature_id)
+    field = _last_fea_field(feature_id)
     if field is None:
         raise HTTPException(status_code=404,
                             detail="No hay campo FEA en memoria para esa pieza: "

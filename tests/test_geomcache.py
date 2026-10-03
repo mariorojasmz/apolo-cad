@@ -361,3 +361,87 @@ def test_kill_switch_skips_warm(tmp_path, monkeypatch):
     loaded = store.load(pid)  # NO usa warm; replay frío correcto
     _assert_scene_equal(loaded, doc)
     assert loaded.check_integrity() == []
+
+
+# ============================== versión del paquete en la caché (bump v4, 2026-10-03)
+
+
+def test_versions_include_apolo_package():
+    """La versión de Apolo entra en `_versions()`: un upgrade del paquete (PyPI) cambia
+    la salida de executors con los mismos params → la caché vieja NO debe reanudarse."""
+    from apolo.doc import geomcache
+
+    v = geomcache._versions()
+    assert {"build123d", "ocp", "apolo"} <= set(v)
+    assert v["apolo"] and v["apolo"] != "?"  # checkout: cae a apolo.__version__
+    assert GEOM_CACHE_EPOCH >= 4  # bump atrasado tras V6.3b (join_bolted/V6.8 sin bump)
+
+
+def test_apolo_version_fallback_never_raises(monkeypatch):
+    """Sin metadata de `apolo-cad` (checkout sin instalar) → `apolo.__version__`."""
+    import importlib.metadata as md
+
+    import apolo
+    from apolo.doc import geomcache
+
+    def _boom(name):
+        raise md.PackageNotFoundError(name)
+
+    monkeypatch.setattr(md, "version", _boom)
+    assert geomcache._apolo_version() == apolo.__version__
+
+
+def test_blob_from_other_apolo_version_or_old_epoch_rejected(monkeypatch):
+    """Un blob empacado bajo OTRA versión de Apolo o bajo el epoch viejo (3) se descarta
+    → el open cae a replay frío (contrato: la caché nunca es autoritativa)."""
+    from apolo.doc import geomcache
+
+    doc, _ = _model(5)
+    current = geomcache._apolo_version()
+    monkeypatch.setattr(geomcache, "_apolo_version", lambda: "0.0.0-viejo")
+    stale = pack(doc)
+    assert stale is not None
+    monkeypatch.setattr(geomcache, "_apolo_version", lambda: current)
+    assert unpack(stale) is None
+    assert unpack(pack(doc)) is not None  # misma versión → sí reanuda
+
+    old_epoch = pickle.loads(pack(doc))
+    old_epoch["epoch"] = 3
+    assert unpack(pickle.dumps(old_epoch)) is None
+
+
+def test_store_stale_version_cache_replays_cold_and_repopulates(tmp_path, monkeypatch):
+    """ProjectStore: una caché de otra versión de Apolo en la SQLite → open FRÍO correcto
+    (replay completo) y la caché se re-puebla con la versión actual → el 2º open es caliente."""
+    import apolo.doc.document as docmod
+    from apolo.doc import geomcache
+    from apolo.projects import ProjectStore
+
+    store = ProjectStore(str(tmp_path / "v.db"))
+    doc, _ = _model(6)
+    pid = store.create(doc)
+    current = geomcache._apolo_version()
+    monkeypatch.setattr(geomcache, "_apolo_version", lambda: "0.0.0-viejo")
+    store.save_geom_cache(pid, doc._regen_sigs[-1], pack(doc))
+    monkeypatch.setattr(geomcache, "_apolo_version", lambda: current)
+
+    calls = {"n": 0}
+    orig = docmod.execute_command
+
+    def spy(*a, **k):
+        calls["n"] += 1
+        return orig(*a, **k)
+
+    docmod.execute_command = spy
+    try:
+        cold = store.load(pid)  # caché rancia → replay frío de TODO el log
+        n_cold = calls["n"]
+        calls["n"] = 0
+        hot = store.load(pid)  # re-poblada con la versión actual → caliente
+    finally:
+        docmod.execute_command = orig
+    assert n_cold == len(doc.commands)
+    assert calls["n"] == 0
+    _assert_scene_equal(cold, doc)
+    _assert_scene_equal(hot, doc)
+    assert hot.check_integrity() == []

@@ -333,6 +333,8 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .field-inline { display: flex; align-items: center; gap: 8px; }
 .field-inline input { width: auto; }
 .vec3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+/* sub-modelo anidado (Hélice, {u,v}…) dentro de un SchemaForm */
+.schema-form .sub-form { border-left: 2px solid var(--border); padding-left: 8px; margin-top: 2px; }
 .form-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; }
 .derived table { width: 100%; font-size: 11px; border-collapse: collapse; }
 .derived td { padding: 2px 0; color: var(--muted); }

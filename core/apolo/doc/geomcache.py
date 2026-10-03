@@ -39,12 +39,37 @@ import pickle
 #  v2 (2026-07-09): shapes por BinTools crudo (antes: pickle del wrapper build123d, frágil).
 #  v3 (2026-07-09): V6.3b — Feature.anchors nuevo campo; un ckpt viejo restauraría Features
 #    SIN anclas mientras el replay frío las tendría → invalidar (el open re-puebla).
-GEOM_CACHE_EPOCH = 3
+#  v4 (2026-10-03): bump ATRASADO — desde v3 cambiaron salidas de executors con los MISMOS
+#    params sin bumpear (V6.3d anclas en copias/world_move, V6.5b/c join_bolted: tuerca DIN
+#    934 + largo de perno con filetes, V6.8-D arrastre de juntas, V6.8-E snap cara-a-cara,
+#    V7.2b…) → un open caliente podía servir geometría vieja. Desde aquí `_versions()`
+#    incluye la versión del paquete Apolo: un upgrade de PyPI invalida solo; el bump manual
+#    sigue haciendo falta para cambios de executor DENTRO de una misma versión (checkout).
+GEOM_CACHE_EPOCH = 4
+
+
+def _apolo_version() -> str:
+    """Versión del paquete Apolo: metadata de la distribución instalada (``apolo-cad``,
+    autoritativa en un wheel de PyPI) → ``apolo.__version__`` (checkout sin instalar) →
+    «?». Nunca lanza: una versión ilegible solo cuesta un replay, jamás un error."""
+    import importlib.metadata as md
+
+    try:
+        return md.version("apolo-cad")
+    except Exception:
+        pass
+    try:
+        import apolo
+
+        return str(apolo.__version__)
+    except Exception:
+        return "?"
 
 
 def _versions() -> dict:
-    """Versiones de las libs cuya representación binaria de shapes debe coincidir. Un
-    upgrade de build123d/OCP puede cambiar el BinTools o la geometría → caché descartada."""
+    """Versiones cuya representación binaria/geometría debe coincidir. Un upgrade de
+    build123d/OCP puede cambiar el BinTools o la geometría; uno de Apolo, la salida de
+    los executors con los mismos params → en ambos casos la caché se descarta."""
     import importlib.metadata as md
 
     def v(name: str) -> str:
@@ -53,7 +78,7 @@ def _versions() -> dict:
         except Exception:
             return "?"
 
-    return {"build123d": v("build123d"), "ocp": v("cadquery-ocp")}
+    return {"build123d": v("build123d"), "ocp": v("cadquery-ocp"), "apolo": _apolo_version()}
 
 
 def _serialize_robust(shape) -> bytes | None:

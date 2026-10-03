@@ -19,6 +19,9 @@ from .prompts import SYSTEM_PROMPT
 
 DEFAULT_MODEL = os.environ.get("APOLO_MODEL", "claude-opus-4-8")
 MAX_ITERATIONS = 10
+# Tools despachadas por `run_validation_tool` (fuente única para el bucle del chat:
+# una tool declarada aquí y olvidada en el despacho dejaba un tool_use sin respuesta).
+VALIDATION_TOOLS = ("test_sketch", "test_script", "check_interference", "engineering_check", "render_view")
 
 
 def execute_actions_now(doc: Document, actions: list[dict]) -> dict:
@@ -556,7 +559,7 @@ def chat_stream(
                     tool_results.append(
                         {"type": "tool_result", "tool_use_id": block.id, "content": "Nota guardada."}
                     )
-                elif block.name in ("test_script", "check_interference", "engineering_check", "render_view"):
+                elif block.name in VALIDATION_TOOLS:
                     yield _sse({"type": "tool", "name": block.name})
                     try:
                         content = run_validation_tool(doc, block.name, block.input or {})
@@ -588,6 +591,18 @@ def chat_stream(
                             }
                         )
                         proposed = True
+                else:
+                    # Todo tool_use DEBE llevar su tool_result: sin él la siguiente
+                    # llamada al API da 400 y el chat muere. Una tool desconocida
+                    # (alucinada o declarada sin rama de despacho) vuelve como error.
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": f"tool desconocida: {block.name}",
+                            "is_error": True,
+                        }
+                    )
             convo.append({"role": "user", "content": tool_results})
             if proposed:
                 break

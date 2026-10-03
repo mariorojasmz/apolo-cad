@@ -63,6 +63,9 @@ interface AppState {
   openDrawing: (open: boolean) => void;
   openHome: (open: boolean) => void;
   adoptScene: (scene: SceneOut) => void;
+  /** Renombra el proyecto ACTUAL: aplica la escena devuelta SIN el reset de `adoptScene`
+   * (mismo proyecto → selección, chat y valores de juntas se conservan). */
+  renameProject: (name: string) => Promise<void>;
   openSketcher: (initial?: { commandId: string; type: string; params: Record<string, unknown> }) => void;
   closeSketcher: () => void;
   setDockPanels: (ids: string[]) => void;
@@ -171,6 +174,7 @@ const BUSY_TEXT: Record<string, string> = {
   newProject: "Creando proyecto…",
   createProject: "Creando proyecto…",
   restoreRevision: "Restaurando revisión…",
+  renameProject: "Renombrando proyecto…",
   duplicateProject: "Duplicando proyecto…",
   deleteProject: "Eliminando proyecto…",
   saveRevision: "Guardando revisión…",
@@ -691,6 +695,12 @@ export const useStore = create<AppState>((set, get) => ({
     get().clearPhysics();
     get().clearGravity();
     void get().refreshKinematics();
+  },
+  // Renombrar NO cambia de proyecto: solo se aplica la escena (como cualquier mutación).
+  // `adoptScene` es para abrir/crear/restaurar y borraría selección/chat/juntas.
+  renameProject: async (name) => {
+    const scene = await guard(set, () => api.renameProject(name), "renameProject");
+    if (scene) set({ scene });
   },
   setDockPanels: (ids) => set({ dockPanels: ids }),
   setError: (msg) => set({ error: msg }),

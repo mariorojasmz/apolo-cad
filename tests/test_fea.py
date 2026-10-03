@@ -244,3 +244,67 @@ def test_api_fringe_png():
     # el campo queda cacheado → fringe sin re-resolver
     r2 = client.get(f"/api/fea/{fid}/fringe.png")
     assert r2.status_code == 200 and r2.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+# ------------------------------ guardia de proyecto en la fase (c) (sin gmsh)
+@pytest.fixture()
+def fea_guard(monkeypatch):
+    """Doc activo con PROJECT_ID propio + autosave espiado; restaura los globals."""
+    saves = []
+    monkeypatch.setattr(api, "DOC", Document("fea-a"))
+    monkeypatch.setattr(api, "PROJECT_ID", 101)
+    monkeypatch.setattr(api, "_autosave", lambda: saves.append(api.PROJECT_ID))
+    monkeypatch.setattr(api, "_LAST_FEA_OWNER", None)
+    api._LAST_FEA_FIELD.clear()
+    yield saves
+    api._LAST_FEA_FIELD.clear()
+
+
+def test_fea_persist_mismo_proyecto_guarda_y_publica(fea_guard):
+    owner = api._fea_owner()
+    llamadas = []
+    res = api._persist_fea_if_same_project(
+        owner, "c1", {"fs": 3.0}, "CAMPO", True,
+        before_save=lambda doc, r: llamadas.append(doc))
+    assert api.DOC.fea["c1"]["fs"] == 3.0 and "aviso" not in res
+    assert fea_guard == [101] and llamadas == [api.DOC]
+    assert api._last_fea_field("c1") == "CAMPO"
+
+
+def test_fea_persist_proyecto_cambiado_no_guarda(fea_guard, monkeypatch):
+    """Regresión: el solve corre FUERA de STATE_LOCK; si entretanto se abrió OTRO
+    proyecto, el resultado NO se escribe en él (ni en el viejo) y se avisa."""
+    doc_a = api.DOC
+    owner = api._fea_owner()
+    doc_b = Document("fea-b")
+    monkeypatch.setattr(api, "DOC", doc_b)          # open_project durante el solve
+    monkeypatch.setattr(api, "PROJECT_ID", 202)
+    llamadas = []
+    res = api._persist_fea_if_same_project(
+        owner, "c1", {"fs": 3.0}, "CAMPO", True,
+        before_save=lambda doc, r: llamadas.append(doc))
+    assert "c1" not in doc_b.fea and "c1" not in doc_a.fea
+    assert res["guardado"] is False and "NO se guardó" in res["aviso"]
+    assert fea_guard == [] and llamadas == []
+    assert api._LAST_FEA_FIELD == {}  # el campo de A no se publica bajo B
+
+
+def test_fea_persist_doc_reemplazado_mismo_id_no_guarda(fea_guard, monkeypatch):
+    """restore_revision conserva PROJECT_ID pero REEMPLAZA el DOC: el resultado se
+    calculó sobre la geometría previa → tampoco se guarda en el restaurado."""
+    owner = api._fea_owner()
+    restaurado = Document("fea-a-rev")
+    monkeypatch.setattr(api, "DOC", restaurado)
+    res = api._persist_fea_if_same_project(owner, "c1", {"fs": 3.0}, "CAMPO", True)
+    assert "c1" not in restaurado.fea and res["guardado"] is False
+
+
+def test_fea_fringe_en_memoria_no_cruza_proyectos(fea_guard, monkeypatch):
+    """El campo en memoria es del proyecto que lo resolvió: tras abrir otro (los ids
+    «c1» se repiten), el fringe sin re-resolver da 404 en vez del campo ajeno."""
+    api._persist_fea_if_same_project(api._fea_owner(), "c1", {"fs": 3.0}, "CAMPO", False)
+    assert api._last_fea_field("c1") == "CAMPO"
+    monkeypatch.setattr(api, "DOC", Document("fea-b"))
+    monkeypatch.setattr(api, "PROJECT_ID", 202)
+    assert api._last_fea_field("c1") is None
+    assert TestClient(api.app).get("/api/fea/c1/fringe.png").status_code == 404

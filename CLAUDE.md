@@ -54,7 +54,7 @@ fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1355 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1370 tests (tortura extendida: -m torture)
 cd ui ; npm run build             # bundle de la UI (tsc + vite)
 ```
 
@@ -63,6 +63,8 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 **registro oficial MCP** (`io.github.mariorojasmz/apolo-cad`). `apolo/paths.py` es la fuente ÚNICA
 de rutas: en un checkout todo resuelve al repo como siempre; instalado, los datos del usuario van a
 `APOLO_HOME` (~/.apolo) y la UI se sirve del paquete (`apolo/webui`, la stagea `scripts/stage_ui.py`).
+En un checkout `paths.ui_dist()` prefiere `ui/dist` y la empaquetada es respaldo (antes ganaba
+SIEMPRE la empaquetada: tras un stage de release, :8000 servía un bundle congelado).
 Entry points `apolo` / `apolo-mcp`. **`planegcs` va con marcador de entorno** (solo hay wheels
 cp312/cp313 win+linux; fuera de ahí el sketcher cae al motor scipy — como dependencia dura rompía
 la instalación en macOS y Py3.11). **Para publicar una versión: `scripts/release.py --version X.Y.Z`**
@@ -72,7 +74,7 @@ comandos con credenciales (build/twine/mcp-publisher) que lanza una persona.
 - **MCP `apolo-cad`** (`.mcp.json`) = cliente fino stdio→HTTP; **79 tools**. Requiere la
   API arriba. **El host MCP debe reiniciarse** para ver tools/firmas nuevas (registra al
   arrancar); la API sin `--reload` también se reinicia tras cambios de código.
-- **Estado actual (2026-08-02)**: 1355 tests (+15 tortura vía `-m torture`) · 79 tools MCP ·
+- **Estado actual (2026-10-03)**: 1370 tests (+15 tortura vía `-m torture`) · 79 tools MCP ·
   53 comandos · catálogo 231 refs. Roadmaps **V1–V5 completos** y **V6 «Apolo industrial»
   CERRADO** (V6.1 robustez 3→6 · V6.2 rendimiento 4→6 · V6.3 ensamblaje 4.5→6 · V6.4
   paramétrico 5→6.5 · V6.5 MCP a escala); detalle por ítem en su sección del Mapa/
@@ -420,7 +422,9 @@ comandos con credenciales (build/twine/mcp-publisher) que lanza una persona.
   volumen cambió. Gotchas: `gmsh.initialize(interruptible=False)` (endpoints sync =
   threadpool, signal solo va en main thread); patrón DOS LOCKS (STATE_LOCK resuelve
   selectores/STEP, el solve corre FUERA con `FEA_LOCK` propio — gmsh es single-instance
-  global); paredes delgadas (HSS) disparan tets → minutos (la pata 76×76×3 = 112 s;
+  global; al volver, `_persist_fea_if_same_project` guarda SOLO si el proyecto/DOC activo es
+  el del solve —si se abrió otro entretanto, devuelve `guardado:false`+`aviso`— y el fringe en
+  memoria queda ligado a su proyecto); paredes delgadas (HSS) disparan tets → minutos (la pata 76×76×3 = 112 s;
   `mesh_size_mm` es el control); σ_vm pegado al empotramiento = concentración numérica
   (`max_en_encastre` lo marca); material sin σy tabulado exige `yield_mpa`
   (`has_yield`, no se miente con defaults).
@@ -747,7 +751,7 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   límite elástico → el «FS» que reportan los chequeos es contra ROTURA y el criterio es
   FS ≥ 4 (σ_adm = MOR/4), no ≥ 1.5 como en acero.
 
-### Catálogo (data-driven, 217 refs)
+### Catálogo (data-driven, 231 refs)
 - YAML en `library/data/` (prefijo numérico ordena) + builders genéricos en
   `library/builders.py`. **Para añadir partes: editar/crear YAML**; builder nuevo solo si
   la geometría no existe. `param_keys` lee del VARIANT (no de specs_common); el loader
@@ -787,12 +791,14 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
 - **Regenerate incremental**: firma acumulada por comando + checkpoints cada 16 (shallow
   copy compartiendo la referencia del shape OCCT — seguro porque ningún ejecutor muta el
   shape in-place). Editar una variable invalida desde el bloque de vars. `scene_payload`
-  cachea mesh por IDENTIDAD del shape. Estado en checkpoints = 7-tupla (scene, variables,
-  joints, mates, constraints, fasteners, grounds); los METADATOS de manifest (motion,
+  cachea mesh por IDENTIDAD del shape. Estado en checkpoints = 8-tupla (scene, variables,
+  joints, mates, constraints, fasteners, grounds, groups); los METADATOS de manifest (motion,
   requirements, colors, hidden, notas) NO van ahí ni al log.
 - Los tests no ejecutan el lifespan de FastAPI → no tocan la SQLite (`data/apolo.db`).
   Patrón: `api.DOC = Document("t"); TestClient(api.app)`. El arranque real vive en
   `initialize_store(db_path)` (extraído del lifespan para testearlo sin FastAPI).
+  `tests/conftest.py` (autouse, alcance SESIÓN) redirige `logs/errors.log` a tmp: sin él la
+  tortura escribía cientos de errores FALSOS en el log real que se lee al «revisa».
 
 ### Rendimiento (V6.2 — mide contra `docs/perf_baseline.json`, host-dependiente)
 - **Open caliente por caché de geometría** (`doc/geomcache.py`): `pack(doc)`/`unpack(blob)`
@@ -802,7 +808,11 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   cinturón-y-tirantes → si hay violaciones no-degradadas, descarta y replaya frío. Vive
   SOLO en la SQLite local (tabla `geom_cache`), JAMÁS en el `.apolo` (geometría nunca se
   guarda + pickle de origen subido = RCE). Kill-switch `APOLO_GEOM_CACHE=0`. Perderla solo
-  cuesta un replay (nunca es autoritativa). Gotcha BinTools: `serialize_shape` SIEMPRE da
+  cuesta un replay (nunca es autoritativa). **GOTCHA de vigencia**: la firma depende de los
+  PARAMS, no del código del executor → si un executor cambia la geometría que produce con los
+  mismos params, BUMPEAR `GEOM_CACHE_EPOCH` (v4 = bump atrasado de V6.3d–V7.2b; un open
+  caliente servía geometría vieja). La clave incluye la versión de Apolo: un upgrade de PyPI
+  invalida solo, pero en un checkout el bump manual sigue siendo obligatorio. Gotcha BinTools: `serialize_shape` SIEMPRE da
   bytes pero `deserialize_shape` revienta por-shape de forma caprichosa (unos round-trip-ean
   crudos, otros solo tras `BRepBuilderAPI_Copy`, la copia rompe a los primeros) → `pack`
   serializa el TopoDS CRUDO (no el wrapper build123d, que lleva joints frágiles) y VERIFICA

@@ -165,6 +165,7 @@ export interface JsonSchema {
   $ref?: string;
   $defs?: Record<string, JsonSchema>;
   allOf?: JsonSchema[];
+  anyOf?: JsonSchema[]; // pydantic `X | None` → anyOf: [X, {type: "null"}]
   exclusiveMinimum?: number;
   exclusiveMaximum?: number;
   minimum?: number;
