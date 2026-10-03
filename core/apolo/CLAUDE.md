@@ -28,6 +28,9 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   que el 400 (`_reject`). Servidor: [api](api/CLAUDE.md).
   [V6.5e](../../docs/plans/V6.5e-mcp-jobs-asincronos.md)
 - `edit_command`/`edit_batch` hacen PATCH por defecto (`merge=True`, superficial); el REST, no.
+- `check_assembly`/`gravity_test` cuentan por defecto SÓLO la sujeción DECLARADA
+  (`with_autodetect=False`, igual que la API y `delivery_check`); con autodetect el agente veía
+  verde lo que la puerta de entrega marcaba rojo. `True` es exploración explícita.
 - `render_view` fuerza `vtk_only` (sin caída a matplotlib). Las tools que producen archivos
   (`motion_gif`, `drawing_set`, `calc_report`, `drop_test`, exports…) los escriben a `path`.
 

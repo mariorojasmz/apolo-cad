@@ -820,13 +820,13 @@ def get_dof() -> str:
 
 
 @mcp.tool()
-def check_assembly(with_autodetect: bool = True) -> str:
+def check_assembly(with_autodetect: bool = False) -> str:
     """Validación de ensamblaje por CONECTIVIDAD: ¿cada pieza tiene un camino de sujeción
     hasta el piso? Devuelve las piezas FLOTANTES (caerían bajo gravedad — eje suelto, rodillo
     sin sujetar, guarda sin tornillo, motor flotando) y las AISLADAS (sin ninguna unión).
-    Determinista, sin motor de física. with_autodetect=True superpone (sin persistir) las
-    uniones detectadas por geometría → responde 'si fijara todo lo que se toca, ¿qué seguiría
-    flotando?'. Declara uniones reales con run_command(type='ground'|'fasten')."""
+    Determinista. Por defecto cuenta SOLO lo DECLARADO (como delivery_check); True superpone
+    sin persistir los contactos geométricos para EXPLORAR ('si fijara todo lo que se toca, ¿qué
+    seguiría flotando?'). Declara uniones reales con run_command(type='ground'|'fasten')."""
     payload = _api("POST", "/api/assembly/soundness", json={"with_autodetect": with_autodetect}).json()
     return json.dumps(payload, ensure_ascii=False)
 
@@ -846,7 +846,7 @@ def declare_structure() -> str:
     """Auto-declara la ESTRUCTURA real de la máquina (anclajes al piso + uniones de soporte) como
     comandos PERSISTIDOS, de forma INTELIGENTE (grafo de soporte dirigido): NO fija las piezas que
     cuelgan sin nada debajo (p. ej. rodillos de retorno). Idempotente (no duplica lo ya declarado).
-    Después, `gravity_test(with_autodetect=False)` es la prueba EXACTA: solo cae lo de verdad suelto.
+    Después, `gravity_test()` (por defecto, solo lo declarado) es la prueba EXACTA: cae lo suelto.
     Para corregir, borra una unión con `delete_connection(name)`. Devuelve el conteo y la lista de
     uniones declaradas (con sus nombres)."""
     _api("POST", "/api/assembly/declare")  # persiste; ignoramos el payload de escena (grande)
@@ -897,16 +897,16 @@ def delivery_check(con_gravedad: bool = False) -> str:
 
 @mcp.tool()
 def gravity_test(
-    with_autodetect: bool = True, exclude: list[str] | None = None,
+    with_autodetect: bool = False, exclude: list[str] | None = None,
     seconds: float = 2.0, gravity: float = 9.81, path: str | None = None,
 ) -> str:
     """Simula la GRAVEDAD sobre TODA la máquina (cuerpos rígidos + colisión por casco
     convexo, motor MuJoCo) y reporta qué piezas SE CAEN y cuáles aguantan. A diferencia
     del chequeo estático, la FÍSICA decide si una pieza no-sujeta REPOSA sobre algo firme
-    (no cae) o cuelga en el aire (cae) — resuelve "quién aguanta a quién". with_autodetect
-    usa el contacto geométrico como estructura sujeta; `exclude` trata esas piezas como NO
-    sujetas ('¿y si a esta le falta el tornillo?') para ver si se caen. Si das `path`,
-    guarda además un GIF animado de la caída. Read-only: NO modifica el modelo."""
+    (no cae) o cuelga en el aire (cae). Por defecto sujeta SOLO lo DECLARADO (ground/fasten);
+    with_autodetect=True suma el contacto geométrico (exploración). `exclude` trata esas
+    piezas como NO sujetas ('¿y si a esta le falta el tornillo?'). Con `path` guarda además
+    un GIF animado de la caída. Read-only: NO modifica el modelo."""
     from pathlib import Path
 
     body = {"with_autodetect": with_autodetect, "exclude": exclude or [],
