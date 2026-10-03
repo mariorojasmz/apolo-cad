@@ -11,6 +11,16 @@ Reglas del archivo:
   [devlog](devlog.md).
 - Antes de tomar uno, verifícalo contra el código: el backlog envejece.
 
+## Distribución (urgente)
+
+- **Publicar 0.1.1 en PyPI con los topes de dependencias** (`mcp<2`, `build123d<0.11`,
+  `ocp_gordon<0.3`, commit `265bab5`). Medido el 2026-10-03 en un venv limpio: la 0.1.0 publicada
+  resuelve `mcp` 2.x (quitó `mcp.server.fastmcp` → `apolo-mcp` no arranca) y `build123d` 0.13 /
+  OCP 8 (quitó `TopTools_ListOfShape` → falla modelado directo). Necesita las credenciales de
+  Mario: `scripts/release.py --version 0.1.1`.
+- **Migrar a `mcp` 2.x y a `build123d` ≥ 0.11 / OCP 8** para poder levantar esos topes (plan
+  aparte: toca el cliente MCP y el kernel).
+
 ## Ensamblaje y cinemática
 
 - **Master-slider «Apertura %»**.
