@@ -44,10 +44,9 @@ const TOPES = {
 };
 
 /**
- * Nombres de las props y piezas del proyecto. Apolo todavía NO tiene `hint=`, `subtitle=`,
- * `<Pista>` ni `<Ayuda>` (ui/CLAUDE.md §Texto y ayuda): se dejan los nombres del estándar
- * para que el gate muerda apenas existan. El texto largo de hoy viene de las descripciones
- * de los schemas del backend (dinámico): este gate no lo ve.
+ * Nombres de las props y piezas del proyecto (`<Pista>` y `<Ayuda>` viven en `src/ui/`). Las
+ * pistas de los comandos llegan del backend (dinámicas): este gate no las ve; las mide su
+ * gemelo de backend, `tests/test_pistas.py`, con los mismos criterios.
  */
 const PROP_SUBTITULO = 'subtitle';
 const PROP_PISTA = 'hint';

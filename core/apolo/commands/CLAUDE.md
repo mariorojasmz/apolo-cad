@@ -10,7 +10,8 @@ transversal (locks, log, regenerate, cirugía de modelos) está en el
 - La firma del executor la eligen los flags del registro (`wants_joints`, `wants_mates`,
   `wants_groups`, `wants_connectivity`, `wants_all`): ver el bloque `REGISTRY` de `registry.py`.
 - La `description` del modelo es para el AGENTE (larga a propósito, con nombres de params); la
-  UI muestra la primera frase ([ui](../../../ui/CLAUDE.md)). Un super-comando reutilizable
+  persona lee la PISTA de `pistas.py` (vista `?vista=persona`, `vista_persona.py`): un comando
+  nuevo sin pista rompe `tests/test_pistas.py` ([ui](../../../ui/CLAUDE.md)). Un super-comando reutilizable
   documenta ahí su MONTAJE (orientación, tensado, soldadura), no sólo qué es.
 - Si cambia la geometría que produce un executor con los MISMOS params: bump de
   `GEOM_CACHE_EPOCH` (regla en la [raíz](../../../CLAUDE.md)).

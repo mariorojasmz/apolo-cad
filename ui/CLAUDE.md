@@ -30,20 +30,22 @@ piezas, restaurar una revisión, aplicar una variante que regenera todo) no se a
 párrafo: se confirma (`useConfirmar`, una sola pieza de confirmación para todo). La primera
 vez en un panel la cubre `<EstadoVacio>` (qué va a aparecer + la acción), no un tour.
 
-⚠️ **Estas piezas todavía NO existen en Apolo** (`<Pista>`, `<Ayuda>`, `<VerDetalle>`,
-`<EstadoVacio>`, `useConfirmar`): se proponen en un plan antes de crearlas.
+Existen `<Pista>`, `<Ayuda>` (ⓘ `type="button"`, abre en el flujo), `<VerDetalle>` (`<details>`
+nativo) y `textoTecnico` (backticks → `<code>`) en `src/ui/`, y `forms/Campo.tsx` (rótulo +
+unidad + ⓘ + pista de campo) ([plan](../docs/plans/texto-agente-vs-persona.md)). `<EstadoVacio>` y
+`useConfirmar` todavía NO existen: se proponen en un plan antes de crearlas.
 
 - **Presupuesto**: sin contar datos ni rótulos, el texto de ayuda visible por defecto de un
   panel o diálogo no pasa de ~40 palabras. **Una explicación, un lugar**: si el panel lo dice,
   el resto no lo repite.
 - **El texto de los schemas es para el AGENTE, no para la persona.** Las `description` de los
   modelos pydantic de comandos son largas a propósito (el agente las necesita completas, con
-  nombres de parámetros). En pantalla, la pista es la PRIMERA frase; el resto va a pedido (ⓘ o
-  «Ver detalle»). Nunca una versión del roadmap («V6.8-E») en un texto que llega a la UI.
-  ⚠️ Hoy NO se cumple: el diálogo de un comando pinta la descripción entera arriba del
-  formulario (Taladro: 9 líneas con `position`, `cara` y «V6.8-E») y los botones del ribbon la
-  llevan entera en `title=`. Separar el texto del agente del de la persona es plan pendiente
-  (toca backend + UI).
+  nombres de parámetros). La UI pide la vista PERSONA (`GET /api/schemas?vista=persona`): cada
+  comando trae su `pista` (una frase escrita para la persona) y su `detalle` limpio, que va
+  plegado en «Detalle técnico»; los campos traen `x-unidad` y, donde uno anula a otro, `x-pista`.
+  La pista vive en `core/apolo/commands/pistas.py` (gate `tests/test_pistas.py`: 1 frase, ≤ 120
+  caracteres, vocabulario y tuteo); el servidor quita las versiones del roadmap («V6.8-E»). El
+  tipo `CommandSchema` no tiene `description`: `tsc` impide pintar el texto del agente.
 - **Excepción de parámetros**: la ⓘ de un campo de comando lleva su texto operativo COMPLETO
   aunque pase el tope (es la documentación del parámetro); lo que se acorta es la pista.
 - La **ⓘ se abre en el flujo**, no flota (se cortaría en los paneles de Dockview con

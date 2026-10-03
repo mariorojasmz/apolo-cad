@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F4 hechas (vista persona + 53 pistas en el backend, huellas del agente intactas; el diálogo de comando pinta pista + detalle plegado + ⓘ por campo; el ribbon deriva sus pestañas del servidor, con Superficies); falta F5 (cierre de docs) y que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: F0–F5 hechas en la rama de integración, sin mergear a main; falta que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
 descripcion: Cada diálogo de comando te dice en una frase qué hace, el detalle técnico queda a un clic y aparece la pestaña Superficies en el ribbon
 ---
 
@@ -441,3 +441,16 @@ con `ensure_ascii=False`):
 - El riesgo anotado «ribbon sin pestañas hasta que cargan los schemas» se acepta tal cual:
   antes Crear/Modificar/Biblioteca salían siempre; ahora el ribbon nace vacío los milisegundos
   que tarda `/api/schemas` (en la verificación no se llegó a ver).
+
+**2026-10-03 — F5, cierre (sesión principal).** Integradas F0–F4 en `worktree-auditoria-refactors`
+y verificadas por la sesión principal, no sólo por los subagentes: pytest completo 1514 pasan +
+1 skip; `ruff check core tests scripts` limpio; `npm test` 26/26 y `npm run build` OK. Huellas D1
+re-calculadas sobre la integración: las 5 iguales a F0 (`487256b0`, `8a62d1be`, `0f0db3c8`,
+`e5459ba9`, `c6c2dad2`). Docs: `ui/CLAUDE.md` sin los dos avisos (dónde viven las piezas y la
+pista, y que `CommandSchema` no tiene `description`), `commands/CLAUDE.md` (la persona lee la pista
+de `pistas.py`; comando sin pista rompe `tests/test_pistas.py`), comentario de configuración de
+`textoDeAyuda.test.ts` (apunta a su gemelo de backend) y conteos de la raíz (1515 tests, 26
+vitest). Pendiente de Mario: vetar D1–D13 y leer la tabla de pistas (F2) antes del merge a `main`.
+Fuera de alcance, anotado por F3: la ⓘ de un campo muestra la descripción del agente tal cual (p.
+ej. «id de feature»); renombrar rótulos y descripciones de campo es el fix acotado aparte de
+«Lo que este plan NO hace».
