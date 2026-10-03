@@ -15,6 +15,7 @@ from collections.abc import Iterator
 from apolo.commands.registry import REGISTRY, CommandError, validate_params
 from apolo.doc import Document
 
+from .hooks import SIN_GANCHOS, AgentHooks, ProjectChanged, ensure_alive, mutation_guard
 from .prompts import SYSTEM_PROMPT
 
 DEFAULT_MODEL = os.environ.get("APOLO_MODEL", "claude-opus-4-8")
@@ -24,47 +25,30 @@ MAX_ITERATIONS = 10
 VALIDATION_TOOLS = ("test_sketch", "test_script", "check_interference", "engineering_check", "render_view")
 
 
-def execute_actions_now(doc: Document, actions: list[dict]) -> dict:
+def execute_actions_now(doc: Document, actions: list[dict], hooks: AgentHooks = SIN_GANCHOS) -> dict:
     """Modo autónomo: ejecuta el lote sobre el documento (con autosave y aviso
-    a los clientes) y devuelve un resumen para que el agente verifique."""
+    a los clientes) y devuelve un resumen para que el agente verifique. Si `doc` ya no
+    es el documento activo, no aplica nada y lanza ProjectChanged (hooks.py)."""
     from apolo.batch import execute_batch
-    from apolo.state import STATE_LOCK
 
-    with STATE_LOCK:
+    with mutation_guard(hooks):
         created = execute_batch(doc, actions)
-        try:
-            from apolo.api import main as api_main
-
-            api_main._autosave()
-        except Exception:
-            pass
+        hooks.after_mutation()
         summary = {
             "ejecutado": True,
             "comandos_creados": created,
             "solidos_en_escena": len(doc.scene),
             "variables": dict(doc.variables_resolved),
         }
-    try:
-        from apolo.api import main as api_main
-
-        api_main.WS.notify_changed()
-    except Exception:
-        pass
+    hooks.notify()
     return summary
 
 
-def save_agent_note(doc: Document, text: str) -> None:
-    from apolo.state import STATE_LOCK
-
-    with STATE_LOCK:
+def save_agent_note(doc: Document, text: str, hooks: AgentHooks = SIN_GANCHOS) -> None:
+    with mutation_guard(hooks):
         doc.agent_notes.append(text.strip()[:500])
         doc.agent_notes = doc.agent_notes[-30:]  # memoria acotada
-        try:
-            from apolo.api import main as api_main
-
-            api_main._autosave()
-        except Exception:
-            pass
+        hooks.after_mutation()
 
 
 def build_tools(auto: bool = False) -> list[dict]:
@@ -438,10 +422,12 @@ def run_validation_tool(doc: Document, name: str, tool_input: dict):
 
 
 def chat_stream(
-    doc: Document, messages: list[dict], model: str | None = None, auto: bool = False
+    doc: Document, messages: list[dict], model: str | None = None, auto: bool = False,
+    hooks: AgentHooks = SIN_GANCHOS,
 ) -> Iterator[str]:
     """Genera eventos SSE: {'type':'text'|'actions'|'tool'|'error'|'done', ...}.
-    Con auto=True el agente ejecuta los lotes directamente (modo autónomo)."""
+    Con auto=True el agente ejecuta los lotes directamente (modo autónomo). `hooks` ata el
+    chat al documento activo: si cambia, el stream cierra con un evento de error."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
         yield _sse(
             {
@@ -471,6 +457,7 @@ def chat_stream(
 
     try:
         for _ in range(MAX_ITERATIONS if not auto else MAX_ITERATIONS + 4):
+            ensure_alive(hooks)  # no gastes otra vuelta del LLM sobre un documento huérfano
             with client.messages.stream(
                 model=model or DEFAULT_MODEL,
                 max_tokens=16000,
@@ -492,6 +479,7 @@ def chat_stream(
             for block in response.content:
                 if block.type != "tool_use":
                     continue
+                ensure_alive(hooks)  # la vuelta del LLM tarda: el proyecto pudo cambiar entretanto
                 if block.name == "get_document":
                     tool_results.append(
                         {
@@ -525,9 +513,11 @@ def chat_stream(
                     else:
                         yield _sse({"type": "actions", "actions": actions, "executed": True})
                         try:
-                            summary = execute_actions_now(doc, actions)
+                            summary = execute_actions_now(doc, actions, hooks)
                             content = json.dumps(summary, ensure_ascii=False)
                             is_error = False
+                        except ProjectChanged:
+                            raise
                         except Exception as exc:
                             content = f"El lote falló y se revirtió: {exc}"
                             is_error = True
@@ -541,12 +531,14 @@ def chat_stream(
                             }
                         )
                 elif block.name == "undo_last":
-                    from apolo.state import STATE_LOCK
-
                     try:
-                        with STATE_LOCK:
+                        with mutation_guard(hooks):
                             doc.undo()
+                            hooks.after_mutation()  # el undo también muta: se autoguarda
+                        hooks.notify()
                         content = "Deshecho."
+                    except ProjectChanged:
+                        raise
                     except Exception as exc:
                         content = f"No se pudo deshacer: {exc}"
                     yield _sse({"type": "tool", "name": "undo_last"})
@@ -554,7 +546,7 @@ def chat_stream(
                         {"type": "tool_result", "tool_use_id": block.id, "content": content}
                     )
                 elif block.name == "save_note":
-                    save_agent_note(doc, (block.input or {}).get("text", ""))
+                    save_agent_note(doc, (block.input or {}).get("text", ""), hooks)
                     yield _sse({"type": "tool", "name": "save_note"})
                     tool_results.append(
                         {"type": "tool_result", "tool_use_id": block.id, "content": "Nota guardada."}
@@ -608,5 +600,7 @@ def chat_stream(
                 break
     except anthropic.APIError as exc:
         yield _sse({"type": "error", "message": f"Error del API de Claude: {exc.message}"})
+    except ProjectChanged as exc:  # nada se aplicó al documento huérfano: se avisa y se cierra
+        yield _sse({"type": "error", "message": str(exc)})
 
     yield _sse({"type": "done"})

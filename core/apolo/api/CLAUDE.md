@@ -18,6 +18,9 @@ el [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en [core/apolo](../CLA
   volcar el schema completo.
 - `_materialize_insert_project` muta `DOC.attachments`: corre DENTRO del lambda de
   `_state_or_error` (bajo `STATE_LOCK`), nunca antes.
+- Lo mismo toda búsqueda en el log que decide la mutación (variable por nombre, comando dueño
+  de una junta/mate): va DENTRO del closure (`_state_or_error` deja pasar `HTTPException`, así
+  que el 404/400 sale de ahí). Buscar antes y mutar después = TOCTOU.
 
 ## Lotes con contrato (`expect`)
 

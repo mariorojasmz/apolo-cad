@@ -34,7 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from apolo import paths as _paths
-from apolo.agent import chat_stream
+from apolo.agent import AgentHooks, chat_stream
 from apolo.commands import CommandError, command_schemas
 from apolo.doc import Document, DocumentError
 from apolo.kernel import bbox_payload, export_step_file, mesh_payload
@@ -1403,17 +1403,10 @@ class VariableIn(BaseModel):
 
 @app.post("/api/variables")
 def set_variable(body: VariableIn) -> dict:
-    existing = next(
-        (
-            c["id"]
-            for c in DOC.commands
-            if c["type"] == "set_variable" and c["params"].get("name") == body.name
-        ),
-        None,
-    )
-
-    def run():
+    def run():  # buscar DENTRO del lock: fuera, otra petición podía cambiar el log antes de mutar
         params = {"name": body.name, "expression": body.expression}
+        existing = next((c["id"] for c in DOC.commands if c["type"] == "set_variable"
+                         and c["params"].get("name") == body.name), None)
         return DOC.edit(existing, params) if existing else DOC.execute("set_variable", params)
 
     return _state_or_error(run)
@@ -1421,14 +1414,14 @@ def set_variable(body: VariableIn) -> dict:
 
 @app.delete("/api/variables/{name}")
 def delete_variable(name: str) -> dict:
-    ids = [
-        c["id"]
-        for c in DOC.commands
-        if c["type"] == "set_variable" and c["params"].get("name") == name
-    ]
-    if not ids:
-        raise HTTPException(status_code=404, detail=f"No existe la variable '{name}'")
-    return _state_or_error(lambda: DOC.remove_commands(ids))
+    def run():  # búsqueda y borrado en UNA adquisición de STATE_LOCK (sin TOCTOU)
+        ids = [c["id"] for c in DOC.commands
+               if c["type"] == "set_variable" and c["params"].get("name") == name]
+        if not ids:
+            raise HTTPException(status_code=404, detail=f"No existe la variable '{name}'")
+        return DOC.remove_commands(ids)
+
+    return _state_or_error(run)
 
 
 @app.post("/api/undo")
@@ -1709,9 +1702,10 @@ def open_project_by_id(project_id: int) -> dict:
 @app.delete("/api/projects/{project_id}")
 def delete_project(project_id: int) -> dict:
     store = _store_required()
-    if project_id == PROJECT_ID:
-        raise HTTPException(status_code=400, detail="No puedes borrar el proyecto abierto")
-    store.delete(project_id)
+    with STATE_LOCK:  # check + borrado atómicos: un open concurrente no lo activa entre medio
+        if project_id == PROJECT_ID:
+            raise HTTPException(status_code=400, detail="No puedes borrar el proyecto abierto")
+        store.delete(project_id)
     return {"ok": True}
 
 
@@ -2192,19 +2186,24 @@ def get_kinematics() -> dict:
         return joints_payload(DOC)
 
 
+def _remove_owner_command(items: dict, name: str, cmd_type: str, missing: str, foreign: str):
+    """Borra el comando `cmd_type` que declaró `items[name]` (junta o mate). Corre DENTRO
+    del closure de `_state_or_error`: buscar y borrar en UNA adquisición de STATE_LOCK
+    (antes la búsqueda en el log iba fuera → TOCTOU con una mutación concurrente)."""
+    item = items.get(name)
+    if item is None:
+        raise HTTPException(status_code=404, detail=missing)
+    cmd = next((c for c in DOC.commands if c["id"] == item["command_id"]), None)
+    if cmd is None or cmd["type"] != cmd_type:
+        raise HTTPException(status_code=400, detail=foreign)
+    return DOC.remove_commands([item["command_id"]])
+
+
 @app.delete("/api/joints/{name}")
 def delete_joint(name: str) -> dict:
-    with STATE_LOCK:
-        joint = DOC.joints.get(name)
-    if joint is None:
-        raise HTTPException(status_code=404, detail=f"No existe la junta '{name}'")
-    cmd = next((c for c in DOC.commands if c["id"] == joint["command_id"]), None)
-    if cmd is None or cmd["type"] != "add_joint":
-        raise HTTPException(
-            status_code=400,
-            detail="Esta junta pertenece a una plantilla (p. ej. un brazo): edita o elimina su comando",
-        )
-    return _state_or_error(lambda: DOC.remove_commands([joint["command_id"]]))
+    return _state_or_error(lambda: _remove_owner_command(
+        DOC.joints, name, "add_joint", f"No existe la junta '{name}'",
+        "Esta junta pertenece a una plantilla (p. ej. un brazo): edita o elimina su comando"))
 
 
 # ------------------------------------------------------------------ ensamblaje
@@ -2219,14 +2218,8 @@ def get_mates() -> list[dict]:
 
 @app.delete("/api/mates/{name}")
 def delete_mate(name: str) -> dict:
-    with STATE_LOCK:
-        mate = DOC.mates.get(name)
-    if mate is None:
-        raise HTTPException(status_code=404, detail=f"No existe el mate '{name}'")
-    cmd = next((c for c in DOC.commands if c["id"] == mate["command_id"]), None)
-    if cmd is None or cmd["type"] != "add_mate":
-        raise HTTPException(status_code=400, detail="Este mate pertenece a una plantilla")
-    return _state_or_error(lambda: DOC.remove_commands([mate["command_id"]]))
+    return _state_or_error(lambda: _remove_owner_command(
+        DOC.mates, name, "add_mate", f"No existe el mate '{name}'", "Este mate pertenece a una plantilla"))
 
 
 # ------------------------------------------------- restricciones de riel (lazo cerrado)
@@ -4901,8 +4894,12 @@ class ChatIn(BaseModel):
 @app.post("/api/agent/chat")
 def agent_chat(body: ChatIn) -> StreamingResponse:
     messages = [m.model_dump() for m in body.messages]
+    with STATE_LOCK:  # el chat queda atado al documento ACTIVO de este instante
+        pid, doc = PROJECT_ID, DOC
+    hooks = AgentHooks(alive=lambda: PROJECT_ID == pid and DOC is doc,  # revalidado bajo el lock
+                       after_mutation=lambda: _autosave(), notify=lambda: WS.notify_changed())
     return StreamingResponse(
-        chat_stream(DOC, messages, auto=body.auto),
+        chat_stream(doc, messages, auto=body.auto, hooks=hooks),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

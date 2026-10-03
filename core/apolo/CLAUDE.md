@@ -39,6 +39,11 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
 - `design/guidelines.py` es la fuente ÚNICA del criterio de ingeniería: `design_brief()` (capa 1)
   se inyecta en las instrucciones del MCP y en `SYSTEM_PROMPT` (`agent/prompts.py`);
   `design_guidelines()` (capa 2) va bajo demanda. Se edita ahí, nunca en las copias.
+- El chat (`chat_stream`) queda ATADO al documento activo al empezar: la API le inyecta
+  `AgentHooks` (`agent/hooks.py`: `alive`/`after_mutation`/`notify`) y cada mutación revalida
+  `alive()` DENTRO de `STATE_LOCK` (`mutation_guard`). Si se abrió otro proyecto o se restauró
+  una revisión, no aplica nada y el stream cierra con un evento `error`. El agente NO importa
+  `apolo.api` (api → agent, nunca al revés).
 
 ## Cinemática (`robotics/`)
 
