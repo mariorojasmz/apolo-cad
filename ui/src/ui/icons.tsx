@@ -4,6 +4,7 @@
 import {
   Box, Cylinder, Pentagon, RotateCcw, Columns3, FileInput, ScrollText,
   PenTool, Disc, Waypoints, Spline,
+  SquareDashed, PaintBucket, Layers2,
   Combine, Scissors, Drill, FlipHorizontal2, Rows3, CircleDot, Move3d, Magnet, Trash2,
   Link2, Bot, Cog,
   History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor, ClipboardList, Blocks,
@@ -24,6 +25,10 @@ export const COMMAND_ICONS: Record<string, LucideIcon> = {
   sketch_revolve: Disc,
   sketch_loft: Waypoints,
   sketch_sweep: Spline,
+  // superficies
+  boundary_surface: SquareDashed,
+  fill_surface: PaintBucket,
+  thicken: Layers2,
   // modificar
   boolean_op: Combine,
   fillet: CircleDot,

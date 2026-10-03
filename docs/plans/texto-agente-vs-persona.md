@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 hechas (vista persona + 53 pistas en el backend, huellas del agente intactas; el diálogo de comando pinta pista + detalle plegado + ⓘ por campo); faltan F4–F5 (ribbon y cierre) y que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
+nota: F0–F4 hechas (vista persona + 53 pistas en el backend, huellas del agente intactas; el diálogo de comando pinta pista + detalle plegado + ⓘ por campo; el ribbon deriva sus pestañas del servidor, con Superficies); falta F5 (cierre de docs) y que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
 descripcion: Cada diálogo de comando te dice en una frase qué hace, el detalle técnico queda a un clic y aparece la pestaña Superficies en el ribbon
 ---
 
@@ -419,3 +419,25 @@ con `ensure_ascii=False`):
   vocabulario.
 - Visto y fuera de alcance (plan § Lo que NO hace): la ⓘ muestra la `description` del agente tal
   cual, con su vocabulario («id de feature» en el campo `feature`, cuyo rótulo es «Sólido»).
+
+### F4 — ribbon
+
+- `ui/src/panels/pestanas.ts` (32 líneas): `pestanasDe(schemas)`, pura — una pestaña por
+  categoría con `pestana` no nula y al menos un comando, ordenadas por `orden`, con sus comandos
+  en el orden del servidor. `pestanas.test.ts` (4 casos): Superficies aparece con su rótulo entre
+  Croquis y Modificar y con sus 3 comandos; `pestana: null` (`set_variable`) no va al ribbon; una
+  categoría sin comandos no tiene pestaña (y `[]` da `[]`); orden del servidor dentro de la
+  pestaña.
+- `Ribbon.tsx`: sin `TABS` ni `ALWAYS` escritos a mano; `CmdBtn` ya no recibe `title`, lo pone
+  igual a su rótulo (D9 por construcción). Estáticos: «Croquis», «Catálogo» y «Variables» con
+  `title` = su nombre (antes explicaban qué hacen). `icons.tsx`: `boundary_surface` →
+  `SquareDashed`, `fill_surface` → `PaintBucket`, `thicken` → `Layers2`.
+- Verificado: `npm test` 26 casos y `npm run build` verdes. **En navegador** (misma API del
+  worktree en :8001, recargada con el build nuevo): pestañas «Crear, Croquis, Superficies,
+  Modificar, Ensamblar, Biblioteca, Robótica»; Superficies con «Superficie de contorno», «Parche
+  de superficie» y «Engrosar superficie»; recorriendo las 7 pestañas, los **54 botones** (52
+  comandos + Croquis + Catálogo) tienen `title` idéntico a su rótulo, y «Variables» también.
+  «Engrosar superficie» abre con su pista, su detalle plegado y una ⓘ. Consola sin errores.
+- El riesgo anotado «ribbon sin pestañas hasta que cargan los schemas» se acepta tal cual:
+  antes Crear/Modificar/Biblioteca salían siempre; ahora el ribbon nace vacío los milisegundos
+  que tarda `/api/schemas` (en la verificación no se llegó a ver).
