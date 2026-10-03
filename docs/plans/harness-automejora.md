@@ -1,3 +1,8 @@
+---
+estado: en curso   # implementado | en curso | sin verificar | descartado
+nota: Solo existe el plan; nada construido (scripts, auditor, runbook). Dueño Mario, que además elige la primera campaña
+descripcion: El agente se pone a prueba solo; una sesión ciega diseña, otra la audita con puntaje y las mejoras llegan en una rama para tu aprobación
+---
 # Harness de auto-mejora — loop maestro → ejecutor ciego → auditor → implementador
 
 **Origen**: pedido del usuario (2026-08-02). Formaliza y AUTOMATIZA el ciclo que ya

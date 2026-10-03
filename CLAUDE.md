@@ -83,7 +83,143 @@ comandos con credenciales (build/twine/mcp-publisher) que lanza una persona.
   (id 53, 149 sólidos) y `guarda-banda-demo` (chapa en C con hems, DXF verificado).
 - Preview de la UI en desarrollo: configs `ui-dev`/`ui-preview` en `.claude/launch.json`
   (el build de producción lo sirve la API en :8000; `npm run dev` + StrictMode rompe el
-  viewport — usar `vite preview`).
+  viewport — usar `vite preview`). Tests de la UI: `cd ui ; npm test` (vitest: los gates de
+  texto, ver [ui/CLAUDE.md](ui/CLAUDE.md)).
+
+## Gestión de los CLAUDE.md
+
+**Claude es el dueño de los `CLAUDE.md`**: decide qué convención, decisión o trampa durable
+merece persistirse y actualiza el archivo que corresponde sin que se lo pidan.
+
+- **Se cargan en cada sesión: cada línea cuesta.** Meta: raíz ≤ 30 KB, `ui/CLAUDE.md` ≤ 35 KB.
+  ⚠️ Hoy la raíz pesa ~130 KB (crónica de V5–V7, benchmarks, madurez): podarla es el próximo
+  plan. Mientras tanto, nada nuevo entra con historia.
+- **Una línea = qué hacer + link al porqué.** La historia (fecha, qué se rompió, quién lo
+  reportó, la verificación E2E) vive en el plan que la parió, en el commit o en
+  `docs/devlog.md`; acá se cita, no se repite. Al cerrar trabajo, actualizar los conteos de
+  «Estado actual».
+- **Nivel más específico gana; podar > acumular.** Lo de la UI va en `ui/CLAUDE.md`. Lo
+  obsoleto se corrige o se borra en el momento. Sólo lo **no derivable del código**:
+  decisiones, restricciones, convenciones tácitas, trampas.
+- **Un solo formato de instrucciones para agentes**: `CLAUDE.md`. Nada en `.cursor/`,
+  `.github/instructions/` ni similares: divergen solos.
+
+## Planes (`docs/plans/`)
+
+**Cuándo hay plan**: si el cambio toca más de un paquete (`kernel`, `commands`, `doc`,
+`library`, `api`, `mcp`, `ui`…), cambia el formato del `.apolo`, del log de comandos o de la
+SQLite (un log viejo tiene que seguir regenerando igual), toma una decisión difícil de
+revertir o no entra en una sesión. Un fix acotado va directo, con un buen mensaje de commit.
+
+**Forma**: `docs/plans/V<versión>-slug.md` (p. ej. `V7.6-e2-fino.md`). La versión del roadmap
+ES el número del plan: ya está citada en commits, benchmarks y este archivo. Un plan fuera
+del roadmap va con slug solo (`harness-automejora.md`). Frontmatter:
+
+```yaml
+---
+estado: en curso   # implementado | en curso | sin verificar | descartado
+nota: una línea con lo que falta DE VERDAD (una fase, una medición, un clic de Mario) o «sin pendientes»
+descripcion: una línea con lo que cambia para quien usa Apolo
+---
+```
+
+Título `# V<versión> — <el resultado, dicho como lo diría el usuario>` («El agente valida el
+lote antes de aplicarlo», no «Refactor de verify»). Secciones en este orden; la que no
+aplica se omite:
+
+1. **Estado y origen**: quién lo pidió, con su frase textual, y qué evidencia lo disparó.
+2. **El problema / lo que hay hoy**: medido, con `archivo:línea` o la consulta. Sin evidencia no entra.
+3. **Lo que se revisó antes de escribir esto**: lo que se leyó del código y cambió la solución.
+4. **Decisiones (para vetar)**: D1…Dn, cada una en negrita con su porqué. Mario veta por número.
+5. **Alternativas descartadas** y por qué.
+6. **Fases**: F0 mide (sólo lectura) … Fn verifica. Cada una: qué hace, qué paquete, tamaño
+   S/M/L, de qué depende y cómo se verifica.
+7. **Lo que este plan NO hace.**
+8. **Riesgos**: riesgo y su mitigación.
+9. **Bitácora**, al cerrar cada fase: qué se hizo, qué reveló cada intento fallido, la causa
+   raíz del diagnóstico equivocado y los números medidos.
+
+**Reglas**:
+- **El contrato se escribe y se aprueba ANTES de implementar.** La versión se reserva
+  mergeando el archivo a `main` apenas se aprueba: dos planes con la misma versión mergean
+  limpio y git no avisa. Tras cada rebase, verificar que siga única; tomada ⇒ renombrar.
+  Quien detecta el choque con su plan ya implementado no renumera: los duplicados se citan
+  por slug.
+- **El estado es el frontmatter, nunca la carpeta**: nada se mueve a `done/` (la carpeta se
+  eliminó el 2026-10-03).
+- ⚠️ **La `nota:` se actualiza al MERGEAR y al PUBLICAR, no sólo al implementar.** Una nota
+  que nombra una rama o un worktree caduca sola.
+- **Sin commits en tres semanas se triá**: `implementado` con nota de qué quedó fuera,
+  `descartado` apuntando a quién lo cubrió, o `en curso` con dueño escrito.
+- **Se documenta el razonamiento, no sólo el cambio**: en la bitácora del plan, aquí (la
+  regla durable, en una línea) y en el commit (qué se creía, qué pasó, qué se aprendió; no
+  un changelog).
+- Si algún día hay un índice de planes, se GENERA del frontmatter con un script y jamás se
+  edita a mano.
+
+**Reparto contrato / implementación**: la sesión principal escribe el contrato, lo hace
+aprobar y revisa. Cada fase la implementa un subagente con `isolation: "worktree"`,
+`model: "opus"` y en segundo plano, con un prompt autocontenido: base git a verificar,
+CLAUDE.md a respetar, alcance estricto, tests como único gate y sin mergear. Al volver: leer
+el diff contra el contrato, **re-correr las suites uno mismo** (pytest y, si tocó `ui/`,
+`npm test` + `npm run build`), rechazar lo que no cumple y recién ahí rebase y merge.
+
+## Sesiones concurrentes: worktree para escribir código
+
+Varias sesiones trabajan el repo a la vez; sin aislar comparten árbol e index (renames a
+medio stagear, commits que arrastran trabajo ajeno).
+
+- Toda sesión que **escriba código** arranca con `EnterWorktree` (nombre = tema). Sólo
+  lectura no lo necesita.
+- ⚠️ **`EnterWorktree` nace de `origin/main`**: si no se pushea seguido, nace atrás. Primer
+  comando: `git merge main --ff-only`. Y `git merge main` antes de cada tanda de cambios, no
+  sólo al final.
+- ⚠️ **Python en un worktree prueba el checkout PRINCIPAL**: el `.venv` es el del árbol
+  principal y su instalación editable apunta a SU `core/` → pytest da verde sobre código que
+  no es el tuyo. En el worktree: `$env:PYTHONPATH = "$PWD\core"` antes de correr pytest (y
+  `-B`, o el `.pyc` recompila el principal y recarga la API con `--reload`). Tampoco levantes
+  la API desde un worktree: `paths.repo_root()` sería el worktree y arrancaría con un `data/`
+  vacío.
+- Subagentes que editan en paralelo: `isolation: "worktree"`. ⚠️ Nunca un subagente sin
+  aislamiento que haga `EnterWorktree`: su shell sigue al worktree de la sesión padre.
+- Antes de cada commit: `git diff --cached --name-only`; lo ajeno se saca con
+  `git restore --staged`.
+- **Editar SIEMPRE dentro del worktree**: una ruta absoluta al árbol principal compila, pasa
+  tests y no aparece en el `git status` del worktree. Si pasó: `git -C <principal> diff >
+  patch`, `git apply` en el worktree, `git restore` en el principal.
+- Dentro de un worktree, **un comando git por llamada**: sin `&&`, bucles ni `$(…)`.
+- El worktree no trae `ui/node_modules`: `npm ci` en `ui/` si se toca la UI. **No saltear los
+  tests**: son el único gate. Las suites se corren de a una; dos en paralelo dan timeouts
+  falsos.
+- **Rebasar justo antes de proponer el merge**, en un solo comando. El `--ff-only` es la red
+  y jamás se cambia por `--no-ff` sin decirlo (mergearía código no probado contra la rama
+  nueva):
+  ```powershell
+  git -C <worktree> rebase main; if ($?) { git -C <principal> merge <rama-del-worktree> --ff-only }
+  ```
+- ⚠️ **`main` avanza también entre que el agente rebasa y Mario pega el comando.** Un
+  `CONFLICT` lo resuelve el agente, no Mario: rebasa de nuevo, corre los tests y vuelve a dar
+  el comando.
+- **Quien instaló dependencias las borra al terminar**: en Windows, la ruta larga de
+  `node_modules` hace explotar `git worktree remove` con *Filename too long*. Si igual falla,
+  git pudo desregistrar el worktree y dejar la carpeta: borrarla así y después
+  `git worktree prune`:
+  ```powershell
+  $v = Join-Path $env:TEMP 'vacia'; New-Item -ItemType Directory -Force $v | Out-Null
+  robocopy $v '<ruta-del-worktree>' /MIR /NFL /NDL /NJH /NJS | Out-Null
+  Remove-Item '<ruta-del-worktree>' -Recurse -Force
+  ```
+  `robocopy` devuelve exit code ≠ 0 aun cuando funciona: encadenar con `;`, nunca con `if ($?)`.
+- **Antes de borrar un worktree, probar que no sea el cwd de una sesión viva**: renombrar la
+  carpeta y devolverle el nombre; si falla, está ocupada. Ni git ni la antigüedad lo
+  detectan. Borrar con `git worktree remove` sin `--force`.
+
+## Publicación
+
+**Toda publicación (PyPI `apolo-cad`, registro MCP) sale de `main`, desde el árbol
+principal, con `scripts/release.py`. Nunca desde un worktree ni una rama**: el paquete
+publicado quedaría con código que no está en ninguna rama. Flujo: mergear → verificar
+(pytest + `npm test` + `npm run build`) → `release.py` desde la raíz.
 
 ## Mapa del sistema (qué existe y dónde)
 
@@ -1066,14 +1202,6 @@ instalador (`ODA\ODAFileConverter 27.x\`) y fija `ezdxf.options`. Detector de so
   `BACKGROUND`/`BACKGROUND_CSS` en `scene-setup.ts` = fuente única. Las mallas OPACAS se dibujan sobre
   la transparencia (verificado: centro opaco, esquinas alpha 0 → se ve el CSS).
 
-### Mantenimiento de este CLAUDE.md (responsabilidad del agente)
-Actualízalo al cerrar trabajo relevante, pero **CONCISO**: una entrada nueva = 2-6
-líneas (qué existe, dónde vive, el gotcha si lo hay) en la sección que corresponda del
-mapa/convenciones + actualizar los conteos de "Estado actual". La NARRATIVA larga
-(verificación E2E, decisiones con contexto, cirugías) va en el mensaje de COMMIT y, si
-amerita, se appendea a `docs/devlog.md`. No duplicar: si una lección ya existe, afinarla
-en su sitio. Este archivo se carga en CADA sesión — cada línea cuesta contexto.
-
 ## Objetivo final — doctrina de RESULTADOS (usuario, 2026-07-10)
 
 Apolo **NO persigue paridad de herramientas** con SolidWorks/Inventor: esas son
@@ -1218,7 +1346,7 @@ verdes**. Un ítem por vez, con plan formal.
   (`docs/plans/V6.6-croquis-vivo.md`; por demanda).
 - **V6.7 FEA de ensamblaje (bonded)** — **ABSORBIDO por V7.4** (HECHO 2026-07-21).
 - **V6.8 MCP fluidez** — **CERRADO (2026-08-02)** (plan en
-  `docs/plans/done/V6.8-mcp-fluidez.md`, nacido de la retrospectiva del camastro 70): A
+  `docs/plans/V6.8-mcp-fluidez.md`, nacido de la retrospectiva del camastro 70): A
   (lotes de apariencia/conexiones) · B (`find_commands`) · C (cinemática por MCP + contratos
   EN POSE) · D (arrastre de cuerpo rígido + signo documentado) · E (snap cara-a-cara + drill
   por cara) — detalle en sus secciones del Mapa. **E2E validado en vivo** sobre el camastro
@@ -1233,7 +1361,7 @@ verdes**. Un ítem por vez, con plan formal.
   (124 mm de todo, pernos al aire) y 0 grounds/fasten declarados: validó lo que el prompt
   pedía por su letra y saltó gravedad/sujeción → origen de V6.9.
 - **V6.9 Puerta de ENTREGA** — **HECHO (2026-08-02)** (plan cerrado en
-  `docs/plans/done/V6.9-puerta-de-entrega.md`, nacido de la auditoría del 71): el
+  `docs/plans/V6.9-puerta-de-entrega.md`, nacido de la auditoría del 71): el
   checklist de cierre pasó de la MEMORIA del agente al SISTEMA (patrón V6.5b). (A) tool
   `delivery_check` = semáforo VERDE/AMARILLO/ROJO (79 tools); (B) alarma ambiental
   `aviso_estructura` en toda mutación con ≥5 sólidos y 0 grounds; (C) design_brief:

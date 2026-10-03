@@ -125,7 +125,7 @@ export default function AssemblyPanel() {
       <p className="hint">
         {hasUnions
           ? `Uniones declaradas: ${nGrounds} anclaje(s) al piso, ${nFast} fijador(es).`
-          : "Sin uniones declaradas. Pulsa «Auto-declarar» o une piezas a mano para la prueba EXACTA."}
+          : "Sin uniones declaradas. Haz clic en «Auto-declarar» o une piezas a mano para la prueba EXACTA."}
       </p>
       {hasUnions && (
         <div className="kin-grid" style={{ maxHeight: 150, overflowY: "auto" }}>

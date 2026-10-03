@@ -2899,8 +2899,8 @@ nada = 6 GDL (libre).
 **Cierre**: baseline sin regenerar (nada toca los caminos medidos). Un servidor del usuario corría
 en :8000 con código viejo → la verificación de la UI se apoyó en `npm run build` (tsc estricto
 verde) + `test_api_dof_endpoint` + el bloque replica los patrones existentes; el render de la
-Fase B se sustituyó por la medición numérica (más fuerte que un render). Plan movido a
-`docs/plans/done/`.
+Fase B se sustituyó por la medición numérica (más fuerte que un render). Plan cerrado
+(`docs/plans/V6.3-ensamblaje-pro.md`).
 
 ## V6.3d — Correcciones de la revisión de V6.3 (2026-07-10)
 

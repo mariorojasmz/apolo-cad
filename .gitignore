@@ -11,6 +11,8 @@ logs/
 # ignoraba también core/apolo/library/data/ (el CATÁLOGO YAML, código fuente).
 /data/
 .claude/settings.local.json
+# worktrees de sesiones concurrentes (EnterWorktree): cada uno es un checkout aparte
+.claude/worktrees/
 
 # volcados de runtime en la raíz (curl de depuración)
 /scene.json

@@ -1659,7 +1659,7 @@ export default function Viewport() {
                 else if (e.key === "Escape") setVcb(null);
               }}
               style={{ width: 74 }}
-              title="Teclea el valor exacto de este eje y pulsa Enter"
+              title="Escribe el valor exacto de este eje y presiona Enter"
             />{" "}
             mm
           </span>

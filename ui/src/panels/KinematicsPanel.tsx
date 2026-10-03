@@ -293,7 +293,7 @@ export default function KinematicsPanel() {
 
           {motionStudies.length === 0 && !isDraft ? (
             <p className="hint">
-              Aún no hay estudios. Pulsa <strong>➕ Nuevo estudio</strong>, pose el modelo con los sliders y
+              Aún no hay estudios. Haz clic en <strong>➕ Nuevo estudio</strong>, mueve el modelo con los deslizadores y
               <strong> captura fotogramas</strong> en distintos tiempos; luego <strong>▶</strong> para verlo.
             </p>
           ) : !activeStudy ? (
@@ -347,7 +347,7 @@ export default function KinematicsPanel() {
               )}
               {activeKfs.length === 0 ? (
                 <p className="hint">
-                  Pose el modelo con los sliders y pulsa <strong>Capturar fotograma</strong> en distintos
+                  Mueve el modelo con los deslizadores y haz clic en <strong>Capturar fotograma</strong> en distintos
                   tiempos; necesitas ≥2 para reproducir.
                 </p>
               ) : (
