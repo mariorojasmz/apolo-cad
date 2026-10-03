@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: implementación delegada por Mario sin aprobación previa; F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan SU decisión y no se implementan en la delegación. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
+nota: F0 medida (spikes verdes, sin mergear); siguen F1–F2. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
 descripcion: El asistente de la app usa las mismas herramientas que el agente por MCP (puerta de entrega, gravedad, verify, render nítido, lotes con contrato), te avisa cuando se corta y cuesta menos por mensaje
 ---
 
@@ -238,4 +238,129 @@ de F1 sin diferencias salvo cambio deliberado listado; `ruff check core tests sc
 
 ## Bitácora
 
-_(vacía: se llena al cerrar cada fase)_
+### F0 — medición (2026-10-03, sólo lectura; scripts en el scratchpad de la sesión, fuera del repo)
+
+Base `3b9184f`; `mcp` 1.27.2, `anthropic` 0.109.1, `starlette` 1.2.1, `anyio` 4.13.0, `httpx`
+0.28.1. Tokens ≈ bytes UTF-8 / 3.5 (estimación: no se llamó a la API para contarlos).
+
+**Tamaños.**
+
+| qué | tools | bytes | ≈ tokens |
+|---|---|---|---|
+| `build_tools(auto=False)` | 9 | 152 876 (`propose_commands` sola: 149 294) | 43 700 |
+| `build_tools(auto=True)` | 10 | 153 154 | 43 800 |
+| `SYSTEM_PROMPT` | — | 10 730 (de ellos `design_brief()` 3 761) | 3 070 |
+| instructions del MCP | — | 4 900 | 1 400 |
+| `list_tools()` como definiciones Anthropic (name+description+input_schema) | 79 | 65 870 | 18 800 |
+| `list_tools()` completo (con `outputSchema`) | 79 | 77 821 | — |
+| subconjunto D5 tentativo (fuera: 3 de proyecto, 3 de revisión, 9 de archivo, `fea_assembly`; `path`/`fringe_path` opcionales ocultos) | 63 | 52 776 | 15 100 |
+
+Hoy cada vuelta del chat manda ≈ 164 KB (≈ 47 k tokens) sin caché; con el subconjunto + brief el
+prefijo baja a ≈ 57 KB + la guía, cacheable (D12). El «~130 KB» del contrato era corto: son 153 KB.
+
+**JSON Schema que emite FastMCP** (79 `inputSchema`): sólo `type`, `properties`, `required`,
+`title`, `default`, `anyOf` (69, siempre `X | null`), `items` y `additionalProperties` (`true` en
+`dict`, `{type: number}` en `dict[str, float]`); tipos string/number/integer/boolean/object/array/
+null. Sin `$ref`/`$defs`/`oneOf`/`allOf`/`enum`/`format`. Raíz siempre `{type: object, title,
+properties[, required]}`. Nada que Anthropic rechace: el normalizador de `agent/herramientas.py`
+puede limitarse a quitar `title` si F4 lo quiere más corto. `outputSchema` en 77 tools (`-> str` →
+`{result: string}`, por eso `call_tool` devuelve la TUPLA `(contenido, estructurado)`); `render_view`
+y `preview` no lo tienen (devuelven la lista de bloques).
+
+**Spikes** — los cuatro pasan:
+1. **TestClient anidado**: un endpoint `def` y un `StreamingResponse` sync que, atendiendo a un
+   `TestClient`, hacen otra request al mismo app con un `TestClient` nuevo (endpoint interno con un
+   RLock global): OK, sin deadlock, también dentro de `with TestClient(app)`.
+2. **ContextVar de middleware**: un middleware ASGI puro (y `@app.middleware("http")`) que fija un
+   ContextVar → lo lee el endpoint `def` y CADA `next()` del generador sync (TestClient y uvicorn
+   real). Lo que se pierde es lo FIJADO DENTRO del generador: un `set` en un `next()` no llega al
+   siguiente aunque corra en el mismo hilo (`dentro_previo=None` siempre). → el destino por llamada
+   va en `threading.local`, fijado y usado dentro del MISMO `next()` (D2 confirmada).
+3. **`asyncio.run(mcp.call_tool)` desde un hilo de anyio**: la función sync de la tool corre en el
+   hilo que llama y ve su `threading.local`; 6 streams concurrentes en uvicorn real, 5 llamadas
+   cada uno, cero cruces (6 hilos distintos).
+4. **Import de `apolo.mcp_server` en la API**: confirma el daño — raíz `WARNING`/sin handlers →
+   `INFO` + `RichHandler` (y `httpx` empieza a loguear cada request). La receta «snapshot de
+   handlers+nivel → import → restaurar» lo neutraliza, y un 2.º import (cacheado) no reconfigura.
+   Costo del primer import ≈ 2.5 s (arrastra `mcp`, `rich`, `sse_starlette`, `pydantic_settings`;
+   ningún `apolo.*` pesado): el import perezoso lo paga la primera request del chat.
+
+**Mutaciones que alcanza el subconjunto D5** (rastreo tool → ruta → endpoint):
+- Por `_state_or_error`: `run_command`, `edit_command`, `undo`, `redo`, `set_variable`,
+  `set_material`, `set_color`, `set_vertical`, `set_visibility`, `set_visibility_bulk`,
+  `save_configuration`, `apply_configuration`, `declare_structure`, `delete_connection`,
+  `auto_group` (sin `dry_run`). Por `_sync_or_job` (+ `_state_or_error`): `run_batch`, `edit_batch`.
+- **FUERA del embudo** (F3 las guarda una por una): `add_agent_note` (`POST /api/agent/notes`),
+  `set_motion` (`PUT /api/motion`), `set_stackup` (`PUT /api/stackup`), `set_requirements`
+  (`PUT /api/requirements`) — las cuatro `STATE_LOCK` + `_autosave()` a mano — y `fea_static`
+  (`POST /api/fea/static`, persiste por `_persist_fea_if_same_project`, que ya trae su propia
+  guardia por `(PROJECT_ID, DOC)`).
+- El resto del subconjunto (lecturas, `render_view`, `preview`, `delivery_check`, `scan_motion`,
+  `drawing` sin `path`, `gravity_test` sin `path`) no muta.
+
+**Triage de `agent/prompts.py`** (destino de cada frase; F6 lo aplica):
+
+| líneas | frase (resumida) | destino |
+|---|---|---|
+| 3-4 | «Eres el asistente de diseño de Genix Apolo CAD…» | `REGLAS_CHAT` |
+| 7 | mm, Z arriba, grados | `GUIA_TECNICA` (mm/Z ya están; suma «grados») |
+| 8-10 | primitivas CENTRADAS; `rotation` intrínseca XYZ sobre el centro, antes de la traslación | `GUIA_TECNICA` (huérfana) |
+| 11-13 | perfiles extruidos en Z; `rotation.y=90` → X, `rotation.x=90` → Y | `GUIA_TECNICA` (huérfana) |
+| 14-15 | los comandos crean features con id; el usuario las ve en el árbol | borrar (duplica «log de comandos editable») |
+| 18-21 | variables, `"=expresión"`, ejemplos y lista de funciones | `GUIA_TECNICA` sólo los ejemplos; la lista se borra (vieja: sin condicionales) → `get_expression_grammar` |
+| 22-27 | DISEÑA PARAMÉTRICO: `set_variable` primero en el MISMO lote, usables en él | `GUIA_TECNICA` (la regla 9 del brief no dice lo del lote) |
+| 30-34 | catálogo, `insert_component` (ref + longitud si es cortable), prefiere catálogo | borrar lo de preferir (regla 8); `GUIA_TECNICA` la forma de `insert_component` |
+| 35-37 | transportador de rodillos = SIEMPRE `create_conveyor` | `GUIA_TECNICA`, ampliada a `create_belt_conveyor` (super-comandos) |
+| 37-39 | rodillo por capacidad (Ø50→35 kg…), paso ≤ largo/3 | borrar (lo calcula `engineering_check`; números duplicados que pueden divergir) |
+| 40-42 | «usa `attach`» | borrar: CONTRADICE el brief (`snap_to`), que ya lo dice |
+| 45-49 | sintaxis de los selectores con ejemplo | `GUIA_TECNICA` (las instructions sólo nombran los modos) |
+| 50-52 | fillet/chamfer/shell/drill_hole EN SITIO (conservan id); detalle de `drill_hole` | `GUIA_TECNICA` lo de EN SITIO; el detalle se borra (está en el schema) |
+| 53-56 | `create_revolve`/`create_extrude_poly` antes que `run_script`; r ≥ 0, antihorario | `GUIA_TECNICA` (huérfana) |
+| 57 | `pattern_circular`, `mirror_feature` | borrar (schemas) |
+| 58-59 | STEP → botón «Importar STEP» | `REGLAS_CHAT` (es de la UI) |
+| 62-66 | croquis: puntos aproximados + restricciones, lazo cerrado, círculos = agujeros, cotas `=expr` | `GUIA_TECNICA` |
+| 67-68 | valida con `test_sketch` antes | borrar (duplica las instructions) |
+| 69-70 | ancla un punto con `fix`, orienta con horizontal/vertical | `GUIA_TECNICA` |
+| 73-74 | `create_robot_arm`, panel Cinemática, URDF/SDF | `REGLAS_CHAT` sólo «panel Cinemática»; el resto, schema |
+| 75-77 | `add_joint`: un sólido es hijo de UNA junta; origen en mundo | `GUIA_TECNICA` (huérfana) |
+| 79 | «Validación: tu sello de calidad» | borrar (regla 10) |
+| 80-84 | `engineering_check` antes de proponer una faja; resume al usuario | borrar lo primero (instructions); `REGLAS_CHAT` «resume el resultado de la validación» |
+| 85-87 | geometría nueva: `test_script` hasta que funcione | borrar (instructions) |
+| 88-90 | tras aceptar: `check_interference`/`render_view` | borrar: CONTRADICE el cierre con `delivery_check` del brief |
+| 91-92 | las tools de validación no modifican, llámalas cuanto quieras | `REGLAS_CHAT`, reescrita para D6 (en propuesta lo que muta da error) |
+| 95 | «usa `get_document`» | borrar: CONTRADICE «NO vuelques la escena» y la tool desaparece |
+| 96-99 | `propose_commands` con TODO el lote; tarjetas; nada corre hasta aceptar | `REGLAS_CHAT` (D7) |
+| 100-102 | `"$k"` 1-based con ejemplo | `GUIA_TECNICA` sólo «1-indexado» (el `$k` ya está) |
+| 103-104 | medidas razonables y decirlo | `REGLAS_CHAT` («dilo» no está en el brief) |
+| 105-106 | idioma del usuario, breve: qué, dimensiones, por qué | `REGLAS_CHAT` |
+| 108-111 | ejemplo del marco 40×40 | `GUIA_TECNICA` (ejemplo de orientación de perfiles; F6 decide si paga sus bytes) |
+| 116-119 | «Criterio de ingeniería…» + `design_brief()` | se conserva por construcción (`system_prompt_chat()`) |
+
+Además `mcp_server.py:45` («combínalo con set_visibility para aislar») y el docstring de
+`set_visibility` («útil para aislar antes de render_view») contradicen a `render_view` («prefiérelo
+a set_visibility») y a la raíz → D10.
+
+**Guía duplicada en docstrings del MCP** (inventario; este plan NO la poda):
+- `run_batch` y `edit_batch`: el contrato `expect` + «ahórrate mutar→leer→undo» (= `ACCION_DOCTRINE`)
+  y el párrafo del JOB/recibo, repetido en las dos y en `get_job`.
+- `get_job`: «NUNCA reintentes el lote a ciegas» (= el `detail` del 404 de la API y «NO reenvíes»
+  de `run_batch`/`edit_batch`).
+- `get_scene` («a ESCALA… NO vuelques la escena… summary entra por aquí») y `check_interference`
+  («tu zona, no la máquina entera») = `ESCALA_DOCTRINE`.
+- `verify` («sin ojímetro») = `ESCALA_DOCTRINE`; su párrafo EN POSE repite el de `run_batch`/`edit_batch`.
+- `delivery_check` («NO ENTREGUES EN ROJO») = regla 10 + la línea extra del brief.
+- `get_design_guidelines` («el usuario es el CLIENTE y tú el INGENIERO») = `DESIGN_PRINCIPLE`.
+- Las instructions repiten docstrings: `engineering_check(conveyor=…)`, `test_sketch`/`test_script`,
+  `get_topology` → selector, `get_command`.
+- `render_view` ↔ `set_visibility` ↔ instructions `:45`: contradicción (arriba).
+
+**SDK `anthropic` 0.109.1**: `messages.stream` acepta `cache_control` (raíz, `ephemeral` con `ttl`
+5m/1h), `output_config` (`effort` low…max) y `thinking`; NO `betas` ni `fallbacks`.
+`beta.messages.stream` suma `betas`, `fallbacks` (tipado sólo como lista de
+`{model, max_tokens, output_config, speed, thinking}`), `context_management`, `mcp_servers`.
+`stop_reason` incluye `pause_turn` y `refusal`; `Message.stop_details` existe. Los tipos se quedan
+atrás de la API: `thinking.display` sólo tipa `summarized|omitted` y el literal de modelos no trae
+`claude-opus-5-5` (acepta `str`). Pero con un transporte falso (`httpx.MockTransport`, sin llamar a
+la API) el SDK manda TAL CUAL `display: "updates"`, `fallbacks: "default"`, `betas` en la cabecera
+`anthropic-beta`, `cache_control` en la raíz y en el bloque de `system`, y `output_config`. → 0.109.1
+sirve en tiempo de ejecución para F7/F8; F7 fija el pin en `>=0.109.1` (la mínima verificada aquí).
