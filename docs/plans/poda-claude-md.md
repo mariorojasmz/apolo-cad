@@ -259,3 +259,13 @@ quedaron enteras porque el contrato sólo permite comprimirlas si hace falta par
 índice pesa 2,2 KB. Si el gate de F4 aprieta, la palanca siguiente es la del inventario: la
 plantilla de planes a `docs/plans/README.md` (−1,5 KB) y la receta de robocopy a un doc aparte
 (−0,6 KB). Ningún anidado se tocó en F3.
+
+**2026-10-03 — F4 (gate).** `tests/test_claude_md.py` (stdlib, no importa `apolo`): raíz ≤ 30 KB,
+`core/apolo/CLAUDE.md` ≤ 10 KB, otros anidados ≤ 35 KB, y todo link relativo de un CLAUDE.md
+existe (agregado al contrato: la poda creó ~100 links y un link roto es una trampa perdida). El
+script de medición es el mismo archivo (`python tests/test_claude_md.py` imprime los tamaños;
+el `medir_claude.py` de F0 queda fuera del repo). Verificado que falla: un anidado de 35,2 KB
+con un link roto dio los dos errores. Tamaños al cerrar: raíz 26,7 · `core/apolo` 4,1 · api
+11,0 · assembly 3,2 · commands 5,0 · doc 5,4 · drawing 6,4 · fea 3,2 · kernel 3,9 · library
+9,0 · ui 14,9 KB. Suite: 1379 tests (1375 + 4 del gate). Falta D7: corre con `claude -p`
+después del merge a `main`.
