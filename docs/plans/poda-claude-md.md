@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito; falta que Mario lo apruebe o vete decisiones (D1–D7)
+nota: F0 cerrada (inventario + carga medida, D2 confirmada con ajuste); falta F1–F4 y la prueba D7
 descripcion: Cada sesión del agente arranca con un CLAUDE.md de ≤ 30 KB; el detalle de cada paquete se lee sólo al trabajar en él
 ---
 
@@ -68,6 +68,12 @@ reales y «7-tupla» vs la 8-tupla del código (corregidos en `3e935f4`); el GIF
   disciplina paramétrica, Windows, flujo de trabajo. **Condicionado a F0**: si los anidados no
   se cargan de forma confiable, el plan B es `docs/mapa/<paquete>.md`, con un índice en la raíz
   que diga «antes de tocar X, lee `docs/mapa/X.md`».
+  *Ajuste tras F0 (ver Bitácora)*: se suma `core/apolo/CLAUDE.md` para lo común del backend
+  que no tiene paquete propio (`mcp_server.py`, `agent/`, `design/`, `robotics/`, `physics/`).
+  Como un anidado carga también al leer archivos de sus subcarpetas, este llega a toda sesión
+  que lea backend: se mantiene chico (≤ 10 KB). Una regla va donde se hace el CAMBIO, no donde
+  vive el código que la sufre: el bump de `GEOM_CACHE_EPOCH` queda en la raíz porque se olvida
+  al editar un executor, no al leer `doc/geomcache.py`; el otro anidado lleva sólo el link.
 - **D3. La crónica sale de la raíz**:
   - **Madurez** → `docs/benchmark/README.md`: la serie de calificaciones y la reserva.
   - **Hojas de ruta V5–V7** → `docs/roadmap.md`: una línea por versión con link a su plan.
@@ -123,8 +129,13 @@ contra este contrato y vuelve a correr las verificaciones.
 - **F3 — raíz (M).** Depende de F1 y F2. Reescribe la raíz: lo transversal en formato D5, el
   índice de los anidados y el «Estado actual». Corrige la deriva (D6). Verifica: ≤ 30 KB.
 - **F4 — gates (S).** Depende de F3. Agrega `tests/test_claude_md.py` (D1) junto con el script
-  de medición, corre la prueba de sesión fresca (D7) y el pytest completo. Verifica: test en
-  verde y al menos 18 de 20 preguntas correctas.
+  de medición y corre el pytest completo. Después de mergear F1–F4 a `main`, corre la prueba de
+  sesión fresca (D7) con `claude -p` desde el árbol principal: un subagente de una sesión ya
+  abierta NO sirve, porque recibe el CLAUDE.md que se cargó cuando arrancó esa sesión
+  (medido en F0). Verifica: test en verde y al menos 18 de 20 preguntas correctas; si no,
+  se corrige hacia adelante.
+  `poda-claude-md-preguntas.md` (preguntas con respuesta esperada) **no se commitea hasta
+  después de D7**: si estuviera en `main`, el verificador podría encontrarlo con un grep.
 
 ## Lo que este plan NO hace
 
@@ -148,4 +159,54 @@ contra este contrato y vuelve a correr las verificaciones.
 
 ## Bitácora
 
-(vacía hasta cerrar F0)
+**2026-10-03 — aprobación.** Mario: «dale, aprobado; agrega también la regla de 500 líneas».
+Sin vetos. La regla de 500 líneas va en un commit aparte (es código: trinquetes en pytest y
+vitest), no en este plan.
+
+**2026-10-03 — F0 (b), prueba de carga (medida, no supuesta).** Carpeta `tmp_canario/` con un
+`CLAUDE.md` con token canario y una subcarpeta con otro, dentro de un worktree:
+
+| Prueba | Resultado |
+|---|---|
+| `Grep` sobre la subcarpeta (incluso con match dentro del CLAUDE.md) | **no** carga el anidado |
+| `Read` de un archivo de la carpeta | **sí**: llega `CANARIO-RAIZ-7Q2` como memoria |
+| `Read` de un archivo de la subcarpeta | **sí**: llega `CANARIO-SUB-4K9` |
+| Sesión dentro de un worktree | carga los anidados **del worktree** (las rutas de arriba eran del worktree) |
+| Subagente sin aislamiento, cwd = el worktree | carga el CLAUDE.md raíz **del checkout principal**, una vez; no hereda los anidados ya cargados por la sesión padre |
+| Subagente con `isolation: "worktree"` | igual: raíz del checkout principal, una vez |
+
+Consecuencias:
+- **D2 confirmada** (plan A): un CLAUDE.md por paquete llega a quien LEE un archivo del
+  paquete, que es lo que hace toda sesión antes de editarlo. No llega a quien sólo busca con
+  `Grep`: por eso lo transversal se queda en la raíz.
+- **La raíz que leen los subagentes y las sesiones en worktree es la de `main`**: un cambio al
+  CLAUDE.md raíz en un worktree no rige para nadie hasta mergearse. Va como regla en
+  «Sesiones concurrentes» en F3.
+- No hay doble carga de la raíz en un worktree (la del worktree no se suma a la del
+  principal), así que no hace falta mitigar eso.
+- **No medido**: una sesión de Claude Code ARRANCADA desde dentro de un worktree (no un
+  subagente). Si en F4 aparece, se mide con la misma carpeta canario.
+
+**2026-10-03 — F0 (a)(c) cerrada.** Inventario en `poda-claude-md-inventario.md`: 198 bloques,
+128 075 bytes, igual al archivo. Por tipo (KB): regla de paquete 63,7 · crónica 23,0 · regla
+transversal 11,2 · cultura 10,2 · mapa 9,5 · pendiente 6,2 · derivable 0,8 · obsoleto 0,4.
+Proyección: raíz ~22 KB; anidados de core 2,4–6,7 KB; `ui/CLAUDE.md` ~15 KB. Las 20 preguntas
+de D7 están escritas (archivo fuera de git, ver F4). Deriva verificada contra el código, se
+corrige en F1–F3:
+- «sin tool MCP» para el GIF de movimiento es falso (`mcp_server.py:961`).
+- Cuatro conteos viejos de tools (hoy 79).
+- «15 normas» son 16, y «0.6·σy» es 0.5 (`rules.py:927`).
+- `_hole_fit_map` global lo reemplazó `api/main.py:4604`.
+- `isAxisAligned` es código muerto (`handles.ts:82`); `applySaveTint` y `preview_eval` no existen.
+
+Lo que F0 cambió del contrato:
+1. **Un anidado carga también al leer un archivo de una subcarpeta suya** (medido: un `Read`
+   en `tmpc2/hijo/` trajo el CLAUDE.md de `tmpc2/`, aunque `hijo/` no tenía uno). Así,
+   `library/CLAUDE.md` cubre `library/engineering/`, y se puede tener un `core/apolo/CLAUDE.md`
+   para lo común del backend (ajuste en D2).
+2. **Los subagentes reciben el CLAUDE.md raíz que se cargó cuando arrancó la sesión padre**,
+   no el archivo actual. El de F0 recibió el texto viejo («1355 tests · 217 refs · 7-tupla»)
+   aunque `main` y el árbol principal ya tenían el corregido. Por eso D7 corre con `claude -p`
+   y no con un subagente (ajuste en F4).
+3. Las `nota:` de V6.2e y V6.3d y `docs/devlog.md:2836` apuntan a «§ Pendientes», que se va:
+   F2 las redirige a `docs/backlog.md`.
