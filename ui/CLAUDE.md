@@ -119,6 +119,8 @@ inglés en rótulos ni `aria-label` (salvo las siglas de la tabla).
   enumera son las excepciones, con su razón; una excepción que ya no hace falta también falla.
 - Los dos son copia del estándar de Caronte: al actualizarlos, traer la versión nueva y
   re-aplicar sólo el bloque «Configuración del proyecto».
+- **`src/tamanoArchivos.test.ts`**: ningún `.ts`/`.tsx` de `src/` pasa de 500 líneas; los que ya
+  pasan, congelados en su `EXCEPCIONES` (trinquete: el número sólo baja).
 - Los `*.test.ts` están fuera de `tsconfig.json` (usan `node:fs`; la app no carga los tipos de
   Node): vitest los corre sin chequeo de tipos.
 

@@ -50,6 +50,10 @@ puras que NUNCA reciben `Document`) ⟂ `api` (transporte) ⟂ `agent`/`mcp` (cl
 ⟂ `ui`. Cada módulo nuevo: responsabilidad única, testeable aislado, sin estado global
 fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
+**Un archivo de código tiene ≤ 500 líneas**: los que ya pasan quedan congelados en los
+trinquetes `tests/test_tamano_archivos.py` y `ui/src/tamanoArchivos.test.ts` (su número sólo
+baja); partir un archivo grande se hace con un plan.
+
 ## Ejecutar y probar
 
 ```powershell
