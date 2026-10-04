@@ -13,11 +13,19 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
 import apolo.api.main as api
+
+# Lo congelado sale de Windows (numérica de OCCT y texto de los PDF de ESTA máquina): en el
+# CI de Linux difiere sin que la API haya cambiado. Se borra en F7 con el resto del andamio.
+pytestmark = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="andamio temporal del plan partir-api-main; congelado en Windows; se borra en F7",
+)
 
 RAIZ = Path(__file__).resolve().parents[1]
 DATOS = RAIZ / "tests" / "data" / "partir_main"

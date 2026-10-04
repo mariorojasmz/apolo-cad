@@ -364,6 +364,23 @@ def _mapas(api, doc) -> dict:
     return json.loads(json.dumps(_normalizar(salida), ensure_ascii=False, default=list))
 
 
+@contextlib.contextmanager
+def _sin_montajes(app):
+    """La UI estática (`app.mount("/", …)`) sólo existe si hay `ui/dist` (tras `npm run
+    build`): con ella, una URL de la API sin ruta para ese método la atiende el Mount (404
+    «Not Found») en vez del 405 + `Allow` de la API. Las respuestas se capturan SIN montajes
+    —lo congelado no depende del entorno— y se reponen en su sitio al terminar."""
+    rutas = app.router.routes
+    montajes = [(i, r) for i, r in enumerate(rutas) if type(r).__name__ == "Mount"]
+    for i, _ in reversed(montajes):
+        del rutas[i]
+    try:
+        yield
+    finally:
+        for i, r in montajes:
+            rutas.insert(i, r)
+
+
 def capturar_respuestas(api) -> list[dict]:
     """Corre LLAMADAS (y los mapas) con los dos documentos y devuelve las respuestas
     normalizadas. Restaura el estado de sesión de la API al terminar."""
@@ -378,11 +395,12 @@ def capturar_respuestas(api) -> list[dict]:
         api.AUTOSAVE_ERROR = None
         api.STARTUP_ERROR = None
         client = TestClient(api.app, raise_server_exceptions=False)
-        for ident, cual, metodo, path, kwargs, modo in LLAMADAS:
-            api.DOC = docs[cual]
-            entrada = {"id": ident, "doc": cual, "metodo": metodo, "path": path}
-            entrada.update(_llamar(client, metodo, path, kwargs, modo))
-            out.append(entrada)
+        with _sin_montajes(api.app):
+            for ident, cual, metodo, path, kwargs, modo in LLAMADAS:
+                api.DOC = docs[cual]
+                entrada = {"id": ident, "doc": cual, "metodo": metodo, "path": path}
+                entrada.update(_llamar(client, metodo, path, kwargs, modo))
+                out.append(entrada)
         api.DOC = docs["A"]
         out.append({"id": "mapas", "doc": "A", "cuerpo": _mapas(api, docs["A"])})
     finally:
