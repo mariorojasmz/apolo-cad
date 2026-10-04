@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida; faltan F1–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0 (medición) y F1 (andamio) hechas; faltan F2–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -266,3 +266,40 @@ todo antes de integrar.
   restauran. El tamaño del riesgo es eso: 250 fugas de `DOC` y cero de lo demás; si algún test
   dependiera del DOC que le deja el anterior, el fixture D11 lo destapa en F5b (se arregla en el
   test).
+
+### F1 — andamio de verificación (2026-10-03)
+
+- **Qué quedó congelado** (`tests/data/partir_main/`, desde el código SIN tocar de `a31ed69`):
+  `rutas.json` 135 rutas en orden (las 131 de `app` + las 4 de FastAPI; el Mount de la UI queda
+  fuera porque depende de que exista `ui/dist`); `openapi.json` 119 paths y 57 modelos;
+  `textos.json` 342 constantes ≥ 12 caracteres de `main.py`; `respuestas.json` 86 llamadas
+  `TestClient` (38 con status ≥ 400) sobre dos documentos deterministas + una entrada `mapas`.
+  El doc A (15 comandos) alimenta todo lo que se muda: soldadura y contacto (datums), perno M12
+  en el eje de un barreno Ø13.5 (GD&T), fit por nombre y por taladro, rosca M8, ground, «Mesa
+  de carga» y «Tambor de cola» (roles por nombre), grupo, cadena por `{id, eje}` y carga; el doc
+  B es vacío (estados sin proyecto ni piezas). Llamadas y errores pedidos por el contrato
+  incluidos (404 con sugerencia, `stackup?scope=x`, `near` sin modo, `POST /api/fea/assembly
+  {}`, lote con `expect` que falla, `jobs/nope`, `GET /api/fea/group/fringe.png`,
+  `GET /api/commands/batch` → 405 con `Allow: POST`).
+- **Lo que se agregó al contrato y por qué**: (1) la entrada `mapas` = la salida de los 10 mapas
+  y de `_stackup_rules()` sobre el doc A por sus nombres de `main`: F2 los muda y así se verifica
+  el CONTENIDO del corte, no sólo que el PDF salga 200; (2) los PDF del juego de planos y de la
+  memoria se comparan por su TEXTO (pypdf, fechas normalizadas): ahí aterrizan `sheet_set_maps` y
+  el stack-up; (3) los cuerpos que arma OTRO paquete (schemas de la vista persona, guidelines) se
+  guardan sólo por su forma, para que los planes que corren en paralelo sobre `commands` no
+  pongan rojo este andamio; (4) el gate de opcionales vive en su propio archivo permanente,
+  `tests/test_api_opcionales.py` (subproceso: `import apolo.api.main` no carga gmsh, skfem,
+  meshio, mujoco, PIL, vtk, matplotlib, planegcs, anthropic ni mcp), para que sobreviva a F7.
+- **Determinismo**: 3 corridas en procesos separados, idénticas. Al sumar la Mesa y el Tambor,
+  la 2.ª tanda difirió en `soundness.components`: lista de listas que sale de iterar un set
+  (orden según `PYTHONHASHSEED`) → el modo `json-ordenado` ordena también listas de listas;
+  después, 4 corridas idénticas y el congelado = la 1.ª de ellas. Floats a 6 decimales; `epoch`,
+  `rev` y `autosave_pending` reemplazados por su tipo.
+- **Probado rojo y revertido** (`git restore` tras cada uno): renombrar `get_kinematics` →
+  rojos `rutas` y `openapi`; cambiar el texto «Da EXACTAMENTE uno de: point, feature, box» →
+  rojos `textos` y `respuestas` (`near-sin-modo`); declarar `get_fea_fringe` antes que
+  `get_fea_group` → rojos `rutas` y `respuestas` (`fea-group-fringe-url` pasa a responder
+  «No hay campo FEA en memoria para esa pieza»). El OpenAPI no ve ese reorden (sus paths son un
+  dict): por eso existe `rutas.json`.
+- **Gate**: suite 1 520 tests (1 519 + 1 saltado), 0 fallos, 634 s bajo contención; los 4 del
+  andamio + el de opcionales corren en ~23 s; ruff limpio; trinquete verde (`main.py` intacto).
