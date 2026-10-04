@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2 hechas (medición, andamio, services de planos/instalación/stack-up); faltan F3–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0–F3 hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas); faltan F4–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -348,3 +348,50 @@ todo antes de integrar.
   `_thread_schedule`: ahora `services.drawing_maps.thread_schedule`.
 - **Gate**: suite 1 526 tests (1 525 + 1 saltado; +6 nuevos), 0 fallos, 537 s bajo contención;
   ruff limpio; `import apolo.api.main` y cada módulo de `services` se importan solos.
+
+### Andamio: independiente del entorno (2026-10-03, pedido de la sesión principal)
+
+- `tests/test_partir_main_contrato.py` queda `skipif(sys.platform != "win32")`: lo congelado
+  trae numérica de OCCT y texto de PDF de ESTA máquina; en el CI de Linux difería sin que la
+  API cambiara. Temporal, como todo el andamio (F7 lo borra).
+- La respuesta dorada `batch-get-405` dependía de que existiera `ui/dist`: con el build de la
+  UI, `paths.ui_dist()` monta StaticFiles en «/» y `GET /api/commands/batch` lo atendía el Mount
+  (404 «Not Found») en vez del 405 + `Allow: POST`. Comportamiento previo, no regresión.
+  `capturar_respuestas` saca los Mount de `app.router.routes` mientras llama y los repone en su
+  índice (lista de rutas idéntica después). Probado con un `ui/dist/index.html` de mentira (rojo
+  sólo en esa entrada antes del arreglo, verde después) y sin él (verde). No se regeneró nada.
+
+### F3 — services: aserciones, puerta de entrega y reglas de ingeniería (2026-10-03)
+
+- **Nacen** `lookup.py` (43 líneas: `suggest_ids`, `suggest_suffix`), `assertions.py` (207:
+  `verify_checks(doc, scene, …)`, `contract_verify`, `delivery_poses`), `delivery_inputs.py`
+  (62: los kwargs de `delivery_report` salvo `gravedad`), `fea_rules.py` (78) y
+  `engineering_rules.py` (54: `conveyor_params_from_doc`, `requirement_inputs`,
+  `inherit_inclination`, `structure_rules`). `main.py` 4 322 → **3 964** (−358);
+  `agent/agent.py` 606 → **597**.
+- **Cortar y pegar, verificado** con el mismo método de F2: las 7 funciones movidas contra
+  `HEAD`, con `DOC` → `doc`: sólo cambian las firmas (`doc` explícito, `expand=`), el
+  `_expand_ids` → `expand` inyectado y la llamada a `suggest_suffix(doc, m)` (antes
+  `_suggest_suffix`, que leía el global). Andamio de F1 verde SIN regenerar.
+- **`expand` inyectado**: `_expand_ids` toma `STATE_LOCK` y lee los grupos del `DOC` activo;
+  services no puede nombrar ninguno de los dos, así que la API lo pasa como `expand=_expand_ids`
+  (verify, contrato, poses, puerta). Es la única dependencia de transporte que entra por
+  argumento.
+- **D7 al pie de la letra**: de `run_checks` y `calc_report_pdf` salió SÓLO lo idéntico —las
+  bases de diseño desde los requisitos (`requirement_inputs`), la inclinación heredada
+  (`inherit_inclination`) y estructura universal + FEA (`structure_rules`)—. Se quedan en cada
+  endpoint: la velocidad (`or` vs `is not None`), los lints (sólo checks), el stack-up y el
+  «alcance de la memoria» (sólo memoria) y la detección de la faja (checks intercala
+  `body.conveyor` e `infer_from_solids` entre los mismos pasos: unificarla obligaba a meter un
+  parámetro muerto en la memoria).
+- **D10**: `conveyor_params_from_doc` vive en `engineering_rules.py`; el agente la importa con
+  su nombre viejo (una línea) y la API dejó de importar un privado del agente.
+- **D4**: `_fea_rules()` y `_suggest_ids(m)` quedan como envoltorios sobre el `DOC` activo
+  (los usan `test_fea_assembly.py` y `test_v65c_fixes.py`); `_verify_checks`,
+  `_contract_verify`, `_delivery_poses` y `_suggest_suffix` no los usa ningún test y salen sin
+  re-export. Ningún test se editó.
+- **D13**: `services/CLAUDE.md` gana § Aserciones, § Puerta de entrega y § Reglas de
+  ingeniería y FEA (lo de `$k`, sugerencias, poses y exclusiones sale de `api/CLAUDE.md`, que
+  conserva el rollback del contrato y el `_not_found`); índice de la raíz al día.
+- **Gate**: suite 1 554 tests (1 553 + 1 saltado, `test_two_locks`), 0 fallos; ruff limpio; `import apolo.api.main` y cada módulo nuevo se importan
+  solos.

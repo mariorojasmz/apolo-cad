@@ -1,9 +1,10 @@
 # API (`core/apolo/api/`)
 
 Transporte HTTP/WS (`main.py`), jobs asíncronos (`jobs.py`) y log de errores (`errorlog.py`).
-`main.py` además arma lo que necesita el FEA (sus reglas, al final); los mapas por pieza de los
-planos, los datos de instalación y la evaluación de stack-up son de [services](../services/CLAUDE.md)
-(se está partiendo `main.py`: [plan](../../../docs/plans/partir-api-main.md)). Lo transversal
+`main.py` además prepara el FEA (al final); los mapas por pieza de los planos, los datos de
+instalación, el stack-up, las aserciones `verify`/`expect`, los insumos de la puerta de entrega y
+las reglas de ingeniería y FEA son de [services](../services/CLAUDE.md) (se está partiendo
+`main.py`: [plan](../../../docs/plans/partir-api-main.md)). Lo transversal
 (`STATE_LOCK`, log, regenerate, Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el
 cliente MCP, en [core/apolo](../CLAUDE.md).
 
@@ -27,24 +28,13 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 ## Lotes con contrato (`expect`)
 
 - `run_batch`/`edit_batch` aceptan `expect` = aserciones de `verify`, evaluadas con el MISMO
-  `_verify_checks` que `/api/verify`. Si alguna falla tras el regenerate → `ContractError` y
-  `execute_many`/`edit_many` revierten el lote CONSUMIENDO el snapshot (sin undo fantasma; doc
-  bit-idéntico): el callback `verify(scene, created)` corre DENTRO del try. Sin `expect`, todo
-  byte-idéntico. [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md)
-- `$k` resuelve a los FEATURE_IDS del comando k, 1-INDEXADO (`$1` = primera acción; `$0` lo
-  explica el error). Multi-sólido expande en `ids`; en un campo singular → error accionable,
-  nunca elige uno. Una clave desconocida en una aserción → error «no reconocida» con las válidas;
-  «sin piezas» nombra los tokens que no resolvieron. [V6.5c](../../../docs/plans/V6.5c-fixes-revision.md)
-- Un 404 por id (near, measure, get_topology, edit_command, mass, selectores de verify/expect)
-  trae «¿quisiste decir…?» (`_suggest_ids`: difflib sobre fids + command_ids + grupos + substring
-  de nombre); un command_id multi-sólido sugerido → sus fids hijos.
-- `distancia`/`sin_interferencia` aceptan `joint_values` POR ASERCIÓN y se evalúan con el
-  mecanismo POSADO (`pose_fn` inyectado en `library/verify.run_verify`, que sigue pura). `pose_fn`
-  valida los nombres de junta ANTES de posar: la FK ignora desconocidos y el typo pasaría verde.
-  En pose la interferencia suma `interpenetration_report`; caché por pose (N aserciones = 1 FK);
-  todo-cero = pose de diseño. [V6.8](../../../docs/plans/V6.8-mcp-fluidez.md)
-- `_verify_checks(extra_exclude_pairs/ids)` son las exclusiones del delivery check; `None` deja
-  los contratos intactos.
+  `services.assertions.verify_checks` que `/api/verify`. Si alguna falla tras el regenerate →
+  `ContractError` y `execute_many`/`edit_many` revierten el lote CONSUMIENDO el snapshot (sin
+  undo fantasma; doc bit-idéntico): el callback `verify(scene, created)` corre DENTRO del try.
+  Sin `expect`, todo byte-idéntico. Cómo se resuelven `$k`, las poses y las sugerencias:
+  [services](../services/CLAUDE.md). [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md)
+- Un 404 por id (near, measure, get_topology, edit_command, mass) sale de `_not_found`, que suma
+  el «¿quisiste decir…?» de `services/lookup.py`.
 - `open_project` devuelve `briefing` (`_open_briefing`, < 10 KB): resumen por grupo + variables +
   requisitos + notas (últimas 20 + `notas_truncadas`) + salud + variantes.
 
@@ -127,10 +117,13 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 
 ## Lo que sigue en `main.py` para otros paquetes
 
-- Los mapas por pieza de los planos (fits, datum, GD&T, tolerancias), los datos de instalación y
-  la evaluación de stack-up se mudaron a [services](../services/CLAUDE.md), con sus reglas;
-  `main` re-exporta sus nombres viejos por IDENTIDAD (`_piece_dim_tols`…) porque los usan los
-  tests, y el juego de planos en PDF y DWG toma sus kwargs de `sheet_set_maps(doc)`.
+- Los mapas por pieza de los planos (fits, datum, GD&T, tolerancias), los datos de instalación,
+  el stack-up, las aserciones, la puerta de entrega y las reglas de ingeniería y FEA se mudaron a
+  [services](../services/CLAUDE.md), con sus reglas; `main` re-exporta por IDENTIDAD los nombres
+  viejos que usan los tests (`_piece_dim_tols`…), deja envoltorios sobre el documento activo
+  (`_fea_rules()`, `_stackup_rules()`, `_suggest_ids(m)`) e INYECTA `expand=_expand_ids` (toma
+  `STATE_LOCK`, que services no puede nombrar). El juego de planos en PDF y DWG toma sus kwargs
+  de `sheet_set_maps(doc)`.
 - **FEA**: el endpoint deriva el empotramiento de los `grounds` y la carga de
   `requirements.carga_kg` sobre la cama/mesa (`services/roles.py::BED_RE`) o de `loads` explícitos; vigencia por
   volumen conjunto (`DOC.fea["group:<nombre>"]`); re-correr con otro `mesh_size` mueve el run

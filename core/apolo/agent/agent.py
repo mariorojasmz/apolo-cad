@@ -14,6 +14,7 @@ from collections.abc import Iterator
 
 from apolo.commands.registry import REGISTRY, CommandError, validate_params
 from apolo.doc import Document
+from apolo.services.engineering_rules import conveyor_params_from_doc as _conveyor_params_from_doc
 
 from .hooks import SIN_GANCHOS, AgentHooks, ProjectChanged, ensure_alive, mutation_guard
 from .prompts import SYSTEM_PROMPT
@@ -299,16 +300,6 @@ def validate_actions(actions: list[dict], variables: dict | None = None) -> list
 
 def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-
-
-def _conveyor_params_from_doc(doc: Document) -> dict | None:
-    from apolo.commands import resolve_params
-
-    cmd = next((c for c in reversed(doc.commands) if c["type"] == "create_conveyor"), None)
-    if cmd is None:
-        return None
-    defaults = {"largo": 2000, "ancho": 600, "altura": 750, "paso": 100, "rodillo": "RODILLO-50", "motor": "ninguno"}
-    return {**defaults, **resolve_params(cmd["params"], doc.variables_resolved)}
 
 
 def run_validation_tool(doc: Document, name: str, tool_input: dict):

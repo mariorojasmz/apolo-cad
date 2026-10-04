@@ -1,7 +1,8 @@
 # Servicios de dominio (`core/apolo/services/`)
 
 La lógica que LEE un `Document` y que comparten sus clientes: mapas por pieza de los planos,
-datos de la lámina de instalación, evaluación de las cadenas de cotas. Nació al partir
+datos de la lámina de instalación, evaluación de las cadenas de cotas, aserciones `verify` y
+contrato `expect`, insumos de la puerta de entrega, reglas de ingeniería y FEA. Nació al partir
 `api/main.py` ([plan](../../../docs/plans/partir-api-main.md)). Lo transversal (locks, log,
 fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del backend, en
 [core/apolo](../CLAUDE.md); el transporte que los llama, en [api](../api/CLAUDE.md).
@@ -18,8 +19,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - Los imports pesados quedan DENTRO de la función (gmsh, VTK, matplotlib…): importar la API no
   los carga (`tests/test_api_opcionales.py`).
 - Nombres públicos sin `_`. `api/main.py` re-exporta POR IDENTIDAD los nombres viejos que usan
-  los tests (`_piece_dim_tols`, `_feature_fit_maps`, `_installation_data`…); `_stackup_rules()`
-  queda como envoltorio sobre `stackup_rules(doc)` del documento activo.
+  los tests (`_piece_dim_tols`, `_feature_fit_maps`, `_installation_data`…); `_stackup_rules()`,
+  `_fea_rules()` y `_suggest_ids(m)` quedan como envoltorios sobre el documento activo.
+- Lo que sólo el transporte sabe hacer se INYECTA, no se importa: `expand` (nombres de grupo →
+  fids; en la API es `_expand_ids`, que toma `STATE_LOCK`) entra como argumento keyword.
 
 ## Mapas por pieza para los planos (`drawing_maps.py`)
 
@@ -60,6 +63,46 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   fasten lo creó un comando `join_bolted` (no por nombre `jb_*`); un perno manual = holgura
   informativa, sin veredicto. El rollback del PUT es del endpoint ([api](../api/CLAUDE.md)).
   [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)
+
+## Aserciones (`assertions.py`, `lookup.py`)
+
+- `verify_checks(doc, scene, …)` es la fuente ÚNICA de `/api/verify` y del contrato `expect`
+  (`contract_verify` → callback de `execute_many`/`edit_many`; el rollback es de
+  [api](../api/CLAUDE.md)). [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md)
+- `$k` resuelve a los FEATURE_IDS del comando k, 1-INDEXADO (`$1` = primera acción; `$0` lo
+  explica el error). Multi-sólido expande en `ids`; en un campo singular → error accionable,
+  nunca elige uno. Una clave desconocida en una aserción → error «no reconocida» con las válidas;
+  «sin piezas» nombra los tokens que no resolvieron. [V6.5c](../../../docs/plans/V6.5c-fixes-revision.md)
+- «¿Quisiste decir…?» (`suggest_ids`: difflib sobre fids + command_ids + grupos + substring de
+  nombre) en los 404 por id y en los selectores de verify/expect; un command_id multi-sólido
+  sugerido → sus fids hijos, nunca él mismo.
+- `distancia`/`sin_interferencia` aceptan `joint_values` POR ASERCIÓN y se evalúan con el
+  mecanismo POSADO (`pose_fn` inyectado en `library/verify.run_verify`, que sigue pura). `pose_fn`
+  valida los nombres de junta ANTES de posar: la FK ignora desconocidos y el typo pasaría verde.
+  En pose la interferencia suma `interpenetration_report`; caché por pose (N aserciones = 1 FK);
+  todo-cero = pose de diseño. [V6.8](../../../docs/plans/V6.8-mcp-fluidez.md)
+- `extra_exclude_pairs/ids` son las exclusiones de la puerta de entrega; `None` deja los
+  contratos intactos.
+
+## Puerta de entrega (`delivery_inputs.py`, `assertions.delivery_poses`)
+
+- `delivery_inputs(doc)` arma los kwargs de `library.delivery.delivery_report` salvo la gravedad
+  (opt-in: la simula la API con su lock). Excluye lo DECLARADO (par con fasten, tornillería a
+  medida por `_is_bolt`) con las MISMAS exclusiones en diseño y en las poses de REPOSO
+  (`delivery_poses`: extremos + dwells); el porqué, en [library](../library/CLAUDE.md).
+  [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
+
+## Reglas de ingeniería y FEA (`engineering_rules.py`, `fea_rules.py`)
+
+- `/api/checks` y la memoria comparten SÓLO lo idéntico (`requirement_inputs`,
+  `inherit_inclination`, `structure_rules` = estructura universal + FEA). Sus diferencias son
+  deliberadas y quedan en cada endpoint: velocidad con `or` (checks) vs `is not None` (memoria),
+  lints sólo en checks, stack-up y «alcance de la memoria» sólo en la memoria. No las unifiques.
+- `conveyor_params_from_doc` es de los tres clientes (checks, memoria, tool `engineering_check`
+  del agente, que la importa con su nombre viejo).
+- `fea_rules`: VIGENCIA por volumen (>0.1 % de cambio, o pieza borrada → aviso «re-ejecuta»); el
+  de ensamblaje por volumen CONJUNTO de `piezas_fids`. Tabla por pieza con tope 8 filas, 5 si
+  hay historial de convergencia (el calc_report imprime ≤ 12); `hipotesis` va a la memoria.
 
 ## Roles por nombre (`roles.py`)
 

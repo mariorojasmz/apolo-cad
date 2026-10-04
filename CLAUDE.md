@@ -115,7 +115,7 @@ también a quien sólo busca o trabaja por MCP.
 | [library](core/apolo/library/CLAUDE.md) | catálogo y builders, materiales, chapa, ingletes, ingeniería y normas, stack-up, reglas de conveyor, interferencias, lints, puerta de entrega |
 | [drawing](core/apolo/drawing/CLAUDE.md) | planos y entregables: último kilómetro (soldadura, tolerancias, Ra, datum, GD&T), proceso, manual, instalación, DWG |
 | [fea](core/apolo/fea/CLAUDE.md) | FEA estático de pieza y bonded de ensamblaje |
-| [services](core/apolo/services/CLAUDE.md) | dominio que lee un `Document` (reglas de la capa): mapas por pieza de los planos, datos de instalación, stack-up, roles por nombre |
+| [services](core/apolo/services/CLAUDE.md) | dominio que lee un `Document` (reglas de la capa): mapas por pieza de los planos, datos de instalación, stack-up, aserciones y contrato `$k`, puerta de entrega, reglas de ingeniería y FEA, roles por nombre |
 | [api](core/apolo/api/CLAUDE.md) | mutaciones, lotes con contrato, jobs, lecturas a escala, deltas, autosave, tests de la API, lo que `main.py` arma para el FEA |
 | [ui](ui/CLAUDE.md) | texto para el usuario —también errores de la API y prompts— (tuteo neutro, gates), preview, paneles, sync, viewport, croquis |
 
