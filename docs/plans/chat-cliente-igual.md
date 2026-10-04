@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (spikes verdes) y F1 (golden del MCP) hechas, sin mergear; sigue F2. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
+nota: F0–F2 hechas (spikes verdes, golden del MCP, destino inyectable), sin mergear; F4 puede seguir ya. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
 descripcion: El asistente de la app usa las mismas herramientas que el agente por MCP (puerta de entrega, gravedad, verify, render nítido, lotes con contrato), te avisa cuando se corta y cuesta menos por mensaje
 ---
 
@@ -393,3 +393,31 @@ sirve en tiempo de ejecución para F7/F8; F7 fija el pin en `>=0.109.1` (la mín
   del JSON), no de Apolo; el cuerpo se registra entero. El golden sí fija la salida de `mcp` y
   `pydantic`: un upgrade que cambie el schema lo pone rojo a propósito (el test imprime las
   versiones y cómo re-congelar).
+- Suite: 1393 passed + 1 skipped (1394 recolectados; el commit de F1 dice «1394 passed»: contó
+  el skip).
+
+### F2 — destino inyectable, brief e instructions fuera del MCP (2026-10-03)
+
+- `tools/__init__.py` (6 líneas) y `tools/destino.py` (66): `Destino(base_url, abrir)`,
+  `Destino.http(base_url, cabeceras)` (la config de D2: `timeout=120`, `trust_env=False`,
+  cabeceras fijas), `apuntar()` (context manager: anida y restaura aunque el bloque lance) y
+  `actual()` sobre un `threading.local`.
+- `brief.py` (84, puro: sólo importa `__future__`): `_scene_brief` y `_one_or_many` movidos al
+  pie de la letra (comparado por AST contra `HEAD`) y re-exportados por identidad desde
+  `mcp_server` (D17).
+- `design/instrucciones.py` (42): `GUIA_TECNICA`, `AVISO_CONEXION` e `instrucciones_mcp()` =
+  `design_brief() + "\n\n" + GUIA_TECNICA + " " + AVISO_CONEXION`, byte-idéntica. La
+  contradicción set_visibility ↔ isolate queda anotada en el código para F6 (D10).
+- `_api` consulta `destino.actual()`: con destino abre `d.abrir()` y nombra `d.base_url` en el
+  error de conexión; sin destino, `httpx.Client(base_url=APOLO_URL, timeout=120)` como antes (el
+  golden registra esos kwargs: siguen idénticos). `_api`, `_submit_and_wait`, `APOLO_URL` y
+  `APOLO_MCP_WAIT_S` se quedan en `mcp_server.py`.
+- `mcp_server.py` 1517 → **1429** líneas (trinquete actualizado en el mismo commit).
+- `tests/test_mcp_destino.py` (12): `call_tool` va al destino del hilo con su cabecera;
+  `run_batch` encola y hace el long-poll en el MISMO destino; dos hilos a la vez sin cruces;
+  anidar y restaurar; un 400 por destino da el mismo texto que por stdio; la conexión
+  rechazada nombra el destino; config de `Destino.http`; re-export por identidad; instructions
+  compuestas; `brief.py` puro y `tools/` sin imports de `apolo` (AST).
+- Golden de F1 **idéntico** tras F2, y `test_jobs`, `test_mcp_defaults`, `test_autonomous` y
+  `test_mcp_brief` (los que parchean `_api`/`APOLO_URL`/`APOLO_MCP_WAIT_S`) pasan sin editarse.
+- Suite: 1405 passed + 1 skipped; `ruff check core tests scripts` limpio.

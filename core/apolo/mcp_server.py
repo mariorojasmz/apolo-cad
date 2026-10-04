@@ -18,7 +18,9 @@ import time
 import httpx
 from mcp.server.fastmcp import FastMCP, Image
 
-from apolo.design import design_brief
+from apolo.brief import _one_or_many, _scene_brief
+from apolo.design.instrucciones import instrucciones_mcp
+from apolo.tools import destino
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -29,38 +31,23 @@ APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 APOLO_MCP_WAIT_S = float(os.environ.get("APOLO_MCP_WAIT_S", "90"))
 _JOB_POLL_S = 20.0
 
-mcp = FastMCP(
-    "apolo-cad",
-    instructions=(
-        # Criterio de ingeniería SIEMPRE presente (capa 1): el agente diseña como un
-        # ingeniero/estructurista por defecto, no solo ejecuta al pie de la letra.
-        # El detalle y los ejemplos están en el tool get_design_guidelines (capa 2).
-        design_brief() + "\n\n"
-        "CAD paramétrico Genix Apolo. Unidades mm, eje Z arriba, primitivas centradas. "
-        "El documento es un log de comandos: cada operación es editable y deshacible. "
-        "Consulta get_command_schemas para los parámetros de cada comando; usa '$k' en lotes "
-        "para referenciar sólidos creados en el mismo lote, y '=expresión' en campos numéricos "
-        "para usar variables del proyecto (resuélvelas con resolve_expression y consulta la "
-        "gramática con get_expression_grammar). Verifica tus montajes con check_interference y "
-        "render_view (highlight_ids resalta una pieza; combínalo con set_visibility para aislar). "
-        "Para elegir bien una arista/cara antes de fillet/chamfer/drill/add_mate, mira la geometría "
-        "con get_topology(id) y traduce a un selector declarativo (cara/direccion/longitud/cerca). "
-        "Antes de escribir, PRUEBA en seco con test_sketch/test_script (no tocan el "
-        "documento) y valida una faja por sus parámetros con engineering_check(conveyor=...). "
-        "get_command(id) devuelve los parámetros actuales de un comando para editarlo. Si una "
-        "llamada falla con error de conexión, el servidor Apolo no está arrancado "
-        "(uvicorn apolo.api.main:app --port 8000)."
-    ),
-)
+# Instructions = criterio de ingeniería (capa 1) + guía técnica + aviso de conexión: una sola
+# guía para el MCP y el chat (design/instrucciones.py).
+mcp = FastMCP("apolo-cad", instructions=instrucciones_mcp())
 
 
 def _api(method: str, path: str, **kwargs):
+    # El chat de la app fija en su hilo la API que lo atiende (tools/destino.py); el MCP por
+    # stdio no fija nada y habla con APOLO_URL, leído aquí para que los tests lo parcheen.
+    d = destino.actual()
+    base = d.base_url if d else APOLO_URL
     try:
-        with httpx.Client(base_url=APOLO_URL, timeout=120) as client:
+        cliente = d.abrir() if d else httpx.Client(base_url=APOLO_URL, timeout=120)
+        with cliente as client:
             response = client.request(method, path, **kwargs)
     except httpx.ConnectError as exc:
         raise RuntimeError(
-            f"No hay conexión con Apolo en {APOLO_URL}: arranca el servidor "
+            f"No hay conexión con Apolo en {base}: arranca el servidor "
             "(uvicorn apolo.api.main:app --port 8000)"
         ) from exc
     if response.status_code >= 400:
@@ -124,81 +111,6 @@ def _job_result(payload: dict, detail: str) -> dict:
     out = _scene_brief(payload, detail)
     if "contrato" in payload:
         out["contrato"] = payload["contrato"]
-    return out
-
-
-def _one_or_many(one: str | None, many: list[str] | None, campo: str = "feature") -> list[str]:
-    """Normaliza los params excluyentes `x` (uno) / `xs` (lote) a una lista (V6.8-A)."""
-    if bool(one) == bool(many):
-        raise ValueError(f"Pasa exactamente uno de los dos: `{campo}` (uno) o `{campo}s` (lote)")
-    return [one] if one else list(many)
-
-
-def _scene_brief(payload: dict, detail: str = "diff") -> dict:
-    """Resumen sin mallas (las mallas son para el viewport, no para el agente).
-
-    detail controla qué sólidos se listan tras una mutación:
-      - "full"    → todos los sólidos de la escena (con bbox).
-      - "diff"    → solo los del/los comando(s) afectado(s) por esta operación
-                    (`affected_command_ids`). Si no hay afectados (consultas), lista
-                    todos. Es el default: evita volcar cientos de sólidos al editar uno.
-      - "summary" → solo id/nombre/comando de los afectados (sin bbox/volumen).
-    Siempre incluye `total_solidos` (conteo de la escena) y `solidos_mostrados`.
-    """
-    doc = payload.get("document", {})
-    feats = payload.get("features", [])
-    total = payload.get("total_features", len(feats))
-    affected = set(payload.get("affected_command_ids") or [])
-
-    if detail == "full" or (detail == "diff" and not affected):
-        shown = feats
-    else:
-        # prefijo: las piezas de un insert_project llevan command_id sintético
-        # '{cmd}_{cmd_origen}' — también son "del comando afectado"
-        shown = [
-            f for f in feats
-            if f["command_id"] in affected
-            or any(f["command_id"].startswith(a + "_") for a in affected)
-        ]
-
-    if detail == "summary":
-        solidos = [
-            {"id": f["id"], "nombre": f["name"], "comando": f["command_id"]} for f in shown
-        ]
-    else:
-        solidos = [
-            {
-                "id": f["id"],
-                "nombre": f["name"],
-                "visible": f["visible"],
-                "bbox": f["bbox"],
-                "volumen_mm3": f["volume_mm3"],
-                "componente": f["component"],
-                "comando": f["command_id"],
-                **({"grupo": f["group"]} if f.get("group") else {}),
-                **({"boceto": True} if f.get("is_guide") else {}),
-            }
-            for f in shown
-        ]
-    # `variables` es verboso (~33 entradas) y se repetía en CADA mutación. Lo incluimos
-    # solo cuando aporta: vista completa, consulta (sin afectados) o cuando la operación
-    # tocó alguna variable (su command_id es un set_variable). Las mutaciones de geometría
-    # —el caso común— ya no lo arrastran. Para verlas siempre, usar get_scene.
-    var_ids = {c["id"] for c in doc.get("commands", []) if c.get("type") == "set_variable"}
-    include_vars = detail == "full" or not affected or bool(affected & var_ids)
-    out = {
-        "proyecto": doc.get("name"),
-        "configuraciones": doc.get("configurations"),
-        "puede_deshacer": doc.get("can_undo"),
-        "puede_rehacer": doc.get("can_redo"),
-        "total_solidos": total,
-        "solidos_mostrados": len(solidos),
-        "solidos": solidos,
-    }
-    if include_vars:
-        out["variables"] = doc.get("variables")
-    if payload.get("aviso_estructura"):  # alarma ambiental (V6.9-B): 0 anclajes declarados
-        out["aviso_estructura"] = payload["aviso_estructura"]
     return out
 
 

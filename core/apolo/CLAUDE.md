@@ -22,8 +22,12 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   un cliente MCP —docstring, default, orden de params, salida— lo pone rojo; si es deliberado,
   revisa el diff y `python scripts/golden_mcp.py --congelar`.
   [chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)
-- El brief sin mallas (`_scene_brief`) espeja los campos de `_feature_brief` del servidor: un
-  campo nuevo va en los dos. Con `detail="diff"` lista sólo los sólidos de
+- `_api` habla con el destino que el hilo fijó (`tools/destino.py`, `threading.local`: el chat
+  de la app) o, si no hay, con `APOLO_URL`. Lo que un test parchea por nombre (`_api`,
+  `_submit_and_wait`, `APOLO_URL`, `APOLO_MCP_WAIT_S`) no sale de `mcp_server.py`; lo que se
+  saca se re-exporta con el mismo nombre. Las instructions salen de `design/instrucciones.py`.
+- El brief sin mallas (`brief.py::_scene_brief`, puro) espeja los campos de `_feature_brief` del
+  servidor: un campo nuevo va en los dos. Con `detail="diff"` lista sólo los sólidos de
   `affected_command_ids`, también por PREFIJO (las piezas de un `insert_project` llevan
   command_id sintético `{cmd}_{orig}`); `variables` viaja sólo si la operación tocó un
   `set_variable`. Pasa al agente `contrato` y `aviso_estructura` ([api](api/CLAUDE.md)).
