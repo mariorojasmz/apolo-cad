@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (medición) y F1 (andamio) hechas; faltan F2–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0–F2 hechas (medición, andamio, services de planos/instalación/stack-up); faltan F3–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -303,3 +303,48 @@ todo antes de integrar.
   dict): por eso existe `rutas.json`.
 - **Gate**: suite 1 520 tests (1 519 + 1 saltado), 0 fallos, 634 s bajo contención; los 4 del
   andamio + el de opcionales corren en ~23 s; ruff limpio; trinquete verde (`main.py` intacto).
+
+### F2 — services: mapas de planos, instalación y stack-up (2026-10-03)
+
+- **Nace `core/apolo/services/`**: `__init__.py` (13 líneas; no importa sus módulos), `roles.py`
+  (14: `BED_RE`, `SERVICE_RE`), `stackup_eval.py` (170: `resolve_nominal`,
+  `stackup_link_from_feature(doc, …)`, `evaluate_stackups(doc, scope)`, `auto_bolt_stackups`,
+  `stackup_rules`), `installation_data.py` (112) y `drawing_maps.py` (350: datum, GD&T,
+  tolerancias de posición y justificadas, fits, roscas y `sheet_set_maps`). `main.py` 4 913 →
+  **4 322** líneas (−591), con su número bajado en el trinquete.
+- **Cortar y pegar, verificado**: un script del scratchpad saca de `HEAD` las 16 funciones
+  movidas, les aplica SÓLO los renombres permitidos (`DOC` → `doc`, sin `_`, la firma de D6) y
+  las compara con las nuevas: 0 diferencias. El andamio de F1 queda verde SIN regenerar (rutas,
+  OpenAPI, los 342 textos —ahora en `services/`— y las 87 respuestas, incluidos `mapas` y el
+  texto del juego de planos y de la memoria).
+- **D6 medido**: el código viejo, con otro documento activo, devolvía `{}` en
+  `_piece_dim_tols(doc)` (la lámina perdía la tolerancia de su cadena); con `api.DOC = doc` —lo
+  que hacían los tests— daba bien. Ahora `stackup_link_from_feature` recibe `doc` y lo ata el
+  test nuevo `tests/test_services_doc_explicito.py` (documento activo distinto a propósito; rojo
+  con el código viejo). Por HTTP no cambia nada: los endpoints pasan el activo.
+- **D7**: `sheet_set_maps(doc)` arma los 10 kwargs del documento; el PDF y el DWG pasan
+  `colors=_feature_colors(), **sheet_set_maps(DOC)` (mismo orden de evaluación que antes) y
+  `shaded` sigue sólo en el PDF.
+- **D4**: `main` re-exporta por IDENTIDAD los 10 mapas que usan los tests (`_feature_fit_maps`,
+  `_hole_fit_map`, `_scene_fit_map`, `_hole_thread_map`, `_thread_schedule`,
+  `_piece_datum_sides`, `_piece_datum_frame`, `_piece_pos_tols`, `_piece_dim_tols`,
+  `_installation_data`) y `_BED_RE` (el FEA lo usa hasta F4); `_stackup_rules()` queda como
+  envoltorio sobre `stackup_rules(DOC)`. Lo que nadie usa fuera de su módulo
+  (`_evaluate_stackups`, `_auto_bolt_stackups`, `_resolve_nominal`,
+  `_stackup_link_from_feature`, `_datum_candidates`, `_SERVICE_RE`) no se re-exporta: los
+  endpoints llaman `evaluate_stackups(DOC, …)`. Ningún test se editó; `import re` salió de
+  `main` (sólo lo usaban los roles).
+- **Gate permanente `tests/test_capas_services.py`** (AST, también los imports perezosos): de
+  `apolo`, sólo kernel/commands/doc/library/drawing/fea/assembly/robotics, `services` y `batch`
+  (**desviación**: `apolo/batch.py` es de la capa de `doc` y F3 lo necesitará para el
+  `resolve_refs` del contrato `$k`); nada de fastapi/starlette; prohibido nombrar `DOC`,
+  `STORE`, `PROJECT_ID`, `AUTOSAVE_ERROR`, `STARTUP_ERROR`, `STATE_LOCK` o `HTTPException`, o
+  declararlos `global`; cada módulo se importa SOLO en un subproceso; un test del gate prueba
+  que caza cada prohibición.
+- **D13**: `services/CLAUDE.md` nace con las reglas mudadas de `api/CLAUDE.md` (fits, datum,
+  GD&T, tolerancia justificada, instalación, stack-up, roles); `api/CLAUDE.md` conserva el FEA y
+  el rollback del PUT de stack-up; links al día en drawing, library y `core/apolo`; la raíz suma
+  `services` a § Escala y al índice (27,4 KB). El docstring de `drawing/sheetset.py` nombraba
+  `_thread_schedule`: ahora `services.drawing_maps.thread_schedule`.
+- **Gate**: suite 1 526 tests (1 525 + 1 saltado; +6 nuevos), 0 fallos, 537 s bajo contención;
+  ruff limpio; `import apolo.api.main` y cada módulo de `services` se importan solos.

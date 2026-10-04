@@ -62,7 +62,7 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   «asiento ISO 286» (`report.py`) detecta pares eje ↔ rodamiento (fastener/junta/mate concéntrico
   + Ø coincidente): sin fit → aviso; k6 en inserto UC → ERROR. [devlog § V5.4](../../../docs/devlog.md)
 - El fit del EJE va en el NOMBRE («Eje motriz Ø35 h7») y el del taladro en `drill_hole.fit`; los
-  planos los rotulan solos (mapas por pieza en [api](../api/CLAUDE.md)).
+  planos los rotulan solos (mapas por pieza en [services](../services/CLAUDE.md)).
 - Roscas (`threads.py`): `drill_hole.thread` taladra a la broca de machuelado PUBLICADA (M8 →
   Ø6.8; `diameter` se ignora); fit y thread son excluyentes (la rosca interior es 6H fija). Las
   roscas exteriores, fuera de alcance (por nombre, como los fits). [devlog § V5.7](../../../docs/devlog.md)
@@ -86,8 +86,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   ISO 2768-1 (el número del «ISO 2768-mK» del cajetín).
 - Las cadenas DECLARADAS son metadato (`Document.stackups`) con endpoint, NO comando: meterlas al
   log rompería la invariante de checkpoints (raíz). Un eslabón `{id, eje}` mide el bbox VIVO;
-  `nominal_mm: "=expr"` sigue las variables. Evaluación, rollback y cadenas auto de pernos:
-  [api](../api/CLAUDE.md). [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)
+  `nominal_mm: "=expr"` sigue las variables. Evaluación y cadenas auto de pernos:
+  [services](../services/CLAUDE.md); el rollback del PUT, [api](../api/CLAUDE.md).
+  [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)
 - `bolt_pattern_budget(flotante=)`: perno + TUERCA (pasante) → holgura completa; perno fijo →
   la mitad. Declarar flotante sin tuerca sería optimista.
 

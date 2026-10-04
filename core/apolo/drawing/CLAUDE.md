@@ -6,7 +6,8 @@ de ensamblaje, memoria de cálculo, cotización, lámina de instalación y DWG. 
 backend, en [core/apolo](../CLAUDE.md).
 
 ⚠️ Los mapas por pieza que alimentan las láminas (fits, datums, GD&T, tolerancias justificadas,
-datos de instalación) se calculan en `api/main.py`: sus reglas están en [api](../api/CLAUDE.md).
+datos de instalación) se calculan en `services/` (`drawing_maps.py`, `installation_data.py`): sus
+reglas están en [services](../services/CLAUDE.md).
 
 ## Mapa
 
@@ -86,4 +87,4 @@ datos de instalación) se calculan en `api/main.py`: sus reglas están en [api](
 
 - Compone planta de la huella, cotas entre ejes, carga por apoyo y tabla de datos de obra. La
   carga la calcula `library/engineering/installation.py`; los datos (apoyos sin tornillería,
-  COG, holguras, suministro), `_installation_data` en [api](../api/CLAUDE.md).
+  COG, holguras, suministro), `installation_data` en [services](../services/CLAUDE.md).

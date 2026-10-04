@@ -3,7 +3,7 @@
 Lo común del backend que no tiene paquete propio: MCP (`mcp_server.py`), agente de la app
 (`agent/`), criterio de diseño (`design/`), cinemática (`robotics/`) y física (`physics/`). Cada
 paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`, `drawing`,
-`fea`, `api`) trae sus reglas; lo transversal (locks, log, flujo de trabajo) está en el
+`fea`, `services`, `api`) trae sus reglas; lo transversal (locks, log, flujo de trabajo) está en el
 [CLAUDE.md raíz](../../CLAUDE.md). Este archivo carga en TODA lectura de backend: se mantiene ≤ 10 KB.
 
 ## Reglas comunes

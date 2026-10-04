@@ -11,7 +11,6 @@ import asyncio
 import contextlib
 import json
 import os
-import re
 import tempfile
 import threading
 import time
@@ -45,6 +44,21 @@ from apolo.library import (
     conveyor_engineering_check,
     interference_report,
 )
+from apolo.services.drawing_maps import (  # D4: nombres viejos por IDENTIDAD (tests)
+    feature_fit_maps as _feature_fit_maps,  # noqa: F401
+    hole_fit_map as _hole_fit_map,  # noqa: F401
+    hole_thread_map as _hole_thread_map,
+    piece_datum_frame as _piece_datum_frame,  # noqa: F401
+    piece_datum_sides as _piece_datum_sides,  # noqa: F401
+    piece_dim_tols as _piece_dim_tols,  # noqa: F401
+    piece_pos_tols as _piece_pos_tols,  # noqa: F401
+    scene_fit_map as _scene_fit_map,
+    sheet_set_maps,
+    thread_schedule as _thread_schedule,  # noqa: F401
+)
+from apolo.services.installation_data import installation_data as _installation_data  # noqa: F401
+from apolo.services.roles import BED_RE as _BED_RE
+from apolo.services.stackup_eval import evaluate_stackups, stackup_rules
 from apolo.state import STATE_LOCK
 
 from .errorlog import log_error, session_marker
@@ -2586,167 +2600,10 @@ class StackupDeleteIn(BaseModel):
     name: str
 
 
-def _resolve_nominal(val, variables: dict) -> float:
-    """Un nominal puede ser número o '=expr' (sigue a las variables del proyecto)."""
-    from apolo.commands.expressions import eval_expression
-
-    if isinstance(val, str) and val.strip().startswith("="):
-        return float(eval_expression(val.strip()[1:], variables))
-    return float(val)
-
-
-def _stackup_link_from_feature(fid: str, eje: str, tol) -> dict | None:
-    """Eslabón medido del BBOX VIVO de una pieza (la cadena se re-mide sola). El tol es
-    el declarado, o el fit de la pieza (por nombre), o ISO 2768-m por defecto."""
-    feat = DOC.scene.get(fid)
-    if feat is None:
-        return None
-    bb = feat.shape.bounding_box()
-    span = {"x": bb.max.X - bb.min.X, "y": bb.max.Y - bb.min.Y,
-            "z": bb.max.Z - bb.min.Z}.get(str(eje).lower())
-    if span is None:
-        return None
-    return {"nombre": f"{feat.name} ({eje})", "nominal_mm": round(float(span), 4),
-            "tol": tol or {"iso2768": "m"}}
-
-
-def _evaluate_stackups(scope: str = "all") -> list[dict]:
-    """Evalúa las cadenas DECLARADAS (`DOC.stackups`, resolviendo nominales '=expr' y
-    eslabones por id contra el bbox vivo) y, si scope incluye auto, las cadenas
-    AUTO del patrón de pernos. Llamar bajo STATE_LOCK. Devuelve [{name, tipo, ...}].
-
-    AISLAMIENTO POR CADENA (cierre de la auditoría V7.3): una cadena que no evalúa
-    (tol desconocida, '=expr' roto, fit fuera de tabla) sale como entrada `{error}` —
-    JAMÁS lanza, para que una cadena mala no oculte a las demás ni tumbe GET/memoria.
-    Una cadena con piezas FALTANTES no se evalúa parcial (el cierre de una cadena
-    incompleta no significa nada): entrada `{error}` con los ids que faltan."""
-    from apolo.library.engineering.stackup import stack_up
-
-    variables = dict(DOC.variables_resolved)
-    out: list[dict] = []
-    if scope in ("all", "declared"):
-        for name, spec in sorted(DOC.stackups.items()):
-            try:
-                eslabones = []
-                faltan = []
-                for e in spec.get("eslabones", []):
-                    if e.get("id"):
-                        link = _stackup_link_from_feature(e["id"], e.get("eje", "x"), e.get("tol"))
-                        if link is None:
-                            faltan.append(e["id"])
-                            continue
-                        link["sentido"] = e.get("sentido", 1)
-                        if e.get("nombre"):
-                            link["nombre"] = e["nombre"]
-                        eslabones.append(link)
-                    else:
-                        eslabones.append({
-                            "nombre": e.get("nombre", "eslabón"),
-                            "nominal_mm": _resolve_nominal(e["nominal_mm"], variables),
-                            "sentido": e.get("sentido", 1), "tol": e.get("tol") or {"pm": 0.0},
-                        })
-                if faltan:  # cadena INCOMPLETA → error honesto, nunca veredicto parcial
-                    out.append({
-                        "name": name, "tipo": "declarada", "faltan": faltan,
-                        "error": f"piezas no encontradas: {', '.join(faltan)} — la cadena "
-                                 "no se evalúa incompleta (re-declárala o repón las piezas)",
-                    })
-                    continue
-                if not eslabones:
-                    out.append({"name": name, "tipo": "declarada",
-                                "error": "sin eslabones resolubles"})
-                    continue
-                rep = stack_up(eslabones, spec.get("requisito") or None)
-                rep.update({"name": name, "tipo": "declarada"})
-                out.append(rep)
-            except Exception as exc:  # noqa: BLE001 — aislamiento por cadena
-                out.append({"name": name, "tipo": "declarada", "error": str(exc)})
-    if scope in ("all", "auto"):
-        out.extend(_auto_bolt_stackups())
-    return out
-
-
-def _auto_bolt_stackups() -> list[dict]:
-    """Cadenas AUTO del patrón de pernos (V7.3 C). Un `join_bolted` taladra AMBAS piezas
-    a la vez → los barrenos quedan alineados POR CONSTRUCCIÓN (cadena cerrada, sin holgura
-    de posición que verificar). Un perno DECLARADO a mano (fasten con `size`) une dos
-    patrones taladrados por separado, pero Apolo NO conoce sus tolerancias de posición
-    reales → se reporta la HOLGURA de paso disponible (Ø_paso−Ø_perno)/2 como dato
-    INFORMATIVO (sin veredicto: fabricar la demanda sería inventar). Llamar bajo
-    STATE_LOCK."""
-    from apolo.library.engineering.bolts import clearance_hole_mm, nominal_diameter_mm
-
-    cmd_type = {c["id"]: c.get("type") for c in DOC.commands}
-    out: list[dict] = []
-    for name, f in sorted(DOC.fasteners.items()):
-        if f.get("kind") != "perno" or not f.get("size"):
-            continue
-        size = str(f["size"])
-        # SOLO el comando join_bolted garantiza taladrado conjunto (V7.3 auditoría:
-        # un fasten MANUAL que el usuario nombre «jb_x» NO debe heredar el veredicto)
-        es_join = cmd_type.get(f.get("command_id")) == "join_bolted"
-        if es_join:
-            out.append({
-                "name": f"pernos {name}", "tipo": "auto-perno",
-                "cerrada_por_construccion": True, "ok_peor_caso": True,
-                "detalle": f"{size}: barrenos taladrados a la vez en ambas piezas "
-                           "(join_bolted) → alineados por construcción, sin holgura de posición.",
-            })
-            continue
-        try:
-            clear, d = clearance_hole_mm(size), nominal_diameter_mm(size)
-        except KeyError as exc:  # size fuera de tabla: entrada informativa, NO desaparición
-            out.append({"name": f"pernos {name}", "tipo": "auto-perno", "informativo": True,
-                        "detalle": f"{size}: sin broca de paso tabulada ({exc}); sin dato."})
-            continue
-        holgura = round((clear - d) / 2.0, 4)
-        out.append({
-            "name": f"pernos {name}", "tipo": "auto-perno",
-            "cerrada_por_construccion": False, "informativo": True,
-            "holgura_mm": holgura,
-            "detalle": f"{size}: holgura de paso {holgura:g} mm/lado disponible (broca "
-                       f"Ø{clear:g}). Declara la tolerancia de posición de los patrones "
-                       "(set_stackup) para verificar el ensamble.",
-        })
-    return out
-
-
 def _stackup_rules() -> list[dict]:
-    """Reglas de memoria (con `calc`) de las cadenas de cotas para `calc_report`. Vacío
-    si no hay cadenas declaradas ni pernos → la sección no aparece. Llamar bajo STATE_LOCK."""
-    from apolo.library.engineering.stackup import stackup_rule
-
-    rules: list[dict] = []
-    chains = _evaluate_stackups("all")  # aislada por cadena: nunca lanza
-    for c in chains:
-        if c.get("error"):
-            if c.get("tipo") == "declarada":
-                # V7.3 auditoría: una cadena declarada que no evalúa (pieza borrada,
-                # '=expr' roto) APARECE como aviso — patrón vigencia-FEA, nunca silencio.
-                rules.append({
-                    "regla": f"cadena de cotas · {c['name']}",
-                    "estado": "aviso",
-                    "detalle": f"La cadena declarada no se pudo evaluar: {c['error']}",
-                })
-            continue
-        if c.get("tipo") == "declarada":
-            rules.append(stackup_rule(c["name"], c))
-        elif c.get("cerrada_por_construccion"):
-            rules.append({
-                "regla": f"cadena de cotas · {c['name']}",
-                "estado": "ok", "detalle": c["detalle"],
-                "calc": {
-                    "titulo": f"Ensamble de pernos — {c['name']}",
-                    "entradas": {"método": "taladrado conjunto (join_bolted)"},
-                    "formula": "barrenos alineados por construcción",
-                    "sustitucion": "—", "resultado": "cierra por construcción",
-                    "criterio": "sin holgura de posición requerida",
-                    "norma": "ISO 2768-1 (no aplica: patrón único)",
-                },
-            })
-        # los pernos manuales INFORMATIVOS (sin veredicto) NO van a la memoria como páginas
-        # (serían decenas de bajo valor); están en GET /api/stackup para el agente.
-    return rules
+    """Envoltorio de compatibilidad (D4 del plan partir-api-main): las reglas de stack-up
+    del documento ACTIVO (`services.stackup_eval.stackup_rules`). Bajo STATE_LOCK."""
+    return stackup_rules(DOC)
 
 
 @app.get("/api/stackup")
@@ -2757,7 +2614,7 @@ def get_stackup(scope: str = "all") -> dict:
         raise HTTPException(status_code=400,
                             detail=f"scope '{scope}' inválido (usa all | declared | auto)")
     with STATE_LOCK:
-        chains = _evaluate_stackups(scope)  # aislada por cadena: nunca lanza por una mala
+        chains = evaluate_stackups(DOC, scope)  # aislada por cadena: nunca lanza por una mala
     # el `ok` global pesa las cadenas CON veredicto (declaradas + join_bolted) — y una
     # cadena DECLARADA en error también lo baja (declaraste algo que no se puede verificar);
     # las informativas (pernos manuales sin tolerancia de posición) no cuentan.
@@ -2778,7 +2635,7 @@ def put_stackup(body: StackupIn) -> dict:
             DOC.set_stackup(body.name, body.eslabones, body.requisito)
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        chains = _evaluate_stackups("declared")
+        chains = evaluate_stackups(DOC, "declared")
         mine = next((c for c in chains if c.get("name") == body.name.strip()), None)
         if mine is not None and mine.get("error"):
             # V7.3 auditoría: una cadena que NO evalúa no se persiste (antes quedaba
@@ -3280,12 +3137,6 @@ class FeaAssemblyIn(BaseModel):
     fs_min: float = 2.0
     save: bool = True
     nota: str | None = None               # nota del ANALISTA (alcance/limitaciones) → hipótesis
-
-# rol de superficie de carga (recibe el producto): la cama/mesa/deck del transportador
-_BED_RE = re.compile(r"\b(cama|mesa|bed|deck|tablero|placa\s*sup|superficie\s*de\s*carga)\b", re.I)
-# piezas que se EXTRAEN para mantenimiento → su ancho es la holgura de servicio a dejar
-# libre a un costado (V7.6 fase C, lámina de instalación)
-_SERVICE_RE = re.compile(r"\b(motorreductor|motor|tambor|rodillo\s+de\s+cola)\b", re.I)
 
 
 _LAST_FEA_FIELD: dict = {}  # feature_id → FeaField del último solve (fringe, no persiste)
@@ -4034,16 +3885,7 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
         try:
             pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
-                              colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
-                              piece_fits=_feature_fit_maps(DOC) or None,  # V7.2c: cada lámina, SU fit
-                              piece_datums=_piece_datum_sides(DOC) or None,  # V7.5: datum funcional
-                              piece_datum_frames=_piece_datum_frame(DOC) or None,  # V7.6: A-B-C
-                              piece_pos_tols=_piece_pos_tols(DOC) or None,  # V7.6: tol. de posición
-                              piece_dim_tols=_piece_dim_tols(DOC) or None,  # V7.6b: tol. justificada
-                              installation=_installation_data(DOC),  # V7.6c: lámina de obra
-                              hole_threads=_hole_thread_map(DOC) or None,
-                              thread_rows=_thread_schedule(DOC) or None,
-                              fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
+                              colors=_feature_colors(), **sheet_set_maps(DOC))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(
@@ -4065,16 +3907,7 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
         try:
             pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
                               meta=_drawing_meta(), sheet=sheet,
-                              colors=_feature_colors(), hole_fits=_hole_fit_map(DOC) or None,
-                              piece_fits=_feature_fit_maps(DOC) or None,  # V7.2c: cada lámina, SU fit
-                              piece_datums=_piece_datum_sides(DOC) or None,  # V7.5: datum funcional
-                              piece_datum_frames=_piece_datum_frame(DOC) or None,  # V7.6: A-B-C
-                              piece_pos_tols=_piece_pos_tols(DOC) or None,  # V7.6: tol. de posición
-                              piece_dim_tols=_piece_dim_tols(DOC) or None,  # V7.6b: tol. justificada
-                              installation=_installation_data(DOC),  # V7.6c: lámina de obra
-                              hole_threads=_hole_thread_map(DOC) or None,
-                              thread_rows=_thread_schedule(DOC) or None,
-                              fasteners=DOC.fasteners)  # V7.2 A: soldadura ISO 2553 en el conjunto
+                              colors=_feature_colors(), **sheet_set_maps(DOC))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         base = (DOC.name or "juego").replace("/", "-")
@@ -4276,430 +4109,6 @@ class DrawingSpecIn(BaseModel):
     shaded: bool = False         # isométrica SOMBREADA a color (estilo Inventor)
     hole_fits: dict[str, str] = {}  # {"20": "H7"} Ø_nominal→clase ISO 286; se mergea SOBRE el mapa automático (V5.4)
     hole_threads: dict[str, str] = {}  # {"6.8": "M8"} Ø_broca→rosca; se mergea SOBRE el mapa automático (V5.7)
-
-
-_SHAFT_FIT_RE = None  # compilado perezoso en _hole_fit_map
-
-
-def _datum_candidates(doc) -> dict[str, list[tuple[float, float, str, str]]]:
-    """{feature_id → [(peso, área, lado, motivo)]} ordenado por (peso, área) desc.
-    Derivación común de las caras FUNCIONALES desde las uniones DECLARADAS (V7.5): cada
-    lado es el que MIRA a una contraparte (soldadura > perno/tornillo > contacto). El eje
-    del contacto = el de SOLAPE MÍNIMO entre las cajas (la normal de la cara), mismo
-    espíritu que el anclaje de los símbolos de soldadura del GA. `motivo` = la unión que
-    lo justifica (va a la leyenda de datums: sin ella el marco GD&T es decorativo).
-    PROHIBIDO inferir por nombre (lección V7.2c de los brackets). Llamar bajo STATE_LOCK."""
-    W = {"soldadura": 3.0, "perno": 2.0, "tornillo": 2.0}
-    cand: dict[str, list[tuple[float, float, str, str]]] = {}
-    for f in doc.fasteners.values():
-        if not isinstance(f, dict):
-            continue
-        kind = (f.get("kind") or "contacto").lower()
-        w = W.get(kind, 1.0)
-        a, b = f.get("a"), f.get("b")
-        for me, other in ((a, b), (b, a)):
-            fa, fb = doc.scene.get(me), doc.scene.get(other)
-            if fa is None or fb is None:
-                continue
-            try:
-                ba, bb = fa.shape.bounding_box(), fb.shape.bounding_box()
-            except Exception:
-                continue
-            mna = (ba.min.X, ba.min.Y, ba.min.Z); mxa = (ba.max.X, ba.max.Y, ba.max.Z)
-            mnb = (bb.min.X, bb.min.Y, bb.min.Z); mxb = (bb.max.X, bb.max.Y, bb.max.Z)
-            ov = [min(mxa[k], mxb[k]) - max(mna[k], mnb[k]) for k in range(3)]
-            k = min(range(3), key=lambda i: ov[i])  # eje del contacto (solape mínimo)
-            if ov[k] > 25.0:
-                continue  # solape profundo en TODOS los ejes → no hay cara de contacto clara
-            area = max(ov[(k + 1) % 3], 0.0) * max(ov[(k + 2) % 3], 0.0)
-            sgn = "+" if (mnb[k] + mxb[k]) > (mna[k] + mxa[k]) else "-"
-            motivo = f"{kind} a «{str(getattr(fb, 'name', other))[:26]}»"
-            cand.setdefault(me, []).append((w, area, sgn + "xyz"[k], motivo))
-    return {fid: sorted(e, key=lambda t: (-t[0], -t[1])) for fid, e in cand.items()}
-
-
-def _piece_datum_sides(doc) -> dict[str, list[str]]:
-    """{feature_id → lados de sus caras FUNCIONALES, ordenados por peso: ["+z","-x",…]}.
-    Se devuelve LISTA porque la cara por la que atraviesa un perno siempre es ⊥ a la vista
-    que muestra sus círculos: la vista elige el PRIMER lado que proyecte como borde
-    (p. ej. la cara de APOYO). Sin unión declarada → la pieza no entra (fallback de
-    esquina, honesto)."""
-    out: dict[str, list[str]] = {}
-    for fid, entries in _datum_candidates(doc).items():
-        sides: list[str] = []
-        for _, _, side, _m in entries:
-            if side not in sides:
-                sides.append(side)
-        out[fid] = sides[:3]
-    return out
-
-
-def _piece_datum_frame(doc) -> dict[str, list[tuple[str, str, str]]]:
-    """Sistema de referencia GD&T por pieza (V7.6 A): {feature_id → [(letra, lado,
-    motivo)]} con A = cara funcional de mayor peso, B = la siguiente ORTOGONAL a A, y
-    C = la tercera ortogonal a ambas — el marco de referencia que exige un control de
-    posición. Solo se emiten las letras que las uniones REALES justifican: una pieza con
-    una sola cara de montaje se queda con «A» (inventar B/C sería mentir sobre cómo se
-    posiciona la pieza). Llamar bajo STATE_LOCK."""
-    out: dict[str, list[tuple[str, str, str]]] = {}
-    for fid, entries in _datum_candidates(doc).items():
-        chosen: list[tuple[str, str, str]] = []
-        used_axes: set[str] = set()
-        for _w, _a, side, motivo in entries:
-            axis = side[1]
-            if axis in used_axes:       # B y C deben ser ORTOGONALES a los anteriores
-                continue
-            used_axes.add(axis)
-            chosen.append(("ABC"[len(chosen)], side, motivo))
-            if len(chosen) == 3:
-                break
-        if chosen:
-            out[fid] = chosen
-    return out
-
-
-def _installation_data(doc) -> tuple[dict, dict]:
-    """(datos, escena_anclada) para la lámina de INSTALACIÓN (V7.6 fase C). Resuelve la
-    geometría —apoyos con `ground`, masa y COG reales, huella, alturas de interfaz,
-    holguras de servicio y suministro de catálogo— y delega el reparto de carga al motor
-    puro. Devuelve ({}, {}) si el proyecto no declara ningún ground: sin anclajes no hay
-    plano de instalación que valga (mejor ausente que inventado). Bajo STATE_LOCK."""
-    from apolo.library.catalog import CATALOG
-    from apolo.library.engineering.installation import G_M_S2, anchor_loads
-    from apolo.library.engineering.mass import scene_mass_properties
-
-    from apolo.library.lints import _is_bolt
-
-    supports = []
-    for g in doc.grounds.values():
-        fid = g.get("feature")
-        feat = doc.scene.get(fid)
-        if feat is None:
-            continue
-        # la TORNILLERÍA anclada no es un APOYO: los pernos de anclaje del 38 también
-        # llevan ground, y contarlos como puntos de apoyo DILUYE la carga (30 «apoyos»
-        # en vez de 6 placas → 5× menos por punto, y la obra dimensionaría de menos)
-        if _is_bolt(feat, CATALOG):
-            continue
-        try:
-            bb = feat.shape.bounding_box()
-        except Exception:
-            continue
-        supports.append({"id": fid, "name": getattr(feat, "name", fid),
-                         "x": (bb.min.X + bb.max.X) / 2.0, "y": (bb.min.Y + bb.max.Y) / 2.0})
-    if not supports:
-        return {}, {}
-
-    total = scene_mass_properties(doc.scene, CATALOG,
-                                  default_material=doc.default_material())["total"]
-    masa = float(total.get("masa_kg") or 0.0)
-    com = total.get("com_mm")
-    carga = float((doc.requirements or {}).get("carga_kg") or 0.0)
-    peso_n = (masa + carga) * G_M_S2
-    cog = (float(com[0]), float(com[1])) if com and len(com) >= 2 else None
-    anclaje = anchor_loads(supports, peso_n, cog)
-
-    xs = [s["x"] for s in supports]
-    ys = [s["y"] for s in supports]
-    huella = {"largo": round(max(xs) - min(xs), 1), "ancho": round(max(ys) - min(ys), 1)}
-
-    # alturas de interfaz: la superficie que transporta (cama/mesa/banda) y el punto más alto
-    z_top = z_all = 0.0
-    for feat in doc.scene.values():
-        if not getattr(feat, "visible", True):
-            continue
-        try:
-            bb = feat.shape.bounding_box()
-        except Exception:
-            continue
-        z_all = max(z_all, float(bb.max.Z))
-        if _BED_RE.search(getattr(feat, "name", "") or ""):
-            z_top = max(z_top, float(bb.max.Z))
-
-    # holgura de SERVICIO: lo que hay que dejar libre a un lado para extraer las piezas
-    # que se mantienen (motorreductor, tambores) = su propia extensión transversal
-    servicio = []
-    for feat in doc.scene.values():
-        nombre = getattr(feat, "name", "") or ""
-        if not _SERVICE_RE.search(nombre):
-            continue
-        try:
-            bb = feat.shape.bounding_box()
-        except Exception:
-            continue
-        servicio.append({"pieza": nombre, "holgura_mm": round(float(bb.max.Y - bb.min.Y), 0)})
-    servicio = sorted(servicio, key=lambda s: -s["holgura_mm"])[:2]
-
-    suministro = []
-    for feat in doc.scene.values():
-        comp = CATALOG.get(getattr(feat, "component", None) or "")
-        if comp is None or "motorreductor" not in (comp.category or ""):
-            continue
-        # las claves del catálogo NO son homogéneas en mayúsculas («potencia_kW») →
-        # búsqueda case-insensitive; sin potencia tabulada no se inventa el dato
-        specs = comp.specs or {}
-        low = {str(k).lower(): v for k, v in specs.items()}
-        pot = low.get("potencia_kw") or low.get("kw")
-        unidad = "kW"
-        if not pot:
-            pot, unidad = low.get("potencia_hp") or low.get("hp"), "HP"
-        if pot:
-            suministro.append({"concepto": "Suministro eléctrico", "valor": f"{pot} {unidad}",
-                               "nota": str(specs.get("tipo", ""))[:28]})
-        break
-
-    datos = {
-        "masa_kg": round(masa, 1), "carga_kg": carga or None,
-        "anclaje": anclaje, "huella_mm": huella,
-        "altura_trabajo_mm": round(z_top, 1) or None,
-        "altura_total_mm": round(z_all, 1) or None,
-        "servicio": servicio, "suministro": suministro,
-        "notas": ["Nivelar los apoyos antes de anclar; el reparto supone piso rígido.",
-                  "Cotas de anclaje entre EJES, desde el origen de máquina."],
-    }
-    anclada = {s["id"]: doc.scene[s["id"]] for s in supports if s["id"] in doc.scene}
-    return datos, anclada
-
-
-def _piece_dim_tols(doc) -> dict[str, dict[str, tuple[float, str, str]]]:
-    """Tolerancia de la COTA GENERAL por pieza y eje (V7.6 B): {feature_id → {"X"|"Y"|"Z"
-    → (media_tol_mm, nombre_de_cadena, fuente)}}. Sale de los eslabones `{id, eje}` de las
-    cadenas DECLARADAS (`Document.stackups`): si una cota participa en una cadena, la
-    lámina rotula la tolerancia que el ANÁLISIS exige — no la genérica de ISO 2768 — y la
-    nota remite a la memoria. Es la diferencia entre «tolerancia tabulada» y «tolerancia
-    justificada».
-
-    Solo se rotulan bandas SIMÉTRICAS (±t): una banda asimétrica (fit ISO 286) no cabe en
-    el formato de cota general y ya viaja en su propio callout de Ø. Varias cadenas sobre
-    la misma cota → gana la MÁS ESTRICTA (la que de verdad manda). Bajo STATE_LOCK."""
-    from apolo.library.engineering.stackup import stack_up
-
-    out: dict[str, dict[str, tuple[float, str, str]]] = {}
-    for name, spec in sorted(getattr(doc, "stackups", {}).items()):
-        for e in (spec.get("eslabones") or []):
-            fid = e.get("id")
-            if not fid or fid not in doc.scene:
-                continue
-            eje = str(e.get("eje", "x")).upper()
-            try:
-                link = _stackup_link_from_feature(fid, e.get("eje", "x"), e.get("tol"))
-                if link is None:
-                    continue
-                det = stack_up([link])["eslabones"][0]
-                lo, hi = float(det["dev_lo_mm"]), float(det["dev_hi_mm"])
-                if abs(lo + hi) > 1e-9 or hi <= 0:
-                    continue           # asimétrica (fit) o sin banda → va en su callout
-                half = float(det["half_tol_mm"])
-            except Exception:  # noqa: BLE001 — una cadena mala no tumba el juego de planos
-                continue
-            prev = out.setdefault(fid, {}).get(eje)
-            if prev is None or half < prev[0]:
-                out[fid][eje] = (half, str(name), str(det.get("fuente", "")))
-    return out
-
-
-def _piece_pos_tols(doc) -> dict[str, dict[float, float]]:
-    """Tolerancia de POSICIÓN por pieza y Ø (V7.6 A): {feature_id → {Ø_barreno → t_mm}}.
-    `t` = presupuesto de ensamble de `bolt_pattern_budget` para el perno que ATRAVIESA
-    ese barreno — fijo `(Ø_paso−Ø_perno)/2` o FLOTANTE `(Ø_paso−Ø_perno)` si hay tuerca
-    en el mismo eje (el perno se acomoda en ambas piezas). Es el número que va DENTRO del
-    marco de control ⌖; sin perno identificable en el eje NO se emite entrada — una
-    tolerancia GD&T inventada es peor que su ausencia (el taller la fabrica). Varios
-    pernos con el mismo Ø → gana el presupuesto MENOR (conservador). Bajo STATE_LOCK."""
-    import re as _re
-
-    from apolo.commands.expressions import resolve_params
-    from apolo.library.catalog import CATALOG
-    from apolo.library.engineering.bolts import CLEARANCE_HOLE_MM
-    from apolo.library.engineering.stackup import bolt_pattern_budget
-    from apolo.library.lints import _AXIS_VEC, _is_bolt, _perp_dist
-
-    _M_RE = _re.compile(r"\bM(\d{1,2})(?:[×x]\d+)?\b")
-    _NUT_RE = _re.compile(r"\btuerca[s]?\b", _re.I)
-    # tabla ISO 273 INVERTIDA: Ø de paso → Ø nominal del perno (Ø13.5 = paso de un M12)
-    _ISO273_INV = {round(v, 1): float(k.lstrip("M")) for k, v in CLEARANCE_HOLE_MM.items()}
-
-    # 1) tornillería presente, POR SÓLIDO (un compound lleva N pernos: su centro conjunto
-    #    no cae en el eje de ninguno — la lección de la brecha 1)
-    herraje: list[tuple[tuple[float, float, float], float | None, bool]] = []
-    for feat in doc.scene.values():
-        if not getattr(feat, "visible", True) or not _is_bolt(feat, CATALOG):
-            continue
-        comp = CATALOG.get(getattr(feat, "component", None) or "")
-        nombre = getattr(feat, "name", "") or ""
-        d = None
-        m = _M_RE.search(nombre)
-        if m:
-            d = float(m.group(1))
-        elif comp is not None:
-            try:
-                d = float((comp.specs or {}).get("d"))
-            except (TypeError, ValueError):
-                d = None
-        # d=None NO descarta: la pieza sigue siendo PRESENCIA de tornillería en el eje
-        # (el Ø puede salir de la tabla ISO 273); solo se pierde como fuente de Ø
-        es_tuerca = bool(_NUT_RE.search(nombre)) or (
-            comp is not None and comp.category == "tuercas")
-        try:
-            solids = list(feat.shape.solids())
-        except Exception:
-            solids = []
-        for s in solids or [feat.shape]:
-            try:
-                bb = s.bounding_box()
-            except Exception:
-                continue
-            herraje.append((((bb.min.X + bb.max.X) / 2.0, (bb.min.Y + bb.max.Y) / 2.0,
-                             (bb.min.Z + bb.max.Z) / 2.0), d, es_tuerca))
-    if not herraje:
-        return {}
-
-    out: dict[str, dict[float, float]] = {}
-    for cmd in doc.commands:
-        if cmd.get("type") != "drill_hole":
-            continue
-        try:
-            p = resolve_params(cmd.get("params", {}) or {}, doc.variables_resolved)
-            if p.get("thread") or float(p.get("depth", 0) or 0) > 0:
-                continue                               # roscado o ciego: no es de paso
-            dia = float(p.get("diameter", 0))
-            fid = cmd.get("params", {}).get("feature")
-            if dia <= 0 or fid not in doc.scene:
-                continue
-            pos = p.get("position") or {}
-            p0 = (float(pos.get("x", 0)), float(pos.get("y", 0)), float(pos.get("z", 0)))
-            u = _AXIS_VEC.get(str(p.get("axis", "z")).lstrip("+-"), _AXIS_VEC["z"])
-            tol = max(dia, 6.0)
-            en_eje = [(d, nut) for c, d, nut in herraje if _perp_dist(c, p0, u) <= tol]
-            if not en_eje:
-                continue                               # sin tornillería en el eje → sin marco
-            # Ø del perno: la tabla de paso ISO 273 es la fuente NORMATIVA (un barreno de
-            # Ø13.5 ES el paso de un M12); si el Ø no está tabulado, el que declare la
-            # tornillería del eje (catálogo o «M14» en su nombre)
-            d_bolt = _ISO273_INV.get(round(dia, 1))
-            if d_bolt is None:
-                pernos = [d for d, nut in en_eje if not nut and d]
-                d_bolt = min(pernos) if pernos else None
-            if d_bolt is None or d_bolt >= dia:
-                continue                               # sin Ø de perno fiable → sin marco
-            flot = any(nut for _d, nut in en_eje)
-            t = bolt_pattern_budget(dia, d_bolt, [], flotante=flot)["presupuesto_mm"]
-            if t <= 0:
-                continue
-            key = round(dia, 1)
-            prev = out.setdefault(fid, {}).get(key)
-            out[fid][key] = t if prev is None else min(prev, t)
-        except Exception:  # noqa: BLE001 — un comando raro no rompe el juego de planos
-            continue
-    return out
-
-
-def _feature_fit_maps(doc) -> dict[str, dict[float, str]]:
-    """Fits ISO 286 POR feature (V7.2c): cada feature_id → {Ø_nominal → clase} de SU
-    nombre («… Ø35 g6») + los drill_hole que la perforan con `fit`. Es la fuente para
-    las LÁMINAS POR PIEZA: cada pieza rotula EL SUYO, sin que el fit de un eje pise al
-    de otro que comparte Ø nominal (regresión del fix D — el 38 tiene DOS ejes Ø35, el
-    motriz h7 y el tensor g6)."""
-    import re
-
-    global _SHAFT_FIT_RE
-    if _SHAFT_FIT_RE is None:
-        _SHAFT_FIT_RE = re.compile(
-            r"Ø\s*(\d+(?:\.\d+)?)\s+((?:js|[gfhkmnp]))(\d{1,2})\b"
-        )
-    per: dict[str, dict[float, str]] = {}
-    for fid, feat in doc.scene.items():
-        m = _SHAFT_FIT_RE.search(getattr(feat, "name", "") or "")
-        if m:
-            per.setdefault(fid, {})[float(m.group(1))] = f"{m.group(2)}{m.group(3)}"
-    for cmd in doc.commands:
-        if cmd.get("type") == "drill_hole" and cmd.get("params", {}).get("fit"):
-            try:
-                dia = float(cmd["params"].get("diameter", 0))
-            except (TypeError, ValueError):
-                continue  # diámetro por "=expresión": se omite del mapa automático
-            tgt = cmd["params"].get("feature")
-            if dia > 0 and tgt and tgt in doc.scene:
-                per.setdefault(tgt, {})[dia] = cmd["params"]["fit"]
-    return per
-
-
-def _scene_fit_map(doc, scene) -> dict[float, str]:
-    """Mapa Ø_nominal → clase ISO 286 para una VISTA de CONJUNTO/GA que abarca `scene`
-    (V7.2c): mergea los fits por-feature (`_feature_fit_maps`) y, ante CONFLICTO (mismo
-    Ø con clases distintas en piezas distintas), OMITE ese Ø — en un GA un fit
-    equivocado es PEOR que uno ausente (antes «el último gana» pisaba g6 con h7). Cada
-    lámina por pieza no usa esto sino su mapa por-feature."""
-    per = _feature_fit_maps(doc)
-    out: dict[float, str] = {}
-    conflict: set[float] = set()
-    for fid in scene:
-        for dia, cls in per.get(fid, {}).items():
-            if dia in out and out[dia] != cls:
-                conflict.add(dia)
-            else:
-                out[dia] = cls
-    for dia in conflict:
-        out.pop(dia, None)
-    return out
-
-
-def _hole_fit_map(doc) -> dict[float, str]:
-    """Mapa AUTOMÁTICO Ø_nominal → clase ISO 286 para el CONJUNTO/GA (V5.4, endurecido
-    en V7.2c): drill_hole con `fit` + NOMBRES «… Ø35 h7». Conflicto de Ø (dos ejes de
-    igual Ø con fits distintos) → se OMITE ese Ø en vez de mentir. Las láminas por
-    pieza usan `_feature_fit_maps` (cada pieza, el suyo)."""
-    return _scene_fit_map(doc, doc.scene)
-
-
-def _hole_thread_map(doc) -> dict[float, str]:
-    """Mapa AUTOMÁTICO Ø_broca → designación de rosca (V5.7) desde los comandos
-    drill_hole con `thread`. El círculo HLR que sale al plano es el de la BROCA
-    (M8 → Ø6.8) — si una broca coincide con el Ø de un agujero liso mapeado, gana
-    la rosca (los círculos HLR no distinguen origen; mismo caveat que los fits)."""
-    from apolo.library.engineering.threads import thread_designation, thread_spec
-
-    out: dict[float, str] = {}
-    for cmd in doc.commands:
-        thr = cmd.get("params", {}).get("thread") if cmd.get("type") == "drill_hole" else None
-        if thr:
-            try:
-                des = thread_designation(thr)
-                out[thread_spec(des)["broca_mm"]] = des
-            except KeyError:
-                continue  # rosca inválida en un log viejo: no rompe el plano
-    return out
-
-
-def _thread_schedule(doc) -> list[dict]:
-    """Roscas agrupadas por designación para la CÉDULA del juego de planos (V5.7):
-    [{designacion, etiqueta, cantidad, broca_mm, piezas, norma}]."""
-    from apolo.library.engineering.threads import (
-        format_thread_label, thread_designation, thread_spec,
-    )
-
-    groups: dict[str, dict] = {}
-    for cmd in doc.commands:
-        if cmd.get("type") != "drill_hole":
-            continue
-        thr = cmd.get("params", {}).get("thread")
-        if not thr:
-            continue
-        try:
-            des = thread_designation(thr)
-            spec = thread_spec(des)
-        except KeyError:
-            continue
-        g = groups.setdefault(des, {
-            "designacion": des, "etiqueta": format_thread_label(des),
-            "cantidad": 0, "broca_mm": spec["broca_mm"], "piezas": [], "norma": spec["norma"],
-        })
-        g["cantidad"] += 1
-        feat = doc.scene.get(cmd.get("params", {}).get("feature"))
-        name = getattr(feat, "name", None)
-        if name and name not in g["piezas"]:
-            g["piezas"].append(name)
-    return sorted(groups.values(), key=lambda g: g["designacion"])
 
 
 @app.get("/api/fits")

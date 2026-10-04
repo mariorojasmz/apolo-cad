@@ -43,7 +43,8 @@ Este proyecto se desarrolla **para crecer a gran escala**. Por tanto: nada de m�
 monolíticos ni responsabilidades mezcladas; si para hacerlo bien hace falta refactorizar,
 se refactoriza. Fronteras limpias: `kernel` (geometría pura) ⟂ `commands/registry`
 (operaciones+schemas) ⟂ `doc` (log/estado) ⟂ `library` (catálogo/cálculo, funciones
-puras que NUNCA reciben `Document`) ⟂ `api` (transporte) ⟂ `agent`/`mcp` (clientes IA)
+puras que NUNCA reciben `Document`) ⟂ `services` (dominio que LEE un `Document`: `doc`
+explícito, sin transporte ni locks) ⟂ `api` (transporte) ⟂ `agent`/`mcp` (clientes IA)
 ⟂ `ui`. Cada módulo nuevo: responsabilidad única, testeable aislado, sin estado global
 fuera de los puntos establecidos (`STATE_LOCK`), con tests.
 
@@ -114,7 +115,8 @@ también a quien sólo busca o trabaja por MCP.
 | [library](core/apolo/library/CLAUDE.md) | catálogo y builders, materiales, chapa, ingletes, ingeniería y normas, stack-up, reglas de conveyor, interferencias, lints, puerta de entrega |
 | [drawing](core/apolo/drawing/CLAUDE.md) | planos y entregables: último kilómetro (soldadura, tolerancias, Ra, datum, GD&T), proceso, manual, instalación, DWG |
 | [fea](core/apolo/fea/CLAUDE.md) | FEA estático de pieza y bonded de ensamblaje |
-| [api](core/apolo/api/CLAUDE.md) | mutaciones, lotes con contrato, jobs, lecturas a escala, deltas, autosave, tests de la API, mapas de `main.py` para planos/FEA/stack-up |
+| [services](core/apolo/services/CLAUDE.md) | dominio que lee un `Document` (reglas de la capa): mapas por pieza de los planos, datos de instalación, stack-up, roles por nombre |
+| [api](core/apolo/api/CLAUDE.md) | mutaciones, lotes con contrato, jobs, lecturas a escala, deltas, autosave, tests de la API, lo que `main.py` arma para el FEA |
 | [ui](ui/CLAUDE.md) | texto para el usuario —también errores de la API y prompts— (tuteo neutro, gates), preview, paneles, sync, viewport, croquis |
 
 Una regla va donde se hace el CAMBIO, no donde vive el código que la sufre; el otro paquete

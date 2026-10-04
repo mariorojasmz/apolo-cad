@@ -1,9 +1,11 @@
 # API (`core/apolo/api/`)
 
 Transporte HTTP/WS (`main.py`), jobs asíncronos (`jobs.py`) y log de errores (`errorlog.py`).
-`main.py` además arma mapas que consumen otros paquetes (planos, `insert_project`, FEA, stack-up):
-sus reglas están aquí, al final. Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en
-el [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en [core/apolo](../CLAUDE.md).
+`main.py` además arma lo que necesita el FEA (sus reglas, al final); los mapas por pieza de los
+planos, los datos de instalación y la evaluación de stack-up son de [services](../services/CLAUDE.md)
+(se está partiendo `main.py`: [plan](../../../docs/plans/partir-api-main.md)). Lo transversal
+(`STATE_LOCK`, log, regenerate, Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el
+cliente MCP, en [core/apolo](../CLAUDE.md).
 
 ## Mutaciones y su retorno
 
@@ -123,38 +125,18 @@ el [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en [core/apolo](../CLA
 - `tests/conftest.py` (autouse, sesión) redirige `logs/errors.log` a tmp: sin él la tortura
   escribía errores FALSOS en el log que se lee al «revisa» (commit `3e935f4`).
 
-## Mapas que viven en `main.py` para otros paquetes
+## Lo que sigue en `main.py` para otros paquetes
 
-- **Fits por pieza** (planos): `_feature_fit_maps` da {feature_id → {Ø → clase}} desde el NOMBRE
-  («… Ø35 g6») + `drill_hole.fit`, y cada lámina rotula EL SUYO (`sheet_set(piece_fits=)`). El
-  conjunto usa `_scene_fit_map` (`_hole_fit_map` = el mismo sobre toda la escena), que OMITE un Ø
-  en conflicto: mejor ausente que equivocado. `drawing_spec` lo computa sobre la escena EFECTIVA
-  (aislar un eje da su fit). [V7.2c](../../../docs/plans/V7.2c-fixes-re-auditoria.md)
-- **Datum funcional**: `_piece_datum_sides` deriva los lados de montaje de los FASTENERS
-  declarados (soldadura > perno > contacto; eje = solape mínimo de bboxes); PROHIBIDO inferir por
-  nombre. Devuelve LISTA por peso: la cara que atraviesa un perno es ⊥ a la vista de sus círculos,
-  así que cada vista usa el primer lado que proyecte como borde.
-  [V7.5](../../../docs/plans/V7.5-e22-datum-funcional.md)
-- **GD&T**: `_piece_datum_frame` = A (cara de mayor peso) + B/C sólo si son ORTOGONALES; el
-  `motivo` va a la leyenda (sin él, el marco es decorativo). `_piece_pos_tols`: t =
-  `bolt_pattern_budget(flotante=)`; el Ø del perno sale de la tabla ISO 273 INVERTIDA (Ø13.5 es el
-  paso de un M12) y el sólido en el eje es respaldo. Sin perno identificable NO hay marco: una
-  tolerancia inventada es peor que su ausencia (el taller la fabrica).
-- **Tolerancia justificada**: `_piece_dim_tols` sale de los eslabones `{id, eje}` de las cadenas
-  DECLARADAS; sólo bandas SIMÉTRICAS (un fit asimétrico viaja en su callout); varias cadenas →
-  gana la más estricta; una cadena inválida no tumba el juego.
-- **Instalación**: `_installation_data` excluye la tornillería (`lints._is_bolt`) de los apoyos
-  (los pernos de anclaje como grounds diluían la carga por apoyo 5×), lee las claves del catálogo
-  sin distinguir mayúsculas (`potencia_kW`) y devuelve `({}, {})` sin grounds.
-  [V7.6](../../../docs/plans/V7.6-e2-fino.md)
+- Los mapas por pieza de los planos (fits, datum, GD&T, tolerancias), los datos de instalación y
+  la evaluación de stack-up se mudaron a [services](../services/CLAUDE.md), con sus reglas;
+  `main` re-exporta sus nombres viejos por IDENTIDAD (`_piece_dim_tols`…) porque los usan los
+  tests, y el juego de planos en PDF y DWG toma sus kwargs de `sheet_set_maps(doc)`.
 - **FEA**: el endpoint deriva el empotramiento de los `grounds` y la carga de
-  `requirements.carga_kg` sobre la cama/mesa (`_BED_RE`) o de `loads` explícitos; vigencia por
+  `requirements.carga_kg` sobre la cama/mesa (`services/roles.py::BED_RE`) o de `loads` explícitos; vigencia por
   volumen conjunto (`DOC.fea["group:<nombre>"]`); re-correr con otro `mesh_size` mueve el run
   previo a `convergencia` (tope 3); `ids` acotado → hipótesis de ALCANCE; `nota` del analista →
   hipótesis. Persiste con `_persist_fea_if_same_project` (si se abrió otro proyecto durante el
   solve → `guardado: false` + `aviso`). Malla y solver: [fea](../fea/CLAUDE.md).
-- **Stack-up**: `_evaluate_stackups` aísla cada cadena (una mala = `{error}`, nunca tumba GET ni
-  la memoria); pieza FALTANTE = error sin veredicto, jamás parcial; el PUT hace ROLLBACK si la
-  cadena no evalúa; «cerrada por construcción» sólo si el fasten lo creó un comando `join_bolted`
-  (no por nombre `jb_*`); un perno manual = holgura informativa, sin veredicto.
-  [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)
+- **Stack-up**: el `PUT /api/stackup` hace ROLLBACK si la cadena no evalúa (persistirla
+  envenenaba GET y la memoria para siempre); la evaluación aislada por cadena es de
+  [services](../services/CLAUDE.md). [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)

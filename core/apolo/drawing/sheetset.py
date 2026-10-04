@@ -107,7 +107,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     1 lámina por pieza acotada, LISTA DE CORTE, CÉDULA DE HERRAJE]. `template` =
     carpinteria/weldment/chapa/generico (carpinteria/generico incluyen la cédula de
     herraje). `hole_threads` rotula roscas en las láminas; `thread_rows` (V5.7,
-    de `_thread_schedule`) añade las roscas a la CÉDULA — y la fuerza aunque no
+    de `services.drawing_maps.thread_schedule`) añade las roscas a la CÉDULA — y la fuerza aunque no
     haya herraje: la lista de machuelos es dato de compra/taller.
 
     `hole_fits` = mapa Ø→clase del CONJUNTO (GA, conflicto de Ø ya resuelto por el
