@@ -1,12 +1,14 @@
 """Fixtures globales de la suite.
 
-Mínimo a propósito: SOLO aísla el registro de errores. El resto del estado global
-(api.DOC/STORE/PROJECT_ID, cachés de proceso) sigue a cargo de cada test.
+Mínimo a propósito: aísla el registro de errores (sesión) y la SESIÓN de la API (cada test).
+El resto del estado global (cachés de proceso, `WS`, jobs) sigue a cargo de cada test.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import logging
+import sys
 
 import pytest
 
@@ -41,3 +43,27 @@ def _errorlog_aislado(tmp_path_factory):
             h.close()
     for h in previos:
         logger.addHandler(h)
+
+
+@pytest.fixture(autouse=True)
+def _sesion_api_aislada():
+    """Cada test deja la sesión de la API como la encontró (D11 del plan
+    `docs/plans/partir-api-main.md`): al terminar cancela el Timer del autosave y devuelve
+    `apolo.api.session.S` (documento activo, almacén, proyecto y salud) a sus valores de
+    antes. Medido en la F0: 250 tests terminaban con otro `api.DOC` y el siguiente heredaba
+    ese documento; un test que dependiera de la fuga pasaba o fallaba según el orden.
+
+    Sólo actúa si `apolo.api.session` ya está importado (no carga la API en los tests que
+    no la usan) y no crea documentos: restaura los objetos que había. Corre su teardown
+    DESPUÉS del de las fixtures del test (las autouse se instancian primero), así que una
+    fixture que restaura lo suyo sigue funcionando igual."""
+    sesion = sys.modules.get("apolo.api.session")
+    previo = None if sesion is None else {
+        f.name: getattr(sesion.S, f.name) for f in dataclasses.fields(sesion.S)}
+    yield
+    autosave = sys.modules.get("apolo.api.autosave")
+    if autosave is not None:
+        autosave._autosave_sched.cancel()  # sin Timers huérfanos que disparen en otro test
+    if previo is not None:
+        for campo, valor in previo.items():
+            setattr(sesion.S, campo, valor)

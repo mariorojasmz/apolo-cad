@@ -581,12 +581,15 @@ def test_T12_project_new_does_not_overwrite_previous(api_client):
 
 def _long_debounce(api):
     """Ventana de debounce larga → ningún Timer dispara durante la prueba (determinista):
-    solo cuentan los flush FORZOSOS. Devuelve un restaurador."""
-    old = (api._AUTOSAVE_DEBOUNCE, api._AUTOSAVE_CEILING)
-    api._AUTOSAVE_DEBOUNCE, api._AUTOSAVE_CEILING = 10.0, 30.0
+    solo cuentan los flush FORZOSOS. Devuelve un restaurador. Los tiempos se parchean en
+    `apolo.api.autosave`, que es de donde los lee el programador (en `main` no existen)."""
+    import apolo.api.autosave as autosave
+
+    old = (autosave._AUTOSAVE_DEBOUNCE, autosave._AUTOSAVE_CEILING)
+    autosave._AUTOSAVE_DEBOUNCE, autosave._AUTOSAVE_CEILING = 10.0, 30.0
 
     def restore():
-        api._AUTOSAVE_DEBOUNCE, api._AUTOSAVE_CEILING = old
+        autosave._AUTOSAVE_DEBOUNCE, autosave._AUTOSAVE_CEILING = old
 
     return restore
 

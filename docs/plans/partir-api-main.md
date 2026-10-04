@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F5a hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`); faltan F5b–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0–F5b hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`, autosave/WS/arranque fuera de `main` + fixture que aísla la sesión); faltan F6a–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -460,3 +460,41 @@ todo antes de integrar.
   fallos**; `-m torture` **15 passed** (111 s); andamio de F1 verde SIN regenerar; ruff
   limpio; `import apolo.api.main` y `apolo.api.session` solos; `test_claude_md` verde
   (`api/CLAUDE.md` gana § Estado de sesión con la regla «el código nuevo lee `S.<campo>`»).
+
+### F5b — autosave, WS, arranque y fixture (2026-10-03)
+
+- **Nacen** `api/autosave.py` (226 líneas: `_AUTOSAVE_RETRIES`/`_DEBOUNCE`/`_CEILING`,
+  `_GEOM_MARK`, `_flush_lock`, `_flush_body`, `_AutosaveScheduler`, `_autosave_sched`,
+  `_autosave`, `_flush_autosave`, `_project_switch`) y `api/ws.py` (46: `WsManager`, `WS`);
+  `initialize_store` pasa a `session.py` (98). La ruta `/ws` y los handlers de arranque y
+  apagado se quedan en `main` (rutas: F6). `main.py` 3 795 → **3 535** (−260); salen de
+  `main` los imports `contextlib`, `os` y `time`.
+- **Cortar y pegar, verificado**: un script corta los tres bloques por marcadores y otro
+  compara por AST cada definición movida contra `main.py` de F5a: las 14 son idénticas
+  carácter a carácter, y ninguna otra definición de `main` cambió. Los nombres conservan su
+  `_` a propósito: «scheduler intacto» = el cuerpo no se toca, y renombrar `_flush_lock` o
+  `_AUTOSAVE_DEBOUNCE` lo habría tocado.
+- **D4**: `main` re-exporta por IDENTIDAD `_autosave`, `_autosave_sched`, `_flush_autosave`,
+  `_flush_lock`, `_project_switch`, `WS` e `initialize_store` (comprobado con `is`); los
+  `monkeypatch.setattr(api, "_autosave", …)` de `test_agent`/`test_fea` siguen valiendo
+  porque los endpoints llaman al `_autosave` del espacio de nombres de `main`. NO se
+  re-exportan `_AUTOSAVE_DEBOUNCE`/`_AUTOSAVE_CEILING` (D4 c): el programador los lee de
+  `autosave`, un re-export los volvería un parche no-op. Sin el cambio de
+  `test_torture.py::_long_debounce` (único test editado, lista cerrada) el test no queda en
+  verde silencioso: `api._AUTOSAVE_DEBOUNCE` da `AttributeError`.
+- **Fixture D11** (`tests/conftest.py::_sesion_api_aislada`, autouse por test): si
+  `apolo.api.session` está importado, fotografía los campos de `S` al empezar; al terminar
+  cancela el Timer del autosave (si `apolo.api.autosave` está importado) y restaura `S`. No
+  crea documentos; su teardown corre DESPUÉS del de las fixtures del test. **Medido** con el
+  plugin de F0 sobre los cinco archivos que más fugaban (`test_api`, `test_jobs`,
+  `test_stackup_api`, `test_v65c_fixes`, `test_verify`; 109 tests): sin conftest
+  (`--noconftest`) **90** terminan con otro `api.DOC` (= 46 + 4 × 11 de F0); con la fixture,
+  **0** en los cinco nombres.
+- **Tests que la fixture destapó: ninguno.** Ningún test dependía del documento que le dejaba
+  el anterior: la suite completa pasa igual con la fixture.
+- **Gate**: suite **1 651 + 1 saltado, 0 fallos** (445 s); `-m torture` **15 passed** (79 s),
+  y por nombre T10–T16, `fase0` y `flush_switch_no_deadlock` en verde; andamio de F1 verde SIN
+  regenerar (los textos de autosave/arranque viven ahora en `api/autosave.py` y
+  `api/session.py`, que el andamio (c) recorre); ruff limpio; `apolo.api.main`, `.session`,
+  `.autosave` y `.ws` se importan solos; `test_claude_md` verde (`api/CLAUDE.md`: dónde vive
+  el autosave, dónde se parchean los tiempos y la fixture).

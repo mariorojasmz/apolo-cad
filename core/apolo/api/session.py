@@ -7,7 +7,8 @@ declara `global` para cambiar de proyecto. Por qué un objeto y no globals re-ex
 de `main` mientras el código movido seguiría leyendo el documento viejo.
 
 Los swaps (abrir/crear/restaurar proyecto, arranque) ocurren bajo `STATE_LOCK` (y bajo
-`_flush_lock` cuando hay switch); este módulo no toma locks.
+`_flush_lock` cuando hay switch, ver `autosave.py`). El arranque (`initialize_store`, movido
+tal cual desde `main` en F5b) vive aquí porque es quien llena `S` por primera vez.
 """
 
 from __future__ import annotations
@@ -17,6 +18,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from apolo.doc import Document
+from apolo.state import STATE_LOCK
+
+from .errorlog import log_error
 
 if TYPE_CHECKING:  # el almacén se importa perezoso en el arranque (sqlite no carga con la API)
     from apolo.projects import ProjectStore
@@ -64,3 +68,31 @@ class _MainModule(types.ModuleType):
 for _nombre, _campo in _ALIAS.items():
     setattr(_MainModule, _nombre, _alias(_campo))
 del _nombre, _campo
+
+
+def initialize_store(db_path: str) -> None:
+    """Inicializa el almacén y abre el proyecto reciente. Extraído del lifespan para
+    testearlo SIN FastAPI (los tests no ejecutan el startup). Robustez (Fix E): el
+    reciente se abre TOLERANTE (suprime comandos rotos en vez de negar la apertura); si
+    ni así abre (ZIP roto), se deja STARTUP_ERROR + un doc VACÍO en memoria con
+    PROJECT_ID=None (el autosave no-opea con None) y NO se crea un 'Sin título' que PISE
+    al reciente como más nuevo. STORE.create solo cuando la BD está de verdad VACÍA."""
+
+    from apolo.projects import ProjectStore
+
+    S.store = ProjectStore(db_path)
+    S.startup_error = None
+    with STATE_LOCK:
+        recent = S.store.most_recent_id()
+        if recent is None:
+            S.doc = Document()
+            S.project_id = S.store.create(S.doc)
+            return
+        try:
+            S.doc = S.store.load(recent, tolerant=True)
+            S.project_id = recent
+        except Exception as exc:
+            S.startup_error = f"No se pudo abrir el proyecto reciente {recent}: {exc!r}"
+            log_error("backend.startup", S.startup_error)
+            S.doc = Document()
+            S.project_id = None  # el autosave no-opea → NO se sobrescribe el reciente corrupto

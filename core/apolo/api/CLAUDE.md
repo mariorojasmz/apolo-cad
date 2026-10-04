@@ -1,7 +1,7 @@
 # API (`core/apolo/api/`)
 
-Transporte HTTP/WS (`main.py`), estado de sesión (`session.py`), jobs asíncronos (`jobs.py`)
-y log de errores (`errorlog.py`).
+Transporte HTTP (`main.py`), estado de sesión y arranque (`session.py`), autosave
+(`autosave.py`), WebSocket (`ws.py`), jobs asíncronos (`jobs.py`) y log de errores (`errorlog.py`).
 `main.py` además coreografía el FEA (al final); los mapas por pieza de los planos, los datos de
 instalación, el stack-up, las aserciones `verify`/`expect`, los insumos de la puerta de entrega,
 las reglas de ingeniería y FEA y la preparación del FEA son de [services](../services/CLAUDE.md)
@@ -103,6 +103,9 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 
 ## Autosave y arranque
 
+- Vive en `autosave.py`; `main` re-exporta por IDENTIDAD lo que usan endpoints y tests. Los
+  tiempos (`_AUTOSAVE_DEBOUNCE`/`_AUTOSAVE_CEILING`) se parchean en `apolo.api.autosave`: en
+  `main` no existen (el programador no los leería).
 - `_autosave()` no escribe: marca sucio y arma un flush único (`_AutosaveScheduler`, debounce
   500 ms, techo 3 s). `_flush_body` toma bytes + `pack()` + `S.store`/`S.project_id` bajo `STATE_LOCK`
   (snapshot atómico) y escribe la SQLite FUERA.
@@ -122,9 +125,10 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 
 - Los tests no ejecutan el lifespan → no tocan `data/apolo.db`. Patrón:
   `api.DOC = Document("t"); TestClient(api.app)`; el arranque real vive en
-  `initialize_store(db_path)`.
-- Fixtures con STORE: `_flush_autosave()` antes de leer disco y `_autosave_sched.cancel()` en el
-  teardown.
+  `session.initialize_store(db_path)` (`api.initialize_store`).
+- `tests/conftest.py` (autouse, por test) devuelve `S` a como estaba y cancela el Timer del
+  autosave al terminar cada test: un test no hereda el documento de otro. Fixtures con STORE:
+  `_flush_autosave()` antes de leer disco.
 - `tests/conftest.py` (autouse, sesión) redirige `logs/errors.log` a tmp: sin él la tortura
   escribía errores FALSOS en el log que se lee al «revisa» (commit `3e935f4`).
 
