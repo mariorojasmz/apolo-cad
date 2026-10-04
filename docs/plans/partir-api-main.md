@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F5b hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`, autosave/WS/arranque fuera de `main` + fixture que aísla la sesión); faltan F6a–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0–F6a hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`, autosave/WS/arranque fuera de `main` + fixture que aísla la sesión, escena/common/fea_runs/sims fuera de `main`); faltan F6b–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -498,3 +498,43 @@ todo antes de integrar.
   `api/session.py`, que el andamio (c) recorre); ruff limpio; `apolo.api.main`, `.session`,
   `.autosave` y `.ws` se importan solos; `test_claude_md` verde (`api/CLAUDE.md`: dónde vive
   el autosave, dónde se parchean los tiempos y la fixture).
+
+### F6a — infraestructura de la API fuera de `main` (2026-10-03)
+
+- **Nacen** `api/scene.py` (295 líneas: `PALETTE`, payloads del documento, variables y
+  grupos, `_DEF_MESH_CACHE`/`_definition_mesh`, `_SHAPE_CACHE`/`_cached_render`,
+  `_GEOM_REVS`/`SCENE_EPOCH`/`_geom_rev`, `scene_payload`, `_feature_brief`,
+  `scene_summary_dict`, `_open_briefing`, `_feature_colors`), `api/common.py` (203:
+  `PHYSICS_LOCK`, `JOBS`, `_expand_ids`, `_not_found`, `_normalize_affected`,
+  `_state_or_error`, `_materialize_*`, `_sync_or_job`, `_store_required`, `_drawing_meta`),
+  `api/fea_runs.py` (241: los 4 modelos del FEA, `_LAST_FEA_FIELD`/`_LAST_FEA_OWNER`,
+  `_fea_owner`, `_persist_fea_if_same_project`, `_last_fea_field`, `_http_error`,
+  `_fea_static_run`, `_fea_assembly_run`) y `api/sims.py` (79: `StabilityIn`, `_stability`,
+  `Product`, `DropIn`, `_drop`). `main.py` 3 535 → **2 842** (−693).
+- **Cortar y pegar, verificado**: un script del scratchpad corta por rango de líneas
+  (verificando el primer y el último renglón de cada bloque) y otro compara por AST el texto de
+  CADA definición de nivel superior de `main` + los 4 módulos contra `main.py` de F5b: 0
+  distintas, 0 perdidas. Los comentarios de `PHYSICS_LOCK`, `JOBS` y `_GEOM_REVS` viajan con
+  su definición; en `main` sólo se re-espaciaron cuatro cabeceras de sección que quedaron
+  huérfanas de su primera definición.
+- **Dónde se cortó y por qué**: `scene` sólo depende de `session` (capa más baja que
+  `common`), así que `_scene_filtered` —usa `_expand_ids`, que toma `STATE_LOCK` y es de
+  `common`— se queda en `main` y viaja en F6b con `get_scene`, su único llamador. Los wrappers
+  `_suggest_ids`/`_fea_rules`/`_stackup_rules` siguen en `main` (D4).
+- **D4**: `main` re-exporta por IDENTIDAD `scene_payload`, `_GEOM_REVS`, `_DEF_MESH_CACHE`,
+  `_definition_mesh`, `_cached_render`, `_open_briefing`, `JOBS`, `_LAST_FEA_FIELD`,
+  `_fea_owner`, `_persist_fea_if_same_project`, `_last_fea_field`, `StabilityIn` y
+  `_stability`. `_LAST_FEA_OWNER` sale de `main` (D4 c: su último uso se mudó) y
+  `test_fea.py::fea_guard` (único test editado, lista cerrada) espía
+  `api._autosave_sched.schedule` y parchea `apolo.api.fea_runs._LAST_FEA_OWNER`: sin el
+  cambio el test no queda verde en silencio (`monkeypatch.setattr` da `AttributeError`, y el
+  espía de `api._autosave` no vería el autosave de `fea_runs`). `_autosave` sigue en `main`:
+  todavía lo llaman endpoints de `main` (y el chat, que F6b muda).
+- **Gate**: suite **1 679 recogidos, 0 fallos** (428 s; `test_two_locks` sigue saltado);
+  `-m torture` **15 passed** (86 s); la suite FEA CORRE: 34 tests (19 + 15), 0 saltados, como en
+  F0/F4; andamio de F1 verde SIN regenerar (los textos que se mudaron viven ahora en
+  `scene`/`common`/`fea_runs`/`sims`, que el andamio (c) recorre); ruff limpio;
+  `apolo.api.main`, `.scene`, `.common`, `.sims` y `.fea_runs` se importan solos;
+  `test_claude_md` verde (`api/CLAUDE.md`: los módulos nuevos, dónde se espía el autosave y
+  dónde vive `_LAST_FEA_OWNER`). Lección de medición: `pytest.ini` ya trae `-q`, y otro `-q`
+  en la línea de comandos (`-qq`) se come la línea final con los conteos.

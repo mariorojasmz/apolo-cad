@@ -253,8 +253,8 @@ def fea_guard(monkeypatch):
     saves = []
     monkeypatch.setattr(api, "DOC", Document("fea-a"))
     monkeypatch.setattr(api, "PROJECT_ID", 101)
-    monkeypatch.setattr(api, "_autosave", lambda: saves.append(api.PROJECT_ID))
-    monkeypatch.setattr(api, "_LAST_FEA_OWNER", None)
+    monkeypatch.setattr(api._autosave_sched, "schedule", lambda: saves.append(api.PROJECT_ID))
+    monkeypatch.setattr("apolo.api.fea_runs._LAST_FEA_OWNER", None)
     api._LAST_FEA_FIELD.clear()
     yield saves
     api._LAST_FEA_FIELD.clear()

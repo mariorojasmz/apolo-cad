@@ -1,13 +1,16 @@
 # API (`core/apolo/api/`)
 
 Transporte HTTP (`main.py`), estado de sesión y arranque (`session.py`), autosave
-(`autosave.py`), WebSocket (`ws.py`), jobs asíncronos (`jobs.py`) y log de errores (`errorlog.py`).
-`main.py` además coreografía el FEA (al final); los mapas por pieza de los planos, los datos de
-instalación, el stack-up, las aserciones `verify`/`expect`, los insumos de la puerta de entrega,
-las reglas de ingeniería y FEA y la preparación del FEA son de [services](../services/CLAUDE.md)
-(se está partiendo `main.py`: [plan](../../../docs/plans/partir-api-main.md)). Lo transversal
-(`STATE_LOCK`, log, regenerate, Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el
-cliente MCP, en [core/apolo](../CLAUDE.md).
+(`autosave.py`), WebSocket (`ws.py`), payload de escena con sus cachés, revs y briefs
+(`scene.py`), lo que comparten los endpoints (`common.py`: `_expand_ids`, `_not_found`,
+`_state_or_error`, materialize, `JOBS`/`_sync_or_job`, `PHYSICS_LOCK`, cajetín), coreografía del
+FEA (`fea_runs.py`), física dos-locks (`sims.py`), jobs asíncronos (`jobs.py`) y log de errores
+(`errorlog.py`). Los mapas por pieza de los planos, los datos de instalación, el stack-up, las
+aserciones `verify`/`expect`, los insumos de la puerta de entrega, las reglas de ingeniería y FEA
+y la preparación del FEA son de [services](../services/CLAUDE.md) (se está partiendo `main.py`:
+[plan](../../../docs/plans/partir-api-main.md)). Lo transversal (`STATE_LOCK`, log, regenerate,
+Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en
+[core/apolo](../CLAUDE.md).
 
 ## Estado de sesión (`session.S`)
 
@@ -86,7 +89,7 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 
 ## Deltas de escena
 
-- `_geom_rev(fid, shape)` = revisión por IDENTIDAD del shape (el regen incremental la conserva en
+- `_geom_rev(fid, shape)` (`scene.py`) = revisión por IDENTIDAD del shape (el regen incremental la conserva en
   lo no re-ejecutado). `scene_payload(known=…)` manda `same: true` + metadatos volátiles
   (id/rev/name/color/visible/group/is_guide) de lo que el cliente ya tiene (`POST /api/scene/delta`).
   Un metadato nuevo que el viewport deba ver va también en la entrada `same`: no sube el rev.
@@ -105,7 +108,9 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 
 - Vive en `autosave.py`; `main` re-exporta por IDENTIDAD lo que usan endpoints y tests. Los
   tiempos (`_AUTOSAVE_DEBOUNCE`/`_AUTOSAVE_CEILING`) se parchean en `apolo.api.autosave`: en
-  `main` no existen (el programador no los leería).
+  `main` no existen (el programador no los leería). Para ESPIAR el autosave, parchea
+  `api._autosave_sched.schedule` (el objeto compartido), nunca `api._autosave`: `common`,
+  `fea_runs` y los routers llaman al `_autosave` de su propio módulo.
 - `_autosave()` no escribe: marca sucio y arma un flush único (`_AutosaveScheduler`, debounce
   500 ms, techo 3 s). `_flush_body` toma bytes + `pack()` + `S.store`/`S.project_id` bajo `STATE_LOCK`
   (snapshot atómico) y escribe la SQLite FUERA.
@@ -143,13 +148,14 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
   (`_fea_rules()`, `_stackup_rules()`, `_suggest_ids(m)`) e INYECTA `expand=_expand_ids` (toma
   `STATE_LOCK`, que services no puede nombrar). El juego de planos en PDF y DWG toma sus kwargs
   de `sheet_set_maps(doc)`.
-- **FEA** (`_fea_static_run`/`_fea_assembly_run`): la coreografía es de aquí —(a) bajo
-  `STATE_LOCK` la preparación de `services/fea_setup.py` + el tmp dir (lo crea y lo borra la API,
-  también si la preparación falla) + el STEP; (b) solve FUERA del lock; (c) persistir—. `ids`
-  acotado → hipótesis de ALCANCE; `nota` del analista → hipótesis. Persiste con
+- **FEA** (`fea_runs.py`: `_fea_static_run`/`_fea_assembly_run`): la coreografía es de la API
+  —(a) bajo `STATE_LOCK` la preparación de `services/fea_setup.py` + el tmp dir (lo crea y lo
+  borra la API, también si la preparación falla) + el STEP; (b) solve FUERA del lock; (c)
+  persistir—. `ids` acotado → hipótesis de ALCANCE; `nota` del analista → hipótesis. Persiste con
   `_persist_fea_if_same_project` (si se abrió otro proyecto durante el solve → `guardado: false` +
-  `aviso`); el campo en memoria (`_LAST_FEA_FIELD`) vale sólo para su documento. Empotramiento,
-  carga y convergencia: [services](../services/CLAUDE.md); malla y solver: [fea](../fea/CLAUDE.md).
+  `aviso`); el campo en memoria (`_LAST_FEA_FIELD`) vale sólo para su documento y su dueño
+  (`_LAST_FEA_OWNER`) se parchea en `apolo.api.fea_runs`. Empotramiento, carga y convergencia:
+  [services](../services/CLAUDE.md); malla y solver: [fea](../fea/CLAUDE.md).
 - **Stack-up**: el `PUT /api/stackup` hace ROLLBACK si la cadena no evalúa (persistirla
   envenenaba GET y la memoria para siempre); la evaluación aislada por cadena es de
   [services](../services/CLAUDE.md). [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)

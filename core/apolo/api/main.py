@@ -11,9 +11,7 @@ import asyncio
 import json
 import sys
 import tempfile
-import threading
 import traceback
-import weakref
 from pathlib import Path
 
 from fastapi import (
@@ -32,9 +30,9 @@ from pydantic import BaseModel
 
 from apolo import paths as _paths
 from apolo.agent import AgentHooks, chat_stream
-from apolo.commands import CommandError, command_schemas, command_schemas_persona
+from apolo.commands import command_schemas, command_schemas_persona
 from apolo.doc import Document, DocumentError
-from apolo.kernel import bbox_payload, export_step_file, mesh_payload
+from apolo.kernel import bbox_payload, export_step_file
 from apolo.library import (
     bom_from_scene,
     bom_to_csv,
@@ -62,16 +60,9 @@ from apolo.services.engineering_rules import (
     requirement_inputs,
     structure_rules,
 )
-from apolo.services.errors import ServiceError
 from apolo.services.fea_rules import fea_rules
-from apolo.services.fea_setup import (
-    merge_convergence,
-    prepare_assembly,
-    prepare_static,
-    resolve_assembly_scope,
-)
 from apolo.services.installation_data import installation_data as _installation_data  # noqa: F401
-from apolo.services.lookup import suggest_ids, suggest_suffix
+from apolo.services.lookup import suggest_ids
 from apolo.services.stackup_eval import evaluate_stackups, stackup_rules
 from apolo.state import STATE_LOCK
 
@@ -82,9 +73,45 @@ from .autosave import (  # D4: por IDENTIDAD (los endpoints y los tests usan los
     _flush_lock,  # noqa: F401 — sólo los tests (orden de locks)
     _project_switch,
 )
+from .common import (
+    JOBS,
+    _drawing_meta,
+    _expand_ids,
+    _materialize_edit,
+    _materialize_insert_project,
+    _not_found,
+    _state_or_error,
+    _store_required,
+    _sync_or_job,
+)
 from .errorlog import log_error, session_marker
-from .jobs import JOB_UNKNOWN, JobStore
+from .fea_runs import (  # D4: por IDENTIDAD (los tests espían la guardia y el campo en memoria)
+    _LAST_FEA_FIELD,  # noqa: F401
+    FeaAssemblyIn,
+    FeaStaticIn,
+    _fea_assembly_run,
+    _fea_owner,  # noqa: F401
+    _fea_static_run,
+    _last_fea_field,
+    _persist_fea_if_same_project,  # noqa: F401
+)
+from .jobs import JOB_UNKNOWN
+from .scene import (  # D4: por IDENTIDAD (cachés mutadas en sitio por los tests)
+    _DEF_MESH_CACHE,  # noqa: F401
+    _GEOM_REVS,  # noqa: F401
+    SCENE_EPOCH,
+    _cached_render,  # noqa: F401
+    _definition_mesh,  # noqa: F401
+    _feature_brief,
+    _feature_colors,
+    _open_briefing,
+    document_payload,
+    groups_payload,
+    scene_payload,
+    scene_summary_dict,
+)
 from .session import S, _MainModule, initialize_store
+from .sims import DropIn, StabilityIn, _drop, _stability
 from .ws import WS
 
 app = FastAPI(title="Genix Apolo CAD", version="0.1.0")
@@ -95,25 +122,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-PALETTE = ["#5b8def", "#46b58a", "#c77d4f", "#8e6fd8", "#d8a03a", "#5fa8c9", "#c75f7c"]
 
 # Estado de sesión (D3 del plan partir-api-main): vive en `session.S` y el código lee y swapea
 # `S.<campo>`. `api.DOC`/`STORE`/`PROJECT_ID`/`AUTOSAVE_ERROR`/`STARTUP_ERROR` quedan como
 # alias de `S` para los tests (leer, asignar, `monkeypatch`): los da la clase del módulo.
 sys.modules[__name__].__class__ = _MainModule
-
-# Dos-locks (V6.2c): las simulaciones físicas (MuJoCo, potencialmente segundos) corren
-# BAJO PHYSICS_LOCK y FUERA de STATE_LOCK → no congelan las mutaciones/lecturas del doc.
-# Regla de oro: bajo STATE_LOCK se EXTRAE geometría (OCCT, cascos/bbox); el bucle de
-# integración corre desde datos PUROS. PHYSICS_LOCK serializa sims entre sí (no contra el
-# doc). El render tiene su propio RENDER_LOCK en kernel/render_vtk.py.
-PHYSICS_LOCK = threading.Lock()
-
-# Jobs (V6.5e): las mutaciones por lote pueden ENCOLARSE (?async=true) y recogerse por
-# recibo → un timeout del cliente ya no deja al agente ciego. El worker corre el MISMO
-# closure que el endpoint (misma atomicidad/undo/contratos/autosave), solo que fuera de
-# la request. Vive en MEMORIA: un reload los pierde (son recibos, no datos).
-JOBS = JobStore()
 
 
 @app.on_event("startup")
@@ -185,241 +198,10 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         WS.disconnect(ws)
 
 
-# ------------------------------------------------------------------- payloads
-def variables_payload() -> list[dict]:
-    defining: dict[str, str] = {}
-    expressions: dict[str, str] = {}
-    for cmd in S.doc.commands:
-        if cmd["type"] == "set_variable":
-            defining[cmd["params"]["name"]] = cmd["id"]
-            expressions[cmd["params"]["name"]] = cmd["params"]["expression"]
-    return [
-        {
-            "name": name,
-            "expression": expressions.get(name, ""),
-            "value": S.doc.variables_resolved.get(name),
-            "command_id": cmd_id,
-        }
-        for name, cmd_id in defining.items()
-    ]
-
-
-def groups_payload() -> list[dict]:
-    """Grupos/sub-ensamblajes con sus members faltantes (integridad tolerante)."""
-    from apolo.assembly.groups import missing_members
-
-    gone = missing_members(S.doc.scene, S.doc.groups)
-    return [
-        {**g, "missing_members": gone.get(g["name"], [])}
-        for g in S.doc.groups.values()
-    ]
-
-
-def document_payload() -> dict:
-    return {
-        "name": S.doc.name,
-        "commands": S.doc.commands,
-        "can_undo": S.doc.can_undo,
-        "can_redo": S.doc.can_redo,
-        "variables": variables_payload(),
-        "configurations": sorted(S.doc.configurations.keys()),
-        "configuration_values": {k: dict(v) for k, v in S.doc.configurations.items()},  # V6.4c: tabla
-        "groups": groups_payload(),
-        "project_id": S.project_id,
-        # robustez (V6.1): comandos suprimidos por una carga tolerante + estado del
-        # autosave (None = sano). La UI pinta un chip cuando el disco no responde.
-        "suppressed_commands": S.doc.regen_suppressed,
-        "autosave_failed": S.autosave_error,
-    }
-
-
-def _expand_ids(value) -> list[str] | None:
-    """Normaliza un CSV/lista de ids expandiendo cualquier token que sea el NOMBRE de
-    un GRUPO a sus feature_ids (recursivo con sub-grupos). Así isolate/highlight/fit
-    aceptan sub-ensamblajes por nombre sin cambiar firmas."""
-    from apolo.assembly.groups import group_features
-
-    if value is None:
-        return None
-    tokens = ([s.strip() for s in value.split(",")] if isinstance(value, str) else
-              [str(s).strip() for s in value])
-    tokens = [t for t in tokens if t]
-    if not tokens:
-        return None
-    out: list[str] = []
-    with STATE_LOCK:
-        for tok in tokens:
-            if tok in S.doc.groups:
-                out.extend(group_features(S.doc.scene, S.doc.groups, tok, recursive=True))
-            else:
-                out.append(tok)
-    # dedup conservando orden
-    seen: set[str] = set()
-    return [x for x in out if not (x in seen or seen.add(x))]
-
-
 def _suggest_ids(missing, limit: int = 3) -> list[str]:
     """Envoltorio de compatibilidad (D4 del plan partir-api-main): «¿quisiste decir…?» sobre
     el documento ACTIVO (`services.lookup.suggest_ids`). Llamar bajo STATE_LOCK."""
     return suggest_ids(S.doc, missing, limit)
-
-
-def _not_found(missing, kind: str = "sólido") -> HTTPException:
-    """404 con candidatos cercanos («¿quisiste decir…?»). Llamar bajo STATE_LOCK."""
-    return HTTPException(status_code=404, detail=f"No existe el {kind} '{missing}'{suggest_suffix(S.doc, missing)}")
-
-
-_DEF_MESH_CACHE: dict[str, dict] = {}
-
-
-def _definition_mesh(key: str) -> dict | None:
-    from apolo.commands.registry import DEFINITIONS, touch_definition
-
-    if key not in DEFINITIONS:
-        return None
-    touch_definition(key)  # LRU: renderizar una definición la protege de la evicción (Fix A)
-    if key not in _DEF_MESH_CACHE:
-        if len(_DEF_MESH_CACHE) > 128:
-            _DEF_MESH_CACHE.clear()
-        _DEF_MESH_CACHE[key] = mesh_payload(DEFINITIONS[key])
-    return _DEF_MESH_CACHE[key]
-
-
-# Caché de datos de render por IDENTIDAD del shape OCCT (mesh/volumen/bbox). El
-# regenerate incremental conserva la MISMA referencia de shape para las features que
-# no cambiaron, así que solo se re-tesela/recalcula lo que cambió. La referencia fuerte
-# al shape evita reutilización de id mientras está en caché.
-_SHAPE_CACHE: dict[int, tuple] = {}
-_SHAPE_CACHE_CAP = 2048
-
-
-def _cached_render(shape, want_mesh: bool) -> dict:
-    key = id(shape)
-    hit = _SHAPE_CACHE.get(key)
-    if hit is None or hit[0] is not shape:
-        if len(_SHAPE_CACHE) > _SHAPE_CACHE_CAP:
-            _SHAPE_CACHE.clear()
-        hit = (shape, {"volume": round(shape.volume, 1), "bbox": bbox_payload(shape)})
-        _SHAPE_CACHE[key] = hit
-    data = hit[1]
-    if want_mesh and "mesh" not in data:
-        data["mesh"] = mesh_payload(shape)
-    return data
-
-
-# Revisión de GEOMETRÍA por feature (V6.2b): sube cuando el shape de la feature cambia de
-# IDENTIDAD. El regenerate incremental conserva la MISMA referencia de shape para lo no
-# tocado → rev estable = exactamente la señal que necesita el cliente para NO reconstruir
-# esa malla. Ref fuerte al shape (como _SHAPE_CACHE) evita reuso de id() estando en caché.
-_GEOM_REVS: dict[str, tuple] = {}
-
-# Epoch de PROCESO de la escena (V6.2e Fix 2): los revs viven en el proceso pero el navegador
-# lo sobrevive; tras un restart del API los revs renacen en 1 y COLISIONAN con los del cliente
-# → el delta respondería `same:true` con geometría vieja. Un uuid nuevo por arranque invalida
-# los revs del cliente: si el `epoch` que manda en el delta no coincide, se le da el payload
-# COMPLETO (known vacío). Cambiar de proyecto NO cambia el epoch (los revs se podan por fid).
-SCENE_EPOCH = __import__("uuid").uuid4().hex
-
-
-def _geom_rev(fid: str, shape) -> int:
-    prev = _GEOM_REVS.get(fid)
-    if prev is not None and prev[0] is shape:
-        return prev[1]
-    rev = (prev[1] + 1) if prev is not None else 1
-    _GEOM_REVS[fid] = (shape, rev)
-    return rev
-
-
-def scene_payload(known: dict | None = None) -> dict:
-    """Payload de escena. Con ``known`` (delta, V6.2b) = ``{"revs": {fid: rev}, "defs":
-    [mesh_keys]}`` las features cuya geometría el cliente YA tiene (rev coincide) van con
-    ``mesh=null`` + ``same=true`` (metadatos SIEMPRE: name/color/visible/group cambian sin
-    tocar geometría) y las definiciones ya conocidas se omiten. ``known=None`` (default) =
-    payload COMPLETO idéntico al de siempre + el campo ``rev`` por feature (aditivo)."""
-    from apolo.kernel.matrix import to_column_major16
-
-    known_revs = (known or {}).get("revs") or {}
-    known_defs = set((known or {}).get("defs") or [])
-
-    features = []
-    definitions: dict[str, dict] = {}
-    cmd_types = {c["id"]: c["type"] for c in S.doc.commands}
-    live: set[str] = set()
-    for i, feat in enumerate(S.doc.scene.values()):
-        live.add(feat.id)
-        rev = _geom_rev(feat.id, feat.shape)
-        color = S.doc.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
-        if known_revs.get(feat.id) == rev:
-            # geometría sin cambios: el cliente conserva su malla/bbox/volumen (los mergea de
-            # su estado anterior). Solo mandamos id + rev + señal + metadatos VOLÁTILES (los
-            # que cambian sin tocar geometría). Ni teselar ni tocar la definición.
-            features.append({
-                "id": feat.id, "rev": rev, "same": True,
-                "name": feat.name, "color": color,
-                "visible": feat.visible, "group": feat.group,
-                "is_guide": feat.is_guide,  # V6.2e Fix 7: toggle de guía es metadato (rev estable)
-            })
-            continue
-        def_mesh = _definition_mesh(feat.mesh_key) if feat.mesh_key and feat.matrix else None
-        rd = _cached_render(feat.shape, want_mesh=def_mesh is None)
-        entry = {
-            "id": feat.id,
-            "name": feat.name,
-            "visible": feat.visible,
-            "color": color,
-            "volume_mm3": rd["volume"],
-            "bbox": rd["bbox"],
-            "mesh": None,
-            "mesh_key": None,
-            "matrix": None,
-            "command_id": feat.command_id,
-            "command_type": cmd_types.get(feat.command_id),
-            "component": feat.component,
-            "cut_length": feat.cut_length,
-            "group": feat.group,
-            "is_guide": feat.is_guide,
-            "rev": rev,
-        }
-        if def_mesh is not None:
-            entry["mesh_key"] = feat.mesh_key
-            entry["matrix"] = to_column_major16(feat.matrix)
-            if feat.mesh_key not in known_defs:  # la definición solo si el cliente no la tiene
-                definitions[feat.mesh_key] = def_mesh
-        else:
-            entry["mesh"] = rd["mesh"]
-        features.append(entry)
-    # podar revs de features que ya no existen (evita crecer sin límite entre proyectos)
-    for gone in [f for f in _GEOM_REVS if f not in live]:
-        del _GEOM_REVS[gone]
-    return {
-        "features": features,
-        "definitions": definitions,
-        "document": document_payload(),
-        "total_features": len(features),
-        "epoch": SCENE_EPOCH,  # V6.2e Fix 2: el cliente lo devuelve en el delta (aditivo)
-    }
-
-
-def _feature_brief(fid: str, feat) -> dict:
-    """Sólido SIN malla para el brief del agente (V6.5a): los MISMOS campos que arma el
-    cliente MCP en `_scene_brief`, para que la lectura filtrada y la mutación se vean igual.
-    Reusa `_cached_render` (bbox/volumen por identidad de shape, sin teselar)."""
-    rd = _cached_render(feat.shape, want_mesh=False)
-    out = {
-        "id": fid,
-        "nombre": feat.name,
-        "visible": feat.visible,
-        "bbox": rd["bbox"],
-        "volumen_mm3": rd["volume"],
-        "comando": feat.command_id,
-    }
-    if feat.component:
-        out["componente"] = feat.component
-    if feat.group:
-        out["grupo"] = feat.group
-    if getattr(feat, "is_guide", False):
-        out["boceto"] = True
-    return out
 
 
 def _scene_filtered(ids, name, limit, offset) -> dict:
@@ -449,107 +231,6 @@ def _scene_filtered(ids, name, limit, offset) -> dict:
         "truncado": off + len(page) < total_filtrado,
         "solidos": [_feature_brief(fid, f) for fid, f in page],
     }
-
-
-def scene_summary_dict() -> dict:
-    """Resumen por GRUPO (V6.5a): por cada grupo de nivel superior, n_piezas + masa +
-    bbox conjunto (RECURSIVO, incluye sub-grupos) + nombres de sub-grupos; más un bloque
-    «(sin grupo)», totales y variables. La vista con la que el agente ENTRA a un proyecto
-    grande sin volcar la escena (~30 líneas para 5000 piezas)."""
-    from apolo.assembly.groups import children_of, group_features
-    from apolo.library.engineering.mass import scene_mass_properties
-
-    scene, groups = S.doc.scene, S.doc.groups
-    mat = S.doc.default_material()
-
-    def agg(fids):
-        if not fids:
-            return {"n_piezas": 0, "masa_kg": 0.0, "bbox_mm": [0, 0, 0]}
-        mp = scene_mass_properties(scene, ids=fids, default_material=mat)["total"]
-        return {"n_piezas": len(fids), "masa_kg": mp["masa_kg"], "bbox_mm": mp["bbox_mm"]}
-
-    rows = []
-    for g in groups.values():
-        if g.get("parent"):
-            continue  # solo nivel superior; los sub-grupos se listan por nombre para drill-down
-        fids = group_features(scene, groups, g["name"], recursive=True)
-        rows.append({
-            "grupo": g["name"], "rol": g.get("role"),
-            **agg(fids), "sub_grupos": children_of(groups, g["name"]),
-        })
-
-    sin_grupo = [fid for fid, f in scene.items() if not f.group]
-    total = scene_mass_properties(scene, default_material=mat)["total"]
-    return {
-        "proyecto": S.doc.name,
-        "total_solidos": len(scene),
-        "masa_total_kg": total["masa_kg"],
-        "bbox_conjunto_mm": total["bbox_mm"],
-        "grupos": rows,
-        "sin_grupo": agg(sin_grupo),
-        "variables": variables_payload(),
-    }
-
-
-def _open_briefing() -> dict:
-    """Briefing compacto de APERTURA (V6.5b, frente D): resumen por grupo + variables (de
-    scene_summary_dict) + requisitos + notas del agente + salud (ok/suprimidos) + variantes de
-    diseño. Arrancar una sesión pasa de 4-5 llamadas a 1. Llamar bajo STATE_LOCK. Presupuesto:
-    <10 KB en un proyecto grande (sin mallas, resumen por grupo)."""
-    raw = S.doc.check_integrity()
-    issues = [i for i in raw if not i.startswith("degradado")]
-    notas = list(S.doc.agent_notes)
-    brief = {
-        "resumen": scene_summary_dict(),  # proyecto/totales/grupos/sin_grupo/variables
-        "requisitos": S.doc.requirements,
-        # V6.5c: el ÚNICO campo sin techo natural — últimas 20 y recorte DECLARADO
-        "notas_agente": notas[-20:],
-        "salud": {
-            "ok": not issues and not S.startup_error,
-            "suprimidos": getattr(S.doc, "regen_suppressed", []),
-        },
-    }
-    if len(notas) > 20:
-        brief["notas_truncadas"] = len(notas) - 20  # sin caps silenciosos
-
-    if S.doc.configurations:  # tablas de diseño: variantes disponibles
-        brief["configuraciones"] = sorted(S.doc.configurations.keys())
-    return brief
-
-
-def _normalize_affected(v) -> list[str]:
-    """Normaliza el retorno de una mutación a una lista de command_ids afectados.
-    execute→str, execute_many/edit→list|str, lambdas sin retorno→[]."""
-    if v is None:
-        return []
-    if isinstance(v, str):
-        return [v]
-    if isinstance(v, (list, tuple)):
-        return [str(x) for x in v if x is not None]
-    return []
-
-
-def _state_or_error(fn):
-    from apolo.library.delivery import AVISO_SIN_ANCLAJES, MIN_SOLIDOS_SUJECION
-
-    with STATE_LOCK:
-        try:
-            affected = fn()
-        except (CommandError, DocumentError) as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        _autosave()
-        payload = scene_payload()
-        # Alarma ambiental (V6.9-B): con ≥5 sólidos y CERO anclajes declarados, CADA
-        # retorno de mutación lo recuerda — stateless y molesto a propósito (como la
-        # alarma del tren de aterrizaje); se apaga al declarar el primer ground.
-        # Solo en mutaciones: las lecturas (get_scene etc.) no lo llevan.
-        if len(S.doc.scene) >= MIN_SOLIDOS_SUJECION and not S.doc.grounds:
-            payload["aviso_estructura"] = AVISO_SIN_ANCLAJES
-    payload["affected_command_ids"] = _normalize_affected(affected)
-    # avisar DESPUÉS de construir el payload: el refresh de los clientes no
-    # compite con esta petición por las formas OCCT
-    WS.notify_changed()
-    return payload
 
 
 # ------------------------------------------------------------------ endpoints
@@ -670,44 +351,6 @@ class CommandIn(BaseModel):
     params: dict = {}
 
 
-def _materialize_insert_project(cmd_type: str, params: dict) -> dict:
-    """V5.2b: convierte project_id → attachment embebido (snapshot .apolo) para
-    insert_project. Solo la capa API conoce el ProjectStore (el executor es puro y
-    el .apolo del layout queda autocontenido). Content-addressed: re-materializar
-    sin cambios en el origen reusa el mismo hash (regenerate no-op). Llamar SIEMPRE
-    bajo STATE_LOCK (muta DOC.attachments)."""
-    if cmd_type != "insert_project" or not isinstance(params, dict) or params.get("attachment"):
-        return params
-    pid = params.get("project_id")
-    if pid is None:
-        return params  # el validador pydantic del comando dará el error claro
-    if S.store is None:
-        raise HTTPException(
-            status_code=400,
-            detail="No hay almacén de proyectos: insert_project necesita la API con startup",
-        )
-    if S.project_id is not None and int(pid) == S.project_id:
-        raise HTTPException(
-            status_code=400, detail="Un proyecto no puede instanciarse dentro de sí mismo"
-        )
-    try:
-        data = S.store.load_bytes(int(pid))
-    except KeyError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {**params, "attachment": S.doc.add_attachment(data)}
-
-
-def _materialize_edit(command_id: str, params: dict, merge: bool) -> dict:
-    """Pre-materializa un edit sobre un insert_project (refresh: {'attachment': ''}).
-    Devuelve los params COMPLETOS ya fusionados y materializados; re-fusionarlos
-    después (merge) es idempotente."""
-    cmd = next((c for c in S.doc.commands if c["id"] == command_id), None)
-    if cmd is None or cmd["type"] != "insert_project":
-        return params
-    full = {**cmd["params"], **params} if merge else params
-    return _materialize_insert_project("insert_project", full)
-
-
 @app.post("/api/commands")
 def post_command(cmd: CommandIn) -> dict:
     return _state_or_error(
@@ -720,41 +363,6 @@ class BatchIn(BaseModel):
     # CONTRATO opcional (V6.5b, frente A): aserciones estilo `verify` que deben cumplirse
     # tras el lote; si alguna falla, el lote se revierte por completo (doc intacto).
     expect: list[dict] = []
-
-
-def _sync_or_job(tipo: str, work, async_: bool):
-    """Ejecuta ``work`` (el closure COMPLETO del endpoint) o lo encola como job (V6.5e).
-
-    Sin ``?async``: byte-idéntico a antes de V6.5e (los clientes existentes ni se enteran).
-    Con él: 202 + recibo al instante y el MISMO closure corre en el worker → misma
-    atomicidad, mismo undo, mismos contratos, mismo autosave, cero código duplicado."""
-    if not async_:
-        return work()
-    # Un job ENCOLADO no puede aplicar al proyecto EQUIVOCADO (auditoría V6.5e): se
-    # captura el proyecto destino al encolar (lectura de global sin STATE_LOCK: el 202
-    # debe ser instantáneo aunque haya un regenerate en curso) y se revalida DENTRO de
-    # la misma adquisición del RLock que ejecuta el lote — check+mutación atómicos, sin
-    # TOCTOU. Restaura las semánticas del mundo sync, donde el switch serializaba tras
-    # STATE_LOCK. `restore_revision` conserva el PROJECT_ID → el lote aplica sobre la
-    # revisión restaurada, igual que aplicaría en sync.
-    expected = S.project_id
-
-    def guarded():
-        with STATE_LOCK:
-            if S.project_id != expected:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        f"El proyecto activo cambió mientras el lote esperaba en cola "
-                        f"(era {expected}, ahora {S.project_id}): el lote NO se aplicó. "
-                        f"Abre el proyecto correcto y reenvíalo."
-                    ),
-                )
-            return work()
-
-    return JSONResponse(
-        status_code=202, content={"job_id": JOBS.submit(tipo, guarded), "estado": "encolado"}
-    )
 
 
 @app.post("/api/commands/batch")
@@ -1260,12 +868,6 @@ def pick_endpoint(
 
 
 # ------------------------------------------------------------------ proyectos
-def _store_required():
-    if S.store is None:
-        raise HTTPException(status_code=503, detail="Almacén de proyectos no inicializado")
-    return S.store
-
-
 @app.get("/api/projects")
 def list_projects() -> list[dict]:
     return _store_required().list_projects()
@@ -1919,35 +1521,6 @@ def assembly_dof() -> dict:
         return dof_report(S.doc.scene, S.doc.joints, S.doc.mates, S.doc.grounds)
 
 
-class StabilityIn(BaseModel):
-    seconds: float = 2.0
-    gravity: float = 9.81
-    fps: int = 12
-    with_autodetect: bool = False
-    exclude: list[str] = []  # piezas a tratar como NO sujetas ("¿y si le falta el tornillo?")
-    include_frames: bool = False  # incluir las poses por fotograma (para animar en el viewport)
-
-
-def _stability(body: StabilityIn) -> dict:
-    """Dos-locks (V6.2c): (a) STATE_LOCK extrae la geometría (grafo de sujeción + cascos
-    convexos) → snapshot PURO; (b) PHYSICS_LOCK corre el bucle MuJoCo FUERA del lock del
-    doc → una gravedad de varios segundos no congela las mutaciones/lecturas del server."""
-    from apolo.physics import PhysicsError
-    from apolo.physics.stability import prepare_stability, simulate_stability
-
-    try:
-        with STATE_LOCK:
-            snap = prepare_stability(
-                S.doc.scene, S.doc.joints, S.doc.mates, S.doc.fasteners, S.doc.grounds,
-                seconds=body.seconds, gravity=body.gravity, fps=body.fps,
-                with_autodetect=body.with_autodetect, exclude=body.exclude,
-            )
-        with PHYSICS_LOCK:
-            return simulate_stability(snap)
-    except PhysicsError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
 @app.post("/api/assembly/stability")
 def assembly_stability(body: StabilityIn) -> dict:
     """Simula la gravedad sobre TODA la máquina (cuerpos rígidos + casco convexo):
@@ -2507,39 +2080,6 @@ def design_guidelines_endpoint() -> dict:
 
 
 # ------------------------------------------------------------------ física (drop-test)
-class Product(BaseModel):
-    w: float
-    d: float
-    h: float
-    mass: float | None = None
-    x: float = 0.0
-    y: float = 0.0
-    z: float = 0.0
-
-
-class DropIn(BaseModel):
-    products: list[Product]
-    seconds: float = 2.0
-    gravity: float = 9.81
-    fps: int = 20
-
-
-def _drop(body: DropIn) -> dict:
-    """Corre el drop-test sobre la escena actual (read-only). Dos-locks (V6.2c):
-    STATE_LOCK hornea la escena estática (AABB, OCCT); el bucle MuJoCo corre bajo
-    PHYSICS_LOCK, fuera del lock del doc. 400 si falta el motor o los datos no valen."""
-    from apolo.physics import PhysicsError, prepare_drop, simulate_drop
-
-    products = [p.model_dump() for p in body.products]
-    try:
-        with STATE_LOCK:
-            snap = prepare_drop(S.doc.scene, products, body.seconds, body.gravity, body.fps)
-        with PHYSICS_LOCK:
-            return simulate_drop(snap)
-    except PhysicsError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
 @app.post("/api/physics/drop")
 def physics_drop(body: DropIn) -> dict:
     return _drop(body)
@@ -2556,152 +2096,6 @@ def physics_drop_gif(body: DropIn) -> Response:
 
 
 # ---------------------------------------------------------------- FEA (V5.6)
-class FeaLoadIn(BaseModel):
-    selector: dict                        # selector declarativo de caras cargadas
-    force_n: list[float] | None = None    # fuerza TOTAL [Fx,Fy,Fz] N (repartida F/área)
-    pressure_mpa: float | None = None     # presión normal ENTRANTE a la cara
-
-
-class FeaStaticIn(BaseModel):
-    feature_id: str
-    fixed: dict                           # selector declarativo de caras EMPOTRADAS
-    loads: list[FeaLoadIn] = []
-    material: str | None = None           # gana sobre resolve_material
-    yield_mpa: float | None = None        # obligatorio si el material no tiene σy tabulado
-    self_weight: bool = False
-    mesh_size_mm: float | None = None
-    fs_min: float = 2.0
-    save: bool = True                     # persistir el resumen en DOC.fea (memoria)
-
-
-class FeaAsmLoadIn(BaseModel):
-    feature_id: str                       # la carga se resuelve contra ESTA pieza
-    selector: dict                        # selector declarativo de sus caras
-    force_n: list[float] | None = None
-    pressure_mpa: float | None = None
-
-
-class FeaAssemblyIn(BaseModel):
-    """FEA BONDED de un sub-ensamblaje (V7.4): un GRUPO o lista de piezas pegadas."""
-    group: str | None = None              # nombre de grupo (o usa ids)
-    ids: list[str] | None = None          # o piezas explícitas
-    name: str | None = None               # etiqueta si se pasan ids sueltos
-    carga_kg: float | None = None         # carga de diseño (si None → requirements.carga_kg)
-    self_weight: bool = True              # peso propio (por defecto SÍ en un bastidor)
-    yield_mpa: float | None = None        # σy de respaldo para piezas sin σy tabulado
-    loads: list[FeaAsmLoadIn] = []        # cargas EXPLÍCITAS (si vacío → auto sobre la cama/mesa)
-    fixed_pieces: list[str] | None = None  # empotrar la base de estas piezas (si None → grounds ∩ grupo)
-    mesh_size_mm: float | None = None
-    fs_min: float = 2.0
-    save: bool = True
-    nota: str | None = None               # nota del ANALISTA (alcance/limitaciones) → hipótesis
-
-
-_LAST_FEA_FIELD: dict = {}  # feature_id → FeaField del último solve (fringe, no persiste)
-# Dueño del campo en memoria: (PROJECT_ID, weakref al DOC del solve). Los feature_ids
-# («c12») se repiten entre proyectos → sin dueño, el fringe «sin re-resolver» serviría
-# el campo de OTRO proyecto tras abrir uno nuevo.
-_LAST_FEA_OWNER: tuple | None = None
-
-
-def _fea_owner() -> tuple:
-    """Identidad del documento activo (PROJECT_ID, DOC) para el patrón dos-locks del
-    FEA: se captura en la fase (a), BAJO STATE_LOCK, y se revalida en la (c)."""
-    return (S.project_id, S.doc)
-
-
-def _persist_fea_if_same_project(owner: tuple, key: str, resumen: dict, field,
-                                 save: bool, before_save=None) -> dict:
-    """Fase (c) del FEA: persiste el resumen y publica el campo SOLO si el documento
-    activo sigue siendo el del solve. El solve corre FUERA de STATE_LOCK (minutos): si
-    entretanto se abrió/creó otro proyecto o se restauró una revisión (DOC reemplazado),
-    guardar escribiría el resultado en el documento EQUIVOCADO → NO se guarda y se
-    devuelve el resultado con `aviso`. Mismo patrón que la guardia de jobs
-    (`_sync_or_job`): check + escritura atómicos en UNA adquisición del lock, sin TOCTOU.
-    `before_save(doc, resumen)` corre bajo el lock justo antes de guardar (historial de
-    convergencia del ensamblaje)."""
-    global _LAST_FEA_OWNER
-    pid, doc = owner
-    with STATE_LOCK:
-        if S.project_id != pid or S.doc is not doc:
-            if save:
-                resumen["guardado"] = False
-                resumen["aviso"] = (
-                    f"El proyecto activo cambió durante el análisis (era {pid}, ahora "
-                    f"{S.project_id}): el resultado NO se guardó para no escribirlo en el "
-                    f"documento equivocado. Abre el proyecto analizado y re-ejecuta el FEA."
-                )
-            return resumen  # el campo tampoco se publica: es de otro documento
-        if save:
-            if before_save is not None:
-                before_save(S.doc, resumen)
-            S.doc.set_fea_result(key, resumen)
-            _autosave()
-        _LAST_FEA_FIELD.clear()
-        _LAST_FEA_FIELD[key] = field
-        _LAST_FEA_OWNER = (pid, weakref.ref(doc))
-    return resumen
-
-
-def _last_fea_field(key: str):
-    """Campo FEA en memoria de `key`, SOLO si pertenece al documento activo."""
-    with STATE_LOCK:
-        field = _LAST_FEA_FIELD.get(key)
-        if field is None or _LAST_FEA_OWNER is None:
-            return None
-        pid, ref = _LAST_FEA_OWNER
-        if pid != S.project_id or ref() is not S.doc:
-            _LAST_FEA_FIELD.clear()  # de otro proyecto: no retener su malla
-            return None
-        return field
-
-
-def _http_error(exc: ServiceError) -> HTTPException:
-    """Un error de dominio de `services` (D8) → el 400/404 con su texto EXACTO."""
-    return HTTPException(status_code=exc.status_code, detail=exc.detail)
-
-
-def _fea_static_run(body: FeaStaticIn):
-    """Patrón dos-locks: (a) STATE_LOCK resuelve material/selectores y exporta el
-    STEP; (b) SIN lock (solo FEA_LOCK interno) malla y resuelve; (c) STATE_LOCK
-    persiste el resumen. El solve nunca serializa al resto del server."""
-    import shutil
-    import tempfile
-
-    from apolo.fea import FeaError
-
-    with STATE_LOCK:
-        try:  # validación + material + selectores: services/fea_setup.py
-            prep = prepare_static(S.doc, body)
-        except ServiceError as exc:
-            raise _http_error(exc) from exc
-        feat = prep["feat"]
-        tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_step_")
-        step = str(Path(tmp_dir) / "pieza.step")
-        export_step_file([feat.shape], step)
-        pieza, vol = feat.name, float(feat.shape.volume)
-        owner = _fea_owner()
-
-    try:
-        from apolo.fea.static import run_static_analysis
-
-        resumen, field = run_static_analysis(
-            step, pieza=pieza, fixed=prep["fixed"], loads=prep["loads"], e_mpa=prep["e_mpa"],
-            yield_mpa=prep["sy"], density_kg_mm3=prep["rho"], material=prep["material"],
-            self_weight=body.self_weight, mesh_size_mm=body.mesh_size_mm,
-            fs_min=body.fs_min,
-        )
-    except FeaError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-
-    resumen["feature_id"] = body.feature_id
-    resumen["volumen_mm3"] = round(vol, 1)
-    _persist_fea_if_same_project(owner, body.feature_id, resumen, field, body.save)
-    return resumen, field
-
-
 @app.post("/api/fea/static")
 def fea_static(body: FeaStaticIn) -> dict:
     """FEA estático lineal de UNA pieza (malla tet P2 + elasticidad lineal).
@@ -2720,70 +2114,6 @@ def fea_static_png(body: FeaStaticIn) -> Response:
     resumen, field = _fea_static_run(body)
     png = fringe_png(field, title=f"von Mises [MPa] · {resumen['pieza']} · FS={resumen['fs']}")
     return Response(content=png, media_type="image/png")
-
-
-def _fea_assembly_run(body: FeaAssemblyIn):
-    """FEA BONDED de un sub-ensamblaje (V7.4). Patrón dos-locks igual que la pieza:
-    (a) STATE_LOCK expande el grupo, resuelve material/selectores, deriva
-    empotramiento (grounds) y carga (requisitos sobre la cama), exporta un STEP por
-    pieza; (b) SIN lock malla+resuelve (bonded); (c) STATE_LOCK persiste (clave
-    `group:<nombre>`, vigencia por volumen conjunto). El herraje de catálogo se EXCLUYE
-    de la malla y su peso entra como carga sustituta DECLARADA."""
-    import shutil
-    import tempfile
-
-    from apolo.fea import FeaError
-
-    tmp_dir = None
-    with STATE_LOCK:  # la preparación es de services/fea_setup.py; el tmp dir, de aquí
-        try:
-            fids, grupo = resolve_assembly_scope(S.doc, body)
-        except ServiceError as exc:
-            raise _http_error(exc) from exc
-        tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_asm_step_")
-        try:
-            params = prepare_assembly(S.doc, body, fids, grupo, tmp_dir)
-        except ServiceError as exc:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            raise _http_error(exc) from exc
-        except Exception:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            raise
-        owner = _fea_owner()
-
-    try:
-        from apolo.fea.assembly import run_assembly_analysis
-
-        resumen, field = run_assembly_analysis(
-            params["pieces"], grupo=params["grupo"], fixed=params["fixed"],
-            loads=params["loads"], self_weight=body.self_weight,
-            excluded=params["excluded"], substitute_applied=params["substitute_applied"],
-            mesh_size_mm=body.mesh_size_mm, fs_min=body.fs_min,
-        )
-    except FeaError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-
-    key = f"group:{params['grupo']}"
-    resumen["fea_key"] = key
-    resumen["volumen_mm3"] = round(sum(p["volumen_mm3"] for p in params["pieces"]), 1)
-    resumen["piezas_fids"] = params["struct_ids"]
-    if body.ids:
-        # alcance ACOTADO (ids explícitos, no un grupo completo): declararlo — lo no
-        # incluido no aporta rigidez y sus pesos deben entrar como loads
-        resumen["hipotesis"].append(
-            f"alcance: análisis acotado a los {len(params['pieces'])} sólidos declarados "
-            f"(«{params['grupo']}») — lo no incluido no aporta rigidez; sus cargas entran "
-            f"como fuerzas aplicadas"
-        )
-    if body.nota:
-        resumen["hipotesis"].append(f"nota del analista: {body.nota}")
-
-    _persist_fea_if_same_project(
-        owner, key, resumen, field, body.save,
-        before_save=lambda doc, res: merge_convergence(doc, key, res))
-    return resumen, field
 
 
 @app.post("/api/fea/assembly")
@@ -2866,29 +2196,6 @@ def _fea_rules() -> list[dict]:
 
 
 # --------------------------------------------------------------------- planos
-def _feature_colors() -> dict:
-    """Color por pieza IDÉNTICO al viewport web (DOC.colors asignados, o paleta por índice de
-    escena) para que el sombreado del plano coincida con lo que el usuario ve en 3D."""
-    return {feat.id: S.doc.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
-            for i, feat in enumerate(S.doc.scene.values())}
-
-
-def _drawing_meta() -> dict:
-    """Cajetín: nº de plano (id de proyecto) + revisiones del proyecto (SQLite)."""
-    meta: dict = {"drawing_no": str(S.project_id) if S.project_id is not None else "—"}
-    store = S.store
-    if store is not None and S.project_id is not None:
-        try:
-            revs = store.list_revisions(S.project_id)
-            meta["revisions"] = [
-                {"rev": i + 1, "date": r.get("created_at", r.get("date", "")), "note": r.get("note", "")}
-                for i, r in enumerate(revs)
-            ]
-        except Exception:
-            pass
-    return meta
-
-
 def _sheet_model(sheet: str, hidden: bool, dims: str = "", section: bool = False, bom: bool = False):
     from apolo.drawing import compose_sheet
 
