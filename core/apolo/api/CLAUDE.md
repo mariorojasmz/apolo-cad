@@ -12,6 +12,27 @@ y la preparación del FEA son de [services](../services/CLAUDE.md) (se está par
 Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en
 [core/apolo](../CLAUDE.md).
 
+## Routers (`routers/`): dónde va una ruta
+
+| router | rutas |
+|---|---|
+| `core` | escena (completa, filtrada, resumen, delta), documento, salud, schemas, `/ws`, notas y chat del agente, croquis, script de prueba, expresiones, criterio de diseño |
+| `features` | visibilidad, boceto-guía, color, material, vertical, topología, grupos, masa, medida, cercanía |
+| `projects` | proyectos, revisiones, importar/exportar (STEP, STL, `.apolo`) |
+| `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
+| `render` | `render.png` y `pick` (misma cámara) |
+| `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
+
+- Las demás rutas siguen en `main` hasta la F6c del plan. Una ruta nueva va al router de su
+  tema con `@router.<método>`; `main` sólo compone (`include_router`).
+- **Orden**: Starlette sirve la PRIMERA ruta que casa (y su `Allow` en un 405). Las rutas que
+  pueden casar la misma URL viven en el MISMO router y se declaran en su orden (p. ej. `DELETE
+  /api/projects/{project_id}` antes que `PATCH /api/projects/current`).
+- Un router importa de `common`, `scene`, `session`, `sims`, `fea_runs` y `apolo.services`;
+  nunca de `main`, de otro router ni de `autosave`/`ws`/`jobs` (lo que necesite de ellos lo
+  re-exporta `common`). Un test que llama una ruta directo la toma de `main` (re-export por
+  IDENTIDAD, D4).
+
 ## Estado de sesión (`session.S`)
 
 - El documento activo, el almacén, el proyecto y la salud viven en UN objeto,

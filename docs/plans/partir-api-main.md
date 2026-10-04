@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F6a hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`, autosave/WS/arranque fuera de `main` + fixture que aísla la sesión, escena/common/fea_runs/sims fuera de `main`); faltan F6b–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0–F6b hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`, autosave/WS/arranque fuera de `main` + fixture que aísla la sesión, escena/common/fea_runs/sims fuera de `main`, routers de lectura y planos); faltan F6c–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -538,3 +538,45 @@ todo antes de integrar.
   `test_claude_md` verde (`api/CLAUDE.md`: los módulos nuevos, dónde se espía el autosave y
   dónde vive `_LAST_FEA_OWNER`). Lección de medición: `pytest.ini` ya trae `-q`, y otro `-q`
   en la línea de comandos (`-qq`) se come la línea final con los conteos.
+
+### F6b — routers de lectura y planos (2026-10-03)
+
+- **Nacen** `api/routers/` (`__init__.py` 6 líneas) con `core.py` (326: escena completa,
+  filtrada —`_scene_filtered` viaja con `get_scene`—, resumen y delta, documento, salud,
+  schemas, `/ws`, notas y chat del agente, croquis, script de prueba, expresiones, criterio de
+  diseño), `features.py` (270: visibilidad, boceto-guía, color, material, vertical, topología,
+  grupos, masa, medida, cercanía), `projects.py` (229: proyectos, revisiones, importar y
+  exportar STEP/STL/`.apolo`), `motion.py` (189: cinemática, juntas, estudios, GIF, URDF/SDF),
+  `render.py` (228: `render.png` y `pick`) y `drawings.py` (308: lámina, desplegado de chapa,
+  juego de planos, plano por intención, fits, roscas). `_remove_owner_command` pasa a `common`
+  (lo comparten `motion` y, hasta F6c, `delete_mate`). `main.py` 2 842 → **1 415** (−1 427).
+- **Cortar y pegar, verificado**: el script mueve por NOMBRE cada definición (decoradores y
+  comentarios pegados incluidos, sin las cabeceras de sección) y la deja en su router en el
+  ORDEN original de `main`; el único cambio de texto es `@app.` → `@router.`. La comparación
+  por AST contra `main` + `common` de F6a (normalizando sólo ese prefijo): 0 distintas, 0
+  perdidas. `main` las compone con un `include_router` por router, antes del Mount de la UI.
+- **Capas**: un router importa de `common`, `scene`, `session`, `sims`, `fea_runs` y
+  `services`; lo que necesita del autosave (`_autosave_sched`, `_flush_autosave`,
+  `_project_switch`) se lo re-exporta `common` (por identidad: los objetos son los mismos).
+  `client-errors` se queda en `main` con el middleware y el handler (el registro de errores
+  es parte de la composición: D1); `/ws` va a `core`.
+- **Desviación (andamio)**: al componer con routers el orden GLOBAL de las rutas cambia por
+  diseño —D5 sólo exige el orden relativo de las que se solapan, todas internas a un router—,
+  y el test (a) del andamio comparaba la lista ENTERA en orden: fue el único rojo (OpenAPI,
+  textos y las 87 respuestas doradas, verdes). Se adaptó SÓLO esa comparación, sin regenerar
+  nada: mismas rutas (tipo, métodos, path, nombre) que `rutas.json` + el orden relativo de
+  TODO par de rutas que puede casar la misma URL (detector genérico por segmentos; un test
+  propio prueba que sobre lo congelado ve los 11 pares de paths distintos y los 9 paths con
+  varios métodos del plan). Probado: invertir `delete_project`/`rename_project` en la app lo
+  pone rojo; permutar dos rutas que no se solapan no. Es lo mismo que dejará F7 en
+  `test_rutas_api.py`, generalizado.
+- **D4**: `main` re-exporta por IDENTIDAD `delete_project` (un test la llama directo) y deja
+  `scene_payload`/`_open_briefing`/`_autosave_sched`/`_project_switch` sólo como re-export.
+  `test_agent.py` (el chat se mudó a `core`, que llama al `_autosave` de su propio módulo) espía
+  `api._autosave_sched.schedule` en vez de `api._autosave`: único test editado de la lista
+  cerrada para esta fase. `_autosave` sigue en `main` (lo usan requisitos y stack-up hasta F6c).
+- **Gate**: suite **1 679 passed + 1 skipped, 0 fallos** (400 s; +1 = el test del detector
+  de solapes); `-m torture` **15 passed** (77 s); andamio de F1 verde SIN regenerar con la
+  comparación de rutas adaptada; ruff limpio; `apolo.api.main`, `apolo.api.routers` y cada
+  router se importan solos; `test_claude_md` verde (`api/CLAUDE.md` gana § Routers: dónde va
+  una ruta, la regla del orden y las capas).

@@ -2,7 +2,8 @@
 cambia mientras se parte `api/main.py`.
 
 Compara el código ACTUAL contra lo congelado en `tests/data/partir_main/` desde el código
-SIN tocar (`scripts/partir_main_snapshot.py`): rutas en orden, OpenAPI, textos de `main.py`
+SIN tocar (`scripts/partir_main_snapshot.py`): rutas (y el orden de las que pueden casar la
+misma URL), OpenAPI, textos de `main.py`
 (que pueden mudarse a `api/` o `services/`, pero no perderse ni cambiar) y respuestas
 doradas. **Si uno se pone rojo, la fase se detiene**: no se regenera el congelado para
 hacerlo pasar (salvo un cambio deliberado de OTRO plan, que se anota en la bitácora).
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -40,10 +42,59 @@ def _congelado(nombre: str):
     return json.loads((DATOS / nombre).read_text(encoding="utf-8"))
 
 
-def test_las_rutas_son_las_mismas_y_en_el_mismo_orden():
-    """Starlette atiende la PRIMERA ruta que casa: el orden decide quién responde una
-    URL solapada y qué `Allow` lleva un 405."""
-    assert snap.capturar_rutas(api.app) == _congelado("rutas.json")
+def _segmento_casa(a: str, b: str) -> bool:
+    """¿Hay un segmento de URL que casen los dos patrones? `{x}` = texto sin «/» (el
+    convertidor `str` de Starlette, el único que usa la API)."""
+    pa, pb = "{" in a, "{" in b
+    if not pa and not pb:
+        return a == b
+    if pa and pb:
+        return True  # dos segmentos con parámetro: se asume que pueden casar
+    patron, literal = (a, b) if pa else (b, a)
+    rx = "".join("[^/]+" if p.startswith("{") else re.escape(p)
+                 for p in re.split(r"(\{[^}]+\})", patron))
+    return re.fullmatch(rx, literal) is not None
+
+
+def solapan(p: str, q: str) -> bool:
+    """¿Pueden los paths `p` y `q` casar la MISMA URL? (un path consigo mismo, también)."""
+    a, b = p.split("/"), q.split("/")
+    return len(a) == len(b) and all(map(_segmento_casa, a, b))
+
+
+def _clave(r: dict) -> tuple:
+    return (r["tipo"], tuple(r["metodos"]), r["path"], r["nombre"])
+
+
+def test_las_rutas_son_las_mismas_y_las_que_se_solapan_conservan_su_orden():
+    """Mismas rutas (tipo, métodos, path, nombre) que las congeladas. Starlette atiende la
+    PRIMERA ruta que casa: el orden decide quién responde una URL solapada y qué `Allow` lleva
+    un 405. Ese orden es el de las rutas que pueden casar la MISMA URL —los 11 pares solapados
+    y los 9 paths con varios métodos— y se compara par por par contra lo congelado; el orden
+    GLOBAL cambia por diseño al repartir las rutas en routers (D5: cada par vive dentro de un
+    router). Hasta F6a este test comparaba la lista entera en orden (bitácora de F6b)."""
+    actual, congelado = snap.capturar_rutas(api.app), _congelado("rutas.json")
+    assert sorted(map(_clave, actual)) == sorted(map(_clave, congelado))
+    pos = {_clave(r): i for i, r in enumerate(actual)}
+    invertidos = [
+        f"{a['nombre']} ({a['path']}) debe ir antes que {b['nombre']} ({b['path']})"
+        for i, a in enumerate(congelado) for b in congelado[i + 1:]
+        if solapan(a["path"], b["path"]) and pos[_clave(a)] > pos[_clave(b)]
+    ]
+    assert not invertidos, "\n".join(invertidos)
+
+
+def test_el_detector_de_solapes_ve_los_pares_del_plan():
+    """Sin esto, un `solapan` roto (siempre False) dejaría verde el test de arriba sin
+    comparar nada: sobre lo congelado ve los 11 pares de paths DISTINTOS y los 9 paths con
+    varios métodos que midió el plan."""
+    r = _congelado("rutas.json")
+    pares = [(a["path"], b["path"]) for i, a in enumerate(r) for b in r[i + 1:]
+             if solapan(a["path"], b["path"])]
+    assert sum(p != q for p, q in pares) == 11
+    assert len({p for p, q in pares if p == q}) == 9
+    assert ("/api/fea/group/{name}", "/api/fea/{feature_id}/fringe.png") in pares
+    assert not solapan("/api/export/step", "/api/export/urdf")
 
 
 def test_el_openapi_no_cambia():

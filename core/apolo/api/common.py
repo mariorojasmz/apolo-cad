@@ -7,6 +7,10 @@ ambiental y aviso por WebSocket), la materialización de `insert_project`, los j
 `_sync_or_job` con su guardia de proyecto), el lock de física (`PHYSICS_LOCK`), el almacén
 requerido y el cajetín de los planos (`_drawing_meta`). Aquí sí viven `HTTPException` y
 `STATE_LOCK`; la lógica que lee un `Document` es de `apolo.services`.
+
+Es también el KIT de los routers (`api/routers/`): lo que un endpoint necesita del autosave, del
+WebSocket y de los jobs lo importa de aquí, nunca de `autosave`/`ws`/`jobs` directamente
+(gate de capas en `tests/test_api_sesion.py`).
 """
 
 from __future__ import annotations
@@ -21,7 +25,12 @@ from apolo.doc import DocumentError
 from apolo.services.lookup import suggest_suffix
 from apolo.state import STATE_LOCK
 
-from .autosave import _autosave
+from .autosave import (  # el resto, kit de los routers: lo importan de AQUÍ (gate de capas)
+    _autosave,
+    _autosave_sched,  # noqa: F401
+    _flush_autosave,  # noqa: F401
+    _project_switch,  # noqa: F401
+)
 from .jobs import JobStore
 from .scene import scene_payload
 from .session import S
@@ -201,3 +210,16 @@ def _drawing_meta() -> dict:
         except Exception:
             pass
     return meta
+
+
+def _remove_owner_command(items: dict, name: str, cmd_type: str, missing: str, foreign: str):
+    """Borra el comando `cmd_type` que declaró `items[name]` (junta o mate). Corre DENTRO
+    del closure de `_state_or_error`: buscar y borrar en UNA adquisición de STATE_LOCK
+    (antes la búsqueda en el log iba fuera → TOCTOU con una mutación concurrente)."""
+    item = items.get(name)
+    if item is None:
+        raise HTTPException(status_code=404, detail=missing)
+    cmd = next((c for c in S.doc.commands if c["id"] == item["command_id"]), None)
+    if cmd is None or cmd["type"] != cmd_type:
+        raise HTTPException(status_code=400, detail=foreign)
+    return S.doc.remove_commands([item["command_id"]])

@@ -307,7 +307,7 @@ def test_endpoint_del_chat_ata_el_stream_al_proyecto_activo(monkeypatch):
     viejo, guardados = Document("viejo"), []
     monkeypatch.setattr(api, "DOC", viejo)
     monkeypatch.setattr(api, "PROJECT_ID", 1)
-    monkeypatch.setattr(api, "_autosave", lambda: guardados.append(api.DOC))
+    monkeypatch.setattr(api._autosave_sched, "schedule", lambda: guardados.append(api.DOC))
 
     def abrir_otro(n_llamada):
         if n_llamada == 2:
