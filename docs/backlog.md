@@ -89,6 +89,11 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
 - Coping/notching en nodos de grado ≥ 3.
 - Chaveta en bores.
 - Más familias de catálogo.
+- **`create_extrude_poly` con puntos en sentido horario sale descentrado**: con h = 40, Z en
+  [−60, −20] en vez de [−20, 20] (su schema dice «centrado en el origen»);
+  `_exec_create_extrude_poly` no normaliza el sentido. Hoy lo cubre la guía («ANTIHORARIO»,
+  [chat-cliente-igual](plans/chat-cliente-igual.md) F6); el arreglo es normalizar en el ejecutor
+  (cambia la geometría de logs viejos con polígonos horarios: revisar antes).
 
 ## Física
 

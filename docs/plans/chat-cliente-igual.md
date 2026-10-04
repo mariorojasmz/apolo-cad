@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2 y F4 hechas (spikes verdes, golden del MCP, destino inyectable, catálogo de 63 tools + adaptador todavía sin cablear al chat), sin mergear. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
+nota: F0–F2, F4 y F6 hechas (spikes verdes, golden del MCP, destino inyectable, catálogo de 63 tools + adaptador todavía sin cablear al chat, guía única que el chat viejo ya usa), sin mergear. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
 descripcion: El asistente de la app usa las mismas herramientas que el agente por MCP (puerta de entrega, gravedad, verify, render nítido, lotes con contrato), te avisa cuando se corta y cuesta menos por mensaje
 ---
 
@@ -193,7 +193,8 @@ de F1 sin diferencias salvo cambio deliberado listado; `ruff check core tests sc
   F3, F4, partir F6c, estado-regen F4 y texto-agente F5.**
 - **F5b — corte y limpieza (M).** Se borra el flag y `agent/agent.py`; gate AST de capas de clientes;
   lista cerrada de tests editados (`test_agent.py`, `test_autonomous.py`, `test_validation.py`,
-  `test_variables.py`, el caso del agente de `test_params_estrictos.py` si existe).
+  `test_variables.py`, el caso del agente de `test_params_estrictos.py` si existe, y el test
+  transitorio `test_las_reglas_sirven_tambien_al_chat_viejo` de `test_prompt_chat.py`, que F6 dejó).
 - **F6 — una sola guía (S).** `REGLAS_CHAT` + `system_prompt_chat()`, triage aplicado, D10.
 - **F7 — higiene del cliente de Anthropic (M).** `agent/modelo.py` con D12 y D13; modelo leído en
   cada llamada vía `APOLO_MODEL` **sin cambiar el default** (D11 espera a Mario); pin de `anthropic` a la
@@ -470,3 +471,104 @@ sirve en tiempo de ejecución para F7/F8; F7 fija el pin en `>=0.109.1` (la mín
 - `mcp_server.py` (1429) y `agent/agent.py` (606) sin tocar; golden del MCP idéntico.
 - Suite: 1606 passed + 1 skipped (1607 recolectados, 10 min); `ruff check core tests scripts`
   limpio. La muestra de `test_script` cuesta ≈ 9 s (el sandbox levanta su proceso).
+
+### F6 — una sola guía (2026-10-03)
+
+- `design/instrucciones.py` (101 líneas): `REGLAS_CHAT` y `system_prompt_chat()` =
+  `design_brief()` + `GUIA_TECNICA` + `REGLAS_CHAT` (separados por `"\n\n"`, sin
+  `AVISO_CONEXION`). `agent/prompts.py` queda en `SYSTEM_PROMPT = system_prompt_chat()` (120 → 7
+  líneas). `test_design_guidelines.py` pasa sin editarse.
+- **Tamaños**: prompt del chat 10 730 → **7 974 bytes** (−26 %); instructions del MCP 4 900 →
+  **6 151** (+1 251, D10); `GUIA_TECNICA` 1 013 → 2 264; `REGLAS_CHAT` 1 945.
+- **A `REGLAS_CHAT`** (sólo lo de la app): quién es y con quién habla (panel Asistente IA, el
+  proyecto abierto); modos (D6: propuesta por defecto, lo que cambia el documento devuelve error,
+  para cambiar geometría `propose_commands` y nunca pasos manuales; modo auto: aplica, verifica,
+  corrige y resume); cómo empezar (leer el modelo por el resumen por grupo y las notas del
+  proyecto); archivos (el chat no escribe: planos en la pestaña Planos, memoria y cotización en
+  Requisitos, el BOM en su panel, STEP/STL/glTF en el menú Archivo; si una tool ofrece `path` o
+  `fringe_path`, se llama sin ellos — cierra la nota de F4 sobre `drawing`, `gravity_test` y
+  `fea_static`); STEP por Archivo → «Importar STEP…»; panel Cinemática; cómo responder (idioma de
+  la persona, breve: qué, medidas, por qué; medida razonable y decirlo; resumir lo validado;
+  tuteo neutro y las palabras de la tabla de `ui/CLAUDE.md`).
+- **A `GUIA_TECNICA`, que llega también al MCP (D10)** — cada frase añadida:
+  1. «ángulos en grados» (L7).
+  2. «'$k' … (1-indexado: '$1' es la primera acción)» (L100-102); en esa frase «sólidos» pasa a
+     «piezas».
+  3. El ejemplo de selector `{"mode": "direccion", "direction": "z"} = las aristas paralelas a Z`
+     (L45-49).
+  4. «Colocación: rotation gira la pieza (XYZ intrínseca) alrededor de su centro y después
+     position la traslada» (L8-10; comprobado en `kernel/shapes.py::place` y en `Rotation` de
+     build123d, `Intrinsic.XYZ` por defecto).
+  5. «Los perfiles (create_structural_profile y los de catálogo) se extruyen a lo largo de Z:
+     rotation.y=90 los alinea con X y rotation.x=90, con Y» (L11-13).
+  6. «Variables: con las dimensiones principales, define primero las variables (set_variable al
+     inicio del MISMO lote: las acciones siguientes ya las usan) y deriva el resto con
+     '=expresión'» (L22-27).
+  7. «un transportador se hace con su super-comando —create_conveyor (rodillos) o
+     create_belt_conveyor (banda)—, que genera la máquina entera y queda editable como un todo,
+     no pieza por pieza» (L35-37, ampliada a la banda).
+  8. «Lo de catálogo (get_catalog) se inserta con insert_component (referencia + length si es
+     cortable)» (L30-34).
+  9. «Antes que run_script, prueba create_revolve, create_extrude_poly (puntos en sentido
+     ANTIHORARIO: en horario la extrusión sale descentrada) o, para perfiles con cotas exactas, un
+     croquis (sketch_extrude/sketch_revolve …)» (L53-56 y el «cuándo» de L62).
+  10. «ancla un punto con fix y orienta con horizontal/vertical para que no flote» (L69-70).
+  11. «fillet/chamfer/shell/drill_hole modifican la pieza EN SITIO (conserva su id)» (L50-52).
+  - **D10**: «combínalo con set_visibility para aislar» → «isolate la aísla sin tocar el
+    documento». Los docstrings de `set_visibility`/`set_visibility_bulk` («útil para aislar»)
+    siguen igual: el plan no poda docstrings (queda en el inventario de F0).
+  - El párrafo «Antes de escribir, PRUEBA… get_command(id)…» pasa al final para que
+    `AVISO_CONEXION` siga cerrando un párrafo general en el MCP.
+- **Desviaciones del triage** (la regla manda: lo que ya dice un schema se borra; F0 las mandó a
+  `GUIA_TECNICA`, pero el schema de hoy las cubre):
+  - L18-21, ejemplos de `=expresión`: el docstring de `set_variable` trae `'=NOMBRE'` y
+    `'=L/2 - 40'`.
+  - L62-66, formato del croquis: `SKETCH_DOC` (la description de `sketch` en los cuatro
+    `sketch_*`) ya dice puntos aproximados + solver, lazo cerrado, círculos = agujeros y
+    `'=expresión'`. Queda sólo el «cuándo» (perfiles con cotas exactas, en la frase 9).
+  - L75-77, `add_joint`: su docstring dice «Cada sólido solo puede ser hijo de UNA junta» y
+    `origin` dice «punto del eje, coords. mundo».
+  - L53-56, «r ≥ 0, sin auto-intersecciones»: están en los schemas de `create_revolve` y
+    `create_extrude_poly`. «Antihorario» sí queda, comprobado: un polígono horario (h = 40) sale
+    con Z en [−60, −20] en vez de [−20, 20], contra su schema («centrado en el origen»). **Posible
+    bug del ejecutor** (`registry.py::_exec_create_extrude_poly` no normaliza el sentido): al
+    backlog, aquí no se toca `commands/`.
+  - L108-111, el marco 40×40: no paga sus bytes. La orientación ya está en las frases 4-5,
+    `create_frame`/`create_weldment` arman marcos con esquinas, y el ejemplo enseñaba coordenadas
+    literales (contra la regla 9).
+  - L58-59: «Importar STEP» ya no es un botón de la barra superior sino un ítem del menú Archivo
+    (`TopBar.tsx`); el texto nuevo lo dice así.
+- **Decisión: `SYSTEM_PROMPT` SÍ cambia ya.** Entre F6 y F5a el chat viejo (`agent/agent.py`, con
+  `get_document`, `execute_commands`, `undo_last`, `save_note`) corre con el prompt nuevo. Alcanza
+  porque: (1) el prompt viejo ya llevaba el brief, que nombra ~10 tools que el chat viejo no tiene
+  (`get_scene`, `verify`, `preview`, `run_batch`, `edit_batch`, `delivery_check`, `near`,
+  `get_topology`, `auto_group`, `get_design_guidelines`); la guía suma 4 (`get_command_schemas`,
+  `resolve_expression`, `get_expression_grammar`, `get_command`) y a cambio se van 3
+  contradicciones (`attach` vs `snap_to`, «usa `get_document`» vs «no vuelques la escena», cierre
+  con `check_interference` vs `delivery_check`); (2) `REGLAS_CHAT` nombra una sola tool,
+  `propose_commands`, que existe en los dos chats, y dice lo demás sin nombres (leer el modelo y
+  las notas, deshacer, ejecutar en modo auto): el chat viejo lo resuelve con sus tools, que se
+  describen solas, y su recordatorio de modo auto en `messages[0]` sigue nombrando
+  `execute_commands`; (3) una tool ausente no corta el stream: la rama «tool desconocida» de
+  `chat_stream` devuelve `is_error`. Costo aceptado: alguna vuelta perdida si el modelo intenta
+  una tool del brief que el chat viejo no tiene (ya pasaba). Gate transitorio
+  `test_las_reglas_sirven_tambien_al_chat_viejo`: el chat viejo usa este prompt y cada tool de
+  `REGLAS_CHAT` existe en él. **Lo borra la F5b** con `agent.py` (añadido a su lista; si no, falla
+  por import).
+- `tests/test_prompt_chat.py` (9 tests, 142 líneas): brief y `GUIA_TECNICA` en los dos clientes,
+  `REGLAS_CHAT` sólo en el chat y `AVISO_CONEXION` sólo en el MCP; `SYSTEM_PROMPT` =
+  `system_prompt_chat()`; el prompt no nombra tools fuera del catálogo (salvo las de archivo que
+  `REGLAS_CHAT` explique) ni las cuatro viejas; todo identificador con verbo (`get_…`, `create_…`)
+  es una tool del chat o un comando del registro; D10 (sin `set_visibility`, con `isolate`); tuteo
+  con los detectores de `test_pistas.py` (voseo, «usted», españolismos) y las palabras de la tabla;
+  mismos bytes en otro proceso (otro `PYTHONHASHSEED`). Comprobado que se pone rojo con
+  `open_project`, con `calc_report` sin explicar, con `get_document`, con `get_scenes`, con
+  `set_visibility` en la guía, con «revisá» y con una tool nueva en las reglas.
+- Golden del MCP re-congelado SÓLO por el diff deliberado de (a) `instructions.txt`;
+  `list_tools.json` y `llamadas.json`, idénticos.
+- `mcp_server.py` (1429) y `agent/agent.py` (606) sin tocar; `core/apolo/CLAUDE.md` con la guía
+  única (6.7 KB).
+- Suite: 1626 passed + 1 skipped (1627 recolectados); `ruff check core tests scripts` limpio.
+  Ojo al medir: editar `design/instrucciones.py` con la suite corriendo pone rojo
+  `test_bytes_estables_en_otro_proceso` (el proceso de pytest tiene el texto viejo y la sonda
+  lee el nuevo); pasó en la corrida limpia.

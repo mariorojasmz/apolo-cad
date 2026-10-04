@@ -55,8 +55,13 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   del chat apuntado a `tools/destino.py`; en modo propuesta lo que `muta` no corre. El MCP se
   importa perezoso restaurando el logger raíz (FastMCP lo reconfigura al construirse).
 - `design/guidelines.py` es la fuente ÚNICA del criterio de ingeniería: `design_brief()` (capa 1)
-  se inyecta en las instrucciones del MCP y en `SYSTEM_PROMPT` (`agent/prompts.py`);
-  `design_guidelines()` (capa 2) va bajo demanda. Se edita ahí, nunca en las copias.
+  va siempre en los dos clientes; `design_guidelines()` (capa 2), bajo demanda. Se edita ahí,
+  nunca en las copias.
+- Una sola guía (`design/instrucciones.py`): MCP = brief + `GUIA_TECNICA` (cómo se trabaja con
+  el CAD por tools; cambiarla cambia el golden) + `AVISO_CONEXION`; chat (`system_prompt_chat()`,
+  que es `SYSTEM_PROMPT`) = brief + `GUIA_TECNICA` + `REGLAS_CHAT` (sólo lo de la app). Lo que ya
+  dice un schema o un docstring no se repite. `tests/test_prompt_chat.py` impide que el prompt
+  del chat nombre tools que el chat no tiene.
 - El chat (`chat_stream`) queda ATADO al documento activo al empezar: la API le inyecta
   `AgentHooks` (`agent/hooks.py`: `alive`/`after_mutation`/`notify`) y cada mutación revalida
   `alive()` DENTRO de `STATE_LOCK` (`mutation_guard`). Si se abrió otro proyecto o se restauró
