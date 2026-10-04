@@ -64,10 +64,16 @@ from apolo.services.engineering_rules import (
     requirement_inputs,
     structure_rules,
 )
+from apolo.services.errors import ServiceError
 from apolo.services.fea_rules import fea_rules
+from apolo.services.fea_setup import (
+    merge_convergence,
+    prepare_assembly,
+    prepare_static,
+    resolve_assembly_scope,
+)
 from apolo.services.installation_data import installation_data as _installation_data  # noqa: F401
 from apolo.services.lookup import suggest_ids, suggest_suffix
-from apolo.services.roles import BED_RE as _BED_RE
 from apolo.services.stackup_eval import evaluate_stackups, stackup_rules
 from apolo.state import STATE_LOCK
 
@@ -2918,6 +2924,11 @@ def _last_fea_field(key: str):
         return field
 
 
+def _http_error(exc: ServiceError) -> HTTPException:
+    """Un error de dominio de `services` (D8) → el 400/404 con su texto EXACTO."""
+    return HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+
 def _fea_static_run(body: FeaStaticIn):
     """Patrón dos-locks: (a) STATE_LOCK resuelve material/selectores y exporta el
     STEP; (b) SIN lock (solo FEA_LOCK interno) malla y resuelve; (c) STATE_LOCK
@@ -2926,51 +2937,13 @@ def _fea_static_run(body: FeaStaticIn):
     import tempfile
 
     from apolo.fea import FeaError
-    from apolo.fea.mesher import FaceDesc
-    from apolo.kernel.selectors import SelectorError, resolve_faces
-    from apolo.library.catalog import CATALOG
-    from apolo.library.materials import (
-        density, has_yield, resolve_material, yield_strength, young_modulus,
-    )
-
-    from apolo.kernel.shapes import is_surface
 
     with STATE_LOCK:
-        feat = DOC.scene.get(body.feature_id)
-        if feat is None:
-            raise HTTPException(status_code=404, detail=f"No existe la pieza '{body.feature_id}'")
-        if is_surface(feat.shape):
-            raise HTTPException(
-                status_code=400,
-                detail=f"'{feat.name}' es una superficie (volumen 0); el FEA necesita un "
-                       f"sólido. Dale espesor con thicken antes de analizarla.",
-            )
-        if getattr(feat, "is_guide", False):
-            raise HTTPException(
-                status_code=400,
-                detail=f"'{feat.name}' es un boceto-guía (blockout), no una pieza a analizar.",
-            )
-        material = body.material or resolve_material(feat, CATALOG, DOC.default_material())
-        if body.yield_mpa is not None:
-            sy = float(body.yield_mpa)
-        elif has_yield(material):
-            sy = yield_strength(material)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"El material '{material}' no tiene límite elástico tabulado: "
-                       f"pasa yield_mpa explícito (el FS saldría de un default y mentiría)",
-            )
-        e_mpa, rho = young_modulus(material), density(material)
-        try:
-            fixed = [FaceDesc.from_face(f) for f in resolve_faces(feat.shape, body.fixed)]
-            loads = []
-            for ld in body.loads:
-                descs = [FaceDesc.from_face(f) for f in resolve_faces(feat.shape, ld.selector)]
-                loads.append({"descs": descs, "force_n": ld.force_n,
-                              "pressure_mpa": ld.pressure_mpa})
-        except SelectorError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        try:  # validación + material + selectores: services/fea_setup.py
+            prep = prepare_static(DOC, body)
+        except ServiceError as exc:
+            raise _http_error(exc) from exc
+        feat = prep["feat"]
         tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_step_")
         step = str(Path(tmp_dir) / "pieza.step")
         export_step_file([feat.shape], step)
@@ -2981,8 +2954,8 @@ def _fea_static_run(body: FeaStaticIn):
         from apolo.fea.static import run_static_analysis
 
         resumen, field = run_static_analysis(
-            step, pieza=pieza, fixed=fixed, loads=loads, e_mpa=e_mpa,
-            yield_mpa=sy, density_kg_mm3=rho, material=material,
+            step, pieza=pieza, fixed=prep["fixed"], loads=prep["loads"], e_mpa=prep["e_mpa"],
+            yield_mpa=prep["sy"], density_kg_mm3=prep["rho"], material=prep["material"],
             self_weight=body.self_weight, mesh_size_mm=body.mesh_size_mm,
             fs_min=body.fs_min,
         )
@@ -3027,139 +3000,23 @@ def _fea_assembly_run(body: FeaAssemblyIn):
     import shutil
     import tempfile
 
-    from apolo.assembly.groups import group_features
     from apolo.fea import FeaError
-    from apolo.fea.mesher import FaceDesc
-    from apolo.kernel.selectors import SelectorError, resolve_faces
-    from apolo.kernel.shapes import is_surface
-    from apolo.library.catalog import CATALOG
-    from apolo.library.checks import FEA_HARDWARE_CATS, hardware_ids
-    from apolo.library.engineering.mass import feature_mass
-    from apolo.library.materials import (
-        density, has_yield, resolve_material, yield_strength, young_modulus,
-    )
 
     tmp_dir = None
-    with STATE_LOCK:
-        if body.group:
-            fids = group_features(DOC.scene, DOC.groups, body.group, recursive=True)
-            grupo = body.group
-            if not fids:
-                raise HTTPException(status_code=404,
-                                    detail=f"El grupo '{body.group}' no existe o no tiene piezas")
-        elif body.ids:
-            fids = [f for f in body.ids if f in DOC.scene]
-            grupo = body.name or "selección"
-            if not fids:
-                raise HTTPException(status_code=404,
-                                    detail="Ninguna de las piezas (ids) existe en la escena")
-        else:
-            raise HTTPException(status_code=400, detail="Da un group o una lista de ids")
-
-        # exclusión FEA: herraje + motores/chumaceras/tuercas/tensores (geometría
-        # representativa — mallarla mentiría rigidez y peso)
-        hw = hardware_ids(DOC, cats=FEA_HARDWARE_CATS)
-        grounded = {g["feature"] for g in DOC.grounds.values()}
-        tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_asm_step_")
-
-        pieces_in: list[dict] = []
-        excluded: list[dict] = []
-        struct_ids: list[str] = []
-        feat_by_id: dict = {}
+    with STATE_LOCK:  # la preparación es de services/fea_setup.py; el tmp dir, de aquí
         try:
-            for fid in fids:
-                feat = DOC.scene.get(fid)
-                if feat is None:
-                    continue
-                feat_by_id[fid] = feat
-                if is_surface(feat.shape) or getattr(feat, "is_guide", False):
-                    continue  # superficie/guía = geometría de construcción, fuera de la malla
-                material = resolve_material(feat, CATALOG, DOC.default_material())
-                if fid in hw:
-                    fm = feature_mass(feat, CATALOG, DOC.default_material())
-                    excluded.append({"name": feat.name, "masa_kg": fm["masa_kg"]})
-                    continue
-                if has_yield(material):
-                    sy = yield_strength(material)
-                elif body.yield_mpa is not None:
-                    sy = float(body.yield_mpa)
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"'{feat.name}' es de '{material}' sin límite elástico tabulado: "
-                               f"pasa yield_mpa de respaldo (el FS saldría de un default y mentiría)",
-                    )
-                nu = 0.33 if "alumin" in material.lower() else 0.30
-                step = str(Path(tmp_dir) / f"{fid}.step")
-                export_step_file([feat.shape], step)
-                pieces_in.append({
-                    "key": fid, "name": feat.name, "step_path": step,
-                    "e_mpa": young_modulus(material), "nu": nu, "yield_mpa": sy,
-                    "density_kg_mm3": density(material), "material": material,
-                    "volumen_mm3": round(float(feat.shape.volume), 1),
-                })
-                struct_ids.append(fid)
-
-            if not pieces_in:
-                raise HTTPException(
-                    status_code=400,
-                    detail="El grupo no tiene piezas sólidas estructurales (solo herraje/superficies).",
-                )
-
-            # empotramiento: base de las piezas con ground ∩ grupo (o fixed_pieces explícito)
-            fix_ids = list(body.fixed_pieces) if body.fixed_pieces else [
-                i for i in struct_ids if i in grounded]
-            fix_ids = [i for i in fix_ids if i in feat_by_id]
-            if not fix_ids:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Sin empotramiento: ancla a piso (ground) las patas/placas del grupo "
-                           "o pasa fixed_pieces con las piezas a fijar por su base.",
-                )
-            fixed = []
-            for fid in fix_ids:
-                fixed += [FaceDesc.from_face(f)
-                          for f in resolve_faces(feat_by_id[fid].shape, {"mode": "cara", "face": "base"})]
-
-            # cargas: explícitas, o auto (producto + herraje) sobre la cama/mesa
-            carga = body.carga_kg if body.carga_kg is not None else (DOC.requirements or {}).get("carga_kg")
-            loads: list[dict] = []
-            sub_applied = False
-            if body.loads:
-                for ld in body.loads:
-                    f = feat_by_id.get(ld.feature_id) or DOC.scene.get(ld.feature_id)
-                    if f is None:
-                        raise HTTPException(status_code=404,
-                                            detail=f"La carga referencia '{ld.feature_id}', ausente de la escena")
-                    descs = [FaceDesc.from_face(x) for x in resolve_faces(f.shape, ld.selector)]
-                    loads.append({"descs": descs, "force_n": ld.force_n, "pressure_mpa": ld.pressure_mpa})
-            elif carga:
-                bed_ids = [i for i in struct_ids if _BED_RE.search(feat_by_id[i].name or "")]
-                if not bed_ids:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="No encuentro la cama/mesa que recibe la carga: nómbrala "
-                               "(cama/mesa/deck/tablero) o pasa loads explícitos {feature_id, selector, force_n}.",
-                    )
-                bed_descs = []
-                for i in bed_ids:
-                    bed_descs += [FaceDesc.from_face(f)
-                                  for f in resolve_faces(feat_by_id[i].shape, {"mode": "cara", "face": "tope"})]
-                hw_kg = sum(e["masa_kg"] for e in excluded)
-                F = (float(carga) + hw_kg) * 9.81
-                loads.append({"descs": bed_descs, "force_n": [0.0, 0.0, -F]})
-                # SOLO esta rama mete el peso del herraje excluido como carga sustituta
-                sub_applied = True
-        except SelectorError as exc:
+            fids, grupo = resolve_assembly_scope(DOC, body)
+        except ServiceError as exc:
+            raise _http_error(exc) from exc
+        tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_asm_step_")
+        try:
+            params = prepare_assembly(DOC, body, fids, grupo, tmp_dir)
+        except ServiceError as exc:
             shutil.rmtree(tmp_dir, ignore_errors=True)
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise _http_error(exc) from exc
         except Exception:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             raise
-
-        params = {"grupo": grupo, "pieces": pieces_in, "fixed": fixed, "loads": loads,
-                  "excluded": excluded, "struct_ids": struct_ids,
-                  "substitute_applied": sub_applied}
         owner = _fea_owner()
 
     try:
@@ -3191,25 +3048,9 @@ def _fea_assembly_run(body: FeaAssemblyIn):
     if body.nota:
         resumen["hipotesis"].append(f"nota del analista: {body.nota}")
 
-    def _convergencia(doc, resumen):
-        # CONVERGENCIA de malla (E3.7): si ya había un análisis del MISMO grupo con
-        # OTRO mesh_size, el run anterior pasa al historial (tope 3) y la memoria
-        # imprime la serie — refinar y ver la gobernante estabilizarse es el
-        # argumento de firma
-        prev = doc.fea.get(key)
-        hist = list((prev or {}).get("convergencia") or [])
-        if prev and prev.get("mesh_size_mm") not in (None, resumen.get("mesh_size_mm")):
-            hist.append({k2: prev.get(k2) for k2 in
-                         ("mesh_size_mm", "n_tets", "fs", "pieza_critica",
-                          "desplazamiento_max_mm")})
-        # el VIGENTE reemplaza cualquier entrada del historial con su MISMA malla
-        # (evita imprimir dos veces el mismo size con geometrías de distinta fecha)
-        hist = [h for h in hist if h.get("mesh_size_mm") != resumen.get("mesh_size_mm")]
-        if hist:
-            resumen["convergencia"] = hist[-3:]
-
-    _persist_fea_if_same_project(owner, key, resumen, field, body.save,
-                                 before_save=_convergencia)
+    _persist_fea_if_same_project(
+        owner, key, resumen, field, body.save,
+        before_save=lambda doc, res: merge_convergence(doc, key, res))
     return resumen, field
 
 

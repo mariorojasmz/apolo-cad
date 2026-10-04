@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas); faltan F4–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0–F4 hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA); faltan F5a–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -395,3 +395,38 @@ todo antes de integrar.
   conserva el rollback del contrato y el `_not_found`); índice de la raíz al día.
 - **Gate**: suite 1 554 tests (1 553 + 1 saltado, `test_two_locks`), 0 fallos; ruff limpio; `import apolo.api.main` y cada módulo nuevo se importan
   solos.
+
+### F4 — services: preparación del FEA (2026-10-03, D8 sin vetar todavía)
+
+- **Nacen** `errors.py` (17 líneas: `ServiceError(status_code, detail)`, que duck-tipea como
+  `HTTPException` igual que lo lee `api/jobs.py`) y `fea_setup.py` (226: `prepare_static`,
+  `resolve_assembly_scope`, `prepare_assembly`, `merge_convergence`). `main.py` 3 964 →
+  **3 805** (−159). Sale de `main` el re-export `_BED_RE` (ya sólo lo usa `fea_setup`).
+- **Dónde se cortó y por qué**: D8 deja el tmp dir en la API, así que el corte respeta el orden
+  original de cada camino. Pieza: `prepare_static` valida, resuelve material y selectores y
+  devuelve la pieza; la API crea el tmp dir y exporta el STEP DESPUÉS (como antes: una pieza
+  inexistente no crea carpeta). Ensamblaje: `resolve_assembly_scope` (grupo/ids) va antes del
+  `mkdtemp`, y `prepare_assembly` recibe el `tmp_dir` y exporta un STEP por pieza dentro del
+  bucle, como antes; si lanza, la API borra el tmp dir (ServiceError → `_http_error`; cualquier
+  otra excepción → se re-lanza). Única diferencia de orden: `hardware_ids`/grounds se calculan
+  ahora tras el `mkdtemp` (lecturas puras; no se observa). Un `SelectorError` lo traduce
+  `fea_setup` a `ServiceError(400, str(exc))`: la API sólo conoce `ServiceError`.
+- **Textos EXACTOS**: los 12 textos de 400/404 (más los dos `SelectorError` → 400 `str(exc)`)
+  se cortaron y pegaron, incluida la partición de los f-strings que el andamio (c) compara
+  constante por constante, y la API los devuelve por `_http_error`. El diff contra `HEAD` sólo
+  muestra la sangría, `HTTPException(status_code=…, detail=…)` → `ServiceError(…, …)` y el
+  corte. El andamio de F1 sigue verde SIN regenerar; sus respuestas `fea-asm-vacio` (400 «Da un
+  group o una lista de ids»), `fea-asm-grupo-404` y `fea-static-404` pasan ahora por
+  `ServiceError`.
+- **Lo que se quedó en la API** (D8): fases (a)/(b)/(c), tmp dir, `FEA_LOCK` (dentro del
+  solver), `_fea_owner`, `_persist_fea_if_same_project`, `_last_fea_field`,
+  `_LAST_FEA_FIELD`/`_LAST_FEA_OWNER` y las hipótesis de alcance/nota del analista que se
+  agregan al resumen tras el solve. `test_fea.py:250-310` los usa por su nombre en `main`:
+  ningún test se editó.
+- **La suite FEA CORRE**: 34 tests (19 + 15), 0 saltados, igual que en F0.
+- **D13**: `services/CLAUDE.md` gana § Preparación del FEA (herraje y carga sustituta,
+  empotramiento, convergencia) y `ServiceError` en las reglas de la capa; `api/CLAUDE.md` se
+  queda con la coreografía; `fea/CLAUDE.md` y el índice de la raíz apuntan a los dos.
+- **Gate**: suite 1 554 tests (1 553 + 1 saltado, `test_two_locks`), 0 fallos, 560 s bajo
+  contención; ruff limpio; `import apolo.api.main`, `apolo.services.errors` y
+  `apolo.services.fea_setup` se importan solos.

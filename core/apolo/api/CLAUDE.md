@@ -1,10 +1,10 @@
 # API (`core/apolo/api/`)
 
 Transporte HTTP/WS (`main.py`), jobs asíncronos (`jobs.py`) y log de errores (`errorlog.py`).
-`main.py` además prepara el FEA (al final); los mapas por pieza de los planos, los datos de
-instalación, el stack-up, las aserciones `verify`/`expect`, los insumos de la puerta de entrega y
-las reglas de ingeniería y FEA son de [services](../services/CLAUDE.md) (se está partiendo
-`main.py`: [plan](../../../docs/plans/partir-api-main.md)). Lo transversal
+`main.py` además coreografía el FEA (al final); los mapas por pieza de los planos, los datos de
+instalación, el stack-up, las aserciones `verify`/`expect`, los insumos de la puerta de entrega,
+las reglas de ingeniería y FEA y la preparación del FEA son de [services](../services/CLAUDE.md)
+(se está partiendo `main.py`: [plan](../../../docs/plans/partir-api-main.md)). Lo transversal
 (`STATE_LOCK`, log, regenerate, Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el
 cliente MCP, en [core/apolo](../CLAUDE.md).
 
@@ -118,18 +118,21 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 ## Lo que sigue en `main.py` para otros paquetes
 
 - Los mapas por pieza de los planos (fits, datum, GD&T, tolerancias), los datos de instalación,
-  el stack-up, las aserciones, la puerta de entrega y las reglas de ingeniería y FEA se mudaron a
-  [services](../services/CLAUDE.md), con sus reglas; `main` re-exporta por IDENTIDAD los nombres
+  el stack-up, las aserciones, la puerta de entrega, las reglas de ingeniería y FEA y la
+  preparación del FEA se mudaron a [services](../services/CLAUDE.md), con sus reglas; un 400/404
+  de dominio llega como `ServiceError` y `_http_error` lo traduce con su texto EXACTO; `main`
+  re-exporta por IDENTIDAD los nombres
   viejos que usan los tests (`_piece_dim_tols`…), deja envoltorios sobre el documento activo
   (`_fea_rules()`, `_stackup_rules()`, `_suggest_ids(m)`) e INYECTA `expand=_expand_ids` (toma
   `STATE_LOCK`, que services no puede nombrar). El juego de planos en PDF y DWG toma sus kwargs
   de `sheet_set_maps(doc)`.
-- **FEA**: el endpoint deriva el empotramiento de los `grounds` y la carga de
-  `requirements.carga_kg` sobre la cama/mesa (`services/roles.py::BED_RE`) o de `loads` explícitos; vigencia por
-  volumen conjunto (`DOC.fea["group:<nombre>"]`); re-correr con otro `mesh_size` mueve el run
-  previo a `convergencia` (tope 3); `ids` acotado → hipótesis de ALCANCE; `nota` del analista →
-  hipótesis. Persiste con `_persist_fea_if_same_project` (si se abrió otro proyecto durante el
-  solve → `guardado: false` + `aviso`). Malla y solver: [fea](../fea/CLAUDE.md).
+- **FEA** (`_fea_static_run`/`_fea_assembly_run`): la coreografía es de aquí —(a) bajo
+  `STATE_LOCK` la preparación de `services/fea_setup.py` + el tmp dir (lo crea y lo borra la API,
+  también si la preparación falla) + el STEP; (b) solve FUERA del lock; (c) persistir—. `ids`
+  acotado → hipótesis de ALCANCE; `nota` del analista → hipótesis. Persiste con
+  `_persist_fea_if_same_project` (si se abrió otro proyecto durante el solve → `guardado: false` +
+  `aviso`); el campo en memoria (`_LAST_FEA_FIELD`) vale sólo para su documento. Empotramiento,
+  carga y convergencia: [services](../services/CLAUDE.md); malla y solver: [fea](../fea/CLAUDE.md).
 - **Stack-up**: el `PUT /api/stackup` hace ROLLBACK si la cadena no evalúa (persistirla
   envenenaba GET y la memoria para siempre); la evaluación aislada por cadena es de
   [services](../services/CLAUDE.md). [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)

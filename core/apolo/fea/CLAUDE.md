@@ -2,8 +2,9 @@
 
 Estático lineal: pieza (`static.py`, tool `fea_static`) y ensamblaje BONDED (`assembly.py`, tool
 `fea_assembly`), con malla tet P2 de gmsh (`mesher.py`) y scikit-fem (`solver.py`); extra pip
-`[fea]` (sfepy/CalculiX: sin wheels). La orquestación (condiciones de borde, carga, persistencia,
-historial de convergencia) vive en `api/main.py`: [api](../api/CLAUDE.md). Lo transversal (locks,
+`[fea]` (sfepy/CalculiX: sin wheels). La preparación (condiciones de borde, carga, historial de
+convergencia) vive en `services/fea_setup.py` ([services](../services/CLAUDE.md)); la coreografía
+de locks y la persistencia, en `api/main.py` ([api](../api/CLAUDE.md)). Lo transversal (locks,
 log, flujo de trabajo) está en el [CLAUDE.md raíz](../../../CLAUDE.md).
 
 ## Reglas de la casa

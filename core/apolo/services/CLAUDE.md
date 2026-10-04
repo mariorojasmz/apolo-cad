@@ -13,7 +13,8 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `agent`. Cada función recibe `doc` EXPLÍCITO y jamás lee un global de sesión: `_piece_dim_tols`
   medía con el `DOC` activo aunque recibiera su `doc`, y los tests lo tapaban con `api.DOC = doc`.
 - Sin `fastapi`, `apolo.api` ni `apolo.agent` (el agente no puede importar la API); un 400/404
-  es un error de dominio (`ValueError`, `CommandError`) que traduce la API. Sin locks: el
+  es un error de dominio (`ValueError`, `CommandError` o `ServiceError(status_code, detail)` de
+  `errors.py`, con el texto EXACTO que verá el cliente) que traduce la API. Sin locks: el
   llamador sostiene `STATE_LOCK`. Lo hace cumplir `tests/test_capas_services.py` (AST, también
   los imports perezosos).
 - Los imports pesados quedan DENTRO de la función (gmsh, VTK, matplotlib…): importar la API no
@@ -103,6 +104,23 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - `fea_rules`: VIGENCIA por volumen (>0.1 % de cambio, o pieza borrada → aviso «re-ejecuta»); el
   de ensamblaje por volumen CONJUNTO de `piezas_fids`. Tabla por pieza con tope 8 filas, 5 si
   hay historial de convergencia (el calc_report imprime ≤ 12); `hipotesis` va a la memoria.
+
+## Preparación del FEA (`fea_setup.py`)
+
+- Es la fase (a) del patrón dos-locks, nada más: validar, resolver material y selectores, derivar
+  condiciones de borde y exportar los STEP del ensamblaje al `tmp_dir` que le pasa la API. El
+  tmp dir, el solve fuera del lock, la guardia de proyecto y el campo en memoria son de
+  [api](../api/CLAUDE.md) (D8 del [plan](../../../docs/plans/partir-api-main.md)).
+- Honestidad: material sin σy tabulado exige `yield_mpa` (en el ensamblaje, de respaldo); una
+  superficie o un boceto-guía se rechazan.
+- Ensamblaje BONDED: el herraje (`FEA_HARDWARE_CATS`) sale de la malla y su peso entra como carga
+  sustituta SÓLO en la rama automática (la carga de los requisitos sobre la cama, `BED_RE`); con
+  `loads` explícitos no (`substitute_applied`). Empotramiento = base de las piezas con ground ∩
+  grupo, o `fixed_pieces`; sin ninguno → 400, nunca un empotramiento inventado. ν 0.33 aluminio,
+  0.30 el resto. [V7.4](../../../docs/plans/V7.4-fea-firmable.md)
+- `merge_convergence` corre como `before_save` (bajo el lock de la persistencia): re-correr el
+  MISMO grupo con otro `mesh_size` pasa el run previo al historial (tope 3) y el vigente
+  reemplaza la entrada de su misma malla.
 
 ## Roles por nombre (`roles.py`)
 
