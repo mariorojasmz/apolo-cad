@@ -53,7 +53,7 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
 - Spline y elipse: sus puntos de control/centro SON puntos del croquis (el solver los mueve y se
   restringen como cualquiera); la CURVA no entra al GCS → la tangencia a spline/elipse se
   rechaza, no se finge. Cerradas = contorno o agujero (como el círculo); abierta = tramo del lazo.
-- Arrastre (`POST /api/sketch/drag`, en `api/main.py`): READ-ONLY, SIEMBRA el punto en el
+- Arrastre (`POST /api/sketch/drag`, en `api/routers/core.py`): READ-ONLY, SIEMBRA el punto en el
   cursor y las restricciones duras mandan; sirve a los dos motores porque no toca sus internos.
   Con dof=0 el croquis no se deforma y lo declara (`movido_mm`/`sigue_al_cursor`). UI:
   [ui](../../../ui/CLAUDE.md). [V6.6](../../../docs/plans/V6.6-croquis-vivo.md) ·

@@ -1,7 +1,7 @@
 """WebSocket de la API: los clientes conectados y el aviso de «el documento cambió».
 
 Movido tal cual desde `main.py` (F5b del plan `docs/plans/partir-api-main.md`); la ruta
-`/ws` sigue en `main`. `notify_changed` es thread-safe (`run_coroutine_threadsafe` sobre el
+`/ws` vive en `routers/core.py` (F6b). `notify_changed` es thread-safe (`run_coroutine_threadsafe` sobre el
 loop que captura el arranque): lo llaman las mutaciones, el autosave (Timer) y los jobs.
 Notificar sólo DESPUÉS de construir el payload.
 """

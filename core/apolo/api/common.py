@@ -5,7 +5,10 @@ Movido tal cual desde `main.py` (F6a del plan `docs/plans/partir-api-main.md`): 
 (`_not_found`), el retorno de TODA mutación (`_state_or_error`: autosave, payload, alarma
 ambiental y aviso por WebSocket), la materialización de `insert_project`, los jobs (`JOBS`,
 `_sync_or_job` con su guardia de proyecto), el lock de física (`PHYSICS_LOCK`), el almacén
-requerido y el cajetín de los planos (`_drawing_meta`). Aquí sí viven `HTTPException` y
+requerido, el cajetín de los planos (`_drawing_meta`) y, desde F6b/F6c, lo que comparten dos
+routers: el borrado del comando dueño de una junta o un mate (`_remove_owner_command`) y las
+reglas de stack-up del documento activo (`_stackup_rules`, envoltorio D4 que también usan
+los tests por `main`). Aquí sí viven `HTTPException` y
 `STATE_LOCK`; la lógica que lee un `Document` es de `apolo.services`.
 
 Es también el KIT de los routers (`api/routers/`): lo que un endpoint necesita del autosave, del
@@ -23,6 +26,7 @@ from fastapi.responses import JSONResponse
 from apolo.commands import CommandError
 from apolo.doc import DocumentError
 from apolo.services.lookup import suggest_suffix
+from apolo.services.stackup_eval import stackup_rules
 from apolo.state import STATE_LOCK
 
 from .autosave import (  # el resto, kit de los routers: lo importan de AQUÍ (gate de capas)
@@ -31,7 +35,7 @@ from .autosave import (  # el resto, kit de los routers: lo importan de AQUÍ (g
     _flush_autosave,  # noqa: F401
     _project_switch,  # noqa: F401
 )
-from .jobs import JobStore
+from .jobs import JOB_UNKNOWN, JobStore  # noqa: F401 — JOB_UNKNOWN: kit de los routers
 from .scene import scene_payload
 from .session import S
 from .ws import WS
@@ -223,3 +227,9 @@ def _remove_owner_command(items: dict, name: str, cmd_type: str, missing: str, f
     if cmd is None or cmd["type"] != cmd_type:
         raise HTTPException(status_code=400, detail=foreign)
     return S.doc.remove_commands([item["command_id"]])
+
+
+def _stackup_rules() -> list[dict]:
+    """Envoltorio de compatibilidad (D4 del plan partir-api-main): las reglas de stack-up
+    del documento ACTIVO (`services.stackup_eval.stackup_rules`). Bajo STATE_LOCK."""
+    return stackup_rules(S.doc)

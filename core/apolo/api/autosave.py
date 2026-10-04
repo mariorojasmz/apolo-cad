@@ -1,9 +1,10 @@
 """Autosave de la API: debounce, flush durable y cambio de proyecto atómico.
 
 Movido tal cual desde `main.py` (F5b del plan `docs/plans/partir-api-main.md`): los MISMOS
-objetos lock y el programador sin tocar. `main` re-exporta por IDENTIDAD lo que usan sus
-endpoints y los tests (`_autosave`, `_flush_autosave`, `_autosave_sched`, `_flush_lock`,
-`_project_switch`). Los tiempos (`_AUTOSAVE_DEBOUNCE`, `_AUTOSAVE_CEILING`) NO se
+objetos lock y el programador sin tocar. Los routers toman lo que usan de `common` y `main`
+re-exporta por IDENTIDAD lo que usan los tests (`_flush_autosave`, `_autosave_sched`,
+`_flush_lock`, `_project_switch`; para espiar el autosave se parchea
+`_autosave_sched.schedule`). Los tiempos (`_AUTOSAVE_DEBOUNCE`, `_AUTOSAVE_CEILING`) NO se
 re-exportan: el programador los lee de ESTE módulo, así que un test que quiera cambiarlos
 parchea `apolo.api.autosave` (en `main` el parche sería un no-op silencioso).
 

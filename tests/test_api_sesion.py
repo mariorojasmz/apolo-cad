@@ -12,6 +12,12 @@ otro documento. Lo impiden cuatro cosas, una por test:
    el código de la API lee `S.<campo>`;
 4. ningún test los importa por valor (`from apolo.api.main import DOC` congelaría el
    documento del momento del import).
+
+Y, desde que `main` sólo compone (F6c del plan), el grafo de imports dentro de `apolo.api`:
+
+5. cada módulo importa sólo de su capa de abajo (`CAPAS_API`), ningún router importa a otro y
+   NADIE importa `main` — un router que importara `main` sería un ciclo, y uno que leyera un
+   nombre de `main` leería la copia vieja de lo que un test reasignó.
 """
 
 from __future__ import annotations
@@ -156,3 +162,111 @@ def test_el_gate_de_importes_caza_cada_forma():
     assert importes_por_valor("def f():\n    from apolo.api.main import _x, STORE as s\n")
     assert not importes_por_valor("from apolo.api.main import _cached_render")
     assert not importes_por_valor("import apolo.api.main as api\nx = api.DOC")
+
+
+# ── 5. el grafo de imports dentro de apolo.api ────────────────────────────────
+
+#: módulo de `apolo.api` → los módulos de `apolo.api` que PUEDE importar (lista cerrada; los
+#: routers, como `routers.*`). Capas de abajo arriba: hojas (`errorlog`, `jobs`, `ws`) →
+#: `session` → `autosave` → `scene` → `common` → `sims`/`fea_runs` → routers → `main`. Un
+#: router no importa a otro ni a `autosave`/`ws`/`jobs`: lo de transporte le llega de `common`.
+#: `main` es la raíz de composición: importa lo que necesite, pero NADIE lo importa a él.
+CAPAS_API = {
+    "": set(),  # apolo/api/__init__.py
+    "errorlog": set(),
+    "jobs": set(),
+    "ws": set(),
+    "session": {"errorlog"},
+    "autosave": {"session", "ws", "errorlog"},
+    "scene": {"session"},
+    "common": {"session", "scene", "autosave", "ws", "jobs"},
+    "sims": {"session", "common"},
+    "fea_runs": {"session", "autosave"},
+    "routers": set(),
+    "routers.*": {"common", "scene", "session", "sims", "fea_runs"},
+}
+
+
+def importes_api(codigo: str, modulo: str, paquete: bool = False) -> set[str]:
+    """Nombres con punto, relativos a `apolo.api`, que importa el módulo `modulo` de
+    `apolo.api` (también los imports perezosos dentro de funciones). `from .common import x`
+    da `common` y `common.x` (así `from .routers import core` da `routers.core`)."""
+    partes = ["apolo", "api"] + [p for p in modulo.split(".") if p]
+    base_paquete = partes if paquete else partes[:-1]
+    out: set[str] = set()
+    for n in ast.walk(ast.parse(codigo)):
+        if isinstance(n, ast.ImportFrom):
+            raiz = base_paquete[: len(base_paquete) - n.level + 1] if n.level else []
+            mod = ".".join(raiz + ([n.module] if n.module else []))
+            candidatos = [mod] + [f"{mod}.{a.name}" for a in n.names]
+        elif isinstance(n, ast.Import):
+            candidatos = [a.name for a in n.names]
+        else:
+            continue
+        out |= {c.removeprefix("apolo.api.") for c in candidatos if c.startswith("apolo.api.")}
+    return out
+
+
+def _capa(modulo: str) -> set[str] | None:
+    if modulo in CAPAS_API:
+        return CAPAS_API[modulo]
+    return CAPAS_API["routers.*"] if modulo.startswith("routers.") else None
+
+
+def violaciones_de_capas(grafo: dict[str, set[str]]) -> list[str]:
+    """`grafo`: módulo → lo que importa (`importes_api`). Sólo cuentan las dependencias que
+    son módulos del grafo (`common.x` es un nombre de `common`, no un módulo)."""
+    malos = []
+    for modulo, deps in sorted(grafo.items()):
+        if modulo == "main":
+            continue
+        permitidos = _capa(modulo)
+        if permitidos is None:
+            malos.append(f"{modulo}: módulo de apolo.api sin capa en CAPAS_API")
+            continue
+        malos += [f"{modulo} importa {d}" for d in sorted((deps & set(grafo)) - permitidos)]
+    return malos
+
+
+def _grafo_api() -> dict[str, set[str]]:
+    grafo = {}
+    for archivo in sorted(API_DIR.rglob("*.py")):
+        partes = list(archivo.relative_to(API_DIR).with_suffix("").parts)
+        paquete = partes[-1] == "__init__"
+        modulo = ".".join(partes[:-1] if paquete else partes)
+        grafo[modulo] = importes_api(archivo.read_text(encoding="utf-8-sig"), modulo, paquete)
+    return grafo
+
+
+def test_el_grafo_de_imports_de_la_api_respeta_sus_capas():
+    grafo = _grafo_api()
+    assert {"", "main", "session", "common", "scene", "routers", "routers.core"} <= set(grafo)
+    malos = violaciones_de_capas(grafo)
+    assert not malos, (
+        "Imports de apolo.api fuera de capas (CAPAS_API en este archivo):\n" + "\n".join(malos))
+
+
+def test_main_compone_los_routers_y_nadie_importa_main():
+    grafo = _grafo_api()
+    routers = {m for m in grafo if m.startswith("routers.")}
+    assert len(routers) == 11 and routers <= grafo["main"]
+    assert not [m for m, deps in grafo.items() if m != "main" and "main" in deps]
+
+
+def test_el_gate_de_capas_caza_cada_forma():
+    assert "main" in importes_api("from ..main import app", "routers.core")
+    assert "autosave" in importes_api("def f():\n    from .autosave import _x\n", "common")
+    assert "main" in importes_api("import apolo.api.main as api", "scene")
+    assert {"routers.core", "routers.fea"} <= importes_api("from .routers import core, fea",
+                                                           "main")
+    assert "scene" in importes_api("from ..scene import x", "routers.core")
+    grafo = {"main": set(), "session": {"errorlog"}, "errorlog": set(), "scene": {"common"},
+             "common": set(), "routers.core": {"routers.fea", "autosave", "common.x"},
+             "routers.fea": {"main"}, "autosave": set(), "nuevo": set()}
+    malos = violaciones_de_capas(grafo)
+    assert "scene importa common" in malos
+    assert "routers.core importa routers.fea" in malos
+    assert "routers.core importa autosave" in malos
+    assert "routers.fea importa main" in malos
+    assert any(m.startswith("nuevo:") for m in malos)
+    assert not [m for m in malos if m.startswith(("session", "main"))]

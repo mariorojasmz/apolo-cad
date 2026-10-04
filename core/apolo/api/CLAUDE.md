@@ -1,37 +1,46 @@
 # API (`core/apolo/api/`)
 
-Transporte HTTP (`main.py`), estado de sesión y arranque (`session.py`), autosave
-(`autosave.py`), WebSocket (`ws.py`), payload de escena con sus cachés, revs y briefs
-(`scene.py`), lo que comparten los endpoints (`common.py`: `_expand_ids`, `_not_found`,
-`_state_or_error`, materialize, `JOBS`/`_sync_or_job`, `PHYSICS_LOCK`, cajetín), coreografía del
-FEA (`fea_runs.py`), física dos-locks (`sims.py`), jobs asíncronos (`jobs.py`) y log de errores
-(`errorlog.py`). Los mapas por pieza de los planos, los datos de instalación, el stack-up, las
-aserciones `verify`/`expect`, los insumos de la puerta de entrega, las reglas de ingeniería y FEA
-y la preparación del FEA son de [services](../services/CLAUDE.md) (se está partiendo `main.py`:
-[plan](../../../docs/plans/partir-api-main.md)). Lo transversal (`STATE_LOCK`, log, regenerate,
-Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en
-[core/apolo](../CLAUDE.md).
+`main.py` sólo COMPONE: app, CORS, registro de errores (middleware, handler y
+`/api/client-errors`), arranque/apagado, `include_router` y la UI; además es la superficie de
+compatibilidad de los tests (alias de sesión y re-exports por IDENTIDAD). Las rutas viven en
+`routers/`; estado de sesión y arranque, en `session.py`; autosave, `autosave.py`; WebSocket,
+`ws.py`; payload de escena con sus cachés, revs y briefs, `scene.py`; lo que comparten los
+endpoints, `common.py` (`_expand_ids`, `_not_found`, `_state_or_error`, materialize,
+`JOBS`/`_sync_or_job`, `PHYSICS_LOCK`, cajetín); coreografía del FEA, `fea_runs.py`; física
+dos-locks, `sims.py`; jobs, `jobs.py`; log de errores, `errorlog.py`. El dominio que lee un
+`Document` es de [services](../services/CLAUDE.md) ([plan](../../../docs/plans/partir-api-main.md)).
+Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
+[CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en [core/apolo](../CLAUDE.md).
 
 ## Routers (`routers/`): dónde va una ruta
 
 | router | rutas |
 |---|---|
 | `core` | escena (completa, filtrada, resumen, delta), documento, salud, schemas, `/ws`, notas y chat del agente, croquis, script de prueba, expresiones, criterio de diseño |
+| `commands` | comando, lote con contrato (sync o job), edición, borrado, búsqueda en el log, preview fantasma, jobs, variables, undo/redo, variantes |
 | `features` | visibilidad, boceto-guía, color, material, vertical, topología, grupos, masa, medida, cercanía |
-| `projects` | proyectos, revisiones, importar/exportar (STEP, STL, `.apolo`) |
-| `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
 | `render` | `render.png` y `pick` (misma cámara) |
+| `projects` | proyectos, revisiones, importar/exportar (STEP, STL, `.apolo`) |
+| `deliverables` | catálogo, BOM y costeo, lista de corte, nesting, memoria de cálculo, cotización, manual |
+| `validation` | `/api/checks`, `verify`, puerta de entrega, requisitos, stack-up |
+| `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
+| `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test |
+| `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
 | `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
 
-- Las demás rutas siguen en `main` hasta la F6c del plan. Una ruta nueva va al router de su
-  tema con `@router.<método>`; `main` sólo compone (`include_router`).
+- Una ruta nueva va al router de su tema con `@router.<método>`; `main` no gana rutas (sólo
+  `include_router`).
 - **Orden**: Starlette sirve la PRIMERA ruta que casa (y su `Allow` en un 405). Las rutas que
-  pueden casar la misma URL viven en el MISMO router y se declaran en su orden (p. ej. `DELETE
-  /api/projects/{project_id}` antes que `PATCH /api/projects/current`).
-- Un router importa de `common`, `scene`, `session`, `sims`, `fea_runs` y `apolo.services`;
-  nunca de `main`, de otro router ni de `autosave`/`ws`/`jobs` (lo que necesite de ellos lo
-  re-exporta `common`). Un test que llama una ruta directo la toma de `main` (re-export por
-  IDENTIDAD, D4).
+  pueden casar la misma URL viven en el MISMO router y se declaran en su orden: en `commands`,
+  `batch` y `preview` antes que `PUT /api/commands/{command_id}` y éste antes que `remove`; en
+  `projects`, `DELETE /api/projects/{project_id}` antes que `PATCH /api/projects/current`; en
+  `assembly`, `constraints/solve` antes que `DELETE /api/constraints/{name}`; en `fea`, las de
+  `static`/`assembly` y `GET /api/fea/group/{name}` antes que `GET /api/fea/{feature_id}`, y
+  `group/{name}` antes que `{feature_id}/fringe.png`.
+- Capas (gate `tests/test_api_sesion.py`, `CAPAS_API`): un router importa de `common`, `scene`,
+  `session`, `sims`, `fea_runs` y `apolo.services`; nunca de `main`, de otro router ni de
+  `autosave`/`ws`/`jobs` (lo que necesite de ellos lo re-exporta `common`). Nadie importa `main`.
+  Un test que llama una ruta directo la toma de `main` (re-export por IDENTIDAD, D4).
 
 ## Estado de sesión (`session.S`)
 
@@ -127,7 +136,8 @@ Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en
 
 ## Autosave y arranque
 
-- Vive en `autosave.py`; `main` re-exporta por IDENTIDAD lo que usan endpoints y tests. Los
+- Vive en `autosave.py`; los routers lo toman de `common` y `main` re-exporta por IDENTIDAD lo
+  que usan los tests. Los
   tiempos (`_AUTOSAVE_DEBOUNCE`/`_AUTOSAVE_CEILING`) se parchean en `apolo.api.autosave`: en
   `main` no existen (el programador no los leería). Para ESPIAR el autosave, parchea
   `api._autosave_sched.schedule` (el objeto compartido), nunca `api._autosave`: `common`,
@@ -158,17 +168,17 @@ Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en
 - `tests/conftest.py` (autouse, sesión) redirige `logs/errors.log` a tmp: sin él la tortura
   escribía errores FALSOS en el log que se lee al «revisa» (commit `3e935f4`).
 
-## Lo que sigue en `main.py` para otros paquetes
+## Dominio en `services`, coreografía en la API
 
 - Los mapas por pieza de los planos (fits, datum, GD&T, tolerancias), los datos de instalación,
   el stack-up, las aserciones, la puerta de entrega, las reglas de ingeniería y FEA y la
-  preparación del FEA se mudaron a [services](../services/CLAUDE.md), con sus reglas; un 400/404
-  de dominio llega como `ServiceError` y `_http_error` lo traduce con su texto EXACTO; `main`
-  re-exporta por IDENTIDAD los nombres
-  viejos que usan los tests (`_piece_dim_tols`…), deja envoltorios sobre el documento activo
-  (`_fea_rules()`, `_stackup_rules()`, `_suggest_ids(m)`) e INYECTA `expand=_expand_ids` (toma
-  `STATE_LOCK`, que services no puede nombrar). El juego de planos en PDF y DWG toma sus kwargs
-  de `sheet_set_maps(doc)`.
+  preparación del FEA son de [services](../services/CLAUDE.md), con sus reglas; un 400/404 de
+  dominio llega como `ServiceError` y `_http_error` (`fea_runs.py`) lo traduce con su texto
+  EXACTO. Los endpoints INYECTAN `expand=_expand_ids` (toma `STATE_LOCK`, que services no puede
+  nombrar). `main` re-exporta por IDENTIDAD los nombres viejos que usan los tests
+  (`_piece_dim_tols`…) y deja envoltorios sobre el documento activo (`_fea_rules()`,
+  `_suggest_ids(m)` en `main`; `_stackup_rules()` en `common`, porque la memoria también lo usa).
+  El juego de planos en PDF y DWG toma sus kwargs de `sheet_set_maps(doc)`.
 - **FEA** (`fea_runs.py`: `_fea_static_run`/`_fea_assembly_run`): la coreografía es de la API
   —(a) bajo `STATE_LOCK` la preparación de `services/fea_setup.py` + el tmp dir (lo crea y lo
   borra la API, también si la preparación falla) + el STEP; (b) solve FUERA del lock; (c)

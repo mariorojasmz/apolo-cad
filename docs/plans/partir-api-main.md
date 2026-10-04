@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F6b hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`, autosave/WS/arranque fuera de `main` + fixture que aísla la sesión, escena/common/fea_runs/sims fuera de `main`, routers de lectura y planos); faltan F6c–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0–F6c hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`, autosave/WS/arranque fuera de `main` + fixture que aísla la sesión, escena/common/fea_runs/sims fuera de `main`, los 11 routers y `main` reducido a composición en 183 líneas); falta F7 (borrar el andamio, `test_rutas_api.py`, E2E en :8001). Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -580,3 +580,46 @@ todo antes de integrar.
   comparación de rutas adaptada; ruff limpio; `apolo.api.main`, `apolo.api.routers` y cada
   router se importan solos; `test_claude_md` verde (`api/CLAUDE.md` gana § Routers: dónde va
   una ruta, la regla del orden y las capas).
+
+### F6c — routers de mutación, validación, FEA y entregables; `main` final (2026-10-03)
+
+- **Nacen** `routers/commands.py` (371 líneas: comando, lotes con contrato y job, jobs,
+  preview, edición, borrado, búsqueda en el log, variables, undo/redo, variantes),
+  `routers/validation.py` (242: checks, verify, puerta de entrega, requisitos, stack-up),
+  `routers/assembly.py` (301: mates, restricciones, uniones, estructura, auto-grupo, solidez,
+  DOF, gravedad, drop-test), `routers/fea.py` (120) y `routers/deliverables.py` (304: catálogo,
+  BOM, costeo, lista de corte, nesting, memoria, cotización, manual). `_stackup_rules` pasa a
+  `common` (la memoria lo usa y los tests lo leen de `main`). **`main.py` 1 415 → 183**: sólo
+  composición (app, CORS, middleware, handler, `/api/client-errors`, arranque/apagado,
+  `include_router` de los 11 routers, UI) y compatibilidad (la clase del módulo con los alias de
+  `S`, re-exports por IDENTIDAD, `_suggest_ids`/`_fea_rules`). Su entrada del trinquete se
+  BORRÓ (D12: meta ≤ 500, estimado ≈ 190).
+- **Cortar y pegar, verificado** igual que F6b (por nombre, orden original, sólo `@app.` →
+  `@router.`): contra `main` + `common` de F6b, 0 distintas, 0 perdidas. Los cuatro pares de D5
+  quedan dentro de su router y en su orden (`commands`: `batch`/`preview` → `{command_id}` →
+  `remove`; `assembly`: `constraints/solve` → `DELETE /{name}`; `fea`: `static`/`assembly`/`.png`
+  y `group/{name}` → `{feature_id}`, y `group/{name}` → `{feature_id}/fringe.png`); lo
+  verifica el test de rutas adaptado en F6b, sin regenerar.
+- **D4 c**: `_autosave` sale de `main` (su último uso, requisitos y stack-up, se mudó; ningún
+  test lo nombra desde F6b). `main` ya no importa nada de `apolo.doc`, `apolo.kernel` ni
+  `apolo.library`: lo que queda son re-exports de compatibilidad.
+- **Gate de capas** (`tests/test_api_sesion.py` § 5, permanente): `CAPAS_API` declara qué
+  puede importar cada módulo de `apolo.api` (también los imports perezosos, por AST); nadie
+  importa `main` y `main` compone los 11 routers; un test prueba que caza cada forma (router
+  → otro router, router → `autosave`, `scene` → `common`, cualquiera → `main`, módulo nuevo sin
+  capa). El grafo real: `scene` ← `session`; `common` ← `session`, `scene`, `autosave`, `ws`,
+  `jobs`; `sims` ← `session`, `common`; `fea_runs` ← `session`, `autosave`; los routers ←
+  `common`, `scene`, `session`, `sims`, `fea_runs`. **Precisión** frente al pedido («session y
+  ws no importan nada de `apolo.api`»): `session` importa `errorlog` desde F5b (el log del
+  arranque); `errorlog`, `jobs` y `ws` son las hojas. Las capas de `sims` y `fea_runs` no
+  estaban fijadas: quedan las más estrechas que el código necesita.
+- **D13**: `api/CLAUDE.md` describe `main` como composición, la tabla de los 11 routers, los
+  órdenes que importan y las capas; `fea/CLAUDE.md` y `kernel/CLAUDE.md` apuntaban a
+  `api/main.py` (coreografía del FEA, arrastre del croquis) y ahora a `fea_runs.py` y
+  `routers/core.py`; la fila de `api` del índice de la raíz nombra los routers.
+- **Gate**: suite **1 682 passed + 1 skipped, 0 fallos** (471 s; +3 = el gate de capas);
+  `-m torture` **15 passed** (80 s); andamio de F1 verde SIN regenerar (rutas por pares,
+  OpenAPI, los textos —ahora repartidos en `api/` y `api/routers/`— y las 87 respuestas
+  doradas); ruff limpio; `apolo.api.main`, `common` y cada router se importan solos;
+  `test_api_opcionales` verde (los imports perezosos siguen perezosos); `test_claude_md` verde.
+  Ningún archivo nuevo pasa de 500 líneas (el mayor, `routers/commands.py`, 371).
