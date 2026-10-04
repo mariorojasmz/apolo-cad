@@ -52,7 +52,7 @@ EXCEPCIONES: dict[str, int] = {
     "core/apolo/agent/agent.py": 597,
     "core/apolo/api/main.py": 3535,
     "core/apolo/commands/models.py": 1509,
-    "core/apolo/commands/registry.py": 2212,
+    "core/apolo/commands/registry.py": 2211,
     "core/apolo/doc/document.py": 1060,
     "core/apolo/drawing/sheet.py": 893,
     "core/apolo/kernel/render_vtk.py": 537,

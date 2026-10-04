@@ -48,8 +48,11 @@ def _doc_a() -> Document:
 def _doc_b() -> Document:
     d = Document("B")
     s = d.execute("create_box", {"name": "Listón", "width": 30, "depth": 30, "height": 10})
-    # clave desconocida a propósito: pattern_linear no tiene `name` (se ignora en el replay)
-    d.execute("pattern_linear", {"feature": s, "count": 3, "spacing": {"x": 50}, "name": "copias"})
+    d.execute("pattern_linear", {"feature": s, "count": 3, "spacing": {"x": 50}})
+    # clave desconocida a propósito, como en los logs viejos: pattern_linear no tiene `name`.
+    # Se inyecta en el LOG porque la entrada ya la rechaza (F4); el replay la ignora.
+    d.commands[-1]["params"]["name"] = "copias"
+    d.regenerate()
     return d
 
 

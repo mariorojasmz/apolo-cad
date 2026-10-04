@@ -41,7 +41,10 @@ dependencies = [
     # (0.88.0; el tag 0.87.0 no lo tiene); `betas` en beta.messages.stream es anterior. La
     # credencial por perfil de `ant auth login` llega en 0.98.0: antes, sólo las variables.
     "anthropic>=0.88.0",
-    "pydantic>=2.6",
+    # `extra=` POR LLAMADA en `model_validate` (la entrada estricta de params, commands/strict.py)
+    # llegó en pydantic 2.12.0 (#12233): con una anterior, cada mutación reventaría con TypeError.
+    # Probado con 2.12.0 y 2.13.4.
+    "pydantic>=2.12",
     "python-multipart>=0.0.9",
     "matplotlib>=3.8",
     "ezdxf>=1.3",

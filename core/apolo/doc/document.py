@@ -19,6 +19,7 @@ from pathlib import Path
 from apolo.commands.expressions import ExpressionError, resolve_all
 from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_command, validate_params
 from apolo.commands.state import RegenState
+from apolo.commands.strict import reject_unknown
 
 FORMAT_VERSION = 2  # v2 añade attachments/ (archivos STEP importados); abre v1 sin cambios
 
@@ -499,7 +500,7 @@ class Document:
         return cmd_id
 
     def execute(self, cmd_type: str, params: dict) -> str:
-        validate_params(cmd_type, params, self.variables_raw)
+        validate_params(cmd_type, params, self.variables_raw, strict=True)
         holder: dict[str, str] = {}
 
         def apply():
@@ -509,21 +510,21 @@ class Document:
         return holder["id"]
 
     def execute_many(self, actions: list[dict], verify=None) -> list[str]:
-        """Ejecuta un lote ATÓMICO con UN solo regenerate y UN solo paso de undo.
-        '$k' (1-based) referencia el cmd_id de la k-ésima acción del lote. NO
-        pre-valida por comando: el regenerate final valida en orden con el dict de
-        variables en construcción (así un set_variable seguido de su uso en el mismo
-        lote funciona). Si la resolución de '$k' o el regenerate fallan, revierte
-        TODO el lote (o todo o nada).
+        """Lote ATÓMICO: UN regenerate y UN paso de undo; '$k' (1-based) = cmd_id de la
+        k-ésima acción. Una clave que el comando no declara rechaza el lote ANTES de tocar
+        nada (entrada estricta: sólo mira claves, no valores). Los valores NO se pre-validan:
+        el regenerate final valida en orden con las variables en construcción (set_variable
+        + su uso en el mismo lote); si él o '$k' fallan, revierte TODO el lote.
 
-        `verify` (V6.5b, frente A) = callback opcional ``(scene, created) -> results``
-        que evalúa el CONTRATO del lote tras el regenerate; si alguna aserción falla,
-        el lote se revierte por completo y se lanza ContractError. Como corre DENTRO del
-        try, el snapshot se CONSUME sin dejar entrada de undo fantasma."""
+        `verify` (V6.5b) = contrato opcional ``(scene, created) -> results`` tras el
+        regenerate; una aserción falsa revierte todo y lanza ContractError. Corre DENTRO del
+        try: el snapshot se CONSUME sin entrada de undo fantasma."""
         from apolo.batch import resolve_refs  # perezoso: evita ciclo document<->batch
 
         if not actions:
             return []
+        for action in actions:
+            reject_unknown(REGISTRY.get(action.get("type")), action.get("params") or {})
         snap = self._snapshot()
         created: list[str | None] = []
         try:
@@ -548,10 +549,9 @@ class Document:
     def edit_many(self, edits: list[dict], merge: bool = False, verify=None) -> list[str]:
         """Edita VARIOS comandos en UN lote atómico: un solo regenerate y un solo paso
         de undo. edits = [{"command_id": "...", "params": {...}}, ...]. Como execute_many,
-        NO pre-valida por comando (el regenerate final valida con las variables en
-        construcción, así editar un set_variable + su uso en el mismo lote funciona).
-        Rollback total si algo falla. merge=True hace PATCH superficial por comando (un
-        sub-objeto como position/rotation se reemplaza entero), igual que edit.
+        sólo las claves son estrictas (una clave NUEVA que el comando no declara revierte el
+        lote; una ya guardada pasa) y los valores los valida el regenerate final. merge=True
+        hace PATCH superficial por comando (un sub-objeto se reemplaza entero), como edit.
 
         `verify` (V6.5b) = contrato del lote, igual que en execute_many (recibe los
         command_ids TOCADOS como `created` → `$k` referencia el k-ésimo editado)."""
@@ -562,15 +562,14 @@ class Document:
         try:
             for e in edits:
                 cid = e["command_id"]
-                idx = next(
-                    (i for i, c in enumerate(self.commands) if c["id"] == cid), None
-                )
-                if idx is None:
+                cmd = next((c for c in self.commands if c["id"] == cid), None)
+                if cmd is None:
                     raise DocumentError(f"No existe el comando '{cid}'")
                 params = e.get("params") or {}
                 if merge:
-                    params = {**self.commands[idx]["params"], **params}
-                self.commands[idx]["params"] = params
+                    params = {**cmd["params"], **params}
+                reject_unknown(REGISTRY.get(cmd["type"]), params, previous=cmd["params"])
+                cmd["params"] = params
                 touched.append(cid)
             self.regenerate()
             self._check_strict()
@@ -617,17 +616,18 @@ class Document:
     ) -> str:
         """Edita los params de un comando. Por defecto REEMPLAZA (los campos omitidos
         vuelven a su default). Con `merge=True` hace PATCH superficial: combina con los
-        params actuales (un sub-objeto como position/rotation se reemplaza entero).
-        Devuelve el command_id editado."""
-        idx = next((i for i, c in enumerate(self.commands) if c["id"] == command_id), None)
-        if idx is None:
+        params actuales (un sub-objeto como position/rotation se reemplaza entero). Estricta:
+        rechaza una clave NUEVA que el comando no declara (una ya guardada pasa)."""
+        cmd = next((c for c in self.commands if c["id"] == command_id), None)
+        if cmd is None:
             raise DocumentError(f"No existe el comando '{command_id}'")
         if merge:
-            params = {**self.commands[idx]["params"], **params}
-        validate_params(self.commands[idx]["type"], params, self.variables_raw)
+            params = {**cmd["params"], **params}
+        validate_params(cmd["type"], params, self.variables_raw, strict=True,
+                        previous=cmd["params"])
 
         def apply():
-            self.commands[idx]["params"] = params
+            cmd["params"] = params
 
         self._mutate(apply, coalesce_key=f"edit:{command_id}" if coalesce else None)
         return command_id

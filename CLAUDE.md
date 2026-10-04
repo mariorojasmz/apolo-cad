@@ -56,7 +56,7 @@ baja); partir un archivo grande se hace con un plan.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1618 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1649 tests (tortura extendida: -m torture)
 cd ui ; npm test                  # vitest: gates de texto y de tamaño
 npm run build                     # bundle de la UI (tsc + vite)
 ```
@@ -89,7 +89,7 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 
 ### Estado actual (2026-10-03)
 
-1618 tests (+15 de tortura vía `-m torture`) · 26 tests vitest · 79 tools MCP · 53 comandos ·
+1649 tests (+15 de tortura vía `-m torture`) · 26 tests vitest · 79 tools MCP · 53 comandos ·
 catálogo 231 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [poda-claude-md](docs/plans/poda-claude-md.md); en plan: [harness-automejora](docs/plans/harness-automejora.md).
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %
@@ -296,6 +296,9 @@ imprime los comandos con credenciales (build/twine/mcp-publisher), que lanza una
   (suprime el comando roto, nunca toca el log) va SÓLO en rutas de carga; las mutaciones son
   estrictas. Un log viejo regenera igual: un param nuevo entra con un default que reproduce lo
   anterior (p. ej. `add_joint(arrastrar=False)`). [doc](core/apolo/doc/CLAUDE.md)
+- **Params estrictos al entrar, tolerantes al regenerar**: una clave que el comando no declara se
+  RECHAZA (con su corrección) y el replay la IGNORA; quitar o renombrar un campo exige upcaster.
+  [commands](core/apolo/commands/CLAUDE.md)
 - **Metadato ≠ comando**: motion, requirements, stackups, configurations, fea, colores,
   materiales, ocultos y notas viven en el manifest, FUERA del log y de los checkpoints. Un dato así es metadato con
   endpoint, no comando: en el log rompería la invariante de checkpoints

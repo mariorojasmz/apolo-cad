@@ -78,12 +78,10 @@ from .models import (
     TransformGroupParams,
     TransformParams,
 )
+from .errors import CommandError
 from .spec import CommandSpec, run_executor
 from .state import ExecContext, RegenState
-
-
-class CommandError(Exception):
-    pass
+from .strict import reject_unknown
 
 
 @dataclass
@@ -2145,8 +2143,8 @@ REGISTRY: dict[str, CommandSpec] = {
 
 
 def _validate_model(cmd_type: str, params: dict) -> BaseModel:
-    try:
-        return REGISTRY[cmd_type].model.model_validate(params or {})
+    try:  # `ignore` EXPLÍCITO: el replay tolera claves viejas; la entrada estricta va aparte (D6)
+        return REGISTRY[cmd_type].model.model_validate(params or {}, extra="ignore")
     except ValidationError as exc:
         issues = "; ".join(
             f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in exc.errors()
@@ -2154,16 +2152,17 @@ def _validate_model(cmd_type: str, params: dict) -> BaseModel:
         raise CommandError(f"Parámetros inválidos para {cmd_type}: {issues}") from exc
 
 
-def validate_params(cmd_type: str, params: dict, variables: dict | None = None) -> BaseModel:
-    """Valida parámetros resolviendo expresiones '=expr' contra las variables.
-
-    Para set_variable comprueba además que la expresión evalúa sin ciclos
-    con el resto de variables del proyecto.
-    """
+def validate_params(cmd_type: str, params: dict, variables: dict | None = None,
+                    strict: bool = False, previous: dict | None = None) -> BaseModel:
+    """Valida parámetros resolviendo '=expr' contra las variables (set_variable: además, que
+    evalúe sin ciclos). `strict` = entrada de un cliente: rechaza las claves que el comando no
+    declara; con `previous` (los params guardados de un edit) sólo las NUEVAS (`strict.py`)."""
     if cmd_type not in REGISTRY:
         raise CommandError(f"Comando desconocido: {cmd_type}")
     variables = variables or {}
     spec = REGISTRY[cmd_type]
+    if strict:
+        reject_unknown(spec, params, previous)
 
     if spec.kind == "vars":
         model = _validate_model(cmd_type, params)

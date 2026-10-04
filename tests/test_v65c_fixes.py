@@ -20,13 +20,13 @@ def _client(name: str) -> TestClient:
 
 
 def _plates_and_join(join_extra: dict | None = None) -> list[dict]:
-    """Dos placas 200×150 en contacto en z=6 + join_bolted M12 2×2 vía $k."""
+    """Dos placas 200×150 en contacto en z=6 + join_bolted M12 2×2 vía $k. (Mandaban
+    `"material": "acero"`, que create_box nunca tuvo: el acero es el material por defecto.)"""
     return [
         {"type": "create_box", "params": {"name": "Placa base", "width": 200, "depth": 150,
-                                          "height": 12, "material": "acero"}},
+                                          "height": 12}},
         {"type": "create_box", "params": {"name": "Placa superior", "width": 200, "depth": 150,
-                                          "height": 10, "material": "acero",
-                                          "position": {"x": 0, "y": 0, "z": 11}}},
+                                          "height": 10, "position": {"x": 0, "y": 0, "z": 11}}},
         {"type": "join_bolted", "params": {"a": "$1", "b": "$2", "size": "M12",
                                            "patron": [2, 2], **(join_extra or {})}},
     ]

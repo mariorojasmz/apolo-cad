@@ -3,8 +3,8 @@
 El registro schema-driven: `models.py` (params pydantic = schema de UI, diálogos y tools del
 agente), `registry.py` (executors + `REGISTRY`), `spec.py` (`CommandSpec` + `run_executor`, el
 despacho), `state.py` (`RegenState`, el estado con nombre que `execute_command` muta y el
-regenerate guarda como checkpoint; `ExecContext`, lo que recibe un executor) y `expressions.py`
-(motor de `=expr`). Lo transversal (locks, log, regenerate, cirugía de modelos) está en el
+regenerate guarda como checkpoint; `ExecContext`, lo que recibe un executor), `strict.py` (la
+entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (motor de `=expr`). Lo transversal (locks, log, regenerate, cirugía de modelos) está en el
 [CLAUDE.md raíz](../../../CLAUDE.md); lo común del backend, en [core/apolo](../CLAUDE.md).
 
 ## Al agregar o cambiar un comando
@@ -15,6 +15,13 @@ regenerate guarda como checkpoint; `ExecContext`, lo que recibe un executor) y `
   `tests/test_despacho_unico.py`): si un comando necesita más contexto, es una propiedad de
   `ExecContext`, no un flag ni una rama en el despacho.
   [plan](../../../docs/plans/estado-regen-y-params-estrictos.md)
+- **Params estrictos** (`strict.py`): la ENTRADA de un cliente (las cuatro puertas de `Document`
+  y `validate_actions` del agente) rechaza la clave que el modelo no declara, con su ruta, las
+  válidas y «¿quisiste decir…?»; el REPLAY la ignora (`extra="ignore"` explícito) y un edit sólo
+  rechaza las que el cliente INTRODUCE (la UI reenvía los params guardados). Los modelos NO fijan
+  `extra`: cambiaría el JSON Schema publicado. Quitar o renombrar un campo exige upcaster; un
+  campo nuevo entra con un default que reproduce lo anterior (trinquete D12:
+  `tests/test_contrato_comandos.py`).
 - La `description` del modelo es para el AGENTE (larga a propósito, con nombres de params); la
   persona lee la PISTA de `pistas.py` (vista `?vista=persona`, `vista_persona.py`): un comando
   nuevo sin pista rompe `tests/test_pistas.py` ([ui](../../../ui/CLAUDE.md)). Un super-comando reutilizable

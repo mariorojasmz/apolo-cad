@@ -78,7 +78,8 @@ def test_gif_render_header():
 
 def test_api_drop_and_gif():
     api.DOC = Document("physics-api")
-    api.DOC.execute("create_box", {"name": "mesa", "length": 1000, "width": 400, "height": 20,
+    # mesa 1000×400 (create_box no tiene `length`: el test lo mandaba y quedaba con fondo 100)
+    api.DOC.execute("create_box", {"name": "mesa", "width": 1000, "depth": 400, "height": 20,
                                    "position": {"x": 0, "y": 0, "z": 740}})
     client = TestClient(api.app)
     body = {"products": [{"w": 200, "d": 150, "h": 120, "x": 0, "y": 0, "z": 1100, "mass": 5}],

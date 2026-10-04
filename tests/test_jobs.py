@@ -201,9 +201,10 @@ def test_command_error_in_job_is_400():
     api.DOC = Document("jobs-cmderr")
     client = TestClient(api.app)
     r = client.post("/api/commands/batch", params={"async": "true"}, json={
-        "actions": [{"type": "fillet", "params": {"feature_id": "noexiste", "radius": 2}}]})
+        "actions": [{"type": "fillet", "params": {"feature": "noexiste", "radius": 2}}]})
     job = _await_job(client, r.json()["job_id"])
     assert job["estado"] == "error" and job["http_status"] == 400
+    assert "noexiste" in job["error"]  # el error del executor, no el de una clave mal escrita
 
 
 def test_unexpected_error_is_500_and_worker_survives():

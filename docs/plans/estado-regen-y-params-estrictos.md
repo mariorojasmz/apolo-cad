@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden), F1 (RegenState, epoch 5), F2 y F3 (despacho único: los 53 executors reciben ExecContext) hechas y sin mergear; faltan F4–F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
+nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden), F1 (RegenState, epoch 5), F2 y F3 (despacho único: los 53 executors reciben ExecContext) y F4 (entrada estricta, pydantic>=2.12) hechas y sin mergear; faltan F5–F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
 descripcion: Si tú o el agente mandan un parámetro que no existe, Apolo lo rechaza y sugiere el correcto (antes lo ignoraba en silencio); tus proyectos guardados regeneran idénticos
 ---
 
@@ -406,3 +406,60 @@ de 100 columnas (`create_cylinder`) y se rehizo sin sumar líneas.
 **Desvíos de F3**: ninguno de contrato. Los executors migrados en F2 conservan sus alias
 locales (`scene = ctx.scene` donde se usa muchas veces); los 38 de F3 usan `ctx.scene` en
 línea, que es lo que permitió no sumar líneas.
+
+**2026-10-03 — F4, entrada estricta.** `core/apolo/commands/strict.py` (175 líneas):
+`unknown_paths(model, params)` valida con `extra="forbid"` POR LLAMADA y se queda sólo con los
+`extra_forbidden` (todas las rutas en una pasada: raíz, anidadas, en listas, dentro de un
+`X | None`); `reject_unknown(spec, params, previous)` resta las rutas que ya estaban guardadas
+(D7) y lanza `CommandError` con `rejection_text` (D8). `validate_params(…, strict=False,
+previous=None)` y `_validate_model` con `extra="ignore"` EXPLÍCITO. Las puertas: `execute` y
+`edit` por `validate_params(strict=True)` (el edit con `previous` = los params guardados);
+`execute_many` revisa las claves de TODAS las acciones antes del snapshot (sólo claves: las
+variables que el lote define aún no existen, y no se reintroduce `validate_params` en el
+bucle); `edit_many`, dentro del try (rollback total, sin undo fantasma); el preview pasa por
+el `execute_many` de su copia; `validate_actions` del agente, con `strict=True`.
+
+- **Texto del rechazo** (el c45 del 38 mandado como entrada nueva):
+  `Parámetro desconocido en pattern_linear (no se aplicó nada):` /
+  `- «name» no existe. Válidos en ese nivel: feature, count, spacing.` Con typo:
+  `«widht» no existe; ¿quisiste decir «width»?`; con metadato: `«material»: el material no es
+  un parámetro; asígnalo con set_material a la pieza ya creada.` Mismo texto en sync y en job
+  (test).
+- **Pin `pydantic>=2.12`**: `extra=` en las funciones de validación llegó en 2.12.0 (changelog
+  oficial, #12233; 2.13.0 sólo arregla la igualdad con `extra` en tiempo de ejecución, que
+  aquí no se usa). Probado instalando 2.12.0 en una carpeta temporal: misma detección (649
+  rutas, mismo hash) y `test_params_estrictos` + `test_contrato_comandos` verdes.
+- **Trinquete D12** (`tests/test_contrato_comandos.py`): `CAMPOS` declara las 649 rutas de los
+  53 comandos (`strict.field_paths`); falla si una desaparece (pide conservarla o un upcaster)
+  o si aparece una sin declarar; `python tests/test_contrato_comandos.py` imprime el literal.
+- **Hallazgo**: `snap_to` anota `cara: "EdgeSelector | None"` con un string → el modelo queda
+  INCOMPLETO hasta su primera validación y su anotación es un `ForwardRef`. `field_paths` y
+  `model_at` hacen `model_rebuild()` antes de leer campos: sin eso el trinquete no veía 22
+  rutas de `snap_to` (la detección no lo sufría: valida, y validar completa el modelo).
+- **Tests corregidos como bug del TEST** (mandaban claves que el comando nunca tuvo y el
+  replay ignoraba): `tests/test_v65c_fixes.py:25-29` (`create_box.material` ×2: el acero ya
+  era el default, la escena no cambia); `tests/test_physics.py:81` (`create_box.length`: la
+  mesa quedaba de 400×100 en vez de la 1000×400 que el test describe → `width`/`depth`);
+  `tests/test_jobs.py::test_command_error_in_job_is_400` (`fillet.feature_id`: el 400 venía
+  de la clave mal escrita, no del executor; ahora `feature` y verifica que el error nombra la
+  pieza). `tests/test_golden_regen.py::_doc_b` no era un bug: necesita un log VIEJO con
+  `pattern_linear.name`, que ahora inyecta en el log después de crear el comando.
+- **Cómo se encontraron**: un plugin de pytest FUERA del repo envolvió `rejection_text` y anotó
+  cada rechazo con su test; fuera de `test_params_estrictos`, sólo saltó el de `test_jobs`
+  (que pasaba igual, porque el 400 lo daba la clave). Los otros cuatro fallaban a la vista.
+- **Tests**: `tests/test_params_estrictos.py` (18: detección en todos los niveles, `=expr` sin
+  resolver, campos libres, texto con sugerencia y punteros, REST, lote revertido sin undo
+  fantasma, lote con sus propias variables, job con el mismo texto, preview, c45 → 200 por
+  PUT/merge/PATCH, edit y edit_many que introducen una clave, log viejo que regenera igual,
+  agente) y `tests/test_contrato_comandos.py` (3).
+- **Golden** (`%TEMP%\apolo-golden\golden-f4.json`, código congelado en `code-f4`, 1 011,7 s)
+  contra la base de F0: **sin diferencias** en los 122 documentos, firmas incluidas.
+- **Suite**: 1649 tests (1628 de la base + 21): 1648 pasan y 1 se salta. Ruff limpio.
+  **Líneas**: `registry.py` 2212 → 2211 (trinquete actualizado); `document.py` 1060 = 1060
+  (los docstrings de `execute_many`/`edit_many`/`edit` se reescribieron más cortos);
+  `agent.py` 606 =.
+
+**Desvíos de F4**: `CommandError` se mudó a `commands/errors.py` (re-exportado por `registry`,
+mismo objeto): `strict.py` lo lanza y `registry.py` importa `strict.py`; sin el mudado, import
+circular. Un tipo desconocido en un lote no lo mira la entrada estricta: lo sigue reportando el
+regenerate con el texto de siempre. Los punteros de `material`/`color` valen en cualquier nivel.

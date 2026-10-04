@@ -17,6 +17,9 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   puede lanzar. `tolerant=True` va SÓLO en rutas de carga (arranque, open por id, upload,
   restore): suprime el comando roto en `regen_suppressed` y poda huérfanos; el log jamás se
   toca. Las mutaciones regeneran siempre estrictas.
+- Las cuatro puertas (`execute`, `edit`, `execute_many`, `edit_many`) son estrictas de CLAVES
+  (regla en [commands](../commands/CLAUDE.md)); en los lotes se revisan antes del snapshot y sin
+  mirar valores: las variables que el propio lote define todavía no existen. `regenerate` no.
 - El snapshot de undo incluye la caché de regen (`"regen"`): `_restore` la repone ANTES de
   regenerar → el rollback resume del último checkpoint (replay ~0) y es inmune a un fallo
   repetido. `undo`/`redo` son peek-then-commit (no sacan de la pila hasta que la restauración

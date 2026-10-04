@@ -290,7 +290,7 @@ def validate_actions(actions: list[dict], variables: dict | None = None) -> list
         cmd_type = action.get("type")
         params = action.get("params") or {}
         try:
-            validate_params(cmd_type, params, pending_vars)
+            validate_params(cmd_type, params, pending_vars, strict=True)
             if cmd_type == "set_variable":
                 pending_vars[params["name"]] = params["expression"]
         except CommandError as exc:
