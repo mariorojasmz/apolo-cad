@@ -1,0 +1,4805 @@
+[
+ {
+  "caso": "escena completa",
+  "tool": "get_scene",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/scene",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "escena summary",
+  "tool": "get_scene",
+  "args": {
+   "summary": true
+  },
+  "salida": [
+   {
+    "texto": "{\"grupos\": [{\"nombre\": \"Estructura\", \"n_piezas\": 1}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/scene/summary",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "escena filtrada",
+  "tool": "get_scene",
+  "args": {
+   "ids": [
+    "c1",
+    "Estructura"
+   ],
+   "name": "base",
+   "limit": 10,
+   "offset": 5
+  },
+  "salida": [
+   {
+    "texto": "{\"total_solidos\": 3, \"total_filtrado\": 1, \"truncado\": false, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\"}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/scene",
+    "query": [
+     [
+      "ids",
+      "c1,Estructura"
+     ],
+     [
+      "name",
+      "base"
+     ],
+     [
+      "limit",
+      "10"
+     ],
+     [
+      "offset",
+      "5"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "conexión rechazada",
+  "tool": "get_scene",
+  "args": {},
+  "error": "Error executing tool get_scene: No hay conexión con Apolo en http://127.0.0.1:8000: arranca el servidor (uvicorn apolo.api.main:app --port 8000)",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/scene",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "schemas todos",
+  "tool": "get_command_schemas",
+  "args": {},
+  "salida": [
+   {
+    "texto": "[{\"type\": \"create_box\", \"schema\": {\"type\": \"object\"}}]"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/schemas",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "schema uno",
+  "tool": "get_command_schemas",
+  "args": {
+   "command_type": "create_box"
+  },
+  "salida": [
+   {
+    "texto": "{\"type\": \"create_box\", \"schema\": {\"type\": \"object\"}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/schemas/create_box",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "catálogo",
+  "tool": "get_catalog",
+  "args": {
+   "category": "rodamientos",
+   "names_only": true
+  },
+  "salida": [
+   {
+    "texto": "[{\"ref\": \"RODILLO-50\", \"name\": \"Rodillo Ø50\"}]"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/catalog",
+    "query": [
+     [
+      "category",
+      "rodamientos"
+     ],
+     [
+      "names_only",
+      "true"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "bom",
+  "tool": "get_bom",
+  "args": {},
+  "salida": [
+   {
+    "texto": "[{\"ref\": \"RODILLO-50\", \"qty\": 4}]"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/bom",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "bom por grupo",
+  "tool": "get_bom",
+  "args": {
+   "by_group": true
+  },
+  "salida": [
+   {
+    "texto": "[{\"ref\": \"RODILLO-50\", \"qty\": 4}]"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/bom",
+    "query": [
+     [
+      "by_group",
+      "true"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "costeo",
+  "tool": "get_costing",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"total_usd\": 123.4, \"filas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/costing.json",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "material uno",
+  "tool": "set_material",
+  "args": {
+   "feature": "c1",
+   "material": "acero"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/features/material",
+    "query": [],
+    "cuerpo": {
+     "ids": [
+      "c1"
+     ],
+     "material": "acero"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "material lote",
+  "tool": "set_material",
+  "args": {
+   "features": [
+    "c1",
+    "c3"
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/features/material",
+    "query": [],
+    "cuerpo": {
+     "ids": [
+      "c1",
+      "c3"
+     ],
+     "material": null
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "material ambos → error",
+  "tool": "set_material",
+  "args": {
+   "feature": "c1",
+   "features": [
+    "c3"
+   ]
+  },
+  "error": "Error executing tool set_material: Pasa exactamente uno de los dos: `feature` (uno) o `features` (lote)",
+  "peticiones": []
+ },
+ {
+  "caso": "color",
+  "tool": "set_color",
+  "args": {
+   "color": "#ff0000",
+   "features": [
+    "c1"
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/features/color",
+    "query": [],
+    "cuerpo": {
+     "ids": [
+      "c1"
+     ],
+     "color": "#ff0000"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "vertical",
+  "tool": "set_vertical",
+  "args": {
+   "vertical": "carpinteria"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/vertical",
+    "query": [],
+    "cuerpo": {
+     "vertical": "carpinteria"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "cinemática",
+  "tool": "get_kinematics",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"joints\": [{\"name\": \"j1\", \"tipo\": \"giratoria\"}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/kinematics",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "guía de diseño",
+  "tool": "get_design_guidelines",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"principio\": \"golden\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/design-guidelines",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "comando",
+  "tool": "run_command",
+  "args": {
+   "type": "create_box",
+   "params": {
+    "width": 10
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands",
+    "query": [],
+    "cuerpo": {
+     "type": "create_box",
+     "params": {
+      "width": 10
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "comando full",
+  "tool": "run_command",
+  "args": {
+   "type": "create_box",
+   "params": {},
+   "detail": "full"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands",
+    "query": [],
+    "cuerpo": {
+     "type": "create_box",
+     "params": {}
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "comando 400 con detail",
+  "tool": "run_command",
+  "args": {
+   "type": "x",
+   "params": {}
+  },
+  "error": "Error executing tool run_command: Apolo rechazó la operación (400): No existe el comando 'x'",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands",
+    "query": [],
+    "cuerpo": {
+     "type": "x",
+     "params": {}
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "comando 500 sin json",
+  "tool": "run_command",
+  "args": {
+   "type": "x",
+   "params": {}
+  },
+  "error": "Error executing tool run_command: Apolo rechazó la operación (500): Internal Server Error",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands",
+    "query": [],
+    "cuerpo": {
+     "type": "x",
+     "params": {}
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "lote con contrato",
+  "tool": "run_batch",
+  "args": {
+   "actions": [
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    },
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    }
+   ],
+   "detail": "summary",
+   "expect": [
+    {
+     "tipo": "existe",
+     "id": "$1"
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"comando\": \"c2_c1\"}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/batch",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "actions": [
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      },
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      }
+     ],
+     "expect": [
+      {
+       "tipo": "existe",
+       "id": "$1"
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "lote → recibo",
+  "tool": "run_batch",
+  "args": {
+   "actions": [
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"j1\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('j1') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/batch",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "actions": [
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "lote → job en error",
+  "tool": "run_batch",
+  "args": {
+   "actions": [
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    }
+   ]
+  },
+  "error": "Error executing tool run_batch: Apolo rechazó la operación (400): Contrato incumplido: medido 150 > 10",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/batch",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "actions": [
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "lote → job corriendo y luego ok",
+  "tool": "run_batch",
+  "args": {
+   "actions": [
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/batch",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "actions": [
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "editar",
+  "tool": "edit_command",
+  "args": {
+   "command_id": "c1",
+   "params": {
+    "width": 80
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/commands/c1",
+    "query": [
+     [
+      "merge",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "params": {
+      "width": 80
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "editar replace",
+  "tool": "edit_command",
+  "args": {
+   "command_id": "c1",
+   "params": {},
+   "merge": false,
+   "detail": "summary"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/commands/c1",
+    "query": [
+     [
+      "merge",
+      "false"
+     ]
+    ],
+    "cuerpo": {
+     "params": {}
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "editar lote",
+  "tool": "edit_batch",
+  "args": {
+   "edits": [
+    {
+     "command_id": "c1",
+     "params": {
+      "width": 1
+     }
+    }
+   ],
+   "expect": [
+    {
+     "tipo": "existe",
+     "id": "c1"
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PATCH",
+    "url": "http://127.0.0.1:8000/api/commands/batch",
+    "query": [
+     [
+      "merge",
+      "true"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "edits": [
+      {
+       "command_id": "c1",
+       "params": {
+        "width": 1
+       }
+      }
+     ],
+     "expect": [
+      {
+       "tipo": "existe",
+       "id": "c1"
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "editar lote replace → recibo",
+  "tool": "edit_batch",
+  "args": {
+   "edits": [],
+   "merge": false
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"j1\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('j1') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PATCH",
+    "url": "http://127.0.0.1:8000/api/commands/batch",
+    "query": [
+     [
+      "merge",
+      "false"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "edits": []
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job ok",
+  "tool": "get_job",
+  "args": {
+   "job_id": "j1",
+   "detail": "full",
+   "wait_s": 5
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}, \"job\": \"j1\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "5.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job corriendo",
+  "tool": "get_job",
+  "args": {
+   "job_id": "j1"
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"j1\", \"estado\": \"encolado\", \"seguir\": \"llama get_job('j1') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job en error",
+  "tool": "get_job",
+  "args": {
+   "job_id": "j1"
+  },
+  "error": "Error executing tool get_job: Apolo rechazó la operación (400): boom",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job 404",
+  "tool": "get_job",
+  "args": {
+   "job_id": "zz"
+  },
+  "error": "Error executing tool get_job: Apolo rechazó la operación (404): Job 'zz' desconocido: el servidor se reinició o se desalojó. El lote PUDO haber aplicado; verifícalo con get_scene.",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/zz",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "deshacer",
+  "tool": "undo",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/undo",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "variable",
+  "tool": "set_variable",
+  "args": {
+   "name": "L",
+   "expression": "2500"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 0, \"solidos\": [], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/variables",
+    "query": [],
+    "cuerpo": {
+     "name": "L",
+     "expression": "2500"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "interferencia global",
+  "tool": "check_interference",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"pares\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [],
+    "cuerpo": {
+     "joint_values": {}
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "interferencia acotada en pose",
+  "tool": "check_interference",
+  "args": {
+   "joint_values": {
+    "j1": 30
+   },
+   "ids": [
+    "Estructura"
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"pares\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [],
+    "cuerpo": {
+     "joint_values": {
+      "j1": 30
+     },
+     "interference_ids": [
+      "Estructura"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "ingeniería",
+  "tool": "engineering_check",
+  "args": {
+   "carga_kg": 15,
+   "velocidad_m_s": 0.5
+  },
+  "salida": [
+   {
+    "texto": "{\"ingenieria\": [{\"ok\": true}], \"estructura\": {\"reglas\": []}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [],
+    "cuerpo": {
+     "carga_kg": 15.0,
+     "largo_paquete_mm": null,
+     "ancho_paquete_mm": null,
+     "conveyor": null,
+     "conveyor_solid_ids": null,
+     "velocidad_m_s": 0.5
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "ingeniería faja",
+  "tool": "engineering_check",
+  "args": {
+   "conveyor": {
+    "largo": 4000
+   },
+   "conveyor_solid_ids": [
+    "c1"
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"ingenieria\": [{\"ok\": true}], \"estructura\": {\"reglas\": []}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [],
+    "cuerpo": {
+     "carga_kg": null,
+     "largo_paquete_mm": null,
+     "ancho_paquete_mm": null,
+     "conveyor": {
+      "largo": 4000
+     },
+     "conveyor_solid_ids": [
+      "c1"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "render",
+  "tool": "render_view",
+  "args": {},
+  "salida": [
+   {
+    "imagen": "image/png",
+    "sha256": "0bd9b0daae3622ffc2127814b8d0541b19abbabf3690ebfcd57b4759055b8f31"
+   }
+  ],
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/render.png",
+    "query": [
+     [
+      "view",
+      "iso"
+     ],
+     [
+      "show_axes",
+      "false"
+     ],
+     [
+      "show_bbox",
+      "false"
+     ],
+     [
+      "zoom",
+      "1.0"
+     ],
+     [
+      "shade",
+      "true"
+     ],
+     [
+      "vtk_only",
+      "true"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "render completo",
+  "tool": "render_view",
+  "args": {
+   "view": "planta",
+   "highlight_ids": [
+    "c1"
+   ],
+   "show_axes": true,
+   "show_bbox": true,
+   "joint_values": {
+    "j1": 10.0
+   },
+   "fit_ids": [
+    "c1"
+   ],
+   "zoom": 2.0,
+   "section": "x",
+   "isolate": [
+    "Estructura"
+   ],
+   "azimuth": 30,
+   "elevation": 20,
+   "measure": [
+    "c1",
+    "c3"
+   ],
+   "edges": false,
+   "xray": true,
+   "labels": true,
+   "roll": 5,
+   "pan": [
+    0.1,
+    -0.2
+   ]
+  },
+  "salida": [
+   {
+    "imagen": "image/png",
+    "sha256": "0bd9b0daae3622ffc2127814b8d0541b19abbabf3690ebfcd57b4759055b8f31"
+   }
+  ],
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/render.png",
+    "query": [
+     [
+      "view",
+      "planta"
+     ],
+     [
+      "show_axes",
+      "true"
+     ],
+     [
+      "show_bbox",
+      "true"
+     ],
+     [
+      "zoom",
+      "2.0"
+     ],
+     [
+      "shade",
+      "true"
+     ],
+     [
+      "vtk_only",
+      "true"
+     ],
+     [
+      "highlight",
+      "c1"
+     ],
+     [
+      "fit",
+      "c1"
+     ],
+     [
+      "isolate",
+      "Estructura"
+     ],
+     [
+      "joints",
+      "{\"j1\": 10.0}"
+     ],
+     [
+      "section",
+      "x"
+     ],
+     [
+      "azimuth",
+      "30.0"
+     ],
+     [
+      "elevation",
+      "20.0"
+     ],
+     [
+      "measure",
+      "c1,c3"
+     ],
+     [
+      "edges",
+      "false"
+     ],
+     [
+      "xray",
+      "true"
+     ],
+     [
+      "labels",
+      "true"
+     ],
+     [
+      "roll",
+      "5.0"
+     ],
+     [
+      "pan",
+      "0.1,-0.2"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "preview imagen",
+  "tool": "preview",
+  "args": {
+   "actions": [
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    }
+   ],
+   "section": "z",
+   "labels": true
+  },
+  "salida": [
+   {
+    "imagen": "image/png",
+    "sha256": "0bd9b0daae3622ffc2127814b8d0541b19abbabf3690ebfcd57b4759055b8f31"
+   }
+  ],
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/preview",
+    "query": [],
+    "cuerpo": {
+     "actions": [
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      }
+     ],
+     "view": "iso",
+     "labels": true,
+     "data": false,
+     "section": "z"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "preview datos",
+  "tool": "preview",
+  "args": {
+   "actions": [
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    }
+   ],
+   "data": true
+  },
+  "salida": [
+   {
+    "texto": "{\"fantasmas\": [{\"name\": \"Nueva\", \"bbox\": [0, 1]}], \"colisiones_nuevas\": []}"
+   }
+  ],
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/preview",
+    "query": [],
+    "cuerpo": {
+     "actions": [
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      }
+     ],
+     "view": "iso",
+     "labels": false,
+     "data": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "proyectos",
+  "tool": "list_projects",
+  "args": {},
+  "salida": [
+   {
+    "texto": "[{\"id\": 38, \"name\": \"faja\"}]"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/projects",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "abrir proyecto",
+  "tool": "open_project",
+  "args": {
+   "project_id": 38
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"briefing\": {\"grupos\": 6}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/projects/38/open",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "crear proyecto",
+  "tool": "create_project",
+  "args": {
+   "name": "nuevo",
+   "template": "transportador"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/projects",
+    "query": [],
+    "cuerpo": {
+     "name": "nuevo",
+     "template": "transportador"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "revisión",
+  "tool": "save_revision",
+  "args": {
+   "note": "antes de editar"
+  },
+  "salida": [
+   {
+    "texto": "{\"id\": 7, \"note\": \"golden\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/revisions",
+    "query": [],
+    "cuerpo": {
+     "note": "antes de editar"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "guardar configuración",
+  "tool": "save_configuration",
+  "args": {
+   "name": "4m"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/configurations",
+    "query": [],
+    "cuerpo": {
+     "name": "4m"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "aplicar configuración",
+  "tool": "apply_configuration",
+  "args": {
+   "name": "3.2m"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 0, \"solidos\": [], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/configurations/3.2m/apply",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "exportar step",
+  "tool": "export_step",
+  "args": {
+   "path": "modelo.step"
+  },
+  "salida": [
+   {
+    "texto": "STEP guardado en modelo.step (20 bytes)"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/export/step",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "modelo.step": "ed24624e39cff61ec07242e9fe78276b97a4c071e54b371918bd0d3b74122534"
+  }
+ },
+ {
+  "caso": "exportar stl",
+  "tool": "export_stl",
+  "args": {
+   "path": "modelo.stl",
+   "tolerance": 0.2
+  },
+  "salida": [
+   {
+    "texto": "STL guardado en modelo.stl (20 bytes)"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/export/stl",
+    "query": [
+     [
+      "tolerance",
+      "0.2"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "modelo.stl": "ed24624e39cff61ec07242e9fe78276b97a4c071e54b371918bd0d3b74122534"
+  }
+ },
+ {
+  "caso": "desplegado",
+  "tool": "export_flat_pattern",
+  "args": {
+   "feature_id": "c1",
+   "path": "flat.dxf"
+  },
+  "salida": [
+   {
+    "texto": "Desplegado DXF guardado en flat.dxf (16 bytes)"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/sheetmetal/c1/flat.dxf",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "flat.dxf": "16dc5d24e74b335379588e7b2f8b46775225ae7c4bf7a93fd02e4a6fa942d24d"
+  }
+ },
+ {
+  "caso": "caída",
+  "tool": "drop_test",
+  "args": {
+   "products": [
+    {
+     "w": 100,
+     "d": 100,
+     "h": 50,
+     "x": 0,
+     "y": 0,
+     "z": 500
+    }
+   ],
+   "path": "caida.gif",
+   "seconds": 1.0
+  },
+  "salida": [
+   {
+    "texto": "{\"gif\": \"caida.gif\", \"bytes\": 17, \"resting_mm\": [[0, 0, 10]], \"settled\": true, \"frames\": 3}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/physics/drop",
+    "query": [],
+    "cuerpo": {
+     "products": [
+      {
+       "w": 100,
+       "d": 100,
+       "h": 50,
+       "x": 0,
+       "y": 0,
+       "z": 500
+      }
+     ],
+     "seconds": 1.0,
+     "gravity": 9.81
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/physics/drop.gif",
+    "query": [],
+    "cuerpo": {
+     "products": [
+      {
+       "w": 100,
+       "d": 100,
+       "h": 50,
+       "x": 0,
+       "y": 0,
+       "z": 500
+      }
+     ],
+     "seconds": 1.0,
+     "gravity": 9.81
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "caida.gif": "eac236aa6295e242fb58c9e82069b3baffb0b1cb9d75e777f4fdfb504188149a"
+  }
+ },
+ {
+  "caso": "comando por id",
+  "tool": "get_command",
+  "args": {
+   "command_id": "c1"
+  },
+  "salida": [
+   {
+    "texto": "{\"type\": \"create_box\", \"params\": {\"name\": \"Base\"}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/document",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "comando inexistente",
+  "tool": "get_command",
+  "args": {
+   "command_id": "c99"
+  },
+  "error": "Error executing tool get_command: No existe el comando 'c99' en el documento",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/document",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "buscar comandos",
+  "tool": "find_commands",
+  "args": {
+   "type": "chamfer",
+   "feature": "c14",
+   "name": "pata",
+   "limit": 5
+  },
+  "salida": [
+   {
+    "texto": "[{\"id\": \"c1\", \"type\": \"create_box\", \"resumen\": \"Base\"}]"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/commands",
+    "query": [
+     [
+      "limit",
+      "5"
+     ],
+     [
+      "type",
+      "chamfer"
+     ],
+     [
+      "feature",
+      "c14"
+     ],
+     [
+      "name",
+      "pata"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "croquis",
+  "tool": "test_sketch",
+  "args": {
+   "sketch": {
+    "points": [],
+    "constraints": []
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"dof\": 0}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/sketch/solve",
+    "query": [],
+    "cuerpo": {
+     "sketch": {
+      "points": [],
+      "constraints": []
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "script",
+  "tool": "test_script",
+  "args": {
+   "code": "result = Box(1, 1, 1)"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"volumen_mm3\": 1.0}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/script/test",
+    "query": [],
+    "cuerpo": {
+     "code": "result = Box(1, 1, 1)"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "rehacer",
+  "tool": "redo",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/redo",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "mates",
+  "tool": "get_mates",
+  "args": {},
+  "salida": [
+   {
+    "texto": "[{\"name\": \"m1\"}]"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/mates",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "dof",
+  "tool": "get_dof",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"solidos\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/assembly/dof",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "sujeción",
+  "tool": "check_assembly",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"flotantes\": [], \"aisladas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/soundness",
+    "query": [],
+    "cuerpo": {
+     "with_autodetect": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "sujeción con autodetect",
+  "tool": "check_assembly",
+  "args": {
+   "with_autodetect": true
+  },
+  "salida": [
+   {
+    "texto": "{\"flotantes\": [], \"aisladas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/soundness",
+    "query": [],
+    "cuerpo": {
+     "with_autodetect": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "autodetección",
+  "tool": "autodetect_connections",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"flotantes\": [], \"aisladas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/autodetect",
+    "query": [],
+    "cuerpo": {},
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "declarar estructura",
+  "tool": "declare_structure",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"grounds\": 1, \"fasteners\": 0, \"detalle\": {\"grounds\": [{\"name\": \"g1\"}], \"fasteners\": []}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/declare",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/connectivity",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "conexiones",
+  "tool": "get_connections",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"grounds\": [{\"name\": \"g1\"}], \"fasteners\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/connectivity",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "borrar conexión",
+  "tool": "delete_connection",
+  "args": {
+   "name": "f1"
+  },
+  "salida": [
+   {
+    "texto": "{\"borradas\": [\"f1\", \"g1\"], \"n\": 2}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/connections/remove",
+    "query": [],
+    "cuerpo": {
+     "names": [
+      "f1"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "borrar conexiones lote",
+  "tool": "delete_connection",
+  "args": {
+   "names": [
+    "f1",
+    "g1"
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"borradas\": [\"f1\", \"g1\"], \"n\": 2}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/connections/remove",
+    "query": [],
+    "cuerpo": {
+     "names": [
+      "f1",
+      "g1"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "borrar conexión sin nombre",
+  "tool": "delete_connection",
+  "args": {},
+  "error": "Error executing tool delete_connection: Pasa exactamente uno de los dos: `name` (uno) o `names` (lote)",
+  "peticiones": []
+ },
+ {
+  "caso": "puerta de entrega",
+  "tool": "delivery_check",
+  "args": {
+   "con_gravedad": true
+  },
+  "salida": [
+   {
+    "texto": "{\"veredicto\": \"VERDE\", \"bloqueantes\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/delivery-check",
+    "query": [],
+    "cuerpo": {
+     "con_gravedad": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "gravedad",
+  "tool": "gravity_test",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"n_grounded\": 2, \"n_dynamic\": 1, \"fell\": [], \"estables\": [\"c1\"], \"settled\": true, \"mensaje\": \"ok\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/stability",
+    "query": [],
+    "cuerpo": {
+     "with_autodetect": false,
+     "exclude": [],
+     "seconds": 2.0,
+     "gravity": 9.81
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "gravedad con gif",
+  "tool": "gravity_test",
+  "args": {
+   "with_autodetect": true,
+   "exclude": [
+    "c3"
+   ],
+   "seconds": 1.5,
+   "path": "gravedad.gif"
+  },
+  "salida": [
+   {
+    "texto": "{\"n_grounded\": 2, \"n_dynamic\": 1, \"fell\": [], \"estables\": [\"c1\"], \"settled\": true, \"mensaje\": \"ok\", \"gif\": \"gravedad.gif\", \"bytes\": 17}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/stability",
+    "query": [],
+    "cuerpo": {
+     "with_autodetect": true,
+     "exclude": [
+      "c3"
+     ],
+     "seconds": 1.5,
+     "gravity": 9.81
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/stability.gif",
+    "query": [],
+    "cuerpo": {
+     "with_autodetect": true,
+     "exclude": [
+      "c3"
+     ],
+     "seconds": 1.5,
+     "gravity": 9.81
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "gravedad.gif": "eac236aa6295e242fb58c9e82069b3baffb0b1cb9d75e777f4fdfb504188149a"
+  }
+ },
+ {
+  "caso": "movimiento",
+  "tool": "get_motion",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"studies\": [{\"name\": \"abrir\"}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/motion",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "definir movimiento",
+  "tool": "set_motion",
+  "args": {
+   "name": "abrir",
+   "keyframes": [
+    {
+     "t": 0,
+     "values": {
+      "j1": 0
+     }
+    },
+    {
+     "t": 2,
+     "values": {
+      "j1": 90
+     }
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"estudios\": [{\"name\": \"abrir\", \"duration\": 2.0, \"n_fotogramas\": 2}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/motion",
+    "query": [],
+    "cuerpo": {
+     "name": "abrir",
+     "keyframes": [
+      {
+       "t": 0,
+       "values": {
+        "j1": 0
+       }
+      },
+      {
+       "t": 2,
+       "values": {
+        "j1": 90
+       }
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "escanear movimiento",
+  "tool": "scan_motion",
+  "args": {
+   "name": "abrir",
+   "steps": 12
+  },
+  "salida": [
+   {
+    "texto": "{\"colisiones\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/motion/scan",
+    "query": [],
+    "cuerpo": {
+     "name": "abrir",
+     "steps": 12
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "gif de movimiento",
+  "tool": "motion_gif",
+  "args": {
+   "name": "abrir",
+   "path": "mov.gif",
+   "pingpong": true,
+   "azimuth": 45,
+   "elevation": 30,
+   "size_px": 400
+  },
+  "salida": [
+   {
+    "texto": "{\"gif\": \"mov.gif\", \"bytes\": 17}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/motion.gif",
+    "query": [],
+    "cuerpo": {
+     "name": "abrir",
+     "steps": 48,
+     "fps": 12,
+     "pingpong": true,
+     "view": "iso",
+     "zoom": 1.0,
+     "size_px": 400,
+     "azimuth": 45.0,
+     "elevation": 30.0
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "mov.gif": "eac236aa6295e242fb58c9e82069b3baffb0b1cb9d75e777f4fdfb504188149a"
+  }
+ },
+ {
+  "caso": "stack-up",
+  "tool": "get_stackup",
+  "args": {
+   "scope": "declared"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"cadenas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/stackup",
+    "query": [
+     [
+      "scope",
+      "declared"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "declarar stack-up",
+  "tool": "set_stackup",
+  "args": {
+   "name": "asiento",
+   "eslabones": [
+    {
+     "nombre": "eje",
+     "nominal_mm": 35,
+     "sentido": 1,
+     "tol": {
+      "fit": "h7"
+     }
+    }
+   ],
+   "requisito": {
+    "min_mm": 0
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"cadenas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/stackup",
+    "query": [],
+    "cuerpo": {
+     "name": "asiento",
+     "eslabones": [
+      {
+       "nombre": "eje",
+       "nominal_mm": 35,
+       "sentido": 1,
+       "tol": {
+        "fit": "h7"
+       }
+      }
+     ],
+     "requisito": {
+      "min_mm": 0
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "notas",
+  "tool": "get_agent_notes",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"notes\": [\"nota golden\"]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/agent/notes",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "añadir nota",
+  "tool": "add_agent_note",
+  "args": {
+   "text": "decisión golden"
+  },
+  "salida": [
+   {
+    "texto": "{\"notes\": [\"nota golden\"]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/agent/notes",
+    "query": [],
+    "cuerpo": {
+     "text": "decisión golden"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "revisiones",
+  "tool": "list_revisions",
+  "args": {},
+  "salida": [
+   {
+    "texto": "[{\"id\": 7}]"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/revisions",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "restaurar revisión",
+  "tool": "restore_revision",
+  "args": {
+   "revision_id": 7
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/revisions/7/restore",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "topología",
+  "tool": "get_topology",
+  "args": {
+   "feature_id": "c1"
+  },
+  "salida": [
+   {
+    "texto": "{\"caras\": [], \"aristas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/features/c1/topology",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "topología filtrada",
+  "tool": "get_topology",
+  "args": {
+   "feature_id": "c1",
+   "only": "caras",
+   "min_mm": 2
+  },
+  "salida": [
+   {
+    "texto": "{\"caras\": [], \"aristas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/features/c1/topology",
+    "query": [
+     [
+      "only",
+      "caras"
+     ],
+     [
+      "min_mm",
+      "2.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "requisitos",
+  "tool": "get_requirements",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"requirements\": {\"carga_kg\": 15}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/requirements",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "guardar requisitos",
+  "tool": "set_requirements",
+  "args": {
+   "fields": {
+    "carga_kg": 15
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"requirements\": {\"carga_kg\": 15}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/requirements",
+    "query": [],
+    "cuerpo": {
+     "fields": {
+      "carga_kg": 15
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "auto-grupo",
+  "tool": "auto_group",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}], \"proposal\": [{\"name\": \"Estructura\"}], \"created\": [\"g1\"]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/auto-group",
+    "query": [],
+    "cuerpo": {
+     "dry_run": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "auto-grupo en seco",
+  "tool": "auto_group",
+  "args": {
+   "dry_run": true
+  },
+  "salida": [
+   {
+    "texto": "{\"proposal\": [{\"name\": \"Estructura\", \"members\": [\"c1\"]}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/auto-group",
+    "query": [],
+    "cuerpo": {
+     "dry_run": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "grupos",
+  "tool": "get_groups",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"groups\": [{\"name\": \"Estructura\"}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/groups",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "masa",
+  "tool": "get_mass_properties",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"conjunto\": {\"masa_kg\": 1.5}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/mass-properties",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "masa de ids",
+  "tool": "get_mass_properties",
+  "args": {
+   "ids": [
+    "c1",
+    "c3"
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"conjunto\": {\"masa_kg\": 1.5}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/mass-properties",
+    "query": [
+     [
+      "ids",
+      "c1,c3"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "medir",
+  "tool": "measure",
+  "args": {
+   "a": "c1",
+   "b": "c3"
+  },
+  "salida": [
+   {
+    "texto": "{\"distancia_mm\": 12.5}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/measure",
+    "query": [],
+    "cuerpo": {
+     "a": "c1",
+     "b": "c3"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "medir caras",
+  "tool": "measure",
+  "args": {
+   "a": "c1",
+   "b": "c3",
+   "face_a": {
+    "mode": "cara",
+    "face": "tope"
+   },
+   "face_b": {
+    "mode": "cara",
+    "face": "base"
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"distancia_mm\": 12.5}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/measure",
+    "query": [],
+    "cuerpo": {
+     "a": "c1",
+     "b": "c3",
+     "face_a": {
+      "mode": "cara",
+      "face": "tope"
+     },
+     "face_b": {
+      "mode": "cara",
+      "face": "base"
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "cerca de punto",
+  "tool": "near",
+  "args": {
+   "point": [
+    0,
+    0,
+    0
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"cercanos\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/near",
+    "query": [
+     [
+      "radius",
+      "50.0"
+     ],
+     [
+      "limit",
+      "20"
+     ],
+     [
+      "point",
+      "[0.0, 0.0, 0.0]"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "cerca de pieza",
+  "tool": "near",
+  "args": {
+   "feature": "c1",
+   "radius": 0,
+   "limit": 3
+  },
+  "salida": [
+   {
+    "texto": "{\"cercanos\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/near",
+    "query": [
+     [
+      "radius",
+      "0.0"
+     ],
+     [
+      "limit",
+      "3"
+     ],
+     [
+      "feature",
+      "c1"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "cerca de caja",
+  "tool": "near",
+  "args": {
+   "box": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     10,
+     10,
+     10
+    ]
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"cercanos\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/near",
+    "query": [
+     [
+      "radius",
+      "50.0"
+     ],
+     [
+      "limit",
+      "20"
+     ],
+     [
+      "box",
+      "[[0.0, 0.0, 0.0], [10.0, 10.0, 10.0]]"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "cerca sin nada",
+  "tool": "near",
+  "args": {},
+  "error": "Error executing tool near: near necesita uno de: point, feature, box",
+  "peticiones": []
+ },
+ {
+  "caso": "verificar",
+  "tool": "verify",
+  "args": {
+   "checks": [
+    {
+     "tipo": "existe",
+     "id": "c1"
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"resultados\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/verify",
+    "query": [],
+    "cuerpo": {
+     "checks": [
+      {
+       "tipo": "existe",
+       "id": "c1"
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "señalar",
+  "tool": "pick_point",
+  "args": {
+   "u": 0.5,
+   "v": 0.25
+  },
+  "salida": [
+   {
+    "texto": "{\"feature\": \"c1\", \"punto\": [0, 0, 0]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/pick",
+    "query": [
+     [
+      "u",
+      "0.5"
+     ],
+     [
+      "v",
+      "0.25"
+     ],
+     [
+      "view",
+      "iso"
+     ],
+     [
+      "zoom",
+      "1.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "señalar completo",
+  "tool": "pick_point",
+  "args": {
+   "u": 0.1,
+   "v": 0.9,
+   "view": "frente",
+   "fit_ids": [
+    "c1"
+   ],
+   "zoom": 1.5,
+   "azimuth": 10,
+   "elevation": 5,
+   "isolate": [
+    "c1"
+   ],
+   "section": "y",
+   "roll": 2,
+   "pan": [
+    0.5,
+    0.5
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"feature\": \"c1\", \"punto\": [0, 0, 0]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/pick",
+    "query": [
+     [
+      "u",
+      "0.1"
+     ],
+     [
+      "v",
+      "0.9"
+     ],
+     [
+      "view",
+      "frente"
+     ],
+     [
+      "zoom",
+      "1.5"
+     ],
+     [
+      "fit",
+      "c1"
+     ],
+     [
+      "azimuth",
+      "10.0"
+     ],
+     [
+      "elevation",
+      "5.0"
+     ],
+     [
+      "isolate",
+      "c1"
+     ],
+     [
+      "section",
+      "y"
+     ],
+     [
+      "roll",
+      "2.0"
+     ],
+     [
+      "pan",
+      "0.5,0.5"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "lista de corte",
+  "tool": "cut_list",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"piezas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/cutlist.json",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "nesting",
+  "tool": "nesting",
+  "args": {
+   "mode": "1d",
+   "stock_w": 6000,
+   "material": "acero"
+  },
+  "salida": [
+   {
+    "texto": "{\"planchas\": 1, \"desperdicio_pct\": 12.0}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/nesting.json",
+    "query": [
+     [
+      "mode",
+      "1d"
+     ],
+     [
+      "stock_w",
+      "6000.0"
+     ],
+     [
+      "stock_h",
+      "1220.0"
+     ],
+     [
+      "kerf",
+      "3.0"
+     ],
+     [
+      "material",
+      "acero"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "juego de planos",
+  "tool": "drawing_set",
+  "args": {
+   "path": "juego.pdf",
+   "template": "weldment",
+   "shaded": true
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"path\": \"juego.pdf\", \"bytes\": 19}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/drawingset.pdf",
+    "query": [
+     [
+      "template",
+      "weldment"
+     ],
+     [
+      "sheet",
+      "A3"
+     ],
+     [
+      "shaded",
+      "true"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "juego.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
+  }
+ },
+ {
+  "caso": "memoria",
+  "tool": "calc_report",
+  "args": {
+   "path": "memoria.pdf",
+   "carga_kg": 15,
+   "largo_paquete_mm": 400
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"path\": \"memoria.pdf\", \"bytes\": 19}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/calc-report.pdf",
+    "query": [
+     [
+      "rev",
+      "A"
+     ],
+     [
+      "sheet",
+      "A4"
+     ],
+     [
+      "carga_kg",
+      "15.0"
+     ],
+     [
+      "largo_paquete_mm",
+      "400.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "memoria.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
+  }
+ },
+ {
+  "caso": "cotización",
+  "tool": "quotation",
+  "args": {
+   "path": "cot.pdf",
+   "currency": "PEN",
+   "fx": 3.7
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"path\": \"cot.pdf\", \"bytes\": 19}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/quote.pdf",
+    "query": [
+     [
+      "margin_pct",
+      "25.0"
+     ],
+     [
+      "tax_pct",
+      "0.0"
+     ],
+     [
+      "currency",
+      "PEN"
+     ],
+     [
+      "fx",
+      "3.7"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "cot.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
+  }
+ },
+ {
+  "caso": "manual",
+  "tool": "assembly_manual",
+  "args": {
+   "path": "manual.pdf",
+   "isolate": [
+    "Estructura"
+   ],
+   "title": "Bastidor"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"path\": \"manual.pdf\", \"bytes\": 19}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/assembly-manual.pdf",
+    "query": [
+     [
+      "sheet",
+      "A3"
+     ],
+     [
+      "isolate",
+      "Estructura"
+     ],
+     [
+      "title",
+      "Bastidor"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "manual.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
+  }
+ },
+ {
+  "caso": "plano a archivo",
+  "tool": "drawing",
+  "args": {
+   "spec": {
+    "sheet": "A3"
+   },
+   "path": "plano.pdf"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"path\": \"plano.pdf\", \"bytes\": 19}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/drawing/spec",
+    "query": [],
+    "cuerpo": {
+     "sheet": "A3"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "plano.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
+  }
+ },
+ {
+  "caso": "plano svg",
+  "tool": "drawing",
+  "args": {
+   "spec": {
+    "format": "svg"
+   }
+  },
+  "salida": [
+   {
+    "texto": "<svg>golden</svg>"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/drawing/spec",
+    "query": [],
+    "cuerpo": {
+     "format": "svg"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "plano sin path",
+  "tool": "drawing",
+  "args": {
+   "spec": {
+    "format": "pdf"
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"bytes\": 19, \"hint\": \"pasa path=... para guardar el pdf/dxf\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/drawing/spec",
+    "query": [],
+    "cuerpo": {
+     "format": "pdf"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "visibilidad",
+  "tool": "set_visibility",
+  "args": {
+   "feature_id": "c1",
+   "visible": false
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/features/c1/visibility",
+    "query": [],
+    "cuerpo": {
+     "visible": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "visibilidad lote",
+  "tool": "set_visibility_bulk",
+  "args": {
+   "feature_ids": [
+    "c1",
+    "c3"
+   ],
+   "visible": true
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/features/visibility",
+    "query": [],
+    "cuerpo": {
+     "ids": [
+      "c1",
+      "c3"
+     ],
+     "visible": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "expresión",
+  "tool": "resolve_expression",
+  "args": {
+   "expression": "=L/2"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"value\": 2000.0}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/resolve-expression",
+    "query": [
+     [
+      "expr",
+      "=L/2"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "gramática",
+  "tool": "get_expression_grammar",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"funciones\": [\"sqrt\"]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/expression-grammar",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "ajuste",
+  "tool": "get_fit",
+  "args": {
+   "nominal_mm": 35,
+   "hole": "H7",
+   "shaft": "k6"
+  },
+  "salida": [
+   {
+    "texto": "{\"juego_min_um\": 0}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/fits",
+    "query": [
+     [
+      "nominal",
+      "35.0"
+     ],
+     [
+      "hole",
+      "H7"
+     ],
+     [
+      "shaft",
+      "k6"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "ajuste solo eje",
+  "tool": "get_fit",
+  "args": {
+   "nominal_mm": 35,
+   "shaft": "h7"
+  },
+  "salida": [
+   {
+    "texto": "{\"juego_min_um\": 0}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/fits",
+    "query": [
+     [
+      "nominal",
+      "35.0"
+     ],
+     [
+      "shaft",
+      "h7"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "fea pieza",
+  "tool": "fea_static",
+  "args": {
+   "feature_id": "c1",
+   "fixed": {
+    "mode": "cara",
+    "face": "base"
+   },
+   "loads": [
+    {
+     "selector": {
+      "mode": "cara",
+      "face": "tope"
+     },
+     "force_n": [
+      0,
+      0,
+      -100
+     ]
+    }
+   ],
+   "material": "acero",
+   "mesh_size_mm": 5,
+   "fringe_path": "fringe.png"
+  },
+  "salida": [
+   {
+    "texto": "{\"fs\": 3.2, \"sigma_vm_max_mpa\": 75.0, \"fringe\": \"fringe.png\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/fea/static",
+    "query": [],
+    "cuerpo": {
+     "feature_id": "c1",
+     "fixed": {
+      "mode": "cara",
+      "face": "base"
+     },
+     "loads": [
+      {
+       "selector": {
+        "mode": "cara",
+        "face": "tope"
+       },
+       "force_n": [
+        0,
+        0,
+        -100
+       ]
+      }
+     ],
+     "self_weight": false,
+     "fs_min": 2.0,
+     "material": "acero",
+     "mesh_size_mm": 5.0
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/fea/c1/fringe.png",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "fringe.png": "0bd9b0daae3622ffc2127814b8d0541b19abbabf3690ebfcd57b4759055b8f31"
+  }
+ },
+ {
+  "caso": "fea ensamblaje",
+  "tool": "fea_assembly",
+  "args": {
+   "group": "Bastidor",
+   "carga_kg": 15,
+   "fringe_path": "fea.png",
+   "nota": "golden"
+  },
+  "salida": [
+   {
+    "texto": "{\"grupo\": \"Bastidor\", \"fs_gobernante\": 93.5, \"fringe\": \"fea.png\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/fea/assembly",
+    "query": [],
+    "cuerpo": {
+     "self_weight": true,
+     "fs_min": 2.0,
+     "loads": [],
+     "group": "Bastidor",
+     "carga_kg": 15.0,
+     "nota": "golden"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/fea/group/Bastidor/fringe.png",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "fea.png": "0bd9b0daae3622ffc2127814b8d0541b19abbabf3690ebfcd57b4759055b8f31"
+  }
+ },
+ {
+  "caso": "fea ensamblaje por ids",
+  "tool": "fea_assembly",
+  "args": {
+   "ids": [
+    "c1"
+   ],
+   "name": "Sub",
+   "fixed_pieces": [
+    "c1"
+   ],
+   "yield_mpa": 250,
+   "mesh_size_mm": 40
+  },
+  "salida": [
+   {
+    "texto": "{\"grupo\": \"Bastidor\", \"fs_gobernante\": 93.5}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/fea/assembly",
+    "query": [],
+    "cuerpo": {
+     "self_weight": true,
+     "fs_min": 2.0,
+     "loads": [],
+     "ids": [
+      "c1"
+     ],
+     "name": "Sub",
+     "yield_mpa": 250.0,
+     "fixed_pieces": [
+      "c1"
+     ],
+     "mesh_size_mm": 40.0
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ }
+]

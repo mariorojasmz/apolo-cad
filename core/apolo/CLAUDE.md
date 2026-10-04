@@ -15,7 +15,13 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
 ## MCP (`mcp_server.py`): cliente fino
 
 - Sólo habla HTTP con la API: sin lógica de dominio ni imports de `doc`/`kernel`. Una tool nueva
-  = endpoint en `api/` + wrapper aquí; el host MCP se reinicia para verla.
+  = endpoint en `api/` + wrapper aquí + su caso en `scripts/golden_mcp_casos.py`; el host MCP se
+  reinicia para verla.
+- **Golden** (`tests/test_mcp_golden.py`): congela instructions, `list_tools()` y una
+  `call_tool` real por tool (peticiones y salida) contra un transporte falso. Cambiar lo que ve
+  un cliente MCP —docstring, default, orden de params, salida— lo pone rojo; si es deliberado,
+  revisa el diff y `python scripts/golden_mcp.py --congelar`.
+  [chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)
 - El brief sin mallas (`_scene_brief`) espeja los campos de `_feature_brief` del servidor: un
   campo nuevo va en los dos. Con `detail="diff"` lista sólo los sólidos de
   `affected_command_ids`, también por PREFIJO (las piezas de un `insert_project` llevan

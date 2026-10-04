@@ -1,0 +1,3459 @@
+[
+ {
+  "name": "get_scene",
+  "description": "Estado del modelo. Sin argumentos: TODA la escena (sólidos con id/nombre/bbox/volumen/\ncomponente + variables + configuraciones) — cuidado en proyectos grandes.\nPara trabajar a ESCALA (miles de piezas) usa los filtros y NO vuelques la escena entera:\n- `summary=true`: entra por aquí — resumen por GRUPO (n_piezas, masa, bbox conjunto,\n  sub-grupos) + «(sin grupo)» + totales + variables. La vista de una ojeada del proyecto.\n- `ids`: lista de feature_ids O NOMBRES DE GRUPO (se expanden a sus piezas) → solo esas.\n- `name`: substring del nombre (case-insensitive), p. ej. \"chumacera\".\n- `limit` (def. 200) + `offset`: paginación; la respuesta trae `total_filtrado` y\n  `truncado` (sin recortes silenciosos). Los briefs filtrados NO traen mallas ni variables\n  (pídelas con summary o get_scene() sin filtros).",
+  "inputSchema": {
+   "properties": {
+    "ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Ids"
+    },
+    "name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Name"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Limit"
+    },
+    "offset": {
+     "default": 0,
+     "title": "Offset",
+     "type": "integer"
+    },
+    "summary": {
+     "default": false,
+     "title": "Summary",
+     "type": "boolean"
+    }
+   },
+   "title": "get_sceneArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_sceneOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_command_schemas",
+  "description": "Comandos CAD con su JSON Schema de parámetros. Consúltalo antes de\nrun_command/run_batch. Sin argumento lista TODOS (es grande, ~77 KB); pasa\n`command_type` (p. ej. \"create_belt_conveyor\") para traer SOLO ese schema.",
+  "inputSchema": {
+   "properties": {
+    "command_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Command Type"
+    }
+   },
+   "title": "get_command_schemasArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_command_schemasOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_catalog",
+  "description": "Catálogo de componentes industriales (perfiles, rodillos, motorreductores,\npatas, guardas, sensores) con especificaciones y pesos. Es grande (~73 KB);\nfiltra con `category` (p. ej. 'motorreductores', 'tubos_estructurales',\n'rodamientos', 'tornilleria', 'tensores_trotadora') y usa `names_only=True`\npara traer solo ref/name/category (payload ligero).",
+  "inputSchema": {
+   "properties": {
+    "category": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Category"
+    },
+    "names_only": {
+     "default": false,
+     "title": "Names Only",
+     "type": "boolean"
+    }
+   },
+   "title": "get_catalogArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_catalogOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_bom",
+  "description": "Lista de materiales del modelo actual, agrupada por referencia y longitud\n(las piezas a-medida idénticas se agrupan e incluyen peso por volumen×densidad).\nCon `by_group=true` cada fila lleva su sub-ensamblaje y las piezas iguales de grupos\ndistintos salen separadas (subtotales por grupo/instancia — útil a escala).",
+  "inputSchema": {
+   "properties": {
+    "by_group": {
+     "default": false,
+     "title": "By Group",
+     "type": "boolean"
+    }
+   },
+   "title": "get_bomArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_bomOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_costing",
+  "description": "BOM COSTEADO en USD: cada fila del BOM con costo_ud/costo_total y su FUENTE\n(precio referencial de catálogo / estimación de hardware peso×material×3 /\nfabricación a medida peso×material×2.5) + totales por categoría, catálogo vs\nfabricación y el ÍTEM MÁS COSTOSO. Úsalo para optimizar costos ('¿qué pieza es la\nmás cara?', comparar alternativas) y como base de la cotización. Precios\nreferenciales — confirmar con proveedor para cotizar en firme. Read-only.",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_costingArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_costingOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_material",
+  "description": "Fija (anula) el material de uno o VARIOS sólidos para el BOM/peso/rayado de\nsección. Pasa `feature` (uno) o `features` (lote — N piezas en 1 llamada, atómico:\nun id inexistente no aplica nada), no ambos. material=None vuelve al automático\n(catálogo o heurística por nombre). Ej.: 'acero', 'aluminio', 'acero inoxidable',\n'laton', 'madera', 'vidrio'.",
+  "inputSchema": {
+   "properties": {
+    "feature": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Feature"
+    },
+    "material": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Material"
+    },
+    "features": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Features"
+    }
+   },
+   "title": "set_materialArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_materialOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_color",
+  "description": "Color de VISUALIZACIÓN de uno o VARIOS sólidos ('#rrggbb'; None = volver al color\nautomático). Pasa `feature` (uno) o `features` (lote — atómico), no ambos. Solo\napariencia del viewport/render — no toca material, BOM ni peso.",
+  "inputSchema": {
+   "properties": {
+    "color": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Color"
+    },
+    "feature": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Feature"
+    },
+    "features": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Features"
+    }
+   },
+   "title": "set_colorArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_colorOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_vertical",
+  "description": "Define el vertical del proyecto ('metalmecanica' | 'carpinteria'), que fija el\nmaterial por defecto de las piezas a-medida NO reconocidas (acero | madera).",
+  "inputSchema": {
+   "properties": {
+    "vertical": {
+     "title": "Vertical",
+     "type": "string"
+    }
+   },
+   "required": [
+    "vertical"
+   ],
+   "title": "set_verticalArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_verticalOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_kinematics",
+  "description": "Juntas cinemáticas del modelo (nombre, tipo, padre/hijo, eje, límites).",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_kinematicsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_kinematicsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_design_guidelines",
+  "description": "Criterio de INGENIERÍA que debes aplicar por DEFECTO al diseñar (máquinas, muebles,\nestructuras, cualquier objeto): el decálogo completo con detalle, CÓMO verificar cada\nregla en Apolo, cuándo preguntar vs. asumir, y ejemplos por dominio. Las instrucciones del\nservidor ya traen el resumen; consulta ESTO cuando vayas a diseñar algo no trivial (añadir\nuna guarda, un soporte, un mueble) para no entregar piezas flotantes, sin montaje ni con la\nforma equivocada. Recuerda: el usuario es el CLIENTE y tú el INGENIERO — lo obvio se asume.",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_design_guidelinesArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_design_guidelinesOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "run_command",
+  "description": "Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos\naceptan '=expresión' con variables del proyecto. `detail`: \"diff\" (def.) devuelve\nsolo los sólidos nuevos + `total_solidos`; \"full\" toda la escena; \"summary\" solo\nid/nombre de lo nuevo. El bloque `variables` solo aparece si la operación tocó\nalguna (o detail=\"full\"); usa get_scene para verlas siempre.",
+  "inputSchema": {
+   "properties": {
+    "type": {
+     "title": "Type",
+     "type": "string"
+    },
+    "params": {
+     "additionalProperties": true,
+     "title": "Params",
+     "type": "object"
+    },
+    "detail": {
+     "default": "diff",
+     "title": "Detail",
+     "type": "string"
+    }
+   },
+   "required": [
+    "type",
+    "params"
+   ],
+   "title": "run_commandArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "run_commandOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "run_batch",
+  "description": "Ejecuta un lote ordenado de comandos [{type, params}, …]. Usa '$k' en los\ncampos de id de feature para referenciar el sólido creado por la k-ésima\nacción del lote. `detail`: \"diff\" (def.) devuelve solo los sólidos creados por el\nlote + `total_solidos`; \"full\" toda la escena; \"summary\" solo id/nombre.\n`expect` (CONTRATO, V6.5b) = lista de ASERCIONES estilo verify (distancia/volumen/bbox/\nsin_interferencia/existe) que DEBEN cumplirse tras el lote; si alguna falla, el lote se\nrevierte POR COMPLETO (el documento queda intacto, sin escombro) y el error lista lo\nfallido (medido vs esperado). Los `$k` valen también en las aserciones (referencian lo\nrecién creado). EN POSE (V6.8-C): `distancia`/`sin_interferencia` aceptan `joint_values`\n{junta: valor} por aserción — «este lote no puede romper ninguna pose declarada» (costo ≈\nun check_interference posado por pose distinta). Muta con contrato cuando el resultado deba\ncumplir una condición y ahórrate el ciclo mutar→leer→verificar→undo.\nEl lote se ejecuta como JOB: si tarda más que el presupuesto de espera, en vez de un error\nde timeout recibes un RECIBO {\"job\": id} y lo recoges con get_job(id) — el resultado nunca\nse pierde, solo se difiere. NO reenvíes el lote al recibir un recibo (lo duplicarías).",
+  "inputSchema": {
+   "properties": {
+    "actions": {
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Actions",
+     "type": "array"
+    },
+    "detail": {
+     "default": "diff",
+     "title": "Detail",
+     "type": "string"
+    },
+    "expect": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Expect"
+    }
+   },
+   "required": [
+    "actions"
+   ],
+   "title": "run_batchArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "run_batchOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "edit_command",
+  "description": "Edita los parámetros de un comando pasado y regenera (edición paramétrica del\nhistorial). Por defecto hace PATCH (`merge=True`): combina con los params actuales,\nasí que basta enviar los campos a cambiar. Merge SUPERFICIAL: un sub-objeto\n(position, rotation) se reemplaza entero. `merge=False` reemplaza todos los params\n(los omitidos vuelven a su default). `detail` como en run_command.",
+  "inputSchema": {
+   "properties": {
+    "command_id": {
+     "title": "Command Id",
+     "type": "string"
+    },
+    "params": {
+     "additionalProperties": true,
+     "title": "Params",
+     "type": "object"
+    },
+    "merge": {
+     "default": true,
+     "title": "Merge",
+     "type": "boolean"
+    },
+    "detail": {
+     "default": "diff",
+     "title": "Detail",
+     "type": "string"
+    }
+   },
+   "required": [
+    "command_id",
+    "params"
+   ],
+   "title": "edit_commandArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "edit_commandOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "edit_batch",
+  "description": "Edita VARIOS comandos en UN lote ATÓMICO: un solo regenerate y un solo paso de\nundo (frente a N round-trips + N regenerates de llamar edit_command en bucle). Úsalo\nal reparametrizar muchas piezas a la vez. edits = [{\"command_id\": \"c38\", \"params\":\n{...}}, …]. PATCH por defecto (merge=True, superficial: un sub-objeto position/rotation\nse reemplaza entero); merge=False reemplaza todos los params. Si una edición falla,\nrevierte TODO el lote. `expect` (CONTRATO, V6.5b) = aserciones estilo verify que deben\ncumplirse tras el lote; si alguna falla, se revierte TODO (doc intacto) — úsalo para\nreparametrizar con garantía (p. ej. tras encoger, `sin_interferencia`; con `joint_values`\npor aserción, V6.8-C, el contrato protege también las POSES del mecanismo). `detail` como en\nrun_command (y `variables` solo aparece si el lote tocó alguna).\nComo run_batch, se ejecuta como JOB: si tarda, devuelve un RECIBO {\"job\": id} en vez de un\nerror de timeout → recógelo con get_job(id) y NO reenvíes el lote.",
+  "inputSchema": {
+   "properties": {
+    "edits": {
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Edits",
+     "type": "array"
+    },
+    "merge": {
+     "default": true,
+     "title": "Merge",
+     "type": "boolean"
+    },
+    "detail": {
+     "default": "diff",
+     "title": "Detail",
+     "type": "string"
+    },
+    "expect": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Expect"
+    }
+   },
+   "required": [
+    "edits"
+   ],
+   "title": "edit_batchArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "edit_batchOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_job",
+  "description": "Recoge el resultado de un lote que devolvió un RECIBO {\"job\": id} (run_batch/\nedit_batch tardaron más que el presupuesto de espera). Espera hasta `wait_s` segundos\n(long-poll: responde en cuanto el job termina) y devuelve lo MISMO que habría devuelto\nel lote (sólidos + `contrato`), o `{\"estado\": \"corriendo\"}` si aún no acaba — vuelve a\nllamar. El resultado queda CACHEADO: re-preguntar es SIEMPRE seguro (no re-ejecuta nada).\nSi el lote falló (p. ej. contrato incumplido) da el mismo error que daría en directo, y\nel documento quedó intacto.\nJob desconocido (404) = el servidor se reinició o el job ya se desalojó: el lote PUDO\nhaber aplicado (el autosave lo habría guardado) → verifícalo con get_scene antes de nada.\nNUNCA reintentes el lote a ciegas: lo duplicarías.",
+  "inputSchema": {
+   "properties": {
+    "job_id": {
+     "title": "Job Id",
+     "type": "string"
+    },
+    "detail": {
+     "default": "diff",
+     "title": "Detail",
+     "type": "string"
+    },
+    "wait_s": {
+     "default": 20,
+     "title": "Wait S",
+     "type": "number"
+    }
+   },
+   "required": [
+    "job_id"
+   ],
+   "title": "get_jobArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_jobOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "undo",
+  "description": "Deshace la última operación.",
+  "inputSchema": {
+   "properties": {},
+   "title": "undoArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "undoOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_variable",
+  "description": "Define o actualiza una variable de proyecto (p. ej. L = 2000). Cambiarla\nregenera todo lo que la usa.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "expression": {
+     "title": "Expression",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "expression"
+   ],
+   "title": "set_variableArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_variableOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "check_interference",
+  "description": "Interferencias entre sólidos (booleanas OCCT). Con joint_values {junta: valor}\ncomprueba la colisión del mecanismo EN POSE. Con `ids` (feature_ids o NOMBRES DE GRUPO)\nACOTA a las parejas donde participa al menos uno de ellos (O(k·n) en vez de O(n²)):\nvalida TU zona de trabajo tras una operación en vez de la máquina entera. Sin `ids` = global.",
+  "inputSchema": {
+   "properties": {
+    "joint_values": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Joint Values"
+    },
+    "ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Ids"
+    }
+   },
+   "title": "check_interferenceArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "check_interferenceOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "engineering_check",
+  "description": "Valida el modelo con criterio de ingeniería. Devuelve DOS bloques: `ingenieria`\n(reglas del transportador: apoyo del paquete, capacidad de rodillo, ancho útil,\nmotorización por CONSTRUCCIÓN — CEMA slider-bed si banda sobre cama / ISO 5048-DIN\n22101 si banda sobre rodillos —, par + par de arranque, adherencia del tambor\nmotriz Euler-Eytelwein con la T2 mínima que el tensor debe garantizar, flecha del\nbastidor, flexión del eje) y `estructura` (chequeo UNIVERSAL de cualquier ensamblaje: uniones\napernadas vs ISO 898-1, soldaduras, vida L10 de rodamientos, pandeo de patas,\nvuelco). Sin argumentos usa los REQUISITOS guardados del proyecto (set_requirements);\nlos parámetros explícitos ganan. Sin `conveyor` valida la faja del documento; con\n`conveyor` (dict {largo,ancho,altura,paso,rodillo,motor}) valida ANTES de construir;\n`conveyor_solid_ids` marca qué sólidos forman la faja. Las reglas numéricas traen\n`calc` (fórmula, sustitución, criterio, factor de seguridad).",
+  "inputSchema": {
+   "properties": {
+    "carga_kg": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Carga Kg"
+    },
+    "largo_paquete_mm": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Largo Paquete Mm"
+    },
+    "velocidad_m_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Velocidad M S"
+    },
+    "ancho_paquete_mm": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Ancho Paquete Mm"
+    },
+    "conveyor": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Conveyor"
+    },
+    "conveyor_solid_ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Conveyor Solid Ids"
+    }
+   },
+   "title": "engineering_checkArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "engineering_checkOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "render_view",
+  "description": "Render del modelo para VERLO. SIEMPRE motor VTK → sombreado SUAVE a color (color real por\npieza, igual que el viewport web), normales interpoladas, sin bandas ni cuadrícula: la captura\nmás limpia para auto-revisar tu trabajo. (Si el entorno no tuviera contexto OpenGL, da error\nclaro en vez de degradar a una imagen con rejilla.)\nview ∈ {iso, frente, lateral, planta} elige el ángulo preset; azimuth/elevation (GRADOS) lo\nANULAN para enfocar desde un ÁNGULO LIBRE cuando ningún preset sirve (azimuth = giro alrededor\nde Z, elevation = altura sobre el plano; override parcial: puedes dar solo uno).\nisolate (lista de ids o NOMBRES DE GRUPO — un grupo se expande a todas sus piezas, ver\nget_groups) renderiza SOLO esas piezas — la forma LIMPIA de fotografiar una pieza\no sub-conjunto de cerca: aísla sobre una copia de la escena, SIN ocultar/restaurar nada en el\ndocumento. Combínalo con fit_ids (encuadra en esas piezas) y zoom>1 (acerca) para un primer\nplano que llene el cuadro. (Prefiérelo a set_visibility, que sí muta el documento en vivo.)\nhighlight_ids y fit_ids también aceptan nombres de grupo.\nhighlight_ids resalta esos sólidos y atenúa el resto; show_axes dibuja los ejes del origen;\nshow_bbox la caja envolvente de lo resaltado. section ∈ {x,y,z} corta el modelo a la mitad de\nese eje para VER DENTRO (interferencias/encajes ocultos).\njoint_values posa el mecanismo (CINEMÁTICA) antes de renderizar — p. ej. {\"j_tensor_cola\": 12};\nlas juntas dependientes (restricción de riel) se resuelven solas → ves una pose sin mover el\ndocumento (read-only). Consulta las juntas con get_kinematics.\nmeasure=[idA, idB] dibuja una COTA (línea + \"X mm\") del gap mínimo entre dos piezas SOBRE el\nrender → ves la medida, no la calculas (reusa la distancia OCCT, misma que el tool measure).\nCombínalo con isolate/fit_ids/zoom/azimuth para encuadrar la zona a acotar.\nedges (def. True) dibuja las aristas vivas (creases/borde) → separa visualmente piezas\nadyacentes del MISMO color; ponlo False si quieres el sombreado liso sin líneas.\nxray=true (rayos-X): en vez de ocultar/atenuar a gris lo no resaltado, lo deja TRANSLÚCIDO EN SU\nCOLOR para ver una pieza INTERNA en su contexto sin cortar (combínalo con highlight_ids: la pieza\nresaltada sale sólida y el resto translúcido). El vidrio ya sale translúcido siempre (no gris).\nlabels=true rotula el id de cada pieza SOBRE el render (billboard VTK) → lees el id directo en la\nimagen para identificar y editar (combínalo con isolate/fit_ids para no saturar con 80 etiquetas).\nroll (grados) gira la cámara sobre su eje de visión (3.er GDL: endereza una pieza inclinada);\npan=[px,py] desplaza el encuadre en el plano de vista (fracción de la semialtura; +px→derecha,\n+py→arriba) para centrar un detalle fuera del centro sin aislar. azimuth/elevation siguen siendo\nla ÓRBITA (cualquier dirección); en proyección ortográfica la distancia del ojo no afecta, así que\nazimuth+elevation+roll+zoom+fit/pan cubren toda la cámara de inspección.",
+  "inputSchema": {
+   "properties": {
+    "view": {
+     "default": "iso",
+     "title": "View",
+     "type": "string"
+    },
+    "highlight_ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Highlight Ids"
+    },
+    "show_axes": {
+     "default": false,
+     "title": "Show Axes",
+     "type": "boolean"
+    },
+    "show_bbox": {
+     "default": false,
+     "title": "Show Bbox",
+     "type": "boolean"
+    },
+    "joint_values": {
+     "anyOf": [
+      {
+       "additionalProperties": {
+        "type": "number"
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Joint Values"
+    },
+    "fit_ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fit Ids"
+    },
+    "zoom": {
+     "default": 1.0,
+     "title": "Zoom",
+     "type": "number"
+    },
+    "section": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Section"
+    },
+    "isolate": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Isolate"
+    },
+    "azimuth": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Azimuth"
+    },
+    "elevation": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Elevation"
+    },
+    "measure": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Measure"
+    },
+    "edges": {
+     "default": true,
+     "title": "Edges",
+     "type": "boolean"
+    },
+    "xray": {
+     "default": false,
+     "title": "Xray",
+     "type": "boolean"
+    },
+    "labels": {
+     "default": false,
+     "title": "Labels",
+     "type": "boolean"
+    },
+    "roll": {
+     "default": 0.0,
+     "title": "Roll",
+     "type": "number"
+    },
+    "pan": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Pan"
+    }
+   },
+   "title": "render_viewArguments",
+   "type": "object"
+  }
+ },
+ {
+  "name": "preview",
+  "description": "GHOST: aplica `actions` (mismo formato que run_batch: [{type, params}, …]) sobre una\nCOPIA del documento SIN tocar el modelo real — ensaya una colocación y equivocarte sale\ngratis (sin escombro de log). Dos modos:\n- `data=false` (default): devuelve el PNG con los sólidos nuevos resaltados (para VERLO).\n  `labels` rotula ids; `section` ∈ {x,y,z} corta para ver dentro.\n- `data=true` (V6.5d): devuelve JSON `{fantasmas:[{name,bbox,volumen_mm3}], colisiones_\n  nuevas:[{a,b,tipo,volumen_mm3}]}` — las colisiones SOLO de los fantasmas (contra la escena\n  y entre sí). Prueba N colocaciones con datos EXACTOS y compromete la buena con run_batch,\n  sin mutar el documento. (No trae imagen; usa data=false o render_view para verla.)",
+  "inputSchema": {
+   "properties": {
+    "actions": {
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Actions",
+     "type": "array"
+    },
+    "view": {
+     "default": "iso",
+     "title": "View",
+     "type": "string"
+    },
+    "labels": {
+     "default": false,
+     "title": "Labels",
+     "type": "boolean"
+    },
+    "section": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Section"
+    },
+    "data": {
+     "default": false,
+     "title": "Data",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "actions"
+   ],
+   "title": "previewArguments",
+   "type": "object"
+  }
+ },
+ {
+  "name": "list_projects",
+  "description": "Proyectos guardados (SQLite, con autoguardado).",
+  "inputSchema": {
+   "properties": {},
+   "title": "list_projectsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "list_projectsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "open_project",
+  "description": "Abre un proyecto por id. Devuelve además un `briefing` compacto (V6.5b) para arrancar la\nsesión en UNA llamada: resumen por GRUPO (n_piezas/masa/bbox) + variables + requisitos +\nnotas del agente + salud (ok/suprimidos) + variantes de diseño. Ya NO hace falta encadenar\nget_scene(summary)+get_requirements+get_agent_notes al abrir.",
+  "inputSchema": {
+   "properties": {
+    "project_id": {
+     "title": "Project Id",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "project_id"
+   ],
+   "title": "open_projectArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "open_projectOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "create_project",
+  "description": "Crea y abre un proyecto. template: null | 'transportador' | 'brazo'.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "template": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Template"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "title": "create_projectArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "create_projectOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "save_revision",
+  "description": "Guarda una revisión (instantánea restaurable) del proyecto abierto.",
+  "inputSchema": {
+   "properties": {
+    "note": {
+     "title": "Note",
+     "type": "string"
+    }
+   },
+   "required": [
+    "note"
+   ],
+   "title": "save_revisionArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "save_revisionOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "save_configuration",
+  "description": "Guarda una CONFIGURACIÓN (variante = tabla de diseño) con los valores ACTUALES de todas\nlas variables del proyecto. Aplícala luego con apply_configuration para saltar el modelo\nentero a esa variante (un solo undo). Ver las variables con get_scene.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "title": "save_configurationArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "save_configurationOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "apply_configuration",
+  "description": "Aplica una CONFIGURACIÓN guardada: reescribe las variables a los valores de esa variante\ny regenera el modelo COMPLETO (un solo paso de deshacer). Úsalo para alternar entre\nvariantes de diseño (p. ej. '4m estándar' ↔ '3.2m compacta').",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "title": "apply_configurationArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "apply_configurationOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "export_step",
+  "description": "Exporta el modelo a un archivo STEP en la ruta local indicada.",
+  "inputSchema": {
+   "properties": {
+    "path": {
+     "title": "Path",
+     "type": "string"
+    }
+   },
+   "required": [
+    "path"
+   ],
+   "title": "export_stepArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "export_stepOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "export_stl",
+  "description": "Exporta los sólidos VISIBLES como UN STL binario (malla) en la ruta local\nindicada — para impresión 3D, visores de malla o simuladores externos.\n`tolerance` = desviación máxima de teselado en mm (menor = más fino y pesado).\nPara CAD/interop usa export_step (B-rep exacto); el STL es malla aproximada.",
+  "inputSchema": {
+   "properties": {
+    "path": {
+     "title": "Path",
+     "type": "string"
+    },
+    "tolerance": {
+     "default": 0.5,
+     "title": "Tolerance",
+     "type": "number"
+    }
+   },
+   "required": [
+    "path"
+   ],
+   "title": "export_stlArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "export_stlOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "export_flat_pattern",
+  "description": "Exporta el patrón plano (desplegado) de una chapa metálica a un DXF local\npara corte láser. feature_id es el id del sólido de la chapa (ver get_scene);\ndebe haberse creado con el comando create_sheet_metal. Soporta las pestañas\nricas de V5.5 (multi-pliegue, taladros/recortes en pestañas — proyectados al\nblank) y K-factor por material (k_factor vacío = tabla según material).\n¿DWG? GET /api/sheetmetal/{id}/flat.dwg (V5.9, requiere ODA File Converter).",
+  "inputSchema": {
+   "properties": {
+    "feature_id": {
+     "title": "Feature Id",
+     "type": "string"
+    },
+    "path": {
+     "title": "Path",
+     "type": "string"
+    }
+   },
+   "required": [
+    "feature_id",
+    "path"
+   ],
+   "title": "export_flat_patternArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "export_flat_patternOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "drop_test",
+  "description": "Simula con FÍSICA (gravedad real, motor MuJoCo) la caída de cajas de 'producto'\nsobre la escena actual (faja, mesa…) y guarda un GIF animado de la caída en `path`.\nCada producto es un dict {w,d,h (mm), x,y,z (mm pose inicial), mass (kg, opcional)}.\nDevuelve las posiciones de reposo [x,y,z] mm y si el sistema se asentó (settled).\nEs análisis read-only: NO modifica el modelo.",
+  "inputSchema": {
+   "properties": {
+    "products": {
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Products",
+     "type": "array"
+    },
+    "path": {
+     "title": "Path",
+     "type": "string"
+    },
+    "seconds": {
+     "default": 2.0,
+     "title": "Seconds",
+     "type": "number"
+    },
+    "gravity": {
+     "default": 9.81,
+     "title": "Gravity",
+     "type": "number"
+    }
+   },
+   "required": [
+    "products",
+    "path"
+   ],
+   "title": "drop_testArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "drop_testOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_command",
+  "description": "Devuelve {type, params} del comando indicado (su estado ACTUAL) para editarlo con\nedit_command. Usa get_scene para ver los ids (campo 'comando' de cada sólido).",
+  "inputSchema": {
+   "properties": {
+    "command_id": {
+     "title": "Command Id",
+     "type": "string"
+    }
+   },
+   "required": [
+    "command_id"
+   ],
+   "title": "get_commandArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_commandOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "find_commands",
+  "description": "Busca COMANDOS en el log del documento y devuelve filas compactas\n[{id, type, resumen}] — para encontrar el command_id que quieres editar/borrar\nSIN deducirlo por aritmética de lotes. Al menos un filtro:\n  - type: tipo exacto ('chamfer', 'create_box', 'add_joint', …).\n  - feature: comandos que CREARON ese sólido o lo REFERENCIAN en sus params\n    (feature/feature_a/b, members, parent/child, selectores…).\n  - name: substring case-insensitive del nombre de la pieza.\nCombínalos (type='chamfer', feature='c14' = los chaflanes sobre c14). Read-only.",
+  "inputSchema": {
+   "properties": {
+    "type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Type"
+    },
+    "feature": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Feature"
+    },
+    "name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Name"
+    },
+    "limit": {
+     "default": 100,
+     "title": "Limit",
+     "type": "integer"
+    }
+   },
+   "title": "find_commandsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "find_commandsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "test_sketch",
+  "description": "Prueba en seco un croquis: lo resuelve con el solver (PlaneGCS) y devuelve {ok,\nresidual, diagnostico, dof, redundantes, conflictivas, ...} SIN crear geometría.\ndof = grados de libertad restantes (0 = totalmente restringido); redundantes/\nconflictivas identifican las restricciones culpables por nombre. Soporta tangent/\nsymmetric/equal_radius/concentric/midpoint/distance_point_line además de los tipos\nclásicos (el formato completo está en el schema de sketch_extrude). Itera hasta\ndof=0 sin redundantes antes de extruir/barrer.",
+  "inputSchema": {
+   "properties": {
+    "sketch": {
+     "additionalProperties": true,
+     "title": "Sketch",
+     "type": "object"
+    }
+   },
+   "required": [
+    "sketch"
+   ],
+   "title": "test_sketchArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "test_sketchOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "test_script",
+  "description": "Prueba en seco un script build123d en el sandbox: devuelve {ok, volumen_mm3, bbox} o\n{ok:false, error} SIN tocar el documento. Itera la geometría sin crear/deshacer sólidos.",
+  "inputSchema": {
+   "properties": {
+    "code": {
+     "title": "Code",
+     "type": "string"
+    }
+   },
+   "required": [
+    "code"
+   ],
+   "title": "test_scriptArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "test_scriptOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "redo",
+  "description": "Rehace la última operación deshecha.",
+  "inputSchema": {
+   "properties": {},
+   "title": "redoArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "redoOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_mates",
+  "description": "Mates de ensamblaje del documento (uniones persistentes entre piezas).",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_matesArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_matesOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_dof",
+  "description": "Reporte de GRADOS DE LIBERTAD del ensamblaje (análogo 3D del dof/redundantes del\ncroquis): por sólido, cuántos GDL le quedan tras ground/juntas/mates y su estado\n(fijo | parcial | libre | sobre_restringido) + qué lo restringe. Conteo Grübler\ndeterminista. OJO: el conteo es heurístico (no ve redundancia geométrica); un\n'sobre_restringido' puede ser redundancia benigna — los conflictos REALES los rechaza\nel solver de mates al editar. Útil para responder '¿qué puede moverse y qué está\nsobre-restringido?'.",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_dofArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_dofOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "check_assembly",
+  "description": "Validación de ensamblaje por CONECTIVIDAD: ¿cada pieza tiene un camino de sujeción\nhasta el piso? Devuelve las piezas FLOTANTES (caerían bajo gravedad — eje suelto, rodillo\nsin sujetar, guarda sin tornillo, motor flotando) y las AISLADAS (sin ninguna unión).\nDeterminista. Por defecto cuenta SOLO lo DECLARADO (como delivery_check); True superpone\nsin persistir los contactos geométricos para EXPLORAR ('si fijara todo lo que se toca, ¿qué\nseguiría flotando?'). Declara uniones reales con run_command(type='ground'|'fasten').",
+  "inputSchema": {
+   "properties": {
+    "with_autodetect": {
+     "default": false,
+     "title": "With Autodetect",
+     "type": "boolean"
+    }
+   },
+   "title": "check_assemblyArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "check_assemblyOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "autodetect_connections",
+  "description": "Propone uniones de ensamblaje desde la GEOMETRÍA (piezas que apoyan en el piso +\npares en contacto por caja envolvente), para poblar la conectividad de un modelo que no\nla declara. Read-only: confirma las que quieras con run_command(type='ground'|'fasten').\nHeurística por AABB (propone, no impone).",
+  "inputSchema": {
+   "properties": {},
+   "title": "autodetect_connectionsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "autodetect_connectionsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "declare_structure",
+  "description": "Auto-declara la ESTRUCTURA real de la máquina (anclajes al piso + uniones de soporte) como\ncomandos PERSISTIDOS, de forma INTELIGENTE (grafo de soporte dirigido): NO fija las piezas que\ncuelgan sin nada debajo (p. ej. rodillos de retorno). Idempotente (no duplica lo ya declarado).\nDespués, `gravity_test()` (por defecto, solo lo declarado) es la prueba EXACTA: cae lo suelto.\nPara corregir, borra una unión con `delete_connection(name)`. Devuelve el conteo y la lista de\nuniones declaradas (con sus nombres).",
+  "inputSchema": {
+   "properties": {},
+   "title": "declare_structureArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "declare_structureOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_connections",
+  "description": "Uniones de ensamblaje DECLARADAS (persistidas) del documento: fijadores (a↔b) y anclajes a\ntierra, con sus nombres (para borrarlas con delete_connection). Read-only.",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_connectionsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_connectionsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "delete_connection",
+  "description": "Borra una o VARIAS uniones declaradas por NOMBRE (fijadores o anclajes a tierra) —\npara corregir el auto-declarado o para cirugías. Pasa `name` (una) o `names` (lote),\nno ambos. El lote es ATÓMICO (1 undo): si un nombre no existe, no se borra ninguna.\nConsulta los nombres con get_connections.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Name"
+    },
+    "names": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Names"
+    }
+   },
+   "title": "delete_connectionArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "delete_connectionOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "delivery_check",
+  "description": "LA PUERTA DE SALIDA (V6.9): antes de dar un proyecto por TERMINADO, corre TODA la\nbatería de cierre en UNA llamada y devuelve un SEMÁFORO accionable:\n{veredicto: VERDE|AMARILLO|ROJO, bloqueantes, avisos, no_aplica, resumen}.\nChequeos: interferencias en diseño (exclusiones normales) · sujeción DECLARADA\n(¿todo tiene camino de carga a tierra? — sin autodetect: cuenta lo que DECLARASTE\ncon ground/fasten) · lints pre-entrega (barreno sin perno, pieza suelta) · salud del\ndocumento · colisión EN POSE en los fotogramas de REPOSO de los estudios de movimiento\ndeclarados (extremos + poses sostenidas; el TRÁNSITO interpolado se valida con\nscan_motion; el contacto de asiento ≤50 mm³ se tolera y se declara).\n`con_gravedad=true` añade la simulación MuJoCo (cara; opt-in).\nROJO = defecto que el cliente verá (piezas flotantes, colisiones, poses rotas):\nNO ENTREGUES EN ROJO — corrige (declare_structure / ground / fasten / reposiciona)\ny re-corre hasta VERDE o AMARILLO declarando los avisos. `no_aplica` lista lo que\nno pudo evaluarse — no cuenta como verde. Read-only.",
+  "inputSchema": {
+   "properties": {
+    "con_gravedad": {
+     "default": false,
+     "title": "Con Gravedad",
+     "type": "boolean"
+    }
+   },
+   "title": "delivery_checkArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "delivery_checkOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "gravity_test",
+  "description": "Simula la GRAVEDAD sobre TODA la máquina (cuerpos rígidos + colisión por casco\nconvexo, motor MuJoCo) y reporta qué piezas SE CAEN y cuáles aguantan. A diferencia\ndel chequeo estático, la FÍSICA decide si una pieza no-sujeta REPOSA sobre algo firme\n(no cae) o cuelga en el aire (cae). Por defecto sujeta SOLO lo DECLARADO (ground/fasten);\nwith_autodetect=True suma el contacto geométrico (exploración). `exclude` trata esas\npiezas como NO sujetas ('¿y si a esta le falta el tornillo?'). Con `path` guarda además\nun GIF animado de la caída. Read-only: NO modifica el modelo.",
+  "inputSchema": {
+   "properties": {
+    "with_autodetect": {
+     "default": false,
+     "title": "With Autodetect",
+     "type": "boolean"
+    },
+    "exclude": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Exclude"
+    },
+    "seconds": {
+     "default": 2.0,
+     "title": "Seconds",
+     "type": "number"
+    },
+    "gravity": {
+     "default": 9.81,
+     "title": "Gravity",
+     "type": "number"
+    },
+    "path": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Path"
+    }
+   },
+   "title": "gravity_testArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "gravity_testOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_motion",
+  "description": "Estudio de movimiento: fotogramas de juntas y duración.",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_motionArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_motionOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_motion",
+  "description": "Define (o borra, con lista vacía) un ESTUDIO DE MOVIMIENTO con nombre — autoría de\ncinemática sin salir del MCP (V6.8-C). Fotograma: {\"t\": segundos, \"values\": {junta:\nvalor}} — los valores van ANIDADOS en \"values\" (el formato plano se rechaza) y las\njuntas se validan contra las declaradas (get_kinematics). OJO FK: una junta mueve solo\nsus HIJOS declarados — completa un cuerpo rígido multi-pieza con juntas 'fija' colgadas\ndel conductor. Verifica el recorrido con scan_motion, míralo con motion_gif; en la UI\naparece en el panel Cinemática.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "keyframes": {
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Keyframes",
+     "type": "array"
+    }
+   },
+   "required": [
+    "name",
+    "keyframes"
+   ],
+   "title": "set_motionArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_motionOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "scan_motion",
+  "description": "Escanea las COLISIONES de un estudio de movimiento a lo largo del recorrido:\nmuestrea `steps` instantes (FK + interferencia por instante — costo ≈ steps ×\ncheck_interference posado) y devuelve SOLO los que colisionan, con pares y volumen.\nLista vacía = recorrido limpio. Corre esto tras cada cambio del mecanismo; para\ngarantizarlo por CONTRATO en un lote usa `expect` con joint_values. Read-only.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "steps": {
+     "default": 24,
+     "title": "Steps",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "title": "scan_motionArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "scan_motionOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "motion_gif",
+  "description": "GIF animado de un estudio de movimiento, ESCRITO a `path` (las tools no devuelven\nbinarios). Cada fotograma se pinta con el mismo motor VTK que render_view, con la\ncámara FIJA a la unión de todo el recorrido; `pingpong` añade la vuelta (bucle sin\nsalto). COSTO REAL: el teselado no se cachea entre fotogramas (≈ steps × render de la\nescena) — en modelos grandes usa steps moderados (24-48) y baja size_px; si supera\n~2 min el cliente corta por timeout aunque el servidor termine.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "path": {
+     "title": "Path",
+     "type": "string"
+    },
+    "steps": {
+     "default": 48,
+     "title": "Steps",
+     "type": "integer"
+    },
+    "fps": {
+     "default": 12,
+     "title": "Fps",
+     "type": "integer"
+    },
+    "pingpong": {
+     "default": false,
+     "title": "Pingpong",
+     "type": "boolean"
+    },
+    "view": {
+     "default": "iso",
+     "title": "View",
+     "type": "string"
+    },
+    "azimuth": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Azimuth"
+    },
+    "elevation": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Elevation"
+    },
+    "zoom": {
+     "default": 1.0,
+     "title": "Zoom",
+     "type": "number"
+    },
+    "size_px": {
+     "default": 720,
+     "title": "Size Px",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "name",
+    "path"
+   ],
+   "title": "motion_gifArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "motion_gifOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_stackup",
+  "description": "Evalúa las CADENAS DE COTAS (stack-up, V7.3): por cadena da el cierre nominal, el\nintervalo por PEOR CASO y por RSS (√Σt²), y el veredicto contra el requisito. Incluye\nlas cadenas auto del patrón de pernos (join_bolted = cerrada por construcción). Verifica\nque la suma de tolerancias cierra el ajuste declarado SIN encadenar N measure. scope =\nall | declared | auto. Read-only.",
+  "inputSchema": {
+   "properties": {
+    "scope": {
+     "default": "all",
+     "title": "Scope",
+     "type": "string"
+    }
+   },
+   "title": "get_stackupArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_stackupOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_stackup",
+  "description": "Declara una CADENA DE COTAS 1D con nombre (metadato del proyecto, se persiste;\nlista de eslabones vacía → la borra). Cada eslabón es UNO de:\n- {nombre, nominal_mm, sentido:±1, tol} — cota literal; nominal_mm acepta '=expr'\n  (sigue a las variables → la cadena se re-verifica al cambiarlas).\n- {id, eje:x|y|z, sentido:±1, tol?} — mide el BBOX VIVO de esa pieza (auto-actualiza).\n`tol` es UNA fuente: {\"pm\":0.2} (± mm) · {\"fit\":\"h7\"} (ISO 286) · {\"iso2768\":\"m\"} (general)\n· {\"lim\":[lo,hi]} (límites absolutos). `requisito` de cierre: {min_mm|max_mm|entre:[a,b]}.\nDevuelve la evaluación inmediata (peor caso + RSS + veredicto). La memoria de cálculo\nincluye una sección con las cadenas declaradas.",
+  "inputSchema": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "eslabones": {
+     "items": {},
+     "title": "Eslabones",
+     "type": "array"
+    },
+    "requisito": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Requisito"
+    }
+   },
+   "required": [
+    "name",
+    "eslabones"
+   ],
+   "title": "set_stackupArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_stackupOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_agent_notes",
+  "description": "Lee la memoria de sesión del agente (notas del proyecto).",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_agent_notesArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_agent_notesOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "add_agent_note",
+  "description": "Añade una nota a la memoria de sesión del agente (tope 30, persiste en el proyecto).",
+  "inputSchema": {
+   "properties": {
+    "text": {
+     "title": "Text",
+     "type": "string"
+    }
+   },
+   "required": [
+    "text"
+   ],
+   "title": "add_agent_noteArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "add_agent_noteOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "list_revisions",
+  "description": "Lista las revisiones (instantáneas restaurables) del proyecto abierto.",
+  "inputSchema": {
+   "properties": {},
+   "title": "list_revisionsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "list_revisionsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "restore_revision",
+  "description": "Restaura una revisión por id (red de seguridad tras ediciones arriesgadas).",
+  "inputSchema": {
+   "properties": {
+    "revision_id": {
+     "title": "Revision Id",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "revision_id"
+   ],
+   "title": "restore_revisionArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "restore_revisionOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_topology",
+  "description": "Caras y aristas de un sólido con su geometría descriptiva (tipo plano/cilíndrico,\ncentro, normal/eje, área; longitud, dirección, radio de aristas). Úsalo para ELEGIR el\nselector declarativo antes de fillet/chamfer/drill/add_mate: caras por orientación\n(normal) → 'cara'/'direccion'; aristas largas → 'longitud'; cerca de un punto → 'cerca'.\nLos 'idx' son solo referencia: la selección sigue siendo declarativa, no por id.\nA ESCALA (piezas con muchos taladros): `only` ∈ {caras|aristas|anclas} trae solo esa\nfamilia; `min_mm` omite aristas más cortas que ese valor y caras menores que min_mm²\n(filtra los micro-fillets/agujeros diminutos, el grueso del ruido).",
+  "inputSchema": {
+   "properties": {
+    "feature_id": {
+     "title": "Feature Id",
+     "type": "string"
+    },
+    "only": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Only"
+    },
+    "min_mm": {
+     "default": 0.0,
+     "title": "Min Mm",
+     "type": "number"
+    }
+   },
+   "required": [
+    "feature_id"
+   ],
+   "title": "get_topologyArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_topologyOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_requirements",
+  "description": "BASES DE DISEÑO del proyecto (requisitos guardados: carga_kg, largo/ancho/\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, producto, entorno, normativa…).\nengineering_check y la memoria de cálculo los usan como defaults. Read-only.",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_requirementsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_requirementsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_requirements",
+  "description": "Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).\nClaves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:\nproducto, entorno, normativa, notas. Con esto `engineering_check()` y `calc_report()`\nfuncionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.",
+  "inputSchema": {
+   "properties": {
+    "fields": {
+     "additionalProperties": true,
+     "title": "Fields",
+     "type": "object"
+    }
+   },
+   "required": [
+    "fields"
+   ],
+   "title": "set_requirementsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_requirementsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "auto_group",
+  "description": "Auto-agrupa el modelo en SUB-ENSAMBLAJES por subsistema (Estructura,\nTransmision, Rodillos y tambores, Banda y mesa, Rodamientos, Tornilleria,\nGuardas…) usando la heurística super-comando → catálogo → palabra clave del\nnombre. Idempotente (no duplica grupos ni re-agrupa lo agrupado); `dry_run=true`\nsolo PROPONE para revisar antes. Úsalo una vez para poblar un modelo existente;\ndespués refina con create_group/edit_command.",
+  "inputSchema": {
+   "properties": {
+    "dry_run": {
+     "default": false,
+     "title": "Dry Run",
+     "type": "boolean"
+    }
+   },
+   "title": "auto_groupArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "auto_groupOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_groups",
+  "description": "GRUPOS / sub-ensamblajes del documento: nombre, padre (anidación), rol, comandos\nmiembro y members faltantes. Los grupos se CREAN con run_command(type='create_group',\nparams={name, members:[command_ids], parent?, role?}) — la membresía es por COMANDO\n(estable: las instancias nuevas de un patrón editado entran solas) — y se MUEVEN\nenteros con run_command(type='transform_group', {group, translate, rotate}).\nisolate/highlight/fit de render_view, pick_point, drawing y assembly_manual aceptan\nNOMBRES de grupo directamente. Read-only.",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_groupsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_groupsOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_mass_properties",
+  "description": "Masa (kg), centro de gravedad (mm) y bbox por pieza y del CONJUNTO. Sin `ids`\nanaliza todas las piezas visibles; con ids solo esas (aunque estén ocultas). El\ncatálogo pesa por su ficha (dato de placa); lo a-medida por volumen × densidad del\nmaterial resuelto. Úsalo para vuelco/equilibrio (¿el COG cae dentro de la base?),\nrepartos de carga y BOM de pesos. Read-only.",
+  "inputSchema": {
+   "properties": {
+    "ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Ids"
+    }
+   },
+   "title": "get_mass_propertiesArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_mass_propertiesOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "measure",
+  "description": "Distancia mínima (mm) y puntos más cercanos entre dos sólidos a y b (ids). El gap real\ndeja de ser ensayo-error. Opcional: face_a/face_b = selector declarativo (mode cara/direccion/\nlongitud/cerca) para medir contra UNA cara concreta. 0 = se tocan o solapan. Read-only.",
+  "inputSchema": {
+   "properties": {
+    "a": {
+     "title": "A",
+     "type": "string"
+    },
+    "b": {
+     "title": "B",
+     "type": "string"
+    },
+    "face_a": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Face A"
+    },
+    "face_b": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Face B"
+    }
+   },
+   "required": [
+    "a",
+    "b"
+   ],
+   "title": "measureArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "measureOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "near",
+  "description": "Consulta espacial por caja envolvente, de más cerca a más lejos. Da EXACTAMENTE uno de:\n- `point` [x,y,z]: '¿qué pieza hay por aquí?' (combínalo con pick_point).\n- `feature` (id): '¿qué RODEA a X?' — distancia AABB-AABB al resto, excluyendo X.\n- `box` [[min_x,min_y,min_z],[max_x,max_y,max_z]]: '¿qué hay en esta REGIÓN?'.\n`radius` mm (radius=0 con box/feature = solo lo que lo toca) + `limit` (def. 20). Read-only.",
+  "inputSchema": {
+   "properties": {
+    "point": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Point"
+    },
+    "feature": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Feature"
+    },
+    "box": {
+     "anyOf": [
+      {
+       "items": {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Box"
+    },
+    "radius": {
+     "default": 50.0,
+     "title": "Radius",
+     "type": "number"
+    },
+    "limit": {
+     "default": 20,
+     "title": "Limit",
+     "type": "integer"
+    }
+   },
+   "title": "nearArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "nearOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "verify",
+  "description": "Verifica en UNA llamada un lote de ASERCIONES numéricas sobre el modelo (READ-ONLY) —\ndeclara tus INVARIANTES y compruébalas de golpe en vez de encadenar N measure + aritmética\nmental. Devuelve {ok, resultados:[{check, ok, actual, esperado}]}. Cada aserción es un dict\ncon `tipo` (y un `nombre` opcional para etiquetarla):\n- {tipo:\"distancia\", a, b, min?|max?|entre?:[lo,hi]} — gap OCCT entre dos sólidos.\n- {tipo:\"volumen\", id?|grupo?|ids?, min?|max?|entre?} — volumen (suma si son varios).\n- {tipo:\"bbox\", id?|grupo?|ids?, eje:\"x\"|\"y\"|\"z\", min?|max?|entre?} — tamaño de la caja conjunta.\n- {tipo:\"sin_interferencia\", ids?} — 0 colisiones (acotado a ids/grupos; sin ids = global).\n- {tipo:\"existe\", id?|name?} — el id existe / hay piezas cuyo nombre contiene name.\n`grupo`/`ids` aceptan NOMBRES de grupo (se expanden); `id` es un feature_id único (NO se\nexpande). `sin_interferencia` con ids/grupo que no resuelven a nada → error «sin piezas»\n(no degrada al chequeo global). EN POSE (V6.8-C): `distancia` y `sin_interferencia` aceptan\n`joint_values` {junta: valor} POR ASERCIÓN → se evalúan con el mecanismo POSADO (costo ≈ un\ncheck_interference posado por pose distinta; junta desconocida = error, nunca verde en\nsilencio). Úsalo tras snap_to/mover para confirmar holguras sin ojímetro.",
+  "inputSchema": {
+   "properties": {
+    "checks": {
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Checks",
+     "type": "array"
+    }
+   },
+   "required": [
+    "checks"
+   ],
+   "title": "verifyArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "verifyOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "pick_point",
+  "description": "PÍXEL→3D: 'señala' un punto en un render y obtén qué pieza/cara hay ahí. (u,v) son\ncoordenadas NORMALIZADAS [0,1] de la imagen (0,0 = arriba-izquierda). Devuelve la feature/cara\ncuyo centro proyectado queda más cerca + su coordenada mundo (snap a geometría con la MISMA\ncámara del render VTK). Así seleccionas/ubicas apuntando en vez de calcular coordenadas.\nIMPORTANTE: pasa los MISMOS `view`/`azimuth`/`elevation`/`roll`/`pan`/`fit_ids`/`zoom` que usaste\nen `render_view` para esa imagen → así el píxel coincide con lo que viste (incluido el ángulo\nlibre, el roll y el encuadre desplazado). Si renderizaste AISLADO o SECCIONADO, pasa también los\nmismos `isolate`/`section`: el pick solo considerará ese subconjunto recortado igual que la foto\n(coherencia render↔pick). Read-only.",
+  "inputSchema": {
+   "properties": {
+    "u": {
+     "title": "U",
+     "type": "number"
+    },
+    "v": {
+     "title": "V",
+     "type": "number"
+    },
+    "view": {
+     "default": "iso",
+     "title": "View",
+     "type": "string"
+    },
+    "fit_ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fit Ids"
+    },
+    "zoom": {
+     "default": 1.0,
+     "title": "Zoom",
+     "type": "number"
+    },
+    "azimuth": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Azimuth"
+    },
+    "elevation": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Elevation"
+    },
+    "isolate": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Isolate"
+    },
+    "section": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Section"
+    },
+    "roll": {
+     "default": 0.0,
+     "title": "Roll",
+     "type": "number"
+    },
+    "pan": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Pan"
+    }
+   },
+   "required": [
+    "u",
+    "v"
+   ],
+   "title": "pick_pointArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "pick_pointOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "cut_list",
+  "description": "Lista de corte de fabricación: piezas a CORTAR (a-medida + catálogo cortable)\nagrupadas por (material, espesor, ancho, largo) con cantidad y área; totales por\nmaterial (m²/ml); y cédula de HERRAJE (catálogo no cortable: bisagras/tornillos/\ncorrederas...). Une los sólidos de las uniones (una hoja = 2 largueros). Read-only.\nEl CSV está en GET /api/cutlist.csv.",
+  "inputSchema": {
+   "properties": {},
+   "title": "cut_listArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "cut_listOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "nesting",
+  "description": "Optimización de corte (nesting) para minimizar desperdicio. `mode`: \"2d\" (tableros/\nvidrio en planchas stock_w×stock_h) o \"1d\" (barras/largueros de largo stock_w). `material`\nfiltra (madera/vidrio/acero...). Devuelve nº de planchas/barras y % de desperdicio; el\nplano del acomodo está en GET /api/nesting.svg|dxf (mismos params). Read-only.",
+  "inputSchema": {
+   "properties": {
+    "mode": {
+     "default": "2d",
+     "title": "Mode",
+     "type": "string"
+    },
+    "stock_w": {
+     "default": 2440.0,
+     "title": "Stock W",
+     "type": "number"
+    },
+    "stock_h": {
+     "default": 1220.0,
+     "title": "Stock H",
+     "type": "number"
+    },
+    "material": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Material"
+    },
+    "kerf": {
+     "default": 3.0,
+     "title": "Kerf",
+     "type": "number"
+    }
+   },
+   "title": "nestingArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "nestingOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "drawing_set",
+  "description": "Genera el JUEGO DE PLANOS profesional (PDF multipágina): conjunto con BOM + 1 lámina\npor pieza ACOTADA + cédula de corte/herraje, y lo guarda en `path` (.pdf). `template`:\ncarpinteria/weldment/chapa/generico. `shaded=true`: el conjunto lleva isométrica SOMBREADA\na color (estilo Inventor). Devuelve nº de bytes guardados. ¿DWG para clientes AutoCAD?\nGET /api/drawingset.dwg = ZIP con un DWG por lámina (V5.9, requiere ODA File Converter).",
+  "inputSchema": {
+   "properties": {
+    "path": {
+     "title": "Path",
+     "type": "string"
+    },
+    "template": {
+     "default": "generico",
+     "title": "Template",
+     "type": "string"
+    },
+    "sheet": {
+     "default": "A3",
+     "title": "Sheet",
+     "type": "string"
+    },
+    "shaded": {
+     "default": false,
+     "title": "Shaded",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "path"
+   ],
+   "title": "drawing_setArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "drawing_setOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "calc_report",
+  "description": "Genera la MEMORIA DE CÁLCULO (PDF multipágina) y la guarda en `path` (.pdf): portada\ncon BASES DE DISEÑO + índice de verificaciones + VEREDICTO (aprobado/con avisos/no\nconforme), y una página por verificación con datos de entrada, FÓRMULA, sustitución\nnumérica, criterio de aceptación y FACTOR DE SEGURIDAD (motorización, par, flecha,\nflexión de eje, pernos, soldaduras, L10, pandeo, vuelco…). Es el entregable que\nJUSTIFICA el diseño ante el cliente. Sin argumentos usa los REQUISITOS guardados\n(set_requirements); exige al menos carga y largo de paquete (aquí o en requisitos).",
+  "inputSchema": {
+   "properties": {
+    "path": {
+     "title": "Path",
+     "type": "string"
+    },
+    "carga_kg": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Carga Kg"
+    },
+    "largo_paquete_mm": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Largo Paquete Mm"
+    },
+    "ancho_paquete_mm": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Ancho Paquete Mm"
+    },
+    "velocidad_m_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Velocidad M S"
+    },
+    "rev": {
+     "default": "A",
+     "title": "Rev",
+     "type": "string"
+    },
+    "sheet": {
+     "default": "A4",
+     "title": "Sheet",
+     "type": "string"
+    }
+   },
+   "required": [
+    "path"
+   ],
+   "title": "calc_reportArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "calc_reportOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "quotation",
+  "description": "Genera la COTIZACIÓN del proyecto (PDF multipágina) y la guarda en `path` (.pdf):\nresumen económico (catálogo vs fabricación, desglose por categoría, margen %,\nimpuesto % opcional, PRECIO DE VENTA, ítem más costoso, notas comerciales) + detalle\nde partidas = el BOM costeado completo con la FUENTE de cada precio (referencial de\ncatálogo / estimación). Complemento comercial de calc_report (la memoria justifica\nel diseño; la cotización lo VENDE). Precios referenciales — confirmar con proveedor.",
+  "inputSchema": {
+   "properties": {
+    "path": {
+     "title": "Path",
+     "type": "string"
+    },
+    "margin_pct": {
+     "default": 25.0,
+     "title": "Margin Pct",
+     "type": "number"
+    },
+    "tax_pct": {
+     "default": 0.0,
+     "title": "Tax Pct",
+     "type": "number"
+    },
+    "currency": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Currency"
+    },
+    "fx": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fx"
+    }
+   },
+   "required": [
+    "path"
+   ],
+   "title": "quotationArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "quotationOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "assembly_manual",
+  "description": "Genera el MANUAL DE ENSAMBLAJE paso a paso (instructivo de montaje, estilo Inventor/IKEA) en\nPDF MULTIPÁGINA y lo guarda en `path` (.pdf): portada con la SECUENCIA de montaje + 1 lámina por\nPASO. Cada paso muestra el render 3D acumulado (las piezas NUEVAS resaltadas a color, lo ya\nmontado en gris fantasma, cámara estable) + la lista de piezas/herraje del paso (con norma) + la\ninstrucción. La secuencia se DERIVA del modelo: orden del log de comandos (cómo se armó) +\nagrupación por familias de catálogo (todo el herraje junto) y por nombre de pieza. A diferencia\ndel plano de CONJUNTO (drawing cutlist) que solo lista piezas, esto EXPLICA el armado paso a paso.\n`isolate` (lista de ids o NOMBRES de grupo) acota el manual a un SUB-ENSAMBLAJE (p. ej. una hoja: sus tablas + vidrio\n+ bisagras) sin tocar el documento; `title` rotula la portada/archivo. Devolverá nº de bytes.\n(El render tarda; ~40 s en un modelo de ~80 piezas, mucho menos en un sub-ensamblaje.) Read-only.",
+  "inputSchema": {
+   "properties": {
+    "path": {
+     "title": "Path",
+     "type": "string"
+    },
+    "sheet": {
+     "default": "A3",
+     "title": "Sheet",
+     "type": "string"
+    },
+    "isolate": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Isolate"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    }
+   },
+   "required": [
+    "path"
+   ],
+   "title": "assembly_manualArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "assembly_manualOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "drawing",
+  "description": "Plano profesional por INTENCIÓN (el moat agente-nativo): UNA spec declara qué quieres y\nel motor lo dibuja con cotas/cortes/detalles/cajetín pro. spec = {sheet:\"A3\", section:\"x\"/\"y\"/\"z\",\ndetail:{view,u,v,radius,scale}, dims:[ids] (tamaño), datum_dims:[ids] (posición desde la base),\nbom:true, cutlist:true (tabla DESPIECE con L×A×E por tabla, globos en el alzado — para\nENSAMBLAJES, no solo el bbox), hardware:true (añade CÉDULA DE HERRAJE bajo el despiece, con\ncolumna Norma — DIN/ISO/EN/ASTM — para los normalizados),\nauto_dims:true (acota SOLO la posición x/y de cada agujero desde el datum — para FABRICAR),\ninterface_dims:true (cotas de MONTAJE: pitch centro-a-centro del patrón de agujeros + luz total — para acoplar),\nexplode:{axis:\"x\"/\"y\"/\"z\",factor} (VISTA EXPLOSIONADA: piezas separadas + globos de secuencia),\nshaded:true (isométrica SOMBREADA a color, estilo Inventor, embebida en la lámina; pdf/svg),\nnotes:[\"...\",\"...\"] (bloque de NOTAS generales en la lámina),\nassembly_notes:[] (auto-genera NOTAS DE MONTAJE desde el herraje) o [\"...\"] (notas explícitas),\nmember_detail:{member,pick:[t,w,l],locate:[ids],scale,name} (vista de DETALLE de UNA tabla con\nsus mortajas/bisagras acotadas desde la base; reemplaza la planta),\nisolate:[ids] (solo esas piezas, sin tocar el documento), format:\"pdf\"/\"svg\"/\"dxf\"/\"dwg\"\n(dwg V5.9: requiere ODA File Converter instalado — sin él, 400 con la instrucción),\nhole_fits:{\"20\":\"H7\"} y hole_threads:{\"6.8\":\"M8\"} (overrides de los callouts de ajuste/rosca —\nlos drill_hole con fit/thread ya se rotulan SOLOS: \"Ø20 H7 (+0.021/0)\" y \"M8 - 6H (broca Ø6.8)\"\n+ cosmético ISO 6410 en capa DXF ROSCA),\nmeta:{drawing_no,material,...}}. Con `path` guarda el archivo (pdf/dxf/svg); si format=\"svg\" y sin\npath devuelve el SVG (úsalo con show_widget para VER el plano inline). Read-only.",
+  "inputSchema": {
+   "properties": {
+    "spec": {
+     "additionalProperties": true,
+     "title": "Spec",
+     "type": "object"
+    },
+    "path": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Path"
+    }
+   },
+   "required": [
+    "spec"
+   ],
+   "title": "drawingArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "drawingOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_visibility",
+  "description": "Muestra u oculta un sólido individual (útil para aislar antes de render_view).",
+  "inputSchema": {
+   "properties": {
+    "feature_id": {
+     "title": "Feature Id",
+     "type": "string"
+    },
+    "visible": {
+     "title": "Visible",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "feature_id",
+    "visible"
+   ],
+   "title": "set_visibilityArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_visibilityOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_visibility_bulk",
+  "description": "Muestra u oculta varios sólidos a la vez (patrón aislar / mostrar todo).",
+  "inputSchema": {
+   "properties": {
+    "feature_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Feature Ids",
+     "type": "array"
+    },
+    "visible": {
+     "title": "Visible",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "feature_ids",
+    "visible"
+   ],
+   "title": "set_visibility_bulkArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_visibility_bulkOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "resolve_expression",
+  "description": "Evalúa una expresión (=expr) contra las variables del proyecto SIN modificar nada;\ndevuelve {ok, value} o {ok:false, error}. Para comprobar una fórmula antes de usarla.",
+  "inputSchema": {
+   "properties": {
+    "expression": {
+     "title": "Expression",
+     "type": "string"
+    }
+   },
+   "required": [
+    "expression"
+   ],
+   "title": "resolve_expressionArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "resolve_expressionOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_expression_grammar",
+  "description": "Funciones, constantes, operadores permitidos en los campos '=expr' y las variables\ndel proyecto disponibles. Consúltalo antes de escribir expresiones complejas.",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_expression_grammarArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_expression_grammarOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_fit",
+  "description": "Límites y análisis de AJUSTE ISO 286 (V5.4) — consúltalo al DISEÑAR un asiento.\nCon `hole` (H7/G7/JS7/K7/M7/N7/P7…) y `shaft` (g6/h7/js6/k6/m6/n6/p6…): análisis\ncompleto del ajuste — juego/transición/apriete con juego_min/max en µm. Con uno\nsolo: sus límites (ei/es µm, lo/hi mm) sobre el nominal. Criterio de asientos:\ninserto de chumacera UC → eje h7 (desliza; fijan los prisioneros); rodamiento\nprensado con anillo interior giratorio → k6. Los taladros llevan `fit` en\ndrill_hole y los ejes la clase en el NOMBRE («Eje motriz Ø35 h7») — el plano\nrotula \"Ø35 h7 (0/-0.025)\" y engineering_check verifica el asiento. Para taladros\nROSCADOS usa el campo `thread` de drill_hole (\"M8\": taladra a la broca Ø6.8 y el\nplano rotula la rosca; ficha en GET /api/threads). Read-only.",
+  "inputSchema": {
+   "properties": {
+    "nominal_mm": {
+     "title": "Nominal Mm",
+     "type": "number"
+    },
+    "hole": {
+     "default": "",
+     "title": "Hole",
+     "type": "string"
+    },
+    "shaft": {
+     "default": "",
+     "title": "Shaft",
+     "type": "string"
+    }
+   },
+   "required": [
+    "nominal_mm"
+   ],
+   "title": "get_fitArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_fitOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "fea_static",
+  "description": "FEA ESTÁTICO LINEAL de UNA pieza (V5.6): malla tet P2 (gmsh) + elasticidad\nlineal (scikit-fem). Devuelve σ_vm máx (MPa) con su ubicación, desplazamiento\nmáx (mm), FS = σy/σ_vm (criterio: ≥2 estático, <1.2 sobrecargada) y las\nHIPÓTESIS declaradas; el resumen se GUARDA y entra solo a la memoria de cálculo\n(con aviso automático si la geometría cambia después). `fixed` y\n`loads[].selector` son selectores declarativos de CARAS ({mode: cara|direccion|\ncerca…} — elige con get_topology); cada load lleva force_n=[Fx,Fy,Fz] (fuerza\nTOTAL en N, repartida sobre la cara) O pressure_mpa (normal entrante);\nself_weight añade el peso propio. `fringe_path` guarda el PNG del campo von\nMises (mapa de colores + escala) — MÍRALO: te dice DÓNDE está el esfuerzo.\nMaterial/σy salen de la pieza (si el material no tiene σy tabulado, pasa\nyield_mpa). GOTCHA: σ_vm máx pegado al empotramiento suele ser concentración\nnumérica del encastre ideal (el retorno lo marca con max_en_encastre).\nRead-only sobre la geometría; tarda unos segundos (malla gruesa por defecto,\nafina con mesh_size_mm).",
+  "inputSchema": {
+   "properties": {
+    "feature_id": {
+     "title": "Feature Id",
+     "type": "string"
+    },
+    "fixed": {
+     "additionalProperties": true,
+     "title": "Fixed",
+     "type": "object"
+    },
+    "loads": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Loads"
+    },
+    "material": {
+     "default": "",
+     "title": "Material",
+     "type": "string"
+    },
+    "yield_mpa": {
+     "default": 0.0,
+     "title": "Yield Mpa",
+     "type": "number"
+    },
+    "self_weight": {
+     "default": false,
+     "title": "Self Weight",
+     "type": "boolean"
+    },
+    "mesh_size_mm": {
+     "default": 0.0,
+     "title": "Mesh Size Mm",
+     "type": "number"
+    },
+    "fs_min": {
+     "default": 2.0,
+     "title": "Fs Min",
+     "type": "number"
+    },
+    "fringe_path": {
+     "default": "",
+     "title": "Fringe Path",
+     "type": "string"
+    }
+   },
+   "required": [
+    "feature_id",
+    "fixed"
+   ],
+   "title": "fea_staticArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "fea_staticOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "fea_assembly",
+  "description": "FEA ESTÁTICO LINEAL BONDED de un SUB-ENSAMBLAJE (V7.4): el bastidor SOLDADO\ncompleto (N sólidos PEGADOS, nodos compartidos en las interfaces = sin contacto)\nbajo la carga de diseño, MULTI-MATERIAL, con σ_vm y FS reportados POR PIEZA (la\ngobernante es la de menor FS). Pasa `group` (nombre de sub-ensamblaje) o `ids`\n(piezas sueltas + `name`). El empotramiento se DERIVA de los grounds (base de las\npatas/placas ancladas a piso) — o pasa `fixed_pieces`; la carga se DERIVA de\nrequirements.carga_kg repartida sobre la cama/mesa (nómbrala cama/mesa/deck) — o\n`carga_kg`, o `loads` explícitos [{feature_id, selector, force_n|pressure_mpa}].\n`self_weight` (por defecto SÍ) añade el peso propio con densidad por pieza. El\nHERRAJE de catálogo (motor/rodamientos/pernos) se EXCLUYE de la malla y su peso\nentra como carga sustituta DECLARADA. `yield_mpa` = σy de respaldo para piezas sin\nσy tabulado. El resumen se GUARDA y entra a la memoria (aviso automático si la\ngeometría cambia). `fringe_path` guarda el PNG del campo — MÍRALO. GOTCHA: el\nsolve del bastidor puede tardar MINUTOS; invoca con mesh_size_mm GENEROSO primero\n(malla gruesa) y afina después. El FEA CONTRASTA la verificación analítica de\nflecha/pandeo (dos caminos al mismo número = confianza para firmar).",
+  "inputSchema": {
+   "properties": {
+    "group": {
+     "default": "",
+     "title": "Group",
+     "type": "string"
+    },
+    "ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Ids"
+    },
+    "name": {
+     "default": "",
+     "title": "Name",
+     "type": "string"
+    },
+    "carga_kg": {
+     "default": 0.0,
+     "title": "Carga Kg",
+     "type": "number"
+    },
+    "self_weight": {
+     "default": true,
+     "title": "Self Weight",
+     "type": "boolean"
+    },
+    "yield_mpa": {
+     "default": 0.0,
+     "title": "Yield Mpa",
+     "type": "number"
+    },
+    "loads": {
+     "anyOf": [
+      {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Loads"
+    },
+    "fixed_pieces": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fixed Pieces"
+    },
+    "mesh_size_mm": {
+     "default": 0.0,
+     "title": "Mesh Size Mm",
+     "type": "number"
+    },
+    "fs_min": {
+     "default": 2.0,
+     "title": "Fs Min",
+     "type": "number"
+    },
+    "fringe_path": {
+     "default": "",
+     "title": "Fringe Path",
+     "type": "string"
+    },
+    "nota": {
+     "default": "",
+     "title": "Nota",
+     "type": "string"
+    }
+   },
+   "title": "fea_assemblyArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "fea_assemblyOutput",
+   "type": "object"
+  }
+ }
+]

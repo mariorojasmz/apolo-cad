@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida (spikes verdes, sin mergear); siguen F1–F2. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
+nota: F0 (spikes verdes) y F1 (golden del MCP) hechas, sin mergear; sigue F2. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
 descripcion: El asistente de la app usa las mismas herramientas que el agente por MCP (puerta de entrega, gravedad, verify, render nítido, lotes con contrato), te avisa cuando se corta y cuesta menos por mensaje
 ---
 
@@ -364,3 +364,32 @@ atrás de la API: `thinking.display` sólo tipa `summarized|omitted` y el litera
 la API) el SDK manda TAL CUAL `display: "updates"`, `fallbacks: "default"`, `betas` en la cabecera
 `anthropic-beta`, `cache_control` en la raíz y en el bloque de `system`, y `output_config`. → 0.109.1
 sirve en tiempo de ejecución para F7/F8; F7 fija el pin en `>=0.109.1` (la mínima verificada aquí).
+
+### F1 — golden del MCP (2026-10-03)
+
+- `scripts/golden_mcp.py` (motor + CLI `--congelar|--comparar`), `scripts/golden_mcp_casos.py`
+  (respuestas canónicas por ruta + casos), `tests/data/mcp_golden/` (`instructions.txt` 4.9 KB,
+  `list_tools.json` 93 KB, `llamadas.json` 100 KB) y `tests/test_mcp_golden.py` (permanente: cada
+  tool tiene caso, golden idéntico, siguen los cuatro caminos de error del contrato).
+- **Cobertura: 79/79 tools, 118 `call_tool`** reales (validación de FastMCP incluida) con las
+  ramas de params de cada una (`get_scene` ×4, `render_view` con los 17 params, `near` ×4, …).
+  Errores: 400 con `detail`, 500 sin JSON, job en error (en `run_batch` y en `get_job`), 404 de
+  job, conexión rechazada, el `ValueError` de `_one_or_many`, `near` sin argumentos y
+  `get_command` inexistente; recibo con espera 0 en `run_batch`/`edit_batch` y job
+  corriendo → ok en el long-poll.
+- **Inyección**: se reemplaza `httpx.Client` (atributo del módulo) por una fábrica que agrega el
+  `MockTransport` y registra los kwargs del cliente (`base_url`, `timeout`). No depende de cómo
+  `_api` arma la petición: el mismo golden mide antes y después de F2.
+- **Determinismo**: `APOLO_URL` y `APOLO_MCP_WAIT_S` fijados por caso; las tools que escriben
+  archivos corren en una carpeta temporal con nombres pelados (sin rutas: igual en Windows y
+  Linux) y del archivo queda su sha256. Verde 3 veces seguidas, y otra con `APOLO_URL` y
+  `APOLO_MCP_WAIT_S` hostiles en el entorno, otro cwd y sin `PYTHONPATH` (el script antepone el
+  `core/` de su propio árbol).
+- **Rojo comprobado** (y revertido): default `get_bom(by_group=True)` → schema y query; docstring
+  de `undo` → `description`; `measure(b, a, …)` → orden de `properties`. Se compara el TEXTO
+  canónico: `dict ==` ignora el orden y no habría cazado el tercero.
+- **Desviación**: las cabeceras omiten, además de `user-agent`, `accept-encoding` y
+  `content-length`: dependen de la instalación y la versión de httpx (brotli/zstd, separadores
+  del JSON), no de Apolo; el cuerpo se registra entero. El golden sí fija la salida de `mcp` y
+  `pydantic`: un upgrade que cambie el schema lo pone rojo a propósito (el test imprime las
+  versiones y cómo re-congelar).
