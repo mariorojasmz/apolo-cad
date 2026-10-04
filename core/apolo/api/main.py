@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import json
 import os
+import sys
 import tempfile
 import threading
 import time
@@ -79,6 +80,7 @@ from apolo.state import STATE_LOCK
 
 from .errorlog import log_error, session_marker
 from .jobs import JOB_UNKNOWN, JobStore
+from .session import S, _MainModule
 
 app = FastAPI(title="Genix Apolo CAD", version="0.1.0")
 app.add_middleware(
@@ -88,18 +90,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DOC = Document()
 PALETTE = ["#5b8def", "#46b58a", "#c77d4f", "#8e6fd8", "#d8a03a", "#5fa8c9", "#c75f7c"]
 
-# multiproyecto: el almacén se inicializa en startup (los tests no ejecutan
-# lifespan, así que no tocan la base de datos). Sin almacén no hay autosave.
-STORE = None
-PROJECT_ID: int | None = None
-
-# Salud de operación (V6.1): último fallo de autosave (Fix D) y fallo de arranque con
-# el proyecto reciente corrupto (Fix E). GET /api/health los expone; None = sano.
-AUTOSAVE_ERROR: str | None = None
-STARTUP_ERROR: str | None = None
+# Estado de sesión (D3 del plan partir-api-main): vive en `session.S` y el código lee y swapea
+# `S.<campo>`. `api.DOC`/`STORE`/`PROJECT_ID`/`AUTOSAVE_ERROR`/`STARTUP_ERROR` quedan como
+# alias de `S` para los tests (leer, asignar, `monkeypatch`): los da la clase del módulo.
+sys.modules[__name__].__class__ = _MainModule
 
 # Dos-locks (V6.2c): las simulaciones físicas (MuJoCo, potencialmente segundos) corren
 # BAJO PHYSICS_LOCK y FUERA de STATE_LOCK → no congelan las mutaciones/lecturas del doc.
@@ -146,24 +142,24 @@ def _flush_body() -> None:
     — aceptable, es raro. Un fallo de SERIALIZACIÓN también enciende AUTOSAVE_ERROR + WS (antes
     moría en el excepthook del Timer con `dirty` ya limpio = contrato V6.1 «el cliente se
     entera» roto para fallos de serialización)."""
-    global AUTOSAVE_ERROR, _GEOM_MARK
+    global _GEOM_MARK
     with STATE_LOCK:  # snapshot ATÓMICO con el doc (STORE/PROJECT_ID/bytes de la MISMA foto)
-        store, project_id = STORE, PROJECT_ID
+        store, project_id = S.store, S.project_id
         if store is None or project_id is None:
             return
         try:
-            name, pieces, data = DOC.name, len(DOC.scene), DOC.to_apolo_bytes()
-            sig = DOC._regen_sigs[-1] if DOC._regen_sigs else None
+            name, pieces, data = S.doc.name, len(S.doc.scene), S.doc.to_apolo_bytes()
+            sig = S.doc._regen_sigs[-1] if S.doc._regen_sigs else None
             geom_blob = None
             if (sig is not None and os.environ.get("APOLO_GEOM_CACHE") != "0"
                     and _GEOM_MARK != (project_id, sig)):
                 from apolo.doc.geomcache import pack
 
-                geom_blob = pack(DOC)
+                geom_blob = pack(S.doc)
         except Exception as exc:  # noqa: BLE001 — fallo de SERIALIZACIÓN: el cliente SE ENTERA
-            AUTOSAVE_ERROR = repr(exc)
+            S.autosave_error = repr(exc)
             log_error("backend.autosave", repr(exc))
-            WS.notify_changed({"type": "autosave_failed", "error": AUTOSAVE_ERROR})
+            WS.notify_changed({"type": "autosave_failed", "error": S.autosave_error})
             return
     last: Exception | None = None
     for delay in _AUTOSAVE_RETRIES:
@@ -174,7 +170,7 @@ def _flush_body() -> None:
         except Exception as exc:  # noqa: BLE001 — el autosave nunca rompe la operación
             last = exc
             continue
-        AUTOSAVE_ERROR = None
+        S.autosave_error = None
         if geom_blob is not None:  # caché de geometría: BEST-EFFORT (no re-guarda el .apolo si falla)
             try:
                 store.save_geom_cache(project_id, sig, geom_blob)
@@ -182,9 +178,9 @@ def _flush_body() -> None:
             except Exception as exc2:  # noqa: BLE001 — perderla solo cuesta un replay
                 log_error("backend.geomcache", repr(exc2))
         return
-    AUTOSAVE_ERROR = repr(last)
+    S.autosave_error = repr(last)
     log_error("backend.autosave", repr(last))
-    WS.notify_changed({"type": "autosave_failed", "error": AUTOSAVE_ERROR})
+    WS.notify_changed({"type": "autosave_failed", "error": S.autosave_error})
 
 
 class _AutosaveScheduler:
@@ -201,7 +197,7 @@ class _AutosaveScheduler:
 
     def schedule(self) -> None:
         # sin almacén/proyecto no hay adónde guardar (la mayoría de tests) → no armar Timer
-        if STORE is None or PROJECT_ID is None:
+        if S.store is None or S.project_id is None:
             return
         with self._lock:
             self._dirty = True
@@ -359,26 +355,25 @@ def initialize_store(db_path: str) -> None:
     ni así abre (ZIP roto), se deja STARTUP_ERROR + un doc VACÍO en memoria con
     PROJECT_ID=None (el autosave no-opea con None) y NO se crea un 'Sin título' que PISE
     al reciente como más nuevo. STORE.create solo cuando la BD está de verdad VACÍA."""
-    global DOC, STORE, PROJECT_ID, STARTUP_ERROR
 
     from apolo.projects import ProjectStore
 
-    STORE = ProjectStore(db_path)
-    STARTUP_ERROR = None
+    S.store = ProjectStore(db_path)
+    S.startup_error = None
     with STATE_LOCK:
-        recent = STORE.most_recent_id()
+        recent = S.store.most_recent_id()
         if recent is None:
-            DOC = Document()
-            PROJECT_ID = STORE.create(DOC)
+            S.doc = Document()
+            S.project_id = S.store.create(S.doc)
             return
         try:
-            DOC = STORE.load(recent, tolerant=True)
-            PROJECT_ID = recent
+            S.doc = S.store.load(recent, tolerant=True)
+            S.project_id = recent
         except Exception as exc:
-            STARTUP_ERROR = f"No se pudo abrir el proyecto reciente {recent}: {exc!r}"
-            log_error("backend.startup", STARTUP_ERROR)
-            DOC = Document()
-            PROJECT_ID = None  # el autosave no-opea → NO se sobrescribe el reciente corrupto
+            S.startup_error = f"No se pudo abrir el proyecto reciente {recent}: {exc!r}"
+            log_error("backend.startup", S.startup_error)
+            S.doc = Document()
+            S.project_id = None  # el autosave no-opea → NO se sobrescribe el reciente corrupto
 
 
 @app.on_event("startup")
@@ -454,7 +449,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 def variables_payload() -> list[dict]:
     defining: dict[str, str] = {}
     expressions: dict[str, str] = {}
-    for cmd in DOC.commands:
+    for cmd in S.doc.commands:
         if cmd["type"] == "set_variable":
             defining[cmd["params"]["name"]] = cmd["id"]
             expressions[cmd["params"]["name"]] = cmd["params"]["expression"]
@@ -462,7 +457,7 @@ def variables_payload() -> list[dict]:
         {
             "name": name,
             "expression": expressions.get(name, ""),
-            "value": DOC.variables_resolved.get(name),
+            "value": S.doc.variables_resolved.get(name),
             "command_id": cmd_id,
         }
         for name, cmd_id in defining.items()
@@ -473,28 +468,28 @@ def groups_payload() -> list[dict]:
     """Grupos/sub-ensamblajes con sus members faltantes (integridad tolerante)."""
     from apolo.assembly.groups import missing_members
 
-    gone = missing_members(DOC.scene, DOC.groups)
+    gone = missing_members(S.doc.scene, S.doc.groups)
     return [
         {**g, "missing_members": gone.get(g["name"], [])}
-        for g in DOC.groups.values()
+        for g in S.doc.groups.values()
     ]
 
 
 def document_payload() -> dict:
     return {
-        "name": DOC.name,
-        "commands": DOC.commands,
-        "can_undo": DOC.can_undo,
-        "can_redo": DOC.can_redo,
+        "name": S.doc.name,
+        "commands": S.doc.commands,
+        "can_undo": S.doc.can_undo,
+        "can_redo": S.doc.can_redo,
         "variables": variables_payload(),
-        "configurations": sorted(DOC.configurations.keys()),
-        "configuration_values": {k: dict(v) for k, v in DOC.configurations.items()},  # V6.4c: tabla
+        "configurations": sorted(S.doc.configurations.keys()),
+        "configuration_values": {k: dict(v) for k, v in S.doc.configurations.items()},  # V6.4c: tabla
         "groups": groups_payload(),
-        "project_id": PROJECT_ID,
+        "project_id": S.project_id,
         # robustez (V6.1): comandos suprimidos por una carga tolerante + estado del
         # autosave (None = sano). La UI pinta un chip cuando el disco no responde.
-        "suppressed_commands": DOC.regen_suppressed,
-        "autosave_failed": AUTOSAVE_ERROR,
+        "suppressed_commands": S.doc.regen_suppressed,
+        "autosave_failed": S.autosave_error,
     }
 
 
@@ -514,8 +509,8 @@ def _expand_ids(value) -> list[str] | None:
     out: list[str] = []
     with STATE_LOCK:
         for tok in tokens:
-            if tok in DOC.groups:
-                out.extend(group_features(DOC.scene, DOC.groups, tok, recursive=True))
+            if tok in S.doc.groups:
+                out.extend(group_features(S.doc.scene, S.doc.groups, tok, recursive=True))
             else:
                 out.append(tok)
     # dedup conservando orden
@@ -526,12 +521,12 @@ def _expand_ids(value) -> list[str] | None:
 def _suggest_ids(missing, limit: int = 3) -> list[str]:
     """Envoltorio de compatibilidad (D4 del plan partir-api-main): «¿quisiste decir…?» sobre
     el documento ACTIVO (`services.lookup.suggest_ids`). Llamar bajo STATE_LOCK."""
-    return suggest_ids(DOC, missing, limit)
+    return suggest_ids(S.doc, missing, limit)
 
 
 def _not_found(missing, kind: str = "sólido") -> HTTPException:
     """404 con candidatos cercanos («¿quisiste decir…?»). Llamar bajo STATE_LOCK."""
-    return HTTPException(status_code=404, detail=f"No existe el {kind} '{missing}'{suggest_suffix(DOC, missing)}")
+    return HTTPException(status_code=404, detail=f"No existe el {kind} '{missing}'{suggest_suffix(S.doc, missing)}")
 
 
 _DEF_MESH_CACHE: dict[str, dict] = {}
@@ -608,12 +603,12 @@ def scene_payload(known: dict | None = None) -> dict:
 
     features = []
     definitions: dict[str, dict] = {}
-    cmd_types = {c["id"]: c["type"] for c in DOC.commands}
+    cmd_types = {c["id"]: c["type"] for c in S.doc.commands}
     live: set[str] = set()
-    for i, feat in enumerate(DOC.scene.values()):
+    for i, feat in enumerate(S.doc.scene.values()):
         live.add(feat.id)
         rev = _geom_rev(feat.id, feat.shape)
-        color = DOC.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
+        color = S.doc.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
         if known_revs.get(feat.id) == rev:
             # geometría sin cambios: el cliente conserva su malla/bbox/volumen (los mergea de
             # su estado anterior). Solo mandamos id + rev + señal + metadatos VOLÁTILES (los
@@ -691,7 +686,7 @@ def _scene_filtered(ids, name, limit, offset) -> dict:
     """Brief LIGERO (sin mallas) filtrado por ids/nombres de grupo (`_expand_ids`) y/o
     substring del nombre, con paginación defensiva. Declara `total_filtrado`/`truncado`
     (sin caps silenciosos). Presupuesto: una lectura de rutina < ~10 KB a 1000 piezas."""
-    items = list(DOC.scene.items())
+    items = list(S.doc.scene.items())
     if ids is not None:
         wanted = set(_expand_ids(ids) or [])
         items = [(fid, f) for fid, f in items if fid in wanted]
@@ -703,11 +698,11 @@ def _scene_filtered(ids, name, limit, offset) -> dict:
     lim = 200 if limit is None else int(limit)
     page = items[off:] if lim < 0 else items[off:off + lim]
     return {
-        "proyecto": DOC.name,
-        "configuraciones": sorted(DOC.configurations.keys()),
-        "puede_deshacer": DOC.can_undo,
-        "puede_rehacer": DOC.can_redo,
-        "total_solidos": len(DOC.scene),
+        "proyecto": S.doc.name,
+        "configuraciones": sorted(S.doc.configurations.keys()),
+        "puede_deshacer": S.doc.can_undo,
+        "puede_rehacer": S.doc.can_redo,
+        "total_solidos": len(S.doc.scene),
         "total_filtrado": total_filtrado,
         "offset": off,
         "solidos_mostrados": len(page),
@@ -724,8 +719,8 @@ def scene_summary_dict() -> dict:
     from apolo.assembly.groups import children_of, group_features
     from apolo.library.engineering.mass import scene_mass_properties
 
-    scene, groups = DOC.scene, DOC.groups
-    mat = DOC.default_material()
+    scene, groups = S.doc.scene, S.doc.groups
+    mat = S.doc.default_material()
 
     def agg(fids):
         if not fids:
@@ -746,7 +741,7 @@ def scene_summary_dict() -> dict:
     sin_grupo = [fid for fid, f in scene.items() if not f.group]
     total = scene_mass_properties(scene, default_material=mat)["total"]
     return {
-        "proyecto": DOC.name,
+        "proyecto": S.doc.name,
         "total_solidos": len(scene),
         "masa_total_kg": total["masa_kg"],
         "bbox_conjunto_mm": total["bbox_mm"],
@@ -761,24 +756,24 @@ def _open_briefing() -> dict:
     scene_summary_dict) + requisitos + notas del agente + salud (ok/suprimidos) + variantes de
     diseño. Arrancar una sesión pasa de 4-5 llamadas a 1. Llamar bajo STATE_LOCK. Presupuesto:
     <10 KB en un proyecto grande (sin mallas, resumen por grupo)."""
-    raw = DOC.check_integrity()
+    raw = S.doc.check_integrity()
     issues = [i for i in raw if not i.startswith("degradado")]
-    notas = list(DOC.agent_notes)
+    notas = list(S.doc.agent_notes)
     brief = {
         "resumen": scene_summary_dict(),  # proyecto/totales/grupos/sin_grupo/variables
-        "requisitos": DOC.requirements,
+        "requisitos": S.doc.requirements,
         # V6.5c: el ÚNICO campo sin techo natural — últimas 20 y recorte DECLARADO
         "notas_agente": notas[-20:],
         "salud": {
-            "ok": not issues and not STARTUP_ERROR,
-            "suprimidos": getattr(DOC, "regen_suppressed", []),
+            "ok": not issues and not S.startup_error,
+            "suprimidos": getattr(S.doc, "regen_suppressed", []),
         },
     }
     if len(notas) > 20:
         brief["notas_truncadas"] = len(notas) - 20  # sin caps silenciosos
 
-    if DOC.configurations:  # tablas de diseño: variantes disponibles
-        brief["configuraciones"] = sorted(DOC.configurations.keys())
+    if S.doc.configurations:  # tablas de diseño: variantes disponibles
+        brief["configuraciones"] = sorted(S.doc.configurations.keys())
     return brief
 
 
@@ -808,7 +803,7 @@ def _state_or_error(fn):
         # retorno de mutación lo recuerda — stateless y molesto a propósito (como la
         # alarma del tren de aterrizaje); se apaga al declarar el primer ground.
         # Solo en mutaciones: las lecturas (get_scene etc.) no lo llevan.
-        if len(DOC.scene) >= MIN_SOLIDOS_SUJECION and not DOC.grounds:
+        if len(S.doc.scene) >= MIN_SOLIDOS_SUJECION and not S.doc.grounds:
             payload["aviso_estructura"] = AVISO_SIN_ANCLAJES
     payload["affected_command_ids"] = _normalize_affected(affected)
     # avisar DESPUÉS de construir el payload: el refresh de los clientes no
@@ -839,20 +834,20 @@ def health() -> dict:
     violaciones de integridad (los 'degradado' no cuentan) NI error de arranque. Sin
     tool MCP: es telemetría de operación (la UI pinta un chip; V6.x si se pide agente)."""
     with STATE_LOCK:
-        raw = DOC.check_integrity()
+        raw = S.doc.check_integrity()
         issues = [i for i in raw if not i.startswith("degradado")]
         degraded = [i for i in raw if i.startswith("degradado")]
         return {
-            "ok": not issues and not STARTUP_ERROR,
+            "ok": not issues and not S.startup_error,
             "issues": issues,
             "degraded": degraded,
-            "suppressed_commands": getattr(DOC, "regen_suppressed", []),
-            "autosave_failed": AUTOSAVE_ERROR,
+            "suppressed_commands": getattr(S.doc, "regen_suppressed", []),
+            "autosave_failed": S.autosave_error,
             "autosave_pending": _autosave_sched.pending(),  # V6.2d: hay un flush en la ventana de debounce
-            "startup_error": STARTUP_ERROR,
-            "project_id": PROJECT_ID,
-            "features": len(DOC.scene),
-            "commands": len(DOC.commands),
+            "startup_error": S.startup_error,
+            "project_id": S.project_id,
+            "features": len(S.doc.scene),
+            "commands": len(S.doc.commands),
         }
 
 
@@ -918,16 +913,16 @@ class AgentNoteIn(BaseModel):
 @app.get("/api/agent/notes")
 def get_agent_notes() -> dict:
     with STATE_LOCK:
-        return {"notes": list(DOC.agent_notes)}
+        return {"notes": list(S.doc.agent_notes)}
 
 
 @app.post("/api/agent/notes")
 def add_agent_note(body: AgentNoteIn) -> dict:
     with STATE_LOCK:
-        DOC.agent_notes.append(body.text)
-        del DOC.agent_notes[:-30]  # tope 30 (memoria acotada del agente)
+        S.doc.agent_notes.append(body.text)
+        del S.doc.agent_notes[:-30]  # tope 30 (memoria acotada del agente)
         _autosave()
-        return {"notes": list(DOC.agent_notes)}
+        return {"notes": list(S.doc.agent_notes)}
 
 
 class CommandIn(BaseModel):
@@ -946,27 +941,27 @@ def _materialize_insert_project(cmd_type: str, params: dict) -> dict:
     pid = params.get("project_id")
     if pid is None:
         return params  # el validador pydantic del comando dará el error claro
-    if STORE is None:
+    if S.store is None:
         raise HTTPException(
             status_code=400,
             detail="No hay almacén de proyectos: insert_project necesita la API con startup",
         )
-    if PROJECT_ID is not None and int(pid) == PROJECT_ID:
+    if S.project_id is not None and int(pid) == S.project_id:
         raise HTTPException(
             status_code=400, detail="Un proyecto no puede instanciarse dentro de sí mismo"
         )
     try:
-        data = STORE.load_bytes(int(pid))
+        data = S.store.load_bytes(int(pid))
     except KeyError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {**params, "attachment": DOC.add_attachment(data)}
+    return {**params, "attachment": S.doc.add_attachment(data)}
 
 
 def _materialize_edit(command_id: str, params: dict, merge: bool) -> dict:
     """Pre-materializa un edit sobre un insert_project (refresh: {'attachment': ''}).
     Devuelve los params COMPLETOS ya fusionados y materializados; re-fusionarlos
     después (merge) es idempotente."""
-    cmd = next((c for c in DOC.commands if c["id"] == command_id), None)
+    cmd = next((c for c in S.doc.commands if c["id"] == command_id), None)
     if cmd is None or cmd["type"] != "insert_project":
         return params
     full = {**cmd["params"], **params} if merge else params
@@ -976,7 +971,7 @@ def _materialize_edit(command_id: str, params: dict, merge: bool) -> dict:
 @app.post("/api/commands")
 def post_command(cmd: CommandIn) -> dict:
     return _state_or_error(
-        lambda: DOC.execute(cmd.type, _materialize_insert_project(cmd.type, cmd.params))
+        lambda: S.doc.execute(cmd.type, _materialize_insert_project(cmd.type, cmd.params))
     )
 
 
@@ -1002,16 +997,16 @@ def _sync_or_job(tipo: str, work, async_: bool):
     # TOCTOU. Restaura las semánticas del mundo sync, donde el switch serializaba tras
     # STATE_LOCK. `restore_revision` conserva el PROJECT_ID → el lote aplica sobre la
     # revisión restaurada, igual que aplicaría en sync.
-    expected = PROJECT_ID
+    expected = S.project_id
 
     def guarded():
         with STATE_LOCK:
-            if PROJECT_ID != expected:
+            if S.project_id != expected:
                 raise HTTPException(
                     status_code=409,
                     detail=(
                         f"El proyecto activo cambió mientras el lote esperaba en cola "
-                        f"(era {expected}, ahora {PROJECT_ID}): el lote NO se aplicó. "
+                        f"(era {expected}, ahora {S.project_id}): el lote NO se aplicó. "
                         f"Abre el proyecto correcto y reenvíalo."
                     ),
                 )
@@ -1033,8 +1028,8 @@ def post_batch(batch: BatchIn, async_: bool = Query(False, alias="async")):
             {"type": a.type, "params": _materialize_insert_project(a.type, a.params)}
             for a in batch.actions
         ]
-        return execute_batch(DOC, actions,
-                             verify=contract_verify(DOC, batch.expect, expand=_expand_ids))
+        return execute_batch(S.doc, actions,
+                             verify=contract_verify(S.doc, batch.expect, expand=_expand_ids))
 
     def _work() -> dict:
         payload = _state_or_error(_run)
@@ -1068,8 +1063,8 @@ def patch_batch(
             }
             for e in batch.edits
         ]
-        return DOC.edit_many(edits, merge=merge,
-                             verify=contract_verify(DOC, batch.expect, expand=_expand_ids))
+        return S.doc.edit_many(edits, merge=merge,
+                               verify=contract_verify(S.doc, batch.expect, expand=_expand_ids))
 
     def _work() -> dict:
         payload = _state_or_error(_run)
@@ -1131,7 +1126,7 @@ def preview_commands(body: PreviewIn):
 
     with STATE_LOCK:
         try:
-            scene, new_ids = DOC.preview(
+            scene, new_ids = S.doc.preview(
                 [
                     {"type": a.type, "params": _materialize_insert_project(a.type, a.params)}
                     for a in body.actions
@@ -1144,7 +1139,7 @@ def preview_commands(body: PreviewIn):
             shim = SimpleNamespace(scene=scene)
             rep = interference_report(
                 scene, focus=set(new_feats),
-                exclude_pairs=joint_pairs(DOC) | same_command_pairs(shim),
+                exclude_pairs=joint_pairs(S.doc) | same_command_pairs(shim),
                 exclude_ids=hardware_ids(shim),
             )
             fantasmas = [
@@ -1178,10 +1173,10 @@ class ParamsIn(BaseModel):
 @app.put("/api/commands/{command_id}")
 def edit_command(command_id: str, body: ParamsIn, transient: bool = False, merge: bool = False) -> dict:
     with STATE_LOCK:  # 404 con «¿quisiste decir…?» antes de mutar (V6.5b, frente C)
-        if not any(c["id"] == command_id for c in DOC.commands):
+        if not any(c["id"] == command_id for c in S.doc.commands):
             raise _not_found(command_id, kind="comando")
     return _state_or_error(
-        lambda: DOC.edit(
+        lambda: S.doc.edit(
             command_id,
             _materialize_edit(command_id, body.params, merge),
             coalesce=transient,
@@ -1198,7 +1193,7 @@ class RemoveIn(BaseModel):
 def remove_commands_endpoint(body: RemoveIn) -> dict:
     """Elimina comandos del log por id (atómico, con rollback si algo queda roto).
     Útil para cirugía de modelo: quitar features + sus juntas en un solo paso."""
-    return _state_or_error(lambda: DOC.remove_commands(body.ids))
+    return _state_or_error(lambda: S.doc.remove_commands(body.ids))
 
 
 def _params_reference(params: dict, fid: str) -> str | None:
@@ -1251,10 +1246,10 @@ def find_commands_endpoint(
     with STATE_LOCK:
         creator = None
         if feature:
-            feat = DOC.scene.get(feature)
+            feat = S.doc.scene.get(feature)
             creator = feat.command_id if feat is not None else None
         rows = []
-        for c in DOC.commands:
+        for c in S.doc.commands:
             if type and c["type"] != type:
                 continue
             params = c.get("params", {})
@@ -1282,9 +1277,9 @@ class VariableIn(BaseModel):
 def set_variable(body: VariableIn) -> dict:
     def run():  # buscar DENTRO del lock: fuera, otra petición podía cambiar el log antes de mutar
         params = {"name": body.name, "expression": body.expression}
-        existing = next((c["id"] for c in DOC.commands if c["type"] == "set_variable"
+        existing = next((c["id"] for c in S.doc.commands if c["type"] == "set_variable"
                          and c["params"].get("name") == body.name), None)
-        return DOC.edit(existing, params) if existing else DOC.execute("set_variable", params)
+        return S.doc.edit(existing, params) if existing else S.doc.execute("set_variable", params)
 
     return _state_or_error(run)
 
@@ -1292,23 +1287,23 @@ def set_variable(body: VariableIn) -> dict:
 @app.delete("/api/variables/{name}")
 def delete_variable(name: str) -> dict:
     def run():  # búsqueda y borrado en UNA adquisición de STATE_LOCK (sin TOCTOU)
-        ids = [c["id"] for c in DOC.commands
+        ids = [c["id"] for c in S.doc.commands
                if c["type"] == "set_variable" and c["params"].get("name") == name]
         if not ids:
             raise HTTPException(status_code=404, detail=f"No existe la variable '{name}'")
-        return DOC.remove_commands(ids)
+        return S.doc.remove_commands(ids)
 
     return _state_or_error(run)
 
 
 @app.post("/api/undo")
 def undo() -> dict:
-    return _state_or_error(DOC.undo)
+    return _state_or_error(S.doc.undo)
 
 
 @app.post("/api/redo")
 def redo() -> dict:
-    return _state_or_error(DOC.redo)
+    return _state_or_error(S.doc.redo)
 
 
 class VisibilityIn(BaseModel):
@@ -1319,8 +1314,8 @@ class VisibilityIn(BaseModel):
 def set_visibility(feature_id: str, body: VisibilityIn) -> dict:
     # devuelve el command_id afectado → el cliente MCP recorta el retorno a la pieza
     def run():
-        DOC.set_visibility(feature_id, body.visible)
-        return DOC.scene[feature_id].command_id
+        S.doc.set_visibility(feature_id, body.visible)
+        return S.doc.scene[feature_id].command_id
     return _state_or_error(run)
 
 
@@ -1334,8 +1329,8 @@ def set_visibility_bulk(body: BulkVisibilityIn) -> dict:
     """Visibilidad en lote (aislar / mostrar todo) en una sola llamada."""
     def run():
         for fid in body.ids:
-            DOC.set_visibility(fid, body.visible)
-        return sorted({DOC.scene[fid].command_id for fid in body.ids if fid in DOC.scene})
+            S.doc.set_visibility(fid, body.visible)
+        return sorted({S.doc.scene[fid].command_id for fid in body.ids if fid in S.doc.scene})
     return _state_or_error(run)
 
 
@@ -1348,8 +1343,8 @@ def set_sketch_guide(feature_id: str, body: SketchGuideIn) -> dict:
     """Marca/desmarca un sólido (y las piezas de su comando) como boceto-guía (blockout):
     geometría de intención excluida de BOM/masa/interferencia/FEA que el agente consume."""
     def run():
-        DOC.set_sketch_guide(feature_id, body.guide)
-        return DOC.scene[feature_id].command_id
+        S.doc.set_sketch_guide(feature_id, body.guide)
+        return S.doc.scene[feature_id].command_id
     return _state_or_error(run)
 
 
@@ -1365,7 +1360,7 @@ def get_feature_topology(
     from apolo.kernel.topology import feature_topology
 
     with STATE_LOCK:
-        feat = DOC.scene.get(feature_id)
+        feat = S.doc.scene.get(feature_id)
         if feat is None:
             raise _not_found(feature_id)
         topo = feature_topology(feat.shape, only=only, min_mm=min_mm)
@@ -1393,7 +1388,7 @@ def mass_properties(ids: str | None = None) -> dict:
     wanted = [s.strip() for s in ids.split(",") if s.strip()] if ids else None
     with STATE_LOCK:
         try:
-            return scene_mass_properties(DOC.scene, ids=wanted)
+            return scene_mass_properties(S.doc.scene, ids=wanted)
         except KeyError as exc:
             raise _not_found(exc.args[0]) from exc
 
@@ -1413,8 +1408,8 @@ def measure_endpoint(body: MeasureIn) -> dict:
     from apolo.kernel.selectors import SelectorError, resolve_faces
 
     with STATE_LOCK:
-        fa = DOC.scene.get(body.a)
-        fb = DOC.scene.get(body.b)
+        fa = S.doc.scene.get(body.a)
+        fb = S.doc.scene.get(body.b)
         if fa is None or fb is None:
             raise _not_found(body.a if fa is None else body.b)
         sa, sb = fa.shape, fb.shape
@@ -1454,9 +1449,9 @@ def near_endpoint(
     lim = limit if limit and limit > 0 else None
     with STATE_LOCK:
         if feature is not None:
-            if feature not in DOC.scene:
+            if feature not in S.doc.scene:
                 raise _not_found(feature)
-            cercanas = features_near_feature(DOC.scene, feature, radius, limit=lim)
+            cercanas = features_near_feature(S.doc.scene, feature, radius, limit=lim)
             modo = {"feature": feature}
         elif box is not None:
             try:
@@ -1467,7 +1462,7 @@ def near_endpoint(
                 raise HTTPException(
                     status_code=400, detail=f"box debe ser JSON [[min_x,min_y,min_z],[max...]]: {exc}"
                 ) from exc
-            cercanas = features_near_box(DOC.scene, bx, radius, limit=lim)
+            cercanas = features_near_box(S.doc.scene, bx, radius, limit=lim)
             modo = {"box": bx}
         else:
             try:
@@ -1477,7 +1472,7 @@ def near_endpoint(
                 raise HTTPException(
                     status_code=400, detail=f"point debe ser JSON [x,y,z]: {exc}"
                 ) from exc
-            cercanas = features_near(DOC.scene, pt, radius, limit=lim)
+            cercanas = features_near(S.doc.scene, pt, radius, limit=lim)
             modo = {"point": pt}
     return {**modo, "radius": radius, "cercanas": cercanas}
 
@@ -1516,7 +1511,7 @@ def pick_endpoint(
     with STATE_LOCK:
         try:
             return pick_point(
-                DOC.scene, view, u, v, fit_ids=fit_ids, zoom=zoom,
+                S.doc.scene, view, u, v, fit_ids=fit_ids, zoom=zoom,
                 azimuth=azimuth, elevation=elevation, isolate=isolate_ids, section=section,
                 roll=roll, pan=pan_xy,
             )
@@ -1526,9 +1521,9 @@ def pick_endpoint(
 
 # ------------------------------------------------------------------ proyectos
 def _store_required():
-    if STORE is None:
+    if S.store is None:
         raise HTTPException(status_code=503, detail="Almacén de proyectos no inicializado")
-    return STORE
+    return S.store
 
 
 @app.get("/api/projects")
@@ -1543,16 +1538,15 @@ class ProjectIn(BaseModel):
 
 @app.post("/api/projects")
 def create_project(body: ProjectIn) -> dict:
-    global DOC, PROJECT_ID
     store = _store_required()
     with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO (sin corrupción cruzada)
-        DOC = Document(body.name)
+        S.doc = Document(body.name)
         if body.template == "transportador":
-            DOC.execute("set_variable", {"name": "L", "expression": "2000"})
-            DOC.execute("create_conveyor", {"largo": "=L", "ancho": 600, "altura": 750, "paso": 100})
+            S.doc.execute("set_variable", {"name": "L", "expression": "2000"})
+            S.doc.execute("create_conveyor", {"largo": "=L", "ancho": 600, "altura": 750, "paso": 100})
         elif body.template == "brazo":
-            DOC.execute("create_robot_arm", {"name": "Robot", "alcance": 700})
-        PROJECT_ID = store.create(DOC)
+            S.doc.execute("create_robot_arm", {"name": "Robot", "alcance": 700})
+        S.project_id = store.create(S.doc)
         payload = scene_payload()
     WS.notify_changed()
     return payload
@@ -1560,16 +1554,15 @@ def create_project(body: ProjectIn) -> dict:
 
 @app.post("/api/projects/{project_id}/open")
 def open_project_by_id(project_id: int) -> dict:
-    global DOC, PROJECT_ID
     store = _store_required()
     with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO (sin corrupción cruzada)
         try:
-            DOC = store.load(project_id, tolerant=True)  # suprime comandos rotos (schema drift)
+            S.doc = store.load(project_id, tolerant=True)  # suprime comandos rotos (schema drift)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except DocumentError as exc:  # ZIP roto / no regenera: 400 claro (antes: 500 opaco)
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        PROJECT_ID = project_id
+        S.project_id = project_id
         payload = scene_payload()
         payload["briefing"] = _open_briefing()  # V6.5b: arranque de sesión en 1 llamada
     WS.notify_changed()
@@ -1580,7 +1573,7 @@ def open_project_by_id(project_id: int) -> dict:
 def delete_project(project_id: int) -> dict:
     store = _store_required()
     with STATE_LOCK:  # check + borrado atómicos: un open concurrente no lo activa entre medio
-        if project_id == PROJECT_ID:
+        if project_id == S.project_id:
             raise HTTPException(status_code=400, detail="No puedes borrar el proyecto abierto")
         store.delete(project_id)
     return {"ok": True}
@@ -1599,7 +1592,7 @@ class RenameIn(BaseModel):
 @app.patch("/api/projects/current")
 def rename_project(body: RenameIn) -> dict:
     def run():
-        DOC.name = body.name.strip() or "Sin título"
+        S.doc.name = body.name.strip() or "Sin título"
 
     return _state_or_error(run)
 
@@ -1611,25 +1604,24 @@ class RevisionIn(BaseModel):
 @app.post("/api/revisions")
 def save_revision(body: RevisionIn) -> dict:
     store = _store_required()
-    if PROJECT_ID is None:
+    if S.project_id is None:
         raise HTTPException(status_code=400, detail="No hay proyecto abierto")
     _flush_autosave()  # V6.2d: el proyecto en disco al día antes de fijar la revisión
     with STATE_LOCK:
-        rev_id = store.save_revision(PROJECT_ID, DOC, body.note)
+        rev_id = store.save_revision(S.project_id, S.doc, body.note)
     return {"id": rev_id}
 
 
 @app.get("/api/revisions")
 def list_revisions() -> list[dict]:
     store = _store_required()
-    if PROJECT_ID is None:
+    if S.project_id is None:
         return []
-    return store.list_revisions(PROJECT_ID)
+    return store.list_revisions(S.project_id)
 
 
 @app.post("/api/revisions/{revision_id}/restore")
 def restore_revision(revision_id: int) -> dict:
-    global DOC, PROJECT_ID
     store = _store_required()
     with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO
         try:
@@ -1638,8 +1630,8 @@ def restore_revision(revision_id: int) -> dict:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        DOC = doc
-        PROJECT_ID = project_id
+        S.doc = doc
+        S.project_id = project_id
         payload = scene_payload()
     _flush_autosave(force=True)  # persiste YA el doc restaurado (no esperar la ventana)
     WS.notify_changed()
@@ -1653,7 +1645,7 @@ class ConfigIn(BaseModel):
 
 @app.post("/api/configurations")
 def save_configuration(body: ConfigIn) -> dict:
-    return _state_or_error(lambda: DOC.save_configuration(body.name.strip()))
+    return _state_or_error(lambda: S.doc.save_configuration(body.name.strip()))
 
 
 class ConfigValuesIn(BaseModel):
@@ -1663,17 +1655,17 @@ class ConfigValuesIn(BaseModel):
 @app.put("/api/configurations/{name}")
 def set_configuration(name: str, body: ConfigValuesIn) -> dict:
     """Edita una variante con {variable: expresión} explícito (tabla de diseño) SIN aplicarla."""
-    return _state_or_error(lambda: DOC.set_configuration(name, body.values))
+    return _state_or_error(lambda: S.doc.set_configuration(name, body.values))
 
 
 @app.post("/api/configurations/{name}/apply")
 def apply_configuration(name: str) -> dict:
-    return _state_or_error(lambda: DOC.apply_configuration(name))
+    return _state_or_error(lambda: S.doc.apply_configuration(name))
 
 
 @app.delete("/api/configurations/{name}")
 def delete_configuration(name: str) -> dict:
-    return _state_or_error(lambda: DOC.delete_configuration(name))
+    return _state_or_error(lambda: S.doc.delete_configuration(name))
 
 
 class ColorIn(BaseModel):
@@ -1682,7 +1674,7 @@ class ColorIn(BaseModel):
 
 @app.post("/api/features/{feature_id}/color")
 def set_feature_color(feature_id: str, body: ColorIn) -> dict:
-    return _state_or_error(lambda: DOC.set_color(feature_id, body.color))
+    return _state_or_error(lambda: S.doc.set_color(feature_id, body.color))
 
 
 class BulkColorIn(BaseModel):
@@ -1700,11 +1692,11 @@ def set_color_bulk(body: BulkColorIn) -> dict:
 
     def run():
         for fid in body.ids:
-            if fid not in DOC.scene:
+            if fid not in S.doc.scene:
                 raise _not_found(fid)
         for fid in body.ids:
-            DOC.set_color(fid, body.color)
-        return sorted({DOC.scene[fid].command_id for fid in body.ids})
+            S.doc.set_color(fid, body.color)
+        return sorted({S.doc.scene[fid].command_id for fid in body.ids})
 
     return _state_or_error(run)
 
@@ -1716,8 +1708,8 @@ class MaterialIn(BaseModel):
 @app.post("/api/features/{feature_id}/material")
 def set_feature_material(feature_id: str, body: MaterialIn) -> dict:
     def run():
-        DOC.set_material(feature_id, body.material)
-        return DOC.scene[feature_id].command_id
+        S.doc.set_material(feature_id, body.material)
+        return S.doc.scene[feature_id].command_id
     return _state_or_error(run)
 
 
@@ -1735,11 +1727,11 @@ def set_material_bulk(body: BulkMaterialIn) -> dict:
 
     def run():
         for fid in body.ids:
-            if fid not in DOC.scene:
+            if fid not in S.doc.scene:
                 raise _not_found(fid)
         for fid in body.ids:
-            DOC.set_material(fid, body.material)
-        return sorted({DOC.scene[fid].command_id for fid in body.ids})
+            S.doc.set_material(fid, body.material)
+        return sorted({S.doc.scene[fid].command_id for fid in body.ids})
 
     return _state_or_error(run)
 
@@ -1750,7 +1742,7 @@ class VerticalIn(BaseModel):
 
 @app.post("/api/vertical")
 def set_project_vertical(body: VerticalIn) -> dict:
-    return _state_or_error(lambda: DOC.set_vertical(body.vertical))
+    return _state_or_error(lambda: S.doc.set_vertical(body.vertical))
 
 
 # --------------------------------------------------------- biblioteca y BOM
@@ -1764,7 +1756,7 @@ def get_bom(by_group: bool = False) -> list[dict]:
     """Con `by_group=true` cada fila lleva su `grupo` (sub-ensamblaje) y las piezas
     iguales de grupos distintos salen separadas — subtotales por grupo/instancia."""
     with STATE_LOCK:
-        return bom_from_scene(DOC.scene, DOC.default_material(), by_group=by_group)
+        return bom_from_scene(S.doc.scene, S.doc.default_material(), by_group=by_group)
 
 
 @app.get("/api/costing.json")
@@ -1775,17 +1767,17 @@ def get_costing() -> dict:
     from apolo.library.costing import scene_costing
 
     with STATE_LOCK:
-        return scene_costing(DOC.scene, DOC.default_material())
+        return scene_costing(S.doc.scene, S.doc.default_material())
 
 
 @app.get("/api/bom.csv")
 def get_bom_csv() -> Response:
     with STATE_LOCK:
-        csv_text = bom_to_csv(bom_from_scene(DOC.scene, DOC.default_material()))
+        csv_text = bom_to_csv(bom_from_scene(S.doc.scene, S.doc.default_material()))
     return Response(
         content=csv_text.encode("utf-8-sig"),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "proyecto"}-bom.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-bom.csv"'},
     )
 
 
@@ -1808,42 +1800,42 @@ def run_checks(body: ChecksIn) -> dict:
             hardware_ids, interpenetration_report, joint_pairs, same_command_pairs,
         )
 
-        jpairs = joint_pairs(DOC)
+        jpairs = joint_pairs(S.doc)
         shapes_override = None
         pose_warnings: list[str] = []
         if any(v != 0 for v in body.joint_values.values()):
             from apolo.robotics.pose import posed_shapes
 
-            shapes_override, pose_warnings = posed_shapes(DOC, body.joint_values)
+            shapes_override, pose_warnings = posed_shapes(S.doc, body.joint_values)
         # V6.5b: `interference_ids` acota a las parejas donde participa un id/grupo dado
         # (O(k·n)) — el agente valida SU zona de trabajo, no la máquina entera.
         focus = _expand_ids(body.interference_ids) if body.interference_ids else None
         interferencias = interference_report(
-            DOC.scene, shapes_override=shapes_override,
-            exclude_pairs=jpairs | same_command_pairs(DOC),
-            exclude_ids=hardware_ids(DOC),
+            S.doc.scene, shapes_override=shapes_override,
+            exclude_pairs=jpairs | same_command_pairs(S.doc),
+            exclude_ids=hardware_ids(S.doc),
             focus=focus,
         )
         if shapes_override is not None:  # interpenetración de cuerpos con junta compartida
             interferencias["interferencias"] += interpenetration_report(
-                DOC.scene, shapes_override, jpairs
+                S.doc.scene, shapes_override, jpairs
             )
             interferencias["interferencias"].sort(key=lambda c: -c["volumen_mm3"])
         interferencias["avisos_pose"] = pose_warnings
         ingenieria = None
         conveyor = None
         req, carga, largo_paq, ancho_paq = requirement_inputs(
-            DOC, body.carga_kg, body.largo_paquete_mm, body.ancho_paquete_mm)
+            S.doc, body.carga_kg, body.largo_paquete_mm, body.ancho_paquete_mm)
         velocidad = body.velocidad_m_s or float(req.get("velocidad_m_s") or 0)
         if carga and largo_paq:
             from apolo.library.rules import detect_conveyor, infer_from_solids
 
             conveyor = (
                 body.conveyor
-                or conveyor_params_from_doc(DOC)
-                or (infer_from_solids(DOC.scene, body.conveyor_solid_ids)
+                or conveyor_params_from_doc(S.doc)
+                or (infer_from_solids(S.doc.scene, body.conveyor_solid_ids)
                     if body.conveyor_solid_ids else None)
-                or detect_conveyor(DOC.scene, DOC.variables_resolved)
+                or detect_conveyor(S.doc.scene, S.doc.variables_resolved)
             )
             inherit_inclination(conveyor, req)
             if conveyor:
@@ -1863,15 +1855,15 @@ def run_checks(body: ChecksIn) -> dict:
                     }
                 ]
         # chequeo estructural UNIVERSAL + resultados FEA guardados (con vigencia)
-        estructura = structure_rules(DOC, carga, conveyor)
+        estructura = structure_rules(S.doc, carga, conveyor)
         # V7.2b: lints pre-entrega (barreno sin perno · pieza sin grupo ni unión) —
         # olvidos de MODELADO que el chequeo estructural no ve; vacíos si el modelo está sano
         from apolo.commands.expressions import resolve_params
         from apolo.library.lints import predelivery_lints
 
         estructura += predelivery_lints(
-            DOC.scene, DOC.commands, DOC.fasteners, DOC.grounds, DOC.joints, DOC.mates,
-            resolve=lambda p: resolve_params(p, DOC.variables_resolved),
+            S.doc.scene, S.doc.commands, S.doc.fasteners, S.doc.grounds, S.doc.joints, S.doc.mates,
+            resolve=lambda p: resolve_params(p, S.doc.variables_resolved),
         )
     return {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
 
@@ -1887,7 +1879,7 @@ def verify_endpoint(body: VerifyIn) -> dict:
     encadenar N `measure` + aritmética mental. Devuelve `{ok, resultados:[{check,ok,actual,
     esperado}]}`. La interferencia se reusa acotada (V6.5b) con las exclusiones normales."""
     with STATE_LOCK:
-        resultados = verify_checks(DOC, DOC.scene, body.checks, expand=_expand_ids)
+        resultados = verify_checks(S.doc, S.doc.scene, body.checks, expand=_expand_ids)
     return {"ok": all(r["ok"] for r in resultados), "resultados": resultados}
 
 
@@ -1914,7 +1906,7 @@ def delivery_check_endpoint(body: DeliveryIn) -> dict:
         gravedad = {k: res.get(k) for k in ("fell", "estables", "settled", "n_grounded")}
 
     with STATE_LOCK:  # la puerta valida lo DECLARADO: services/delivery_inputs.py
-        return delivery_report(**delivery_inputs(DOC, expand=_expand_ids), gravedad=gravedad)
+        return delivery_report(**delivery_inputs(S.doc, expand=_expand_ids), gravedad=gravedad)
 
 
 # -------------------------------------------------------------------- robótica
@@ -1923,7 +1915,7 @@ def get_kinematics() -> dict:
     from apolo.robotics import joints_payload
 
     with STATE_LOCK:
-        return joints_payload(DOC)
+        return joints_payload(S.doc)
 
 
 def _remove_owner_command(items: dict, name: str, cmd_type: str, missing: str, foreign: str):
@@ -1933,16 +1925,16 @@ def _remove_owner_command(items: dict, name: str, cmd_type: str, missing: str, f
     item = items.get(name)
     if item is None:
         raise HTTPException(status_code=404, detail=missing)
-    cmd = next((c for c in DOC.commands if c["id"] == item["command_id"]), None)
+    cmd = next((c for c in S.doc.commands if c["id"] == item["command_id"]), None)
     if cmd is None or cmd["type"] != cmd_type:
         raise HTTPException(status_code=400, detail=foreign)
-    return DOC.remove_commands([item["command_id"]])
+    return S.doc.remove_commands([item["command_id"]])
 
 
 @app.delete("/api/joints/{name}")
 def delete_joint(name: str) -> dict:
     return _state_or_error(lambda: _remove_owner_command(
-        DOC.joints, name, "add_joint", f"No existe la junta '{name}'",
+        S.doc.joints, name, "add_joint", f"No existe la junta '{name}'",
         "Esta junta pertenece a una plantilla (p. ej. un brazo): edita o elimina su comando"))
 
 
@@ -1952,14 +1944,14 @@ def get_mates() -> list[dict]:
     with STATE_LOCK:
         return [
             {k: v for k, v in m.items() if k not in ("ref_a", "ref_b")}
-            for m in DOC.mates.values()
+            for m in S.doc.mates.values()
         ]
 
 
 @app.delete("/api/mates/{name}")
 def delete_mate(name: str) -> dict:
     return _state_or_error(lambda: _remove_owner_command(
-        DOC.mates, name, "add_mate", f"No existe el mate '{name}'", "Este mate pertenece a una plantilla"))
+        S.doc.mates, name, "add_mate", f"No existe el mate '{name}'", "Este mate pertenece a una plantilla"))
 
 
 # ------------------------------------------------- restricciones de riel (lazo cerrado)
@@ -1970,7 +1962,7 @@ class SolveIn(BaseModel):
 @app.get("/api/constraints")
 def get_constraints() -> list[dict]:
     with STATE_LOCK:
-        return list(DOC.constraints.values())
+        return list(S.doc.constraints.values())
 
 
 @app.post("/api/constraints/solve")
@@ -1981,16 +1973,16 @@ def solve_constraints_endpoint(body: SolveIn) -> dict:
     from apolo.assembly.constraints import solve_constraints
 
     with STATE_LOCK:
-        return {"values": solve_constraints(DOC.joints, DOC.constraints, body.values)}
+        return {"values": solve_constraints(S.doc.joints, S.doc.constraints, body.values)}
 
 
 @app.delete("/api/constraints/{name}")
 def delete_constraint(name: str) -> dict:
     with STATE_LOCK:
-        con = DOC.constraints.get(name)
+        con = S.doc.constraints.get(name)
     if con is None:
         raise HTTPException(status_code=404, detail=f"No existe la restricción '{name}'")
-    return _state_or_error(lambda: DOC.remove_commands([con["command_id"]]))
+    return _state_or_error(lambda: S.doc.remove_commands([con["command_id"]]))
 
 
 # ----------------------------------------- conectividad / validación de ensamblaje
@@ -2003,8 +1995,8 @@ def get_connectivity() -> dict:
     """Uniones declaradas del documento: fijadores (A↔B) y anclajes a tierra."""
     with STATE_LOCK:
         return {
-            "fasteners": list(DOC.fasteners.values()),
-            "grounds": list(DOC.grounds.values()),
+            "fasteners": list(S.doc.fasteners.values()),
+            "grounds": list(S.doc.grounds.values()),
         }
 
 
@@ -2015,25 +2007,25 @@ def assembly_autodetect() -> dict:
     from apolo.assembly.autodetect import detect_connections
 
     with STATE_LOCK:
-        return detect_connections(DOC.scene)
+        return detect_connections(S.doc.scene)
 
 
 @app.delete("/api/fasteners/{name}")
 def delete_fastener(name: str) -> dict:
     with STATE_LOCK:
-        f = DOC.fasteners.get(name)
+        f = S.doc.fasteners.get(name)
     if f is None:
         raise HTTPException(status_code=404, detail=f"No existe el fijador '{name}'")
-    return _state_or_error(lambda: DOC.remove_commands([f["command_id"]]))
+    return _state_or_error(lambda: S.doc.remove_commands([f["command_id"]]))
 
 
 @app.delete("/api/grounds/{name}")
 def delete_ground(name: str) -> dict:
     with STATE_LOCK:
-        g = DOC.grounds.get(name)
+        g = S.doc.grounds.get(name)
     if g is None:
         raise HTTPException(status_code=404, detail=f"No existe el anclaje '{name}'")
-    return _state_or_error(lambda: DOC.remove_commands([g["command_id"]]))
+    return _state_or_error(lambda: S.doc.remove_commands([g["command_id"]]))
 
 
 class ConnectionsRemoveIn(BaseModel):
@@ -2054,12 +2046,12 @@ def remove_connections(body: ConnectionsRemoveIn) -> dict:
     def run():
         ids: list[str] = []
         for name in names:
-            if name in DOC.fasteners:
-                conn, tipo = DOC.fasteners[name], "fijador"
-            elif name in DOC.grounds:
-                conn, tipo = DOC.grounds[name], "anclaje"
+            if name in S.doc.fasteners:
+                conn, tipo = S.doc.fasteners[name], "fijador"
+            elif name in S.doc.grounds:
+                conn, tipo = S.doc.grounds[name], "anclaje"
             else:
-                validas = sorted(set(DOC.fasteners) | set(DOC.grounds))
+                validas = sorted(set(S.doc.fasteners) | set(S.doc.grounds))
                 raise HTTPException(
                     status_code=404,
                     detail=f"No existe la unión '{name}' — no se borró ninguna. "
@@ -2067,7 +2059,7 @@ def remove_connections(body: ConnectionsRemoveIn) -> dict:
                 )
             borradas.append({"name": name, "tipo": tipo})
             ids.append(conn["command_id"])
-        return DOC.remove_commands(list(dict.fromkeys(ids)))
+        return S.doc.remove_commands(list(dict.fromkeys(ids)))
 
     payload = _state_or_error(run)
     payload["conexiones_borradas"] = borradas
@@ -2084,10 +2076,10 @@ def assembly_declare() -> dict:
     from apolo.batch import execute_batch
 
     with STATE_LOCK:
-        det = detect_structure(DOC.scene)
-        existing_names = set(DOC.fasteners) | set(DOC.grounds)
-        ground_feats = {g["feature"] for g in DOC.grounds.values()}
-        pairs = {frozenset((f["a"], f["b"])) for f in DOC.fasteners.values()}
+        det = detect_structure(S.doc.scene)
+        existing_names = set(S.doc.fasteners) | set(S.doc.grounds)
+        ground_feats = {g["feature"] for g in S.doc.grounds.values()}
+        pairs = {frozenset((f["a"], f["b"])) for f in S.doc.fasteners.values()}
 
         def uniq(prefix: str) -> str:
             i = 1
@@ -2114,7 +2106,7 @@ def assembly_declare() -> dict:
                 "nota": (f.get("reason") or "")[:120]}})
         if not actions:
             return _state_or_error(lambda: None)
-        return _state_or_error(lambda: execute_batch(DOC, actions))
+        return _state_or_error(lambda: execute_batch(S.doc, actions))
 
 
 class AutoGroupIn(BaseModel):
@@ -2132,11 +2124,11 @@ def assembly_auto_group(body: AutoGroupIn) -> dict:
     from apolo.library.catalog import CATALOG
 
     with STATE_LOCK:
-        proposal = propose_groups(DOC.scene, DOC.commands, CATALOG, DOC.groups)
+        proposal = propose_groups(S.doc.scene, S.doc.commands, CATALOG, S.doc.groups)
         if body.dry_run or not proposal:
             return {"dry_run": body.dry_run, "proposal": proposal, "created": 0}
         actions = [{"type": "create_group", "params": g} for g in proposal]
-        payload = _state_or_error(lambda: execute_batch(DOC, actions))
+        payload = _state_or_error(lambda: execute_batch(S.doc, actions))
     payload["proposal"] = proposal
     payload["created"] = len(proposal)
     return payload
@@ -2156,16 +2148,16 @@ def assembly_soundness(body: SoundnessIn) -> dict:
         extra_grounds: set = set()
         detected = None
         if body.with_autodetect:
-            detected = detect_connections(DOC.scene)
+            detected = detect_connections(S.doc.scene)
             extra_edges = [(c["a"], c["b"], "contacto", "") for c in detected["fasteners"]]
             extra_grounds = {g["feature"] for g in detected["grounds"]}
         graph = build_graph(
-            DOC.scene, DOC.joints, DOC.mates, DOC.fasteners, DOC.grounds,
+            S.doc.scene, S.doc.joints, S.doc.mates, S.doc.fasteners, S.doc.grounds,
             extra_edges=extra_edges, extra_grounds=extra_grounds,
         )
         report = soundness_report(graph)
         report["floating_detail"] = [
-            {"id": fid, "nombre": getattr(DOC.scene[fid], "name", fid)}
+            {"id": fid, "nombre": getattr(S.doc.scene[fid], "name", fid)}
             for fid in report["floating"]
         ]
         if detected is not None:
@@ -2184,7 +2176,7 @@ def assembly_dof() -> dict:
     from apolo.assembly.dof import dof_report
 
     with STATE_LOCK:
-        return dof_report(DOC.scene, DOC.joints, DOC.mates, DOC.grounds)
+        return dof_report(S.doc.scene, S.doc.joints, S.doc.mates, S.doc.grounds)
 
 
 class StabilityIn(BaseModel):
@@ -2206,7 +2198,7 @@ def _stability(body: StabilityIn) -> dict:
     try:
         with STATE_LOCK:
             snap = prepare_stability(
-                DOC.scene, DOC.joints, DOC.mates, DOC.fasteners, DOC.grounds,
+                S.doc.scene, S.doc.joints, S.doc.mates, S.doc.fasteners, S.doc.grounds,
                 seconds=body.seconds, gravity=body.gravity, fps=body.fps,
                 with_autodetect=body.with_autodetect, exclude=body.exclude,
             )
@@ -2239,7 +2231,7 @@ def assembly_stability_gif(body: StabilityIn) -> Response:
         raise HTTPException(status_code=400, detail=res.get("mensaje", "nada que simular"))
     dynamic_ids = {p["id"] for p in res["products"]}
     with STATE_LOCK:  # el GIF tesela la escena estática de fondo (OCCT) → bajo el lock
-        static_scene = {fid: f for fid, f in DOC.scene.items() if fid not in dynamic_ids}
+        static_scene = {fid: f for fid, f in S.doc.scene.items() if fid not in dynamic_ids}
         gif = render_drop_gif(static_scene, res["products"], res["frames"], fps=body.fps)
     return Response(content=gif, media_type="image/gif")
 
@@ -2264,7 +2256,7 @@ def _motion_studies() -> list[dict]:
 
     return [
         {"name": n, "keyframes": kfs, "duration": duration(kfs)}
-        for n, kfs in sorted(DOC.motion.items())
+        for n, kfs in sorted(S.doc.motion.items())
     ]
 
 
@@ -2278,7 +2270,7 @@ def get_motion() -> dict:
 def put_motion(body: MotionIn) -> dict:
     with STATE_LOCK:
         try:
-            DOC.set_motion(body.name, body.keyframes)
+            S.doc.set_motion(body.name, body.keyframes)
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         _autosave()
@@ -2288,7 +2280,7 @@ def put_motion(body: MotionIn) -> dict:
 @app.delete("/api/motion")
 def delete_motion(body: MotionDeleteIn) -> dict:
     with STATE_LOCK:
-        DOC.delete_motion(body.name)
+        S.doc.delete_motion(body.name)
         _autosave()
         return {"ok": True, "studies": _motion_studies()}
 
@@ -2301,18 +2293,18 @@ class RequirementsIn(BaseModel):
 @app.get("/api/requirements")
 def get_requirements() -> dict:
     with STATE_LOCK:
-        return {"requirements": DOC.requirements}
+        return {"requirements": S.doc.requirements}
 
 
 @app.put("/api/requirements")
 def put_requirements(body: RequirementsIn) -> dict:
     with STATE_LOCK:
         try:
-            DOC.set_requirements(body.fields)
+            S.doc.set_requirements(body.fields)
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         _autosave()
-        return {"ok": True, "requirements": DOC.requirements}
+        return {"ok": True, "requirements": S.doc.requirements}
 
 
 # ------------------------------------------------ cadenas de cotas / stack-up (V7.3)
@@ -2329,7 +2321,7 @@ class StackupDeleteIn(BaseModel):
 def _stackup_rules() -> list[dict]:
     """Envoltorio de compatibilidad (D4 del plan partir-api-main): las reglas de stack-up
     del documento ACTIVO (`services.stackup_eval.stackup_rules`). Bajo STATE_LOCK."""
-    return stackup_rules(DOC)
+    return stackup_rules(S.doc)
 
 
 @app.get("/api/stackup")
@@ -2340,7 +2332,7 @@ def get_stackup(scope: str = "all") -> dict:
         raise HTTPException(status_code=400,
                             detail=f"scope '{scope}' inválido (usa all | declared | auto)")
     with STATE_LOCK:
-        chains = evaluate_stackups(DOC, scope)  # aislada por cadena: nunca lanza por una mala
+        chains = evaluate_stackups(S.doc, scope)  # aislada por cadena: nunca lanza por una mala
     # el `ok` global pesa las cadenas CON veredicto (declaradas + join_bolted) — y una
     # cadena DECLARADA en error también lo baja (declaraste algo que no se puede verificar);
     # las informativas (pernos manuales sin tolerancia de posición) no cuentan.
@@ -2356,20 +2348,20 @@ def get_stackup(scope: str = "all") -> dict:
 @app.put("/api/stackup")
 def put_stackup(body: StackupIn) -> dict:
     with STATE_LOCK:
-        prev = DOC.stackups.get(body.name)  # para rollback si la cadena no evalúa
+        prev = S.doc.stackups.get(body.name)  # para rollback si la cadena no evalúa
         try:
-            DOC.set_stackup(body.name, body.eslabones, body.requisito)
+            S.doc.set_stackup(body.name, body.eslabones, body.requisito)
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        chains = evaluate_stackups(DOC, "declared")
+        chains = evaluate_stackups(S.doc, "declared")
         mine = next((c for c in chains if c.get("name") == body.name.strip()), None)
         if mine is not None and mine.get("error"):
             # V7.3 auditoría: una cadena que NO evalúa no se persiste (antes quedaba
             # guardada y envenenaba GET/memoria para siempre) — rollback + 400.
             if prev is None:
-                DOC.stackups.pop(body.name.strip(), None)
+                S.doc.stackups.pop(body.name.strip(), None)
             else:
-                DOC.stackups[body.name.strip()] = prev
+                S.doc.stackups[body.name.strip()] = prev
             raise HTTPException(status_code=400,
                                 detail=f"La cadena no evalúa (no se guardó): {mine['error']}")
         _autosave()
@@ -2379,7 +2371,7 @@ def put_stackup(body: StackupIn) -> dict:
 @app.delete("/api/stackup")
 def delete_stackup(body: StackupDeleteIn) -> dict:
     with STATE_LOCK:
-        DOC.delete_stackup(body.name)
+        S.doc.delete_stackup(body.name)
         _autosave()
         return {"ok": True}
 
@@ -2403,9 +2395,9 @@ def scan_motion(body: ScanIn) -> dict:
     from apolo.robotics.motion import scan_collisions
 
     with STATE_LOCK:
-        kfs = DOC.motion.get(body.name, [])
+        kfs = S.doc.motion.get(body.name, [])
         _motion_values_or_400(body.name, kfs)
-        return {"colisiones": scan_collisions(DOC, kfs, body.steps)}
+        return {"colisiones": scan_collisions(S.doc, kfs, body.steps)}
 
 
 class MotionGifIn(BaseModel):
@@ -2430,9 +2422,9 @@ def motion_gif(body: MotionGifIn) -> Response:
     from apolo.robotics.anim import extract_motion_frames, render_motion_gif
 
     with STATE_LOCK:  # FASE OCCT: FK + teselado → snapshots de datos PUROS
-        kfs = DOC.motion.get(body.name)
+        kfs = S.doc.motion.get(body.name)
         if not kfs:
-            disponibles = ", ".join(sorted(DOC.motion)) or "ninguno"
+            disponibles = ", ".join(sorted(S.doc.motion)) or "ninguno"
             raise HTTPException(
                 status_code=404,
                 detail=f"No existe el estudio de movimiento '{body.name}' (hay: {disponibles})",
@@ -2440,7 +2432,7 @@ def motion_gif(body: MotionGifIn) -> Response:
         _motion_values_or_400(body.name, kfs)
         try:
             snaps = extract_motion_frames(
-                DOC, kfs, steps=body.steps, pingpong=body.pingpong,
+                S.doc, kfs, steps=body.steps, pingpong=body.pingpong,
                 view=body.view, azimuth=body.azimuth, elevation=body.elevation,
                 zoom=body.zoom, size_px=body.size_px, colors=_feature_colors(),
                 edges=body.edges,
@@ -2460,7 +2452,7 @@ def motion_gif(body: MotionGifIn) -> Response:
 def _robot_export(builder) -> bytes:
     with STATE_LOCK:
         try:
-            return builder(DOC)
+            return builder(S.doc)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -2473,7 +2465,7 @@ def export_urdf() -> Response:
     return Response(
         content=data,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "robot"}-urdf.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "robot"}-urdf.zip"'},
     )
 
 
@@ -2485,7 +2477,7 @@ def export_sdf() -> Response:
     return Response(
         content=data,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "robot"}-sdf.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "robot"}-sdf.zip"'},
     )
 
 
@@ -2553,7 +2545,7 @@ def test_script_endpoint(body: ScriptTestIn) -> dict:
     from apolo.sandbox import ScriptError, run_script_to_shape
 
     with STATE_LOCK:
-        variables = dict(DOC.variables_resolved)
+        variables = dict(S.doc.variables_resolved)
     try:
         shape = run_script_to_shape(body.code, variables)
         return {"ok": True, "volume_mm3": round(float(shape.volume), 1), "bbox": bbox_payload(shape)}
@@ -2627,9 +2619,9 @@ def render_png(
     if vtk_only and view_list:
         raise HTTPException(status_code=400, detail="vtk_only no soporta multivista (views); usa matplotlib o llamadas por vista")
     with STATE_LOCK:
-        scene = DOC.scene
+        scene = S.doc.scene
         if isolate_ids:
-            scene = {fid: DOC.scene[fid] for fid in isolate_ids if fid in DOC.scene}
+            scene = {fid: S.doc.scene[fid] for fid in isolate_ids if fid in S.doc.scene}
             if not scene:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
         override = None
@@ -2643,8 +2635,8 @@ def render_png(
             from apolo.assembly.constraints import solve_constraints
             from apolo.robotics.pose import posed_shapes
 
-            vals = solve_constraints(DOC.joints, DOC.constraints, vals)
-            override, _ = posed_shapes(DOC, vals)
+            vals = solve_constraints(S.doc.joints, S.doc.constraints, vals)
+            override, _ = posed_shapes(S.doc, vals)
         # COTA: distancia mínima entre dos piezas → la dibuja la vía VTK encima de la geometría.
         # Usa las shapes RENDERIZADAS (override si hay pose) para que coincida con lo que se ve.
         dimension = None
@@ -2655,7 +2647,7 @@ def render_png(
             if len(parts) != 2:
                 raise HTTPException(status_code=400, detail="measure: pasa exactamente dos ids 'a,b'")
             a_id, b_id = parts
-            fa, fb = DOC.scene.get(a_id), DOC.scene.get(b_id)
+            fa, fb = S.doc.scene.get(a_id), S.doc.scene.get(b_id)
             if fa is None or fb is None:
                 missing = a_id if fa is None else b_id
                 raise HTTPException(status_code=404, detail=f"measure: no existe el sólido '{missing}'")
@@ -2732,7 +2724,7 @@ def resolve_expression_endpoint(expr: str) -> dict:
     from apolo.commands.expressions import ExpressionError, eval_expression
 
     with STATE_LOCK:
-        variables = dict(DOC.variables_resolved)
+        variables = dict(S.doc.variables_resolved)
     try:
         value = eval_expression(expr, variables)
         return {"ok": True, "value": round(float(value), 9), "expression": expr}
@@ -2747,7 +2739,7 @@ def expression_grammar() -> dict:
     from apolo.commands.expressions import ALLOWED_CONSTANTS, ALLOWED_FUNCS
 
     with STATE_LOCK:
-        project_vars = sorted(DOC.variables_resolved)
+        project_vars = sorted(S.doc.variables_resolved)
     return {
         "functions": sorted(ALLOWED_FUNCS),
         "constants": sorted(ALLOWED_CONSTANTS),
@@ -2801,7 +2793,7 @@ def _drop(body: DropIn) -> dict:
     products = [p.model_dump() for p in body.products]
     try:
         with STATE_LOCK:
-            snap = prepare_drop(DOC.scene, products, body.seconds, body.gravity, body.fps)
+            snap = prepare_drop(S.doc.scene, products, body.seconds, body.gravity, body.fps)
         with PHYSICS_LOCK:
             return simulate_drop(snap)
     except PhysicsError as exc:
@@ -2819,7 +2811,7 @@ def physics_drop_gif(body: DropIn) -> Response:
 
     res = _drop(body)
     with STATE_LOCK:
-        gif = render_drop_gif(DOC.scene, res["products"], res["frames"], fps=body.fps)
+        gif = render_drop_gif(S.doc.scene, res["products"], res["frames"], fps=body.fps)
     return Response(content=gif, media_type="image/gif")
 
 
@@ -2875,7 +2867,7 @@ _LAST_FEA_OWNER: tuple | None = None
 def _fea_owner() -> tuple:
     """Identidad del documento activo (PROJECT_ID, DOC) para el patrón dos-locks del
     FEA: se captura en la fase (a), BAJO STATE_LOCK, y se revalida en la (c)."""
-    return (PROJECT_ID, DOC)
+    return (S.project_id, S.doc)
 
 
 def _persist_fea_if_same_project(owner: tuple, key: str, resumen: dict, field,
@@ -2891,19 +2883,19 @@ def _persist_fea_if_same_project(owner: tuple, key: str, resumen: dict, field,
     global _LAST_FEA_OWNER
     pid, doc = owner
     with STATE_LOCK:
-        if PROJECT_ID != pid or DOC is not doc:
+        if S.project_id != pid or S.doc is not doc:
             if save:
                 resumen["guardado"] = False
                 resumen["aviso"] = (
                     f"El proyecto activo cambió durante el análisis (era {pid}, ahora "
-                    f"{PROJECT_ID}): el resultado NO se guardó para no escribirlo en el "
+                    f"{S.project_id}): el resultado NO se guardó para no escribirlo en el "
                     f"documento equivocado. Abre el proyecto analizado y re-ejecuta el FEA."
                 )
             return resumen  # el campo tampoco se publica: es de otro documento
         if save:
             if before_save is not None:
-                before_save(DOC, resumen)
-            DOC.set_fea_result(key, resumen)
+                before_save(S.doc, resumen)
+            S.doc.set_fea_result(key, resumen)
             _autosave()
         _LAST_FEA_FIELD.clear()
         _LAST_FEA_FIELD[key] = field
@@ -2918,7 +2910,7 @@ def _last_fea_field(key: str):
         if field is None or _LAST_FEA_OWNER is None:
             return None
         pid, ref = _LAST_FEA_OWNER
-        if pid != PROJECT_ID or ref() is not DOC:
+        if pid != S.project_id or ref() is not S.doc:
             _LAST_FEA_FIELD.clear()  # de otro proyecto: no retener su malla
             return None
         return field
@@ -2940,7 +2932,7 @@ def _fea_static_run(body: FeaStaticIn):
 
     with STATE_LOCK:
         try:  # validación + material + selectores: services/fea_setup.py
-            prep = prepare_static(DOC, body)
+            prep = prepare_static(S.doc, body)
         except ServiceError as exc:
             raise _http_error(exc) from exc
         feat = prep["feat"]
@@ -3005,12 +2997,12 @@ def _fea_assembly_run(body: FeaAssemblyIn):
     tmp_dir = None
     with STATE_LOCK:  # la preparación es de services/fea_setup.py; el tmp dir, de aquí
         try:
-            fids, grupo = resolve_assembly_scope(DOC, body)
+            fids, grupo = resolve_assembly_scope(S.doc, body)
         except ServiceError as exc:
             raise _http_error(exc) from exc
         tmp_dir = tempfile.mkdtemp(prefix="apolo_fea_asm_step_")
         try:
-            params = prepare_assembly(DOC, body, fids, grupo, tmp_dir)
+            params = prepare_assembly(S.doc, body, fids, grupo, tmp_dir)
         except ServiceError as exc:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             raise _http_error(exc) from exc
@@ -3077,7 +3069,7 @@ def fea_assembly_png(body: FeaAssemblyIn) -> Response:
 @app.get("/api/fea/group/{name}")
 def get_fea_group(name: str) -> dict:
     with STATE_LOCK:
-        res = DOC.fea.get(f"group:{name}")
+        res = S.doc.fea.get(f"group:{name}")
         if res is None:
             raise HTTPException(status_code=404, detail="El grupo no tiene FEA guardado")
         return res
@@ -3086,7 +3078,7 @@ def get_fea_group(name: str) -> dict:
 @app.get("/api/fea/{feature_id}")
 def get_fea(feature_id: str) -> dict:
     with STATE_LOCK:
-        res = DOC.fea.get(feature_id)
+        res = S.doc.fea.get(feature_id)
         if res is None:
             raise HTTPException(status_code=404, detail="La pieza no tiene FEA guardado")
         return res
@@ -3105,7 +3097,7 @@ def get_fea_group_fringe(name: str) -> Response:
                             detail="No hay campo FEA en memoria para ese grupo: "
                                    "corre POST /api/fea/assembly primero")
     with STATE_LOCK:
-        res = DOC.fea.get(key) or {}
+        res = S.doc.fea.get(key) or {}
     title = f"von Mises [MPa] · {res.get('grupo', name)} · FS={res.get('fs')}"
     return Response(content=fringe_png(field, title=title), media_type="image/png")
 
@@ -3122,7 +3114,7 @@ def get_fea_fringe(feature_id: str) -> Response:
                             detail="No hay campo FEA en memoria para esa pieza: "
                                    "corre POST /api/fea/static primero")
     with STATE_LOCK:
-        res = DOC.fea.get(feature_id) or {}
+        res = S.doc.fea.get(feature_id) or {}
     title = f"von Mises [MPa] · {res.get('pieza', feature_id)} · FS={res.get('fs')}"
     return Response(content=fringe_png(field, title=title), media_type="image/png")
 
@@ -3130,24 +3122,24 @@ def get_fea_fringe(feature_id: str) -> Response:
 def _fea_rules() -> list[dict]:
     """Envoltorio de compatibilidad (D4 del plan partir-api-main): las reglas FEA con
     vigencia del documento ACTIVO (`services.fea_rules.fea_rules`). Bajo STATE_LOCK."""
-    return fea_rules(DOC)
+    return fea_rules(S.doc)
 
 
 # --------------------------------------------------------------------- planos
 def _feature_colors() -> dict:
     """Color por pieza IDÉNTICO al viewport web (DOC.colors asignados, o paleta por índice de
     escena) para que el sombreado del plano coincida con lo que el usuario ve en 3D."""
-    return {feat.id: DOC.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
-            for i, feat in enumerate(DOC.scene.values())}
+    return {feat.id: S.doc.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
+            for i, feat in enumerate(S.doc.scene.values())}
 
 
 def _drawing_meta() -> dict:
     """Cajetín: nº de plano (id de proyecto) + revisiones del proyecto (SQLite)."""
-    meta: dict = {"drawing_no": str(PROJECT_ID) if PROJECT_ID is not None else "—"}
-    store = STORE
-    if store is not None and PROJECT_ID is not None:
+    meta: dict = {"drawing_no": str(S.project_id) if S.project_id is not None else "—"}
+    store = S.store
+    if store is not None and S.project_id is not None:
         try:
-            revs = store.list_revisions(PROJECT_ID)
+            revs = store.list_revisions(S.project_id)
             meta["revisions"] = [
                 {"rev": i + 1, "date": r.get("created_at", r.get("date", "")), "note": r.get("note", "")}
                 for i, r in enumerate(revs)
@@ -3164,9 +3156,9 @@ def _sheet_model(sheet: str, hidden: bool, dims: str = "", section: bool = False
     with STATE_LOCK:
         try:
             return compose_sheet(
-                DOC.scene, sheet=sheet, include_hidden=hidden, project_name=DOC.name,
+                S.doc.scene, sheet=sheet, include_hidden=hidden, project_name=S.doc.name,
                 dims_features=dims_features, section=section, bom=bom, meta=_drawing_meta(),
-                fasteners=DOC.fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 (no-op sin cordones)
+                fasteners=S.doc.fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 (no-op sin cordones)
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -3189,7 +3181,7 @@ def drawing_dxf(sheet: str = "A3", hidden: bool = False, dims: str = "", section
     return Response(
         content=sheet_to_dxf(_sheet_model(sheet, hidden, dims, section, bom)),
         media_type="application/dxf",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "plano"}.dxf"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "plano"}.dxf"'},
     )
 
 
@@ -3201,10 +3193,10 @@ def _sheetmetal_flat(feature_id: str):
     from apolo.library.sheetmetal import flat_pattern
 
     with STATE_LOCK:
-        feat = DOC.scene.get(feature_id)
+        feat = S.doc.scene.get(feature_id)
         if feat is None:
             raise HTTPException(status_code=404, detail=f"No existe el sólido '{feature_id}'")
-        cmd = next((c for c in DOC.commands if c["id"] == feat.command_id), None)
+        cmd = next((c for c in S.doc.commands if c["id"] == feat.command_id), None)
         if cmd is None or cmd["type"] != "create_sheet_metal":
             raise HTTPException(status_code=400, detail=f"'{feature_id}' no es una chapa metálica")
         try:
@@ -3212,10 +3204,10 @@ def _sheetmetal_flat(feature_id: str):
             from apolo.library.materials import resolve_material
             from apolo.library.sheetmetal import flaps_from_specs, k_for_material
 
-            p = SheetMetalParams.model_validate(resolve_params(cmd["params"], DOC.variables_resolved))
+            p = SheetMetalParams.model_validate(resolve_params(cmd["params"], S.doc.variables_resolved))
             # K-factor: explícito gana; si no, por MATERIAL de la pieza (V5.5)
             k = p.k_factor if p.k_factor is not None else k_for_material(
-                resolve_material(feat, CATALOG, DOC.default_material())
+                resolve_material(feat, CATALOG, S.doc.default_material())
             )
             return p.name, flat_pattern(
                 p.name, p.ancho, p.fondo, p.espesor, p.lados,
@@ -3271,7 +3263,7 @@ def drawing_pdf(sheet: str = "A3", hidden: bool = False, dims: str = "", section
     return Response(
         content=sheet_to_pdf(_sheet_model(sheet, hidden, dims, section, bom)),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "plano"}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "plano"}.pdf"'},
     )
 
 
@@ -3283,11 +3275,11 @@ def cutlist_json() -> dict:
     from apolo.library.cutlist import cut_list, cut_list_totals, hardware_schedule
 
     with STATE_LOCK:
-        rows = cut_list(DOC.scene)
+        rows = cut_list(S.doc.scene)
         return {
             "lista_de_corte": rows,
             "totales": cut_list_totals(rows),
-            "herraje": hardware_schedule(DOC.scene),
+            "herraje": hardware_schedule(S.doc.scene),
         }
 
 
@@ -3296,7 +3288,7 @@ def cutlist_csv_endpoint() -> Response:
     from apolo.library.cutlist import cut_list, cut_list_csv, cut_list_totals
 
     with STATE_LOCK:
-        rows = cut_list(DOC.scene)
+        rows = cut_list(S.doc.scene)
         text = cut_list_csv(rows, cut_list_totals(rows))
     return Response(
         content=text, media_type="text/csv",
@@ -3309,7 +3301,7 @@ def _nesting_model(mode: str, stock_w: float, stock_h: float, material: str | No
     from apolo.library.nesting import nest_1d, nest_2d, nesting_sheet_1d, nesting_sheet_2d
 
     with STATE_LOCK:
-        rows = [r for r in cut_list(DOC.scene) if not material or r["material"] == material]
+        rows = [r for r in cut_list(S.doc.scene) if not material or r["material"] == material]
     if mode == "1d":
         lengths = [r["largo_mm"] for r in rows for _ in range(r["cantidad"])]
         bars = nest_1d(lengths, stock_w, kerf)
@@ -3356,7 +3348,7 @@ def nesting_json(
     from apolo.library.nesting import nest_1d, nest_2d, waste_1d, waste_2d
 
     with STATE_LOCK:
-        rows = [r for r in cut_list(DOC.scene) if not material or r["material"] == material]
+        rows = [r for r in cut_list(S.doc.scene) if not material or r["material"] == material]
     if mode == "1d":
         lengths = [r["largo_mm"] for r in rows for _ in range(r["cantidad"])]
         bars = nest_1d(lengths, stock_w, kerf)
@@ -3377,14 +3369,14 @@ def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool =
 
     with STATE_LOCK:
         try:
-            pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
+            pages = sheet_set(S.doc.scene, project_name=S.doc.name, template=template,
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
-                              colors=_feature_colors(), **sheet_set_maps(DOC))
+                              colors=_feature_colors(), **sheet_set_maps(S.doc))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "juego"}-planos.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "juego"}-planos.pdf"'},
     )
 
 
@@ -3399,12 +3391,12 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
 
     with STATE_LOCK:
         try:
-            pages = sheet_set(DOC.scene, project_name=DOC.name, template=template,
+            pages = sheet_set(S.doc.scene, project_name=S.doc.name, template=template,
                               meta=_drawing_meta(), sheet=sheet,
-                              colors=_feature_colors(), **sheet_set_maps(DOC))
+                              colors=_feature_colors(), **sheet_set_maps(S.doc))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        base = (DOC.name or "juego").replace("/", "-")
+        base = (S.doc.name or "juego").replace("/", "-")
     buf = _io.BytesIO()
     try:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -3441,7 +3433,7 @@ def calc_report_pdf(
 
     with STATE_LOCK:
         req, carga, largo_paq, ancho_paq = requirement_inputs(
-            DOC, carga_kg, largo_paquete_mm, ancho_paquete_mm)
+            S.doc, carga_kg, largo_paquete_mm, ancho_paquete_mm)
         velocidad = velocidad_m_s if velocidad_m_s is not None else float(req.get("velocidad_m_s") or 0)
         # carga/largo de paquete son requisitos del VERTICAL transportadores: sin ellos se
         # omiten las reglas de conveyor y la memoria se emite igual con las verificaciones
@@ -3451,13 +3443,13 @@ def calc_report_pdf(
         sin_req_conveyor = not carga or not largo_paq
         rules: list[dict] = []
         conveyor = None if sin_req_conveyor else (
-            conveyor_params_from_doc(DOC) or detect_conveyor(DOC.scene, DOC.variables_resolved))
+            conveyor_params_from_doc(S.doc) or detect_conveyor(S.doc.scene, S.doc.variables_resolved))
         if conveyor:
             inherit_inclination(conveyor, req)
             rules += conv_check(conveyor, carga_kg=carga, largo_paquete_mm=largo_paq,
                                 velocidad_m_s=velocidad, ancho_paquete_mm=ancho_paq)
         # estructura/uniones/vuelco + página FEA en la memoria (con chequeo de vigencia)
-        rules += structure_rules(DOC, carga, conveyor)
+        rules += structure_rules(S.doc, carga, conveyor)
         rules += _stackup_rules()  # V7.3: cadenas de cotas (stack-up) declaradas/auto
         if sin_req_conveyor:
             # DECLARAR lo omitido: una memoria que calla lo que no verificó miente por
@@ -3472,7 +3464,7 @@ def calc_report_pdf(
                 "recomendacion": "Declara los requisitos con set_requirements si el equipo "
                                  "transporta producto.",
             })
-        hay_piezas = any(getattr(f, "visible", True) for f in DOC.scene.values())
+        hay_piezas = any(getattr(f, "visible", True) for f in S.doc.scene.values())
         if not rules or not hay_piezas:
             raise HTTPException(
                 status_code=400,
@@ -3481,7 +3473,7 @@ def calc_report_pdf(
             )
         png = None
         try:
-            vis = {fid: f for fid, f in DOC.scene.items() if getattr(f, "visible", True)}
+            vis = {fid: f for fid, f in S.doc.scene.items() if getattr(f, "visible", True)}
             if vis:
                 png = render_scene_png(vis, view="iso", size_px=620, clean=True,
                                        colors=_feature_colors())
@@ -3503,12 +3495,12 @@ def calc_report_pdf(
             req_efectivos["ancho_paquete_mm"] = ancho_paq
         if velocidad:
             req_efectivos["velocidad_m_s"] = velocidad
-        pages = calc_report(DOC.scene, rules=rules, requirements=req_efectivos,
-                            project_name=DOC.name or "Sin título", png=png, meta=meta,
+        pages = calc_report(S.doc.scene, rules=rules, requirements=req_efectivos,
+                            project_name=S.doc.name or "Sin título", png=png, meta=meta,
                             sheet=sheet)
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "proyecto"}-memoria-calculo.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-memoria-calculo.pdf"'},
     )
 
 
@@ -3525,17 +3517,17 @@ def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
     from apolo.drawing.quote import quotation_pages
 
     with STATE_LOCK:
-        req = DOC.requirements or {}
+        req = S.doc.requirements or {}
         cur = currency or str(req.get("moneda") or "USD")
         fx_eff = fx if fx is not None else float(req.get("tipo_cambio") or 1.0)
         pages = quotation_pages(
-            DOC.scene, project_name=DOC.name or "Sin título",
-            requirements=DOC.requirements, margin_pct=margin_pct, tax_pct=tax_pct,
+            S.doc.scene, project_name=S.doc.name or "Sin título",
+            requirements=S.doc.requirements, margin_pct=margin_pct, tax_pct=tax_pct,
             currency=cur, fx=fx_eff, meta=_drawing_meta(),
         )
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "proyecto"}-cotizacion.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-cotizacion.pdf"'},
     )
 
 
@@ -3550,19 +3542,19 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
     from apolo.drawing import assembly_manual, sheets_to_pdf
 
     with STATE_LOCK:
-        scene = DOC.scene
+        scene = S.doc.scene
         if isolate:
             ids = _expand_ids(isolate) or []  # acepta NOMBRES de grupo (V5.2)
-            scene = {fid: DOC.scene[fid] for fid in ids if fid in DOC.scene}
+            scene = {fid: S.doc.scene[fid] for fid in ids if fid in S.doc.scene}
             if not scene:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
         try:
-            pages = assembly_manual(scene, commands=DOC.commands, project_name=title or DOC.name,
+            pages = assembly_manual(scene, commands=S.doc.commands, project_name=title or S.doc.name,
                                     sheet=sheet, meta=_drawing_meta(), colors=_feature_colors(),
                                     size_px=size_px)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-    fname = (title or DOC.name or "manual").encode("ascii", "ignore").decode() or "manual"
+    fname = (title or S.doc.name or "manual").encode("ascii", "ignore").decode() or "manual"
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}-ensamblaje.pdf"'},
@@ -3630,7 +3622,7 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
     from apolo.drawing import compose_sheet, sheet_to_dxf, sheet_to_pdf, sheet_to_svg
 
     with STATE_LOCK:
-        scene = DOC.scene
+        scene = S.doc.scene
         if spec.isolate:
             iso = _expand_ids(spec.isolate) or []  # acepta NOMBRES de grupo (V5.2)
             scene = {fid: scene[fid] for fid in iso if fid in scene}
@@ -3638,13 +3630,13 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
         # el mapa de fits se construye desde la escena EFECTIVA (post-isolate): aislar un
         # solo eje muestra SU fit sin conflicto con otro Ø igual del resto (V7.2c)
-        fits_map = _scene_fit_map(DOC, scene)
+        fits_map = _scene_fit_map(S.doc, scene)
         for k, v in (spec.hole_fits or {}).items():  # override del agente encima del auto
             try:
                 fits_map[float(k)] = v
             except (TypeError, ValueError):
                 raise HTTPException(status_code=400, detail=f"hole_fits: clave '{k}' no es un Ø numérico") from None
-        threads_map = _hole_thread_map(DOC)
+        threads_map = _hole_thread_map(S.doc)
         for k, v in (spec.hole_threads or {}).items():  # override espejo (V5.7)
             try:
                 threads_map[float(k)] = v
@@ -3652,7 +3644,7 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
                 raise HTTPException(status_code=400, detail=f"hole_threads: clave '{k}' no es un Ø numérico") from None
         try:
             model = compose_sheet(
-                scene, sheet=spec.sheet, include_hidden=spec.include_hidden, project_name=DOC.name,
+                scene, sheet=spec.sheet, include_hidden=spec.include_hidden, project_name=S.doc.name,
                 dims_features=spec.dims or None, section=spec.section or False, bom=spec.bom,
                 detail=spec.detail, datum_dims=spec.datum_dims or None,
                 cutlist=spec.cutlist, member_detail=spec.member_detail,
@@ -3661,7 +3653,7 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
                 notes=spec.notes or None, assembly_notes=spec.assembly_notes,
                 shaded=spec.shaded, colors=_feature_colors(),
                 hole_fits=fits_map or None, hole_threads=threads_map or None,
-                fasteners=DOC.fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 en el conjunto/GA
+                fasteners=S.doc.fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 en el conjunto/GA
                 meta={**_drawing_meta(), **(spec.meta or {})},
             )
         except ValueError as exc:
@@ -3681,7 +3673,7 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
         return Response(content=data, media_type="application/acad",
                         headers={"Content-Disposition": "attachment; filename=plano.dwg"})
     return Response(content=sheet_to_pdf(model), media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="{DOC.name or "plano"}.pdf"'})
+                    headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "plano"}.pdf"'})
 
 
 # ----------------------------------------------------------------- export / io
@@ -3693,11 +3685,11 @@ async def import_step_file(file: UploadFile, split: bool = False) -> dict:
     name = (file.filename or "Importado").rsplit(".", 1)[0][:40]
 
     def run():
-        digest = DOC.add_attachment(data)
+        digest = S.doc.add_attachment(data)
         try:
-            DOC.execute("import_step", {"attachment": digest, "name": name, "split": split})
+            S.doc.execute("import_step", {"attachment": digest, "name": name, "split": split})
         except Exception:
-            DOC.attachments.pop(digest, None)
+            S.doc.attachments.pop(digest, None)
             raise
 
     return _state_or_error(run)
@@ -3706,12 +3698,12 @@ async def import_step_file(file: UploadFile, split: bool = False) -> dict:
 @app.get("/api/export/step")
 def export_step() -> FileResponse:
     with STATE_LOCK:
-        shapes = [f.shape for f in DOC.scene.values() if f.visible]
+        shapes = [f.shape for f in S.doc.scene.values() if f.visible]
         if not shapes:
             raise HTTPException(status_code=400, detail="No hay sólidos visibles que exportar")
         tmp = Path(tempfile.mkstemp(suffix=".step")[1])
         export_step_file(shapes, str(tmp))
-    return FileResponse(tmp, filename=f"{DOC.name or 'modelo'}.step", media_type="model/step")
+    return FileResponse(tmp, filename=f"{S.doc.name or 'modelo'}.step", media_type="model/step")
 
 
 @app.get("/api/export/stl")
@@ -3721,37 +3713,36 @@ def export_stl_endpoint(tolerance: float = 0.5) -> FileResponse:
     from build123d import Compound, export_stl
 
     with STATE_LOCK:
-        shapes = [f.shape for f in DOC.scene.values() if f.visible]
+        shapes = [f.shape for f in S.doc.scene.values() if f.visible]
         if not shapes:
             raise HTTPException(status_code=400, detail="No hay sólidos visibles que exportar")
         tmp = Path(tempfile.mkstemp(suffix=".stl")[1])
         export_stl(Compound(children=shapes), str(tmp), tolerance=tolerance)
-    return FileResponse(tmp, filename=f"{DOC.name or 'modelo'}.stl", media_type="model/stl")
+    return FileResponse(tmp, filename=f"{S.doc.name or 'modelo'}.stl", media_type="model/stl")
 
 
 @app.get("/api/project/file")
 def download_project() -> Response:
     with STATE_LOCK:
-        content = DOC.to_apolo_bytes()
+        content = S.doc.to_apolo_bytes()
     return Response(
         content=content,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{DOC.name or "proyecto"}.apolo"'},
+        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}.apolo"'},
     )
 
 
 @app.post("/api/project/open")
 async def open_project(file: UploadFile) -> dict:
-    global DOC, PROJECT_ID
     data = await file.read()
     with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO
         try:
-            DOC = Document.from_apolo_bytes(data, tolerant=True)
+            S.doc = Document.from_apolo_bytes(data, tolerant=True)
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         # E2: un proyecto NUEVO en la BD — el siguiente autosave NO debe pisar el que
         # estaba abierto antes (sin esto, PROJECT_ID seguía apuntando al anterior)
-        PROJECT_ID = STORE.create(DOC) if STORE is not None else None
+        S.project_id = S.store.create(S.doc) if S.store is not None else None
         payload = scene_payload()
     WS.notify_changed()
     return payload
@@ -3763,10 +3754,9 @@ class NewProjectIn(BaseModel):
 
 @app.post("/api/project/new")
 def new_project(body: NewProjectIn) -> dict:
-    global DOC, PROJECT_ID
     with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO
-        DOC = Document(body.name)
-        PROJECT_ID = STORE.create(DOC) if STORE is not None else None  # E2: id propio
+        S.doc = Document(body.name)
+        S.project_id = S.store.create(S.doc) if S.store is not None else None  # E2: id propio
         payload = scene_payload()
     WS.notify_changed()
     return payload
@@ -3787,8 +3777,8 @@ class ChatIn(BaseModel):
 def agent_chat(body: ChatIn) -> StreamingResponse:
     messages = [m.model_dump() for m in body.messages]
     with STATE_LOCK:  # el chat queda atado al documento ACTIVO de este instante
-        pid, doc = PROJECT_ID, DOC
-    hooks = AgentHooks(alive=lambda: PROJECT_ID == pid and DOC is doc,  # revalidado bajo el lock
+        pid, doc = S.project_id, S.doc
+    hooks = AgentHooks(alive=lambda: S.project_id == pid and S.doc is doc,  # revalidado bajo el lock
                        after_mutation=lambda: _autosave(), notify=lambda: WS.notify_changed())
     return StreamingResponse(
         chat_stream(doc, messages, auto=body.auto, hooks=hooks),

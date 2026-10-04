@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F4 hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA); faltan F5a–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0–F5a hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`); faltan F5b–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -430,3 +430,33 @@ todo antes de integrar.
 - **Gate**: suite 1 554 tests (1 553 + 1 saltado, `test_two_locks`), 0 fallos, 560 s bajo
   contención; ruff limpio; `import apolo.api.main`, `apolo.services.errors` y
   `apolo.services.fea_setup` se importan solos.
+
+### F5a — sesión y módulo-proxy (2026-10-03)
+
+- **Nace `api/session.py`** (66 líneas): `Sesion` (`@dataclass(slots=True)`: `doc`, `store`,
+  `project_id`, `autosave_error`, `startup_error`, con los comentarios de las viejas
+  declaraciones), `S = Sesion()` y la clase de módulo `_MainModule` con las 5 propiedades.
+  `main.py` 3 805 → **3 795** (−10): salen las 5 declaraciones y los 6 `global` de los swaps
+  (`initialize_store`, crear/abrir/restaurar proyecto, `project/open`, `project/new`); el
+  `global AUTOSAVE_ERROR, _GEOM_MARK` de `_flush_body` queda en `global _GEOM_MARK`.
+- **Cómo se reescribió**: un script del scratchpad sustituye por POSICIÓN AST (offsets en
+  bytes UTF-8) cada nodo `Name` de los 5 nombres por `S.<campo>` —371 sitios, incluidos los
+  de f-strings— y nada más: comentarios, docstrings y textos quedan intactos (por eso no
+  cambia ninguna constante del andamio (c)). Verificado re-aplicando el script sobre `HEAD`:
+  la única diferencia con el archivo final es la cabecera (import de `S`, la línea que
+  instala la clase) y la re-alineación de una línea de continuación (`S.doc.edit_many(`).
+- **Desviación (menor)**: la clase `_MainModule` y su bucle de propiedades viven en
+  `session.py`, no en `main`; `main` sólo ejecuta `sys.modules[__name__].__class__ =
+  _MainModule`. Escrita en `main` lo hacía CRECER 8 líneas (3 805 → 3 813), y el trinquete
+  no admite subir el número. Las propiedades se crean con `setattr` y nombres en texto: una
+  clase con `DOC = property(...)` en su cuerpo violaría el propio gate AST.
+- **Gate permanente `tests/test_api_sesion.py`** (15 tests): (1) por cada nombre, `api.X =
+  v` ⇔ `S.campo is v` en los dos sentidos, y `monkeypatch.setattr` (objeto y ruta en texto)
+  se deshace; (2) `vars(apolo.api.main)` no tiene ninguno y asignar no deja copia; (3) AST
+  de `core/apolo/api/**`: ningún `Name`/`global`/`nonlocal` con esos nombres; (4) AST de
+  `tests/**`: nadie hace `from apolo.api.main import DOC|…`. (3) y (4) traen su test de que
+  cazan cada forma. Hallazgo: un test del repo trae BOM (`utf-8-sig` al leer).
+- **Ningún test se editó** (salvo el número del trinquete). Suite **1 651 + 1 saltado, 0
+  fallos**; `-m torture` **15 passed** (111 s); andamio de F1 verde SIN regenerar; ruff
+  limpio; `import apolo.api.main` y `apolo.api.session` solos; `test_claude_md` verde
+  (`api/CLAUDE.md` gana § Estado de sesión con la regla «el código nuevo lee `S.<campo>`»).

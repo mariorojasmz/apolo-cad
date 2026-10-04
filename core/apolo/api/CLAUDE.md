@@ -1,12 +1,25 @@
 # API (`core/apolo/api/`)
 
-Transporte HTTP/WS (`main.py`), jobs asíncronos (`jobs.py`) y log de errores (`errorlog.py`).
+Transporte HTTP/WS (`main.py`), estado de sesión (`session.py`), jobs asíncronos (`jobs.py`)
+y log de errores (`errorlog.py`).
 `main.py` además coreografía el FEA (al final); los mapas por pieza de los planos, los datos de
 instalación, el stack-up, las aserciones `verify`/`expect`, los insumos de la puerta de entrega,
 las reglas de ingeniería y FEA y la preparación del FEA son de [services](../services/CLAUDE.md)
 (se está partiendo `main.py`: [plan](../../../docs/plans/partir-api-main.md)). Lo transversal
 (`STATE_LOCK`, log, regenerate, Windows) está en el [CLAUDE.md raíz](../../../CLAUDE.md); el
 cliente MCP, en [core/apolo](../CLAUDE.md).
+
+## Estado de sesión (`session.S`)
+
+- El documento activo, el almacén, el proyecto y la salud viven en UN objeto,
+  `session.S` (`doc`, `store`, `project_id`, `autosave_error`, `startup_error`). **El código
+  nuevo de la API lee y swapea `S.<campo>`, jamás un global** (ni `global` para cambiar de
+  proyecto): con la API en varios módulos, un global re-exportado se copia por valor y el
+  módulo movido leería el documento viejo. Gate: `tests/test_api_sesion.py`.
+- `api.DOC`/`STORE`/`PROJECT_ID`/`AUTOSAVE_ERROR`/`STARTUP_ERROR` siguen existiendo para los
+  tests como ALIAS de `S` (la clase del módulo `main` los vuelve propiedades: leer, asignar y
+  `monkeypatch` van a `S`). Nunca `from apolo.api.main import DOC`: congela el valor.
+  [plan](../../../docs/plans/partir-api-main.md) (D3)
 
 ## Mutaciones y su retorno
 
@@ -19,7 +32,7 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
   `merge=true`; la UI elige por caso ([ui](../../../ui/CLAUDE.md)).
 - `edit_batch` = N ediciones en UN regenerate atómico y 1 undo. `GET /api/schemas/{type}` evita
   volcar el schema completo.
-- `_materialize_insert_project` muta `DOC.attachments`: corre DENTRO del lambda de
+- `_materialize_insert_project` muta `S.doc.attachments`: corre DENTRO del lambda de
   `_state_or_error` (bajo `STATE_LOCK`), nunca antes.
 - Lo mismo toda búsqueda en el log que decide la mutación (variable por nombre, comando dueño
   de una junta/mate): va DENTRO del closure (`_state_or_error` deja pasar `HTTPException`, así
@@ -48,7 +61,7 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 - Lock HOJA: el `_cv` del store jamás se sostiene llamando al closure (que toma `STATE_LOCK`); el
   worker corre `fn()` sin lock propio y escribe el resultado después. `jobs.py` no importa
   FastAPI (`_describe_error` duck-tipea `status_code`/`detail`).
-- Guardia de proyecto: el job captura `PROJECT_ID` al encolar y lo revalida DENTRO del RLock que
+- Guardia de proyecto: el job captura `S.project_id` al encolar y lo revalida DENTRO del RLock que
   ejecuta el lote; si el proyecto activo cambió → 409 y no aplica. `restore_revision` conserva el
   id (el lote aplica sobre lo restaurado, como en sync).
 - Un 404 de job tras un reload NO significa «no aplicó» (los jobs viven en memoria; el autosave
@@ -91,16 +104,16 @@ cliente MCP, en [core/apolo](../CLAUDE.md).
 ## Autosave y arranque
 
 - `_autosave()` no escribe: marca sucio y arma un flush único (`_AutosaveScheduler`, debounce
-  500 ms, techo 3 s). `_flush_body` toma bytes + `pack()` + STORE/PROJECT_ID bajo `STATE_LOCK`
+  500 ms, techo 3 s). `_flush_body` toma bytes + `pack()` + `S.store`/`S.project_id` bajo `STATE_LOCK`
   (snapshot atómico) y escribe la SQLite FUERA.
 - Orden ÚNICO de locks `_flush_lock → STATE_LOCK`, jamás al revés (deadlock switch ↔ Timer);
   `_flush_lock` se sostiene todo el flush, reintentos incluidos. Cambiar de proyecto =
   `_project_switch()` (flush del actual + swap atómico bajo ambos locks).
 - Durable: reintentos `_AUTOSAVE_RETRIES`; agotados (también si falla la serialización) →
-  `AUTOSAVE_ERROR` en el payload + WS `autosave_failed`. La caché de geometría va aparte,
+  `S.autosave_error` en el payload + WS `autosave_failed`. La caché de geometría va aparte,
   best-effort. Flush FORZOSO en shutdown/restore.
-- Arranque: reciente corrupto → carga tolerante; si ni así abre → `STARTUP_ERROR` + doc vacío con
-  `PROJECT_ID=None` (no crea un «Sin título» que pise el reciente). `project/new` y `project/open`
+- Arranque: reciente corrupto → carga tolerante; si ni así abre → `S.startup_error` + doc vacío
+  con `S.project_id = None` (no crea un «Sin título» que pise el reciente). `project/new` y `project/open`
   (upload) crean id PROPIO.
 - `GET /api/health` = `check_integrity` + suprimidos + `autosave_pending`/`autosave_failed` +
   `startup_error`; no tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
