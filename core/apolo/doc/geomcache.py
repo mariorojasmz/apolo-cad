@@ -35,8 +35,8 @@ from apolo.commands.state import RegenState
 
 # Versión del formato del blob. BUMPEAR A MANO cuando cambie:
 #  - la estructura del dict serializado, o los campos de `RegenState` (commands/state.py), o
-#  - un executor que altere la GEOMETRÍA que produce con los MISMOS params (la firma
-#    _cmd_sig no lo detecta: depende solo de params, no del código del executor).
+#  - la GEOMETRÍA con los MISMOS params por algo que no se acota a ciertos comandos (kernel,
+#    builders, catálogo, `Feature`). UN executor cambiado NO es bump: sube su `version` (D9/D10).
 # Un bump invalida todas las cachés viejas → replay frío la primera vez. Documentar aquí:
 #  v1 (2026-07-09): formato inicial de V6.2a.
 #  v2 (2026-07-09): shapes por BinTools crudo (antes: pickle del wrapper build123d, frágil).

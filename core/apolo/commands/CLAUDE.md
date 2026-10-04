@@ -26,8 +26,15 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   persona lee la PISTA de `pistas.py` (vista `?vista=persona`, `vista_persona.py`): un comando
   nuevo sin pista rompe `tests/test_pistas.py` ([ui](../../../ui/CLAUDE.md)). Un super-comando reutilizable
   documenta ahí su MONTAJE (orientación, tensado, soldadura), no sólo qué es.
-- Si cambia la geometría que produce un executor con los MISMOS params: bump de
-  `GEOM_CACHE_EPOCH` (regla en la [raíz](../../../CLAUDE.md)).
+- **Versión del executor** (`CommandSpec.version`): si cambia la geometría que produce con los
+  MISMOS params, sube SU `version` (entra a la firma del regenerate sólo si es ≠ 1 → invalida la
+  caché sólo de los proyectos que lo usan); si cambiaste un helper compartido, la de cada
+  comando que lo usa; lo que no puedes acotar (kernel, builders, catálogo, `Feature`) es bump de
+  `GEOM_CACHE_EPOCH` (regla completa en la [raíz](../../../CLAUDE.md)). Un comando que reproduce
+  OTROS executors va con `composite=True` (hoy `insert_project`). El trinquete D11
+  (`tests/test_contrato_comandos.py`) guarda versión + huella del código de cada executor: si el
+  código cambia y la versión no, falla y obliga a decidir (subirla, o sólo la huella si fue un
+  refactor).
 - Errores de OCCT accionables: fillet/chamfer nombran la arista más corta seleccionada; `shell`
   pre-valida `2·espesor ≥ dimensión menor` antes de OCCT (condición necesaria, sin falsos
   positivos). No blindar geometría fina (radio vs caras vecinas): el `try/except` de OCCT es la

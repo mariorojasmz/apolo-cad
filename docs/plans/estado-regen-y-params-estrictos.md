@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden), F1 (RegenState, epoch 5), F2 y F3 (despacho único: los 53 executors reciben ExecContext) y F4 (entrada estricta, pydantic>=2.12) hechas y sin mergear; faltan F5–F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
+nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden), F1 (RegenState, epoch 5), F2 y F3 (despacho único: los 53 executors reciben ExecContext), F4 (entrada estricta, pydantic>=2.12) y F5 (versión por comando) hechas y sin mergear; falta F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
 descripcion: Si tú o el agente mandan un parámetro que no existe, Apolo lo rechaza y sugiere el correcto (antes lo ignoraba en silencio); tus proyectos guardados regeneran idénticos
 ---
 
@@ -463,3 +463,35 @@ el `execute_many` de su copia; `validate_actions` del agente, con `strict=True`.
 mismo objeto): `strict.py` lo lanza y `registry.py` importa `strict.py`; sin el mudado, import
 circular. Un tipo desconocido en un lote no lo mira la entrada estricta: lo sigue reportando el
 regenerate con el texto de siempre. Los punteros de `material`/`color` valen en cualquier nivel.
+
+**2026-10-03 — F5, versión por comando.** `CommandSpec.version: int = 1` (`__post_init__`
+rechaza lo que no sea un entero ≥ 1, `bool` incluido) y `composite: bool = False` (`True` sólo
+en `insert_project`). `spec.version_tag(registro, tipo)` da `""` si el comando está en v1, si
+no `"|v:tipo@N"`; un compuesto lleva las ≠ 1 de TODO el registro, ordenadas. `_cmd_sig` hace
+`h.update(version_tag(...).encode())`: con todo en v1 es `update(b"")`, que no mueve el sha1 →
+firma byte-idéntica a la histórica (un test la recalcula con la fórmula vieja, y el golden).
+Regla D10 escrita en la raíz (§ Log de comandos), `commands/CLAUDE.md` y `doc/CLAUDE.md`; el
+comentario del epoch en `geomcache.py` deja de pedir un bump por UN executor.
+
+- **Trinquete D11** (`tests/test_contrato_comandos.py`): `VERSIONES = {tipo: (version,
+  huella)}`, huella = sha1 (16 hex) de `inspect.getsource` del executor con los saltos de línea
+  normalizados. Falla si el código cambió y la versión no, si la versión subió sin declararse,
+  si bajó, o si un comando aparece o desaparece; el mensaje da las dos salidas (subir la
+  versión, o sólo la huella si fue un refactor). Un test con un registro falso recorre cada
+  salida.
+- **Tests**: `tests/test_version_comandos.py` (11): en v1 la firma es la fórmula histórica;
+  `version=2` por monkeypatch cambia las firmas DESDE el primer comando de ese tipo (las
+  anteriores quedan iguales) y no las de un proyecto que no lo usa; `insert_project` cambia con
+  cualquier versión ≠ 1 (`|v:fillet@3`) y un `create_box` no; un blob empacado en v1 se
+  descarta en el open (replay frío de los 5 comandos) mientras el proyecto sin cilindros sigue
+  abriendo caliente (0 replays); `version` 0, −1, `True`, 1.5 y "2" se rechazan al registrar.
+  `tests/test_contrato_comandos.py` suma 2 (D11).
+- **Golden** (`%TEMP%\apolo-golden\golden-f5.json`, código congelado en `code-f5`, 885,5 s)
+  contra la base de F0: **sin diferencias** en los 122 documentos, firmas incluidas.
+- **Suite**: 1662 tests (1649 + 13): 1661 pasan y 1 se salta, 393 s. Ruff limpio.
+  **Líneas**: `document.py` 1060 = 1060 (el comentario del bloque de firmas se compactó);
+  `registry.py` 2211 =; `spec.py` 44 → 68.
+
+**Desvíos de F5**: la huella de D11 es la de la función del executor, no la de sus helpers
+(declarado en el test; un helper compartido es la regla D10). `version_tag` vive en `spec.py` y
+recibe el registro (`spec.py` no importa `registry.py`).

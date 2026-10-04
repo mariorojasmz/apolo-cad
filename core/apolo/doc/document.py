@@ -18,6 +18,7 @@ from pathlib import Path
 
 from apolo.commands.expressions import ExpressionError, resolve_all
 from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_command, validate_params
+from apolo.commands.spec import version_tag
 from apolo.commands.state import RegenState
 from apolo.commands.strict import reject_unknown
 
@@ -52,15 +53,14 @@ class ContractError(DocumentError):
 
 
 # --------- regeneración incremental: firma por comando + snapshot de estado ---------
-# Seguridad: los ejecutores NUNCA mutan el shape OCCT in-place (siempre reasignan
-# feat.shape o crean Features nuevas), así que un shallow-copy de cada Feature
-# (compartiendo la referencia del shape, inmutable) aísla un checkpoint de las
-# mutaciones de comandos posteriores SIN copiar geometría (lo caro): `RegenState.copy()`.
+# Los executors NUNCA mutan el shape OCCT in-place → un checkpoint comparte los shapes sin
+# copiar geometría (`RegenState.copy()`). Firma = previa + id + params + versión ≠ 1 (D9).
 
 def _cmd_sig(prev: str, cmd: dict) -> str:
     h = hashlib.sha1(prev.encode())
     h.update(cmd["id"].encode())
     h.update(json.dumps(cmd["params"], sort_keys=True, default=str).encode())
+    h.update(version_tag(REGISTRY, cmd["type"]).encode())  # b"" con todo en v1: la histórica
     return h.hexdigest()
 
 

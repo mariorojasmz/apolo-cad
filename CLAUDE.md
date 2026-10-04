@@ -56,7 +56,7 @@ baja); partir un archivo grande se hace con un plan.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1649 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1662 tests (tortura extendida: -m torture)
 cd ui ; npm test                  # vitest: gates de texto y de tamaño
 npm run build                     # bundle de la UI (tsc + vite)
 ```
@@ -89,7 +89,7 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 
 ### Estado actual (2026-10-03)
 
-1649 tests (+15 de tortura vía `-m torture`) · 26 tests vitest · 79 tools MCP · 53 comandos ·
+1662 tests (+15 de tortura vía `-m torture`) · 26 tests vitest · 79 tools MCP · 53 comandos ·
 catálogo 231 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [poda-claude-md](docs/plans/poda-claude-md.md); en plan: [harness-automejora](docs/plans/harness-automejora.md).
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %
@@ -305,12 +305,18 @@ imprime los comandos con credenciales (build/twine/mcp-publisher), que lanza una
   ([V7.3](docs/plans/V7.3-stackup-cadenas-cotas.md)). Nunca un puente IMPLÍCITO metadato →
   geometría (`=req.x`): no cambia las firmas → geometría vieja; el puente es un `set_variable`
   explícito ([V6.4](docs/plans/V6.4-parametrico-profundo.md)).
-- ⚠️ **Bump de `GEOM_CACHE_EPOCH`** (`core/apolo/doc/geomcache.py`): la caché de geometría se
-  indexa por los PARAMS, no por el código. Si cambias la geometría que produce un executor, un
-  builder o el kernel con los MISMOS params —o los campos de `RegenState`—, bumpea el epoch y
-  anota el motivo en su comentario; si no, un open caliente sirve geometría vieja (la v4 fue un
-  bump atrasado de meses). Un upgrade de PyPI invalida solo; un checkout, no.
-  [doc](core/apolo/doc/CLAUDE.md)
+- ⚠️ **Cambiaste la geometría con los MISMOS params → versión o epoch**: la caché de geometría
+  se indexa por los params, no por el código; si no decides, un open caliente sirve geometría
+  vieja (la v4 del epoch llegó con meses de atraso). Según lo que tocaste:
+  - UN executor → sube su `version` en el `CommandSpec` (invalida sólo los proyectos que lo
+    usan; `insert_project`, compuesto, lleva todas);
+  - algo compartido cuyos usuarios puedes nombrar → sube la `version` de cada uno;
+  - algo que no puedes acotar (kernel, builders, YAML del catálogo, `Feature`, `RegenState`,
+    formato del blob) → bump de `GEOM_CACHE_EPOCH` (`core/apolo/doc/geomcache.py`) con su motivo;
+  - la etapa final del regenerate (mates, grupos, visibilidad) → nada: no se cachea.
+
+  `tests/test_contrato_comandos.py` falla si el código de un executor cambia sin decidir. Un
+  upgrade de PyPI invalida solo; un checkout, no. [commands](core/apolo/commands/CLAUDE.md)
 
 ### Paramétrico y modelado
 

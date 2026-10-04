@@ -45,8 +45,10 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
 
 ## Caché de geometría (`geomcache.py`)
 
-- Vigencia: la firma depende de los PARAMS, no del código del executor → bump de
-  `GEOM_CACHE_EPOCH` al cambiar la geometría con los mismos params (regla en la
+- Vigencia: la firma de cada comando (`_cmd_sig`) = previa + id + params + su
+  `CommandSpec.version` SÓLO si es ≠ 1 (con todo en v1 es la histórica; `insert_project` lleva
+  todas las ≠ 1). Un executor cambiado sube SU versión y sólo se invalidan los proyectos que lo
+  usan; `GEOM_CACHE_EPOCH` queda para lo que no se puede acotar (regla en la
   [raíz](../../../CLAUDE.md); historial de bumps en el propio `geomcache.py`).
 - Vive SÓLO en la SQLite local (tabla `geom_cache`), JAMÁS en el `.apolo`: es pickle y un
   `.apolo` lo sube el usuario (RCE). Nunca es autoritativa: perderla cuesta un replay.

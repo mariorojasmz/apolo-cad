@@ -2058,7 +2058,7 @@ REGISTRY: dict[str, CommandSpec] = {
         ),
         CommandSpec(
             "insert_project", "Insertar proyecto", "biblioteca", InsertProjectParams,
-            _exec_insert_project,
+            _exec_insert_project, composite=True,  # su replay corre executors ajenos (D9)
         ),
         CommandSpec(
             "create_conveyor", "Transportador", "biblioteca", CreateConveyorParams, _exec_create_conveyor
