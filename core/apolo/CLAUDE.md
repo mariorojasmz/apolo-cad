@@ -15,8 +15,11 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
 ## MCP (`mcp_server.py`): cliente fino
 
 - Sólo habla HTTP con la API: sin lógica de dominio ni imports de `doc`/`kernel`. Una tool nueva
-  = endpoint en `api/` + wrapper aquí + su caso en `scripts/golden_mcp_casos.py`; el host MCP se
-  reinicia para verla.
+  = endpoint en `api/` + wrapper aquí + su caso en `scripts/golden_mcp_casos.py` + su lugar en
+  `tools/catalogo.py`: en `CHAT` (`muta`, `etiqueta`, `ocultar` las rutas de archivo) o en
+  `FUERA_DEL_CHAT` con el motivo — si falta, `tests/test_catalogo_chat.py` falla. Una lectura
+  nueva del chat lleva además su muestra en ese test (se corre contra la API y no debe mutar).
+  El host MCP se reinicia para verla.
 - **Golden** (`tests/test_mcp_golden.py`): congela instructions, `list_tools()` y una
   `call_tool` real por tool (peticiones y salida) contra un transporte falso. Cambiar lo que ve
   un cliente MCP —docstring, default, orden de params, salida— lo pone rojo; si es deliberado,
@@ -46,6 +49,11 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
 
 ## Agente de la app (`agent/`) y criterio (`design/`)
 
+- `agent/herramientas.py` da al chat las tools del MCP, sin copias (el endpoint lo usa desde la
+  F5a de [chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)): `definiciones()` sale de
+  `mcp.list_tools()` en el orden del catálogo y `ejecutar()` corre `mcp.call_tool` en el hilo
+  del chat apuntado a `tools/destino.py`; en modo propuesta lo que `muta` no corre. El MCP se
+  importa perezoso restaurando el logger raíz (FastMCP lo reconfigura al construirse).
 - `design/guidelines.py` es la fuente ÚNICA del criterio de ingeniería: `design_brief()` (capa 1)
   se inyecta en las instrucciones del MCP y en `SYSTEM_PROMPT` (`agent/prompts.py`);
   `design_guidelines()` (capa 2) va bajo demanda. Se edita ahí, nunca en las copias.

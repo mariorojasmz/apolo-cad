@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2 hechas (spikes verdes, golden del MCP, destino inyectable), sin mergear; F4 puede seguir ya. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
+nota: F0–F2 y F4 hechas (spikes verdes, golden del MCP, destino inyectable, catálogo de 63 tools + adaptador todavía sin cablear al chat), sin mergear. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
 descripcion: El asistente de la app usa las mismas herramientas que el agente por MCP (puerta de entrega, gravedad, verify, render nítido, lotes con contrato), te avisa cuando se corta y cuesta menos por mensaje
 ---
 
@@ -421,3 +421,52 @@ sirve en tiempo de ejecución para F7/F8; F7 fija el pin en `>=0.109.1` (la mín
 - Golden de F1 **idéntico** tras F2, y `test_jobs`, `test_mcp_defaults`, `test_autonomous` y
   `test_mcp_brief` (los que parchean `_api`/`APOLO_URL`/`APOLO_MCP_WAIT_S`) pasan sin editarse.
 - Suite: 1405 passed + 1 skipped; `ruff check core tests scripts` limpio.
+
+### F4 — catálogo y adaptador (2026-10-03)
+
+- `tools/catalogo.py` (138 líneas, puro): `EnChat(etiqueta, muta, ocultar)`; **63 tools en
+  `CHAT`** (22 mutan, 41 leen) en orden fijo por bloques (leer el modelo · modelar · ensayar y
+  validar · ingeniería y fabricación) y **16 en `FUERA_DEL_CHAT`** con motivo: 3 de proyecto,
+  3 de revisión, 9 que sólo escriben un archivo en el servidor (exports, PDFs, `drop_test` y
+  `motion_gif`, que exigen ruta) y `fea_assembly` (minutos). Ocultos: `gravity_test.path`,
+  `drawing.path`, `fea_static.fringe_path`. Es exactamente el subconjunto tentativo de F0.
+  `fea_static` cuenta como mutación (guarda su resumen en el proyecto); `auto_group` también,
+  aunque su `dry_run` no mute (conservador: en propuesta se propone `create_group`); `get_job`
+  no muta.
+- `agent/herramientas.py` (217): `definiciones()` = `mcp.list_tools()` en el orden del catálogo,
+  la descripción TAL CUAL (FastMCP ya la limpia: `cleandoc` midió 0 bytes de diferencia), el
+  schema sin `title` (sólo en posiciones de schema: un PARÁMETRO llamado `title` sobrevive) y
+  sin los ocultos, copiado sin tocar el dict que FastMCP sirve a los clientes MCP; más
+  `propose_commands` al final (sólo la declaración, con `reason` obligatorio porque la tarjeta
+  lo muestra; su ejecución es F5a). `ejecutar(nombre, entrada, destino, modo)` devuelve el
+  cuerpo del `tool_result` (`{"content": [...]}` + `"is_error": True`): `ToolError` → el MISMO
+  texto que ve un cliente MCP; texto → bloque `text`, imagen → `image` base64; una tool fuera,
+  desconocida, que muta en modo propuesta o con un param oculto → `is_error` SIN llamar a la API
+  (FastMCP IGNORA en silencio las claves extra: sin el veto, un `path` colado escribiría en el
+  servidor). `propose_commands` o un modo inválido → `ValueError` (error de programación, no del
+  modelo). `etiqueta(nombre)` para el chip. Import perezoso del MCP bajo lock, restaurando nivel
+  y handlers del logger raíz.
+- **Definiciones: 64 tools, 48 887 bytes** (≈ 14 k tokens; `propose_commands` 1 018) contra
+  152 876 del chat de hoy (−68 %). Quitar `title` ahorra ≈ 5 KB sobre el subconjunto crudo.
+- `tests/test_catalogo_chat.py` (64): catálogo ∪ fuera = las tools del MCP sin solape; todo
+  `path`/`*_path` fuera u oculto; lo oculto existe y es opcional; motivo en cada fuera; gate de
+  capas (AST); etiquetas por el `faltas()` de `test_pistas.py` (mismo gate de texto, tuteo y
+  vocabulario) y sin repetirse; definiciones en orden, sin ocultos ni `title`, sin mutar el
+  schema del MCP y con el MISMO sha256 en otro proceso (otro `PYTHONHASHSEED`), proceso donde
+  además se comprueba que importar `herramientas` no importa el MCP y que `definiciones()` deja
+  intactos el logger raíz y el nivel efectivo de `httpx`; `ejecutar` contra un transporte falso
+  (destino y cabecera, imagen, mismo error que el MCP en 400 / validación / error del cliente
+  fino, modo, oculto, fuera y desconocido sin tocar la API); y **las 41 lecturas, cada una con
+  su muestra, contra la API real** (`TestClient` prestado sin entrar, para no correr el
+  lifespan): ni el documento (contenido del `.apolo`, piezas, undo/redo) ni el autoguardado
+  cambian (espía en `api._autosave_sched.schedule`, el patrón de partir-api-main). Comprobado
+  que pone rojo una mutación mal clasificada (`set_color` como lectura) y que sin la
+  restauración el import deja el raíz en INFO + RichHandler. Con OpenGL aquí `render_view` y
+  `pick_point` corren; sin él (503) se saltan después de verificar que no mutaron.
+- **Para F6**: los docstrings de `drawing`, `gravity_test` y `fea_static` nombran el param
+  oculto (y `drawing` sin `path` responde «pasa path=... para guardar»): el modelo puede
+  intentarlo y recibe `is_error` con «repite la llamada sin ese parámetro». No se tocan aquí
+  (golden del MCP).
+- `mcp_server.py` (1429) y `agent/agent.py` (606) sin tocar; golden del MCP idéntico.
+- Suite: 1606 passed + 1 skipped (1607 recolectados, 10 min); `ruff check core tests scripts`
+  limpio. La muestra de `test_script` cuesta ≈ 9 s (el sandbox levanta su proceso).

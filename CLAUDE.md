@@ -56,7 +56,7 @@ baja); partir un archivo grande se hace con un plan.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1554 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1618 tests (tortura extendida: -m torture)
 cd ui ; npm test                  # vitest: gates de texto y de tamaño
 npm run build                     # bundle de la UI (tsc + vite)
 ```
@@ -89,7 +89,7 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 
 ### Estado actual (2026-10-03)
 
-1554 tests (+15 de tortura vía `-m torture`) · 26 tests vitest · 79 tools MCP · 53 comandos ·
+1618 tests (+15 de tortura vía `-m torture`) · 26 tests vitest · 79 tools MCP · 53 comandos ·
 catálogo 231 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [poda-claude-md](docs/plans/poda-claude-md.md); en plan: [harness-automejora](docs/plans/harness-automejora.md).
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %
