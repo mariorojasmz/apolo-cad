@@ -37,7 +37,7 @@ viven en [core/apolo](../CLAUDE.md); lo transversal (locks, log, flujo de trabaj
   toda pieza presente o futura de esos comandos pertenece. Un comando vive en UN grupo; `parent`
   se declara ANTES (ciclos imposibles); un miembro borrado queda en `missing_members` (tolerante).
 - `feat.group` es DERIVADO: se asigna al final de cada regenerate; los grupos van en el
-  checkpoint (la 8-tupla).
+  checkpoint (`RegenState.groups`, [commands](../commands/CLAUDE.md)).
 - `propose_groups` (`auto_group`, con `dry_run`) es la heurística de subsistemas del árbol
   portada al backend: idempotente; sin señal → sin grupo.
 - Los consumen el manual (pagina por grupo), la BOM `by_group` (por defecto byte-idéntica) e

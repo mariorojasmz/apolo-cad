@@ -1,7 +1,9 @@
 # Comandos (`core/apolo/commands/`)
 
 El registro schema-driven: `models.py` (params pydantic = schema de UI, diálogos y tools del
-agente), `registry.py` (executors + `REGISTRY`) y `expressions.py` (motor de `=expr`). Lo
+agente), `registry.py` (executors + `REGISTRY`), `state.py` (`RegenState`, el estado con nombre
+que `execute_command` muta y el regenerate guarda como checkpoint) y `expressions.py` (motor
+de `=expr`). Lo
 transversal (locks, log, regenerate, cirugía de modelos) está en el
 [CLAUDE.md raíz](../../../CLAUDE.md); lo común del backend, en [core/apolo](../CLAUDE.md).
 

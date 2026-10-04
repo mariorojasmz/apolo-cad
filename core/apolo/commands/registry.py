@@ -78,6 +78,7 @@ from .models import (
     TransformGroupParams,
     TransformParams,
 )
+from .state import RegenState
 
 
 class CommandError(Exception):
@@ -2220,27 +2221,13 @@ def validate_params(cmd_type: str, params: dict, variables: dict | None = None) 
 
 
 def execute_command(
-    scene: Scene,
-    cmd_id: str,
-    cmd_type: str,
-    params: dict,
-    variables: dict | None = None,
-    joints: Joints | None = None,
-    attachments: dict | None = None,
-    mates: dict | None = None,
-    constraints: dict | None = None,
-    fasteners: dict | None = None,
-    grounds: dict | None = None,
-    groups: dict | None = None,
+    state: RegenState, cmd_id: str, cmd_type: str, params: dict, attachments: dict | None = None
 ) -> None:
-    variables = variables if variables is not None else {}
-    joints = joints if joints is not None else {}
+    """Ejecuta UN comando del log sobre `state` (sus dicts se mutan en sitio)."""
+    scene, variables, joints, mates = state.scene, state.variables, state.joints, state.mates
+    constraints, fasteners, grounds = state.constraints, state.fasteners, state.grounds
+    groups = state.groups
     attachments = attachments if attachments is not None else {}
-    mates = mates if mates is not None else {}
-    constraints = constraints if constraints is not None else {}
-    fasteners = fasteners if fasteners is not None else {}
-    grounds = grounds if grounds is not None else {}
-    groups = groups if groups is not None else {}
     model = validate_params(cmd_type, params, variables)
     spec = REGISTRY[cmd_type]
     if spec.kind == "vars":

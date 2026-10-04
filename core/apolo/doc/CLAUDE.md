@@ -48,6 +48,8 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
 - Vive SÓLO en la SQLite local (tabla `geom_cache`), JAMÁS en el `.apolo`: es pickle y un
   `.apolo` lo sube el usuario (RCE). Nunca es autoritativa: perderla cuesta un replay.
   Kill-switch `APOLO_GEOM_CACHE=0`.
+- El blob guarda el checkpoint como `RegenState.to_plain()` (dict POR NOMBRE), nunca la clase
+  picklada; `unpack` exige exactamente sus campos (`from_plain`). Cambiar los campos = bump.
 - `pack`/`unpack` nunca lanzan (None → replay frío). `pack` serializa el TopoDS CRUDO (no el
   wrapper build123d, que lleva joints frágiles) y verifica cada shape deserializándolo: crudo →
   copia (`BRepBuilderAPI_Copy`) → None (`_serialize_robust`); BinTools falla por shape de forma

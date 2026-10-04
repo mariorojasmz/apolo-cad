@@ -18,6 +18,7 @@ from pathlib import Path
 
 from apolo.commands.expressions import ExpressionError, resolve_all
 from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_command, validate_params
+from apolo.commands.state import RegenState
 
 FORMAT_VERSION = 2  # v2 añade attachments/ (archivos STEP importados); abre v1 sin cambios
 
@@ -53,30 +54,13 @@ class ContractError(DocumentError):
 # Seguridad: los ejecutores NUNCA mutan el shape OCCT in-place (siempre reasignan
 # feat.shape o crean Features nuevas), así que un shallow-copy de cada Feature
 # (compartiendo la referencia del shape, inmutable) aísla un checkpoint de las
-# mutaciones de comandos posteriores SIN copiar geometría (lo caro).
+# mutaciones de comandos posteriores SIN copiar geometría (lo caro): `RegenState.copy()`.
 
 def _cmd_sig(prev: str, cmd: dict) -> str:
     h = hashlib.sha1(prev.encode())
     h.update(cmd["id"].encode())
     h.update(json.dumps(cmd["params"], sort_keys=True, default=str).encode())
     return h.hexdigest()
-
-
-def _copy_state(state: tuple) -> tuple:
-    """Copia un estado (scene, variables, joints, mates, constraints, fasteners,
-    grounds, groups) aislándolo: Features por shallow-copy (shape compartido), dicts
-    por copia."""
-    scene, variables, joints, mates, constraints, fasteners, grounds, groups = state
-    return (
-        {fid: copy.copy(f) for fid, f in scene.items()},
-        dict(variables),
-        copy.deepcopy(joints),
-        copy.deepcopy(mates),
-        copy.deepcopy(constraints),
-        copy.deepcopy(fasteners),
-        copy.deepcopy(grounds),
-        copy.deepcopy(groups),
-    )
 
 
 class Document:
@@ -114,7 +98,7 @@ class Document:
         # caché de regeneración incremental: firma acumulada por comando + checkpoints
         # (estado tras ejecutar ciertos comandos) para reanudar desde el primer cambio.
         self._regen_sigs: list[str] = []
-        self._regen_ckpts: dict[int, tuple] = {}
+        self._regen_ckpts: dict[int, RegenState] = {}
 
     _UNDO_CAP = 50  # cota del historial de deshacer (los snapshots retienen la caché de regen)
 
@@ -144,7 +128,7 @@ class Document:
 
     def _ckpts_ok(self) -> bool:
         """La caché de checkpoints es estructuralmente SANA (segura de usar): claves int
-        (no bool) en el rango del log y estado = tupla de 8 con dict en [0]. Cualquier
+        (no bool) en el rango del log y estado = `RegenState` con la escena dict. Cualquier
         anomalía → el caller fuerza replay completo en vez de reventar (blindaje Fix B).
         Las firmas (sigs) NO se validan: son strings y comparar con basura da False sin
         petar, y un largo distinto es NORMAL entre append y regenerate."""
@@ -153,19 +137,21 @@ class Document:
             for k, st in self._regen_ckpts.items():
                 if isinstance(k, bool) or not isinstance(k, int) or not (0 <= k < n):
                     return False
-                if not (isinstance(st, tuple) and len(st) == 8 and isinstance(st[0], dict)):
+                if not (isinstance(st, RegenState) and isinstance(st.scene, dict)):
                     return False
         except Exception:
             return False
         return True
 
-    def _prune_or_raise(self, scene, joints, mates, constraints, fasteners, grounds,
-                        tolerant: bool, suppressed: list) -> None:
+    def _prune_or_raise(self, state: RegenState, tolerant: bool, suppressed: list) -> None:
         """Valida que juntas/mates/restricciones/fijadores/anclajes referencian entidades
         VIVAS. Estricto: lanza DocumentError al primer huérfano. Tolerante (solo en carga):
         ELIMINA la entidad huérfana del estado EN MEMORIA (el LOG jamás se toca) y la
         reporta en `suppressed`. Orden: juntas antes que restricciones (una restricción
         cuya junta se podó también queda huérfana)."""
+        scene, joints, mates = state.scene, state.joints, state.mates
+        constraints, fasteners, grounds = state.constraints, state.fasteners, state.grounds
+
         def bad(kind, name, cmd_id, msg) -> bool:
             if tolerant:
                 suppressed.append({"command_id": cmd_id, "type": kind, "error": msg})
@@ -241,14 +227,11 @@ class Document:
             else:
                 break
         if resume >= 0:
-            (scene, variables, joints, mates, constraints, fasteners, grounds,
-             groups) = _copy_state(ckpts[resume])
+            state = ckpts[resume].copy()
             new_ckpts = {i: st for i, st in ckpts.items() if i <= resume}
             start = resume + 1
         else:
-            scene, variables, joints, mates, constraints, fasteners, grounds, groups = (
-                {}, {}, {}, {}, {}, {}, {}, {}
-            )
+            state = RegenState()
             new_ckpts = {}
             start = 0
         suppressed: list[dict] = []
@@ -257,11 +240,7 @@ class Document:
         for i in range(start, len(self.commands)):
             cmd = self.commands[i]
             try:
-                execute_command(
-                    scene, cmd["id"], cmd["type"], cmd["params"],
-                    variables, joints, self.attachments, mates, constraints,
-                    fasteners, grounds, groups,
-                )
+                execute_command(state, cmd["id"], cmd["type"], cmd["params"], self.attachments)
             except CommandError as exc:
                 if tolerant:
                     suppressed.append(
@@ -272,15 +251,12 @@ class Document:
                         f"Error al regenerar {cmd['id']} ({cmd['type']}): {exc}"
                     ) from exc
             if i == last or i % self._REGEN_STRIDE == 0:
-                new_ckpts[i] = _copy_state(
-                    (scene, variables, joints, mates, constraints, fasteners, grounds, groups)
-                )
+                new_ckpts[i] = state.copy()
         # 6) referencias colgando: estricto lanza, tolerante poda + reporta
-        self._prune_or_raise(
-            scene, joints, mates, constraints, fasteners, grounds, tolerant, suppressed
-        )
+        self._prune_or_raise(state, tolerant, suppressed)
+        scene = state.scene
         try:
-            solve_mates(scene, mates)
+            solve_mates(scene, state.mates)
         except MateError as exc:
             if tolerant:
                 suppressed.append({"command_id": None, "type": "mates", "error": str(exc)})
@@ -288,7 +264,7 @@ class Document:
                 raise DocumentError(f"Error al resolver los mates: {exc}") from exc
         # membresía de grupos: campo DERIVADO por command_id (integridad TOLERANTE —
         # un member cuyo comando desapareció se reporta vía missing_members, no falla)
-        assign_feature_groups(scene, groups)
+        assign_feature_groups(scene, state.groups)
         for fid, feat in scene.items():
             feat.visible = fid not in self.hidden
             # .get con default: un executor puede haber seteado ya el material de la
@@ -298,18 +274,18 @@ class Document:
             feat.is_guide = feat.command_id in self.sketch_guides
         # variables resueltas en LOCAL (antes de tocar self: si truena, self intacto)
         try:
-            variables_resolved = resolve_all(variables)
+            variables_resolved = resolve_all(state.variables)
         except ExpressionError as exc:
             raise DocumentError(f"Error en las variables del proyecto: {exc}") from exc
         # 7) BLOQUE ÚNICO de asignaciones — a partir de aquí NADA puede lanzar (atomicidad)
         self.scene = scene
-        self.joints = joints
-        self.mates = mates
-        self.constraints = constraints
-        self.fasteners = fasteners
-        self.grounds = grounds
-        self.groups = groups
-        self.variables_raw = variables
+        self.joints = state.joints
+        self.mates = state.mates
+        self.constraints = state.constraints
+        self.fasteners = state.fasteners
+        self.grounds = state.grounds
+        self.groups = state.groups
+        self.variables_raw = state.variables
         self.variables_resolved = variables_resolved
         self.regen_suppressed = suppressed
         self._regen_sigs = sigs
@@ -317,7 +293,7 @@ class Document:
 
     def _try_warm(self, warm) -> None:
         """Siembra la caché de regeneración desde un blob de geomcache YA deserializado
-        (V6.2a): ``warm = (cached_sigs, state, definitions)``. Si ``cached_sigs`` es
+        (V6.2a): ``warm = (cached_sigs, state: RegenState, definitions)``. Si ``cached_sigs`` es
         PREFIJO (o igual) de las firmas del log cargado, re-registra las definiciones
         canónicas y siembra ``_regen_sigs``/``_regen_ckpts`` con el estado del último
         comando cacheado → el siguiente ``regenerate()`` reanuda de ese checkpoint (replay
@@ -327,7 +303,7 @@ class Document:
             cached_sigs, state, definitions = warm
         except Exception:
             return
-        if not cached_sigs or not isinstance(cached_sigs, list):
+        if not cached_sigs or not isinstance(cached_sigs, list) or not isinstance(state, RegenState):
             return
         # firmas del log realmente cargado
         sigs: list[str] = []
@@ -436,8 +412,8 @@ class Document:
         for k, st in self._regen_ckpts.items():
             if not isinstance(k, int) or not (0 <= k < n):
                 issues.append(f"checkpoint con clave inválida {k!r} (fuera de [0,{n}))")
-            elif not (isinstance(st, tuple) and len(st) == 8 and isinstance(st[0], dict)):
-                issues.append(f"checkpoint {k} mal formado (se esperaba tupla de 8 con dict en [0])")
+            elif not (isinstance(st, RegenState) and isinstance(st.scene, dict)):
+                issues.append(f"checkpoint {k} mal formado (se esperaba un RegenState con escena dict)")
 
         # seq monótono: nunca por debajo del mayor id c-numérico del log (evita colisiones)
         max_suffix = 0

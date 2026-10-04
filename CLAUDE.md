@@ -55,7 +55,7 @@ baja); partir un archivo grande se hace con un plan.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 1519 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 1528 tests (tortura extendida: -m torture)
 cd ui ; npm test                  # vitest: gates de texto y de tamaño
 npm run build                     # bundle de la UI (tsc + vite)
 ```
@@ -88,7 +88,7 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 
 ### Estado actual (2026-10-03)
 
-1519 tests (+15 de tortura vía `-m torture`) · 26 tests vitest · 79 tools MCP · 53 comandos ·
+1528 tests (+15 de tortura vía `-m torture`) · 26 tests vitest · 79 tools MCP · 53 comandos ·
 catálogo 231 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [poda-claude-md](docs/plans/poda-claude-md.md); en plan: [harness-automejora](docs/plans/harness-automejora.md).
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %
@@ -287,8 +287,9 @@ imprime los comandos con credenciales (build/twine/mcp-publisher), que lanza una
   permite `set_variable` + su uso en el mismo lote.
 - **Regenerate incremental**: firma acumulada por comando + checkpoint cada 16 comandos
   (`_REGEN_STRIDE`) en copias superficiales que COMPARTEN el shape OCCT → **ningún executor
-  muta un shape in-place**. Checkpoint = 8-tupla (scene, variables, joints, mates, constraints,
-  fasteners, grounds, groups); editar una variable invalida desde el bloque de vars.
+  muta un shape in-place**. Checkpoint = `RegenState` (`commands/state.py`: scene, variables,
+  joints, mates, constraints, fasteners, grounds, groups, por NOMBRE; `copy()` aísla todo menos
+  el shape); editar una variable invalida desde el bloque de vars.
 - **Regenerate atómico**: construye en locales y vuelca a `self` al final. La carga tolerante
   (suprime el comando roto, nunca toca el log) va SÓLO en rutas de carga; las mutaciones son
   estrictas. Un log viejo regenera igual: un param nuevo entra con un default que reproduce lo
@@ -301,9 +302,10 @@ imprime los comandos con credenciales (build/twine/mcp-publisher), que lanza una
   explícito ([V6.4](docs/plans/V6.4-parametrico-profundo.md)).
 - ⚠️ **Bump de `GEOM_CACHE_EPOCH`** (`core/apolo/doc/geomcache.py`): la caché de geometría se
   indexa por los PARAMS, no por el código. Si cambias la geometría que produce un executor, un
-  builder o el kernel con los MISMOS params —o la 8-tupla—, bumpea el epoch y anota el motivo
-  en su comentario; si no, un open caliente sirve geometría vieja (la v4 fue un bump atrasado de
-  meses). Un upgrade de PyPI invalida solo; un checkout, no. [doc](core/apolo/doc/CLAUDE.md)
+  builder o el kernel con los MISMOS params —o los campos de `RegenState`—, bumpea el epoch y
+  anota el motivo en su comentario; si no, un open caliente sirve geometría vieja (la v4 fue un
+  bump atrasado de meses). Un upgrade de PyPI invalida solo; un checkout, no.
+  [doc](core/apolo/doc/CLAUDE.md)
 
 ### Paramétrico y modelado
 

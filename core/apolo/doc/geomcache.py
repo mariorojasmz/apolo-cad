@@ -1,8 +1,9 @@
 """Caché de geometría por firma (V6.2a): open frío → open caliente.
 
 Abrir un proyecto reproduce el log completo (replay de comandos + teselado). Esta caché
-persiste el ESTADO REGENERADO —la 8-tupla del último comando + las definiciones
-canónicas usadas por la escena— indexado por la firma acumulada del log, de modo que un
+persiste el ESTADO REGENERADO —el ``RegenState`` del último comando, guardado POR NOMBRE
+de campo, + las definiciones canónicas usadas por la escena— indexado por la firma
+acumulada del log, de modo que un
 open posterior REANUDA desde el checkpoint final en vez de replayar todo el log.
 
 DÓNDE VIVE: SOLO en la SQLite local (tabla ``geom_cache`` de ``projects.py``), JAMÁS
@@ -30,8 +31,10 @@ from __future__ import annotations
 
 import pickle
 
+from apolo.commands.state import RegenState
+
 # Versión del formato del blob. BUMPEAR A MANO cuando cambie:
-#  - la estructura del dict serializado, o la 8-tupla de estado (_copy_state), o
+#  - la estructura del dict serializado, o los campos de `RegenState` (commands/state.py), o
 #  - un executor que altere la GEOMETRÍA que produce con los MISMOS params (la firma
 #    _cmd_sig no lo detecta: depende solo de params, no del código del executor).
 # Un bump invalida todas las cachés viejas → replay frío la primera vez. Documentar aquí:
@@ -45,7 +48,11 @@ import pickle
 #    V7.2b…) → un open caliente podía servir geometría vieja. Desde aquí `_versions()`
 #    incluye la versión del paquete Apolo: un upgrade de PyPI invalida solo; el bump manual
 #    sigue haciendo falta para cambios de executor DENTRO de una misma versión (checkout).
-GEOM_CACHE_EPOCH = 4
+#  v5 (2026-10-03): el estado del checkpoint deja de ser la 8-tupla posicional y pasa a
+#    `RegenState`, guardado en el blob como dict POR NOMBRE (`to_plain`/`from_plain`): un
+#    blob v4 trae la tupla y no se puede leer → replay frío la primera vez (plan
+#    estado-regen-y-params-estrictos, D2).
+GEOM_CACHE_EPOCH = 5
 
 
 def _apolo_version() -> str:
@@ -131,10 +138,11 @@ def _wrap_topods(topods):
 
 
 def pack(doc) -> bytes | None:
-    """Serializa el estado regenerado del doc (8-tupla + definiciones canónicas usadas por la
-    escena) con su firma. Los shapes van como bytes de BinTools (crudos), NO picklando el
-    wrapper. NO incluye el log (vive en el ``.apolo``). Devuelve None ante CUALQUIER fallo. No
-    muta el documento (se picklea una COPIA de los Features con ``shape=None``).
+    """Serializa el estado regenerado del doc (``RegenState`` POR NOMBRE + definiciones
+    canónicas usadas por la escena) con su firma. Los shapes van como bytes de BinTools
+    (crudos), NO picklando el wrapper. NO incluye el log (vive en el ``.apolo``). Devuelve
+    None ante CUALQUIER fallo. No muta el documento (se picklea una COPIA de los Features
+    con ``shape=None``).
 
     V6.2e: empaca el checkpoint ORGÁNICO del ÚLTIMO comando (``_regen_ckpts[len-1]``, capturado
     DENTRO del bucle de regenerate, ANTES de la finalización: solve_mates/assign_groups), NO el
@@ -145,7 +153,6 @@ def pack(doc) -> bytes | None:
     reportaría suppressed=[] enmascarando el chip y podría servir una escena sin la pieza)."""
     try:
         from apolo.commands.registry import DEFINITIONS
-        from apolo.doc.document import _copy_state
 
         if not doc._regen_sigs:
             return None  # documento vacío: nada que cachear
@@ -154,8 +161,8 @@ def pack(doc) -> bytes | None:
         ckpt = doc._regen_ckpts.get(len(doc.commands) - 1)  # Fix 3: ckpt ORGÁNICO (pre-mates)
         if ckpt is None:
             return None  # sin ckpt del último comando (ckpts purgados) → replay frío
-        state = _copy_state(ckpt)  # aísla ANTES de vaciar shapes (no corromper el ckpt del doc)
-        scene = state[0]  # dict fid -> Feature (COPIAS: shape compartido, seguro de vaciar)
+        state = ckpt.copy()  # aísla ANTES de vaciar shapes (no corromper el ckpt del doc)
+        scene = state.scene  # dict fid -> Feature (COPIAS: shape compartido, seguro de vaciar)
         scene_shapes: dict[str, bytes] = {}
         for fid, feat in scene.items():
             blob = _serialize_robust(feat.shape.wrapped)
@@ -175,7 +182,7 @@ def pack(doc) -> bytes | None:
                 "epoch": GEOM_CACHE_EPOCH,
                 "versions": _versions(),
                 "sigs": list(doc._regen_sigs),
-                "state": state,             # Features con shape=None + dicts planos
+                "state": state.to_plain(),  # {campo: dict}; Features con shape=None
                 "scene_shapes": scene_shapes,  # fid -> bytes (BinTools del TopoDS crudo)
                 "definitions": definitions,    # mesh_key -> bytes
             },
@@ -185,7 +192,7 @@ def pack(doc) -> bytes | None:
         return None
 
 
-def unpack(blob: bytes | None) -> tuple[list, tuple, dict] | None:
+def unpack(blob: bytes | None) -> tuple[list, RegenState, dict] | None:
     """Valida epoch/versiones + sanidad estructural, reconstruye los shapes (BinTools) y
     devuelve ``(sigs, state, definitions)``. Devuelve None ante cualquier mismatch o
     corrupción. SOLO se llama sobre blobs de la SQLite propia (nunca del .apolo)."""
@@ -202,20 +209,17 @@ def unpack(blob: bytes | None) -> tuple[list, tuple, dict] | None:
         if data.get("versions") != _versions():
             return None
         sigs = data.get("sigs")
-        state = data.get("state")
         scene_shapes = data.get("scene_shapes")
         definitions = data.get("definitions")
         if not (
             isinstance(sigs, list)
             and all(isinstance(s, str) for s in sigs)
-            and isinstance(state, tuple)
-            and len(state) == 8
-            and isinstance(state[0], dict)
             and isinstance(scene_shapes, dict)
             and isinstance(definitions, dict)
         ):
             return None
-        scene = state[0]
+        state = RegenState.from_plain(data.get("state"))  # otro formato → ValueError → None
+        scene = state.scene
         for fid, feat in scene.items():
             raw = scene_shapes.get(fid)
             if raw is None:  # falta el shape de una feature → caché inservible

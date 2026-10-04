@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 hecha (golden, base fuera del repo en %TEMP%\apolo-golden); faltan F1–F6, sin mergear; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
+nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden) y F1 (RegenState, epoch 5) hechas y sin mergear; faltan F2–F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
 descripcion: Si tú o el agente mandan un parámetro que no existe, Apolo lo rechaza y sugiere el correcto (antes lo ignoraba en silencio); tus proyectos guardados regeneran idénticos
 ---
 
@@ -323,3 +323,37 @@ detección. Los floats se redondean a 10 cifras significativas (y |x| < 1e-9 →
 ruido de último bit, sensible a cualquier cambio real (1e-6 mm en una cota de 4 m). Los tiempos
 van en `meta`, que `--compare` ignora. `--src` es explícito porque desde un worktree el
 `data/apolo.db` por defecto no existe. Conteo de tests de la raíz: 1391 → 1395.
+
+**2026-10-03 — F1, `RegenState`.** `core/apolo/commands/state.py` (72 líneas): dataclass con
+`slots` y los 8 campos con nombre, en el orden de la vieja tupla; `copy()` es el puerto 1:1 de
+`_copy_state` (que se borra); `to_plain`/`from_plain` por nombre (`from_plain` exige EXACTAMENTE
+los 8 campos, todos dicts). Los 14 sitios de la tabla: en `document.py`, `_regen_ckpts` tipado,
+`_ckpts_ok` y `check_integrity` validan `RegenState` con escena dict, `regenerate` arranca de
+`ckpts[resume].copy()` o de `RegenState()`, ejecuta, captura `state.copy()`, poda con
+`_prune_or_raise(state, tolerant, suppressed)` y vuelca por nombre; el open caliente siembra el
+`RegenState` del blob. En `geomcache.py`, `pack` copia con `ckpt.copy()` y guarda
+`state.to_plain()`; `unpack` reconstruye con `from_plain` (otro formato → `ValueError` → None).
+`execute_command(state, cmd_id, cmd_type, params, attachments=None)` desarma el estado en
+locales al entrar y deja las 11 ramas intactas. `GEOM_CACHE_EPOCH` 4 → 5, con su línea en el
+historial. «8-tupla» → `RegenState` en la raíz y en `assembly/`; `doc/` gana una línea (el blob
+guarda el estado por nombre; cambiar sus campos = bump) y `commands/` nombra `state.py`.
+
+- **Tests**: `tests/test_regen_state.py` (9): campos y orden; un campo inventado lanza
+  `AttributeError`; `copy()` aísla campo por campo (Feature distinta, variables propias, los seis
+  restantes en copia profunda, mutación anidada incluida); el shape se comparte por `is` (también
+  en copia de copia y entre el checkpoint y la escena); `to_plain`/`from_plain` ida y vuelta y
+  rechazo de 6 formas malas; `execute_command` con la firma nueva; un blob v4 (epoch 4 + tupla)
+  → `unpack` None, también con el epoch de hoy o sin `groups`, y el open con ese warm da el
+  documento correcto; un checkpoint con tupla en memoria → `check_integrity` lo marca y el edit
+  siguiente replaya completo. `tests/test_geomcache.py`: `isinstance(state, RegenState)`.
+- **Golden** (`%TEMP%\apolo-golden\golden-f1.json`, código del worktree, 1 452,9 s) contra la
+  base de F0: **sin diferencias** en los 122 documentos, firmas incluidas.
+- **Suite**: 1404 tests (1391 + 4 de F0 + 9 de F1): 1403 pasan y 1 se salta, 497 s.
+  De la tortura extendida se corrieron las 7 que tocan caché y regenerate (`geomcache`,
+  `big_model_cold`, `fuzz_strict`): verdes; la completa queda para F6. **Líneas**: `document.py`
+  1084 → 1060 y `registry.py` 2299 → 2286 (trinquete actualizado); `geomcache.py` 228 → 231.
+
+**Desvíos de F1**: `_try_warm` rechaza un estado que no sea `RegenState` (antes lo sembraba y
+`_ckpts_ok` lo descartaba en el regenerate siguiente: mismo efecto, un paso antes y explícito).
+`execute_command` mantiene la cadena de ramas leyendo de locales, no de `state.campo`, para que
+el cuerpo quede literalmente igual (F2 lo reemplaza).

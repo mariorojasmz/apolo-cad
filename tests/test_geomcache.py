@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pickle
 
+from apolo.commands.state import RegenState
 from apolo.doc.document import Document
 from apolo.doc.geomcache import GEOM_CACHE_EPOCH, pack, unpack
 
@@ -66,7 +67,7 @@ def test_pack_unpack_roundtrip():
     assert out is not None
     sigs, state, definitions = out
     assert sigs == doc._regen_sigs
-    assert isinstance(state, tuple) and len(state) == 8
+    assert isinstance(state, RegenState) and set(state.scene) == set(doc.scene)
     assert definitions  # el modelo tiene instancias → definiciones canónicas
 
 
