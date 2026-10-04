@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden), F1 (RegenState, epoch 5), F2 y F3 (despacho único: los 53 executors reciben ExecContext), F4 (entrada estricta, pydantic>=2.12) y F5 (versión por comando) hechas y sin mergear; falta F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: F0–F6 hechas y verificadas (golden de los 122 documentos sin diferencias, tortura, E2E); espera que Mario revise D1–D13 (D11 y D12 son extras vetables) antes de mergear a main — se implementó sin aprobación previa del contrato
 descripcion: Si tú o el agente mandan un parámetro que no existe, Apolo lo rechaza y sugiere el correcto (antes lo ignoraba en silencio); tus proyectos guardados regeneran idénticos
 ---
 
@@ -495,3 +495,51 @@ comentario del epoch en `geomcache.py` deja de pedir un bump por UN executor.
 **Desvíos de F5**: la huella de D11 es la de la función del executor, no la de sus helpers
 (declarado en el test; un helper compartido es la regla D10). `version_tag` vive en `spec.py` y
 recibe el registro (`spec.py` no importa `registry.py`).
+
+**2026-10-03 — F6, verifica.** Sobre la rama de integración en `0bc34c5` (F0–F5).
+
+- **Base de Mario intacta**: `data/apolo.db` con SHA-256 `1119258C…` y mtime 13:10:35, los
+  mismos de F0, medidos antes y después de toda la F6 → Mario no editó ningún proyecto desde
+  F0, así que cualquier diferencia del golden habría sido regresión. Copia FRESCA
+  `%TEMP%\apolo-golden\copia-f6.db` (backup desde `mode=ro`; 25 proyectos, 97 revisiones).
+- **Golden completo** (`golden-f6.json`, código del worktree, 949,5 s): 122 documentos ·
+  23 854 comandos · 6 738 sólidos · 0 errores · integridad limpia en los 122 · suprimidos
+  sólo en la revisión 60 (los 60 de F0). `--compare` contra `base-f0-a.json`: **sin
+  diferencias**, firmas incluidas.
+- **Tortura** (`pytest -m torture`, completa): 15 de 15 pasan.
+- **Suite** (sin `ui/dist`, con los cambios de cierre de esta fase): 1713 tests, 1712 pasan y
+  1 se salta, 400 s.
+- **E2E** con una API de prueba levantada desde el worktree (`-B`, `PYTHONPATH` al `core/` del
+  worktree y `APOLO_DB` a una copia de la copia fresca en su `data/`), por HTTP:
+  1. **Open frío del 38**: 200 en 49,5 s (con el golden corriendo en paralelo), 87 sólidos,
+     360 comandos, 0 suprimidos, health ok. Su fila de `geom_cache` pasa de epoch 4 a 5 con la
+     MISMA firma (`2763a0ff…`): con todo en v1 la firma es la histórica (D9).
+  2. **Open caliente**: 200 en 2,6 s (incluye el teselado del payload y el briefing), los
+     mismos 87 ids, health ok, y la fila NO se re-empaca (`updated_at` igual; `load` sólo
+     re-empaca si no hubo warm o si la firma difiere). La API no expone un contador de
+     replays, así que se contó aparte, con el blob que escribió la API y un espía sobre
+     `document.execute_command`: **0 replays** con la caché y 360 (= el log) en frío, misma
+     firma final y mismos sólidos.
+  3. **c45** (`pattern_linear` con `name: "Pata A36"` guardado): `PUT` con sus params
+     guardados → 200, y el `name` sigue en el log (D7, D13).
+  4. **`POST /api/commands` de `pattern_linear` con `name`** → 400: «Parámetro desconocido en
+     pattern_linear (no se aplicó nada): - «name» no existe. Válidos en ese nivel: feature,
+     count, spacing.»; log sin cambios.
+  5. **Lote `?async=true` con `create_box` + `material`** → 202; el job termina `error` con
+     `http_status` 400 y el MISMO texto que el lote sync («…«material»: el material no es un
+     parámetro; asígnalo con set_material a la pieza ya creada. Válidos en ese nivel: name,
+     width, depth, height, position, rotation.»); log sin cambios.
+
+  El `logs/errors.log` del worktree sólo tenía esos dos 400. API detenida; `data/` y `logs/`
+  del worktree borrados.
+- **Cierre**: «Estado actual» de la raíz 1662 → 1713 tests (la rama de integración sumó tests
+  de otros planes después de F5; +15 de tortura, 79 tools, 53 comandos, 231 refs, sin
+  cambio); tres ítems al backlog (§ Comandos, log y caché de geometría): la decisión
+  `pattern_linear.name` / `create_box.material`, las refs del catálogo que no se borran y la
+  caché más fina que por proyecto.
+
+**Desvíos de F6**: la API de prueba corrió en el puerto **8011**, no en el 8001: el 8001 lo
+ocupan Docker y WSL (`com.docker.backend`, `wslrelay`). En la copia desechable del worktree
+el proyecto 46 (vacío) se marcó como el más reciente: el arranque abre el reciente, que era el
+38, y el primer open por HTTP ya habría sido caliente. Los 0 replays se midieron fuera de la API
+(espía) y se respaldaron dentro (fila no re-empacada + tiempo), porque la API no los cuenta.

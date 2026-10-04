@@ -21,6 +21,28 @@ Reglas del archivo:
 - **Migrar a `mcp` 2.x y a `build123d` ≥ 0.11 / OCP 8** para poder levantar esos topes (plan
   aparte: toca el cliente MCP y el kernel).
 
+## Comandos, log y caché de geometría
+
+Origen de todos: [estado-regen-y-params-estrictos](plans/estado-regen-y-params-estrictos.md)
+(§ Lo que este plan NO hace).
+
+- **Decidir si `pattern_linear` gana `name` y `create_box` gana `material`.** El agente los manda
+  creyendo que nombran las copias o asignan el material: 114 `pattern_linear.name` en 18
+  documentos (el 38 entre ellos) y 2 `create_box.material` en el 65. Hoy se rechazan al entrar
+  (con puntero a `set_material`) y el replay los ignora (D13). Declararlos hace que esos logs
+  viejos cambien al regenerar (las copias de patas del 38 cambiarían de nombre): o un upcaster
+  que los descarte en los logs viejos, o aceptar el cambio y subir la `version` del comando.
+- **Las refs del catálogo no se borran ni se renombran.** La validación de `component`
+  (`_known_ref` en `commands/models.py`) y el executor (`CATALOG[p.component]` en
+  `_exec_insert_component`) leen el catálogo VIVO: quitar una ref rompe el replay de todo log
+  que la use (la carga tolerante suprime el comando). Retirar una exige alias o upcaster.
+- **Caché de geometría más fina que por proyecto.** `geom_cache` guarda UNA fila por proyecto
+  (el checkpoint del último comando) y el open caliente exige que sus firmas sean PREFIJO del
+  log: subir la `version` de un comando invalida el proyecto entero (replay frío completo,
+  aunque el comando esté al final). Varios checkpoints por proyecto permitirían reanudar del
+  último anterior al cambio. Tampoco hay hash del catálogo en `_versions()`: tocar un YAML
+  sigue siendo bump de `GEOM_CACHE_EPOCH`.
+
 ## Ensamblaje y cinemática
 
 - **Master-slider «Apertura %»**.
