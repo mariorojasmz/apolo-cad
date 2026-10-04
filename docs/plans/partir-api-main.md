@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+nota: F0 medida; faltan F1–F7. Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
@@ -20,7 +20,8 @@ slug solo.
 
 ## El problema / lo que hay hoy
 
-Medido sobre `core/apolo/api/main.py` (4 913 líneas, base `28cc249`):
+Medido sobre `core/apolo/api/main.py` (4 913 líneas, base `28cc249`; F0 re-midió cada
+`archivo:línea` de esta sección sobre `ae67786` y todos coinciden):
 
 - **Un solo `app` con 131 rutas** (`main.py:53`), sin `APIRouter` ni `Depends`; 59 funciones
   privadas más `_AutosaveScheduler`.
@@ -54,9 +55,10 @@ Medido sobre `core/apolo/api/main.py` (4 913 líneas, base `28cc249`):
 - **Bug latente tapado por los tests**: `_piece_dim_tols(doc)` (`4464`) mide con
   `_stackup_link_from_feature` (`4485`), que lee el `DOC` GLOBAL (`2601`) y no su `doc`; los tests lo
   esquivan con `api.DOC = doc` (`test_tolerancia_justificada.py:20,34,49`).
-- **Tests acoplados a `main`**: 65 archivos importan `apolo.api.main`; 175 reasignaciones de nombres
-  de estado en 61 archivos (`api.DOC = …`: 133); 15 `monkeypatch.setattr(api, …)`; ≈ 42 nombres de
-  `main` usados, privados incluidos; ningún fixture común restaura el estado.
+- **Tests acoplados a `main`** (re-medido en F0 sobre `ae67786`): 66 archivos importan
+  `apolo.api.main`; 188 reasignaciones de los 5 nombres de sesión en 62 archivos (176 directas
+  —`api.DOC = …`: 134— y 12 por `monkeypatch.setattr`); 15 `monkeypatch.setattr(api, …)`; 42
+  nombres de `main` usados, privados incluidos; ningún fixture común restaura el estado.
 
 ## Lo que se revisó antes de escribir esto
 
@@ -66,7 +68,8 @@ Medido sobre `core/apolo/api/main.py` (4 913 líneas, base `28cc249`):
   mutan en sitio `_GEOM_REVS`, `_LAST_FEA_FIELD`, `_DEF_MESH_CACHE`, `WS`, `_autosave_sched`;
   importan por nombre `_cached_render`, `_definition_mesh` y los mapas de fits. Nadie importa `DOC`
   por valor.
-- **Solapamiento de rutas**: 11 pares que pueden casar la misma URL, todos dentro de un mismo grupo;
+- **Solapamiento de rutas**: 11 pares de rutas que pueden casar la misma URL (10 pares de paths:
+  `/api/commands/batch` cuenta por POST y por PATCH), todos dentro de un mismo grupo;
   uno del mismo método (`GET /api/fea/group/fringe.png` lo atiende `get_fea_group`, `3665`,
   registrado antes que `get_fea_fringe`, `3701`). 9 paths con varios métodos (→ D5).
 - **Versiones del venv**: FastAPI 0.136.3, Starlette 1.2.1, pydantic 2.13.4, Python 3.13.5.
@@ -233,4 +236,33 @@ todo antes de integrar.
 
 ## Bitácora
 
-_(vacía: se llena al cerrar cada fase)_
+### F0 — medición (2026-10-03, base `ae67786`)
+
+- **El contrato sigue valiendo línea a línea.** Sobre `ae67786` (rama de integración con la
+  higiene, el backend de textos y los contratos) `main.py` mide 4 913 líneas y cada referencia
+  de § El problema cae donde dice: `app` 53, globals 61-72, `global` en 119/332/1669/1686/1755/
+  3314/4605/4853/4874, los nueve bloques de dominio, `get_fea_group` 3665 antes que
+  `get_fea_fringe` 3701, kwargs de `sheet_set` 4035-4046 = 4066-4077, `_piece_dim_tols` 4464 →
+  `_stackup_link_from_feature` 4485 → `DOC` global 2601. 131 rutas (130 HTTP + 1 WS), 59
+  funciones privadas, `DOC` en 337 líneas, 9 paths con varios métodos.
+- **Lo que difiere** (la base creció desde `28cc249`; corregido arriba): 66 archivos de test
+  importan `main` (no 65); 188 reasignaciones de sesión en 62 archivos (176 directas, `api.DOC =`
+  134; + 12 por `monkeypatch.setattr`), no 175 en 61. Los «11 pares solapados» son pares de RUTAS:
+  en paths son 10, porque `/api/commands/batch` entra por POST y por PATCH (aclarado arriba).
+- **Opcionales**: `import apolo.api.main` (7,8 s en frío) NO carga gmsh, skfem, meshio, mujoco,
+  PIL, vtk/vtkmodules, matplotlib, planegcs, anthropic ni mcp; sí ezdxf, scipy, numpy,
+  build123d/OCP y yaml (dependencias duras). Es la línea del gate permanente de F1.
+- **Suite**: 1 515 tests, 1 saltado (`test_two_locks`), 0 fallos, 517 s; `-m torture`: 15 tests,
+  137 s. Ambos BAJO CONTENCIÓN (otras sesiones corrían suites y el andamio de F1 se probaba a la
+  vez): sirven de control de verde, no de baseline de tiempo.
+- **FEA**: corren 34 tests (19 de `test_fea.py` + 15 de `test_fea_assembly.py`), 0 saltados
+  (gmsh 4.15.2 y scikit-fem 12.0.2 instalados). F4 y F6a comparan contra este 34.
+- **Riesgo de D11** (plugin de pytest en el scratchpad: `hookwrapper` sobre
+  `pytest_runtest_protocol` que fotografía los 5 nombres de sesión antes y después de cada test,
+  fixtures incluidos, con `main` importado al iniciar la sesión): **250 de 1 515 tests terminan
+  con otro `api.DOC`** del que encontraron (58 archivos; los que más: `test_api` 46,
+  `test_jobs`/`test_stackup_api`/`test_v65c_fixes`/`test_verify` 11 cada uno). NINGUNO deja
+  `STORE`, `PROJECT_ID`, `AUTOSAVE_ERROR` ni `STARTUP_ERROR` cambiados: los que los tocan ya
+  restauran. El tamaño del riesgo es eso: 250 fugas de `DOC` y cero de lo demás; si algún test
+  dependiera del DOC que le deja el anterior, el fixture D11 lo destapa en F5b (se arregla en el
+  test).
