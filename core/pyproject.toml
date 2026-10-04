@@ -35,7 +35,12 @@ dependencies = [
     "ocp_gordon<0.3",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
-    "anthropic>=0.40",
+    # La mínima con todo lo que usa agent/modelo.py (plan chat-cliente-igual F7), según el
+    # CHANGELOG del SDK y su código en cada tag: `cache_control` en la raíz (0.83.0),
+    # `output_config.effort` (0.75.0), thinking adaptativo (0.78.0) y `Message.stop_details`
+    # (0.88.0; el tag 0.87.0 no lo tiene); `betas` en beta.messages.stream es anterior. La
+    # credencial por perfil de `ant auth login` llega en 0.98.0: antes, sólo las variables.
+    "anthropic>=0.88.0",
     "pydantic>=2.6",
     "python-multipart>=0.0.9",
     "matplotlib>=3.8",

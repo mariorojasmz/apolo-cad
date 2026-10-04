@@ -54,6 +54,10 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   `mcp.list_tools()` en el orden del catálogo y `ejecutar()` corre `mcp.call_tool` en el hilo
   del chat apuntado a `tools/destino.py`; en modo propuesta lo que `muta` no corre. El MCP se
   importa perezoso restaurando el logger raíz (FastMCP lo reconfigura al construirse).
+- `agent/modelo.py` es el cliente de Anthropic del chat (lo cablea la F5a): config LEÍDA en cada
+  llamada (`APOLO_MODEL`, `APOLO_MAX_TOKENS`, `APOLO_EFFORT`, `APOLO_CHAT_VUELTAS`; los defaults
+  esperan D11), caché en el último bloque de `system` + el automático, conversación append-only
+  y ningún final silencioso: `aviso` ante `max_tokens`/`refusal`/vueltas agotadas.
 - `design/guidelines.py` es la fuente ÚNICA del criterio de ingeniería: `design_brief()` (capa 1)
   va siempre en los dos clientes; `design_guidelines()` (capa 2), bajo demanda. Se edita ahí,
   nunca en las copias.

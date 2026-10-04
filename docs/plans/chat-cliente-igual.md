@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2, F4 y F6 hechas (spikes verdes, golden del MCP, destino inyectable, catálogo de 63 tools + adaptador todavía sin cablear al chat, guía única que el chat viejo ya usa), sin mergear. F7 (modelo por defecto, D11), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
+nota: F0–F2, F4, F6 y F7 hechas (spikes verdes, golden del MCP, destino inyectable, catálogo de 63 tools + adaptador, guía única que el chat viejo ya usa, cliente de Anthropic con caché y avisos; adaptador y cliente todavía sin cablear al chat), sin mergear. D11 (defaults de modelo, effort y max_tokens: F7 los dejó configurables sin cambiarlos), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
 descripcion: El asistente de la app usa las mismas herramientas que el agente por MCP (puerta de entrega, gravedad, verify, render nítido, lotes con contrato), te avisa cuando se corta y cuesta menos por mensaje
 ---
 
@@ -572,3 +572,83 @@ sirve en tiempo de ejecución para F7/F8; F7 fija el pin en `>=0.109.1` (la mín
   Ojo al medir: editar `design/instrucciones.py` con la suite corriendo pone rojo
   `test_bytes_estables_en_otro_proceso` (el proceso de pytest tiene el texto viejo y la sonda
   lee el nuevo); pasó en la corrida limpia.
+
+### F7 — cliente de Anthropic: caché y ningún final silencioso (2026-10-03)
+
+Con la restricción de la sesión principal: **D11 sin decidir** → ni el modelo por defecto ni un
+effort por defecto cambian; sólo se vuelven configurables. Referencia usada: la skill
+`claude-api` (caché, stop reasons, thinking/effort) y el SDK instalado, no la memoria.
+
+- `agent/modelo.py` (177 líneas; el plan pedía ≤ 120: ≈ 45 son el docstring y los comentarios
+  que documentan las variables y el protocolo del ejecutor, ≈ 15 los textos de los avisos; la
+  lógica ronda las 100). Sin estado global, no importa nada de `apolo` y `anthropic` se importa
+  perezoso. **No está cableado al endpoint** (F5a): el chat vivo sigue en `agent/agent.py`.
+  - `config()` lee **en cada llamada** `APOLO_MODEL` (default `claude-opus-4-8`, el de hoy),
+    `APOLO_MAX_TOKENS` (16000, el de hoy), `APOLO_EFFORT` (sin valor NO se manda
+    `output_config`: rige el default del modelo; con valor, uno de low…max) y
+    `APOLO_CHAT_VUELTAS` (20 llamadas por turno). Un valor inválido cierra el turno con `error`
+    sin llamar a la API.
+  - `conversar(convo, system, tools, ejecutar, cliente=None)` = el bucle de un turno. Agrega a
+    `convo` cada respuesta y cada lote de resultados (append-only) y cede `text`, `progreso`,
+    `aviso`, `error`, los eventos del ejecutor y SIEMPRE, al final, `done` con `uso`.
+  - **Ejecutor inyectado** (lo escribe la F5a sobre `herramientas.ejecutar()`): un generador
+    que cede eventos para la UI y RETORNA `({tool_use_id: cuerpo del tool_result}, seguir)`;
+    `seguir=False` cierra el turno sin otra vuelta (la propuesta); `modelo.Corte` cierra con
+    `error` (proyecto cambiado). Una tool sin cuerpo → `is_error` (nunca un `tool_use` huérfano
+    que dé 400).
+- **D12**: `system` = un bloque con `cache_control` (render tools → system → messages: cachea
+  tools + system) + `cache_control` en la raíz (automático) para la conversación: 2 de 4
+  breakpoints, ambos de 5 min (el orden de TTL no se rompe). Las tools van tal cual, en el orden
+  recibido. Los kwargs salvo `messages` se arman una vez por turno: idénticos byte a byte en
+  cada vuelta y entre turnos iguales (test). `done.uso` = `{input, output, cache_read,
+  cache_creation}` sumados de todas las llamadas del turno (`cache_*` en `None` cuenta 0).
+- **D13**: `aviso {motivo, mensaje}` ante `max_tokens` (+ `max_tokens`), `refusal` (+
+  `categoria` y `explicacion` de `stop_details`; la categoría también en el texto),
+  `model_context_window_exceeded`, cualquier razón desconocida y las vueltas agotadas («Llegué
+  al tope de N pasos sin terminar…»). `pause_turn` → otra llamada con el turno del asistente
+  reenviado, sin mensaje nuevo (cuenta como vuelta: no hay bucle infinito). Las tools de una
+  respuesta que no terminó en `tool_use` NO corren y van al historial como `is_error` («No se
+  ejecutó…»): el historial queda válido para seguir. En las vueltas agotadas, las tools de la
+  última respuesta SÍ corrieron (terminó en `tool_use`) y el aviso lo cuenta. Textos en tuteo
+  neutro, pasados por `faltas()` de `test_pistas.py`.
+- **`display: "updates"`** sólo para los modelos que la referencia documenta (Fable 5.1,
+  Mythos 5.1, Fable 5, Opus 5.5, Sonnet 5.5), por `beta.messages.stream(betas=
+  ["thinking-display-updates-2026-08-18"])`; sus notas no vacías salen como `progreso` (F9 las
+  pinta). Con el default (Opus 4.8) se omite y la llamada va a `messages.stream`, como hoy.
+- **Credenciales**: las resuelve el SDK (`anthropic.Anthropic()` sin argumentos: variable,
+  token o perfil de `ant auth login`). Si no resolvió ninguna (`api_key`, `auth_token` y
+  `credentials` vacíos) → el mensaje de hoy («Falta la variable de entorno
+  ANTHROPIC_API_KEY…») sin llamar (sin esa guarda el SDK lanzaría `TypeError`). Un
+  `AuthenticationError` (401) conserva el texto de hoy, «Error del API de Claude: …», como todo
+  `APIError`: decirle «falta la variable» a una credencial que existe pero fue rechazada sería
+  falso.
+- **Pin `anthropic>=0.40` → `>=0.88.0`** (no `>=0.109.1` como anticipó la F0: aquella era la
+  versión probada, no la mínima). Evidencia — CHANGELOG del SDK: `cache_control` raíz en 0.83.0,
+  effort en 0.75.0, adaptativo en 0.78.0, `stop_details` en 0.88.0; código en los tags: 0.87.0
+  NO tiene `Message.stop_details`, 0.88.0 sí, y en 0.88.0 `messages.stream` acepta
+  `cache_control`/`output_config`/`thinking`, `beta.messages.stream` acepta `betas` y
+  `_transform_typeddict` deja pasar las claves sin tipar (`display: "updates"`). La credencial
+  por perfil llega en 0.98.0; se lee con `getattr`, así que de 0.88 a 0.97 cae a las variables.
+  **Sin tope superior**: el CI instala la última (1.x); según la guía de upgrade de la skill,
+  `modelo.py` no usa nada que 1.x quitó (`temperature`/`top_p`/`top_k`, `output_format` como
+  dict, objetos de `httpx`), y el test contra el SDK elige `httpx` o `httpx2` según la mayor
+  instalada. En este venv sólo se probó 0.109.1.
+- `tests/test_chat_modelo.py` (27): cliente FALSO que guarda los kwargs serializados al llamar
+  (cache en `system` y en la raíz, orden de claves con `messages` al final, mismos bytes por
+  vuelta y entre turnos, append-only); config leída en cada llamada y valores inválidos; avances
+  sólo en los modelos documentados; cada `stop_reason` → su aviso sin correr las tools;
+  refusal con y sin categoría; `pause_turn`; vueltas agotadas (con 3 y el default 20); `uso`
+  sumado; ejecutor (eventos, tool sin cuerpo, `seguir=False`, `Corte`); credenciales (sin
+  ninguna, cliente armado sin argumentos, 401); y el **SDK instalado** con
+  `httpx.MockTransport` (SSE de verdad, sin red) en los dos caminos (`/v1/messages` y
+  `?beta=true` con su cabecera). Gates: textos por `faltas()`, módulo sin imports de `apolo`.
+- **Para D11 (Mario)**: modelo por defecto (hoy `claude-opus-4-8`; el plan propone
+  `claude-opus-5-5`, que además prende `display: "updates"` solo), effort (hoy sin
+  `output_config`; Opus 5.5 tiene default `medium`, Opus 4.8 `high`) y `max_tokens` (hoy 16000;
+  el plan propone 64 000, ya en streaming). Cambiarlos = editar `MODELO`/`MAX_TOKENS` y, si se
+  quiere un effort fijo, un default en `config()`; o fijar las variables de entorno sin tocar
+  código.
+- `core/apolo/CLAUDE.md` gana la línea de `agent/modelo.py`. `agent.py` (606) y `mcp_server.py`
+  (1429) sin tocar; golden del MCP sin cambios.
+- Suite: 1663 passed + 1 skipped (1664 recolectados); `ruff check core tests scripts` limpio;
+  trinquete de tamaño y `test_claude_md.py` verdes.
