@@ -3,9 +3,9 @@
 Lo que se protege:
   - cada executor del `REGISTRY` recibe EXACTAMENTE `(ctx, cmd_id, p)`: una sola forma de
     llamada, sin flags `wants_*` que elijan entre 11 (una combinación sin rama propia caía
-    en silencio en la primera que coincidiera);
-  - `CommandSpec` rechaza al registrar lo que antes fallaba al ejecutar (kind/convention
-    inválidos);
+    en silencio en la primera que coincidiera) ni convenciones de transición;
+  - `CommandSpec` rechaza al registrar lo que antes fallaba al ejecutar (kind inválido,
+    executor no invocable);
   - el despacho lee `spec.executor` en cada llamada (los tests de tortura y de caché
     parchean el executor en caliente);
   - `ExecContext` entrega los dicts VIVOS del estado (un executor muta en sitio).
@@ -21,47 +21,33 @@ from apolo.commands.registry import REGISTRY, CommandError, execute_command
 from apolo.commands.spec import CommandSpec, run_executor
 from apolo.commands.state import ExecContext, RegenState
 
-# Los 15 que salían de la forma por defecto (flags `wants_*` o kind="vars"): migraron en F2.
-MIGRADOS_F2 = {
-    "set_variable", "import_step", "insert_project", "run_script", "create_robot_arm",
-    "add_joint", "add_mate", "add_rail_constraint", "add_constraint", "fasten", "ground",
-    "join_bolted", "create_group", "transform_group", "pattern_group",
-}
+ESPERADO = [(n, inspect.Parameter.POSITIONAL_OR_KEYWORD) for n in ("ctx", "cmd_id", "p")]
 
 
 def _params(fn) -> list[tuple[str, object]]:
     return [(p.name, p.kind) for p in inspect.signature(fn).parameters.values()]
 
 
-def test_cada_executor_recibe_exactamente_su_convencion():
-    malos = []
-    for tipo, spec in REGISTRY.items():
-        primero = "ctx" if spec.convention == "ctx" else "scene"
-        esperado = [(n, inspect.Parameter.POSITIONAL_OR_KEYWORD) for n in (primero, "cmd_id", "p")]
-        if _params(spec.executor) != esperado:
-            malos.append(f"{tipo} ({spec.convention}): {_params(spec.executor)}")
+def test_cada_executor_recibe_exactamente_ctx_cmd_id_p():
+    assert len(REGISTRY) == 53
+    malos = [f"{tipo}: {_params(s.executor)}" for tipo, s in REGISTRY.items()
+             if _params(s.executor) != ESPERADO]
     assert not malos, "executors con otra firma:\n" + "\n".join(malos)
 
 
-def test_los_15_con_flags_ya_reciben_ctx():
-    assert MIGRADOS_F2 <= set(REGISTRY)
-    assert {t for t, s in REGISTRY.items() if s.convention == "ctx"} == MIGRADOS_F2
-    assert len(REGISTRY) == 53
-
-
-def test_no_quedan_flags_wants():
-    spec = REGISTRY["create_box"]
-    assert not [n for n in vars(spec) if n.startswith("wants_")]
+@pytest.mark.parametrize("extra", [{"wants_joints": True}, {"convention": "scene"}])
+def test_no_quedan_flags_ni_convenciones(extra):
+    assert not [n for n in vars(REGISTRY["create_box"]) if n.startswith("wants_")]
+    assert not hasattr(REGISTRY["create_box"], "convention")
     with pytest.raises(TypeError):
         CommandSpec("x", "X", "crear", REGISTRY["create_box"].model, lambda c, i, p: None,
-                    wants_joints=True)
+                    **extra)
 
 
-@pytest.mark.parametrize("campo, valor", [("kind", "geometria"), ("convention", "kwargs")])
-def test_commandspec_valida_al_registrar(campo, valor):
-    with pytest.raises(ValueError, match=campo):
+def test_commandspec_valida_el_kind_al_registrar():
+    with pytest.raises(ValueError, match="kind"):
         CommandSpec("x", "X", "crear", REGISTRY["create_box"].model, lambda c, i, p: None,
-                    **{campo: valor})
+                    kind="geometria")
 
 
 def test_commandspec_exige_executor_invocable():
@@ -104,7 +90,7 @@ def test_exec_context_entrega_los_dicts_vivos():
 def test_run_executor_pasa_el_contexto():
     llamadas = []
     spec = CommandSpec("x", "X", "crear", REGISTRY["create_box"].model,
-                       lambda ctx, cmd_id, p: llamadas.append((ctx, cmd_id, p)), convention="ctx")
+                       lambda ctx, cmd_id, p: llamadas.append((ctx, cmd_id, p)))
     ctx = ExecContext(RegenState())
     run_executor(spec, ctx, "c9", "modelo")
     assert llamadas == [(ctx, "c9", "modelo")]

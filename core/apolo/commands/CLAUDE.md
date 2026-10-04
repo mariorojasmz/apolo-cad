@@ -9,13 +9,12 @@ regenerate guarda como checkpoint; `ExecContext`, lo que recibe un executor) y `
 
 ## Al agregar o cambiar un comando
 
-- Un executor es `_exec_x(ctx: ExecContext, cmd_id, p)`: `ctx.scene`, `ctx.joints`,
+- Todo executor es `_exec_x(ctx: ExecContext, cmd_id, p)`: `ctx.scene`, `ctx.joints`,
   `ctx.fasteners`… son los dicts VIVOS (se mutan en sitio), `ctx.attachments` los adjuntos y
-  `ctx.resolved_variables()` las variables evaluadas. Ningún flag elige la firma: si un comando
-  necesita más contexto, es una propiedad de `ExecContext`. Transición hasta la F3 del
-  [plan](../../../docs/plans/estado-regen-y-params-estrictos.md): los que aún reciben
-  `(scene, cmd_id, p)` van con `convention="scene"` (el default); los de `ctx`, con
-  `convention="ctx"`. Lo verifica `tests/test_despacho_unico.py`.
+  `ctx.resolved_variables()` las variables evaluadas. Ningún flag elige la firma (lo exige
+  `tests/test_despacho_unico.py`): si un comando necesita más contexto, es una propiedad de
+  `ExecContext`, no un flag ni una rama en el despacho.
+  [plan](../../../docs/plans/estado-regen-y-params-estrictos.md)
 - La `description` del modelo es para el AGENTE (larga a propósito, con nombres de params); la
   persona lee la PISTA de `pistas.py` (vista `?vista=persona`, `vista_persona.py`): un comando
   nuevo sin pista rompe `tests/test_pistas.py` ([ui](../../../ui/CLAUDE.md)). Un super-comando reutilizable

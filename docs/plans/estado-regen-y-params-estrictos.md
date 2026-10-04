@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden), F1 (RegenState, epoch 5) y F2 (despacho único, ExecContext) hechas y sin mergear; faltan F3–F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
+nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden), F1 (RegenState, epoch 5), F2 y F3 (despacho único: los 53 executors reciben ExecContext) hechas y sin mergear; faltan F4–F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
 descripcion: Si tú o el agente mandan un parámetro que no existe, Apolo lo rechaza y sugiere el correcto (antes lo ignoraba en silencio); tus proyectos guardados regeneran idénticos
 ---
 
@@ -383,3 +383,26 @@ le pasaba las variables crudas)— migran a `(ctx, cmd_id, p)` con `convention="
 **Desvíos de F2**: la validación `version ≥ 1` de D5 llega con el campo, en F5. El adaptador de
 transición es el DEFAULT (`convention="scene"`) y los 15 migrados lo declaran: así la F2 no
 toca las 38 entradas que la F3 reescribe de todos modos.
+
+**2026-10-03 — F3, los 38 restantes.** Migración MECÁNICA con un script sobre el AST, no con
+reemplazo de texto: en cada executor registrado con `convention="scene"` cambia
+`scene: Scene` → `ctx: ExecContext` y cada `Name` `scene` de lectura del cuerpo → `ctx.scene`;
+aborta si la firma no era exactamente `(scene, cmd_id, p)`, si un nombre `scene` se ASIGNA o
+si una función anidada o lambda declara un parámetro `scene`. 97 ediciones (38 firmas, 59
+usos; `boolean_op` el que más, 5). Los helpers (`_require`, `_instanced`, `_world_move`,
+`_exec_snap_face`, que no está registrado) conservan su `scene`. Se borran `convention`,
+`CONVENTIONS` y la rama del adaptador: `run_executor` queda en una línea. Una sola línea pasó
+de 100 columnas (`create_cylinder`) y se rehizo sin sumar líneas.
+
+- **`registry.py` no crece**: al soltar `convention="ctx"`, las entradas del `REGISTRY` que
+  caben en una línea (≤ 100 columnas) o en tres se compactan: 2229 → 2212 (trinquete
+  actualizado). `spec.py` 55 → 44.
+- **Tests**: `tests/test_despacho_unico.py` (10): los 53 reciben EXACTAMENTE `(ctx, cmd_id,
+  p)`; `CommandSpec` rechaza `wants_*` y `convention` (TypeError) y un `kind` inválido.
+- **Golden** (`%TEMP%\apolo-golden\golden-f3.json`, 1 215,9 s) contra la base de F0: **sin
+  diferencias** en los 122 documentos, firmas incluidas.
+- **Suite**: 1538 tests (los 11 de F2 pasan a 10): 1537 pasan y 1 se salta. Ruff limpio.
+
+**Desvíos de F3**: ninguno de contrato. Los executors migrados en F2 conservan sus alias
+locales (`scene = ctx.scene` donde se usa muchas veces); los 38 de F3 usan `ctx.scene` en
+línea, que es lo que permitió no sumar líneas.

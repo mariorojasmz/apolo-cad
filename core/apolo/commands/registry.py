@@ -186,39 +186,39 @@ def _orient_axis(base, axis: str):
     return base
 
 
-def _exec_create_box(scene: Scene, cmd_id: str, p: CreateBoxParams) -> None:
+def _exec_create_box(ctx: ExecContext, cmd_id: str, p: CreateBoxParams) -> None:
     key = f"box|{p.width:g}|{p.depth:g}|{p.height:g}"
-    _instanced(scene, cmd_id, p.name, make_box(p.width, p.depth, p.height), key,
+    _instanced(ctx.scene, cmd_id, p.name, make_box(p.width, p.depth, p.height), key,
                p.position.tuple(), p.rotation.tuple())
 
 
-def _exec_create_cylinder(scene: Scene, cmd_id: str, p: CreateCylinderParams) -> None:
+def _exec_create_cylinder(ctx: ExecContext, cmd_id: str, p: CreateCylinderParams) -> None:
     key = f"cyl|{p.radius:g}|{p.height:g}|{p.axis}"
-    _instanced(scene, cmd_id, p.name, _orient_axis(make_cylinder(p.radius, p.height), p.axis), key,
-               p.position.tuple(), p.rotation.tuple())
+    _instanced(ctx.scene, cmd_id, p.name, _orient_axis(make_cylinder(p.radius, p.height), p.axis),
+               key, p.position.tuple(), p.rotation.tuple())
 
 
-def _exec_create_profile(scene: Scene, cmd_id: str, p: CreateStructuralProfileParams) -> None:
+def _exec_create_profile(ctx: ExecContext, cmd_id: str, p: CreateStructuralProfileParams) -> None:
     try:
         base = make_structural_profile(p.profile, p.length)
     except ValueError as exc:
         raise CommandError(str(exc)) from exc
     key = f"prof|{p.profile}|{p.length:g}"
-    _instanced(scene, cmd_id, p.name, base, key, p.position.tuple(), p.rotation.tuple())
+    _instanced(ctx.scene, cmd_id, p.name, base, key, p.position.tuple(), p.rotation.tuple())
 
 
-def _exec_boolean(scene: Scene, cmd_id: str, p: BooleanOpParams) -> None:
-    target = _require(scene, p.target)
-    tools = [_require(scene, t) for t in p.tools]
+def _exec_boolean(ctx: ExecContext, cmd_id: str, p: BooleanOpParams) -> None:
+    target = _require(ctx.scene, p.target)
+    tools = [_require(ctx.scene, t) for t in p.tools]
     if p.target in p.tools:
         raise CommandError("El objetivo no puede ser también herramienta")
     result = boolean_op(p.operation, target.shape, [t.shape for t in tools])
     if result is None or (hasattr(result, "volume") and result.volume <= 0):
         raise CommandError("La operación booleana produjo un sólido vacío")
-    del scene[p.target]
+    del ctx.scene[p.target]
     for t in p.tools:
-        del scene[t]
-    scene[cmd_id] = Feature(cmd_id, p.name, result, cmd_id)
+        del ctx.scene[t]
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, result, cmd_id)
 
 
 def _world_move(feat: Feature, translate, rotate) -> None:
@@ -271,8 +271,8 @@ def _world_place(feat: Feature, translate, axis, angle_deg: float, center) -> No
     feat.shape = shape
 
 
-def _exec_transform(scene: Scene, cmd_id: str, p: TransformParams) -> None:
-    feat = _require(scene, p.feature)
+def _exec_transform(ctx: ExecContext, cmd_id: str, p: TransformParams) -> None:
+    feat = _require(ctx.scene, p.feature)
     _world_move(feat, p.translate.tuple(), p.rotate.tuple())
 
 
@@ -281,13 +281,13 @@ def _bbox_center(shape):
     return ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
 
 
-def _exec_center_in(scene: Scene, cmd_id: str, p: CenterInParams) -> None:
+def _exec_center_in(ctx: ExecContext, cmd_id: str, p: CenterInParams) -> None:
     """Centra `feature` dentro de `into` en los ejes pedidos (mueve en sitio). Se reevalúa
     al regenerar → si `into` cambia, el sólido se recentra solo."""
     if p.feature == p.into:
         raise CommandError("Un sólido no puede centrarse dentro de sí mismo")
-    feat = _require(scene, p.feature)
-    cont = _require(scene, p.into)
+    feat = _require(ctx.scene, p.feature)
+    cont = _require(ctx.scene, p.into)
     fc = _bbox_center(feat.shape)
     cc = _bbox_center(cont.shape)
     idx = {"x": 0, "y": 1, "z": 2}
@@ -298,10 +298,10 @@ def _exec_center_in(scene: Scene, cmd_id: str, p: CenterInParams) -> None:
     _world_move(feat, tuple(t), (0, 0, 0))
 
 
-def _exec_distribute(scene: Scene, cmd_id: str, p: DistributeParams) -> None:
+def _exec_distribute(ctx: ExecContext, cmd_id: str, p: DistributeParams) -> None:
     """Reparte los `features` con centros equiespaciados de `start` a `end` en `axis`
     (mueve cada uno en sitio). Colocación por intención, no por coordenadas calculadas."""
-    feats = [_require(scene, fid) for fid in p.features]
+    feats = [_require(ctx.scene, fid) for fid in p.features]
     n = len(feats)
     if n < 2:
         raise CommandError("distribute necesita al menos 2 sólidos")
@@ -315,10 +315,10 @@ def _exec_distribute(scene: Scene, cmd_id: str, p: DistributeParams) -> None:
         _world_move(feat, tuple(t), (0, 0, 0))
 
 
-def _exec_pattern(scene: Scene, cmd_id: str, p: PatternLinearParams) -> None:
+def _exec_pattern(ctx: ExecContext, cmd_id: str, p: PatternLinearParams) -> None:
     from apolo.kernel.matrix import multiply, transform_anchors, translation
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     if p.spacing.tuple() == (0, 0, 0):
         raise CommandError("La separación del patrón no puede ser cero")
     sx, sy, sz = p.spacing.tuple()
@@ -327,7 +327,7 @@ def _exec_pattern(scene: Scene, cmd_id: str, p: PatternLinearParams) -> None:
         fid = f"{cmd_id}_{i}"
         off = translation(sx * i, sy * i, sz * i)
         matrix = multiply(off, feat.matrix) if feat.matrix is not None else None
-        scene[fid] = Feature(
+        ctx.scene[fid] = Feature(
             fid, f"{feat.name} ({i + 1})", copy, cmd_id,
             component=feat.component, cut_length=feat.cut_length,
             mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
@@ -392,20 +392,20 @@ def _exec_pattern_group(ctx: ExecContext, cmd_id: str, p: PatternGroupParams) ->
                 )
 
 
-def _exec_delete(scene: Scene, cmd_id: str, p: DeleteParams) -> None:
-    _require(scene, p.feature)
-    del scene[p.feature]
+def _exec_delete(ctx: ExecContext, cmd_id: str, p: DeleteParams) -> None:
+    _require(ctx.scene, p.feature)
+    del ctx.scene[p.feature]
 
 
-def _exec_duplicate(scene: Scene, cmd_id: str, p: DuplicateParams) -> None:
+def _exec_duplicate(ctx: ExecContext, cmd_id: str, p: DuplicateParams) -> None:
     from apolo.kernel.matrix import multiply, transform_anchors, translation
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     off = p.offset.tuple()
     copy = linear_copy(feat.shape, 1, off)  # clona y traslada por el desfase
     off_m = translation(*off)
     matrix = multiply(off_m, feat.matrix) if feat.matrix is not None else None
-    scene[cmd_id] = Feature(
+    ctx.scene[cmd_id] = Feature(
         cmd_id, f"{feat.name} (copia)", copy, cmd_id,
         component=feat.component, cut_length=feat.cut_length,
         mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
@@ -428,12 +428,12 @@ def _resolve_sel(shape, selector, kind: str):
         raise CommandError(str(exc)) from exc
 
 
-def _exec_delete_faces(scene: Scene, cmd_id: str, p: DeleteFacesParams) -> None:
+def _exec_delete_faces(ctx: ExecContext, cmd_id: str, p: DeleteFacesParams) -> None:
     """Modelado directo (V5.3): borra caras y cura el hueco. Muta EN SITIO
     (conserva feature_id — mates/juntas sobreviven)."""
     from apolo.kernel.direct import DirectError, expand_tangent, remove_faces
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     if p.faces.mode == "todas":
         raise CommandError(
             "Borrar TODAS las caras destruiría el sólido: usa delete_feature, o un "
@@ -452,11 +452,11 @@ def _exec_delete_faces(scene: Scene, cmd_id: str, p: DeleteFacesParams) -> None:
     feat.make_unique()
 
 
-def _exec_push_face(scene: Scene, cmd_id: str, p: PushFaceParams) -> None:
+def _exec_push_face(ctx: ExecContext, cmd_id: str, p: PushFaceParams) -> None:
     """Modelado directo (V5.3): empuja/jala una cara plana. Muta EN SITIO."""
     from apolo.kernel.direct import DirectError, push_pull
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     faces = _resolve_sel(feat.shape, p.face, "face")
     if len(faces) != 1:
         raise CommandError(
@@ -480,10 +480,10 @@ def _shortest_edge_mm(edges) -> float | None:
         return None
 
 
-def _exec_fillet(scene: Scene, cmd_id: str, p: FilletParams) -> None:
+def _exec_fillet(ctx: ExecContext, cmd_id: str, p: FilletParams) -> None:
     from build123d import fillet
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     edges = _resolve_sel(feat.shape, p.edges, "edge")
     try:
         result = fillet(edges, radius=p.radius)
@@ -500,10 +500,10 @@ def _exec_fillet(scene: Scene, cmd_id: str, p: FilletParams) -> None:
     feat.make_unique()
 
 
-def _exec_chamfer(scene: Scene, cmd_id: str, p: ChamferParams) -> None:
+def _exec_chamfer(ctx: ExecContext, cmd_id: str, p: ChamferParams) -> None:
     from build123d import chamfer
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     edges = _resolve_sel(feat.shape, p.edges, "edge")
     try:
         result = chamfer(edges, length=p.distance)
@@ -519,10 +519,10 @@ def _exec_chamfer(scene: Scene, cmd_id: str, p: ChamferParams) -> None:
     feat.make_unique()
 
 
-def _exec_shell(scene: Scene, cmd_id: str, p: ShellParams) -> None:
+def _exec_shell(ctx: ExecContext, cmd_id: str, p: ShellParams) -> None:
     from build123d import offset
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     # Fix H (V6.1): pre-check barato — un espesor que se come más de la mitad de la
     # dimensión MENOR deja la pieza sin cavidad (condición NECESARIA, sin falsos
     # positivos: solo rechaza lo que igual saldría vacío). Mensaje limpio antes de OCCT.
@@ -638,8 +638,8 @@ def _drill_tool(diameter: float, length: float, entry, direction):
     return Pos(*center) * cyl
 
 
-def _exec_drill_hole(scene: Scene, cmd_id: str, p: DrillHoleParams) -> None:
-    feat = _require(scene, p.feature)
+def _exec_drill_hole(ctx: ExecContext, cmd_id: str, p: DrillHoleParams) -> None:
+    feat = _require(ctx.scene, p.feature)
     bb = feat.shape.bounding_box()
     through = (
         abs(bb.max.X - bb.min.X) + abs(bb.max.Y - bb.min.Y) + abs(bb.max.Z - bb.min.Z) + 10
@@ -692,12 +692,12 @@ def _exec_drill_hole(scene: Scene, cmd_id: str, p: DrillHoleParams) -> None:
     feat.make_unique()
 
 
-def _exec_pattern_circular(scene: Scene, cmd_id: str, p: PatternCircularParams) -> None:
+def _exec_pattern_circular(ctx: ExecContext, cmd_id: str, p: PatternCircularParams) -> None:
     from build123d import Pos, Rotation
 
     from apolo.kernel.matrix import axis_rotation_about_point, multiply, transform_anchors
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     ap = p.axis_point.tuple()
     full = abs(p.total_angle - 360.0) < 1e-9
     steps = p.count if full else p.count - 1
@@ -712,7 +712,7 @@ def _exec_pattern_circular(scene: Scene, cmd_id: str, p: PatternCircularParams) 
         fid = f"{cmd_id}_{i}"
         off = axis_rotation_about_point(ap, p.axis_dir, angle)
         matrix = multiply(off, feat.matrix) if feat.matrix is not None else None
-        scene[fid] = Feature(
+        ctx.scene[fid] = Feature(
             fid, f"{feat.name} ({i + 1})", copy, cmd_id,
             component=feat.component, cut_length=feat.cut_length,
             mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
@@ -723,21 +723,21 @@ def _exec_pattern_circular(scene: Scene, cmd_id: str, p: PatternCircularParams) 
 _MIRROR_PLANES = {"xy": "XY", "xz": "XZ", "yz": "YZ"}
 
 
-def _exec_mirror(scene: Scene, cmd_id: str, p: MirrorParams) -> None:
+def _exec_mirror(ctx: ExecContext, cmd_id: str, p: MirrorParams) -> None:
     from build123d import Plane, mirror
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     plane = getattr(Plane, _MIRROR_PLANES[p.plane])
     if p.offset:
         plane = plane.offset(p.offset)
     copy = mirror(feat.shape, about=plane)
-    scene[cmd_id] = Feature(
+    ctx.scene[cmd_id] = Feature(
         cmd_id, f"{feat.name} (espejo)", copy, cmd_id,
         component=feat.component, cut_length=feat.cut_length,
     )
 
 
-def _exec_sketch_sweep(scene: Scene, cmd_id: str, p: SketchSweepParams) -> None:
+def _exec_sketch_sweep(ctx: ExecContext, cmd_id: str, p: SketchSweepParams) -> None:
     from apolo.kernel.sketch_geom import SketchError, sketch_to_face
     from apolo.kernel.sweep import SweepError, helix_path, make_sweep, path_from_points
 
@@ -752,10 +752,10 @@ def _exec_sketch_sweep(scene: Scene, cmd_id: str, p: SketchSweepParams) -> None:
     except (SketchError, SweepError) as exc:
         raise CommandError(f"Barrido: {exc}") from exc
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_sketch_loft(scene: Scene, cmd_id: str, p: SketchLoftParams) -> None:
+def _exec_sketch_loft(ctx: ExecContext, cmd_id: str, p: SketchLoftParams) -> None:
     from build123d import Plane
 
     from apolo.kernel.sketch_geom import SketchError, sketch_to_face
@@ -770,10 +770,10 @@ def _exec_sketch_loft(scene: Scene, cmd_id: str, p: SketchLoftParams) -> None:
     except (SketchError, SweepError) as exc:
         raise CommandError(f"Transición: {exc}") from exc
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_boundary_surface(scene: Scene, cmd_id: str, p: BoundarySurfaceParams) -> None:
+def _exec_boundary_surface(ctx: ExecContext, cmd_id: str, p: BoundarySurfaceParams) -> None:
     from apolo.kernel.surface import SurfaceError, boundary_surface
 
     try:
@@ -781,26 +781,26 @@ def _exec_boundary_surface(scene: Scene, cmd_id: str, p: BoundarySurfaceParams) 
     except SurfaceError as exc:
         raise CommandError(f"Superficie: {exc}") from exc
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_fill_surface(scene: Scene, cmd_id: str, p: FillSurfaceParams) -> None:
+def _exec_fill_surface(ctx: ExecContext, cmd_id: str, p: FillSurfaceParams) -> None:
     from apolo.kernel.surface import SurfaceError, fill_surface_from_edges
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     edges = _resolve_sel(feat.shape, p.edges, "edge")
     try:
         patch = fill_surface_from_edges(feat.shape, edges, tangent=p.tangent)
     except SurfaceError as exc:
         raise CommandError(f"Parche: {exc}") from exc
-    scene[cmd_id] = Feature(cmd_id, p.name, patch, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, patch, cmd_id)
 
 
-def _exec_thicken(scene: Scene, cmd_id: str, p: ThickenParams) -> None:
+def _exec_thicken(ctx: ExecContext, cmd_id: str, p: ThickenParams) -> None:
     from apolo.kernel.shapes import is_surface
     from apolo.kernel.surface import SurfaceError, thicken_surface
 
-    feat = _require(scene, p.feature)
+    feat = _require(ctx.scene, p.feature)
     if not is_surface(feat.shape):
         raise CommandError(
             f"Engrosar necesita una SUPERFICIE (de boundary_surface o fill_surface); "
@@ -814,7 +814,7 @@ def _exec_thicken(scene: Scene, cmd_id: str, p: ThickenParams) -> None:
     feat.make_unique()
 
 
-def _exec_create_revolve(scene: Scene, cmd_id: str, p: CreateRevolveParams) -> None:
+def _exec_create_revolve(ctx: ExecContext, cmd_id: str, p: CreateRevolveParams) -> None:
     from apolo.kernel.shapes import make_revolution
 
     try:
@@ -825,10 +825,10 @@ def _exec_create_revolve(scene: Scene, cmd_id: str, p: CreateRevolveParams) -> N
         raise CommandError("La revolución produjo un sólido vacío")
     base = _orient_axis(base, p.axis)
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_create_extrude_poly(scene: Scene, cmd_id: str, p: CreateExtrudePolyParams) -> None:
+def _exec_create_extrude_poly(ctx: ExecContext, cmd_id: str, p: CreateExtrudePolyParams) -> None:
     from build123d import Polygon, Pos, extrude
 
     try:
@@ -840,10 +840,10 @@ def _exec_create_extrude_poly(scene: Scene, cmd_id: str, p: CreateExtrudePolyPar
         raise CommandError("La extrusión produjo un sólido vacío")
     base = _orient_axis(base, p.axis)
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_sketch_extrude(scene: Scene, cmd_id: str, p: SketchExtrudeParams) -> None:
+def _exec_sketch_extrude(ctx: ExecContext, cmd_id: str, p: SketchExtrudeParams) -> None:
     from build123d import extrude
 
     from apolo.kernel.sketch_geom import SketchError, place_sketch_on_plane, sketch_to_face
@@ -859,10 +859,10 @@ def _exec_sketch_extrude(scene: Scene, cmd_id: str, p: SketchExtrudeParams) -> N
     if base.volume <= 0:
         raise CommandError("La extrusión del croquis produjo un sólido vacío")
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_sketch_revolve(scene: Scene, cmd_id: str, p: SketchRevolveParams) -> None:
+def _exec_sketch_revolve(ctx: ExecContext, cmd_id: str, p: SketchRevolveParams) -> None:
     from build123d import Axis, revolve
 
     from apolo.kernel.sketch_geom import SketchError, place_sketch_on_plane, sketch_to_face
@@ -881,7 +881,7 @@ def _exec_sketch_revolve(scene: Scene, cmd_id: str, p: SketchRevolveParams) -> N
     if base.volume <= 0:
         raise CommandError("La revolución del croquis produjo un sólido vacío")
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
 def _exec_import_step(ctx: ExecContext, cmd_id: str, p: ImportStepParams) -> None:
@@ -1635,13 +1635,13 @@ def _exec_insert_project(ctx: ExecContext, cmd_id: str, p: InsertProjectParams) 
         raise CommandError(str(exc)) from exc
 
 
-def _exec_add_joinery(scene: Scene, cmd_id: str, p: AddJoineryParams) -> None:
+def _exec_add_joinery(ctx: ExecContext, cmd_id: str, p: AddJoineryParams) -> None:
     from build123d import Box, Cylinder, Pos, Rotation
 
     if p.feature_a == p.feature_b:
         raise CommandError("Una unión no puede ser de una pieza consigo misma")
-    a = _require(scene, p.feature_a)
-    b = _require(scene, p.feature_b)
+    a = _require(ctx.scene, p.feature_a)
+    b = _require(ctx.scene, p.feature_b)
     ax = p.axis.tuple()
     m = max(abs(ax[0]), abs(ax[1]), abs(ax[2]))
     if m < 1e-9:
@@ -1702,7 +1702,7 @@ def _exec_add_joinery(scene: Scene, cmd_id: str, p: AddJoineryParams) -> None:
                 b.shape = b.shape - hole
                 pin = cyl_axis(max(0.5, p.width / 2.0 - p.clearance), p.depth * 0.95, c)
                 fid = f"{cmd_id}_pin{i + 1}"
-                scene[fid] = Feature(fid, f"{p.name} clavija {i + 1}", pin, cmd_id)
+                ctx.scene[fid] = Feature(fid, f"{p.name} clavija {i + 1}", pin, cmd_id)
             a.make_unique()
             b.make_unique()
         elif p.type == "rebaje":
@@ -1747,7 +1747,7 @@ def _exec_run_script(ctx: ExecContext, cmd_id: str, p: RunScriptParams) -> None:
     ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_insert_component(scene: Scene, cmd_id: str, p: InsertComponentParams) -> None:
+def _exec_insert_component(ctx: ExecContext, cmd_id: str, p: InsertComponentParams) -> None:
     from apolo.library.catalog import CATALOG, build_component, component_anchors
 
     comp = CATALOG[p.component]
@@ -1757,12 +1757,12 @@ def _exec_insert_component(scene: Scene, cmd_id: str, p: InsertComponentParams) 
         raise CommandError(str(exc)) from exc
     key = f"comp|{p.component}|{cut if cut is not None else 'std'}"
     _instanced(
-        scene, cmd_id, p.name or comp.name, base, key,
+        ctx.scene, cmd_id, p.name or comp.name, base, key,
         p.position.tuple(), p.rotation.tuple(), component=p.component, cut_length=cut,
     )
     # anclas de conexión con nombre (V6.3b): frame LOCAL del builder → mundo por la pose
     local = component_anchors(comp)
-    feat = scene[cmd_id]
+    feat = ctx.scene[cmd_id]
     if local and feat.matrix is not None:
         from apolo.kernel.matrix import transform_anchors
         feat.anchors = transform_anchors(feat.matrix, local)
@@ -1785,9 +1785,9 @@ def _anchor_point(shape, anchor: str) -> tuple[float, float, float]:
     return _ANCHOR_FNS[anchor](bb, center)
 
 
-def _exec_attach(scene: Scene, cmd_id: str, p: AttachParams) -> None:
-    feat = _require(scene, p.feature)
-    target = _require(scene, p.target)
+def _exec_attach(ctx: ExecContext, cmd_id: str, p: AttachParams) -> None:
+    feat = _require(ctx.scene, p.feature)
+    target = _require(ctx.scene, p.target)
     if p.feature == p.target:
         raise CommandError("Un sólido no puede ensamblarse consigo mismo")
 
@@ -1847,7 +1847,7 @@ def _exec_snap_face(scene: Scene, p: SnapToParams) -> None:
     _world_place(feat, _v_sub(destino, oA), axis, angle, center)
 
 
-def _exec_snap_to(scene: Scene, cmd_id: str, p: SnapToParams) -> None:
+def _exec_snap_to(ctx: ExecContext, cmd_id: str, p: SnapToParams) -> None:
     """Pega `feature` contra el `lado` del bbox de `target` a `gap` mm, opcionalmente
     centrando en los ejes de `alinear`. Relacional: se reevalúa al regenerar (mueve en
     sitio con la MISMA rígida que center_in/attach → conserva matrix/anclas).
@@ -1855,9 +1855,9 @@ def _exec_snap_to(scene: Scene, cmd_id: str, p: SnapToParams) -> None:
     if p.feature == p.target:
         raise CommandError("Un sólido no puede colocarse junto a sí mismo")
     if p.cara is not None:  # ambos-o-ninguno lo garantiza el modelo
-        return _exec_snap_face(scene, p)
-    feat = _require(scene, p.feature)
-    target = _require(scene, p.target)
+        return _exec_snap_face(ctx.scene, p)
+    feat = _require(ctx.scene, p.feature)
+    target = _require(ctx.scene, p.target)
     fb = feat.shape.bounding_box()
     tb = target.shape.bounding_box()
     fmin = [fb.min.X, fb.min.Y, fb.min.Z]
@@ -1893,7 +1893,7 @@ def _publish_axis_anchor(scene: Scene, fid: str, name: str) -> None:
     feat.anchors = {**(feat.anchors or {}), **world}
 
 
-def _exec_create_conveyor(scene: Scene, cmd_id: str, p: CreateConveyorParams) -> None:
+def _exec_create_conveyor(ctx: ExecContext, cmd_id: str, p: CreateConveyorParams) -> None:
     from apolo.kernel.matrix import compose_place, multiply
     from apolo.library.conveyor import conveyor_parts
 
@@ -1913,7 +1913,7 @@ def _exec_create_conveyor(scene: Scene, cmd_id: str, p: CreateConveyorParams) ->
         if part.base_key and part.base_shape is not None:
             register_definition(part.base_key, part.base_shape)
             matrix = multiply(cmd_matrix, compose_place(part.position, part.rotation))
-        scene[fid] = Feature(
+        ctx.scene[fid] = Feature(
             fid, f"{p.name} · {part.name}", shape, cmd_id,
             component=part.component, cut_length=part.cut_length,
             mesh_key=part.base_key if matrix is not None else None, matrix=matrix,
@@ -1922,11 +1922,11 @@ def _exec_create_conveyor(scene: Scene, cmd_id: str, p: CreateConveyorParams) ->
             roller_idx.append(int(part.suffix[3:]))
     # eje de cola (rodillo de entrada, -X) y motriz (rodillo de descarga, +X)
     if roller_idx:
-        _publish_axis_anchor(scene, f"{cmd_id}_rod{min(roller_idx)}", "eje_cola")
-        _publish_axis_anchor(scene, f"{cmd_id}_rod{max(roller_idx)}", "eje_motriz")
+        _publish_axis_anchor(ctx.scene, f"{cmd_id}_rod{min(roller_idx)}", "eje_cola")
+        _publish_axis_anchor(ctx.scene, f"{cmd_id}_rod{max(roller_idx)}", "eje_motriz")
 
 
-def _exec_create_belt_conveyor(scene: Scene, cmd_id: str, p: CreateBeltConveyorParams) -> None:
+def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConveyorParams) -> None:
     from apolo.library.belt_conveyor import belt_conveyor_parts
 
     try:
@@ -1938,12 +1938,12 @@ def _exec_create_belt_conveyor(scene: Scene, cmd_id: str, p: CreateBeltConveyorP
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Faja de banda: {exc}") from exc
-    _emit_weldment_parts(scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
-    _publish_axis_anchor(scene, f"{cmd_id}_tambor_motriz", "eje_motriz")
-    _publish_axis_anchor(scene, f"{cmd_id}_tambor_cola", "eje_cola")
+    _emit_weldment_parts(ctx.scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
+    _publish_axis_anchor(ctx.scene, f"{cmd_id}_tambor_motriz", "eje_motriz")
+    _publish_axis_anchor(ctx.scene, f"{cmd_id}_tambor_cola", "eje_cola")
 
 
-def _exec_create_take_up(scene: Scene, cmd_id: str, p: CreateTakeUpParams) -> None:
+def _exec_create_take_up(ctx: ExecContext, cmd_id: str, p: CreateTakeUpParams) -> None:
     from apolo.library.take_up import take_up_parts
 
     try:
@@ -1953,10 +1953,10 @@ def _exec_create_take_up(scene: Scene, cmd_id: str, p: CreateTakeUpParams) -> No
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Tensor de cola: {exc}") from exc
-    _emit_weldment_parts(scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
+    _emit_weldment_parts(ctx.scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
 
 
-def _exec_create_drive_roller(scene: Scene, cmd_id: str, p: CreateDriveRollerParams) -> None:
+def _exec_create_drive_roller(ctx: ExecContext, cmd_id: str, p: CreateDriveRollerParams) -> None:
     from apolo.library.take_up import drive_roller_parts
 
     try:
@@ -1966,7 +1966,7 @@ def _exec_create_drive_roller(scene: Scene, cmd_id: str, p: CreateDriveRollerPar
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Rodillo motriz: {exc}") from exc
-    _emit_weldment_parts(scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
+    _emit_weldment_parts(ctx.scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
 
 
 def _emit_weldment_parts(scene: Scene, cmd_id: str, name: str, parts, position, rotation) -> None:
@@ -1990,7 +1990,7 @@ def _emit_weldment_parts(scene: Scene, cmd_id: str, name: str, parts, position, 
         )
 
 
-def _exec_create_weldment(scene: Scene, cmd_id: str, p: CreateWeldmentParams) -> None:
+def _exec_create_weldment(ctx: ExecContext, cmd_id: str, p: CreateWeldmentParams) -> None:
     from apolo.library.weldment import weldment_parts
 
     try:
@@ -2000,20 +2000,20 @@ def _exec_create_weldment(scene: Scene, cmd_id: str, p: CreateWeldmentParams) ->
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Bastidor: {exc}") from exc
-    _emit_weldment_parts(scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
+    _emit_weldment_parts(ctx.scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
 
 
-def _exec_create_frame(scene: Scene, cmd_id: str, p: CreateFrameParams) -> None:
+def _exec_create_frame(ctx: ExecContext, cmd_id: str, p: CreateFrameParams) -> None:
     from apolo.library.frame import frame_from_edges
 
     try:
         parts = frame_from_edges(p.nodes, p.edges, p.perfil, p.cordones, p.esquinas)
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Esqueleto: {exc}") from exc
-    _emit_weldment_parts(scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
+    _emit_weldment_parts(ctx.scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
 
 
-def _exec_create_sheet_metal(scene: Scene, cmd_id: str, p: SheetMetalParams) -> None:
+def _exec_create_sheet_metal(ctx: ExecContext, cmd_id: str, p: SheetMetalParams) -> None:
     from apolo.library.sheetmetal import flaps_from_specs, sheet_metal_solid
 
     try:
@@ -2027,10 +2027,10 @@ def _exec_create_sheet_metal(scene: Scene, cmd_id: str, p: SheetMetalParams) -> 
     if not hasattr(base, "volume") or base.volume <= 0:
         raise CommandError("La chapa produjo un sólido vacío")
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-# Cada executor declara su firma con `convention` (`spec.py`): "ctx" = (ctx, cmd_id, p).
+# Todo executor es `(ctx: ExecContext, cmd_id, p)`: ver `spec.py` y tests/test_despacho_unico.py.
 REGISTRY: dict[str, CommandSpec] = {
     spec.type: spec
     for spec in [
@@ -2054,16 +2054,13 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec(
             "create_extrude_poly", "Polígono extruido", "crear", CreateExtrudePolyParams, _exec_create_extrude_poly
         ),
-        CommandSpec(
-            "import_step", "Importar STEP", "crear", ImportStepParams, _exec_import_step,
-            convention="ctx",
-        ),
+        CommandSpec("import_step", "Importar STEP", "crear", ImportStepParams, _exec_import_step),
         CommandSpec(
             "insert_component", "Componente", "biblioteca", InsertComponentParams, _exec_insert_component
         ),
         CommandSpec(
             "insert_project", "Insertar proyecto", "biblioteca", InsertProjectParams,
-            _exec_insert_project, convention="ctx",
+            _exec_insert_project,
         ),
         CommandSpec(
             "create_conveyor", "Transportador", "biblioteca", CreateConveyorParams, _exec_create_conveyor
@@ -2090,44 +2087,32 @@ REGISTRY: dict[str, CommandSpec] = {
             "create_sheet_metal", "Chapa metálica", "biblioteca", SheetMetalParams,
             _exec_create_sheet_metal,
         ),
-        CommandSpec(
-            "run_script", "Script IA", "crear", RunScriptParams, _exec_run_script, convention="ctx"
-        ),
+        CommandSpec("run_script", "Script IA", "crear", RunScriptParams, _exec_run_script),
         CommandSpec(
             "create_robot_arm", "Brazo robótico", "robotica", CreateRobotArmParams,
-            _exec_create_robot_arm, convention="ctx",
+            _exec_create_robot_arm,
         ),
-        CommandSpec(
-            "add_joint", "Junta", "robotica", AddJointParams, _exec_add_joint, convention="ctx"
-        ),
-        CommandSpec(
-            "add_mate", "Mate", "ensamblaje", AddMateParams, _exec_add_mate, convention="ctx"
-        ),
+        CommandSpec("add_joint", "Junta", "robotica", AddJointParams, _exec_add_joint),
+        CommandSpec("add_mate", "Mate", "ensamblaje", AddMateParams, _exec_add_mate),
         CommandSpec(
             "add_rail_constraint", "Restricción de riel", "ensamblaje", AddRailConstraintParams,
-            _exec_add_rail_constraint, convention="ctx",
+            _exec_add_rail_constraint,
         ),
         CommandSpec(
-            "add_constraint", "Restricción", "ensamblaje", AddConstraintParams,
-            _exec_add_constraint, convention="ctx",
+            "add_constraint", "Restricción", "ensamblaje", AddConstraintParams, _exec_add_constraint
         ),
+        CommandSpec("fasten", "Fijador", "ensamblaje", FastenParams, _exec_fasten),
+        CommandSpec("ground", "Anclaje a tierra", "ensamblaje", GroundParams, _exec_ground),
         CommandSpec(
-            "fasten", "Fijador", "ensamblaje", FastenParams, _exec_fasten, convention="ctx"
-        ),
-        CommandSpec(
-            "ground", "Anclaje a tierra", "ensamblaje", GroundParams, _exec_ground, convention="ctx"
-        ),
-        CommandSpec(
-            "join_bolted", "Unión atornillada", "ensamblaje", JoinBoltedParams,
-            _exec_join_bolted, convention="ctx",
+            "join_bolted", "Unión atornillada", "ensamblaje", JoinBoltedParams, _exec_join_bolted
         ),
         CommandSpec(
             "create_group", "Grupo / sub-ensamblaje", "ensamblaje", CreateGroupParams,
-            _exec_create_group, convention="ctx",
+            _exec_create_group,
         ),
         CommandSpec(
             "transform_group", "Mover grupo", "ensamblaje", TransformGroupParams,
-            _exec_transform_group, convention="ctx",
+            _exec_transform_group,
         ),
         CommandSpec("boolean_op", "Booleana", "modificar", BooleanOpParams, _exec_boolean),
         CommandSpec("fillet", "Redondeo", "modificar", FilletParams, _exec_fillet),
@@ -2147,15 +2132,13 @@ REGISTRY: dict[str, CommandSpec] = {
             "pattern_circular", "Patrón circular", "modificar", PatternCircularParams, _exec_pattern_circular
         ),
         CommandSpec(
-            "pattern_group", "Patrón de grupo", "modificar", PatternGroupParams,
-            _exec_pattern_group, convention="ctx",
+            "pattern_group", "Patrón de grupo", "modificar", PatternGroupParams, _exec_pattern_group
         ),
         CommandSpec("mirror_feature", "Espejo", "modificar", MirrorParams, _exec_mirror),
         CommandSpec("duplicate_feature", "Duplicar", "modificar", DuplicateParams, _exec_duplicate),
         CommandSpec("delete_feature", "Eliminar", "modificar", DeleteParams, _exec_delete),
         CommandSpec(
-            "set_variable", "Variable", "variables", SetVariableParams, _exec_set_variable,
-            kind="vars", convention="ctx",
+            "set_variable", "Variable", "variables", SetVariableParams, _exec_set_variable, kind="vars"
         ),
     ]
 }
