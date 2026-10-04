@@ -1,16 +1,21 @@
 # Comandos (`core/apolo/commands/`)
 
 El registro schema-driven: `models.py` (params pydantic = schema de UI, diálogos y tools del
-agente), `registry.py` (executors + `REGISTRY`), `state.py` (`RegenState`, el estado con nombre
-que `execute_command` muta y el regenerate guarda como checkpoint) y `expressions.py` (motor
-de `=expr`). Lo
-transversal (locks, log, regenerate, cirugía de modelos) está en el
+agente), `registry.py` (executors + `REGISTRY`), `spec.py` (`CommandSpec` + `run_executor`, el
+despacho), `state.py` (`RegenState`, el estado con nombre que `execute_command` muta y el
+regenerate guarda como checkpoint; `ExecContext`, lo que recibe un executor) y `expressions.py`
+(motor de `=expr`). Lo transversal (locks, log, regenerate, cirugía de modelos) está en el
 [CLAUDE.md raíz](../../../CLAUDE.md); lo común del backend, en [core/apolo](../CLAUDE.md).
 
 ## Al agregar o cambiar un comando
 
-- La firma del executor la eligen los flags del registro (`wants_joints`, `wants_mates`,
-  `wants_groups`, `wants_connectivity`, `wants_all`): ver el bloque `REGISTRY` de `registry.py`.
+- Un executor es `_exec_x(ctx: ExecContext, cmd_id, p)`: `ctx.scene`, `ctx.joints`,
+  `ctx.fasteners`… son los dicts VIVOS (se mutan en sitio), `ctx.attachments` los adjuntos y
+  `ctx.resolved_variables()` las variables evaluadas. Ningún flag elige la firma: si un comando
+  necesita más contexto, es una propiedad de `ExecContext`. Transición hasta la F3 del
+  [plan](../../../docs/plans/estado-regen-y-params-estrictos.md): los que aún reciben
+  `(scene, cmd_id, p)` van con `convention="scene"` (el default); los de `ctx`, con
+  `convention="ctx"`. Lo verifica `tests/test_despacho_unico.py`.
 - La `description` del modelo es para el AGENTE (larga a propósito, con nombres de params); la
   persona lee la PISTA de `pistas.py` (vista `?vista=persona`, `vista_persona.py`): un comando
   nuevo sin pista rompe `tests/test_pistas.py` ([ui](../../../ui/CLAUDE.md)). Un super-comando reutilizable

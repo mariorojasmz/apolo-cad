@@ -433,21 +433,18 @@ def test_T9_insert_project_precheck_before_any_mutation():
     """Una colisión de nombre INTERNO (junta) se detecta ANTES de emitir la primera
     pieza: la escena destino queda vacía (no depende del rollback de _mutate)."""
     from apolo.commands.registry import REGISTRY, CommandError, _exec_insert_project
+    from apolo.commands.state import ExecContext, RegenState
 
     donor, dids = _build_model(6)
     donor_bytes = donor.to_apolo_bytes()
     attachments = {"digest0": donor_bytes}
     p = REGISTRY["insert_project"].model.model_validate({"attachment": "digest0", "name": "M1"})
-    scene: dict = {}
     # una junta interna ya "ocupada": M1/j1 (la junta del donante prefijada)
-    joints = {"M1/j1": {"name": "M1/j1", "parent": "x", "child": "y",
-                        "axis": [0, 0, 1], "command_id": "pre"}}
+    state = RegenState(joints={"M1/j1": {"name": "M1/j1", "parent": "x", "child": "y",
+                                         "axis": [0, 0, 1], "command_id": "pre"}})
     with pytest.raises(CommandError):
-        _exec_insert_project(
-            scene, "cX", p, attachments=attachments, groups={}, joints=joints,
-            mates={}, constraints={}, fasteners={}, grounds={},
-        )
-    assert scene == {}  # NADA se emitió antes del error
+        _exec_insert_project(ExecContext(state, attachments), "cX", p)
+    assert state.scene == {}  # NADA se emitió antes del error
 
 
 # ================================================ T10 — autosave durable (flag)

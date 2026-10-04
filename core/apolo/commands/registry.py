@@ -8,7 +8,7 @@ regenerar la escena completa.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
@@ -78,7 +78,8 @@ from .models import (
     TransformGroupParams,
     TransformParams,
 )
-from .state import RegenState
+from .spec import CommandSpec, run_executor
+from .state import ExecContext, RegenState
 
 
 class CommandError(Exception):
@@ -337,11 +338,12 @@ def _exec_pattern(scene: Scene, cmd_id: str, p: PatternLinearParams) -> None:
 _PATTERN_GROUP_MAX = 2000  # tope de sólidos generados por pattern_group (protege OCCT)
 
 
-def _exec_pattern_group(scene: Scene, joints, mates, cmd_id: str, p: PatternGroupParams) -> None:
+def _exec_pattern_group(ctx: ExecContext, cmd_id: str, p: PatternGroupParams) -> None:
     """Arraya todas las features del comando `source` en línea (count/spacing) y opcional
     rejilla (count2/spacing2). Bloquea si la fuente está referenciada por juntas/mates."""
     from apolo.kernel.matrix import multiply, transform_anchors, translation
 
+    scene, joints, mates = ctx.scene, ctx.joints, ctx.mates
     src = [f for f in scene.values() if f.command_id == p.source]
     if not src:
         raise CommandError(f"El comando '{p.source}' no creó ninguna geometría que arrayar")
@@ -411,8 +413,8 @@ def _exec_duplicate(scene: Scene, cmd_id: str, p: DuplicateParams) -> None:
     )
 
 
-def _exec_set_variable(variables: dict, cmd_id: str, p: SetVariableParams) -> None:
-    variables[p.name] = p.expression
+def _exec_set_variable(ctx: ExecContext, cmd_id: str, p: SetVariableParams) -> None:
+    ctx.variables[p.name] = p.expression
 
 
 def _resolve_sel(shape, selector, kind: str):
@@ -882,10 +884,11 @@ def _exec_sketch_revolve(scene: Scene, cmd_id: str, p: SketchRevolveParams) -> N
     scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_import_step(scene: Scene, cmd_id: str, p: ImportStepParams, attachments: dict) -> None:
+def _exec_import_step(ctx: ExecContext, cmd_id: str, p: ImportStepParams) -> None:
     from apolo.sandbox import step_bytes_to_shape
 
-    data = attachments.get(p.attachment)
+    scene = ctx.scene
+    data = ctx.attachments.get(p.attachment)
     if data is None:
         raise CommandError(f"No existe el adjunto '{p.attachment}' en el documento")
     try:
@@ -995,10 +998,8 @@ def _joint_drag(scene: Scene, joints: Joints, fasteners: dict, grounds: dict,
     return out
 
 
-def _exec_add_joint(
-    scene: Scene, cmd_id: str, p: AddJointParams, *, attachments, groups, joints,
-    mates, constraints, fasteners, grounds,
-) -> None:
+def _exec_add_joint(ctx: ExecContext, cmd_id: str, p: AddJointParams) -> None:
+    scene, joints = ctx.scene, ctx.joints
     _register_joint(
         scene, joints, cmd_id,
         {
@@ -1010,15 +1011,17 @@ def _exec_add_joint(
     if p.arrastrar:
         # metadato en la PROPIA junta (viaja en get_kinematics; se recalcula en
         # cada regenerate con el estado del log en este punto)
-        joints[p.name]["arrastre"] = _joint_drag(scene, joints, fasteners, grounds, cmd_id, p)
+        joints[p.name]["arrastre"] = _joint_drag(
+            scene, joints, ctx.fasteners, ctx.grounds, cmd_id, p
+        )
 
 
-def _exec_add_mate(scene: Scene, mates: dict, cmd_id: str, p: AddMateParams) -> None:
+def _exec_add_mate(ctx: ExecContext, cmd_id: str, p: AddMateParams) -> None:
     from apolo.assembly.mates import MateError, register_mate
 
     try:
         register_mate(
-            scene, mates, cmd_id,
+            ctx.scene, ctx.mates, cmd_id,
             {
                 "name": p.name, "type": p.type,
                 "feature_a": p.feature_a, "feature_b": p.feature_b,
@@ -1031,14 +1034,12 @@ def _exec_add_mate(scene: Scene, mates: dict, cmd_id: str, p: AddMateParams) -> 
         raise CommandError(str(exc)) from exc
 
 
-def _exec_add_rail_constraint(
-    scene: Scene, constraints: dict, cmd_id: str, p: AddRailConstraintParams
-) -> None:
+def _exec_add_rail_constraint(ctx: ExecContext, cmd_id: str, p: AddRailConstraintParams) -> None:
     from apolo.assembly.constraints import ConstraintError, register_constraint
 
     try:
         register_constraint(
-            constraints, cmd_id,
+            ctx.constraints, cmd_id,
             {
                 "name": p.name, "joint": p.joint,
                 "anchor": list(p.anchor.tuple()),
@@ -1050,16 +1051,14 @@ def _exec_add_rail_constraint(
         raise CommandError(str(exc)) from exc
 
 
-def _exec_add_constraint(
-    scene: Scene, constraints: dict, cmd_id: str, p: AddConstraintParams
-) -> None:
+def _exec_add_constraint(ctx: ExecContext, cmd_id: str, p: AddConstraintParams) -> None:
     """Restricción cinemática genérica (multi-restricción / N-GDL). Registra la condición;
     el solver global (solve_constraints) resuelve todas las juntas dependientes a la vez."""
     from apolo.assembly.constraints import ConstraintError, register_constraint
 
     try:
         register_constraint(
-            constraints, cmd_id,
+            ctx.constraints, cmd_id,
             {
                 "name": p.name, "tipo": p.tipo, "joint": p.joint,
                 "anchor": list(p.anchor.tuple()),
@@ -1072,7 +1071,7 @@ def _exec_add_constraint(
         raise CommandError(str(exc)) from exc
 
 
-def _exec_fasten(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: FastenParams) -> None:
+def _exec_fasten(ctx: ExecContext, cmd_id: str, p: FastenParams) -> None:
     """Declara un fijador rígido A↔B (estructural; no mueve geometría)."""
     from apolo.assembly.connectivity import ConnectivityError, register_fastener
 
@@ -1087,7 +1086,7 @@ def _exec_fasten(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: F
     if p.length_mm:
         spec["length_mm"] = p.length_mm
     try:
-        register_fastener(fasteners, cmd_id, spec)
+        register_fastener(ctx.fasteners, cmd_id, spec)
     except ConnectivityError as exc:
         raise CommandError(str(exc)) from exc
 
@@ -1236,7 +1235,7 @@ def _join_bolted_geometry(a_shape, b_shape, p: "JoinBoltedParams") -> dict:
     }
 
 
-def _exec_join_bolted(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: JoinBoltedParams) -> None:
+def _exec_join_bolted(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams) -> None:
     """Super-comando de unión atornillada (V6.5b): taladra barrenos de paso alineados en A y B
     (EN SITIO, conserva ids), inserta la tornillería DIN 933 de catálogo y declara el fijador
     dimensionado. Un solo comando editable/deshacible con BOM/memoria heredados."""
@@ -1247,6 +1246,7 @@ def _exec_join_bolted(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str,
     from apolo.library.catalog import CATALOG
     from apolo.library.engineering.bolts import hex_nut_mm
 
+    scene = ctx.scene
     if p.a == p.b:
         raise CommandError("join_bolted une dos piezas distintas (a ≠ b)")
     a = _require(scene, p.a)
@@ -1303,7 +1303,7 @@ def _exec_join_bolted(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str,
 
     fname = f"jb_{cmd_id}"
     try:
-        register_fastener(fasteners, cmd_id, {
+        register_fastener(ctx.fasteners, cmd_id, {
             "name": fname, "a": p.a, "b": p.b, "kind": "perno",
             "size": g["size"], "qty": n_bolt, "nota": p.name,
         })
@@ -1311,26 +1311,23 @@ def _exec_join_bolted(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str,
         raise CommandError(str(exc)) from exc
 
 
-def _exec_ground(scene: Scene, fasteners: dict, grounds: dict, cmd_id: str, p: GroundParams) -> None:
+def _exec_ground(ctx: ExecContext, cmd_id: str, p: GroundParams) -> None:
     """Ancla una pieza a tierra (origen del camino de sujeción)."""
     from apolo.assembly.connectivity import ConnectivityError, register_ground
 
     try:
-        register_ground(grounds, cmd_id, {"name": p.name, "feature": p.feature, "nota": p.nota})
+        register_ground(ctx.grounds, cmd_id, {"name": p.name, "feature": p.feature, "nota": p.nota})
     except ConnectivityError as exc:
         raise CommandError(str(exc)) from exc
 
 
-def _exec_create_group(
-    scene: Scene, cmd_id: str, p: "CreateGroupParams", *,
-    groups: dict, joints: dict, mates: dict, constraints: dict,
-) -> None:
+def _exec_create_group(ctx: ExecContext, cmd_id: str, p: CreateGroupParams) -> None:
     """Declara un GRUPO/sub-ensamblaje por command_ids (V5.2). No muta geometría:
     la membresía se deriva en cada regenerate (feat.group)."""
     from apolo.assembly.groups import GroupError, register_group
 
     try:
-        register_group(groups, cmd_id, {
+        register_group(ctx.groups, cmd_id, {
             "name": p.name, "members": p.members, "parent": p.parent, "role": p.role,
         })
     except GroupError as exc:
@@ -1349,16 +1346,15 @@ def _transform_dir(w: list, v) -> list[float]:
     return [w[i][0] * x + w[i][1] * y + w[i][2] * z for i in range(3)]
 
 
-def _exec_transform_group(
-    scene: Scene, cmd_id: str, p: "TransformGroupParams", *,
-    groups: dict, joints: dict, mates: dict, constraints: dict,
-) -> None:
+def _exec_transform_group(ctx: ExecContext, cmd_id: str, p: TransformGroupParams) -> None:
     """Mueve un grupo ENTERO como cuerpo rígido (V5.2): todas sus piezas + las
     juntas/restricciones internas. Rechaza uniones que cruzan la frontera."""
     from apolo.assembly.groups import group_command_ids, group_features
     from apolo.kernel.matrix import multiply, rotation_about_center, translation
     from apolo.kernel.shapes import move_rotated_about
 
+    scene, groups, joints, mates = ctx.scene, ctx.groups, ctx.joints, ctx.mates
+    constraints = ctx.constraints
     if p.group not in groups:
         raise CommandError(f"No existe el grupo '{p.group}'")
     # todos los members (incl. descendientes) deben tener piezas YA creadas en este
@@ -1483,11 +1479,7 @@ def _insert_project_precheck(
         )
 
 
-def _exec_insert_project(
-    scene: Scene, cmd_id: str, p: "InsertProjectParams", *,
-    attachments: dict, groups: dict, joints: Joints, mates: dict,
-    constraints: dict, fasteners: dict, grounds: dict,
-) -> None:
+def _exec_insert_project(ctx: ExecContext, cmd_id: str, p: InsertProjectParams) -> None:
     """Instancia un PROYECTO completo (V5.2b): reproduce su snapshot en un sandbox
     (doc/subproject.py, con caché por digest+overrides) y vuelca el resultado con
     ids PREFIJADOS. Los mates del origen llegan BAKED (el sandbox ya los resolvió);
@@ -1503,13 +1495,15 @@ def _exec_insert_project(
     from apolo.doc.subproject import SubprojectError, build_subproject
     from apolo.kernel.matrix import compose_place, multiply
 
+    scene, groups, joints, constraints = ctx.scene, ctx.groups, ctx.joints, ctx.constraints
+    fasteners, grounds = ctx.fasteners, ctx.grounds
     # guard temprano: el nombre de instancia ES el grupo raíz — chocar aquí da el
     # error intuitivo (y no uno críptico de junta/fijador duplicado a mitad de emisión)
     if p.name in groups:
         raise CommandError(
             f"Ya existe un grupo llamado '{p.name}': el nombre de la instancia debe ser único"
         )
-    data = attachments.get(p.attachment) if p.attachment else None
+    data = ctx.attachments.get(p.attachment) if p.attachment else None
     if data is None:
         raise CommandError(
             "El snapshot del proyecto no está materializado: ejecuta el comando vía "
@@ -1725,9 +1719,10 @@ def _exec_add_joinery(scene: Scene, cmd_id: str, p: AddJoineryParams) -> None:
             raise CommandError("La unión dejó una pieza vacía: revisa posición/medidas")
 
 
-def _exec_create_robot_arm(scene: Scene, joints: Joints, cmd_id: str, p: CreateRobotArmParams) -> None:
+def _exec_create_robot_arm(ctx: ExecContext, cmd_id: str, p: CreateRobotArmParams) -> None:
     from apolo.robotics.arm import robot_arm_parts
 
+    scene = ctx.scene
     try:
         parts, joint_specs = robot_arm_parts(p.alcance, p.position.tuple(), cmd_id)
     except ValueError as exc:
@@ -1736,20 +1731,20 @@ def _exec_create_robot_arm(scene: Scene, joints: Joints, cmd_id: str, p: CreateR
         fid = f"{cmd_id}_{part['suffix']}"
         scene[fid] = Feature(fid, f"{p.name} · {part['name']}", part["shape"], cmd_id)
     for spec in joint_specs:
-        _register_joint(scene, joints, cmd_id, spec)
+        _register_joint(scene, ctx.joints, cmd_id, spec)
 
 
-def _exec_run_script(scene: Scene, cmd_id: str, p: RunScriptParams, resolved_vars: dict) -> None:
+def _exec_run_script(ctx: ExecContext, cmd_id: str, p: RunScriptParams) -> None:
     from apolo.sandbox import ScriptError, run_script_to_shape
 
     try:
-        base = run_script_to_shape(p.code, resolved_vars)
+        base = run_script_to_shape(p.code, ctx.resolved_variables())
     except ScriptError as exc:
         raise CommandError(str(exc)) from exc
     if not hasattr(base, "volume") or base.volume <= 0:
         raise CommandError("El script produjo geometría sin volumen")
     shape = place(base, p.position.tuple(), p.rotation.tuple())
-    scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
+    ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
 def _exec_insert_component(scene: Scene, cmd_id: str, p: InsertComponentParams) -> None:
@@ -2035,24 +2030,7 @@ def _exec_create_sheet_metal(scene: Scene, cmd_id: str, p: SheetMetalParams) -> 
     scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-@dataclass
-class CommandSpec:
-    type: str
-    title: str
-    category: str
-    model: type[BaseModel]
-    executor: Callable[..., None]
-    kind: str = "scene"  # "scene" muta la escena; "vars" muta las variables
-    wants_variables: bool = False  # el ejecutor recibe además las variables resueltas
-    wants_joints: bool = False  # el ejecutor recibe además el registro de juntas
-    wants_mates: bool = False  # el ejecutor recibe además el registro de mates
-    wants_constraints: bool = False  # el ejecutor recibe además el registro de restricciones
-    wants_attachments: bool = False  # el ejecutor recibe además los adjuntos del documento
-    wants_connectivity: bool = False  # el ejecutor recibe además los fijadores + anclajes a tierra
-    wants_groups: bool = False  # firma kwargs: (scene, cmd_id, model, *, groups, joints, mates, constraints)
-    wants_all: bool = False  # firma kwargs TOTAL: (scene, cmd_id, model, *, attachments, groups, joints, mates, constraints, fasteners, grounds)
-
-
+# Cada executor declara su firma con `convention` (`spec.py`): "ctx" = (ctx, cmd_id, p).
 REGISTRY: dict[str, CommandSpec] = {
     spec.type: spec
     for spec in [
@@ -2078,14 +2056,14 @@ REGISTRY: dict[str, CommandSpec] = {
         ),
         CommandSpec(
             "import_step", "Importar STEP", "crear", ImportStepParams, _exec_import_step,
-            wants_attachments=True,
+            convention="ctx",
         ),
         CommandSpec(
             "insert_component", "Componente", "biblioteca", InsertComponentParams, _exec_insert_component
         ),
         CommandSpec(
             "insert_project", "Insertar proyecto", "biblioteca", InsertProjectParams,
-            _exec_insert_project, wants_all=True,
+            _exec_insert_project, convention="ctx",
         ),
         CommandSpec(
             "create_conveyor", "Transportador", "biblioteca", CreateConveyorParams, _exec_create_conveyor
@@ -2113,43 +2091,43 @@ REGISTRY: dict[str, CommandSpec] = {
             _exec_create_sheet_metal,
         ),
         CommandSpec(
-            "run_script", "Script IA", "crear", RunScriptParams, _exec_run_script, wants_variables=True
+            "run_script", "Script IA", "crear", RunScriptParams, _exec_run_script, convention="ctx"
         ),
         CommandSpec(
             "create_robot_arm", "Brazo robótico", "robotica", CreateRobotArmParams,
-            _exec_create_robot_arm, wants_joints=True,
+            _exec_create_robot_arm, convention="ctx",
         ),
         CommandSpec(
-            "add_joint", "Junta", "robotica", AddJointParams, _exec_add_joint, wants_all=True
+            "add_joint", "Junta", "robotica", AddJointParams, _exec_add_joint, convention="ctx"
         ),
         CommandSpec(
-            "add_mate", "Mate", "ensamblaje", AddMateParams, _exec_add_mate, wants_mates=True
+            "add_mate", "Mate", "ensamblaje", AddMateParams, _exec_add_mate, convention="ctx"
         ),
         CommandSpec(
             "add_rail_constraint", "Restricción de riel", "ensamblaje", AddRailConstraintParams,
-            _exec_add_rail_constraint, wants_constraints=True,
+            _exec_add_rail_constraint, convention="ctx",
         ),
         CommandSpec(
             "add_constraint", "Restricción", "ensamblaje", AddConstraintParams,
-            _exec_add_constraint, wants_constraints=True,
+            _exec_add_constraint, convention="ctx",
         ),
         CommandSpec(
-            "fasten", "Fijador", "ensamblaje", FastenParams, _exec_fasten, wants_connectivity=True
+            "fasten", "Fijador", "ensamblaje", FastenParams, _exec_fasten, convention="ctx"
         ),
         CommandSpec(
-            "ground", "Anclaje a tierra", "ensamblaje", GroundParams, _exec_ground, wants_connectivity=True
+            "ground", "Anclaje a tierra", "ensamblaje", GroundParams, _exec_ground, convention="ctx"
         ),
         CommandSpec(
             "join_bolted", "Unión atornillada", "ensamblaje", JoinBoltedParams,
-            _exec_join_bolted, wants_connectivity=True,
+            _exec_join_bolted, convention="ctx",
         ),
         CommandSpec(
             "create_group", "Grupo / sub-ensamblaje", "ensamblaje", CreateGroupParams,
-            _exec_create_group, wants_groups=True,
+            _exec_create_group, convention="ctx",
         ),
         CommandSpec(
             "transform_group", "Mover grupo", "ensamblaje", TransformGroupParams,
-            _exec_transform_group, wants_groups=True,
+            _exec_transform_group, convention="ctx",
         ),
         CommandSpec("boolean_op", "Booleana", "modificar", BooleanOpParams, _exec_boolean),
         CommandSpec("fillet", "Redondeo", "modificar", FilletParams, _exec_fillet),
@@ -2170,13 +2148,14 @@ REGISTRY: dict[str, CommandSpec] = {
         ),
         CommandSpec(
             "pattern_group", "Patrón de grupo", "modificar", PatternGroupParams,
-            _exec_pattern_group, wants_joints=True, wants_mates=True,
+            _exec_pattern_group, convention="ctx",
         ),
         CommandSpec("mirror_feature", "Espejo", "modificar", MirrorParams, _exec_mirror),
         CommandSpec("duplicate_feature", "Duplicar", "modificar", DuplicateParams, _exec_duplicate),
         CommandSpec("delete_feature", "Eliminar", "modificar", DeleteParams, _exec_delete),
         CommandSpec(
-            "set_variable", "Variable", "variables", SetVariableParams, _exec_set_variable, kind="vars"
+            "set_variable", "Variable", "variables", SetVariableParams, _exec_set_variable,
+            kind="vars", convention="ctx",
         ),
     ]
 }
@@ -2224,45 +2203,9 @@ def execute_command(
     state: RegenState, cmd_id: str, cmd_type: str, params: dict, attachments: dict | None = None
 ) -> None:
     """Ejecuta UN comando del log sobre `state` (sus dicts se mutan en sitio)."""
-    scene, variables, joints, mates = state.scene, state.variables, state.joints, state.mates
-    constraints, fasteners, grounds = state.constraints, state.fasteners, state.grounds
-    groups = state.groups
-    attachments = attachments if attachments is not None else {}
-    model = validate_params(cmd_type, params, variables)
-    spec = REGISTRY[cmd_type]
-    if spec.kind == "vars":
-        spec.executor(variables, cmd_id, model)
-    elif spec.wants_all:
-        # firma keyword-only TOTAL (insert_project y futuros super-comandos que
-        # necesiten todo el contexto del documento)
-        spec.executor(
-            scene, cmd_id, model,
-            attachments=attachments, groups=groups, joints=joints, mates=mates,
-            constraints=constraints, fasteners=fasteners, grounds=grounds,
-        )
-    elif spec.wants_groups:
-        # firma keyword-only uniforme para los comandos de grupo (evita la explosión
-        # combinatoria de ramas por flags): reciben todo lo que pueden necesitar
-        spec.executor(
-            scene, cmd_id, model,
-            groups=groups, joints=joints, mates=mates, constraints=constraints,
-        )
-    elif spec.wants_joints and spec.wants_mates:
-        spec.executor(scene, joints, mates, cmd_id, model)
-    elif spec.wants_joints:
-        spec.executor(scene, joints, cmd_id, model)
-    elif spec.wants_mates:
-        spec.executor(scene, mates, cmd_id, model)
-    elif spec.wants_constraints:
-        spec.executor(scene, constraints, cmd_id, model)
-    elif spec.wants_connectivity:
-        spec.executor(scene, fasteners, grounds, cmd_id, model)
-    elif spec.wants_attachments:
-        spec.executor(scene, cmd_id, model, attachments)
-    elif spec.wants_variables:
-        spec.executor(scene, cmd_id, model, resolve_all(variables))
-    else:
-        spec.executor(scene, cmd_id, model)
+    model = validate_params(cmd_type, params, state.variables)
+    ctx = ExecContext(state, attachments if attachments is not None else {})
+    run_executor(REGISTRY[cmd_type], ctx, cmd_id, model)
 
 
 def _schema_entry(spec) -> dict:

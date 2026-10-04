@@ -109,7 +109,7 @@ también a quien sólo busca o trabaja por MCP.
 |---|---|
 | [core/apolo](core/apolo/CLAUDE.md) | backend común: MCP cliente fino (`mcp_server.py`), agente y criterio (`agent/`, `design/`), cinemática (`robotics/`: FK, GIF), física (`physics/`), cachés por `id(shape)` |
 | [kernel](core/apolo/kernel/CLAUDE.md) | render, pick, medición; superficies; modelado directo; croquis (dos motores) |
-| [commands](core/apolo/commands/CLAUDE.md) | flags de executor, colocación, juntas y `fasten`, `join_bolted`, super-comandos, expresiones |
+| [commands](core/apolo/commands/CLAUDE.md) | firma de executor (`ExecContext`), colocación, juntas y `fasten`, `join_bolted`, super-comandos, expresiones |
 | [doc](core/apolo/doc/CLAUDE.md) | integridad y undo, metadatos de manifest, variantes, caché de geometría, `insert_project` |
 | [assembly](core/apolo/assembly/CLAUDE.md) | mates y anclas, DOF, grupos, conectividad |
 | [library](core/apolo/library/CLAUDE.md) | catálogo y builders, materiales, chapa, ingletes, ingeniería y normas, stack-up, reglas de conveyor, interferencias, lints, puerta de entrega |

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden) y F1 (RegenState, epoch 5) hechas y sin mergear; faltan F2–F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
+nota: F0 (golden; base fuera del repo, en %TEMP%\apolo-golden), F1 (RegenState, epoch 5) y F2 (despacho único, ExecContext) hechas y sin mergear; faltan F3–F6; implementación delegada sin aprobación previa del contrato — revisar D1–D13 (D11 y D12 son extras vetables)
 descripcion: Si tú o el agente mandan un parámetro que no existe, Apolo lo rechaza y sugiere el correcto (antes lo ignoraba en silencio); tus proyectos guardados regeneran idénticos
 ---
 
@@ -357,3 +357,29 @@ guarda el estado por nombre; cambiar sus campos = bump) y `commands/` nombra `st
 `_ckpts_ok` lo descartaba en el regenerate siguiente: mismo efecto, un paso antes y explícito).
 `execute_command` mantiene la cadena de ramas leyendo de locales, no de `state.campo`, para que
 el cuerpo quede literalmente igual (F2 lo reemplaza).
+
+**2026-10-03 — F2, despacho único.** `ExecContext(state, attachments)` en `commands/state.py`
+(frozen, slots; una propiedad por campo del `RegenState` que devuelve el dict VIVO, y
+`resolved_variables()`). `commands/spec.py` (55 líneas): `CommandSpec` con `__post_init__` que
+rechaza `kind`/`convention` inválidos y un executor no invocable, y `run_executor` que lee
+`spec.executor` en cada llamada. `execute_command` queda en 3 líneas (valida, arma el contexto,
+despacha). Los 15 executors con forma propia —los 14 con flags y `set_variable` (`kind="vars"`
+le pasaba las variables crudas)— migran a `(ctx, cmd_id, p)` con `convention="ctx"`; los 8
+`wants_*` y la cadena de 11 ramas se borran. Los helpers (`_register_joint`, `_joint_drag`,
+`_insert_project_precheck`) conservan sus argumentos. Los 38 restantes van por el adaptador
+`convention="scene"` (default).
+
+- **Tests**: `tests/test_despacho_unico.py` (11): firma exacta por convención para los 53, los
+  15 migrados son `ctx`, no queda `wants_*` (ni como atributo ni como kwarg aceptado),
+  `CommandSpec` valida al registrar, un executor parcheado se ve en el despacho, `ExecContext`
+  entrega los dicts vivos (identidad, frozen, adjuntos `{}` por defecto), `run_executor`,
+  `run_script` sigue viendo `V[...]` e `import_step` sus adjuntos. `test_T9` de la tortura
+  llamaba a `_exec_insert_project` con la firma kwargs: ahora le pasa un `ExecContext`.
+- **Golden** (`%TEMP%\apolo-golden\golden-f2.json`, código del worktree, 1 434,1 s) contra la
+  base de F0: **sin diferencias** en los 122 documentos, firmas incluidas.
+- **Suite**: 1539 tests (1528 de la base de integración + 11): 1538 pasan y 1 se salta. Ruff
+  limpio. **Líneas**: `registry.py` 2286 → 2229 (trinquete actualizado); `state.py` 72 → 126.
+
+**Desvíos de F2**: la validación `version ≥ 1` de D5 llega con el campo, en F5. El adaptador de
+transición es el DEFAULT (`convention="scene"`) y los 15 migrados lo declaran: así la F2 no
+toca las 38 entradas que la F3 reescribe de todos modos.

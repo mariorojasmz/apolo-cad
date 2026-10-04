@@ -16,6 +16,8 @@ mutan juntas y restricciones en sitio, p. ej. `transform_group`).
 La caché de geometría guarda el estado POR NOMBRE (`to_plain`/`from_plain`), nunca la clase
 picklada: mover o renombrar la clase no rompe blobs viejos; cambiar sus CAMPOS sí cambia el
 formato → bump de `GEOM_CACHE_EPOCH` (`doc/geomcache.py`).
+
+`ExecContext` es lo que recibe un executor (D3): el estado VIVO y los adjuntos del documento.
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ from __future__ import annotations
 import copy as _copy
 from dataclasses import dataclass, field, fields
 from typing import Any
+
+from .expressions import resolve_all
 
 
 @dataclass(slots=True)
@@ -70,3 +74,53 @@ class RegenState:
         if not all(isinstance(data[n], dict) for n in names):
             raise ValueError("cada campo de RegenState debe ser un dict")
         return cls(**{n: data[n] for n in names})
+
+
+@dataclass(frozen=True, slots=True)
+class ExecContext:
+    """Lo que un executor recibe además de `cmd_id` y sus params: `executor(ctx, cmd_id, p)`.
+
+    Una sola forma de llamada para los 53 executors (plan estado-regen, D3): antes la firma
+    la elegían 8 flags `wants_*` con 11 formas distintas. Los dicts son los VIVOS del estado
+    (el executor los muta en sitio, como siempre); agregar contexto = una propiedad aquí, no
+    un flag nuevo ni una rama en el despacho."""
+
+    state: RegenState
+    attachments: dict[str, bytes] = field(default_factory=dict)  # adjuntos (STEP, .apolo)
+
+    @property
+    def scene(self) -> dict[str, Any]:
+        return self.state.scene
+
+    @property
+    def variables(self) -> dict[str, str]:
+        """Las expresiones CRUDAS (`set_variable` escribe aquí)."""
+        return self.state.variables
+
+    @property
+    def joints(self) -> dict[str, dict]:
+        return self.state.joints
+
+    @property
+    def mates(self) -> dict[str, dict]:
+        return self.state.mates
+
+    @property
+    def constraints(self) -> dict[str, dict]:
+        return self.state.constraints
+
+    @property
+    def fasteners(self) -> dict[str, dict]:
+        return self.state.fasteners
+
+    @property
+    def grounds(self) -> dict[str, dict]:
+        return self.state.grounds
+
+    @property
+    def groups(self) -> dict[str, dict]:
+        return self.state.groups
+
+    def resolved_variables(self) -> dict[str, float]:
+        """Las variables EVALUADAS en este punto del log (lo que ve `run_script` como `V`)."""
+        return resolve_all(self.state.variables)
