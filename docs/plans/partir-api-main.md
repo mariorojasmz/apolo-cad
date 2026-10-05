@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F6c hechas (medición, andamio, services de planos/instalación/stack-up, aserciones/puerta/reglas, preparación del FEA, sesión en `S` con alias en `main`, autosave/WS/arranque fuera de `main` + fixture que aísla la sesión, escena/common/fea_runs/sims fuera de `main`, los 11 routers y `main` reducido a composición en 183 líneas); falta F7 (borrar el andamio, `test_rutas_api.py`, E2E en :8001). Implementación delegada por Mario sin aprobación previa del contrato (ver Estado y origen); revisar D1–D13 (D8 vetable) al volver
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: F0–F7 hechas y verificadas (main.py 4 913 → 183 líneas, 11 routers, services/, sesión en `S`, andamio borrado y `tests/test_rutas_api.py` permanente, E2E HTTP en :8011 sobre una copia de la base). Falta de Mario: E2E por MCP y la UI en :8000, y vetar D1–D13 (D8 vetable)
 descripcion: Por fuera nada cambia —misma API, mismo MCP, misma UI—; por dentro el servidor queda en módulos de ≤ 500 líneas y tocar una parte ya no arriesga las demás
 ---
 
