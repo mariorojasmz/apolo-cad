@@ -31,12 +31,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - Una ruta nueva va al router de su tema con `@router.<método>`; `main` no gana rutas (sólo
   `include_router`).
 - **Orden**: Starlette sirve la PRIMERA ruta que casa (y su `Allow` en un 405). Las rutas que
-  pueden casar la misma URL viven en el MISMO router y se declaran en su orden: en `commands`,
-  `batch` y `preview` antes que `PUT /api/commands/{command_id}` y éste antes que `remove`; en
-  `projects`, `DELETE /api/projects/{project_id}` antes que `PATCH /api/projects/current`; en
-  `assembly`, `constraints/solve` antes que `DELETE /api/constraints/{name}`; en `fea`, las de
-  `static`/`assembly` y `GET /api/fea/group/{name}` antes que `GET /api/fea/{feature_id}`, y
-  `group/{name}` antes que `{feature_id}/fringe.png`.
+  pueden casar la misma URL viven en el MISMO router y se declaran en su orden (p. ej.
+  `GET /api/fea/group/{name}` antes que `GET /api/fea/{feature_id}/fringe.png`, o
+  `GET /api/fea/group/fringe.png` lo atendería la pieza). Los pares, los paths con varios
+  métodos y su orden los fija `tests/test_rutas_api.py`: una ruta nueva que se solape lo pone
+  rojo hasta que decidas su orden y la anotes ahí.
 - Capas (gate `tests/test_api_sesion.py`, `CAPAS_API`): un router importa de `common`, `scene`,
   `session`, `sims`, `fea_runs` y `apolo.services`; nunca de `main`, de otro router ni de
   `autosave`/`ws`/`jobs` (lo que necesite de ellos lo re-exporta `common`). Nadie importa `main`.

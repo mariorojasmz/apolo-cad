@@ -623,3 +623,71 @@ todo antes de integrar.
   doradas); ruff limpio; `apolo.api.main`, `common` y cada router se importan solos;
   `test_api_opcionales` verde (los imports perezosos siguen perezosos); `test_claude_md` verde.
   Ningún archivo nuevo pasa de 500 líneas (el mayor, `routers/commands.py`, 371).
+
+### F7 — cierre y punta a punta (2026-10-05)
+
+- **Andamio borrado**: `scripts/partir_main_snapshot.py` (468 líneas),
+  `tests/test_partir_main_contrato.py` (130) y `tests/data/partir_main/` (4 archivos, 12 128
+  líneas). Lo que vigilaba sólo él (OpenAPI, textos de `main.py`, respuestas doradas) era del
+  corte y se va con él; queda lo permanente: `tests/test_api_opcionales.py` (imports
+  perezosos), `tests/test_api_sesion.py` (sesión y capas de `apolo.api`) y el nuevo
+  `tests/test_rutas_api.py`. Fuera del plan no quedaba ninguna referencia al andamio (grep de
+  `partir_main`/`andamio` en todo el repo).
+- **Nace `tests/test_rutas_api.py`** (166 líneas, 5 tests), sobre la `app` viva y sin nada
+  congelado: lo esperado va escrito en el test (`PARES_EN_ORDEN`: los 11 pares, como
+  «MÉTODO path»; `METODOS_EN_ORDEN`: los 9 paths con varios métodos, en su orden), así que corre
+  igual en el CI de Linux, sin `skipif`. El detector por segmentos es el de F6b. Comprueba: (1)
+  el detector sobre la app ve EXACTAMENTE esos pares —uno nuevo da rojo con el mensaje «decide
+  cuál va primero… y anota el par»—, cada par en su orden y en un solo router (módulo del
+  endpoint); (2) los paths con varios métodos, en su orden y en un solo router; (3) lo que el
+  orden protege, desde la URL, con la regla de `starlette.routing.Router.app` sobre
+  `route.matches`: `GET /api/fea/group/fringe.png` lo atiende `get_fea_group` y
+  `GET /api/commands/batch` cae en `post_batch` (el `Allow: POST` del 405); (4) la UI montada
+  (`Mount` en «/», sólo con `ui/dist`) va después de toda ruta de la API —si quedara antes las
+  taparía—; (5) el detector mismo (un `solapan` roto dejaría verde lo demás). Los `Mount` y el
+  WebSocket quedan fuera de la comparación: con o sin `ui/dist` da lo mismo.
+- **Probado rojo y revertido**: declarar `get_fea_fringe` antes que `get_fea_group` en
+  `routers/fea.py` → 2 rojos («GET /api/fea/group/{name} debe ir antes que GET
+  /api/fea/{feature_id}/fringe.png» y la URL `group/fringe.png` pasa a `get_fea_fringe`);
+  `rename_project` antes que `delete_project` en `routers/projects.py` → 1 rojo; en proceso,
+  sumar `GET /api/fea/{feature_id}/mesh` → rojo «Rutas nuevas…» con su par
+  (`GET /api/fea/group/{name}`), y permutar `GET`/`PUT /api/stackup` → rojo de los métodos. Los
+  dos primeros por script sobre el archivo y `git restore`; los otros dos, sólo en memoria.
+- **Precisión en `api/CLAUDE.md`**: decía que `GET /api/fea/group/{name}` va antes que
+  `GET /api/fea/{feature_id}`, pero ese no es un par (distinto número de segmentos; `{x}` no
+  cruza «/»). Los del FEA son los cuatro `POST` de `static`/`assembly` (y sus `.png`) →
+  `GET /api/fea/{feature_id}` y `group/{name}` → `{feature_id}/fringe.png` (el único del mismo
+  método). En vez de corregir la lista, la viñeta «Orden» ahora apunta a
+  `tests/test_rutas_api.py` (una explicación, un lugar) con ese ejemplo; el resto del archivo
+  ya describía `main` como composición, los 11 routers y `session.S` (F6c).
+- **Desviación — E2E en :8011, no en :8001**: el 8001 lo ocupa Docker. API levantada desde el
+  worktree de F7 (`PYTHONPATH=core`, `-B`, sin `--reload`) sobre una COPIA de `data/apolo.db`
+  en su `data/` (ignorado: `.gitignore:12 /data/`). Verificado que respondía la mía: dueño del
+  puerto = el `python -m uvicorn … --port 8011` lanzado, `apolo.paths` resuelve al worktree y
+  `/api/projects` lista los 25 proyectos de la copia. Tiempos bajo contención (otras sesiones
+  corrían suites):
+
+  | paso | llamada | status | lo esencial |
+  |---|---|---|---|
+  | salud | `GET /api/health` | 200 | ok, 0 issues, 0 suprimidos, sin `autosave_failed`/`startup_error`; proyecto 38, 87 features, 360 comandos |
+  | abrir el 38 | `POST /api/projects/38/open` | 200 (16 s) | 87 features; briefing 4,8 KB (configuraciones, notas, requisitos, resumen, salud) |
+  | resumen | `GET /api/scene/summary` | 200 (1,8 s, 3,8 KB) | 87 sólidos, 6 grupos, 332,502 kg, bbox 4000 × 1182,9 × 929 |
+  | ensamblaje | `POST /api/assembly/soundness` | 200 | 87/87 sujetos, 0 flotantes, 0 aislados, 1 componente |
+  | puerta | `POST /api/delivery-check` | 200 (3,5 s) | VERDE: 0 bloqueantes, 0 avisos, 1 no aplica; interferencias, sujeción, lints, salud y 2 poses |
+  | juego de planos | `GET /api/drawingset.pdf` | 200 (114 s) | PDF de 23 páginas, 260 KB |
+  | memoria | `GET /api/calc-report.pdf` | 200 (59 s) | PDF de 23 páginas, 109 KB |
+  | render | `GET /api/render.png?view=iso` | 200 (33 s) | PNG 535 × 558 |
+  | variable | `POST /api/variables` `largo_total` 4000 → 4400 | 200 (103 s en frío; 16 s la 2.ª vez) | bbox 4400, 347,275 kg |
+  | deshacer | `POST /api/undo` | 200 (0,1 s) | 4000 y 332,502 kg; resumen y log (360) idénticos a antes; `can_redo` |
+  | salud | `GET /api/health` | 200 | igual que al empezar, `autosave_pending: false` |
+
+  Las 23 peticiones del log de uvicorn dieron 200; `logs/errors.log` sólo tenía la marca de
+  inicio. Un tropiezo propio: la 1.ª vez el script leyó las variables en el nivel superior del
+  payload de la mutación (van en `document.variables`) y cortó tras editar; se deshizo aparte
+  (200, vuelve a 4000) y el ciclo se repitió limpio (tabla). Al terminar: procesos muertos
+  (python y el lanzador del venv), :8011 libre, `data/` y `logs/` del worktree borrados y el
+  SHA-256 de la base de Mario sin cambios (`1119258C…F52B4`).
+- **Queda para Mario**: el E2E por MCP y la UI sobre :8000.
+- **Gate**: suite **1 716 passed + 1 skipped, 0 fallos** (15 de tortura deseleccionados;
+  1 306 s bajo contención): 1 717 como antes, porque salen los 5 tests del andamio y entran los
+  5 de `test_rutas_api.py`; ruff limpio; trinquetes de tamaño y `test_claude_md` verdes.
