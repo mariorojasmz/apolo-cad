@@ -54,6 +54,7 @@ from .fea_runs import (  # D4: por IDENTIDAD (los tests espían la guardia y el 
     _last_fea_field,  # noqa: F401
     _persist_fea_if_same_project,  # noqa: F401
 )
+from .guardia_documento import CabeceraDocumento
 from .routers import (
     assembly,
     commands,
@@ -87,6 +88,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CabeceraDocumento)  # X-Apolo-Documento → la guardia del documento (common)
 
 
 # Estado de sesión (D3 del plan partir-api-main): vive en `session.S` y el código lee y swapea

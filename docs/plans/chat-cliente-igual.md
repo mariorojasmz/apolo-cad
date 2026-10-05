@@ -747,3 +747,89 @@ Base `2b8aa8f`.
   a escala apunta a ella.
 - Suite: 1718 passed + 1 skipped (1719 recolectados, 15 de tortura deseleccionados; 24 min);
   `ruff check core tests scripts` limpio; trinquetes y `test_claude_md.py` verdes.
+
+### F3 — guardia del documento y endpoints igualados (2026-10-05)
+
+Base `2b8aa8f` (partir-api-main F6c, estado-regen F6 y texto-agente ya integrados).
+
+- **`api/guardia_documento.py`** (99 líneas, HOJA de `apolo.api`: no importa nada de la API; el
+  gate `CAPAS_API` la lista con `set()` y la suma a `common` y `fea_runs`). `token(doc)` =
+  `secrets.token_hex(8)` guardado en un `WeakKeyDictionary` bajo un lock hoja: identidad del
+  objeto y se va con él (un `id()` crudo se recicla). `CABECERA`, `DOCUMENTO_CAMBIO` (el
+  `detail` del 409, 116 caracteres, pasa `faltas()` de `test_pistas.py`), el ContextVar
+  (`esperado()`/`esperando()`), `verificar(doc)` y `CabeceraDocumento`, middleware ASGI puro
+  que sólo COPIA la cabecera al ContextVar (no rechaza ni toca la respuesta).
+- **Por qué middleware + ContextVar y no un `Header(...)` por endpoint**: `_state_or_error` tiene
+  ~40 llamadores sin acceso a la request; un parámetro de cabecera en cada ruta cambiaría el
+  OpenAPI de todas y habría que acordarse en cada ruta nueva. La F0 (spike 2) ya había medido
+  que lo fijado en un middleware llega al endpoint `def` y a cada `next()`; el test de
+  `/api/import` (un `async def`) cubre además el camino del bucle de eventos. La DECISIÓN
+  ocurre bajo el lock, nunca en el middleware.
+- **Dónde se verifica, siempre dentro del `STATE_LOCK` de la mutación y antes de tocar nada**:
+  (1) `_state_or_error`, primera línea dentro del lock (un 409 no deja comando, autoguardado ni
+  aviso por WS); (2) el job de `_sync_or_job`: `esperado()` se captura al ENCOLAR (hilo de la
+  request) y `guarded()` lo re-fija con `esperando()` en el hilo del worker, después de la
+  guardia por proyecto que ya existía. Re-fijarlo, y no confiar en el contexto del hilo, es
+  deliberado: hoy el worker arranca con contexto vacío, pero si un día los hilos heredaran el
+  contexto (lo que 3.14 permite en las builds free-threaded) heredaría el de la PRIMERA request
+  que lo creó; (3) a mano con `_verificar_documento()` (kit de `common`) en `POST
+  /api/agent/notes`, `PUT`/`DELETE /api/motion`, `PUT /api/requirements` y `PUT`/`DELETE
+  /api/stackup`; (4) la fase (a) del FEA (`_fea_static_run`/`_fea_assembly_run`: cubre `static`,
+  `static.png`, `assembly` y `assembly.png`), así un token ajeno no llega a minutos de solve. La
+  fase (c) no cambia: `_persist_fea_if_same_project` compara la IDENTIDAD del documento, que es
+  justo lo que nombra el token.
+- **Sin cabecera, byte-idéntico**: el andamio `tests/test_partir_main_contrato.py` (corrido una
+  vez, sin regenerar) sólo difiere en `health` y `b-health` (la clave nueva `documento`);
+  OpenAPI, rutas y textos de `main.py`, idénticos (los porqués de D18 van en comentarios y no
+  en docstrings, que son la `description` del OpenAPI). `GET /api/health` suma `documento`
+  entre `project_id` y `features`.
+- **Desviaciones**:
+  - `DELETE /api/motion`, `DELETE /api/stackup` y el FEA de ensamblaje no estaban en la lista
+    de F0 (no tienen tool en el chat) pero mutan fuera del embudo: guardados igual (una línea
+    cada uno), para que «toda mutación fuera del embudo la llama» sea cierto ya.
+  - `undo`/`redo` hacían `_state_or_error(S.doc.undo)`: el método se ligaba FUERA del lock, así
+    que un cambio de proyecto entre medio deshacía el documento VIEJO mientras la guardia
+    verificaba el nuevo. Ahora `lambda: S.doc.undo()`.
+  - Una cabecera vacía cuenta como presente → 409 (no apaga la guardia en silencio).
+  - `main.py` crece 2 líneas (import + `add_middleware`): registrar un middleware es
+    composición, el oficio de `main`.
+- **Lo que no se guarda** (a propósito): las lecturas (una con token viejo lee el proyecto
+  nuevo; la primera mutación del chat da 409 y corta el turno), los cambios de proyecto y las
+  revisiones (fuera del chat por D5) y `auto-group` sin propuesta (no muta).
+- **D18**: `/api/sketch/solve` pasa el croquis por `resolve_params` con las variables copiadas
+  bajo `STATE_LOCK` y resuelve FUERA del lock; es la misma función de `apolo.commands` que usan
+  el ejecutor y el `test_sketch` del chat viejo, así que no hubo nada que mover. Antes un
+  `"=expr"` daba 500 (`ValueError` del solver); ahora resuelve, y una variable inexistente da 400
+  con el texto de `ExpressionError`. `POST /api/agent/notes` guarda `text.strip()[:500]` con el
+  tope de 30 (constantes `NOTA_MAX_CARACTERES`/`NOTAS_MAX`). `save_agent_note` del chat viejo
+  conserva su copia hasta F5b: no hay lugar común sin cruzar capas (el agente no importa
+  `apolo.api`) y `agent/agent.py` no se tocó.
+- **Para F5a**: el nombre de la cabecera vive en `guardia_documento.CABECERA` y el chat no puede
+  importar `apolo.api` (D4a): que escriba el literal en su `Destino.http(...)` y un test lo
+  compare con la constante.
+- `tests/test_guardia_documento.py` (404 líneas, 107 tests): por cada una de las 31 rutas
+  guardadas (20 del embudo —las que alcanzan las tools del chat según F0 salvo `auto-group`,
+  que con este modelo no propone grupos, más borrar comando, variable y junta y renombrar—,
+  importar STEP, las 6 de fuera del embudo y las 4 del FEA),
+  (a) token ajeno → 409 con `DOCUMENTO_CAMBIO`, documento
+  idéntico (`.apolo`, piezas, undo/redo), cero autoguardados (espía en
+  `api._autosave_sched.schedule`) y cero avisos WS; (b) con el token correcto, MISMO código,
+  mismo texto de error, mismo documento después y mismos autoguardados y avisos que sin
+  cabecera; (c) `token()` se llama con `STATE_LOCK._is_owned()` en el hilo que verifica. Más:
+  la carrera (el test sostiene `STATE_LOCK`, la petición con la cabecera ya leída espera el
+  lock, se swapea el documento, se suelta → 409 y ninguno de los dos cambia; sin cabecera,
+  aplica al nuevo, como hoy); el job con token ajeno; el job encolado y una revisión
+  restaurada con el MISMO id de proyecto (la guardia por proyecto lo dejaba pasar; la del
+  documento da 409); el job verifica bajo el lock y aplica con el token correcto; cabecera
+  vacía; `health.documento`; el token cambia al restaurar, reabrir el mismo id, crear, subir
+  un `.apolo` y no al editar, deshacer, renombrar ni aplicar una variante; el token se va con
+  su objeto; el texto del 409; y los dos casos de D18.
+- **Comprobado que se pone rojo** (y revertido): sin la guardia en `_state_or_error` (fallan las
+  rutas del embudo, la carrera y el ciclo de vida del token); con la guardia ANTES de tomar el
+  lock (fallan 20 casos de «compara bajo el lock» y la carrera: la estructura es lo que la
+  hace atómica); sin la guardia del job (fallan los 4 tests del job).
+- Golden del MCP idéntico (no se tocó el cliente). Suite con `--deselect
+  tests/test_partir_main_contrato.py`: 1818 passed + 1 skipped (20 deseleccionados: los 15 de
+  tortura y los 5 del andamio; 18 min); `ruff check core tests scripts` limpio; trinquetes de
+  tamaño, gate de capas y `test_claude_md.py` verdes. `agent/agent.py` y `mcp_server.py` sin
+  tocar.

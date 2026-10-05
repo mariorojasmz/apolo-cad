@@ -9,7 +9,10 @@ requerido, el cajetín de los planos (`_drawing_meta`) y, desde F6b/F6c, lo que 
 routers: el borrado del comando dueño de una junta o un mate (`_remove_owner_command`) y las
 reglas de stack-up del documento activo (`_stackup_rules`, envoltorio D4 que también usan
 los tests por `main`). Aquí sí viven `HTTPException` y
-`STATE_LOCK`; la lógica que lee un `Document` es de `apolo.services`.
+`STATE_LOCK`; la lógica que lee un `Document` es de `apolo.services`. La guardia del documento
+(`guardia_documento.py`, D3 del plan `docs/plans/chat-cliente-igual.md`) se verifica en
+`_state_or_error`, en el job de `_sync_or_job` y, con `_verificar_documento`, en cada mutación
+fuera de ese embudo.
 
 Es también el KIT de los routers (`api/routers/`): lo que un endpoint necesita del autosave, del
 WebSocket y de los jobs lo importa de aquí, nunca de `autosave`/`ws`/`jobs` directamente
@@ -35,6 +38,7 @@ from .autosave import (  # el resto, kit de los routers: lo importan de AQUÍ (g
     _flush_autosave,  # noqa: F401
     _project_switch,  # noqa: F401
 )
+from .guardia_documento import esperado, esperando, token, verificar
 from .jobs import JOB_UNKNOWN, JobStore  # noqa: F401 — JOB_UNKNOWN: kit de los routers
 from .scene import scene_payload
 from .session import S
@@ -98,10 +102,23 @@ def _normalize_affected(v) -> list[str]:
     return []
 
 
+def _verificar_documento() -> None:
+    """Guardia del documento para una mutación FUERA de `_state_or_error`: si la petición trae
+    `X-Apolo-Documento` y no es el token del documento activo → 409 sin aplicar nada. Llamar
+    BAJO `STATE_LOCK`, en la misma adquisición que la mutación y antes de tocar nada."""
+    verificar(S.doc)
+
+
+def _token_documento() -> str:
+    """Token del documento activo (`GET /api/health` → `documento`). Bajo `STATE_LOCK`."""
+    return token(S.doc)
+
+
 def _state_or_error(fn):
     from apolo.library.delivery import AVISO_SIN_ANCLAJES, MIN_SOLIDOS_SUJECION
 
     with STATE_LOCK:
+        _verificar_documento()  # antes de fn(): un 409 no deja comando, autosave ni aviso
         try:
             affected = fn()
         except (CommandError, DocumentError) as exc:
@@ -175,9 +192,13 @@ def _sync_or_job(tipo: str, work, async_: bool):
     # STATE_LOCK. `restore_revision` conserva el PROJECT_ID → el lote aplica sobre la
     # revisión restaurada, igual que aplicaría en sync.
     expected = S.project_id
+    # Guardia del documento (chat-cliente-igual D3): el ContextVar de la cabecera no llega al
+    # hilo del worker → se captura al encolar y se re-fija allí; con cabecera, un documento
+    # distinto (también una revisión restaurada con el mismo id) da 409 sin aplicar nada.
+    documento = esperado()
 
     def guarded():
-        with STATE_LOCK:
+        with STATE_LOCK, esperando(documento):
             if S.project_id != expected:
                 raise HTTPException(
                     status_code=409,
@@ -187,6 +208,7 @@ def _sync_or_job(tipo: str, work, async_: bool):
                         f"Abre el proyecto correcto y reenvíalo."
                     ),
                 )
+            _verificar_documento()
             return work()
 
     return JSONResponse(

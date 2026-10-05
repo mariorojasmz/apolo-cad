@@ -7,7 +7,8 @@ compatibilidad de los tests (alias de sesión y re-exports por IDENTIDAD). Las r
 `ws.py`; payload de escena con sus cachés, revs y briefs, `scene.py`; lo que comparten los
 endpoints, `common.py` (`_expand_ids`, `_not_found`, `_state_or_error`, materialize,
 `JOBS`/`_sync_or_job`, `PHYSICS_LOCK`, cajetín); coreografía del FEA, `fea_runs.py`; física
-dos-locks, `sims.py`; jobs, `jobs.py`; log de errores, `errorlog.py`. El dominio que lee un
+dos-locks, `sims.py`; jobs, `jobs.py`; log de errores, `errorlog.py`; guardia del documento,
+`guardia_documento.py`. El dominio que lee un
 `Document` es de [services](../services/CLAUDE.md) ([plan](../../../docs/plans/partir-api-main.md)).
 Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 [CLAUDE.md raíz](../../../CLAUDE.md); el cliente MCP, en [core/apolo](../CLAUDE.md).
@@ -38,7 +39,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   rojo hasta que decidas su orden y la anotes ahí.
 - Capas (gate `tests/test_api_sesion.py`, `CAPAS_API`): un router importa de `common`, `scene`,
   `session`, `sims`, `fea_runs` y `apolo.services`; nunca de `main`, de otro router ni de
-  `autosave`/`ws`/`jobs` (lo que necesite de ellos lo re-exporta `common`). Nadie importa `main`.
+  `autosave`/`ws`/`jobs`/`guardia_documento` (lo que necesite de ellos lo re-exporta `common`).
+  Nadie importa `main`.
   Un test que llama una ruta directo la toma de `main` (re-export por IDENTIDAD, D4).
 
 ## Estado de sesión (`session.S`)
@@ -59,6 +61,12 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   esos sólidos) y suma `aviso_estructura` cuando hay ≥ `MIN_SOLIDOS_SUJECION` sólidos y 0
   grounds: alarma ambiental en CADA mutación, nunca en lecturas.
   [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
+- **Guardia del documento** (`guardia_documento.py`): con `X-Apolo-Documento` (token por objeto
+  `Document`, publicado en `GET /api/health` → `documento`) una mutación sobre otro documento da
+  409 sin aplicar nada. La verifican DENTRO de su `STATE_LOCK` y antes de tocar nada
+  `_state_or_error`, el job de `_sync_or_job` y, con `_verificar_documento()` de `common`, cada
+  mutación FUERA del embudo: **una mutación nueva fuera del embudo la llama**. Sin cabecera, nada
+  cambia. [chat-cliente-igual](../../../docs/plans/chat-cliente-igual.md) (D3)
 - `PUT /api/commands/{id}` REEMPLAZA los params por defecto (`merge=false`); con `merge=true` es
   PATCH superficial (un sub-objeto `position`/`rotation` se reemplaza entero). El MCP manda
   `merge=true`; la UI elige por caso ([ui](../../../ui/CLAUDE.md)).
@@ -154,7 +162,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   con `S.project_id = None` (no crea un «Sin título» que pise el reciente). `project/new` y `project/open`
   (upload) crean id PROPIO.
 - `GET /api/health` = `check_integrity` + suprimidos + `autosave_pending`/`autosave_failed` +
-  `startup_error`; no tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
+  `startup_error` + `documento` (el token de la guardia); no tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
 
 ## Tests de la API
 

@@ -6,7 +6,9 @@ STEP; (b) malla y solve FUERA del lock (sólo el `FEA_LOCK` interno del solver);
 `STATE_LOCK`, persistir SÓLO si el documento activo sigue siendo el del solve
 (`_persist_fea_if_same_project`). El campo del último solve (`_LAST_FEA_FIELD`) vale sólo para su
 documento: su dueño es `_LAST_FEA_OWNER`, que vive AQUÍ — un test lo parchea en
-`apolo.api.fea_runs`, no en `main` (D4 c).
+`apolo.api.fea_runs`, no en `main` (D4 c). Con `X-Apolo-Documento` (guardia del documento,
+plan chat-cliente-igual D3) la fase (a) verifica el token: uno ajeno → 409 antes de preparar
+nada; la (c) ya compara la IDENTIDAD del documento, que es lo que el token nombra.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from apolo.services.fea_setup import (
 from apolo.state import STATE_LOCK
 
 from .autosave import _autosave
+from .guardia_documento import verificar as _verificar_documento
 from .session import S
 
 
@@ -146,6 +149,7 @@ def _fea_static_run(body: FeaStaticIn):
     from apolo.fea import FeaError
 
     with STATE_LOCK:
+        _verificar_documento(S.doc)  # guarda en DOC.fea: un token ajeno no llega al solve
         try:  # validación + material + selectores: services/fea_setup.py
             prep = prepare_static(S.doc, body)
         except ServiceError as exc:
@@ -191,6 +195,7 @@ def _fea_assembly_run(body: FeaAssemblyIn):
 
     tmp_dir = None
     with STATE_LOCK:  # la preparación es de services/fea_setup.py; el tmp dir, de aquí
+        _verificar_documento(S.doc)
         try:
             fids, grupo = resolve_assembly_scope(S.doc, body)
         except ServiceError as exc:

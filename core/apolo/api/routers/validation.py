@@ -25,7 +25,7 @@ from apolo.services.engineering_rules import (
 from apolo.services.stackup_eval import evaluate_stackups
 from apolo.state import STATE_LOCK
 
-from ..common import _autosave, _expand_ids
+from ..common import _autosave, _expand_ids, _verificar_documento
 from ..session import S
 from ..sims import StabilityIn, _stability
 
@@ -172,6 +172,7 @@ def get_requirements() -> dict:
 @router.put("/api/requirements")
 def put_requirements(body: RequirementsIn) -> dict:
     with STATE_LOCK:
+        _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
         try:
             S.doc.set_requirements(body.fields)
         except DocumentError as exc:
@@ -214,6 +215,7 @@ def get_stackup(scope: str = "all") -> dict:
 @router.put("/api/stackup")
 def put_stackup(body: StackupIn) -> dict:
     with STATE_LOCK:
+        _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
         prev = S.doc.stackups.get(body.name)  # para rollback si la cadena no evalúa
         try:
             S.doc.set_stackup(body.name, body.eslabones, body.requisito)
@@ -237,6 +239,7 @@ def put_stackup(body: StackupIn) -> dict:
 @router.delete("/api/stackup")
 def delete_stackup(body: StackupDeleteIn) -> dict:
     with STATE_LOCK:
+        _verificar_documento()
         S.doc.delete_stackup(body.name)
         _autosave()
         return {"ok": True}

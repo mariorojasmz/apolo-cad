@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from apolo.doc import DocumentError
 from apolo.state import STATE_LOCK
 
-from ..common import _autosave, _remove_owner_command, _state_or_error
+from ..common import _autosave, _remove_owner_command, _state_or_error, _verificar_documento
 from ..scene import _feature_colors
 from ..session import S
 
@@ -68,6 +68,7 @@ def get_motion() -> dict:
 @router.put("/api/motion")
 def put_motion(body: MotionIn) -> dict:
     with STATE_LOCK:
+        _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
         try:
             S.doc.set_motion(body.name, body.keyframes)
         except DocumentError as exc:
@@ -79,6 +80,7 @@ def put_motion(body: MotionIn) -> dict:
 @router.delete("/api/motion")
 def delete_motion(body: MotionDeleteIn) -> dict:
     with STATE_LOCK:
+        _verificar_documento()
         S.doc.delete_motion(body.name)
         _autosave()
         return {"ok": True, "studies": _motion_studies()}

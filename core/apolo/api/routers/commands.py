@@ -332,14 +332,16 @@ def delete_variable(name: str) -> dict:
     return _state_or_error(run)
 
 
+# `S.doc` se lee DENTRO del lock (lambda): el método ligado afuera apuntaría al documento de
+# antes de un cambio de proyecto, no al que la guardia del documento verificó.
 @router.post("/api/undo")
 def undo() -> dict:
-    return _state_or_error(S.doc.undo)
+    return _state_or_error(lambda: S.doc.undo())
 
 
 @router.post("/api/redo")
 def redo() -> dict:
-    return _state_or_error(S.doc.redo)
+    return _state_or_error(lambda: S.doc.redo())
 
 
 class ConfigIn(BaseModel):

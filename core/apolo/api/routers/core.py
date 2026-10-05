@@ -18,7 +18,14 @@ from apolo.agent import AgentHooks, chat_stream
 from apolo.commands import command_schemas, command_schemas_persona
 from apolo.state import STATE_LOCK
 
-from ..common import WS, _autosave, _autosave_sched, _expand_ids
+from ..common import (
+    WS,
+    _autosave,
+    _autosave_sched,
+    _expand_ids,
+    _token_documento,
+    _verificar_documento,
+)
 from ..scene import (
     SCENE_EPOCH,
     _feature_brief,
@@ -103,6 +110,9 @@ def health() -> dict:
             "autosave_pending": _autosave_sched.pending(),  # V6.2d: hay un flush en la ventana de debounce
             "startup_error": S.startup_error,
             "project_id": S.project_id,
+            # token del documento activo: el que un cliente manda en `X-Apolo-Documento` para
+            # que sus mutaciones no caigan en otro documento (guardia_documento.py)
+            "documento": _token_documento(),
             "features": len(S.doc.scene),
             "commands": len(S.doc.commands),
         }
@@ -167,17 +177,25 @@ class AgentNoteIn(BaseModel):
     text: str
 
 
+#: memoria acotada del agente: caracteres por nota y notas que se conservan (las últimas)
+NOTA_MAX_CARACTERES = 500
+NOTAS_MAX = 30
+
+
 @router.get("/api/agent/notes")
 def get_agent_notes() -> dict:
     with STATE_LOCK:
         return {"notes": list(S.doc.agent_notes)}
 
 
+# D18 del plan chat-cliente-igual: la nota se recorta (sin espacios a los lados, ≤ 500
+# caracteres) como lo hacía el chat de la app → el MCP y el chat guardan la misma nota.
 @router.post("/api/agent/notes")
 def add_agent_note(body: AgentNoteIn) -> dict:
     with STATE_LOCK:
-        S.doc.agent_notes.append(body.text)
-        del S.doc.agent_notes[:-30]  # tope 30 (memoria acotada del agente)
+        _verificar_documento()
+        S.doc.agent_notes.append(body.text.strip()[:NOTA_MAX_CARACTERES])
+        del S.doc.agent_notes[:-NOTAS_MAX]  # tope 30 (memoria acotada del agente)
         _autosave()
         return {"notes": list(S.doc.agent_notes)}
 
@@ -186,13 +204,19 @@ class SketchIn(BaseModel):
     sketch: dict
 
 
+# D18 del plan chat-cliente-igual: las cotas '=expresión' del croquis se evalúan con las
+# variables del proyecto (`resolve_params`, como al ejecutar el comando y como el test_sketch
+# del chat de la app) → el MCP prueba el mismo croquis paramétrico que después aplica.
 @router.post("/api/sketch/solve")
 def solve_sketch_endpoint(body: SketchIn) -> dict:
+    from apolo.commands import ExpressionError, resolve_params
     from apolo.kernel.sketch_solver import SketchError, solve_sketch
 
+    with STATE_LOCK:
+        variables = dict(S.doc.variables_resolved)
     try:
-        return solve_sketch(body.sketch)
-    except SketchError as exc:
+        return solve_sketch(resolve_params(body.sketch, variables))
+    except (ExpressionError, SketchError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

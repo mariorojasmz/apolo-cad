@@ -167,21 +167,23 @@ def test_el_gate_de_importes_caza_cada_forma():
 # ── 5. el grafo de imports dentro de apolo.api ────────────────────────────────
 
 #: módulo de `apolo.api` → los módulos de `apolo.api` que PUEDE importar (lista cerrada; los
-#: routers, como `routers.*`). Capas de abajo arriba: hojas (`errorlog`, `jobs`, `ws`) →
-#: `session` → `autosave` → `scene` → `common` → `sims`/`fea_runs` → routers → `main`. Un
-#: router no importa a otro ni a `autosave`/`ws`/`jobs`: lo de transporte le llega de `common`.
-#: `main` es la raíz de composición: importa lo que necesite, pero NADIE lo importa a él.
+#: routers, como `routers.*`). Capas de abajo arriba: hojas (`errorlog`, `jobs`, `ws`,
+#: `guardia_documento`) → `session` → `autosave` → `scene` → `common` → `sims`/`fea_runs` →
+#: routers → `main`. Un router no importa a otro ni a `autosave`/`ws`/`jobs`/
+#: `guardia_documento`: lo de transporte le llega de `common`. `main` es la raíz de
+#: composición: importa lo que necesite, pero NADIE lo importa a él.
 CAPAS_API = {
     "": set(),  # apolo/api/__init__.py
     "errorlog": set(),
     "jobs": set(),
     "ws": set(),
+    "guardia_documento": set(),  # recibe el documento: no lee `S` (chat-cliente-igual D3)
     "session": {"errorlog"},
     "autosave": {"session", "ws", "errorlog"},
     "scene": {"session"},
-    "common": {"session", "scene", "autosave", "ws", "jobs"},
+    "common": {"session", "scene", "autosave", "ws", "jobs", "guardia_documento"},
     "sims": {"session", "common"},
-    "fea_runs": {"session", "autosave"},
+    "fea_runs": {"session", "autosave", "guardia_documento"},
     "routers": set(),
     "routers.*": {"common", "scene", "session", "sims", "fea_runs"},
 }
