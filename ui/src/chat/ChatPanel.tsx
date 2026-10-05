@@ -12,6 +12,8 @@ export default function ChatPanel() {
   const setAutoMode = useStore((s) => s.setAutoMode);
   const [text, setText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  // la nota de avance del turno en curso reemplaza a «pensando…» (una línea, la última)
+  const progreso = chat[chat.length - 1]?.progreso?.trim();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -47,7 +49,7 @@ export default function ChatPanel() {
             {m.tools && m.tools.length > 0 && (
               <div className="tool-chips">
                 {m.tools.map((t, j) => (
-                  <span key={j} className="tool-chip">⚙ {t}</span>
+                  <span key={j} className="tool-chip">⚙ {t.etiqueta ?? t.name}</span>
                 ))}
               </div>
             )}
@@ -80,9 +82,15 @@ export default function ChatPanel() {
                 {m.actionsStatus === "error" && <p className="status error">Falló la ejecución (ver aviso)</p>}
               </div>
             )}
+            {m.aviso && (
+              <p className="aviso" role="status">
+                <span aria-hidden="true">⚠ </span>
+                {m.aviso}
+              </p>
+            )}
           </div>
         ))}
-        {chatBusy && <p className="hint">pensando…</p>}
+        {chatBusy && <p className="hint progreso">{progreso || "pensando…"}</p>}
       </div>
       <div className="chat-input">
         <textarea

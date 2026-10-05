@@ -652,3 +652,53 @@ effort por defecto cambian; sólo se vuelven configurables. Referencia usada: la
   (1429) sin tocar; golden del MCP sin cambios.
 - Suite: 1663 passed + 1 skipped (1664 recolectados); `ruff check core tests scripts` limpio;
   trinquete de tamaño y `test_claude_md.py` verdes.
+
+### F9 — UI: avisos, progreso y etiquetas (2026-10-05)
+
+- `ui/src/chat/sse.ts` (164 líneas, ≈ 50 de doc; puro, sin React ni store): `crearLectorSse()`
+  incremental (`push(trozo)` devuelve los eventos que el trozo completó; `fin()` al cerrar),
+  `validar()` por tipo y `eventosSse(body)`, generador async sobre el `ReadableStream` de `fetch`
+  (`TextDecoder` en modo stream; si quien consume corta, cancela el cuerpo). Subconjunto del
+  estándar SSE: fin de línea `\n`, `\r\n` o `\r` (un `\r` al final del trozo se retiene: puede ser
+  medio `\r\n`), varios `data:` se juntan con `\n`, `:` es comentario, `event`/`id`/`retry` se
+  ignoran. Los tipos del protocolo (`EventoChat`) salen de `modelo.py` y del chat viejo.
+- **Lo que no se entiende (decisión)**: un `type` desconocido se ignora sin avisar (compatibilidad
+  hacia adelante: F10 sumará `turno`). JSON roto, algo que no es un objeto con `type` o un tipo
+  conocido sin su campo se DESCARTA, el stream sigue y el store lo manda a `logs/errors.log`
+  (`reportError("chat-sse", …)`, crudo recortado a 200 caracteres): es un bug del backend que la
+  persona no puede arreglar, así que no se pinta. Un evento a medias al cerrar no se despacha
+  (como manda el estándar) y también se avisa.
+- **Desviación: `chat/turno.ts`** (47 líneas, puro): `aplicarEvento(msg, ev, seguido)` y
+  `cerrarTurno(msg, terminado)`. El contrato sólo pedía `sse.ts`; la reducción evento → mensaje
+  también salió del store para testear sin React las reglas de la nota de avance.
+- **Desviación en `progreso`**: el contrato decía «la última reemplaza a la anterior», pero
+  `modelo.py::_llamar` reenvía CADA `thinking_delta` como un `progreso`, y la referencia de la API
+  (skill `claude-api`, model-migration § Fable 5.1 desde Fable 5, adición 3) dice que un bloque de
+  avance transmite su texto como eventos `thinking_delta`: una nota puede llegar en varios trozos
+  y reemplazar mostraría sólo el último pedazo. Regla aplicada: los `progreso` SEGUIDOS se juntan
+  en una nota; una tool, un lote o un aviso la cierran (sigue a la vista mientras la tool corre) y
+  el próximo `progreso` la reemplaza; el texto, `done`, un error o el cierre del stream la borran.
+  Costo: dos bloques de avance de UNA respuesta sin evento en medio (tools en paralelo: el ejecutor
+  emite los `tool` después de la respuesta) se pegan en una línea. **Para F5a**: si el primer delta
+  de cada bloque de thinking marcara su inicio (p. ej. `nuevo: true`), el reemplazo sería exacto.
+- **Agregado (D13 del lado de la UI)**: si el stream cierra sin `done` ni error, el mensaje dice
+  «La conexión se cortó antes de que terminara la respuesta: vuelve a intentarlo.» Los dos backends
+  cierran siempre con `done`: sólo se ve con un corte real. `updateLast` ya no escribe si el chat
+  se vació a mitad del turno (abrir otro proyecto): antes asignaba `chat[-1]`.
+- `ChatMsg` (`types.ts`): `tools` pasa a `ChatTool[]` (`{name, etiqueta?}`) y suma `progreso`,
+  `aviso` (dos en un turno se juntan con salto de línea) y `uso` (de `done.uso`, sin UI: queda a
+  mano para F12 vía `window.__apolo.store`).
+- `ChatPanel.tsx`: el chip muestra `etiqueta ?? name` (con el chat viejo, igual que hoy); el aviso
+  va al final del mensaje, `role="status"`, en `--warn` con borde izquierdo (el error sigue en
+  rojo); la nota de avance reemplaza a «pensando…» mientras corre el turno, en cursiva. Único texto
+  nuevo de UI: el del corte (los avisos llegan en tuteo desde el backend). `ui/CLAUDE.md` § Chat
+  gana la regla del parser.
+- Números: `store.ts` 972 → 947 líneas (trinquete actualizado). Vitest 26 → 57 (`sse.test.ts`
+  19: corte en cada posición del stream y en cada byte —UTF-8 partido—, carácter a carácter,
+  varios eventos por trozo, `\r\n` partido entre trozos, `\r` solo, comentarios y campos ajenos,
+  JSON roto y campos faltantes descartados sin cortar el stream, evento a medias al cerrar,
+  cancelación del cuerpo; `turno.test.ts` 12). `npm run build` verde (sólo los avisos de chunks
+  de siempre); `tests/test_claude_md.py` verde.
+- Sin verificación en vivo: el proxy de `vite` apunta a la API de Mario (:8000) y el backend nuevo
+  no está cableado (F5a). Queda para F12: con `APOLO_MODEL=claude-opus-5-5`, ver la nota de avance
+  y un aviso (`APOLO_MAX_TOKENS` bajo) en la UI.

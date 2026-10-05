@@ -390,6 +390,12 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .msg p { margin: 0; white-space: pre-wrap; line-height: 1.5; font-size: 12px; }
 .msg.user p { background: var(--panel2); border-radius: 8px; padding: 6px 9px; }
 .msg .error { color: var(--err); }
+/* turno incompleto (max_tokens, rechazo, vueltas…): no es un error, es «falta algo» */
+.msg .aviso {
+  margin-top: 6px; padding: 5px 9px; color: var(--warn);
+  border-left: 2px solid var(--warn); border-radius: 0 6px 6px 0; background: rgba(216, 160, 58, 0.08);
+}
+.chat-scroll .progreso { font-style: italic; }
 .action-card {
   margin-top: 6px;
   border: 1px solid var(--border);

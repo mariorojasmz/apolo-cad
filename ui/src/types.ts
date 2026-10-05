@@ -190,13 +190,32 @@ export interface ChatAction {
   reason: string;
 }
 
+/** Una tool que corrió en el turno: el chip muestra `etiqueta` si vino, si no `name`. */
+export interface ChatTool {
+  name: string;
+  etiqueta?: string;
+}
+
+/** Tokens de un turno del chat (`done.uso`); se guardan sin pintarse. */
+export interface UsoTurno {
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_creation: number;
+}
+
 export interface ChatMsg {
   role: "user" | "assistant";
   content: string;
   actions?: ChatAction[];
   actionsStatus?: "pending" | "accepted" | "rejected" | "error";
   error?: string;
-  tools?: string[];
+  tools?: ChatTool[];
+  /** Nota de avance transitoria mientras el turno corre (se borra con texto, `done` o error). */
+  progreso?: string;
+  /** El turno terminó incompleto: el `mensaje` del evento `aviso`, ya en tuteo. */
+  aviso?: string;
+  uso?: UsoTurno;
 }
 
 export interface CheckResult {

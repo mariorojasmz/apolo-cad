@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { api, connectWs } from "../api";
 import { reportError } from "../errorlog";
+import { eventosSse, type EventoChat } from "../chat/sse";
+import { aplicarEvento, cerrarTurno } from "../chat/turno";
 import type {
-  CatalogItem, ChatAction, ChatMsg, CommandSchema, ConnectivityOut, DropResult, FeatureOut, GravityResult,
+  CatalogItem, ChatMsg, CommandSchema, ConnectivityOut, DropResult, FeatureOut, GravityResult,
   KinematicsOut, MateRow, MotionKeyframe, MotionStudy, RailConstraint, SceneOut,
 } from "../types";
 
@@ -898,56 +900,29 @@ export const useStore = create<AppState>((set, get) => ({
       chatBusy: true,
     });
 
-    const patchLast = (patch: Partial<ChatMsg>) => {
+    // el SSE lo lee `chat/sse.ts` y cada evento lo aplica `chat/turno.ts` al último mensaje
+    const updateLast = (fn: (m: ChatMsg) => ChatMsg) => {
       const chat = [...get().chat];
-      chat[chat.length - 1] = { ...chat[chat.length - 1], ...patch };
+      if (chat.length === 0) return; // se abrió otro proyecto a mitad del turno
+      chat[chat.length - 1] = fn(chat[chat.length - 1]);
       set({ chat });
     };
 
     try {
       const res = await api.chat(messages, auto);
       if (!res.ok || !res.body) throw new Error(`Error ${res.status} del servidor`);
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let idx;
-        while ((idx = buffer.indexOf("\n\n")) >= 0) {
-          const frame = buffer.slice(0, idx).trim();
-          buffer = buffer.slice(idx + 2);
-          if (!frame.startsWith("data:")) continue;
-          const event = JSON.parse(frame.slice(5).trim());
-          if (event.type === "text") {
-            patchLast({ content: get().chat[get().chat.length - 1].content + event.text });
-          } else if (event.type === "tool") {
-            const last = get().chat[get().chat.length - 1];
-            patchLast({ tools: [...(last.tools ?? []), event.name as string] });
-          } else if (event.type === "actions") {
-            if (event.executed) {
-              // modo autónomo: el lote ya se ejecutó; refrescar escena en vivo
-              const chat = [...get().chat];
-              const last = chat[chat.length - 1];
-              chat[chat.length - 1] = {
-                ...last,
-                actions: [...(last.actions ?? []), ...(event.actions as ChatAction[])],
-                actionsStatus: "accepted",
-              };
-              set({ chat });
-              void get().refresh();
-            } else {
-              patchLast({ actions: event.actions as ChatAction[], actionsStatus: "pending" });
-            }
-          } else if (event.type === "error") {
-            patchLast({ error: event.message });
-          }
-        }
+      let anterior: EventoChat["type"] | undefined;
+      let terminado = false;
+      for await (const ev of eventosSse(res.body, (detalle) => reportError("chat-sse", detalle))) {
+        updateLast((m) => aplicarEvento(m, ev, anterior === "progreso"));
+        anterior = ev.type;
+        if (ev.type === "done") terminado = true;
+        if (ev.type === "actions" && ev.executed) void get().refresh(); // autónomo: escena en vivo
       }
+      updateLast((m) => cerrarTurno(m, terminado));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      patchLast({ error: message });
+      updateLast((m) => ({ ...m, error: message, progreso: undefined }));
       reportError("chat", message);
     } finally {
       set({ chatBusy: false });

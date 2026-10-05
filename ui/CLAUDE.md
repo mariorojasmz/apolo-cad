@@ -219,3 +219,10 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   `POST /api/sketch/drag` (patrón `pumpEdit`, no una llamada por píxel); preview en verde mientras
   se arrastra y COMMIT de las posiciones resueltas al soltar. Motor:
   [kernel](../core/apolo/kernel/CLAUDE.md). [V6.6](../docs/plans/V6.6-croquis-vivo.md)
+
+### Chat (`chat/`)
+
+- El SSE de `/api/agent/chat` se lee SÓLO en `chat/sse.ts` (puro) y `chat/turno.ts` aplica cada
+  evento al mensaje; el store sólo los encadena. Un evento nuevo del backend se agrega en `sse.ts`
+  (tipo + `validar()`) con su caso en `sse.test.ts`; un `type` desconocido se ignora y uno roto se
+  descarta a `logs/errors.log`. [plan](../docs/plans/chat-cliente-igual.md)
