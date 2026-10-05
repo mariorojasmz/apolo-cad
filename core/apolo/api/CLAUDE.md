@@ -106,7 +106,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - Ninguna lectura de rutina vuelca la escena: < 10 KB por lectura a 1000 piezas.
   `GET /api/scene/summary` (resumen por GRUPO) es la entrada a un proyecto grande;
   `get_scene(ids|name|limit|offset)` pagina briefs sin mallas armados en el SERVIDOR
-  (`_scene_filtered`/`_feature_brief`: mismos campos que el `_scene_brief` del MCP) y declara
+  (`_scene_filtered`/`_feature_brief`, en la forma única `apolo/brief.py::brief_pieza`) y declara
   `total_filtrado`/`truncado` (sin caps silenciosos). [V6.5](../../../docs/plans/V6.5-mcp-a-escala.md)
 - `get_scene()` sin params = payload completo con mallas, byte-idéntico: lo usa el viewport.
 - `_expand_ids` acepta NOMBRES de grupo en isolate/highlight/fit (render, pick, drawing_spec,

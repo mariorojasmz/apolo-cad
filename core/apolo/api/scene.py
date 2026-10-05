@@ -14,6 +14,7 @@ mutan en sitio, nunca se reasignan.
 
 from __future__ import annotations
 
+from apolo.brief import brief_pieza
 from apolo.kernel import bbox_payload, mesh_payload
 
 from .session import S
@@ -201,25 +202,15 @@ def scene_payload(known: dict | None = None) -> dict:
 
 
 def _feature_brief(fid: str, feat) -> dict:
-    """Sólido SIN malla para el brief del agente (V6.5a): los MISMOS campos que arma el
-    cliente MCP en `_scene_brief`, para que la lectura filtrada y la mutación se vean igual.
-    Reusa `_cached_render` (bbox/volumen por identidad de shape, sin teselar)."""
+    """Sólido SIN malla para el brief del agente (V6.5a) en la forma ÚNICA de `apolo.brief`
+    (`brief_pieza`, la misma que arma el cliente MCP en `_scene_brief`): la lectura filtrada y
+    la mutación se ven igual. Reusa `_cached_render` (bbox/volumen por identidad de shape, sin
+    teselar)."""
     rd = _cached_render(feat.shape, want_mesh=False)
-    out = {
-        "id": fid,
-        "nombre": feat.name,
-        "visible": feat.visible,
-        "bbox": rd["bbox"],
-        "volumen_mm3": rd["volume"],
-        "comando": feat.command_id,
-    }
-    if feat.component:
-        out["componente"] = feat.component
-    if feat.group:
-        out["grupo"] = feat.group
-    if getattr(feat, "is_guide", False):
-        out["boceto"] = True
-    return out
+    return brief_pieza(
+        fid, feat.name, feat.visible, rd["bbox"], rd["volume"], feat.command_id,
+        componente=feat.component, grupo=feat.group, boceto=getattr(feat, "is_guide", False),
+    )
 
 
 def scene_summary_dict() -> dict:

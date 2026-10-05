@@ -2,11 +2,45 @@
 
 Funciones PURAS (dict → dict): sin HTTP, sin `Document`, sin `mcp`. Las usa el cliente fino del
 MCP (`mcp_server.py` las re-exporta con el mismo nombre: los tests y los clientes las importan
-de ahí) y las usará el chat de la app (plan chat-cliente-igual). Los campos espejan los de
-`_feature_brief` del servidor (`api/main.py`): un campo nuevo va en los dos.
+de ahí) y las usará el chat de la app (plan chat-cliente-igual). La forma de UNA pieza es
+`brief_pieza`, la única: la arman también el servidor (`api/scene.py::_feature_brief`, lectura
+filtrada) y el cliente MCP (`_scene_brief`, tras una mutación), así que se ven igual (D16).
 """
 
 from __future__ import annotations
+
+
+def brief_pieza(
+    fid: str,
+    nombre: str,
+    visible: bool,
+    bbox,
+    volumen_mm3: float,
+    comando: str,
+    componente: str | None = None,
+    grupo: str | None = None,
+    boceto: bool = False,
+) -> dict:
+    """La forma ÚNICA del brief sin malla de una pieza (D16 del plan chat-cliente-igual).
+
+    Orden fijo de claves; los opcionales se OMITEN cuando no aplican (nunca `null`). Un campo
+    nuevo va aquí y en los dos llamadores (`_scene_brief` lee el payload de la API;
+    `_feature_brief`, la `Feature`)."""
+    out = {
+        "id": fid,
+        "nombre": nombre,
+        "visible": visible,
+        "bbox": bbox,
+        "volumen_mm3": volumen_mm3,
+        "comando": comando,
+    }
+    if componente:
+        out["componente"] = componente
+    if grupo:
+        out["grupo"] = grupo
+    if boceto:
+        out["boceto"] = True
+    return out
 
 
 def _one_or_many(one: str | None, many: list[str] | None, campo: str = "feature") -> list[str]:
@@ -49,17 +83,10 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
         ]
     else:
         solidos = [
-            {
-                "id": f["id"],
-                "nombre": f["name"],
-                "visible": f["visible"],
-                "bbox": f["bbox"],
-                "volumen_mm3": f["volume_mm3"],
-                "componente": f["component"],
-                "comando": f["command_id"],
-                **({"grupo": f["group"]} if f.get("group") else {}),
-                **({"boceto": True} if f.get("is_guide") else {}),
-            }
+            brief_pieza(
+                f["id"], f["name"], f["visible"], f["bbox"], f["volume_mm3"], f["command_id"],
+                componente=f.get("component"), grupo=f.get("group"), boceto=f.get("is_guide"),
+            )
             for f in shown
         ]
     # `variables` es verboso (~33 entradas) y se repetía en CADA mutación. Lo incluimos

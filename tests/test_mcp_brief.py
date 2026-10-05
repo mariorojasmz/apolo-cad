@@ -1,5 +1,7 @@
 """Prueba pura de _scene_brief (filtro 'diff'/'summary'/'full') sin levantar el servidor."""
 
+import json
+
 import pytest
 
 pytest.importorskip("mcp")  # el cliente MCP necesita el paquete mcp
@@ -171,3 +173,51 @@ def test_material_endpoint_attaches_affected():
     assert payload["affected_command_ids"] == [api.DOC.scene[a].command_id]
     brief = _scene_brief(payload, "diff")
     assert [s["id"] for s in brief["solidos"]] == [a]  # solo la pieza, no la escena
+
+
+# ---------------------------------------------- una sola forma del brief de pieza (D16)
+_ORDEN_CANONICO = ["id", "nombre", "visible", "bbox", "volumen_mm3", "comando",
+                   "componente", "grupo", "boceto"]
+
+
+def test_una_sola_forma_del_brief_de_pieza():
+    """D16 (chat-cliente-igual): para las MISMAS piezas, el brief del MCP (`_scene_brief` sobre
+    el payload completo) y el del servidor (`GET /api/scene?limit=-1` → `_feature_brief`) son
+    el MISMO texto: mismas claves en el mismo orden y los opcionales omitidos, nunca `null`."""
+    doc = Document("brief-unico")
+    lisa = doc.execute("create_box", {"name": "Lisa", "width": 50, "depth": 50, "height": 50})
+    chum = doc.execute("insert_component", {"component": "UCP205",
+                                            "position": {"x": 300, "y": 0, "z": 0}})
+    guia = doc.execute("create_box", {"name": "Guía", "width": 10, "depth": 10, "height": 10,
+                                      "position": {"x": -300, "y": 0, "z": 0}})
+    doc.execute("create_group", {"name": "Soporte", "members": [chum]})
+    api.DOC = doc
+    client = TestClient(api.app)
+    assert client.post(f"/api/features/{guia}/sketch-guide", json={"guide": True}).status_code == 200
+    assert client.post(f"/api/features/{lisa}/visibility", json={"visible": False}).status_code == 200
+
+    del_mcp = _scene_brief(client.get("/api/scene").json(), "full")["solidos"]
+    del_servidor = client.get("/api/scene", params={"limit": -1}).json()["solidos"]
+    assert json.dumps(del_mcp, ensure_ascii=False) == json.dumps(del_servidor, ensure_ascii=False)
+
+    por_id = {s["id"]: s for s in del_mcp}
+    assert set(por_id) == {lisa, chum, guia}
+    assert por_id[chum]["componente"] == "UCP205" and por_id[chum]["grupo"] == "Soporte"
+    assert por_id[guia]["boceto"] is True and por_id[lisa]["visible"] is False
+    for s in del_mcp:  # orden canónico; lo que no aplica no viaja (ni `componente: null`)
+        assert list(s) == [k for k in _ORDEN_CANONICO if k in s]
+        assert None not in s.values()
+    assert "componente" not in por_id[lisa] and "grupo" not in por_id[lisa]
+    assert "boceto" not in por_id[chum]
+
+
+def test_brief_pieza_es_la_forma_de_los_dos():
+    """Los dos llamadores usan `brief_pieza` (la fuente única), no una copia de sus claves."""
+    import inspect
+
+    from apolo import brief
+    from apolo.api import scene
+
+    assert scene.brief_pieza is brief.brief_pieza
+    for fuente in (inspect.getsource(brief._scene_brief), inspect.getsource(scene._feature_brief)):
+        assert "brief_pieza(" in fuente and '"volumen_mm3"' not in fuente

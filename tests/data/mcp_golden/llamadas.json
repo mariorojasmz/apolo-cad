@@ -5,7 +5,7 @@
   "args": {},
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -331,7 +331,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -370,7 +370,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -550,7 +550,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -588,7 +588,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -914,7 +914,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1003,7 +1003,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1097,7 +1097,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1217,7 +1217,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}, \"job\": \"j1\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}, \"job\": \"j1\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1345,7 +1345,7 @@
   "args": {},
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1894,7 +1894,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"briefing\": {\"grupos\": 6}}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"briefing\": {\"grupos\": 6}}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1925,7 +1925,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1992,7 +1992,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -2423,7 +2423,7 @@
   "args": {},
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3246,7 +3246,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": \"RODILLO-50\", \"comando\": \"c2_c1\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -4385,7 +4385,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -4422,7 +4422,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"componente\": null, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
    }
   ],
   "estructurado": "= {result: texto}",

@@ -29,8 +29,9 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   de la app) o, si no hay, con `APOLO_URL`. Lo que un test parchea por nombre (`_api`,
   `_submit_and_wait`, `APOLO_URL`, `APOLO_MCP_WAIT_S`) no sale de `mcp_server.py`; lo que se
   saca se re-exporta con el mismo nombre. Las instructions salen de `design/instrucciones.py`.
-- El brief sin mallas (`brief.py::_scene_brief`, puro) espeja los campos de `_feature_brief` del
-  servidor: un campo nuevo va en los dos. Con `detail="diff"` lista sólo los sólidos de
+- El brief de UNA pieza tiene una sola forma, `brief.py::brief_pieza` (puro; opcionales omitidos,
+  nunca `null`): la arman `_scene_brief` (MCP) y `_feature_brief` (servidor); un campo nuevo va
+  ahí. `tests/test_mcp_brief.py` exige el mismo texto. Con `detail="diff"` lista sólo los sólidos de
   `affected_command_ids`, también por PREFIJO (las piezas de un `insert_project` llevan
   command_id sintético `{cmd}_{orig}`); `variables` viaja sólo si la operación tocó un
   `set_variable`. Pasa al agente `contrato` y `aviso_estructura` ([api](api/CLAUDE.md)).

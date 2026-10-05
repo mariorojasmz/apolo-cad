@@ -702,3 +702,48 @@ effort por defecto cambian; sólo se vuelven configurables. Referencia usada: la
 - Sin verificación en vivo: el proxy de `vite` apunta a la API de Mario (:8000) y el backend nuevo
   no está cableado (F5a). Queda para F12: con `APOLO_MODEL=claude-opus-5-5`, ver la nota de avance
   y un aviso (`APOLO_MAX_TOKENS` bajo) en la UI.
+
+### F11 — una sola forma del brief (2026-10-05)
+
+Base `2b8aa8f`.
+
+- `brief.py` (84 → 111 líneas, sigue puro: sólo `__future__`): `brief_pieza(fid, nombre,
+  visible, bbox, volumen_mm3, comando, componente=None, grupo=None, boceto=False)` es la forma
+  ÚNICA del brief sin malla de una pieza, con el orden de claves del servidor y los opcionales
+  OMITIDOS (nunca `null`). La arman los dos: `_scene_brief` (MCP, desde el payload de la API; el
+  modo `summary` no cambia) y `api/scene.py::_feature_brief` (296 → 286, desde la `Feature` +
+  `_cached_render`). Sin sufijo `_`: la importan dos módulos. `api/scene.py` importa de
+  `apolo.brief`; `CAPAS_API` (`test_api_sesion.py` § 5) sólo mira imports dentro de `apolo.api`
+  y no hubo que tocarla; `test_brief_es_puro` sigue verde.
+- **La API no cambia ni un byte**: `_feature_brief` de `HEAD` (extraído por AST) contra el nuevo,
+  sobre una pieza lisa invisible, una UCP205 en grupo y una guía de croquis → mismo texto
+  (script en el scratchpad); `test_partir_main_contrato.py` verde (compara dicts: no habría
+  visto un reorden, por eso la prueba de bytes aparte).
+- **Desviación (aceptada por la sesión principal): el cambio de salida del MCP no es sólo
+  `componente: null` → omitido.** El servidor, forma canónica, emite `componente` DESPUÉS de
+  `comando`; el `_scene_brief` viejo, ANTES. Con una sola función no caben los dos órdenes y la
+  API no podía cambiar, así que cuando la pieza SÍ tiene componente la clave cambia de lugar en
+  el texto del MCP (mismo contenido). D16 sólo había previsto el `null`. Golden re-congelado:
+  `instructions.txt` y `list_tools.json` idénticos; en `llamadas.json` cambian **17 de 118
+  casos**, comprobado contra el congelado de `HEAD` (texto canónico con claves ordenadas: cero
+  diferencias más):
+  - **6 sólo pierden `componente: null`** (texto exacto tras quitar el `null`): material uno,
+    material lote, comando, editar, visibilidad, visibilidad lote.
+  - **11 además mueven `"componente": "RODILLO-50"` detrás de `"comando"`** (la pieza `c2_c1`
+    del fixture): escena completa, comando full, lote → job corriendo y luego ok, editar lote,
+    job ok, deshacer, abrir proyecto, crear proyecto, guardar configuración, rehacer, restaurar
+    revisión.
+  - Además, un `componente` vacío (`""`) ahora se omite en el MCP (el servidor ya lo omitía:
+    chequeo por verdad, igual que `grupo` y `boceto`). El catálogo no produce `""`; no aparece
+    en el golden.
+- `tests/test_mcp_brief.py` (+2 tests): el brief del MCP sobre `GET /api/scene` y el del servidor
+  sobre `GET /api/scene?limit=-1` dan el MISMO texto (orden canónico, sin `None`, opcionales sólo
+  donde aplican) con las tres piezas de arriba; y los dos llamadores usan `brief_pieza` (sin
+  copia de claves).
+- D17: `_scene_brief` y `_one_or_many` siguen re-exportados por identidad desde `mcp_server`
+  (1429 líneas, sin tocar); `test_mcp_destino.py` sin editar.
+- `core/apolo/CLAUDE.md` (7.2 KB): la regla en una línea (la forma única vive en
+  `brief.py::brief_pieza` y la exige `test_mcp_brief.py`); `core/apolo/api/CLAUDE.md` § Lecturas
+  a escala apunta a ella.
+- Suite: 1718 passed + 1 skipped (1719 recolectados, 15 de tortura deseleccionados; 24 min);
+  `ruff check core tests scripts` limpio; trinquetes y `test_claude_md.py` verdes.
