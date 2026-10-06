@@ -15,9 +15,9 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `tests/test_despacho_unico.py`): si un comando necesita más contexto, es una propiedad de
   `ExecContext`, no un flag ni una rama en el despacho.
   [plan](../../../docs/plans/estado-regen-y-params-estrictos.md)
-- **Params estrictos** (`strict.py`): la ENTRADA de un cliente (las cuatro puertas de `Document`
-  y `validate_actions` del agente) rechaza la clave que el modelo no declara, con su ruta, las
-  válidas y «¿quisiste decir…?»; el REPLAY la ignora (`extra="ignore"` explícito) y un edit sólo
+- **Params estrictos** (`strict.py`): la ENTRADA de un cliente (las cuatro puertas de
+  `Document`; también el `preview` con que el chat ensaya sus propuestas) rechaza la clave que el
+  modelo no declara, con su ruta, las válidas y «¿quisiste decir…?»; el REPLAY la ignora (`extra="ignore"` explícito) y un edit sólo
   rechaza las que el cliente INTRODUCE (la UI reenvía los params guardados). Los modelos NO fijan
   `extra`: cambiaría el JSON Schema publicado. Quitar o renombrar un campo exige upcaster; un
   campo nuevo entra con un default que reproduce lo anterior (trinquete D12:

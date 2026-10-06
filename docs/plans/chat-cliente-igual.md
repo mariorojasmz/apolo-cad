@@ -1112,3 +1112,97 @@ con F5b: sin tocar `agent/agent.py`, `agent/chat.py`, `agent/__init__.py` ni
 - Sin verificación en vivo (no se toca la API de Mario): queda para F12, con
   `APOLO_MODEL=claude-opus-5-5`, ver dos notas seguidas reemplazarse y, con `APOLO_CHAT_MAX=1`
   y dos chats a la vez, el texto del cupo en lugar de «Error 429 del servidor».
+
+### F5b — corte y limpieza (2026-10-05)
+
+Base `85c8955` (F5a). Sin llamar a la API de Anthropic. Sin tocar `ui/` ni `agent/modelo.py`
+(otra sesión trabajaba ahí en paralelo).
+
+- **El corte**: `POST /api/agent/chat` (`routers/core.py`, 395 → 376 líneas) corre SIEMPRE
+  `agent/chat.py`: el cuerpo de `_chat_http` pasó a `agent_chat` (sin `os.environ`,
+  `AgentHooks` ni `chat_stream`; `Request` sigue en la firma). Se quedan `_SseDelTurno`, el 429
+  del cupo y el 500 de config inválida. Fuera `import os` y `from apolo.agent import
+  AgentHooks, chat_stream`; `STATE_LOCK`, `WS` y `_autosave` siguen (salud, escena, notas,
+  WebSocket).
+- **Borrados**: `agent/agent.py` (597 líneas, sale del trinquete), `agent/hooks.py` (65) y
+  `agent/prompts.py` (7). `prompts.py` se borró porque su único importador del producto era
+  `agent.py` (el chat nuevo arma `system` con `system_prompt_chat()` directo); sus dos
+  importadores de test pasan a `system_prompt_chat()`. `agent/__init__.py` queda en un
+  docstring sin re-exports: importar el paquete no carga ningún módulo. Siguen `chat`,
+  `eventos`, `herramientas`, `modelo` y `script_wrapper` (lo lanza `sandbox.py` como proceso
+  hijo). Antes de borrar se buscaron con grep todos los importadores (código, tests, scripts,
+  docs): fuera de los tests de la lista sólo quedaban `routers/core.py` y los CLAUDE.md.
+- **Gate de capas sin exentos (D4a)**: `EXENTOS = set()` en `tests/test_chat_http_capas.py`,
+  que ahora recorre también el paquete (`apolo.agent` = su `__init__.py`), antes exento porque
+  re-exportaba el chat viejo. Comprobado que se pone rojo con un import perezoso de
+  `apolo.state` en `__init__.py` (cadena `apolo.agent → apolo.state`) y revertido. El gate del
+  endpoint mira ahora `agent_chat`.
+- **El modo en una etiqueta propia**: `<system-reminder>…</system-reminder>` →
+  `<modo_del_turno>…</modo_del_turno>` (`chat.ETIQUETA_MODO`). La F5a la heredó del chat viejo
+  (que la ponía en `messages[0]`) como si fuera la convención para hablarle al modelo. Lo que
+  pasa: va DENTRO de un mensaje de la persona, y una etiqueta con nombre de sistema ahí puede leerse como texto
+  inyectado; una etiqueta propia y neutra dice lo mismo sin pretender autoridad. 168 / 200
+  bytes (antes 170 / 202), constantes por modo. Test nuevo
+  `test_el_modo_va_en_una_etiqueta_propia_y_neutra` (envoltorio exacto, cuerpo sin `<>` ni
+  «system», mismo bloque en dos turnos distintos del mismo modo);
+  `test_los_recordatorios_solo_nombran_tools_del_chat` quita el envoltorio antes de buscar
+  nombres (si no, `modo_del_turno` pasaría por una tool).
+- Comentarios: `design/instrucciones.py` (`REGLAS_CHAT` ya no dice que sirve a dos chats; sus
+  bytes no cambian) y el docstring de `chat.py` (el gate vive en `test_chat_http_capas.py`).
+- CLAUDE.md: `core/apolo` (fuera el párrafo del chat viejo y `SYSTEM_PROMPT`; `chat.py` sin
+  flag, etiqueta neutra, gate sin exentos; 7.7 KB) y `api` (la línea del flag). **Desviación**:
+  también `commands/CLAUDE.md`, cuya regla de params estrictos citaba `validate_actions` del
+  agente, que ya no existe (ahora: el `preview` con que el chat ensaya sus propuestas).
+- **Tests editados** (la lista cerrada; ninguno fuera de ella): `test_agent.py` (borrado
+  entero), `test_autonomous.py`, `test_validation.py`, `test_variables.py`,
+  `test_params_estrictos.py`, `test_prompt_chat.py`, `test_design_guidelines.py`,
+  `test_chat_http.py` (`test_sin_flag_responde_el_chat_viejo` fuera; fixture `con_flag` →
+  `sin_config` sin el `setenv`; `test_endpoint_con_flag_…` →
+  `test_el_endpoint_corre_el_chat_http_sin_state_lock`, que ahora prueba el camino por
+  defecto), `test_chat_http_tortura.py`
+  (fixture `api_real` sin el `setenv`), `test_chat_http_capas.py` y el trinquete
+  `test_tamano_archivos.py`. Reescritos sin borrar: `test_agent_notes_memory` (por `POST
+  /api/agent/notes`; queda la persistencia en el .apolo, el recorte y el tope los cubre
+  `test_guardia_documento.py`), `test_agent_batch_defines_and_uses_variables` (por `preview`
+  con `data=true`, el ensayo de `propose_commands`: con la variable en el lote pasa, sin ella
+  400 «Variable 'L' no definida»), `test_el_chat_usa_la_guia_unica` (`chat.system_prompt_chat
+  is system_prompt_chat`) y `test_chat_prompt_embeds_the_criterion`.
+- **Cada test borrado y dónde queda cubierto**:
+
+| Test borrado | Qué cubría | Dónde queda / por qué ya no aplica |
+|---|---|---|
+| `test_agent::test_tools_cover_full_registry` | `propose_commands` con los 53 schemas y su enum | Ya no aplica (D8): los schemas se piden con `get_command_schemas`; tools < 60 KB en `test_chat_http::test_mismos_bytes_de_tools_y_system_en_los_dos_modos`; un `type` inexistente lo rechaza el ensayo del servidor |
+| `test_agent::test_validate_actions_accepts_placeholders` | `$k` en un lote | **nuevo** `test_chat_http::test_la_propuesta_usa_dollar_k_y_las_variables_del_mismo_lote` |
+| `test_agent::test_validate_actions_reports_errors_with_index` | «Acción i: …» por cada error | Cambia: el ensayo devuelve el primer error con el id del comando («Error al regenerar c2 (create_box): …», el mismo que verá la persona al aceptar); `test_chat_http::test_una_propuesta_se_ensaya_en_seco_antes_de_mostrarse`, `test_preview_data::test_preview_invalid_command_errors_without_effects` |
+| `test_agent::test_document_summary_is_json_serializable` | `get_document` | Ya no aplica: `get_scene` (golden del MCP y `test_catalogo_chat`, que corre cada lectura contra la API) |
+| `test_agent::test_sse_framing` | `_sse` | `test_chat_http::test_los_tipos_de_evento_son_los_que_la_ui_entiende` (`eventos.sse`) |
+| `test_agent::test_chat_stream_without_api_key` | sin credencial → `error` + `done` | `test_chat_modelo.py` (`SIN_CREDENCIAL`) |
+| `test_agent::test_chat_stream_answers_every_tool_use` | todo `tool_use` con su `tool_result`, también uno desconocido | `test_chat_http::test_cada_tool_use_recibe_su_tool_result_y_los_eventos_sirven_a_la_ui` (con `no_existe`) |
+| `test_agent::test_every_declared_tool_is_dispatched` | cada tool declarada con su rama | Ya no aplica: no hay ramas por tool, definición y ejecución salen de `list_tools`/`call_tool` (`test_catalogo_chat`) |
+| `test_agent::test_chat_no_muta_el_doc_huerfano_si_el_proyecto_cambia_mientras_el_llm_piensa` | proyecto cambiado a mitad → nada se aplica | `test_chat_http::test_proyecto_cambiado_da_409_y_corta_el_turno_sin_aplicar` (embudo, job y fuera del embudo) y `…_entre_tandas_corta_antes_de_correrlas`; la guardia, en `test_guardia_documento.py` |
+| `test_agent::test_chat_no_gasta_otra_vuelta_si_el_proyecto_ya_cambio` | ninguna llamada más al modelo tras el cambio | **Parcial** (ver «Para después»): tras un 409 no hay otra vuelta (`test_proyecto_cambiado_da_409_…`, una sola llamada); si el proyecto cambia justo DESPUÉS de una mutación que pasó, el chat nuevo gasta una vuelta más del modelo y, si esa vuelta pide tools, corta antes de correrlas (`…_entre_tandas_corta_antes_de_correrlas`): relee el token por tanda de tools, no por llamada |
+| `test_agent::test_chat_flujo_normal_llama_los_ganchos_en_cada_mutacion` | lote + nota + undo: autoguardado y aviso | **nuevo** `test_chat_http::test_en_auto_anota_y_deshace_por_http` (3 autoguardados, 2 avisos por WebSocket, cabecera en las 3) |
+| `test_agent::test_execute_actions_now_revalida_el_documento_bajo_el_lock` | chequeo y mutación en una adquisición | `test_guardia_documento.py` (la guardia vive en el servidor, D3) |
+| `test_agent::test_endpoint_del_chat_ata_el_stream_al_proyecto_activo` | endpoint + cambio de proyecto | `test_chat_http::test_proyecto_cambiado_da_409_…` y `test_el_endpoint_corre_el_chat_http_sin_state_lock` |
+| `test_agent::test_el_agente_no_importa_la_api` | AST: `agent/` no importa `apolo.api` | `test_chat_http_capas::test_ningun_modulo_del_agente_importa_estado_ni_api_ni_anyio` (transitivo, sin exentos, también `apolo.state` y `anyio`) |
+| `test_autonomous::test_tools_differ_by_mode` | tools distintas por modo | Ya no aplica (D6, mismas tools): `test_chat_http::test_mismos_bytes_de_tools_y_system_en_los_dos_modos` |
+| `test_autonomous::test_execute_actions_now_mutates_and_summarizes` | el modo auto aplica un lote con variables | `test_chat_http::test_en_auto_se_aplica_por_http_y_la_ui_se_entera`; variable + uso en el lote: `test_autonomous::test_batch_set_variable_then_use` |
+| `test_autonomous::test_chat_endpoint_accepts_auto_flag` | el endpoint acepta `auto` sin credencial | `test_el_endpoint_corre_el_chat_http_sin_state_lock` (`auto=True`) y `test_chat_modelo.py` (sin credencial); sin el destino falso el turno saldría por red a `http://testserver:80` |
+| `test_validation::test_agent_tools_include_validators` | el chat tiene los validadores | `test_catalogo_chat` (catálogo = tools del MCP; cada lectura corre contra la API) |
+| `test_validation::test_run_validation_tool_test_script` | `test_script` | `test_api.py` (`/api/script/test`) y la muestra de `test_script` en `test_catalogo_chat` |
+| `test_validation::test_run_validation_tool_engineering_from_doc` | la faja con `=L` resuelta | reescrito como `test_engineering_check_resuelve_las_expresiones_de_la_faja` (por `/api/checks`) |
+| `test_validation::test_run_validation_tool_render_returns_image` | el render vuelve como imagen | `test_catalogo_chat::test_ejecutar_convierte_imagenes` y los `render.png` de `test_api.py` (el matplotlib bajo `STATE_LOCK` del chat viejo ya no existe: el chat usa el VTK del MCP) |
+| `test_params_estrictos::test_validate_actions_del_agente_es_estricto` | clave inventada → error con `set_material` | `test_params_estrictos::test_preview_tambien_es_estricto` (el ensayo del chat) |
+| `test_prompt_chat::test_las_reglas_sirven_tambien_al_chat_viejo` | transitorio de F6 | Ya no aplica |
+| `test_chat_http::test_sin_flag_responde_el_chat_viejo` | sin flag, el chat viejo | Ya no aplica: `test_el_endpoint_corre_el_chat_http_sin_state_lock` corre ya sin variable |
+
+- **Números**: suite 1828 passed + 1 skipped (1829 recolectados; la base recolectaba 1849:
+  −14 de `test_agent.py`, −3 de `test_autonomous.py`, −3 de `test_validation.py`, −1 de
+  `test_params_estrictos.py`, −1 de `test_prompt_chat.py`, +1 en `test_chat_http.py` y +1 en
+  `test_chat_http_capas.py`; 18 de tortura deseleccionados; 13 min 32 s con otra sesión
+  corriendo en la máquina). Tortura (`-m torture`): 18 passed (2 min). `ruff check core tests
+  scripts` limpio; trinquetes, `test_claude_md.py` y golden del MCP verdes e idénticos (`mcp_server.py`
+  1429 sin tocar).
+- **Para después** (no F5b): releer el token también antes de cada llamada al modelo, no sólo
+  por tanda de tools, cerraría la vuelta de más del caso «el proyecto cambió justo después de
+  una mutación que pasó»; es un gancho en `modelo.conversar`, que esta fase no toca.

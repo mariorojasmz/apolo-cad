@@ -1,11 +1,7 @@
-import json
-
 import pytest
 from fastapi.testclient import TestClient
 
 import apolo.api.main as api
-from apolo.agent import build_tools
-from apolo.agent.agent import run_validation_tool
 from apolo.doc import Document
 from apolo.library import (
     conveyor_engineering_check,
@@ -102,41 +98,20 @@ def test_interference_detects_overlap():
     assert report["interferencias"][0]["volumen_mm3"] == pytest.approx(50 * 100 * 70, rel=1e-3)
 
 
-# -------------------------------------------------------------- tools del agente
-def test_agent_tools_include_validators():
-    names = {t["name"] for t in build_tools()}
-    assert {"test_script", "check_interference", "engineering_check", "render_view"} <= names
+# ------------------------------------------- la faja paramétrica, con variables
+def test_engineering_check_resuelve_las_expresiones_de_la_faja():
+    """La tool `engineering_check` (MCP y chat de la app) valida por `/api/checks` la faja
+    del documento con sus `=expresión` resueltas contra las variables del proyecto."""
+    from apolo.services.engineering_rules import conveyor_params_from_doc
 
-
-def test_run_validation_tool_test_script():
-    doc = Document()
-    out = json.loads(run_validation_tool(doc, "test_script", {"code": SCRIPT_OK}))
-    assert out["ok"] and out["volume_mm3"] == pytest.approx(100000, rel=1e-6)
-    out = json.loads(run_validation_tool(doc, "test_script", {"code": "result = None"}))
-    assert out["ok"] is False
-
-
-def test_run_validation_tool_engineering_from_doc():
     doc = Document()
     doc.execute("set_variable", {"name": "L", "expression": "2000"})
     doc.execute("create_conveyor", {"largo": "=L", "ancho": 600, "paso": 100, "motor": "MOTOR-037"})
-    out = json.loads(
-        run_validation_tool(
-            doc, "engineering_check", {"carga_kg": 15, "largo_paquete_mm": 400, "velocidad_m_s": 0.5}
-        )
-    )
-    assert out["conveyor"]["largo"] == 2000  # expresión resuelta
-    assert all(c["estado"] == "ok" for c in out["checks"] if c["regla"] != "velocidad")
-
-
-def test_run_validation_tool_render_returns_image():
-    doc = Document()
-    doc.execute("create_box", {})
-    content = run_validation_tool(doc, "render_view", {"view": "iso"})
-    assert isinstance(content, list)
-    assert content[0]["type"] == "image"
-    assert content[0]["source"]["media_type"] == "image/png"
-    assert len(content[0]["source"]["data"]) > 1000
+    assert conveyor_params_from_doc(doc)["largo"] == 2000  # expresión resuelta
+    api.DOC = doc
+    out = TestClient(api.app).post(
+        "/api/checks", json={"carga_kg": 15, "largo_paquete_mm": 400, "velocidad_m_s": 0.5}).json()
+    assert all(c["estado"] == "ok" for c in out["ingenieria"] if c["regla"] != "velocidad")
 
 
 # ------------------------------------------------------------------- API HTTP

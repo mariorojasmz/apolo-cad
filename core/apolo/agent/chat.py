@@ -9,7 +9,7 @@ turno (`modelo.Corte`). Antes de cada tanda de tools se relee el token: si se ab
 proyecto, el turno se corta también sin gastar más vueltas leyendo un proyecto ajeno.
 
 - Ningún lock del servidor: nada de aquí importa `apolo.state` ni `apolo.api` (D4a, gate en
-  `tests/test_chat_http.py`); el documento sólo se toca por HTTP, como lo toca la UI.
+  `tests/test_chat_http_capas.py`); el documento sólo se toca por HTTP, como lo toca la UI.
 - `CUPO` (D4b): a lo sumo `APOLO_CHAT_MAX` turnos a la vez (4); el siguiente es `Lleno` → 429.
   Cada turno ocupa un hilo del threadpool de la API mientras espera al modelo o a sus propias
   peticiones, que necesitan OTRO hilo: el tope deja siempre hilos libres para ellas.
@@ -57,15 +57,21 @@ PROYECTO_CAMBIO = ("Se abrió otro proyecto o se restauró una revisión mientra
 SIN_PROYECTO = "No pude leer el proyecto abierto: revisa que el servidor siga en marcha."
 FALLO = "El asistente falló por un error interno: vuelve a intentarlo."
 
+#: La etiqueta que envuelve el modo dentro del mensaje de la persona: propia y neutra. Una
+#: etiqueta con nombre de sistema (`<system-reminder>`) dentro de un turno del usuario puede
+#: leerse como texto inyectado (F5b).
+ETIQUETA_MODO = "modo_del_turno"
+
 #: El modo de ESTE turno, para el modelo (no lo lee la persona). Las reglas de la app
-#: (`design/instrucciones.py::REGLAS_CHAT`) dicen qué hacer en cada uno.
+#: (`design/instrucciones.py::REGLAS_CHAT`) dicen qué hacer en cada uno. Constantes: los mismos
+#: bytes en cada turno del mismo modo (caché, D12).
 RECORDATORIO = {
-    PROPUESTA: ("<system-reminder>Modo de este turno: PROPUESTA. Lo que cambia el documento no "
-                "se ejecuta (devuelve un error): propón esos cambios con propose_commands."
-                "</system-reminder>"),
-    AUTONOMO: ("<system-reminder>Modo de este turno: AUTO. La persona activó el modo auto: "
+    PROPUESTA: (f"<{ETIQUETA_MODO}>Modo de este turno: PROPUESTA. Lo que cambia el documento "
+                "no se ejecuta (devuelve un error): propón esos cambios con propose_commands."
+                f"</{ETIQUETA_MODO}>"),
+    AUTONOMO: (f"<{ETIQUETA_MODO}>Modo de este turno: AUTO. La persona activó el modo auto: "
                "aplica los cambios tú, verifica, corrige si hace falta y al final resume qué "
-               "construiste y qué validaste.</system-reminder>"),
+               f"construiste y qué validaste.</{ETIQUETA_MODO}>"),
 }
 
 _RECHAZO_409 = re.compile(r"rechazó la operación \(409\)")  # `mcp_server._reject` (golden)

@@ -3,9 +3,9 @@
 Antes `_validate_model` descartaba en silencio toda clave desconocida: el agente mandaba
 `pattern_linear.name` (102 veces en el proyecto 38) y `create_box.material` creyendo que hacían
 algo. Hoy la ENTRADA de un cliente es estricta en las cuatro puertas de `Document` (execute,
-edit, execute_many, edit_many → REST, lotes, jobs, preview y MCP) y en `validate_actions` del
-agente; el REPLAY sigue tolerante (`extra="ignore"` explícito), y un edit sólo rechaza las
-claves que el cliente INTRODUCE (la UI reenvía los params guardados).
+edit, execute_many, edit_many → REST, lotes, jobs, preview y MCP; el chat de la app ensaya sus
+propuestas con `preview`); el REPLAY sigue tolerante (`extra="ignore"` explícito), y un edit
+sólo rechaza las claves que el cliente INTRODUCE (la UI reenvía los params guardados).
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 import apolo.api.main as api
-from apolo.agent.agent import validate_actions
 from apolo.commands.registry import REGISTRY, CommandError, _validate_model, validate_params
 from apolo.commands.strict import field_paths, model_at, ruta_txt, unknown_paths
 from apolo.doc.document import Document
@@ -238,15 +237,3 @@ def test_log_viejo_regenera_igual_que_sin_la_clave():
 
     assert abierto.commands[-1]["params"]["name"] == "Rodillos"
     assert huella(abierto) == huella(limpio)
-
-
-# ------------------------------------------------------------------ agente de la app
-def test_validate_actions_del_agente_es_estricto():
-    errores = validate_actions([
-        {"type": "set_variable", "params": {"name": "l", "expression": "100"}},
-        {"type": "create_box", "params": {"name": "A", "width": "=l", "material": "acero"}},
-        {"type": "create_box", "params": {"name": "B", "width": "=l"}},
-    ])
-    assert len(errores) == 1
-    assert errores[0].startswith("Acción 2: Parámetro desconocido en create_box")
-    assert "set_material" in errores[0]

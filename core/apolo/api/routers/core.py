@@ -10,13 +10,10 @@ las expresiones. Lo de transporte sale de `common`/`scene`/`session`; el dominio
 
 from __future__ import annotations
 
-import os
-
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from apolo.agent import AgentHooks, chat_stream
 from apolo.agent import chat as chat_http
 from apolo.commands import command_schemas, command_schemas_persona
 from apolo.state import STATE_LOCK
@@ -343,7 +340,7 @@ _SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 
 class _SseDelTurno(StreamingResponse):
-    """El SSE del chat nuevo CIERRA su turno al terminar de enviar, también si el cliente
+    """El SSE del chat CIERRA su turno al terminar de enviar, también si el cliente
     corta. Starlette no cierra el generador: tras un corte queda colgado de un ciclo de
     referencias (la excepción de la cancelación) hasta que pase el GC, y con él su lugar del
     cupo (medido con uvicorn real en la tortura de F5a)."""
@@ -362,34 +359,18 @@ class _SseDelTurno(StreamingResponse):
                 pass
 
 
-# Temporal (plan chat-cliente-igual, F5a → F5b): con APOLO_CHAT_HTTP=1 el chat corre como
-# cliente HTTP de esta misma API (`agent/chat.py`); sin él, el chat viejo (`agent/agent.py`).
-# F5b borra el flag y el chat viejo. Se lee en cada petición (sin reiniciar).
-def _chat_http(messages: list[dict], auto: bool, request: Request) -> StreamingResponse:
-    """El chat nuevo NO toma `STATE_LOCK`: el documento lo lee y lo cambia por HTTP, como la
-    UI. Cupo lleno → 429 (`APOLO_CHAT_MAX`); la URL loopback es el socket que atendió esta
+@router.post("/api/agent/chat")
+def agent_chat(body: ChatIn, request: Request) -> StreamingResponse:
+    """El chat de la app es un cliente HTTP más de esta misma API (`agent/chat.py`, plan
+    chat-cliente-igual): NO toma `STATE_LOCK`, el documento lo lee y lo cambia por HTTP, como
+    la UI. Cupo lleno → 429 (`APOLO_CHAT_MAX`); la URL loopback es el socket que atendió esta
     petición (o `APOLO_URL_INTERNA`)."""
+    messages = [m.model_dump() for m in body.messages]
     try:
         base = chat_http.url_interna(request.scope.get("server"))
-        flujo = chat_http.abrir(messages, auto=auto, base_url=base)
+        flujo = chat_http.abrir(messages, auto=body.auto, base_url=base)
     except chat_http.Lleno as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     except ValueError as exc:  # APOLO_CHAT_MAX inválido o sin dirección loopback
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return _SseDelTurno(flujo, media_type="text/event-stream", headers=_SSE_HEADERS)
-
-
-@router.post("/api/agent/chat")
-def agent_chat(body: ChatIn, request: Request) -> StreamingResponse:
-    messages = [m.model_dump() for m in body.messages]
-    if os.environ.get("APOLO_CHAT_HTTP", "").strip() == "1":
-        return _chat_http(messages, body.auto, request)
-    with STATE_LOCK:  # el chat queda atado al documento ACTIVO de este instante
-        pid, doc = S.project_id, S.doc
-    hooks = AgentHooks(alive=lambda: S.project_id == pid and S.doc is doc,  # revalidado bajo el lock
-                       after_mutation=lambda: _autosave(), notify=lambda: WS.notify_changed())
-    return StreamingResponse(
-        chat_stream(doc, messages, auto=body.auto, hooks=hooks),
-        media_type="text/event-stream",
-        headers=_SSE_HEADERS,
-    )

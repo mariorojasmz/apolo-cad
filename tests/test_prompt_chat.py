@@ -5,7 +5,7 @@ MISMA guía técnica (`GUIA_TECNICA`); el chat suma sus reglas (`REGLAS_CHAT`) y
 de conexión. El prompt del chat no nombra tools que el chat no tiene: valen las del catálogo
 (`tools/catalogo.py::CHAT`) y `propose_commands`; de `FUERA_DEL_CHAT`, sólo las de archivo y
 sólo si `REGLAS_CHAT` explica por qué no están. Tampoco nombra las tools del chat viejo, que
-desaparecen con la F5b.
+la F5b borró con él.
 
 La lista completa de tools sale del catálogo, sin importar el MCP: que el catálogo cubra
 exactamente las tools del MCP lo garantiza `test_catalogo_chat.py`.
@@ -34,7 +34,7 @@ from apolo.tools import catalogo
 
 RAIZ = Path(__file__).resolve().parents[1]
 PROPONER = "propose_commands"  # la única tool propia del chat (D7, agent/herramientas.py)
-#: Las tools del chat viejo (`agent/agent.py`) que no existen en el MCP.
+#: Las tools del chat viejo (`agent/agent.py`, borrado en la F5b) que no existen en el MCP.
 VIEJAS = ("get_document", "execute_commands", "undo_last", "save_note")
 #: Motivos de `FUERA_DEL_CHAT` que el chat sí puede explicarle a la persona (descarga en la app).
 MOTIVOS_DE_ARCHIVO = (catalogo._ARCHIVO, catalogo._GIF)
@@ -58,9 +58,11 @@ def test_brief_y_guia_llegan_a_los_dos_clientes():
 
 
 def test_el_chat_usa_la_guia_unica():
-    from apolo.agent.prompts import SYSTEM_PROMPT
+    """El chat arma su `system` con la función de la guía única, no con una copia (que lo
+    manda tal cual al modelo lo comprueba `test_chat_http.py`)."""
+    from apolo.agent import chat
 
-    assert SYSTEM_PROMPT == system_prompt_chat()
+    assert chat.system_prompt_chat is system_prompt_chat
 
 
 def test_no_nombra_tools_que_el_chat_no_tiene():
@@ -92,19 +94,6 @@ def test_d10_aislar_es_isolate():
     documento en vivo y render_view pide preferir `isolate` (D10)."""
     assert not _nombra(GUIA_TECNICA, "set_visibility")
     assert _nombra(GUIA_TECNICA, "isolate")
-
-
-def test_las_reglas_sirven_tambien_al_chat_viejo():
-    """TRANSITORIO (entre F6 y F5a el chat viejo corre con este prompt): cada tool que nombran
-    las reglas existe en el chat viejo y en el nuevo. Se borra en la F5b junto con agent.py."""
-    from apolo.agent import agent as viejo
-
-    assert viejo.SYSTEM_PROMPT == system_prompt_chat()
-    del_viejo = {t["name"] for t in viejo.build_tools(auto=False)}
-    candidatas = set(catalogo.CHAT) | set(catalogo.FUERA_DEL_CHAT) | {PROPONER} | del_viejo
-    nombradas = {t for t in candidatas if _nombra(REGLAS_CHAT, t)}
-    assert nombradas == {PROPONER}
-    assert nombradas <= del_viejo
 
 
 def _tuteo():

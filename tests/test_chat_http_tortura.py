@@ -76,7 +76,6 @@ def api_real(monkeypatch):
     monkeypatch.setattr(api, "DOC", doc)
     monkeypatch.setattr(api._autosave_sched, "schedule", lambda: None)
     monkeypatch.setattr(mcp_server, "APOLO_URL", "http://127.0.0.1:9")  # nada fuera del destino
-    monkeypatch.setenv("APOLO_CHAT_HTTP", "1")
     for var in ("APOLO_CHAT_MAX", "APOLO_URL_INTERNA"):
         monkeypatch.delenv(var, raising=False)
     with _uvicorn() as url:

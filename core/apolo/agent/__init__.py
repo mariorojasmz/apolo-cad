@@ -1,4 +1,7 @@
-from .agent import build_tools, chat_stream, document_summary, validate_actions
-from .hooks import AgentHooks
+"""El chat de la app: un cliente HTTP más de la API (plan chat-cliente-igual).
 
-__all__ = ["AgentHooks", "build_tools", "chat_stream", "document_summary", "validate_actions"]
+`chat` (el turno), `herramientas` (las tools del MCP), `modelo` (el cliente de Anthropic) y
+`eventos` (el SSE de la UI). Este paquete no re-exporta nada: importar `apolo.agent` no carga
+ningún módulo, y ninguno llega a `apolo.state` ni a `apolo.api` (gate en
+`tests/test_chat_http_capas.py`). `script_wrapper` es aparte: el proceso hijo de `sandbox.py`.
+"""

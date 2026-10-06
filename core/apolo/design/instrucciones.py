@@ -58,9 +58,8 @@ AVISO_CONEXION = (
 )
 
 #: Sólo el chat de la app: quién está del otro lado, los modos, qué no hace el chat y cómo
-#: hablarle a la persona. Nombra una sola tool, `propose_commands`, la propia del chat (D7):
-#: lo demás lo describe sin nombres para servir igual al chat viejo (`agent/agent.py`) y al
-#: nuevo (F5a), que tienen tools distintas.
+#: hablarle a la persona. Nombra una sola tool, `propose_commands`, la propia del chat (D7);
+#: lo demás lo describe sin nombres (las tools se describen solas).
 REGLAS_CHAT = (
     "Eres el asistente de diseño de la app Genix Apolo CAD: hablas con la persona en el panel "
     "Asistente IA, sobre el proyecto que tiene abierto.\n"

@@ -2,8 +2,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 import apolo.api.main as api
-from apolo.agent import build_tools
-from apolo.agent.agent import execute_actions_now, save_agent_note
 from apolo.batch import execute_batch
 from apolo.commands.registry import CommandError
 from apolo.doc import Document
@@ -73,51 +71,18 @@ def test_batch_set_variable_then_use():
     assert doc.variables_resolved == {"L": 500.0}
 
 
-# ------------------------------------------------------------ modo autónomo
-def test_tools_differ_by_mode():
-    normal = {t["name"] for t in build_tools(auto=False)}
-    auto = {t["name"] for t in build_tools(auto=True)}
-    assert "propose_commands" in normal and "execute_commands" not in normal
-    assert "execute_commands" in auto and "propose_commands" not in auto
-    assert {"undo_last", "save_note"} <= auto
-    assert "save_note" in normal
-
-
-def test_execute_actions_now_mutates_and_summarizes():
-    doc = Document()
-    summary = execute_actions_now(
-        doc,
-        [
-            {"type": "set_variable", "params": {"name": "L", "expression": "500"}},
-            {"type": "create_box", "params": {"width": "=L"}},
-        ],
-    )
-    assert summary["ejecutado"] and summary["solidos_en_escena"] == 1
-    assert summary["variables"] == {"L": 500.0}
-    assert len(summary["comandos_creados"]) == 2
-
-
+# ------------------------------------------------------- memoria del agente
 def test_agent_notes_memory():
-    doc = Document()
-    save_agent_note(doc, "El cliente prefiere rodillos Ø60 por margen de carga")
-    save_agent_note(doc, "  con espacios  ")
-    assert len(doc.agent_notes) == 2
-    # persistencia en .apolo
-    doc2 = Document.from_apolo_bytes(doc.to_apolo_bytes())
-    assert doc2.agent_notes[0].startswith("El cliente prefiere")
-    # acotada a 30
-    for i in range(40):
-        save_agent_note(doc, f"nota {i}")
-    assert len(doc.agent_notes) == 30
-
-
-def test_chat_endpoint_accepts_auto_flag():
-    api.DOC = Document()
+    """Las notas que guarda el agente (MCP o chat de la app, los dos por `POST
+    /api/agent/notes`) viajan en el .apolo. El recorte y el tope de 30 los cubre
+    `test_guardia_documento.py`."""
+    api.DOC = doc = Document()
     client = TestClient(api.app)
-    r = client.post("/api/agent/chat", json={"messages": [{"role": "user", "content": "hola"}], "auto": True})
-    # sin ANTHROPIC_API_KEY el stream degrada igual en ambos modos
-    assert r.status_code == 200
-    assert "error" in r.text or "done" in r.text
+    client.post("/api/agent/notes", json={"text": "El cliente prefiere rodillos Ø60 por margen de carga"})
+    client.post("/api/agent/notes", json={"text": "  con espacios  "})
+    assert doc.agent_notes == ["El cliente prefiere rodillos Ø60 por margen de carga", "con espacios"]
+    doc2 = Document.from_apolo_bytes(doc.to_apolo_bytes())
+    assert doc2.agent_notes == doc.agent_notes
 
 
 # -------------------------------------------------------------- servidor MCP

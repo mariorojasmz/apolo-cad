@@ -48,6 +48,6 @@ def test_mcp_instructions_embed_the_criterion():
 
 
 def test_chat_prompt_embeds_the_criterion():
-    from apolo.agent.prompts import SYSTEM_PROMPT
+    from apolo.design.instrucciones import system_prompt_chat
 
-    assert design_brief() in SYSTEM_PROMPT
+    assert design_brief() in system_prompt_chat()

@@ -4,7 +4,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 import apolo.api.main as api
-from apolo.agent import validate_actions
 from apolo.doc import Document, DocumentError
 
 
@@ -72,21 +71,25 @@ def test_variables_survive_apolo_roundtrip():
     assert math.isclose(bb.max.Z - bb.min.Z, 300, abs_tol=1e-6)
 
 
-def test_agent_batch_defines_and_uses_variables():
-    actions = [
-        {"type": "set_variable", "params": {"name": "L", "expression": "2000"}, "reason": ""},
-        {"type": "create_box", "params": {"width": "=L/2", "depth": 50, "height": 50}, "reason": ""},
-    ]
-    assert validate_actions(actions) == []
-    # sin la variable definida en el lote, el uso debe fallar
-    assert validate_actions(actions[1:]) != []
-
-
 # ----------------------------------------------------------------- API HTTP
 @pytest.fixture()
 def client():
     api.DOC = Document("vars-test")
     return TestClient(api.app)
+
+
+def test_agent_batch_defines_and_uses_variables(client):
+    """El ensayo en seco con el que el chat valida `propose_commands` (`preview` con
+    data=true): un lote puede definir una variable y usarla; sin definirla, el uso falla."""
+    actions = [
+        {"type": "set_variable", "params": {"name": "L", "expression": "2000"}},
+        {"type": "create_box", "params": {"width": "=L/2", "depth": 50, "height": 50}},
+    ]
+    r = client.post("/api/commands/preview", json={"actions": actions, "data": True})
+    assert r.status_code == 200 and len(r.json()["fantasmas"]) == 1
+    r = client.post("/api/commands/preview", json={"actions": actions[1:], "data": True})
+    assert r.status_code == 400 and "Variable 'L' no definida" in r.json()["detail"]
+    assert api.DOC.commands == []  # ninguno de los dos ensayos tocó el documento
 
 
 def test_variables_api_crud(client):

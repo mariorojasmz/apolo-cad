@@ -291,6 +291,20 @@ def test_una_propuesta_se_ensaya_en_seco_antes_de_mostrarse(mundo):
     assert len(falso.llamadas) == 3 and len(mundo.doc.scene) == 1  # nada se aplicó
 
 
+def test_la_propuesta_usa_dollar_k_y_las_variables_del_mismo_lote(mundo):
+    """Lo que validaba `validate_actions` del chat viejo: '$k' y una variable definida en el
+    mismo lote pasan el ensayo (ahora el del servidor, el mismo que corre al aceptar)."""
+    lote = [{"type": "set_variable", "params": {"name": "L", "expression": "200"}, "reason": "largo"},
+            {**CAJA, "params": {**CAJA["params"], "width": "=L/2"}},
+            {"type": "pattern_linear", "params": {"feature": "$2", "count": 3, "spacing": {"x": 150}},
+             "reason": "copias"}]
+    evs, _, convo = _turno(mundo, [_resp("tool_use", [_tool("t1", "propose_commands",
+                                                            {"actions": lote})])])
+    assert not convo[2]["content"][0].get("is_error"), convo[2]["content"][0]
+    assert [e["actions"] for e in evs if e["type"] == "actions"] == [lote]
+    assert len(mundo.doc.scene) == 1 and not mundo.doc.variables_resolved  # nada se aplicó
+
+
 # ------------------------------------------------- modo auto por HTTP
 def test_en_auto_se_aplica_por_http_y_la_ui_se_entera(mundo):
     token = mundo.token()
@@ -307,6 +321,25 @@ def test_en_auto_se_aplica_por_http_y_la_ui_se_entera(mundo):
     assert mundo.guardados and len(mundo.avisos) == 2  # autoguardado y WebSocket → la UI refresca
     lotes = [e for e in evs if e["type"] == "actions"]
     assert [(len(e["actions"]), e["executed"]) for e in lotes] == [(1, True), (2, True)]
+    _para_la_ui(evs)
+
+
+def test_en_auto_anota_y_deshace_por_http(mundo):
+    """Lo que el chat viejo hacía con `save_note` y `undo_last` (y sus ganchos de autoguardado
+    y aviso) lo hacen ahora `add_agent_note` y `undo` contra la API, con la cabecera."""
+    token = mundo.token()
+    evs, _, convo = _turno(mundo, [
+        _resp("tool_use", [_tool("t1", "run_command", CAJA),
+                           _tool("t2", "add_agent_note", {"text": "  nota  "}),
+                           _tool("t3", "undo")]),
+        _resp("end_turn", textos=["listo"]),
+    ], modo="autonomo")
+    assert not any(r.get("is_error") for r in convo[2]["content"]), convo[2]["content"]
+    assert len(mundo.doc.scene) == 1 and mundo.doc.agent_notes == ["nota"]  # creó, anotó, deshizo
+    mutaciones = [p for p in mundo.pedidos if p[0] == "POST"]
+    assert len(mutaciones) == 3 and all(p[2] == token for p in mutaciones)
+    assert len(mundo.guardados) == 3  # cada mutación se autoguarda
+    assert len(mundo.avisos) == 2  # el lote y el undo avisan; la nota no cambia la escena
     _para_la_ui(evs)
 
 
@@ -359,13 +392,12 @@ def _chat(cliente, auto=False, texto="hola"):
 
 
 @pytest.fixture
-def con_flag(monkeypatch):
-    monkeypatch.setenv("APOLO_CHAT_HTTP", "1")
+def sin_config(monkeypatch):
     monkeypatch.delenv("APOLO_CHAT_MAX", raising=False)
     monkeypatch.delenv("APOLO_URL_INTERNA", raising=False)
 
 
-def test_endpoint_con_flag_corre_el_chat_http_sin_state_lock(mundo, con_flag, monkeypatch):
+def test_el_endpoint_corre_el_chat_http_sin_state_lock(mundo, sin_config, monkeypatch):
     falso = Modelo([_resp("tool_use", [_tool("t1", "run_command", CAJA)]),
                     _resp("end_turn", textos=["listo"])])
     monkeypatch.setattr(anthropic, "Anthropic", lambda: falso)
@@ -387,16 +419,7 @@ def test_endpoint_con_flag_corre_el_chat_http_sin_state_lock(mundo, con_flag, mo
     assert chat.CUPO.activos == 0
 
 
-def test_sin_flag_responde_el_chat_viejo(mundo, monkeypatch):
-    monkeypatch.delenv("APOLO_CHAT_HTTP", raising=False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setattr(chat, "abrir", lambda *a, **k: pytest.fail("con el flag apagado"))
-    evs = _sse(_chat(TestClient(api.app)).text)
-    assert evs[0]["message"].startswith("Falta la variable de entorno ANTHROPIC_API_KEY")
-    assert evs[-1] == {"type": "done"}  # el viejo, sin `uso`
-
-
-def test_cupo_lleno_da_429_y_se_libera(mundo, con_flag, monkeypatch):
+def test_cupo_lleno_da_429_y_se_libera(mundo, sin_config, monkeypatch):
     monkeypatch.setattr(anthropic, "Anthropic", lambda: Modelo([_resp("end_turn")]))
     monkeypatch.setenv("APOLO_CHAT_MAX", "1")
     cliente = TestClient(api.app)
