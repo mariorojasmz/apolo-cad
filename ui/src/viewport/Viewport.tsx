@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, Crop, EyeOff, Focus, Trash2 } from "lucide-react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
@@ -26,6 +25,9 @@ import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { makeHandleSprite, squareDarkTex, squareLightTex } from "./handleSprites";
 import Spinner from "../ui/Spinner";
+import BarraVista, { type GizmoMode, type SectionAxis } from "./BarraVista";
+import PanelRotar from "./PanelRotar";
+import BarraSeleccion from "./BarraSeleccion";
 
 /** Flecha de rotación 3D de tamaño UNIDAD (radio 1): arco (torus parcial) + una punta de cono
    en cada extremo (doble sentido). Singleton compartido; Viewport la orienta al plano ⟂ eje y
@@ -213,9 +215,6 @@ function guideLines(min: number[], max: number[]): THREE.LineSegments {
   ls.raycast = () => {}; // nunca intercepta el puntero
   return ls;
 }
-
-type GizmoMode = "off" | "translate" | "rotate" | "scale";
-type SectionAxis = "" | "x" | "y" | "z";
 
 /* VCB (value control box): tras un arrastre del gizmo por un eje, el usuario puede teclear
    el valor EXACTO de ese eje (estilo SketchUp). Robusto porque ocurre TRAS soltar el ratón
@@ -1496,150 +1495,39 @@ export default function Viewport() {
         </div>
       )}
       <div className="box-select" ref={boxRef} />
-      <div className="viewport-overlay">
-        {Object.keys(VIEWS).map((name) => (
-          <button key={name} onClick={() => setView(name as keyof typeof VIEWS)}>
-            {name}
-          </button>
-        ))}
-        <button onClick={() => setShading(shading === "solid" ? "wire" : "solid")}>
-          {shading === "solid" ? "Alambre" : "Sólido"}
-        </button>
-        <span className="overlay-sep" />
-        <button
-          className={gizmoMode === "translate" ? "active" : ""}
-          title="Arrastra el gizmo para mover el sólido seleccionado"
-          onClick={() => setGizmoMode(gizmoMode === "translate" ? "off" : "translate")}
-        >
-          Mover
-        </button>
-        <button
-          className={gizmoMode === "rotate" ? "active" : ""}
-          title="Arrastra el gizmo para rotar el sólido seleccionado"
-          onClick={() => setGizmoMode(gizmoMode === "rotate" ? "off" : "rotate")}
-        >
-          Rotar
-        </button>
-        <button
-          className={gizmoMode === "scale" ? "active" : ""}
-          title={canScale ? "Arrastra el gizmo para redimensionar la caja de boceto" : "Escalar solo aplica a una caja de boceto"}
-          disabled={!canScale}
-          onClick={() => setGizmoMode(gizmoMode === "scale" ? "off" : "scale")}
-        >
-          Escalar
-        </button>
-        <button
-          className={snapEnabled ? "active" : ""}
-          title={
-            snapEnabled
-              ? `Snap ON (rejilla ${snapStep} mm + puntos de otras piezas). Mantén Ctrl al arrastrar para soltarlo`
-              : "Snap OFF (arrastre libre)"
-          }
-          onClick={toggleSnap}
-        >
-          🧲 Snap{snapEnabled ? ` ${snapStep}` : " off"}
-        </button>
-        <span className="overlay-sep" />
-        <button
-          className={measure || picking ? "active" : ""}
-          title="Medir distancia entre dos puntos (clic en dos sólidos)"
-          onClick={() => (measure ? setMeasure(null) : startMeasure())}
-        >
-          📏 {measure ? "Borrar" : "Medir"}
-        </button>
-        <button
-          className={sectionAxis ? "active" : ""}
-          title="Plano de sección"
-          onClick={() =>
-            setSectionAxis(sectionAxis === "" ? "x" : sectionAxis === "x" ? "y" : sectionAxis === "y" ? "z" : "")
-          }
-        >
-          Sección{sectionAxis ? ` ${sectionAxis.toUpperCase()}` : ""}
-        </button>
-        {sectionAxis && (
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={sectionPos}
-            onChange={(e) => setSectionPos(Number(e.target.value))}
-          />
-        )}
-      </div>
+      <BarraVista
+        vistas={Object.keys(VIEWS)}
+        setView={setView}
+        shading={shading}
+        setShading={setShading}
+        gizmoMode={gizmoMode}
+        setGizmoMode={setGizmoMode}
+        canScale={canScale}
+        snapEnabled={snapEnabled}
+        snapStep={snapStep}
+        toggleSnap={toggleSnap}
+        hayMedida={!!measure}
+        picking={picking}
+        toggleMeasure={() => (measure ? setMeasure(null) : startMeasure())}
+        sectionAxis={sectionAxis}
+        setSectionAxis={setSectionAxis}
+        sectionPos={sectionPos}
+        setSectionPos={setSectionPos}
+      />
       {gizmoMode === "rotate" && (
-        <div className="rotate-panel">
-          <span className="rp-label">Eje</span>
-          {(["x", "y", "z"] as const).map((a) => (
-            <button
-              key={a}
-              className={`rp-axis rp-${a}${rotAxis === a ? " active" : ""}`}
-              title={`Rotar sobre el eje ${a.toUpperCase()}`}
-              onClick={() => setRotAxis(a)}
-            >
-              {a.toUpperCase()}
-            </button>
-          ))}
-          <span className="overlay-sep" />
-          {[-90, -45, 45, 90, 180].map((d) => (
-            <button
-              key={d}
-              disabled={selection.length !== 1}
-              title={`Rotar ${d > 0 ? "+" : ""}${d}° sobre ${rotAxis.toUpperCase()} (centro del sólido)`}
-              onClick={() => applyRotate(d)}
-            >
-              {d > 0 ? `+${d}` : d}°
-            </button>
-          ))}
-          <span className="overlay-sep" />
-          <input
-            className="rp-input"
-            type="number"
-            step={5}
-            value={rotInput}
-            title="Ángulo exacto en grados"
-            onChange={(e) => setRotInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") applyRotate(Number(rotInput));
-            }}
-          />
-          <button disabled={selection.length !== 1} onClick={() => applyRotate(Number(rotInput))}>
-            Aplicar °
-          </button>
-          <span className="overlay-sep" />
-          <span className="rp-label">Snap</span>
-          {[0, 15, 45, 90].map((s) => (
-            <button
-              key={s}
-              className={snapDeg === s ? "active" : ""}
-              title={s === 0 ? "Arrastre libre (sin snap)" : `Arrastrar el anillo salta de ${s}° en ${s}°`}
-              onClick={() => setSnapDeg(s)}
-            >
-              {s === 0 ? "Off" : `${s}°`}
-            </button>
-          ))}
-        </div>
+        <PanelRotar
+          rotAxis={rotAxis}
+          setRotAxis={setRotAxis}
+          unaPieza={selection.length === 1}
+          applyRotate={applyRotate}
+          rotInput={rotInput}
+          setRotInput={setRotInput}
+          snapDeg={snapDeg}
+          setSnapDeg={setSnapDeg}
+        />
       )}
       {selection.length > 0 && !picking && (
-        <div className="selection-bar">
-          <span className="sb-count">{selName || `${selection.length} sólidos`}</span>
-          <span className="overlay-sep" />
-          <button title="Duplicar (Ctrl+D)" onClick={() => void useStore.getState().duplicateSelection()}>
-            <Copy size={15} />
-          </button>
-          <button title="Ocultar (H)" onClick={() => void useStore.getState().hideSelection()}>
-            <EyeOff size={15} />
-          </button>
-          <button title="Aislar (I)" onClick={() => void useStore.getState().isolate()}>
-            <Focus size={15} />
-          </button>
-          <button title="Centrar (F)" onClick={fitTo}>
-            <Crop size={15} />
-          </button>
-          <span className="overlay-sep" />
-          <button className="danger" title="Eliminar (Supr)" onClick={() => void useStore.getState().deleteSelection()}>
-            <Trash2 size={15} />
-          </button>
-        </div>
+        <BarraSeleccion nombre={selName} cantidad={selection.length} onCentrar={fitTo} />
       )}
       <div className="viewport-status">
         mm · {features.filter((f) => f.visible).length} sólidos
