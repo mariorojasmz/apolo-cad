@@ -833,3 +833,91 @@ Base `2b8aa8f` (partir-api-main F6c, estado-regen F6 y texto-agente ya integrado
   tortura y los 5 del andamio; 18 min); `ruff check core tests scripts` limpio; trinquetes de
   tamaño, gate de capas y `test_claude_md.py` verdes. `agent/agent.py` y `mcp_server.py` sin
   tocar.
+
+### F12 (parte 1) — E2E por MCP stdio (2026-10-05)
+
+Cubre también el «E2E por MCP» que [partir-api-main](partir-api-main.md) dejó pendiente: el
+cliente MCP real recorre los 11 routers.
+
+- **Entorno**: base `ad210db`; API levantada desde un worktree propio (`PYTHONPATH=core`, `-B`,
+  sin `--reload`) en **:8012** (el :8001 es de Docker) sobre una COPIA de `data/apolo.db` en su
+  `data/` (ignorado). Verificado que respondía la mía: dueño del puerto = ese
+  `uvicorn … --port 8012`, `errors.log` y la base dentro del worktree, `/api/health` con
+  `documento`, proyecto 38, 87 features, 360 comandos.
+- **Guion permanente** `scripts/e2e_mcp.py` (468 líneas, uso en `core/apolo/CLAUDE.md` § MCP):
+  cliente del SDK `mcp` 1.27.2 (`stdio_client` + `ClientSession`) que lanza
+  `python -B -m apolo.mcp_server` con `APOLO_URL` al puerto pedido y el `core/` del árbol. El
+  árbitro del número de comandos es `GET /api/health`, fuera del MCP (ninguna tool lo expone); al
+  final el resumen de escena, los comandos y las features deben ser los del inicio. Elige solo
+  sus blancos (grupo más chico con ≥ 2 piezas → A y B; sin grupos, `limit=2`), rehúsa el :8000
+  sin `--forzar` y sale con 1 si un paso falla.
+- **Corridas**:
+
+  | corrida | proyecto | resultado | duración |
+  |---|---|---|---|
+  | A | 38 | 23/25: `set_variable` 400 (c647 `run_script` > 60 s) y un error del guion: tras un rechazo esperaba que el resumen cambiara (corregido: un rechazo debe dejarlo idéntico) | 261 s |
+  | B | 38 | 24/25: `set_variable` «timed out» a los 121 s; el servidor lo rechazó DESPUÉS (c685 > 60 s, `errors.log` 19:02:14); documento intacto | 302 s |
+  | C | 28 (`--variable alto=2550`) | **27/27** | 161 s |
+  | D | 38, código final | 24/25: `set_variable` 400 a los 106 s (c703 > 60 s); documento intacto | 194 s |
+
+  Pasos de D (38) y C (28, sin `run_script`):
+
+  | paso | tool | 38 | 28 | lo esencial (38 · 28) |
+  |---|---|---|---|---|
+  | 1 | `list_tools` | ok 0,1 s | ok 0,0 s | 79 tools |
+  | 2 | `list_projects` | ok 1,1 s | ok 2,0 s | 25 proyectos |
+  | 3 | `open_project` | ok 7,8 s | ok 28,9 s | 87 · 86 sólidos; briefing 4,7 · 3,0 KB |
+  | 4 | `get_scene` (summary) | ok 0,9 s | ok 2,2 s | 6 grupos, 332,502 kg, 35 variables · 0 grupos, 105,294 kg, 33 variables |
+  | 5 | `get_scene` (filtrada) | ok 0,4 s | ok 1,5 s | `ids=["Transmision"]` 2 de 87, sin mallas ni variables (A = c682 motorreductor, B = c704) · `limit=2` (c33, c34) |
+  | 6 | `find_commands` (feature=A) | ok 0,8 s | ok 1,0 s | 5 comandos (creador, 3 `fasten`, grupo) · 7 |
+  | 7 | `get_command` | ok 0,4 s | ok 0,9 s | `insert_component` · `create_box` |
+  | 8 | `check_interference` (ids=[A]) | ok 2,1 s | ok 2,2 s | 2 · 3 interferencias (ver abajo) |
+  | 9 | `near` (feature=A, 50 mm) | ok 1,0 s | ok 1,4 s | 4 · 18 piezas |
+  | 10 | `measure` (A, B) | ok 1,4 s | ok 1,6 s | 0,0 · 2010 mm |
+  | 11 | `check_assembly` | ok 1,0 s | ok 1,3 s | 87/87 sujetas · 0/86 (el 28 no declara estructura) |
+  | 12 | `gravity_test` | ok 4,4 s | ok 10,7 s | 0 caen · 65 caen, `settled=false` |
+  | 13 | `delivery_check` | ok 3,2 s | ok 5,3 s | VERDE · ROJO (2 bloqueantes) |
+  | 14 | `verify` (una pasa, una falla) | ok 0,9 s | ok 2,1 s | `ok=false`, resultados `[true, false]` con medido y esperado |
+  | 15 | `render_view` (isolate) | ok 3,7 s | ok 7,6 s | PNG 900 × 702, 327 · 342 KB |
+  | 16 | `preview` (data) | ok 1,0 s | ok 3,0 s | 1 fantasma, 0 colisiones nuevas |
+  | 17 | `run_batch` (expect que falla) | ok 1,3 s | ok 4,1 s | error 400 «Contrato incumplido … el lote se revirtió por completo» |
+  | 18 | `get_scene` (summary) | ok 2,1 s | ok 6,7 s | idéntico; 360 · 320 comandos |
+  | 19 | `set_variable` | **ERROR** 105,8 s | ok 38,0 s | 400 «Error al regenerar c703 (run_script): El script superó el límite de 60s» · `alto` 2500 → 2550 |
+  | 20 | `get_scene` (summary) | ok 8,4 s | ok 4,7 s | idéntico tras el rechazo · cambió bbox (2550), masa (107,508 kg) y variables |
+  | 21 | `undo` | — | ok 2,0 s | · `alto` = 2500, `puede_rehacer` |
+  | 22 | `get_scene` (summary) | — | ok 4,3 s | · idéntico al inicial |
+  | 23 | `get_bom` | ok 3,6 s | ok 2,2 s | 34 · 63 filas |
+  | 24 | `drawing` (sin path) | ok 6,7 s | ok 3,9 s | PDF 39 · 22 KB (isolate + dims de A) |
+  | 25 | `get_job` (id inexistente) | ok 2,3 s | ok 2,9 s | 404 «Job desconocido … nunca existió, el servidor se reinició …» |
+  | 26 | `engineering_check` | ok 17,1 s | ok 8,5 s | ingeniería 13 ok, estructura 74 ok · ingeniería `null` (sin faja), estructura 2 avisos |
+  | 27 | `get_scene` (summary) | ok 9,8 s | ok 7,5 s | idéntico al inicio; 360 · 320 comandos |
+
+- **Bugs del producto (no se arreglaron aquí)**:
+  1. **`set_variable` en el 38 falla 3 de 3 en esta máquina.** Toda variable vive en la cabecera
+     → replay completo; los 6 `run_script` del 38 se re-ejecutan (la clave de la caché del
+     sandbox, `sandbox._cache_key`, lleva TODAS las variables resueltas) y cada uno lanza un
+     intérprete nuevo (`python -m apolo.agent.script_wrapper`) cuyo ARRANQUE —el paquete
+     `apolo.agent` importa `agent.agent` → `commands.registry` → `kernel` → `build123d`— cae
+     DENTRO de `SCRIPT_TIMEOUT_S = 60` (`core/apolo/sandbox.py`). Medido aquí: el sandbox de un
+     `Box(1, 1, 1)` tarda 8,5–39,6 s; `import apolo.agent.script_wrapper`, hasta 85,8 s; el c685
+     (dos cajas) 74 s por el wrapper contra 0,1 s de geometría. Bajo carga (varias sesiones,
+     Docker) un script trivial pasa el límite y se rechaza la edición entera: A cayó en c647, B en
+     c685, D en c703 (los anteriores ya estaban en la caché del proceso). En la F7 de
+     partir-api-main el mismo cambio pasó en 103 s. El rechazo es atómico: resumen y log idénticos.
+  2. **Una mutación síncrona lenta no deja recibo por MCP.** `set_variable` (igual que
+     `run_command`, `edit_command`, `undo`, `open_project`…) va por `_api` con httpx a 120 s; en B
+     devolvió `Error executing tool set_variable: timed out` mientras el servidor seguía bajo
+     `STATE_LOCK` y resolvió después. `_api` sólo traduce `ConnectError`; `run_batch`/`edit_batch`
+     sí devuelven recibo (V6.5e). El agente no sabe si se aplicó: el guion lo resuelve leyendo el
+     resumen, que espera al lock, y deshace si cambió.
+  3. Menor: el `gravity_test` del 28 dejó `MUJOCO_LOG.TXT` en el cwd de la API («Nan, Inf or huge
+     value in QACC … The simulation is unstable»); no está en `.gitignore` y la tool sólo informa
+     `settled=false`.
+- **No es bug**: `check_interference(ids=["c682"])` da 2 (c673 disco de reacción 12 697,5 mm³;
+  c704 tornillería 2 915,4 mm³) con la puerta en VERDE: la puerta excluye los pares con `fasten` y
+  la tornillería; `check_interference` los sigue mostrando a propósito
+  (`services/delivery_inputs.py`: «declarar no lo esconde, lo firma»).
+- **Al terminar**: uvicorn (python y el lanzador del venv) muerto, :8012 libre, `data/`, `logs/` y
+  `MUJOCO_LOG.TXT` del worktree borrados, SHA-256 de la base de Mario sin cambios
+  (`1119258C…F52B4`).
+- **Falta de F12**: pytest completo y `-m torture`, `APOLO_CHAT_MAX=1` → 429 y lo de Mario en la UI.

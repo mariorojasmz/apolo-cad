@@ -25,6 +25,10 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   un cliente MCP —docstring, default, orden de params, salida— lo pone rojo; si es deliberado,
   revisa el diff y `python scripts/golden_mcp.py --congelar`.
   [chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)
+- **E2E por stdio** (`python -B scripts/e2e_mcp.py --puerto N --proyecto 38`): un cliente `mcp`
+  real contra una API levantada; recorre lecturas, `preview`, un lote con contrato que falla y
+  `set_variable` + `undo`, deja el proyecto como estaba y sale con 1 si un paso falla. Siempre
+  contra una API sobre una COPIA de la base (rehúsa el :8000 sin `--forzar`).
 - `_api` habla con el destino que el hilo fijó (`tools/destino.py`, `threading.local`: el chat
   de la app) o, si no hay, con `APOLO_URL`. Lo que un test parchea por nombre (`_api`,
   `_submit_and_wait`, `APOLO_URL`, `APOLO_MCP_WAIT_S`) no sale de `mcp_server.py`; lo que se
