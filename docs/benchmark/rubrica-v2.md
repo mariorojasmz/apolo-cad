@@ -41,6 +41,10 @@ despacho competente, codificado — **no** un documento humano fantasma.
 - **E1.2** Validación: interferencias solo intencionales (cada una justificada por escrito), 0 flotantes en soundness, gravity estable, DOF sin sobre-restricciones inexplicadas.
 - **E1.3** Criterio de montaje/servicio: ¿se puede tensar la banda, cambiarla, dar servicio a chumaceras/motor?
 - **E1.4** Parametricidad: aplicar «3.2m compacta» y volver — sin roturas ni desalineados.
+  *Aclaración 2026-10-06* (procedimiento, no ancla ni peso): aplicar una variante cambia SÓLO
+  las variables de su tabla, y se cita el `cambios` que devuelve el apply como evidencia. Una
+  variante que revierte una variable de diseño ajena a la tabla es hallazgo de E1.4
+  ([plan](../plans/variantes-solo-sus-variables.md)).
 
 ### E2 · Juego de planos de taller (peso 30 — el más pesado, es donde perdemos)
 - **E2.1** Completitud del juego: GA + 1 lámina/pieza fabricada + cédula de herraje + lista de corte; nada que el taller tenga que "deducir".
