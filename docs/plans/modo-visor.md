@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado por Mario el 2026-10-06 sin vetos; fases F0–F6 en implementación
+estado: sin verificar   # implementado | en curso | sin verificar | descartado
+nota: F0–F5 implementadas y en main (2026-10-06); falta F6 de Mario: con el visor abierto en la faja 38, pedir un cambio al agente por MCP y ver el aviso «trabajando», el contorno verde y el aviso de cambios
 descripcion: El 3D ocupa toda la pantalla, los paneles se abren como cajones encima y ves al instante qué piezas cambió el agente
 ---
 
@@ -314,3 +314,44 @@ tests.
 - El chip «2 suprimidos» aparece abajo a la izquierda. El proyecto 38 abre hoy suprimiendo 2
   comandos (`logs/errors.log`, 08:30: `set_variable pata_alto` con `h_garrucha` no definida).
   Es ajeno a este plan.
+
+### F5a — el servidor avisa los jobs por WebSocket (commit `1ad6319`)
+
+`JobStore(al_cambiar_estado=…)` avisa `{"job_id", "estado"}` al pasar a corriendo y al
+terminar, siempre fuera de `_cv` (lock hoja) y tragándose las excepciones del aviso.
+`common.py` lo cablea a `WS.notify_changed({"type": "job", …})`. Hay 8 tests nuevos
+(`tests/test_jobs_aviso.py`); uno es una mutación con el aviso bajo `_cv`: el test cayó y
+después se revirtió. Dos tests espiaban `WS.notify_changed` y contaban avisos; el de guardia
+pasaba sólo porque su lambda lanzaba `TypeError` y el aviso se lo tragaba. Ahora separan el
+aviso de job del de documento.
+
+Corrida del agente: **1842 passed, 1 skipped**. La re-corrida completa de la sesión principal
+dio 11 fallas, todas `run_script` excedido de 60 s en el sandbox (`subprocess.TimeoutExpired`)
+con la máquina saturada por suites de otras sesiones. Re-corridas solas, junto con los
+archivos que tocó F5a, salen con exit 0. ruff `check core tests scripts` limpio: se corrió
+con un ruff aislado en un venv de scratch, porque el `.venv` compartido no lo trae.
+
+### F5b — «El agente está trabajando…» en la UI (commit `0a96742`)
+
+`connectWs` valida los avisos de job (`state/eventosWs.ts`) y los publica como `apolo:job`, y
+en cada reconexión publica `apolo:ws-reconectado`. `visor/trabajando.ts` lleva los jobs
+corriendo, se vacía al reconectar y descarta un job colgado a los 10 minutos. El aviso en
+curso tiene prioridad sobre el de cambios y, al empezar, descarta el aviso viejo: si no, el
+viejo reaparecía ~300 ms entre el fin del job y el refresh. La UI no encola jobs propios (no
+manda `?async`), así que todo job cuenta como del agente; la trampa quedó escrita en
+ui/CLAUDE.md. 159 tests.
+
+Queda sin resolver: si la página se recarga con un job ya corriendo, ese «trabajando» no
+aparece. Haría falta leer `GET /api/jobs` al conectar.
+
+### F6 — verificación (parcial, 2026-10-06)
+
+Build de `main` servido por la API en :8000, faja 38, a la resolución de la captura de Mario
+(1917×1041): el viewport mide 1918×1000 = **96 %** (era ~35 %). Un `apolo:job` simulado
+muestra «El agente está trabajando…» arriba al centro y lo quita con `ok`. ui/CLAUDE.md
+§ Shell y paneles suma la regla de los dos modos y la trampa del maximizado; el CLAUDE.md
+raíz actualiza los conteos (1843 pytest, 159 vitest).
+
+**Falta**: el E2E con un lote REAL del agente por MCP, que lo hace Mario (F6). No se corrió
+porque habría modificado su proyecto abierto. Durante la sesión, la API de :8000 se cayó sin
+causa propia y se levantó con la config `apolo` de `.claude/launch.json`.

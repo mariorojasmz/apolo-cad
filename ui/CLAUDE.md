@@ -154,6 +154,12 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 
 - Dockview: el viewport es el centro fijo y bloqueado que NUNCA se re-monta; el layout se
   persiste y `resetLayout` no destruye el viewport.
+- Dos modos de pantalla (`visor/estado.ts`, por defecto **Visor**): el visor MAXIMIZA el grupo del
+  viewport (`dockApi.ts::setModoVisor`, mismo canvas) y la capa `visor/CapaVisor.tsx` pone encima
+  cajones, barra de paneles, ficha y avisos. ⚠️ Dockview serializa el maximizado y
+  `exitMaximizedGroup()` no dispara `onDidLayoutChange`: nunca se persiste maximizado
+  (`guardarLayout`). Algo nuevo para el visor va a la capa, no al ribbon ni a la StatusBar
+  (no se montan). [plan](../docs/plans/modo-visor.md)
 - Panel nuevo = `dock/paneles.ts` `PANELES` (componente, título y rótulo; de ahí salen Dockview, la
   StatusBar y los cajones del visor) + `HERRAMIENTAS` si se conmuta (StatusBar y «Más» del visor)
   + `ui/icons.tsx` `PANEL_ICONS`.
