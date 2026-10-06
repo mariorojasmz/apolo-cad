@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1 implementada y revisada (suites verdes); falta que Mario revise y mergee el código, y F3 (cirugía del proyecto 38 con COLSON-5X2-PU-45-A-FT)
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: sin pendientes de código; al cotizar en Lince, reemplazar los estimados de COLSON (avance, peso, Ø de agujero, espesor de placa) y re-verificar las cargas PU 4"/8"
 descripcion: El catálogo trae garruchas industriales de placa con ficha real (Blickle LH-ALTH y Colson Colombia serie 44/45, la que se vende en Lima) y el proyecto 38 las usa en vez de las hechas a mano
 ---
 # Garruchas de catálogo: el agente pone garruchas reales en vez de modelarlas a mano
@@ -249,3 +249,32 @@ SERRATURE 150 mm PU: S/ 89.60 giratoria · S/ 115.26 freno · S/ 82.17 fija.
   («superó el límite de 60 s» al recargar con la máquina cargada) y arrastra al fijador
   `tornilleria_garruchas` (`c1242`). Causa: 24 fusiones acumuladas (`res + b`). En F3 se edita
   al patrón nuevo construyendo UN juego y copiándolo en un `Compound`, sin booleanas acumuladas.
+
+### F3 (2026-10-06): proyecto 38 con `COLSON-5X2-PU-45-A-FT`
+
+- Código en `main` (`03c5058`, `4f9ba03`); la API (con `--reload`) recargó sola: `/api/catalog`
+  dio 255 refs (24 garruchas). Un rebase intermedio chocó SÓLO en los conteos del CLAUDE.md raíz
+  (otra sesión había llevado `main` a 1873 tests): se combinaron (1873 + 88 = 1961) y se
+  re-corrieron las suites (pytest 1960 passed + 1 skipped, vitest 184, build OK).
+- Al momento de operar, `c1229` (pernos) cargó dentro del límite: la supresión anterior fue por
+  carga de la máquina (tres suites pytest en paralelo), no un error del script. Se editó igual.
+- **Línea base** (revisión 109): 0 interferencias (73 sólidos, 146 pares), `delivery_check`
+  VERDE con gravedad, FEA «Bastidor portante» FS 100.7 (Larguero −Y, σ_vm 2.48 MPa,
+  δ 0.0253 mm), 6 garruchas a mano = 24.42 kg (volumen × acero, 4.07 kg c/u).
+- **Cirugía**: `POST /api/commands/remove` de `c1223`–`c1228` + `c1230`–`c1241` (atómico);
+  `edit_batch`: `h_garrucha` 160 → 169.9, `c58`/`c64` 110×110 → 140×110, taladros
+  `c59`–`c62`/`c65`–`c68` a x 300 ± 47.65, y `±larg_cy ± 38.1`, `c1229` reescrito (un juego +
+  lista de 24 copias, sin fusiones acumuladas); `run_batch`: 6 `insert_component`
+  (`c1244`–`c1249`, «Garrucha (±Y, n)», `position` = (x, ±`larg_cy`, `h_garrucha`)) + los 6
+  `fasten` y 6 `ground` con los MISMOS nombres; grupo «Rodaje» (`c1243`) actualizado.
+- Intentos fallidos: el `edit_batch` dio «Request timed out» en el host MCP pero SE APLICÓ
+  (verificado leyendo `c32`/`c58` antes de reintentar; reenviarlo lo habría duplicado). El
+  `run_batch` se rechazó por `$0`: los `$k` se numeran desde `$1` (documento intacto). El FEA
+  pidió `loads` explícitos (la mesa no está entre las 16 piezas): se repitieron los del estudio
+  guardado, 2 × 367.875 N sobre la cara `tope` de cada larguero; también expiró en el host y se
+  leyó de `GET /api/fea/group/Bastidor portante`.
+- **Después** (revisión 110): 0 interferencias (12 pares con garruchas, 0 global),
+  `delivery_check` VERDE con gravedad, FEA FS **100.8** (misma pieza crítica, σ_vm 2.48 MPa,
+  δ 0.0252 mm, 120 s): sin regresión. 6 garruchas = **11.4 kg** (ficha, estimado): la máquina
+  baja ~13 kg. Render aislado: placa de la garrucha bajo la placa base, cabezas de perno en las
+  4 esquinas fuera de la pista de giro, pedal hacia −X.
