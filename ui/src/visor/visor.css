@@ -1,0 +1,70 @@
+/* Modo Visor (plan modo-visor). Se carga después de styles.css (main.tsx): sus reglas pisan
+   las de Completo. Los colores son los tokens de styles.css. */
+
+/* ---- shell: sin Ribbon ni StatusBar ----
+   La fila 2 (la del Ribbon, `auto`) queda vacía y mide 0; se quita la del status para no
+   dejar 28 px vacíos abajo. El dock sigue en la fila 3 (`.apolo-dock { grid-row: 3 }`). */
+.app.modo-visor { grid-template-rows: var(--header-h) auto minmax(0, 1fr); }
+/* Columna explícita: la capa (fila y columna fijas) se ubica ANTES que los ítems con sólo la
+   fila; sin esto el dock se correría a una columna implícita nueva a la derecha. Isolation: lo
+   que flota dentro de Dockview queda por debajo de la capa del visor. */
+.app.modo-visor .apolo-dock { grid-column: 1; isolation: isolate; }
+
+/* Capa sobre el 3D: la misma celda que el dock (fila Y columna explícitas). */
+.capa-visor {
+  grid-row: 3; grid-column: 1;
+  position: relative; z-index: 10;
+  min-width: 0; min-height: 0;
+  pointer-events: none; /* los clics pasan al canvas */
+}
+.capa-visor > * { pointer-events: auto; }
+
+/* ---- selector Visor | Completo (barra superior) ---- */
+.selector-pantalla {
+  display: inline-flex; gap: 2px; padding: 2px; margin-left: 6px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.selector-pantalla button {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid transparent; padding: 3px 11px; color: var(--muted);
+  border-radius: var(--radius-sm);
+}
+.selector-pantalla button:hover:not(:disabled) { background: var(--panel2); border-color: transparent; color: var(--text); }
+.selector-pantalla button.on { background: var(--accent-soft); color: var(--accent); }
+
+/* ---- controles de vista: redondos, a la izquierda, centrados en vertical ---- */
+.vista-visor {
+  position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px; z-index: 6;
+}
+.vista-visor .rb {
+  position: relative; width: 40px; height: 40px; padding: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(30, 34, 43, 0.9); border: 1px solid var(--border);
+  box-shadow: var(--shadow-2); color: var(--text); backdrop-filter: blur(3px);
+}
+.vista-visor .rb:hover:not(:disabled) { background: rgba(39, 45, 57, 0.95); border-color: var(--muted); }
+.vista-visor .rb.on { color: var(--accent); border-color: var(--accent); }
+.vista-visor .rb-sep { width: 24px; height: 1px; margin: 2px 8px; background: var(--border); }
+.vista-visor .rb-fila { display: flex; align-items: center; gap: 8px; }
+.vista-visor .rb-eje {
+  position: absolute; right: -3px; bottom: -3px; min-width: 16px; height: 16px; padding: 0 3px;
+  border-radius: 8px; background: var(--accent); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+.vista-visor input[type="range"] { width: 120px; }
+
+/* ---- barra de selección: arriba al centro ---- */
+.selection-bar.visor {
+  top: 12px; bottom: auto; gap: 2px; padding: 4px;
+  border-radius: 12px; max-width: calc(100% - 24px); box-shadow: var(--shadow-2);
+}
+.selection-bar.visor button {
+  gap: 6px; height: 32px; padding: 0 10px; white-space: nowrap;
+  background: transparent; border-color: transparent; border-radius: 8px;
+}
+.selection-bar.visor button:hover:not(:disabled) { background: var(--panel2); }
+.selection-bar.visor .sb-count { color: var(--text); font-weight: 600; font-size: 12px; max-width: 220px; }
+.selection-bar.visor .sb-a-mano { width: 220px; height: 30px; }
+/* con el panel de rotar (atajo R) arriba al centro, la barra baja y no se pisan */
+.rotate-panel ~ .selection-bar.visor { top: 56px; }

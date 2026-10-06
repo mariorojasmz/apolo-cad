@@ -28,6 +28,9 @@ import Spinner from "../ui/Spinner";
 import BarraVista, { type GizmoMode, type SectionAxis } from "./BarraVista";
 import PanelRotar from "./PanelRotar";
 import BarraSeleccion from "./BarraSeleccion";
+import EstadoViewport, { type Vcb } from "./EstadoViewport";
+import { ACERCAR, ALEJAR, dolly } from "./camara";
+import { useVisor } from "../visor/estado";
 
 /** Flecha de rotación 3D de tamaño UNIDAD (radio 1): arco (torus parcial) + una punta de cono
    en cada extremo (doble sentido). Singleton compartido; Viewport la orienta al plano ⟂ eje y
@@ -216,15 +219,6 @@ function guideLines(min: number[], max: number[]): THREE.LineSegments {
   return ls;
 }
 
-/* VCB (value control box): tras un arrastre del gizmo por un eje, el usuario puede teclear
-   el valor EXACTO de ese eje (estilo SketchUp). Robusto porque ocurre TRAS soltar el ratón
-   (no pelea con TransformControls, que recalcula cada frame). Rotación no usa VCB: el panel
-   de rotación ya tiene grados exactos. */
-type Vcb =
-  | { mode: "translate"; axis: "x" | "y" | "z"; featureId: string; committedAxisDelta: number }
-  | { mode: "scale"; axis: "x" | "y" | "z"; featureId: string; cmdId: string; currentDim: number }
-  | null;
-
 const VIEWS: Record<string, [number, number, number]> = {
   ISO: [1, -1, 0.8],
   Frente: [0, -1, 0.0001],
@@ -278,6 +272,7 @@ export default function Viewport() {
   const snapEnabled = useStore((s) => s.snapEnabled);
   const snapStep = useStore((s) => s.snapStep);
   const toggleSnap = useStore((s) => s.toggleSnap);
+  const visor = useVisor((s) => s.modo === "visor");
   const [shading, setShading] = useState<Shading>("solid");
   const [gizmoMode, setGizmoMode] = useState<GizmoMode>("off");
   const [rotAxis, setRotAxis] = useState<"x" | "y" | "z">("z");
@@ -1331,14 +1326,6 @@ export default function Viewport() {
     });
   };
 
-  const measureDist = measure
-    ? Math.hypot(
-        measure.p2[0] - measure.p1[0],
-        measure.p2[1] - measure.p1[1],
-        measure.p2[2] - measure.p1[2],
-      )
-    : 0;
-
   // Encuadra una caja: mantiene la dirección actual de la cámara salvo que se dé `dir`.
   const frameBox = (box: THREE.Box3, dir?: [number, number, number]) => {
     const ctx = ctxRef.current;
@@ -1373,6 +1360,12 @@ export default function Viewport() {
     if (ctx) frameBox(new THREE.Box3().setFromObject(ctx.group), d);
   };
   const setView = (name: keyof typeof VIEWS) => setViewDir(VIEWS[name]);
+  const zoom = (factor: number) => { // Acercar / Alejar del visor
+    const ctx = ctxRef.current;
+    if (!ctx) return;
+    dolly(ctx.camera.position, ctx.controls.target, factor);
+    ctx.controls.update();
+  };
 
   // atajos de teclado: handlers refrescados cada render (setters estables + fitTo);
   // el listener se instala una vez y los lee por getter (sin closures viejos).
@@ -1462,22 +1455,6 @@ export default function Viewport() {
         ? `${selection.length} sólidos`
         : "";
 
-  // caja envolvente de la selección (ancho × fondo × alto) — visible al multiseleccionar
-  const selExtent = (() => {
-    if (selection.length === 0) return "";
-    const sel = features.filter((f) => selection.includes(f.id));
-    if (sel.length === 0) return "";
-    const min = [Infinity, Infinity, Infinity];
-    const max = [-Infinity, -Infinity, -Infinity];
-    for (const f of sel)
-      for (let i = 0; i < 3; i++) {
-        min[i] = Math.min(min[i], f.bbox.min[i]);
-        max[i] = Math.max(max[i], f.bbox.max[i]);
-      }
-    const d = max.map((v, i) => Math.round(v - min[i]));
-    return `▢ ${d[0]} × ${d[1]} × ${d[2]} mm`;
-  })();
-
   // escala paramétrica: solo una caja (create_box) no instanciada — mapea a sus cotas
   const scaleFeat = selection.length === 1 ? features.find((f) => f.id === selection[0]) : undefined;
   const canScale = !!scaleFeat && scaleFeat.command_type === "create_box" && !scaleFeat.mesh_key;
@@ -1496,6 +1473,10 @@ export default function Viewport() {
       )}
       <div className="box-select" ref={boxRef} />
       <BarraVista
+        visor={visor}
+        encuadrar={fitTo}
+        acercar={() => zoom(ACERCAR)}
+        alejar={() => zoom(ALEJAR)}
         vistas={Object.keys(VIEWS)}
         setView={setView}
         shading={shading}
@@ -1527,38 +1508,12 @@ export default function Viewport() {
         />
       )}
       {selection.length > 0 && !picking && (
-        <BarraSeleccion nombre={selName} cantidad={selection.length} onCentrar={fitTo} />
+        <BarraSeleccion nombre={selName} cantidad={selection.length} ids={selection} onCentrar={fitTo} visor={visor} />
       )}
-      <div className="viewport-status">
-        mm · {features.filter((f) => f.visible).length} sólidos
-        {selName ? ` · selección: ${selName}` : ""}
-        {selExtent ? ` · ${selExtent}` : ""}
-        <span ref={liveAngleRef} className="live-angle" />
-        {vcb && (
-          <span className="vcb" style={{ pointerEvents: "auto", marginLeft: 8 }}>
-            {vcb.mode === "translate" ? `Δ${vcb.axis.toUpperCase()} = ` : `${vcb.axis.toUpperCase()} = `}
-            <input
-              autoFocus
-              type="number"
-              defaultValue={vcb.mode === "translate" ? vcb.committedAxisDelta : vcb.currentDim}
-              onFocus={(e) => e.target.select()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") applyVcb(Number((e.target as HTMLInputElement).value));
-                else if (e.key === "Escape") setVcb(null);
-              }}
-              style={{ width: 74 }}
-              title="Escribe el valor exacto de este eje y presiona Enter"
-            />{" "}
-            mm
-          </span>
-        )}
-        {gizmoMode !== "off" && selection.length !== 1 ? " · el gizmo necesita un único sólido" : ""}
-        {measure
-          ? ` · 📏 ${measureDist.toFixed(1)} mm (ΔX ${(measure.p2[0] - measure.p1[0]).toFixed(1)}, ΔY ${(
-              measure.p2[1] - measure.p1[1]
-            ).toFixed(1)}, ΔZ ${(measure.p2[2] - measure.p1[2]).toFixed(1)})`
-          : ""}
-      </div>
+      <EstadoViewport
+        features={features} selection={selection} selName={selName} liveAngleRef={liveAngleRef}
+        vcb={vcb} setVcb={setVcb} applyVcb={applyVcb} gizmoMode={gizmoMode} measure={measure}
+      />
     </div>
   );
 }

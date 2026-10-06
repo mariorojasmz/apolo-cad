@@ -14,24 +14,30 @@ import ContextMenu from "./panels/ContextMenu";
 import ShortcutsHelp from "./panels/ShortcutsHelp";
 import TopProgress from "./panels/TopProgress";
 import BusyOverlay from "./panels/BusyOverlay";
+import CapaVisor from "./visor/CapaVisor";
+import { useVisor } from "./visor/estado";
 
 export default function App() {
   const init = useStore((s) => s.init);
   const error = useStore((s) => s.error);
   const setError = useStore((s) => s.setError);
   const busy = useStore((s) => s.busy);
+  // Visor: sin Ribbon ni StatusBar; el dock maximiza el 3D (dock/dockApi.ts::setModoVisor) y
+  // la capa del visor flota encima. El DockShell se monta igual en los dos modos (no se re-monta).
+  const visor = useVisor((s) => s.modo === "visor");
 
   useEffect(() => {
     void init();
   }, [init]);
 
   return (
-    <div className={`app${busy ? " busy" : ""}`} aria-busy={busy}>
+    <div className={`app${busy ? " busy" : ""}${visor ? " modo-visor" : ""}`} aria-busy={busy}>
       <TopProgress />
       <TopBar />
-      <Ribbon />
+      {!visor && <Ribbon />}
       <DockShell />
-      <StatusBar />
+      {visor && <CapaVisor />}
+      {!visor && <StatusBar />}
       <CommandDialog />
       <VariablesDialog />
       <LibraryDialog />

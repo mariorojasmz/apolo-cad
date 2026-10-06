@@ -17,7 +17,9 @@ import PhysicsPanel from "../panels/PhysicsPanel";
 import AssemblyPanel from "../panels/AssemblyPanel";
 import SketchBlockPanel from "../panels/SketchBlockPanel";
 import Viewport from "../viewport/Viewport";
-import { setDockApi, buildDefaultLayout, lockViewport, syncDockPanels, LAYOUT_KEY } from "./dockApi";
+import {
+  setDockApi, buildDefaultLayout, guardarLayout, lockViewport, syncDockPanels, vincularModo, LAYOUT_KEY,
+} from "./dockApi";
 
 /* Shell de ventanas acoplables (Dockview). El viewport es el centro fijo; el resto de
    paneles se acoplan/redimensionan/agrupan en pestañas y el layout se guarda en localStorage. */
@@ -83,18 +85,14 @@ function onReady(event: DockviewReadyEvent): void {
   if (!restored) buildDefaultLayout(api);
   lockViewport(api);
   syncDockPanels(api);
+  vincularModo(api); // sale del maximizado guardado y aplica Visor | Completo
 
   let timer: ReturnType<typeof setTimeout>;
   api.onDidLayoutChange(() => {
     syncDockPanels(api);
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      try {
-        localStorage.setItem(LAYOUT_KEY, JSON.stringify(api.toJSON()));
-      } catch {
-        /* storage no disponible */
-      }
-    }, 300);
+    // con el visor (grupo maximizado) no persiste: lo hace setModoVisor al volver a Completo
+    timer = setTimeout(() => guardarLayout(api), 300);
   });
 }
 

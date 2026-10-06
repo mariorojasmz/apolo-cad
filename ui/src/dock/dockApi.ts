@@ -1,10 +1,11 @@
 import type { DockviewApi, IDockviewPanel, Direction } from "dockview-core";
 import { useStore } from "../state/store";
+import { useVisor } from "../visor/estado";
 
 /* Singleton del API de Dockview + helpers de docking. Vive fuera de React para que la
    StatusBar y los atajos puedan ordenar al layout (abrir/cerrar/restablecer) sin prop-drilling.
    El viewport es el centro FIJO (grupo bloqueado → nunca se mueve ni se re-monta → no pierde
-   el contexto WebGL). */
+   el contexto WebGL). El modo Visor maximiza ese grupo (`setModoVisor`), no lo re-monta. */
 
 export const LAYOUT_KEY = "apolo.layout.v1";
 
@@ -82,9 +83,13 @@ export function resetLayout(): void {
   } catch {
     /* storage no disponible */
   }
+  // sólo la StatusBar lo llama y en el visor no está montada; si igual llega, se rehace el
+  // layout de Completo y el visor se vuelve a aplicar encima
+  if (api.hasMaximizedGroup()) api.exitMaximizedGroup();
   if (!api.getPanel("viewport")) {
     // sin viewport (estado corrupto) → reconstrucción completa
     buildDefaultLayout(api);
+    aplicarModoActual();
     return;
   }
   // cerrar todo menos el viewport (snapshot: close() muta api.panels)
@@ -109,12 +114,15 @@ export function resetLayout(): void {
   });
   props.api.setActive();
   lockViewport(api);
+  aplicarModoActual();
 }
 
-/** Abre el panel si no está; si ya está, lo cierra (toggle de la StatusBar). */
+/** Abre el panel si no está; si ya está, lo cierra (toggle de la StatusBar). En el visor no
+   hace nada: acoplar un panel saca a Dockview del maximizado (los paneles del visor van en
+   cajones, plan modo-visor F3). */
 export function togglePanel(id: string): void {
   const api = _api;
-  if (!api) return;
+  if (!api || useVisor.getState().modo === "visor") return;
   const existing = api.getPanel(id);
   if (existing) {
     existing.api.close();
@@ -134,4 +142,65 @@ export function togglePanel(id: string): void {
 /** Sincroniza al store la lista de paneles presentes (para el resaltado de la StatusBar). */
 export function syncDockPanels(api: DockviewApi): void {
   useStore.getState().setDockPanels(api.panels.map((p) => p.id));
+}
+
+/** Guarda el layout de Completo. Nunca con un grupo maximizado: Dockview serializa el
+   maximizado (`maximizedNode`) y el próximo arranque abriría Completo maximizado. */
+export function guardarLayout(api: DockviewApi): void {
+  if (api.hasMaximizedGroup()) return;
+  try {
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(api.toJSON()));
+  } catch {
+    /* storage no disponible */
+  }
+}
+
+/** Visor: maximiza el grupo del viewport y oculta su pestaña; el canvas es el mismo, no se
+   re-monta (bitácora F0 del plan modo-visor). Completo: muestra la pestaña, sale del
+   maximizado y guarda el layout A MANO: `exitMaximizedGroup()` no dispara
+   `onDidLayoutChange`, así que sin esto lo guardado seguiría maximizado. */
+export function setModoVisor(visor: boolean): void {
+  const api = _api;
+  const vp = api?.getPanel("viewport");
+  if (!api || !vp) return;
+  if (visor) {
+    if (vp.group.activePanel !== vp) vp.api.setActive(); // con la pestaña oculta no se podría elegir
+    if (!vp.api.isMaximized()) {
+      if (api.hasMaximizedGroup()) api.exitMaximizedGroup(); // otro grupo maximizado en Completo
+      api.maximizeGroup(vp);
+    }
+    vp.group.header.hidden = true;
+  } else {
+    vp.group.header.hidden = false;
+    if (api.hasMaximizedGroup()) api.exitMaximizedGroup();
+    guardarLayout(api);
+  }
+}
+
+function aplicarModoActual(): void {
+  setModoVisor(useVisor.getState().modo === "visor");
+}
+
+let _desvincular: (() => void) | null = null;
+
+/** Al cargar: normaliza el maximizado que traiga el JSON (un layout guardado antes de esta
+   regla), aplica el modo recordado y lo sigue. Si Dockview sale solo del maximizado con el
+   visor puesto (p. ej. al activar otro grupo), lo vuelve a maximizar. */
+export function vincularModo(api: DockviewApi): void {
+  _desvincular?.();
+  if (api.hasMaximizedGroup()) {
+    api.exitMaximizedGroup();
+    guardarLayout(api);
+  }
+  aplicarModoActual();
+  const sinModo = useVisor.subscribe((s, prev) => {
+    if (s.modo !== prev.modo) setModoVisor(s.modo === "visor");
+  });
+  const sinMax = api.onDidMaximizedGroupChange((e) => {
+    if (!e.isMaximized && useVisor.getState().modo === "visor") setTimeout(aplicarModoActual, 0);
+  });
+  _desvincular = () => {
+    sinModo();
+    sinMax.dispose();
+  };
 }

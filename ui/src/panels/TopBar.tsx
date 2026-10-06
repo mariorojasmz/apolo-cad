@@ -1,9 +1,11 @@
 import { useRef, useState } from "react";
 import { ChevronDown, Download, FolderOpen, Home, Redo2, Save, Undo2, Upload } from "lucide-react";
 import { useStore } from "../state/store";
+import SelectorPantalla from "../visor/SelectorPantalla";
 
 /* Cabecera slim: marca/proyecto · pestañas de entorno (Modelar/Planos/Simular) ·
-   deshacer/rehacer · menú Archivo. Los 6 toggles de paneles se movieron a la StatusBar. */
+   deshacer/rehacer · Visor | Completo · menú Archivo. Los toggles de paneles viven en la
+   StatusBar (Completo). */
 
 export default function TopBar() {
   const doc = useStore((s) => s.scene?.document);
@@ -58,6 +60,7 @@ export default function TopBar() {
       <button className="icon-btn" disabled={!doc?.can_redo || busy} onClick={() => void redo()} title="Rehacer">
         <Redo2 size={16} />
       </button>
+      <SelectorPantalla />
 
       <span className="menu">
         <button className="icon-btn" onClick={() => setMenu((m) => !m)} title="Archivo">
