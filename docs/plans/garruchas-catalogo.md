@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato aprobado por Mario (2026-10-06, D10 = COLSON-5X2-PU-45-A-FT); falta F1 (código), F2 (revisión y merge) y F3 (cirugía del proyecto 38)
+nota: F1 implementada y revisada (suites verdes); falta que Mario revise y mergee el código, y F3 (cirugía del proyecto 38 con COLSON-5X2-PU-45-A-FT)
 descripcion: El catálogo trae garruchas industriales de placa con ficha real (Blickle LH-ALTH y Colson Colombia serie 44/45, la que se vende en Lima) y el proyecto 38 las usa en vez de las hechas a mano
 ---
 # Garruchas de catálogo: el agente pone garruchas reales en vez de modelarlas a mano
@@ -221,4 +221,31 @@ SERRATURE 150 mm PU: S/ 89.60 giratoria · S/ 115.26 freno · S/ 82.17 fija.
 
 ## 9. Bitácora
 
-(vacía hasta cerrar F1)
+### F1 + F2 (2026-10-06): código implementado y revisado
+
+- Implementó un subagente en worktree (commit original `4bf4e2d`, traído por cherry-pick sobre el
+  `main` del día). 24 refs (231 → 255), `builders_rodaje.py` (193 líneas), `merge_builders` en
+  `loader.py`, ancla `placa`, «Estructura» en backend y UI, `garruchas` en `FEA_HARDWARE_CATS`,
+  88 tests en `tests/test_catalog_garruchas.py`. Sin bump de epoch ni de versiones:
+  `test_contrato_comandos` verde (D9 confirmado).
+- **Lo que reveló medir**: con una booleana por parte, la Blickle (ranura = cilindro + caja +
+  cilindro) tardaba ~0.8 s en construirse; un solo `fuse` + un solo `cut` y la ranura como
+  estadio extruido la bajan a ~0.3 s (la UCP tarda ~1 s).
+- **Fichas Colson re-verificadas en el navegador** (Wayback): alturas, placa 5"×4", patrón
+  3 3/4"×3", radios de giro, banda 1 3/4" y cargas PU de 5" (250) y 6" (400) coinciden; no se
+  corrigió ningún número. Hallazgo: la serie 45 codifica el freno como **FTR**, no FTO (queda en el
+  YAML; la ref sigue con `-FT`). El listado PDF no se pudo paginar: las cargas PU de 4" (200) y 8"
+  (400) quedan sin re-verificar.
+- Desviaciones aceptadas en la revisión: `radio_giro` sólo en las que giran (en la fija confunde);
+  validaciones extra del builder (medidas > 0, `y_max ≥ y_min`, `avance ≥ 0`) que hacen fallar un
+  YAML malo al CARGAR el catálogo; tests extra (avance Colson = fórmula de D3; el mapeo de
+  `Tree.tsx` leído como texto).
+- Revisión visual: render offline de `COLSON-5X2-PU-45-A-FT`, `LH-ALTH-125K-3-ST` y
+  `BH-ALTH-125K-3`: placa con agujeros, rueda detrás en −X en las giratorias, pedal atrás.
+- Suites re-corridas por la sesión principal sobre el código del worktree: pytest **1922 passed,
+  1 skipped**; ruff verde; vitest 159; `npm run build` OK. (La corrida del subagente dio 4
+  timeouts en `test_drawing_v72.py` con otras dos suites en paralelo; solo, verde.)
+- **Hallazgo para F3**: en el 38, el `run_script` de los 24 pernos (`c1229`) está SUPRIMIDO
+  («superó el límite de 60 s» al recargar con la máquina cargada) y arrastra al fijador
+  `tornilleria_garruchas` (`c1242`). Causa: 24 fusiones acumuladas (`res + b`). En F3 se edita
+  al patrón nuevo construyendo UN juego y copiándolo en un `Compound`, sin booleanas acumuladas.
