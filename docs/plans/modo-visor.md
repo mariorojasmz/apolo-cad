@@ -278,3 +278,39 @@ del visor sale arriba al centro, con Encuadrar, Aislar, Ocultar y Copiar para el
 
 **Pendiente detectado** (va a F3): «Sin guardar» y «N suprimidos» sólo se mostraban en la
 StatusBar, que en el visor no está.
+
+### F4b — el visor marca lo que cambió el agente (commit `af1838a`)
+
+En el refresh no-completo, `state/cambiosExternos.ts` despacha `apolo:cambios-externos`. No
+lo hace si cambió el epoch, si cambió el proyecto (los ids como `c12` se repiten entre
+proyectos) ni si no hubo cambio de geometría. `visor/cambiosExternos.ts` lo escucha y llama
+`marcar`; al cambiar de proyecto, olvida las marcas. El contorno verde es un segundo
+`OutlinePass` (`viewport/destello.ts`): late tres veces en 3 s y queda deshabilitado cuando
+no hay pulso. `apolo:fit` acepta `{ids}`. El aviso (`AvisoAgente`, con el texto en
+`textoAviso.ts`) tiene Ver y ×, sin Deshacer. El árbol muestra un punto verde en las piezas
+nuevas. Para pagar las líneas, `withRetry` salió a `state/reintento.ts` (`store.ts`
+923 → 916) y `cajaDe` a `camara.ts` (`Viewport.tsx` 1634 → 1631). 122 tests.
+
+### F3 — cajones, barra de paneles y ficha (commit `38e54d7`)
+
+`dock/paneles.ts` es ahora la fuente única de los paneles (componente, título y rótulo): de
+ahí leen Dockview, la StatusBar y los cajones. `ui/CLAUDE.md` dice «Panel nuevo =
+`PANELES` + `HERRAMIENTAS` + `PANEL_ICONS`». Agregados: `visor/Cajon.tsx` (Esc en captura,
+después de diálogos y menús), `BarraPaneles`, `FichaPieza` (caché por versión de escena, no
+sólo por `rev`: `set_material` no sube el `rev`), `BotonCopiar` y
+`panels/AvisosDocumento.tsx`, que comparten la StatusBar y el chip del visor. El título del
+panel de Dockview pasó de «Lista de materiales» a «BOM», según la tabla de nombres. Al rebasar
+sobre F4b chocó el `return` de `CapaVisor.tsx`; se juntaron los dos grupos de hijos. 140
+tests.
+
+**Medido en el navegador** (F3 y F4b juntas, faja 38, 1600×900):
+- El cajón del Árbol se abre a la izquierda y los controles de vista se corren.
+- Con una pieza elegida aparece la ficha: «Larguero A36 (+Y)», Acero, 4000 × 50.8 × 101.6 mm,
+  27.53 kg.
+- Un `apolo:cambios-externos` simulado muestra «El agente agregó 1 pieza», y «Ver» encuadra
+  la pieza.
+- Esc cierra el cajón sin perder la selección.
+- La BOM abre en el cajón derecho, debajo del ViewCube.
+- El chip «2 suprimidos» aparece abajo a la izquierda. El proyecto 38 abre hoy suprimiendo 2
+  comandos (`logs/errors.log`, 08:30: `set_variable pata_alto` con `h_garrucha` no definida).
+  Es ajeno a este plan.
