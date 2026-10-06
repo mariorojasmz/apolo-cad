@@ -234,3 +234,5 @@ contrato HTTP de abajo; F4 integra.
   - UI en vivo contra esa API: la tabla muestra una sola fila (`largo_total`), la celda 3200
     resaltada y «actual» en «4m estandar»; aplicar 3.2m pinta «Cambió: largo_total 4000 → 3200»
     y mueve «actual». Sin errores de consola.
+  - Tras rebasar sobre `main` (llegó modo visor; conflictos sólo en el import de `api.ts` y en
+    los conteos): pytest **1872 passed, 1 skipped**, vitest **167/167**, build exit 0.
