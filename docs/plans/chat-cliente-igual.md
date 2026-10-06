@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2, F4, F6 y F7 hechas (spikes verdes, golden del MCP, destino inyectable, catálogo de 63 tools + adaptador, guía única que el chat viejo ya usa, cliente de Anthropic con caché y avisos; adaptador y cliente todavía sin cablear al chat), sin mergear. D11 (defaults de modelo, effort y max_tokens: F7 los dejó configurables sin cambiarlos), F8 (D14) y F10 (D15) esperan la decisión de Mario. F3 y F5a esperan a partir-api-main F6c, estado-regen F4 y texto-agente F5
+nota: F0–F7, F9, F9b, F11 y F12 hechas e integradas: el chat de la app es un cliente HTTP de la API con 63 tools del MCP, guardia del documento, cupo y avisos (chat viejo borrado). Esperan la decisión de Mario: D11 (modelo, effort, max_tokens), F8 (D14) y F10 (D15); y su prueba en la UI con credencial real (modo propuesta y auto en el 38, `done.uso.cache_read > 0`)
 descripcion: El asistente de la app usa las mismas herramientas que el agente por MCP (puerta de entrega, gravedad, verify, render nítido, lotes con contrato), te avisa cuando se corta y cuesta menos por mensaje
 ---
 
@@ -1206,3 +1206,35 @@ Base `85c8955` (F5a). Sin llamar a la API de Anthropic. Sin tocar `ui/` ni `agen
 - **Para después** (no F5b): releer el token también antes de cada llamada al modelo, no sólo
   por tanda de tools, cerraría la vuelta de más del caso «el proyecto cambió justo después de
   una mutación que pasó»; es un gancho en `modelo.conversar`, que esta fase no toca.
+
+### F12 — verifica (2026-10-05, sesión principal)
+
+Sobre la rama de integración con F3, F5a, F5b, F7 (partir), F9, F9b, F11 y el E2E por MCP
+integrados (`dd9ede7` + este cierre), con la máquina SIN otras suites:
+
+- pytest completo **1 829 passed + 1 skipped** (1 830 recolectados, 515 s); `-m torture` **18
+  passed** (las 15 de antes + 3 del chat con uvicorn real, 112 s); `ruff check core tests scripts`
+  limpio; `npm test` **63/63** (8 archivos); `npm run build` verde.
+- **E2E del chat con API real y Anthropic FALSO** (sin red ni costo): API levantada desde el
+  worktree de integración en :8012 sobre una COPIA de `data/apolo.db`, con `APOLO_CHAT_MAX=1`,
+  `ANTHROPIC_BASE_URL` apuntando a un servidor local que habla el SSE de `/v1/messages` con un
+  guion por palabra clave, y una clave de mentira. Scripts en el scratchpad de la sesión (no van
+  al repo). Seis escenarios sobre el 38, todos verdes:
+
+| escenario | resultado |
+|---|---|
+| propuesta: leer la escena | `tool` con etiqueta «Leyendo el modelo» → `text` → `done.uso` (`cache_read` 80 en la 2.ª llamada); la 1.ª petición al modelo lleva 64 tools, `cache_control` en la raíz y en `system`, modelo `claude-opus-4-8` (D11 sin tocar); el `tool_result` trae el resumen real (87 sólidos, 332,502 kg) |
+| propuesta: intentar `set_variable` | `is_error` «Modo propuesta: … no se ejecuta», sin llamar a la API; 360 comandos |
+| propuesta: `propose_commands` | `actions` pendiente con la caja ensayada en seco; 360 comandos |
+| auto: `run_command` + `undo` | `tool` → `actions executed` → `tool` → `text` → `done`; vuelve a 360 |
+| cupo `APOLO_CHAT_MAX=1` | con un turno lento en curso, el 2.º recibe **429** con «El asistente ya atiende varias conversaciones a la vez…»; el 1.º termina (21 s) y un 3.º entra |
+| proyecto cambiado a mitad de turno | se abre el 28 mientras el modelo «piensa» 20 s; el turno corta con «Se abrió otro proyecto…» y el 28 queda en 320 comandos; el 38, reabierto, en 360 |
+
+- Primera corrida: 3 falsas fallas del GUION (el falso buscaba «propón» en todo el mensaje y el
+  bloque `<modo_del_turno>` de propuesta también lo dice); con el falso leyendo sólo el texto de
+  la persona, 6/6. `logs/errors.log` de la API: sólo los dos 429 esperados. Al cerrar: :8012 y
+  :8013 libres, copia de la base, `logs/`, `ui/node_modules` y `ui/dist` borrados; SHA-256 de la
+  base de Mario intacto (`1119258C…F52B4`).
+- **Para Mario** (credencial real, en la UI sobre :8000): modo propuesta y auto en el 38, cambio
+  de proyecto a mitad, `done.uso.cache_read > 0` desde la 2.ª vuelta, `errors.log` limpio. Y las
+  decisiones D11, D14 (F8) y D15 (F10).
