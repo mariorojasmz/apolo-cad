@@ -235,4 +235,6 @@ contrato HTTP de abajo; F4 integra.
     resaltada y «actual» en «4m estandar»; aplicar 3.2m pinta «Cambió: largo_total 4000 → 3200»
     y mueve «actual». Sin errores de consola.
   - Tras rebasar sobre `main` (llegó modo visor; conflictos sólo en el import de `api.ts` y en
-    los conteos): pytest **1872 passed, 1 skipped**, vitest **167/167**, build exit 0.
+    los conteos): pytest **1872 passed, 1 skipped**, vitest **167/167**, build exit 0. Un
+    segundo rebase (pantalla de proyectos y chip de ocultas, sólo UI): vitest **184/184**, build
+    exit 0; el backend no cambió y sigue el pytest de arriba.
