@@ -81,6 +81,18 @@ Origen: revisión de [V6.2e](plans/V6.2e-fixes-revision.md) (§ Bajas).
 - `RenderSnapshot` guarda `Vector` de build123d: convertir a `np.ndarray` por pureza y perf.
 - El wrapper `render_scene_vtk` toma `RENDER_LOCK` sosteniendo `STATE_LOCK`: footgun sin call
   sites (sólo lo usan los tests).
+- **`set_variable` en el 38 se rechaza con la máquina cargada** (E2E por MCP,
+  [chat-cliente-igual](plans/chat-cliente-igual.md) § F12 parte 1): la clave de
+  `sandbox._cache_key` incluye TODAS las variables → cada variable re-corre los 6 `run_script`, y
+  cada uno arranca un intérprete cuyo import en frío (`apolo.agent` → build123d, 8–86 s medidos con
+  suites en paralelo) cuenta dentro de `SCRIPT_TIMEOUT_S = 60`. El rechazo es atómico (documento
+  intacto); con la máquina libre pasa (16–103 s). Opciones: contar sólo la ejecución (intérprete
+  precalentado) o indexar la caché por las variables que el código lee (`V["…"]`).
+- **Una mutación síncrona del MCP que pasa de 120 s no deja recibo**: `set_variable`,
+  `run_command`, `undo`, `open_project`… van por `_api` (httpx a 120 s) y devuelven sólo «timed
+  out» mientras el servidor sigue trabajando; sólo `run_batch`/`edit_batch` dan recibo de job. El
+  agente no sabe si se aplicó. Opciones: encolarlas como job o traducir el `ReadTimeout` a «puede
+  haberse aplicado: lee el estado antes de reintentar».
 
 ## Paramétrico y modelo testigo 38
 
