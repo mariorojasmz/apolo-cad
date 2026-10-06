@@ -132,7 +132,8 @@ export interface DocumentOut {
   can_redo: boolean;
   variables: VariableOut[];
   configurations: string[];
-  configuration_values?: Record<string, Record<string, string>>;  // V6.4c: {variante: {var: expr}}
+  // {variante: {var: expr}}: todas las variantes tienen las MISMAS claves (las filas de su tabla)
+  configuration_values?: Record<string, Record<string, string>>;
   groups: GroupOut[];
   project_id: number | null;
   // robustez (V6.1): comandos suprimidos por una carga tolerante + estado del autosave
@@ -159,6 +160,20 @@ export interface SceneOut {
   definitions: Record<string, Mesh>;
   document: DocumentOut;
   epoch?: string;  // epoch de proceso (V6.2e): invalida los revs del cliente tras un restart
+}
+
+/* Una variable que movió aplicar una variante (sólo las que cambian de expresión). */
+export interface CambioVariante {
+  variable: string;
+  antes: string;
+  despues: string;
+}
+
+/* Respuesta de aplicar una variante: la escena + lo que cambió y, si una fila de su tabla
+   nombra una variable que ya no existe, el aviso (esa fila se ignora). */
+export interface AplicarVarianteOut extends SceneOut {
+  cambios: CambioVariante[];
+  aviso?: string;
 }
 
 /* Pestaña del ribbon de una categoría (null = el comando no va al ribbon). */

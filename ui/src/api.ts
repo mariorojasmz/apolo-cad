@@ -1,5 +1,5 @@
 import type {
-  BomRow, CatalogItem, ChecksOut, CommandSchema, ConnectivityOut, CostingOut, DofOut, DropRequest, DropResult,
+  AplicarVarianteOut, BomRow, CatalogItem, ChecksOut, CommandSchema, ConnectivityOut, CostingOut, DofOut, DropRequest, DropResult,
   GravityResult, KinematicsOut, MassPropertiesOut, MateRow, MotionKeyframe, MotionOut, ProjectInfo, RailConstraint,
   Requirements, RevisionInfo, SceneOut, SoundnessOut, StabilityOut, StabilityRequest,
 } from "./types";
@@ -82,17 +82,21 @@ export const api = {
   restoreRevision: (id: number) =>
     fetch(`/api/revisions/${id}/restore`, { method: "POST" }).then((r) => json<SceneOut>(r)),
 
-  saveConfiguration: (name: string) =>
+  // Nueva variante con el valor ACTUAL de las filas de la tabla ∪ `variables` (la primera
+  // variante no tiene filas: hay que decir qué variable la distingue, si no el servidor da 400).
+  saveConfiguration: (name: string, variables?: string[]) =>
     fetch("/api/configurations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(variables?.length ? { name, variables } : { name }),
     }).then((r) => json<SceneOut>(r)),
+  // Aplica la variante y devuelve, además de la escena, qué variables cambiaron.
   applyConfiguration: (name: string) =>
     fetch(`/api/configurations/${encodeURIComponent(name)}/apply`, { method: "POST" }).then((r) =>
-      json<SceneOut>(r),
+      json<AplicarVarianteOut>(r),
     ),
-  // V6.4c: edición explícita de una variante {variable: expresión} (tabla de diseño), sin aplicar
+  // Crea/edita una variante {variable: expresión} sin aplicarla. Una clave que no era fila de la
+  // tabla se vuelve fila, y las DEMÁS variantes la reciben con la expresión actual.
   setConfiguration: (name: string, values: Record<string, string>) =>
     fetch(`/api/configurations/${encodeURIComponent(name)}`, {
       method: "PUT",
@@ -101,6 +105,11 @@ export const api = {
     }).then((r) => json<SceneOut>(r)),
   deleteConfiguration: (name: string) =>
     fetch(`/api/configurations/${encodeURIComponent(name)}`, { method: "DELETE" }).then((r) =>
+      json<SceneOut>(r),
+    ),
+  // Quita la variable de la tabla de variantes (de todas); sigue siendo variable del proyecto.
+  deleteConfigurationColumn: (variable: string) =>
+    fetch(`/api/configuration-columns/${encodeURIComponent(variable)}`, { method: "DELETE" }).then((r) =>
       json<SceneOut>(r),
     ),
 

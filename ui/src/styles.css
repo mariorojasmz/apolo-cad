@@ -580,10 +580,25 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .brand-btn { border: none; font-weight: 600; color: #fff; font-size: 13px; padding: 4px 8px; }
 .cfg-section { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px; }
 .cfg-section h4 { margin: 0 0 4px; }
-/* Tabla de diseño (V6.4c): grilla variables x variantes con celdas editables */
+/* Tabla de variantes (panels/VariantesTabla.tsx): filas = sus variables, columnas = variantes */
+.cfg-titulo { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 5px; }
+.cfg-section .cfg-titulo h4 { margin: 0; }
+.cfg-section .hint { margin: 4px 0 0; }
+.cfg-section .vars-form select { flex: 1 1 0; min-width: 0; }
+.cfg-section .vars-form button { flex: 0 0 auto; }
 .cfg-table td.muted { color: var(--muted, #8a93a6); }
 .cfg-table .cfg-col-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cfg-table .cfg-nombre { display: flex; align-items: center; gap: 5px; }
+/* la variante que coincide entera con el modelo */
+.cfg-table .cfg-actual {
+  font-size: 10px; font-weight: 500; color: var(--ok);
+  border: 1px solid currentColor; border-radius: 9px; padding: 0 6px;
+}
 .cfg-table input.cfg-cell { width: 100%; min-width: 78px; box-sizing: border-box; font-size: 12px; padding: 2px 4px; }
+/* celda distinta del valor actual: lo que cambiaría al aplicar esa variante */
+.cfg-table input.cfg-cell.difiere { border-color: var(--accent); background: var(--accent-soft); }
+.cfg-aplicado { margin-top: 8px; font-size: 12px; }
+.cfg-aplicado p { margin: 2px 0; }
 .req-to-var { margin-left: 6px; font-size: 11px; padding: 1px 6px; }
 .color-cell { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
 .color-cell input[type="color"] { width: 42px; height: 22px; padding: 0; border: none; background: none; }
