@@ -124,8 +124,8 @@ CAMPOS: dict[str, str] = {
     ),
     "create_take_up": (
         "name diam_rodillo ancho_banda rodamiento perno espesor_soporte voladizo dir_tensor "
-        "engomado holgura_eje eje_fit position position.x position.y position.z rotation "
-        "rotation.x rotation.y rotation.z"
+        "engomado coronado_mm holgura_eje eje_fit position position.x position.y position.z "
+        "rotation rotation.x rotation.y rotation.z"
     ),
     "create_weldment": (
         "name ancho fondo alto perfil anillos_intermedios cordones esquinas position position.x "
@@ -243,7 +243,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "create_robot_arm": (1, "c4ceee70195b1ad0"),
     "create_sheet_metal": (1, "2aeed3174e15adda"),
     "create_structural_profile": (1, "ada70bc0722ffb7f"),
-    "create_take_up": (1, "aedcc6506004f628"),
+    "create_take_up": (1, "a02e2fb07d4773ae"),  # +coronado_mm: con 0 (default) la geometría no cambia
     "create_weldment": (1, "344bdbf91fff4cd9"),
     "delete_faces": (1, "1f3b55e6bf50bed4"),
     "delete_feature": (1, "131eec22d5b444b7"),

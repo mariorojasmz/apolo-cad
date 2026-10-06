@@ -68,7 +68,7 @@ PISTAS: dict[str, str] = {
         "Crea una faja de banda completa: bastidor, cama, tambores, banda, tensor, motorreductor y guardas."
     ),
     "create_take_up": (
-        "Crea el rodillo de cola de una faja de banda, con el tensor tipo trotadora que tensa la banda."
+        "Crea el rodillo de cola de una faja de banda, con su tensor tipo trotadora y un coronado opcional que la centra."
     ),
     "create_drive_roller": (
         "Crea el rodillo motriz de una faja tipo trotadora, con eje largo para acoplar el motorreductor."

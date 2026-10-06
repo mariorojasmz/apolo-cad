@@ -22,6 +22,9 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `extra`: cambiaría el JSON Schema publicado. Quitar o renombrar un campo exige upcaster; un
   campo nuevo entra con un default que reproduce lo anterior (trinquete D12:
   `tests/test_contrato_comandos.py`).
+- `models.py` y `registry.py` están congelados por el trinquete de tamaño: un modelo que crece
+  sale a su módulo por familia con sus listas de catálogo (`models_rodillos.py`) y `registry.py`
+  lo importa de ahí.
 - La `description` del modelo es para el AGENTE (larga a propósito, con nombres de params); la
   persona lee la PISTA de `pistas.py` (vista `?vista=persona`, `vista_persona.py`): un comando
   nuevo sin pista rompe `tests/test_pistas.py` ([ui](../../../ui/CLAUDE.md)). Un super-comando reutilizable
@@ -85,6 +88,8 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
 - `create_drive_roller` es de eje FIJO: un tambor MOTRIZ real necesita eje vivo + chumaceras.
 - `create_take_up(eje_fit=…)` anota el asiento en el nombre («Ø35 g6»): eje fijo → g6/h6, nunca
   k6 (lo verifica [library](../library/CLAUDE.md)). [V7.2b](../../../docs/plans/V7.2b-barrida-residuos.md)
+- `create_take_up(coronado_mm)`: coronado trapezoidal del rodillo (centro recto ½ de la cara,
+  conos en ¼ por punta, baja en el RADIO); 0 = el cilindro de siempre, por eso sigue en v1.
 - Bastidores con ingletes (`create_weldment`/`create_frame`): [library](../library/CLAUDE.md).
   `insert_project`: [doc](../doc/CLAUDE.md).
 

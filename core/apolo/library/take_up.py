@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from build123d import Box, Cylinder
 
-from apolo.kernel.shapes import place
+from apolo.kernel.shapes import make_revolution, place
 
 from .builders import socket_cap
 from .catalog import CATALOG, build_component
@@ -54,9 +54,25 @@ def _ybr(half: float, voladizo: float, sgn: float) -> float:
 
 # ---------------------------------------------------------------- helpers comunes
 
-def _roller_body(diam_rodillo: float, cara: float, big: float, engomado: bool, name: str):
-    """Tubo HUECO (bore = Ø ext. del rodamiento) + engomado opcional a TODO el ancho. UNA pieza."""
+def _crowned_tube(r_ext: float, r_int: float, cara: float, coronado: float):
+    """Tubo con CORONADO TRAPEZOIDAL, eje a lo largo de Y y centrado en el origen: centro recto
+    = 1/2 de la cara y un cono en el 1/4 de cada punta que baja `coronado` en el RADIO. Es el
+    perfil que deja el torno (cilindrar al Ø nominal y tornear los dos conos)."""
+    h, q = cara / 2.0, cara / 4.0
+    perfil = [(r_int, -h), (r_ext - coronado, -h), (r_ext, -q), (r_ext, q),
+              (r_ext - coronado, h), (r_int, h)]
+    return place(make_revolution(perfil), (0.0, 0.0, 0.0), (90.0, 0.0, 0.0))
+
+
+def _roller_body(diam_rodillo: float, cara: float, big: float, engomado: bool, name: str,
+                 coronado: float = 0.0):
+    """Tubo HUECO (bore = Ø ext. del rodamiento) + engomado opcional a TODO el ancho. UNA pieza.
+    `coronado` > 0 → perfil trapezoidal (`_crowned_tube`) y el engomado, de espesor uniforme,
+    lo copia; 0 → el cilindro recto de siempre (un log viejo regenera idéntico)."""
     lag = 6.0 if engomado else 0.0
+    if coronado > 0:
+        body = _crowned_tube(diam_rodillo / 2.0 + lag, big / 2.0, cara, coronado)
+        return ConveyorPart("rodillo", f"{name} coronado", body, None, None)
     body = _cyl_y(diam_rodillo / 2.0, cara) - _cyl_y(big / 2.0, cara + 2.0)
     if lag > 0:
         body = body + (_cyl_y(diam_rodillo / 2.0 + lag, cara) - _cyl_y(diam_rodillo / 2.0, cara))
@@ -152,13 +168,21 @@ def _shaft_with_holes(bore: float, length: float, bolt_d: float, y_off: float, h
 # ---------------------------------------------------------------- super-comandos
 
 def take_up_parts(diam_rodillo, ancho_banda, rodamiento, perno, espesor_soporte,
-                  voladizo, engomado, dir_tensor=-1.0, eje_fit=None) -> list[ConveyorPart]:
+                  voladizo, engomado, dir_tensor=-1.0, eje_fit=None,
+                  coronado_mm=0.0) -> list[ConveyorPart]:
     """Rodillo de COLA tensable: eje fijo + TENSOR (soporte «C» + perno longitudinal) en AMBOS extremos.
     `eje_fit` (p. ej. 'g6') se anota en el NOMBRE del eje → la memoria verifica el asiento del
-    rodamiento (eje FIJO = anillo interior estacionario, asiento holgado g6/h6)."""
+    rodamiento (eje FIJO = anillo interior estacionario, asiento holgado g6/h6).
+    `coronado_mm` > 0 corona el rodillo (trapezoidal, ver `_crowned_tube`) para centrar la banda."""
     bore, big, width_b, bolt_d, cara, half = _common(rodamiento, perno, diam_rodillo, ancho_banda, voladizo)
+    if coronado_mm < 0:
+        raise ValueError("El coronado no puede ser negativo (0 = rodillo recto)")
+    if diam_rodillo - 2.0 * coronado_mm < big + 10.0:
+        raise ValueError(f"Un coronado de {coronado_mm:g} mm deja las puntas en "
+                         f"Ø{diam_rodillo - 2.0 * coronado_mm:g}: el mínimo es Ø{big + 10:g} "
+                         f"para alojar el rodamiento Ø{big:g}")
 
-    parts = [_roller_body(diam_rodillo, cara, big, engomado, "Rodillo de cola")]
+    parts = [_roller_body(diam_rodillo, cara, big, engomado, "Rodillo de cola", coronado_mm)]
     holes = [_ybr(half, voladizo, 1.0), _ybr(half, voladizo, -1.0)]
     eje_ext = voladizo - _EJE_GAP   # el eje se queda corto del alma (alma sólida)
     eje_name = (f"Eje fijo Ø{bore:g} {eje_fit} (roscado p/ perno)" if eje_fit

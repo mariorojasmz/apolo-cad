@@ -1,7 +1,8 @@
 """Super-comando create_take_up: tensor de cola tipo trotadora (eje fijo).
 
 Piezas SEPARADAS y mapeadas: rodillo + eje + 2 rodamientos + 2 seeger + (por lado)
-soporte en C + perno comercial de catálogo + tuerca soldada de catálogo.
+soporte en C + perno comercial de catálogo + tuerca soldada de catálogo. El rodillo admite
+coronado trapezoidal (`coronado_mm`, 0 = recto).
 """
 
 import pytest
@@ -157,6 +158,82 @@ def test_shaft_has_transverse_hole_for_perno():
     largo = bb.max.Y - bb.min.Y
     solido = math.pi * (35.0 / 2.0) ** 2 * largo
     assert eje.shape.volume < solido * 0.99   # hay material removido (agujeros transversales)
+
+
+# --- coronado trapezoidal del rodillo de cola (centrado de banda plana en acero liso) ---
+
+def _rodillo(d):
+    return next(f for f in d.scene.values() if "Rodillo" in f.name)
+
+
+def _tubo_recto(r_ext, r_int, cara):
+    import math
+    return math.pi * (r_ext ** 2 - r_int ** 2) * cara
+
+
+def _tubo_coronado(r_ext, r_int, cara, h):
+    """Centro recto 1/2 de la cara + 2 troncos de cono de cara/4 que bajan h, menos el bore."""
+    import math
+    r2 = r_ext - h
+    conos = 2.0 * math.pi * (cara / 4.0) / 3.0 * (r_ext ** 2 + r_ext * r2 + r2 ** 2)
+    return math.pi * r_ext ** 2 * cara / 2.0 + conos - math.pi * r_int ** 2 * cara
+
+
+def test_sin_coronado_es_el_cilindro_recto_de_siempre():
+    """Default 0: un log viejo (sin la clave) regenera IDÉNTICO, nombre incluido."""
+    from apolo.commands.registry import REGISTRY
+    assert REGISTRY["create_take_up"].model().coronado_mm == 0
+    rod = _rodillo(_doc())                           # Ø101.6, cara 700, 6207 (bore Ø72)
+    assert rod.name == "Tensor de cola · Rodillo de cola"
+    assert rod.shape.volume == pytest.approx(_tubo_recto(50.8, 36.0, 700.0), rel=1e-6)
+
+
+def test_coronado_trapezoidal_volumen_y_cotas():
+    rod = _rodillo(_doc(diam_rodillo=114, ancho_banda=600, coronado_mm=0.5))
+    assert "Rodillo de cola coronado" in rod.name
+    assert rod.shape.volume == pytest.approx(_tubo_coronado(57.0, 36.0, 600.0, 0.5), rel=1e-6)
+    assert rod.shape.volume < _tubo_recto(57.0, 36.0, 600.0)
+    bb = rod.shape.bounding_box()                    # el bbox lo da el centro: Ø114 × 600
+    assert bb.max.X - bb.min.X == pytest.approx(114.0, abs=1e-3)
+    assert bb.max.Z - bb.min.Z == pytest.approx(114.0, abs=1e-3)
+    assert bb.max.Y - bb.min.Y == pytest.approx(600.0, abs=1e-3)
+    caras = [f.bounding_box() for f in rod.shape.faces()]
+    puntas = [c for c in caras if c.max.Y - c.min.Y < 1e-6 and abs(c.min.Y) > 299.0]
+    assert len(puntas) == 2                          # una cara anular por punta, a Ø113
+    assert all(c.max.X - c.min.X == pytest.approx(113.0, abs=1e-3) for c in puntas)
+    exteriores = [c for c in caras if c.max.X - c.min.X == pytest.approx(114.0, abs=1e-3)]
+    centro = [c for c in exteriores if c.min.Y < 0.0 < c.max.Y]
+    conos = [c for c in exteriores if not c.min.Y < 0.0 < c.max.Y]
+    assert len(centro) == 1 and centro[0].max.Y - centro[0].min.Y == pytest.approx(300.0, abs=1e-3)
+    assert len(conos) == 2 and all(c.max.Y - c.min.Y == pytest.approx(150.0, abs=1e-3) for c in conos)
+
+
+def test_coronado_con_engomado_el_caucho_lo_copia():
+    rod = _rodillo(_doc(diam_rodillo=114, ancho_banda=600, coronado_mm=0.5, engomado=True))
+    bb = rod.shape.bounding_box()
+    assert bb.max.Z - bb.min.Z == pytest.approx(126.0, abs=1e-3)   # 114 + 2·6 de caucho
+    assert rod.shape.volume == pytest.approx(_tubo_coronado(63.0, 36.0, 600.0, 0.5), rel=1e-6)
+
+
+def test_coronado_sigue_a_una_variable():
+    d = Document("coronado-var")
+    d.execute("set_variable", {"name": "coronado_h", "expression": "0.5"})
+    d.execute("create_take_up", {"diam_rodillo": 114, "ancho_banda": 600,
+                                 "coronado_mm": "=coronado_h"})
+    assert _rodillo(d).shape.volume == pytest.approx(_tubo_coronado(57.0, 36.0, 600.0, 0.5), rel=1e-6)
+    var_id = next(c["id"] for c in d.commands if c["type"] == "set_variable")
+    d.edit(var_id, {"name": "coronado_h", "expression": "0"})
+    assert _rodillo(d).name.endswith("Rodillo de cola")              # 0 → recto otra vez
+    assert _rodillo(d).shape.volume == pytest.approx(_tubo_recto(57.0, 36.0, 600.0), rel=1e-6)
+
+
+def test_coronado_rechaza_puntas_que_no_alojan_el_rodamiento():
+    from apolo.library.take_up import take_up_parts
+    _doc(diam_rodillo=90)                            # recto: Ø90 ≥ 72 + 10, vale
+    with pytest.raises(Exception, match="puntas"):
+        _doc(diam_rodillo=90, coronado_mm=5)         # puntas Ø80 < Ø82
+    with pytest.raises(ValueError, match="negativo"):
+        take_up_parts(114, 600, "6207", "PERNO-M16", 9.5, 50, False, coronado_mm=-1)
 
 
 def test_take_up_eje_fit_annotates_shaft_name():

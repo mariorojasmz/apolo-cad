@@ -42,8 +42,6 @@ from .models import (
     CreateFrameParams,
     CreateRevolveParams,
     CreateRobotArmParams,
-    CreateDriveRollerParams,
-    CreateTakeUpParams,
     CreateWeldmentParams,
     CreateStructuralProfileParams,
     CreateGroupParams,
@@ -78,6 +76,7 @@ from .models import (
     TransformGroupParams,
     TransformParams,
 )
+from .models_rodillos import CreateDriveRollerParams, CreateTakeUpParams
 from .errors import CommandError
 from .spec import CommandSpec, run_executor
 from .state import ExecContext, RegenState
@@ -1947,7 +1946,7 @@ def _exec_create_take_up(ctx: ExecContext, cmd_id: str, p: CreateTakeUpParams) -
     try:
         parts = take_up_parts(
             p.diam_rodillo, p.ancho_banda, p.rodamiento, p.perno, p.espesor_soporte,
-            p.voladizo, p.engomado, p.dir_tensor, eje_fit=p.eje_fit,
+            p.voladizo, p.engomado, p.dir_tensor, eje_fit=p.eje_fit, coronado_mm=p.coronado_mm,
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Tensor de cola: {exc}") from exc
