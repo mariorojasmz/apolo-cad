@@ -346,11 +346,14 @@ def redo() -> dict:
 
 class ConfigIn(BaseModel):
     name: str
+    # columnas NUEVAS de la tabla de diseño; la primera variante las necesita (sin columnas → 400)
+    variables: list[str] | None = None
 
 
 @router.post("/api/configurations")
 def save_configuration(body: ConfigIn) -> dict:
-    return _state_or_error(lambda: S.doc.save_configuration(body.name.strip()))
+    """Variante con el valor ACTUAL de las columnas de la tabla ∪ `variables`, SIN aplicarla."""
+    return _state_or_error(lambda: S.doc.save_configuration(body.name.strip(), body.variables))
 
 
 class ConfigValuesIn(BaseModel):
@@ -359,15 +362,30 @@ class ConfigValuesIn(BaseModel):
 
 @router.put("/api/configurations/{name}")
 def set_configuration(name: str, body: ConfigValuesIn) -> dict:
-    """Edita una variante con {variable: expresión} explícito (tabla de diseño) SIN aplicarla."""
+    """Crea o edita una variante con {variable: expresión} SIN aplicarla; una clave que no era
+    columna entra en TODAS las variantes con su expresión actual (tabla rectangular)."""
     return _state_or_error(lambda: S.doc.set_configuration(name, body.values))
 
 
 @router.post("/api/configurations/{name}/apply")
 def apply_configuration(name: str) -> dict:
-    return _state_or_error(lambda: S.doc.apply_configuration(name))
+    """Aplica una variante; el payload suma `cambios` [{variable, antes, despues}] y, si hay,
+    `aviso`. Se miden DENTRO del lock, antes de mutar."""
+    hecho: dict = {}
+    payload = _state_or_error(lambda: hecho.update(S.doc.apply_configuration(name)))
+    payload["cambios"] = hecho["cambios"]
+    if hecho.get("aviso"):
+        payload["aviso"] = hecho["aviso"]
+    return payload
 
 
 @router.delete("/api/configurations/{name}")
 def delete_configuration(name: str) -> dict:
     return _state_or_error(lambda: S.doc.delete_configuration(name))
+
+
+@router.delete("/api/configuration-columns/{variable}")
+def delete_configuration_column(variable: str) -> dict:
+    """Quita una variable de la tabla de variantes (de TODAS); sigue siendo variable del
+    proyecto. Prefijo propio para no solaparse con `/api/configurations/{name}/…`."""
+    return _state_or_error(lambda: S.doc.delete_configuration_column(variable))

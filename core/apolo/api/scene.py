@@ -274,8 +274,9 @@ def _open_briefing() -> dict:
     if len(notas) > 20:
         brief["notas_truncadas"] = len(notas) - 20  # sin caps silenciosos
 
-    if S.doc.configurations:  # tablas de diseño: variantes disponibles
+    if S.doc.configurations:  # tabla de diseño: las variantes y sus columnas
         brief["configuraciones"] = sorted(S.doc.configurations.keys())
+        brief["tabla_variantes"] = {k: dict(v) for k, v in S.doc.configurations.items()}
     return brief
 
 

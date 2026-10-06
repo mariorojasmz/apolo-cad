@@ -15,6 +15,9 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+
+import apolo.api.main as api
 from apolo.doc import Document, DocumentError
 from apolo.doc import variantes as V
 from apolo.kernel import bbox_payload
@@ -334,3 +337,57 @@ def test_un_apolo_sin_variantes_sigue_sin_variantes():
     doc = _modelo()
     assert Document.from_apolo_bytes(_con_manifest(doc, configurations_format=None)) \
         .configurations == {}
+
+
+# ── API ───────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture()
+def cliente(monkeypatch):
+    doc = _modelo()
+    monkeypatch.setattr(api, "DOC", doc)
+    monkeypatch.setattr(api._autosave_sched, "schedule", lambda: None)
+    return doc, TestClient(api.app)
+
+
+def test_api_post_con_variables_y_apply_con_cambios(cliente):
+    doc, c = cliente
+    r = c.post("/api/configurations", json={"name": "4m"})
+    assert r.status_code == 400 and r.json()["detail"] == V.SIN_COLUMNAS
+    r = c.post("/api/configurations", json={"name": "4m", "variables": ["largo_total"]})
+    assert r.status_code == 200
+    assert r.json()["document"]["configuration_values"] == {"4m": {"largo_total": "4000"}}
+    assert c.put("/api/configurations/3.2m",
+                 json={"values": {"largo_total": "3200"}}).status_code == 200
+
+    r = c.post("/api/configurations/3.2m/apply")
+    assert r.status_code == 200
+    assert r.json()["cambios"] == [{"variable": "largo_total", "antes": "4000", "despues": "3200"}]
+    assert "aviso" not in r.json()
+    cama = next(f for f in r.json()["features"] if f["name"] == "Cama")
+    assert cama["bbox"]["max"][0] - cama["bbox"]["min"][0] == pytest.approx(3200, abs=1e-3)
+    r = c.post("/api/configurations/3.2m/apply")
+    assert r.json()["cambios"] == []  # ya estaba aplicada
+
+
+def test_api_apply_con_aviso(cliente):
+    doc, c = cliente
+    c.post("/api/configurations", json={"name": "v", "variables": ["largo_total"]})
+    assert c.delete("/api/configuration-columns/largo_total").status_code == 200
+    r = c.post("/api/configurations/v/apply")
+    assert r.status_code == 200 and r.json()["cambios"] == []
+    assert "no cambia nada" in r.json()["aviso"]
+
+
+def test_api_delete_de_columna(cliente):
+    doc, c = cliente
+    c.put("/api/configurations/a", json={"values": {"largo_total": "3200", "n_patas": "3"}})
+    c.post("/api/configurations", json={"name": "b"})
+    r = c.delete("/api/configuration-columns/n_patas")
+    assert r.status_code == 200
+    assert r.json()["document"]["configuration_values"] == {
+        "a": {"largo_total": "3200"}, "b": {"largo_total": "4000"}}
+    assert doc.variables_raw["n_patas"] == "4"  # sigue siendo variable del proyecto
+    r = c.delete("/api/configuration-columns/n_patas")
+    assert r.status_code == 400 and "no está en la tabla de variantes" in r.json()["detail"]
+    assert doc.configurations == {"a": {"largo_total": "3200"}, "b": {"largo_total": "4000"}}

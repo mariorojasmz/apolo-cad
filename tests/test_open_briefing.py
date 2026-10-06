@@ -36,6 +36,12 @@ def test_open_briefing_includes_configurations():
     api.DOC.save_configuration("4m", ["L"])
     b = api._open_briefing()
     assert b.get("configuraciones") == ["4m"]
+    assert b.get("tabla_variantes") == {"4m": {"L": "2000"}}  # las variantes con sus columnas
+
+
+def test_open_briefing_sin_variantes_no_trae_la_tabla():
+    api.DOC = _rich_doc()
+    assert "configuraciones" not in (b := api._open_briefing()) and "tabla_variantes" not in b
 
 
 def test_open_endpoint_returns_briefing(tmp_path):

@@ -2018,6 +2018,44 @@
   ]
  },
  {
+  "caso": "guardar configuración con valores",
+  "tool": "save_configuration",
+  "args": {
+   "name": "3.2m",
+   "values": {
+    "L": "3200"
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/configurations/3.2m",
+    "query": [],
+    "cuerpo": {
+     "values": {
+      "L": "3200"
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "aplicar configuración",
   "tool": "apply_configuration",
   "args": {
@@ -2025,7 +2063,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 0, \"solidos\": [], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 0, \"solidos\": [], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"cambios\": [{\"variable\": \"L\", \"antes\": \"2000\", \"despues\": \"3200\"}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -2033,6 +2071,36 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/configurations/3.2m/apply",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "aplicar configuración con aviso",
+  "tool": "apply_configuration",
+  "args": {
+   "name": "vieja"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 0, \"solidos\": [], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"cambios\": [], \"aviso\": \"Se ignoraron n: ya no son variables del proyecto (golden)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/configurations/vieja/apply",
     "query": [],
     "cuerpo": null,
     "cabeceras": {

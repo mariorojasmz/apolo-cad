@@ -565,21 +565,21 @@ def save_revision(note: str) -> str:
 
 
 @mcp.tool()
-def save_configuration(name: str) -> str:
-    """Guarda una CONFIGURACIÓN (variante = tabla de diseño) con los valores ACTUALES de todas
-    las variables del proyecto. Aplícala luego con apply_configuration para saltar el modelo
-    entero a esa variante (un solo undo). Ver las variables con get_scene."""
-    payload = _api("POST", "/api/configurations", json={"name": name}).json()
-    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+def save_configuration(name: str, values: dict[str, str] | None = None) -> str:
+    """Guarda una VARIANTE SIN aplicarla: sólo sus COLUMNAS (las variables que la distinguen; lo
+    demás es común). Sin `values` toma el valor ACTUAL de las columnas; la primera variante pide
+    `values` (p. ej. {"largo_total": "4000"}), que crea o edita; una clave nueva entra en todas."""
+    r = (_api("PUT", f"/api/configurations/{name}", json={"values": values}) if values is not None
+         else _api("POST", "/api/configurations", json={"name": name}))
+    return json.dumps(_scene_brief(r.json()), ensure_ascii=False)
 
 
 @mcp.tool()
 def apply_configuration(name: str) -> str:
-    """Aplica una CONFIGURACIÓN guardada: reescribe las variables a los valores de esa variante
-    y regenera el modelo COMPLETO (un solo paso de deshacer). Úsalo para alternar entre
-    variantes de diseño (p. ej. '4m estándar' ↔ '3.2m compacta')."""
+    """Aplica una VARIANTE (un undo): reescribe sólo sus columnas; devuelve `cambios` y `aviso`."""
     payload = _api("POST", f"/api/configurations/{name}/apply").json()
-    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+    extra = {k: payload[k] for k in ("cambios", "aviso") if k in payload}  # qué movió el clic
+    return json.dumps({**_scene_brief(payload), **extra}, ensure_ascii=False)
 
 
 @mcp.tool()

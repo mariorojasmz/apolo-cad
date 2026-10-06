@@ -80,6 +80,7 @@ RUTAS = {
     "set_visibility_bulk": ("POST", "/api/features/visibility", {"json": {"ids": ["c3"], "visible": False}}),
     "save_configuration": ("POST", "/api/configurations", {"json": {"name": "v2"}}),
     "apply_configuration": ("POST", "/api/configurations/v1/apply", {}),
+    "delete_configuration_column": ("DELETE", "/api/configuration-columns/L", {}),
     "declare_structure": ("POST", "/api/assembly/declare", {}),
     "delete_connection": ("POST", "/api/connections/remove", {"json": {"names": ["g1"]}}),
     "delete_joint": ("DELETE", "/api/joints/puerta", {}),

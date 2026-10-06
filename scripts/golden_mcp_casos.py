@@ -113,7 +113,9 @@ RUTAS = [
     ("POST", r"/api/projects", J(escena())),
     ("POST", r"/api/revisions", J({"id": 7, "note": "golden"})),
     ("POST", r"/api/configurations", J(escena())),
-    ("POST", r"/api/configurations/[^/]+/apply", J(escena(["v1"]))),
+    ("PUT", r"/api/configurations/[^/]+", J(escena())),
+    ("POST", r"/api/configurations/[^/]+/apply", J(escena(["v1"], cambios=[
+        {"variable": "L", "antes": "2000", "despues": "3200"}]))),
     ("GET", r"/api/export/(step|stl)", B(b"ISO-10303-21; golden")),
     ("GET", r"/api/sheetmetal/[^/]+/flat\.dxf", B(b"0\nSECTION golden")),
     ("POST", r"/api/physics/drop", J({"resting": [[0, 0, 10]], "settled": True,
@@ -245,7 +247,12 @@ CASOS = [
     caso("crear proyecto", "create_project", {"name": "nuevo", "template": "transportador"}),
     caso("revisión", "save_revision", {"note": "antes de editar"}),
     caso("guardar configuración", "save_configuration", {"name": "4m"}),
+    caso("guardar configuración con valores", "save_configuration",
+         {"name": "3.2m", "values": {"L": "3200"}}),
     caso("aplicar configuración", "apply_configuration", {"name": "3.2m"}),
+    caso("aplicar configuración con aviso", "apply_configuration", {"name": "vieja"}, rutas={
+        ("POST", r"/api/configurations/[^/]+/apply"): J(escena(["v1"], cambios=[],
+            aviso="Se ignoraron n: ya no son variables del proyecto (golden)"))}),
     caso("exportar step", "export_step", {"path": "modelo.step"}),
     caso("exportar stl", "export_stl", {"path": "modelo.stl", "tolerance": 0.2}),
     caso("desplegado", "export_flat_pattern", {"feature_id": "c1", "path": "flat.dxf"}),

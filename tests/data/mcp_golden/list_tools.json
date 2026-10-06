@@ -1193,12 +1193,27 @@
  },
  {
   "name": "save_configuration",
-  "description": "Guarda una CONFIGURACIÓN (variante = tabla de diseño) con los valores ACTUALES de todas\nlas variables del proyecto. Aplícala luego con apply_configuration para saltar el modelo\nentero a esa variante (un solo undo). Ver las variables con get_scene.",
+  "description": "Guarda una VARIANTE SIN aplicarla: sólo sus COLUMNAS (las variables que la distinguen; lo\ndemás es común). Sin `values` toma el valor ACTUAL de las columnas; la primera variante pide\n`values` (p. ej. {\"largo_total\": \"4000\"}), que crea o edita; una clave nueva entra en todas.",
   "inputSchema": {
    "properties": {
     "name": {
      "title": "Name",
      "type": "string"
+    },
+    "values": {
+     "anyOf": [
+      {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Values"
     }
    },
    "required": [
@@ -1223,7 +1238,7 @@
  },
  {
   "name": "apply_configuration",
-  "description": "Aplica una CONFIGURACIÓN guardada: reescribe las variables a los valores de esa variante\ny regenera el modelo COMPLETO (un solo paso de deshacer). Úsalo para alternar entre\nvariantes de diseño (p. ej. '4m estándar' ↔ '3.2m compacta').",
+  "description": "Aplica una VARIANTE (un undo): reescribe sólo sus columnas; devuelve `cambios` y `aviso`.",
   "inputSchema": {
    "properties": {
     "name": {

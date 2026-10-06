@@ -159,7 +159,8 @@ def test_configurations_api(client):
     client.post("/api/commands", json={"type": "create_box", "params": {"width": "=L"}})
     r = client.post("/api/configurations", json={"name": "corta"})
     assert r.status_code == 400 and "dinos qué variables" in r.json()["detail"]
-    assert client.put("/api/configurations/corta", json={"values": {"L": "500"}}).status_code == 200
+    assert client.post("/api/configurations",
+                       json={"name": "corta", "variables": ["L"]}).status_code == 200
     client.post("/api/variables", json={"name": "L", "expression": "900"})
     client.post("/api/configurations", json={"name": "larga"})
 
@@ -167,6 +168,8 @@ def test_configurations_api(client):
     bbox = r.json()["features"][0]["bbox"]
     assert bbox["max"][0] - bbox["min"][0] == pytest.approx(500, abs=1e-3)
     assert set(r.json()["document"]["configurations"]) == {"corta", "larga"}
+    assert r.json()["cambios"] == [{"variable": "L", "antes": "900", "despues": "500"}]
+    assert "aviso" not in r.json()
 
     assert client.delete("/api/configurations/corta").status_code == 200
     assert client.post("/api/configurations/corta/apply").status_code == 400

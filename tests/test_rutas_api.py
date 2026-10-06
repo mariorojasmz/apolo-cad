@@ -164,3 +164,5 @@ def test_el_detector_de_solapes():
     assert not solapan("/api/fea/group/{name}", "/api/fea/{feature_id}")  # otro largo
     assert not solapan("/api/fea/{feature_id}/fringe.png", "/api/fea/{feature_id}/mesh.png")
     assert not solapan("/api/{x}.png", "/api/static.svg")
+    # quitar una columna de las variantes lleva prefijo propio (D7 de variantes-solo-sus-variables)
+    assert not solapan("/api/configuration-columns/{variable}", "/api/configurations/{name}")
