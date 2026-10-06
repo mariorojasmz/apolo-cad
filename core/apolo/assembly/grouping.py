@@ -22,7 +22,7 @@ CAT2SUB = {
     "perfiles": "Estructura", "tubos_circulares": "Estructura",
     "perfiles_abiertos": "Estructura", "tubos_estructurales": "Estructura",
     "patas": "Estructura", "pies_niveladores": "Estructura", "topes": "Estructura",
-    "guias_lineales": "Estructura",
+    "guias_lineales": "Estructura", "garruchas": "Estructura",
     "motorreductores": "Transmision", "motorreductores_sinfin": "Transmision",
     "transmision": "Transmision", "tensores_trotadora": "Transmision",
     "variadores": "Transmision",

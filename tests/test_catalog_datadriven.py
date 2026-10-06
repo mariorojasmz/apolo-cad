@@ -127,7 +127,10 @@ def test_all_new_families_present():
     assert len(refs_in_category("tuercas")) == 9  # M6-M24 DIN 934, pareja del DIN 933 (V6.5c)
     # motorreductores sinfín-corona NMRV (eje hueco, montaje directo sobre el eje)
     assert len(refs_in_category("motorreductores_sinfin")) == 8
-    assert len(CATALOG) == 231  # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c)
+    # garruchas de placa: Blickle LH-ALTH/-ST/BH-ALTH + Colson Colombia 44/45 PU (plan garruchas-catalogo)
+    assert len(refs_in_category("garruchas")) == 24
+    # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c) +24 garruchas (garruchas-catalogo)
+    assert len(CATALOG) == 255
 
 
 def test_door_sliding_hardware():

@@ -26,7 +26,7 @@ const ORDER = [
 const CAT2SUB: Record<string, string> = {
   perfiles: "Estructura", tubos_circulares: "Estructura", perfiles_abiertos: "Estructura",
   tubos_estructurales: "Estructura", patas: "Estructura", pies_niveladores: "Estructura",
-  topes: "Estructura", guias_lineales: "Estructura",
+  topes: "Estructura", guias_lineales: "Estructura", garruchas: "Estructura",
   motorreductores: "Transmisión", transmision: "Transmisión", tensores_trotadora: "Transmisión",
   variadores: "Transmisión",
   rodillos: "Rodillos y tambores", tambores: "Rodillos y tambores",

@@ -9,11 +9,14 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Para agregar partes: editar/crear YAML en `data/` (el prefijo numérico ordena); builder nuevo
   sólo si la geometría no existe. `param_keys` lee del VARIANT (no de `specs_common`); el loader
   vuelca cualquier clave extra del variant a `specs`. Editar sólo YAML no recarga el worker (raíz).
+- Builder nuevo → módulo propio (`builders_rodaje.py`): `builders.py` está congelado por el
+  trinquete; `loader.py` une los registros y rechaza nombres repetidos.
 - Biblioteca paramétrica > STEP de fabricante (sólo para la compra puntual). `cost`,
   `cost_por_m` y `COST_PER_KG_USD` son REFERENCIALES: actualizar con proveedor para cotizar firme.
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
-  `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`). Los perfiles se extruyen en
-  Z (rotar 90° sobre Y → larguero en X).
+  `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara
+  de montaje de la placa: [plan](../../../docs/plans/garruchas-catalogo.md)). Los perfiles se
+  extruyen en Z (rotar 90° sobre Y → larguero en X).
 - Builders: todo término empieza con `Pos(...) *` (un `Rotation(...) * shape` pelado da
   `ValueError: other must be a list of Locations`); las partes de un mismo sólido SOLAPAN
   0.5–8 mm (tangentes → Compound; disjuntas → ShapeList sin `.volume`); `build_component(ref, L)`

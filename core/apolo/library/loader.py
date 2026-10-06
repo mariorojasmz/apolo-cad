@@ -16,9 +16,26 @@ import os
 
 import yaml
 
-from .builders import BUILDERS
+from .builders import BUILDERS as _BUILDERS_BASE
+from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+
+
+def merge_builders(*registros: dict) -> dict:
+    """Une registros de builders en uno. Un nombre repetido es un ERROR: un builder no pisa a
+    otro en silencio (el YAML que lo nombra construiría otra geometría sin aviso). Cada familia
+    nueva va en su propio módulo (`builders.py` está congelado por el trinquete de tamaño)."""
+    unido: dict = {}
+    for registro in registros:
+        for nombre, factory in registro.items():
+            if nombre in unido:
+                raise ValueError(f"Builder '{nombre}' registrado dos veces entre los módulos de builders")
+            unido[nombre] = factory
+    return unido
+
+
+BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE)
 
 
 def eval_formula(expr: str, specs: dict) -> float:

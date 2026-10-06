@@ -142,6 +142,9 @@ HARDWARE_CATS = {"tornilleria", "rodamientos", "pernos"}
 FEA_HARDWARE_CATS = HARDWARE_CATS | {
     "motorreductores", "motorreductores_sinfin", "chumaceras", "tuercas",
     "tensores_trotadora", "variadores", "sensores", "mandos",
+    # garruchas: horquilla, pista y rueda son representativas; su peso entra como carga
+    # sustituta declarada (plan garruchas-catalogo D8)
+    "garruchas",
 }
 
 

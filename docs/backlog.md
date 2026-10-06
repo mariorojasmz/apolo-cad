@@ -152,6 +152,8 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
 - `funcion`/rol por pieza.
 - Explosionada 3D (la explosionada 2D del plano ya existe).
 - L10 con reparto real.
+- **Memoria de cálculo: carga por garrucha vs `carga_kg` del catálogo** (dato ya en el YAML de
+  garruchas, `110_garruchas.yaml`). Origen: [garruchas-catalogo](plans/garruchas-catalogo.md) § 7.
 
 ## UI
 

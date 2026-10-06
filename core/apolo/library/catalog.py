@@ -49,6 +49,7 @@ CATEGORIES = [
     "cerraduras", "imanes_topes",
     "rieles_corredera", "correderas_colgantes",
     "motorreductores_sinfin",
+    "garruchas",
 ]
 
 
@@ -72,9 +73,12 @@ def build_component(ref: str, length: float | None = None):
 #    local, origen en el centro del barreno → "centro".
 #  - motorreductores sinfín NMRV (worm_gearmotor): eje hueco de salida a lo largo de Y local,
 #    origen en el centro → "bore".
+#  - garruchas (caster): origen en el centro de la cara SUPERIOR de la placa, la que se atornilla
+#    a la máquina; eje +Z = normal saliente de esa cara → "placa" (plan garruchas-catalogo D6).
 _CATEGORY_ANCHORS: dict[str, dict] = {
     "chumaceras": {"centro": {"origin": [0.0, 0.0, 0.0], "axis": [0.0, 1.0, 0.0]}},
     "motorreductores_sinfin": {"bore": {"origin": [0.0, 0.0, 0.0], "axis": [0.0, 1.0, 0.0]}},
+    "garruchas": {"placa": {"origin": [0.0, 0.0, 0.0], "axis": [0.0, 0.0, 1.0]}},
 }
 
 
