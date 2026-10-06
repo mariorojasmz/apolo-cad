@@ -57,10 +57,11 @@ def test_configurations_save_apply_cascade():
     doc = Document()
     var = doc.execute("set_variable", {"name": "L", "expression": "2000"})
     doc.execute("create_conveyor", {"largo": "=L", "ancho": 600, "altura": 750, "paso": 100})
-    doc.save_configuration("2 metros")
+    doc.save_configuration("2 metros", ["L"])  # la primera variante nombra su columna
 
     doc.edit(var, {"name": "L", "expression": "3000"})
-    doc.save_configuration("3 metros")
+    doc.save_configuration("3 metros")  # captura las columnas de la tabla: {L}
+    assert doc.configurations == {"2 metros": {"L": "2000"}, "3 metros": {"L": "3000"}}
     rodillos_3m = len([f for f in doc.scene.values() if "Rodillo" in f.name])
 
     doc.apply_configuration("2 metros")
@@ -80,7 +81,7 @@ def test_configurations_and_colors_survive_apolo():
     doc = Document()
     doc.execute("set_variable", {"name": "a", "expression": "10"})
     fid = doc.execute("create_box", {})
-    doc.save_configuration("base")
+    doc.save_configuration("base", ["a"])
     doc.set_color(fid, "#ff8800")
 
     doc2 = Document.from_apolo_bytes(doc.to_apolo_bytes())
@@ -156,7 +157,9 @@ def test_revisions_api(client):
 def test_configurations_api(client):
     client.post("/api/variables", json={"name": "L", "expression": "500"})
     client.post("/api/commands", json={"type": "create_box", "params": {"width": "=L"}})
-    client.post("/api/configurations", json={"name": "corta"})
+    r = client.post("/api/configurations", json={"name": "corta"})
+    assert r.status_code == 400 and "dinos qué variables" in r.json()["detail"]
+    assert client.put("/api/configurations/corta", json={"values": {"L": "500"}}).status_code == 200
     client.post("/api/variables", json={"name": "L", "expression": "900"})
     client.post("/api/configurations", json={"name": "larga"})
 
@@ -176,12 +179,14 @@ def test_set_configuration_explicit():
     doc.execute("set_variable", {"name": "W", "expression": "600"})
     doc.execute("create_box", {"width": "=L", "depth": "=W"})
     doc.set_configuration("compacta", {"L": "1200"})           # explícito, sin aplicar
-    assert doc.configurations["compacta"] == {"L": "1200", "W": "600"}  # el resto hereda lo actual
+    assert doc.configurations["compacta"] == {"L": "1200"}    # sólo su columna: W no entra
     assert doc.variables_resolved["L"] == 2000                 # el modelo NO cambió
     doc.apply_configuration("compacta")
     assert doc.variables_resolved["L"] == 1200
     doc.set_configuration("compacta", {"L": "1500"})           # editar variante existente
-    assert doc.configurations["compacta"]["L"] == "1500"
+    assert doc.configurations["compacta"] == {"L": "1500"}
+    doc.set_configuration("larga", {})                         # nueva: parte de las columnas
+    assert doc.configurations["larga"] == {"L": "1200"}       # con su valor actual
 
 
 def test_set_configuration_validates():

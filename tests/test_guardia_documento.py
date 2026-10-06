@@ -42,7 +42,7 @@ def _modelo() -> Document:
                              "position": {"z": 60}})  # c3, apoyada en la base
     d.execute("add_joint", {"name": "puerta", "parent": "c2", "child": "c3", "origin": {"x": 150}})
     d.execute("ground", {"name": "g1", "feature": "c2"})
-    d.save_configuration("v1")
+    d.save_configuration("v1", ["L"])
     d.set_motion("existente", [{"t": 0, "values": {"puerta": 0}}, {"t": 1, "values": {"puerta": 10}}])
     d.set_stackup("holgura", [{"nombre": "a", "nominal_mm": 10, "sentido": 1, "tol": {"pm": 0.1}}])
     return d

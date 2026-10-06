@@ -1,7 +1,8 @@
 # Documento (`core/apolo/doc/`)
 
 El documento event-sourced: `document.py` (log, regenerate, undo, metadatos de manifest,
-integridad), `geomcache.py` (caché de geometría) y `subproject.py` (replay de `insert_project`).
+integridad), `variantes.py` (tabla de variantes), `geomcache.py` (caché de geometría) y
+`subproject.py` (replay de `insert_project`).
 Lo transversal (invariantes del log, regenerate incremental y atómico, locks) está en el
 [CLAUDE.md raíz](../../../CLAUDE.md); lo común del backend, en [core/apolo](../CLAUDE.md).
 
@@ -36,11 +37,14 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
 - `set_motion` valida cada fotograma `{"t", "values": {junta: valor}}`: claves sueltas, juntas
   inexistentes, valores no numéricos o estudio todo vacío → `DocumentError` accionable. Aceptarlo
   en silencio dejaba un estudio que «reproducía» sin mover nada (commit `a8593f4`).
-- Variantes (`configurations`): `save_configuration` captura las variables actuales;
-  `set_configuration` edita `{var: expr}` SIN aplicar (valida existencia, parseo y ciclos);
-  `apply_configuration` reescribe las variables y regenera todo en un solo undo. El puente
-  requisito → variable es EXPLÍCITO (botón «→ var» = `set_variable`), nunca `=req.x`: los
-  requisitos no cambian las firmas del regenerate y la geometría quedaría vieja.
+- Variantes (`configurations`) = tabla de diseño RECTANGULAR (lógica pura en `variantes.py`;
+  `Document` sólo delega): cada variante guarda sólo sus COLUMNAS, todas las mismas, y una
+  columna nueva entra en las demás con la expresión actual de su variable. Nunca guardes todas
+  las variables: aplicar revertiría en silencio lo que cambió después. Sin la bandera
+  `configurations_format: 2`, `from_apolo_bytes` migra las fotos viejas; `apply_configuration`
+  devuelve `cambios`/`aviso`. [plan](../../../docs/plans/variantes-solo-sus-variables.md)
+- El puente requisito → variable es EXPLÍCITO (botón «→ var» = `set_variable`), nunca `=req.x`:
+  los requisitos no cambian las firmas del regenerate y la geometría quedaría vieja.
   [V6.4](../../../docs/plans/V6.4-parametrico-profundo.md)
 
 ## Caché de geometría (`geomcache.py`)

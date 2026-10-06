@@ -21,6 +21,7 @@ from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_comma
 from apolo.commands.spec import version_tag
 from apolo.commands.state import RegenState
 from apolo.commands.strict import reject_unknown
+from apolo.doc import variantes
 
 FORMAT_VERSION = 2  # v2 añade attachments/ (archivos STEP importados); abre v1 sin cambios
 
@@ -650,52 +651,49 @@ class Document:
         return digest
 
     # ------------------------------------------------------- configuraciones
-    def save_configuration(self, name: str) -> None:
-        """Captura los valores actuales de TODAS las variables como variante."""
-        if not self.variables_raw:
-            raise DocumentError("No hay variables que guardar: define variables primero")
-        self.configurations[name] = dict(self.variables_raw)
+    # Variantes = tabla de diseño: cada una guarda sólo sus COLUMNAS. Lógica en `variantes.py`;
+    # aquí se delega y se traduce `VarianteError` → `DocumentError`. No tocan el log ni la
+    # geometría, salvo `apply_configuration`.
+    def _tabla(self, fn, *args) -> dict:
+        try:
+            return fn(*args)
+        except variantes.VarianteError as exc:
+            raise DocumentError(str(exc)) from None
+
+    def save_configuration(self, name: str, variables: list[str] | None = None) -> None:
+        """Variante con el valor ACTUAL de las columnas ∪ `variables` (columnas nuevas)."""
+        self.configurations = self._tabla(
+            variantes.guardar, self.configurations, name, self.variables_raw, variables)
 
     def set_configuration(self, name: str, values: dict[str, str]) -> None:
-        """Edición EXPLÍCITA de una variante (V6.4c, tablas de diseño): `values` = {variable:
-        expresión} que sobreescribe esa variante SIN aplicarla al modelo (a diferencia de
-        `save_configuration`, que solo captura el snapshot actual). Base = la variante existente
-        si la hay, si no las variables actuales; se validan: variables existentes, expresiones
-        que parsean y sin ciclos (resolviendo el conjunto combinado). No toca el log ni la
-        geometría — la variante se materializa al `apply_configuration`."""
-        unknown = [v for v in values if v not in self.variables_raw]
-        if unknown:
-            raise DocumentError(
-                f"No existe{'n' if len(unknown) > 1 else ''} la variable "
-                f"{', '.join(sorted(unknown))}: define las variables antes de la variante"
-            )
-        base = dict(self.configurations.get(name) or self.variables_raw)
-        base.update({k: str(v) for k, v in values.items()})
-        try:
-            resolve_all(base)
-        except ExpressionError as exc:
-            raise DocumentError(f"Configuración '{name}' inválida: {exc}") from None
-        self.configurations[name] = base
+        """Edita {variable: expresión} SIN aplicar; un nombre nuevo parte de las columnas."""
+        self.configurations = self._tabla(
+            variantes.editar, self.configurations, name, values, self.variables_raw)
 
-    def apply_configuration(self, name: str) -> None:
-        """Aplica una variante: edita los set_variable correspondientes y
-        regenera (un único paso de deshacer)."""
+    def delete_configuration_column(self, variable: str) -> None:
+        """Quita la columna de TODAS las variantes; la variable sigue en el proyecto."""
+        self.configurations = self._tabla(variantes.quitar_columna, self.configurations, variable)
+
+    def apply_configuration(self, name: str) -> dict:
+        """Reescribe los set_variable de SUS columnas y regenera (un solo undo). Devuelve
+        {"cambios": [{variable, antes, despues}], "aviso": str | None}, medido ANTES."""
         config = self.configurations.get(name)
         if config is None:
-            raise DocumentError(f"No existe la configuración '{name}'")
+            raise DocumentError(f"No existe la variante '{name}'")
+        resultado = variantes.al_aplicar(config, self.variables_raw)
 
         def apply():
             for cmd in self.commands:
-                if cmd["type"] == "set_variable":
-                    var = cmd["params"].get("name")
-                    if var in config:
-                        cmd["params"] = {"name": var, "expression": str(config[var])}
+                var = cmd["params"].get("name")
+                if cmd["type"] == "set_variable" and var in config:
+                    cmd["params"] = {"name": var, "expression": str(config[var])}
 
         self._mutate(apply)
+        return resultado
 
     def delete_configuration(self, name: str) -> None:
         if name not in self.configurations:
-            raise DocumentError(f"No existe la configuración '{name}'")
+            raise DocumentError(f"No existe la variante '{name}'")
         del self.configurations[name]
 
     def set_color(self, feature_id: str, color: str | None) -> None:
@@ -946,6 +944,7 @@ class Document:
                         "hidden": sorted(self.hidden),
                         "seq": self._seq,
                         "configurations": self.configurations,
+                        "configurations_format": variantes.FORMATO,  # tabla de columnas
                         "colors": self.colors,
                         "materials": self.materials,
                         "sketch_guides": sorted(self.sketch_guides),
@@ -999,7 +998,7 @@ class Document:
         doc.commands = commands
         doc.hidden = set(manifest.get("hidden", []))
         doc.attachments = attachments
-        doc.configurations = manifest.get("configurations", {})
+        doc.configurations = variantes.cargar(manifest, commands)  # sin bandera: migra fotos
         doc.colors = manifest.get("colors", {})
         doc.materials = manifest.get("materials", {})
         # sketch_guides es metadato (command_ids): poda las entradas cuyo comando ya

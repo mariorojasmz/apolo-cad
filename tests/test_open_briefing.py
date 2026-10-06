@@ -33,7 +33,7 @@ def test_open_briefing_shape():
 
 def test_open_briefing_includes_configurations():
     api.DOC = _rich_doc()
-    api.DOC.save_configuration("4m")
+    api.DOC.save_configuration("4m", ["L"])
     b = api._open_briefing()
     assert b.get("configuraciones") == ["4m"]
 
