@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato aprobado por Mario (2026-10-06, sin vetos); F1–F4 en implementación
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: sin pendientes; el proyecto 38 real migra a {largo_total} la primera vez que lo abra la API reiniciada con este código
 descripcion: Aplicar una variante cambia sólo las variables que la distinguen; ya no revierte en silencio los cambios de diseño que hiciste después de guardarla
 ---
 
@@ -198,3 +198,39 @@ contrato HTTP de abajo; F4 integra.
 - **F0 (2026-10-06)**: lectura de `data/apolo.db` en modo sólo lectura. Resultado en la tabla de
   «El problema». Hallazgo: el arreglo a mano de hoy volvió a guardar fotos completas porque el
   `PUT` sobre un nombre nuevo parte de todas las variables.
+- **F1 + F2 (2026-10-06, subagente backend, en paralelo con F3)**: `doc/variantes.py` puro (195
+  líneas) y `tests/test_variantes.py` (26 tests); `document.py` baja de 1060 a 1059 líneas y
+  `mcp_server.py` queda en 1429. Bordes que el contrato no fijaba, resueltos así:
+  - una columna cuya variable se borró **bloquea crear una variante nueva** (no hay valor actual
+    que copiar): el error pide quitarla de la tabla o volver a definir la variable. Inventar un
+    valor rompía la tabla rectangular;
+  - `editar` valida contra `{**variables, **variante sin columnas muertas}`: lo mismo que deja
+    aplicarla;
+  - en la migración, una clave AUSENTE de una foto vale lo actual del log (aplicarla no la
+    tocaba). `variables_raw` siempre es `str` (el executor guarda lo que validó pydantic);
+  - los textos de error dicen «variante», no «configuración» (vocabulario de `ui/CLAUDE.md`).
+- **F3 (2026-10-06, subagente UI)**: `panels/VariantesTabla.tsx` + `panels/variantes.ts` (puro, 8
+  tests); `VariablesDialog.tsx` baja de 211 a 131 líneas. Desvíos de texto por las reglas de la
+  UI: «Crear variante desde la actual» (verbo + objeto), sección «Variantes» con la explicación en
+  la ⓘ. Si el servidor no manda `cambios`, no se muestra la línea (no decir «ya coincidía» en
+  falso contra un backend viejo).
+- **Integración y F4 (2026-10-06)**: cherry-pick de las tres ramas + un ajuste en `apply`
+  (`params.get` sólo de los `set_variable`). Suites re-corridas por la sesión principal:
+  - pytest **1864 passed, 1 skipped**. La primera pasada dio 1 fallo,
+    `test_drawing_v72::test_feature_fit_maps_are_per_piece`; pasa aislado, pasa su archivo entero
+    (29/29) y pasa en la re-corrida completa: intermitente, y no toca variantes;
+  - vitest **71/71** (63 + 8), `npm run build` exit 0.
+  - E2E sobre COPIA de la base (API del worktree en :8012, `APOLO_DB`), **17/17**: abrir el 38
+    (7,4 s) migra las dos fotos de 37 claves a `{largo_total}`; con `ancho_banda` cambiada a
+    `600 + 0` (ajena a la tabla), aplicar 3.2m devuelve `cambios` = sólo `largo_total
+    4000→3200` y `ancho_banda` NO se revierte; volver a 4m deja variables y los bbox de las 84
+    piezas idénticos; «crear desde la actual» captura sólo `{largo_total}`; el autosave persiste
+    `configurations_format: 2` y la tabla migrada; 3 `undo` dejan el log como al abrir.
+  - `scripts/e2e_mcp.py --puerto 8012 --proyecto 38`: **25/27**. Los dos fallos son el bug ya
+    conocido de `set_variable` en el 38 (los `run_script` re-ejecutan su sandbox y pasan los 120 s
+    del cliente; [chat-cliente-igual](chat-cliente-igual.md) § Bugs del producto): esta vez el
+    servidor aplicó tarde, el guion lo vio cambiado (#20) y el `undo` lo dejó idéntico (#27). No
+    lo toca este plan. El briefing de `open_project` trae `tabla_variantes` (5,9 KB en total).
+  - UI en vivo contra esa API: la tabla muestra una sola fila (`largo_total`), la celda 3200
+    resaltada y «actual» en «4m estandar»; aplicar 3.2m pinta «Cambió: largo_total 4000 → 3200»
+    y mueve «actual». Sin errores de consola.

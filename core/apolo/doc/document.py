@@ -684,8 +684,8 @@ class Document:
 
         def apply():
             for cmd in self.commands:
-                var = cmd["params"].get("name")
-                if cmd["type"] == "set_variable" and var in config:
+                var = cmd["params"].get("name") if cmd["type"] == "set_variable" else None
+                if var in config:
                     cmd["params"] = {"name": var, "expression": str(config[var])}
 
         self._mutate(apply)

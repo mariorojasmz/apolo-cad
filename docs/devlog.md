@@ -4305,3 +4305,23 @@ sólo actualizó las dos menciones del estado del 38 en el CLAUDE.md.
 V6.8-C (`f765777`, 2026-08-01). El CLAUDE.md siguió diciendo «sin tool MCP» y «falta MP4 y tool
 MCP» hasta esta poda (deriva corregida al mover). Lo único pendiente es el MP4 (en
 `docs/backlog.md`).
+
+## 2026-10-06 — Una variante revertía en silencio el diseño posterior
+
+**Qué se creía.** Una variante (tabla de diseño, V6.4) era «los valores de las variables para esa
+versión de la máquina». En la práctica `save_configuration` guardaba una FOTO de TODAS las
+variables, y `set_configuration` sobre un nombre nuevo también partía de todas. Aplicarla
+reescribía las 37 variables del 38.
+
+**Qué pasó.** Las variantes «4m» y «3.2m» del 38 eran del 2026-07-10. Hoy se cambiaron
+`sec_pata` y las fórmulas de `pata_alto`/`pata_cz` por las garruchas. Aplicar cualquiera de las
+dos habría vuelto a la pata de 3″ y a la altura vieja, sin aviso. El arreglo a mano (borrar y
+recrear con `PUT {largo_total}`) no desarmó nada: el `PUT` volvió a sembrar las 37 variables del
+momento. E1.4 del benchmark nunca lo vio, porque sus corridas aplicaban variantes que eran fotos
+del diseño VIGENTE: «aplicar y volver» era bit-idéntico igual.
+
+**Qué se aprendió.** Una variante es una fila de una tabla de diseño, no una foto. Guarda sólo sus
+columnas, todas las variantes tienen las mismas, y lo que no es columna es común. Al aplicar se
+dice qué cambió (`cambios`). Las fotos viejas se migran al abrir con una regla que conserva el
+salto ENTRE variantes y descarta sólo el «volver a la foto»: el 38 quedó con `{largo_total}`.
+Plan, decisiones y números: `docs/plans/variantes-solo-sus-variables.md`.
