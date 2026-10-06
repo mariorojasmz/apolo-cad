@@ -22,8 +22,9 @@ import type { ChatAction, UsoTurno } from "../types";
 
 export type EventoChat =
   | { type: "text"; text: string }
-  /** Nota de avance del modelo entre tools: línea transitoria. */
-  | { type: "progreso"; text: string }
+  /** Nota de avance del modelo entre tools: línea transitoria. Una nota puede llegar en varios
+   *  trozos; `nuevo` marca el primero (sólo viene en true; un backend sin la marca no lo manda). */
+  | { type: "progreso"; text: string; nuevo?: boolean }
   /** `etiqueta` = texto para la persona («Leyendo el modelo»); el chat viejo no la manda. */
   | { type: "tool"; name: string; etiqueta?: string }
   | { type: "actions"; actions: ChatAction[]; executed: boolean }
@@ -56,8 +57,10 @@ export function validar(dato: unknown): EventoChat | null | string {
   const falta = (campo: string) => `\`${d.type}\` sin \`${campo}\``;
   switch (d.type) {
     case "text":
+      return esTexto(d.text) ? { type: "text", text: d.text } : falta("text");
     case "progreso":
-      return esTexto(d.text) ? { type: d.type, text: d.text } : falta("text");
+      if (!esTexto(d.text)) return falta("text");
+      return d.nuevo === true ? { type: "progreso", text: d.text, nuevo: true } : { type: "progreso", text: d.text };
     case "tool":
       if (!esTexto(d.name)) return falta("name");
       return esTexto(d.etiqueta) && d.etiqueta.trim()

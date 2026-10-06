@@ -60,7 +60,9 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   importa perezoso restaurando el logger raíz (FastMCP lo reconfigura al construirse).
 - `agent/modelo.py` es el cliente de Anthropic del chat: config LEÍDA en cada
   llamada (`APOLO_MODEL`, `APOLO_MAX_TOKENS`, `APOLO_EFFORT`, `APOLO_CHAT_VUELTAS`; los defaults
-  esperan D11), caché en el último bloque de `system` + el automático, conversación append-only
+  esperan D11), caché en el último bloque de `system` + el automático, conversación append-only,
+  `nuevo: true` en el primer trozo no vacío de cada bloque `thinking` (cada nota de avance es su
+  bloque, en varios deltas: la UI reemplaza la nota en vez de pegarla)
   y ningún final silencioso: `aviso` ante `max_tokens`/`refusal`/vueltas agotadas.
 - `agent/chat.py` (con `APOLO_CHAT_HTTP=1` hasta la F5b de
   [chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)) es un cliente HTTP más de la

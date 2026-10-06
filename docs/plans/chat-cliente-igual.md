@@ -1052,3 +1052,63 @@ Base `ad210db` (F3 integrada). Sin llamar a la API de Anthropic: todo con un cli
   - **Para F10/F12, no F5b**: la UI muestra un 429 como «Error 429 del servidor» (`sendChat` no
     lee el `detail`, que ya viene en tuteo); y la sugerencia de F9 de marcar el inicio de cada
     nota de avance (`progreso` con `nuevo: true`) sigue abierta en `modelo.py`.
+
+### F9b — remate: errores HTTP del chat y notas de avance (2026-10-05)
+
+Base `85c8955` (F5a). Cierra los dos pendientes que F5a dejó «para F10/F12». Corrió en paralelo
+con F5b: sin tocar `agent/agent.py`, `agent/chat.py`, `agent/__init__.py` ni
+`api/routers/core.py`. Ninguna llamada a la API de Anthropic.
+
+- **Errores HTTP legibles.** `sendChat` lanzaba «Error 429 del servidor» sin leer el cuerpo,
+  y la API ya manda el motivo en tuteo (`chat.LLENO` en el 429 del cupo, el texto de
+  `modelo.Corte` en el 500 de una config inválida).
+  - `api.ts` tenía TRES copias del lector de `detail` (`json<T>`, `dropGif`, `stabilityGif`),
+    sin exportar: salen a `detalleDeError(res)` (exportado, 341 → 328 líneas) y las tres lo
+    usan. **Decisión**: devuelve sólo un `detail` de TEXTO no vacío. Antes `detail ?? statusText`
+    convertía la lista de un 422 de pydantic en «[object Object]»; ahora cae al `statusText`.
+    Ninguna ruta de la API manda hoy un `detail` que no sea texto (revisados los
+    `HTTPException` con `detail=` no literal), así que ése es el único cambio visible fuera del
+    chat.
+  - `chat/respuesta.ts::cuerpoDelChat(res)` (14 líneas): devuelve el cuerpo del stream o lanza
+    con el `detail`; «Error N del servidor» queda de respaldo (sin JSON, `detail` vacío o que no
+    es texto, 200 sin cuerpo). `store.ts` sigue en 947: `api.chat` + el `throw` pasan a una
+    línea y entra el import. El error sigue yendo a `logs/errors.log` como antes.
+- **Marca de inicio de cada nota de avance** (la sugerencia de F9). La referencia de la API
+  (skill `claude-api`, model-migration § Fable 5.1 desde Fable 5, adición 3) dice que cada nota
+  vuelve como SU PROPIO bloque `thinking` y transmite su texto en `thinking_delta`; el
+  razonamiento oculto llega en bloques vacíos.
+  - `modelo.py::_llamar` (177 → 186): `content_block_start` arma la marca; el primer
+    `thinking_delta` NO VACÍO del bloque sale con `"nuevo": true` y la desarma. Arranca armada en
+    cada llamada (la primera nota de cada vuelta es nueva aunque un stream no trajera el
+    inicio). Un bloque vacío no cede nada ni gasta la marca del siguiente. Sin
+    `display: "updates"` no hay `progreso`, como antes.
+  - UI: `sse.ts::validar` acepta `nuevo` sólo en `progreso` y sólo si es `true` (si no, lo
+    omite); `turno.ts` empieza otra nota con `nuevo` y, sin la marca, sigue juntando los
+    seguidos, así que un backend que no marca se lee igual que antes. Desaparece el costo que
+    anotó F9: dos notas de una misma respuesta sin evento en medio ya no se pegan.
+  - `agent/eventos.py`: sólo su docstring (`progreso {text, nuevo?}`). El campo es opcional:
+    `TIPOS` y `_CAMPOS_UI` de `test_chat_http.py` no cambian.
+- **Tests**:
+  - `test_chat_modelo.py` 27 → 28 (438 → 477 líneas): uno nuevo con el cliente falso (bloque
+    vacío; nota en tres deltas con el primero vacío; otra nota seguida; texto; nota tras el
+    texto; y la vuelta siguiente sin `content_block_start`). El del **SDK instalado** sobre
+    `httpx.MockTransport` ahora manda DOS bloques de avance seguidos (el segundo en dos deltas)
+    y exige la marca en el primer trozo de cada uno: confirma que `content_block_start` llega
+    por la iteración del stream beta del SDK, no sólo en el falso.
+  - `sse.test.ts` 19 → 20 (un `progreso` con `nuevo` dentro del turno que se corta en cada
+    posición y en cada byte; `validar` con `true`, `false`, otro tipo y en un `text`),
+    `turno.test.ts` 12 → 13, `respuesta.test.ts` 4 (429 con `LLENO`, 500 con el texto de la
+    config, cinco respaldos —lista de 422, `detail` en blanco, otro formato, HTML de un proxy,
+    sin cuerpo— y la respuesta buena).
+  - **Comprobado que se pone rojo** (y revertido): sin el `content_block_start` que rearma la
+    marca, fallan el test nuevo y el del SDK con el beta.
+- Reglas: `core/apolo/CLAUDE.md` (la línea de `modelo.py`) y `ui/CLAUDE.md` § Chat (la marca y
+  `chat/respuesta.ts`).
+- **Números**: pytest 1849 passed + 1 skipped (la base, 1848 + 1: +1, el test nuevo; tortura
+  deseleccionada). Vitest 57 → 63 (8 archivos). `npm run build` verde, con los avisos de
+  siempre (chunk grande; `api.ts` importado estático y dinámico, aviso que ahora también nombra
+  a `chat/respuesta.ts`). `ruff check core tests scripts` limpio; trinquetes y
+  `test_claude_md.py` verdes.
+- Sin verificación en vivo (no se toca la API de Mario): queda para F12, con
+  `APOLO_MODEL=claude-opus-5-5`, ver dos notas seguidas reemplazarse y, con `APOLO_CHAT_MAX=1`
+  y dos chats a la vez, el texto del cupo en lugar de «Error 429 del servidor».

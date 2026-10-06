@@ -48,6 +48,10 @@ def _avance(t):
     return NS(type="content_block_delta", index=0, delta=NS(type="thinking_delta", thinking=t))
 
 
+def _inicio(tipo="thinking"):
+    return NS(type="content_block_start", index=0, content_block=NS(type=tipo))
+
+
 def _uso(i=10, o=5, leidos=None, escritos=None):
     return NS(input_tokens=i, output_tokens=o, cache_read_input_tokens=leidos,
               cache_creation_input_tokens=escritos)
@@ -207,8 +211,35 @@ def test_notas_de_avance_solo_en_los_modelos_que_las_documentan(monkeypatch):
     assert c.llamadas[0][0] == "beta"
     assert c.kw(0)["betas"] == ["thinking-display-updates-2026-08-18"]
     assert c.kw(0)["thinking"] == {"type": "adaptive", "display": "updates"}
-    assert eventos[:2] == [{"type": "progreso", "text": "Leo el resumen por grupo."},
+    assert eventos[:2] == [{"type": "progreso", "text": "Leo el resumen por grupo.", "nuevo": True},
                            {"type": "text", "text": "Hola"}]
+
+
+def test_el_primer_trozo_de_cada_nota_de_avance_la_marca_como_nueva(monkeypatch):
+    """Cada nota es su propio bloque `thinking` y llega en varios deltas: sólo el primer trozo NO
+    VACÍO de cada bloque lleva `nuevo` (dos notas seguidas no se pegan en la UI); un bloque vacío
+    (el razonamiento oculto) no cede nada ni gasta la marca del siguiente."""
+    monkeypatch.setenv("APOLO_MODEL", "claude-opus-5-5")
+    evs = [_inicio(), _avance(""),
+           _inicio(), _avance(""), _avance("Leo el "), _avance("modelo."),
+           _inicio(), _avance("Reviso "), _avance("las uniones."),
+           _inicio("text"), _texto("Hola"),
+           _inicio(), _avance("Mido la holgura.")]
+    eventos, _, _, _ = _correr([_resp("end_turn", eventos=evs)])
+    assert eventos[:-1] == [
+        {"type": "progreso", "text": "Leo el ", "nuevo": True},
+        {"type": "progreso", "text": "modelo."},
+        {"type": "progreso", "text": "Reviso ", "nuevo": True},
+        {"type": "progreso", "text": "las uniones."},
+        {"type": "text", "text": "Hola"},
+        {"type": "progreso", "text": "Mido la holgura.", "nuevo": True},
+    ]
+    # cada llamada empieza de cero: la primera nota de la vuelta siguiente también es nueva
+    vuelta = [_avance("Sigo "), _avance("con la mesa.")]
+    eventos, _, _, _ = _correr([_resp("tool_use", [_tool("t1")], eventos=evs[6:9]),
+                                _resp("end_turn", eventos=vuelta)])
+    avances = [e for e in eventos if e["type"] == "progreso"]
+    assert [e.get("nuevo", False) for e in avances] == [True, False, True, False]
 
 
 # ------------------------------------------------- D13 ningún final silencioso
@@ -353,23 +384,29 @@ def _sse(*eventos) -> bytes:
 
 
 def _respuesta_sse(stop, delta_extra=None):
-    """Un pensamiento con nota de avance, un texto y el cierre con `stop`, como lo manda el API."""
+    """Dos notas de avance seguidas (la segunda en dos deltas), un texto y el cierre con `stop`,
+    como lo manda el API."""
     uso = {"input_tokens": 30, "output_tokens": 1, "cache_read_input_tokens": 1200,
            "cache_creation_input_tokens": 40}
+
+    def pensamiento(i, *trozos):
+        return [{"type": "content_block_start", "index": i,
+                 "content_block": {"type": "thinking", "thinking": "", "signature": ""}},
+                *({"type": "content_block_delta", "index": i,
+                   "delta": {"type": "thinking_delta", "thinking": t}} for t in trozos),
+                {"type": "content_block_delta", "index": i,
+                 "delta": {"type": "signature_delta", "signature": "firma"}},
+                {"type": "content_block_stop", "index": i}]
+
     return _sse(
         {"type": "message_start", "message": {
             "id": "msg_1", "type": "message", "role": "assistant", "model": "m", "content": [],
             "stop_reason": None, "stop_sequence": None, "usage": uso}},
-        {"type": "content_block_start", "index": 0,
-         "content_block": {"type": "thinking", "thinking": "", "signature": ""}},
-        {"type": "content_block_delta", "index": 0,
-         "delta": {"type": "thinking_delta", "thinking": "Leo el modelo."}},
-        {"type": "content_block_delta", "index": 0,
-         "delta": {"type": "signature_delta", "signature": "firma"}},
-        {"type": "content_block_stop", "index": 0},
-        {"type": "content_block_start", "index": 1, "content_block": {"type": "text", "text": ""}},
-        {"type": "content_block_delta", "index": 1, "delta": {"type": "text_delta", "text": "Hola"}},
-        {"type": "content_block_stop", "index": 1},
+        *pensamiento(0, "Leo el modelo."),
+        *pensamiento(1, "Reviso ", "las uniones."),
+        {"type": "content_block_start", "index": 2, "content_block": {"type": "text", "text": ""}},
+        {"type": "content_block_delta", "index": 2, "delta": {"type": "text_delta", "text": "Hola"}},
+        {"type": "content_block_stop", "index": 2},
         {"type": "message_delta", "delta": {"stop_reason": stop, "stop_sequence": None,
                                             **(delta_extra or {})},
          "usage": {"output_tokens": 9}},
@@ -405,7 +442,9 @@ def test_contra_el_sdk_instalado(monkeypatch, modelo_env, beta):
     assert cuerpo["cache_control"] == {"type": "ephemeral"} and cuerpo["tools"] == TOOLS
     assert cuerpo["thinking"] == ({"type": "adaptive", "display": "updates"} if beta
                                   else {"type": "adaptive"})
-    avances = [{"type": "progreso", "text": "Leo el modelo."}] if beta else []
+    avances = [{"type": "progreso", "text": "Leo el modelo.", "nuevo": True},
+               {"type": "progreso", "text": "Reviso ", "nuevo": True},
+               {"type": "progreso", "text": "las uniones."}] if beta else []
     assert eventos[:-2] == avances + [{"type": "text", "text": "Hola"}]
     assert eventos[-2]["motivo"] == "refusal" and eventos[-2]["categoria"] == "cyber"
     assert eventos[-1]["uso"] == {"input": 30, "output": 9, "cache_read": 1200,

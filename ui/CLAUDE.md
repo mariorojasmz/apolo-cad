@@ -226,3 +226,6 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   evento al mensaje; el store sólo los encadena. Un evento nuevo del backend se agrega en `sse.ts`
   (tipo + `validar()`) con su caso en `sse.test.ts`; un `type` desconocido se ignora y uno roto se
   descarta a `logs/errors.log`. [plan](../docs/plans/chat-cliente-igual.md)
+- `progreso` con `nuevo: true` empieza una nota de avance; sin la marca, los `progreso` seguidos
+  se juntan (así se lee un backend que no marca). Una respuesta HTTP fallida del chat se lee en
+  `chat/respuesta.ts`: muestra el `detail` de la API (ya viene en tuteo); el código, sólo de respaldo.

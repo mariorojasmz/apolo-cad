@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api, connectWs } from "../api";
 import { reportError } from "../errorlog";
+import { cuerpoDelChat } from "../chat/respuesta";
 import { eventosSse, type EventoChat } from "../chat/sse";
 import { aplicarEvento, cerrarTurno } from "../chat/turno";
 import type {
@@ -909,11 +910,10 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     try {
-      const res = await api.chat(messages, auto);
-      if (!res.ok || !res.body) throw new Error(`Error ${res.status} del servidor`);
+      const cuerpo = await cuerpoDelChat(await api.chat(messages, auto)); // falla con el `detail` de la API
       let anterior: EventoChat["type"] | undefined;
       let terminado = false;
-      for await (const ev of eventosSse(res.body, (detalle) => reportError("chat-sse", detalle))) {
+      for await (const ev of eventosSse(cuerpo, (detalle) => reportError("chat-sse", detalle))) {
         updateLast((m) => aplicarEvento(m, ev, anterior === "progreso"));
         anterior = ev.type;
         if (ev.type === "done") terminado = true;

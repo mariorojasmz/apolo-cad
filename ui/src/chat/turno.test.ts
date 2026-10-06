@@ -33,6 +33,14 @@ describe('el mensaje del asistente evento a evento', () => {
         expect(turno([progreso('Reviso '), progreso('las uniones.')]).progreso).toBe('Reviso las uniones.');
     });
 
+    it('con `nuevo`, dos notas seguidas no se pegan: la nueva reemplaza y sus trozos se juntan', () => {
+        const nueva = (text: string): EventoChat => ({ type: 'progreso', text, nuevo: true });
+        const m = turno([nueva('Leo '), progreso('el modelo.'), nueva('Reviso '), progreso('las uniones.')]);
+        expect(m.progreso).toBe('Reviso las uniones.');
+        // tras una tool, con o sin la marca, empieza de cero
+        expect(turno([progreso('a'), { type: 'tool', name: 'measure' }, nueva('b')]).progreso).toBe('b');
+    });
+
     it('la tool no borra la nota: sigue a la vista mientras corre', () => {
         expect(turno([progreso('Mido la holgura.'), { type: 'tool', name: 'measure' }]).progreso).toBe('Mido la holgura.');
     });

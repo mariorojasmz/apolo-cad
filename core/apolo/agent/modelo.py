@@ -146,16 +146,25 @@ def _turno(cliente, cfg: Config, kw: dict, convo: list, ejecutar: Ejecutor, uso:
 
 
 def _llamar(cliente, kw: dict, convo: list):
-    """Una llamada en streaming: cede el texto (y las notas de avance) y retorna el mensaje."""
+    """Una llamada en streaming: cede el texto (y las notas de avance) y retorna el mensaje.
+    Cada nota de avance es su propio bloque `thinking` y puede llegar en varios deltas: el primer
+    trozo NO VACÍO de cada bloque sale con `nuevo: True` (la UI reemplaza la nota en vez de
+    pegarla a la anterior); un bloque vacío (el razonamiento oculto) no cede nada."""
     abrir = cliente.beta.messages.stream if "betas" in kw else cliente.messages.stream
     with abrir(**kw, messages=convo) as stream:
+        nuevo = True
         for ev in stream:
+            if ev.type == "content_block_start":
+                nuevo = True
             if ev.type != "content_block_delta":
                 continue
             if ev.delta.type == "text_delta" and ev.delta.text:
                 yield {"type": "text", "text": ev.delta.text}
             elif ev.delta.type == "thinking_delta" and ev.delta.thinking and "betas" in kw:
-                yield {"type": "progreso", "text": ev.delta.thinking}  # con "updates" = avance
+                avance = {"type": "progreso", "text": ev.delta.thinking}  # con "updates" = avance
+                if nuevo:
+                    avance["nuevo"], nuevo = True, False
+                yield avance
         return stream.get_final_message()
 
 

@@ -9,6 +9,7 @@ const TURNO = [
     { type: 'progreso', text: 'Leo el modelo.' },
     { type: 'tool', name: 'get_scene', etiqueta: 'Leyendo el modelo' },
     { type: 'tool', name: 'undo_last' },
+    { type: 'progreso', text: 'Reviso las uniones.', nuevo: true },
     { type: 'turno_futuro', algo: 1 },
     { type: 'text', text: 'Listo: añadí la ménsula «A».' },
     { type: 'actions', actions: [{ type: 'create_box', params: { width: 10 }, reason: 'r' }], executed: true },
@@ -21,6 +22,7 @@ const ESPERADOS: EventoChat[] = [
     { type: 'progreso', text: 'Leo el modelo.' },
     { type: 'tool', name: 'get_scene', etiqueta: 'Leyendo el modelo' },
     { type: 'tool', name: 'undo_last' },
+    { type: 'progreso', text: 'Reviso las uniones.', nuevo: true },
     { type: 'text', text: 'Listo: añadí la ménsula «A».' },
     { type: 'actions', actions: [{ type: 'create_box', params: { width: 10 }, reason: 'r' }], executed: true },
     { type: 'aviso', motivo: 'max_tokens', mensaje: 'La respuesta se cortó: pídeme que continúe.' },
@@ -164,6 +166,14 @@ describe('validar: la forma de cada evento', () => {
         expect(validar({ type: 'tool', name: 'n', etiqueta: 'Leyendo' })).toEqual({ type: 'tool', name: 'n', etiqueta: 'Leyendo' });
         expect(validar({ type: 'tool', name: 'n', etiqueta: '  ' })).toEqual({ type: 'tool', name: 'n' });
         expect(validar({ type: 'tool', name: 'n', etiqueta: 3 })).toEqual({ type: 'tool', name: 'n' });
+    });
+
+    it('progreso: `nuevo` sólo con true y sólo en `progreso`', () => {
+        expect(validar({ type: 'progreso', text: 'a', nuevo: true })).toEqual({ type: 'progreso', text: 'a', nuevo: true });
+        expect(validar({ type: 'progreso', text: 'a', nuevo: false })).toEqual({ type: 'progreso', text: 'a' });
+        expect(validar({ type: 'progreso', text: 'a', nuevo: 'sí' })).toEqual({ type: 'progreso', text: 'a' });
+        expect(validar({ type: 'text', text: 'a', nuevo: true })).toEqual({ type: 'text', text: 'a' });
+        expect(validar({ type: 'progreso', nuevo: true })).toBe('`progreso` sin `text`');
     });
 
     it('actions: `executed` sólo con true; aviso sin motivo = otro', () => {

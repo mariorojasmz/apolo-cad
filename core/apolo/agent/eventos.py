@@ -3,7 +3,8 @@
 Es el protocolo que lee `ui/src/chat/sse.ts::validar()`; un tipo nuevo va en los DOS lados y
 `tests/test_chat_http.py` compara `TIPOS` con los `case` de ese archivo:
 
-- `text {text}` y `progreso {text}`: los cede `modelo.conversar` (texto y nota de avance);
+- `text {text}` y `progreso {text, nuevo?}`: los cede `modelo.conversar` (texto y nota de
+  avance; `nuevo: true` en el primer trozo de cada nota, que puede llegar en varios);
 - `tool {name, etiqueta}`: corre una tool; `etiqueta` es el chip para la persona;
 - `actions {actions, executed}`: tarjetas `[{type, params, reason}]`; `executed=False` =
   propuesta pendiente de Aceptar/Rechazar, `True` = lote que el modo auto ya aplicó;

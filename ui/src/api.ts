@@ -4,16 +4,19 @@ import type {
   Requirements, RevisionInfo, SceneOut, SoundnessOut, StabilityOut, StabilityRequest,
 } from "./types";
 
-async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      detail = (await res.json()).detail ?? detail;
-    } catch {
-      /* sin cuerpo JSON */
-    }
-    throw new Error(detail);
+/** El `detail` de una respuesta fallida de la API (el motivo, ya escrito para la persona), o
+ *  `undefined` si el cuerpo no es JSON o no trae un texto (p. ej. la lista de un 422). Lee el cuerpo. */
+export async function detalleDeError(res: Response): Promise<string | undefined> {
+  try {
+    const detail: unknown = (await res.json()).detail;
+    return typeof detail === "string" && detail.trim() ? detail : undefined;
+  } catch {
+    return undefined; // sin cuerpo JSON
   }
+}
+
+async function json<T>(res: Response): Promise<T> {
+  if (!res.ok) throw new Error((await detalleDeError(res)) ?? res.statusText);
   return res.json() as Promise<T>;
 }
 
@@ -158,15 +161,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!r.ok) {
-      let detail = r.statusText;
-      try {
-        detail = (await r.json()).detail ?? detail;
-      } catch {
-        /* sin cuerpo JSON */
-      }
-      throw new Error(detail);
-    }
+    if (!r.ok) throw new Error((await detalleDeError(r)) ?? r.statusText);
     return r.blob();
   },
 
@@ -208,15 +203,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!r.ok) {
-      let detail = r.statusText;
-      try {
-        detail = (await r.json()).detail ?? detail;
-      } catch {
-        /* sin cuerpo JSON */
-      }
-      throw new Error(detail);
-    }
+    if (!r.ok) throw new Error((await detalleDeError(r)) ?? r.statusText);
     return r.blob();
   },
 

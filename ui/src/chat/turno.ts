@@ -4,10 +4,11 @@
  * ejecutado). Los eventos llegan ya tipados de `sse.ts`.
  *
  * **La nota de avance** (`progreso`) es UNA línea transitoria: una nota nueva reemplaza a la
- * anterior y la borran el texto, `done`, un error o el cierre del stream. Los `progreso`
- * SEGUIDOS se juntan en la misma nota: el backend reenvía cada `thinking_delta` y la API puede
- * partir la nota de un bloque en varios deltas; una tool, un lote o un aviso en medio la
- * cierran, y el próximo `progreso` empieza una nota nueva.
+ * anterior y la borran el texto, `done`, un error o el cierre del stream. El backend reenvía
+ * cada `thinking_delta` y la API puede partir una nota en varios deltas: un `progreso` con
+ * `nuevo` empieza una nota (es el primer trozo de su bloque) y los SEGUIDOS sin la marca se
+ * juntan en la misma (así se lee también un backend que no marca); una tool, un lote o un aviso
+ * en medio la cierran, y el próximo `progreso` empieza una nota nueva.
  */
 import type { ChatMsg } from "../types";
 import type { EventoChat } from "./sse";
@@ -21,7 +22,7 @@ export function aplicarEvento(msg: ChatMsg, ev: EventoChat, seguido: boolean): C
     case "text":
       return { ...msg, content: msg.content + ev.text, progreso: undefined };
     case "progreso":
-      return { ...msg, progreso: (seguido ? msg.progreso ?? "" : "") + ev.text };
+      return { ...msg, progreso: (seguido && !ev.nuevo ? msg.progreso ?? "" : "") + ev.text };
     case "tool": {
       const tool = ev.etiqueta ? { name: ev.name, etiqueta: ev.etiqueta } : { name: ev.name };
       return { ...msg, tools: [...(msg.tools ?? []), tool] };
