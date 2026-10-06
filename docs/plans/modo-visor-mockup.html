@@ -1,0 +1,1041 @@
+<meta charset="utf-8">
+<title>Apolo modo visor</title>
+<style>
+/* Layout: el 3D ocupa toda la ventana bajo una barra de 48 px; lo demás flota encima o se abre como cajón.
+   Paleta: la de ui/src/styles.css de Apolo (tema oscuro único, a propósito). */
+:root{
+  color-scheme: dark;
+  --bg:#121419; --bg2:#181b21; --panel:#1e222b; --panel2:#272d39; --panel3:#303644; --border:#2f3542;
+  --text:#dfe4ec; --muted:#8b93a3; --accent:#5b8cff; --accent2:#3f72e8; --accent-soft:rgba(91,140,255,.16);
+  --ok:#46b58a; --ok-soft:rgba(70,181,138,.18); --warn:#d8a03a; --warn-soft:rgba(216,160,58,.18); --on-warn:#1d1508;
+  --stage:#1b1e24; --stage-hi:#222631;
+  --glass:rgba(30,34,43,.9); --glass-strong:rgba(30,34,43,.97); --scrim:rgba(18,20,25,.94);
+  --shadow:0 8px 28px rgba(0,0,0,.45); --shadow-sm:0 2px 10px rgba(0,0,0,.35);
+  --font:"Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --mono:ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --top-h:48px; --lw:300px; --rw:min(400px, calc(100% - 24px));
+}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{height:100%;margin:0;background:var(--bg);color:var(--text);font:13px/1.4 var(--font);overflow:hidden}
+button{font:inherit;color:inherit;background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer;padding:0}
+button:disabled{opacity:.55;cursor:default}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg.lucide{width:16px;height:16px;stroke-width:1.9;flex:none}
+i[data-lucide]{display:inline-block;width:16px;height:16px;flex:none}
+
+/* ---------- shell ---------- */
+.app{height:100%;display:grid;grid-template-rows:var(--top-h) auto minmax(0,1fr) auto auto}
+/* posición explícita: un hijo con display:none no ocupa celda y correría a los demás de fila/columna */
+.top{grid-row:1}.ribbon{grid-row:2}.work{grid-row:3}.bottompanel{grid-row:4}.statusbar{grid-row:5}
+.dockL{grid-column:1}.stagewrap{grid-column:2}.dockR{grid-column:3}
+.vtab{grid-row:1}.stage{grid-row:2}
+.top{display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--bg2);border-bottom:1px solid var(--border);min-width:0}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap}
+.logo{width:26px;height:26px;border-radius:7px;background:var(--accent2);color:#fff;display:grid;place-items:center}
+.proj{display:flex;align-items:center;gap:10px;min-width:0;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel)}
+.pname{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:11.5px;white-space:nowrap}
+.saved .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.seg{display:flex;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:2px}
+.seg button{height:26px;padding:0 12px;color:var(--muted)}
+.seg button.on{background:var(--panel3);color:var(--text)}
+.seg.modes button{display:flex;align-items:center;gap:6px}
+.seg.modes button.on{background:var(--accent-soft);color:var(--accent)}
+.spacer{flex:1}
+.ibtn{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;color:var(--text)}
+.ibtn:hover{background:var(--panel2)}
+.ibtn.sm{width:26px;height:26px}
+.tbtn{display:flex;align-items:center;gap:6px;height:32px;padding:0 11px;border:1px solid var(--border);border-radius:8px;background:var(--panel);white-space:nowrap}
+.tbtn:hover{border-color:var(--muted)}
+.tbtn.hl{border-color:var(--accent);color:var(--accent)}
+
+/* modo completo: réplica de la pantalla actual */
+.ribbon,.dockL,.dockR,.bottompanel,.statusbar,.vtab,.oldcol{display:none}
+.rtabs{display:flex;gap:2px;padding:4px 8px 0;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden}
+.rtabs span{padding:6px 12px;border-bottom:2px solid transparent}
+.rtabs span.on{color:var(--text);border-bottom-color:var(--accent)}
+.rtabs .push{margin-left:auto;border:1px solid var(--border);border-radius:6px;padding:3px 10px;align-self:center}
+.rtools{display:flex;gap:2px;padding:8px;overflow:hidden}
+.rtools div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 10px;font-size:11.5px;white-space:nowrap}
+.rtools svg.lucide{width:20px;height:20px;color:#8fb0ff}
+.app.completo .ribbon{display:block;background:var(--bg2);border-bottom:1px solid var(--border)}
+.work{display:grid;grid-template-columns:auto minmax(0,1fr) auto;min-height:0}
+.app.completo .dockL{display:flex;flex-direction:column;width:190px;min-height:0;background:var(--bg2);border-right:1px solid var(--border)}
+.app.completo .dockR{display:flex;flex-direction:column;width:min(530px,28vw);min-height:0;background:var(--bg2);border-left:1px solid var(--border)}
+.dockh{padding:10px 12px 6px;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:baseline}
+.dockh span{font-weight:500;letter-spacing:0;text-transform:none}
+.dockL .tree,.dockRb{flex:1;min-height:0;overflow:auto;padding:4px 6px}
+.dockRb{padding:12px 14px}
+.app.completo .bottompanel{display:flex;flex-direction:column;height:22vh;min-height:150px;background:var(--bg2);border-top:1px solid var(--border)}
+.bpb{flex:1;min-height:0;overflow:auto;padding:6px 12px}
+.app.completo .statusbar{display:flex;align-items:center;gap:4px;height:32px;padding:0 8px;background:var(--bg2);border-top:1px solid var(--border);font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden}
+.statusbar span{padding:3px 8px;border-radius:5px}
+.statusbar span.hl{background:var(--accent-soft);color:var(--accent)}
+.statusbar .push{margin-left:auto}
+.stagewrap{display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;min-width:0}
+.app.completo .vtab{display:block;height:32px;line-height:32px;padding:0 16px;font-size:12.5px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.oldcol{position:absolute;left:8px;top:8px;flex-direction:column;gap:5px;z-index:4}
+.app.completo .oldcol{display:flex}
+.oldcol button{width:96px;height:28px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;font-size:12.5px}
+.oldcol button:hover{border-color:var(--muted)}
+.oldcol .gap{height:8px}
+
+/* ---------- escenario 3D ---------- */
+.stage{position:relative;min-height:0;min-width:0;overflow:hidden;background:radial-gradient(ellipse at 50% 42%, var(--stage-hi) 0%, var(--stage) 68%)}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.vc{position:absolute;top:12px;right:12px;width:96px;height:96px;z-index:4;transition:right .22s ease;cursor:pointer}
+.app.rightOpen .vc{right:calc(var(--rw) + 24px)}
+.app.completo .vc{width:72px;height:72px}
+
+.navctl{position:absolute;left:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;z-index:4;transition:left .22s ease}
+.app.leftOpen .navctl{left:calc(min(var(--lw), calc(100% - 24px)) + 28px)}
+.app.completo .navctl{display:none}
+.rb{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--glass);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.rb:hover{border-color:var(--muted)}
+.rb.on{color:var(--accent);border-color:var(--accent)}
+.rb .txt{font-size:10.5px;font-weight:700;letter-spacing:.03em}
+
+.ctx{display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;gap:2px;padding:4px;background:var(--glass);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);max-width:calc(100% - 24px)}
+.app.hasSel .ctx{display:flex}
+.ctx button{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;white-space:nowrap}
+.ctx button:hover{background:var(--panel2)}
+.ctx button.on{background:var(--accent-soft);color:var(--accent)}
+.ctx button.later{color:var(--muted)}
+.ctx .sep{width:1px;background:var(--border);margin:6px 3px}
+
+.agent{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 12px;background:var(--glass-strong);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);max-width:calc(100% - 24px);transition:top .2s ease}
+.app.hasSel .agent{top:62px}
+.agent.busy{padding-right:14px;border-color:var(--accent)}
+.agent.done{border-color:var(--ok)}
+.agent > span:not(.st):not(.spin){min-width:0}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--accent-soft);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.chip{position:absolute;top:12px;left:12px;z-index:4;display:flex;align-items:center;gap:10px;padding:5px 5px 5px 12px;background:var(--glass);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-sm);transition:left .22s ease}
+.app.leftOpen .chip{left:calc(min(var(--lw), calc(100% - 24px)) + 24px)}
+
+.pcard{position:absolute;top:120px;right:12px;width:min(260px, calc(100% - 24px));z-index:4;padding:12px;background:var(--glass-strong);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+
+.units{position:absolute;right:14px;bottom:22px;color:var(--muted);font-size:11.5px;z-index:3;font-variant-numeric:tabular-nums}
+.app.completo .units,.app.completo .dock,.app.completo .drawer,.app.completo .agent,.app.completo .chip,.app.completo .pcard{display:none}
+
+/* dock inferior */
+.dock{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:6;display:flex;gap:2px;padding:4px;background:var(--glass);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);max-width:calc(100% - 24px)}
+.dock button{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px;color:var(--muted);border-radius:8px;white-space:nowrap}
+.dock button:hover{background:var(--panel2);color:var(--text)}
+.dock button.on{background:var(--accent-soft);color:var(--accent)}
+.dock .sep{width:1px;background:var(--border);margin:6px 3px;flex:none}
+.rel{position:relative;display:flex}
+.badge{min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--warn);color:var(--on-warn);font-size:10.5px;font-weight:700;display:grid;place-items:center}
+.menu{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);min-width:190px;padding:4px;background:var(--glass-strong);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.menu button{justify-content:flex-start;color:var(--text);height:32px}
+
+/* cajones */
+.drawer{position:absolute;top:12px;bottom:70px;z-index:5;display:flex;flex-direction:column;min-height:0;background:var(--glass-strong);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);opacity:0;visibility:hidden;transition:transform .22s ease,opacity .22s ease,visibility 0s linear .22s}
+.drawer.left{left:12px;width:min(var(--lw), calc(100% - 24px));transform:translateX(-24px)}
+.drawer.right{right:12px;width:var(--rw);transform:translateX(24px)}
+.app.leftOpen .drawer.left,.app.rightOpen .drawer.right{opacity:1;visibility:visible;transform:none;transition:transform .22s ease,opacity .22s ease,visibility 0s}
+.dh{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--border)}
+.dh h2{font-size:13px;margin:0;font-weight:600;flex:1;display:flex;gap:8px;align-items:baseline}
+.dh h2 span{color:var(--muted);font-weight:400;font-size:12px}
+.db{flex:1;min-height:0;overflow:auto;padding:10px 12px}
+.db.flush{overflow:hidden;display:flex;flex-direction:column}
+
+/* árbol */
+.search{display:flex;align-items:center;gap:6px;margin:8px 10px 4px;padding:0 8px;height:30px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--muted)}
+.dockL .search{margin:4px 8px}
+.search input{flex:1;min-width:0;background:transparent;border:0;color:var(--text);font:inherit;outline:none}
+.drawer .tree{flex:1;min-height:0;overflow:auto;padding:4px 6px 8px}
+.grp{display:flex;align-items:center;gap:6px;padding:8px 6px 4px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;user-select:none}
+.grp .chev{display:inline-block;transition:transform .15s}
+.grp .chev.c{transform:rotate(-90deg)}
+.grp .n{margin-left:auto;font-weight:500;letter-spacing:0}
+.row{display:flex;align-items:center;gap:8px;padding:3px 6px 3px 14px;border-radius:6px;cursor:pointer;min-width:0}
+.row:hover{background:var(--panel2)}
+.row.sel{background:var(--accent-soft)}
+.row.off .nm,.row.off .sw{opacity:.45}
+.sw{width:10px;height:10px;border-radius:3px;flex:none}
+.sw.lg{width:14px;height:14px;border-radius:4px}
+.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pid{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.eye{width:24px;height:24px;display:grid;place-items:center;color:var(--muted);border-radius:6px;flex:none}
+.eye:hover{background:var(--panel3);color:var(--text)}
+.eye svg.lucide{width:14px;height:14px}
+.newdot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
+.empty{color:var(--muted);padding:12px 8px;margin:0}
+
+/* fichas, botones chicos */
+.ph{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.pt{display:flex;flex-direction:column;min-width:0}
+.pt b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.props{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 12px;font-size:12.5px}
+.props dt{color:var(--muted)}
+.props dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.pacts{display:flex;gap:6px;flex-wrap:wrap}
+.sbtn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:7px;background:var(--accent2);color:#fff;white-space:nowrap}
+.sbtn:hover{background:var(--accent)}
+.sbtn.ghost{background:transparent;border-color:var(--border);color:var(--text)}
+.sbtn.ghost:hover{border-color:var(--muted)}
+.hint{color:var(--muted);font-size:12px;margin:12px 0 0}
+.muted{color:var(--muted)}
+
+/* BOM, validar, historial */
+.sum{display:flex;align-items:center;gap:16px;padding:2px 2px 10px;flex-wrap:wrap}
+.sum b{font-size:16px;font-variant-numeric:tabular-nums}
+.sum .sbtn{margin-left:auto}
+.tw{overflow-x:auto}
+table.bom{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.bom th{text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.bom td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.bom .r{text-align:right}
+.bom tr.new td:first-child{box-shadow:inset 3px 0 var(--ok)}
+.verdict{display:flex;gap:12px;align-items:center;padding:12px;border-radius:10px;margin-bottom:12px}
+.verdict.ok{background:var(--ok-soft)}
+.verdict.warn{background:var(--warn-soft)}
+.verdict div{display:flex;flex-direction:column}
+.verdict span:not(.st){color:var(--muted);font-size:12px}
+.check{display:flex;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border)}
+.check p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.st{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:800}
+.st svg.lucide{width:14px;height:14px;stroke-width:2.6}
+.st.ok{background:var(--ok-soft);color:var(--ok)}
+.st.warn{background:var(--warn);color:var(--on-warn)}
+ol.hist{list-style:none;margin:0;padding:0}
+.hist li{display:flex;gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border)}
+.hist .k{color:var(--muted);font-family:var(--mono);font-size:11px;width:30px;text-align:right;flex:none}
+.hist .hn{flex:1;min-width:0}
+.hist li.new{box-shadow:inset 3px 0 var(--ok)}
+.hist li.more{color:var(--muted);border:0;justify-content:center}
+.tag-agent{font-size:10.5px;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:6px}
+
+/* chat */
+.msgs{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:12px}
+.msg{max-width:88%;padding:8px 11px;border-radius:12px;line-height:1.45}
+.msg.u{align-self:flex-end;background:var(--accent2);color:#fff;border-bottom-right-radius:4px}
+.msg.a{align-self:flex-start;background:var(--panel2);border-bottom-left-radius:4px}
+.msg.typing{display:flex;gap:8px;align-items:center;color:var(--muted)}
+.chatform{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border)}
+.chatform input{flex:1;min-width:0;height:34px;padding:0 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font:inherit}
+.chatform .sbtn{height:34px}
+
+/* barra del mockup (no es parte de Apolo) */
+.mock{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom, 0px));z-index:50;display:flex;align-items:center;gap:12px;padding:6px 6px 6px 12px;border:1px dashed var(--warn);border-radius:10px;background:var(--scrim);font-size:12px;box-shadow:var(--shadow-sm)}
+.mock .tag{color:var(--warn);font-weight:700;letter-spacing:.1em;font-size:10.5px}
+.meter{display:flex;align-items:center;gap:8px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.meter .bar{width:64px;height:6px;border-radius:3px;background:var(--panel3);overflow:hidden}
+.meter .bar span{display:block;height:100%;background:var(--accent);transition:width .3s ease}
+.mbtn{height:28px;padding:0 10px;border-radius:7px;border-color:var(--warn);color:var(--warn);white-space:nowrap}
+.mbtn:hover:not(:disabled){background:var(--warn-soft)}
+
+.toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,10px);z-index:60;max-width:min(520px, calc(100% - 32px));padding:9px 14px;background:var(--panel3);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:980px){ .units{display:none} }
+@media (max-width:900px){
+  .mock{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));flex-wrap:wrap}
+  .app.visor .dock{bottom:74px}
+  .app.visor .drawer{bottom:130px}
+  .toast{bottom:136px}
+}
+@media (max-width:760px){
+  .seg.ws,.saved,.brand .lbl,.tbtn .lbl,.dock .lbl,.ctx .lbl{display:none}
+  .agent{font-size:12px}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important}
+}
+</style>
+
+<div class="app visor" id="app">
+  <header class="top">
+    <div class="brand"><span class="logo"><i data-lucide="box"></i></span><span class="lbl">Apolo CAD</span></div>
+    <div class="proj"><span class="pname">faja-paqueteria-4m</span><span class="saved"><span class="dot"></span>Guardado</span></div>
+    <nav class="seg ws" aria-label="Espacio de trabajo">
+      <button class="on">Modelar</button>
+      <button data-act="toast" data-msg="En el mockup solo está Modelar.">Planos</button>
+      <button data-act="toast" data-msg="En el mockup solo está Modelar.">Simular</button>
+    </nav>
+    <div class="spacer"></div>
+    <button class="ibtn" data-act="undo" title="Deshacer" aria-label="Deshacer"><i data-lucide="undo-2"></i></button>
+    <button class="ibtn" data-act="redo" title="Rehacer" aria-label="Rehacer"><i data-lucide="redo-2"></i></button>
+    <nav class="seg modes" aria-label="Pantalla">
+      <button data-act="mode" data-mode="visor" id="mVisor" class="on"><i data-lucide="scan"></i>Visor</button>
+      <button data-act="mode" data-mode="completo" id="mComp"><i data-lucide="layout-dashboard"></i>Completo</button>
+    </nav>
+    <button class="tbtn" data-act="toast" data-msg="Archivo: abrir, guardar revisión y exportar, igual que hoy."><span class="lbl">Archivo</span><i data-lucide="chevron-down"></i></button>
+  </header>
+
+  <div class="ribbon" aria-hidden="true">
+    <div class="rtabs"><span class="on">Crear</span><span>Croquis</span><span>Modificar</span><span>Ensamblar</span><span>Biblioteca</span><span>Robótica</span><span class="push">Variables (37)</span></div>
+    <div class="rtools">
+      <div><i data-lucide="pen-tool"></i>Croquis</div><div><i data-lucide="box"></i>Caja</div><div><i data-lucide="cylinder"></i>Cilindro</div>
+      <div><i data-lucide="columns-2"></i>Perfil estructural</div><div><i data-lucide="rotate-ccw"></i>Revolución</div><div><i data-lucide="hexagon"></i>Polígono extruido</div>
+      <div><i data-lucide="file-input"></i>Importar STEP</div><div><i data-lucide="file-code"></i>Script IA</div>
+    </div>
+  </div>
+
+  <div class="work">
+    <aside class="dockL">
+      <div class="dockh">Árbol del modelo <span id="cntL"></span></div>
+      <label class="search"><i data-lucide="search"></i><input id="qL" placeholder="Buscar pieza o id" autocomplete="off"></label>
+      <div class="tree" id="treeL"></div>
+    </aside>
+
+    <div class="stagewrap">
+      <div class="vtab">Vista 3D</div>
+      <section class="stage" id="stage">
+        <canvas id="c" aria-label="Vista 3D de la faja"></canvas>
+        <canvas id="vc" class="vc" aria-label="Cubo de vistas: haz clic en una cara"></canvas>
+
+        <div class="navctl">
+          <button class="rb" data-act="home" title="Vista inicial" aria-label="Vista inicial"><i data-lucide="axis-3d"></i></button>
+          <button class="rb" data-act="fit" title="Encuadrar todo (F)" aria-label="Encuadrar todo"><i data-lucide="scan"></i></button>
+          <button class="rb" data-act="zoomin" title="Acercar" aria-label="Acercar"><i data-lucide="zoom-in"></i></button>
+          <button class="rb" data-act="zoomout" title="Alejar" aria-label="Alejar"><i data-lucide="zoom-out"></i></button>
+          <button class="rb" data-act="ortho" id="orthoBtn" title="Perspectiva / ortogonal" aria-label="Cambiar a vista ortogonal"><span class="txt" id="orthoTxt">3D</span></button>
+        </div>
+
+        <div class="oldcol">
+          <button data-view="iso">ISO</button><button data-view="front">Frente</button><button data-view="side">Lateral</button><button data-view="top">Planta</button>
+          <button data-act="toast" data-msg="Igual que hoy.">Alambre</button><span class="gap"></span>
+          <button data-act="toast" data-msg="Igual que hoy.">Mover</button><button data-act="toast" data-msg="Igual que hoy.">Rotar</button>
+          <button data-act="toast" data-msg="Igual que hoy.">Escalar</button><button data-act="toast" data-msg="Igual que hoy.">Snap off</button><span class="gap"></span>
+          <button data-act="toast" data-msg="Igual que hoy.">Medir</button><button data-act="toast" data-msg="Igual que hoy.">Sección</button>
+        </div>
+
+        <div class="ctx" id="ctx" role="toolbar" aria-label="Acciones de la pieza">
+          <button data-act="frame"><i data-lucide="focus"></i><span class="lbl">Encuadrar</span></button>
+          <button data-act="isolate"><i data-lucide="eye"></i><span class="lbl">Aislar</span></button>
+          <button data-act="hide"><i data-lucide="eye-off"></i><span class="lbl">Ocultar</span></button>
+          <span class="sep"></span>
+          <button class="later" data-act="tool" data-tool="Medir"><i data-lucide="ruler"></i><span class="lbl">Medir</span></button>
+          <button class="later" data-act="tool" data-tool="Sección"><i data-lucide="scissors"></i><span class="lbl">Sección</span></button>
+          <button class="later" data-act="tool" data-tool="Mover"><i data-lucide="move"></i><span class="lbl">Mover</span></button>
+          <button class="later" data-act="tool" data-tool="Rotar"><i data-lucide="rotate-3d"></i><span class="lbl">Rotar</span></button>
+        </div>
+
+        <div class="agent" id="agent" role="status" aria-live="polite" hidden></div>
+        <div class="chip" id="chip" hidden></div>
+        <div class="pcard" id="pcard" hidden></div>
+
+        <aside class="drawer left" aria-label="Árbol">
+          <div class="dh"><h2>Árbol <span id="cntD"></span></h2><button class="ibtn sm" data-close="left" aria-label="Cerrar árbol"><i data-lucide="x"></i></button></div>
+          <label class="search"><i data-lucide="search"></i><input id="qD" placeholder="Buscar pieza o id" autocomplete="off"></label>
+          <div class="tree" id="treeD"></div>
+        </aside>
+        <aside class="drawer right" aria-label="Panel">
+          <div class="dh"><h2 id="rTitle">Panel</h2><button class="ibtn sm" data-close="right" aria-label="Cerrar panel"><i data-lucide="x"></i></button></div>
+          <div class="db" id="rBody"></div>
+        </aside>
+
+        <nav class="dock" aria-label="Paneles">
+          <button data-panel="tree"><i data-lucide="list-tree"></i><span class="lbl">Árbol</span></button>
+          <span class="sep"></span>
+          <button data-panel="bom"><i data-lucide="table"></i><span class="lbl">BOM</span></button>
+          <button data-panel="checks"><i data-lucide="shield-check"></i><span class="lbl">Validar</span><span class="badge" id="chkBadge">1</span></button>
+          <button data-panel="history"><i data-lucide="history"></i><span class="lbl">Historial</span></button>
+          <span class="rel">
+            <button data-more><i data-lucide="chevron-up"></i><span class="lbl">Más</span></button>
+            <span class="menu" id="moreMenu" hidden>
+              <button data-moreitem="Variables">Variables (37)</button>
+              <button data-moreitem="Requisitos">Requisitos</button>
+              <button data-moreitem="Cinemática">Cinemática</button>
+              <button data-moreitem="Ensamblaje">Ensamblaje</button>
+              <button data-moreitem="Física">Física</button>
+              <button data-moreitem="Montaje">Montaje</button>
+              <button data-moreitem="Boceto">Boceto</button>
+            </span>
+          </span>
+          <span class="sep"></span>
+          <button data-panel="ai"><i data-lucide="sparkles"></i><span class="lbl">Asistente IA</span></button>
+        </nav>
+        <div class="units" id="units"></div>
+      </section>
+    </div>
+
+    <aside class="dockR">
+      <div class="rtabs"><span class="on">Propiedades</span><span>Asistente IA</span></div>
+      <div class="dockRb" id="propsR"></div>
+    </aside>
+  </div>
+
+  <div class="bottompanel">
+    <div class="rtabs"><span>Montaje</span><span>Validaciones</span><span class="on">Lista de materiales</span><span>Historial</span><span>Cinemática</span></div>
+    <div class="bpb" id="bomB"></div>
+  </div>
+  <footer class="statusbar" id="sbar"></footer>
+</div>
+
+<div class="mock" id="mock">
+  <span class="tag">MOCKUP</span>
+  <span class="meter"><span class="bar"><span id="mbar"></span></span><span id="mtxt">3D: — % de la pantalla</span></span>
+  <button class="mbtn" data-act="agent" id="agentBtn">Simular cambio del agente</button>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.400.0/dist/umd/lucide.min.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const hex = (n) => '#' + n.toString(16).padStart(6, '0');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const icons = () => { try { window.lucide && window.lucide.createIcons(); } catch (e) { /* sin íconos */ } };
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const setHTML = (el, html) => { if (el._h !== html) { el.innerHTML = html; el._h = html; } };
+
+const app = $('#app'), stage = $('#stage'), canvas = $('#c');
+
+// ---------------------------------------------------------------- escena
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const camP = new THREE.PerspectiveCamera(40, 1, 0.01, 200);
+const camO = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 200);
+let cam = camP, orthoH = 2;
+const controls = new OrbitControls(camP, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.12;
+
+scene.add(new THREE.HemisphereLight(0xeef2ff, 0x30343e, 1.7));
+const sun = new THREE.DirectionalLight(0xffffff, 2.3);
+sun.position.set(3, 6, 4); sun.castShadow = true;
+Object.assign(sun.shadow.camera, { left: -3.5, right: 3.5, top: 3.5, bottom: -3.5, near: 0.5, far: 20 });
+sun.shadow.camera.updateProjectionMatrix();
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xb8c6ff, 0.7); fill.position.set(-4, 3, -3); scene.add(fill);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.ShadowMaterial({ opacity: 0.3 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(12, 24, 0x3b4252, 0x2a2f39);
+grid.material.transparent = true; grid.material.opacity = 0.7; grid.material.toneMapped = false; grid.position.y = 0.0005;
+scene.add(grid);
+
+// ---------------------------------------------------------------- piezas (faja de ejemplo, 4 m × 600 mm)
+const PALETTE = [0x7ea6ff, 0x6fd3a0, 0xf0a36b, 0xb48cf2, 0xf08aa8, 0x6cc9d6, 0xeec76a];
+const GROUPS = ['Bastidor', 'Banda y tambores', 'Patas', 'Accionamiento'];
+const PIECES = [], byId = new Map();
+let seq = 0;
+
+function makePiece(def, build) {
+  const color = def.color ?? PALETTE[seq % PALETTE.length];
+  const id = def.id ?? 'c' + (12 + seq * 3);
+  seq++;
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.58, metalness: 0.12, side: def.double ? THREE.DoubleSide : THREE.FrontSide });
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0x0b0d11, transparent: true, opacity: 0.5, toneMapped: false });
+  const obj = new THREE.Group();
+  const add = (g, x, y, z) => {
+    const m = new THREE.Mesh(g, mat);
+    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(g, 28), edgeMat);
+    e.raycast = () => {};
+    m.add(e); obj.add(m); return m;
+  };
+  build({
+    box: (sx, sy, sz, x, y, z) => add(new THREE.BoxGeometry(sx, sy, sz), x, y, z),
+    cyl: (r, len, axis, x, y, z, open = false, th0 = 0, thl = Math.PI * 2) => {
+      const g = new THREE.CylinderGeometry(r, r, len, 40, 1, open, th0, thl);
+      if (axis === 'x') g.rotateZ(Math.PI / 2);
+      if (axis === 'z') g.rotateX(Math.PI / 2);
+      return add(g, x, y, z);
+    },
+    geo: (g, x, y, z) => add(g, x, y, z),
+  });
+  obj.traverse((o) => { o.userData.pid = id; });
+  scene.add(obj);
+  const p = { ...def, id, color, mat, edgeMat, obj, hidden: false, flashUntil: 0 };
+  PIECES.push(p); byId.set(id, p);
+  return p;
+}
+
+// canal C: largo en X, alas hacia dir·Z
+function cGeo(len, h, b, t, dir) {
+  const s = new THREE.Shape();
+  const pts = [[0, -h / 2], [b, -h / 2], [b, -h / 2 + t], [t, -h / 2 + t], [t, h / 2 - t], [b, h / 2 - t], [b, h / 2], [0, h / 2]];
+  pts.forEach(([zd, v], i) => (i ? s.lineTo(-dir * zd, v) : s.moveTo(-dir * zd, v)));
+  s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: len, bevelEnabled: false });
+  g.translate(0, 0, -len / 2); g.rotateY(Math.PI / 2);
+  return g;
+}
+
+const BW = 0.6, RZ = 0.31, RY = 0.74, DR = 0.0508, DY = 0.75, DX = 1.95;
+const A36 = 'Acero A36';
+const side = (s) => (s > 0 ? '+Y' : '−Y');
+
+for (const s of [1, -1]) makePiece({ name: `Larguero (${side(s)})`, group: 'Bastidor', material: A36, medidas: '4000 × 101.6 × 50.8 mm', peso: 32.1, bom: 'Larguero · canal C 4″ × 4000', cmd: 'Perfil estructural' },
+  (c) => c.geo(cGeo(4.0, 0.1016, 0.0508, 0.0048, s), 0, RY, s * RZ));
+[-1.2, -0.4, 0.4, 1.2].forEach((x, i) => makePiece({ name: `Travesaño ${i + 1}`, group: 'Bastidor', material: A36, medidas: '620 × 40 × 40 mm', peso: 1.43, bom: 'Travesaño · tubo 40×40×2 × 620', cmd: 'Perfil estructural' },
+  (c) => c.box(0.04, 0.04, 2 * RZ, x, 0.7775, 0)));
+makePiece({ name: 'Cama', group: 'Bastidor', material: 'Acero galvanizado', medidas: '3800 × 600 × 2 mm', peso: 35.8, bom: 'Cama · lámina galvanizada 2 mm', cmd: 'Caja' },
+  (c) => c.box(3.8, 0.002, BW, 0, 0.7985, 0));
+let mn = 1;
+for (const s of [1, -1]) for (const x of [-1.0, 1.0]) makePiece({ name: `Ménsula rodillo retorno ${mn++} (${side(s)})`, group: 'Bastidor', material: A36, medidas: '120 × 93 × 8 mm', peso: 0.53, bom: 'Ménsula rodillo retorno con ojo chino', cmd: 'Caja' },
+  (c) => c.box(0.093, 0.12, 0.008, x, 0.679, s * (RZ - 0.004)));
+
+makePiece({ name: 'Banda', group: 'Banda y tambores', material: 'PVC 2 capas', medidas: '8140 × 600 × 4 mm', peso: 14.6, bom: 'Banda PVC 2 capas · 600 × 8140', cmd: 'Catálogo', double: true }, (c) => {
+  c.box(2 * DX, 0.004, BW, 0, DY + DR + 0.002, 0);
+  c.box(2 * DX, 0.004, BW, 0, DY - DR - 0.002, 0);
+  c.cyl(DR + 0.002, BW, 'z', DX, DY, 0, true, 0, Math.PI);
+  c.cyl(DR + 0.002, BW, 'z', -DX, DY, 0, true, Math.PI, Math.PI);
+});
+makePiece({ name: 'Tambor motriz', group: 'Banda y tambores', material: A36, medidas: 'Ø101.6 × 600 mm', peso: 12.4, bom: 'Tambor motriz Ø4″ × 600', cmd: 'Cilindro' }, (c) => {
+  c.cyl(DR, 0.6, 'z', DX, DY, 0); c.cyl(0.0125, 0.83, 'z', DX, DY, 0.035);
+});
+makePiece({ name: 'Tambor de cola', group: 'Banda y tambores', material: A36, medidas: 'Ø101.6 × 600 mm', peso: 10.9, bom: 'Tambor de cola Ø4″ × 600', cmd: 'Cilindro' }, (c) => {
+  c.cyl(DR, 0.6, 'z', -DX, DY, 0); c.cyl(0.0125, 0.76, 'z', -DX, DY, 0);
+});
+[-1.0, 1.0].forEach((x, i) => makePiece({ name: `Rodillo de retorno ${i + 1}`, group: 'Banda y tambores', material: A36, medidas: 'Ø50.8 × 600 mm', peso: 2.1, bom: 'Rodillo de retorno Ø2″ × 600', cmd: 'Cilindro' },
+  (c) => c.cyl(0.0254, 0.6, 'z', x, 0.67, 0)));
+
+for (const sx of [1, -1]) for (const s of [1, -1]) makePiece({ name: `Pata ${sx > 0 ? 'cabeza' : 'cola'} (${side(s)})`, group: 'Patas', material: A36, medidas: '559 × 50 × 50 mm', peso: 1.64, bom: 'Pata · tubo 50×50×2 × 559', cmd: 'Perfil estructural' },
+  (c) => c.box(0.05, 0.5592, 0.05, sx * 1.6, 0.4096, s * 0.335));
+for (const sx of [1, -1]) makePiece({ name: `Travesaño de patas ${sx > 0 ? 'cabeza' : 'cola'}`, group: 'Patas', material: A36, medidas: '620 × 40 × 40 mm', peso: 1.43, bom: 'Travesaño de patas · tubo 40×40×2 × 620', cmd: 'Perfil estructural' },
+  (c) => c.box(0.04, 0.04, 0.62, sx * 1.6, 0.3, 0));
+for (const s of [1, -1]) makePiece({ name: `Larguero inferior (${side(s)})`, group: 'Patas', material: A36, medidas: '3150 × 40 × 40 mm', peso: 7.28, bom: 'Larguero inferior · tubo 40×40×2 × 3150', cmd: 'Perfil estructural' },
+  (c) => c.box(3.15, 0.04, 0.04, 0, 0.22, s * 0.335));
+let rn = 1;
+for (const sx of [1, -1]) for (const s of [1, -1]) makePiece({ name: `Rueda giratoria ${rn++}`, group: 'Patas', material: 'Poliuretano y acero', medidas: 'Ø90 × 130 mm', peso: 0.9, bom: 'Rueda giratoria Ø90 poliuretano', cmd: 'Catálogo' }, (c) => {
+  const x = sx * 1.6, z = s * 0.335;
+  c.box(0.08, 0.006, 0.08, x, 0.127, z);
+  c.box(0.04, 0.08, 0.004, x, 0.084, z + 0.019); c.box(0.04, 0.08, 0.004, x, 0.084, z - 0.019);
+  c.cyl(0.045, 0.03, 'z', x, 0.045, z);
+});
+
+makePiece({ name: 'Motorreductor 2HP 1750rpm', group: 'Accionamiento', material: 'Del catálogo', medidas: '410 × 180 × 150 mm', peso: 24.5, bom: 'Motorreductor 2HP 1750rpm eje hueco', cmd: 'Catálogo' }, (c) => {
+  c.box(0.16, 0.18, 0.14, DX, DY, 0.44);
+  c.cyl(0.06, 0.009, 'z', DX, DY, 0.3675);
+  c.cyl(0.07, 0.24, 'x', DX - 0.2, DY, 0.44);
+  c.cyl(0.066, 0.05, 'x', 1.605, DY, 0.44);
+  c.box(0.08, 0.03, 0.08, 1.75, DY + 0.085, 0.44);
+});
+makePiece({ name: 'Brazo de reacción', group: 'Accionamiento', material: A36, medidas: '140 × 30 × 20 mm', peso: 0.66, bom: 'Brazo de reacción', cmd: 'Caja' },
+  (c) => c.box(0.03, 0.14, 0.02, DX, 0.6, 0.4));
+
+// lo que agrega el «agente» en la simulación
+const AGENT_DEFS = [
+  [{ id: 'c331', name: 'Guarda del motorreductor', group: 'Accionamiento', material: 'Acero A36 · chapa 1.5 mm', medidas: '500 × 220 × 200 mm', peso: 3.48, bom: 'Guarda del motorreductor · chapa 1.5 mm', cmd: 'Caja', color: 0xeec76a }, (c) => {
+    c.box(0.5, 0.004, 0.2, 1.79, 0.858, 0.46);
+    c.box(0.5, 0.22, 0.004, 1.79, 0.75, 0.558);
+    c.box(0.004, 0.22, 0.195, 1.542, 0.75, 0.4625);
+    c.box(0.004, 0.22, 0.195, 2.038, 0.75, 0.4625);
+  }],
+  [{ id: 'c332', name: 'Ménsula de la guarda 1', group: 'Accionamiento', material: A36, medidas: '62 × 45 × 40 mm', peso: 0.15, bom: 'Ménsula de la guarda', cmd: 'Caja', color: 0x6fd3a0 }, (c) => {
+    c.box(0.04, 0.004, 0.045, 1.64, 0.7928, 0.3375); c.box(0.04, 0.062, 0.004, 1.64, 0.825, 0.362);
+  }],
+  [{ id: 'c333', name: 'Ménsula de la guarda 2', group: 'Accionamiento', material: A36, medidas: '62 × 45 × 40 mm', peso: 0.15, bom: 'Ménsula de la guarda', cmd: 'Caja', color: 0x6fd3a0 }, (c) => {
+    c.box(0.04, 0.004, 0.045, 1.98, 0.7928, 0.3375); c.box(0.04, 0.062, 0.004, 1.98, 0.825, 0.362);
+  }],
+];
+
+// ---------------------------------------------------------------- estado
+const S = { mode: 'visor', sel: null, hover: null, left: false, right: null, more: false, isolated: null, collapsed: new Set(), newIds: new Set(), agentOn: false, agentBusy: false, redo: false, ortho: false, pill: null, chatDraft: '' };
+const BASE_CMDS = 328;
+let hist = [
+  [328, 'Unión', 'Motorreductor ↔ Brazo de reacción'], [327, 'Caja', 'Brazo de reacción'], [326, 'Catálogo', 'Motorreductor 2HP 1750rpm'],
+  [325, 'Cilindro', 'Rodillo de retorno 2'], [324, 'Cilindro', 'Rodillo de retorno 1'], [323, 'Caja', 'Ménsula rodillo retorno 4 (−Y)'],
+  [322, 'Caja', 'Ménsula rodillo retorno 3 (−Y)'], [321, 'Catálogo', 'Rueda giratoria 4'], [320, 'Perfil estructural', 'Larguero inferior (−Y)'],
+  [319, 'Variable', 'altura_cama = 800 mm'],
+].map(([n, cmd, name]) => ({ n, cmd, name }));
+const chat = [
+  { u: 'Diséñame una faja de 4 m × 600 mm para paquetes de 1 a 15 kg, con motorreductor de eje hueco.' },
+  { a: 'Listo: largueros en C de 4″, cama de acero, banda de PVC, tambores de Ø4″ y motorreductor de 2 HP de eje hueco. 30 piezas, 203 kg. Queda 1 aviso: el motor no tiene guarda.' },
+];
+const TITLES = { props: 'Propiedades', bom: 'BOM', checks: 'Validar', history: 'Historial', ai: 'Asistente IA' };
+const VIEWS = {
+  iso: new THREE.Vector3(1, 0.72, 1.15), front: new THREE.Vector3(0, 0, 1),
+  side: new THREE.Vector3(1, 0, 0), top: new THREE.Vector3(0, 1, 0),
+};
+
+function applyVis() {
+  for (const p of PIECES) p.obj.visible = !p.hidden && (!S.isolated || S.isolated === p.id);
+}
+function checks() {
+  return [
+    { st: 'ok', t: 'Interferencias', d: 'Sin choques entre piezas.' },
+    { st: 'ok', t: 'Gravedad', d: 'Todo se sostiene: cada pieza descarga en las patas.' },
+    S.agentOn
+      ? { st: 'ok', t: 'Partes que giran', d: 'El motorreductor y el eje del tambor motriz tienen guarda.' }
+      : { st: 'warn', t: 'Partes que giran', d: 'El motorreductor y el eje del tambor motriz quedan expuestos. Pídele al agente una guarda.' },
+    { st: 'ok', t: 'Estabilidad', d: 'El centro de gravedad cae dentro de las patas.' },
+  ];
+}
+
+// ---------------------------------------------------------------- cámara
+let tw = null;
+function tweenTo(pos, tgt, zoom, instant) {
+  if (instant || reduceMotion) {
+    cam.position.copy(pos); controls.target.copy(tgt);
+    if (zoom != null && cam.isOrthographicCamera) { cam.zoom = zoom; cam.updateProjectionMatrix(); }
+    controls.update(); return;
+  }
+  const o0 = cam.position.clone().sub(controls.target), o1 = pos.clone().sub(tgt);
+  const d0 = o0.clone().normalize(), d1 = o1.clone().normalize();
+  tw = { t0: controls.target.clone(), t1: tgt.clone(), d0, q: new THREE.Quaternion().setFromUnitVectors(d0, d1), l0: o0.length(), l1: o1.length(), z0: cam.zoom, z1: zoom ?? cam.zoom, s: performance.now(), d: 460 };
+}
+function stepTween(now) {
+  const k0 = Math.min(1, (now - tw.s) / tw.d), k = 1 - Math.pow(1 - k0, 3);
+  const q = new THREE.Quaternion().slerpQuaternions(new THREE.Quaternion(), tw.q, k);
+  controls.target.lerpVectors(tw.t0, tw.t1, k);
+  cam.position.copy(controls.target).addScaledVector(tw.d0.clone().applyQuaternion(q), tw.l0 + (tw.l1 - tw.l0) * k);
+  if (cam.isOrthographicCamera) { cam.zoom = tw.z0 + (tw.z1 - tw.z0) * k; cam.updateProjectionMatrix(); }
+  if (k0 >= 1) tw = null;
+}
+function frameObjs(objs, dirIn, instant) {
+  const box = new THREE.Box3();
+  objs.forEach((o) => box.expandByObject(o));
+  if (box.isEmpty()) return;
+  const sph = box.getBoundingSphere(new THREE.Sphere());
+  const dir = (dirIn ? dirIn.clone() : cam.position.clone().sub(controls.target)).normalize();
+  const fov = THREE.MathUtils.degToRad(camP.fov), hfov = 2 * Math.atan(Math.tan(fov / 2) * camP.aspect);
+  const r = Math.max(sph.radius, 0.05);
+  if (cam.isPerspectiveCamera) {
+    const dist = r / Math.sin(Math.min(fov, hfov) / 2) * 1.06;
+    tweenTo(sph.center.clone().addScaledVector(dir, dist), sph.center.clone(), null, instant);
+  } else {
+    const dist = cam.position.distanceTo(controls.target);
+    const zoom = Math.min(orthoH, orthoH * camP.aspect) / (2 * r * 1.06);
+    tweenTo(sph.center.clone().addScaledVector(dir, dist), sph.center.clone(), zoom, instant);
+  }
+}
+const visibleObjs = () => PIECES.filter((p) => p.obj.visible).map((p) => p.obj);
+function fit() { const p = S.sel && byId.get(S.sel); frameObjs(p ? [p.obj] : visibleObjs()); }
+function goView(dirIn) {
+  const dir = dirIn.clone().normalize();
+  if (Math.abs(dir.y) > 0.999) { dir.z += 0.002; dir.normalize(); }
+  const t = controls.target.clone();
+  tweenTo(t.clone().addScaledVector(dir, cam.position.distanceTo(t)), t);
+}
+function zoomBy(f) {
+  const t = controls.target.clone();
+  if (cam.isPerspectiveCamera) tweenTo(t.clone().add(cam.position.clone().sub(t).multiplyScalar(f)), t);
+  else tweenTo(cam.position.clone(), t, cam.zoom / f);
+}
+function setOrtho(on) {
+  const t = controls.target, fov = THREE.MathUtils.degToRad(camP.fov);
+  tw = null;
+  if (on) {
+    orthoH = 2 * camP.position.distanceTo(t) * Math.tan(fov / 2);
+    camO.position.copy(camP.position); camO.zoom = 1; cam = camO;
+  } else {
+    const dir = camO.position.clone().sub(t).normalize();
+    camP.position.copy(t).addScaledVector(dir, (orthoH / camO.zoom) / (2 * Math.tan(fov / 2))); cam = camP;
+  }
+  S.ortho = on; controls.object = cam; resize(); cam.lookAt(t); controls.update();
+  $('#orthoTxt').textContent = on ? '2D' : '3D';
+  $('#orthoBtn').classList.toggle('on', on);
+  $('#orthoBtn').setAttribute('aria-label', on ? 'Cambiar a perspectiva' : 'Cambiar a vista ortogonal');
+}
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camP.aspect = w / h; camP.updateProjectionMatrix();
+  Object.assign(camO, { left: -orthoH * camP.aspect / 2, right: orthoH * camP.aspect / 2, top: orthoH / 2, bottom: -orthoH / 2 });
+  camO.updateProjectionMatrix();
+  updateMeter();
+}
+function updateMeter() {
+  const r = stage.getBoundingClientRect();
+  const pct = Math.round((100 * r.width * r.height) / (innerWidth * innerHeight));
+  $('#mtxt').textContent = `3D: ${pct} % de la pantalla`;
+  $('#mbar').style.width = pct + '%';
+}
+new ResizeObserver(resize).observe(stage);
+
+// ---------------------------------------------------------------- cubo de vistas
+const vcCanvas = $('#vc');
+const vcR = new THREE.WebGLRenderer({ canvas: vcCanvas, antialias: true, alpha: true });
+vcR.setPixelRatio(Math.min(devicePixelRatio, 2));
+vcR.outputColorSpace = THREE.SRGBColorSpace;
+const vcScene = new THREE.Scene(), vcCam = new THREE.PerspectiveCamera(30, 1, 0.1, 10);
+const FACES = [['DER.', [1, 0, 0]], ['IZQ.', [-1, 0, 0]], ['SUPERIOR', [0, 1, 0]], ['INFERIOR', [0, -1, 0]], ['FRENTE', [0, 0, 1]], ['ATRÁS', [0, 0, -1]]];
+const vcMats = FACES.map(([label]) => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#2a303d'; g.fillRect(0, 0, 128, 128);
+  g.strokeStyle = '#4a5266'; g.lineWidth = 6; g.strokeRect(3, 3, 122, 122);
+  g.fillStyle = '#dfe4ec'; g.font = '600 19px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(label, 64, 66);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return new THREE.MeshBasicMaterial({ map: t });
+});
+const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), vcMats);
+cube.add(new THREE.LineSegments(new THREE.EdgesGeometry(cube.geometry), new THREE.LineBasicMaterial({ color: 0x5b8cff, transparent: true, opacity: 0.6 })));
+vcScene.add(cube);
+const vcRay = new THREE.Raycaster(), vcNdc = new THREE.Vector2();
+function vcHit(e) {
+  const r = vcCanvas.getBoundingClientRect();
+  vcNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  vcRay.setFromCamera(vcNdc, vcCam);
+  const h = vcRay.intersectObject(cube, false)[0];
+  return h ? h.face.materialIndex : -1;
+}
+vcCanvas.addEventListener('pointermove', (e) => { const i = vcHit(e); vcMats.forEach((m, k) => m.color.setHex(k === i ? 0xa9c1ff : 0xffffff)); });
+vcCanvas.addEventListener('pointerleave', () => vcMats.forEach((m) => m.color.setHex(0xffffff)));
+vcCanvas.addEventListener('click', (e) => { const i = vcHit(e); if (i >= 0) goView(new THREE.Vector3(...FACES[i][1])); });
+
+// ---------------------------------------------------------------- selección en el 3D
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function hit(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, cam);
+  const h = ray.intersectObjects(visibleObjs(), true).find((x) => x.object.isMesh);
+  return h ? h.object.userData.pid : null;
+}
+let down = null;
+canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointerup', (e) => {
+  if (!down) return;
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+  down = null;
+  if (moved > 5 || e.button !== 0) return;
+  S.sel = hit(e); S.more = false; render();
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (e.buttons) return;
+  S.hover = hit(e);
+  canvas.style.cursor = S.hover ? 'pointer' : 'default';
+});
+canvas.addEventListener('pointerleave', () => { S.hover = null; });
+canvas.addEventListener('dblclick', () => { if (S.sel) fit(); });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+const C_SEL = new THREE.Color(0x3f72e8), C_NEW = new THREE.Color(0x46b58a), C_HOV = new THREE.Color(0x5b8cff);
+function updateEmissive(now) {
+  for (const p of PIECES) {
+    let c = null, i = 0;
+    if (p.flashUntil > now) { c = C_NEW; i = 0.3 + 0.6 * (0.5 + 0.5 * Math.sin(now / 110)); }
+    else if (S.sel === p.id) { c = C_SEL; i = 0.5; }
+    else if (S.hover === p.id) { c = C_HOV; i = 0.16; }
+    if (c) { p.mat.emissive.copy(c); p.mat.emissiveIntensity = i; } else p.mat.emissive.setRGB(0, 0, 0);
+    const sel = S.sel === p.id;
+    p.edgeMat.color.setHex(sel ? 0x9db8ff : 0x0b0d11); p.edgeMat.opacity = sel ? 1 : 0.5;
+  }
+}
+const tmpDir = new THREE.Vector3();
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (tw) stepTween(now);
+  controls.update();
+  updateEmissive(now);
+  renderer.render(scene, cam);
+  tmpDir.subVectors(cam.position, controls.target).normalize();
+  vcCam.position.copy(tmpDir).multiplyScalar(3.3); vcCam.up.copy(cam.up); vcCam.lookAt(0, 0, 0);
+  vcR.render(vcScene, vcCam);
+}
+
+// ---------------------------------------------------------------- agente (simulado)
+function addAgent() {
+  const now = performance.now();
+  S.newIds.clear();
+  AGENT_DEFS.forEach(([d, b], i) => {
+    const p = makePiece(d, b);
+    p.flashUntil = now + 2800; S.newIds.add(p.id);
+    hist.unshift({ n: BASE_CMDS + 1 + i, cmd: d.cmd, name: d.name, agent: true });
+  });
+  S.agentOn = true; applyVis();
+}
+function removeAgent() {
+  for (const [d] of AGENT_DEFS) {
+    const p = byId.get(d.id);
+    if (!p) continue;
+    scene.remove(p.obj);
+    p.obj.traverse((o) => o.geometry && o.geometry.dispose());
+    PIECES.splice(PIECES.indexOf(p), 1); byId.delete(d.id);
+    if (S.sel === d.id) S.sel = null;
+    if (S.isolated === d.id) S.isolated = null;
+  }
+  hist = hist.filter((h) => !h.agent);
+  S.newIds.clear(); S.agentOn = false; applyVis();
+}
+async function runAgent() {
+  if (S.agentBusy) return;
+  if (S.agentOn) { undo(); return; }
+  S.agentBusy = true; S.redo = false;
+  const steps = ['leyendo el modelo', 'diseñando la guarda del motorreductor', 'colocando 2 ménsulas atornilladas', 'validando el lote'];
+  for (const t of steps) { S.pill = { kind: 'busy', text: t }; render(); await sleep(650); }
+  addAgent();
+  S.agentBusy = false; S.pill = { kind: 'done' };
+  render();
+}
+function seeAgent() {
+  const ps = AGENT_DEFS.map(([d]) => byId.get(d.id)).filter(Boolean);
+  if (!ps.length) return;
+  const now = performance.now();
+  ps.forEach((p) => { p.flashUntil = now + 2200; });
+  frameObjs(ps.map((p) => p.obj));
+}
+function undo() {
+  if (S.agentBusy) return;
+  if (!S.agentOn) { toast('Nada más que deshacer en el mockup.'); return; }
+  removeAgent(); S.redo = true; S.pill = null;
+  toast('Deshiciste el lote del agente: 3 piezas en un solo paso.');
+  render();
+}
+function redo() {
+  if (!S.redo) { toast('Nada que rehacer.'); return; }
+  addAgent(); S.redo = false; S.pill = { kind: 'done' }; render();
+}
+async function sendChat(text) {
+  chat.push({ u: text }); S.chatDraft = ''; render();
+  await sleep(450);
+  if (!S.agentOn && !S.agentBusy) {
+    chat.push({ a: 'Voy: guarda de chapa de 1.5 mm, abierta hacia el lado de la máquina, sobre 2 ménsulas atornilladas al larguero.' }); render();
+    await runAgent();
+    chat.push({ a: 'Listo. 3 piezas nuevas en un solo lote; la validación quedó sin avisos.' }); render();
+  } else {
+    chat.push({ a: 'En este mockup no hay agente conectado: solo simula la guarda del motorreductor.' }); render();
+  }
+}
+
+// ---------------------------------------------------------------- vistas HTML
+function treeHTML(q) {
+  q = (q || '').trim().toLowerCase();
+  let h = '';
+  for (const g of GROUPS) {
+    const items = PIECES.filter((p) => p.group === g && (!q || p.name.toLowerCase().includes(q) || p.id.includes(q)));
+    if (!items.length) continue;
+    const col = S.collapsed.has(g) && !q;
+    h += `<div class="grp" data-grp="${esc(g)}"><span class="chev${col ? ' c' : ''}">▾</span>${esc(g)}<span class="n">${items.length}</span></div>`;
+    if (col) continue;
+    for (const p of items) {
+      h += `<div class="row${S.sel === p.id ? ' sel' : ''}${p.hidden ? ' off' : ''}" data-row="${p.id}">`
+        + `<button class="eye" data-eye="${p.id}" aria-label="${p.hidden ? 'Mostrar' : 'Ocultar'} ${esc(p.name)}"><i data-lucide="${p.hidden ? 'eye-off' : 'eye'}"></i></button>`
+        + `<span class="sw" style="background:${hex(p.color)}"></span><span class="nm">${esc(p.name)}</span>`
+        + `${S.newIds.has(p.id) ? '<span class="newdot" title="Nueva"></span>' : ''}<span class="pid">${p.id}</span></div>`;
+    }
+  }
+  return h || '<p class="empty">Ninguna pieza coincide con la búsqueda.</p>';
+}
+function propsHTML(p, full) {
+  return `<div class="ph"><span class="sw lg" style="background:${hex(p.color)}"></span><div class="pt"><b>${esc(p.name)}</b><span class="pid">${p.id}</span></div></div>`
+    + `<dl class="props"><dt>Material</dt><dd>${esc(p.material)}</dd><dt>Medidas</dt><dd>${esc(p.medidas)}</dd><dt>Peso</dt><dd>${p.peso.toFixed(2)} kg</dd>`
+    + `${full ? `<dt>Grupo</dt><dd>${esc(p.group)}</dd><dt>Comando</dt><dd>${esc(p.cmd)}</dd>` : ''}</dl>`
+    + `<div class="pacts"><button class="sbtn" data-act="copyref"><i data-lucide="copy"></i>Copiar para el agente</button>`
+    + `${full ? '' : '<button class="sbtn ghost" data-act="allprops">Ver todo</button>'}</div>`
+    + `${full ? '<p class="hint">Para cambiarla, pídeselo al agente por su id. La edición a mano llega en otra fase.</p>' : ''}`;
+}
+function bomHTML() {
+  const m = new Map();
+  for (const p of PIECES) {
+    const r = m.get(p.bom) || { desc: p.bom, n: 0, w: p.peso, isNew: false };
+    r.n++; if (S.newIds.has(p.id)) r.isNew = true; m.set(p.bom, r);
+  }
+  const rows = [...m.values()];
+  const tot = rows.reduce((s, r) => s + r.n * r.w, 0), n = rows.reduce((s, r) => s + r.n, 0);
+  return `<div class="sum"><div><b>${n}</b> piezas</div><div><b>${tot.toFixed(1)}</b> kg</div>`
+    + `<button class="sbtn ghost" data-act="toast" data-msg="En Apolo exporta el CSV; en el mockup no.">Exportar CSV</button></div>`
+    + `<div class="tw"><table class="bom"><thead><tr><th>Descripción</th><th class="r">Cant.</th><th class="r">Peso ud (kg)</th><th class="r">Total (kg)</th></tr></thead><tbody>`
+    + rows.map((r) => `<tr${r.isNew ? ' class="new"' : ''}><td>${esc(r.desc)}</td><td class="r">${r.n}</td><td class="r">${r.w.toFixed(2)}</td><td class="r">${(r.n * r.w).toFixed(2)}</td></tr>`).join('')
+    + `</tbody></table></div>`;
+}
+function checksHTML() {
+  const cs = checks(), w = cs.filter((c) => c.st === 'warn').length;
+  const mark = (st) => (st === 'warn' ? '!' : '<i data-lucide="check"></i>');
+  return `<div class="verdict ${w ? 'warn' : 'ok'}"><span class="st ${w ? 'warn' : 'ok'}">${mark(w ? 'warn' : 'ok')}</span><div>`
+    + `<b>${w ? `${w} aviso antes de entregar` : 'Lista para entregar'}</b><span>${w ? 'Lo demás está en verde.' : 'Sin choques, todo apoyado y protegido.'}</span></div></div>`
+    + cs.map((c) => `<div class="check"><span class="st ${c.st}">${mark(c.st)}</span><div><b>${c.t}</b><p>${c.d}</p></div></div>`).join('');
+}
+function histHTML() {
+  return `<div class="sum"><div><b>${BASE_CMDS + (S.agentOn ? 3 : 0)}</b> comandos</div><span class="muted">Un lote del agente se deshace en un paso.</span></div>`
+    + `<ol class="hist">${hist.map((h) => `<li${h.agent ? ' class="new"' : ''}><span class="k">${h.n}</span><span class="hn">${esc(h.cmd)} · ${esc(h.name)}</span>${h.agent ? '<span class="tag-agent">agente</span>' : ''}</li>`).join('')}`
+    + `<li class="more">… 318 comandos más</li></ol>`;
+}
+function chatHTML() {
+  return `<div class="msgs" id="msgs">${chat.map((m) => (m.u ? `<div class="msg u">${esc(m.u)}</div>` : `<div class="msg a">${esc(m.a)}</div>`)).join('')}`
+    + `${S.agentBusy ? '<div class="msg a typing"><span class="spin"></span>Trabajando…</div>' : ''}</div>`
+    + `<form class="chatform" id="chatForm"><input id="chatIn" autocomplete="off" placeholder="Pídele un cambio, p. ej. «agrega una guarda al motor»" value="${esc(S.chatDraft)}">`
+    + `<button class="sbtn" type="submit" aria-label="Enviar"><i data-lucide="send"></i></button></form>`;
+}
+function rightHTML() {
+  switch (S.right) {
+    case 'props': { const p = byId.get(S.sel); return p ? propsHTML(p, true) : '<p class="empty">Selecciona una pieza en el 3D o en el árbol para ver sus datos.</p>'; }
+    case 'bom': return bomHTML();
+    case 'checks': return checksHTML();
+    case 'history': return histHTML();
+    case 'ai': return chatHTML();
+    default: return `<p class="empty">${esc(S.right.slice(5))}: el mismo panel de hoy, abierto como cajón.</p>`;
+  }
+}
+
+function render() {
+  const visor = S.mode === 'visor';
+  app.classList.toggle('visor', visor);
+  app.classList.toggle('completo', !visor);
+  app.classList.toggle('leftOpen', visor && S.left);
+  app.classList.toggle('rightOpen', visor && !!S.right);
+  app.classList.toggle('hasSel', visor && !!S.sel);
+  $('#mVisor').classList.toggle('on', visor);
+  $('#mComp').classList.toggle('on', !visor);
+
+  document.querySelectorAll('.dock [data-panel]').forEach((b) => b.classList.toggle('on', b.dataset.panel === 'tree' ? S.left : S.right === b.dataset.panel));
+  $('[data-more]').classList.toggle('on', S.more || (S.right || '').startsWith('more:'));
+  $('#moreMenu').hidden = !S.more;
+  const warns = checks().filter((c) => c.st === 'warn').length;
+  $('#chkBadge').textContent = warns; $('#chkBadge').hidden = !warns;
+
+  setHTML($('#treeD'), treeHTML($('#qD').value));
+  $('#cntD').textContent = `${PIECES.length} piezas`;
+  if (S.right) {
+    $('#rTitle').textContent = TITLES[S.right] || S.right.slice(5);
+    const typing = document.activeElement && document.activeElement.id === 'chatIn';
+    $('#rBody').classList.toggle('flush', S.right === 'ai');
+    setHTML($('#rBody'), rightHTML());
+    if (S.right === 'ai') { const m = $('#msgs'); if (m) m.scrollTop = m.scrollHeight; if (typing) $('#chatIn').focus(); }
+  }
+
+  const p = S.sel && byId.get(S.sel);
+  const pc = $('#pcard');
+  pc.hidden = !(visor && p && !S.right);
+  if (!pc.hidden) setHTML(pc, propsHTML(p, false));
+  $('[data-act="isolate"]').classList.toggle('on', !!S.isolated);
+
+  const chip = $('#chip'), nHidden = PIECES.filter((x) => x.hidden).length;
+  chip.hidden = !(visor && (S.isolated || nHidden));
+  if (!chip.hidden) {
+    const iso = S.isolated && byId.get(S.isolated);
+    setHTML(chip, `<span>${iso ? `Aislada: <b>${esc(iso.name)}</b>` : `${nHidden} ${nHidden === 1 ? 'pieza oculta' : 'piezas ocultas'}`}</span><button class="sbtn ghost" data-act="showall">Mostrar todo</button>`);
+  }
+
+  const pill = $('#agent');
+  pill.hidden = !(visor && S.pill);
+  if (!pill.hidden) {
+    pill.className = 'agent ' + S.pill.kind;
+    setHTML(pill, S.pill.kind === 'busy'
+      ? `<span class="spin"></span><span>El agente está trabajando · ${esc(S.pill.text)}…</span>`
+      : `<span class="st ok"><i data-lucide="check"></i></span><span>El agente agregó <b>3 piezas</b>: la guarda del motorreductor y 2 ménsulas.</span>`
+        + `<button class="sbtn" data-act="agent-see">Ver</button><button class="sbtn ghost" data-act="undo">Deshacer</button>`
+        + `<button class="ibtn sm" data-act="agent-dismiss" aria-label="Cerrar aviso"><i data-lucide="x"></i></button>`);
+  }
+
+  if (!visor) {
+    setHTML($('#treeL'), treeHTML($('#qL').value));
+    $('#cntL').textContent = `${PIECES.length} piezas`;
+    setHTML($('#propsR'), p ? propsHTML(p, true) : '<p class="muted">Selecciona una pieza en el árbol o en el viewport para editar sus parámetros. Ctrl+clic añade a la selección; Shift+arrastrar selecciona por recuadro.</p>');
+    setHTML($('#bomB'), bomHTML());
+    setHTML($('#sbar'), ['Historial', 'Requisitos', 'BOM', 'Validar', 'Cinemática', 'Ensamblaje', 'Física', 'Montaje', 'Boceto']
+      .map((s) => `<span${s === 'BOM' ? ' class="hl"' : ''}>${s === 'Historial' ? `Historial (${BASE_CMDS + (S.agentOn ? 3 : 0)})` : s}</span>`).join('')
+      + `<span class="push">mm · ${PIECES.length} piezas</span>`);
+  }
+
+  $('#units').textContent = `mm · ${PIECES.length} piezas`;
+  const ab = $('#agentBtn');
+  ab.textContent = S.agentBusy ? 'El agente está trabajando…' : S.agentOn ? 'Deshacer cambio del agente' : 'Simular cambio del agente';
+  ab.disabled = S.agentBusy;
+  icons();
+}
+
+// ---------------------------------------------------------------- eventos
+let toastT;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2800);
+}
+function copyRef() {
+  const p = byId.get(S.sel);
+  if (!p) return;
+  const txt = `${p.name} [${p.id}]`;
+  const ok = () => toast(`Copiado «${txt}». Pégalo en tu chat con el agente.`), ko = () => toast(`Referencia: ${txt}`);
+  try { navigator.clipboard.writeText(txt).then(ok, ko); } catch (e) { ko(); }
+}
+function togglePanel(k) {
+  if (k === 'tree') S.left = !S.left;
+  else S.right = S.right === k ? null : k;
+  S.more = false; render();
+}
+function act(name, el) {
+  const p = S.sel && byId.get(S.sel);
+  switch (name) {
+    case 'toast': toast(el.dataset.msg); break;
+    case 'home': frameObjs(visibleObjs(), VIEWS.iso); break;
+    case 'fit': fit(); break;
+    case 'zoomin': zoomBy(0.75); break;
+    case 'zoomout': zoomBy(1 / 0.75); break;
+    case 'ortho': setOrtho(!S.ortho); break;
+    case 'mode': if (S.mode === el.dataset.mode) break; S.mode = el.dataset.mode; S.left = false; S.right = null; S.more = false; render(); break;
+    case 'undo': undo(); break;
+    case 'redo': redo(); break;
+    case 'agent': runAgent(); break;
+    case 'agent-see': seeAgent(); break;
+    case 'agent-dismiss': S.pill = null; render(); break;
+    case 'showall': S.isolated = null; PIECES.forEach((x) => { x.hidden = false; }); applyVis(); render(); break;
+    case 'copyref': copyRef(); break;
+    case 'allprops': S.right = 'props'; render(); break;
+    case 'frame': fit(); break;
+    case 'isolate':
+      if (!p) break;
+      S.isolated = S.isolated === p.id ? null : p.id; applyVis();
+      frameObjs(S.isolated ? [p.obj] : visibleObjs()); render(); break;
+    case 'hide': if (p) { p.hidden = true; S.sel = null; applyVis(); render(); } break;
+    case 'tool': toast(`${el.dataset.tool}: herramienta a mano, llega en una fase posterior.`); break;
+  }
+}
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  const eye = t.closest('[data-eye]');
+  if (eye) { const p = byId.get(eye.dataset.eye); p.hidden = !p.hidden; if (p.hidden && S.sel === p.id) S.sel = null; applyVis(); render(); return; }
+  const row = t.closest('[data-row]');
+  if (row) { S.sel = row.dataset.row; render(); return; }
+  const grp = t.closest('[data-grp]');
+  if (grp) { const g = grp.dataset.grp; S.collapsed.has(g) ? S.collapsed.delete(g) : S.collapsed.add(g); render(); return; }
+  const pnl = t.closest('[data-panel]');
+  if (pnl) { togglePanel(pnl.dataset.panel); return; }
+  const mi = t.closest('[data-moreitem]');
+  if (mi) { S.more = false; S.right = 'more:' + mi.dataset.moreitem; render(); return; }
+  if (t.closest('[data-more]')) { S.more = !S.more; render(); return; }
+  const cl = t.closest('[data-close]');
+  if (cl) { if (cl.dataset.close === 'left') S.left = false; else S.right = null; render(); return; }
+  const v = t.closest('[data-view]');
+  if (v) { goView(VIEWS[v.dataset.view]); return; }
+  const a = t.closest('[data-act]');
+  if (a) { act(a.dataset.act, a); return; }
+  if (S.more && !t.closest('.menu')) { S.more = false; render(); }
+});
+document.addEventListener('dblclick', (e) => {
+  const row = e.target.closest('[data-row]');
+  if (row) { S.sel = row.dataset.row; fit(); render(); }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'qD' || e.target.id === 'qL') render();
+  if (e.target.id === 'chatIn') S.chatDraft = e.target.value;
+});
+document.addEventListener('submit', (e) => {
+  if (e.target.id !== 'chatForm') return;
+  e.preventDefault();
+  const v = $('#chatIn').value.trim();
+  if (v) sendChat(v);
+});
+document.addEventListener('keydown', (e) => {
+  const typing = /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || '');
+  if (e.key === 'Escape') {
+    if (S.more) S.more = false;
+    else if (S.right) S.right = null;
+    else if (S.left) S.left = false;
+    else if (S.sel) S.sel = null;
+    else return;
+    e.preventDefault(); render();
+  } else if (!typing && (e.key === 'f' || e.key === 'F')) fit();
+});
+addEventListener('resize', updateMeter);
+
+// ---------------------------------------------------------------- arranque
+resize();
+frameObjs(visibleObjs(), VIEWS.iso, true);
+render();
+requestAnimationFrame(loop);
+</script>
