@@ -192,6 +192,10 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   `apolo:cambios-externos` (`state/cambiosExternos.ts`; no publica con otro epoch u otro
   proyecto) y el visor marca esas piezas. Una acción propia que no aplique la escena de su
   respuesta saldría marcada como del agente. [plan](../docs/plans/modo-visor.md)
+- Los avisos `{"type": "job"}` del WS se validan en `state/eventosWs.ts` y `connectWs` los publica
+  en `window` (`apolo:job`; `apolo:ws-reconectado` en cada reconexión); `visor/trabajando.ts` lleva
+  los jobs corriendo. Todo job cuenta como del agente porque la UI nunca manda `?async`: si algún
+  día encola uno, se filtra ahí por su `job_id` o saldría «el agente está trabajando».
 
 ### Viewport
 

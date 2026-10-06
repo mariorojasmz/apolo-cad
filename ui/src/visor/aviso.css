@@ -1,4 +1,5 @@
-/* Cambios del agente (plan modo-visor, D8): el aviso del visor y el punto verde del árbol.
+/* Aviso del agente (plan modo-visor): los cambios (D8) con el punto verde del árbol, y el
+   «trabajando» en vivo (D10, `.en-curso`: borde y spinner en azul, sin botones).
    Colores: los tokens de styles.css (--ok = el verde del contorno de `viewport/destello.ts`). */
 
 /* ---- aviso: arriba al centro del visor ----
@@ -20,6 +21,12 @@
   width: 22px; height: 22px; flex: none; border-radius: 50%;
   display: grid; place-items: center;
   background: rgba(70, 181, 138, 0.18); color: var(--ok);
+}
+.aviso-agente.en-curso { border-color: var(--accent); padding-right: 12px; min-height: 42px; }
+.aviso-agente .aviso-curso {
+  width: 22px; height: 22px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent);
 }
 .aviso-agente .aviso-texto { min-width: 0; font-size: 12.5px; }
 .aviso-agente button { height: 28px; padding: 0 12px; border-radius: 7px; white-space: nowrap; flex: none; }

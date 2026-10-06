@@ -3,6 +3,7 @@ import type {
   GravityResult, KinematicsOut, MassPropertiesOut, MateRow, MotionKeyframe, MotionOut, ProjectInfo, RailConstraint,
   Requirements, RevisionInfo, SceneOut, SoundnessOut, StabilityOut, StabilityRequest,
 } from "./types";
+import { mensajeWs, publicarJob, publicarReconexion } from "./state/eventosWs";
 
 /** El `detail` de una respuesta fallida de la API (el motivo, ya escrito para la persona), o
  *  `undefined` si el cuerpo no es JSON o no trae un texto (p. ej. la lista de un 422). Lee el cuerpo. */
@@ -310,16 +311,19 @@ export function connectWs(onChanged: () => void, onReconnect?: () => void): () =
     ws = new WebSocket(`${proto}://${location.host}/ws`);
     ws.onopen = () => {
       // reconexión (V6.2e Fix 2): pudimos perder `document_changed` mientras estuvo caído
-      // (o el API reinició y los revs renacieron) → refresco COMPLETO, no delta.
-      if (hadOpen) onReconnect?.();
+      // (o el API reinició y los revs renacieron) → refresco COMPLETO, no delta. También los
+      // avisos de jobs: el visor olvida los que creía corriendo (modo-visor D10).
+      if (hadOpen) {
+        publicarReconexion();
+        onReconnect?.();
+      }
       hadOpen = true;
     };
     ws.onmessage = (ev) => {
-      try {
-        if (JSON.parse(ev.data).type === "document_changed") onChanged();
-      } catch {
-        /* mensaje no JSON */
-      }
+      // un mensaje no JSON, roto o de tipo desconocido se ignora
+      const m = mensajeWs(ev.data);
+      if (m?.type === "document_changed") onChanged();
+      else publicarJob(m); // «el agente está trabajando» del visor (modo-visor D10)
     };
     ws.onclose = () => {
       if (!closed) setTimeout(open, 2000);

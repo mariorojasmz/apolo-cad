@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { textoAviso } from "./textoAviso";
+import { avisoVisible, textoAviso, TEXTO_TRABAJANDO } from "./textoAviso";
 
 /* El aviso cuenta lo que hizo el agente, con singular y plural correctos. */
 
@@ -32,5 +32,21 @@ describe("textoAviso", () => {
 
   it("sin nada que contar, vacío", () => {
     expect(aviso(0, 0, 0)).toBe("");
+  });
+});
+
+describe("avisoVisible", () => {
+  const cambios = { nuevos: [], cambiados: ["c1", "c2"], eliminados: 0 };
+
+  it("mientras el agente trabaja, «trabajando» gana aunque haya un aviso de cambios", () => {
+    expect(TEXTO_TRABAJANDO).toBe("El agente está trabajando…");
+    expect(avisoVisible(true, null)).toEqual({ tipo: "trabajando", texto: TEXTO_TRABAJANDO });
+    expect(avisoVisible(true, cambios)).toEqual({ tipo: "trabajando", texto: TEXTO_TRABAJANDO });
+  });
+
+  it("sin trabajar, el aviso de cambios; sin cambios que contar, ninguno", () => {
+    expect(avisoVisible(false, cambios)).toEqual({ tipo: "cambios", texto: "El agente cambió 2 piezas" });
+    expect(avisoVisible(false, null)).toBeNull();
+    expect(avisoVisible(false, { nuevos: [], cambiados: [], eliminados: 0 })).toBeNull();
   });
 });
