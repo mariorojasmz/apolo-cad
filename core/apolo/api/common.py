@@ -3,9 +3,10 @@
 Movido tal cual desde `main.py` (F6a del plan `docs/plans/partir-api-main.md`): nombres de grupo
 → feature_ids (`_expand_ids`, toma `STATE_LOCK`), el 404 con «¿quisiste decir…?»
 (`_not_found`), el retorno de TODA mutación (`_state_or_error`: autosave, payload, alarma
-ambiental y aviso por WebSocket), la materialización de `insert_project`, los jobs (`JOBS`,
-`_sync_or_job` con su guardia de proyecto), el lock de física (`PHYSICS_LOCK`), el almacén
-requerido, el cajetín de los planos (`_drawing_meta`) y, desde F6b/F6c, lo que comparten dos
+ambiental y aviso por WebSocket), la materialización de `insert_project`, los jobs (`JOBS`
+con su aviso de estado por WebSocket, `_sync_or_job` con su guardia de proyecto), el lock de
+física (`PHYSICS_LOCK`), el almacén requerido, el cajetín de los planos (`_drawing_meta`) y,
+desde F6b/F6c, lo que comparten dos
 routers: el borrado del comando dueño de una junta o un mate (`_remove_owner_command`) y las
 reglas de stack-up del documento activo (`_stackup_rules`, envoltorio D4 que también usan
 los tests por `main`). Aquí sí viven `HTTPException` y
@@ -53,11 +54,19 @@ from .ws import WS
 PHYSICS_LOCK = threading.Lock()
 
 
+def _avisar_job(cambio: dict) -> None:
+    """Un job pasó a corriendo o terminó → WS `{"type": "job", "job_id", "estado"}` (D10 del
+    plan `docs/plans/modo-visor.md`: la UI muestra «el agente está trabajando» en vivo). Lo
+    llama el worker de `JOBS` sin el lock del store; `notify_changed` es thread-safe y no
+    bloquea (sólo programa el envío en el loop)."""
+    WS.notify_changed({"type": "job", **cambio})
+
+
 # Jobs (V6.5e): las mutaciones por lote pueden ENCOLARSE (?async=true) y recogerse por
 # recibo → un timeout del cliente ya no deja al agente ciego. El worker corre el MISMO
 # closure que el endpoint (misma atomicidad/undo/contratos/autosave), solo que fuera de
 # la request. Vive en MEMORIA: un reload los pierde (son recibos, no datos).
-JOBS = JobStore()
+JOBS = JobStore(al_cambiar_estado=_avisar_job)
 
 
 def _expand_ids(value) -> list[str] | None:

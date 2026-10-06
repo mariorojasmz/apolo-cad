@@ -98,9 +98,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   `?async`, byte-idéntico (la UI no se entera). Hoy sólo los lotes lo tienen.
 - `JobStore`: cola FIFO con UN worker (`STATE_LOCK` serializa igual y el orden importa), retiene
   los 20 terminados, en memoria. `GET /api/jobs/{id}?wait_s=0..30` = long-poll.
-- Lock HOJA: el `_cv` del store jamás se sostiene llamando al closure (que toma `STATE_LOCK`); el
-  worker corre `fn()` sin lock propio y escribe el resultado después. `jobs.py` no importa
-  FastAPI (`_describe_error` duck-tipea `status_code`/`detail`).
+- Lock HOJA: el `_cv` del store jamás se sostiene llamando al closure (que toma `STATE_LOCK`)
+  ni al aviso `al_cambiar_estado`; el worker corre `fn()` sin lock propio y escribe el resultado
+  después. `jobs.py` no importa FastAPI (`_describe_error` duck-tipea `status_code`/`detail`).
+- Al pasar a corriendo y al terminar, WS `{"type": "job", "job_id", "estado"}` (cableado en
+  `common.py`); best-effort: un aviso que lanza se traga. [modo-visor](../../../docs/plans/modo-visor.md) (D10)
 - Guardia de proyecto: el job captura `S.project_id` al encolar y lo revalida DENTRO del RLock que
   ejecuta el lote; si el proyecto activo cambió → 409 y no aplica. `restore_revision` conserva el
   id (el lote aplica sobre lo restaurado, como en sync).

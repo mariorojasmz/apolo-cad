@@ -123,9 +123,14 @@ def mundo(monkeypatch):
     doc.execute("create_box", {"name": "Base", "width": 100, "depth": 100, "height": 20})
     monkeypatch.setattr(api, "DOC", doc)
     monkeypatch.setattr(mcp_server, "APOLO_URL", "http://127.0.0.1:9")  # nada se escapa
-    m = NS(doc=doc, pedidos=[], bases=[], guardados=[], avisos=[], al_pedir=lambda req: None)
+    m = NS(doc=doc, pedidos=[], bases=[], guardados=[], avisos=[], jobs=[],
+           al_pedir=lambda req: None)
     monkeypatch.setattr(api._autosave_sched, "schedule", lambda: m.guardados.append(1))
-    monkeypatch.setattr(WS, "notify_changed", lambda msg=None: m.avisos.append(msg))
+
+    def avisar(msg=None):  # `avisos` = «el documento cambió»; el estado de un job va aparte
+        (m.jobs if msg and msg.get("type") == "job" else m.avisos).append(msg)
+
+    monkeypatch.setattr(WS, "notify_changed", avisar)
 
     def anotar(req: httpx.Request) -> None:
         m.al_pedir(req)

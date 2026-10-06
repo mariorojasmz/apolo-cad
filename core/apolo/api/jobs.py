@@ -14,6 +14,8 @@ documento. Solo ejecuta closures en orden y guarda su resultado.
 REGLA DE LOCKS: ``_cv`` es un lock HOJA — jamás se sostiene mientras se llama al closure
 (que toma STATE_LOCK). El worker ejecuta ``fn()`` SIN lock propio y solo DESPUÉS escribe
 el resultado. Orden imposible de invertir → sin deadlock contra STATE_LOCK/_flush_lock.
+Lo mismo vale para el aviso de cambio de estado (``al_cambiar_estado``, D10 del plan
+`docs/plans/modo-visor.md`): es código EXTERNO y se llama desde el worker, sin ``_cv``.
 """
 
 from __future__ import annotations
@@ -49,13 +51,21 @@ class JobStore:
     """Cola FIFO con UN worker daemon. No hay paralelismo que ganar (STATE_LOCK serializa
     igual) y un solo worker da orden DETERMINISTA — coherente con «un lote = UN regenerate»."""
 
-    def __init__(self, retention: int = _RETENTION) -> None:
+    def __init__(
+        self,
+        retention: int = _RETENTION,
+        al_cambiar_estado: Callable[[dict], None] | None = None,
+    ) -> None:
+        """``al_cambiar_estado`` (opcional) recibe ``{"job_id", "estado"}`` cuando un job
+        pasa a ``corriendo`` y cuando termina (``ok``/``error``). Quien crea el store decide
+        el transporte (la API lo manda por WebSocket): este módulo sigue sin conocerlo."""
         self._cv = threading.Condition()
         self._jobs: dict[str, dict] = {}
         self._order: list[str] = []  # orden de creación (eviction FIFO de los terminados)
         self._queue: queue.Queue = queue.Queue()
         self._worker: threading.Thread | None = None
         self.retention = retention
+        self._al_cambiar_estado = al_cambiar_estado
 
     # ------------------------------------------------------------------ API pública
     def submit(self, tipo: str, fn: Callable[[], dict]) -> str:
@@ -116,16 +126,37 @@ class JobStore:
             self._worker.start()
 
     def _run(self) -> None:
+        # El worker no sostiene `_cv` en ningún punto de este bucle: `_mark_running` y
+        # `_finish` lo toman y lo sueltan dentro. Por eso aquí se llama el código externo
+        # (el closure y el aviso de estado).
         while True:
             job_id, fn = self._queue.get()
             self._mark_running(job_id)
+            self._avisar(job_id, "corriendo")
             try:
                 resultado = fn()  # SIN lock propio: el closure toma STATE_LOCK (lock hoja)
             except BaseException as exc:  # noqa: BLE001 — el error viaja al job, no mata el worker
                 detail, status = _describe_error(exc)
                 self._finish(job_id, estado="error", error=detail, http_status=status)
+                self._avisar(job_id, "error")
             else:
                 self._finish(job_id, estado="ok", resultado=resultado)
+                self._avisar(job_id, "ok")
+
+    def _avisar(self, job_id: str, estado: str) -> None:
+        """Aviso de cambio de estado. Llamar SIEMPRE sin ``_cv`` sostenido (es código
+        externo: si tomara otro lock o volviera a este store, el lock hoja dejaría de serlo).
+        El job ya quedó escrito antes de avisar: quien lea al recibir el aviso lo ve."""
+        avisar = self._al_cambiar_estado
+        if avisar is None:
+            return
+        try:
+            avisar({"job_id": job_id, "estado": estado})
+        except BaseException:  # noqa: BLE001
+            # El aviso es best-effort: un callback roto no mata el worker (los jobs que
+            # esperan en cola se quedarían sin atender) ni cambia el resultado del job,
+            # que ya está escrito. El dueño del recibo lo recoge igual por `get`.
+            pass
 
     def _mark_running(self, job_id: str) -> None:
         with self._cv:

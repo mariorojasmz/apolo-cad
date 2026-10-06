@@ -107,7 +107,12 @@ def _preparar(monkeypatch):
     monkeypatch.setattr(api, "DOC", doc)
     espias: dict[str, list] = {"autoguardado": [], "aviso": []}
     monkeypatch.setattr(api._autosave_sched, "schedule", lambda: espias["autoguardado"].append(1))
-    monkeypatch.setattr(api.WS, "notify_changed", lambda: espias["aviso"].append(1))
+
+    def avisar(msg=None):  # «el documento cambió»; el estado de un job no cuenta como aviso
+        if not (msg and msg.get("type") == "job"):
+            espias["aviso"].append(1)
+
+    monkeypatch.setattr(api.WS, "notify_changed", avisar)
     return doc, espias
 
 
