@@ -1,21 +1,29 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Search, X } from "lucide-react";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import type { ProjectInfo, RevisionInfo } from "../types";
+import Spinner from "../ui/Spinner";
+import FilaProyecto from "../inicio/FilaProyecto";
+import NuevoProyecto from "../inicio/NuevoProyecto";
+import Revisiones from "../inicio/Revisiones";
+import { agrupar, filtrarYOrdenar, palabras, type Orden } from "../inicio/proyectos";
+import "../inicio/inicio.css";
 
-/* Pantalla Inicio: proyectos (SQLite, con autoguardado), plantillas de nuevo
-   proyecto y revisiones del proyecto abierto. */
+/* Pantalla de proyectos: buscar y abrir uno (lo más frecuente, arriba y con el foco), crear
+   uno nuevo y, a la derecha, las revisiones del proyecto abierto. Si la API todavía está
+   arrancando (abre y regenera el proyecto reciente antes de atender), la lista no se da por
+   vacía: avisa y reintenta sola. */
 
-const TEMPLATES = [
-  { id: null, label: "Vacío" },
-  { id: "transportador", label: "Transportador 2 m (paramétrico)" },
-  { id: "brazo", label: "Brazo robótico 4 ejes" },
-] as const;
+type Carga = "cargando" | "listo" | "arrancando" | "sin-conexion";
+
+const REINTENTO_MS = 2000;
+const MAX_REINTENTOS = 45; // ~90 s: más que un arranque lento con el proyecto reciente
 
 export default function HomeScreen() {
   const show = useStore((s) => s.showHome);
   const openHome = useStore((s) => s.openHome);
-  const currentId = useStore((s) => s.scene?.document.project_id ?? null);
+  const doc = useStore((s) => s.scene?.document);
   const busy = useStore((s) => s.busy);
   const createProject = useStore((s) => s.createProject);
   const openProjectById = useStore((s) => s.openProjectById);
@@ -23,130 +31,197 @@ export default function HomeScreen() {
   const duplicateProject = useStore((s) => s.duplicateProject);
   const saveRevision = useStore((s) => s.saveRevision);
   const restoreRevision = useStore((s) => s.restoreRevision);
+  const currentId = doc?.project_id ?? null;
 
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [revisions, setRevisions] = useState<RevisionInfo[]>([]);
-  const [name, setName] = useState("");
-  const [template, setTemplate] = useState<string | null>(null);
-  const [revNote, setRevNote] = useState("");
+  const [carga, setCarga] = useState<Carga>("cargando");
+  const [intento, setIntento] = useState(0); // «Reintentar» a mano vuelve a empezar el ciclo
+  const [consulta, setConsulta] = useState("");
+  const [orden, setOrden] = useState<Orden>("recientes");
+  const [creando, setCreando] = useState(false);
+  const buscador = useRef<HTMLInputElement>(null);
 
-  const reload = () => {
-    api.projects().then(setProjects).catch(() => setProjects([]));
-    api.revisions().then(setRevisions).catch(() => setRevisions([]));
+  const recargar = async (): Promise<void> => {
+    const [p, r] = await Promise.allSettled([api.projects(), api.revisions()]);
+    if (p.status === "rejected") throw p.reason;
+    setProjects(p.value);
+    setRevisions(r.status === "fulfilled" ? r.value : []);
+    setCarga("listo");
   };
 
   useEffect(() => {
-    if (show) reload();
-  }, [show]);
+    if (!show) return;
+    let vivo = true;
+    let veces = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const pedir = () => {
+      recargar().catch(() => {
+        if (!vivo) return;
+        veces += 1;
+        if (veces > MAX_REINTENTOS) return setCarga("sin-conexion");
+        setCarga("arrancando");
+        timer = setTimeout(pedir, REINTENTO_MS);
+      });
+    };
+    setCarga((c) => (c === "listo" ? c : "cargando"));
+    pedir();
+    return () => {
+      vivo = false;
+      clearTimeout(timer);
+    };
+  }, [show, intento]);
+
+  // Esc: primero limpia la búsqueda; después vuelve al modelado (si hay un proyecto abierto)
+  useEffect(() => {
+    if (!show) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (consulta) setConsulta("");
+      else if (currentId !== null) openHome(false);
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [show, consulta, currentId, openHome]);
+
+  const visibles = useMemo(() => filtrarYOrdenar(projects, consulta, orden), [projects, consulta, orden]);
+  const buscadas = useMemo(() => palabras(consulta), [consulta]);
+  const grupos = useMemo(
+    () => agrupar(visibles, currentId, orden === "recientes" && !buscadas.length),
+    [visibles, currentId, orden, buscadas],
+  );
 
   if (!show) return null;
 
-  // Las acciones del store ya muestran el indicador global (overlay "Abriendo proyecto…" en las
-  // pesadas) y publican errores en el toast; aquí solo recargamos la lista tras las que NO cierran
-  // la pantalla (borrar/duplicar/guardar revisión). Las de abrir/crear/restaurar cierran Inicio solas.
-  const after = async (p: Promise<unknown>) => {
+  // Las acciones del store ya muestran el indicador global y publican errores en el toast;
+  // aquí sólo se recarga la lista tras las que NO cierran la pantalla.
+  const despues = async (p: Promise<unknown>) => {
     await p;
-    reload();
+    await recargar().catch(() => undefined);
+  };
+  const abrir = (p: ProjectInfo) => (p.id === currentId ? openHome(false) : void openProjectById(p.id));
+  const restaurar = async (r: RevisionInfo, guardarAntes: boolean) => {
+    if (guardarAntes) {
+      const nota = r.note.trim();
+      await saveRevision(`Antes de restaurar «${nota.length > 60 ? `${nota.slice(0, 60)}…` : nota || "sin nota"}»`);
+    }
+    await restoreRevision(r.id);
   };
 
   return (
     <div className="modal-backdrop">
-      <div className="modal modal-home" onClick={(e) => e.stopPropagation()}>
-        <div className="home-head">
-          <h3>Genix Apolo CAD — Proyectos</h3>
-          <button onClick={() => openHome(false)}>Volver al modelado</button>
-        </div>
-
-        <div className="home-new">
-          <input
-            placeholder="Nombre del nuevo proyecto…"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <select value={template ?? ""} onChange={(e) => setTemplate(e.target.value || null)}>
-            {TEMPLATES.map((t) => (
-              <option key={t.label} value={t.id ?? ""}>{t.label}</option>
-            ))}
-          </select>
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={() => void createProject(name.trim() || "Sin título", template)}
-          >
-            + Crear
-          </button>
-        </div>
-
-        <div className="home-grid">
-          {projects.map((p) => (
-            <div key={p.id} className={`home-card ${p.id === currentId ? "current" : ""}`}>
-              <strong>{p.name}</strong>
-              <span className="hint">
-                {p.pieces} piezas · {p.updated_at.replace("T", " ")}
-              </span>
-              <div className="home-card-actions">
-                {p.id === currentId ? (
-                  <span className="estado-ok">● abierto</span>
-                ) : (
-                  <>
-                    <button
-                      className="primary"
-                      disabled={busy}
-                      onClick={() => void openProjectById(p.id)}
-                    >
-                      Abrir
-                    </button>
-                    <button
-                      className="ghost"
-                      disabled={busy}
-                      onClick={() => void after(deleteProject(p.id))}
-                    >
-                      ✕
-                    </button>
-                  </>
-                )}
-                <button disabled={busy} onClick={() => void after(duplicateProject(p.id))}>
-                  Duplicar
-                </button>
-              </div>
-            </div>
-          ))}
-          {projects.length === 0 && <p className="hint">Sin proyectos todavía.</p>}
-        </div>
-
-        <div className="home-revisions">
-          <h4>Revisiones del proyecto abierto</h4>
-          <div className="vars-form">
-            <input
-              placeholder="Nota de la revisión (p. ej. 'antes de cambiar el paso')"
-              value={revNote}
-              onChange={(e) => setRevNote(e.target.value)}
-            />
-            <button
-              disabled={busy}
-              onClick={() => void after(saveRevision(revNote.trim()).then(() => setRevNote("")))}
-            >
-              💾 Guardar revisión
+      <div className="modal inicio" role="dialog" aria-label="Proyectos" onClick={(e) => e.stopPropagation()}>
+        <header className="inicio-cab">
+          <div className="inicio-fila">
+            <h3>Proyectos</h3>
+            <button className="primary inicio-nuevo" disabled={busy} onClick={() => setCreando(true)}>
+              <Plus size={15} /> Nuevo proyecto
             </button>
+            {currentId !== null && (
+              <button className="ghost" onClick={() => openHome(false)}>
+                <X size={15} /> Volver al modelado
+              </button>
+            )}
           </div>
-          {revisions.length > 0 && (
-            <ul className="rev-list">
-              {revisions.map((r) => (
-                <li key={r.id}>
-                  <span>
-                    <strong>{r.note}</strong> · {r.pieces} piezas · {r.created_at.replace("T", " ")}
-                  </span>
-                  <button
-                    disabled={busy}
-                    title="Vuelve el proyecto a este estado"
-                    onClick={() => void restoreRevision(r.id)}
-                  >
-                    ⟲ Restaurar
-                  </button>
-                </li>
+          <div className="inicio-fila">
+            <label className="inicio-buscar">
+              <Search size={15} aria-hidden />
+              <input
+                ref={buscador}
+                autoFocus
+                placeholder="Buscar proyecto, p. ej. «faja 4m»"
+                value={consulta}
+                onChange={(e) => setConsulta(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && visibles[0]) abrir(visibles[0]);
+                }}
+              />
+              {consulta && (
+                <button className="icono" aria-label="Limpiar búsqueda" onClick={() => { setConsulta(""); buscador.current?.focus(); }}>
+                  <X size={14} />
+                </button>
+              )}
+            </label>
+            <div className="inicio-orden" role="group" aria-label="Ordenar">
+              <button className={orden === "recientes" ? "on" : ""} aria-pressed={orden === "recientes"} onClick={() => setOrden("recientes")}>
+                Recientes
+              </button>
+              <button className={orden === "nombre" ? "on" : ""} aria-pressed={orden === "nombre"} onClick={() => setOrden("nombre")}>
+                Nombre
+              </button>
+            </div>
+            {carga === "listo" && (
+              <span className="inicio-cuenta">
+                {buscadas.length ? `${visibles.length} de ${projects.length}` : `${projects.length} proyectos`}
+              </span>
+            )}
+          </div>
+        </header>
+
+        <div className="inicio-cuerpo">
+          <section className="inicio-lista" aria-label="Lista de proyectos">
+            {creando && (
+              <NuevoProyecto
+                ocupado={busy}
+                onCancelar={() => setCreando(false)}
+                onCrear={(nombre, plantilla) => void createProject(nombre, plantilla)}
+              />
+            )}
+
+            {carga === "cargando" && <p className="inicio-estado"><Spinner size={15} /> Cargando proyectos…</p>}
+            {carga === "arrancando" && (
+              <p className="inicio-estado"><Spinner size={15} /> Apolo está arrancando. Tus proyectos aparecen en unos segundos.</p>
+            )}
+            {carga === "sin-conexion" && (
+              <div className="inicio-estado error">
+                <p>No pudimos conectar con el servidor de Apolo. Revisa que esté abierto.</p>
+                <button onClick={() => setIntento((n) => n + 1)}>Reintentar</button>
+              </div>
+            )}
+
+            {carga === "listo" && !projects.length && (
+              <div className="inicio-estado">
+                <p>Aquí van a aparecer tus proyectos. Crea el primero para empezar.</p>
+                <button className="primary" onClick={() => setCreando(true)}>Crear proyecto</button>
+              </div>
+            )}
+            {carga === "listo" && projects.length > 0 && !visibles.length && (
+              <div className="inicio-estado">
+                <p>Ningún proyecto se llama así.</p>
+                <button className="ghost" onClick={() => setConsulta("")}>Ver todos</button>
+              </div>
+            )}
+
+            {carga === "listo" &&
+              grupos.map((g) => (
+                <div key={g.titulo ?? "todos"} className="inicio-grupo">
+                  {g.titulo && <h5>{g.titulo}</h5>}
+                  <ul>
+                    {g.proyectos.map((p) => (
+                      <FilaProyecto
+                        key={p.id}
+                        proyecto={p}
+                        abierto={p.id === currentId}
+                        buscadas={buscadas}
+                        ocupado={busy}
+                        onAbrir={() => abrir(p)}
+                        onDuplicar={() => void despues(duplicateProject(p.id))}
+                        onEliminar={() => void despues(deleteProject(p.id))}
+                      />
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
-          )}
+          </section>
+
+          <Revisiones
+            proyecto={currentId !== null ? doc?.name ?? null : null}
+            cargadas={carga === "listo"}
+            revisiones={revisions}
+            ocupado={busy}
+            onGuardar={(nota) => despues(saveRevision(nota))}
+            onRestaurar={(r, guardarAntes) => void restaurar(r, guardarAntes)}
+          />
         </div>
       </div>
     </div>

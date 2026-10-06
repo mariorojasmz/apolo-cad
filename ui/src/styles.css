@@ -578,28 +578,6 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 
 /* ----------------------------------------------------------- inicio/producto */
 .brand-btn { border: none; font-weight: 600; color: #fff; font-size: 13px; padding: 4px 8px; }
-.modal-home { width: 820px; max-width: 94vw; max-height: 90vh; overflow-y: auto; }
-.home-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.home-head h3 { margin: 0; }
-.home-new { display: flex; gap: 8px; margin-bottom: 14px; }
-.home-new input { flex: 1; }
-.home-new select { width: auto; }
-.home-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 10px; margin-bottom: 16px;
-}
-.home-card {
-  border: 1px solid var(--border); border-radius: 8px; background: var(--bg2);
-  padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; box-shadow: var(--shadow-1);
-}
-.home-card.current { border-color: var(--accent); }
-.home-card-actions { display: flex; gap: 6px; margin-top: auto; align-items: center; }
-.home-revisions h4 { margin-bottom: 6px; }
-.rev-list { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; }
-.rev-list li {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 4px 6px; border-bottom: 1px solid var(--border); gap: 8px;
-}
 .cfg-section { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px; }
 .cfg-section h4 { margin: 0 0 4px; }
 /* Tabla de diseño (V6.4c): grilla variables x variantes con celdas editables */
