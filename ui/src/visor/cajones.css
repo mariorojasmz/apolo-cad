@@ -120,3 +120,15 @@
   .capa-visor .cajon { animation: none; }
   .app.modo-visor .vista-visor { transition: none; }
 }
+
+/* ---- piezas ocultas: «N piezas ocultas · Mostrar todo» arriba a la izquierda ---- */
+.capa-visor .chip-ocultas {
+  position: absolute; top: var(--cv-margen); left: var(--cv-margen); z-index: 5; pointer-events: auto;
+  display: flex; align-items: center; gap: 10px; padding: 5px 5px 5px 12px;
+  background: var(--cv-vidrio); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow-2); color: var(--text); font-size: 12.5px; transition: left 0.22s ease;
+}
+.capa-visor .chip-ocultas svg { color: var(--muted); flex: none; }
+.capa-visor .chip-ocultas strong { font-weight: 600; }
+.capa-visor .chip-ocultas button { height: 28px; padding: 0 10px; border-radius: 7px; white-space: nowrap; }
+.app.modo-visor.visor-arbol .capa-visor .chip-ocultas { left: calc(var(--cv-izq-ancho) + 2 * var(--cv-margen)); }
