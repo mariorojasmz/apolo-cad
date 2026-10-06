@@ -219,4 +219,26 @@ Cada fase la implementa un subagente en worktree (§ Planes del CLAUDE.md raíz)
 
 ## Bitácora
 
-(vacía: se llena al cerrar cada fase)
+### F0 — medido (2026-10-06, app real en :8000 con la faja 38, 84 piezas)
+
+- **(a) % del 3D**: con el layout por defecto de un navegador nuevo, a 1917×1041, el viewport
+  mide 639×851 = **27 %** (Dockview reparte el ancho entre el árbol y Propiedades). En la
+  captura de Mario, con su layout, ~35 %.
+- **(b) `maximizeGroup` no re-monta**: después de maximizar es el mismo `<canvas>`, sin
+  `webglcontextlost`, y hay un solo canvas en la página. Maximizado y con la cabecera oculta,
+  el viewport mide 1918×881 = **85 %**, todavía con el Ribbon y la StatusBar montados; sin
+  ellos se espera ~96 %. Al salir vuelve a 639×851 con el mismo canvas.
+- **(c) Los paneles ocultos siguen montados**: con el grupo maximizado, los `.dock-pane` del
+  árbol y de Propiedades siguen en el DOM con ancho 0. Si un cajón aloja el mismo
+  componente, hay dos instancias. **Se acepta**: Árbol, Propiedades y Asistente leen de la
+  store y la copia oculta no recibe interacción. El costo es un fetch duplicado al montar en
+  los paneles que lo hacen. Cerrar y reabrir los paneles al cambiar de modo perdería las
+  posiciones que Mario haya armado.
+- **⚠️ Trampa nueva**: Dockview serializa el maximizado (`"maximizedNode"` en
+  `apolo.layout.v1`) y `exitMaximizedGroup()` **no** dispara `onDidLayoutChange`: tras salir,
+  lo guardado sigue maximizado. → F2 no persiste mientras el grupo está maximizado, guarda
+  explícitamente al salir y, al cargar en Completo, sale del maximizado si el JSON lo trae.
+- **(d)** `GET /api/mass-properties?ids=c44` devuelve `material: "acero"`, `masa_kg: 2.5864`
+  y `bbox_mm` por pieza. La ficha (D7) usa eso.
+- **(e)** Validar no tiene un conteo barato: `ChecksPanel` corre a pedido (botón) y guarda el
+  resultado en su estado local. → **D4 sin conteo** en la barra de paneles.
