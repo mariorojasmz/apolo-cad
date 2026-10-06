@@ -4,6 +4,7 @@ import { reportError } from "../errorlog";
 import { cuerpoDelChat } from "../chat/respuesta";
 import { eventosSse, type EventoChat } from "../chat/sse";
 import { aplicarEvento, cerrarTurno } from "../chat/turno";
+import { mergeSceneDelta } from "./sceneDelta";
 import type {
   CatalogItem, ChatMsg, CommandSchema, ConnectivityOut, DropResult, FeatureOut, GravityResult,
   KinematicsOut, MateRow, MotionKeyframe, MotionStudy, RailConstraint, SceneOut,
@@ -344,31 +345,6 @@ function enqueueSilent(set: SetFn, id: string, run: () => Promise<SceneOut>): Pr
   });
   syncTail = p.catch(() => false);
   return p;
-}
-
-/** Reconstruye una SceneOut COMPLETA a partir de un delta (V6.2b): las features `same`
- * heredan la geometría (mesh/bbox/volumen/mesh_key/matrix) de la escena anterior y solo
- * reciben los metadatos volátiles; las demás llegan completas. Definiciones = las previas
- * (las `same` las conservan) + las nuevas del delta, podadas a las realmente referenciadas. */
-function mergeSceneDelta(prev: SceneOut, delta: SceneOut): SceneOut {
-  const prevById = new Map(prev.features.map((f) => [f.id, f]));
-  const features: FeatureOut[] = [];
-  for (const f of delta.features) {
-    if (!f.same) { features.push(f); continue } // geometría nueva/cambiada: viene completa
-    const old = prevById.get(f.id);
-    if (!old) continue; // `same` sin prev (no debería pasar): descartar (evita feature sin malla)
-    // conserva la geometría anterior; sobrescribe solo lo VOLÁTIL que trae el delta
-    features.push({
-      ...old, rev: f.rev, name: f.name, color: f.color,
-      visible: f.visible, group: f.group, is_guide: f.is_guide, // V6.2e Fix 7: guía es metadato
-    });
-  }
-  const allDefs = { ...prev.definitions, ...delta.definitions };
-  const definitions: Record<string, (typeof allDefs)[string]> = {};
-  for (const f of features) {
-    if (f.mesh_key && allDefs[f.mesh_key]) definitions[f.mesh_key] = allDefs[f.mesh_key];
-  }
-  return { features, definitions, document: delta.document, epoch: delta.epoch };
 }
 
 export const useStore = create<AppState>((set, get) => ({
