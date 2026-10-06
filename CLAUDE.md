@@ -89,7 +89,7 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 
 ### Estado actual (2026-10-06)
 
-1843 tests (+18 de tortura vía `-m torture`) · 159 tests vitest · 79 tools MCP · 53 comandos ·
+1843 tests (+18 de tortura vía `-m torture`) · 172 tests vitest · 79 tools MCP · 53 comandos ·
 catálogo 231 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [chat-cliente-igual](docs/plans/chat-cliente-igual.md) (espera decisiones de Mario); sin verificar: [modo-visor](docs/plans/modo-visor.md) (falta el E2E de Mario por MCP); en plan: [harness-automejora](docs/plans/harness-automejora.md).
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %
