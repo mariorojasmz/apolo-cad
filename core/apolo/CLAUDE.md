@@ -54,15 +54,21 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
 
 ## Agente de la app (`agent/`) y criterio (`design/`)
 
-- `agent/herramientas.py` da al chat las tools del MCP, sin copias (el endpoint lo usa desde la
-  F5a de [chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)): `definiciones()` sale de
+- `agent/herramientas.py` da al chat las tools del MCP, sin copias: `definiciones()` sale de
   `mcp.list_tools()` en el orden del catálogo y `ejecutar()` corre `mcp.call_tool` en el hilo
   del chat apuntado a `tools/destino.py`; en modo propuesta lo que `muta` no corre. El MCP se
   importa perezoso restaurando el logger raíz (FastMCP lo reconfigura al construirse).
-- `agent/modelo.py` es el cliente de Anthropic del chat (lo cablea la F5a): config LEÍDA en cada
+- `agent/modelo.py` es el cliente de Anthropic del chat: config LEÍDA en cada
   llamada (`APOLO_MODEL`, `APOLO_MAX_TOKENS`, `APOLO_EFFORT`, `APOLO_CHAT_VUELTAS`; los defaults
   esperan D11), caché en el último bloque de `system` + el automático, conversación append-only
   y ningún final silencioso: `aviso` ante `max_tokens`/`refusal`/vueltas agotadas.
+- `agent/chat.py` (con `APOLO_CHAT_HTTP=1` hasta la F5b de
+  [chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)) es un cliente HTTP más de la
+  propia API: lee el token de `GET /api/health` al empezar y lo manda en `X-Apolo-Documento` (un
+  409 corta el turno); el modo va en el ÚLTIMO mensaje de la persona, nunca en `messages[0]`;
+  cupo `APOLO_CHAT_MAX` → 429. Ningún módulo nuevo de `agent/` llega a `apolo.state`,
+  `apolo.api` ni `anyio` (gate transitivo en `tests/test_chat_http.py`); eventos SSE en
+  `agent/eventos.py`, en espejo de `ui/src/chat/sse.ts`.
 - `design/guidelines.py` es la fuente ÚNICA del criterio de ingeniería: `design_brief()` (capa 1)
   va siempre en los dos clientes; `design_guidelines()` (capa 2), bajo demanda. Se edita ahí,
   nunca en las copias.
@@ -71,11 +77,11 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   que es `SYSTEM_PROMPT`) = brief + `GUIA_TECNICA` + `REGLAS_CHAT` (sólo lo de la app). Lo que ya
   dice un schema o un docstring no se repite. `tests/test_prompt_chat.py` impide que el prompt
   del chat nombre tools que el chat no tiene.
-- El chat (`chat_stream`) queda ATADO al documento activo al empezar: la API le inyecta
-  `AgentHooks` (`agent/hooks.py`: `alive`/`after_mutation`/`notify`) y cada mutación revalida
-  `alive()` DENTRO de `STATE_LOCK` (`mutation_guard`). Si se abrió otro proyecto o se restauró
-  una revisión, no aplica nada y el stream cierra con un evento `error`. El agente NO importa
-  `apolo.api` (api → agent, nunca al revés).
+- El chat viejo (`chat_stream`, sin el flag; lo borra la F5b) queda ATADO al documento activo
+  al empezar: la API le inyecta `AgentHooks` (`agent/hooks.py`: `alive`/`after_mutation`/
+  `notify`) y cada mutación revalida `alive()` DENTRO de `STATE_LOCK` (`mutation_guard`). Si se
+  abrió otro proyecto o se restauró una revisión, no aplica nada y el stream cierra con un
+  evento `error`. El agente NO importa `apolo.api` (api → agent, nunca al revés).
 
 ## Cinemática (`robotics/`)
 

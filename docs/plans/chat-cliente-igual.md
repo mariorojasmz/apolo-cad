@@ -921,3 +921,134 @@ cliente MCP real recorre los 11 routers.
   `MUJOCO_LOG.TXT` del worktree borrados, SHA-256 de la base de Mario sin cambios
   (`1119258C…F52B4`).
 - **Falta de F12**: pytest completo y `-m torture`, `APOLO_CHAT_MAX=1` → 429 y lo de Mario en la UI.
+
+### F5a — el motor HTTP en paralelo (2026-10-05)
+
+Base `ad210db` (F3 integrada). Sin llamar a la API de Anthropic: todo con un cliente falso.
+
+- **`agent/eventos.py`** (48 líneas): `TIPOS` (los siete de `ui/src/chat/sse.ts::validar`, que
+  un test lee del `.ts`), `sse()` (`data: <json>\n\n`; `json.dumps` escapa los saltos), `tool()`
+  con `etiqueta` de `herramientas.etiqueta`, `acciones()` (tarjetas `{type, params, reason}`,
+  `reason` vacío y nunca ausente, `executed` explícito), `error()` y `fin()`.
+- **`agent/chat.py`** (300 líneas, ≈ 90 de doc y comentarios):
+  - `abrir(messages, auto, base_url)` toma un lugar de `CUPO` (o `Lleno`) y devuelve el
+    stream SSE CEBADO (ver desviación 1). El turno lee el token con `GET /api/health` por un
+    destino sin cabecera, arma `Destino.http(base, {"X-Apolo-Documento": token})` y corre
+    `modelo.conversar(convo, system=system_prompt_chat(), tools=herramientas.definiciones(),
+    ejecutar=ejecutor(...))`. Si no puede leer el token: `error` + `done` sin llamar al modelo.
+    Un fallo inesperado: `error` + `done` (nunca un stream cortado a medias).
+  - `preparar(messages, modo)` (D6): el historial TAL CUAL y, en el último mensaje de la
+    persona, un bloque `text` más con `<system-reminder>Modo de este turno: …</system-reminder>`
+    — en los DOS modos (el de propuesta cubre volver de auto a propuesta en el mismo chat); el
+    de auto dice «la persona activó el modo auto», que es lo que espera `REGLAS_CHAT`.
+  - `ejecutor(destino, modo, token)`: por cada tool cede `tool` (con su etiqueta) ANTES de
+    correrla; `propose_commands` (D7) se valida en el chat (lista no vacía de `{type, …}`) y
+    se ensaya con la tool `preview(actions, data=true)` por HTTP —una lectura: vale en los dos
+    modos—; si pasa, `actions` pendientes y `seguir=False`; si no, `is_error` con el texto de
+    la API y el turno sigue para que el modelo corrija. Un 409 → `modelo.Corte(PROYECTO_CAMBIO)`.
+    En auto, un `run_command`/`run_batch` aplicado (no un recibo de job) sale además como
+    `actions` con `executed: true`. Una excepción inesperada de una tool vuelve como `is_error`.
+  - `CUPO` (D4b): contador con lock hoja; `APOLO_CHAT_MAX` leído en cada turno (default 4,
+    entero 1–20). `url_interna(request.scope["server"])` o `APOLO_URL_INTERNA` (`0.0.0.0` →
+    `127.0.0.1`, IPv6 entre corchetes, sin puerto → pide la variable).
+- **Endpoint** (`routers/core.py` 350 → 395): `APOLO_CHAT_HTTP=1` leído en cada petición →
+  `_chat_http`, que no toma `STATE_LOCK` (gate AST); `Lleno` → 429 con `chat.LLENO`; config
+  inválida → 500 con su texto. Sin el flag, el chat viejo intacto (`test_agent`,
+  `test_autonomous` sin editar). El request no cambia (`{messages: [{role, content: str}],
+  auto}`, F10/D15). `api/main.py` sin tocar.
+- **La UI se entera en auto** por el WebSocket que ya dispara cada mutación de la API
+  (`_state_or_error` → `WS.notify_changed`; el test lo espía: 2 avisos para un `run_command` y
+  un `run_batch` por job) y, como hoy, por las tarjetas `executed: true`, que además refrescan.
+- **Desviaciones y decisiones**:
+  1. **`_SseDelTurno` (no estaba en el contrato)**: la tortura con uvicorn real puso rojo el
+     test de corte — tras desconectar el cliente el cupo no volvía en 30 s; con un
+     `gc.collect()` en la espera, sí. Diagnóstico: Starlette no cierra el generador; la
+     excepción de la cancelación referencia el frame de `iterate_in_threadpool`, que tiene al
+     generador, y ese ciclo sólo lo suelta el GC (en una API ociosa, cuando sea: cuatro cortes
+     dejaban el chat en 429). Lo que se creía (yo, antes de medir): que el conteo de
+     referencias de CPython cerraba el generador apenas Starlette lo soltaba, y por eso alcanzaba
+     con el `finally`. Fix: una subclase de `StreamingResponse` que cierra el generador en el
+     `finally` de `stream_response` (el `next()` en curso ya volvió: Starlette lo espera
+     aunque lo cancelen). El cebado (`yield ""` consumido por `abrir`) queda para el caso de un
+     generador que nadie llega a iterar. Regla en `api/CLAUDE.md`.
+  2. **Relectura del token antes de cada tanda de tools (no estaba en el contrato)**: el 409
+     sólo lo provoca una mutación; leyendo o en modo propuesta, un turno seguía trabajando
+     sobre el proyecto que la persona abrió después, y como la UI vacía el chat al cambiar de
+     proyecto y `updateLast` escribe en el último mensaje, sus eventos podían caer en la
+     conversación nueva. Una `GET /api/health` por tanda; si no se puede leer, se sigue. NO es
+     la guardia (ésa sigue en el servidor, D3): sólo ahorra vueltas sobre un proyecto ajeno.
+  3. **El 409 se detecta por el texto del error** (`rechazó la operación (409)`, de
+     `mcp_server._reject`, congelado por el golden): un gancho de respuesta de httpx no ve el
+     409 del job (`GET /api/jobs/{id}` responde 200 con `estado: error`). Tests contra la API
+     real por el embudo (`run_command`), por el job (`run_batch`) y fuera del embudo
+     (`add_agent_note`). Todo 409 de la API significa hoy «cambió el proyecto».
+  4. **El bloque del modo y la caché entre turnos**: la UI reenvía sólo texto, así que al
+     turno siguiente el bloque del modo de un mensaje viejo desaparece y el prefijo cacheado se
+     rompe ahí; ya se rompía antes por las tools perdidas del historial (F10/D15). Con F10 el
+     bloque queda guardado en su turno. Dentro de un turno, append-only (test).
+  5. `CHAT_MAX_TOPE = 20`: la mitad de las 40 fichas de anyio, para que con cualquier valor
+     las peticiones del propio chat tengan hilo (D4 «imposible por diseño», no por config).
+  6. Tests en tres archivos (≤ 500 líneas cada uno).
+- **Tests** (26; 0 llamadas a Anthropic):
+  - `tests/test_chat_http.py` (17, 467 líneas; API real por TestClient sin lifespan, destino
+    sustituido en `chat.conectar`, cada petición anotada con método, ruta, cabecera y
+    `STATE_LOCK._is_owned()`): tipos de evento = los de `sse.ts`; el modo en el último turno y
+    el historial sin tocar; mismos bytes de `tools` y `system` en los dos modos (y tools
+    < 60 KB: D8); cada `tool_use` con su `tool_result` en orden y eventos válidos para la UI;
+    en propuesta cuatro mutaciones dan `is_error` sin una sola petición que no sea GET, sin
+    autoguardado ni aviso; la propuesta se ensaya (400 → error con el texto de la API, lista
+    vacía → error sin API, válida → tarjetas y fin del turno); en auto se aplica por HTTP con
+    la cabecera, autoguarda y avisa por WebSocket; 409 por embudo, job y fuera del embudo →
+    `tool, error, done`, una sola llamada al modelo y ningún documento cambia; proyecto
+    cambiado entre tandas → corte sin ninguna mutación; endpoint con el flag (base
+    `http://testserver:80`, ni `abrir`, ni el modelo, ni una petición con `STATE_LOCK`
+    tomado); sin el flag, el chat viejo; cupo lleno → 429 y vuelve, `APOLO_CHAT_MAX` inválido →
+    500; el cupo se libera al cerrar a mitad, si nadie itera y al terminar; `_SseDelTurno`
+    con un `send` que falla; sin API → `error` sin llamar al modelo. Un fixture autouse falla
+    si un test deja el cupo tomado.
+  - `tests/test_chat_http_capas.py` (6): gate transitivo D4a/D4c (desde cada módulo de
+    `agent/` salvo `agent.py`, `hooks.py` y `__init__.py`, que F5b borra, ninguna cadena de
+    imports —perezosos e `import_module` incluidos, paquetes padre también— llega a
+    `apolo.state`, `apolo.api` ni `anyio`); `_chat_http` no nombra `STATE_LOCK`; cabecera =
+    `guardia_documento.CABECERA`; `url_interna`; los recordatorios sólo nombran tools del chat;
+    `LLENO`, `PROYECTO_CAMBIO`, `SIN_PROYECTO` y `FALLO` pasan `faltas()`.
+  - `tests/test_chat_http_tortura.py` (3, `@pytest.mark.torture`; uvicorn real en un hilo,
+    sobre un socket del sistema ≥ 8020, sin lifespan): 4 chats a la vez retenidos en el modelo
+    mientras otros 3 reciben 429 y `GET /api/scene/summary` responde en < 10 s; soltados,
+    cada uno lee, consulta un schema, ensaya, muta por el embudo y por el job (5 tools, 12
+    piezas nuevas en total) sin error ni deadlock; `APOLO_CHAT_MAX=1` → el segundo, 429, y al
+    terminar el primero el lugar vuelve; el cliente corta a mitad → una sola llamada al modelo
+    y el cupo vuelve.
+- **Comprobado que se pone rojo** (y revertido): sin cebar el generador (el de nadie-itera);
+  sin `_SseDelTurno` (el unitario: cupo en 1 mientras vive la excepción; la tortura: no vuelve
+  en 30 s); sin la detección del 409 (los tres casos: el turno sigue); sin la relectura por
+  tanda; un import perezoso de `apolo.api` en `design/guidelines.py` (el gate da la cadena
+  `apolo.agent.chat → apolo.design.instrucciones → … → apolo.api.common`); `STATE_LOCK` en
+  `_chat_http`.
+- **Números**: definiciones 64 tools, 48 887 bytes + `system` 7 974 → ≈ 57 KB de prefijo
+  cacheable por llamada contra ≈ 164 KB sin caché del chat viejo; recordatorio 170 / 202 bytes.
+  Suite: 1848 passed + 1 skipped (18 de tortura deseleccionados; 8 min 46 s; la base recolectaba
+  1826: +23).
+  Tortura (`-m torture`): 18 passed (las 15 de antes + las 3 nuevas; 2 min). Los archivos del
+  chat, dos veces seguidas con la tortura: 26 passed. `ruff check core tests scripts` limpio;
+  trinquetes, `test_claude_md.py` y golden del MCP verdes e idénticos (`mcp_server.py` 1429 y
+  `agent/agent.py` sin tocar; `store.ts` sin tocar).
+- **Para F5b** (borrar el flag y el chat viejo):
+  - `agent_chat` pasa a ser el cuerpo de `_chat_http` (sin `os.environ`, `AgentHooks` ni
+    `chat_stream`; `_SseDelTurno` y el 429 se quedan); `Request` sigue en la firma.
+  - Se borran `agent/agent.py` y `agent/hooks.py`; `agent/__init__.py` sin sus re-exports;
+    `agent/prompts.py` se borra o queda (lo importan `test_design_guidelines.py:51` y
+    `test_prompt_chat.py:61`); `REGLAS_CHAT` deja de explicar que sirve a los dos chats.
+  - `EXENTOS` de `tests/test_chat_http_capas.py` se achica a `{"__init__.py"}` o a nada (el
+    test falla si nombra archivos que ya no existen: es a propósito).
+  - Tests: la lista cerrada del plan (`test_agent.py`, `test_autonomous.py`,
+    `test_validation.py`, `test_variables.py`, el `validate_actions` de
+    `test_params_estrictos.py`, `test_las_reglas_sirven_tambien_al_chat_viejo`) más
+    `test_chat_http.py::test_sin_flag_responde_el_chat_viejo`, el `setenv("APOLO_CHAT_HTTP")`
+    de los fixtures `con_flag` y `api_real` y, si se borra `prompts.py`, el caso de
+    `test_design_guidelines.py`.
+  - `core/apolo/CLAUDE.md` (las líneas del chat viejo y del flag) y `api/CLAUDE.md` (la del
+    flag).
+  - **Para F10/F12, no F5b**: la UI muestra un 429 como «Error 429 del servidor» (`sendChat` no
+    lee el `detail`, que ya viene en tuteo); y la sugerencia de F9 de marcar el inicio de cada
+    nota de avance (`progreso` con `nuevo: true`) sigue abierta en `modelo.py`.

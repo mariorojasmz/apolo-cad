@@ -140,6 +140,12 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   proceso pesado corre fuera con su lock (`RENDER_LOCK`, `PHYSICS_LOCK`, `FEA_LOCK`). Un endpoint
   nuevo de render o simulación sigue el patrón. `export_stl` y `drawing_spec` siguen bajo el lock
   (su HLR es OCCT).
+- `POST /api/agent/chat` con `APOLO_CHAT_HTTP=1` (hasta la F5b) no toma `STATE_LOCK`: el chat es
+  un cliente HTTP de esta misma API (`agent/chat.py`); cupo lleno → 429.
+- Un `StreamingResponse` que reserva algo (el cupo del chat) lo suelta CERRANDO su generador en
+  `stream_response` (`routers/core.py::_SseDelTurno`): Starlette no lo cierra y, tras un corte
+  del cliente, queda colgado de un ciclo de referencias hasta que pase el GC (medido con
+  uvicorn real). [chat-cliente-igual](../../../docs/plans/chat-cliente-igual.md) (F5a)
 
 ## Autosave y arranque
 
