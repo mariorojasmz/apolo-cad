@@ -157,8 +157,8 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 - Panel nuevo = 4 registros: `dock/dockApi.ts` `TOOL_PANELS` + `dock/DockShell.tsx` `COMPONENTS`
   + `panels/StatusBar.tsx` `PANELS` + `ui/icons.tsx` `PANEL_ICONS`.
 - Feedback de carga global: `guard`/`runTracked` + `BUSY_TEXT` (store).
-- Otros paneles accionan el viewport por `CustomEvent` (`"apolo:fit"`, `"apolo:export-gltf"`)
-  para no acoplar el store a three.js. El glTF se exporta en el cliente
+- Otros paneles accionan el viewport por `CustomEvent` (`"apolo:fit"` con `{id}` o `{ids}`,
+  `"apolo:export-gltf"`) para no acoplar el store a three.js. El glTF se exporta en el cliente
   (`viewport/exportGltf.ts`); STEP/STL, por endpoint.
 
 ### Layout
@@ -187,10 +187,15 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   viewport diffea por `rev` (sólo reconstruye la pieza cambiada; la apariencia se rehace en sitio
   con `applyAppearance`). Cada RECONEXIÓN del WS fuerza un refresh completo (el `epoch` del
   servidor pudo cambiar).
+- El refresh NO-completo es un cambio externo (agente, chat autónomo): publica en `window`
+  `apolo:cambios-externos` (`state/cambiosExternos.ts`; no publica con otro epoch u otro
+  proyecto) y el visor marca esas piezas. Una acción propia que no aplique la escena de su
+  respuesta saldría marcada como del agente. [plan](../docs/plans/modo-visor.md)
 
 ### Viewport
 
-- Contorno de selección por `EffectComposer` (`RenderPass` → `OutlinePass` → `OutputPass`), no
+- Contorno de selección por `EffectComposer` (`RenderPass` → `OutlinePass` → `OutlinePass` verde
+  del destello de los cambios del agente, `destello.ts` → `OutputPass`), no
   `renderer.render` directo. El RT del composer DEBE ser `HalfFloatType` + `samples: 4`:
   HalfFloat preserva el HDR lineal para que `OutputPass` aplique ACES + sRGB una sola vez (three no
   tonemapea al renderizar a un RT), y `samples` conserva el MSAA. Las mallas seleccionadas se

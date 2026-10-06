@@ -5,6 +5,8 @@ import { cuerpoDelChat } from "../chat/respuesta";
 import { eventosSse, type EventoChat } from "../chat/sse";
 import { aplicarEvento, cerrarTurno } from "../chat/turno";
 import { mergeSceneDelta } from "./sceneDelta";
+import { publicarCambiosExternos } from "./cambiosExternos";
+import { withRetry } from "./reintento";
 import type {
   CatalogItem, ChatMsg, CommandSchema, ConnectivityOut, DropResult, FeatureOut, GravityResult,
   KinematicsOut, MateRow, MotionKeyframe, MotionStudy, RailConstraint, SceneOut,
@@ -250,16 +252,6 @@ async function guard<T>(
 type SetFn = (s: Partial<AppState>) => void;
 let syncingCount = 0;
 
-/** Reintenta ante fallo TRANSITORIO (red/servidor ocupado) antes de rendirse. */
-async function withRetry<T>(run: () => Promise<T>, tries = 2, delayMs = 350): Promise<T> {
-  try {
-    return await run();
-  } catch (e) {
-    if (tries > 0) { await new Promise((r) => setTimeout(r, delayMs)); return withRetry(run, tries - 1, delayMs); }
-    throw e;
-  }
-}
-
 // COALESCING de ediciones por command_id: mientras se guarda una caja, las siguientes ediciones NO se
 // encolan una a una; se guarda solo la ÚLTIMA (los estados intermedios de un arrastre no importan) →
 // la cola queda ACOTADA (máx. 1 en vuelo + 1 pendiente por pieza), sin bloquear al usuario ni crecer.
@@ -423,6 +415,7 @@ export const useStore = create<AppState>((set, get) => ({
       // el epoch le dice al server si nuestros revs son de ESTE proceso (V6.2e Fix 2): si el
       // API reinició, responde el payload completo con el epoch nuevo → mergeSceneDelta lo usa.
       const delta = await api.sceneDelta(revs, Object.keys(prev.definitions), prev.epoch);
+      publicarCambiosExternos(prev, delta); // no-completo = cambio EXTERNO: el visor lo marca (modo-visor D8)
       scene = mergeSceneDelta(prev, delta);
     } else {
       scene = await api.scene();

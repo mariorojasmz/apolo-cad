@@ -7,6 +7,8 @@ import {
 import { selectFeatures, useStore } from "../state/store";
 import { iconFor } from "../ui/icons";
 import type { FeatureOut } from "../types";
+import { useVisor } from "../visor/estado";
+import "../visor/aviso.css"; // .punto-nuevo
 
 /* Árbol del modelo en DOS niveles: subsistema (estructura, rodillos, tornillería…)
    → comando (las piezas de un mismo comando se pliegan en un nodo) → piezas.
@@ -108,6 +110,8 @@ export default function Tree() {
   const isolate = useStore((s) => s.isolate);
   const runCommand = useStore((s) => s.runCommand);
   const openContextMenu = useStore((s) => s.openContextMenu);
+  const nuevas = useVisor((s) => s.nuevas); // piezas nuevas del último cambio del agente (modo-visor D8)
+  const esNueva = useMemo(() => new Set(nuevas), [nuevas]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
 
@@ -247,6 +251,7 @@ export default function Tree() {
         <span className="swatch" style={{ background: f.color }} />
         {level < 2 && <TypeIcon size={12} className="type-ic" aria-hidden />}
         <span className={`name ${f.visible ? "" : "muted"}`}>{label ?? f.name}</span>
+        {esNueva.has(f.id) && <span className="punto-nuevo" title="Nueva" />}
         {dimsLabel(f) && <span className="dim" title="Medidas (largo × ancho × alto, calculadas de la geometría)">{dimsLabel(f)}</span>}
         <span className="row-actions">
           <button title="Enfocar" onClick={(e) => { e.stopPropagation(); focusFeature(f.id); }}>

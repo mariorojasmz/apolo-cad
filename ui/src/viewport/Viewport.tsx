@@ -29,7 +29,8 @@ import BarraVista, { type GizmoMode, type SectionAxis } from "./BarraVista";
 import PanelRotar from "./PanelRotar";
 import BarraSeleccion from "./BarraSeleccion";
 import EstadoViewport, { type Vcb } from "./EstadoViewport";
-import { ACERCAR, ALEJAR, dolly } from "./camara";
+import { ACERCAR, ALEJAR, cajaDe, dolly, idsDelEncuadre } from "./camara";
+import { crearDestello } from "./destello";
 import { useVisor } from "../visor/estado";
 
 /** Flecha de rotación 3D de tamaño UNIDAD (radio 1): arco (torus parcial) + una punta de cono
@@ -538,6 +539,8 @@ export default function Viewport() {
     outlinePass.visibleEdgeColor.set(0x2ec5ff); // contorno visible: cian-azul (TinkerCad)
     outlinePass.hiddenEdgeColor.set(0x14506e);  // parte del contorno tapada por otra pieza: tenue
     composer.addPass(outlinePass);
+    const destello = crearDestello(scene, camera); // contorno verde de lo que cambió el agente (modo-visor D8)
+    composer.addPass(destello.pass);
     composer.addPass(new OutputPass());
     const selMeshes: THREE.Object3D[] = []; // buffer reusado por frame (sin asignaciones)
 
@@ -625,6 +628,7 @@ export default function Viewport() {
       selMeshes.length = 0;
       for (const id of selectionRef.current) { const m = ctx.meshes.get(id); if (m) selMeshes.push(m); }
       outlinePass.selectedObjects = selMeshes;
+      destello.actualizar(ctx.meshes, Date.now()); // late ~3 s desde el pulso del visor
       composer.render(); // escena + contorno (reemplaza renderer.render)
       viewCube.render(renderer, camera); // sobre el frame ya compuesto (autoClear=false)
     };
@@ -1092,10 +1096,9 @@ export default function Viewport() {
       const mesh = ctx.meshes.get(id);
       if (mesh) frameBox(new THREE.Box3().setFromObject(mesh));
     };
-    const onFitEvent = (ev: Event) => {
-      const id = (ev as CustomEvent).detail?.id as string | undefined;
-      const mesh = id ? ctx.meshes.get(id) : null;
-      if (mesh) frameBox(new THREE.Box3().setFromObject(mesh));
+    const onFitEvent = (ev: Event) => { // detail.id (una pieza) o detail.ids (varias, «Ver» del aviso)
+      const box = cajaDe(ctx.meshes, idsDelEncuadre((ev as CustomEvent).detail));
+      if (box) frameBox(box);
       else fitTo();
     };
     renderer.domElement.addEventListener("contextmenu", onContext);
@@ -1134,6 +1137,7 @@ export default function Viewport() {
       disposeEnv();
       viewCube.dispose();
       outlinePass.dispose();
+      destello.dispose();
       composer.dispose(); // libera sus render-targets (incl. composerRT)
       renderer.dispose();
       mount.removeChild(renderer.domElement);
@@ -1341,14 +1345,7 @@ export default function Viewport() {
   };
   const selectionBox = (): THREE.Box3 | null => {
     const ctx = ctxRef.current;
-    if (!ctx) return null;
-    const box = new THREE.Box3();
-    let any = false;
-    for (const id of selectionRef.current) {
-      const mesh = ctx.meshes.get(id);
-      if (mesh) { box.expandByObject(mesh); any = true; }
-    }
-    return any ? box : null;
+    return ctx ? cajaDe(ctx.meshes, selectionRef.current) : null;
   };
   const fitTo = () => {
     const ctx = ctxRef.current;

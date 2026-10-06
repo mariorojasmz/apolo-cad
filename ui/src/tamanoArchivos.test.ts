@@ -40,8 +40,8 @@ const TOPE = 500;
 const EXCEPCIONES = new Map<string, number>([
     ['forms/SchemaForm.tsx', 591],
     ['panels/SketcherDialog.tsx', 707],
-    ['state/store.ts', 923],
-    ['viewport/Viewport.tsx', 1634],
+    ['state/store.ts', 916],
+    ['viewport/Viewport.tsx', 1631],
 ]);
 
 // ── Medición ──────────────────────────────────────────────────────────────────
