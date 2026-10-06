@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito, espera que Mario lo apruebe o vete decisiones por número; ninguna fase implementada
+nota: aprobado por Mario el 2026-10-06 sin vetos; fases F0–F6 en implementación
 descripcion: El 3D ocupa toda la pantalla, los paneles se abren como cajones encima y ves al instante qué piezas cambió el agente
 ---
 
