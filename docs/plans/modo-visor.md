@@ -242,3 +242,39 @@ Cada fase la implementa un subagente en worktree (§ Planes del CLAUDE.md raíz)
   y `bbox_mm` por pieza. La ficha (D7) usa eso.
 - **(e)** Validar no tiene un conteo barato: `ChecksPanel` corre a pedido (botón) y guarda el
   resultado en su estado local. → **D4 sin conteo** en la barra de paneles.
+
+### F1 — extraer sin cambiar conducta (commit `ee518d3`)
+
+La columna de vista, el panel de rotar y la barra de selección pasaron a
+`viewport/BarraVista.tsx`, `PanelRotar.tsx` y `BarraSeleccion.tsx`, con el mismo DOM, las
+mismas clases y los mismos textos. `Viewport.tsx` bajó de 1791 a 1679 líneas. Gates: 63 tests
+y build en verde, re-corridos por la sesión principal.
+
+### F4a — el delta de escena en funciones puras (commit `10d3fde`)
+
+`mergeSceneDelta` pasó sin cambios a `state/sceneDelta.ts`, junto con `cambiosDelDelta(prev,
+delta)` (nuevos, cambiados, eliminados) y 10 tests. `store.ts` bajó de 947 a 923. Dos
+decisiones del implementador: una entrada `same` sin prev no cuenta como nueva, porque
+`mergeSceneDelta` la descarta; y si el epoch cambió, F4b no marca nada (la API reinició y
+todo llegaría «cambiado»). Al rebasar sobre F1 chocaron las dos líneas vecinas del trinquete
+(`store.ts` / `Viewport.tsx`); se resolvió conservando las dos bajas.
+
+### F2 — Visor | Completo (commit `8f89a31`)
+
+Se agregaron `visor/estado.ts` (la store `useVisor`, con la forma completa para F3–F5),
+`SelectorPantalla`, `CapaVisor` (vacía), `copiar.ts`, `viewport/camara.ts` (acercar y
+alejar) y `EstadoViewport.tsx`. Este último salió de `Viewport.tsx` para pagar las líneas
+nuevas: 1679 → 1634. Dockview sale solo del maximizado cuando se activa otro grupo
+(`dockviewComponent.js:3594`): `vincularModo` lo vuelve a maximizar. El dock lleva
+`grid-column: 1`; sin eso, la capa con fila fija lo empujaba a una columna nueva.
+
+**Medido en el navegador** (build del worktree servido con `vite preview` contra la API real,
+faja 38, 1600×900): en el visor el viewport mide 1600×858 = **95 %**, sin Ribbon ni
+StatusBar, y quedan visibles sólo los controles de inspección (Vista inicial, Encuadrar,
+Acercar, Alejar, Medir, Sección, Alambre). Al pasar a Completo y volver es el mismo canvas,
+sin `webglcontextlost`, y `apolo.layout.v1` queda sin `maximizedNode`. La barra de selección
+del visor sale arriba al centro, con Encuadrar, Aislar, Ocultar y Copiar para el agente.
+91 tests y build en verde.
+
+**Pendiente detectado** (va a F3): «Sin guardar» y «N suprimidos» sólo se mostraban en la
+StatusBar, que en el visor no está.
