@@ -154,8 +154,9 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 
 - Dockview: el viewport es el centro fijo y bloqueado que NUNCA se re-monta; el layout se
   persiste y `resetLayout` no destruye el viewport.
-- Panel nuevo = 4 registros: `dock/dockApi.ts` `TOOL_PANELS` + `dock/DockShell.tsx` `COMPONENTS`
-  + `panels/StatusBar.tsx` `PANELS` + `ui/icons.tsx` `PANEL_ICONS`.
+- Panel nuevo = `dock/paneles.ts` `PANELES` (componente, título y rótulo; de ahí salen Dockview, la
+  StatusBar y los cajones del visor) + `HERRAMIENTAS` si se conmuta (StatusBar y «Más» del visor)
+  + `ui/icons.tsx` `PANEL_ICONS`.
 - Feedback de carga global: `guard`/`runTracked` + `BUSY_TEXT` (store).
 - Otros paneles accionan el viewport por `CustomEvent` (`"apolo:fit"` con `{id}` o `{ids}`,
   `"apolo:export-gltf"`) para no acoplar el store a three.js. El glTF se exporta en el cliente

@@ -20,7 +20,20 @@ export interface ShortcutHandlers {
   isBusy: () => boolean; // gizmo/box-select/arrastre-directo en curso
 }
 
-function closeTopModal(s: ReturnType<typeof useStore.getState>): void {
+type Estado = ReturnType<typeof useStore.getState>;
+
+/** Hay un diálogo modal abierto (comando, variables, biblioteca, planos, inicio, croquis). */
+export function modalAbierto(s: Estado): boolean {
+  return !!s.dialogSchema || s.showVariables || s.showLibrary || s.showDrawing || s.showHome || s.sketcherOpen;
+}
+
+/** Lo que Esc cierra ANTES que un cajón del visor (`visor/Cajon.tsx`): un pedido de punto, el
+   menú contextual, la ayuda de atajos o un diálogo. Es la cabeza de la cascada de abajo. */
+export function escTienePrioridad(s: Estado): boolean {
+  return !!s.pickRequest || !!s.contextMenu || s.showShortcuts || modalAbierto(s);
+}
+
+function closeTopModal(s: Estado): void {
   if (s.dialogSchema) s.openDialog(null);
   else if (s.sketcherOpen) s.closeSketcher();
   else if (s.showVariables) s.openVariables(false);
@@ -37,10 +50,10 @@ export function installShortcuts(getHandlers: () => ShortcutHandlers | null): ()
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
 
     const s = useStore.getState();
-    const modalOpen =
-      !!s.dialogSchema || s.showVariables || s.showLibrary || s.showDrawing || s.showHome || s.sketcherOpen;
+    const modalOpen = modalAbierto(s);
 
-    // Escape: cascada (siempre permitido)
+    // Escape: cascada (siempre permitido). En el visor, un cajón abierto se cierra antes que
+    // la selección: lo atrapa `visor/Cajon.tsx` en fase de captura.
     if (e.key === "Escape") {
       if (s.pickRequest) return s.requestPick(null);
       if (s.contextMenu) return s.openContextMenu(null);

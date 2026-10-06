@@ -1,23 +1,14 @@
-import { Keyboard, LayoutDashboard, AlertTriangle } from "lucide-react";
+import { Keyboard, LayoutDashboard } from "lucide-react";
 import { useStore } from "../state/store";
 import { PANEL_ICONS } from "../ui/icons";
 import Spinner from "../ui/Spinner";
 import { togglePanel, resetLayout } from "../dock/dockApi";
+import { HERRAMIENTAS, PANELES } from "../dock/paneles";
+import AvisosDocumento from "./AvisosDocumento";
 
 /* Barra de estado inferior: toggles de los paneles-herramienta + unidades y conteo de
-   sólidos. Cada toggle acopla/cierra su panel en el sistema de ventanas (Dockview). */
-
-const PANELS = [
-  { key: "history", label: "Historial" },
-  { key: "reqs", label: "Requisitos" },
-  { key: "bom", label: "BOM" },
-  { key: "checks", label: "Validar" },
-  { key: "kin", label: "Cinemática" },
-  { key: "mates", label: "Ensamblaje" },
-  { key: "fisica", label: "Física" },
-  { key: "ensamblaje", label: "Montaje" },
-  { key: "boceto", label: "Boceto" },
-] as const;
+   sólidos. Cada toggle acopla/cierra su panel en el sistema de ventanas (Dockview). Los
+   rótulos salen de `dock/paneles.ts` (los mismos que la barra de paneles del visor). */
 
 export default function StatusBar() {
   const dockPanels = useStore((s) => s.dockPanels);
@@ -26,48 +17,27 @@ export default function StatusBar() {
   const toggleShortcuts = useStore((s) => s.toggleShortcuts);
   const busy = useStore((s) => s.busy);
   const busyLabel = useStore((s) => s.busyLabel);
-  // robustez (V6.1): el backend avisa si el autoguardado no llega al disco o si abrió
-  // un proyecto suprimiendo comandos rotos (schema drift)
-  const autosaveFailed = useStore((s) => s.scene?.document.autosave_failed ?? null);
-  const suppressed = useStore((s) => s.scene?.document.suppressed_commands?.length ?? 0);
 
   return (
     <footer className="statusbar">
-      {PANELS.map((p) => {
-        const Icon = PANEL_ICONS[p.key];
-        const active = dockPanels.includes(p.key);
+      {HERRAMIENTAS.map((key) => {
+        const Icon = PANEL_ICONS[key];
+        const label = PANELES[key].rotulo;
+        const active = dockPanels.includes(key);
         return (
           <button
-            key={p.key}
+            key={key}
             className={`statusbtn ${active ? "active" : ""}`}
-            title={p.label}
-            onClick={() => togglePanel(p.key)}
+            title={label}
+            onClick={() => togglePanel(key)}
           >
             <Icon size={14} strokeWidth={1.7} />
-            <span>{p.label}{p.key === "history" ? ` (${cmds})` : ""}</span>
+            <span>{label}{key === "history" ? ` (${cmds})` : ""}</span>
           </button>
         );
       })}
       <span className="status-right">
-        {autosaveFailed && (
-          <span
-            className="busy-badge"
-            role="status"
-            style={{ color: "#d8703a" }}
-            title={`El autoguardado falló: ${autosaveFailed}. Tus cambios están en memoria pero NO en disco.`}
-          >
-            <AlertTriangle size={13} strokeWidth={1.9} /> Sin guardar
-          </span>
-        )}
-        {suppressed > 0 && (
-          <span
-            className="busy-badge"
-            style={{ color: "#d8703a" }}
-            title={`Se abrió el proyecto suprimiendo ${suppressed} comando(s) inválido(s). Revísalos en el Historial.`}
-          >
-            <AlertTriangle size={13} strokeWidth={1.9} /> {suppressed} suprimido{suppressed > 1 ? "s" : ""}
-          </span>
-        )}
+        <AvisosDocumento />
         {busy && (
           <span className="busy-badge" role="status" aria-live="polite">
             <Spinner size={13} />

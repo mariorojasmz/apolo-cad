@@ -1,6 +1,6 @@
 import type {
   BomRow, CatalogItem, ChecksOut, CommandSchema, ConnectivityOut, CostingOut, DofOut, DropRequest, DropResult,
-  GravityResult, KinematicsOut, MateRow, MotionKeyframe, MotionOut, ProjectInfo, RailConstraint,
+  GravityResult, KinematicsOut, MassPropertiesOut, MateRow, MotionKeyframe, MotionOut, ProjectInfo, RailConstraint,
   Requirements, RevisionInfo, SceneOut, SoundnessOut, StabilityOut, StabilityRequest,
 } from "./types";
 
@@ -45,6 +45,11 @@ export const api = {
       body: JSON.stringify({ fields }),
     }).then((r) => json<{ ok: boolean; requirements: Requirements }>(r)),
   kinematics: () => fetch("/api/kinematics").then((r) => json<KinematicsOut>(r)),
+  // masa, material y COM por pieza (de solo lectura); con ids incluye también las ocultas
+  massProperties: (ids: string[]) =>
+    fetch(`/api/mass-properties?ids=${encodeURIComponent(ids.join(","))}`).then((r) =>
+      json<MassPropertiesOut>(r),
+    ),
 
   projects: () => fetch("/api/projects").then((r) => json<ProjectInfo[]>(r)),
   createProject: (name: string, template: string | null) =>

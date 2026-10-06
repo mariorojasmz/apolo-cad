@@ -25,13 +25,18 @@ export default function App() {
   // Visor: sin Ribbon ni StatusBar; el dock maximiza el 3D (dock/dockApi.ts::setModoVisor) y
   // la capa del visor flota encima. El DockShell se monta igual en los dos modos (no se re-monta).
   const visor = useVisor((s) => s.modo === "visor");
+  // con el Árbol abierto, los controles del 3D se corren a su derecha (visor/cajones.css)
+  const arbol = useVisor((s) => s.modo === "visor" && s.cajonIzq);
 
   useEffect(() => {
     void init();
   }, [init]);
 
   return (
-    <div className={`app${busy ? " busy" : ""}${visor ? " modo-visor" : ""}`} aria-busy={busy}>
+    <div
+      className={`app${busy ? " busy" : ""}${visor ? " modo-visor" : ""}${arbol ? " visor-arbol" : ""}`}
+      aria-busy={busy}
+    >
       <TopProgress />
       <TopBar />
       {!visor && <Ribbon />}

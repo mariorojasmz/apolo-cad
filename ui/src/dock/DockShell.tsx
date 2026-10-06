@@ -4,27 +4,18 @@ import { themeAbyss } from "dockview-core";
 import "dockview-core/dist/styles/dockview.css";
 import type { ComponentType } from "react";
 
-import Tree from "../panels/Tree";
-import Properties from "../panels/Properties";
-import ChatPanel from "../chat/ChatPanel";
-import HistoryPanel from "../panels/HistoryPanel";
-import RequirementsPanel from "../panels/RequirementsPanel";
-import BomPanel from "../panels/BomPanel";
-import ChecksPanel from "../panels/ChecksPanel";
-import KinematicsPanel from "../panels/KinematicsPanel";
-import MatesPanel from "../panels/MatesPanel";
-import PhysicsPanel from "../panels/PhysicsPanel";
-import AssemblyPanel from "../panels/AssemblyPanel";
-import SketchBlockPanel from "../panels/SketchBlockPanel";
 import Viewport from "../viewport/Viewport";
 import {
   setDockApi, buildDefaultLayout, guardarLayout, lockViewport, syncDockPanels, vincularModo, LAYOUT_KEY,
 } from "./dockApi";
+import { PANELES } from "./paneles";
 
 /* Shell de ventanas acoplables (Dockview). El viewport es el centro fijo; el resto de
-   paneles se acoplan/redimensionan/agrupan en pestañas y el layout se guarda en localStorage. */
+   paneles se acoplan/redimensionan/agrupan en pestañas y el layout se guarda en localStorage.
+   Los paneles salen de `paneles.ts`, que comparte con los cajones del visor. */
 
 // cada panel lee sus datos del store; envolvemos para que llene su panel de Dockview.
+// Se arma una vez, al cargar el módulo: Dockview necesita la misma función en cada render.
 const pane = (C: ComponentType) =>
   function DockPane() {
     return (
@@ -42,18 +33,7 @@ const COMPONENTS = {
       </div>
     );
   },
-  tree: pane(Tree),
-  properties: pane(Properties),
-  chat: pane(ChatPanel),
-  history: pane(HistoryPanel),
-  reqs: pane(RequirementsPanel),
-  bom: pane(BomPanel),
-  checks: pane(ChecksPanel),
-  kin: pane(KinematicsPanel),
-  mates: pane(MatesPanel),
-  fisica: pane(PhysicsPanel),
-  ensamblaje: pane(AssemblyPanel),
-  boceto: pane(SketchBlockPanel),
+  ...Object.fromEntries(Object.entries(PANELES).map(([id, p]) => [id, pane(p.Componente)])),
 };
 
 // pestaña sin botón de cerrar para el viewport (centro fijo)

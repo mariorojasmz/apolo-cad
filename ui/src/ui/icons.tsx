@@ -8,6 +8,7 @@ import {
   Combine, Scissors, Drill, FlipHorizontal2, Rows3, CircleDot, Move3d, Magnet, Trash2,
   Link2, Bot, Cog,
   History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor, ClipboardList, Blocks,
+  ListTree, SlidersHorizontal, Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -59,8 +60,11 @@ export function iconFor(type: string): LucideIcon {
   return COMMAND_ICONS[type] ?? FALLBACK;
 }
 
-/** Iconos de los paneles inferiores (status bar + cabecera del dock). */
+/** Iconos de los paneles (ids de `dock/paneles.ts`): StatusBar y barra de paneles del visor. */
 export const PANEL_ICONS: Record<string, LucideIcon> = {
+  tree: ListTree,
+  properties: SlidersHorizontal,
+  chat: Sparkles,
   history: History,
   reqs: ClipboardList,
   bom: ListChecks,

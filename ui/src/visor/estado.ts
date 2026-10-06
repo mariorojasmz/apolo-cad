@@ -58,11 +58,13 @@ export interface EstadoVisor {
 
   /** Cajón izquierdo (el Árbol) abierto. */
   cajonIzq: boolean;
-  /** Panel del cajón derecho (ids de `COMPONENTS` en `dock/DockShell.tsx`); uno a la vez. */
+  /** Panel del cajón derecho (ids de `PANELES` en `dock/paneles.ts`); uno a la vez. */
   cajonDer: string | null;
   toggleIzq: () => void;
   /** Abre ese panel en el cajón derecho; si ya estaba abierto, lo cierra. */
   abrirDer: (id: string) => void;
+  /** Cierra un cajón (Esc, el botón de su cabecera). */
+  cerrarCajon: (lado: "izq" | "der") => void;
   cerrarCajones: () => void;
 
   /** Aviso de cambios del agente; null = no hay o se descartó. */
@@ -97,6 +99,7 @@ export const useVisor = create<EstadoVisor>((set, get) => ({
   ...SIN_CAJONES,
   toggleIzq: () => set({ cajonIzq: !get().cajonIzq }),
   abrirDer: (id) => set({ cajonDer: get().cajonDer === id ? null : id }),
+  cerrarCajon: (lado) => set(lado === "izq" ? { cajonIzq: false } : { cajonDer: null }),
   cerrarCajones: () => set(SIN_CAJONES),
 
   aviso: null,

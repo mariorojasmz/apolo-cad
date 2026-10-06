@@ -23,6 +23,24 @@ export interface FeatureOut {
   same?: boolean;  // delta: el cliente ya tiene esta geometría (se mergea la anterior)
 }
 
+/* Masa de una pieza (`GET /api/mass-properties?ids=`): una de catálogo pesa por su ficha
+   (`fuente: "catálogo"`); una a medida, volumen × densidad de su material (`"volumen"`). */
+export interface MasaPieza {
+  id: string;
+  name: string;
+  material: string;
+  fuente: string;
+  volumen_mm3: number;
+  masa_kg: number;
+  com_mm: number[];
+  bbox_mm: number[];
+}
+
+export interface MassPropertiesOut {
+  piezas: MasaPieza[];
+  total: { n_piezas: number; masa_kg: number; com_mm: number[]; bbox_mm: number[] };
+}
+
 export interface CatalogItem {
   ref: string;
   name: string;

@@ -1,6 +1,7 @@
 import type { DockviewApi, IDockviewPanel, Direction } from "dockview-core";
 import { useStore } from "../state/store";
 import { useVisor } from "../visor/estado";
+import { HERRAMIENTAS, PANELES } from "./paneles";
 
 /* Singleton del API de Dockview + helpers de docking. Vive fuera de React para que la
    StatusBar y los atajos puedan ordenar al layout (abrir/cerrar/restablecer) sin prop-drilling.
@@ -16,18 +17,12 @@ export interface PanelMeta {
 }
 
 // paneles-herramienta conmutables desde la StatusBar (tree/properties/chat/viewport
-// forman el layout por defecto y no se listan aquí).
-export const TOOL_PANELS: PanelMeta[] = [
-  { id: "history", title: "Historial", component: "history" },
-  { id: "reqs", title: "Requisitos", component: "reqs" },
-  { id: "bom", title: "Lista de materiales", component: "bom" },
-  { id: "checks", title: "Validaciones", component: "checks" },
-  { id: "kin", title: "Cinemática", component: "kin" },
-  { id: "mates", title: "Ensamblaje", component: "mates" },
-  { id: "fisica", title: "Física", component: "fisica" },
-  { id: "ensamblaje", title: "Montaje", component: "ensamblaje" },
-  { id: "boceto", title: "Boceto de masas", component: "boceto" },
-];
+// forman el layout por defecto y no se listan aquí). Id y título salen de `paneles.ts`.
+export const TOOL_PANELS: PanelMeta[] = HERRAMIENTAS.map((id) => ({
+  id,
+  title: PANELES[id].titulo,
+  component: id,
+}));
 
 let _api: DockviewApi | null = null;
 
@@ -54,19 +49,19 @@ export function buildDefaultLayout(api: DockviewApi): void {
   api.addPanel({
     id: "tree",
     component: "tree",
-    title: "Árbol",
+    title: PANELES.tree.titulo,
     position: { referencePanel: "viewport", direction: "left" },
   });
   const props = api.addPanel({
     id: "properties",
     component: "properties",
-    title: "Propiedades",
+    title: PANELES.properties.titulo,
     position: { referencePanel: "viewport", direction: "right" },
   });
   api.addPanel({
     id: "chat",
     component: "chat",
-    title: "Asistente IA",
+    title: PANELES.chat.titulo,
     position: { referencePanel: "properties", direction: "within" },
   });
   props.api.setActive();
@@ -97,19 +92,19 @@ export function resetLayout(): void {
   api.addPanel({
     id: "tree",
     component: "tree",
-    title: "Árbol",
+    title: PANELES.tree.titulo,
     position: { referencePanel: "viewport", direction: "left" },
   });
   const props = api.addPanel({
     id: "properties",
     component: "properties",
-    title: "Propiedades",
+    title: PANELES.properties.titulo,
     position: { referencePanel: "viewport", direction: "right" },
   });
   api.addPanel({
     id: "chat",
     component: "chat",
-    title: "Asistente IA",
+    title: PANELES.chat.titulo,
     position: { referencePanel: "properties", direction: "within" },
   });
   props.api.setActive();

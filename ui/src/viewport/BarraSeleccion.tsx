@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, ClipboardCopy, Copy, Crop, EyeOff, Focus, Scan, Trash2 } from "lucide-react";
+import { Copy, Crop, EyeOff, Focus, Scan, Trash2 } from "lucide-react";
 import { useStore } from "../state/store";
-import { copiarAlPortapapeles, referenciaParaAgente } from "../visor/copiar";
+import BotonCopiar from "../visor/BotonCopiar";
 
 /* Barra de la selección (abajo al centro): nombre y acciones rápidas sobre las piezas
    elegidas. Las acciones van directo a la store; encuadrar llega por props porque mueve la
@@ -46,28 +45,9 @@ export default function BarraSeleccion({ nombre, cantidad, ids, onCentrar, visor
   );
 }
 
-/** «sin copiar» | «copiado» (~2 s) | el texto, si el portapapeles falló (para copiarlo a mano). */
-type Copia = null | "ok" | { aMano: string };
-
 function SeleccionVisor({ nombre, ids, onCentrar }: { nombre: string; ids: string[]; onCentrar: () => void }) {
   const una = ids.length === 1;
   const id = una ? ids[0] : "";
-  const [copia, setCopia] = useState<Copia>(null);
-  const reloj = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => {
-    setCopia(null); // otra pieza: el aviso de la anterior no aplica
-    return () => clearTimeout(reloj.current);
-  }, [id]);
-
-  const copiar = async () => {
-    const texto = referenciaParaAgente(nombre || id, id);
-    clearTimeout(reloj.current);
-    if (await copiarAlPortapapeles(texto)) {
-      setCopia("ok");
-      reloj.current = setTimeout(() => setCopia(null), 2000);
-    } else setCopia({ aMano: texto });
-  };
-
   return (
     <div className="selection-bar visor" role="toolbar" aria-label="Selección">
       <span className="sb-count">{una ? nombre || id : `${ids.length} piezas`}</span>
@@ -84,21 +64,7 @@ function SeleccionVisor({ nombre, ids, onCentrar }: { nombre: string; ids: strin
       {una && (
         <>
           <span className="overlay-sep" />
-          {copia && copia !== "ok" ? (
-            <input
-              className="sb-a-mano"
-              readOnly
-              autoFocus
-              value={copia.aMano}
-              aria-label="Copia este texto para el agente"
-              onFocus={(e) => e.target.select()}
-            />
-          ) : (
-            <button type="button" className="sb-copiar" onClick={() => void copiar()}>
-              {copia === "ok" ? <Check size={15} /> : <ClipboardCopy size={15} />}
-              {copia === "ok" ? "Copiado" : "Copiar para el agente"}
-            </button>
-          )}
+          <BotonCopiar nombre={nombre} id={id} className="sb-copiar" claseAMano="sb-a-mano" />
         </>
       )}
     </div>
