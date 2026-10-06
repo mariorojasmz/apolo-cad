@@ -15,7 +15,8 @@ accionable; el reparto exacto exigiría FEA), nunca con un número inventado. Mi
 formato de regla que rules.py ({regla, estado, detalle, recomendacion?, calc?}).
 
 Orquestador puro: recibe dicts (scene/fasteners/grounds/joints/mates), nunca
-`Document` — frontera library ⟂ doc.
+`Document` — frontera library ⟂ doc. Como en rules.py, cuentan TODAS las piezas,
+también las ocultas: la visibilidad es estado de vista, no de diseño.
 """
 
 from __future__ import annotations
@@ -198,8 +199,6 @@ def _bearing_checks(scene, catalog, carga_kg: float, rpm: float | None,
     catalog = catalog if catalog is not None else CATALOG
     bearings = []
     for fid, f in scene.items():
-        if not getattr(f, "visible", True):
-            continue
         comp = catalog.get(getattr(f, "component", None) or "")
         if comp is not None and comp.category in _BEARING_CATS and (comp.specs or {}).get("C_kN"):
             bearings.append((fid, f, comp))
@@ -268,8 +267,7 @@ def _buckling_checks(scene, masses, catalog, carga_kg: float) -> list[dict]:
     # una PATA de verdad lleva el rol "pata" al inicio del nombre (convención rol-primero):
     # así no cuentan piezas que solo la MENCIONAN ("Ménsula … → larguero + pata", "Disco …
     # a la pata"), que inflaban el reparto de carga (n patas). "zapata" no empieza por "pata".
-    candidatas = [(fid, f) for fid, f in scene.items()
-                  if getattr(f, "visible", True) and _LEG_RE.match(_name(f))]
+    candidatas = [(fid, f) for fid, f in scene.items() if _LEG_RE.match(_name(f))]
     if not candidatas:
         return []
     # solo las COLUMNAS verticales (largo ≥ 50 mm) reparten la carga axial y pandean;
@@ -346,7 +344,7 @@ def _tipping_check(scene, grounds, catalog, carga_kg: float) -> list[dict]:
             "Declara los apoyos con `ground` (o declare_structure) para verificar el vuelco.",
         )]
     hull = convex_hull_2d(footprint)
-    props = scene_mass_properties(scene, catalog)
+    props = scene_mass_properties(scene, catalog, include_hidden=True)
     com = props["total"]["com_mm"]
     margin = hull_margin_mm((com[0], com[1]), hull)
     xs = [p[0] for p in hull]
@@ -547,7 +545,6 @@ def structure_engineering_check(
     masses = {
         fid: feature_mass(f, catalog, default_material)["masa_kg"]
         for fid, f in scene.items()
-        if getattr(f, "visible", True)
     }
     checks: list[dict] = []
     checks += _fastener_checks(scene, graph, masses, fasteners, catalog)

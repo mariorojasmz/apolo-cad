@@ -41,8 +41,9 @@ def installation_data(doc) -> tuple[dict, dict]:
     if not supports:
         return {}, {}
 
-    total = scene_mass_properties(doc.scene, CATALOG,
-                                  default_material=doc.default_material())["total"]
+    # TODA la máquina, también lo oculto: la visibilidad es vista, no le quita peso al anclaje
+    total = scene_mass_properties(doc.scene, CATALOG, default_material=doc.default_material(),
+                                  include_hidden=True)["total"]
     masa = float(total.get("masa_kg") or 0.0)
     com = total.get("com_mm")
     carga = float((doc.requirements or {}).get("carga_kg") or 0.0)
@@ -57,8 +58,6 @@ def installation_data(doc) -> tuple[dict, dict]:
     # alturas de interfaz: la superficie que transporta (cama/mesa/banda) y el punto más alto
     z_top = z_all = 0.0
     for feat in doc.scene.values():
-        if not getattr(feat, "visible", True):
-            continue
         try:
             bb = feat.shape.bounding_box()
         except Exception:

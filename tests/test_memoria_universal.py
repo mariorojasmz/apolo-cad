@@ -78,3 +78,23 @@ def test_memoria_del_segundo_testigo_no_aprueba_el_vacio():
     api.DOC = doc
     txt = _texto(TestClient(api.app).get("/api/calc-report.pdf").content).upper()
     assert "NO CONCLUYENTE" in txt and "VEREDICTO: APROBADO" not in txt
+
+
+def test_ocultar_piezas_no_cambia_la_memoria():
+    """Ocultar es VISTA: con TODO oculto la memoria se emite (antes: 400 «el modelo está
+    vacío») y la portada lleva el peso de la máquina, el mismo que usa el vuelco."""
+    from apolo.drawing.calc_report import calc_report
+
+    doc = _mueble()
+    reglas = [{"regla": "x", "estado": "ok", "detalle": "x"}]
+
+    def portada():
+        return [lb.text for lb in calc_report(doc.scene, rules=reglas, requirements={})[0].labels]
+
+    antes = portada()
+    for fid in list(doc.scene):
+        doc.set_visibility(fid, False)
+    assert portada() == antes
+    api.DOC = doc
+    r = TestClient(api.app).get("/api/calc-report.pdf")
+    assert r.status_code == 200 and r.content[:4] == b"%PDF"

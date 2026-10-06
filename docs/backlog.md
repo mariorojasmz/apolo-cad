@@ -115,6 +115,17 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
 - **Par en la tornillería**: el manual ya CALCULA el par de apriete por paso (E5,
   `tightening_torque_nm`); falta llevarlo a la unión declarada como dato/verificación.
 - Coherencia `fasten size` ↔ taladro roscado cercano.
+- **Decidir qué más deja de filtrar por `visible`.** La visibilidad es estado de VISTA
+  (`Document.hidden`); las reglas de ingeniería, la instalación y la memoria ya leen TODA la
+  escena (commit «las reglas de ingeniería ignoran la visibilidad», 2026-10-06). Siguen
+  filtrando, y ocultar una pieza las cambia: la PUERTA DE ENTREGA (`checks.py` interferencias,
+  `lints.py`, `physics/stability.py` gravedad → un verde falso con piezas ocultas),
+  `assembly/autodetect.py`, la BOM/lista de corte/peso (`cutlist.py`: la cotización pierde lo
+  oculto), `scene_mass_properties` sin ids (tool `get_mass_properties`, totales del brief) y
+  `drawing_maps.py` (pernos). Se quedan (son vistas): render, pick, `measure`, las láminas
+  (`projection`/`sheet`/`explode`), el manual y el GIF. Toca library + physics + assembly +
+  drawing + api → plan; la duda es si alguien oculta A PROPÓSITO para sacar algo de la BOM o del
+  plano.
 
 ## Geometría y catálogo
 

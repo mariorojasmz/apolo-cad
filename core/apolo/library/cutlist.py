@@ -172,14 +172,15 @@ def hardware_schedule(scene: dict) -> list[dict]:
     return rows
 
 
-def scene_weight_kg(scene: dict) -> float:
+def scene_weight_kg(scene: dict, include_hidden: bool = False) -> float:
     """Peso total de los sólidos visibles: catálogo (peso/ud o kg/m × largo) + a-medida
-    (volumen × densidad del material)."""
+    (volumen × densidad del material). `include_hidden=True` suma también los ocultos
+    (la memoria de cálculo: la visibilidad es vista, no diseño)."""
     from .materials import density, resolve_material
 
     total = 0.0
     for f in scene.values():
-        if not getattr(f, "visible", True):
+        if not include_hidden and not getattr(f, "visible", True):
             continue
         comp = CATALOG.get(getattr(f, "component", None) or "")
         if comp is not None:

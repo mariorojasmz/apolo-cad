@@ -76,10 +76,14 @@ def scene_mass_properties(
     catalog: dict | None = None,
     ids: list[str] | None = None,
     default_material: str = "acero",
+    include_hidden: bool = False,
 ) -> dict:
     """Masa/COM/bbox por pieza y agregado. `ids=None` → todas las VISIBLES
     (coherente con scene_weight_kg); con `ids` explícitos se incluyen aunque
-    estén ocultas. Id inexistente → KeyError (el endpoint lo vuelve 404)."""
+    estén ocultas. `include_hidden=True` → también las ocultas: lo piden los
+    CÁLCULOS (vuelco, cargas de anclaje), donde ocultar una pieza para mirar
+    dentro no le quita peso a la máquina. Id inexistente → KeyError (el
+    endpoint lo vuelve 404)."""
     if ids is not None:
         missing = [i for i in ids if i not in scene]
         if missing:
@@ -87,7 +91,8 @@ def scene_mass_properties(
         items = [(i, scene[i]) for i in ids]
     else:
         items = [(i, f) for i, f in scene.items()
-                 if getattr(f, "visible", True) and not is_surface(f.shape)
+                 if (include_hidden or getattr(f, "visible", True))
+                 and not is_surface(f.shape)
                  and not getattr(f, "is_guide", False)]
 
     piezas = []

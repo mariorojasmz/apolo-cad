@@ -240,7 +240,8 @@ def calc_report(scene: dict, *, rules: list[dict], requirements: dict,
     peso = (meta or {}).get("weight_kg")
     if peso is None:
         try:
-            peso = scene_weight_kg(scene)
+            # el peso de la MÁQUINA, como el del vuelco: lo oculto en la vista también pesa
+            peso = scene_weight_kg(scene, include_hidden=True)
         except Exception:
             peso = 0.0
     base_meta = {

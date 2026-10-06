@@ -207,8 +207,9 @@ def calc_report_pdf(
                 "recomendacion": "Declara los requisitos con set_requirements si el equipo "
                                  "transporta producto.",
             })
-        hay_piezas = any(getattr(f, "visible", True) for f in S.doc.scene.values())
-        if not rules or not hay_piezas:
+        # el modelo vacío es el que no tiene piezas, no el que las tiene ocultas; sólo el
+        # render de la portada respeta la visibilidad (es una vista)
+        if not rules or not S.doc.scene:
             raise HTTPException(
                 status_code=400,
                 detail="No hay nada que documentar: el modelo está vacío o no declara "

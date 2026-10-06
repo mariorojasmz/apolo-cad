@@ -3,6 +3,10 @@
 Funciones puras y testeables: el conocimiento vive aquí, no en el prompt del
 agente. Cada comprobación devuelve {regla, estado, detalle, recomendacion?}
 con estado "ok" | "aviso" | "error".
+
+Las reglas leen TODAS las piezas de la escena, también las ocultas: la visibilidad es
+estado de VISTA (`Document.hidden`), no de diseño — ocultar la banda y el tambor para mirar
+dentro no saca la faja del cálculo. Ningún filtro por `visible` en este módulo.
 """
 
 from __future__ import annotations
@@ -146,8 +150,7 @@ def _frame_from_scene(scene: dict, variables: dict | None) -> dict | None:
     (estructura+banda+mesa, sin la carga del producto)."""
     v = variables or {}
     candidatas = [f for f in scene.values()
-                  if getattr(f, "visible", True)
-                  and ("larguero" in _name(f) or "perfil" in _name(f))]
+                  if "larguero" in _name(f) or "perfil" in _name(f)]
     if not candidatas:
         return None
     # los largueros REALES (los que reciben la flecha) llevan el rol "larguero" al inicio
@@ -167,8 +170,7 @@ def _frame_from_scene(scene: dict, variables: dict | None) -> dict | None:
     # vano: mayor hueco entre patas (apoyos); sin ≥2 patas → la longitud completa.
     # Solo cuentan las patas por ROL (no piezas que mencionan "pata"), para no meter
     # posiciones espurias en el reparto del vano.
-    patas = [f for f in scene.values()
-             if getattr(f, "visible", True) and _LEG_RE.match(_name(f))]
+    patas = [f for f in scene.values() if _LEG_RE.match(_name(f))]
     xs = sorted({round((bb.min.X + bb.max.X) / 2.0, 1)
                  for f in patas if (bb := _bbox_safe(f))})
     span = max((b2 - a for a, b2 in zip(xs, xs[1:])), default=0.0)
@@ -177,8 +179,6 @@ def _frame_from_scene(scene: dict, variables: dict | None) -> dict | None:
     # peso que carga el bastidor (estructura+banda+mesa); el producto se suma en el chequeo
     carried = 0.0
     for f in scene.values():
-        if not getattr(f, "visible", True):
-            continue
         if any(w in _name(f) for w in ("banda", "mesa", "cinta", "faja", "larguero",
                                        "travesa", "perfil", "repisa")):
             carried += _vol_safe(f) * density(resolve_material(f))
@@ -203,8 +203,7 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
         td = _f(v.get("diam_tambor"))
         if td is None:
             cils = [f for f in scene.values()
-                    if getattr(f, "visible", True)
-                    and any(w in _name(f) for w in ("rodillo", "tambor", "polea"))]
+                    if any(w in _name(f) for w in ("rodillo", "tambor", "polea"))]
             ds = [min(bb.max.X - bb.min.X, bb.max.Z - bb.min.Z)
                   for f in cils if (bb := _bbox_safe(f))]
             td = round(max(ds), 1) if ds else None
@@ -217,8 +216,7 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
         base["rpm_motor"] = rpm
     if base.get("motor", "ninguno") == "ninguno":
         cands = [f for f in scene.values()
-                 if getattr(f, "visible", True)
-                 and any(w in _name(f) for w in ("motor", "reductor", "motorreductor"))]
+                 if any(w in _name(f) for w in ("motor", "reductor", "motorreductor"))]
         if cands:
             base["motor"] = "documento"
             # de todos los candidatos (motor + reductor), el de mayor potencia CONOCIDA:
@@ -249,8 +247,7 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
             name = _name(f)
             return bool(_EJE_RE.match(name.split("·")[-1].strip()) or _EJE_RE.match(name))
 
-        ejes = [f for f in scene.values()
-                if getattr(f, "visible", True) and _is_eje(f)]
+        ejes = [f for f in scene.values() if _is_eje(f)]
 
         def _eje_diam(f):
             d = _parse_diam(getattr(f, "name", "") or "")
@@ -275,8 +272,7 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
         base["eje_d"] = ed
     if not base.get("banda_kg"):
         bandas = [f for f in scene.values()
-                  if getattr(f, "visible", True)
-                  and any(w in _name(f) for w in ("banda", "cinta", "faja"))]
+                  if any(w in _name(f) for w in ("banda", "cinta", "faja"))]
         kg = sum(_vol_safe(f) * density(resolve_material(f)) for f in bandas)
         if kg > 0:
             base["banda_kg"] = round(kg, 2)
@@ -284,33 +280,28 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
         base["frame"] = _frame_from_scene(scene, v)
     # --- señales normativas (V5.10): la regla elige el MÉTODO por construcción
     if "soporte" not in base and base.get("tipo") == "banda":
-        # cama deslizante (slider bed) si hay mesa/cama visible; si no y hay
+        # cama deslizante (slider bed) si hay mesa/cama; si no y hay
         # rodillos portantes → idlers; default honesto del vertical: cama
         tiene_cama = any(
-            getattr(f, "visible", True)
-            and any(w in _name(f) for w in ("cama", "mesa", "desliz"))
+            any(w in _name(f) for w in ("cama", "mesa", "desliz"))
             for f in scene.values()
         )
         base["soporte"] = "cama" if (tiene_cama or not base.get("n_rodillos")) else "rodillos"
     if "tambor_engomado" not in base:
         base["tambor_engomado"] = any(
-            getattr(f, "visible", True)
-            and "tambor" in _name(f)
+            "tambor" in _name(f)
             and any(w in _name(f) for w in ("engomado", "lagging", "goma"))
             for f in scene.values()
         )
     if "tiene_tensor" not in base:
         base["tiene_tensor"] = any(
-            getattr(f, "visible", True)
-            and any(w in _name(f) for w in ("tensor", "trotadora", "take-up", "take up", "templador"))
+            any(w in _name(f) for w in ("tensor", "trotadora", "take-up", "take up", "templador"))
             for f in scene.values()
         )
     if not base.get("q_ro_kg_m") and base.get("largo"):
         # masa por metro de partes giratorias (rodillos de catálogo, por FICHA)
         kg = 0.0
         for f in scene.values():
-            if not getattr(f, "visible", True):
-                continue
             comp = CATALOG.get(getattr(f, "component", None) or "")
             if comp is not None and comp.category == "rodillos":
                 kg += float(comp.weight or 0.0)
@@ -333,8 +324,6 @@ def detect_conveyor(scene: dict, variables: dict | None = None) -> dict | None:
     perfiles: list = []
     tambores: list = []
     for feat in scene.values():
-        if not getattr(feat, "visible", True):
-            continue
         ref = getattr(feat, "component", None)
         comp = CATALOG.get(ref) if ref else None
         if comp is not None:
@@ -410,8 +399,7 @@ def _detect_by_name(scene: dict, variables: dict | None = None) -> dict | None:
     def has(*words):
         return [
             f for f in scene.values()
-            if getattr(f, "visible", True)
-            and any(w in (getattr(f, "name", "") or "").lower() for w in words)
+            if any(w in (getattr(f, "name", "") or "").lower() for w in words)
         ]
     banda = has("banda", "faja", "cinta")
     tambores = has("tambor")

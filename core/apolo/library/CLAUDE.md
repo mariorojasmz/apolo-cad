@@ -50,6 +50,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 
 ## Ingeniería (`engineering/`)
 
+- **Un cálculo NO filtra por `visible`**: ocultar es estado de vista (`Document.hidden`), no saca
+  la pieza de la máquina (ocultar banda + tambor del 38 borraba la faja de la memoria). Las masas
+  van con `include_hidden=True`; la puerta de entrega y la BOM aún filtran
+  ([backlog](../../../docs/backlog.md) § Validación).
 - Toda verificación cuantitativa lleva bloque `calc` {titulo, entradas, formula, sustitucion,
   resultado, criterio, fs, norma}. Las 16 con norma (10 en `rules.py`, 6 en `report.py`) citan la
   norma real; sin norma aplicable se escribe «criterio de diseño», nunca una cita inventada. Eje:

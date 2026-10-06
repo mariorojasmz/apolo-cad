@@ -266,6 +266,56 @@ def test_structural_checks_present_and_pass():
     assert checks["motorización"]["estado"] == "ok"
 
 
+def _ocultar(doc, *prefijos):
+    """Oculta (estado de VISTA, `doc.hidden`) las piezas cuyo nombre empieza por un
+    prefijo; sin prefijos, todas."""
+    for fid, f in list(doc.scene.items()):
+        if not prefijos or f.name.startswith(prefijos):
+            doc.set_visibility(fid, False)
+
+
+@pytest.mark.parametrize("hacer, ocultas", [
+    (_belt_doc, ("Tambor motriz",)),                     # vía catálogo
+    (_belt_doc_with_vars, ("Banda", "Rodillo motriz")),  # vía nombres: el caso del 38
+])
+def test_detect_conveyor_ignora_lo_oculto(hacer, ocultas):
+    """Ocultar la banda y el tambor para mirar dentro es VISTA, no diseño: la faja se
+    sigue detectando igual (antes: «No hay ningún transportador», proyecto 38)."""
+    from apolo.library.rules import detect_conveyor
+
+    d = hacer()
+    visible = detect_conveyor(d.scene, d.variables_resolved)
+    _ocultar(d, *ocultas)
+    assert d.hidden  # el ocultamiento ocurrió de verdad
+    assert detect_conveyor(d.scene, d.variables_resolved) == visible
+
+
+def test_reglas_de_ingenieria_ignoran_lo_oculto():
+    """Con TODO oculto, faja + estructura universal (pandeo, vuelco, L10, uniones) dan
+    exactamente lo mismo: ninguna regla de ingeniería filtra por visibilidad."""
+    from apolo.library.engineering.report import structure_engineering_check
+    from apolo.library.rules import detect_conveyor
+
+    d = _belt_doc_with_vars()
+    pata = next(fid for fid, f in d.scene.items() if f.name.startswith("Pata"))
+    d.execute("ground", {"name": "g1", "feature": pata})
+    d.execute("insert_component", {"component": "UCP205", "name": "Chumacera motriz",
+                                   "position": {"x": 1950, "y": 400, "z": 791}})
+
+    def reglas():
+        conv = detect_conveyor(d.scene, d.variables_resolved)
+        assert conv is not None
+        return (conveyor_engineering_check(conv, 75, 600, 0.35, 400),
+                structure_engineering_check(d.scene, d.fasteners, d.grounds, d.joints, d.mates,
+                                            carga_kg=75, rpm=conv["rpm_motor"]))
+
+    antes = reglas()
+    assert {c["regla"] for c in antes[1]} >= {"pandeo de patas", "estabilidad al vuelco",
+                                               "vida L10 de rodamientos"}
+    _ocultar(d)
+    assert reglas() == antes
+
+
 def test_deflection_check_errors_on_long_thin_span():
     """Un vano largo con sección débil y mucha carga → la flecha supera 2·(L/250)."""
     conv = {

@@ -127,3 +127,16 @@ def test_supply_reads_catalog_case_insensitively():
     api.DOC = doc
     datos, _ = api._installation_data(doc)
     assert datos["suministro"] and "2.2 kW" in datos["suministro"][0]["valor"]
+
+
+def test_lo_oculto_sigue_pesando_en_la_instalacion():
+    """Ocultar es VISTA: con TODO oculto, la carga por apoyo, la masa y las alturas de
+    interfaz son las mismas (antes la masa caía a 0 y la obra dimensionaba de menos)."""
+    doc = Document("inst")
+    _maquina(doc)
+    doc.requirements = {"carga_kg": 50.0}
+    antes, _ = api._installation_data(doc)
+    for fid in list(doc.scene):
+        doc.set_visibility(fid, False)
+    despues, _ = api._installation_data(doc)
+    assert antes["masa_kg"] > 0 and despues == antes
