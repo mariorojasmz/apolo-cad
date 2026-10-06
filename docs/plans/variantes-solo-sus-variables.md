@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito; espera que Mario vete D1–D10 antes de implementar
+nota: contrato aprobado por Mario (2026-10-06, sin vetos); F1–F4 en implementación
 descripcion: Aplicar una variante cambia sólo las variables que la distinguen; ya no revierte en silencio los cambios de diseño que hiciste después de guardarla
 ---
 
@@ -157,7 +157,22 @@ Se reescriben los tests que fijan la semántica vieja: `test_product.py:56-218`,
 
 Reparto: la sesión principal revisa; cada fase la implementa un subagente (`opus`, worktree
 aislado, segundo plano) con prompt autocontenido. Al volver: diff contra este contrato y re-correr
-las suites una por una.
+las suites una por una. Mario pidió paralelo: F1+F2 (backend) y F3 (UI) corren a la vez contra el
+contrato HTTP de abajo; F4 integra.
+
+**Contrato HTTP** (lo que la UI consume; las respuestas son el payload de escena de siempre):
+
+| ruta | cuerpo | efecto |
+|---|---|---|
+| `POST /api/configurations` | `{name, variables?: string[]}` | D3; 400 si no hay columnas ni `variables` |
+| `PUT /api/configurations/{name}` | `{values: {var: expr}}` | D4 + relleno D2 |
+| `POST /api/configurations/{name}/apply` | — | suma `cambios: [{variable, antes, despues}]` y `aviso?` (D6) |
+| `DELETE /api/configurations/{name}` | — | como hoy |
+| `DELETE /api/configuration-columns/{variable}` | — | D7; 400 si no es columna |
+
+`document.configuration_values` = `{variante: {var: expr}}` con las mismas claves en todas;
+`document.configurations` = nombres ordenados, como hoy. El briefing de `open_project` suma
+`tabla_variantes` (las variantes con sus columnas) junto a `configuraciones`.
 
 ## Lo que este plan NO hace
 
