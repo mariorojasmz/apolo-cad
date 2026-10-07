@@ -70,7 +70,7 @@ def run_static_analysis(step_path: str, *, pieza: str,
     t0 = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix="apolo_fea_") as tmp:
         msh = str(Path(tmp) / "pieza.msh")
-        malla = mesh_step(step_path, groups, msh, mesh_size_mm)
+        malla = mesh_step(step_path, groups, msh, mesh_size_mm, pieza=pieza)
         t_malla = time.perf_counter() - t0
         t0 = time.perf_counter()
         field = solve_linear_elasticity(

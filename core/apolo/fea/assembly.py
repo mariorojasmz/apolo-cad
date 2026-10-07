@@ -64,7 +64,8 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
     excluded = excluded or []
 
     # 1) preparar la malla bonded + los grupos de carga con nombres estables
-    piece_meshes = [PieceMesh(key=p["key"], step_path=p["step_path"]) for p in pieces]
+    piece_meshes = [PieceMesh(key=p["key"], step_path=p["step_path"], name=p.get("name"))
+                    for p in pieces]
     load_groups: dict[str, list[FaceDesc]] = {}
     solver_loads: list[dict] = []
     for i, load in enumerate(loads):

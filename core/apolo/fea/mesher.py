@@ -8,7 +8,8 @@ garantizada.
 
 Las caras se identifican por MATCH GEOMÉTRICO (centro de masa + área) contra
 descriptores extraídos de las caras OCCT bajo STATE_LOCK — el mismo espíritu que los
-selectores declarativos: nada de índices frágiles entre kernels.
+selectores declarativos: nada de índices frágiles entre kernels. Un fallo de
+``mesh.generate`` sale como ``FeaError`` que nombra la pieza (``fallo_malla.py``).
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ import threading
 from dataclasses import dataclass
 
 from . import FeaError, _require_fea
+from .fallo_malla import etiqueta_pieza, generar_3d, tipo_es
 
 FEA_LOCK = threading.Lock()
 
@@ -31,11 +33,18 @@ class FaceDesc:
 
     center: tuple[float, float, float]
     area_mm2: float
+    tipo: str = ""  # «plano», «cilindro»…: sólo para el mensaje de «no encontré»
 
     @classmethod
     def from_face(cls, face) -> "FaceDesc":
-        c = face.center()
-        return cls((float(c.X), float(c.Y), float(c.Z)), float(face.area))
+        from build123d import CenterOf
+
+        # CENTROIDE, el mismo que da gmsh (occ.getCenterOfMass). El default de build123d
+        # (GEOMETRY) en una cara CURVA es el punto en la mitad del dominio uv: en un taladro
+        # completo queda a r del eje y el match no lo encontraba (fea-chapa-empernada, D4).
+        c = face.center(CenterOf.MASS)
+        return cls((float(c.X), float(c.Y), float(c.Z)), float(face.area),
+                   tipo_es(getattr(face, "geom_type", "")))
 
 
 def _match_surfaces(gmsh, descs: list[FaceDesc], surfaces: list[dict],
@@ -53,8 +62,10 @@ def _match_surfaces(gmsh, descs: list[FaceDesc], surfaces: list[dict],
             if best is None or dc < best[0]:
                 best = (dc, s["tag"])
         if best is None:
+            tipo = f" ({d.tipo})" if d.tipo else ""
             raise FeaError(
-                f"No encontré en la malla la cara con centro {tuple(round(c, 2) for c in d.center)} "
+                f"No encontré en la malla la cara{tipo} con centro "
+                f"{tuple(round(c, 2) for c in d.center)} "
                 f"y área {d.area_mm2:.1f} mm² — usa get_topology para elegir el selector "
                 f"(candidatas: {[(tuple(round(c, 1) for c in s['center']), round(s['area'], 1)) for s in surfaces[:8]]})"
             )
@@ -63,10 +74,11 @@ def _match_surfaces(gmsh, descs: list[FaceDesc], surfaces: list[dict],
 
 
 def mesh_step(step_path: str, groups: dict[str, list[FaceDesc]], msh_path: str,
-              mesh_size_mm: float | None = None) -> dict:
+              mesh_size_mm: float | None = None, pieza: str | None = None) -> dict:
     """Malla el STEP en tets con un physical group de superficie por entrada de
     `groups` (mismo nombre) + el grupo de volumen "body". Devuelve
-    {n_nodos, n_tets, size_mm}. Serializado por FEA_LOCK."""
+    {n_nodos, n_tets, size_mm}. `pieza` (nombre) sólo entra al error si gmsh no puede
+    mallar. Serializado por FEA_LOCK."""
     _require_fea()
     import gmsh
 
@@ -105,7 +117,9 @@ def mesh_step(step_path: str, groups: dict[str, list[FaceDesc]], msh_path: str,
 
             gmsh.option.setNumber("Mesh.MeshSizeMax", size)
             gmsh.option.setNumber("Mesh.MeshSizeMin", size / 3.0)
-            gmsh.model.mesh.generate(3)
+            quien = etiqueta_pieza(pieza)
+            generar_3d(gmsh, size_mm=size, duenos={int(v): quien for v in vols},
+                       objetivo=quien, ensamblaje=False)
 
             n_nodos = len(gmsh.model.mesh.getNodes()[0])
             _, tet_tags, _ = gmsh.model.mesh.getElements(3)
@@ -130,6 +144,7 @@ class PieceMesh:
 
     key: str          # clave estable (feature_id) — nombre del physical group será piece_<idx>
     step_path: str    # STEP de UN sólido (o compound de una pieza), exportado bajo STATE_LOCK
+    name: str | None = None  # nombre de la Feature: sólo para nombrarla si gmsh no malla
 
 
 def _assert_bonded_to_ground(gmsh, assigned: dict[int, int], fixed_tags: list[int],
@@ -309,7 +324,10 @@ def mesh_assembly(pieces: list[PieceMesh], fixed: list[FaceDesc],
 
             gmsh.option.setNumber("Mesh.MeshSizeMax", size)
             gmsh.option.setNumber("Mesh.MeshSizeMin", size / 3.0)
-            gmsh.model.mesh.generate(3)
+            duenos = {int(t): etiqueta_pieza(pieces[pi].name, pieces[pi].key)
+                      for t, pi in assigned.items()}
+            generar_3d(gmsh, size_mm=size, duenos=duenos, objetivo="el ensamblaje",
+                       ensamblaje=True)
 
             n_nodos = len(gmsh.model.mesh.getNodes()[0])
             _, tet_tags, _ = gmsh.model.mesh.getElements(3)
