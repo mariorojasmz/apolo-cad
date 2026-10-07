@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 (medición) hecha; el contrato espera el veto de Mario por número antes de F1
+nota: aprobado completo (D1–D9) el 2026-10-07; F1 y F3 en implementación, F2 tras F1, F4 al final
 descripcion: Cambiar una variable de un proyecto con muchos «Script IA» tarda segundos y no minutos, y el agente nunca vuelve a recibir «timed out» al editar
 ---
 
@@ -109,6 +109,8 @@ repeticiones en el MISMO proceso: la 2.ª y la 3.ª aciertan en la caché del sa
 - Lección del zombie-socket (raíz § Windows): un `multiprocessing.spawn` huérfano retiene :8000.
 
 ## Decisiones (para vetar)
+
+Aprobadas todas por Mario el 2026-10-07: «aprobado, dale con los dos» (D1–D7 + D9 y D8).
 
 - **D1. Un worker caliente en vez de un intérprete por script.** Un subproceso de vida larga
   (`subprocess.Popen`, NO `multiprocessing`) que importa build123d UNA vez y atiende scripts por
