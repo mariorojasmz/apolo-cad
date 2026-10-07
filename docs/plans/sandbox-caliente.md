@@ -239,3 +239,68 @@ contra `data/apolo.db`. Números en § El problema. Lo que cambió el diagnósti
   revisiones del 38 ubica el salto en el modelo (6 → 48 scripts entre el 2026-10-05 y el
   2026-10-06), y la medición de `perf_baseline.py` ya lo escondía en julio por medir la mediana
   con la caché del sandbox caliente.
+
+### F1 — worker caliente (2026-10-07, commit `6d8bca8`)
+
+`core/apolo/sandbox_worker.py` (proceso hijo + protocolo), `sandbox.py` reescrito,
+`core/apolo/brep_io.py` (`serialize_robust`/`wrap_topods` mudados tal cual; `geomcache` los
+importa con alias, mismo blob, sin bump), `agent/script_wrapper.py` borrado,
+`tests/test_sandbox_worker.py` (23). Protocolo: frames de largo de 4 bytes; el hijo copia los fd
+0/1 como canal y manda el fd 1 a stderr (`print` y OCCT no ensucian), responde `B`+BRep,
+`S`+STEP de respaldo o `E`+texto; un hilo sale con `os._exit` al ver EOF. API pública de siempre
+más `prewarm()`, `worker_info()`, `cache_info()`, `clear_cache()`, `shutdown()`.
+
+Medido sobre la copia (`APOLO_GEOM_CACHE=0`):
+
+| medida | antes | máquina libre | máquina cargada |
+|---|---|---|---|
+| replay frío del 38 | 238 s | 7,2 s (arranque 3,1 + scripts 1,9 + resto 2,2) | 19,3 s (arranque 11,3) |
+| editar `largo_total` 4000 → 4100 | ~170 s | 5,0 s | 7,1 s |
+| volver a 4000 (los 48 de la caché) | — | 2,9 s | 5,0 s |
+
+Worker: 367 MB residentes al arrancar, 382 MB tras 96 scripts (es el import; no crece).
+Equivalencia sobre los 48 scripts reales: 0 difieren en tipo, sólidos o caras; volumen a 1,09e-12
+relativo, bbox a 1e-7 mm.
+
+- **La regla literal de D3 falló.** «Compound de un sólido → Solid» dejaba 7 de 48 con otro
+  tipo. El árbol de esos 7 era idéntico al de los 19 que sí coincidían; la diferencia era la
+  UBICACIÓN propia: el writer STEP escribe una forma ubicada como instancia de ensamblaje e
+  `import_step` la devuelve como `Compound` (también un `Pos(5,0,0) * Box(...)`). Regla final: con
+  ubicación propia → `Compound`; sin ella, un compound de un solo sólido → ese `Solid`. 48/48, y
+  el test la compara contra el STEP real en 8 casos. Es empírica para build123d 0.10: un upgrade
+  que cambie el STEP la pone roja.
+- El `python.exe` del venv es un LANZADOR: `Popen.pid` no es el worker (el pid real viaja en el
+  handshake). Matar al lanzador mata al hijo: medido.
+- Lo que cuesta ahora es la carga de la máquina: el arranque del worker midió 3 s libre, 11 s
+  cargada y hasta 80 s durante las suites en paralelo. Lo cubre `WORKER_START_TIMEOUT_S = 300`.
+- `run_script_to_step` salió (sin llamadores). Mensajes nuevos sólo para el arranque («El sandbox
+  no arrancó en 300s», «El sandbox no pudo arrancar»). El test de huérfano usa `psutil` con
+  `importorskip`: en CI se saltea.
+
+### F3 — mutaciones por job en el MCP (2026-10-07, commit `6f11bc7`)
+
+`POST /api/commands`, `PUT /api/commands/{id}` y `POST /api/variables` aceptan `?async` vía
+`_sync_or_job`; el 404 de `PUT` sigue síncrono. En el MCP, `_mutacion(...)` (envía como job y
+devuelve el brief o el recibo) la usan las tres tools y también `run_batch`/`edit_batch`;
+`mcp_server.py` bajó de 1429 a 1426 líneas. Golden re-congelado: en `list_tools` sólo cambian las
+tres descripciones; en `llamadas`, ninguna salida existente cambia (sólo las peticiones: `async=true`
+y el `GET /api/jobs/<id>`) y entran seis casos (recibo y job en error por tool). `e2e_mcp.py`
+recoge el recibo de `set_variable` con `get_job`. `tests/test_jobs_mutaciones.py` (22).
+
+- **Quitar `-> dict` cambiaba los bytes de la UI.** La firma pasó a devolver a veces un
+  `JSONResponse` (el 202), así que la anotación quedaba falsa. Sin ella FastAPI 0.136 serializa la
+  respuesta síncrona con `jsonable_encoder` + `json.dumps` (`1e-07`) en vez de pydantic (`1e-7`).
+  Se dejó como `response_model=dict` y un test lo fija.
+- Cargar `e2e_mcp.py` por ruta en un test falló con `@dataclass` + `from __future__ import
+  annotations`: el módulo tiene que estar en `sys.modules` antes de ejecutarse.
+
+### Revisión de F1 + F3 (sesión principal, 2026-10-07)
+
+Diffs leídos contra el contrato; aceptada la desviación de D3 (la regla de tipos sigue lo que de
+verdad hace STEP). F1 (`6d8bca8`) y F3 (`6f11bc7`, cherry-pick) juntos en la rama: pytest
+**2128 pasan, 1 skip** (2083 + 23 + 22) en 608 s; ruff limpio. Re-medido con el perfilador de F0
+sobre la copia, con la máquina cargada por otras sesiones: replay frío 15,7–18,9 s (el primer
+script, que incluye levantar el worker, 9,8 s; los otros 47, 3,6 s; lo que no es script, 5,4 s);
+editar `largo_total` 6,1 s y volver 3,7 s; worker 380 → 382 MB tras 96 scripts. Metas de F1
+cumplidas (≤ 20 s y ≤ 15 s). Pendiente para F4: el docstring de `get_job` todavía dice «un
+lote».
