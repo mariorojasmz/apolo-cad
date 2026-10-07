@@ -29,12 +29,15 @@ def _feat(fid, nombre, cmd, **extra):
             "component": extra.pop("component", None), "command_id": cmd, **extra}
 
 
-def escena(afectados=(), **extra) -> dict:
-    """Payload de escena (lo que devuelven las mutaciones vía `_state_or_error`)."""
+def escena(afectados=(), deshechos=(), **extra) -> dict:
+    """Payload de escena (lo que devuelven las mutaciones vía `_state_or_error`). `deshechos` =
+    la pila de rehacer, la etiqueta más próxima primero (tras un deshacer no está vacía)."""
     return {
         "document": {
             "name": "golden", "configurations": ["4m", "3.2m"], "can_undo": True,
-            "can_redo": False,
+            "can_redo": bool(deshechos),
+            "undo_labels": ["Mover «Guarda tambor motriz»", "Caja «Soporte motor»"],
+            "redo_labels": list(deshechos),
             "variables": [{"name": "L", "expression": "2000", "value": 2000.0}],
             "commands": [{"id": "c1", "type": "create_box", "params": {"name": "Base"}},
                          {"id": "v1", "type": "set_variable",
@@ -102,7 +105,7 @@ RUTAS = [
     ("POST|PATCH", r"/api/commands/batch", ENCOLADO),
     ("GET", r"/api/jobs/[^/]+", JOB_OK),
     ("PUT", r"/api/commands/[^/]+", MUTA),
-    ("POST", r"/api/(undo|redo)", J(escena())),
+    ("POST", r"/api/(undo|redo)", J(escena(deshechos=["Variable «L»: 2000 → 3200"]))),
     ("POST", r"/api/variables", J(escena(["v1"]))),
     ("POST", r"/api/checks", J({"interferencias": {"pares": []}, "ingenieria": [{"ok": True}],
                                 "estructura": {"reglas": []}, "otro": "no se muestra"})),

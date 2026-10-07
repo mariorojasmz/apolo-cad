@@ -18,7 +18,7 @@ import time
 import httpx
 from mcp.server.fastmcp import FastMCP, Image
 
-from apolo.brief import _one_or_many, _scene_brief
+from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
 from apolo.tools import destino
 
@@ -357,7 +357,7 @@ def get_job(job_id: str, detail: str = "diff", wait_s: float = 20) -> str:
 @mcp.tool()
 def undo() -> str:
     """Deshace la última operación."""
-    return json.dumps(_scene_brief(_api("POST", "/api/undo").json()), ensure_ascii=False)
+    return json.dumps(brief_paso(_api("POST", "/api/undo").json(), "deshecho"), ensure_ascii=False)
 
 
 @mcp.tool()
@@ -710,7 +710,7 @@ def test_script(code: str) -> str:
 @mcp.tool()
 def redo() -> str:
     """Rehace la última operación deshecha."""
-    return json.dumps(_scene_brief(_api("POST", "/api/redo").json()), ensure_ascii=False)
+    return json.dumps(brief_paso(_api("POST", "/api/redo").json(), "rehecho"), ensure_ascii=False)
 
 
 @mcp.tool()

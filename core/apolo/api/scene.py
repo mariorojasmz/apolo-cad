@@ -58,6 +58,9 @@ def document_payload() -> dict:
         "commands": S.doc.commands,
         "can_undo": S.doc.can_undo,
         "can_redo": S.doc.can_redo,
+        # qué revierte cada cambio de las pilas, el más próximo primero (deshacer-con-etiqueta D5)
+        "undo_labels": S.doc.undo_labels,
+        "redo_labels": S.doc.redo_labels,
         "variables": variables_payload(),
         "configurations": sorted(S.doc.configurations.keys()),
         "configuration_values": {k: dict(v) for k, v in S.doc.configurations.items()},  # V6.4c: tabla

@@ -333,15 +333,16 @@ def delete_variable(name: str) -> dict:
 
 
 # `S.doc` se lee DENTRO del lock (lambda): el método ligado afuera apuntaría al documento de
-# antes de un cambio de proyecto, no al que la guardia del documento verificó.
+# antes de un cambio de proyecto, no al que la guardia del documento verificó. `pasos` = N
+# cambios con UN regenerate; el rango lo valida el documento (DocumentError → 400 con su texto).
 @router.post("/api/undo")
-def undo() -> dict:
-    return _state_or_error(lambda: S.doc.undo())
+def undo(pasos: int = 1) -> dict:
+    return _state_or_error(lambda: S.doc.undo(pasos))
 
 
 @router.post("/api/redo")
-def redo() -> dict:
-    return _state_or_error(lambda: S.doc.redo())
+def redo(pasos: int = 1) -> dict:
+    return _state_or_error(lambda: S.doc.redo(pasos))
 
 
 class ConfigIn(BaseModel):

@@ -109,3 +109,18 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
     if payload.get("aviso_estructura"):  # alarma ambiental (V6.9-B): 0 anclajes declarados
         out["aviso_estructura"] = payload["aviso_estructura"]
     return out
+
+
+#: El cambio que se acaba de deshacer encabeza la pila de rehacer, y viceversa.
+_PILA_DEL_PASO = {"deshecho": "redo_labels", "rehecho": "undo_labels"}
+
+
+def brief_paso(payload: dict, clave: str) -> dict:
+    """Brief tras deshacer (`clave="deshecho"`) o rehacer (`"rehecho"`): `_scene_brief` + la
+    etiqueta del cambio revertido, para que el agente sepa qué deshizo (D9 del plan
+    deshacer-con-etiqueta). Va primero: tras deshacer no hay afectados y el brief lista toda la
+    escena. Sin la lista en el payload (una API vieja) o vacía, la clave se OMITE (nunca `null`).
+    El brief de las demás mutaciones no lleva etiquetas: serían tokens en cada llamada."""
+    out = _scene_brief(payload)
+    etiquetas = (payload.get("document") or {}).get(_PILA_DEL_PASO[clave])
+    return {clave: etiquetas[0], **out} if etiquetas else out
