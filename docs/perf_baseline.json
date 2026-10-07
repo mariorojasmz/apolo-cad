@@ -1,28 +1,46 @@
 {
-  "nota": "linea base de perf (maquina-dependiente; compara solo contra la misma maquina). Re-medida en V6.4d: la fuente 'faja' es el proyecto 38 con el log PODADO de V6.4 (V6.4b 701->328 + poda residual V6.4d -> 312 comandos, 74 solidos).",
+  "nota": [
+    "Línea base de rendimiento, dependiente de la máquina: compara sólo contra corridas en el mismo host, con la API detenida. Cada medida es la mediana de `reps` repeticiones, salvo open_frio_faja_primera_s.",
+    "open_frio_faja_primera_s: la 1.ª apertura en frío del proceso (from_apolo_bytes, replay completo); incluye levantar el worker del sandbox y llenar las cachés del proceso (definiciones del catálogo).",
+    "open_frio_faja_s: apertura en frío con el worker ya vivo y la caché del sandbox vaciada antes de cada repetición: cada run_script se ejecuta; las cachés del catálogo siguen llenas.",
+    "geom_cache_write_faja_s: empacar el estado regenerado en la caché de geometría (pack).",
+    "open_caliente_faja_s: apertura reanudando de la caché de geometría (unpack + warm).",
+    "regenerate_edit_temprano_s: editar la 1.ª variable de la cabecera al MISMO valor (las firmas no cambian: no replaya).",
+    "edit_variable_faja_s: editar la 1.ª variable a un valor nuevo (x1,1; +k en la repetición k, para que ninguna acierte en la caché): replay completo, scripts re-ejecutados.",
+    "edit_variable_vuelta_faja_s: volver al valor original: replay completo con los scripts servidos por la caché del sandbox.",
+    "scene_payload_layout_s: armar el payload de escena completo del layout.",
+    "autosave_faja_s: to_apolo_bytes + guardar en una SQLite temporal.",
+    "fuzz_100ops_s: 100 operaciones al azar (crear, editar, deshacer, rehacer) sobre 60 cajas.",
+    "worker_arranque_s: levantar el worker del sandbox (prewarm hasta su «listo»): el import de build123d en un proceso nuevo."
+  ],
   "host": "Mario-LapTrab",
   "plataforma": "Windows-11-10.0.26200-SP0",
   "python": "3.13.5",
-  "commit": "6f788df8e55c9a4ad0642405d121f984241f6633",
+  "commit": "195781e79b97d655cddd380392de2409071e42be",
   "reps": 3,
   "fuentes": {
     "faja": "proyecto 38",
     "layout": "proyecto 53"
   },
   "medidas_s": {
-    "open_frio_faja_s": 1.8172,
-    "geom_cache_write_faja_s": 0.0277,
-    "open_caliente_faja_s": 0.0245,
-    "regenerate_edit_temprano_s": 0.0053,
-    "scene_payload_layout_s": 0.0012,
-    "autosave_faja_s": 0.0028,
-    "fuzz_100ops_s": 1.2405
+    "open_frio_faja_primera_s": 9.7293,
+    "open_frio_faja_s": 5.2699,
+    "geom_cache_write_faja_s": 0.0755,
+    "open_caliente_faja_s": 0.0657,
+    "regenerate_edit_temprano_s": 0.0129,
+    "edit_variable_faja_s": 5.3894,
+    "edit_variable_vuelta_faja_s": 3.1381,
+    "scene_payload_layout_s": 0.0017,
+    "autosave_faja_s": 0.0068,
+    "fuzz_100ops_s": 1.7872,
+    "worker_arranque_s": 4.2799
   },
   "conteos": {
-    "faja_solidos": 74,
-    "faja_comandos": 312,
+    "faja_solidos": 129,
+    "faja_comandos": 450,
+    "faja_run_scripts": 48,
     "layout_solidos": 149,
-    "payload_bytes": 1116973,
-    "scene_delta_nochange_bytes": 34257
+    "payload_bytes": 1117011,
+    "scene_delta_nochange_bytes": 34295
   }
 }
