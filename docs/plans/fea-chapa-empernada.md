@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato aprobado (D1–D9, 2026-10-07); F1 en curso, faltan F2–F5
+nota: contrato aprobado (D1–D9, 2026-10-07); F1 hecha, faltan F2–F5
 descripcion: El FEA del bastidor malla la chapa plegada y empernada (travesaños con pestañas en las cuatro caras), acepta cargas sobre un taladro y, si gmsh no puede, responde un 400 que nombra la pieza y qué hacer
 ---
 
@@ -57,9 +57,10 @@ volcados del proyecto 72 y gmsh 4.15.2 directo, sin la API.
     (`finalize` → `initialize` → importar → fragmentar).
 - **(2) El descriptor de cara del FEA usa un punto que no es el centroide.**
   `fea/mesher.py:36-38` (`FaceDesc.from_face`) toma `face.center()`, y en build123d 0.10 el
-  default es `CenterOf.GEOMETRY`: el punto de la superficie en la MITAD de su dominio uv. gmsh
-  (`occ.getCenterOfMass`) da el centroide real. En un rectángulo plano coinciden; en un cilindro
-  COMPLETO difieren exactamente en r. Medido: en una placa con un taladro Ø40 el kernel da
+  default es `CenterOf.GEOMETRY`: en una cara CURVA, el punto de la superficie en la MITAD de su
+  dominio uv (en una plana build123d ya da el centroide: corregido en la Bitácora F1). gmsh
+  (`occ.getCenterOfMass`) da el centroide real. En un cilindro COMPLETO difieren exactamente
+  en r. Medido: en una placa con un taladro Ø40 el kernel da
   (30, 50, 1.5) y gmsh (50, 50, 1.5); en c1442 el Ø40 da 3786 (kernel) vs 3806 (gmsh) y el Ø17,
   3732.5 vs 3741.0. La tolerancia de `_match_surfaces` es 1e-3·diag (≈ 4 mm en la faja) → todo
   taladro de r > 4 mm es inencontrable, en el ensamblaje y en `fea_static`.
@@ -200,7 +201,8 @@ revisa el diff contra este contrato y re-corre las suites.
   monkeypatch con un error de superficies reales) → `FeaError` que nombra la pieza por nombre e
   id; por la API, `POST /api/fea/assembly` → 400 (no 500).
 - **F2 — la chapa plegada con esquinas malla** (D2). `fea/refine.py` nuevo + `mesher.py`
-  (reconstrucción por etapas dentro del mismo `FEA_LOCK`). M. Depende de F1. Tests: el mínimo
+  (reconstrucción por etapas dentro del mismo `FEA_LOCK`; de paso, un grupo de UNA pieza no
+  pasa por `fragment`: hallazgo de F1). M. Depende de F1. Tests: el mínimo
   pedido — una bandeja de chapa con pestañas adyacentes y r = 3 empernada con taladros
   coincidentes a una chapa C, en contacto → `mesh_assembly` + solve dan FS y flecha finitos y la
   hipótesis declara el refinamiento; `mesh_step` de la bandeja a 35 mm malla (etapa 1) y a un
@@ -279,3 +281,36 @@ STEP de las 25 piezas volcados con `export_step_file`; gmsh 4.15.2, build123d 0.
 porque el fallo apareció al SUMAR travesaños y cubrejuntas a la vez, y las dos familias tienen
 taladros coincidentes con el alma. Mallar cada familia por separado (y el travesaño solo) lo
 descartó: la causa estaba dentro de una pieza, no en una interfaz.
+
+### F1 — la cara de un taladro y el 400 (2026-10-07)
+
+Commit `efc4193`. `FaceDesc.from_face` usa `CenterOf.MASS` y lleva el tipo de cara para el
+mensaje de «no encontré». El `generate(3)` de `mesh_step` y de `mesh_assembly` pasa por
+`fea/fallo_malla.py::generar_3d`, que ANTES del `finalize` lee las superficies que nombra
+gmsh (tipo, área, radio por curvatura, volúmenes → pieza) y lanza `FeaError` con la pieza por
+nombre e id y tres salidas. `PieceMesh.name` y `mesh_step(pieza=)` llevan el nombre.
+10 tests nuevos en `tests/test_fea_chapa.py` (fallos simulados con un `generate` que nombra
+superficies REALES del modelo vivo: la geometría que hoy falla mallará tras F2).
+
+- **Antes / después, medido con el código viejo**: placa con Ø40 → «No encontré… centro (30.0,
+  50.0, 1.5)» (gmsh: 50, 50, 1.5); manto de un eje con un taladro transversal → no casaba (15 mm
+  entre los dos centros); por la API, carga con `cerca` sobre el centro que publica
+  `get_topology` → 400. Después, los tres resuelven.
+- **Premisa corregida**: en una cara PLANA build123d 0.10 ya da el centroide con
+  `CenterOf.GEOMETRY` (`is_planar` → `SurfaceProperties`). Lo que no casaba eran las caras
+  CURVAS: taladros y mantos con agujeros. El test de la cara plana con agujero descentrado queda
+  como guarda; el que fallaba de verdad es `test_carga_en_cara_curva_con_agujero`.
+- **El travesaño real (c1446) a 35 mm**, antes `builtins.Exception: Invalid boundary mesh
+  (overlapping facets) on surface 3 surface 6`, ahora: «gmsh no pudo mallar «Travesaño de chapa
+  A36 (1)» con malla de 35 mm (…). Superficies que nombra gmsh: 3 cilindro r ≈ 3 mm, 3637 mm²;
+  6 cilindro r ≈ 3 mm, 244 mm². Un radio de 3 mm frente a una malla de 35 mm queda con una o dos
+  cuerdas y sus facetas pueden cruzarse. Qué hacer: …». En el ensamblaje lleva además el id
+  (c1446).
+- **Fuera del contrato, aceptado en la revisión**: la frase de las «cuerdas» cuando el radio es
+  < size/4 (dato de la F0); en `fea_static` el mensaje nombra la pieza sin id
+  (`run_static_analysis` no recibe el feature_id).
+- **Hallazgo**: `gmsh.model.occ.fragment` de UN solo volumen sin herramientas devuelve
+  `out = []` y `outmap = []` (el volumen sigue en el modelo) → `fea_assembly` de un grupo de una
+  pieza responde «Ninguna pieza sobrevivió a la fragmentación». Verificado aparte en gmsh 4.15.2.
+  Se arregla en F2, que reestructura esa misma función.
+- Revisión: FEA (`test_fea_chapa` + `test_fea` + `test_fea_assembly`) 44/44; ruff limpio.
