@@ -8,11 +8,13 @@ de `main` mientras el código movido seguiría leyendo el documento viejo.
 
 Los swaps (abrir/crear/restaurar proyecto, arranque) ocurren bajo `STATE_LOCK` (y bajo
 `_flush_lock` cuando hay switch, ver `autosave.py`). El arranque (`initialize_store`, movido
-tal cual desde `main` en F5b) vive aquí porque es quien llena `S` por primera vez.
+tal cual desde `main` en F5b) vive aquí porque es quien llena `S` por primera vez; a su lado,
+`prewarm_sandbox`, para testear el arranque sin FastAPI.
 """
 
 from __future__ import annotations
 
+import os
 import types
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -68,6 +70,20 @@ class _MainModule(types.ModuleType):
 for _nombre, _campo in _ALIAS.items():
     setattr(_MainModule, _nombre, _alias(_campo))
 del _nombre, _campo
+
+
+def prewarm_sandbox() -> bool:
+    """Arranque: levanta el worker del sandbox en un hilo, sin frenar el startup (plan
+    sandbox-caliente, D7), para que la primera edición no pague el import de build123d. Va
+    ANTES de `initialize_store`: si el reciente tiene scripts, su replay espera al worker que ya
+    está arrancando. ``APOLO_SANDBOX_PREWARM=0`` lo apaga (la suite lo apaga en
+    `tests/conftest.py`: perezoso). Devuelve si lo pidió."""
+    if os.environ.get("APOLO_SANDBOX_PREWARM") == "0":
+        return False
+    from apolo import sandbox
+
+    sandbox.prewarm()
+    return True
 
 
 def initialize_store(db_path: str) -> None:

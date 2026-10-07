@@ -101,7 +101,61 @@ def test_insert_project_cambia_con_cualquier_version(monkeypatch):
     monkeypatch.setattr(REGISTRY["fillet"], "version", 3)
     assert _cmd_sig("", ins) != antes_ins  # reproduce executors que sus params no nombran
     assert _cmd_sig("", box) == antes_box
-    assert version_tag(REGISTRY, "insert_project") == "|v:fillet@3"
+    assert version_tag(REGISTRY, "insert_project") == "|v:fillet@3,run_script@2"
+
+
+def test_run_script_va_en_v2():
+    """Plan sandbox-caliente, D6: la forma de un script vuelve del worker en BRep, no en STEP.
+    La geometría se midió igual, pero subir la versión invalida la caché SÓLO de los proyectos
+    con scripts (o con `insert_project`) y no mezcla formas nacidas de STEP con las de BRep."""
+    params = {"name": "S", "code": "result = Box(10, 10, 10)"}
+    cmd = {"id": "c3", "type": "run_script", "params": params}
+    h = hashlib.sha1(b"previa")
+    h.update(b"c3")
+    h.update(json.dumps(params, sort_keys=True, default=str).encode())
+    historica = h.hexdigest()
+    h.update(b"|v:run_script@2")
+    assert REGISTRY["run_script"].version == 2
+    assert version_tag(REGISTRY, "run_script") == "|v:run_script@2"
+    assert _cmd_sig("previa", cmd) == h.hexdigest() != historica  # un blob v1 ya no casa
+    assert "run_script@2" in version_tag(REGISTRY, "insert_project")
+    assert version_tag(REGISTRY, "create_box") == ""  # quien no tiene scripts no se entera
+
+
+def _layout_con_script() -> Document:
+    donante = Document("donante-script")
+    donante.execute("set_variable", {"name": "L", "expression": "10"})
+    donante.execute("run_script", {"name": "Pieza", "code": "result = Box(V['L'], 10, 10)"})
+    host = Document("layout")
+    digest = host.add_attachment(donante.to_apolo_bytes())
+    host.execute("insert_project", {"attachment": digest, "name": "M1"})
+    return host
+
+
+def test_insert_project_con_scripts_abre_caliente_y_un_blob_v1_no_casa(monkeypatch):
+    """Un layout que inserta un proyecto con scripts sigue regenerando y abriendo caliente con
+    `run_script` en v2; el blob que dejó la caché ANTES de D6 (firmas de v1) se descarta y el
+    open replaya en frío. El sandbox se reemplaza por una forma fija: aquí se prueban las
+    firmas, no el worker."""
+    from build123d import Box
+
+    import apolo.sandbox as sandbox
+
+    monkeypatch.setattr(sandbox, "run_script_to_shape", lambda code, variables=None: Box(10, 10, 10))
+    with monkeypatch.context() as m:  # el layout y su blob con la firma de antes de D6
+        m.setattr(REGISTRY["run_script"], "version", 1)
+        viejo = _layout_con_script()
+        datos_v1, warm_v1 = viejo.to_apolo_bytes(), unpack(pack(viejo))
+    host = _layout_con_script()
+    assert len(host.scene) == 1 and host.check_integrity() == []
+    datos, warm = host.to_apolo_bytes(), unpack(pack(host))
+    assert warm is not None and warm_v1 is not None
+
+    abierto, n = _replays(datos, warm)
+    assert n == 0 and sorted(abierto.scene) == sorted(host.scene)  # v2 ↔ v2: caliente
+    frio, n = _replays(datos_v1, warm_v1)
+    assert n >= len(viejo.commands)  # las firmas cacheadas ya no son prefijo → replay frío
+    assert sorted(frio.scene) == sorted(host.scene) and frio.check_integrity() == []
 
 
 def test_un_blob_de_la_version_anterior_se_descarta_en_el_open(monkeypatch):

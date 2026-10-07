@@ -1,7 +1,8 @@
 """Fixtures globales de la suite.
 
-Mínimo a propósito: aísla el registro de errores (sesión) y la SESIÓN de la API (cada test).
-El resto del estado global (cachés de proceso, `WS`, jobs) sigue a cargo de cada test.
+Mínimo a propósito: aísla el registro de errores (sesión) y la SESIÓN de la API (cada test),
+y apaga el precalentado del sandbox. El resto del estado global (cachés de proceso, `WS`,
+jobs) sigue a cargo de cada test.
 """
 
 from __future__ import annotations
@@ -43,6 +44,18 @@ def _errorlog_aislado(tmp_path_factory):
             h.close()
     for h in previos:
         logger.addHandler(h)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _sandbox_perezoso():
+    """`APOLO_SANDBOX_PREWARM=0` en toda la suite: el worker del sandbox arranca con el primer
+    script, no con la API (plan sandbox-caliente, D7). Hoy ningún test corre el arranque (un
+    TestClient se presta SIN entrar: entrar abriría la SQLite real), pero uno que lo hiciera
+    levantaría un proceso de ~370 MB y segundos de CPU en paralelo con la suite. Quien prueba
+    el precalentado lo enciende con `monkeypatch.setenv`."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("APOLO_SANDBOX_PREWARM", "0")
+        yield
 
 
 @pytest.fixture(autouse=True)

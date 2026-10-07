@@ -263,7 +263,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "pattern_group": (1, "cb174b5f27cebde8"),
     "pattern_linear": (1, "ecfdc2b719ffbc08"),
     "push_face": (1, "55dda35c7aab1ee7"),
-    "run_script": (1, "0428994fa44d3402"),
+    "run_script": (2, "0428994fa44d3402"),  # v2: la forma vuelve del worker en BRep (sandbox-caliente D6)
     "set_variable": (1, "20e2308e5779cf31"),
     "shell": (1, "89dc700db43488bd"),
     "sketch_extrude": (1, "a015278d8aa9a46c"),

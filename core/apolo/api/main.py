@@ -77,7 +77,7 @@ from .scene import (  # D4: por IDENTIDAD (cachés mutadas en sitio por los test
     _open_briefing,  # noqa: F401
     scene_payload,  # noqa: F401
 )
-from .session import S, _MainModule, initialize_store
+from .session import S, _MainModule, initialize_store, prewarm_sandbox
 from .sims import StabilityIn, _stability  # noqa: F401 — D4
 from .ws import WS
 
@@ -101,6 +101,7 @@ sys.modules[__name__].__class__ = _MainModule
 async def _capture_loop() -> None:
     WS.loop = asyncio.get_running_loop()
     session_marker("Inicio de sesión del servidor")
+    prewarm_sandbox()  # en un hilo; antes del reciente: su replay usa el worker que ya arranca
     initialize_store(_paths.db_path())
 
 

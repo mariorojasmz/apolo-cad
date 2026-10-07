@@ -2084,7 +2084,7 @@ REGISTRY: dict[str, CommandSpec] = {
             "create_sheet_metal", "Chapa metálica", "biblioteca", SheetMetalParams,
             _exec_create_sheet_metal,
         ),
-        CommandSpec("run_script", "Script IA", "crear", RunScriptParams, _exec_run_script),
+        CommandSpec("run_script", "Script IA", "crear", RunScriptParams, _exec_run_script, version=2),
         CommandSpec(
             "create_robot_arm", "Brazo robótico", "robotica", CreateRobotArmParams,
             _exec_create_robot_arm,
