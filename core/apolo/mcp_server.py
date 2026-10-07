@@ -331,16 +331,16 @@ def edit_batch(
 
 @mcp.tool()
 def get_job(job_id: str, detail: str = "diff", wait_s: float = 20) -> str:
-    """Recoge el resultado de un lote que devolvió un RECIBO {"job": id} (run_batch/
-    edit_batch tardaron más que el presupuesto de espera). Espera hasta `wait_s` segundos
-    (long-poll: responde en cuanto el job termina) y devuelve lo MISMO que habría devuelto
-    el lote (sólidos + `contrato`), o `{"estado": "corriendo"}` si aún no acaba — vuelve a
-    llamar. El resultado queda CACHEADO: re-preguntar es SIEMPRE seguro (no re-ejecuta nada).
-    Si el lote falló (p. ej. contrato incumplido) da el mismo error que daría en directo, y
-    el documento quedó intacto.
-    Job desconocido (404) = el servidor se reinició o el job ya se desalojó: el lote PUDO
+    """Recoge el resultado de una mutación que devolvió un RECIBO {"job": id} (run_command,
+    edit_command, set_variable, run_batch o edit_batch tardaron más que la espera). Espera hasta
+    `wait_s` segundos (long-poll: responde en cuanto el job termina) y devuelve lo MISMO que
+    habría devuelto la tool (sólidos + `contrato`), o `{"estado": "corriendo"}` si aún no acaba
+    — vuelve a llamar. El resultado queda CACHEADO: re-preguntar es SIEMPRE seguro (no
+    re-ejecuta nada). Si falló (p. ej. contrato incumplido) da el mismo error que daría en
+    directo, y el documento quedó intacto.
+    Job desconocido (404) = el servidor se reinició o el job ya se desalojó: la mutación PUDO
     haber aplicado (el autosave lo habría guardado) → verifícalo con get_scene antes de nada.
-    NUNCA reintentes el lote a ciegas: lo duplicarías."""
+    NUNCA la reintentes a ciegas: la duplicarías."""
     job = _api("GET", f"/api/jobs/{job_id}", params={"wait_s": wait_s}).json()
     if job["estado"] == "error":
         raise _reject(job.get("http_status") or 400, job.get("error"))

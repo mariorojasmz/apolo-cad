@@ -67,8 +67,8 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   picklada; `unpack` exige exactamente sus campos (`from_plain`). Cambiar los campos = bump.
 - `pack`/`unpack` nunca lanzan (None → replay frío). `pack` serializa el TopoDS CRUDO (no el
   wrapper build123d, que lleva joints frágiles) y verifica cada shape deserializándolo: crudo →
-  copia (`BRepBuilderAPI_Copy`) → None (`_serialize_robust`); BinTools falla por shape de forma
-  caprichosa.
+  copia (`BRepBuilderAPI_Copy`) → None (`brep_io.serialize_robust`, compartido con el sandbox:
+  cambiarlo cambia los dos); BinTools falla por shape de forma caprichosa.
 - `pack` empaca el checkpoint ORGÁNICO del último comando (`_regen_ckpts[len-1]`, antes de los
   mates), no el estado final: si no, la cola ejecutaría contra geometría desplazada y los
   selectores de posición diferirían del replay frío. Un doc tolerante (`regen_suppressed`) no

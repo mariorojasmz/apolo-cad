@@ -107,7 +107,7 @@ también a quien sólo busca o trabaja por MCP.
 
 | archivo | qué cubre |
 |---|---|
-| [core/apolo](core/apolo/CLAUDE.md) | backend común: MCP cliente fino (`mcp_server.py`), agente y criterio (`agent/`, `design/`), cinemática (`robotics/`: FK, GIF), física (`physics/`), cachés por `id(shape)` |
+| [core/apolo](core/apolo/CLAUDE.md) | backend común: MCP cliente fino (`mcp_server.py`), agente y criterio (`agent/`, `design/`), sandbox de scripts (worker caliente), cinemática (`robotics/`: FK, GIF), física (`physics/`), cachés por `id(shape)` |
 | [kernel](core/apolo/kernel/CLAUDE.md) | render, pick, medición; superficies; modelado directo; croquis (dos motores) |
 | [commands](core/apolo/commands/CLAUDE.md) | firma de executor (`ExecContext`), colocación, juntas y `fasten`, `join_bolted`, super-comandos, expresiones |
 | [doc](core/apolo/doc/CLAUDE.md) | integridad y undo, metadatos de manifest, variantes, caché de geometría, `insert_project` |
@@ -281,6 +281,10 @@ imprime los comandos con credenciales (build/twine/mcp-publisher), que lanza una
   (`RENDER_LOCK`, `PHYSICS_LOCK`, `FEA_LOCK`). El orden de locks es único y nunca se invierte
   (autosave: `_flush_lock → STATE_LOCK`). Un endpoint nuevo de render o simulación sigue el
   patrón. [V6.2](docs/plans/V6.2-rendimiento.md) · detalle en [api](core/apolo/api/CLAUDE.md).
+- **El sandbox de scripts lleva `SANDBOX_LOCK`** (`sandbox.py`), siempre DESPUÉS de
+  `STATE_LOCK`: el executor de `run_script` llega con él tomado y `POST /api/script/test` toma
+  sólo el del sandbox; `sandbox.py` jamás importa `apolo.state`.
+  [sandbox-caliente](docs/plans/sandbox-caliente.md)
 
 ### Log de comandos y regenerate
 

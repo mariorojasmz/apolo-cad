@@ -598,7 +598,7 @@
  },
  {
   "name": "get_job",
-  "description": "Recoge el resultado de un lote que devolvió un RECIBO {\"job\": id} (run_batch/\nedit_batch tardaron más que el presupuesto de espera). Espera hasta `wait_s` segundos\n(long-poll: responde en cuanto el job termina) y devuelve lo MISMO que habría devuelto\nel lote (sólidos + `contrato`), o `{\"estado\": \"corriendo\"}` si aún no acaba — vuelve a\nllamar. El resultado queda CACHEADO: re-preguntar es SIEMPRE seguro (no re-ejecuta nada).\nSi el lote falló (p. ej. contrato incumplido) da el mismo error que daría en directo, y\nel documento quedó intacto.\nJob desconocido (404) = el servidor se reinició o el job ya se desalojó: el lote PUDO\nhaber aplicado (el autosave lo habría guardado) → verifícalo con get_scene antes de nada.\nNUNCA reintentes el lote a ciegas: lo duplicarías.",
+  "description": "Recoge el resultado de una mutación que devolvió un RECIBO {\"job\": id} (run_command,\nedit_command, set_variable, run_batch o edit_batch tardaron más que la espera). Espera hasta\n`wait_s` segundos (long-poll: responde en cuanto el job termina) y devuelve lo MISMO que\nhabría devuelto la tool (sólidos + `contrato`), o `{\"estado\": \"corriendo\"}` si aún no acaba\n— vuelve a llamar. El resultado queda CACHEADO: re-preguntar es SIEMPRE seguro (no\nre-ejecuta nada). Si falló (p. ej. contrato incumplido) da el mismo error que daría en\ndirecto, y el documento quedó intacto.\nJob desconocido (404) = el servidor se reinició o el job ya se desalojó: la mutación PUDO\nhaber aplicado (el autosave lo habría guardado) → verifícalo con get_scene antes de nada.\nNUNCA la reintentes a ciegas: la duplicarías.",
   "inputSchema": {
    "properties": {
     "job_id": {

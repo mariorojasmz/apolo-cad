@@ -1,10 +1,11 @@
 # Backend de Apolo (`core/apolo/`)
 
 Lo común del backend que no tiene paquete propio: MCP (`mcp_server.py`), agente de la app
-(`agent/`), criterio de diseño (`design/`), cinemática (`robotics/`) y física (`physics/`). Cada
-paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`, `drawing`,
-`fea`, `services`, `api`) trae sus reglas; lo transversal (locks, log, flujo de trabajo) está en el
-[CLAUDE.md raíz](../../CLAUDE.md). Este archivo carga en TODA lectura de backend: se mantiene ≤ 10 KB.
+(`agent/`), criterio de diseño (`design/`), sandbox de scripts, cinemática (`robotics/`) y física
+(`physics/`). Cada paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`,
+`library`, `drawing`, `fea`, `services`, `api`) trae sus reglas; lo transversal (locks, log, flujo
+de trabajo) está en el [CLAUDE.md raíz](../../CLAUDE.md). Este archivo carga en TODA lectura de
+backend: se mantiene ≤ 10 KB.
 
 ## Reglas comunes
 
@@ -39,12 +40,14 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   `affected_command_ids`, también por PREFIJO (las piezas de un `insert_project` llevan
   command_id sintético `{cmd}_{orig}`); `variables` viaja sólo si la operación tocó un
   `set_variable`. Pasa al agente `contrato` y `aviso_estructura` ([api](api/CLAUDE.md)).
-- `run_batch`/`edit_batch` SIEMPRE encolan como job (`_submit_and_wait`) y esperan
-  `APOLO_MCP_WAIT_S` (90 s: bajo los 120 de httpx y los ~180 del host). Si no llega, devuelven un
+- Toda mutación que regenera (`run_command`, `edit_command`, `set_variable`, `run_batch`,
+  `edit_batch`) SIEMPRE encola como job (`_mutacion` → `_submit_and_wait`) y espera
+  `APOLO_MCP_WAIT_S` (90 s: bajo los 120 de httpx y los ~180 del host). Si no llega, devuelve un
   RECIBO `{job, seguir}`, no un error, y `get_job` re-pregunta sin riesgo. El camino seguro no
-  puede ser opt-in: el agente no sabe cuánto tardará el lote. Un job fallido usa el mismo texto
-  que el 400 (`_reject`). Servidor: [api](api/CLAUDE.md).
-  [V6.5e](../../docs/plans/V6.5e-mcp-jobs-asincronos.md)
+  puede ser opt-in: el agente no sabe cuánto tardará el regenerate. Un job fallido usa el mismo
+  texto que el 400 (`_reject`). Servidor: [api](api/CLAUDE.md).
+  [V6.5e](../../docs/plans/V6.5e-mcp-jobs-asincronos.md) ·
+  [sandbox-caliente](../../docs/plans/sandbox-caliente.md)
 - `edit_command`/`edit_batch` hacen PATCH por defecto (`merge=True`, superficial); el REST, no.
 - `check_assembly`/`gravity_test` cuentan por defecto SÓLO la sujeción DECLARADA
   (`with_autodetect=False`, igual que la API y `delivery_check`); con autodetect el agente veía
@@ -80,6 +83,18 @@ paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`
   = brief + `GUIA_TECNICA` + `REGLAS_CHAT` (sólo lo de la app). Lo que ya dice un schema o un
   docstring no se repite. `tests/test_prompt_chat.py` impide que el prompt del chat nombre tools
   que el chat no tiene.
+
+## Sandbox de scripts (`sandbox.py`, `sandbox_worker.py`)
+
+- UN worker caliente por proceso (`subprocess.Popen`, nunca `multiprocessing`): importa build123d
+  una vez; `SCRIPT_TIMEOUT_S` cuenta sólo la ejecución, el arranque tiene su propio límite. Se
+  recicla tras error, timeout, crash y cada 500 scripts, y sale al ver EOF en stdin. El hijo no
+  importa `kernel`/`doc`/`commands` (lo exige un test): lo liviano compartido va en `brep_io.py`.
+  Lock: regla en la [raíz](../../CLAUDE.md).
+- La forma vuelve en BRep y su TIPO imita lo que daba STEP (con ubicación propia → `Compound`;
+  sin ella, compound de un sólido → `Solid`). Es empírico para build123d 0.10:
+  `test_brep_equivale_a_step` lo vigila en un upgrade. Cambiar lo que entrega el worker = subir
+  la `version` de `run_script`. [sandbox-caliente](../../docs/plans/sandbox-caliente.md)
 
 ## Cinemática (`robotics/`)
 

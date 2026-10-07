@@ -96,9 +96,13 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 
 ## Jobs asíncronos (`jobs.py`)
 
-- Ninguna mutación larga vive dentro de una request: `POST`/`PATCH /api/commands/batch?async=true`
-  → `202 {job_id}` y el MISMO closure del endpoint corre en un worker (`_sync_or_job`). Sin
-  `?async`, byte-idéntico (la UI no se entera). Hoy sólo los lotes lo tienen.
+- Ninguna mutación larga vive dentro de una request: los lotes (`POST`/`PATCH
+  /api/commands/batch`), `POST /api/commands`, `PUT /api/commands/{id}` y `POST /api/variables`
+  con `?async=true` → `202 {job_id}` y el MISMO closure del endpoint corre en un worker
+  (`_sync_or_job`). Sin `?async`, byte-idéntico (la UI no se entera): por eso una ruta que encola
+  conserva su `-> dict` como `response_model=dict` (sin él FastAPI cambia de serializador: `1e-7`
+  → `1e-07`). Un id inexistente da 404 ANTES de encolar.
+  [sandbox-caliente](../../../docs/plans/sandbox-caliente.md)
 - `JobStore`: cola FIFO con UN worker (`STATE_LOCK` serializa igual y el orden importa), retiene
   los 20 terminados, en memoria. `GET /api/jobs/{id}?wait_s=0..30` = long-poll.
 - Lock HOJA: el `_cv` del store jamás se sostiene llamando al closure (que toma `STATE_LOCK`)
