@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida; contrato esperando el veto de Mario (D1–D9) antes de implementar F1–F5
+nota: contrato aprobado (D1–D9, 2026-10-07); F1 en curso, faltan F2–F5
 descripcion: El FEA del bastidor malla la chapa plegada y empernada (travesaños con pestañas en las cuatro caras), acepta cargas sobre un taladro y, si gmsh no puede, responde un 400 que nombra la pieza y qué hacer
 ---
 
@@ -26,6 +26,8 @@ Pidió: (a) test mínimo; (b) que el bonded de chapas empernadas malle y el erro
 400 que nombre las piezas; (c) poder cargar un taladro de chapa; (d) evaluar si `cerca` debe
 medir a la superficie, con plan si cambia semántica; revisar el tope de 25 sólidos; la regla
 durable en el CLAUDE.md que corresponda.
+
+**Aprobado por Mario el 2026-10-07, sin vetos** (D1–D9).
 
 ## El problema / lo que hay hoy
 
