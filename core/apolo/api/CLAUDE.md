@@ -122,7 +122,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   manual); por eso los nombres de grupo no admiten comas.
 - Los lotes de apariencia y conexiones (`POST /api/features/material|color`,
   `/api/connections/remove`) validan TODO antes de tocar nada: un id malo → 404 con sugerencia y
-  CERO efectos parciales; un solo autosave y un solo undo.
+  CERO efectos parciales; un solo autosave. Las conexiones dejan un undo; color y material,
+  ninguno (son metadatos de manifest: no entran a la pila).
 - `GET /api/commands` (find_commands): búsqueda superficial (1 nivel de dict) de los comandos que
   crearon o referencian un feature; sin filtros → 400.
 
