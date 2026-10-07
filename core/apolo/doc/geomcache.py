@@ -31,6 +31,8 @@ from __future__ import annotations
 
 import pickle
 
+from apolo.brep_io import serialize_robust as _serialize_robust
+from apolo.brep_io import wrap_topods as _wrap_topods
 from apolo.commands.state import RegenState
 
 # Versión del formato del blob. BUMPEAR A MANO cuando cambie:
@@ -86,55 +88,6 @@ def _versions() -> dict:
             return "?"
 
     return {"build123d": v("build123d"), "ocp": v("cadquery-ocp"), "apolo": _apolo_version()}
-
-
-def _serialize_robust(shape) -> bytes | None:
-    """Serializa un ``TopoDS_Shape`` a bytes que GARANTIZADO deserializan. BinTools es
-    caprichoso por-shape: ``serialize_shape`` siempre da bytes, pero ``deserialize_shape``
-    revienta (``BinTools_ShapeSet::ReadGeometry`` / ``NCollection_IndexedMap`` fuera de
-    rango) para ciertos shapes — y CUÁLES depende del shape: unos round-trip-ean crudos y
-    otros solo tras una copia profunda (``BRepBuilderAPI_Copy`` aplana las refs de
-    geometría), pero la copia ROMPE a los primeros. Por eso: intenta crudo, VERIFICA
-    deserializando (el fallo salta al LEER, no al escribir); si falla, intenta la copia y
-    verifica; si ninguno round-trip-ea, None → pack entero cae y se replaya en frío."""
-    from build123d.persistence import deserialize_shape, serialize_shape
-
-    def _ok(candidate) -> bytes | None:
-        blob = serialize_shape(candidate)
-        if blob is None:
-            return None
-        try:
-            deserialize_shape(blob)  # el fallo de BinTools ocurre al LEER, no al escribir
-        except Exception:
-            return None
-        return blob
-
-    blob = _ok(shape)
-    if blob is not None:
-        return blob
-    from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
-
-    copier = BRepBuilderAPI_Copy(shape)
-    copier.Perform(shape)
-    return _ok(copier.Shape())
-
-
-def _wrap_topods(topods):
-    """Envuelve un ``TopoDS_Shape`` crudo en el tipo de build123d que corresponde a su
-    ShapeType (Solid/Compound/…). Todas las ops de Apolo son de ``Shape``, así que la
-    subclase PRIMITIVA original (Box/Cylinder) no importa — solo la familia topológica."""
-    import build123d as bd
-    from OCP.TopAbs import (
-        TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL,
-        TopAbs_SOLID, TopAbs_VERTEX, TopAbs_WIRE,
-    )
-
-    cls = {
-        TopAbs_COMPOUND: bd.Compound, TopAbs_COMPSOLID: bd.Compound,
-        TopAbs_SOLID: bd.Solid, TopAbs_SHELL: bd.Shell, TopAbs_FACE: bd.Face,
-        TopAbs_WIRE: bd.Wire, TopAbs_EDGE: bd.Edge, TopAbs_VERTEX: bd.Vertex,
-    }.get(topods.ShapeType(), bd.Shape)
-    return cls(topods)
 
 
 def pack(doc) -> bytes | None:
