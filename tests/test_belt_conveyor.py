@@ -78,13 +78,18 @@ def test_tensor_trotadora_tiene_alojamiento_de_eje():
 
 
 def test_electrico_en_catalogo():
-    for ref, cat in [("VFD-1K5-220", "variadores"), ("TABLERO-5040", "tableros"),
-                     ("ESTOP-40", "mandos"), ("BOTONERA-2", "mandos")]:
+    for ref, cat in [("VFD-1K5-220", "variadores"), ("VFD-2K2-220", "variadores"),
+                     ("TABLERO-5040", "tableros"), ("ESTOP-40", "mandos"), ("BOTONERA-2", "mandos")]:
         c = CATALOG[ref]
         assert c.category == cat
         shp, cut = build_component(ref)
         assert cut is None and shp.volume > 0
     assert CATALOG["VFD-1K5-220"].specs["potencia_kW"] == 1.5
+    vfd = CATALOG["VFD-2K2-220"]
+    assert vfd.specs["potencia_kW"] == 2.2 and vfd.specs["proteccion"] == "STO"
+    bb = build_component("VFD-2K2-220")[0].bounding_box()
+    # cabe en el TABLERO-5040 (500 x 200 x 400) con aire para el cableado
+    assert bb.size.X <= 500 - 100 and bb.size.Y <= 200 - 30 and bb.size.Z <= 400 - 100
 
 
 # ----------------------------------------------- super-comando create_belt_conveyor

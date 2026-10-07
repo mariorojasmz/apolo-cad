@@ -104,7 +104,7 @@ def test_all_new_families_present():
     assert len(refs_in_category("motorreductores")) == 4  # + MOTOR-150-EH
     # faja de banda: tensor trotadora + eléctrico (variador, tablero, mandos)
     assert len(refs_in_category("tensores_trotadora")) == 2
-    assert len(refs_in_category("variadores")) == 1
+    assert len(refs_in_category("variadores")) == 2  # 1.5 kW + 2.2 kW (NMRV-090 de la faja 38)
     assert len(refs_in_category("tableros")) == 1
     assert len(refs_in_category("mandos")) == 2
     # familias de norma (ISO 15 / ASTM A500 / EN): tubos y perfiles
@@ -129,8 +129,8 @@ def test_all_new_families_present():
     assert len(refs_in_category("motorreductores_sinfin")) == 8
     # garruchas de placa: Blickle LH-ALTH/-ST/BH-ALTH + Colson Colombia 44/45 PU (plan garruchas-catalogo)
     assert len(refs_in_category("garruchas")) == 24
-    # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c) +24 garruchas (garruchas-catalogo)
-    assert len(CATALOG) == 255
+    # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c) +24 garruchas (garruchas-catalogo) +1 VFD 2.2 kW
+    assert len(CATALOG) == 256
 
 
 def test_door_sliding_hardware():

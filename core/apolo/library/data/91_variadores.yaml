@@ -7,3 +7,13 @@ components:
     params: {width: 90, depth: 160, height: 200}
     weight: 1.2
     specs: {potencia_kW: 1.5, potencia_HP: 2, tension: "220V 3F", corriente_A: 8.5, control: "vectorial sensorless", proteccion: STO}
+  # Para el NMRV-090 (motor 2.2 kW) de la faja 38: el de 1.5 kW quedaba corto. Envolvente
+  # representativa de un VFD compacto de 2.2 kW 230 V 3F (orden de SINAMICS V20 FSB / Delta MS300
+  # frame B): verificar cotas y precio con el proveedor antes de cotizar en firme.
+  - ref: VFD-2K2-220
+    name: Variador 2.2 kW 220V 3F
+    description: Variador de frecuencia (VFD) 2.2 kW / 3 HP, entrada y salida 220 V trifásica, control vectorial sensorless + STO (entrada de seguridad para el lazo de setas de emergencia), rampa de arranque para fajas con motorreductor de 2.2 kW.
+    builder: box
+    params: {width: 140, depth: 145, height: 160}
+    weight: 1.7
+    specs: {potencia_kW: 2.2, potencia_HP: 3, tension: "220V 3F", corriente_A: 11.0, control: "vectorial sensorless", proteccion: STO, cost: 280}
