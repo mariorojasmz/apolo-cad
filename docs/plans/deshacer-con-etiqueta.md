@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito, espera el visto bueno de Mario (vetos por número de decisión); F0 medida, F1–F4 sin empezar
+nota: aprobado completo por Mario (2026-10-06, sin vetos); F0 medida, F1 en curso, F2–F4 pendientes
 descripcion: Deshacer y Rehacer dicen qué cambio van a revertir (al pasar el puntero y en una lista de los últimos cambios), y desde la lista se deshacen varios de una vez
 ---
 
