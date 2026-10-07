@@ -130,6 +130,9 @@ export interface DocumentOut {
   commands: CommandRecord[];
   can_undo: boolean;
   can_redo: boolean;
+  // qué revierte cada cambio de la pila, ya escrito para la persona y el más próximo primero (≤ 50)
+  undo_labels?: string[];
+  redo_labels?: string[];
   variables: VariableOut[];
   configurations: string[];
   // {variante: {var: expr}}: todas las variantes tienen las MISMAS claves (las filas de su tabla)

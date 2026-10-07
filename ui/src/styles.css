@@ -122,6 +122,21 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 }
 .menu-pop button:hover:not(:disabled) { background: var(--panel3); }
 .menu-pop .sep { height: 1px; background: var(--border); margin: 4px 2px; }
+/* Deshacer / Rehacer + su ▾ (panels/HistorialCambios.tsx): un botón partido; la lista marca del
+   cambio más próximo al que apunta el puntero o el foco. */
+.historial { display: inline-flex; }
+.historial > .icon-btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.historial > .historial-abrir {
+  padding: 5px 4px; margin-left: -1px; border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+.historial-pop { min-width: 240px; width: max-content; max-width: min(420px, calc(100vw - 24px)); }
+.historial-lista { display: flex; flex-direction: column; max-height: min(60vh, 420px); overflow: hidden auto; }
+.historial-lista button { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; flex: none; }
+.menu-pop .historial-lista button.marcado:not(:disabled) { background: var(--accent-soft); }
+.historial-pie {
+  border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 10px 2px;
+  color: var(--muted); font-size: 12px;
+}
 
 /* ------------------------------------------------------------ ribbon */
 .ribbon { background: var(--bg2); border-bottom: 1px solid var(--border); }

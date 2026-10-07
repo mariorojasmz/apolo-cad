@@ -21,6 +21,9 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** La ruta de deshacer/rehacer con `?pasos=N` sólo si N > 1: con uno, la de siempre. */
+const conPasos = (ruta: string, pasos: number) => (pasos > 1 ? `${ruta}?pasos=${pasos}` : ruta);
+
 export const api = {
   // La vista PERSONA: pista, detalle y pestaña; la vista por defecto es la del agente.
   schemas: () => fetch("/api/schemas?vista=persona").then((r) => json<CommandSchema[]>(r)),
@@ -255,8 +258,9 @@ export const api = {
       json<SceneOut>(r),
     ),
 
-  undo: () => fetch("/api/undo", { method: "POST" }).then((r) => json<SceneOut>(r)),
-  redo: () => fetch("/api/redo", { method: "POST" }).then((r) => json<SceneOut>(r)),
+  // `pasos` > 1 revierte varios cambios con un solo regenerate; sin él, uno (como siempre).
+  undo: (pasos = 1) => fetch(conPasos("/api/undo", pasos), { method: "POST" }).then((r) => json<SceneOut>(r)),
+  redo: (pasos = 1) => fetch(conPasos("/api/redo", pasos), { method: "POST" }).then((r) => json<SceneOut>(r)),
 
   setVisibility: (id: string, visible: boolean) =>
     fetch(`/api/features/${id}/visibility`, {

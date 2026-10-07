@@ -1,20 +1,18 @@
 import { useRef, useState } from "react";
-import { ChevronDown, Download, FolderOpen, Home, Redo2, Save, Undo2, Upload } from "lucide-react";
+import { ChevronDown, Download, FolderOpen, Home, Save, Upload } from "lucide-react";
 import { useStore } from "../state/store";
 import SelectorPantalla from "../visor/SelectorPantalla";
+import HistorialCambios from "./HistorialCambios";
 
 /* Cabecera slim: marca/proyecto · pestañas de entorno (Modelar/Planos/Simular) ·
-   deshacer/rehacer · Visor | Completo · menú Archivo. Los toggles de paneles viven en la
-   StatusBar (Completo). */
+   deshacer/rehacer con su lista de cambios · Visor | Completo · menú Archivo. Los toggles de
+   paneles viven en la StatusBar (Completo). */
 
 export default function TopBar() {
   const doc = useStore((s) => s.scene?.document);
-  const busy = useStore((s) => s.busy);
   const showDrawing = useStore((s) => s.showDrawing);
   // Selectores por acción (no `useStore()` pelado): sin selector, la cabecera se re-renderizaba
   // con CADA cambio de la store (p. ej. cada token del chat en streaming).
-  const undo = useStore((s) => s.undo);
-  const redo = useStore((s) => s.redo);
   const openProject = useStore((s) => s.openProject);
   const openDrawing = useStore((s) => s.openDrawing);
   const importStep = useStore((s) => s.importStep);
@@ -54,12 +52,8 @@ export default function TopBar() {
 
       <span className="spacer" />
 
-      <button className="icon-btn" disabled={!doc?.can_undo || busy} onClick={() => void undo()} title="Deshacer">
-        <Undo2 size={16} />
-      </button>
-      <button className="icon-btn" disabled={!doc?.can_redo || busy} onClick={() => void redo()} title="Rehacer">
-        <Redo2 size={16} />
-      </button>
+      <HistorialCambios sentido="deshacer" />
+      <HistorialCambios sentido="rehacer" />
       <SelectorPantalla />
 
       <span className="menu">

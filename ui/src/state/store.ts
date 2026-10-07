@@ -118,8 +118,8 @@ interface AppState {
   retryBlocked: (id: string) => void;
   saveVariable: (name: string, expression: string) => Promise<boolean>;
   deleteVariable: (name: string) => Promise<boolean>;
-  undo: () => Promise<void>;
-  redo: () => Promise<void>;
+  undo: (pasos?: number) => Promise<void>; // `pasos`: cuántos cambios de una vez (por defecto 1)
+  redo: (pasos?: number) => Promise<void>;
   toggleVisibility: (id: string) => Promise<void>;
   toggleGuide: (ids?: string[]) => Promise<void>;
   newGuideBox: () => Promise<void>;
@@ -721,15 +721,15 @@ export const useStore = create<AppState>((set, get) => ({
     return scene !== null;
   },
 
-  undo: async () => {
-    const scene = await guard(set, () => api.undo(), "undo");
+  undo: async (pasos) => {
+    const scene = await guard(set, () => api.undo(pasos), "undo");
     if (scene) {
       set({ scene });
       void get().refreshKinematics();
     }
   },
-  redo: async () => {
-    const scene = await guard(set, () => api.redo(), "redo");
+  redo: async (pasos) => {
+    const scene = await guard(set, () => api.redo(pasos), "redo");
     if (scene) {
       set({ scene });
       void get().refreshKinematics();
