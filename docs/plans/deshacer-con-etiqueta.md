@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado completo por Mario (2026-10-06, sin vetos); F0 y F1 hechas, F2 en curso, F3–F4 pendientes
+nota: aprobado completo por Mario (2026-10-06, sin vetos); F0–F2 hechas, F3 (UI) en curso, F4 pendiente
 descripcion: Deshacer y Rehacer dicen qué cambio van a revertir (al pasar el puntero y en una lista de los últimos cambios), y desde la lista se deshacen varios de una vez
 ---
 
@@ -256,3 +256,22 @@ tests como gate; la sesión principal revisa el diff contra este contrato y re-c
   creadas se nombran por la primera, sin «y N más».
 - D11 se implementó sacando la entrada de arriba y re-apilándola por `_push_undo` (mismo efecto
   que reescribirla en sitio, un solo camino de apilado).
+
+### F2 — API y MCP (2026-10-06, `d98f6e3`)
+
+- `document_payload()` suma `undo_labels`/`redo_labels`; `POST /api/undo|redo` aceptan
+  `pasos: int = 1` (int llano, no `Query(ge=1)`: con `ge` FastAPI daría su 422 y no llegaría el
+  400 con el texto del documento; un `?pasos=dos` sí da 422 sin tocar nada).
+  `brief.py::brief_paso` agrega `deshecho`/`rehecho` (omitidos sin listas) y `mcp_server.py`
+  cambió tres líneas en sitio: sigue en 1429.
+- `deshecho`/`rehecho` va como PRIMERA clave del brief: tras deshacer no hay afectados y el
+  brief lista toda la escena; al final quedaba detrás de cientos de piezas.
+- Golden: sólo `llamadas.json`, sólo `deshacer`/`rehacer`. El `escena()` canónico lleva las dos
+  listas y `deshechos=` para la ruta de undo/redo, con lo que `puede_rehacer` pasa a `true` en
+  esos dos casos (con la lista de rehacer llena y `can_redo: false` el golden congelaba una
+  contradicción). `golden_mcp.py --congelar` reescribe los tres archivos con LF y, con
+  `autocrlf`, git marca como modificados los dos que no cambian: se restauran antes de stagear.
+- Tests: 18 nuevos (`tests/test_api_deshacer.py`). Suite completa re-corrida por la sesión
+  principal sobre la rama integrada: 2083 pasados, 1 saltado, 0 fallidos; ruff limpio. (Con
+  `-q` en la línea de comando más el `-q` de `pytest.ini` el resumen no se imprime: contar los
+  puntos o no repetir `-q`.)
