@@ -72,6 +72,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   `merge=true`; la UI elige por caso ([ui](../../../ui/CLAUDE.md)).
 - `edit_batch` = N ediciones en UN regenerate atómico y 1 undo. `GET /api/schemas/{type}` evita
   volcar el schema completo.
+- `POST /api/undo|redo?pasos=N`: `pasos` es `int` llano (con `Query(ge=1)` FastAPI daría su 422
+  y no el 400 con el texto del documento). El documento publica `undo_labels`/`redo_labels`.
+  [deshacer-con-etiqueta](../../../docs/plans/deshacer-con-etiqueta.md)
 - `_materialize_insert_project` muta `S.doc.attachments`: corre DENTRO del lambda de
   `_state_or_error` (bajo `STATE_LOCK`), nunca antes.
 - Lo mismo toda búsqueda en el log que decide la mutación (variable por nombre, comando dueño

@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado completo por Mario (2026-10-06, sin vetos); F0–F2 hechas, F3 (UI) en curso, F4 pendiente
+estado: sin verificar   # implementado | en curso | sin verificar | descartado
+nota: F0–F4 hechas y verificadas en navegador sobre una copia del 38; falta el E2E de Mario en su UI (mover algo, leer el botón, deshacer hasta ahí)
 descripcion: Deshacer y Rehacer dicen qué cambio van a revertir (al pasar el puntero y en una lista de los últimos cambios), y desde la lista se deshacen varios de una vez
 ---
 
@@ -275,3 +275,40 @@ tests como gate; la sesión principal revisa el diff contra este contrato y re-c
   principal sobre la rama integrada: 2083 pasados, 1 saltado, 0 fallidos; ruff limpio. (Con
   `-q` en la línea de comando más el `-q` de `pytest.ini` el resumen no se imprime: contar los
   puntos o no repetir `-q`.)
+
+### F3 — UI (2026-10-06)
+
+- `panels/HistorialCambios.tsx` arma el botón partido completo (Deshacer o Rehacer + ▾ + lista)
+  por `sentido`; `TopBar.tsx` sólo monta dos (bajó de 121 a 115 líneas). Lógica pura en
+  `panels/deshacer.ts` con 9 tests; `store.ts` sigue en 916 (cambio en sitio).
+- **Lo que reveló**: el archivo de lógica iba a llamarse `historialCambios.ts`, junto a
+  `HistorialCambios.tsx`. vitest pasaba, pero `npm run build` falló en Windows (TS1261/TS1192):
+  `./HistorialCambios` abría el `.ts`. Se renombró a `deshacer.ts` y la trampa quedó en
+  [ui](../../ui/CLAUDE.md).
+- Agregados que el contrato no pedía: al abrir, el foco va a la primera fila; flechas, Inicio
+  y Fin recorren la lista y cortan la propagación (si no, la flecha movía la pieza seleccionada
+  por los atajos del viewport); Esc cierra en captura, devuelve el foco al ▾ y no cierra un
+  cajón del visor (`CIERRA_CON_ESC`); la lista también se cierra si empieza otra acción.
+- Textos: botón `Deshacer: {etiqueta}` / `Rehacer: {etiqueta}`; ▾ «Ver los cambios para
+  deshacer|rehacer»; pie «Deshacer 1 cambio» / «Deshacer N cambios».
+- Re-corrido por la sesión principal sobre la rama integrada: vitest 193/193 (184 + 9), build
+  verde (sólo el aviso de tamaño de chunk que ya existía).
+
+### F4 — verificación (2026-10-06)
+
+- Rama rebasada sobre `main` (`c2f9cce`, el variador VFD-2K2-220 en el catálogo: la copia del
+  38 ya lo usaba y sin él editar una variable fallaba en el replay; sin conflicto con este plan).
+- **Navegador**, contra la API de la rama en el puerto 8077 sobre una COPIA de `data/apolo.db`
+  (backup de SQLite) con el 38 abierto: tras mover la guarda del tambor motriz, cambiar
+  `largo_total` y mover dos guardas en un lote, el botón dice «Deshacer: Mover ×2: «Guarda
+  rodillo de retorno 1» y «Guarda rodillo de retorno 2»»; la lista muestra los tres, al pasar
+  por el tercero se marcan los tres y el pie dice «Deshacer 3 cambios»; el clic los deshizo de
+  una vez (450 comandos, `largo_total` = 4000, rehacer = 3); Rehacer de a uno dejó «Deshacer:
+  Mover «Guarda tambor motriz…»» y «Rehacer: Variable «largo_total»: 4000 → 3800»; con la lista
+  abierta, un cambio externo la cerró y el título se actualizó. Consola sin errores.
+- **E2E del MCP** (`scripts/e2e_mcp.py --puerto 8077 --proyecto 38`): 25/27; fallan
+  `set_variable` (timeout de 120 s) y el resumen siguiente (la variable se aplicó después del
+  timeout); `undo` devolvió `largo_total` a 4000. **No lo causa este plan**: medido en proceso
+  sobre la misma copia, editar `largo_total` en el 38 tarda ~170 s con el código de `main` y
+  ~170 s con el de esta rama (abrir en frío: 172 y 192 s; describir el cambio cuesta < 1 ms).
+  Queda como pendiente aparte (regenerar el 38 superó el timeout del cliente MCP).

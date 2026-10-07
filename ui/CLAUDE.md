@@ -89,6 +89,7 @@ Cada concepto tiene UN nombre en toda la interfaz. La tabla se mantiene acá y s
 | una foto guardada del proyecto | **revisión** | versión, snapshot |
 | un juego de valores de las variables | **variante** | configuración |
 | una operación del historial | **comando** | operación, acción |
+| un paso de Deshacer/Rehacer (puede ser un lote de comandos) | **cambio** | paso, acción |
 | una hoja del juego de planos | **lámina** | hoja, página |
 | la lista de piezas y compras | **BOM** (sigla del oficio, se acepta) | lista de materiales en un rótulo |
 | lo que se pierde / lo que sale de una lista | **Eliminar** / **Quitar** | Borrar, Remover |
@@ -127,6 +128,9 @@ inglés en rótulos ni `aria-label` (salvo las siglas de la tabla).
   pasan, congelados en su `EXCEPCIONES` (trinquete: el número sólo baja).
 - Los `*.test.ts` están fuera de `tsconfig.json` (usan `node:fs`; la app no carga los tipos de
   Node): vitest los corre sin chequeo de tipos.
+- Dos archivos de `src/` cuyos nombres sólo difieren en mayúsculas (`HistorialCambios.tsx` y
+  `historialCambios.ts`) rompen `npm run build` en Windows (TS1261) aunque vitest pase: la lógica
+  pura lleva otro nombre (`deshacer.ts`, `variantes.ts`).
 
 ### Limpiar lo que ya existe
 

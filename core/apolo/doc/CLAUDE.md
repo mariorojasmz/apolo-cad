@@ -26,6 +26,12 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   repetido. `undo`/`redo` son peek-then-commit (no sacan de la pila hasta que la restauración
   sobrevive). `_UNDO_CAP = 50`: los snapshots retienen shapes. Checkpoints corruptos → replay
   completo, nunca un error por culpa de la caché.
+- **Se apila en UN solo punto, `_push_undo`**, que etiqueta el cambio derivándolo del diff del
+  log (`pasos.py`; describir nunca hace fallar la mutación): una mutación nueva pasa por ahí, no
+  hace su propio `append`. `undo`/`redo(pasos)` mueven N cambios con UN regenerate y dejan
+  documento y pilas idénticos a N llamadas de a uno. Deshacer NO toca `hidden` (como color y
+  material): por eso `_append_record` limpia de `hidden` el id que recicla al restaurarse `seq`.
+  [deshacer-con-etiqueta](../../../docs/plans/deshacer-con-etiqueta.md)
 - `from_apolo_bytes` fija `seq = max(seq, len(commands), máx c-id)`: sin colisión de ids aunque
   el log tenga huecos. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
 
