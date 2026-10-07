@@ -240,7 +240,7 @@ contra `data/apolo.db`. Números en § El problema. Lo que cambió el diagnósti
   2026-10-06), y la medición de `perf_baseline.py` ya lo escondía en julio por medir la mediana
   con la caché del sandbox caliente.
 
-### F1 — worker caliente (2026-10-07, commit `6d8bca8`)
+### F1 — worker caliente (2026-10-07, commit `9b2d75c`)
 
 `core/apolo/sandbox_worker.py` (proceso hijo + protocolo), `sandbox.py` reescrito,
 `core/apolo/brep_io.py` (`serialize_robust`/`wrap_topods` mudados tal cual; `geomcache` los
@@ -277,7 +277,7 @@ relativo, bbox a 1e-7 mm.
   no arrancó en 300s», «El sandbox no pudo arrancar»). El test de huérfano usa `psutil` con
   `importorskip`: en CI se saltea.
 
-### F3 — mutaciones por job en el MCP (2026-10-07, commit `6f11bc7`)
+### F3 — mutaciones por job en el MCP (2026-10-07, commit `fd109a4`)
 
 `POST /api/commands`, `PUT /api/commands/{id}` y `POST /api/variables` aceptan `?async` vía
 `_sync_or_job`; el 404 de `PUT` sigue síncrono. En el MCP, `_mutacion(...)` (envía como job y
@@ -297,7 +297,7 @@ recoge el recibo de `set_variable` con `get_job`. `tests/test_jobs_mutaciones.py
 ### Revisión de F1 + F3 (sesión principal, 2026-10-07)
 
 Diffs leídos contra el contrato; aceptada la desviación de D3 (la regla de tipos sigue lo que de
-verdad hace STEP). F1 (`6d8bca8`) y F3 (`6f11bc7`, cherry-pick) juntos en la rama: pytest
+verdad hace STEP). F1 (`9b2d75c`) y F3 (`fd109a4`, cherry-pick) juntos en la rama: pytest
 **2128 pasan, 1 skip** (2083 + 23 + 22) en 608 s; ruff limpio. Re-medido con el perfilador de F0
 sobre la copia, con la máquina cargada por otras sesiones: replay frío 15,7–18,9 s (el primer
 script, que incluye levantar el worker, 9,8 s; los otros 47, 3,6 s; lo que no es script, 5,4 s);
@@ -305,7 +305,7 @@ editar `largo_total` 6,1 s y volver 3,7 s; worker 380 → 382 MB tras 96 scripts
 cumplidas (≤ 20 s y ≤ 15 s). Pendiente para F4: el docstring de `get_job` todavía dice «un
 lote».
 
-### F2 — versión, precalentado y baseline (2026-10-07, commits `195781e` y `b969a9a`)
+### F2 — versión, precalentado y baseline (2026-10-07, commits `d80cf5c` y `4d59535`)
 
 `run_script` en `version=2` (huella del executor igual); `api/session.py::prewarm_sandbox()`
 llamado en el startup ANTES de `initialize_store` (el replay del reciente espera al worker que ya
