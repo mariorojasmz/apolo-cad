@@ -21,6 +21,7 @@ from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_comma
 from apolo.commands.spec import version_tag
 from apolo.commands.state import RegenState
 from apolo.commands.strict import reject_unknown
+from apolo.doc import pasos as _pasos
 from apolo.doc import variantes
 
 FORMAT_VERSION = 2  # v2 añade attachments/ (archivos STEP importados); abre v1 sin cambios
@@ -456,11 +457,21 @@ class Document:
                 + "\n  - ".join(issues)
             )
 
-    def _mutate(self, fn, coalesce_key: str | None = None) -> None:
-        """Aplica un cambio al log con rollback automático si la regeneración
-        falla. Mutaciones consecutivas con la misma coalesce_key (vista previa
-        en vivo) comparten un único punto de deshacer."""
-        snap = self._snapshot()
+    def _push_undo(self, snap: dict, escena_antes, intencion=None, foco=None) -> None:
+        """ÚNICO punto donde se apila un cambio: lo etiqueta (D1; D10: nunca lanza), acota el
+        historial y limpia rehacer. `escena_antes` nombra lo que la mutación eliminó."""
+        snap["etiqueta"] = _pasos.etiqueta(snap["commands"], self.commands, escena_antes,
+                                           self.scene, intencion, foco)
+        self._undo.append(snap)
+        del self._undo[: -self._UNDO_CAP]  # acota el historial (snapshots retienen caché)
+        self._redo.clear()
+        self._coalesce_key = None
+
+    def _mutate(self, fn, coalesce_key: str | None = None, intencion=None, foco=None) -> None:
+        """Aplica un cambio al log con rollback automático si la regeneración falla.
+        Mutaciones consecutivas con la misma coalesce_key (vista previa en vivo) comparten
+        un único punto de deshacer, cuya etiqueta se recalcula contra él (D11)."""
+        snap, escena = self._snapshot(), self.scene
         try:
             fn()
             self.regenerate()
@@ -468,11 +479,10 @@ class Document:
         except Exception:
             self._restore(snap)
             raise
-        if not (coalesce_key and coalesce_key == self._coalesce_key):
-            self._undo.append(snap)
-            del self._undo[: -self._UNDO_CAP]  # acota el historial (snapshots retienen caché)
+        if coalesce_key and coalesce_key == self._coalesce_key and self._undo:
+            snap = self._undo.pop()  # se re-apila el de arriba con su etiqueta recalculada
+        self._push_undo(snap, escena, intencion, foco)
         self._coalesce_key = coalesce_key
-        self._redo.clear()
 
     def _vars_block_end(self) -> int:
         """Índice tras el bloque inicial de comandos de variables."""
@@ -492,6 +502,8 @@ class Document:
         pueda usarlos). NO valida ni regenera: lo usan execute() y execute_many()."""
         self._seq += 1
         cmd_id = f"c{self._seq}"
+        # deshacer devuelve `seq` pero no `hidden` (D12): un id reciclado no nace oculto
+        self.hidden -= {h for h in self.hidden if h == cmd_id or h.startswith(cmd_id + "_")}
         record = {"id": cmd_id, "type": cmd_type, "params": params}
         spec = REGISTRY.get(cmd_type)
         if spec is not None and spec.kind == "vars":
@@ -526,7 +538,7 @@ class Document:
             return []
         for action in actions:
             reject_unknown(REGISTRY.get(action.get("type")), action.get("params") or {})
-        snap = self._snapshot()
+        snap, escena = self._snapshot(), self.scene
         created: list[str | None] = []
         try:
             for action in actions:
@@ -541,10 +553,7 @@ class Document:
         except Exception:
             self._restore(snap)
             raise
-        self._undo.append(snap)
-        del self._undo[: -self._UNDO_CAP]
-        self._redo.clear()
-        self._coalesce_key = None
+        self._push_undo(snap, escena)
         return [c for c in created if c is not None]
 
     def edit_many(self, edits: list[dict], merge: bool = False, verify=None) -> list[str]:
@@ -558,7 +567,7 @@ class Document:
         command_ids TOCADOS como `created` → `$k` referencia el k-ésimo editado)."""
         if not edits:
             return []
-        snap = self._snapshot()
+        snap, escena = self._snapshot(), self.scene
         touched: list[str] = []
         try:
             for e in edits:
@@ -581,10 +590,7 @@ class Document:
         except Exception:
             self._restore(snap)
             raise
-        self._undo.append(snap)
-        del self._undo[: -self._UNDO_CAP]
-        self._redo.clear()
-        self._coalesce_key = None
+        self._push_undo(snap, escena)
         return touched
 
     def preview(self, actions: list[dict]) -> tuple[dict, list[str]]:
@@ -630,7 +636,7 @@ class Document:
         def apply():
             cmd["params"] = params
 
-        self._mutate(apply, coalesce_key=f"edit:{command_id}" if coalesce else None)
+        self._mutate(apply, f"edit:{command_id}" if coalesce else None, foco=command_id)
         return command_id
 
     def remove_commands(self, command_ids: list[str]) -> None:
@@ -688,7 +694,7 @@ class Document:
                 if var in config:
                     cmd["params"] = {"name": var, "expression": str(config[var])}
 
-        self._mutate(apply)
+        self._mutate(apply, intencion=f"Aplicar variante «{name}»")  # D1: se entiende mejor
         return resultado
 
     def delete_configuration(self, name: str) -> None:
@@ -894,39 +900,33 @@ class Document:
     def can_redo(self) -> bool:
         return bool(self._redo)
 
-    def undo(self) -> None:
-        # patrón peek-then-commit (Fix C): NO se saca el snapshot de la pila hasta saber
-        # que la restauración sobrevivió. Si _restore revienta, se intenta volver al
-        # estado actual (los ckpts intactos lo hacen O(1)) y el historial NO se pierde.
-        if not self._undo:
-            raise DocumentError("Nada que deshacer")
-        snap_actual = self._snapshot()
-        try:
-            self._restore(self._undo[-1])
-        except Exception:
-            try:
-                self._restore(snap_actual)
-            except Exception:
-                pass
-            raise
-        self._redo.append(snap_actual)
-        self._undo.pop()
-        self._coalesce_key = None
+    # etiquetas de cada pila, la más próxima primero
+    undo_labels = property(lambda self: _pasos.etiquetas(self._undo))
+    redo_labels = property(lambda self: _pasos.etiquetas(self._redo))
 
-    def redo(self) -> None:
-        if not self._redo:
-            raise DocumentError("Nada que rehacer")
-        snap_actual = self._snapshot()
+    def undo(self, pasos: int = 1) -> None:
+        self._mover(self._undo, self._redo, pasos, "deshacer")
+
+    def redo(self, pasos: int = 1) -> None:
+        self._mover(self._redo, self._undo, pasos, "rehacer")
+
+    def _mover(self, origen: list, destino: list, pasos: int, verbo: str) -> None:
+        """Deshace (o rehace) `pasos` cambios con UN regenerate (D6), igual que `pasos` llamadas
+        de a uno. Peek-then-commit (Fix C): las pilas no se tocan hasta que la restauración
+        sobrevive (si revienta, se vuelve al estado actual). `hidden` no se toca (D12)."""
+        error = _pasos.error_de_pasos(pasos, len(origen), verbo)
+        if error:
+            raise DocumentError(error)
+        actual = self._snapshot()
         try:
-            self._restore(self._redo[-1])
+            self._restore({**origen[-pasos], "hidden": self.hidden})
         except Exception:
             try:
-                self._restore(snap_actual)
+                self._restore(actual)
             except Exception:
                 pass
             raise
-        self._undo.append(snap_actual)
-        self._redo.pop()
+        origen[:], destino[:] = _pasos.trasladar(origen, destino, pasos, actual, self._UNDO_CAP)
         self._coalesce_key = None
 
     # --------------------------------------------------------- persistencia
