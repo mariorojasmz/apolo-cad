@@ -56,7 +56,7 @@ baja); partir un archivo grande se hace con un plan.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # 2083 tests (tortura extendida: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # 2134 tests (tortura extendida: -m torture)
 cd ui ; npm test                  # vitest: gates de texto y de tamaño
 npm run build                     # bundle de la UI (tsc + vite)
 ```
@@ -87,9 +87,9 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
   ahí el croquis cae a scipy): como dependencia dura rompía la instalación en macOS y Py3.11.
 - Publicar: § Publicación.
 
-### Estado actual (2026-10-06)
+### Estado actual (2026-10-07)
 
-2083 tests (+18 de tortura vía `-m torture`) · 193 tests vitest · 79 tools MCP · 53 comandos ·
+2134 tests (+18 de tortura vía `-m torture`) · 193 tests vitest · 79 tools MCP · 53 comandos ·
 catálogo 256 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [chat-cliente-igual](docs/plans/chat-cliente-igual.md) (espera decisiones de Mario); sin verificar: [modo-visor](docs/plans/modo-visor.md) (falta el E2E de Mario por MCP) y [deshacer-con-etiqueta](docs/plans/deshacer-con-etiqueta.md) (falta el E2E de Mario en su UI); en plan: [harness-automejora](docs/plans/harness-automejora.md).
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %

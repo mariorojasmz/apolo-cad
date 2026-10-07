@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: aprobado completo (D1–D9) el 2026-10-07; F1 y F3 en implementación, F2 tras F1, F4 al final
+estado: implementado
+nota: sin pendientes; cada proyecto con run_script o insert_project replaya UNA vez en su primer open (run_script v2)
 descripcion: Cambiar una variable de un proyecto con muchos «Script IA» tarda segundos y no minutos, y el agente nunca vuelve a recibir «timed out» al editar
 ---
 
@@ -304,3 +304,62 @@ script, que incluye levantar el worker, 9,8 s; los otros 47, 3,6 s; lo que no es
 editar `largo_total` 6,1 s y volver 3,7 s; worker 380 → 382 MB tras 96 scripts. Metas de F1
 cumplidas (≤ 20 s y ≤ 15 s). Pendiente para F4: el docstring de `get_job` todavía dice «un
 lote».
+
+### F2 — versión, precalentado y baseline (2026-10-07, commits `195781e` y `b969a9a`)
+
+`run_script` en `version=2` (huella del executor igual); `api/session.py::prewarm_sandbox()`
+llamado en el startup ANTES de `initialize_store` (el replay del reciente espera al worker que ya
+arranca), apagable con `APOLO_SANDBOX_PREWARM=0`, que `tests/conftest.py` pone para toda la
+suite; `scripts/perf_baseline.py` re-escrito para D9 y `docs/perf_baseline.json` re-medido sobre
+la copia (el JSON va en commit aparte para que su `commit` sea el código medido). Tests: 6 nuevos
+(`test_precalentado_sandbox.py`, `test_version_comandos.py`).
+
+| medida | julio (`6f788df`: 312 comandos, 6 scripts) | ahora (450 comandos, 48 scripts) |
+|---|---|---|
+| `open_frio_faja_primera_s` (proceso nuevo, con el worker) | — | 9,73 s |
+| `open_frio_faja_s` (caché del sandbox vacía) | 1,82 s (¡con la caché caliente!) | 5,27 s |
+| `edit_variable_faja_s` (`largo_total` 4000 → 4400) | — | 5,39 s |
+| `edit_variable_vuelta_faja_s` | — | 3,14 s |
+| `worker_arranque_s` | — | 4,28 s |
+
+Cuadran entre sí (primera − frío ≈ arranque; frío − vuelta ≈ los 48 scripts) y una 2.ª corrida
+cayó dentro de ±10 %. El resto de cifras subió 2–3× por el modelo (74 → 129 sólidos), no por F1–F2.
+
+- **El bump de versión rompió un supuesto de la suite**: un test fijaba la firma de
+  `insert_project` en `|v:fillet@3`; desde ahora lleva `run_script@2` para siempre. Un test nuevo
+  prueba que un layout con un donante con scripts abre caliente en v2 y que un blob con firmas v1
+  se descarta y replaya en frío. `scripts/golden_regen.py` va a cambiar `last_sig` en todo
+  proyecto con `run_script` o `insert_project`: es lo esperado. Cada uno replaya UNA vez en su
+  primer open tras el merge.
+- **`regenerate_edit_temprano_s` nunca midió una edición real**: re-escribe la variable con el
+  MISMO valor, las firmas no cambian y no replaya nada. La medida de verdad es la nueva
+  `edit_variable_faja_s` (cada repetición va a un valor distinto para no acertar en la caché).
+- Se creía que la suite precalentaba sin querer vía `with TestClient(...)`: ningún test entra al
+  lifespan (entrar abriría la SQLite real). El apagado de `conftest` es defensa para el futuro.
+- `perf_baseline.py` dejó de usar `ProjectStore` para leer: su constructor ejecuta `CREATE TABLE
+  IF NOT EXISTS`, o sea, escribe en la base. Ahora lee por URI `mode=ro`.
+
+### F4 — verificación de punta a punta y cierre (2026-10-07)
+
+Rama integrada (F1 + F3 + F2 + reglas de F4): pytest **2134 pasan, 1 skip** en 433 s; ruff
+limpio. E2E por MCP (`python -B scripts/e2e_mcp.py --puerto 8012 --proyecto 38 --md`) contra una
+API con el código de la rama, `APOLO_DB` = una COPIA de la base y el puerto 8012:
+**27/27 pasos ok en 46 s**. El paso que fallaba:
+
+| paso | antes (2026-10-06) | ahora |
+|---|---|---|
+| 19 `set_variable` `largo_total` 4000 → 4400 | «timed out» a los 120 s (y se aplicaba después) | ok en 8,4 s, sin recibo |
+| 20 `get_scene` tras la edición | veía el cambio aplicado a destiempo | cambió bbox, masa, grupos y variables, como debe |
+| 21–22 `undo` y resumen | — | 0,4 s; resumen idéntico al inicial |
+
+El open del 38 en la API recién levantada tardó 4,1 s (el precalentado ya había arrancado el
+worker). Al apagar la API no quedó ningún `sandbox_worker` ni nada escuchando en :8012: el worker
+murió con su padre. Reglas durables: el orden `STATE_LOCK → SANDBOX_LOCK` en la raíz, el worker y
+su regla de tipos en `core/apolo/CLAUDE.md`, el `?async` de las mutaciones en `api/CLAUDE.md` y
+`brep_io` en `doc/CLAUDE.md`. Del backlog salió el rechazo de `set_variable` en el 38; el de las
+mutaciones síncronas quedó acotado a `undo`/`redo`/`open_project`.
+
+- La API del E2E se levantó desde el worktree, contra la regla «no levantes la API desde un
+  worktree». El motivo de la regla es que `paths.repo_root()` arrancaría con un `data/` vacío;
+  con `APOLO_DB` explícito la base es la copia y lo demás (logs) cae en el worktree, ignorado por
+  git. A cambio, el E2E probó exactamente el código que se mergea.

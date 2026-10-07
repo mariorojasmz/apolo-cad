@@ -90,7 +90,8 @@ backend: se mantiene ≤ 10 KB.
   una vez; `SCRIPT_TIMEOUT_S` cuenta sólo la ejecución, el arranque tiene su propio límite. Se
   recicla tras error, timeout, crash y cada 500 scripts, y sale al ver EOF en stdin. El hijo no
   importa `kernel`/`doc`/`commands` (lo exige un test): lo liviano compartido va en `brep_io.py`.
-  Lock: regla en la [raíz](../../CLAUDE.md).
+  La API lo precalienta al arrancar (`APOLO_SANDBOX_PREWARM=0` lo apaga; la suite lo apaga en
+  `conftest`). Lock: regla en la [raíz](../../CLAUDE.md).
 - La forma vuelve en BRep y su TIPO imita lo que daba STEP (con ubicación propia → `Compound`;
   sin ella, compound de un sólido → `Solid`). Es empírico para build123d 0.10:
   `test_brep_equivale_a_step` lo vigila en un upgrade. Cambiar lo que entrega el worker = subir
