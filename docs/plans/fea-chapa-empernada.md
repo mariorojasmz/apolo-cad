@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato aprobado (D1–D9, 2026-10-07); F1 hecha, faltan F2–F5
+nota: contrato aprobado (D1–D9, 2026-10-07); F1 y F2 hechas, faltan F3 (cerca medir), F4 (tope y pernos) y F5 (E2E y docs)
 descripcion: El FEA del bastidor malla la chapa plegada y empernada (travesaños con pestañas en las cuatro caras), acepta cargas sobre un taladro y, si gmsh no puede, responde un 400 que nombra la pieza y qué hacer
 ---
 
@@ -129,7 +129,10 @@ volcados del proyecto 72 y gmsh 4.15.2 directo, sin la API.
      (el inglete de la esquina) con SizeMin = max(r, 1 mm), DistMin = SizeMin,
      DistMax = 2·SizeMin, y `MeshSizeMin` baja a ese valor sólo si hay refinamiento.
   2. Si `generate` falla y hay radios chicos: se RECONSTRUYE el modelo (gmsh no re-malla el
-     mismo tras un fallo) y se refinan las curvas de TODOS los radios chicos.
+     mismo tras un fallo) y se refinan las curvas de TODOS los radios chicos. *Enmienda de la
+     revisión de F2*: en esta etapa «chico» es r < size/2 (no size/4), porque entre size/4 y
+     size/2 la esquina también falla y la etapa 1 no tenía nada que refinar; como sólo corre
+     tras un fallo, nada de lo que hoy malla cambia (Bitácora F2).
   3. Si vuelve a fallar → D3.
 
   Sin radios chicos no se crea ningún campo: los modelos de hoy mallan byte-idéntico. El
@@ -314,3 +317,34 @@ superficies REALES del modelo vivo: la geometría que hoy falla mallará tras F2
   pieza responde «Ninguna pieza sobrevivió a la fragmentación». Verificado aparte en gmsh 4.15.2.
   Se arregla en F2, que reestructura esa misma función.
 - Revisión: FEA (`test_fea_chapa` + `test_fea` + `test_fea_assembly`) 44/44; ruff limpio.
+
+### F2 — la chapa plegada con esquinas malla (2026-10-07)
+
+Commit `a7f4d33`. `fea/refine.py` (nuevo): radios chicos por CURVATURA (superficies abiertas
+no planas, 1/κmáx en el centro uv; lo que da la vuelta completa —taladro, manto— no entra),
+curvas del inglete, el campo `Distance` + `Threshold` y la línea de hipótesis. `mesher.py`:
+`_mallar` corre como mucho dos intentos dentro del mismo `FEA_LOCK`, con
+`_construir_pieza`/`_construir_ensamblaje` reutilizables (los errores de construcción no se
+reintentan); `_fragmentar` no llama a `fragment` con un solo volumen. Ambas mallas devuelven
+`refinamiento` {etapa, radios, r_min_mm} y el resumen lo declara en la hipótesis.
+
+- **Desviación aceptada en la revisión**: la etapa 2 usa radios < size/2. Con el umbral del
+  contrato (size/4), c1446 y la bandeja a 8-11 mm (r/size entre 0.27 y 0.38) fallaban sin nada que
+  refinar y sin reintento — y el 400 de D3 recomienda justo «unos pocos espesores». Descartado
+  size/2 también en la etapa 1: malla en un intento (c1446 a 8 mm: 13 665 tets contra 21 526),
+  pero cambiaría mallas que hoy salen bien.
+- **El test mínimo prueba algo**: la bandeja 60×200×3 con pestañas frente + izquierda, r = 3 y
+  dos Ø11 coincidentes con un alma de 3 mm, SIN refinar a 35 y 25 mm → `FeaError` «overlapping
+  facets on surface 3 surface 10»; con F2 a 35 mm → etapa 1, 1092 tets, FS 6.5, flecha 0.37 mm.
+- **Los STEP reales del 72**: c1446 solo → malla por defecto (52.2 mm) etapa 2, 3121 tets; a
+  35 mm etapa 1, 1497 tets; malla de 4 a 120 mm. Las 25 piezas (28 radios, r mín 3): 35 mm etapa
+  1, 99 397 tets (el número de la F0), 8.6-15 s · 50 mm etapa 2, 91 146 · 80 mm etapa 1,
+  42 194 · 120 mm etapa 2, 44 603 · 20 mm pasa el tope de 150 k (error del tope, como dice el
+  contrato).
+- **gmsh 4.13** (piso de `pyproject`): las opciones de `Distance`/`Threshold` y
+  `getPrincipalCurvatures`/`getParametrizationBounds` existen en el tag `gmsh_4_13_0` (leído en
+  el fuente, no ejecutado).
+- **Ajuste de la revisión**: dos tests aseguraban la etapa EXACTA (medida sólo en Windows con
+  gmsh 4.15.2); ahora asertan que malla refinada y la etapa admisible (1-2 para la bandeja a 35
+  mm; 0 o 2 a 10 mm, donde la etapa 1 nunca refina). El camino de la etapa 2 lo fija el test
+  determinista con un `generate` que falla una vez.
