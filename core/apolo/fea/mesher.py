@@ -10,6 +10,9 @@ Las caras se identifican por MATCH GEOMÉTRICO (centro de masa + área) contra
 descriptores extraídos de las caras OCCT bajo STATE_LOCK — el mismo espíritu que los
 selectores declarativos: nada de índices frágiles entre kernels. Un fallo de
 ``mesh.generate`` sale como ``FeaError`` que nombra la pieza (``fallo_malla.py``).
+
+Se malla en ETAPAS (``_mallar``): los radios chicos (chapa plegada) se refinan localmente
+(``refine.py``) y, si la malla falla igual, se RECONSTRUYE el modelo y se refinan todos.
 """
 
 from __future__ import annotations
@@ -18,7 +21,7 @@ import math
 import threading
 from dataclasses import dataclass
 
-from . import FeaError, _require_fea
+from . import FeaError, _require_fea, refine
 from .fallo_malla import etiqueta_pieza, generar_3d, tipo_es
 
 FEA_LOCK = threading.Lock()
@@ -73,68 +76,105 @@ def _match_surfaces(gmsh, descs: list[FaceDesc], surfaces: list[dict],
     return tags
 
 
-def mesh_step(step_path: str, groups: dict[str, list[FaceDesc]], msh_path: str,
-              mesh_size_mm: float | None = None, pieza: str | None = None) -> dict:
-    """Malla el STEP en tets con un physical group de superficie por entrada de
-    `groups` (mismo nombre) + el grupo de volumen "body". Devuelve
-    {n_nodos, n_tets, size_mm}. `pieza` (nombre) sólo entra al error si gmsh no puede
-    mallar. Serializado por FEA_LOCK."""
-    _require_fea()
-    import gmsh
+def _superficies(gmsh) -> list[dict]:
+    """Centro de masa y área de cada superficie del modelo (para el match de caras)."""
+    return [{"tag": tag, "center": gmsh.model.occ.getCenterOfMass(dim, tag),
+             "area": gmsh.model.occ.getMass(dim, tag)}
+            for dim, tag in gmsh.model.getEntities(2)]
 
-    with FEA_LOCK:
+
+def _mallar(gmsh, construir, msh_path: str) -> tuple[dict, dict]:
+    """Construye el modelo y lo malla en ETAPAS (D2 del plan fea-chapa-empernada).
+
+    `construir()` arma el modelo COMPLETO en un gmsh recién inicializado (importar, estimar,
+    fragmentar, physical groups, match de caras, guardas) y devuelve su contexto: ``size``
+    (mm), ``duenos`` (tag de volumen → etiqueta de pieza), ``objetivo`` y ``ensamblaje``
+    para el error de malla, más lo que el llamador quiera de vuelta. Sus errores NO se
+    reintentan. Etapa 1: se refinan los ingletes de los radios < size/4 (sin ellos, ningún
+    campo: la malla de siempre). Si `generate` falla y hay radios < size/2, gmsh no re-malla
+    el mismo modelo → ``finalize``, se reconstruye y la etapa 2 refina las curvas de TODOS. Si
+    vuelve a fallar (o falló sin radios chicos) sube el ``FeaError`` de ``fallo_malla``: como
+    mucho dos intentos. Devuelve (contexto, {n_nodos, n_tets, size_mm, refinamiento}).
+    Llamar bajo FEA_LOCK."""
+    for etapa in (1, 2):
         # interruptible=False: NO instala el handler de SIGINT — obligatorio porque
         # los endpoints sync de FastAPI corren en un threadpool (signal solo funciona
         # en el hilo principal; sin esto el primer análisis da 500).
         gmsh.initialize(interruptible=False)
         try:
             gmsh.option.setNumber("General.Terminal", 0)
-            gmsh.model.add("apolo_fea")
-            gmsh.model.occ.importShapes(step_path)
-            gmsh.model.occ.synchronize()
-
-            x0, y0, z0, x1, y1, z1 = gmsh.model.getBoundingBox(-1, -1)
-            diag = math.dist((x0, y0, z0), (x1, y1, z1))
-            size = float(mesh_size_mm) if mesh_size_mm else max(diag / 15.0, 1.0)
-
-            surfaces = []
-            for dim, tag in gmsh.model.getEntities(2):
-                surfaces.append({
-                    "tag": tag,
-                    "center": gmsh.model.occ.getCenterOfMass(dim, tag),
-                    "area": gmsh.model.occ.getMass(dim, tag),
-                })
-            tol_center = max(1e-3 * diag, 1e-3)
-            for name, descs in groups.items():
-                if not descs:
-                    raise FeaError(f"El grupo '{name}' no tiene caras")
-                tags = _match_surfaces(gmsh, descs, surfaces, tol_center)
-                gmsh.model.addPhysicalGroup(2, tags, name=name)
-            vols = [t for _, t in gmsh.model.getEntities(3)]
-            if not vols:
-                raise FeaError("El STEP no contiene ningún sólido (volumen) que mallar")
-            gmsh.model.addPhysicalGroup(3, vols, name="body")
-
+            ctx = construir()
+            size = ctx["size"]
             gmsh.option.setNumber("Mesh.MeshSizeMax", size)
             gmsh.option.setNumber("Mesh.MeshSizeMin", size / 3.0)
-            quien = etiqueta_pieza(pieza)
-            generar_3d(gmsh, size_mm=size, duenos={int(v): quien for v in vols},
-                       objetivo=quien, ensamblaje=False)
+            ref, reintentable = refine.refinar(gmsh, size, etapa)
+            try:
+                generar_3d(gmsh, size_mm=size, duenos=ctx["duenos"], objetivo=ctx["objetivo"],
+                           ensamblaje=ctx["ensamblaje"])
+            except FeaError:
+                if etapa == 1 and reintentable:
+                    continue  # el finally cierra gmsh; la vuelta siguiente reconstruye
+                raise
 
             n_nodos = len(gmsh.model.mesh.getNodes()[0])
             _, tet_tags, _ = gmsh.model.mesh.getElements(3)
             n_tets = int(sum(len(t) for t in tet_tags))
             if n_tets == 0:
-                raise FeaError("gmsh no generó tetraedros (¿sólido degenerado?)")
+                raise FeaError(f"gmsh no generó tetraedros (¿{ctx['degenerado']}?)")
             if n_tets > MAX_TETS:
                 raise FeaError(
                     f"Malla demasiado fina: {n_tets} tets (cap {MAX_TETS}). "
                     f"Sube mesh_size_mm (usado: {size:.1f} mm)"
                 )
             gmsh.write(msh_path)
-            return {"n_nodos": n_nodos, "n_tets": n_tets, "size_mm": round(size, 2)}
+            return ctx, {"n_nodos": n_nodos, "n_tets": n_tets, "size_mm": round(size, 2),
+                         "refinamiento": ref}
         finally:
             gmsh.finalize()
+    raise AssertionError("inalcanzable: la etapa 2 devuelve o lanza")
+
+
+def _construir_pieza(gmsh, step_path: str, groups: dict[str, list[FaceDesc]],
+                     mesh_size_mm: float | None, pieza: str | None) -> dict:
+    """El modelo de ``mesh_step`` (una vuelta de ``_mallar``)."""
+    gmsh.model.add("apolo_fea")
+    gmsh.model.occ.importShapes(step_path)
+    gmsh.model.occ.synchronize()
+
+    x0, y0, z0, x1, y1, z1 = gmsh.model.getBoundingBox(-1, -1)
+    diag = math.dist((x0, y0, z0), (x1, y1, z1))
+    size = float(mesh_size_mm) if mesh_size_mm else max(diag / 15.0, 1.0)
+
+    surfaces = _superficies(gmsh)
+    tol_center = max(1e-3 * diag, 1e-3)
+    for name, descs in groups.items():
+        if not descs:
+            raise FeaError(f"El grupo '{name}' no tiene caras")
+        tags = _match_surfaces(gmsh, descs, surfaces, tol_center)
+        gmsh.model.addPhysicalGroup(2, tags, name=name)
+    vols = [t for _, t in gmsh.model.getEntities(3)]
+    if not vols:
+        raise FeaError("El STEP no contiene ningún sólido (volumen) que mallar")
+    gmsh.model.addPhysicalGroup(3, vols, name="body")
+    quien = etiqueta_pieza(pieza)
+    return {"size": size, "duenos": {int(v): quien for v in vols}, "objetivo": quien,
+            "ensamblaje": False, "degenerado": "sólido degenerado"}
+
+
+def mesh_step(step_path: str, groups: dict[str, list[FaceDesc]], msh_path: str,
+              mesh_size_mm: float | None = None, pieza: str | None = None) -> dict:
+    """Malla el STEP en tets con un physical group de superficie por entrada de
+    `groups` (mismo nombre) + el grupo de volumen "body". Devuelve
+    {n_nodos, n_tets, size_mm, refinamiento}. `pieza` (nombre) sólo entra al error si gmsh
+    no puede mallar. Serializado por FEA_LOCK."""
+    _require_fea()
+    import gmsh
+
+    with FEA_LOCK:
+        _, malla = _mallar(
+            gmsh, lambda: _construir_pieza(gmsh, step_path, groups, mesh_size_mm, pieza),
+            msh_path)
+    return malla
 
 
 @dataclass(frozen=True)
@@ -193,6 +233,122 @@ def _assert_bonded_to_ground(gmsh, assigned: dict[int, int], fixed_tags: list[in
         )
 
 
+def _fragmentar(gmsh, all_vols: list[tuple[int, int]],
+                 vol_piece: list[int]) -> tuple[dict[int, int], int]:
+    """FRAGMENTA todos los volúmenes juntos (interfaces coherentes = bonded) y asigna cada
+    volumen resultante a la PRIMERA pieza que lo reclama: un volumen de SOLAPE aparece en
+    varios inputs → gana el declarado antes; se cuenta como compartido y se declara en el
+    reporte. Devuelve (tag de volumen → índice de pieza, n compartidos). Con UN solo volumen
+    no hay nada que fragmentar (y ``occ.fragment`` devolvería ``outmap`` vacío)."""
+    if len(all_vols) == 1:
+        return {int(all_vols[0][1]): vol_piece[0]}, 0
+    try:
+        _, outmap = gmsh.model.occ.fragment(all_vols, [])
+        gmsh.model.occ.removeAllDuplicates()
+        gmsh.model.occ.synchronize()
+    except Exception as exc:
+        raise FeaError(
+            f"La fragmentación bonded falló (geometría sucia o solape degenerado): "
+            f"{exc}. Corre check_interference sobre el grupo para localizar el par "
+            f"problemático, o excluye la pieza sospechosa."
+        ) from exc
+    assigned: dict[int, int] = {}
+    shared = 0
+    for j, outs in enumerate(outmap):
+        pi = vol_piece[j]
+        for (d, t) in outs:
+            if d != 3:
+                continue
+            if t in assigned:
+                if assigned[t] != pi:
+                    shared += 1
+                continue
+            assigned[t] = pi
+    return assigned, shared
+
+
+def _construir_ensamblaje(gmsh, pieces: list[PieceMesh], fixed: list[FaceDesc],
+                          loads: dict[str, list[FaceDesc]],
+                          mesh_size_mm: float | None) -> dict:
+    """El modelo bonded de ``mesh_assembly`` (una vuelta de ``_mallar``)."""
+    gmsh.model.add("apolo_fea_asm")
+
+    # 1) importar cada STEP y recordar de qué PIEZA vino cada volumen importado
+    all_vols: list[tuple[int, int]] = []
+    vol_piece: list[int] = []   # paralelo a all_vols: índice de pieza
+    for i, p in enumerate(pieces):
+        imported = gmsh.model.occ.importShapes(p.step_path)
+        vols = [(d, t) for (d, t) in imported if d == 3]
+        if not vols:
+            raise FeaError(
+                f"La pieza '{p.key}' no aportó ningún sólido al ensamblaje "
+                f"(¿es una superficie? el FEA necesita volumen)"
+            )
+        all_vols.extend(vols)
+        vol_piece.extend([i] * len(vols))
+    gmsh.model.occ.synchronize()
+
+    # estimación de tets ANTES de fragmentar/mallar (bbox × 6 / size³). La
+    # estimación por BBOX es CONSERVADORA en bastidores dispersos (medido ~7×
+    # sobre el real en la faja 38) → solo pre-bloquea si supera 4× el cap; el
+    # cap DURO post-malla (1×) queda de red.
+    x0, y0, z0, x1, y1, z1 = gmsh.model.getBoundingBox(-1, -1)
+    diag = math.dist((x0, y0, z0), (x1, y1, z1))
+    size = float(mesh_size_mm) if mesh_size_mm else max(diag / 15.0, 1.0)
+    bbox_vol = max((x1 - x0) * (y1 - y0) * (z1 - z0), 0.0)
+    n_est = 6.0 * bbox_vol / (size ** 3) if size > 0 else 0.0
+    if n_est > 4 * MAX_TETS:
+        raise FeaError(
+            f"Malla estimada ~{n_est:.0f} tets (estimación por bbox, conservadora; "
+            f"pre-bloqueo a {4 * MAX_TETS}, cap real {MAX_TETS}) con size {size:.1f} mm. "
+            f"Sube mesh_size_mm (p. ej. {size * (n_est / (4 * MAX_TETS)) ** (1 / 3):.0f}) "
+            f"o acota el grupo a menos piezas."
+        )
+
+    # 2-3) fragmentar y asignar cada volumen a su pieza
+    assigned, shared = _fragmentar(gmsh, all_vols, vol_piece)
+    piece_vols: dict[int, list[int]] = {i: [] for i in range(len(pieces))}
+    for t, pi in assigned.items():
+        piece_vols[pi].append(t)
+
+    piece_groups = []
+    absorbidas = []
+    for i, p in enumerate(pieces):
+        vols = sorted(piece_vols[i])
+        if not vols:
+            absorbidas.append(p.key)   # pieza tragada por el solape de otra
+            continue
+        name = f"piece_{i}"
+        gmsh.model.addPhysicalGroup(3, vols, name=name)
+        piece_groups.append({"idx": i, "key": p.key, "name": name, "n_vols": len(vols)})
+    if not piece_groups:
+        raise FeaError("Ninguna pieza sobrevivió a la fragmentación (¿solapes totales?)")
+
+    # 4) superficies de frontera (empotramiento + cargas) por MATCH geométrico
+    surfaces = _superficies(gmsh)
+    tol_center = max(1e-3 * diag, 1e-3)
+    if not fixed:
+        raise FeaError("Falta el grupo de caras fijas (empotramiento) del ensamblaje")
+    fixed_tags = _match_surfaces(gmsh, fixed, surfaces, tol_center)
+    gmsh.model.addPhysicalGroup(2, fixed_tags, name="fixed")
+    for gname, descs in loads.items():
+        if not descs:
+            raise FeaError(f"El grupo de carga '{gname}' no tiene caras")
+        gmsh.model.addPhysicalGroup(2, _match_surfaces(gmsh, descs, surfaces, tol_center),
+                                    name=gname)
+
+    # 5) GUARDA de cuerpo rígido: toda pieza debe estar PEGADA (interfaz compartida)
+    #    a la componente que toca el empotramiento. Una pieza suelta = modo de cuerpo
+    #    rígido → matriz singular → desplazamiento basura; se ataja nombrándola.
+    _assert_bonded_to_ground(gmsh, assigned, fixed_tags, pieces, piece_groups)
+
+    duenos = {int(t): etiqueta_pieza(pieces[pi].name, pieces[pi].key)
+              for t, pi in assigned.items()}
+    return {"size": size, "duenos": duenos, "objetivo": "el ensamblaje", "ensamblaje": True,
+            "degenerado": "geometría degenerada", "piece_groups": piece_groups,
+            "shared_volumes": shared, "absorbidas": absorbidas}
+
+
 def mesh_assembly(pieces: list[PieceMesh], fixed: list[FaceDesc],
                   loads: dict[str, list[FaceDesc]], msh_path: str,
                   mesh_size_mm: float | None = None) -> dict:
@@ -200,7 +356,7 @@ def mesh_assembly(pieces: list[PieceMesh], fixed: list[FaceDesc],
     compartidas → nodos compartidos = pegado, sin pares de contacto) y crea un
     physical group de VOLUMEN por pieza (``piece_<idx>``) + los de superficie
     (``fixed`` + claves de ``loads``). Devuelve
-    ``{n_nodos, n_tets, size_mm, piece_groups, shared_volumes, absorbidas}``:
+    ``{n_nodos, n_tets, size_mm, refinamiento, piece_groups, shared_volumes, absorbidas}``:
     ``piece_groups`` = [{idx, key, name, n_vols}] mapea cada pieza a su grupo.
     Serializado por FEA_LOCK (gmsh es global). Bonded lineal es la hipótesis CORRECTA
     para un bastidor SOLDADO — no un atajo."""
@@ -216,134 +372,8 @@ def mesh_assembly(pieces: list[PieceMesh], fixed: list[FaceDesc],
     import gmsh
 
     with FEA_LOCK:
-        gmsh.initialize(interruptible=False)
-        try:
-            gmsh.option.setNumber("General.Terminal", 0)
-            gmsh.model.add("apolo_fea_asm")
-
-            # 1) importar cada STEP y recordar de qué PIEZA vino cada volumen importado
-            all_vols: list[tuple[int, int]] = []
-            vol_piece: list[int] = []   # paralelo a all_vols: índice de pieza
-            for i, p in enumerate(pieces):
-                imported = gmsh.model.occ.importShapes(p.step_path)
-                vols = [(d, t) for (d, t) in imported if d == 3]
-                if not vols:
-                    raise FeaError(
-                        f"La pieza '{p.key}' no aportó ningún sólido al ensamblaje "
-                        f"(¿es una superficie? el FEA necesita volumen)"
-                    )
-                all_vols.extend(vols)
-                vol_piece.extend([i] * len(vols))
-            gmsh.model.occ.synchronize()
-
-            # estimación de tets ANTES de fragmentar/mallar (bbox × 6 / size³). La
-            # estimación por BBOX es CONSERVADORA en bastidores dispersos (medido ~7×
-            # sobre el real en la faja 38) → solo pre-bloquea si supera 4× el cap; el
-            # cap DURO post-malla (1×) queda de red.
-            x0, y0, z0, x1, y1, z1 = gmsh.model.getBoundingBox(-1, -1)
-            diag = math.dist((x0, y0, z0), (x1, y1, z1))
-            size = float(mesh_size_mm) if mesh_size_mm else max(diag / 15.0, 1.0)
-            bbox_vol = max((x1 - x0) * (y1 - y0) * (z1 - z0), 0.0)
-            n_est = 6.0 * bbox_vol / (size ** 3) if size > 0 else 0.0
-            if n_est > 4 * MAX_TETS:
-                raise FeaError(
-                    f"Malla estimada ~{n_est:.0f} tets (estimación por bbox, conservadora; "
-                    f"pre-bloqueo a {4 * MAX_TETS}, cap real {MAX_TETS}) con size {size:.1f} mm. "
-                    f"Sube mesh_size_mm (p. ej. {size * (n_est / (4 * MAX_TETS)) ** (1 / 3):.0f}) "
-                    f"o acota el grupo a menos piezas."
-                )
-
-            # 2) FRAGMENTAR todos los volúmenes juntos → interfaces coherentes (bonded)
-            try:
-                out, outmap = gmsh.model.occ.fragment(all_vols, [])
-                gmsh.model.occ.removeAllDuplicates()
-                gmsh.model.occ.synchronize()
-            except Exception as exc:
-                raise FeaError(
-                    f"La fragmentación bonded falló (geometría sucia o solape degenerado): "
-                    f"{exc}. Corre check_interference sobre el grupo para localizar el par "
-                    f"problemático, o excluye la pieza sospechosa."
-                ) from exc
-
-            # 3) asignar cada volumen resultante a la PRIMERA pieza que lo reclama
-            #    (un volumen de SOLAPE aparece en varios inputs → gana el declarado antes;
-            #     se cuenta como compartido y se declara en el reporte)
-            assigned: dict[int, int] = {}      # tag de volumen → índice de pieza
-            shared = 0
-            for j, outs in enumerate(outmap):
-                pi = vol_piece[j]
-                for (d, t) in outs:
-                    if d != 3:
-                        continue
-                    if t in assigned:
-                        if assigned[t] != pi:
-                            shared += 1
-                        continue
-                    assigned[t] = pi
-
-            piece_vols: dict[int, list[int]] = {i: [] for i in range(len(pieces))}
-            for t, pi in assigned.items():
-                piece_vols[pi].append(t)
-
-            piece_groups = []
-            absorbidas = []
-            for i, p in enumerate(pieces):
-                vols = sorted(piece_vols[i])
-                if not vols:
-                    absorbidas.append(p.key)   # pieza tragada por el solape de otra
-                    continue
-                name = f"piece_{i}"
-                gmsh.model.addPhysicalGroup(3, vols, name=name)
-                piece_groups.append({"idx": i, "key": p.key, "name": name, "n_vols": len(vols)})
-            if not piece_groups:
-                raise FeaError("Ninguna pieza sobrevivió a la fragmentación (¿solapes totales?)")
-
-            # 4) superficies de frontera (empotramiento + cargas) por MATCH geométrico
-            surfaces = []
-            for dim, tag in gmsh.model.getEntities(2):
-                surfaces.append({
-                    "tag": tag,
-                    "center": gmsh.model.occ.getCenterOfMass(dim, tag),
-                    "area": gmsh.model.occ.getMass(dim, tag),
-                })
-            tol_center = max(1e-3 * diag, 1e-3)
-            if not fixed:
-                raise FeaError("Falta el grupo de caras fijas (empotramiento) del ensamblaje")
-            fixed_tags = _match_surfaces(gmsh, fixed, surfaces, tol_center)
-            gmsh.model.addPhysicalGroup(2, fixed_tags, name="fixed")
-            for gname, descs in loads.items():
-                if not descs:
-                    raise FeaError(f"El grupo de carga '{gname}' no tiene caras")
-                gmsh.model.addPhysicalGroup(2, _match_surfaces(gmsh, descs, surfaces, tol_center),
-                                            name=gname)
-
-            # 5) GUARDA de cuerpo rígido: toda pieza debe estar PEGADA (interfaz compartida)
-            #    a la componente que toca el empotramiento. Una pieza suelta = modo de cuerpo
-            #    rígido → matriz singular → desplazamiento basura; se ataja nombrándola.
-            _assert_bonded_to_ground(gmsh, assigned, fixed_tags, pieces, piece_groups)
-
-            gmsh.option.setNumber("Mesh.MeshSizeMax", size)
-            gmsh.option.setNumber("Mesh.MeshSizeMin", size / 3.0)
-            duenos = {int(t): etiqueta_pieza(pieces[pi].name, pieces[pi].key)
-                      for t, pi in assigned.items()}
-            generar_3d(gmsh, size_mm=size, duenos=duenos, objetivo="el ensamblaje",
-                       ensamblaje=True)
-
-            n_nodos = len(gmsh.model.mesh.getNodes()[0])
-            _, tet_tags, _ = gmsh.model.mesh.getElements(3)
-            n_tets = int(sum(len(t) for t in tet_tags))
-            if n_tets == 0:
-                raise FeaError("gmsh no generó tetraedros (¿geometría degenerada?)")
-            if n_tets > MAX_TETS:
-                raise FeaError(
-                    f"Malla demasiado fina: {n_tets} tets (cap {MAX_TETS}). "
-                    f"Sube mesh_size_mm (usado: {size:.1f} mm)"
-                )
-            gmsh.write(msh_path)
-            return {
-                "n_nodos": n_nodos, "n_tets": n_tets, "size_mm": round(size, 2),
-                "piece_groups": piece_groups, "shared_volumes": shared,
-                "absorbidas": absorbidas,
-            }
-        finally:
-            gmsh.finalize()
+        ctx, malla = _mallar(
+            gmsh, lambda: _construir_ensamblaje(gmsh, pieces, fixed, loads, mesh_size_mm),
+            msh_path)
+    return {**malla, "piece_groups": ctx["piece_groups"],
+            "shared_volumes": ctx["shared_volumes"], "absorbidas": ctx["absorbidas"]}

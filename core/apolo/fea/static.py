@@ -13,7 +13,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from . import FeaError, _require_fea
+from . import FeaError, _require_fea, refine
 from .mesher import FaceDesc, mesh_step
 from .solver import FeaField, solve_linear_elasticity
 
@@ -110,6 +110,9 @@ def run_static_analysis(step_path: str, *, pieza: str,
         "sin contacto ni pandeo (el pandeo se verifica aparte con la regla de Euler)",
         "σ_vm en el empotramiento puede sobreestimarse (concentración numérica en esquinas)",
     ]
+    refinada = refine.hipotesis(malla.get("refinamiento"))
+    if refinada:
+        hipotesis.append(refinada)
 
     detalle = (
         f"σ_vm máx = {field.vm_max:.1f} MPa en {field.vm_max_xyz}, "
@@ -133,6 +136,7 @@ def run_static_analysis(step_path: str, *, pieza: str,
         "n_nodos": field.n_nodos,
         "n_tets": field.n_tets,
         "mesh_size_mm": malla["size_mm"],
+        "refinamiento": malla.get("refinamiento"),
         "tiempo_s": round(t_malla + t_solve, 1),
         "hipotesis": hipotesis,
         "calc": {

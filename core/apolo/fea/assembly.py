@@ -19,7 +19,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from . import FeaError, _require_fea
+from . import FeaError, _require_fea, refine
 from .mesher import FaceDesc, PieceMesh, mesh_assembly
 from .solver import FeaField, solve_assembly_elasticity
 
@@ -181,6 +181,9 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
         hipotesis.append(
             f"pieza(s) absorbida(s) por solape total, sin FS propio: {', '.join(malla['absorbidas'])}"
         )
+    refinada = refine.hipotesis(malla.get("refinamiento"))
+    if refinada:
+        hipotesis.append(refinada)
 
     detalle = (
         f"{len(piezas_out)} pieza(s) bonded. FS gobernante = {fs_gobernante} en «{pieza_critica}» "
@@ -219,6 +222,7 @@ def run_assembly_analysis(pieces: list[dict], *, grupo: str,
         "n_tets": field.n_tets,
         "mesh_size_mm": malla["size_mm"],
         "shared_volumes": malla["shared_volumes"],
+        "refinamiento": malla.get("refinamiento"),
         "tiempo_s": round(t_malla + t_solve, 1),
         "hipotesis": hipotesis,
         "calc": {
