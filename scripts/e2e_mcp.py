@@ -8,8 +8,10 @@ Lanza `python -B -m apolo.mcp_server` por STDIO con el cliente del SDK `mcp` (`s
 proyecto: lectura (escena, comandos, interferencia, consultas espaciales, ensamblaje, gravedad,
 puerta de entrega, verify, render, BOM, plano, ingeniería), un ensayo fantasma (`preview`) y dos
 mutaciones que se deshacen solas: un `run_batch` cuyo contrato FALLA (debe revertirse) y
-`set_variable` + `undo`. Imprime por paso la tool, ok/ERROR, el tiempo y lo esencial; con `--md`
-repite la tabla en Markdown (para la bitácora de un plan). Sale con 1 si un paso falla.
+`set_variable` + `undo` (si el regenerate pasa la espera del MCP, `set_variable` devuelve un
+RECIBO y el guion lo recoge con `get_job` hasta que termina). Imprime por paso la tool,
+ok/ERROR, el tiempo y lo esencial; con `--md` repite la tabla en Markdown (para la bitácora de
+un plan). Sale con 1 si un paso falla.
 
 El proyecto debe quedar como estaba: al final se compara el resumen de escena (`get_scene`
 summary) y el número de comandos con los del inicio. El árbitro del número de comandos es
@@ -186,6 +188,35 @@ def _error_esperado(*claves: str):
     return check
 
 
+def _es_recibo(d) -> bool:
+    """Un RECIBO de job: la mutación pasó la espera del MCP y sigue en el servidor."""
+    return isinstance(d, dict) and "job" in d and "seguir" in d
+
+
+def _o_recibo(check):
+    """`check` para una mutación que puede responder con RECIBO (sandbox-caliente D8)."""
+    def envuelto(res):
+        d = _json(res)
+        if _es_recibo(d):
+            return f"recibo {d['job']} ({d['estado']}): se recoge con get_job", d
+        return check(res)
+    return envuelto
+
+
+async def recoger(g: Guion, valor, check, etiqueta: str, plazo_s: float):
+    """Si `valor` es un RECIBO, lo recoge con `get_job` hasta que el job termina (y aplica
+    `check` al resultado) o vence `plazo_s`. Devuelve el valor final, o None si falla."""
+    hasta = time.monotonic() + plazo_s
+    while _es_recibo(valor):
+        if time.monotonic() > hasta:
+            g.registra(etiqueta, False, time.perf_counter(),
+                       f"el job {valor['job']} no terminó en {plazo_s:g} s")
+            return None
+        valor = await g.paso("get_job", {"job_id": valor["job"], "wait_s": 20},
+                             _o_recibo(check), etiqueta)
+    return valor
+
+
 def _variable(pedida: str | None, variables: list[dict]) -> tuple[str, str, str]:
     """(nombre, expresión actual, expresión nueva). Sin `pedida`: la 1.ª numérica × 1.1."""
     actuales = {v["name"]: v for v in variables}
@@ -346,7 +377,8 @@ async def recorrer(g: Guion, a) -> None:
         _exige(d.get("puede_rehacer") is True, "undo no dejó nada para rehacer")
         return f"{var} = {v['value']:g}; puede_rehacer", d
 
-    hecho = await g.paso("set_variable", {"name": var, "expression": nueva}, fija)
+    hecho = await g.paso("set_variable", {"name": var, "expression": nueva}, _o_recibo(fija))
+    hecho = await recoger(g, hecho, fija, "get_job (set_variable)", a.espera)
     if hecho is not None:
         await g.paso("get_scene", {"summary": True}, distinto, "get_scene (summary)")
         deshacer = True

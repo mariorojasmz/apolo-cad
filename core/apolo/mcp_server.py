@@ -66,10 +66,10 @@ def _reject(status: int, detail) -> RuntimeError:
 
 
 def _submit_and_wait(method: str, path: str, body: dict, params: dict | None = None):
-    """Envía una mutación por lote como JOB y la espera (V6.5e) → (payload, job_id).
+    """Envía una mutación como JOB y la espera (V6.5e) → (payload, job_id).
 
-    El camino seguro NO puede ser opt-in: el agente no sabe de antemano cuánto tardará un
-    lote, así que run_batch/edit_batch SIEMPRE encolan. Devuelve:
+    El camino seguro NO puede ser opt-in: el agente no sabe cuánto tardará un regenerate, así
+    que los lotes, run_command, edit_command y set_variable SIEMPRE encolan. Devuelve:
       - (payload, None) si el job terminó dentro del presupuesto → la tool responde
         EXACTAMENTE lo de hoy;
       - (None, job_id) si no llegó → RECIBO, no error (el resultado no se pierde, se
@@ -112,6 +112,14 @@ def _job_result(payload: dict, detail: str) -> dict:
     if "contrato" in payload:
         out["contrato"] = payload["contrato"]
     return out
+
+
+def _mutacion(method: str, path: str, body: dict, detail: str, params: dict | None = None) -> str:
+    """Una mutación por JOB: el brief de la vía síncrona si termina a tiempo, o el RECIBO."""
+    payload, job_id = _submit_and_wait(method, path, body, params)
+    if job_id:
+        return _job_receipt(job_id)
+    return json.dumps(_job_result(payload, detail), ensure_ascii=False)
 
 
 # ----------------------------------------------------------------- consulta
@@ -258,9 +266,9 @@ def run_command(type: str, params: dict, detail: str = "diff") -> str:
     aceptan '=expresión' con variables del proyecto. `detail`: "diff" (def.) devuelve
     solo los sólidos nuevos + `total_solidos`; "full" toda la escena; "summary" solo
     id/nombre de lo nuevo. El bloque `variables` solo aparece si la operación tocó
-    alguna (o detail="full"); usa get_scene para verlas siempre."""
-    payload = _api("POST", "/api/commands", json={"type": type, "params": params}).json()
-    return json.dumps(_scene_brief(payload, detail), ensure_ascii=False)
+    alguna (o detail="full"); usa get_scene para verlas siempre. Si tarda, recibes un
+    RECIBO {"job": id}: recógelo con get_job(id) y NO reenvíes el comando."""
+    return _mutacion("POST", "/api/commands", {"type": type, "params": params}, detail)
 
 
 @mcp.tool()
@@ -283,10 +291,7 @@ def run_batch(actions: list[dict], detail: str = "diff", expect: list[dict] | No
     body: dict = {"actions": actions}
     if expect:
         body["expect"] = expect
-    payload, job_id = _submit_and_wait("POST", "/api/commands/batch", body)
-    if job_id:
-        return _job_receipt(job_id)
-    return json.dumps(_job_result(payload, detail), ensure_ascii=False)
+    return _mutacion("POST", "/api/commands/batch", body, detail)
 
 
 @mcp.tool()
@@ -295,14 +300,10 @@ def edit_command(command_id: str, params: dict, merge: bool = True, detail: str 
     historial). Por defecto hace PATCH (`merge=True`): combina con los params actuales,
     así que basta enviar los campos a cambiar. Merge SUPERFICIAL: un sub-objeto
     (position, rotation) se reemplaza entero. `merge=False` reemplaza todos los params
-    (los omitidos vuelven a su default). `detail` como en run_command."""
-    payload = _api(
-        "PUT",
-        f"/api/commands/{command_id}",
-        params={"merge": str(merge).lower()},
-        json={"params": params},
-    ).json()
-    return json.dumps(_scene_brief(payload, detail), ensure_ascii=False)
+    (los omitidos vuelven a su default). `detail` como en run_command. Si tarda, recibes un
+    RECIBO {"job": id}: recógelo con get_job(id) y NO reenvíes la edición."""
+    return _mutacion("PUT", f"/api/commands/{command_id}", {"params": params}, detail,
+                     params={"merge": str(merge).lower()})
 
 
 @mcp.tool()
@@ -324,12 +325,8 @@ def edit_batch(
     body: dict = {"edits": edits}
     if expect:
         body["expect"] = expect
-    payload, job_id = _submit_and_wait(
-        "PATCH", "/api/commands/batch", body, params={"merge": str(merge).lower()}
-    )
-    if job_id:
-        return _job_receipt(job_id)
-    return json.dumps(_job_result(payload, detail), ensure_ascii=False)
+    return _mutacion("PATCH", "/api/commands/batch", body, detail,
+                     params={"merge": str(merge).lower()})
 
 
 @mcp.tool()
@@ -363,9 +360,9 @@ def undo() -> str:
 @mcp.tool()
 def set_variable(name: str, expression: str) -> str:
     """Define o actualiza una variable de proyecto (p. ej. L = 2000). Cambiarla
-    regenera todo lo que la usa."""
-    payload = _api("POST", "/api/variables", json={"name": name, "expression": expression}).json()
-    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+    regenera todo lo que la usa. Si tarda, recibes un RECIBO {"job": id}: recógelo con
+    get_job(id) y NO la reenvíes."""
+    return _mutacion("POST", "/api/variables", {"name": name, "expression": expression}, "diff")
 
 
 # -------------------------------------------------------------- validación

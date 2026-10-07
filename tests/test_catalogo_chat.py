@@ -264,7 +264,8 @@ def test_en_propuesta_lo_que_muta_no_corre_y_en_autonomo_si(sin_api):
     herramientas.ejecutar("set_variable", {"name": "L", "expression": "10"},
                           _destino(vistos, lambda r: httpx.Response(200, json={"features": []})),
                           "autonomo")
-    assert [v[1] for v in vistos] == ["http://chat.test/api/variables"]
+    # set_variable encola como job (sandbox-caliente D8); un 200 sin recibo = payload directo
+    assert [v[1] for v in vistos] == ["http://chat.test/api/variables?async=true"]
 
 
 @pytest.mark.parametrize("nombre, args, texto", [

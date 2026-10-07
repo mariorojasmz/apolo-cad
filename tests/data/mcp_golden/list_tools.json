@@ -396,7 +396,7 @@
  },
  {
   "name": "run_command",
-  "description": "Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos\naceptan '=expresión' con variables del proyecto. `detail`: \"diff\" (def.) devuelve\nsolo los sólidos nuevos + `total_solidos`; \"full\" toda la escena; \"summary\" solo\nid/nombre de lo nuevo. El bloque `variables` solo aparece si la operación tocó\nalguna (o detail=\"full\"); usa get_scene para verlas siempre.",
+  "description": "Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos\naceptan '=expresión' con variables del proyecto. `detail`: \"diff\" (def.) devuelve\nsolo los sólidos nuevos + `total_solidos`; \"full\" toda la escena; \"summary\" solo\nid/nombre de lo nuevo. El bloque `variables` solo aparece si la operación tocó\nalguna (o detail=\"full\"); usa get_scene para verlas siempre. Si tarda, recibes un\nRECIBO {\"job\": id}: recógelo con get_job(id) y NO reenvíes el comando.",
   "inputSchema": {
    "properties": {
     "type": {
@@ -492,7 +492,7 @@
  },
  {
   "name": "edit_command",
-  "description": "Edita los parámetros de un comando pasado y regenera (edición paramétrica del\nhistorial). Por defecto hace PATCH (`merge=True`): combina con los params actuales,\nasí que basta enviar los campos a cambiar. Merge SUPERFICIAL: un sub-objeto\n(position, rotation) se reemplaza entero. `merge=False` reemplaza todos los params\n(los omitidos vuelven a su default). `detail` como en run_command.",
+  "description": "Edita los parámetros de un comando pasado y regenera (edición paramétrica del\nhistorial). Por defecto hace PATCH (`merge=True`): combina con los params actuales,\nasí que basta enviar los campos a cambiar. Merge SUPERFICIAL: un sub-objeto\n(position, rotation) se reemplaza entero. `merge=False` reemplaza todos los params\n(los omitidos vuelven a su default). `detail` como en run_command. Si tarda, recibes un\nRECIBO {\"job\": id}: recógelo con get_job(id) y NO reenvíes la edición.",
   "inputSchema": {
    "properties": {
     "command_id": {
@@ -660,7 +660,7 @@
  },
  {
   "name": "set_variable",
-  "description": "Define o actualiza una variable de proyecto (p. ej. L = 2000). Cambiarla\nregenera todo lo que la usa.",
+  "description": "Define o actualiza una variable de proyecto (p. ej. L = 2000). Cambiarla\nregenera todo lo que la usa. Si tarda, recibes un RECIBO {\"job\": id}: recógelo con\nget_job(id) y NO la reenvíes.",
   "inputSchema": {
    "properties": {
     "name": {

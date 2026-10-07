@@ -1,9 +1,13 @@
 """Rutas que mutan el log de comandos: comando, lote (con contrato), edición, borrado, búsqueda.
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
-`main.py`. Toda mutación pasa por `_state_or_error`; los lotes pueden encolarse como job
-(`?async=true`, `_sync_or_job`) y aceptan contrato (`expect`). También las variables, el
-undo/redo, las variantes (tablas de diseño), los jobs y el preview fantasma. El ORDEN importa:
+`main.py`. Toda mutación pasa por `_state_or_error`; los lotes, el comando suelto, su edición y
+`set_variable` pueden encolarse como job (`?async=true`, `_sync_or_job`; el MCP siempre lo pide:
+D8 de `docs/plans/sandbox-caliente.md`) y los lotes aceptan contrato (`expect`). Una ruta que
+encola y declaraba `-> dict` lo conserva como `response_model=dict`: sin él FastAPI serializa la
+respuesta síncrona con `jsonable_encoder` y los bytes cambian (`1e-7` → `1e-07`). También el
+borrado de variables, el undo/redo, las variantes (tablas de diseño), los jobs y el preview
+fantasma. El ORDEN importa:
 `batch` y `preview` van antes que `PUT /api/commands/{command_id}` y éste antes que `remove`
 (Starlette sirve la primera ruta que casa; también decide el `Allow` de un 405).
 """
@@ -40,11 +44,14 @@ class CommandIn(BaseModel):
     params: dict = {}
 
 
-@router.post("/api/commands")
-def post_command(cmd: CommandIn) -> dict:
-    return _state_or_error(
-        lambda: S.doc.execute(cmd.type, _materialize_insert_project(cmd.type, cmd.params))
-    )
+@router.post("/api/commands", response_model=dict)
+def post_command(cmd: CommandIn, async_: bool = Query(False, alias="async")):
+    def _work() -> dict:  # materializar DENTRO del lock: muta S.doc.attachments
+        return _state_or_error(
+            lambda: S.doc.execute(cmd.type, _materialize_insert_project(cmd.type, cmd.params))
+        )
+
+    return _sync_or_job("run_command", _work, async_)
 
 
 class BatchIn(BaseModel):
@@ -207,19 +214,28 @@ class ParamsIn(BaseModel):
     params: dict
 
 
-@router.put("/api/commands/{command_id}")
-def edit_command(command_id: str, body: ParamsIn, transient: bool = False, merge: bool = False) -> dict:
-    with STATE_LOCK:  # 404 con «¿quisiste decir…?» antes de mutar (V6.5b, frente C)
+@router.put("/api/commands/{command_id}", response_model=dict)
+def edit_command(
+    command_id: str, body: ParamsIn, transient: bool = False, merge: bool = False,
+    async_: bool = Query(False, alias="async"),
+):
+    # 404 con «¿quisiste decir…?» antes de mutar (V6.5b, frente C) y antes de ENCOLAR: un id
+    # inexistente responde al instante, no como un job fallido.
+    with STATE_LOCK:
         if not any(c["id"] == command_id for c in S.doc.commands):
             raise _not_found(command_id, kind="comando")
-    return _state_or_error(
-        lambda: S.doc.edit(
-            command_id,
-            _materialize_edit(command_id, body.params, merge),
-            coalesce=transient,
-            merge=merge,
+
+    def _work() -> dict:  # _materialize_edit lee S.doc.commands → bajo el lock
+        return _state_or_error(
+            lambda: S.doc.edit(
+                command_id,
+                _materialize_edit(command_id, body.params, merge),
+                coalesce=transient,
+                merge=merge,
+            )
         )
-    )
+
+    return _sync_or_job("edit_command", _work, async_)
 
 
 class RemoveIn(BaseModel):
@@ -309,15 +325,16 @@ class VariableIn(BaseModel):
     expression: str
 
 
-@router.post("/api/variables")
-def set_variable(body: VariableIn) -> dict:
+@router.post("/api/variables", response_model=dict)
+def set_variable(body: VariableIn, async_: bool = Query(False, alias="async")):
     def run():  # buscar DENTRO del lock: fuera, otra petición podía cambiar el log antes de mutar
         params = {"name": body.name, "expression": body.expression}
         existing = next((c["id"] for c in S.doc.commands if c["type"] == "set_variable"
                          and c["params"].get("name") == body.name), None)
         return S.doc.edit(existing, params) if existing else S.doc.execute("set_variable", params)
 
-    return _state_or_error(run)
+    # una variable en la cabecera replaya TODO el log: es la mutación que más tarda (D8)
+    return _sync_or_job("set_variable", lambda: _state_or_error(run), async_)
 
 
 @router.delete("/api/variables/{name}")

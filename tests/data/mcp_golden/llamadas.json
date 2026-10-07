@@ -558,7 +558,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/commands",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "type": "create_box",
      "params": {
@@ -569,6 +574,26 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jc",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -596,7 +621,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/commands",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "type": "create_box",
      "params": {}
@@ -605,6 +635,26 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jc",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -626,7 +676,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/commands",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "type": "x",
      "params": {}
@@ -656,7 +711,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/commands",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "type": "x",
      "params": {}
@@ -665,6 +725,107 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "comando → recibo",
+  "tool": "run_command",
+  "args": {
+   "type": "create_box",
+   "params": {}
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"jc\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jc') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "type": "create_box",
+     "params": {}
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "comando → job en error",
+  "tool": "run_command",
+  "args": {
+   "type": "fillet",
+   "params": {
+    "feature": "c9",
+    "radius": 2
+   }
+  },
+  "error": "Error executing tool run_command: Apolo rechazó la operación (400): Error al regenerar c4 (fillet): No existe el sólido 'c9' en la escena",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "type": "fillet",
+     "params": {
+      "feature": "c9",
+      "radius": 2
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jc",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -1015,6 +1176,10 @@
      [
       "merge",
       "true"
+     ],
+     [
+      "async",
+      "true"
      ]
     ],
     "cuerpo": {
@@ -1026,6 +1191,26 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jc",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -1058,6 +1243,10 @@
      [
       "merge",
       "false"
+     ],
+     [
+      "async",
+      "true"
      ]
     ],
     "cuerpo": {
@@ -1067,6 +1256,135 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jc",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "editar → recibo",
+  "tool": "edit_command",
+  "args": {
+   "command_id": "c1",
+   "params": {
+    "width": 80
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"jc\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jc') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/commands/c1",
+    "query": [
+     [
+      "merge",
+      "true"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "params": {
+      "width": 80
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "editar → job en error",
+  "tool": "edit_command",
+  "args": {
+   "command_id": "c1",
+   "params": {
+    "anchura": 3
+   }
+  },
+  "error": "Error executing tool edit_command: Apolo rechazó la operación (400): Parámetro desconocido en create_box (no se aplicó nada):\n- «anchura» no existe. Válidos en ese nivel: name, width, depth, height, position, rotation.",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/commands/c1",
+    "query": [
+     [
+      "merge",
+      "true"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "params": {
+      "anchura": 3
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jc",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -1384,7 +1702,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/variables",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "name": "L",
      "expression": "2500"
@@ -1393,6 +1716,121 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jv",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "variable → recibo",
+  "tool": "set_variable",
+  "args": {
+   "name": "L",
+   "expression": "2500"
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"jv\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jv') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/variables",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "name": "L",
+     "expression": "2500"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "variable → job en error",
+  "tool": "set_variable",
+  "args": {
+   "name": "L",
+   "expression": "=L*"
+  },
+  "error": "Error executing tool set_variable: Apolo rechazó la operación (400): Variable 'L': Expresión inválida 'L*': invalid syntax",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/variables",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "name": "L",
+     "expression": "=L*"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jv",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {

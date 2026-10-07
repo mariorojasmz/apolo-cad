@@ -62,6 +62,24 @@ JOB_OK = J({"id": "j1", "estado": "ok", "resultado": RESULTADO_JOB})
 ENCOLADO = J({"job_id": "j1", "estado": "encolado"}, 202)
 JOB_404 = J({"detail": "Job 'zz' desconocido: el servidor se reinició o se desalojó. "
                        "El lote PUDO haber aplicado; verifícalo con get_scene."}, 404)
+# run_command, edit_command y set_variable también encolan (sandbox-caliente D8): su job
+# devuelve la respuesta síncrona de siempre, así que la salida de la tool no cambia.
+JOBS_SUELTOS = {"jc": MUTA["json"], "jv": escena(["v1"])}
+
+
+def _encolado(job_id: str) -> dict:
+    return J({"job_id": job_id, "estado": "encolado"}, 202)
+
+
+def _job(req):
+    jid = req.url.path.rsplit("/", 1)[-1]
+    if jid in JOBS_SUELTOS:
+        return J({"id": jid, "estado": "ok", "resultado": JOBS_SUELTOS[jid]})
+    return JOB_OK
+
+
+def _job_error(error: str) -> dict:
+    return {("GET", r"/api/jobs/[^/]+"): J({"estado": "error", "http_status": 400, "error": error})}
 
 
 def _preview(req):
@@ -101,12 +119,12 @@ RUTAS = [
     ("POST", r"/api/vertical", MUTA),
     ("GET", r"/api/kinematics", J({"joints": [{"name": "j1", "tipo": "giratoria"}]})),
     ("GET", r"/api/design-guidelines", J({"principio": "golden"})),
-    ("POST", r"/api/commands", MUTA),
+    ("POST", r"/api/commands", _encolado("jc")),
     ("POST|PATCH", r"/api/commands/batch", ENCOLADO),
-    ("GET", r"/api/jobs/[^/]+", JOB_OK),
-    ("PUT", r"/api/commands/[^/]+", MUTA),
+    ("GET", r"/api/jobs/[^/]+", _job),
+    ("PUT", r"/api/commands/[^/]+", _encolado("jc")),
     ("POST", r"/api/(undo|redo)", J(escena(deshechos=["Variable «L»: 2000 → 3200"]))),
-    ("POST", r"/api/variables", J(escena(["v1"]))),
+    ("POST", r"/api/variables", _encolado("jv")),
     ("POST", r"/api/checks", J({"interferencias": {"pares": []}, "ingenieria": [{"ok": True}],
                                 "estructura": {"reglas": []}, "otro": "no se muestra"})),
     ("GET", r"/api/render\.png", B(PNG, "image/png")),
@@ -209,6 +227,10 @@ CASOS = [
          rutas={("POST", r"/api/commands"): J({"detail": "No existe el comando 'x'"}, 400)}),
     caso("comando 500 sin json", "run_command", {"type": "x", "params": {}},
          rutas={("POST", r"/api/commands"): B(b"Internal Server Error", "text/plain") | {"status": 500}}),
+    caso("comando → recibo", "run_command", {"type": "create_box", "params": {}}, espera=0.0),
+    caso("comando → job en error", "run_command",
+         {"type": "fillet", "params": {"feature": "c9", "radius": 2}},
+         rutas=_job_error("Error al regenerar c4 (fillet): No existe el sólido 'c9' en la escena")),
     caso("lote con contrato", "run_batch", {"actions": [_ESC, _ESC], "detail": "summary",
                                            "expect": [{"tipo": "existe", "id": "$1"}]}),
     caso("lote → recibo", "run_batch", {"actions": [_ESC]}, espera=0.0),
@@ -220,6 +242,12 @@ CASOS = [
     caso("editar", "edit_command", {"command_id": "c1", "params": {"width": 80}}),
     caso("editar replace", "edit_command", {"command_id": "c1", "params": {}, "merge": False,
                                             "detail": "summary"}),
+    caso("editar → recibo", "edit_command", {"command_id": "c1", "params": {"width": 80}},
+         espera=0.0),
+    caso("editar → job en error", "edit_command", {"command_id": "c1", "params": {"anchura": 3}},
+         rutas=_job_error("Parámetro desconocido en create_box (no se aplicó nada):\n- «anchura» "
+                          "no existe. Válidos en ese nivel: name, width, depth, height, position, "
+                          "rotation.")),
     caso("editar lote", "edit_batch", {"edits": [{"command_id": "c1", "params": {"width": 1}}],
                                        "expect": [{"tipo": "existe", "id": "c1"}]}),
     caso("editar lote replace → recibo", "edit_batch", {"edits": [], "merge": False}, espera=0.0),
@@ -231,6 +259,9 @@ CASOS = [
     caso("job 404", "get_job", {"job_id": "zz"}, rutas={("GET", r"/api/jobs/[^/]+"): JOB_404}),
     caso("deshacer", "undo"),
     caso("variable", "set_variable", {"name": "L", "expression": "2500"}),
+    caso("variable → recibo", "set_variable", {"name": "L", "expression": "2500"}, espera=0.0),
+    caso("variable → job en error", "set_variable", {"name": "L", "expression": "=L*"},
+         rutas=_job_error("Variable 'L': Expresión inválida 'L*': invalid syntax")),
     caso("interferencia global", "check_interference"),
     caso("interferencia acotada en pose", "check_interference",
          {"joint_values": {"j1": 30}, "ids": ["Estructura"]}),
