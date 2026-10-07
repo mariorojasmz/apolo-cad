@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado completo por Mario (2026-10-06, sin vetos); F0 medida, F1 en curso, F2–F4 pendientes
+nota: aprobado completo por Mario (2026-10-06, sin vetos); F0 y F1 hechas, F2 en curso, F3–F4 pendientes
 descripcion: Deshacer y Rehacer dicen qué cambio van a revertir (al pasar el puntero y en una lista de los últimos cambios), y desde la lista se deshacen varios de una vez
 ---
 
@@ -229,3 +229,30 @@ tests como gate; la sesión principal revisa el diff contra este contrato y re-c
   `set_color` y `set_material` no cambian el largo de `_undo` → no son deshacibles.
 - De paso: [api](../../core/apolo/api/CLAUDE.md) decía que los lotes de color y material dejan
   «un solo undo»; no dejan ninguno. Se corrigió en el mismo commit que este plan.
+
+### F1 — documento (2026-10-06, `ffccd55`)
+
+- `core/apolo/doc/pasos.py` (nuevo, puro, 267 líneas): `describir` con la gramática de D4,
+  `etiqueta` (el guard de D10 envuelve a `describir`), `etiquetas`, `error_de_pasos` y
+  `trasladar` (el traslado de D6 entre pilas). `document.py` quedó en 1059 líneas, justo en el
+  trinquete: `_push_undo` reemplaza las tres copias del apilado y `_mover` los espejos
+  `undo`/`redo`; `undo_labels`/`redo_labels` son `property(lambda …)` para no pasarlo.
+- Tests: 100 nuevos (`tests/test_pasos.py` 82, `tests/test_deshacer_pasos.py` 18). Suite completa
+  re-corrida por la sesión principal sobre la rama integrada: verde; ruff limpio.
+- **Lo que reveló: D12 traía un bug propio.** Deshacer devuelve `seq` pero ya no `hidden` → el
+  próximo comando reusa el id de la pieza deshecha y, si estaba oculta, la pieza NUEVA nacía
+  oculta. Antes no pasaba porque deshacer también restauraba `hidden`. Arreglo en
+  `_append_record`: al asignar un id se quita de `hidden` ese id y sus derivados `{id}_…` (con
+  test). La causa del punto ciego: el plan pensó `hidden` sólo en el eje deshacer/rehacer y no
+  en el reciclaje de ids que trae restaurar `seq`.
+- Reglas de D4 que el contrato dejaba ambiguas y cómo quedaron: `pattern_group.source` es un id
+  de comando → se nombra por la primera pieza de la fuente (mostrarlo rompía «nunca un id»);
+  `transform_group` → «Mover grupo «X»» / «Rotar grupo» / «Mover y rotar grupo»; un `transform`
+  en cero cae al título «Mover / Rotar «X»»; lote de eliminados → siempre «Eliminar ×N» sin
+  título (como el ejemplo); nombres repetidos se deduplican y, si tres no caben en 120
+  caracteres, se muestran dos o uno + «y N más»; con exactamente dos campos editados, «A y B»;
+  un campo sin `title` no se nombra (suma en «y N más» o queda «N parámetros»); la forma con
+  flecha de una variable sólo si el nombre es el mismo y cambió la expresión; las piezas
+  creadas se nombran por la primera, sin «y N más».
+- D11 se implementó sacando la entrada de arriba y re-apilándola por `_push_undo` (mismo efecto
+  que reescribirla en sitio, un solo camino de apilado).
