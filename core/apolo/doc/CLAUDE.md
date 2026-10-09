@@ -32,6 +32,11 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   documento y pilas idénticos a N llamadas de a uno. Deshacer NO toca `hidden` (como color y
   material): por eso `_append_record` limpia de `hidden` el id que recicla al restaurarse `seq`.
   [deshacer-con-etiqueta](../../../docs/plans/deshacer-con-etiqueta.md)
+- **Carril** (`carril.py`, `kind="electrico"`): sus comandos no entran a `_cmd_sig` y no ocupan
+  índice. Firmas y checkpoints se cuentan sobre los comandos de ESCENA: quien los lea usa
+  `carril.n_escena` o `len(_regen_sigs)`, nunca `len(commands)` ni `k-1`. Un problema del
+  evaluador va por `fallo(entrada, msg)`, nunca un `raise` propio.
+  [V8.1](../../../docs/plans/V8.1-modelo-electrico.md)
 - `from_apolo_bytes` fija `seq = max(seq, len(commands), máx c-id)`: sin colisión de ids aunque
   el log tenga huecos. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
 
