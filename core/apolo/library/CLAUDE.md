@@ -40,6 +40,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - La heurística por nombre muerde: «larguero» es palabra de madera (`_WOOD_WORDS`). Quien
   re-resuelve el material de una pieza ya resuelta le pasa el `material` que ya tiene.
   [V7.5](../../../docs/plans/V7.5-e22-datum-funcional.md)
+- Un matcher de ROL mira `piece_role(nombre)` (tras el último « · »), nunca el nombre entero: un
+  super-comando nombra «Faja de banda · Pata (1)» y toda la faja contiene «banda». Rol `banda` →
+  PVC salvo metal explícito. [devlog § banda PVC](../../../docs/devlog.md)
 - En madera `YIELD_MPA` tabula el MOR (rotura), no un límite elástico: el «FS» es contra rotura
   y el criterio es FS ≥ 4 (σ_adm = MOR/4), no ≥ 1.5 como en acero.
 

@@ -153,6 +153,50 @@ def test_belt_conveyor_bom_separa_banda_y_cama():
     assert rows["Cama de deslizamiento"] == 1
 
 
+def test_belt_conveyor_banda_es_pvc_en_bom_y_masa():
+    # la faja piloto de V8.2 (3000×500×800): la «Banda» caía a acero (~99 kg de lazo); por su
+    # ROL es PVC (~18 kg). La cama, que sólo comparte «banda» con el prefijo, sigue de acero
+    from apolo.library.engineering.mass import feature_mass
+    from apolo.library.materials import density
+
+    d, cid = _belt_doc(largo=3000, ancho_banda=500, altura=800)
+    belt = d.scene[f"{cid}_banda"]
+    assert belt.name == "Faja de banda · Banda"
+    fm = feature_mass(belt, default_material=d.default_material())
+    assert fm["material"] == "pvc"
+    assert fm["masa_kg"] == pytest.approx(belt.shape.volume * density("pvc"), rel=1e-6)
+    assert 15.0 < fm["masa_kg"] < 20.0
+    rows = {r["descripcion"]: r for r in bom_from_scene(d.scene, d.default_material())}
+    assert rows["Faja de banda · Banda"]["material"] == "pvc"
+    assert rows["Faja de banda · Banda"]["peso_unitario_kg"] == pytest.approx(fm["masa_kg"], abs=1e-3)
+    assert rows["Faja de banda · Cama de deslizamiento"]["material"] == "acero"
+    # sólo la banda cambió: ninguna otra pieza de la faja resuelve a polímero
+    assert [r["descripcion"] for r in rows.values() if r["material"] in ("pvc", "caucho")] == [
+        "Faja de banda · Banda"]
+    # set_material sigue mandando y null vuelve al automático (PVC por rol)
+    d.set_material(belt.id, "caucho")
+    assert feature_mass(d.scene[belt.id])["material"] == "caucho"
+    d.set_material(belt.id, None)
+    assert feature_mass(d.scene[belt.id])["material"] == "pvc"
+
+
+def test_belt_conveyor_memoria_pesa_solo_el_lazo():
+    # `banda_kg` (arrastre sobre cama de la memoria) sumaba TODA la faja: cada pieza se llama
+    # «Faja de banda · …». Ahora cuenta sólo el ROL banda/cinta/faja
+    from apolo.commands.registry import Feature
+    from apolo.library.engineering.mass import feature_mass
+    from apolo.library.rules import _enrich_conveyor, detect_conveyor
+    from build123d import Box
+
+    d, cid = _belt_doc(largo=3000, ancho_banda=500, altura=800)
+    conv = detect_conveyor(d.scene, {})
+    assert conv["banda_kg"] == pytest.approx(feature_mass(d.scene[f"{cid}_banda"])["masa_kg"], abs=0.01)
+    # a mano (nombres del 38): la banda cuenta; la cama que la MENCIONA, no
+    scene = {"b": Feature("b", "Banda PVC 2mm 700 (lazo cerrado)", Box(1000, 700, 2), "c1"),
+             "c": Feature("c", "Cama de la banda", Box(1000, 700, 20), "c2")}
+    assert _enrich_conveyor({"tipo": "banda"}, scene, {})["banda_kg"] == pytest.approx(1.96, abs=0.01)
+
+
 def test_belt_conveyor_sin_auto_interferencia():
     d, _ = _belt_doc()
     report = interference_report(d.scene, exclude_pairs=same_command_pairs(d))

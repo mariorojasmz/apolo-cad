@@ -17,7 +17,7 @@ from collections import Counter
 
 from .catalog import CATALOG, category_refs_sorted
 from .engineering.belt import belt_power_kw, belt_pull_n, belt_startup_torque_nm, estimate_belt_kg
-from .materials import density, resolve_material, yield_strength, young_modulus
+from .materials import density, piece_role, resolve_material, yield_strength, young_modulus
 from .structural import beam_udl_deflection_mm, rect_tube_inertia_mm4, shaft_bending_stress_mpa
 
 FRICTION_COEFF = 0.06  # rodadura + cojinetes
@@ -40,6 +40,7 @@ _LARG_RE = re.compile(r"^\s*larguero\b", re.I)
 # tambor/rodillo/motor que solo MENCIONAN un eje ("Tambor motriz (… eje vivo)", "Rodillo
 # (eje Ø12)", "Motorreductor (eje hueco)").
 _EJE_RE = re.compile(r"^\s*eje\b", re.I)
+_BANDA_RE = re.compile(r"^(bandas?|cintas?|fajas?)\b", re.I)  # sobre `piece_role` (tras « · »)
 
 
 def _f(x) -> float | None:
@@ -270,9 +271,8 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
             cand = [d for f in ejes if (d := _eje_diam(f))]
             ed = max(cand) if cand else _f(v.get("diam_eje"))
         base["eje_d"] = ed
-    if not base.get("banda_kg"):
-        bandas = [f for f in scene.values()
-                  if any(w in _name(f) for w in ("banda", "cinta", "faja"))]
+    if not base.get("banda_kg"):  # por ROL: el lazo, no cada pieza de «Faja de banda · …»
+        bandas = [f for f in scene.values() if _BANDA_RE.match(piece_role(_name(f)))]
         kg = sum(_vol_safe(f) * density(resolve_material(f)) for f in bandas)
         if kg > 0:
             base["banda_kg"] = round(kg, 2)

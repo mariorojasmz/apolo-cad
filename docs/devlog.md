@@ -4325,3 +4325,49 @@ columnas, todas las variantes tienen las mismas, y lo que no es columna es comú
 dice qué cambió (`cambios`). Las fotos viejas se migran al abrir con una regla que conserva el
 salto ENTRE variantes y descarta sólo el «volver a la foto»: el 38 quedó con `{largo_total}`.
 Plan, decisiones y números: `docs/plans/variantes-solo-sus-variables.md`.
+
+## 2026-10-09 — La banda de la faja pesaba como acero (banda PVC)
+
+**Qué se creía.** `materials.py` ya tenía densidad de PVC y un comentario («banda PVC y
+engomado de tambor son plástico/caucho, no acero»), así que la banda de una faja salía de PVC.
+
+**Qué pasó.** Sólo si el NOMBRE decía «PVC». `create_belt_conveyor` nombra su lazo
+«Faja de banda · Banda»: ninguna lista de palabras tiene «banda» y cae al default del vertical
+(acero). En la faja piloto de V8.2 (3000×500×800) el lazo pesaba 99,4 kg en vez de 17,7. No se
+podía arreglar agregando «banda» a las palabras de PVC: el super-comando nombra TODAS sus piezas
+«Faja de banda · …» y la faja entera se volvía de plástico. Ese mismo prefijo ya rompía otra
+cuenta: `banda_kg` de la memoria (arrastre sobre cama, `rules._enrich_conveyor`) buscaba
+«banda/cinta/faja» en el nombre entero y sumaba la máquina completa: 577,1 kg de «banda». Sólo
+el término de la banda en el arrastre daba 9,81·0,33·577 ≈ 1868 N; ahora ≈ 57 N.
+
+**Qué se hizo.** Se mira el ROL, no el nombre ni el tipo de comando: `piece_role(nombre)` = lo
+que sigue al último « · » (la convención que ya usaban `cutlist._role` y el `_EJE_RE` de
+`rules.py`; sobrevive a `insert_project`, que antepone la instancia). Rol `bandas?` → PVC, salvo
+metal explícito en el nombre (acero/inox/metal/alambre) o caucho; va antes de las palabras de
+acero que la banda sólo menciona («Banda (sobre tambor motriz)»). «Cama de la banda» o «Guarda
+de banda» siguen de acero. `banda_kg` usa el mismo rol (`_BANDA_RE`). Se descartó que el
+executor fijara `feat.material = "pvc"`: `Feature.material` es el override de `set_material` y
+viaja en los checkpoints de la caché de geometría (obligaba a subir la versión del comando), y
+un `set_material(None)` dejaba la pieza en acero hasta el siguiente regenerate.
+
+**Qué cambia en proyectos existentes.** Nada de esto se cachea: BOM, masa, costeo, memoria, FEA,
+instalación y física resuelven el material al leer; la caché de geometría guarda checkpoints, y
+`Feature.material` sólo lleva overrides que este cambio no toca. Sin `version` ni
+`GEOM_CACHE_EPOCH`. Con `create_belt_conveyor`: banda acero → PVC (masa total de la piloto
+509,2 → 427,5 kg; costeo a 2,5 USD/kg), `banda_kg` de la memoria = sólo el lazo, y un FEA de
+ensamblaje que incluya la banda pide `yield_mpa` (el PVC no tiene σy tabulado; antes la malleaba
+como cáscara de ACERO pegada a los tambores). Un FEA guardado sigue «vigente» (la vigencia es
+por volumen): re-correrlo si incluía la banda. El 38 no cambia: su banda se llama «Banda PVC 2mm
+700 (lazo cerrado)» (ya era PVC) y es su única pieza con ese rol (`banda_kg` = 13,4 kg igual). El
+layout 53 gana lo mismo en `banda_kg` si sus instancias se llaman «Faja …».
+
+**La guarda de `physics/banda.py` se queda.** La dinámica sabe que la pieza es banda por
+DECLARACIÓN (o por ser `{cmd}_banda`), no por el nombre: una banda declarada puede llamarse
+«Lazo del tambor» y la heurística la daría de acero. PVC salvo `set_material` sigue siendo lo
+correcto ahí; sólo se reescribió su comentario.
+
+**Quedan fuera (por nombre, misma familia).** En el 38, «Tambor motriz (engomado, eje vivo)»
+resuelve a CAUCHO (8,6 kg en su BOM): las palabras de goma ganan al rol «tambor». Y
+`_frame_from_scene` (carga sobre el bastidor) aún suma toda pieza con «faja/banda» en el nombre:
+en la piloto carga 495 kg, patas y motor incluidos. Cambian números del testigo: van aparte,
+medidos sobre el 38 real.

@@ -102,9 +102,20 @@ _WOOD_WORDS = (
 # polímeros/goma: banda PVC y engomado de tambor son plástico/caucho, no acero
 _PVC_WORDS = ("pvc", "poliuretano", "polimero")
 _RUBBER_WORDS = ("engomado", "lagging", "caucho", "goma")
+# ROL banda (transportadora) = polímero aunque el nombre no diga «PVC». Se mira el ROL, no el
+# nombre entero: «Faja de banda · Larguero (1)» trae «banda» del super-comando y «Cama de la
+# banda» sólo la MENCIONA. Un metal explícito gana («Banda de malla de acero»).
+_BELT_ROLE = re.compile(r"^bandas?\b")
+_BELT_METAL = re.compile(r"acero|inox|met[aá]l|alambre")
 # señales de metalurgia que ganan sobre las palabras de carpintería: grado de
 # acero, inox, o una sección de tubo de 3 cotas (p. ej. 80x40x3, 50x50x2).
 _METAL_HINT = re.compile(r"\b(a36|ss400|st37|sae\s*1045|1045)\b|inox|\d+\s*[x×]\s*\d+\s*[x×]\s*\d+")
+
+
+def piece_role(name: str | None) -> str:
+    """ROL de una pieza: lo que sigue al último « · » (convención rol-primero; un
+    super-comando nombra «{comando} · {rol}» e `insert_project` antepone la instancia)."""
+    return (name or "").split("·")[-1].strip()
 
 
 def _norm(material: str | None) -> str:
@@ -169,6 +180,10 @@ def resolve_material(feat, catalog: dict | None = None, default: str = "acero") 
     if any(w in name for w in _RUBBER_WORDS):
         return "caucho"
     if any(w in name for w in _PVC_WORDS):
+        return "pvc"
+    # antes que las palabras de acero que sólo MENCIONA («Banda (sobre tambor motriz)») y que
+    # la sección de 3 cotas («Banda 500x6000x4»)
+    if _BELT_ROLE.match(piece_role(name)) and not _BELT_METAL.search(name):
         return "pvc"
     # una señal explícita de metal (grado/inox/sección de tubo) gana sobre las
     # palabras de carpintería: "Larguero 80x40x3 A36" es acero, no madera.

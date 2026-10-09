@@ -168,8 +168,9 @@ def superficie_banda(feat, junta: dict, radio_mm, direccion, mu, mu_cama, geom: 
                 f"banda '{feat.id}' ({eje_texto(e)} con giro positivo)"
             )
         signo = 1.0 if p > 0 else -1.0
-    # el lazo es PVC salvo set_material: la heurística por nombre lo daría de acero («Banda»
-    # no es palabra de polímero) y 100 kg de lazo inventan arrastre de cama
+    # PVC salvo set_material: esta pieza es banda por DECLARACIÓN (o por ser `{cmd}_banda`), no
+    # por su nombre. `resolve_material` ya da PVC al rol «Banda», pero una banda declarada puede
+    # llamarse «Lazo del tambor» y caería al acero (100 kg de lazo inventan arrastre de cama)
     material = getattr(feat, "material", None) or "pvc"
     masa = float(max(float(feat.shape.volume), 0.0) * density(material))
     return BandaDatos(
