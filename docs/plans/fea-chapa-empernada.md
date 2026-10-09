@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato aprobado (D1–D9, 2026-10-07); F1 y F2 hechas, faltan F3 (cerca medir), F4 (tope y pernos) y F5 (E2E y docs)
+nota: contrato aprobado (D1–D9, 2026-10-07); F1–F4 hechas; falta F5 — el E2E sobre el proyecto 72 (espera que Mario importe su base), las reglas D9 en los CLAUDE.md de fea y kernel, devlog y las notas de V7.4 y del backlog
 descripcion: El FEA del bastidor malla la chapa plegada y empernada (travesaños con pestañas en las cuatro caras), acepta cargas sobre un taladro y, si gmsh no puede, responde un 400 que nombra la pieza y qué hacer
 ---
 
@@ -348,3 +348,66 @@ reintentan); `_fragmentar` no llama a `fragment` con un solo volumen. Ambas mall
   gmsh 4.15.2); ahora asertan que malla refinada y la etapa admisible (1-2 para la bandeja a 35
   mm; 0 o 2 a 10 mm, donde la etapa 1 nunca refina). El camino de la etapa 2 lo fija el test
   determinista con un `generate` que falla una vez.
+
+### F3 — `cerca` con `medir: "superficie"` (2026-10-08)
+
+`kernel/selectors.py`: `resolve_faces`/`resolve_edges` comparten `_cerca`; sin `medir` (o con
+`null`) es el código de antes línea por línea; con `"superficie"` ordena por la distancia OCCT
+(`BRepExtrema_DistShapeShape` contra un vértice), redondeada al µm, y desempata por el centro de
+siempre. Un `medir` inválido es `SelectorError` en todo modo (las cargas del FEA y `measure`
+llegan como dict, sin pydantic). `EdgeSelector` (con `medir: Literal["centro","superficie"] |
+None = None`) y `SlideUV` salen a `commands/models_selectores.py`, re-exportados por `models.py`
+(1387 → 1359). El clic del viewport arma la selección en `ui/src/forms/selector.ts::
+seleccionDelClic` con `medir: "superficie"`; `normalizeSelector` la conserva y no la agrega a una
+selección guardada (`SchemaForm.tsx` 591 → 553). Los docstrings de `fea_static`/`fea_assembly`
+piden superficie para cargar un taladro (`mcp_server.py` 1426 → 1425); en el golden sólo cambian
+esas dos descripciones.
+
+- **El schema publicado no cambia salvo `medir`**: JSON Schema de los 54 comandos y de la vista
+  persona volcado antes y después; quitando `medir`, idéntico, orden de claves incluido. Con
+  `None` de default, `model_dump(exclude_none=True)` de una selección vieja no gana la clave.
+- **Sin bump de epoch ni de versiones**: sin la clave la ruta es la de antes, y ningún log
+  guardado puede traer `medir` (los params estrictos rechazaban la clave). D11 de
+  `test_contrato_comandos` no se movió (ningún executor cambió); D12 exigió declarar `*.medir` en
+  los 9 comandos con selector, para que no pueda desaparecer sin upcaster.
+- **Medido** (placa con taladros, Windows): 34 caras, centro 2.7 ms / superficie 5.9 ms; 108
+  caras, 8.6 / 18.6 ms; aristas 96, 5.2 / 7.3 ms; 318, 17.2 / 25.6 ms. La razón ≈ 2.2× en caras
+  coincide con la F0 (9.5 / 23.8 ms en c1442, 55 caras).
+- **El caso del alma en chico**: placa 1000×100×6 con un Ø40 en (100, 50) y un Ø17 en (140, 50);
+  punto (128, 50, 6), a 28 mm del eje del Ø40 → al centro gana el cilindro del Ø17, a la
+  superficie la cara superior; un punto sobre el Ø40 da el Ø40 con los dos criterios. Mates,
+  `snap_to` y fillet dan lo mismo sin la clave que con `"centro"` y algo distinto con superficie
+  (el campo llega a cada consumidor); un test compara la ruta sin `medir` contra una copia del
+  `cerca` viejo, en caras y aristas, con count 1 y 3.
+- **Arista entre dos caras**: un punto sobre la arista +Y/superior de una caja está a 0 de las
+  dos y gana +Y por centro; al centro puro habría ganado `max_x`, que el punto ni toca.
+- **Intento fallido**: `golden_mcp.py --congelar` reescribió con LF `instructions.txt` y
+  `llamadas.json` sin cambiar su contenido; se restauraron y sólo entra `list_tools.json`.
+- Tests: 12 nuevos en pytest (`test_selector_superficie.py`, uno con FEA real por la API) y 4 en
+  vitest (`selector.test.ts`).
+
+### F4 — tope de 50 piezas y uniones empernadas declaradas (2026-10-08)
+
+**D7**: `MAX_PIECES` 25 → 50, validado antes de `_require_fea`; el comentario da el porqué medido
+en la F0 (fragment de 50 piezas 4.2 s, de 75, 10.3 s; el solve depende de los tets y lo acotan
+`MAX_TETS` y el estimador por bbox, que no cambian). El mensaje del tope deja de decir que el
+bonded «no resuelve en tiempo útil» y nombra lo que sí crece. **D8**:
+`services/fea_setup.py::bolted_joints_in_mesh` cuenta los fasteners con `kind` `perno` (valores
+`perno` | `soldadura` | `pegado` | `contacto`, default `perno`; `join_bolted` declara `jb_{cmd}`
+con `kind: "perno"`) cuyas DOS piezas están en `struct_ids`: una unión contra el herraje excluido
+o contra una pieza fuera del grupo no cuenta. `prepare_assembly` lo devuelve como
+`uniones_empernadas` y `api/fea_runs.py::_fea_assembly_run` suma la línea de hipótesis en
+singular o plural. Se cuentan fasteners, no pares: dos fasten sobre el mismo par pueden ser dos
+superficies de contacto distintas (dos pestañas contra la misma alma).
+
+- **Tests**: el tope con un `_require_fea` centinela (26 y 50 llegan a él sin mallar; 51 da el
+  `FeaError` antes; el viejo `test_piece_cap_before_gmsh` usaba 26). El conteo sin gmsh (seis
+  tipos de fastener y `join_bolted` con su tornillería excluida) y por la API (perno sí,
+  soldadura no; ~0.9 s cada uno a 10 mm). Mutar el código (tope 25, contar cualquier `kind`,
+  basta una pieza en la malla) los pone rojos.
+- **Hallazgo ajeno a la fase, arreglado en la misma integración**: la suite completa daba 6
+  fallos (`test_rutas_api` y `test_jobs_mutaciones`) también en `7a61bd7` sin tocar, y los 4 jobs
+  de pytest del CI estaban rojos en `main`. Causa: la instalación limpia resolvía fastapi 0.143.0,
+  y desde 0.137.0 `include_router` deja un `_IncludedRouter` sin `path` en `app.routes` en vez de
+  copiar las rutas (bisección con un router mínimo: 0.136.3 la última plana). Se fijó
+  `fastapi<0.137` en `core/pyproject.toml`; subirlo es un plan aparte.
