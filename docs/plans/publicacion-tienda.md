@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: aprobado 2026-10-08; la F0 espera la máquina piloto (transportador de rodillos motorizado, nuevo); F3 no depende de ella; preguntas de tienda, licencias e idioma sin contestar
+nota: F3 en main; F0 espera la máquina piloto (transportador de rodillos motorizado, que a su vez espera el plan cadenas-pinones); preguntas de tienda, licencias e idioma sin contestar
 descripcion: Una máquina terminada sale de Apolo como paquete listo para la tienda (gratis y completo) y con un video MP4 de cómo se construyó, con texto y música
 ---
 
@@ -135,8 +135,8 @@ comandos (223 `fasten`, 48 `run_script`, 39 `set_variable`) y 129 sólidos.
 - **D6 — Pillow dibuja los textos y ffmpeg sólo codifica y mezcla.** Pillow hace portada,
   rótulos, tarjeta de cifras, cierre y miniatura. ffmpeg recibe los fotogramas por stdin
   (`rawvideo`), sin miles de PNG en disco. No se usa `drawtext`: escapes y fuentes distintas en
-  cada sistema. La fuente por defecto es `ImageFont.load_default(size)` (FreeType de Pillow) y
-  `--fuente` permite otra TTF.
+  cada sistema. La fuente por defecto es DejaVu Sans, la de matplotlib (corregido en F3:
+  `ImageFont.load_default` no trae tildes, ver Bitácora), y `--fuente` permite otra TTF.
 - **D7 — ffmpeg es un binario externo, no una dependencia pip.** Se busca en el PATH o en
   `APOLO_FFMPEG`; si no está, el error dice cómo instalarlo. Formato YouTube: H.264 High,
   yuv420p, 30 fps, CRF 18, AAC 48 kHz, `-movflags +faststart`. Sin música sale un video mudo
@@ -302,4 +302,29 @@ Gate de cada fase: pytest completo y `ruff check core tests scripts`.
 
 ## Bitácora
 
-(vacía: se llena al cerrar cada fase)
+### F3 (2026-10-08): composición y codificación — en `main` (`9199fa9`)
+
+- Implementó un subagente en un worktree. La sesión principal revisó el diff contra D6–D8,
+  rebasó, re-corrió pytest completo (exit 0) y ruff (verde) y mergeó `--ff-only`. Paquete nuevo
+  `core/apolo/media/`: `composicion.py` (435 líneas) y `codificar.py` (364). Tests:
+  `test_media_composicion.py`, `test_media_codificar.py` y `test_capas_media.py` (gate de capas:
+  `media` sólo se importa a sí mismo; nada de `Document`, OCP ni vtk). Son 39 tests y tardan
+  3,4 s. El CI Linux instala `ffmpeg` con apt.
+- **D6 estaba mal en un punto**: `ImageFont.load_default(size)` de Pillow 12.3 es un Aileron
+  recortado, sin tildes, «ñ», «¿» ni «¡» (salen como cajas; medido). El default pasa a DejaVu
+  Sans, la que trae matplotlib, que ya es dependencia dura; su licencia es Bitstream Vera, libre,
+  y no se empaqueta nada. Un test prueba las dos cosas: la de Pillow no tiene esos glifos y la
+  nuestra sí.
+- Decisiones que el plan no fijaba:
+  - Los fotogramas se convierten a BT.709 y se etiquetan así: con el default de ffmpeg (BT.601
+    sin etiqueta) los reproductores HD corren los colores.
+  - `loudnorm` va en dos pasadas (medir, luego aplicar lineal): en una sola es dinámico y la
+    música «bombea». Los fundidos van después; si el video dura menos que los dos fundidos
+    juntos, se acortan en proporción.
+  - Las salidas se escriben a `.parcial` y se renombran al terminar: un fallo nunca deja un MP4
+    roto.
+  - Pillow no se declaró como dependencia directa: llega con matplotlib. Se revisa en F4.
+- Medido en MARIO-PCPRINCIP:
+  - 300 fotogramas sintéticos 1080p se codifican en 2,1 s (142 fps).
+  - Un rótulo cuesta 11 ms por fotograma 1080p (21 ms antes de componer sólo su caja).
+  - Una mezcla de 10 s queda en −14,8 LUFS.
