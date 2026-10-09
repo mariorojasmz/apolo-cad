@@ -302,6 +302,23 @@ Gate de cada fase: pytest completo y `ruff check core tests scripts`.
 
 ## Bitácora
 
+### F0, parte (2026-10-08): costo por fotograma — D5 confirmada
+
+Medido con `create_conveyor` de 3 m (37 sólidos), en un `Document` en memoria con `python -B`, en
+MARIO-PCPRINCIP (script de scratch `f0_render.py`):
+
+| camino | costo |
+|---|---|
+| `extract_render_scene` + `render_snapshot_vtk` a 1920 (1920×1497, PNG 1,7 MB), primera vez | 0,68 + 1,11 s |
+| … segunda vez (teselado en caché) | 0,04 + 0,63 s |
+| ventana VTK viva: armar los actores una vez | 0,16 s |
+| … por fotograma, órbita, leyendo el buffer | **7,9 ms** |
+
+Rehacer el snapshot en cada fotograma cuesta ≥ 0,67 s: unos 30 min para 90 s a 30 fps. La
+ventana viva cuesta ~80 veces menos, muy por debajo del umbral de 0,15 s, así que D5 queda y la F2
+puede arrancar antes que la máquina piloto. Los pasos 2 y 5 de la F0 (replay por prefijos e
+inventario del `.apolo`) siguen esperando al piloto.
+
 ### F3 (2026-10-08): composición y codificación — en `main` (`9199fa9`)
 
 - Implementó un subagente en un worktree. La sesión principal revisó el diff contra D6–D8,
