@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F3 en main; F0 espera la máquina piloto (transportador de rodillos motorizado, que a su vez espera el plan cadenas-pinones); preguntas de tienda, licencias e idioma sin contestar
+nota: F1, F2 y F3 en main; F4 en curso; F0 (resto) y F5 esperan la máquina piloto (transportador de rodillos por cadena, espera cadenas-pinones F2); preguntas de tienda, licencias e idioma sin contestar
 descripcion: Una máquina terminada sale de Apolo como paquete listo para la tienda (gratis y completo) y con un video MP4 de cómo se construyó, con texto y música
 ---
 
@@ -318,6 +318,37 @@ Rehacer el snapshot en cada fotograma cuesta ≥ 0,67 s: unos 30 min para 90 s a
 ventana viva cuesta ~80 veces menos, muy por debajo del umbral de 0,15 s, así que D5 queda y la F2
 puede arrancar antes que la máquina piloto. Los pasos 2 y 5 de la F0 (replay por prefijos e
 inventario del `.apolo`) siguen esperando al piloto.
+
+### F1 (2026-10-08): prefijos y guion — en `main` (`67e9fdf`)
+
+- Implementó un subagente en un worktree. La sesión principal rebasó sobre `main` (ya con el
+  catálogo de cadenas), re-corrió pytest (**2479 passed, 5 skipped**, 5:27) y ruff (verde) y
+  mergeó `--ff-only`.
+- Archivos: `doc/prefijos.py` (132 líneas), `services/construccion.py` (302),
+  `services/rotulos.py` (144), `services/guion_video.py` (324); 57 tests, varios
+  parametrizados.
+- **Costo medido**: recorrer los 36 prefijos de un log de 36 comandos (32 sólidos) tarda 0,524 s
+  contra 0,525 s de un regenerate, con 36 llamadas a executors en cada caso; un test exige que
+  cada comando corra una sola vez. Cada prefijo reanuda del checkpoint del anterior y sólo se
+  conserva el último. Las firmas siguen siendo O(n²): unos 0,6 s estimados con 450 comandos.
+- **Lo que reveló implementar:**
+  - **Los mates rompen la identidad `is`**: `solve_mates` crea un shape nuevo para cada hijo en
+    cada regenerate, así que todo comando posterior a un mate parecía «visual». `prefijos`
+    devuelve el shape anterior al hijo cuyo shape orgánico, mates y padres no cambiaron (el
+    solver es determinista).
+  - **Clave de etapa** sin grupo: el rol o el nombre del super-comando, no el tipo de comando.
+    Por tipo, una serie de cajas daba una etapa llamada «Caja».
+  - **Revelado por rol**: el rol sale del nombre, lo que va tras el último « · », sin sufijos
+    de instancia; las sub-listas van en orden de aparición, con tope 8. El transportador se
+    revela así: Larguero, Rodillo, Pata, Travesaño.
+  - **Duraciones**: portada, cifras, órbita y cierre suman 23 s fijos. Cada paso pesa 1, más
+    0,5 por sub-lista extra, entre 0,1 y 4 s. Las etapas cortas se fusionan con un vecino del
+    mismo grupo padre hasta durar ≥ 10 s; la primera cuenta los 4 s de la portada, así que un
+    clip de 50 s todavía da 3 capítulos. Si no caben 3 capítulos de ≥ 10 s, la lista sale vacía.
+  - **El guion guarda la firma del log**: `generar` rechaza un guion hecho sobre otra versión
+    del log.
+- El recorrido comparte las cachés de proceso (DEFINITIONS, subproyectos, sandbox): va en un
+  proceso aparte, como dice D1.
 
 ### F2 (2026-10-08): render vivo — en `main` (`660bc73`)
 
