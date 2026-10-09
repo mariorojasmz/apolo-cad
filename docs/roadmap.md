@@ -1,4 +1,4 @@
-# Hojas de ruta de Apolo (V5–V7)
+# Hojas de ruta de Apolo (V5–V8)
 
 Una línea por versión: qué entregó, cuándo y dónde está el detalle. La narrativa larga (contexto,
 E2E, decisiones, desviaciones) vive en el plan de cada versión en [`plans/`](plans/) y, cuando no
@@ -93,3 +93,28 @@ V6.8 y V6.9 llegaron después. Tras E5, los ejes del benchmark que siguen en 3.0
 | V7.6 | E2 fino en tres fases: A GD&T funcional · B tolerancia justificada + ISO 13920 · C lámina de instalación. E2 75.0 → 83.0 %, **v2 ≈81.2 %** | implementado 2026-07-23 | [V7.6](plans/V7.6-e2-fino.md) |
 | E5 | Manual con par de apriete calculado, llave por paso y orden intra-paso abajo → arriba. E5 3.00 → 3.625; **v2 ≈82.8 %** | hecho 2026-07-24 | sin plan: devlog § E5 · commit `9e9f10c` |
 | Segundo testigo | Paquete sobre la puerta plegable (id 28): 3 defectos de generalización corregidos; el 82.8 % vale sobre un modelo BIEN DECLARADO | hecho 2026-07-24 | sin plan: [informe](benchmark/puerta-plegable-bifold/2026-07-24/informe-generalizacion.md) · devlog § SEGUNDO TESTIGO · commit `703bad4` |
+
+## V8 — «La máquina viva» (en curso)
+
+**Doctrina (Mario, 2026-10-08):** las máquinas que se modelan en Apolo traen su tablero de
+VERDAD (dispositivos, cables, PLC) y, si hace falta, sus placas a la medida. El tablero mueve los
+motores en una co-simulación eléctrica + mecánica casi real que se ve en 3D con sus datos vivos.
+Todo lo maneja el agente por MCP y sale con planos eléctricos, memoria de cálculo y el programa
+del PLC. Es comisionamiento virtual integrado. El plan marco fija la arquitectura; cada V8.x
+escribe su contrato antes de implementarse.
+
+| versión | resultado en una línea | estado | plan |
+|---|---|---|---|
+| V8 | Plan marco: arquitectura y decisiones D1–D16, versiones V8.0–V8.13 | en curso (2026-10-08) | [V8](plans/V8-maquina-viva.md) |
+| V8.0 | Medir los riesgos: costo de editar un cable en el log, MuJoCo con juntas y actuador, scan del PLC, red de control, proceso vivo, binarios externos | por hacer | [V8](plans/V8-maquina-viva.md) § Fases |
+| V8.1 | El modelo eléctrico: dispositivos con bornes, cables, ERC, `get_circuit`, BOM eléctrica | por hacer | — |
+| V8.2 | La máquina se mueve de verdad: juntas reales en MuJoCo, actuadores, productos sobre banda y rodillos | por hacer | — |
+| V8.3 | La faja arranca desde su tablero: co-simulación eléctrica + PLC, escenarios, FAT virtual | por hacer | — |
+| V8.4 | Ver la máquina viva: modo en vivo, mandos clicables en 3D, datos sobre el 3D, esquema interactivo | por hacer | — |
+| V8.5 | El tablero 3D de verdad: rieles, canaletas, ruteo de cables con su largo, calentamiento | por hacer | — |
+| V8.6 | Planos eléctricos IEC 61082 y memoria de cálculo eléctrica; eje E7 del benchmark | por hacer | — |
+| V8.7 | Seguridad funcional ISO 13849 e inyección de fallas | por hacer | — |
+| V8.8 | Del gemelo al PLC real: exportes, PLC en el lazo por OPC UA/Modbus, HMI simulada | por hacer | — |
+| V8.9 | Neumática y electroneumática | por hacer | — |
+| V8.10–V8.12 | Placas a la medida: esquema y SPICE, de la placa a la fábrica, firmware que mueve la máquina | por hacer | — |
+| V8.13 | Verifica: E2E sobre el piloto y la faja 38, benchmark E7 | por hacer | — |

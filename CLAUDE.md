@@ -91,6 +91,7 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 
 2175 tests (+18 de tortura vía `-m torture`) · 197 tests vitest · 79 tools MCP · 53 comandos ·
 catálogo 256 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
+[V8 — la máquina viva](docs/plans/V8-maquina-viva.md) (tablero eléctrico real, co-simulación y placas; cada V8.x con su contrato),
 [chat-cliente-igual](docs/plans/chat-cliente-igual.md) (espera decisiones de Mario); sin verificar: [modo-visor](docs/plans/modo-visor.md) (falta el E2E de Mario por MCP) y [deshacer-con-etiqueta](docs/plans/deshacer-con-etiqueta.md) (falta el E2E de Mario en su UI); en plan: [harness-automejora](docs/plans/harness-automejora.md).
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %
 paramétrica), la puerta plegable de carpintería (id 28, segundo testigo), `layout-planta-demo`
@@ -424,6 +425,6 @@ juego de planos de taller + memoria de cálculo + BOM/cotización + manual—, e
 ## Fuera de alcance deliberado
 
 CAM, FEA de contacto o no lineal (el estático lineal de pieza y el bonded de ensamblaje sí
-existen: [fea](core/apolo/fea/CLAUDE.md)), PCB/electrónica, nube multiusuario y diseño
-generativo. Librerías candidatas (con licencias) para futuras adopciones: `docs/devlog.md`
+existen: [fea](core/apolo/fea/CLAUDE.md)), nube multiusuario y diseño generativo. La
+electricidad, el control y las placas ya NO están fuera: son [V8](docs/plans/V8-maquina-viva.md). Librerías candidatas (con licencias) para futuras adopciones: `docs/devlog.md`
 § «Catálogo de librerías candidatas (con licencia)».
