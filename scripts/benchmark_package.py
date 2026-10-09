@@ -7,9 +7,11 @@ UI, el chat y el MCP, cronometra CADA artefacto y escribe `paquete.md` con
 tiempos+bytes. Correrlo tras cada V7.x y re-calificar con `docs/benchmark/rubrica-v1.md`
 = el test de regresión de CALIDAD del producto.
 
-CLIENTE HTTP PURO: NO importa `apolo.*` a propósito — un script que importa el paquete
-recompila `.pyc` y, con `--reload`, recarga el worker y BLANQUEA el DOC en memoria
-(gotcha de la casa). Todo va por la API viva; requiere el servidor arriba.
+CLIENTE HTTP PURO: todo va por la API viva; requiere el servidor arriba. De `apolo` importa
+SÓLO `apolo.publicacion.entregables` (httpx puro, sin CAD), la lista de artefactos que
+comparte con `scripts/publicar.py` (plan publicacion-tienda, F4: los dos piden lo mismo con
+los mismos parámetros). Lo importa SIN escribir `.pyc`: un script que recompila el paquete,
+con la API en `--reload`, recarga el worker y BLANQUEA el DOC en memoria (gotcha de la casa).
 
 Determinista salvo timestamps: la memoria/cotización usan los REQUISITOS guardados del
 proyecto (no defaults) → fija los requisitos una vez con set_requirements y el paquete es
@@ -42,6 +44,14 @@ from pathlib import Path
 
 import httpx
 
+RAIZ = Path(__file__).resolve().parents[1]
+# Mide ESTE árbol (en un worktree el venv apunta al checkout principal) y sin `.pyc` (docstring).
+sys.dont_write_bytecode = True
+if str(RAIZ / "core") not in sys.path:
+    sys.path.insert(0, str(RAIZ / "core"))
+
+from apolo.publicacion import entregables as E  # noqa: E402 — tras fijar sys.path
+
 # la consola de Windows es cp1252: un solo carácter fuera de esa página (≠, ·, ✓…) en
 # CUALQUIER línea de progreso mata el script a mitad del paquete. Se descubrió al correr
 # el SEGUNDO testigo (el aviso «proyecto ≠ 38» solo aparece fuera del 38, así que diez
@@ -55,74 +65,6 @@ def _slug(name: str) -> str:
     """Slug de carpeta a partir del nombre del proyecto (para el --out por defecto)."""
     s = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
     return s or "proyecto"
-
-# Artefactos PESADOS (render VTK por página / HLR de muchas piezas) → timeout amplio.
-TIMEOUT = httpx.Timeout(30.0, read=1200.0)
-
-
-class Bench:
-    """Recolector de artefactos: cronometra, guarda y acumula el registro para paquete.md."""
-
-    def __init__(self, client: httpx.Client, out: Path):
-        self.client = client
-        self.out = out
-        self.records: list[dict] = []
-
-    def _record(self, phase: str, label: str, file: str | None, nbytes: int | None,
-                seconds: float, status: str, note: str = "") -> None:
-        self.records.append({
-            "phase": phase, "label": label, "file": file,
-            "bytes": nbytes, "seconds": round(seconds, 3),
-            "status": status, "note": note,
-        })
-        flag = {"ok": "OK ", "skip": ".. "}.get(status, "!! ")
-        size = f"{nbytes:>9,}B" if nbytes is not None else "         "
-        print(f"  {flag}[{phase}] {label:<34} {seconds:7.3f}s {size}  {note}")
-
-    def fetch_json(self, phase: str, label: str, method: str, path: str,
-                   file: str | None = None, **kw):
-        """GET/POST que devuelve JSON. Si `file`, lo guarda pretty-printed. Devuelve el dict."""
-        t0 = time.perf_counter()
-        try:
-            resp = self.client.request(method, path, **kw)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as exc:  # noqa: BLE001 — un artefacto que revienta NO tumba el resto
-            self._record(phase, label, file, None, time.perf_counter() - t0, "error", str(exc)[:120])
-            return None
-        elapsed = time.perf_counter() - t0
-        nbytes = None
-        if file:
-            blob = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
-            (self.out / file).write_bytes(blob)
-            nbytes = len(blob)
-        self._record(phase, label, file, nbytes, elapsed, "ok")
-        return data
-
-    def fetch_file(self, phase: str, label: str, method: str, path: str, file: str,
-                   **kw) -> bool:
-        """GET/POST que devuelve BYTES (pdf/dwg/step/png/csv) → los guarda tal cual."""
-        t0 = time.perf_counter()
-        try:
-            resp = self.client.request(method, path, **kw)
-            resp.raise_for_status()
-            blob = resp.content
-        except httpx.HTTPStatusError as exc:
-            detail = ""
-            try:
-                detail = exc.response.json().get("detail", "")
-            except Exception:
-                detail = exc.response.text[:120]
-            self._record(phase, label, file, None, time.perf_counter() - t0, "error",
-                         f"{exc.response.status_code}: {detail}"[:140])
-            return False
-        except Exception as exc:  # noqa: BLE001
-            self._record(phase, label, file, None, time.perf_counter() - t0, "error", str(exc)[:120])
-            return False
-        elapsed = time.perf_counter() - t0
-        (self.out / file).write_bytes(blob)
-        self._record(phase, label, file, len(blob), elapsed, "ok")
-        return True
 
 
 def _git_commit() -> str:
@@ -171,6 +113,12 @@ VERIFY_CHECKS_38 = [
 ]
 
 
+def benchmark_entregables(proyecto: int, nombre: str, plantilla: str = "generico") -> list:
+    """Los artefactos A2–A6 del benchmark: el destino `benchmark` de la lista compartida con la
+    publicación de la tienda (`tests/test_benchmark_entregables.py` congela cuáles son)."""
+    return E.para(E.BENCHMARK, E.lista(proyecto, nombre, plantilla=plantilla))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     hoy = datetime.now().strftime("%Y-%m-%d")
@@ -188,7 +136,7 @@ def main() -> None:
     args = ap.parse_args()
 
     print(f"== Paquete benchmark · proyecto {args.project} · {args.url} ==")
-    with httpx.Client(base_url=args.url, timeout=TIMEOUT) as client:
+    with httpx.Client(base_url=args.url, timeout=E.TIMEOUT) as client:
         # --- OPEN (medido aparte; NO cuenta en el total de artefactos) ---
         t0 = time.perf_counter()
         r = client.post(f"/api/projects/{args.project}/open")
@@ -239,29 +187,29 @@ def main() -> None:
         (out / "planos").mkdir(parents=True, exist_ok=True)
         (out / "render").mkdir(parents=True, exist_ok=True)
         print(f"  -- out={out}")
-        b = Bench(client, out)
+        b = E.Recolector(client, out)
 
         # =============================== A1 · Validación ===============================
         validacion: dict = {"generado": datetime.now().isoformat(timespec="seconds"),
                             "proyecto_id": args.project}
-        d = b.fetch_json("A1", "interferencias (global)", "POST", "/api/checks",
+        d = b.pedir_json("A1", "interferencias (global)", "POST", "/api/checks",
                          json={"joint_values": {}})
         validacion["interferencias"] = (d or {}).get("interferencias")
-        validacion["conectividad"] = b.fetch_json("A1", "conectividad declarada", "GET",
-                                                   "/api/connectivity")
-        validacion["soundness_declarada"] = b.fetch_json(
+        validacion["conectividad"] = b.pedir_json("A1", "conectividad declarada", "GET",
+                                                  "/api/connectivity")
+        validacion["soundness_declarada"] = b.pedir_json(
             "A1", "soundness (declarada)", "POST", "/api/assembly/soundness",
             json={"with_autodetect": False})
-        validacion["soundness_autodetect"] = b.fetch_json(
+        validacion["soundness_autodetect"] = b.pedir_json(
             "A1", "soundness (autodetect)", "POST", "/api/assembly/soundness",
             json={"with_autodetect": True})
-        validacion["gravity_declarada"] = b.fetch_json(
+        validacion["gravity_declarada"] = b.pedir_json(
             "A1", "gravity (declarada)", "POST", "/api/assembly/stability",
             json={"with_autodetect": False, "exclude": [], "seconds": 2.0, "gravity": 9.81})
-        validacion["gravity_autodetect"] = b.fetch_json(
+        validacion["gravity_autodetect"] = b.pedir_json(
             "A1", "gravity (autodetect)", "POST", "/api/assembly/stability",
             json={"with_autodetect": True, "exclude": [], "seconds": 2.0, "gravity": 9.81})
-        validacion["dof"] = b.fetch_json("A1", "grados de libertad", "GET", "/api/assembly/dof")
+        validacion["dof"] = b.pedir_json("A1", "grados de libertad", "GET", "/api/assembly/dof")
         # aserciones `verify`: 38 por defecto, cualquier proyecto vía --checks; si no, omitir
         if args.checks:
             verify_checks = json.loads(Path(args.checks).read_text(encoding="utf-8"))
@@ -270,13 +218,13 @@ def main() -> None:
         else:
             verify_checks = None
         if verify_checks:
-            validacion["verify"] = b.fetch_json("A1", "verify invariantes", "POST", "/api/verify",
+            validacion["verify"] = b.pedir_json("A1", "verify invariantes", "POST", "/api/verify",
                                                 json={"checks": verify_checks})
         else:
             validacion["verify"] = None
-            b._record("A1", "verify invariantes (omitido)", None, None, 0.0, "skip",
-                      "proyecto ≠ 38 y sin --checks")
-        validacion["engineering_check"] = b.fetch_json(
+            b.registrar("A1", "verify invariantes (omitido)", None, None, 0.0, "skip",
+                        "proyecto ≠ 38 y sin --checks")
+        validacion["engineering_check"] = b.pedir_json(
             "A1", "engineering_check (requisitos)", "POST", "/api/checks", json={})
         # lints pre-entrega (V7.2c): serializados APARTE aunque estén vacíos — «presentes
         # y vacíos» dentro de `estructura` no era auditable; una lista vacía prueba que
@@ -287,71 +235,26 @@ def main() -> None:
             if str(r.get("regla", "")).startswith("pre-entrega")
         ]
         _n_lints = len(validacion["lints_pre_entrega"])
-        b._record("A1", "lints pre-entrega (serializados)", None, None, 0.0, "ok",
-                  f"{_n_lints} aviso(s)" + (" — modelo sano" if not _n_lints else ""))
+        b.registrar("A1", "lints pre-entrega (serializados)", None, None, 0.0, "ok",
+                    f"{_n_lints} aviso(s)" + (" — modelo sano" if not _n_lints else ""))
         vbytes = (out / "validacion.json")
         vbytes.write_bytes(json.dumps(validacion, indent=2, ensure_ascii=False).encode("utf-8"))
-        b._record("A1", "validacion.json (índice)", "validacion.json",
-                  vbytes.stat().st_size, 0.0, "ok")
+        b.registrar("A1", "validacion.json (índice)", "validacion.json",
+                    vbytes.stat().st_size, 0.0, "ok")
 
-        # ================================ A2 · Planos =================================
-        b.fetch_file("A2", "juego de planos (PDF)", "GET", "/api/drawingset.pdf",
-                     "planos/juego.pdf",
-                     params={"template": args.template, "sheet": "A3", "shaded": "true"})
-        b.fetch_file("A2", "juego de planos (DWG zip)", "GET", "/api/drawingset.dwg",
-                     "planos/juego_dwg.zip",
-                     params={"template": args.template, "sheet": "A3"})
-        ga_spec = {
-            "sheet": "A3", "cutlist": True, "hardware": True, "shaded": True,
-            "assembly_notes": [], "format": "pdf",  # []=auto-semilla de notas de montaje del herraje
-            "notes": ["Cotas en mm salvo indicación.",
-                      "Tolerancia general ISO 2768-mK (en cajetín); soldadura ISO 2553 (símbolos en el GA)."],
-            "meta": {"drawing_no": f"GA-P{args.project}-001", "material": "A36 / catálogo",
-                     "title": f"{proj_name.upper()} — CONJUNTO GENERAL"},
-        }
-        b.fetch_file("A2", "hoja de conjunto GA (PDF)", "POST", "/api/drawing/spec",
-                     "planos/conjunto_GA.pdf", json=ga_spec)
-        b.fetch_json("A2", "lista de corte (JSON)", "GET", "/api/cutlist.json",
-                     "planos/cutlist.json")
-        b.fetch_file("A2", "lista de corte (CSV)", "GET", "/api/cutlist.csv",
-                     "planos/cutlist.csv")
-        b.fetch_json("A2", "nesting 1D acero (JSON)", "GET", "/api/nesting.json",
-                     "planos/nesting_1d_acero.json",
-                     params={"mode": "1d", "stock_w": 6000, "material": "acero", "kerf": 3})
-
-        # ================================ A3 · Memoria ================================
-        b.fetch_file("A3", "memoria de cálculo (PDF)", "GET", "/api/calc-report.pdf",
-                     "memoria.pdf", params={"rev": "A", "sheet": "A4"})
-
-        # =========================== A4 · BOM + cotización ============================
-        b.fetch_json("A4", "BOM por grupo (JSON)", "GET", "/api/bom",
-                     "bom.json", params={"by_group": "true"})
-        b.fetch_json("A4", "costeo (JSON)", "GET", "/api/costing.json", "costeo.json")
-        b.fetch_file("A4", "cotización (PDF)", "GET", "/api/quote.pdf", "cotizacion.pdf",
-                     params={"margin_pct": 25, "tax_pct": 13, "currency": "USD"})
-
-        # =============================== A5 · Manual =================================
-        b.fetch_file("A5", "manual de ensamblaje (PDF)", "GET", "/api/assembly-manual.pdf",
-                     "manual.pdf", params={"sheet": "A3"})
-
-        # ============================ A6 · Modelo + render ===========================
-        b.fetch_file("A6", "modelo STEP", "GET", "/api/export/step", "modelo.step")
-        common = {"shade": "true", "vtk_only": "true", "zoom": 1.0}
-        b.fetch_file("A6", "render iso (PNG)", "GET", "/api/render.png", "render/iso.png",
-                     params={**common, "view": "iso"})
-        b.fetch_file("A6", "render lateral (PNG)", "GET", "/api/render.png",
-                     "render/lateral.png", params={**common, "view": "lateral"})
-        b.fetch_file("A6", "render planta (PNG)", "GET", "/api/render.png",
-                     "render/planta.png", params={**common, "view": "planta"})
+        # ============ A2 planos · A3 memoria · A4 BOM y cotización · A5 manual · A6 modelo ============
+        # la MISMA lista que publica la tienda (apolo.publicacion.entregables); el benchmark
+        # pide también lo que nunca se publica (costeo y cotización, D11)
+        b.traer(benchmark_entregables(args.project, proj_name, args.template))
 
         # ================================ A7 · Índice ================================
-        write_index(out, proj_name, args, variables, health, open_s, b.records)
+        write_index(out, proj_name, args, variables, health, open_s, b.registros)
 
-    ok = [r for r in b.records if r["status"] == "ok"]
-    skipped = [r for r in b.records if r["status"] == "skip"]
-    err = [r for r in b.records if r["status"] == "error"]
+    ok = [r for r in b.registros if r["status"] == "ok"]
+    skipped = [r for r in b.registros if r["status"] == "skip"]
+    err = [r for r in b.registros if r["status"] == "error"]
     total_s = sum(r["seconds"] for r in ok)  # = el mismo total que paquete.md
-    print(f"\n== {len(ok)}/{len(b.records)} artefactos OK"
+    print(f"\n== {len(ok)}/{len(b.registros)} artefactos OK"
           + (f" · {len(skipped)} omitidos" if skipped else "")
           + (f" · {len(err)} EN ERROR" if err else "")
           + f" · total generación {total_s:.1f}s (open {open_s:.2f}s aparte) ==")

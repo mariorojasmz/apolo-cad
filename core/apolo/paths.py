@@ -49,6 +49,13 @@ def logs_dir() -> Path:
     return _base() / "logs"
 
 
+def publicaciones_dir() -> Path:
+    """Carpeta de las publicaciones de tienda (plan publicacion-tienda, D14): una carpeta por
+    máquina y versión, con el video y los zips. Vive FUERA de git (`/data/` está ignorado): un
+    video pesa decenas de MB. No se crea aquí."""
+    return data_dir() / "publicaciones" if repo_root() is not None else home() / "publicaciones"
+
+
 def db_path() -> str:
     """Ruta de la SQLite de proyectos; `APOLO_DB` manda siempre.
 

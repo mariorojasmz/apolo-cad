@@ -52,6 +52,9 @@ dependencies = [
     "pydantic>=2.12",
     "python-multipart>=0.0.9",
     "matplotlib>=3.8",
+    # Uso DIRECTO: `media/composicion.py` dibuja las tarjetas del video y la miniatura y
+    # `robotics/anim.py` arma los GIF. Llegaba sólo por matplotlib (plan publicacion-tienda, F4).
+    "pillow>=10",
     "ezdxf>=1.3",
     # Tope <2: mcp 2.x quitó `mcp.server.fastmcp` (FastMCP → MCPServer). Sin el tope, una
     # instalación limpia trae la 2.x y `apolo-mcp` revienta al importar. Migrar es un plan aparte.
