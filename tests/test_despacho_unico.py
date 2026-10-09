@@ -29,7 +29,7 @@ def _params(fn) -> list[tuple[str, object]]:
 
 
 def test_cada_executor_recibe_exactamente_ctx_cmd_id_p():
-    assert len(REGISTRY) == 53
+    assert len(REGISTRY) == 54
     malos = [f"{tipo}: {_params(s.executor)}" for tipo, s in REGISTRY.items()
              if _params(s.executor) != ESPERADO]
     assert not malos, "executors con otra firma:\n" + "\n".join(malos)

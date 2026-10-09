@@ -27,7 +27,7 @@ z9, cuyo cubo PUBLICADO es mayor (lo declaran en `no_publicado`). Sin
 chaflán de diente, chavetero ni prisionero (el piloto se maquina en taller). Un solo sólido; el
 3D reproduce los pesos publicados con ±5 %.
 
-MARCO DE LA CADENA (`roller_chain`, `cadena_por_rodillos`): rodillos centrados en puntos (x, y)
+MARCO DE LA CADENA (`roller_chain`, `cadena_por_rodillos`, `cadena_bandas`): rodillos centrados en puntos (x, y)
 del plano XY, pernos paralelos a Z, hilera 1 en z = 0 y hilera 2 en z = −pt (las capas, de
 `transmision.capas_cadena`): una cadena cuyos centros son los de `transmision.rodillos_del_lazo`
 cae sobre las hileras de dos piñones colocados en ese marco.
@@ -38,7 +38,8 @@ from __future__ import annotations
 import math
 
 from build123d import (
-    Compound, Cylinder, Edge, Face, Pos, Rotation, SlotCenterToCenter, Vector, Wire, extrude,
+    Compound, Cylinder, Edge, Face, Kind, Pos, Rotation, SlotCenterToCenter, Vector, Wire,
+    extrude,
 )
 
 from apolo.kernel.shapes import make_revolution
@@ -265,6 +266,29 @@ def cadena_por_rodillos(centros, cerrada: bool, rodillo: float, perno: float, al
     if not hasattr(cuerpo, "volume") or len(cuerpo.solids()) != 1:
         raise RuntimeError("Cadena: las piezas no quedaron unidas en un solo sólido")
     return cuerpo
+
+
+def cadena_bandas(centros, alto_placa: float, capas: dict):
+    """Lazo CERRADO en detalle «simple»: las bandas que envuelven las placas de los eslabones,
+    una por cada lado de cada hilera de dientes (en dúplex, la del medio es una sola), sin
+    rodillos ni pernos. Cada banda = el polígono de los centros de rodillo desplazado ±alto/2
+    (esquinas en arco: el extremo en estadio de las placas) y extruido en el ancho que ocupan
+    las placas de ese lado. El hueco de los dientes (entre placas interiores) queda libre, así
+    que no cruza el piñón: por construcción, lo mismo que las placas del detalle «eslabones».
+    Devuelve un Compound de bandas (disjuntas)."""
+    planos = sorted(capas["interiores"] + capas["exteriores"])
+    lo, hi = planos[0][0], max(z1 for _z0, z1 in planos)
+    inter = sorted(capas["interiores"])
+    huecos = [(inter[i][1], inter[i + 1][0]) for i in range(0, len(inter), 2)]  # entre placas
+    tramos, z0 = [], lo
+    for h0, h1 in sorted(huecos):
+        tramos.append((z0, h0))
+        z0 = h1
+    tramos.append((z0, hi))
+    poligono = Wire.make_polygon([Vector(x, y, 0) for x, y in centros], close=True)
+    cara = Face(poligono.offset_2d(alto_placa / 2.0, kind=Kind.ARC),
+                [poligono.offset_2d(-alto_placa / 2.0, kind=Kind.ARC)])
+    return Compound([Pos(0, 0, a) * extrude(cara, amount=b - a) for a, b in tramos if b - a > 0])
 
 
 def roller_chain(paso: float, rodillo: float, ancho_interior: float, perno: float,

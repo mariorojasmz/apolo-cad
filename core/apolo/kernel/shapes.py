@@ -38,6 +38,20 @@ def place(shape, position: tuple[float, float, float], rotation: tuple[float, fl
     return Pos(px, py, pz) * Rotation(rx, ry, rz) * shape
 
 
+def place_matrix(shape, matrix) -> object:
+    """Coloca una forma construida en su marco local con una rígida 4x4 por filas
+    (`kernel.matrix`): la misma que guarda `Feature.matrix`, sin pasar por ángulos de Euler
+    (cerca de ±90° en Y pierden precisión). COMPARTE la geometría (misma TShape, sólo cambia
+    la ubicación): `Shape.moved` de build123d copia antes el BRep entero y lo descarta, ~30 ms
+    por cadena de 30 eslabones."""
+    from OCP.gp import gp_Trsf
+    from OCP.TopLoc import TopLoc_Location
+
+    trsf = gp_Trsf()
+    trsf.SetValues(*matrix[0], *matrix[1], *matrix[2])
+    return type(shape).cast(shape.wrapped.Moved(TopLoc_Location(trsf)))
+
+
 def is_surface(shape) -> bool:
     """True si el shape es geometría de SUPERFICIE: tiene caras pero CERO sólidos
     (Face/Shell, volumen 0). Una superficie es geometría de construcción/referencia —

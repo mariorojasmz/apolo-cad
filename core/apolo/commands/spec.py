@@ -3,7 +3,7 @@
 Antes el despacho vivía en `registry.py` como una cadena de 11 ramas elegidas por 8 flags
 `wants_*` (9 formas posicionales con `cmd_id` en la 2.ª, 3.ª o 4.ª posición y 2 keyword-only).
 La precedencia era implícita y una combinación de flags sin rama propia caía en silencio en la
-primera que coincidiera. Hoy hay UNA forma para los 53: `executor(ctx: ExecContext, cmd_id, p)`
+primera que coincidiera. Hoy hay UNA forma para los 54: `executor(ctx: ExecContext, cmd_id, p)`
 (lo exige `tests/test_despacho_unico.py`). Un executor que necesita más contexto lo lee de
 `ctx`; si no está, se agrega una propiedad a `ExecContext`, nunca un flag ni una rama.
 

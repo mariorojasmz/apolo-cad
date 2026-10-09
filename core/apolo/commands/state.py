@@ -80,7 +80,7 @@ class RegenState:
 class ExecContext:
     """Lo que un executor recibe además de `cmd_id` y sus params: `executor(ctx, cmd_id, p)`.
 
-    Una sola forma de llamada para los 53 executors (plan estado-regen, D3): antes la firma
+    Una sola forma de llamada para los 54 executors (plan estado-regen, D3): antes la firma
     la elegían 8 flags `wants_*` con 11 formas distintas. Los dicts son los VIVOS del estado
     (el executor los muta en sitio, como siempre); agregar contexto = una propiedad aquí, no
     un flag nuevo ni una rama en el despacho."""

@@ -24,6 +24,15 @@ def _base_name(name: str) -> str:
     return _INSTANCE_SUFFIX.sub("", name or "").strip()
 
 
+def _eslabones(comp, cut) -> str:
+    """« (30 eslabones)» en una cadena de rodillos cortada (lo que se pide en el mostrador:
+    plan cadenas-pinones D7); vacío en todo lo demás."""
+    paso = (comp.specs or {}).get("paso")
+    if not (comp.cuttable and cut and paso and "kg_m" in (comp.specs or {})):
+        return ""
+    return f" ({round(cut / paso)} eslabones)"
+
+
 def bom_from_scene(scene: dict, default_material: str = "acero",
                    by_group: bool = False) -> list[dict]:
     """BOM agrupado por referencia+corte (catálogo) o firma geométrica (a medida).
@@ -52,7 +61,8 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
                     angs = " ∠" + "/".join(f"{a:g}°" if a is not None else "0°" for a in mtr)
                 rows[key] = {
                     "ref": comp.ref,
-                    "descripcion": comp.name + (f" L={cut:g} mm" if cut else "") + angs,
+                    "descripcion": comp.name + (f" L={cut:g} mm" if cut else "")
+                    + _eslabones(comp, cut) + angs,
                     "categoria": comp.category,
                     "material": (comp.specs or {}).get("material", ""),
                     "norma": (comp.specs or {}).get("norma", ""),

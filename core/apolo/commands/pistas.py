@@ -73,6 +73,9 @@ PISTAS: dict[str, str] = {
     "create_drive_roller": (
         "Crea el rodillo motriz de una faja tipo trotadora, con eje largo para acoplar el motorreductor."
     ),
+    "create_chain": (
+        "Arma una cadena de rodillos entre dos piñones ya colocados, con eslabones pares y cada rodillo en su diente."
+    ),
     "create_weldment": (
         "Crea un bastidor soldado de perfiles con su lista de corte, con esquinas a tope o a inglete."
     ),
@@ -140,6 +143,7 @@ PISTAS: dict[str, str] = {
 #: Pista de campo, por «Modelo.campo», SÓLO donde un campo anula a otro o depende de otro
 #: (D5). Ninguna más: la pista en todos los campos está prohibida por ui/CLAUDE.md.
 PISTAS_CAMPO: dict[str, str] = {
+    "CreateChainParams.potencia_kw": "La capacidad sólo se verifica si también indicas las rpm del piñón motriz.",
     "DrillHoleParams.cara": "Elige la cara o el punto de entrada, no ambos.",
     "DrillHoleParams.thread": "Con rosca se taladra a la broca de machuelo; el diámetro no se usa.",
     "JoinBoltedParams.patron": "Si llenas el patrón de filas por columnas, reemplaza al número de pernos.",

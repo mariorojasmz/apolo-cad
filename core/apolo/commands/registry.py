@@ -77,6 +77,9 @@ from .models import (
     TransformParams,
 )
 from .models_rodillos import CreateDriveRollerParams, CreateTakeUpParams
+from .models_transmision import CreateChainParams
+from .exec_rodillos import _exec_create_drive_roller, _exec_create_take_up
+from .exec_transmision import _exec_create_chain
 from .errors import CommandError
 from .spec import CommandSpec, run_executor
 from .state import ExecContext, RegenState
@@ -1940,32 +1943,6 @@ def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConve
     _publish_axis_anchor(ctx.scene, f"{cmd_id}_tambor_cola", "eje_cola")
 
 
-def _exec_create_take_up(ctx: ExecContext, cmd_id: str, p: CreateTakeUpParams) -> None:
-    from apolo.library.take_up import take_up_parts
-
-    try:
-        parts = take_up_parts(
-            p.diam_rodillo, p.ancho_banda, p.rodamiento, p.perno, p.espesor_soporte,
-            p.voladizo, p.engomado, p.dir_tensor, eje_fit=p.eje_fit, coronado_mm=p.coronado_mm,
-        )
-    except (ValueError, KeyError) as exc:
-        raise CommandError(f"Tensor de cola: {exc}") from exc
-    _emit_weldment_parts(ctx.scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
-
-
-def _exec_create_drive_roller(ctx: ExecContext, cmd_id: str, p: CreateDriveRollerParams) -> None:
-    from apolo.library.take_up import drive_roller_parts
-
-    try:
-        parts = drive_roller_parts(
-            p.diam_rodillo, p.ancho_banda, p.rodamiento, p.perno, p.espesor_soporte,
-            p.voladizo, p.largo_eje_motor, p.engomado, p.dir_tensor,
-        )
-    except (ValueError, KeyError) as exc:
-        raise CommandError(f"Rodillo motriz: {exc}") from exc
-    _emit_weldment_parts(ctx.scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
-
-
 def _emit_weldment_parts(scene: Scene, cmd_id: str, name: str, parts, position, rotation) -> None:
     """Vuelca las piezas de un super-comando tipo bastidor (weldment/esqueleto) en la
     escena, aplicando la transformación del comando y reusando instancias compartidas."""
@@ -2074,6 +2051,7 @@ REGISTRY: dict[str, CommandSpec] = {
             "create_drive_roller", "Rodillo motriz (trotadora)", "biblioteca", CreateDriveRollerParams,
             _exec_create_drive_roller,
         ),
+        CommandSpec("create_chain", "Cadena", "biblioteca", CreateChainParams, _exec_create_chain),
         CommandSpec(
             "create_weldment", "Bastidor", "biblioteca", CreateWeldmentParams, _exec_create_weldment
         ),
