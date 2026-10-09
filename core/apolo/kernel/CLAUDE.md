@@ -9,6 +9,11 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
 - `render_vtk.py` es el motor (sombreado suave, aristas de feature, depth-peeling para
   xray/vidrio); `render.py` (matplotlib) es el respaldo sin OpenGL y el de multivista, GIFs e iso
   de planos. `resolve_angles` es la fuente ÚNICA de cámara para los dos.
+- El ASPECTO del render (fondo, material, aristas, luces, cámara, teselado en caché) vive en
+  `render_comun.py`: lo comparten `render_vtk` (foto) y `render_vivo` (ventana persistente del
+  video, ~6 ms/fotograma: actores por id + `is` del shape, colores y cámara fijados con la escena
+  FINAL); un cambio de look va ahí o las dos imágenes divergen.
+  [publicacion-tienda](../../../docs/plans/publicacion-tienda.md)
 - Dos mitades que no se mezclan: `extract_render_scene` (OCCT → datos puros, bajo `STATE_LOCK`)
   y `render_snapshot_vtk` (VTK sobre arrays, bajo `RENDER_LOCK`). `render_scene_vtk` toma
   `RENDER_LOCK` sosteniendo `STATE_LOCK` (orden inverso): sólo tests, nunca producción.

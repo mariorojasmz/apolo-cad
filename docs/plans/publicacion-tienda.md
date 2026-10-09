@@ -319,6 +319,32 @@ ventana viva cuesta ~80 veces menos, muy por debajo del umbral de 0,15 s, así q
 puede arrancar antes que la máquina piloto. Los pasos 2 y 5 de la F0 (replay por prefijos e
 inventario del `.apolo`) siguen esperando al piloto.
 
+### F2 (2026-10-08): render vivo — en `main` (`660bc73`)
+
+- Implementó un subagente en un worktree. La sesión principal re-corrió pytest (2235 passed,
+  5 skipped, 18 deselected, 4:17) y ruff (verde) y mergeó `--ff-only`.
+- `kernel/render_comun.py` (237 líneas) concentra lo compartido: teselado en caché
+  (`_RENDER_MESH_CACHE` se mudó aquí), vidrio, paleta, actores, fondo, luces y cámara
+  (`poner_camara`, antes `_setup_camera`). `render_vtk.py` baja de 537 a 392 líneas y sale del
+  trinquete. `kernel/render_vivo.py` (356) trae `EscenaViva`; los tests nuevos son 26.
+- La extracción no cambió nada: la diferencia máxima de píxel es 0 en 7 casos de
+  `render_scene_vtk` (iso, sin aristas, ángulo libre con roll y pan, xray, rótulos + ejes + bbox,
+  cota, opaco con MSAA). Un fotograma vivo es idéntico a la foto de `render_vtk`.
+- Medido (37 sólidos, 1920×1080):
+  - teselado en frío: 0,68 s;
+  - armar los actores: 0,07 s;
+  - órbita: **5,8 ms por fotograma** (7,1 con resaltado);
+  - `actualizar` sumando una pieza: 5,5 ms.
+- **D5 se corrigió en tres puntos:**
+  - El prototipo de la F0 renderizaba dos veces por fotograma, porque
+    `vtkWindowToImageFilter` re-renderiza por defecto.
+  - El depth peeling se prende sólo mientras hay algo translúcido; VTK 9.3 cambia de MSAA a
+    peeling en una ventana viva sin diferencia contra una ventana nueva.
+  - El rango de recorte se recalcula en cada fotograma sin mover la cámara: una herramienta de
+    booleana fuera del bbox final no se corta.
+- El resaltado mezcla hacia un amarillo claro y sube el `ambient`. Se evitó el rojo, que en la UI
+  significa error.
+
 ### F3 (2026-10-08): composición y codificación — en `main` (`9199fa9`)
 
 - Implementó un subagente en un worktree. La sesión principal revisó el diff contra D6–D8,
