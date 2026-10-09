@@ -1,0 +1,239 @@
+category: maniobra_control
+# Maniobra y control de la faja piloto (plan V8.1 D6): contactores, bloque auxiliar, relés de
+# interfaz y PLC compacto. Convenciones del catálogo eléctrico: ver la cabecera de
+# 120_alimentacion_electrica.yaml.
+#  - Contactores: Ie en AC-3 (≤ 440 V) y potencia de motor AC-3 a 220-240 V del orden de TeSys D
+#    LC1D09/12/18 (sufijo BD = bobina 24 VDC, M7 = 220 VAC). Polos 1-2/3-4/5-6 NA, auxiliares
+#    13-14 NA y 21-22 NC, bobina A1-A2. Tiempos de cierre/apertura: orden de magnitud de la
+#    ficha (los usa la simulación de V8.3), verificar.
+#  - PLC: E/S del orden de un Siemens S7-1200 CPU 1214C DC/DC/DC: entradas tipo sumidero (un
+#    sensor PNP entra con 1M a 0 V), salidas de transistor tipo fuente alimentadas por 3L+/3M,
+#    analógicas 0-10 V con 2M. La fuente de 24 V para sensores del propio PLC no se modela:
+#    los sensores se alimentan de la fuente del tablero.
+_contactor_bornes: &contactor_bornes
+  - {id: "1", rol: potencia, lado: linea}
+  - {id: "2", rol: potencia, lado: carga}
+  - {id: "3", rol: potencia, lado: linea}
+  - {id: "4", rol: potencia, lado: carga}
+  - {id: "5", rol: potencia, lado: linea}
+  - {id: "6", rol: potencia, lado: carga}
+  - {id: A1, rol: bobina}
+  - {id: A2, rol: bobina}
+  - {id: "13", rol: contacto}
+  - {id: "14", rol: contacto}
+  - {id: "21", rol: contacto}
+  - {id: "22", rol: contacto}
+_contactor_caminos: &contactor_caminos
+  - {de: "1", a: "2", tipo: NA, accion: bobina}
+  - {de: "3", a: "4", tipo: NA, accion: bobina}
+  - {de: "5", a: "6", tipo: NA, accion: bobina}
+  - {de: "13", a: "14", tipo: NA, accion: bobina}
+  - {de: "21", a: "22", tipo: NC, accion: bobina}
+components:
+  # ── contactores ─────────────────────────────────────────────────────────────────────────
+  - ref: CONT-9A-24VDC
+    name: Contactor 9 A AC-3 bobina 24 VDC
+    description: Contactor tripolar 9 A en AC-3 (2,2 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC para mando desde PLC o fuente de 24 V. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 93, height: 77}
+    weight: 0.42
+    specs: {Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, bobina: "24 VDC", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D09BD / Siemens SIRIUS 3RT2016", cotas_verificadas: false, cost: 40}
+    electrico: &contactor_dc
+      funcion: Q
+      simbolo: contactor_3p
+      montaje: din
+      perdidas_W: 3
+      bornes: *contactor_bornes
+      caminos: *contactor_caminos
+      cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina}]
+      modelo: {Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
+  - ref: CONT-9A-220VAC
+    name: Contactor 9 A AC-3 bobina 220 VAC
+    description: Contactor tripolar 9 A en AC-3 (2,2 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz para mando a 220 V entre fases. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 86, height: 77}
+    weight: 0.32
+    specs: {Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, bobina: "220 VAC 60 Hz", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D09M7 / Siemens SIRIUS 3RT2016", cotas_verificadas: false, cost: 25}
+    electrico: &contactor_ac
+      funcion: Q
+      simbolo: contactor_3p
+      montaje: din
+      perdidas_W: 2.5
+      bornes: *contactor_bornes
+      caminos: *contactor_caminos
+      cargas: [{bornes: [A1, A2], tension: "220 VAC 60 Hz", tipo: bobina}]
+      modelo: {Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
+  - ref: CONT-12A-24VDC
+    name: Contactor 12 A AC-3 bobina 24 VDC
+    description: Contactor tripolar 12 A en AC-3 (3 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 93, height: 77}
+    weight: 0.42
+    specs: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina: "24 VDC", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D12BD / Siemens SIRIUS 3RT2017", cotas_verificadas: false, cost: 45}
+    electrico:
+      <<: *contactor_dc
+      modelo: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
+  - ref: CONT-12A-220VAC
+    name: Contactor 12 A AC-3 bobina 220 VAC
+    description: Contactor tripolar 12 A en AC-3 (3 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 86, height: 77}
+    weight: 0.32
+    specs: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina: "220 VAC 60 Hz", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D12M7 / Siemens SIRIUS 3RT2017", cotas_verificadas: false, cost: 30}
+    electrico:
+      <<: *contactor_ac
+      modelo: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
+  - ref: CONT-18A-24VDC
+    name: Contactor 18 A AC-3 bobina 24 VDC
+    description: Contactor tripolar 18 A en AC-3 (4 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 93, height: 77}
+    weight: 0.42
+    specs: {Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, bobina: "24 VDC", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D18BD / Siemens SIRIUS 3RT2018", cotas_verificadas: false, cost: 55}
+    electrico:
+      <<: *contactor_dc
+      perdidas_W: 3.5
+      modelo: {Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
+  - ref: CONT-18A-220VAC
+    name: Contactor 18 A AC-3 bobina 220 VAC
+    description: Contactor tripolar 18 A en AC-3 (4 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 86, height: 77}
+    weight: 0.32
+    specs: {Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, bobina: "220 VAC 60 Hz", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D18M7 / Siemens SIRIUS 3RT2018", cotas_verificadas: false, cost: 40}
+    electrico:
+      <<: *contactor_ac
+      perdidas_W: 3
+      modelo: {Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
+  - ref: CONT-AUX-1NA1NC
+    name: Bloque auxiliar 1NA+1NC de contactor
+    description: Bloque de contactos auxiliares frontal 1NA (53-54) + 1NC (61-62) para contactor. Se designa aparte (p. ej. -Q3A) y sus contactos se mueven con la bobina del contactor sobre el que va. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 40, height: 40}
+    weight: 0.05
+    specs: {contactos: "1NA+1NC", linea_referencia: "orden de Schneider TeSys LADN11 / Siemens SIRIUS 3RH2911", cotas_verificadas: false, cost: 10}
+    electrico:
+      funcion: Q
+      simbolo: contactos_aux
+      montaje: din
+      bornes:
+        - {id: "53", rol: contacto}
+        - {id: "54", rol: contacto}
+        - {id: "61", rol: contacto}
+        - {id: "62", rol: contacto}
+      caminos:
+        - {de: "53", a: "54", tipo: NA, accion: acople}
+        - {de: "61", a: "62", tipo: NC, accion: acople}
+  # ── relés de interfaz ───────────────────────────────────────────────────────────────────
+  - ref: RELE-INT-24VDC
+    name: Relé de interfaz 1 conmutado 24 VDC
+    description: Relé de interfaz enchufable de 6,2 mm, bobina 24 VDC (A1 +), 1 contacto conmutado 6 A 250 VAC (11 común, 12 NC, 14 NA), para separar una salida del PLC de una carga a 220 V. Verificar con el proveedor.
+    builder: box
+    params: {width: 6.2, depth: 80, height: 90}
+    weight: 0.035
+    specs: {bobina: "24 VDC", contacto: "1 conmutado 6 A 250 VAC", ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact PLC-RSC-24DC/21 / Finder 38.51", cotas_verificadas: false, cost: 15}
+    electrico: &rele_int
+      funcion: K
+      simbolo: rele_1c
+      montaje: din
+      perdidas_W: 0.5
+      bornes:
+        - {id: A1, rol: bobina}
+        - {id: A2, rol: bobina}
+        - {id: "11", rol: contacto}
+        - {id: "12", rol: contacto}
+        - {id: "14", rol: contacto}
+      caminos:
+        - {de: "11", a: "14", tipo: NA, accion: bobina}
+        - {de: "11", a: "12", tipo: NC, accion: bobina}
+      cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina, polar: true}]
+      modelo: {contacto_A: 6, contacto_V: 250}
+  - ref: RELE-INT-230V
+    name: Relé de interfaz 1 conmutado 230 V AC/DC
+    description: Relé de interfaz enchufable de 6,2 mm, bobina 230 V AC/DC (admite los 220 VAC de Lima), 1 contacto conmutado 6 A 250 VAC (11 común, 12 NC, 14 NA). Verificar con el proveedor.
+    builder: box
+    params: {width: 6.2, depth: 80, height: 90}
+    weight: 0.035
+    specs: {bobina: "230 V AC/DC", contacto: "1 conmutado 6 A 250 VAC", ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact PLC-RSC-230UC/21 / Finder 38.51", cotas_verificadas: false, cost: 16}
+    electrico:
+      <<: *rele_int
+      perdidas_W: 0.8
+      cargas: [{bornes: [A1, A2], tension: "230 VAC/DC", tipo: bobina}]
+  # ── PLC compacto ────────────────────────────────────────────────────────────────────────
+  - ref: PLC-14DI-10DO-24VDC
+    name: PLC compacto 14 DI / 10 DO / 2 AI 24 VDC
+    description: Controlador lógico programable compacto alimentado a 24 VDC con 14 entradas digitales (I0.0-I1.5, tipo sumidero, para sensores PNP), 10 salidas de transistor (Q0.0-Q1.1, 0,5 A) y 2 entradas analógicas 0-10 V. Verificar con el proveedor.
+    builder: box
+    params: {width: 110, depth: 75, height: 100}
+    weight: 0.42
+    specs: {DI: 14, DO: 10, AI: 2, alimentacion: "24 VDC", salidas: "transistor 0,5 A", linea_referencia: "orden de Siemens S7-1200 CPU 1214C DC/DC/DC (6ES7214-1AG40-0XB0)", cotas_verificadas: false, cost: 420}
+    electrico:
+      funcion: K
+      simbolo: plc
+      montaje: din
+      perdidas_W: 12
+      bornes:
+        - {id: L+, rol: mando}
+        - {id: M, rol: mando}
+        - {id: PE, rol: tierra}
+        - {id: 1M, rol: señal}
+        - {id: I0.0, rol: señal}
+        - {id: I0.1, rol: señal}
+        - {id: I0.2, rol: señal}
+        - {id: I0.3, rol: señal}
+        - {id: I0.4, rol: señal}
+        - {id: I0.5, rol: señal}
+        - {id: I0.6, rol: señal}
+        - {id: I0.7, rol: señal}
+        - {id: I1.0, rol: señal}
+        - {id: I1.1, rol: señal}
+        - {id: I1.2, rol: señal}
+        - {id: I1.3, rol: señal}
+        - {id: I1.4, rol: señal}
+        - {id: I1.5, rol: señal}
+        - {id: 3L+, rol: mando}
+        - {id: 3M, rol: mando}
+        - {id: Q0.0, rol: señal}
+        - {id: Q0.1, rol: señal}
+        - {id: Q0.2, rol: señal}
+        - {id: Q0.3, rol: señal}
+        - {id: Q0.4, rol: señal}
+        - {id: Q0.5, rol: señal}
+        - {id: Q0.6, rol: señal}
+        - {id: Q0.7, rol: señal}
+        - {id: Q1.0, rol: señal}
+        - {id: Q1.1, rol: señal}
+        - {id: 2M, rol: señal}
+        - {id: AI0, rol: señal}
+        - {id: AI1, rol: señal}
+      caminos:
+        - {de: 3L+, a: Q0.0, tipo: NA, accion: señal, grupo: Q0.0}
+        - {de: 3L+, a: Q0.1, tipo: NA, accion: señal, grupo: Q0.1}
+        - {de: 3L+, a: Q0.2, tipo: NA, accion: señal, grupo: Q0.2}
+        - {de: 3L+, a: Q0.3, tipo: NA, accion: señal, grupo: Q0.3}
+        - {de: 3L+, a: Q0.4, tipo: NA, accion: señal, grupo: Q0.4}
+        - {de: 3L+, a: Q0.5, tipo: NA, accion: señal, grupo: Q0.5}
+        - {de: 3L+, a: Q0.6, tipo: NA, accion: señal, grupo: Q0.6}
+        - {de: 3L+, a: Q0.7, tipo: NA, accion: señal, grupo: Q0.7}
+        - {de: 3L+, a: Q1.0, tipo: NA, accion: señal, grupo: Q1.0}
+        - {de: 3L+, a: Q1.1, tipo: NA, accion: señal, grupo: Q1.1}
+      cargas:
+        - {bornes: [L+, M], tension: "24 VDC", tipo: alimentacion, polar: true}
+        - {bornes: [3L+, 3M], tension: "24 VDC", tipo: alimentacion, obligatoria: false, polar: true}
+        - {bornes: [I0.0, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I0.1, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I0.2, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I0.3, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I0.4, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I0.5, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I0.6, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I0.7, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I1.0, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I1.1, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I1.2, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I1.3, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I1.4, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [I1.5, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [AI0, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
+        - {bornes: [AI1, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
+      modelo: {DI: 14, DO: 10, AI: 2, DI_tipo: "sumidero, IEC 61131-2 tipo 1", DO_tipo: "transistor fuente (PNP)", DO_A: 0.5, AI_V: [0, 10]}

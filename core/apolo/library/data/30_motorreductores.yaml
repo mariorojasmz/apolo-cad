@@ -3,6 +3,18 @@ category: motorreductores
 # (motor_d, motor_len) usa dimensiones aprox del frame IEC real (TEFC): 037->IEC71,
 # 075->IEC80, 150->IEC90. box_size = tamaño representativo del reductor.
 # cost = USD REFERENCIAL (mercado aprox.; actualizar con proveedor para cotizar en firme).
+#
+# ELÉCTRICO (plan V8.1 D5/D6): bornes de la caja del motor según IEC 60034-8 (U1 V1 W1; el
+# puente triángulo/estrella va dentro de la caja) + PE. La carga sigue la `tension` de specs.
+# PLACA (`electrico.modelo`): valores TÍPICOS de un motor IEC de 4 polos a 60 Hz (η y cosφ del
+# orden de IE1/IE2), con In = P/(√3·U·η·cosφ) a la tensión `U_V` en la `conexion` indicada.
+# No son la placa de un modelo concreto: verificar con la placa del proveedor. El bloque no
+# toca la geometría (sin bump de GEOM_CACHE_EPOCH).
+_bornes_motor: &bornes_motor
+  - {id: U1, rol: potencia}
+  - {id: V1, rol: potencia}
+  - {id: W1, rol: potencia}
+  - {id: PE, rol: tierra}
 components:
   - ref: MOTOR-037
     name: Motorreductor 0.37 kW
@@ -11,6 +23,13 @@ components:
     params: {box_size: 120, motor_d: 140, motor_len: 245}
     weight: 11.0
     specs: {potencia_kW: 0.37, rpm_salida: 50, torque_Nm: 70, tension: "230/400V", frame_IEC: 71, cost: 380}
+    electrico:
+      funcion: M
+      simbolo: motor_3f
+      montaje: campo
+      bornes: *bornes_motor
+      cargas: [{bornes: [U1, V1, W1], tension: "230/400 VAC 3F", tipo: motor}]
+      modelo: {P_kW: 0.37, U_V: 230, conexion: triangulo, In_A: 1.84, cos_phi: 0.72, eta: 0.70, Ia_In: 4.5, Ta_Tn: 2.2, Tk_Tn: 2.3, polos: 4, f_Hz: 60, n_rpm: 1660}
   - ref: MOTOR-075
     name: Motorreductor 0.75 kW
     description: Motorreductor de engranajes helicoidales 0.75 kW, salida 60 rpm, motor IEC 80.
@@ -18,6 +37,13 @@ components:
     params: {box_size: 140, motor_d: 160, motor_len: 275}
     weight: 16.0
     specs: {potencia_kW: 0.75, rpm_salida: 60, torque_Nm: 120, tension: "230/400V", frame_IEC: 80, cost: 520}
+    electrico:
+      funcion: M
+      simbolo: motor_3f
+      montaje: campo
+      bornes: *bornes_motor
+      cargas: [{bornes: [U1, V1, W1], tension: "230/400 VAC 3F", tipo: motor}]
+      modelo: {P_kW: 0.75, U_V: 230, conexion: triangulo, In_A: 3.18, cos_phi: 0.76, eta: 0.78, Ia_In: 5.5, Ta_Tn: 2.4, Tk_Tn: 2.6, polos: 4, f_Hz: 60, n_rpm: 1700}
   - ref: MOTOR-150
     name: Motorreductor 1.5 kW
     description: Motorreductor de engranajes helicoidales 1.5 kW, salida 70 rpm, motor IEC 90.
@@ -25,6 +51,13 @@ components:
     params: {box_size: 160, motor_d: 175, motor_len: 305}
     weight: 24.0
     specs: {potencia_kW: 1.5, rpm_salida: 70, torque_Nm: 205, tension: "400V", frame_IEC: 90, cost: 690}
+    electrico:
+      funcion: M
+      simbolo: motor_3f
+      montaje: campo
+      bornes: *bornes_motor
+      cargas: [{bornes: [U1, V1, W1], tension: "400 VAC 3F", tipo: motor}]
+      modelo: {P_kW: 1.5, U_V: 400, conexion: estrella, In_A: 3.26, cos_phi: 0.80, eta: 0.83, Ia_In: 6.0, Ta_Tn: 2.4, Tk_Tn: 2.7, polos: 4, f_Hz: 60, n_rpm: 1720}
   - ref: MOTOR-150-EH
     name: Motorreductor 1.5 kW eje hueco
     description: Motorreductor helicoidal 1.5 kW (2 HP) de EJE HUECO para montaje directo sobre el eje del tambor motriz; salida ~188 rpm para faja de banda con variador; motor IEC 90.
@@ -32,3 +65,10 @@ components:
     params: {box_size: 160, motor_d: 175, motor_len: 305, shaft_d: 30, shaft_len: 110}
     weight: 25.0
     specs: {potencia_kW: 1.5, potencia_HP: 2, rpm_salida: 188, torque_Nm: 65, tension: "220/380V", tipo: "eje hueco / shaft-mount", frame_IEC: 90, cost: 750}
+    electrico:
+      funcion: M
+      simbolo: motor_3f
+      montaje: campo
+      bornes: *bornes_motor
+      cargas: [{bornes: [U1, V1, W1], tension: "220/380 VAC 3F", tipo: motor}]
+      modelo: {P_kW: 1.5, U_V: 220, conexion: triangulo, In_A: 5.93, cos_phi: 0.80, eta: 0.83, Ia_In: 6.0, Ta_Tn: 2.4, Tk_Tn: 2.7, polos: 4, f_Hz: 60, n_rpm: 1720}

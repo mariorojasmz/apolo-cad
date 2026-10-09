@@ -1,4 +1,7 @@
 category: sensores
+# ELÉCTRICO (plan V8.1 D5): sensor de 3 hilos BN (+), BU (-), BK (salida) (IEC 60947-5-2); la
+# salida se modela NA (la ref admite NA/NC: para NC, el camino BN-BK pasa a NC). El bloque no
+# toca la geometría (sin bump de GEOM_CACHE_EPOCH).
 components:
   - ref: FOTO-M18
     name: Fotocélula M18
@@ -7,3 +10,15 @@ components:
     params: {}
     weight: 0.08
     specs: {rosca: M18, alcance_mm: 400, salida: PNP, tension: "10-30 VDC"}
+    electrico:
+      funcion: B
+      simbolo: sensor_pnp_na
+      montaje: campo
+      perdidas_W: 0.5
+      bornes:
+        - {id: BN, rol: señal}
+        - {id: BU, rol: señal}
+        - {id: BK, rol: señal}
+      caminos: [{de: BN, a: BK, tipo: NA, accion: señal}]
+      cargas: [{bornes: [BN, BU], tension: "10-30 VDC", tipo: alimentacion, polar: true}]
+      modelo: {salida: PNP, contacto: NA, alcance_mm: 400}

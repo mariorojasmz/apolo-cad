@@ -1,4 +1,14 @@
 category: tableros
+# ELÉCTRICO (plan V8.1 D5): un gabinete metálico tiene su borne de tierra (PE): la regla
+# «puesta a tierra» del ERC exige unirlo a la red PE. El bloque no toca la geometría de las refs
+# que ya existían (sin bump de GEOM_CACHE_EPOCH). Los gabinetes GAB-* son del catálogo eléctrico
+# de la faja piloto (D6): convenciones en la cabecera de 120_alimentacion_electrica.yaml; cotas
+# alto × ancho × fondo.
+_gabinete: &gabinete
+  funcion: U
+  simbolo: gabinete
+  montaje: campo
+  bornes: [{id: PE, rol: tierra}]
 components:
   - ref: TABLERO-5040
     name: Tablero de control 500x400x200
@@ -7,3 +17,20 @@ components:
     params: {width: 500, depth: 200, height: 400}
     weight: 12.0
     specs: {ancho_mm: 500, alto_mm: 400, fondo_mm: 200, proteccion: IP54, material: "acero pintado"}
+    electrico: *gabinete
+  - ref: GAB-6040
+    name: Gabinete 600x400x200
+    description: Gabinete metálico de pared IP66, 600 de alto x 400 de ancho x 200 de fondo (mm), con placa de montaje galvanizada; para el tablero de una faja con variador o arranque directo. Verificar con el proveedor.
+    builder: box
+    params: {width: 400, depth: 200, height: 600}
+    weight: 16.0
+    specs: {alto_mm: 600, ancho_mm: 400, fondo_mm: 200, proteccion: IP66, material: "acero pintado", placa_montaje: true, linea_referencia: "orden de Schneider Spacial S3D (600x400x200) / Rittal AX", cotas_verificadas: false, cost: 180}
+    electrico: *gabinete
+  - ref: GAB-8060
+    name: Gabinete 800x600x250
+    description: Gabinete metálico de pared IP66, 800 de alto x 600 de ancho x 250 de fondo (mm), con placa de montaje galvanizada; para el tablero con PLC, variador y reserva. Verificar con el proveedor.
+    builder: box
+    params: {width: 600, depth: 250, height: 800}
+    weight: 28.0
+    specs: {alto_mm: 800, ancho_mm: 600, fondo_mm: 250, proteccion: IP66, material: "acero pintado", placa_montaje: true, linea_referencia: "orden de Schneider Spacial S3D (800x600x250) / Rittal AX", cotas_verificadas: false, cost: 290}
+    electrico: *gabinete

@@ -55,7 +55,8 @@ def _specs(ref: str) -> dict:
 # ------------------------------------------------------------------ carga del catálogo
 def test_las_24_refs_cargan_en_su_categoria():
     assert sorted(refs_in_category("garruchas")) == sorted(TODAS)
-    assert CATEGORIES[-1] == "garruchas"  # al final: no reordena la UI ni el enum
+    # agregada al final en su momento: no reordenó la UI ni el enum (las eléctricas de V8.1 van después)
+    assert CATEGORIES[CATEGORIES.index("motorreductores_sinfin") + 1] == "garruchas"
     for ref in TODAS:
         comp = CATALOG[ref]
         assert comp.category == "garruchas"

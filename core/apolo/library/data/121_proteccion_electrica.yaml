@@ -1,0 +1,284 @@
+category: proteccion_electrica
+# Seccionamiento y protección de la faja piloto (plan V8.1 D6). Convenciones del catálogo
+# eléctrico: ver la cabecera de 120_alimentacion_electrica.yaml.
+#  - ITM = interruptor termomagnético (así se pide en Perú); curva C = disparo magnético entre
+#    5 y 10 In (IEC 60898-1). En la red de 220 V SIN neutro de Lima, un circuito de mando entre
+#    dos fases se protege con un ITM de 2 polos (los dos son fases); el 1P+N es para redes con
+#    neutro (su polo N se maniobra pero no se protege).
+#  - Guardamotor = interruptor automático de motor de clase 10 (térmico regulable + magnético);
+#    rangos del orden de TeSys GV2ME06/07/08/10/14, Ii ≈ 13 × Ir máx. Protege al motor:
+#    `protege_motor: true` (regla «protección del motor» del ERC).
+_polos_3p: &polos_3p
+  - {id: "1", rol: potencia, lado: linea}
+  - {id: "2", rol: potencia, lado: carga}
+  - {id: "3", rol: potencia, lado: linea}
+  - {id: "4", rol: potencia, lado: carga}
+  - {id: "5", rol: potencia, lado: linea}
+  - {id: "6", rol: potencia, lado: carga}
+_proteccion_3p: &proteccion_3p
+  - {de: "1", a: "2", tipo: proteccion}
+  - {de: "3", a: "4", tipo: proteccion}
+  - {de: "5", a: "6", tipo: proteccion}
+components:
+  # ── seccionador general (IEC 60204-1 §5.3) ─────────────────────────────────────────────
+  - ref: SECC-25A-3P
+    name: Seccionador rotativo 3P 25 A
+    description: Interruptor-seccionador rotativo de 3 polos 25 A con manija roja sobre fondo amarillo bloqueable con candado, para el seccionamiento general del tablero. Verificar con el proveedor.
+    builder: box
+    params: {width: 60, depth: 80, height: 75}
+    weight: 0.25
+    specs: {Ith_A: 25, polos: 3, candado: true, linea_referencia: "orden de Schneider TeSys Vario VCF02 / Siemens 3LD2 / ABB OT25", cotas_verificadas: false, cost: 45}
+    electrico: &seccionador
+      funcion: Q
+      simbolo: seccionador_3p
+      montaje: puerta
+      perdidas_W: 1.5
+      bornes: *polos_3p
+      caminos:
+        - {de: "1", a: "2", tipo: NA, accion: mano}
+        - {de: "3", a: "4", tipo: NA, accion: mano}
+        - {de: "5", a: "6", tipo: NA, accion: mano}
+      modelo: {Ith_A: 25, polos: 3}
+  - ref: SECC-40A-3P
+    name: Seccionador rotativo 3P 40 A
+    description: Interruptor-seccionador rotativo de 3 polos 40 A con manija roja sobre fondo amarillo bloqueable con candado, para el seccionamiento general del tablero. Verificar con el proveedor.
+    builder: box
+    params: {width: 60, depth: 85, height: 75}
+    weight: 0.3
+    specs: {Ith_A: 40, polos: 3, candado: true, linea_referencia: "orden de Schneider TeSys Vario VCF1 / Siemens 3LD2 / ABB OT40", cotas_verificadas: false, cost: 60}
+    electrico:
+      <<: *seccionador
+      perdidas_W: 3
+      modelo: {Ith_A: 40, polos: 3}
+  # ── ITM curva C ─────────────────────────────────────────────────────────────────────────
+  - ref: ITM-C6-3P
+    name: ITM 3P C6
+    description: Interruptor termomagnético (ITM) de 3 polos, curva C, 6 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
+    builder: box
+    params: {width: 54, depth: 75, height: 90}
+    weight: 0.37
+    specs: {In_A: 6, curva: C, polos: 3, Icn_kA: 6, modulos_DIN: 3, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 30}
+    electrico: &itm_3p
+      funcion: F
+      simbolo: itm_3p
+      montaje: din
+      perdidas_W: 4.5
+      bornes: *polos_3p
+      caminos: *proteccion_3p
+      modelo: {In_A: 6, curva: C, Icn_kA: 6, polos: 3}
+  - ref: ITM-C10-3P
+    name: ITM 3P C10
+    description: Interruptor termomagnético (ITM) de 3 polos, curva C, 10 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
+    builder: box
+    params: {width: 54, depth: 75, height: 90}
+    weight: 0.37
+    specs: {In_A: 10, curva: C, polos: 3, Icn_kA: 6, modulos_DIN: 3, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 30}
+    electrico:
+      <<: *itm_3p
+      perdidas_W: 6
+      modelo: {In_A: 10, curva: C, Icn_kA: 6, polos: 3}
+  - ref: ITM-C16-3P
+    name: ITM 3P C16
+    description: Interruptor termomagnético (ITM) de 3 polos, curva C, 16 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
+    builder: box
+    params: {width: 54, depth: 75, height: 90}
+    weight: 0.37
+    specs: {In_A: 16, curva: C, polos: 3, Icn_kA: 6, modulos_DIN: 3, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 32}
+    electrico:
+      <<: *itm_3p
+      perdidas_W: 7.5
+      modelo: {In_A: 16, curva: C, Icn_kA: 6, polos: 3}
+  - ref: ITM-C20-3P
+    name: ITM 3P C20
+    description: Interruptor termomagnético (ITM) de 3 polos, curva C, 20 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
+    builder: box
+    params: {width: 54, depth: 75, height: 90}
+    weight: 0.37
+    specs: {In_A: 20, curva: C, polos: 3, Icn_kA: 6, modulos_DIN: 3, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 34}
+    electrico:
+      <<: *itm_3p
+      perdidas_W: 9
+      modelo: {In_A: 20, curva: C, Icn_kA: 6, polos: 3}
+  - ref: ITM-C2-2P
+    name: ITM 2P C2
+    description: Interruptor termomagnético (ITM) de 2 polos, curva C, 2 A, 6 kA (IEC 60898-1), para el mando a 220 V entre dos fases en la red sin neutro (p. ej. la entrada de la fuente de 24 VDC). Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 75, height: 90}
+    weight: 0.25
+    specs: {In_A: 2, curva: C, polos: 2, Icn_kA: 6, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 22}
+    electrico: &itm_2p
+      funcion: F
+      simbolo: itm_2p
+      montaje: din
+      perdidas_W: 2
+      bornes:
+        - {id: "1", rol: potencia, lado: linea}
+        - {id: "2", rol: potencia, lado: carga}
+        - {id: "3", rol: potencia, lado: linea}
+        - {id: "4", rol: potencia, lado: carga}
+      caminos:
+        - {de: "1", a: "2", tipo: proteccion}
+        - {de: "3", a: "4", tipo: proteccion}
+      modelo: {In_A: 2, curva: C, Icn_kA: 6, polos: 2}
+  - ref: ITM-C6-2P
+    name: ITM 2P C6
+    description: Interruptor termomagnético (ITM) de 2 polos, curva C, 6 A, 6 kA (IEC 60898-1), para circuitos a 220 V entre dos fases en la red sin neutro. Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 75, height: 90}
+    weight: 0.25
+    specs: {In_A: 6, curva: C, polos: 2, Icn_kA: 6, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iC60N / Siemens 5SL6", cotas_verificadas: false, cost: 22}
+    electrico:
+      <<: *itm_2p
+      perdidas_W: 3
+      modelo: {In_A: 6, curva: C, Icn_kA: 6, polos: 2}
+  - ref: ITM-C2-1PN
+    name: ITM 1P+N C2
+    description: Interruptor termomagnético (ITM) 1P+N, curva C, 2 A, 6 kA (IEC 60898-1), para circuitos fase-neutro de una red CON neutro (380/220 V); el polo N se maniobra pero no se protege. Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 75, height: 90}
+    weight: 0.22
+    specs: {In_A: 2, curva: C, polos: "1P+N", Icn_kA: 6, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iC60N 1P+N / Siemens 5SL6 1P+N", cotas_verificadas: false, cost: 20}
+    electrico: &itm_1pn
+      funcion: F
+      simbolo: itm_1p_n
+      montaje: din
+      perdidas_W: 1.5
+      bornes:
+        - {id: "1", rol: potencia, lado: linea}
+        - {id: "2", rol: potencia, lado: carga}
+        - {id: N1, rol: potencia, lado: linea}
+        - {id: N2, rol: potencia, lado: carga}
+      caminos:
+        - {de: "1", a: "2", tipo: proteccion}
+        - {de: N1, a: N2, tipo: NA, accion: mano}
+      modelo: {In_A: 2, curva: C, Icn_kA: 6, polos: "1P+N"}
+      nota: "N1/N2 = polo de neutro (marcado N en el aparato), lado línea y lado carga."
+  - ref: ITM-C6-1PN
+    name: ITM 1P+N C6
+    description: Interruptor termomagnético (ITM) 1P+N, curva C, 6 A, 6 kA (IEC 60898-1), para circuitos fase-neutro de una red CON neutro (380/220 V); el polo N se maniobra pero no se protege. Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 75, height: 90}
+    weight: 0.22
+    specs: {In_A: 6, curva: C, polos: "1P+N", Icn_kA: 6, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iC60N 1P+N / Siemens 5SL6 1P+N", cotas_verificadas: false, cost: 20}
+    electrico:
+      <<: *itm_1pn
+      perdidas_W: 2
+      modelo: {In_A: 6, curva: C, Icn_kA: 6, polos: "1P+N"}
+  # ── guardamotores de clase 10 (1–10 A sin huecos) ───────────────────────────────────────
+  - ref: GM-1-1.6A
+    name: Guardamotor 1-1,6 A clase 10
+    description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 1-1,6 A clase 10 + disparo magnético, para motores de ~0,25-0,37 kW a 220 V. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 80, height: 89}
+    weight: 0.26
+    specs: {Ir_min_A: 1.0, Ir_max_A: 1.6, clase: 10, Ii_A: 20.8, linea_referencia: "orden de Schneider TeSys GV2ME06 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 45}
+    electrico: &guardamotor
+      funcion: Q
+      simbolo: guardamotor_3p
+      montaje: din
+      protege_motor: true
+      perdidas_W: 5
+      bornes: *polos_3p
+      caminos: *proteccion_3p
+      modelo: {Ir_A: [1.0, 1.6], clase: 10, Ii_A: 20.8}
+  - ref: GM-1.6-2.5A
+    name: Guardamotor 1,6-2,5 A clase 10
+    description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 1,6-2,5 A clase 10 + disparo magnético, para motores de ~0,55 kW a 220 V. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 80, height: 89}
+    weight: 0.26
+    specs: {Ir_min_A: 1.6, Ir_max_A: 2.5, clase: 10, Ii_A: 32.5, linea_referencia: "orden de Schneider TeSys GV2ME07 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 45}
+    electrico:
+      <<: *guardamotor
+      modelo: {Ir_A: [1.6, 2.5], clase: 10, Ii_A: 32.5}
+  - ref: GM-2.5-4A
+    name: Guardamotor 2,5-4 A clase 10
+    description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 2,5-4 A clase 10 + disparo magnético, para motores de ~0,75 kW a 220 V. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 80, height: 89}
+    weight: 0.26
+    specs: {Ir_min_A: 2.5, Ir_max_A: 4.0, clase: 10, Ii_A: 52, linea_referencia: "orden de Schneider TeSys GV2ME08 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 48}
+    electrico:
+      <<: *guardamotor
+      modelo: {Ir_A: [2.5, 4.0], clase: 10, Ii_A: 52}
+  - ref: GM-4-6.3A
+    name: Guardamotor 4-6,3 A clase 10
+    description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 4-6,3 A clase 10 + disparo magnético, para motores de ~1,1-1,5 kW a 220 V. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 80, height: 89}
+    weight: 0.26
+    specs: {Ir_min_A: 4.0, Ir_max_A: 6.3, clase: 10, Ii_A: 81.9, linea_referencia: "orden de Schneider TeSys GV2ME10 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 50}
+    electrico:
+      <<: *guardamotor
+      modelo: {Ir_A: [4.0, 6.3], clase: 10, Ii_A: 81.9}
+  - ref: GM-6-10A
+    name: Guardamotor 6-10 A clase 10
+    description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 6-10 A clase 10 + disparo magnético, para motores de ~2,2 kW a 220 V. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 80, height: 89}
+    weight: 0.26
+    specs: {Ir_min_A: 6.0, Ir_max_A: 10.0, clase: 10, Ii_A: 130, linea_referencia: "orden de Schneider TeSys GV2ME14 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 55}
+    electrico:
+      <<: *guardamotor
+      modelo: {Ir_A: [6.0, 10.0], clase: 10, Ii_A: 130}
+  - ref: GM-AUX-1NA1NC
+    name: Contacto auxiliar 1NA+1NC de guardamotor
+    description: Bloque de contactos auxiliares frontal 1NA+1NC para guardamotor (señaliza al PLC si el guardamotor está cerrado o disparado). Se designa aparte (p. ej. -Q2A) y sus contactos se mueven con el guardamotor sobre el que va. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 20, height: 40}
+    weight: 0.03
+    specs: {contactos: "1NA+1NC", linea_referencia: "orden de Schneider TeSys GVAN11 / Siemens 3RV2901-1E", cotas_verificadas: false, cost: 12}
+    electrico:
+      funcion: Q
+      simbolo: contactos_aux
+      montaje: din
+      bornes:
+        - {id: "13", rol: contacto}
+        - {id: "14", rol: contacto}
+        - {id: "21", rol: contacto}
+        - {id: "22", rol: contacto}
+      caminos:
+        - {de: "13", a: "14", tipo: NA, accion: acople}
+        - {de: "21", a: "22", tipo: NC, accion: acople}
+  # ── relés térmicos (bajo el contactor) ──────────────────────────────────────────────────
+  - ref: RT-2.5-4A
+    name: Relé térmico 2,5-4 A clase 10A
+    description: Relé térmico de sobrecarga de 3 polos, regulable 2,5-4 A clase 10A, con contactos 95-96 NC y 97-98 NA; se monta directo bajo el contactor (sus bornes 1/3/5 entran en los 2/4/6 del contactor). Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 70, height: 66}
+    weight: 0.15
+    specs: {Ir_min_A: 2.5, Ir_max_A: 4.0, clase: "10A", linea_referencia: "orden de Schneider TeSys LRD08 / Siemens SIRIUS 3RU2116", cotas_verificadas: false, cost: 35}
+    electrico: &rele_termico
+      funcion: F
+      simbolo: rele_termico
+      montaje: din
+      protege_motor: true
+      perdidas_W: 4
+      bornes:
+        - {id: "1", rol: potencia, lado: linea}
+        - {id: "2", rol: potencia, lado: carga}
+        - {id: "3", rol: potencia, lado: linea}
+        - {id: "4", rol: potencia, lado: carga}
+        - {id: "5", rol: potencia, lado: linea}
+        - {id: "6", rol: potencia, lado: carga}
+        - {id: "95", rol: contacto}
+        - {id: "96", rol: contacto}
+        - {id: "97", rol: contacto}
+        - {id: "98", rol: contacto}
+      caminos:
+        - {de: "1", a: "2", tipo: proteccion}
+        - {de: "3", a: "4", tipo: proteccion}
+        - {de: "5", a: "6", tipo: proteccion}
+        - {de: "95", a: "96", tipo: NC, accion: disparo}
+        - {de: "97", a: "98", tipo: NA, accion: disparo}
+      modelo: {Ir_A: [2.5, 4.0], clase: "10A"}
+  - ref: RT-4-6A
+    name: Relé térmico 4-6 A clase 10A
+    description: Relé térmico de sobrecarga de 3 polos, regulable 4-6 A clase 10A, con contactos 95-96 NC y 97-98 NA; se monta directo bajo el contactor. Verificar con el proveedor.
+    builder: box
+    params: {width: 45, depth: 70, height: 66}
+    weight: 0.15
+    specs: {Ir_min_A: 4.0, Ir_max_A: 6.0, clase: "10A", linea_referencia: "orden de Schneider TeSys LRD10 / Siemens SIRIUS 3RU2116", cotas_verificadas: false, cost: 35}
+    electrico:
+      <<: *rele_termico
+      modelo: {Ir_A: [4.0, 6.0], clase: "10A"}

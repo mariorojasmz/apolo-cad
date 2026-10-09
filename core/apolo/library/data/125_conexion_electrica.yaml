@@ -1,0 +1,254 @@
+category: conexion_electrica
+# Conexión de la faja piloto (plan V8.1 D6): borneras, conductores y cables. Convenciones del
+# catálogo eléctrico: ver la cabecera de 120_alimentacion_electrica.yaml.
+#  - Borneras (`bornera: true`): la ficha declara UNA unidad; `add_device(cantidad=N)` la repite
+#    (bornes «1»…«N»; el portafusible, «k.1»/«k.2»). Un borne de paso es un solo punto: todos
+#    los conductores que llegan a «-X1:3» quedan unidos.
+#  - Conductores y cables: cortables, peso en kg/m y `cost_por_m`; el builder es el cilindro de
+#    su diámetro exterior. Los conductores sueltos no llevan bornes (el `add_wire` los nombra en
+#    `tipo`); los cables multipolares declaran sus hilos (id + color IEC 60757).
+#  - H07V-K (450/750 V) empieza en 1,5 mm²; 0,75 y 1 mm² son H05V-K (300/500 V), ambos de la
+#    EN 50525-2-31, cobre flexible clase 5, PVC 70 °C.
+components:
+  # ── borneras ────────────────────────────────────────────────────────────────────────────
+  - ref: BORNE-PASO-2.5
+    name: Borne de paso 2,5 mm²
+    description: Borne de paso de tornillo para riel DIN, 2,5 mm², gris, ancho 5,2 mm. Verificar con el proveedor.
+    builder: box
+    params: {width: 5.2, depth: 47, height: 42.5}
+    weight: 0.007
+    specs: {seccion_mm2: 2.5, ancho_mm: 5.2, linea_referencia: "orden de Phoenix Contact UT 2,5 / Weidmüller WDU 2.5", cotas_verificadas: false, cost: 0.8}
+    electrico:
+      funcion: X
+      simbolo: borne_paso
+      montaje: din
+      bornera: true
+      bornes: [{id: "1", rol: potencia}]
+      modelo: {seccion_mm2: 2.5}
+  - ref: BORNE-PASO-4
+    name: Borne de paso 4 mm²
+    description: Borne de paso de tornillo para riel DIN, 4 mm², gris, ancho 6,2 mm. Verificar con el proveedor.
+    builder: box
+    params: {width: 6.2, depth: 47, height: 42.5}
+    weight: 0.009
+    specs: {seccion_mm2: 4, ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact UT 4 / Weidmüller WDU 4", cotas_verificadas: false, cost: 1.0}
+    electrico:
+      funcion: X
+      simbolo: borne_paso
+      montaje: din
+      bornera: true
+      bornes: [{id: "1", rol: potencia}]
+      modelo: {seccion_mm2: 4}
+  - ref: BORNE-PE-2.5
+    name: Borne de tierra 2,5 mm²
+    description: Borne de protección (PE) verde-amarillo de tornillo, 2,5 mm², ancho 5,2 mm; hace contacto con el riel DIN, que a su vez se une a la placa y al gabinete. Verificar con el proveedor.
+    builder: box
+    params: {width: 5.2, depth: 47, height: 42.5}
+    weight: 0.012
+    specs: {seccion_mm2: 2.5, ancho_mm: 5.2, linea_referencia: "orden de Phoenix Contact UT 2,5-PE / Weidmüller WPE 2.5", cotas_verificadas: false, cost: 2.0}
+    electrico:
+      funcion: X
+      simbolo: borne_pe
+      montaje: din
+      bornera: true
+      bornes: [{id: "1", rol: tierra}]
+      modelo: {seccion_mm2: 2.5}
+  - ref: BORNE-PE-4
+    name: Borne de tierra 4 mm²
+    description: Borne de protección (PE) verde-amarillo de tornillo, 4 mm², ancho 6,2 mm; hace contacto con el riel DIN. Verificar con el proveedor.
+    builder: box
+    params: {width: 6.2, depth: 47, height: 42.5}
+    weight: 0.015
+    specs: {seccion_mm2: 4, ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact UT 4-PE / Weidmüller WPE 4", cotas_verificadas: false, cost: 2.5}
+    electrico:
+      funcion: X
+      simbolo: borne_pe
+      montaje: din
+      bornera: true
+      bornes: [{id: "1", rol: tierra}]
+      modelo: {seccion_mm2: 4}
+  - ref: BORNE-FUS-5X20
+    name: Borne portafusible 5x20
+    description: Borne portafusible de palanca para fusible de vidrio 5x20 mm (hasta 6,3 A), ancho 8,2 mm; protege un circuito de mando o una entrada de señal. Verificar con el proveedor.
+    builder: box
+    params: {width: 8.2, depth: 60, height: 62}
+    weight: 0.02
+    specs: {fusible: "5x20 mm", In_max_A: 6.3, ancho_mm: 8.2, linea_referencia: "orden de Phoenix Contact UT 4-HESI (5X20) / Weidmüller WSI 4", cotas_verificadas: false, cost: 3.5}
+    electrico:
+      funcion: F
+      simbolo: borne_fusible
+      montaje: din
+      bornera: true
+      bornes:
+        - {id: "1", rol: potencia, lado: linea}
+        - {id: "2", rol: potencia, lado: carga}
+      caminos: [{de: "1", a: "2", tipo: proteccion}]
+      modelo: {fusible: "5x20 mm", In_max_A: 6.3}
+  # ── conductores sueltos (por metro) ─────────────────────────────────────────────────────
+  - ref: COND-H05VK-0.75
+    name: Conductor flexible H05V-K 0,75 mm²
+    description: Conductor de cobre flexible clase 5 con aislamiento de PVC, 0,75 mm², 300/500 V, por metro, para señales y mando de 24 VDC. En Perú se cotiza como cable flexible de tablero - verificar con el proveedor la tensión y la clase.
+    builder: cylinder
+    params: {diameter: 2.6}
+    cuttable: true
+    default_length: 1000
+    weight: 0.011
+    specs: {seccion_mm2: 0.75, tension_aislamiento: "300/500 V", norma: "EN 50525-2-31 (H05V-K)", linea_referencia: "orden de LAPP ÖLFLEX H05V-K", cotas_verificadas: false, cost_por_m: 0.12}
+    electrico: &conductor
+      funcion: W
+      simbolo: conductor
+      montaje: placa
+      conductor: {seccion_mm2: 0.75, tension_aislamiento: "300/500 V", temperatura_C: 70}
+  - ref: COND-H05VK-1
+    name: Conductor flexible H05V-K 1 mm²
+    description: Conductor de cobre flexible clase 5 con aislamiento de PVC, 1 mm², 300/500 V, por metro, para el mando. En Perú se cotiza como cable flexible de tablero - verificar con el proveedor la tensión y la clase.
+    builder: cylinder
+    params: {diameter: 2.8}
+    cuttable: true
+    default_length: 1000
+    weight: 0.014
+    specs: {seccion_mm2: 1, tension_aislamiento: "300/500 V", norma: "EN 50525-2-31 (H05V-K)", linea_referencia: "orden de LAPP ÖLFLEX H05V-K", cotas_verificadas: false, cost_por_m: 0.15}
+    electrico:
+      <<: *conductor
+      conductor: {seccion_mm2: 1, tension_aislamiento: "300/500 V", temperatura_C: 70}
+  - ref: COND-H07VK-1.5
+    name: Conductor flexible H07V-K 1,5 mm²
+    description: Conductor de cobre flexible clase 5 con aislamiento de PVC, 1,5 mm², 450/750 V, por metro, para potencia de motores pequeños y mando a 220 V. En Perú el THW-90 (rígido o de 7 hilos) es para instalación fija; en tablero se pide el flexible clase 5 (verificar con el proveedor).
+    builder: cylinder
+    params: {diameter: 3.2}
+    cuttable: true
+    default_length: 1000
+    weight: 0.020
+    specs: {seccion_mm2: 1.5, tension_aislamiento: "450/750 V", norma: "EN 50525-2-31 (H07V-K)", linea_referencia: "orden de LAPP ÖLFLEX H07V-K", cotas_verificadas: false, cost_por_m: 0.22}
+    electrico:
+      <<: *conductor
+      conductor: {seccion_mm2: 1.5, tension_aislamiento: "450/750 V", temperatura_C: 70}
+  - ref: COND-H07VK-2.5
+    name: Conductor flexible H07V-K 2,5 mm²
+    description: Conductor de cobre flexible clase 5 con aislamiento de PVC, 2,5 mm², 450/750 V, por metro, para potencia. En Perú el THW-90 es para instalación fija; en tablero se pide el flexible clase 5 (verificar con el proveedor).
+    builder: cylinder
+    params: {diameter: 3.8}
+    cuttable: true
+    default_length: 1000
+    weight: 0.031
+    specs: {seccion_mm2: 2.5, tension_aislamiento: "450/750 V", norma: "EN 50525-2-31 (H07V-K)", linea_referencia: "orden de LAPP ÖLFLEX H07V-K", cotas_verificadas: false, cost_por_m: 0.35}
+    electrico:
+      <<: *conductor
+      conductor: {seccion_mm2: 2.5, tension_aislamiento: "450/750 V", temperatura_C: 70}
+  - ref: COND-H07VK-4
+    name: Conductor flexible H07V-K 4 mm²
+    description: Conductor de cobre flexible clase 5 con aislamiento de PVC, 4 mm², 450/750 V, por metro, para la alimentación del tablero. En Perú el THW-90 es para instalación fija; en tablero se pide el flexible clase 5 (verificar con el proveedor).
+    builder: cylinder
+    params: {diameter: 4.5}
+    cuttable: true
+    default_length: 1000
+    weight: 0.047
+    specs: {seccion_mm2: 4, tension_aislamiento: "450/750 V", norma: "EN 50525-2-31 (H07V-K)", linea_referencia: "orden de LAPP ÖLFLEX H07V-K", cotas_verificadas: false, cost_por_m: 0.55}
+    electrico:
+      <<: *conductor
+      conductor: {seccion_mm2: 4, tension_aislamiento: "450/750 V", temperatura_C: 70}
+  # ── cables multipolares (por metro) ─────────────────────────────────────────────────────
+  - ref: CABLE-4G1.5
+    name: Cable flexible 4G1,5
+    description: Cable flexible multipolar 4G1,5 mm² (3 fases + PE), PVC 300/500 V, hilos negros numerados 1-2-3 + verde-amarillo, por metro, para alimentar un motor de hasta ~2,2 kW a 220 V. Equivalente local de uso común - cordón NMT de 4 hilos - verificar con el proveedor sección, tensión y colores.
+    builder: cylinder
+    params: {diameter: 8.4}
+    cuttable: true
+    default_length: 1000
+    weight: 0.12
+    specs: {seccion_mm2: 1.5, hilos: "4G (3 + PE)", tension_aislamiento: "300/500 V", linea_referencia: "orden de LAPP ÖLFLEX CLASSIC 110 4G1,5", cotas_verificadas: false, cost_por_m: 1.3}
+    electrico: &cable_4g
+      funcion: W
+      simbolo: cable
+      montaje: campo
+      conductor:
+        seccion_mm2: 1.5
+        tension_aislamiento: "300/500 V"
+        temperatura_C: 70
+        hilos: [{id: "1", color: BK}, {id: "2", color: BK}, {id: "3", color: BK}, {id: PE, color: GNYE}]
+  - ref: CABLE-4G2.5
+    name: Cable flexible 4G2,5
+    description: Cable flexible multipolar 4G2,5 mm² (3 fases + PE), PVC 300/500 V, hilos negros numerados + verde-amarillo, por metro. Equivalente local de uso común - cordón NMT de 4 hilos - verificar con el proveedor sección, tensión y colores.
+    builder: cylinder
+    params: {diameter: 9.8}
+    cuttable: true
+    default_length: 1000
+    weight: 0.18
+    specs: {seccion_mm2: 2.5, hilos: "4G (3 + PE)", tension_aislamiento: "300/500 V", linea_referencia: "orden de LAPP ÖLFLEX CLASSIC 110 4G2,5", cotas_verificadas: false, cost_por_m: 2.0}
+    electrico:
+      <<: *cable_4g
+      conductor:
+        seccion_mm2: 2.5
+        tension_aislamiento: "300/500 V"
+        temperatura_C: 70
+        hilos: [{id: "1", color: BK}, {id: "2", color: BK}, {id: "3", color: BK}, {id: PE, color: GNYE}]
+  - ref: CABLE-4G4
+    name: Cable flexible 4G4
+    description: Cable flexible multipolar 4G4 mm² (3 fases + PE), PVC 300/500 V, hilos negros numerados + verde-amarillo, por metro, para la acometida del tablero. Equivalente local de uso común - cordón NMT de 4 hilos - verificar con el proveedor sección, tensión y colores.
+    builder: cylinder
+    params: {diameter: 11.5}
+    cuttable: true
+    default_length: 1000
+    weight: 0.27
+    specs: {seccion_mm2: 4, hilos: "4G (3 + PE)", tension_aislamiento: "300/500 V", linea_referencia: "orden de LAPP ÖLFLEX CLASSIC 110 4G4", cotas_verificadas: false, cost_por_m: 3.0}
+    electrico:
+      <<: *cable_4g
+      conductor:
+        seccion_mm2: 4
+        tension_aislamiento: "300/500 V"
+        temperatura_C: 70
+        hilos: [{id: "1", color: BK}, {id: "2", color: BK}, {id: "3", color: BK}, {id: PE, color: GNYE}]
+  - ref: CABLE-5G1
+    name: Cable flexible de mando 5G1
+    description: Cable flexible multipolar de mando 5G1 mm² (4 hilos + PE), PVC 300/500 V, hilos negros numerados + verde-amarillo, por metro, para botoneras y sensores de campo. Equivalente local - cable de control multipolar de PVC con hilos numerados; verificar con el proveedor.
+    builder: cylinder
+    params: {diameter: 7.7}
+    cuttable: true
+    default_length: 1000
+    weight: 0.10
+    specs: {seccion_mm2: 1, hilos: "5G (4 + PE)", tension_aislamiento: "300/500 V", linea_referencia: "orden de LAPP ÖLFLEX CLASSIC 110 5G1", cotas_verificadas: false, cost_por_m: 1.1}
+    electrico:
+      funcion: W
+      simbolo: cable
+      montaje: campo
+      conductor:
+        seccion_mm2: 1
+        tension_aislamiento: "300/500 V"
+        temperatura_C: 70
+        hilos: [{id: "1", color: BK}, {id: "2", color: BK}, {id: "3", color: BK}, {id: "4", color: BK}, {id: PE, color: GNYE}]
+  - ref: CABLE-7G1
+    name: Cable flexible de mando 7G1
+    description: Cable flexible multipolar de mando 7G1 mm² (6 hilos + PE), PVC 300/500 V, hilos negros numerados + verde-amarillo, por metro, para una botonera con pilotos. Equivalente local - cable de control multipolar de PVC con hilos numerados; verificar con el proveedor.
+    builder: cylinder
+    params: {diameter: 8.7}
+    cuttable: true
+    default_length: 1000
+    weight: 0.13
+    specs: {seccion_mm2: 1, hilos: "7G (6 + PE)", tension_aislamiento: "300/500 V", linea_referencia: "orden de LAPP ÖLFLEX CLASSIC 110 7G1", cotas_verificadas: false, cost_por_m: 1.5}
+    electrico:
+      funcion: W
+      simbolo: cable
+      montaje: campo
+      conductor:
+        seccion_mm2: 1
+        tension_aislamiento: "300/500 V"
+        temperatura_C: 70
+        hilos: [{id: "1", color: BK}, {id: "2", color: BK}, {id: "3", color: BK}, {id: "4", color: BK}, {id: "5", color: BK}, {id: "6", color: BK}, {id: PE, color: GNYE}]
+  - ref: CABLE-3X0.75
+    name: Cable de sensor 3x0,75
+    description: Cable flexible de 3 hilos 0,75 mm² marrón/azul/negro (los de un sensor de 3 hilos - BN +, BU -, BK salida), PVC 300/500 V, por metro. Equivalente local de uso común - cordón NLT de 3 hilos - verificar con el proveedor sección, tensión y colores.
+    builder: cylinder
+    params: {diameter: 6.0}
+    cuttable: true
+    default_length: 1000
+    weight: 0.05
+    specs: {seccion_mm2: 0.75, hilos: "3x (BN, BU, BK)", tension_aislamiento: "300/500 V", linea_referencia: "cable de mando PVC 300/500 V de 3 hilos sin PE, con los colores pedidos BN/BU/BK", cotas_verificadas: false, cost_por_m: 0.6}
+    electrico:
+      funcion: W
+      simbolo: cable
+      montaje: campo
+      conductor:
+        seccion_mm2: 0.75
+        tension_aislamiento: "300/500 V"
+        temperatura_C: 70
+        hilos: [{id: BN, color: BN}, {id: BU, color: BU}, {id: BK, color: BK}]

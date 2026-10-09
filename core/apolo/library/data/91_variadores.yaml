@@ -1,4 +1,50 @@
 category: variadores
+# ELÉCTRICO (plan V8.1 D5): bornes GENÉRICOS de un variador compacto (los nombres reales cambian
+# por fabricante; ver el manual): potencia L1 L2 L3 → U V W + PE; entradas digitales DI1-DI4
+# con común COM (modo fuente/PNP: DI positiva respecto de COM); analógica AI1 con GND y la
+# fuente de +10 V para el potenciómetro; relé de falla RA (NA) / RB (NC) / RC (común); entradas
+# de seguridad STO S1, S2 con común SCM (sin 24 V en S1 y S2 el variador no da par: se puentean
+# a 24 V o se cablean por la seta). La fuente interna de +24 V del variador no se modela:
+# alimenta las entradas desde la fuente de 24 VDC del tablero. Protege al motor (I²t
+# electrónico): `protege_motor`. perdidas_W ≈ 4 % de la potencia (estimación). El bloque no toca
+# la geometría (sin bump de GEOM_CACHE_EPOCH).
+_vfd_bornes: &vfd_bornes
+  - {id: L1, rol: potencia, lado: linea}
+  - {id: L2, rol: potencia, lado: linea}
+  - {id: L3, rol: potencia, lado: linea}
+  - {id: U, rol: potencia, lado: carga}
+  - {id: V, rol: potencia, lado: carga}
+  - {id: W, rol: potencia, lado: carga}
+  - {id: PE, rol: tierra}
+  - {id: DI1, rol: señal}
+  - {id: DI2, rol: señal}
+  - {id: DI3, rol: señal}
+  - {id: DI4, rol: señal}
+  - {id: COM, rol: señal}
+  - {id: AI1, rol: señal}
+  - {id: +10V, rol: señal}
+  - {id: GND, rol: señal}
+  - {id: RA, rol: contacto}
+  - {id: RB, rol: contacto}
+  - {id: RC, rol: contacto}
+  - {id: S1, rol: señal}
+  - {id: S2, rol: señal}
+  - {id: SCM, rol: señal}
+_vfd_caminos: &vfd_caminos
+  - {de: RC, a: RA, tipo: NA, accion: señal, grupo: rele_falla}
+  - {de: RC, a: RB, tipo: NC, accion: señal, grupo: rele_falla}
+_vfd_cargas: &vfd_cargas
+  - {bornes: [L1, L2, L3], tension: "220 VAC 3F", tipo: alimentacion}
+  - {bornes: [DI1, COM], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+  - {bornes: [DI2, COM], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+  - {bornes: [DI3, COM], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+  - {bornes: [DI4, COM], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
+  - {bornes: [AI1, GND], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
+  - {bornes: [S1, SCM], tension: "24 VDC", tipo: entrada, polar: true}
+  - {bornes: [S2, SCM], tension: "24 VDC", tipo: entrada, polar: true}
+_vfd_fuentes: &vfd_fuentes
+  - {polos: {U: L1, V: L2, W: L3}, tension: "220 VAC 3F"}
+  - {polos: {+10V: "+", GND: "-"}, tension: "10 VDC"}
 components:
   - ref: VFD-1K5-220
     name: Variador 1.5 kW 220V 3F
@@ -7,6 +53,17 @@ components:
     params: {width: 90, depth: 160, height: 200}
     weight: 1.2
     specs: {potencia_kW: 1.5, potencia_HP: 2, tension: "220V 3F", corriente_A: 8.5, control: "vectorial sensorless", proteccion: STO}
+    electrico:
+      funcion: T
+      simbolo: variador
+      montaje: placa
+      protege_motor: true
+      perdidas_W: 60
+      bornes: *vfd_bornes
+      caminos: *vfd_caminos
+      cargas: *vfd_cargas
+      fuentes: *vfd_fuentes
+      modelo: {P_kW: 1.5, I_salida_A: 8.5, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}
   # Para el NMRV-090 (motor 2.2 kW) de la faja 38: el de 1.5 kW quedaba corto. Envolvente
   # representativa de un VFD compacto de 2.2 kW 230 V 3F (orden de SINAMICS V20 FSB / Delta MS300
   # frame B): verificar cotas y precio con el proveedor antes de cotizar en firme.
@@ -17,3 +74,14 @@ components:
     params: {width: 140, depth: 145, height: 160}
     weight: 1.7
     specs: {potencia_kW: 2.2, potencia_HP: 3, tension: "220V 3F", corriente_A: 11.0, control: "vectorial sensorless", proteccion: STO, cost: 280}
+    electrico:
+      funcion: T
+      simbolo: variador
+      montaje: placa
+      protege_motor: true
+      perdidas_W: 90
+      bornes: *vfd_bornes
+      caminos: *vfd_caminos
+      cargas: *vfd_cargas
+      fuentes: *vfd_fuentes
+      modelo: {P_kW: 2.2, I_salida_A: 11.0, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}

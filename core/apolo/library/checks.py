@@ -148,6 +148,9 @@ FEA_HARDWARE_CATS = HARDWARE_CATS | {
     # transmisión: piñones, cadenas, poleas y tensores son geometría representativa (flancos,
     # eslabones sin casquillo); mallarlos mentiría rigidez (plan cadenas-pinones D10)
     "transmision",
+    # catálogo eléctrico (plan V8.1 D6): envolventes de aparatos DIN, fuentes, PLC, borneras y
+    # conductores; ninguno es estructural
+    "alimentacion_electrica", "proteccion_electrica", "maniobra_control", "conexion_electrica",
 }
 
 

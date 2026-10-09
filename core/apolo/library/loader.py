@@ -20,6 +20,8 @@ from .builders import BUILDERS as _BUILDERS_BASE
 from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
 from .builders_transmision import ANCLAS as _ANCLAS_TRANSMISION
 from .builders_transmision import BUILDERS as _BUILDERS_TRANSMISION
+from .electrico.ficha import fusionar as _fusionar_electrico
+from .electrico.ficha import parse_ficha
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -90,17 +92,21 @@ def _component_from_item(item: dict, category: str):
         default_length=item.get("default_length"),
         builder=builder_fn,
         anchors=anclas_fn(**params) if anclas_fn else None,
+        # bloque `electrico:` (plan V8.1 D5): validado aquí; un bloque mal escrito no carga
+        electrico=parse_ficha(item.get("electrico"), ref),
     )
 
 
 def _expand_family(fam: dict) -> list[dict]:
-    """Convierte una familia paramétrica en items de componente individuales."""
+    """Convierte una familia paramétrica en items de componente individuales. El bloque
+    `electrico` de la familia vale para cada variante; el de la variante lo completa (su
+    `modelo`, p. ej. la placa del motor, se fusiona clave a clave) y NO pasa a sus specs."""
     param_keys = fam.get("param_keys", [])
     common = fam.get("specs_common", {})
     items = []
     for variant in fam["variants"]:
         ref = variant["ref"]
-        var_specs = {k: v for k, v in variant.items() if k != "ref"}
+        var_specs = {k: v for k, v in variant.items() if k not in ("ref", "electrico")}
         specs = {**common, **var_specs}
         ctx = {"ref": ref, **specs}
         item = {
@@ -113,6 +119,9 @@ def _expand_family(fam: dict) -> list[dict]:
             "cuttable": fam.get("cuttable", False),
             "default_length": fam.get("default_length"),
         }
+        electrico = _fusionar_electrico(fam.get("electrico"), variant.get("electrico"))
+        if electrico is not None:
+            item["electrico"] = electrico
         if "weight" in variant:
             item["weight"] = variant["weight"]
         elif "weight_formula" in fam:

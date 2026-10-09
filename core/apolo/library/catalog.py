@@ -17,7 +17,10 @@ conveyor, models) no dependan de cómo se almacenan los datos.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from .electrico.ficha import FichaElectrica
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,9 @@ class Component:
     # anclas LOCALES de la FAMILIA, calculadas por el loader desde los params del builder
     # (`loader.ANCLAS`; p. ej. eje/hileras/fase de un piñón). None = la familia no publica.
     anchors: dict | None = field(repr=False, default=None)
+    # ficha eléctrica (bornes, caminos, cargas, fuentes, modelo) del bloque `electrico:` del
+    # YAML (`electrico/ficha.py`, plan V8.1 D5). None = pieza mecánica.
+    electrico: FichaElectrica | None = field(repr=False, default=None)
 
 
 from .loader import load_catalog  # noqa: E402  (necesita Component ya definido)
@@ -53,6 +59,9 @@ CATEGORIES = [
     "rieles_corredera", "correderas_colgantes",
     "motorreductores_sinfin",
     "garruchas",
+    # catálogo eléctrico de la faja piloto (plan V8.1 D6); pulsadores, pilotos, sensores y
+    # gabinetes van en sus categorías de siempre (mandos, sensores, tableros)
+    "alimentacion_electrica", "proteccion_electrica", "maniobra_control", "conexion_electrica",
 ]
 
 

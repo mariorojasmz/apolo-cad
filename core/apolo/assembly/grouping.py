@@ -33,6 +33,9 @@ CAT2SUB = {
     "guardas": "Guardas",
     "sensores": "Sensores y control", "tableros": "Sensores y control",
     "mandos": "Sensores y control",
+    # catálogo eléctrico (plan V8.1 D6); espejo en ui/src/panels/Tree.tsx
+    "alimentacion_electrica": "Sensores y control", "proteccion_electrica": "Sensores y control",
+    "maniobra_control": "Sensores y control", "conexion_electrica": "Sensores y control",
     "bisagras": "Carpinteria", "tiradores": "Carpinteria", "correderas": "Carpinteria",
     "cerraduras": "Carpinteria", "imanes_topes": "Carpinteria",
     "rieles_corredera": "Carpinteria", "correderas_colgantes": "Carpinteria",

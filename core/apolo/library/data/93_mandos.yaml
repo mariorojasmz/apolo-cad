@@ -1,4 +1,9 @@
 category: mandos
+# ELÉCTRICO (plan V8.1 D5): numeración de contactos de uso normalizado (dígito de secuencia +
+# función: 11-12 NC, 13-14 NA; el segundo contacto, 21-22). La seta es `parada_emergencia`
+# (regla del ERC). En la botonera, cada
+# pulsador es su propio actuador (`grupo`); el potenciómetro (P1-P3 extremos, P2 cursor) se
+# alimenta del +10 V del variador. El bloque no toca la geometría (sin bump de GEOM_CACHE_EPOCH).
 components:
   - ref: ESTOP-40
     name: Paro de emergencia Ø40
@@ -7,6 +12,15 @@ components:
     params: {width: 72, depth: 72, height: 70}
     weight: 0.15
     specs: {tipo: "hongo Ø40", contacto: "NC apertura positiva", norma: "ISO 13850"}
+    electrico:
+      funcion: S
+      simbolo: seta_emergencia
+      montaje: puerta
+      parada_emergencia: true
+      bornes:
+        - {id: "11", rol: contacto}
+        - {id: "12", rol: contacto}
+      caminos: [{de: "11", a: "12", tipo: NC, accion: mano}]
   - ref: BOTONERA-2
     name: Botonera marcha/paro
     description: Botonera de 2 pulsadores Ø22 (marcha verde / paro rojo) con potenciómetro de velocidad.
@@ -14,3 +28,20 @@ components:
     params: {width: 80, depth: 60, height: 120}
     weight: 0.3
     specs: {pulsadores: 2, diametro: "Ø22", incluye: "potenciómetro 10kOhm"}
+    electrico:
+      funcion: S
+      simbolo: botonera
+      montaje: campo
+      bornes:
+        - {id: "13", rol: contacto}
+        - {id: "14", rol: contacto}
+        - {id: "21", rol: contacto}
+        - {id: "22", rol: contacto}
+        - {id: P1, rol: señal}
+        - {id: P2, rol: señal}
+        - {id: P3, rol: señal}
+      caminos:
+        - {de: "13", a: "14", tipo: NA, accion: mano, grupo: marcha}
+        - {de: "21", a: "22", tipo: NC, accion: mano, grupo: paro}
+      cargas: [{bornes: [P1, P3], tension: "0-10 VDC", tipo: otra, obligatoria: false}]
+      modelo: {potenciometro_ohm: 10000}

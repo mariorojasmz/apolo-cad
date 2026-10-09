@@ -1,0 +1,93 @@
+category: alimentacion_electrica
+# Catálogo eléctrico de la faja piloto (plan V8.1 D6): red de suministro y fuentes de 24 VDC.
+#
+# Convención de las refs eléctricas 120_–125_ (y de los bloques `electrico:` agregados a refs
+# existentes):
+#  - ref GENÉRICA por rol, sin marca; `specs.linea_referencia` nombra la línea del fabricante
+#    cuyos datos eléctricos se siguen («orden de …»: valores del mismo orden, no la ficha);
+#  - `cotas_verificadas: false`: la envolvente (builder `box`) es aproximada; los aparatos
+#    modulares usan el módulo DIN de 18 mm; verificar con el proveedor antes de armar el tablero;
+#  - cost = USD REFERENCIAL (mercado de Lima, aprox.); perdidas_W = estimación a la corriente
+#    nominal, del orden de las fichas (sirve al calentamiento del tablero de V8.5);
+#  - `electrico.funcion` = clase de una letra de IEC 81346-2: G inicia un flujo de energía (la
+#    red), T convierte energía (fuente conmutada, variador), Q conmuta potencia (seccionador,
+#    guardamotor, contactor), F protege (ITM, relé térmico, fusible), K procesa señales (relé,
+#    PLC), S mando manual, P señalización, B sensor, M motor, X borne, W conductor, U soporte.
+#    La letra sólo es el prefijo por defecto de la designación (-Q1, -K1); la designación la
+#    elige quien declara el tablero.
+components:
+  - ref: RED-3F-220V-60HZ
+    name: Red trifásica 220 V 60 Hz sin neutro
+    description: Punto de suministro de la red trifásica de 220 V 60 Hz SIN neutro, la de uso común en Lima (el mando va a 220 V entre fases o a 24 VDC desde una fuente). La corriente de cortocircuito presunta es SUPUESTA (10 kA en bornes) y DECLARADA, no medida - verificar con la distribuidora. No es un artículo de compra.
+    builder: box
+    params: {width: 120, depth: 60, height: 120}
+    weight: 0.0
+    specs: {tension: "220V 3F 60Hz", neutro: false, icc_kA: 10, icc_supuesta: true, linea_referencia: "red de distribución de baja tensión de Lima (220 V entre fases, sin neutro)", cotas_verificadas: false, suministro: true, cost: 0}
+    electrico:
+      funcion: G
+      simbolo: red_3f
+      montaje: campo
+      bornes:
+        - {id: L1, rol: potencia}
+        - {id: L2, rol: potencia}
+        - {id: L3, rol: potencia}
+        - {id: PE, rol: tierra}
+      fuentes:
+        - {polos: {L1: L1, L2: L2, L3: L3, PE: PE}, tension: "220 VAC 3F 60 Hz"}
+      modelo: {U_V: 220, f_Hz: 60, Icc_kA: 10, Icc_supuesta: true, neutro: false}
+      nota: "Sin neutro la tensión fase-tierra depende del esquema de la red y no se infiere."
+  - ref: RED-3F-380-220V-60HZ
+    name: Red trifásica 380/220 V 60 Hz con neutro
+    description: Punto de suministro de una red trifásica 380/220 V 60 Hz CON neutro (redes industriales; esquema TN supuesto y declarado). Corriente de cortocircuito presunta SUPUESTA de 10 kA en bornes, declarada - verificar con la distribuidora. No es un artículo de compra.
+    builder: box
+    params: {width: 120, depth: 60, height: 120}
+    weight: 0.0
+    specs: {tension: "380/220V 3F+N 60Hz", neutro: true, icc_kA: 10, icc_supuesta: true, linea_referencia: "red de distribución de baja tensión 380/220 V con neutro (esquema TN supuesto)", cotas_verificadas: false, suministro: true, cost: 0}
+    electrico:
+      funcion: G
+      simbolo: red_3f_n
+      montaje: campo
+      bornes:
+        - {id: L1, rol: potencia}
+        - {id: L2, rol: potencia}
+        - {id: L3, rol: potencia}
+        - {id: N, rol: potencia}
+        - {id: PE, rol: tierra}
+      fuentes:
+        - {polos: {L1: L1, L2: L2, L3: L3, N: N, PE: PE}, tension: "380/220 VAC 3F+N 60 Hz"}
+      modelo: {U_V: 380, U_fase_V: 220, f_Hz: 60, Icc_kA: 10, Icc_supuesta: true, neutro: true, esquema: TN}
+  - ref: FUENTE-24VDC-2.5A
+    name: Fuente 24 VDC 2,5 A (riel DIN)
+    description: Fuente conmutada de riel DIN, entrada 100-240 VAC (en Lima, entre dos fases de 220 V), salida 24 VDC 2,5 A (60 W) para el mando. Verificar con el proveedor.
+    builder: box
+    params: {width: 54, depth: 57, height: 90}
+    weight: 0.2
+    specs: {tension_entrada: "100-240 VAC", tension_salida: "24 VDC", corriente_A: 2.5, potencia_W: 60, modulos_DIN: 3, linea_referencia: "orden de Mean Well HDR-60-24 / Phoenix Contact UNO POWER 24 V 2,5 A", cotas_verificadas: false, cost: 35}
+    electrico: &fuente_24
+      funcion: T
+      simbolo: fuente_ac_dc
+      montaje: din
+      perdidas_W: 8
+      bornes:
+        - {id: L, rol: potencia, lado: linea}
+        - {id: N, rol: potencia, lado: linea}
+        - {id: PE, rol: tierra}
+        - {id: L+, rol: mando, lado: carga}
+        - {id: M, rol: mando, lado: carga}
+      cargas:
+        - {bornes: [L, N], tension: "100-240 VAC", tipo: alimentacion}
+      fuentes:
+        - {polos: {L+: "+", M: "-"}, tension: "24 VDC"}
+      modelo: {U_salida_V: 24, I_salida_A: 2.5, P_W: 60, eta: 0.88}
+      nota: "Los bornes L y N son los de la ENTRADA: en una red sin neutro van a dos fases."
+  - ref: FUENTE-24VDC-5A
+    name: Fuente 24 VDC 5 A (riel DIN)
+    description: Fuente conmutada de riel DIN, entrada 100-240 VAC (en Lima, entre dos fases de 220 V), salida 24 VDC 5 A (120 W) para el mando de un tablero con PLC. Verificar con el proveedor.
+    builder: box
+    params: {width: 72, depth: 60, height: 90}
+    weight: 0.35
+    specs: {tension_entrada: "100-240 VAC", tension_salida: "24 VDC", corriente_A: 5, potencia_W: 120, modulos_DIN: 4, linea_referencia: "orden de Phoenix Contact UNO POWER 24 V 5 A / Mean Well EDR-120-24", cotas_verificadas: false, cost: 55}
+    electrico:
+      <<: *fuente_24
+      perdidas_W: 14
+      modelo: {U_salida_V: 24, I_salida_A: 5, P_W: 120, eta: 0.89}

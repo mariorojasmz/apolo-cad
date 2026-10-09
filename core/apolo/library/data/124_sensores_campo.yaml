@@ -1,0 +1,25 @@
+category: sensores
+# Sensores de campo de la faja piloto (plan V8.1 D6); misma categoría que la FOTO-M18 de
+# 60_sensores.yaml. Convenciones del catálogo eléctrico: ver la cabecera de
+# 120_alimentacion_electrica.yaml. Hilos de un sensor de 3 hilos: BN (+), BU (-), BK (salida)
+# (IEC 60947-5-2).
+components:
+  - ref: SENS-IND-M18-PNP
+    name: Sensor inductivo M18 PNP NA
+    description: Sensor de proximidad inductivo M18 enrasado, alcance nominal 5 mm, 3 hilos 10-30 VDC, salida PNP NA (BK), con cable; detecta metal (p. ej. la leva de un tambor o la llegada de un carro). Verificar con el proveedor.
+    builder: sensor
+    params: {body_l: 60}
+    weight: 0.1
+    specs: {rosca: M18, alcance_mm: 5, montaje_sensor: enrasado, salida: PNP, contacto: NA, tension: "10-30 VDC", linea_referencia: "orden de Omron E2E / Sick IME18 (M18 enrasado, PNP NA)", cotas_verificadas: false, cost: 25}
+    electrico:
+      funcion: B
+      simbolo: sensor_pnp_na
+      montaje: campo
+      perdidas_W: 0.3
+      bornes:
+        - {id: BN, rol: señal}
+        - {id: BU, rol: señal}
+        - {id: BK, rol: señal}
+      caminos: [{de: BN, a: BK, tipo: NA, accion: señal}]
+      cargas: [{bornes: [BN, BU], tension: "10-30 VDC", tipo: alimentacion, polar: true}]
+      modelo: {salida: PNP, contacto: NA, Sn_mm: 5, I_salida_mA: 200}

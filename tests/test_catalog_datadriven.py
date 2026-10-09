@@ -106,8 +106,8 @@ def test_all_new_families_present():
     # faja de banda: tensor trotadora + eléctrico (variador, tablero, mandos)
     assert len(refs_in_category("tensores_trotadora")) == 2
     assert len(refs_in_category("variadores")) == 2  # 1.5 kW + 2.2 kW (NMRV-090 de la faja 38)
-    assert len(refs_in_category("tableros")) == 1
-    assert len(refs_in_category("mandos")) == 2
+    assert len(refs_in_category("tableros")) == 3  # + gabinetes 6040 y 8060 (V8.1 D6)
+    assert len(refs_in_category("mandos")) == 10  # + 8 pulsadores, selectores y pilotos Ø22 (V8.1 D6)
     # familias de norma (ISO 15 / ASTM A500 / EN): tubos y perfiles
     assert len(refs_in_category("tubos_estructurales")) == 16  # ASTM A500 HSS cuadrado/rect
     assert len(refs_in_category("tubos_circulares")) == 10     # ASTM A500 round HSS
@@ -131,8 +131,8 @@ def test_all_new_families_present():
     # garruchas de placa: Blickle LH-ALTH/-ST/BH-ALTH + Colson Colombia 44/45 PU (plan garruchas-catalogo)
     assert len(refs_in_category("garruchas")) == 24
     # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c) +24 garruchas (garruchas-catalogo) +1 VFD 2.2 kW
-    # +44 cadenas y piñones (cadenas-pinones)
-    assert len(CATALOG) == 300
+    # +44 cadenas y piñones (cadenas-pinones) +59 del catálogo eléctrico de la faja piloto (V8.1 D6)
+    assert len(CATALOG) == 359
 
 
 def test_door_sliding_hardware():
