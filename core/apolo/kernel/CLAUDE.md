@@ -53,6 +53,9 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   Todo cambio se prueba en los dos: los tests parametrizan ambos. El veredicto `ok` lo da un
   verificador geométrico común, no el motor. Los 6 tipos sólo-GCS (tangent, symmetric,
   equal_radius, concentric, midpoint, distance_point_line) fallan claro en scipy.
+- **`planegcs` va con marcador de entorno** en `core/pyproject.toml` (wheels sólo cp312/cp313
+  win+linux x86_64; fuera de ahí, scipy): como dependencia dura rompía la instalación en macOS y
+  Py3.11.
 - `sketch_geom.py`: un arco (o spline abierta) que el lazo recorre en reversa invierte su `ccw`
   efectivo.
 - Spline y elipse: sus puntos de control/centro SON puntos del croquis (el solver los mueve y se

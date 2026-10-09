@@ -290,3 +290,13 @@ pasaron:
 
 Un tropiezo operativo: la primera corrida falló con `OAuth session expired`. La CLI necesitaba
 un `/login`, que hizo Mario, y no hubo cambio de plan.
+
+**2026-10-09 — Mantenimiento: la raíz llegó a 29,2 de 30 KB.** Sin margen para la regla nueva de
+delegar el modelado por MCP (una máquina a la vez). Se movió la forma de los planes (frontmatter,
+título, secciones, reglas de versión) a [docs/plans/README.md](README.md); en la raíz quedan
+cuándo hay plan, la orden de leer el README, el contrato antes de implementar, la `nota:` al
+mergear y el reparto. También se movió `planegcs` a `kernel`, se comprimió la receta de borrar
+worktrees, se sacó de «Estado actual» la lista de planes (la fuente es la `nota:` de cada uno)
+y se quitaron tres frases de historia. Raíz: 29,2 → 26,5 KB con la regla nueva incluida.
+Próxima poda candidata: «Criterio de diseño» (~1,7 KB) a la capa 2 de `design/guidelines.py`,
+donde también la vería el chat de la app.

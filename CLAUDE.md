@@ -80,19 +80,16 @@ npm run build                     # bundle de la UI (tsc + vite)
 Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`** (entry points
 `apolo` / `apolo-mcp`) · ficha en el **registro oficial MCP** (`io.github.mariorojasmz/apolo-cad`).
 
-- `apolo/paths.py` es la fuente ÚNICA de rutas: en un checkout todo resuelve al repo
-  (`ui_dist()` prefiere `ui/dist`); instalado, los datos van a `APOLO_HOME` (~/.apolo) y la UI
-  sale del paquete (`apolo/webui`, la stagea `scripts/stage_ui.py`).
-- **`planegcs` va con marcador de entorno** (wheels sólo cp312/cp313 win+linux x86_64; fuera de
-  ahí el croquis cae a scipy): como dependencia dura rompía la instalación en macOS y Py3.11.
-- Publicar: § Publicación.
+`apolo/paths.py` es la fuente ÚNICA de rutas: en un checkout todo resuelve al repo; instalado,
+los datos van a `APOLO_HOME` (~/.apolo) y la UI sale del paquete (`apolo/webui`, la stagea
+`scripts/stage_ui.py`). Publicar: § Publicación.
 
 ### Estado actual (2026-10-09)
 
 2777 tests (+18 de tortura vía `-m torture`) · 197 tests vitest · 79 tools MCP · 54 comandos ·
 catálogo 359 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
-[V8 — la máquina viva](docs/plans/V8-maquina-viva.md) (tablero eléctrico real, co-simulación y placas; cada V8.x con su contrato),
-[chat-cliente-igual](docs/plans/chat-cliente-igual.md) (espera decisiones de Mario); sin verificar: [modo-visor](docs/plans/modo-visor.md) (falta el E2E de Mario por MCP) y [deshacer-con-etiqueta](docs/plans/deshacer-con-etiqueta.md) (falta el E2E de Mario en su UI); en plan: [harness-automejora](docs/plans/harness-automejora.md).
+[V8 — la máquina viva](docs/plans/V8-maquina-viva.md) (tablero eléctrico real, co-simulación y
+placas; cada V8.x con su contrato). Lo que falta de cada plan, en la `nota:` de su frontmatter.
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %
 paramétrica), la puerta plegable de carpintería (id 28, segundo testigo), `layout-planta-demo`
 (id 53, dos fajas 38 por `insert_project`) y `guarda-banda-demo` (chapa en C con hems).
@@ -132,8 +129,8 @@ merece persistirse y actualiza el archivo que corresponde sin que se lo pidan.
 - **Se cargan en cada sesión: cada línea cuesta.** Topes en bytes UTF-8 con LF: raíz ≤ 30 KB,
   cada anidado ≤ 35 KB (`core/apolo/CLAUDE.md` ≤ 10 KB: carga en toda lectura de backend). Los
   hace cumplir `tests/test_claude_md.py`, que además rebota links relativos rotos
-  (`python tests/test_claude_md.py` imprime los tamaños); la poda de julio, sin gate, volvió de
-  76 a 125 KB ([plan de poda](docs/plans/poda-claude-md.md)). Nada entra con historia.
+  (`python tests/test_claude_md.py` imprime los tamaños; [plan de poda](docs/plans/poda-claude-md.md)).
+  Nada entra con historia.
 - **Una línea = qué hacer + link al porqué.** La historia (fecha, qué se rompió, quién lo
   reportó, la verificación E2E) vive en el plan que la parió, en el commit o en
   `docs/devlog.md`; aquí se cita, no se repite. Al cerrar trabajo, actualizar los conteos de
@@ -154,51 +151,11 @@ merece persistirse y actualiza el archivo que corresponde sin que se lo pidan.
 SQLite (un log viejo tiene que seguir regenerando igual), toma una decisión difícil de
 revertir o no entra en una sesión. Un fix acotado va directo, con un buen mensaje de commit.
 
-**Forma**: `docs/plans/V<versión>-slug.md` (p. ej. `V7.6-e2-fino.md`). La versión del roadmap
-ES el número del plan: ya está citada en commits, benchmarks y [docs/roadmap.md](docs/roadmap.md).
-Un plan fuera del roadmap va con slug solo (`harness-automejora.md`). Frontmatter:
-
-```yaml
----
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: una línea con lo que falta DE VERDAD (una fase, una medición, un clic de Mario) o «sin pendientes»
-descripcion: una línea con lo que cambia para quien usa Apolo
----
-```
-
-Título `# V<versión> — <el resultado, dicho como lo diría el usuario>` («El agente valida el
-lote antes de aplicarlo», no «Refactor de verify»). Secciones en este orden; la que no
-aplica se omite:
-
-1. **Estado y origen**: quién lo pidió, con su frase textual, y qué evidencia lo disparó.
-2. **El problema / lo que hay hoy**: medido, con `archivo:línea` o la consulta. Sin evidencia no entra.
-3. **Lo que se revisó antes de escribir esto**: lo que se leyó del código y cambió la solución.
-4. **Decisiones (para vetar)**: D1…Dn, cada una en negrita con su porqué. Mario veta por número.
-5. **Alternativas descartadas** y por qué.
-6. **Fases**: F0 mide (sólo lectura) … Fn verifica. Cada una: qué hace, qué paquete, tamaño
-   S/M/L, de qué depende y cómo se verifica.
-7. **Lo que este plan NO hace.**
-8. **Riesgos**: riesgo y su mitigación.
-9. **Bitácora**, al cerrar cada fase: qué se hizo, qué reveló cada intento fallido, la causa
-   raíz del diagnóstico equivocado y los números medidos.
-
-**Reglas**:
-- **El contrato se escribe y se aprueba ANTES de implementar.** La versión se reserva
-  mergeando el archivo a `main` apenas se aprueba: dos planes con la misma versión mergean
-  limpio y git no avisa. Tras cada rebase, verificar que siga única; tomada ⇒ renombrar.
-  Quien detecta el choque con su plan ya implementado no renumera: los duplicados se citan
-  por slug.
-- **El estado es el frontmatter, nunca la carpeta**: nada se mueve a `done/` (la carpeta se
-  eliminó el 2026-10-03).
+- **Antes de escribir un plan, lee [docs/plans/README.md](docs/plans/README.md)**: nombre y
+  versión (se reserva mergeando el archivo a `main`), frontmatter, título, secciones y reglas.
+- **El contrato se escribe y se aprueba ANTES de implementar.** El estado es el frontmatter.
 - ⚠️ **La `nota:` se actualiza al MERGEAR y al PUBLICAR, no sólo al implementar.** Una nota
   que nombra una rama o un worktree caduca sola.
-- **Sin commits en tres semanas, se decide**: `implementado` con nota de qué quedó fuera,
-  `descartado` apuntando a quién lo cubrió, o `en curso` con dueño escrito.
-- **Se documenta el razonamiento, no sólo el cambio**: en la bitácora del plan, en el CLAUDE.md
-  que corresponda (la regla durable, en una línea) y en el commit (qué se creía, qué pasó, qué
-  se aprendió; no un changelog).
-- Si algún día hay un índice de planes, se GENERA del frontmatter con un script y jamás se
-  edita a mano.
 
 **Reparto contrato / implementación**: la sesión principal escribe el contrato, lo hace
 aprobar y revisa. Cada fase la implementa un subagente con `isolation: "worktree"`,
@@ -206,6 +163,13 @@ aprobar y revisa. Cada fase la implementa un subagente con `isolation: "worktree
 CLAUDE.md a respetar, alcance estricto, tests como único gate y sin mergear. Al volver: leer
 el diff contra el contrato, **re-correr las suites uno mismo** (pytest y, si tocó `ui/`,
 `npm test` + `npm run build`), rechazar lo que no cumple y sólo entonces rebase y merge.
+
+**Modelar una máquina por MCP también se delega**: un subagente en segundo plano con brief
+autocontenido (no puede preguntar a mitad: decide con criterio y lo reporta) y contexto fresco;
+modelar dentro de una sesión larga relee todo su contexto en cada llamada (la piloto de
+[publicacion-tienda](docs/plans/publicacion-tienda.md): 36 M tokens leídos en 14 min). ⚠️ **Una
+máquina a la vez**: la API tiene UN documento activo (`api/session.py`, `S.doc`) y
+`open_project` lo cambia para todos; dos agentes a la vez se pisan.
 
 ## Sesiones concurrentes: worktree para escribir código
 
@@ -249,19 +213,12 @@ medio stagear, commits que arrastran trabajo ajeno).
 - ⚠️ **`main` avanza también entre que el agente rebasa y Mario pega el comando.** Un
   `CONFLICT` lo resuelve el agente, no Mario: rebasa de nuevo, corre los tests y vuelve a dar
   el comando.
-- **Quien instaló dependencias las borra al terminar**: en Windows, la ruta larga de
-  `node_modules` hace explotar `git worktree remove` con *Filename too long*. Si igual falla,
-  git pudo desregistrar el worktree y dejar la carpeta: borrarla así y después
-  `git worktree prune`:
-  ```powershell
-  $v = Join-Path $env:TEMP 'vacia'; New-Item -ItemType Directory -Force $v | Out-Null
-  robocopy $v '<ruta-del-worktree>' /MIR /NFL /NDL /NJH /NJS | Out-Null
-  Remove-Item '<ruta-del-worktree>' -Recurse -Force
-  ```
-  `robocopy` devuelve exit code ≠ 0 aun cuando funciona: encadenar con `;`, nunca con `if ($?)`.
-- **Antes de borrar un worktree, probar que no sea el cwd de una sesión viva**: renombrar la
-  carpeta y devolverle el nombre; si falla, está ocupada. Ni git ni la antigüedad lo
-  detectan. Borrar con `git worktree remove` sin `--force`.
+- **Borrar un worktree**: antes, probar que no sea el cwd de una sesión viva (renombrar la
+  carpeta y devolverle el nombre; si falla, está ocupada: ni git ni la antigüedad lo detectan) y
+  borrar el `node_modules` que uno instaló; después, `git worktree remove` sin `--force`. Si
+  explota con *Filename too long* y deja la carpeta: `robocopy <carpeta-vacía> <ruta> /MIR`,
+  `Remove-Item <ruta> -Recurse -Force` y `git worktree prune` (`robocopy` sale ≠ 0 aun cuando
+  funciona: encadenar con `;`, nunca con `if ($?)`).
 
 ## Publicación
 
@@ -313,7 +270,7 @@ imprime los comandos con credenciales (build/twine/mcp-publisher), que lanza una
   explícito ([V6.4](docs/plans/V6.4-parametrico-profundo.md)).
 - ⚠️ **Cambiaste la geometría con los MISMOS params → versión o epoch**: la caché de geometría
   se indexa por los params, no por el código; si no decides, un open caliente sirve geometría
-  vieja (la v4 del epoch llegó con meses de atraso). Según lo que tocaste:
+  vieja. Según lo que tocaste:
   - UN executor → sube su `version` en el `CommandSpec` (invalida sólo los proyectos que lo
     usan; `insert_project`, compuesto, lleva todas);
   - algo compartido cuyos usuarios puedes nombrar → sube la `version` de cada uno;
