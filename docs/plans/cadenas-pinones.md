@@ -387,4 +387,40 @@ Tests en `tests/test_catalog_cadenas.py`:
 
 ## Bitácora
 
-(se llena al cerrar cada fase)
+### F1 (2026-10-08): catálogo — en `main` (`b28692b`)
+
+- Implementó un subagente en un worktree. Su rebase chocó con `4b49d62` (otra sesión puso V8 en
+  la línea «Estado actual»): la sesión principal trajo el commit por cherry-pick a su worktree,
+  combinó la línea (V8 + 300 refs + 2416 tests), re-corrió pytest (**2411 passed, 5 skipped**,
+  5:16) y ruff (verde) y mergeó `--ff-only`.
+- Archivos:
+  - `library/transmision.py` (406 líneas, matemática pura);
+  - `builders_transmision.py` (298);
+  - `111_cadenas_pinones.yaml` (201, 44 refs);
+  - `tests/test_catalog_cadenas.py` (176 tests).
+
+  `loader.ANCLAS` une las anclas por familia con la misma regla que los builders (repetida o
+  huérfana = error). `Component.anchors` se llena al cargar; `component_anchors` suma categoría
+  + familia, así que las anclas de las garruchas siguen intactas.
+- Medido: piñón z14 0,08 s, z30 0,16 s, z60 0,33 s, dúplex 0,12 s; tramo recto de 40 eslabones
+  0,5 s; un lazo de 70 eslabones fusionado ~1,1 s, sin fusionar ~0,15 s.
+- **Lo que corrigió la implementación:**
+  - **Ángulo de asiento**: el MÁXIMO (140°−90°/z). Con el mínimo, los dientes ASA terminan en
+    punta antes de llegar al exterior publicado.
+  - **Rodillos de la cadena**: asentarlos hasta los puntos de tangencia del círculo primitivo los
+    mete en los dientes. Ahora siguen el casco convexo de los asientos de los dos piñones. La
+    holgura se cuelga hacia afuera con cuerdas de exactamente un paso. Si las fases no dejan
+    cadena para un tramo recto, el estiramiento va a los rodillos del medio y se publica en
+    `separacion_max` (hasta ~14,3 mm en lazos 1:1). Interferencia rodillo ↔ diente: cero en 96
+    lazos con fases al azar.
+  - **Cubos publicados más grandes que el paso libre de la cadena**: `PINON-ASA40-1-Z12` (Ø39,7,
+    confirmado en Tsubaki) y `PINON-08B-1-Z9` (Ø24) solapan una cadena de placas en estadio
+    (253 y 13 mm³). Queda declarado en su `no_publicado` y fijado por un test.
+  - **Dúplex**: entre hileras se usa el Ø del cubo, no el Ø de garganta ISO.
+  - **Valores [D] nuevos**: 08B-2 Z21 de = 92,58 (ISO da máx); ancho de diente ASA 40-2 = 7,07
+    (fórmula ANSI).
+  - **Pesos [E]**: volumen × 7,85e-6. El 3D reproduce los pesos publicados dentro del ±5 %.
+  - **Specs nuevas** para que el comando las compare: `serie`, `cadena` (la ref compatible) y
+    `tipo`.
+- No hay test que dependa de que las poleas se mallen (D10). No se pudo revisar si el grupo FEA
+  del 38 tiene una polea: el 38 no está en esta PC.
