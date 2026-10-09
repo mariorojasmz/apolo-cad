@@ -27,7 +27,9 @@ from pydantic import BaseModel
 
 from .state import ExecContext
 
-KINDS = ("scene", "vars")  # "scene" muta la escena; "vars" muta las variables (set_variable)
+# "scene" muta la escena; "vars" muta las variables (set_variable); "electrico" es del CARRIL
+# (V8.1 D1): fuera de la firma encadenada, se evalúa tras el regenerate (`doc/carril.py`).
+KINDS = ("scene", "vars", "electrico")
 
 
 @dataclass

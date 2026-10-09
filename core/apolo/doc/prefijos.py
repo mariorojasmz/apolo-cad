@@ -11,9 +11,14 @@ Costo ≈ UN regenerate completo, no n²: cada prefijo se regenera con `Document
 reanuda del checkpoint del prefijo anterior y ejecuta sólo los comandos nuevos (cada executor
 corre una vez en todo el recorrido). Encima queda O(k) por prefijo en firmas y copias
 superficiales del estado, despreciable al lado de OCCT. Entre prefijos se conserva SÓLO el
-checkpoint del último comando: los de cada `_REGEN_STRIDE` no sirven al subir y retendrían las
-versiones viejas de cada shape. Trampa: `_ckpts_ok` descarta las claves ≥ len(commands), así
-que un recorrido DESCENDENTE replayaría desde cero en cada paso; por eso los cortes se ordenan.
+checkpoint del último comando de escena: los de cada `_REGEN_STRIDE` no sirven al subir y
+retendrían las versiones viejas de cada shape. Trampa: `_ckpts_ok` descarta las claves ≥ los
+comandos de escena del prefijo, así que un recorrido DESCENDENTE replayaría desde cero en cada
+paso; por eso los cortes se ordenan.
+
+El carril (V8.1, `doc/carril.py`) no es un paso visual: los cortes por defecto saltan los
+prefijos que terminan en un comando del carril, y los checkpoints se buscan por su índice de
+ESCENA (el carril no ocupa índice). Un corte explícito en el carril vale: repite la escena.
 
 Garantía de IDENTIDAD (la usan `services/construccion.py` y `kernel/render_vivo.py`, que
 comparan piezas por `is` del shape): entre dos prefijos, una pieza que no cambió conserva el
@@ -39,6 +44,7 @@ import json
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
+from apolo.doc.carril import es_carril
 from apolo.doc.document import Document, DocumentError
 
 
@@ -54,9 +60,10 @@ class Prefijo:
     suprimidos: tuple = ()  # comandos que fallaron en este prefijo (formato regen_suppressed)
 
 
-def _cortes(n: int, inicio: int, cortes: Iterable[int] | None) -> list[int]:
-    if cortes is None:
-        return list(range(max(1, inicio), n + 1))
+def _cortes(comandos: list[dict], inicio: int, cortes: Iterable[int] | None) -> list[int]:
+    n = len(comandos)
+    if cortes is None:  # cada comando de escena es un paso; el carril no
+        return [k for k in range(max(1, inicio), n + 1) if not es_carril(comandos[k - 1])]
     ks = []
     for k in cortes:
         if isinstance(k, bool) or not isinstance(k, int) or not 1 <= k <= n:
@@ -68,11 +75,12 @@ def _cortes(n: int, inicio: int, cortes: Iterable[int] | None) -> list[int]:
 
 def iter_prefijos(doc: Document, cortes: Iterable[int] | None = None) -> Iterator[Prefijo]:
     """Los prefijos `commands[:k]` de `doc` para cada k de `cortes` (por defecto, desde el
-    final del bloque de variables hasta len(commands)), en orden ascendente. La copia privada
-    se hace AQUÍ, antes de devolver el iterador: `doc` no se vuelve a leer."""
+    final del bloque de variables hasta len(commands), sin los que terminan en el carril), en
+    orden ascendente. La copia privada se hace AQUÍ, antes de devolver el iterador: `doc` no se
+    vuelve a leer."""
     privado = Document.from_apolo_bytes(doc.to_apolo_bytes(), regenerate=False)
     comandos = list(privado.commands)
-    ks = _cortes(len(comandos), privado._vars_block_end(), cortes)
+    ks = _cortes(comandos, privado._vars_block_end(), cortes)
     return _recorrer(privado, comandos, ks)
 
 
@@ -84,8 +92,9 @@ def _recorrer(privado: Document, comandos: list[dict], ks: list[int]) -> Iterato
             privado.regenerate(tolerant=True)
         except DocumentError:
             continue  # el prefijo no regenera; el siguiente arrastra su cambio
-        ckpt = privado._regen_ckpts.get(k - 1)
-        privado._regen_ckpts = {k - 1: ckpt} if ckpt is not None else {}
+        ultimo = len(privado._regen_sigs) - 1  # índice de ESCENA del último comando de escena
+        ckpt = privado._regen_ckpts.get(ultimo)
+        privado._regen_ckpts = {ultimo: ckpt} if ckpt is not None else {}
         organicos = {fid: f.shape for fid, f in ckpt.scene.items()} if ckpt is not None else {}
         firmas = _firmas_mates(privado.mates)
         if previo is not None:

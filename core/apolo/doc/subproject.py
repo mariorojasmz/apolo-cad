@@ -64,6 +64,7 @@ def build_subproject(data: bytes, overrides: dict | None) -> SubprojectState:
         raise SubprojectError(
             f"Se superó la profundidad máxima de proyectos anidados ({MAX_DEPTH} niveles)"
         )
+    from apolo.doc.carril import es_carril
     from apolo.doc.document import Document, DocumentError
 
     _depth += 1
@@ -72,6 +73,9 @@ def build_subproject(data: bytes, overrides: dict | None) -> SubprojectState:
             doc = Document.from_apolo_bytes(data, regenerate=False)
         except DocumentError as exc:
             raise SubprojectError(f"Snapshot inválido: {exc}") from exc
+        # el carril del origen (V8.1) todavía no viaja: F3 lo trae con el aspecto de función
+        # (D9). Fuera del replay, un carril que no evalúa no tumba la instancia.
+        doc.commands = [c for c in doc.commands if not es_carril(c)]
         _apply_overrides(doc.commands, overrides or {})
         try:
             doc.regenerate()

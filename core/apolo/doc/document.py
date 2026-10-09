@@ -21,8 +21,9 @@ from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_comma
 from apolo.commands.spec import version_tag
 from apolo.commands.state import RegenState
 from apolo.commands.strict import reject_unknown
+from apolo.doc import carril, variantes
 from apolo.doc import pasos as _pasos
-from apolo.doc import variantes
+from apolo.doc.errors import ContractError, DocumentError  # noqa: F401 — se re-exportan
 
 FORMAT_VERSION = 2  # v2 añade attachments/ (archivos STEP importados); abre v1 sin cambios
 
@@ -37,26 +38,10 @@ _STRICT = os.environ.get("APOLO_STRICT") == "1"
 _CID_RE = re.compile(r"^c(\d+)$")
 
 
-class DocumentError(Exception):
-    pass
-
-
-class ContractError(DocumentError):
-    """El contrato `expect` de un lote no se cumplió (V6.5b, frente A): el lote se revirtió
-    POR COMPLETO (el documento quedó intacto, sin entrada de undo fantasma) y el mensaje
-    lista las aserciones fallidas con esperado vs medido. Lleva los `results` crudos por si
-    el caller quiere estructurarlos. Es DocumentError → la API lo devuelve como 400 claro."""
-
-    def __init__(self, results: list[dict]):
-        from apolo.library.verify import format_failures
-
-        self.results = results
-        super().__init__(format_failures(results))
-
-
 # --------- regeneración incremental: firma por comando + snapshot de estado ---------
 # Los executors NUNCA mutan el shape OCCT in-place → un checkpoint comparte los shapes sin
 # copiar geometría (`RegenState.copy()`). Firma = previa + id + params + versión ≠ 1 (D9).
+# Firmas y checkpoints se indexan sobre los comandos de ESCENA: el carril no entra (V8.1 D1).
 
 def _cmd_sig(prev: str, cmd: dict) -> str:
     h = hashlib.sha1(prev.encode())
@@ -64,6 +49,15 @@ def _cmd_sig(prev: str, cmd: dict) -> str:
     h.update(json.dumps(cmd["params"], sort_keys=True, default=str).encode())
     h.update(version_tag(REGISTRY, cmd["type"]).encode())  # b"" con todo en v1: la histórica
     return h.hexdigest()
+
+
+def _firmas(escena: list[dict]) -> list[str]:
+    """La firma acumulada de cada comando de escena (`carril.separar`), en orden."""
+    sigs, prev = [], ""
+    for cmd in escena:
+        prev = _cmd_sig(prev, cmd)
+        sigs.append(prev)
+    return sigs
 
 
 class Document:
@@ -94,6 +88,7 @@ class Document:
         # comandos SUPRIMIDOS por una carga tolerante (transitorio: NUNCA se persiste en
         # el manifest; se recalcula en cada regenerate — vacío en modo estricto)
         self.regen_suppressed: list[dict] = []
+        self.electrico = carril.vacio()  # el carril evaluado (V8.1): derivado, nunca se guarda
         self._seq = 0
         self._undo: list[dict] = []
         self._redo: list[dict] = []
@@ -131,11 +126,11 @@ class Document:
 
     def _ckpts_ok(self) -> bool:
         """La caché de checkpoints es estructuralmente SANA (segura de usar): claves int
-        (no bool) en el rango del log y estado = `RegenState` con la escena dict. Cualquier
-        anomalía → el caller fuerza replay completo en vez de reventar (blindaje Fix B).
-        Las firmas (sigs) NO se validan: son strings y comparar con basura da False sin
-        petar, y un largo distinto es NORMAL entre append y regenerate."""
-        n = len(self.commands)
+        (no bool) en el rango de los comandos de ESCENA y estado = `RegenState` con la escena
+        dict. Cualquier anomalía → el caller fuerza replay completo en vez de reventar
+        (blindaje Fix B). Las firmas (sigs) NO se validan: son strings y comparar con basura
+        da False sin petar, y un largo distinto es NORMAL entre append y regenerate."""
+        n = carril.n_escena(self.commands)
         try:
             for k, st in self._regen_ckpts.items():
                 if isinstance(k, bool) or not isinstance(k, int) or not (0 <= k < n):
@@ -208,12 +203,9 @@ class Document:
         from apolo.assembly.groups import assign_feature_groups
         from apolo.assembly.mates import MateError, solve_mates
 
-        # 1) firma acumulada por comando del log actual
-        sigs: list[str] = []
-        prev = ""
-        for cmd in self.commands:
-            prev = _cmd_sig(prev, cmd)
-            sigs.append(prev)
+        # 1) firma acumulada por comando de ESCENA (el carril va aparte: doc/carril.py)
+        escena, lane, _ = carril.separar(self.commands)
+        sigs = _firmas(escena)
         # 2) caché incremental blindada (Fix B): si los checkpoints están corruptos, se
         #    ignoran → replay completo, NUNCA se lanza por culpa de la caché
         ckpts = self._regen_ckpts if self._ckpts_ok() else {}
@@ -239,9 +231,9 @@ class Document:
             start = 0
         suppressed: list[dict] = []
         # 5) ejecutar solo la cola (desde el primer cambio) y capturar checkpoints
-        last = len(self.commands) - 1
-        for i in range(start, len(self.commands)):
-            cmd = self.commands[i]
+        last = len(escena) - 1
+        for i in range(start, len(escena)):
+            cmd = escena[i]
             try:
                 execute_command(state, cmd["id"], cmd["type"], cmd["params"], self.attachments)
             except CommandError as exc:
@@ -280,6 +272,8 @@ class Document:
             variables_resolved = resolve_all(state.variables)
         except ExpressionError as exc:
             raise DocumentError(f"Error en las variables del proyecto: {exc}") from exc
+        electrico = carril.evaluar(lane, scene, state.variables, variables_resolved,
+                                   tolerant=tolerant, suprimidos=suppressed)
         # 7) BLOQUE ÚNICO de asignaciones — a partir de aquí NADA puede lanzar (atomicidad)
         self.scene = scene
         self.joints = state.joints
@@ -291,6 +285,7 @@ class Document:
         self.variables_raw = state.variables
         self.variables_resolved = variables_resolved
         self.regen_suppressed = suppressed
+        self.electrico = electrico
         self._regen_sigs = sigs
         self._regen_ckpts = new_ckpts
 
@@ -308,12 +303,7 @@ class Document:
             return
         if not cached_sigs or not isinstance(cached_sigs, list) or not isinstance(state, RegenState):
             return
-        # firmas del log realmente cargado
-        sigs: list[str] = []
-        prev = ""
-        for cmd in self.commands:
-            prev = _cmd_sig(prev, cmd)
-            sigs.append(prev)
+        sigs = _firmas(carril.separar(self.commands).escena)  # las del log realmente cargado
         # las firmas cacheadas deben ser PREFIJO (o iguales) de las del log (el log pudo
         # crecer desde la última caché; si en cambio DIVERGE o es más largo → descartar)
         n = len(cached_sigs)
@@ -406,12 +396,10 @@ class Document:
                 nxt = self.groups.get(cur)
                 cur = nxt.get("parent") if nxt else None
 
-        # caché de regeneración incremental (blindaje del fix B)
-        if len(self._regen_sigs) != len(self.commands):
-            issues.append(
-                f"_regen_sigs tiene {len(self._regen_sigs)} firmas para {len(self.commands)} comandos"
-            )
-        n = len(self.commands)
+        # caché de regeneración incremental (blindaje del fix B), indexada sobre la ESCENA
+        n = carril.n_escena(self.commands)
+        if len(self._regen_sigs) != n:
+            issues.append(f"_regen_sigs tiene {len(self._regen_sigs)} firmas para {n} comandos")
         for k, st in self._regen_ckpts.items():
             if not isinstance(k, int) or not (0 <= k < n):
                 issues.append(f"checkpoint con clave inválida {k!r} (fuera de [0,{n}))")

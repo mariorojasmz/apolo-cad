@@ -97,8 +97,9 @@ def pack(doc) -> bytes | None:
     None ante CUALQUIER fallo. No muta el documento (se picklea una COPIA de los Features
     con ``shape=None``).
 
-    V6.2e: empaca el checkpoint ORGÁNICO del ÚLTIMO comando (``_regen_ckpts[len-1]``, capturado
-    DENTRO del bucle de regenerate, ANTES de la finalización: solve_mates/assign_groups), NO el
+    V6.2e: empaca el checkpoint ORGÁNICO del ÚLTIMO comando de ESCENA (``_regen_ckpts[n-1]``
+    con n = comandos de escena, porque el carril de V8.1 no ocupa índice; capturado DENTRO del
+    bucle de regenerate, ANTES de la finalización: solve_mates/assign_groups), NO el
     estado post-finalización. Sembrar un ckpt post-mates desplazaría la geometría base → la cola
     (caso prefijo o un comando nuevo tras el open) ejecutaría contra shapes ya movidos por los
     mates y los selectores sensibles a posición (near/cara/center_in) diferirían del replay frío.
@@ -106,12 +107,13 @@ def pack(doc) -> bytes | None:
     reportaría suppressed=[] enmascarando el chip y podría servir una escena sin la pieza)."""
     try:
         from apolo.commands.registry import DEFINITIONS
+        from apolo.doc.carril import n_escena
 
         if not doc._regen_sigs:
             return None  # documento vacío: nada que cachear
         if getattr(doc, "regen_suppressed", None):
             return None  # Fix 4: doc tolerante con comandos rotos → jamás cachear
-        ckpt = doc._regen_ckpts.get(len(doc.commands) - 1)  # Fix 3: ckpt ORGÁNICO (pre-mates)
+        ckpt = doc._regen_ckpts.get(n_escena(doc.commands) - 1)  # Fix 3: ORGÁNICO (pre-mates)
         if ckpt is None:
             return None  # sin ckpt del último comando (ckpts purgados) → replay frío
         state = ckpt.copy()  # aísla ANTES de vaciar shapes (no corromper el ckpt del doc)

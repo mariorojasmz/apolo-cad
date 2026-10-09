@@ -69,10 +69,10 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   wrapper build123d, que lleva joints frágiles) y verifica cada shape deserializándolo: crudo →
   copia (`BRepBuilderAPI_Copy`) → None (`brep_io.serialize_robust`, compartido con el sandbox:
   cambiarlo cambia los dos); BinTools falla por shape de forma caprichosa.
-- `pack` empaca el checkpoint ORGÁNICO del último comando (`_regen_ckpts[len-1]`, antes de los
-  mates), no el estado final: si no, la cola ejecutaría contra geometría desplazada y los
-  selectores de posición diferirían del replay frío. Un doc tolerante (`regen_suppressed`) no
-  se cachea.
+- `pack` empaca el checkpoint ORGÁNICO del último comando de ESCENA (`_regen_ckpts[n-1]`, n =
+  `carril.n_escena`: el carril de V8.1 no ocupa índice; antes de los mates), no el estado
+  final: si no, la cola ejecutaría contra geometría desplazada y los selectores de posición
+  diferirían del replay frío. Un doc tolerante (`regen_suppressed`) no se cachea.
 - Open caliente (`from_apolo_bytes(warm=…)`): reanuda si la firma cacheada es PREFIJO del log y
   pasa `check_integrity`; si viola o el regenerate sembrado LANZA → descarta y replay frío.
   `ProjectStore.load` puebla la caché en el open frío (un proyecto que sólo se abre nunca la
