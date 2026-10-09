@@ -106,7 +106,7 @@ escribe su contrato antes de implementarse.
 | versión | resultado en una línea | estado | plan |
 |---|---|---|---|
 | V8 | Plan marco: arquitectura y decisiones D1–D16, versiones V8.0–V8.13 | en curso (2026-10-08) | [V8](plans/V8-maquina-viva.md) |
-| V8.0 | Medir los riesgos: costo de editar un cable en el log, MuJoCo con juntas y actuador, scan del PLC, red de control, proceso vivo, binarios externos | por hacer | [V8](plans/V8-maquina-viva.md) § Fases |
+| V8.0 | Medir los riesgos. Editar un cable fuera de la firma encadenada cuesta 8,5 ms (dentro, 5 s), así que va como carril. El piloto integrado (faja + red + PLC + variador) corre a ×7,9 del tiempo real. El motor va como `<velocity>` nativo de MuJoCo | hecho 2026-10-08 | [V8](plans/V8-maquina-viva.md) § Fases |
 | V8.1 | El modelo eléctrico: dispositivos con bornes, cables, ERC, `get_circuit`, BOM eléctrica | por hacer | — |
 | V8.2 | La máquina se mueve de verdad: juntas reales en MuJoCo, actuadores, productos sobre banda y rodillos | por hacer | — |
 | V8.3 | La faja arranca desde su tablero: co-simulación eléctrica + PLC, escenarios, FAT virtual | por hacer | — |

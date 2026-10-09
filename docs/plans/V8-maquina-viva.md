@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: plan marco aprobado por Mario («quiero todo… al estilo Apolo»); V8.0 (medición) es lo siguiente; cada V8.x escribe su contrato antes de implementarse; P1–P4 sin contestar (no bloquean V8.0–V8.4)
+nota: V8.0 medida (D1 = carril fuera de la firma; D3, D4, D7 y D10 cerradas); siguen los contratos de V8.1 y V8.2, en paralelo; P1–P4 sin contestar (no bloquean V8.1–V8.4)
 descripcion: Las máquinas de Apolo traen su tablero eléctrico real (dispositivos, cables, PLC) y, si hace falta, sus placas a la medida; el agente lo diseña por MCP, la máquina se mueve en una co-simulación eléctrica y mecánica casi real que se ve en 3D con sus datos vivos, y sale con planos eléctricos, memoria de cálculo y el programa del PLC
 ---
 
@@ -161,9 +161,23 @@ Medido sobre `main` en `0592a0c`.
     `insert_project` traiga el tablero de cada máquina en un layout de planta.
   - Los ESCENARIOS de prueba y los RESULTADOS de simulación sí son metadato (D9): se evalúan sobre
     el estado final.
-  - Se mide en V8.0 si entra como campo nuevo de `RegenState` (bump de `GEOM_CACHE_EPOCH`) o como
-    carril propio de la etapa final del regenerate (como mates y grupos, sin checkpoint). Lo
-    decide el costo de editar un cable en un log de ~450 comandos sin re-ejecutar la geometría.
+  - **Entra como CARRIL ELÉCTRICO fuera de la firma encadenada** (medido en V8.0, ver Bitácora).
+    Editar un cable temprano en un log de 450 comandos cuesta 8,5 ms, contra 4,2–5,3 s si entrara
+    a la firma como `fasten`: unas 500 veces menos.
+    - Un comando del carril (marcado en su `CommandSpec`) no cambia `_cmd_sig`. En el bucle del
+      regenerate no hace nada y se evalúa DESPUÉS del bucle, estricto o tolerante como el resto.
+    - Los índices de los checkpoints se cuentan sobre los comandos de escena. Así, borrar o
+      insertar un comando del carril no corre los índices ni dispara un replay.
+    - No toca `RegenState` ni `GEOM_CACHE_EPOCH`: un log viejo no trae carril y sus firmas no
+      cambian.
+    - El dispositivo con cuerpo 3D sigue siendo un comando de escena. Lo eléctrico de ese
+      dispositivo (designación, ajustes, modelo) vive en el carril, con la pieza como clave.
+    - Un comando geométrico que LEA el carril (el `layout_tablero` de V8.5, el largo de los
+      cables) lleva el hash del carril en su firma y lo recibe de sólo lectura por `ExecContext`.
+      Se diseña en V8.5.
+  - Corrección al borrador: mates y grupos NO son carril. Sus comandos corren en el bucle, viven
+    en `RegenState` y entran a la firma; sólo su RESOLUCIÓN va en la etapa final
+    (`doc/document.py:243-295`).
 - **D2 — Un dispositivo es una ref de catálogo con bornes, función y modelo de comportamiento.**
   El YAML gana:
   - `bornes`: identificación IEC 60445 (L1/L2/L3, T1/T2/T3, U/V/W, A1/A2, 13/14, 21/22, PE,
@@ -181,6 +195,11 @@ Medido sobre `main` en `0592a0c`.
   - **Lógica**: contactos, bobinas y retardos.
   - **Control**: red de corriente continua de 24 V y de alterna de mando resuelta por nodos
     (MNA) en cada paso. Da tensiones de bobina, caídas y fusibles.
+    - numpy denso con estampas compiladas una vez.
+    - Se refactoriza sólo cuando conmuta un contacto (por evento).
+    - En cada intercambio se resuelve con la LU en caché: 21 µs con 62 nodos.
+    - Sherman–Morrison queda descartado: con un cociente on/off de 1e10 acumula voltios de
+      error (V8.0).
   - **Potencia**: red trifásica fasorial cuasi-estática. Da la corriente de cada cable, la caída
     de tensión, el disparo térmico I²t de clase 10/20 y el disparo magnético (curvas
     IEC 60898/60947), además de la pérdida de fase.
@@ -201,7 +220,9 @@ Medido sobre `main` en `0592a0c`.
     permite, sin acceso libre a Python.
   - Ciclo de scan real: imagen de entradas → programa → salidas.
   - Bloques estándar: TON/TOF/TP, CTU/CTD, R_TRIG/F_TRIG, SR/RS.
-  - El parser usa Lark (MIT).
+  - Parser propio de descenso recursivo, sin dependencia nueva. Lark no está en el venv, la
+    gramática de ST es tipo Pascal y así los errores salen accionables y en español. Compilar
+    rinde 17 µs por scan, contra 199 µs de un intérprete de árbol (V8.0).
   - Hacia el PLC real (V8.8) se exporta en ST, SCL (TIA Portal), PLCopen XML (IEC 61131-10) y
     L5X (Rockwell).
 - **D5 — El 3D del tablero se genera del modelo eléctrico** (como EPLAN Pro Panel, pero
@@ -228,6 +249,10 @@ Medido sobre `main` en `0592a0c`.
   - **En vivo**: tiempo real con los mandos en manos de la persona. El proceso empuja el estado
     a ~30 Hz por un canal WebSocket propio y recibe las acciones («presiona -S1»). Si no alcanza
     el tiempo real, lo dice («×0,6»).
+    - Los fotogramas son BINARIOS: float32, 4 KB con 50 cuerpos y 200 señales, codificados en
+      1 µs (en JSON serían 10,7 KB y 300 µs).
+    - Cada acción se confirma enseguida con un mensaje corto aparte: 1 ms por pipe + WS.
+    - En Windows el ritmo de 30 Hz se sostiene (factor 0,995–0,999, V8.0).
 
   El snapshot (MJCF, red compilada, programa compilado) se toma bajo `STATE_LOCK` y después
   nada toma `STATE_LOCK` ni `PHYSICS_LOCK`. Si el documento cambia, la sesión queda «vieja» y
@@ -265,7 +290,25 @@ Medido sobre `main` en `0592a0c`.
     a medir en V8.0);
   - sensores por rayo (`mj_ray`) y por posición.
 
-  `timestep` de 1 ms en la co-simulación (hoy 4 ms en gravedad): lo mide V8.0.
+  Cerrado en V8.0 (Bitácora):
+  - **Paso**: física a 1 ms con intercambio cada 2 ms (`mj_step(nstep=2)`), red evaluada en
+    cada intercambio y PLC a 10 ms. Respaldo: física a 2 ms e intercambio cada 4 ms.
+    `gravity_test` sigue en 4 ms.
+  - **Motor**: actuador NATIVO `<velocity>`, que es la rama estable de Kloss linealizada,
+    kv = 2·Tk/(sk·ωs)·i²·η. El variador fija `ctrl` = ωs(f)/i y `forcerange` = ±Tk·i·η en cada
+    intercambio. Un par explícito calculado en Python oscila desde un intercambio de 4 ms; el
+    nativo queda exacto con cualquier período.
+  - **Banda**: superficie estática con `condim="1"` y `priority="1"`, sin fricción nativa. Arrastra
+    con una fuerza tangencial por contacto, vectorizada (N de `efc_force`, μN·sat(Δv/0,02)), y
+    la reacción −ΣFx·r más el arrastre de la cama vuelven al tambor.
+    - Una banda «sin fricción» con μ ≈ 1e-5 y `condim=3` EXPLOTA.
+    - El servo en el centro de masa (N = m·g) queda como modo rápido para bandas planas.
+  - **Rodillos**: fricción nativa (hinge + `<velocity>`), con cápsulas, que son 20–40 % más
+    baratas que los cilindros. Los rodillos no deben chocar con el bastidor
+    (`contype`/`conaffinity`): las AABB de `create_conveyor` se solapan con los largueros.
+  - **Sensores**: `mj_ray` con `flg_static=0`, a 2 µs por rayo.
+  - **Sentido de marcha explícito**: con el eje del ancla `eje_motriz` tal cual ([0, −1, 0]), un
+    giro positivo lleva la banda hacia la cola.
 - **D11 — Normas: IEC como base, más un perfil de país. Por defecto, Perú.**
 
   | tema | norma |
@@ -355,8 +398,10 @@ Preguntas que sólo Mario contesta (no bloquean V8.0–V8.4):
    económica (Chint o LS), según lo que se consiga en Lima. ¿Cuáles usas o cotizas?
 3. **PLC del primer exporte.** ¿Siemens S7-1200 (TIA Portal, SCL), Schneider o Codesys (PLCopen
    XML), Delta o Allen-Bradley? Decide qué formato se hace primero en V8.8.
-4. **Placas.** ¿Tienes KiCad instalado? ¿Fabricante preferido (JLCPCB, PCBWay)? Lo necesita
-   V8.10.
+4. **Placas** (lo necesita V8.10). En esta PC hay KiCad 7.0.6, pero su `kicad-cli` sólo exporta:
+   el DRC y el ERC por línea de comandos piden KiCad 8 o más (el plan supone 9). Faltan
+   Freerouting y ngspice como ejecutable; Java 21 sí está. ¿Actualizas KiCad? ¿Fabricante
+   preferido (JLCPCB, PCBWay)?
 
 ## Alternativas descartadas
 
@@ -557,4 +602,94 @@ Orden y paralelismo:
 
 ## Bitácora
 
-(vacía: V8.0 es lo siguiente)
+### V8.0 (2026-10-08): medición — D1, D3, D4, D7 y D10 cerradas
+
+**Cómo se midió**:
+- La midió un subagente sobre `4b49d62`, en un worktree y sin tocar archivos versionados.
+- Máquina: MARIO-PCPRINCIP (i7-9700K, Python 3.13.2, MuJoCo 3.15.0, numpy 2.5.3).
+- Los prototipos quedaron en el scratchpad de la sesión (`v80/`), no en el repo.
+- Durante las medidas había otra API y un pytest corriendo, así que los absolutos pueden salir
+  algo pesimistas; las comparaciones dentro de cada corrida valen.
+
+**D1: editar un comando no geométrico en un log de 450 comandos.** El log sintético tiene 154
+`insert_component`, 211 `fasten`, `run_script` y 40 cables de prueba. El comando de prueba se
+registró sólo en runtime y los executors se contaron envolviendo `registry.run_executor`.
+
+| caso | ms | executors re-ejecutados |
+|---|---|---|
+| replay completo | 5 901–6 119 | 449 |
+| en la firma (como `fasten`), índice 46–60 | 4 927–5 219 | 401–417 |
+| en la firma, al final del log | 8–12 | 1–17 |
+| carril fuera de la firma, en cualquier posición | **8,4–8,5** | **0** (el carril cuesta 1,8 ms) |
+| lote de 20 cables, en la firma | 6 022 | 449 |
+| lote de 20 cables, en el carril | 8,7 | 0 |
+
+- Con un log parecido al del 38 (48 `run_script`) los números son los mismos: 5 298 ms frente a
+  8,9 ms.
+- Copiar un estado eléctrico de 300 cables y 60 dispositivos con `deepcopy` cuesta 1,64 ms por
+  checkpoint.
+- **La causa raíz** es que `_cmd_sig` es un sha1 encadenado (`doc/document.py:61-66`): editar el
+  comando i cambia las firmas de toda la cola, y la cola se re-ejecuta entera
+  (`document.py:211-257`). `geomcache` sólo sirve al open caliente; no hay memo por comando.
+- **El borrador de D1 estaba mal en un punto**. Decía «como mates y grupos, sin checkpoint», pero
+  esos comandos entran a la firma y a `RegenState`; sólo su resolución está en la etapa final.
+  El carril necesita una regla NUEVA: no entrar a la firma.
+- **Hallazgo lateral, fuera de V8**: lo que domina el replay es `insert_component`, que
+  reconstruye cada pieza de catálogo sin memo. Ejemplos: NMRV-040 210 ms, UCP205 199 ms. Con
+  `build_component` memoizado por (ref, largo), el replay completo baja de 5,9 s a **0,48 s**.
+  Queda como tarea aparte.
+
+**D10: MuJoCo con juntas reales, actuador y banda.** El modelo es la faja de banda de 3 m con 10
+cajas de 2 kg, el tambor como hinge sobre el ancla `eje_motriz` y unos 38 contactos.
+
+| paso de física | sin fuerza de banda | servo en el centro de masa | fuerza por contacto vectorizada | bucle Python por contacto |
+|---|---|---|---|---|
+| 1 ms | ×22,5 | ×6,7 | ×3,1 | ×0,4 |
+| 2 ms | ×39,5 | ×12,7 | ×7,3 | ×0,8 |
+| 4 ms | ×86 | ×27,5 | ×15,9 | ×1,8 |
+
+(×N = veces más rápido que el tiempo real.)
+
+- **Banda**: en todos los casos las 10 cajas llegan a 0,250 m/s, con t95 de 0,09 s, |vz| ≈ 0 y una
+  deriva lateral ≤ 0,1 mm.
+- **Motor**: el par explícito de Kloss calculado en Python oscila un 4,5 % con un intercambio de
+  4 ms y entra en ciclo límite con 8–10 ms. El `<velocity>` nativo queda exacto en todos los
+  períodos.
+- **Rodillos** con fricción nativa y 29 rodillos más 10 cajas: ×9,7 con cilindros y ×12,3 con
+  cápsulas a 1 ms; todos estables.
+- **Fotocelda**: `mj_ray` cuesta 2,2 µs. La primera caja corta el rayo a 1,808 s (la cinemática
+  ideal da ≥ 1,800) y después pasa una cada 0,800 s exactos.
+
+**Otras decisiones:**
+- **D4**: el ST compilado a Python cuesta 17 µs por scan, con un programa de 478 líneas, 82 FB y
+  25 E/S. El intérprete de árbol cuesta 199 µs. El estado final de los dos es idéntico.
+- **D3**: con LU densa en caché la red cuesta 21 µs por paso (62 nodos). Reconstruir el sistema
+  porque conmutó un contacto cuesta 58 µs. Con matrices dispersas sale más lento a este tamaño
+  (245 µs).
+- **D7**: un fotograma binario pesa 4 KB y se codifica en 0,8 µs. La confirmación inmediata de
+  una acción tarda 1,07 ms por pipe + WS. Con el ack metido en el fotograma de 30 Hz, la mediana
+  sube a 15–18 ms.
+
+**Piloto integrado en un solo proceso** (faja, 10 cajas, red de 62 nodos, PLC a 10 ms, variador,
+motor y fotocelda): **×5,9** con física e intercambio a 1 ms, y **×7,9** con física a 1 ms e
+intercambio cada 2 ms (las dos con el servo en el centro de masa). Con la fuerza por contacto
+vectorizada, ×3,1 y ×4,8.
+- El acople completo funcionó: el PLC cerró -K1, el variador llegó a 60 Hz, la banda a 0,258 m/s
+  y la fotocelda contó las cajas.
+- Pendiente para V8.2: el costo de colisión con cascos convexos y los ~129 sólidos del 38 (aquí
+  la estática fueron 18 cajas AABB).
+
+**Binarios externos en esta PC:**
+
+| herramienta | estado |
+|---|---|
+| KiCad | 7.0.6, con `kicad-cli` sólo de exportación: sin DRC ni ERC, que piden KiCad ≥ 8 |
+| Java | 21 |
+| ffmpeg | 7.1 |
+| avr-gcc y arduino-cli | 7.3 y 0.19.1, los del Arduino IDE |
+| Freerouting | falta |
+| ngspice (ejecutable) | falta |
+| Renode | falta |
+| `arm-none-eabi-gcc` | falta |
+
+Ver P4.
