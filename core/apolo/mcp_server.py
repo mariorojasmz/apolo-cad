@@ -1329,21 +1329,20 @@ def fea_static(feature_id: str, fixed: dict, loads: list[dict] | None = None,
                material: str = "", yield_mpa: float = 0.0,
                self_weight: bool = False, mesh_size_mm: float = 0.0,
                fs_min: float = 2.0, fringe_path: str = "") -> str:
-    """FEA ESTÁTICO LINEAL de UNA pieza (V5.6): malla tet P2 (gmsh) + elasticidad
-    lineal (scikit-fem). Devuelve σ_vm máx (MPa) con su ubicación, desplazamiento
-    máx (mm), FS = σy/σ_vm (criterio: ≥2 estático, <1.2 sobrecargada) y las
-    HIPÓTESIS declaradas; el resumen se GUARDA y entra solo a la memoria de cálculo
-    (con aviso automático si la geometría cambia después). `fixed` y
-    `loads[].selector` son selectores declarativos de CARAS ({mode: cara|direccion|
-    cerca…} — elige con get_topology); cada load lleva force_n=[Fx,Fy,Fz] (fuerza
-    TOTAL en N, repartida sobre la cara) O pressure_mpa (normal entrante);
-    self_weight añade el peso propio. `fringe_path` guarda el PNG del campo von
-    Mises (mapa de colores + escala) — MÍRALO: te dice DÓNDE está el esfuerzo.
-    Material/σy salen de la pieza (si el material no tiene σy tabulado, pasa
-    yield_mpa). GOTCHA: σ_vm máx pegado al empotramiento suele ser concentración
-    numérica del encastre ideal (el retorno lo marca con max_en_encastre).
-    Read-only sobre la geometría; tarda unos segundos (malla gruesa por defecto,
-    afina con mesh_size_mm)."""
+    """FEA ESTÁTICO LINEAL de UNA pieza (V5.6): malla tet P2 (gmsh) + elasticidad lineal
+    (scikit-fem). Devuelve σ_vm máx (MPa) con su ubicación, desplazamiento máx (mm), FS =
+    σy/σ_vm (criterio: ≥2 estático, <1.2 sobrecargada) y las HIPÓTESIS declaradas; el resumen
+    se GUARDA y entra solo a la memoria de cálculo (con aviso automático si la geometría
+    cambia después). `fixed` y `loads[].selector` son selectores declarativos de CARAS
+    ({mode: cara|direccion|cerca…} — elige con get_topology); para cargar un TALADRO o una
+    cara grande junto a taladros usa cerca con `medir: "superficie"` y un punto SOBRE la cara.
+    Cada load lleva force_n=[Fx,Fy,Fz] (fuerza TOTAL en N, repartida sobre la cara) O
+    pressure_mpa (normal entrante); self_weight añade el peso propio. `fringe_path` guarda el
+    PNG del campo von Mises (mapa de colores + escala) — MÍRALO: te dice DÓNDE está el
+    esfuerzo. Material/σy salen de la pieza (si el material no tiene σy tabulado, pasa
+    yield_mpa). GOTCHA: σ_vm máx pegado al empotramiento suele ser concentración numérica del
+    encastre ideal (el retorno lo marca con max_en_encastre). Read-only sobre la geometría;
+    tarda unos segundos (malla gruesa por defecto, afina con mesh_size_mm)."""
     from pathlib import Path
 
     body: dict = {"feature_id": feature_id, "fixed": fixed, "loads": loads or [],
@@ -1371,22 +1370,22 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
                  yield_mpa: float = 0.0, loads: list[dict] | None = None,
                  fixed_pieces: list[str] | None = None, mesh_size_mm: float = 0.0,
                  fs_min: float = 2.0, fringe_path: str = "", nota: str = "") -> str:
-    """FEA ESTÁTICO LINEAL BONDED de un SUB-ENSAMBLAJE (V7.4): el bastidor SOLDADO
-    completo (N sólidos PEGADOS, nodos compartidos en las interfaces = sin contacto)
-    bajo la carga de diseño, MULTI-MATERIAL, con σ_vm y FS reportados POR PIEZA (la
-    gobernante es la de menor FS). Pasa `group` (nombre de sub-ensamblaje) o `ids`
-    (piezas sueltas + `name`). El empotramiento se DERIVA de los grounds (base de las
-    patas/placas ancladas a piso) — o pasa `fixed_pieces`; la carga se DERIVA de
-    requirements.carga_kg repartida sobre la cama/mesa (nómbrala cama/mesa/deck) — o
-    `carga_kg`, o `loads` explícitos [{feature_id, selector, force_n|pressure_mpa}].
-    `self_weight` (por defecto SÍ) añade el peso propio con densidad por pieza. El
-    HERRAJE de catálogo (motor/rodamientos/pernos) se EXCLUYE de la malla y su peso
-    entra como carga sustituta DECLARADA. `yield_mpa` = σy de respaldo para piezas sin
-    σy tabulado. El resumen se GUARDA y entra a la memoria (aviso automático si la
-    geometría cambia). `fringe_path` guarda el PNG del campo — MÍRALO. GOTCHA: el
-    solve del bastidor puede tardar MINUTOS; invoca con mesh_size_mm GENEROSO primero
-    (malla gruesa) y afina después. El FEA CONTRASTA la verificación analítica de
-    flecha/pandeo (dos caminos al mismo número = confianza para firmar)."""
+    """FEA ESTÁTICO LINEAL BONDED de un SUB-ENSAMBLAJE (V7.4): el bastidor SOLDADO completo (N
+    sólidos PEGADOS, nodos compartidos en las interfaces = sin contacto) bajo la carga de diseño,
+    MULTI-MATERIAL, con σ_vm y FS reportados POR PIEZA (la gobernante es la de menor FS). Pasa
+    `group` (nombre de sub-ensamblaje) o `ids` (piezas sueltas + `name`). El empotramiento se
+    DERIVA de los grounds (base de las patas/placas ancladas a piso) — o pasa `fixed_pieces`; la
+    carga se DERIVA de requirements.carga_kg repartida sobre la cama/mesa (nómbrala
+    cama/mesa/deck) — o `carga_kg`, o `loads` explícitos [{feature_id, selector,
+    force_n|pressure_mpa}]: para cargar un TALADRO o una cara grande junto a taladros, el selector
+    es cerca con `medir: "superficie"` y un punto SOBRE la cara. `self_weight` (por defecto SÍ)
+    añade el peso propio con densidad por pieza. El HERRAJE de catálogo (motor/rodamientos/pernos)
+    se EXCLUYE de la malla y su peso entra como carga sustituta DECLARADA. `yield_mpa` = σy de
+    respaldo para piezas sin σy tabulado. El resumen se GUARDA y entra a la memoria (aviso
+    automático si la geometría cambia). `fringe_path` guarda el PNG del campo — MÍRALO. GOTCHA: el
+    solve del bastidor puede tardar MINUTOS; invoca con mesh_size_mm GENEROSO primero (malla
+    gruesa) y afina después. El FEA CONTRASTA la verificación analítica de flecha/pandeo (dos
+    caminos al mismo número = confianza para firmar)."""
     from pathlib import Path
 
     body: dict = {"self_weight": self_weight, "fs_min": fs_min, "loads": loads or []}

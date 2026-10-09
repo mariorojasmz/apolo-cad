@@ -5,9 +5,18 @@ arista/cara: las referencias son declarativas (dirección, cara del bbox,
 longitud, cercanía a un punto) y se re-resuelven en cada regeneración.
 Las produce tanto el agente IA (semántica) como el clic del usuario en el
 viewport (modo "cerca").
+
+`cerca` mide por defecto al CENTRO de cada cara o arista (`obj.center()`: en una cara curva,
+el punto en la mitad de su dominio uv, el mismo que publica `get_topology`). Con
+`medir="superficie"` mide a la cara o arista MISMA (OCCT) y desempata por ese centro: un punto
+SOBRE una cara grande la elige aunque el centro de un taladro vecino quede más cerca. El
+default no cambia: un log viejo no trae `medir` y resuelve igual (plan
+`docs/plans/fea-chapa-empernada.md`, D5).
 """
 
 from __future__ import annotations
+
+import math
 
 from build123d import Axis
 
@@ -43,8 +52,56 @@ def _bbox_face(shape, face_key: str):
     return faces[index]
 
 
+#: Cómo mide `cerca`; sin la clave (o None) = "centro", el de siempre.
+MEDIR = ("centro", "superficie")
+
+#: Decimales (mm) bajo los que dos distancias a la superficie empatan: un punto sobre una
+#: arista está a 0 de sus dos caras (con ruido de OCCT ~1e-12) y decide el centro.
+_EMPATE_DECIMALES = 6
+
+
+def _medir(selector: dict) -> str:
+    medir = selector.get("medir")
+    if medir is None:
+        return "centro"
+    if medir not in MEDIR:
+        raise SelectorError(
+            f"medir='{medir}' no existe: usa 'centro' (default: distancia al centro de cada "
+            "cara o arista) o 'superficie' (distancia a la cara o arista misma)"
+        )
+    return medir
+
+
+def _dist_superficie(obj, vertex) -> float:
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+    calc = BRepExtrema_DistShapeShape(obj.wrapped, vertex)
+    return calc.Value() if calc.IsDone() else math.inf
+
+
+def _cerca(objs: list, selector: dict) -> list:
+    """Los `count` objetos más próximos a `point`: al centro (default) o a la superficie."""
+    point = selector.get("point")
+    if not point or len(point) != 3:
+        raise SelectorError("El modo 'cerca' necesita point=[x,y,z]")
+    count = max(1, int(selector.get("count", 1)))
+    if _medir(selector) == "centro":
+        return sorted(objs, key=lambda o: _dist2(_center(o), point))[:count]
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCP.gp import gp_Pnt
+
+    vertex = BRepBuilderAPI_MakeVertex(gp_Pnt(*(float(c) for c in point))).Vertex()
+
+    def clave(o):
+        d = round(_dist_superficie(o, vertex), _EMPATE_DECIMALES)
+        return (d, _dist2(_center(o), point))
+
+    return sorted(objs, key=clave)[:count]
+
+
 def resolve_edges(shape, selector: dict) -> list:
     mode = selector.get("mode", "todas")
+    _medir(selector)  # un valor inválido falla en todo modo, como en el schema
     edges = list(shape.edges())
     if not edges:
         raise SelectorError("El sólido no tiene aristas")
@@ -69,11 +126,7 @@ def resolve_edges(shape, selector: dict) -> list:
             if (lo is None or e.length >= lo) and (hi is None or e.length <= hi)
         ]
     elif mode == "cerca":
-        point = selector.get("point")
-        if not point or len(point) != 3:
-            raise SelectorError("El modo 'cerca' necesita point=[x,y,z]")
-        count = max(1, int(selector.get("count", 1)))
-        result = sorted(edges, key=lambda e: _dist2(_center(e), point))[:count]
+        result = _cerca(edges, selector)
     else:
         raise SelectorError(f"Modo de selector desconocido '{mode}'")
 
@@ -84,6 +137,7 @@ def resolve_edges(shape, selector: dict) -> list:
 
 def resolve_faces(shape, selector: dict) -> list:
     mode = selector.get("mode", "todas")
+    _medir(selector)
     faces = list(shape.faces())
     if not faces:
         raise SelectorError("El sólido no tiene caras")
@@ -103,11 +157,7 @@ def resolve_faces(shape, selector: dict) -> list:
     elif mode == "longitud":
         raise SelectorError("El modo 'longitud' solo aplica a aristas")
     elif mode == "cerca":
-        point = selector.get("point")
-        if not point or len(point) != 3:
-            raise SelectorError("El modo 'cerca' necesita point=[x,y,z]")
-        count = max(1, int(selector.get("count", 1)))
-        result = sorted(faces, key=lambda f: _dist2(_center(f), point))[:count]
+        result = _cerca(faces, selector)
     else:
         raise SelectorError(f"Modo de selector desconocido '{mode}'")
 

@@ -49,9 +49,9 @@ CAMPOS: dict[str, str] = {
     ),
     "add_mate": (
         "name type feature_a feature_b ref_a ref_a.mode ref_a.direction ref_a.face ref_a.min "
-        "ref_a.max ref_a.point ref_a.count ref_a.entidad ref_a.name ref_b ref_b.mode "
-        "ref_b.direction ref_b.face ref_b.min ref_b.max ref_b.point ref_b.count ref_b.entidad "
-        "ref_b.name value flip"
+        "ref_a.max ref_a.point ref_a.count ref_a.medir ref_a.entidad ref_a.name ref_b ref_b.mode "
+        "ref_b.direction ref_b.face ref_b.min ref_b.max ref_b.point ref_b.count ref_b.medir "
+        "ref_b.entidad ref_b.name value flip"
     ),
     "add_rail_constraint": (
         "name joint anchor anchor.x anchor.y anchor.z point point.x point.y point.z axis axis.x "
@@ -68,7 +68,7 @@ CAMPOS: dict[str, str] = {
     "center_in": "feature into axes",
     "chamfer": (
         "feature edges edges.mode edges.direction edges.face edges.min edges.max edges.point "
-        "edges.count edges.entidad edges.name distance"
+        "edges.count edges.medir edges.entidad edges.name distance"
     ),
     "create_belt_conveyor": (
         "name largo ancho_banda altura espesor_banda tambor_motriz tambor_cola tubo tensor motor "
@@ -133,24 +133,24 @@ CAMPOS: dict[str, str] = {
     ),
     "delete_faces": (
         "feature faces faces.mode faces.direction faces.face faces.min faces.max faces.point "
-        "faces.count faces.entidad faces.name tangentes"
+        "faces.count faces.medir faces.entidad faces.name tangentes"
     ),
     "delete_feature": "feature",
     "distribute": "features axis start end",
     "drill_hole": (
         "feature position position.x position.y position.z axis cara cara.mode cara.direction "
-        "cara.face cara.min cara.max cara.point cara.count cara.entidad cara.name en_cara "
-        "en_cara.u en_cara.v diameter depth counterbore_d counterbore_depth fit thread"
+        "cara.face cara.min cara.max cara.point cara.count cara.medir cara.entidad cara.name "
+        "en_cara en_cara.u en_cara.v diameter depth counterbore_d counterbore_depth fit thread"
     ),
     "duplicate_feature": "feature offset offset.x offset.y offset.z",
     "fasten": "name a b kind size qty throat_mm length_mm nota",
     "fill_surface": (
         "name feature edges edges.mode edges.direction edges.face edges.min edges.max edges.point "
-        "edges.count edges.entidad edges.name tangent"
+        "edges.count edges.medir edges.entidad edges.name tangent"
     ),
     "fillet": (
         "feature edges edges.mode edges.direction edges.face edges.min edges.max edges.point "
-        "edges.count edges.entidad edges.name radius"
+        "edges.count edges.medir edges.entidad edges.name radius"
     ),
     "ground": "name feature nota",
     "import_step": (
@@ -177,7 +177,7 @@ CAMPOS: dict[str, str] = {
     "pattern_linear": "feature count spacing spacing.x spacing.y spacing.z",
     "push_face": (
         "feature face face.mode face.direction face.face face.min face.max face.point face.count "
-        "face.entidad face.name distance"
+        "face.medir face.entidad face.name distance"
     ),
     "run_script": (
         "name code position position.x position.y position.z rotation rotation.x rotation.y "
@@ -186,7 +186,8 @@ CAMPOS: dict[str, str] = {
     "set_variable": "name expression",
     "shell": (
         "feature openings openings.mode openings.direction openings.face openings.min "
-        "openings.max openings.point openings.count openings.entidad openings.name thickness"
+        "openings.max openings.point openings.count openings.medir openings.entidad openings.name "
+        "thickness"
     ),
     "sketch_extrude": (
         "name sketch plane height position position.x position.y position.z rotation rotation.x "
@@ -206,9 +207,10 @@ CAMPOS: dict[str, str] = {
     ),
     "snap_to": (
         "feature target lado gap alinear cara cara.mode cara.direction cara.face cara.min "
-        "cara.max cara.point cara.count cara.entidad cara.name cara_target cara_target.mode "
-        "cara_target.direction cara_target.face cara_target.min cara_target.max cara_target.point "
-        "cara_target.count cara_target.entidad cara_target.name deslizar deslizar.u deslizar.v"
+        "cara.max cara.point cara.count cara.medir cara.entidad cara.name cara_target "
+        "cara_target.mode cara_target.direction cara_target.face cara_target.min cara_target.max "
+        "cara_target.point cara_target.count cara_target.medir cara_target.entidad "
+        "cara_target.name deslizar deslizar.u deslizar.v"
     ),
     "thicken": "feature thickness both flip",
     "transform": (

@@ -38,7 +38,7 @@ const TOPE = 500;
  * achicar un archivo se baja su número; en ≤ 500, se borra la entrada.
  */
 const EXCEPCIONES = new Map<string, number>([
-    ['forms/SchemaForm.tsx', 591],
+    ['forms/SchemaForm.tsx', 553],
     ['panels/SketcherDialog.tsx', 707],
     ['state/store.ts', 916],
     ['viewport/Viewport.tsx', 1631],

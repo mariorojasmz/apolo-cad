@@ -11,6 +11,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# la selección de caras/aristas vive en su módulo; se re-exporta con el mismo nombre
+from .models_selectores import EdgeSelector, SlideUV
+
 
 def _floor_to_int(v: Any) -> Any:
     """Trunca a entero (floor) un número ya resuelto, dejando pasar lo demás.
@@ -624,37 +627,6 @@ class RunScriptParams(BaseModel):
         except SyntaxError as exc:
             raise ValueError(f"sintaxis inválida en línea {exc.lineno}: {exc.msg}") from exc
         return v
-
-
-class EdgeSelector(BaseModel):
-    """Selección declarativa de aristas/caras (estable ante regeneraciones):
-    todas | direccion (paralelas a x/y/z) | cara (del bbox) | longitud (rango)
-    | cerca (la más próxima a un punto, lo que genera el clic en el viewport)
-    | ancla (mate: frame de conexión con nombre publicado por el componente, `name`).
-    En mates, `entidad`="arista" resuelve la selección como ARISTA CIRCULAR (borde de un
-    barreno/tapa) en vez de como cara (default); "ancla" = frame nombrado (usa `name`)."""
-
-    mode: Literal["todas", "direccion", "cara", "longitud", "cerca", "ancla"] = Field("todas", title="Modo")
-    direction: Literal["x", "y", "z"] | None = Field(None, title="Dirección")
-    face: Literal["tope", "base", "min_x", "max_x", "min_y", "max_y"] | None = Field(None, title="Cara")
-    min: float | None = Field(None, title="Longitud mín.", description="mm")
-    max: float | None = Field(None, title="Longitud máx.", description="mm")
-    point: list[float] | None = Field(None, title="Punto", description="[x,y,z] mm")
-    count: int = Field(1, ge=1, le=200, title="Cuántas")
-    entidad: Literal["cara", "arista", "ancla"] | None = Field(
-        None, title="Entidad", description="mates: cara (def.) | arista (circular) | ancla",
-    )
-    name: str | None = Field(None, max_length=40, title="Ancla", description="nombre del ancla (entidad/modo 'ancla')")
-
-
-class SlideUV(BaseModel):
-    """Desplazamiento {u, v} en el PLANO de una cara (V6.8-E): u = eje MAYOR de la
-    cara (mayor extensión, signo hacia su componente mundial dominante positiva),
-    v = normal × u. Lo usan snap_to cara-a-cara (`deslizar`) y drill_hole (`en_cara`,
-    medido desde el CENTRO de la cara). Acepta '=expresión'."""
-
-    u: float = Field(0, title="u", description="mm a lo largo del eje MAYOR de la cara")
-    v: float = Field(0, title="v", description="mm a lo largo del eje menor")
 
 
 class FilletParams(BaseModel):
