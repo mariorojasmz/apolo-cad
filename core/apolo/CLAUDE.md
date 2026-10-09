@@ -1,9 +1,9 @@
 # Backend de Apolo (`core/apolo/`)
 
 Lo común del backend que no tiene paquete propio: MCP (`mcp_server.py`), agente de la app
-(`agent/`), criterio de diseño (`design/`), sandbox de scripts, cinemática (`robotics/`) y física
-(`physics/`). Cada paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`,
-`library`, `drawing`, `fea`, `services`, `api`) trae sus reglas; lo transversal (locks, log, flujo
+(`agent/`), criterio de diseño (`design/`), sandbox de scripts y cinemática (`robotics/`). Cada
+paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`, `drawing`,
+`fea`, `services`, `api`, `physics`) trae sus reglas; lo transversal (locks, log, flujo
 de trabajo) está en el [CLAUDE.md raíz](../../CLAUDE.md). Este archivo carga en TODA lectura de
 backend: se mantiene ≤ 10 KB.
 
@@ -119,8 +119,5 @@ backend: se mantiene ≤ 10 KB.
 
 ## Física (`physics/`)
 
-- Dos fases: `prepare_*` (XML MuJoCo horneado, OCCT, bajo `STATE_LOCK`) y `simulate_*` (bucle
-  `mj_step` sobre datos puros, bajo `PHYSICS_LOCK`); `stability_test`/`drop_test` son wrappers
-  de compatibilidad. [V6.2](../../docs/plans/V6.2-rendimiento.md)
-- `gravity_test`: piezas sujetas = estáticas, el resto cae, con casco CONVEXO por sólido.
-  `drop_test` usa AABB.
+- Dos fases (`prepare_*` bajo `STATE_LOCK`, `simulate_*` bajo `PHYSICS_LOCK`); gravedad, caída
+  y dinámica: [physics](physics/CLAUDE.md).

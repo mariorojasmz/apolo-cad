@@ -108,7 +108,7 @@ también a quien sólo busca o trabaja por MCP.
 
 | archivo | qué cubre |
 |---|---|
-| [core/apolo](core/apolo/CLAUDE.md) | backend común: MCP cliente fino (`mcp_server.py`), agente y criterio (`agent/`, `design/`), sandbox de scripts (worker caliente), cinemática (`robotics/`: FK, GIF), física (`physics/`), cachés por `id(shape)` |
+| [core/apolo](core/apolo/CLAUDE.md) | backend común: MCP cliente fino (`mcp_server.py`), agente y criterio (`agent/`, `design/`), sandbox de scripts (worker caliente), cinemática (`robotics/`: FK, GIF), cachés por `id(shape)` |
 | [kernel](core/apolo/kernel/CLAUDE.md) | render, pick, medición; superficies; modelado directo; croquis (dos motores) |
 | [commands](core/apolo/commands/CLAUDE.md) | firma de executor (`ExecContext`), colocación, juntas y `fasten`, `join_bolted`, super-comandos, expresiones |
 | [doc](core/apolo/doc/CLAUDE.md) | integridad y undo, metadatos de manifest, variantes, caché de geometría, `insert_project` |
@@ -116,6 +116,7 @@ también a quien sólo busca o trabaja por MCP.
 | [library](core/apolo/library/CLAUDE.md) | catálogo y builders, materiales, chapa, ingletes, ingeniería y normas, stack-up, reglas de conveyor, interferencias, lints, puerta de entrega |
 | [drawing](core/apolo/drawing/CLAUDE.md) | planos y entregables: último kilómetro (soldadura, tolerancias, Ra, datum, GD&T), proceso, manual, instalación, DWG |
 | [fea](core/apolo/fea/CLAUDE.md) | FEA estático de pieza y bonded de ensamblaje |
+| [physics](core/apolo/physics/CLAUDE.md) | MuJoCo: gravedad, caída y dinámica (juntas, motores, banda, sensores) |
 | [services](core/apolo/services/CLAUDE.md) | dominio que lee un `Document` (reglas de la capa): mapas por pieza de los planos, datos de instalación, stack-up, aserciones y contrato `$k`, puerta de entrega, reglas de ingeniería y FEA, preparación del FEA, roles por nombre |
 | [api](core/apolo/api/CLAUDE.md) | routers (dónde va una ruta y su orden), mutaciones, lotes con contrato, jobs, lecturas a escala, deltas, autosave, tests de la API, la coreografía de locks del FEA |
 | [ui](ui/CLAUDE.md) | texto para el usuario —también errores de la API y prompts— (tuteo neutro, gates), preview, paneles, sync, viewport, croquis |

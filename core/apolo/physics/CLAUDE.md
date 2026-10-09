@@ -1,0 +1,39 @@
+# Física (`core/apolo/physics/`)
+
+MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backend (cachés por
+`id(shape)`, cinemática) está en [core/apolo](../CLAUDE.md); los locks, en el
+[CLAUDE.md raíz](../../../CLAUDE.md).
+
+## Común
+
+- Dos fases: `prepare_*` (OCCT → MJCF horneado, bajo `STATE_LOCK`) y `simulate_*` (bucle
+  `mj_step` sobre datos puros, bajo `PHYSICS_LOCK`); `stability_test`/`drop_test` son wrappers
+  de compatibilidad. [V6.2](../../../docs/plans/V6.2-rendimiento.md)
+- `gravity_test`: piezas sujetas = estáticas, el resto cae, con casco CONVEXO por sólido.
+  `drop_test` usa AABB. Su `fps` es el TOTAL de fotogramas (lo usa la puerta de entrega: no se
+  toca); el de la dinámica es por segundo simulado.
+
+## Dinámica (`dinamica*.py`, `banda.py`, `sensores.py`)
+
+[V8.2](../../../docs/plans/V8.2-maquina-se-mueve.md) · medido en [V8.0](../../../docs/plans/V8-maquina-viva.md)
+
+- No importa `api`, `doc` ni `state` (`tests/test_capas_dinamica.py`): recibe escena y dicts.
+- Sujeción SIN cruzar juntas móviles: lo móvil sale del grafo antes de buscar tierra (un
+  tambor fijado a su chumacera sigue girando). Un cuerpo = hijo + juntas `fija`, como la FK;
+  lo fijado por `fasten` a una pieza móvil sin junta queda FUERA y el aviso pide `arrastrar`.
+- La inercia sale del SÓLIDO (GProp de OCCT, escalada a la masa: catálogo si hay ficha, si no
+  `_link_physics`), nunca de la colisión: el casco de un tubo es macizo y la cápsula suma
+  casquetes. La colisión simplifica libre: cápsula para rodillos/tambores, casco el resto.
+- Grupos: máquina y bastidor NO chocan salvo `colisiones_maquina` (las piezas montadas se
+  solapan: ejes en largueros, lagging sobre la banda); entonces cada padre–hijo lleva
+  `<exclude>` y la pieza padre estática va en un cuerpo soldado propio para poder nombrarla.
+- Fuerza explícita retenida un intercambio ⇒ su zona lineal escala con Δt: la banda usa
+  ε = máx(0,02, 3·μ·g·Δt); con 0,02 fijo, a 4 ms la caja derivaba en guiñada (ciclo límite).
+- `<velocity>` CON tope necesita J ≥ kv·Δt o salta la consigna y oscila entre topes (velocidad
+  media 0). La inercia del rotor reflejada (J·i²) DOMINA una faja: con placa se suma siempre;
+  si aún falta, se completa y se avisa.
+- Signo de juntas = mano derecha sobre el eje, igual que la FK (`Rotation` de build123d es
+  dextrógira). D7: el sentido de marcha se FIJA con `direccion_transporte`; sin ella se avisa
+  (el ancla `eje_motriz` tal cual lleva la banda a la cola).
+- Productos con `cada_s`: nacen en su hora; antes esperan estacionados lejos (MuJoCo no crea
+  cuerpos en marcha) y no salen en los fotogramas.
