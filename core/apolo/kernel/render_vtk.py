@@ -14,40 +14,34 @@ siguen por matplotlib. Si VTK falla (p. ej. sin contexto OpenGL), el endpoint ca
 
 from __future__ import annotations
 
-import math
-import re
 import threading
 from dataclasses import dataclass
 
-from .render import PALETTE, _clip_to_section, _shape_of, resolve_angles
+from .render import _clip_to_section, _shape_of
+from .render_comun import (
+    OPACIDAD_VIDRIO,
+    actor_aristas,
+    actor_superficie,
+    bounds_malla,
+    color_pieza,
+    es_vidrio,
+    modo_transparencia,
+    polydata,
+    poner_camara,
+    poner_fondo,
+    poner_luces,
+    teselar,
+)
 
 _H = 0.78  # factor alto/ancho de la ventana de render (aspecto); lo comparten render y pick
 
 # Dos-locks del render (V6.2c). RENDER_LOCK serializa los renders VTK off-screen entre sí
 # (el contexto no está garantizado re-entrante); NO se toma contra el doc. La regla de oro:
 # `extract_render_scene` (OCCT: teselado + recorte) corre bajo STATE_LOCK y produce datos
-# PUROS; `render_snapshot_vtk` (solo VTK) corre fuera, bajo RENDER_LOCK.
+# PUROS; `render_snapshot_vtk` (solo VTK) corre fuera, bajo RENDER_LOCK. El teselado con caché,
+# el material, las aristas, el fondo, las luces y la cámara viven en `render_comun` (los comparte
+# el render vivo del video, `render_vivo`: la foto y el video se ven igual).
 RENDER_LOCK = threading.Lock()
-
-# Caché de teselado a resolución de render (0.5/0.25) por IDENTIDAD del shape, con ref
-# fuerte (como _SHAPE_CACHE del payload) → un segundo render de la MISMA escena no re-tesela
-# (antes se re-teselaba TODO en cada foto). Se llena bajo STATE_LOCK. Shapes de sección/pose
-# son objetos nuevos → miss (aceptable). `.tessellate` muta el shape guardando la malla:
-# por eso SOLO se llama bajo STATE_LOCK (sin carrera con otro hilo que tesele el mismo shape).
-_RENDER_MESH_CACHE: dict = {}
-_RENDER_MESH_CAP = 2048
-
-
-def _cached_tessellate(shape):
-    key = id(shape)
-    hit = _RENDER_MESH_CACHE.get(key)
-    if hit is None or hit[0] is not shape:
-        if len(_RENDER_MESH_CACHE) > _RENDER_MESH_CAP:
-            _RENDER_MESH_CACHE.clear()
-        vertices, triangles = shape.tessellate(0.5, 0.25)
-        hit = (shape, vertices, triangles)
-        _RENDER_MESH_CACHE[key] = hit
-    return hit[1], hit[2]
 
 
 @dataclass
@@ -83,41 +77,6 @@ class RenderSnapshot:
     fmaxs: object
     hmins: object
     hmaxs: object
-
-_GLASS_RE = re.compile(r"vidrio|cristal|glass|templado", re.I)
-
-
-def _is_glass(feat) -> bool:
-    """¿La pieza es vidrio? (material override o nombre — espejo del `isGlass` del viewport web)."""
-    if _GLASS_RE.search(getattr(feat, "material", None) or ""):
-        return True
-    return bool(_GLASS_RE.search(getattr(feat, "name", "") or ""))
-
-
-def _hex_to_rgb(c: str | None) -> tuple[float, float, float]:
-    c = (c or "#8a8f99").lstrip("#")
-    if len(c) != 6:
-        return (0.55, 0.58, 0.62)
-    return tuple(int(c[i : i + 2], 16) / 255.0 for i in (0, 2, 4))  # type: ignore[return-value]
-
-
-def _polydata(vertices, triangles):
-    import vtk
-
-    pts = vtk.vtkPoints()
-    pts.SetNumberOfPoints(len(vertices))
-    for k, v in enumerate(vertices):
-        pts.SetPoint(k, v.X, v.Y, v.Z)
-    cells = vtk.vtkCellArray()
-    for t in triangles:
-        cells.InsertNextCell(3)
-        cells.InsertCellPoint(int(t[0]))
-        cells.InsertCellPoint(int(t[1]))
-        cells.InsertCellPoint(int(t[2]))
-    pd = vtk.vtkPolyData()
-    pd.SetPoints(pts)
-    pd.SetPolys(cells)
-    return pd
 
 
 def _outline_actor(lo, hi):
@@ -219,71 +178,6 @@ def _label_actor(text: str, pos):
     return txt
 
 
-def _edges_actor(vertices, triangles):
-    """Actor de aristas de FEATURE (creases) + borde, sobre la malla → separa visualmente
-    piezas adyacentes del mismo color (equivalente al toCreasedNormals del viewport web)."""
-    import vtk
-
-    fe = vtk.vtkFeatureEdges()
-    fe.SetInputData(_polydata(vertices, triangles))
-    fe.BoundaryEdgesOn()
-    fe.FeatureEdgesOn()
-    fe.SetFeatureAngle(35.0)   # mismo ángulo que las normales suaves
-    fe.ManifoldEdgesOff()
-    fe.NonManifoldEdgesOff()
-    m = vtk.vtkPolyDataMapper()
-    m.SetInputConnection(fe.GetOutputPort())
-    m.SetResolveCoincidentTopologyToPolygonOffset()  # evita z-fighting con la superficie
-    a = vtk.vtkActor()
-    a.SetMapper(m)
-    a.GetProperty().SetColor(0.12, 0.12, 0.15)
-    a.GetProperty().SetLineWidth(1.0)
-    a.GetProperty().LightingOff()
-    return a
-
-
-def _setup_camera(ren, bmins, bmaxs, *, view, azimuth, elevation, zoom, roll=0.0, pan=None):
-    """Cámara ortográfica ÚNICA (la comparten el render y el pick): dirección desde
-    `resolve_angles`, encuadre `ResetCamera` al bbox dado, zoom. Devuelve la vtkCamera.
-    `roll` (grados) gira la cámara sobre su eje de visión (3.er GDL rotacional, complementa
-    azimuth/elevation que dan la dirección). `pan` = [px, py] desplaza el encuadre en el PLANO de
-    vista (fracción de la semialtura: +px → derecha, +py → arriba) para enfocar un detalle fuera del
-    centro del bbox sin aislar — en proyección ortográfica esto ES la 'posición de cámara' lateral
-    (la distancia del ojo es irrelevante). Importante: el aspecto lo toma `ResetCamera` del tamaño de
-    la ventana → fija el size ANTES."""
-    import numpy as np
-
-    bmins = np.asarray(bmins, dtype=float)
-    bmaxs = np.asarray(bmaxs, dtype=float)
-    center = (bmins + bmaxs) / 2.0
-    cam = ren.GetActiveCamera()
-    cam.ParallelProjectionOn()
-    elev, azim = resolve_angles(view, azimuth, elevation)
-    e, a = math.radians(elev), math.radians(azim)
-    d = np.array([math.cos(e) * math.cos(a), math.cos(e) * math.sin(a), math.sin(e)])
-    up = (0, 1, 0) if abs(d[2]) > 0.98 else (0, 0, 1)
-    dist = float(np.linalg.norm(bmaxs - bmins)) or 1000.0
-    cam.SetFocalPoint(*center)
-    cam.SetPosition(*(center + d * dist * 2.0))
-    cam.SetViewUp(*up)
-    ren.ResetCamera(bmins[0], bmaxs[0], bmins[1], bmaxs[1], bmins[2], bmaxs[2])
-    cam.Zoom(max(zoom, 1e-6))
-    if roll:
-        cam.Roll(float(roll))   # gira sobre el eje de visión (rota el view-up)
-    if pan:
-        pscale = cam.GetParallelScale()  # semialtura del viewport en unidades-mundo (orto)
-        dop = np.array(cam.GetDirectionOfProjection())
-        vup = np.array(cam.GetViewUp())
-        right = np.cross(dop, vup)
-        n = np.linalg.norm(right)
-        right = right / n if n else right
-        off = right * (float(pan[0]) * pscale) + vup * (float(pan[1]) * pscale)
-        cam.SetFocalPoint(*(np.array(cam.GetFocalPoint()) + off))
-        cam.SetPosition(*(np.array(cam.GetPosition()) + off))
-    ren.ResetCameraClippingRange()
-    return cam
-
-
 _RENDER_DOC = """Render off-screen sombreado suave → PNG (bytes). Mismas semánticas que
     `render.render_scene_png` para vista/fit/zoom/sección/highlight/colores (sin `views`
     ni `labels`, que quedan en matplotlib). `proportional` no aplica: VTK siempre usa
@@ -294,7 +188,8 @@ _RENDER_DOC = """Render off-screen sombreado suave → PNG (bytes). Mismas semá
     ver una pieza interna en su contexto sin cortar; sin highlight, TODO traslúcido. El VIDRIO sale
     siempre translúcido (no gris opaco). Cuando hay translucidez se activa depth-peeling (transparencia
     correcta). `labels`=True rotula el id de cada pieza (billboard) sobre el render → lees el id en la
-    imagen. `roll`/`pan` ajustan la cámara (ver `_setup_camera`). Lanza ValueError si vacía."""
+    imagen. `roll`/`pan` ajustan la cámara (ver `render_comun.poner_camara`). Lanza ValueError si
+    vacía."""
 
 
 def extract_render_scene(
@@ -358,11 +253,11 @@ def extract_render_scene(
             shape = _clip_to_section(shape, section, lo, hi)
             if shape is None:
                 continue
-        vertices, triangles = _cached_tessellate(shape)
+        vertices, triangles = teselar(shape)
         if not len(vertices) or not len(triangles):
             continue
         is_hi = feat.id in highlight
-        col = _hex_to_rgb((colors or {}).get(feat.id) or PALETTE[i % len(PALETTE)])
+        col = color_pieza(feat.id, i, colors)
         if highlight and is_hi:
             op = 1.0                              # pieza resaltada → sólida, color pleno
         elif highlight and not is_hi:
@@ -370,8 +265,8 @@ def extract_render_scene(
                 op = 0.16                         # rayos-X: el contexto translúcido EN SU COLOR
             else:
                 col, op = (0.62, 0.66, 0.70), 0.18  # fantasma gris (de-énfasis)
-        elif _is_glass(feat):
-            op = 0.34                             # vidrio translúcido (como el viewport web)
+        elif es_vidrio(feat):
+            op = OPACIDAD_VIDRIO                  # vidrio translúcido (como el viewport web)
         elif xray:
             op = 0.22                             # rayos-X sin highlight → todo translúcido
         else:
@@ -380,12 +275,7 @@ def extract_render_scene(
             any_translucent = True
         draw_edges = bool(edges and op > 0.25)   # aristas nítidas (no en fantasmas muy tenues)
 
-        # bounds = min/max de los vértices (build123d Vector: .X/.Y/.Z) = actor.GetBounds()
-        xs = [v.X for v in vertices]
-        ys = [v.Y for v in vertices]
-        zs = [v.Z for v in vertices]
-        bmn = np.array([min(xs), min(ys), min(zs)])
-        bmx = np.array([max(xs), max(ys), max(zs)])
+        bmn, bmx = bounds_malla(vertices)
         label_pos = ((bmn + bmx) / 2.0) if (labels and op > 0.25) else None
         items.append(_RenderItem(vertices, triangles, col, op, draw_edges, label_pos, feat.id))
         smins = np.minimum(smins, bmn)
@@ -416,43 +306,17 @@ def render_snapshot_vtk(snap: RenderSnapshot) -> bytes:
     from vtk.util.numpy_support import vtk_to_numpy
 
     ren = vtk.vtkRenderer()
-    ren.SetBackground(0.965, 0.97, 0.985)   # fondo claro tipo "papel" (degradado sutil)
-    ren.SetBackground2(0.86, 0.89, 0.94)
-    ren.GradientBackgroundOn()
+    poner_fondo(ren)
 
     label_actors = []  # rótulos de id → se pintan en la capa overlay (siempre encima)
     for item in snap.items:
-        nrm = vtk.vtkPolyDataNormals()
-        nrm.SetInputData(_polydata(item.vertices, item.triangles))
-        nrm.SetFeatureAngle(35.0)   # = toCreasedNormals del viewport web
-        nrm.SplittingOn()
-        nrm.ConsistencyOn()
-        nrm.ComputePointNormalsOn()
-        nrm.Update()
-
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(nrm.GetOutputPort())
-        mapper.ScalarVisibilityOff()
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
-        prop = actor.GetProperty()
-        prop.SetColor(*item.color)
-        prop.SetOpacity(item.opacity)
-        prop.SetInterpolationToPhong()   # sombreado SUAVE (normales interpoladas)
-        prop.SetAmbient(0.34)
-        prop.SetDiffuse(0.70)
-        prop.SetSpecular(0.16)
-        prop.SetSpecularPower(22)
-        ren.AddActor(actor)
+        pd = polydata(item.vertices, item.triangles)
+        ren.AddActor(actor_superficie(pd, item.color, item.opacity))
         if item.draw_edges:
-            ren.AddActor(_edges_actor(item.vertices, item.triangles))
+            ren.AddActor(actor_aristas(pd))
         if item.label_pos is not None:
             label_actors.append(_label_actor(item.label_text, item.label_pos))
-
-    # iluminación agradable tipo estudio (key + fill + back), como el IBL del web
-    lk = vtk.vtkLightKit()
-    lk.SetKeyLightIntensity(0.9)
-    lk.AddLightsToRenderer(ren)
+    poner_luces(ren)
 
     smins, smaxs = snap.smins, snap.smaxs
     if snap.show_bbox:
@@ -472,7 +336,7 @@ def render_snapshot_vtk(snap: RenderSnapshot) -> bytes:
     rw.SetOffScreenRendering(1)
     rw.AddRenderer(ren)
     rw.SetSize(int(snap.size_px), int(snap.size_px * _H))   # aspecto ANTES de ResetCamera
-    cam = _setup_camera(
+    cam = poner_camara(
         ren, bmins, bmaxs, view=snap.view, azimuth=snap.azimuth, elevation=snap.elevation,
         zoom=snap.zoom, roll=snap.roll, pan=snap.pan,
     )
@@ -498,16 +362,7 @@ def render_snapshot_vtk(snap: RenderSnapshot) -> bytes:
         rw.SetNumberOfLayers(2)
         rw.AddRenderer(overlay)
 
-    if snap.any_translucent:
-        # transparencia CORRECTA (orden-independiente): depth peeling. Exige planos alfa y SIN MSAA.
-        rw.SetAlphaBitPlanes(1)
-        rw.SetMultiSamples(0)
-        ren.SetUseDepthPeeling(1)
-        ren.SetMaximumNumberOfPeels(8)
-        ren.SetOcclusionRatio(0.0)
-        ren.SetUseFXAA(True)    # AA de post-proceso: recupera bordes nítidos sin MSAA (xray/vidrio)
-    else:
-        rw.SetMultiSamples(8)   # antialiasing (sin translucidez no hace falta peeling)
+    modo_transparencia(rw, ren, snap.any_translucent)   # depth peeling (xray/vidrio) o MSAA
     rw.Render()
 
     w2i = vtk.vtkWindowToImageFilter()

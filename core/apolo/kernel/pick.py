@@ -91,7 +91,8 @@ def _vtk_projector(bmins, bmaxs, view, azimuth, elevation, zoom, roll=0.0, pan=N
         import numpy as np
         import vtk
 
-        from apolo.kernel.render_vtk import _H, _setup_camera
+        from apolo.kernel.render_comun import poner_camara
+        from apolo.kernel.render_vtk import _H
 
         ren = vtk.vtkRenderer()
         rw = vtk.vtkRenderWindow()
@@ -100,7 +101,7 @@ def _vtk_projector(bmins, bmaxs, view, azimuth, elevation, zoom, roll=0.0, pan=N
         size = 900
         h = int(size * _H)
         rw.SetSize(size, h)   # aspecto ANTES de ResetCamera (igual que el render)
-        _setup_camera(
+        poner_camara(
             ren, np.asarray(bmins, float), np.asarray(bmaxs, float),
             view=view, azimuth=azimuth, elevation=elevation, zoom=zoom, roll=roll, pan=pan,
         )

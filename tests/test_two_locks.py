@@ -56,20 +56,20 @@ def test_extract_highlight_xray_opacity():
 
 
 def test_render_mesh_cache_reused():
-    import apolo.kernel.render_vtk as rv
+    import apolo.kernel.render_comun as rc
 
     d = _model(3)
-    rv._RENDER_MESH_CACHE.clear()
+    rc._RENDER_MESH_CACHE.clear()
     first = {}
     for feat in d.scene.values():
-        v, _t = rv._cached_tessellate(feat.shape)
+        v, _t = rc.teselar(feat.shape)
         first[id(feat.shape)] = v
-    assert len(rv._RENDER_MESH_CACHE) == 3
+    assert len(rc._RENDER_MESH_CACHE) == 3
     # segunda pasada: HIT → mismos objetos, la caché no crece
     for feat in d.scene.values():
-        v, _t = rv._cached_tessellate(feat.shape)
+        v, _t = rc.teselar(feat.shape)
         assert v is first[id(feat.shape)]
-    assert len(rv._RENDER_MESH_CACHE) == 3
+    assert len(rc._RENDER_MESH_CACHE) == 3
 
 
 @pytest.mark.skipif(True, reason="render VTK real necesita contexto OpenGL; el byte-exacto se verifica aparte")
