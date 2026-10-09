@@ -16,11 +16,11 @@ import os
 import time
 
 import httpx
-from mcp.server.fastmcp import FastMCP, Image
+from mcp.server.fastmcp import Image
 
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
-from apolo.tools import destino
+from apolo.tools import destino, fastmcp_limpio
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -32,8 +32,8 @@ APOLO_MCP_WAIT_S = float(os.environ.get("APOLO_MCP_WAIT_S", "90"))
 _JOB_POLL_S = 20.0
 
 # Instructions = criterio de ingeniería (capa 1) + guía técnica + aviso de conexión: una sola
-# guía para el MCP y el chat (design/instrucciones.py).
-mcp = FastMCP("apolo-cad", instructions=instrucciones_mcp())
+# guía para el MCP y el chat (design/instrucciones.py). Docstrings de tools sin sangría en 3.11+.
+mcp = fastmcp_limpio.FastMCPLimpio("apolo-cad", instructions=instrucciones_mcp())
 
 
 def _api(method: str, path: str, **kwargs):

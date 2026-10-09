@@ -50,7 +50,7 @@ TOPE = 500
 #: del repo, con `/`). Al achicar un archivo se baja su número; en ≤ 500, se borra.
 EXCEPCIONES: dict[str, int] = {
     "core/apolo/commands/models.py": 1359,
-    "core/apolo/commands/registry.py": 2210,
+    "core/apolo/commands/registry.py": 2207,
     "core/apolo/doc/document.py": 1059,
     "core/apolo/drawing/sheet.py": 893,
     "core/apolo/kernel/render_vtk.py": 537,

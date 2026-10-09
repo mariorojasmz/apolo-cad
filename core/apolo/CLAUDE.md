@@ -12,6 +12,10 @@ backend: se mantiene ≤ 10 KB.
 - **Toda caché por `id(shape)` guarda la REFERENCIA al shape y verifica `is` en el lookup**:
   Python recicla el id de un shape recolectado y otra pieza recibiría la entrada ajena (bug real
   de la suite). Patrón de `_RENDER_MESH_CACHE` (kernel) y `_HULL_CACHE` (`physics/hull.py`).
+- **Un texto que el agente lee de un docstring pasa por `inspect.cleandoc`**: 3.13 quita la
+  sangría al compilar y 3.11/3.12 no, así que el `__doc__` crudo cambia según la versión. Tools:
+  `tools/fastmcp_limpio.py`; comandos: la description del schema de pydantic
+  (`tests/test_docstrings_limpios.py`).
 
 ## MCP (`mcp_server.py`): cliente fino
 

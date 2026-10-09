@@ -2190,14 +2190,11 @@ def execute_command(
 
 
 def _schema_entry(spec) -> dict:
-    return {
-        "type": spec.type,
-        "title": spec.title,
-        "category": spec.category,
-        "kind": spec.kind,
-        "description": (spec.model.__doc__ or "").strip(),
-        "schema": spec.model.model_json_schema(),
-    }
+    # la description es la del schema (pydantic limpia el docstring con cleandoc): el `__doc__`
+    # crudo lleva la sangría en Python 3.11/3.12, que no la quitan al compilar como 3.13
+    schema = spec.model.model_json_schema()
+    return {"type": spec.type, "title": spec.title, "category": spec.category, "kind": spec.kind,
+            "description": schema.get("description", ""), "schema": schema}
 
 
 def command_schemas(command_type: str | None = None) -> list[dict]:
