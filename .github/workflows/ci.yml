@@ -71,6 +71,8 @@ jobs:
       # OCP y VTK enlazan libGL; gmsh (FLTK) pide GLU + Xcursor/Xft/Xinerama al importarse.
       # Xvfb + Mesa (llvmpipe) dan el contexto OpenGL que el render off-screen de VTK 9.3
       # necesita (sin display, VTK/X11 aborta el proceso en vez de lanzar una excepción).
+      # ffmpeg es un binario externo (plan publicacion-tienda, D7): sin él, los tests de
+      # codificación del video (tests/test_media_codificar.py) se saltan; aquí corren.
       - name: Librerías de sistema (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -78,7 +80,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libegl1 libglu1-mesa \
             libxrender1 libxext6 libxi6 libxfixes3 libxcursor1 libxft2 libxinerama1 \
-            libfontconfig1
+            libfontconfig1 ffmpeg
 
       # El runner de Windows no tiene GPU: el OpenGL del sistema es 1.1 y VTK pide >= 3.2.
       # Esta acción instala Mesa (llvmpipe) para todo el sistema.
