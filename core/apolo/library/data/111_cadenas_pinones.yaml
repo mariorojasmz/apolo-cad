@@ -1,0 +1,201 @@
+category: transmision
+# CADENAS DE RODILLOS Y PIÑONES reales. Plan: docs/plans/cadenas-pinones.md (D1-D6, D10, D11).
+# Builders: sprocket y roller_chain (library/builders_transmision.py); matemática pura en
+# library/transmision.py. Prefijo 111: carga al final y no reordena el enum de insert_component.
+#
+# DOS NORMAS (D1). ASA = ANSI B29.1 («americana»; en Lima, «ASA 40»), la de más stock en Lima y
+# la del rodillo a rodillo americano. BS = ISO 606 serie B («europea»: 08B, 10B, 12B), repuestos
+# de máquinas europeas o chinas y cabezales tipo Interroll. ASA 40 y 08B son de 1/2" las dos pero
+# NO son intercambiables (rodillo 7.92 vs 8.51, ancho interior 7.85 vs 7.75): cada ref lo dice.
+#
+# MARCO DEL PIÑÓN: eje +Z, origen en el plano medio de la hilera 1, cubo hacia -Z, un asiento de
+# diente centrado en +X (centro del asiento en (d0/2, 0, 0)); hilera 2 en z = -distancia_hileras.
+# Anclas por familia: eje, hilera_1, hilera_2 (dos hileras) y fase. MARCO DE LA CADENA RECTA:
+# a lo largo de X centrada, pernos paralelos a Z, hilera 1 en z = 0 y hilera 2 en z = -pt.
+#
+# LO NO PUBLICADO SE DECLARA (D3): [L] leído de la ficha, [D] derivado por fórmula, [E] estimado.
+# Cada ref lista sus [D]/[E] en `no_publicado`. Los flancos son la forma ISO 606 máxima
+# (ri mín, re máx, alfa máx): representativos; chavetero y prisionero no se modelan (el piloto se
+# maquina en taller). Pesos [E] = volumen del 3D x 7.85e-6 kg/mm3; el 3D reproduce los pesos
+# publicados (0.27 vs 0.281 la 40B14; 3.84 vs 3.79 la 08B-2 z38), así que el estimado es honesto.
+#
+# FUENTES. Cadenas: iwis ELITE pp. 26-29 (tabla ISO 606), Tsubaki EU y US. Piñones ASA 40-1 tipo
+# B: Tsubaki US 40B<z> (https://chains.ustsubaki.com, «No. 40 plain bore sprockets»; Martin
+# 40B15/16 coinciden); ASA 40-2: Tsubaki D40B14 y Martin D40B15H; ASA 40 doble-simple: Tsubaki
+# DS40A15. 08B-1: TYMA y Chiaravalli (SKF lo verifica); 08B-2: Chiaravalli; 08B-1 doble-simple:
+# TYMA 08B-1-z-DS; 10B-1 y 12B-1: TYMA. Fórmulas: ISO 606 (transcrita en patentes) y ANSI B29.1.
+#
+# SIN `cost` (D4). Precios de referencia para cotizar (Rodasur, Av. Guillermo Dansey 1912,
+# Cercado; marca Donghua, sin decir si incluyen IGV; 2026-10-08): piñón ASA 40-1 14T S/12,
+# 15T S/16, 30T S/32; 08B-1 14T S/14; cadena ASA 40-1 Max-Gold S/18 (no queda claro si por metro
+# o por caja). El costeo cae a su estimación por peso y la declara.
+components:
+  # ------------------------------------------------------------------------------- cadenas
+  # Cortables (kg/m x largo de corte en la BOM). El 3D es un tramo recto de round(L/p) rodillos;
+  # el lazo entre dos piñones lo arma el comando de cadena (F2). Todo [L] salvo lo que dice cada
+  # `no_publicado`. default_length = 40 eslabones.
+  - ref: CADENA-ASA40-1
+    name: Cadena ASA 40-1
+    description: "Cadena de rodillos simple ASA 40 (ANSI B29.1, paso 1/2\" = 12.7 mm), rodillo Ø7.92, ancho interior 7.85; rotura 13.9 kN; 0.62 kg/m. ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: roller_chain
+    params: {paso: 12.7, rodillo: 7.92, ancho_interior: 7.85, perno: 3.98, alto_placa: 12.07, espesor_placa: 1.5, ancho_sobre_perno: 17.8}
+    weight: 0.62
+    cuttable: true
+    default_length: 508
+    specs: {norma: "ANSI B29.1", serie: "ASA 40", hileras: 1, paso: 12.7, rodillo: 7.92, ancho_interior: 7.85, perno: 3.98, alto_placa: 12.07, espesor_placa: 1.5, ancho_sobre_perno: 17.8, rotura_kN: 13.9, kg_m: 0.62, material: acero, no_publicado: "nada de la ficha; el 3D es representativo: placas en estadio (las reales son en ocho), sin casquillo"}
+  - ref: CADENA-ASA40-2
+    name: Cadena ASA 40-2
+    description: "Cadena de rodillos doble ASA 40-2 (ANSI B29.1, paso 1/2\" = 12.7 mm, paso transversal 14.38), rodillo Ø7.92; rotura 27.8 kN; 1.27 kg/m. Va sobre piñón dúplex. ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: roller_chain
+    params: {paso: 12.7, rodillo: 7.92, ancho_interior: 7.85, perno: 3.98, alto_placa: 12.07, espesor_placa: 1.5, ancho_sobre_perno: 32.3, hileras: 2, pt: 14.38}
+    weight: 1.27
+    cuttable: true
+    default_length: 508
+    specs: {norma: "ANSI B29.1", serie: "ASA 40", hileras: 2, paso: 12.7, pt: 14.38, rodillo: 7.92, ancho_interior: 7.85, perno: 3.98, alto_placa: 12.07, espesor_placa: 1.5, ancho_sobre_perno: 32.3, rotura_kN: 27.8, kg_m: 1.27, material: acero, no_publicado: "nada de la ficha; el 3D es representativo: placas en estadio, sin casquillo, UNA placa media de espesor t entre hileras"}
+  - ref: CADENA-08B-1
+    name: Cadena BS 08B-1
+    description: "Cadena de rodillos simple 08B-1 (ISO 606 serie B, «BS» o europea, paso 12.7 mm), rodillo Ø8.51, ancho interior 7.75; rotura 17.8 kN; 0.69 kg/m. ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: roller_chain
+    params: {paso: 12.7, rodillo: 8.51, ancho_interior: 7.75, perno: 4.45, alto_placa: 11.81, espesor_placa: 1.6, ancho_sobre_perno: 17.0}
+    weight: 0.69
+    cuttable: true
+    default_length: 508
+    specs: {norma: "ISO 606", serie: "08B", hileras: 1, paso: 12.7, rodillo: 8.51, ancho_interior: 7.75, perno: 4.45, alto_placa: 11.81, espesor_placa: 1.6, ancho_sobre_perno: 17.0, rotura_kN: 17.8, kg_m: 0.69, material: acero, no_publicado: "nada de la ficha; el 3D es representativo: placas en estadio (las reales son en ocho), sin casquillo"}
+  - ref: CADENA-08B-2
+    name: Cadena BS 08B-2
+    description: "Cadena de rodillos doble 08B-2 (ISO 606 serie B, paso 12.7 mm, paso transversal 13.92), rodillo Ø8.51; rotura 31.1 kN; 1.34 kg/m. Va sobre piñón dúplex. ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: roller_chain
+    params: {paso: 12.7, rodillo: 8.51, ancho_interior: 7.75, perno: 4.45, alto_placa: 11.81, espesor_placa: 1.6, ancho_sobre_perno: 31.0, hileras: 2, pt: 13.92}
+    weight: 1.34
+    cuttable: true
+    default_length: 508
+    specs: {norma: "ISO 606", serie: "08B", hileras: 2, paso: 12.7, pt: 13.92, rodillo: 8.51, ancho_interior: 7.75, perno: 4.45, alto_placa: 11.81, espesor_placa: 1.6, ancho_sobre_perno: 31.0, rotura_kN: 31.1, kg_m: 1.34, material: acero, no_publicado: "nada de la ficha; el 3D es representativo: placas en estadio, sin casquillo, UNA placa media de espesor t entre hileras"}
+  - ref: CADENA-10B-1
+    name: Cadena BS 10B-1
+    description: "Cadena de rodillos simple 10B-1 (ISO 606 serie B, paso 5/8\" = 15.875 mm), rodillo Ø10.16, ancho interior 9.65; rotura 22.2 kN; 0.93 kg/m. No es intercambiable con la ASA 50; ASA 40 y 08B tampoco lo son entre sí."
+    builder: roller_chain
+    params: {paso: 15.875, rodillo: 10.16, ancho_interior: 9.65, perno: 5.08, alto_placa: 14.73, espesor_placa: 1.7, ancho_sobre_perno: 19.6}
+    weight: 0.93
+    cuttable: true
+    default_length: 635
+    specs: {norma: "ISO 606", serie: "10B", hileras: 1, paso: 15.875, rodillo: 10.16, ancho_interior: 9.65, perno: 5.08, alto_placa: 14.73, espesor_placa: 1.7, ancho_sobre_perno: 19.6, rotura_kN: 22.2, kg_m: 0.93, material: acero, no_publicado: "nada de la ficha; el 3D es representativo: placas en estadio (las reales son en ocho), sin casquillo"}
+  - ref: CADENA-12B-1
+    name: Cadena BS 12B-1
+    description: "Cadena de rodillos simple 12B-1 (ISO 606 serie B, paso 3/4\" = 19.05 mm), rodillo Ø12.07, ancho interior 11.68; rotura 28.9 kN; 1.15 kg/m. No es intercambiable con la ASA 60; ASA 40 y 08B tampoco lo son entre sí."
+    builder: roller_chain
+    params: {paso: 19.05, rodillo: 12.07, ancho_interior: 11.68, perno: 5.72, alto_placa: 16.13, espesor_placa: 1.85, ancho_sobre_perno: 22.7}
+    weight: 1.15
+    cuttable: true
+    default_length: 762
+    specs: {norma: "ISO 606", serie: "12B", hileras: 1, paso: 19.05, rodillo: 12.07, ancho_interior: 11.68, perno: 5.72, alto_placa: 16.13, espesor_placa: 1.85, ancho_sobre_perno: 22.7, rotura_kN: 28.9, kg_m: 1.15, material: acero, no_publicado: "nada de la ficha; el 3D es representativo: placas en estadio (las reales son en ocho), sin casquillo"}
+families:
+  # ------------------------------------------------------------------------- piñones ASA
+  # Tsubaki US 40B<z> [L]: d0, de, cubo, largo, piloto, agujero máx, peso. Ancho de diente 7.21.
+  # Ojo: el cubo de la 40B12 (Ø39.7, 1-9/16", re-confirmado en Tsubaki el 2026-10-08) pasa el Ø
+  # máximo de cubo de ANSI B29.1, p·(cot(180°/z) − 1) − 0.76 = 33.9: con placas en estadio, la
+  # placa interior de la cadena solapa el cubo ~2 mm en radio en el 3D. Desde z14 hay holgura.
+  - family: "ASA 40-1 tipo B"
+    name_tpl: "Piñón ASA 40-1 Z{z} (tipo B)"
+    description_tpl: "Piñón simple ASA 40-1 tipo B (con cubo), {z} dientes, paso 1/2\" = 12.7 mm: d0 {d0:g}, Ø exterior {de:g}, cubo Ø{cubo:g}, largo {largo:g}, agujero piloto Ø{piloto_mm:g} (a maquinar con chaveta y prisionero). Para cadena CADENA-ASA40-1. ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: sprocket
+    param_keys: [tipo, paso, z, rodillo, de, ancho_diente, cubo, largo, piloto_mm]
+    specs_common: {norma: "ANSI B29.1", serie: "ASA 40", hileras: 1, cadena: "CADENA-ASA40-1", material: acero, mecanizado: "agujero piloto, a maquinar con chaveta y prisionero", fuente: "Tsubaki US 40B<z>"}
+    variants:
+      - {ref: PINON-ASA40-1-Z12, tipo: simple, paso: 12.7, z: 12, rodillo: 7.92, de: 55.1, ancho_diente: 7.21, cubo: 39.7, largo: 22.2, piloto_mm: 12.7, d0: 49.07, agujero_max_mm: 25.4, weight: 0.20, no_publicado: "flancos representativos (ISO 606 máx); el cubo Ø39.7 de la ficha pasa el Ø máximo de cubo de ANSI (33.9): en el 3D la placa de la cadena lo solapa ~2 mm"}
+      - {ref: PINON-ASA40-1-Z14, tipo: simple, paso: 12.7, z: 14, rodillo: 7.92, de: 63.2, ancho_diente: 7.21, cubo: 42.9, largo: 22.2, piloto_mm: 12.7, d0: 57.07, agujero_max_mm: 28.6, weight: 0.27, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z15, tipo: simple, paso: 12.7, z: 15, rodillo: 7.92, de: 67.3, ancho_diente: 7.21, cubo: 46.0, largo: 22.2, piloto_mm: 12.7, d0: 61.09, agujero_max_mm: 31.8, weight: 0.32, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z16, tipo: simple, paso: 12.7, z: 16, rodillo: 7.92, de: 71.4, ancho_diente: 7.21, cubo: 50.8, largo: 22.2, piloto_mm: 15.9, d0: 65.10, agujero_max_mm: 34.9, weight: 0.36, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z17, tipo: simple, paso: 12.7, z: 17, rodillo: 7.92, de: 75.7, ancho_diente: 7.21, cubo: 54.0, largo: 25.4, piloto_mm: 15.9, d0: 69.11, agujero_max_mm: 36.5, weight: 0.47, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z18, tipo: simple, paso: 12.7, z: 18, rodillo: 7.92, de: 79.8, ancho_diente: 7.21, cubo: 58.7, largo: 25.4, piloto_mm: 15.9, d0: 73.13, agujero_max_mm: 38.1, weight: 0.55, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z19, tipo: simple, paso: 12.7, z: 19, rodillo: 7.92, de: 83.8, ancho_diente: 7.21, cubo: 63.5, largo: 25.4, piloto_mm: 15.9, d0: 77.17, agujero_max_mm: 44.5, weight: 0.65, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z20, tipo: simple, paso: 12.7, z: 20, rodillo: 7.92, de: 87.9, ancho_diente: 7.21, cubo: 66.7, largo: 25.4, piloto_mm: 15.9, d0: 81.18, agujero_max_mm: 47.6, weight: 0.71, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z30, tipo: simple, paso: 12.7, z: 30, rodillo: 7.92, de: 128.5, ancho_diente: 7.21, cubo: 82.6, largo: 25.4, piloto_mm: 15.9, d0: 121.49, agujero_max_mm: 57.2, weight: 1.35, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z45, tipo: simple, paso: 12.7, z: 45, rodillo: 7.92, de: 189.2, ancho_diente: 7.21, cubo: 88.9, largo: 28.6, piloto_mm: 19.05, d0: 182.07, agujero_max_mm: 60.3, weight: 2.40, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-ASA40-1-Z60, tipo: simple, paso: 12.7, z: 60, rodillo: 7.92, de: 249.9, ancho_diente: 7.21, cubo: 88.9, largo: 28.6, piloto_mm: 19.05, d0: 242.67, agujero_max_mm: 60.3, weight: 3.57, no_publicado: "flancos representativos (ISO 606 máx)"}
+  # Dúplex: Tsubaki D40B14 (cubo 42.9, largo 38.1, 0.48 kg) y Martin D40B15H (cubo 46.0, largo
+  # 38.1, agujero máx 31.75, 0.56 kg) [L]. Ø exterior y piloto: los del simple de igual z [E].
+  # Ancho de diente por hilera: 0.91·W − 0.006" de ANSI B29.1 con W = 5/16" → 7.07 [D].
+  - family: "ASA 40-2 dúplex"
+    name_tpl: "Piñón ASA 40-2 Z{z} (dúplex)"
+    description_tpl: "Piñón dúplex ASA 40-2 (dos hileras a {distancia_hileras:g} mm, para cadena doble CADENA-ASA40-2), {z} dientes, paso 1/2\" = 12.7 mm: d0 {d0:g}, Ø exterior {de:g}, cubo Ø{cubo:g}, largo {largo:g}, agujero piloto Ø{piloto_mm:g} (a maquinar con chaveta y prisionero). ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: sprocket
+    param_keys: [tipo, paso, z, rodillo, de, ancho_diente, cubo, largo, piloto_mm, distancia_hileras]
+    specs_common: {norma: "ANSI B29.1", serie: "ASA 40", hileras: 2, cadena: "CADENA-ASA40-2", material: acero, mecanizado: "agujero piloto, a maquinar con chaveta y prisionero"}
+    variants:
+      - {ref: PINON-ASA40-2-Z14, tipo: duplex, paso: 12.7, z: 14, rodillo: 7.92, de: 63.2, ancho_diente: 7.07, cubo: 42.9, largo: 38.1, piloto_mm: 12.7, distancia_hileras: 14.38, pt: 14.38, d0: 57.07, weight: 0.48, fuente: "Tsubaki D40B14", no_publicado: "Ø exterior y piloto, los del simple Z14 [E]; ancho de diente 7.07 por la fórmula ANSI [D]; agujero máximo no publicado; flancos representativos"}
+      - {ref: PINON-ASA40-2-Z15, tipo: duplex, paso: 12.7, z: 15, rodillo: 7.92, de: 67.3, ancho_diente: 7.07, cubo: 46.0, largo: 38.1, piloto_mm: 12.7, distancia_hileras: 14.38, pt: 14.38, d0: 61.09, agujero_max_mm: 31.75, weight: 0.56, fuente: "Martin D40B15H", no_publicado: "Ø exterior y piloto, los del simple Z15 [E]; ancho de diente 7.07 por la fórmula ANSI [D]; flancos representativos"}
+  # Doble-simple (dos cadenas SIMPLES en un cubo, el del rodillo a rodillo): Tsubaki DS40A15,
+  # largo 35.7 [L]; distancia entre hileras 28.6 [E, cota «C» del plano]; cubo y piloto, los del
+  # simple Z15 [E]; peso por volumen [E].
+  - family: "ASA 40 doble-simple"
+    name_tpl: "Piñón ASA 40 doble-simple Z{z}"
+    description_tpl: "Piñón doble-simple ASA 40 (dos placas simples a {distancia_hileras:g} mm en un cubo: dos cadenas CADENA-ASA40-1, el del rodillo a rodillo), {z} dientes, paso 1/2\" = 12.7 mm: d0 {d0:g}, Ø exterior {de:g}, cubo Ø{cubo:g}, largo {largo:g}, agujero piloto Ø{piloto_mm:g} (a maquinar con chaveta y prisionero). ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: sprocket
+    param_keys: [tipo, paso, z, rodillo, de, ancho_diente, cubo, largo, piloto_mm, distancia_hileras]
+    specs_common: {norma: "ANSI B29.1", serie: "ASA 40", hileras: 2, cadena: "CADENA-ASA40-1", material: acero, mecanizado: "agujero piloto, a maquinar con chaveta y prisionero"}
+    variants:
+      - {ref: PINON-ASA40-DS-Z15, tipo: doble_simple, paso: 12.7, z: 15, rodillo: 7.92, de: 67.3, ancho_diente: 7.21, cubo: 46.0, largo: 35.7, piloto_mm: 12.7, distancia_hileras: 28.6, d0: 61.09, weight: 0.55, fuente: "Tsubaki DS40A15", no_publicado: "distancia entre hileras 28.6 [E, cota C del plano]; cubo, piloto y Ø exterior, los del simple Z15 [E]; peso por volumen del 3D [E]; agujero máximo no publicado; flancos representativos"}
+  # -------------------------------------------------------------------------- piñones BS
+  # 08B-1 con cubo, TYMA y Chiaravalli [L] (SKF lo verifica): d0, de, cubo, piloto, largo, peso;
+  # agujero máx sólo donde la ficha lo da. Ancho de diente 7.2. Como la 40B12, la z9 tiene un cubo
+  # publicado (Ø24) que la placa en estadio de la cadena solapa ~0.5 mm a mitad de paso.
+  - family: "BS 08B-1 con cubo"
+    name_tpl: "Piñón BS 08B-1 Z{z} (con cubo)"
+    description_tpl: "Piñón simple 08B-1 con cubo (ISO 606 serie B, «BS» o europea), {z} dientes, paso 12.7 mm: d0 {d0:g}, Ø exterior {de:g}, cubo Ø{cubo:g}, largo {largo:g}, agujero piloto Ø{piloto_mm:g} (a maquinar con chaveta y prisionero). Para cadena CADENA-08B-1. ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: sprocket
+    param_keys: [tipo, paso, z, rodillo, de, ancho_diente, cubo, largo, piloto_mm]
+    specs_common: {norma: "ISO 606", serie: "08B", hileras: 1, cadena: "CADENA-08B-1", material: acero, mecanizado: "agujero piloto, a maquinar con chaveta y prisionero", fuente: "TYMA / Chiaravalli 08B-1"}
+    variants:
+      - {ref: PINON-08B-1-Z9, tipo: simple, paso: 12.7, z: 9, rodillo: 8.51, de: 41.0, ancho_diente: 7.2, cubo: 24, largo: 25, piloto_mm: 10, d0: 37.13, weight: 0.09, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx); el cubo Ø24 de la ficha deja menos lugar que el alto de placa: en el 3D la placa de la cadena lo solapa ~0.5 mm"}
+      - {ref: PINON-08B-1-Z12, tipo: simple, paso: 12.7, z: 12, rodillo: 8.51, de: 53.0, ancho_diente: 7.2, cubo: 33, largo: 28, piloto_mm: 10, d0: 49.07, weight: 0.21, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z14, tipo: simple, paso: 12.7, z: 14, rodillo: 8.51, de: 61.8, ancho_diente: 7.2, cubo: 41, largo: 28, piloto_mm: 10, d0: 57.07, agujero_max_mm: 24, weight: 0.32, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z15, tipo: simple, paso: 12.7, z: 15, rodillo: 8.51, de: 65.5, ancho_diente: 7.2, cubo: 45, largo: 28, piloto_mm: 10, d0: 61.09, weight: 0.38, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z16, tipo: simple, paso: 12.7, z: 16, rodillo: 8.51, de: 69.5, ancho_diente: 7.2, cubo: 50, largo: 28, piloto_mm: 12, d0: 65.10, weight: 0.46, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z17, tipo: simple, paso: 12.7, z: 17, rodillo: 8.51, de: 73.6, ancho_diente: 7.2, cubo: 52, largo: 28, piloto_mm: 12, d0: 69.11, weight: 0.51, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z18, tipo: simple, paso: 12.7, z: 18, rodillo: 8.51, de: 77.8, ancho_diente: 7.2, cubo: 56, largo: 28, piloto_mm: 12, d0: 73.14, weight: 0.59, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z19, tipo: simple, paso: 12.7, z: 19, rodillo: 8.51, de: 81.7, ancho_diente: 7.2, cubo: 60, largo: 28, piloto_mm: 12, d0: 77.16, weight: 0.67, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z20, tipo: simple, paso: 12.7, z: 20, rodillo: 8.51, de: 85.8, ancho_diente: 7.2, cubo: 64, largo: 28, piloto_mm: 12, d0: 81.19, weight: 0.76, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z25, tipo: simple, paso: 12.7, z: 25, rodillo: 8.51, de: 105.8, ancho_diente: 7.2, cubo: 70, largo: 28, piloto_mm: 14, d0: 101.33, weight: 1.01, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z28, tipo: simple, paso: 12.7, z: 28, rodillo: 8.51, de: 118.0, ancho_diente: 7.2, cubo: 70, largo: 30, piloto_mm: 16, d0: 113.42, agujero_max_mm: 46, weight: 1.17, no_publicado: "flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z30, tipo: simple, paso: 12.7, z: 30, rodillo: 8.51, de: 126.1, ancho_diente: 7.2, cubo: 80, largo: 30, piloto_mm: 16, d0: 121.50, weight: 1.46, no_publicado: "agujero máximo; flancos representativos (ISO 606 máx)"}
+      - {ref: PINON-08B-1-Z38, tipo: simple, paso: 12.7, z: 38, rodillo: 8.51, de: 158.6, ancho_diente: 7.2, cubo: 90, largo: 35, piloto_mm: 16, d0: 153.80, agujero_max_mm: 50, weight: 2.32, no_publicado: "flancos representativos (ISO 606 máx)"}
+  # 08B-2 dúplex, Chiaravalli [L]: ancho total 21.0, ancho por diente 7.0, cubo / piloto / largo
+  # / peso. d0 y de, los del simple de igual z [E]; los de z21 por fórmula [D]:
+  # d0 = p/sin(180/z) = 85.21; de = da máx ISO 606 = d0 + 1.25p − d1 = 92.58.
+  - family: "BS 08B-2 dúplex"
+    name_tpl: "Piñón BS 08B-2 Z{z} (dúplex)"
+    description_tpl: "Piñón dúplex 08B-2 (ISO 606 serie B, «BS»; dos hileras a {distancia_hileras:g} mm, para cadena doble CADENA-08B-2), {z} dientes, paso 12.7 mm: d0 {d0:g}, Ø exterior {de:g}, cubo Ø{cubo:g}, largo {largo:g}, agujero piloto Ø{piloto_mm:g} (a maquinar con chaveta y prisionero). ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: sprocket
+    param_keys: [tipo, paso, z, rodillo, de, ancho_diente, cubo, largo, piloto_mm, distancia_hileras]
+    specs_common: {norma: "ISO 606", serie: "08B", hileras: 2, cadena: "CADENA-08B-2", material: acero, mecanizado: "agujero piloto, a maquinar con chaveta y prisionero", fuente: "Chiaravalli 08B-2"}
+    variants:
+      - {ref: PINON-08B-2-Z14, tipo: duplex, paso: 12.7, z: 14, rodillo: 8.51, de: 61.8, ancho_diente: 7.0, cubo: 42, largo: 35, piloto_mm: 12, distancia_hileras: 13.92, pt: 13.92, d0: 57.07, weight: 0.44, no_publicado: "Ø exterior, el del simple Z14 [E]; agujero máximo; flancos representativos"}
+      - {ref: PINON-08B-2-Z15, tipo: duplex, paso: 12.7, z: 15, rodillo: 8.51, de: 65.5, ancho_diente: 7.0, cubo: 46, largo: 35, piloto_mm: 12, distancia_hileras: 13.92, pt: 13.92, d0: 61.09, weight: 0.52, no_publicado: "Ø exterior, el del simple Z15 [E]; agujero máximo; flancos representativos"}
+      - {ref: PINON-08B-2-Z17, tipo: duplex, paso: 12.7, z: 17, rodillo: 8.51, de: 73.6, ancho_diente: 7.0, cubo: 54, largo: 35, piloto_mm: 14, distancia_hileras: 13.92, pt: 13.92, d0: 69.11, weight: 0.73, no_publicado: "Ø exterior, el del simple Z17 [E]; agujero máximo; flancos representativos"}
+      - {ref: PINON-08B-2-Z19, tipo: duplex, paso: 12.7, z: 19, rodillo: 8.51, de: 81.7, ancho_diente: 7.0, cubo: 62, largo: 35, piloto_mm: 14, distancia_hileras: 13.92, pt: 13.92, d0: 77.16, weight: 0.97, no_publicado: "Ø exterior, el del simple Z19 [E]; agujero máximo; flancos representativos"}
+      - {ref: PINON-08B-2-Z21, tipo: duplex, paso: 12.7, z: 21, rodillo: 8.51, de: 92.58, ancho_diente: 7.0, cubo: 70, largo: 40, piloto_mm: 16, distancia_hileras: 13.92, pt: 13.92, d0: 85.21, weight: 1.29, no_publicado: "d0 por fórmula [D]; Ø exterior = da máx de ISO 606 [D]; agujero máximo; flancos representativos"}
+      - {ref: PINON-08B-2-Z25, tipo: duplex, paso: 12.7, z: 25, rodillo: 8.51, de: 105.8, ancho_diente: 7.0, cubo: 80, largo: 40, piloto_mm: 16, distancia_hileras: 13.92, pt: 13.92, d0: 101.33, weight: 1.82, no_publicado: "Ø exterior, el del simple Z25 [E]; agujero máximo; flancos representativos"}
+      - {ref: PINON-08B-2-Z38, tipo: duplex, paso: 12.7, z: 38, rodillo: 8.51, de: 158.6, ancho_diente: 7.0, cubo: 110, largo: 40, piloto_mm: 20, distancia_hileras: 13.92, pt: 13.92, d0: 153.80, weight: 3.84, no_publicado: "Ø exterior, el del simple Z38 [E]; agujero máximo; flancos representativos"}
+  # 08B-1 doble-simple, TYMA 08B-1-z-DS [L]: ancho total 31.0, distancia entre hileras 23.8,
+  # piloto 10-16 (va el 10). z14, como los cabezales Interroll serie 3500 de 1/2". Cubo, el del
+  # simple z14 [E]; peso por volumen [E].
+  - family: "BS 08B-1 doble-simple"
+    name_tpl: "Piñón BS 08B-1 doble-simple Z{z}"
+    description_tpl: "Piñón doble-simple 08B-1 (ISO 606 serie B, «BS»; dos placas simples a {distancia_hileras:g} mm en un cubo: dos cadenas CADENA-08B-1, el del rodillo a rodillo tipo Interroll), {z} dientes, paso 12.7 mm: d0 {d0:g}, Ø exterior {de:g}, cubo Ø{cubo:g}, largo {largo:g}, agujero piloto Ø{piloto_mm:g} (a maquinar con chaveta y prisionero). ASA 40 y 08B NO son intercambiables aunque las dos sean de 1/2\"."
+    builder: sprocket
+    param_keys: [tipo, paso, z, rodillo, de, ancho_diente, cubo, largo, piloto_mm, distancia_hileras]
+    specs_common: {norma: "ISO 606", serie: "08B", hileras: 2, cadena: "CADENA-08B-1", material: acero, mecanizado: "agujero piloto, a maquinar con chaveta y prisionero", fuente: "TYMA 08B-1-z-DS"}
+    variants:
+      - {ref: PINON-08B-DS-Z14, tipo: doble_simple, paso: 12.7, z: 14, rodillo: 8.51, de: 61.8, ancho_diente: 7.2, cubo: 41, largo: 31.0, piloto_mm: 10, distancia_hileras: 23.8, d0: 57.07, weight: 0.41, no_publicado: "cubo y Ø exterior, los del simple Z14 [E]; peso por volumen del 3D [E]; agujero máximo; flancos representativos"}
+  # 10B-1 y 12B-1 con cubo, TYMA [L]: d0, de, cubo, piloto, largo; ancho de diente 9.1 y 11.1.
+  # Peso por volumen del 3D [E].
+  - family: "BS 10B-1 y 12B-1 con cubo"
+    name_tpl: "Piñón BS {serie}-1 Z{z} (con cubo)"
+    description_tpl: "Piñón simple {serie}-1 con cubo (ISO 606 serie B, «BS»), {z} dientes, paso {paso:g} mm: d0 {d0:g}, Ø exterior {de:g}, cubo Ø{cubo:g}, largo {largo:g}, agujero piloto Ø{piloto_mm:g} (a maquinar con chaveta y prisionero). Para cadena {cadena}. No es intercambiable con la ASA del mismo paso; ASA 40 y 08B tampoco lo son entre sí."
+    builder: sprocket
+    param_keys: [tipo, paso, z, rodillo, de, ancho_diente, cubo, largo, piloto_mm]
+    specs_common: {norma: "ISO 606", hileras: 1, material: acero, mecanizado: "agujero piloto, a maquinar con chaveta y prisionero", fuente: "TYMA"}
+    variants:
+      - {ref: PINON-10B-1-Z15, serie: "10B", cadena: "CADENA-10B-1", tipo: simple, paso: 15.875, z: 15, rodillo: 10.16, de: 83.0, ancho_diente: 9.1, cubo: 57, largo: 30, piloto_mm: 12, d0: 76.36, weight: 0.69, no_publicado: "peso por volumen del 3D [E]; agujero máximo; flancos representativos"}
+      - {ref: PINON-10B-1-Z19, serie: "10B", cadena: "CADENA-10B-1", tipo: simple, paso: 15.875, z: 19, rodillo: 10.16, de: 103.3, ancho_diente: 9.1, cubo: 70, largo: 30, piloto_mm: 14, d0: 96.45, weight: 1.08, no_publicado: "peso por volumen del 3D [E]; agujero máximo; flancos representativos"}
+      - {ref: PINON-12B-1-Z15, serie: "12B", cadena: "CADENA-12B-1", tipo: simple, paso: 19.05, z: 15, rodillo: 12.07, de: 99.8, ancho_diente: 11.1, cubo: 70, largo: 35, piloto_mm: 14, d0: 91.63, weight: 1.21, no_publicado: "peso por volumen del 3D [E]; agujero máximo; flancos representativos"}

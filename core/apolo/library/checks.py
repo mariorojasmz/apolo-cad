@@ -145,6 +145,9 @@ FEA_HARDWARE_CATS = HARDWARE_CATS | {
     # garruchas: horquilla, pista y rueda son representativas; su peso entra como carga
     # sustituta declarada (plan garruchas-catalogo D8)
     "garruchas",
+    # transmisión: piñones, cadenas, poleas y tensores son geometría representativa (flancos,
+    # eslabones sin casquillo); mallarlos mentiría rigidez (plan cadenas-pinones D10)
+    "transmision",
 }
 
 

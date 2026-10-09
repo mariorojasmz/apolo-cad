@@ -18,6 +18,8 @@ import yaml
 
 from .builders import BUILDERS as _BUILDERS_BASE
 from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
+from .builders_transmision import ANCLAS as _ANCLAS_TRANSMISION
+from .builders_transmision import BUILDERS as _BUILDERS_TRANSMISION
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -35,7 +37,19 @@ def merge_builders(*registros: dict) -> dict:
     return unido
 
 
-BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE)
+def merge_anclas(builders: dict, *registros: dict) -> dict:
+    """Une los registros de anclas POR FAMILIA (`builder → (**params) -> anclas locales`), con la
+    misma regla que los builders (nombre repetido = error) y además cada ancla debe nombrar un
+    builder registrado (plan cadenas-pinones D6)."""
+    unido = merge_builders(*registros)
+    huerfanas = sorted(set(unido) - set(builders))
+    if huerfanas:
+        raise ValueError(f"Anclas de builders inexistentes: {', '.join(huerfanas)}")
+    return unido
+
+
+BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION)
+ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION)
 
 
 def eval_formula(expr: str, specs: dict) -> float:
@@ -53,7 +67,9 @@ def _component_from_item(item: dict, category: str):
     factory = BUILDERS.get(builder_name)
     if factory is None:
         raise ValueError(f"Componente '{ref}': builder desconocido '{builder_name}'")
-    builder_fn = factory(**item.get("params", {}))
+    params = item.get("params", {})
+    builder_fn = factory(**params)
+    anclas_fn = ANCLAS.get(builder_name)
 
     specs = item.get("specs", {})
     if "weight" in item and item["weight"] is not None:
@@ -73,6 +89,7 @@ def _component_from_item(item: dict, category: str):
         cuttable=bool(item.get("cuttable", False)),
         default_length=item.get("default_length"),
         builder=builder_fn,
+        anchors=anclas_fn(**params) if anclas_fn else None,
     )
 
 

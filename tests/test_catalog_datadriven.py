@@ -94,7 +94,8 @@ def test_family_expands_to_variants():
 def test_all_new_families_present():
     assert len(refs_in_category("tornilleria")) == 6
     assert len(refs_in_category("guias_lineales")) == 10  # 5 rieles + 5 carros
-    assert len(refs_in_category("transmision")) == 14  # 5 poleas dentadas + 3 tensores + 6 poleas en V
+    # 5 poleas dentadas + 3 tensores + 6 poleas en V + 6 cadenas + 38 piñones (cadenas-pinones)
+    assert len(refs_in_category("transmision")) == 58
     # V2: chumaceras (UCP204-208 pie + UCF204-208 brida cuad. + UCFL204-208 brida oval), topes, pies
     assert len(refs_in_category("chumaceras")) == 15
     assert len(refs_in_category("topes")) == 3
@@ -130,7 +131,8 @@ def test_all_new_families_present():
     # garruchas de placa: Blickle LH-ALTH/-ST/BH-ALTH + Colson Colombia 44/45 PU (plan garruchas-catalogo)
     assert len(refs_in_category("garruchas")) == 24
     # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c) +24 garruchas (garruchas-catalogo) +1 VFD 2.2 kW
-    assert len(CATALOG) == 256
+    # +44 cadenas y piñones (cadenas-pinones)
+    assert len(CATALOG) == 300
 
 
 def test_door_sliding_hardware():

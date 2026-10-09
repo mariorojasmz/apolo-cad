@@ -31,6 +31,9 @@ class Component:
     cuttable: bool = False
     default_length: float | None = None
     builder: Callable = field(repr=False, default=None)  # (length|None) -> shape
+    # anclas LOCALES de la FAMILIA, calculadas por el loader desde los params del builder
+    # (`loader.ANCLAS`; p. ej. eje/hileras/fase de un piñón). None = la familia no publica.
+    anchors: dict | None = field(repr=False, default=None)
 
 
 from .loader import load_catalog  # noqa: E402  (necesita Component ya definido)
@@ -67,8 +70,10 @@ def build_component(ref: str, length: float | None = None):
 
 
 # Anclas de conexión LOCALES (coords en el frame propio del builder, antes de colocar) por
-# FAMILIA de catálogo (V6.3b). El executor `insert_component` las transforma a mundo con la
-# pose. Las 3 familias listadas en el plan; el patrón queda, el catálogo crece por demanda.
+# CATEGORÍA de catálogo (V6.3b). El executor `insert_component` las transforma a mundo con la
+# pose. Las que dependen de los params de cada ref (un piñón: d0, hileras) NO van aquí: las
+# calcula el loader por familia (`Component.anchors`, plan cadenas-pinones D6) y
+# `component_anchors` las suma a éstas (la de familia gana si repiten nombre).
 #  - chumaceras UCP/UCF/UCFL (pillow_block/flange_bearing): eje del rodamiento a lo largo de Y
 #    local, origen en el centro del barreno → "centro".
 #  - motorreductores sinfín NMRV (worm_gearmotor): eje hueco de salida a lo largo de Y local,
@@ -83,10 +88,11 @@ _CATEGORY_ANCHORS: dict[str, dict] = {
 
 
 def component_anchors(comp: "Component") -> dict | None:
-    """Anclas LOCALES (frame del builder) del componente, o None si su familia no publica.
-    Devuelve una COPIA fresca (el executor la transforma a mundo y la asigna a la Feature)."""
-    tmpl = _CATEGORY_ANCHORS.get(comp.category)
-    if tmpl is None:
+    """Anclas LOCALES (frame del builder) del componente: las de su categoría más las de su
+    familia (calculadas desde sus params), o None si no publica ninguna. Devuelve una COPIA
+    fresca (el executor la transforma a mundo y la asigna a la Feature)."""
+    tmpl = {**_CATEGORY_ANCHORS.get(comp.category, {}), **(comp.anchors or {})}
+    if not tmpl:
         return None
     return {n: {"origin": list(a["origin"]), "axis": list(a["axis"])} for n, a in tmpl.items()}
 
