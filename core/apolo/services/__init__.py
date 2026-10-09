@@ -1,7 +1,8 @@
 """Servicios de dominio: la lógica que LEE un `Document` y que comparten sus clientes (la
 API hoy; el agente, cuando la necesite) — mapas por pieza de los planos, datos de la lámina
 de instalación, evaluación de las cadenas de cotas, aserciones y contrato `expect`, insumos de
-la puerta de entrega, reglas de ingeniería y FEA, preparación del FEA.
+la puerta de entrega, reglas de ingeniería y FEA, preparación del FEA, y los pasos, etapas y
+guion del video de cómo se construyó la máquina (publicación).
 
 Capas (plan `docs/plans/partir-api-main.md`, D2):
 kernel/commands/doc/library/drawing/fea/assembly/robotics ← services ← api y agent. Cada

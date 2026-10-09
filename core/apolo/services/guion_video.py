@@ -1,0 +1,324 @@
+"""El guion editable del video de cómo se construyó una máquina (plan publicacion-tienda, F1 ·
+D3 y D15). Las etapas que ordena salen de `construccion.py`.
+
+`guion(doc, etapas)` arma un dict JSON (`"version": 1`) que una persona o Claude pule a mano
+entre `publicar guion` y `publicar generar` (D3): título, subtítulo, tamaño y fps del video,
+portada, etapas (título, rótulo, pasos `k` y duración), tarjeta de cifras, órbita final y cierre
+con la URL de la tienda vacía. El texto inicial es determinista (nombres de grupo y de pieza,
+cantidades, cifras de la masa y de los requisitos): el pipeline no llama a ningún modelo.
+
+`validar_guion` rechaza una edición mal formada con TODOS sus problemas en un mensaje en
+español: una clave desconocida (un typo como `duracion` por `duracion_s` se ignoraría en
+silencio), un tipo equivocado, una duración negativa, pasos fuera de orden o, si recibe el
+documento, un guion armado sobre otra versión del log (`documento.firma`).
+
+`capitulos` da los capítulos de YouTube (D15): el primero en 0, cada uno de ≥ 10 s, al menos
+3; si no se puede cumplir, ninguno (YouTube los ignoraría). La portada va dentro del primero y
+cifras, órbita y cierre forman el último («La máquina terminada»). Segundos ENTEROS, como los
+lee YouTube: la regla se comprueba sobre los segundos redondeados, no sobre los decimales.
+
+Las cifras se calculan con `scene_mass_properties` (la misma masa que la memoria y la
+instalación, con las piezas ocultas: ocultar no le quita peso a la máquina) y los requisitos
+del proyecto. Nunca precios (D11): `tipo_cambio` y `notas` no salen.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+
+from apolo.services.construccion import TIEMPOS, Etapa, Tiempos
+from apolo.services.rotulos import MAX_TEXTO, MAX_TITULO_ETAPA, corta
+
+VERSION = 1
+IDIOMA = "es"
+VIDEO = {"ancho": 1920, "alto": 1080, "fps": 30}
+SUBTITULO = "Así se construyó en Apolo CAD"
+CIERRE = "Descarga los planos y el modelo 3D"
+TITULO_CIFRAS = "En cifras"
+TITULO_FINAL = "La máquina terminada"
+#: Tope de la tarjeta de cifras: el mismo de `media/composicion.py` (services no importa media).
+MAX_CIFRAS = 12
+#: YouTube corta el título en 100 caracteres.
+MAX_TITULO = 100
+MAX_CORTO = 120
+CAPITULO_MIN_S = 10
+CAPITULOS_MIN = 3
+
+NBSP = chr(0xA0)  # espacio duro: «3 000 mm» no se parte en dos líneas
+
+
+class GuionError(ValueError):
+    """El guion no se puede usar: el mensaje lista cada problema con su ruta."""
+
+
+def firma(doc) -> str:
+    """Huella del log: un guion armado sobre otra versión del documento no se renderiza."""
+    texto = json.dumps(doc.commands, sort_keys=True, default=str)
+    return hashlib.sha256(texto.encode()).hexdigest()[:16]
+
+
+# ------------------------------------------------------------------ cifras
+def numero(valor: float) -> str:
+    """Número a la española: coma decimal, miles con espacio duro, sin ceros de sobra
+    («3 000», «412», «0,35»)."""
+    v = float(valor)
+    decimales = 0 if abs(v) >= 100 else 1 if abs(v) >= 10 else 2
+    texto = f"{v:,.{decimales}f}"
+    if decimales:
+        texto = texto.rstrip("0").rstrip(".")
+    return texto.replace(",", "_").replace(".", ",").replace("_", NBSP)
+
+
+#: requisito → (etiqueta, unidad). Texto libre sin unidad; `notas` y `tipo_cambio`, nunca.
+_REQUISITOS = (
+    ("carga_kg", "Carga", "kg"),
+    ("velocidad_m_s", "Velocidad", "m/s"),
+    ("inclinacion_deg", "Inclinación", "°"),
+    ("temperatura_c", "Temperatura", "°C"),
+    ("producto", "Producto", None),
+    ("entorno", "Entorno", None),
+    ("normativa", "Normativa", None),
+)
+_PAQUETE = ("largo_paquete_mm", "ancho_paquete_mm", "alto_paquete_mm")
+
+
+def _unidad(valor, unidad: str) -> str:
+    return f"{numero(valor)}{unidad}" if unidad == "°" else f"{numero(valor)}{NBSP}{unidad}"
+
+
+def cifras(doc) -> list[dict]:
+    """Las cifras de la tarjeta: piezas, masa y medidas generales de la escena (si está
+    regenerada) más los requisitos del proyecto. [{etiqueta, valor}], hasta MAX_CIFRAS."""
+    from apolo.library.catalog import CATALOG
+    from apolo.library.engineering.mass import scene_mass_properties
+
+    items: list[tuple[str, str]] = []
+    if doc.scene:
+        total = scene_mass_properties(doc.scene, CATALOG, default_material=doc.default_material(),
+                                      include_hidden=True)["total"]
+        if total.get("n_piezas"):
+            items.append(("Piezas", numero(total["n_piezas"])))
+            if total.get("masa_kg"):
+                items.append(("Masa", _unidad(total["masa_kg"], "kg")))
+            medidas = " × ".join(numero(x) for x in total["bbox_mm"])
+            items.append(("Medidas generales", f"{medidas}{NBSP}mm"))
+    req = doc.requirements or {}
+    for clave, etiqueta, unidad in _REQUISITOS:
+        valor = req.get(clave)
+        if valor in (None, "") or (clave == "inclinacion_deg" and not valor):
+            continue
+        items.append((etiqueta, corta(str(valor), 40) if unidad is None else _unidad(valor, unidad)))
+    paquete = [req.get(c) for c in _PAQUETE]
+    if all(paquete):
+        items.append(("Paquete", " × ".join(numero(x) for x in paquete) + f"{NBSP}mm"))
+    return [{"etiqueta": e, "valor": v} for e, v in items[:MAX_CIFRAS]]
+
+
+# ------------------------------------------------------------------ guion
+def guion(doc, etapas: list[Etapa], *, titulo: str | None = None,
+          subtitulo: str | None = None, tiempos: Tiempos = TIEMPOS) -> dict:
+    """El `guion.json` editable (D3). `doc` regenerado: de su escena salen las cifras."""
+    items = cifras(doc)
+    return {
+        "version": VERSION,
+        "idioma": IDIOMA,
+        "documento": {"nombre": doc.name, "comandos": len(doc.commands), "firma": firma(doc)},
+        "titulo": corta(titulo or doc.name or "Sin título", MAX_TITULO),
+        "subtitulo": SUBTITULO if subtitulo is None else corta(subtitulo, MAX_CORTO),
+        "video": dict(VIDEO),
+        "portada": {"duracion_s": tiempos.portada_s},
+        "etapas": [{"titulo": e.titulo, "texto": e.texto, "pasos": list(e.pasos),
+                    "duracion_s": e.duracion_s} for e in etapas],
+        "cifras": {"titulo": TITULO_CIFRAS, "items": items,
+                   "duracion_s": tiempos.cifras_s if items else 0.0},
+        "orbita": {"duracion_s": tiempos.orbita_s},
+        "cierre": {"texto": CIERRE, "url": "", "duracion_s": tiempos.cierre_s},
+    }
+
+
+# ------------------------------------------------------------------ validación
+_CLAVES = {
+    "": ("version", "idioma", "documento", "titulo", "subtitulo", "video", "portada", "etapas",
+         "cifras", "orbita", "cierre"),
+    "documento": ("nombre", "comandos", "firma"),
+    "video": ("ancho", "alto", "fps"),
+    "portada": ("duracion_s",),
+    "etapa": ("titulo", "texto", "pasos", "duracion_s"),
+    "cifras": ("titulo", "items", "duracion_s"),
+    "cifra": ("etiqueta", "valor"),
+    "orbita": ("duracion_s",),
+    "cierre": ("texto", "url", "duracion_s"),
+}
+
+
+class _Revision:
+    def __init__(self):
+        self.errores: list[str] = []
+
+    def objeto(self, valor, ruta: str, forma: str) -> bool:
+        """¿`valor` es un objeto con exactamente las claves de `forma`? Anota lo que no."""
+        donde = ruta or "la raíz"
+        if not isinstance(valor, dict):
+            self.errores.append(f"{donde}: debe ser un objeto {{…}}")
+            return False
+        validas = _CLAVES[forma]
+        for k in valor:
+            if k not in validas:
+                self.errores.append(f"{donde}: clave desconocida «{k}» (válidas: {', '.join(validas)})")
+        for k in validas:
+            if k not in valor:
+                self.errores.append(f"{donde}: falta «{k}»")
+        return all(k in valor for k in validas)
+
+    def texto(self, valor, ruta: str, tope: int, vacio: bool = True) -> None:
+        if not isinstance(valor, str):
+            self.errores.append(f"{ruta}: debe ser texto")
+        elif not vacio and not valor.strip():
+            self.errores.append(f"{ruta}: no puede quedar vacío")
+        elif len(valor) > tope:
+            self.errores.append(f"{ruta}: tiene {len(valor)} caracteres (máximo {tope})")
+
+    def numero(self, valor, ruta: str, minimo: float = 0.0, estricto: bool = False) -> bool:
+        ok = (isinstance(valor, (int, float)) and not isinstance(valor, bool)
+              and math.isfinite(valor) and (valor > minimo if estricto else valor >= minimo))
+        if not ok:
+            cota = f"mayor que {minimo:g}" if estricto else f"≥ {minimo:g}"
+            self.errores.append(f"{ruta}: debe ser un número {cota} (llegó {valor!r})")
+        return ok
+
+    def entero(self, valor, ruta: str, minimo: int, maximo: int, par: bool = False) -> None:
+        if (isinstance(valor, bool) or not isinstance(valor, int) or not minimo <= valor <= maximo
+                or (par and valor % 2)):
+            extra = " y par (H.264 yuv420p rechaza lados impares)" if par else ""
+            self.errores.append(f"{ruta}: debe ser un entero entre {minimo} y {maximo}{extra} "
+                                f"(llegó {valor!r})")
+
+
+def validar_guion(g, doc=None) -> None:
+    """Lanza `GuionError` con todos los problemas del guion; con `doc`, exige además que el
+    guion se haya armado sobre ESTE log (firma y largo) y que sus pasos existan en él."""
+    r = _Revision()
+    if not r.objeto(g, "", ""):
+        _fallar(r)
+    if isinstance(g["version"], bool) or g["version"] != VERSION:
+        r.errores.append(f"version: {g['version']!r} no soportada (esta versión de Apolo lee la {VERSION})")
+    r.texto(g["idioma"], "idioma", 10, vacio=False)
+    r.texto(g["titulo"], "titulo", MAX_TITULO, vacio=False)
+    r.texto(g["subtitulo"], "subtitulo", MAX_CORTO)
+    if r.objeto(g["documento"], "documento", "documento"):
+        r.texto(g["documento"]["nombre"], "documento.nombre", 200)
+        r.entero(g["documento"]["comandos"], "documento.comandos", 0, 10**7)
+        r.texto(g["documento"]["firma"], "documento.firma", 64)
+    if r.objeto(g["video"], "video", "video"):
+        r.entero(g["video"]["ancho"], "video.ancho", 2, 7680, par=True)
+        r.entero(g["video"]["alto"], "video.alto", 2, 4320, par=True)
+        r.entero(g["video"]["fps"], "video.fps", 1, 120)
+    for parte in ("portada", "orbita"):
+        if r.objeto(g[parte], parte, parte):
+            r.numero(g[parte]["duracion_s"], f"{parte}.duracion_s")
+    _validar_etapas(r, g["etapas"])
+    if r.objeto(g["cifras"], "cifras", "cifras"):
+        c = g["cifras"]
+        r.texto(c["titulo"], "cifras.titulo", MAX_TITULO_ETAPA)
+        dura = r.numero(c["duracion_s"], "cifras.duracion_s")
+        if not isinstance(c["items"], list) or len(c["items"]) > MAX_CIFRAS:
+            r.errores.append(f"cifras.items: debe ser una lista de hasta {MAX_CIFRAS} cifras")
+        else:
+            for i, item in enumerate(c["items"]):
+                if r.objeto(item, f"cifras.items[{i}]", "cifra"):
+                    r.texto(item["etiqueta"], f"cifras.items[{i}].etiqueta", 40, vacio=False)
+                    r.texto(item["valor"], f"cifras.items[{i}].valor", 40, vacio=False)
+            if dura and c["duracion_s"] > 0 and not c["items"]:
+                r.errores.append("cifras: dura más de 0 s pero no tiene cifras (pon "
+                                 "«duracion_s»: 0 para saltar la tarjeta)")
+    if r.objeto(g["cierre"], "cierre", "cierre"):
+        r.texto(g["cierre"]["texto"], "cierre.texto", MAX_CORTO)
+        url = g["cierre"]["url"]
+        r.texto(url, "cierre.url", 500)
+        if isinstance(url, str) and url and not url.startswith(("https://", "http://")):
+            r.errores.append(f"cierre.url: debe empezar con https:// (llegó {url!r})")
+        r.numero(g["cierre"]["duracion_s"], "cierre.duracion_s")
+    if doc is not None and not r.errores:
+        _contra_documento(r, g, doc)
+    _fallar(r)
+
+
+def _validar_etapas(r: _Revision, etapas) -> None:
+    if not isinstance(etapas, list):
+        r.errores.append("etapas: debe ser una lista")
+        return
+    previo = 0
+    for i, e in enumerate(etapas):
+        ruta = f"etapas[{i}]"
+        if not r.objeto(e, ruta, "etapa"):
+            continue
+        r.texto(e["titulo"], f"{ruta}.titulo", MAX_TITULO_ETAPA, vacio=False)
+        r.texto(e["texto"], f"{ruta}.texto", MAX_TEXTO)
+        r.numero(e["duracion_s"], f"{ruta}.duracion_s", estricto=True)
+        pasos = e["pasos"]
+        if (not isinstance(pasos, list) or not pasos
+                or any(isinstance(k, bool) or not isinstance(k, int) for k in pasos)):
+            r.errores.append(f"{ruta}.pasos: debe ser una lista no vacía de enteros (los k del log)")
+            continue
+        for k in pasos:
+            if k <= previo:
+                r.errores.append(f"{ruta}.pasos: {k} no sigue al paso {previo}: los pasos van en "
+                                 "orden creciente y cada uno en una sola etapa")
+                break
+            previo = k
+
+
+def _contra_documento(r: _Revision, g: dict, doc) -> None:
+    if g["documento"]["firma"] != firma(doc) or g["documento"]["comandos"] != len(doc.commands):
+        r.errores.append("documento: el guion se armó sobre otra versión del proyecto (la firma "
+                         "del log no coincide); vuelve a generar el guion")
+        return
+    fuera = [k for e in g["etapas"] for k in e["pasos"] if k > len(doc.commands)]
+    if fuera:
+        r.errores.append(f"etapas: los pasos {fuera[:5]} no existen (el log tiene "
+                         f"{len(doc.commands)} comandos)")
+
+
+def _fallar(r: _Revision) -> None:
+    if r.errores:
+        n = len(r.errores)
+        raise GuionError(f"El guion tiene {n} problema{'' if n == 1 else 's'}:\n  - "
+                         + "\n  - ".join(r.errores))
+
+
+# ------------------------------------------------------------------ capítulos (D15)
+def duracion_total(g: dict) -> float:
+    return (g["portada"]["duracion_s"] + sum(e["duracion_s"] for e in g["etapas"])
+            + g["cifras"]["duracion_s"] + g["orbita"]["duracion_s"] + g["cierre"]["duracion_s"])
+
+
+def capitulos(g: dict) -> list[tuple[int, str]]:
+    """[(segundo_inicio, título)] para la descripción de YouTube (D15; regla en el docstring
+    del módulo). Los capítulos cortos se funden con su vecino más corto y conservan el título
+    del más largo de los dos. Lista vacía si no salen 3 de ≥ 10 s."""
+    validar_guion(g)
+    inicios: list[tuple[float, str]] = []
+    t = g["portada"]["duracion_s"]
+    for i, e in enumerate(g["etapas"]):
+        inicios.append((0.0 if i == 0 else t, e["titulo"]))
+        t += e["duracion_s"]
+    inicios.append((t if inicios else 0.0, TITULO_FINAL))
+    fin = int(duracion_total(g))
+    caps = [[int(round(s)), titulo] for s, titulo in inicios]
+    caps[0][0] = 0
+    while len(caps) > 1:
+        largos = [(caps[i + 1][0] if i + 1 < len(caps) else fin) - caps[i][0]
+                  for i in range(len(caps))]
+        i = min(range(len(caps)), key=lambda j: largos[j])
+        if largos[i] >= CAPITULO_MIN_S:
+            break
+        vecinos = [j for j in (i - 1, i + 1) if 0 <= j < len(caps)]
+        j = min(vecinos, key=lambda v: (largos[v], v))
+        a, b = sorted((i, j))
+        caps[a][1] = caps[a][1] if largos[a] >= largos[b] else caps[b][1]
+        del caps[b]
+    if len(caps) < CAPITULOS_MIN:
+        return []
+    return [(s, titulo) for s, titulo in caps]
