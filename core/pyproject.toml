@@ -33,7 +33,12 @@ dependencies = [
     # (sólo existe en OCP 8): con OCP 7.8.1 build123d ni siquiera importa. Va mientras dure el
     # tope de arriba (en el venv de desarrollo: 0.2.0; la limpia resuelve 0.2.2).
     "ocp_gordon<0.3",
-    "fastapi>=0.110",
+    # Tope <0.137: desde fastapi 0.137.0 `include_router` deja cada router como UN
+    # `_IncludedRouter` (sin `path`) en `app.routes` en vez de copiar sus rutas. La API sirve
+    # igual, pero `tests/test_rutas_api.py` y `test_jobs_mutaciones.py` leen `app.routes` plano
+    # y fallan (CI rojo en `main` desde que la instalación limpia resuelve ≥ 0.137; medido el
+    # 2026-10-08 con 0.143.0, bisección: 0.136.3 la última plana). Subirlo es un plan aparte.
+    "fastapi>=0.110,<0.137",
     "uvicorn[standard]>=0.29",
     # La mínima con todo lo que usa agent/modelo.py (plan chat-cliente-igual F7), según el
     # CHANGELOG del SDK y su código en cada tag: `cache_control` en la raíz (0.83.0),
