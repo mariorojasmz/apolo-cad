@@ -21,6 +21,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   `ValueError: other must be a list of Locations`); las partes de un mismo sólido SOLAPAN
   0.5–8 mm (tangentes → Compound; disjuntas → ShapeList sin `.volume`); `build_component(ref, L)`
   ignora `L` si el componente no es `cuttable`.
+- Anclas que dependen de los params de cada ref (un piñón: `eje`, `hilera_k`, `fase`) van POR
+  FAMILIA (`loader.ANCLAS` → `Component.anchors`); `_CATEGORY_ANCHORS` es sólo para las fijas
+  por categoría. ASA (ANSI) 40 y BS 08B son de 1/2″ pero NO intercambiables: la serie va en
+  `specs.serie` y quien combina piezas la compara. [plan](../../../docs/plans/cadenas-pinones.md)
 - Ingletes (`miter.py`, `weldment.py`, `frame.py`): corte por el plano BISECTOR del nodo (V
   exacto = A·span, ancla de tests). Weldment = marcos sup/inf a 45° + postes a tope; frame =
   bisectriz sólo en nodos de grado 2 (colineal → recto; α > 75° o grado ≠ 2 → tope).

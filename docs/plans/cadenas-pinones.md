@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 a F4 sin empezar; Mario lo aprobó por adelantado («cuando tengas el plan, impleméntalo de frente»)
+nota: F1 y F2 en main; falta F3 (demo por MCP con la API reiniciada, que se hace al modelar la máquina piloto)
 descripcion: El catálogo trae cadenas de rodillos y piñones reales (ASA 40, que es lo que se vende en Lima, e ISO 08B/10B/12B) y una cadena se arma sola entre dos piñones, con eslabones pares y su verificación de potencia
 ---
 
@@ -386,6 +386,52 @@ Tests en `tests/test_catalog_cadenas.py`:
 | Un piñón que se mueve DESPUÉS de la cadena en el log no arrastra la cadena | El orden del log manda: se documenta en la pista; el agente coloca los piñones antes |
 
 ## Bitácora
+
+### F2 (2026-10-08): `create_chain` y su regla — en `main`
+
+- Implementó un subagente en un worktree. La sesión principal hizo cherry-pick a su worktree
+  (sin choques), re-corrió pytest (**2517 passed, 5 skipped**, 7:35) y ruff (verde), corrigió
+  los conteos del CLAUDE.md raíz (2522 tests, 54 comandos) y mergeó `--ff-only`.
+- Archivos:
+  - `commands/exec_transmision.py` (269 líneas);
+  - `models_transmision.py` (93);
+  - `exec_rodillos.py` (47);
+  - `library/engineering/cadena.py` (171);
+  - `services/transmision_rules.py` (72);
+  - 35 tests en `tests/test_cadena.py`.
+
+  `registry.py` baja de 2207 a 2185 (D8). Las huellas de los executors mudados no cambiaron:
+  sólo entró la de `create_chain` (v1). El golden del MCP no cambió.
+- **Medido** (30 lazos 1:1 Z15 doble-simple a 95,25, hileras alternadas):
+  - `eslabones`: 0,5 s de regenerate + 3,2–3,9 s de teselado, ~4,5 s en el peor caso;
+  - `simple`: 0,06 + 0,5 s.
+
+  El default sigue en `eslabones`, pero justo bajo el umbral.
+  - `Shape.moved` de build123d copia el BRep entero y lo descarta. `kernel/shapes.place_matrix`
+    coloca compartiendo la TShape: 30 lazos bajaron de 1,45 a 0,47 s.
+- **Correcciones a D7–D9:**
+  - `simple` NO es una banda por hilera, que cortaría los dientes: son las bandas de placas a
+    cada lado de los dientes, sin interferencia, igual que la cadena completa.
+  - Lazos idénticos van en UNA regla: 30 páginas iguales ahogaban la memoria.
+  - La «holgura > 4 % del vano» se lee como flecha del ramal flojo (Tsubaki); leída literal,
+    no podía dispararse nunca.
+  - `no_aplica` va en su campo y `estado` sigue en ok/aviso/error, para que la memoria y la UI
+    no cambien.
+  - Aviso nuevo: un piñón movido después de la cadena en el log. Un piñón ubicado con `add_mate`
+    tampoco arrastra la cadena, porque los mates se resuelven al final del regenerate. Va en la
+    descripción del comando.
+  - La pista admite sólo una frase de ≤ 120 caracteres: la guía de montaje (piñones primero,
+    ASA vs BS, eslabones pares, pasos de rodillo Z14 → 76,2/101,6 y Z15 → 95,25/107,95) quedó
+    en la descripción del comando, que es la que lee el agente.
+  - La UI ofrece selector de pieza sólo en campos llamados `feature`/`target`
+    (`ui/src/forms/SchemaForm.tsx:36`): `pinon_a`/`pinon_b` salen como texto.
+- Salida de la regla:
+  - lazo 1:1 Z15 a 95,25: AVISO por z < 17; 30 eslabones sin holgura, 180° de abrazamiento, sin
+    aviso de centros;
+  - Z15 → Z30 con 0,37 kW a 100 rpm y C = 516,6: 104 eslabones, 173°, 0,32 m/s, FS de potencia
+    1,09.
+- Pendiente fuera de alcance: `api/scene._cached_render` recalcula el volumen de cada pieza
+  instanciada (~1,6 s del teselado de 30 lazos); se podría cachear por `mesh_key`.
 
 ### F1 (2026-10-08): catálogo — en `main` (`b28692b`)
 

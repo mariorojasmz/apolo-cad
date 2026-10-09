@@ -90,6 +90,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   k6 (lo verifica [library](../library/CLAUDE.md)). [V7.2b](../../../docs/plans/V7.2b-barrida-residuos.md)
 - `create_take_up(coronado_mm)`: coronado trapezoidal del rodillo (centro recto ½ de la cara,
   conos en ¼ por punta, baja en el RADIO); 0 = el cilindro de siempre, por eso sigue en v1.
+- `create_chain` es RELACIONAL: lee las anclas VIVAS de dos piñones ya colocados (orden del log:
+  un piñón movido DESPUÉS, o por `add_mate`, no la arrastra; la regla lo avisa), asienta cada
+  rodillo en un diente y comparte `mesh_key` entre lazos iguales (`kernel/shapes.place_matrix`
+  coloca sin copiar el BRep). Executors nuevos van en `exec_*.py`: `registry.py` no crece.
+  [plan](../../../docs/plans/cadenas-pinones.md)
 - Bastidores con ingletes (`create_weldment`/`create_frame`): [library](../library/CLAUDE.md).
   `insert_project`: [doc](../doc/CLAUDE.md).
 
