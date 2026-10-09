@@ -27,7 +27,11 @@ from .fallo_malla import etiqueta_pieza, generar_3d, tipo_es
 FEA_LOCK = threading.Lock()
 
 MAX_TETS = 150_000  # ~600k dof P2; más allá spsolve/ensamblado no responde en tiempos MCP
-MAX_PIECES = 25     # tope de sólidos por ensamblaje (el solve del bastidor ya tarda minutos)
+# Tope de sólidos por ensamblaje. Lo que crece con las PIEZAS es el fragment (medido: 25 → 1.4 s,
+# 50 → 4.2 s, 75 → 10.3 s); el tiempo del solve depende de los tets y lo controlan MAX_TETS y
+# el estimador por bbox. La chapa empernada multiplica piezas sin multiplicar tets
+# (fea-chapa-empernada, D7).
+MAX_PIECES = 50
 
 
 @dataclass(frozen=True)
@@ -366,7 +370,7 @@ def mesh_assembly(pieces: list[PieceMesh], fixed: list[FaceDesc],
     if len(pieces) > MAX_PIECES:
         raise FeaError(
             f"El ensamblaje tiene {len(pieces)} sólidos (tope {MAX_PIECES}): acota el grupo "
-            f"o excluye el herraje. El bonded de tantas piezas no resuelve en tiempo útil."
+            f"o excluye el herraje. El fragment bonded crece más rápido que el número de piezas."
         )
     _require_fea()
     import gmsh

@@ -123,13 +123,27 @@ def test_budget_exceeded_before_meshing(tmp_path):
                       mesh_size_mm=0.4)  # ~millones de tets estimados
 
 
-def test_piece_cap_before_gmsh():
-    """El tope de piezas se valida ANTES de tocar gmsh (no necesita el extra [fea])."""
+class _LlegoAGmsh(Exception):
+    pass
+
+
+@pytest.mark.parametrize("n, rechazado", [(26, False), (50, False), (51, True)])
+def test_piece_cap_before_gmsh(monkeypatch, n, rechazado):
+    """El tope de piezas (50 desde fea-chapa-empernada D7; antes 25) se valida ANTES de tocar
+    gmsh (no necesita el extra [fea]). `_require_fea` es un centinela: llegar a él = el tope
+    dejó pasar el grupo, sin mallar nada (los STEP vacíos no se leen nunca)."""
+    from apolo.fea import mesher
     from apolo.fea.mesher import PieceMesh, mesh_assembly
 
-    pieces = [PieceMesh(key=f"p{i}", step_path="") for i in range(26)]
-    with pytest.raises(FeaError, match="tope"):
+    def _centinela():
+        raise _LlegoAGmsh
+
+    monkeypatch.setattr(mesher, "_require_fea", _centinela)
+    pieces = [PieceMesh(key=f"p{i}", step_path="") for i in range(n)]
+    with pytest.raises(FeaError if rechazado else _LlegoAGmsh) as ei:
         mesh_assembly(pieces, [], {}, "x.msh")
+    if rechazado:
+        assert f"{n} sólidos (tope 50)" in str(ei.value)
 
 
 @requires_fea

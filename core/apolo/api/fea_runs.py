@@ -181,13 +181,26 @@ def _fea_static_run(body: FeaStaticIn):
     return resumen, field
 
 
+def _hipotesis_empernadas(n: int) -> str:
+    """El bonded pega las juntas con perno: se DECLARA (D8 de fea-chapa-empernada). El conteo
+    es de `services/fea_setup.py::bolted_joints_in_mesh`."""
+    if n == 1:
+        return ("1 unión empernada modelada PEGADA sobre su superficie de contacto (sin "
+                "deslizamiento ni separación: más rígida que la junta real); el perno se "
+                "verifica aparte (engineering_check)")
+    return (f"{n} uniones empernadas modeladas PEGADAS sobre sus superficies de contacto (sin "
+            f"deslizamiento ni separación: más rígidas que las juntas reales); los pernos se "
+            f"verifican aparte (engineering_check)")
+
+
 def _fea_assembly_run(body: FeaAssemblyIn):
     """FEA BONDED de un sub-ensamblaje (V7.4). Patrón dos-locks igual que la pieza:
     (a) STATE_LOCK expande el grupo, resuelve material/selectores, deriva
     empotramiento (grounds) y carga (requisitos sobre la cama), exporta un STEP por
     pieza; (b) SIN lock malla+resuelve (bonded); (c) STATE_LOCK persiste (clave
     `group:<nombre>`, vigencia por volumen conjunto). El herraje de catálogo se EXCLUYE
-    de la malla y su peso entra como carga sustituta DECLARADA."""
+    de la malla y su peso entra como carga sustituta DECLARADA; las uniones empernadas entre
+    piezas malladas, que el bonded pega, también se declaran en la hipótesis."""
     import shutil
     import tempfile
 
@@ -229,6 +242,8 @@ def _fea_assembly_run(body: FeaAssemblyIn):
     resumen["fea_key"] = key
     resumen["volumen_mm3"] = round(sum(p["volumen_mm3"] for p in params["pieces"]), 1)
     resumen["piezas_fids"] = params["struct_ids"]
+    if params["uniones_empernadas"]:
+        resumen["hipotesis"].append(_hipotesis_empernadas(params["uniones_empernadas"]))
     if body.ids:
         # alcance ACOTADO (ids explícitos, no un grupo completo): declararlo — lo no
         # incluido no aporta rigidez y sus pesos deben entrar como loads

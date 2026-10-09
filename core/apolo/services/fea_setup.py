@@ -92,7 +92,8 @@ def prepare_assembly(doc, body, fids: list[str], grupo: str, tmp_dir: str) -> di
     `tmp_dir` (lo crea y lo borra la API); deriva el empotramiento (grounds ∩ grupo, o
     `fixed_pieces`) y la carga (requisitos sobre la cama, o `loads` explícitos). El herraje se
     EXCLUYE de la malla y su peso entra como carga sustituta DECLARADA. Devuelve los params
-    de `run_assembly_analysis`. Llamar bajo STATE_LOCK."""
+    de `run_assembly_analysis` y `uniones_empernadas` (cuántas declara la hipótesis). Llamar
+    bajo STATE_LOCK."""
     from apolo.fea.mesher import FaceDesc
     from apolo.kernel import export_step_file
     from apolo.kernel.selectors import SelectorError, resolve_faces
@@ -202,7 +203,19 @@ def prepare_assembly(doc, body, fids: list[str], grupo: str, tmp_dir: str) -> di
 
     return {"grupo": grupo, "pieces": pieces_in, "fixed": fixed, "loads": loads,
             "excluded": excluded, "struct_ids": struct_ids,
-            "substitute_applied": sub_applied}
+            "substitute_applied": sub_applied,
+            "uniones_empernadas": bolted_joints_in_mesh(doc, struct_ids)}
+
+
+def bolted_joints_in_mesh(doc, mesh_ids: list[str]) -> int:
+    """Fasteners `perno` (`fasten`, el `jb_*` de `join_bolted`) cuyas DOS piezas entran a la
+    malla: el bonded los analiza PEGADOS sobre su superficie de contacto y el resumen debe
+    decirlo (D8 de fea-chapa-empernada). Con una pieza fuera (herraje excluido, fuera del
+    grupo) no hay junta en la malla. Una soldadura no cuenta: pegado es su hipótesis."""
+    en_malla = set(mesh_ids)
+    return sum(1 for f in doc.fasteners.values()
+               if f.get("kind", "perno") == "perno"
+               and f.get("a") in en_malla and f.get("b") in en_malla)
 
 
 def merge_convergence(doc, key: str, resumen: dict) -> None:
