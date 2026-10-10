@@ -693,3 +693,30 @@ vectorizada, ×3,1 y ×4,8.
 | `arm-none-eabi-gcc` | falta |
 
 Ver P4.
+
+### 2026-10-10 — Revisión del mercado (sin cambio de fases)
+
+Mario preguntó qué otros programas hacen puesta en marcha virtual en 2026. Encontrado (fuentes
+del fabricante; sin precios ni comparativas independientes):
+
+- **Visual Components** (KUKA): 5.0 en marzo de 2026; la 5.1 suma física avanzada y puesta en
+  marcha virtual; en septiembre lanzó FactoryLens, visor sobre las bibliotecas de NVIDIA
+  Omniverse. Biblioteca de más de 4000 componentes.
+- **Siemens Process Simulate y NX MCD**: el código real del PLC vía TIA Portal + PLCSIM Advanced
+  u OPC UA.
+- **Rockwell Emulate3D** (edición de puesta en marcha virtual); **realvirtual** (sobre Unity;
+  PLC Siemens, Beckhoff y Rockwell; robots ABB, KUKA, UR y Fanuc); **FEE fe.screen-sim** (más
+  de 30 interfaces, emula hasta 700 equipos de bus de campo); **Factory I/O** (formación; se
+  actualizó en 2026 para PLCSIM Advanced V8); **NVIDIA Isaac Sim** (robots y almacenes).
+
+Lo que cambia para V8: ninguno diseña la máquina, su tablero y su PLC desde cero ni es de
+código abierto; todos parten de un CAD ajeno y se configuran a mano. Sí nos llevan ventaja en
+la cantidad de PLC, buses de campo y robots que conectan. Para V8.8, además de OPC UA y Modbus
+TCP, evaluar **FMI** (Functional Mock-up Interface: exportar o importar el modelo de planta
+como FMU) para no amarrarse a una marca. Fuentes:
+[Visual Components 2026](https://www.visualcomponents.com/blog/manufacturing-simulation-software-what-to-look-for-in-2026/),
+[FactoryLens](https://roboticsandautomationnews.com/2026/09/28/visual-components-launches-nvidia-powered-factorylens-for-industrial-digital-twins/105218/),
+[Process Simulate](https://www.siemens.com/en-us/products/tecnomatix/process-simulate-software/),
+[realvirtual](https://realvirtual.io/en/), [fe.screen-sim](https://www.fee.de/en/software-systems/fescreen-sim/virtual-commissioning-software),
+[Factory I/O](https://community.factoryio.com/c/announcements/5),
+[FMI (Maplesoft)](https://altair.com/docs/default-source/resource-library/vpmodeldriventwin_maplesoft.pdf?sfvrsn=6657f7c4_3).
