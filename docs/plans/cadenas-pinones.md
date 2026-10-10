@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: F1 y F2 en main; falta F3 (demo por MCP con la API reiniciada, que se hace al modelar la máquina piloto)
+estado: implementado
+nota: F1 y F2 en main; F3 cubierta por la piloto (proyecto 2: 20 lazos 1:1 + cadena motriz de 48 eslabones). Fase automática y centro exacto por eslabones pasan a plantilla-rodillos-cadena
 descripcion: El catálogo trae cadenas de rodillos y piñones reales (ASA 40, que es lo que se vende en Lima, e ISO 08B/10B/12B) y una cadena se arma sola entre dos piñones, con eslabones pares y su verificación de potencia
 ---
 

@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1, F2 y F3 en main; F4 en curso; F0 (resto) y F5 esperan la máquina piloto (transportador de rodillos por cadena, espera cadenas-pinones F2); preguntas de tienda, licencias e idioma sin contestar
+nota: F1–F4 en main; piloto lista (proyecto 2, revisión 4, VERDE con gravedad); faltan F0 (resto) y F5 (generar paquete y video de la piloto, revisión de Mario), que esperan saldo de tokens; preguntas de tienda, licencias e idioma sin contestar
 descripcion: Una máquina terminada sale de Apolo como paquete listo para la tienda (gratis y completo) y con un video MP4 de cómo se construyó, con texto y música
 ---
 
