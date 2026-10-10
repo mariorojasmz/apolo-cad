@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1–F4 en main; piloto lista (proyecto 2, revisión 4, VERDE con gravedad); faltan F0 (resto) y F5 (generar paquete y video de la piloto, revisión de Mario), que esperan saldo de tokens; preguntas de tienda, licencias e idioma sin contestar
+nota: F1–F4 en main; piloto lista (proyecto 2, revisión 4, VERDE con gravedad); F5 corrida el 2026-10-10 (video de 75 s y zips; a Mario le gustó); el pulido va en video-tienda-pulido y falta la música de Mario; F0 (resto) espera saldo; preguntas de tienda, licencias e idioma sin contestar
 descripcion: Una máquina terminada sale de Apolo como paquete listo para la tienda (gratis y completo) y con un video MP4 de cómo se construyó, con texto y música
 ---
 
