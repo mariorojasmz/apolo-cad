@@ -59,7 +59,7 @@ Planes de la tanda (cada uno con su contrato, decisiones y fases):
 | **0 · medir** | las F0 de los 11 planes (las que usan la API, de a una sobre la copia; las offline, en paralelo) | — |
 | **1 · bases** | perfiles F1+F2 · revision-de-taller F1–F3 · cirugia F1 → F2 · video-tienda F1 | ola 0 |
 | **2 · chequeos y física** | acceso F1+F2 · flecha F1+F2 · visor F1 (materiales) · uniones F1+F2 · V8.2 F2 (después de cirugia F2, por el golden) | ola 1 |
-| **3 · lo que se ve** | video-tienda F2+F3 · vista-3d F1–F3 · visor F2+F3 · perfiles F3 · uniones F3 (después de V8.2 F2) · escaneo F1 → F2 → F3 (F2 después de uniones F3) | ola 2 (materiales, simulate) |
+| **3 · lo que se ve** | video-tienda F1b (secuencia de montaje, después de acceso) + F2 + F3 · vista-3d F1–F3 · visor F2+F3 · perfiles F3 · uniones F3 (después de V8.2 F2) · escaneo F1 → F2 → F3 (F2 después de uniones F3) | ola 2 (materiales, simulate) |
 | **4 · la plantilla** | plantilla F1 → F2 · visor F4 (el video cierra con la máquina andando) | acceso, perfiles F3, uniones, flecha, V8.2 F2 |
 | **5 · verificar** | en sesión nueva, de a una: cirugia F3 · perfiles F4 · acceso F3 · flecha F3 · uniones F4 · V8.2 F3 · plantilla F3 (= revision-de-taller F4) · visor F5 · video-tienda F4 · vista-3d F4 · escaneo F4 | todo lo anterior mergeado, API y host MCP reiniciados |
 

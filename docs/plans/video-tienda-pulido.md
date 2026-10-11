@@ -46,13 +46,26 @@ Revisado cuadro por cuadro (fotogramas 150, 750, 1350 y 2100):
   sin «y 2 más»: si no caben, se nombra el grupo.
 - **D3. Aspecto de producto**: aristas gris oscuro y finas (o ninguna) en el video; el acento de
   color queda sólo para la pieza que entra. Los materiales salen de la tabla única de
-  [visor-realista](visor-realista.md) D5 cuando exista; mientras, colores del documento.
+  [visor-realista](visor-realista.md) D5 cuando exista; mientras, colores del documento. Desde
+  que exista, TODO video (diseño, montaje y la máquina andando) usa esa tabla siempre: no hay un
+  «modo realista» aparte que haya que acordarse de prender.
 - **D4. Cierre legible**: el texto final va en el panel inferior (el mismo del rótulo), con
   contraste mínimo 4.5:1, y la máquina gira completa en la parte superior.
 - **D5. DWG como requisito chequeado**: `publicar guion` avisa al empezar si falta ODA (no al
   final, tras 7 minutos) con el enlace de descarga; sin ODA el zip sale sin DWG y lo dice.
 - **D6. Entregables en paralelo con el video** si el lock lo permite (el render es fuera de
   `STATE_LOCK`); medir primero qué entregable se lleva los 430 s.
+- **D8. Secuencia de MONTAJE real, una sola para el video y el manual**. Mario preguntó (2026-10-10)
+  si el video trae el procedimiento de ensamblado. Hoy no: el video sigue el orden del log
+  (cómo se DISEÑÓ) y `drawing/assembly_manual.py` también deriva su secuencia «del log de
+  comandos + familias de catálogo» (línea 426). El taller arma en otro orden: primero lo soldado
+  (bastidor + patas + travesaños), después lo atornillado en orden de acceso (ejes y rodillos,
+  piñones, cadenas, base del motor, motor, guardas al final). Se deriva una secuencia de montaje
+  del GRAFO de uniones (soldadura antes que perno; una pieza entra después de aquella a la que se
+  fija; lo que tapa el acceso a un fijador va después, con el chequeo de
+  [acceso-de-herramienta](acceso-de-herramienta.md) si ya existe) en un módulo puro de
+  `services`, y la usan el manual y el video (`--modo montaje`; `--modo diseño` = el de hoy).
+  Para la tienda, el video por defecto es el de montaje: le sirve a quien fabrica.
 - **D7. La música la pone Mario** con `--musica` y sus datos de licencia en `ficha.yaml`; el plan
   no busca pistas.
 
@@ -62,6 +75,9 @@ Revisado cuadro por cuadro (fotogramas 150, 750, 1350 y 2100):
   piloto para fijar los topes de D2.
 - **F1 (M, `services`)**: D1 y D2 con tests sobre la piloto (títulos ≤ 32, ninguna etapa > 15 s,
   rótulo de rodillos con Ø y paso).
+- **F1b (M, `services` + `drawing` + script)**: D8, la secuencia de montaje desde el grafo de
+  uniones, usada por `assembly_manual` y por `publicar --modo montaje`; test con la piloto
+  (soldado antes que atornillado; guardas al final; cada pieza después de su soporte).
 - **F2 (S, `kernel/media`)**: D3 y D4, con captura comparada.
 - **F3 (S, `publicacion` + script)**: D5 y D6.
 - **F4 (S, verificación)**: regenerar el video de la piloto con la música de Mario; lo juzga él.
