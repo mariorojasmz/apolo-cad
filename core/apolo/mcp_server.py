@@ -20,7 +20,7 @@ from mcp.server.fastmcp import Image
 
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
-from apolo.tools import destino, fastmcp_limpio, simulacion
+from apolo.tools import destino, fastmcp_limpio, mcp_electrico, simulacion
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -1407,11 +1407,10 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
     return json.dumps(resumen, ensure_ascii=False)
 
 
-# Lecturas del tablero eléctrico (V8.1 D8): viven en tools/mcp_electrico.py (trinquete de tamaño)
-from apolo.tools.mcp_electrico import electrical_check, get_circuit  # noqa: E402
-for _tool in (get_circuit, electrical_check):
-    mcp.tool()(_tool)
-simulacion.registrar(mcp, lambda *a, **k: _api(*a, **k))  # `_api` de ESTE módulo, al llamar
+# Tools fuera de este archivo (trinquete de tamaño): tablero eléctrico (V8.1 D8) y `simulate`
+# (V8.2). Van a ESTE `mcp` (con `-m` es `__main__`) y usan el `_api` de este módulo al llamar.
+for _registrar in (mcp_electrico.registrar, simulacion.registrar):
+    _registrar(mcp, lambda *a, **k: _api(*a, **k))
 
 
 def main() -> None:

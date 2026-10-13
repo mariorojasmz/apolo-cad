@@ -1,8 +1,9 @@
 """Qué tools del MCP usa el chat de la app y cómo (plan chat-cliente-igual, D5).
 
-Las `@mcp.tool` de `mcp_server.py` (y de los módulos que registra, como `simulacion.py`) son
-LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada tool está en UNO de los dos lados, y `tests/test_catalogo_chat.py`
-falla si una tool nueva no está en ninguno:
+Las `@mcp.tool` de `mcp_server.py` (y de los módulos que registra: `mcp_electrico.py`,
+`simulacion.py`) son LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada
+tool está en UNO de los dos lados, y `tests/test_catalogo_chat.py` falla si una tool nueva no
+está en ninguno:
 
 - `CHAT`: el chat la recibe. `muta` = cambia el documento (en modo propuesta devuelve
   `is_error` en vez de ejecutarse, D6); `ocultar` = params opcionales que el modelo no ve y
