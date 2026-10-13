@@ -25,7 +25,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `deliverables` | catálogo, BOM y costeo, lista de corte, nesting, memoria de cálculo, cotización, manual |
 | `validation` | `/api/checks`, `verify`, puerta de entrega, requisitos, stack-up |
 | `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
-| `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test |
+| `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica |
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
 | `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
 

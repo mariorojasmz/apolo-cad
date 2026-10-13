@@ -278,6 +278,23 @@ class EscenaViva:
             if fid in self._actores:
                 self._pintar(fid)
 
+    def mover(self, fid: str, matriz=None) -> None:
+        """Pone la pieza `fid` en la pose rígida `matriz` (4×4 por filas, mm) aplicada a su malla
+        tal como se extrajo; None la devuelve a su lugar. Anima sin re-teselar: la dinámica
+        (V8.2) mueve así cada cuerpo de junta y cada producto. KeyError si no tiene actor."""
+        import vtk
+
+        self._viva()
+        act = self._actores[fid]
+        m = vtk.vtkMatrix4x4()   # identidad
+        if matriz is not None:
+            for i in range(4):
+                for j in range(4):
+                    m.SetElement(i, j, float(matriz[i][j]))
+        for actor in (act.superficie, act.aristas):
+            if actor is not None:
+                actor.SetUserMatrix(m)
+
     def _crear(self, p: PiezaViva) -> None:
         pd = polydata(p.vertices, p.triangulos)
         base = hex_a_rgb(self.color(p.id))

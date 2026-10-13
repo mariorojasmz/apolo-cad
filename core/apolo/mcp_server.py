@@ -24,15 +24,12 @@ from apolo.tools import destino, fastmcp_limpio
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
-# Presupuesto TOTAL de espera de un lote antes de devolver el recibo (V6.5e). 90 s deja
-# colchón bajo los 120 s de httpx y los ~180 s del host MCP: el recibo llega ANTES de que
-# cualquiera de las dos capas corte, así que un lote lento ya no puede dejar ciego al
-# agente. Cada poll individual es corto (_JOB_POLL_S) — el httpx de 120 se queda como está.
+# Espera TOTAL de un lote antes del recibo (V6.5e): 90 s, bajo los 120 s de httpx y los ~180
+# del host MCP, así que un lote lento no deja ciego al agente; cada poll es corto (_JOB_POLL_S).
 APOLO_MCP_WAIT_S = float(os.environ.get("APOLO_MCP_WAIT_S", "90"))
 _JOB_POLL_S = 20.0
 
-# Instructions = criterio de ingeniería (capa 1) + guía técnica + aviso de conexión: una sola
-# guía para el MCP y el chat (design/instrucciones.py). Docstrings de tools sin sangría en 3.11+.
+# Instructions: una sola guía para el MCP y el chat (design/instrucciones.py); docstrings limpios.
 mcp = fastmcp_limpio.FastMCPLimpio("apolo-cad", instructions=instrucciones_mcp())
 
 
@@ -1414,6 +1411,7 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
 from apolo.tools.mcp_electrico import electrical_check, get_circuit  # noqa: E402
 for _tool in (get_circuit, electrical_check):
     mcp.tool()(_tool)
+from apolo.tools import simulacion  # noqa: E402,F401 — registra `simulate` (fuera por el trinquete)
 
 
 def main() -> None:

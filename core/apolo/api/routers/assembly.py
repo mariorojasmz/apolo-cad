@@ -1,7 +1,8 @@
-"""Rutas de ensamblaje: mates, restricciones de riel, uniones, estructura, DOF y gravedad.
+"""Rutas de ensamblaje: mates, restricciones de riel, uniones, estructura, DOF y física.
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
-`main.py`. La gravedad y el drop-test siguen el patrón dos-locks (`sims.py`). El ORDEN importa:
+`main.py`. La gravedad, el drop-test y la dinámica (V8.2) siguen el patrón dos-locks
+(`sims.py`). El ORDEN importa:
 `POST /api/constraints/solve` va antes que `DELETE /api/constraints/{name}`.
 """
 
@@ -15,7 +16,7 @@ from apolo.state import STATE_LOCK
 
 from ..common import _remove_owner_command, _state_or_error
 from ..session import S
-from ..sims import DropIn, StabilityIn, _drop, _stability
+from ..sims import DropIn, DynamicsIn, StabilityIn, _drop, _dynamics, _stability
 
 router = APIRouter()
 
@@ -298,4 +299,37 @@ def physics_drop_gif(body: DropIn) -> Response:
     res = _drop(body)
     with STATE_LOCK:
         gif = render_drop_gif(S.doc.scene, res["products"], res["frames"], fps=body.fps)
+    return Response(content=gif, media_type="image/gif")
+
+
+@router.post("/api/physics/dynamics")
+def physics_dynamics(body: DynamicsIn) -> dict:
+    """La máquina EN MARCHA (V8.2): juntas con motores, productos sobre la banda o los
+    rodillos y fotoceldas. Read-only. `frames` (poses por fotograma) se omite por defecto,
+    como en la gravedad: pide `include_frames` para animar, o usa el endpoint .gif."""
+    res = _dynamics(body)
+    if body.include_frames:
+        return res
+    return {k: v for k, v in res.items() if k != "frames"}
+
+
+@router.post("/api/physics/dynamics.gif")
+def physics_dynamics_gif(body: DynamicsIn) -> Response:
+    """GIF de la marcha, a tiempo real, con el render de `render_view`: la escena, los cuerpos
+    de junta en su pose y los productos. Se tesela con el MISMO documento que la simulación
+    (bajo STATE_LOCK) y se pinta fuera, bajo RENDER_LOCK."""
+    from apolo.physics.gif_dinamica import render_dynamics_gif
+
+    res, escena = _dynamics(body, con_escena=True)
+    if escena is None or not res["frames"]:
+        raise HTTPException(status_code=400, detail=res.get("mensaje", "Nada que simular"))
+    try:
+        gif = render_dynamics_gif(escena, res["productos"], res["frames"], view=body.view,
+                                  size_px=body.size_px, max_fotogramas=body.max_frames)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:  # sin Pillow
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 — sin contexto OpenGL u otro fallo VTK
+        raise HTTPException(status_code=503, detail=f"El render VTK falló: {exc}") from exc
     return Response(content=gif, media_type="image/gif")

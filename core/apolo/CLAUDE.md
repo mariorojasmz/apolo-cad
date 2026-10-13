@@ -20,7 +20,8 @@ backend: se mantiene ≤ 10 KB.
 ## MCP (`mcp_server.py`): cliente fino
 
 - Sólo habla HTTP con la API: sin lógica de dominio ni imports de `doc`/`kernel`. Una tool nueva
-  = endpoint en `api/` + wrapper aquí + su caso en `scripts/golden_mcp_casos.py` + su lugar en
+  = endpoint en `api/` + wrapper (en `tools/<tema>.py` sobre el mismo `mcp`, importado al final
+  de `mcp_server.py`, que está en el trinquete de tamaño: `tools/simulacion.py`) + su caso en `scripts/golden_mcp_casos.py` + su lugar en
   `tools/catalogo.py`: en `CHAT` (`muta`, `etiqueta`, `ocultar` las rutas de archivo) o en
   `FUERA_DEL_CHAT` con el motivo — si falta, `tests/test_catalogo_chat.py` falla. Una lectura
   nueva del chat lleva además su muestra en ese test (se corre contra la API y no debe mutar).

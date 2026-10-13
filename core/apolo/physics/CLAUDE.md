@@ -35,5 +35,9 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
 - Signo de juntas = mano derecha sobre el eje, igual que la FK (`Rotation` de build123d es
   dextrógira). D7: el sentido de marcha se FIJA con `direccion_transporte`; sin ella se avisa
   (el ancla `eje_motriz` tal cual lleva la banda a la cola).
+- El GIF de la dinámica (`gif_dinamica.py`) pinta con `kernel/render_vivo.EscenaViva` (el
+  aspecto de `render_view`, una ventana, poses con `mover`, ~40 ms por fotograma a 640 px), no
+  con matplotlib como `drop_test`: medido, ~2 s por fotograma con 2600 triángulos. Se tesela en
+  la MISMA adquisición de `STATE_LOCK` que `prepare_dynamics`.
 - Productos con `cada_s`: nacen en su hora; antes esperan estacionados lejos (MuJoCo no crea
   cuerpos en marcha) y no salen en los fotogramas.

@@ -106,6 +106,26 @@ def _scene(req):
     return J(escena())
 
 
+#: Forma de `POST /api/physics/dynamics` (V8.2 D9): lo que el agente lee y lo que es para animar
+#: (`piezas`, `productos`, trazas de `juntas`, `muestras` del sensor), que el cliente recorta.
+DINAMICA = {
+    "piezas": [{"name": "b_c1_eje_motriz", "id": "c1_tambor_motriz"}],
+    "cuerpos": [{"name": "b_c1_eje_motriz", "junta": "c1_eje_motriz", "tipo": "continua",
+                 "piezas": ["c1_tambor_motriz"], "masa_kg": 8.0}],
+    "productos": [{"name": "p_caja", "w": 150, "d": 120, "h": 100}],
+    "juntas": {"c1_eje_motriz": {"t": [0, 1], "q": [0, 90], "qd": [0, 47.7], "par": [0, 1.2]}},
+    "sensores": {"foto": {"tipo": "rayo", "flancos": [{"t": 0.5, "tipo": "sube",
+                                                         "objeto": "p_caja"}],
+                          "cuentas": 1, "muestras": [[0, 0], [1, 1]]}},
+    "motores": [{"junta": "c1_eje_motriz", "modo": "velocidad", "consigna": -4.99}],
+    "resumen": {"duracion_s": 1.0, "factor_tiempo_real": 6.2,
+                "bandas": [{"pieza": "c1_banda", "avanza_hacia": "+X", "v_final_m_s": 0.25}],
+                "productos": {"p_caja": {"velocidad_final_mm_s": [250.0, 0.0, 0.0],
+                                         "cayo": False}},
+                "productos_caidos": [], "juntas_en_limite": []},
+    "avisos": ["La banda 'c1_banda' avanza hacia −X con giro positivo de 'c1_eje_motriz'"],
+}
+
 RUTAS = [
     ("GET", r"/api/scene/summary", J({"grupos": [{"nombre": "Estructura", "n_piezas": 1}]})),
     ("GET", r"/api/scene", _scene),
@@ -142,6 +162,8 @@ RUTAS = [
     ("POST", r"/api/physics/drop", J({"resting": [[0, 0, 10]], "settled": True,
                                       "frames": [1, 2, 3]})),
     ("POST", r"/api/physics/drop\.gif", B(GIF, "image/gif")),
+    ("POST", r"/api/physics/dynamics", J(DINAMICA)),
+    ("POST", r"/api/physics/dynamics\.gif", B(GIF, "image/gif")),
     ("GET", r"/api/document", J(escena()["document"])),
     ("GET", r"/api/commands", J([{"id": "c1", "type": "create_box", "resumen": "Base"}])),
     ("POST", r"/api/sketch/solve", J({"ok": True, "dof": 0})),
@@ -321,6 +343,23 @@ CASOS = [
     caso("gravedad", "gravity_test"),
     caso("gravedad con gif", "gravity_test", {"with_autodetect": True, "exclude": ["c3"],
                                               "seconds": 1.5, "path": "gravedad.gif"}),
+    caso("simulación", "simulate", {
+        "motores": [{"junta": "c1_eje_motriz", "modo": "velocidad", "v_superficie_m_s": 0.25,
+                     "direccion_transporte": [1, 0, 0]}],
+        "productos": [{"nombre": "caja", "dims_mm": [150, 120, 100], "posicion_mm": [0, 0, 851]}],
+        "sensores": [{"nombre": "foto", "origen": [900, -400, 850], "direccion": [0, 1, 0]}],
+        "duracion_s": 1.0}),
+    caso("simulación con gif y opciones", "simulate", {
+        "motores": [{"junta": "j1", "modo": "par", "valor": 2.0}], "con_autodeteccion": True,
+        "juntas": {"j1": {"amortiguamiento": 0.1}}, "opciones": {"fps": 10, "nstep": 1},
+        "path": "marcha.gif"}),
+    caso("simulación nada que simular", "simulate", {"path": "nada.gif"}, rutas={
+        ("POST", r"/api/physics/dynamics"): J({"frames": [], "resumen": {"duracion_s": 0.0},
+                                               "avisos": [], "mensaje": "Nada que simular"})}),
+    caso("simulación opción repetida → error", "simulate", {"opciones": {"duracion_s": 5}}),
+    caso("simulación 400", "simulate", {"motores": [{"junta": "j1", "modo": "giro"}]}, rutas={
+        ("POST", r"/api/physics/dynamics"): J({"detail": "motores[0]: 'modo' debe ser "
+                                                         "'velocidad' o 'par' (vino 'giro')"}, 400)}),
     caso("movimiento", "get_motion"),
     caso("definir movimiento", "set_motion", {"name": "abrir", "keyframes": [
         {"t": 0, "values": {"j1": 0}}, {"t": 2, "values": {"j1": 90}}]}),

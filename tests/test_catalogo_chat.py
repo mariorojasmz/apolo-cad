@@ -369,6 +369,7 @@ MUESTRAS = {
     "autodetect_connections": lambda i: {},
     "get_dof": lambda i: {},
     "gravity_test": lambda i: {"seconds": 0.2},
+    "simulate": lambda i: {"duracion_s": 0.2},
     "scan_motion": lambda i: {"name": "barrido", "steps": 3},
     "delivery_check": lambda i: {},
     "get_circuit": lambda i: {},

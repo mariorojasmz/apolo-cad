@@ -1,7 +1,7 @@
 """Qué tools del MCP usa el chat de la app y cómo (plan chat-cliente-igual, D5).
 
-Las 79 `@mcp.tool` de `mcp_server.py` son LA fuente (D1): el chat no redefine ninguna, sólo
-decide cuáles ve. Cada tool está en UNO de los dos lados, y `tests/test_catalogo_chat.py`
+Las `@mcp.tool` de `mcp_server.py` (y de los módulos que registra, como `simulacion.py`) son
+LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada tool está en UNO de los dos lados, y `tests/test_catalogo_chat.py`
 falla si una tool nueva no está en ninguno:
 
 - `CHAT`: el chat la recibe. `muta` = cambia el documento (en modo propuesta devuelve
@@ -92,6 +92,7 @@ CHAT: dict[str, EnChat] = {
     "autodetect_connections": _lee("Detectando uniones posibles"),
     "get_dof": _lee("Contando grados de libertad"),
     "gravity_test": _lee("Simulando la gravedad", ocultar=("path",)),
+    "simulate": _lee("Simulando la máquina en marcha", ocultar=("path",)),
     "scan_motion": _lee("Revisando choques en movimiento"),
     "delivery_check": _lee("Revisando la entrega"),
     "electrical_check": _lee("Revisando el tablero eléctrico"),

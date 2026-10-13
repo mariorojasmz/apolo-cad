@@ -135,6 +135,26 @@ def test_proyectar_ubica_la_pieza_en_el_fotograma(abrir):
         assert np.abs(_pixel(viva, frame, _centro(p)) - fondo).max() > 20   # pieza, no fondo
 
 
+def test_mover_lleva_la_pieza_a_su_pose_y_none_la_devuelve(abrir):
+    """`mover` (la dinámica de V8.2 anima así) aplica la pose a la malla extraída, sin
+    re-teselar; None la devuelve a su lugar."""
+    a = _pieza("a", x=-300)
+    viva = abrir(_escena(a), view="frente", bbox=((-350, -50, -50), (350, 50, 50)))
+    viva.actualizar(_escena(a))
+    destino = (300.0, 0.0, 0.0)   # misma fila que la pieza en «frente»: mismo fondo
+    antes = viva.fotograma()
+    pieza, fondo = _pixel(viva, antes, _centro(a)), _pixel(viva, antes, destino)
+    assert np.abs(pieza - fondo).max() > 20
+    viva.mover("a", [[1, 0, 0, 600], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    frame = viva.fotograma()
+    assert np.abs(_pixel(viva, frame, destino) - pieza).max() <= 4      # llegó
+    assert np.abs(_pixel(viva, frame, _centro(a)) - fondo).max() <= 4   # y se fue de ahí
+    viva.mover("a", None)
+    assert np.abs(_pixel(viva, viva.fotograma(), _centro(a)) - pieza).max() <= 4
+    with pytest.raises(KeyError):
+        viva.mover("no-existe")
+
+
 # ── colores ───────────────────────────────────────────────────────────────────
 
 

@@ -3389,6 +3389,310 @@
   }
  },
  {
+  "caso": "simulación",
+  "tool": "simulate",
+  "args": {
+   "motores": [
+    {
+     "junta": "c1_eje_motriz",
+     "modo": "velocidad",
+     "v_superficie_m_s": 0.25,
+     "direccion_transporte": [
+      1,
+      0,
+      0
+     ]
+    }
+   ],
+   "productos": [
+    {
+     "nombre": "caja",
+     "dims_mm": [
+      150,
+      120,
+      100
+     ],
+     "posicion_mm": [
+      0,
+      0,
+      851
+     ]
+    }
+   ],
+   "sensores": [
+    {
+     "nombre": "foto",
+     "origen": [
+      900,
+      -400,
+      850
+     ],
+     "direccion": [
+      0,
+      1,
+      0
+     ]
+    }
+   ],
+   "duracion_s": 1.0
+  },
+  "salida": [
+   {
+    "texto": "{\"resumen\": {\"duracion_s\": 1.0, \"factor_tiempo_real\": 6.2, \"bandas\": [{\"pieza\": \"c1_banda\", \"avanza_hacia\": \"+X\", \"v_final_m_s\": 0.25}], \"productos\": {\"p_caja\": {\"velocidad_final_mm_s\": [250.0, 0.0, 0.0], \"cayo\": false}}, \"productos_caidos\": [], \"juntas_en_limite\": []}, \"motores\": [{\"junta\": \"c1_eje_motriz\", \"modo\": \"velocidad\", \"consigna\": -4.99}], \"sensores\": {\"foto\": {\"tipo\": \"rayo\", \"flancos\": [{\"t\": 0.5, \"tipo\": \"sube\", \"objeto\": \"p_caja\"}], \"cuentas\": 1}}, \"avisos\": [\"La banda 'c1_banda' avanza hacia −X con giro positivo de 'c1_eje_motriz'\"], \"cuerpos\": [{\"name\": \"b_c1_eje_motriz\", \"junta\": \"c1_eje_motriz\", \"tipo\": \"continua\", \"piezas\": [\"c1_tambor_motriz\"], \"masa_kg\": 8.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/physics/dynamics",
+    "query": [],
+    "cuerpo": {
+     "motores": [
+      {
+       "junta": "c1_eje_motriz",
+       "modo": "velocidad",
+       "v_superficie_m_s": 0.25,
+       "direccion_transporte": [
+        1,
+        0,
+        0
+       ]
+      }
+     ],
+     "productos": [
+      {
+       "nombre": "caja",
+       "dims_mm": [
+        150,
+        120,
+        100
+       ],
+       "posicion_mm": [
+        0,
+        0,
+        851
+       ]
+      }
+     ],
+     "sensores": [
+      {
+       "nombre": "foto",
+       "origen": [
+        900,
+        -400,
+        850
+       ],
+       "direccion": [
+        0,
+        1,
+        0
+       ]
+      }
+     ],
+     "duracion_s": 1.0,
+     "con_autodeteccion": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "simulación con gif y opciones",
+  "tool": "simulate",
+  "args": {
+   "motores": [
+    {
+     "junta": "j1",
+     "modo": "par",
+     "valor": 2.0
+    }
+   ],
+   "con_autodeteccion": true,
+   "juntas": {
+    "j1": {
+     "amortiguamiento": 0.1
+    }
+   },
+   "opciones": {
+    "fps": 10,
+    "nstep": 1
+   },
+   "path": "marcha.gif"
+  },
+  "salida": [
+   {
+    "texto": "{\"resumen\": {\"duracion_s\": 1.0, \"factor_tiempo_real\": 6.2, \"bandas\": [{\"pieza\": \"c1_banda\", \"avanza_hacia\": \"+X\", \"v_final_m_s\": 0.25}], \"productos\": {\"p_caja\": {\"velocidad_final_mm_s\": [250.0, 0.0, 0.0], \"cayo\": false}}, \"productos_caidos\": [], \"juntas_en_limite\": []}, \"motores\": [{\"junta\": \"c1_eje_motriz\", \"modo\": \"velocidad\", \"consigna\": -4.99}], \"sensores\": {\"foto\": {\"tipo\": \"rayo\", \"flancos\": [{\"t\": 0.5, \"tipo\": \"sube\", \"objeto\": \"p_caja\"}], \"cuentas\": 1}}, \"avisos\": [\"La banda 'c1_banda' avanza hacia −X con giro positivo de 'c1_eje_motriz'\"], \"cuerpos\": [{\"name\": \"b_c1_eje_motriz\", \"junta\": \"c1_eje_motriz\", \"tipo\": \"continua\", \"piezas\": [\"c1_tambor_motriz\"], \"masa_kg\": 8.0}], \"gif\": \"marcha.gif\", \"bytes\": 17}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/physics/dynamics",
+    "query": [],
+    "cuerpo": {
+     "fps": 10,
+     "nstep": 1,
+     "motores": [
+      {
+       "junta": "j1",
+       "modo": "par",
+       "valor": 2.0
+      }
+     ],
+     "juntas": {
+      "j1": {
+       "amortiguamiento": 0.1
+      }
+     },
+     "duracion_s": 3.0,
+     "con_autodeteccion": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/physics/dynamics.gif",
+    "query": [],
+    "cuerpo": {
+     "fps": 10,
+     "nstep": 1,
+     "motores": [
+      {
+       "junta": "j1",
+       "modo": "par",
+       "valor": 2.0
+      }
+     ],
+     "juntas": {
+      "j1": {
+       "amortiguamiento": 0.1
+      }
+     },
+     "duracion_s": 3.0,
+     "con_autodeteccion": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "marcha.gif": "eac236aa6295e242fb58c9e82069b3baffb0b1cb9d75e777f4fdfb504188149a"
+  }
+ },
+ {
+  "caso": "simulación nada que simular",
+  "tool": "simulate",
+  "args": {
+   "path": "nada.gif"
+  },
+  "salida": [
+   {
+    "texto": "{\"mensaje\": \"Nada que simular\", \"resumen\": {\"duracion_s\": 0.0}, \"avisos\": [], \"sensores\": {}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/physics/dynamics",
+    "query": [],
+    "cuerpo": {
+     "duracion_s": 3.0,
+     "con_autodeteccion": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "simulación opción repetida → error",
+  "tool": "simulate",
+  "args": {
+   "opciones": {
+    "duracion_s": 5
+   }
+  },
+  "error": "Error executing tool simulate: ['duracion_s'] van como parámetros de simulate, no dentro de 'opciones'",
+  "peticiones": []
+ },
+ {
+  "caso": "simulación 400",
+  "tool": "simulate",
+  "args": {
+   "motores": [
+    {
+     "junta": "j1",
+     "modo": "giro"
+    }
+   ]
+  },
+  "error": "Error executing tool simulate: Apolo rechazó la operación (400): motores[0]: 'modo' debe ser 'velocidad' o 'par' (vino 'giro')",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/physics/dynamics",
+    "query": [],
+    "cuerpo": {
+     "motores": [
+      {
+       "junta": "j1",
+       "modo": "giro"
+      }
+     ],
+     "duracion_s": 3.0,
+     "con_autodeteccion": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "movimiento",
   "tool": "get_motion",
   "args": {},
