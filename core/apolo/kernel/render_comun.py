@@ -149,8 +149,12 @@ def actor_aristas(pd):
     fe.SetFeatureAngle(ANGULO_ARISTA)   # mismo ángulo que las normales suaves
     fe.ManifoldEdgesOff()
     fe.NonManifoldEdgesOff()
+    # vtkFeatureEdges colorea por TIPO de arista (escalares por celda: borde/feature) y el mapper
+    # los pinta con su LUT → aristas ROJAS en VTK 9.3. Sin escalares manda el color del actor.
+    fe.ColoringOff()
     m = vtk.vtkPolyDataMapper()
     m.SetInputConnection(fe.GetOutputPort())
+    m.ScalarVisibilityOff()
     m.SetResolveCoincidentTopologyToPolygonOffset()  # evita z-fighting con la superficie
     a = vtk.vtkActor()
     a.SetMapper(m)

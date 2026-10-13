@@ -71,6 +71,43 @@ def test_vtk_edges_toggle_changes_output():
     assert with_e != no_e
 
 
+def test_actor_aristas_sin_escalares():
+    """vtkFeatureEdges emite escalares por tipo de arista: si el mapper los pinta, las aristas
+    salen del color de la LUT (rojas en VTK 9.3) en vez del gris oscuro del actor. Sin OpenGL."""
+    from apolo.kernel.render_comun import actor_aristas, polydata, teselar
+
+    d, fid = _box_scene()
+    pd = polydata(*teselar(d.scene[fid].shape))
+    m = actor_aristas(pd).GetMapper()
+    assert m.GetScalarVisibility() == 0
+    assert m.GetInputAlgorithm().GetColoring() == 0
+
+
+def test_vtk_aristas_no_son_rojas():
+    """Los píxeles que agregan las aristas son gris oscuro (el color del actor), no rojos."""
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    d, _ = _box_scene()
+    try:
+        con = render_scene_vtk(d.scene, "iso", edges=True)
+        sin = render_scene_vtk(d.scene, "iso", edges=False)
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"VTK off-screen no disponible: {exc}")
+
+    def rgb(png):
+        return np.asarray(Image.open(io.BytesIO(png)).convert("RGB")).astype(int)
+
+    a, b = rgb(con), rgb(sin)
+    arista = a[np.abs(a - b).sum(axis=2) > 60]
+    assert len(arista) > 500  # las aristas se ven
+    r, g, bl = arista[:, 0], arista[:, 1], arista[:, 2]
+    rojos = (r > g + 40) & (r > bl + 40)
+    assert int(rojos.sum()) == 0, f"{int(rojos.sum())} píxeles de arista rojos"
+
+
 def test_vtk_xray_changes_output():
     """xray=True deja el contexto translúcido EN SU COLOR (≠ gris fantasma) → imagen distinta."""
     d = Document()
