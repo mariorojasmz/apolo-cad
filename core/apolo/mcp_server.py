@@ -20,7 +20,7 @@ from mcp.server.fastmcp import Image
 
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
-from apolo.tools import destino, fastmcp_limpio
+from apolo.tools import destino, fastmcp_limpio, simulacion
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -1411,7 +1411,7 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
 from apolo.tools.mcp_electrico import electrical_check, get_circuit  # noqa: E402
 for _tool in (get_circuit, electrical_check):
     mcp.tool()(_tool)
-from apolo.tools import simulacion  # noqa: E402,F401 — registra `simulate` (fuera por el trinquete)
+simulacion.registrar(mcp, lambda *a, **k: _api(*a, **k))  # `_api` de ESTE módulo, al llamar
 
 
 def main() -> None:
