@@ -272,8 +272,8 @@ class Document:
             variables_resolved = resolve_all(state.variables)
         except ExpressionError as exc:
             raise DocumentError(f"Error en las variables del proyecto: {exc}") from exc
-        electrico = carril.evaluar(lane, scene, state.variables, variables_resolved,
-                                   tolerant=tolerant, suprimidos=suppressed)
+        electrico = carril.evaluar(lane, scene, state.variables, variables_resolved, log=escena,
+                                   tolerant=tolerant, suprimidos=suppressed, attachments=self.attachments)
         # 7) BLOQUE ÚNICO de asignaciones — a partir de aquí NADA puede lanzar (atomicidad)
         self.scene = scene
         self.joints = state.joints
@@ -485,9 +485,9 @@ class Document:
 
     # ----------------------------------------------------------- comandos
     def _append_record(self, cmd_type: str, params: dict) -> str:
-        """Asigna cmd_id, incrementa seq e inserta el record en el log (los
-        comandos 'vars' se hoist-ean al principio para que cualquier geometría
-        pueda usarlos). NO valida ni regenera: lo usan execute() y execute_many()."""
+        """Asigna cmd_id, incrementa seq e inserta el record (los 'vars' se hoist-ean al principio;
+        el carril materializa su designación, V8.1 D3). NO valida ni regenera: execute(_many)."""
+        params = carril.materializar(self.commands, cmd_type, params)
         self._seq += 1
         cmd_id = f"c{self._seq}"
         # deshacer devuelve `seq` pero no `hidden` (D12): un id reciclado no nace oculto
@@ -567,7 +567,7 @@ class Document:
                 if merge:
                     params = {**cmd["params"], **params}
                 reject_unknown(REGISTRY.get(cmd["type"]), params, previous=cmd["params"])
-                cmd["params"] = params
+                cmd["params"] = carril.materializar(self.commands, cmd["type"], params, cid)
                 touched.append(cid)
             self.regenerate()
             self._check_strict()
@@ -622,7 +622,7 @@ class Document:
                         previous=cmd["params"])
 
         def apply():
-            cmd["params"] = params
+            cmd["params"] = carril.materializar(self.commands, cmd["type"], params, command_id)
 
         self._mutate(apply, f"edit:{command_id}" if coalesce else None, foco=command_id)
         return command_id

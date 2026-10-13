@@ -186,6 +186,14 @@ RUTAS = [
     ("GET", r"/api/fea/[^/]+/fringe\.png", B(PNG, "image/png")),
     ("POST", r"/api/fea/assembly", J({"grupo": "Bastidor", "fs_gobernante": 93.5})),
     ("GET", r"/api/fea/group/[^/]+/fringe\.png", B(PNG, "image/png")),
+    ("GET", r"/api/electrico/circuito", J({
+        "dispositivos": [{"designacion": "-Q1", "ref": "GM-2.5-4A", "funcion": "Q",
+                          "bornes": [{"id": "1", "rol": "potencia", "red": "N1"}]}],
+        "redes": [{"id": "N1", "puntos": ["-G1:L1", "-Q1:1"], "tension": "-G1:L1 · 220 VAC"}],
+        "conductores": [{"comando": "c5", "puntos": ["-G1:L1", "-Q1:1"], "color": "BK"}],
+        "cables": [], "resumen": {"n_dispositivos": 2, "n_conductores": 1}})),
+    ("GET", r"/api/electrico/check", J({"estado": "error", "errores": 1, "avisos": 0, "reglas": [
+        {"regla": "protección del motor", "estado": "error", "detalle": "-M1 sin guardamotor"}]})),
 ]
 # «POST|PATCH» → dos entradas (el motor compara el método exacto)
 RUTAS = [(m, rx, spec) for metodos, rx, spec in RUTAS for m in metodos.split("|")]
@@ -377,4 +385,7 @@ CASOS = [
     caso("fea ensamblaje por ids", "fea_assembly", {"ids": ["c1"], "name": "Sub",
                                                     "fixed_pieces": ["c1"], "yield_mpa": 250,
                                                     "mesh_size_mm": 40}),
+    caso("circuito", "get_circuit"),
+    caso("circuito de un dispositivo", "get_circuit", {"designacion": "-Q1"}),
+    caso("chequeo eléctrico", "electrical_check"),
 ]

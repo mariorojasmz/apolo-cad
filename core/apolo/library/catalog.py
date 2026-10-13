@@ -119,7 +119,11 @@ def category_refs_sorted(category: str, spec_key: str) -> list[str]:
 
 def catalog_payload(category: str | None = None, names_only: bool = False) -> list[dict]:
     """Catálogo completo o filtrado. `category` filtra por categoría;
-    `names_only` devuelve solo ref/name/category (payload ligero)."""
+    `names_only` devuelve solo ref/name/category (payload ligero). Un componente con ficha
+    eléctrica trae además `electrico` (bornes, caminos, cargas y fuentes: lo que el agente
+    necesita para cablear con `add_wire`, plan V8.1 F3); lo mecánico no la lleva."""
+    from .electrico.ficha import ficha_payload
+
     comps = [c for c in CATALOG.values() if not category or c.category == category]
     if names_only:
         return [{"ref": c.ref, "name": c.name, "category": c.category} for c in comps]
@@ -133,6 +137,7 @@ def catalog_payload(category: str | None = None, names_only: bool = False) -> li
             "weight": c.weight,
             "cuttable": c.cuttable,
             "default_length": c.default_length,
+            **({"electrico": ficha_payload(c.electrico)} if c.electrico is not None else {}),
         }
         for c in comps
     ]

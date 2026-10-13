@@ -92,6 +92,8 @@ def _nombre(cmd: dict, escenas) -> str | None:
     pieza de la fuente de `pattern_group`; la primera pieza que creó. Si nada aplica, None."""
     p = _params(cmd)
     nombre = p["name"].strip() if isinstance(p.get("name"), str) else ""
+    if not nombre and isinstance(p.get("designacion"), str):  # el carril eléctrico (V8.1)
+        nombre = p["designacion"].strip()
     for clave in _REFS:
         nombre = nombre or _pieza(p.get(clave), escenas)
     if not nombre and isinstance(p.get("group"), str):

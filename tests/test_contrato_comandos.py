@@ -35,10 +35,12 @@ from apolo.commands.strict import field_paths
 
 # ── Rutas de campos por comando (se generan; ver el docstring) ───────────────────────────
 CAMPOS: dict[str, str] = {
+    "add_cable": "designacion ref desde hasta largo_m",
     "add_constraint": (
         "name tipo joint anchor anchor.x anchor.y anchor.z point point.x point.y point.z axis "
         "axis.x axis.y axis.z value"
     ),
+    "add_device": "ref designacion ubicacion pieza ajustes cantidad",
     "add_joinery": (
         "name type feature_a feature_b position position.x position.y position.z axis axis.x "
         "axis.y axis.z width height depth count spacing clearance"
@@ -57,6 +59,7 @@ CAMPOS: dict[str, str] = {
         "name joint anchor anchor.x anchor.y anchor.z point point.x point.y point.z axis axis.x "
         "axis.y axis.z"
     ),
+    "add_wire": "puntos seccion_mm2 color tipo cable hilo potencial largo_m",
     "attach": (
         "feature anchor target target_anchor offset offset.x offset.y offset.z align_my align_to"
     ),
@@ -226,11 +229,14 @@ CAMPOS: dict[str, str] = {
 
 # ── Versión y huella del código de cada executor (se generan; ver el docstring) ───────────
 VERSIONES: dict[str, tuple[int, str]] = {
+    "add_cable": (1, "d824d9f16db621b8"),
     "add_constraint": (1, "18a7bd522aeca52f"),
+    "add_device": (1, "d824d9f16db621b8"),
     "add_joinery": (1, "6ccbf5bbf26c1cb1"),
     "add_joint": (1, "7569d5069e5caaeb"),
     "add_mate": (1, "a3596f3795b93db8"),
     "add_rail_constraint": (1, "591f0dc2cac566fe"),
+    "add_wire": (1, "d824d9f16db621b8"),
     "attach": (1, "cb91ea338ddcb3c9"),
     "boolean_op": (1, "81e15484e1e85781"),
     "boundary_surface": (1, "31495c5cb0a9bf8d"),

@@ -43,6 +43,9 @@ class CommandSpec:
     version: int = 1  # súbela si cambia la geometría que produce con los MISMOS params (D10)
     # Reproduce OTROS executors (insert_project): su firma lleva TODAS las versiones ≠ 1.
     composite: bool = False
+    # Campos de primer nivel que son TEXTO aunque empiecen con «=» (no `=expr`): la designación
+    # y las referencias IEC 81346 del carril eléctrico («=Faja1-Q1:2», plan V8.1 D4).
+    literales: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:

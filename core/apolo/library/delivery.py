@@ -56,6 +56,7 @@ def delivery_report(
     poses: list[dict] | None,
     gravedad: dict | None = None,
     nombre_de=None,
+    electrico: list[dict] | None = None,
 ) -> dict:
     """Agrega los chequeos de cierre en un SEMÁFORO. Entradas (todas computadas por
     el llamador — aquí no corre ningún motor):
@@ -76,6 +77,9 @@ def delivery_report(
       - `gravedad`: resultado de stability {fell, estables, settled} o None = no
         corrida (opt-in — MuJoCo es caro).
       - `nombre_de(fid) -> str`: nombre legible (inyectado; default identidad).
+      - `electrico`: las reglas del ERC (`library/electrico/erc.py`) si el documento tiene
+        carril eléctrico; None = sin carril: la puerta da EXACTAMENTE lo de siempre (V8.1 D11).
+        Un error del ERC bloquea (ROJO); un aviso, AMARILLO.
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
     """
     nombre_de = nombre_de or (lambda fid: str(fid))
@@ -220,6 +224,20 @@ def delivery_report(
         })
     else:
         ok.append("gravedad")
+
+    # 7 · tablero eléctrico (sólo con carril: sin él, ni siquiera `no_aplica`) ---------
+    if electrico is not None:
+        malas = [r for r in electrico if r.get("estado") in ("error", "aviso")]
+        for r in malas:
+            entrada = {
+                "regla": f"eléctrico · {r.get('regla')}",
+                "piezas": list(r.get("elementos") or [])[:_MAX_PIEZAS],
+                "detalle": r.get("detalle", "") + (f" → {r['recomendacion']}"
+                                                   if r.get("recomendacion") else ""),
+            }
+            (bloqueantes if r["estado"] == "error" else avisos).append(entrada)
+        if not malas:
+            ok.append("eléctrico (ERC)")
 
     veredicto = ROJO if bloqueantes else (AMARILLO if avisos else VERDE)
     return {

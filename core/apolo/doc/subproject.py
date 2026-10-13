@@ -73,8 +73,8 @@ def build_subproject(data: bytes, overrides: dict | None) -> SubprojectState:
             doc = Document.from_apolo_bytes(data, regenerate=False)
         except DocumentError as exc:
             raise SubprojectError(f"Snapshot inválido: {exc}") from exc
-        # el carril del origen (V8.1) todavía no viaja: F3 lo trae con el aspecto de función
-        # (D9). Fuera del replay, un carril que no evalúa no tumba la instancia.
+        # el carril del origen (V8.1) no entra a este replay de ESCENA: lo trae el carril del
+        # anfitrión con el aspecto de función (`carril_insertado`, D9).
         doc.commands = [c for c in doc.commands if not es_carril(c)]
         _apply_overrides(doc.commands, overrides or {})
         try:
@@ -97,6 +97,68 @@ def build_subproject(data: bytes, overrides: dict | None) -> SubprojectState:
         _CACHE.pop(next(iter(_CACHE)))
     _CACHE[key] = state
     return state
+
+
+_LOGS: dict[str, tuple[list[dict], dict]] = {}  # digest → (log, attachments) del snapshot
+_LOGS_CAP = 16
+
+
+def _log_del_snapshot(digest: str, data: bytes) -> tuple[list[dict], dict]:
+    """El log y los attachments del snapshot, sin regenerar (caché por digest: el snapshot es
+    content-addressed y el carril se evalúa en CADA regenerate del anfitrión)."""
+    hit = _LOGS.get(digest)
+    if hit is None:
+        from apolo.doc.document import Document
+
+        doc = Document.from_apolo_bytes(data, regenerate=False)
+        hit = (doc.commands, doc.attachments)
+        if len(_LOGS) >= _LOGS_CAP:
+            _LOGS.pop(next(iter(_LOGS)))
+        _LOGS[digest] = hit
+    return hit
+
+
+def carril_insertado(digest: str, data: bytes, overrides: dict | None, funcion: str,
+                     prefijo: str, _nivel: int = 0) -> list[tuple[dict, dict]]:
+    """El carril eléctrico de un proyecto INSERTADO (V8.1 D9), listo para el del anfitrión:
+    pares (comando, variables crudas del ORIGEN con los `overrides`). Cada comando lleva el id
+    `{prefijo}_{orig}` (el de sus piezas) y sus designaciones y referencias el aspecto de función
+    `funcion` (`commands/electrico.prefijar`). Los `insert_project` del origen aportan el suyo,
+    anidado («=Faja1.Sub-K1»), hasta `MAX_DEPTH`. Lee sólo el LOG (sin geometría ni regenerate):
+    lo que no se puede leer no aporta (la escena de esa instancia ya falló antes)."""
+    from apolo.commands.electrico import aspecto, prefijar
+    from apolo.commands.errors import CommandError
+    from apolo.commands.registry import validate_params
+    from apolo.doc.carril import es_carril
+    from apolo.doc.document import DocumentError
+
+    if _nivel >= MAX_DEPTH:
+        return []
+    try:
+        log, attachments = _log_del_snapshot(digest, data)  # compartido: nunca se muta
+    except DocumentError:
+        return []
+    variables = {c["params"].get("name"): c["params"].get("expression")
+                 for c in log if c.get("type") == "set_variable"}
+    if set(overrides or {}) - set(variables):
+        return []  # el override desconocido ya lo rechazó la escena (`_apply_overrides`)
+    variables.update({k: repr(float(v)) for k, v in (overrides or {}).items()})
+    out: list[tuple[dict, dict]] = []
+    for c in log:
+        if es_carril(c):
+            out.append(({"id": f"{prefijo}_{c['id']}", "type": c["type"],
+                         "params": prefijar(c["type"], c["params"], funcion, prefijo)}, variables))
+        elif c.get("type") == "insert_project":
+            try:
+                p = validate_params("insert_project", c.get("params") or {}, variables)
+            except CommandError:
+                continue
+            sub = attachments.get(p.attachment) if p.attachment else None
+            if sub is not None:
+                out += carril_insertado(p.attachment, sub, p.overrides,
+                                        f"{funcion}.{aspecto(p.name, c['id'])}",
+                                        f"{prefijo}_{c['id']}", _nivel + 1)
+    return out
 
 
 def _apply_overrides(commands: list[dict], overrides: dict) -> None:

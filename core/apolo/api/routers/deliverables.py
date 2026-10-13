@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from apolo.library import bom_from_scene, bom_to_csv, catalog_payload
+from apolo.services.electrico import filas_bom
 from apolo.services.engineering_rules import (
     conveyor_params_from_doc,
     inherit_inclination,
@@ -34,26 +35,32 @@ def get_catalog(category: str | None = None, names_only: bool = False) -> list[d
 @router.get("/api/bom")
 def get_bom(by_group: bool = False) -> list[dict]:
     """Con `by_group=true` cada fila lleva su `grupo` (sub-ensamblaje) y las piezas
-    iguales de grupos distintos salen separadas — subtotales por grupo/instancia."""
+    iguales de grupos distintos salen separadas — subtotales por grupo/instancia. Con tablero
+    eléctrico, al final van sus filas (`origen: "electrico"`, V8.1 D10)."""
     with STATE_LOCK:
-        return bom_from_scene(S.doc.scene, S.doc.default_material(), by_group=by_group)
+        filas = filas_bom(S.doc)
+        if by_group:
+            filas = [{**f, "grupo": None} for f in filas]
+        return bom_from_scene(S.doc.scene, S.doc.default_material(), by_group=by_group) + filas
 
 
 @router.get("/api/costing.json")
 def get_costing() -> dict:
     """BOM COSTEADO (misma agrupación del BOM + costo_ud/costo_total USD por fila con su
     fuente: catálogo referencial / estimación hardware / fabricación) + totales por
-    categoría, catálogo vs fabricación e ítem más costoso. Read-only."""
+    categoría, catálogo vs fabricación e ítem más costoso; con tablero eléctrico, sus
+    dispositivos, cables y conductores (V8.1 D10). Read-only."""
     from apolo.library.costing import scene_costing
 
     with STATE_LOCK:
-        return scene_costing(S.doc.scene, S.doc.default_material())
+        return scene_costing(S.doc.scene, S.doc.default_material(), filas_bom(S.doc))
 
 
 @router.get("/api/bom.csv")
 def get_bom_csv() -> Response:
     with STATE_LOCK:
-        csv_text = bom_to_csv(bom_from_scene(S.doc.scene, S.doc.default_material()))
+        csv_text = bom_to_csv(bom_from_scene(S.doc.scene, S.doc.default_material())
+                              + filas_bom(S.doc))
     return Response(
         content=csv_text.encode("utf-8-sig"),
         media_type="text/csv; charset=utf-8",
@@ -267,7 +274,7 @@ def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
         pages = quotation_pages(
             S.doc.scene, project_name=S.doc.name or "Sin título",
             requirements=S.doc.requirements, margin_pct=margin_pct, tax_pct=tax_pct,
-            currency=cur, fx=fx_eff, meta=_drawing_meta(),
+            currency=cur, fx=fx_eff, meta=_drawing_meta(), extra_rows=filas_bom(S.doc),
         )
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",

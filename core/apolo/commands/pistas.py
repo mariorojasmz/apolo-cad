@@ -23,6 +23,7 @@ PESTANAS: dict[str, dict | None] = {
     "ensamblaje": {"orden": 5, "rotulo": "Ensamblar"},
     "biblioteca": {"orden": 6, "rotulo": "Biblioteca"},
     "robotica": {"orden": 7, "rotulo": "Robótica"},
+    "electrico": {"orden": 8, "rotulo": "Eléctrico"},
     "variables": None,
 }
 
@@ -134,6 +135,12 @@ PISTAS: dict[str, str] = {
     "mirror_feature": "Crea la copia simétrica de una pieza respecto a un plano.",
     "duplicate_feature": "Crea una copia de una pieza, desplazada la distancia que indiques.",
     "delete_feature": "Elimina una pieza del modelo.",
+    # eléctrico
+    "add_device": (
+        "Agrega al tablero un aparato del catálogo eléctrico, como un contactor, un guardamotor o un pulsador."
+    ),
+    "add_wire": "Une dos o más bornes con un conductor, en el orden en que se cablean.",
+    "add_cable": "Declara un cable de varios hilos entre el tablero y el campo, para cablear por sus hilos.",
     # variables (sin pestaña: botón propio)
     "set_variable": (
         "Crea o cambia una variable que puedes usar en cualquier campo numérico; todo el modelo se actualiza con ella."
@@ -143,7 +150,9 @@ PISTAS: dict[str, str] = {
 #: Pista de campo, por «Modelo.campo», SÓLO donde un campo anula a otro o depende de otro
 #: (D5). Ninguna más: la pista en todos los campos está prohibida por ui/CLAUDE.md.
 PISTAS_CAMPO: dict[str, str] = {
-    "CreateChainParams.potencia_kw": "La capacidad sólo se verifica si también indicas las rpm del piñón motriz.",
+    "AddDeviceParams.cantidad": "Sólo vale en una bornera: es cuántos bornes lleva.",
+    "AddWireParams.hilo": "Sólo se usa si el conductor va dentro de un cable; elige el cable también.",
+    "CreateChainParams.potencia_kw":"La capacidad sólo se verifica si también indicas las rpm del piñón motriz.",
     "DrillHoleParams.cara": "Elige la cara o el punto de entrada, no ambos.",
     "DrillHoleParams.thread": "Con rosca se taladra a la broca de machuelo; el diámetro no se usa.",
     "JoinBoltedParams.patron": "Si llenas el patrón de filas por columnas, reemplaza al número de pernos.",

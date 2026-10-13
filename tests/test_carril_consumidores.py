@@ -6,8 +6,11 @@
   con `run_script` y otro con faja, componente de catálogo, `fasten` y variables.
 - **Con carril**: `geomcache.pack` empaca el checkpoint del último comando de ESCENA (con el log
   terminado en el carril, el `len(commands) - 1` de antes no encontraba checkpoint y el open
-  caliente no se poblaba nunca), el open caliente reanuda sin ejecutar nada, `prefijos` salta el
-  carril y `insert_project` lo ignora (lo trae F3).
+  caliente no se poblaba nunca), el open caliente reanuda sin ejecutar nada y `prefijos` salta
+  el carril. El carril de un `insert_project` (F3, D9) se prueba en
+  `tests/test_electrico_insertado.py` con los comandos reales.
+
+El comando de prueba se evalúa con el evaluador mínimo de F1 (`carril.ordenados`).
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from pydantic import BaseModel, Field
 from apolo.commands import registry as registry_mod
 from apolo.commands.registry import REGISTRY
 from apolo.commands.spec import CommandSpec, version_tag
+from apolo.doc import carril
 from apolo.doc.document import Document
 from apolo.doc.geomcache import pack, unpack
 from apolo.doc.prefijos import iter_prefijos
@@ -46,6 +50,7 @@ def cable(monkeypatch):
     spec = CommandSpec(CABLE, "Cable de prueba", "electrico", CableDePrueba, _nunca,
                        kind="electrico")
     monkeypatch.setitem(REGISTRY, CABLE, spec)
+    monkeypatch.setattr(carril, "EVALUADOR", carril.ordenados)
     return CABLE
 
 
@@ -257,16 +262,16 @@ def test_prefijos_saltan_el_carril(cable, ejecutados):
 
 
 # ============================================================ insert_project con carril
-def test_insert_project_ignora_el_carril_del_origen(cable):
+def test_insert_project_trae_el_carril_fuera_del_replay_de_escena(cable, ejecutados):
     donante = Document("mini con tablero")
     base = donante.execute("create_box", {"name": "Base", "width": 100, "depth": 50,
                                           "height": 10})
-    donante.execute(cable, {"desde": "-Q1:2", "hasta": "-K1:1"})
-    # un cable que ni evalúa (sin `hasta`): el carril del origen no viaja todavía (F3, D9)
-    donante.commands.append({"id": "c9", "type": CABLE, "params": {"desde": "x"}})
+    hilo = donante.execute(cable, {"desde": "-Q1:2", "hasta": "-K1:1"})
     anfitrion = Document("layout")
     digest = anfitrion.add_attachment(donante.to_apolo_bytes())
     cid = anfitrion.execute("insert_project", {"attachment": digest, "name": "M1"})
     assert f"{cid}_{base}" in anfitrion.scene
-    assert anfitrion.electrico == [] and anfitrion.regen_suppressed == []
-    assert anfitrion.check_integrity() == []
+    # el replay de escena del origen no corre su carril (`_nunca` lo diría); llega aparte, con
+    # el id prefijado como sus piezas (F3, D9)
+    assert [e["id"] for e in anfitrion.electrico] == [f"{cid}_{hilo}"]
+    assert anfitrion.regen_suppressed == [] and anfitrion.check_integrity() == []

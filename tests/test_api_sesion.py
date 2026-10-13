@@ -251,7 +251,7 @@ def test_el_grafo_de_imports_de_la_api_respeta_sus_capas():
 def test_main_compone_los_routers_y_nadie_importa_main():
     grafo = _grafo_api()
     routers = {m for m in grafo if m.startswith("routers.")}
-    assert len(routers) == 11 and routers <= grafo["main"]
+    assert len(routers) == 12 and routers <= grafo["main"]  # + electrico (V8.1 D8)
     assert not [m for m, deps in grafo.items() if m != "main" and "main" in deps]
 
 

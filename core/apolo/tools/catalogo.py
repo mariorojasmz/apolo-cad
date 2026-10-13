@@ -49,6 +49,7 @@ CHAT: dict[str, EnChat] = {
     "get_kinematics": _lee("Leyendo las juntas"),
     "get_mates": _lee("Leyendo los mates"),
     "get_connections": _lee("Leyendo las uniones"),
+    "get_circuit": _lee("Leyendo el tablero eléctrico"),
     "get_motion": _lee("Leyendo los estudios de movimiento"),
     "get_requirements": _lee("Leyendo los requisitos"),
     "get_agent_notes": _lee("Leyendo las notas del proyecto"),
@@ -93,6 +94,7 @@ CHAT: dict[str, EnChat] = {
     "gravity_test": _lee("Simulando la gravedad", ocultar=("path",)),
     "scan_motion": _lee("Revisando choques en movimiento"),
     "delivery_check": _lee("Revisando la entrega"),
+    "electrical_check": _lee("Revisando el tablero eléctrico"),
     "test_sketch": _lee("Probando un croquis"),
     "test_script": _lee("Probando un script"),
     # ── ingeniería y fabricación ─────────────────────────────────────────────

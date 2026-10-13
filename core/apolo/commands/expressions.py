@@ -154,8 +154,14 @@ def resolve_all(raw_variables: dict[str, Any]) -> dict[str, float]:
     return resolved
 
 
-def resolve_params(value: Any, resolved_vars: dict[str, float]) -> Any:
-    """Sustituye recursivamente las cadenas '=expr' por su valor numérico."""
+def resolve_params(value: Any, resolved_vars: dict[str, float],
+                   literales: tuple[str, ...] = ()) -> Any:
+    """Sustituye recursivamente las cadenas '=expr' por su valor numérico. `literales` = claves
+    de PRIMER nivel cuyo valor es texto literal aunque empiece con '=' (`CommandSpec.literales`:
+    la designación IEC 81346 «=Faja1-Q1» no es una expresión, plan V8.1 D4)."""
+    if literales and isinstance(value, dict):
+        return {k: v if k in literales else resolve_params(v, resolved_vars)
+                for k, v in value.items()}
     if isinstance(value, str) and value.startswith(EXPR_PREFIX):
         result = eval_expression(value[1:], resolved_vars)
         return round(result, 9)

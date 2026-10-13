@@ -91,6 +91,7 @@ class Dispositivo:
     parada_emergencia: bool = False
     bornera: bool = False
     id: str | None = None  # comando que lo declaró (trazabilidad)
+    cantidad: int = 1  # unidades de una bornera (la BOM compra un borne por unidad)
 
     def borne(self, borne_id: str) -> Borne | None:
         return next((b for b in self.bornes if b.id == borne_id), None)
@@ -113,6 +114,7 @@ class Conductor:
     hilo: str | None = None
     potencial: str | None = None  # nombre declarado («L1», «24V»)
     id: str | None = None
+    largo_m: float | None = None  # declarado (el ruteo real es de V8.5): la BOM compra por metro
 
     @property
     def etiqueta(self) -> str:
@@ -193,4 +195,5 @@ def dispositivo_desde_ficha(designacion: str, ref: str, ficha, *, ubicacion: str
         ubicacion=ubicacion or "", ajustes=dict(ajustes or {}), pieza=pieza,
         modelo=dict(ficha.modelo), protege_motor=ficha.protege_motor,
         parada_emergencia=ficha.parada_emergencia, bornera=ficha.bornera, id=id,
+        cantidad=int(cantidad or 1) if ficha.bornera else 1,
     )

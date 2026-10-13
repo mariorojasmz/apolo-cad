@@ -59,12 +59,17 @@ def _custom_cost(row: dict) -> tuple[float | None, str]:
     return est, f"fabricación (peso × material × {FAB_FACTOR:g})"
 
 
-def costed_bom(scene: dict, default_material: str = "acero") -> list[dict]:
+def costed_bom(scene: dict, default_material: str = "acero",
+               extra: list[dict] | None = None) -> list[dict]:
     """Filas del BOM (misma agrupación de `bom_from_scene`) + `costo_ud_usd`,
-    `costo_total_usd` y `costo_fuente` por fila."""
-    rows = bom_from_scene(scene, default_material)
+    `costo_total_usd` y `costo_fuente` por fila. `extra` = filas que la escena no tiene (las
+    del tablero eléctrico, `bom_electrico.filas_electricas`), al final; una `sin_largo` queda
+    sin costo (no se estima un largo que nadie declaró). Sin `extra`, idéntico a antes."""
+    rows = bom_from_scene(scene, default_material) + [dict(r) for r in extra or ()]
     for row in rows:
-        if row.get("ref") != "A-MEDIDA":
+        if row.get("sin_largo"):
+            cost, fuente = None, "sin largo declarado"
+        elif row.get("ref") != "A-MEDIDA":
             cost, fuente = _catalog_cost(row)
         else:
             cost, fuente = _custom_cost(row)
@@ -109,8 +114,9 @@ def costing_totals(rows: list[dict]) -> dict:
     }
 
 
-def scene_costing(scene: dict, default_material: str = "acero") -> dict:
-    """Costeo completo de la escena: filas + totales (lo consumen el endpoint
-    `/api/costing.json`, el agente y la cotización)."""
-    rows = costed_bom(scene, default_material)
+def scene_costing(scene: dict, default_material: str = "acero",
+                  extra: list[dict] | None = None) -> dict:
+    """Costeo completo de la escena (+ las filas `extra` del tablero): filas + totales (lo
+    consumen el endpoint `/api/costing.json`, el agente y la cotización)."""
+    rows = costed_bom(scene, default_material, extra)
     return {"rows": rows, "totales": costing_totals(rows)}

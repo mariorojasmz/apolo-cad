@@ -308,3 +308,33 @@ def fusionar(familia: dict | None, variante: dict | None) -> dict | None:
         else:
             base[k] = v
     return base
+
+
+def ficha_payload(ficha: FichaElectrica) -> dict:
+    """La ficha en JSON compacto para el catálogo (`GET /api/catalog`): lo que el agente necesita
+    para cablear —bornes con su rol, caminos internos, cargas y fuentes con su tensión— sin la
+    estructura interna. Opcionales omitidos, nunca `null`."""
+    out: dict = {"funcion": ficha.funcion, "montaje": ficha.montaje}
+    if ficha.bornes:
+        out["bornes"] = [{"id": b.id, "rol": b.rol, **({"lado": b.lado} if b.lado else {}),
+                          **({"obligatorio": True} if b.obligatorio else {})} for b in ficha.bornes]
+    if ficha.caminos:
+        out["caminos"] = [f"{c.de}-{c.a} {c.tipo}" + (f" ({c.accion})" if c.accion else "")
+                          for c in ficha.caminos]
+    if ficha.cargas:
+        out["cargas"] = [{"bornes": list(c.bornes), "tension": str(c.tension), "tipo": c.tipo}
+                         for c in ficha.cargas]
+    if ficha.fuentes:
+        out["fuentes"] = [{"polos": dict(f.polos), "tension": str(f.tension)}
+                          for f in ficha.fuentes]
+    for clave in ("protege_motor", "parada_emergencia", "bornera"):
+        if getattr(ficha, clave):
+            out[clave] = True
+    if ficha.conductor is not None:
+        c = ficha.conductor
+        out["conductor"] = {"seccion_mm2": c.seccion_mm2,
+                            "tension_aislamiento": c.tension_aislamiento,
+                            **({"hilos": {h.id: h.color for h in c.hilos}} if c.hilos else {})}
+    if ficha.modelo:
+        out["modelo"] = dict(ficha.modelo)
+    return out

@@ -48,7 +48,11 @@ def delivery_inputs(doc, *, expand) -> dict:
         doc.scene, doc.commands, doc.fasteners, doc.grounds, doc.joints, doc.mates,
         resolve=lambda p: resolve_params(p, doc.variables_resolved),
     )
+    from .electrico import reglas_erc
+
+    erc = reglas_erc(doc)  # V8.1 D11: sólo con carril; sin él, los kwargs de siempre
     return dict(
+        **({"electrico": erc} if erc is not None else {}),
         n_solidos=len(doc.scene),
         interferencias=rep_inter["interferencias"],
         interferencias_truncado=bool(rep_inter.get("truncado")),

@@ -112,14 +112,16 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
 def quotation_pages(scene: dict, *, project_name: str = "Sin título",
                     requirements: dict | None = None, margin_pct: float = 25.0,
                     tax_pct: float = 0.0, currency: str = "USD", fx: float = 1.0,
-                    meta: dict | None = None, sheet: str = "A4") -> list[SheetModel]:
+                    meta: dict | None = None, sheet: str = "A4",
+                    extra_rows: list[dict] | None = None) -> list[SheetModel]:
     """Cotización multipágina: [resumen económico + N hojas de detalle de partidas].
     `fx` = tipo de cambio sobre USD (solo PRESENTACIÓN: los costos se almacenan en
-    USD; con fx≠1 la conversión se declara en las notas)."""
+    USD; con fx≠1 la conversión se declara en las notas). `extra_rows` = partidas que la
+    escena no tiene (el tablero eléctrico, V8.1 D10)."""
     from apolo.library.costing import scene_costing
 
     W, H = SHEETS.get(sheet, SHEETS["A4"])
-    data = scene_costing(scene)
+    data = scene_costing(scene, extra=extra_rows)
     rows, totals = data["rows"], data["totales"]
     fx = float(fx) if fx and fx > 0 else 1.0
     if fx != 1.0:

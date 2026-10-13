@@ -3470,5 +3470,62 @@
    "title": "fea_assemblyOutput",
    "type": "object"
   }
+ },
+ {
+  "name": "get_circuit",
+  "description": "Circuito del TABLERO ELÉCTRICO declarado (add_device/add_wire/add_cable): dispositivos\ncon sus bornes y la RED de cada borne, redes con su tensión inferida (qué potencial puede\nllegar a cada una con todos los contactos cerrados), conductores y cables. `designacion`\n(«-Q1», «=Faja1», «-M1») filtra a esos dispositivos y las redes y conductores que los\ntocan; úsalo para leer la designación que se asignó sola o para revisar un aparato antes\nde cablearlo. Read-only.",
+  "inputSchema": {
+   "properties": {
+    "designacion": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Designacion"
+    }
+   },
+   "title": "get_circuitArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_circuitOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "electrical_check",
+  "description": "ERC del tablero eléctrico: cortocircuitos, tensiones cruzadas (una bobina de 24 VDC en\n220 VAC), motores sin protección, puesta a tierra, bornes sueltos, colores IEC 60204-1 y\nparada de emergencia, cada regla con su norma. Devuelve {estado ok|aviso|error|sin_carril,\nerrores, avisos, reglas}. delivery_check lo incluye y, en un lote, el contrato\n{\"erc\": \"sin_errores\"} lo exige antes de aceptar el cableado. Read-only.",
+  "inputSchema": {
+   "properties": {},
+   "title": "electrical_checkArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "electrical_checkOutput",
+   "type": "object"
+  }
  }
 ]

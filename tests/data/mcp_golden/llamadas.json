@@ -5307,5 +5307,96 @@
     }
    }
   ]
+ },
+ {
+  "caso": "circuito",
+  "tool": "get_circuit",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"dispositivos\": [{\"designacion\": \"-Q1\", \"ref\": \"GM-2.5-4A\", \"funcion\": \"Q\", \"bornes\": [{\"id\": \"1\", \"rol\": \"potencia\", \"red\": \"N1\"}]}], \"redes\": [{\"id\": \"N1\", \"puntos\": [\"-G1:L1\", \"-Q1:1\"], \"tension\": \"-G1:L1 · 220 VAC\"}], \"conductores\": [{\"comando\": \"c5\", \"puntos\": [\"-G1:L1\", \"-Q1:1\"], \"color\": \"BK\"}], \"cables\": [], \"resumen\": {\"n_dispositivos\": 2, \"n_conductores\": 1}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/electrico/circuito",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "circuito de un dispositivo",
+  "tool": "get_circuit",
+  "args": {
+   "designacion": "-Q1"
+  },
+  "salida": [
+   {
+    "texto": "{\"dispositivos\": [{\"designacion\": \"-Q1\", \"ref\": \"GM-2.5-4A\", \"funcion\": \"Q\", \"bornes\": [{\"id\": \"1\", \"rol\": \"potencia\", \"red\": \"N1\"}]}], \"redes\": [{\"id\": \"N1\", \"puntos\": [\"-G1:L1\", \"-Q1:1\"], \"tension\": \"-G1:L1 · 220 VAC\"}], \"conductores\": [{\"comando\": \"c5\", \"puntos\": [\"-G1:L1\", \"-Q1:1\"], \"color\": \"BK\"}], \"cables\": [], \"resumen\": {\"n_dispositivos\": 2, \"n_conductores\": 1}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/electrico/circuito",
+    "query": [
+     [
+      "designacion",
+      "-Q1"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "chequeo eléctrico",
+  "tool": "electrical_check",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"estado\": \"error\", \"errores\": 1, \"avisos\": 0, \"reglas\": [{\"regla\": \"protección del motor\", \"estado\": \"error\", \"detalle\": \"-M1 sin guardamotor\"}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/electrico/check",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
  }
 ]

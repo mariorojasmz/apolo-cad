@@ -80,6 +80,7 @@ from .models_rodillos import CreateDriveRollerParams, CreateTakeUpParams
 from .models_transmision import CreateChainParams
 from .exec_rodillos import _exec_create_drive_roller, _exec_create_take_up
 from .exec_transmision import _exec_create_chain
+from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
 from .errors import CommandError
 from .spec import CommandSpec, run_executor
 from .state import ExecContext, RegenState
@@ -2055,9 +2056,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec(
             "create_weldment", "Bastidor", "biblioteca", CreateWeldmentParams, _exec_create_weldment
         ),
-        CommandSpec(
-            "create_frame", "Esqueleto", "biblioteca", CreateFrameParams, _exec_create_frame
-        ),
+        CommandSpec("create_frame", "Esqueleto", "biblioteca", CreateFrameParams, _exec_create_frame),
         CommandSpec(
             "create_sheet_metal", "Chapa metálica", "biblioteca", SheetMetalParams,
             _exec_create_sheet_metal,
@@ -2115,6 +2114,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec(
             "set_variable", "Variable", "variables", SetVariableParams, _exec_set_variable, kind="vars"
         ),
+        *SPECS_ELECTRICO,
     ]
 }
 
@@ -2152,7 +2152,7 @@ def validate_params(cmd_type: str, params: dict, variables: dict | None = None,
         return model
 
     try:
-        resolved = resolve_params(params or {}, resolve_all(variables))
+        resolved = resolve_params(params or {}, resolve_all(variables), spec.literales)
     except ExpressionError as exc:
         raise CommandError(str(exc)) from exc
     return _validate_model(cmd_type, resolved)

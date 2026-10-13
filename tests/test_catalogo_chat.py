@@ -371,6 +371,8 @@ MUESTRAS = {
     "gravity_test": lambda i: {"seconds": 0.2},
     "scan_motion": lambda i: {"name": "barrido", "steps": 3},
     "delivery_check": lambda i: {},
+    "get_circuit": lambda i: {},
+    "electrical_check": lambda i: {},
     "test_sketch": lambda i: {"sketch": _CROQUIS},
     "test_script": lambda i: {"code": "result = Box(10, 10, 10)"},
     "engineering_check": lambda i: {},

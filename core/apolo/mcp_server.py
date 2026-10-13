@@ -96,14 +96,8 @@ def _submit_and_wait(method: str, path: str, body: dict, params: dict | None = N
 
 
 def _job_receipt(job_id: str, estado: str = "corriendo") -> str:
-    return json.dumps(
-        {
-            "job": job_id,
-            "estado": estado,
-            "seguir": f"llama get_job('{job_id}') para recoger el resultado",
-        },
-        ensure_ascii=False,
-    )
+    seguir = f"llama get_job('{job_id}') para recoger el resultado"
+    return json.dumps({"job": job_id, "estado": estado, "seguir": seguir}, ensure_ascii=False)
 
 
 def _job_result(payload: dict, detail: str) -> dict:
@@ -1414,6 +1408,12 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
         target.write_bytes(png)
         resumen["fringe"] = str(target)
     return json.dumps(resumen, ensure_ascii=False)
+
+
+# Lecturas del tablero eléctrico (V8.1 D8): viven en tools/mcp_electrico.py (trinquete de tamaño)
+from apolo.tools.mcp_electrico import electrical_check, get_circuit  # noqa: E402
+for _tool in (get_circuit, electrical_check):
+    mcp.tool()(_tool)
 
 
 def main() -> None:

@@ -148,6 +148,23 @@ DESIGN_RULES: list[dict[str, str]] = [
         "verificar": "delivery_check (el semáforo de cierre) + render_view + check_interference "
         "+ gravity_test + drawing/cut_list.",
     },
+    {
+        "clave": "electrico",
+        "titulo": "Tablero eléctrico seguro",
+        "corto": "Si la máquina lleva tablero: cada motor con su protección, parada de "
+        "emergencia, masas a tierra, designaciones IEC 81346 y colores IEC 60204-1.",
+        "detalle": "El tablero se declara con add_device (ref del catálogo eléctrico, designación "
+        "«-Q1»; vacía = la siguiente libre), add_cable y add_wire (bornes «-Q1:2» → «-Q3:1»), y "
+        "empieza en la RED de suministro (RED-3F-220V-60HZ). Cada motor pasa por un guardamotor, "
+        "un contactor con relé térmico o un variador con protección de motor (IEC 60204-1 §7.3); "
+        "hay al menos una seta que corta el mando (ISO 13850); todo borne PE va a la barra de "
+        "tierra; el mando va a 24 VDC o protegido por su ITM. Colores IEC 60204-1 §13.2: negro "
+        "potencia, rojo mando en alterna, azul mando en continua, azul claro el neutro y "
+        "verde-amarillo SÓLO la tierra. Declara el largo de cables y conductores para que la BOM "
+        "los compre.",
+        "verificar": "electrical_check (ERC) + get_circuit; en el lote que cablea, el contrato "
+        "{\"erc\": \"sin_errores\"}; delivery_check lo incluye.",
+    },
 ]
 
 # Doctrina de ESCALA (V6.5): cómo trabaja el agente un proyecto de MUCHAS piezas sin

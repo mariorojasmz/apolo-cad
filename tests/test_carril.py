@@ -6,9 +6,11 @@ posición no re-ejecuta ningún executor de escena (V8.0 midió 5 s dentro de la
 8,5 ms fuera). Se evalúa DESPUÉS del bucle, contra la escena y las variables finales, y el
 resultado queda en `doc.electrico`. Estricto en las mutaciones, tolerante en la carga.
 
-El comando de prueba se registra SÓLO aquí (monkeypatch del REGISTRY): los comandos eléctricos
-reales son de F3. Los executors se cuentan envolviendo `run_executor` en `commands.registry`,
-donde `execute_command` lo busca (parchearlo en `spec` no alcanza, V8.0).
+El comando de prueba se registra SÓLO aquí (monkeypatch del REGISTRY) y se evalúa con el
+evaluador mínimo de F1 (`carril.ordenados`): el real de F3 (`commands/electrico_eval.py`) sólo
+conoce `add_device`/`add_wire`/`add_cable` (`tests/test_electrico_comandos.py`). Los executors
+se cuentan envolviendo `run_executor` en `commands.registry`, donde `execute_command` lo busca
+(parchearlo en `spec` no alcanza, V8.0).
 """
 
 from __future__ import annotations
@@ -43,6 +45,7 @@ def cable(monkeypatch):
     spec = CommandSpec(CABLE, "Cable de prueba", "electrico", CableDePrueba, _nunca,
                        kind="electrico")
     monkeypatch.setitem(REGISTRY, CABLE, spec)
+    monkeypatch.setattr(carril, "EVALUADOR", carril.ordenados)
     return CABLE
 
 
@@ -124,9 +127,9 @@ def test_sin_carril_el_modelo_es_vacio_y_no_llama_al_evaluador(monkeypatch):
 
     monkeypatch.setattr(carril, "EVALUADOR", no_evaluar)
     d = Document()
-    assert d.electrico == []
+    assert d.electrico == carril.vacio()
     d.execute("create_box", {"name": "A", "width": 10, "depth": 10, "height": 10})
-    assert d.electrico == [] and d.check_integrity() == []
+    assert d.electrico == carril.vacio() and d.check_integrity() == []
 
 
 # ------------------------------------------------------------------ evaluación
@@ -284,4 +287,4 @@ def test_un_log_solo_de_carril(cable):
     assert d.scene == {} and d._regen_sigs == [] and d._regen_ckpts == {}
     assert [v[0] for v in _vista(d)] == [hilo] and d.check_integrity() == []
     d.undo()
-    assert d.electrico == [] and d.commands == []
+    assert d.electrico == carril.vacio() and d.commands == []

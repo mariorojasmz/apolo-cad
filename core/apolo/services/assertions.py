@@ -65,11 +65,50 @@ def verify_checks(doc, scene: dict, checks: list[dict], *, expand,
             _pose_cache[key] = posed_shapes(doc, vals)[0]
         return _pose_cache[key]
 
-    return run_verify(
-        scene, checks, expand=lambda v: expand(v) or [],
+    # V8.1 D11: `{"erc": "sin_errores"}` revisa el tablero (no la geometría): se evalúa aparte
+    # y vuelve a su lugar en el orden del lote
+    geom = [c for c in checks if not _es_erc(c)]
+    res = iter(run_verify(
+        scene, geom, expand=lambda v: expand(v) or [],
         interference_fn=interference_fn, suggest=lambda m: suggest_suffix(doc, m),
         pose_fn=pose_fn,
-    )
+    ) if geom else [])
+    return [erc_check(doc, c) if _es_erc(c) else next(res) for c in checks]
+
+
+#: Lo que acepta la aserción `erc` y qué exige.
+ERC_ESPERADOS = {"sin_errores": ("error",), "sin_avisos": ("error", "aviso")}
+
+
+def _es_erc(check) -> bool:
+    return isinstance(check, dict) and ("erc" in check or check.get("tipo") == "erc")
+
+
+def erc_check(doc, check: dict) -> dict:
+    """La aserción del tablero (V8.1 D11): `{"erc": "sin_errores"}` (o «sin_avisos») sobre el
+    ERC del carril. Sin carril no hay nada que asegurar: falla con el motivo, nunca verde."""
+    from .electrico import reglas_erc
+
+    esperado = check.get("erc", check.get("esperado", "sin_errores"))
+    label = check.get("nombre") or "erc"
+    sobra = sorted(set(check) - {"erc", "tipo", "nombre", "esperado"})
+    if sobra or esperado not in ERC_ESPERADOS:
+        validos = " o ".join(f"«{v}»" for v in ERC_ESPERADOS)
+        motivo = (f"clave(s) no reconocida(s) en 'erc': {', '.join(sobra)}" if sobra
+                  else f"'erc' espera {validos}, no {esperado!r}")
+        return {"check": label, "tipo": "erc", "ok": False, "error": motivo}
+    reglas = reglas_erc(doc)
+    if reglas is None:
+        return {"check": label, "tipo": "erc", "ok": False,
+                "error": "el proyecto no tiene tablero eléctrico (add_device/add_wire): no hay "
+                         "ERC que asegurar"}
+    malas = [r for r in reglas if r["estado"] in ERC_ESPERADOS[esperado]]
+    actual = "sin hallazgos" if not malas else "; ".join(
+        f"{r['regla']}: {r['detalle']}" for r in malas[:5]) + (
+        f" (y {len(malas) - 5} más)" if len(malas) > 5 else "")
+    return {"check": label, "tipo": "erc", "ok": not malas, "actual": actual,
+            "esperado": esperado, "errores": sum(r["estado"] == "error" for r in reglas),
+            "avisos": sum(r["estado"] == "aviso" for r in reglas)}
 
 
 def contract_verify(doc, expect: list[dict], *, expand):
