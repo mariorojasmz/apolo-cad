@@ -3,13 +3,14 @@ import { ChevronUp } from "lucide-react";
 import { useStore } from "../state/store";
 import { HERRAMIENTAS, PANELES, type PanelId } from "../dock/paneles";
 import { PANEL_ICONS } from "../ui/icons";
+import { useChatActivo } from "../chat/activo";
 import { useVisor } from "./estado";
 import { CIERRA_CON_ESC, panelesDelMenu } from "./cajones";
 import "./cajones.css";
 
 /* Barra de paneles del visor (plan modo-visor, D4), flotante abajo al centro: Árbol · BOM ·
-   Validar · Historial · Más · Asistente IA. Abre los cajones (`Cajon.tsx`); el botón del panel
-   abierto queda resaltado. Validar va sin conteo: no hay uno barato sin correr la validación
+   Validar · Historial · Más · Asistente IA (sólo con el chat prendido, `chat/activo.ts`). Abre
+   los cajones (`Cajon.tsx`); el botón del panel abierto queda resaltado. Validar va sin conteo: no hay uno barato sin correr la validación
    (bitácora F0 e). Los rótulos e íconos son los de la StatusBar. */
 
 /** Herramientas con botón propio, en el orden de la barra; el resto va en «Más». */
@@ -32,6 +33,7 @@ export default function BarraPaneles() {
   const der = useVisor((s) => s.cajonDer);
   const toggleIzq = useVisor((s) => s.toggleIzq);
   const abrirDer = useVisor((s) => s.abrirDer);
+  const chat = useChatActivo((s) => s.activo);
   const [menu, setMenu] = useState(false);
   const caja = useRef<HTMLSpanElement>(null);
 
@@ -102,8 +104,12 @@ export default function BarraPaneles() {
           </span>
         )}
       </span>
-      <span className="bp-sep" />
-      <BotonPanel id="chat" on={der === "chat"} onClick={() => abrirDer("chat")} />
+      {chat && (
+        <>
+          <span className="bp-sep" />
+          <BotonPanel id="chat" on={der === "chat"} onClick={() => abrirDer("chat")} />
+        </>
+      )}
     </nav>
   );
 }

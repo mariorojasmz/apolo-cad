@@ -123,6 +123,7 @@ def mundo(monkeypatch):
     doc.execute("create_box", {"name": "Base", "width": 100, "depth": 100, "height": 20})
     monkeypatch.setattr(api, "DOC", doc)
     monkeypatch.setattr(mcp_server, "APOLO_URL", "http://127.0.0.1:9")  # nada se escapa
+    monkeypatch.setenv("APOLO_CHAT", "1")  # el chat de la app viene apagado (D19)
     m = NS(doc=doc, pedidos=[], bases=[], guardados=[], avisos=[], jobs=[],
            al_pedir=lambda req: None)
     monkeypatch.setattr(api._autosave_sched, "schedule", lambda: m.guardados.append(1))

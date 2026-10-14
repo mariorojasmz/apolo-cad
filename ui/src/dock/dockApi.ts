@@ -1,6 +1,7 @@
 import type { DockviewApi, IDockviewPanel, Direction } from "dockview-core";
 import { useStore } from "../state/store";
 import { useVisor } from "../visor/estado";
+import { chatActivo } from "../chat/activo";
 import { HERRAMIENTAS, PANELES } from "./paneles";
 
 /* Singleton del API de Dockview + helpers de docking. Vive fuera de React para que la
@@ -16,8 +17,8 @@ export interface PanelMeta {
   component: string;
 }
 
-// paneles-herramienta conmutables desde la StatusBar (tree/properties/chat/viewport
-// forman el layout por defecto y no se listan aquí). Id y título salen de `paneles.ts`.
+// paneles-herramienta conmutables desde la StatusBar (tree/properties/viewport y el chat, si
+// está prendido, forman el layout por defecto y no se listan aquí). Id y título salen de `paneles.ts`.
 export const TOOL_PANELS: PanelMeta[] = HERRAMIENTAS.map((id) => ({
   id,
   title: PANELES[id].titulo,
@@ -36,7 +37,30 @@ export function lockViewport(api: DockviewApi): void {
   if (vp) vp.group.locked = true;
 }
 
-/** Construye el layout por defecto: viewport (centro) · árbol (izq) · propiedades+chat (der). */
+/** El panel del asistente va en pestaña junto a Propiedades, sólo si el chat está prendido.
+   `inactive`: no le roba el foco a Propiedades ni saca al visor del maximizado. */
+function addChat(api: DockviewApi): void {
+  if (!chatActivo() || api.getPanel("chat") || !api.getPanel("properties")) return;
+  api.addPanel({
+    id: "chat",
+    component: "chat",
+    title: PANELES.chat.titulo,
+    position: { referencePanel: "properties", direction: "within" },
+    inactive: true,
+  });
+}
+
+/** Ajusta el layout a lo que dijo la API: apagado → cierra el panel del asistente (también el de
+   un layout guardado); prendido → lo agrega junto a Propiedades si falta. */
+export function aplicarChat(): void {
+  const api = _api;
+  if (!api) return;
+  if (chatActivo()) addChat(api);
+  else api.getPanel("chat")?.api.close();
+}
+
+/** Construye el layout por defecto: viewport (centro) · árbol (izq) · propiedades (+ asistente,
+   si el chat está prendido) (der). */
 export function buildDefaultLayout(api: DockviewApi): void {
   api.clear();
   const vp = api.addPanel({
@@ -58,18 +82,14 @@ export function buildDefaultLayout(api: DockviewApi): void {
     title: PANELES.properties.titulo,
     position: { referencePanel: "viewport", direction: "right" },
   });
-  api.addPanel({
-    id: "chat",
-    component: "chat",
-    title: PANELES.chat.titulo,
-    position: { referencePanel: "properties", direction: "within" },
-  });
+  addChat(api);
   props.api.setActive();
   vp.group.locked = true;
 }
 
 /** Restablece la disposición por defecto SIN destruir el viewport (preserva el contexto
-   WebGL): cierra el resto de paneles y vuelve a acoplar árbol/propiedades/chat alrededor. */
+   WebGL): cierra el resto de paneles y vuelve a acoplar árbol/propiedades (+ asistente)
+   alrededor. */
 export function resetLayout(): void {
   const api = _api;
   if (!api) return;
@@ -101,12 +121,7 @@ export function resetLayout(): void {
     title: PANELES.properties.titulo,
     position: { referencePanel: "viewport", direction: "right" },
   });
-  api.addPanel({
-    id: "chat",
-    component: "chat",
-    title: PANELES.chat.titulo,
-    position: { referencePanel: "properties", direction: "within" },
-  });
+  addChat(api);
   props.api.setActive();
   lockViewport(api);
   aplicarModoActual();

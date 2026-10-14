@@ -75,7 +75,8 @@ backend: se mantiene ≤ 10 KB.
   bloque, en varios deltas: la UI reemplaza la nota en vez de pegarla)
   y ningún final silencioso: `aviso` ante `max_tokens`/`refusal`/vueltas agotadas.
 - `agent/chat.py` es el chat de la app: un cliente HTTP más de la propia API
-  ([chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)). Lee el token de
+  ([chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)). **Viene APAGADO** (D19: Apolo
+  se usa por MCP): sólo `APOLO_CHAT=1` lo prende ([api](api/CLAUDE.md)). Lee el token de
   `GET /api/health` al empezar y lo manda en `X-Apolo-Documento` (un 409 corta el turno); el modo
   va en el ÚLTIMO mensaje de la persona, en `<modo_del_turno>` (nunca una etiqueta con nombre de
   sistema) y nunca en `messages[0]`; cupo `APOLO_CHAT_MAX` → 429. Ningún módulo de `agent/` llega

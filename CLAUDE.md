@@ -3,8 +3,9 @@
 CAD paramétrico 3D para maquinaria industrial/robótica cuyo **diferenciador es el
 diseño asistido por IA** (agente-nativo, también manual). Vertical del MVP:
 transportadores / manejo de materiales. Stack: **Python (build123d/OCCT) + FastAPI +
-React/three.js**. IA: Claude API en la nube vía `APOLO_MODEL` (por defecto
-`claude-opus-4-8`).
+React/three.js**. IA: Claude por MCP (`apolo-cad`); el chat de la app (Claude API vía
+`APOLO_MODEL`) viene APAGADO (`APOLO_CHAT=1` lo prende; D19 de
+[chat-cliente-igual](docs/plans/chat-cliente-igual.md)).
 
 Este archivo tiene sólo lo transversal: principios, cultura de trabajo y reglas que valen en
 todo el repo. El detalle de cada paquete está en su propio CLAUDE.md (índice más abajo); la
@@ -86,7 +87,7 @@ los datos van a `APOLO_HOME` (~/.apolo) y la UI sale del paquete (`apolo/webui`,
 
 ### Estado actual (2026-10-09)
 
-2777 tests (+18 de tortura vía `-m torture`) · 197 tests vitest · 79 tools MCP · 54 comandos ·
+2832 tests (+18 de tortura vía `-m torture`) · 200 tests vitest · 79 tools MCP · 54 comandos ·
 catálogo 359 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [V8 — la máquina viva](docs/plans/V8-maquina-viva.md) (tablero eléctrico real, co-simulación y
 placas; cada V8.x con su contrato). Lo que falta de cada plan, en la `nota:` de su frontmatter.

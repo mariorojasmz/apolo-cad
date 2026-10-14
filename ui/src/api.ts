@@ -28,6 +28,8 @@ export const api = {
   // La vista PERSONA: pista, detalle y pestaña; la vista por defecto es la del agente.
   schemas: () => fetch("/api/schemas?vista=persona").then((r) => json<CommandSchema[]>(r)),
   scene: () => fetch("/api/scene").then((r) => json<SceneOut>(r)),
+  // sólo lo que la UI lee de la salud del servidor: si el asistente de la app está prendido
+  health: () => fetch("/api/health").then((r) => json<{ chat?: boolean }>(r)),
   // Escena en forma DELTA (V6.2b): manda lo que el cliente ya tiene (rev por feature +
   // claves de definición + el epoch del proceso, V6.2e) → el server responde solo la
   // geometría que cambió, o el payload completo si el epoch no coincide (restart del API).

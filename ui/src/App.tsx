@@ -3,6 +3,8 @@ import { useStore } from "./state/store";
 import TopBar from "./panels/TopBar";
 import Ribbon from "./panels/Ribbon";
 import DockShell from "./dock/DockShell";
+import { aplicarChat } from "./dock/dockApi";
+import { consultarChat } from "./chat/activo";
 import StatusBar from "./panels/StatusBar";
 import CommandDialog from "./panels/CommandDialog";
 import VariablesDialog from "./panels/VariablesDialog";
@@ -31,6 +33,11 @@ export default function App() {
   useEffect(() => {
     void init();
   }, [init]);
+
+  // el panel del asistente sólo aparece si la API dice que el chat está prendido
+  useEffect(() => {
+    void consultarChat().then(aplicarChat);
+  }, []);
 
   return (
     <div

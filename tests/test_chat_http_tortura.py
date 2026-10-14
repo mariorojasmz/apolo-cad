@@ -78,6 +78,7 @@ def api_real(monkeypatch):
     monkeypatch.setattr(mcp_server, "APOLO_URL", "http://127.0.0.1:9")  # nada fuera del destino
     for var in ("APOLO_CHAT_MAX", "APOLO_URL_INTERNA"):
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("APOLO_CHAT", "1")  # el chat de la app viene apagado (D19)
     with _uvicorn() as url:
         yield doc, url
     assert chat.CUPO.activos == 0

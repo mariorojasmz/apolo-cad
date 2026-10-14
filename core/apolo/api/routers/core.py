@@ -115,6 +115,7 @@ def health() -> dict:
             "documento": _token_documento(),
             "features": len(S.doc.scene),
             "commands": len(S.doc.commands),
+            "chat": chat_http.activo(),  # la UI muestra el panel del asistente sólo si es true
         }
 
 
@@ -364,7 +365,9 @@ def agent_chat(body: ChatIn, request: Request) -> StreamingResponse:
     """El chat de la app es un cliente HTTP más de esta misma API (`agent/chat.py`, plan
     chat-cliente-igual): NO toma `STATE_LOCK`, el documento lo lee y lo cambia por HTTP, como
     la UI. Cupo lleno → 429 (`APOLO_CHAT_MAX`); la URL loopback es el socket que atendió esta
-    petición (o `APOLO_URL_INTERNA`)."""
+    petición (o `APOLO_URL_INTERNA`). Apagado salvo `APOLO_CHAT=1` → 503 sin tomar cupo (D19)."""
+    if not chat_http.activo():
+        raise HTTPException(status_code=503, detail=chat_http.APAGADO)
     messages = [m.model_dump() for m in body.messages]
     try:
         base = chat_http.url_interna(request.scope.get("server"))

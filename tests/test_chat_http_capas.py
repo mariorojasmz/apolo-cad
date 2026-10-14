@@ -142,5 +142,6 @@ def test_los_textos_para_la_persona_cumplen_el_estandar():
     spec = importlib.util.spec_from_file_location("_pistas_gate", RAIZ / "tests" / "test_pistas.py")
     gate = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gate)
-    for texto in (chat.LLENO, chat.PROYECTO_CAMBIO, chat.SIN_PROYECTO, chat.FALLO):
+    for texto in (chat.LLENO, chat.PROYECTO_CAMBIO, chat.SIN_PROYECTO, chat.FALLO,
+                  chat.APAGADO):
         assert gate.faltas(texto) == [], f"«{texto}»: {gate.faltas(texto)}"

@@ -151,7 +151,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   nuevo de render o simulación sigue el patrón. `export_stl` y `drawing_spec` siguen bajo el lock
   (su HLR es OCCT).
 - `POST /api/agent/chat` no toma `STATE_LOCK`: el chat es un cliente HTTP de esta misma API
-  (`agent/chat.py`); cupo lleno → 429.
+  (`agent/chat.py`); cupo lleno → 429. Sin `APOLO_CHAT=1` (leído en cada petición) → 503 ANTES
+  de tomar cupo o llamar al modelo, y `GET /api/health` → `chat: false` (la UI oculta el panel).
+  Un test del chat lo prende con `monkeypatch.setenv`. [D19](../../../docs/plans/chat-cliente-igual.md)
 - Un `StreamingResponse` que reserva algo (el cupo del chat) lo suelta CERRANDO su generador en
   `stream_response` (`routers/core.py::_SseDelTurno`): Starlette no lo cierra y, tras un corte
   del cliente, queda colgado de un ciclo de referencias hasta que pase el GC (medido con
@@ -178,7 +180,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   con `S.project_id = None` (no crea un «Sin título» que pise el reciente). `project/new` y `project/open`
   (upload) crean id PROPIO.
 - `GET /api/health` = `check_integrity` + suprimidos + `autosave_pending`/`autosave_failed` +
-  `startup_error` + `documento` (el token de la guardia); no tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
+  `startup_error` + `documento` (el token de la guardia) + `chat`; no tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
 
 ## Tests de la API
 

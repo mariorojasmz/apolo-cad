@@ -56,6 +56,14 @@ PROYECTO_CAMBIO = ("Se abrió otro proyecto o se restauró una revisión mientra
                    "detuve sin aplicar nada más.")
 SIN_PROYECTO = "No pude leer el proyecto abierto: revisa que el servidor siga en marcha."
 FALLO = "El asistente falló por un error interno: vuelve a intentarlo."
+APAGADO = "El asistente de la app está apagado por ahora: trabaja con Apolo desde Claude."
+
+
+def activo() -> bool:
+    """¿Está prendido el chat de la app? Sólo con `APOLO_CHAT=1`, leído en cada petición (sin
+    reiniciar la API). Viene apagado: por ahora Apolo se usa por MCP desde Claude (D19 del plan
+    chat-cliente-igual). Apagado, el endpoint responde 503 y la UI oculta el panel."""
+    return os.environ.get("APOLO_CHAT", "").strip() == "1"
 
 #: La etiqueta que envuelve el modo dentro del mensaje de la persona: propia y neutra. Una
 #: etiqueta con nombre de sistema (`<system-reminder>`) dentro de un turno del usuario puede

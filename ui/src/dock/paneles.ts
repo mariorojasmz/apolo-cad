@@ -43,8 +43,8 @@ export const PANELES = {
 export type PanelId = keyof typeof PANELES;
 
 /** Paneles-herramienta (se conmutan desde la StatusBar y, en el visor, desde la barra de
-   paneles), en el orden en que se muestran. Árbol, Propiedades y Asistente IA forman el
-   layout por defecto de Completo y no se listan. */
+   paneles), en el orden en que se muestran. Árbol, Propiedades y Asistente IA (sólo con el
+   chat prendido, `chat/activo.ts`) forman el layout por defecto de Completo y no se listan. */
 export const HERRAMIENTAS: PanelId[] = [
   "history", "reqs", "bom", "checks", "kin", "mates", "fisica", "ensamblaje", "boceto",
 ];

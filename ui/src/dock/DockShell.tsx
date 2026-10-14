@@ -6,7 +6,8 @@ import type { ComponentType } from "react";
 
 import Viewport from "../viewport/Viewport";
 import {
-  setDockApi, buildDefaultLayout, guardarLayout, lockViewport, syncDockPanels, vincularModo, LAYOUT_KEY,
+  setDockApi, buildDefaultLayout, guardarLayout, lockViewport, syncDockPanels, vincularModo, aplicarChat,
+  LAYOUT_KEY,
 } from "./dockApi";
 import { PANELES } from "./paneles";
 
@@ -74,6 +75,10 @@ function onReady(event: DockviewReadyEvent): void {
     // con el visor (grupo maximizado) no persiste: lo hace setModoVisor al volver a Completo
     timer = setTimeout(() => guardarLayout(api), 300);
   });
+  // DESPUÉS del listener: con el chat apagado, un layout guardado que trae el asistente lo
+  // pierde y se guarda así (antes del listener el cierre no quedaba guardado). El App lo
+  // vuelve a aplicar cuando la API responde si el chat está prendido.
+  aplicarChat();
 }
 
 export default function DockShell() {

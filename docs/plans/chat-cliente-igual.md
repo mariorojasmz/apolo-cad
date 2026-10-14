@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F7, F9, F9b, F11 y F12 hechas e integradas: el chat de la app es un cliente HTTP de la API con 63 tools del MCP, guardia del documento, cupo y avisos (chat viejo borrado). Esperan la decisión de Mario: D11 (modelo, effort, max_tokens), F8 (D14) y F10 (D15); y su prueba en la UI con credencial real (modo propuesta y auto en el 38, `done.uso.cache_read > 0`)
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: chat de la app APAGADO por decisión de Mario (D19, aprobada 2026-10-14; F13): Apolo se usa por MCP desde Claude. Lo demás, implementado e integrado (F0–F7, F9, F9b, F11, F12): cliente HTTP de la API con las tools del MCP, guardia del documento, cupo y avisos. Para reactivarlo: `APOLO_CHAT=1`, y antes decidir D11 (modelo, effort, max_tokens), F8 (D14) y F10 (D15) y probarlo en la UI con credencial real
 descripcion: El asistente de la app usa las mismas herramientas que el agente por MCP (puerta de entrega, gravedad, verify, render nítido, lotes con contrato), te avisa cuando se corta y cuesta menos por mensaje
 ---
 
@@ -14,6 +14,10 @@ contrato se implementa **sin aprobación previa**, con una excepción deliberada
 de una decisión de producto o de costo de Mario (**F7 en la elección del modelo, F8 y F10**) no se
 implementan hasta que él decida. Nada se mergea a `main` hasta su revisión (rama de integración
 `worktree-auditoria-refactors`).
+
+**Apagado (D19)**: con todo implementado, Mario decidió «por ahora desactiva el chat, ya que mejor
+se va usar como mcp desde claude» (2026-10-05) y lo confirmó el 2026-10-14: el chat IA no va en la
+web de Apolo. Se apaga con un interruptor, no se borra (F13).
 
 Lo disparó la auditoría del 2026-10-03: el principio de la raíz «UI, agente-chat y MCP son clientes
 iguales de la misma API HTTP» no se cumple para el chat. El chat corre dentro del servidor, toca el
@@ -136,6 +140,12 @@ Medido sobre la rama de integración (base `c933db8`).
   `APOLO_MCP_WAIT_S` se quedan en `mcp_server.py`.
 - **D18 (vetable). Los endpoints igualan lo que el chat hacía mejor**: `/api/sketch/solve` resuelve
   `=expr`; `POST /api/agent/notes` recorta y aplica el tope de 500 (cambia el MCP para notas largas).
+- **D19 (Mario, aprobada 2026-10-14). El chat de la app viene APAGADO**: `POST /api/agent/chat`
+  responde 503 salvo `APOLO_CHAT=1` (leído en cada petición, antes de tomar cupo o llamar al
+  modelo), `GET /api/health` suma `chat` y la UI muestra el panel «Asistente IA» (y su botón en la
+  barra de paneles del visor) sólo si es true. *Porqué*: Apolo se usa por MCP desde Claude; el
+  código queda entero y probado para reactivarlo sin rehacer nada. D11, D14 y D15 quedan en
+  suspenso.
 
 ## Alternativas descartadas
 
@@ -1238,3 +1248,25 @@ integrados (`dd9ede7` + este cierre), con la máquina SIN otras suites:
 - **Para Mario** (credencial real, en la UI sobre :8000): modo propuesta y auto en el 38, cambio
   de proyecto a mitad, `done.uso.cache_read > 0` desde la 2.ª vuelta, `errors.log` limpio. Y las
   decisiones D11, D14 (F8) y D15 (F10).
+
+### F13 — el chat de la app queda apagado (2026-10-14, D19)
+
+Una primera versión (`6b6796c`, 2026-10-05, rama `worktree-auditoria-refactors`) se hizo sobre la
+base `fec8c38` y nunca entró; F5b cambió después los archivos que tocaba. Esta es la misma
+intención rehecha sobre `main` (`07f5504`).
+
+- `agent/chat.py`: `activo()` (sólo `APOLO_CHAT=1`, leído en cada petición) y `APAGADO` (pasa
+  `faltas()` del gate de las pistas; la 1.ª versión decía «MCP» y el gate la rebotó por
+  mayúsculas enfáticas). `routers/core.py`: el endpoint responde 503 con ese texto ANTES de tomar
+  cupo o llamar al modelo; `GET /api/health` suma `chat`. Los fixtures de los tests del chat
+  (`mundo`, `api_real`) prenden `APOLO_CHAT=1`; `tests/test_chat_apagado.py` (7) fija el 503 sin
+  cupo, sin abrir turno ni llamar al modelo para cualquier valor distinto de `1` (aun con el cupo
+  lleno: apagado gana a 429), el `chat` de la salud y que se prende sin reiniciar.
+- UI: `chat/activo.ts` (una store de zustand, + test, 3) pregunta a la salud; la barra de paneles
+  del visor (`visor/BarraPaneles.tsx`) muestra el botón «Asistente IA» sólo prendido;
+  `dock/dockApi.ts::aplicarChat` agrega o cierra el panel de Dockview; el layout por defecto y
+  «Restablecer» lo incluyen sólo prendido. El panel se agrega `inactive` (no le roba la pestaña a
+  Propiedades ni saca al visor del maximizado). `aplicarChat()` va al final de `onReady`, DESPUÉS
+  del listener que guarda el layout (la 1.ª versión lo llamaba antes: el cierre no quedaba guardado
+  y se repetía en cada carga); el App lo vuelve a aplicar cuando la API responde.
+- El MCP no cambia. Para reactivar el chat: `$env:APOLO_CHAT = '1'` antes de levantar la API.
