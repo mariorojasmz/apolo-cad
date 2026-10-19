@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from apolo.brief import brief_pieza
 from apolo.kernel import bbox_payload, mesh_payload
+from apolo.library.requisitos import estado_ficha
 
 from .session import S
 
@@ -258,8 +259,8 @@ def scene_summary_dict() -> dict:
 
 def _open_briefing() -> dict:
     """Briefing compacto de APERTURA (V6.5b, frente D): resumen por grupo + variables (de
-    scene_summary_dict) + requisitos + notas del agente + salud (ok/suprimidos) + variantes de
-    diseño. Arrancar una sesión pasa de 4-5 llamadas a 1. Llamar bajo STATE_LOCK. Presupuesto:
+    scene_summary_dict) + requisitos + ficha del encargo + notas del agente + salud
+    (ok/suprimidos) + variantes de diseño. Arrancar una sesión pasa de 4-5 llamadas a 1. Llamar bajo STATE_LOCK. Presupuesto:
     <10 KB en un proyecto grande (sin mallas, resumen por grupo)."""
     raw = S.doc.check_integrity()
     issues = [i for i in raw if not i.startswith("degradado")]
@@ -267,6 +268,8 @@ def _open_briefing() -> dict:
     brief = {
         "resumen": scene_summary_dict(),  # proyecto/totales/grupos/sin_grupo/variables
         "requisitos": S.doc.requirements,
+        # la ficha del encargo: qué falta pedir y qué está asumido (revision-de-taller, D1)
+        "ficha": estado_ficha(S.doc.requirements),
         # V6.5c: el ÚNICO campo sin techo natural — últimas 20 y recorte DECLARADO
         "notas_agente": notas[-20:],
         "salud": {

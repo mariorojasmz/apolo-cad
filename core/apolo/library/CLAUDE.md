@@ -125,6 +125,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   [devlog § V5.10](../../../docs/devlog.md)
 - `Document.requirements` (metadato): `/api/checks`, la memoria y la cotización CAEN a ellos (un
   param explícito gana) → `engineering_check()` funciona sin argumentos.
+- Se validan en `requisitos.py` (`Document.set_requirements` delega; la CARGA no valida: un
+  manifest viejo abre tal cual). Ficha del encargo: lo ASUMIDO entra `{"valor", "asumido"}` y se
+  guarda PLANO + lista `asumidos`: todo lector de `requirements[k]` sigue viendo un escalar.
+  [revision-de-taller](../../../docs/plans/revision-de-taller.md) (D1)
 
 ## Validación: interferencias, lints y puerta de entrega
 

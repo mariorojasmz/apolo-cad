@@ -29,6 +29,9 @@ _REQ_LABELS = {
     "velocidad_m_s": "Velocidad objetivo",
     "inclinacion_deg": "Inclinación",
     "temperatura_c": "Temperatura ambiente",
+    "ancho_producto_mm": "Ancho máximo de producto",
+    "desarmable": "Desarmable",
+    "instalacion": "Instalación",
     "producto": "Producto",
     "entorno": "Entorno",
     "normativa": "Normativa",
@@ -37,7 +40,7 @@ _REQ_LABELS = {
 _REQ_UNITS = {
     "carga_kg": "kg", "largo_paquete_mm": "mm", "ancho_paquete_mm": "mm",
     "alto_paquete_mm": "mm", "velocidad_m_s": "m/s", "inclinacion_deg": "°",
-    "temperatura_c": "°C",
+    "temperatura_c": "°C", "ancho_producto_mm": "mm",
 }
 _ESTADO = {"ok": "OK", "aviso": "AVISO", "error": "ERROR"}
 
@@ -59,12 +62,23 @@ def _verdict(rules: list[dict]) -> str:
 
 
 def _req_rows(requirements: dict) -> list[str]:
+    """Una fila por requisito; lo que el ingeniero ASUMIÓ (lista `asumidos`, ficha del
+    encargo) lleva «(asumido)»: la memoria no presenta un supuesto como dato del cliente."""
+    asumidos = requirements.get("asumidos")
+    asumidos = set(asumidos) if isinstance(asumidos, list) else set()
     rows = []
     for key, value in requirements.items():
+        if key == "asumidos":
+            continue
         label = _REQ_LABELS.get(key, key)
         unit = _REQ_UNITS.get(key, "")
-        val = f"{value:g} {unit}".strip() if isinstance(value, (int, float)) else str(value)
-        rows.append(f"{label}:  {val}")
+        if isinstance(value, bool):
+            val = "sí" if value else "no"
+        elif isinstance(value, (int, float)):
+            val = f"{value:g} {unit}".strip()
+        else:
+            val = str(value)
+        rows.append(f"{label}:  {val}" + ("  (asumido)" if key in asumidos else ""))
     return rows
 
 

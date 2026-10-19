@@ -821,38 +821,16 @@ class Document:
         else:
             self.fea[fid] = dict(summary)
 
-    # claves de requisitos con convención NUMÉRICA (se coercionan a float > 0)
-    _REQ_NUMERIC = (
-        "carga_kg", "largo_paquete_mm", "ancho_paquete_mm", "alto_paquete_mm",
-        "velocidad_m_s", "inclinacion_deg", "temperatura_c", "tipo_cambio",
-    )
-
     def set_requirements(self, fields: dict) -> None:
-        """Define las BASES DE DISEÑO del proyecto (metadato, como motion): contra
-        qué se valida la máquina. Reemplaza el dict completo; `{}` las borra.
-        Claves de convención numéricas (carga_kg, velocidad_m_s, …) se validan
-        como float; el resto son texto libre (producto, entorno, normativa, notas)."""
-        if not isinstance(fields, dict):
-            raise DocumentError("Los requisitos deben ser un objeto {clave: valor}")
-        clean: dict = {}
-        for key, value in fields.items():
-            key = str(key).strip()
-            if not key or value is None or value == "":
-                continue
-            if key in self._REQ_NUMERIC:
-                try:
-                    num = float(value)
-                except (TypeError, ValueError) as exc:
-                    raise DocumentError(f"El requisito '{key}' debe ser numérico") from exc
-                # la inclinación puede ser 0 o negativa (declive); el resto, positivo
-                if key != "inclinacion_deg" and num <= 0:
-                    raise DocumentError(f"El requisito '{key}' debe ser > 0")
-                clean[key] = num
-            elif isinstance(value, (str, int, float, bool)):
-                clean[key] = value
-            else:
-                raise DocumentError(f"El requisito '{key}' debe ser escalar (texto o número)")
-        self.requirements = clean
+        """Define las BASES DE DISEÑO del proyecto (metadato, como motion): contra qué se
+        valida la máquina. Reemplaza el dict completo; `{}` las borra. Validación y ficha del
+        encargo (con su marca `asumido`): `library/requisitos.py`."""
+        from apolo.library.requisitos import normalizar_requisitos
+
+        try:
+            self.requirements = normalizar_requisitos(fields)
+        except ValueError as exc:
+            raise DocumentError(str(exc)) from exc
 
     def set_visibility(self, feature_id: str, visible: bool) -> None:
         if feature_id not in self.scene:

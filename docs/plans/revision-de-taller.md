@@ -165,3 +165,23 @@ Esos hallazgos se convierten en reglas en F3 (`docs/defectos.md`), no en esta fa
   que las dos corridas de F0 hallaron solas; no nombra ningún defecto de Mario. (c) La pregunta
   de herramienta trae las entrecaras ISO 4032 (M8 → 13, M10 → 16, M12 → 18) para que la medida
   tenga contra qué compararse.
+
+### F2 (2026-10-19): la ficha en los requisitos
+
+- `core/apolo/library/requisitos.py` (puro) valida los requisitos; `Document.set_requirements`
+  delega (sale de `document.py`: 1047 → 1025 líneas en el trinquete). Ficha: `carga_kg` y
+  `ancho_producto_mm` numéricos > 0, `desarmable` sí/no → bool, `instalacion` ∈ piso | anclado |
+  móvil (sin distinguir tildes ni mayúsculas), `entorno` texto.
+- `asumido`: entra como `{"carga_kg": {"valor": 15, "asumido": true}}` (o `asumidos` como lista
+  o como texto «a,b», que es como lo reenvía el panel Requisitos) y se guarda PLANO más la lista
+  `asumidos`. Así ningún lector de `requirements[k]` (reglas, FEA, memoria, cotización, video)
+  cambia; una marca sin su valor se descarta.
+- Briefing de `open_project`: `ficha` = `{faltan, asumidos}` y, si falta algo, `como` (la forma
+  de pedirlo o asumirlo). La memoria de cálculo rotula «(asumido)» y escribe `desarmable` como
+  sí/no.
+- La carga no valida: un manifest viejo (sin ficha, o con texto libre en esas claves) abre tal
+  cual (`tests/test_ficha_encargo.py`). Es metadato, nunca comando del log.
+- Pendiente fuera de alcance: el docstring de la tool `set_requirements` (`mcp_server.py`,
+  golden) no nombra todavía las claves nuevas ni la forma `asumido`; hoy el agente la aprende
+  del `como` del briefing. El panel Requisitos de la UI tampoco las muestra (las conserva al
+  guardar).

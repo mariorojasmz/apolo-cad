@@ -51,7 +51,7 @@ TOPE = 500
 EXCEPCIONES: dict[str, int] = {
     "core/apolo/commands/models.py": 1359,
     "core/apolo/commands/registry.py": 2185,
-    "core/apolo/doc/document.py": 1047,
+    "core/apolo/doc/document.py": 1025,
     "core/apolo/drawing/sheet.py": 893,
     "core/apolo/library/builders.py": 847,
     "core/apolo/library/engineering/report.py": 555,
