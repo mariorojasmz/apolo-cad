@@ -216,7 +216,7 @@ def plantilla_revisor() -> str:
         "fresco, cuando el modelador terminó y nadie más usa la API (un documento activo para "
         "todos). Se le pasa el prompt de abajo con `{proyecto}` (id) y `{ficha}` (la ficha "
         "del encargo, o «la de get_requirements») reemplazados. Lo que encuentra y se confirma "
-        "se corrige en el modelo y deja una regla (D4 del plan).",
+        "se corrige en el modelo y deja una regla en [defectos](defectos.md).",
         "",
         "## Prompt",
         "",

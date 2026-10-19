@@ -67,8 +67,8 @@ planificar, así que crea todos los planes necesarios».
     montado ENCIMA de otro cuando iría ENTRE ellos? Comparar los dos extremos.
 - **D4. Bucle defecto → regla**: cada hallazgo confirmado (del revisor o de Mario) se corrige en
   el modelo Y deja algo durable: una línea en `guidelines.py`, un lint con test, o una
-  observación en el plan que corresponda. Se anota en `docs/defectos.md` (tabla: fecha, máquina,
-  defecto, quién lo vio, regla que lo previene).
+  observación en el plan que corresponda. Se anota en [defectos](../defectos.md) (tabla: fecha,
+  máquina, defecto, quién lo vio, regla que lo previene).
 - **D5. Métrica**: defectos que Mario encuentra por máquina entregada. Meta: la segunda máquina
   con la mitad que la piloto (4).
 
@@ -185,3 +185,14 @@ Esos hallazgos se convierten en reglas en F3 (`docs/defectos.md`), no en esta fa
   golden) no nombra todavía las claves nuevas ni la forma `asumido`; hoy el agente la aprende
   del `como` del briefing. El panel Requisitos de la UI tampoco las muestra (las conserva al
   guardar).
+
+### F3 (2026-10-19): la tabla de defectos
+
+- [defectos](../defectos.md): los 4 de Mario de la piloto y, en filas aparte de «revisor F0», los
+  ALTOS de F0 (tensado de la cadena motriz, guardas abiertas, rodillo flotante) más el eje
+  motriz Ø12 (MEDIA en F0, con fila propia porque es de rotura). La columna «regla» dice qué lo
+  previene hoy (una pregunta de `design/revision.py`, o [acceso-de-herramienta](acceso-de-herramienta.md)
+  para las tuercas) y qué falta: siete de las ocho filas siguen sin chequeo automático
+  («pendiente»); sólo las tuercas tienen plan, el resto descansa en las preguntas del revisor o
+  en nada (rodillo flotante, eje de una máquina armada a mano).
+- La plantilla del revisor y la línea del CLAUDE.md raíz apuntan a la tabla.

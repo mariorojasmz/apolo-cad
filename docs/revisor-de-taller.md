@@ -2,7 +2,7 @@
 
 # Revisor de taller
 
-Antes de entregar una máquina, otro subagente la revisa con ojos de taller ([plan](plans/revision-de-taller.md)). Se lanza en segundo plano, con contexto fresco, cuando el modelador terminó y nadie más usa la API (un documento activo para todos). Se le pasa el prompt de abajo con `{proyecto}` (id) y `{ficha}` (la ficha del encargo, o «la de get_requirements») reemplazados. Lo que encuentra y se confirma se corrige en el modelo y deja una regla (D4 del plan).
+Antes de entregar una máquina, otro subagente la revisa con ojos de taller ([plan](plans/revision-de-taller.md)). Se lanza en segundo plano, con contexto fresco, cuando el modelador terminó y nadie más usa la API (un documento activo para todos). Se le pasa el prompt de abajo con `{proyecto}` (id) y `{ficha}` (la ficha del encargo, o «la de get_requirements») reemplazados. Lo que encuentra y se confirma se corrige en el modelo y deja una regla en [defectos](defectos.md).
 
 ## Prompt
 

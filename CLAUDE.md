@@ -175,7 +175,7 @@ máquina a la vez**: la API tiene UN documento activo (`api/session.py`, `S.doc`
 **Antes de entregar una máquina la revisa OTRO subagente** de sólo lectura (segundo plano,
 contexto fresco, a ciegas, cuando el modelador ya terminó) con el prompt de
 [revisor-de-taller](docs/revisor-de-taller.md), que se genera desde `design/revision.py`; lo
-confirmado se corrige y deja regla ([plan](docs/plans/revision-de-taller.md) D4).
+confirmado se corrige y deja regla en [defectos](docs/defectos.md).
 
 ## Sesiones concurrentes: worktree para escribir código
 
