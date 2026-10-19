@@ -172,6 +172,11 @@ modelar dentro de una sesión larga relee todo su contexto en cada llamada (la p
 máquina a la vez**: la API tiene UN documento activo (`api/session.py`, `S.doc`) y
 `open_project` lo cambia para todos; dos agentes a la vez se pisan.
 
+**Antes de entregar una máquina la revisa OTRO subagente** de sólo lectura (segundo plano,
+contexto fresco, a ciegas, cuando el modelador ya terminó) con el prompt de
+[revisor-de-taller](docs/revisor-de-taller.md), que se genera desde `design/revision.py`; lo
+confirmado se corrige y deja regla ([plan](docs/plans/revision-de-taller.md) D4).
+
 ## Sesiones concurrentes: worktree para escribir código
 
 Varias sesiones trabajan el repo a la vez; sin aislar comparten árbol e index (renames a

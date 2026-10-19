@@ -147,3 +147,21 @@ revisor nuevo, igual de ciego. El brief de B agregó «revisa una por una las pi
   tablero eléctrico (lo cubre [V8](V8-maquina-viva.md)).
 
 Esos hallazgos se convierten en reglas en F3 (`docs/defectos.md`), no en esta fase.
+
+### F1 (2026-10-19): las preguntas como módulo y el prompt generado
+
+- `core/apolo/design/revision.py` (puro, fuente única): `PASADA_ESTRUCTURAL` (contrafactual +
+  marco de taller), `PREGUNTAS_POR_PIEZA` (función, material, perfil de mercado, montaje,
+  herramienta, guardas, ficha), cada una con su «cómo» por tools; `CAMPOS_HALLAZGO` y
+  `SEVERIDADES` de D2; `TOOLS_LECTURA` + `open_project` como única llamada que cambia algo.
+- `docs/revisor-de-taller.md` es el prompt autocontenido, GENERADO por
+  `scripts/plantilla_revisor.py`; `tests/test_revision_taller.py` exige que coincida con el
+  módulo, que toda tool permitida esté marcada como lectura en `tools/catalogo.py` y que el
+  «cómo» no nombre una tool que mute.
+- Una línea en el CLAUDE.md raíz (§ Planes) dice cuándo y cómo correrlo.
+- Decisiones propias: (a) `get_agent_notes` queda fuera y el prompt manda ignorar
+  `notas_agente` del briefing: es el razonamiento del modelador (D2). (b) La pregunta de montaje
+  suma «¿lo que se estira o se desgasta se puede tensar?»: el tensado de la cadena fue el ALTA
+  que las dos corridas de F0 hallaron solas; no nombra ningún defecto de Mario. (c) La pregunta
+  de herramienta trae las entrecaras ISO 4032 (M8 → 13, M10 → 16, M12 → 18) para que la medida
+  tenga contra qué compararse.
