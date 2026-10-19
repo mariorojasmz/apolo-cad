@@ -83,3 +83,27 @@ asiento sobre el acuerdo del perfil».
   reproduce la `d` publicada (UPN ±1 mm, IPE exacta); UPN-100 → 17.87 mm (los ~18 de la piloto).
 - Sin bump de `GEOM_CACHE_EPOCH`: el builder no lee las claves nuevas (sólo `param_keys`) y la
   firma de `insert_component` no incluye las specs; un test fija el volumen prismático.
+
+### F2 (2026-10-19)
+
+- `library/lint_asiento.py` (módulo propio: `lints.py` queda en lo suyo) y una línea en
+  `predelivery_lints` → regla «pre-entrega · asiento fuera de la zona plana», `aviso` →
+  AMARILLO en `delivery_check` y visible en `/api/checks`. El aviso nombra pieza y ref, Ø del
+  taladro, distancia del eje al canto del ala (o al talón del ángulo) y la mínima (o máxima).
+- **Desvío de la letra**: los taladros se leen de la GEOMETRÍA (caras cilíndricas del perfil),
+  no de los comandos `drill_hole`. `join_bolted` taladra sin `drill_hole` y `drill_hole` por
+  `cara` no trae `position`: leyendo comandos ambos quedaban ciegos. Las `=expr` ya llegan
+  resueltas por el regenerate.
+- Marco del perfil sin la pose del comando (un taladro borra `Feature.matrix`): h/b salen del
+  bbox por coincidencia ÚNICA de cotas; en el ángulo, el largo es el eje sin desfase del
+  centroide (un clip de ANG-50X5 de 50 mm se lee bien) y el talón, el lado hacia el que se
+  desplaza. Un perfil girado en ángulo no recto o con cotas ambiguas (UPN-100 de 100 mm de
+  largo) se SALTA: no se adivina.
+- Asiento = el mayor entre el agujero (o su caladrillo) y la tornillería/arandela COAXIAL que
+  toca el perfil (radio = media cota menor ⟂ al eje: entrecaras, Ø de arandela).
+- Decisión: roscados y ciegos TAMBIÉN avisan (el plan no los exime; lo que asienta sobre ellos
+  pisa el mismo acuerdo). Taladros por el ala de U/I: fuera de alcance (este lint es del alma).
+- `tests/test_lint_asiento.py`: UPN-100 Ø13.5 a 20 mm → aviso «mínimo 24.6»; a 30 → nada;
+  canto inferior, perfil girado, roscado, ciego, tuerca coaxial (26 mm: sin tuerca pasa, con
+  tuerca M12 → mínimo 27.4), herraje lejano, IPE, ángulo (talón y punta, y clip corto), tubo
+  cerrado y placa → nunca, y AMARILLO en `delivery_report`.

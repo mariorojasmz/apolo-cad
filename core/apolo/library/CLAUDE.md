@@ -130,6 +130,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   unión declarada» (excluye guías, superficies y herraje). Reconoce tornillería a medida por
   NOMBRE (`_is_bolt`). Todo matcher por nombre nuevo lleva guarda de anclaje/plurales y un test
   con el nombre REAL del modelo.
+- Perfiles abiertos: `r1`/`r2`/`pendiente_ala` son datos de NORMA que el builder no lee (la
+  geometría sigue prismática → sin bump); `acuerdos.py` deriva la zona plana y el lint
+  «asiento fuera de la zona plana» (`lint_asiento.py`) lee los taladros de la GEOMETRÍA, no de
+  los comandos (`join_bolted` corta sin `drill_hole`). [plan](../../../docs/plans/perfiles-con-acuerdo.md)
 - `delivery.py` es un agregador PURO → semáforo VERDE/AMARILLO/ROJO: interferencias en diseño +
   sujeción DECLARADA (soundness sin autodetect) + lints + integridad/suprimidos + colisión EN POSE
   en los fotogramas de REPOSO de los estudios (extremos + dwells; el tránsito lo valida

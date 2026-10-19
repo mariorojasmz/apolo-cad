@@ -176,12 +176,14 @@ def _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog) -> list[
 
 def predelivery_lints(scene, commands, fasteners, grounds, joints, mates, *,
                       catalog=None, resolve=None) -> list[dict]:
-    """Lints pre-entrega: barrenos sin perno + piezas sin grupo ni unión. Devuelve una
+    """Lints pre-entrega: barrenos sin perno + piezas sin grupo ni unión + asiento fuera de
+    la zona plana de un perfil abierto (`lint_asiento.py`). Devuelve una
     lista de avisos (formato `_check`); vacía si el modelo está sano. `resolve(params)`
     (inyectado por la API) sustituye las "=expresión" de los comandos por su valor —
     los modelos paramétricos posicionan los barrenos con expresiones; sin resolver
     (default identidad) un barreno parametrizado simplemente se salta."""
     from .catalog import CATALOG
+    from .lint_asiento import asiento_zona_plana_lint
 
     catalog = catalog if catalog is not None else CATALOG
     resolve = resolve or (lambda p: p)
@@ -190,4 +192,5 @@ def predelivery_lints(scene, commands, fasteners, grounds, joints, mates, *,
     out: list[dict] = []
     out += _hole_bolt_lint(scene, commands or [], catalog, resolve)
     out += _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog)
+    out += asiento_zona_plana_lint(scene, catalog)
     return out
