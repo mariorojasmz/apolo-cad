@@ -70,6 +70,8 @@ Origen de todos: revisión de [V6.5](plans/V6.5-mcp-a-escala.md) y de
   Python con un skip barato: reestructurar a focus × resto cuando duela a miles de piezas.
 - **V6.5 (6)** no hay índice espacial: `near` e interferencia son barridos O(n) sobre AABBs.
   Medir antes de construir un R-tree.
+- **`undo` por MCP devuelve la escena completa**: caro en contexto en una máquina grande (visto en
+  [V8.2](plans/V8.2-maquina-se-mueve.md) F3); que devuelva el brief como las mutaciones.
 - **V6.5e — límites declarados, no deuda**: los jobs no se cancelan (no se puede interrumpir OCCT
   a media regeneración de forma segura) ni se persisten (son recibos, no datos), y no hay
   porcentaje de progreso (el regenerate no tiene uno honesto que medir).
@@ -138,6 +140,14 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
   usa cascos).
 - Export SDF.
 - Simulación en tiempo real.
+- **`simulate` con una banda hecha a mano** (origen: [V8.2](plans/V8.2-maquina-se-mueve.md)
+  § Bitácora F3): sin `bandas` el lazo queda FUERA y el aviso pide `arrastrar`, que no la cura
+  (debe nombrar `bandas` + la junta del tambor); y con motor y productos pero ninguna banda las
+  cajas quedan quietas sin aviso.
+- **`simulate`: radio de la banda a la cara superior** (59 mm en la 72), no a la línea de paso
+  (58 mm): la velocidad sale 1,7 % alta. Decidir cuál es la referencia física.
+- **`simulate`: una prismática sin motor sale en `juntas_en_limite` a t = 0** (el tensor): ruido
+  en el resumen; reportar sólo las que llegan al límite durante la marcha.
 
 ## Ingeniería y negocio
 
