@@ -47,5 +47,8 @@ viven en [core/apolo](../CLAUDE.md); lo transversal (locks, log, flujo de trabaj
 
 - Grafo juntas ∪ mates ∪ fasteners con semilla `grounds`; `soundness_report` dice qué flota.
 - `detect_structure` es el grafo de soporte DIRIGIDO (auto-declara ground/fasten); también ordena
-  el manual de ensamblaje ([drawing](../drawing/CLAUDE.md)).
+  el manual de ensamblaje ([drawing](../drawing/CLAUDE.md)). Nunca suelda lo que gira
+  (`piezas_que_giran`: catálogo de transmisión/rodamientos/rodillos/tambores o hija de junta
+  móvil, si recibe `joints`): lo baja a `contacto` + `a_revisar`.
+  [uniones-en-lote](../../../docs/plans/uniones-en-lote.md)
 - La puerta de entrega y las interferencias: [library](../library/CLAUDE.md).

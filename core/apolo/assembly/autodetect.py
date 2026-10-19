@@ -76,7 +76,40 @@ def detect_connections(scene, floor_tol: float = 5.0, touch_tol: float = 1.0) ->
     return {"floor_z": round(floor_z, 1), "grounds": grounds, "fasteners": fasteners}
 
 
-def detect_structure(scene, floor_tol: float = 5.0, touch_tol: float = 2.0) -> dict:
+# Categorías de catálogo de lo que GIRA (plan uniones-en-lote, D2): cadenas, piñones y poleas
+# (`transmision`), rodamientos, rodillos y tambores. Una soldadura a eso es un tipo FALSO.
+CATEGORIAS_QUE_GIRAN = frozenset({"transmision", "rodamientos", "rodillos", "tambores"})
+_JUNTAS_MOVILES = frozenset({"giratoria", "continua", "prismatica"})
+
+
+def piezas_que_giran(scene, joints: dict | None = None, catalog: dict | None = None) -> dict[str, str]:
+    """{id: motivo} de las piezas que giran o se mueven: hijas de una junta móvil (y lo que
+    cuelga de ellas por juntas `fija`) y componentes de catálogo de `CATEGORIAS_QUE_GIRAN`.
+    `catalog` se inyecta en los tests; por defecto, el catálogo del vertical."""
+    if catalog is None:
+        from apolo.library.catalog import CATALOG as catalog
+    out: dict[str, str] = {}
+    for fid, feat in scene.items():
+        comp = catalog.get(getattr(feat, "component", None) or "")
+        if comp is not None and comp.category in CATEGORIAS_QUE_GIRAN:
+            out[fid] = f"es {comp.category} de catálogo ({comp.ref})"
+    juntas = list((joints or {}).values())
+    for j in juntas:
+        if j.get("type") in _JUNTAS_MOVILES and j.get("child") in scene:
+            out.setdefault(j["child"], f"es hija de la junta móvil '{j.get('name', '')}'")
+    cambio = True
+    while cambio:  # una junta `fija` arrastra con su padre móvil (cuerpo rígido)
+        cambio = False
+        for j in juntas:
+            hijo = j.get("child")
+            if j.get("type") == "fija" and j.get("parent") in out and hijo in scene and hijo not in out:
+                out[hijo] = f"va fija a '{j['parent']}', que se mueve"
+                cambio = True
+    return out
+
+
+def detect_structure(scene, floor_tol: float = 5.0, touch_tol: float = 2.0, *,
+                     joints: dict | None = None, catalog: dict | None = None) -> dict:
     """Auto-declarado INTELIGENTE de la estructura real (para la prueba de gravedad EXACTA).
 
     A diferencia de `detect_connections` (que propone TODO contacto AABB), aquí se construye
@@ -93,6 +126,11 @@ def detect_structure(scene, floor_tol: float = 5.0, touch_tol: float = 2.0) -> d
     Luego se calcula qué piezas quedan SUJETAS (camino ascendente desde el piso) y se emiten
     `grounds` (piezas en el piso) + `fasteners` SOLO entre piezas sujetas. Lo no sujeto se
     deja sin declarar (caerá). No muta nada; devuelve datos listos para crear comandos.
+
+    Lo que GIRA no se suelda (D2 de `uniones-en-lote`): si una de las dos piezas de un
+    `mismo_nivel` gira (`piezas_que_giran`: catálogo de transmisión/rodamientos/rodillos/
+    tambores, o hija de una junta móvil — pasa `joints`), la unión se propone como
+    `contacto` con `a_revisar: True` y el motivo: el agente decide si es contacto o perno.
     """
     boxes: dict[str, tuple] = {}
     names: dict[str, str] = {}
@@ -157,12 +195,19 @@ def detect_structure(scene, floor_tol: float = 5.0, touch_tol: float = 2.0) -> d
         for fid in seed
     ]
     # declarar SOLO uniones entre piezas sujetas (el camino de carga real); lo colgante se omite
+    giran = piezas_que_giran(scene, joints, catalog)
     fasteners = []
     for lo, hi, kind, direction in candidates:
         if lo in grounded and hi in grounded:
-            fasteners.append({
+            f = {
                 "a": lo, "b": hi, "kind": kind, "direction": direction,
                 "reason": f"'{names[lo]}' {'soporta' if direction == 'soporte' else '↔'} '{names[hi]}'",
-            })
+            }
+            gira = next((x for x in (lo, hi) if x in giran), None)
+            if kind == "soldadura" and gira is not None:
+                f["kind"] = "contacto"
+                f["a_revisar"] = True
+                f["reason"] += f"; no se suelda: '{names[gira]}' {giran[gira]} (¿contacto o perno?)"
+            fasteners.append(f)
 
     return {"floor_z": round(floor_z, 1), "grounds": grounds, "fasteners": fasteners}
