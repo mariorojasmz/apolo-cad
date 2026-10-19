@@ -16,6 +16,7 @@ import os
 
 import yaml
 
+from .acuerdos import validar_acuerdo
 from .builders import BUILDERS as _BUILDERS_BASE
 from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
 from .builders_transmision import ANCLAS as _ANCLAS_TRANSMISION
@@ -74,6 +75,7 @@ def _component_from_item(item: dict, category: str):
     anclas_fn = ANCLAS.get(builder_name)
 
     specs = item.get("specs", {})
+    validar_acuerdo(specs, ref)  # r1/r2/pendiente_ala de norma (plan perfiles-con-acuerdo D1)
     if "weight" in item and item["weight"] is not None:
         weight = float(item["weight"])
     elif "weight_formula" in item:

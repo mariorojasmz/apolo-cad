@@ -66,3 +66,20 @@ asiento sobre el acuerdo del perfil».
 - Datos de norma mal copiados → test que compara 3 variantes por familia contra la tabla citada.
 
 ## Bitácora
+
+### F1 (2026-10-19)
+
+- `13_perfiles_abiertos.yaml`: `r1`/`r2` en las 22 variantes (L: EN 10056-1, r2 = r1/2; UPN:
+  DIN 1026-1; IPE: EN 10365, un solo radio → sólo `r1`) y `pendiente_ala: 0.08` en el
+  `specs_common` del UPN. Fuentes cotejadas: tabla EN 10056-1 de roymech (los 8 ángulos) y el
+  catálogo DIN 1026-1 de Kocaer (los 7 UPN con su `d`); IPE-80 y 120 cotejados en catálogos
+  de fabricante, el resto de IPE de las tablas de memoria y anclados por `d = h − 2tf − 2r`.
+- `library/acuerdos.py` (puro): `inicio_zona_plana_alma` = tf + p·(b/2 − tw) + r1·tan((90° −
+  atan p)/2) (tf medido a b/2, DIN 1026-1; con p = 0 es tf + r1) y `zona_plana_ala_angulo` =
+  [t + r1, leg − r2]. La fórmula del plan («h − 2·(tf + pendiente + r1)») es su aproximación.
+  `validar_acuerdo` la llama el loader: r1/r2/pendiente numéricos ≥ 0, pendiente como
+  fracción, r2 sin r1 rechazado y zona plana que exista.
+- `tests/test_perfiles_acuerdo_datos.py`: las 22 variantes contra la tabla citada; h − 2·s
+  reproduce la `d` publicada (UPN ±1 mm, IPE exacta); UPN-100 → 17.87 mm (los ~18 de la piloto).
+- Sin bump de `GEOM_CACHE_EPOCH`: el builder no lee las claves nuevas (sólo `param_keys`) y la
+  firma de `insert_component` no incluye las specs; un test fija el volumen prismático.
