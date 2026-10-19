@@ -43,6 +43,39 @@ def _nombres(fids, nombre_de) -> list[str]:
     return out
 
 
+def _acceso(rep: dict, bloqueantes, avisos, no_aplica, ok, nombre_de) -> None:
+    """Sección «acceso de herramienta» (plan acceso-de-herramienta, D3)."""
+
+    def estorban(entradas) -> str:
+        nombres = sorted({b for e in entradas for b in e.get("bloquean", [])})
+        return ", ".join(nombres[:5]) + (f" … +{len(nombres) - 5}" if len(nombres) > 5 else "")
+
+    sin, boca = rep.get("sin_herramienta") or [], rep.get("solo_boca") or []
+    if sin:
+        p = sin[0]
+        bloqueantes.append({
+            "regla": "acceso de herramienta · la llave no entra",
+            "piezas": _nombres(list(dict.fromkeys(e["id"] for e in sin)), nombre_de),
+            "detalle": f"{len(sin)} tuerca(s)/cabeza(s) sin copa, anillo ni boca que entre y "
+                       f"gire (la primera: {p.get('nombre')}, llave {p.get('llave_mm'):g} mm); "
+                       f"estorban: {estorban(sin)}. No se puede armar ni desarmar: da holgura "
+                       "a la herramienta (cambia el perfil, mueve la pieza o voltea el perno).",
+        })
+    if boca:
+        avisos.append({
+            "regla": "acceso de herramienta · sólo llave de boca",
+            "piezas": _nombres(list(dict.fromkeys(e["id"] for e in boca)), nombre_de),
+            "detalle": f"{len(boca)} tuerca(s)/cabeza(s) admiten sólo llave de boca (ni copa ni "
+                       f"anillo): menos par y riesgo de redondear el hexágono; estorban: "
+                       f"{estorban(boca)}.",
+        })
+    if rep.get("no_evaluados"):
+        no_aplica.append(f"acceso de herramienta: {len(rep['no_evaluados'])} fijador(es) sin "
+                         "hexágono reconocible o fuera de tabla (no evaluados)")
+    if rep.get("evaluados") and not sin and not boca:
+        ok.append(f"acceso de herramienta ({rep['evaluados']} fijador(es))")
+
+
 def delivery_report(
     *,
     n_solidos: int,
@@ -57,6 +90,7 @@ def delivery_report(
     gravedad: dict | None = None,
     nombre_de=None,
     electrico: list[dict] | None = None,
+    acceso_herramienta: dict | None = None,
 ) -> dict:
     """Agrega los chequeos de cierre en un SEMÁFORO. Entradas (todas computadas por
     el llamador — aquí no corre ningún motor):
@@ -80,6 +114,9 @@ def delivery_report(
       - `electrico`: las reglas del ERC (`library/electrico/erc.py`) si el documento tiene
         carril eléctrico; None = sin carril: la puerta da EXACTAMENTE lo de siempre (V8.1 D11).
         Un error del ERC bloquea (ROJO); un aviso, AMARILLO.
+      - `acceso_herramienta`: `acceso_herramienta.tool_access_report` si hay tornillería de
+        llave; None = no hay: la puerta da EXACTAMENTE lo de siempre. Ninguna herramienta libre
+        bloquea (no se puede armar); sólo la boca libre, aviso (plan acceso-de-herramienta D3).
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
     """
     nombre_de = nombre_de or (lambda fid: str(fid))
@@ -238,6 +275,10 @@ def delivery_report(
             (bloqueantes if r["estado"] == "error" else avisos).append(entrada)
         if not malas:
             ok.append("eléctrico (ERC)")
+
+    # 8 · acceso de herramienta (sólo con tornillería de llave) -------------------------
+    if acceso_herramienta is not None:
+        _acceso(acceso_herramienta, bloqueantes, avisos, no_aplica, ok, nombre_de)
 
     veredicto = ROJO if bloqueantes else (AMARILLO if avisos else VERDE)
     return {

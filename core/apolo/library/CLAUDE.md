@@ -153,5 +153,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   ROJO (no es nodo estructural).
 - Exclusiones UNIFICADAS diseño + pose: par con fasten declarado = contacto firmado; tornillería
   a medida = asentada. Sin unificar, un solape declarado reaparecía como «colisión nueva» en pose.
+- **¿Entra la llave?** (`acceso_herramienta.py`): la tuerca/cabeza se reconoce por GEOMETRÍA
+  (`fijadores_geom.py`: 3 pares de caras a 60°), no por catálogo; sus fantasmas (copa, anillo,
+  boca y mango que barren ±15°, Allen: `fantasmas_herramienta.py`, medidas en `herramientas.py`)
+  se cruzan con los vecinos. La pieza de asiento NO se excluye entera (el ala que estorba suele
+  ser de ella): los fantasmas arrancan a 1 mm del asiento. Ninguna libre = ROJO en la puerta,
+  sólo boca = aviso, sin hexágono = no evaluado. [plan](../../../docs/plans/acceso-de-herramienta.md)
 - `MIN_SOLIDOS_SUJECION` también dispara la alarma ambiental `aviso_estructura` de toda mutación
   ([api](../api/CLAUDE.md)). [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)

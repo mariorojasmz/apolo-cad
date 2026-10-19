@@ -1,7 +1,8 @@
 """Insumos de la PUERTA DE ENTREGA (V6.9) que salen de un documento: interferencias en
-DISEÑO con las exclusiones de lo DECLARADO, sujeción declarada, lints, integridad y poses de
-reposo — todo lo que `library.delivery.delivery_report` agrega en el semáforo salvo la
-gravedad (opt-in, la corre la API con su propio lock). El llamador sostiene STATE_LOCK.
+DISEÑO con las exclusiones de lo DECLARADO, sujeción declarada, lints, integridad, poses de
+reposo y acceso de herramienta — todo lo que `library.delivery.delivery_report` agrega en el
+semáforo salvo la gravedad (opt-in, la corre la API con su propio lock). El llamador sostiene
+STATE_LOCK.
 Reglas: `services/CLAUDE.md` § Puerta de entrega; el agregador, en `library/CLAUDE.md`."""
 
 from __future__ import annotations
@@ -51,8 +52,14 @@ def delivery_inputs(doc, *, expand) -> dict:
     from .electrico import reglas_erc
 
     erc = reglas_erc(doc)  # V8.1 D11: sólo con carril; sin él, los kwargs de siempre
+    from apolo.library.acceso_herramienta import tool_access_report
+
+    # ¿entra la llave? sólo con tornillería de llave; sin ella, los kwargs de siempre
+    # (plan acceso-de-herramienta D3/D4)
+    acceso = tool_access_report(doc.scene, catalog=CATALOG)
     return dict(
         **({"electrico": erc} if erc is not None else {}),
+        **({"acceso_herramienta": acceso} if acceso is not None else {}),
         n_solidos=len(doc.scene),
         interferencias=rep_inter["interferencias"],
         interferencias_truncado=bool(rep_inter.get("truncado")),
