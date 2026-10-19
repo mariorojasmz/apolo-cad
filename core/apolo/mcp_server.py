@@ -20,7 +20,7 @@ from mcp.server.fastmcp import Image
 
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
-from apolo.tools import destino, fastmcp_limpio, mcp_electrico, simulacion
+from apolo.tools import cirugia, destino, fastmcp_limpio, mcp_electrico, simulacion
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -98,8 +98,8 @@ def _job_receipt(job_id: str, estado: str = "corriendo") -> str:
 
 
 def _job_result(payload: dict, detail: str) -> dict:
-    """Brief del resultado de un job = el MISMO retorno que la vía síncrona."""
-    out = _scene_brief(payload, detail)
+    """Brief de un job = el de la vía síncrona; sin `features` (ya liviano) pasa tal cual."""
+    out = _scene_brief(payload, detail) if "features" in payload else dict(payload)
     if "contrato" in payload:
         out["contrato"] = payload["contrato"]
     return out
@@ -279,9 +279,7 @@ def run_batch(actions: list[dict], detail: str = "diff", expect: list[dict] | No
     El lote se ejecuta como JOB: si tarda más que el presupuesto de espera, en vez de un error
     de timeout recibes un RECIBO {"job": id} y lo recoges con get_job(id) — el resultado nunca
     se pierde, solo se difiere. NO reenvíes el lote al recibir un recibo (lo duplicarías)."""
-    body: dict = {"actions": actions}
-    if expect:
-        body["expect"] = expect
+    body: dict = {"actions": actions, **({"expect": expect} if expect else {})}
     return _mutacion("POST", "/api/commands/batch", body, detail)
 
 
@@ -323,12 +321,12 @@ def edit_batch(
 @mcp.tool()
 def get_job(job_id: str, detail: str = "diff", wait_s: float = 20) -> str:
     """Recoge el resultado de una mutación que devolvió un RECIBO {"job": id} (run_command,
-    edit_command, set_variable, run_batch o edit_batch tardaron más que la espera). Espera hasta
-    `wait_s` segundos (long-poll: responde en cuanto el job termina) y devuelve lo MISMO que
-    habría devuelto la tool (sólidos + `contrato`), o `{"estado": "corriendo"}` si aún no acaba
-    — vuelve a llamar. El resultado queda CACHEADO: re-preguntar es SIEMPRE seguro (no
-    re-ejecuta nada). Si falló (p. ej. contrato incumplido) da el mismo error que daría en
-    directo, y el documento quedó intacto.
+    edit_command, set_variable, run_batch, edit_batch o remove_commands tardaron más que la
+    espera). Espera hasta `wait_s` segundos (long-poll: responde en cuanto el job termina) y
+    devuelve lo MISMO que habría devuelto la tool (sólidos + `contrato`), o
+    `{"estado": "corriendo"}` si aún no acaba — vuelve a llamar. El resultado queda CACHEADO:
+    re-preguntar es SIEMPRE seguro (no re-ejecuta nada). Si falló (p. ej. contrato incumplido)
+    da el mismo error que daría en directo, y el documento quedó intacto.
     Job desconocido (404) = el servidor se reinició o el job ya se desalojó: la mutación PUDO
     haber aplicado (el autosave lo habría guardado) → verifícalo con get_scene antes de nada.
     NUNCA la reintentes a ciegas: la duplicarías."""
@@ -337,9 +335,8 @@ def get_job(job_id: str, detail: str = "diff", wait_s: float = 20) -> str:
         raise _reject(job.get("http_status") or 400, job.get("error"))
     if job["estado"] != "ok":
         return _job_receipt(job_id, job["estado"])
-    out = _job_result(job.get("resultado") or {}, detail)
-    out["job"] = job_id
-    return json.dumps(out, ensure_ascii=False)
+    return json.dumps({**_job_result(job.get("resultado") or {}, detail), "job": job_id},
+                      ensure_ascii=False)
 
 
 @mcp.tool()
@@ -1407,10 +1404,12 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
     return json.dumps(resumen, ensure_ascii=False)
 
 
-# Tools fuera de este archivo (trinquete de tamaño): tablero eléctrico (V8.1 D8) y `simulate`
-# (V8.2). Van a ESTE `mcp` (con `-m` es `__main__`) y usan el `_api` de este módulo al llamar.
+# Tools fuera de este archivo (trinquete): tablero eléctrico (V8.1 D8), `simulate` (V8.2) y
+# `remove_commands` (cirugia-liviana). Van a ESTE `mcp` (`__main__` con `-m`) y, al llamar, al
+# `_api`/`_mutacion` de este módulo.
 for _registrar in (mcp_electrico.registrar, simulacion.registrar):
     _registrar(mcp, lambda *a, **k: _api(*a, **k))
+cirugia.registrar(mcp, lambda *a, **k: _mutacion(*a, **k))
 
 
 def main() -> None:

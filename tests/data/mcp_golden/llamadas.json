@@ -1526,6 +1526,244 @@
   ]
  },
  {
+  "caso": "borrar comandos",
+  "tool": "remove_commands",
+  "args": {
+   "ids": [
+    "c1"
+   ],
+   "con_dependientes": true
+  },
+  "salida": [
+   {
+    "texto": "{\"comandos_borrados\": [\"c1\", \"c7\"], \"piezas_borradas\": [{\"id\": \"c1\", \"nombre\": \"Base\"}], \"uniones_borradas\": [{\"nombre\": \"f1\", \"tipo\": \"fijador\"}], \"total_solidos\": 2, \"affected_command_ids\": [\"c9\"], \"dependientes\": [{\"id\": \"c7\", \"tipo\": \"fasten\", \"nombre\": \"f1\"}], \"grupos_editados\": [{\"grupo\": \"Estructura\", \"quitados\": [\"c1\"]}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/remove",
+    "query": [
+     [
+      "detail",
+      "diff"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "ids": [
+      "c1"
+     ],
+     "con_dependientes": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jr",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "borrar comandos full",
+  "tool": "remove_commands",
+  "args": {
+   "ids": [
+    "c1"
+   ],
+   "detail": "full"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/remove",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "ids": [
+      "c1"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jrf",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "borrar → recibo",
+  "tool": "remove_commands",
+  "args": {
+   "ids": [
+    "c1"
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"jr\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jr') para recoger el resultado\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/remove",
+    "query": [
+     [
+      "detail",
+      "diff"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "ids": [
+      "c1"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "borrar → job en error",
+  "tool": "remove_commands",
+  "args": {
+   "ids": [
+    "c1"
+   ]
+  },
+  "error": "Error executing tool remove_commands: Apolo rechazó la operación (400): El fijador 'f1' referencia el sólido 'c1', que ya no existe: elimina primero el fijador",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/remove",
+    "query": [
+     [
+      "detail",
+      "diff"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "ids": [
+      "c1"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jr",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "job ok",
   "tool": "get_job",
   "args": {
@@ -1547,6 +1785,41 @@
      [
       "wait_s",
       "5.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job de un borrado",
+  "tool": "get_job",
+  "args": {
+   "job_id": "jr"
+  },
+  "salida": [
+   {
+    "texto": "{\"comandos_borrados\": [\"c1\", \"c7\"], \"piezas_borradas\": [{\"id\": \"c1\", \"nombre\": \"Base\"}], \"uniones_borradas\": [{\"nombre\": \"f1\", \"tipo\": \"fijador\"}], \"total_solidos\": 2, \"affected_command_ids\": [\"c9\"], \"dependientes\": [{\"id\": \"c7\", \"tipo\": \"fasten\", \"nombre\": \"f1\"}], \"grupos_editados\": [{\"grupo\": \"Estructura\", \"quitados\": [\"c1\"]}], \"job\": \"jr\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jr",
+    "query": [
+     [
+      "wait_s",
+      "20"
      ]
     ],
     "cuerpo": null,

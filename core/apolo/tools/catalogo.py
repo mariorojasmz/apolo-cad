@@ -1,7 +1,7 @@
 """Qué tools del MCP usa el chat de la app y cómo (plan chat-cliente-igual, D5).
 
 Las `@mcp.tool` de `mcp_server.py` (y de los módulos que registra: `mcp_electrico.py`,
-`simulacion.py`) son LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada
+`simulacion.py`, `cirugia.py`) son LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada
 tool está en UNO de los dos lados, y `tests/test_catalogo_chat.py` falla si una tool nueva no
 está en ninguno:
 
@@ -64,6 +64,7 @@ CHAT: dict[str, EnChat] = {
     "run_batch": _muta("Ejecutando un lote de comandos"),
     "edit_command": _muta("Editando un comando"),
     "edit_batch": _muta("Editando varios comandos"),
+    "remove_commands": _muta("Eliminando piezas"),
     "undo": _muta("Deshaciendo"),
     "redo": _muta("Rehaciendo"),
     "set_variable": _muta("Cambiando una variable"),

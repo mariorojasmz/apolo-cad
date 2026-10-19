@@ -598,7 +598,7 @@
  },
  {
   "name": "get_job",
-  "description": "Recoge el resultado de una mutación que devolvió un RECIBO {\"job\": id} (run_command,\nedit_command, set_variable, run_batch o edit_batch tardaron más que la espera). Espera hasta\n`wait_s` segundos (long-poll: responde en cuanto el job termina) y devuelve lo MISMO que\nhabría devuelto la tool (sólidos + `contrato`), o `{\"estado\": \"corriendo\"}` si aún no acaba\n— vuelve a llamar. El resultado queda CACHEADO: re-preguntar es SIEMPRE seguro (no\nre-ejecuta nada). Si falló (p. ej. contrato incumplido) da el mismo error que daría en\ndirecto, y el documento quedó intacto.\nJob desconocido (404) = el servidor se reinició o el job ya se desalojó: la mutación PUDO\nhaber aplicado (el autosave lo habría guardado) → verifícalo con get_scene antes de nada.\nNUNCA la reintentes a ciegas: la duplicarías.",
+  "description": "Recoge el resultado de una mutación que devolvió un RECIBO {\"job\": id} (run_command,\nedit_command, set_variable, run_batch, edit_batch o remove_commands tardaron más que la\nespera). Espera hasta `wait_s` segundos (long-poll: responde en cuanto el job termina) y\ndevuelve lo MISMO que habría devuelto la tool (sólidos + `contrato`), o\n`{\"estado\": \"corriendo\"}` si aún no acaba — vuelve a llamar. El resultado queda CACHEADO:\nre-preguntar es SIEMPRE seguro (no re-ejecuta nada). Si falló (p. ej. contrato incumplido)\nda el mismo error que daría en directo, y el documento quedó intacto.\nJob desconocido (404) = el servidor se reinició o el job ya se desalojó: la mutación PUDO\nhaber aplicado (el autosave lo habría guardado) → verifícalo con get_scene antes de nada.\nNUNCA la reintentes a ciegas: la duplicarías.",
   "inputSchema": {
    "properties": {
     "job_id": {
@@ -3660,6 +3660,49 @@
     "result"
    ],
    "title": "simulateOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "remove_commands",
+  "description": "Borra comandos del log por command_id (cirugía: quitar una pieza, un sub-ensamblaje o\nuniones) en UN cambio atómico, deshacible con UN undo. Si queda una referencia rota (un\nfijador, anclaje, junta o mate que nombra una pieza borrada) no borra NADA y el error dice\ncuál estorba. `con_dependientes=true` borra además los fasten y ground que nombran las\npiezas de esos comandos y los quita de sus grupos, sin buscarlos con find_commands; la\nrespuesta los lista en `dependientes` y `grupos_editados` (un grupo que quedaría vacío no\nse toca: lo dice `avisos`). Juntas y mates nunca se arrastran: bórralos tú si sobran.\n`detail`: \"diff\" (def.) responde corto —`comandos_borrados`, `piezas_borradas`,\n`uniones_borradas` y `total_solidos`—; \"full\" lista toda la escena. Si tarda, recibes un\nRECIBO {\"job\": id}: recógelo con get_job(id) y NO reenvíes el borrado.",
+  "inputSchema": {
+   "properties": {
+    "ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Ids",
+     "type": "array"
+    },
+    "con_dependientes": {
+     "default": false,
+     "title": "Con Dependientes",
+     "type": "boolean"
+    },
+    "detail": {
+     "default": "diff",
+     "title": "Detail",
+     "type": "string"
+    }
+   },
+   "required": [
+    "ids"
+   ],
+   "title": "remove_commandsArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "remove_commandsOutput",
    "type": "object"
   }
  }

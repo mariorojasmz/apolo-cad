@@ -64,11 +64,25 @@ JOB_404 = J({"detail": "Job 'zz' desconocido: el servidor se reinició o se desa
                        "El lote PUDO haber aplicado; verifícalo con get_scene."}, 404)
 # run_command, edit_command y set_variable también encolan (sandbox-caliente D8): su job
 # devuelve la respuesta síncrona de siempre, así que la salida de la tool no cambia.
-JOBS_SUELTOS = {"jc": MUTA["json"], "jv": escena(["v1"])}
+#: `remove?detail=diff` (cirugia-liviana D1/D2): sin escena; el cliente lo pasa tal cual.
+BORRADO = {
+    "comandos_borrados": ["c1", "c7"],
+    "piezas_borradas": [{"id": "c1", "nombre": "Base"}],
+    "uniones_borradas": [{"nombre": "f1", "tipo": "fijador"}],
+    "total_solidos": 2,
+    "affected_command_ids": ["c9"],
+    "dependientes": [{"id": "c7", "tipo": "fasten", "nombre": "f1"}],
+    "grupos_editados": [{"grupo": "Estructura", "quitados": ["c1"]}],
+}
+JOBS_SUELTOS = {"jc": MUTA["json"], "jv": escena(["v1"]), "jr": BORRADO, "jrf": escena()}
 
 
 def _encolado(job_id: str) -> dict:
     return J({"job_id": job_id, "estado": "encolado"}, 202)
+
+
+def _remove(req):
+    return _encolado("jr" if req.url.params.get("detail") == "diff" else "jrf")
 
 
 def _job(req):
@@ -143,6 +157,7 @@ RUTAS = [
     ("POST|PATCH", r"/api/commands/batch", ENCOLADO),
     ("GET", r"/api/jobs/[^/]+", _job),
     ("PUT", r"/api/commands/[^/]+", _encolado("jc")),
+    ("POST", r"/api/commands/remove", _remove),
     ("POST", r"/api/(undo|redo)", J(escena(deshechos=["Variable «L»: 2000 → 3200"]))),
     ("POST", r"/api/variables", _encolado("jv")),
     ("POST", r"/api/checks", J({"interferencias": {"pares": []}, "ingenieria": [{"ok": True}],
@@ -281,7 +296,13 @@ CASOS = [
     caso("editar lote", "edit_batch", {"edits": [{"command_id": "c1", "params": {"width": 1}}],
                                        "expect": [{"tipo": "existe", "id": "c1"}]}),
     caso("editar lote replace → recibo", "edit_batch", {"edits": [], "merge": False}, espera=0.0),
+    caso("borrar comandos", "remove_commands", {"ids": ["c1"], "con_dependientes": True}),
+    caso("borrar comandos full", "remove_commands", {"ids": ["c1"], "detail": "full"}),
+    caso("borrar → recibo", "remove_commands", {"ids": ["c1"]}, espera=0.0),
+    caso("borrar → job en error", "remove_commands", {"ids": ["c1"]}, rutas=_job_error(
+        "El fijador 'f1' referencia el sólido 'c1', que ya no existe: elimina primero el fijador")),
     caso("job ok", "get_job", {"job_id": "j1", "detail": "full", "wait_s": 5}),
+    caso("job de un borrado", "get_job", {"job_id": "jr"}),
     caso("job corriendo", "get_job", {"job_id": "j1"},
          rutas={("GET", r"/api/jobs/[^/]+"): J({"estado": "encolado"})}),
     caso("job en error", "get_job", {"job_id": "j1"},

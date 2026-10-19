@@ -627,14 +627,18 @@ class Document:
         self._mutate(apply, f"edit:{command_id}" if coalesce else None, foco=command_id)
         return command_id
 
-    def remove_commands(self, command_ids: list[str]) -> None:
-        """Elimina comandos del log y regenera; revierte si algo queda roto."""
-        missing = [cid for cid in command_ids if not any(c["id"] == cid for c in self.commands)]
+    def remove_commands(self, command_ids: list[str], ediciones: dict | None = None) -> None:
+        """Elimina comandos del log y regenera; revierte si algo queda roto. `ediciones` {id:
+        params} REEMPLAZA los de otros comandos en el MISMO cambio (1 undo; plan cirugia-liviana
+        D2: un grupo pierde al miembro borrado). Sus claves no se revisan: son params ya guardados."""
+        ed, vivos = ediciones or {}, {c["id"] for c in self.commands}
+        missing = [cid for cid in [*command_ids, *ed] if cid not in vivos]
         if missing:
             raise DocumentError(f"No existe el comando '{missing[0]}'")
 
         def apply():
-            self.commands = [c for c in self.commands if c["id"] not in set(command_ids)]
+            self.commands = [c if c["id"] not in ed else {**c, "params": ed[c["id"]]}
+                             for c in self.commands if c["id"] not in set(command_ids)]
 
         self._mutate(apply)
 
@@ -858,14 +862,8 @@ class Document:
                 f.is_guide = guide
 
     # --------------------------------------------------------- undo / redo
-    @property
-    def can_undo(self) -> bool:
-        return bool(self._undo)
-
-    @property
-    def can_redo(self) -> bool:
-        return bool(self._redo)
-
+    can_undo = property(lambda self: bool(self._undo))
+    can_redo = property(lambda self: bool(self._redo))
     # etiquetas de cada pila, la más próxima primero
     undo_labels = property(lambda self: _pasos.etiquetas(self._undo))
     redo_labels = property(lambda self: _pasos.etiquetas(self._redo))

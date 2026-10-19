@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from apolo.doc import DocumentError
 from apolo.kernel import bbox_payload
 from apolo.library import interference_report
+from apolo.services import cirugia
 from apolo.services.assertions import contract_verify
 from apolo.state import STATE_LOCK
 
@@ -240,13 +241,53 @@ def edit_command(
 
 class RemoveIn(BaseModel):
     ids: list[str]
+    # D2 de cirugia-liviana: arrastra los fasten/ground que nombran sus piezas y los saca de
+    # sus grupos, en el MISMO cambio (1 undo)
+    con_dependientes: bool = False
 
 
-@router.post("/api/commands/remove")
-def remove_commands_endpoint(body: RemoveIn) -> dict:
+@router.post("/api/commands/remove", response_model=dict)
+def remove_commands_endpoint(
+    body: RemoveIn, detail: str | None = None, async_: bool = Query(False, alias="async"),
+):
     """Elimina comandos del log por id (atómico, con rollback si algo queda roto).
-    Útil para cirugía de modelo: quitar features + sus juntas en un solo paso."""
-    return _state_or_error(lambda: S.doc.remove_commands(body.ids))
+    Útil para cirugía de modelo: quitar features + sus juntas en un solo paso.
+    `detail=diff` (plan cirugia-liviana D1) responde SIN la escena: comandos, piezas y uniones
+    que se fueron + `total_solidos`; sin él, la escena completa de siempre (la UI).
+    `con_dependientes` (D2) suma `dependientes`, `grupos_editados` y, si hay, `avisos`.
+    `?async=true` lo encola como job (el MCP siempre)."""
+    if detail not in (None, "diff"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"detail admite sólo 'diff' (vino '{detail}'); sin él, la escena completa",
+        )
+
+    def _work() -> dict:
+        hecho: dict = {}
+
+        def run():  # el plan de dependientes se arma DENTRO del lock: fuera sería TOCTOU
+            if detail:
+                hecho["antes"] = cirugia.foto(S.doc)
+            if not body.con_dependientes:
+                hecho["ids"] = body.ids
+                return S.doc.remove_commands(body.ids)
+            plan = hecho["plan"] = cirugia.dependientes(S.doc, body.ids)
+            hecho["ids"] = plan["ids"]
+            S.doc.remove_commands(plan["ids"], plan["ediciones"])
+            return list(plan["ediciones"])  # affected = los grupos editados
+
+        armar = (lambda: cirugia.diff_borrado(S.doc, hecho["antes"], hecho["ids"])) \
+            if detail else None
+        payload = _state_or_error(run, armar=armar)
+        plan = hecho.get("plan")
+        if plan is not None:
+            payload["dependientes"] = plan["dependientes"]
+            payload["grupos_editados"] = plan["grupos_editados"]
+            if plan["avisos"]:
+                payload["avisos"] = plan["avisos"]
+        return payload
+
+    return _sync_or_job("remove_commands", _work, async_)
 
 
 def _params_reference(params: dict, fid: str) -> str | None:

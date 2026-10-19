@@ -123,7 +123,10 @@ def _token_documento() -> str:
     return token(S.doc)
 
 
-def _state_or_error(fn):
+def _state_or_error(fn, armar=None):
+    """El retorno de toda mutación. `armar` (opcional) reemplaza la escena completa por un
+    payload LIVIANO armado bajo el mismo lock tras mutar (`remove?detail=diff`, plan
+    cirugia-liviana D1); sin él, byte-idéntico."""
     from apolo.library.delivery import AVISO_SIN_ANCLAJES, MIN_SOLIDOS_SUJECION
 
     with STATE_LOCK:
@@ -133,7 +136,7 @@ def _state_or_error(fn):
         except (CommandError, DocumentError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         _autosave()
-        payload = scene_payload()
+        payload = scene_payload() if armar is None else armar()
         # Alarma ambiental (V6.9-B): con ≥5 sólidos y CERO anclajes declarados, CADA
         # retorno de mutación lo recuerda — stateless y molesto a propósito (como la
         # alarma del tren de aterrizaje); se apaga al declarar el primer ground.

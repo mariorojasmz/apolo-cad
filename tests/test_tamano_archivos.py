@@ -51,12 +51,12 @@ TOPE = 500
 EXCEPCIONES: dict[str, int] = {
     "core/apolo/commands/models.py": 1335,
     "core/apolo/commands/registry.py": 2166,
-    "core/apolo/doc/document.py": 1025,
+    "core/apolo/doc/document.py": 1023,
     "core/apolo/drawing/sheet.py": 893,
     "core/apolo/library/builders.py": 847,
     "core/apolo/library/engineering/report.py": 555,
     "core/apolo/library/rules.py": 928,
-    "core/apolo/mcp_server.py": 1422,
+    "core/apolo/mcp_server.py": 1421,
 }
 
 # ── Medición ──────────────────────────────────────────────────────────────────
