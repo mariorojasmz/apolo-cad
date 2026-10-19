@@ -39,5 +39,12 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   aspecto de `render_view`, una ventana, poses con `mover`, ~40 ms por fotograma a 640 px), no
   con matplotlib como `drop_test`: medido, ~2 s por fotograma con 2600 triángulos. Se tesela en
   la MISMA adquisición de `STATE_LOCK` que `prepare_dynamics`.
+- Sólo se autodetecta la banda de `create_belt_conveyor`. Un lazo hecho a mano va en `bandas`
+  con una junta giratoria/continua del tambor; sin ella queda FUERA por sus contactos con el
+  tensor y el aviso pide `arrastrar`, que NO es la cura. Tambor en eje vivo tocando sus
+  chumaceras: `arrastrar` no lo lleva (todo en `frontera`): continua al eje + `fija` eje→tambor.
+  Sin mesa de recepción las cajas descargadas se apilan en la cabeza y frenan a las que siguen:
+  para contar con la fotocelda, alimenta en serie (`cada_s`).
+  [F3](../../../docs/plans/V8.2-maquina-se-mueve.md)
 - Productos con `cada_s`: nacen en su hora; antes esperan estacionados lejos (MuJoCo no crea
   cuerpos en marcha) y no salen en los fotogramas.
