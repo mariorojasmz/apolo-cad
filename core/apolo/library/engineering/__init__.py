@@ -4,7 +4,8 @@ Paquete de funciones PURAS de dimensionamiento/verificación con factores de
 seguridad: faja sobre cama (belt), uniones apernadas (bolts), cordones de
 soldadura (welds), vida de rodamientos (bearings), pandeo de columnas
 (buckling), estabilidad al vuelco (stability), reparto de cargas por el grafo
-de conectividad (loads) y propiedades de masa (mass).
+de conectividad (loads), propiedades de masa (mass), viga continua sobre N
+apoyos (viga_continua) y secciones por familia del catálogo (secciones).
 
 Filosofía: analítico barato y HONESTO (hipótesis declaradas), no FEA. Ninguna
 función recibe `Document` — solo dicts/escena — para respetar la frontera
@@ -43,11 +44,19 @@ from .fits import (
     parse_fit,
 )
 from .loads import hanging_load_kg
+from .secciones import SIN_SECCION, Seccion, seccion_catalogo
 from .stability import convex_hull_2d, hull_margin_mm
+from .viga_continua import Apoyo, CargaPuntual, CargaRepartida, ResultadoViga, viga_continua
 from .welds import weld_allowable_mpa, weld_throat_stress_mpa
 
 __all__ = [
+    "Apoyo",
     "BED_FRICTION",
+    "CargaPuntual",
+    "CargaRepartida",
+    "ResultadoViga",
+    "SIN_SECCION",
+    "Seccion",
     "BUCKLING_FS",
     "GRADES",
     "L10_MIN_H",
@@ -73,6 +82,8 @@ __all__ = [
     "hull_margin_mm",
     "l10_hours",
     "rect_tube_min_inertia_mm4",
+    "seccion_catalogo",
+    "viga_continua",
     "weld_allowable_mpa",
     "weld_throat_stress_mpa",
 ]

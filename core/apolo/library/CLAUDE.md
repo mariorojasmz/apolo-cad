@@ -88,6 +88,12 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - `report.structure_engineering_check` (universal: pernos, soldaduras, L10, pandeo, vuelco): las
   uniones sin dimensionar se AGREGAN en una regla-resumen; redundante + dimensionada = ok con
   nota (la redundancia es favorable y no accionable).
+- Viga continua (`viga_continua.py`, Hermite con cargas consistentes = exacta, no aproximada):
+  cargas y flechas + hacia ABAJO, reacciones + hacia ARRIBA (negativa = tracción, no se
+  recorta). Secciones (`secciones.py`) en ejes LOCALES del builder (`i_x` = canto en Y): tabla
+  de norma si los params calzan; HSS A500 con t = 0.93·t_nom y r = 2t (AISC; el `rect_tube_*`
+  de `structural.py` es arista viva y nominal); perfil ranurado → `None` (`SIN_SECCION`), jamás
+  la inercia del modelo macizo. [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
 - Instalación (`installation.anchor_loads`): reparto ELÁSTICO de grupo por apoyo; con N > 3 es
   hiperestático y la hipótesis se DECLARA; un R_i negativo se publica como TRACCIÓN, jamás se
   recorta a cero. [V7.6](../../../docs/plans/V7.6-e2-fino.md)

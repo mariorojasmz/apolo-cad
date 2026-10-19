@@ -53,3 +53,40 @@ esa forma. Parte de [revision-de-taller](revision-de-taller.md).
   soldadura/perno cuentan como apoyo; el resto se declara en `no_aplica`.
 
 ## Bitácora
+
+### F1 (2026-10-19): viga continua y secciones por familia
+
+- **`library/engineering/viga_continua.py`** (puro, stdlib): `viga_continua(largo_mm, ei_nmm2,
+  apoyos, cargas) → ResultadoViga` con `Apoyo(x_mm, tipo="apoyo"|"empotramiento")`,
+  `CargaPuntual(x_mm, p_n)`, `CargaRepartida(q_n_mm, desde_mm=0, hasta_mm=None)` y
+  `q_peso_propio_n_mm(kg_por_m)`. Devuelve flecha y |M| máximos con su x, M+ y M−, reacciones
+  por apoyo (orden de entrada, + arriba; negativa = tracción) y `tramos` (`vano`/`voladizo`,
+  cada uno con su flecha máxima: el criterio L/240 de F2 va por tramo, no por viga). Método:
+  rigidez directa con elementos de Hermite y cargas nodales consistentes (nodos EXACTOS en
+  Euler-Bernoulli) + solución particular empotrada dentro de cada elemento → elástica y
+  momento exactos; la malla (≤ L/120, 10 muestras por elemento) sólo ubica el pico. Solver de
+  banda (semibanda 3): 5 ms una viga de 4 m.
+- **`library/engineering/secciones.py`**: `seccion_catalogo(builder, params) → Seccion | None`
+  (A, I y W por eje LOCAL del builder, `i_min` principal, `fuente`, `norma`). Ángulo, UPN e IPE:
+  tabla de EN 10056-1 / DIN 1026-1 / EN 10365 cuando los params calzan con la designación
+  (todas las variantes del catálogo calzan; lo prueba un test que lee los YAML); fuera de tabla,
+  geometría prismática declarada. Tubos `rect_tube`/`round_tube` (ASTM A500): AISC 360-16 §B4.2
+  (t = 0.93·t_nom) y radio exterior 2t; contra las tablas del AISC Manual: HSS 2×2×1/8,
+  3×3×3/16, 4×4×1/4 y 6×6×1/4 a ±1 % en A, I y S. `cylinder` macizo. `profile` (ranurado de
+  aluminio) y `leg` → `None` con motivo en `SIN_SECCION`: su I es de fabricante y el modelo
+  es macizo (sobrestimaría). Ningún YAML tocado → sin `GEOM_CACHE_EPOCH` (y sin pisar el
+  trabajo paralelo de perfiles-con-acuerdo en `13_perfiles_abiertos.yaml`).
+- **Tests** (101): simplemente apoyada uniforme y puntual (centrada y excéntrica), voladizo
+  (puntual y uniforme), vano + voladizo (reacción en tracción), biempotrada, continua de 2 y 3
+  vanos iguales contra los coeficientes de tabla (0.375/1.25, −0.125, 0.0703, 0.00542 ·
+  0.4/1.1, −0.10, 0.08, 0.025, 0.0069) y dos vanos desiguales (uniforme y puntual) contra la
+  ecuación de los tres momentos + superposición. Secciones: AISC, W = I/c con el centroide
+  publicado y tabla vs. prismático (las razones salen suaves en toda la serie: sin errores de
+  transcripción). Capas: AST + subproceso sin OCCT/doc/catálogo (`test_capas_viga.py`).
+- **Medido, para F2**: el prismático del UPN queda 12–15 % SOBRE la tabla en el eje débil (ala
+  cónica); IPE 3–5 % bajo; ángulo 2–4 % sobre. Un ángulo L flecta por su eje principal débil
+  si nada lo arriostra (`i_min` = Iv, ≈ 0.41·I en el L 75×6): F2 decide cuál usa y lo declara.
+- Intento fallido: el primer test de UPN exigía tabla ≈ prismático a ±10 % en el eje débil y
+  cayó en las 7 alturas (razón 0.867–0.890, el ala cónica) → banda medida [0.85, 0.92].
+  Tolerancias: 1e-6 donde el pico cae en un nodo, 1e-5 en picos muestreados (resolución
+  ≈ L/1200 → ~1e-6 relativo, demasiado justo para 1e-6).
