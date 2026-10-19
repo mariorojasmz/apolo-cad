@@ -73,7 +73,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   es VIRAL: nada disputado se arrastra (aviso); lo ya hijo de otra junta o anclado a tierra se
   omite con aviso. [V6.8](../../../docs/plans/V6.8-mcp-fluidez.md)
 - `fasten`: `size`/`qty` dimensionan un perno; `throat_mm` ES la garganta de la soldadura
-  (a = 0.707·cateto).
+  (a = 0.707·cateto). `a`/`b` aceptan CONJUNTOS (`exec_uniones.py`): raíz de patrón = sus
+  copias `{raíz}_{n}` (sin la fuente), `+` y corte `(…)[i:j:k]`; una unión `{name}[k]` por
+  instancia, re-expandida en cada regenerate. Dos piezas sueltas = el dict de siempre (un log
+  viejo regenera igual). [plan](../../../docs/plans/uniones-en-lote.md)
 - `join_bolted` taladra barrenos de PASO (ISO 273 serie media) en AMBAS piezas EN SITIO, inserta
   perno HEX DIN 933 + tuerca DIN 934 de catálogo y declara el `fasten` `jb_{cmd_id}`. Contacto
   AUTO por solape de cajas (`_join_bolted_geometry`, puro: el patrón se recentra si una pieza

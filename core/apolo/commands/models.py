@@ -1136,30 +1136,6 @@ class AddConstraintParams(BaseModel):
     value: float = Field(0.0, title="Distancia (mm)", description="solo tipo 'distancia'; acepta =expr")
 
 
-class FastenParams(BaseModel):
-    """Fijador PERSISTENTE que declara que dos sólidos están unidos (perno, soldadura,
-    pegado o contacto). NO mueve geometría ni corta nada: solo registra la unión para la
-    validación de ensamblaje (¿cada pieza tiene sujeción hasta el piso?). Espejo de
-    add_mate, pero estructural. El tipo 'contacto' lo emite la auto-detección (apoyo más
-    débil); perno/soldadura/pegado los declara el usuario."""
-
-    name: str = Field(..., pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=40, title="Nombre")
-    a: str = Field(..., title="Sólido A", description="id de feature")
-    b: str = Field(..., title="Sólido B", description="id de feature")
-    kind: Literal["perno", "soldadura", "pegado", "contacto"] = Field("perno", title="Tipo de unión")
-    size: str | None = Field(
-        None, pattern=r"^M\d{1,2}$", title="Métrica del perno",
-        description="solo kind='perno' (M6–M24); si falta, el chequeo la reporta como no verificable",
-    )
-    qty: int | None = Field(None, ge=1, le=100, title="Nº de pernos de la unión")
-    throat_mm: float | None = Field(
-        None, gt=0, title="Garganta del cordón (mm)",
-        description="solo kind='soldadura'; garganta a = 0.707·cateto",
-    )
-    length_mm: float | None = Field(None, gt=0, title="Longitud total de cordón (mm)")
-    nota: str = Field("", max_length=120, title="Nota")
-
-
 class JoinBoltedParams(BaseModel):
     """Une DOS piezas con un patrón de pernos en UN comando (super-comando, V6.5b): taladra
     barrenos de PASO alineados en AMBAS piezas + inserta la tornillería DIN 933 de catálogo +

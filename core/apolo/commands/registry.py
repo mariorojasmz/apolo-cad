@@ -50,7 +50,6 @@ from .models import (
     DistributeParams,
     DuplicateParams,
     DrillHoleParams,
-    FastenParams,
     FillSurfaceParams,
     FilletParams,
     GroundParams,
@@ -78,8 +77,10 @@ from .models import (
 )
 from .models_rodillos import CreateDriveRollerParams, CreateTakeUpParams
 from .models_transmision import CreateChainParams
+from .models_uniones import FastenParams
 from .exec_rodillos import _exec_create_drive_roller, _exec_create_take_up
 from .exec_transmision import _exec_create_chain
+from .exec_uniones import _exec_fasten
 from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
 from .errors import CommandError
 from .spec import CommandSpec, run_executor
@@ -1069,26 +1070,6 @@ def _exec_add_constraint(ctx: ExecContext, cmd_id: str, p: AddConstraintParams) 
             },
         )
     except ConstraintError as exc:
-        raise CommandError(str(exc)) from exc
-
-
-def _exec_fasten(ctx: ExecContext, cmd_id: str, p: FastenParams) -> None:
-    """Declara un fijador rígido A↔B (estructural; no mueve geometría)."""
-    from apolo.assembly.connectivity import ConnectivityError, register_fastener
-
-    spec = {"name": p.name, "a": p.a, "b": p.b, "kind": p.kind, "nota": p.nota}
-    # dimensionamiento opcional (Frente A): métrica/cantidad del perno, cordón de soldadura
-    if p.size:
-        spec["size"] = p.size
-    if p.qty:
-        spec["qty"] = p.qty
-    if p.throat_mm:
-        spec["throat_mm"] = p.throat_mm
-    if p.length_mm:
-        spec["length_mm"] = p.length_mm
-    try:
-        register_fastener(ctx.fasteners, cmd_id, spec)
-    except ConnectivityError as exc:
         raise CommandError(str(exc)) from exc
 
 

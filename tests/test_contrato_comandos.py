@@ -262,7 +262,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "distribute": (1, "dbd8f19a2efade42"),
     "drill_hole": (1, "f9fe72f8f410fa3f"),
     "duplicate_feature": (1, "1e53ee34eb4d6e87"),
-    "fasten": (1, "a19393acb1553d1a"),
+    "fasten": (1, "dc344ffbe685a9f5"),
     "fill_surface": (1, "16418efc4d5e7384"),
     "fillet": (1, "f63f072057031b48"),
     "ground": (1, "afb091e73600725e"),

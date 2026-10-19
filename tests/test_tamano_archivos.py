@@ -49,8 +49,8 @@ TOPE = 500
 #: Cuántas líneas tiene hoy cada archivo que ya pasa el tope (ruta relativa a la raíz
 #: del repo, con `/`). Al achicar un archivo se baja su número; en ≤ 500, se borra.
 EXCEPCIONES: dict[str, int] = {
-    "core/apolo/commands/models.py": 1359,
-    "core/apolo/commands/registry.py": 2185,
+    "core/apolo/commands/models.py": 1335,
+    "core/apolo/commands/registry.py": 2166,
     "core/apolo/doc/document.py": 1025,
     "core/apolo/drawing/sheet.py": 893,
     "core/apolo/library/builders.py": 847,
