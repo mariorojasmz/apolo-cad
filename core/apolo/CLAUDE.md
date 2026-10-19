@@ -22,7 +22,8 @@ backend: se mantiene ≤ 10 KB.
 - Sólo habla HTTP con la API: sin lógica de dominio ni imports de `doc`/`kernel`. Una tool nueva
   = endpoint en `api/` + wrapper (`mcp_server.py` está en el trinquete de tamaño: va a
   `tools/<tema>.py` con un `registrar(mcp, api)` que `mcp_server` llama al final, como
-  `tools/mcp_electrico.py` y `tools/simulacion.py`; ese módulo NUNCA importa `apolo.mcp_server`: con `-m` el servidor es
+  `tools/mcp_electrico.py` y `tools/simulacion.py`; una mutación recibe `_mutacion` en vez de `_api`,
+  como `tools/cirugia.py`; ese módulo NUNCA importa `apolo.mcp_server`: con `-m` el servidor es
   `__main__` y la tool caería en otra copia) + su caso en `scripts/golden_mcp_casos.py` + su lugar en
   `tools/catalogo.py`: en `CHAT` (`muta`, `etiqueta`, `ocultar` las rutas de archivo) o en
   `FUERA_DEL_CHAT` con el motivo — si falta, `tests/test_catalogo_chat.py` falla. Una lectura
@@ -48,11 +49,12 @@ backend: se mantiene ≤ 10 KB.
   command_id sintético `{cmd}_{orig}`); `variables` viaja sólo si la operación tocó un
   `set_variable`. Pasa al agente `contrato` y `aviso_estructura` ([api](api/CLAUDE.md)).
 - Toda mutación que regenera (`run_command`, `edit_command`, `set_variable`, `run_batch`,
-  `edit_batch`) SIEMPRE encola como job (`_mutacion` → `_submit_and_wait`) y espera
+  `edit_batch`, `remove_commands`) SIEMPRE encola como job (`_mutacion` → `_submit_and_wait`) y espera
   `APOLO_MCP_WAIT_S` (90 s: bajo los 120 de httpx y los ~180 del host). Si no llega, devuelve un
   RECIBO `{job, seguir}`, no un error, y `get_job` re-pregunta sin riesgo. El camino seguro no
   puede ser opt-in: el agente no sabe cuánto tardará el regenerate. Un job fallido usa el mismo
-  texto que el 400 (`_reject`). Servidor: [api](api/CLAUDE.md).
+  texto que el 400 (`_reject`); un resultado sin `features` (ya liviano: `remove?detail=diff`)
+  pasa tal cual, sin `_scene_brief`. Servidor: [api](api/CLAUDE.md).
   [V6.5e](../../docs/plans/V6.5e-mcp-jobs-asincronos.md) ·
   [sandbox-caliente](../../docs/plans/sandbox-caliente.md)
 - `edit_command`/`edit_batch` hacen PATCH por defecto (`merge=True`, superficial); el REST, no.

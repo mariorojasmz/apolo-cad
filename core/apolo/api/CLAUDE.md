@@ -61,6 +61,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   esos sólidos) y suma `aviso_estructura` cuando hay ≥ `MIN_SOLIDOS_SUJECION` sólidos y 0
   grounds: alarma ambiental en CADA mutación, nunca en lecturas.
   [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
+- `_state_or_error(fn, armar=…)`: `armar` reemplaza la escena completa por un payload LIVIANO,
+  armado bajo el mismo lock (`POST /api/commands/remove?detail=diff`: comandos, piezas y uniones
+  que se fueron + `total_solidos`, 8.2 MB → 284 B a 200 piezas); sin él, byte-idéntico.
+  `con_dependientes` arrastra fasten/ground y membresías de grupo en 1 undo
+  (`services/cirugia.py`). [cirugia-liviana](../../../docs/plans/cirugia-liviana.md)
 - **Guardia del documento** (`guardia_documento.py`): con `X-Apolo-Documento` (token por objeto
   `Document`, publicado en `GET /api/health` → `documento`) una mutación sobre otro documento da
   409 sin aplicar nada. La verifican DENTRO de su `STATE_LOCK` y antes de tocar nada
@@ -98,8 +103,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 ## Jobs asíncronos (`jobs.py`)
 
 - Ninguna mutación larga vive dentro de una request: los lotes (`POST`/`PATCH
-  /api/commands/batch`), `POST /api/commands`, `PUT /api/commands/{id}` y `POST /api/variables`
-  con `?async=true` → `202 {job_id}` y el MISMO closure del endpoint corre en un worker
+  /api/commands/batch`), `POST /api/commands`, `PUT /api/commands/{id}`, `POST /api/variables`
+  y `POST /api/commands/remove` con `?async=true` → `202 {job_id}` y el MISMO closure del endpoint corre en un worker
   (`_sync_or_job`). Sin `?async`, byte-idéntico (la UI no se entera): por eso una ruta que encola
   conserva su `-> dict` como `response_model=dict` (sin él FastAPI cambia de serializador: `1e-7`
   → `1e-07`). Un id inexistente da 404 ANTES de encolar.

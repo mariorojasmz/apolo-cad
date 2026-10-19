@@ -307,9 +307,10 @@ imprime los comandos con credenciales (build/twine/mcp-publisher), que lanza una
 
 ### Cirugía de modelos (event-sourced)
 
-- Canjear un sub-ensamblaje: **borrar el sub-grafo COMPLETO de comandos** con
-  `POST /api/commands/remove` (atómico; piezas + FIJADORES juntos para no dejar referencias
-  colgando; antes, `DELETE /api/fasteners/{name}` de los auto-declarados).
+- Canjear un sub-ensamblaje: **borrar el sub-grafo COMPLETO de comandos** con la tool
+  `remove_commands` (atómico, 1 undo, respuesta corta; `con_dependientes=true` arrastra los
+  fijadores y anclajes de esas piezas y las saca de sus grupos; juntas y mates, no).
+  [cirugia-liviana](docs/plans/cirugia-liviana.md)
 - **NUNCA `boolean_op` para tallar una pieza referenciada por juntas**: consume el target y
   reasigna el id → usa `add_joinery` (muta EN SITIO, conserva el id); para taladros en raíces de
   junta, `dowel`/`rebaje`.

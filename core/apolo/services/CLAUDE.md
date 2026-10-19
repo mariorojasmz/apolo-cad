@@ -122,6 +122,14 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   MISMO grupo con otro `mesh_size` pasa el run previo al historial (tope 3) y el vigente
   reemplaza la entrada de su misma malla.
 
+## Cirugía (`cirugia.py`)
+
+- `dependientes` (D2): arrastra SÓLO `fasten`/`ground` que nombran una pieza de los comandos
+  borrados (también por prefijo `{cmd}_`) y quita esos comandos de los `members` de sus grupos;
+  juntas y mates nunca (el error estricto los nombra). Un grupo que quedaría vacío no se toca:
+  aviso. `foto` + `diff_borrado` arman la respuesta liviana.
+  [cirugia-liviana](../../../docs/plans/cirugia-liviana.md)
+
 ## Roles por nombre (`roles.py`)
 
 - `BED_RE` (cama/mesa: recibe la carga del FEA y da la altura de trabajo de la instalación) y
