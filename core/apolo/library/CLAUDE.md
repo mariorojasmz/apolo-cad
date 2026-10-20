@@ -45,6 +45,12 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   PVC salvo metal explícito. [devlog § banda PVC](../../../docs/devlog.md)
 - En madera `YIELD_MPA` tabula el MOR (rotura), no un límite elástico: el «FS» es contra rotura
   y el criterio es FS ≥ 4 (σ_adm = MOR/4), no ≥ 1.5 como en acero.
+- **Cómo se VE un material** (`apariencia.py`, tabla D5): fuente única de los dos
+  renderizadores. Un material de catálogo o del registro nuevo necesita su acabado
+  (`tests/test_apariencia.py` lo exige); tras editar la tabla, `python -B
+  scripts/acabados_ui.py --escribir` regenera la copia del visor. La palabra de carpintería sólo
+  pinta madera en el vertical madera (guarda propia; la BOM aún la sufre).
+  [visor-realista](../../../docs/plans/visor-realista.md)
 
 ## Chapa (`sheetmetal.py`)
 

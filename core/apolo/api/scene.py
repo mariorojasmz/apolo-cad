@@ -142,6 +142,7 @@ def scene_payload(known: dict | None = None) -> dict:
     tocar geometría) y las definiciones ya conocidas se omiten. ``known=None`` (default) =
     payload COMPLETO idéntico al de siempre + el campo ``rev`` por feature (aditivo)."""
     from apolo.kernel.matrix import to_column_major16
+    from apolo.services.apariencia import apariencias_documento
 
     known_revs = (known or {}).get("revs") or {}
     known_defs = set((known or {}).get("defs") or [])
@@ -149,11 +150,15 @@ def scene_payload(known: dict | None = None) -> dict:
     features = []
     definitions: dict[str, dict] = {}
     cmd_types = {c["id"]: c["type"] for c in S.doc.commands}
+    # acabado (tabla D5 de visor-realista) y albedo por pieza: metadato VOLÁTIL (set_material y
+    # set_color no cambian el rev) → viaja también en las entradas `same`
+    aps = apariencias_documento(S.doc)
     live: set[str] = set()
     for i, feat in enumerate(S.doc.scene.values()):
         live.add(feat.id)
         rev = _geom_rev(feat.id, feat.shape)
         color = S.doc.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
+        ap = aps[feat.id]
         if known_revs.get(feat.id) == rev:
             # geometría sin cambios: el cliente conserva su malla/bbox/volumen (los mergea de
             # su estado anterior). Solo mandamos id + rev + señal + metadatos VOLÁTILES (los
@@ -163,6 +168,7 @@ def scene_payload(known: dict | None = None) -> dict:
                 "name": feat.name, "color": color,
                 "visible": feat.visible, "group": feat.group,
                 "is_guide": feat.is_guide,  # V6.2e Fix 7: toggle de guía es metadato (rev estable)
+                "acabado": ap["acabado"], "albedo": ap["color"],
             })
             continue
         def_mesh = _definition_mesh(feat.mesh_key) if feat.mesh_key and feat.matrix else None
@@ -183,6 +189,8 @@ def scene_payload(known: dict | None = None) -> dict:
             "cut_length": feat.cut_length,
             "group": feat.group,
             "is_guide": feat.is_guide,
+            "acabado": ap["acabado"],
+            "albedo": ap["color"],
             "rev": rev,
         }
         if def_mesh is not None:

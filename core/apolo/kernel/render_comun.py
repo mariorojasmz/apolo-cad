@@ -108,9 +108,27 @@ def polydata(vertices, triangles):
     return pd
 
 
-def actor_superficie(pd, color, opacidad: float):
+def phong_de_pbr(metalness: float, roughness: float, color) -> dict:
+    """Traduce un acabado PBR (metálico-rugoso, la tabla `library/apariencia.py`) al Phong de
+    VTK, que no tiene luz de ambiente por imagen: lo rugoso apaga y ensancha el brillo, lo
+    metálico lo sube y lo TIÑE con su color (el brillo de un dieléctrico es blanco) y le resta
+    algo de difuso. Calibrado para que el acero pintado (0.15 / 0.55) dé el Phong de siempre
+    (`ESPECULAR`, `POTENCIA_ESPECULAR`)."""
+    m = min(max(float(metalness), 0.0), 1.0)
+    liso = 1.0 - min(max(float(roughness), 0.0), 1.0)
+    return {
+        "ambiente": AMBIENTE,
+        "difuso": DIFUSO * (1.0 - 0.35 * m),
+        "especular": 0.06 + 0.5 * liso * (0.3 + 0.7 * m),
+        "potencia": 4.0 + 96.0 * liso * liso,
+        "color_especular": tuple(1.0 + (c - 1.0) * m for c in color),
+    }
+
+
+def actor_superficie(pd, color, opacidad: float, pbr: tuple[float, float] | None = None):
     """Actor sombreado SUAVE de una malla: normales interpoladas con ángulo de arista 35° y
-    material Phong. No modifica `pd` (se puede compartir con `actor_aristas`)."""
+    material Phong. No modifica `pd` (se puede compartir con `actor_aristas`). `pbr` =
+    (metalness, roughness) del acabado de la pieza; None = el Phong genérico de siempre."""
     import vtk
 
     nrm = vtk.vtkPolyDataNormals()
@@ -130,10 +148,18 @@ def actor_superficie(pd, color, opacidad: float):
     prop.SetColor(*color)
     prop.SetOpacity(opacidad)
     prop.SetInterpolationToPhong()   # sombreado SUAVE (normales interpoladas)
-    prop.SetAmbient(AMBIENTE)
-    prop.SetDiffuse(DIFUSO)
-    prop.SetSpecular(ESPECULAR)
-    prop.SetSpecularPower(POTENCIA_ESPECULAR)
+    if pbr is None:
+        prop.SetAmbient(AMBIENTE)
+        prop.SetDiffuse(DIFUSO)
+        prop.SetSpecular(ESPECULAR)
+        prop.SetSpecularPower(POTENCIA_ESPECULAR)
+    else:
+        ph = phong_de_pbr(pbr[0], pbr[1], color)
+        prop.SetAmbient(ph["ambiente"])
+        prop.SetDiffuse(ph["difuso"])
+        prop.SetSpecular(ph["especular"])
+        prop.SetSpecularPower(ph["potencia"])
+        prop.SetSpecularColor(*ph["color_especular"])
     return actor
 
 

@@ -14,6 +14,10 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   video, ~6 ms/fotograma: actores por id + `is` del shape, colores y cámara fijados con la escena
   FINAL); un cambio de look va ahí o las dos imágenes divergen.
   [publicacion-tienda](../../../docs/plans/publicacion-tienda.md)
+- El material de cada pieza llega como DATO (`apariencias`: {id: color, metalness, roughness,
+  opacidad}, de `services/apariencia.apariencias_documento`): el kernel no importa `library`.
+  Todo caller que pinte el documento lo pasa (foto, GIF, video); sin él cae al Phong genérico.
+  PBR → Phong en `render_comun.phong_de_pbr`. [visor-realista](../../../docs/plans/visor-realista.md)
 - Dos mitades que no se mezclan: `extract_render_scene` (OCCT → datos puros, bajo `STATE_LOCK`)
   y `render_snapshot_vtk` (VTK sobre arrays, bajo `RENDER_LOCK`). `render_scene_vtk` toma
   `RENDER_LOCK` sosteniendo `STATE_LOCK` (orden inverso): sólo tests, nunca producción.

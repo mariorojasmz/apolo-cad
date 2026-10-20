@@ -101,3 +101,39 @@ terminar V8.2; respondió «sí» al plan.
 - Rendimiento con máquinas grandes → instancias, nivel de detalle y D7 como gate.
 
 ## Bitácora
+
+### F1 (2026-10-19)
+
+Hecha la tabla D5; el piso con sombra de contacto queda PENDIENTE (ver abajo).
+
+- **Fuente única**: `core/apolo/library/apariencia.py` (`ACABADOS`, 17 acabados PBR
+  metálico-rugoso: acero pintado, mecanizado, pavonado —la «cadena pavonada» de D5—, galvanizado,
+  zincado, inox cepillado, cromado, aluminio, hierro fundido, bronce, latón, niquelado, caucho,
+  PVC de banda, madera, vidrio, cartón). `acabado_de` decide por el material resuelto
+  (`resolve_material`) y, en acero liso, por el ROL (eje/pasador/piñón/polea → mecanizado,
+  cadena → pavonado) y la categoría de catálogo. Albedo: color asignado por el usuario > color
+  propio del acabado > paleta (lo pintado se sigue distinguiendo por pieza).
+- **Los dos lados**: `services/apariencia.apariencias_documento(doc)` aplica la tabla a un
+  documento. El payload de escena manda `acabado` + `albedo` por pieza (también en las entradas
+  `same` del delta: `set_material`/`set_color` no suben el rev) y el visor lee los parámetros de
+  `ui/src/viewport/acabados.json`, copia GENERADA (`scripts/acabados_ui.py --escribir`) que
+  `tests/test_apariencia.py` compara byte a byte. VTK recibe las apariencias como dato
+  (`extract_render_scene(apariencias=)`, `EscenaViva(apariencias=)`, el kernel no importa
+  `library`) en la foto de `render_view`, el GIF de movimiento, el GIF de dinámica y el video de
+  la tienda. Como el render VTK no tiene luz por imagen, `render_comun.phong_de_pbr` traduce PBR
+  → Phong, calibrado para que el acero pintado quede como el Phong de antes.
+- **Relieves procedurales** (`ui/src/viewport/relieve.ts`): 6 tipos (pintura, cepillado,
+  moteado, fundición, veta, tejido) generados con semilla fija, como `bumpMap`; las piezas no
+  traen UV, así que `uvCaja` las proyecta en mm por la cara dominante. VTK no pinta relieve.
+- **Guarda decidida aquí**: la palabra de carpintería del nombre («Larguero (+Y)») sólo pinta
+  madera en el vertical madera; si no, los largueros de una faja de acero se veían de madera.
+  La BOM y la masa siguen con la heurística de `resolve_material` (no se tocó: es de otra fase).
+- **Captura comparada** (riesgo «el visor y VTK se ven distintos»): un test renderiza con VTK
+  caucho, galvanizado y acero pintado y comprueba el tono de cada uno contra la tabla; otro
+  comprueba que cada ítem del snapshot VTK lleva el color y el (metalness, roughness) del
+  payload del visor.
+- **Pendiente de F1 — piso con sombra de contacto**: el piso actual (`scene-setup.ts`) recibe la
+  sombra de la luz direccional, que cae desplazada; una sombra de contacto de verdad necesita un
+  pase propio (render desde abajo + desenfoque) dentro del bucle de render de `Viewport.tsx`,
+  que está congelado en el trinquete de tamaño (1631 líneas). Va con su propio paso: sacar
+  primero el bucle de render a un módulo y luego sumar el pase.

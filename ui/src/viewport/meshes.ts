@@ -5,6 +5,7 @@ import {
   buildEdgeMaterial, buildGuideEdgeMaterial, buildGuideMaterial,
   buildSolidMaterial, isGlass, resolveMaterialParams,
 } from "./materials";
+import { uvCaja } from "./relieve";
 
 export type Shading = "solid" | "wire";
 
@@ -23,7 +24,9 @@ export function geometryFrom(payload: MeshPayload): THREE.BufferGeometry {
   geometry = geometry.toNonIndexed() as THREE.BufferGeometry;
   // Normales por ángulo de arista: cilindros/rodamientos salen suaves, cajas y
   // perfiles conservan sus cantos vivos (clave para que el PBR no parezca plano).
-  return toCreasedNormals(geometry, CREASE_ANGLE);
+  const creased = toCreasedNormals(geometry, CREASE_ANGLE);
+  uvCaja(creased); // UV en mm para el relieve procedural del acabado
+  return creased;
 }
 
 /** Materiales (sólido/vidrio/guía) + material de aristas para una feature. Fuente ÚNICA
@@ -130,9 +133,9 @@ export function applyAppearance(
 /** Firma de APARIENCIA de una feature (barata): decide si applyAppearance debe correr para
  * una malla de geometría estable. NO incluye la geometría (esa la cubre `rev`). */
 export function appearanceSig(feat: FeatureOut): string {
-  // color (albedo), component (metalness/roughness del catálogo), name (regex de vidrio),
-  // is_guide (translúcido ámbar) — todo lo que buildMaterials/isGlass leen de la feature.
-  return `${feat.color}|${feat.component ?? ""}|${feat.name}|${feat.is_guide ? 1 : 0}`;
+  // albedo + acabado (tabla D5: metalness/roughness/relieve/vidrio), color y name (respaldo
+  // sin acabado), is_guide (translúcido ámbar) — todo lo que buildMaterials/isGlass leen.
+  return `${feat.albedo ?? ""}|${feat.acabado ?? ""}|${feat.color}|${feat.name}|${feat.is_guide ? 1 : 0}`;
 }
 
 /** Dispone una malla y sus aristas. NO toca geometría/aristas COMPARTIDAS de instancias

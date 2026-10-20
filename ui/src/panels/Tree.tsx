@@ -250,7 +250,7 @@ export default function Tree() {
         >
           {f.visible ? <Eye size={13} /> : <EyeOff size={13} />}
         </button>
-        <span className="swatch" style={{ background: f.color }} />
+        <span className="swatch" style={{ background: f.albedo ?? f.color }} />
         {level < 2 && <TypeIcon size={12} className="type-ic" aria-hidden />}
         <span className={`name ${f.visible ? "" : "muted"}`}>{label ?? f.name}</span>
         {esNueva.has(f.id) && <span className="punto-nuevo" title="Nueva" />}

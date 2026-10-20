@@ -25,6 +25,7 @@ from .render_comun import (
     bounds_malla,
     color_pieza,
     es_vidrio,
+    hex_a_rgb,
     modo_transparencia,
     polydata,
     poner_camara,
@@ -54,6 +55,7 @@ class _RenderItem:
     draw_edges: bool
     label_pos: object | None
     label_text: str
+    pbr: tuple | None = None   # (metalness, roughness) del acabado; None = Phong genérico
 
 
 @dataclass
@@ -214,10 +216,14 @@ def extract_render_scene(
     labels: bool = False,
     roll: float = 0.0,
     pan: list | None = None,
+    apariencias: dict | None = None,
 ) -> RenderSnapshot:
     """FASE OCCT del render (V6.2c, bajo STATE_LOCK): tesela (con caché) + recorta la
     sección + decide color/opacidad por pieza → un RenderSnapshot de datos PUROS. NO toca
-    VTK. Lanza ValueError si la escena queda vacía (sin nada que renderizar)."""
+    VTK. Lanza ValueError si la escena queda vacía (sin nada que renderizar). `apariencias` =
+    {id: apariencia} de la tabla de acabados (`library/apariencia.apariencias_escena`, la del
+    visor): da el color, el brillo y la opacidad de cada pieza; sin ella, `colors` + paleta y
+    el Phong genérico."""
     import numpy as np
 
     feats = (
@@ -257,16 +263,19 @@ def extract_render_scene(
         if not len(vertices) or not len(triangles):
             continue
         is_hi = feat.id in highlight
-        col = color_pieza(feat.id, i, colors)
+        ap = (apariencias or {}).get(feat.id)
+        col = hex_a_rgb(ap["color"]) if ap else color_pieza(feat.id, i, colors)
+        pbr = (ap["metalness"], ap["roughness"]) if ap else None
+        op_vidrio = ap["opacidad"] if ap else (OPACIDAD_VIDRIO if es_vidrio(feat) else 1.0)
         if highlight and is_hi:
             op = 1.0                              # pieza resaltada → sólida, color pleno
         elif highlight and not is_hi:
             if xray:
                 op = 0.16                         # rayos-X: el contexto translúcido EN SU COLOR
             else:
-                col, op = (0.62, 0.66, 0.70), 0.18  # fantasma gris (de-énfasis)
-        elif es_vidrio(feat):
-            op = OPACIDAD_VIDRIO                  # vidrio translúcido (como el viewport web)
+                col, op, pbr = (0.62, 0.66, 0.70), 0.18, None  # fantasma gris (de-énfasis)
+        elif op_vidrio < 1.0:
+            op = op_vidrio                        # vidrio translúcido (como el viewport web)
         elif xray:
             op = 0.22                             # rayos-X sin highlight → todo translúcido
         else:
@@ -277,7 +286,8 @@ def extract_render_scene(
 
         bmn, bmx = bounds_malla(vertices)
         label_pos = ((bmn + bmx) / 2.0) if (labels and op > 0.25) else None
-        items.append(_RenderItem(vertices, triangles, col, op, draw_edges, label_pos, feat.id))
+        items.append(_RenderItem(vertices, triangles, col, op, draw_edges, label_pos, feat.id,
+                                 pbr))
         smins = np.minimum(smins, bmn)
         smaxs = np.maximum(smaxs, bmx)
         if feat.id in fit:
@@ -311,7 +321,7 @@ def render_snapshot_vtk(snap: RenderSnapshot) -> bytes:
     label_actors = []  # rótulos de id → se pintan en la capa overlay (siempre encima)
     for item in snap.items:
         pd = polydata(item.vertices, item.triangles)
-        ren.AddActor(actor_superficie(pd, item.color, item.opacity))
+        ren.AddActor(actor_superficie(pd, item.color, item.opacity, item.pbr))
         if item.draw_edges:
             ren.AddActor(actor_aristas(pd))
         if item.label_pos is not None:

@@ -55,7 +55,7 @@ export default function FichaPieza() {
   return (
     <section className="ficha-pieza" aria-label="Pieza seleccionada">
       <header className="fp-cabecera">
-        <span className="fp-color" style={{ background: f.color }} />
+        <span className="fp-color" style={{ background: f.albedo ?? f.color }} />
         <div className="fp-titulo">
           <b title={f.name}>{f.name}</b>
           <span className="fp-id">{f.id}</span>

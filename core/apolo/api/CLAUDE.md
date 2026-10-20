@@ -144,7 +144,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 
 - `_geom_rev(fid, shape)` (`scene.py`) = revisión por IDENTIDAD del shape (el regen incremental la conserva en
   lo no re-ejecutado). `scene_payload(known=…)` manda `same: true` + metadatos volátiles
-  (id/rev/name/color/visible/group/is_guide) de lo que el cliente ya tiene (`POST /api/scene/delta`).
+  (id/rev/name/color/visible/group/is_guide/acabado/albedo) de lo que el cliente ya tiene (`POST /api/scene/delta`).
   Un metadato nuevo que el viewport deba ver va también en la entrada `same`: no sube el rev.
 - `SCENE_EPOCH` (uuid por proceso): si el cliente trae otro, se manda el payload COMPLETO (tras un
   restart los revs renacen en 1 y colisionarían). Cliente: [ui](../../../ui/CLAUDE.md).

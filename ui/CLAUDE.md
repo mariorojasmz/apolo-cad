@@ -219,6 +219,10 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 - Fondo: `OutputPass` tonemapea también el color de limpiado → el canvas es TRANSPARENTE
   (`alpha: true`, clear alpha 0) y el fondo lo pinta el `<div>` por CSS. `BACKGROUND` /
   `BACKGROUND_CSS` (`scene-setup.ts`) son la fuente única.
+- Material de una pieza = su ACABADO (`feat.acabado`, `feat.albedo`, resueltos en el servidor)
+  sobre la tabla `viewport/acabados.json`, copia GENERADA de `library/apariencia.py`: no se
+  edita a mano. Las muestras de color muestran el albedo. Relieves procedurales con UV de caja
+  en mm (`relieve.ts`). [visor-realista](../docs/plans/visor-realista.md)
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
   para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).

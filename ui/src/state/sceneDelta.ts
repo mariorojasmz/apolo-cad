@@ -21,6 +21,7 @@ export function mergeSceneDelta(prev: SceneOut, delta: SceneOut): SceneOut {
     features.push({
       ...old, rev: f.rev, name: f.name, color: f.color,
       visible: f.visible, group: f.group, is_guide: f.is_guide, // V6.2e Fix 7: guía es metadato
+      acabado: f.acabado, albedo: f.albedo, // material y color: metadatos (no cambian el rev)
     });
   }
   const allDefs = { ...prev.definitions, ...delta.definitions };

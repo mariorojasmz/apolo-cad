@@ -85,6 +85,7 @@ def _dynamics(body: DynamicsIn, *, con_escena: bool = False):
     from apolo.physics import PhysicsError
     from apolo.physics.dinamica import prepare_dynamics, simulate_dynamics
     from apolo.physics.gif_dinamica import extraer_gif_dinamica
+    from apolo.services.apariencia import apariencias_documento
 
     peticion = dict(body.model_extra or {})
     escena = None
@@ -93,7 +94,8 @@ def _dynamics(body: DynamicsIn, *, con_escena: bool = False):
             d = S.doc
             snap = prepare_dynamics(d.scene, d.joints, d.fasteners, d.grounds, peticion, mates=d.mates)
             if con_escena and snap.early is None:   # colores: los del viewport
-                escena = extraer_gif_dinamica(d.scene, snap.piezas, d.colors)
+                escena = extraer_gif_dinamica(d.scene, snap.piezas, d.colors,
+                                              apariencias=apariencias_documento(d))
         with PHYSICS_LOCK:
             res = simulate_dynamics(snap)
     except PhysicsError as exc:

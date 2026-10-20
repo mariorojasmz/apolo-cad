@@ -37,16 +37,21 @@ class EscenaGif:
     piezas: list
     colores: dict      # id → hex
     cuerpo_de: dict    # id de pieza → cuerpo de junta que la mueve
+    apariencias: dict | None = None   # id → acabado (`services/apariencia`): color y brillo
 
 
-def extraer_gif_dinamica(scene, piezas_cuerpo: list, colores: dict | None = None) -> EscenaGif:
+def extraer_gif_dinamica(scene, piezas_cuerpo: list, colores: dict | None = None, *,
+                         apariencias: dict | None = None) -> EscenaGif:
     """FASE OCCT (bajo `STATE_LOCK`). `piezas_cuerpo` es la salida `piezas` de la dinámica
     (`[{id, name}]`: pieza → cuerpo); `colores`, los del documento (ganan a la paleta, como en
-    el viewport). Lo oculto no se dibuja aunque la física lo cuente: ocultar es de la vista."""
+    el viewport); `apariencias`, la tabla de acabados del visor ya aplicada (gana a `colores`).
+    Lo oculto no se dibuja aunque la física lo cuente: ocultar es de la vista."""
     from apolo.kernel.render_vivo import colores_fijos, extraer_piezas
 
-    return EscenaGif(piezas=extraer_piezas(scene), colores=colores_fijos(scene, colores),
-                     cuerpo_de={p["id"]: p["name"] for p in piezas_cuerpo})
+    return EscenaGif(piezas=extraer_piezas(scene, apariencias),
+                     colores=colores_fijos(scene, colores),
+                     cuerpo_de={p["id"]: p["name"] for p in piezas_cuerpo},
+                     apariencias=apariencias)
 
 
 def _fotogramas_gif(frames: list, maximo: int) -> list:
@@ -151,7 +156,8 @@ def render_dynamics_gif(esc: EscenaGif, productos: list, frames: list, *, view: 
     alto = max(2, int(size_px * 0.75) // 2 * 2)
 
     imagenes = []
-    with RENDER_LOCK, EscenaViva((lo, hi), esc.colores, ancho=ancho, alto=alto, view=view) as viva:
+    with RENDER_LOCK, EscenaViva((lo, hi), esc.colores, ancho=ancho, alto=alto, view=view,
+                                 apariencias=esc.apariencias) as viva:
         for k, fr in enumerate(sel):
             activos = [n for n in fr["poses"] if n in cajas]
             viva.aplicar(esc.piezas + [cajas[n] for n in activos])

@@ -1,49 +1,35 @@
 import * as THREE from "three";
 import type { CatalogItem, FeatureOut } from "../types";
+import { ACABADOS, acabadoDe, albedoDe, claveAcabado, type Acabado } from "./acabados";
+import { texturaRelieve } from "./relieve";
 
-/* Materiales PBR por componente. El material del catálogo (specs.material) llega
-   al frontend vía feat.component + el catálogo del store; aquí se traduce a
-   parámetros metalness/roughness. El color (albedo) siempre es feat.color, para
-   no perder la distinción visual de piezas que da la paleta/color del usuario. */
+/* Materiales PBR de las piezas: los parámetros salen de la tabla de acabados D5
+   (`acabados.ts`, la misma que usa el render VTK), según el acabado que el servidor resolvió
+   para cada pieza (material, rol, catálogo). El color es el albedo que manda el servidor: el
+   asignado por el usuario, el propio del acabado (caucho, galvanizado…) o el de la paleta en
+   lo pintado, que es lo que distingue una pieza de otra. */
 
 export interface PbrParams {
   metalness: number;
   roughness: number;
 }
 
-export const DEFAULT_PARAMS: PbrParams = { metalness: 0.2, roughness: 0.6 }; // piezas a medida
-
-const MATERIAL_TABLE: Record<string, PbrParams> = {
-  aluminio: { metalness: 0.9, roughness: 0.45 },
-  "aluminio/acero": { metalness: 0.9, roughness: 0.4 },
-  acero: { metalness: 1.0, roughness: 0.3 },
-  "acero templado": { metalness: 1.0, roughness: 0.25 },
-  "acero al cromo": { metalness: 1.0, roughness: 0.12 },
-  "acero 12.9": { metalness: 1.0, roughness: 0.35 },
-  "acero zincado": { metalness: 0.85, roughness: 0.5 },
-  "acero pintado": { metalness: 0.1, roughness: 0.6 },
-  "acero inoxidable": { metalness: 1.0, roughness: 0.2 },
-  latón: { metalness: 0.9, roughness: 0.35 },
-  "níquel satinado": { metalness: 0.9, roughness: 0.45 },
-};
-
+/** Parámetros PBR del acabado de la pieza. `catalogByRef` queda por compatibilidad: el
+ * material de catálogo ya viene resuelto en `feat.acabado`. */
 export function resolveMaterialParams(
   feat: FeatureOut,
-  catalogByRef: Map<string, CatalogItem> | null,
+  _catalogByRef?: Map<string, CatalogItem> | null,
 ): PbrParams {
-  if (!feat.component || !catalogByRef) return DEFAULT_PARAMS;
-  const material = catalogByRef.get(feat.component)?.specs?.material;
-  if (typeof material !== "string") return DEFAULT_PARAMS;
-  return MATERIAL_TABLE[material.toLowerCase().trim()] ?? DEFAULT_PARAMS;
+  const ac = acabadoDe(feat);
+  return { metalness: ac.metalness, roughness: ac.roughness };
 }
 
 const GLASS_RE = /vidrio|cristal|glass/i;
 
-/** Vidrio: por material de catálogo (specs.material) o por nombre de la feature
-   (las piezas a medida de vidrio se llaman "Vidrio ..."). Se renderiza translúcido. */
-export function isGlass(feat: FeatureOut, catalogByRef: Map<string, CatalogItem> | null): boolean {
-  const mat = feat.component && catalogByRef ? catalogByRef.get(feat.component)?.specs?.material : undefined;
-  if (typeof mat === "string" && GLASS_RE.test(mat)) return true;
+/** Vidrio: el acabado `vidrio` (material de la pieza, de su ficha de catálogo o de su nombre).
+ * Sin acabado del servidor, por el nombre. Se renderiza translúcido. */
+export function isGlass(feat: FeatureOut, _catalogByRef?: Map<string, CatalogItem> | null): boolean {
+  if (feat.acabado) return claveAcabado(feat) === "vidrio";
   return GLASS_RE.test(feat.name);
 }
 
@@ -54,8 +40,10 @@ export function buildSolidMaterial(
   planes: THREE.Plane[],
   glass = false,
 ): THREE.MeshStandardMaterial {
+  const ac: Acabado = acabadoDe(feat);
+  const bump = !glass && !wire && ac.relieve ? texturaRelieve(ac.relieve) : null;
   return new THREE.MeshStandardMaterial({
-    color: new THREE.Color(feat.color),
+    color: new THREE.Color(albedoDe(feat)),
     metalness: glass ? 0.0 : params.metalness,
     roughness: glass ? 0.06 : params.roughness,
     envMapIntensity: glass ? 1.4 : 1.0,
@@ -63,9 +51,11 @@ export function buildSolidMaterial(
     wireframe: wire,
     side: THREE.DoubleSide,
     transparent: glass,
-    opacity: glass ? 0.3 : 1.0,
+    opacity: glass ? ACABADOS.vidrio.opacidad : 1.0,
     depthWrite: glass ? false : true, // el vidrio no escribe profundidad → se ve lo de detrás
     clippingPlanes: planes.length ? planes : undefined,
+    bumpMap: bump,
+    bumpScale: bump && ac.relieve ? ac.relieve.intensidad : 1,
   });
 }
 

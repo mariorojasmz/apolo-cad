@@ -1,0 +1,189 @@
+{
+  "por_defecto": "acero_pintado",
+  "tipos_relieve": [
+    "pintura",
+    "cepillado",
+    "moteado",
+    "fundicion",
+    "veta",
+    "tejido"
+  ],
+  "acabados": {
+    "acero_pintado": {
+      "nombre": "Acero pintado",
+      "color": null,
+      "metalness": 0.15,
+      "roughness": 0.55,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "pintura",
+        "escala_mm": 6.0,
+        "intensidad": 0.25
+      }
+    },
+    "acero_mecanizado": {
+      "nombre": "Acero mecanizado",
+      "color": "#a3a8ae",
+      "metalness": 1.0,
+      "roughness": 0.32,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "cepillado",
+        "escala_mm": 40.0,
+        "intensidad": 0.2
+      }
+    },
+    "pavonado": {
+      "nombre": "Acero pavonado",
+      "color": "#3b3e43",
+      "metalness": 0.85,
+      "roughness": 0.45,
+      "opacidad": 1.0,
+      "relieve": null
+    },
+    "galvanizado": {
+      "nombre": "Acero galvanizado",
+      "color": "#b4bac0",
+      "metalness": 0.9,
+      "roughness": 0.48,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "moteado",
+        "escala_mm": 25.0,
+        "intensidad": 0.35
+      }
+    },
+    "zincado": {
+      "nombre": "Acero zincado",
+      "color": "#c8cdd2",
+      "metalness": 0.95,
+      "roughness": 0.3,
+      "opacidad": 1.0,
+      "relieve": null
+    },
+    "inox_cepillado": {
+      "nombre": "Acero inoxidable cepillado",
+      "color": "#c3c7cb",
+      "metalness": 1.0,
+      "roughness": 0.26,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "cepillado",
+        "escala_mm": 30.0,
+        "intensidad": 0.45
+      }
+    },
+    "cromado": {
+      "nombre": "Acero al cromo",
+      "color": "#d6d9dc",
+      "metalness": 1.0,
+      "roughness": 0.1,
+      "opacidad": 1.0,
+      "relieve": null
+    },
+    "aluminio": {
+      "nombre": "Aluminio",
+      "color": "#cfd3d8",
+      "metalness": 1.0,
+      "roughness": 0.38,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "cepillado",
+        "escala_mm": 50.0,
+        "intensidad": 0.2
+      }
+    },
+    "hierro_fundido": {
+      "nombre": "Hierro fundido",
+      "color": "#5a5f66",
+      "metalness": 0.35,
+      "roughness": 0.72,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "fundicion",
+        "escala_mm": 8.0,
+        "intensidad": 0.5
+      }
+    },
+    "bronce": {
+      "nombre": "Bronce",
+      "color": "#b08d57",
+      "metalness": 1.0,
+      "roughness": 0.35,
+      "opacidad": 1.0,
+      "relieve": null
+    },
+    "laton": {
+      "nombre": "Latón",
+      "color": "#c9a94f",
+      "metalness": 1.0,
+      "roughness": 0.3,
+      "opacidad": 1.0,
+      "relieve": null
+    },
+    "niquelado": {
+      "nombre": "Níquel satinado",
+      "color": "#c7c9c8",
+      "metalness": 1.0,
+      "roughness": 0.42,
+      "opacidad": 1.0,
+      "relieve": null
+    },
+    "caucho": {
+      "nombre": "Caucho",
+      "color": "#1f2023",
+      "metalness": 0.0,
+      "roughness": 0.9,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "pintura",
+        "escala_mm": 3.0,
+        "intensidad": 0.3
+      }
+    },
+    "pvc_banda": {
+      "nombre": "PVC de banda",
+      "color": "#2f5b3b",
+      "metalness": 0.0,
+      "roughness": 0.72,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "tejido",
+        "escala_mm": 4.0,
+        "intensidad": 0.35
+      }
+    },
+    "madera": {
+      "nombre": "Madera",
+      "color": "#b5875a",
+      "metalness": 0.0,
+      "roughness": 0.7,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "veta",
+        "escala_mm": 60.0,
+        "intensidad": 0.4
+      }
+    },
+    "vidrio": {
+      "nombre": "Vidrio",
+      "color": "#dceaf2",
+      "metalness": 0.0,
+      "roughness": 0.06,
+      "opacidad": 0.34,
+      "relieve": null
+    },
+    "carton": {
+      "nombre": "Cartón",
+      "color": "#b48a5a",
+      "metalness": 0.0,
+      "roughness": 0.92,
+      "opacidad": 1.0,
+      "relieve": {
+        "tipo": "tejido",
+        "escala_mm": 2.0,
+        "intensidad": 0.15
+      }
+    }
+  }
+}

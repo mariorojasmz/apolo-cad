@@ -45,6 +45,14 @@ describe('mergeSceneDelta', () => {
         expect(a).toMatchObject({ name: 'Larguero', color: '#ff0000', visible: false, group: 'Bastidor', is_guide: true });
     });
 
+    it('el acabado y el albedo viajan en la entrada `same` (set_material no sube el rev)', () => {
+        const prev = escena([pieza('a', { acabado: 'acero_pintado', albedo: '#888888' })]);
+        const delta = escena([igual('a', { acabado: 'caucho', albedo: '#1f2023' })]);
+        const [a] = mergeSceneDelta(prev, delta).features;
+        expect(a).toMatchObject({ acabado: 'caucho', albedo: '#1f2023' });
+        expect(a.mesh).toBe(MALLA);
+    });
+
     it('una pieza sin `same` llega completa, tal cual la manda el servidor', () => {
         const nueva = pieza('a', { rev: 2, volume_mm3: 5000 });
         const out = mergeSceneDelta(escena([pieza('a')]), escena([nueva]));

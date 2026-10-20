@@ -96,6 +96,7 @@ def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None
     from apolo.kernel.render_vivo import EscenaViva
     from apolo.media import composicion as comp
     from apolo.media.codificar import Codificador, mezclar_musica
+    from apolo.services.apariencia import apariencias_documento
 
     carpeta = Path(carpeta)
     v = g["video"]
@@ -112,7 +113,8 @@ def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None
     mudo = carpeta / "video.mudo.mp4" if musica else final
     t0 = time.perf_counter()
     sin_prefijo: list[int] = []
-    with EscenaViva.para(doc.scene, doc.colors, ancho=ancho, alto=alto) as viva, \
+    with EscenaViva.para(doc.scene, doc.colors, ancho=ancho, alto=alto,
+                         apariencias=apariencias_documento(doc)) as viva, \
             Codificador(mudo, ancho, alto, fps=fps) as cod:
         viva.actualizar(doc.scene)
         viva.orbitar(lt.AZIMUT_INICIAL, lt.ELEVACION)

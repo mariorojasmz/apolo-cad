@@ -19,6 +19,8 @@ export interface FeatureOut {
   cut_length: number | null;
   group: string | null;
   is_guide?: boolean;  // boceto-guía (blockout): geometría de intención, fuera de BOM/masa/interferencia
+  acabado?: string;  // clave de la tabla de acabados (viewport/acabados.ts): cómo se ve su material
+  albedo?: string;  // color con que se pinta: el asignado, el propio del acabado o el de paleta
   rev?: number;  // revisión de GEOMETRÍA (V6.2b): sube al cambiar el shape; estable si no
   same?: boolean;  // delta: el cliente ya tiene esta geometría (se mergea la anterior)
 }

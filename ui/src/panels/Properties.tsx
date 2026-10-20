@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { EyeOff, Focus, Trash2 } from "lucide-react";
 import { useStore } from "../state/store";
 import SchemaForm from "../forms/SchemaForm";
+import { acabadoDe } from "../viewport/acabados";
 
 /* Panel de propiedades schema-driven: edita los parámetros del COMANDO que
    creó el sólido seleccionado y regenera el documento (edición paramétrica).
@@ -65,7 +66,7 @@ export default function Properties() {
         <ul className="multi-list">
           {selected.map((f) => (
             <li key={f.id}>
-              <span className="swatch" style={{ background: f.color }} /> {f.name}{" "}
+              <span className="swatch" style={{ background: f.albedo ?? f.color }} /> {f.name}{" "}
               <span className="fid">{f.id}</span>
             </li>
           ))}
@@ -183,9 +184,10 @@ export default function Properties() {
             <tr>
               <td>Apariencia</td>
               <td className="color-cell">
+                <span className="muted">{acabadoDe(feature).nombre}</span>
                 <input
                   type="color"
-                  value={feature.color}
+                  value={feature.albedo ?? feature.color}
                   title="Color de la pieza"
                   onChange={(e) => {
                     void import("../api").then(({ api }) =>
