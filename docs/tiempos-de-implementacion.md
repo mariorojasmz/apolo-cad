@@ -63,6 +63,8 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-20 | plantilla-rodillos-cadena | F0+F1 | S+S | 45 | 298 | F0 corrigió D2 |
 | 2026-10-20 | video-tienda-pulido | F1b | M | 61 | 387 | secuencia de montaje |
 | 2026-10-20 | visor-realista | F3 | M | 68 | 500 | banda y cadenas que avanzan; conflicto al rebasar en services/CLAUDE.md |
+| 2026-10-20 | plantilla-rodillos-cadena | F2 | L | 70 | 578 | super-comando `create_roller_conveyor` (compuesto) |
+| 2026-10-20 | (fix) | tambor engomado | S | ~40 | — | en la sesión principal, sin agente: test, builder, física de la banda, versión |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
@@ -72,4 +74,5 @@ Revisión y merge en la sesión principal (2026-10-20):
   se perdió;
 - ~30 min: plantilla F0+F1;
 - ~30 min: video F1b;
-- ~35 min: visor F3 (un conflicto resuelto a mano).
+- ~35 min: visor F3 (un conflicto resuelto a mano);
+- ~35 min: fix del tambor + plantilla F2, apilados en una sola suite.
