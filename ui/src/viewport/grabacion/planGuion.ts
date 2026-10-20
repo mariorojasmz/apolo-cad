@@ -1,5 +1,5 @@
 /* El plan del video cuadro por cuadro que arma la API desde el guion (plan video-realista, D5;
-   `core/apolo/publicacion/plan_navegador.py`). La API calcula TODO lo que decide el guion —qué
+   `core/apolo/services/plan_navegador.py`). La API calcula TODO lo que decide el guion —qué
    parte va en cada cuadro, qué piezas entran, la órbita, los fundidos y la opacidad del rótulo—
    con las mismas funciones que el video de VTK; aquí sólo se lee. Puro: sin three ni DOM. */
 

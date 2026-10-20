@@ -3,7 +3,7 @@ import { cuadrosPara } from "./reloj";
 /* Lo que se graba en F2 (plan video-realista): la máquina GIRANDO y, si hay una marcha cargada,
    ANDANDO con su serie (visor-realista F2/F3). La cámara parte del encuadre que tiene el visor y
    da `grados` alrededor del eje Z por el centro de la vista, con arranque y frenado suaves (la
-   misma curva que la órbita del video de la tienda, `publicacion/linea_tiempo.py`). El guion
+   misma curva que la órbita del video de la tienda, `services/linea_tiempo.py`). El guion
    completo del video (montaje, rótulos y giro final, D5) es de F3. Puro: sin three ni DOM. */
 
 /** Sin marcha, cuánto dura el giro (s); con marcha, el video dura lo que ella, hasta este tope. */

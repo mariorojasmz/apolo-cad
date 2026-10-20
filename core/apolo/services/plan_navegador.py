@@ -18,7 +18,7 @@ Puro: lee `doc.scene` (nombres y visibilidad) y el guion; ni locks ni E/S.
 
 from __future__ import annotations
 
-from apolo.publicacion import linea_tiempo as lt
+from apolo.services import linea_tiempo as lt
 
 VERSION = 1
 #: Las partes que se dibujan en 3D; las demás son tarjetas (imágenes fijas de la API).

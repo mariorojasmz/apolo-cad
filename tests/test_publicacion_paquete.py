@@ -12,7 +12,7 @@ import zipfile
 import pytest
 
 from apolo.doc.document import Document
-from apolo.publicacion import linea_tiempo as lt
+from apolo.services import linea_tiempo as lt
 from apolo.publicacion import paquete, saneo, textos
 from apolo.services.guion_video import capitulos, duracion_total
 

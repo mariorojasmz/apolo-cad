@@ -498,7 +498,7 @@ una COPIA de `data/apolo.db` y Edge 155 sin ventana (`--headless=new`, perfil te
 la carpeta de la sesión, borrado al final).
 
 **D5, un solo guion** (decisión de arquitectura): el navegador no calcula NADA del guion.
-`publicacion/plan_navegador.py` arma el plan cuadro por cuadro con las MISMAS funciones del video
+`services/plan_navegador.py` arma el plan cuadro por cuadro con las MISMAS funciones del video
 de VTK (`linea_tiempo.tramos`, `reparto`, `apariciones`, `revelado`, `peso_roles`, órbita,
 fundidos y opacidad del rótulo) y el visor (`grabacion/guionVista.ts`) sólo lo dibuja:
 - montaje tanda por tanda sobre las mallas reales (`montaje.ts`: sólo lo visible; el resaltado
@@ -578,6 +578,9 @@ Intentos fallidos:
 - Un primer diseño leía el documento en `routers/video.py` para armar el plan: rompía la frontera
   E/S pura de D4 (`test_la_grabacion_es_e_s_pura_sin_el_documento`). De ahí el plan armado por
   quien abre y `video_guion.py`.
+- El plan vivía en `publicacion/`: el backend no puede importar la publicación
+  (`test_capas_publicacion.py`, D1 de publicacion-tienda). `plan_navegador.py` y
+  `linea_tiempo.py` pasaron a `services/`, que usan los dos.
 
 Tests:
 - pytest `test_video_navegador.py` +19: marcha en el guion, plan (reparto, apariciones, fundidos,

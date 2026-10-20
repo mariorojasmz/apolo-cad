@@ -79,7 +79,7 @@ def violaciones(archivo: Path) -> list[str]:
 def test_existe_el_paquete():
     nombres = {p.name for p in _py(PUBLICACION)}
     assert {"__init__.py", "entregables.py", "ficha.py", "saneo.py", "video.py", "paquete.py",
-            "textos.py", "flujo.py", "linea_tiempo.py"} <= nombres
+            "textos.py", "flujo.py"} <= nombres
 
 
 def test_publicacion_solo_usa_las_capas_de_dominio():

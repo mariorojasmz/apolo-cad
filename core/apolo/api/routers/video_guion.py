@@ -2,7 +2,7 @@
 
 `POST /api/video/guion` arma, sobre el documento ACTIVO, el mismo guion de montaje que
 `publicar guion --modo montaje` (con la última marcha simulada del proyecto, si la hay) y su plan
-cuadro por cuadro (`publicacion/plan_navegador.py`). La UI abre con los dos la sesión de
+cuadro por cuadro (`services/plan_navegador.py`). La UI abre con los dos la sesión de
 grabación (`video.py`). Vive aparte porque lee la escena bajo `STATE_LOCK`: la grabación es E/S
 pura y no conoce el documento (D4). El CLI no pasa por aquí: arma el guion y el plan sobre su
 propia copia del documento (D1 de publicacion-tienda).
@@ -33,7 +33,7 @@ class GuionIn(BaseModel):
 def guion_del_documento(body: GuionIn | None = None) -> dict:
     """{guion, plan} de MONTAJE del documento activo, con la última marcha simulada del proyecto
     si la hay: lo que graba el botón «Grabar video»."""
-    from apolo.publicacion.plan_navegador import PlanError, plan
+    from apolo.services.plan_navegador import PlanError, plan
     from apolo.services.datos_rotulos import datos_rotulos
     from apolo.services.guion_video import MARCHA_S, MODO_MONTAJE, GuionError, validar_guion
     from apolo.services.guion_video import guion as armar

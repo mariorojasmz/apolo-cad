@@ -116,7 +116,7 @@ def renderizar(cliente, doc, g: dict, carpeta, *, musica=None, conservar_cuadros
 
     from apolo.media import tarjetas
     from apolo.publicacion.flujo import _Api
-    from apolo.publicacion.plan_navegador import PlanError, plan
+    from apolo.services.plan_navegador import PlanError, plan
     from apolo.publicacion.video import InformeVideo
 
     ejecutable = buscar_navegador()

@@ -11,7 +11,9 @@ video sobre su propia copia del documento, sin locks compartidos.
     video-tienda-pulido: sólo con la API en otro proceso).
   - `ficha`: `ficha.yaml` (datos de tienda que escribe una persona, D14) y su validación.
   - `saneo`: el `.apolo` publicado, sin notas del agente ni precios (D12).
-  - `linea_tiempo` y `video`: el MP4 a partir del guion (D2, D5–D8).
+  - `video`: el MP4 a partir del guion (D2, D5–D8), con los tiempos de
+    `services/linea_tiempo.py` (allí también los lee el plan del navegador, video-realista F3);
+  - `navegador`: el mismo video grabado en Edge o Chrome sin ventana (video-realista D7).
   - `vista3d`: `vista-3d.glb` para girar la máquina en la web (plan vista-3d-tienda).
   - `vista3d_html`: `vista-3d.html`, el trozo con `<model-viewer>` y una etiqueta por grupo.
   - `textos`: LEEME, licencia, aviso de responsabilidad y `youtube.txt` (D11, D15).

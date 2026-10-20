@@ -166,6 +166,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md) (F1b)
 - La `marcha` del guion (opcional) cuenta en `duracion_total` y en los capítulos, pero sólo la
   graba el navegador: todo render que no la anime usa `sin_marcha(g)`.
+- `linea_tiempo.py` (tiempos y efectos del video) y `plan_navegador.py` (el plan cuadro por
+  cuadro que el visor sólo dibuja) viven aquí y no en `publicacion/`: el backend no importa la
+  publicación (`test_capas_publicacion.py`) y la API arma el plan del botón «Grabar video». Una
+  regla nueva del video va en `linea_tiempo.py` y la reciben VTK y el navegador.
   [video-realista](../../../docs/plans/video-realista.md) (D5)
 
 ## La marcha en el visor (`marcha_visual.py`)

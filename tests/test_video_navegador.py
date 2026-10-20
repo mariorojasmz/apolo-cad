@@ -2,7 +2,7 @@
 
 - El guion gana la `marcha` (opcional): cuenta en la duración y en los capítulos, y el respaldo
   VTK la quita (`sin_marcha`).
-- `publicacion/plan_navegador.py` arma el plan cuadro por cuadro con las MISMAS funciones que el
+- `services/plan_navegador.py` arma el plan cuadro por cuadro con las MISMAS funciones que el
   video de VTK: partes, piezas que entran, órbita, fundidos, rótulo y el reloj de la marcha.
 - El rótulo del navegador se lee a ≥ 4.5:1 sobre cualquier cuadro (D4 de video-tienda-pulido).
 - La API guarda guion y plan en la sesión, recibe la foto, dibuja tarjetas y rótulos y anota el
@@ -25,10 +25,10 @@ import apolo.api.main as api
 from apolo.api.routers import video as rv
 from apolo.doc import Document
 from apolo.media import grabacion as gr
-from apolo.publicacion import linea_tiempo as lt
+from apolo.services import linea_tiempo as lt
 from apolo.publicacion import navegador
 from apolo.publicacion.paquete import PublicacionError
-from apolo.publicacion.plan_navegador import PlanError, plan
+from apolo.services.plan_navegador import PlanError, plan
 from apolo.publicacion.video import ffmpeg_disponible
 from apolo.services.guion_video import (
     MODO_DISENO,

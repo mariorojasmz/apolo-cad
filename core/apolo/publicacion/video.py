@@ -27,7 +27,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
 
-from apolo.publicacion import linea_tiempo as lt
+from apolo.services import linea_tiempo as lt
 
 
 @dataclass

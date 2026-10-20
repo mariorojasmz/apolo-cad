@@ -5,7 +5,7 @@ al cerrar lo codifica con `media/codificar.py` (el mismo ffmpeg, música y CRF q
 tienda). Las sesiones y los cuadros son de `media/grabacion.py`.
 
 Con GUION (F3, D5): una sesión abierta con `guion` + `plan` (el plan cuadro por cuadro de
-`publicacion/plan_navegador.py`, armado por quien abre: el CLI sobre su copia del documento, el
+`services/plan_navegador.py`, armado por quien abre: el CLI sobre su copia del documento, el
 botón «Grabar video» con `POST /api/video/guion`, de `video_guion.py`) los guarda para el
 navegador, que lee `…/{sesion}/plan`. Las tarjetas y los rótulos salen de `…/tarjeta/{parte}` y
 `…/rotulo/{etapa}`, dibujados con las mismas funciones que el video de VTK.
@@ -86,7 +86,7 @@ def _medidas_del_plan(guion: dict | None, plan: dict | None) -> tuple[int, int, 
             raise ValueError
     except (TypeError, KeyError, IndexError, ValueError):
         raise HTTPException(400, "Una grabación con guion lleva el guion y su plan completo "
-                                 "(`publicacion/plan_navegador.py`): ármalo de nuevo.") from None
+                                 "(`services/plan_navegador.py`): ármalo de nuevo.") from None
     return medidas
 
 
@@ -129,7 +129,7 @@ def descartar_grabacion(sesion: str) -> dict:
 
 @router.get("/api/video/grabacion/{sesion}/plan")
 def plan_grabacion(sesion: str) -> dict:
-    """El plan cuadro por cuadro del guion de la sesión (`publicacion/plan_navegador.py`)."""
+    """El plan cuadro por cuadro del guion de la sesión (`services/plan_navegador.py`)."""
     try:
         return GRABACIONES.plan(sesion)
     except _ERRORES as exc:
