@@ -221,10 +221,16 @@ def _resolver(scene, graph, nivel, vigas, portantes, p_util, origen_util, carga_
 
     recibido: dict = defaultdict(list)  # fid → [(de quién, N)]
     resultados: list[tuple[tuple, dict]] = []
-    for fid in sorted(nivel, key=lambda n: -nivel[n]):
+    # orden TOTAL (nivel, nombre, id): con empates, el orden del dict sale de recorrer `set`s y
+    # cambia con PYTHONHASHSEED → el representante de un grupo de vigas iguales cambiaría
+    def _orden(n):
+        return (-nivel[n], getattr(scene.get(n), "name", "") or "", n)
+
+    for fid in sorted(nivel, key=_orden):
         if fid not in scene:
             continue
-        inferiores = [m for m in graph["adj"][fid] if nivel.get(m, 1 << 30) < nivel[fid]]
+        inferiores = sorted((m for m in graph["adj"][fid] if nivel.get(m, 1 << 30) < nivel[fid]),
+                            key=str)
         viga = vigas.get(fid)
         if viga is None:
             total = _masa_kg(scene[fid], catalog) * G + sum(n for _, n in recibido[fid])
