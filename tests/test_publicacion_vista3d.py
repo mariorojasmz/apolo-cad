@@ -15,7 +15,7 @@ import pytest
 
 from apolo.doc import Document
 from apolo.kernel import glb
-from apolo.kernel.glb_resumen import resumen
+from apolo.kernel.glb_resumen import leer, resumen
 from apolo.kernel.render_comun import hex_de_paleta
 from apolo.publicacion import vista3d
 
@@ -43,14 +43,16 @@ def doc() -> Document:
 
 
 def test_piezas_visibles_con_color_y_grupos(doc):
+    # D5 (F2): cada instancia se llama como su grupo, nunca como la pieza
     piezas = {p.nombre: p for p in vista3d.piezas(doc)}
-    assert set(piezas) == {"Larguero", "Motorreductor", "Piñón", "Suelta"}
-    assert piezas["Piñón"].grupos == ("Transmisión", "Piñonería")
-    assert piezas["Larguero"].grupos == ("Bastidor",) and piezas["Suelta"].grupos == ()
-    assert piezas["Motorreductor"].color == "#c77d4f"  # el asignado gana
+    assert set(piezas) == {"Bastidor", "Transmisión", "Piñonería", vista3d.SIN_GRUPO}
+    assert piezas["Piñonería"].grupos == ("Transmisión", "Piñonería")
+    assert piezas["Bastidor"].grupos == ("Bastidor",) and piezas[vista3d.SIN_GRUPO].grupos == ()
+    assert piezas["Transmisión"].color == "#c77d4f"  # el asignado gana
     indice = list(doc.scene).index(next(f.id for f in doc.scene.values() if f.name == "Larguero"))
-    assert piezas["Larguero"].color == hex_de_paleta(indice)  # si no, la paleta del viewport
-    assert piezas["Larguero"].metal == glb.METAL and piezas["Larguero"].rugosidad == glb.RUGOSIDAD
+    assert piezas["Bastidor"].color == hex_de_paleta(indice)  # si no, la paleta del viewport
+    assert piezas["Bastidor"].metal == glb.METAL and piezas["Bastidor"].rugosidad == glb.RUGOSIDAD
+    assert len(vista3d.ids_glb(doc)) == 4  # sin la oculta
 
 
 def test_sin_gltfpack_sale_sin_comprimir_y_lo_dice(doc, tmp_path, monkeypatch):
@@ -62,8 +64,11 @@ def test_sin_gltfpack_sale_sin_comprimir_y_lo_dice(doc, tmp_path, monkeypatch):
     assert inf["piezas"] == 4 and not inf["sobre_tope"]
     assert inf["caja_m"][0][1] == 0.0  # apoyada en Y = 0
     res = resumen(tmp_path / vista3d.ARCHIVO)
-    assert {"Faja", "Bastidor", "Transmisión", "Piñonería", "Piñón"} <= {
-        n["nombre"] for n in res["nodos"]}
+    nombres = {n["nombre"] for n in res["nodos"]}
+    assert {"Faja", "Bastidor", "Transmisión", "Piñonería", vista3d.SIN_GRUPO} <= nombres
+    assert not nombres & {"Larguero", "Motorreductor", "Piñón", "Suelta"}  # D5
+    assert not any(m.get("name") in {"Larguero", "Piñón", "Suelta"}
+                   for m in leer(tmp_path / vista3d.ARCHIVO).get("meshes", []))
     assert inf["triangulos"] == res["triangulos"] <= inf["tope_triangulos"]
 
 
@@ -125,7 +130,7 @@ def test_compresion_real_conserva_grupos_y_lugares(doc, tmp_path):
              if n["caja"] is not None}
     despues = {n["nombre"]: n["caja"] for n in resumen(tmp_path / "v.glb")["nodos"]
                if n["caja"] is not None and n["nombre"]}
-    for nombre in ("Bastidor", "Transmisión", "Piñonería", "Piñón", "Larguero", "Suelta"):
+    for nombre in ("Bastidor", "Transmisión", "Piñonería", vista3d.SIN_GRUPO):
         assert nombre in despues, f"gltfpack borró «{nombre}» (¿falta -kn?)"
         error = max(np.abs(despues[nombre][0] - antes[nombre][0]).max(),
                     np.abs(despues[nombre][1] - antes[nombre][1]).max())

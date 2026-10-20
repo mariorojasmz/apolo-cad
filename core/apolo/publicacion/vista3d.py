@@ -4,7 +4,8 @@ Sobre la copia privada del documento que ya tiene `publicar generar` (D1 de publ
 proceso aparte, sin locks):
 
   1. `piezas`: las piezas VISIBLES que se fabrican (fuera las guías de boceto y las superficies
-     de construcción, como en la BOM), con su color y la ruta de grupos del documento.
+     de construcción, como en la BOM), con su color y la ruta de grupos del documento, y
+     nombradas por su grupo, no por su nombre (D5, F2).
   2. `apolo.kernel.glb.escribir_glb`: el GLB crudo de OCCT (metros, Y arriba, apoyado en
      Y = 0), con los triángulos dibujados bajo el tope (D2).
   3. `gltfpack -cc -kn` (meshoptimizer, MIT): compresión meshopt; `-kn` conserva los nodos de
@@ -28,6 +29,8 @@ import time
 from pathlib import Path
 
 ARCHIVO = "vista-3d.glb"
+#: Nombre de la instancia de una pieza sin grupo (D5: nunca el de la pieza).
+SIN_GRUPO = "Pieza"
 ENV_GLTFPACK = "APOLO_GLTFPACK"
 OPCIONES_GLTFPACK = ("-cc", "-kn")
 _NOMBRES = ("gltfpack.exe", "gltfpack.cmd", "gltfpack")
@@ -56,17 +59,29 @@ def _ruta_grupos(grupo: str | None, grupos: dict) -> tuple[str, ...]:
     return tuple(ruta)
 
 
-def piezas(doc) -> list:
-    """Las `PiezaGlb` del documento, en el orden de la escena."""
-    from apolo.kernel.glb import PiezaGlb
+def ids_glb(doc) -> list[str]:
+    """Los ids de las piezas que entran al GLB (visibles, sin guías ni superficies), en el
+    orden de la escena: los mismos para la malla y para sus etiquetas (`vista3d_html`)."""
     from apolo.kernel.shapes import is_surface
 
+    return [fid for fid, feat in doc.scene.items()
+            if feat.visible and not feat.is_guide and feat.shape is not None
+            and not is_surface(feat.shape)]
+
+
+def piezas(doc) -> list:
+    """Las `PiezaGlb` del documento, en el orden de la escena. Cada instancia se llama como su
+    grupo (D5: el GLB es sólo apariencia y no lleva los nombres de las piezas, que dirían cómo
+    está hecho el diseño); una pieza sin grupo, `SIN_GRUPO`."""
+    from apolo.kernel.glb import PiezaGlb
+
+    indices = {fid: i for i, fid in enumerate(doc.scene)}
     out = []
-    for i, feat in enumerate(doc.scene.values()):
-        if not feat.visible or feat.is_guide or feat.shape is None or is_surface(feat.shape):
-            continue
-        out.append(PiezaGlb(feat.name, feat.shape, grupos=_ruta_grupos(feat.group, doc.groups),
-                            **apariencia(feat, i, doc.colors)))
+    for fid in ids_glb(doc):
+        feat = doc.scene[fid]
+        ruta = _ruta_grupos(feat.group, doc.groups)
+        out.append(PiezaGlb(ruta[-1] if ruta else SIN_GRUPO, feat.shape, grupos=ruta,
+                            **apariencia(feat, indices[fid], doc.colors)))
     return out
 
 

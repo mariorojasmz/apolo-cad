@@ -238,3 +238,65 @@ girado). Caja [0, 0, −0.397]–[2.0, 0.77, 0.345] m, patas en Y = 0, nombres c
   `npm install -g gltfpack` (deja `gltfpack.cmd`; pide Node). Si falta, si la variable apunta a
   nada o si falla, el GLB sale crudo (≈ 6× más pesado, igual de correcto) y el aviso con cómo
   instalarlo va al eco y a `generacion.json`; la publicación no se cae. Ningún test depende de él.
+
+### F2 (2026-10-20)
+
+D3 y D5 dentro de `publicar generar`. Módulos nuevos: `services/cifras_grupo.py` (la cifra
+principal y las anclas de cada grupo raíz: lee el documento, capa `services`) y
+`publicacion/vista3d_html.py` (las etiquetas en coordenadas del GLB, el reparto de anclas y el
+trozo de HTML). `kernel/glb.py` suma `a_glb` (punto del documento → GLB, la misma conversión
+que el escritor). `flujo.py` escribe `vista-3d.html` DESPUÉS del video (el póster es la
+miniatura, que puede salir `.jpg`) junto a `vista-3d.glb`; su informe va a `generacion.json` →
+`vista_3d.html`. Todavía NO entra a los zips ni a `ficha.json` (F3). Tests:
+`test_publicacion_vista3d_html.py` (5), `test_publicacion_vista3d.py` reescrito para D5 y el E2E
+pide el HTML.
+
+**Piloto** (p74 de la F0, en solo-lectura; esta PC, con el `gltfpack` del scratchpad):
+
+| grupo | etiqueta |
+|---|---|
+| Bastidor | 2 largueros de ángulo L 75x6 de 2 000 mm |
+| Rodillos | 20 rodillos Ø2" cada 95,25 mm sobre ejes Ø12 |
+| Cadenas | 19 cadenas rodillo a rodillo ASA 40 |
+| Patas y travesaños | 4 patas de tubo HSS 2"x2" de 660 mm |
+| Motorreductor | 0,37 kW a 50 rpm |
+| Guardas | Guarda de cadenas de chapa de 2 mm |
+
+GLB 0.33 MB (0.34 en la F1: los nombres de grupo son más cortos), 295 976 triángulos; HTML 5.7 KB.
+Etiquetas: 2–4 s (el volumen de 201 piezas; 3.5 s → 2.0 s cacheando la masa por `mesh_key`). Probado
+en el navegador servido por HTTP: el póster sale sin pedir el GLB, el GLB meshopt carga al tocar,
+las seis etiquetas quedan sobre su pieza y, en la vista de celular, aparece «Ver en tu espacio».
+
+**Decisiones de la F2:**
+
+- **D5, nombres**: cada instancia del GLB se llama como su grupo hoja (una pieza sin grupo,
+  «Pieza»); también las mallas, que toman el nombre del prototipo. Los nodos de instancia y de
+  grupo comparten nombre: quien busque el nodo de un grupo, que lo busque por la jerarquía (hijos
+  de la raíz), no por nombre. `rebajados` de `generacion.json` nombra ahora el grupo.
+- **Cifra principal**: las MISMAS plantillas de los rótulos del video (`rotulos.plantilla`), sin
+  fórmula nueva. Por base de rol: primero la que declara potencia, después de más a menos masa,
+  sólo las que pesan ≥ 10 % del grupo (si no, «24 pernos M10» hablaría por un bastidor); sin
+  plantilla, «N piezas · X kg». Una pieza sola va por su base y, si la base es el grupo, sólo la
+  cifra («0,37 kW a 50 rpm» bajo «Motorreductor»). Formato español (coma decimal), como el video
+  y el LEEME: el «0.37 kW» de D3 era ilustrativo.
+- **Un subgrupo cuenta para su raíz** (las etiquetas no se apilan) y como mucho 8, las de los
+  grupos que más pesan.
+- **Ancla sobre una pieza real**: el tope de una pieza de la base elegida (centro y, en una pieza
+  larga, ¼ y ¾ de su largo), nunca el centro de la caja del grupo (en un bastidor cae entre los
+  largueros). Se reparten: de la que más pesa a la que menos, cada grupo toma su candidato más
+  lejano de los ya puestos.
+- **La página no descarga nada que no pida**: `data-src` → `src` al tocar «Ver en 3D»; el
+  comentario de cabecera es la guía de subida de D4 (viaja con el trozo). Trozo, no página: sin
+  `<html>` ni `<meta>`, se pega dentro de la página de la tienda; id del contenedor por slug.
+
+**Intentos fallidos (lo que corrigió la prueba en el navegador):**
+
+- La «ñ» salía «Ã±» al servir el trozo solo (sin `<meta charset>`, el navegador asume
+  windows-1252): todo lo que sale del documento va escapado y en ASCII (`&#241;`).
+- Con `data-normal` y la regla `:not([data-visible])` de la F0, las seis etiquetas quedaban al
+  30 %: `<model-viewer>` 4.0.0 nunca les puso `data-visible` (ni girando la cámara). Van sin
+  normal y opacas.
+- Con el ancla «pieza más cercana al centro del grupo», cuatro etiquetas caían en x = 1.0 m (el
+  medio de la faja) una encima de otra; repartidas, seguían tapándose con las seis cifras
+  abiertas (la faja entera cabe en ~400 px). La etiqueta muestra el grupo y la cifra se abre al
+  pasar el mouse o al tocarla.

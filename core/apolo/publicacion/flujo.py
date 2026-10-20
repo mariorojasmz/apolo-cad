@@ -8,7 +8,8 @@ Hablan con la API viva por HTTP (un `httpx.Client` con `base_url`; en los tests,
     `guion.json` y el borrador de `ficha.yaml` en la carpeta de la versión.
   - `generar`: valida ficha y guion (la firma del log tiene que ser la misma que cuando se
     armó el guion), pasa la puerta de entrega (D13), trae los entregables, sanea el `.apolo`,
-    escribe `vista-3d.glb` (plan vista-3d-tienda), renderiza el video, arma el paquete y
+    escribe `vista-3d.glb` (plan vista-3d-tienda), renderiza el video, escribe
+    `vista-3d.html` (con la miniatura del video de póster), arma el paquete y
     comprueba al final que el proyecto no cambió mientras tanto.
 
 Abrir el proyecto lo cambia en la UI de Apolo: el CLI lo avisa al empezar.
@@ -253,7 +254,7 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
 def _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista, staging, tiempos,
            eco) -> dict:
     from apolo.media.codificar import ErrorCodificacion
-    from apolo.publicacion import saneo, textos, vista3d
+    from apolo.publicacion import saneo, textos, vista3d, vista3d_html
     from apolo.publicacion import video as videos
     from apolo.services.guion_video import capitulos
 
@@ -299,6 +300,12 @@ def _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista, staging, 
         raise PublicacionError(f"El video no salió: {exc}") from exc
     tiempos["video"] = time.perf_counter() - t
 
+    t = time.perf_counter()  # vista-3d-tienda D3: el póster es la miniatura del video
+    vista["html"] = vista3d_html.escribir(doc, staging / vista3d_html.ARCHIVO, titulo=f["titulo"],
+                                          ident=f["slug"], vista=vista,
+                                          poster=video.miniatura.name)
+    tiempos["vista 3d"] += time.perf_counter() - t
+
     t = time.perf_counter()
     caps = capitulos(g)
     try:
@@ -343,7 +350,8 @@ def _imprimir(eco, r: dict) -> None:
     w = r["vista_3d"]
     eco(f"  vista 3D: {w['archivo']} ({w['bytes'] / 1e6:.2f} MB"
         + (f", {w['comprimido_con']}" if w["comprimido_con"] else ", SIN comprimir")
-        + f"; {w['triangulos']:,} triángulos dibujados, tope {w['tope_triangulos']:,})")
+        + f"; {w['triangulos']:,} triángulos dibujados, tope {w['tope_triangulos']:,}) y "
+        f"{w['html']['archivo']} con {len(w['html']['etiquetas'])} etiqueta(s)")
     eco("  zips: " + " · ".join(f"{r['zips'][n]} ({r['bytes'][n] / 1e6:.1f} MB)"
                                 for n in r["zips"]))
     eco("  tiempos: " + " · ".join(f"{k} {x:.1f} s" for k, x in r["tiempos_s"].items()))

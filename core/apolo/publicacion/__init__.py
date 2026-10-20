@@ -11,6 +11,7 @@ video sobre su propia copia del documento, sin locks compartidos.
   - `saneo`: el `.apolo` publicado, sin notas del agente ni precios (D12).
   - `linea_tiempo` y `video`: el MP4 a partir del guion (D2, D5–D8).
   - `vista3d`: `vista-3d.glb` para girar la máquina en la web (plan vista-3d-tienda).
+  - `vista3d_html`: `vista-3d.html`, el trozo con `<model-viewer>` y una etiqueta por grupo.
   - `textos`: LEEME, licencia, aviso de responsabilidad y `youtube.txt` (D11, D15).
   - `paquete`: puerta de calidad, niveles, zips, hashes y la carpeta versionada (D9–D14).
   - `flujo`: los dos pasos del CLI, `guion` y `generar` (D3).

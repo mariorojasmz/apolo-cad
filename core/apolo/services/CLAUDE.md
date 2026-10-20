@@ -144,11 +144,12 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   del `resumen` sigue la regla de `commands/exec_uniones.py` (copia `{cmd}_{n}` de su comando).
   [uniones-en-lote](../../../docs/plans/uniones-en-lote.md)
 
-## Video de la tienda (`construccion.py`, `rotulos.py`, `datos_rotulos.py`, `guion_video.py`)
+## Video y vista 3D de la tienda (`construccion.py`, `rotulos.py`, `datos_rotulos.py`, `guion_video.py`, `cifras_grupo.py`)
 
 - Un rótulo sólo dice cifras leídas del documento, del catálogo o de un cálculo ya hecho
   (`datos_rotulos`), nunca escritas a mano; una plantilla nueva va en `rotulos.PLANTILLAS` con
-  su test cifra por cifra. El peso de un paso (`peso_roles`) lo usan las etapas Y
+  su test cifra por cifra. Las etiquetas de la vista 3D (`cifras_grupo`) usan las MISMAS
+  plantillas: no se escribe otra fórmula. [vista-3d-tienda](../../../docs/plans/vista-3d-tienda.md) El peso de un paso (`peso_roles`) lo usan las etapas Y
   `publicacion/video.py`: no se duplica la fórmula.
   [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md)
 

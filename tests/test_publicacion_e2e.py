@@ -120,6 +120,12 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
     assert v3["caja_m"][0][1] == 0.0 and v3["caja_m"][1][1] == pytest.approx(0.42, abs=1e-3)
     assert v3["triangulos"] <= v3["tope_triangulos"]
     assert v3["bytes"] == (carpeta / "vista-3d.glb").stat().st_size
+    # su trozo de HTML (F2): una etiqueta por grupo, el póster es la miniatura del video
+    assert "vista-3d.html" in nombres and v3["html"]["archivo"] == "vista-3d.html"
+    assert [e["grupo"] for e in v3["html"]["etiquetas"]] == ["Bastidor", "Cubierta"]
+    html_ = (carpeta / "vista-3d.html").read_text(encoding="utf-8")
+    assert f'poster="{v3["html"]["poster"]}"' in html_ and (carpeta / v3["html"]["poster"]).is_file()
+    assert 'data-src="vista-3d.glb"' in html_ and "Pata" not in html_  # D5
     ficha = json.loads((carpeta / "ficha.json").read_text(encoding="utf-8"))
     assert ficha["estado"] == "verificado" and ficha["url_video"] == ""
     assert ficha["validacion"]["veredicto"] == "VERDE"

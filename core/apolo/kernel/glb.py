@@ -224,6 +224,13 @@ def _a_y_arriba(piso_mm: float):
     return TopLoc_Location(sube.Multiplied(rot))
 
 
+def a_glb(punto_mm, piso_mm: float) -> tuple[float, float, float]:
+    """Un punto del documento (mm, Z arriba) en el GLB (m, Y arriba, piso en Y = 0): la misma
+    conversión que `_a_y_arriba`, para anclar las etiquetas de la vista 3D (F2)."""
+    x, y, z = (float(v) for v in punto_mm)
+    return (x * 1e-3, (z - piso_mm) * 1e-3, -y * 1e-3)
+
+
 def _documento(filas, protos, titulo: str, piso_mm: float):
     """El documento XCAF de D1 (raíz → grupos anidados → instancias)."""
     from OCP.TCollection import TCollection_ExtendedString
