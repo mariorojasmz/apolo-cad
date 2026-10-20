@@ -28,20 +28,28 @@ el plan». Extiende [publicacion-tienda](publicacion-tienda.md).
 - **D1. GLB generado en el servidor** con el escritor glTF de OCCT (`RWGltf_CafWriter`, el que usa
   `build123d.export_gltf`): un nodo por GRUPO del documento (no por pieza), color de cada pieza,
   metros y Y arriba. Lo produce `publicar generar` junto a los demás entregables.
-- **D2. Liviano por diseño**: teselado de vista (no de fabricación) y compresión meshopt con
-  `gltfpack` (MIT, binario externo opcional, como ffmpeg). Presupuesto: ≤ 3 MB por máquina; si
-  no se cumple, se baja la densidad del teselado y se dice en `generacion.json`.
+- **D2. Liviano por diseño** (corregida tras la F0): teselado de vista (0.4 mm / 0.3 rad, el del
+  visor) y compresión meshopt con `gltfpack -cc -kn` (MIT, binario externo opcional, como ffmpeg:
+  `APOLO_GLTFPACK` o el PATH; nunca se descarga solo). Sin él, o si falla, el GLB sale sin
+  comprimir y el aviso queda en `generacion.json`. Presupuesto: **≤ 300 k triángulos
+  dibujados** (los MB sobraban: 0.74 MB la piloto). Si no entra, se baja el detalle del
+  prototipo que más dibuja, de a un nivel, hasta entrar: cae primero lo repetido y denso (las
+  cadenas), no toda la máquina. Lo rebajado, y si aun así no entró, se dice en
+  `generacion.json`.
 - **D3. Trozo de HTML listo para pegar**: `vista-3d.html` con `<model-viewer>` (Apache 2.0) en una
   versión FIJA, `poster` = la miniatura que ya existe, el modelo se carga recién al tocar «Ver en
   3D», `ar` con los modos de Android y iPhone, y etiquetas (hotspots) por grupo con su cifra
-  principal («Motorreductor 0.37 kW»), leídas del documento.
+  principal («Motorreductor 0.37 kW»), leídas del documento. Lleva el decodificador meshopt
+  FIJO (`meshoptDecoderLocation`, `meshoptimizer@0.22.0`: `<model-viewer>` 4.0 no lo trae) y
+  `loading="eager"` (F0).
 - **D4. Archivos estáticos, nunca Apolo**: el GLB y el HTML se suben a la tienda o a una CDN; la
   página no llama a la API de Apolo. La guía de subida va en `youtube.txt` o en un
   `LEEME-tienda.txt` del paquete.
 - **D5. Sólo apariencia**: el GLB es una malla sin cotas ni planos; los nodos llevan nombres de
   grupo, no los de las piezas. No regala el diseño del paquete completo.
 - **D6. Materiales**: los de la tabla única de [visor-realista](visor-realista.md) D5 cuando
-  exista; mientras, el color del documento con metalness y roughness por defecto.
+  exista; mientras, el color del documento con un PBR explícito de acero pintado (metal 0,
+  rugosidad 0.55: sin él glTF asume metal 1; ver Bitácora F1).
 
 ## Alternativas descartadas
 
@@ -72,7 +80,8 @@ el plan». Extiende [publicacion-tienda](publicacion-tienda.md).
 
 - iPhone necesita USDZ para la realidad aumentada → `<model-viewer>` lo genera solo a partir del
   GLB; se verifica en F0 y, si falla, se exporta USDZ aparte.
-- Máquinas grandes que no entran en 3 MB → D2 avisa; nivel de detalle por grupo si hace falta.
+- Máquinas grandes que no entran en 300 k triángulos → D2 baja el detalle de lo que más dibuja y,
+  si ni así, avisa.
 
 ## Bitácora
 
@@ -173,3 +182,59 @@ PowerShell están en `scratchpad\vista3d\web\` de la sesión de la F0): abrir
 `vista-3d.html` en el celular por la red local, anotar tiempo de carga y medidas, y en la RA
 (iPhone Quick Look con el USDZ que arma `<model-viewer>`; Android Scene Viewer con cada variante)
 confirmar tamaño real, de pie sobre el piso, colores y fluidez con 1.06 M vs 266 k triángulos.
+
+### F1 (2026-10-19)
+
+D1 y D2 dentro de `publicar generar`. Módulos nuevos: `kernel/glb.py` (317 líneas: el escritor,
+con las trampas de la F0 en su docstring), `kernel/glb_resumen.py` (116: lee el JSON de un GLB
+sin decodificar buffers, crudo o de `gltfpack`; la caja de un nodo es la de su subárbol) y
+`publicacion/vista3d.py` (144: documento → piezas → GLB → `gltfpack`). `flujo.py` suma el paso
+«vista 3d» entre el saneo y el video: `vista-3d.glb` queda en la carpeta de la versión, junto a
+`video.mp4`, y su informe va a `generacion.json` → `vista_3d` (bytes, compresión, triángulos,
+tope, prototipos rebajados, piso, caja, aviso). Todavía NO entra a los zips ni a `ficha.json`
+(F3). Tests: `test_kernel_glb.py` (8), `test_publicacion_vista3d.py` (7; el de `gltfpack` real se
+salta sin él) y el E2E de publicación pide el GLB.
+
+**Piloto** (proyecto 74 = `p74.apolo` de la F0, 201 piezas, 31 prototipos; esta PC):
+
+| variante | MB | gzip MB | tri dibujados | tri en archivo | segundos |
+|---|---|---|---|---|---|
+| crudo sin tope (= F0) | 6.17 | — | 1 063 024 | — | 6.3 |
+| crudo con tope 300 k | 2.11 | 0.40 | 295 976 | 64 788 | 8.4 |
+| **`gltfpack -cc -kn`, tope 300 k** | **0.34** | **0.09** | 295 976 | 64 064 | 9.3 |
+
+Rebajados: los dos tramos de cadena (19 instancias) al nivel 4, la cadena motriz al 2 y el
+piñón doble al 1; el resto queda al detalle de vista. Las 201 piezas casan con su nodo a
+≤ 0.13 mm (≤ 0.17 tras `gltfpack`), comparando la caja exacta del prototipo llevada por la
+ubicación de la pieza (los 6.8 mm de la F0 eran de medir con la caja del mundo de un piñón
+girado). Caja [0, 0, −0.397]–[2.0, 0.77, 0.345] m, patas en Y = 0, nombres con tilde intactos.
+
+**Decisiones de la F1:**
+
+- **Tope (D2)**: codicioso por prototipo; mientras se pase, baja un nivel al que más dibuja
+  (triángulos × instancias). Niveles (mm, rad): 0.4/0.3, 1.0/0.5, 2.5/0.8, 6.0/1.2 y 10/2.0. El
+  último hizo falta: con 4 niveles la cadena se plantaba en 12 720 triángulos por tramo y el
+  codicioso seguía con TODO lo demás (309 k y la máquina entera gruesa). Un prototipo que dibuja
+  < 1 % del tope nunca se rebaja; si ni así entra, `sobre_tope` y el aviso.
+- **Color en el componente, no en el prototipo** (trampa nueva): el estilo del prototipo pisa el de
+  la instancia; con el `SetColor(comp)` de la F0 una pieza repetida de otro color salía con el del
+  primero. Las del mismo color comparten la malla; la de otro color, OCCT la guarda aparte.
+- **PBR explícito (D6)**: OCCT escribía sólo `baseColorFactor` y glTF asume entonces metal = 1 y
+  rugosidad = 1: la máquina se vería como metal crudo oscuro. Va un material PBR por combinación
+  (color, metal 0, rugosidad 0.55: acero pintado). El enganche de la tabla de visor-realista D5 es
+  `vista3d.apariencia(feat, indice, colores)` → {color, metal, rugosidad}.
+- **Piso**: el punto más bajo de la MALLA queda en Y = 0 (una máquina de Apolo no siempre apoya
+  en z = 0: la sintética del test baja a −260 mm). X y Z se conservan; `<model-viewer>` centra solo.
+- **Grupos anidados** como en el documento (`parent`); una pieza sin grupo cuelga de la raíz con
+  la conversión de ejes compuesta en su ubicación. Entran las piezas visibles, sin guías de boceto
+  ni superficies de construcción (como la BOM).
+- **El prototipo es una COPIA sin malla**: teselar no toca los shapes del documento (el video
+  tesela a 0.5 mm y BRepMesh reusaría una malla más fina que encontrara).
+- **Nombres de instancia = nombre de la pieza** en la F1. D5 (F2) decide si pasan a grupo o rol:
+  el kernel recibe el nombre que le da `vista3d.piezas`, el cambio va ahí.
+- **`gltfpack` en una instalación limpia**: binario externo OPCIONAL, como ffmpeg (D7 de
+  publicacion-tienda); ni dependencia pip ni descarga automática. Se busca en `APOLO_GLTFPACK`
+  (el ejecutable o su carpeta) o en el PATH: el binario de las releases de meshoptimizer o
+  `npm install -g gltfpack` (deja `gltfpack.cmd`; pide Node). Si falta, si la variable apunta a
+  nada o si falla, el GLB sale crudo (≈ 6× más pesado, igual de correcto) y el aviso con cómo
+  instalarlo va al eco y a `generacion.json`; la publicación no se cae. Ningún test depende de él.

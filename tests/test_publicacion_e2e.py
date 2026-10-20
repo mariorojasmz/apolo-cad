@@ -113,6 +113,13 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
             "youtube.txt", "gratis", "completo", "mesa-de-taller-1.0.0-gratis.zip",
             "mesa-de-taller-1.0.0-completo.zip"} <= nombres
     assert ".generando" not in nombres
+    # la vista 3D (plan vista-3d-tienda, F1): metros, apoyada en Y = 0, bajo el tope
+    assert "vista-3d.glb" in nombres and "vista-3d.crudo.glb" not in nombres
+    v3 = json.loads((carpeta / "generacion.json").read_text(encoding="utf-8"))["vista_3d"]
+    assert v3["archivo"] == "vista-3d.glb" and v3["piezas"] == 5
+    assert v3["caja_m"][0][1] == 0.0 and v3["caja_m"][1][1] == pytest.approx(0.42, abs=1e-3)
+    assert v3["triangulos"] <= v3["tope_triangulos"]
+    assert v3["bytes"] == (carpeta / "vista-3d.glb").stat().st_size
     ficha = json.loads((carpeta / "ficha.json").read_text(encoding="utf-8"))
     assert ficha["estado"] == "verificado" and ficha["url_video"] == ""
     assert ficha["validacion"]["veredicto"] == "VERDE"

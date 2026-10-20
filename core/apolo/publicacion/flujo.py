@@ -8,8 +8,8 @@ Hablan con la API viva por HTTP (un `httpx.Client` con `base_url`; en los tests,
     `guion.json` y el borrador de `ficha.yaml` en la carpeta de la versión.
   - `generar`: valida ficha y guion (la firma del log tiene que ser la misma que cuando se
     armó el guion), pasa la puerta de entrega (D13), trae los entregables, sanea el `.apolo`,
-    renderiza el video, arma el paquete y comprueba al final que el proyecto no cambió mientras
-    tanto.
+    escribe `vista-3d.glb` (plan vista-3d-tienda), renderiza el video, arma el paquete y
+    comprueba al final que el proyecto no cambió mientras tanto.
 
 Abrir el proyecto lo cambia en la UI de Apolo: el CLI lo avisa al empezar.
 """
@@ -253,7 +253,7 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
 def _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista, staging, tiempos,
            eco) -> dict:
     from apolo.media.codificar import ErrorCodificacion
-    from apolo.publicacion import saneo, textos
+    from apolo.publicacion import saneo, textos, vista3d
     from apolo.publicacion import video as videos
     from apolo.services.guion_video import capitulos
 
@@ -272,6 +272,15 @@ def _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista, staging, 
     t = time.perf_counter()
     apolo, informe_saneo = saneo.sanear_apolo(data, nombre=f["titulo"])
     tiempos["saneo"] = time.perf_counter() - t
+
+    t = time.perf_counter()
+    try:  # vista-3d-tienda D1-D2: sin gltfpack sale sin comprimir y lo dice `aviso`
+        vista = vista3d.generar(doc, staging / vista3d.ARCHIVO, titulo=f["titulo"])
+    except (ValueError, RuntimeError) as exc:  # nada visible, el escritor de OCCT falló
+        raise PublicacionError(f"La vista 3D no salió: {exc}") from exc
+    if vista["aviso"]:
+        eco(f"Aviso (vista 3D): {vista['aviso']}")
+    tiempos["vista 3d"] = time.perf_counter() - t
 
     t = time.perf_counter()
     if not g["cierre"]["url"] and f["url_tienda"]:
@@ -306,7 +315,7 @@ def _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista, staging, 
         cifras=g["cifras"]["items"])
     tiempos["paquete"] = time.perf_counter() - t
     return {"ficha_json": publica, "faltantes": [f"{r['label']}: {r['note']}" for r in faltan],
-            "saneo": informe_saneo, "registros": registros,
+            "saneo": informe_saneo, "registros": registros, "vista_3d": vista,
             "video": {"fotogramas": video.fotogramas, "duracion_s": video.duracion_s,
                       "segundos": round(video.segundos, 2), "con_musica": video.con_musica,
                       "pasos_sin_prefijo": video.pasos_sin_prefijo},
@@ -331,6 +340,10 @@ def _imprimir(eco, r: dict) -> None:
     eco(f"  video: {v['fotogramas']} fotogramas, {v['duracion_s']:.1f} s"
         + (", con música" if v["con_musica"] else ", sin música")
         + (f"; pasos sin prefijo: {v['pasos_sin_prefijo']}" if v["pasos_sin_prefijo"] else ""))
+    w = r["vista_3d"]
+    eco(f"  vista 3D: {w['archivo']} ({w['bytes'] / 1e6:.2f} MB"
+        + (f", {w['comprimido_con']}" if w["comprimido_con"] else ", SIN comprimir")
+        + f"; {w['triangulos']:,} triángulos dibujados, tope {w['tope_triangulos']:,})")
     eco("  zips: " + " · ".join(f"{r['zips'][n]} ({r['bytes'][n] / 1e6:.1f} MB)"
                                 for n in r["zips"]))
     eco("  tiempos: " + " · ".join(f"{k} {x:.1f} s" for k, x in r["tiempos_s"].items()))

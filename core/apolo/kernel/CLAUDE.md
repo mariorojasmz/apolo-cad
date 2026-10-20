@@ -23,6 +23,10 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   `RENDER_LOCK` sosteniendo `STATE_LOCK` (orden inverso): sólo tests, nunca producción.
   [V6.2](../../../docs/plans/V6.2-rendimiento.md)
 - `xray` sólo es legible acotado a 2-3 piezas (con `isolate`).
+- glTF/GLB: `glb.py` (escritor de OCCT); sus trampas están en el docstring. Lo clave: prototipo SIN
+  ubicación + componente ubicado (o se pierde la ubicación), color en el COMPONENTE (el del prototipo
+  pisa el de la instancia), `TDataStd_Name` con `isMultiByte=True` y `SetMergeFaces`.
+  [vista-3d-tienda](../../../docs/plans/vista-3d-tienda.md)
 - `pick.py` (píxel → pieza/cara EXACTA) comparte la matriz de cámara del render sin contexto
   OpenGL: el caller pasa los MISMOS params del `render_view` (`isolate`, `section`, cámara) o el
   píxel no coincide con lo que se ve.
