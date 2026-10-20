@@ -5,6 +5,8 @@ Una tensión del YAML se escribe como en una placa:
   - «220 VAC», «100-240 VAC», «24 VAC/DC» (universal, `UC`);
   - «220 VAC 3F 60 Hz» (trifásica sin neutro), «380/220 VAC 3F+N 60 Hz» (con neutro: la mayor
     es la de línea, la menor la de fase);
+  - «220 VAC 2F 60 Hz»: dos fases de una red trifásica sin neutro (la monofásica habitual en
+    Lima, plan V8.3 D15), polos L1 y L2; «220 VAC 60 Hz» (1F) es fase–neutro, polos L y N;
   - «220/380 VAC 3F» en una CARGA: tensiones aceptadas (el motor en triángulo o en estrella).
 
 La tolerancia de una tensión nominal única es 0,9–1,1 Un (IEC 60204-1 §4.3, tensión de régimen).
@@ -27,13 +29,14 @@ TOLERANCIA = (0.9, 1.1)
 POLOS_DC = ("+", "-")
 POLOS_1F = ("L", "N", "PE")
 POLOS_3F = ("L1", "L2", "L3", "N", "PE")
+POLOS_2F = ("L1", "L2", "PE")
 REFERENCIAS = ("-", "N", "PE")
 
 _EJEMPLOS = "«24 VDC», «220 VAC 3F 60 Hz», «380/220 VAC 3F+N 60 Hz», «100-240 VAC» o «24 VAC/DC»"
 _NUM = r"\d+(?:\.\d+)?"
 _RE = re.compile(
     rf"^(?P<v>{_NUM}(?:\s*[/-]\s*{_NUM})*)\s*V\s*(?P<tipo>AC/DC|DC/AC|AC|DC|UC)"
-    rf"(?:\s+(?P<fases>3F\+N|3F|1F))?"
+    rf"(?:\s+(?P<fases>3F\+N|3F|2F|1F))?"
     rf"(?:\s+(?P<f>{_NUM}(?:\s*[/-]\s*{_NUM})?)\s*HZ)?$"
 )
 
@@ -98,7 +101,7 @@ def parse_tension(texto) -> Tension:
     fases = None
     neutro = False
     if tipo == "AC":
-        fases = 3 if fases_txt and fases_txt.startswith("3F") else 1
+        fases = 3 if fases_txt and fases_txt.startswith("3F") else 2 if fases_txt == "2F" else 1
         neutro = fases_txt == "3F+N"
     if m["f"] and tipo == "DC":
         raise ValueError(f"tensión «{texto}»: una tensión continua no lleva frecuencia")
@@ -115,6 +118,8 @@ def polos_validos(t: Tension) -> tuple[str, ...]:
         return POLOS_DC
     if t.tipo == "AC" and t.fases == 3:
         return POLOS_3F if t.neutro else ("L1", "L2", "L3", "PE")
+    if t.tipo == "AC" and t.fases == 2:
+        return POLOS_2F
     if t.tipo == "AC":
         return POLOS_1F
     return ()
@@ -126,6 +131,8 @@ def polos_obligatorios(t: Tension) -> tuple[str, ...]:
         return POLOS_DC
     if t.tipo == "AC" and t.fases == 3:
         return ("L1", "L2", "L3", "N") if t.neutro else ("L1", "L2", "L3")
+    if t.tipo == "AC" and t.fases == 2:
+        return ("L1", "L2")
     return ("L", "N")
 
 
@@ -148,6 +155,11 @@ def _fasor(t: Tension, polo: str) -> complex | None:
         # PE = neutro sólo si la red lo trae (esquema TN supuesto y DECLARADO); sin neutro, la
         # tensión fase–tierra depende del esquema de la red y no se infiere.
         return 0j if polo == "PE" and t.neutro else None
+    if t.fases == 2:
+        # dos fases de una red trifásica sin neutro: L1–L2 da la de línea; a tierra no se infiere
+        uf = (t.linea or 0.0) / math.sqrt(3)
+        ang = {"L1": 0.0, "L2": -120.0}
+        return cmath.rect(uf, math.radians(ang[polo])) if polo in ang else None
     u = t.linea or 0.0
     return {"L": complex(u, 0.0), "N": 0j, "PE": 0j}.get(polo)
 

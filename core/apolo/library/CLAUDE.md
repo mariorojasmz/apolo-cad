@@ -6,6 +6,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 
 ## Catálogo y builders
 
+- Bloque `electrico.modelo` (V8.3 D7): `tipo` elige el modelo de la co-simulación y cada cifra
+  cita su norma o dice «criterio de diseño» en el comentario del YAML; un rango [mín, máx] de lo
+  que fija el instalador es un AJUSTE obligatorio. Reglas: [cosim](../cosim/CLAUDE.md).
 - Para agregar partes: editar/crear YAML en `data/` (el prefijo numérico ordena); builder nuevo
   sólo si la geometría no existe. `param_keys` lee del VARIANT (no de `specs_common`); el loader
   vuelca cualquier clave extra del variant a `specs`. Editar sólo YAML no recarga el worker (raíz).

@@ -10,6 +10,20 @@ category: maniobra_control
 #    sensor PNP entra con 1M a 0 V), salidas de transistor tipo fuente alimentadas por 3L+/3M,
 #    analógicas 0-10 V con 2M. La fuente de 24 V para sensores del propio PLC no se modela:
 #    los sensores se alimentan de la fuente del tablero.
+#  - `electrico.modelo` (plan V8.3 D7; convención en 120_alimentacion_electrica.yaml):
+#    · contactor: `Uc_V`/`Uc` = la bobina (la misma tensión que su carga A1-A2); cierra desde
+#      U_cierre_pct = 85 % de Uc (IEC 60947-4-1: cierra entre 85 y 110 % de Us) y cae por debajo
+#      de U_caida_pct = 40 % (criterio de diseño dentro de la banda de la norma, que lo hace caer
+#      entre 75 y 20 % de Us en AC y entre 75 y 10 % en DC); entre los dos conserva su estado.
+#      Los tiempos `cierre_ms`/`apertura_ms` son la banda de la ficha: se toma el punto medio.
+#    · relé de interfaz: opera desde 80 % y cae bajo 25 % de Uc (criterio de diseño: orden de la
+#      ficha de la línea, que opera desde ~0,8 Un, retiene hasta ~0,4 Un y garantiza la caída a
+#      0,1 Un); bobina y tiempos del orden de su ficha (verificar).
+#    · PLC: entradas IEC 61131-2 tipo 1 (los umbrales ON ≥ 15 V / OFF ≤ 5 V son de la norma y van
+#      en el modelo); `DI_filtro_ms` = 6,4 (filtro de fábrica de la línea de referencia);
+#      `DO_retardo_ms` = 0,003 (conmutación de una salida de transistor de la línea: µs, nada
+#      frente al intercambio de 2 ms); `U_alim_min_V` = 20,4 (IEC 61131-2: 24 VDC − 15 %);
+#      `AI_escala` = 27648 a 10 V (plan V8.3 D4, como S7).
 _contactor_bornes: &contactor_bornes
   - {id: "1", rol: potencia, lado: linea}
   - {id: "2", rol: potencia, lado: carga}
@@ -46,7 +60,7 @@ components:
       bornes: *contactor_bornes
       caminos: *contactor_caminos
       cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina}]
-      modelo: {Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
+      modelo: {tipo: contactor, Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, Uc_V: 24, Uc: DC, U_cierre_pct: 85, U_caida_pct: 40, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
   - ref: CONT-9A-220VAC
     name: Contactor 9 A AC-3 bobina 220 VAC
     description: Contactor tripolar 9 A en AC-3 (2,2 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz para mando a 220 V entre fases. Verificar con el proveedor.
@@ -62,7 +76,7 @@ components:
       bornes: *contactor_bornes
       caminos: *contactor_caminos
       cargas: [{bornes: [A1, A2], tension: "220 VAC 60 Hz", tipo: bobina}]
-      modelo: {Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
+      modelo: {tipo: contactor, Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, Uc_V: 220, Uc: AC, U_cierre_pct: 85, U_caida_pct: 40, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
   - ref: CONT-12A-24VDC
     name: Contactor 12 A AC-3 bobina 24 VDC
     description: Contactor tripolar 12 A en AC-3 (3 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC. Verificar con el proveedor.
@@ -72,7 +86,7 @@ components:
     specs: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina: "24 VDC", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D12BD / Siemens SIRIUS 3RT2017", cotas_verificadas: false, cost: 45}
     electrico:
       <<: *contactor_dc
-      modelo: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
+      modelo: {tipo: contactor, Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, Uc_V: 24, Uc: DC, U_cierre_pct: 85, U_caida_pct: 40, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
   - ref: CONT-12A-220VAC
     name: Contactor 12 A AC-3 bobina 220 VAC
     description: Contactor tripolar 12 A en AC-3 (3 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz. Verificar con el proveedor.
@@ -82,7 +96,7 @@ components:
     specs: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina: "220 VAC 60 Hz", auxiliares: "1NA+1NC", linea_referencia: "orden de Schneider TeSys D LC1D12M7 / Siemens SIRIUS 3RT2017", cotas_verificadas: false, cost: 30}
     electrico:
       <<: *contactor_ac
-      modelo: {Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
+      modelo: {tipo: contactor, Ie_AC3_A: 12, P_AC3_kW_220V: 3.0, Uc_V: 220, Uc: AC, U_cierre_pct: 85, U_caida_pct: 40, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
   - ref: CONT-18A-24VDC
     name: Contactor 18 A AC-3 bobina 24 VDC
     description: Contactor tripolar 18 A en AC-3 (4 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC. Verificar con el proveedor.
@@ -93,7 +107,7 @@ components:
     electrico:
       <<: *contactor_dc
       perdidas_W: 3.5
-      modelo: {Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
+      modelo: {tipo: contactor, Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, Uc_V: 24, Uc: DC, U_cierre_pct: 85, U_caida_pct: 40, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
   - ref: CONT-18A-220VAC
     name: Contactor 18 A AC-3 bobina 220 VAC
     description: Contactor tripolar 18 A en AC-3 (4 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz. Verificar con el proveedor.
@@ -104,7 +118,7 @@ components:
     electrico:
       <<: *contactor_ac
       perdidas_W: 3
-      modelo: {Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
+      modelo: {tipo: contactor, Ie_AC3_A: 18, P_AC3_kW_220V: 4.0, Uc_V: 220, Uc: AC, U_cierre_pct: 85, U_caida_pct: 40, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
   - ref: CONT-AUX-1NA1NC
     name: Bloque auxiliar 1NA+1NC de contactor
     description: Bloque de contactos auxiliares frontal 1NA (53-54) + 1NC (61-62) para contactor. Se designa aparte (p. ej. -Q3A) y sus contactos se mueven con la bobina del contactor sobre el que va. Verificar con el proveedor.
@@ -147,7 +161,7 @@ components:
         - {de: "11", a: "14", tipo: NA, accion: bobina}
         - {de: "11", a: "12", tipo: NC, accion: bobina}
       cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina, polar: true}]
-      modelo: {contacto_A: 6, contacto_V: 250}
+      modelo: {tipo: rele, contacto_A: 6, contacto_V: 250, Uc_V: 24, Uc: DC, U_cierre_pct: 80, U_caida_pct: 25, bobina_W: 0.2, cierre_ms: [5, 8], apertura_ms: [3, 6]}
   - ref: RELE-INT-230V
     name: Relé de interfaz 1 conmutado 230 V AC/DC
     description: Relé de interfaz enchufable de 6,2 mm, bobina 230 V AC/DC (admite los 220 VAC de Lima), 1 contacto conmutado 6 A 250 VAC (11 común, 12 NC, 14 NA). Verificar con el proveedor.
@@ -159,6 +173,7 @@ components:
       <<: *rele_int
       perdidas_W: 0.8
       cargas: [{bornes: [A1, A2], tension: "230 VAC/DC", tipo: bobina}]
+      modelo: {tipo: rele, contacto_A: 6, contacto_V: 250, Uc_V: 230, Uc: UC, U_cierre_pct: 80, U_caida_pct: 25, bobina_W: 0.5, cierre_ms: [8, 15], apertura_ms: [10, 25]}
   # ── PLC compacto ────────────────────────────────────────────────────────────────────────
   - ref: PLC-14DI-10DO-24VDC
     name: PLC compacto 14 DI / 10 DO / 2 AI 24 VDC
@@ -236,4 +251,4 @@ components:
         - {bornes: [I1.5, 1M], tension: "24 VDC", tipo: entrada, obligatoria: false, polar: true}
         - {bornes: [AI0, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
         - {bornes: [AI1, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
-      modelo: {DI: 14, DO: 10, AI: 2, DI_tipo: "sumidero, IEC 61131-2 tipo 1", DO_tipo: "transistor fuente (PNP)", DO_A: 0.5, AI_V: [0, 10]}
+      modelo: {DI: 14, DO: 10, AI: 2, DI_tipo: "sumidero, IEC 61131-2 tipo 1", DO_tipo: "transistor fuente (PNP)", DO_A: 0.5, AI_V: [0, 10], tipo: plc, DI_filtro_ms: 6.4, DO_retardo_ms: 0.003, U_alim_min_V: 20.4, AI_escala: 27648}

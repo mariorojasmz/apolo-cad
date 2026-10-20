@@ -132,7 +132,8 @@ def test_all_new_families_present():
     assert len(refs_in_category("garruchas")) == 24
     # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c) +24 garruchas (garruchas-catalogo) +1 VFD 2.2 kW
     # +44 cadenas y piñones (cadenas-pinones) +59 del catálogo eléctrico de la faja piloto (V8.1 D6)
-    assert len(CATALOG) == 359
+    # +2 redes 2F y 1F+N (V8.3 D15)
+    assert len(CATALOG) == 361
 
 
 def test_door_sliding_hardware():

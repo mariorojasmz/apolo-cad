@@ -2,7 +2,9 @@ category: sensores
 # Sensores de campo de la faja piloto (plan V8.1 D6); misma categoría que la FOTO-M18 de
 # 60_sensores.yaml. Convenciones del catálogo eléctrico: ver la cabecera de
 # 120_alimentacion_electrica.yaml. Hilos de un sensor de 3 hilos: BN (+), BU (-), BK (salida)
-# (IEC 60947-5-2).
+# (IEC 60947-5-2). `electrico.modelo` (plan V8.3 D7): `t_respuesta_ms` = 1 ≈ 1/(2·f) con la
+# frecuencia de conmutación de ~500 Hz de la línea (orden de la ficha); funciona desde
+# `U_alim_min_V` = 10 (su rango 10–30 VDC).
 components:
   - ref: SENS-IND-M18-PNP
     name: Sensor inductivo M18 PNP NA
@@ -22,4 +24,4 @@ components:
         - {id: BK, rol: señal}
       caminos: [{de: BN, a: BK, tipo: NA, accion: señal}]
       cargas: [{bornes: [BN, BU], tension: "10-30 VDC", tipo: alimentacion, polar: true}]
-      modelo: {salida: PNP, contacto: NA, Sn_mm: 5, I_salida_mA: 200}
+      modelo: {tipo: sensor, salida: PNP, contacto: NA, Sn_mm: 5, I_salida_mA: 200, t_respuesta_ms: 1, U_alim_min_V: 10}

@@ -23,7 +23,7 @@ NUEVAS_CATEGORIAS = ["alimentacion_electrica", "proteccion_electrica", "maniobra
                      "conexion_electrica"]
 NUEVAS = {
     "alimentacion_electrica": ["RED-3F-220V-60HZ", "RED-3F-380-220V-60HZ", "FUENTE-24VDC-2.5A",
-                               "FUENTE-24VDC-5A"],
+                               "FUENTE-24VDC-5A", "RED-2F-220V-60HZ", "RED-1F-220V-60HZ"],
     "proteccion_electrica": ["SECC-25A-3P", "SECC-40A-3P", "ITM-C6-3P", "ITM-C10-3P", "ITM-C16-3P",
                              "ITM-C20-3P", "ITM-C2-2P", "ITM-C6-2P", "ITM-C2-1PN", "ITM-C6-1PN",
                              "GM-1-1.6A", "GM-1.6-2.5A", "GM-2.5-4A", "GM-4-6.3A", "GM-6-10A",
@@ -50,14 +50,15 @@ MARCAS = ("SCHNEIDER", "SIEMENS", "ABB", "PHOENIX", "WEIDMULLER", "OMRON", "SICK
 # ── las refs nuevas ───────────────────────────────────────────────────────────────────────
 
 
-def test_las_59_refs_nuevas_cargan_en_su_categoria():
-    assert len(TODAS_NUEVAS) == 59 == len(set(TODAS_NUEVAS))
+def test_las_61_refs_nuevas_cargan_en_su_categoria():
+    # 59 de V8.1 + las redes 2F y 1F+N de V8.3 F2 (D15)
+    assert len(TODAS_NUEVAS) == 61 == len(set(TODAS_NUEVAS))
     for categoria, refs in NUEVAS.items():
         for ref in refs:
             assert CATALOG[ref].category == categoria, ref
     for categoria in NUEVAS_CATEGORIAS:
         assert sorted(refs_in_category(categoria)) == sorted(NUEVAS[categoria])
-    assert len(CATALOG) == 359
+    assert len(CATALOG) == 361
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS)

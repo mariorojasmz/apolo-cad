@@ -4,6 +4,9 @@ category: mandos
 # (regla del ERC). En la botonera, cada
 # pulsador es su propio actuador (`grupo`); el potenciómetro (P1-P3 extremos, P2 cursor) se
 # alimenta del +10 V del variador. El bloque no toca la geometría (sin bump de GEOM_CACHE_EPOCH).
+# `electrico.modelo` (plan V8.3 D7): la seta queda RETENIDA al presionarla y sólo vuelve al
+# liberarla por giro (ISO 13850: desenclavar la seta no rearranca la máquina por sí solo); los
+# pulsadores de la botonera vuelven por resorte, uno por actuador (`actuadores` = sus `grupo`).
 components:
   - ref: ESTOP-40
     name: Paro de emergencia Ø40
@@ -21,6 +24,7 @@ components:
         - {id: "11", rol: contacto}
         - {id: "12", rol: contacto}
       caminos: [{de: "11", a: "12", tipo: NC, accion: mano}]
+      modelo: {tipo: seta, retorno: retenido}
   - ref: BOTONERA-2
     name: Botonera marcha/paro
     description: Botonera de 2 pulsadores Ø22 (marcha verde / paro rojo) con potenciómetro de velocidad.
@@ -44,4 +48,4 @@ components:
         - {de: "13", a: "14", tipo: NA, accion: mano, grupo: marcha}
         - {de: "21", a: "22", tipo: NC, accion: mano, grupo: paro}
       cargas: [{bornes: [P1, P3], tension: "0-10 VDC", tipo: otra, obligatoria: false}]
-      modelo: {potenciometro_ohm: 10000}
+      modelo: {tipo: pulsador, retorno: resorte, actuadores: [marcha, paro], potenciometro_ohm: 10000}

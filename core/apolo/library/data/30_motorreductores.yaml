@@ -10,6 +10,14 @@ category: motorreductores
 # orden de IE1/IE2), con In = P/(√3·U·η·cosφ) a la tensión `U_V` en la `conexion` indicada.
 # No son la placa de un modelo concreto: verificar con la placa del proveedor. El bloque no
 # toca la geometría (sin bump de GEOM_CACHE_EPOCH).
+# CO-SIMULACIÓN (plan V8.3 D7/D8, `tipo: motor`): `J_kgm2` = inercia del rotor (orden de los
+# catálogos de motores TEFC IEC de 4 polos de esa potencia; la estimación por potencia de V8.2
+# queda sólo para una placa manual); `I0_A` = corriente en vacío (criterio de diseño: orden de
+# los catálogos IE1/IE2 de 4 polos, I0 ≈ 0,4–0,7 In según la potencia y siempre menor que la
+# componente reactiva In·sen φ); verificar ambas con la placa o el protocolo de ensayo.
+# REDUCTOR: `i` = rpm del motor / `rpm_salida` de specs (un AJUSTE de add_device si la unidad
+# real trae otra relación) y `eta_reductor` = 0,94 (criterio de diseño: helicoidal de 2-3
+# trenes, ~0,98 por tren; verificar con el fabricante).
 _bornes_motor: &bornes_motor
   - {id: U1, rol: potencia}
   - {id: V1, rol: potencia}
@@ -29,7 +37,7 @@ components:
       montaje: campo
       bornes: *bornes_motor
       cargas: [{bornes: [U1, V1, W1], tension: "230/400 VAC 3F", tipo: motor}]
-      modelo: {P_kW: 0.37, U_V: 230, conexion: triangulo, In_A: 1.84, cos_phi: 0.72, eta: 0.70, Ia_In: 4.5, Ta_Tn: 2.2, Tk_Tn: 2.3, polos: 4, f_Hz: 60, n_rpm: 1660}
+      modelo: {P_kW: 0.37, U_V: 230, conexion: triangulo, In_A: 1.84, cos_phi: 0.72, eta: 0.70, Ia_In: 4.5, Ta_Tn: 2.2, Tk_Tn: 2.3, polos: 4, f_Hz: 60, n_rpm: 1660, tipo: motor, J_kgm2: 0.0010, I0_A: 1.25, i: 33.2, eta_reductor: 0.94}
   - ref: MOTOR-075
     name: Motorreductor 0.75 kW
     description: Motorreductor de engranajes helicoidales 0.75 kW, salida 60 rpm, motor IEC 80.
@@ -43,7 +51,7 @@ components:
       montaje: campo
       bornes: *bornes_motor
       cargas: [{bornes: [U1, V1, W1], tension: "230/400 VAC 3F", tipo: motor}]
-      modelo: {P_kW: 0.75, U_V: 230, conexion: triangulo, In_A: 3.18, cos_phi: 0.76, eta: 0.78, Ia_In: 5.5, Ta_Tn: 2.4, Tk_Tn: 2.6, polos: 4, f_Hz: 60, n_rpm: 1700}
+      modelo: {P_kW: 0.75, U_V: 230, conexion: triangulo, In_A: 3.18, cos_phi: 0.76, eta: 0.78, Ia_In: 5.5, Ta_Tn: 2.4, Tk_Tn: 2.6, polos: 4, f_Hz: 60, n_rpm: 1700, tipo: motor, J_kgm2: 0.0026, I0_A: 1.91, i: 28.3, eta_reductor: 0.94}
   - ref: MOTOR-150
     name: Motorreductor 1.5 kW
     description: Motorreductor de engranajes helicoidales 1.5 kW, salida 70 rpm, motor IEC 90.
@@ -57,7 +65,7 @@ components:
       montaje: campo
       bornes: *bornes_motor
       cargas: [{bornes: [U1, V1, W1], tension: "400 VAC 3F", tipo: motor}]
-      modelo: {P_kW: 1.5, U_V: 400, conexion: estrella, In_A: 3.26, cos_phi: 0.80, eta: 0.83, Ia_In: 6.0, Ta_Tn: 2.4, Tk_Tn: 2.7, polos: 4, f_Hz: 60, n_rpm: 1720}
+      modelo: {P_kW: 1.5, U_V: 400, conexion: estrella, In_A: 3.26, cos_phi: 0.80, eta: 0.83, Ia_In: 6.0, Ta_Tn: 2.4, Tk_Tn: 2.7, polos: 4, f_Hz: 60, n_rpm: 1720, tipo: motor, J_kgm2: 0.0056, I0_A: 1.63, i: 24.6, eta_reductor: 0.94}
   - ref: MOTOR-150-EH
     name: Motorreductor 1.5 kW eje hueco
     description: Motorreductor helicoidal 1.5 kW (2 HP) de EJE HUECO para montaje directo sobre el eje del tambor motriz; salida ~188 rpm para faja de banda con variador; motor IEC 90.
@@ -71,4 +79,4 @@ components:
       montaje: campo
       bornes: *bornes_motor
       cargas: [{bornes: [U1, V1, W1], tension: "220/380 VAC 3F", tipo: motor}]
-      modelo: {P_kW: 1.5, U_V: 220, conexion: triangulo, In_A: 5.93, cos_phi: 0.80, eta: 0.83, Ia_In: 6.0, Ta_Tn: 2.4, Tk_Tn: 2.7, polos: 4, f_Hz: 60, n_rpm: 1720}
+      modelo: {P_kW: 1.5, U_V: 220, conexion: triangulo, In_A: 5.93, cos_phi: 0.80, eta: 0.83, Ia_In: 6.0, Ta_Tn: 2.4, Tk_Tn: 2.7, polos: 4, f_Hz: 60, n_rpm: 1720, tipo: motor, J_kgm2: 0.0056, I0_A: 2.97, i: 9.15, eta_reductor: 0.94}

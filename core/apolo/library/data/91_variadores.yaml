@@ -8,6 +8,56 @@ category: variadores
 # alimenta las entradas desde la fuente de 24 VDC del tablero. Protege al motor (I²t
 # electrónico): `protege_motor`. perdidas_W ≈ 4 % de la potencia (estimación). El bloque no toca
 # la geometría (sin bump de GEOM_CACHE_EPOCH).
+#
+# CO-SIMULACIÓN (plan V8.3 D7, `tipo: variador`, modelo PROMEDIO): lo de mando es la
+# PROGRAMACIÓN del variador, así que cada clave es un ajuste de add_device; los valores de aquí
+# son de FÁBRICA o criterio de diseño:
+#  - rampas `acel_s`/`decel_s` = 10 s de 0 a f_max (orden del valor de fábrica de un compacto);
+#    `f_min_Hz` 0, `f_max_Hz` y `f_base_Hz` 60 (perfil Perú, V8 D11); V/f lineal hasta f_base;
+#  - función de cada DI (marcha_adelante | marcha_atras | rearme | f_fija_b0 | f_fija_b1 |
+#    ninguna; criterio de diseño, del orden de la asignación de fábrica): DI1 adelante, DI2 atrás,
+#    DI3 rearme, DI4 bit 0 de frecuencia fija. Las DI y el STO son entradas de 24 V que cambian
+#    con los umbrales de IEC 61131-2 tipo 1 (≥ 15 V / ≤ 5 V);
+#  - consigna `AI1` (0–`AI1_V_max` V → f_min–f_max) o `fija` (`f_consigna_Hz`); con los bits de
+#    frecuencia fija, 1/2/3 → `f_fija1..3_Hz` (15/30/45 Hz: criterio de diseño, la fábrica los
+#    deja en 0);
+#  - límite de corriente `I_limite_pct` = 150 % de I_salida (la sobrecarga de placa): al tocarlo
+#    baja la frecuencia con la rampa de deceleración; falla `sobrecorriente` a
+#    `I_sobrecorriente_pct` = 200 % (criterio de diseño: el disparo por hardware de un compacto
+#    ronda 200–250 %); falla `sobrecarga` por I²t con la placa (150 % durante 60 s desde
+#    régimen nominal);
+#  - STO de dos canales (S1, S2): sin 24 V en cualquiera de ellos, el par se corta en
+#    `STO_reaccion_ms` = 10 (orden de la ficha; IEC 61800-5-2 define la función, no el tiempo) y
+#    no rearranca sin una orden de marcha NUEVA (IEC 60204-1: reponer una parada no rearranca
+#    la máquina por sí solo);
+#  - `I_entrada_A` a potencia nominal (orden de la ficha: rectificador de 6 pulsos sin reactancia);
+#    falla `subtension` si la red cae bajo `U_min_pct` = 70 % de U_V más de `t_retencion_ms` = 20
+#    con el motor girando, y `perdida_fase` si una tensión de línea cae bajo la mitad de las
+#    otras durante `t_perdida_fase_s` = 1 (criterio de diseño ambos: verificar con el manual).
+_vfd_mando: &vfd_mando
+  tipo: variador
+  U_V: 220
+  f_min_Hz: 0
+  f_max_Hz: 60
+  f_base_Hz: 60
+  acel_s: 10
+  decel_s: 10
+  consigna: AI1
+  AI1_V_max: 10
+  f_consigna_Hz: 60
+  DI1_funcion: marcha_adelante
+  DI2_funcion: marcha_atras
+  DI3_funcion: rearme
+  DI4_funcion: f_fija_b0
+  f_fija1_Hz: 15
+  f_fija2_Hz: 30
+  f_fija3_Hz: 45
+  I_limite_pct: 150
+  I_sobrecorriente_pct: 200
+  STO_reaccion_ms: 10
+  U_min_pct: 70
+  t_retencion_ms: 20
+  t_perdida_fase_s: 1
 _vfd_bornes: &vfd_bornes
   - {id: L1, rol: potencia, lado: linea}
   - {id: L2, rol: potencia, lado: linea}
@@ -63,7 +113,7 @@ components:
       caminos: *vfd_caminos
       cargas: *vfd_cargas
       fuentes: *vfd_fuentes
-      modelo: {P_kW: 1.5, I_salida_A: 8.5, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}
+      modelo: {<<: *vfd_mando, P_kW: 1.5, I_salida_A: 8.5, I_entrada_A: 10, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}
   # Para el NMRV-090 (motor 2.2 kW) de la faja 38: el de 1.5 kW quedaba corto. Envolvente
   # representativa de un VFD compacto de 2.2 kW 230 V 3F (orden de SINAMICS V20 FSB / Delta MS300
   # frame B): verificar cotas y precio con el proveedor antes de cotizar en firme.
@@ -84,4 +134,4 @@ components:
       caminos: *vfd_caminos
       cargas: *vfd_cargas
       fuentes: *vfd_fuentes
-      modelo: {P_kW: 2.2, I_salida_A: 11.0, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}
+      modelo: {<<: *vfd_mando, P_kW: 2.2, I_salida_A: 11.0, I_entrada_A: 13, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}

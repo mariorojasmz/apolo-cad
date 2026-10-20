@@ -29,6 +29,14 @@ families:
     # son valores TÍPICOS de motor IEC de 4 polos a 60 Hz (η y cosφ del orden de IE1/IE2), con
     # In = P/(√3·220·η·cosφ): no es la placa de un modelo concreto, verificar con el proveedor.
     # Sin geometría nueva: sin bump de GEOM_CACHE_EPOCH.
+    # CO-SIMULACIÓN (plan V8.3 D7/D8, `tipo: motor`): `J_kgm2` = inercia del rotor (orden de los
+    # catálogos de motores TEFC IEC de 4 polos de esa potencia; la estimación por potencia de V8.2
+    # queda sólo para una placa manual); `I0_A` = corriente en vacío (criterio de diseño: orden de
+    # los catálogos IE1/IE2 de 4 polos, I0 ≈ 0,4–0,7 In según la potencia y siempre menor que la
+    # componente reactiva In·sen φ); verificar ambas con la placa o el protocolo de ensayo.
+    # REDUCTOR: la relación `i` (7,5–100) y el rendimiento DINÁMICO `eta_reductor` dependen de la
+    # unidad que se compre: son AJUSTES obligatorios de add_device (el η de un sinfín cae con la
+    # relación: léelo del catálogo del fabricante para esa relación y tamaño).
     electrico:
       funcion: M
       simbolo: motor_3f
@@ -39,21 +47,21 @@ families:
         - {id: W1, rol: potencia}
         - {id: PE, rol: tierra}
       cargas: [{bornes: [U1, V1, W1], tension: "220/380 VAC 3F", tipo: motor}]
-      modelo: {U_V: 220, conexion: triangulo, polos: 4, f_Hz: 60}
+      modelo: {tipo: motor, U_V: 220, conexion: triangulo, polos: 4, f_Hz: 60, i: [7.5, 100], eta_reductor: [0.45, 0.90]}
     variants:
       - {ref: "NMRV-030", center_distance: 30,  bore_d: 14, chavetero_b: 5,  chavetero_t: 16.3, motor_d: 120, motor_len: 215, frame_IEC: 63,  potencia_kW: 0.18, cost: 120, weight: 4.5,
-         electrico: {modelo: {P_kW: 0.18, In_A: 1.19, cos_phi: 0.66, eta: 0.60, Ia_In: 4.0, Ta_Tn: 2.2, Tk_Tn: 2.2, n_rpm: 1630}}}
+         electrico: {modelo: {P_kW: 0.18, In_A: 1.19, cos_phi: 0.66, eta: 0.60, Ia_In: 4.0, Ta_Tn: 2.2, Tk_Tn: 2.2, n_rpm: 1630, J_kgm2: 0.00048, I0_A: 0.83}}}
       - {ref: "NMRV-040", center_distance: 40,  bore_d: 18, chavetero_b: 6,  chavetero_t: 20.8, motor_d: 140, motor_len: 245, frame_IEC: 71,  potencia_kW: 0.25, cost: 150, weight: 7.0,
-         electrico: {modelo: {P_kW: 0.25, In_A: 1.44, cos_phi: 0.70, eta: 0.65, Ia_In: 4.0, Ta_Tn: 2.2, Tk_Tn: 2.3, n_rpm: 1650}}}
+         electrico: {modelo: {P_kW: 0.25, In_A: 1.44, cos_phi: 0.70, eta: 0.65, Ia_In: 4.0, Ta_Tn: 2.2, Tk_Tn: 2.3, n_rpm: 1650, J_kgm2: 0.00079, I0_A: 0.98}}}
       - {ref: "NMRV-050", center_distance: 50,  bore_d: 25, chavetero_b: 8,  chavetero_t: 28.3, motor_d: 160, motor_len: 275, frame_IEC: 80,  potencia_kW: 0.55, cost: 200, weight: 11.0,
-         electrico: {modelo: {P_kW: 0.55, In_A: 2.60, cos_phi: 0.74, eta: 0.75, Ia_In: 5.0, Ta_Tn: 2.3, Tk_Tn: 2.5, n_rpm: 1690}}}
+         electrico: {modelo: {P_kW: 0.55, In_A: 2.60, cos_phi: 0.74, eta: 0.75, Ia_In: 5.0, Ta_Tn: 2.3, Tk_Tn: 2.5, n_rpm: 1690, J_kgm2: 0.0021, I0_A: 1.66}}}
       - {ref: "NMRV-063", center_distance: 63,  bore_d: 25, chavetero_b: 8,  chavetero_t: 28.3, motor_d: 175, motor_len: 305, frame_IEC: 90,  potencia_kW: 1.1, cost: 280,  weight: 18.0,
-         electrico: {modelo: {P_kW: 1.1, In_A: 4.57, cos_phi: 0.78, eta: 0.81, Ia_In: 5.5, Ta_Tn: 2.4, Tk_Tn: 2.6, n_rpm: 1710}}}
+         electrico: {modelo: {P_kW: 1.1, In_A: 4.57, cos_phi: 0.78, eta: 0.81, Ia_In: 5.5, Ta_Tn: 2.4, Tk_Tn: 2.6, n_rpm: 1710, J_kgm2: 0.0042, I0_A: 2.47}}}
       - {ref: "NMRV-075", center_distance: 75,  bore_d: 28, chavetero_b: 8,  chavetero_t: 31.3, motor_d: 175, motor_len: 305, frame_IEC: 90,  potencia_kW: 1.5, cost: 380,  weight: 28.0,
-         electrico: {modelo: {P_kW: 1.5, In_A: 5.93, cos_phi: 0.80, eta: 0.83, Ia_In: 6.0, Ta_Tn: 2.4, Tk_Tn: 2.7, n_rpm: 1720}}}
+         electrico: {modelo: {P_kW: 1.5, In_A: 5.93, cos_phi: 0.80, eta: 0.83, Ia_In: 6.0, Ta_Tn: 2.4, Tk_Tn: 2.7, n_rpm: 1720, J_kgm2: 0.0056, I0_A: 2.97}}}
       - {ref: "NMRV-090", center_distance: 90,  bore_d: 35, chavetero_b: 10, chavetero_t: 38.3, motor_d: 195, motor_len: 345, frame_IEC: 100, potencia_kW: 2.2, cost: 520,  weight: 45.0,
-         electrico: {modelo: {P_kW: 2.2, In_A: 8.39, cos_phi: 0.81, eta: 0.85, Ia_In: 6.5, Ta_Tn: 2.5, Tk_Tn: 2.8, n_rpm: 1730}}}
+         electrico: {modelo: {P_kW: 2.2, In_A: 8.39, cos_phi: 0.81, eta: 0.85, Ia_In: 6.5, Ta_Tn: 2.5, Tk_Tn: 2.8, n_rpm: 1730, J_kgm2: 0.0091, I0_A: 3.78}}}
       - {ref: "NMRV-110", center_distance: 110, bore_d: 42, chavetero_b: 12, chavetero_t: 45.3, motor_d: 260, motor_len: 440, frame_IEC: 132, potencia_kW: 4.0, cost: 850,  weight: 75.0,
-         electrico: {modelo: {P_kW: 4.0, In_A: 14.71, cos_phi: 0.82, eta: 0.87, Ia_In: 7.0, Ta_Tn: 2.3, Tk_Tn: 2.8, n_rpm: 1740}}}
+         electrico: {modelo: {P_kW: 4.0, In_A: 14.71, cos_phi: 0.82, eta: 0.87, Ia_In: 7.0, Ta_Tn: 2.3, Tk_Tn: 2.8, n_rpm: 1740, J_kgm2: 0.0173, I0_A: 5.88}}}
       - {ref: "NMRV-130", center_distance: 130, bore_d: 45, chavetero_b: 14, chavetero_t: 48.8, motor_d: 315, motor_len: 545, frame_IEC: 160, potencia_kW: 5.5, cost: 1200,  weight: 110.0,
-         electrico: {modelo: {P_kW: 5.5, In_A: 19.76, cos_phi: 0.83, eta: 0.88, Ia_In: 7.0, Ta_Tn: 2.3, Tk_Tn: 2.8, n_rpm: 1750}}}
+         electrico: {modelo: {P_kW: 5.5, In_A: 19.76, cos_phi: 0.83, eta: 0.88, Ia_In: 7.0, Ta_Tn: 2.3, Tk_Tn: 2.8, n_rpm: 1750, J_kgm2: 0.0327, I0_A: 7.51}}}

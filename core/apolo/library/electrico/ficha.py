@@ -9,7 +9,9 @@ corregir. Lo que valida:
   - `caminos`, `cargas` y `fuentes` que nombran bornes EXISTENTES; tensiones legibles
     (`tension.py`); polos de fuente válidos para su tensión; una acción `bobina` exige una carga
     de tipo bobina;
-  - `conductor` (conductores y cables): sección > 0, hilos con id único y color IEC 60757.
+  - `conductor` (conductores y cables): sección > 0, hilos con id único y color IEC 60757;
+  - `modelo` (V8.3 D7): `tipo` conocido, rangos [mín, máx] ordenados, la `clase` de disparo en
+    UNA forma («10», «10A»), curvas válidas y el `sistema` de una red coherente con su fuente.
 
 Puro: no importa el catálogo ni la geometría.
 """
@@ -33,6 +35,21 @@ MONTAJES = ("din", "puerta", "placa", "campo")
 #: Códigos de color de IEC 60757, más LBU (azul claro, el del neutro de IEC 60204-1 §13.2.3),
 #: que la norma de códigos no trae propio pero es de uso corriente.
 COLORES = ("BK", "BN", "RD", "OG", "YE", "GN", "BU", "LBU", "VT", "GY", "WH", "PK", "TQ", "GNYE")
+
+#: `modelo.tipo` (V8.3 D7): qué modelo de la co-simulación emula la ref (`cosim/modelos`, que
+#: tiene uno por tipo; `tests/test_cosim_modelos_catalogo.py` exige que coincidan). Una ref sin
+#: `tipo` es pasiva (borne, conductor, gabinete, contactos auxiliares que siguen a su aparato).
+TIPOS_MODELO = ("red", "fuente", "seccionador", "itm", "guardamotor", "rele_termico", "fusible",
+                "contactor", "rele", "plc", "variador", "motor", "pulsador", "seta", "selector",
+                "piloto", "sensor")
+#: Clases de disparo de un relé de sobrecarga (IEC 60947-4-1): la banda de cada una, en el modelo.
+CLASES_DISPARO = ("10A", "10", "20", "30")
+#: Curvas de un ITM (IEC 60898-1) y de un cartucho de fusible 5×20 (IEC 60127-2: F rápido,
+#: T temporizado).
+CURVAS_ITM = ("B", "C", "D")
+CURVAS_FUSIBLE = ("F", "T")
+#: Sistema de una red (V8.3 D15) → (fases, neutro) de la tensión de su fuente.
+SISTEMAS = {"1F+N": (1, False), "2F": (2, False), "3F": (3, False), "3F+N": (3, True)}
 
 _CLAVES = ("funcion", "simbolo", "montaje", "perdidas_W", "bornes", "caminos", "cargas",
            "fuentes", "modelo", "protege_motor", "parada_emergencia", "bornera", "conductor", "nota")
@@ -252,6 +269,39 @@ def _conductor(err: _Err, crudo) -> FichaConductor | None:
     return FichaConductor(seccion, aislamiento.strip(), tuple(hilos), float(temp) if temp is not None else None)
 
 
+def _modelo(err: _Err, crudo, fuentes: tuple[Fuente, ...]) -> dict:
+    """El bloque `modelo` (V8.3 D7): forma, no completitud. Qué parámetros pide cada `tipo` lo
+    sabe su modelo en `cosim/modelos` (fuente única), que da el error accionable al usarlo."""
+    if crudo is None:
+        return {}
+    if not isinstance(crudo, dict):
+        raise err("modelo", f"se espera un mapa de parámetros, llegó {type(crudo).__name__}")
+    modelo = dict(crudo)
+    tipo = modelo.get("tipo")
+    if tipo is not None:
+        modelo["tipo"] = _uno_de(err, "modelo.tipo", tipo, TIPOS_MODELO)
+    for clave, v in modelo.items():
+        if (isinstance(v, list) and len(v) == 2 and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in v)
+                and v[0] > v[1]):
+            raise err(f"modelo.{clave}", f"un rango es [mín, máx] con mín ≤ máx (llegó {v})")
+    if "clase" in modelo:  # 10 (número) y "10A" (texto) eran la misma clave: una sola forma
+        c = modelo["clase"]
+        texto = f"{c:g}" if isinstance(c, (int, float)) and not isinstance(c, bool) else str(c).strip()
+        modelo["clase"] = _uno_de(err, "modelo.clase", texto, CLASES_DISPARO)
+    if "curva" in modelo:
+        modelo["curva"] = _uno_de(err, "modelo.curva", str(modelo["curva"]).strip(), CURVAS_ITM)
+    if "cartucho_curva" in modelo:
+        modelo["cartucho_curva"] = _uno_de(err, "modelo.cartucho_curva",
+                                           str(modelo["cartucho_curva"]).strip(), CURVAS_FUSIBLE)
+    if tipo == "red":
+        sistema = _uno_de(err, "modelo.sistema", modelo.get("sistema"), tuple(SISTEMAS))
+        fases, neutro = SISTEMAS[sistema]
+        for f in fuentes:
+            if f.tension.tipo == "AC" and (f.tension.fases, f.tension.neutro) != (fases, neutro):
+                raise err("modelo.sistema", f"«{sistema}» no es el de su fuente «{f.tension}»")
+    return modelo
+
+
 def parse_ficha(crudo, ref: str) -> FichaElectrica | None:
     """Bloque `electrico:` del YAML → `FichaElectrica` validada (None si no hay bloque)."""
     if crudo is None:
@@ -273,9 +323,7 @@ def parse_ficha(crudo, ref: str) -> FichaElectrica | None:
     fuentes = _fuentes(err, crudo.get("fuentes"), ids)
     if any(c.accion == "bobina" for c in caminos) and not any(c.tipo == "bobina" for c in cargas):
         raise err("caminos", "hay contactos movidos por `bobina` pero ninguna carga de tipo bobina")
-    modelo = crudo.get("modelo") or {}
-    if not isinstance(modelo, dict):
-        raise err("modelo", f"se espera un mapa de parámetros, llegó {type(modelo).__name__}")
+    modelo = _modelo(err, crudo.get("modelo"), fuentes)
     perdidas = crudo.get("perdidas_W")
     if perdidas is not None:
         try:

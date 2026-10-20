@@ -7,7 +7,8 @@ lo que la ficha declara en `modelo`, y con el tipo que la ficha le da:
   - rango `[mín, máx]` (el `Ir_A` de un guardamotor): un número dentro del rango;
   - número: un número; booleano: un booleano; texto: un texto (la `conexion` del motor, sólo
     `triangulo` o `estrella`, que el ERC lee para elegir la tensión de placa);
-  - un dict de la ficha (`bobina_VA`) no se ajusta: es dato de placa.
+  - un dict de la ficha (`bobina_VA`), una lista que no es rango (`posiciones` de un selector)
+    y el `tipo` del modelo (V8.3 D7) no se ajustan: son dato de placa.
 
 Una clave que la ficha no declara es error con «¿quisiste decir…?» y la lista de las válidas.
 Puro: recibe la ficha ya cargada, nunca el catálogo.
@@ -35,7 +36,9 @@ def validar_ajustes(ajustes: dict, modelo: dict, ref: str) -> dict:
         return {}
     if not isinstance(ajustes, dict):
         raise ValueError(f"los ajustes de {ref} van como un objeto {{clave: valor}}")
-    ajustables = {k: v for k, v in (modelo or {}).items() if not isinstance(v, dict)}
+    ajustables = {k: v for k, v in (modelo or {}).items()
+                  if k != "tipo" and not isinstance(v, dict)
+                  and not (isinstance(v, (list, tuple)) and not _es_rango(v))}
     if not ajustables:
         raise ValueError(f"{ref} no tiene ajustes: su ficha no declara parámetros en `modelo`")
     out: dict = {}

@@ -67,6 +67,10 @@ components:
       bornera: true
       bornes: [{id: "1", rol: tierra}]
       modelo: {seccion_mm2: 4}
+  # `modelo` (plan V8.3 D7): el cartucho 5x20 es un AJUSTE de add_device (`cartucho_In_A`
+  # dentro de lo que admite el portafusible; `cartucho_curva` F rápido o T temporizado, T por
+  # defecto: criterio de diseño, el de un mando con bobinas y fuentes que piden corriente al
+  # conectar). Sus bandas tiempo-corriente son de IEC 60127-2 y van en el modelo.
   - ref: BORNE-FUS-5X20
     name: Borne portafusible 5x20
     description: Borne portafusible de palanca para fusible de vidrio 5x20 mm (hasta 6,3 A), ancho 8,2 mm; protege un circuito de mando o una entrada de señal. Verificar con el proveedor.
@@ -83,7 +87,7 @@ components:
         - {id: "1", rol: potencia, lado: linea}
         - {id: "2", rol: potencia, lado: carga}
       caminos: [{de: "1", a: "2", tipo: proteccion}]
-      modelo: {fusible: "5x20 mm", In_max_A: 6.3}
+      modelo: {tipo: fusible, fusible: "5x20 mm", In_max_A: 6.3, cartucho_In_A: [0.05, 6.3], cartucho_curva: T}
   # ── conductores sueltos (por metro) ─────────────────────────────────────────────────────
   - ref: COND-H05VK-0.75
     name: Conductor flexible H05V-K 0,75 mm²

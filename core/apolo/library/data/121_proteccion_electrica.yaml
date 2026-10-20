@@ -8,6 +8,14 @@ category: proteccion_electrica
 #  - Guardamotor = interruptor automático de motor de clase 10 (térmico regulable + magnético);
 #    rangos del orden de TeSys GV2ME06/07/08/10/14, Ii ≈ 13 × Ir máx. Protege al motor:
 #    `protege_motor: true` (regla «protección del motor» del ERC).
+#  - `electrico.modelo` (plan V8.3 D7; convención en 120_alimentacion_electrica.yaml). Las
+#    curvas son de NORMA y van en el modelo (`cosim/modelos/protecciones.py`), no aquí: ITM
+#    IEC 60898-1 (térmico 1,13/1,45 In, 2,55 In entre 1 y 60 s; magnético B 3–5, C 5–10,
+#    D 10–20 In); guardamotor y relé térmico IEC 60947-4-1 (1,05/1,2 Ir; a 7,2 Ir en frío, la
+#    banda de su `clase`). El `Ir_A` del guardamotor y del relé es un AJUSTE obligatorio
+#    (el dial); el magnético del guardamotor es FIJO en `Ii_A` = 13 × Ir máx, no sigue al dial.
+#    El relé térmico sale de fábrica en rearme MANUAL (`rearme`). El cartucho del portafusible
+#    (125_) es un ajuste: In dentro del rango del portafusible, curva T por defecto.
 _polos_3p: &polos_3p
   - {id: "1", rol: potencia, lado: linea}
   - {id: "2", rol: potencia, lado: carga}
@@ -38,7 +46,7 @@ components:
         - {de: "1", a: "2", tipo: NA, accion: mano}
         - {de: "3", a: "4", tipo: NA, accion: mano}
         - {de: "5", a: "6", tipo: NA, accion: mano}
-      modelo: {Ith_A: 25, polos: 3}
+      modelo: {tipo: seccionador, Ith_A: 25, polos: 3}
   - ref: SECC-40A-3P
     name: Seccionador rotativo 3P 40 A
     description: Interruptor-seccionador rotativo de 3 polos 40 A con manija roja sobre fondo amarillo bloqueable con candado, para el seccionamiento general del tablero. Verificar con el proveedor.
@@ -49,7 +57,7 @@ components:
     electrico:
       <<: *seccionador
       perdidas_W: 3
-      modelo: {Ith_A: 40, polos: 3}
+      modelo: {tipo: seccionador, Ith_A: 40, polos: 3}
   # ── ITM curva C ─────────────────────────────────────────────────────────────────────────
   - ref: ITM-C6-3P
     name: ITM 3P C6
@@ -65,7 +73,7 @@ components:
       perdidas_W: 4.5
       bornes: *polos_3p
       caminos: *proteccion_3p
-      modelo: {In_A: 6, curva: C, Icn_kA: 6, polos: 3}
+      modelo: {tipo: itm, In_A: 6, curva: C, Icn_kA: 6, polos: 3}
   - ref: ITM-C10-3P
     name: ITM 3P C10
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 10 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
@@ -76,7 +84,7 @@ components:
     electrico:
       <<: *itm_3p
       perdidas_W: 6
-      modelo: {In_A: 10, curva: C, Icn_kA: 6, polos: 3}
+      modelo: {tipo: itm, In_A: 10, curva: C, Icn_kA: 6, polos: 3}
   - ref: ITM-C16-3P
     name: ITM 3P C16
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 16 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
@@ -87,7 +95,7 @@ components:
     electrico:
       <<: *itm_3p
       perdidas_W: 7.5
-      modelo: {In_A: 16, curva: C, Icn_kA: 6, polos: 3}
+      modelo: {tipo: itm, In_A: 16, curva: C, Icn_kA: 6, polos: 3}
   - ref: ITM-C20-3P
     name: ITM 3P C20
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 20 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
@@ -98,7 +106,7 @@ components:
     electrico:
       <<: *itm_3p
       perdidas_W: 9
-      modelo: {In_A: 20, curva: C, Icn_kA: 6, polos: 3}
+      modelo: {tipo: itm, In_A: 20, curva: C, Icn_kA: 6, polos: 3}
   - ref: ITM-C2-2P
     name: ITM 2P C2
     description: Interruptor termomagnético (ITM) de 2 polos, curva C, 2 A, 6 kA (IEC 60898-1), para el mando a 220 V entre dos fases en la red sin neutro (p. ej. la entrada de la fuente de 24 VDC). Verificar con el proveedor.
@@ -119,7 +127,7 @@ components:
       caminos:
         - {de: "1", a: "2", tipo: proteccion}
         - {de: "3", a: "4", tipo: proteccion}
-      modelo: {In_A: 2, curva: C, Icn_kA: 6, polos: 2}
+      modelo: {tipo: itm, In_A: 2, curva: C, Icn_kA: 6, polos: 2}
   - ref: ITM-C6-2P
     name: ITM 2P C6
     description: Interruptor termomagnético (ITM) de 2 polos, curva C, 6 A, 6 kA (IEC 60898-1), para circuitos a 220 V entre dos fases en la red sin neutro. Verificar con el proveedor.
@@ -130,7 +138,7 @@ components:
     electrico:
       <<: *itm_2p
       perdidas_W: 3
-      modelo: {In_A: 6, curva: C, Icn_kA: 6, polos: 2}
+      modelo: {tipo: itm, In_A: 6, curva: C, Icn_kA: 6, polos: 2}
   - ref: ITM-C2-1PN
     name: ITM 1P+N C2
     description: Interruptor termomagnético (ITM) 1P+N, curva C, 2 A, 6 kA (IEC 60898-1), para circuitos fase-neutro de una red CON neutro (380/220 V); el polo N se maniobra pero no se protege. Verificar con el proveedor.
@@ -151,7 +159,7 @@ components:
       caminos:
         - {de: "1", a: "2", tipo: proteccion}
         - {de: N1, a: N2, tipo: NA, accion: mano}
-      modelo: {In_A: 2, curva: C, Icn_kA: 6, polos: "1P+N"}
+      modelo: {tipo: itm, In_A: 2, curva: C, Icn_kA: 6, polos: "1P+N"}
       nota: "N1/N2 = polo de neutro (marcado N en el aparato), lado línea y lado carga."
   - ref: ITM-C6-1PN
     name: ITM 1P+N C6
@@ -163,7 +171,7 @@ components:
     electrico:
       <<: *itm_1pn
       perdidas_W: 2
-      modelo: {In_A: 6, curva: C, Icn_kA: 6, polos: "1P+N"}
+      modelo: {tipo: itm, In_A: 6, curva: C, Icn_kA: 6, polos: "1P+N"}
   # ── guardamotores de clase 10 (1–10 A sin huecos) ───────────────────────────────────────
   - ref: GM-1-1.6A
     name: Guardamotor 1-1,6 A clase 10
@@ -180,7 +188,7 @@ components:
       perdidas_W: 5
       bornes: *polos_3p
       caminos: *proteccion_3p
-      modelo: {Ir_A: [1.0, 1.6], clase: 10, Ii_A: 20.8}
+      modelo: {tipo: guardamotor, Ir_A: [1.0, 1.6], clase: "10", Ii_A: 20.8}
   - ref: GM-1.6-2.5A
     name: Guardamotor 1,6-2,5 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 1,6-2,5 A clase 10 + disparo magnético, para motores de ~0,55 kW a 220 V. Verificar con el proveedor.
@@ -190,7 +198,7 @@ components:
     specs: {Ir_min_A: 1.6, Ir_max_A: 2.5, clase: 10, Ii_A: 32.5, linea_referencia: "orden de Schneider TeSys GV2ME07 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 45}
     electrico:
       <<: *guardamotor
-      modelo: {Ir_A: [1.6, 2.5], clase: 10, Ii_A: 32.5}
+      modelo: {tipo: guardamotor, Ir_A: [1.6, 2.5], clase: "10", Ii_A: 32.5}
   - ref: GM-2.5-4A
     name: Guardamotor 2,5-4 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 2,5-4 A clase 10 + disparo magnético, para motores de ~0,75 kW a 220 V. Verificar con el proveedor.
@@ -200,7 +208,7 @@ components:
     specs: {Ir_min_A: 2.5, Ir_max_A: 4.0, clase: 10, Ii_A: 52, linea_referencia: "orden de Schneider TeSys GV2ME08 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 48}
     electrico:
       <<: *guardamotor
-      modelo: {Ir_A: [2.5, 4.0], clase: 10, Ii_A: 52}
+      modelo: {tipo: guardamotor, Ir_A: [2.5, 4.0], clase: "10", Ii_A: 52}
   - ref: GM-4-6.3A
     name: Guardamotor 4-6,3 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 4-6,3 A clase 10 + disparo magnético, para motores de ~1,1-1,5 kW a 220 V. Verificar con el proveedor.
@@ -210,7 +218,7 @@ components:
     specs: {Ir_min_A: 4.0, Ir_max_A: 6.3, clase: 10, Ii_A: 81.9, linea_referencia: "orden de Schneider TeSys GV2ME10 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 50}
     electrico:
       <<: *guardamotor
-      modelo: {Ir_A: [4.0, 6.3], clase: 10, Ii_A: 81.9}
+      modelo: {tipo: guardamotor, Ir_A: [4.0, 6.3], clase: "10", Ii_A: 81.9}
   - ref: GM-6-10A
     name: Guardamotor 6-10 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 6-10 A clase 10 + disparo magnético, para motores de ~2,2 kW a 220 V. Verificar con el proveedor.
@@ -220,7 +228,7 @@ components:
     specs: {Ir_min_A: 6.0, Ir_max_A: 10.0, clase: 10, Ii_A: 130, linea_referencia: "orden de Schneider TeSys GV2ME14 / Siemens SIRIUS 3RV2011", cotas_verificadas: false, cost: 55}
     electrico:
       <<: *guardamotor
-      modelo: {Ir_A: [6.0, 10.0], clase: 10, Ii_A: 130}
+      modelo: {tipo: guardamotor, Ir_A: [6.0, 10.0], clase: "10", Ii_A: 130}
   - ref: GM-AUX-1NA1NC
     name: Contacto auxiliar 1NA+1NC de guardamotor
     description: Bloque de contactos auxiliares frontal 1NA+1NC para guardamotor (señaliza al PLC si el guardamotor está cerrado o disparado). Se designa aparte (p. ej. -Q2A) y sus contactos se mueven con el guardamotor sobre el que va. Verificar con el proveedor.
@@ -271,7 +279,7 @@ components:
         - {de: "5", a: "6", tipo: proteccion}
         - {de: "95", a: "96", tipo: NC, accion: disparo}
         - {de: "97", a: "98", tipo: NA, accion: disparo}
-      modelo: {Ir_A: [2.5, 4.0], clase: "10A"}
+      modelo: {tipo: rele_termico, Ir_A: [2.5, 4.0], clase: "10A", rearme: manual}
   - ref: RT-4-6A
     name: Relé térmico 4-6 A clase 10A
     description: Relé térmico de sobrecarga de 3 polos, regulable 4-6 A clase 10A, con contactos 95-96 NC y 97-98 NA; se monta directo bajo el contactor. Verificar con el proveedor.
@@ -281,4 +289,4 @@ components:
     specs: {Ir_min_A: 4.0, Ir_max_A: 6.0, clase: "10A", linea_referencia: "orden de Schneider TeSys LRD10 / Siemens SIRIUS 3RU2116", cotas_verificadas: false, cost: 35}
     electrico:
       <<: *rele_termico
-      modelo: {Ir_A: [4.0, 6.0], clase: "10A"}
+      modelo: {tipo: rele_termico, Ir_A: [4.0, 6.0], clase: "10A", rearme: manual}
