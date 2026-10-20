@@ -135,10 +135,13 @@ def armar(staging: Path, entregables_dir: Path, entregables: list, registros: li
             (destino / nombre_apolo).write_bytes(apolo)
             archivos.append((nombre_apolo, "Modelo paramétrico de Apolo CAD (ver abajo cómo abrirlo)"))
         archivos += list(TEXTOS_FIJOS)
+        # un opcional que no salió (el DWG sin ODA, D5 de video-tienda-pulido) se dice
+        ausentes = [e.sin_el or f"No trae {e.etiqueta}." for e in entregables
+                    if nivel in e.destinos and e.opcional and e.archivo not in ok]
         (destino / "LEEME.md").write_text(textos.leeme(
             ficha, nivel, cifras=cifras, calidad=calidad_, archivos=archivos,
-            variables=variables, apolo=nombre_apolo if nivel == COMPLETO else None),
-            encoding="utf-8")
+            variables=variables, apolo=nombre_apolo if nivel == COMPLETO else None,
+            ausentes=ausentes), encoding="utf-8")
         (destino / "LICENCIA.txt").write_text(textos.licencia(ficha["licencias"][nivel], ficha),
                                               encoding="utf-8")
         (destino / "AVISO.txt").write_text(textos.aviso(), encoding="utf-8")

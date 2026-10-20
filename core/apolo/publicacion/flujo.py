@@ -10,13 +10,18 @@ Hablan con la API viva por HTTP (un `httpx.Client` con `base_url`; en los tests,
     armó el guion), pasa la puerta de entrega (D13), trae los entregables, sanea el `.apolo`,
     escribe `vista-3d.glb` (plan vista-3d-tienda), renderiza el video, escribe
     `vista-3d.html` (con la miniatura del video de póster), arma el paquete y
-    comprueba al final que el proyecto no cambió mientras tanto.
+    comprueba al final que el proyecto no cambió mientras tanto. Los entregables los arma la
+    API mientras aquí se hacen la vista 3D y el video (`paralelo`, D6 de video-tienda-pulido).
+
+Los dos leen al empezar las capacidades que publica `GET /api/health` (hoy, `dwg`: ODA File
+Converter) y avisan de lo que el paquete no va a traer (D5), en vez de fallar al final.
 
 Abrir el proyecto lo cambia en la UI de Apolo: el CLI lo avisa al empezar.
 """
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import io
 import json
@@ -28,7 +33,7 @@ from types import SimpleNamespace
 
 from apolo.publicacion import ficha as fichas
 from apolo.publicacion import paquete
-from apolo.publicacion.entregables import NIVELES, Recolector, lista
+from apolo.publicacion.entregables import NIVELES, EnFondo, Recolector, lista, omitidos
 from apolo.publicacion.paquete import FICHA_YAML, GUION, PublicacionError
 
 DURACION_S = 75.0
@@ -97,6 +102,18 @@ def _eco_nulo(*_a, **_k):
     return None
 
 
+def _de_la_tienda(proyecto: int, nombre: str) -> list:
+    return [e for e in lista(proyecto, nombre) if set(NIVELES) & e.destinos]
+
+
+def _avisos_de_capacidad(fuera: dict[str, str], entregables: list, cierre: str) -> list[str]:
+    """Un aviso por entregable que la API no puede dar (D5 de video-tienda-pulido): dicho al
+    EMPEZAR, con el porqué y el enlace de descarga, no tras minutos de trabajo."""
+    por = {e.archivo: e for e in entregables}
+    return [f"Aviso: el paquete saldrá SIN «{por[a].etiqueta}». {motivo.rstrip('.')}. {cierre}"
+            for a, motivo in fuera.items()]
+
+
 def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
           version: str | None = None, duracion_s: float = DURACION_S, titulo: str | None = None,
           eco=print, modo: str = "montaje") -> dict:
@@ -115,6 +132,11 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     api = _Api(cliente)
     t0 = time.perf_counter()
     nombre = api.abrir(proyecto)
+    todos = _de_la_tienda(proyecto, nombre)
+    avisos = _avisos_de_capacidad(omitidos(api.salud(), todos), todos,
+                                  "Si lo haces antes de `publicar generar`, sale.")
+    for aviso in avisos:
+        eco(aviso)
     slug = slug or fichas.slug(nombre)
     raiz = Path(raiz or paths.publicaciones_dir())
     version = version or _version_libre(raiz, slug)
@@ -155,7 +177,7 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
                                                 for s, t in caps) or "ninguno (no cumplen D15)"))
     return {"carpeta": carpeta, "guion": carpeta / GUION, "ficha": carpeta / FICHA_YAML,
             "etapas": len(g["etapas"]), "duracion_s": duracion_total(g), "capitulos": caps,
-            "segundos": time.perf_counter() - t0}
+            "avisos": avisos, "segundos": time.perf_counter() - t0}
 
 
 def _version_libre(raiz: Path, slug: str) -> str:
@@ -182,9 +204,14 @@ def _version_pendiente(raiz: Path, slug: str) -> str:
 
 def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
             version: str | None = None, musica=None, forzar: bool = False,
-            con_gravedad: bool = True, eco=print) -> dict:
+            con_gravedad: bool = True, eco=print, paralelo: bool = False) -> dict:
     """`publicar generar`: valida, pasa la puerta, trae entregables, renderiza el video y
-    arma el paquete. Devuelve el resumen (carpeta, tiempos, video, faltantes, saneo)."""
+    arma el paquete. Devuelve el resumen (carpeta, tiempos, video, faltantes, saneo).
+
+    `paralelo` (D6 de video-tienda-pulido): la API arma los entregables mientras aquí se
+    renderiza el video. Sólo con la API en OTRO proceso (el CLI contra una URL): con la API en
+    este mismo (el `TestClient` de los tests), su VTK y su OCCT correrían a la vez que los del
+    video, que no toma locks (es dueño de su documento)."""
     from apolo import paths
     from apolo.media.codificar import buscar_ffmpeg, buscar_ffprobe
     from apolo.services.guion_video import GuionError, validar_guion
@@ -217,6 +244,11 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     if pista is not None and not pista.is_file():
         raise PublicacionError(f"No encuentro la música {pista}")
     salud = api.salud()
+    todos = _de_la_tienda(proyecto, nombre)
+    fuera = omitidos(salud, todos)
+    for aviso in _avisos_de_capacidad(fuera, todos, "El resto sale igual y el LEEME dice qué "
+                                      "falta."):
+        eco(aviso)
     data = api.apolo()
     doc = _documento(data)
     try:
@@ -238,7 +270,7 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     try:
-        resumen = _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista,
+        resumen = _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista,
                          staging, tiempos, eco)
         if _firma_de(api.apolo()) != _firma_de(data) or \
                 api.salud().get("project_id") != salud.get("project_id"):
@@ -254,60 +286,44 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     return resumen
 
 
-def _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista, staging, tiempos,
-           eco) -> dict:
-    from apolo.media.codificar import ErrorCodificacion
-    from apolo.publicacion import saneo, textos, vista3d, vista3d_html
-    from apolo.publicacion import video as videos
-    from apolo.services.guion_video import capitulos
-
-    t = time.perf_counter()
-    todos = [e for e in lista(proyecto, nombre) if set(NIVELES) & e.destinos]
-    rec = Recolector(cliente, staging / "entregables", eco=False)
-    registros = rec.traer(todos)
-    por_archivo = {e.archivo: e for e in todos}
-    faltan = [r for r in registros if r["status"] != "ok"]
-    graves = [r for r in faltan if not por_archivo[r["file"]].opcional]
+def _exigir(entregas: EnFondo) -> list[dict]:
+    """Los registros de los entregables; si faltó uno que el paquete necesita, el error con
+    todos los que faltaron (espera a que la API termine de intentarlos)."""
+    registros = entregas.esperar()
+    por_archivo = {e.archivo: e for e in entregas.entregables}
+    graves = [r for r in registros if r["status"] != "ok" and not por_archivo[r["file"]].opcional]
     if graves:
         raise PublicacionError("Faltan entregables que el paquete necesita:\n" + "\n".join(
             f"  - {r['label']}: {r['note']}" for r in graves))
-    tiempos["entregables"] = time.perf_counter() - t
+    return registros
 
-    t = time.perf_counter()
-    apolo, informe_saneo = saneo.sanear_apolo(data, nombre=f["titulo"])
-    tiempos["saneo"] = time.perf_counter() - t
 
-    t = time.perf_counter()
-    try:  # vista-3d-tienda D1-D2: sin gltfpack sale sin comprimir y lo dice `aviso`
-        vista = vista3d.generar(doc, staging / vista3d.ARCHIVO, titulo=f["titulo"])
-    except (ValueError, RuntimeError) as exc:  # nada visible, el escritor de OCCT falló
-        raise PublicacionError(f"La vista 3D no salió: {exc}") from exc
-    if vista["aviso"]:
-        eco(f"Aviso (vista 3D): {vista['aviso']}")
-    tiempos["vista 3d"] = time.perf_counter() - t
+def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, staging, tiempos,
+           eco) -> dict:
+    """Entregables (de la API) y lo local (saneo, vista 3D, video), en paralelo si `paralelo`
+    (D6 de video-tienda-pulido), y el paquete. Sin paralelo, un entregable que falta corta
+    ANTES del video; en paralelo, el video se aborta en cuanto la API falla uno."""
+    from apolo.publicacion import textos
+    from apolo.services.guion_video import capitulos
 
-    t = time.perf_counter()
-    if not g["cierre"]["url"] and f["url_tienda"]:
-        g = copy.deepcopy(g)
-        g["cierre"]["url"] = f["url_tienda"]
-    ultimo = [-1.0]
-
-    def progreso(hechos: int, total: int) -> None:
-        if time.perf_counter() - ultimo[0] > 5:
-            ultimo[0] = time.perf_counter()
-            eco(f"  video: {hechos}/{total} fotogramas")
-
+    rec = Recolector(cliente, staging / "entregables", eco=False)
+    entregas = EnFondo(rec, todos, omitir=fuera, paralelo=paralelo)
     try:
-        video = videos.renderizar(doc, g, staging, musica=pista, progreso=progreso)
-    except (ValueError, ErrorCodificacion) as exc:  # escena vacía, guion de 0 s, ffmpeg falló
-        raise PublicacionError(f"El video no salió: {exc}") from exc
-    tiempos["video"] = time.perf_counter() - t
-
-    t = time.perf_counter()  # vista-3d-tienda D3: el póster es la miniatura del video
-    vista["html"] = vista3d_html.escribir(doc, staging / vista3d_html.ARCHIVO, titulo=f["titulo"],
-                                          ident=f["slug"], vista=vista,
-                                          poster=video.miniatura.name)
-    tiempos["vista 3d"] += time.perf_counter() - t
+        if entregas.grave.is_set():
+            _exigir(entregas)
+        apolo, informe_saneo, vista, video = _lo_local(doc, data, g, f, pista, staging, tiempos,
+                                                       eco, entregas)
+        t = time.perf_counter()
+        registros = _exigir(entregas)
+    except BaseException:
+        entregas.cancelar()  # que no escriba más en `staging`: quien llama lo va a borrar
+        with contextlib.suppress(Exception):
+            entregas.esperar()
+        raise
+    tiempos["entregables"] = entregas.segundos
+    if paralelo:  # lo que el video no alcanzó a tapar
+        tiempos["espera de entregables"] = time.perf_counter() - t
+    faltan = [r for r in registros if r["status"] != "ok"]
 
     t = time.perf_counter()
     caps = capitulos(g)
@@ -331,11 +347,61 @@ def _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista, staging, 
     tiempos["paquete"] = time.perf_counter() - t
     return {"ficha_json": publica, "faltantes": [f"{r['label']}: {r['note']}" for r in faltan],
             "saneo": informe_saneo, "registros": registros, "vista_3d": vista,
+            "paralelo": paralelo,
             "video": {"fotogramas": video.fotogramas, "duracion_s": video.duracion_s,
                       "segundos": round(video.segundos, 2), "con_musica": video.con_musica,
                       "pasos_sin_prefijo": video.pasos_sin_prefijo},
             "zips": {nivel: str(ruta.name) for nivel, ruta in zips.items()},
             "bytes": {nivel: ruta.stat().st_size for nivel, ruta in zips.items()}}
+
+
+def _lo_local(doc, data, g, f, pista, staging, tiempos, eco, entregas: EnFondo):
+    """Lo que se hace aquí, sobre la copia propia del documento: saneo, vista 3D y video.
+    Devuelve (apolo saneado, informe del saneo, vista 3D, informe del video)."""
+    from apolo.media.codificar import ErrorCodificacion
+    from apolo.publicacion import saneo, vista3d, vista3d_html
+    from apolo.publicacion import video as videos
+
+    t = time.perf_counter()
+    apolo, informe_saneo = saneo.sanear_apolo(data, nombre=f["titulo"])
+    tiempos["saneo"] = time.perf_counter() - t
+
+    t = time.perf_counter()
+    try:  # vista-3d-tienda D1-D2: sin gltfpack sale sin comprimir y lo dice `aviso`
+        vista = vista3d.generar(doc, staging / vista3d.ARCHIVO, titulo=f["titulo"])
+    except (ValueError, RuntimeError) as exc:  # nada visible, el escritor de OCCT falló
+        raise PublicacionError(f"La vista 3D no salió: {exc}") from exc
+    if vista["aviso"]:
+        eco(f"Aviso (vista 3D): {vista['aviso']}")
+    tiempos["vista 3d"] = time.perf_counter() - t
+
+    t = time.perf_counter()
+    if not g["cierre"]["url"] and f["url_tienda"]:
+        g = copy.deepcopy(g)
+        g["cierre"]["url"] = f["url_tienda"]
+    ultimo = [-1.0]
+
+    def progreso(hechos: int, total: int) -> None:
+        if entregas.grave.is_set():  # la API no pudo con uno que el paquete necesita
+            _exigir(entregas)
+        if time.perf_counter() - ultimo[0] > 5:
+            ultimo[0] = time.perf_counter()
+            eco(f"  video: {hechos}/{total} fotogramas")
+
+    if entregas.grave.is_set():
+        _exigir(entregas)
+    try:
+        video = videos.renderizar(doc, g, staging, musica=pista, progreso=progreso)
+    except (ValueError, ErrorCodificacion) as exc:  # escena vacía, guion de 0 s, ffmpeg falló
+        raise PublicacionError(f"El video no salió: {exc}") from exc
+    tiempos["video"] = time.perf_counter() - t
+
+    t = time.perf_counter()  # vista-3d-tienda D3: el póster es la miniatura del video
+    vista["html"] = vista3d_html.escribir(doc, staging / vista3d_html.ARCHIVO, titulo=f["titulo"],
+                                          ident=f["slug"], vista=vista,
+                                          poster=video.miniatura.name)
+    tiempos["vista 3d"] += time.perf_counter() - t
+    return apolo, informe_saneo, vista, video
 
 
 def _imprimir(eco, r: dict) -> None:
@@ -362,7 +428,8 @@ def _imprimir(eco, r: dict) -> None:
         f"{w['html']['archivo']} con {len(w['html']['etiquetas'])} etiqueta(s)")
     eco("  zips: " + " · ".join(f"{r['zips'][n]} ({r['bytes'][n] / 1e6:.1f} MB)"
                                 for n in r["zips"]))
-    eco("  tiempos: " + " · ".join(f"{k} {x:.1f} s" for k, x in r["tiempos_s"].items()))
+    eco("  tiempos: " + " · ".join(f"{k} {x:.1f} s" for k, x in r["tiempos_s"].items())
+        + (" (entregables en paralelo con la vista 3D y el video)" if r.get("paralelo") else ""))
     eco("Sube a mano a YouTube video.mp4 con miniatura.png y el texto de youtube.txt (D15); "
         "luego pon el enlace en url_video de ficha.json.")
     eco(f"Vista 3D: sube {w['archivo']}, {w['html']['poster']} y el trozo de "

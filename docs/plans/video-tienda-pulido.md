@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F1 en main (2026-10-19); F1b implementada (2026-10-20): manual y video siguen la secuencia de montaje del grafo de uniones (piloto: 10 pasos, video de 65 s en 3 etapas); faltan F2–F4, la música de Mario y decidir si se muestra el FS 1,09 de la cadena motriz
+nota: F0–F1b en main (2026-10-19/20; manual y video siguen la secuencia de montaje); F3 implementada (2026-10-20): sin ODA `publicar guion`/`generar` lo avisan al empezar y el paquete sale sin DWG diciéndolo, y los entregables van en paralelo con el video (ganancia medida chica: el manual, 1 381 s de renders matplotlib, es el cuello); faltan F2 (en revisión por video-realista D8), F4, la música de Mario y decidir si se muestra el FS 1,09 de la cadena motriz
 descripcion: El video de la tienda explica la máquina con sus datos de ingeniería, corta las etapas con ritmo parejo y se ve como un producto terminado
 ---
 
@@ -254,3 +254,89 @@ sesión corriendo a la vez: no es comparable con los 127 s de la F5. Entra a D6 
   sostiene algo, tapa suelta, mismo nivel, sin grafo, sin anclajes, ocultas, parte acotada,
   manual, endpoint, etapas, guion validado, tandas) y 1 en `tests/test_publicacion_e2e.py`
   (montaje por defecto, diseño a pedido, modo desconocido).
+
+### F3 (2026-10-20)
+
+Implementó un subagente en un worktree. Mediciones sobre una COPIA de `data/apolo.db` (piloto =
+proyecto 74), con la API en proceso (`TestClient`, sin uvicorn) y el video en un proceso aparte,
+como el CLI. Esta PC no es la de la F5 y es más lenta: los números no se comparan con los 430 s
+de la F0, sólo entre sí. Otras sesiones corrieron suites de pytest durante parte de la primera
+corrida; el manual y los A/B de D6 se repitieron aparte (la carga ajena, muestreada cada 20 s).
+
+**D5 — el DWG, requisito chequeado**:
+
+- `drawing/dwg.disponible()` → `GET /api/health` publica `dwg: {disponible, aviso}` (el aviso
+  trae `ODA_URL`); se descubre FUERA del lock y se cachea por proceso (instalar ODA pide
+  reiniciar la API, como ya decía el error).
+- `GET /api/drawingset.dwg` y `POST /api/drawing/spec` con `format=dwg` llaman `require_odafc()`
+  AL ENTRAR: sin ODA, 400 al instante en vez de componer las láminas bajo `STATE_LOCK` para fallar
+  al convertir (los 69,6 s de la F0).
+- `Entregable.requiere` («dwg») y `Entregable.sin_el` (lo que lee quien compra);
+  `entregables.omitidos(salud, …)` cruza los dos. `publicar guion` lo dice como PRIMERA línea,
+  con el enlace; `generar` lo repite, no pide el DWG (registro `skip` con el motivo) y el LEEME
+  del completo dice «Esta versión no trae los planos en DWG: el juego de planos va en PDF». Una
+  API vieja que no publica `dwg` no lo niega: se pide como siempre.
+
+**D6 — medir primero** (piloto, cada entregable solo, en serie como la F5):
+
+| entregable | s |
+|---|---|
+| manual de ensamblaje (PDF) | 2 462 (con carga ajena) · **1 381 limpio** |
+| juego de planos (PDF) | 462 · 505 en el A/B |
+| memoria de cálculo (PDF) | 256 |
+| hoja de conjunto GA (PDF) | 231 |
+| juego de planos (DWG zip, aquí SÍ hay ODA) | 138 |
+| render iso + lateral + planta | 100 + 18 + 19 |
+| STEP, BOM, lista de corte, nesting | 8 |
+| **total** | **3 693** |
+| local: cargar + guion + vista 3D + video de montaje (65 s, 1 950 fotogramas) | 18 + 5 + 5 + 190 |
+
+El manual se lleva el tiempo, y no es por la secuencia de F1b sino por el RENDER: sus 12 fotos
+(portada + 11 pasos) son `kernel/render.render_scene_png` (matplotlib) y suman 1 376 de los
+1 381 s. Hasta 177 piezas cada foto tarda ≤ 30 s; desde que entran las 19 cadenas (196 piezas)
+cada una tarda 180–290 s, y la portada (201 piezas) 200 s. La memoria (256 s) también hace su
+foto de portada con matplotlib.
+
+**D6 — en paralelo**: `EnFondo` (en `entregables.py`, httpx puro) pide los entregables en un
+hilo mientras el CLI sanea, hace la vista 3D y el video; `generar(paralelo=)` lo usa y el CLI lo
+prende sólo con su PROPIO cliente (la API en otro proceso). Con la API en el mismo proceso (el
+`TestClient`) va en serie: el video no toma locks (es dueño de su documento) y su VTK/OCCT
+correría a la vez que el de la API, que tampoco lo esperaría. Así el orden único de locks no se
+toca: los dos procesos no comparten ninguno. Un entregable necesario que la API no da aborta el
+video en el siguiente aviso de progreso (el error los nombra a todos); un fallo del CLI cancela
+los pedidos pendientes y espera al que está en vuelo antes de borrar `.generando`. `generacion.json`
+suma `espera de entregables` (lo que el video no alcanzó a tapar) y `paralelo`.
+
+A/B (juego de planos PDF en la API, video en otro proceso que arranca a los 40 s; las corridas en
+paralelo sin carga ajena, la del juego solo con una suite ajena ~160 s de sus 505: si algo, el
+ahorro real es menor):
+
+| corrida | juego PDF | video | pared |
+|---|---|---|---|
+| en serie (sumando las corridas solas) | 505 | 190 | ≈ 743 |
+| en paralelo | 667 | 408 | ≈ 703 |
+| en paralelo, video en prioridad BelowNormal | 631 | 371 | ≈ 664 |
+
+Se ahorra entre 40 y 80 s, no los 218 s del trabajo local: los dos procesos se frenan entre sí
+aunque la máquina tiene 12 hilos (el video pasa de 190 a ~400 s). Bajar la prioridad del video
+casi no cambia nada, así que no quedó en el código. En la publicación entera (~3 900 s aquí) el
+paralelo es ≈ 2 %: **la palanca real es el render del manual**, fuera del alcance de esta fase
+(candidato: la foto VTK de `render_vtk`, ~1 s por foto, o mallas livianas para las cadenas).
+
+**Intentos fallidos**:
+
+1. Muestrear pilas con `faulthandler.dump_traceback_later` durante el manual tumbó el proceso
+   (0xC0000005) al volcar un hilo metido en código nativo; se midió con un cronómetro sobre
+   `render_scene_png`.
+2. Un `tail -f` (Monitor) sobre el log de una medición le negó la escritura a `Out-File` en
+   Windows (código de salida 5, log vacío).
+
+**Pendiente y avisos**:
+
+- Render del manual (y de la portada de la memoria) con VTK o con cadenas livianas: es lo que
+  bajaría la publicación de verdad. Necesita su plan (cambia lo que se ve en un entregable).
+- Tests: `tests/test_publicacion_dwg_paralelo.py` (14: `health` con y sin ODA, el 400 sin
+  componer láminas en los dos endpoints, `omitidos`, el hilo —orden, `skip`, serie, grave,
+  opcional, cancelar, error del hilo—, de punta a punta sin ODA —aviso primero, sin pedirlo,
+  LEEME—, en paralelo por turnos con la API —hilo propio, paquete completo— y abortando el video,
+  y el CLI que va en paralelo sólo con su propio cliente).

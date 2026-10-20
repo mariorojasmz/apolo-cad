@@ -6,7 +6,9 @@ cliente HTTP más (abrir el proyecto, puerta de entrega, entregables, `.apolo`) 
 video sobre su propia copia del documento, sin locks compartidos.
 
   - `entregables`: el cliente HTTP de los entregables, compartido con
-    `scripts/benchmark_package.py` (los dos piden la MISMA lista; cada uno filtra su destino).
+    `scripts/benchmark_package.py` (los dos piden la MISMA lista; cada uno filtra su destino),
+    y `EnFondo`, que los pide en un hilo mientras se renderiza el video (D6 de
+    video-tienda-pulido: sólo con la API en otro proceso).
   - `ficha`: `ficha.yaml` (datos de tienda que escribe una persona, D14) y su validación.
   - `saneo`: el `.apolo` publicado, sin notas del agente ni precios (D12).
   - `linea_tiempo` y `video`: el MP4 a partir del guion (D2, D5–D8).

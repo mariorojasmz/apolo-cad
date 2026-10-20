@@ -17,6 +17,7 @@ No importa nada de `apolo` (sólo httpx): el benchmark lo importa sin cargar el 
 from __future__ import annotations
 
 import json
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -48,6 +49,11 @@ class Entregable:
     params: dict = field(default_factory=dict)
     cuerpo: dict | None = None
     opcional: bool = False  # su falta no frena una publicación (p. ej. el DWG sin ODA)
+    #: capacidad de la API que necesita, como la publica `GET /api/health` ({"disponible",
+    #: "aviso"}): sin ella la publicación no lo pide y avisa al empezar (D5 de video-tienda-pulido)
+    requiere: str = ""
+    #: lo que dice el LEEME a quien compra si falta (opcional); vacío = «No trae <etiqueta>.»
+    sin_el: str = ""
 
 
 def lista(proyecto: int, nombre: str, *, plantilla: str = "generico") -> list[Entregable]:
@@ -67,7 +73,9 @@ def lista(proyecto: int, nombre: str, *, plantilla: str = "generico") -> list[En
         E("A2", "juego de planos (PDF)", "GET", "/api/drawingset.pdf", "planos/juego.pdf",
           "bytes", _COMPLETO, {"template": plantilla, "sheet": "A3", "shaded": "true"}),
         E("A2", "juego de planos (DWG zip)", "GET", "/api/drawingset.dwg", "planos/juego_dwg.zip",
-          "bytes", _COMPLETO, {"template": plantilla, "sheet": "A3"}, opcional=True),
+          "bytes", _COMPLETO, {"template": plantilla, "sheet": "A3"}, opcional=True,
+          requiere="dwg", sin_el="Esta versión no trae los planos en DWG: el juego de planos "
+                                 "va en PDF (`planos/juego.pdf`)."),
         E("A2", "hoja de conjunto GA (PDF)", "POST", "/api/drawing/spec", "planos/conjunto_GA.pdf",
           "bytes", cuerpo=ga),
         E("A2", "lista de corte (JSON)", "GET", "/api/cutlist.json", "planos/cutlist.json",
@@ -185,6 +193,75 @@ class Recolector:
             else:
                 self.pedir_archivo(e.fase, e.etiqueta, e.metodo, e.ruta, e.archivo, **kw)
         return self.registros[desde:]
+
+
+def omitidos(salud: dict, entregables: list[Entregable]) -> dict[str, str]:
+    """{archivo: por qué no se pide} de los entregables cuya capacidad (`requiere`) la API dice
+    no tener en `GET /api/health` (D5 de video-tienda-pulido: el DWG sin ODA). Una API que no
+    publica la capacidad no la niega: se pide y, si falla, queda registrado como siempre."""
+    fuera = {}
+    for e in entregables:
+        cap = salud.get(e.requiere) if e.requiere else None
+        if isinstance(cap, dict) and cap.get("disponible") is False:
+            fuera[e.archivo] = cap.get("aviso") or f"la API no tiene {e.requiere}"
+    return fuera
+
+
+class EnFondo:
+    """`Recolector.traer` en un hilo propio (D6 de video-tienda-pulido): mientras la API arma
+    los entregables, quien llama renderiza el video. Sólo vale si la API es OTRO proceso: el
+    hilo sólo espera HTTP. Con la API en el mismo proceso (el `TestClient` de los tests),
+    `paralelo=False` lo trae todo aquí mismo, antes de volver.
+
+    `omitir` ({archivo: motivo}) se registra como `skip` sin pedirlo. `grave` se prende cuando
+    falla uno que no es `opcional`; el hilo sigue con el resto (el error los nombra a todos)."""
+
+    def __init__(self, rec: Recolector, entregables: list[Entregable], *,
+                 omitir: dict[str, str] | None = None, paralelo: bool = True):
+        self.rec,self.entregables, self.omitir = rec, list(entregables), dict(omitir or {})
+        self.grave = threading.Event()
+        self._cancelar = threading.Event()
+        self.registros: list[dict] = []
+        self.segundos = 0.0
+        self._error: BaseException | None = None
+        self._hilo = None
+        if paralelo:
+            self._hilo = threading.Thread(target=self._correr, name="entregables", daemon=True)
+            self._hilo.start()
+        else:
+            self._correr()
+
+    def _correr(self) -> None:
+        t0, desde = time.perf_counter(), len(self.rec.registros)
+        try:
+            for e in self.entregables:
+                if self._cancelar.is_set():
+                    break
+                if e.archivo in self.omitir:
+                    self.rec.registrar(e.fase, e.etiqueta, e.archivo, None, 0.0, "skip",
+                                       self.omitir[e.archivo])
+                    continue
+                if self.rec.traer([e])[-1]["status"] != "ok" and not e.opcional:
+                    self.grave.set()
+        except BaseException as exc:  # noqa: BLE001 — se re-lanza en `esperar`
+            self._error = exc
+            self.grave.set()
+        finally:
+            self.registros = self.rec.registros[desde:]
+            self.segundos = time.perf_counter() - t0
+
+    def cancelar(self) -> None:
+        """No pide más (el que está en vuelo termina): quien llama falló y va a limpiar."""
+        self._cancelar.set()
+
+    def esperar(self) -> list[dict]:
+        """Los registros, en el orden de `entregables`, cuando el hilo terminó. Espera de a
+        medio segundo: un Ctrl+C la interrumpe también en Windows."""
+        while self._hilo is not None and self._hilo.is_alive():
+            self._hilo.join(0.5)
+        if self._error is not None:
+            raise self._error
+        return self.registros
 
 
 def _detalle(exc: Exception) -> str:

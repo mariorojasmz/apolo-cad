@@ -96,7 +96,12 @@ def health() -> dict:
     """Salud de operación (V6.1): integridad del documento en memoria + estado de la
     capa de persistencia. Lectura pura bajo STATE_LOCK. ``ok`` es verde solo si NO hay
     violaciones de integridad (los 'degradado' no cuentan) NI error de arranque. Sin
-    tool MCP: es telemetría de operación (la UI pinta un chip; V6.x si se pide agente)."""
+    tool MCP: es telemetría de operación (la UI pinta un chip; V6.x si se pide agente).
+    ``dwg``: si hay con qué exportar DWG (ODA File Converter); la publicación lo lee al empezar
+    (D5 de video-tienda-pulido). Se descubre FUERA del lock: no toca el documento."""
+    from apolo.drawing.dwg import disponible as dwg_disponible
+
+    dwg = dwg_disponible()
     with STATE_LOCK:
         raw = S.doc.check_integrity()
         issues = [i for i in raw if not i.startswith("degradado")]
@@ -116,6 +121,7 @@ def health() -> dict:
             "features": len(S.doc.scene),
             "commands": len(S.doc.commands),
             "chat": chat_http.activo(),  # la UI muestra el panel del asistente sólo si es true
+            "dwg": dwg,  # {disponible, aviso con el enlace de descarga}
         }
 
 

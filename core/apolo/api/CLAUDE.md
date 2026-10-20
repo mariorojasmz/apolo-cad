@@ -198,7 +198,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   con `S.project_id = None` (no crea un «Sin título» que pise el reciente). `project/new` y `project/open`
   (upload) crean id PROPIO.
 - `GET /api/health` = `check_integrity` + suprimidos + `autosave_pending`/`autosave_failed` +
-  `startup_error` + `documento` (el token de la guardia) + `chat`; no tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
+  `startup_error` + `documento` (el token de la guardia) + `chat` + `dwg` ({disponible, aviso}:
+  una capacidad que un cliente lee ANTES de pedir; la publicación la cruza con
+  `Entregable.requiere`); no tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
 
 ## Tests de la API
 

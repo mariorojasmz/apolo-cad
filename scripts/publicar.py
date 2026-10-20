@@ -12,7 +12,9 @@ Dos pasos con un guion editable en medio (D3):
 
 Corre en su propio proceso, como cliente de la API viva (D1): abre el proyecto por HTTP (la UI
 que tengas abierta cambia a ese proyecto), baja su `.apolo` y renderiza el video sobre una copia
-propia. `-B`: un script que importa `apolo` escribe `.pyc` y la API con `--reload` se recarga y
+propia; los entregables se piden a la API mientras el video se renderiza aquí (D6 de
+video-tienda-pulido). Si a la API le falta ODA File Converter, `guion` y `generar` lo avisan al
+empezar y el paquete sale sin DWG (D5). `-B`: un script que importa `apolo` escribe `.pyc` y la API con `--reload` se recarga y
 blanquea el documento en memoria; este script lo desactiva igual al arrancar. La lógica vive en
 `apolo.publicacion.flujo`; aquí sólo quedan los argumentos. Sale con 2 si se niega o falla.
 """
@@ -85,9 +87,12 @@ def main(argv: list[str] | None = None, cliente=None) -> int:
             flujo.guion(cliente, args.project, slug=args.slug, version=args.version,
                         duracion_s=args.duracion, titulo=args.titulo, modo=args.modo)
         else:
+            # D6 de video-tienda-pulido: con la API en otro proceso (la URL), los entregables
+            # se piden mientras aquí se renderiza el video; un cliente prestado (los tests, con
+            # la API en este proceso) va en serie
             flujo.generar(cliente, args.project, slug=args.slug, version=args.version,
                           musica=args.musica, forzar=args.forzar,
-                          con_gravedad=not args.sin_gravedad)
+                          con_gravedad=not args.sin_gravedad, paralelo=propio)
     except (PublicacionError, FichaError, GuionError, SaneoError, FfmpegNoEncontrado) as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 2

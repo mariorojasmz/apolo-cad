@@ -67,9 +67,10 @@ def _fila(texto: str, ancho: int = 400) -> str:
 
 def leeme(ficha: dict, nivel: str, *, cifras: list[dict], calidad: dict,
           archivos: list[tuple[str, str]], variables: dict | None = None,
-          apolo: str | None = None) -> str:
+          apolo: str | None = None, ausentes: list[str] = ()) -> str:
     """El LEEME.md de un nivel (`gratis` o `completo`): qué es, cifras, validación resumida,
-    qué trae y, en el completo, cómo abrir el `.apolo`."""
+    qué trae (y, en `ausentes`, lo que esta versión no trae) y, en el completo, cómo abrir el
+    `.apolo`."""
     venta = ("también es gratis" if ficha["nivel"] == "gratis"
              else f"se vende por USD {ficha['precio_usd']:g}")
     lineas = [f"# {ficha['titulo']}", "",
@@ -94,6 +95,8 @@ def leeme(ficha: dict, nivel: str, *, cifras: list[dict], calidad: dict,
         lineas.append(f"- **Pendiente**: {_fila(o)}")
     lineas += ["", "## Qué trae este paquete", "", "| Archivo | Qué es |", "|---|---|"]
     lineas += [f"| `{ruta}` | {descripcion} |" for ruta, descripcion in archivos]
+    for ausente in ausentes:
+        lineas += ["", f"> {ausente}"]
     if nivel == "completo" and apolo:
         lineas += ["", "## Cómo abrir el modelo paramétrico", "",
                    f"`{apolo}` es el diseño completo: cada pieza sale de un comando y las cotas "

@@ -21,8 +21,11 @@ reglas están en [services](../services/CLAUDE.md).
   material × 3 / fabricación × 2.5). En el bloque «HIPÓTESIS Y ALCANCE» (tope 18 líneas) el
   alcance y la nota del analista van al FINAL para que el corte no los mate.
 - DWG: DXF → DWG R2018 con ODA File Converter (`ezdxf.addons.odafc`); `_discover()` busca la
-  carpeta VERSIONADA del instalador; sin ODA → 400 amable con la URL. DWG no es multipágina: el
-  juego sale como ZIP con un DWG por lámina. [devlog § V5.9](../../../docs/devlog.md)
+  carpeta VERSIONADA del instalador; sin ODA → 400 amable con la URL, ANTES de componer láminas
+  (`require_odafc` al entrar al endpoint: el juego gastaba ~70 s de HLR bajo `STATE_LOCK` para
+  fallar). `dwg.disponible()` va en `GET /api/health` → `dwg`. DWG no es multipágina: el juego
+  sale como ZIP con un DWG por lámina. [devlog § V5.9](../../../docs/devlog.md) ·
+  [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md) (D5)
 
 ## Láminas por pieza: el último kilómetro
 

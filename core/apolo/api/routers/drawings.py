@@ -172,7 +172,12 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
     import zipfile
 
     from apolo.drawing import DwgError, sheet_set, sheet_to_dwg
+    from apolo.drawing.dwg import require_odafc
 
+    try:  # sin ODA se niega YA, no tras componer todas las láminas (video-tienda-pulido D5)
+        require_odafc()
+    except DwgError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     with STATE_LOCK:
         try:
             pages = sheet_set(S.doc.scene, project_name=S.doc.name, template=template,
@@ -253,6 +258,13 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
     filtra la escena sin tocar la visibilidad del documento)."""
     from apolo.drawing import compose_sheet, sheet_to_dxf, sheet_to_pdf, sheet_to_svg
 
+    if spec.format == "dwg":  # sin ODA, el 400 antes del HLR (D5 de video-tienda-pulido)
+        from apolo.drawing.dwg import DwgError, require_odafc
+
+        try:
+            require_odafc()
+        except DwgError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     with STATE_LOCK:
         scene = S.doc.scene
         if spec.isolate:

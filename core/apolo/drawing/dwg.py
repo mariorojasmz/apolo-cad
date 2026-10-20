@@ -54,12 +54,25 @@ def _discover(roots=SEARCH_ROOTS) -> bool:
     return found
 
 
+#: Descarga oficial (gratuita) del conversor.
+ODA_URL = "https://www.opendesign.com/guestfiles/oda_file_converter"
+SIN_ODA = (f"El export DWG requiere ODA File Converter (gratuito): descárgalo de {ODA_URL}, "
+           "instálalo y reinicia la API")
+
+
+def disponible() -> dict:
+    """¿Hay con qué exportar DWG? {disponible, aviso}: lo publica `GET /api/health` para que un
+    cliente lo sepa ANTES de pedir un plano (video-tienda-pulido D5). Barato tras la primera
+    llamada (el descubrimiento se cachea por proceso: instalar ODA pide reiniciar la API)."""
+    ok = _discover()
+    return {"disponible": ok, "aviso": None if ok else SIN_ODA}
+
+
 def require_odafc() -> None:
+    """DwgError amable sin el conversor. Los endpoints la llaman ANTES de componer las láminas:
+    sin ODA, el juego de planos se negaba tras minutos de HLR bajo `STATE_LOCK`."""
     if not _discover():
-        raise DwgError(
-            "El export DWG requiere ODA File Converter (gratuito): descárgalo de "
-            "opendesign.com/guestfiles/oda_file_converter, instálalo y reinicia la API"
-        )
+        raise DwgError(SIN_ODA)
 
 
 def dxf_to_dwg_bytes(dxf_bytes: bytes, version: str = "R2018") -> bytes:
