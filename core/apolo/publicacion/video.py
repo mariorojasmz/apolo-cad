@@ -109,7 +109,8 @@ class _Escritor:
 
 def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None) -> InformeVideo:
     """Escribe `video.mp4` y `miniatura.png` (o `.jpg` si pesa, D15) en `carpeta`. `doc` es
-    el documento regenerado con el que se validó `g`; `estilo` toma el tamaño del guion."""
+    el documento regenerado con el que se validó `g`; `estilo` toma el tamaño del guion. La
+    `marcha` del guion se salta (el respaldo VTK no la anima)."""
     from PIL import Image
 
     from apolo.doc.prefijos import iter_prefijos
@@ -117,8 +118,9 @@ def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None
     from apolo.media import composicion as comp
     from apolo.media.codificar import Codificador, mezclar_musica
     from apolo.services.apariencia import apariencias_documento
-    from apolo.services.guion_video import MODO_MONTAJE
+    from apolo.services.guion_video import MODO_MONTAJE, sin_marcha
 
+    g = sin_marcha(g)  # VTK no anima la máquina andando: eso lo graba el navegador (video-realista)
     carpeta = Path(carpeta)
     v = g["video"]
     ancho, alto, fps = v["ancho"], v["alto"], v["fps"]

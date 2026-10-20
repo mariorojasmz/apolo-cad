@@ -255,6 +255,12 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   pase Viewport) y acumula N muestras con jitter en vez del `RenderPass`. La foto se toma con
   `drawImage` en el MISMO hilo que el render (sin `preserveDrawingBuffer`).
   [video-realista](../docs/plans/video-realista.md) (F2)
+- El guion del video (`grabacion/guionVista.ts`; «Grabar video» y `?grabar=<sesion>` de
+  `publicar generar --render navegador`, vía `grabacion/registro.ts`) REPRODUCE el plan que manda
+  la API (`planGuion.ts`): ninguna regla del guion (tiempos, fundidos, órbita, quién entra) se
+  calcula aquí, se agrega en `publicacion/plan_navegador.py`. Tarjetas y rótulos son PNG de la
+  API. El montaje toca sólo lo visible y clona materiales; la marcha se carga al EMPEZAR su parte
+  (`transmision.ts` sólo arma lo visible). [video-realista](../docs/plans/video-realista.md) (F3)
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
   para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).

@@ -349,9 +349,20 @@ def rotulo(fotograma: Image.Image, titulo: str, texto: str = "", opacidad: float
     if opacidad == 0 or not maqueta.lineas:
         return base
     # Sólo se compone la caja: a 1080p, 11 ms por fotograma contra 21 con la capa entera.
+    x0, y0 = maqueta.caja[:2]
+    capa = _panel_rotulo(maqueta, estilo, estilo.opacidad_panel)
+    if opacidad < 1:
+        capa.putalpha(capa.getchannel("A").point(lambda a: round(a * opacidad)))
+    zona = Image.alpha_composite(base.crop(maqueta.caja).convert("RGBA"), capa)
+    base.paste(zona.convert("RGB"), (x0, y0))
+    return base
+
+
+def _panel_rotulo(maqueta: MaquetaRotulo, estilo: Estilo, opacidad_panel: float) -> Image.Image:
+    """El panel del rótulo (RGBA del tamaño de su caja): fondo, barra de acento y líneas."""
     x0, y0, x1, y1 = maqueta.caja
     capa = Image.new("RGBA", (x1 - x0, y1 - y0),
-                     (*estilo.color_panel, round(255 * estilo.opacidad_panel)))
+                     (*estilo.color_panel, round(255 * opacidad_panel)))
     draw = ImageDraw.Draw(capa)
     draw.rectangle((0, 0, maqueta.barra - 1, y1 - y0 - 1), fill=(*estilo.color_acento, 255))
     f_tit, f_txt = _fuentes_rotulo(estilo)
@@ -359,11 +370,28 @@ def rotulo(fotograma: Image.Image, titulo: str, texto: str = "", opacidad: float
         color = estilo.color_texto if es_titulo else estilo.color_secundario
         draw.text((x - x0, y - y0), s, font=f_tit if es_titulo else f_txt, fill=(*color, 255),
                   anchor="la")
-    if opacidad < 1:
-        capa.putalpha(capa.getchannel("A").point(lambda a: round(a * opacidad)))
-    zona = Image.alpha_composite(base.crop(maqueta.caja).convert("RGBA"), capa)
-    base.paste(zona.convert("RGB"), (x0, y0))
-    return base
+    return capa
+
+
+def opacidad_rotulo_legible(estilo: Estilo = ESTILO) -> float:
+    """La opacidad del panel con la que el título y el texto del rótulo se leen a ≥ 4.5:1 sobre
+    CUALQUIER cuadro (D4 de video-tienda-pulido): nunca menos que la del estilo."""
+    from .contraste import opacidad_legible
+
+    return opacidad_legible((estilo.color_texto, estilo.color_secundario), estilo.color_panel,
+                            minima=estilo.opacidad_panel)
+
+
+def capa_rotulo(titulo: str, texto: str = "", estilo: Estilo = ESTILO) -> Image.Image:
+    """El rótulo inferior como capa RGBA del tamaño del cuadro (transparente fuera del panel),
+    para que otro lo dibuje encima con su fundido: el navegador del video-realista (D5). El
+    panel va con `opacidad_rotulo_legible`: el contraste no depende de lo que haya detrás."""
+    capa = Image.new("RGBA", (estilo.ancho, estilo.alto), (0, 0, 0, 0))
+    maqueta = maquetar_rotulo(titulo, texto, estilo)
+    if maqueta.lineas:
+        capa.paste(_panel_rotulo(maqueta, estilo, opacidad_rotulo_legible(estilo)),
+                   maqueta.caja[:2])
+    return capa
 
 
 # ── Tarjeta de cifras y cierre ────────────────────────────────────────────────

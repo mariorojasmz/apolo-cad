@@ -55,6 +55,7 @@ METODOS_EN_ORDEN = {
     "/api/motion": ["GET", "PUT", "DELETE"],
     "/api/physics/dynamics/serie": ["GET", "POST"],  # la marcha del visor (visor-realista D4)
     "/api/video/grabacion/{sesion}": ["GET", "DELETE"],  # grabación del visor (video-realista D4)
+    "/api/video/grabacion/{sesion}/foto": ["POST", "GET"],  # foto de la portada (video-realista D5)
 }
 
 

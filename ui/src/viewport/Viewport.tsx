@@ -29,6 +29,8 @@ import type { Reproductor } from "./marcha/reproductor";
 import { useMarchaEnVista } from "./marcha/enVista";
 import BarraMarcha from "./marcha/BarraMarcha";
 import { crearGrabacionVista } from "./grabacion/enVista";
+import { crearGrabacionGuion } from "./grabacion/guionVista";
+import { registrarGrabador } from "./grabacion/registro";
 
 /* Orquestador del viewport: estado de React, efectos que sincronizan la escena con la store y
    el JSX de las barras. El render vive en `pipeline.ts` (renderer, composer, bucle); la
@@ -116,20 +118,23 @@ export default function Viewport() {
     buildKeyRef.current = "";
     // hook de depuración/E2E (V6.2b): identidad de mallas + contador de builds para
     // verificar el reuso sin depender del screenshot (que se cuelga por el rAF).
+    const ocultarAlGrabar = () => [handlesGroup, ...(measureObjRef.current ? [measureObjRef.current] : [])];
+    // el guion del video (video-realista F3): el botón «Grabar video» y `?grabar=<sesion>`
+    const grabarSesion = crearGrabacionGuion({ pipe, sombra, marcha: () => marchaRef.current, ocultar: ocultarAlGrabar });
     (window as unknown as { __apolo?: unknown }).__apolo = {
       meshIds: () => [...ctx.meshes].map(([id, m]) => [id, m.uuid]),
       builds: () => buildCountRef.current,
       sombraRecalculos: () => sombra.recalculos(), // en reposo no sube (piso-con-sombra, D3)
       store: useStore,
-      // grabar el video cuadro por cuadro (video-realista F2; el botón es de F3)
-      grabar: crearGrabacionVista(pipe, () => [handlesGroup, ...(measureObjRef.current ? [measureObjRef.current] : [])]),
+      grabar: crearGrabacionVista(pipe, ocultarAlGrabar), // el giro con la marcha (video-realista F2)
+      grabarSesion,
     };
     const ci: CtxInteraccion = {
       ...ctx, mount, viewCube: pipe.viewCube, raycaster: new THREE.Raycaster(), boxRef, liveAngleRef,
       featuresRef, blockedRef, lastAxisRef, isGizmoDraggingRef, isBoxSelectingRef, isDraggingObjRef,
       ocultarTiradores: { current: false }, setVcb, setViewDir, frameBox, fitTo,
     };
-    const limpiezas = [instalarGizmo(ci)];
+    const limpiezas = [instalarGizmo(ci), registrarGrabador(grabarSesion)];
 
     // `ahora` = el reloj del cuadro: el real, o el virtual al grabar (video-realista D3)
     pipe.antesDeComponer((ahora) => dropAnimRef.current?.tick(ahora)); // cajas del drop-test

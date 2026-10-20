@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { grabarVideo, type OpcionesVideo } from "./grabador";
+import {
+  abrirConGuion, grabarEnSesion, grabarVideo, reportarFallo, type AperturaGrabacion, type OpcionesVideo,
+} from "./grabador";
 
 /* Cliente de la grabación (video-realista D4) contra un `fetch` simulado: el orden de las
    peticiones, cada cuadro subido una vez con su tipo, el cierre con música y qué pasa cuando algo
@@ -25,6 +27,8 @@ function api(fallar: (p: Peticion) => { status: number; detail: string } | null 
     let datos: unknown = {};
     if (p.metodo === "POST" && url === "/api/video/grabacion") {
       datos = { sesion: "abc123", ...(p.cuerpo as object), estimado_bytes: 1, espacio_libre_bytes: 9 };
+    } else if (url === "/api/video/guion") {
+      datos = { guion: { titulo: "Faja" }, plan: { cuadros: 3 } };
     } else if (url.endsWith("/cerrar")) {
       datos = { estado: "lista", informe: { video: "C:/x/video.mp4", cuadros: 5, duracion_s: 0.2 } };
     }
@@ -100,5 +104,37 @@ describe("grabarVideo", () => {
     await grabarVideo(opciones({ alAbrir, progreso: (a) => avance.push(a.subidos) }));
     expect(alAbrir).toHaveBeenCalledWith(expect.objectContaining({ sesion: "abc123" }));
     expect(Math.max(...avance)).toBe(5);
+  });
+});
+
+describe("grabarEnSesion y las rutas del guion (F3)", () => {
+  const apertura = { sesion: "abc123" } as AperturaGrabacion;
+  const op = { fps: 25, cuadros: 3, dibujar: opciones().dibujar };
+
+  it("sube a la sesión abierta y cierra sin pisar lo que fijó quien la abrió", async () => {
+    const peticiones = api();
+    await grabarEnSesion(apertura, op);
+    expect(peticiones.filter((p) => p.url.includes("/cuadro/"))).toHaveLength(3);
+    expect(peticiones.some((p) => p.url === "/api/video/grabacion")).toBe(false); // no abre otra
+    expect(peticiones[peticiones.length - 1]).toMatchObject({ url: "/api/video/grabacion/abc123/cerrar", cuerpo: {} });
+  });
+
+  it("la sesión del CLI no se descarta al fallar: el CLI lee el motivo", async () => {
+    const peticiones = api((p) => (p.url.endsWith("/cuadro/1") ? { status: 409, detail: "ya llegó" } : null));
+    await expect(grabarEnSesion(apertura, op, { descartar: false })).rejects.toThrow("ya llegó");
+    expect(peticiones.some((p) => p.metodo === "DELETE")).toBe(false);
+  });
+
+  it("el fallo lleva el motivo, y el botón abre la sesión con el guion del proyecto", async () => {
+    const peticiones = api();
+    await reportarFallo("abc123", "Sin GPU", "sin_gpu");
+    expect(peticiones[0]).toMatchObject({
+      metodo: "POST", url: "/api/video/grabacion/abc123/fallo", cuerpo: { mensaje: "Sin GPU", motivo: "sin_gpu" },
+    });
+    await abrirConGuion();
+    expect(peticiones[1]).toMatchObject({ metodo: "POST", url: "/api/video/guion" });
+    expect(peticiones[2]).toMatchObject({
+      metodo: "POST", url: "/api/video/grabacion", cuerpo: { guion: { titulo: "Faja" }, plan: { cuadros: 3 } },
+    });
   });
 });

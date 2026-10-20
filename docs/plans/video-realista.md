@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0, F1 y F2 hechas (2026-10-20): «Calidad alta» (estudio + GTAO + SMAA) y acabados con textura; F2 graba cuadro por cuadro con reloj virtual y antialias acumulado, y la API codifica (`/api/video/grabacion`, `window.__apolo.grabar`; 10 s de la faja 73 en 3 min en una Intel UHD); el trazado de rayos usará three-gpu-pathtracer 0.0.23 (MIT); faltan F3–F5
+nota: F0–F3 hechas (2026-10-20): «Calidad alta» y acabados con textura; reloj virtual y codificación en la API (F2); F3 graba en el navegador el MISMO guion de montaje con rótulos, la máquina andando y la vuelta final (`publicar generar --render navegador`, botón «Grabar video»; 65 s de la 74 en 7 min en una Intel UHD), con encuadre por ángulo; el trazado de rayos usará three-gpu-pathtracer 0.0.23 (MIT); faltan F4 y F5
 descripcion: El video de YouTube y de la tienda sale del visor con calidad de foto de catálogo (y trazado de rayos de noche), generado solo, sin instalar Blender
 ---
 
@@ -491,3 +491,102 @@ Tests:
 Sin verificar:
 - el escritorio (4070 Ti, F5);
 - la música en el flujo del navegador: la cubre el test de la API.
+### F3 (2026-10-20): el guion en el navegador y `publicar generar --render navegador`
+
+Medido en la laptop (Intel UHD integrada, cota baja, D10), con una API del worktree en :8766 sobre
+una COPIA de `data/apolo.db` y Edge 155 sin ventana (`--headless=new`, perfil temporal dentro de
+la carpeta de la sesión, borrado al final).
+
+**D5, un solo guion** (decisión de arquitectura): el navegador no calcula NADA del guion.
+`publicacion/plan_navegador.py` arma el plan cuadro por cuadro con las MISMAS funciones del video
+de VTK (`linea_tiempo.tramos`, `reparto`, `apariciones`, `revelado`, `peso_roles`, órbita,
+fundidos y opacidad del rótulo) y el visor (`grabacion/guionVista.ts`) sólo lo dibuja:
+- montaje tanda por tanda sobre las mallas reales (`montaje.ts`: sólo lo visible; el resaltado
+  clona el material, emisivo con el acento a 0,3 que se apaga en `RESALTE_S`);
+- tarjetas (portada sobre la foto que sube el navegador, cifras, cierre) y rótulos como PNG de la
+  API, dibujados con `media/composicion.py` (`media/tarjetas.py`); el compositor del cuadro
+  (`captura.ts`) pone rótulo, fundido cruzado y fundido a negro con los valores del plan;
+- el rótulo usa `opacidad_rotulo_legible` (`media/contraste.py`): 0,82 de opacidad dejaba el
+  texto secundario a ~2,9:1 sobre una pieza blanca; con el panel a la opacidad mínima que da
+  ≥ 4.5:1 sobre blanco y sobre negro, se lee sobre cualquier cuadro;
+- **la marcha** es una clave opcional del guion (`{"duracion_s", "escenario"}`), una parte nueva
+  después de las etapas (la máquina terminada andando, con la órbita lenta) que sigue andando en
+  la vuelta final; cuenta en la duración y en los capítulos. El respaldo VTK la quita
+  (`sin_marcha`). `publicar guion --marcha escenario.json [--marcha-s 8]`; el botón usa la última
+  marcha simulada del proyecto. La serie se carga recién al empezar su parte (`transmision.ts`
+  sólo arma lo visible).
+- Sólo modo MONTAJE: el de diseño regenera prefijos del log y sigue siendo de VTK (el CLI avisa y
+  cae a VTK).
+
+**Fronteras**: `routers/video.py` sigue siendo E/S pura (el test de frontera ahora también mira
+`tarjetas.py` y `contraste.py`). El plan lo arma quien abre la sesión: el CLI sobre su copia del
+documento; el botón con `POST /api/video/guion` (router nuevo `video_guion.py`, bajo
+`STATE_LOCK`). Rutas nuevas de la sesión: `…/plan`, `POST|GET …/foto`, `…/tarjeta/{parte}`,
+`…/rotulo/{etapa}`, `…/fallo` (estado «fallida» con motivo `sin_gpu`|`error`); `cerrar` sin cuerpo
+usa la música, la salida y `conservar_cuadros` que fijó quien abrió.
+
+**D7**: `publicacion/navegador.py` busca Edge o Chrome (o `APOLO_NAVEGADOR`), lanza
+`<url>/?grabar=<sesion>` y espera la sesión (corta si el navegador se cierra o no avanza en 300 s).
+Sin navegador, sin GPU o sin WebGL → aviso y VTK. `--render vtk|navegador` (vtk por defecto hasta
+medir F5) y `--conservar-cuadros`. Botón «Grabar video» en las dos barras del visor, con aviso de
+avance, «Cancelar» y la ruta del MP4 en «Dónde quedó».
+
+**Encuadre** (pedido de Mario a mitad de fase: «que la máquina llene más la pantalla»): en vez
+de una distancia fija para toda la vuelta, `distanciasPorAngulo` (`encuadre.ts`) busca la mínima
+cada 5° sobre los vértices de las mallas (≤ 6 000, con los 6 extremos de cada pieza), toma el
+máximo en ±20° y promedia ±15°: ningún término queda más cerca que su ángulo, y la cámara se
+acerca de costado y se aleja de punta sin tirones; margen 0,92. La prueba de cámara usa `near` = 1
+(el `near` del visor, ajustado por cuadro en `recorte.ts`, empujaba la cámara lejos). Fracción del
+ANCHO que ocupa la máquina en los cuadros 3D (medida con los puntos de las piezas, los mismos
+azimuts del guion):
+
+| piloto | antes (medio · mín · máx) | ahora |
+|---|---|---|
+| 73 (faja) | 43 % · 18 % · 57 % | 61 % · 26 % · 86 % |
+| 74 (rodillos) | 43 % · 26 % · 53 % | 51 % · 29 % · 76 % |
+
+El mínimo es la máquina de punta: una faja de 4 m vista por su cabeza no llena el ancho de un
+16:9 sin salirse por arriba.
+
+**Videos medidos** (1920×1080, 30 fps, 16 muestras, JPEG 0,95; con el encuadre anterior):
+
+| | 74 montaje + giro | 73 montaje + marcha + giro |
+|---|---|---|
+| guion | 3 etapas, 65 s, 1 950 cuadros | 6 etapas + 8 s de marcha, 75 s, 2 250 cuadros |
+| preparar (abrir + copia del documento + guion) | 31 s | 58 s |
+| grabar y codificar | 425 s (0,22 s por cuadro) | 466 s (0,21 s por cuadro) |
+| MP4 | 10,7 MB | 10,2 MB |
+
+- La 74 no tiene juntas (`create_roller_conveyor` no las declara): sin modelar no hay marcha que
+  simular, así que su video lleva montaje + giro. La marcha se probó en la 73 (`j_eje_motriz` a
+  0,37 m/s y la banda `c119`, 23 s simulados).
+- Más rápido que F2 (0,55 s por cuadro): durante el montaje se dibuja una parte de la máquina, y
+  las tarjetas no pasan por la GPU.
+- El botón, probado en el panel de navegador con la 73: guion + plan, foto, avance y «Cancelar»;
+  el visor vuelve a su tamaño y a sus 117 piezas, y la sesión cancelada no deja carpeta.
+- Videos y hojas de contacto en el scratchpad de la sesión (`f3/video74/`, `f3/video73/`,
+  `f3/prueba73b/` con el encuadre nuevo).
+
+Intentos fallidos:
+- El resaltado a 0,55 lavaba de azul las tandas grandes (todo el bastidor entra junto): 0,3.
+- `publicar guion --marcha` con un JSON escrito por `Set-Content -Encoding utf8` (PowerShell 5.1,
+  con BOM) no se leía: ahora `utf-8-sig`.
+- `publicar generar --render navegador` de punta a punta sobre la 73 se cortó ANTES del video:
+  el manual de ensamblaje en PDF agotó su tiempo en `entregables` (la laptop estaba cargada con
+  otras APIs de prueba). No es de esta fase; el camino del video del CLI lo cubren el arnés con
+  Edge real (`navegador.renderizar`) y los tests.
+- Un primer diseño leía el documento en `routers/video.py` para armar el plan: rompía la frontera
+  E/S pura de D4 (`test_la_grabacion_es_e_s_pura_sin_el_documento`). De ahí el plan armado por
+  quien abre y `video_guion.py`.
+
+Tests:
+- pytest `test_video_navegador.py` +19: marcha en el guion, plan (reparto, apariciones, fundidos,
+  reloj de la marcha, sólo montaje), contraste del rótulo, rutas de la sesión con guion, guion del
+  botón, fallo, cierre con lo que fijó quien abrió, CLI con un navegador simulado (perfil temporal
+  borrado, miniatura con la foto), fallos `sin_gpu`/error y caída a VTK sin la marcha.
+- vitest +6 archivos de prueba nuevos o ampliados: `planGuion` 6, `montaje` 4, `registro` 3,
+  `grabador` +3, `encuadre` +3 (ninguna pieza sale del cuadro en ningún ángulo con TODOS sus
+  vértices, sin tirones, llena más que la distancia fija; `near` del visor).
+
+Sin verificar: el escritorio (4070 Ti, F5), la música en el flujo del navegador (la cubre el test
+de la API) y el CLI de punta a punta con los entregables.

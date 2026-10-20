@@ -164,6 +164,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   caso en `tests/test_montaje.py`. El acceso de herramienta NO impone orden (si la llave entra
   con la máquina terminada, entra con menos piezas).
   [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md) (F1b)
+- La `marcha` del guion (opcional) cuenta en `duracion_total` y en los capítulos, pero sólo la
+  graba el navegador: todo render que no la anime usa `sin_marcha(g)`.
+  [video-realista](../../../docs/plans/video-realista.md) (D5)
 
 ## La marcha en el visor (`marcha_visual.py`)
 

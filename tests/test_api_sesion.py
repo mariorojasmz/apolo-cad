@@ -252,7 +252,7 @@ def test_main_compone_los_routers_y_nadie_importa_main():
     grafo = _grafo_api()
     routers = {m for m in grafo if m.startswith("routers.")}
     # + electrico (V8.1 D8) + video (video-realista D4)
-    assert len(routers) == 13 and routers <= grafo["main"]
+    assert len(routers) == 14 and routers <= grafo["main"]
     assert not [m for m, deps in grafo.items() if m != "main" and "main" in deps]
 
 

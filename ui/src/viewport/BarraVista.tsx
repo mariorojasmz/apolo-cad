@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Axis3d, Box, Ruler, Scan, Scissors, Sparkles, ZoomIn, ZoomOut } from "lucide-react";
 import type { Shading } from "./meshes";
 import { useCalidad } from "./calidad";
+import BotonGrabar from "./grabacion/BotonGrabar";
 
 /* Columna de botones del 3D (vistas, alambre, gizmo, snap, medir, sección). Presentacional:
    el estado vive en Viewport y llega por props. Salió de Viewport.tsx para hacerle lugar bajo
@@ -55,6 +56,7 @@ export default function BarraVista(p: Props) {
         {p.shading === "solid" ? "Alambre" : "Sólido"}
       </button>
       <BotonCalidad />
+      <BotonGrabar />
       <span className="overlay-sep" />
       <button
         className={gizmoMode === "translate" ? "active" : ""}
@@ -174,6 +176,7 @@ function VistaVisor(p: Props) {
         <Box size={17} />
       </Redondo>
       <BotonCalidad redondo />
+      <BotonGrabar redondo />
     </div>
   );
 }

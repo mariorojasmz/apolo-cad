@@ -29,7 +29,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
 | `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
 | `electrico` | circuito y ERC del tablero |
-| `video` | grabación del visor: sesión, cuadros y cierre que codifica (`media/grabacion.py`) |
+| `video` | grabación del visor: sesión (con guion y plan), cuadros, foto, tarjetas, rótulos, fallo y cierre que codifica (`media/grabacion.py`); E/S pura |
+| `video_guion` | el guion de montaje + su plan del documento activo para «Grabar video» (lee la escena bajo `STATE_LOCK`) |
 
 - Una ruta nueva va al router de su tema con `@router.<método>`; `main` no gana rutas (sólo
   `include_router`).
@@ -167,7 +168,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - La grabación del visor (`/api/video/grabacion…`) no toma `STATE_LOCK`: es E/S pura y su lock
   (`media/grabacion.py`) es HOJA. Las sesiones viven en memoria (un reinicio las pierde; los
   cuadros quedan en `data/grabaciones/`); el cierre codifica dentro de la request, y si falla los
-  cuadros QUEDAN para volver a cerrar. [video-realista](../../../docs/plans/video-realista.md) (D4)
+  cuadros QUEDAN para volver a cerrar. El plan del guion lo arma quien abre (el CLI sobre su
+  copia, `video_guion` para el botón): `video.py` nunca lee el documento (lo vigila
+  `test_la_grabacion_es_e_s_pura_sin_el_documento`). [video-realista](../../../docs/plans/video-realista.md) (D4, D5)
 - `POST /api/agent/chat` no toma `STATE_LOCK`: el chat es un cliente HTTP de esta misma API
   (`agent/chat.py`); cupo lleno → 429. Sin `APOLO_CHAT=1` (leído en cada petición) → 503 ANTES
   de tomar cupo o llamar al modelo, y `GET /api/health` → `chat: false` (la UI oculta el panel).

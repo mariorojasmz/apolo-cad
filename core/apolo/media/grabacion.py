@@ -13,6 +13,12 @@ sesiones, sin conocer el documento:
     con `mezclar_musica`. Al terminar bien borra los cuadros, salvo `conservar_cuadros`.
   - `descartar`: borra los cuadros de una sesión que no se va a cerrar.
 
+Una sesión con GUION (F3, D5): quien la abre (el CLI `publicar generar --render navegador` o el
+botón «Grabar video») le deja el guion, su plan cuadro por cuadro y lo que se hará al cerrar
+(música, salida, conservar los cuadros); el navegador lee el plan, sube la FOTO de la máquina
+terminada (fondo de la portada y de la miniatura) y cierra sin repetir nada. Si el navegador no
+puede grabar, `fallar` deja la sesión «fallida» con su motivo y quien espera lo lee.
+
 Es E/S pura: ni documento ni `STATE_LOCK`. El lock del almacén es HOJA: sólo cuida el
 diccionario de sesiones y sus estados; la escritura de cuadros y ffmpeg corren fuera de él.
 """
@@ -78,13 +84,20 @@ class Sesion:
     fps: int
     formato: str
     cuadros: int | None
-    estado: str = "abierta"  # abierta | codificando | lista | error
+    estado: str = "abierta"  # abierta | codificando | lista | error | fallida
     recibidos: set[int] = field(default_factory=set)
     #: Cuadros que se están escribiendo (reservados, todavía sin archivo).
     pendientes: set[int] = field(default_factory=set)
     codificados: int = 0
     error: str | None = None
+    #: Por qué falló el navegador («sin_gpu» o «error»); sólo en «fallida».
+    motivo: str | None = None
     informe: dict | None = None
+    guion: dict | None = None
+    plan: dict | None = None
+    #: Lo que hace `cerrar` si no le dicen otra cosa: {musica, salida, conservar_cuadros}.
+    al_cerrar: dict = field(default_factory=dict)
+    foto: Path | None = None
 
     @property
     def dir_cuadros(self) -> Path:
@@ -96,9 +109,13 @@ class Sesion:
     def resumen(self) -> dict:
         out = {"sesion": self.id, "estado": self.estado, "ancho": self.ancho, "alto": self.alto,
                "fps": self.fps, "formato": self.formato, "cuadros": self.cuadros,
-               "recibidos": len(self.recibidos), "codificados": self.codificados}
+               "recibidos": len(self.recibidos), "codificados": self.codificados,
+               "carpeta": str(self.carpeta), "con_guion": self.guion is not None,
+               "foto": self.foto is not None}
         if self.error:
             out["error"] = self.error
+        if self.motivo:
+            out["motivo"] = self.motivo
         if self.informe:
             out["informe"] = self.informe
         return out
@@ -145,7 +162,12 @@ class Grabaciones:
     # ── abrir ─────────────────────────────────────────────────────────────────
 
     def abrir(self, *, ancho: int = 1920, alto: int = 1080, fps: int = 30,
-              formato: str = "jpeg", cuadros: int | None = None) -> dict:
+              formato: str = "jpeg", cuadros: int | None = None, guion: dict | None = None,
+              plan: dict | None = None, al_cerrar: dict | None = None) -> dict:
+        """`guion` + `plan` (F3): la sesión los guarda para el navegador; `al_cerrar` =
+        {musica, salida, conservar_cuadros} por defecto del cierre."""
+        al_cerrar = {k: v for k, v in (al_cerrar or {}).items() if v is not None}
+        self._validar_cierre(al_cerrar.get("musica"), al_cerrar.get("salida"))
         if formato not in FORMATOS:
             raise ParametrosInvalidos(f"El formato de cuadro «{formato}» no existe: usa "
                                       "«jpeg» o «png».")
@@ -165,7 +187,8 @@ class Grabaciones:
                 f"La grabación necesita ~{_gb(estimado)} para sus cuadros y el disco tiene "
                 f"{_gb(libre)} libres. Libera espacio o graba menos segundos.")
         sid = uuid.uuid4().hex[:12]
-        s = Sesion(sid, self.raiz / sid, ancho, alto, fps, formato, cuadros)
+        s = Sesion(sid, self.raiz / sid, ancho, alto, fps, formato, cuadros, guion=guion,
+                   plan=plan, al_cerrar=al_cerrar)
         s.dir_cuadros.mkdir(parents=True, exist_ok=False)
         with self._lock:
             self._sesiones[sid] = s
@@ -177,22 +200,76 @@ class Grabaciones:
 
     # ── cuadros ───────────────────────────────────────────────────────────────
 
-    def _validar_imagen(self, s: Sesion, n: int, datos: bytes) -> None:
+    def _validar_imagen(self, s: Sesion, n: int | str, datos: bytes,
+                        esperados: tuple[str, ...] | None = None) -> str:
+        """Formato de Pillow de la imagen (sólo lee la cabecera); 400 si no es la esperada."""
         from PIL import Image, UnidentifiedImageError
 
-        esperado = FORMATOS[s.formato][0]
+        que = n if isinstance(n, str) else f"El cuadro {n}"
+        esperados = esperados or (FORMATOS[s.formato][0],)
         try:
-            with Image.open(io.BytesIO(datos)) as im:  # sólo lee la cabecera
+            with Image.open(io.BytesIO(datos)) as im:
                 formato, tam = im.format, im.size
         except (UnidentifiedImageError, OSError):
-            raise ParametrosInvalidos(f"El cuadro {n} no es una imagen {esperado} legible.") \
-                from None
-        if formato != esperado:
-            raise ParametrosInvalidos(f"El cuadro {n} es {formato} y la grabación espera "
-                                      f"{esperado}.")
+            raise ParametrosInvalidos(f"{que} no es una imagen {' ni '.join(esperados)} "
+                                      "legible.") from None
+        if formato not in esperados:
+            raise ParametrosInvalidos(f"{que} es {formato} y la grabación espera "
+                                      f"{' o '.join(esperados)}.")
         if tam != (s.ancho, s.alto):
-            raise ParametrosInvalidos(f"El cuadro {n} mide {tam[0]}×{tam[1]} y la grabación es "
+            raise ParametrosInvalidos(f"{que} mide {tam[0]}×{tam[1]} y la grabación es "
                                       f"de {s.ancho}×{s.alto}.")
+        return formato
+
+    # ── guion, foto y fallo (F3) ──────────────────────────────────────────────
+
+    def plan(self, sesion: str) -> dict:
+        with self._lock:
+            s = self._sesion(sesion)
+        if s.plan is None:
+            raise Conflicto("Esta grabación se abrió sin guion: no hay plan que reproducir.")
+        return s.plan
+
+    def guion(self, sesion: str) -> tuple[dict, int, int]:
+        """(guion, ancho, alto) de una sesión con guion."""
+        with self._lock:
+            s = self._sesion(sesion)
+        if s.guion is None:
+            raise Conflicto("Esta grabación se abrió sin guion.")
+        return s.guion, s.ancho, s.alto
+
+    def guardar_foto(self, sesion: str, datos: bytes) -> dict:
+        """La foto de la máquina terminada (PNG o JPEG del tamaño del video): el fondo de la
+        portada y de la miniatura. Se puede reemplazar mientras la sesión esté abierta."""
+        with self._lock:
+            s = self._sesion(sesion)
+            if s.estado != "abierta":
+                raise Conflicto(f"La grabación ya no recibe la foto: está {s.estado}.")
+        formato = self._validar_imagen(s, "La foto", datos, ("PNG", "JPEG"))
+        ruta = s.carpeta / ("foto.png" if formato == "PNG" else "foto.jpg")
+        parcial = ruta.with_name(ruta.name + ".parcial")
+        parcial.write_bytes(datos)
+        os.replace(parcial, ruta)
+        with self._lock:
+            if s.foto is not None and s.foto != ruta:
+                s.foto.unlink(missing_ok=True)
+            s.foto = ruta
+        return {"sesion": s.id, "foto": True}
+
+    def foto(self, sesion: str) -> Path | None:
+        with self._lock:
+            return self._sesion(sesion).foto
+
+    def fallar(self, sesion: str, mensaje: str, motivo: str = "error") -> dict:
+        """El navegador no pudo grabar: la sesión pasa a «fallida» con el texto para la persona
+        (quien espera la sesión lo muestra). `motivo` «sin_gpu» = cae al respaldo VTK."""
+        with self._lock:
+            s = self._sesion(sesion)
+            if s.estado in ("codificando", "lista"):
+                raise Conflicto(f"La grabación no puede fallar: está {s.estado}.")
+            s.estado, s.error = "fallida", (mensaje or "El navegador no pudo grabar.")[:2000]
+            s.motivo = motivo if motivo in ("sin_gpu", "error") else "error"
+            return s.resumen()
 
     def guardar_cuadro(self, sesion: str, n: int, datos: bytes) -> dict:
         with self._lock:
@@ -227,14 +304,25 @@ class Grabaciones:
 
     # ── cerrar ────────────────────────────────────────────────────────────────
 
-    def cerrar(self, sesion: str, *, musica: str | None = None, salida: str | None = None,
-               conservar_cuadros: bool = False, ffmpeg: str | None = None) -> dict:
-        destino = Path(salida) if salida else None
-        if destino is not None and destino.suffix.lower() != ".mp4":
+    @staticmethod
+    def _validar_cierre(musica: str | None, salida: str | None) -> None:
+        if salida and Path(salida).suffix.lower() != ".mp4":
             raise ParametrosInvalidos(f"La salida tiene que ser un archivo .mp4: {salida}")
-        pista = Path(musica) if musica else None
-        if pista is not None and not pista.is_file():
+        if musica and not Path(musica).is_file():
             raise ParametrosInvalidos(f"No encuentro la música: {musica}")
+
+    def cerrar(self, sesion: str, *, musica: str | None = None, salida: str | None = None,
+               conservar_cuadros: bool | None = None, ffmpeg: str | None = None) -> dict:
+        """Lo que no se pasa (None) sale de lo que dejó quien abrió la sesión (`al_cerrar`)."""
+        with self._lock:
+            defecto = dict(self._sesion(sesion).al_cerrar)
+        musica = musica if musica is not None else defecto.get("musica")
+        salida = salida if salida is not None else defecto.get("salida")
+        if conservar_cuadros is None:
+            conservar_cuadros = bool(defecto.get("conservar_cuadros", False))
+        self._validar_cierre(musica, salida)
+        destino = Path(salida) if salida else None
+        pista = Path(musica) if musica else None
         with self._lock:
             s = self._sesion(sesion)
             if s.estado not in ("abierta", "error"):
@@ -295,6 +383,8 @@ class Grabaciones:
                 raise Conflicto("La grabación se está codificando: espera a que termine.")
             del self._sesiones[sesion]
         shutil.rmtree(s.dir_cuadros, ignore_errors=True)
+        if s.foto is not None:
+            s.foto.unlink(missing_ok=True)
         try:
             s.carpeta.rmdir()  # sólo si quedó vacía (sin video adentro)
         except OSError:

@@ -4,12 +4,14 @@ import App from "./App";
 import { installErrorCapture } from "./errorlog";
 import { escucharCambiosExternos } from "./visor/cambiosExternos";
 import { escucharJobs } from "./visor/trabajando";
+import { grabarSiLoPiden } from "./viewport/grabacion/registro";
 import "./styles.css";
 import "./visor/visor.css"; // después de styles.css: sus reglas pisan las del modo Completo
 
 installErrorCapture();
 escucharCambiosExternos(); // lo que cambió el agente se marca en el 3D, el aviso y el árbol
 escucharJobs(); // «el agente está trabajando» mientras corre un lote suyo
+grabarSiLoPiden(); // `publicar generar --render navegador` abre la página con ?grabar=<sesion>
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

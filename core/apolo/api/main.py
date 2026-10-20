@@ -69,6 +69,7 @@ from .routers import (
     render,
     validation,
     video,
+    video_guion,
 )
 from .routers.projects import delete_project  # noqa: F401 — D4: un test la llama directo
 from .scene import (  # D4: por IDENTIDAD (cachés mutadas en sitio por los tests)
@@ -176,7 +177,7 @@ def _fea_rules() -> list[dict]:
 # Cada router agrupa las rutas de un tema; las rutas que pueden casar la MISMA URL viven en
 # el mismo router y en su orden de siempre (D5 del plan partir-api-main).
 for _router in (core, commands, features, render, projects, deliverables, validation, motion,
-                assembly, fea, drawings, electrico, video):
+                assembly, fea, drawings, electrico, video, video_guion):
     app.include_router(_router.router)
 
 

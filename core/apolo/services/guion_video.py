@@ -16,6 +16,10 @@ documento, un guion armado sobre otra versión del log (`documento.firma`).
 `montaje.py` y cada paso es una TANDA de piezas (ids de la escena final, cada una una sola vez);
 sin él, «diseño»: cada paso es un `k` del log, como siempre.
 
+`marcha` (D5 de video-realista, opcional): la máquina ANDANDO después de las etapas,
+`{"duracion_s", "escenario"?}`; `escenario` es la petición de la simulación (la de la tool
+`simulate`). Sólo la graba el navegador: el respaldo VTK no anima y la quita (`sin_marcha`).
+
 `capitulos` da los capítulos de YouTube (D15): el primero en 0, cada uno de ≥ 10 s, al menos
 3; si no se puede cumplir, ninguno (YouTube los ignoraría). La portada va dentro del primero y
 cifras, órbita y cierre forman el último («La máquina terminada»). Segundos ENTEROS, como los
@@ -55,6 +59,8 @@ MAX_TITULO = 100
 MAX_CORTO = 120
 CAPITULO_MIN_S = 10
 CAPITULOS_MIN = 3
+#: La máquina andando (D5 de video-realista), cuando hay una simulación de su marcha.
+MARCHA_S = 8.0
 
 NBSP = chr(0xA0)  # espacio duro: «3 000 mm» no se parte en dos líneas
 
@@ -129,15 +135,17 @@ def cifras(doc) -> list[dict]:
 # ------------------------------------------------------------------ guion
 def guion(doc, etapas: list[Etapa], *, titulo: str | None = None,
           subtitulo: str | None = None, tiempos: Tiempos = TIEMPOS,
-          modo: str = MODO_DISENO) -> dict:
+          modo: str = MODO_DISENO, marcha: dict | None = None) -> dict:
     """El `guion.json` editable (D3). `doc` regenerado: de su escena salen las cifras. En modo
-    montaje las etapas traen tandas de piezas (`montaje_video.etapas_montaje`)."""
+    montaje las etapas traen tandas de piezas (`montaje_video.etapas_montaje`). `marcha` =
+    `{"duracion_s", "escenario"?}` (D5 de video-realista) o None."""
     items = cifras(doc)
     montaje = {"modo": MODO_MONTAJE} if modo == MODO_MONTAJE else {}
     return {
         "version": VERSION,
         "idioma": IDIOMA,
         **montaje,
+        **({"marcha": dict(marcha)} if marcha else {}),
         "documento": {"nombre": doc.name, "comandos": len(doc.commands), "firma": firma(doc)},
         "titulo": corta(titulo or doc.name or "Sin título", MAX_TITULO),
         "subtitulo": SUBTITULO if subtitulo is None else corta(subtitulo, MAX_CORTO),
@@ -165,9 +173,10 @@ _CLAVES = {
     "cifra": ("etiqueta", "valor"),
     "orbita": ("duracion_s",),
     "cierre": ("texto", "url", "duracion_s"),
+    "marcha": ("duracion_s",),
 }
 #: Claves que pueden faltar (un guion de antes no las trae).
-_OPCIONALES = {"": ("modo",)}
+_OPCIONALES = {"": ("modo", "marcha"), "marcha": ("escenario",)}
 
 
 class _Revision:
@@ -236,6 +245,11 @@ def validar_guion(g, doc=None) -> None:
     for parte in ("portada", "orbita"):
         if r.objeto(g[parte], parte, parte):
             r.numero(g[parte]["duracion_s"], f"{parte}.duracion_s")
+    if "marcha" in g and r.objeto(g["marcha"], "marcha", "marcha"):
+        r.numero(g["marcha"]["duracion_s"], "marcha.duracion_s")
+        if not isinstance(g["marcha"].get("escenario", {}), dict):
+            r.errores.append("marcha.escenario: debe ser un objeto {…} (la petición de la "
+                             "simulación, como la de `simulate`)")
     modo = g.get("modo", MODO_DISENO)
     if modo not in MODOS:
         r.errores.append(f"modo: {modo!r} no existe (válidos: {', '.join(MODOS)})")
@@ -347,7 +361,14 @@ def _fallar(r: _Revision) -> None:
 # ------------------------------------------------------------------ capítulos (D15)
 def duracion_total(g: dict) -> float:
     return (g["portada"]["duracion_s"] + sum(e["duracion_s"] for e in g["etapas"])
+            + (g.get("marcha") or {}).get("duracion_s", 0.0)
             + g["cifras"]["duracion_s"] + g["orbita"]["duracion_s"] + g["cierre"]["duracion_s"])
+
+
+def sin_marcha(g: dict) -> dict:
+    """El guion sin la máquina andando: lo que graba el respaldo VTK, que no la anima (D8 de
+    video-realista). Una copia superficial; el original no se toca."""
+    return {k: v for k, v in g.items() if k != "marcha"}
 
 
 def capitulos(g: dict) -> list[tuple[int, str]]:

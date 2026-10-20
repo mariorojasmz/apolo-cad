@@ -329,9 +329,11 @@ def test_durante_la_codificacion_no_se_descarta_ni_se_sube(grab):
 
 
 def test_la_grabacion_es_e_s_pura_sin_el_documento():
-    """D4: ni `STATE_LOCK` ni el documento; el router sólo habla con `media/grabacion.py`."""
+    """D4: ni `STATE_LOCK` ni el documento; el router sólo habla con `media/grabacion.py` (y las
+    tarjetas del guion, F3). Lo que lee la escena vive aparte, en `video_guion.py`."""
     raiz = Path(__file__).resolve().parents[1] / "core" / "apolo"
-    for archivo in (raiz / "api" / "routers" / "video.py", raiz / "media" / "grabacion.py"):
+    for archivo in (raiz / "api" / "routers" / "video.py", raiz / "media" / "grabacion.py",
+                    raiz / "media" / "tarjetas.py", raiz / "media" / "contraste.py"):
         codigo = archivo.read_text(encoding="utf-8")
         for prohibido in ("import STATE_LOCK", "apolo.state", "S.doc", "..session"):
             assert prohibido not in codigo, f"{archivo.name} usa {prohibido}"

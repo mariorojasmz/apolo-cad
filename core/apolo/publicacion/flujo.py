@@ -116,13 +116,22 @@ def _avisos_de_capacidad(fuera: dict[str, str], entregables: list, cierre: str) 
 
 def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
           version: str | None = None, duracion_s: float = DURACION_S, titulo: str | None = None,
-          eco=print, modo: str = "montaje") -> dict:
+          eco=print, modo: str = "montaje", marcha: dict | None = None,
+          marcha_s: float | None = None) -> dict:
     """`publicar guion`: escribe `guion.json` y el borrador de `ficha.yaml`. Devuelve
     {carpeta, guion, ficha, etapas, duracion_s, capitulos}. `modo`: «montaje» (cómo se arma,
-    D8 de video-tienda-pulido) o «diseño» (el orden del log)."""
+    D8 de video-tienda-pulido) o «diseño» (el orden del log). `marcha`: el escenario de la
+    simulación (la petición de `simulate`) para sumar la máquina andando (video-realista D5:
+    sólo la graba `--render navegador`); su tiempo sale de la duración objetivo."""
     from apolo import paths
     from apolo.services.datos_rotulos import datos_rotulos
-    from apolo.services.guion_video import MODOS, capitulos, duracion_total, validar_guion
+    from apolo.services.guion_video import (
+        MARCHA_S,
+        MODOS,
+        capitulos,
+        duracion_total,
+        validar_guion,
+    )
     from apolo.services.guion_video import guion as armar_guion
     from apolo.services.montaje_video import etapas_del_modo
 
@@ -151,8 +160,13 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     if doc.regen_suppressed:
         eco(f"Aviso: {len(doc.regen_suppressed)} comando(s) no regeneran; la puerta de "
             "entrega lo marcará en rojo.")
-    g = armar_guion(doc, etapas_del_modo(doc, duracion_s, modo, datos=datos_rotulos(doc)),
-                    titulo=titulo, modo=modo)
+    con_marcha = None
+    if marcha is not None:
+        con_marcha = {"duracion_s": MARCHA_S if marcha_s is None else float(marcha_s),
+                      "escenario": marcha}
+    objetivo = max(duracion_s - (con_marcha["duracion_s"] if con_marcha else 0.0), 1.0)
+    g = armar_guion(doc, etapas_del_modo(doc, objetivo, modo, datos=datos_rotulos(doc)),
+                    titulo=titulo, modo=modo, marcha=con_marcha)
     validar_guion(g, doc)
     carpeta.mkdir(parents=True, exist_ok=True)
     (carpeta / GUION).write_text(json.dumps(g, indent=2, ensure_ascii=False) + "\n",
@@ -202,16 +216,25 @@ def _version_pendiente(raiz: Path, slug: str) -> str:
                            f"({', '.join(pendientes)}): elige una con --version.")
 
 
+RENDERS = ("vtk", "navegador")
+
+
 def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
             version: str | None = None, musica=None, forzar: bool = False,
-            con_gravedad: bool = True, eco=print, paralelo: bool = False) -> dict:
+            con_gravedad: bool = True, eco=print, paralelo: bool = False, render: str = "vtk",
+            conservar_cuadros: bool = False, url: str | None = None) -> dict:
     """`publicar generar`: valida, pasa la puerta, trae entregables, renderiza el video y
     arma el paquete. Devuelve el resumen (carpeta, tiempos, video, faltantes, saneo).
+    `render`: «vtk» (el de siempre) o «navegador» (video-realista D7: Edge o Chrome sin
+    ventana; sin navegador o sin GPU, avisa y cae a VTK). `url`: la de la API para el
+    navegador (por defecto, la del cliente).
 
     `paralelo` (D6 de video-tienda-pulido): la API arma los entregables mientras aquí se
     renderiza el video. Sólo con la API en OTRO proceso (el CLI contra una URL): con la API en
     este mismo (el `TestClient` de los tests), su VTK y su OCCT correrían a la vez que los del
     video, que no toma locks (es dueño de su documento)."""
+    if render not in RENDERS:
+        raise PublicacionError(f"Render desconocido: {render!r} (válidos: {', '.join(RENDERS)})")
     from apolo import paths
     from apolo.media.codificar import buscar_ffmpeg, buscar_ffprobe
     from apolo.services.guion_video import GuionError, validar_guion
@@ -271,7 +294,8 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     staging.mkdir(parents=True)
     try:
         resumen = _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista,
-                         staging, tiempos, eco)
+                         staging, tiempos, eco,
+                         {"render": render, "conservar_cuadros": conservar_cuadros, "url": url})
         if _firma_de(api.apolo()) != _firma_de(data) or \
                 api.salud().get("project_id") != salud.get("project_id"):
             raise PublicacionError("El proyecto cambió (o se abrió otro) mientras se generaba: "
@@ -284,6 +308,34 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     resumen.update(carpeta=carpeta, tiempos_s=tiempos, calidad=calidad)
     _imprimir(eco, resumen)
     return resumen
+
+
+def _video(cliente, doc, g, staging, pista, progreso, eco, como: dict):
+    """(informe, guion grabado, render usado): el navegador si se pidió y se puede (D7); si no,
+    VTK con el guion SIN la marcha (D8: el respaldo no la anima)."""
+    from apolo.media.codificar import ErrorCodificacion
+    from apolo.publicacion import navegador
+    from apolo.publicacion import video as videos
+    from apolo.services.guion_video import MODO_MONTAJE, sin_marcha
+
+    if como["render"] == "navegador":
+        try:
+            if g.get("modo") != MODO_MONTAJE:
+                raise navegador.NavegadorNoDisponible(
+                    "el navegador graba el video de montaje y este guion es de diseño")
+            return (navegador.renderizar(cliente, doc, g, staging, musica=pista, progreso=progreso,
+                                         conservar_cuadros=como["conservar_cuadros"],
+                                         url=como["url"]), g, "navegador")
+        except navegador.NavegadorNoDisponible as exc:
+            eco(f"Aviso: no grabo en el navegador ({exc}); uso el render VTK"
+                + (", sin la máquina andando." if g.get("marcha") else "."))
+    elif como["conservar_cuadros"]:
+        eco("Aviso: --conservar-cuadros sólo vale con --render navegador (VTK no guarda cuadros).")
+    try:
+        return videos.renderizar(doc, g, staging, musica=pista, progreso=progreso), \
+            sin_marcha(g), "vtk"
+    except (ValueError, ErrorCodificacion) as exc:  # escena vacía, guion de 0 s, ffmpeg falló
+        raise PublicacionError(f"El video no salió: {exc}") from exc
 
 
 def _exigir(entregas: EnFondo) -> list[dict]:
@@ -299,7 +351,7 @@ def _exigir(entregas: EnFondo) -> list[dict]:
 
 
 def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, staging, tiempos,
-           eco) -> dict:
+           eco, como: dict) -> dict:
     """Entregables (de la API) y lo local (saneo, vista 3D, video), en paralelo si `paralelo`
     (D6 de video-tienda-pulido), y el paquete. Sin paralelo, un entregable que falta corta
     ANTES del video; en paralelo, el video se aborta en cuanto la API falla uno."""
@@ -311,8 +363,8 @@ def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, sta
     try:
         if entregas.grave.is_set():
             _exigir(entregas)
-        apolo, informe_saneo, vista, video = _lo_local(doc, data, g, f, pista, staging, tiempos,
-                                                       eco, entregas)
+        apolo, informe_saneo, vista, video, g, render = _lo_local(
+            cliente, doc, data, g, f, pista, staging, tiempos, eco, entregas, como)
         t = time.perf_counter()
         registros = _exigir(entregas)
     except BaseException:
@@ -348,19 +400,20 @@ def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, sta
     return {"ficha_json": publica, "faltantes": [f"{r['label']}: {r['note']}" for r in faltan],
             "saneo": informe_saneo, "registros": registros, "vista_3d": vista,
             "paralelo": paralelo,
-            "video": {"fotogramas": video.fotogramas, "duracion_s": video.duracion_s,
+            "video": {"render": render, "fotogramas": video.fotogramas,
+                      "duracion_s": video.duracion_s,
                       "segundos": round(video.segundos, 2), "con_musica": video.con_musica,
                       "pasos_sin_prefijo": video.pasos_sin_prefijo},
             "zips": {nivel: str(ruta.name) for nivel, ruta in zips.items()},
             "bytes": {nivel: ruta.stat().st_size for nivel, ruta in zips.items()}}
 
 
-def _lo_local(doc, data, g, f, pista, staging, tiempos, eco, entregas: EnFondo):
+def _lo_local(cliente, doc, data, g, f, pista, staging, tiempos, eco, entregas: EnFondo,
+              como: dict):
     """Lo que se hace aquí, sobre la copia propia del documento: saneo, vista 3D y video.
-    Devuelve (apolo saneado, informe del saneo, vista 3D, informe del video)."""
-    from apolo.media.codificar import ErrorCodificacion
+    Devuelve (apolo saneado, informe del saneo, vista 3D, informe del video, guion grabado,
+    render usado)."""
     from apolo.publicacion import saneo, vista3d, vista3d_html
-    from apolo.publicacion import video as videos
 
     t = time.perf_counter()
     apolo, informe_saneo = saneo.sanear_apolo(data, nombre=f["titulo"])
@@ -390,10 +443,7 @@ def _lo_local(doc, data, g, f, pista, staging, tiempos, eco, entregas: EnFondo):
 
     if entregas.grave.is_set():
         _exigir(entregas)
-    try:
-        video = videos.renderizar(doc, g, staging, musica=pista, progreso=progreso)
-    except (ValueError, ErrorCodificacion) as exc:  # escena vacía, guion de 0 s, ffmpeg falló
-        raise PublicacionError(f"El video no salió: {exc}") from exc
+    video, g, render = _video(cliente, doc, g, staging, pista, progreso, eco, como)
     tiempos["video"] = time.perf_counter() - t
 
     t = time.perf_counter()  # vista-3d-tienda D3: el póster es la miniatura del video
@@ -401,7 +451,7 @@ def _lo_local(doc, data, g, f, pista, staging, tiempos, eco, entregas: EnFondo):
                                           ident=f["slug"], vista=vista,
                                           poster=video.miniatura.name)
     tiempos["vista 3d"] += time.perf_counter() - t
-    return apolo, informe_saneo, vista, video
+    return apolo, informe_saneo, vista, video, g, render
 
 
 def _imprimir(eco, r: dict) -> None:
@@ -418,7 +468,7 @@ def _imprimir(eco, r: dict) -> None:
             "redistribuible.")
     for d in s["desconocido"]:
         eco(f"  ¡revisa! se quitó por desconocida: {d}")
-    eco(f"  video: {v['fotogramas']} fotogramas, {v['duracion_s']:.1f} s"
+    eco(f"  video ({v['render']}): {v['fotogramas']} fotogramas, {v['duracion_s']:.1f} s"
         + (", con música" if v["con_musica"] else ", sin música")
         + (f"; pasos sin prefijo: {v['pasos_sin_prefijo']}" if v["pasos_sin_prefijo"] else ""))
     w = r["vista_3d"]

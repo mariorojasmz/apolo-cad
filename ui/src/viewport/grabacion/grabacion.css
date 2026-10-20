@@ -1,0 +1,13 @@
+/* Aviso de «Grabar video» (BotonGrabar.tsx, plan video-realista F3): arriba al centro, sobre el
+   3D y fuera del flujo de los paneles (va en un portal a <body>). */
+.aviso-grabacion {
+  position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 40;
+  display: flex; align-items: center; gap: 10px; max-width: min(560px, calc(100vw - 32px));
+  background: rgba(18, 20, 25, 0.92); backdrop-filter: blur(5px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-1); padding: 8px 12px; font-size: 12px;
+}
+.aviso-grabacion .ag-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.aviso-grabacion code { word-break: break-all; font-size: 11px; }
+.aviso-grabacion button { padding: 4px 9px; display: flex; align-items: center; }
+.aviso-grabacion .ag-cerrar { padding: 4px; }
