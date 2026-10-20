@@ -141,7 +141,7 @@ def test_belt_conveyor_bom_usa_piezas_nuevas():
             "MOTOR-150-EH", "TENSOR-TROT-25", "PIE-M12-50", "GUARDA-150"} <= refs
     # los largueros salen cortados al largo + voladizos
     rows = {(r["ref"], r["longitud_mm"]): r["cantidad"] for r in bom_from_scene(d.scene)}
-    assert rows[("TUBO-4X2", 4189.6)] == 2  # 4000 + 2·(50.8 + 4 + 40) voladizos
+    assert rows[("TUBO-4X2", 4201.6)] == 2  # 4000 + 2·(50.8 + 6 engomado + 4 + 40) voladizos
 
 
 def test_belt_conveyor_bom_separa_banda_y_cama():
@@ -209,10 +209,10 @@ def test_belt_conveyor_edicion_parametrica():
         bb = next(f for f in d.scene.values()
                   if f.name.endswith("Tambor motriz")).shape.bounding_box()
         return (bb.min.Z + bb.max.Z) / 2.0
-    # zc = altura - r - espesor = 900 - 50.8 - 4
-    assert drum_z() == pytest.approx(900 - 50.8 - 4, abs=1.0)
+    # eje motriz = altura - (r + engomado) - espesor = 900 - (50.8 + 6) - 4
+    assert drum_z() == pytest.approx(900 - 56.8 - 4, abs=1.0)
     d.edit(cid, {"largo": 4000, "ancho_banda": 600, "altura": 1100})
-    assert drum_z() == pytest.approx(1100 - 50.8 - 4, abs=1.0)
+    assert drum_z() == pytest.approx(1100 - 56.8 - 4, abs=1.0)
 
 
 def test_belt_conveyor_validaciones():
@@ -242,3 +242,32 @@ def test_belt_conveyor_api_y_checks():
     assert any(row["ref"] == "TAMBOR-102" for row in bom)
     checks = client.post("/api/checks", json={}).json()
     assert checks["interferencias"]["interferencias"] == []
+
+
+def _pieza(d, sufijo):
+    return next(f for f in d.scene.values() if f.name.endswith(sufijo))
+
+
+@pytest.mark.parametrize("tambor", ["Tambor motriz", "Tambor de cola"])
+def test_belt_conveyor_banda_abraza_el_tambor_sin_atravesarlo(tambor):
+    """La banda abraza el Ø EXTERIOR del tambor, engomado incluido: el TAMBOR-102 motriz mide
+    Ø101.6 + 2×6 de lagging = Ø113.6 y la banda se hacía con Ø101.6 (se metía 6 mm). El chequeo
+    de interferencias no lo veía: excluye los pares del mismo comando."""
+    d, _ = _belt_doc()
+    banda, t = _pieza(d, "Banda").shape, _pieza(d, tambor).shape
+    cruce = banda & t
+    assert (cruce.volume if cruce is not None else 0.0) == pytest.approx(0.0, abs=1.0)  # se tocan
+    # y la abraza de verdad: el interior de la banda no queda separado del tambor
+    bb_t = t.bounding_box()
+    hueco = banda.bounding_box()
+    assert bb_t.max.Z <= hueco.max.Z
+
+
+def test_belt_conveyor_ramal_de_carga_plano_con_tambor_engomado():
+    """El ramal de carga queda a la altura de trabajo sobre los DOS tambores aunque sólo el
+    motriz esté engomado: cada eje baja lo que crece su tambor."""
+    d, _ = _belt_doc()
+    sup = lambda s: _pieza(d, s).shape.bounding_box().max.Z  # noqa: E731
+    assert sup("Banda") == pytest.approx(900, abs=0.5)
+    assert sup("Tambor motriz") == pytest.approx(900 - 4, abs=0.5)
+    assert sup("Tambor de cola") == pytest.approx(900 - 4, abs=0.5)

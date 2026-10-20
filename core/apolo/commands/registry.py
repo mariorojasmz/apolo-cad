@@ -2004,7 +2004,7 @@ REGISTRY: dict[str, CommandSpec] = {
         ),
         CommandSpec(
             "create_belt_conveyor", "Faja de banda", "biblioteca", CreateBeltConveyorParams,
-            _exec_create_belt_conveyor,
+            _exec_create_belt_conveyor, version=2,  # v2: la banda abraza el tambor engomado
         ),
         CommandSpec(
             "create_take_up", "Tensor de cola (trotadora)", "biblioteca", CreateTakeUpParams,

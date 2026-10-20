@@ -20,7 +20,9 @@ Disposición (Z arriba, transporte a lo largo de X; tambores en ±largo/2):
 
 from __future__ import annotations
 
-from build123d import Box, Cylinder
+import math
+
+from build123d import Box, Cylinder, Plane, Polygon, extrude
 
 from apolo.kernel.shapes import place
 
@@ -34,19 +36,41 @@ GUARD_REF = "GUARDA-150"
 FACE_MARGIN = 50.0  # ancho de cara del tambor = ancho de banda + margen (25/lado)
 
 
-def _belt_loop(half_span: float, r: float, thickness: float, width: float):
-    """Banda como lazo (racetrack) HUECO: región exterior (r+t) menos interior (r),
-    extruida sobre el ancho de banda (eje Y). Centrada en el origen, tambores en ±half_span."""
+def _radio_exterior(ref: str) -> float:
+    """Radio que ABRAZA la banda: el del tambor más su engomado (`lagging_mm`), si lo tiene."""
+    specs = CATALOG[ref].specs
+    return float(specs["diametro_mm"]) / 2.0 + float(specs.get("lagging_mm", 0.0))
 
-    def region(rad: float):
-        body = Box(2.0 * half_span, width, 2.0 * rad)
+
+def _belt_loop(x_m: float, z_m: float, r_m: float, x_c: float, z_c: float, r_c: float,
+               thickness: float, width: float):
+    """Banda como lazo HUECO que abraza dos tambores de radio propio (el motriz engomado es más
+    grande que el de cola): envolvente convexa de los dos círculos de radio r+t menos la de los
+    de radio r, extruida sobre el ancho de banda (eje Y). Coordenadas en el plano XZ."""
+
+    def tangentes(r1: float, r2: float):
+        # rectas tangentes EXTERIORES de los círculos (x_c, z_c, r1) y (x_m, z_m, r2): el
+        # cuadrilátero de sus cuatro puntos de tangencia + los dos círculos = la envolvente
+        dx, dz = x_m - x_c, z_m - z_c
+        dist = math.hypot(dx, dz)
+        fi, beta = math.atan2(dz, dx), math.acos((r1 - r2) / dist)
+        pts = []
+        for ang in (fi + beta, fi - beta):
+            nx, nz = math.cos(ang), math.sin(ang)
+            pts.append(((x_c + r1 * nx, z_c + r1 * nz), (x_m + r2 * nx, z_m + r2 * nz)))
+        (a1, a2), (b1, b2) = pts
+        return [a1, a2, b2, b1]
+
+    def region(extra: float):
+        r1, r2 = r_c + extra, r_m + extra
+        cuad = extrude(Plane.XZ * Polygon(*tangentes(r1, r2)), amount=width / 2.0, both=True)
         caps = (
-            place(Cylinder(rad, width), (half_span, 0, 0), (90, 0, 0))
-            + place(Cylinder(rad, width), (-half_span, 0, 0), (90, 0, 0))
+            place(Cylinder(r1, width), (x_c, 0, z_c), (90, 0, 0))
+            + place(Cylinder(r2, width), (x_m, 0, z_m), (90, 0, 0))
         )
-        return body + caps
+        return cuad + caps
 
-    return region(r + thickness) - region(r)
+    return region(thickness) - region(0.0)
 
 
 def belt_conveyor_parts(
@@ -61,26 +85,28 @@ def belt_conveyor_parts(
     espesor_banda: float,
     guardas: bool,
 ) -> list[ConveyorPart]:
-    drum = CATALOG[tambor_motriz_ref]
-    d = float(drum.specs["diametro_mm"])
-    r = d / 2.0
+    # cada tambor con su radio EXTERIOR (engomado incluido): la banda abraza ése, y cada eje baja
+    # lo que crece su tambor para que el ramal de carga quede plano a la altura de trabajo
+    r_m = _radio_exterior(tambor_motriz_ref)
+    r_c = _radio_exterior(tambor_cola_ref)
     tube = CATALOG[tubo_ref]
     rail_t = float(tube.specs["height"])  # espesor del larguero en Y (tras tumbarlo)
     rail_h = float(tube.specs["width"])   # peralte del larguero en Z (vertical)
 
     cara = ancho_banda + FACE_MARGIN
-    if largo < 4.0 * r + 200.0:
-        raise ValueError(f"Largo mínimo {4.0 * r + 200.0:g} mm (dos tambores + holgura)")
+    if largo < 2.0 * (r_m + r_c) + 200.0:
+        raise ValueError(f"Largo mínimo {2.0 * (r_m + r_c) + 200.0:g} mm (dos tambores + holgura)")
     if ancho_banda < 100.0:
         raise ValueError("Ancho de banda mínimo 100 mm")
-    if altura <= rail_h + r + 60.0:
-        raise ValueError(f"Altura de trabajo mínima {rail_h + r + 60.0:g} mm")
+    if altura <= rail_h + max(r_m, r_c) + 60.0:
+        raise ValueError(f"Altura de trabajo mínima {rail_h + max(r_m, r_c) + 60.0:g} mm")
 
-    zc = altura - r - espesor_banda                 # eje de los tambores
+    zc = altura - r_c - espesor_banda               # eje del tambor de cola (y de los largueros)
+    zm = altura - r_m - espesor_banda               # eje del tambor motriz
     rail_center_z = zc - rail_h / 2.0               # cara superior del larguero al eje
     rail_y = ancho_banda / 2.0 + 35.0 + rail_t / 2.0
     half = largo / 2.0
-    overhang = r + espesor_banda + 40.0
+    overhang = max(r_m, r_c) + espesor_banda + 40.0
     rail_len = largo + 2.0 * overhang
 
     parts: list[ConveyorPart] = []
@@ -103,18 +129,18 @@ def belt_conveyor_parts(
     # tambores (eje en Y → rot X=90)
     drive_shape, drive_cut = build_component(tambor_motriz_ref, cara)
     add("tambor_motriz", "Tambor motriz", drive_shape, f"comp|{tambor_motriz_ref}|{drive_cut}",
-        tambor_motriz_ref, drive_cut, (half, 0, zc), (90, 0, 0))
+        tambor_motriz_ref, drive_cut, (half, 0, zm), (90, 0, 0))
     tail_shape, tail_cut = build_component(tambor_cola_ref, cara)
     add("tambor_cola", "Tambor de cola", tail_shape, f"comp|{tambor_cola_ref}|{tail_cut}",
         tambor_cola_ref, tail_cut, (-half, 0, zc), (90, 0, 0))
 
     # banda = lazo envolvente (geometría a medida)
-    belt = _belt_loop(half, r, espesor_banda, ancho_banda)
-    add("banda", "Banda", belt, None, None, None, (0, 0, zc), (0, 0, 0))
+    belt = _belt_loop(half, zm, r_m, -half, zc, r_c, espesor_banda, ancho_banda)
+    add("banda", "Banda", belt, None, None, None, (0, 0, 0), (0, 0, 0))
 
     # cama de deslizamiento (plancha a medida) bajo el ramal de carga
     deck_t = 20.0
-    deck = Box(largo - 2.0 * r, ancho_banda + 20.0, deck_t)
+    deck = Box(largo - 2.0 * max(r_m, r_c), ancho_banda + 20.0, deck_t)
     deck_z = altura - espesor_banda - 2.0 - deck_t / 2.0
     add("cama", "Cama de deslizamiento", deck, None, None, None, (0, 0, deck_z), (0, 0, 0))
 
@@ -161,7 +187,7 @@ def belt_conveyor_parts(
     if motor_ref:
         motor_shape, _ = build_component(motor_ref)
         add("motor", "Motorreductor", motor_shape, f"comp|{motor_ref}|std", motor_ref, None,
-            (half, cara / 2.0 + 100.0, zc), (0, 0, 0))
+            (half, cara / 2.0 + 100.0, zm), (0, 0, 0))
 
     # guardas laterales (contención de paquetes)
     if guardas:

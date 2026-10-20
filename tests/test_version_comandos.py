@@ -102,7 +102,7 @@ def test_insert_project_cambia_con_cualquier_version(monkeypatch):
     assert _cmd_sig("", ins) != antes_ins  # reproduce executors que sus params no nombran
     assert _cmd_sig("", box) == antes_box
     assert version_tag(REGISTRY, "insert_project") == (
-        "|v:create_chain@2,fillet@3,insert_component@2,run_script@2")
+        "|v:create_belt_conveyor@2,create_chain@2,fillet@3,insert_component@2,run_script@2")
 
 
 def test_run_script_va_en_v2():

@@ -124,6 +124,28 @@ def detectar_bandas(scene, joints: dict, explicitas: list, auto: bool) -> tuple[
     return salida, virtuales, avisos
 
 
+def _direccion_ramal(plano, d, a):
+    """Dirección del ramal superior: de eje a eje sólo si los dos tambores miden lo mismo. Un
+    motriz engomado es más grande y su eje va más abajo (el ramal queda plano): se toma la recta
+    entre los puntos más altos de cada extremo del lazo, del lado de la normal de eje a eje."""
+    n = np.cross(d, a)
+    if n[2] < 0 or (abs(n[2]) < 1e-9 and n.sum() < 0):
+        n = -n
+    ud = plano @ d
+    lo, hi = float(ud.min()), float(ud.max())
+    corte = 0.1 * (hi - lo)
+    cola_, cabeza = plano[ud <= lo + corte], plano[ud >= hi - corte]
+    if len(cola_) == 0 or len(cabeza) == 0:
+        return d
+    p0, p1 = cola_[np.argmax(cola_ @ n)], cabeza[np.argmax(cabeza @ n)]
+    nueva = p1 - p0
+    nueva -= (nueva @ a) * a
+    if np.linalg.norm(nueva) < 1e-9:
+        return d
+    nueva /= np.linalg.norm(nueva)
+    return nueva if nueva @ d > 0 else -nueva
+
+
 def superficie_banda(feat, junta: dict, radio_mm, direccion, mu, mu_cama, geom: str,
                      cola=None) -> BandaDatos:
     """Tramo superior de la banda como caja delgada + su cinemática (OCCT: casco)."""
@@ -144,6 +166,8 @@ def superficie_banda(feat, junta: dict, radio_mm, direccion, mu, mu_cama, geom: 
     if np.linalg.norm(d) < 1e-9:
         raise PhysicsError(f"No se pudo orientar la banda '{feat.id}'")
     d /= np.linalg.norm(d)
+    if cola is not None:  # el ramal va tangente a los dos tambores, no de eje a eje
+        d = _direccion_ramal(plano, d, a)
     n = np.cross(d, a)
     if n[2] < 0 or (abs(n[2]) < 1e-9 and n.sum() < 0):
         n = -n
