@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
-import { Axis3d, Box, Ruler, Scan, Scissors, ZoomIn, ZoomOut } from "lucide-react";
+import { Axis3d, Box, Ruler, Scan, Scissors, Sparkles, ZoomIn, ZoomOut } from "lucide-react";
 import type { Shading } from "./meshes";
+import { useCalidad } from "./calidad";
 
 /* Columna de botones del 3D (vistas, alambre, gizmo, snap, medir, sección). Presentacional:
    el estado vive en Viewport y llega por props. Salió de Viewport.tsx para hacerle lugar bajo
    el trinquete de tamaño (plan modo-visor, D12). En el visor (D5) es otra variante: botones
    redondos a la izquierda con la vista y la inspección; sin Mover, Rotar, Escalar ni Snap
-   (editar a mano queda en Completo). Los atajos de teclado no cambian. */
+   (editar a mano queda en Completo). Los atajos de teclado no cambian. El interruptor de
+   calidad (video-realista D1) lee y escribe su propia store (`calidad.ts`): no pasa por Viewport. */
 
 export type GizmoMode = "off" | "translate" | "rotate" | "scale";
 export type SectionAxis = "" | "x" | "y" | "z";
@@ -52,6 +54,7 @@ export default function BarraVista(p: Props) {
       <button onClick={() => p.setShading(p.shading === "solid" ? "wire" : "solid")}>
         {p.shading === "solid" ? "Alambre" : "Sólido"}
       </button>
+      <BotonCalidad />
       <span className="overlay-sep" />
       <button
         className={gizmoMode === "translate" ? "active" : ""}
@@ -170,6 +173,26 @@ function VistaVisor(p: Props) {
       <Redondo nombre="Alambre" on={p.shading === "wire"} onClick={() => p.setShading(p.shading === "solid" ? "wire" : "solid")}>
         <Box size={17} />
       </Redondo>
+      <BotonCalidad redondo />
     </div>
+  );
+}
+
+/** Calidad alta (estudio, oclusión y antialias) o normal (para PCs flojas). */
+function BotonCalidad(p: { redondo?: boolean }) {
+  const alta = useCalidad((s) => s.calidad === "alta");
+  const fijar = useCalidad((s) => s.fijar);
+  const alternar = () => fijar(alta ? "normal" : "alta");
+  if (p.redondo) {
+    return (
+      <Redondo nombre="Calidad alta" on={alta} onClick={alternar}>
+        <Sparkles size={17} />
+      </Redondo>
+    );
+  }
+  return (
+    <button type="button" className={alta ? "active" : ""} aria-pressed={alta} onClick={alternar}>
+      Calidad {alta ? "alta" : "normal"}
+    </button>
   );
 }

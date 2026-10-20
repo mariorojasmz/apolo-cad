@@ -237,7 +237,13 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 - Material de una pieza = su ACABADO (`feat.acabado`, `feat.albedo`, resueltos en el servidor)
   sobre la tabla `viewport/acabados.json`, copia GENERADA de `library/apariencia.py`: no se
   edita a mano. Las muestras de color muestran el albedo. Relieves procedurales con UV de caja
-  en mm (`relieve.ts`). [visor-realista](../docs/plans/visor-realista.md)
+  en mm (`relieve.ts`) y texturas de color y brillo (`textura.ts`; el cepillado pasa a
+  `MeshPhysicalMaterial` por la anisotropía). [visor-realista](../docs/plans/visor-realista.md)
+- Calidad del visor (`calidad.ts`, store propia; el botón vive en `BarraVista`): «alta» = estudio
+  procedural como IBL (`estudio.ts`) + GTAO + SMAA SIN MSAA (`calidadVista.ts`); «normal» =
+  RoomEnvironment + MSAA ×4. El pipeline la sigue en caliente. El GTAO hace una SEGUNDA pasada de
+  la escena y sólo dibuja `group` sin aristas: algo nuevo que deba oscurecerse va en `group`.
+  [video-realista](../docs/plans/video-realista.md)
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
   para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).

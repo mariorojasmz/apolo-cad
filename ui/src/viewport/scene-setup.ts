@@ -28,7 +28,9 @@ export interface LightRig {
   dir: THREE.DirectionalLight;
 }
 
-const LIGHT_OFFSET = new THREE.Vector3(1500, -1000, 2000);
+/** Dónde está la luz direccional respecto del centro de la máquina (el softbox principal del
+   estudio, `estudio.ts`, viene del mismo lado). */
+export const LIGHT_OFFSET = new THREE.Vector3(1500, -1000, 2000);
 
 export function createLights(scene: THREE.Scene): LightRig {
   // Con IBL (scene.environment) aportando el ambiente, la hemisférica baja mucho.

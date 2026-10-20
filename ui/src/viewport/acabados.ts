@@ -14,6 +14,15 @@ export interface Relieve {
   intensidad: number;
 }
 
+/** Variación procedural de color y brillo (video-realista D2): la genera `textura.ts`. */
+export interface Textura {
+  tipo: string;
+  escala_mm: number;
+  variacion_color: number; // 0..1 alrededor del albedo (el promedio no cambia)
+  variacion_rugosidad: number; // 0..1 alrededor de la rugosidad de la tabla
+  anisotropia: number; // 0..1, sólo el cepillado: reflejo estirado a lo largo de las rayas
+}
+
 export interface Acabado {
   nombre: string;
   color: string | null; // albedo propio; null = el color de la pieza (pintura)
@@ -22,11 +31,13 @@ export interface Acabado {
   opacidad: number;
   relieve: Relieve | null;
   pintable: boolean; // el color asignado define el albedo; en un metal manda `color` (lo resuelve el servidor)
+  textura: Textura | null;
 }
 
 export const ACABADOS: Record<string, Acabado> = tabla.acabados as Record<string, Acabado>;
 export const ACABADO_POR_DEFECTO: string = tabla.por_defecto;
 export const TIPOS_RELIEVE: readonly string[] = tabla.tipos_relieve;
+export const TIPOS_TEXTURA: readonly string[] = tabla.tipos_textura;
 
 /** Clave del acabado de la pieza: la que manda el servidor o, si no llega o no se conoce,
  * el de por defecto (acero pintado). */

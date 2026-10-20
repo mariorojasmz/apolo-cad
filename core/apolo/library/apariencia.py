@@ -18,9 +18,12 @@ va pintada). El color (albedo):
   - si el acabado no tiene color propio (acero pintado), el de la paleta por índice de la
     escena: la misma regla del viewport (`api/scene.py`), así las piezas pintadas se distinguen.
 
-Los relieves son PROCEDURALES (sin texturas descargadas: CSP y licencias): la tabla dice el tipo,
-la escala y la intensidad; el visor genera el mapa y VTK lo ignora (Phong liso). Es apariencia,
-no geometría: no toca la caché de geometría ni la de teselado.
+Los relieves y las texturas son PROCEDURALES (sin texturas descargadas: CSP y licencias): la
+tabla dice el tipo, la escala y cuánto se marca; el visor genera los mapas en el navegador y VTK
+los ignora (lee sólo color, rugosidad y metal: `apariencia()`). El relieve abolla la superficie
+(`bumpMap`); la textura ([video-realista](../../../docs/plans/video-realista.md) D2) varía el
+color y el brillo de un punto a otro y, en el cepillado, estira el reflejo (anisotropía). Es
+apariencia, no geometría: no toca la caché de geometría ni la de teselado.
 """
 
 from __future__ import annotations
@@ -51,6 +54,25 @@ class Relieve:
     intensidad: float
 
 
+#: Texturas procedurales que sabe generar el visor (`ui/src/viewport/textura.ts`).
+TIPOS_TEXTURA = ("lentejuelas", "cepillado", "grano", "piel_naranja")
+
+
+@dataclass(frozen=True)
+class Textura:
+    """Textura procedural de color y brillo (D2 de video-realista), generada en el navegador.
+    `tipo` (de `TIPOS_TEXTURA`); `escala_mm` = lo que mide una repetición del patrón;
+    `variacion_color` y `variacion_rugosidad` (0..1) = cuánto cambian el albedo y la rugosidad
+    de un punto a otro alrededor del valor de la tabla (el promedio no cambia); `anisotropia`
+    (0..1, sólo `cepillado`) = cuánto se estira el reflejo a lo largo de las rayas."""
+
+    tipo: str
+    escala_mm: float
+    variacion_color: float = 0.0
+    variacion_rugosidad: float = 0.0
+    anisotropia: float = 0.0
+
+
 @dataclass(frozen=True)
 class Acabado:
     """Cómo se ve un material. `color` None = toma el color de la pieza (pintura).
@@ -65,31 +87,49 @@ class Acabado:
     opacidad: float = 1.0
     relieve: Relieve | None = None
     pintable: bool = False
+    #: variación procedural de color y brillo (sólo el visor; VTK no la lee)
+    textura: Textura | None = None
 
 
 ACABADOS: dict[str, Acabado] = {
+    # pintura: piel de naranja LEVE, sólo en el brillo (el color es el de la pieza)
     "acero_pintado": Acabado("Acero pintado", None, 0.15, 0.55, pintable=True,
-                             relieve=Relieve("pintura", 6.0, 0.25)),
+                             relieve=Relieve("pintura", 6.0, 0.25),
+                             textura=Textura("piel_naranja", 12.0, variacion_rugosidad=0.15)),
     "acero_mecanizado": Acabado("Acero mecanizado", "#a3a8ae", 1.0, 0.32,
-                                relieve=Relieve("cepillado", 40.0, 0.2)),
+                                relieve=Relieve("cepillado", 40.0, 0.2),
+                                textura=Textura("cepillado", 40.0, variacion_color=0.04,
+                                                variacion_rugosidad=0.3, anisotropia=0.45)),
     "pavonado": Acabado("Acero pavonado", "#3b3e43", 0.85, 0.45),
+    # galvanizado en caliente: las lentejuelas (cristales de zinc) cambian de tono y de brillo
     "galvanizado": Acabado("Acero galvanizado", "#b4bac0", 0.9, 0.48,
-                           relieve=Relieve("moteado", 25.0, 0.35)),
+                           relieve=Relieve("moteado", 25.0, 0.35),
+                           textura=Textura("lentejuelas", 80.0, variacion_color=0.15,
+                                           variacion_rugosidad=0.5)),
     "zincado": Acabado("Acero zincado", "#c8cdd2", 0.95, 0.3),
     "inox_cepillado": Acabado("Acero inoxidable cepillado", "#c3c7cb", 1.0, 0.26,
-                              relieve=Relieve("cepillado", 30.0, 0.45)),
+                              relieve=Relieve("cepillado", 30.0, 0.45),
+                              textura=Textura("cepillado", 30.0, variacion_color=0.05,
+                                              variacion_rugosidad=0.35, anisotropia=0.8)),
     "cromado": Acabado("Acero al cromo", "#d6d9dc", 1.0, 0.1),
     "aluminio": Acabado("Aluminio", "#cfd3d8", 1.0, 0.38,
-                        relieve=Relieve("cepillado", 50.0, 0.2)),
+                        relieve=Relieve("cepillado", 50.0, 0.2),
+                        textura=Textura("cepillado", 50.0, variacion_color=0.04,
+                                        variacion_rugosidad=0.25, anisotropia=0.5)),
     "hierro_fundido": Acabado("Hierro fundido", "#5a5f66", 0.35, 0.72,
-                              relieve=Relieve("fundicion", 8.0, 0.5)),
+                              relieve=Relieve("fundicion", 8.0, 0.5),
+                              textura=Textura("grano", 10.0, variacion_color=0.12,
+                                              variacion_rugosidad=0.3)),
     "bronce": Acabado("Bronce", "#b08d57", 1.0, 0.35),
     "laton": Acabado("Latón", "#c9a94f", 1.0, 0.3),
     "niquelado": Acabado("Níquel satinado", "#c7c9c8", 1.0, 0.42),
+    # goma con grano: sólo el brillo varía (el color es el asignado, si hay)
     "caucho": Acabado("Caucho", "#1f2023", 0.0, 0.9, pintable=True,
-                      relieve=Relieve("pintura", 3.0, 0.3)),
+                      relieve=Relieve("pintura", 3.0, 0.3),
+                      textura=Textura("grano", 4.0, variacion_rugosidad=0.25)),
     "pvc_banda": Acabado("PVC de banda", "#2f5b3b", 0.0, 0.72, pintable=True,
-                         relieve=Relieve("tejido", 4.0, 0.35)),
+                         relieve=Relieve("tejido", 4.0, 0.35),
+                         textura=Textura("grano", 3.0, variacion_rugosidad=0.3)),
     "madera": Acabado("Madera", "#b5875a", 0.0, 0.7, pintable=True,
                       relieve=Relieve("veta", 60.0, 0.4)),
     "vidrio": Acabado("Vidrio", "#dceaf2", 0.0, 0.06, opacidad=OPACIDAD_VIDRIO),
@@ -226,6 +266,7 @@ def apariencias_escena(scene: dict, colores: dict | None = None, *,
 def tabla_ui() -> dict:
     """La tabla tal como la lee el visor (`ui/src/viewport/acabados.json`)."""
     return {"por_defecto": POR_DEFECTO, "tipos_relieve": list(TIPOS_RELIEVE),
+            "tipos_textura": list(TIPOS_TEXTURA),
             "acabados": {k: asdict(a) for k, a in ACABADOS.items()}}
 
 

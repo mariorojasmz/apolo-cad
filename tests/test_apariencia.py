@@ -9,6 +9,7 @@ usen los MISMOS valores, con una captura VTK comparada.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,6 +23,7 @@ from apolo.library.apariencia import (
     ACABADOS,
     POR_DEFECTO,
     TIPOS_RELIEVE,
+    TIPOS_TEXTURA,
     acabado_de,
     apariencia,
     apariencias_escena,
@@ -79,6 +81,46 @@ def test_d5_cubre_los_acabados_del_plan():
     for clave in ("acero_pintado", "galvanizado", "inox_cepillado", "aluminio", "caucho",
                   "pvc_banda", "pavonado", "bronce"):
         assert clave in ACABADOS
+
+
+@pytest.mark.parametrize("clave", sorted(ACABADOS))
+def test_textura_en_rango(clave):
+    """D2 de video-realista: la textura procedural es un tipo conocido con variaciones 0..1; la
+    anisotropía (reflejo estirado) sólo tiene sentido en el cepillado."""
+    t = ACABADOS[clave].textura
+    if t is None:
+        return
+    assert t.tipo in TIPOS_TEXTURA
+    assert t.escala_mm > 0
+    for v in (t.variacion_color, t.variacion_rugosidad, t.anisotropia):
+        assert 0.0 <= v <= 1.0
+    assert t.variacion_color + t.variacion_rugosidad + t.anisotropia > 0   # algo varía
+    if t.anisotropia:
+        assert t.tipo == "cepillado"
+
+
+def test_d2_texturas_del_plan():
+    """Las cuatro de D2: galvanizado con lentejuelas, acero cepillado con anisotropía, goma de la
+    banda con grano y pintura con piel de naranja LEVE (sólo el brillo, nunca el color: el color
+    de una pieza pintada es el que eligió el usuario)."""
+    assert ACABADOS["galvanizado"].textura.tipo == "lentejuelas"
+    assert ACABADOS["galvanizado"].textura.variacion_color > 0
+    for clave in ("inox_cepillado", "acero_mecanizado", "aluminio"):
+        assert ACABADOS[clave].textura.tipo == "cepillado"
+        assert ACABADOS[clave].textura.anisotropia > 0, clave
+    for clave in ("caucho", "pvc_banda"):
+        assert ACABADOS[clave].textura.tipo == "grano", clave
+        assert ACABADOS[clave].textura.variacion_color == 0, clave   # pintable: manda el color
+    pintura = ACABADOS["acero_pintado"].textura
+    assert pintura.tipo == "piel_naranja"
+    assert pintura.variacion_color == 0 and 0 < pintura.variacion_rugosidad <= 0.2
+
+
+def test_vtk_no_recibe_la_textura():
+    """VTK lee sólo color, rugosidad, metal y opacidad: la textura es del visor."""
+    ap = apariencia("galvanizado", "#123456")
+    assert set(ap) == {"acabado", "color", "metalness", "roughness", "opacidad"}
+    assert json.loads(json_ui())["tipos_textura"] == list(TIPOS_TEXTURA)
 
 
 def test_cada_material_del_catalogo_tiene_acabado():

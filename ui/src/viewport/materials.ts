@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { CatalogItem, FeatureOut } from "../types";
 import { ACABADOS, acabadoDe, albedoDe, claveAcabado, type Acabado } from "./acabados";
 import { texturaRelieve } from "./relieve";
+import { aplicarTextura, pideFisico } from "./textura";
 
 /* Materiales PBR de las piezas: los parámetros salen de la tabla de acabados D5
    (`acabados.ts`, la misma que usa el render VTK), según el acabado que el servidor resolvió
@@ -42,7 +43,9 @@ export function buildSolidMaterial(
 ): THREE.MeshStandardMaterial {
   const ac: Acabado = acabadoDe(feat);
   const bump = !glass && !wire && ac.relieve ? texturaRelieve(ac.relieve) : null;
-  return new THREE.MeshStandardMaterial({
+  const tex = !glass && !wire ? ac.textura : null; // color y brillo procedurales (video-realista D2)
+  const Material = pideFisico(tex) ? THREE.MeshPhysicalMaterial : THREE.MeshStandardMaterial;
+  const mat = new Material({
     color: new THREE.Color(albedoDe(feat)),
     metalness: glass ? 0.0 : params.metalness,
     roughness: glass ? 0.06 : params.roughness,
@@ -57,6 +60,8 @@ export function buildSolidMaterial(
     bumpMap: bump,
     bumpScale: bump && ac.relieve ? ac.relieve.intensidad : 1,
   });
+  if (tex) aplicarTextura(mat, tex);
+  return mat;
 }
 
 export function buildEdgeMaterial(planes: THREE.Plane[]): THREE.LineBasicMaterial {

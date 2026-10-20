@@ -53,7 +53,8 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   (`Document.colors`) define el albedo SÓLO en un acabado `pintable` (pintado, caucho, PVC,
   madera, cartón); en un metal manda el albedo de la tabla y el asignado queda en el manifest
   sin pintar. Acero liso por rol: cadena → pavonado, eje/piñón → mecanizado, rodillo/tambor (y
-  su tubo) → galvanizado. [visor-realista](../../../docs/plans/visor-realista.md)
+  su tubo) → galvanizado. La `textura` (color/brillo/anisotropía procedurales) es SÓLO del
+  visor: `apariencia()` no la pasa a VTK. [visor-realista](../../../docs/plans/visor-realista.md)
 
 ## Chapa (`sheetmetal.py`)
 

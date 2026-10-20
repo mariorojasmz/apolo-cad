@@ -6,7 +6,9 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { BACKGROUND_CSS, createGround, createLights, createRenderer } from "./scene-setup";
-import { setupEnvironment } from "./environment";
+import { crearEntorno } from "./environment";
+import { useCalidad } from "./calidad";
+import { crearCalidadVista, type CalidadVista } from "./calidadVista";
 import { createViewCube, type ViewCube } from "./viewcube";
 import { crearDestello } from "./destello";
 
@@ -17,7 +19,11 @@ import { crearDestello } from "./destello";
    Bucle por frame: `controls.update()` → las tareas de `antesDeComponer` en el orden en que se
    registraron → contorno de selección y destello → `composer.render()` → ViewCube encima. Un
    pase que no es de post-proceso (la sombra de contacto, D2) se engancha ahí: corre después de
-   que los animadores movieron las mallas y antes de componer el frame. */
+   que los animadores movieron las mallas y antes de componer el frame.
+
+   Calidad (video-realista D1, `calidad.ts`): «alta» = estudio procedural como IBL + GTAO + SMAA
+   sin MSAA (`calidadVista.ts`); «normal» = RoomEnvironment + MSAA ×4, el visor de antes. El
+   pipeline sigue a la store `useCalidad` y la cambia en caliente (sin rearmar nada). */
 
 export interface Pipeline {
   renderer: THREE.WebGLRenderer;
@@ -30,6 +36,8 @@ export interface Pipeline {
   dir: THREE.DirectionalLight;
   ground: THREE.Mesh;
   viewCube: ViewCube;
+  /** Los pases y el interruptor de la calidad del visor. */
+  calidad: CalidadVista;
   /** Registra una tarea por frame que corre ANTES de componer, en orden de registro. */
   antesDeComponer: (tarea: () => void) => void;
   /** Arranca el bucle (el primer frame se dibuja YA, sincrónico). */
@@ -60,7 +68,7 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
 
   const { dir } = createLights(scene);
   const ground = createGround(scene);
-  const disposeEnv = setupEnvironment(renderer, scene);
+  const entorno = crearEntorno(renderer, scene);
   const viewCube = createViewCube();
 
   // líneas CLARAS semitransparentes: se leen igual de suaves sobre el fondo y sobre el piso de
@@ -94,6 +102,8 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   const composer = new EffectComposer(renderer, composerRT);
   composer.setPixelRatio(window.devicePixelRatio);
   composer.addPass(new RenderPass(scene, camera));
+  const calidad = crearCalidadVista(scene, camera, group, composer);
+  composer.addPass(calidad.gtao); // oclusión ambiental, sólo en «alta»
   const outlinePass = new OutlinePass(new THREE.Vector2(1, 1), scene, camera);
   outlinePass.edgeStrength = 4.0;
   outlinePass.edgeGlow = 0.0;      // línea nítida, sin halo
@@ -105,6 +115,18 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   const destello = crearDestello(scene, camera); // contorno verde de lo que cambió el agente (modo-visor D8)
   composer.addPass(destello.pass);
   composer.addPass(new OutputPass());
+  composer.addPass(calidad.smaa); // antialias sobre sRGB, sólo en «alta»
+  const aplicarCalidad = (c: "alta" | "normal") => {
+    calidad.fijar(c);
+    entorno.fijar(c);
+  };
+  const gl = renderer.getContext();
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  useCalidad.getState().sugerirPorGpu(info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : null);
+  aplicarCalidad(useCalidad.getState().calidad);
+  const soltarCalidad = useCalidad.subscribe((s, antes) => {
+    if (s.calidad !== antes.calidad) aplicarCalidad(s.calidad);
+  });
   const selMeshes: THREE.Object3D[] = []; // buffer reusado por frame (sin asignaciones)
 
   const resize = () => {
@@ -124,6 +146,7 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
     frame = requestAnimationFrame(animate);
     controls.update();
     for (const tarea of tareas) tarea(); // animadores, tinte, tiradores… (antes de componer)
+    calidad.ajustar(performance.now()); // radio de la oclusión y planos de sección (≤ 3 Hz)
     // contorno de selección: recolecta las mallas seleccionadas (robusto a reconstrucciones)
     selMeshes.length = 0;
     for (const id of seleccion()) { const m = meshes.get(id); if (m) selMeshes.push(m); }
@@ -134,7 +157,7 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   };
 
   return {
-    renderer, scene, camera, controls, gizmo, group, meshes, dir, ground, viewCube,
+    renderer, scene, camera, controls, gizmo, group, meshes, dir, ground, viewCube, calidad,
     antesDeComponer: (tarea) => { tareas.push(tarea); },
     arrancar: animate,
     detener: () => {
@@ -142,8 +165,10 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
       observer.disconnect();
     },
     dispose: () => {
+      soltarCalidad();
       gizmo.dispose();
-      disposeEnv();
+      entorno.dispose();
+      calidad.dispose();
       viewCube.dispose();
       outlinePass.dispose();
       destello.dispose();

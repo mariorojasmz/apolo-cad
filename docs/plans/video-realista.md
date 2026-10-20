@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida en la laptop (2026-10-20): «alta» sin MSAA cuesta ~30 % de fps en una Intel UHD; el trazado de rayos usa three-gpu-pathtracer 0.0.23 (MIT), la última compatible con three 0.169; faltan F1–F5
+nota: F0 y F1 hechas (2026-10-20): botón «Calidad alta» (estudio + GTAO + SMAA, ~25 % de fps en una Intel UHD) y acabados con textura; el trazado de rayos usará three-gpu-pathtracer 0.0.23 (MIT), la última compatible con three 0.169; falta mirar F1 en la UI servida; faltan F2–F5
 descripcion: El video de YouTube y de la tienda sale del visor con calidad de foto de catálogo (y trazado de rayos de noche), generado solo, sin instalar Blender
 ---
 
@@ -305,3 +305,89 @@ o subir el RGBA crudo.
 
 **Pendiente de F5 (escritorio, 4070 Ti)**: fps de «alta» a 1080p y 4K, el trazado de rayos por
 cuadro y Edge sin ventana con la GPU NVIDIA.
+
+### F1 (2026-10-20): visor mejorado y acabados con textura
+
+**D1, visor mejorado** (`ui/src/viewport/`, módulos nuevos; `Viewport.tsx` no se tocó):
+- `estudio.ts` (73 líneas): la sala gris en degradé y cuatro softboxes emisivos (principal del
+  lado de `LIGHT_OFFSET`, relleno, contorno y cenital), en Z arriba.
+- `environment.ts` (44): `crearEntorno` arma con PMREM el IBL de cada calidad la primera vez que
+  se pide y lo cambia en caliente. «normal» = `RoomEnvironment`; «alta» = el estudio.
+- `calidadVista.ts` (118): `GtaoMaquina`, un `GTAOPass` cuya pasada de normales sólo dibuja
+  `group` (sin piso, grilla, gizmo, tiradores ni aristas). También tiene `SMAAPass` y el
+  interruptor: en «alta» los dos pases prendidos y el render target SIN MSAA (lo que dijo F0);
+  en «normal», MSAA ×4 y los pases apagados.
+  - `ajustar` (≤ 3 Hz, sólo en «alta») escala el radio y el grosor del GTAO con la diagonal de
+    la máquina (2 % y 1 %; mínimo 5 mm) y le pone una caja de recorte.
+  - También copia los planos de sección al material de normales. Si no, con el corte puesto la
+    oclusión saldría de la pieza entera.
+- `calidad.ts` (58): store propia, con «alta» por defecto. Si nadie eligió y la GPU es integrada
+  o por software, arranca en «normal»:
+  - integradas o por software: Intel salvo Arc, SwiftShader, llvmpipe, Mali, Adreno…;
+  - el nombre de la GPU sale de `WEBGL_debug_renderer_info`, que lee el pipeline al armarse;
+  - la elección de la persona se recuerda en `localStorage` (con try/catch).
+- `pipeline.ts` (149 → 180):
+  - orden de pases: Render → GTAO → contorno → destello → Output → SMAA;
+  - sigue a la store con `subscribe` y `calidad.ajustar` corre antes de componer;
+  - `Pipeline.calidad` queda expuesto para F2.
+- Botón: «Calidad alta / normal» en la barra del modo Completo, y el redondo «Calidad alta»
+  (ícono de destellos) en el visor. Los dos leen la store directamente, no pasan por Viewport.
+- TAA al grabar NO va aquí: es del reloj virtual de F2 (D3).
+
+**D2, acabados con textura**:
+- `library/apariencia.py`:
+  - nuevo `Textura(tipo, escala_mm, variacion_color, variacion_rugosidad, anisotropia)` y
+    `TIPOS_TEXTURA`;
+  - `acabados.json` regenerado (con `tipos_textura`);
+  - `apariencia()` (lo que lee VTK) NO cambia: sigue con color, rugosidad, metal y opacidad.
+- Valores:
+
+| acabado | textura |
+|---|---|
+| galvanizado | lentejuelas 80 mm: color 0,15, brillo 0,5 |
+| inox cepillado | cepillado 30 mm: anisotropía 0,8 |
+| acero mecanizado | cepillado 40 mm: anisotropía 0,45 |
+| aluminio | cepillado 50 mm: anisotropía 0,5 |
+| caucho | grano 4 mm, sólo brillo 0,25 |
+| PVC de banda | grano 3 mm, sólo brillo 0,3 |
+| hierro fundido | grano 10 mm |
+| acero pintado | piel de naranja 12 mm, sólo brillo 0,15 (leve) |
+
+  En lo pintable (pintura, goma, PVC) el color no varía: manda el que eligió la persona.
+- `textura.ts` (141): genera en el navegador, con semilla fija, un `map` (factor de albedo) y
+  un `roughnessMap` por acabado, con el `Ruido` periódico de `relieve.ts`.
+  - Las lentejuelas son celdas de Voronoi: cada cristal tiene su tono y su brillo.
+  - El color y la rugosidad del material se compensan por el promedio del mapa: el tono medio
+    sigue siendo el de la tabla.
+  - Con anisotropía, `materials.ts` usa `MeshPhysicalMaterial`, y las rayas van a lo largo de U
+    de las UV de caja.
+- Decisión propia: las texturas van en las DOS calidades. Cuestan una lectura de textura; lo
+  caro es el GTAO, que sí se apaga en «normal».
+
+**Medido con el pipeline REAL** (`crearPipeline` en el arnés de F0, piloto 74, 1920×1080,
+Intel UHD, Edge sin ventana; fps rAF / fps sincronizando la GPU en cada cuadro):
+
+| vista | normal | alta |
+|---|---|---|
+| general | 35,0 / 29,9 | 26,3 / 21,3 |
+| de cerca (motorreductor) | 29,9 / 25,2 | 21,4 / 18,7 |
+
+«Alta» cuesta ~25 % de los fps en la GPU integrada. Por eso la laptop arranca en «normal» y la
+4070 Ti en «alta». En la GPU del escritorio lo mide F5.
+
+Capturas, en el scratchpad de la sesión, `f0/salida/`: `captura-f1-normal.png`,
+`captura-f1-alta.png`, `captura-f1-normal-cerca.png` y `captura-f1-alta-cerca.png` (las de
+antes son las de F0). En «alta» el galvanizado de los rodillos muestra sus lentejuelas y la
+oclusión marca el motor bajo el larguero.
+
+Intento descartado: lentejuelas con variación de color 0,2. Se leían manchadas a 1 m; quedó en
+0,15.
+
+Tests:
+- vitest 253 → 272 (+19): `calidad.test.ts` (11) y `textura.test.ts` (8);
+- pytest: `test_apariencia.py` +19 (rango de la textura en cada uno de los 17 acabados, las
+  cuatro de D2 y que VTK no reciba la textura);
+- `npm run build` verde.
+
+Sin verificar: la UI servida por la API (la de :8000 es de Mario). El arnés usa el pipeline real
+pero no el componente `Viewport` ni el botón.
