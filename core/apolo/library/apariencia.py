@@ -9,8 +9,11 @@ metálico-rugoso (el modelo común de three.js, glTF y VTK); el kernel los tradu
 
 Del material (`materials.resolve_material`: override → catálogo → nombre → vertical) sale el
 ACABADO (`acabado_de`); el rol de la pieza y la categoría de catálogo afinan el acero (una
-cadena es pavonada, un eje es acero mecanizado, una viga va pintada). El color (albedo):
-  - el que el usuario ASIGNÓ a la pieza gana siempre (`Document.colors`);
+cadena es pavonada, un eje es acero mecanizado, el tubo de un rodillo es galvanizado, una viga
+va pintada). El color (albedo):
+  - el que el usuario ASIGNÓ a la pieza (`Document.colors`) gana sólo si el acabado es
+    `pintable`; en un metal (mecanizado, zincado, latón…) se ignora PARA EL RENDER (sigue en el
+    manifest): un piñón mecanizado no se ve dorado porque alguien lo coloreó;
   - si no, el color propio del acabado (caucho negro, galvanizado gris, latón dorado…);
   - si el acabado no tiene color propio (acero pintado), el de la paleta por índice de la
     escena: la misma regla del viewport (`api/scene.py`), así las piezas pintadas se distinguen.
@@ -50,7 +53,10 @@ class Relieve:
 
 @dataclass(frozen=True)
 class Acabado:
-    """Cómo se ve un material. `color` None = toma el color de la pieza (pintura)."""
+    """Cómo se ve un material. `color` None = toma el color de la pieza (pintura).
+    `pintable` = el color que el usuario asigna a la pieza define su albedo (pintura, caucho o
+    PVC de color, madera teñida, cartón impreso); en un acabado metálico (mecanizado, zincado,
+    galvanizado, inox…) el metal se ve como es y el color asignado no cuenta para el render."""
 
     nombre: str
     color: str | None
@@ -58,10 +64,11 @@ class Acabado:
     roughness: float
     opacidad: float = 1.0
     relieve: Relieve | None = None
+    pintable: bool = False
 
 
 ACABADOS: dict[str, Acabado] = {
-    "acero_pintado": Acabado("Acero pintado", None, 0.15, 0.55,
+    "acero_pintado": Acabado("Acero pintado", None, 0.15, 0.55, pintable=True,
                              relieve=Relieve("pintura", 6.0, 0.25)),
     "acero_mecanizado": Acabado("Acero mecanizado", "#a3a8ae", 1.0, 0.32,
                                 relieve=Relieve("cepillado", 40.0, 0.2)),
@@ -79,12 +86,15 @@ ACABADOS: dict[str, Acabado] = {
     "bronce": Acabado("Bronce", "#b08d57", 1.0, 0.35),
     "laton": Acabado("Latón", "#c9a94f", 1.0, 0.3),
     "niquelado": Acabado("Níquel satinado", "#c7c9c8", 1.0, 0.42),
-    "caucho": Acabado("Caucho", "#1f2023", 0.0, 0.9, relieve=Relieve("pintura", 3.0, 0.3)),
-    "pvc_banda": Acabado("PVC de banda", "#2f5b3b", 0.0, 0.72,
+    "caucho": Acabado("Caucho", "#1f2023", 0.0, 0.9, pintable=True,
+                      relieve=Relieve("pintura", 3.0, 0.3)),
+    "pvc_banda": Acabado("PVC de banda", "#2f5b3b", 0.0, 0.72, pintable=True,
                          relieve=Relieve("tejido", 4.0, 0.35)),
-    "madera": Acabado("Madera", "#b5875a", 0.0, 0.7, relieve=Relieve("veta", 60.0, 0.4)),
+    "madera": Acabado("Madera", "#b5875a", 0.0, 0.7, pintable=True,
+                      relieve=Relieve("veta", 60.0, 0.4)),
     "vidrio": Acabado("Vidrio", "#dceaf2", 0.0, 0.06, opacidad=OPACIDAD_VIDRIO),
-    "carton": Acabado("Cartón", "#b48a5a", 0.0, 0.92, relieve=Relieve("tejido", 2.0, 0.15)),
+    "carton": Acabado("Cartón", "#b48a5a", 0.0, 0.92, pintable=True,
+                      relieve=Relieve("tejido", 2.0, 0.15)),
 }
 
 #: Acabado de lo que no se reconoce (el material por defecto es acero estructural).
@@ -116,6 +126,11 @@ _POR_MATERIAL: tuple[tuple[re.Pattern, str], ...] = tuple(
 _ROL_CADENA = re.compile(r"^cadenas?\b")
 _ROL_MECANIZADO = re.compile(r"^(ejes?|pasador(es)?|pi[nñ]on(es)?|poleas?|bujes?)\b")
 _CAT_MECANIZADO = frozenset({"transmision", "guias_lineales"})
+# Rodillo o tambor de transportador (su tubo/camisa incluidos): galvanizado. Anclado al inicio
+# del rol: «Eje del rodillo» es eje y «Tapa con rodamiento» no es rodillo.
+_ROL_RODILLO = re.compile(
+    r"^((tubos?|camisas?|mantos?|cuerpos?) del? )?(rodillos?|tambor(es)?)\b")
+_CAT_RODILLO = frozenset({"rodillos", "tambores"})
 
 
 def _sin_tildes(texto: str | None) -> str:
@@ -128,7 +143,8 @@ def acabado_de(material: str | None, nombre: str = "", *, componente: str | None
     """Clave de `ACABADOS` para una pieza de `material` (texto libre, el de
     `resolve_material`). Para acero liso decide el rol (`nombre`) y el catálogo (`componente`,
     `categoria`): cadena → pavonado; eje, pasador, piñón, polea o pieza de transmisión/guía
-    lineal → mecanizado; el resto (estructura) → pintado."""
+    lineal → mecanizado; rodillo o tambor (y su tubo) → galvanizado; el resto (estructura) →
+    pintado."""
     m = _sin_tildes(material)
     for patron, clave in _POR_MATERIAL:
         if patron.search(m):
@@ -139,15 +155,18 @@ def acabado_de(material: str | None, nombre: str = "", *, componente: str | None
         return "pavonado"
     if _ROL_MECANIZADO.match(rol) or (categoria or "") in _CAT_MECANIZADO:
         return "acero_mecanizado"
+    if _ROL_RODILLO.match(rol) or (categoria or "") in _CAT_RODILLO:
+        return "galvanizado"
     return POR_DEFECTO
 
 
 def apariencia(clave: str, color_pieza: str, *, asignado: bool = False) -> dict:
     """Apariencia final de una pieza con acabado `clave`: {acabado, color (albedo #rrggbb),
     metalness, roughness, opacidad}. `color_pieza` es el color de la pieza (el asignado o el de
-    la paleta); con `asignado=True` gana sobre el color propio del acabado."""
+    la paleta); con `asignado=True` gana sobre el color propio del acabado sólo si éste es
+    `pintable` (en un metal manda el albedo del acabado)."""
     ac = ACABADOS.get(clave) or ACABADOS[POR_DEFECTO]
-    color = color_pieza if (asignado or ac.color is None) else ac.color
+    color = color_pieza if ((asignado and ac.pintable) or ac.color is None) else ac.color
     return {"acabado": clave if clave in ACABADOS else POR_DEFECTO, "color": color,
             "metalness": ac.metalness, "roughness": ac.roughness, "opacidad": ac.opacidad}
 

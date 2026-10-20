@@ -49,8 +49,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   renderizadores. Un material de catálogo o del registro nuevo necesita su acabado
   (`tests/test_apariencia.py` lo exige); tras editar la tabla, `python -B
   scripts/acabados_ui.py --escribir` regenera la copia del visor. La palabra de carpintería sólo
-  pinta madera en el vertical madera (guarda propia; la BOM aún la sufre).
-  [visor-realista](../../../docs/plans/visor-realista.md)
+  pinta madera en el vertical madera (guarda propia; la BOM aún la sufre). El color asignado
+  (`Document.colors`) define el albedo SÓLO en un acabado `pintable` (pintado, caucho, PVC,
+  madera, cartón); en un metal manda el albedo de la tabla y el asignado queda en el manifest
+  sin pintar. Acero liso por rol: cadena → pavonado, eje/piñón → mecanizado, rodillo/tambor (y
+  su tubo) → galvanizado. [visor-realista](../../../docs/plans/visor-realista.md)
 
 ## Chapa (`sheetmetal.py`)
 

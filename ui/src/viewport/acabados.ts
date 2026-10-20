@@ -21,6 +21,7 @@ export interface Acabado {
   roughness: number;
   opacidad: number;
   relieve: Relieve | null;
+  pintable: boolean; // el color asignado define el albedo; en un metal manda `color` (lo resuelve el servidor)
 }
 
 export const ACABADOS: Record<string, Acabado> = tabla.acabados as Record<string, Acabado>;
@@ -37,8 +38,9 @@ export function acabadoDe(feat: Pick<FeatureOut, "acabado">): Acabado {
   return ACABADOS[claveAcabado(feat)];
 }
 
-/** Color con que se pinta la pieza: el albedo resuelto por el servidor; sin él, el color de
- * la pieza (asignado o de paleta). Es el que muestran también las muestras de color. */
+/** Color con que se pinta la pieza: el albedo resuelto por el servidor (el asignado sólo en un
+ * acabado pintable); sin él, el color de la pieza (asignado o de paleta). Es el que muestran
+ * también las muestras de color. */
 export function albedoDe(feat: Pick<FeatureOut, "albedo" | "color">): string {
   return feat.albedo ?? feat.color;
 }

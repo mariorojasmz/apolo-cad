@@ -137,3 +137,29 @@ Hecha la tabla D5; el piso con sombra de contacto queda PENDIENTE (ver abajo).
   pase propio (render desde abajo + desenfoque) dentro del bucle de render de `Viewport.tsx`,
   que está congelado en el trinquete de tamaño (1631 líneas). Va con su propio paso: sacar
   primero el bucle de render a un módulo y luego sumar el pase.
+
+### Fix (2026-10-19): rodillo galvanizado y color sólo en acabados pintables
+
+Visto en el piloto (proyecto 74): el «Tubo del rodillo» salía acero pintado con su color
+asignado `#c3c9d1` y parecía plástico blanco, y los piñones mecanizados se veían dorados
+(`#b07d2b`, color que puso el agente que modeló).
+
+- **Rol rodillo/tambor → galvanizado** (`apariencia._ROL_RODILLO`, más las categorías de catálogo
+  `rodillos`/`tambores`): «Rodillo…», «Tambor…» y «Tubo/camisa del rodillo», anclado al inicio
+  del rol y DESPUÉS de las reglas de cadena y eje: «Eje del rodillo» sigue mecanizado, «Cadena
+  rodillo a rodillo» pavonada y «Tapa con rodamiento 6201» pintada. Un material declarado manda
+  (el `RODILLO-50` del catálogo es «acero zincado» → zincado; un tambor engomado → caucho).
+- **`pintable` es atributo del acabado** (viaja en `acabados.json`): acero pintado, caucho, PVC
+  de banda, madera (teñida) y cartón (impreso). Sólo en ellos el color asignado define el albedo;
+  en los metales (mecanizado, pavonado, galvanizado, zincado, inox, cromado, aluminio, hierro
+  fundido, bronce, latón, niquelado) y en el vidrio manda el albedo de la tabla. El color asignado
+  NO se borra del manifest: sólo deja de pintar. Las muestras del árbol, Propiedades y la ficha
+  ya leían `albedo`, así que muestran el color efectivo sin tocar la UI.
+- Piloto antes → después (acabado, albedo): tubo del rodillo `acero_pintado #c3c9d1` →
+  `galvanizado #b4bac0`; piñones `acero_mecanizado #b07d2b` → `#a3a8ae`; ejes y bujes
+  `#8d949e` → `#a3a8ae`; cadenas `#4b5058` → `#3b3e43`; tuercas zincadas `#8d949e` →
+  `#c8cdd2`. Bastidor `#2b5c9e`, motorreductor `#2f7d5b`, guardas `#f2c200` y tapas `#3b4047`
+  (acero pintado) siguen con su color.
+- Pendiente (fuera de este fix): elegir un color en Propiedades para una pieza metálica guarda el
+  color pero no cambia nada a la vista; falta decirlo en la ficha. `publicacion/vista3d.py`
+  (GLB de la tienda) todavía no lee la tabla (su enganche D6).

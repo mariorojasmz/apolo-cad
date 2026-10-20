@@ -19,7 +19,8 @@
         "tipo": "pintura",
         "escala_mm": 6.0,
         "intensidad": 0.25
-      }
+      },
+      "pintable": true
     },
     "acero_mecanizado": {
       "nombre": "Acero mecanizado",
@@ -31,7 +32,8 @@
         "tipo": "cepillado",
         "escala_mm": 40.0,
         "intensidad": 0.2
-      }
+      },
+      "pintable": false
     },
     "pavonado": {
       "nombre": "Acero pavonado",
@@ -39,7 +41,8 @@
       "metalness": 0.85,
       "roughness": 0.45,
       "opacidad": 1.0,
-      "relieve": null
+      "relieve": null,
+      "pintable": false
     },
     "galvanizado": {
       "nombre": "Acero galvanizado",
@@ -51,7 +54,8 @@
         "tipo": "moteado",
         "escala_mm": 25.0,
         "intensidad": 0.35
-      }
+      },
+      "pintable": false
     },
     "zincado": {
       "nombre": "Acero zincado",
@@ -59,7 +63,8 @@
       "metalness": 0.95,
       "roughness": 0.3,
       "opacidad": 1.0,
-      "relieve": null
+      "relieve": null,
+      "pintable": false
     },
     "inox_cepillado": {
       "nombre": "Acero inoxidable cepillado",
@@ -71,7 +76,8 @@
         "tipo": "cepillado",
         "escala_mm": 30.0,
         "intensidad": 0.45
-      }
+      },
+      "pintable": false
     },
     "cromado": {
       "nombre": "Acero al cromo",
@@ -79,7 +85,8 @@
       "metalness": 1.0,
       "roughness": 0.1,
       "opacidad": 1.0,
-      "relieve": null
+      "relieve": null,
+      "pintable": false
     },
     "aluminio": {
       "nombre": "Aluminio",
@@ -91,7 +98,8 @@
         "tipo": "cepillado",
         "escala_mm": 50.0,
         "intensidad": 0.2
-      }
+      },
+      "pintable": false
     },
     "hierro_fundido": {
       "nombre": "Hierro fundido",
@@ -103,7 +111,8 @@
         "tipo": "fundicion",
         "escala_mm": 8.0,
         "intensidad": 0.5
-      }
+      },
+      "pintable": false
     },
     "bronce": {
       "nombre": "Bronce",
@@ -111,7 +120,8 @@
       "metalness": 1.0,
       "roughness": 0.35,
       "opacidad": 1.0,
-      "relieve": null
+      "relieve": null,
+      "pintable": false
     },
     "laton": {
       "nombre": "Latón",
@@ -119,7 +129,8 @@
       "metalness": 1.0,
       "roughness": 0.3,
       "opacidad": 1.0,
-      "relieve": null
+      "relieve": null,
+      "pintable": false
     },
     "niquelado": {
       "nombre": "Níquel satinado",
@@ -127,7 +138,8 @@
       "metalness": 1.0,
       "roughness": 0.42,
       "opacidad": 1.0,
-      "relieve": null
+      "relieve": null,
+      "pintable": false
     },
     "caucho": {
       "nombre": "Caucho",
@@ -139,7 +151,8 @@
         "tipo": "pintura",
         "escala_mm": 3.0,
         "intensidad": 0.3
-      }
+      },
+      "pintable": true
     },
     "pvc_banda": {
       "nombre": "PVC de banda",
@@ -151,7 +164,8 @@
         "tipo": "tejido",
         "escala_mm": 4.0,
         "intensidad": 0.35
-      }
+      },
+      "pintable": true
     },
     "madera": {
       "nombre": "Madera",
@@ -163,7 +177,8 @@
         "tipo": "veta",
         "escala_mm": 60.0,
         "intensidad": 0.4
-      }
+      },
+      "pintable": true
     },
     "vidrio": {
       "nombre": "Vidrio",
@@ -171,7 +186,8 @@
       "metalness": 0.0,
       "roughness": 0.06,
       "opacidad": 0.34,
-      "relieve": null
+      "relieve": null,
+      "pintable": false
     },
     "carton": {
       "nombre": "Cartón",
@@ -183,7 +199,8 @@
         "tipo": "tejido",
         "escala_mm": 2.0,
         "intensidad": 0.15
-      }
+      },
+      "pintable": true
     }
   }
 }

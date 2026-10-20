@@ -124,6 +124,33 @@ def test_acabado_por_material_rol_y_catalogo(material, nombre, ref, categoria, e
     assert acabado_de(material, nombre, componente=ref, categoria=categoria) == esperado
 
 
+# Nombres REALES del piloto (proyecto 74, faja de rodillos motorizados por cadena) y de la faja
+# 38: el tubo del rodillo era «acero pintado» y se veía de plástico blanco.
+@pytest.mark.parametrize("nombre, ref, categoria, esperado", [
+    ("Tubo del rodillo", "TUBOR-2", "tubos_circulares", "galvanizado"),
+    ("Tubo del rodillo (7)", "TUBOR-2", "tubos_circulares", "galvanizado"),
+    ("Rodillo motriz", None, None, "galvanizado"),
+    ("Faja de banda · Rodillo de retorno (3)", None, None, "galvanizado"),
+    ("Tambor motriz", None, None, "galvanizado"),
+    ("Tambor Ø100", "TAMBOR-100", "tambores", "galvanizado"),
+    ("Eje del rodillo", None, None, "acero_mecanizado"),
+    ("Eje del rodillo (12)", None, None, "acero_mecanizado"),
+    ("Tapa con rodamiento 6201 (+Y)", None, None, "acero_pintado"),
+    ("Tapa con rodamiento", None, None, "acero_pintado"),
+    ("Cadena rodillo a rodillo", "CADENA-ASA40-1", "transmision", "pavonado"),
+    ("Soporte del rodillo", None, None, "acero_pintado"),
+    ("Tubo del bastidor", None, None, "acero_pintado"),
+])
+def test_rodillo_y_tambor_de_acero_son_galvanizados(nombre, ref, categoria, esperado):
+    assert acabado_de("acero", nombre, componente=ref, categoria=categoria) == esperado
+
+
+def test_un_acabado_declarado_gana_al_rol_del_rodillo():
+    assert acabado_de("acero zincado", "Rodillo Ø50", categoria="rodillos") == "zincado"
+    assert acabado_de("acero inoxidable", "Tubo del rodillo") == "inox_cepillado"
+    assert acabado_de("caucho", "Tambor motriz engomado") == "caucho"
+
+
 # ── color (albedo) ────────────────────────────────────────────────────────────────────────
 
 
@@ -133,6 +160,45 @@ def test_color_asignado_gana_luego_el_propio_y_al_final_la_paleta():
     assert apariencia("acero_pintado", PALETTE[3])["color"] == PALETTE[3]
     desconocido = apariencia("kriptonita", PALETTE[1])
     assert desconocido["acabado"] == POR_DEFECTO and desconocido["color"] == PALETTE[1]
+
+
+#: Lo que se puede pintar o teñir; el resto es metal (o vidrio) y se ve como es.
+PINTABLES = {"acero_pintado", "caucho", "pvc_banda", "madera", "carton"}
+
+
+def test_pintable_es_atributo_de_la_tabla():
+    assert {k for k, a in ACABADOS.items() if a.pintable} == PINTABLES
+    assert all(a.color is not None for k, a in ACABADOS.items() if k != POR_DEFECTO)
+
+
+@pytest.mark.parametrize("clave", sorted(set(ACABADOS) - PINTABLES))
+def test_en_un_metal_el_color_asignado_no_pinta(clave):
+    ap = apariencia(clave, "#b07d2b", asignado=True)        # el dorado del piloto
+    assert ap["color"] == ACABADOS[clave].color
+
+
+@pytest.mark.parametrize("clave", sorted(PINTABLES))
+def test_en_un_acabado_pintable_el_color_asignado_manda(clave):
+    assert apariencia(clave, "#2b5c9e", asignado=True)["color"] == "#2b5c9e"
+
+
+def test_el_color_asignado_sigue_en_el_manifest_aunque_no_pinte():
+    """Piloto 74: piñón mecanizado coloreado de dorado y bastidor pintado de azul."""
+    doc = Document("colores")
+    doc.execute_many([
+        {"type": "create_cylinder", "params": {"name": "Piñón motriz", "radius": 30,
+                                               "height": 10}},
+        {"type": "create_box", "params": {"name": "Larguero", "width": 400, "depth": 40,
+                                          "height": 40, "position": {"z": 100}}},
+    ])
+    pinon, larguero = list(doc.scene)
+    doc.set_color(pinon, "#b07d2b")
+    doc.set_color(larguero, "#2b5c9e")
+    aps = apariencias_documento(doc)
+    assert aps[pinon]["acabado"] == "acero_mecanizado"
+    assert aps[pinon]["color"] == ACABADOS["acero_mecanizado"].color
+    assert aps[larguero]["color"] == "#2b5c9e"
+    assert doc.colors[pinon] == "#b07d2b"                   # no se borra: sólo no pinta
 
 
 def _doc():
@@ -154,12 +220,12 @@ def test_apariencias_de_un_documento():
     doc = _doc()
     fids = list(doc.scene)
     doc.set_material(fids[0], "acero inoxidable")
-    doc.set_color(fids[2], "#123456")
+    doc.set_color(fids[1], "#123456")
     aps = apariencias_documento(doc)
     assert [aps[f]["acabado"] for f in fids] == ["inox_cepillado", "pvc_banda",
                                                  "acero_mecanizado", "vidrio"]
     assert aps[fids[0]]["color"] == ACABADOS["inox_cepillado"].color
-    assert aps[fids[2]]["color"] == "#123456"                  # asignado por el usuario
+    assert aps[fids[1]]["color"] == "#123456"         # asignado por el usuario (PVC: pintable)
     assert aps[fids[3]]["opacidad"] < 1.0
     sin_nombre = SimpleNamespace(id="x", name="Pieza", component=None, material=None)
     assert apariencias_escena({"x": sin_nombre}, default_material="madera")["x"]["acabado"] \
