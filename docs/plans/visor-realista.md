@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1 en main (2026-10-19): tabla única de acabados para el visor y VTK, sin el piso con sombra de contacto (necesita partir `Viewport.tsx`, en su tope); faltan F0, el piso, F2–F5 y verlo en el navegador
+nota: F1 en main (2026-10-19): tabla única de acabados (rodillo galvanizado; el color manual sólo pinta lo pintable) y el piso con sombra ([piso-con-sombra](piso-con-sombra.md)); faltan F0 y F2–F5
 descripcion: Prendes la máquina y la ves andar en 3D como en la realidad: rodillos y tambores girando por su motor, la faja con su forma real corriendo, las cadenas eslabón por eslabón y las cajas viajando con física
 ---
 

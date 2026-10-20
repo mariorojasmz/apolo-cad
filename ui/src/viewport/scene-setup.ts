@@ -64,7 +64,34 @@ export function createGround(scene: THREE.Scene): THREE.Mesh {
   ground.raycast = () => undefined;
   ground.renderOrder = -1;
   scene.add(ground);
+  const estudio = crearPisoEstudio();
+  scene.add(estudio);
+  ground.userData.estudio = estudio; // lo coloca updateGround junto con el suelo
   return ground;
+}
+
+/** Piso de ESTUDIO (plan piso-con-sombra, calibración de F3): un disco apenas más claro que el
+   fondo bajo la máquina, que se desvanece hacia el borde. Sobre el fondo casi negro la sombra de
+   contacto (negra) no tenía contra qué verse; sobre este gris medio, la máquina se lee apoyada. */
+export const PISO_ESTUDIO_COLOR = 0x4a515c;
+/** Radio del disco como múltiplo de la mitad del lado mayor de la máquina en planta. */
+export const PISO_ESTUDIO_RADIO = 1.6;
+
+export function crearPisoEstudio(): THREE.Mesh {
+  const material = new THREE.ShaderMaterial({
+    uniforms: { color: { value: new THREE.Color(PISO_ESTUDIO_COLOR) } },
+    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    // opaco al centro y transparente en el borde (caída suave: no se ve el contorno del disco)
+    fragmentShader: "uniform vec3 color; varying vec2 vUv; void main(){ float r = length(vUv - 0.5) * 2.0; float a = 1.0 - smoothstep(0.15, 1.0, r); gl_FragColor = vec4(color, a * 0.9); }",
+    transparent: true,
+    depthWrite: false,
+  });
+  const disco = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+  disco.raycast = () => undefined;
+  disco.castShadow = false;
+  disco.receiveShadow = false;
+  disco.renderOrder = -2; // primero el piso, encima la sombra direccional y la de contacto
+  return disco;
 }
 
 /* Reposiciona el suelo bajo el bbox del modelo (en coordenadas de mundo) y
@@ -79,6 +106,12 @@ export function updateGround(ground: THREE.Mesh, dir: THREE.DirectionalLight, bo
   const planeSize = Math.max(size.x, size.y) * 3 + 400;
   ground.scale.set(planeSize, planeSize, 1);
   ground.position.set(center.x, center.y, box.min.z - 0.5);
+  const estudio = ground.userData.estudio as THREE.Mesh | undefined;
+  if (estudio) {
+    const d = Math.max(size.x, size.y) * PISO_ESTUDIO_RADIO + 400;
+    estudio.scale.set(d, d, 1);
+    estudio.position.set(center.x, center.y, box.min.z - 1);
+  }
 
   // luz a offset fijo del centro -> iluminación consistente sin importar dónde
   // esté el modelo; frustum de sombra ortográfico dimensionado al bbox.

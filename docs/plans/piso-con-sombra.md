@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato aprobado (Mario, 2026-10-19: «escribe el plan y lánzalo»); faltan F0–F2 (un subagente) y F3 (verificación en el navegador)
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: F0–F3 en main (2026-10-19): Viewport.tsx 1631 → 429 líneas, sombra de contacto sobre un piso de estudio; falta mirarla de cerca en el piloto (74), no bloquea
 descripcion: La máquina se apoya en el piso con una sombra de contacto suave en el visor, y el visor queda partido en módulos que se pueden seguir mejorando
 ---
 
@@ -260,3 +260,20 @@ Decisiones y diferencias (ninguna cambia el comportamiento):
   de Mario): el aspecto, el costo en la 73 y el 74 y la calibración son F3.
 - `ui/CLAUDE.md` § Viewport: una línea con el reparto de módulos y la trampa de la sombra (algo
   nuevo que mueva mallas tiene que marcarla sucia).
+
+### F3 (2026-10-19): verificación en el navegador y piso de estudio
+
+UI servida por la API en :8000, faja en chapa C (proyecto 73, 117 piezas).
+- **D3 se cumple**: `window.__apolo.sombraRecalculos()` = 3 al cargar y no sube en reposo ni al
+  girar o acercar la cámara.
+- **Hallazgo**: la sombra funcionaba pero casi no se veía. Es negra y el fondo del visor es casi
+  negro (`#1b1e24`): sin un piso visible no hay contra qué leerla. Diagnóstico equivocado del
+  plan: suponía que el problema era la sombra desplazada; era la falta de piso.
+- **Piso de estudio** (`scene-setup.ts::crearPisoEstudio`): disco `#4a515c` bajo la máquina,
+  radio 1,6 × la mitad del lado mayor + 400 mm, opaco al centro y desvanecido al borde
+  (`smoothstep`), `renderOrder -2`. Lo coloca `updateGround` con el suelo.
+- **Grilla**: sobre el disco claro, sus líneas oscuras (`0x2c313b`) dejaban un parche negro. Ahora
+  son claras semitransparentes (`0xb4bccb`, opacidad 0,06, sin escribir profundidad): con 0,14 se
+  veía demasiado.
+- Constantes de la sombra sin cambios (`OPACIDAD_CONTACTO 0.7`, `RADIO_BLUR 3.5`). Falta mirarla de
+  cerca en el piloto (74) con la cadena y los rodillos; no bloquea.

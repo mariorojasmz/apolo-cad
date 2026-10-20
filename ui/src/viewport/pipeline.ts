@@ -63,8 +63,14 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   const disposeEnv = setupEnvironment(renderer, scene);
   const viewCube = createViewCube();
 
-  const grid = new THREE.GridHelper(4000, 80, 0x4a5160, 0x2c313b);
+  // líneas CLARAS semitransparentes: se leen igual de suaves sobre el fondo y sobre el piso de
+  // estudio (con líneas oscuras, el disco claro dejaba un parche de grilla negra)
+  const grid = new THREE.GridHelper(4000, 80, 0xb4bccb, 0xb4bccb);
   grid.rotation.x = Math.PI / 2;
+  const gridMat = grid.material as THREE.LineBasicMaterial;
+  gridMat.transparent = true;
+  gridMat.opacity = 0.06;
+  gridMat.depthWrite = false;
   scene.add(grid);
   scene.add(new THREE.AxesHelper(220));
 
