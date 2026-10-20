@@ -19,6 +19,7 @@ import { applyKinematicPoses, attachGizmo, sectionPlanes } from "./poses";
 import { sincronizarMallas, type MallaConstruida } from "./mallas";
 import { objetoMedida } from "./medicion";
 import { crearTinteBloqueo } from "./tinteBloqueo";
+import { crearSombraContacto } from "./sombraContacto";
 import type { CtxInteraccion, VistaCtx } from "./interaccion/ctx";
 import { aplicarVcb, instalarGizmo } from "./interaccion/gizmo";
 import { instalarSeleccion } from "./interaccion/seleccion";
@@ -101,7 +102,8 @@ export default function Viewport() {
     const { scene, camera, controls, gizmo, renderer, group, meshes, dir, ground } = pipe;
     const handlesGroup = new THREE.Group(); // tiradores de la caja seleccionada (F4B)
     scene.add(handlesGroup);
-    const ctx: VistaCtx = { scene, camera, controls, gizmo, renderer, group, meshes, dir, ground, handles: handlesGroup };
+    const sombra = crearSombraContacto(renderer, scene, group, ground); // la máquina se apoya en el piso
+    const ctx: VistaCtx = { scene, camera, controls, gizmo, renderer, group, meshes, dir, ground, handles: handlesGroup, sombra };
     ctxRef.current = ctx;
     // ctx fresco → resetea el diff de mallas (V6.2b): builtRef apuntaba al group anterior
     builtRef.current.clear();
@@ -112,6 +114,7 @@ export default function Viewport() {
     (window as unknown as { __apolo?: unknown }).__apolo = {
       meshIds: () => [...ctx.meshes].map(([id, m]) => [id, m.uuid]),
       builds: () => buildCountRef.current,
+      sombraRecalculos: () => sombra.recalculos(), // en reposo no sube (piso-con-sombra, D3)
       store: useStore,
     };
     const ci: CtxInteraccion = {
@@ -126,6 +129,9 @@ export default function Viewport() {
     pipe.antesDeComponer(crearTinteBloqueo(ctx.meshes, blockedRef)); // rojizo SÓLO con guardado fallido
     // tamaño constante de los cuadritos + altura sigue la cámara
     pipe.antesDeComponer(() => actualizarTiradores(ctx.handles, camera, renderer.domElement, ci.ocultarTiradores.current));
+    // sombra de contacto: sólo si quedó sucia; mientras algo se arrastra o cae, ≤ 10 Hz
+    pipe.antesDeComponer(() => sombra.actualizar(performance.now(),
+      isDraggingObjRef.current || isGizmoDraggingRef.current || useStore.getState().gravityPlaying));
     pipe.arrancar();
 
     limpiezas.push(instalarSeleccion(ci), instalarManipulacion(ci), instalarErgonomia(ci));
@@ -141,6 +147,7 @@ export default function Viewport() {
         scene.remove(productsGroupRef.current);
         productsGroupRef.current = null;
       }
+      sombra.dispose();
       pipe.dispose();
       ctxRef.current = null;
     };
@@ -153,6 +160,7 @@ export default function Viewport() {
     ctx.gizmo.detach();
     const planes = sectionPlanes(sectionAxis, sectionPos, features);
     sincronizarMallas(ctx, { builtRef, sharedRef, buildKeyRef, buildCountRef }, features, definitions, shading, planes, catalog);
+    ctx.sombra.fijarPlanos(planes); // mallas, visibilidad o sección cambiaron → sombra sucia
     applyKinematicPoses(ctx.meshes, kinJoints, jointValues);
     attachGizmo(ctx, selection, gizmoMode, jointValues);
     updateGround(ctx.ground, ctx.dir, new THREE.Box3().setFromObject(ctx.group));
@@ -170,6 +178,7 @@ export default function Viewport() {
     const ctx = ctxRef.current;
     if (!ctx) return;
     applyKinematicPoses(ctx.meshes, kinJoints, jointValues);
+    ctx.sombra.marcarSucia();
     attachGizmo(ctx, selection, gizmoMode, jointValues);
     updateGround(ctx.ground, ctx.dir, new THREE.Box3().setFromObject(ctx.group));
   }, [kinJoints, jointValues]);
@@ -194,6 +203,7 @@ export default function Viewport() {
   useEffect(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
+    ctx.sombra.marcarSucia();
     dropAnimRef.current = null;
     if (productsGroupRef.current) {
       disposeProducts(productsGroupRef.current);
@@ -227,6 +237,7 @@ export default function Viewport() {
   useEffect(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
+    ctx.sombra.marcarSucia(); // la caída mueve las mallas reales (mientras corre, la marca el bucle)
     gravityAnimRef.current = null;
     gravityRestoreRef.current?.(); // restaura las mallas del animador anterior
     gravityRestoreRef.current = null;

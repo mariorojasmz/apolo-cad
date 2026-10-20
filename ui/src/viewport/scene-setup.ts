@@ -46,13 +46,18 @@ export function createLights(scene: THREE.Scene): LightRig {
   return { hemi, dir };
 }
 
+/** Opacidad de la sombra DIRECCIONAL en el suelo. Baja (antes 0,25) para que bajo las patas
+   mande la sombra de contacto (`sombraContacto.ts`, plan piso-con-sombra D4); la direccional
+   queda para la sombra propia. Calibrar a ojo en F3. */
+export const OPACIDAD_SOMBRA_DIRECCIONAL = 0.15;
+
 export function createGround(scene: THREE.Scene): THREE.Mesh {
   // Plano XY (Z es arriba) que SOLO muestra la sombra (ShadowMaterial), sin
   // tapar el grid ni el fondo. Fuera del grupo => no entra en el raycast de
   // selección ni recibe clippingPlanes (no se corta con la sección).
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1),
-    new THREE.ShadowMaterial({ opacity: 0.25 }),
+    new THREE.ShadowMaterial({ opacity: OPACIDAD_SOMBRA_DIRECCIONAL }),
   );
   ground.receiveShadow = true;
   ground.castShadow = false;

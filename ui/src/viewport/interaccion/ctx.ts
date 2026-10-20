@@ -5,6 +5,7 @@ import type { TransformControls } from "three/examples/jsm/controls/TransformCon
 import type { FeatureOut } from "../../types";
 import type { Vcb } from "../EstadoViewport";
 import type { ViewCube } from "../viewcube";
+import type { SombraContacto } from "../sombraContacto";
 
 /* Contextos del visor (plan piso-con-sombra, D1). Cada módulo de interacción es una función
    `instalarX(ctx) → limpieza` que recibe TODO lo que usa por aquí: nada de cierres sobre
@@ -22,6 +23,7 @@ export interface VistaCtx {
   dir: THREE.DirectionalLight;
   ground: THREE.Mesh;
   handles: THREE.Group; // tiradores de cara/Z de la caja seleccionada (F4B)
+  sombra: SombraContacto; // sombra de contacto: los efectos la marcan sucia
 }
 
 /** El `Ctx` explícito de `interaccion/`: la vista más los refs y callbacks del componente. */

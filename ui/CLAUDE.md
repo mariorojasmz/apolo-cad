@@ -149,7 +149,7 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   sirve la API en :8000. `npm run dev` + StrictMode remonta el viewport y lo rompe: usar
   `vite preview` (`ui-preview`). Gates: `npm test` (vitest) y `npm run build` (tsc + vite).
 - El screenshot automatizado del viewport se agota por el rAF continuo: verificar por DOM o por el
-  hook `window.__apolo` (`meshIds`, `builds`, `store`). El rAF se PAUSA en una pestaña de fondo
+  hook `window.__apolo` (`meshIds`, `builds`, `sombraRecalculos`, `store`). El rAF se PAUSA en una pestaña de fondo
   (lo que fija el animate loop, como `g.visible`, queda viejo) y un `await requestAnimationFrame`
   desde la tool de JavaScript del navegador cuelga: para la lógica del overlay, leer estado
   expuesto a `window` (`ctx.handles.children`, params), no la visibilidad.
@@ -216,6 +216,11 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   tonemapea al renderizar a un RT), y `samples` conserva el MSAA. Las mallas seleccionadas se
   recolectan cada frame desde `selectionRef` (robusto a reconstrucciones). El ViewCube se dibuja
   tras `composer.render()` (`autoClear=false`).
+- `Viewport.tsx` orquesta; el render y el bucle viven en `pipeline.ts` (tareas por frame con
+  `antesDeComponer`) y la interacción en `interaccion/` (`instalarX(ctx) → limpieza`, `Ctx`
+  explícito en `interaccion/ctx.ts`). La sombra de contacto (`sombraContacto.ts`) NO se calcula
+  por frame: algo nuevo que mueva mallas fuera de un arrastre o de la gravedad la marca con
+  `ctx.sombra.marcarSucia()`, o la sombra queda vieja. [piso-con-sombra](../docs/plans/piso-con-sombra.md)
 - Fondo: `OutputPass` tonemapea también el color de limpiado → el canvas es TRANSPARENTE
   (`alpha: true`, clear alpha 0) y el fondo lo pinta el `<div>` por CSS. `BACKGROUND` /
   `BACKGROUND_CSS` (`scene-setup.ts`) son la fuente única.

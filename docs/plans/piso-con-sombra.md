@@ -215,3 +215,48 @@ Decisiones y diferencias (ninguna cambia el comportamiento):
   `gizmoRot.test.ts` (7: anclaje de las flechas según la cámara, eje del arco, overlay de una
   pieza no-caja, escala constante de los tiradores). La caja con tiradores de estirón usa
   `<canvas>` y no corre en node: queda para F3. vitest 208 → 223, `npm run build` verde.
+
+### F2 (2026-10-19)
+
+`ui/src/viewport/sombraContacto.ts` (266 líneas), con la técnica de `webgl_shadow_contact` y sólo
+`three` (sin dependencias nuevas). `Viewport.tsx` queda en 429 líneas.
+
+- **D2.** Cámara ortográfica EN el plano mirando hacia +Z (`rotation.x = π`: derecha = +X,
+  arriba de la imagen = −Y → la geometría del plano lleva la V invertida; un test proyecta las
+  esquinas y comprueba que el UV coincide). Profundidad a un RT de 512², blur H+V dos veces (radio
+  y 0,4 · radio) con un `FullScreenQuad`, y un `MeshBasicMaterial` negro con esa textura en un plano
+  en `min.z − 0,25 mm` del bbox de `group` (el suelo direccional queda en `min.z − 0,5`).
+  Encuadre CUADRADO (lado mayor + margen) para que el desenfoque sea igual en X que en Y.
+  Diferencias con el ejemplo: el material de profundidad lleva test de profundidad (bajo una
+  pata gana lo más cercano al piso, no lo último dibujado) y `DoubleSide` (chapas y superficies
+  abiertas). El pase dibuja sólo `group` y las luces: oculta el resto de la escena (grid, suelo,
+  gizmo, overlays, cajas del drop-test y el propio plano) y restaura visibilidad, fondo, color de
+  limpiado, render target y `shadowMap.autoUpdate` (apagado durante el pase para no rehacer el
+  mapa de la luz). Las luces no se apagan: cambiaría el estado de luces de todos los materiales.
+- **Constantes** (calibrar en F3): `OPACIDAD_CONTACTO = 0.7`, `OSCURIDAD = 1`, `RADIO_BLUR = 3.5`,
+  `MARGEN_FRACCION = 0.15` / `MARGEN_MIN_MM = 150`, `ALCANCE_FRACCION = 0.5` / `ALCANCE_MIN_MM = 100`
+  (hasta qué altura «ve» la sombra: la mitad del alto de la máquina), `INTERVALO_MIN_MS = 100`.
+- **D3.** `crearProgramador`: nace sucia; `toca(ahora, continuo)` da `true` si está sucia o hay
+  algo continuo, nunca dos veces en menos de 100 ms (lo pedido en el hueco queda PENDIENTE, no se
+  pierde) y hace una pasada final al terminar lo continuo. **Qué la marca sucia**: el efecto de
+  mallas (`fijarPlanos(planes)`: reconstrucción, visibilidad, shading, sección), el de pose
+  cinemática, el de física (drop-test) y el de gravedad. **Continuo** (≤ 10 Hz): arrastre directo
+  (`isDraggingObjRef`), gizmo (`isGizmoDraggingRef`) y la caída por gravedad corriendo
+  (`gravityPlaying`). El slider de juntas marca en cada cambio y el tope de 100 ms lo deja en
+  10 Hz. En reposo la tarea es una comparación por frame.
+- **D4.** `scene-setup.ts::OPACIDAD_SOMBRA_DIRECCIONAL = 0.15` (antes 0,25 a pelo).
+- **D5.** Sin control nuevo. `plano.visible = calculada && ground.visible`; el plano mira hacia
+  +Z, así que desde abajo no se ve. Decisión propia: el suelo NO se oculta hoy con la sección
+  (el plan lo suponía), así que con sección activa la sombra sigue, pero de lo que se ve: el
+  material de profundidad usa los mismos planos de corte (`fijarPlanos`).
+- **Enganche.** Una tarea más de `pipe.antesDeComponer`, la última (después de animadores, tinte
+  y tiradores): las mallas ya están en su pose del frame. `ctx.sombra` está en `VistaCtx`
+  (los efectos la marcan); `window.__apolo.sombraRecalculos()` cuenta los recálculos para F3.
+- Tests: `sombraContacto.test.ts` (13: encuadre y alcance, cámara mirando hacia arriba,
+  frustum, UV ↔ proyección, programador en reposo / pendiente / 10 Hz / pasada final, y con un
+  renderer falso: no recalcula en reposo, sí tras `fijarPlanos` o `marcarSucia`, qué está visible
+  al dibujar la profundidad y que todo se restaura, plano en el `min.z`, oculto con el suelo y sin
+  piezas). vitest 223 → 236, `npm run build` verde. No se miró en un navegador (la API de :8000 es
+  de Mario): el aspecto, el costo en la 73 y el 74 y la calibración son F3.
+- `ui/CLAUDE.md` § Viewport: una línea con el reparto de módulos y la trampa de la sombra (algo
+  nuevo que mueva mallas tiene que marcarla sucia).
