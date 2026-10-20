@@ -54,7 +54,6 @@ from .models import (
     FilletParams,
     GroundParams,
     ImportStepParams,
-    InsertComponentParams,
     InsertProjectParams,
     JoinBoltedParams,
     MirrorParams,
@@ -78,7 +77,9 @@ from .models import (
 from .models_rodillos import CreateDriveRollerParams, CreateTakeUpParams
 from .models_transmision import CreateChainParams
 from .models_uniones import FastenParams
+from .exec_componente import _exec_insert_component
 from .exec_rodillos import _exec_create_drive_roller, _exec_create_take_up
+from .models_componente import InsertComponentParams
 from .exec_transmision import _exec_create_chain
 from .exec_uniones import _exec_fasten
 from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
@@ -1729,27 +1730,6 @@ def _exec_run_script(ctx: ExecContext, cmd_id: str, p: RunScriptParams) -> None:
     ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
 
 
-def _exec_insert_component(ctx: ExecContext, cmd_id: str, p: InsertComponentParams) -> None:
-    from apolo.library.catalog import CATALOG, build_component, component_anchors
-
-    comp = CATALOG[p.component]
-    try:
-        base, cut = build_component(p.component, p.length)
-    except ValueError as exc:
-        raise CommandError(str(exc)) from exc
-    key = f"comp|{p.component}|{cut if cut is not None else 'std'}"
-    _instanced(
-        ctx.scene, cmd_id, p.name or comp.name, base, key,
-        p.position.tuple(), p.rotation.tuple(), component=p.component, cut_length=cut,
-    )
-    # anclas de conexión con nombre (V6.3b): frame LOCAL del builder → mundo por la pose
-    local = component_anchors(comp)
-    feat = ctx.scene[cmd_id]
-    if local and feat.matrix is not None:
-        from apolo.kernel.matrix import transform_anchors
-        feat.anchors = transform_anchors(feat.matrix, local)
-
-
 _ANCHOR_FNS = {
     "centro": lambda bb, c: c,
     "base": lambda bb, c: (c[0], c[1], bb.min.Z),
@@ -2012,7 +1992,8 @@ REGISTRY: dict[str, CommandSpec] = {
         ),
         CommandSpec("import_step", "Importar STEP", "crear", ImportStepParams, _exec_import_step),
         CommandSpec(
-            "insert_component", "Componente", "biblioteca", InsertComponentParams, _exec_insert_component
+            "insert_component", "Componente", "biblioteca", InsertComponentParams,
+            _exec_insert_component, version=2,  # v2: anclas de perfil abierto (exec_componente)
         ),
         CommandSpec(
             "insert_project", "Insertar proyecto", "biblioteca", InsertProjectParams,

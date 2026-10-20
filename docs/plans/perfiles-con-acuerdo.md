@@ -107,3 +107,45 @@ asiento sobre el acuerdo del perfil».
   canto inferior, perfil girado, roscado, ciego, tuerca coaxial (26 mm: sin tuerca pasa, con
   tuerca M12 → mínimo 27.4), herraje lejano, IPE, ángulo (talón y punta, y clip corto), tubo
   cerrado y placa → nunca, y AMARILLO en `delivery_report`.
+
+### F3 (2026-10-19)
+
+- **D4** en `library/perfiles_abiertos.py` (`loader.ANCLAS` de `channel`, `i_beam`, `angle`).
+  Toda ancla de CARA lleva el origen sobre la cara y el eje = su normal saliente (lo que espera
+  un mate `coincidente`). U: `cara_alma_interior` (eje hacia la abertura), `dorso_alma`; I:
+  `cara_alma_interior` (+x local), `cara_alma_opuesta`; U/I: `zona_plana` (centro de la zona
+  plana = centro de la cara interior, por simetría) y sus LÍMITES `zona_plana_1`/`_2` (a `s`
+  de cada canto, eje a lo largo de h hacia el centro: un asiento de radio ρ cabe si queda a
+  ≥ ρ de ambos). L: `talon` (eje = el largo), `cara_ala_1`/`_2` (normal interior) y
+  `zona_plana_ala_1`/`_2` (centro de [t + r1, leg − r2]). Las zonas planas dependen de
+  r1/pendiente (specs, no params del builder): el loader pasa `specs` a la función de anclas
+  que lo declara. `Component.familia` guarda el nombre del builder.
+- **D3**: `insert_component.orientacion` (`OrientacionPerfil`, default None = la `rotation`
+  de siempre): U `{largo, abre_hacia}`, I `{largo, canto}`, L `{alas: [ala_1, ala_2]}`
+  (`largo` opcional, se comprueba), con direcciones `±x/±y/±z`. Excluye una `rotation` ≠ 0
+  (validador del modelo); sólo giros rectos (inclinar = `transform`/`snap_to` después).
+  `abre_hacia` = eje del ancla `cara_alma_interior`; el ala 1 sale hacia la normal de
+  `cara_ala_2`. Errores con el porqué (familia sin orientación, claves que faltan o sobran,
+  ejes no perpendiculares). `InsertComponentParams` salió a `commands/models_componente.py`
+  (re-export PEREZOSO desde `models.py`: aquel importa `Vec3`/`Rot3`) y el executor a
+  `commands/exec_componente.py`: `models.py` y `registry.py` bajan de tamaño.
+- **Versión**: `insert_component` → **v2**. La geometría no cambia (con la orientación por
+  defecto la matriz es la de siempre: test), pero la Feature sí (anclas nuevas) y la caché de
+  geometría guarda Features: sin subirla, un open caliente servía perfiles SIN anclas (el
+  motivo del epoch v3 cuando nacieron las anclas). Acotado a los proyectos con componentes
+  (y `insert_project`, compuesto); sin bump de epoch.
+- **Lint de asiento por anclas**: el marco sale primero de las anclas (sobreviven al taladro,
+  que borra `Feature.matrix`, y viajan con todo lo que mueve la pieza) y se valida contra la
+  pieza (ancho de zona plana = h − 2s, ejes perpendiculares, centro dentro del bbox); si
+  faltan o no casan (copia por `mirror_feature`, que no propaga anclas) cae al bbox de F2.
+  Gana: un recorte de UPN-100 de 100 mm (cotas ambiguas, F2 lo saltaba) y un larguero
+  inclinado (taladros oblicuos; ahí el radio del herraje coaxial no sale del bbox y vale el
+  del agujero). `asiento_zona_plana_lint(bbox=True)` fuerza el camino de F2: los tests
+  comparan ambos.
+- `tests/test_perfiles_orientacion.py` (63): anclas de las tres familias, supervivencia al
+  taladro y al `transform`, mate `coincidente` contra `zona_plana`, las 12 orientaciones de la
+  U, las 6 de la I y las 24 del L, orientación ≡ su euler, default = la pose de siempre (y
+  reabre igual), errores, y anclas = bbox en pose recta.
+- **Piloto** (revisión 124, sólo lectura): 40 avisos por anclas y 40 por bbox; los dos
+  largueros UPN-100 (`c9`, `c10`, taladrados → sin matrix) publican las cinco anclas, con la
+  zona plana del alma en z ∈ [662.87, 727.13] (eje del larguero a 695: s = 17.87).

@@ -11,6 +11,7 @@ tests y el agente se ejecutan desde directorios distintos.
 from __future__ import annotations
 
 import glob
+import inspect
 import math
 import os
 
@@ -23,6 +24,7 @@ from .builders_transmision import ANCLAS as _ANCLAS_TRANSMISION
 from .builders_transmision import BUILDERS as _BUILDERS_TRANSMISION
 from .electrico.ficha import fusionar as _fusionar_electrico
 from .electrico.ficha import parse_ficha
+from .perfiles_abiertos import ANCLAS as _ANCLAS_PERFILES
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -52,7 +54,16 @@ def merge_anclas(builders: dict, *registros: dict) -> dict:
 
 
 BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION)
-ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION)
+ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES)
+
+
+def _anclas_de(fn, params: dict, specs: dict) -> dict:
+    """Anclas LOCALES de una variante: salen de los params del builder; la familia cuyas anclas
+    dependen además de datos de NORMA que el builder no lee (r1 de un perfil abierto, plan
+    perfiles-con-acuerdo D4) declara un parámetro `specs` y lo recibe."""
+    if "specs" in inspect.signature(fn).parameters:
+        return fn(specs=specs, **params)
+    return fn(**params)
 
 
 def eval_formula(expr: str, specs: dict) -> float:
@@ -93,7 +104,7 @@ def _component_from_item(item: dict, category: str):
         cuttable=bool(item.get("cuttable", False)),
         default_length=item.get("default_length"),
         builder=builder_fn,
-        anchors=anclas_fn(**params) if anclas_fn else None,
+        anchors=_anclas_de(anclas_fn, params, specs) if anclas_fn else None,
         # bloque `electrico:` (plan V8.1 D5): validado aquí; un bloque mal escrito no carga
         electrico=parse_ficha(item.get("electrico"), ref),
         familia=builder_name,

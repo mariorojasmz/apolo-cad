@@ -243,7 +243,7 @@ def test_insert_component_lleva_las_anclas_del_pinon_a_mundo():
 
 def test_loader_une_builders_y_anclas_sin_repetir():
     assert {"sprocket", "roller_chain", "caster", "pulley"} <= set(BUILDERS)
-    assert set(ANCLAS) == {"sprocket"}
+    assert set(ANCLAS) == {"sprocket", "channel", "i_beam", "angle"}  # + perfiles abiertos (D4)
     with pytest.raises(ValueError, match="sprocket"):
         merge_builders(BUILDERS, {"sprocket": object()})
     with pytest.raises(ValueError, match="noexiste"):

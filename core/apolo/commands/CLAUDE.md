@@ -57,6 +57,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   punto y avanza por −normal; un `axis` explícito gana (se detecta con `model_fields_set`).
   Frame de cara (`_planar_face_frame`): u = eje de MAYOR extensión, signo hacia la componente
   mundial dominante +; v = n × u.
+- `insert_component(orientacion)` (`exec_componente.py`, params en `models_componente.py`):
+  orienta UPN/IPE/L por ejes del mundo (U `largo`+`abre_hacia`, I `largo`+`canto`, L `alas`);
+  excluye `rotation` ≠ 0 y sólo da giros rectos. v2 por las anclas de perfil abierto.
+  [plan](../../../docs/plans/perfiles-con-acuerdo.md)
 - Trampas: la cara «tope» (bbox) de una barra INCLINADA es su extremo cuesta arriba; para la
   cara superior usa `cerca` con un punto encima. Un taladro OBLICUO arranca EN el punto de
   entrada y deja sin remover la cuña cuesta arriba (⅔·r³·tanθ).

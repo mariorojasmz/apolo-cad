@@ -165,7 +165,8 @@ CAMPOS: dict[str, str] = {
     ),
     "insert_component": (
         "component name length position position.x position.y position.z rotation rotation.x "
-        "rotation.y rotation.z"
+        "rotation.y rotation.z orientacion orientacion.largo orientacion.abre_hacia "
+        "orientacion.canto orientacion.alas"
     ),
     "insert_project": (
         "project_id attachment name overrides position position.x position.y position.z rotation "
@@ -267,7 +268,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "fillet": (1, "f63f072057031b48"),
     "ground": (1, "afb091e73600725e"),
     "import_step": (1, "d75412508c6ccfdd"),
-    "insert_component": (1, "04141c8b3b94aa2d"),
+    "insert_component": (2, "34abc0a7df042701"),  # v2: anclas de perfil abierto (perfiles-con-acuerdo D4)
     "insert_project": (1, "01664975967281c6"),
     "join_bolted": (1, "2646f20725916e71"),
     "mirror_feature": (1, "6973b59545d49469"),

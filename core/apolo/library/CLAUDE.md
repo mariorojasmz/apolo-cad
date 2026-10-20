@@ -152,7 +152,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Perfiles abiertos: `r1`/`r2`/`pendiente_ala` son datos de NORMA que el builder no lee (la
   geometría sigue prismática → sin bump); `acuerdos.py` deriva la zona plana y el lint
   «asiento fuera de la zona plana» (`lint_asiento.py`) lee los taladros de la GEOMETRÍA, no de
-  los comandos (`join_bolted` corta sin `drill_hole`). [plan](../../../docs/plans/perfiles-con-acuerdo.md)
+  los comandos (`join_bolted` corta sin `drill_hole`). Su marco sale de las ANCLAS por familia
+  (`perfiles_abiertos.py`: `cara_alma_interior`, `zona_plana_1/2`, `talon`…; sobreviven al
+  taladro) y, sin ellas, del bbox. Una función de anclas que declara `specs` los recibe del
+  loader (las zonas planas dependen de r1, que el builder no lee). [plan](../../../docs/plans/perfiles-con-acuerdo.md)
 - `delivery.py` es un agregador PURO → semáforo VERDE/AMARILLO/ROJO: interferencias en diseño +
   sujeción DECLARADA (soundness sin autodetect) + lints + integridad/suprimidos + colisión EN POSE
   en los fotogramas de REPOSO de los estudios (extremos + dwells; el tránsito lo valida

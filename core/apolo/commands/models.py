@@ -171,37 +171,14 @@ class DistributeParams(BaseModel):
     end: float = Field(..., title="Centro del último (mm)", description="acepta =expresión")
 
 
-class InsertComponentParams(BaseModel):
-    """Inserta un componente del catálogo (biblioteca). Los componentes
-    cortables (perfiles, rodillos, patas, guardas) aceptan length a medida."""
+def __getattr__(nombre: str):
+    """`InsertComponentParams` salió a `models_componente.py` (trinquete de tamaño) y se
+    re-exporta PEREZOSO: aquel módulo importa `Vec3`/`Rot3` de éste."""
+    if nombre in ("InsertComponentParams", "OrientacionPerfil"):
+        from . import models_componente
 
-    component: str = Field(
-        ...,
-        title="Componente",
-        description="referencia del catálogo",
-        json_schema_extra=lambda schema: schema.update(
-            {"enum": _catalog_refs()}
-        ),
-    )
-    name: str = Field("", title="Nombre", description="vacío = nombre del catálogo")
-    length: float | None = Field(
-        None, gt=0, le=12000, title="Longitud", description="mm, solo componentes cortables; vacío = estándar"
-    )
-    position: Vec3 = Field(default_factory=Vec3, title="Posición")
-    rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
-
-    @field_validator("component")
-    @classmethod
-    def _known_ref(cls, v: str) -> str:
-        if v not in _catalog_refs():
-            raise ValueError(f"componente desconocido '{v}'")
-        return v
-
-
-def _catalog_refs() -> list[str]:
-    from apolo.library.catalog import CATALOG
-
-    return list(CATALOG.keys())
+        return getattr(models_componente, nombre)
+    raise AttributeError(f"module {__name__!r} has no attribute {nombre!r}")
 
 
 def _roller_refs() -> list[str]:
