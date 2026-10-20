@@ -165,6 +165,10 @@ CLAUDE.md a respetar, alcance estricto, tests como único gate y sin mergear. Al
 el diff contra el contrato, **re-correr las suites uno mismo** (pytest y, si tocó `ui/`,
 `npm test` + `npm run build`), rechazar lo que no cumple y sólo entonces rebase y merge.
 
+**Estimar con tiempos medidos de Claude, no de un humano**: [tiempos de implementación](docs/tiempos-de-implementacion.md)
+(una fase S/M de un agente ≈ 40–65 min con sus suites; revisión y merge ≈ 35 min por lote). Al
+mergear una fase, se agrega su fila.
+
 **Modelar una máquina por MCP también se delega**: un subagente en segundo plano con brief
 autocontenido (no puede preguntar a mitad: decide con criterio y lo reporta) y contexto fresco;
 modelar dentro de una sesión larga relee todo su contexto en cada llamada (la piloto de
@@ -373,6 +377,9 @@ juego de planos de taller + memoria de cálculo + BOM/cotización + manual—, e
   humano no se porta.
 - La madurez se mide con **benchmarks de entregables** (misma máquina: paquete Apolo vs el
   terminado a mano), no por lista de features.
+- **Una librería que se queda corta se reemplaza por una propia a la medida** (Mario, 2026-10-20:
+  «no me importa si gastamos días de implementación»). Primero se mide dónde se queda corta (una
+  F0); el costo en días no es el criterio, sí que mejore el entregable.
 - Donde el incumbente no entrega nada integrado (memoria con normas, cotización, validación de
   sujeción y gravedad) Apolo ya supera; donde el humano pule a mano (el último kilómetro del
   plano), Apolo cierra la brecha con CRITERIO automático.
