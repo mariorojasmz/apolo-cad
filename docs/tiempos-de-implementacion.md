@@ -71,6 +71,9 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-20 | (fix) | recorte de la cámara | S | ~25 | — | en la sesión principal: z-fighting banda/cama que vio Mario en el video |
 | 2026-10-20 | video-realista | F2 | M | 55 | 376 | grabación con reloj virtual + MP4; dejó un test inestable (2 de 5) que se arregló al revisar |
 | 2026-10-20 | video-tienda-pulido | F3 | S | 195 | 318 | atípico: midió el manual de la piloto (23 min) varias veces y A/B del paralelo |
+| 2026-10-20 | V8.3 | F0 | S | 18 | 270 | medición: inventario del catálogo, stepper prototipo, cota de la laptop |
+| 2026-10-20 | V8.3 | F1 | M | 45 | 352 | compilador ST → Python seguro, runtime de scan, 174 tests |
+| 2026-10-20 | video-realista | F3 | M | 155 | 539 | guion en el navegador + Edge sin ventana + encuadre pedido a mitad de fase; grabó dos videos de 65–75 s |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
@@ -84,4 +87,5 @@ Revisión y merge en la sesión principal (2026-10-20):
 - ~35 min: fix del tambor + plantilla F2, apilados en una sola suite;
 - ~35 min: video-realista F0+F1;
 - ~40 min: video-realista F2 (test inestable arreglado y conflicto con el fix de la cámara);
-- ~35 min: video-tienda F3.
+- ~35 min: video-tienda F3;
+- ~50 min: video-realista F3 + V8.3 F1 apiladas (conflicto en `publicacion/flujo.py` resuelto a mano).

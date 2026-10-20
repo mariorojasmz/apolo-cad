@@ -25,16 +25,16 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 
 | hito | qué falta | plan |
 |---|---|---|
-| **A. Video de YouTube realista** | F3 (guion completo + Edge sin ventana + encuadre que llena la pantalla) corriendo; después F4 (trazado de rayos) y F5 (verificación en el escritorio) | [video-realista](plans/video-realista.md) |
+| **A. Video de YouTube realista** | F3 hecha (el video sale solo con `publicar generar --render navegador`); falta F4 (trazado de rayos) y F5 (verificación en el escritorio, con Mario) | [video-realista](plans/video-realista.md) |
 | **A′. Pulido del video de la tienda** | F3 hecha; F2 reducida por video-realista D8; F4 con la música de Mario | [video-tienda-pulido](plans/video-tienda-pulido.md) |
 
 ## Siguientes, en este orden
 
 | hito | fases | por qué en este lugar | plan |
 |---|---|---|---|
-| **B. Prueba virtual de la máquina** (puesta en marcha virtual) | F0 → F1 (PLC) ∥ F2 (modelos) → F3 (redes) → F4 (acople) → F5 (MCP) → F6 (verifica) | el objetivo grande de V8; F1 y F2 no se pisan y van juntas | [V8.3](plans/V8.3-prueba-virtual.md) |
+| **B. Prueba virtual de la máquina** (puesta en marcha virtual) | F0 y F1 (PLC) hechas; F2 (modelos) corriendo → F3 (redes) → F4 (acople) → F5 (MCP) → F6 (verifica) | el objetivo grande de V8; F1 y F2 no se pisan y van juntas | [V8.3](plans/V8.3-prueba-virtual.md) |
 | **C. Seta de emergencia real** | F0 → F1 → F2 → F3 → F4 | va en todas las máquinas; entra en paralelo con B cuando un agente quede libre | [seta-de-emergencia](plans/seta-de-emergencia.md) |
-| **D. Varias máquinas a la vez** | F0 → F1 → F2 → F3 → F4 | destraba E: las verificaciones por MCP pasan de a una a varias en paralelo | [varias-maquinas-a-la-vez](plans/varias-maquinas-a-la-vez.md) |
+| **D. Varias máquinas a la vez** | F0+F1 corriendo → F2 → F3 → F4 | destraba E: las verificaciones por MCP pasan de a una a varias en paralelo | [varias-maquinas-a-la-vez](plans/varias-maquinas-a-la-vez.md) |
 | **F. Manual de montaje rápido** | plan por escribir: las 12 fotos del manual con VTK en vez de matplotlib (hoy 23 min en la piloto, 3–5 min por foto con las cadenas) | es el cuello de la publicación (video-tienda F3) | — |
 | **E. Verificaciones por MCP** (ola 5) | cirugía F3, perfiles F4, acceso F3, flecha F3, uniones F4, V8.1 F4, plantilla F3 (= revisión de taller F4), visor F5, vista-3d F4, video F4/F5 | necesita sesión nueva y API reiniciada; con D, varias a la vez | [tanda-pos-piloto](plans/tanda-pos-piloto.md) |
 
@@ -60,4 +60,6 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 - video-tienda F1b: la secuencia de montaje.
 - video-realista F0–F2: visor «alta» y grabación a MP4.
 - video-tienda F3: aviso de ODA al empezar y entregables en paralelo (ahorra ~2 %).
+- video-realista F3: guion completo en el navegador, Edge sin ventana, botón «Grabar video», encuadre que llena la pantalla.
+- V8.3 F0–F1: medición y compilador del PLC.
 - Fixes: el tambor engomado y el z-fighting de la banda.
