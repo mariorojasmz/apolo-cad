@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1 y F2 en main (2026-10-20): tabla única de acabados, piso con sombra ([piso-con-sombra](piso-con-sombra.md)) y el reproductor de la marcha (Física → «Ver la marcha»), falta mirarlo en el navegador; faltan F0 y F3–F5
+nota: F1–F3 en main (2026-10-20): acabados, piso con sombra, reproductor de la marcha (Física → «Ver la marcha», probado en el navegador con el 73) y la banda y las cadenas que avanzan; F4 la reemplaza [video-realista](video-realista.md) F3 (su D8, vetable); faltan F0 y F5 (clip de 20 s de la piloto andando, lo juzga Mario)
 descripcion: Prendes la máquina y la ves andar en 3D como en la realidad: rodillos y tambores girando por su motor, la faja con su forma real corriendo, las cadenas eslabón por eslabón y las cajas viajando con física
 ---
 
