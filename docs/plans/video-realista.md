@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito y aprobado para lanzar el 2026-10-20 («escribe el plan y lánzalo»); D1–D10 vetables; nada implementado
+nota: F0 medida en la laptop (2026-10-20): «alta» sin MSAA cuesta ~30 % de fps en una Intel UHD; el trazado de rayos usa three-gpu-pathtracer 0.0.23 (MIT), la última compatible con three 0.169; faltan F1–F5
 descripcion: El video de YouTube y de la tienda sale del visor con calidad de foto de catálogo (y trazado de rayos de noche), generado solo, sin instalar Blender
 ---
 
@@ -213,3 +213,95 @@ tiene que poder producirlo sin que nadie lo mire.
   (D1); en «normal» el visor queda como hoy.
 
 ## Bitácora
+
+### F0 (2026-10-20): medido en la laptop
+
+Laptop de desarrollo: i7-1355U con **Intel UHD integrada** (ANGLE D3D11), es decir la cota BAJA
+(D10). Arnés temporal en el scratchpad, fuera del repo:
+- la escena de la piloto (74, 201 piezas, 1,06 M triángulos) sale de una COPIA de
+  `data/apolo.db` por TestClient (`POST /api/projects/74/open` + `GET /api/scene`);
+- una página de vite arma el visor con los módulos REALES de `ui/src/viewport/` (`buildMesh`,
+  `scene-setup`, `environment`, sombra de contacto, destello);
+- el prototipo agrega GTAO, SMAA y el estudio procedural.
+
+Mide a 1920×1080 con DPR 1:
+- **ms sinc.**: ms por cuadro sincronizado con la GPU (un `readPixels` de 1 px tras cada
+  cuadro, cámara orbitando);
+- **fps rAF**: fps reales por `requestAnimationFrame` durante 3 s.
+
+Los dos lanzados en Edge sin ventana (`--headless=new`, perfil temporal propio).
+
+**1. `three-gpu-pathtracer`** (consultado con `npm view` y el README publicado en unpkg, sin
+instalar nada):
+- licencia MIT en todas las versiones;
+- la última (0.0.27) pide `three >= 0.185` y WebGPU (`WebGPUPathTracer`);
+- la 0.0.24 pide `>= 0.180`;
+- **la última compatible con three 0.169 es la 0.0.23** (2024-06-07): WebGL2,
+  `WebGLPathTracer`, peer `three >= 0.151` y `three-mesh-bvh >= 0.7.4`. La 0.7.x pide
+  `three >= 0.151`; la 0.8.x, `>= 0.159`.
+- Denoiser de la 0.0.23: `DenoiseMaterial`, un pase final basado en glslSmartDeNoise que también
+  tonemapea. No trae OIDN.
+- Materiales: sólo `MeshStandardMaterial` y `MeshPhysicalMaterial` (los del visor). Sin
+  geometría instanciada ni buffers intercalados; todas las texturas con el mismo wrap y filtro.
+- La anisotropía no figura en el README: F4 la verifica.
+- Decisión para F4: fijar la 0.0.23 exacta, o subir three a ≥ 0.185 con su propio test. Subir
+  three es un cambio grande: el visor entero cambia de versión.
+
+**2. Visor mejorado** (GTAO + estudio + SMAA) en la piloto:
+
+| variante | ms sinc. | fps sinc. | fps rAF |
+|---|---|---|---|
+| hoy (RoomEnvironment, MSAA ×4) | 41,4–48,7 | 20,5–24,1 | 33–34 |
+| sólo estudio procedural (MSAA ×4) | 40,2 | 24,9 | 33,4 |
+| hoy sin MSAA | 24,5 | 40,9 | 52,6 |
+| estudio + SMAA (MSAA ×4) | 56,6 | 17,7 | 23,7 |
+| estudio + GTAO (MSAA ×4) | 87,5 | 11,4 | 14,8 |
+| estudio + GTAO + SMAA (MSAA ×4) | 108,5 | 9,2 | 13,3 |
+| estudio + GTAO a media resolución + SMAA (MSAA ×4) | 91,2 | 11,0 | 14,8 |
+| **estudio + GTAO + SMAA, SIN MSAA** | 49–61 | 16,5–20,4 | 19,6–25,8 |
+
+Lectura:
+- El estudio procedural no cuesta por cuadro: el PMREM se arma una vez.
+- El costo de GTAO es su SEGUNDA pasada de la escena (normales + profundidad). Con 1 M de
+  triángulos en una GPU integrada manda el vértice, no el píxel: bajar el GTAO a media
+  resolución casi no ahorra.
+- Lo que sí ahorra es quitar el MSAA ×4 del render target HalfFloat: SMAA lo reemplaza. Con eso,
+  «alta» cuesta ~25–45 % más que hoy en la laptop (de 34 a ~20–26 fps rAF).
+- Decisión para F1: «alta» = estudio + GTAO + SMAA sin MSAA; «normal» = hoy (MSAA ×4,
+  RoomEnvironment).
+- Intento descartado: compartir la profundidad del `RenderPass` con el GTAO para ahorrar la
+  segunda pasada. El composer alterna dos render targets cuadro a cuadro, y adjuntar la misma
+  `DepthTexture` a los dos es un lazo de lectura-escritura. Queda para cuando haga falta.
+
+Capturas (1920×1080, el canvas sobre el fondo del visor), en el scratchpad de la sesión,
+`f0/salida/`:
+- vista general: `captura-hoy.png` y `captura-alta.png`;
+- de cerca, motorreductor y transmisión: `captura-hoy-cerca.png`, `captura-alta-cerca.png` y
+  `captura-alta-msaa0-cerca.png`.
+
+Se ven así:
+- el estudio da más contraste;
+- el galvanizado de los rodillos deja de verse blanco lavado;
+- la tornillería zincada lee reflejos;
+- la oclusión oscurece el motor bajo el larguero y los rincones de la guarda.
+
+**3. Trazado de rayos de un cuadro**: NO medido. Exige instalar `three-gpu-pathtracer`, y este
+paso sólo podía consultar el paquete publicado. Va a F4 (en el escritorio, F5): segundos por
+cuadro y muestras hasta que se ve limpio.
+
+**4. Edge sin ventana usa la GPU**: sí. `WEBGL_debug_renderer_info` dice `ANGLE (Intel, Intel(R)
+UHD Graphics … Direct3D11)`, no SwiftShader, con Edge 155 y `--headless=new`, sin banderas de
+GPU. En el escritorio (4070 Ti) se confirma en F5.
+
+**5. PNG de 1080p**:
+- pesa 1,45–1,97 MB;
+- `canvas.toBlob` tarda 230–730 ms en la laptop (más con más detalle);
+- subirlo por HTTP local (POST a un servidor de vite como sustituto del endpoint de F2) tarda
+  16–33 ms.
+
+El cuello es CODIFICAR el PNG, no subirlo. A ~0,3–0,7 s por cuadro, 1 800 cuadros son 10–20 min
+sólo de PNG en la laptop. F2 mide en el escritorio y, si pesa, prueba codificar fuera del bucle
+o subir el RGBA crudo.
+
+**Pendiente de F5 (escritorio, 4070 Ti)**: fps de «alta» a 1080p y 4K, el trazado de rayos por
+cuadro y Edge sin ventana con la GPU NVIDIA.
