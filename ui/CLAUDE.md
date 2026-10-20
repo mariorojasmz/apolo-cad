@@ -244,6 +244,10 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   RoomEnvironment + MSAA ×4. El pipeline la sigue en caliente. El GTAO hace una SEGUNDA pasada de
   la escena y sólo dibuja `group` sin aristas: algo nuevo que deba oscurecerse va en `group`.
   [video-realista](../docs/plans/video-realista.md)
+- `near`/`far` de la cámara se ajustan EN CADA CUADRO a la esfera de la máquina y al piso
+  (`recorte.ts`, en el bucle de `pipeline.ts`): con un `near` fijo de 1 mm, a 6 m el buffer de
+  profundidad sólo separa ~2 mm y la cama asomaba en manchas a través de una banda de 3–4 mm.
+  Una cámara nueva que dibuje la escena (grabación, foto) pasa por el mismo ajuste.
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
   para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).

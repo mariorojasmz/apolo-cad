@@ -11,6 +11,7 @@ import { useCalidad } from "./calidad";
 import { crearCalidadVista, type CalidadVista } from "./calidadVista";
 import { createViewCube, type ViewCube } from "./viewcube";
 import { crearDestello } from "./destello";
+import { ajustarRecorte, crearEncuadreDe } from "./recorte";
 
 /* El pipeline de render del visor: renderer, escena, cámara, controles, luces, suelo, IBL,
    ViewCube, gizmo, el EffectComposer con sus passes, el `resize` y el bucle de render. Salió de
@@ -141,6 +142,7 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   observer.observe(mount);
 
   const tareas: (() => void)[] = [];
+  const encuadre = crearEncuadreDe(group);
   let frame = 0;
   const animate = () => {
     frame = requestAnimationFrame(animate);
@@ -152,6 +154,8 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
     for (const id of seleccion()) { const m = meshes.get(id); if (m) selMeshes.push(m); }
     outlinePass.selectedObjects = selMeshes;
     destello.actualizar(meshes, Date.now()); // late ~3 s desde el pulso del visor
+    const enc = encuadre();
+    if (enc) ajustarRecorte(camera, enc.esfera, enc.pisoZ); // sin z-fighting a distancia
     composer.render(); // escena + contorno (reemplaza renderer.render)
     viewCube.render(renderer, camera); // sobre el frame ya compuesto (autoClear=false)
   };
