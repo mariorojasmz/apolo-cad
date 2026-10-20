@@ -312,14 +312,19 @@ def _armar(cliente, proyecto, nombre, doc, data, g, f, calidad, pista, staging, 
         (staging / "youtube.txt").write_text(textos.youtube(f, caps), encoding="utf-8")
     except ValueError as exc:  # la descripción no entra en la de YouTube
         raise PublicacionError(str(exc)) from exc
+    glb, html = staging / vista["archivo"], staging / vista["html"]["archivo"]
     zips = paquete.armar(staging, staging / "entregables", todos, registros, ficha=f,
                          cifras=g["cifras"]["items"], calidad_=calidad,
-                         variables=dict(doc.variables_raw), apolo=apolo)
+                         variables=dict(doc.variables_raw), apolo=apolo,
+                         extras=[(html, textos.VISTA_3D_HTML), (glb, textos.VISTA_3D_GLB),
+                                 (video.miniatura, textos.VISTA_3D_POSTER)])
     publica = paquete.ficha_json(
         f, staging=staging, zips=zips, video=video.ruta, miniatura=video.miniatura,
         duracion_s=video.duracion_s, capitulos=caps,
         musica=fichas.musica_publica(f) if pista else None, calidad_=calidad,
-        cifras=g["cifras"]["items"])
+        cifras=g["cifras"]["items"],
+        vista_3d={"glb": glb, "html": html, "triangulos": vista["triangulos"],
+                  "etiquetas": vista["html"]["etiquetas"]})
     tiempos["paquete"] = time.perf_counter() - t
     return {"ficha_json": publica, "faltantes": [f"{r['label']}: {r['note']}" for r in faltan],
             "saneo": informe_saneo, "registros": registros, "vista_3d": vista,
@@ -357,3 +362,5 @@ def _imprimir(eco, r: dict) -> None:
     eco("  tiempos: " + " · ".join(f"{k} {x:.1f} s" for k, x in r["tiempos_s"].items()))
     eco("Sube a mano a YouTube video.mp4 con miniatura.png y el texto de youtube.txt (D15); "
         "luego pon el enlace en url_video de ficha.json.")
+    eco(f"Vista 3D: sube {w['archivo']}, {w['html']['poster']} y el trozo de "
+        f"{w['html']['archivo']} a la tienda (cómo, en el comentario al principio del trozo).")

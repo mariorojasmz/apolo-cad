@@ -8,10 +8,11 @@ que nunca se pisa (D14). Un `generar` que falló deja la carpeta como estaba.
 
 Niveles (D10): `gratis/` (renders, plano de conjunto GA, BOM resumida, STEP) y `completo/`
 (todos los entregables y el `.apolo` saneado), cada uno con LEEME, LICENCIA y AVISO y su zip
-`<slug>-<version>-<nivel>.zip`. Lo que el destino no pide no entra: el costeo y la cotización
-nunca (D11; los declara `entregables.py`). `ficha.json` (D9) lleva lo público de la ficha, la
-validación en frases, las cifras, los capítulos y cada archivo con su sha256, también los de
-adentro de los zips; `url_video` queda vacía hasta subir el video.
+`<slug>-<version>-<nivel>.zip`; los DOS llevan la vista 3D (`vista-3d.glb`, `vista-3d.html` y
+la miniatura, su póster: plan vista-3d-tienda F3). Lo que el destino no pide no entra: el costeo
+y la cotización nunca (D11; los declara `entregables.py`). `ficha.json` (D9) lleva lo público de
+la ficha, la validación en frases, las cifras, los capítulos, la vista 3D y cada archivo con su
+sha256, también los de adentro de los zips; `url_video` queda vacía hasta subir el video.
 """
 
 from __future__ import annotations
@@ -110,8 +111,10 @@ def calidad(reporte: dict, *, forzar: bool) -> dict:
 # ------------------------------------------------------------------ niveles y zips
 def armar(staging: Path, entregables_dir: Path, entregables: list, registros: list[dict], *,
           ficha: dict, cifras: list[dict], calidad_: dict, variables: dict,
-          apolo: bytes) -> dict[str, Path]:
-    """Llena `staging/gratis` y `staging/completo` y escribe sus zips. Devuelve {nivel: zip}."""
+          apolo: bytes, extras: list[tuple[Path, str]] = ()) -> dict[str, Path]:
+    """Llena `staging/gratis` y `staging/completo` y escribe sus zips. Devuelve {nivel: zip}.
+    `extras`: (archivo, qué es) que van a la raíz de los DOS niveles (la vista 3D: el GLB, su
+    HTML y el póster que éste pide al lado, plan vista-3d-tienda F3)."""
     ok = {r["file"] for r in registros if r["status"] == "ok"}
     nombre_apolo = f"{ficha['slug']}.apolo"
     zips = {}
@@ -124,6 +127,10 @@ def armar(staging: Path, entregables_dir: Path, entregables: list, registros: li
                 ruta.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(entregables_dir / e.archivo, ruta)
                 archivos.append((e.archivo, e.etiqueta[:1].upper() + e.etiqueta[1:]))
+        for origen, descripcion in extras:
+            destino.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(origen, destino / Path(origen).name)
+            archivos.append((Path(origen).name, descripcion))
         if nivel == COMPLETO:
             (destino / nombre_apolo).write_bytes(apolo)
             archivos.append((nombre_apolo, "Modelo paramétrico de Apolo CAD (ver abajo cómo abrirlo)"))
@@ -171,8 +178,11 @@ def _info(ruta: Path, nombre: str, **extra) -> dict:
 
 def ficha_json(ficha: dict, *, staging: Path, zips: dict[str, Path], video: Path,
                miniatura: Path, duracion_s: float, capitulos: list[tuple[int, str]],
-               musica: dict | None, calidad_: dict, cifras: list[dict]) -> dict:
-    """Lo público de la publicación, con cada archivo y su sha256 (también los de los zips)."""
+               musica: dict | None, calidad_: dict, cifras: list[dict],
+               vista_3d: dict | None = None) -> dict:
+    """Lo público de la publicación, con cada archivo y su sha256 (también los de los zips).
+    `vista_3d` (plan vista-3d-tienda F3): {glb, html} (rutas), `triangulos` y `etiquetas`; el
+    póster es la miniatura. Sin ella, la ficha no tiene la sección."""
     archivos = []
     for nivel, ruta in zips.items():
         carpeta = staging / nivel
@@ -181,6 +191,15 @@ def ficha_json(ficha: dict, *, staging: Path, zips: dict[str, Path], video: Path
         archivos.append(_info(ruta, ruta.name, nivel=nivel, contenido=contenido))
     archivos.append(_info(video, video.name, nivel=GRATIS))
     archivos.append(_info(miniatura, miniatura.name, nivel=GRATIS))
+    extra = {}
+    if vista_3d:
+        glb, html = Path(vista_3d["glb"]), Path(vista_3d["html"])
+        archivos += [_info(glb, glb.name, nivel=GRATIS), _info(html, html.name, nivel=GRATIS)]
+        extra["vista_3d"] = {
+            "modelo": glb.name, "html": html.name, "poster": miniatura.name,
+            "bytes": glb.stat().st_size, "triangulos": vista_3d["triangulos"],
+            "etiquetas": [{"grupo": e["grupo"], "cifra": e["cifra"]}
+                          for e in vista_3d["etiquetas"]]}
     publica = {k: ficha[k] for k in ("titulo", "slug", "version", "descripcion", "nivel",
                                      "precio_usd", "licencias", "etiquetas", "url_tienda")}
     return {
@@ -196,6 +215,7 @@ def ficha_json(ficha: dict, *, staging: Path, zips: dict[str, Path], video: Path
                   "capitulos": [{"inicio_s": s, "titulo": t} for s, t in capitulos],
                   "musica": musica},
         "miniatura": miniatura.name,
+        **extra,
         "archivos": archivos,
         "generado": datetime.now().isoformat(timespec="seconds"),
         "generado_con": f"Apolo CAD {_version_apolo()}",

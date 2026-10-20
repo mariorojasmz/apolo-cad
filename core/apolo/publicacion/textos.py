@@ -27,6 +27,11 @@ LICENCIAS_CONOCIDAS = {
     )
 }
 LICENCIA_PERSONAL = "Licencia personal de fabricación"
+#: Lo que es cada archivo de la vista 3D en la tabla del LEEME (plan vista-3d-tienda, F3).
+VISTA_3D_HTML = ("Vista 3D para la web: gira la máquina y, en el celular, mírala a tamaño real. "
+                 "Ábrela desde un servidor web (con doble clic el navegador no lee el .glb)")
+VISTA_3D_GLB = "Modelo 3D liviano de la vista 3D (sólo apariencia, sin cotas)"
+VISTA_3D_POSTER = "Portada de la vista 3D (y miniatura del video)"
 MAX_DESCRIPCION_YOUTUBE = 5000
 CON_OBSERVACIONES = "con observaciones"
 

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F1 en main (2026-10-19): GLB en `publicar generar` (piloto 0,34 MB, 296 k triángulos; gltfpack opcional); faltan F2–F4 y que Mario pruebe la RA en su celular (`data/vista3d-f0/`)
+nota: F0–F3 implementadas (2026-10-20): `publicar generar` deja vista-3d.glb (piloto 0,33 MB, 296 k triángulos; gltfpack opcional) y vista-3d.html (etiqueta por grupo) en los dos zips y en ficha.json; falta F4 (Mario pega el trozo en una página de prueba y prueba la RA en su celular)
 descripcion: Cada máquina publicada trae su modelo 3D liviano y un trozo de HTML para pegar en la tienda: el visitante la gira, la ve con etiquetas y, en el celular, a tamaño real en su taller
 ---
 
@@ -300,3 +300,24 @@ las seis etiquetas quedan sobre su pieza y, en la vista de celular, aparece «Ve
   medio de la faja) una encima de otra; repartidas, seguían tapándose con las seis cifras
   abiertas (la faja entera cabe en ~400 px). La etiqueta muestra el grupo y la cifra se abre al
   pasar el mouse o al tocarla.
+
+### F3 (2026-10-20)
+
+`paquete.armar(extras=…)` copia a la raíz de `gratis/` y de `completo/` el `vista-3d.html`, el
+`vista-3d.glb` y la miniatura, y el LEEME de cada nivel dice qué es cada uno (`textos.VISTA_3D_*`).
+`paquete.ficha_json(vista_3d=…)` suma a `archivos` el GLB y el HTML (nivel gratis, con sha256, como
+el video) y una sección `vista_3d` {modelo, html, poster, bytes, triangulos, etiquetas [{grupo,
+cifra}]}; las posiciones de las etiquetas quedan en `generacion.json`, que no se publica. El eco
+final de `generar` dice qué subir a la tienda. Tests: uno nuevo en `test_publicacion_paquete.py`
+(sin ffmpeg) y el E2E pide los tres archivos en los dos zips, el GLB idéntico al de la carpeta y la
+sección de la ficha. Cada zip de la piloto crece en el GLB (0.33 MB con gltfpack, 2.1 MB sin él), el
+HTML (5.7 KB) y la miniatura.
+
+**Decisiones de la F3:**
+
+- **El póster entra al zip**: el HTML lo pide al lado; sin él, el trozo descomprimido abre sin
+  portada. Va en la raíz, con el GLB y el HTML: la carpeta del zip es la misma que se sube.
+- **El LEEME avisa** que el HTML se abre desde un servidor web: con doble clic (`file://`) el
+  navegador no deja leer el `.glb`.
+- **`ficha.json` sigue en `formato` 1**: la sección `vista_3d` es ADITIVA (ninguna clave cambió ni
+  se fue) y todavía no hay quien la lea (la tienda es la pregunta abierta de publicacion-tienda).

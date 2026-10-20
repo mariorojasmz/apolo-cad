@@ -190,6 +190,47 @@ def test_comprimir_nunca_mete_precios(tmp_path):
         paquete.comprimir(carpeta, tmp_path / "otro.zip")
 
 
+def test_la_vista_3d_entra_a_los_dos_zips_y_la_nombra_la_ficha(tmp_path):
+    """Plan vista-3d-tienda, F3: el GLB, su HTML y el póster van a la raíz de los dos niveles
+    (el HTML pide los otros dos al lado), el LEEME dice qué es cada uno y `ficha.json` los
+    nombra con su sha256."""
+    staging = tmp_path / ".generando"
+    (staging / "entregables").mkdir(parents=True)
+    web = {n: staging / n for n in ("vista-3d.glb", "vista-3d.html", "miniatura.png", "video.mp4")}
+    for n, ruta in web.items():
+        ruta.write_bytes(n.encode() * 10)
+    ficha = {"titulo": "Mesa", "slug": "mesa", "version": "1.0.0", "descripcion": "d",
+             "nivel": "gratis", "precio_usd": 0, "url_tienda": "", "etiquetas": [],
+             "licencias": {"gratis": "CC BY-NC 4.0", "completo": textos.LICENCIA_PERSONAL}}
+    cal = paquete.calidad({"veredicto": "VERDE", "resumen": {"chequeos_ok": []}}, forzar=False)
+    zips = paquete.armar(staging, staging / "entregables", [], [], ficha=ficha, cifras=[],
+                         calidad_=cal, variables={}, apolo=b"PK",
+                         extras=[(web["vista-3d.html"], textos.VISTA_3D_HTML),
+                                 (web["vista-3d.glb"], textos.VISTA_3D_GLB),
+                                 (web["miniatura.png"], textos.VISTA_3D_POSTER)])
+    for nivel, ruta in zips.items():
+        with zipfile.ZipFile(ruta) as zf:
+            dentro = {n.split("/", 1)[1]: zf.read(n) for n in zf.namelist()}
+        assert {"vista-3d.glb", "vista-3d.html", "miniatura.png"} <= set(dentro), nivel
+        assert dentro["vista-3d.glb"] == web["vista-3d.glb"].read_bytes()
+        assert f"| `vista-3d.glb` | {textos.VISTA_3D_GLB} |" in dentro["LEEME.md"].decode()
+    publica = paquete.ficha_json(
+        ficha, staging=staging, zips=zips, video=web["video.mp4"], miniatura=web["miniatura.png"],
+        duracion_s=1.0, capitulos=[], musica=None, calidad_=cal, cifras=[],
+        vista_3d={"glb": web["vista-3d.glb"], "html": web["vista-3d.html"], "triangulos": 12,
+                  "etiquetas": [{"grupo": "Bastidor", "cifra": "4 piezas", "posicion_m": [0, 1, 0]}]})
+    assert publica["vista_3d"] == {"modelo": "vista-3d.glb", "html": "vista-3d.html",
+                                   "poster": "miniatura.png", "bytes": 120, "triangulos": 12,
+                                   "etiquetas": [{"grupo": "Bastidor", "cifra": "4 piezas"}]}
+    por_nombre = {a["nombre"]: a for a in publica["archivos"]}
+    assert por_nombre["vista-3d.html"]["sha256"] == paquete.sha256(web["vista-3d.html"])
+    assert por_nombre["vista-3d.glb"]["nivel"] == "gratis"
+    sin = paquete.ficha_json(ficha, staging=staging, zips=zips, video=web["video.mp4"],
+                             miniatura=web["miniatura.png"], duracion_s=1.0, capitulos=[],
+                             musica=None, calidad_=cal, cifras=[])
+    assert "vista_3d" not in sin and "vista-3d.glb" not in {a["nombre"] for a in sin["archivos"]}
+
+
 def test_una_version_publicada_no_se_pisa(tmp_path):
     carpeta = paquete.carpeta_version(tmp_path, "mesa", "1.0.3")
     carpeta.mkdir(parents=True)

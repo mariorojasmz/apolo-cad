@@ -135,11 +135,21 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
     for nivel in ("gratis", "completo"):
         with zipfile.ZipFile(carpeta / f"mesa-de-taller-1.0.0-{nivel}.zip") as zf:
             zips[nivel] = {n.split("/", 1)[1]: zf.read(n) for n in zf.namelist()}
+    vista = {"vista-3d.glb", "vista-3d.html", ficha["miniatura"]}  # F3: en los dos niveles
     assert set(zips["gratis"]) == {"LEEME.md", "LICENCIA.txt", "AVISO.txt", "bom.csv",
                                    "modelo.step", "planos/conjunto_GA.pdf", "render/iso.png",
-                                   "render/lateral.png", "render/planta.png"}
+                                   "render/lateral.png", "render/planta.png"} | vista
     assert {"mesa-de-taller.apolo", "memoria.pdf", "manual.pdf", "planos/juego.pdf",
-            "planos/cutlist.csv", "bom.json"} <= set(zips["completo"])
+            "planos/cutlist.csv", "bom.json"} | vista <= set(zips["completo"])
+    for nivel in zips:
+        assert zips[nivel]["vista-3d.glb"] == (carpeta / "vista-3d.glb").read_bytes()
+        assert "`vista-3d.html` | Vista 3D para la web" in zips[nivel]["LEEME.md"].decode()
+    # ficha.json nombra la vista 3D, con su sha256 en `archivos`
+    assert ficha["vista_3d"] == {
+        "modelo": "vista-3d.glb", "html": "vista-3d.html", "poster": ficha["miniatura"],
+        "bytes": v3["bytes"], "triangulos": v3["triangulos"],
+        "etiquetas": [{"grupo": e["grupo"], "cifra": e["cifra"]} for e in v3["html"]["etiquetas"]]}
+    assert {"vista-3d.glb", "vista-3d.html"} <= {a["nombre"] for a in ficha["archivos"]}
     for nivel, contenido in zips.items():
         assert not [n for n in contenido if any(x in n for x in ("costeo", "cotiz", "validacion"))]
         for n, blob in contenido.items():
