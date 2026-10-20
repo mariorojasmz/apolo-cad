@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; nada construido. Espera saldo de tokens (Mario, 2026-10-10)
+nota: F0–F3 en main (2026-10-19): `fasten` con conjuntos, la autodetección no suelda lo que gira y `declare_structure` propone sin aplicar; falta F4 — redeclarar la estructura del piloto con < 30 órdenes por MCP
 descripcion: El agente declara de una vez cómo se une cada pieza repetida («cada eje a su larguero») y la detección automática ya no suelda cadenas a la guarda
 ---
 

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato aprobado (D1–D9, 2026-10-07); F1–F4 hechas; falta F5 — el E2E sobre el proyecto 72 (espera que Mario importe su base), las reglas D9 en los CLAUDE.md de fea y kernel, devlog y las notas de V7.4 y del backlog
+nota: contrato aprobado (D1–D9, 2026-10-07); F1–F4 hechas; falta F5 — el E2E sobre el proyecto 72 (ya está en la laptop), las reglas D9 en los CLAUDE.md de fea y kernel, devlog y las notas de V7.4 y del backlog
 descripcion: El FEA del bastidor malla la chapa plegada y empernada (travesaños con pestañas en las cuatro caras), acepta cargas sobre un taladro y, si gmsh no puede, responde un 400 que nombra la pieza y qué hacer
 ---
 

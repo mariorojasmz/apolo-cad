@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; nada construido. Espera saldo de tokens
+nota: F0–F1 en main (2026-10-19): GLB en `publicar generar` (piloto 0,34 MB, 296 k triángulos; gltfpack opcional); faltan F2–F4 y que Mario pruebe la RA en su celular (`data/vista3d-f0/`)
 descripcion: Cada máquina publicada trae su modelo 3D liviano y un trozo de HTML para pegar en la tienda: el visitante la gira, la ve con etiquetas y, en el celular, a tamaño real en su taller
 ---
 

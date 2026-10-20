@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; arranca cuando haya saldo de tokens. Antes, Mario aporta lo de «Lo que necesita Mario» (música, escaneo de un motor, prueba en su celular)
+nota: Corrida en la laptop el 2026-10-19 sobre el piloto importado (local 74): 21 fases en main; faltan visor F0/F2–F4, video F1b–F3, vista-3d F2–F3, plantilla F0–F2, escaneo (espera el escaneo de Mario) y la ola 5 de verificaciones en sesión nueva
 descripcion: El orden para implementar de una sola vez los planes que salieron de la máquina piloto: qué va en paralelo, qué espera a qué y cómo se verifica todo al final
 ---
 

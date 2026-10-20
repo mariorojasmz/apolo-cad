@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; nada construido. Espera saldo de tokens (Mario, 2026-10-10)
+nota: F0–F2 en main (2026-10-19): fantasmas de herramienta en la puerta de entrega; piloto rev. 3 ROJO en 40/40 tuercas, rev. 4 verde; la puerta tarda ~10–20 % más; falta F3 — la verificación por MCP
 descripcion: Apolo avisa cuando una tuerca o un perno no se puede apretar porque la llave no entra
 ---
 

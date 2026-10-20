@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 hecha (2026-10-19, en la laptop sobre el piloto importado = local 74): con D3 reescrita el revisor ciego halla 3½ de los 4 defectos; siguen F1–F3 y la F4 con una segunda máquina
+nota: F0–F3 en main (2026-10-19): revisor ciego 3½ de 4 con D3 reescrita, prompt generado desde `design/revision.py`, ficha del encargo en `requirements` y `docs/defectos.md`; falta F4 — una segunda máquina con ficha + modelador + revisor, y Mario cuenta sus defectos
 descripcion: Antes de entregarte una máquina, un segundo agente la revisa con ojos de taller y cada error que encuentres se vuelve una regla que no se repite
 ---
 

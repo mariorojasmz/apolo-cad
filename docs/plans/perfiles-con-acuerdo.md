@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; nada construido. Espera saldo de tokens (Mario, 2026-10-10)
+nota: F1–F3 en main (2026-10-19): r1/r2 de norma, lint de asiento (40/40 avisos en la rev. 3 del piloto, 0 en la 4), orientación declarativa y anclas de perfil abierto (`insert_component` v2); falta F4 — la verificación por MCP
 descripcion: Los perfiles del catálogo saben dónde es plana el alma y cómo se orientan, así que un taladro mal puesto ya no sale en VERDE
 ---
 

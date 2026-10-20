@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; nada construido. Espera saldo de tokens. La música la consigue Mario (con su licencia)
+nota: F0–F1 en main (2026-10-19): rótulos con datos y etapas de 6–15 s (piloto: 75 s en 5 etapas); faltan F1b, F2–F4, la música de Mario y decidir si se muestra el FS 1,09 de la cadena motriz
 descripcion: El video de la tienda explica la máquina con sus datos de ingeniería, corta las etapas con ritmo parejo y se ve como un producto terminado
 ---
 

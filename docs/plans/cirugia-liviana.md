@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; nada construido. Espera saldo de tokens (Mario, 2026-10-10)
+nota: F0–F2 en main (2026-10-19): `remove_commands` con `detail=diff` (8,2 MB → 284 B en el piloto) y dependientes en 1 undo; falta F3 — borrar y restaurar una pieza del piloto por MCP
 descripcion: Borrar piezas desde el agente es una tool más y responde corto, así que corregir una máquina gasta menos
 ---
 

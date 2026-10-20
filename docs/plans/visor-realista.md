@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; nada construido. Espera saldo de tokens y depende de V8.2 F2 (endpoint + tool `simulate`), hoy pausado
+nota: F1 en main (2026-10-19): tabla única de acabados para el visor y VTK, sin el piso con sombra de contacto (necesita partir `Viewport.tsx`, en su tope); faltan F0, el piso, F2–F5 y verlo en el navegador
 descripcion: Prendes la máquina y la ves andar en 3D como en la realidad: rodillos y tambores girando por su motor, la faja con su forma real corriendo, las cadenas eslabón por eslabón y las cajas viajando con física
 ---
 

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: Sólo el plan; nada construido. Espera saldo de tokens (Mario, 2026-10-10)
+nota: F1–F2 en main (2026-10-19): viga continua exacta, secciones de tabla y regla en `engineering_check`/memoria (piloto = cálculo a mano); falta F3 (verificación por MCP) y decidir D4: una faja a mano recibe la regla vieja y ésta
 descripcion: La memoria de cálculo verifica la flecha y la tensión de cualquier viga del bastidor, aunque la máquina no salga de una plantilla
 ---
 
