@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: V8.0 medida y V8.2 cerrada (2026-10-19); a V8.1 le falta F4 (verifica); sigue el contrato de V8.3; P1–P4 sin contestar (no bloquean V8.1–V8.4)
+nota: V8.0 medida y V8.2 cerrada (2026-10-19); a V8.1 le falta F4 (verifica); contrato de V8.3 escrito el 2026-10-20 ([V8.3](V8.3-prueba-virtual.md)), espera el veto de Mario; P1–P4 sin contestar (no bloquean V8.1–V8.4)
 descripcion: Las máquinas de Apolo traen su tablero eléctrico real (dispositivos, cables, PLC) y, si hace falta, sus placas a la medida; el agente lo diseña por MCP, la máquina se mueve en una co-simulación eléctrica y mecánica casi real que se ve en 3D con sus datos vivos, y sale con planos eléctricos, memoria de cálculo y el programa del PLC
 ---
 
