@@ -99,6 +99,12 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `inherit_inclination`, `structure_rules` = estructura universal + FEA). Sus diferencias son
   deliberadas y quedan en cada endpoint: velocidad con `or` (checks) vs `is not None` (memoria),
   lints sólo en checks, stack-up y «alcance de la memoria» sólo en la memoria. No las unifiques.
+- `vigas_rules.beam_rules` (flecha de viga, dentro de `structure_rules`): viga = perfil de
+  catálogo cortable HORIZONTAL con ≥ 2 uniones perno/soldadura a vecinos de MENOR nivel (BFS
+  desde los `ground`; una sola soldadura = empotramiento). Las cargas bajan por niveles,
+  repartidas por igual; una viga baja sus reacciones. Carga útil = puntual MÓVIL sobre las vigas
+  que tocan `BED_RE` o, sin cama, las más altas. Piezas de `create_conveyor` → `no_aplica` (D4).
+  Sin vigas → `[]` (memoria intacta). [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
 - `conveyor_params_from_doc` es de los tres clientes (checks, memoria, tool `engineering_check`
   del agente, que la importa con su nombre viejo).
 - `fea_rules`: VIGENCIA por volumen (>0.1 % de cambio, o pieza borrada → aviso «re-ejecuta»); el

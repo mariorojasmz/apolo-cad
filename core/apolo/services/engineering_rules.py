@@ -38,13 +38,14 @@ def inherit_inclination(conveyor: dict | None, req: dict) -> None:
 
 def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
     """Chequeo estructural UNIVERSAL (pernos/soldaduras/L10/pandeo/vuelco): aplica a
-    cualquier ensamblaje, no exige carga ni faja detectada; más la transmisión por cadena de
-    cada `create_chain` y los resultados FEA guardados (con chequeo de vigencia). Llamar bajo
-    STATE_LOCK."""
+    cualquier ensamblaje, no exige carga ni faja detectada; más la flecha de las vigas del
+    bastidor (`vigas_rules`), la transmisión por cadena de cada `create_chain` y los
+    resultados FEA guardados (con chequeo de vigencia). Llamar bajo STATE_LOCK."""
     from apolo.library.engineering.report import structure_engineering_check
 
     from .fea_rules import fea_rules
     from .transmision_rules import chain_rules
+    from .vigas_rules import beam_rules
 
     rules = structure_engineering_check(
         doc.scene, doc.fasteners, doc.grounds, doc.joints, doc.mates,
@@ -52,6 +53,7 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
         rpm=(conveyor or {}).get("rpm_motor"),
         belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
     )
+    rules += beam_rules(doc, carga)
     rules += chain_rules(doc)
     rules += fea_rules(doc)
     return rules

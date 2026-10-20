@@ -90,3 +90,55 @@ esa forma. Parte de [revision-de-taller](revision-de-taller.md).
   cayó en las 7 alturas (razón 0.867–0.890, el ala cónica) → banda medida [0.85, 0.92].
   Tolerancias: 1e-6 donde el pico cae en un nodo, 1e-5 en picos muestreados (resolución
   ≈ L/1200 → ~1e-6 relativo, demasiado justo para 1e-6).
+
+### F2 (2026-10-19): detección, cargas y la regla en `engineering_check` / memoria
+
+- **`services/vigas_rules.py`** (`beam_rules(doc, carga_kg)`, llamada desde `structure_rules`:
+  la comparten `/api/checks` y la memoria). **D1**: perfil de catálogo cortable con sección
+  (`seccion_catalogo`), HORIZONTAL (eje largo X o Y del mundo; las verticales son columnas y se
+  omiten en silencio), con ≥ 2 uniones perno/soldadura a vecinos de MENOR nivel (saltos BFS desde
+  los `ground`: así un travesaño soldado entre largueros se apoya en ellos y los largueros no se
+  apoyan en el travesaño). Una sola soldadura = empotramiento. Apoyo = centro del solape de cajas
+  proyectado en el eje (a ≤ 2 mm de un extremo se pega a él). Contacto/pegado/mate/junta no son
+  apoyo → `no_aplica` con motivo, igual que lo inclinado, lo girado y el perfil ranurado.
+  **D2**: peso propio (kg/m del catálogo) + lo que cuelga: el grafo se recorre de arriba abajo;
+  cada pieza baja su peso + lo recibido repartido POR IGUAL entre sus vecinos de nivel inferior,
+  en el solape (puntual; repartida si el solape cubre ≥ 20 % de la viga); una viga baja sus
+  REACCIONES reales. Carga útil: UNA puntual móvil (`carga_kg` / nº de vigas portantes) probada
+  en el centro de cada tramo y la punta de cada voladizo (envolvente); portantes = vigas que tocan
+  `roles.BED_RE` o, sin cama, las más altas (± 10 mm). Sin `carga_kg`, se declara. **D4**: pieza
+  de un `create_conveyor` → `no_aplica`. Vigas con los mismos números → una regla que las nombra.
+  Sin vigas → `[]` (test: la memoria de siempre).
+- **`library/engineering/viga_bastidor.py`** (puro): orientación de la sección por la caja del
+  mundo (eje fuerte/débil), envolvente, regla con `calc` + `hipotesis` + `viga` (números).
+  **D3**: flecha por TRAMO contra L/240 (vano) y 2·Lv/240 (voladizo); hasta 2× aviso, más error;
+  σ = |M|máx/W contra 0.6·fy (AISC ASD 9.ª ed. F1), hasta fy aviso; en madera MOR/4.
+- **Pendientes de F1, decididos**: (1) el ángulo L flecta LIBRE por sus ejes principales
+  (`secciones.angulo_libre`): I_eq = √2/√(1/Iu² + 1/Iv²) da el MÓDULO del desplazamiento (no
+  sólo Iv, que ignora que la carga va a 45° de v) y σ = M/√2·(|n|/Iu + |s|/Iv) en talón y puntas
+  (manda la punta interior: W_eq 6.52 cm³ en el L 75×6 contra 8.41 geométrico); la flecha con el
+  eje geométrico (arriostrado) va de referencia en la hipótesis. (2) UPN fuera de tabla en su eje
+  débil: I y W × 0.85 (borde inferior medido en F1), declarado; con tabla, la tabla.
+- `Component.familia` / `params` (loader): el nombre del builder y sus params del YAML, para
+  buscar la sección. Metadato: no cambia geometría → sin `GEOM_CACHE_EPOCH`.
+- **Piloto real (proyecto 74, revisiones 124 y 125, lectura sola)**: salen los dos largueros y
+  los tres travesaños (superior e inferior de alimentación, agrupados por iguales, y el
+  portamotor); los 20 tubos de rodillo van a `no_aplica` (sus apoyos son contacto). Largueros:
+  vano 200–1905 (1705 mm) + voladizos de 200 y 95 mm; cuelgan 35.2 kg (−Y: 20 ejes) y 40.4 kg
+  (+Y: 20 ejes + 3 separadores de guarda); carga útil 100 kg → 50 kg móvil por larguero.
+
+  | rev | larguero | δ vano | L/δ | δ voladizo 95 | \|M\| | σ |
+  |---|---|---|---|---|---|---|
+  | 124 UPN-100 (I 206 cm⁴) | −Y / +Y | 0.197 / 0.202 mm | L/8650 | 0.03 mm | 0.311 / 0.319 kN·m | 7.5 / 7.7 MPa |
+  | 125 L 75×6 libre (I_eq 25.9 cm⁴) | −Y / +Y | 1.50 / 1.54 mm | L/1140 | 0.26 mm | 0.298 / 0.306 kN·m | 45.7 / 46.9 MPa |
+
+  A mano (simplemente apoyada en 1705 mm, sin el alivio de los voladizos, lo colgado como
+  uniforme 35.2 kg / 2000 mm + 50 kg al centro): 124 → δ = 0.074 + 0.123 = 0.197 mm, M =
+  0.310 kN·m; 125 → δ = 0.509 + 0.979 = 1.49 mm, M = 0.296 kN·m, σ = 45.4 MPa. Coincide (los
+  voladizos alivian < 1 %). Arriostrado (eje geométrico, 45.8 cm⁴) el L 75×6 daría ≈ 0.85 mm,
+  del orden del 0.82 mm a mano de la bitácora original. Todo verde: manda el voladizo de 95 mm
+  (0.26 / 0.79 mm, utilización 0.33; el vano está en 0.21). Travesaños: portamotor (17.8 kg
+  del motor y su base) δ 0.015 mm, σ 2.3 MPa. 0.4–1.0 s por revisión.
+- Fuera de alcance, declarado: la faja que `detect_conveyor` reconoce POR NOMBRE (sin
+  `create_conveyor`) y con requisitos recibe las dos reglas (la vieja «flecha del bastidor» y
+  ésta); D4 sólo excluye `create_conveyor`, como dice el plan.

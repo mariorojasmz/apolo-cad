@@ -96,6 +96,8 @@ def _component_from_item(item: dict, category: str):
         anchors=anclas_fn(**params) if anclas_fn else None,
         # bloque `electrico:` (plan V8.1 D5): validado aquí; un bloque mal escrito no carga
         electrico=parse_ficha(item.get("electrico"), ref),
+        familia=builder_name,
+        params=dict(params),
     )
 
 

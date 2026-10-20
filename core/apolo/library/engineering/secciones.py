@@ -223,6 +223,52 @@ def _de_tabla_doble(fila: dict, norma: str) -> Seccion:
                    "tabla", norma)
 
 
+@dataclass(frozen=True)
+class AnguloLibre:
+    """Ángulo de lados iguales que flecta SIN arriostramiento lateral bajo una carga paralela
+    a un ala: se deforma por sus ejes PRINCIPALES (u fuerte, a lo largo de la bisectriz; v
+    débil), no por el geométrico. `i_eq` da con la fórmula de siempre el MÓDULO del
+    desplazamiento (δ = k·P/√2·√(1/Iu² + 1/Iv²)) y `w_eq` la tensión máxima en las esquinas
+    (talón y puntas: σ = M/√2·(|n|/Iu + |s|/Iv))."""
+
+    i_eq_mm4: float
+    w_eq_mm3: float
+    i_u_mm4: float
+    i_v_mm4: float
+    i_geometrica_mm4: float  # la del eje paralelo a un ala (vale si hay arriostramiento)
+    w_geometrica_mm3: float
+    fuente: str
+    norma: str
+
+
+def angulo_libre(lado: float, t: float) -> AnguloLibre:
+    """Rigideces de un ángulo L libre (ver `AnguloLibre`). Tabla EN 10056-1 si la designación
+    calza; si no, geometría prismática (sin acuerdos) declarada en `fuente`."""
+    lado, t = float(lado), float(t)
+    fila = next((f for (l_tab, t_tab), f in _ANGULOS.items() if _casa((lado, t), (l_tab, t_tab))),
+                None)
+    if fila is not None:
+        i_g, w_g, i_v, e = fila["I"] * 1e4, fila["W"] * 1e3, fila["Iv"] * 1e4, fila["e"] * 10
+        fuente, norma = "tabla", NORMA_ANGULO
+    else:
+        rects = rects_angulo(lado, t)
+        s = seccion_rectangulos(rects)
+        a = sum(w * h for _, _, w, h in rects)
+        e = sum(x * w * h for x, _, w, h in rects) / a + lado / 2.0  # centroide desde el talón
+        i_g, w_g, i_v = s.i_x_mm4, s.w_x_mm3, s.i_min_mm4
+        fuente, norma = "geometría", f"{NORMA_ANGULO}, sin acuerdos"
+    i_u = 2.0 * i_g - i_v  # Iu + Iv = Ix + Iy = 2·I (invariante)
+    r2 = math.sqrt(2.0)
+    peor = 0.0
+    # esquinas desde el talón: talón, puntas exterior e interior de cada ala
+    for x, y in ((0.0, 0.0), (lado, 0.0), (lado, t), (0.0, lado), (t, lado)):
+        rx, ry = x - e, y - e
+        s_u, n_v = (rx + ry) / r2, (ry - rx) / r2
+        peor = max(peor, abs(n_v) / i_u + abs(s_u) / i_v)
+    i_eq = r2 / math.sqrt(1.0 / i_u**2 + 1.0 / i_v**2)
+    return AnguloLibre(i_eq, r2 / peor, i_u, i_v, i_g, w_g, fuente, norma)
+
+
 def seccion_catalogo(builder: str, params: dict) -> Seccion | None:
     """Sección de una pieza cortable a partir de su familia (`builder`) y sus `params` de
     catálogo. None si la familia no tiene sección determinable (`SIN_SECCION`) o no es de

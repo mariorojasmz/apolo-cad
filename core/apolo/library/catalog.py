@@ -40,6 +40,11 @@ class Component:
     # ficha eléctrica (bornes, caminos, cargas, fuentes, modelo) del bloque `electrico:` del
     # YAML (`electrico/ficha.py`, plan V8.1 D5). None = pieza mecánica.
     electrico: FichaElectrica | None = field(repr=False, default=None)
+    # NOMBRE del builder y sus params tal como los declara el YAML: los lee la sección de una
+    # viga (`engineering/secciones.seccion_catalogo`, plan flecha-de-bastidor F2). Metadato:
+    # no cambia la geometría.
+    familia: str | None = field(repr=False, default=None)
+    params: dict | None = field(repr=False, default=None)
 
 
 from .loader import load_catalog  # noqa: E402  (necesita Component ya definido)

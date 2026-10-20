@@ -99,7 +99,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   recorta). Secciones (`secciones.py`) en ejes LOCALES del builder (`i_x` = canto en Y): tabla
   de norma si los params calzan; HSS A500 con t = 0.93·t_nom y r = 2t (AISC; el `rect_tube_*`
   de `structural.py` es arista viva y nominal); perfil ranurado → `None` (`SIN_SECCION`), jamás
-  la inercia del modelo macizo. [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
+  la inercia del modelo macizo. La sección se busca por `Component.familia`/`params` (builder y
+  params del YAML). Un ángulo L flecta LIBRE por sus ejes principales (`angulo_libre`; el eje
+  geométrico va de referencia en la hipótesis); criterio en `viga_bastidor.py` (vano L/240,
+  voladizo 2·Lv/240, σ ≤ 0.6·fy). [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
 - Instalación (`installation.anchor_loads`): reparto ELÁSTICO de grupo por apoyo; con N > 3 es
   hiperestático y la hipótesis se DECLARA; un R_i negativo se publica como TRACCIÓN, jamás se
   recorta a cero. [V7.6](../../../docs/plans/V7.6-e2-fino.md)
