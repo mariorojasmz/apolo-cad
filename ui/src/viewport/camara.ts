@@ -41,3 +41,28 @@ export function cajaDe(meshes: ReadonlyMap<string, THREE.Object3D>, ids: Iterabl
   }
   return alguna ? caja : null;
 }
+
+/** Vistas fijas de la barra del visor y los atajos: dirección desde el objetivo a la cámara. */
+export const VIEWS: Record<string, [number, number, number]> = {
+  ISO: [1, -1, 0.8],
+  Frente: [0, -1, 0.0001],
+  Lateral: [1, 0, 0.0001],
+  Planta: [0, 0, 1],
+};
+
+/** Encuadra una caja: mantiene la dirección actual de la cámara salvo que se dé `dir`. Salió de
+   Viewport.tsx sin cambiar la lógica (plan piso-con-sombra, F1). */
+export function encuadrar(
+  camera: THREE.PerspectiveCamera, controls: { target: THREE.Vector3; update: () => unknown },
+  box: THREE.Box3, dir?: [number, number, number],
+): void {
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3()).length() || 1200;
+  const v = dir
+    ? new THREE.Vector3(...dir).normalize().multiplyScalar(size * 1.4)
+    : camera.position.clone().sub(controls.target).normalize().multiplyScalar(size * 1.4);
+  camera.position.copy(center.clone().add(v));
+  controls.target.copy(center);
+  controls.update();
+}

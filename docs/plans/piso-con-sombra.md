@@ -160,3 +160,58 @@ JSX (`:1462-1515`) y las funciones de `poses` (`:1518-1631`).
 Línea base en el piloto: NO se midió en esta fase. La API de :8000 la está usando Mario y este
 subagente no la toca; el hook expone hoy `meshIds()`, `builds()` y `store` (`Viewport.tsx:467`).
 La línea base (mallas y `builds()` en el 74 y la 73) queda para F3, antes de mirar la sombra.
+
+### F1 (2026-10-19)
+
+Refactor puro de `Viewport.tsx`: **1631 → 418 líneas**, fuera de `EXCEPCIONES` de
+`ui/src/tamanoArchivos.test.ts`. Las líneas se movieron con un script que copia rangos VERBATIM
+del original y después se comparó línea a línea (recortada) cada módulo nuevo contra el
+original: lo único distinto son los encabezados, los `export`, las firmas nuevas y
+`dragHideHandles = …` → `ocultarTiradores.current = …`.
+
+| módulo (`ui/src/viewport/`) | líneas | qué tiene (líneas del original) |
+|---|---|---|
+| `pipeline.ts` | 149 | renderer, escena, cámara, controles, luces, suelo, IBL, ViewCube, grid, gizmo (`:320-354`), composer y passes (`:525-545`), `resize` (`:547-556`), bucle y su limpieza |
+| `gizmoRot.ts` | 226 | flechas de rotación, materiales, `buildOverlay`, guías (`:36-221`) y `actualizarTiradores` (antes `updateHandleSprites`, `:563-587`) |
+| `poses.ts` | 123 | `sectionPlanes`, `attachGizmo`, `computePoses`, `applyKinematicPoses` (`:1518-1631`) |
+| `mallas.ts` | 94 | `sincronizarMallas`: el diff de mallas por `rev` (`:1159-1215`) |
+| `tinteBloqueo.ts` | 29 | tinte de guardado fallido (`:601-619`) |
+| `medicion.ts` | 26 | el overlay de la medida (`:1247-1264`) |
+| `camara.ts` | +25 | `VIEWS` y `encuadrar` (antes el cuerpo de `frameBox`) |
+| `interaccion/ctx.ts` | 49 | `VistaCtx` (el `Ctx` de antes, lo que guarda `ctxRef`) y `CtxInteraccion` |
+| `interaccion/gizmo.ts` | 197 | snap y HUD del gizmo, `commitGizmo` (`:356-455`, `:473-523`), `axisLetter`, `aplicarVcb` |
+| `interaccion/seleccion.ts` | 51 | clic, «elegir punto» y clic en el ViewCube (`:640-672`) |
+| `interaccion/manipular.ts` | 392 | agarrar-mover, estirar, rotar por flechas, cono Z y recuadro (`:588-600`, `:674-778`, `:828-1070`) |
+| `interaccion/hoverTiradores.ts` | 59 | hover de los tiradores (`:779-827`) |
+| `interaccion/ergonomia.ts` | 50 | menú contextual, doble clic, `apolo:fit` y export glTF (`:1079-1109`) |
+
+**El `Ctx`** (`interaccion/ctx.ts`): `CtxInteraccion = VistaCtx` (scene, camera, controls,
+gizmo, renderer, group, meshes, dir, ground, handles) + `mount`, `viewCube`, UN `raycaster`,
+`boxRef`, `liveAngleRef`, `featuresRef`, `blockedRef`, `lastAxisRef`, las tres banderas
+`isGizmoDraggingRef`/`isBoxSelectingRef`/`isDraggingObjRef`, `ocultarTiradores` (`{ current }`,
+el antiguo `let dragHideHandles` que escribe la manipulación y lee el bucle), `setVcb` y los
+cierres del primer render `setViewDir`/`frameBox`/`fitTo`. Cada módulo es
+`instalarX(ctx) → limpieza`.
+
+**El punto de enganche** (`pipeline.ts`): `antesDeComponer(tarea)`. El bucle hace
+`controls.update()` → tareas en orden de registro → contorno de selección + destello →
+`composer.render()` → ViewCube, que es exactamente el orden de antes con las tareas = drop-test,
+gravedad, tinte y tiradores. La sombra de F2 se registra como una tarea más, al final.
+
+Orden de limpieza conservado: `pipe.detener()` (rAF + observer) → limpiezas de
+`interaccion/` (gizmo: teclas + `snapMarker`; selección; manipulación: punteros + transportador;
+ergonomía: menú, doble clic, `apolo:fit`, glTF) → animadores → productos → `pipe.dispose()`
+(gizmo, IBL, ViewCube, outline, destello, composer, renderer, canvas) → `ctxRef = null`.
+
+Decisiones y diferencias (ninguna cambia el comportamiento):
+
+- `handlesGroup` entra a la escena ANTES que el `snapMarker` (antes, después): el gizmo se
+  instala con el `Ctx` ya armado. Ninguno es raycasteable por el otro ni comparte `renderOrder`.
+- `meshes` lo crea el pipeline (el bucle lo necesita para el contorno); es el mismo `Map` que
+  `ctx.meshes`.
+- La lógica repetida de puntero → NDC (siete copias) se dejó tal cual: deduplicarla sería
+  cambiar código, no moverlo. Queda para cuando alguien toque la manipulación.
+- Tests nuevos: `poses.test.ts` (8: sección, poses encadenadas, vuelta a cero, gizmo) y
+  `gizmoRot.test.ts` (7: anclaje de las flechas según la cámara, eje del arco, overlay de una
+  pieza no-caja, escala constante de los tiradores). La caja con tiradores de estirón usa
+  `<canvas>` y no corre en node: queda para F3. vitest 208 → 223, `npm run build` verde.

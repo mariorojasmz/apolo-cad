@@ -41,7 +41,6 @@ const EXCEPCIONES = new Map<string, number>([
     ['forms/SchemaForm.tsx', 553],
     ['panels/SketcherDialog.tsx', 707],
     ['state/store.ts', 916],
-    ['viewport/Viewport.tsx', 1631],
 ]);
 
 // ── Medición ──────────────────────────────────────────────────────────────────
