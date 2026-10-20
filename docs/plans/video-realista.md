@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 y F1 hechas (2026-10-20): botón «Calidad alta» (estudio + GTAO + SMAA, ~25 % de fps en una Intel UHD) y acabados con textura; el trazado de rayos usará three-gpu-pathtracer 0.0.23 (MIT), la última compatible con three 0.169; falta mirar F1 en la UI servida; faltan F2–F5
+nota: F0, F1 y F2 hechas (2026-10-20): «Calidad alta» (estudio + GTAO + SMAA) y acabados con textura; F2 graba cuadro por cuadro con reloj virtual y antialias acumulado, y la API codifica (`/api/video/grabacion`, `window.__apolo.grabar`; 10 s de la faja 73 en 3 min en una Intel UHD); el trazado de rayos usará three-gpu-pathtracer 0.0.23 (MIT); faltan F3–F5
 descripcion: El video de YouTube y de la tienda sale del visor con calidad de foto de catálogo (y trazado de rayos de noche), generado solo, sin instalar Blender
 ---
 
@@ -391,3 +391,103 @@ Tests:
 
 Sin verificar: la UI servida por la API (la de :8000 es de Mario). El arnés usa el pipeline real
 pero no el componente `Viewport` ni el botón.
+
+### F2 (2026-10-20): reloj virtual, grabación y codificación en la API
+
+Medido en la laptop (i7-1355U, **Intel UHD integrada**: cota baja, D10). El video de prueba salió
+del visor REAL servido por una API del worktree sobre una COPIA de `data/apolo.db` (puerto 8766,
+grabaciones en el scratchpad), en el panel de navegador del escritorio.
+
+**D4, API** (`api/routers/video.py`, router nuevo; sesiones en `media/grabacion.py`):
+- `POST /api/video/grabacion` (ancho, alto, fps, `formato` jpeg|png, `cuadros`) abre la sesión y
+  devuelve lo que ocuparán los cuadros y el disco libre: `aviso` si pasan del 50 % del libre, 507
+  si no caben.
+- `POST …/{sesion}/cuadro/{n}` con el JPEG o el PNG crudo de cuerpo. Pillow lee sólo la cabecera:
+  formato o tamaño equivocado → 400 con el motivo. Pueden llegar desordenados; uno repetido → 409
+  (es un error del reloj, no un reintento). Se escribe a `.parcial` y se renombra.
+- `POST …/{sesion}/cerrar` (`musica`, `salida`, `conservar_cuadros`): exige 0…N−1 sin huecos
+  (si no, 400 con cuáles faltan), los decodifica con Pillow hacia el MISMO `Codificador` del video
+  de la tienda (BT.709, CRF 18) y mezcla la música con `mezclar_musica`. Borra los cuadros salvo
+  `conservar_cuadros`. Si la codificación falla, los cuadros QUEDAN y la sesión pasa a «error»:
+  se puede volver a cerrar.
+- `GET …/{sesion}` da el estado (con `codificados` mientras codifica) y `DELETE` la descarta.
+- Sin `STATE_LOCK`: E/S pura, con un lock hoja propio. Sesiones en memoria; los cuadros, en
+  `data/grabaciones/<sesion>/` (`paths.grabaciones_dir`).
+
+**D3, visor** (`ui/src/viewport/grabacion/`, módulos nuevos; `Viewport.tsx` sólo cambió las
+tareas y publicó `window.__apolo.grabar`):
+- `reloj.ts`: el cuadro n vale `n/fps`. `recorrerCuadros` dibuja en orden, de a uno, y deja hasta
+  4 fotos codificándose y subiendo en paralelo. Al primer error para, espera a las que estaban en
+  vuelo y lo relanza.
+- `pipeline.ts`: las tareas reciben `ahora` (el reloj del cuadro) y nadie lee el reloj real;
+  `modoGrabacion` fija el tamaño con DPR 1 (el canvas se ve escalado con `object-fit: contain`),
+  para el bucle y deja fuera ViewCube y controles.
+- `modo.ts` + `acumulado.ts`: «alta» forzada sin tocar la elección guardada; el `RenderPass` se
+  reemplaza por un pase que promedia 16 muestras con corrimiento subpíxel (Halton 2,3) en un
+  HalfFloat, por tandas de 4 (entre tandas suelta el hilo con `MessageChannel`, que no se frena
+  con la pestaña de fondo). El mapa de sombras se rehace una vez por cuadro, no por muestra.
+  Fuera grilla, ejes, gizmo, tiradores, medida, contorno, destello y SMAA.
+- Decisión propia: no es el `TAARenderPass` de three. Ese acumula entre llamadas al composer, y
+  repetir el composer repetiría el GTAO por muestra. El pase propio acumula aparte y el GTAO corre
+  una vez sobre el promedio.
+- `captura.ts`: el canvas es transparente, así que la foto se arma en un lienzo 2D (fondo del visor
+  + `drawImage` en el mismo hilo del render) y `toBlob` codifica después.
+- `guion.ts` + `encuadre.ts`: el giro (360° suavizado alrededor de Z, desde la dirección de la
+  vista) y la marcha (`saltar(n/fps)` cada cuadro: tiempo absoluto, sin deriva). La cámara se
+  acerca lo justo para que la caja de la máquina entre en el 16:9 durante todo el giro.
+- Sin GPU (SwiftShader, llvmpipe) la grabación se niega con un mensaje, salvo `permitirSinGpu`.
+
+**JPEG o PNG, medido** (Edge sin ventana, una captura real de la piloto a 1080p, 10 cuadros):
+
+| formato | ms por cuadro | KB | PSNR tras H.264 CRF 18 |
+|---|---|---|---|
+| PNG | 113 | 1 684 | 46,2 dB |
+| JPEG 0,95 | 42 | 352 | 43,5 dB |
+| JPEG 0,98 | 40 | 510 | 43,9 dB |
+| WebP 0,95 | 454 (88 con 4 en paralelo) | 224 | — |
+
+- `toBlob` de PNG y JPEG no gana nada en paralelo: Chromium los codifica en serie.
+- Decisión: JPEG 0,95 por defecto (2,7× más rápido, 5× menos disco: 1 800 cuadros ≈ 0,6 GB en
+  vez de 3 GB) y PNG a pedido para cuando haga falta sin pérdida. Los −2,7 dB no se ven, y YouTube
+  recodifica muy por debajo.
+- El PNG de F0 (230–730 ms) era más lento que el de hoy (113 ms): otra captura y otra medición.
+
+**Primer video**: la faja 73 girando y andando, con la marcha del brief (`j_eje_motriz` a
+0,37 m/s y la banda `c119`) y `duracion_s: 10` (la de 3 s por defecto quedaba corta). Nivel
+rápido: 1920×1080, 30 fps, 16 muestras.
+
+| | |
+|---|---|
+| cuadros | 300 (10 s) |
+| por cuadro (dibujar 16 muestras + foto + subida) | 0,55 s |
+| cuadros | 165 s |
+| codificar en la API | 13 s |
+| total | 178 s |
+| MP4 | 2,0 MB (H.264 High, BT.709, 300 fotogramas) |
+
+- 4K (3840×2160, 15 cuadros): 0,58 s por cuadro, casi lo mismo que a 1080p. En la Intel UHD
+  manda el vértice (16 pasadas de 1 M de triángulos), no el píxel.
+- Al terminar, el visor vuelve a su tamaño, calidad, cámara y bucle; la carpeta de la sesión queda
+  sólo con el `video.mp4`.
+- El video y una tira de 4 cuadros quedaron en el scratchpad de la sesión (`f2-video/`). El arnés
+  y la copia de la base se borraron.
+
+Intentos fallidos:
+- La primera prueba (1 s) usó el encuadre del visor tal cual: la máquina salía chica y corrida,
+  porque la ventana era 4:3. De ahí `encuadre.ts`.
+- `encuadre.ts` con 16 ángulos de prueba dejaba salirse una esquina un 1 % entre muestras; con 36
+  (cada 10°), no.
+
+Tests:
+- pytest `test_video_grabacion.py` +28, con ffmpeg real; los que codifican se saltan sin él:
+  sesión, defaults, parámetros, disco, cuadros desordenados, repetido, malos, 404, faltantes,
+  orden de los colores decodificados, PNG, salida elegida, conservar, música, sin ffmpeg (503) y
+  descartar.
+- `test_rutas_api.py` anota `GET|DELETE /api/video/grabacion/{sesion}`; `test_api_sesion.py`
+  cuenta 13 routers.
+- vitest 291 → 314 (+23): `reloj.test.ts` 9, `grabador.test.ts` 5 (fetch simulado), `guion.test.ts`
+  6 y `encuadre.test.ts` 3.
+
+Sin verificar:
+- el escritorio (4070 Ti, F5);
+- la música en el flujo del navegador: la cubre el test de la API.

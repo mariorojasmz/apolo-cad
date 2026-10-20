@@ -28,6 +28,7 @@ import { instalarErgonomia } from "./interaccion/ergonomia";
 import type { Reproductor } from "./marcha/reproductor";
 import { useMarchaEnVista } from "./marcha/enVista";
 import BarraMarcha from "./marcha/BarraMarcha";
+import { crearGrabacionVista } from "./grabacion/enVista";
 
 /* Orquestador del viewport: estado de React, efectos que sincronizan la escena con la store y
    el JSX de las barras. El render vive en `pipeline.ts` (renderer, composer, bucle); la
@@ -120,6 +121,8 @@ export default function Viewport() {
       builds: () => buildCountRef.current,
       sombraRecalculos: () => sombra.recalculos(), // en reposo no sube (piso-con-sombra, D3)
       store: useStore,
+      // grabar el video cuadro por cuadro (video-realista F2; el botón es de F3)
+      grabar: crearGrabacionVista(pipe, () => [handlesGroup, ...(measureObjRef.current ? [measureObjRef.current] : [])]),
     };
     const ci: CtxInteraccion = {
       ...ctx, mount, viewCube: pipe.viewCube, raycaster: new THREE.Raycaster(), boxRef, liveAngleRef,
@@ -128,14 +131,15 @@ export default function Viewport() {
     };
     const limpiezas = [instalarGizmo(ci)];
 
-    pipe.antesDeComponer(() => dropAnimRef.current?.tick(performance.now())); // cajas del drop-test
-    pipe.antesDeComponer(() => gravityAnimRef.current?.tick(performance.now())); // caída de las mallas reales
-    pipe.antesDeComponer(() => marchaRef.current?.tick(performance.now())); // la marcha simulada
+    // `ahora` = el reloj del cuadro: el real, o el virtual al grabar (video-realista D3)
+    pipe.antesDeComponer((ahora) => dropAnimRef.current?.tick(ahora)); // cajas del drop-test
+    pipe.antesDeComponer((ahora) => gravityAnimRef.current?.tick(ahora)); // caída de las mallas reales
+    pipe.antesDeComponer((ahora) => marchaRef.current?.tick(ahora)); // la marcha simulada
     pipe.antesDeComponer(crearTinteBloqueo(ctx.meshes, blockedRef)); // rojizo SÓLO con guardado fallido
     // tamaño constante de los cuadritos + altura sigue la cámara
     pipe.antesDeComponer(() => actualizarTiradores(ctx.handles, camera, renderer.domElement, ci.ocultarTiradores.current));
     // sombra de contacto: sólo si quedó sucia; mientras algo se arrastra o cae, ≤ 10 Hz
-    pipe.antesDeComponer(() => sombra.actualizar(performance.now(),
+    pipe.antesDeComponer((ahora) => sombra.actualizar(ahora,
       isDraggingObjRef.current || isGizmoDraggingRef.current || useStore.getState().gravityPlaying));
     pipe.arrancar();
 

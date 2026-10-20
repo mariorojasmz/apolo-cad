@@ -56,6 +56,12 @@ def publicaciones_dir() -> Path:
     return data_dir() / "publicaciones" if repo_root() is not None else home() / "publicaciones"
 
 
+def grabaciones_dir() -> Path:
+    """Carpeta de las grabaciones del visor (plan video-realista, D4): una carpeta por sesión con
+    sus cuadros (se borran al codificar) y el video. Fuera de git, como `data/`. No se crea aquí."""
+    return data_dir() / "grabaciones"
+
+
 def db_path() -> str:
     """Ruta de la SQLite de proyectos; `APOLO_DB` manda siempre.
 

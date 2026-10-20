@@ -248,6 +248,13 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   (`recorte.ts`, en el bucle de `pipeline.ts`): con un `near` fijo de 1 mm, a 6 m el buffer de
   profundidad sólo separa ~2 mm y la cama asomaba en manchas a través de una banda de 3–4 mm.
   Una cámara nueva que dibuje la escena (grabación, foto) pasa por el mismo ajuste.
+- Grabación (`viewport/grabacion/`, `window.__apolo.grabar`): reloj VIRTUAL, el cuadro n vale
+  n/fps. Por eso toda tarea de `antesDeComponer` usa el `ahora` que recibe, nunca
+  `performance.now()`/`Date.now()`: si no, al grabar se mueve con el reloj real. El modo grabación
+  para el bucle, fija 1920×1080, apaga contorno, destello, SMAA y ayudas (`pipe.ayudantes` + lo que
+  pase Viewport) y acumula N muestras con jitter en vez del `RenderPass`. La foto se toma con
+  `drawImage` en el MISMO hilo que el render (sin `preserveDrawingBuffer`).
+  [video-realista](../docs/plans/video-realista.md) (F2)
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
   para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).

@@ -28,6 +28,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica y la serie de la marcha |
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
 | `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
+| `electrico` | circuito y ERC del tablero |
+| `video` | grabación del visor: sesión, cuadros y cierre que codifica (`media/grabacion.py`) |
 
 - Una ruta nueva va al router de su tema con `@router.<método>`; `main` no gana rutas (sólo
   `include_router`).
@@ -162,6 +164,10 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   proyecto: el GET lo re-simula si el documento cambió. Trae `cadenas` y `fajas` (F3): se extraen
   en la MISMA adquisición que `prepare_dynamics` y se arman fuera de los locks; si fallan, la marcha
   sale igual con un aviso. [visor-realista](../../../docs/plans/visor-realista.md) (F2, F3)
+- La grabación del visor (`/api/video/grabacion…`) no toma `STATE_LOCK`: es E/S pura y su lock
+  (`media/grabacion.py`) es HOJA. Las sesiones viven en memoria (un reinicio las pierde; los
+  cuadros quedan en `data/grabaciones/`); el cierre codifica dentro de la request, y si falla los
+  cuadros QUEDAN para volver a cerrar. [video-realista](../../../docs/plans/video-realista.md) (D4)
 - `POST /api/agent/chat` no toma `STATE_LOCK`: el chat es un cliente HTTP de esta misma API
   (`agent/chat.py`); cupo lleno → 429. Sin `APOLO_CHAT=1` (leído en cada petición) → 503 ANTES
   de tomar cupo o llamar al modelo, y `GET /api/health` → `chat: false` (la UI oculta el panel).

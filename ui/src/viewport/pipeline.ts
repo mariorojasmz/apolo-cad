@@ -5,9 +5,10 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import type { Pass } from "three/examples/jsm/postprocessing/Pass.js";
 import { BACKGROUND_CSS, createGround, createLights, createRenderer } from "./scene-setup";
 import { crearEntorno } from "./environment";
-import { useCalidad } from "./calidad";
+import { useCalidad, type Calidad } from "./calidad";
 import { crearCalidadVista, type CalidadVista } from "./calidadVista";
 import { createViewCube, type ViewCube } from "./viewcube";
 import { crearDestello } from "./destello";
@@ -24,7 +25,15 @@ import { ajustarRecorte, crearEncuadreDe } from "./recorte";
 
    Calidad (video-realista D1, `calidad.ts`): «alta» = estudio procedural como IBL + GTAO + SMAA
    sin MSAA (`calidadVista.ts`); «normal» = RoomEnvironment + MSAA ×4, el visor de antes. El
-   pipeline sigue a la store `useCalidad` y la cambia en caliente (sin rearmar nada). */
+   pipeline sigue a la store `useCalidad` y la cambia en caliente (sin rearmar nada).
+
+   Grabación (video-realista D3, `grabacion/modo.ts`): `modoGrabacion` fija el tamaño del render,
+   para el bucle y deja de dibujar el ViewCube y de mover los controles; el modo grabación llama
+   `prepararCuadro(ms)` + `componer()` con su reloj virtual. Por eso las tareas reciben `ahora`:
+   ninguna lee el reloj real por su cuenta. */
+
+/** Tarea por cuadro; `ahora` = el reloj del cuadro en ms (el real, o el virtual al grabar). */
+export type TareaCuadro = (ahora: number) => void;
 
 export interface Pipeline {
   renderer: THREE.WebGLRenderer;
@@ -37,10 +46,23 @@ export interface Pipeline {
   dir: THREE.DirectionalLight;
   ground: THREE.Mesh;
   viewCube: ViewCube;
+  composer: EffectComposer;
+  /** Pases que el modo grabación apaga o reemplaza. */
+  pases: { render: RenderPass; contorno: OutlinePass; destello: Pass };
+  /** Ayudas de la interfaz (grilla, ejes, gizmo): no salen en un video. */
+  ayudantes: THREE.Object3D[];
   /** Los pases y el interruptor de la calidad del visor. */
   calidad: CalidadVista;
+  /** Aplica una calidad sin tocar la elección guardada de la persona (la grabación fuerza «alta»). */
+  aplicarCalidad: (c: Calidad) => void;
   /** Registra una tarea por frame que corre ANTES de componer, en orden de registro. */
-  antesDeComponer: (tarea: () => void) => void;
+  antesDeComponer: (tarea: TareaCuadro) => void;
+  /** Controles, tareas y ajustes del cuadro con el reloj `ahora` (ms), sin dibujar. */
+  prepararCuadro: (ahora: number) => void;
+  /** Dibuja el cuadro (y el ViewCube encima, salvo al grabar). */
+  componer: () => void;
+  /** Tamaño fijo y sin bucle (grabación) o `null` para volver al visor. */
+  modoGrabacion: (tam: { ancho: number; alto: number } | null) => void;
   /** Arranca el bucle (el primer frame se dibuja YA, sincrónico). */
   arrancar: () => void;
   /** Para el bucle y el ResizeObserver (primer paso de la limpieza). */
@@ -81,7 +103,8 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   gridMat.opacity = 0.06;
   gridMat.depthWrite = false;
   scene.add(grid);
-  scene.add(new THREE.AxesHelper(220));
+  const ejes = new THREE.AxesHelper(220);
+  scene.add(ejes);
 
   const group = new THREE.Group();
   scene.add(group);
@@ -102,7 +125,8 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   const composerRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
   const composer = new EffectComposer(renderer, composerRT);
   composer.setPixelRatio(window.devicePixelRatio);
-  composer.addPass(new RenderPass(scene, camera));
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
   const calidad = crearCalidadVista(scene, camera, group, composer);
   composer.addPass(calidad.gtao); // oclusión ambiental, sólo en «alta»
   const outlinePass = new OutlinePass(new THREE.Vector2(1, 1), scene, camera);
@@ -117,7 +141,7 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   composer.addPass(destello.pass);
   composer.addPass(new OutputPass());
   composer.addPass(calidad.smaa); // antialias sobre sRGB, sólo en «alta»
-  const aplicarCalidad = (c: "alta" | "normal") => {
+  const aplicarCalidad = (c: Calidad) => {
     calidad.fijar(c);
     entorno.fijar(c);
   };
@@ -130,41 +154,65 @@ export function crearPipeline(mount: HTMLDivElement, seleccion: () => readonly s
   });
   const selMeshes: THREE.Object3D[] = []; // buffer reusado por frame (sin asignaciones)
 
+  // al grabar, el render tiene un tamaño fijo con DPR 1 (el canvas se ve escalado, sin deformar)
+  let fijo: { ancho: number; alto: number } | null = null;
   const resize = () => {
-    const { clientWidth: w, clientHeight: h } = mount;
+    const w = fijo ? fijo.ancho : mount.clientWidth;
+    const h = fijo ? fijo.alto : mount.clientHeight;
+    const dpr = fijo ? 1 : window.devicePixelRatio;
     camera.aspect = w / Math.max(h, 1);
     camera.updateProjectionMatrix();
-    renderer.setSize(w, h);
+    renderer.setPixelRatio(dpr);
+    composer.setPixelRatio(dpr);
+    renderer.setSize(w, h, !fijo); // grabando, el estilo del canvas sigue al contenedor
     composer.setSize(w, h); // reajusta RTs y todos los passes (incl. OutlinePass)
   };
   resize();
   const observer = new ResizeObserver(resize);
   observer.observe(mount);
 
-  const tareas: (() => void)[] = [];
+  const tareas: TareaCuadro[] = [];
   const encuadre = crearEncuadreDe(group);
   let frame = 0;
-  const animate = () => {
-    frame = requestAnimationFrame(animate);
-    controls.update();
-    for (const tarea of tareas) tarea(); // animadores, tinte, tiradores… (antes de componer)
-    calidad.ajustar(performance.now()); // radio de la oclusión y planos de sección (≤ 3 Hz)
+  let vivo = true;
+  const prepararCuadro = (ahora: number) => {
+    if (!fijo) controls.update(); // al grabar, la cámara la pone el guion
+    for (const tarea of tareas) tarea(ahora); // animadores, tinte, tiradores… (antes de componer)
+    calidad.ajustar(ahora); // radio de la oclusión y planos de sección (≤ 3 Hz)
     // contorno de selección: recolecta las mallas seleccionadas (robusto a reconstrucciones)
     selMeshes.length = 0;
     for (const id of seleccion()) { const m = meshes.get(id); if (m) selMeshes.push(m); }
     outlinePass.selectedObjects = selMeshes;
     destello.actualizar(meshes, Date.now()); // late ~3 s desde el pulso del visor
+    // al final: el guion de la grabación ya puso la cámara. Vale para el visor y para el video
     const enc = encuadre();
     if (enc) ajustarRecorte(camera, enc.esfera, enc.pisoZ); // sin z-fighting a distancia
+  };
+  const componer = () => {
     composer.render(); // escena + contorno (reemplaza renderer.render)
-    viewCube.render(renderer, camera); // sobre el frame ya compuesto (autoClear=false)
+    if (!fijo) viewCube.render(renderer, camera); // sobre el frame ya compuesto (autoClear=false)
+  };
+  const animate = () => {
+    frame = requestAnimationFrame(animate);
+    prepararCuadro(performance.now());
+    componer();
   };
 
   return {
     renderer, scene, camera, controls, gizmo, group, meshes, dir, ground, viewCube, calidad,
+    composer, pases: { render: renderPass, contorno: outlinePass, destello: destello.pass },
+    ayudantes: [grid, ejes, gizmoObj], aplicarCalidad, prepararCuadro, componer,
     antesDeComponer: (tarea) => { tareas.push(tarea); },
     arrancar: animate,
+    modoGrabacion: (tam) => {
+      cancelAnimationFrame(frame);
+      fijo = tam;
+      renderer.domElement.style.objectFit = tam ? "contain" : "";
+      resize();
+      if (!tam && vivo) animate();
+    },
     detener: () => {
+      vivo = false;
       cancelAnimationFrame(frame);
       observer.disconnect();
     },
