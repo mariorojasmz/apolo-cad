@@ -153,6 +153,17 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `publicacion/video.py`: no se duplica la fórmula.
   [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md)
 
+## Secuencia de montaje (`montaje.py`, `montaje_video.py`)
+
+- UNA secuencia para el manual (`pasos_manual` → `assembly_manual(stages=)`) y el video
+  (`etapas_montaje` → guion con `"modo": "montaje"`, cada paso = tanda de ids); sale SÓLO de lo
+  declarado (`fasten`/`ground`). Sin estructura (`hay_grafo` falso), el manual sigue con
+  `order_by_support`. Las reglas (soldado primero, nivel desde el piso, la tuerca cierra, lo que
+  tapa al final, se termina lo empezado) están en el docstring: una regla nueva va ahí con su
+  caso en `tests/test_montaje.py`. El acceso de herramienta NO impone orden (si la llave entra
+  con la máquina terminada, entra con menos piezas).
+  [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md) (F1b)
+
 ## Roles por nombre (`roles.py`)
 
 - `BED_RE` (cama/mesa: recibe la carga del FEA y da la altura de trabajo de la instalación) y

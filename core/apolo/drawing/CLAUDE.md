@@ -70,6 +70,9 @@ reglas están en [services](../services/CLAUDE.md).
 
 ## Manual de ensamblaje (`assembly_manual.py`)
 
+- Con estructura DECLARADA el endpoint pasa `stages` = la secuencia de montaje de
+  `services/montaje.py` (la misma del video; [services](../services/CLAUDE.md)) y `_instruction`
+  suma su `union` («Se atornilla (M12) a…»). Sin ella, lo de abajo.
 - `order_by_support` ordena los pasos por `detect_structure` (tierra → arriba) y fusiona los pasos
   HUÉRFANOS al sub-ensamblaje vecino; sin estructura → orden del log. Pagina por grupos si existen.
 - Empate al mismo rango de soporte → `_family_order` (rodamientos/chumaceras < neutro <

@@ -247,6 +247,24 @@ def test_forzada_queda_con_observaciones_y_con_su_musica(tienda, tmp_path):
         (carpeta / "youtube.txt").read_text(encoding="utf-8")
 
 
+def test_el_guion_es_de_montaje_salvo_que_pidas_diseno(tienda):
+    """D8 de video-tienda-pulido: por defecto el video sigue cómo se ARMA (las patas ancladas y
+    después el tablero atornillado); `modo="diseño"` deja el guion de siempre (pasos = k)."""
+    r = flujo.guion(tienda.c, tienda.verde, raiz=tienda.raiz, eco=None)
+    g = json.loads(r["guion"].read_text(encoding="utf-8"))
+    assert g["modo"] == "montaje"
+    tandas = [f for e in g["etapas"] for t in e["pasos"] for f in t]
+    nombres = [tienda.mesa.scene[f].name for f in tandas]
+    assert sorted(nombres[:4]) == [f"Pata ({i})" for i in range(1, 5)] and nombres[4:] == ["Tablero"]
+    r = flujo.guion(tienda.c, tienda.verde, raiz=tienda.raiz, version="1.0.1", modo="diseño",
+                    eco=None)
+    g = json.loads(r["guion"].read_text(encoding="utf-8"))
+    assert "modo" not in g and all(isinstance(k, int) for e in g["etapas"] for k in e["pasos"])
+    with pytest.raises(PublicacionError, match="Modo de video desconocido"):
+        flujo.guion(tienda.c, tienda.verde, raiz=tienda.raiz, version="1.0.2", modo="armado",
+                    eco=None)
+
+
 def test_un_log_que_cambio_desde_el_guion_se_niega(tienda):
     prep = _preparar(tienda, tienda.verde)
     r = tienda.c.post("/api/commands", json={"type": "create_box", "params": {

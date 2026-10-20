@@ -1189,8 +1189,8 @@ def assembly_manual(path: str, sheet: str = "A3", isolate: list[str] | None = No
     PDF MULTIPÁGINA y lo guarda en `path` (.pdf): portada con la SECUENCIA de montaje + 1 lámina por
     PASO. Cada paso muestra el render 3D acumulado (las piezas NUEVAS resaltadas a color, lo ya
     montado en gris fantasma, cámara estable) + la lista de piezas/herraje del paso (con norma) + la
-    instrucción. La secuencia se DERIVA del modelo: orden del log de comandos (cómo se armó) +
-    agrupación por familias de catálogo (todo el herraje junto) y por nombre de pieza. A diferencia
+    instrucción. La secuencia sale de las uniones DECLARADAS (fasten/ground): lo soldado primero,
+    cada pieza tras aquella a la que se fija y lo que tapa al final (sin ellas, del log). A diferencia
     del plano de CONJUNTO (drawing cutlist) que solo lista piezas, esto EXPLICA el armado paso a paso.
     `isolate` (lista de ids o NOMBRES de grupo) acota el manual a un SUB-ENSAMBLAJE (p. ej. una hoja: sus tablas + vidrio
     + bisagras) sin tocar el documento; `title` rotula la portada/archivo. Devolverá nº de bytes.

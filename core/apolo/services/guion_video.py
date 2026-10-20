@@ -12,6 +12,10 @@ español: una clave desconocida (un typo como `duracion` por `duracion_s` se ign
 silencio), un tipo equivocado, una duración negativa, pasos fuera de orden o, si recibe el
 documento, un guion armado sobre otra versión del log (`documento.firma`).
 
+`modo` (D8 de video-tienda-pulido, opcional): «montaje» = las etapas siguen la secuencia de
+`montaje.py` y cada paso es una TANDA de piezas (ids de la escena final, cada una una sola vez);
+sin él, «diseño»: cada paso es un `k` del log, como siempre.
+
 `capitulos` da los capítulos de YouTube (D15): el primero en 0, cada uno de ≥ 10 s, al menos
 3; si no se puede cumplir, ninguno (YouTube los ignoraría). La portada va dentro del primero y
 cifras, órbita y cierre forman el último («La máquina terminada»). Segundos ENTEROS, como los
@@ -33,6 +37,12 @@ from apolo.services.rotulos import MAX_TEXTO, MAX_TITULO_ETAPA, corta
 
 VERSION = 1
 IDIOMA = "es"
+#: El orden del video (D8 de video-tienda-pulido): cómo se ARMA (la secuencia de `montaje.py`;
+#: cada paso es la lista de piezas que entra) o cómo se DISEÑÓ (el log; cada paso es un `k`). Un
+#: guion sin «modo» es de diseño: así siguen valiendo los de antes.
+MODO_MONTAJE = "montaje"
+MODO_DISENO = "diseño"
+MODOS = (MODO_MONTAJE, MODO_DISENO)
 VIDEO = {"ancho": 1920, "alto": 1080, "fps": 30}
 SUBTITULO = "Así se construyó en Apolo CAD"
 CIERRE = "Descarga los planos y el modelo 3D"
@@ -118,18 +128,23 @@ def cifras(doc) -> list[dict]:
 
 # ------------------------------------------------------------------ guion
 def guion(doc, etapas: list[Etapa], *, titulo: str | None = None,
-          subtitulo: str | None = None, tiempos: Tiempos = TIEMPOS) -> dict:
-    """El `guion.json` editable (D3). `doc` regenerado: de su escena salen las cifras."""
+          subtitulo: str | None = None, tiempos: Tiempos = TIEMPOS,
+          modo: str = MODO_DISENO) -> dict:
+    """El `guion.json` editable (D3). `doc` regenerado: de su escena salen las cifras. En modo
+    montaje las etapas traen tandas de piezas (`montaje_video.etapas_montaje`)."""
     items = cifras(doc)
+    montaje = {"modo": MODO_MONTAJE} if modo == MODO_MONTAJE else {}
     return {
         "version": VERSION,
         "idioma": IDIOMA,
+        **montaje,
         "documento": {"nombre": doc.name, "comandos": len(doc.commands), "firma": firma(doc)},
         "titulo": corta(titulo or doc.name or "Sin título", MAX_TITULO),
         "subtitulo": SUBTITULO if subtitulo is None else corta(subtitulo, MAX_CORTO),
         "video": dict(VIDEO),
         "portada": {"duracion_s": tiempos.portada_s},
-        "etapas": [{"titulo": e.titulo, "texto": e.texto, "pasos": list(e.pasos),
+        "etapas": [{"titulo": e.titulo, "texto": e.texto,
+                    "pasos": [list(p) for p in e.pasos] if montaje else list(e.pasos),
                     "duracion_s": e.duracion_s} for e in etapas],
         "cifras": {"titulo": TITULO_CIFRAS, "items": items,
                    "duracion_s": tiempos.cifras_s if items else 0.0},
@@ -151,6 +166,8 @@ _CLAVES = {
     "orbita": ("duracion_s",),
     "cierre": ("texto", "url", "duracion_s"),
 }
+#: Claves que pueden faltar (un guion de antes no las trae).
+_OPCIONALES = {"": ("modo",)}
 
 
 class _Revision:
@@ -163,10 +180,11 @@ class _Revision:
         if not isinstance(valor, dict):
             self.errores.append(f"{donde}: debe ser un objeto {{…}}")
             return False
-        validas = _CLAVES[forma]
+        validas, opcionales = _CLAVES[forma], _OPCIONALES.get(forma, ())
         for k in valor:
-            if k not in validas:
-                self.errores.append(f"{donde}: clave desconocida «{k}» (válidas: {', '.join(validas)})")
+            if k not in validas and k not in opcionales:
+                self.errores.append(f"{donde}: clave desconocida «{k}» (válidas: "
+                                    f"{', '.join(validas + opcionales)})")
         for k in validas:
             if k not in valor:
                 self.errores.append(f"{donde}: falta «{k}»")
@@ -218,7 +236,13 @@ def validar_guion(g, doc=None) -> None:
     for parte in ("portada", "orbita"):
         if r.objeto(g[parte], parte, parte):
             r.numero(g[parte]["duracion_s"], f"{parte}.duracion_s")
-    _validar_etapas(r, g["etapas"])
+    modo = g.get("modo", MODO_DISENO)
+    if modo not in MODOS:
+        r.errores.append(f"modo: {modo!r} no existe (válidos: {', '.join(MODOS)})")
+    elif modo == MODO_MONTAJE:
+        _validar_tandas(r, g["etapas"])
+    else:
+        _validar_etapas(r, g["etapas"])
     if r.objeto(g["cifras"], "cifras", "cifras"):
         c = g["cifras"]
         r.texto(c["titulo"], "cifras.titulo", MAX_TITULO_ETAPA)
@@ -245,11 +269,11 @@ def validar_guion(g, doc=None) -> None:
     _fallar(r)
 
 
-def _validar_etapas(r: _Revision, etapas) -> None:
+def _etapas_validas(r: _Revision, etapas):
+    """(ruta, etapa) de cada etapa bien formada, con su título, texto y duración revisados."""
     if not isinstance(etapas, list):
         r.errores.append("etapas: debe ser una lista")
         return
-    previo = 0
     for i, e in enumerate(etapas):
         ruta = f"etapas[{i}]"
         if not r.objeto(e, ruta, "etapa"):
@@ -257,6 +281,33 @@ def _validar_etapas(r: _Revision, etapas) -> None:
         r.texto(e["titulo"], f"{ruta}.titulo", MAX_TITULO_ETAPA, vacio=False)
         r.texto(e["texto"], f"{ruta}.texto", MAX_TEXTO)
         r.numero(e["duracion_s"], f"{ruta}.duracion_s", estricto=True)
+        yield ruta, e
+
+
+def _validar_tandas(r: _Revision, etapas) -> None:
+    """Modo montaje: cada paso es una lista no vacía de piezas y cada pieza entra una vez."""
+    vistas: set[str] = set()
+    for ruta, e in _etapas_validas(r, etapas):
+        pasos = e["pasos"]
+        if (not isinstance(pasos, list) or not pasos
+                or any(not isinstance(t, list) or not t
+                       or any(not isinstance(f, str) or not f for f in t) for t in pasos)):
+            r.errores.append(f"{ruta}.pasos: en modo montaje debe ser una lista no vacía de "
+                             "tandas, y cada tanda, una lista no vacía de ids de pieza")
+            continue
+        repetidas = []
+        for f in (f for t in pasos for f in t):
+            if f in vistas:
+                repetidas.append(f)
+            vistas.add(f)
+        if repetidas:
+            r.errores.append(f"{ruta}.pasos: las piezas {repetidas[:5]} ya entraron antes: "
+                             "cada pieza entra en una sola tanda")
+
+
+def _validar_etapas(r: _Revision, etapas) -> None:
+    previo = 0
+    for ruta, e in _etapas_validas(r, etapas):
         pasos = e["pasos"]
         if (not isinstance(pasos, list) or not pasos
                 or any(isinstance(k, bool) or not isinstance(k, int) for k in pasos)):
@@ -274,6 +325,11 @@ def _contra_documento(r: _Revision, g: dict, doc) -> None:
     if g["documento"]["firma"] != firma(doc) or g["documento"]["comandos"] != len(doc.commands):
         r.errores.append("documento: el guion se armó sobre otra versión del proyecto (la firma "
                          "del log no coincide); vuelve a generar el guion")
+        return
+    if g.get("modo") == MODO_MONTAJE:
+        faltan = [f for e in g["etapas"] for t in e["pasos"] for f in t if f not in doc.scene]
+        if faltan:
+            r.errores.append(f"etapas: las piezas {faltan[:5]} no existen en el proyecto")
         return
     fuera = [k for e in g["etapas"] for k in e["pasos"] if k > len(doc.commands)]
     if fuera:

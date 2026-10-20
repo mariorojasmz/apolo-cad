@@ -5,7 +5,8 @@ manual EXPLICA el armado: una página por PASO, con el render 3D sombreado de lo
 montado hasta ahí (las piezas NUEVAS del paso resaltadas en color, lo previo en gris fantasma),
 las piezas/herraje que se añaden y la instrucción.
 
-La SECUENCIA se deriva del propio modelo (el moat agente-nativo):
+Con la estructura DECLARADA, la secuencia llega hecha (`stages`): la de montaje de
+`services/montaje.py`, la misma del video de la tienda. Si no, se deriva del propio modelo:
 - **orden de construcción** = el log de comandos (`Document.commands`): lo que el usuario modeló
   primero es la base; respeta ese orden de armado real.
 - **agrupación en pasos humanos**: el herraje se agrupa por familia de catálogo (todas las
@@ -368,7 +369,8 @@ def _torque_note(stage: dict, scene: dict, catalog) -> str:
 
 def _instruction(stage: dict, scene: dict, catalog, n_new: int, n_done: int, n_total: int) -> str:
     head = _family_head(stage, scene, catalog)
-    return (f"{head}{_torque_note(stage, scene, catalog)} "
+    union = f" {stage['union']}" if stage.get("union") else ""  # secuencia de montaje (D8)
+    return (f"{head}{union}{_torque_note(stage, scene, catalog)} "
             f"Se añaden {n_new} pieza(s); montadas {n_done} de {n_total}.")
 
 
@@ -420,10 +422,12 @@ def _step_page(W: float, H: float, *, step_no: int, n_steps: int, page_no: int, 
 
 def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "Sin título",
                     sheet: str = "A3", meta: dict | None = None, colors: dict | None = None,
-                    size_px: int = 700) -> list[SheetModel]:
+                    size_px: int = 700, stages: list[dict] | None = None) -> list[SheetModel]:
     """Manual de ensamblaje paso a paso: [portada con secuencia + 1 lámina por PASO]. Cada paso
     muestra el render acumulado (lo nuevo resaltado, lo previo en gris) + piezas/herraje + nota.
-    Deriva la secuencia del log de comandos (orden de armado) + familias de catálogo."""
+    `stages` = la secuencia de montaje ya derivada del grafo de uniones ({label, ids, is_hw,
+    union}: `services/montaje.py`, D8 de video-tienda-pulido); sin ella, del log de comandos +
+    familias de catálogo + soporte autodetectado."""
     from apolo.library.catalog import CATALOG
     from apolo.library.cutlist import dominant_material, hardware_schedule, scene_weight_kg
     from ..kernel.render import render_scene_png
@@ -432,8 +436,9 @@ def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "S
     vis = {fid: f for fid, f in scene.items() if getattr(f, "visible", True)}
     if not vis:
         raise ValueError("Escena vacía: nada que ensamblar")
-    stages = assembly_steps(scene, commands, CATALOG)
-    stages = order_by_support(vis, stages, CATALOG)  # V7.2b A: orden por soporte + fusión de huérfanos
+    if stages is None:
+        stages = assembly_steps(scene, commands, CATALOG)
+        stages = order_by_support(vis, stages, CATALOG)  # V7.2b A: soporte + fusión de huérfanos
     if not stages:
         raise ValueError("No se pudo derivar la secuencia de ensamblaje")
     bbox = _scene_bbox(vis)

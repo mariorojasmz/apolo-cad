@@ -287,10 +287,12 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
                         title: str = "") -> Response:
     """MANUAL DE ENSAMBLAJE paso a paso (PDF multipágina): portada con la secuencia + 1 lámina por
     PASO (render 3D acumulado con las piezas nuevas resaltadas y lo previo en gris, cámara estable,
-    lista de piezas/herraje + instrucción). La secuencia se deriva del log de comandos (orden de
-    armado real) + familias de catálogo. `isolate` (CSV de ids) acota el manual a un SUB-ENSAMBLAJE
+    lista de piezas/herraje + instrucción). La secuencia es la de MONTAJE, del grafo de uniones
+    declaradas (`services/montaje.py`); sin estructura declarada, la del log de comandos +
+    familias de catálogo. `isolate` (CSV de ids) acota el manual a un SUB-ENSAMBLAJE
     (p. ej. una hoja) sin tocar el documento. Read-only."""
     from apolo.drawing import assembly_manual, sheets_to_pdf
+    from apolo.services.montaje import hay_grafo, pasos_manual
 
     with STATE_LOCK:
         scene = S.doc.scene
@@ -299,10 +301,11 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
             scene = {fid: S.doc.scene[fid] for fid in ids if fid in S.doc.scene}
             if not scene:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
+        stages = pasos_manual(S.doc, scene) if hay_grafo(S.doc) else None
         try:
             pages = assembly_manual(scene, commands=S.doc.commands, project_name=title or S.doc.name,
                                     sheet=sheet, meta=_drawing_meta(), colors=_feature_colors(),
-                                    size_px=size_px)
+                                    size_px=size_px, stages=stages)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     fname = (title or S.doc.name or "manual").encode("ascii", "ignore").decode() or "manual"

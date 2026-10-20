@@ -5,8 +5,9 @@ Fotograma a fotograma, sin PNG en disco:
   1. Una `EscenaViva` del tamaño del guion con cámara y colores fijados a la escena FINAL; su
      primera foto (la máquina terminada) es el fondo de la portada y de la miniatura.
   2. La construcción recorre los prefijos del log (`iter_prefijos`, sobre una copia privada)
-     en los pasos de cada etapa. El tiempo de la etapa se reparte entre sus pasos por peso
-     (`construccion.peso_roles`); dentro de un paso, las piezas nuevas aparecen escalonadas por
+     en los pasos de cada etapa; en modo montaje (D8 de video-tienda-pulido), las tandas de
+     piezas de la escena final, en el orden en que se arma (`_Tandas`). El tiempo de la etapa
+     se reparte entre sus pasos por peso (`construccion.peso_roles`); dentro de un paso, las piezas nuevas aparecen escalonadas por
      rol, y las de un patrón crecen en oleadas (`revelado`, D2). Lo que aparece o cambia se resalta
      y el resaltado se desvanece. La cámara orbita lento y sin cortes entre etapas, y cada
      etapa lleva su rótulo inferior con fundido de entrada y de salida.
@@ -24,6 +25,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 from apolo.publicacion import linea_tiempo as lt
 
@@ -58,6 +60,24 @@ class _Prefijos:
             if pre.k > k:  # el k pedido no regeneró: lo que traía llega con el siguiente
                 self._pendiente = pre
                 return None
+
+
+class _Tandas:
+    """Modo montaje (D8 de video-tienda-pulido): cada paso del guion es una tanda de piezas de
+    la escena FINAL que se suma a lo ya montado; nada se regenera. `tomar(n)` con el largo del
+    log (la órbita) da la escena entera."""
+
+    def __init__(self, escena: dict):
+        self.escena = escena
+        self.montado: dict = {}
+        self.ultimo = None
+
+    def tomar(self, tanda):
+        if isinstance(tanda, int):
+            return SimpleNamespace(k=tanda, escena=self.escena)
+        self.montado = {**self.montado,
+                        **{f: self.escena[f] for f in tanda if f in self.escena}}
+        return SimpleNamespace(k=None, escena=self.montado)
 
 
 class _Escritor:
@@ -97,6 +117,7 @@ def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None
     from apolo.media import composicion as comp
     from apolo.media.codificar import Codificador, mezclar_musica
     from apolo.services.apariencia import apariencias_documento
+    from apolo.services.guion_video import MODO_MONTAJE
 
     carpeta = Path(carpeta)
     v = g["video"]
@@ -107,8 +128,11 @@ def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None
     if total == 0:
         raise ValueError("El guion dura 0 s: no hay video que hacer")
     n = len(doc.commands)
-    cortes = sorted({k for e in g["etapas"] for k in e["pasos"]} | ({n} if n else set()))
-    prefijos = _Prefijos(iter(iter_prefijos(doc, cortes)) if cortes else iter(()))
+    if g.get("modo") == MODO_MONTAJE:
+        prefijos = _Tandas(doc.scene)
+    else:
+        cortes = sorted({k for e in g["etapas"] for k in e["pasos"]} | ({n} if n else set()))
+        prefijos = _Prefijos(iter(iter_prefijos(doc, cortes)) if cortes else iter(()))
     final = carpeta / "video.mp4"
     mudo = carpeta / "video.mudo.mp4" if musica else final
     t0 = time.perf_counter()

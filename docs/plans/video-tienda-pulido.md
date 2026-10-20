@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F1 en main (2026-10-19): rótulos con datos y etapas de 6–15 s (piloto: 75 s en 5 etapas); faltan F1b, F2–F4, la música de Mario y decidir si se muestra el FS 1,09 de la cadena motriz
+nota: F0–F1 en main (2026-10-19); F1b implementada (2026-10-20): manual y video siguen la secuencia de montaje del grafo de uniones (piloto: 10 pasos, video de 65 s en 3 etapas); faltan F2–F4, la música de Mario y decidir si se muestra el FS 1,09 de la cadena motriz
 descripcion: El video de la tienda explica la máquina con sus datos de ingeniería, corta las etapas con ritmo parejo y se ve como un producto terminado
 ---
 
@@ -169,3 +169,88 @@ con 90 s, 5 (15 / 15 / 10,1 / 13,5 / 13,5).
 - El material de cada pieza (tabla de visor-realista D5) queda como punto de enganche en
   `datos_rotulos`; hoy no se usa.
 - Los rótulos se juzgan en el video de la F4; la piloto no se regeneró (sin música todavía).
+
+### F1b (2026-10-20)
+
+Implementó un subagente en un worktree; la piloto se leyó en sólo lectura de la base local
+(proyecto 74, 341 comandos, 201 sólidos, 264 uniones y 4 anclajes declarados).
+
+**Lo construido**:
+
+- `services/montaje.py` (puro, ≤ 0,3 s en la piloto): `secuencia(doc, scene=)` → `PasoMontaje`
+  (título, ids, unión, nivel, grupo, texto «Se atornilla (M12) a «Larguero (-Y)» y …»). Reglas en
+  su docstring: (1) soldadura/pegado = conjunto de taller que entra entero; (2) cada conjunto
+  después de TODOS sus vecinos de nivel menor (BFS de uniones desmontables desde los `ground`) y,
+  a igual nivel, `a` después de `b`; (2b) **la tuerca cierra**: después de lo montado sobre su eje;
+  (3) **lo que tapa va después**: pieza plana (medida menor ≤ 0,3 de la siguiente) que cubre ≥ 50 %
+  de otra en la proyección de su cara y queda por fuera; los soportes ganan (restricción que haría
+  ciclo, descartada); (4) prioridad grupo del log → nivel → log, y **se termina lo empezado**
+  (primero lo listo de la misma clase grupo + familia que el último). Pasos = conjuntos seguidos
+  de igual unión, grupo y familia. `pasos_manual` lo da con la forma de `assembly_manual`.
+- Manual: `assembly_manual(stages=)` y `_instruction` suma el texto de la unión; el endpoint pasa
+  la secuencia cuando `hay_grafo(doc)` (uniones o anclajes declarados); sin ellos,
+  `order_by_support` de siempre. Docstring de la tool MCP y golden re-congelado.
+- Video: `services/montaje_video.py` arma `construccion.Paso` SINTÉTICOS (k = lugar en la
+  secuencia, agregados = piezas de la escena final) y reusa `etapas` (compactado, títulos,
+  duraciones y rótulos D1/D2 sin duplicar nada). El guion lleva `"modo": "montaje"` (clave
+  OPCIONAL: un guion sin ella es de diseño y sigue valiendo) y cada paso es una TANDA de ids, que
+  `validar_guion` revisa (lista no vacía, cada pieza una vez, que existan). `publicacion/video.py`
+  las suma con `_Tandas` sobre `doc.scene`: no regenera prefijos.
+- `publicar guion --modo montaje|diseño` (por defecto montaje: D8, el de la tienda);
+  `flujo.guion(modo=)` rechaza un modo desconocido antes de abrir el proyecto.
+
+**Piloto** — la secuencia (10 pasos, 201 piezas):
+
+| paso | unión | piezas |
+|---|---|---|
+| Conjunto soldado · Bastidor | soldado (18 uniones), anclado al piso | 17 |
+| Eje del rodillo | perno M12 a los dos largueros | 20 |
+| Tapa con rodamiento | contacto con los ejes | 40 |
+| Conjunto soldado · Rodillos (tubo + buje + piñón) | soldado, sobre las tapas | 60 |
+| Tuerca del eje | se enrosca en los ejes | 40 |
+| Cadena rodillo a rodillo | contacto con los 20 piñones | 19 |
+| Motorreductor · Piñón motriz · Cadena motriz | perno M8 · perno M6 · contacto | 1 + 1 + 1 |
+| Guardas | perno M6 a separadores y portamotor | 2 |
+
+Antes (`order_by_support`, autodetectado): Patas y travesaños 11, Motorreductor 4 (con el motor
+ANTES que los largueros), Bastidor 2, Rodillos 160 de un golpe, Cadenas 19, Guardas 5.
+
+Video de montaje con 75 s de objetivo: **3 etapas, 65 s** (Bastidor 12 s, Rodillos 15 s,
+«Cadenas, Motorreductor y Guardas» 15 s; capítulos 0:00, 0:16, 0:31, 0:46). Con 50 s, 3 etapas
+de 6,2 / 10,4 / 10,4 s. Sale más corto que el de diseño (5 etapas, 75 s) porque los topes de
+D2 cortan: tres pasos de una pieza (motor, piñón, cadena motriz) no llegan a 6 s y se funden.
+Los rótulos son los de F1 (el del motor, 0,37 kW, no cabe en la etapa de las cadenas).
+
+Manual: 11 láminas (antes 7). Cada lámina renderiza lo montado hasta ahí: 1,9 s con 17 piezas,
+19,6 s con 137. El manual entero tardó 1 221 s, pero con dos suites completas de pytest de otra
+sesión corriendo a la vez: no es comparable con los 127 s de la F5. Entra a D6 (F3): medir ahí.
+
+**Intentos fallidos**:
+
+1. El rango de grupo salía recorriendo los CONJUNTOS: el bastidor soldado trae la base del motor
+   y los separadores, así que Motorreductor y Guardas quedaban 2.º y 3.º y el motor entraba antes
+   que los ejes. Se ordena por la primera PIEZA de cada grupo en el log.
+2. Cobertura por caja contenida: la guarda de cadenas es una tapa por ENCIMA (z 754–770) y las
+   cadenas quedan debajo (688–762): ninguna caja contiene a la otra. Quedó la proyección sobre la
+   cara de la pieza plana más la cara exterior más lejos del centro de la máquina.
+3. Sin 2b, las tuercas entraban antes que el rodillo (el «contacto» no dice el sentido de
+   inserción). La primera 2b usaba «la caja del eje corta la de la pieza»: la cadena abraza el
+   piñón y corta la caja del eje → tuercas y cadenas intercaladas, 47 pasos. Quedó «el centro
+   de la pieza cae dentro de la caja del eje» (lo coaxial).
+4. Con 2b, la prioridad por nivel intercalaba rodillo, tuercas, rodillo… (la tuerca es nivel 2 y
+   el rodillo 3): 48 pasos. Lo arregló «se termina lo empezado».
+
+**Pendiente y avisos**:
+
+- El acceso de herramienta no entra a propósito: si la llave entra con la máquina terminada
+  (si no, la puerta ya está en ROJO), con menos piezas también.
+- Las tapas entran antes que el tubo porque el grafo dice eje → tapa → tubo; en el taller el
+  rodillo se presenta con sus tapas a presión y el eje lo atraviesa. Sin un dato de sentido de
+  inserción en el `fasten` no se distingue; queda para el revisor de taller.
+- El video de montaje no se renderizó sobre la piloto (sin música todavía): se juzga en la F4. El
+  e2e de la publicación sí lo renderiza en modo montaje (mesa de 5 piezas).
+- Tests: `tests/test_montaje.py` (18: la piloto en cajas con su mismo grafo —orden, soldado antes
+  que atornillado, cada pieza después de su soporte, guardas al final, tuercas al cierre—, tapa que
+  sostiene algo, tapa suelta, mismo nivel, sin grafo, sin anclajes, ocultas, parte acotada,
+  manual, endpoint, etapas, guion validado, tandas) y 1 en `tests/test_publicacion_e2e.py`
+  (montaje por defecto, diseño a pedido, modo desconocido).

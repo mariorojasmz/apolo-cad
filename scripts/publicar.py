@@ -5,6 +5,7 @@ Dos pasos con un guion editable en medio (D3):
 
     .\.venv\Scripts\python.exe -B scripts\publicar.py guion --project 38
         [--url http://127.0.0.1:8000] [--slug S] [--version 1.0.0] [--duracion 75] [--titulo T]
+        [--modo montaje|diseño]
     # revisa guion.json y completa ficha.yaml en data\publicaciones\<slug>\<version>\
     .\.venv\Scripts\python.exe -B scripts\publicar.py generar --project 38
         [--musica C:\musica\pista.mp3] [--forzar] [--sin-gravedad] [--slug S] [--version V]
@@ -45,6 +46,9 @@ def _parser() -> argparse.ArgumentParser:
     g.add_argument("--duracion", type=float, default=75.0,
                    help="duración objetivo del video en segundos (50 = clip de lanzamiento)")
     g.add_argument("--titulo", default=None, help="título del video (por defecto, el del proyecto)")
+    g.add_argument("--modo", choices=("montaje", "diseño"), default="montaje",
+                   help="orden del video: montaje = cómo se arma en el taller, desde las uniones "
+                        "declaradas (el de la tienda); diseño = el orden en que se modeló")
     gen = sub.add_parser("generar", parents=[comunes],
                          help="puerta de entrega, entregables, video y paquete")
     gen.add_argument("--musica", default=None,
@@ -79,7 +83,7 @@ def main(argv: list[str] | None = None, cliente=None) -> int:
     try:
         if args.paso == "guion":
             flujo.guion(cliente, args.project, slug=args.slug, version=args.version,
-                        duracion_s=args.duracion, titulo=args.titulo)
+                        duracion_s=args.duracion, titulo=args.titulo, modo=args.modo)
         else:
             flujo.generar(cliente, args.project, slug=args.slug, version=args.version,
                           musica=args.musica, forzar=args.forzar,

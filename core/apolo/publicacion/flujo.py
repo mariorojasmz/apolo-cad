@@ -99,15 +99,18 @@ def _eco_nulo(*_a, **_k):
 
 def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
           version: str | None = None, duracion_s: float = DURACION_S, titulo: str | None = None,
-          eco=print) -> dict:
+          eco=print, modo: str = "montaje") -> dict:
     """`publicar guion`: escribe `guion.json` y el borrador de `ficha.yaml`. Devuelve
-    {carpeta, guion, ficha, etapas, duracion_s, capitulos}."""
+    {carpeta, guion, ficha, etapas, duracion_s, capitulos}. `modo`: «montaje» (cómo se arma,
+    D8 de video-tienda-pulido) o «diseño» (el orden del log)."""
     from apolo import paths
-    from apolo.services.construccion import etapas, pasos_visuales
     from apolo.services.datos_rotulos import datos_rotulos
-    from apolo.services.guion_video import capitulos, duracion_total, validar_guion
+    from apolo.services.guion_video import MODOS, capitulos, duracion_total, validar_guion
     from apolo.services.guion_video import guion as armar_guion
+    from apolo.services.montaje_video import etapas_del_modo
 
+    if modo not in MODOS:
+        raise PublicacionError(f"Modo de video desconocido: {modo!r} (válidos: {', '.join(MODOS)})")
     eco = eco or _eco_nulo
     api = _Api(cliente)
     t0 = time.perf_counter()
@@ -126,8 +129,8 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     if doc.regen_suppressed:
         eco(f"Aviso: {len(doc.regen_suppressed)} comando(s) no regeneran; la puerta de "
             "entrega lo marcará en rojo.")
-    g = armar_guion(doc, etapas(pasos_visuales(doc), duracion_s, datos=datos_rotulos(doc)),
-                    titulo=titulo)
+    g = armar_guion(doc, etapas_del_modo(doc, duracion_s, modo, datos=datos_rotulos(doc)),
+                    titulo=titulo, modo=modo)
     validar_guion(g, doc)
     carpeta.mkdir(parents=True, exist_ok=True)
     (carpeta / GUION).write_text(json.dumps(g, indent=2, ensure_ascii=False) + "\n",
@@ -138,7 +141,7 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     veredicto = api.puerta(con_gravedad=False).get("veredicto")
     caps = capitulos(g)
     eco(f"Proyecto {proyecto} «{nombre}»: {len(doc.commands)} comandos, "
-        f"{sum(len(e['pasos']) for e in g['etapas'])} pasos visuales en {len(g['etapas'])} "
+        f"{sum(len(e['pasos']) for e in g['etapas'])} pasos de {modo} en {len(g['etapas'])} "
         f"etapa(s); video de {duracion_total(g):.0f} s.")
     eco(f"Puerta de entrega hoy (sin gravedad): {veredicto}"
         + ("" if veredicto == paquete.VERDE else " — `generar` se negará sin --forzar"))
