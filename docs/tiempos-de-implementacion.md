@@ -62,6 +62,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-20 | vista-3d-tienda | F2+F3 | S+S | 64 | 348 | incluye prueba en navegador |
 | 2026-10-20 | plantilla-rodillos-cadena | F0+F1 | S+S | 45 | 298 | F0 corrigió D2 |
 | 2026-10-20 | video-tienda-pulido | F1b | M | 61 | 387 | secuencia de montaje |
+| 2026-10-20 | visor-realista | F3 | M | 68 | 500 | banda y cadenas que avanzan; conflicto al rebasar en services/CLAUDE.md |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
@@ -70,4 +71,5 @@ Revisión y merge en la sesión principal (2026-10-20):
 - 35 min: visor F2 + vista-3d F2+F3, apiladas, con la suite repetida porque la primera salida
   se perdió;
 - ~30 min: plantilla F0+F1;
-- ~30 min: video F1b.
+- ~30 min: video F1b;
+- ~35 min: visor F3 (un conflicto resuelto a mano).
