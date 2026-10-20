@@ -165,6 +165,11 @@ CLAUDE.md a respetar, alcance estricto, tests como único gate y sin mergear. Al
 el diff contra el contrato, **re-correr las suites uno mismo** (pytest y, si tocó `ui/`,
 `npm test` + `npm run build`), rechazar lo que no cumple y sólo entonces rebase y merge.
 
+**Hitos: Claude organiza y lanza** (Mario, 2026-10-20): cada idea de Mario entra a un hito de
+[docs/hitos.md](docs/hitos.md) y Claude decide el orden y lanza las fases (máx. 2 agentes en
+paralelo). Las decisiones de cada plan siguen siendo vetables; la lista se actualiza al lanzar
+y al mergear.
+
 **Estimar con tiempos medidos de Claude, no de un humano**: [tiempos de implementación](docs/tiempos-de-implementacion.md)
 (una fase S/M de un agente ≈ 40–65 min con sus suites; revisión y merge ≈ 35 min por lote). Al
 mergear una fase, se agrega su fila.
