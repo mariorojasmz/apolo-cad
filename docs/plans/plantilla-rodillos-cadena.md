@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (inventario de la piloto) hecha; faltan F1 (create_chain v2, fase auto y eslabones), F2 (el super-comando) y F3 (verificación por MCP)
+nota: F0 (inventario de la piloto) y F1 (create_chain v2, fase auto y eslabones) hechas; faltan F2 (el super-comando) y F3 (verificación por MCP)
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -68,6 +68,48 @@ repite va en una plantilla, para que cada lección quede dentro una sola vez.
   después (como `create_conveyor`).
 
 ## Bitácora
+
+### F1 (2026-10-20): `create_chain` v2, fase automática y eslabones fijos
+
+- Archivos:
+  - `library/transmision.py` (479 líneas): `estirado_lazo` y `giro_para_engranar`, puras;
+  - `commands/exec_transmision.py` (345): `_eslabones`, `engranar` y `_lleva_cadena`;
+  - `models_transmision.py` (115): `eslabones` y `fase`, con la guía en la descripción;
+  - `expressions.py`: `centros_cadena`;
+  - `registry.py`: sólo `version=2` en la misma línea.
+
+  Tests: 21 en `tests/test_cadena_engrane.py`; los de siempre en `test_contrato_comandos` (v2,
+  huella y campos nuevos). `test_version_comandos` congela la etiqueta de versiones de
+  `insert_project`, que ahora incluye `create_chain@2`. Como la etiqueta lleva todas las
+  versiones ≠ 1, la caché de todo proyecto con `insert_project` se invalida una vez.
+- Suite completa en el worktree: **3296 passed, 2 skipped**. Ruff verde.
+- **Cómo engrana.** El estirado es lo que el eslabón más largo de `rodillos_del_lazo` pasa del
+  paso. Tolerancia: 0.05 mm.
+  - En 1:1 se prueban primero la fase relativa 0 y la de medio diente.
+  - Si no basta, se barre un diente en 96 pasos y se refina con 40 de sección áurea. Gana el
+    menor estirado en centésimas de mm y, a igual estirado, el giro más chico.
+  - El piñón se gira con `registry._world_place` sobre su ancla `eje` (shape, matriz y anclas a
+    la vez), con el signo de su eje respecto del lazo, y se vuelve a medir.
+  - «Libre» = ningún `fasten` contacto de una cadena previa lo tiene como `b`. Se prefiere B.
+- **Medido sobre la piloto** (copia de la base, regenerada fuera de la API):
+  - Sin tocar nada: 3.5 s, todo igual. El log no trae los params nuevos, así que no gira nada.
+  - Quitando los giros a mano (12° de `c63` y 3° de `c94`), con `fase: "auto"` en las 20
+    cadenas, `eslabones: 48` en la motriz y `c_motriz = centros_cadena(12.7, 30, 15, 48)`:
+    peor estirado 0.006 mm, sin «cadena desfasada» y 3.3 s.
+  - La motriz quedó con el Z30 a 3° de su conducido, el mismo número que la piloto puso a mano.
+- **Decisiones que tomó la implementación**:
+  - Con los dos piñones ya cargados, `auto` FALLA con el giro exacto que hace falta. Girar uno
+    cargado desarmaría el lazo anterior, que se armó sobre su fase vieja.
+  - Una cadena ya engranada (≤ 0.05 mm) no toca los piñones: los logs con el giro a mano siguen
+    iguales con `auto`.
+  - `eslabones` impar → error, que pide N ± 1. Un N de más se acepta: queda flecha y la regla la
+    publica.
+  - La regla «transmisión por cadena» no cambió. Tampoco avisa un lazo estirado con
+    `tal_cual`: sería un aviso nuevo en proyectos viejos y el alcance era `commands`. Queda para
+    la F2, que lo puede exigir en sus propios tests.
+- **Intento descartado**: el primer criterio («el giro más chico que llega a la tolerancia»)
+  dejaba los lazos justo en 0.05 mm (2.625° en la motriz). Se cambió a «el menor estirado en
+  centésimas y después el giro más chico», que da 3.000°.
 
 ### F0 (2026-10-20): inventario del log de la piloto
 

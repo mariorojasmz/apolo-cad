@@ -83,7 +83,8 @@ CAMPOS: dict[str, str] = {
         "rotation.y rotation.z"
     ),
     "create_chain": (
-        "name cadena pinon_a pinon_b hilera_a hilera_b detalle potencia_kw rpm_a servicio"
+        "name cadena pinon_a pinon_b hilera_a hilera_b detalle eslabones fase potencia_kw rpm_a "
+        "servicio"
     ),
     "create_conveyor": (
         "name largo ancho altura paso rodillo motor position position.x position.y position.z "
@@ -245,7 +246,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "chamfer": (1, "2fcdc6b118e984ba"),
     "create_belt_conveyor": (1, "2d52f5d929dd5e0b"),
     "create_box": (1, "fcc825dfc9669eac"),
-    "create_chain": (1, "b3d770db22ae2255"),
+    "create_chain": (2, "c0911a5d981a48bd"),
     "create_conveyor": (1, "57fa344a272c945c"),
     "create_cylinder": (1, "df2b2a1a5fb50cf9"),
     "create_drive_roller": (1, "5d9571216a3a26e0"),

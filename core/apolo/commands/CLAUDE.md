@@ -102,6 +102,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   rodillo en un diente y comparte `mesh_key` entre lazos iguales (`kernel/shapes.place_matrix`
   coloca sin copiar el BRep). Executors nuevos van en `exec_*.py`: `registry.py` no crece.
   [plan](../../../docs/plans/cadenas-pinones.md)
+- `create_chain(fase="auto")` (v2) es la ÚNICA vez que la cadena muta otra pieza: gira sobre su
+  eje el piñón que aún no carga otra cadena (lo sabe por los `fasten` contacto de las cadenas
+  previas), nunca uno cargado, porque desarmaría su otro lazo. `eslabones` fijo tolera
+  +0.05 mm sobre el exacto; `=centros_cadena(p, za, zb, L)` lo calcula para colocar los piñones
+  antes. Default = v1. [plan](../../../docs/plans/plantilla-rodillos-cadena.md)
 - Bastidores con ingletes (`create_weldment`/`create_frame`): [library](../library/CLAUDE.md).
   `insert_project`: [doc](../doc/CLAUDE.md).
 

@@ -14,7 +14,26 @@ from typing import Any, Callable
 
 EXPR_PREFIX = "="
 
+
+def _centros_cadena(*args: float) -> float:
+    """centros_cadena(paso, z_a, z_b, eslabones): la distancia EXACTA entre centros de una
+    cadena de ese largo (inversa de Tsubaki, `library/transmision.centros_para_eslabones`), para
+    colocar los piñones antes de `create_chain` (plan plantilla-rodillos-cadena, D2)."""
+    from apolo.library.transmision import centros_para_eslabones
+
+    if len(args) != 4:
+        raise ExpressionError("centros_cadena(paso, z_a, z_b, eslabones) lleva 4 argumentos")
+    paso, za, zb, eslabones = args
+    if paso <= 0 or za != int(za) or zb != int(zb) or eslabones != int(eslabones):
+        raise ExpressionError("centros_cadena: paso > 0; dientes y eslabones enteros")
+    try:
+        return centros_para_eslabones(paso, int(za), int(zb), int(eslabones))
+    except ValueError as exc:
+        raise ExpressionError(f"centros_cadena: {exc}") from None
+
+
 ALLOWED_FUNCS: dict[str, Callable] = {
+    "centros_cadena": _centros_cadena,
     "sqrt": math.sqrt,
     "sin": lambda d: math.sin(math.radians(d)),
     "cos": lambda d: math.cos(math.radians(d)),

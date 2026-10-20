@@ -41,9 +41,21 @@ class CreateChainParams(BaseModel):
     - Eslabones = el menor número PAR cuyo centro exacto es ≥ los centros medidos; lo que sobra
       queda como flecha del ramal inferior y la regla lo publica: ajusta los centros al exacto o
       deja recorrido de tensado (motor sobre ranuras).
+    - `eslabones` = N (par) fija el largo: la cadena acepta centros hasta 0.05 mm sobre el
+      exacto de N (redondear la cota no hace saltar a N + 2); más lejos falla y dice el exacto.
+      Para COLOCAR los piñones a ese centro, usa la expresión
+      `=centros_cadena(paso, z_a, z_b, N)` en la variable de la distancia (p. ej.
+      `=centros_cadena(12.7, 30, 15, 48)` = 159.0349).
     - Rodillo a rodillo (1:1, piñones iguales): L = z + 2·t/p, así que el paso de rodillos t va
       en múltiplos de p/2 con L par y no sobra cadena: Z14 → 76.2 (26 eslabones) o 101.6 (30);
       Z15 → 95.25 (30) o 107.95 (32).
+    - `fase`: a centros exactos la cadena sólo engrana si los dientes de A y B están en fase (en
+      1:1, fase relativa 0 con z par y MEDIO diente con z impar: 12° en Z15); si no, un eslabón
+      queda estirado. «auto» gira sobre su eje el piñón que todavía no lleva otra cadena (B si
+      está libre, si no A) lo justo para que engrane, y no toca nada si ya engrana: así un
+      patrón de piñones iguales sale engranado rodillo a rodillo. «tal_cual» respeta el giro
+      que les diste. Con los dos piñones ya cargados por otras cadenas, «auto» falla y dice
+      cuánto girar uno.
     - `potencia_kw` + `rpm_a` activan la verificación de capacidad (tabla ACA de la ASA 40-1;
       la 08B la usa como sustituto DECLARADO; 10B/12B sin tabla publicada → no aplica).
       `servicio`: suave 1.0, moderado 1.3, fuerte 1.5 (motor eléctrico).
@@ -70,6 +82,16 @@ class CreateChainParams(BaseModel):
     detalle: Literal["eslabones", "simple"] = Field(
         "eslabones", title="Detalle",
         description="eslabones = rodillos, pernos y placas; simple = sólo las bandas de placas",
+    )
+    eslabones: int | None = Field(
+        None, ge=4, le=1000, title="Eslabones",
+        description="número PAR que fija el largo; vacío = el menor par que alcanza (acepta "
+                    "=expresión)",
+    )
+    fase: Literal["tal_cual", "auto"] = Field(
+        "tal_cual", title="Fase de los dientes",
+        description="auto = gira el piñón libre lo justo para que la cadena engrane; tal_cual = "
+                    "respeta el giro de los piñones",
     )
     potencia_kw: float | None = Field(
         None, gt=0, le=1000, title="Potencia transmitida",

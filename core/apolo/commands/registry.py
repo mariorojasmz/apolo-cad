@@ -2014,7 +2014,7 @@ REGISTRY: dict[str, CommandSpec] = {
             "create_drive_roller", "Rodillo motriz (trotadora)", "biblioteca", CreateDriveRollerParams,
             _exec_create_drive_roller,
         ),
-        CommandSpec("create_chain", "Cadena", "biblioteca", CreateChainParams, _exec_create_chain),
+        CommandSpec("create_chain", "Cadena", "biblioteca", CreateChainParams, _exec_create_chain, version=2),
         CommandSpec(
             "create_weldment", "Bastidor", "biblioteca", CreateWeldmentParams, _exec_create_weldment
         ),

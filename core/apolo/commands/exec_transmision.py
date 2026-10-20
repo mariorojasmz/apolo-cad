@@ -29,6 +29,9 @@ TOL_PARALELO_DEG = 0.5
 TOL_COPLANAR_MM = 1.0
 #: Holgura mínima entre las puntas de los dientes de A y B (mm): con menos, los piñones se tocan.
 HOLGURA_PUNTAS_MM = 3.0
+#: Con `eslabones` fijo, lo que los centros medidos pueden pasar al exacto (mm): redondear la
+#: cota a dos decimales no hace saltar la cadena a N + 2 (la piloto: 159.035 > 159.03493).
+TOL_CENTROS_MM = 0.05
 #: Decimales de lo medido. La clave de la geometría y la geometría salen de los MISMOS valores
 #: redondeados: dos lazos que sólo difieren en ruido numérico comparten la malla.
 _DEC_MM = 4
@@ -148,12 +151,38 @@ def _fase(feat, x, y, z: int) -> float:
     return 0.0 if paso_ang - f < 10.0 ** -_DEC_RAD else f
 
 
+def _eslabones(p: CreateChainParams, paso: float, za: int, zb: int,
+               centros: float) -> tuple[int, float]:
+    """(eslabones, centros exactos): el menor par que alcanza o, con `eslabones` fijo, ése si
+    los piñones no quedan más lejos que su exacto (+ `TOL_CENTROS_MM`). Lanza ValueError si la
+    cadena no abraza los piñones y `CommandError` con el exacto si no alcanza."""
+    from apolo.library.transmision import centros_para_eslabones, eslabones_pares
+
+    if p.eslabones is None:
+        return eslabones_pares(paso, za, zb, centros)
+    n = int(p.eslabones)
+    if n % 2:
+        raise CommandError(
+            f"eslabones = {n} es impar: exige eslabón acodado, que desclasifica la cadena. Usa "
+            f"{n - 1} o {n + 1}."
+        )
+    exactos = centros_para_eslabones(paso, za, zb, n)
+    if centros > exactos + TOL_CENTROS_MM:
+        minimo, _ = eslabones_pares(paso, za, zb, centros)
+        raise CommandError(
+            f"Con {n} eslabones los centros exactos son {exactos:.4f} mm y '{p.pinon_a}' y "
+            f"'{p.pinon_b}' están a {centros:.4f} mm ({centros - exactos:.4f} mm de más): acerca "
+            f"los piñones a {exactos:.4f} mm (=centros_cadena({paso:g}, {za}, {zb}, {n})) o usa "
+            f"eslabones = {minimo}."
+        )
+    return n, exactos
+
+
 def medir_transmision(scene, p: CreateChainParams) -> Transmision:
     """Valida el montaje (norma, hileras, ejes paralelos, plano común, centros) con mensajes
     que dicen qué corregir y mide el lazo. Lanza `CommandError`."""
     from apolo.kernel.matrix import frame
     from apolo.library.catalog import CATALOG
-    from apolo.library.transmision import eslabones_pares
 
     if p.pinon_a == p.pinon_b:
         raise CommandError("La cadena une dos piñones distintos: pinon_a y pinon_b son la misma pieza")
@@ -207,7 +236,7 @@ def medir_transmision(scene, p: CreateChainParams) -> Transmision:
     centros = round(centros, _DEC_MM)
     paso = float(sc["paso"])
     try:
-        eslabones, exactos = eslabones_pares(paso, za, zb, centros)
+        eslabones, exactos = _eslabones(p, paso, za, zb, centros)
     except ValueError as exc:
         raise CommandError(f"Cadena: {exc}") from exc
     marco = frame(tuple(oa), x, y, z)
@@ -240,16 +269,63 @@ def geometria_lazo(t: Transmision, detalle: str):
         raise CommandError(f"Cadena: {exc}") from exc
 
 
+def _lleva_cadena(ctx: ExecContext, fid: str) -> bool:
+    """El piñón ya carga una cadena anterior del registro (su contacto `{cadena}_a|_b`)."""
+    for f in ctx.fasteners.values():
+        if f.get("kind") == "contacto" and f.get("b") == fid and f.get("a") == f.get("command_id"):
+            cadena = ctx.scene.get(f["a"])
+            if cadena is not None and (cadena.component or "").startswith("CADENA-"):
+                return True
+    return False
+
+
+def engranar(ctx: ExecContext, p: CreateChainParams, t: Transmision) -> Transmision:
+    """`fase: "auto"` (plan plantilla-rodillos-cadena, D2): si el lazo no engrana, gira sobre su
+    eje el piñón que todavía no carga otra cadena (B antes que A) lo que dice
+    `transmision.giro_para_engranar` y vuelve a medir. Girar uno ya cargado desarmaría su otra
+    cadena: con los dos cargados, falla con el giro que hace falta."""
+    from apolo.library.transmision import TOL_ESTIRADO_MM, estirado_lazo, giro_para_engranar
+
+    from .registry import _world_place
+
+    numeros = (t.paso, t.za, t.zb, t.centros, t.fase_a, t.fase_b, t.eslabones)
+    estirado = estirado_lazo(*numeros)
+    if estirado <= TOL_ESTIRADO_MM:
+        return t
+    libres = [(lado, fid) for lado, fid in (("b", p.pinon_b), ("a", p.pinon_a))
+              if not _lleva_cadena(ctx, fid)]
+    if not libres:
+        giro = math.degrees(giro_para_engranar(*numeros, "b"))
+        raise CommandError(
+            f"fase auto: '{p.pinon_a}' y '{p.pinon_b}' ya cargan otras cadenas y este lazo no "
+            f"engrana (un eslabón estirado {estirado:.2f} mm): gira '{p.pinon_b}' {giro:+.3f}° "
+            "sobre su eje antes de su primera cadena, o usa fase = tal_cual."
+        )
+    lado, fid = libres[0]
+    giro = giro_para_engranar(*numeros, lado)
+    feat = ctx.scene[fid]
+    eje = feat.anchors["eje"]
+    z_lazo = [t.marco[0][2], t.marco[1][2], t.marco[2][2]]
+    axis = _unit(eje["axis"])
+    signo = 1.0 if _dot(axis, z_lazo) >= 0 else -1.0  # un piñón volteado gira al revés
+    _world_place(feat, (0.0, 0.0, 0.0), tuple(axis), signo * math.degrees(giro),
+                 tuple(eje["origin"]))
+    return medir_transmision(ctx.scene, p)
+
+
 def _exec_create_chain(ctx: ExecContext, cmd_id: str, p: CreateChainParams) -> None:
-    """Cadena de rodillos entre dos piñones (D7): mide el lazo con las anclas VIVAS, reusa la
-    geometría de un lazo idéntico (misma clave = mismos números) o la construye, la coloca con
-    la matriz del marco del lazo y declara el contacto con cada piñón."""
+    """Cadena de rodillos entre dos piñones (D7): mide el lazo con las anclas VIVAS (con
+    `fase: "auto"`, antes engrana girando el piñón libre), reusa la geometría de un lazo
+    idéntico (misma clave = mismos números) o la construye, la coloca con la matriz del marco
+    del lazo y declara el contacto con cada piñón."""
     from apolo.assembly.connectivity import ConnectivityError, register_fastener
     from apolo.kernel.shapes import place_matrix
 
     from .registry import DEFINITIONS, Feature, register_definition
 
     t = medir_transmision(ctx.scene, p)
+    if p.fase == "auto":
+        t = engranar(ctx, p, t)
     clave = t.clave(p.detalle)
     base = DEFINITIONS.get(clave)
     if base is None:

@@ -372,6 +372,79 @@ def rodillos_del_lazo(paso: float, za: int, zb: int, centros: float,
     )
 
 
+# ------------------------------------------------------------------ fase que engrana
+#: Lo que el eslabón más largo de un lazo puede exceder el paso (mm) y contar como engranado.
+TOL_ESTIRADO_MM = 0.05
+_BARRIDO = 96      # pasos del barrido por diente (relaciones ≠ 1:1)
+_REFINO = 40       # iteraciones de sección áurea alrededor del mejor del barrido
+
+
+def estirado_lazo(paso: float, za: int, zb: int, centros: float, fase_a: float, fase_b: float,
+                  eslabones: int) -> float:
+    """mm que el eslabón más largo del lazo excede el paso: 0 = la cadena engrana sin
+    estirarse. Con fases que no dejan cadena para un tramo (un lazo 1:1 a centros exactos con
+    la fase relativa equivocada), `rodillos_del_lazo` estira los rodillos del medio."""
+    lazo = rodillos_del_lazo(paso, za, zb, centros, fase_a, fase_b, eslabones)
+    return max(0.0, lazo.separacion_max - paso)
+
+
+def _envolver(angulo: float, diente: float) -> float:
+    """El ángulo llevado a (−diente/2, diente/2]: girar un diente entero no cambia nada."""
+    g = math.fmod(angulo, diente)
+    if g > diente / 2.0:
+        g -= diente
+    elif g <= -diente / 2.0:
+        g += diente
+    return g
+
+
+def giro_para_engranar(paso: float, za: int, zb: int, centros: float, fase_a: float,
+                       fase_b: float, eslabones: int, gira: str) -> float:
+    """Giro (rad, antihorario en el marco del lazo) que hay que dar al piñón `gira` ("a" o
+    "b") para que la cadena engrane sin estirarse (`estirado_lazo` ≤ `TOL_ESTIRADO_MM`). 0.0 si
+    ya engrana.
+
+    En un lazo 1:1 a centros exactos la fase relativa que engrana es 0 o medio diente (L par
+    con z impar ⇒ medio diente): se prueban esos dos primero, para que el giro sea el número
+    redondo que pondría un taller. Si no alcanzan (otra relación, o centros que no son los
+    exactos), se barre un diente del piñón que gira y se refina el mejor: gana el que menos
+    estira (en centésimas de mm) y, a igual estirado, el giro más chico. Si ninguno engrana,
+    devuelve el que menos estira: quien lo usa decide si eso basta."""
+    if gira not in ("a", "b"):
+        raise ValueError(f"gira es 'a' o 'b', no {gira!r}")
+    diente = 2.0 * math.pi / (za if gira == "a" else zb)
+
+    def estirado(g: float) -> float:
+        fa, fb = (fase_a + g, fase_b) if gira == "a" else (fase_a, fase_b + g)
+        return estirado_lazo(paso, za, zb, centros, fa, fb, eslabones)
+
+    def costo(g: float) -> tuple:  # el estirado en centésimas de mm y, a igual, el giro chico
+        return (round(estirado(g), 2), abs(g))
+
+    if estirado(0.0) <= TOL_ESTIRADO_MM:
+        return 0.0
+    if za == zb:
+        mia, otra = (fase_a, fase_b) if gira == "a" else (fase_b, fase_a)
+        redondos = [_envolver(otra + rel - mia, diente) for rel in (0.0, diente / 2.0)]
+        mejor = min(redondos, key=costo)
+        if estirado(mejor) <= TOL_ESTIRADO_MM:
+            return mejor
+    barrido = [_envolver(k * diente / _BARRIDO, diente) for k in range(_BARRIDO)]
+    mejor = min(barrido, key=costo)
+    if costo(mejor)[0] == 0.0:
+        return mejor
+    lo, hi = mejor - diente / _BARRIDO, mejor + diente / _BARRIDO
+    k = (math.sqrt(5.0) - 1.0) / 2.0
+    for _ in range(_REFINO):  # sección áurea sobre el estirado (decrece hasta el que engrana)
+        m1, m2 = hi - k * (hi - lo), lo + k * (hi - lo)
+        if estirado(m1) <= estirado(m2):
+            hi = m2
+        else:
+            lo = m1
+    fino = round(_envolver(0.5 * (lo + hi), diente), 9)
+    return min((mejor, fino), key=costo)
+
+
 # ------------------------------------------------------------------ capas de la cadena
 def capas_cadena(ancho_interior: float, espesor_placa: float, ancho_sobre_perno: float,
                  hileras: int = 1, pt: float = 0.0) -> dict:
