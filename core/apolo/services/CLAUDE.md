@@ -144,6 +144,14 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   del `resumen` sigue la regla de `commands/exec_uniones.py` (copia `{cmd}_{n}` de su comando).
   [uniones-en-lote](../../../docs/plans/uniones-en-lote.md)
 
+## Video de la tienda (`construccion.py`, `rotulos.py`, `datos_rotulos.py`, `guion_video.py`)
+
+- Un rótulo sólo dice cifras leídas del documento, del catálogo o de un cálculo ya hecho
+  (`datos_rotulos`), nunca escritas a mano; una plantilla nueva va en `rotulos.PLANTILLAS` con
+  su test cifra por cifra. El peso de un paso (`peso_roles`) lo usan las etapas Y
+  `publicacion/video.py`: no se duplica la fórmula.
+  [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md)
+
 ## Roles por nombre (`roles.py`)
 
 - `BED_RE` (cama/mesa: recibe la carga del FEA y da la altura de trabajo de la instalación) y

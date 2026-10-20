@@ -5,9 +5,9 @@ Fotograma a fotograma, sin PNG en disco:
   1. Una `EscenaViva` del tamaño del guion con cámara y colores fijados a la escena FINAL; su
      primera foto (la máquina terminada) es el fondo de la portada y de la miniatura.
   2. La construcción recorre los prefijos del log (`iter_prefijos`, sobre una copia privada)
-     en los pasos de cada etapa. El tiempo de la etapa se reparte entre sus pasos por peso (1,
-     más 0,5 por sub-lista extra, como `construccion.peso`); dentro de un paso, las piezas
-     nuevas aparecen escalonadas por rol (`revelado`, D2). Lo que aparece o cambia se resalta
+     en los pasos de cada etapa. El tiempo de la etapa se reparte entre sus pasos por peso
+     (`construccion.peso_roles`); dentro de un paso, las piezas nuevas aparecen escalonadas por
+     rol, y las de un patrón crecen en oleadas (`revelado`, D2). Lo que aparece o cambia se resalta
      y el resaltado se desvanece. La cámara orbita lento y sin cortes entre etapas, y cada
      etapa lleva su rótulo inferior con fundido de entrada y de salida.
   3. Tarjeta de cifras, una vuelta completa a la máquina terminada y el cierre.
@@ -163,12 +163,12 @@ def _fija(escritor: _Escritor, tramo, imagen, fps: int, cruza: bool) -> None:
 
 
 def _paso(prefijo, escena_previa: dict):
-    """(escena, sub-listas del revelado por rol) del paso, contra la escena del paso anterior."""
-    from apolo.services.construccion import diferencia, revelado
+    """(escena, sub-listas del revelado, peso) del paso, contra la escena del paso anterior."""
+    from apolo.services.construccion import diferencia, peso_roles, revelado
 
     agregados, _quitados, _reemplazados = diferencia(escena_previa, prefijo.escena)
-    _roles, listas = revelado(prefijo.escena, agregados)
-    return prefijo.escena, listas
+    roles, listas = revelado(prefijo.escena, agregados)
+    return prefijo.escena, listas, peso_roles(roles)
 
 
 def _etapa(viva, escritor, tramo, etapa: dict, prefijos, estado: dict, estilo, fps: int,
@@ -187,12 +187,12 @@ def _etapa(viva, escritor, tramo, etapa: dict, prefijos, estado: dict, estilo, f
             continue
         pasos.append(_paso(pre, estado["escena"]))
         estado["escena"] = pre.escena
-    pesos = [1.0 + 0.5 * max(len(p[1]) - 1, 0) if p else 1.0 for p in pasos]
+    pesos = [p[2] if p else 1.0 for p in pasos]
     escritor.desde = escritor.ultimo if cruza else None
     for paso, (a, b) in zip(pasos, lt.reparto(tramo.inicio, tramo.fin, pesos)):
         piezas, listas, vistas = [], (), {}
         if paso is not None and b > a:
-            escena, listas = paso
+            escena, listas, _peso = paso
             piezas = extraer_piezas(escena)
             # {fotograma: cuántas sub-listas se ven desde ahí}; sin agregados, todo en `a`
             vistas = {a: 0}

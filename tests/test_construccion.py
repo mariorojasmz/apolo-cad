@@ -21,6 +21,7 @@ from apolo.services.construccion import (
     TIEMPOS,
     Paso,
     Tiempos,
+    compactar,
     diferencia,
     etapas,
     pasos_visuales,
@@ -218,16 +219,23 @@ def test_las_etapas_siguen_los_grupos(proyecto):
     assert [e.titulo for e in es] == ["Bastidor", "Transporte"]  # Guardas se funde en su padre
     assert es[0].texto == "Se suman «Placa base» y 4 patas."
     assert es[1].texto.startswith("Se suman 2 largueros, 7 rodillos, 4 patas y 3 piezas más")
-    assert [k for e in es for k in e.pasos] == [p.k for p in pasos]
+    # un paso del video por paso compacto (la pata y su patrón son uno), en orden
+    assert [k for e in es for k in e.pasos] == [u[-1].k for u in compactar(pasos)]
+    assert [p.k for e in es for u in compactar(pasos) if u[-1].k in e.pasos for p in u] == [
+        p.k for p in pasos]
     assert i["guarda"] in es[1].ids and i["agujero"] in es[0].ids
     assert all(e.duracion_s >= TIEMPOS.etapa_min_s for e in es)
 
 
-def _paso(k: int, grupos=(), titulo="Pieza", subs: int = 1) -> Paso:
+def _paso(k: int, grupos=(), titulo: str | None = None, subs: int = 1) -> Paso:
+    """Un paso sintético; sin `titulo`, uno propio («P7»): dos pasos con el mismo título son
+    del mismo patrón y se compactan (D2 de video-tienda-pulido)."""
+    titulo = titulo or f"P{k}"
     ids = tuple(f"c{k}_{n}" for n in range(subs))
+    roles = (titulo,) if subs == 1 else tuple(f"{titulo}-{n}" for n in range(subs))
     return Paso(k=k, cmd_id=f"c{k}", tipo="create_box", titulo=titulo, etiqueta=titulo,
                 agregados=ids, quitados=(), reemplazados=(),
-                revelado=tuple((f,) for f in ids), roles=tuple(f"R{n}" for n in range(subs)),
+                revelado=tuple((f,) for f in ids), roles=roles,
                 nombres={f: f"{titulo} {n}" for n, f in enumerate(ids)}, grupos=tuple(grupos))
 
 
@@ -245,7 +253,7 @@ def test_la_duracion_cae_cerca_del_objetivo():
 def test_un_log_corto_no_se_estira_mas_del_tope():
     es = etapas([_paso(1), _paso(2, titulo="Otra")], 75)
     assert len(es) == 1 and es[0].duracion_s == 2 * TIEMPOS.paso_max_s
-    assert es[0].titulo == "Pieza y Otra"
+    assert es[0].titulo == "P1 y Otra"
 
 
 def test_el_superpaso_pesa_mas():
@@ -265,7 +273,8 @@ def test_la_corta_se_funde_con_su_pariente():
 def test_sin_grupo_la_clave_es_el_titulo_del_paso():
     pasos = [_paso(1, titulo="Base"), _paso(2, titulo="Base"), _paso(3, titulo="Torre")]
     es = etapas(pasos, 200, tiempos=Tiempos(paso_max_s=10.0))
-    assert [(e.titulo, e.pasos) for e in es] == [("Base", (1, 2)), ("Torre", (3,))]
+    # las dos «Base» seguidas son un patrón: un solo paso del video, el último k
+    assert [(e.titulo, e.pasos) for e in es] == [("Base", (2,)), ("Torre", (3,))]
 
 
 def test_etapas_borde():

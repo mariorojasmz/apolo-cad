@@ -103,6 +103,7 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     {carpeta, guion, ficha, etapas, duracion_s, capitulos}."""
     from apolo import paths
     from apolo.services.construccion import etapas, pasos_visuales
+    from apolo.services.datos_rotulos import datos_rotulos
     from apolo.services.guion_video import capitulos, duracion_total, validar_guion
     from apolo.services.guion_video import guion as armar_guion
 
@@ -124,7 +125,8 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     if doc.regen_suppressed:
         eco(f"Aviso: {len(doc.regen_suppressed)} comando(s) no regeneran; la puerta de "
             "entrega lo marcará en rojo.")
-    g = armar_guion(doc, etapas(pasos_visuales(doc), duracion_s), titulo=titulo)
+    g = armar_guion(doc, etapas(pasos_visuales(doc), duracion_s, datos=datos_rotulos(doc)),
+                    titulo=titulo)
     validar_guion(g, doc)
     carpeta.mkdir(parents=True, exist_ok=True)
     (carpeta / GUION).write_text(json.dumps(g, indent=2, ensure_ascii=False) + "\n",

@@ -94,3 +94,78 @@ Revisado cuadro por cuadro (fotogramas 150, 750, 1350 y 2100):
   escritas a mano; test que compara cada cifra con su fuente.
 
 ## Bitácora
+
+### F0/F1 (2026-10-19)
+
+Implementó un subagente en un worktree; la piloto se leyó en sólo lectura de la base local
+(proyecto 74, 341 comandos, 201 sólidos) y del `generacion.json` de su F5.
+
+**F0 — dónde se van los 430 s de entregables** (los `registros` de la F5):
+
+| entregable | s |
+|---|---|
+| manual de ensamblaje (PDF) | 126,7 |
+| juego de planos (PDF) | 81,5 |
+| juego de planos (DWG): **falló sin ODA** | 69,6 |
+| hoja de conjunto GA (PDF) | 59,5 |
+| memoria de cálculo (PDF) | 43,2 |
+| render iso + lateral + planta | 32,1 + 6,9 + 6,9 |
+| STEP, BOM, lista de corte, nesting | 3,3 |
+
+El manual, los planos y la GA son el 62 %; el DWG gastó 70 s para fallar al final (lo que D5
+ataja avisando al empezar). Datos para D6 (F3).
+
+**F0 — pasos por grupo de la piloto**: cargar 10,2 s, `pasos_visuales` 11,9 s, 99 pasos
+visuales. Bastidor 42 (2 largueros + **40 `drill_hole` seguidos**), Rodillos 18 (6 piezas, 8
+patrones, 4 tuercas), Cadenas 19 (**un `create_chain` por lazo**), Patas y travesaños 11 (7 +
+las 4 placas base, k 334–337, al final del log), Motorreductor 5, Guardas 4. En el orden del log
+son 10 tramos de grupo (Bastidor y Rodillos se alternan dos veces). Los topes de D2 (6 y 15 s)
+quedan como se vetaron: con 52 s de presupuesto (75 − 23 fijos) caben 5 etapas.
+
+**F1 — lo construido** (`services/rotulos.py` 395 líneas, `services/datos_rotulos.py` 98,
+`services/construccion.py` 401; `tests/test_video_pulido.py`, 35 casos):
+
+- **Compactar** (D2): los pasos seguidos del mismo grupo que agregan piezas de la misma
+  *familia* (primera palabra del rol sin paréntesis: «Pata (-Y, alimentación)» → pata) son UN
+  paso del video, el último `k`; los retoques (taladros) se juntan entre sí o con el paso que
+  puso la pieza. La piloto baja de 99 pasos a 23. Un patrón crece en hasta 8 oleadas parejas
+  (`revelado`) y pesa 1 (`peso_roles`, por familias; retoque 0,5), peso que ahora comparte
+  `publicacion/video.py` en vez de duplicar la fórmula.
+- **Ritmo** (D2): `etapa_min_s` 6 (antes 10, el mínimo de un capítulo de YouTube: los capítulos
+  ya se funden aparte en `guion_video.capitulos`) y `etapa_max_s` 15. La duración se reparte por
+  nivel entre 6 y 15 s; con poco que mostrar el video sale **más corto** que el objetivo, no más
+  lento: una etapa larga se topa en 15 s en vez de partirse en «Rodillos (1/2)».
+- **Títulos** (D2): ≤ 32 caracteres generados; varios grupos → «A y B» (« · » si un nombre ya
+  lleva «y»), sin contar los grupos que sólo se retocaron; si no cabe, el grupo que más pesa.
+  Nunca «y 2 más». La validación del guion editado a mano sigue en 60/280: un guion viejo vale.
+- **Rótulos** (D1): `datos_rotulos(doc)` lee una vez el documento regenerado (catálogo, largo de
+  corte, espesor de chapa resuelto, centro y medidas, requisitos y FS de cada cadena desde
+  `chain_rules`, el mismo de la memoria). Las plantillas son por TIPO de dato antes que por
+  nombre —rodillos (Ø nominal, paso medido entre centros, Ø del eje y el porqué del paquete),
+  motorreductor (kW, rpm), cadena (serie y FS), piñón (serie y Z), tornillería (M), perfil del
+  catálogo (nombre y largo o rango) y chapa (espesor)—, porque así sirven a máquinas que no se
+  llaman como la piloto. Cada una dispara UNA vez, en la etapa que más piezas de su base agrega.
+  Dos líneas = 100 caracteres (en la piloto, 103 caben y 111 no; el test lo mide con
+  `maquetar_rotulo`); si no cabe, cae primero el detalle, después lo genérico y al final el porqué.
+
+**Guion de la piloto con 75 s** (total 75,0 s; capítulos 0:00, 0:19, 0:31, 0:56):
+
+| etapa | s | rótulo |
+|---|---|---|
+| Bastidor y Rodillos | 15,0 | Se suman 2 largueros de ángulo L 75x6 de 2 000 mm, «Eje del rodillo» y «Tubo del rodillo». |
+| Rodillos | 11,6 | Se suman 19 rodillos Ø2" cada 95,25 mm. Cada paquete de 400 mm apoya en 4 rodillos o más. |
+| Cadenas · Patas y travesaños | 6,9 | Se suman 19 cadenas rodillo a rodillo ASA 40, 4 patas de tubo HSS 2"x2" de 660 mm y 3 piezas más. |
+| Motorreductor | 9,3 | Se suman «Motorreductor» de 0,37 kW a 50 rpm. Cadena motriz con factor de seguridad 1,09. |
+| Guardas | 9,3 | Se suman 40 tuercas del eje M12, «Guarda de cadenas» de chapa de 2 mm y 8 piezas más. |
+
+Antes: 3 etapas de 25, 14 y 13 s y un título cortado. Con 50 s salen 3 etapas (7,8 / 6 / 13,2) y
+con 90 s, 5 (15 / 15 / 10,1 / 13,5 / 13,5).
+
+**Pendiente y avisos**:
+- El FS de la cadena motriz (1,09) sale tal cual de la memoria: cumple (≥ 1) pero se ve justo en
+  un video de venta; decidir si un FS bajo se calla o se muestra (hoy, siempre la cifra real).
+- La flecha (D1) no entra: `services` todavía no expone la del bastidor (flecha-de-bastidor F1
+  vive en `library`). Cuando una regla la exponga, es un `Frase.porque` más en `rotulos.py`.
+- El material de cada pieza (tabla de visor-realista D5) queda como punto de enganche en
+  `datos_rotulos`; hoy no se usa.
+- Los rótulos se juzgan en el video de la F4; la piloto no se regeneró (sin música todavía).
