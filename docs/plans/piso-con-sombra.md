@@ -126,3 +126,37 @@ la primera impresión del visor.
 | La sombra se ve mal con la máquina inclinada o con piezas bajo el piso | el plano va en el `min.z` visible; F3 lo mira en las dos máquinas |
 
 ## Bitácora
+
+### F0 (2026-10-19)
+
+Mapa de `ui/src/viewport/Viewport.tsx` (1631 líneas) leído entero, sin tocar código. El `useEffect`
+de montaje (`:319-1146`) tiene diez bloques; lo que comparte cada uno es lo que tendrá el `Ctx`:
+
+| bloque | líneas | crea | lee de otros bloques o del componente |
+|---|---|---|---|
+| A. pipeline | 320-354 | renderer, scene, camera, controls, luces (`dir`), suelo, IBL, ViewCube, grid, ejes, `group`, gizmo (`TransformControls`) | `mountRef` |
+| B. gizmo: snap + listeners | 356-455, 473-523 | `snapIndex`, `snapOffsets`, `ctrlHeld`, `snapMarker`, `onModKey`, `commitGizmo` | gizmo, controls, camera, renderer, `featuresRef`, `isGizmoDraggingRef`, `liveAngleRef`, `lastAxisRef`, `setVcb` |
+| C. ctx + `window.__apolo` | 457-471 | `handlesGroup`, `ctx` | `builtRef`/`sharedRef`/`buildKeyRef` (los vacía), `buildCountRef` |
+| D. composer | 525-545 | `composerRT`, `composer`, `outlinePass`, `destello`, `selMeshes` | scene, camera, renderer |
+| E. resize | 547-556 | `resize`, `observer` | `mount`, camera, renderer, composer |
+| F. bucle `animate` | 558-635 | `frame`, `dragHideHandles`, `updateHandleSprites`, `rebuildOverlayFromMesh`, `tinted`/`applyBlockedTint` | `dropAnimRef`, `gravityAnimRef`, `blockedRef`, `selectionRef`, `ctx.meshes`, `ctx.handles`, outline, destello, ViewCube |
+| G. selección por clic | 637-672 | `raycaster`, `downAt`, `onDown`, `onClick` | gizmo, ViewCube, renderer, camera, `group`, `setViewDir` (cierre del PRIMER render) |
+| H. agarrar/estirar/rotar/recuadro + hover | 674-1076 | `movePick`, `stretchPick`, `rotatePick`, `protractor`, `boxStart`, `hoveredHandle` | `raycaster`, `handlesGroup`, `ctx.meshes`, `featuresRef`, `blockedRef`, `scene`, **`dragHideHandles` (lo escribe; lo lee F)**, `isDraggingObjRef`, `isBoxSelectingRef`, controls, gizmo, `liveAngleRef`, `boxRef`, `mount`, `rebuildOverlayFromMesh` (F) |
+| I. ergonomía | 1078-1109 | `pickAt`, `onContext`, `onDblClick`, `onFitEvent`, export glTF | `raycaster`, `ctx.meshes`, `group`, `frameBox`/`fitTo` (cierres del PRIMER render) |
+| J. limpieza | 1110-1145 | — | todo lo anterior, en este orden: rAF → observer → listeners → `snapMarker` → transportador → glTF → animadores → productos → gizmo → IBL → ViewCube → outline → destello → composer → renderer → canvas → `ctxRef` |
+
+Trampas para el `Ctx`: (1) `dragHideHandles` es un `let` que escriben los arrastres (H) y lee el
+bucle (F): pasa a ser un objeto `{ current }` explícito. (2) `raycaster` es UNO compartido por G,
+H e I. (3) `setViewDir`, `frameBox` y `fitTo` son funciones del cuerpo del componente que el efecto
+captura en el PRIMER render; funcionan porque leen `ctxRef`/`selectionRef`, así que el `Ctx` las
+lleva tal cual (no hace falta refrescarlas). (4) Los listeners del gizmo (`dragging-changed`,
+`objectChange`) nunca se quitan: los libera `gizmo.dispose()`; se mantiene.
+
+Fuera del montaje: geometría y pose del gizmo de rotación (`:36-221`), `VIEWS` y `axisLetter`
+(`:223-233`), los efectos de reconstrucción de mallas, gizmo, pose cinemática, medición, física y
+gravedad (`:1148-1323`), encuadre y atajos (`:1325-1418`), VCB y rotación exacta (`:1420-1446`), el
+JSX (`:1462-1515`) y las funciones de `poses` (`:1518-1631`).
+
+Línea base en el piloto: NO se midió en esta fase. La API de :8000 la está usando Mario y este
+subagente no la toca; el hook expone hoy `meshIds()`, `builds()` y `store` (`Viewport.tsx:467`).
+La línea base (mallas y `builds()` en el 74 y la 73) queda para F3, antes de mirar la sombra.
