@@ -115,6 +115,7 @@ también a quien sólo busca o trabaja por MCP.
 | [drawing](core/apolo/drawing/CLAUDE.md) | planos y entregables: último kilómetro (soldadura, tolerancias, Ra, datum, GD&T), proceso, manual, instalación, DWG |
 | [fea](core/apolo/fea/CLAUDE.md) | FEA estático de pieza y bonded de ensamblaje |
 | [physics](core/apolo/physics/CLAUDE.md) | MuJoCo: gravedad, caída y dinámica (juntas, motores, banda, sensores) |
+| [plc](core/apolo/plc/CLAUDE.md) | PLC virtual: compilador ST → Python seguro (tres llaves), runtime de scan determinista, watchdog por vueltas, bloques estándar |
 | [services](core/apolo/services/CLAUDE.md) | dominio que lee un `Document` (reglas de la capa): mapas por pieza de los planos, datos de instalación, stack-up, aserciones y contrato `$k`, puerta de entrega, reglas de ingeniería y FEA, preparación del FEA, roles por nombre |
 | [api](core/apolo/api/CLAUDE.md) | routers (dónde va una ruta y su orden), mutaciones, lotes con contrato, jobs, lecturas a escala, deltas, autosave, tests de la API, la coreografía de locks del FEA |
 | [ui](ui/CLAUDE.md) | texto para el usuario —también errores de la API y prompts— (tuteo neutro, gates), preview, paneles, sync, viewport, croquis |
