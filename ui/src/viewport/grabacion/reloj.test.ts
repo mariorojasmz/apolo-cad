@@ -63,6 +63,13 @@ describe("recorrerCuadros", () => {
 
   it("sube cada cuadro exactamente una vez aunque terminen desordenados", async () => {
     const s = simulado(40);
+    // El desorden no puede depender del azar de los timers (con la PC cargada llegaban en orden y
+    // el test fallaba ~2 de 5): el cuadro 0 sube lento a propósito, así el 1 llega antes seguro.
+    const subir = s.op.subir;
+    s.op.subir = async (n, foto) => {
+      if (n === 0) await espera(40);
+      return subir(n, foto);
+    };
     await recorrerCuadros(s.op);
     expect(s.subidas).toHaveLength(40);
     expect([...s.subidas].sort((a, b) => a - b)).toEqual([...Array(40).keys()]);
