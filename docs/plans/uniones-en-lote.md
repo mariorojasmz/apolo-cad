@@ -111,3 +111,32 @@ quedan 198 tipos distintos de lo declarado, sobre todo tapas, ejes y tuercas, qu
 categoría giratoria (los rodillos de la piloto son tubo `TUBOR-2` + revolve). Para la **F3**:
 `/api/assembly/declare` hoy pasa sólo la escena — debe pasar `joints=S.doc.joints` (la parte
 del catálogo ya rige sin cambios) y conservar `a_revisar` en la propuesta.
+
+### F3 (2026-10-19)
+
+`POST /api/assembly/declare` acepta `{aplicar}` (sin cuerpo = `true`: la UI y la guardia del
+documento siguen igual). La propuesta y lo aplicado salen de `services/estructura.py::
+propuesta_estructura`, que pasa `joints=doc.joints`; con `aplicar=false` no muta y devuelve
+`{aplicar, n_grounds, n_fasteners, n_a_revisar, acciones, resumen}`. La tool
+`declare_structure(aplicar=False, completo=False)` sale de `mcp_server.py` (trinquete: 1421 →
+1406) a `tools/estructura.py` con `registrar(mcp, api)`; en el golden pasa al final de
+`list_tools()` (orden de registro) y gana dos casos (aplicar, lista omitida). Tests en
+`tests/test_declarar_propuesta.py`.
+
+Decisiones propias (vetables):
+
+- Las acciones tienen el formato de `run_batch`; `a_revisar: true` y `motivo` (el `reason`
+  entero) van FUERA de `params`: el lote las ignora y el agente puede reenviar la propuesta tal
+  cual o corregida (test).
+- La nota de una unión a revisar empieza con `a revisar: ` (cabe en los 120 de `nota`): aplicada
+  sin corregir, la marca sobrevive en `get_connections`. Aplicada, la respuesta suma
+  `a_revisar` [nombres] sólo si hay alguna (si no, el payload es el de siempre).
+- `resumen`: las uniones agrupadas por (tipo, revisar, raíz de cada lado), de mayor a menor,
+  con un `ejemplo` nombrado; la raíz es la regla de `exec_uniones` (copia `{cmd}_{n}` de su
+  comando), así cada fila es candidata a UN `fasten` por conjunto. No se arma el `fasten`
+  sugerido: el resumen no sabe si la fila cubre TODAS las copias del patrón (lo verifica el
+  agente; la F4 dirá si hace falta).
+- Con más de 60 acciones la tool omite la lista (`acciones_omitidas` + `seguir`) y deja el
+  resumen; `completo=true` la trae entera (la piloto proponía 460 uniones ≈ 100 KB). El recorte
+  es del cliente MCP: la API devuelve siempre todo.
+- Sigue en `CHAT` como `muta` (con `aplicar=true` cambia el documento).

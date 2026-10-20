@@ -3374,12 +3374,12 @@
   ]
  },
  {
-  "caso": "declarar estructura",
+  "caso": "proponer estructura",
   "tool": "declare_structure",
   "args": {},
   "salida": [
    {
-    "texto": "{\"grounds\": 1, \"fasteners\": 0, \"detalle\": {\"grounds\": [{\"name\": \"g1\"}], \"fasteners\": []}}"
+    "texto": "{\"n_grounds\": 1, \"n_fasteners\": 2, \"n_a_revisar\": 1, \"resumen\": [{\"kind\": \"soldadura\", \"a\": \"c1\", \"b\": \"c57\", \"n\": 1, \"ejemplo\": {\"a\": \"c1\", \"b\": \"c57_1\", \"nombres\": [\"Base\", \"Eje\"]}}], \"acciones\": [{\"type\": \"ground\", \"params\": {\"name\": \"auto_g_1\", \"feature\": \"c1\", \"nota\": \"base\"}}, {\"type\": \"fasten\", \"params\": {\"name\": \"auto_f_1\", \"a\": \"c1\", \"b\": \"c57_1\", \"kind\": \"soldadura\", \"nota\": \"'Base' ↔ 'Eje'\"}}, {\"type\": \"fasten\", \"params\": {\"name\": \"auto_f_2\", \"a\": \"c57_1\", \"b\": \"c9\", \"kind\": \"contacto\", \"nota\": \"a revisar: …\"}, \"a_revisar\": true, \"motivo\": \"'Eje' ↔ 'Piñón'; no se suelda: 'Piñón' es transmision\"}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3388,10 +3388,46 @@
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/assembly/declare",
     "query": [],
-    "cuerpo": null,
+    "cuerpo": {
+     "aplicar": false
+    },
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "declarar estructura",
+  "tool": "declare_structure",
+  "args": {
+   "aplicar": true
+  },
+  "salida": [
+   {
+    "texto": "{\"grounds\": 1, \"fasteners\": 0, \"a_revisar\": [\"auto_f_2\"], \"detalle\": {\"grounds\": [{\"name\": \"g1\"}], \"fasteners\": []}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/declare",
+    "query": [],
+    "cuerpo": {
+     "aplicar": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -3407,6 +3443,37 @@
     "cabeceras": {
      "accept": "*/*",
      "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "proponer estructura sin la lista",
+  "tool": "declare_structure",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"n_grounds\": 1, \"n_fasteners\": 2, \"n_a_revisar\": 1, \"resumen\": [{\"kind\": \"soldadura\", \"a\": \"c1\", \"b\": \"c57\", \"n\": 1, \"ejemplo\": {\"a\": \"c1\", \"b\": \"c57_1\", \"nombres\": [\"Base\", \"Eje\"]}}], \"acciones_omitidas\": 61, \"seguir\": \"declara por conjuntos desde `resumen`, o pide la lista entera con declare_structure(completo=true)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/declare",
+    "query": [],
+    "cuerpo": {
+     "aplicar": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
      "host": "127.0.0.1:8000"
     },
     "cliente": {

@@ -146,47 +146,41 @@ def remove_connections(body: ConnectionsRemoveIn) -> dict:
     return payload
 
 
+class DeclareIn(BaseModel):
+    aplicar: bool = True  # False = sólo PROPONE (D3 de uniones-en-lote); sin cuerpo, aplica
+
+
 @router.post("/api/assembly/declare")
-def assembly_declare() -> dict:
+def assembly_declare(body: DeclareIn | None = None) -> dict:
     """Auto-declara la ESTRUCTURA real (anclajes al piso + uniones de soporte) como comandos
     PERSISTIDOS. Inteligente (grafo de soporte dirigido): no fija las piezas colgantes (p. ej.
-    rodillos de retorno) → la prueba de gravedad EXACTA las tira. Idempotente: no recrea uniones
-    ya declaradas. Tras esto, `stability` con `with_autodetect=false` valida solo lo declarado."""
-    from apolo.assembly.autodetect import detect_structure
+    rodillos de retorno) → la prueba de gravedad EXACTA las tira; con las juntas del documento,
+    no suelda lo que gira (`a_revisar`). Idempotente: no recrea uniones ya declaradas. Tras
+    esto, `stability` con `with_autodetect=false` valida solo lo declarado.
+
+    `aplicar=false` no muta: devuelve `{aplicar, acciones, resumen, n_*}` de
+    `services/estructura.py` para que el agente la corrija y la aplique en un lote. Aplicada, la
+    escena suma `a_revisar` (nombres) sólo si alguna unión lo está."""
     from apolo.batch import execute_batch
+    from apolo.services.estructura import propuesta_estructura
 
+    aplicar = body is None or body.aplicar
     with STATE_LOCK:
-        det = detect_structure(S.doc.scene)
-        existing_names = set(S.doc.fasteners) | set(S.doc.grounds)
-        ground_feats = {g["feature"] for g in S.doc.grounds.values()}
-        pairs = {frozenset((f["a"], f["b"])) for f in S.doc.fasteners.values()}
-
-        def uniq(prefix: str) -> str:
-            i = 1
-            while f"{prefix}{i}" in existing_names:
-                i += 1
-            name = f"{prefix}{i}"
-            existing_names.add(name)
-            return name
-
-        actions: list[dict] = []
-        for g in det["grounds"]:
-            if g["feature"] in ground_feats:
-                continue
-            ground_feats.add(g["feature"])
-            actions.append({"type": "ground", "params": {
-                "name": uniq("auto_g_"), "feature": g["feature"], "nota": (g.get("reason") or "")[:120]}})
-        for f in det["fasteners"]:
-            pair = frozenset((f["a"], f["b"]))
-            if pair in pairs:
-                continue
-            pairs.add(pair)
-            actions.append({"type": "fasten", "params": {
-                "name": uniq("auto_f_"), "a": f["a"], "b": f["b"], "kind": f["kind"],
-                "nota": (f.get("reason") or "")[:120]}})
-        if not actions:
+        prop = propuesta_estructura(S.doc)
+        acciones = prop["acciones"]
+        if not aplicar:
+            fasten = [a for a in acciones if a["type"] == "fasten"]
+            return {"aplicar": False, "n_grounds": len(acciones) - len(fasten),
+                    "n_fasteners": len(fasten),
+                    "n_a_revisar": sum(1 for a in fasten if a.get("a_revisar")), **prop}
+        if not acciones:
             return _state_or_error(lambda: None)
-        return _state_or_error(lambda: execute_batch(S.doc, actions))
+        lote = [{"type": a["type"], "params": a["params"]} for a in acciones]
+        payload = _state_or_error(lambda: execute_batch(S.doc, lote))
+    revisar = [a["params"]["name"] for a in acciones if a.get("a_revisar")]
+    if revisar:
+        payload["a_revisar"] = revisar
+    return payload
 
 
 class AutoGroupIn(BaseModel):

@@ -136,6 +136,14 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   aviso. `foto` + `diff_borrado` arman la respuesta liviana.
   [cirugia-liviana](../../../docs/plans/cirugia-liviana.md)
 
+## Estructura propuesta (`estructura.py`)
+
+- `propuesta_estructura` es la fuente ÚNICA de `POST /api/assembly/declare`: lo que propone
+  (`aplicar=false`) es exactamente lo que aplica. Pasa `doc.joints` a `detect_structure` (lo que
+  gira no se suelda) y deja `a_revisar`/`motivo` FUERA de `params` (un lote las ignora). La raíz
+  del `resumen` sigue la regla de `commands/exec_uniones.py` (copia `{cmd}_{n}` de su comando).
+  [uniones-en-lote](../../../docs/plans/uniones-en-lote.md)
+
 ## Roles por nombre (`roles.py`)
 
 - `BED_RE` (cama/mesa: recibe la carga del FEA y da la altura de trabajo de la instalación) y

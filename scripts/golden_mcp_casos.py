@@ -113,6 +113,28 @@ def _auto_group(req):
     return J({**escena(["c1"]), "proposal": [{"name": "Estructura"}], "created": ["g1"]})
 
 
+#: `declare` en modo propuesta (uniones-en-lote D3): acciones con `a_revisar` y resumen por raíz.
+PROPUESTA = {
+    "aplicar": False, "n_grounds": 1, "n_fasteners": 2, "n_a_revisar": 1,
+    "acciones": [
+        {"type": "ground", "params": {"name": "auto_g_1", "feature": "c1", "nota": "base"}},
+        {"type": "fasten", "params": {"name": "auto_f_1", "a": "c1", "b": "c57_1",
+                                      "kind": "soldadura", "nota": "'Base' ↔ 'Eje'"}},
+        {"type": "fasten", "params": {"name": "auto_f_2", "a": "c57_1", "b": "c9",
+                                      "kind": "contacto", "nota": "a revisar: …"},
+         "a_revisar": True, "motivo": "'Eje' ↔ 'Piñón'; no se suelda: 'Piñón' es transmision"},
+    ],
+    "resumen": [{"kind": "soldadura", "a": "c1", "b": "c57", "n": 1,
+                 "ejemplo": {"a": "c1", "b": "c57_1", "nombres": ["Base", "Eje"]}}],
+}
+
+
+def _declare(req):
+    if req.content and json.loads(req.content).get("aplicar") is False:
+        return J(PROPUESTA)
+    return J({**escena(["c1"]), "a_revisar": ["auto_f_2"]})
+
+
 def _scene(req):
     if req.url.query:  # brief filtrado/paginado del servidor
         return J({"total_solidos": 3, "total_filtrado": 1, "truncado": False,
@@ -186,7 +208,7 @@ RUTAS = [
     ("GET", r"/api/mates", J([{"name": "m1"}])),
     ("GET", r"/api/assembly/dof", J({"solidos": []})),
     ("POST", r"/api/assembly/(soundness|autodetect)", J({"flotantes": [], "aisladas": []})),
-    ("POST", r"/api/assembly/declare", J(escena(["c1"]))),
+    ("POST", r"/api/assembly/declare", _declare),
     ("GET", r"/api/connectivity", J({"grounds": [{"name": "g1"}], "fasteners": []})),
     ("POST", r"/api/connections/remove", J({**escena(), "conexiones_borradas": ["f1", "g1"]})),
     ("POST", r"/api/delivery-check", J({"veredicto": "VERDE", "bloqueantes": []})),
@@ -355,7 +377,11 @@ CASOS = [
     caso("sujeción", "check_assembly"),
     caso("sujeción con autodetect", "check_assembly", {"with_autodetect": True}),
     caso("autodetección", "autodetect_connections"),
-    caso("declarar estructura", "declare_structure"),
+    caso("proponer estructura", "declare_structure"),
+    caso("declarar estructura", "declare_structure", {"aplicar": True}),
+    caso("proponer estructura sin la lista", "declare_structure", rutas={
+        ("POST", r"/api/assembly/declare"): J({**PROPUESTA, "acciones": [
+            PROPUESTA["acciones"][1]] * 61})}),
     caso("conexiones", "get_connections"),
     caso("borrar conexión", "delete_connection", {"name": "f1"}),
     caso("borrar conexiones lote", "delete_connection", {"names": ["f1", "g1"]}),

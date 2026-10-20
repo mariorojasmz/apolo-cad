@@ -20,7 +20,7 @@ from mcp.server.fastmcp import Image
 
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
-from apolo.tools import cirugia, destino, fastmcp_limpio, mcp_electrico, simulacion
+from apolo.tools import cirugia, destino, estructura, fastmcp_limpio, mcp_electrico, simulacion
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -739,21 +739,6 @@ def autodetect_connections() -> str:
 
 
 @mcp.tool()
-def declare_structure() -> str:
-    """Auto-declara la ESTRUCTURA real de la máquina (anclajes al piso + uniones de soporte) como
-    comandos PERSISTIDOS, de forma INTELIGENTE (grafo de soporte dirigido): NO fija las piezas que
-    cuelgan sin nada debajo (p. ej. rodillos de retorno). Idempotente (no duplica lo ya declarado).
-    Después, `gravity_test()` (por defecto, solo lo declarado) es la prueba EXACTA: cae lo suelto.
-    Para corregir, borra una unión con `delete_connection(name)`. Devuelve el conteo y la lista de
-    uniones declaradas (con sus nombres)."""
-    _api("POST", "/api/assembly/declare")  # persiste; ignoramos el payload de escena (grande)
-    conn = _api("GET", "/api/connectivity").json()
-    return json.dumps(
-        {"grounds": len(conn["grounds"]), "fasteners": len(conn["fasteners"]),
-         "detalle": conn}, ensure_ascii=False)
-
-
-@mcp.tool()
 def get_connections() -> str:
     """Uniones de ensamblaje DECLARADAS (persistidas) del documento: fijadores (a↔b) y anclajes a
     tierra, con sus nombres (para borrarlas con delete_connection). Read-only."""
@@ -1404,10 +1389,10 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
     return json.dumps(resumen, ensure_ascii=False)
 
 
-# Tools fuera de este archivo (trinquete): tablero eléctrico (V8.1 D8), `simulate` (V8.2) y
-# `remove_commands` (cirugia-liviana). Van a ESTE `mcp` (`__main__` con `-m`) y, al llamar, al
-# `_api`/`_mutacion` de este módulo.
-for _registrar in (mcp_electrico.registrar, simulacion.registrar):
+# Tools fuera de este archivo (trinquete): tablero eléctrico (V8.1 D8), `simulate` (V8.2),
+# `declare_structure` (uniones-en-lote D3) y `remove_commands` (cirugia-liviana). Van a ESTE
+# `mcp` (`__main__` con `-m`) y, al llamar, al `_api`/`_mutacion` de este módulo.
+for _registrar in (mcp_electrico.registrar, simulacion.registrar, estructura.registrar):
     _registrar(mcp, lambda *a, **k: _api(*a, **k))
 cirugia.registrar(mcp, lambda *a, **k: _mutacion(*a, **k))
 
