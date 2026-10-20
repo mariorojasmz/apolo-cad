@@ -21,6 +21,8 @@ puedes demorar des un estimado». Esta es esa fuente.
   JUNTAS una sola vez (2026-10-20: visor F2 + vista-3d F2+F3, 3294 tests en un solo pase).
 - **El cuello de botella es la suite, no el agente**: con 2 agentes en paralelo salen ~2 fases
   por hora como máximo. Dos suites a la vez en la misma PC se frenan entre sí.
+- **Una fase que MIDE algo lento** (renders, manual de la piloto) se va a 2–3 h: el tiempo lo pone lo
+  que mide, no el código (video-tienda F3, 195 min).
 - **Una verificación por MCP** (subagente modelador o revisor sobre la API) tarda 10–45 min y
   va de a una máquina (la API tiene un documento activo:
   [varias-maquinas-a-la-vez](plans/varias-maquinas-a-la-vez.md)).
@@ -68,6 +70,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-20 | video-realista | F0+F1 | S+M | 59 | 360 | medición en la laptop + visor «alta» y acabados con textura |
 | 2026-10-20 | (fix) | recorte de la cámara | S | ~25 | — | en la sesión principal: z-fighting banda/cama que vio Mario en el video |
 | 2026-10-20 | video-realista | F2 | M | 55 | 376 | grabación con reloj virtual + MP4; dejó un test inestable (2 de 5) que se arregló al revisar |
+| 2026-10-20 | video-tienda-pulido | F3 | S | 195 | 318 | atípico: midió el manual de la piloto (23 min) varias veces y A/B del paralelo |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
@@ -80,4 +83,5 @@ Revisión y merge en la sesión principal (2026-10-20):
 - ~35 min: visor F3 (un conflicto resuelto a mano);
 - ~35 min: fix del tambor + plantilla F2, apilados en una sola suite;
 - ~35 min: video-realista F0+F1;
-- ~40 min: video-realista F2 (test inestable arreglado y conflicto con el fix de la cámara).
+- ~40 min: video-realista F2 (test inestable arreglado y conflicto con el fix de la cámara);
+- ~35 min: video-tienda F3.
