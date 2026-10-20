@@ -112,7 +112,9 @@ tiene que poder producirlo sin que nadie lo mire.
   - **Rápido**: visor mejorado + TAA; un video de 60 s en minutos.
   - **Máximo**: `three-gpu-pathtracer` en cada cuadro, con N muestras + denoiser; de noche.
 
-  La foto «realista» del visor (botón) usa el nivel máximo. Por qué: la miniatura de YouTube y
+  La foto «realista» del visor (botón) usa el nivel máximo. Mario (2026-10-20): con 1–2 h por
+  video el máximo «no es viable ahora, pero igual lo quiero». Se implementa (F4) y queda
+  disponible, pero no como nivel por defecto. Por qué: la miniatura de YouTube y
   las fotos de la tienda valen el tiempo; el video entero, según el saldo de GPU.
 - **D7. Automático con el navegador que ya está.** `publicar generar --render navegador`:
   1. busca Edge o Chrome instalados (Edge viene con Windows);
