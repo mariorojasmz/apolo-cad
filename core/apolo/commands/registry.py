@@ -83,6 +83,7 @@ from .models_componente import InsertComponentParams
 from .exec_transmision import _exec_create_chain
 from .exec_uniones import _exec_fasten
 from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
+from .exec_rodillos_cadena import SPECS_RODILLOS_CADENA  # super-comando compuesto
 from .errors import CommandError
 from .spec import CommandSpec, run_executor
 from .state import ExecContext, RegenState
@@ -1999,9 +2000,7 @@ REGISTRY: dict[str, CommandSpec] = {
             "insert_project", "Insertar proyecto", "biblioteca", InsertProjectParams,
             _exec_insert_project, composite=True,  # su replay corre executors ajenos (D9)
         ),
-        CommandSpec(
-            "create_conveyor", "Transportador", "biblioteca", CreateConveyorParams, _exec_create_conveyor
-        ),
+        CommandSpec("create_conveyor", "Transportador", "biblioteca", CreateConveyorParams, _exec_create_conveyor),
         CommandSpec(
             "create_belt_conveyor", "Faja de banda", "biblioteca", CreateBeltConveyorParams,
             _exec_create_belt_conveyor, version=2,  # v2: la banda abraza el tambor engomado
@@ -2076,6 +2075,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec(
             "set_variable", "Variable", "variables", SetVariableParams, _exec_set_variable, kind="vars"
         ),
+        *SPECS_RODILLOS_CADENA,
         *SPECS_ELECTRICO,
     ]
 }

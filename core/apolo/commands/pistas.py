@@ -65,6 +65,9 @@ PISTAS: dict[str, str] = {
     "create_conveyor": (
         "Crea un transportador de rodillos completo: largueros, rodillos, patas, arriostrado y motor opcional."
     ),
+    "create_roller_conveyor": (
+        "Crea un transportador de rodillos movido por cadena, completo: bastidor, patas, rodillos, motor y guardas."
+    ),
     "create_belt_conveyor": (
         "Crea una faja de banda completa: bastidor, cama, tambores, banda, tensor, motorreductor y guardas."
     ),
@@ -152,6 +155,7 @@ PISTAS: dict[str, str] = {
 PISTAS_CAMPO: dict[str, str] = {
     "AddDeviceParams.cantidad": "Sólo vale en una bornera: es cuántos bornes lleva.",
     "AddWireParams.hilo": "Sólo se usa si el conductor va dentro de un cable; elige el cable también.",
+    "CreateRollerConveyorParams.motor": "Sólo se usa si la transmisión es por cadena.",
     "CreateChainParams.potencia_kw":"La capacidad sólo se verifica si también indicas las rpm del piñón motriz.",
     "DrillHoleParams.cara": "Elige la cara o el punto de entrada, no ambos.",
     "DrillHoleParams.thread": "Con rosca se taladra a la broca de machuelo; el diámetro no se usa.",

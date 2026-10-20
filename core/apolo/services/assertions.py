@@ -127,9 +127,10 @@ def contract_verify(doc, expect: list[dict], *, expand):
     _SINGULAR = ("id", "a", "b")  # campos de UN solo sólido en las aserciones
 
     def cb(scene: dict, created: list[str]) -> list[dict]:
-        def fids_of(cmd_id: str) -> list[str]:
+        def fids_of(cmd_id: str) -> list[str]:  # también los sintéticos `{cmd}_…` (compuestos)
             return [fid for fid, f in scene.items()
-                    if getattr(f, "command_id", None) == cmd_id]
+                    if (c := str(getattr(f, "command_id", ""))) == cmd_id
+                    or c.startswith(cmd_id + "_")]
 
         def resolve(tok, *, plural: bool):
             if not (isinstance(tok, str) and tok.startswith("$") and tok[1:].isdigit()):

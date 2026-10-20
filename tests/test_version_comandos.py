@@ -183,4 +183,8 @@ def test_la_version_se_valida_al_registrar(version):
 def test_defaults_de_un_comando_nuevo():
     spec = CommandSpec("x", "X", "crear", CreateBoxParams, lambda ctx, cmd_id, p: None)
     assert spec.version == 1 and spec.composite is False
-    assert [t for t, s in REGISTRY.items() if s.composite] == ["insert_project"]
+    # los compuestos (corren executors ajenos): el proyecto insertado y la plantilla de rodillos
+    assert [t for t, s in REGISTRY.items() if s.composite] == ["insert_project",
+                                                              "create_roller_conveyor"]
+    assert version_tag(REGISTRY, "create_roller_conveyor") == version_tag(REGISTRY,
+                                                                          "insert_project")

@@ -1,5 +1,6 @@
 """Regla «transmisión por cadena» de un documento (plan `docs/plans/cadenas-pinones.md`, D9):
-recalcula cada `create_chain` del log, sin estado nuevo. Resuelve sus params con las variables
+recalcula cada `create_chain` del log (también las que corre `create_roller_conveyor`, vía
+`comandos_efectivos`), sin estado nuevo. Resuelve sus params con las variables
 del documento (como `conveyor_params_from_doc`), mide el lazo con las anclas VIVAS de los
 piñones (`commands.exec_transmision.medir_transmision`, la misma medición del executor) y deja
 el cálculo a `library/engineering/cadena.py` (puro). La llama `structure_rules`: la comparten
@@ -31,6 +32,7 @@ def chain_rules(doc) -> list[dict]:
     """Una regla por lazo distinto (los idénticos se agrupan) + un aviso por cadena desfasada
     de sus piñones + un error por cadena que ya no se puede medir."""
     from apolo.commands.errors import CommandError
+    from apolo.commands.exec_rodillos_cadena import comandos_efectivos
     from apolo.commands.exec_transmision import medir_transmision
     from apolo.commands.expressions import ExpressionError, resolve_params
     from apolo.commands.models_transmision import CreateChainParams
@@ -39,7 +41,8 @@ def chain_rules(doc) -> list[dict]:
 
     grupos: dict[tuple, dict] = {}
     sueltas: list[dict] = []
-    for cmd in doc.commands:
+    # las cadenas de una plantilla (`create_roller_conveyor`) corren dentro de su comando
+    for cmd in comandos_efectivos(doc.commands, doc.variables_resolved):
         if cmd["type"] != "create_chain":
             continue
         nombre = (cmd.get("params") or {}).get("name") or cmd["id"]

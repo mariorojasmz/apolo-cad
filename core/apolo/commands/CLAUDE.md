@@ -107,6 +107,12 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   previas), nunca uno cargado, porque desarmaría su otro lazo. `eslabones` fijo tolera
   +0.05 mm sobre el exacto; `=centros_cadena(p, za, zb, L)` lo calcula para colocar los piñones
   antes. Default = v1. [plan](../../../docs/plans/plantilla-rodillos-cadena.md)
+- `create_roller_conveyor` es COMPUESTO (`composite=True`): corre executors del registro con
+  ids `{cmd}_{sufijo}` (command_id sintético, como `insert_project`: la puerta revisa
+  interferencias ENTRE sus piezas). Cotas en `library/rodillos_cadena.py`, receta en
+  `receta_rodillos_cadena.py`: la huella D11 no las ve, así que cambiar su geometría con los
+  mismos params es subir su `version` a mano. Una regla que busque un tipo en el log recorre
+  `comandos_efectivos` (lo hace la de cadenas). [plan](../../../docs/plans/plantilla-rodillos-cadena.md)
 - Bastidores con ingletes (`create_weldment`/`create_frame`): [library](../library/CLAUDE.md).
   `insert_project`: [doc](../doc/CLAUDE.md).
 

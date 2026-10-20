@@ -1,0 +1,122 @@
+"""Schema de `create_roller_conveyor` (plan `plantilla-rodillos-cadena`, D1). Las listas de
+catálogo y de pasos salen de `apolo/library/rodillos_cadena.py`; el executor está en
+`exec_rodillos_cadena.py` y la receta de comandos, en `receta_rodillos_cadena.py`."""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+from .models import Vec3
+
+
+def _pasos() -> list[float]:
+    from apolo.library.rodillos_cadena import pasos_rodillo
+
+    return pasos_rodillo()
+
+
+def _rodillos() -> list[str]:
+    from apolo.library.rodillos_cadena import RODILLOS
+
+    return list(RODILLOS)
+
+
+def _motores() -> list[str]:
+    from apolo.library.rodillos_cadena import MOTORES
+
+    return list(MOTORES)
+
+
+class CreateRollerConveyorParams(BaseModel):
+    """Transportador de rodillos MOTORIZADO POR CADENA rodillo a rodillo, completo, fabricable y
+    sostenido, en UNA orden (super-comando): bastidor de 2 largueros de ángulo L 75x6 (ala
+    vertical por dentro, ala horizontal ABAJO y hacia AFUERA), rodillos de tubo redondo sobre
+    eje fijo M12 con tapas de rodamiento 6201 y tuerca a cada lado (atornillado al ala vertical),
+    piñón doble-simple ASA 40 Z15 soldado a un buje en cada rodillo, cadenas ASA 40 1:1
+    alternando las dos hileras, motorreductor bajo el último rodillo con piñón Z30 y cadena
+    motriz, patas de tubo 2x2 en H (travesaño ENTRE las patas, placa base con 2 anclajes y
+    `ground`), guarda de cadenas sobre separadores soldados y guarda de la transmisión. Todas
+    las uniones van declaradas (`fasten` en conjuntos) y las piezas quedan en el grupo `name`
+    con sus subgrupos Bastidor, Rodillos, Cadenas, Patas, Motorreductor y Guardas.
+
+    CÓMO MONTAR (IMPORTANTE):
+    - Transporte a lo largo de +X: la alimentación en x = position.x y la motriz (motor) en
+      x = position.x + largo. El centro de los tubos en y = position.y; la transmisión va hacia
+      +Y. position.z es el piso (las placas base apoyan en z = position.z). Para girarlo o
+      moverlo después, transform_group sobre el grupo `name`; no lleva rotation.
+    - `altura` = cara superior de los rodillos (altura de trabajo). El eje queda a altura − Ø/2.
+    - `paso` NO es libre: con cadena 1:1 sólo cierran sin sobrante 95.25, 107.95 o 120.65 mm
+      (30, 32 o 34 eslabones). El número de rodillos sale de `largo` (par, ≥ 50 mm del eje
+      extremo al final del larguero) y los rodillos quedan centrados.
+    - `ancho_util` = largo del tubo (lo que ve el producto). Con `motriz: cadena` el motor va
+      entre las patas, bajo los rodillos: si no cabe, el error dice el ancho mínimo.
+    - La cadena motriz va inclinada 20° hacia la alimentación y el motor DESLIZA ±20 mm en X
+      sobre ranuras abiertas de su base: así se tensa. Sus eslabones y centros salen solos
+      (centros exactos, nunca una cota a mano).
+    - Las estaciones de patas quedan con el mismo voladizo en los dos extremos y se agregan
+      intermedias para que el vano del larguero (ángulo libre, flecha L/240 con `carga_kg`
+      repartida) no pase de 1.8 m. `carga_kg` es la carga TOTAL sobre el transportador; con
+      cadena también verifica que el motor alcance (rodadura, rendimiento de los lazos).
+    - `motriz: libre` = rodillos locos (gravedad o empuje a mano): sin piñones, cadenas, motor
+      ni guardas; el bastidor queda simétrico.
+    - Las piezas tienen id `{id del comando}_{rol}` (p. ej. c5_larg_p = larguero +Y, c5_trav_e0
+      = travesaño de la alimentación, c5_motor): úsalos para unir lo que agregues después.
+    Editar cualquier parámetro regenera la máquina entera; para atarla a variables, da los
+    params como =expresión."""
+
+    name: str = Field(
+        "Transportador de rodillos", pattern=r"^[^\s,][^,]*$", max_length=40, title="Nombre",
+        description="nombre de la máquina y de su grupo (único en el proyecto, sin comas)",
+    )
+    largo: float = Field(2000, ge=1000, le=12000, title="Largo", description="mm, largo del bastidor")
+    ancho_util: float = Field(
+        500, ge=150, le=1500, title="Ancho útil", description="mm, largo del tubo de rodillo",
+    )
+    paso: float = Field(
+        95.25, title="Paso de rodillos",
+        description="mm entre ejes: 95.25, 107.95 o 120.65 (cadena 1:1 sin sobrante)",
+        json_schema_extra=lambda schema: schema.update({"enum": _pasos()}),
+    )
+    rodillo: str = Field(
+        "TUBOR-2", title="Tubo del rodillo",
+        json_schema_extra=lambda schema: schema.update({"enum": _rodillos()}),
+    )
+    altura: float = Field(
+        750, gt=0, le=2500, title="Altura de trabajo", description="mm, cara superior de rodillos",
+    )
+    carga_kg: float = Field(
+        100, gt=0, le=5000, title="Carga", description="kg sobre todo el transportador, repartidos",
+    )
+    motriz: Literal["cadena", "libre"] = Field(
+        "cadena", title="Transmisión",
+        description="cadena = motorizado rodillo a rodillo; libre = rodillos locos",
+    )
+    motor: str = Field(
+        "MOTOR-037", title="Motorreductor", description="sólo con transmisión por cadena",
+        json_schema_extra=lambda schema: schema.update({"enum": _motores()}),
+    )
+    position: Vec3 = Field(default_factory=Vec3, title="Posición")
+
+    @field_validator("paso")
+    @classmethod
+    def _paso_de_lista(cls, v: float) -> float:
+        for t in _pasos():
+            if abs(v - t) < 0.01:
+                return t
+        raise ValueError(f"paso {v:g}: con la cadena 1:1 sólo cierran {_pasos()} mm")
+
+    @field_validator("rodillo")
+    @classmethod
+    def _rodillo_conocido(cls, v: str) -> str:
+        if v not in _rodillos():
+            raise ValueError(f"rodillo '{v}': usa uno de {', '.join(_rodillos())}")
+        return v
+
+    @field_validator("motor")
+    @classmethod
+    def _motor_conocido(cls, v: str) -> str:
+        if v not in _motores():
+            raise ValueError(f"motor '{v}': usa uno de {', '.join(_motores())}")
+        return v
