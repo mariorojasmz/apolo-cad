@@ -43,7 +43,7 @@ export function useMarchaEnVista(
       saltoHecho: m.saltoHecho,
       publicar: m.publicar,
       alPosar: () => ctx.sombra.marcarSucia(),
-    }, t0);
+    }, t0, ctx.group);
   }, [serie, token, features, kinJoints, jointValues]);
 
   // la caída por gravedad y el drop-test mueven las mismas mallas: no conviven con la marcha

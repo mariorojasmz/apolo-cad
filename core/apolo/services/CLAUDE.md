@@ -164,6 +164,15 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   con la máquina terminada, entra con menos piezas).
   [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md) (F1b)
 
+## La marcha en el visor (`marcha_visual.py`)
+
+- `extraer_marcha_visual` corre bajo el `STATE_LOCK` del llamador, en la misma adquisición que
+  `prepare_dynamics`. Una cadena se reconoce por su `mesh_key` (`Transmision.clave` de
+  `create_chain`: cambiar su formato la deja rígida; `tests/test_marcha_visual.py` lo detecta) y sus
+  piñones por las uniones `{cadena}_a|_b`. De la faja mide encuadres en SU marco (diestro: v = u×w)
+  y la redondez (encuadre cuadrado que no crece girado 45°: un tubo cuadrado no es tambor).
+  [visor-realista](../../../docs/plans/visor-realista.md) (F3)
+
 ## Roles por nombre (`roles.py`)
 
 - `BED_RE` (cama/mesa: recibe la carga del FEA y da la altura de trabajo de la instalación) y

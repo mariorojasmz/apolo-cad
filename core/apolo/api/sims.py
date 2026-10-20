@@ -180,6 +180,42 @@ class Marchas:
 MARCHAS = Marchas()
 
 
+def _extraer_visual(doc, snap) -> dict | None:
+    """La faja y las cadenas del documento para dibujarlas en marcha (visor-realista D6), bajo
+    el STATE_LOCK del llamador. Un fallo aquí no tumba la marcha: se dibuja sin ellas."""
+    from apolo.services.marcha_visual import extraer_marcha_visual
+
+    if snap.early is not None:
+        return None
+    bandas = [{"pieza": b.pieza, "junta": b.junta, "d": b.d, "n": b.n, "a": b.a, "e": b.e,
+               "centro_mm": [c * 1000.0 for c in b.centro], "radio_m": b.radio,
+               "masa_kg": b.masa_banda} for b in snap.bandas]
+    try:
+        return extraer_marcha_visual(doc, bandas)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+
+
+def _sumar_visual(serie: dict, vis: dict | None, res: dict) -> None:
+    """Agrega a la serie las cadenas y fajas animables (fuera de los locks: datos puros)."""
+    from apolo.library.marcha_visual import armar
+
+    if vis is None:
+        serie.update({"cadenas": [], "fajas": []})
+        return
+    try:
+        if "error" in vis:
+            raise RuntimeError(vis["error"])
+        extra = armar(vis, res)
+    except Exception as exc:  # noqa: BLE001
+        serie.update({"cadenas": [], "fajas": []})
+        serie["avisos"].append(f"La faja y las cadenas se dibujan rígidas: no se pudo armar su "
+                               f"marcha ({exc})")
+        return
+    serie["cadenas"], serie["fajas"] = extra["cadenas"], extra["fajas"]
+    serie["avisos"] += extra["avisos"]
+
+
 def _serie_dinamica(peticion: dict) -> dict:
     """La serie del reproductor para `peticion` sobre el documento ACTIVO, de la caché si la
     firma del documento y el escenario coinciden; si no, simula (dos locks, como `_dynamics`) y
@@ -198,6 +234,7 @@ def _serie_dinamica(peticion: dict) -> dict:
             if hecha is None:
                 snap = prepare_dynamics(d.scene, d.joints, d.fasteners, d.grounds, peticion,
                                         mates=d.mates)
+                vis = _extraer_visual(d, snap)   # misma adquisición: el mismo documento
         if hecha is not None:
             MARCHAS.recordar_escenario(proyecto, peticion)
             return {**hecha, "en_cache": True}
@@ -211,6 +248,7 @@ def _serie_dinamica(peticion: dict) -> dict:
     except PhysicsError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     serie = serie_reproduccion(res, snap.bandas, hz=hz)   # fuera de los locks: datos puros
+    _sumar_visual(serie, vis, res)
     serie["firma"], serie["escenario"] = clave
     if snap.early is None:
         MARCHAS.guardar(clave, serie)

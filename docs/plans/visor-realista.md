@@ -231,3 +231,80 @@ no se levanta. La reproducción a 60 fps, la barra en los dos modos y la sombra 
 quedan para la verificación con la UI servida (la de F5 o antes). Tests: 11 de API
 (`tests/test_api_marcha.py`) y 17 de vitest (`viewport/marcha/serie.test.ts`,
 `reproductor.test.ts`).
+
+### F3 (2026-10-20): la faja con su forma real y las cadenas que avanzan
+
+Todo vive en la serie de la marcha (`cadenas` y `fajas`, sólo en marcha: la vista quieta del CAD
+no cambia). Nada entra al `.apolo` ni cambia geometría (sin versión ni epoch).
+
+**Servidor**:
+- `services/marcha_visual.py` (OCCT, bajo el `STATE_LOCK` de `_serie_dinamica`, en la MISMA
+  adquisición que `prepare_dynamics`):
+  - la cadena se reconoce por su `mesh_key` (`Transmision.clave`: za, zb, centros, fases y
+    eslabones, los números exactos de su geometría) y sus piñones por las uniones `{cadena}_a|_b`.
+    No lee las anclas ni `medir_transmision`: así no depende de los params de `create_chain` (otra
+    rama lo pasa a v2); si su clave cambia de formato, `tests/test_marcha_visual.py` lo dice;
+  - de cada banda de la física, el encuadre de la banda y de las piezas que cruzan su ancho en el
+    marco de la faja (u = marcha, w = normal, v = u × w), y si son redondas (encuadre cuadrado que
+    no crece girado 45°).
+- `library/ruta_faja.py` (puro): la línea media abraza el casco de los tambores redondos de adentro
+  (+ espesor/2); lo de afuera que toca la cara (≤ 1 mm) parte el ramal de retorno; cada vano cuelga
+  una parábola con comba = mín(CEMA 2 %, w·l²/8T, holgura con lo de abajo) y `limita` dice cuál
+  mandó. El ramal de arriba no cuelga (va sobre la cama o los rodillos).
+- `library/marcha_visual.py` (puro, fuera de los locks): qué junta mueve cada cadena (la del primer
+  piñón que gira; signo = eje de la junta · Z del lazo), el piñón que la física no gira (el del
+  motor sin junta) para que gire con ella, la tensión del ramal flojo y los rodillos libres (cola,
+  retorno) con su eje de giro.
+- **Decisión sobre «la comba según la tensión de V8.2»**: V8.2 no modela la pretensión del tensor.
+  Se usa la MÍNIMA que transmite la tracción medida sin patinar, T2 = F_U/(e^{μα} − 1) (F_U = par
+  del motor en régimen / radio, μ 0,25 acero liso, α = abrazamiento del motriz en la ruta). Con
+  ella la comba pasaría del 2 %: en los dos pilotos manda CEMA (el tensor debe dar al menos esa
+  tensión), y la serie lo publica (`tension`, `tramos[].limita`).
+
+**Visor** (`ui/src/viewport/marcha/`):
+- `cadena.ts`: eslabones instanciados (rodillo, perno, placa interior y exterior). El rodillo
+  físico m va en la posición m + n(t) del lazo, n = signo·(q − q₀)/360·z; entre dos rodillos
+  sentados gira sobre el eje del piñón, en los tramos va en recta; las placas interiores unen
+  (2k, 2k+1). Las cadenas de igual norma y ASPECTO comparten un juego de cuatro mallas.
+- `faja.ts`: la cinta (afuera, adentro y cantos) con UV en mm. No se mueve: corren su relieve
+  (clonado del material de la banda) y un empalme más oscuro en s = 0, el recorrido s(t) = ∫v de
+  la serie. `giroRodillo`: recorrido / radio.
+- `transmision.ts`: oculta la banda y la cadena del CAD, pone lo nuevo en `ctx.group` (sombra de
+  contacto, encuadre; `raycast` no-op) y gira lo arrastrado componiendo sobre la pose del cuerpo
+  (un tensor que se desliza). Una pieza oculta por el usuario sigue oculta. El reproductor lo llama
+  después de los cuerpos; `Viewport.tsx` no cambió.
+
+**Medido** (copia de la base, TestClient, sin guardar):
+
+| qué | resultado |
+|---|---|
+| 73 (faja de chapa, `j_eje_motriz` 0,37 m/s, cajas cada 1,5 s, 6 s) | ruta de 246 puntos, 7980 mm, espesor 2,0, ancho 600; abraza `c412_rodillo` y `c669`; apoyan los dos rodillos de retorno; 3 vanos de 1268,7 mm con 25,4 mm de comba (CEMA) |
+| 73, tensión | tracción 86 N → T2 mín 72 N (180°): la comba por tensión sería ~45 mm, manda CEMA |
+| 73, giran con la banda | la cola y los dos de retorno (el motriz ya lo gira la física) |
+| 73, extracción bajo el lock | 0,3–0,6 s; serie 0,06 MB |
+| 74 (20 continuas eje→tubo + 20 fijas tubo→piñón y 20 motores, en memoria, 3 s) | 20 de 20 cadenas animadas (19 por su piñón A; la motriz por B, `j_rod20`, con el piñón del motor `c94` girando con ella); serie 0,19 MB |
+| 74 en el visor | 2472 instancias en 8 mallas (2 aspectos), 0,36 ms por pose con los 20 cuerpos |
+
+**Verificación visual** en un arnés temporal (vite + los módulos reales de `marcha/` sobre las
+mallas teseladas de los pilotos; no se commitea): la banda apoya en los rodillos de retorno y
+cuelga entre ellos, abraza la cola; en 1 s el empalme del retorno corrió ~370 mm hacia −X mientras
+las cajas iban a +X a 0,37 m/s; en t = 0 la cadena animada cae sobre la del CAD (superpuesta en
+alambre) y en t = 0,53 s los asientos del piñón (los rodillos sentados del CAD movidos con la pose
+de su cuerpo) caen sobre los rodillos animados.
+
+**Intentos fallidos**:
+- El marco (d, n, a) de `BandaDatos` puede ser zurdo: `gp_Trsf` rechaza la matriz («Moving with
+  scaling transformation is forbidden») → v = u × w.
+- El espesor del tope de la banda al del tambor más alto daba negativo en el super-comando: su
+  tambor motriz engomado (Ø113,6) se mete en la banda, dimensionada con Ø102 → el menor candidato
+  válido por tambor (tope y fondo) y, si no hay, volumen / (ancho · largo).
+- El abrazamiento medido entre las muestras de los extremos del arco daba 176°: se mide lo que gira
+  la banda entre el tramo que llega y el que sale.
+- Compartir instancias por objeto de material daba 80 mallas para 20 cadenas (cada pieza trae su
+  material) → por aspecto, 8.
+- El piñón del motor sin junta (`c94`) quedaba quieto bajo la cadena que corría → gira con ella.
+
+**Lo que no se verificó**: el viewport real con la API servida (`Viewport.tsx`, la sombra de
+contacto y la barra mientras corre la cinta); queda para F5 o antes, como F2. Tests: 9 puros +
+2 de API (`tests/test_marcha_visual.py`, `tests/test_api_marcha_visual.py`) y 19 de vitest
+(`cadena.test.ts`, `faja.test.ts`, `transmision.test.ts`).

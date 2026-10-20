@@ -226,6 +226,11 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   de los efectos de mallas y pose. La gravedad y el drop-test mueven las mismas mallas: cargar
   uno quita la marcha, y «Ver la marcha» limpia los dos.
   [visor-realista](../docs/plans/visor-realista.md) (F2)
+- En marcha, `marcha/transmision.ts` oculta la banda y la cadena del CAD y pone en `ctx.group` (con
+  `raycast` no-op) la cinta con su ruta real (`faja.ts`: UV en mm, corre la TEXTURA) y los eslabones
+  instanciados (`cadena.ts`). Cada pieza trae su propio material: las cadenas comparten instancias
+  por ASPECTO (`claveAspecto`), no por objeto. Lo que la banda o la cadena arrastran sin junta (cola,
+  retorno, piñón del motor) gira compuesto SOBRE la pose de su cuerpo. [visor-realista](../docs/plans/visor-realista.md) (F3)
 - Fondo: `OutputPass` tonemapea también el color de limpiado → el canvas es TRANSPARENTE
   (`alpha: true`, clear alpha 0) y el fondo lo pinta el `<div>` por CSS. `BACKGROUND` /
   `BACKGROUND_CSS` (`scene-setup.ts`) son la fuente única.

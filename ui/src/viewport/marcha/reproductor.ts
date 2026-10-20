@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ACABADOS } from "../acabados";
 import { poseEn, poseProducto, tramo, type SerieMarcha } from "./serie";
+import { crearTransmision } from "./transmision";
 
 /* Reproductor de la marcha (plan visor-realista, D4): mueve las MALLAS REALES de cada cuerpo de
    junta y unas cajas de producto (overlay efímero, como las del drop-test) según la serie del
@@ -9,6 +10,7 @@ import { poseEn, poseProducto, tramo, type SerieMarcha } from "./serie";
    Matemática: la serie trae por cuerpo T(t) = P(t)·P(0)⁻¹ (la transformación desde la pose de
    diseño), así que cada pieza del cuerpo va a  mesh.matrix = T(t) · baseMatrix  (su malla de
    diseño en el mundo). Las cajas traen su pose absoluta (centro) y nacen en su muestra `desde`.
+   La faja y las cadenas (F3) las dibuja `transmision.ts`, después de los cuerpos.
    Nada de esto toca el documento: al quitar la marcha las mallas vuelven a su pose base. */
 
 /** Lo que el reproductor lee de la línea de tiempo en cada fotograma (`estado.ts`). */
@@ -76,6 +78,8 @@ export function crearReproductor(
   leer: () => Mando,
   avisos: AvisosReproductor,
   tInicial = 0,
+  /** Donde van la cinta y los eslabones (el grupo de las piezas: proyectan la sombra). */
+  grupoPiezas: THREE.Object3D = escena,
 ): Reproductor {
   const piezas: PiezaMovida[] = [];
   for (const c of Object.values(serie.cuerpos)) {
@@ -91,6 +95,7 @@ export function crearReproductor(
   grupo.name = "marcha-productos";
   const cajas = cajasProducto(serie, grupo);
   escena.add(grupo);
+  const transmision = crearTransmision(serie, meshes, grupoPiezas, new Set(piezas.map((p) => p.mesh)));
 
   const dur = serie.duracion_s;
   const animable = serie.t.length >= 2 && dur > 0;
@@ -110,6 +115,7 @@ export function crearReproductor(
       caja.visible = poseProducto(prod, i, f, caja.matrix);
       caja.matrixWorldNeedsUpdate = true;
     }
+    transmision.posar(i, f);
     avisos.alPosar();
   };
   posar(t);
@@ -154,6 +160,7 @@ export function crearReproductor(
       }
       grupo.clear();
       escena.remove(grupo);
+      transmision.restaurar();
       avisos.alPosar();
     },
   };

@@ -135,6 +135,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Adherencia del tambor motriz (Euler-Eytelwein): μ 0.35 engomado / 0.25 liso por NOMBRE del
   tambor; FS sólo con `t2_n` declarado (no se inventa la tensión del tensor).
   [devlog § V5.10](../../../docs/devlog.md)
+- La faja y las cadenas EN MARCHA (`ruta_faja.py`, `marcha_visual.py`, puros): la banda abraza el
+  casco de los tambores redondos DENTRO de su encuadre; lo de afuera que toca su cara (≤ 1 mm) parte
+  el retorno; comba = mín(CEMA 2 %, w·l²/8T con el T2 de Eytelwein de la tracción MEDIDA, holgura
+  con lo de abajo) y `tramos[].limita` dice cuál mandó: V8.2 no modela la pretensión del tensor.
+  [visor-realista](../../../docs/plans/visor-realista.md) (F3)
 - `Document.requirements` (metadato): `/api/checks`, la memoria y la cotización CAEN a ellos (un
   param explícito gana) → `engineering_check()` funciona sin argumentos.
 - Se validan en `requisitos.py` (`Document.set_requirements` delega; la CARGA no valida: un

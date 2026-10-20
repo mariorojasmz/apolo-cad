@@ -159,8 +159,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - La serie de la marcha del visor (`GET|POST /api/physics/dynamics/serie`) se cachea EN MEMORIA
   (`sims.MARCHAS`, lock hoja) por firma (log + materiales) y escenario (la petición sin `fps`).
   Toda dinámica exitosa, también la tool `simulate`, deja su escenario como el último del
-  proyecto: el GET lo re-simula si el documento cambió.
-  [visor-realista](../../../docs/plans/visor-realista.md) (F2)
+  proyecto: el GET lo re-simula si el documento cambió. Trae `cadenas` y `fajas` (F3): se extraen
+  en la MISMA adquisición que `prepare_dynamics` y se arman fuera de los locks; si fallan, la marcha
+  sale igual con un aviso. [visor-realista](../../../docs/plans/visor-realista.md) (F2, F3)
 - `POST /api/agent/chat` no toma `STATE_LOCK`: el chat es un cliente HTTP de esta misma API
   (`agent/chat.py`); cupo lleno → 429. Sin `APOLO_CHAT=1` (leído en cada petición) → 503 ANTES
   de tomar cupo o llamar al modelo, y `GET /api/health` → `chat: false` (la UI oculta el panel).

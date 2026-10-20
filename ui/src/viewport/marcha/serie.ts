@@ -33,6 +33,64 @@ export interface BandaSerie {
   v_m_s: number[];
 }
 
+/** Una cadena que avanza (F3, D6): sus rodillos en el marco del lazo y la junta que la mueve.
+ *  Avance en pasos = signo · (q(t) − q(0)) / 360 · z. Ver `library/marcha_visual.py`. */
+export interface CadenaSerie {
+  pieza: string;
+  junta: string;
+  lado: "a" | "b";
+  z: number;
+  signo: number;
+  /** Piñones que la física no hace girar (el del motor sin junta): giran con la cadena,
+   *  2π·avance/z sobre el Z del lazo por su eje (A en el origen del lazo, B en `centro_b`). */
+  pinones_libres?: { pieza: string; lado: "a" | "b"; z: number }[];
+  /** Marco del lazo → mundo, 4×4 por FILAS. */
+  marco: number[];
+  paso: number;
+  za: number;
+  zb: number;
+  centro_b: [number, number];
+  /** Centros de los rodillos (x, y) aplanados, antihorario sobre +Z del lazo. */
+  puntos: number[];
+  /** [primero, cuántos] de los rodillos sentados en el piñón A / B. */
+  asentados_a: [number, number];
+  asentados_b: [number, number];
+  rodillo_d: number;
+  perno_d: number;
+  alto_placa: number;
+  espesor_placa: number;
+  /** Tramos (z0, z1) de cada capa en el marco del lazo. */
+  capas: { rodillos: [number, number][]; interiores: [number, number][]; exteriores: [number, number][]; perno: [number, number] };
+}
+
+/** Un tambor o rodillo que la banda hace girar sin que lo mueva la física (cola, retorno). */
+export interface RodilloFaja {
+  pieza: string;
+  centro: [number, number, number];
+  /** Eje de giro: ángulo = recorrido antihorario de la banda / radio. */
+  eje: [number, number, number];
+  radio_mm: number;
+}
+
+/** La banda con su forma real (F3, D6). La ruta es la línea media en el plano de la faja
+ *  (u, w), antihoraria; recorrido antihorario por segundo = signo · v de su banda. */
+export interface FajaSerie {
+  pieza: string;
+  junta: string;
+  marco: { origen: number[]; u: number[]; w: number[]; v: number[] };
+  ruta: number[];
+  espesor: number;
+  ancho: number;
+  v_centro: number;
+  largo_mm: number;
+  signo: number;
+  tramos: { largo_mm: number; comba_mm: number; limita: string }[];
+  envueltos: string[];
+  apoyos: string[];
+  tension: Record<string, number | null>;
+  rodillos: RodilloFaja[];
+}
+
 export interface SerieMarcha {
   hz: number;
   duracion_s: number;
@@ -41,6 +99,9 @@ export interface SerieMarcha {
   productos: ProductoSerie[];
   juntas: Record<string, { tipo: string; unidad: string; q: number[] }>;
   bandas: BandaSerie[];
+  /** F3: ausentes en una serie de antes (la faja y las cadenas quedan rígidas). */
+  cadenas?: CadenaSerie[];
+  fajas?: FajaSerie[];
   resumen: Record<string, unknown>;
   avisos: string[];
   mensaje?: string;
