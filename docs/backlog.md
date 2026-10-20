@@ -148,6 +148,10 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
   (58 mm): la velocidad sale 1,7 % alta. Decidir cuál es la referencia física.
 - **`simulate`: una prismática sin motor sale en `juntas_en_limite` a t = 0** (el tensor): ruido
   en el resumen; reportar sólo las que llegan al límite durante la marcha.
+- **Cascos de las cadenas en frío** (origen: [visor-realista](plans/visor-realista.md) § Bitácora
+  F2): en el piloto 74 la primera dinámica tarda ~60 s en `hull_vertices`. Las 20 cadenas
+  (`create_chain`) suman 23 s de 29, entre 1,2 y 2 s cada una. Después quedan en caché. Cura
+  posible: el casco de la cadena por su lazo o por su bbox.
 
 ## Ingeniería y negocio
 

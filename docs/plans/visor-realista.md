@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1 en main (2026-10-19): tabla única de acabados (rodillo galvanizado; el color manual sólo pinta lo pintable) y el piso con sombra ([piso-con-sombra](piso-con-sombra.md)); faltan F0 y F2–F5
+nota: F1 y F2 en main (2026-10-20): tabla única de acabados, piso con sombra ([piso-con-sombra](piso-con-sombra.md)) y el reproductor de la marcha (Física → «Ver la marcha»), falta mirarlo en el navegador; faltan F0 y F3–F5
 descripcion: Prendes la máquina y la ves andar en 3D como en la realidad: rodillos y tambores girando por su motor, la faja con su forma real corriendo, las cadenas eslabón por eslabón y las cajas viajando con física
 ---
 
@@ -163,3 +163,71 @@ asignado `#c3c9d1` y parecía plástico blanco, y los piñones mecanizados se ve
 - Pendiente (fuera de este fix): elegir un color en Propiedades para una pieza metálica guarda el
   color pero no cambia nada a la vista; falta decirlo en la ficha. `publicacion/vista3d.py`
   (GLB de la tienda) todavía no lee la tabla (su enganche D6).
+
+### F2 (2026-10-20): reproductor de la marcha
+
+**Servidor** (`api` + `physics`):
+- `physics/dinamica_serie.py` (puro, entra solo al gate de capas por su nombre `dinamica*`)
+  convierte la salida de `simulate_dynamics` en la serie D4:
+  - `t` real de cada muestra;
+  - por cuerpo de junta, T(t) = P(t)·P(0)⁻¹ como `x, y, z, qx, qy, qz, qw` aplanados (el visor
+    la aplica sobre la malla de diseño, como el GIF, sin depender de dónde puso MuJoCo el origen
+    del cuerpo);
+  - por producto, la pose absoluta desde su muestra `desde` (con `cada_s` nacen en su hora);
+  - `q` por junta (de ahí F3 saca el avance de las cadenas);
+  - por banda, la velocidad de la cara superior por muestra con su `direccion`, sacada del
+    `BandaDatos` del snapshot (`v = q̇·r`). La salida del MCP no cambió (golden intacto).
+- `GET /api/physics/dynamics/serie` da la ÚLTIMA marcha simulada del proyecto activo;
+  `POST …/serie` la de un escenario explícito (y pasa a ser la última). Router `assembly`;
+  `test_rutas_api.py` anota el par GET → POST.
+- **Caché** (`sims.MARCHAS`, en memoria, nunca en el `.apolo`): series por (firma, escenario),
+  tope 4, y el último escenario de cada proyecto, tope 16; lock HOJA.
+  - Firma = sha256 del log + los materiales (la masa). Color y ocultos no cuentan.
+  - Escenario = la petición sin `fps` (la serie fuerza 50 Hz).
+  - Toda dinámica exitosa registra su escenario como el último del proyecto: también la tool
+    `simulate`, que pasa por `POST /api/physics/dynamics`. Si el documento cambió, el GET
+    simula otra vez sobre el actual (D4 «se regenera»).
+  - Locks: firma, búsqueda en caché y `prepare_dynamics` en UNA adquisición de `STATE_LOCK`;
+    `simulate_dynamics` bajo `PHYSICS_LOCK`; la conversión fuera de los dos.
+- Tope de tamaño: si cuerpos + productos × duración × 7 pasa de 2 M números (≈ 16 MB de JSON),
+  la frecuencia baja (mínimo 10 Hz) y un aviso lo dice. Con 200 cajas × 60 s quedarían 23 Hz.
+
+**Visor** (`ui/src/viewport/marcha/`, `Viewport.tsx` 429 → 438 líneas):
+- `serie.ts`: tipos y lo puro (tramo por búsqueda binaria —60 s son 3000 muestras—, lerp + slerp,
+  nacimiento de las cajas).
+- `estado.ts`: store propia (`state/store.ts` está en su tope). Tiene la serie y la línea de
+  tiempo: reproducir, pausa, velocidad ×0,25 a ×2 y saltar. En el final, reproducir vuelve a
+  empezar.
+- `reproductor.ts`: mueve las mallas reales (`T(t)·baseMatrix`) y cajas de cartón (acabado
+  `carton` de la tabla D5) en la tarea `antesDeComponer`, antes del tinte y la sombra. Publica el
+  tiempo a la barra a 10 Hz como máximo, sin re-render por fotograma. Cada pose marca sucia la
+  sombra de contacto (el programador la deja en ≤ 10 Hz).
+- `enVista.ts`: el hook que lo arma tras los efectos de mallas y pose cinemática y lo rearma en
+  el mismo instante si cambian las mallas. Se quita con el proyecto, con la caída por gravedad o
+  con el drop-test: mueven las mismas mallas.
+- `BarraMarcha.tsx`: la línea de tiempo abajo al centro, en los dos modos.
+- En el panel Física, «Máquina en marcha» (`panels/SeccionMarcha.tsx`): «Ver la marcha» trae la
+  última y la reproduce. El 404 «todavía no hay simulación» se muestra en el panel y NO va a
+  `logs/errors.log` (no usa `runTracked`); los avisos de la física van en `<VerDetalle>`.
+
+**Medido en el piloto** (proyecto 74, copia de la base, por TestClient, sin guardar nada). Hoy
+no tiene juntas: se le agregaron EN MEMORIA 20 continuas eje → tubo del rodillo, más 20 motores
+por velocidad a 0,3 m/s hacia +X y cajas de 250×300×150 mm y 5 kg en serie cada 1,2 s, 12 s.
+
+| qué | resultado |
+|---|---|
+| serie | 601 muestras (50 Hz), 20 cuerpos (los 20 tubos), 10 cajas; 0,82 MB de JSON |
+| primera llamada (en frío) | 61,7 s: la preparación son ~60 s de cascos convexos; la física, ~6 s (×1,85 del tiempo real) y la conversión, 0,3–0,5 s |
+| misma petición otra vez | 0,19 s (caché, `en_cache: true`) |
+| preparación con los cascos ya en caché | 1,7 s; la física, 2,0–2,8 s |
+| cajas | 7 viajan sobre los rodillos; 3 cayeron por la descarga (sin mesa de recepción, como en V8.2 F3) |
+
+**Hallazgo** (fuera de F2, no se tocó): de los cascos en frío del 74, las 20 cadenas
+(`create_chain`, «Cadena rodillo a rodillo») suman 23 s de 29 s, entre 1,2 y 2 s cada una. Va al
+backlog de física: casco de la cadena por su lazo o por su bbox.
+
+**Lo que no se verificó**: el 3D en un navegador. La API de :8000 es de Mario y desde el worktree
+no se levanta. La reproducción a 60 fps, la barra en los dos modos y la sombra mientras corre
+quedan para la verificación con la UI servida (la de F5 o antes). Tests: 11 de API
+(`tests/test_api_marcha.py`) y 17 de vitest (`viewport/marcha/serie.test.ts`,
+`reproductor.test.ts`).

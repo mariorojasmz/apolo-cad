@@ -53,6 +53,7 @@ METODOS_EN_ORDEN = {
     "/api/requirements": ["GET", "PUT"],
     "/api/stackup": ["GET", "PUT", "DELETE"],
     "/api/motion": ["GET", "PUT", "DELETE"],
+    "/api/physics/dynamics/serie": ["GET", "POST"],  # la marcha del visor (visor-realista D4)
 }
 
 

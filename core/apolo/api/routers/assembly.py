@@ -1,8 +1,8 @@
 """Rutas de ensamblaje: mates, restricciones de riel, uniones, estructura, DOF y física.
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
-`main.py`. La gravedad, el drop-test y la dinámica (V8.2) siguen el patrón dos-locks
-(`sims.py`). El ORDEN importa:
+`main.py`. La gravedad, el drop-test, la dinámica (V8.2) y la serie de la marcha para el visor
+(visor-realista D4) siguen el patrón dos-locks (`sims.py`). El ORDEN importa:
 `POST /api/constraints/solve` va antes que `DELETE /api/constraints/{name}`.
 """
 
@@ -16,7 +16,16 @@ from apolo.state import STATE_LOCK
 
 from ..common import _remove_owner_command, _state_or_error
 from ..session import S
-from ..sims import DropIn, DynamicsIn, StabilityIn, _drop, _dynamics, _stability
+from ..sims import (
+    MARCHAS,
+    DropIn,
+    DynamicsIn,
+    StabilityIn,
+    _drop,
+    _dynamics,
+    _serie_dinamica,
+    _stability,
+)
 
 router = APIRouter()
 
@@ -327,3 +336,28 @@ def physics_dynamics_gif(body: DynamicsIn) -> Response:
     except Exception as exc:  # noqa: BLE001 — sin contexto OpenGL u otro fallo VTK
         raise HTTPException(status_code=503, detail=f"El render VTK falló: {exc}") from exc
     return Response(content=gif, media_type="image/gif")
+
+
+_SIN_MARCHA = ("Todavía no hay una simulación de esta máquina en marcha: pídele al agente que la "
+               "simule y vuelve a intentarlo.")
+
+
+@router.get("/api/physics/dynamics/serie")
+def physics_dynamics_serie() -> dict:
+    """La ÚLTIMA marcha simulada del proyecto activo (la del agente con `simulate` o la de esta
+    misma ruta) como serie de tiempo para el reproductor del visor (visor-realista D4): poses
+    relativas por cuerpo y absolutas por producto a ~50 Hz, `q` por junta y velocidad de cada
+    banda. Si el documento cambió desde entonces, se simula otra vez sobre el actual."""
+    with STATE_LOCK:
+        proyecto = S.project_id
+    peticion = MARCHAS.ultimo_escenario(proyecto)
+    if peticion is None:
+        raise HTTPException(status_code=404, detail=_SIN_MARCHA)
+    return _serie_dinamica(peticion)
+
+
+@router.post("/api/physics/dynamics/serie")
+def physics_dynamics_serie_de(body: DynamicsIn) -> dict:
+    """La serie del reproductor para un escenario explícito (la petición de `simulate`); pasa a
+    ser la última marcha del proyecto. Las opciones del transporte se ignoran."""
+    return _serie_dinamica(dict(body.model_extra or {}))

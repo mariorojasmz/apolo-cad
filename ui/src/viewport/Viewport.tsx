@@ -25,6 +25,9 @@ import { aplicarVcb, instalarGizmo } from "./interaccion/gizmo";
 import { instalarSeleccion } from "./interaccion/seleccion";
 import { instalarManipulacion } from "./interaccion/manipular";
 import { instalarErgonomia } from "./interaccion/ergonomia";
+import type { Reproductor } from "./marcha/reproductor";
+import { useMarchaEnVista } from "./marcha/enVista";
+import BarraMarcha from "./marcha/BarraMarcha";
 
 /* Orquestador del viewport: estado de React, efectos que sincronizan la escena con la store y
    el JSX de las barras. El render vive en `pipeline.ts` (renderer, composer, bucle); la
@@ -72,6 +75,7 @@ export default function Viewport() {
   const dropAnimRef = useRef<DropAnimator | null>(null);
   const gravityAnimRef = useRef<GravityAnimator | null>(null);
   const gravityRestoreRef = useRef<(() => void) | null>(null);
+  const marchaRef = useRef<Reproductor | null>(null); // la máquina en marcha (visor-realista D4)
   // ergonomía: refs vivos para que los listeners (instalados una vez) y los atajos
   // lean siempre el estado actual sin reinstalarse.
   const isGizmoDraggingRef = useRef(false);
@@ -126,6 +130,7 @@ export default function Viewport() {
 
     pipe.antesDeComponer(() => dropAnimRef.current?.tick(performance.now())); // cajas del drop-test
     pipe.antesDeComponer(() => gravityAnimRef.current?.tick(performance.now())); // caída de las mallas reales
+    pipe.antesDeComponer(() => marchaRef.current?.tick(performance.now())); // la marcha simulada
     pipe.antesDeComponer(crearTinteBloqueo(ctx.meshes, blockedRef)); // rojizo SÓLO con guardado fallido
     // tamaño constante de los cuadritos + altura sigue la cámara
     pipe.antesDeComponer(() => actualizarTiradores(ctx.handles, camera, renderer.domElement, ci.ocultarTiradores.current));
@@ -254,6 +259,9 @@ export default function Viewport() {
     gravityAnimRef.current = animator;
     gravityRestoreRef.current = restore;
   }, [gravityResult, gravityToken]);
+
+  // la marcha simulada: después de mallas y pose cinemática (se arma sobre las mallas nuevas)
+  useMarchaEnVista(ctxRef, marchaRef, features, kinJoints, jointValues, projectId);
 
   const startMeasure = () => {
     setMeasure(null);
@@ -420,6 +428,7 @@ export default function Viewport() {
       {selection.length > 0 && !picking && (
         <BarraSeleccion nombre={selName} cantidad={selection.length} ids={selection} onCentrar={fitTo} visor={visor} />
       )}
+      <BarraMarcha />
       <EstadoViewport
         features={features} selection={selection} selName={selName} liveAngleRef={liveAngleRef}
         vcb={vcb} setVcb={setVcb} applyVcb={applyVcb} gizmoMode={gizmoMode} measure={measure}

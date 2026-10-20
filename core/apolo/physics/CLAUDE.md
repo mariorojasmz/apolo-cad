@@ -46,5 +46,9 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   Sin mesa de recepción las cajas descargadas se apilan en la cabeza y frenan a las que siguen:
   para contar con la fotocelda, alimenta en serie (`cada_s`).
   [F3](../../../docs/plans/V8.2-maquina-se-mueve.md)
+- La serie del visor (`dinamica_serie.py`) manda cada cuerpo RELATIVO a su pose inicial
+  (T(t) = P(t)·P(0)⁻¹, como el GIF): el origen del cuerpo MuJoCo no es el de la malla. La
+  velocidad de banda sale del `BandaDatos` del snapshot (`e`, `radio`), no de la salida D9.
+  [visor-realista](../../../docs/plans/visor-realista.md) (F2)
 - Productos con `cada_s`: nacen en su hora; antes esperan estacionados lejos (MuJoCo no crea
   cuerpos en marcha) y no salen en los fotogramas.

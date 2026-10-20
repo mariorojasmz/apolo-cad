@@ -4,6 +4,7 @@ import type {
   Requirements, RevisionInfo, SceneOut, SoundnessOut, StabilityOut, StabilityRequest,
 } from "./types";
 import { mensajeWs, publicarJob, publicarReconexion } from "./state/eventosWs";
+import type { SerieMarcha } from "./viewport/marcha/serie";
 
 /** El `detail` de una respuesta fallida de la API (el motivo, ya escrito para la persona), o
  *  `undefined` si el cuerpo no es JSON o no trae un texto (p. ej. la lista de un 422). Lee el cuerpo. */
@@ -184,6 +185,9 @@ export const api = {
     if (!r.ok) throw new Error((await detalleDeError(r)) ?? r.statusText);
     return r.blob();
   },
+
+  // la última marcha simulada del proyecto como serie de tiempo (visor-realista D4)
+  marcha: () => fetch("/api/physics/dynamics/serie").then((r) => json<SerieMarcha>(r)),
 
   soundness: (withAutodetect: boolean) =>
     fetch("/api/assembly/soundness", {

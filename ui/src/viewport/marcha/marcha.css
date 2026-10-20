@@ -1,0 +1,20 @@
+/* Línea de tiempo de la máquina en marcha (BarraMarcha.tsx, plan visor-realista D4): abajo al
+   centro, sobre la barra de selección (Completo) y la barra de paneles (Visor). */
+.barra-marcha {
+  position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; gap: 8px; width: min(560px, calc(100% - 32px));
+  background: rgba(18, 20, 25, 0.86); backdrop-filter: blur(5px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-1); padding: 5px 8px;
+  pointer-events: auto;
+}
+.barra-marcha button { padding: 5px 9px; display: flex; align-items: center; justify-content: center; }
+.barra-marcha input[type="range"] { flex: 1; min-width: 80px; }
+.barra-marcha .bm-tiempo {
+  color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.barra-marcha select { width: auto; }
+
+/* La sección «Máquina en marcha» del panel Física (panels/SeccionMarcha.tsx). */
+.seccion-marcha { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px; }
+.seccion-marcha ul { margin: 4px 0 0; padding-left: 18px; }

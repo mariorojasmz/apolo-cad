@@ -1,4 +1,5 @@
-"""Simulaciones físicas de la API (MuJoCo): gravedad sobre la máquina, drop-test y dinámica.
+"""Simulaciones físicas de la API (MuJoCo): gravedad sobre la máquina, drop-test, dinámica y la
+serie de la marcha que reproduce el visor (con su caché en memoria, `MARCHAS`).
 
 Movido tal cual desde `main.py` (F6a del plan `docs/plans/partir-api-main.md`). Patrón
 dos-locks (V6.2c): bajo `STATE_LOCK` se EXTRAE la geometría (grafo de sujeción, cascos, AABB) a
@@ -7,6 +8,12 @@ los endpoints de ensamblaje y física y la puerta de entrega (gravedad opt-in).
 """
 
 from __future__ import annotations
+
+import copy
+import hashlib
+import json
+import threading
+from collections import OrderedDict
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
@@ -92,6 +99,7 @@ def _dynamics(body: DynamicsIn, *, con_escena: bool = False):
     try:
         with STATE_LOCK:
             d = S.doc
+            proyecto = S.project_id
             snap = prepare_dynamics(d.scene, d.joints, d.fasteners, d.grounds, peticion, mates=d.mates)
             if con_escena and snap.early is None:   # colores: los del viewport
                 escena = extraer_gif_dinamica(d.scene, snap.piezas, d.colors,
@@ -100,7 +108,114 @@ def _dynamics(body: DynamicsIn, *, con_escena: bool = False):
             res = simulate_dynamics(snap)
     except PhysicsError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if snap.early is None:   # la última marcha del proyecto: la que el visor reproduce
+        MARCHAS.recordar_escenario(proyecto, peticion)
     return (res, escena) if con_escena else res
+
+
+# ------------------------------------------------- la marcha para el visor (visor-realista D4)
+#: Muestras por segundo simulado de la serie del reproductor (D4).
+HZ_SERIE = 50
+
+
+def firma_dinamica(doc) -> str:
+    """Huella de lo que decide la marcha: el log (geometría, juntas, uniones, variables) y los
+    materiales (la masa). Color y ocultos no cuentan: no cambian la física."""
+    texto = json.dumps([doc.commands, doc.materials], sort_keys=True, default=str)
+    return hashlib.sha256(texto.encode()).hexdigest()[:20]
+
+
+def clave_escenario(peticion: dict) -> str:
+    """El escenario normalizado (sin `fps`: la serie lleva el suyo)."""
+    esc = {k: v for k, v in peticion.items() if k != "fps"}
+    return hashlib.sha256(json.dumps(esc, sort_keys=True, default=str).encode()).hexdigest()[:20]
+
+
+class Marchas:
+    """Caché EN MEMORIA de las series del reproductor, por (firma del documento, escenario), y
+    el último escenario simulado de cada proyecto. Nunca entra al `.apolo`: se regenera
+    simulando otra vez (D4). Su lock es HOJA: puede tomarse con STATE_LOCK tomado, pero dentro
+    no se toma ningún otro lock ni se simula."""
+
+    TOPE_SERIES = 4
+    TOPE_PROYECTOS = 16
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._series: OrderedDict = OrderedDict()
+        self._ultimo: OrderedDict = OrderedDict()
+
+    def recordar_escenario(self, proyecto, peticion: dict) -> None:
+        with self._lock:
+            self._ultimo[proyecto] = copy.deepcopy(peticion)
+            self._ultimo.move_to_end(proyecto)
+            while len(self._ultimo) > self.TOPE_PROYECTOS:
+                self._ultimo.popitem(last=False)
+
+    def ultimo_escenario(self, proyecto) -> dict | None:
+        with self._lock:
+            esc = self._ultimo.get(proyecto)
+            return copy.deepcopy(esc) if esc is not None else None
+
+    def serie(self, clave: tuple) -> dict | None:
+        with self._lock:
+            s = self._series.get(clave)
+            if s is not None:
+                self._series.move_to_end(clave)
+            return s
+
+    def guardar(self, clave: tuple, serie: dict) -> None:
+        with self._lock:
+            self._series[clave] = serie
+            self._series.move_to_end(clave)
+            while len(self._series) > self.TOPE_SERIES:
+                self._series.popitem(last=False)
+
+    def vaciar(self) -> None:
+        with self._lock:
+            self._series.clear()
+            self._ultimo.clear()
+
+
+MARCHAS = Marchas()
+
+
+def _serie_dinamica(peticion: dict) -> dict:
+    """La serie del reproductor para `peticion` sobre el documento ACTIVO, de la caché si la
+    firma del documento y el escenario coinciden; si no, simula (dos locks, como `_dynamics`) y
+    la guarda. `en_cache` dice cuál de las dos fue."""
+    from apolo.physics import PhysicsError
+    from apolo.physics.dinamica import prepare_dynamics, simulate_dynamics
+    from apolo.physics.dinamica_serie import hz_para, serie_reproduccion
+
+    peticion = {**peticion, "fps": HZ_SERIE}
+    try:
+        with STATE_LOCK:
+            d = S.doc
+            proyecto = S.project_id
+            clave = (firma_dinamica(d), clave_escenario(peticion))
+            hecha = MARCHAS.serie(clave)
+            if hecha is None:
+                snap = prepare_dynamics(d.scene, d.joints, d.fasteners, d.grounds, peticion,
+                                        mates=d.mates)
+        if hecha is not None:
+            MARCHAS.recordar_escenario(proyecto, peticion)
+            return {**hecha, "en_cache": True}
+        hz = hz_para(snap.duracion_s, len(snap.cuerpos) + len(snap.productos), HZ_SERIE)
+        if hz < HZ_SERIE:
+            snap.fps = hz
+            snap.avisos.append(f"La marcha se muestrea a {hz} por segundo (no {HZ_SERIE}): son "
+                               "muchas cajas por mucho tiempo para el visor")
+        with PHYSICS_LOCK:
+            res = simulate_dynamics(snap)
+    except PhysicsError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    serie = serie_reproduccion(res, snap.bandas, hz=hz)   # fuera de los locks: datos puros
+    serie["firma"], serie["escenario"] = clave
+    if snap.early is None:
+        MARCHAS.guardar(clave, serie)
+        MARCHAS.recordar_escenario(proyecto, peticion)
+    return {**serie, "en_cache": False}
 
 
 def _drop(body: DropIn) -> dict:

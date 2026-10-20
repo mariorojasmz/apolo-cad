@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import type { DropRequest } from "../types";
+import SeccionMarcha from "./SeccionMarcha";
 
 /* Panel Física: define cajas de "producto", las suelta con gravedad (drop-test
    MuJoCo en el backend) y reproduce la caída en el viewport 3D. Análisis read-only:
@@ -103,6 +104,7 @@ export default function PhysicsPanel() {
 
   return (
     <section className="history kin">
+      <SeccionMarcha />
       <div className="bom-head">
         <h3>Física · {rows.length} producto(s)</h3>
         <div className="kin-actions">

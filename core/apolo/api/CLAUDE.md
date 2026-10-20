@@ -25,7 +25,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `deliverables` | catálogo, BOM y costeo, lista de corte, nesting, memoria de cálculo, cotización, manual |
 | `validation` | `/api/checks`, `verify`, puerta de entrega, requisitos, stack-up |
 | `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
-| `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica |
+| `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica y la serie de la marcha |
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
 | `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
 
@@ -156,6 +156,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   proceso pesado corre fuera con su lock (`RENDER_LOCK`, `PHYSICS_LOCK`, `FEA_LOCK`). Un endpoint
   nuevo de render o simulación sigue el patrón. `export_stl` y `drawing_spec` siguen bajo el lock
   (su HLR es OCCT).
+- La serie de la marcha del visor (`GET|POST /api/physics/dynamics/serie`) se cachea EN MEMORIA
+  (`sims.MARCHAS`, lock hoja) por firma (log + materiales) y escenario (la petición sin `fps`).
+  Toda dinámica exitosa, también la tool `simulate`, deja su escenario como el último del
+  proyecto: el GET lo re-simula si el documento cambió.
+  [visor-realista](../../../docs/plans/visor-realista.md) (F2)
 - `POST /api/agent/chat` no toma `STATE_LOCK`: el chat es un cliente HTTP de esta misma API
   (`agent/chat.py`); cupo lleno → 429. Sin `APOLO_CHAT=1` (leído en cada petición) → 503 ANTES
   de tomar cupo o llamar al modelo, y `GET /api/health` → `chat: false` (la UI oculta el panel).
