@@ -55,6 +55,27 @@ def teselar(shape):
     return hit[1], hit[2]
 
 
+def teselar_zonas(shape, zona_por_cara):
+    """(vertices, triangulos agrupados por zona, rangos) a resolución de render (plan
+    seta-de-emergencia, D2). Comparte la caché de `teselar`: la entrada de una pieza con zonas
+    guarda además los triángulos de cada cara, contados al teselar. `rangos` es None (y los
+    triángulos van como en `teselar`) si las zonas no corresponden a las caras del shape."""
+    from .mesh import agrupar_por_zona, teselar_caras
+
+    key = id(shape)
+    hit = _RENDER_MESH_CACHE.get(key)
+    if hit is None or hit[0] is not shape or len(hit) < 4:
+        if len(_RENDER_MESH_CACHE) > _RENDER_MESH_CAP:
+            _RENDER_MESH_CACHE.clear()
+        hit = (shape, *teselar_caras(shape, 0.5, 0.25))
+        _RENDER_MESH_CACHE[key] = hit
+    _, vertices, triangles, por_cara = hit
+    if por_cara is None or zona_por_cara is None or len(por_cara) != len(zona_por_cara):
+        return vertices, triangles, None
+    agrupados, rangos = agrupar_por_zona(triangles, por_cara, zona_por_cara)
+    return vertices, agrupados, rangos
+
+
 def es_vidrio(feat) -> bool:
     """¿La pieza es vidrio? (material override o nombre — espejo del `isGlass` del viewport web)."""
     if _GLASS_RE.search(getattr(feat, "material", None) or ""):

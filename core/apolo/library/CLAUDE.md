@@ -24,6 +24,12 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   `ValueError: other must be a list of Locations`); las partes de un mismo sólido SOLAPAN
   0.5–8 mm (tangentes → Compound; disjuntas → ShapeList sin `.volume`); `build_component(ref, L)`
   ignora `L` si el componente no es `cuttable`.
+- **Zonas de acabado** (`zonas.py`; builders de `builders_mandos.ZONADOS`): el builder da
+  `{zona: forma}` y el loader las une en UN sólido (una Feature, una línea de BOM, una masa) con
+  la zona de cada cara por ÍNDICE de `faces()` (historia de la fusión, `kernel/zonas.py`): la
+  caché de geometría pierde el TShape y conserva el orden. `zona_por_cara` la valida por n.º de
+  caras y volumen (taladrada → sin zonas). `fijo` = color de norma que `set_color` no pinta.
+  [plan](../../../docs/plans/seta-de-emergencia.md)
 - Anclas que dependen de los params de cada ref (un piñón: `eje`, `hilera_k`, `fase`) van POR
   FAMILIA (`loader.ANCLAS` → `Component.anchors`); `_CATEGORY_ANCHORS` es sólo para las fijas
   por categoría. ASA (ANSI) 40 y BS 08B son de 1/2″ pero NO intercambiables: la serie va en

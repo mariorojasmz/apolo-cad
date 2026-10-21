@@ -135,6 +135,16 @@ ACABADOS: dict[str, Acabado] = {
     "vidrio": Acabado("Vidrio", "#dceaf2", 0.0, 0.06, opacidad=OPACIDAD_VIDRIO),
     "carton": Acabado("Cartón", "#b48a5a", 0.0, 0.92, pintable=True,
                       relieve=Relieve("tejido", 2.0, 0.15)),
+    # plásticos de los mandos (plan seta-de-emergencia): el rojo y el amarillo de seguridad
+    # (ISO 13850 §4.3.6, IEC 60204-1 §10.7.3; tonos de RAL 3000 y 1003 aproximados en sRGB) son
+    # de COLOR, pintables; la zona `fijo` del YAML los protege del color de la pieza (D3). Las
+    # piezas moldeadas en negro o gris se ven como son.
+    "plastico_rojo_seguridad": Acabado("Plástico rojo de seguridad", "#b3191e", 0.0, 0.35,
+                                       pintable=True),
+    "plastico_amarillo_seguridad": Acabado("Plástico amarillo de seguridad", "#f2b100", 0.0,
+                                           0.45, pintable=True),
+    "plastico_negro": Acabado("Plástico negro", "#1c1d20", 0.0, 0.5),
+    "plastico_gris": Acabado("Plástico gris", "#8e9298", 0.0, 0.6),
 }
 
 #: Acabado de lo que no se reconoce (el material por defecto es acero estructural).

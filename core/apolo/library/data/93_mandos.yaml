@@ -7,15 +7,36 @@ category: mandos
 # `electrico.modelo` (plan V8.3 D7): la seta queda RETENIDA al presionarla y sólo vuelve al
 # liberarla por giro (ISO 13850: desenclavar la seta no rearranca la máquina por sí solo); los
 # pulsadores de la botonera vuelven por resorte, uno por actuador (`actuadores` = sus `grupo`).
+# GEOMETRÍA de la seta (plan seta-de-emergencia, D4–D5): builder `seta_emergencia` por zonas
+# (marco y anclas en `library/builders_mandos.py`). Es UNA pieza: un sólido, una línea de BOM y
+# su masa de ficha; `zonas` dice qué acabado lleva cada parte y `fijo` marca los colores de la
+# norma (seta ROJA sobre fondo AMARILLO, ISO 13850 §4.3.6, IEC 60204-1 §10.7.3) que el color
+# de la pieza no repinta. Cotas típicas, sin verificar. Las dos setas llevan la misma ficha;
+# la de caja cambia sólo `montaje` (va en la máquina, no en la puerta del tablero).
 components:
   - ref: ESTOP-40
     name: Paro de emergencia Ø40
-    description: Pulsador de emergencia tipo hongo Ø40 mm, retención por giro, contacto NC de apertura positiva (ISO 13850).
-    builder: box
-    params: {width: 72, depth: 72, height: 70}
+    description: >-
+      Pulsador de emergencia tipo hongo Ø40 mm para la puerta del tablero (agujero Ø22,5),
+      retención por giro, contacto NC de apertura positiva (ISO 13850), con anillo de leyenda
+      amarillo Ø60 «PARADA DE EMERGENCIA». Verificar con el proveedor.
+    builder: seta_emergencia
+    params: {d_seta: 40, montaje: puerta, d_leyenda: 60, panel_mm: 2}
     weight: 0.15
-    specs: {tipo: "hongo Ø40", contacto: "NC apertura positiva", norma: "ISO 13850"}
-    electrico:
+    specs:
+      tipo: "hongo Ø40"
+      contacto: "NC apertura positiva"
+      norma: "ISO 13850"
+      agujero: "Ø22,5"
+      leyenda: "Ø60 amarilla"
+      linea_referencia: "orden de Schneider Harmony XB5AS8445 + ZBY9140 / Siemens SIRIUS ACT 3SU1"
+      cotas_verificadas: false
+    zonas:
+      seta: {acabado: plastico_rojo_seguridad, fijo: true}
+      collar: {acabado: plastico_negro}
+      leyenda: {acabado: plastico_amarillo_seguridad, fijo: true}
+      cuerpo: {acabado: plastico_gris}
+    electrico: &ficha_seta
       funcion: S
       simbolo: seta_emergencia
       montaje: puerta
@@ -25,6 +46,36 @@ components:
         - {id: "12", rol: contacto}
       caminos: [{de: "11", a: "12", tipo: NC, accion: mano}]
       modelo: {tipo: seta, retorno: retenido}
+  - ref: ESTOP-40-CAJA
+    name: Paro de emergencia Ø40 en caja
+    description: >-
+      Pulsador de emergencia tipo hongo Ø40 mm en caja de superficie amarilla 72×72 para montar
+      en la máquina (2 agujeros M5, prensaestopa M20 abajo), retención por giro, contacto NC de
+      apertura positiva (ISO 13850), con anillo de leyenda amarillo Ø60. Verificar con el
+      proveedor.
+    builder: seta_emergencia
+    params: {d_seta: 40, montaje: caja, d_leyenda: 60, alto_caja: 55, lado_caja: 72}
+    weight: 0.3
+    specs:
+      tipo: "hongo Ø40"
+      contacto: "NC apertura positiva"
+      norma: "ISO 13850"
+      caja: "72×72×55 amarilla, IP65"
+      fijacion: "2 × M5"
+      prensaestopa: M20
+      leyenda: "Ø60 amarilla"
+      linea_referencia: "orden de Schneider Harmony XAPJ / XALK + XB5AS8445 / Siemens SIRIUS ACT 3SU1801"
+      cotas_verificadas: false
+      cost: 45
+    zonas:
+      seta: {acabado: plastico_rojo_seguridad, fijo: true}
+      collar: {acabado: plastico_negro}
+      leyenda: {acabado: plastico_amarillo_seguridad, fijo: true}
+      caja: {acabado: plastico_amarillo_seguridad}
+      prensaestopa: {acabado: plastico_negro}
+    electrico:
+      <<: *ficha_seta
+      montaje: campo
   - ref: BOTONERA-2
     name: Botonera marcha/paro
     description: Botonera de 2 pulsadores Ø22 (marcha verde / paro rojo) con potenciómetro de velocidad.

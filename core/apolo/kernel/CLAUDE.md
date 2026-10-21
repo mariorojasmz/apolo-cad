@@ -23,6 +23,10 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   `RENDER_LOCK` sosteniendo `STATE_LOCK` (orden inverso): sólo tests, nunca producción.
   [V6.2](../../../docs/plans/V6.2-rendimiento.md)
 - `xray` sólo es legible acotado a 2-3 piezas (con `isolate`).
+- Zonas de una pieza (`mesh.py`): `teselar_caras` cuenta los triángulos de cada cara EN LA MISMA
+  llamada (otro mallado con otra tolerancia cambiaría los conteos) y `agrupar_por_zona` los deja
+  contiguos por zona; `render_comun.teselar_zonas` usa la caché de `teselar`. Sin zonas, todo
+  sale como siempre. [seta-de-emergencia](../../../docs/plans/seta-de-emergencia.md)
 - glTF/GLB: `glb.py` (escritor de OCCT); sus trampas están en el docstring. Lo clave: prototipo SIN
   ubicación + componente ubicado (o se pierde la ubicación), color en el COMPONENTE (el del prototipo
   pisa el de la instancia), `TDataStd_Name` con `isMultiByte=True` y `SetMergeFaces`.

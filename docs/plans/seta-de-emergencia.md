@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato del 2026-10-20 (D1–D7 aprobadas por delegación de Mario); F0 medida (bitácora), con la zona guardada por ÍNDICE de cara; F1–F4 pendientes
+nota: contrato del 2026-10-20 (D1–D7 aprobadas por delegación de Mario); F0 medida y F1 implementada (zonas por índice de cara en library + kernel, ESTOP-40 y ESTOP-40-CAJA, epoch 6); faltan F2 (payload y visor), F3 (VTK y GLB) y F4
 descripcion: La parada de emergencia del catálogo se ve como una de verdad —seta roja sobre fondo amarillo—, y una pieza comprada puede tener partes de distinto color sin dejar de ser UNA línea de la BOM
 ---
 
@@ -172,3 +172,54 @@ Sobre un prototipo de la seta de puerta (leyenda, collar, seta y cuerpo solapado
 
 Nada contradice D1–D7. D1 gana la precisión de arriba: la etiqueta va por índice de cara,
 validada por número de caras y volumen.
+
+### F1 (2026-10-20): zonas en `library` + `kernel`, las dos setas y el epoch
+
+- **Kernel.** `kernel/zonas.py::fusionar_zonas` une `{zona: forma}` con `BRepAlgoAPI_Fuse` y
+  da la zona de cada cara por su historia. Si quedan dos sólidos, o una cara sin zona, falla.
+  `kernel/mesh.py` suma `teselar_caras`, `agrupar_por_zona` (rangos contiguos `[desde, hasta)`
+  en índices de triángulo, sólo reordena) y el argumento opcional `zona_por_cara` de
+  `mesh_payload`. `render_comun.teselar_zonas` usa la caché de `teselar`: su entrada guarda
+  además los triángulos por cara. Sin zonas, todo sale byte a byte igual.
+- **Library.** `library/zonas.py` valida el bloque `zonas:` (acabado existente, `fijo`
+  booleano) y envuelve el builder: `build_component` sigue devolviendo UN sólido y queda la
+  huella (caras, volumen, zona por cara). `zona_por_cara(ref, shape)` la entrega si calza.
+  - El loader exige `zonas:` en un builder de `builders_mandos.ZONADOS`, la rechaza en
+    cualquier otro y en una pieza cortable.
+  - `Component.zonas` = las zonas del YAML.
+  - 4 acabados nuevos: `plastico_rojo_seguridad` y `plastico_amarillo_seguridad` (pintables;
+    los protege `fijo`), `plastico_negro` y `plastico_gris` (moldeados, no pintables).
+    `ui/src/viewport/acabados.json` se regeneró con `scripts/acabados_ui.py`.
+- **Builder `seta_emergencia`** (`library/builders_mandos.py`). Params: `d_seta`, `montaje`
+  (puerta | caja), `d_leyenda`, `panel_mm`, `alto_caja` y `lado_caja`.
+  - Origen en la cara de apoyo, +Z hacia el operador y +Y arriba.
+  - Anclas `montaje` y `agujero` con eje −Z (normal saliente, como la placa de una garrucha).
+  - **Decisión**: la caja agrega `fijacion_1/2`, los ejes de sus 2 agujeros M5.
+- **Refs.** `ESTOP-40`: seta Ø40, collar, leyenda Ø60 y cuerpo detrás de una puerta de 2 mm.
+  Mide 60 × 60 × 77, con 33 mm delante. Conserva su ficha y su peso, y gana
+  `linea_referencia` y `cotas_verificadas: false`.
+  - `ESTOP-40-CAJA` (nueva): caja 72 × 72 × 55 con R4, 2 agujeros M5 en diagonal y
+    prensaestopa M20 por −Y. Mide 72 × 94 × 87,5, 0,3 kg y USD 45 referencial.
+  - **Decisión**: la ficha es la de ESTOP-40 por ancla YAML; sólo cambia `montaje: campo`,
+    porque va en la máquina. Ni el ERC ni el modelo leen `montaje`.
+  - **Decisión**: la caja también lleva el anillo de leyenda amarillo FIJO. Así el fondo
+    amarillo que pide la norma se mantiene aunque el cliente repinte la caja, que es pintable
+    (D3).
+  - Catálogo: 362 refs.
+- **D6.** `GEOM_CACHE_EPOCH` 5 → 6, con su motivo. `tests/test_catalogo_electrico.py` pasa de
+  la caja 72 × 72 × 70 a 60 × 60 × 77. También se ajustaron los conteos (catálogo, mandos,
+  fichas, anclas por familia) y el conjunto de pintables de `tests/test_apariencia.py`.
+- **Tests** (`tests/test_seta_emergencia.py`, 20):
+  - un sólido, una línea de BOM y la masa de ficha;
+  - las zonas cubren todos los triángulos (payload y render) y la seta roja cae en z ≥ 12;
+  - una pieza sin zonas tesela igual;
+  - la zona sigue a la pose y al open caliente, y se pierde si la pieza se taladra;
+  - las anclas caen donde está la geometría: cuello Ø22 en el agujero Ø22,5, agujeros M5
+    pasantes y pose en el mundo;
+  - el YAML de zonas se valida;
+  - ESTOP-40-CAJA da el mismo ERC que ESTOP-40;
+  - una caché con la caja vieja y el epoch anterior se descarta, y con el epoch actual se
+    serviría.
+- **Para F2.** El payload llama a `zona_por_cara(feat.component, shape)` y pasa la tupla a
+  `mesh_payload`. Ojo: las piezas instanciadas mandan la malla de la DEFINICIÓN (mismo orden
+  de caras). `Zona.fijo` decide si el color asignado pinta.

@@ -19,12 +19,16 @@ import yaml
 
 from .acuerdos import validar_acuerdo
 from .builders import BUILDERS as _BUILDERS_BASE
+from .builders_mandos import ANCLAS as _ANCLAS_MANDOS
+from .builders_mandos import BUILDERS as _BUILDERS_MANDOS
+from .builders_mandos import ZONADOS
 from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
 from .builders_transmision import ANCLAS as _ANCLAS_TRANSMISION
 from .builders_transmision import BUILDERS as _BUILDERS_TRANSMISION
 from .electrico.ficha import fusionar as _fusionar_electrico
 from .electrico.ficha import parse_ficha
 from .perfiles_abiertos import ANCLAS as _ANCLAS_PERFILES
+from .zonas import parse_zonas, unir_zonas
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -53,8 +57,24 @@ def merge_anclas(builders: dict, *registros: dict) -> dict:
     return unido
 
 
-BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION)
-ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES)
+BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION,
+                          _BUILDERS_MANDOS)
+ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES, _ANCLAS_MANDOS)
+
+
+def _zonas_de(item: dict, builder_name: str, ref: str):
+    """Bloque `zonas:` validado (plan seta-de-emergencia, D1). Un builder de `ZONADOS` lo exige
+    y ninguno otro lo admite; una pieza cortable no tiene zonas (sus caras cambian con L)."""
+    zonas = parse_zonas(item.get("zonas"), ref)
+    if (zonas is not None) != (builder_name in ZONADOS):
+        if zonas is None:
+            raise ValueError(f"Componente '{ref}': el builder '{builder_name}' da partes por "
+                             f"zona y le falta el bloque `zonas:`")
+        raise ValueError(f"Componente '{ref}': `zonas:` sólo vale con un builder por zonas "
+                         f"({', '.join(sorted(ZONADOS))})")
+    if zonas is not None and item.get("cuttable"):
+        raise ValueError(f"Componente '{ref}': una pieza cortable no lleva `zonas:`")
+    return zonas
 
 
 def _anclas_de(fn, params: dict, specs: dict) -> dict:
@@ -84,6 +104,9 @@ def _component_from_item(item: dict, category: str):
     params = item.get("params", {})
     builder_fn = factory(**params)
     anclas_fn = ANCLAS.get(builder_name)
+    zonas = _zonas_de(item, builder_name, ref)
+    if zonas is not None:  # el builder da {zona: forma}; build_component recibe el sólido
+        builder_fn = unir_zonas(builder_fn, zonas, ref)
 
     specs = item.get("specs", {})
     validar_acuerdo(specs, ref)  # r1/r2/pendiente_ala de norma (plan perfiles-con-acuerdo D1)
@@ -109,6 +132,7 @@ def _component_from_item(item: dict, category: str):
         electrico=parse_ficha(item.get("electrico"), ref),
         familia=builder_name,
         params=dict(params),
+        zonas=zonas,
     )
 
 
@@ -137,6 +161,8 @@ def _expand_family(fam: dict) -> list[dict]:
         electrico = _fusionar_electrico(fam.get("electrico"), variant.get("electrico"))
         if electrico is not None:
             item["electrico"] = electrico
+        if fam.get("zonas") is not None:  # las zonas de la familia valen para cada variante
+            item["zonas"] = fam["zonas"]
         if "weight" in variant:
             item["weight"] = variant["weight"]
         elif "weight_formula" in fam:

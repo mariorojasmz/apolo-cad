@@ -54,7 +54,11 @@ from apolo.commands.state import RegenState
 #    `RegenState`, guardado en el blob como dict POR NOMBRE (`to_plain`/`from_plain`): un
 #    blob v4 trae la tupla y no se puede leer → replay frío la primera vez (plan
 #    estado-regen-y-params-estrictos, D2).
-GEOM_CACHE_EPOCH = 5
+#  v6 (2026-10-20): `ESTOP-40` deja el `builder: box` de 72×72×70 por la seta por zonas
+#    (`seta_emergencia`, plan seta-de-emergencia D6) con los MISMOS params de `insert_component`:
+#    un open caliente serviría la caja vieja. Builder + YAML del catálogo = no se acota a un
+#    executor.
+GEOM_CACHE_EPOCH = 6
 
 
 def _apolo_version() -> str:

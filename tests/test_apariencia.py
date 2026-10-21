@@ -204,8 +204,11 @@ def test_color_asignado_gana_luego_el_propio_y_al_final_la_paleta():
     assert desconocido["acabado"] == POR_DEFECTO and desconocido["color"] == PALETTE[1]
 
 
-#: Lo que se puede pintar o teñir; el resto es metal (o vidrio) y se ve como es.
-PINTABLES = {"acero_pintado", "caucho", "pvc_banda", "madera", "carton"}
+#: Lo que se puede pintar o teñir; el resto es metal, vidrio o plástico moldeado en su color y
+#: se ve como es. Los plásticos de seguridad son de color (pintables); la zona `fijo` de la seta
+#: los protege del color de la pieza (plan seta-de-emergencia, D3).
+PINTABLES = {"acero_pintado", "caucho", "pvc_banda", "madera", "carton",
+             "plastico_rojo_seguridad", "plastico_amarillo_seguridad"}
 
 
 def test_pintable_es_atributo_de_la_tabla():

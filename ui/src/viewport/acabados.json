@@ -272,6 +272,46 @@
       },
       "pintable": true,
       "textura": null
+    },
+    "plastico_rojo_seguridad": {
+      "nombre": "Plástico rojo de seguridad",
+      "color": "#b3191e",
+      "metalness": 0.0,
+      "roughness": 0.35,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": true,
+      "textura": null
+    },
+    "plastico_amarillo_seguridad": {
+      "nombre": "Plástico amarillo de seguridad",
+      "color": "#f2b100",
+      "metalness": 0.0,
+      "roughness": 0.45,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": true,
+      "textura": null
+    },
+    "plastico_negro": {
+      "nombre": "Plástico negro",
+      "color": "#1c1d20",
+      "metalness": 0.0,
+      "roughness": 0.5,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": false,
+      "textura": null
+    },
+    "plastico_gris": {
+      "nombre": "Plástico gris",
+      "color": "#8e9298",
+      "metalness": 0.0,
+      "roughness": 0.6,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": false,
+      "textura": null
     }
   }
 }

@@ -45,6 +45,9 @@ class Component:
     # no cambia la geometría.
     familia: str | None = field(repr=False, default=None)
     params: dict | None = field(repr=False, default=None)
+    # zonas de acabado del YAML (`library/zonas.py`, plan seta-de-emergencia D1): la pieza es
+    # UN sólido y cada cara sabe su zona (`zonas.zona_por_cara`). None = un solo acabado.
+    zonas: tuple | None = field(repr=False, default=None)
 
 
 from .loader import load_catalog  # noqa: E402  (necesita Component ya definido)

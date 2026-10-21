@@ -41,6 +41,8 @@ NUEVAS = {
     "tableros": ["GAB-6040", "GAB-8060"],
 }
 TODAS_NUEVAS = [r for refs in NUEVAS.values() for r in refs]
+# la seta en caja de superficie (plan seta-de-emergencia D4): misma ficha que ESTOP-40
+SETAS = ["ESTOP-40-CAJA"]
 EXISTENTES = ["VFD-1K5-220", "VFD-2K2-220", "ESTOP-40", "BOTONERA-2", "FOTO-M18", "TABLERO-5040",
               "MOTOR-037", "MOTOR-075", "MOTOR-150", "MOTOR-150-EH"] + refs_in_category("motorreductores_sinfin")
 MARCAS = ("SCHNEIDER", "SIEMENS", "ABB", "PHOENIX", "WEIDMULLER", "OMRON", "SICK", "LAPP",
@@ -58,10 +60,10 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
             assert CATALOG[ref].category == categoria, ref
     for categoria in NUEVAS_CATEGORIAS:
         assert sorted(refs_in_category(categoria)) == sorted(NUEVAS[categoria])
-    assert len(CATALOG) == 361
+    assert len(CATALOG) == 362  # + ESTOP-40-CAJA (seta-de-emergencia D4)
 
 
-@pytest.mark.parametrize("ref", TODAS_NUEVAS)
+@pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS)
 def test_cada_ref_nueva_es_honesta(ref):
     c = CATALOG[ref]
     s = c.specs
@@ -155,12 +157,17 @@ def test_refs_fijadas_conservan_specs_y_geometria():
     assert CATALOG["VFD-2K2-220"].specs == {
         "potencia_kW": 2.2, "potencia_HP": 3, "tension": "220V 3F", "corriente_A": 11.0,
         "control": "vectorial sensorless", "proteccion": "STO", "cost": 280}
-    assert CATALOG["ESTOP-40"].specs == {"tipo": "hongo Ø40", "contacto": "NC apertura positiva", "norma": "ISO 13850"}
+    # la seta ganó cotas y geometría propias (seta-de-emergencia D4/D6) y conserva las de siempre
+    estop = CATALOG["ESTOP-40"].specs
+    assert {k: estop[k] for k in ("tipo", "contacto", "norma")} == {
+        "tipo": "hongo Ø40", "contacto": "NC apertura positiva", "norma": "ISO 13850"}
+    assert estop["cotas_verificadas"] is False and estop["linea_referencia"].strip()
     assert CATALOG["FOTO-M18"].specs == {"rosca": "M18", "alcance_mm": 400, "salida": "PNP", "tension": "10-30 VDC"}
     assert CATALOG["MOTOR-150-EH"].specs["tension"] == "220/380V" and CATALOG["MOTOR-150-EH"].weight == 25.0
     nmrv = CATALOG["NMRV-090"]
     assert "electrico" not in nmrv.specs and nmrv.specs["potencia_kW"] == 2.2 and nmrv.weight == 45.0
-    for ref, (dx, dy, dz) in {"VFD-2K2-220": (140, 145, 160), "ESTOP-40": (72, 72, 70),
+    # ESTOP-40 dejó la caja de 72×72×70: leyenda Ø60 y 33 mm delante + 44 detrás de la puerta (D6)
+    for ref, (dx, dy, dz) in {"VFD-2K2-220": (140, 145, 160), "ESTOP-40": (60, 60, 77),
                               "BOTONERA-2": (80, 60, 120), "TABLERO-5040": (500, 200, 400)}.items():
         bb = build_component(ref)[0].bounding_box()
         assert (round(bb.size.X), round(bb.size.Y), round(bb.size.Z)) == (dx, dy, dz), ref
@@ -199,7 +206,7 @@ def test_placa_del_motor(ref):
 
 def test_toda_ficha_nombra_sus_propios_bornes():
     fichas = {ref: c.electrico for ref, c in CATALOG.items() if c.electrico is not None}
-    assert len(fichas) == len(TODAS_NUEVAS) + len(EXISTENTES)
+    assert len(fichas) == len(TODAS_NUEVAS) + len(EXISTENTES) + len(SETAS)
     for ref, f in fichas.items():
         ids = f.ids_bornes
         assert len(ids) == len(set(ids)), ref

@@ -130,7 +130,7 @@ def test_blob_v4_con_tupla_se_descarta():
     reanuda: el open cae a replay frío."""
     d = _doc()
     bueno = pack(d)
-    assert GEOM_CACHE_EPOCH == 5 and unpack(bueno) is not None
+    assert GEOM_CACHE_EPOCH >= 5 and unpack(bueno) is not None  # v6: la seta (sin tocar el formato)
     data = pickle.loads(bueno)
     st = data["state"]
     tupla = tuple(st[n] for n in RegenState.field_names())
