@@ -23,8 +23,9 @@ def registrar(mcp, mutacion) -> None:
         """Borra comandos del log por command_id (cirugía: quitar una pieza, un sub-ensamblaje o
         uniones) en UN cambio atómico, deshacible con UN undo. Si queda una referencia rota (un
         fijador, anclaje, junta o mate que nombra una pieza borrada) no borra NADA y el error dice
-        cuál estorba. `con_dependientes=true` borra además los fasten y ground que nombran las
-        piezas de esos comandos y los quita de sus grupos, sin buscarlos con find_commands; la
+        cuál estorba, lista los dependientes y cuáles arrastraría `con_dependientes=true`. Éste
+        borra además los fasten y ground que nombran las piezas de esos comandos y los quita de
+        sus grupos, sin buscarlos con find_commands; la
         respuesta los lista en `dependientes` y `grupos_editados` (un grupo que quedaría vacío no
         se toca: lo dice `avisos`). Juntas y mates nunca se arrastran: bórralos tú si sobran.
         `detail`: "diff" (def.) responde corto —`comandos_borrados`, `piezas_borradas`,

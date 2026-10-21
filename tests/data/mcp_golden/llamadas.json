@@ -1066,6 +1066,80 @@
   ]
  },
  {
+  "caso": "lote con fasten por conjuntos",
+  "tool": "run_batch",
+  "args": {
+   "actions": [
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    }
+   ]
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 0, \"solidos\": [], \"uniones_expandidas\": {\"total\": 4, \"por_fasten\": [{\"comando\": \"c4\", \"nombre\": \"eje_larguero\", \"kind\": \"perno\", \"uniones\": 4}]}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/batch",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "actions": [
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "lote → job en error",
   "tool": "run_batch",
   "args": {
@@ -1839,6 +1913,67 @@
   ]
  },
  {
+  "caso": "borrar → error que dice cómo seguir",
+  "tool": "remove_commands",
+  "args": {
+   "ids": [
+    "c1"
+   ]
+  },
+  "error": "Error executing tool remove_commands: Apolo rechazó la operación (400): El fijador 'f1' referencia el sólido 'c1', que ya no existe: elimina primero el fijador. Dependen de lo que borras 1 unión(es): f1 (c4, fasten). Repite el borrado con con_dependientes=true: las borra en el mismo paso (1 undo).",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/remove",
+    "query": [
+     [
+      "detail",
+      "diff"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "ids": [
+      "c1"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jr",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "job ok",
   "tool": "get_job",
   "args": {
@@ -2230,6 +2365,37 @@
   "salida": [
    {
     "texto": "{\"pares\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [],
+    "cuerpo": {
+     "joint_values": {}
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "interferencia global truncada",
+  "tool": "check_interference",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"solidos\": 297, \"parejas_analizadas\": 400, \"truncado\": true, \"interferencias\": [], \"parejas_candidatas\": 1234, \"parejas_sin_revisar\": 834, \"como_acotar\": \"Se revisaron 400 de 1234 parejas candidatas: faltan 834. …\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3933,6 +4099,37 @@
     "query": [],
     "cuerpo": {
      "con_gravedad": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "puerta de entrega con tiempos",
+  "tool": "delivery_check",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"veredicto\": \"VERDE\", \"bloqueantes\": [], \"tiempos_s\": {\"total\": 12.3, \"por_regla\": {\"interferencias\": 10.2, \"poses\": 0.4}}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/delivery-check",
+    "query": [],
+    "cuerpo": {
+     "con_gravedad": false
     },
     "cabeceras": {
      "accept": "*/*",

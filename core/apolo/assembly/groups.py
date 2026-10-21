@@ -77,6 +77,21 @@ def group_command_ids(groups: dict, name: str, recursive: bool = True) -> set[st
     return cmds
 
 
+def resolve_group(groups: dict, token: str) -> str | None:
+    """Nombre COMPLETO del grupo que nombra `token`: el propio o, si no hay grupo con ese
+    nombre, el ÚNICO subgrupo cuyo último tramo tras «/» es `token` (los subgrupos que crean
+    `insert_project` y los super-comandos se llaman «raíz/Rodillos» y su doc los nombra
+    «Rodillos»; plan mcp-sin-friccion D5). Varios → GroupError con los candidatos; ninguno →
+    None (el token no es un grupo)."""
+    if token in groups:
+        return token
+    candidatos = sorted(n for n in groups if "/" in n and n.rsplit("/", 1)[1] == token)
+    if len(candidatos) > 1:
+        raise GroupError(f"'{token}' es subgrupo de varios grupos: {', '.join(candidatos)}; "
+                         "pasa el nombre completo")
+    return candidatos[0] if candidatos else None
+
+
 def group_features(scene: dict, groups: dict, name: str, recursive: bool = True) -> list[str]:
     """Feature_ids que pertenecen al grupo (incluye descendientes si recursive)."""
     cmds = group_command_ids(groups, name, recursive)

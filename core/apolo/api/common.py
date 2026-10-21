@@ -30,6 +30,7 @@ from fastapi.responses import JSONResponse
 
 from apolo.commands import CommandError
 from apolo.doc import DocumentError
+from apolo.services.conexiones import expandidas
 from apolo.services.lookup import suggest_suffix
 from apolo.services.stackup_eval import stackup_rules
 from apolo.state import STATE_LOCK
@@ -83,8 +84,10 @@ ARCHIVOS = Archivos()
 def _expand_ids(value) -> list[str] | None:
     """Normaliza un CSV/lista de ids expandiendo cualquier token que sea el NOMBRE de
     un GRUPO a sus feature_ids (recursivo con sub-grupos). Así isolate/highlight/fit
-    aceptan sub-ensamblajes por nombre sin cambiar firmas."""
-    from apolo.assembly.groups import group_features
+    aceptan sub-ensamblajes por nombre sin cambiar firmas. Un subgrupo se resuelve también
+    por su último tramo («Rodillos» → «Transportador/Rodillos», `resolve_group`); si es de
+    varios grupos → 400 con los candidatos."""
+    from apolo.assembly.groups import GroupError, group_features, resolve_group
 
     if value is None:
         return None
@@ -96,8 +99,13 @@ def _expand_ids(value) -> list[str] | None:
     out: list[str] = []
     with STATE_LOCK:
         for tok in tokens:
-            if tok in S.doc.groups:
-                out.extend(group_features(S.doc.scene, S.doc.groups, tok, recursive=True))
+            try:
+                grupo = None if tok in S.doc.scene and tok not in S.doc.groups \
+                    else resolve_group(S.doc.groups, tok)
+            except GroupError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            if grupo is not None:
+                out.extend(group_features(S.doc.scene, S.doc.groups, grupo, recursive=True))
             else:
                 out.append(tok)
     # dedup conservando orden
@@ -148,6 +156,11 @@ def _state_or_error(fn, armar=None):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         _autosave()
         payload = scene_payload() if armar is None else armar()
+        # D4 de mcp-sin-friccion: cuántas uniones expandió cada fasten por conjuntos de lo que
+        # cambió (sólo si hubo alguno: sin él, byte-idéntico)
+        uniones = expandidas(S.doc, _normalize_affected(affected))
+        if uniones:
+            payload["uniones_expandidas"] = uniones
         # Alarma ambiental (V6.9-B): con ≥5 sólidos y CERO anclajes declarados, CADA
         # retorno de mutación lo recuerda — stateless y molesto a propósito (como la
         # alarma del tren de aterrizaje); se apaga al declarar el primer ground.

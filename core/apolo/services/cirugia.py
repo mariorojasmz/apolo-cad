@@ -69,6 +69,71 @@ def dependientes(doc, ids: list[str]) -> dict:
             "ediciones": ediciones, "grupos_editados": grupos, "avisos": avisos}
 
 
+#: Uniones registradas que pueden nombrar una pieza borrada: (atributo, tipo de comando, claves).
+_REFERENCIAS = (("fasteners", "fasten", ("a", "b")), ("grounds", "ground", ("feature",)),
+                ("joints", "add_joint", ("parent", "child")),
+                ("mates", "add_mate", ("feature_a", "feature_b")))
+
+#: Cuántas uniones nombra el texto de `como_seguir` por lista antes de resumir el resto.
+MAX_NOMBRADAS = 8
+
+
+def _lista(items: list[str]) -> str:
+    texto = ", ".join(items[:MAX_NOMBRADAS])
+    return texto + (f" … y {len(items) - MAX_NOMBRADAS} más" if len(items) > MAX_NOMBRADAS else "")
+
+
+def _nombra(params, ids: set[str]) -> bool:
+    """¿Algún valor de `params` (un nivel: string, lista o dict) es uno de `ids`? La misma
+    búsqueda superficial que `find_commands(feature=…)`."""
+    for v in (params or {}).values():
+        vals = v if isinstance(v, list) else list(v.values()) if isinstance(v, dict) else [v]
+        if any(isinstance(x, str) and x in ids for x in vals):
+            return True
+    return False
+
+
+def como_seguir(doc, ids: list[str], error: str) -> str:
+    """D4 de mcp-sin-friccion: el texto del 400 de un borrado que dejaría referencias rotas,
+    con cómo seguir. Las uniones que `con_dependientes=true` arrastra (fasten y ground que nombran
+    una pieza, D2) y los comandos que no (juntas, mates, patrones y operaciones que nombran una
+    pieza o un comando borrado, uniones por conjuntos: hay que borrarlos o editarlos a mano),
+    cada lista recortada a `MAX_NOMBRADAS` con el conteo de los omitidos.
+    Se llama tras el rollback, con el documento intacto. Si algún id no existe, el error es ése
+    y se devuelve tal cual."""
+    if not set(ids) <= {c["id"] for c in doc.commands}:
+        return error
+    plan = dependientes(doc, ids)
+    arrastra = {d["id"] for d in plan["dependientes"]}
+    pedidos, piezas = set(ids), piezas_de(doc, ids)
+    otras: dict[str, str] = {}
+    fuera, nombran = pedidos | arrastra, piezas | pedidos
+    for c in doc.commands:  # los que nombran una pieza o un comando borrado (un patrón, un corte…)
+        if c["id"] not in fuera and c["type"] != "create_group" and _nombra(c.get("params"), nombran):
+            nombre = (c.get("params") or {}).get("name")
+            otras[c["id"]] = (f"{nombre} ({c['id']}, {c['type']})" if nombre
+                              else f"{c['id']} ({c['type']})")
+    for attr, tipo, claves in _REFERENCIAS:  # y las uniones registradas (conjuntos, plantillas)
+        for nombre, u in getattr(doc, attr).items():
+            cid = u.get("command_id")
+            if cid and cid not in fuera and any(u.get(k) in piezas for k in claves):
+                otras.setdefault(cid, f"{u.get('conjunto') or nombre} ({cid}, {tipo})")
+    partes = [error.rstrip(".") + "."]
+    if arrastra:
+        deps = [f"{d['nombre'] or d['id']} ({d['id']}, {d['tipo']})" for d in plan["dependientes"]]
+        grupos = [g["grupo"] for g in plan["grupos_editados"]]
+        partes.append(
+            f"Dependen de lo que borras {len(deps)} unión(es): {_lista(deps)}. Repite el borrado "
+            "con con_dependientes=true: las borra en el mismo paso (1 undo)"
+            + (f" y saca los comandos de sus grupos ({_lista(grupos)})." if grupos else "."))
+    if otras:
+        partes.append(
+            f"También dependen {len(otras)} comando(s) que con_dependientes no arrastra (juntas, "
+            f"mates, patrones, operaciones o uniones por conjuntos): {_lista(list(otras.values()))}"
+            ". Agrega sus ids a `ids` si sobran, o edítalos para que no nombren lo que borras.")
+    return " ".join(partes)
+
+
 def foto(doc) -> dict:
     """Lo que la respuesta liviana compara: piezas {id: nombre}, uniones {(tipo, nombre)} y
     grupos. Se toma ANTES de borrar, bajo el mismo lock."""

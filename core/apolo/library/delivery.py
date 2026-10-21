@@ -16,6 +16,8 @@ JAMÁS cuenta como verde.
 
 from __future__ import annotations
 
+from .checks import MAX_PAIRS as MAX_PAIRS_INTERFERENCIA
+
 VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 
 # Umbral de sujeción (compartido con la alarma ambiental de la capa API): bajo esto
@@ -81,6 +83,7 @@ def delivery_report(
     n_solidos: int,
     interferencias: list[dict],
     interferencias_truncado: bool = False,
+    interferencias_sin_revisar: int = 0,
     soundness: dict,
     tornilleria_flotante: list | tuple = (),
     lints: list[dict],
@@ -97,7 +100,8 @@ def delivery_report(
     el llamador — aquí no corre ningún motor):
       - `interferencias`: entradas de `interference_report` en DISEÑO (con las
         exclusiones normales: hardware, parejas de junta, mismo super-comando);
-        `interferencias_truncado` declara el recorte por MAX_PAIRS como aviso.
+        `interferencias_truncado` declara el recorte por MAX_PAIRS como aviso y
+        `interferencias_sin_revisar`, cuántas parejas candidatas dejó fuera.
       - `soundness`: `soundness_report` del grafo DECLARADO (sin autodetect) —
         la puerta valida lo que el modelo DECLARA, no lo que el detector adivina;
         `tornilleria_flotante` = pernos/tuercas que el llamador FILTRÓ del floating
@@ -147,10 +151,13 @@ def delivery_report(
     else:
         ok.append("interferencias")
     if interferencias_truncado:  # sin caps silenciosos: el recorte jamás pasa por verde pleno
+        cuantas = (f"{interferencias_sin_revisar} parejas candidatas quedaron SIN revisar"
+                   if interferencias_sin_revisar else "quedaron parejas candidatas sin revisar")
         avisos.append({
             "regla": "interferencias · reporte truncado", "piezas": [],
-            "detalle": "el chequeo global recortó parejas candidatas (tope MAX_PAIRS) — "
-                       "acota con check_interference(ids=...) por zonas para cubrir todo.",
+            "detalle": f"{cuantas} (el chequeo global revisa {MAX_PAIRS_INTERFERENCIA} como "
+                       "máximo). Revísalas por zonas con check_interference(ids=[grupo]) "
+                       "—get_groups lista los grupos— hasta cubrir la máquina.",
         })
 
     # 2 · sujeción DECLARADA (soundness sin autodetect) -------------------------

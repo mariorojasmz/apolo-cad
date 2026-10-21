@@ -100,15 +100,38 @@ def _outline_actor(lo, hi):
     return a
 
 
-def _axes_actor(length: float):
+#: Lado del triedro de `show_axes` como fracción del ANCHO de la imagen (esquina inf. izquierda).
+LADO_TRIEDRO = 0.16
+
+
+def _triedro(cam):
+    """Renderer del triedro de ejes (X rojo, Y verde, Z azul) en la esquina inferior izquierda,
+    con la ORIENTACIÓN de la cámara principal y su propia escala: dice hacia dónde va cada eje
+    del mundo sin entrar al encuadre (antes los ejes salían del origen, a menudo fuera de
+    cuadro; plan mcp-sin-friccion D5). Va en la capa overlay: no lo tapa la geometría."""
+    import numpy as np
     import vtk
 
+    esquina = vtk.vtkRenderer()
+    esquina.SetLayer(1)
+    esquina.InteractiveOff()
+    esquina.SetViewport(0.0, 0.0, LADO_TRIEDRO, LADO_TRIEDRO / _H)
+    esquina.PreserveColorBufferOn()
+    esquina.PreserveDepthBufferOff()
     ax = vtk.vtkAxesActor()
-    ax.SetTotalLength(length, length, length)
+    ax.SetTotalLength(1.0, 1.0, 1.0)
     ax.SetShaftTypeToCylinder()
-    ax.SetCylinderRadius(0.012)
+    ax.SetCylinderRadius(0.04)
     ax.AxisLabelsOff()
-    return ax
+    esquina.AddActor(ax)
+    c = esquina.GetActiveCamera()
+    c.ParallelProjectionOn()
+    centro = np.array([0.5, 0.5, 0.5])
+    c.SetFocalPoint(*centro)
+    c.SetPosition(*(centro - np.array(cam.GetDirectionOfProjection()) * 10.0))
+    c.SetViewUp(*cam.GetViewUp())
+    esquina.ResetCamera(-0.1, 1.1, -0.1, 1.1, -0.1, 1.1)
+    return esquina
 
 
 def _dimension_actors(p1, p2, label: str, scale: float):
@@ -346,10 +369,9 @@ def render_snapshot_vtk(snap: RenderSnapshot) -> bytes:
         bb_lo = snap.hmins if np.isfinite(snap.hmins).all() else smins
         bb_hi = snap.hmaxs if np.isfinite(snap.hmaxs).all() else smaxs
         ren.AddActor(_outline_actor(bb_lo, bb_hi))
-    if snap.show_axes:
-        ren.AddActor(_axes_actor(float(np.max(smaxs - smins)) * 0.3))
 
-    # caja de encuadre: fit_ids si se pidió (fmins finito), si no toda la escena
+    # caja de encuadre: fit_ids si se pidió (fmins finito), si no toda la escena; los ejes de
+    # `show_axes` NO entran (van en su esquina, `_triedro`)
     if np.isfinite(snap.fmins).all():
         bmins, bmaxs = snap.fmins, snap.fmaxs
     else:
@@ -384,6 +406,9 @@ def render_snapshot_vtk(snap: RenderSnapshot) -> bytes:
             overlay.AddActor(la)
         rw.SetNumberOfLayers(2)
         rw.AddRenderer(overlay)
+    if snap.show_axes:
+        rw.SetNumberOfLayers(2)
+        rw.AddRenderer(_triedro(cam))
 
     modo_transparencia(rw, ren, snap.any_translucent)   # depth peeling (xray/vidrio) o MSAA
     rw.Render()

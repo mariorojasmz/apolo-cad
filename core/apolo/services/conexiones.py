@@ -34,13 +34,18 @@ def piezas_pedidas(doc, ids: list[str], expand=None) -> set[str]:
     """Las piezas que nombran `ids`: feature ids, NOMBRES DE GRUPO (`expand`) o command_ids
     (sus piezas, también las `{cmd}_n` de un patrón o una plantilla). Un token que no resuelve
     a nada → 404 con «¿quisiste decir…?»."""
+    from apolo.assembly.groups import GroupError, resolve_group
+
     out: set[str] = set()
     for tok in ids:
         if tok in doc.scene:
             out.add(tok)
             continue
-        de_grupo = [f for f in (expand([tok]) if expand and tok in doc.groups else [])
-                    if f in doc.scene]
+        try:  # también un subgrupo por su último tramo (D5)
+            grupo = resolve_group(doc.groups, tok)
+        except GroupError as exc:
+            raise ServiceError(400, str(exc)) from exc
+        de_grupo = [f for f in (expand([grupo]) if expand and grupo else []) if f in doc.scene]
         piezas = set(de_grupo) or piezas_de(doc, [tok])
         if not piezas:
             raise ServiceError(404, f"No existe el sólido '{tok}'{suggest_suffix(doc, tok)}")
@@ -90,6 +95,27 @@ def resumen_conexiones(doc, fijadores: list[dict], anclajes: list[dict]) -> dict
     recortar(out, "anclajes", [{"nombre": g["name"], "pieza": g["feature"]} for g in anclajes])
     out["seguir"] = ("la lista con nombres: get_connections(ids=[pieza, grupo o comando], "
                      "kind=…, resumen=false)")
+    return out
+
+
+def expandidas(doc, command_ids) -> dict | None:
+    """D4: cuántas uniones registró cada `fasten` por CONJUNTOS de estos comandos (también los de
+    command_id sintético `{cmd}_…` de una plantilla): `{total, por_fasten: [{comando, nombre,
+    kind, uniones}]}` (recortado a `MAX_LISTA`), o None si ninguno expandió un conjunto. Así el
+    agente ve el resultado de un lote sin leer get_connections."""
+    pedidos = [str(c) for c in command_ids or []]
+    filas: dict[tuple, dict] = {}
+    for f in doc.fasteners.values():
+        cid = f.get("command_id") or ""
+        if "conjunto" not in f or not any(cid == c or cid.startswith(c + "_") for c in pedidos):
+            continue
+        fila = filas.setdefault((cid, f["conjunto"]), {
+            "comando": cid, "nombre": f["conjunto"], "kind": f.get("kind"), "uniones": 0})
+        fila["uniones"] += 1
+    if not filas:
+        return None
+    out: dict = {"total": sum(f["uniones"] for f in filas.values())}
+    recortar(out, "por_fasten", list(filas.values()))
     return out
 
 

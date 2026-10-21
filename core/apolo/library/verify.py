@@ -223,6 +223,8 @@ def run_verify(
                     entry["joint_values"] = spec["joint_values"]
                 if rep.get("truncado"):
                     entry["truncado"] = True  # NO caps silenciosos: se declara el recorte
+                    if rep.get("parejas_sin_revisar"):  # y cuánto dejó fuera (D4)
+                        entry["parejas_sin_revisar"] = rep["parejas_sin_revisar"]
                 out.append(entry)
 
             elif tipo == "existe":

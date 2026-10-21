@@ -31,6 +31,14 @@ def _recibo(job_id: str, path: str) -> str:
                       ensure_ascii=False)
 
 
+def escribir(path: str, data: bytes) -> pathlib.Path:
+    """Escribe `data` en `path` creando sus carpetas (los exports del MCP); devuelve la ruta."""
+    target = pathlib.Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return target
+
+
 def _guardar(api, resultado: dict, path: str) -> dict:
     data = api("GET", resultado["archivo"]).content
     pathlib.Path(path).write_bytes(data)

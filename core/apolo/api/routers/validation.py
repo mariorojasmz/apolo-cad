@@ -9,6 +9,8 @@ evalúa.
 
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -23,6 +25,7 @@ from apolo.services.engineering_rules import (
     requirement_inputs,
     structure_rules,
 )
+from apolo.services.interferencias import como_acotar
 from apolo.services.stackup_eval import evaluate_stackups
 from apolo.state import STATE_LOCK
 
@@ -71,6 +74,8 @@ def run_checks(body: ChecksIn) -> dict:
             exclude_ids=hardware_ids(S.doc),
             focus=focus,
         )
+        if interferencias["truncado"]:  # D4 de mcp-sin-friccion: cuántas faltan y cómo acotar
+            interferencias["como_acotar"] = como_acotar(S.doc, interferencias)
         if shapes_override is not None:  # interpenetración de cuerpos con junta compartida
             interferencias["interferencias"] += interpenetration_report(
                 S.doc.scene, shapes_override, jpairs
@@ -159,17 +164,24 @@ def delivery_check_endpoint(body: DeliveryIn) -> dict:
     valida lo que el modelo declara, no lo que un detector adivina) + lints pre-entrega
     + integridad/suprimidos + colisión EN POSE en los fotogramas de REPOSO de los
     estudios declarados (extremos + dwells; asiento ≤ tolerancia declarado, no bloquea).
-    `con_gravedad` añade la simulación MuJoCo (cara; opt-in). Read-only."""
+    `con_gravedad` añade la simulación MuJoCo (cara; opt-in). Read-only. `tiempos_s` dice
+    cuánto tardó en total y cada regla (mcp-sin-friccion D4)."""
     from apolo.library.delivery import delivery_report
 
+    t0 = time.perf_counter()
+    tiempos: dict = {}
     gravedad = None
     if body.con_gravedad:
         # dos-locks propio (_stability); with_autodetect=False: la puerta es DECLARADA
         res = _stability(StabilityIn(with_autodetect=False))
         gravedad = {k: res.get(k) for k in ("fell", "estables", "settled", "n_grounded")}
+        tiempos["gravedad"] = round(time.perf_counter() - t0, 2)
 
     with STATE_LOCK:  # la puerta valida lo DECLARADO: services/delivery_inputs.py
-        return delivery_report(**delivery_inputs(S.doc, expand=_expand_ids), gravedad=gravedad)
+        out = delivery_report(**delivery_inputs(S.doc, expand=_expand_ids, tiempos=tiempos),
+                              gravedad=gravedad)
+    out["tiempos_s"] = {"total": round(time.perf_counter() - t0, 2), "por_regla": tiempos}
+    return out
 
 
 class RequirementsIn(BaseModel):

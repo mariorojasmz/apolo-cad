@@ -19,8 +19,10 @@ def job_receipt(job_id: str, estado: str = "corriendo") -> str:
 
 
 def job_result(payload: dict, detail: str) -> dict:
-    """Brief de un job = el de la vía síncrona; sin `features` (ya liviano) pasa tal cual."""
+    """Brief de un job = el de la vía síncrona; sin `features` (ya liviano) pasa tal cual. El
+    contrato y las uniones que expandió cada fasten por conjuntos (mcp-sin-friccion D4) pasan."""
     out = _scene_brief(payload, detail) if "features" in payload else dict(payload)
-    if "contrato" in payload:
-        out["contrato"] = payload["contrato"]
+    for clave in ("contrato", "uniones_expandidas"):
+        if clave in payload:
+            out[clave] = payload[clave]
     return out

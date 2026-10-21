@@ -13,6 +13,7 @@ import json
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
+from apolo.services.lookup import suggest_suffix
 from apolo.state import STATE_LOCK
 
 from ..common import _expand_ids
@@ -94,7 +95,8 @@ def render_png(
     `isolate` = CSV de ids para renderizar SOLO esas piezas (aislado real sobre una copia de la
     escena; NO toca la visibilidad del documento). Es la forma limpia de fotografiar una pieza:
     sin ocultar/restaurar nada en vivo. Respeta la visibilidad actual (una pieza oculta no aparece).
-    `show_axes` dibuja los ejes del origen; `show_bbox` la caja envolvente.
+    `show_axes` dibuja un triedro X/Y/Z en la esquina inferior izquierda (en VTK; no cambia el
+    encuadre); `show_bbox` la caja envolvente.
     `joints` = JSON {junta: valor} para renderizar una POSE cinemática (resuelve las
     restricciones de riel y posa el mecanismo; read-only, no muta el documento).
     `fit` = CSV de ids para encuadrar la cámara en esas piezas (primer plano);
@@ -134,7 +136,10 @@ def render_png(
         if isolate_ids:
             scene = {fid: S.doc.scene[fid] for fid in isolate_ids if fid in S.doc.scene}
             if not scene:
-                raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
+                raise HTTPException(status_code=400, detail=(
+                    f"isolate: ningún id existe en la escena ({', '.join(isolate_ids[:5])})"
+                    f"{suggest_suffix(S.doc, isolate_ids[0])} Pasa feature_ids o nombres de "
+                    "grupo o subgrupo (get_groups los lista)."))
         override = None
         if joints:
             try:

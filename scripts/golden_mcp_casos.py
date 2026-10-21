@@ -417,6 +417,10 @@ CASOS = [
     caso("lote → recibo", "run_batch", {"actions": [_ESC]}, espera=0.0),
     caso("lote de una plantilla → por comando", "run_batch", {"actions": [_ESC], "detail": "summary"},
          rutas={("GET", r"/api/jobs/[^/]+"): J({"estado": "ok", "resultado": _escena_grande()})}),
+    caso("lote con fasten por conjuntos", "run_batch", {"actions": [_ESC]}, rutas={
+        ("GET", r"/api/jobs/[^/]+"): J({"estado": "ok", "resultado": {
+            **escena(["c4"]), "uniones_expandidas": {"total": 4, "por_fasten": [
+                {"comando": "c4", "nombre": "eje_larguero", "kind": "perno", "uniones": 4}]}}})}),
     caso("lote → job en error", "run_batch", {"actions": [_ESC]}, rutas={
         ("GET", r"/api/jobs/[^/]+"): J({"estado": "error", "http_status": 400,
                                         "error": "Contrato incumplido: medido 150 > 10"})}),
@@ -439,6 +443,10 @@ CASOS = [
     caso("borrar → recibo", "remove_commands", {"ids": ["c1"]}, espera=0.0),
     caso("borrar → job en error", "remove_commands", {"ids": ["c1"]}, rutas=_job_error(
         "El fijador 'f1' referencia el sólido 'c1', que ya no existe: elimina primero el fijador")),
+    caso("borrar → error que dice cómo seguir", "remove_commands", {"ids": ["c1"]}, rutas=_job_error(
+        "El fijador 'f1' referencia el sólido 'c1', que ya no existe: elimina primero el fijador. "
+        "Dependen de lo que borras 1 unión(es): f1 (c4, fasten). Repite el borrado con "
+        "con_dependientes=true: las borra en el mismo paso (1 undo).")),
     caso("job ok", "get_job", {"job_id": "j1", "detail": "full", "wait_s": 5}),
     caso("job de un borrado", "get_job", {"job_id": "jr"}),
     caso("job corriendo", "get_job", {"job_id": "j1"},
@@ -453,6 +461,11 @@ CASOS = [
     caso("variable → job en error", "set_variable", {"name": "L", "expression": "=L*"},
          rutas=_job_error("Variable 'L': Expresión inválida 'L*': invalid syntax")),
     caso("interferencia global", "check_interference"),
+    caso("interferencia global truncada", "check_interference", rutas={
+        ("POST", r"/api/checks"): J({"interferencias": {
+            "solidos": 297, "parejas_analizadas": 400, "truncado": True, "interferencias": [],
+            "parejas_candidatas": 1234, "parejas_sin_revisar": 834,
+            "como_acotar": "Se revisaron 400 de 1234 parejas candidatas: faltan 834. …"}})}),
     caso("interferencia acotada en pose", "check_interference",
          {"joint_values": {"j1": 30}, "ids": ["Estructura"]}),
     caso("ingeniería", "engineering_check", {"carga_kg": 15, "velocidad_m_s": 0.5}),
@@ -511,6 +524,10 @@ CASOS = [
     caso("borrar conexiones lote", "delete_connection", {"names": ["f1", "g1"]}),
     caso("borrar conexión sin nombre", "delete_connection"),
     caso("puerta de entrega", "delivery_check", {"con_gravedad": True}),
+    caso("puerta de entrega con tiempos", "delivery_check", rutas={
+        ("POST", r"/api/delivery-check"): J({"veredicto": "VERDE", "bloqueantes": [],
+                                             "tiempos_s": {"total": 12.3, "por_regla": {
+                                                 "interferencias": 10.2, "poses": 0.4}}})}),
     caso("gravedad", "gravity_test"),
     caso("gravedad con gif", "gravity_test", {"with_autodetect": True, "exclude": ["c3"],
                                               "seconds": 1.5, "path": "gravedad.gif"}),

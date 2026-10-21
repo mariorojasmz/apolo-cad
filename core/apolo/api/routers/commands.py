@@ -221,7 +221,9 @@ def preview_commands(body: PreviewIn):
             ]
             # NO caps silenciosos: si la interferencia acotada recortó a MAX_PAIRS, se declara
             return {"fantasmas": fantasmas, "colisiones_nuevas": colisiones,
-                    "truncado": rep["truncado"]}
+                    "truncado": rep["truncado"],
+                    **({"parejas_sin_revisar": rep["parejas_sin_revisar"]}
+                       if rep["truncado"] else {})}
         try:
             png = render_scene_png(
                 scene, body.view, highlight_ids=new_feats or None,
@@ -289,13 +291,14 @@ def remove_commands_endpoint(
         def run():  # el plan de dependientes se arma DENTRO del lock: fuera sería TOCTOU
             if detail:
                 hecho["antes"] = cirugia.foto(S.doc)
-            if not body.con_dependientes:
-                hecho["ids"] = body.ids
-                return S.doc.remove_commands(body.ids)
-            plan = hecho["plan"] = cirugia.dependientes(S.doc, body.ids)
-            hecho["ids"] = plan["ids"]
-            S.doc.remove_commands(plan["ids"], plan["ediciones"])
-            return list(plan["ediciones"])  # affected = los grupos editados
+            plan = hecho["plan"] = cirugia.dependientes(S.doc, body.ids) \
+                if body.con_dependientes else None
+            hecho["ids"] = plan["ids"] if plan else body.ids
+            try:
+                S.doc.remove_commands(hecho["ids"], plan["ediciones"] if plan else None)
+            except DocumentError as exc:  # D4 de mcp-sin-friccion: el 400 dice cómo seguir
+                raise DocumentError(cirugia.como_seguir(S.doc, hecho["ids"], str(exc))) from exc
+            return list(plan["ediciones"]) if plan else None  # affected = grupos editados
 
         armar = (lambda: cirugia.diff_borrado(S.doc, hecho["antes"], hecho["ids"])) \
             if detail else None

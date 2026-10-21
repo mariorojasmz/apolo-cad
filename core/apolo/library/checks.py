@@ -56,7 +56,8 @@ def interference_report(
                 continue
             if _bboxes_overlap(boxes[a.id], boxes[b.id]):
                 candidates.append((a, b))
-    truncated = len(candidates) > MAX_PAIRS
+    n_candidatas = len(candidates)
+    truncated = n_candidatas > MAX_PAIRS
     candidates = candidates[:MAX_PAIRS]
 
     collisions = []
@@ -78,12 +79,16 @@ def interference_report(
             )
 
     collisions.sort(key=lambda c: -c["volumen_mm3"])
-    return {
+    out = {
         "solidos": len(feats),
         "parejas_analizadas": len(candidates),
         "truncado": truncated,
         "interferencias": collisions,
     }
+    if truncated:  # sin caps silenciosos: cuántas quedaron SIN revisar (mcp-sin-friccion D4)
+        out["parejas_candidatas"] = n_candidatas
+        out["parejas_sin_revisar"] = n_candidatas - MAX_PAIRS
+    return out
 
 
 def joint_pairs(doc) -> set[frozenset]:

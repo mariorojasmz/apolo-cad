@@ -117,7 +117,7 @@ def get_scene(
     Para trabajar a ESCALA (miles de piezas) usa los filtros y NO vuelques la escena entera:
     - `summary=true`: entra por aquí — resumen por GRUPO (n_piezas, masa, bbox conjunto,
       sub-grupos) + «(sin grupo)» + totales + variables. La vista de una ojeada del proyecto.
-    - `ids`: lista de feature_ids O NOMBRES DE GRUPO (se expanden a sus piezas) → solo esas.
+    - `ids`: feature_ids o NOMBRES DE GRUPO o de subgrupo (se expanden a sus piezas) → sólo esas.
     - `name`: substring del nombre (case-insensitive), p. ej. "chumacera".
     - `limit` (def. 200) + `offset`: paginación; la respuesta trae `total_filtrado` y
       `truncado` (sin recortes silenciosos). Los briefs filtrados NO traen mallas ni variables
@@ -259,7 +259,8 @@ def run_batch(actions: list[dict], detail: str = "diff", expect: list[dict] | No
     """Ejecuta un lote ordenado de comandos [{type, params}, …]. Usa '$k' en los
     campos de id de feature para referenciar el sólido creado por la k-ésima
     acción del lote. `detail`: "diff" (def.) devuelve solo los sólidos creados por el
-    lote + `total_solidos`; "full" toda la escena; "summary" solo id/nombre.
+    lote + `total_solidos`; "full" toda la escena; "summary" solo id/nombre. Un `fasten` por
+    conjuntos suma `uniones_expandidas` (cuántas uniones declaró cada uno).
     `expect` (CONTRATO, V6.5b) = lista de ASERCIONES estilo verify (distancia/volumen/bbox/
     sin_interferencia/existe) que DEBEN cumplirse tras el lote; si alguna falla, el lote se
     revierte POR COMPLETO (el documento queda intacto, sin escombro) y el error lista lo
@@ -363,7 +364,8 @@ def check_interference(joint_values: dict | None = None, ids: list[str] | None =
     """Interferencias entre sólidos (booleanas OCCT). Con joint_values {junta: valor}
     comprueba la colisión del mecanismo EN POSE. Con `ids` (feature_ids o NOMBRES DE GRUPO)
     ACOTA a las parejas donde participa al menos uno de ellos (O(k·n) en vez de O(n²)):
-    valida TU zona de trabajo tras una operación en vez de la máquina entera. Sin `ids` = global."""
+    valida TU zona de trabajo tras una operación en vez de la máquina entera. Sin `ids` = global,
+    hasta 400 parejas candidatas: con más, `truncado` suma `parejas_sin_revisar` y `como_acotar`."""
     body: dict = {"joint_values": joint_values or {}}
     if ids:
         body["interference_ids"] = ids
@@ -437,8 +439,10 @@ def render_view(
     documento. Combínalo con fit_ids (encuadra en esas piezas) y zoom>1 (acerca) para un primer
     plano que llene el cuadro. (Prefiérelo a set_visibility, que sí muta el documento en vivo.)
     highlight_ids y fit_ids también aceptan nombres de grupo.
-    highlight_ids resalta esos sólidos y atenúa el resto; show_axes dibuja los ejes del origen;
-    show_bbox la caja envolvente de lo resaltado. section ∈ {x,y,z} corta el modelo a la mitad de
+    highlight_ids resalta esos sólidos y atenúa el resto; show_axes dibuja un triedro X/Y/Z en la
+    esquina (no cambia el encuadre); show_bbox la caja envolvente de lo resaltado. Un subgrupo
+    vale también por su último tramo («Rodillos» = «Transportador/Rodillos»).
+    section ∈ {x,y,z} corta el modelo a la mitad de
     ese eje para VER DENTRO (interferencias/encajes ocultos).
     joint_values posa el mecanismo (CINEMÁTICA) antes de renderizar — p. ej. {"j_tensor_cola": 12};
     las juntas dependientes (restricción de riel) se resuelven solas → ves una pose sin mover el
@@ -573,13 +577,8 @@ def apply_configuration(name: str) -> str:
 @mcp.tool()
 def export_step(path: str) -> str:
     """Exporta el modelo a un archivo STEP en la ruta local indicada."""
-    from pathlib import Path
-
     data = _api("GET", "/api/export/step").content
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
-    return f"STEP guardado en {target} ({len(data)} bytes)"
+    return f"STEP guardado en {entregable.escribir(path, data)} ({len(data)} bytes)"
 
 
 @mcp.tool()
@@ -588,13 +587,8 @@ def export_stl(path: str, tolerance: float = 0.5) -> str:
     indicada — para impresión 3D, visores de malla o simuladores externos.
     `tolerance` = desviación máxima de teselado en mm (menor = más fino y pesado).
     Para CAD/interop usa export_step (B-rep exacto); el STL es malla aproximada."""
-    from pathlib import Path
-
     data = _api("GET", "/api/export/stl", params={"tolerance": tolerance}).content
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
-    return f"STL guardado en {target} ({len(data)} bytes)"
+    return f"STL guardado en {entregable.escribir(path, data)} ({len(data)} bytes)"
 
 
 @mcp.tool()
@@ -785,7 +779,7 @@ def delivery_check(con_gravedad: bool = False) -> str:
     ROJO = defecto que el cliente verá (piezas flotantes, colisiones, poses rotas):
     NO ENTREGUES EN ROJO — corrige (declare_structure / ground / fasten / reposiciona)
     y re-corre hasta VERDE o AMARILLO declarando los avisos. `no_aplica` lista lo que
-    no pudo evaluarse — no cuenta como verde. Read-only."""
+    no pudo evaluarse — no cuenta como verde. `tiempos_s`: total y por regla. Read-only."""
     payload = _api("POST", "/api/delivery-check", json={"con_gravedad": con_gravedad}).json()
     return json.dumps(payload, ensure_ascii=False)
 
