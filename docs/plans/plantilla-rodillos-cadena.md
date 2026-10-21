@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F4 mergeadas y re-verificadas por el revisor ciego el 2026-10-21 (sin ALTA); F5 candidata, los pernos niveladores; 4 preguntas a Mario
+nota: F0–F4 mergeadas y re-verificadas por el revisor ciego el 2026-10-21 (sin ALTA); F5 (pies niveladores, v3) implementada en rama, sin mergear; 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -165,6 +165,71 @@ a la altura de trabajo.
   después (como `create_conveyor`).
 
 ## Bitácora
+
+### F5 (2026-10-21): v3 — pie nivelador de catálogo en cada pata
+
+- Archivos:
+  - `library/rodillos_cadena_pies.py` (nuevo, puro): la pila de la pata, `masa_estimada` y
+    `elegir` (la familia);
+  - `rodillos_cadena.py`: `disposicion(anclaje=True)` y el campo `pies`;
+  - `rodillos_cadena_reglas.py`: la regla «pies niveladores», justo después de «carga de diseño»;
+  - `commands/receta_rodillos_cadena.py`: `_pie` (placa de la pata, tuerca, pie y placa de piso);
+  - `models_rodillos_cadena.py`: `anclaje: bool = True`;
+  - `exec_rodillos_cadena.py`: `version=3`. La huella D11 no cambió: el executor es el mismo.
+- Tests: 16 en `tests/test_plantilla_rodillos_f5.py` y 1 con `-m torture` (sin anclaje, 2 m,
+  con gravedad). Se ajustaron los de F2 y F4 que fijaban lo de antes:
+  - 24 fijadores en el acceso de herramienta (las 4 tuercas soldadas también se miden);
+  - la placa que apoya en `position.z` es ahora la de piso;
+  - el travesaño de `libre` va a media pata sobre la pila;
+  - la regla nueva en el conjunto de D9;
+  - `version >= 2`.
+  También `test_contrato_comandos` (campo `anclaje`, v3) y `test_version_comandos`
+  (`create_roller_conveyor@3`).
+- **Cómo es la pata** (desde el piso, con el pie a la mitad del recorrido):
+  1. placa de piso 150 × 150 × 10 con los 2 anclajes Ø14 de siempre (sólo con `anclaje`);
+  2. disco del pie;
+  3. vástago libre;
+  4. tuerca DIN 934 de la rosca del pie, soldada bajo la placa de la pata;
+  5. placa de la pata, con barreno de paso del vástago (ISO 273 media);
+  6. tubo de la pata. El vástago sube por dentro: el TUBO-2X2 es hueco.
+- **Recorrido** = vástago − tuerca: arriba, el vástago engrana la tuerca entera; abajo, el disco
+  toca la tuerca. Se publica ± la mitad.
+- **Medido** (masa real = `scene_mass_properties` del modelo regenerado):
+
+  | máquina | masa real | estimada (sin margen) | patas | pie | carga por pie (real) | recorrido |
+  |---|---|---|---|---|---|---|
+  | 1 m | 105.7 kg | 105.8 kg | 4 | PIE-M8-30 | 77 de 120 kg | ±11.75 mm |
+  | 3 m de F3 (`carga_kg` 200) | 229.9 kg | 230.1 kg | 6 | PIE-M8-30 | 108 de 120 kg | ±11.75 mm |
+  | 4 m, TUBOR-3, `carga_kg` 400 | 421.3 kg | 421.6 kg | 8 | PIE-M10-40 | 154 de 200 kg | ±16 mm |
+  | 1 m libre | 71.8 kg | 71.9 kg | 4 | PIE-M8-30 | 64 de 120 kg | ±11.75 mm |
+
+  - La estimada (catálogo + chapa de las cotas) da lo mismo que el modelo, ±0.1 %. Se usa
+    × 1.10 por la soldadura y la tornillería que el modelo no pesa: en el 3 m, 113 kg por pie.
+  - 3 m: 0 interferencias sin tope y sin excluir lo declarado; el techo de los rodillos sigue
+    en 750; la puerta da VERDE sin truncar.
+  - Tortura D3 con gravedad, VERDE en los 4 tamaños: 52, 77, 145 y 253 s (F4: 49, 85, 114 y
+    127). El de 4 m duplica: suma 24 sólidos al pie de 8 patas. Sin anclaje (2 m): 87 s.
+- **Decisiones que tomó la implementación**:
+  - **Tuerca BAJO la placa**, por fuera del tubo: se suelda y se inspecciona a la vista, y el
+    recorrido es vástago − tuerca. Encima, dentro del tubo, perdería además el espesor de la
+    placa.
+  - **El disco se suelda a la placa de piso** al terminar de nivelar. Si sólo apoyara, el
+    anclaje sujetaría la placa pero no el bastidor. Re-nivelar después pide amolar el cordón.
+  - **Sin `anclaje`** el `ground` va en el pie (disco al piso) y no hay placa de piso.
+  - **Las cotas se arman con la pila del pie MAYOR**: los chequeos de altura mínima y de
+    portamotor quedan del lado seguro. Ya elegido el pie, las patas se alargan lo que baja la pila.
+  - **Si ningún pie alcanza, va el mayor y la regla da error**, no la plantilla: así un log v2
+    con mucha carga sigue regenerando (el mismo criterio del FS < 1 de la cadena en F4).
+  - La regla usa la mayor de dos cargas: `carga_kg` de la plantilla o la ficha llena de
+    paquetes. FS ≥ 1 = ok: el impacto ×1.5 ya es el margen.
+  - Nombres por rol, con la estación de la pata: «Pie nivelador (−Y, alimentación)», «Tuerca
+    soldada del pie (…)», «Placa de la pata (…)», «Placa de piso (…)».
+- **Fuera** (no se decidió):
+  - contratuerca de bloqueo del vástago: el catálogo no la trae y el contrato pide una sola
+    tuerca;
+  - reparto de la carga por pata según el COM (la pata de la motriz lleva el motor): el
+    contrato pide reparto igual × 1.5;
+  - las 4 preguntas a Mario siguen abiertas.
 
 ### F4 (2026-10-21): v2 — guardas cerradas, bandeja, velocidad, tensado y engineering_check
 
