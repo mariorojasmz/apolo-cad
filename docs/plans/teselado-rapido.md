@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito el 2026-10-21 (hito G de docs/hitos.md); nada implementado
+nota: F0 medida, sin mergear (teselar la piloto 176 s → 8,6 s con D1 + D2; 20 cadenas en 3 definiciones); faltan F1 (D1 + D2), F2 (D3, a decidir) y F3
 descripcion: La primera foto, el primer manual o el primer render de una máquina con cadenas sale en segundos, no en minutos
 ---
 
@@ -87,3 +87,51 @@ sola vez y la instancia con su matriz.
   F0 lista si hay matrices con determinante negativo; si las hay, se tratan aparte.
 
 ## Bitácora
+
+### F0 — medición (2026-10-21)
+
+Sobre una copia de `data/apolo.db` (backup de sqlite) con `APOLO_DB`; scripts en el scratchpad,
+no en el repo. Cada modo corrió en su PROPIO proceso: la malla queda guardada en el shape y un
+segundo teselado no paga `BRepMesh`. Ninguna cara traía malla al abrir.
+
+- **Definiciones e instancias.**
+  - Piloto 74: 201 piezas, 136 instancias de **13 definiciones**. Las cadenas son **20**, no 19
+    (19 «rodillo a rodillo» + la motriz), y comparten **3 definiciones**: 10 + 9 rodillo a
+    rodillo (dos fases) y la motriz. Las 40 tuercas M12, los 20 piñones, los 20 rodillos y los
+    20 ejes son una definición cada uno.
+  - Faja 73: 117 piezas, 32 instancias de 13 definiciones, sin cadenas.
+  - **Ninguna matriz tiene determinante negativo ni escala** (en las dos). El espejo se trata
+    igual (invierte el orden de los triángulos) y lo prueba un test; no hay caso real.
+  - En la 74, 98 instancias comparten el TShape con su definición (`place_matrix`); en la 73,
+    ninguna (el open caliente deserializa cada forma aparte).
+- **Tiempo de teselar las piezas visibles** a resolución de render, hasta numpy:
+
+  | | hoy | D1 sólo | D2 sólo | D1 + D2 |
+  |---|---|---|---|---|
+  | piloto 74 | 176 s | 29,8 s | 35,9 s | **8,6 s** |
+  | faja 73 | 20,2 s | — | — | **4,6 s** |
+
+  «Hoy» = `Shape.tessellate` + la conversión a numpy que ya hace `render_comun._xyz`. Con D1 + D2
+  sólo se teselan 3 cadenas (1,6; 2,0 y 3,2 s); el resto de la piloto suma ~2 s.
+- **De qué está hecha una cadena** (56 700 nodos, 690 caras): `BRepMesh` 0,4 s, `faces()` 0,1 s,
+  los nodos con `poly.Node(i).Coord()` 0,6 s y los triángulos con `poly.Triangle(i).Get()` 0,5 s.
+  Recorrer `poly.Triangles()` cuesta 2,7 s: de ahí salían los «~6 s por cadena» de
+  manual-rapido F0. La F1 usa `Triangle(i)`.
+- **D2 contra build123d**: en las 318 piezas de las dos máquinas, los mismos vértices (≤ 1e-9 mm)
+  y los mismos triángulos, en el mismo orden.
+- **D1 contra la malla propia de cada instancia**: en 101 de las 136 instancias de la 74 (las 20
+  cadenas incluidas) es la misma malla (desvío ≤ 2,3e-13 mm). En las otras 35 de la 74 y en 30
+  de las 32 de la 73 los vértices son los mismos, pero `BRepMesh` elige otra diagonal en algunos
+  cuadriláteros (de 4/228 a 1438/2534 triángulos): la superficie es la misma y en una cara curva
+  cambia apenas el sombreado. Es lo que ya ve el visor. El test de PNG lo mide con tolerancia.
+- **D3, tamaño**: las mallas únicas (las definiciones más las piezas sin definición) en
+  float32/int32 pesan 5,9 MB en la 74 (78 mallas; 1,3 MB con zlib) y 2,8 MB en la 73 (98 mallas;
+  0,7 MB con zlib). El blob de la caché de geometría de la 73 pesa hoy 2,4 MB: D3 lo duplicaría
+  en crudo o le sumaría un 30 % comprimido, para ahorrar ≤ 5 s por reinicio en la 73 y ≤ 9 s en
+  la 74. **La piloto 74 no tiene caché de geometría**: `pack` devuelve None porque BinTools no
+  serializa las 10 cadenas c66…c96 (`serialize_robust` da None), así que abre en frío (12 s)
+  siempre. Las dos cosas quedan para decidir en la F2.
+
+**Lo que dice la F0 de las decisiones**: D1, D2 y D4 se sostienen. D3 no se contradice, pero con
+D1 + D2 el frío ya baja a segundos: la F2 decide con estos números (y antes tendría que arreglar
+la caché de la 74).
