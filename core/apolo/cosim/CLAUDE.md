@@ -40,3 +40,13 @@ backend: [core/apolo](../CLAUDE.md).
   (`services/cosim_bandas.py`). Un ajuste obligatorio se lee con `p.ajustado` (así
   `ajustes_faltantes` los junta todos para el ERC y el snapshot), nunca con un `try` propio
   (F6 § Bitácora).
+- **`COSIM_EPOCH`** (`cosim/__init__.py`) entra a la vigencia de un resultado: súbelo cuando un
+  cambio pueda cambiar el resultado o el veredicto de un escenario con el MISMO documento
+  (modelos, redes, planificador, PLC, dinámica, snapshot, lectura o evaluación de aserciones); un
+  refactor sin efecto sólo actualiza la huella de `tests/test_cosim_epoch.py`, que obliga a decidir
+  (sus `ARCHIVOS`: un módulo nuevo que decida el resultado va ahí). Un YAML eléctrico no: sus
+  fichas entran a la firma del documento (F6b § Bitácora).
+- Lo barato va ANTES de preparar la dinámica: los tipos de las aserciones contra la tabla de
+  reposo del tablero (`tipos.py`, la misma que usa `set_scenario`) y la previsión de bandas
+  (`services/cosim_bandas.prever`). La forma sin comparación se concreta por tipo
+  (`aserciones.concretar`) en los dos lados: declarar y veredicto.

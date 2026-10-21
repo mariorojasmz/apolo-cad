@@ -111,7 +111,7 @@ def test_el_programa_saboteado_sale_rojo(c, maquina):
     assert prueba["compila"] and prueba["veredicto"] == "falla" and prueba["escenario"] == "fat"
     fallidas = [a["asercion"] for a in prueba["aserciones"] if not a["pasa"]]
     assert fallidas == ["-K1.%QX0.0 == false dentro_de 0.1 s desde presionar -S0",
-                        "-K1.en_marcha == true nunca desde liberar -S0"]
+                        "-K1.en_marcha nunca desde liberar -S0"]
     assert "-K1.%QX0.0" in prueba["trazas"]["discretas"] and "guardado" not in prueba
     assert c.get("/api/escenarios").json()["escenarios"][0]["estado"] == "pasa"
     # al carril: el resultado verde queda vencido (la máquina cambió) → AMARILLO

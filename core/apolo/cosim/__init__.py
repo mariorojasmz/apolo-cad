@@ -8,3 +8,12 @@
 
 Este `__init__` no importa nada: el worker importa sólo lo que usa, sin OCCT.
 """
+
+#: Versión del MOTOR de la co-simulación y de sus aserciones (V8.3 F6b, defecto 1). Entra a la
+#: vigencia de un resultado de escenario junto con la firma del documento y el hash del
+#: escenario (`services/escenarios.py`): un resultado guardado con otra versión queda
+#: «vencido» (AMARILLO en la puerta). Se SUBE cuando un cambio de código puede cambiar el
+#: resultado o el veredicto de un escenario con el MISMO documento (modelos, redes, planificador,
+#: PLC, dinámica, snapshot, lectura o evaluación de aserciones); un refactor sin efecto no la
+#: sube. `tests/test_cosim_epoch.py` obliga a decidir (regla en `cosim/CLAUDE.md`).
+COSIM_EPOCH = 2

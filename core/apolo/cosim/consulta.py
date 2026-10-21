@@ -9,12 +9,18 @@ eventos) y lo demás lo pide por partes:
   - `final`: los valores al final, filtrados por señal;
   - `trazas`: las señales pedidas (nombre exacto, alias del PLC o patrón con `*`) en una ventana
     de tiempo, paginadas (cambios de una discreta o muestras de las analógicas).
+Las hipótesis (F6b, defecto 3) se repetían enteras en cada corrida (~1,5 KB de 4–5): el compacto
+las trae la PRIMERA vez que salen en el proyecto; si otra corrida ya mostró las mismas (mismo
+`hipotesis_id`), sólo su id, cuántas son y en qué corrida salieron. `resumen` las da siempre
+completas.
 Puro: stdlib, sobre el JSON del resultado.
 """
 
 from __future__ import annotations
 
 import fnmatch
+import hashlib
+import json
 
 from .veredicto import Lector
 
@@ -23,7 +29,26 @@ MAX_SENALES = 20
 PARTES = ("resumen", "eventos", "final", "trazas")
 
 
-def compacto(res: dict, ver: dict, *, simulacion: str, escenario: str | None) -> dict:
+def hipotesis_id(hipotesis: list) -> str:
+    """Un id corto de la lista de hipótesis (las mismas, en el mismo orden → el mismo id)."""
+    texto = json.dumps(list(hipotesis or []), ensure_ascii=False)
+    return "h" + hashlib.sha1(texto.encode("utf-8")).hexdigest()[:8]
+
+
+def _hipotesis(res: dict, vistas_en: str | None) -> dict:
+    lista = res.get("hipotesis") or []
+    hid = hipotesis_id(lista)
+    if not lista or vistas_en is None:
+        return {"hipotesis": lista, "hipotesis_id": hid}
+    return {"hipotesis_id": hid, "hipotesis_repetidas": {
+        "n": len(lista), "como_en": vistas_en,
+        "ver": "las mismas que esa corrida: get_simulation(parte='resumen') las da completas"}}
+
+
+def compacto(res: dict, ver: dict, *, simulacion: str, escenario: str | None,
+             hipotesis_vistas_en: str | None = None) -> dict:
+    """El resumen corto de una corrida. `hipotesis_vistas_en` = la corrida del proyecto que ya
+    mostró estas mismas hipótesis (entonces van sólo por id)."""
     r = res.get("resumen") or {}
     eventos = res.get("eventos") or []
     return {
@@ -33,7 +58,7 @@ def compacto(res: dict, ver: dict, *, simulacion: str, escenario: str | None) ->
                                       "huella", "senales") if k in r},
         "eventos": eventos[:EVENTOS_COMPACTO], "n_eventos": len(eventos),
         "plc": res.get("plc") or {},
-        "avisos": res.get("avisos") or [], "hipotesis": res.get("hipotesis") or [],
+        "avisos": res.get("avisos") or [], **_hipotesis(res, hipotesis_vistas_en),
         "aviso": res.get("aviso"),
         **({"proceso": {k: v for k, v in res["proceso"].items() if k in ("arranque_s", "total_s")}}
            if res.get("proceso") else {}),
@@ -71,7 +96,9 @@ def parte(res: dict, base: dict, que: str, *, senales=None, desde_s=None, hasta_
     lec = Lector(res)
     limite, offset = max(1, min(int(limite), 2000)), max(0, int(offset))
     if que == "resumen":
-        return {**base, "senales": {"discretas": sorted(lec.disc), "analogicas": sorted(lec.an)}}
+        base = {k: v for k, v in base.items() if k != "hipotesis_repetidas"}
+        return {**base, "hipotesis": res.get("hipotesis") or [],
+                "senales": {"discretas": sorted(lec.disc), "analogicas": sorted(lec.an)}}
     if que == "eventos":
         pag, meta = _pagina(res.get("eventos") or [], offset, limite)
         return {"simulacion": base["simulacion"], "eventos": pag, **meta}

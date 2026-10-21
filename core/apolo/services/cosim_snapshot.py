@@ -20,6 +20,11 @@ banda que no avanza con cajas encima o con aserciones es error (`cosim_bandas.ba
 los avisos de la preparación de la dinámica van, con «mecánica: », a los avisos del resultado y
 los ajustes deducidos de la pieza ligada (`Dispositivo.deducidos`), a las hipótesis.
 
+F6b: lo barato va ANTES de preparar la dinámica (cascos e inercias: ~20 s en la faja 73): los
+tipos de las aserciones contra el tablero (`cosim/tipos.py`) y la banda que no avanza, con la
+PREVISIÓN de las bandas (`cosim_bandas.prever`, sin OCCT pesado); el chequeo de bandas se repite
+después sobre la dinámica real, que manda.
+
 Todo error es `ServiceError(400, texto)`. Sin locks: el llamador sostiene STATE_LOCK. Los
 programas salen del carril (`add_program`, F5, ya compilados en el regenerate); `programas=`
 pone otros ENCIMA, por PLC, sin guardarlos (`test_plc`).
@@ -139,7 +144,9 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     from apolo.physics.dinamica import prepare_dynamics
     from apolo.physics.sim import PhysicsError
 
-    from .cosim_bandas import bandas_quietas
+    from apolo.cosim.tipos import revisar, valores_iniciales
+
+    from .cosim_bandas import bandas_quietas, prever
     from .cosim_red import entrada_red
     from .electrico import ajustes_faltantes, modelo, texto_ajustes_faltantes
 
@@ -168,6 +175,14 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     peticion = {**esc.mecanica, "duracion_s": esc.duracion_s, "fps": esc.mecanica.get("fps", 10),
                 "motores": _motores(esc, me, tab.modelos), "sensores": sensores,
                 "productos": [dict(p) for p in esc.productos]}
+    progs = _programas(programas, me)
+    errores, _ = revisar(esc.aserciones, valores_iniciales(dispositivos, progs))
+    if errores:  # F6b: antes de simular, no tras el veredicto
+        raise ServiceError(400, "aserciones: " + " | ".join(errores))
+    prevision = prever(doc.scene, doc.joints, doc.fasteners, doc.grounds, peticion, mates=doc.mates)
+    error = bandas_quietas(doc.scene, esc, prevision) if prevision is not None else None
+    if error:  # F6b: el rechazo no espera los cascos
+        raise ServiceError(400, error)
     try:
         dyn = prepare_dynamics(doc.scene, doc.joints, doc.fasteners, doc.grounds, peticion, mates=doc.mates)
     except PhysicsError as exc:
@@ -181,7 +196,6 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     motores = [AcopleMotor(des, a["junta"], md.nombre, math.copysign(1.0, md.consigna))
                for (des, a), md in zip(esc.motores.items(), dyn.motores)]
     acoples_s = [AcopleSensor(des, _nombre_rayo(des)) for des in esc.sensores]
-    progs = _programas(programas, me)
     try:
         validar(esc, tab, set(dyn.juntas))
     except EscenarioInvalido as exc:

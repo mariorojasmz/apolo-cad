@@ -123,8 +123,9 @@ def registrar(mcp, api, esperar) -> None:
         Ventanas: al_final, en t, dentro_de Δ desde <acción o evento> [y se mantiene D s] (sin
         «y se mantiene» basta TOCAR el valor), siempre/nunca [desde … [+ 50 ms]] (sin margen
         miran también el instante del ancla: el filtro de entrada, el scan y el STO tardan ms).
-        La comparación tipa: un texto con una señal de texto, true/false con una booleana.
-        Córrelo con simulate(escenario="<nombre>"): el resultado queda guardado con su vigencia."""
+        La comparación tipa: un texto con una señal de texto, true/false con una booleana; sin
+        comparación, una booleana es «== true» y un texto «no vacío» (una numérica pide su
+        umbral). Los tipos se revisan AL DECLARAR (400 con la forma correcta). Córrelo con simulate(escenario="<nombre>"): el resultado queda guardado con su vigencia."""
         if escenario is None:
             return json.dumps(api("DELETE", f"/api/escenarios/{nombre}").json(), ensure_ascii=False)
         return json.dumps(api("PUT", f"/api/escenarios/{nombre}", json={"escenario": escenario}).json(),

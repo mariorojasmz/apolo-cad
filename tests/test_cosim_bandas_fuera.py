@@ -106,3 +106,41 @@ def test_la_banda_fuera_por_fijadores_dice_por_que_y_que_declarar(doc):
     esc = leer_escenario({**_escenario(A_MANO, [], cajas=False), "eventos": [
         {"t": 0, "tipo": "producto", "nombre": "lejos", "dims_mm": [100, 100, 100], "posicion_mm": [0, 2000, 900]}]})
     assert bandas_quietas(doc.scene, esc, dyn) is None
+
+
+def test_la_banda_quieta_se_rechaza_antes_de_preparar_la_dinamica(doc, monkeypatch):
+    """F6b, defecto 3: el rechazo no espera los cascos (22 s en la 73); lo da la PREVISIÓN de
+    las bandas (`cosim_bandas.prever`) con la misma lógica pura de la dinámica."""
+    from apolo.services.cosim_bandas import prever
+    from apolo.services.cosim_snapshot import snapshot_cosim
+    from apolo.services.errors import ServiceError
+
+    class Preparo(Exception):
+        pass
+
+    def preparar(*a, **k):
+        raise Preparo
+
+    monkeypatch.setattr("apolo.physics.dinamica.prepare_dynamics", preparar)
+    sin_auto = {"auto_bandas": False}
+    with pytest.raises(ServiceError) as e:
+        snapshot_cosim(doc, _escenario(sin_auto, ["-K1.cuenta >= 0 al_final"]))
+    det = e.value.detail
+    assert det.startswith("mecánica: 'c1_banda' («Faja de banda · Banda») no avanza en esta simulación")
+    assert "el escenario pone caja encima" in det and '"junta_motriz": "eje_motriz"' in det
+    # sin tierra declarada (esta faja la toma de la autodetección) la junta del tambor queda
+    # fuera: la previsión lo dice igual que la dinámica
+    con_bandas = {**sin_auto, "bandas": BANDAS}
+    with pytest.raises(ServiceError, match="su junta motriz 'eje_motriz' quedó fuera"):
+        snapshot_cosim(doc, _escenario(con_bandas, ["-K1.cuenta >= 0 al_final"]))
+    # con autodetección no se puede prever barato: decide la dinámica (el chequeo de después)
+    assert prever(doc.scene, doc.joints, doc.fasteners, doc.grounds, {**A_MANO, "duracion_s": 1}) is None
+    # con el riel a tierra y la banda declarada la previsión no objeta: llega a preparar la dinámica
+    doc.execute("ground", {"name": "piso", "feature": "c1_rail1"})
+    try:
+        p = prever(doc.scene, doc.joints, doc.fasteners, doc.grounds, {**con_bandas, "duracion_s": 1})
+        assert [b.pieza for b in p.bandas] == ["c1_banda"] and p.cuerpos[0]["junta"] == JUNTA
+        with pytest.raises(Preparo):
+            snapshot_cosim(doc, _escenario(con_bandas, ["-K1.cuenta >= 0 al_final"]))
+    finally:
+        doc.undo()

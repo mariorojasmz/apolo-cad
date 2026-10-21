@@ -4,7 +4,7 @@ Una aserción es SEÑAL, COMPARACIÓN, VALOR y VENTANA. Se escribe como texto o 
 
     "-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1"
     "-M1.par_Nm == 0 dentro_de 0,5 s desde presionar -S0"
-    "-Q2.disparado dentro_de 10 s desde atasco"          (sin comparación = «== true»)
+    "-Q2.disparado dentro_de 10 s desde atasco"          (sin comparación: ver abajo)
     "-K1.cuenta == 10 al_final"
     "-T2.f_Hz <= 61 siempre"        "-Q2.disparado nunca"
     "-K1.Main.en_marcha nunca desde liberar -S0"         (siempre/nunca desde un ancla)
@@ -28,6 +28,12 @@ Dos modificadores (V8.3 F6):
   - `dentro_de Δ desde <ancla> y se mantiene [D s]` (`mantener_s`, número o «fin»): no basta
     con TOCAR el valor; desde el primer instante t* ≤ t0 + Δ en que se cumple tiene que seguir
     cumpliéndose D segundos (sin D, hasta el final de la corrida).
+
+Sin comparación (F6b) la aserción pide que la señal SALGA DE SU REPOSO, según su tipo (lo
+resuelve `concretar` cuando se conoce): una booleana «== true»; un texto «no vacío» («!= ""»:
+«-T2.falla dentro_de 1 s desde atasco» = el variador anota una falla); una numérica es error
+(«-M1.rpm > 0 …»: el umbral lo pone quien prueba). La forma se marca `implicita` y su texto
+canónico no lleva comparación.
 
 Valores: número (con coma o punto), true/false (o verdadero/falso) o texto («falla», `""`). Un
 `==` numérico compara con tolerancia (`tol`, 1e-6 por defecto). La comparación TIPA (lo hace
@@ -216,7 +222,8 @@ def leer_asercion(a, k: int, duracion: float, acciones=(), eventos=()) -> dict:
     if not senal or "." not in senal:
         raise AsercionInvalida(f"{donde}: «senal» es «<designación>.<señal>» (D10), p. ej. "
                                "«-M1.rpm», «-Q1.disparado», «-K1.%QX0.0»")
-    op = d.get("op", "==")
+    implicita = d.get("op") is None and d.get("valor") is None
+    op = d.get("op") or "=="
     if op not in OPS:
         raise AsercionInvalida(f"{donde}: comparación «{op}» no válida.{_pista(op, OPS)} "
                                f"Opciones: {' '.join(OPS)}")
@@ -227,7 +234,8 @@ def leer_asercion(a, k: int, duracion: float, acciones=(), eventos=()) -> dict:
     if ventana not in VENTANAS:
         raise AsercionInvalida(f"{donde}: ventana «{ventana}» no válida.{_pista(ventana, VENTANAS)} "
                                f"Opciones: {', '.join(VENTANAS)}")
-    out: dict = {"senal": senal, "op": op, "valor": valor, "ventana": ventana}
+    out: dict = {"senal": senal, "op": op, "valor": valor, "ventana": ventana,
+                 **({"implicita": True} if implicita else {})}
     if ventana == "en":
         t = _numero(d.get("t"), donde, "«t»")
         if not 0 <= t <= duracion + EPS_T:
@@ -274,7 +282,8 @@ def texto(a: dict) -> str:
     """El texto canónico de una aserción normalizada."""
     v = a["valor"]
     v = ("true" if v else "false") if isinstance(v, bool) else (f"{v:g}" if isinstance(v, float) else v)
-    partes = [a["senal"], a["op"], str(v) if v != "" else '""', a["ventana"]]
+    partes = ([a["senal"]] if a.get("implicita") else [a["senal"], a["op"], str(v) if v != "" else '""'])
+    partes.append(a["ventana"])
     if "t" in a:
         partes += [f"{a['t']:g}", "s"]
     if "delta_s" in a:
@@ -288,6 +297,19 @@ def texto(a: dict) -> str:
     if "tol" in a:
         partes += [f"(tol {a['tol']:g})"]
     return " ".join(partes)
+
+
+def concretar(a: dict, tipo: str | None) -> tuple[dict, str | None]:
+    """La forma sin comparación según el tipo de su señal (F6b): (aserción a evaluar, error).
+    Booleana o tipo desconocido → «== true»; texto → «!= ""» (no vacío); numérica → error."""
+    if not a.get("implicita") or tipo in (None, "bool"):
+        return a, None
+    if tipo == "texto":
+        return {**a, "op": "!=", "valor": ""}, None
+    s = a["senal"]
+    return a, (f"«{s}» es numérica y la aserción no dice con qué compararla: la forma sin "
+               f"comparación es para booleanas (== true) y textos (no vacío); escribe el umbral, "
+               f"p. ej. «{s} > 0 {' '.join(texto(a).split()[1:])}»")
 
 
 def leer_aserciones(lista, duracion: float, acciones=(), eventos=()) -> list[dict]:

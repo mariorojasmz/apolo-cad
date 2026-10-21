@@ -96,9 +96,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 
 ## Escenarios de prueba (`escenarios.py`, `cosim_snapshot.py`)
 
-- La vigencia de un resultado es `firma_documento` (log ENTERO + materiales: el carril y los
-  programas cuentan, el color no) + `hash_escenario`; vencido = AMARILLO en la puerta, nunca rojo
-  ni verde. El snapshot toma los programas del carril y `programas=` los pisa por PLC (`test_plc`).
+- La vigencia de un resultado es `firma_documento` (log ENTERO + materiales + las fichas del
+  tablero armado: el carril, los programas y el YAML eléctrico cuentan, el color no) +
+  `hash_escenario` + `COSIM_EPOCH` (regla en [cosim](../cosim/CLAUDE.md); sin el dato = versión 1);
+  vencido = AMARILLO en la puerta, nunca rojo ni verde. El snapshot toma los programas del carril y `programas=` los pisa por PLC (`test_plc`).
   [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D12, D14)
 
 ## Reglas de ingeniería y FEA (`engineering_rules.py`, `fea_rules.py`)

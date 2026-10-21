@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import difflib
 
-from .aserciones import EPS_T, FIN, TOL, texto_ancla
+from .aserciones import EPS_T, FIN, TOL, concretar, texto_ancla
 
 PASA, FALLA, SIN_ASERCIONES = "pasa", "falla", "sin_aserciones"
 #: Una violación de «siempre/nunca desde X» a menos de esto del ancla, sin margen, sugiere el
@@ -75,7 +75,7 @@ class Lector:
             return "numero", x
         return None, x
 
-    def resolver(self, senal: str) -> tuple[str | None, str]:
+    def resolver(self, senal: str, donde: str = "en las trazas") -> tuple[str | None, str]:
         """(nombre en las trazas, '') o (None, por qué). «-K1.cuenta» → «-K1.Main.cuenta» si es
         la única variable `cuenta` de ese PLC; sin distinguir mayúsculas (ST no lo hace)."""
         todos = self.nombres()
@@ -95,7 +95,7 @@ class Lector:
         pista = f" ¿Quisiste decir {', '.join(f'«{c}»' for c in cerca)}?" if cerca else ""
         del_disp = [n for n in todos if n.startswith(des + ".")][:12]
         lista = f" Señales de {des}: {', '.join(del_disp)}." if del_disp and not cerca else ""
-        return None, f"la señal «{senal}» no está en las trazas.{pista}{lista}"
+        return None, f"la señal «{senal}» no está {donde}.{pista}{lista}"
 
     def valor_en(self, n: str, t: float):
         if n in self.disc:
@@ -149,7 +149,7 @@ def _extremo(pts: list, op: str) -> str:
     return f"; entre {_fmt(min(nums))} y {_fmt(max(nums))}"
 
 
-def _tipo_incompatible(n: str, valor, lec: Lector) -> str | None:
+def tipo_incompatible(n: str, valor, lec: Lector) -> str | None:
     """Por qué `valor` no se compara con la señal `n`, o None. Un texto sólo con texto,
     true/false sólo con una booleana, un número con una numérica o booleana (0/1)."""
     tipo, ejemplo = lec.tipo(n)
@@ -169,8 +169,9 @@ def _tipo_incompatible(n: str, valor, lec: Lector) -> str | None:
         como = f"compárala con true o false («{n} == true»)"
     else:
         como = f"compárala con un número («{n} > 0»)"
+    vale = "vacío en reposo" if ejemplo == "" else f"p. ej. «{_fmt(ejemplo)}»"  # F6b: al declarar
     return (f"comparación de tipos: «{n}» es {'un texto' if tipo == 'texto' else 'booleana' if tipo == 'bool' else 'numérica'}"
-            f" (vale p. ej. «{_fmt(ejemplo)}») y la aserción la compara con un {que}: {como}")
+            f" (vale {vale}) y la aserción la compara con un {que}: {como}")
 
 
 def _mantenida(lec: Lector, n: str, pts: list, t0: float, t1: float, a: dict) -> dict:
@@ -210,7 +211,10 @@ def evaluar_una(a: dict, lec: Lector) -> dict:
     if n is None:
         return {**out, "detalle": motivo}
     out["senal"] = n
-    tipo = _tipo_incompatible(n, a["valor"], lec)
+    a, error = concretar(a, lec.tipo(n)[0])  # F6b: la forma sin comparación, según el tipo
+    if error:
+        return {**out, "detalle": error}
+    tipo = tipo_incompatible(n, a["valor"], lec)
     if tipo:
         return {**out, "detalle": tipo}
     op, valor, tol = a["op"], a["valor"], a.get("tol", TOL)

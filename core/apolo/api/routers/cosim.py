@@ -53,6 +53,13 @@ class Simulaciones:
         with self._lock:
             return self._d.get(sim_id)
 
+    def con_hipotesis(self, proyecto, hid: str) -> str | None:
+        """La última corrida EN MEMORIA del proyecto con la misma lista de hipótesis `hid` (F6b):
+        su `resumen` las da completas."""
+        with self._lock:
+            return next((e["id"] for e in reversed(self._d.values())
+                         if e.get("proyecto") == proyecto and e.get("hipotesis_id") == hid), None)
+
     def lista(self) -> list[dict]:
         with self._lock:
             return [{k: e[k] for k in ("id", "proyecto", "escenario", "veredicto", "creado", "prueba_plc")}
@@ -63,7 +70,7 @@ SIMULACIONES = Simulaciones()
 
 
 def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=None) -> dict:
-    from apolo.cosim.consulta import compacto
+    from apolo.cosim.consulta import compacto, hipotesis_id
     from apolo.cosim.proceso import CosimError, correr_en_proceso
     from apolo.cosim.veredicto import evaluar
     from apolo.services import escenarios as E
@@ -89,12 +96,15 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     ver = evaluar(snap.escenario.aserciones, res)  # (c)
     sim_id = "s" + uuid.uuid4().hex[:8]
-    base = compacto(res, ver, simulacion=sim_id, escenario=nombre)
+    hid = hipotesis_id(res.get("hipotesis") or [])
+    previa = SIMULACIONES.con_hipotesis(pid, hid)  # F6b: las mismas ya salieron → sólo el id
+    base = compacto(res, ver, simulacion=sim_id, escenario=nombre, hipotesis_vistas_en=previa)
     if extra:
         base.update(extra)
     SIMULACIONES.guardar({"id": sim_id, "proyecto": pid, "escenario": nombre,
                           "veredicto": ver["veredicto"], "creado": time.strftime("%H:%M:%S"),
-                          "prueba_plc": programas is not None, "res": res, "base": base})
+                          "prueba_plc": programas is not None, "res": res, "base": base,
+                          "hipotesis_id": hid})
     out = dict(base)
     if nombre and guardar:  # (d)
         with STATE_LOCK:

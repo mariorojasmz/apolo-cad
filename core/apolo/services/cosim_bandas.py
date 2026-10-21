@@ -9,19 +9,54 @@ no carga nada. Aquí es ERROR accionable, antes de simular, cuando el escenario:
   - tiene aserciones sobre ella o sobre una pieza que no se mueve («c119.v_m_s»).
 Sin productos ni aserciones sobre ella, no es asunto del escenario: queda el aviso.
 
-`bandas_quietas(scene, esc, dyn)` corre bajo el STATE_LOCK del llamador (lee bboxes OCCT).
+`bandas_quietas(scene, esc, dyn)` corre bajo el STATE_LOCK del llamador (lee bboxes OCCT). `dyn`
+es la dinámica preparada o la PREVISIÓN de `prever` (F6b): las mismas bandas, cuerpos y avisos
+sin cascos ni inercias, para rechazar en milisegundos lo que antes esperaba ~20 s.
 """
 
 from __future__ import annotations
 
 import json
 import re
+from types import SimpleNamespace
 
 #: Rol de una banda (tras el último « · », como `library/rules._BANDA_RE`, sin «faja»: un rol
 #: «Faja …» nombra la máquina, no el lazo).
 _BANDA = re.compile(r"^(bandas?|cintas?)\b", re.I)
 #: Holgura de la huella en planta (mm): una caja apoyada en el borde también va sobre la banda.
 HOLGURA_MM = 5.0
+
+
+def prever(scene: dict, joints: dict, fasteners: dict, grounds: dict, peticion: dict, *,
+           mates=None) -> SimpleNamespace | None:
+    """Lo que `prepare_dynamics` hará con las bandas (cuáles simula, qué cuerpos arma, qué queda
+    fuera y por qué) con su MISMA lógica pura (`detectar_bandas`, `clasificar`), sin cascos.
+    Toma TODAS las piezas no guía (la preparación descarta además las de volumen nulo): sus
+    cuerpos son un superconjunto de los reales, así que nunca acusa de quieta a una banda que la
+    dinámica sí simula. None si no puede preverlo (autodetección, petición inválida): decide la
+    dinámica."""
+    from apolo.physics.banda import detectar_bandas
+    from apolo.physics.dinamica_cuerpos import clasificar
+    from apolo.physics.dinamica_peticion import parse_peticion
+    from apolo.physics.sim import PhysicsError
+
+    try:
+        pet = parse_peticion(peticion)
+        if pet.con_autodeteccion:
+            return None
+        escena = {fid: f for fid, f in scene.items() if not getattr(f, "is_guide", False)}
+        req, virtuales, avisos = detectar_bandas(escena, joints, pet.bandas, pet.auto_bandas)
+    except PhysicsError:
+        return None
+    cls = clasificar(set(escena), {**joints, **virtuales}, fasteners, grounds, mates,
+                     quitar={b[0] for b in req})
+    avisos = avisos + cls.avisos + [f"'{fid}' queda FUERA de la simulación: {m}"
+                                    for fid, m in sorted(cls.fuera.items())]
+    avisos += [f"La banda '{b[0]}' no se simula: su junta motriz '{b[1]}' quedó fuera"
+               for b in req if b[1] not in cls.cuerpos]
+    return SimpleNamespace(bandas=[SimpleNamespace(pieza=b[0]) for b in req if b[1] in cls.cuerpos],
+                           avisos=avisos,
+                           cuerpos=[{"junta": n, "piezas": ps} for n, ps in cls.cuerpos.items()])
 
 
 def _es_banda(fid: str, feat) -> bool:

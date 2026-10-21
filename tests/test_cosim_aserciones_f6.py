@@ -68,7 +68,7 @@ def test_el_margen_en_texto_y_objeto_es_la_misma_asercion():
         "-K1.Main.en_marcha nunca desde presionar -S0 + 50 ms",
         {"senal": "-K1.Main.en_marcha", "ventana": "nunca", "desde": "presionar -S0", "tras_ms": 50}]})
     a, b = esc.aserciones
-    assert a == b and a["texto"] == "-K1.Main.en_marcha == true nunca desde presionar -S0 + 50 ms"
+    assert a == b and a["texto"] == "-K1.Main.en_marcha nunca desde presionar -S0 + 50 ms"
 
 
 # ── defecto 5: «y se mantiene» y la comparación que tipa ────────────────────────────────────
@@ -119,6 +119,7 @@ def test_se_mantiene_en_texto_y_objeto():
     ('-T2.falla != "" dentro_de 1 s desde atasco', True),
     ('-T2.falla == "" al_final', False),
     ("-T2.rele_falla dentro_de 1 s desde atasco", True),
+    ("-T2.falla dentro_de 1 s desde atasco", True),  # F6b: sin comparación, un texto = no vacío
     ("-Q2.disparado == 1 al_final", True),  # una booleana admite 0/1
 ])
 def test_comparaciones_bien_tipadas(asercion, pasa):
@@ -129,7 +130,6 @@ def test_comparaciones_bien_tipadas(asercion, pasa):
 
 @pytest.mark.parametrize("asercion,pista", [
     ("-T2.falla == true dentro_de 1 s desde atasco", "-T2.rele_falla"),
-    ("-T2.falla dentro_de 1 s desde atasco", "«-T2.falla == sobrecorriente»"),
     ("-T2.falla == 1 al_final", "es un texto"),
     ("-M1.rpm == true al_final", "«-M1.rpm > 0»"),
     ("-Q2.disparado == falla al_final", "«-Q2.disparado == true»"),
