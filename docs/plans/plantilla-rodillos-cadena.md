@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F4 mergeadas a main el 2026-10-21 (create_roller_conveyor v2); falta re-verificar por MCP con el revisor ciego y las 4 preguntas a Mario
+nota: F0–F4 mergeadas y re-verificadas por el revisor ciego el 2026-10-21 (sin ALTA); F5 candidata, los pernos niveladores; 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -461,3 +461,26 @@ Sesión nueva `claude -p --model opus` sobre la flota (:8100): proyecto 79
 Bien según el revisor: el acceso a la tuerca M12 (35,4 mm), que el motor sale sin quedar atrapado
 y cero interferencias. Los defectos de la plantilla van al hito I de [hitos](../hitos.md) y a
 [defectos](../defectos.md).
+
+### F4b (2026-10-21): re-verificación con el revisor de taller ciego
+
+El mismo prompt de F3 (`docs/revisor-de-taller.md`, sólo lectura) sobre el proyecto 79 regenerado
+con v2, en la flota (:8100): 7 min, 20 turnos, 1,17 USD.
+- **Las 2 ALTA de F3 quedaron cerradas**: el revisor ve las guardas cerradas por la bandeja y la
+  tapa, con 0 interferencias y gravedad estable. No halló ninguna ALTA nueva.
+- `engineering_check` del 79: producto a 0,266 m/s ok, rodillo ok, motor FS 4,44 ok, tensado
+  +8,8 / −3 mm ok, cadena FS 1,09 aviso, carga de diseño **error** (7 × 25 = 175 kg contra 150).
+- **Las 5 MEDIA**:
+  1. «La base del motor no tiene ojales: no se tensa». **Falso positivo**: el recorrido está en las
+     orejas ranuradas del portamotor (D7). Los pernos y las ranuras no son sólidos y el revisor no
+     los ve. La cadena motriz con 11,5 pasos entre centros y piñón Z15 (< 17) sí es real: queda
+     como aviso.
+  2. Travesaño de la alimentación soldado vs portamotor con orejas apernadas. Es lo que pide D7;
+     es pregunta de criterio, no defecto.
+  3. Carga de diseño 175 > 150 kg. Es de la FICHA del 79 (6 cajas acumuladas contra 7 que caben):
+     la decide el cliente.
+  4. «v = 0,32 m/s». Es la velocidad de la cadena, no la del producto (0,266): el revisor la leyó
+     mal, como en F3.
+  5. **Placas base lisas, sin pernos niveladores**: un bastidor soldado de 3 m con 6 apoyos sobre
+     concreto no se puede nivelar ni ajustar a 750 mm. **Real**: queda como F5 candidata (patas
+     con niveladores de catálogo).
