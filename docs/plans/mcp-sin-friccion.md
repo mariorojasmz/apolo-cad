@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2 mergeadas a main el 2026-10-21; F3 (D6, declare_structure con criterio) implementada en rama, sin mergear; falta F4 (verificación por MCP)
+nota: F0–F3 mergeadas a main el 2026-10-21; falta F4 (verificación por MCP). Vetables de F3: lo que gira junto se suelda (contra D2 de uniones-en-lote) y el cárter de la plantilla soldado a la base del motor
 descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respuestas cortas, errores que dicen cómo seguir y propuestas de estructura que no sueldan lo que se atornilla
 ---
 
