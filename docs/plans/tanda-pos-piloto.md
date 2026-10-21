@@ -34,8 +34,9 @@ Planes de la tanda (cada uno con su contrato, decisiones y fases):
   concurrentes): los merges son en serie aunque los agentes trabajen en paralelo.
 - **Las tools MCP nuevas sólo se ven tras reiniciar el host MCP** (raíz § Ejecutar y probar):
   las verificaciones por MCP van en una sesión NUEVA, después de mergear y reiniciar la API.
-- **Una máquina a la vez** en la API (raíz § Planes): las fases que tocan un proyecto por MCP,
-  de una en una.
+- **Una máquina por proceso de la API** (raíz § Planes): las fases que tocan un proyecto por MCP
+  van de a una por proceso; varias a la vez, con `scripts/flota.py`
+  ([varias-maquinas-a-la-vez](varias-maquinas-a-la-vez.md)).
 
 ## Decisiones (para vetar)
 

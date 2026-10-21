@@ -465,7 +465,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--puerto", type=int, default=8012, help="puerto de la API (def. 8012)")
     ap.add_argument("--proyecto", type=int, default=38, help="id del proyecto (def. 38)")
     ap.add_argument("--variable", help="NOMBRE=EXPR para set_variable (def. la 1.ª × 1.1)")
-    ap.add_argument("--tools", type=int, default=79, help="nº de tools esperado (def. 79)")
+    ap.add_argument("--tools", type=int, default=87, help="nº de tools esperado (def. 87)")
     ap.add_argument("--espera", type=float, default=300.0,
                     help="segundos que el cliente espera cada tool (def. 300)")
     ap.add_argument("--md", action="store_true", help="repite la tabla en Markdown")
