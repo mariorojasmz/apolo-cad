@@ -59,6 +59,7 @@ repite va en una plantilla, para que cada lección quede dentro una sola vez.
   contra la piloto.
 - **F4 (M, `commands` + `library`)**: los defectos que el revisor de taller ciego halló en la
   plantilla (§ Bitácora F3), con el contrato de abajo. `create_roller_conveyor` sube a v2.
+- **F5 (S, `commands` + `library`)**: pies niveladores (§ Bitácora F4b), contrato abajo; v3.
 
 ### F4 — contrato
 
@@ -122,6 +123,26 @@ tensado: lo arregla la plantilla, que es donde vive la lección.
   ranuras dan ≥ el recorrido pedido sobre la línea de centros; `engineering_check` la reconoce;
   un log v1 regenera con las mismas cotas de rodillos, cadenas y motor (cambian guardas, base,
   travesaños) y la `version` invalida su caché.
+
+### F5 — contrato (niveladores)
+
+Porqué: el revisor ciego de F4b halló placas base lisas, soldadas, con 2 anclajes y sin
+nivelación. Un bastidor soldado de 3 m con 6 apoyos sobre concreto no se puede nivelar ni ajustar
+a la altura de trabajo.
+
+- **D10. Pie nivelador de catálogo en cada pata** (`97_pies_niveladores.yaml`, el mismo que usa
+  `belt_conveyor.py`). La familia sale de la carga por pata: (masa de la máquina + carga de diseño)
+  / patas × 1,5 de impacto, contra `carga_kg` del pie. La placa de la pata lleva la tuerca soldada
+  (rosca del pie) y el disco apoya en el piso.
+  - Con `anclaje: true` (default de los logs viejos = el comportamiento de hoy) se conservan los 2
+    agujeros de anclaje en una placa de piso aparte bajo el disco. Así el bastidor se nivela y
+    después se ancla.
+  - La altura de trabajo sigue siendo `altura` con el pie a la mitad de su recorrido: la pata se
+    acorta lo que mide el pie.
+  - Recorrido de nivelación publicado (± mm) en `engineering_check` y en la memoria.
+- **Tests**: el 3 m regenera con 0 interferencias; el techo del rodillo sigue en `altura`; cada
+  pie con carga ≤ su `carga_kg`; gravedad verde (tortura); un log v2 sigue regenerando y la
+  `version` sube a 3.
 
 **Preguntas para Mario** (el revisor las dejó como pregunta; F4 NO las decide):
 - ¿Los lazos rodillo a rodillo necesitan tensado? Hoy: ejes fijos con 1 M12 y eslabones exactos
