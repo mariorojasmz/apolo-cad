@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 y F1 en main (primer render_view de la piloto 218 s → 21 s; manual en frío 226 s → 46 s); F2 hecha, sin mergear (la piloto 74 y el layout 53 ya tienen caché de geometría y abren en 0,2 s; D3 descartado); falta F3
+nota: F0 y F1 en main (primer render_view de la piloto 218 s → 21 s; manual en frío 226 s → 46 s); F2 en main (2026-10-21: la piloto 74 y el layout 53 ya tienen caché de geometría y abren en 0,2 s; D3 descartado); falta F3
 descripcion: La primera foto, el primer manual o el primer render de una máquina con cadenas sale en segundos, no en minutos
 ---
 
