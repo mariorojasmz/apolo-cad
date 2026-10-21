@@ -77,6 +77,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-20 | V8.3 | F2 | M | 40 | 398 | modelos de dispositivo + catálogo eléctrico completo, 102 tests |
 | 2026-10-20 | varias-maquinas-a-la-vez | F0+F1 | S+S | 67 | 241 | F0 midió RAM, locked con 5 procesos y el log que pierde líneas; F1 WAL + APOLO_PROJECT + identidad |
 | 2026-10-20 | V8.3 | F3 | M | 59 | 478 | red de mando MNA + potencia fasorial, 35 tests |
+| 2026-10-20 | seta-de-emergencia | F0+F1 | S+M | 72 | 358 | zonas de acabado por pieza + builder de la seta + 2 refs + epoch 6 |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
