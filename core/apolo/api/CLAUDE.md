@@ -212,6 +212,15 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   `apolo/anexar.py` (append atómico del sistema): nunca un `logging.FileHandler` ni `open('a')`,
   que en Windows pierden líneas entre procesos. El puerto, de `apolo/identidad.py`
   (`APOLO_PORT` o el `--port` de uvicorn). [varias-maquinas](../../../docs/plans/varias-maquinas-a-la-vez.md) (F0)
+- **Candado por proyecto** (`candado.py`, tabla `project_leases`): abrir, crear y restaurar
+  toman el del proyecto y sueltan el que se deja (`cambio_a`/`tras_crear`, DENTRO de
+  `_project_switch`); uno de otro proceso vivo → 409 «El proyecto 74 está abierto en el puerto
+  8102 (pid 1234)», también al borrar. Un cambio de documento activo nuevo usa esos dos. Dueño
+  `host:pid:puerto`, fijo por proceso (la suite reabre sin 409). Muerto = latido ≥ 30 s o, en
+  esta máquina, pid inexistente (el `--reload` mata al worker sin shutdown). El latido (hilo
+  daemon, 10 s) NO toma `STATE_LOCK`. `_flush_body` escribe sólo si `asegurar` lo deja (nunca
+  roba uno ajeno, aunque venza); si no, `autosave_error`. Un almacén sin `tomar_candado` (los
+  falsos de los tests) no usa candados. [varias-maquinas](../../../docs/plans/varias-maquinas-a-la-vez.md) (D4)
 
 ## Tests de la API
 

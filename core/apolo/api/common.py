@@ -33,6 +33,7 @@ from apolo.services.lookup import suggest_suffix
 from apolo.services.stackup_eval import stackup_rules
 from apolo.state import STATE_LOCK
 
+from . import candado  # noqa: F401 — kit de los routers: el candado por proyecto (D4)
 from .autosave import (  # el resto, kit de los routers: lo importan de AQUÍ (gate de capas)
     _autosave,
     _autosave_sched,  # noqa: F401

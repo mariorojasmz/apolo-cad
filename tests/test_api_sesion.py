@@ -178,10 +178,11 @@ CAPAS_API = {
     "jobs": set(),
     "ws": set(),
     "guardia_documento": set(),  # recibe el documento: no lee `S` (chat-cliente-igual D3)
-    "session": {"errorlog"},
-    "autosave": {"session", "ws", "errorlog"},
+    "candado": {"errorlog"},  # recibe el almacén: no lee `S` (varias-maquinas D4)
+    "session": {"errorlog", "candado"},
+    "autosave": {"session", "ws", "errorlog", "candado"},
     "scene": {"session"},
-    "common": {"session", "scene", "autosave", "ws", "jobs", "guardia_documento"},
+    "common": {"session", "scene", "autosave", "ws", "jobs", "guardia_documento", "candado"},
     "sims": {"session", "common"},
     "fea_runs": {"session", "autosave", "guardia_documento"},
     "routers": set(),

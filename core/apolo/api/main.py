@@ -40,6 +40,7 @@ from apolo.services.installation_data import installation_data as _installation_
 from apolo.services.lookup import suggest_ids
 from apolo.state import STATE_LOCK  # noqa: F401 — D4: los tests lo toman de aquí
 
+from . import candado
 from .autosave import (  # D4: por IDENTIDAD (los tests usan los mismos objetos)
     _autosave_sched,  # noqa: F401
     _flush_autosave,
@@ -106,13 +107,18 @@ async def _capture_loop() -> None:
     session_marker("Inicio de sesión del servidor")
     prewarm_sandbox()  # en un hilo; antes del reciente: su replay usa el worker que ya arranca
     initialize_store(_paths.db_path())
+    # candado del proyecto abierto (D4 de varias-maquinas): late mientras el proceso viva
+    candado.iniciar_latido(lambda: (S.store, S.project_id))
 
 
 @app.on_event("shutdown")
 async def _flush_on_shutdown() -> None:
     """Al apagar, vuelca cualquier autosave pendiente (V6.2d): la ventana de debounce no
-    puede tragarse un cambio si el server se cierra dentro de ella."""
+    puede tragarse un cambio si el server se cierra dentro de ella. Después suelta el candado
+    del proyecto (D4): otro proceso lo puede abrir sin esperar a que venza."""
     _flush_autosave()
+    candado.detener_latido()
+    candado.soltar(S.store, S.project_id)
 
 
 # -------------------------------------------------------- registro de errores

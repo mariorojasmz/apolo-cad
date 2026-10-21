@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from apolo.doc import Document
 from apolo.state import STATE_LOCK
 
+from . import candado
 from .errorlog import log_error
 
 if TYPE_CHECKING:  # el almacén se importa perezoso en el arranque (sqlite no carga con la API)
@@ -104,7 +105,8 @@ def initialize_store(db_path: str) -> None:
     (suprime comandos rotos en vez de negar la apertura); si ni así abre (ZIP roto), o el
     pedido no existe, se deja STARTUP_ERROR + un doc VACÍO en memoria con PROJECT_ID=None y NO
     se crea un 'Sin título' que PISE al reciente como más nuevo. STORE.create sólo cuando la BD
-    está de verdad VACÍA y nadie pidió un proyecto."""
+    está de verdad VACÍA y nadie pidió un proyecto. Toma el candado del que abre (D4): si lo
+    tiene otro proceso vivo, mismo fallo de arranque con su mensaje."""
 
     from apolo.projects import ProjectStore
 
@@ -131,11 +133,18 @@ def initialize_store(db_path: str) -> None:
             if objetivo is None:
                 S.doc = Document()
                 S.project_id = S.store.create(S.doc)
+                candado.tomar(S.store, S.project_id)  # id nuevo: nadie más lo tiene
                 return
             cual = f"reciente {objetivo}"
+        try:  # D4: el candado ANTES de cargar; si es de otro proceso vivo, no se abre
+            candado.tomar(S.store, objetivo)
+        except candado.ProyectoOcupado as exc:
+            _fallo_de_arranque(f"No se abrió el proyecto {cual}: {exc.detail}")
+            return
         try:
             S.doc = S.store.load(objetivo, tolerant=True)
             S.project_id = objetivo
         except Exception as exc:
             # el autosave no-opea → NO se sobrescribe el proyecto corrupto
+            candado.soltar(S.store, objetivo)
             _fallo_de_arranque(f"No se pudo abrir el proyecto {cual}: {exc!r}")

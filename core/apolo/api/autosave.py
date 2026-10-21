@@ -20,6 +20,7 @@ import time
 
 from apolo.state import STATE_LOCK
 
+from . import candado
 from .errorlog import log_error
 from .session import S
 from .ws import WS
@@ -79,10 +80,18 @@ def _flush_body() -> None:
         if delay:
             time.sleep(delay)
         try:
-            store.save_raw(project_id, name, pieces, data)  # durabilidad: reintentado
+            # D4 (varias-maquinas): sólo se escribe con el candado del proyecto en mano
+            otro = candado.asegurar(store, project_id)
+            if otro is None:
+                store.save_raw(project_id, name, pieces, data)  # durabilidad: reintentado
         except Exception as exc:  # noqa: BLE001 — el autosave nunca rompe la operación
             last = exc
             continue
+        if otro is not None:  # lo tiene otro proceso: escribir pisaría su trabajo
+            S.autosave_error = candado.mensaje_perdido(project_id, otro)
+            log_error("backend.autosave", S.autosave_error)
+            WS.notify_changed({"type": "autosave_failed", "error": S.autosave_error})
+            return
         S.autosave_error = None
         if geom_blob is not None:  # caché de geometría: BEST-EFFORT (no re-guarda el .apolo si falla)
             try:

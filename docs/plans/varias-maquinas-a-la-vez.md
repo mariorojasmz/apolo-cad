@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida (corrigió D5–D7) y F1 implementada (WAL, APOLO_PROJECT, identidad); faltan F2–F4
+nota: F0 medida (corrigió D5–D7), F1 (WAL, APOLO_PROJECT, identidad) y F2 (candado por proyecto) implementadas; faltan F3–F4
 descripcion: Varios agentes modelan máquinas distintas a la vez, cada una en su propio proceso de la API, sin pisarse ni perder guardados
 ---
 
@@ -301,3 +301,59 @@ los puertos de D5/D6, el append atómico de D7 y su test en F1, y los números d
   `APOLO_PROJECT=74` el health dio `{pid, puerto: 8111, proyecto: {id: 74, nombre:
   "transportador-rodillos-cadena-2m"}}` y 201 sólidos, y el pid es del árbol lanzado; con 999,
   `ok: false`, `startup_error` y la copia siguió con sus 30 proyectos. La copia quedó en WAL.
+
+### F2 — candado por proyecto (2026-10-20)
+
+- **Almacén** (`core/apolo/projects.py`): tabla `project_leases` con `CREATE TABLE IF NOT
+  EXISTS` (una base vieja la gana sola) y `latido_at` en UTC de ancho fijo, comparado como texto
+  en SQL. Cada operación es UNA sentencia condicional en su transacción (upsert con `WHERE`, o
+  `UPDATE … WHERE dueno=?`): dos procesos no ganan el mismo candado. `tomar_candado` (libre, mío
+  o latido ≥ 30 s), `asegurar_candado` (el del autosave: mío o libre, **nunca** uno ajeno aunque
+  venza: si otro lo tuvo, éste lo perdió), `robar_candado` (compare-and-swap), `latir`,
+  `soltar`, `candado`, `candado_vivo_ajeno`. `delete` borra el candado del proyecto.
+- **API** (`core/apolo/api/candado.py`, capa nueva sobre `errorlog`; los routers lo toman de
+  `common`): dueño `host:pid:puerto` fijado UNA vez por proceso (recalcula sólo si cambia el
+  pid), así la suite, con cientos de almacenes y TestClient en un proceso, reabre sin 409.
+  `cambio_a` envuelve la carga y el swap DENTRO de `_project_switch` (open por id y restore):
+  toma antes de cargar, suelta el nuevo si la carga lanza y el anterior si sale bien;
+  `tras_crear` para crear, `project/new` y `project/open` (upload). `initialize_store` toma el
+  del que abre; tomado por otro vivo → el mismo fallo de arranque de D3 con el mensaje. El
+  shutdown para el latido y suelta. `_flush_body` llama `asegurar` dentro de cada reintento,
+  justo antes de `save_raw`; si es ajeno no escribe, deja `autosave_error` («No se guardó: este
+  proceso perdió el candado…») y avisa por WS. El latido (hilo daemon cada 10 s, lo arranca el
+  `startup` de `main`) **no toma `STATE_LOCK`**: un regenerate de 40 s dejaría vencer el candado.
+- **Decisiones fuera de la letra del contrato**:
+  1. *Pid muerto en la misma máquina = dueño muerto*, aunque su latido sea fresco
+     (`OpenProcess` + `GetExitCodeProcess` en Windows; `os.kill(pid, 0)` en POSIX, que en
+     Windows mandaría un CTRL_C). Sin esto el `:8000` con `--reload` se rompía: el reloader mata
+     al worker con `TerminateProcess`, sin shutdown, y el nuevo (otro pid) encontraba el candado
+     del muerto con latido fresco → arranque sin proyecto. Un pid reciclado sólo cuesta esperar
+     los 30 s.
+  2. *Borrar* un proyecto con candado vivo de otro proceso da el mismo 409: su autosave haría
+     `UPDATE` sobre una fila que ya no existe y perdería el trabajo sin aviso.
+  3. *Un candado ausente lo toma el autosave* (`asegurar`): los tests fijan `PROJECT_ID` sin
+     abrir por el endpoint, y en un proceso real con latido no ocurre.
+  4. *Un almacén sin `tomar_candado`* (los falsos de la tortura y de `insert_project`) no usa
+     candados: todo no-op, escribe como siempre.
+- **Tests** (`tests/test_candado_proyecto.py`, 17): la tabla en una base vieja; las
+  operaciones del almacén; borrar suelta; dueño fijo por proceso; el texto del mensaje; 409 con
+  el mensaje exacto y nada cambia; latido de 30 s se toma; pid muerto de esta máquina se toma;
+  cambiar de proyecto (y `project/new`) suelta el anterior; un open que falla no deja candado ni
+  suelta el actual; restaurar una revisión de un proyecto ajeno → 409; borrar uno ajeno → 409;
+  el autosave sin candado no escribe y deja `autosave_error` (y health lo publica); el latido
+  renueva; el `:8000` de siempre abre, guarda y re-arranca sin 409; arranque con el proyecto
+  tomado → `startup_error`; **dos procesos reales**: un hijo abre A con `initialize_store` y
+  late, éste recibe el 409 con el pid y el puerto del hijo, B abre, y al matar al hijo sin
+  soltar A se toma enseguida (~20 s, casi todo el import del hijo). Ojo medido: el `python.exe`
+  de un venv en Windows es un lanzador con OTRO pid; el pid que vale es el que informa el hijo.
+- **Golden**: los 30 proyectos de una COPIA de `data/apolo.db` abiertos por
+  `POST /api/projects/{id}/open`, uno tras otro, con el código de `main` y con el de F2 (cada uno
+  sobre su copia): los 30 dan 200 con los mismos features (1857), el mismo log y los mismos
+  suprimidos. Al terminar, sólo el último abierto conserva candado: cada cambio soltó el anterior.
+- **En vivo**, sobre otra copia, dos uvicorn reales en `:8100` (A, `APOLO_PROJECT=74`) y `:8101`
+  (B, 38), muertos al terminar (`Get-NetTCPConnection` sin nada en 8100–8200): B abre 74 → 409
+  «El proyecto 74 está abierto en el puerto 8100 (pid 30196)», con el pid real de A; B abre 28 →
+  200 y suelta el 38; el latido de A avanza; un `set_variable` en A llega al disco sin
+  `autosave_failed`; A muerto con `taskkill /F` (sin shutdown) → B abre 74 al instante (pid
+  muerto). Un tercero SIN `APOLO_PROJECT` (como el `:8000`) abre el reciente (74, cuyo dueño B
+  también murió a la fuerza) y guarda.

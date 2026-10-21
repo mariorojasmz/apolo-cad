@@ -11,7 +11,7 @@ import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from apolo.doc import Document
@@ -22,9 +22,19 @@ from apolo.doc import Document
 #: que los 5 s por defecto de sqlite3 no alcanzan.
 BUSY_TIMEOUT_S = 30.0
 
+#: un candado cuyo latido tiene esta edad o más es de un dueño muerto y se toma (D4)
+CANDADO_VENCE_S = 30.0
+
 
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def _utc(desfase_s: float = 0.0) -> str:
+    """Hora UTC de ancho fijo para `latido_at`: se compara como TEXTO en SQL (orden
+    lexicográfico = cronológico) y no depende del huso de cada proceso."""
+    return (datetime.now(timezone.utc) + timedelta(seconds=desfase_s)).strftime(
+        "%Y-%m-%dT%H:%M:%S.%f")
 
 
 class ProjectStore:
@@ -67,6 +77,14 @@ class ProjectStore:
                     sig TEXT NOT NULL,
                     data BLOB NOT NULL,
                     updated_at TEXT NOT NULL
+                );
+                -- Candado por proyecto entre procesos (plan varias-maquinas-a-la-vez, D4):
+                -- `dueno` = host:pid:puerto, `latido_at` = UTC de `_utc`. Sin FK: `delete`
+                -- borra el suyo. Una base vieja la gana sola (IF NOT EXISTS).
+                CREATE TABLE IF NOT EXISTS project_leases(
+                    project_id INTEGER PRIMARY KEY,
+                    dueno TEXT NOT NULL,
+                    latido_at TEXT NOT NULL
                 );
                 """
             )
@@ -200,6 +218,7 @@ class ProjectStore:
         # geom_cache cascada por la FK; revisions también (ON DELETE CASCADE + PRAGMA)
         with self._conn() as con:
             con.execute("DELETE FROM projects WHERE id=?", (project_id,))
+            con.execute("DELETE FROM project_leases WHERE project_id=?", (project_id,))
 
     def duplicate(self, project_id: int, new_name: str | None = None) -> int:
         doc = self.load(project_id)
@@ -215,6 +234,80 @@ class ProjectStore:
         with self._conn() as con:
             row = con.execute("SELECT id FROM projects ORDER BY updated_at DESC LIMIT 1").fetchone()
         return int(row[0]) if row else None
+
+    # ------------------------------------------------- candados entre procesos (D4)
+    # Cada operación es UNA sentencia condicional (upsert o UPDATE con WHERE) en su
+    # transacción: dos procesos que compiten por el mismo candado no pueden ganarlo los dos.
+    # Devuelven None si el candado quedó (o sigue) de `dueno`; si no, el dueño ajeno.
+    def _upsert_candado(self, project_id: int, dueno: str, cuando: str, args: tuple) -> str | None:
+        with self._conn() as con:
+            cur = con.execute(
+                "INSERT INTO project_leases(project_id, dueno, latido_at) VALUES(?,?,?) "
+                "ON CONFLICT(project_id) DO UPDATE SET dueno=excluded.dueno, "
+                f"latido_at=excluded.latido_at WHERE {cuando}",
+                (project_id, dueno, _utc(), *args),
+            )
+            if cur.rowcount:
+                return None
+            row = con.execute(
+                "SELECT dueno FROM project_leases WHERE project_id=?", (project_id,)
+            ).fetchone()
+        return row[0] if row else None
+
+    def tomar_candado(self, project_id: int, dueno: str, *,
+                      vence_s: float = CANDADO_VENCE_S) -> str | None:
+        """Abrir: lo toma si está libre, ya es de `dueno` o su latido tiene ≥ `vence_s`."""
+        return self._upsert_candado(
+            project_id, dueno,
+            "project_leases.dueno = excluded.dueno OR project_leases.latido_at <= ?",
+            (_utc(-vence_s),))
+
+    def asegurar_candado(self, project_id: int, dueno: str) -> str | None:
+        """Autosave: sigue siendo de `dueno` (y late) o, si nadie lo tiene, lo toma. Uno ajeno
+        NO se toma aunque su latido haya vencido: si otro lo tuvo, este proceso lo perdió."""
+        return self._upsert_candado(
+            project_id, dueno, "project_leases.dueno = excluded.dueno", ())
+
+    def robar_candado(self, project_id: int, dueno: str, de: str) -> bool:
+        """Lo pasa a `dueno` sólo si sigue siendo de `de` (un dueño que se sabe muerto)."""
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE project_leases SET dueno=?, latido_at=? WHERE project_id=? AND dueno=?",
+                (dueno, _utc(), project_id, de),
+            )
+            return bool(cur.rowcount)
+
+    def latir_candado(self, project_id: int, dueno: str) -> bool:
+        """Renueva el latido; False si el candado ya no es de `dueno` (no lo re-toma)."""
+        with self._conn() as con:
+            cur = con.execute(
+                "UPDATE project_leases SET latido_at=? WHERE project_id=? AND dueno=?",
+                (_utc(), project_id, dueno),
+            )
+            return bool(cur.rowcount)
+
+    def soltar_candado(self, project_id: int, dueno: str) -> None:
+        with self._conn() as con:
+            con.execute(
+                "DELETE FROM project_leases WHERE project_id=? AND dueno=?", (project_id, dueno))
+
+    def candado(self, project_id: int) -> tuple[str, str] | None:
+        """(dueno, latido_at) del candado, o None si está libre."""
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT dueno, latido_at FROM project_leases WHERE project_id=?", (project_id,)
+            ).fetchone()
+        return (row[0], row[1]) if row else None
+
+    def candado_vivo_ajeno(self, project_id: int, dueno: str, *,
+                           vence_s: float = CANDADO_VENCE_S) -> str | None:
+        """El dueño de un candado AJENO con latido de menos de `vence_s`, o None."""
+        with self._conn() as con:
+            row = con.execute(
+                "SELECT dueno FROM project_leases WHERE project_id=? AND dueno<>? "
+                "AND latido_at > ?", (project_id, dueno, _utc(-vence_s)),
+            ).fetchone()
+        return row[0] if row else None
 
     # ------------------------------------------------------------ revisiones
     def save_revision(self, project_id: int, doc: Document, note: str) -> int:

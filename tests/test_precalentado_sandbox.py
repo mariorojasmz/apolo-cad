@@ -25,6 +25,8 @@ def arranque(monkeypatch, tmp_path):
     monkeypatch.setattr(sandbox, "prewarm", lambda: llamadas.append("prewarm"))
     monkeypatch.setattr(api, "initialize_store", lambda path: llamadas.append("store"))
     monkeypatch.setattr(api, "session_marker", lambda *a, **k: None)
+    # sin el hilo del latido del candado (varias-maquinas D4): viviría el resto de la suite
+    monkeypatch.setattr(api.candado, "iniciar_latido", lambda *a, **k: None)
     monkeypatch.setattr(WS, "loop", WS.loop)  # el startup captura un loop que aquí se cierra
     monkeypatch.setenv("APOLO_DB", str(tmp_path / "apolo.db"))  # `db_path` crea su carpeta
 

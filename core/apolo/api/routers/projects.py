@@ -3,7 +3,9 @@
 Router de la API (F6b del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
 `main.py`. Todo cambio de documento activo pasa por `_project_switch()` (flush del actual +
 swap ATÓMICO bajo `_flush_lock → STATE_LOCK`) y swapea `S.doc`/`S.project_id`, nunca un
-global. Un proyecto abierto por upload o nuevo recibe id PROPIO.
+global. Un proyecto abierto por upload o nuevo recibe id PROPIO. Abrir, crear o restaurar
+toma el candado del proyecto y suelta el del que se deja (D4 de
+`docs/plans/varias-maquinas-a-la-vez.md`): uno abierto en otro proceso vivo da 409.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from apolo.state import STATE_LOCK
 
 from ..common import (
     WS,
+    candado,
     _flush_autosave,
     _project_switch,
     _state_or_error,
@@ -52,7 +55,8 @@ def create_project(body: ProjectIn) -> dict:
             S.doc.execute("create_conveyor", {"largo": "=L", "ancho": 600, "altura": 750, "paso": 100})
         elif body.template == "brazo":
             S.doc.execute("create_robot_arm", {"name": "Robot", "alcance": 700})
-        S.project_id = store.create(S.doc)
+        actual, S.project_id = S.project_id, store.create(S.doc)
+        candado.tras_crear(store, S.project_id, actual)
         payload = scene_payload()
     WS.notify_changed()
     return payload
@@ -62,13 +66,14 @@ def create_project(body: ProjectIn) -> dict:
 def open_project_by_id(project_id: int) -> dict:
     store = _store_required()
     with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO (sin corrupción cruzada)
-        try:
-            S.doc = store.load(project_id, tolerant=True)  # suprime comandos rotos (schema drift)
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except DocumentError as exc:  # ZIP roto / no regenera: 400 claro (antes: 500 opaco)
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        S.project_id = project_id
+        with candado.cambio_a(store, project_id, S.project_id):  # D4: 409 si es de otro vivo
+            try:
+                S.doc = store.load(project_id, tolerant=True)  # suprime comandos rotos (drift)
+            except KeyError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            except DocumentError as exc:  # ZIP roto / no regenera: 400 claro (antes: 500 opaco)
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            S.project_id = project_id
         payload = scene_payload()
         payload["briefing"] = _open_briefing()  # V6.5b: arranque de sesión en 1 llamada
     WS.notify_changed()
@@ -81,6 +86,9 @@ def delete_project(project_id: int) -> dict:
     with STATE_LOCK:  # check + borrado atómicos: un open concurrente no lo activa entre medio
         if project_id == S.project_id:
             raise HTTPException(status_code=400, detail="No puedes borrar el proyecto abierto")
+        otro = candado.ajeno_vivo(store, project_id)  # D4: abierto en otro proceso → 409
+        if otro is not None:
+            raise HTTPException(status_code=409, detail=candado.mensaje_ocupado(project_id, otro))
         store.delete(project_id)
     return {"ok": True}
 
@@ -136,8 +144,9 @@ def restore_revision(revision_id: int) -> dict:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        S.doc = doc
-        S.project_id = project_id
+        with candado.cambio_a(store, project_id, S.project_id):  # D4: 409 si es de otro vivo
+            S.doc = doc
+            S.project_id = project_id
         payload = scene_payload()
     _flush_autosave(force=True)  # persiste YA el doc restaurado (no esperar la ventana)
     WS.notify_changed()
@@ -209,7 +218,9 @@ async def open_project(file: UploadFile) -> dict:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         # E2: un proyecto NUEVO en la BD — el siguiente autosave NO debe pisar el que
         # estaba abierto antes (sin esto, PROJECT_ID seguía apuntando al anterior)
+        actual = S.project_id
         S.project_id = S.store.create(S.doc) if S.store is not None else None
+        candado.tras_crear(S.store, S.project_id, actual)
         payload = scene_payload()
     WS.notify_changed()
     return payload
@@ -223,7 +234,9 @@ class NewProjectIn(BaseModel):
 def new_project(body: NewProjectIn) -> dict:
     with _project_switch():  # V6.2e: flush del doc actual + swap ATÓMICO
         S.doc = Document(body.name)
+        actual = S.project_id
         S.project_id = S.store.create(S.doc) if S.store is not None else None  # E2: id propio
+        candado.tras_crear(S.store, S.project_id, actual)
         payload = scene_payload()
     WS.notify_changed()
     return payload
