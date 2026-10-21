@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0+F1 implementadas en rama, sin mergear (2026-10-21; medidas y decisiones en § Bitácora); faltan F2 (D4, D5), F3 (D6) y F4
+nota: F0+F1 mergeadas a main el 2026-10-21 (respuestas cortas y filtros); faltan F2 (D4, D5), F3 (D6) y F4 (verificación por MCP)
 descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respuestas cortas, errores que dicen cómo seguir y propuestas de estructura que no sueldan lo que se atornilla
 ---
 
