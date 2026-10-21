@@ -100,6 +100,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-21 | (verif. MCP) | plantilla F3 + revisor ciego | 2×S | 16 | 3,67 USD | 3 m con 1 orden en 7 min; el revisor halló 2 ALTA de la plantilla |
 | 2026-10-21 | mcp-sin-friccion | F0+F1 | M | 101 | 479 | undo 47 KB → 0,2 KB, run_batch 53×, connections 6–12×, engineering_check 5,5–8×; relanzado tras un token vencido |
 | 2026-10-21 | plantilla-rodillos-cadena | F4 | M | 105 | 601 | guardas cerradas (sonda de dedo Ø8 no llega), bandeja, velocidad, tensado sobre la línea de centros, reglas propias; relanzado tras un token vencido |
+| 2026-10-21 | mcp-sin-friccion | F2 | S | 98 | 455 | 400 del borrado que guía, interferencia con «faltan N», subgrupos por nombre corto, triedro en la esquina, tiempos de la puerta; suite lenta por correr en paralelo con otra |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
