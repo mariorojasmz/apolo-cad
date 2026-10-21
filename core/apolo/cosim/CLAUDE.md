@@ -1,31 +1,30 @@
 # Co-simulación (`core/apolo/cosim/`)
 
-La máquina entera en virtual: red, tablero, PLC, variadores, motores y física
-([V8.3](../../../docs/plans/V8.3-prueba-virtual.md)). Lo común del backend, en
-[core/apolo](../CLAUDE.md).
+La máquina entera en virtual ([V8.3](../../../docs/plans/V8.3-prueba-virtual.md)). Común del
+backend: [core/apolo](../CLAUDE.md).
 
-## Modelos de dispositivo (`modelos/`)
+## Modelos (`modelos/`) y redes (`red/`)
 
-- Uno por `electrico.modelo.tipo` del catálogo (`MODELOS`; la lista del YAML es
-  `library/electrico/ficha.TIPOS_MODELO` y un test exige que coincidan). Tipo nuevo = clase aquí +
-  la entrada allá.
-- Estado EXPLÍCITO, `paso(dt, entradas) -> salidas` y `senales()` con los nombres de D10
-  («-K1.cerrado»): determinista, sin reloj ni azar.
-- Todo parámetro pasa por `Parametros`: falta → `ModeloIncompleto` con ref, clave y dónde
-  completarla. Rango del catálogo = `ajustado` (lo fija el instalador en `add_device.ajustes`,
-  obligatorio); banda de ficha = `de_banda` (punto medio DECLARADO en `hipotesis`). Nunca un
-  default silencioso: una cifra nueva cita su norma o dice «criterio de diseño» en el YAML.
-- Las curvas y umbrales de NORMA (IEC 60898-1, 60947-4-1, 60127-2, 61131-2) van en el código del
-  modelo, no en el YAML.
-- PURO y sin OCCT (`tests/test_capas_cosim.py`): de `apolo` sólo importa `cosim.modelos`, ni
-  siquiera `apolo.library` (su `__init__` carga el catálogo y OCP, y el worker de F4 no debe).
-  Por eso el motor recalcula la Kloss de `motor_induccion` y un test las ata.
+- Un modelo por `electrico.modelo.tipo` (`MODELOS` = `library/electrico/ficha.TIPOS_MODELO`, un
+  test las ata: tipo nuevo = clase aquí + entrada allá). Estado explícito, `paso(dt, entradas)`,
+  `senales()` con nombres de D10.
+- Todo parámetro por `Parametros`: falta → `ModeloIncompleto`; rango = `ajustado` (obligatorio),
+  banda = `de_banda` (en `hipotesis`). Nunca un default silencioso: una cifra nueva cita su norma
+  o dice «criterio de diseño» en el YAML; las curvas de NORMA van en el código.
+- PUROS sin OCCT (`test_capas_cosim.py`): ni `apolo.library` (su `__init__` carga OCP). Las
+  redes leen el formato plano de `red/entrada.py` (lo arma `services/cosim_red.py`); la alterna
+  de mando va en la de potencia. `pedidas()` ANTES de `paso`.
 
-## Redes (`red/`)
+## Planificador y worker (raíz)
 
-- Puro igual (numpy + LAPACK de scipy; ni `cosim.modelos`): lee el formato plano de `entrada.py`,
-  que arma `services/cosim_red.py` del modelo de V8.1. Un dato nuevo del tablero entra por ahí.
-- La alterna de MANDO va en la red de potencia (está unida a la red); el mando es la continua.
-- Mando: `pedidas()` ANTES de `paso` y la fuente decide su U en el mismo paso (con atraso, un
-  corto franco funde el fusible antes del límite). Cada paso es superposición sin resolver.
-- Worker con BLAS de un hilo (`OPENBLAS_NUM_THREADS=1`): en 62×62 los hilos multiplican por 7.
+- El bucle es `planificador.correr(snap)`: agenda → MuJoCo → `tablero.paso` → PLC → comandos
+  (D8) → `Integrador.intercambio`. Reloj = k·Δt; el PLC en ms ENTEROS. Nada de reloj de pared,
+  azar ni orden de `set` en lo que entra a la `huella` (`test_cosim_worker.py` la exige).
+- El worker (`worker.py`, `python -m`, una corrida por proceso, BLAS de un hilo) importa sólo
+  `cosim`, `plc` y la física SIN OCCT (`physics/dinamica_{integrador,arrastre,control,datos}`,
+  `sensores`, `sim`): un import nuevo de ahí pasa el gate de `test_cosim_worker.py` o va al
+  snapshot (`services/cosim_snapshot.py`). El resultado vuelve en JSON, nunca pickle.
+- Motor = placa SIEMPRE (el snapshot la arma; sin `forcelimited` no se escribe el tope). El
+  atasco es `dof_frictionloss`, no `qfrc_applied` (un par explícito vibra en ω = 0).
+- La potencia se re-resuelve sólo si algo cambió más de `TOL_POTENCIA`; un dato nuevo que la
+  mueva entra en `Tablero._firma_potencia`.

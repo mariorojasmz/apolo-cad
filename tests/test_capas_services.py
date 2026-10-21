@@ -2,7 +2,9 @@
 explícito, no conoce el transporte ni el agente y no toma locks.
 
 Capas (plan `docs/plans/partir-api-main.md`, D2):
-kernel/commands/doc/library/drawing/fea/assembly/robotics ← services ← api y agent.
+kernel/commands/doc/library/drawing/fea/assembly/robotics ← services ← api y agent. La física,
+el PLC y la co-simulación (`physics`, `plc`, `cosim`) también son de abajo: el snapshot de la
+co-simulación (`cosim_snapshot.py`, plan V8.3 D2) hornea la dinámica y compila el ST.
 
 Por qué un gate y no una convención: la lógica que vivía en `api/main.py` leía el `DOC`
 GLOBAL aunque recibiera su `doc` (`_piece_dim_tols` medía con el documento activo y los tests
@@ -34,7 +36,7 @@ SERVICES = RAIZ_REPO / "core" / "apolo" / "services"
 #: Paquetes/módulos de `apolo` que `services` puede importar: las capas de abajo y él
 #: mismo. `batch` (lotes de comandos sobre un Document) es de la capa de `doc`.
 PERMITIDOS = {"kernel", "commands", "doc", "library", "drawing", "fea", "assembly",
-              "robotics", "batch", "services"}
+              "robotics", "batch", "physics", "plc", "cosim", "services"}
 
 #: Terceros que delatan transporte.
 PROHIBIDOS_EXTERNOS = {"fastapi", "starlette"}

@@ -133,7 +133,7 @@ class RedNodal:
 
     def _valores(self, estados: dict | None) -> tuple:
         est = estados or {}
-        return tuple(est.get(k, d) for k, d in self._claves)
+        return tuple([est.get(k, d) for k, d in self._claves])
 
     def _cerrados(self, valores: tuple) -> np.ndarray:
         acc = np.fromiter((bool(valores[j]) for j in self._j_cont), dtype=bool, count=len(self._j_cont))

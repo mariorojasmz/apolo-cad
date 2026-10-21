@@ -19,6 +19,7 @@ class ResultadoPotencia:
         self.v[: sis.n] = x[: sis.n]
         self.I_br = I_br
         self._I = None
+        self._tensiones: dict = {}
 
     def U(self, punto: str) -> complex:
         return complex(self.v[self.red._ix(punto)])
@@ -70,11 +71,52 @@ class ResultadoPotencia:
         if len(V) == 2:
             return {"U_V": abs(V[0] - V[1]), "I_A": abs(I[0]), "fases": fases, "S_VA": S}
         lineas = [V[a] - V[b] for a, b in cg.pares]
-        vivas = [abs(u) for (a, b), u in zip(cg.pares, lineas)
-                 if polos[a] is not None and polos[b] is not None and polos[a] != polos[b]]
+        viva = [polos[a] is not None and polos[b] is not None and polos[a] != polos[b] for a, b in cg.pares]
+        vivas = [abs(u) for u, v in zip(lineas, viva) if v]
+        # «U_lineas_vivas_V»: la tensión de cada línea entre dos polos VIVOS, 0 en una que toca el
+        # polo perdido (un borne flotante lee la tensión que le deja la carga, no la de la red): es
+        # lo que mira la detección de pérdida de fase de un variador (V8.3 F4)
         return {"U_V": sum(vivas) / len(vivas) if vivas else 0.0, "U_lineas_V": [abs(u) for u in lineas],
+                "U_lineas_vivas_V": [abs(u) if v else 0.0 for u, v in zip(lineas, viva)],
                 "I_A": [abs(i) for i in I], "fases": fases, "S_VA": S,
                 "desbalance_pct": desbalance_pct(*lineas) if fases == 3 else None}
+
+    def tension_carga(self, cid: str) -> dict:
+        """Lo de `carga` que no pide corrientes: {"U_V", "fases", "U_lineas_vivas_V"} (lo que la
+        co-simulación lee en cada intercambio; las corrientes de rama se calculan sólo si alguien
+        las pide)."""
+        memo = self._tensiones.get(cid)
+        if memo is None:
+            memo = self._tensiones[cid] = self._tension_carga(cid)
+        return memo
+
+    def _tension_carga(self, cid: str) -> dict:
+        red = self.red
+        ci = red._carga_idx.get(cid)
+        if ci is None:
+            return {"U_V": 0.0, "fases": 0, "U_lineas_vivas_V": []}
+        cg = red._cargas[ci]
+        polos = red._polos_carga[ci]
+        V = [complex(self.v[red._ext(i)]) for i in cg.nodos]
+        fases = len({p for p in polos if p is not None})
+        if len(V) == 2:
+            u = abs(V[0] - V[1])
+            return {"U_V": u, "fases": fases, "U_lineas_vivas_V": [u]}
+        vivas = [abs(V[a] - V[b]) if polos[a] is not None and polos[b] is not None and polos[a] != polos[b]
+                 else 0.0 for a, b in cg.pares]
+        n = sum(1 for x in vivas if x > 0.0)
+        return {"U_V": sum(vivas) / n if n else 0.0, "fases": fases, "U_lineas_vivas_V": vivas}
+
+    def fuente_de_carga(self, cid: str) -> str | None:
+        """La fuente (su `id`) que alimenta los bornes vivos de la carga con los contactos de este
+        paso; None si no le llega ninguna. La co-simulación la usa para saber si un motor está en
+        la red (arranque directo) o en la salida de un variador, y con qué frecuencia."""
+        red = self.red
+        ci = red._carga_idx.get(cid)
+        if ci is None:
+            return None
+        ids = sorted({red._fuentes[p[0]].id for p in red._polos_carga[ci] if p is not None})
+        return ids[0] if ids else None
 
     def fuente(self, fid: str) -> dict:
         """{"I_A": {polo: corriente que entrega}} de una fuente."""

@@ -59,6 +59,8 @@ class PlcES(Modelo):
         self.salida = {b: False for b in self.DO}
         self.t_salida = {b: 0.0 for b in self.DO}
         self.alimentado = False
+        #: las direcciones IEC de cada borne, una vez (las salidas se piden en cada intercambio)
+        self._dir = {b: direccion_iec(b) for b in self.DI + self.AI + self.DO}
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
         """`entradas`: la tensión de cada borne respecto de su común («I0.0»: 24.0, «AI0»: 5.0), la
@@ -88,8 +90,9 @@ class PlcES(Modelo):
         return self.salidas()
 
     def salidas(self) -> dict:
+        d = self._dir
         out: dict = {"alimentado": self.alimentado}
-        out.update({direccion_iec(b): v for b, v in self.imagen.items()})
-        out.update({direccion_iec(b): v for b, v in self.analog.items()})
-        out.update({direccion_iec(b): v for b, v in self.salida.items()})
+        for tabla in (self.imagen, self.analog, self.salida):
+            for b, v in tabla.items():
+                out[d[b]] = v
         return out

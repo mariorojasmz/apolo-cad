@@ -58,6 +58,7 @@ class Variador(Modelo):
         self.AI_max = n("AI1_V_max", "tensión de AI1 a f_max", positivo=True)
         self.f_consigna = n("f_consigna_Hz", "consigna fija", minimo=0)
         self.funcion = {di: p.texto(f"{di}_funcion", f"función de la entrada {di}", FUNCIONES_DI) for di in DIS}
+        self._dis_de = {f: tuple(di for di in DIS if self.funcion[di] == f) for f in FUNCIONES_DI}
         self.f_fijas = [n(f"f_fija{k}_Hz", f"frecuencia fija {k}", minimo=0) for k in (1, 2, 3)]
         self.I_lim = n("I_limite_pct", "límite de corriente en % de I_salida", positivo=True) / 100 * self.In
         self.I_oc = n("I_sobrecorriente_pct", "falla por sobrecorriente en % de I_salida", positivo=True) / 100 * self.In
@@ -91,7 +92,11 @@ class Variador(Modelo):
     # ── helpers ──────────────────────────────────────────────────────────────────────────────
 
     def _di_de(self, funcion: str) -> bool:
-        return any(self.di[d] for d in DIS if self.funcion[d] == funcion)
+        di = self.di
+        for d in self._dis_de[funcion]:
+            if di[d]:
+                return True
+        return False
 
     def _consigna_Hz(self, ai1_v: float) -> float:
         b = (1 if self._di_de("f_fija_b0") else 0) + (2 if self._di_de("f_fija_b1") else 0)

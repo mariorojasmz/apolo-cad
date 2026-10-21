@@ -18,6 +18,12 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
 [V8.2](../../../docs/plans/V8.2-maquina-se-mueve.md) · medido en [V8.0](../../../docs/plans/V8-maquina-viva.md)
 
 - No importa `api`, `doc` ni `state` (`tests/test_capas_dinamica.py`): recibe escena y dicts.
+- El bucle es el `Integrador` (`dinamica_integrador.py`: `intercambio(control, fuerzas)` /
+  `salida()`); `simulate_dynamics` = su `correr()`, igual bit a bit a V8.2
+  (`tests/dinamica_v82_referencia.py`). Lo que corre en el bucle (`dinamica_integrador`,
+  `_arrastre`, `_control`, `_datos`, `sensores`, `sim`) NO importa OCCT ni `library`: lo carga el
+  worker de la co-simulación ([cosim](../cosim/CLAUDE.md)); la preparación con OCCT queda en
+  `dinamica.py`, `banda.py` y `dinamica_motores.py`, que re-exportan lo que se movió.
 - Sujeción SIN cruzar juntas móviles: lo móvil sale del grafo antes de buscar tierra (un
   tambor fijado a su chumacera sigue girando). Un cuerpo = hijo + juntas `fija`, como la FK;
   lo fijado por `fasten` a una pieza móvil sin junta queda FUERA y el aviso pide `arrastrar`.

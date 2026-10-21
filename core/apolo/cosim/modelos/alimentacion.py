@@ -7,8 +7,8 @@ decide los polos y sus fasores (D15):
   - 1F+N: L a U y 0°, N en 0.
 Zk = Un/(√3·Icc) por fase en los sistemas de fases (IEC 60909-0 con c = 1); en 1F+N la del
 lazo U/Icc se reparte mitad en L y mitad en N. R y X salen de `X_R`. Los eventos del mundo
-(D12) son acciones: `cortar`, `reconectar`, `perder_fase` (un polo), `caida` (factor de
-tensión) y `restaurar`.
+(D12) son acciones: `cortar`, `reconectar`, `perder_fase` / `reponer_fase` (un polo), `caida`
+(factor de tensión) y `restaurar`.
 
 Fuente (`tipo: fuente`): salida U_salida_V mientras su entrada esté dentro de rango; al cortar
 la entrada sostiene la salida `t_retencion_ms` (D12 `caida_de_red`); al pedirle más de su
@@ -33,7 +33,7 @@ MODOS_LIMITE = ("corriente_constante",)
 
 class Red(Modelo):
     tipo = "red"
-    ACCIONES = ("cortar", "reconectar", "perder_fase", "caida", "restaurar")
+    ACCIONES = ("cortar", "reconectar", "perder_fase", "reponer_fase", "caida", "restaurar")
 
     def __init__(self, p: Parametros):
         super().__init__(p)
@@ -90,6 +90,10 @@ class Red(Modelo):
             raise ValueError(f"{self.designacion}: «{polo}» no es una fase de la red {self.sistema} "
                              f"({', '.join(x for x in self.polos if x != 'N')})")
         self.perdidas.add(polo)
+
+    def _accion_reponer_fase(self, polo) -> None:
+        """Vuelve una fase perdida (el fin de un `corte_de_fase` con duración, D12)."""
+        self.perdidas.discard(polo)
 
     def _accion_caida(self, factor) -> None:
         factor = float(factor)
