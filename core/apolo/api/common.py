@@ -42,7 +42,7 @@ from .autosave import (  # el resto, kit de los routers: lo importan de AQUÍ (g
     _project_switch,  # noqa: F401
 )
 from .guardia_documento import esperado, esperando, token, verificar
-from .jobs import JOB_UNKNOWN, JobStore  # noqa: F401 — JOB_UNKNOWN: kit de los routers
+from .jobs import JOB_UNKNOWN, Archivos, JobStore  # noqa: F401 — JOB_UNKNOWN: kit de los routers
 from .scene import scene_payload
 from .session import S
 from .ws import WS
@@ -73,6 +73,11 @@ JOBS = JobStore(al_cambiar_estado=_avisar_job)
 # esperando a las mutaciones. Un worker = una co-simulación a la vez; `GET /api/jobs/{id}` mira
 # las dos colas (el recibo es el mismo para el agente).
 COSIM_JOBS = JobStore(al_cambiar_estado=_avisar_job)
+# Los entregables largos (memoria, manual: plan manual-rapido F2) también tienen la suya: son
+# lecturas de minutos en una máquina grande y no deben retrasar una mutación ni una co-simulación.
+# Su PDF queda en `ARCHIVOS` y el job devuelve la ruta para bajarlo (`GET /api/archivos/{clave}`).
+ENTREGABLES_JOBS = JobStore(al_cambiar_estado=_avisar_job)
+ARCHIVOS = Archivos()
 
 
 def _expand_ids(value) -> list[str] | None:
@@ -250,6 +255,38 @@ def _job_cosim(tipo: str, work, async_: bool):
     return JSONResponse(
         status_code=202, content={"job_id": COSIM_JOBS.submit(tipo, guarded), "estado": "encolado"}
     )
+
+
+def _job_entregable(tipo: str, work, async_: bool):
+    """Un entregable en archivo (memoria, manual) en directo o como JOB (plan manual-rapido F2).
+    `work(proyecto)` arma la `Response` con el archivo tomando SUS locks; `proyecto` = el activo
+    al encolar (None en directo), que revalida con `_mismo_proyecto` en su primera toma de
+    `STATE_LOCK`. Sin `?async`, la respuesta de siempre. Con él, 202 + recibo en
+    `ENTREGABLES_JOBS`; el resultado del job es `{archivo, bytes, tipo, nombre}` y el archivo se
+    baja de `archivo` (el MCP no espera un PDF de minutos dentro de una petición)."""
+    if not async_:
+        return work(None)
+    expected = S.project_id
+
+    def guarded():
+        resp = work(expected)
+        cd = resp.headers.get("content-disposition", "")
+        nombre = cd.split('filename="', 1)[1].rstrip('"') if 'filename="' in cd else tipo
+        clave = ARCHIVOS.guardar(resp.body, resp.media_type, nombre)
+        return {"archivo": f"/api/archivos/{clave}", "bytes": len(resp.body),
+                "tipo": resp.media_type, "nombre": nombre}
+
+    return JSONResponse(status_code=202, content={
+        "job_id": ENTREGABLES_JOBS.submit(tipo, guarded), "estado": "encolado"})
+
+
+def _mismo_proyecto(proyecto) -> None:
+    """Bajo `STATE_LOCK`: un entregable encolado es del proyecto que estaba activo al pedirlo; si
+    se abrió otro mientras esperaba, 409 y no se genera (sería del proyecto equivocado)."""
+    if proyecto is not None and S.project_id != proyecto:
+        raise HTTPException(status_code=409, detail=(
+            f"El proyecto activo cambió mientras el entregable esperaba en cola (era {proyecto}, "
+            f"ahora {S.project_id}): no se generó. Abre el proyecto correcto y pídelo de nuevo."))
 
 
 def _store_required():

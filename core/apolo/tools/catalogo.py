@@ -58,7 +58,8 @@ CHAT: dict[str, EnChat] = {
     "get_expression_grammar": _lee("Consultando las expresiones"),
     "resolve_expression": _lee("Evaluando una expresión"),
     "get_fit": _lee("Consultando un ajuste ISO"),
-    "get_job": _lee("Esperando el resultado del cambio"),
+    # `path` sólo sirve a los entregables en archivo (calc_report, assembly_manual), fuera del chat
+    "get_job": _lee("Esperando el resultado del cambio", ocultar=("path",)),
     # ── modelar (cambian el documento) ───────────────────────────────────────
     "run_command": _muta("Ejecutando un comando"),
     "run_batch": _muta("Ejecutando un lote de comandos"),

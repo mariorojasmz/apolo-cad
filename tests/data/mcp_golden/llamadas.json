@@ -5297,8 +5297,47 @@
      [
       "largo_paquete_mm",
       "400.0"
+     ],
+     [
+      "async",
+      "true"
      ]
     ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jmc",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/archivos/k1",
+    "query": [],
     "cuerpo": null,
     "cabeceras": {
      "accept": "*/*",
@@ -5399,8 +5438,47 @@
      [
       "title",
       "Bastidor"
+     ],
+     [
+      "async",
+      "true"
      ]
     ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jma",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/archivos/k2",
+    "query": [],
     "cuerpo": null,
     "cabeceras": {
      "accept": "*/*",
@@ -5415,6 +5493,191 @@
   ],
   "archivos": {
    "manual.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
+  }
+ },
+ {
+  "caso": "job de un manual sin path",
+  "tool": "get_job",
+  "args": {
+   "job_id": "jma"
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"jma\", \"estado\": \"ok\", \"bytes\": 19, \"seguir\": \"pasa path a get_job('jma') para guardar el archivo\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jma",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "memoria → recibo",
+  "tool": "calc_report",
+  "args": {
+   "path": "memoria2.pdf"
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"jmc\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jmc') para guardar el archivo en memoria2.pdf cuando termine\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/calc-report.pdf",
+    "query": [
+     [
+      "rev",
+      "A"
+     ],
+     [
+      "sheet",
+      "A4"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job de la memoria: al path del recibo",
+  "tool": "get_job",
+  "args": {
+   "job_id": "jmc"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"path\": \"memoria2.pdf\", \"bytes\": 19, \"job\": \"jmc\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jmc",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/archivos/k1",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "memoria2.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
+  }
+ },
+ {
+  "caso": "job de un manual con path",
+  "tool": "get_job",
+  "args": {
+   "job_id": "jma",
+   "path": "manual2.pdf"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"path\": \"manual2.pdf\", \"bytes\": 19, \"job\": \"jma\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jma",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/archivos/k2",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "manual2.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
   }
  },
  {

@@ -26,12 +26,10 @@ import contextlib
 import logging
 from dataclasses import dataclass
 from datetime import date
-from types import SimpleNamespace
+
+from .foto_escena import ASPECTO, definiciones_usadas, formas_de, lado_par, teselar_formas
 
 log = logging.getLogger(__name__)
-
-#: Alto/ancho de las fotos: el mismo de la foto de `render_view` (`render_vtk._H`).
-_ASPECTO = 0.78
 
 
 @dataclass
@@ -111,42 +109,23 @@ def extraer_manual(scene: dict, *, commands: list[dict], project_name: str = "Si
         filas.append(_step_rows({fid: scene[fid] for fid in st["ids"]}))
 
     aps = {fid: ap for fid, ap in apariencias.items() if fid in vis} if apariencias else None
-    formas = [SimpleNamespace(id=fid, shape=f.shape, visible=True, name=getattr(f, "name", ""),
-                              material=getattr(f, "material", None),
-                              mesh_key=getattr(f, "mesh_key", None),
-                              matrix=getattr(f, "matrix", None)) for fid, f in vis.items()]
-    defs = {f.mesh_key: definiciones[f.mesh_key] for f in formas
-            if definiciones and f.mesh_key and f.matrix and f.mesh_key in definiciones}
+    formas = formas_de(vis)
     return ManualExtraido(W, H, sheet, project_name, base_meta, stages, instrucciones, filas,
                           totals, colores_fijos(vis, colors), aps, int(size_px), formas,
-                          definiciones=defs or None)
+                          definiciones=definiciones_usadas(formas, definiciones))
 
 
 def teselar_manual(ex: ManualExtraido, candado=None) -> ManualExtraido:
     """FASE OCCT por pieza: tesela cada forma de `ex.formas` (con la caché de render) tomando
     `candado` (un context manager; en la API, `STATE_LOCK`) UNA vez por pieza, y fija la caja de
     la cámara con las mallas. Sin candado, de corrido (quien es dueño del documento)."""
-    import numpy as np
-
-    from apolo.kernel import render_vivo
-    from apolo.kernel.render_comun import bounds_malla
-
-    tomar = candado if candado is not None else contextlib.nullcontext()
-    piezas = []
-    for forma in ex.formas:
-        with tomar:
-            piezas += render_vivo.extraer_piezas({forma.id: forma}, ex.apariencias, zonas=True,
-                                                 definiciones=ex.definiciones)
-    lo, hi = np.full(3, np.inf), np.full(3, -np.inf)
-    for p in piezas:
-        mn, mx = bounds_malla(p.vertices)
-        lo, hi = np.minimum(lo, mn), np.maximum(hi, mx)
-    if not np.isfinite(lo).all():   # ninguna pieza dejó malla: la caja OCCT de siempre
+    piezas, bbox = teselar_formas(ex.formas, ex.apariencias, ex.definiciones, candado)
+    if bbox is None:   # ninguna pieza dejó malla: la caja OCCT de siempre
         from .assembly_manual import _scene_bbox
 
-        with tomar:
-            lo, hi = _scene_bbox({f.id: f for f in ex.formas})
-    ex.piezas, ex.bbox = piezas, (lo, hi)
+        with candado if candado is not None else contextlib.nullcontext():
+            bbox = _scene_bbox({f.id: f for f in ex.formas})
+    ex.piezas, ex.bbox = piezas, bbox
     return ex
 
 
@@ -160,17 +139,13 @@ def _estados(ex: ManualExtraido):
         hechas += st["ids"]
 
 
-def _par(x: float) -> int:
-    return max(2, int(round(x / 2.0)) * 2)
-
-
 def _fotos_vtk(ex: ManualExtraido) -> list[bytes]:
     from apolo.kernel.render_vivo import EscenaViva
     from apolo.kernel.render_vtk import RENDER_LOCK
 
     with RENDER_LOCK:
-        with EscenaViva(ex.bbox, ex.colores, ancho=_par(ex.size_px),
-                        alto=_par(ex.size_px * _ASPECTO), apariencias=ex.apariencias) as esc:
+        with EscenaViva(ex.bbox, ex.colores, ancho=lado_par(ex.size_px),
+                        alto=lado_par(ex.size_px * ASPECTO), apariencias=ex.apariencias) as esc:
             esc.aplicar(ex.piezas)
             fotos = []
             for plenas, fantasmas in _estados(ex):

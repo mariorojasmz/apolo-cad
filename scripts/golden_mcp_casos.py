@@ -93,7 +93,15 @@ COSIM = {
 PLC_OK = {"compila": True, "programas": ["Main"], "tags": [
     {"variable": "marcha", "direccion": "%IX0.2", "borne": "I0.2", "tipo": "BOOL",
      "sentido": "entrada"}]}
-JOBS_SUELTOS = {"jc": MUTA["json"], "jv": escena(["v1"]), "jr": BORRADO, "jrf": escena(),
+#: Un entregable por job (manual-rapido F2): el PDF se baja de `archivo`.
+def _archivo(clave: str, nombre: str) -> dict:
+    return {"archivo": f"/api/archivos/{clave}", "bytes": len(PDF), "tipo": "application/pdf",
+            "nombre": nombre}
+
+
+JOBS_SUELTOS = {"jmc": _archivo("k1", "golden-memoria-calculo.pdf"),
+                "jma": _archivo("k2", "golden-ensamblaje.pdf"),
+                "jc": MUTA["json"], "jv": escena(["v1"]), "jr": BORRADO, "jrf": escena(),
                 "jcs": COSIM, "jpl": {**COSIM, **PLC_OK, "escenario": None, "guardado": None,
                                       "trazas": {"discretas": {"-K1.%QX0.0": {
                                           "cambios": [[0.0, False], [0.31, True]], "total": 2,
@@ -270,7 +278,10 @@ RUTAS = [
     ("GET", r"/api/pick", J({"feature": "c1", "punto": [0, 0, 0]})),
     ("GET", r"/api/cutlist\.json", J({"piezas": []})),
     ("GET", r"/api/nesting\.json", J({"planchas": 1, "desperdicio_pct": 12.0})),
-    ("GET", r"/api/(drawingset|calc-report|quote|assembly-manual)\.pdf", B(PDF, "application/pdf")),
+    ("GET", r"/api/(drawingset|quote)\.pdf", B(PDF, "application/pdf")),
+    ("GET", r"/api/calc-report\.pdf", _encolado("jmc")),
+    ("GET", r"/api/assembly-manual\.pdf", _encolado("jma")),
+    ("GET", r"/api/archivos/[^/]+", B(PDF, "application/pdf")),
     ("POST", r"/api/drawing/spec", _drawing),
     ("GET", r"/api/resolve-expression", J({"ok": True, "value": 2000.0})),
     ("GET", r"/api/expression-grammar", J({"funciones": ["sqrt"]})),
@@ -499,6 +510,10 @@ CASOS = [
     caso("cotización", "quotation", {"path": "cot.pdf", "currency": "PEN", "fx": 3.7}),
     caso("manual", "assembly_manual", {"path": "manual.pdf", "isolate": ["Estructura"],
                                        "title": "Bastidor"}),
+    caso("job de un manual sin path", "get_job", {"job_id": "jma"}),
+    caso("memoria → recibo", "calc_report", {"path": "memoria2.pdf"}, espera=0.0),
+    caso("job de la memoria: al path del recibo", "get_job", {"job_id": "jmc"}),
+    caso("job de un manual con path", "get_job", {"job_id": "jma", "path": "manual2.pdf"}),
     caso("plano a archivo", "drawing", {"spec": {"sheet": "A3"}, "path": "plano.pdf"}),
     caso("plano svg", "drawing", {"spec": {"format": "svg"}}),
     caso("plano sin path", "drawing", {"spec": {"format": "pdf"}}),

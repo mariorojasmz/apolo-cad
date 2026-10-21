@@ -26,7 +26,9 @@ from apolo.services.assertions import contract_verify
 from apolo.state import STATE_LOCK
 
 from ..common import (
+    ARCHIVOS,
     COSIM_JOBS,
+    ENTREGABLES_JOBS,
     JOB_UNKNOWN,
     JOBS,
     _expand_ids,
@@ -124,21 +126,36 @@ def patch_batch(
 @router.get("/api/jobs")
 def list_jobs() -> dict:
     """Los últimos jobs retenidos, sin `resultado` (payload grande). Telemetría."""
-    return {"jobs": JOBS.briefs() + COSIM_JOBS.briefs()}
+    return {"jobs": JOBS.briefs() + COSIM_JOBS.briefs() + ENTREGABLES_JOBS.briefs()}
 
 
 @router.get("/api/jobs/{job_id}")
 def get_job(job_id: str, wait_s: float = 0.0) -> dict:
     """Estado/resultado de un job (V6.5e). ``wait_s`` (0..30) = long-poll: responde en
     cuanto termina. El resultado queda CACHEADO → re-preguntar es siempre seguro. Mira también
-    la cola de la co-simulación (V8.3 D11): el recibo es el mismo."""
-    store = JOBS if JOBS.get(job_id) is not None else COSIM_JOBS
+    la cola de la co-simulación (V8.3 D11) y la de los entregables (manual-rapido F2): el recibo
+    es el mismo."""
+    store = next((s for s in (JOBS, COSIM_JOBS) if s.get(job_id) is not None), ENTREGABLES_JOBS)
     job = store.get(job_id, wait_s=wait_s)
     if job is None:
         raise HTTPException(
             status_code=404, detail=JOB_UNKNOWN.format(job_id=job_id, retention=JOBS.retention)
         )
     return job
+
+
+@router.get("/api/archivos/{clave}")
+def get_archivo(clave: str) -> Response:
+    """El archivo que dejó un job de entregable (su `resultado.archivo`). En memoria: un reinicio
+    o el desalojo (se retienen los últimos) lo pierden y hay que volver a pedir el entregable."""
+    guardado = ARCHIVOS.leer(clave)
+    if guardado is None:
+        raise HTTPException(status_code=404, detail=(
+            f"Archivo desconocido '{clave}': el servidor se reinició o ya se desalojó (se "
+            f"retienen los últimos {ARCHIVOS.retention}). Vuelve a pedir el entregable."))
+    data, tipo, nombre = guardado
+    return Response(content=data, media_type=tipo,
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
 
 
 class PreviewIn(BaseModel):

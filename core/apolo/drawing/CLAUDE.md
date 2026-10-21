@@ -82,6 +82,10 @@ reglas están en [services](../services/CLAUDE.md).
   se extrae en la fase 1: la composición no lee la escena. `assembly_manual` es el atajo para
   quien es dueño del documento; el endpoint no lo usa.
   [manual-rapido](../../../docs/plans/manual-rapido.md)
+- UNA foto 3D en una lámina (la portada de la memoria) va por `foto_escena.py`, las mismas fases:
+  `extraer_foto` bajo el lock, `teselar_foto(ex, STATE_LOCK)` y `dibujar_foto` fuera; lo que la
+  composición lee de OCCT (el peso, `calc_report.peso_memoria`) se calcula bajo el lock y llega
+  en `meta`. Nunca `render_scene_png` bajo `STATE_LOCK` en un entregable nuevo.
 - Con estructura DECLARADA el endpoint pasa `stages` = la secuencia de montaje de
   `services/montaje.py` (la misma del video; [services](../services/CLAUDE.md)) y `_instruction`
   suma su `union` («Se atornilla (M12) a…»). Sin ella, lo de abajo.

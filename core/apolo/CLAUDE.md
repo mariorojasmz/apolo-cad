@@ -63,7 +63,8 @@ backend: se mantiene ≤ 10 KB.
   (`with_autodetect=False`, igual que la API y `delivery_check`); con autodetect el agente veía
   verde lo que la puerta de entrega marcaba rojo. `True` es exploración explícita.
 - `render_view` fuerza `vtk_only` (sin caída a matplotlib). Las tools que producen archivos
-  (`motion_gif`, `drawing_set`, `calc_report`, `drop_test`, exports…) los escriben a `path`.
+  (`motion_gif`, `drawing_set`, `calc_report`, `drop_test`, exports…) los escriben a `path`;
+  `calc_report` y `assembly_manual` van como job (`tools/entregable.py`: recibo → `get_job` lo guarda).
 
 ## Agente de la app (`agent/`) y criterio (`design/`)
 

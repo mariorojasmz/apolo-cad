@@ -197,6 +197,31 @@ class JobStore:
             self._order.remove(jid)
 
 
+class Archivos:
+    """Los archivos que dejan los jobs de ENTREGABLES (la memoria, el manual: plan manual-rapido,
+    F2): un job guarda JSON, así que el PDF queda aquí y su resultado lleva la ruta para bajarlo.
+    En MEMORIA y con la misma retención que los jobs (un reinicio los pierde: se vuelven a pedir).
+    Su lock es HOJA: nunca llama a nada con él tomado."""
+
+    def __init__(self, retention: int = _RETENTION) -> None:
+        self._lock = threading.Lock()
+        self._datos: dict[str, tuple[bytes, str, str]] = {}
+        self.retention = retention
+
+    def guardar(self, data: bytes, tipo: str, nombre: str) -> str:
+        clave = uuid.uuid4().hex[:12]
+        with self._lock:
+            self._datos[clave] = (bytes(data), tipo, nombre)
+            while len(self._datos) > self.retention:
+                self._datos.pop(next(iter(self._datos)))   # el más viejo (orden de inserción)
+        return clave
+
+    def leer(self, clave: str) -> tuple[bytes, str, str] | None:
+        """(bytes, media type, nombre de archivo) o None si no existe o se desalojó."""
+        with self._lock:
+            return self._datos.get(clave)
+
+
 # Mensaje del 404 (§3 del plan): HONESTO — el peor caso es el statu quo de hoy, nunca peor.
 JOB_UNKNOWN = (
     "Job desconocido '{job_id}': nunca existió, el servidor se reinició (los jobs viven "

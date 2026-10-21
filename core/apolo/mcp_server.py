@@ -20,7 +20,8 @@ from mcp.server.fastmcp import Image
 
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
-from apolo.tools import cirugia, cosim, destino, estructura, fastmcp_limpio, mcp_electrico, simulacion
+from apolo.tools import cirugia, cosim, destino, entregable, estructura, fastmcp_limpio
+from apolo.tools import mcp_electrico, simulacion
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -319,10 +320,11 @@ def edit_batch(
 
 
 @mcp.tool()
-def get_job(job_id: str, detail: str = "diff", wait_s: float = 20) -> str:
+def get_job(job_id: str, detail: str = "diff", wait_s: float = 20, path: str | None = None) -> str:
     """Recoge el resultado de una mutación que devolvió un RECIBO {"job": id} (run_command,
     edit_command, set_variable, run_batch, edit_batch o remove_commands tardaron más que la
-    espera). Espera hasta `wait_s` segundos (long-poll: responde en cuanto el job termina) y
+    espera; también calc_report y assembly_manual: guarda el PDF en su `path` o en `path`).
+    Espera hasta `wait_s` segundos (long-poll: responde en cuanto el job termina) y
     devuelve lo MISMO que habría devuelto la tool (sólidos + `contrato`), o
     `{"estado": "corriendo"}` si aún no acaba — vuelve a llamar. El resultado queda CACHEADO:
     re-preguntar es SIEMPRE seguro (no re-ejecuta nada). Si falló (p. ej. contrato incumplido)
@@ -335,6 +337,8 @@ def get_job(job_id: str, detail: str = "diff", wait_s: float = 20) -> str:
         raise _reject(job.get("http_status") or 400, job.get("error"))
     if job["estado"] != "ok":
         return _job_receipt(job_id, job["estado"])
+    if "archivo" in (job.get("resultado") or {}):
+        return entregable.recoger(_api, job_id, job["resultado"], path)
     return json.dumps({**_job_result(job.get("resultado") or {}, detail), "job": job_id},
                       ensure_ascii=False)
 
@@ -1148,17 +1152,14 @@ def calc_report(path: str, carga_kg: float | None = None, largo_paquete_mm: floa
     numérica, criterio de aceptación y FACTOR DE SEGURIDAD (motorización, par, flecha,
     flexión de eje, pernos, soldaduras, L10, pandeo, vuelco…). Es el entregable que
     JUSTIFICA el diseño ante el cliente. Sin argumentos usa los REQUISITOS guardados
-    (set_requirements); exige al menos carga y largo de paquete (aquí o en requisitos)."""
-    import pathlib
-
+    (set_requirements); exige al menos carga y largo de paquete (aquí o en requisitos).
+    Si tarda, RECIBO {"job"}: get_job lo guarda en `path` al terminar."""
     params: dict = {"rev": rev, "sheet": sheet}
     for key, val in (("carga_kg", carga_kg), ("largo_paquete_mm", largo_paquete_mm),
                      ("ancho_paquete_mm", ancho_paquete_mm), ("velocidad_m_s", velocidad_m_s)):
         if val is not None:
             params[key] = val
-    resp = _api("GET", "/api/calc-report.pdf", params=params)
-    pathlib.Path(path).write_bytes(resp.content)
-    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+    return entregable.pedir(_api, _submit_and_wait, "/api/calc-report.pdf", params, path)
 
 
 @mcp.tool()
@@ -1194,17 +1195,14 @@ def assembly_manual(path: str, sheet: str = "A3", isolate: list[str] | None = No
     del plano de CONJUNTO (drawing cutlist) que solo lista piezas, esto EXPLICA el armado paso a paso.
     `isolate` (lista de ids o NOMBRES de grupo) acota el manual a un SUB-ENSAMBLAJE (p. ej. una hoja: sus tablas + vidrio
     + bisagras) sin tocar el documento; `title` rotula la portada/archivo. Devolverá nº de bytes.
-    (El render tarda; ~40 s en un modelo de ~80 piezas, mucho menos en un sub-ensamblaje.) Read-only."""
-    import pathlib
-
+    (El render tarda; ~40 s en un modelo de ~80 piezas, mucho menos en un sub-ensamblaje.) Read-only.
+    Si tarda, RECIBO {"job"}: get_job lo guarda en `path` al terminar."""
     params: dict = {"sheet": sheet}
     if isolate:
         params["isolate"] = ",".join(isolate)
     if title:
         params["title"] = title
-    resp = _api("GET", "/api/assembly-manual.pdf", params=params)
-    pathlib.Path(path).write_bytes(resp.content)
-    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+    return entregable.pedir(_api, _submit_and_wait, "/api/assembly-manual.pdf", params, path)
 
 
 @mcp.tool()

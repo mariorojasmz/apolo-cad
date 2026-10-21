@@ -7,7 +7,7 @@ Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cua
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
 from apolo.library import bom_from_scene, bom_to_csv, catalog_payload
@@ -20,7 +20,13 @@ from apolo.services.engineering_rules import (
 )
 from apolo.state import STATE_LOCK
 
-from ..common import _drawing_meta, _expand_ids, _stackup_rules
+from ..common import (
+    _drawing_meta,
+    _expand_ids,
+    _job_entregable,
+    _mismo_proyecto,
+    _stackup_rules,
+)
 from ..scene import _feature_colors
 from ..session import S
 
@@ -168,20 +174,36 @@ def calc_report_pdf(
     velocidad_m_s: float | None = None,
     rev: str = "A",
     sheet: str = "A4",
+    async_: bool = Query(False, alias="async"),
 ) -> Response:
     """MEMORIA DE CÁLCULO en PDF multipágina: portada (bases de diseño + índice +
     veredicto) + una página por verificación con su fórmula, sustitución, criterio y
     factor de seguridad. Sin parámetros usa los REQUISITOS guardados del proyecto;
-    los explícitos ganan. Read-only."""
+    los explícitos ganan. Read-only.
+
+    Dos locks (plan manual-rapido, F2): bajo `STATE_LOCK` se EXTRAEN las reglas, el peso y la
+    foto de cada pieza; la portada se tesela tomando el lock PIEZA POR PIEZA y se dibuja fuera
+    (VTK bajo `RENDER_LOCK`, o matplotlib sin OpenGL), igual que las fotos del manual. Con
+    `?async=true` va como JOB (`_job_entregable`): 202 + recibo; el PDF se baja del resultado."""
+    return _job_entregable("calc_report", lambda proyecto: _memoria(
+        proyecto, carga_kg, largo_paquete_mm, ancho_paquete_mm, velocidad_m_s, rev, sheet),
+        async_)
+
+
+def _memoria(proyecto, carga_kg, largo_paquete_mm, ancho_paquete_mm, velocidad_m_s, rev,
+             sheet) -> Response:
     from datetime import date
 
     from apolo.drawing import sheets_to_pdf
-    from apolo.drawing.calc_report import calc_report
-    from apolo.kernel.render import render_scene_png
+    from apolo.drawing.calc_report import calc_report, peso_memoria
+    from apolo.drawing.foto_escena import dibujar_foto, extraer_foto, teselar_foto
     from apolo.library.rules import conveyor_engineering_check as conv_check
     from apolo.library.rules import detect_conveyor
+    from apolo.services.apariencia import apariencias_render
+    from apolo.services.definiciones import definiciones_de
 
     with STATE_LOCK:
+        _mismo_proyecto(proyecto)
         req, carga, largo_paq, ancho_paq = requirement_inputs(
             S.doc, carga_kg, largo_paquete_mm, ancho_paquete_mm)
         velocidad = velocidad_m_s if velocidad_m_s is not None else float(req.get("velocidad_m_s") or 0)
@@ -222,18 +244,18 @@ def calc_report_pdf(
                 detail="No hay nada que documentar: el modelo está vacío o no declara "
                        "uniones, apoyos ni requisitos. Modela/declara y reintenta.",
             )
-        png = None
-        try:
-            vis = {fid: f for fid, f in S.doc.scene.items() if getattr(f, "visible", True)}
-            if vis:
-                png = render_scene_png(vis, view="iso", size_px=620, clean=True,
-                                       colors=_feature_colors())
+        foto = None
+        try:  # la foto (sólo lo visible) se extrae aquí; se tesela y dibuja más abajo
+            foto = extraer_foto(S.doc.scene, colors=_feature_colors(),
+                                apariencias=apariencias_render(S.doc),
+                                definiciones=definiciones_de(S.doc.scene), size_px=620)
         except Exception:
-            png = None  # sin render la memoria sigue valiendo
+            foto = None  # sin render la memoria sigue valiendo
         meta = _drawing_meta()
         meta["revisions"] = (meta.get("revisions") or []) + [
             {"rev": rev, "date": date.today().isoformat(), "note": "Memoria de cálculo"}
         ]
+        meta["weight_kg"] = peso_memoria(S.doc.scene)  # OCCT: aquí, no al componer
         # los requisitos completos van a la portada; los efectivos ganan
         # sin requisitos de transportador NO se inyectan claves vacías a la portada (un
         # «carga_kg: None» impreso es peor que la ausencia del renglón)
@@ -246,12 +268,19 @@ def calc_report_pdf(
             req_efectivos["ancho_paquete_mm"] = ancho_paq
         if velocidad:
             req_efectivos["velocidad_m_s"] = velocidad
-        pages = calc_report(S.doc.scene, rules=rules, requirements=req_efectivos,
-                            project_name=S.doc.name or "Sin título", png=png, meta=meta,
-                            sheet=sheet)
+        name = S.doc.name
+    png = None
+    if foto is not None:
+        try:
+            teselar_foto(foto, STATE_LOCK)   # el lock, pieza por pieza
+            png = dibujar_foto(foto)         # FUERA de STATE_LOCK
+        except Exception:
+            png = None  # sin render la memoria sigue valiendo
+    pages = calc_report(None, rules=rules, requirements=req_efectivos,
+                        project_name=name or "Sin título", png=png, meta=meta, sheet=sheet)
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-memoria-calculo.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{name or "proyecto"}-memoria-calculo.pdf"'},
     )
 
 
@@ -284,7 +313,8 @@ def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
 
 @router.get("/api/assembly-manual.pdf")
 def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = "",
-                        title: str = "") -> Response:
+                        title: str = "",
+                        async_: bool = Query(False, alias="async")) -> Response:
     """MANUAL DE ENSAMBLAJE paso a paso (PDF multipágina): portada con la secuencia + 1 lámina por
     PASO (render 3D acumulado con las piezas nuevas resaltadas y lo previo en gris, cámara estable,
     lista de piezas/herraje + instrucción). La secuencia es la de MONTAJE, del grafo de uniones
@@ -294,7 +324,12 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
 
     Dos locks (plan manual-rapido, D2): bajo `STATE_LOCK` se EXTRAE (secuencia, textos) y se
     tesela tomando el lock PIEZA POR PIEZA; las fotos se dibujan fuera (VTK bajo `RENDER_LOCK`,
-    o matplotlib sin OpenGL)."""
+    o matplotlib sin OpenGL). Con `?async=true` va como JOB, como la memoria (F2)."""
+    return _job_entregable("assembly_manual", lambda proyecto: _manual(
+        proyecto, sheet, size_px, isolate, title), async_)
+
+
+def _manual(proyecto, sheet, size_px, isolate, title) -> Response:
     from apolo.drawing import (
         componer_manual,
         extraer_manual,
@@ -307,6 +342,7 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
     from apolo.services.montaje import hay_grafo, pasos_manual
 
     with STATE_LOCK:
+        _mismo_proyecto(proyecto)
         scene = S.doc.scene
         if isolate:
             ids = _expand_ids(isolate) or []  # acepta NOMBRES de grupo (V5.2)

@@ -240,24 +240,31 @@ def _misc_page(W: float, H: float, *, misc: list[dict], page_no: int,
     return m
 
 
-def calc_report(scene: dict, *, rules: list[dict], requirements: dict,
+def peso_memoria(scene: dict | None) -> float:
+    """El peso del cajetín: el de la MÁQUINA, como el del vuelco (lo oculto en la vista también
+    pesa). Lee OCCT: en la API va bajo `STATE_LOCK` y llega a `calc_report` en `meta`."""
+    from apolo.library.cutlist import scene_weight_kg
+
+    try:
+        return scene_weight_kg(scene or {}, include_hidden=True)
+    except Exception:
+        return 0.0
+
+
+def calc_report(scene: dict | None, *, rules: list[dict], requirements: dict,
                 project_name: str = "Sin título", png: bytes | None = None,
                 meta: dict | None = None, sheet: str = "A4") -> list[SheetModel]:
     """Memoria de cálculo multipágina: [portada + 1 página por regla con `calc` +
-    tabla de reglas cualitativas]. `rules` = ingenieria + estructura del chequeo."""
-    from apolo.library.cutlist import scene_weight_kg
-
+    tabla de reglas cualitativas]. `rules` = ingenieria + estructura del chequeo. `scene` sólo
+    se lee para el peso cuando `meta` no trae `weight_kg` (`peso_memoria`): con él, la
+    composición es pura y corre fuera de `STATE_LOCK` (plan manual-rapido, F2)."""
     W, H = SHEETS.get(sheet, SHEETS["A4"])
     sections = [r for r in rules if r.get("calc")]
     misc = [r for r in rules if not r.get("calc")]
     n_pages = 1 + len(sections) + (1 if misc else 0)
     peso = (meta or {}).get("weight_kg")
     if peso is None:
-        try:
-            # el peso de la MÁQUINA, como el del vuelco: lo oculto en la vista también pesa
-            peso = scene_weight_kg(scene, include_hidden=True)
-        except Exception:
-            peso = 0.0
+        peso = peso_memoria(scene)
     base_meta = {
         "project": project_name,
         "drawing_no": (meta or {}).get("drawing_no", "MC-001"),

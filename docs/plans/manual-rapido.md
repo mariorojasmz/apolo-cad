@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 y F1 hechas, sin mergear (manual de la piloto 12 538 s → 425 s en frío, 56 s caliente); faltan F2 (portada de la memoria) y F3 (publicar generar de la piloto)
+nota: F0, F1 y F2 hechas; F2 sin mergear, sobre teselado-rapido F1 (manual de la piloto 12 538 s → 425 s en frío; memoria 1 060 s → 52 s, y memoria y manual van como job por MCP); falta F3 (publicar generar de la piloto); quedan bajo el lock con matplotlib el juego de planos y el GA sombreados (§ Bitácora F2)
 descripcion: El manual de montaje de una máquina sale en segundos, no en 23 minutos, y mientras se arma Apolo no se congela
 ---
 
@@ -184,3 +184,68 @@ otro plan (mallar las cadenas con menos nodos o cachear la malla de render por f
 caché de geometría); la F2 (portada de la memoria) lo heredará igual. «Caliente» = con la caché
 de teselado de render llena en el proceso (tras un manual o un `render_view` de la máquina).
 Los PDF (antes y después) quedaron en el scratchpad de la sesión, no en el repo.
+
+### F2 — la portada de la memoria por el camino del manual, y la memoria como job (2026-10-21)
+
+- `drawing/foto_escena.py` (nuevo): las fases del manual para UNA foto. `extraer_foto` (bajo el
+  lock, sin teselar: colores, apariencias con zonas, la foto id/shape de lo visible y las
+  definiciones de `services.definiciones.definiciones_de`) → `teselar_foto(ex, STATE_LOCK)` (una
+  toma por pieza, con la malla de la definición) → `dibujar_foto` (fuera: `EscenaViva` bajo
+  `RENDER_LOCK`, 620 × 484 con el aspecto de `render_view`; sin OpenGL, `render_mallas_png` sobre
+  las mismas mallas y aviso en el log). `formas_de`, `definiciones_usadas` y `teselar_formas` los
+  comparte ahora el manual (`manual_fotos.py` ya no los repite).
+- `calc_report.peso_memoria`: el peso del cajetín (OCCT) se calcula bajo el lock y llega en
+  `meta`; `calc_report(None, …)` compone fuera. Las reglas, los requisitos y el cajetín siguen
+  extrayéndose en la misma toma de siempre: las secciones y los textos no cambian.
+- **Job** (pedido por la ola 5 de verificación por MCP: `calc_report(path=…)` sobre la piloto
+  daba «timed out» a los 120 s del httpx y nunca escribía el PDF): `GET /api/calc-report.pdf` y
+  `GET /api/assembly-manual.pdf` aceptan `?async=true` → 202 + recibo en una cola PROPIA,
+  `ENTREGABLES_JOBS` (`common._job_entregable`), para no retrasar mutaciones ni co-simulaciones.
+  Un job guarda JSON: el PDF queda en `ARCHIVOS` (`jobs.Archivos`, en memoria, los últimos 20) y
+  el resultado trae `archivo` = `GET /api/archivos/{clave}`. El job revalida el proyecto en su
+  primera toma del lock (`_mismo_proyecto` → 409 si se abrió otro). Sin `?async`, la respuesta de
+  siempre (la publicación no cambia). MCP: `tools/entregable.py` — `calc_report` y
+  `assembly_manual` piden el job, esperan como una mutación (`_submit_and_wait`) y bajan el PDF a
+  `path`; si tarda, el RECIBO, y `get_job(id)` (nuevo param `path`, oculto en el chat) lo guarda
+  donde se pidió. **El manual también va por job**: en frío son 46 s en la piloto
+  ([teselado-rapido](teselado-rapido.md) F1), pero 425 s antes de eso y en una PC cargada o una
+  máquina mayor pasa los 120 s igual que la memoria. Golden re-congelado (revisado: `get_job` con
+  `path`, dos docstrings y cinco llamadas nuevas: job ok, recibo, recoger con y sin `path`).
+- Tests: `tests/test_memoria_rapida.py` (las 3 páginas de un caso chico con los MISMOS textos y
+  cantidad de imágenes que en main, congelados antes del cambio; la portada con los colores de
+  sus piezas; lo oculto no sale y sin nada visible no hay foto; la foto VTK de 400 × 312; el
+  `STATE_LOCK` se toma y se muta mientras se dibuja; el teselado toma el candado una vez por
+  pieza; sin OpenGL sale con matplotlib y lo dice) y `tests/test_entregables_job.py` (memoria y
+  manual por job con el mismo PDF para bajar; un job fallido da el mismo 400 que en directo; el
+  proyecto cambiado en cola da 409; archivo desconocido, 404; un lote en `JOBS` corre mientras la
+  memoria dibuja).
+
+Medido por el endpoint (`TestClient`) sobre copias de `data/apolo.db`, piloto 74, cada corrida en
+su proceso (la PC compartida con otras sesiones):
+
+| | antes (base) | después, frío | después, caliente |
+|---|---|---|---|
+| total | 1 060 s | **52 s** | 40 s |
+| foto de portada | 1 018 s (matplotlib) | 7,6 s teselar + 9,3 s VTK | 0,2 + 6,5 s |
+| `STATE_LOCK` | 1 060 s seguidos | ~35 s seguidos + 201 tomas (la mayor, 2,3 s) | ~33 s + 201 de ~0 s |
+
+El PDF de la piloto sale con las mismas 11 páginas y el mismo texto (pypdf, página por página);
+cambia sólo la foto. Lo que queda bajo el lock de un tirón ya no es la foto: son las reglas
+(`structure_rules`, 28 s: conectividad, vuelco, uniones) y el peso. Queda anotado para otro plan.
+F0 había medido la portada en 2 322 s con la PC más cargada; la proporción no cambia.
+
+**Otros entregables que dibujan con matplotlib bajo `STATE_LOCK`** (no se tocan en F2; tiempo de
+`render_scene_png` en la piloto, base, la PC compartida):
+
+| entregable | dónde | foto(s) | tiempo |
+|---|---|---|---|
+| juego de planos con `shaded=true` (`GET /api/drawingset.pdf`, tool `drawing_set`; la publicación lo pide así) | `sheet.compose_sheet` (`shaded`) vía `sheetset`: el conjunto y CADA lámina por pieza | 16 (1 + 15 láminas) | 1 073 s de 1 237 (el conjunto, 916 s) |
+| hoja de conjunto GA (`POST /api/drawing/spec` con `shaded`, la publicación) | `sheet.compose_sheet` | 1 | 1 140 s de 1 246 |
+| `GET /api/render.png` en multivista o sin OpenGL (`render_view` del MCP exige VTK) | `routers/render.py` | 1 | no se mide: la publicación usa `vtk_only` |
+| `POST /api/commands/preview` sin `data` (PNG del fantasma) | `routers/commands.py` | 1 | no es entregable |
+
+Medidos en un proceso, el GA primero (el juego ya encontró las caras malladas por `BRepMesh`) y
+con la suite completa corriendo a la vez: los números absolutos son altos (video-tienda F3 midió
+462 y 231 s los dos entregables enteros), pero en los dos la foto es ~90 % del tiempo y todo va
+bajo el lock. La cotización y la lámina de instalación no dibujan 3D. El juego de planos y el GA tampoco van
+por job: con la piloto pasan los 120 s del MCP (`drawing_set`, `drawing`) igual que la memoria.

@@ -18,7 +18,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | router | rutas |
 |---|---|
 | `core` | escena (completa, filtrada, resumen, delta), documento, salud, schemas, `/ws`, notas y chat del agente, croquis, script de prueba, expresiones, criterio de diseño |
-| `commands` | comando, lote con contrato (sync o job), edición, borrado, búsqueda en el log, preview fantasma, jobs, variables, undo/redo, variantes |
+| `commands` | comando, lote con contrato (sync o job), edición, borrado, búsqueda en el log, preview fantasma, jobs y sus archivos, variables, undo/redo, variantes |
 | `features` | visibilidad, boceto-guía, color, material, vertical, topología, grupos, masa, medida, cercanía |
 | `render` | `render.png` y `pick` (misma cámara) |
 | `projects` | proyectos, revisiones, importar/exportar (STEP, STL, `.apolo`) |
@@ -119,6 +119,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   esperando a las mutaciones; `GET /api/jobs/{id}` mira las dos. Su closure toma sus locks (snapshot
   bajo `STATE_LOCK`, worker fuera) y guarda el resultado sólo si `S.doc` sigue siendo el del
   snapshot. [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D11)
+- Los entregables en archivo que tardan (memoria, manual) van en `ENTREGABLES_JOBS`
+  (`_job_entregable`, `?async=true`), tampoco en `JOBS`: un job guarda JSON, así que el PDF queda
+  en `ARCHIVOS` (en memoria, retención de 20) y el resultado trae `archivo` = `GET
+  /api/archivos/{clave}`. Revalidan el proyecto en su primera toma del lock (`_mismo_proyecto`:
+  409). Un entregable nuevo de minutos sigue el patrón. [manual-rapido](../../../docs/plans/manual-rapido.md) (F2)
 - Lock HOJA: el `_cv` del store jamás se sostiene llamando al closure (que toma `STATE_LOCK`)
   ni al aviso `al_cambiar_estado`; el worker corre `fn()` sin lock propio y escribe el resultado
   después. `jobs.py` no importa FastAPI (`_describe_error` duck-tipea `status_code`/`detail`).
