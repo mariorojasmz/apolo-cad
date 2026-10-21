@@ -70,6 +70,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   que se fueron + `total_solidos`, 8.2 MB → 284 B a 200 piezas); sin él, byte-idéntico.
   `con_dependientes` arrastra fasten/ground y membresías de grupo en 1 undo
   (`services/cirugia.py`). [cirugia-liviana](../../../docs/plans/cirugia-liviana.md)
+  `POST /api/undo|redo?detail=diff` usa el mismo `armar` con el diff del paso
+  (`services/paso.py`: la foto se toma DENTRO del lock, antes de mover la pila).
 - **Guardia del documento** (`guardia_documento.py`): con `X-Apolo-Documento` (token por objeto
   `Document`, publicado en `GET /api/health` → `documento`) una mutación sobre otro documento da
   409 sin aplicar nada. La verifican DENTRO de su `STATE_LOCK` y antes de tocar nada
@@ -145,6 +147,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   (`_scene_filtered`/`_feature_brief`, en la forma única `apolo/brief.py::brief_pieza`) y declara
   `total_filtrado`/`truncado` (sin caps silenciosos). [V6.5](../../../docs/plans/V6.5-mcp-a-escala.md)
 - `get_scene()` sin params = payload completo con mallas, byte-idéntico: lo usa el viewport.
+- **Modo corto = parámetro opt-in; sin él, byte-idéntico (la UI no lo pide, el MCP sí, por
+  defecto)**: `undo|redo?detail=diff`, `GET /api/connectivity?ids&kind&resumen=si|auto`,
+  `soundness {resumen}`, `/api/checks {grupo, solo_fallas, resumen}`. `/api/schemas` (vista
+  agente) publica `x-catalogo` en vez de un enum de > 50 refs; la vista persona conserva el
+  enum (desplegable de la UI). [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md)
 - `_expand_ids` acepta NOMBRES de grupo en isolate/highlight/fit (render, pick, drawing_spec,
   manual); por eso los nombres de grupo no admiten comas.
 - Los lotes de apariencia y conexiones (`POST /api/features/material|color`,

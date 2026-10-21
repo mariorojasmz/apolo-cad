@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito el 2026-10-21 (hito H de docs/hitos.md) con la fricción que midieron cinco verificaciones por MCP; nada implementado
+nota: F0+F1 implementadas en rama, sin mergear (2026-10-21; medidas y decisiones en § Bitácora); faltan F2 (D4, D5), F3 (D6) y F4
 descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respuestas cortas, errores que dicen cómo seguir y propuestas de estructura que no sueldan lo que se atornilla
 ---
 
@@ -100,3 +100,119 @@ escaso del agente (raíz § MCP: «Escala»): cada KB de respuesta se paga en ca
 - **El golden cambia mucho de una vez.** Mitigación: una tool por commit, con el diff revisado.
 
 ## Bitácora
+
+### F0 (2026-10-21): tamaño de cada respuesta y quién depende de su forma
+
+Medido EN PROCESO: las tools reales del MCP con `_api` apuntado a un `TestClient` de la API,
+sobre una COPIA de `data/apolo.db` (`APOLO_DB` a la copia, cada corrida desde una copia fresca).
+#1 = `undo` de un `create_box` recién hecho; #2 = `run_batch(detail="summary")` con la acción
+`create_roller_conveyor` del 79 (297 sólidos) sobre cada proyecto; el resto, la tool sin
+argumentos. Bytes de la salida de la tool (lo que entra al contexto del agente).
+
+| # | tool | piloto 74 (201 sólidos) | transportador 79 (297) |
+|---|---|---|---|
+| 1 | `undo` / `redo` | 47 002 / 47 163 B | 89 061 / 89 220 B |
+| 2 | `run_batch(detail="summary")` | 37 288 B | 36 694 B |
+| 3 | `check_assembly` | 3 779 B | 9 365 B |
+| 4 | `get_connections` (264 / 392 uniones) | 39 712 B | 86 241 B |
+| 5 | `engineering_check` (59 / 159 reglas) | 30 284 B | 69 532 B |
+| 6 | `get_command_schemas("insert_component")` | 9 947 B (5 173 son el enum de 362 refs) | igual |
+| 7 | `check_interference()` | 102 B (`truncado` sin conteo: es D4, F2) | 102 B |
+
+Los números de la tabla del plan (52,7 KB del undo, 57–70 KB de conexiones) son de las sesiones
+de la ola 5, sobre otras versiones de los proyectos; el orden de magnitud coincide.
+
+**Inventario de clientes de cada forma** (antes de acortar):
+
+- `POST /api/undo|redo` — UI `ui/src/api.ts` (`undo`/`redo` → `SceneOut`, escena completa con
+  mallas, y `deshacer.test.ts` fija las rutas); MCP `undo`/`redo` (`brief_paso`); el chat de la
+  app, por las mismas tools; `scripts/e2e_mcp.py` (tras `undo` lee `variables` con la variable
+  y `puede_rehacer`); tests `test_api_deshacer.py`.
+- `POST /api/commands/batch` — UI (escena completa); MCP `run_batch` vía `_scene_brief` (y
+  `run_command`, `edit_*`, `set_variable`, que comparten el brief); el chat sólo mira si el
+  lote se aplicó (`agent/chat.py`, `_LOTES`), no los sólidos; tests `test_mcp_brief.py`,
+  `test_jobs_mutaciones.py`.
+- `POST /api/assembly/soundness` — UI `AssemblyPanel.tsx`; `scripts/benchmark_package.py` (REST);
+  MCP `check_assembly`; `e2e_mcp.py` lee `n_grounded`, `n_total`, `n_floating`, `isolated`; la
+  puerta de entrega y la gravedad llaman a `soundness_report` directo, no a la ruta.
+- `GET /api/connectivity` — UI `store.ts` + `AssemblyPanel.tsx` (lista entera);
+  `tools/estructura.py::declare_structure(aplicar=true)` (cuenta `grounds`/`fasteners` y la
+  devuelve en `detalle`); `benchmark_package.py`; MCP `get_connections`; el prompt del revisor
+  (`design/revision.py`) la nombra.
+- `POST /api/checks` — UI `ChecksPanel` (`api.ts`: interferencias + ingeniería + estructura);
+  `benchmark_package.py`; MCP `engineering_check` y `check_interference`; `e2e_mcp.py` cuenta
+  estados sobre las listas.
+- `GET /api/schemas` — la UI pide `?vista=persona` (el desplegable de `SchemaForm.tsx` sale del
+  `enum`); el agente (MCP y chat) usa la vista agente y `/api/schemas/{type}`.
+- La publicación (`core/apolo/publicacion/`) sólo usa `/api/delivery-check`: no depende de
+  ninguna.
+
+Conclusión: todas las rutas las consume la UI con la forma larga → el modo corto entra como
+PARÁMETRO opt-in de la API (sin él, byte-idéntico) y lo pide el MCP. La UI no cambia.
+
+### F1 (2026-10-21): D1, D2 y D3
+
+Medido igual que F0, con el código de la rama (`detail`/filtros por defecto de cada tool):
+
+| # | tool | 74 antes → después | × | 79 antes → después | × |
+|---|---|---|---|---|---|
+| 1 | `undo` / `redo` | 47 002 → 219 B | 215 | 89 061 → 217 B | 410 |
+| 2 | `run_batch(detail="summary")` | 37 288 → 704 B | 53 | 36 694 → 702 B | 52 |
+| 3 | `check_assembly` | 3 779 → 109 B | 35 | 9 365 → 109 B | 86 |
+| 4 | `get_connections` | 39 712 → 6 535 B | 6,1 | 86 241 → 7 265 B | 11,9 |
+| 5 | `engineering_check` | 30 284 → 5 523 B | 5,5 | 69 532 → 8 390 B | 8,3 |
+| 6 | `get_command_schemas("insert_component")` | 9 947 → 5 530 B | 1,8 | igual | 1,8 |
+| 7 | `check_interference()` | 102 B, sin cambio (F2) | — | 102 B | — |
+
+A pedido, en la piloto: `undo(detail="full")` 47 002 B, `check_assembly(detail="full")` 3 779 B,
+`get_connections(resumen=false)` 39 712 B, `get_connections(kind="perno")` 1 280 B,
+`engineering_check(detail="full")` 30 284 B, `(grupo="flecha de viga")` 914 B,
+`(solo_fallas=true)` 1 396 B.
+
+**Justificadas** (< 5×): #6 — lo que queda (5,5 KB) es la documentación de los parámetros
+(anclas de perfil abierto, `orientacion`, Vec3/Rot3), que el agente necesita para llamar bien;
+recortarla sería D3 de otro plan. #7 es D4 (F2).
+
+Decisiones tomadas al implementar:
+
+- **El modo corto vive en el servidor, opt-in** (`services/paso.py`, `conexiones.py`,
+  `reglas_cortas.py`): el HTTP también adelgaza (el undo ya no viaja con mallas) y el chat lo
+  recibe igual. La excepción es #2: el brief de mutación ya era del cliente (`brief.py`); con más
+  de 40 sólidos afectados, "diff" y "summary" dan `por_comando` en vez de la lista. Vale para todas
+  las mutaciones que usan el brief, no sólo `run_batch` (D1: "toda respuesta que lista sólidos").
+- **Patrón = el nombre con los números → `*`**, el mismo para reglas y uniones. Para uniones se
+  probó primero la raíz de pieza de `estructura.py`: la piloto daba 84 filas y 16 KB (cada cadena
+  es su propio comando, c65…c83), 2,5×; por patrón de nombre, 6,5 KB.
+- **`engineering_check(grupo=)` filtra por FAMILIA de regla** (la parte antes de « · »:
+  «unión apernada», «flecha de viga»…), no por grupo de piezas: las reglas no llevan ids y lo que
+  el agente filtró con Grep en las verificaciones era una familia (flecha-de-bastidor F3).
+- **El peor caso** de una línea agrupada = estado más grave (error > aviso > ok) y, a igual
+  estado, el menor `calc.fs`. Sólo las reglas en «error» conservan `calc`/`hipotesis`/`no_aplica`.
+- **`get_connections(resumen=None)` = auto**: resume con más de 40 uniones (como
+  `declare_structure` con sus 60 acciones); con un filtro chico vuelve la lista con nombres.
+  `ids` acepta piezas, grupos y command_ids (sus piezas `{cmd}_n`); un token que no resuelve da
+  404 con «¿quisiste decir…?». `kind="anclaje"` = sólo los anclajes.
+- **`check_assembly` corto** quita `grounded`, `floating` (duplicaba `floating_detail`) y
+  `components`; suma `n_isolated` y `n_componentes`. Las listas de lo que flota se recortan a 40
+  con `_omitidas` (sin anclajes, flota TODO).
+- **`undo`/`redo` diff**: comandos quitados/restaurados/editados por id, piezas nuevas/borradas
+  por nombre, `piezas_editadas` = las de los comandos editados (no se compara geometría), uniones
+  por nombre y tipo, `variables` = sólo las que cambiaron (el e2e lee la variable de ahí). Con
+  `pasos` > 1 la etiqueta es la lista de las N.
+- **D3** sólo toca enums de más de 50 refs del catálogo: `insert_component.component` (362) y
+  `add_device.ref` (69); los de 41 rodamientos o 16 tubos se quedan (útiles y chicos). El
+  `«componente desconocido»` de insert_component ganó el «¿quisiste decir…?» que add_device ya
+  tenía. La vista persona y `command_schemas()` no cambian (la UI arma el desplegable del enum).
+- Trinquetes: `routers/commands.py` iba a pasar de 500 → las filas de `find_commands` salieron a
+  `services/busqueda_log.py`; `mcp_server.py` bajó de 1392 a 1388 (recibo/resultado de job a
+  `tools/recibo.py`, opcionales de `fea_assembly` en un dict) aunque 5 tools ganaron parámetros.
+- Golden re-congelado en un commit por tool (o par de tools que comparten servicio), con casos
+  nuevos para cada modo a pedido y cada filtro (161 → 168 llamadas).
+- Los tiempos de la tabla de F0 incluyen la contención del autosave: un undo que llega mientras
+  se vacía el autosave de la mutación anterior espera el pack de la caché de geometría (se vio un
+  undo de 3,8 s que, repetido, tarda 0,05 s).
+
+Fuera de F1 (anotado para después): `declare_structure(aplicar=true)` sigue devolviendo la lista
+entera de conexiones en `detalle` (es D6/F3, que rehace esa tool); `engineering_check` calcula
+también la interferencia global de `/api/checks` (≈ 16 s de los ≈ 18 s en la piloto) aunque no
+la devuelve: un flag para saltarla es barato y no estaba en el contrato.

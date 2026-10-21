@@ -145,6 +145,16 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   aviso. `foto` + `diff_borrado` arman la respuesta liviana.
   [cirugia-liviana](../../../docs/plans/cirugia-liviana.md)
 
+## Respuestas cortas para el agente (`paso.py`, `conexiones.py`, `reglas_cortas.py`)
+
+- Modo corto (D1/D2 de [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md)): conteos +
+  sólo lo que CAMBIÓ o FALLÓ; el detalle, a pedido. Una lista larga se recorta con
+  `paso.recortar` (`MAX_LISTA`) y declara `<clave>_omitidas`: nunca un recorte silencioso.
+- «Repetido» = mismo nombre con los números cambiados por `*` (`reglas_cortas.patron`): agrupa
+  reglas (una línea, `n`, el PEOR caso en `peor`) y uniones (`resumen` de `get_connections`). Por
+  raíz de pieza, como la propuesta de estructura, la piloto daba 84 filas (cada cadena es su
+  comando).
+
 ## Estructura propuesta (`estructura.py`)
 
 - `propuesta_estructura` es la fuente ÚNICA de `POST /api/assembly/declare`: lo que propone
