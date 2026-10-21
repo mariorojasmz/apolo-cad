@@ -22,6 +22,8 @@ from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
 from apolo.tools import cirugia, cosim, destino, entregable, estructura, fastmcp_limpio
 from apolo.tools import mcp_electrico, simulacion
+from apolo.tools.recibo import job_receipt as _job_receipt
+from apolo.tools.recibo import job_result as _job_result
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -91,19 +93,6 @@ def _submit_and_wait(method: str, path: str, body: dict, params: dict | None = N
             return job["resultado"], None
         if job["estado"] == "error":
             raise _reject(job.get("http_status") or 400, job.get("error"))
-
-
-def _job_receipt(job_id: str, estado: str = "corriendo") -> str:
-    seguir = f"llama get_job('{job_id}') para recoger el resultado"
-    return json.dumps({"job": job_id, "estado": estado, "seguir": seguir}, ensure_ascii=False)
-
-
-def _job_result(payload: dict, detail: str) -> dict:
-    """Brief de un job = el de la vía síncrona; sin `features` (ya liviano) pasa tal cual."""
-    out = _scene_brief(payload, detail) if "features" in payload else dict(payload)
-    if "contrato" in payload:
-        out["contrato"] = payload["contrato"]
-    return out
 
 
 def _mutacion(method: str, path: str, body: dict, detail: str, params: dict | None = None) -> str:
@@ -1348,22 +1337,10 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
     from pathlib import Path
 
     body: dict = {"self_weight": self_weight, "fs_min": fs_min, "loads": loads or []}
-    if group:
-        body["group"] = group
-    if ids:
-        body["ids"] = ids
-    if name:
-        body["name"] = name
-    if carga_kg:
-        body["carga_kg"] = carga_kg
-    if yield_mpa:
-        body["yield_mpa"] = yield_mpa
-    if fixed_pieces:
-        body["fixed_pieces"] = fixed_pieces
-    if mesh_size_mm:
-        body["mesh_size_mm"] = mesh_size_mm
-    if nota:
-        body["nota"] = nota
+    opcionales = {"group": group, "ids": ids, "name": name, "carga_kg": carga_kg,
+                  "yield_mpa": yield_mpa, "fixed_pieces": fixed_pieces,
+                  "mesh_size_mm": mesh_size_mm, "nota": nota}
+    body.update({k: v for k, v in opcionales.items() if v})  # sólo los que vienen
     resumen = _api("POST", "/api/fea/assembly", json=body).json()
     if fringe_path:
         gname = resumen.get("grupo", group or name)

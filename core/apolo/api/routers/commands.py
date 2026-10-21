@@ -22,6 +22,7 @@ from apolo.doc import DocumentError
 from apolo.kernel import bbox_payload
 from apolo.library import interference_report
 from apolo.services import cirugia
+from apolo.services.busqueda_log import command_resumen, params_reference, resumen_carril
 from apolo.services.assertions import contract_verify
 from apolo.state import STATE_LOCK
 
@@ -310,56 +311,6 @@ def remove_commands_endpoint(
     return _sync_or_job("remove_commands", _work, async_)
 
 
-def _params_reference(params: dict, fid: str) -> str | None:
-    """Primera clave de params cuyo valor referencia el feature id: string igual,
-    lista que lo contiene, o un nivel de dict anidado (selectores {'cerca': fid}).
-    Búsqueda SUPERFICIAL por valores — no semántica profunda (V6.8-B)."""
-    for key, val in params.items():
-        if val == fid:
-            return key
-        if isinstance(val, list) and any(v == fid for v in val):
-            return key
-        if isinstance(val, dict) and any(v == fid for v in val.values()):
-            return key
-    return None
-
-
-def _resumen_carril(t: str, p: dict) -> str | None:
-    """El carril eléctrico no tiene `name`: su etiqueta es la designación y la ref (V8.3 F6)."""
-    def j(*xs):
-        return " ".join(str(x) for x in xs if x)
-
-    if t == "add_device":
-        return j(p.get("designacion"), p.get("ref"), f"(pieza {p['pieza']})" if p.get("pieza") else "")
-    if t == "add_cable":
-        tramo = " → ".join(str(x) for x in (p.get("desde"), p.get("hasta")) if x)
-        return j(p.get("designacion"), p.get("ref"), f"({tramo})" if tramo else "")
-    if t == "add_wire":
-        hilo = f"({p['cable']} hilo {p.get('hilo')})" if p.get("cable") else ""
-        return j(" → ".join(map(str, p.get("puntos") or [])), hilo)
-    if t == "add_program":
-        return j("programa", p.get("nombre") or "", "de", p.get("plc"))
-    return None
-
-
-def _command_resumen(cmd: dict) -> str:
-    """Etiqueta compacta de una fila del log: el `name` si existe, la designación y la ref en el
-    carril eléctrico, o «tipo sobre X»."""
-    p = cmd.get("params", {})
-    if p.get("name"):
-        return str(p["name"])
-    carril = _resumen_carril(cmd["type"], p)
-    if carril:
-        return carril
-    for k in ("feature", "feature_a", "target", "a", "parent", "members"):
-        v = p.get(k)
-        if v:
-            if isinstance(v, list):
-                v = ",".join(map(str, v[:3])) + ("…" if len(v) > 3 else "")
-            return f"{cmd['type']} sobre {v}"
-    return cmd["type"]
-
-
 @router.get("/api/commands")
 def find_commands_endpoint(
     type: str | None = None, feature: str | None = None,
@@ -391,14 +342,14 @@ def find_commands_endpoint(
                 continue
             params = c.get("params", {})
             if name and name.lower() not in str(params.get("name")
-                                                or _resumen_carril(c["type"], params) or "").lower():
+                                                or resumen_carril(c["type"], params) or "").lower():
                 continue
             if feature:
                 es_creador = c["id"] in (feature, creator)
-                ref = _params_reference(params, feature)
+                ref = params_reference(params, feature)
                 if not es_creador and ref is None:
                     continue
-            rows.append({"id": c["id"], "type": c["type"], "resumen": _command_resumen(c)})
+            rows.append({"id": c["id"], "type": c["type"], "resumen": command_resumen(c)})
         if feature and not rows and creator is None:
             # el id no existe ni se referencia → 404 con «¿quisiste decir…?»
             raise _not_found(feature)
