@@ -175,7 +175,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - `check_interference` (booleanas OCCT) excluye pares de junta, `same_command_pairs` y el herraje
   `HARDWARE_CATS`; `interpenetration_report` mide el EXCESO sobre la pose de diseño en pares con
   junta. `HARDWARE_CATS` NO se amplía (semántica de interferencia, lista de corte y lints): el FEA
-  usa `FEA_HARDWARE_CATS`.
+  usa `FEA_HARDWARE_CATS`. Revisa ≤ `MAX_PAIRS` parejas candidatas; si recorta, declara
+  `parejas_candidatas` y `parejas_sin_revisar` (sin recorte, el dict de siempre) y la puerta
+  dice cuántas quedaron sin revisar.
 - `lints.predelivery_lints`: «barreno de paso Ø7-22 sin perno en su eje» y «pieza sin grupo NI
   unión declarada» (excluye guías, superficies y herraje). Reconoce tornillería a medida por
   NOMBRE (`_is_bolt`). Todo matcher por nombre nuevo lleva guarda de anclaje/plurales y un test

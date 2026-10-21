@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0+F1 mergeadas a main el 2026-10-21 (respuestas cortas y filtros); faltan F2 (D4, D5), F3 (D6) y F4 (verificación por MCP)
+nota: F0+F1 mergeadas a main el 2026-10-21 (respuestas cortas y filtros); F2 (D4, D5) implementada en rama, sin mergear; faltan F3 (D6) y F4 (verificación por MCP)
 descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respuestas cortas, errores que dicen cómo seguir y propuestas de estructura que no sueldan lo que se atornilla
 ---
 
@@ -216,3 +216,59 @@ Fuera de F1 (anotado para después): `declare_structure(aplicar=true)` sigue dev
 entera de conexiones en `detalle` (es D6/F3, que rehace esa tool); `engineering_check` calcula
 también la interferencia global de `/api/checks` (≈ 16 s de los ≈ 18 s en la piloto) aunque no
 la devuelve: un flag para saltarla es barato y no estaba en el contrato.
+
+### F2 (2026-10-21): D4 y D5
+
+Medido como F0 (tools reales del MCP contra la API en proceso, copia de `data/apolo.db`):
+
+| tool | piloto 74 (201 sólidos) | transportador 79 (297) |
+|---|---|---|
+| `check_interference()` | 102 → 532 B: 400 de 468 parejas, faltan 68, y los 6 grupos con sus piezas | 102 → 676 B: 400 de 698, faltan 298, y los 6 subgrupos de la plantilla |
+| `delivery_check()` (`tiempos_s`) | 9,6 s: interferencias 7,1 · acceso de herramienta 2,5 · el resto < 0,05 | 14,2 s: interferencias 9,8 · acceso 4,3 |
+| `remove_commands([c11])` sin dependientes | 400 de 755 B: los 6 `fasten` que arrastraría `con_dependientes`, el grupo que editaría y el patrón `c57`, que no arrastra | — |
+| `run_batch(create_roller_conveyor 3 m, "summary")` | 1 579 B; `uniones_expandidas` = 300 uniones en 10 filas (984 B) | 1 557 B (964 B) |
+| `render_view(isolate=["Bastidor"])` | — (la piloto no tiene subgrupos) | antes 400 «ningún id existe»; ahora la foto en 1,1 s; `get_scene(ids=["Bastidor"])` 806 B |
+
+La puerta de entrega no se trunca en ninguna de las dos (excluye los pares con `fasten`): los
+~53 s de la verificación de la plantilla F3 eran con `con_gravedad`. Lo caro es la interferencia
+y el acceso de herramienta.
+
+Decisiones tomadas al implementar:
+
+- **El 400 del borrado** (`services/cirugia.py::como_seguir`, tras el rollback, bajo el mismo
+  lock) va con y sin `con_dependientes` y en los dos modos: la ruta no la usa la UI. Lista lo que
+  `con_dependientes` arrastraría y, aparte, los comandos que NO arrastra y nombran lo borrado. Esa
+  segunda lista salió de medir: en la piloto el borrado de la fuente de un patrón falla en el
+  PATRÓN (`c57`), no en una unión; sugerir sólo `con_dependientes` habría sido engañoso. Cada
+  lista se recorta a 8 con «… y N más»; un id inexistente deja el error tal cual.
+- **Interferencia truncada**: `interference_report` declara `parejas_candidatas` y
+  `parejas_sin_revisar` SÓLO al truncar (sin recorte, el dict de siempre); `/api/checks` suma
+  `como_acotar` con los grupos de primer nivel o, si hay una sola raíz sin miembros (una plantilla),
+  con sus subgrupos (en la 79 la raíz era la máquina entera). `verify` y `preview(data)` también
+  dicen cuántas faltan; la puerta lo pone en su aviso.
+- **Fasten por conjuntos**: lo cuenta `_state_or_error` para toda mutación (`run_batch`,
+  `run_command`, ediciones), no sólo `run_batch`: `uniones_expandidas` aparece sólo si lo afectado
+  tiene un `fasten` con conjunto (incluidas las de una plantilla, por prefijo `{cmd}_`). La UI no
+  la lee y sin conjuntos la respuesta es byte-idéntica. `tools/recibo.py` la pasa al brief.
+- **`tiempos_s`** va siempre en `/api/delivery-check` (la UI no la usa; la publicación lee sólo
+  veredicto, bloqueantes, avisos y resumen).
+- **Subgrupos** (`assembly/groups.resolve_group`): un token que no es grupo ni pieza resuelve al
+  ÚNICO subgrupo cuyo último tramo es ese («Bastidor» → «Transportador de rodillos/Bastidor»); de
+  varios grupos → 400 con los candidatos. Lo usan `_expand_ids` (render, pick, get_scene, verify,
+  check_interference, planos, manual) y `get_connections`. El 400 de `isolate` vacío ahora nombra
+  lo que no resolvió y sugiere.
+- **`show_axes`**: medido antes, VTK ya encuadraba con el bbox explícito (`ResetCamera(bounds)`)
+  y los ejes NO cambiaban el encuadre: el problema real era que salían del origen, a menudo fuera
+  de cuadro. Ahora es un triedro en la esquina inferior izquierda (renderer propio en la capa
+  overlay con la orientación de la cámara): fuera de esa esquina, la foto es idéntica pixel a
+  pixel. El respaldo matplotlib sigue con los ejes del origen (el MCP no lo usa).
+- Trinquete: `mcp_server.py` 1388 → 1382 (`export_step` y `export_stl` escriben con
+  `entregable.escribir`) aunque cinco docstrings crecieron. Golden: 168 → 172 llamadas (lote con
+  conjuntos, borrado que dice cómo seguir, interferencia truncada, puerta con tiempos) y 6
+  descripciones.
+
+Fuera de F2 (anotado para después): `check_interference` sigue corriendo TODO `/api/checks`
+(ingeniería y estructura incluidas: 23 s en un transportador de 1 m, 15–25 s en la 74/79) para
+devolver sólo la interferencia — el mismo flag que falta en `engineering_check`; el 400 de
+`isolate` de planos y manual sigue con el texto viejo (ya resuelve subgrupos); el render
+matplotlib dibuja los ejes del origen.

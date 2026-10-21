@@ -147,6 +147,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   juntas y mates nunca (el error estricto los nombra). Un grupo que quedaría vacío no se toca:
   aviso. `foto` + `diff_borrado` arman la respuesta liviana.
   [cirugia-liviana](../../../docs/plans/cirugia-liviana.md)
+- `como_seguir` arma el 400 de un borrado con referencias rotas (tras el rollback): lo que
+  `con_dependientes=true` arrastraría y los comandos que no (juntas, mates, patrones y
+  operaciones que nombran lo borrado, `fasten` por conjuntos), con sus ids y recortado. Un id inexistente deja el error tal cual. [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md) (D4)
 
 ## Respuestas cortas para el agente (`paso.py`, `conexiones.py`, `reglas_cortas.py`)
 
@@ -157,6 +160,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   reglas (una línea, `n`, el PEOR caso en `peor`) y uniones (`resumen` de `get_connections`). Por
   raíz de pieza, como la propuesta de estructura, la piloto daba 84 filas (cada cadena es su
   comando).
+- Un recorte o un error dice cómo seguir (D4): la interferencia truncada suma `como_acotar`
+  (`interferencias.py`: cuántas faltan + grupos de primer nivel), un `fasten` por conjuntos se
+  cuenta en `conexiones.expandidas` y la puerta anota segundos por regla (`delivery_inputs(tiempos=)`).
 
 ## Estructura propuesta (`estructura.py`)
 

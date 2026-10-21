@@ -64,7 +64,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - Toda mutación pasa por `_state_or_error`: devuelve `affected_command_ids` (el MCP lista sólo
   esos sólidos) y suma `aviso_estructura` cuando hay ≥ `MIN_SOLIDOS_SUJECION` sólidos y 0
   grounds: alarma ambiental en CADA mutación, nunca en lecturas.
-  [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
+  [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md) Si lo afectado tiene un `fasten` por
+  conjuntos, suma `uniones_expandidas` (sólo entonces; si no, byte-idéntico).
+  [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md) (D4)
 - `_state_or_error(fn, armar=…)`: `armar` reemplaza la escena completa por un payload LIVIANO,
   armado bajo el mismo lock (`POST /api/commands/remove?detail=diff`: comandos, piezas y uniones
   que se fueron + `total_solidos`, 8.2 MB → 284 B a 200 piezas); sin él, byte-idéntico.
@@ -153,7 +155,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   agente) publica `x-catalogo` en vez de un enum de > 50 refs; la vista persona conserva el
   enum (desplegable de la UI). [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md)
 - `_expand_ids` acepta NOMBRES de grupo en isolate/highlight/fit (render, pick, drawing_spec,
-  manual); por eso los nombres de grupo no admiten comas.
+  manual); por eso los nombres de grupo no admiten comas. Un subgrupo vale también por su último
+  tramo («Rodillos» → «Transportador/Rodillos», `assembly/groups.resolve_group`); de varios
+  grupos → 400 con los candidatos. Quien resuelva grupos por su cuenta usa el mismo resolvedor.
 - Los lotes de apariencia y conexiones (`POST /api/features/material|color`,
   `/api/connections/remove`) validan TODO antes de tocar nada: un id malo → 404 con sugerencia y
   CERO efectos parciales; un solo autosave. Las conexiones dejan un undo; color y material,

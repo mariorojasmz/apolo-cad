@@ -23,6 +23,9 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   `RENDER_LOCK` sosteniendo `STATE_LOCK` (orden inverso): sólo tests, nunca producción.
   [V6.2](../../../docs/plans/V6.2-rendimiento.md)
 - `xray` sólo es legible acotado a 2-3 piezas (con `isolate`).
+- `show_axes` (VTK) = triedro en la esquina inferior izquierda (`_triedro`: renderer propio en la
+  capa overlay, con la orientación de la cámara principal): nada fuera de la geometría entra al
+  encuadre. [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md) (D5)
 - La malla de render (`render_comun.teselar*`) sale de `malla_render.py`: numpy leído de la
   `Poly_Triangulation` de cada cara (el mismo resultado que `Shape.tessellate`, sin su `Vector`
   por nodo; `poly.Triangle(i)`, no `poly.Triangles()`, 5× más lento) y, para una instancia
