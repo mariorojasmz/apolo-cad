@@ -20,3 +20,12 @@ La máquina entera en virtual: red, tablero, PLC, variadores, motores y física
 - PURO y sin OCCT (`tests/test_capas_cosim.py`): de `apolo` sólo importa `cosim.modelos`, ni
   siquiera `apolo.library` (su `__init__` carga el catálogo y OCP, y el worker de F4 no debe).
   Por eso el motor recalcula la Kloss de `motor_induccion` y un test las ata.
+
+## Redes (`red/`)
+
+- Puro igual (numpy + LAPACK de scipy; ni `cosim.modelos`): lee el formato plano de `entrada.py`,
+  que arma `services/cosim_red.py` del modelo de V8.1. Un dato nuevo del tablero entra por ahí.
+- La alterna de MANDO va en la red de potencia (está unida a la red); el mando es la continua.
+- Mando: `pedidas()` ANTES de `paso` y la fuente decide su U en el mismo paso (con atraso, un
+  corto franco funde el fusible antes del límite). Cada paso es superposición sin resolver.
+- Worker con BLAS de un hilo (`OPENBLAS_NUM_THREADS=1`): en 62×62 los hilos multiplican por 7.
