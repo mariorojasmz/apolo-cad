@@ -374,7 +374,14 @@ def test_T7_tolerant_equals_strict_on_healthy_project():
     strict = Document.from_apolo_bytes(good)
     tol = Document.from_apolo_bytes(good, tolerant=True)
     assert tol.regen_suppressed == []
-    assert strict.to_apolo_bytes() == tol.to_apolo_bytes()
+    # Se comparan los CONTENIDOS del zip, no sus bytes: el encabezado lleva la hora de
+    # escritura y dos guardados que cruzan un segundo difieren (rojo falso con la PC cargada).
+    assert _contenido_zip(strict.to_apolo_bytes()) == _contenido_zip(tol.to_apolo_bytes())
+
+
+def _contenido_zip(data: bytes) -> dict:
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        return {n: zf.read(n) for n in sorted(zf.namelist())}
 
 
 # ================================================ T8 — DEFINITIONS: contrato + LRU
