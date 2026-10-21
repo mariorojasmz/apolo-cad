@@ -141,8 +141,9 @@ def get_scene(
 @mcp.tool()
 def get_command_schemas(command_type: str | None = None) -> str:
     """Comandos CAD con su JSON Schema de parámetros. Consúltalo antes de
-    run_command/run_batch. Sin argumento lista TODOS (es grande, ~77 KB); pasa
-    `command_type` (p. ej. "create_belt_conveyor") para traer SOLO ese schema."""
+    run_command/run_batch. Sin argumento lista TODOS (es grande, ~180 KB); pasa
+    `command_type` (p. ej. "create_belt_conveyor") para traer SOLO ese schema. Un campo con
+    refs del catálogo trae `x-catalogo` (categorías) en vez de la lista: búscalas con get_catalog."""
     if command_type:
         return json.dumps(
             _api("GET", f"/api/schemas/{command_type}").json(), ensure_ascii=False

@@ -15,7 +15,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 import apolo.api.main as api
-from apolo.commands import REGISTRY, command_schemas, command_schemas_persona
+from apolo.commands import (
+    REGISTRY,
+    command_schemas,
+    command_schemas_agente,
+    command_schemas_persona,
+)
 from apolo.commands import vista_persona as vp
 from apolo.commands.pistas import PESTANAS
 from apolo.doc import Document
@@ -42,7 +47,12 @@ def test_vista_agente_es_la_de_siempre(client):
     assert base.status_code == 200
     explicita = client.get("/api/schemas", params={"vista": "agente"})
     assert explicita.content == base.content
-    assert base.json() == json.loads(json.dumps(command_schemas(), ensure_ascii=False))
+    # la vista agente = el registro, salvo los enums gigantes del catálogo, que publica como
+    # `x-catalogo` (D3 de mcp-sin-friccion; tests/test_schemas_agente.py)
+    assert base.json() == json.loads(json.dumps(command_schemas_agente(), ensure_ascii=False))
+    registro = _por_tipo(json.loads(json.dumps(command_schemas(), ensure_ascii=False)))
+    distintos = {t for t, e in _por_tipo(base.json()).items() if e != registro[t]}
+    assert distintos == {"insert_component", "add_device"}
     # la entrada del agente conserva su description y la raíz del schema la repite
     dh = _por_tipo(base.json())["drill_hole"]
     assert "V6.8-E" in dh["description"]

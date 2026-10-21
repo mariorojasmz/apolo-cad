@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from apolo import identidad
 from apolo.agent import chat as chat_http
-from apolo.commands import command_schemas, command_schemas_persona
+from apolo.commands import command_schemas_agente, command_schemas_persona
 from apolo.state import STATE_LOCK
 
 from ..common import (
@@ -80,13 +80,14 @@ def _scene_filtered(ids, name, limit, offset) -> dict:
 
 @router.get("/api/schemas")
 def get_schemas(vista: str = Query("agente", pattern="^(agente|persona)$")) -> list[dict]:
-    return command_schemas() if vista == "agente" else command_schemas_persona()
+    # agente: sin enums gigantes del catálogo (D3 de mcp-sin-friccion); persona: con ellos (la UI)
+    return command_schemas_agente() if vista == "agente" else command_schemas_persona()
 
 
 @router.get("/api/schemas/{command_type}")
 def get_schema(command_type: str) -> dict:
     """JSON Schema de UN comando por type (evita volcar todos)."""
-    res = command_schemas(command_type)
+    res = command_schemas_agente(command_type)
     if not res:
         raise HTTPException(status_code=404, detail=f"No existe el comando '{command_type}'")
     return res[0]

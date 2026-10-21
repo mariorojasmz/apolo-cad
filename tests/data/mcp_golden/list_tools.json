@@ -73,7 +73,7 @@
  },
  {
   "name": "get_command_schemas",
-  "description": "Comandos CAD con su JSON Schema de parámetros. Consúltalo antes de\nrun_command/run_batch. Sin argumento lista TODOS (es grande, ~77 KB); pasa\n`command_type` (p. ej. \"create_belt_conveyor\") para traer SOLO ese schema.",
+  "description": "Comandos CAD con su JSON Schema de parámetros. Consúltalo antes de\nrun_command/run_batch. Sin argumento lista TODOS (es grande, ~180 KB); pasa\n`command_type` (p. ej. \"create_belt_conveyor\") para traer SOLO ese schema. Un campo con\nrefs del catálogo trae `x-catalogo` (categorías) en vez de la lista: búscalas con get_catalog.",
   "inputSchema": {
    "properties": {
     "command_type": {

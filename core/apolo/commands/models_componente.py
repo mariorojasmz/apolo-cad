@@ -76,8 +76,15 @@ class InsertComponentParams(BaseModel):
     @field_validator("component")
     @classmethod
     def _known_ref(cls, v: str) -> str:
-        if v not in _catalog_refs():
-            raise ValueError(f"componente desconocido '{v}'")
+        refs = _catalog_refs()
+        if v not in refs:
+            # el schema del agente ya no lista las refs (D3 de mcp-sin-friccion): la sugerencia
+            # vive aquí, en la entrada
+            import difflib
+
+            cerca = difflib.get_close_matches(v, refs, n=3, cutoff=0.6)
+            pista = f"; ¿quisiste decir: {', '.join(cerca)}?" if cerca else ""
+            raise ValueError(f"componente desconocido '{v}'{pista}")
         return v
 
     @model_validator(mode="after")
