@@ -90,6 +90,8 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-21 | manual-rapido | F0+F1 | S+M | 231 | 363 | atípico: midió el manual de la piloto en frío (3 h 29 min antes) |
 | 2026-10-21 | video-realista | F4 | M | 228 | 478 | trazado de rayos (three-gpu-pathtracer 0.0.23) + Foto realista; rodeó 4 fallas de la librería |
 | 2026-10-21 | V8.3 | B′ (6 defectos de F6) | M | 81 | 418 | bandas fuera = error, ajustes del motor deducidos, find_commands, margen y «se mantiene», atasco parcial |
+| 2026-10-21 | teselado-rapido | F0+F1 | S+M | 96 | 382 | render por definición + triangulación a numpy; primer render_view de la piloto 218 → 21 s |
+| 2026-10-21 | (verif. MCP) | ola 5 piloto | 5×S | 53 | 5,28 USD | una sesión `claude -p` sobre la flota: 4 pasan, 1 falla (memoria) |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
