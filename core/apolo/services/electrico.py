@@ -3,7 +3,8 @@
 Lee `doc.electrico`, el `ModeloElectrico` que el carril del documento dejó en el último
 regenerate (`doc/carril.py`), y lo entrega a sus clientes:
   - `circuito`: dispositivos con sus bornes y la red de cada uno, redes con su potencial y la
-    tensión inferida, conductores y cables (`GET /api/electrico/circuito`, tool `get_circuit`);
+    tensión inferida, conductores, cables y la tabla de tags de cada programa de PLC (V8.3 D4)
+    (`GET /api/electrico/circuito`, tool `get_circuit`);
   - `chequeo`: el ERC con su resumen (`GET /api/electrico/check`, tool `electrical_check`);
   - `reglas_erc`: el ERC para la puerta de entrega y la aserción `{"erc": "sin_errores"}`
     (None sin carril: la puerta no cambia);
@@ -115,10 +116,16 @@ def circuito(doc, designacion: str | None = None) -> dict:
                **{k: v for k, v in (("desde", c.desde), ("hasta", c.hasta),
                                     ("largo_m", c.largo_m)) if v}}
               for c in m.cables if not designacion or c.designacion in usados]
+    # V8.3 D4: la tabla de tags de cada programa (sólo si hay: sin programas, lo de siempre)
+    programas = [{"plc": p.plc, "nombre": p.nombre, "lenguaje": p.lenguaje, "ciclo_ms": p.ciclo_ms,
+                  **({"ciclos": p.ciclos} if p.ciclos else {}), "comando": p.id,
+                  "tags": [dict(t) for t in p.tags]}
+                 for p in m.programas if not designacion or p.plc in elegidos]
     return {"dispositivos": salida_disp, "redes": redes, "conductores": conductores,
-            "cables": cables,
+            "cables": cables, **({"programas": programas} if programas else {}),
             "resumen": {"n_dispositivos": len(m.dispositivos), "n_conductores": len(m.conductores),
-                        "n_cables": len(m.cables), "n_redes": len(a.redes)}}
+                        "n_cables": len(m.cables), "n_redes": len(a.redes),
+                        **({"n_programas": len(m.programas)} if m.programas else {})}}
 
 
 def filas_bom(doc) -> list[dict]:

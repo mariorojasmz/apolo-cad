@@ -4,7 +4,8 @@ Movido tal cual desde `main.py` (F6a del plan `docs/plans/partir-api-main.md`): 
 → feature_ids (`_expand_ids`, toma `STATE_LOCK`), el 404 con «¿quisiste decir…?»
 (`_not_found`), el retorno de TODA mutación (`_state_or_error`: autosave, payload, alarma
 ambiental y aviso por WebSocket), la materialización de `insert_project`, los jobs (`JOBS`
-con su aviso de estado por WebSocket, `_sync_or_job` con su guardia de proyecto), el lock de
+con su aviso de estado por WebSocket, `_sync_or_job` con su guardia de proyecto; `COSIM_JOBS` y
+`_job_cosim`, la cola aparte de la co-simulación, V8.3 D11), el lock de
 física (`PHYSICS_LOCK`), el almacén requerido, el cajetín de los planos (`_drawing_meta`) y,
 desde F6b/F6c, lo que comparten dos
 routers: el borrado del comando dueño de una junta o un mate (`_remove_owner_command`) y las
@@ -68,6 +69,10 @@ def _avisar_job(cambio: dict) -> None:
 # closure que el endpoint (misma atomicidad/undo/contratos/autosave), solo que fuera de
 # la request. Vive en MEMORIA: un reload los pierde (son recibos, no datos).
 JOBS = JobStore(al_cambiar_estado=_avisar_job)
+# La co-simulación (V8.3 D11) tiene su PROPIA cola: una corrida dura minutos y en `JOBS` dejaría
+# esperando a las mutaciones. Un worker = una co-simulación a la vez; `GET /api/jobs/{id}` mira
+# las dos colas (el recibo es el mismo para el agente).
+COSIM_JOBS = JobStore(al_cambiar_estado=_avisar_job)
 
 
 def _expand_ids(value) -> list[str] | None:
@@ -226,6 +231,24 @@ def _sync_or_job(tipo: str, work, async_: bool):
 
     return JSONResponse(
         status_code=202, content={"job_id": JOBS.submit(tipo, guarded), "estado": "encolado"}
+    )
+
+
+def _job_cosim(tipo: str, work, async_: bool):
+    """Como `_sync_or_job`, para la co-simulación: `work(proyecto)` toma SUS locks (snapshot bajo
+    `STATE_LOCK`, la corrida fuera de todo lock) y revalida `proyecto` (el activo al encolar; None
+    en sync) dentro de su `STATE_LOCK`. Con `?async`, 202 + recibo en `COSIM_JOBS`."""
+    if not async_:
+        return work(None)
+    expected = S.project_id
+    documento = esperado()  # el ContextVar de la cabecera no llega al hilo del worker
+
+    def guarded():
+        with esperando(documento):
+            return work(expected)
+
+    return JSONResponse(
+        status_code=202, content={"job_id": COSIM_JOBS.submit(tipo, guarded), "estado": "encolado"}
     )
 
 

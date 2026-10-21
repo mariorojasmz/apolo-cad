@@ -1,5 +1,5 @@
 """Schemas de los comandos del tablero eléctrico (plan V8.1, D2): `add_device`, `add_wire`,
-`add_cable`.
+`add_cable`, y el programa del PLC (plan V8.3, D3): `add_program`.
 
 Son comandos del CARRIL (`kind="electrico"`, `doc/carril.py`): viven en el log pero fuera de la
 firma encadenada y no crean geometría; el cuerpo 3D del tablero es de V8.5. Lo que cada uno
@@ -11,6 +11,8 @@ IEC 60757). Salen de `models.py` (congelado por el trinquete de tamaño), como
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -205,3 +207,48 @@ class AddCableParams(BaseModel):
                                   description="m, declarado (la BOM compra por metro)")
 
     _v_designacion = field_validator("designacion")(_designacion)
+
+
+class AddProgramParams(BaseModel):
+    """Carga el PROGRAMA de un PLC del tablero (V8.3 D3): texto estructurado (ST, IEC 61131-3)
+    que se COMPILA al ejecutar el comando contra los bornes de la ficha del PLC; un error de
+    sintaxis o de tipos rechaza el comando con línea, columna y «¿quisiste decir…?».
+
+    - `plc`: designación del PLC declarado con add_device («-K1»).
+    - `nombre`: rótulo del programa; vacío = el del primer PROGRAM de la fuente.
+    - `lenguaje`: «st» (la escalera y el SFC llegan como VISTAS en V8.4).
+    - `fuente`: el ST. Entradas y salidas por dirección IEC ligada al borne del PLC:
+      `VAR_GLOBAL marcha AT %IX0.2 : BOOL; motor AT %QX0.0 : BOOL; END_VAR` (%IX0.2 = borne
+      I0.2, %QX0.0 = Q0.0, %IW1 = AI1 escalada 0–27648). Subconjunto: BOOL, INT, DINT, REAL,
+      TIME, ARRAY; IF/CASE/FOR/WHILE/REPEAT; PROGRAM, FUNCTION, FUNCTION_BLOCK; TON, TOF, TP,
+      CTU, CTD, CTUD, R_TRIG, F_TRIG, SR, RS; RETAIN.
+    - `ciclo_ms`: ciclo de scan (10 ms por defecto); el watchdog es 3 × ciclo.
+    - `ciclos`: {PROGRAM: ms} para tareas con ciclo propio (varios PROGRAM en la misma fuente).
+    Un PLC lleva UN add_program. Pruébalo sin guardarlo con test_plc; sus variables se leen en
+    las trazas como «-K1.Main.cuenta» (o «-K1.cuenta» si no es ambigua)."""
+
+    plc: str = Field(..., max_length=40, title="PLC", description="designación del PLC, «-K1»")
+    nombre: str = Field("", max_length=60, title="Nombre",
+                        description="vacío = el del primer PROGRAM")
+    lenguaje: Literal["st"] = Field("st", title="Lenguaje", description="texto estructurado")
+    fuente: str = Field(..., min_length=1, max_length=200_000, title="Fuente",
+                        description="el programa en ST (IEC 61131-3)")
+    ciclo_ms: int = Field(10, ge=1, le=10_000, title="Ciclo", description="ms por scan")
+    ciclos: dict[str, int] = Field(default_factory=dict, title="Ciclos por tarea",
+                                   description="{PROGRAM: ms} para tareas con ciclo propio")
+
+    @field_validator("plc")
+    @classmethod
+    def _plc(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("falta `plc`: la designación del PLC («-K1»)")
+        return _designacion(v)
+
+    @field_validator("ciclos")
+    @classmethod
+    def _ciclos(cls, v: dict) -> dict:
+        malos = {k: ms for k, ms in v.items() if ms < 1}
+        if malos:
+            raise ValueError(f"cada ciclo es un entero ≥ 1 (ms): {malos}")
+        return v

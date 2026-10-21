@@ -3508,7 +3508,7 @@
  },
  {
   "name": "simulate",
-  "description": "Simula la máquina EN MARCHA (dinámica MuJoCo): las juntas giran o deslizan movidas por\n`motores`, los `productos` (cajas) viajan sobre la banda o los rodillos y los `sensores`\n(fotoceldas) los ven pasar. Lo sujeto a tierra (ground/fasten) es estático; una pieza sin\nsujeción ni junta queda FUERA con aviso (eso lo prueba gravity_test). Unidades: mm, kg, s.\n- motores: [{junta, modo: 'velocidad'|'par', ...}]. 'velocidad' pide UNA consigna: `valor`\n  (rpm; mm/s si la junta es prismática), `v_superficie_m_s` (banda o rodillo) o `placa`\n  {potencia_kW, rpm, frecuencia_hz?, polos?, tk_tn?, inercia_rotor_kgm2?} con\n  `reduccion`, `eta` y `frecuencia_hz` (motor de inducción + reductor por Kloss).\n  'par': `valor` en N·m (N si es prismática) y `rampa_s`. `desde_s` = arranque.\n  `direccion_transporte` [x,y,z] FIJA hacia dónde avanza la banda: sin ella se usa el eje\n  tal cual y un aviso dice hacia dónde fue.\n- productos: [{nombre, dims_mm [dx,dy,dz], posicion_mm [x,y,z] (centro), masa_kg?,\n  velocidad_mm_s?, rotacion_deg?, friccion?, cada_s? (alimentación en serie), cantidad?,\n  desde_s?}].\n- sensores: [{nombre, origen [x,y,z], direccion [x,y,z], alcance_mm?}]: un rayo que sólo\n  ve lo que se mueve; devuelve sus flancos con el tiempo y cuántas cajas contó.\n- bandas: sólo si la banda no es la de create_belt_conveyor (esa se detecta, y si su\n  tambor no tiene junta se usa la virtual '{comando}_eje_motriz'): [{pieza, junta_motriz,\n  radio_mm?, direccion_transporte?, mu?, mu_cama?}].\n- juntas: {nombre: {amortiguamiento, friccion, armadura}}.\n- con_autodeteccion: cuenta los contactos geométricos como sujeción (exploración); por\n  defecto sólo lo DECLARADO, como gravity_test.\n- opciones: fps, timestep (1 ms), nstep (2), gravedad, modelo_banda ('contacto' |\n  'rapido'), colisiones_maquina, auto_bandas.\nduracion_s ≤ 60. Devuelve resumen (velocidades finales de juntas, bandas y productos,\nproductos caídos, juntas en su límite, factor de tiempo real), motores (consigna, kv,\ntope), sensores, cuerpos y avisos. Con `path` escribe además un GIF de la marcha a tiempo\nreal (corre la simulación otra vez). Read-only: NO modifica el modelo.",
+  "description": "Simula la máquina EN MARCHA (dinámica MuJoCo): las juntas giran o deslizan movidas por\n`motores`, los `productos` (cajas) viajan sobre la banda o los rodillos y los `sensores`\n(fotoceldas) los ven pasar. Lo sujeto a tierra (ground/fasten) es estático; una pieza sin\nsujeción ni junta queda FUERA con aviso (eso lo prueba gravity_test). Unidades: mm, kg, s.\n- motores: [{junta, modo: 'velocidad'|'par', ...}]. 'velocidad' pide UNA consigna: `valor`\n  (rpm; mm/s si la junta es prismática), `v_superficie_m_s` (banda o rodillo) o `placa`\n  {potencia_kW, rpm, frecuencia_hz?, polos?, tk_tn?, inercia_rotor_kgm2?} con\n  `reduccion`, `eta` y `frecuencia_hz` (motor de inducción + reductor por Kloss).\n  'par': `valor` en N·m (N si es prismática) y `rampa_s`. `desde_s` = arranque.\n  `direccion_transporte` [x,y,z] FIJA hacia dónde avanza la banda: sin ella se usa el eje\n  tal cual y un aviso dice hacia dónde fue.\n- productos: [{nombre, dims_mm [dx,dy,dz], posicion_mm [x,y,z] (centro), masa_kg?,\n  velocidad_mm_s?, rotacion_deg?, friccion?, cada_s? (alimentación en serie), cantidad?,\n  desde_s?}].\n- sensores: [{nombre, origen [x,y,z], direccion [x,y,z], alcance_mm?}]: un rayo que sólo\n  ve lo que se mueve; devuelve sus flancos con el tiempo y cuántas cajas contó.\n- bandas: sólo si la banda no es la de create_belt_conveyor (esa se detecta, y si su\n  tambor no tiene junta se usa la virtual '{comando}_eje_motriz'): [{pieza, junta_motriz,\n  radio_mm?, direccion_transporte?, mu?, mu_cama?}].\n- juntas: {nombre: {amortiguamiento, friccion, armadura}}.\n- con_autodeteccion: cuenta los contactos geométricos como sujeción (exploración); por\n  defecto sólo lo DECLARADO, como gravity_test.\n- opciones: fps, timestep (1 ms), nstep (2), gravedad, modelo_banda ('contacto' |\n  'rapido'), colisiones_maquina, auto_bandas.\nduracion_s ≤ 60. Devuelve resumen (velocidades finales de juntas, bandas y productos,\nproductos caídos, juntas en su límite, factor de tiempo real), motores (consigna, kv,\ntope), sensores, cuerpos y avisos. Con `path` escribe además un GIF de la marcha a tiempo\nreal (corre la simulación otra vez). Read-only: NO modifica el modelo.\n- escenario (V8.3): con un tablero declarado, la máquina ENTERA en virtual — red,\n  protecciones, PLC con su add_program, variadores, motores y la física — según un\n  escenario (nombre de uno de set_scenario, u objeto inline). Devuelve veredicto,\n  aserciones, eventos y `simulacion` (las trazas, con get_simulation); uno con nombre\n  guarda su resultado (lo lee delivery_check). La mecánica va DENTRO del escenario: no\n  combines con los demás parámetros. Si tarda, RECIBO {\"job\"}: get_job.",
   "inputSchema": {
    "properties": {
     "motores": {
@@ -3622,6 +3622,22 @@
      ],
      "default": null,
      "title": "Path"
+    },
+    "escenario": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Escenario"
     }
    },
    "title": "simulateArguments",
@@ -3638,6 +3654,264 @@
     "result"
    ],
    "title": "simulateOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "test_plc",
+  "description": "Prueba un programa de PLC en texto estructurado (ST, IEC 61131-3) SIN guardarlo, como\ntest_script. Compila contra los bornes del PLC `plc` («-K1»: %IX0.0 = borne I0.0, %QX0.0\n= Q0.0, %IW1 = AI1) y devuelve `compila`, los `errores` con línea y columna («¿quisiste\ndecir…?») y la tabla de `tags`. Con `escenario` (nombre de uno guardado u objeto, como en\nset_scenario) además CORRE la máquina con este programa en lugar del de ese PLC y\ndevuelve veredicto, aserciones, eventos y las trazas de `senales` (por defecto las del\nPLC, «-K1.*»). `ciclos` = {PROGRAM: ms}. Cuando funcione, guárdalo con\nrun_command('add_program', {plc, fuente, ciclo_ms}). Si tarda, RECIBO {\"job\"}: get_job.",
+  "inputSchema": {
+   "properties": {
+    "fuente": {
+     "title": "Fuente",
+     "type": "string"
+    },
+    "plc": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Plc"
+    },
+    "escenario": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Escenario"
+    },
+    "ciclo_ms": {
+     "default": 10,
+     "title": "Ciclo Ms",
+     "type": "integer"
+    },
+    "ciclos": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Ciclos"
+    },
+    "senales": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Senales"
+    }
+   },
+   "required": [
+    "fuente"
+   ],
+   "title": "test_plcArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "test_plcOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_simulation",
+  "description": "Lee por partes el resultado de una co-simulación (simulate con escenario o test_plc):\nsin `simulacion`, la lista de las últimas (en memoria; un reinicio las pierde). `parte`:\n'resumen' (veredicto, aserciones y los NOMBRES de todas las señales), 'eventos'\n(paginados), 'final' (valores al final; `senales` filtra) o 'trazas' (pide `senales`:\nnombres D10 como «-M1.rpm», «-K1.%QX0.0», «-K1.cuenta», o patrones «-M1.*»; ventana\n`desde_s`–`hasta_s`; discretas por cambio y analógicas a 50 Hz, paginadas con\n`limite`/`offset`). Read-only.",
+  "inputSchema": {
+   "properties": {
+    "simulacion": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Simulacion"
+    },
+    "parte": {
+     "default": "resumen",
+     "title": "Parte",
+     "type": "string"
+    },
+    "senales": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Senales"
+    },
+    "desde_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Desde S"
+    },
+    "hasta_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Hasta S"
+    },
+    "limite": {
+     "default": 200,
+     "title": "Limite",
+     "type": "integer"
+    },
+    "offset": {
+     "default": 0,
+     "title": "Offset",
+     "type": "integer"
+    }
+   },
+   "title": "get_simulationArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_simulationOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_scenarios",
+  "description": "Los escenarios de prueba del proyecto (la FAT virtual) con su estado: sin_correr,\npasa, falla, sin_aserciones o vencido (la máquina o el escenario cambiaron desde la\núltima corrida); con `nombre`, ése entero (definición y último resultado). delivery_check\nda ROJO si uno falla y AMARILLO si hay sin correr o vencidos. Read-only.",
+  "inputSchema": {
+   "properties": {
+    "nombre": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Nombre"
+    }
+   },
+   "title": "get_scenariosArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_scenariosOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "set_scenario",
+  "description": "Declara (o reemplaza) un ESCENARIO de prueba de la máquina con tablero; `escenario`\nnull lo borra. Es metadato (no entra al log ni al undo). Forma:\n{duracion_s, descripcion?,\n condiciones?: {red_conectada, selectores {\"-S5\": \"I\"}, setas_retenidas [], plc_run},\n acciones: [{t, accion: pulsar|soltar|presionar|liberar|girar|rearmar|abrir|cerrar|\n             reponer, dispositivo, valor?, durante_s?, actuador?}],\n eventos: [{t, tipo: atasco (junta, par_Nm) | corte_de_fase (fase) | caida_de_red\n            (factor) | cable_cortado (rama «-W3») | sensor_pegado (dispositivo) |\n            producto (como en simulate), duracion_s?}],\n acoples: {motores: {\"-M1\": {junta, direccion_transporte}}, sensores: {\"-B1\": {origen,\n           direccion, alcance_mm?}}},   ← qué junta mueve cada motor y dónde mira cada\n                                          sensor: obligatorio para los motores\n mecanica?: {bandas, juntas, timestep, nstep, con_autodeteccion…},\n trazas?: {analogicas_hz, senales},\n aserciones: [\"-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1\",\n              \"-M1.par_Nm == 0 dentro_de 0,5 s desde presionar -S0\",\n              \"-Q2.disparado dentro_de 10 s desde atasco\", \"-K1.cuenta == 10 al_final\",\n              \"-T2.f_Hz <= 61 siempre\", \"-K1.Main.en_marcha nunca desde liberar -S0\",\n              \"-M1.rpm > 100 en 2,5 s\"]}\nVentanas: al_final, en t, dentro_de Δ desde <acción o evento>, siempre/nunca [desde …].\nCórrelo con simulate(escenario=\"<nombre>\"): el resultado queda guardado con su vigencia.",
+  "inputSchema": {
+   "properties": {
+    "nombre": {
+     "title": "Nombre",
+     "type": "string"
+    },
+    "escenario": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Escenario"
+    }
+   },
+   "required": [
+    "nombre"
+   ],
+   "title": "set_scenarioArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "set_scenarioOutput",
    "type": "object"
   }
  },

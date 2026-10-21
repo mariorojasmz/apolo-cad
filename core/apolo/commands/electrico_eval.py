@@ -14,8 +14,9 @@ está mal cableado):
   - ERC (`library/electrico/erc.py`, a pedido): cortocircuitos, tensiones cruzadas, motores
     sin protección, tierra, bornes sueltos, colores, seta.
 
-Orden: dispositivos, cables y después conductores, cada grupo en el orden del log. Un conductor
-puede nombrar un dispositivo declarado más ADELANTE en el log: el carril se evalúa entero.
+Orden: dispositivos, cables, conductores y después programas (V8.3 D3, `electrico_programa`),
+cada grupo en el orden del log. Un conductor o un programa puede nombrar un dispositivo
+declarado más ADELANTE en el log: el carril se evalúa entero.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from apolo.library.electrico.modelo import (
     Conductor,
     Dispositivo,
     ModeloElectrico,
+    Programa,
     dispositivo_desde_ficha,
 )
 from apolo.library.electrico.redes import resolver
@@ -35,6 +37,8 @@ from apolo.library.electrico.referencias import (
     parse_referencia,
     sufijo_sugerencia,
 )
+
+from .electrico_programa import programa
 
 PUENTE = "puente"
 
@@ -197,7 +201,8 @@ def evaluar_carril(entradas: list[dict], escena: dict, variables: dict, fallo) -
     """Las entradas del carril (`{id, type, params}`, params = el modelo pydantic) → el modelo
     eléctrico evaluado. Cada problema va por `fallo` y la entrada queda fuera."""
     catalogo = _catalogo()
-    por_tipo: dict[str, list[dict]] = {"add_device": [], "add_cable": [], "add_wire": []}
+    por_tipo: dict[str, list[dict]] = {"add_device": [], "add_cable": [], "add_wire": [],
+                                       "add_program": []}
     for e in entradas:
         if e["type"] in por_tipo:
             por_tipo[e["type"]].append(e)
@@ -242,5 +247,15 @@ def evaluar_carril(entradas: list[dict], escena: dict, variables: dict, fallo) -
             conductores.append(_conductor(e, dispositivos, cables, catalogo))
         except ValueError as exc:
             fallo(e, str(exc))
+    programas: list[Programa] = []
+    ya: dict[str, str] = {}  # PLC → comando que le cargó su programa
+    for e in por_tipo["add_program"]:
+        try:
+            prog = programa(e, dispositivos, ya)
+        except ValueError as exc:
+            fallo(e, str(exc))
+            continue
+        ya[prog.plc] = e["id"]
+        programas.append(prog)
     return ModeloElectrico(tuple(dispositivos.values()), tuple(conductores),
-                           tuple(cables.values()))
+                           tuple(cables.values()), tuple(programas))

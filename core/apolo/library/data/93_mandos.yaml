@@ -3,7 +3,9 @@ category: mandos
 # función: 11-12 NC, 13-14 NA; el segundo contacto, 21-22). La seta es `parada_emergencia`
 # (regla del ERC). En la botonera, cada
 # pulsador es su propio actuador (`grupo`); el potenciómetro (P1-P3 extremos, P2 cursor) se
-# alimenta del +10 V del variador. El bloque no toca la geometría (sin bump de GEOM_CACHE_EPOCH).
+# alimenta del +10 V del variador. SENTIDO (V8.3 F4–F5): la posición que «girar» le da (0–1) es la
+# fracción de P1 al cursor, así que 1 = cursor junto a P3: cablea P3 al +10 V y P1 al GND para que
+# «a fondo» sea la consigna máxima. El bloque no toca la geometría (sin bump de GEOM_CACHE_EPOCH).
 # `electrico.modelo` (plan V8.3 D7): la seta queda RETENIDA al presionarla y sólo vuelve al
 # liberarla por giro (ISO 13850: desenclavar la seta no rearranca la máquina por sí solo); los
 # pulsadores de la botonera vuelven por resorte, uno por actuador (`actuadores` = sus `grupo`).

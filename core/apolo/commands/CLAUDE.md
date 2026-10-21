@@ -43,6 +43,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   positivos). No blindar geometría fina (radio vs caras vecinas): el `try/except` de OCCT es la
   red. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
 
+- `add_program` (V8.3 D3) es del carril: lo compila `electrico_programa.py` contra los bornes de
+  SU PLC (caché por fuente + bornes) y un PLC lleva uno solo; varias tareas = varios PROGRAM en
+  la misma fuente con `ciclos`. [V8.3](../../../docs/plans/V8.3-prueba-virtual.md)
+
 ## Modelado y colocación
 
 - `add_joinery` (espiga/dado/dowel/rebaje) corta EN SITIO y conserva ids: es la vía para tallar

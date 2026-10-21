@@ -59,6 +59,7 @@ CAMPOS: dict[str, str] = {
         "name joint anchor anchor.x anchor.y anchor.z point point.x point.y point.z axis axis.x "
         "axis.y axis.z"
     ),
+    "add_program": "plc nombre lenguaje fuente ciclo_ms ciclos",
     "add_wire": "puntos seccion_mm2 color tipo cable hilo potencial largo_m",
     "attach": (
         "feature anchor target target_anchor offset offset.x offset.y offset.z align_my align_to"
@@ -242,6 +243,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "add_joint": (1, "7569d5069e5caaeb"),
     "add_mate": (1, "a3596f3795b93db8"),
     "add_rail_constraint": (1, "591f0dc2cac566fe"),
+    "add_program": (1, "d824d9f16db621b8"),
     "add_wire": (1, "d824d9f16db621b8"),
     "attach": (1, "cb91ea338ddcb3c9"),
     "boolean_op": (1, "81e15484e1e85781"),

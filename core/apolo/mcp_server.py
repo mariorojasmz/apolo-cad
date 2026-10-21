@@ -20,7 +20,7 @@ from mcp.server.fastmcp import Image
 
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
-from apolo.tools import cirugia, destino, estructura, fastmcp_limpio, mcp_electrico, simulacion
+from apolo.tools import cirugia, cosim, destino, estructura, fastmcp_limpio, mcp_electrico, simulacion
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -1389,12 +1389,12 @@ def fea_assembly(group: str = "", ids: list[str] | None = None, name: str = "",
     return json.dumps(resumen, ensure_ascii=False)
 
 
-# Tools fuera de este archivo (trinquete): tablero eléctrico (V8.1 D8), `simulate` (V8.2),
-# `declare_structure` (uniones-en-lote D3) y `remove_commands` (cirugia-liviana). Van a ESTE
-# `mcp` (`__main__` con `-m`) y, al llamar, al `_api`/`_mutacion` de este módulo.
-for _registrar in (mcp_electrico.registrar, simulacion.registrar, estructura.registrar):
-    _registrar(mcp, lambda *a, **k: _api(*a, **k))
-cirugia.registrar(mcp, lambda *a, **k: _mutacion(*a, **k))
+# Tools fuera de este archivo (trinquete), a ESTE `mcp` (`__main__` con `-m`) y a su `_api`/`_mutacion`.
+mcp_electrico.registrar(mcp, lambda *a, **k: _api(*a, **k))  # tablero eléctrico (V8.1 D8)
+simulacion.registrar(mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _submit_and_wait(*a, **k))
+cosim.registrar(mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _submit_and_wait(*a, **k))
+estructura.registrar(mcp, lambda *a, **k: _api(*a, **k))  # declare_structure (uniones-en-lote D3)
+cirugia.registrar(mcp, lambda *a, **k: _mutacion(*a, **k))  # remove_commands (cirugia-liviana)
 
 
 def main() -> None:

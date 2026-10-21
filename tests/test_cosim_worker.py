@@ -34,7 +34,7 @@ CORE = RAIZ / "core" / "apolo"
 #: Lo que pueden importar de `apolo` los módulos que corren en el worker.
 FISICA_PURA = ("physics.dinamica_integrador", "physics.dinamica_arrastre", "physics.dinamica_control",
                "physics.dinamica_datos", "physics.sensores", "physics.sim")
-DEL_WORKER = [CORE / "cosim" / n for n in ("acople.py", "agenda.py", "datos.py", "escenario.py",
+DEL_WORKER = [CORE / "cosim" / n for n in ("acople.py", "agenda.py", "aserciones.py", "datos.py", "escenario.py",
                                            "planificador.py", "proceso.py", "tablero.py", "trazas.py",
                                            "worker.py", "__init__.py")] + [
     CORE / (m.replace(".", "/") + ".py") for m in FISICA_PURA]

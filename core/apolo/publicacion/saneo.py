@@ -11,7 +11,7 @@ se abre y regenera igual en Apolo. Inventario del formato (`Document.to_apolo_by
     sus `agent_notes`. Su digest cambia, así que se reescribe el `attachment` que los nombra.
 Se renombra el documento con el título público. Lo demás se conserva: es el diseño (comandos,
 variables, variantes, colores, materiales, movimiento, requisitos técnicos, FEA, cadenas de
-cotas). Los adjuntos que NO son un `.apolo` (STEP importados) se conservan pero se informan:
+cotas y los escenarios de prueba de V8.3 con su último veredicto: la FAT virtual). Los adjuntos que NO son un `.apolo` (STEP importados) se conservan pero se informan:
 pueden ser modelos de un proveedor que no se pueden redistribuir, y eso lo decide una persona.
 
 Lista BLANCA: una clave del manifest o una entrada del ZIP que este módulo no conoce se quita
@@ -30,7 +30,7 @@ import zipfile
 MANIFEST_PUBLICO = (
     "app", "version", "name", "units", "hidden", "seq", "configurations",
     "configurations_format", "colors", "materials", "sketch_guides", "vertical", "motion",
-    "requirements", "fea", "stackups",
+    "requirements", "fea", "stackups", "escenarios",
 )
 #: Requisitos que son precios, no ingeniería (D11).
 REQUISITOS_PRIVADOS = ("tipo_cambio", "moneda")

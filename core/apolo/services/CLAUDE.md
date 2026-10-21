@@ -94,6 +94,13 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   (`delivery_poses`: extremos + dwells); el porqué, en [library](../library/CLAUDE.md).
   [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
 
+## Escenarios de prueba (`escenarios.py`, `cosim_snapshot.py`)
+
+- La vigencia de un resultado es `firma_documento` (log ENTERO + materiales: el carril y los
+  programas cuentan, el color no) + `hash_escenario`; vencido = AMARILLO en la puerta, nunca rojo
+  ni verde. El snapshot toma los programas del carril y `programas=` los pisa por PLC (`test_plc`).
+  [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D12, D14)
+
 ## Reglas de ingeniería y FEA (`engineering_rules.py`, `fea_rules.py`)
 
 - `/api/checks` y la memoria comparten SÓLO lo idéntico (`requirement_inputs`,

@@ -18,7 +18,9 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
      "mecanica": {…claves de la petición de V8.2: bandas, juntas, fps, timestep, nstep…},
      "acoples": {"motores": {"-M1": {"junta": "j_tambor", "direccion_transporte": [1, 0, 0]}},
                  "sensores": {"-B1": {"origen": […], "direccion": […], "alcance_mm": 800}}},
-     "trazas": {"analogicas_hz": 50, "senales": ["-K1:A1.U_V"]}}
+     "trazas": {"analogicas_hz": 50, "senales": ["-K1:A1.U_V"]},
+     "aserciones": ["-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1", …],   (F5, `aserciones.py`)
+     "descripcion": "marcha y conteo"}
 
 Los productos son los de V8.2 (`t` es su `desde_s`). Un evento con `duracion_s` se deshace solo
 al terminar. Las acciones y eventos se aplican en el primer intercambio con t ≥ su hora (reloj
@@ -31,6 +33,8 @@ import difflib
 import math
 from dataclasses import dataclass, field
 
+from .aserciones import AsercionInvalida, leer_aserciones
+
 DURACION_MAX_S = 300.0
 ACCIONES = ("pulsar", "soltar", "presionar", "liberar", "girar", "rearmar", "abrir", "cerrar", "reponer")
 TIPOS_EVENTO = ("atasco", "corte_de_fase", "caida_de_red", "cable_cortado", "sensor_pegado", "producto")
@@ -39,6 +43,8 @@ TIPOS_EVENTO = ("atasco", "corte_de_fase", "caida_de_red", "cable_cortado", "sen
 CLAVES_MECANICA = ("bandas", "auto_bandas", "juntas", "fps", "timestep", "nstep", "gravedad",
                    "con_autodeteccion", "colisiones_maquina", "modelo_banda")
 ANALOGICAS_HZ = 50.0
+CLAVES = {"duracion_s", "descripcion", "condiciones", "acciones", "eventos", "mecanica", "acoples",
+          "trazas", "aserciones"}
 
 
 class EscenarioInvalido(ValueError):
@@ -78,6 +84,8 @@ class Escenario:
     sensores: dict = field(default_factory=dict)       # designación → {origen, direccion, alcance_mm?}
     analogicas_hz: float = ANALOGICAS_HZ
     senales_extra: list = field(default_factory=list)
+    aserciones: list = field(default_factory=list)     # normalizadas (`aserciones.py`), dicts
+    descripcion: str = ""
 
 
 def _claves(obj, validas, donde: str) -> dict:
@@ -201,8 +209,7 @@ def leer_escenario(d) -> Escenario:
     """dict (o un `Escenario` ya leído) → `Escenario` validado."""
     if isinstance(d, Escenario):
         return d
-    d = _claves(d, {"duracion_s", "condiciones", "acciones", "eventos", "mecanica", "acoples", "trazas"},
-                "escenario")
+    d = _claves(d, CLAVES, "escenario")
     duracion = _num(d, "duracion_s", "escenario", minimo=0.0, maximo=DURACION_MAX_S)
     if not duracion:
         raise EscenarioInvalido(f"escenario: falta «duracion_s» (s, > 0 y ≤ {DURACION_MAX_S:g})")
@@ -222,7 +229,15 @@ def leer_escenario(d) -> Escenario:
     mecanica = dict(_claves(d.get("mecanica"), set(CLAVES_MECANICA), "mecanica"))
     motores, sensores = _acoples(d.get("acoples"))
     tr = _claves(d.get("trazas"), {"analogicas_hz", "senales"}, "trazas")
+    try:
+        aserciones = leer_aserciones(d.get("aserciones"), duracion, acciones, eventos)
+    except AsercionInvalida as exc:
+        raise EscenarioInvalido(str(exc)) from None
+    descripcion = d.get("descripcion") or ""
+    if not isinstance(descripcion, str):
+        raise EscenarioInvalido("escenario: «descripcion» es texto")
     return Escenario(
+        aserciones=aserciones, descripcion=descripcion,
         duracion_s=duracion, red_conectada=c.get("red_conectada", True),
         selectores={str(k): str(v) for k, v in selectores.items()},
         setas_retenidas=[str(x) for x in (c.get("setas_retenidas") or [])],

@@ -29,6 +29,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
 | `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
 | `electrico` | circuito y ERC del tablero |
+| `cosim` | escenarios de prueba, co-simulación y `test_plc` (job en `COSIM_JOBS`), simulaciones por partes |
 | `video` | grabación del visor: sesión (con guion y plan), cuadros, foto, tarjetas, rótulos, fallo y cierre que codifica (`media/grabacion.py`); E/S pura |
 | `video_guion` | el guion de montaje + su plan del documento activo para «Grabar video» (lee la escena bajo `STATE_LOCK`) |
 
@@ -114,6 +115,10 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   [sandbox-caliente](../../../docs/plans/sandbox-caliente.md)
 - `JobStore`: cola FIFO con UN worker (`STATE_LOCK` serializa igual y el orden importa), retiene
   los 20 terminados, en memoria. `GET /api/jobs/{id}?wait_s=0..30` = long-poll.
+- La co-simulación va en `COSIM_JOBS` (`_job_cosim`), NUNCA en `JOBS`: dura minutos y dejaría
+  esperando a las mutaciones; `GET /api/jobs/{id}` mira las dos. Su closure toma sus locks (snapshot
+  bajo `STATE_LOCK`, worker fuera) y guarda el resultado sólo si `S.doc` sigue siendo el del
+  snapshot. [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D11)
 - Lock HOJA: el `_cv` del store jamás se sostiene llamando al closure (que toma `STATE_LOCK`)
   ni al aviso `al_cambiar_estado`; el worker corre `fn()` sin lock propio y escribe el resultado
   después. `jobs.py` no importa FastAPI (`_describe_error` duck-tipea `status_code`/`detail`).

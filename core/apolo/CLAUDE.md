@@ -23,7 +23,8 @@ backend: se mantiene ≤ 10 KB.
   = endpoint en `api/` + wrapper (`mcp_server.py` está en el trinquete de tamaño: va a
   `tools/<tema>.py` con un `registrar(mcp, api)` que `mcp_server` llama al final, como
   `tools/mcp_electrico.py` y `tools/simulacion.py`; una mutación recibe `_mutacion` en vez de `_api`,
-  como `tools/cirugia.py`; ese módulo NUNCA importa `apolo.mcp_server`: con `-m` el servidor es
+  como `tools/cirugia.py`, y lo que corre como job sin ser mutación, `_submit_and_wait` (`esperar`,
+  `tools/cosim.py`); ese módulo NUNCA importa `apolo.mcp_server`: con `-m` el servidor es
   `__main__` y la tool caería en otra copia) + su caso en `scripts/golden_mcp_casos.py` + su lugar en
   `tools/catalogo.py`: en `CHAT` (`muta`, `etiqueta`, `ocultar` las rutas de archivo) o en
   `FUERA_DEL_CHAT` con el motivo — si falta, `tests/test_catalogo_chat.py` falla. Una lectura

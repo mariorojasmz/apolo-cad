@@ -74,7 +74,41 @@ BORRADO = {
     "dependientes": [{"id": "c7", "tipo": "fasten", "nombre": "f1"}],
     "grupos_editados": [{"grupo": "Estructura", "quitados": ["c1"]}],
 }
-JOBS_SUELTOS = {"jc": MUTA["json"], "jv": escena(["v1"]), "jr": BORRADO, "jrf": escena()}
+#: La co-simulación (V8.3 D13): el compacto de `POST /api/cosim/run` (sin trazas: van aparte).
+COSIM = {
+    "simulacion": "s1a2b3c4", "escenario": "seta", "veredicto": "falla", "n_fallidas": 1,
+    "aserciones": [
+        {"asercion": "-M1.rpm >= 1700 dentro_de 2 s desde pulsar -S1", "pasa": True,
+         "senal": "-M1.rpm", "t": 1.24, "detalle": "se cumple a los 0.94 s (t = 1.24 s)"},
+        {"asercion": "-K1.%QX0.0 == false dentro_de 0.1 s desde presionar -S0", "pasa": False,
+         "senal": "-K1.%QX0.0", "detalle": "no se cumple en [2.2, 2.3] s: termina en true"}],
+    "resumen": {"duracion_s": 3.0, "intercambios": 1500, "factor_tiempo_real": 1.4,
+                "huella": "9f2c", "senales": {"discretas": 60, "analogicas": 29}},
+    "eventos": [{"t": 0.3, "programado_s": 0.3, "accion": "pulsar", "dispositivo": "-S1"}],
+    "n_eventos": 1, "plc": {"-K1": {"estado": "RUN", "fallas": [], "scans": 300}},
+    "avisos": [], "hipotesis": ["la entrada del variador a fp 1"],
+    "aviso": "simulación a nivel sistema; no reemplaza la puesta en marcha real", "guardado": True,
+    "estado": "falla",
+}
+PLC_OK = {"compila": True, "programas": ["Main"], "tags": [
+    {"variable": "marcha", "direccion": "%IX0.2", "borne": "I0.2", "tipo": "BOOL",
+     "sentido": "entrada"}]}
+JOBS_SUELTOS = {"jc": MUTA["json"], "jv": escena(["v1"]), "jr": BORRADO, "jrf": escena(),
+                "jcs": COSIM, "jpl": {**COSIM, **PLC_OK, "escenario": None, "guardado": None,
+                                      "trazas": {"discretas": {"-K1.%QX0.0": {
+                                          "cambios": [[0.0, False], [0.31, True]], "total": 2,
+                                          "offset": 0, "truncado": False}}}}}
+
+
+def _plc_test(req):
+    return _encolado("jpl") if json.loads(req.content).get("escenario") else J(PLC_OK)
+
+
+ESCENARIOS = {"escenarios": [
+    {"nombre": "marcha", "estado": "pasa", "duracion_s": 3.0, "n_aserciones": 2,
+     "corrido": "2026-10-20T10:00:00"},
+    {"nombre": "seta", "estado": "vencido", "motivo": "la máquina cambió desde que se corrió",
+     "ultimo": "pasa", "duracion_s": 3.0, "n_aserciones": 3}], "firma_documento": "abc123"}
 
 
 def _encolado(job_id: str) -> dict:
@@ -253,6 +287,20 @@ RUTAS = [
         "cables": [], "resumen": {"n_dispositivos": 2, "n_conductores": 1}})),
     ("GET", r"/api/electrico/check", J({"estado": "error", "errores": 1, "avisos": 0, "reglas": [
         {"regla": "protección del motor", "estado": "error", "detalle": "-M1 sin guardamotor"}]})),
+    ("POST", r"/api/cosim/run", _encolado("jcs")),
+    ("POST", r"/api/cosim/plc/test", _plc_test),
+    ("GET", r"/api/cosim/simulaciones", J({"simulaciones": [
+        {"id": "s1a2b3c4", "proyecto": 38, "escenario": "seta", "veredicto": "falla",
+         "creado": "10:00:00", "prueba_plc": False}]})),
+    ("GET", r"/api/cosim/simulaciones/[^/]+", J({
+        "simulacion": "s1a2b3c4", "ventana_s": [1.0, 2.0],
+        "discretas": {}, "analogicas": {"t": [1.0, 1.02], "senales": {"-M1.rpm": [1700.1, 1712.4]},
+                                        "total": 51, "offset": 10, "truncado": False}})),
+    ("GET", r"/api/escenarios", J(ESCENARIOS)),
+    ("PUT", r"/api/escenarios/[^/]+", J({"nombre": "seta", "estado": "vencido", "n_aserciones": 1,
+                                         "aserciones": ["-M1.par_Nm == 0 dentro_de 0.5 s desde "
+                                                        "presionar -S0"], "avisos": []})),
+    ("DELETE", r"/api/escenarios/[^/]+", J({"borrado": "viejo", **ESCENARIOS})),
 ]
 # «POST|PATCH» → dos entradas (el motor compara el método exacto)
 RUTAS = [(m, rx, spec) for metodos, rx, spec in RUTAS for m in metodos.split("|")]
@@ -474,4 +522,34 @@ CASOS = [
     caso("circuito", "get_circuit"),
     caso("circuito de un dispositivo", "get_circuit", {"designacion": "-Q1"}),
     caso("chequeo eléctrico", "electrical_check"),
+    # V8.3 D13: la prueba virtual
+    caso("simulación con escenario", "simulate", {"escenario": "seta"}),
+    caso("simulación con escenario inline → recibo", "simulate", {"escenario": {
+        "duracion_s": 2, "aserciones": ["-M1.rpm > 100 al_final"]}}, espera=0.0),
+    caso("simulación con escenario y motores → error", "simulate", {
+        "escenario": "seta", "motores": [{"junta": "j1", "modo": "par", "valor": 1}]}),
+    caso("simulación con escenario → job en error", "simulate", {"escenario": "seta"},
+         rutas=_job_error("el motor -M1 no está acoplado a una junta")),
+    caso("probar plc", "test_plc", {"fuente": "PROGRAM Main\nEND_PROGRAM", "plc": "-K1"}),
+    caso("probar plc con escenario", "test_plc", {
+        "fuente": "PROGRAM Main\nEND_PROGRAM", "plc": "-K1", "escenario": "seta", "ciclo_ms": 5,
+        "ciclos": {"Main": 5}, "senales": ["-K1.%QX0.0"]}),
+    caso("probar plc que no compila", "test_plc", {"fuente": "PROGRAM Main\nx := ;"}, rutas={
+        ("POST", r"/api/cosim/plc/test"): J({"compila": False, "errores": [
+            {"linea": 2, "columna": 6, "mensaje": "se esperaba una expresión"}],
+            "error": "línea 2, columna 6: se esperaba una expresión"})}),
+    caso("simulaciones", "get_simulation"),
+    caso("simulación por partes", "get_simulation", {
+        "simulacion": "s1a2b3c4", "parte": "trazas", "senales": ["-M1.rpm", "-K1.*"],
+        "desde_s": 1.0, "hasta_s": 2.0, "limite": 50, "offset": 10}),
+    caso("simulación que no está", "get_simulation", {"simulacion": "s9"}, rutas={
+        ("GET", r"/api/cosim/simulaciones/[^/]+"): J({"detail": "No hay simulación «s9» en "
+                                                                "memoria"}, 404)}),
+    caso("escenarios", "get_scenarios"),
+    caso("escenario uno", "get_scenarios", {"nombre": "seta"}),
+    caso("declarar escenario", "set_scenario", {"nombre": "seta", "escenario": {
+        "duracion_s": 3, "acciones": [{"t": 2.2, "accion": "presionar", "dispositivo": "-S0"}],
+        "acoples": {"motores": {"-M1": {"junta": "c1_eje_motriz"}}},
+        "aserciones": ["-M1.par_Nm == 0 dentro_de 0,5 s desde presionar -S0"]}}),
+    caso("borrar escenario", "set_scenario", {"nombre": "viejo"}),
 ]

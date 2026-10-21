@@ -37,7 +37,8 @@ runpy.run_module("apolo.mcp_server", run_name="__main__", alter_sys=True)
 
 
 #: Las tools que viven en `tools/` (registradas con `registrar(mcp, api)`).
-FUERA_DEL_ARCHIVO = {"get_circuit", "electrical_check", "simulate", "remove_commands"}
+FUERA_DEL_ARCHIVO = {"get_circuit", "electrical_check", "simulate", "remove_commands",
+                     "test_plc", "get_simulation", "get_scenarios", "set_scenario"}
 
 
 def test_las_tools_de_afuera_estan_en_el_mcp_que_corre_con_menos_m():

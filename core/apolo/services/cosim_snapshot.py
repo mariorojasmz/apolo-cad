@@ -16,7 +16,8 @@ Por último corre la agenda del escenario en seco sobre un tablero desechable: u
 una acción o una rama que no existen salen aquí, con su corrección.
 
 Todo error es `ServiceError(400, texto)`. Sin locks: el llamador sostiene STATE_LOCK. Los
-`programas` llegan como argumento: `add_program` (que los guardará en el carril) es de F5.
+programas salen del carril (`add_program`, F5, ya compilados en el regenerate); `programas=`
+pone otros ENCIMA, por PLC, sin guardarlos (`test_plc`).
 """
 
 from __future__ import annotations
@@ -84,6 +85,18 @@ def _sensores(esc, modelos: dict, por_des: dict) -> tuple[list[dict], list[str]]
 
 
 def _programas(programas, me) -> list:
+    """Los programas del carril (`add_program`, ya compilados) con los de `programas`
+    ENCIMA: uno de la lista reemplaza al del carril de su PLC (así prueba `test_plc` un ST sin
+    guardarlo)."""
+    from apolo.cosim.datos import ProgramaCosim
+
+    del_carril = {p.plc: ProgramaCosim(p.plc, p.nombre, p.compilado, p.ciclo_ms, dict(p.ciclos))
+                  for p in me.programas}
+    encima = _compilar_programas(programas, me)
+    return list({**del_carril, **{p.plc: p for p in encima}}.values())
+
+
+def _compilar_programas(programas, me) -> list:
     from apolo.cosim.datos import ProgramaCosim
     from apolo.plc import ErrorCompilacion, compilar
 

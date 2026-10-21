@@ -26,6 +26,7 @@ from apolo.services.assertions import contract_verify
 from apolo.state import STATE_LOCK
 
 from ..common import (
+    COSIM_JOBS,
     JOB_UNKNOWN,
     JOBS,
     _expand_ids,
@@ -123,14 +124,16 @@ def patch_batch(
 @router.get("/api/jobs")
 def list_jobs() -> dict:
     """Los últimos jobs retenidos, sin `resultado` (payload grande). Telemetría."""
-    return {"jobs": JOBS.briefs()}
+    return {"jobs": JOBS.briefs() + COSIM_JOBS.briefs()}
 
 
 @router.get("/api/jobs/{job_id}")
 def get_job(job_id: str, wait_s: float = 0.0) -> dict:
     """Estado/resultado de un job (V6.5e). ``wait_s`` (0..30) = long-poll: responde en
-    cuanto termina. El resultado queda CACHEADO → re-preguntar es siempre seguro."""
-    job = JOBS.get(job_id, wait_s=wait_s)
+    cuanto termina. El resultado queda CACHEADO → re-preguntar es siempre seguro. Mira también
+    la cola de la co-simulación (V8.3 D11): el recibo es el mismo."""
+    store = JOBS if JOBS.get(job_id) is not None else COSIM_JOBS
+    job = store.get(job_id, wait_s=wait_s)
     if job is None:
         raise HTTPException(
             status_code=404, detail=JOB_UNKNOWN.format(job_id=job_id, retention=JOBS.retention)

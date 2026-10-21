@@ -144,6 +144,9 @@ PISTAS: dict[str, str] = {
     ),
     "add_wire": "Une dos o más bornes con un conductor, en el orden en que se cablean.",
     "add_cable": "Declara un cable de varios hilos entre el tablero y el campo, para cablear por sus hilos.",
+    "add_program": (
+        "Carga en el controlador programable del tablero su programa en texto estructurado y el ciclo en que corre."
+    ),
     # variables (sin pestaña: botón propio)
     "set_variable": (
         "Crea o cambia una variable que puedes usar en cualquier campo numérico; todo el modelo se actualiza con ella."

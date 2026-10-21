@@ -28,3 +28,10 @@ backend: [core/apolo](../CLAUDE.md).
   atasco es `dof_frictionloss`, no `qfrc_applied` (un par explícito vibra en ω = 0).
 - La potencia se re-resuelve sólo si algo cambió más de `TOL_POTENCIA`; un dato nuevo que la
   mueva entra en `Tablero._firma_potencia`.
+
+## Escenarios y veredicto (F5)
+
+- Las aserciones (`aserciones.py`, texto u objeto) se leen con el escenario y se evalúan en la
+  API sobre el JSON del worker (`veredicto.py`, puro): el worker no las ve. Un ancla nueva o una
+  ventana nueva va en los dos módulos con su caso verde y rojo (`test_cosim_aserciones.py`).
+  Los acoples motor ↔ junta y sensor ↔ rayo siguen en el escenario, no en el carril (F5 § Bitácora).

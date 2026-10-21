@@ -1,7 +1,7 @@
 """Qué tools del MCP usa el chat de la app y cómo (plan chat-cliente-igual, D5).
 
 Las `@mcp.tool` de `mcp_server.py` (y de los módulos que registra: `mcp_electrico.py`,
-`simulacion.py`, `estructura.py`, `cirugia.py`) son LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada
+`simulacion.py`, `cosim.py`, `estructura.py`, `cirugia.py`) son LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada
 tool está en UNO de los dos lados, y `tests/test_catalogo_chat.py` falla si una tool nueva no
 está en ninguno:
 
@@ -95,6 +95,8 @@ CHAT: dict[str, EnChat] = {
     "autodetect_connections": _lee("Detectando uniones posibles"),
     "get_dof": _lee("Contando grados de libertad"),
     "gravity_test": _lee("Simulando la gravedad", ocultar=("path",)),
+    # con un escenario con nombre guarda su veredicto: un registro de prueba (metadato), no
+    # diseño; sin escenario no toca nada
     "simulate": _lee("Simulando la máquina en marcha", ocultar=("path",)),
     "scan_motion": _lee("Revisando choques en movimiento"),
     "delivery_check": _lee("Revisando la entrega"),
@@ -120,6 +122,8 @@ _REVISION = ("las revisiones las guarda y restaura la persona desde la app; rest
              "reemplazaría el documento bajo el chat")
 _ARCHIVO = ("sólo escribe un archivo en una ruta del servidor (escritura arbitraria); la "
             "persona descarga los entregables desde la app")
+_FAT = ("la prueba virtual de V8.3 (escenarios largos, corridas de minutos) se maneja desde el "
+        "MCP; sus cuatro tools no caben en el presupuesto de tools del chat (D8: < 60 KB)")
 _GIF = ("exige una ruta donde escribir el GIF en el servidor (escritura arbitraria); para "
         "validar están gravity_test y scan_motion")
 
@@ -141,4 +145,8 @@ FUERA_DEL_CHAT: dict[str, str] = {
     "assembly_manual": _ARCHIVO,
     "fea_assembly": ("tarda minutos (malla de todo el bastidor): no cabe en una vuelta del "
                      "chat; se corre desde el MCP"),
+    "test_plc": _FAT,
+    "get_simulation": _FAT,
+    "get_scenarios": _FAT,
+    "set_scenario": _FAT,
 }

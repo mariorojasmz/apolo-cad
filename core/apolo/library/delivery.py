@@ -91,6 +91,7 @@ def delivery_report(
     nombre_de=None,
     electrico: list[dict] | None = None,
     acceso_herramienta: dict | None = None,
+    escenarios: list[dict] | None = None,
 ) -> dict:
     """Agrega los chequeos de cierre en un SEMÁFORO. Entradas (todas computadas por
     el llamador — aquí no corre ningún motor):
@@ -117,6 +118,10 @@ def delivery_report(
       - `acceso_herramienta`: `acceso_herramienta.tool_access_report` si hay tornillería de
         llave; None = no hay: la puerta da EXACTAMENTE lo de siempre. Ninguna herramienta libre
         bloquea (no se puede armar); sólo la boca libre, aviso (plan acceso-de-herramienta D3).
+      - `escenarios`: la regla «escenarios» (`services/escenarios.reglas_escenarios`), una fila
+        `{escenario, estado ok|aviso|error, detalle}` por escenario de prueba; None = no hay:
+        la puerta da EXACTAMENTE lo de siempre. Uno que falla vigente bloquea (ROJO); sin
+        correr, vencido o sin aserciones, AMARILLO (V8.3 D14).
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
     """
     nombre_de = nombre_de or (lambda fid: str(fid))
@@ -279,6 +284,16 @@ def delivery_report(
     # 8 · acceso de herramienta (sólo con tornillería de llave) -------------------------
     if acceso_herramienta is not None:
         _acceso(acceso_herramienta, bloqueantes, avisos, no_aplica, ok, nombre_de)
+
+    # 9 · escenarios de prueba (V8.3 D14; sólo si hay: sin ellos, ni siquiera `no_aplica`) ----
+    if escenarios is not None:
+        for r in escenarios:
+            if r["estado"] in ("error", "aviso"):
+                (bloqueantes if r["estado"] == "error" else avisos).append({
+                    "regla": f"escenarios · {r['escenario']}", "piezas": [],
+                    "detalle": r.get("detalle", "")})
+        if escenarios and all(r["estado"] == "ok" for r in escenarios):
+            ok.append(f"escenarios ({len(escenarios)}, vigentes)")
 
     veredicto = ROJO if bloqueantes else (AMARILLO if avisos else VERDE)
     return {

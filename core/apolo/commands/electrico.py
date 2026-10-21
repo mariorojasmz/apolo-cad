@@ -1,5 +1,5 @@
-"""Los comandos del tablero eléctrico (plan V8.1, D2–D4 y D9): sus `CommandSpec`, la
-materialización de designaciones y el prefijo de función de `insert_project`.
+"""Los comandos del tablero eléctrico (plan V8.1, D2–D4 y D9; `add_program`, V8.3 D3): sus
+`CommandSpec`, la materialización de designaciones y el prefijo de función de `insert_project`.
 
 Son del CARRIL (`kind="electrico"`, `doc/carril.py`): no entran a la firma encadenada, no corren
 en el bucle del regenerate (su executor lo dice si alguien lo llama) y se evalúan después, todos
@@ -22,7 +22,7 @@ import re
 import unicodedata
 
 from .errors import CommandError
-from .models_electrico import AddCableParams, AddDeviceParams, AddWireParams
+from .models_electrico import AddCableParams, AddDeviceParams, AddProgramParams, AddWireParams
 from .spec import CommandSpec
 from .state import ExecContext
 
@@ -45,6 +45,9 @@ SPECS_ELECTRICO = [
                 kind="electrico", literales=("puntos", "cable")),
     CommandSpec("add_cable", "Cable multipolar", "electrico", AddCableParams, _exec_carril,
                 kind="electrico", literales=("designacion", "desde", "hasta")),
+    # V8.3 D3: el programa del PLC, compilado por el evaluador (`electrico_eval`)
+    CommandSpec("add_program", "Programa del PLC", "electrico", AddProgramParams, _exec_carril,
+                kind="electrico", literales=("plc", "nombre", "fuente")),
 ]
 
 
@@ -122,6 +125,8 @@ def prefijar(cmd_type: str, params, funcion: str, prefijo: str):
         out["designacion"] = _con_funcion(out["designacion"], funcion)
     if cmd_type == "add_device" and out.get("pieza"):
         out["pieza"] = f"{prefijo}_{out['pieza']}"
+    if cmd_type == "add_program" and out.get("plc"):  # el ST nombra bornes, no designaciones
+        out["plc"] = _con_funcion(out["plc"], funcion)
     if cmd_type == "add_cable":
         for k in ("desde", "hasta"):
             if isinstance(out.get(k), str) and out[k].strip()[:1] in ("-", "="):

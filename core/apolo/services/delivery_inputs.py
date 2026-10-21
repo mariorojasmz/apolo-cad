@@ -57,8 +57,12 @@ def delivery_inputs(doc, *, expand) -> dict:
     # ¿entra la llave? sólo con tornillería de llave; sin ella, los kwargs de siempre
     # (plan acceso-de-herramienta D3/D4)
     acceso = tool_access_report(doc.scene, catalog=CATALOG)
+    from .escenarios import reglas_escenarios
+
+    escenarios = reglas_escenarios(doc)  # V8.3 D14: sólo con escenarios declarados
     return dict(
         **({"electrico": erc} if erc is not None else {}),
+        **({"escenarios": escenarios} if escenarios is not None else {}),
         **({"acceso_herramienta": acceso} if acceso is not None else {}),
         n_solidos=len(doc.scene),
         interferencias=rep_inter["interferencias"],

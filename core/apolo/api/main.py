@@ -60,6 +60,7 @@ from .routers import (
     assembly,
     commands,
     core,
+    cosim,
     deliverables,
     drawings,
     electrico,
@@ -183,7 +184,7 @@ def _fea_rules() -> list[dict]:
 # Cada router agrupa las rutas de un tema; las rutas que pueden casar la MISMA URL viven en
 # el mismo router y en su orden de siempre (D5 del plan partir-api-main).
 for _router in (core, commands, features, render, projects, deliverables, validation, motion,
-                assembly, fea, drawings, electrico, video, video_guion):
+                assembly, fea, drawings, electrico, cosim, video, video_guion):
     app.include_router(_router.router)
 
 

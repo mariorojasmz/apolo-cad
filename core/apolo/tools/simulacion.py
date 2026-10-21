@@ -7,13 +7,16 @@ NO importa `apolo.mcp_server`: corriendo como `python -m apolo.mcp_server` (así
 final con SU `mcp` y un `api` que busca su `_api` en CADA llamada (los tests lo parchean por
 nombre). Cliente fino: arma el cuerpo, recorta para el agente lo que es para animar (poses,
 trazas por fotograma, muestras de sensor) y escribe el GIF a `path`. V8.3 la extiende con el
-tablero y los escenarios en vez de sumar otra tool.
+tablero y los escenarios (`escenario`, que va por `tools/cosim.correr_escenario` como job) en
+vez de sumar otra tool; sin `escenario` es la dinámica de V8.2 tal cual.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+
+from .cosim import correr_escenario
 
 #: Lo que el agente lee, en este orden. Lo demás de la API es para animar (poses, la lista de
 #: piezas por cuerpo, los productos de entrada y las trazas q/q̇/par por fotograma de cada
@@ -36,9 +39,10 @@ def _simular(api, body: dict, path: str | None) -> str:
     return json.dumps(out, ensure_ascii=False)
 
 
-def registrar(mcp, api) -> None:
+def registrar(mcp, api, esperar) -> None:
     """Registra `simulate` en `mcp`, el del servidor que corre. `api(method, path, **kw)` es su
-    `_api`, buscado en cada llamada."""
+    `_api` y `esperar` su `_submit_and_wait` (la co-simulación de V8.3 va como job), buscados en
+    cada llamada."""
 
     @mcp.tool()
     def simulate(
@@ -51,6 +55,7 @@ def registrar(mcp, api) -> None:
         con_autodeteccion: bool = False,
         opciones: dict | None = None,
         path: str | None = None,
+        escenario: str | dict | None = None,
     ) -> str:
         """Simula la máquina EN MARCHA (dinámica MuJoCo): las juntas giran o deslizan movidas por
         `motores`, los `productos` (cajas) viajan sobre la banda o los rodillos y los `sensores`
@@ -79,7 +84,22 @@ def registrar(mcp, api) -> None:
         duracion_s ≤ 60. Devuelve resumen (velocidades finales de juntas, bandas y productos,
         productos caídos, juntas en su límite, factor de tiempo real), motores (consigna, kv,
         tope), sensores, cuerpos y avisos. Con `path` escribe además un GIF de la marcha a tiempo
-        real (corre la simulación otra vez). Read-only: NO modifica el modelo."""
+        real (corre la simulación otra vez). Read-only: NO modifica el modelo.
+        - escenario (V8.3): con un tablero declarado, la máquina ENTERA en virtual — red,
+          protecciones, PLC con su add_program, variadores, motores y la física — según un
+          escenario (nombre de uno de set_scenario, u objeto inline). Devuelve veredicto,
+          aserciones, eventos y `simulacion` (las trazas, con get_simulation); uno con nombre
+          guarda su resultado (lo lee delivery_check). La mecánica va DENTRO del escenario: no
+          combines con los demás parámetros. Si tarda, RECIBO {"job"}: get_job."""
+        if escenario is not None:
+            otros = sorted(k for k, v in {"motores": motores, "productos": productos,
+                                          "sensores": sensores, "bandas": bandas, "juntas": juntas,
+                                          "con_autodeteccion": con_autodeteccion,
+                                          "opciones": opciones, "path": path}.items() if v)
+            if otros:
+                raise RuntimeError(f"con `escenario` la mecánica va dentro del escenario "
+                                   f"(acoples, eventos producto, mecanica): quita {otros}")
+            return correr_escenario(esperar, escenario)
         body: dict = dict(opciones or {})
         propios = {"motores": motores, "productos": productos, "sensores": sensores,
                    "bandas": bandas, "juntas": juntas}

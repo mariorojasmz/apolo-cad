@@ -84,6 +84,7 @@ class Document:
         self.requirements: dict = {}  # bases de diseño del proyecto (carga, velocidad, producto…)
         self.fea: dict[str, dict] = {}  # feature_id → resumen del último FEA (metadato)
         self.stackups: dict[str, dict] = {}  # cadenas de cotas con nombre (V7.3) → {eslabones, requisito}
+        self.escenarios: dict[str, dict] = {}  # V8.3 D12: nombre → {escenario, resultado?} (services/escenarios)
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
         # comandos SUPRIMIDOS por una carga tolerante (transitorio: NUNCA se persiste en
         # el manifest; se recalcula en cada regenerate — vacío en modo estricto)
@@ -917,6 +918,7 @@ class Document:
                         "requirements": self.requirements,
                         "fea": self.fea,
                         "stackups": self.stackups,
+                        "escenarios": self.escenarios,
                         "agent_notes": self.agent_notes,
                     },
                     indent=2,
@@ -965,12 +967,9 @@ class Document:
         doc.configurations = variantes.cargar(manifest, commands)  # sin bandera: migra fotos
         doc.colors = manifest.get("colors", {})
         doc.materials = manifest.get("materials", {})
-        # sketch_guides es metadato (command_ids): poda las entradas cuyo comando ya
-        # NO existe en el log — huérfanas benignas que dejan las cirugías/podas de
-        # comandos. Se hace SOLO en la carga (no en remove_commands) porque el metadato
-        # NO viaja en los snapshots de undo: podarlo durante la mutación lo perdería al
-        # deshacer el remove. Se conserva el criterio de _cmd_alive (id directo del log o
-        # sintético '{cmd}_{orig}' de insert_project cuyo prefijo sigue vivo).
+        # sketch_guides (command_ids) poda las huérfanas de cirugías SOLO en la carga: el metadato
+        # no viaja en los snapshots de undo y podarlo al mutar lo perdería al deshacer. Criterio de
+        # _cmd_alive: id del log o sintético '{cmd}_{orig}' de insert_project con prefijo vivo.
         _log_ids = {c["id"] for c in commands}
         doc.sketch_guides = {
             cid
@@ -984,6 +983,7 @@ class Document:
         doc.requirements = manifest.get("requirements", {})
         doc.fea = manifest.get("fea", {})
         doc.stackups = manifest.get("stackups", {})  # cadenas de cotas (V7.3)
+        doc.escenarios = manifest.get("escenarios", {})  # pruebas de la máquina (V8.3 D12)
         doc.agent_notes = manifest.get("agent_notes", [])
         # guardia de seq: el próximo cmd_id nunca debe colisionar con uno del log aunque
         # el manifest venga sin `seq` o con un `seq` menor que el mayor c-id vivo (un log

@@ -1,4 +1,5 @@
-"""El modelo eléctrico EVALUADO: dispositivos con sus bornes, conductores, cables (V8.1 D2, D5).
+"""El modelo eléctrico EVALUADO: dispositivos con sus bornes, conductores, cables (V8.1 D2, D5)
+y los programas de los PLC (V8.3 D3).
 
 Es lo que el carril eléctrico del documento deja en `doc.electrico` (F3) y lo que lee el ERC:
 datos puros e inmutables, sin referencias al documento ni a la geometría. Un dispositivo trae
@@ -137,10 +138,29 @@ class Cable:
 
 
 @dataclass(frozen=True)
+class Programa:
+    """El programa de un PLC (`add_program`, V8.3 D3), ya COMPILADO contra los bornes de su
+    ficha. `compilado` es el `apolo.plc.Compilado` (picklable; fuera de la igualdad: la fuente
+    y los ajustes lo determinan); `tags` = la tabla de direcciones IEC que sale del programa
+    (D4: variable, dirección, borne, tipo, sentido)."""
+
+    plc: str
+    nombre: str
+    fuente: str
+    lenguaje: str = "st"
+    ciclo_ms: int = 10
+    ciclos: dict = field(default_factory=dict)  # PROGRAM → ciclo propio (tareas)
+    tags: tuple = ()
+    id: str | None = None
+    compilado: object = field(default=None, compare=False, repr=False)
+
+
+@dataclass(frozen=True)
 class ModeloElectrico:
     dispositivos: tuple[Dispositivo, ...] = ()
     conductores: tuple[Conductor, ...] = ()
     cables: tuple[Cable, ...] = ()
+    programas: tuple[Programa, ...] = ()
 
 
 @dataclass(frozen=True)

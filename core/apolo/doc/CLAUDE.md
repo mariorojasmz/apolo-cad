@@ -42,9 +42,11 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
 
 ## Metadatos de manifest
 
-- `motion`, `requirements`, `stackups`, `configurations`, `fea`, colores, materiales, ocultos y
-  notas del agente viven en el manifest, FUERA del log y de los checkpoints (por qué: raíz). Un
-  metadato nuevo sigue el patrón de `motion` (setter que valida + endpoint), no un comando.
+- `motion`, `requirements`, `stackups`, `configurations`, `fea`, `escenarios` (V8.3: su setter y
+  su vigencia, en `services/escenarios.py`: `document.py` está en el trinquete), colores,
+  materiales, ocultos y notas del agente viven en el manifest, FUERA del log y de los checkpoints
+  (por qué: raíz). Un metadato nuevo sigue el patrón de `motion` (setter que valida + endpoint),
+  no un comando.
 - `set_motion` valida cada fotograma `{"t", "values": {junta: valor}}`: claves sueltas, juntas
   inexistentes, valores no numéricos o estudio todo vacío → `DocumentError` accionable. Aceptarlo
   en silencio dejaba un estudio que «reproducía» sin mover nada (commit `a8593f4`).
