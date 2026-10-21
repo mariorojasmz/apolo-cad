@@ -14,7 +14,6 @@ import numpy as np
 import pytest
 
 from apolo.doc import Document
-from apolo.kernel import glb
 from apolo.kernel.glb_resumen import leer, resumen
 from apolo.kernel.render_comun import hex_de_paleta
 from apolo.publicacion import vista3d
@@ -51,7 +50,8 @@ def test_piezas_visibles_con_color_y_grupos(doc):
     assert piezas["Transmisión"].color == "#c77d4f"  # el asignado gana
     indice = list(doc.scene).index(next(f.id for f in doc.scene.values() if f.name == "Larguero"))
     assert piezas["Bastidor"].color == hex_de_paleta(indice)  # si no, la paleta del viewport
-    assert piezas["Bastidor"].metal == glb.METAL and piezas["Bastidor"].rugosidad == glb.RUGOSIDAD
+    # acabado D5 del viewport: el larguero de una máquina de acero es acero pintado
+    assert (piezas["Bastidor"].metal, piezas["Bastidor"].rugosidad) == (0.15, 0.55)
     assert len(vista3d.ids_glb(doc)) == 4  # sin la oculta
 
 
@@ -70,6 +70,31 @@ def test_sin_gltfpack_sale_sin_comprimir_y_lo_dice(doc, tmp_path, monkeypatch):
     assert not any(m.get("name") in {"Larguero", "Piñón", "Suelta"}
                    for m in leer(tmp_path / vista3d.ARCHIVO).get("meshes", []))
     assert inf["triangulos"] == res["triangulos"] <= inf["tope_triangulos"]
+
+
+
+def test_el_glb_lleva_el_acabado_de_cada_pieza(tmp_path, monkeypatch):
+    """Material por (color, acabado), con los factores PBR de la tabla D5 (la del viewport):
+    sin ellos glTF asume metal = rugosidad = 1 y un visor externo ve la máquina apagada."""
+    from apolo.library.apariencia import ACABADOS
+
+    d = Document("Acabados")
+    larguero = d.execute("create_box", {"name": "Larguero", "width": 400, "depth": 40,
+                                        "height": 60, "position": {"x": 0, "y": 0, "z": 30}})
+    rodillo = d.execute("create_cylinder", {"name": "Rodillo de carga", "radius": 25,
+                                            "height": 300, "axis": "y",
+                                            "position": {"x": 0, "y": 0, "z": 100}})
+    for fid in (larguero, rodillo):
+        d.set_color(fid, "#2255aa")  # mismo color asignado: el acabado igual los separa
+    monkeypatch.setattr(vista3d, "buscar_gltfpack", lambda: None)
+    vista3d.generar(d, tmp_path / vista3d.ARCHIVO)
+    pbr = [m["pbrMetallicRoughness"] for m in leer(tmp_path / vista3d.ARCHIVO)["materials"]]
+    pares = sorted((round(m["metallicFactor"], 3), round(m["roughnessFactor"], 3)) for m in pbr)
+    assert pares == [(0.15, 0.55), (0.9, 0.48)]  # acero pintado y galvanizado
+    galv = ACABADOS["galvanizado"]
+    assert (galv.metalness, galv.roughness) == (0.9, 0.48)  # la tabla, no una copia a mano
+    colores = {(round(m["metallicFactor"], 3)): m["baseColorFactor"][:3] for m in pbr}
+    assert colores[0.15] != colores[0.9]  # el galvanizado lleva su albedo, no el asignado
 
 
 def test_una_variable_rota_no_tumba_la_publicacion(doc, tmp_path, monkeypatch):

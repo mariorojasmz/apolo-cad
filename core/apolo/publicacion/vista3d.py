@@ -14,10 +14,13 @@ proceso aparte, sin locks):
      el GLB sale sin comprimir (≈ 6× más pesado, igual de correcto) y el aviso queda en
      `generacion.json`. Nunca se descarga solo.
 
-Material (D6): `apariencia` es el punto de enganche de la tabla de materiales de visor-realista
-D5; mientras no exista, el color del documento (o el de la paleta por índice, la regla del
-viewport y del video) con el PBR explícito del kernel (`glb.METAL`, `glb.RUGOSIDAD`): sin él,
-glTF asume metal = 1 y la máquina se ve como metal crudo oscuro.
+Material (D6): el acabado de cada pieza sale de la tabla D5 de visor-realista
+(`library/apariencia.py`, la fuente ÚNICA: `ui/src/viewport/acabados.json` es su copia generada)
+vía `services.apariencia.apariencias_documento`, la misma resolución que el payload del viewport
+(material → rol → catálogo; albedo del acabado o el color asignado/de paleta si es pintable). El
+GLB lleva por material el albedo, `metallicFactor` y `roughnessFactor` del acabado: sin ellos
+glTF asume metal = 1 y rugosidad = 1 y un visor externo muestra la máquina oscura y apagada. La
+textura procedural y el relieve son del visor de Apolo y no viajan.
 """
 
 from __future__ import annotations
@@ -40,15 +43,10 @@ COMO_INSTALAR = (
     f"(requiere Node), o apunta {ENV_GLTFPACK} al ejecutable o a su carpeta.")
 
 
-def apariencia(feat, indice: int, colores: dict) -> dict:
-    """{color «#rrggbb», metal, rugosidad} de la pieza en el GLB. Enganche de D6: aquí entra la
-    tabla de materiales de visor-realista (por `feat.material` o el nombre) cuando exista; hoy,
-    el color del documento o de la paleta y el PBR por defecto del kernel (acero pintado)."""
-    from apolo.kernel.glb import METAL, RUGOSIDAD
-    from apolo.kernel.render_comun import hex_de_paleta
-
-    return {"color": colores.get(feat.id) or hex_de_paleta(indice), "metal": METAL,
-            "rugosidad": RUGOSIDAD}
+def apariencia(ap: dict) -> dict:
+    """{color «#rrggbb», metal, rugosidad} de la pieza en el GLB a partir de su apariencia D5
+    (`apariencias_documento`): el albedo y el PBR del acabado, como en el viewport."""
+    return {"color": ap["color"], "metal": ap["metalness"], "rugosidad": ap["roughness"]}
 
 
 def _ruta_grupos(grupo: str | None, grupos: dict) -> tuple[str, ...]:
@@ -74,14 +72,15 @@ def piezas(doc) -> list:
     grupo (D5: el GLB es sólo apariencia y no lleva los nombres de las piezas, que dirían cómo
     está hecho el diseño); una pieza sin grupo, `SIN_GRUPO`."""
     from apolo.kernel.glb import PiezaGlb
+    from apolo.services.apariencia import apariencias_documento
 
-    indices = {fid: i for i, fid in enumerate(doc.scene)}
+    aps = apariencias_documento(doc)
     out = []
     for fid in ids_glb(doc):
         feat = doc.scene[fid]
         ruta = _ruta_grupos(feat.group, doc.groups)
         out.append(PiezaGlb(ruta[-1] if ruta else SIN_GRUPO, feat.shape, grupos=ruta,
-                            **apariencia(feat, indices[fid], doc.colors)))
+                            **apariencia(aps[fid])))
     return out
 
 

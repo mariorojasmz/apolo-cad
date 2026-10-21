@@ -47,9 +47,11 @@ el plan». Extiende [publicacion-tienda](publicacion-tienda.md).
   `LEEME-tienda.txt` del paquete.
 - **D5. Sólo apariencia**: el GLB es una malla sin cotas ni planos; los nodos llevan nombres de
   grupo, no los de las piezas. No regala el diseño del paquete completo.
-- **D6. Materiales**: los de la tabla única de [visor-realista](visor-realista.md) D5 cuando
-  exista; mientras, el color del documento con un PBR explícito de acero pintado (metal 0,
-  rugosidad 0.55: sin él glTF asume metal 1; ver Bitácora F1).
+- **D6. Materiales**: los de la tabla única de [visor-realista](visor-realista.md) D5
+  (`library/apariencia.py`; `acabados.json` de la UI es su copia generada), resueltos por pieza con
+  `services.apariencia.apariencias_documento`, igual que el viewport: albedo + `metallicFactor` +
+  `roughnessFactor` del acabado, un material por (color, acabado). La textura procedural y el
+  relieve no viajan (pesan: se decide aparte). (2026-10-20; antes, PBR fijo de acero pintado.)
 
 ## Alternativas descartadas
 
@@ -221,8 +223,8 @@ girado). Caja [0, 0, −0.397]–[2.0, 0.77, 0.345] m, patas en Y = 0, nombres c
   primero. Las del mismo color comparten la malla; la de otro color, OCCT la guarda aparte.
 - **PBR explícito (D6)**: OCCT escribía sólo `baseColorFactor` y glTF asume entonces metal = 1 y
   rugosidad = 1: la máquina se vería como metal crudo oscuro. Va un material PBR por combinación
-  (color, metal 0, rugosidad 0.55: acero pintado). El enganche de la tabla de visor-realista D5 es
-  `vista3d.apariencia(feat, indice, colores)` → {color, metal, rugosidad}.
+  (color, metal, rugosidad). Desde 2026-10-20 sale del acabado D5 de cada pieza (ver D6):
+  `vista3d.apariencia(ap)` → {color, metal, rugosidad}; el GLB F0 del piloto es anterior.
 - **Piso**: el punto más bajo de la MALLA queda en Y = 0 (una máquina de Apolo no siempre apoya
   en z = 0: la sintética del test baja a −260 mm). X y Z se conservan; `<model-viewer>` centra solo.
 - **Grupos anidados** como en el documento (`parent`); una pieza sin grupo cuelga de la raíz con
