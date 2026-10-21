@@ -290,8 +290,19 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
     lista de piezas/herraje + instrucción). La secuencia es la de MONTAJE, del grafo de uniones
     declaradas (`services/montaje.py`); sin estructura declarada, la del log de comandos +
     familias de catálogo. `isolate` (CSV de ids) acota el manual a un SUB-ENSAMBLAJE
-    (p. ej. una hoja) sin tocar el documento. Read-only."""
-    from apolo.drawing import assembly_manual, sheets_to_pdf
+    (p. ej. una hoja) sin tocar el documento. Read-only.
+
+    Dos locks (plan manual-rapido, D2): bajo `STATE_LOCK` se EXTRAE (secuencia, textos) y se
+    tesela tomando el lock PIEZA POR PIEZA; las fotos se dibujan fuera (VTK bajo `RENDER_LOCK`,
+    o matplotlib sin OpenGL)."""
+    from apolo.drawing import (
+        componer_manual,
+        extraer_manual,
+        fotos_manual,
+        sheets_to_pdf,
+        teselar_manual,
+    )
+    from apolo.services.apariencia import apariencias_render
     from apolo.services.montaje import hay_grafo, pasos_manual
 
     with STATE_LOCK:
@@ -302,13 +313,18 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
             if not scene:
                 raise HTTPException(status_code=400, detail="isolate: ningún id existe en la escena")
         stages = pasos_manual(S.doc, scene) if hay_grafo(S.doc) else None
+        name = S.doc.name
         try:
-            pages = assembly_manual(scene, commands=S.doc.commands, project_name=title or S.doc.name,
-                                    sheet=sheet, meta=_drawing_meta(), colors=_feature_colors(),
-                                    size_px=size_px, stages=stages)
+            extraido = extraer_manual(scene, commands=S.doc.commands,
+                                      project_name=title or name, sheet=sheet,
+                                      meta=_drawing_meta(), colors=_feature_colors(),
+                                      size_px=size_px, stages=stages,
+                                      apariencias=apariencias_render(S.doc))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-    fname = (title or S.doc.name or "manual").encode("ascii", "ignore").decode() or "manual"
+    teselar_manual(extraido, STATE_LOCK)  # el lock, pieza por pieza (~12 s una cadena en frío)
+    pages = componer_manual(extraido, fotos_manual(extraido))  # FUERA de STATE_LOCK
+    fname = (title or name or "manual").encode("ascii", "ignore").decode() or "manual"
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}-ensamblaje.pdf"'},

@@ -32,6 +32,10 @@ ESPECULAR = 0.16
 POTENCIA_ESPECULAR = 22
 OPACIDAD_VIDRIO = 0.34       # vidrio translúcido (como el viewport web)
 ANGULO_ARISTA = 35.0         # = toCreasedNormals del viewport web: suave en lo curvo, vivo en aristas
+# Fantasma: lo NO resaltado de una foto con resaltado (`render_vtk`) y lo ya montado en un paso
+# del manual (`render_vivo.EscenaViva.mostrar`): gris translúcido, sin aristas ni acabado.
+GRIS_FANTASMA = (0.62, 0.66, 0.70)
+OPACIDAD_FANTASMA = 0.18
 
 # Fondo claro tipo "papel" con un degradado sutil. Convención VTK: `SetBackground` es el color
 # de ABAJO y `SetBackground2` el de ARRIBA.
@@ -118,29 +122,48 @@ def color_pieza(fid: str, indice: int, colores: dict | None) -> tuple[float, flo
     return hex_a_rgb((colores or {}).get(fid) or hex_de_paleta(indice))
 
 
-def bounds_malla(vertices):
-    """(min, max) de los vértices = `actor.GetBounds()` de la malla (build123d Vector: .X/.Y/.Z)."""
+#: Vértices → numpy por IDENTIDAD de la lista (la de `teselar`, que sale de su caché): pasar
+#: 10⁶ Vector a floats cuesta ~25 s y lo pedían dos veces la caja y el polydata de cada foto
+#: (plan manual-rapido). Guarda la REFERENCIA a la lista y verifica `is`.
+_XYZ_CACHE: dict = {}
+
+
+def _xyz(vertices):
+    """Los vértices (build123d Vector: .X/.Y/.Z) como arreglo numpy (n, 3) en float64."""
     import numpy as np
 
-    xs = [v.X for v in vertices]
-    ys = [v.Y for v in vertices]
-    zs = [v.Z for v in vertices]
-    return np.array([min(xs), min(ys), min(zs)]), np.array([max(xs), max(ys), max(zs)])
+    hit = _XYZ_CACHE.get(id(vertices))
+    if hit is None or hit[0] is not vertices:
+        if len(_XYZ_CACHE) > _RENDER_MESH_CAP:
+            _XYZ_CACHE.clear()
+        xyz = np.array([(v.X, v.Y, v.Z) for v in vertices], dtype=float).reshape(-1, 3)
+        xyz.setflags(write=False)
+        hit = (vertices, xyz)
+        _XYZ_CACHE[id(vertices)] = hit
+    return hit[1]
+
+
+def bounds_malla(vertices):
+    """(min, max) de los vértices = `actor.GetBounds()` de la malla (build123d Vector: .X/.Y/.Z)."""
+    xyz = _xyz(vertices)
+    return xyz.min(axis=0), xyz.max(axis=0)
 
 
 def polydata(vertices, triangles):
+    """vtkPolyData de la malla, armado con numpy (plan manual-rapido: el bucle de `SetPoint` /
+    `InsertCellPoint` se llevaba ~1 min con las 19 cadenas de la piloto). Mismos puntos en
+    float32 (el tipo de `vtkPoints`) y las mismas celdas, en el mismo orden."""
+    import numpy as np
     import vtk
+    from vtk.util.numpy_support import numpy_to_vtk, numpy_to_vtkIdTypeArray
 
     pts = vtk.vtkPoints()
-    pts.SetNumberOfPoints(len(vertices))
-    for k, v in enumerate(vertices):
-        pts.SetPoint(k, v.X, v.Y, v.Z)
+    pts.SetData(numpy_to_vtk(_xyz(vertices).astype(np.float32), deep=True))
+    tri = np.asarray(triangles, dtype=np.int64).reshape(-1, 3)
+    offsets = np.arange(0, 3 * len(tri) + 1, 3, dtype=np.int64)
     cells = vtk.vtkCellArray()
-    for t in triangles:
-        cells.InsertNextCell(3)
-        cells.InsertCellPoint(int(t[0]))
-        cells.InsertCellPoint(int(t[1]))
-        cells.InsertCellPoint(int(t[2]))
+    cells.SetData(numpy_to_vtkIdTypeArray(offsets, deep=True),
+                  numpy_to_vtkIdTypeArray(tri.ravel(), deep=True))
     pd = vtk.vtkPolyData()
     pd.SetPoints(pts)
     pd.SetPolys(cells)

@@ -19,6 +19,8 @@ from dataclasses import dataclass
 
 from .render import _clip_to_section, _shape_of
 from .render_comun import (
+    GRIS_FANTASMA,
+    OPACIDAD_FANTASMA,
     OPACIDAD_VIDRIO,
     actor_aristas,
     actores_superficie,
@@ -276,7 +278,7 @@ def extract_render_scene(
             if xray:
                 op = 0.16                         # rayos-X: el contexto translúcido EN SU COLOR
             else:
-                col, op, pbr, partes = (0.62, 0.66, 0.70), 0.18, None, None  # fantasma gris
+                col, op, pbr, partes = GRIS_FANTASMA, OPACIDAD_FANTASMA, None, None  # fantasma
         elif op_vidrio < 1.0:
             op = op_vidrio                        # vidrio translúcido (como el viewport web)
         elif xray:

@@ -14,15 +14,14 @@ Con la estructura DECLARADA, la secuencia llega hecha (`stages`): la de montaje 
   (Marco / H1 / Vidrio / Parteluz / Tornillería…). Cada grupo = un paso, ordenado por su primera
   aparición en el log. Heurística transparente y refinable.
 
-Reusa `render_scene_png` (con `highlight_ids` para resaltar lo nuevo y `frame_bbox` para una
-cámara ESTABLE: las piezas aparecen en su sitio final) y `sheets_to_pdf` (multipágina).
+Las fotos las dibuja UNA escena VTK viva con cámara ESTABLE (las piezas aparecen en su sitio
+final), fuera de `STATE_LOCK`: las tres fases están en `manual_fotos.py` (plan manual-rapido).
 """
 
 from __future__ import annotations
 
 import re
 import struct
-from datetime import date
 
 from .sheet import Image, Label, Line, SheetModel
 from .titleblock import draw_title_block
@@ -422,57 +421,21 @@ def _step_page(W: float, H: float, *, step_no: int, n_steps: int, page_no: int, 
 
 def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "Sin título",
                     sheet: str = "A3", meta: dict | None = None, colors: dict | None = None,
-                    size_px: int = 700, stages: list[dict] | None = None) -> list[SheetModel]:
+                    size_px: int = 700, stages: list[dict] | None = None,
+                    apariencias: dict | None = None) -> list[SheetModel]:
     """Manual de ensamblaje paso a paso: [portada con secuencia + 1 lámina por PASO]. Cada paso
     muestra el render acumulado (lo nuevo resaltado, lo previo en gris) + piezas/herraje + nota.
     `stages` = la secuencia de montaje ya derivada del grafo de uniones ({label, ids, is_hw,
     union}: `services/montaje.py`, D8 de video-tienda-pulido); sin ella, del log de comandos +
-    familias de catálogo + soporte autodetectado."""
-    from apolo.library.catalog import CATALOG
-    from apolo.library.cutlist import dominant_material, hardware_schedule, scene_weight_kg
-    from ..kernel.render import render_scene_png
+    familias de catálogo + soporte autodetectado.
 
-    W, H = SHEETS.get(sheet, SHEETS["A3"])
-    vis = {fid: f for fid, f in scene.items() if getattr(f, "visible", True)}
-    if not vis:
-        raise ValueError("Escena vacía: nada que ensamblar")
-    if stages is None:
-        stages = assembly_steps(scene, commands, CATALOG)
-        stages = order_by_support(vis, stages, CATALOG)  # V7.2b A: soporte + fusión de huérfanos
-    if not stages:
-        raise ValueError("No se pudo derivar la secuencia de ensamblaje")
-    bbox = _scene_bbox(vis)
+    Atajo de las fases de `manual_fotos` para quien es dueño de su documento (tests, CLI).
+    Dentro de la API NO se usa: el endpoint extrae bajo `STATE_LOCK` y dibuja fuera (llamar a
+    esto sosteniendo `STATE_LOCK` tomaría `RENDER_LOCK` en el orden prohibido)."""
+    from .manual_fotos import componer_manual, extraer_manual, fotos_manual, teselar_manual
 
-    base_meta = {
-        "project": project_name, "drawing_no": (meta or {}).get("drawing_no", "—"),
-        "scale": "—", "sheet": sheet, "material": dominant_material(vis) or "—",
-        "finish": "—", "weight_kg": scene_weight_kg(vis), "tolerance": "—", "units": "mm",
-        "drawn_by": "", "checked_by": "", "approved_by": "",
-        "date": (meta or {}).get("date", date.today().isoformat()),
-        "revisions": (meta or {}).get("revisions", []),
-    }
-
-    pages: list[SheetModel] = []
-    # portada: render del modelo COMPLETO + tabla de contenidos
-    cover_png = render_scene_png(vis, view="iso", size_px=size_px, clean=True, colors=colors,
-                                 frame_bbox=bbox)
-    totals = {"piezas": len(vis), "herraje": sum(h["cantidad"] for h in hardware_schedule(vis))}
-    pages.append(_cover_page(W, H, project_name=project_name, png=cover_png, stages=stages,
-                             totals=totals, base_meta=base_meta, sheet=sheet))
-
-    # un paso por grupo: render acumulado con lo nuevo resaltado y cámara estable
-    n = len(stages)
-    cumulative: dict = {}
-    for k, st in enumerate(stages, start=1):
-        for fid in st["ids"]:
-            cumulative[fid] = scene[fid]
-        png = render_scene_png(dict(cumulative), view="iso", size_px=size_px,
-                               highlight_ids=list(st["ids"]), clean=True, colors=colors,
-                               frame_bbox=bbox)
-        stage_scene = {fid: scene[fid] for fid in st["ids"]}
-        instr = _instruction(st, scene, CATALOG, len(st["ids"]), len(cumulative), len(vis))
-        pages.append(_step_page(
-            W, H, step_no=k, n_steps=n, page_no=k + 1, n_pages=n + 1, stage=st,
-            rows=_step_rows(stage_scene), instruction=instr, png=png, base_meta=base_meta,
-        ))
-    return pages
+    ex = extraer_manual(scene, commands=commands, project_name=project_name, sheet=sheet,
+                        meta=meta, colors=colors, size_px=size_px, stages=stages,
+                        apariencias=apariencias)
+    teselar_manual(ex)
+    return componer_manual(ex, fotos_manual(ex))

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida (D2 corregida: el teselado toma el lock pieza por pieza); faltan F1, F2 (portada de la memoria) y F3 (publicar generar de la piloto)
+nota: F0 y F1 hechas, sin mergear (manual de la piloto 12 538 s → 425 s en frío, 56 s caliente); faltan F2 (portada de la memoria) y F3 (publicar generar de la piloto)
 descripcion: El manual de montaje de una máquina sale en segundos, no en 23 minutos, y mientras se arma Apolo no se congela
 ---
 
@@ -140,3 +140,47 @@ compartieron la máquina (12 hilos; matplotlib usa uno): los números absolutos 
 F1 suma dos arreglos del `kernel` que la F0 señaló: `polydata` con numpy y la conversión
 vértices → numpy cacheada por lista (la pedían la caja y el `polydata`), los dos con el mismo
 PNG byte a byte. D1, D3, D4 y D5 quedan como estaban.
+
+### F1 — el manual con una escena VTK y fuera del lock (2026-10-21)
+
+- `drawing/manual_fotos.py`: `extraer_manual` (una toma del lock) → `teselar_manual(ex, candado)`
+  (una toma por pieza) → `fotos_manual` (fuera; `_fotos_vtk` bajo `RENDER_LOCK`, o
+  `_fotos_matplotlib` con aviso en el log) → `componer_manual` (puro). `assembly_manual` queda
+  como atajo de las cuatro para quien es dueño del documento (tests); el endpoint
+  `GET /api/assembly-manual.pdf` no lo usa. Los textos y la composición de cada lámina no
+  cambiaron de lugar (`assembly_manual.py`).
+- `kernel/render_vivo`: `PiezaViva.partes` y `extraer_piezas(zonas=True)` (las zonas de la seta,
+  D3); `EscenaViva.mostrar(plenas, fantasmas)` cambia sólo la visibilidad de actores ya creados
+  (el fantasma se crea la primera vez: el mismo gris de `render_vtk`, ahora
+  `render_comun.GRIS_FANTASMA`/`OPACIDAD_FANTASMA`), y `png()`. El video no cambia: sin
+  `zonas=True` y sin `mostrar`, todo es como antes.
+- `kernel/render.render_mallas_png`: el respaldo matplotlib sobre las mallas ya teseladas, sin
+  OCCT (D4: no vuelve a tomar el lock).
+- `render_comun.polydata` con numpy y `_xyz` cacheado por lista: el mismo PNG byte a byte (se
+  comparó con el de bucles sobre una escena con zonas).
+- Las fotos tienen el aspecto de `render_view` (700 × 546 con el `size_px` de siempre): fondo
+  degradado, acabados, zonas, aristas finas; lo ya montado en gris translúcido.
+- Tests (`tests/test_manual_rapido.py`): las láminas de un caso chico salen con los MISMOS textos
+  que en main (congelados antes del cambio); cada foto muestra lo nuevo en su color, lo montado
+  sin su color y lo que falta, nada, y el color nuevo cae donde la cámara proyecta la pieza;
+  `STATE_LOCK` se toma y se muta el documento mientras el endpoint dibuja; el teselado toma el
+  candado una vez por pieza; sin OpenGL sale con matplotlib y lo dice; la seta llega partida
+  por zona; `polydata` trae los mismos puntos y celdas. `test_montaje` espía ahora
+  `extraer_manual`.
+
+Medido por el endpoint sobre la misma copia (piloto 74), dos pedidos en un proceso:
+
+| | antes | frío | caliente |
+|---|---|---|---|
+| total | 12 538 s (3 h 29 min) | 425 s | 56 s |
+| `STATE_LOCK` | 12 492 s seguidos | 9 s + 201 tomas (la mayor, 19,8 s) | 5,5 s + 201 tomas de ~0 s |
+| fotos | 12 485 s (11 fotos) | 38 s (`RENDER_LOCK`) | 36 s |
+
+«Antes» se midió con la PC compartida (otras suites corrían a la vez): las fotos con las cadenas
+tardaron 1 590–2 530 s cada una, más que los 180–290 s de la bitácora de video-tienda F3; la
+proporción no cambia. En frío manda el teselado (353 s, repartidos en 201 tomas del lock): es
+el Python de `Shape.tessellate` y lo paga también `render_view`. Queda como pendiente para
+otro plan (mallar las cadenas con menos nodos o cachear la malla de render por firma, como la
+caché de geometría); la F2 (portada de la memoria) lo heredará igual. «Caliente» = con la caché
+de teselado de render llena en el proceso (tras un manual o un `render_view` de la máquina).
+Los PDF (antes y después) quedaron en el scratchpad de la sesión, no en el repo.

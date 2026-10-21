@@ -273,7 +273,7 @@ def test_el_endpoint_del_manual_sigue_al_grafo(piloto, monkeypatch):
         visto["stages"] = kw.get("stages")
         raise ValueError("solo miro")
 
-    monkeypatch.setattr(drawing, "assembly_manual", espia)
+    monkeypatch.setattr(drawing, "extraer_manual", espia)  # la fase bajo STATE_LOCK (manual-rapido)
     api.DOC = d
     r = TestClient(api.app).get("/api/assembly-manual.pdf")
     assert r.status_code == 400 and r.json()["detail"] == "solo miro"

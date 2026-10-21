@@ -29,7 +29,12 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   sale como siempre. La foto VTK y el GLB reciben las zonas como DATO en la apariencia
   (`services.apariencia.apariencias_render`: clave `zonas` = {por_cara, aps}); VTK hace un actor
   por zona (`actores_superficie`), sólo sobre la forma ENTERA (una sección la corta: un acabado).
-  `render_vivo` (video de respaldo) sigue de un acabado. [seta-de-emergencia](../../../docs/plans/seta-de-emergencia.md)
+  `render_vivo` las usa sólo con `extraer_piezas(zonas=True)` (el manual); el video de respaldo
+  sigue de un acabado. [seta-de-emergencia](../../../docs/plans/seta-de-emergencia.md)
+- `EscenaViva.mostrar(plenas, fantasmas)` (manual de ensamblaje): plena / fantasma / oculta por
+  VISIBILIDAD de actores ya creados, sin re-teselar ni mover la cámara. El fantasma (gris
+  translúcido, sin aristas) es el mismo de lo no resaltado de `render_vtk`:
+  `render_comun.GRIS_FANTASMA`/`OPACIDAD_FANTASMA`. [manual-rapido](../../../docs/plans/manual-rapido.md)
 - glTF/GLB: `glb.py` (escritor de OCCT); sus trampas están en el docstring. Lo clave: prototipo SIN
   ubicación + componente ubicado (o se pierde la ubicación), color en el COMPONENTE (el del prototipo
   pisa el de la instancia), `TDataStd_Name` con `isMultiByte=True` y `SetMergeFaces`.

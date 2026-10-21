@@ -14,12 +14,17 @@ Para que nada salte entre prefijos del log:
 Se ve igual que la foto de `render_vtk` porque los dos sacan de `render_comun` el teselado con
 caché, el material, las aristas, el fondo, las luces, la cámara y el modo de transparencia.
 
+El manual de ensamblaje (plan manual-rapido, D1) usa la misma ventana para sus fotos: las piezas
+se crean una vez y cada paso sólo cambia qué se ve, en qué estado (`mostrar`: lo nuevo con su
+acabado, lo ya montado en gris fantasma) y lee el buffer; la cámara no se mueve. Sus piezas
+traen las zonas de acabado (`extraer_piezas(zonas=True)`), como la foto de `render_view`.
+
 Locks: este módulo NO toma ninguno. Está pensado para un proceso aparte sin API (el CLI de
 publicación, D1 del plan), dueño de su `Document`. Un caller DENTRO de la API sigue el patrón
 dos-locks: `colores_fijos`, `bbox_final` y `extraer_piezas` (OCCT: teselado) bajo `STATE_LOCK`;
-`EscenaViva(...)`, `aplicar`, `orbitar`, `resaltar` y `fotograma` (sólo VTK) bajo `RENDER_LOCK`
-y fuera de `STATE_LOCK`. `actualizar` y `EscenaViva.para` mezclan las dos fases: sólo fuera de la
-API.
+`EscenaViva(...)`, `aplicar`, `orbitar`, `resaltar`, `mostrar` y `fotograma` (sólo VTK) bajo
+`RENDER_LOCK` y fuera de `STATE_LOCK`. `actualizar` y `EscenaViva.para` mezclan las dos fases:
+sólo fuera de la API.
 """
 
 from __future__ import annotations
@@ -29,9 +34,12 @@ from dataclasses import dataclass, field, replace
 
 from .render_comun import (
     AMBIENTE,
+    GRIS_FANTASMA,
+    OPACIDAD_FANTASMA,
     OPACIDAD_VIDRIO,
     actor_aristas,
     actor_superficie,
+    actores_superficie,
     bounds_malla,
     es_vidrio,
     hex_a_rgb,
@@ -42,6 +50,7 @@ from .render_comun import (
     poner_fondo,
     poner_luces,
     teselar,
+    teselar_con_zonas,
 )
 
 #: Color hacia el que se mezcla una pieza resaltada (amarillo claro: no es de la paleta ni el
@@ -71,22 +80,30 @@ class PiezaViva:
     vertices: object
     triangulos: object
     opacidad: float
+    partes: list | None = None   # zonas de acabado (`render_comun.teselar_con_zonas`) o None
 
 
-def extraer_piezas(escena: dict, apariencias: dict | None = None) -> list[PiezaViva]:
+def extraer_piezas(escena: dict, apariencias: dict | None = None, *,
+                   zonas: bool = False) -> list[PiezaViva]:
     """FASE OCCT: tesela con la caché de render las piezas VISIBLES de `escena`, en su orden.
     Se saltan las que no dejan malla (como `render_vtk`). El vidrio sale translúcido: con la
-    opacidad de su acabado si hay `apariencias` (`library/apariencia`), si no por el nombre."""
+    opacidad de su acabado si hay `apariencias` (`library/apariencia`), si no por el nombre.
+    `zonas=True` parte por zona de acabado la pieza cuya apariencia trae `zonas`
+    (`services.apariencia.apariencias_render`); sin él, un acabado por pieza (el video)."""
     piezas = []
     for feat in escena.values():
         if not getattr(feat, "visible", True):
             continue
-        vertices, triangulos = teselar(feat.shape)
+        ap = (apariencias or {}).get(feat.id)
+        partes = None
+        if zonas:
+            vertices, triangulos, partes = teselar_con_zonas(feat.shape, (ap or {}).get("zonas"))
+        else:
+            vertices, triangulos = teselar(feat.shape)
         if not len(vertices) or not len(triangulos):
             continue
-        ap = (apariencias or {}).get(feat.id)
         opacidad = ap["opacidad"] if ap else (OPACIDAD_VIDRIO if es_vidrio(feat) else 1.0)
-        piezas.append(PiezaViva(feat.id, feat.shape, vertices, triangulos, opacidad))
+        piezas.append(PiezaViva(feat.id, feat.shape, vertices, triangulos, opacidad, partes))
     return piezas
 
 
@@ -119,11 +136,14 @@ class Cambios:
 
 @dataclass
 class _Actor:
-    forma: object      # REFERENCIA al shape: lo mantiene vivo, así su id no se recicla
+    forma: object       # REFERENCIA al shape: lo mantiene vivo, así su id no se recicla
     opacidad: float
-    superficie: object
+    superficies: list   # uno, o uno por zona de acabado
+    bases: list         # RGB 0..1 sin resaltar, uno por superficie
     aristas: object | None
-    base: tuple        # RGB 0..1 sin resaltar
+    malla: object       # polydata de la pieza entera (la comparte el fantasma)
+    fantasma: object | None = None   # actor gris translúcido, creado al primer `mostrar`
+    estado: str = "plena"            # plena | fantasma | oculta (`mostrar`)
 
 
 def _lado_par(nombre: str, valor) -> int:
@@ -303,41 +323,73 @@ class EscenaViva:
             for i in range(4):
                 for j in range(4):
                     m.SetElement(i, j, float(matriz[i][j]))
-        for actor in (act.superficie, act.aristas):
-            if actor is not None:
-                actor.SetUserMatrix(m)
+        for actor in self._todos(act):
+            actor.SetUserMatrix(m)
+
+    def mostrar(self, plenas=None, fantasmas=()) -> None:
+        """Estado de cada pieza para un paso del manual de ensamblaje: `plenas` con su color y
+        su acabado, `fantasmas` en el gris translúcido de lo NO resaltado de `render_vtk` (sin
+        aristas ni acabado) y el resto OCULTO. `plenas=None` = todas plenas (la portada). Un id
+        sin actor se ignora. No toca la cámara ni el resaltado."""
+        self._viva()
+        todas = plenas is None
+        plenas = set(plenas or ())
+        fantasmas = set(fantasmas) - plenas
+        for act_id, act in self._actores.items():
+            estado = ("plena" if todas or act_id in plenas
+                      else "fantasma" if act_id in fantasmas else "oculta")
+            if estado == "fantasma" and act.fantasma is None:
+                act.fantasma = actor_superficie(act.malla, GRIS_FANTASMA, OPACIDAD_FANTASMA)
+                matriz = act.superficies[0].GetUserMatrix()
+                if matriz is not None:
+                    act.fantasma.SetUserMatrix(matriz)
+                self._ren.AddActor(act.fantasma)
+            act.estado = estado
+            for actor in act.superficies:
+                actor.SetVisibility(estado == "plena")
+            if act.aristas is not None:
+                act.aristas.SetVisibility(estado == "plena")
+            if act.fantasma is not None:
+                act.fantasma.SetVisibility(estado == "fantasma")
+
+    @staticmethod
+    def _todos(act: _Actor) -> list:
+        return [a for a in (*act.superficies, act.aristas, act.fantasma) if a is not None]
 
     def _crear(self, p: PiezaViva) -> None:
         pd = polydata(p.vertices, p.triangulos)
         base = hex_a_rgb(self.color(p.id))
         ap = self._apariencias.get(p.id)
-        superficie = actor_superficie(pd, base, p.opacidad,
-                                      (ap["metalness"], ap["roughness"]) if ap else None)
-        self._ren.AddActor(superficie)
+        superficies = actores_superficie(p.vertices, p.triangulos, pd, base, p.opacidad,
+                                         (ap["metalness"], ap["roughness"]) if ap else None,
+                                         p.partes)
+        for actor in superficies:
+            self._ren.AddActor(actor)
+        bases = [parte[2] for parte in p.partes] if p.partes else [base]
         aristas = None
         if self._con_aristas and p.opacidad > 0.25:   # misma regla que `render_vtk`
             aristas = actor_aristas(pd)
             self._ren.AddActor(aristas)
-        self._actores[p.id] = _Actor(p.forma, p.opacidad, superficie, aristas, base)
+        self._actores[p.id] = _Actor(p.forma, p.opacidad, superficies, bases, aristas, pd)
         if p.id in self._resalte:
             self._pintar(p.id)
 
     def _quitar(self, fid: str) -> None:
         act = self._actores.pop(fid)
-        self._ren.RemoveActor(act.superficie)
-        if act.aristas is not None:
-            self._ren.RemoveActor(act.aristas)
+        for actor in self._todos(act):
+            self._ren.RemoveActor(actor)
 
     def _pintar(self, fid: str) -> None:
         act = self._actores[fid]
         t = self._resalte.get(fid, 0.0)
-        prop = act.superficie.GetProperty()
-        if t <= 0.0:
-            prop.SetColor(*act.base)
-            prop.SetAmbient(AMBIENTE)
-        else:
-            prop.SetColor(*(b + (a - b) * t for b, a in zip(act.base, self._acento)))
-            prop.SetAmbient(AMBIENTE + BRILLO_RESALTE * t)
+        for actor, base in zip(act.superficies, act.bases):
+            prop = actor.GetProperty()
+            if t <= 0.0:
+                prop.SetColor(*base)
+                prop.SetAmbient(AMBIENTE)
+            else:
+                prop.SetColor(*(b + (a - b) * t for b, a in zip(base, self._acento)))
+                prop.SetAmbient(AMBIENTE + BRILLO_RESALTE * t)
 
     # ── fotograma ─────────────────────────────────────────────────────────────
 
@@ -349,7 +401,8 @@ class EscenaViva:
         from vtk.util.numpy_support import vtk_to_numpy
 
         self._viva()
-        translucido = any(a.opacidad < 1.0 for a in self._actores.values())
+        translucido = any(a.estado == "fantasma" or (a.estado == "plena" and a.opacidad < 1.0)
+                          for a in self._actores.values())
         if translucido != self._translucido:
             modo_transparencia(self._rw, self._ren, translucido)
             self._translucido = translucido
@@ -364,6 +417,16 @@ class EscenaViva:
                                f"{self.ancho}×{self.alto}")
         datos = vtk_to_numpy(img.GetPointData().GetScalars()).reshape(h, w, -1)
         return np.ascontiguousarray(datos[::-1, :, :3])
+
+    def png(self) -> bytes:
+        """El `fotograma` codificado en PNG (las fotos del manual de ensamblaje)."""
+        import io
+
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.fromarray(self.fotograma()).save(buf, format="PNG")
+        return buf.getvalue()
 
     # ── ciclo de vida ─────────────────────────────────────────────────────────
 

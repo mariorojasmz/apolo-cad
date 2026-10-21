@@ -311,6 +311,44 @@ def render_scene_png(
     return buf.getvalue()
 
 
+def render_mallas_png(mallas, frame_bbox, *, view: str = "iso", size_px: int = 700,
+                      highlight_ids=None, colors: dict | None = None) -> bytes:
+    """El sombreado LIMPIO de `render_scene_png(clean=True, frame_bbox=…)` sobre mallas YA
+    teseladas: `mallas` = [(id, vertices, triangulos)] (p. ej. `render_vivo.PiezaViva`). No
+    toca OCCT, así que corre fuera de `STATE_LOCK`: es el respaldo sin OpenGL de las fotos del
+    manual de ensamblaje (plan manual-rapido, D4). Lo resaltado (o todo, sin `highlight_ids`)
+    va en su color; lo demás, en gris atenuado."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+    from .render_comun import _xyz
+
+    highlight = set(highlight_ids or [])
+    fig = plt.figure(figsize=(size_px / 100, size_px / 100 * 0.75), dpi=100)
+    ax = fig.add_subplot(1, 1, 1, projection="3d")
+    for i, (fid, vertices, triangles) in enumerate(mallas):
+        pts = _xyz(vertices)
+        if not len(pts):
+            continue
+        if not highlight or fid in highlight:
+            color, alpha = (colors or {}).get(fid) or PALETTE[i % len(PALETTE)], 1.0
+        else:
+            color, alpha = "#9aa3ad", 0.18
+        ax.add_collection3d(Poly3DCollection(pts[np.array(triangles)], facecolors=color,
+                                             edgecolors=color, linewidths=0, shade=True,
+                                             alpha=alpha))
+    apply_camera(ax, frame_bbox[0], frame_bbox[1], view=view)
+    ax.set_axis_off()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight", transparent=True, pad_inches=0.0)
+    plt.close(fig)
+    return buf.getvalue()
+
+
 def _draw_bbox(ax, lo, hi) -> None:
     """Dibuja las 12 aristas de la caja [lo, hi] en línea discontinua."""
     x0, y0, z0 = lo
