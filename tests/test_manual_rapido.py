@@ -162,7 +162,7 @@ def test_el_polydata_numpy_trae_los_mismos_puntos_y_celdas():
         ids = pd.GetCell(k).GetPointIds()
         assert [ids.GetId(i) for i in range(3)] == list(t[k])
     p = pd.GetPoint(len(v) - 1)
-    assert p == pytest.approx((v[-1].X, v[-1].Y, v[-1].Z), abs=1e-4)
+    assert p == pytest.approx(tuple(v[-1]), abs=1e-4)   # numpy desde teselado-rapido D2
 
 
 # ── locks y respaldo ──────────────────────────────────────────────────────────

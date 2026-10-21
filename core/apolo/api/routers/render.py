@@ -180,6 +180,7 @@ def render_png(
             try:
                 from apolo.kernel.render_vtk import extract_render_scene
                 from apolo.services.apariencia import apariencias_render
+                from apolo.services.definiciones import definiciones_de
 
                 snapshot = extract_render_scene(
                     scene, view,
@@ -190,6 +191,7 @@ def render_png(
                     azimuth=azimuth, elevation=elevation, dimension=dimension, edges=edges,
                     xray=xray, labels=labels, roll=roll, pan=pan_xy,
                     apariencias=apariencias_render(S.doc),
+                    definiciones=definiciones_de(scene),   # instancias: la malla de su definición
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc

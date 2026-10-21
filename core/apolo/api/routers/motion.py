@@ -131,6 +131,7 @@ def motion_gif(body: MotionGifIn) -> Response:
     Espejo de `/api/physics/drop.gif` pero para cinemática, no para física."""
     from apolo.robotics.anim import extract_motion_frames, render_motion_gif
     from apolo.services.apariencia import apariencias_render
+    from apolo.services.definiciones import definiciones_de
 
     with STATE_LOCK:  # FASE OCCT: FK + teselado → snapshots de datos PUROS
         kfs = S.doc.motion.get(body.name)
@@ -147,6 +148,7 @@ def motion_gif(body: MotionGifIn) -> Response:
                 view=body.view, azimuth=body.azimuth, elevation=body.elevation,
                 zoom=body.zoom, size_px=body.size_px, colors=_feature_colors(),
                 edges=body.edges, apariencias=apariencias_render(S.doc),
+                definiciones=definiciones_de(S.doc.scene),   # lo que la pose no mueve
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

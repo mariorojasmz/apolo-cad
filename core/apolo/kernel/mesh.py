@@ -39,22 +39,32 @@ def agrupar_por_zona(triangles, por_cara, zona_por_cara) -> tuple[list, list[dic
     que aparece cada zona en `zona_por_cara`, y devuelve `(triangulos, rangos)` con
     `rangos = [{"zona", "desde", "hasta"}]` en índices de TRIÁNGULO (hasta excluido). Los
     índices de vértice no cambian. Lanza ValueError si `por_cara` y `zona_por_cara` no
-    describen las mismas caras."""
+    describen las mismas caras. Con `triangles` numpy (m, 3) (la malla de render,
+    `malla_render`) devuelve numpy; con una lista, una lista."""
     if len(por_cara) != len(zona_por_cara) or sum(por_cara) != len(triangles):
         raise ValueError("Las zonas no corresponden a las caras de esta malla")
-    grupos: dict[str, list] = {}
+    grupos: dict[str, list] = {}   # zona → [(inicio, fin)] de sus caras, en orden
     inicio = 0
     for n, zona in zip(por_cara, zona_por_cara):
-        grupos.setdefault(zona, []).extend(triangles[inicio:inicio + n])
+        grupos.setdefault(zona, []).append((inicio, inicio + n))
         inicio += n
-    salida: list = []
+    trozos: list = []
     rangos: list[dict] = []
-    for zona, tris in grupos.items():
-        if not tris:
+    total = 0
+    for zona, tramos in grupos.items():
+        n = sum(b - a for a, b in tramos)
+        if not n:
             continue
-        rangos.append({"zona": zona, "desde": len(salida), "hasta": len(salida) + len(tris)})
-        salida.extend(tris)
-    return salida, rangos
+        rangos.append({"zona": zona, "desde": total, "hasta": total + n})
+        trozos += [triangles[a:b] for a, b in tramos if b > a]
+        total += n
+    if hasattr(triangles, "ndim"):
+        import numpy as np
+
+        salida = np.concatenate(trozos) if trozos else triangles[:0]
+        salida.setflags(write=False)
+        return salida, rangos
+    return [t for trozo in trozos for t in trozo], rangos
 
 
 def mesh_payload(shape, tolerance: float = 0.4, angular_tolerance: float = 0.3,

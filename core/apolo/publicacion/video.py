@@ -118,6 +118,7 @@ def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None
     from apolo.media import composicion as comp
     from apolo.media.codificar import Codificador, mezclar_musica
     from apolo.services.apariencia import apariencias_documento
+    from apolo.services.definiciones import definiciones_de
     from apolo.services.guion_video import MODO_MONTAJE, sin_marcha
 
     g = sin_marcha(g)  # VTK no anima la máquina andando: eso lo graba el navegador (video-realista)
@@ -139,15 +140,16 @@ def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None
     mudo = carpeta / "video.mudo.mp4" if musica else final
     t0 = time.perf_counter()
     sin_prefijo: list[int] = []
+    defs = definiciones_de(doc.scene)   # instancias: una malla por definición (teselado-rapido)
     with EscenaViva.para(doc.scene, doc.colors, ancho=ancho, alto=alto,
-                         apariencias=apariencias_documento(doc)) as viva, \
+                         apariencias=apariencias_documento(doc), definiciones=defs) as viva, \
             Codificador(mudo, ancho, alto, fps=fps) as cod:
         viva.actualizar(doc.scene)
         viva.orbitar(lt.AZIMUT_INICIAL, lt.ELEVACION)
         foto_final = Image.fromarray(viva.fotograma())
         viva.aplicar([])
         escritor = _Escritor(cod, total, fps, progreso)
-        estado = {"escena": {}, "resaltes": {}, "az": lt.AZIMUT_INICIAL,
+        estado = {"escena": {}, "resaltes": {}, "az": lt.AZIMUT_INICIAL, "definiciones": defs,
                   "inicio": next((t.inicio for t in plan if t.parte == "etapa"), 0)}
         previo = None
         for tramo in plan:
@@ -219,7 +221,7 @@ def _etapa(viva, escritor, tramo, etapa: dict, prefijos, estado: dict, estilo, f
         piezas, listas, vistas = [], (), {}
         if paso is not None and b > a:
             escena, listas, _peso = paso
-            piezas = extraer_piezas(escena)
+            piezas = extraer_piezas(escena, definiciones=estado.get("definiciones"))
             # {fotograma: cuántas sub-listas se ven desde ahí}; sin agregados, todo en `a`
             vistas = {a: 0}
             vistas.update({fa: i + 1 for i, fa in enumerate(lt.apariciones(a, b, len(listas)))})

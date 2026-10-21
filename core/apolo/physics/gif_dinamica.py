@@ -41,14 +41,16 @@ class EscenaGif:
 
 
 def extraer_gif_dinamica(scene, piezas_cuerpo: list, colores: dict | None = None, *,
-                         apariencias: dict | None = None) -> EscenaGif:
+                         apariencias: dict | None = None,
+                         definiciones: dict | None = None) -> EscenaGif:
     """FASE OCCT (bajo `STATE_LOCK`). `piezas_cuerpo` es la salida `piezas` de la dinámica
     (`[{id, name}]`: pieza → cuerpo); `colores`, los del documento (ganan a la paleta, como en
-    el viewport); `apariencias`, la tabla de acabados del visor ya aplicada (gana a `colores`).
+    el viewport); `apariencias`, la tabla de acabados del visor ya aplicada (gana a `colores`);
+    `definiciones`, las de las instancias (`services.definiciones`: se teselan una vez).
     Lo oculto no se dibuja aunque la física lo cuente: ocultar es de la vista."""
     from apolo.kernel.render_vivo import colores_fijos, extraer_piezas
 
-    return EscenaGif(piezas=extraer_piezas(scene, apariencias),
+    return EscenaGif(piezas=extraer_piezas(scene, apariencias, definiciones=definiciones),
                      colores=colores_fijos(scene, colores),
                      cuerpo_de={p["id"]: p["name"] for p in piezas_cuerpo},
                      apariencias=apariencias)

@@ -103,10 +103,11 @@ def test_cada_triangulo_de_la_seta_cae_en_la_seta():
     shape, _ = build_component("ESTOP-40")
     v, t, rangos = teselar_zonas(shape, zona_por_cara("ESTOP-40", shape))
     seta = next(r for r in rangos if r["zona"] == "seta")
-    zs = [v[i].Z for tri in t[seta["desde"]:seta["hasta"]] for i in tri]
+    # la malla de render es numpy (teselado-rapido D2): v[i] = (x, y, z)
+    zs = [v[i][2] for tri in t[seta["desde"]:seta["hasta"]] for i in tri]
     assert min(zs) >= 12.0 - 1e-6 and max(zs) == pytest.approx(33.0, abs=0.05)
     cuerpo = next(r for r in rangos if r["zona"] == "cuerpo")
-    assert max(v[i].Z for tri in t[cuerpo["desde"]:cuerpo["hasta"]] for i in tri) <= 1.0 + 1e-6
+    assert max(v[i][2] for tri in t[cuerpo["desde"]:cuerpo["hasta"]] for i in tri) <= 1.0 + 1e-6
 
 
 def test_pieza_sin_zonas_tesela_igual_que_siempre():

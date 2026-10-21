@@ -32,6 +32,7 @@ from __future__ import annotations
 import operator
 from dataclasses import dataclass, field, replace
 
+from .malla_render import definicion_de
 from .render_comun import (
     AMBIENTE,
     GRIS_FANTASMA,
@@ -84,22 +85,26 @@ class PiezaViva:
 
 
 def extraer_piezas(escena: dict, apariencias: dict | None = None, *,
-                   zonas: bool = False) -> list[PiezaViva]:
+                   zonas: bool = False, definiciones: dict | None = None) -> list[PiezaViva]:
     """FASE OCCT: tesela con la caché de render las piezas VISIBLES de `escena`, en su orden.
     Se saltan las que no dejan malla (como `render_vtk`). El vidrio sale translúcido: con la
     opacidad de su acabado si hay `apariencias` (`library/apariencia`), si no por el nombre.
     `zonas=True` parte por zona de acabado la pieza cuya apariencia trae `zonas`
-    (`services.apariencia.apariencias_render`); sin él, un acabado por pieza (el video)."""
+    (`services.apariencia.apariencias_render`); sin él, un acabado por pieza (el video).
+    `definiciones` (`commands.registry.DEFINITIONS`): una instancia toma la malla de su
+    definición, teselada una vez (teselado-rapido D1)."""
     piezas = []
     for feat in escena.values():
         if not getattr(feat, "visible", True):
             continue
         ap = (apariencias or {}).get(feat.id)
         partes = None
+        defn, matriz = definicion_de(feat, definiciones)
         if zonas:
-            vertices, triangulos, partes = teselar_con_zonas(feat.shape, (ap or {}).get("zonas"))
+            vertices, triangulos, partes = teselar_con_zonas(feat.shape, (ap or {}).get("zonas"),
+                                                             defn, matriz)
         else:
-            vertices, triangulos = teselar(feat.shape)
+            vertices, triangulos = teselar(feat.shape, defn, matriz)
         if not len(vertices) or not len(triangulos):
             continue
         opacidad = ap["opacidad"] if ap else (OPACIDAD_VIDRIO if es_vidrio(feat) else 1.0)
@@ -107,14 +112,14 @@ def extraer_piezas(escena: dict, apariencias: dict | None = None, *,
     return piezas
 
 
-def bbox_final(escena_final: dict):
+def bbox_final(escena_final: dict, definiciones: dict | None = None):
     """(min, max) en mm de las mallas de render de las piezas visibles: el mismo encuadre que
     `render_vtk` daría a la escena final. Lanza ValueError si no hay nada visible."""
     import numpy as np
 
     lo = np.full(3, np.inf)
     hi = np.full(3, -np.inf)
-    for pieza in extraer_piezas(escena_final):
+    for pieza in extraer_piezas(escena_final, definiciones=definiciones):
         mn, mx = bounds_malla(pieza.vertices)
         lo, hi = np.minimum(lo, mn), np.maximum(hi, mx)
     if not np.isfinite(lo).all():
@@ -163,7 +168,8 @@ class EscenaViva:
     `bbox` = (min, max) en mm de la escena FINAL (`bbox_final`) y `colores` = el mapa id → hex
     fijado con ella (`colores_fijos`); `EscenaViva.para(escena_final)` calcula los dos.
     `apariencias` = {id: apariencia} de la tabla de acabados (`library/apariencia`, la misma del
-    visor): da el color y el brillo de cada pieza y gana sobre `colores`. Tamaño
+    visor): da el color y el brillo de cada pieza y gana sobre `colores`. `definiciones`
+    (`commands.registry.DEFINITIONS`) es lo que `actualizar` pasa a `extraer_piezas`. Tamaño
     por defecto 1920×1080; vale cualquier tamaño par. MSAA 8×; depth peeling sólo mientras haya
     una pieza translúcida (vidrio), como `render_vtk`. Se usa como context manager o con
     `cerrar()`.
@@ -171,7 +177,7 @@ class EscenaViva:
 
     def __init__(self, bbox, colores: dict[str, str], *, ancho: int = 1920, alto: int = 1080,
                  view: str = "iso", aristas: bool = True, acento: str = ACENTO,
-                 apariencias: dict | None = None):
+                 apariencias: dict | None = None, definiciones: dict | None = None):
         import numpy as np
         import vtk
 
@@ -188,6 +194,7 @@ class EscenaViva:
         for fid, ap in self._apariencias.items():
             self._colores[fid] = ap["color"]
         self._con_aristas = aristas
+        self._definiciones = definiciones
         self._acento = hex_a_rgb(acento)
         self._actores: dict[str, _Actor] = {}
         self._resalte: dict[str, float] = {}
@@ -211,8 +218,10 @@ class EscenaViva:
     def para(cls, escena_final: dict, colores: dict | None = None, *, bbox=None,
              **kwargs) -> EscenaViva:
         """Atajo para un proceso sin API: fija colores (`colores` = los asignados, que ganan a la
-        paleta) y bbox con la escena final. Tesela (OCCT). `apariencias` va en `kwargs`."""
-        caja = bbox if bbox is not None else bbox_final(escena_final)
+        paleta) y bbox con la escena final. Tesela (OCCT). `apariencias` y `definiciones` van
+        en `kwargs`."""
+        caja = (bbox if bbox is not None
+                else bbox_final(escena_final, kwargs.get("definiciones")))
         return cls(caja, colores_fijos(escena_final, colores), **kwargs)
 
     # ── cámara ────────────────────────────────────────────────────────────────
@@ -252,7 +261,8 @@ class EscenaViva:
         """Lleva los actores a las piezas VISIBLES de `escena` (= `aplicar(extraer_piezas(…))`):
         agrega las nuevas, quita las que ya no están y reemplaza las que cambiaron de shape (otro
         objeto, aunque sea igual) o de opacidad. Las que no cambiaron no se tocan."""
-        return self.aplicar(extraer_piezas(escena, self._apariencias))
+        return self.aplicar(extraer_piezas(escena, self._apariencias,
+                                           definiciones=self._definiciones))
 
     def aplicar(self, piezas: list[PiezaViva]) -> Cambios:
         """La fase VTK de `actualizar`, sobre piezas ya extraídas."""

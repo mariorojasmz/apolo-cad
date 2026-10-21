@@ -7,7 +7,9 @@
    piloto 74 cuesta ~280 s (19 cadenas de ~12 s, casi todo el Python de `Shape.tessellate`); de
    un tirón congelaría la API casi 5 min. Así una mutación espera, como mucho, una pieza. Las
    formas son las de la foto de la fase 1 (ningún executor muta un shape en sitio): el manual es
-   del documento tal como estaba al pedirlo.
+   del documento tal como estaba al pedirlo. Desde teselado-rapido F1 una instancia toma la
+   malla de su definición (las 20 cadenas de la piloto son 3 definiciones), también tomadas en
+   la fase 1, y la extracción ya no pasa por `Shape.tessellate`.
 3. `fotos_manual` (fuera de `STATE_LOCK`; VTK bajo `RENDER_LOCK`): UNA `EscenaViva` dibuja la
    portada y cada paso cambiando sólo qué se ve (D1): lo nuevo con su acabado, lo ya montado en
    gris fantasma; la cámara es la misma en todas. Sin contexto OpenGL cae a matplotlib sobre las
@@ -50,20 +52,25 @@ class ManualExtraido:
     colores: dict         # id → hex fijado con la escena entera
     apariencias: dict | None
     size_px: int
-    formas: list          # [SimpleNamespace(id, shape, name, material)] de las visibles
+    formas: list          # [SimpleNamespace(id, shape, name, material, mesh_key, matrix)]
     piezas: list | None = None   # [render_vivo.PiezaViva], tras `teselar_manual`
     bbox: tuple | None = None    # (min, max) en mm: la cámara de TODAS las fotos
+    #: mesh_key → shape de la definición de las instancias, tomado en la fase 1 (DEFINITIONS es
+    #: una LRU: podría desalojarla mientras se tesela). teselado-rapido D1.
+    definiciones: dict | None = None
 
 
 def extraer_manual(scene: dict, *, commands: list[dict], project_name: str = "Sin título",
                    sheet: str = "A3", meta: dict | None = None, colors: dict | None = None,
                    size_px: int = 700, stages: list[dict] | None = None,
-                   apariencias: dict | None = None) -> ManualExtraido:
+                   apariencias: dict | None = None,
+                   definiciones: dict | None = None) -> ManualExtraido:
     """FASE OCCT sin teselar. `stages` = la secuencia de montaje ya derivada
     (`services/montaje.py`); sin ella, la del log + familias de catálogo + soporte.
     `apariencias` = la tabla de acabados del documento con sus zonas
-    (`services.apariencia.apariencias_render`); sin ella, `colors` y la paleta. Lanza ValueError
-    si no hay nada que ensamblar."""
+    (`services.apariencia.apariencias_render`); sin ella, `colors` y la paleta.
+    `definiciones` = `commands.registry.DEFINITIONS`: las instancias se teselan con la malla de
+    su definición (teselado-rapido D1). Lanza ValueError si no hay nada que ensamblar."""
     from apolo.kernel.render_vivo import colores_fijos
     from apolo.library.catalog import CATALOG
     from apolo.library.cutlist import dominant_material, hardware_schedule, scene_weight_kg
@@ -105,9 +112,14 @@ def extraer_manual(scene: dict, *, commands: list[dict], project_name: str = "Si
 
     aps = {fid: ap for fid, ap in apariencias.items() if fid in vis} if apariencias else None
     formas = [SimpleNamespace(id=fid, shape=f.shape, visible=True, name=getattr(f, "name", ""),
-                              material=getattr(f, "material", None)) for fid, f in vis.items()]
+                              material=getattr(f, "material", None),
+                              mesh_key=getattr(f, "mesh_key", None),
+                              matrix=getattr(f, "matrix", None)) for fid, f in vis.items()]
+    defs = {f.mesh_key: definiciones[f.mesh_key] for f in formas
+            if definiciones and f.mesh_key and f.matrix and f.mesh_key in definiciones}
     return ManualExtraido(W, H, sheet, project_name, base_meta, stages, instrucciones, filas,
-                          totals, colores_fijos(vis, colors), aps, int(size_px), formas)
+                          totals, colores_fijos(vis, colors), aps, int(size_px), formas,
+                          definiciones=defs or None)
 
 
 def teselar_manual(ex: ManualExtraido, candado=None) -> ManualExtraido:
@@ -123,7 +135,8 @@ def teselar_manual(ex: ManualExtraido, candado=None) -> ManualExtraido:
     piezas = []
     for forma in ex.formas:
         with tomar:
-            piezas += render_vivo.extraer_piezas({forma.id: forma}, ex.apariencias, zonas=True)
+            piezas += render_vivo.extraer_piezas({forma.id: forma}, ex.apariencias, zonas=True,
+                                                 definiciones=ex.definiciones)
     lo, hi = np.full(3, np.inf), np.full(3, -np.inf)
     for p in piezas:
         mn, mx = bounds_malla(p.vertices)

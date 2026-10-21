@@ -23,6 +23,13 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   `RENDER_LOCK` sosteniendo `STATE_LOCK` (orden inverso): sólo tests, nunca producción.
   [V6.2](../../../docs/plans/V6.2-rendimiento.md)
 - `xray` sólo es legible acotado a 2-3 piezas (con `isolate`).
+- La malla de render (`render_comun.teselar*`) sale de `malla_render.py`: numpy leído de la
+  `Poly_Triangulation` de cada cara (el mismo resultado que `Shape.tessellate`, sin su `Vector`
+  por nodo; `poly.Triangle(i)`, no `poly.Triangles()`, 5× más lento) y, para una instancia
+  (`mesh_key` + `matrix`), la malla de su DEFINICIÓN teselada una vez y transformada (espejo →
+  triángulos invertidos). Las definiciones llegan como DATO (`definiciones=`): todo caller que
+  tesela una escena para dibujarla pasa `services.definiciones.definiciones_de(escena)`; sin
+  ellas cada pieza se tesela sola. [teselado-rapido](../../../docs/plans/teselado-rapido.md)
 - Zonas de una pieza (`mesh.py`): `teselar_caras` cuenta los triángulos de cada cara EN LA MISMA
   llamada (otro mallado con otra tolerancia cambiaría los conteos) y `agrupar_por_zona` los deja
   contiguos por zona; `render_comun.teselar_zonas` usa la caché de `teselar`. Sin zonas, todo

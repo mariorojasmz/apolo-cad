@@ -17,6 +17,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 
+from .malla_render import definicion_de
 from .render import _clip_to_section, _shape_of
 from .render_comun import (
     GRIS_FANTASMA,
@@ -220,13 +221,16 @@ def extract_render_scene(
     roll: float = 0.0,
     pan: list | None = None,
     apariencias: dict | None = None,
+    definiciones: dict | None = None,
 ) -> RenderSnapshot:
     """FASE OCCT del render (V6.2c, bajo STATE_LOCK): tesela (con caché) + recorta la
     sección + decide color/opacidad por pieza → un RenderSnapshot de datos PUROS. NO toca
     VTK. Lanza ValueError si la escena queda vacía (sin nada que renderizar). `apariencias` =
     {id: apariencia} de la tabla de acabados (`library/apariencia.apariencias_escena`, la del
     visor): da el color, el brillo y la opacidad de cada pieza; sin ella, `colors` + paleta y
-    el Phong genérico."""
+    el Phong genérico. `definiciones` = `commands.registry.DEFINITIONS`: una instancia se
+    dibuja con la malla de su definición, teselada una vez (teselado-rapido D1); sin ella,
+    cada pieza se tesela sola."""
     import numpy as np
 
     feats = (
@@ -265,7 +269,9 @@ def extract_render_scene(
         ap = (apariencias or {}).get(feat.id)
         # zonas de acabado (seta-de-emergencia F3): sólo sobre la forma entera; cortada, no calza
         zonas = (ap or {}).get("zonas") if shape is entera else None
-        vertices, triangles, partes = teselar_con_zonas(shape, zonas)
+        # la malla de la definición sólo para la forma del documento (no una pose ni un corte)
+        defn, matriz = definicion_de(feat, definiciones, shape)
+        vertices, triangles, partes = teselar_con_zonas(shape, zonas, defn, matriz)
         if not len(vertices) or not len(triangles):
             continue
         is_hi = feat.id in highlight

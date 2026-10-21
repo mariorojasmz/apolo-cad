@@ -303,6 +303,7 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
         teselar_manual,
     )
     from apolo.services.apariencia import apariencias_render
+    from apolo.services.definiciones import definiciones_de
     from apolo.services.montaje import hay_grafo, pasos_manual
 
     with STATE_LOCK:
@@ -319,7 +320,8 @@ def assembly_manual_pdf(sheet: str = "A3", size_px: int = 700, isolate: str = ""
                                       project_name=title or name, sheet=sheet,
                                       meta=_drawing_meta(), colors=_feature_colors(),
                                       size_px=size_px, stages=stages,
-                                      apariencias=apariencias_render(S.doc))
+                                      apariencias=apariencias_render(S.doc),
+                                      definiciones=definiciones_de(scene))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     teselar_manual(extraido, STATE_LOCK)  # el lock, pieza por pieza (~12 s una cadena en frío)

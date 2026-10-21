@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida, sin mergear (teselar la piloto 176 s → 8,6 s con D1 + D2; 20 cadenas en 3 definiciones); faltan F1 (D1 + D2), F2 (D3, a decidir) y F3
+nota: F0 y F1 hechas, sin mergear (primer render_view de la piloto 218 s → 21 s; manual en frío 226 s → 46 s); faltan F2 (D3, a decidir con los números de F0; la piloto no tiene caché de geometría) y F3
 descripcion: La primera foto, el primer manual o el primer render de una máquina con cadenas sale en segundos, no en minutos
 ---
 
@@ -135,3 +135,58 @@ segundo teselado no paga `BRepMesh`. Ninguna cara traía malla al abrir.
 **Lo que dice la F0 de las decisiones**: D1, D2 y D4 se sostienen. D3 no se contradice, pero con
 D1 + D2 el frío ya baja a segundos: la F2 decide con estos números (y antes tendría que arreglar
 la caché de la 74).
+
+### F1 — D1 y D2 (2026-10-21)
+
+- **`kernel/malla_render.py`** (nuevo): `triangular` (D2: `Poly_Triangulation` → numpy con la
+  ubicación de cada cara, `Shape.mesh` con la misma deflexión, orden de `faces()`, triángulos
+  invertidos en las caras REVERSED y los triángulos por cara contados en la misma llamada),
+  `malla_local` (caché por identidad del shape de la definición, con `is`), `malla_instancia`
+  (D1: la malla local por la matriz; con determinante negativo invierte los triángulos) y
+  `definicion_de(feat, definiciones, forma)` (sólo si la forma que se dibuja es la de la pieza:
+  una pose o una sección se teselan solas).
+- **`render_comun`**: `teselar`, `teselar_zonas` y `teselar_con_zonas` aceptan
+  `(definicion, matriz)`; la caché por `id(shape)` guarda numpy (vértices y triángulos de sólo
+  lectura) y siempre los triángulos por cara. `_xyz` deja pasar un arreglo numpy y sigue
+  convirtiendo listas de puntos (las cajas del GIF de la dinámica). `mesh.agrupar_por_zona`
+  acepta triángulos numpy y devuelve numpy (con una lista, la lista de siempre).
+- **Las definiciones llegan como DATO** (el kernel no importa `commands`):
+  `services/definiciones.definiciones_de(escena)` da una FOTO `{mesh_key: shape}` de las
+  instancias de la escena. **Decisión**: un servicio y no `DEFINITIONS` directo, porque la
+  publicación (video VTK) no puede importar `commands` (`tests/test_capas_publicacion.py`) y
+  porque la foto protege del desalojo de la LRU. La pasan `render_view`
+  (`routers/render.py`), el GIF del estudio (`routers/motion.py`), el GIF de la dinámica
+  (`api/sims.py` → `extraer_gif_dinamica`), el manual (`routers/deliverables.py` →
+  `extraer_manual(definiciones=)`, que la guarda en `ManualExtraido.definiciones`) y el video
+  VTK de la publicación (`EscenaViva(definiciones=)`, `extraer_piezas(definiciones=)`).
+  `assembly_manual` acepta `definiciones` (sin ella, como antes).
+- **Fuera de la F1**: la portada de la memoria y el respaldo matplotlib de `render_view` siguen
+  con `Shape.tessellate` (`render.render_scene_png`): es la F2 de manual-rapido.
+- Dos tests cambiaron sólo la forma de leer un vértice (`v[i][2]` en vez de `v[i].Z`): la malla
+  de render es numpy (`test_seta_emergencia`, `test_manual_rapido`).
+- **Tests** (`tests/test_teselado_rapido.py`, 14):
+  - D2 = `Shape.tessellate` (mismos vértices, mismos triángulos en el mismo orden, mismos
+    triángulos por cara que `triangulos_por_cara`) en una caja, un sólido con agujero (caras
+    REVERSED), una esfera, un compuesto de copias colocadas (caras con ubicación) y la seta;
+    sobre una forma ya mallada más fina usa esa malla, como build123d;
+  - D1: en una escena de 7 piezas (3 placas, 2 ejes y 2 setas), `triangular` corre 3 veces, una
+    por definición; cada instancia tiene los nodos y la superficie de la malla propia de la
+    pieza; una pose, una definición desalojada o una pieza taladrada no usan la definición;
+  - un espejo invierte los triángulos y el volumen firmado de la malla sigue positivo (normales
+    hacia afuera);
+  - las zonas de la seta salen en cada instancia con los mismos rangos que sin D1;
+  - el PNG de `render_view` y el de la `EscenaViva` del manual contra el teselado de main (pieza
+    por pieza con `Shape.tessellate`), también tras un open caliente: medido, ≤ 0,009 % de
+    píxeles distintos y en 1 nivel de 255; el test exige ≤ 0,1 % de píxeles con más de 16;
+  - `GET /api/render.png` tesela 3 mallas para las 7 piezas.
+- **Medido** por el endpoint con `TestClient`, sobre copias frescas de la base, piloto 74 (la PC
+  compartida con otras sesiones; el open en frío, 70–87 s, no cuenta):
+
+  | | antes (main) | después |
+  |---|---|---|
+  | primer `render_view` | 217,8 s | **21,3 s** |
+  | segundo `render_view` | 12,9 s | 10,5 s |
+  | manual en frío | 225,8 s | **46,0 s** |
+
+  El PNG de la piloto antes y después difiere en el 0,056 % de los píxeles, en 2 niveles de 255
+  como mucho. El segundo `render_view` ya no tesela: lo que queda es VTK sobre 1,3 M triángulos.

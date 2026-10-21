@@ -75,7 +75,8 @@ reglas están en [services](../services/CLAUDE.md).
 
 - Fases (`manual_fotos.py`): `extraer_manual` (bajo `STATE_LOCK`: secuencia, textos, cajetín y
   la foto id/shape de cada pieza), `teselar_manual(ex, STATE_LOCK)` (toma el lock PIEZA POR
-  PIEZA: en frío una cadena tarda ~12 s y la piloto ~5 min), `fotos_manual` (fuera: UNA
+  PIEZA; las instancias usan la malla de su definición, que `extraer_manual(definiciones=)`
+  toma en la fase 1: [teselado-rapido](../../../docs/plans/teselado-rapido.md)), `fotos_manual` (fuera: UNA
   `EscenaViva` bajo `RENDER_LOCK`, cada paso sólo cambia `mostrar`; sin OpenGL, matplotlib sobre
   las MISMAS mallas con aviso en el log) y `componer_manual` (puro). Un dato nuevo de una lámina
   se extrae en la fase 1: la composición no lee la escena. `assembly_manual` es el atajo para

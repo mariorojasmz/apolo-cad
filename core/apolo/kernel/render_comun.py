@@ -20,8 +20,10 @@ from .render import PALETTE, resolve_angles
 # Caché de teselado a resolución de render (0.5/0.25) por IDENTIDAD del shape, con ref
 # fuerte (como _SHAPE_CACHE del payload) → un segundo render de la MISMA escena no re-tesela
 # (antes se re-teselaba TODO en cada foto). En la API se llena bajo STATE_LOCK. Shapes de
-# sección/pose son objetos nuevos → miss (aceptable). `.tessellate` muta el shape guardando la
-# malla: por eso en la API SOLO se llama bajo STATE_LOCK (sin carrera con otro hilo).
+# sección/pose son objetos nuevos → miss (aceptable). Mallar guarda la malla en el shape: por
+# eso en la API SOLO se llama bajo STATE_LOCK (sin carrera con otro hilo). Entrada = (shape,
+# vértices numpy (n, 3), triángulos numpy (m, 3), triángulos por cara): `malla_render`
+# (plan teselado-rapido: extracción propia, D2, y malla de la DEFINICIÓN, D1).
 _RENDER_MESH_CACHE: dict = {}
 _RENDER_MESH_CAP = 2048
 
@@ -45,51 +47,58 @@ FONDO_ARRIBA = (0.86, 0.89, 0.94)
 _GLASS_RE = re.compile(r"vidrio|cristal|glass|templado", re.I)
 
 
-def teselar(shape):
-    """(vertices, triangulos) del shape a resolución de render, con caché por `id(shape)` que
-    guarda la REFERENCIA y verifica `is` (un id reciclado no recibe la malla ajena)."""
+def _entrada(shape, definicion=None, matriz=None):
+    """La entrada de la caché del shape. Con `definicion` y `matriz` (una instancia: D1 de
+    teselado-rapido, `malla_render.definicion_de`) la malla es la de la definición llevada al
+    mundo; si no, la del propio shape."""
+    from .malla_render import malla_instancia, triangular
+
     key = id(shape)
     hit = _RENDER_MESH_CACHE.get(key)
     if hit is None or hit[0] is not shape:
         if len(_RENDER_MESH_CACHE) > _RENDER_MESH_CAP:
             _RENDER_MESH_CACHE.clear()
-        vertices, triangles = shape.tessellate(0.5, 0.25)
-        hit = (shape, vertices, triangles)
+        if definicion is not None and matriz is not None:
+            hit = (shape, *malla_instancia(definicion, matriz))
+        else:
+            hit = (shape, *triangular(shape))
         _RENDER_MESH_CACHE[key] = hit
+    return hit
+
+
+def teselar(shape, definicion=None, matriz=None):
+    """(vertices, triangulos) del shape a resolución de render, con caché por `id(shape)` que
+    guarda la REFERENCIA y verifica `is` (un id reciclado no recibe la malla ajena). Vértices
+    (n, 3) y triángulos (m, 3) en numpy, de sólo lectura. `definicion`/`matriz`: ver `_entrada`."""
+    hit = _entrada(shape, definicion, matriz)
     return hit[1], hit[2]
 
 
-def teselar_zonas(shape, zona_por_cara):
+def teselar_zonas(shape, zona_por_cara, definicion=None, matriz=None):
     """(vertices, triangulos agrupados por zona, rangos) a resolución de render (plan
-    seta-de-emergencia, D2). Comparte la caché de `teselar`: la entrada de una pieza con zonas
-    guarda además los triángulos de cada cara, contados al teselar. `rangos` es None (y los
-    triángulos van como en `teselar`) si las zonas no corresponden a las caras del shape."""
-    from .mesh import agrupar_por_zona, teselar_caras
+    seta-de-emergencia, D2). Comparte la caché de `teselar`: su entrada guarda los triángulos de
+    cada cara, contados al teselar. `rangos` es None (y los triángulos van como en `teselar`) si
+    las zonas no corresponden a las caras del shape."""
+    from .mesh import agrupar_por_zona
 
-    key = id(shape)
-    hit = _RENDER_MESH_CACHE.get(key)
-    if hit is None or hit[0] is not shape or len(hit) < 4:
-        if len(_RENDER_MESH_CACHE) > _RENDER_MESH_CAP:
-            _RENDER_MESH_CACHE.clear()
-        hit = (shape, *teselar_caras(shape, 0.5, 0.25))
-        _RENDER_MESH_CACHE[key] = hit
-    _, vertices, triangles, por_cara = hit
-    if por_cara is None or zona_por_cara is None or len(por_cara) != len(zona_por_cara):
+    _, vertices, triangles, por_cara = _entrada(shape, definicion, matriz)
+    if (zona_por_cara is None or len(por_cara) != len(zona_por_cara)
+            or sum(por_cara) != len(triangles)):
         return vertices, triangles, None
     agrupados, rangos = agrupar_por_zona(triangles, por_cara, zona_por_cara)
     return vertices, agrupados, rangos
 
 
-def teselar_con_zonas(shape, zonas: dict | None):
+def teselar_con_zonas(shape, zonas: dict | None, definicion=None, matriz=None):
     """(vertices, triangulos, partes) de una pieza para la foto VTK (plan seta-de-emergencia,
     F3). `zonas` = la clave `zonas` de su apariencia (`services.apariencia.apariencias_render`:
     {"por_cara", "aps"}). `partes` = [(desde, hasta, rgb, (metalness, roughness))] en índices de
     triángulo, contiguos; None = pieza de un solo acabado, con el teselado de `teselar` (sin
-    `zonas` es EXACTAMENTE el de siempre)."""
+    `zonas` es EXACTAMENTE el de siempre). `definicion`/`matriz`: ver `_entrada`."""
     if not zonas:
-        vertices, triangles = teselar(shape)
+        vertices, triangles = teselar(shape, definicion, matriz)
         return vertices, triangles, None
-    vertices, triangles, rangos = teselar_zonas(shape, zonas.get("por_cara"))
+    vertices, triangles, rangos = teselar_zonas(shape, zonas.get("por_cara"), definicion, matriz)
     aps = zonas.get("aps") or {}
     if rangos is None or any(r["zona"] not in aps for r in rangos):
         return vertices, triangles, None
@@ -122,16 +131,20 @@ def color_pieza(fid: str, indice: int, colores: dict | None) -> tuple[float, flo
     return hex_a_rgb((colores or {}).get(fid) or hex_de_paleta(indice))
 
 
-#: Vértices → numpy por IDENTIDAD de la lista (la de `teselar`, que sale de su caché): pasar
-#: 10⁶ Vector a floats cuesta ~25 s y lo pedían dos veces la caja y el polydata de cada foto
-#: (plan manual-rapido). Guarda la REFERENCIA a la lista y verifica `is`.
+#: Vértices en lista (.X/.Y/.Z: build123d Vector, los puntos de las cajas del GIF de la dinámica)
+#: → numpy por IDENTIDAD de la lista: pasar 10⁶ Vector a floats cuesta ~25 s (plan
+#: manual-rapido). Guarda la REFERENCIA a la lista y verifica `is`. Los de `teselar` ya son
+#: numpy (teselado-rapido D2) y pasan tal cual.
 _XYZ_CACHE: dict = {}
 
 
 def _xyz(vertices):
-    """Los vértices (build123d Vector: .X/.Y/.Z) como arreglo numpy (n, 3) en float64."""
+    """Los vértices como arreglo numpy (n, 3) en float64: el mismo arreglo si ya lo es, o la
+    conversión de una lista de puntos con .X/.Y/.Z."""
     import numpy as np
 
+    if isinstance(vertices, np.ndarray):
+        return vertices if vertices.ndim == 2 else vertices.reshape(-1, 3)
     hit = _XYZ_CACHE.get(id(vertices))
     if hit is None or hit[0] is not vertices:
         if len(_XYZ_CACHE) > _RENDER_MESH_CAP:

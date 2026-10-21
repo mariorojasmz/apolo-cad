@@ -422,7 +422,8 @@ def _step_page(W: float, H: float, *, step_no: int, n_steps: int, page_no: int, 
 def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "Sin título",
                     sheet: str = "A3", meta: dict | None = None, colors: dict | None = None,
                     size_px: int = 700, stages: list[dict] | None = None,
-                    apariencias: dict | None = None) -> list[SheetModel]:
+                    apariencias: dict | None = None,
+                    definiciones: dict | None = None) -> list[SheetModel]:
     """Manual de ensamblaje paso a paso: [portada con secuencia + 1 lámina por PASO]. Cada paso
     muestra el render acumulado (lo nuevo resaltado, lo previo en gris) + piezas/herraje + nota.
     `stages` = la secuencia de montaje ya derivada del grafo de uniones ({label, ids, is_hw,
@@ -436,6 +437,6 @@ def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "S
 
     ex = extraer_manual(scene, commands=commands, project_name=project_name, sheet=sheet,
                         meta=meta, colors=colors, size_px=size_px, stages=stages,
-                        apariencias=apariencias)
+                        apariencias=apariencias, definiciones=definiciones)
     teselar_manual(ex)
     return componer_manual(ex, fotos_manual(ex))
