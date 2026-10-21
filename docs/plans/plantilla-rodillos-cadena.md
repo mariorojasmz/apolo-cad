@@ -57,6 +57,82 @@ repite va en una plantilla, para que cada lección quede dentro una sola vez.
 - **F2 (L, `commands` + `library`)**: D1 como super-comando con sus tests.
 - **F3 (S, verificación)**: generar por MCP un transportador de 3 m y medir tiempo y tokens
   contra la piloto.
+- **F4 (M, `commands` + `library`)**: los defectos que el revisor de taller ciego halló en la
+  plantilla (§ Bitácora F3), con el contrato de abajo. `create_roller_conveyor` sube a v2.
+
+### F4 — contrato
+
+Porqué: el revisor ciego de F3 encontró 2 ALTA (guardas abiertas del lado motor y por debajo), 3
+MEDIA y 1 BAJA en la máquina que la plantilla entrega «VERDE». La puerta no ve guardas ni
+tensado: lo arregla la plantilla, que es donde vive la lección.
+
+- **D4. Guarda de la transmisión cerrada (ISO 14120, aberturas ISO 13857 tabla 4).** Hoy es una
+  bandeja abierta hacia −Y (el motor) y deja 72,4 mm abiertos entre su borde (h − 42) y la guarda
+  de cadenas. Pasa a dos cajas que TELESCOPAN a lo largo de la línea de centros de la motriz:
+  - **cárter móvil**, soldado a la base del motor (que es su piso): pared interior con barreno
+    del eje y muescas para las patas del motor, pared exterior y dos extremos. Se mueve con el
+    motor al tensar, así que el eje no necesita ranura en ninguna pared fija;
+  - **guarda fija**, cuatro paredes por fuera del cárter (holgura 2–6 mm), desde encima del eje
+    hasta bajo los tubos (h − Ø/2 − 3), atornillada (M6, desmontable con herramienta) al alma del
+    larguero +Y. Su extremo +X sube hasta la guarda de cadenas y cierra el final del bastidor.
+  - Criterio de abertura: rendija entre paredes ≤ 6.1 mm en todo el recorrido → ISO 13857
+    tabla 4 pide ≥ 20 mm al peligro: el solape vertical se calcula con ese número más el
+    recorrido. Eje en el barreno del cárter y patas en sus muescas: holgura 2 mm (e ≤ 4).
+  - Nada de la guarda toca lo que gira (holgura ≥ 3 mm en todo el recorrido).
+- **D5. Bandeja inferior de cadenas.** Perfil en C de chapa 2 bajo los lazos y piñones, de la
+  alimentación a la guarda de la transmisión: fondo 5 mm bajo el ramal más bajo, pestaña
+  interior hasta 3 mm bajo los tubos, pestaña exterior contra el alma del larguero +Y con 2 M6
+  por tramo (roscas en el alma) y tapa en el extremo de alimentación hasta la guarda de cadenas.
+  En tramos de ≤ 1 m que se sacan con herramienta sin desarmar nada más.
+- **D6. Velocidad (`velocidad_m_s`, opcional).** Sin ella (logs viejos) el piñón del motor
+  sigue siendo el Z30: la misma velocidad de hoy. Con ella, la plantilla elige el Z del piñón
+  del motor entre los ASA 40 simples del catálogo (el del rodillo es el doble-simple Z15) que
+  dé la velocidad más cercana dentro de ±10 % (el mismo criterio «0.9 × objetivo» de la
+  velocidad de banda), que entre en el eje del motor y que arme la motriz sin chocar. Si
+  ninguno, error que dice las velocidades que salen con ese motor y qué motor + piñón da la
+  pedida. El motor sigue siendo el que diga `motor`: la plantilla no lo cambia sola.
+  - FS de potencia publicados: motor (P_motor / P_requerida) y cadena (el primer lazo lleva el
+    par nominal del motor, tabla ACA con servicio moderado). Ninguno < 1 (error); < 1.2 =
+    aviso en `engineering_check`.
+  - La «v = 0.32 m/s» que leyó el revisor es la de la CADENA (π·Ø primitivo·rpm), no la del
+    producto: con TUBOR-2 y Z30 el producto va a 0.266 m/s.
+- **D7. Ranuras de tensado alineadas con la línea de centros.** La base del motor ya no tiene
+  ranuras horizontales (a 70° de la cadena: ~8 mm útiles). El travesaño portamotor se ATORNILLA a
+  las caras interiores de las patas con orejas soldadas a sus extremos, de ranuras paralelas a la
+  línea de centros (20° de la vertical): base, motor y cárter corren juntos sobre esa línea.
+  - Recorrido: +b para tensar ≥ el estirado de reemplazo (3 % del largo de la cadena → 1.5 % en
+    centros; criterio de diseño de los fabricantes de cadena de rodillos, Tsubaki/Renold) y −3 mm
+    para montar el eslabón de unión. El motor sigue en vertical (montaje B3).
+  - Una ranura de cada oreja abre arriba y la otra abajo: cada sentido lo frena una.
+- **D8. Mismo travesaño en todas las estaciones.** Uno ENTRE las patas, a la altura del
+  portamotor (con cadena) o a media pata (libre), igual en la alimentación, las intermedias y la
+  motriz. Criterio de marco de taller: a media altura acorta la ménsula libre de cada pata sobre
+  el travesaño (lo que gobierna el balanceo lateral de una H) y deja el piso libre para limpiar;
+  el travesaño bajo (z = 150) dejaba 500 mm de pata en ménsula. La motriz no puede llevarlo alto
+  (ahí va el motor) y no debe llevar dos (c89: nada sin función).
+- **D9. `engineering_check` reconoce la plantilla.** Con un `create_roller_conveyor` en el log,
+  `/api/checks` y la memoria validan contra la ficha (`requirements`): velocidad (±10 %), apoyo
+  del paquete, capacidad del rodillo (2 × 6201 a L10 = 20 000 h por ISO 281 y eje M12 con
+  σ ≤ 0.5·σy), carga de diseño (la ficha llena de paquetes contra `carga_kg`), motor y cadena
+  (FS) y recorrido de tensado. Puro en `library/`; el endpoint sólo lo llama.
+- **Tests (único gate)**: la plantilla de 3 m regenera con 0 interferencias (guardas incluidas,
+  holgura a lo que gira en las dos puntas del recorrido); sujeción y gravedad verdes; una sonda de
+  dedo Ø8 (ISO 13857: desde ahí entra el dedo hasta el nudillo) no alcanza cadena ni piñón desde
+  abajo, desde el lado del motor ni desde afuera; `velocidad_m_s = 0.25` da 0.25 ± 10 %; las
+  ranuras dan ≥ el recorrido pedido sobre la línea de centros; `engineering_check` la reconoce;
+  un log v1 regenera con las mismas cotas de rodillos, cadenas y motor (cambian guardas, base,
+  travesaños) y la `version` invalida su caché.
+
+**Preguntas para Mario** (el revisor las dejó como pregunta; F4 NO las decide):
+- ¿Los lazos rodillo a rodillo necesitan tensado? Hoy: ejes fijos con 1 M12 y eslabones exactos
+  (sin recorrido). Opciones: tensor de patín por lazo, barrenos ranurados en el larguero o
+  aceptar el cambio de cadena al 3 %.
+- ¿Guía lateral del lado −Y (y en el +Y)? Depende del producto y de cómo se alimenta.
+- ¿Riostra longitudinal (diagonal entre estaciones)? Depende del sitio (anclado o no, empujes).
+- (nueva de F4) Por DENTRO, entre la brida del tubo y la cadena de la hilera 2 hay 1.5 mm: no
+  cabe pared. Con la mano sobre los rodillos, entre dos tubos (44 mm) se llega a la cadena por
+  el extremo. ¿Se acepta (los rodillos son la superficie de trabajo) o se pasan las cadenas por
+  fuera del larguero, como un CDLR comercial?
 
 ## Lo que este plan NO hace
 
