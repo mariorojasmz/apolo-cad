@@ -33,8 +33,8 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 | hito | fases | por qué en este lugar | plan |
 |---|---|---|---|
 | **B. Prueba virtual de la máquina** (puesta en marcha virtual) | F0–F5 hechas (PLC, modelos, redes, acople, escenarios y MCP); falta F6 (verificación por MCP en sesión nueva, con la flota) → F4 (acople) → F5 (MCP) → F6 (verifica) | el objetivo grande de V8; F1 y F2 no se pisan y van juntas | [V8.3](plans/V8.3-prueba-virtual.md) |
-| **C. Seta de emergencia real** | F0–F2 hechas (zonas, builder, ESTOP-40 y ESTOP-40-CAJA, visor); F3 (VTK y GLB) corriendo → F4 (verifica) | va en todas las máquinas; entra en paralelo con B cuando un agente quede libre | [seta-de-emergencia](plans/seta-de-emergencia.md) |
-| **D. Varias máquinas a la vez** | F0+F1 hechas (WAL, APOLO_PROJECT, identidad); F2 (candado por proyecto) hecha; F3 (`scripts/flota.py`) corriendo → F4 | destraba E: las verificaciones por MCP pasan de a una a varias en paralelo | [varias-maquinas-a-la-vez](plans/varias-maquinas-a-la-vez.md) |
+| **C. Seta de emergencia real** | F0–F3 hechas (zonas, ESTOP-40 y ESTOP-40-CAJA, visor, VTK y GLB); falta F4 (que Mario la vea) | va en todas las máquinas; entra en paralelo con B cuando un agente quede libre | [seta-de-emergencia](plans/seta-de-emergencia.md) |
+| **D. Varias máquinas a la vez** | F0–F3 hechas (WAL, APOLO_PROJECT, candado, `scripts/flota.py`); falta F4 (tres modeladores `claude -p` a la vez) | destraba E: las verificaciones por MCP pasan de a una a varias en paralelo | [varias-maquinas-a-la-vez](plans/varias-maquinas-a-la-vez.md) |
 | **F. Manual de montaje rápido** | F0 → F1 → F2 → F3 (las 12 fotos con VTK fuera de STATE_LOCK; hoy 23 min BAJO el lock) | es el cuello de la publicación y además congela la API mientras se arma | [manual-rapido](plans/manual-rapido.md) |
 | **E. Verificaciones por MCP** (ola 5) | cirugía F3, perfiles F4, acceso F3, flecha F3, uniones F4, V8.1 F4, plantilla F3 (= revisión de taller F4), visor F5, vista-3d F4, video F4/F5 | necesita sesión nueva y API reiniciada; con D, varias a la vez | [tanda-pos-piloto](plans/tanda-pos-piloto.md) |
 

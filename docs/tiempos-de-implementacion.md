@@ -21,6 +21,8 @@ puedes demorar des un estimado». Esta es esa fuente.
   JUNTAS una sola vez (2026-10-20: visor F2 + vista-3d F2+F3, 3294 tests en un solo pase).
 - **El cuello de botella es la suite, no el agente**: con 2 agentes en paralelo salen ~2 fases
   por hora como máximo. Dos suites a la vez en la misma PC se frenan entre sí.
+- **Con 2 agentes + 1 suite propia a la vez, cada suite pasa de ~30 a 60–75 min**: la laptop es
+  el cuello. En el escritorio (8 núcleos, 32 GB) debería rendir más.
 - **Una fase que MIDE algo lento** (renders, manual de la piloto) se va a 2–3 h: el tiempo lo pone lo
   que mide, no el código (video-tienda F3, 195 min).
 - **Una verificación por MCP** (subagente modelador o revisor sobre la API) tarda 10–45 min y
@@ -83,6 +85,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-20 | seta-de-emergencia | F2 | M | 46 | 296 | zonas en el payload y el visor; probado en el navegador |
 | 2026-10-20 | V8.3 | F5 | M | 109 | 542 | add_program, escenarios con aserciones, 4 tools MCP, regla de la puerta; 64 tests |
 | 2026-10-20 | seta-de-emergencia | F3 | S | 109 | 273 | zonas en VTK y GLB (render_view, GIF, vista 3D); suite lenta con 3 suites en paralelo |
+| 2026-10-21 | varias-maquinas-a-la-vez | F3 | S | 205 | 224 | `scripts/flota.py`; atípico: tests con APIs reales y suite de 75 min con la PC cargada |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
