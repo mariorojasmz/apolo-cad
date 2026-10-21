@@ -265,6 +265,11 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   calcula aquí, se agrega en `services/plan_navegador.py`. Tarjetas y rótulos son PNG de la
   API. El montaje toca sólo lo visible y clona materiales; la marcha se carga al EMPEZAR su parte
   (`transmision.ts` sólo arma lo visible). [video-realista](../docs/plans/video-realista.md) (F3)
+- Nivel MÁXIMO y «Foto realista» (`grabacion/trazado/`, carga con `import()`): `three-gpu-pathtracer`
+  0.0.23 + `three-mesh-bvh` 0.7.8, versiones EXACTAS (`trazador.ts` usa su interior). Esa versión
+  no sabe de instancias, arreglos de materiales (zonas), `bumpMap`, anisotropía ni recorte:
+  algo nuevo en `group` con eso pasa por `sustitutos.ts` o se declara en el plan.
+  [video-realista](../docs/plans/video-realista.md) (F4)
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
   para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).

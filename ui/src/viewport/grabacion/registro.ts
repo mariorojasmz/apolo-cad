@@ -1,5 +1,6 @@
 import { reportarFallo } from "./grabador";
 import { SinGpu, type GrabarSesion } from "./guionVista";
+import { pedidoDeUrl } from "./trazado/nivel";
 
 /* Quién graba el guion (plan video-realista, F3). El visor registra su grabador al montarse
    (`Viewport.tsx`) y lo usan el botón «Grabar video» y el modo sin ventana de
@@ -37,7 +38,11 @@ export function grabarSiLoPiden(busqueda = window.location.search): void {
         if (performance.now() - t0 > 60_000) throw new SinGpu("El visor 3D no arrancó en este navegador.");
         await new Promise((r) => setTimeout(r, 100));
       }
-      await actual(sesion, { descartar: false });
+      // `--nivel maximo` del CLI: trazado de rayos por cuadro (D6)
+      const pedido = pedidoDeUrl(busqueda);
+      await actual(sesion, pedido
+        ? { descartar: false, nivel: pedido.nivel, trazado: { muestras: pedido.muestras, semilla: pedido.semilla } }
+        : { descartar: false });
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : String(e);
       await reportarFallo(sesion, mensaje, e instanceof SinGpu ? "sin_gpu" : "error").catch(() => undefined);

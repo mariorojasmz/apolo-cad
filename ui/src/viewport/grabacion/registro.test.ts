@@ -39,6 +39,17 @@ describe("grabar desde la URL", () => {
     expect(grabador()).toBeNull();
   });
 
+  it("`--nivel maximo` del CLI llega al grabador como el trazado de rayos", async () => {
+    fetchSimulado();
+    const grabar = vi.fn(async () => ({}) as never);
+    const soltar = registrarGrabador(grabar);
+    grabarSiLoPiden("?grabar=abcdef123456&nivel=maximo&muestras=64");
+    await esperarA(() => grabar.mock.calls.length > 0);
+    expect(grabar).toHaveBeenCalledWith("abcdef123456",
+      { descartar: false, nivel: "maximo", trazado: { muestras: 64, semilla: undefined } });
+    soltar();
+  });
+
   it("sin GPU deja la sesión fallida con motivo «sin_gpu»; otro error, con «error»", async () => {
     const llamadas = fetchSimulado();
     const soltar = registrarGrabador(async () => { throw new SinGpu("Sin GPU"); });

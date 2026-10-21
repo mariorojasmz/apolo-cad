@@ -5,8 +5,9 @@
   2. arma el plan cuadro por cuadro del guion sobre su copia del documento
      (`plan_navegador.py`) y abre en la API una sesión de grabación con los dos
      (`POST /api/video/grabacion`), la música, la salida y si se conservan los cuadros;
-  3. lanza el navegador SIN VENTANA y con la GPU contra `<url>/?grabar=<sesion>`, con un perfil
-     TEMPORAL dentro de la carpeta de la sesión (nunca el de la persona) que se borra al final;
+  3. lanza el navegador SIN VENTANA y con la GPU contra `<url>/?grabar=<sesion>` (con
+     `&nivel=maximo` si se pidió el trazado de rayos, D6), con un perfil TEMPORAL dentro de la
+     carpeta de la sesión (nunca el de la persona) que se borra al final;
   4. espera a que la sesión quede «lista» (el navegador subió los cuadros y la API codificó) y
      arma la miniatura con la foto de la máquina terminada que subió el navegador.
 
@@ -31,6 +32,11 @@ from apolo.publicacion.paquete import PublicacionError
 #: Sin avance de la sesión por más que esto (s), el navegador se dio por colgado. Cubre la carga
 #: de la escena (1 M de triángulos) y la simulación de la marcha antes del primer cuadro.
 SIN_AVANCE_S = 300.0
+#: Con el nivel máximo (trazado de rayos, D6) el primer cuadro compila el shader del trazador y arma
+#: el BVH (F4 midió ~4 min en una Intel UHD) y cada cuadro tarda ~40 s ahí: más margen.
+SIN_AVANCE_MAXIMO_S = 3600.0
+#: Los niveles del video (D6): «rapido» (por defecto) o «maximo» (horas por video).
+NIVELES = ("rapido", "maximo")
 ESPERA_S = 1.0
 #: Banderas de Chromium: sin ventana (con la GPU: F0 lo midió sin banderas de GPU), sin primera
 #: ejecución ni extensiones, y sin frenar los temporizadores ni el render de una página de fondo.
@@ -105,13 +111,22 @@ def _base(cliente) -> str:
     return str(getattr(cliente, "base_url", "")).rstrip("/")
 
 
+def url_grabacion(base: str, sesion: str, nivel: str = "rapido") -> str:
+    """La página que graba la sesión; el nivel máximo lo lee el visor de la URL."""
+    if nivel not in NIVELES:
+        raise PublicacionError(f"Nivel desconocido: {nivel!r} (válidos: {', '.join(NIVELES)})")
+    return f"{base}/?grabar={sesion}" + ("&nivel=maximo" if nivel == "maximo" else "")
+
+
 def renderizar(cliente, doc, g: dict, carpeta, *, musica=None, conservar_cuadros: bool = False,
-               progreso=None, lanzador=lanzar, url: str | None = None):
+               progreso=None, lanzador=lanzar, url: str | None = None, nivel: str = "rapido"):
     """Graba el video del guion `g` (de montaje, validado contra `doc`, la copia privada del
     documento) en `carpeta/video.mp4` con la miniatura al lado. El plan cuadro por cuadro se
     arma aquí, sobre `doc` (D1 de publicacion-tienda). Devuelve un `video.InformeVideo`.
     `lanzador(ejecutable, url, perfil)` → un objeto con `poll()` (los tests simulan el
-    navegador)."""
+    navegador). `nivel`: «rapido» o «maximo» (trazado de rayos por cuadro, D6)."""
+    if nivel not in NIVELES:
+        raise PublicacionError(f"Nivel desconocido: {nivel!r} (válidos: {', '.join(NIVELES)})")
     from PIL import Image
 
     from apolo.media import tarjetas
@@ -138,8 +153,9 @@ def renderizar(cliente, doc, g: dict, carpeta, *, musica=None, conservar_cuadros
     perfil = (propia / "navegador") if propia.is_dir() else Path(tempfile.mkdtemp(prefix="apolo-nav-"))
     proc = None
     try:
-        proc = lanzador(ejecutable, f"{(url or _base(cliente))}/?grabar={sid}", perfil)
-        estado = _esperar(api, sid, proc, progreso)
+        proc = lanzador(ejecutable, url_grabacion(url or _base(cliente), sid, nivel), perfil)
+        estado = _esperar(api, sid, proc, progreso,
+                          SIN_AVANCE_MAXIMO_S if nivel == "maximo" else SIN_AVANCE_S)
         foto = api._pedir("GET", f"/api/video/grabacion/{sid}/foto", "bajar la foto de la máquina")
         mini = tarjetas.miniatura(g, Image.open(io.BytesIO(foto.content)).convert("RGB"),
                                   carpeta / "miniatura.png")
@@ -160,9 +176,9 @@ def renderizar(cliente, doc, g: dict, carpeta, *, musica=None, conservar_cuadros
                         time.perf_counter() - t0, bool(inf["con_musica"]))
 
 
-def _esperar(api, sid: str, proc, progreso) -> dict:
+def _esperar(api, sid: str, proc, progreso, sin_avance_s: float = SIN_AVANCE_S) -> dict:
     """Hasta que la sesión quede lista; falla si queda fallida, si el navegador se cierra antes
-    o si no avanza en `SIN_AVANCE_S`."""
+    o si no avanza en `sin_avance_s`."""
     ultimo, desde = None, time.perf_counter()
     while True:
         e = api._pedir("GET", f"/api/video/grabacion/{sid}", "leer la grabación").json()
@@ -179,8 +195,8 @@ def _esperar(api, sid: str, proc, progreso) -> dict:
             ultimo, desde = avance, time.perf_counter()
             if progreso is not None:
                 progreso(e["recibidos"], e["cuadros"] or 0)
-        elif time.perf_counter() - desde > SIN_AVANCE_S:
-            raise PublicacionError(f"El navegador lleva {SIN_AVANCE_S:.0f} s sin subir cuadros: "
+        elif time.perf_counter() - desde > sin_avance_s:
+            raise PublicacionError(f"El navegador lleva {sin_avance_s:.0f} s sin subir cuadros: "
                                    "lo doy por colgado.")
         if proc is not None and proc.poll() is not None and e["estado"] == "abierta":
             raise PublicacionError("El navegador se cerró antes de terminar el video "

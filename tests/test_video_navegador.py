@@ -304,7 +304,7 @@ class _Pagina:
 
     def __call__(self, ejecutable, url, perfil):
         self.url, self.perfil = url, perfil
-        sid = url.split("?grabar=")[1]
+        sid = url.split("?grabar=")[1].split("&")[0]
         base = f"/api/video/grabacion/{sid}"
         if self.fallo:
             self.c.post(f"{base}/fallo", json=self.fallo)
@@ -366,6 +366,20 @@ def test_el_fallo_de_la_pagina_llega_al_cli(con_navegador, fallo, error):
     t = con_navegador
     with pytest.raises(error, match=fallo["mensaje"].split()[0]):
         navegador.renderizar(t.c, api.DOC, _guion(api.DOC), t.tmp, lanzador=_Pagina(t.c, fallo))
+    assert t.almacen._sesiones == {}
+
+
+def test_nivel_maximo_va_en_la_url_y_un_nivel_desconocido_no_abre_nada(con_navegador, monkeypatch):
+    """`--nivel maximo` (video-realista D6): la página lo lee de la URL; el rápido no la toca."""
+    assert navegador.url_grabacion("http://h", "abc123") == "http://h/?grabar=abc123"
+    assert navegador.url_grabacion("http://h", "abc123", "maximo") == "http://h/?grabar=abc123&nivel=maximo"
+    t = con_navegador
+    pagina = _Pagina(t.c, {"mensaje": "Se cayó el visor.", "motivo": "error"})
+    with pytest.raises(PublicacionError):
+        navegador.renderizar(t.c, api.DOC, _guion(api.DOC), t.tmp, lanzador=pagina, nivel="maximo")
+    assert pagina.url.endswith("&nivel=maximo")
+    with pytest.raises(PublicacionError, match="Nivel desconocido"):
+        navegador.renderizar(t.c, api.DOC, _guion(api.DOC), t.tmp, nivel="ultra")
     assert t.almacen._sesiones == {}
 
 

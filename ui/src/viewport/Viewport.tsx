@@ -31,6 +31,7 @@ import BarraMarcha from "./marcha/BarraMarcha";
 import { crearGrabacionVista } from "./grabacion/enVista";
 import { crearGrabacionGuion } from "./grabacion/guionVista";
 import { registrarGrabador } from "./grabacion/registro";
+import { crearFotoRealista, registrarFoto } from "./grabacion/trazado/foto";
 
 /* Orquestador del viewport: estado de React, efectos que sincronizan la escena con la store y
    el JSX de las barras. El render vive en `pipeline.ts` (renderer, composer, bucle); la
@@ -121,6 +122,7 @@ export default function Viewport() {
     const ocultarAlGrabar = () => [handlesGroup, ...(measureObjRef.current ? [measureObjRef.current] : [])];
     // el guion del video (video-realista F3): el botón «Grabar video» y `?grabar=<sesion>`
     const grabarSesion = crearGrabacionGuion({ pipe, sombra, marcha: () => marchaRef.current, ocultar: ocultarAlGrabar });
+    const fotoRealista = crearFotoRealista(pipe, ocultarAlGrabar); // trazado de rayos (video-realista F4)
     (window as unknown as { __apolo?: unknown }).__apolo = {
       meshIds: () => [...ctx.meshes].map(([id, m]) => [id, m.uuid]),
       builds: () => buildCountRef.current,
@@ -128,13 +130,14 @@ export default function Viewport() {
       store: useStore,
       grabar: crearGrabacionVista(pipe, ocultarAlGrabar), // el giro con la marcha (video-realista F2)
       grabarSesion,
+      fotoRealista,
     };
     const ci: CtxInteraccion = {
       ...ctx, mount, viewCube: pipe.viewCube, raycaster: new THREE.Raycaster(), boxRef, liveAngleRef,
       featuresRef, blockedRef, lastAxisRef, isGizmoDraggingRef, isBoxSelectingRef, isDraggingObjRef,
       ocultarTiradores: { current: false }, setVcb, setViewDir, frameBox, fitTo,
     };
-    const limpiezas = [instalarGizmo(ci), registrarGrabador(grabarSesion)];
+    const limpiezas = [instalarGizmo(ci), registrarGrabador(grabarSesion), registrarFoto(fotoRealista)];
 
     // `ahora` = el reloj del cuadro: el real, o el virtual al grabar (video-realista D3)
     pipe.antesDeComponer((ahora) => dropAnimRef.current?.tick(ahora)); // cajas del drop-test

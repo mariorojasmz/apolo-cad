@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 hechas (2026-10-20): «Calidad alta» y acabados con textura; reloj virtual y codificación en la API (F2); F3 graba en el navegador el MISMO guion de montaje con rótulos, la máquina andando y la vuelta final (`publicar generar --render navegador`, botón «Grabar video»; 65 s de la 74 en 7 min en una Intel UHD), con encuadre por ángulo; el trazado de rayos usará three-gpu-pathtracer 0.0.23 (MIT); faltan F4 y F5
+nota: F0–F4 hechas (2026-10-21): «Calidad alta» y acabados con textura; reloj virtual y codificación en la API (F2); F3 graba en el navegador el MISMO guion de montaje con rótulos, la máquina andando y la vuelta final (`publicar generar --render navegador`, botón «Grabar video»; 65 s de la 74 en 7 min en una Intel UHD), con encuadre por ángulo; F4 suma el nivel máximo (three-gpu-pathtracer 0.0.23, `--nivel maximo`, ~40 s por cuadro en la Intel UHD, nunca por defecto) y el botón «Foto realista»; falta F5 (medir en la 4070 Ti)
 descripcion: El video de YouTube y de la tienda sale del visor con calidad de foto de catálogo (y trazado de rayos de noche), generado solo, sin instalar Blender
 ---
 
@@ -593,3 +593,110 @@ Tests:
 
 Sin verificar: el escritorio (4070 Ti, F5), la música en el flujo del navegador (la cubre el test
 de la API) y el CLI de punta a punta con los entregables.
+
+### F4 (2026-10-21): el nivel máximo y la «Foto realista»
+
+Medido en la laptop (i7-1355U, **Intel UHD integrada**: cota baja, D10), con una API del worktree
+en :8101 sobre una COPIA de `data/apolo.db` y Edge 155 sin ventana manejado por CDP desde un
+arnés del scratchpad (perfil propio y persistente, para medir con y sin la caché de shaders).
+
+**Dependencia**: `three-gpu-pathtracer` **0.0.23** y `three-mesh-bvh` **0.7.8**, EXACTAS en
+`ui/package.json`; licencia MIT en las dos (verificada en `node_modules/*/LICENSE`). La 0.0.23
+pide `xatlas-web` como peer (MIT, lo instala npm; no se usa: es el desenvolvedor de UV). Todo el
+trazado va en un chunk aparte que se carga con `import()` (`maximo-*.js`, 206 kB, 60 kB gzip): el
+visor de todos los días no lo baja.
+
+**Diseño** (`ui/src/viewport/grabacion/trazado/`, módulos nuevos; `modo.ts` gana el nivel):
+- `nivel.ts` (puro): `Nivel` «rapido» | «maximo» (por defecto **rápido**), opciones acotadas
+  (muestras, semilla, rebotes, teselas, denoiser), la semilla de cada cuadro, la URL del CLI, el
+  tamaño y el nombre de la foto, y qué cuadros del guion se trazan (`planTrazado`: sólo las partes
+  3D; las tarjetas no pasan por la GPU).
+- `trazador.ts`: `WebGLPathTracer` con lo de ADENTRO (`_pathTracer`) para fijar semilla, tamaño y
+  fondo transparente sin el reloj de `renderSample`. N muestras en teselas (2×2 por defecto),
+  sincronizando la GPU tras cada pedazo (un `readPixels` de 1 px) y soltando el hilo entre
+  pedazos. Al final, el `DenoiseMaterial` de la librería pinta el canvas con el mismo ACES y sRGB
+  del `OutputPass`.
+- `escenaTrazable.ts`: la MISMA escena, cámara y materiales (tabla de acabados y zonas) del
+  visor «alta»; el estudio procedural (`estudio.ts`) entra como un cubo HDR que la librería pasa a
+  equirectangular. Sólo traza `group` y las luces.
+- `sustitutos.ts`, `maximo.ts` (lo arma sobre el pipeline), `foto.ts` + `BotonFoto.tsx`.
+- Video: `grabar({ nivel: "maximo" })`, `?grabar=<sesion>&nivel=maximo` y
+  `publicar generar --render navegador --nivel maximo` (el CLI espera hasta 3 600 s sin avance en
+  vez de 300). «Grabar video» sigue en rápido: el máximo no tiene botón (D6).
+- Botón «Foto realista» (cámara) en las dos barras del visor: traza lo que se ve (la proporción
+  de la vista, lado mayor 1920 px), muestra el avance con «Cancelar» y descarga el PNG. No corre
+  a la vez que una grabación.
+
+**Lo que la 0.0.23 no soporta, y qué se hizo** (verificado en su código, no sólo en el README):
+
+| falta | fallback |
+|---|---|
+| arreglos de materiales (zonas de la seta) | **bug medido**: asigna el material por malla y corre los índices de todas las siguientes (la banda salía gris y el piso rojo). `sustitutos.ts` parte la pieza en una malla por zona |
+| `InstancedMesh` (eslabones de las cadenas) | contaría una sola pieza en el origen: una malla sustituta por instancia, persistente (refit) |
+| grupos de la geometría unida | **bug**: los suma en cada `setScene` sin vaciarlos (en un video, cientos de miles). Se vacían antes de cada cuadro |
+| anisotropía | no existe en la librería: el cepillado traza isótropo; las rayas siguen en el `map` y el `roughnessMap` |
+| `bumpMap` (relieves de `relieve.ts`) | se ignora: el detalle fino de cerca no sale; color y brillo procedurales sí (son `DataTexture`, no shader) |
+| planos de sección | la foto sale de la pieza entera aunque el visor tenga un corte |
+| aristas (`LineSegments`) | no se trazan (más realista; el visor las dibuja) |
+| `ShadowMaterial`, disco de shader, sombra de contacto | un disco de verdad con el color y la caída de opacidad del visor; sombra y contacto salen del trazado |
+| `HemisphereLight` | no la lee: el ambiente lo da el estudio |
+| GTAO | no hace falta: la oclusión sale del trazado |
+| `WebGLPathTracer.dispose()` | se cae (`_renderQuad` no existe): se libera a mano |
+| ruido azul con `Math.random` | se rehace una vez con un aleatorio con semilla fija |
+
+**Gate: misma pose + misma semilla → misma imagen** (piloto 74, 1920×958, 64 muestras, tres
+fotos seguidas en la misma sesión):
+- misma semilla: 32 canales distintos de 5,5 M (fracción 6·10⁻⁶), diferencia máxima 3/255, media
+  0,0000. La causa: cada foto arma mallas sustitutas nuevas (otro uuid → otro orden de la
+  geometría unida → otro BVH). Tolerancia medida: ≤ 3/255 en ≤ 0,001 % de los canales;
+- otra semilla: 24 % de los canales distintos, media 0,52, máxima 173 (el ruido cambia);
+- en el video, dos cuadros de la misma pose (el 0 y el último de un giro de 360°) salieron con
+  el MISMO JPEG byte a byte.
+
+**Tiempo por cuadro a 1080p en la Intel UHD** (cada muestra son 4 teselas):
+
+| | faja 73 (112 k triángulos) | piloto 74 (1,06 M) |
+|---|---|---|
+| s por muestra (PC tranquila) | 0,24–0,30 | 0,29–0,35 |
+| s por muestra (PC cargada con otras sesiones) | — | 1,08 |
+| preparar la escena (unir + BVH SAH) | 3 s | 21–26 s (SAH 17,8 s; CENTER 3,4 s; refit 0,44 s) |
+| compilar el shader del trazador | 85–200 s la primera vez por perfil y variante; 0 con la caché de Chromium |
+| cuadro de video, 32 muestras (sólo gira la cámara) | — | 11,3 s |
+| cuadro de video, 128 muestras (estimado) | ~36 s | ~40 s |
+| foto, 256 muestras | 65–71 s | 97 s (300 s con la PC cargada) |
+
+Muestras hasta que se ve limpio (piloto 74 con el denoiser, recorte del motorreductor): 16 deja
+chispas; 64, casi limpio (alguna en la guarda); 256, limpio. Por eso **video = 128** (margen para
+que el grano no titile entre cuadros) y **foto = 256**. Un video de 60 s (1 800 cuadros, ~1 200
+3D) tardaría ~13 h en la laptop: confirma que el máximo es «de noche» y que el número que decide
+es el de la 4070 Ti.
+
+**Extrapolación a la 4070 Ti (pendiente de F5)**: con ~20–40× el rendimiento de trazado de la
+Intel UHD, se espera ~0,01–0,02 s por muestra a 1080p → **1,5–3 s por cuadro** con 128 muestras
+y ~1–2 h por video (lo que Mario estimó). La CPU del escritorio arma el BVH de la 74 en menos de
+los 18 s de la laptop. F5 lo mide.
+
+Fotos (scratchpad de la sesión, `vr-f4/`): `foto-realista-74.png` y `foto-realista-73.png`
+(256 muestras, el encuadre inicial del visor); `piloto74/recorte-16-64-256.png` (muestras);
+`piloto74/visor.png` y `faja73/visor.png` (el visor «alta» y «normal», para comparar); y
+`video74/` (tres cuadros de 32 muestras y su MP4).
+
+Intentos fallidos:
+- El panel de navegador del escritorio, oculto, deja la página en segundo plano: los `setTimeout`
+  de la espera de la compilación se frenaban y la foto no avanzaba. Se midió con Edge sin ventana
+  por CDP (las banderas de `navegador.py`).
+- El primer intento pasaba el IBL por `CubeToEquirectGenerator` a mano (la librería no lo
+  exporta): basta con darle el cubo, que la librería convierte sola.
+
+Tests:
+- vitest 349 → 366 (+17): `nivel.test.ts` 10 (nivel por defecto, opciones acotadas, semilla por
+  cuadro, aleatorio con semilla, URL, tamaño y nombre de la foto, plan de cuadros con el máximo,
+  estimación), `sustitutos.test.ts` 6 (instancias, zonas, lo que deja de verse, piso, denoiser
+  adaptado que avisa si la librería cambia), `registro.test.ts` +1 (`&nivel=maximo`).
+- pytest `test_video_navegador.py` +1 (el nivel en la URL, un nivel desconocido no abre nada).
+- `npm run build` verde.
+
+Sin verificar: el escritorio (4070 Ti, F5); un video máximo largo con montaje y marcha (se probó
+el giro corto; el montaje rearma el BVH en cada tanda: ~25 s por tanda en la 74 en la laptop); la
+congelación del hilo mientras se arma el BVH de 1 M de triángulos (~25 s en la laptop): si
+molesta, el BVH va a un worker (`three-mesh-bvh` lo trae).

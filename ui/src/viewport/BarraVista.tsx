@@ -3,6 +3,7 @@ import { Axis3d, Box, Ruler, Scan, Scissors, Sparkles, ZoomIn, ZoomOut } from "l
 import type { Shading } from "./meshes";
 import { useCalidad } from "./calidad";
 import BotonGrabar from "./grabacion/BotonGrabar";
+import BotonFoto from "./grabacion/trazado/BotonFoto";
 
 /* Columna de botones del 3D (vistas, alambre, gizmo, snap, medir, sección). Presentacional:
    el estado vive en Viewport y llega por props. Salió de Viewport.tsx para hacerle lugar bajo
@@ -57,6 +58,7 @@ export default function BarraVista(p: Props) {
       </button>
       <BotonCalidad />
       <BotonGrabar />
+      <BotonFoto />
       <span className="overlay-sep" />
       <button
         className={gizmoMode === "translate" ? "active" : ""}
@@ -177,6 +179,7 @@ function VistaVisor(p: Props) {
       </Redondo>
       <BotonCalidad redondo />
       <BotonGrabar redondo />
+      <BotonFoto redondo />
     </div>
   );
 }

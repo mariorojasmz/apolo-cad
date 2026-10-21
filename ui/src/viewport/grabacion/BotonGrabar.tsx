@@ -5,6 +5,7 @@ import VerDetalle from "../../ui/VerDetalle";
 import { abrirConGuion } from "./grabador";
 import { grabador } from "./registro";
 import { GrabacionCancelada } from "./reloj";
+import { fotoEnCurso } from "./trazado/foto";
 import "./grabacion.css";
 
 /* «Grabar video» del visor (plan video-realista, F3 · D7): graba a la vista el mismo video que
@@ -38,7 +39,7 @@ const ocupada = (e: Estado) => e.fase === "preparando" || e.fase === "grabando" 
 export async function grabarDesdeElVisor(): Promise<void> {
   const g = useGrabacion.getState();
   const grabar = grabador();
-  if (ocupada(g.estado) || !grabar) return;
+  if (ocupada(g.estado) || !grabar || fotoEnCurso()) return; // la foto realista usa el mismo modo
   useGrabacion.setState({ cancelar: false });
   g.set({ fase: "preparando" });
   try {

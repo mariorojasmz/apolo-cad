@@ -12,6 +12,7 @@ import {
   grabarEnSesion, imagenDeSesion, planDeSesion, subirFoto, type AperturaGrabacion,
 } from "./grabador";
 import { entrarModoGrabacion, MUESTRAS_RAPIDO } from "./modo";
+import { opcionesTrazado, semillaDeCuadro, TRAZADO_VIDEO, type Nivel, type OpcionesTrazado } from "./trazado/nivel";
 import { crearMontaje } from "./montaje";
 import {
   aparicionesPorCuadro, direccion, PARTES_3D, tiempoMarcha, tramoDe, validarPlan, type MarchaPlan,
@@ -38,6 +39,9 @@ export interface DepsGuion {
 
 export interface OpcionesSesion {
   muestras?: number;
+  /** «rapido» (por defecto) o «maximo» (trazado de rayos, D6). */
+  nivel?: Nivel;
+  trazado?: Partial<OpcionesTrazado>;
   permitirSinGpu?: boolean;
   /** Si algo falla, borrar la sesión (el botón); la del CLI la borra el CLI (false). */
   descartar?: boolean;
@@ -144,8 +148,9 @@ async function grabarPlan(
   const { ancho, alto, fps } = plan.video;
   const { pipe } = d;
   const camara = pipe.camera;
+  const trazado = opcionesTrazado(TRAZADO_VIDEO, op.trazado);
   const modo = entrarModoGrabacion(pipe, { ancho, alto, muestras: op.muestras ?? MUESTRAS_RAPIDO,
-    ocultar: d.ocultar() });
+    ocultar: d.ocultar(), nivel: op.nivel, trazado });
   const montaje = crearMontaje(pipe.meshes, plan.ids);
   try {
     // la máquina TERMINADA encuadra todo el video: lo justo en cada ángulo (`encuadre.ts`)
@@ -191,7 +196,7 @@ async function grabarPlan(
           const tm = serie ? tiempoMarcha(plan, n, serie.duracion_s) : null;
           if (tm !== null && d.marcha()) useMarcha.getState().saltar(tm); // lo consume el reproductor
           poner(plan.cuadro.az[n] ?? plan.camara.azimut_inicial);
-          await modo.cuadro(ms);
+          await modo.cuadro(ms, { semilla: semillaDeCuadro(trazado, n) });
           origen = pipe.renderer.domElement;
         } else {
           origen = fijas.get(t.parte)!;

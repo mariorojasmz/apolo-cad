@@ -9,10 +9,11 @@ Dos pasos con un guion editable en medio (D3):
     # revisa guion.json y completa ficha.yaml en data\publicaciones\<slug>\<version>\
     .\.venv\Scripts\python.exe -B scripts\publicar.py generar --project 38
         [--musica C:\musica\pista.mp3] [--forzar] [--sin-gravedad] [--slug S] [--version V]
-        [--render vtk|navegador] [--conservar-cuadros]
+        [--render vtk|navegador] [--conservar-cuadros] [--nivel rapido|maximo]
 
 `--render navegador` (plan video-realista, D7) graba el video con el visor de Apolo en Edge o
-Chrome sin ventana (con la GPU, nada se descarga); sin navegador o sin GPU avisa y usa VTK.
+Chrome sin ventana (con la GPU, nada se descarga); sin navegador o sin GPU avisa y usa VTK. Con
+`--nivel maximo` traza cada cuadro con trazado de rayos (D6): horas por video, para la noche.
 `--marcha` (en `guion`) suma la máquina andando: el JSON es el escenario de la simulación, el
 mismo que recibe la tool `simulate`; sólo la graba el navegador.
 
@@ -75,6 +76,9 @@ def _parser() -> argparse.ArgumentParser:
                           "Apolo en Edge o Chrome sin ventana, con la GPU; cae a vtk sin ellos)")
     gen.add_argument("--conservar-cuadros", action="store_true",
                      help="con --render navegador, deja los cuadros en la carpeta de la grabación")
+    gen.add_argument("--nivel", choices=("rapido", "maximo"), default="rapido",
+                     help="con --render navegador: rapido (el visor en calidad alta) o maximo "
+                          "(trazado de rayos por cuadro: horas por video, para correr de noche)")
     return ap
 
 
@@ -128,7 +132,7 @@ def main(argv: list[str] | None = None, cliente=None) -> int:
                           musica=args.musica, forzar=args.forzar,
                           con_gravedad=not args.sin_gravedad, paralelo=propio,
                           render=args.render, conservar_cuadros=args.conservar_cuadros,
-                          url=args.url)
+                          url=args.url, nivel=args.nivel)
     except (PublicacionError, FichaError, GuionError, SaneoError, FfmpegNoEncontrado) as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 2

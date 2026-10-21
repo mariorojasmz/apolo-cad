@@ -222,12 +222,13 @@ RENDERS = ("vtk", "navegador")
 def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
             version: str | None = None, musica=None, forzar: bool = False,
             con_gravedad: bool = True, eco=print, paralelo: bool = False, render: str = "vtk",
-            conservar_cuadros: bool = False, url: str | None = None) -> dict:
+            conservar_cuadros: bool = False, url: str | None = None, nivel: str = "rapido") -> dict:
     """`publicar generar`: valida, pasa la puerta, trae entregables, renderiza el video y
     arma el paquete. Devuelve el resumen (carpeta, tiempos, video, faltantes, saneo).
     `render`: «vtk» (el de siempre) o «navegador» (video-realista D7: Edge o Chrome sin
     ventana; sin navegador o sin GPU, avisa y cae a VTK). `url`: la de la API para el
-    navegador (por defecto, la del cliente).
+    navegador (por defecto, la del cliente). `nivel`: «rapido» o «maximo» (trazado de rayos por
+    cuadro en el navegador, video-realista D6: horas por video; VTK lo ignora).
 
     `paralelo` (D6 de video-tienda-pulido): la API arma los entregables mientras aquí se
     renderiza el video. Sólo con la API en OTRO proceso (el CLI contra una URL): con la API en
@@ -235,6 +236,9 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     video, que no toma locks (es dueño de su documento)."""
     if render not in RENDERS:
         raise PublicacionError(f"Render desconocido: {render!r} (válidos: {', '.join(RENDERS)})")
+    from apolo.publicacion.navegador import NIVELES
+    if nivel not in NIVELES:
+        raise PublicacionError(f"Nivel desconocido: {nivel!r} (válidos: {', '.join(NIVELES)})")
     from apolo import paths
     from apolo.media.codificar import buscar_ffmpeg, buscar_ffprobe
     from apolo.services.guion_video import GuionError, validar_guion
@@ -295,7 +299,8 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     try:
         resumen = _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista,
                          staging, tiempos, eco,
-                         {"render": render, "conservar_cuadros": conservar_cuadros, "url": url})
+                         {"render": render, "conservar_cuadros": conservar_cuadros, "url": url,
+                          "nivel": nivel})
         if _firma_de(api.apolo()) != _firma_de(data) or \
                 api.salud().get("project_id") != salud.get("project_id"):
             raise PublicacionError("El proyecto cambió (o se abrió otro) mientras se generaba: "
@@ -325,7 +330,8 @@ def _video(cliente, doc, g, staging, pista, progreso, eco, como: dict):
                     "el navegador graba el video de montaje y este guion es de diseño")
             return (navegador.renderizar(cliente, doc, g, staging, musica=pista, progreso=progreso,
                                          conservar_cuadros=como["conservar_cuadros"],
-                                         url=como["url"]), g, "navegador")
+                                         url=como["url"], nivel=como.get("nivel", "rapido")),
+                    g, "navegador")
         except navegador.NavegadorNoDisponible as exc:
             eco(f"Aviso: no grabo en el navegador ({exc}); uso el render VTK"
                 + (", sin la máquina andando." if g.get("marcha") else "."))

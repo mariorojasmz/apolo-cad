@@ -6,6 +6,7 @@ import { crearCaptura } from "./captura";
 import { grabarVideo, type AperturaGrabacion, type FormatoCuadro, type ResultadoVideo } from "./grabador";
 import { planGiro, posicionGiro, tiempoMarcha } from "./guion";
 import { entrarModoGrabacion, MUESTRAS_RAPIDO } from "./modo";
+import { opcionesTrazado, semillaDeCuadro, TRAZADO_VIDEO, type Nivel, type OpcionesTrazado } from "./trazado/nivel";
 
 /* La grabación dentro del visor (plan video-realista, F2): junta el modo grabación (tamaño fijo,
    antialias acumulado), el reloj virtual, el guion del giro con la marcha y el cliente que sube
@@ -19,6 +20,10 @@ export interface OpcionesGrabar {
   formato?: FormatoCuadro;
   /** Muestras de antialias por cuadro (nivel rápido: 16). */
   muestras?: number;
+  /** «rapido» (por defecto) o «maximo»: trazado de rayos por cuadro (D6), horas por video. */
+  nivel?: Nivel;
+  /** Opciones del trazado del nivel máximo (muestras, semilla…), sobre las del video. */
+  trazado?: Partial<OpcionesTrazado>;
   /** Duración (s); por defecto, la de la marcha cargada o un giro de 8 s. */
   segundos?: number;
   grados?: number;
@@ -72,8 +77,9 @@ export function crearGrabacionVista(pipe: Pipeline, ocultar: () => THREE.Object3
     if (serie) useMarcha.setState({ reproduciendo: false });
 
     const { camera, controls } = pipe;
+    const trazado = opcionesTrazado(TRAZADO_VIDEO, op.trazado);
     const modo = entrarModoGrabacion(pipe, { ancho, alto, muestras: op.muestras ?? MUESTRAS_RAPIDO,
-      ocultar: ocultar() });
+      ocultar: ocultar(), nivel: op.nivel, trazado });
     // ya con el aspecto del video: la máquina entra justa en el cuadro durante todo el giro
     const encuadre = op.encuadrar === false ? null
       : encuadreGiro(camera, controls.target, new THREE.Box3().setFromObject(pipe.group), plan.grados);
@@ -93,7 +99,7 @@ export function crearGrabacionVista(pipe: Pipeline, ocultar: () => THREE.Object3
           if (serie) useMarcha.getState().saltar(tiempoMarcha(plan, n)); // lo consume el reproductor
           camera.position.fromArray(posicionGiro(objetivo, desde, plan, n));
           camera.lookAt(controls.target);
-          await modo.cuadro(ms);
+          await modo.cuadro(ms, { semilla: semillaDeCuadro(trazado, n) });
           return captura.tomar(pipe.renderer.domElement); // en el mismo hilo que el render
         },
       });
