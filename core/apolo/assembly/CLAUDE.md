@@ -50,5 +50,7 @@ viven en [core/apolo](../CLAUDE.md); lo transversal (locks, log, flujo de trabaj
   el manual de ensamblaje ([drawing](../drawing/CLAUDE.md)). Nunca suelda lo que gira
   (`piezas_que_giran`: catálogo de transmisión/rodamientos/rodillos/tambores o hija de junta
   móvil, si recibe `joints`): lo baja a `contacto` + `a_revisar`.
-  [uniones-en-lote](../../../docs/plans/uniones-en-lote.md)
+  [uniones-en-lote](../../../docs/plans/uniones-en-lote.md) El tipo que PROPONE `declare` ya no
+  es éste: lo decide el criterio de taller de [services](../services/CLAUDE.md) sobre estos
+  contactos (`direction`); aquí sólo se decide qué se toca y qué sujeta a qué.
 - La puerta de entrega y las interferencias: [library](../library/CLAUDE.md).

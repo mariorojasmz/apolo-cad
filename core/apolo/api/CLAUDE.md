@@ -151,7 +151,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - `get_scene()` sin params = payload completo con mallas, byte-idéntico: lo usa el viewport.
 - **Modo corto = parámetro opt-in; sin él, byte-idéntico (la UI no lo pide, el MCP sí, por
   defecto)**: `undo|redo?detail=diff`, `GET /api/connectivity?ids&kind&resumen=si|auto`,
-  `soundness {resumen}`, `/api/checks {grupo, solo_fallas, resumen}`. `/api/schemas` (vista
+  `soundness {resumen}`, `/api/checks {grupo, solo_fallas, resumen}`, `assembly/declare
+  {resumen}` (propuesta y aplicada; sin cuerpo, la escena de siempre). `/api/schemas` (vista
   agente) publica `x-catalogo` en vez de un enum de > 50 refs; la vista persona conserva el
   enum (desplegable de la UI). [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md)
 - `_expand_ids` acepta NOMBRES de grupo en isolate/highlight/fit (render, pick, drawing_spec,

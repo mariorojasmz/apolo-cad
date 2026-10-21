@@ -171,6 +171,17 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   gira no se suelda) y deja `a_revisar`/`motivo` FUERA de `params` (un lote las ignora). La raíz
   del `resumen` sigue la regla de `commands/exec_uniones.py` (copia `{cmd}_{n}` de su comando).
   [uniones-en-lote](../../../docs/plans/uniones-en-lote.md)
+- El TIPO lo decide `criterio_uniones.criterio` (puro: roles + contactos, sin geometría) por el
+  rol de las dos piezas, con las reglas EN ORDEN de su docstring; la geometría (`direction`) sólo
+  decide lo que ninguna regla toca. Una regla nueva va ahí con su caso en
+  `tests/test_criterio_uniones.py`, y el fixture de la piloto (`tests/data/estructura_piloto74.json`,
+  `scripts/fixture_estructura.py`) debe seguir ≥ 95 % y sin soldaduras desmontables. `kind` None
+  = no se declara (`omitidas`), salvo que deje suelta una pieza que la geometría sujetaba: vuelve a
+  revisar. [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md) (D6)
+- Corto (`estructura_corta.py`, `resumen=true` del endpoint): filas por patrón de nombre (sin
+  paréntesis) con los `fasten` por conjuntos VERIFICADOS expandiéndolos con `pares_de_union`
+  (nunca uno que no dé exactamente los pares de la fila); ids sólo de `a_revisar`. Aplicada,
+  conteos (`aplicada_corta`), nunca la lista de conexiones.
 
 ## Video y vista 3D de la tienda (`construccion.py`, `rotulos.py`, `datos_rotulos.py`, `guion_video.py`, `cifras_grupo.py`)
 
@@ -213,3 +224,7 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - `BED_RE` (cama/mesa: recibe la carga del FEA y da la altura de trabajo de la instalación) y
   `SERVICE_RE` (piezas que se extraen: holgura de servicio). Un matcher por nombre nuevo lleva
   guarda de bracket/anclaje y un test con el nombre REAL ([drawing](../drawing/CLAUDE.md)).
+- `rol_union` (roles de unión) lee el SUSTANTIVO que encabeza cada tramo « · » (anclado al
+  inicio: «Eje del rodillo» es eje, «Separador de guarda» es estructura), del último al primero y
+  sin los tramos que nombran un grupo (la máquina de una plantilla); el catálogo de tornillería,
+  rodamientos, equipos y lo que gira manda antes que el nombre.

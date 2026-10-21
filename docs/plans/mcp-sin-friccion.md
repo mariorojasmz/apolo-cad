@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2 mergeadas a main el 2026-10-21; faltan F3 (D6, declare_structure con criterio) y F4 (verificación por MCP)
+nota: F0–F2 mergeadas a main el 2026-10-21; F3 (D6, declare_structure con criterio) implementada en rama, sin mergear; falta F4 (verificación por MCP)
 descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respuestas cortas, errores que dicen cómo seguir y propuestas de estructura que no sueldan lo que se atornilla
 ---
 
@@ -272,3 +272,70 @@ Fuera de F2 (anotado para después): `check_interference` sigue corriendo TODO `
 devolver sólo la interferencia — el mismo flag que falta en `engineering_check`; el 400 de
 `isolate` de planos y manual sigue con el texto viejo (ya resuelve subgrupos); el render
 matplotlib dibuja los ejes del origen.
+
+### F3 (2026-10-21): D6, la propuesta con criterio de taller
+
+Medido EN PROCESO sobre una copia de `data/apolo.db`: la piloto 74 con el log SIN sus `fasten` y
+`ground` (quedan los 40 contactos de `create_chain`) contra las 264 uniones declaradas a mano
+(160 contacto, 58 soldadura, 46 perno), y la plantilla `create_roller_conveyor` de 1 m contra
+las 154 que ella misma declara. «Desmontable» = el par declarado perno/contacto, o uno no
+declarado con tornillería, eje, rodamiento, chumacera, cadena, motor, guarda ↔ no guarda o lo
+que gira ↔ lo fijo.
+
+| | antes (F1/F2) | después |
+|---|---|---|
+| piloto: coincide con lo declarado | 66 / 264 (25 %) | **264 / 264 (100 %)** |
+| piloto: soldaduras en pares desmontables | 264 (163 declaradas perno/contacto + 40 larguero ↔ tuerca, 20 eje ↔ tubo, 20 eje ↔ buje, 20 tapa ↔ buje, 1 motor ↔ guarda) | **0** |
+| piloto: uniones propuestas / a revisar / omitidas | 420 / 114 / — | 326 / 0 / 94 |
+| plantilla 1 m: coincide (de los pares que la geometría detecta) | — | 145 / 152 (95,4 %; 145 / 154 contando 2 pares que `detect_structure` no ve) |
+| tool, propuesta por defecto | 17 918 B (resumen por raíz, lista omitida) | **4 837 B** (25 filas, 24 con `fasten`: 27 órdenes declaran las 326) |
+| tool, `completo=true` | 119 278 B | 91 653 B |
+| tool, `aplicar=true` | 83 274 B (conteos + `GET /api/connectivity` entero en `detalle`) | **146 B** |
+
+Los 7 desaciertos de la plantilla son decisiones de ESA máquina que el rol no ve: el cárter
+soldado a la base del motor (corre con él al tensar: 4, el criterio dice perno), las orejas del
+portamotor con pernos en ranura (2, sin rol → soldadura por geometría) y la tapa de la bandeja
+soldada al tramo (1). Ninguno suelda lo desmontable.
+
+Decisiones tomadas al implementar:
+
+- **El tipo lo decide `services/criterio_uniones.py`** (puro: roles + los contactos de
+  `detect_structure`, sin geometría ni `Document`), con 10 reglas en orden (docstring); la
+  geometría (`direction`) sólo decide lo que ninguna regla toca. `detect_structure` no cambia (lo
+  usan la sujeción con autodetección y el manual). Además de las cuatro reglas del contrato, salió
+  de medir: rodamiento = contacto (eje ↔ tapa, tapa ↔ tubo), motor = perno (con su base y con el
+  piñón de su eje), cadena = contacto sólo con lo que gira o la cama (con el eje, la guarda o
+  el motor no se declara), dos piezas que giran juntas sí se sueldan (buje ↔ piñón, buje ↔ tubo:
+  D2 de uniones-en-lote las bajaba a contacto), dos partes de la MISMA guarda (mismo tramo de
+  nombre) se sueldan y dos guardas se atornillan.
+- **Roles por nombre en `services/roles.py::rol_union`**: el sustantivo que ENCABEZA cada tramo
+  « · » (anclado al inicio: «Eje del rodillo» es eje, «Separador de guarda» es estructura, «Tubo
+  del rodillo» gira), del último tramo al primero y sin los que nombran un grupo (la máquina de
+  una plantilla: «Faja de banda · Oreja» no es una banda); el catálogo de tornillería,
+  rodamientos, equipos y lo que gira manda antes que el nombre. No había un clasificador por rol
+  para esto (`BED_RE`/`SERVICE_RE` y `lints._is_bolt` son de otras preguntas).
+- **Eje fijo** = eje apretado por una tuerca a algo que no gira: lo que gira sobre él va en
+  contacto sin revisar; sobre un eje sin tuerca, a revisar (¿eje vivo o fijo?).
+- **Omitir no deja piezas sueltas**: una omitida sin la cual una pieza que la geometría sujetaba
+  queda flotando vuelve como contacto a revisar (grafo de `connectivity`, con las juntas, mates y
+  uniones ya declaradas).
+- **Corto en el servidor, opt-in** (`resumen: true` en `POST /api/assembly/declare`, como F1):
+  `services/estructura_corta.py`. Las filas van por patrón de nombre SIN paréntesis («Pata (-Y,
+  motriz)» = «Pata»), y cada una trae `fasten: [{a, b}]` VERIFICADO expandiéndolo con
+  `exec_uniones.pares_de_union`; si sale largo (> 60 caracteres) se parte por variante del nombre
+  («Larguero (-Y)» y «(+Y)»: `c11+c57` ↔ `c9` y ↔ `c10`), y prueba también uno de cada 2 o 3
+  (`(c11+c57)[::2]`, los piñones que alternan). Los ids sólo van en `a_revisar`; `omitidas` por
+  patrón y motivo. Aplicada, `aplicada_corta` (conteos); el MCP descarta `affected_command_ids`
+  (uno por unión). Sin `resumen`, la API responde como antes (la UI llama sin cuerpo) salvo la
+  clave nueva `omitidas` en la propuesta larga.
+- La tool conserva sus params (`aplicar`, `completo`); `completo=true` = la propuesta larga.
+  Golden: 172 llamadas, el caso «sin la lista» pasa a «completa» y la descripción cambia.
+- Fixture estable de la piloto: `tests/data/estructura_piloto74.json` (37 KB: nombres, catálogo,
+  460 contactos, lo que gira y las 264 uniones), regenerable con `scripts/fixture_estructura.py`
+  sobre una copia de la base. `test_declarar_propuesta` cambió un tipo esperado: el poste a tope
+  sobre la base ahora es soldadura (marco).
+
+Fuera de F3: las orejas o placas con pernos en ranura no se reconocen (haría falta leer los
+taladros, como `lint_asiento`); `detect_structure` no ve 2 pares de la plantilla (guarda fija ↔
+larguero, pared ↔ pared); el estado vetable de la regla «guarda ↔ soporte = perno» frente al cárter
+que corre con el motor queda para Mario.
