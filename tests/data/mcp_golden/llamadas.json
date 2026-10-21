@@ -1936,6 +1936,41 @@
   "args": {},
   "salida": [
    {
+    "texto": "{\"deshecho\": \"Variable «L»: 2000 → 3200\", \"comandos_editados\": [\"v1\"], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"piezas_borradas\": [{\"id\": \"c9\", \"nombre\": \"Tapa\"}], \"piezas_borradas_omitidas\": 3, \"total_solidos\": 3, \"puede_deshacer\": true, \"puede_rehacer\": true, \"affected_command_ids\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/undo",
+    "query": [
+     [
+      "detail",
+      "diff"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "deshacer con la escena",
+  "tool": "undo",
+  "args": {
+   "detail": "full"
+  },
+  "salida": [
+   {
     "texto": "{\"deshecho\": \"Variable «L»: 2000 → 3200\", \"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": true, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
    }
   ],
@@ -3200,6 +3235,41 @@
   "caso": "rehacer",
   "tool": "redo",
   "args": {},
+  "salida": [
+   {
+    "texto": "{\"deshecho\": \"Variable «L»: 2000 → 3200\", \"comandos_editados\": [\"v1\"], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}], \"piezas_borradas\": [{\"id\": \"c9\", \"nombre\": \"Tapa\"}], \"piezas_borradas_omitidas\": 3, \"total_solidos\": 3, \"puede_deshacer\": true, \"puede_rehacer\": true, \"affected_command_ids\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/redo",
+    "query": [
+     [
+      "detail",
+      "diff"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "rehacer con la escena",
+  "tool": "redo",
+  "args": {
+   "detail": "full"
+  },
   "salida": [
    {
     "texto": "{\"rehecho\": \"Mover «Guarda tambor motriz»\", \"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": true, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"

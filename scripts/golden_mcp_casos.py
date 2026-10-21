@@ -132,6 +132,52 @@ def _remove(req):
     return _encolado("jr" if req.url.params.get("detail") == "diff" else "jrf")
 
 
+#: `undo|redo?detail=diff` (mcp-sin-friccion D1): el diff del paso, sin escena; pasa tal cual.
+PASO = {"deshecho": "Variable «L»: 2000 → 3200", "comandos_editados": ["v1"],
+        "variables": [{"name": "L", "expression": "2000", "value": 2000.0}],
+        "piezas_borradas": [{"id": "c9", "nombre": "Tapa"}], "piezas_borradas_omitidas": 3,
+        "total_solidos": 3, "puede_deshacer": True, "puede_rehacer": True,
+        "affected_command_ids": []}
+
+
+def _paso(req):
+    if req.url.params.get("detail") == "diff":
+        return J(PASO)
+    return J(escena(deshechos=["Variable «L»: 2000 → 3200"]))
+
+
+#: `connectivity` (D1/D2): la lista, o el resumen por patrón si lo pide (`resumen=si`/`auto`).
+RESUMEN_UNIONES = {"n_fijadores": 57, "n_anclajes": 1, "por_tipo": {"perno": 38, "contacto": 19},
+                   "resumen": [{"kind": "perno", "patron": "r*_eje_larguero_my", "n": 19,
+                                "ejemplo": {"nombre": "r1_eje_larguero_my", "a": "c57_1",
+                                            "b": "c9", "piezas": ["Eje", "Larguero (-Y)"]}}],
+                   "anclajes": [{"nombre": "g1", "pieza": "c1"}],
+                   "seguir": "la lista con nombres: get_connections(…, resumen=false)"}
+
+
+def _conexiones(req):
+    if req.url.params.get("resumen") in ("si", "auto") and not req.url.params.get("ids"):
+        return J(RESUMEN_UNIONES)
+    return J({"grounds": [{"name": "g1"}], "fasteners": []})
+
+
+def _checks(req):
+    out = {"interferencias": {"pares": []}, "ingenieria": [{"ok": True}],
+           "estructura": {"reglas": []}, "otro": "no se muestra"}
+    if json.loads(req.content).get("resumen"):  # el modo corto suma el conteo por estado
+        out["conteo"] = {"ingenieria": {"ok": 1}, "estructura": {}}
+    return J(out)
+
+
+def _escena_grande(n: int = 41) -> dict:
+    """Un lote que creó más de 40 sólidos (una plantilla): el brief resume `por_comando`."""
+    out = escena(["c7"])
+    out["features"] = out["features"] + [
+        _feat(f"c7_r{k}", f"Rodillo {k}", f"c7_r{k}", group="Rodillos") for k in range(n)]
+    out["total_features"] = len(out["features"])
+    return out
+
+
 def _job(req):
     jid = req.url.path.rsplit("/", 1)[-1]
     if jid in JOBS_SUELTOS:
@@ -231,7 +277,7 @@ RUTAS = [
     ("GET", r"/api/jobs/[^/]+", _job),
     ("PUT", r"/api/commands/[^/]+", _encolado("jc")),
     ("POST", r"/api/commands/remove", _remove),
-    ("POST", r"/api/(undo|redo)", J(escena(deshechos=["Variable «L»: 2000 → 3200"]))),
+    ("POST", r"/api/(undo|redo)", _paso),
     ("POST", r"/api/variables", _encolado("jv")),
     ("POST", r"/api/checks", J({"interferencias": {"pares": []}, "ingenieria": [{"ok": True}],
                                 "estructura": {"reglas": []}, "otro": "no se muestra"})),
@@ -400,6 +446,7 @@ CASOS = [
          rutas={("GET", r"/api/jobs/[^/]+"): J({"estado": "error", "error": "boom"})}),
     caso("job 404", "get_job", {"job_id": "zz"}, rutas={("GET", r"/api/jobs/[^/]+"): JOB_404}),
     caso("deshacer", "undo"),
+    caso("deshacer con la escena", "undo", {"detail": "full"}),
     caso("variable", "set_variable", {"name": "L", "expression": "2500"}),
     caso("variable → recibo", "set_variable", {"name": "L", "expression": "2500"}, espera=0.0),
     caso("variable → job en error", "set_variable", {"name": "L", "expression": "=L*"},
@@ -441,6 +488,7 @@ CASOS = [
     caso("croquis", "test_sketch", {"sketch": {"points": [], "constraints": []}}),
     caso("script", "test_script", {"code": "result = Box(1, 1, 1)"}),
     caso("rehacer", "redo"),
+    caso("rehacer con la escena", "redo", {"detail": "full"}),
     caso("mates", "get_mates"),
     caso("dof", "get_dof"),
     caso("sujeción", "check_assembly"),

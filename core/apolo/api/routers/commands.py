@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from apolo.doc import DocumentError
 from apolo.kernel import bbox_payload
 from apolo.library import interference_report
-from apolo.services import cirugia
+from apolo.services import cirugia, paso
 from apolo.services.busqueda_log import command_resumen, params_reference, resumen_carril
 from apolo.services.assertions import contract_verify
 from apolo.state import STATE_LOCK
@@ -388,14 +388,33 @@ def delete_variable(name: str) -> dict:
 # `S.doc` se lee DENTRO del lock (lambda): el método ligado afuera apuntaría al documento de
 # antes de un cambio de proyecto, no al que la guardia del documento verificó. `pasos` = N
 # cambios con UN regenerate; el rango lo valida el documento (DocumentError → 400 con su texto).
+# `detail=diff` (mcp-sin-friccion D1) responde el DIFF del paso (`services/paso.py`) en vez de la
+# escena; sin él, byte-idéntico (la UI).
+def _mover(clave: str, pasos: int, detail: str | None) -> dict:
+    if detail not in (None, "diff"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"detail admite sólo 'diff' (vino '{detail}'); sin él, la escena completa",
+        )
+    hecho: dict = {}
+
+    def run():
+        if detail:
+            hecho["antes"] = paso.foto(S.doc)
+        return S.doc.undo(pasos) if clave == "deshecho" else S.doc.redo(pasos)
+
+    armar = (lambda: paso.diff_paso(S.doc, hecho["antes"], clave, pasos)) if detail else None
+    return _state_or_error(run, armar=armar)
+
+
 @router.post("/api/undo")
-def undo(pasos: int = 1) -> dict:
-    return _state_or_error(lambda: S.doc.undo(pasos))
+def undo(pasos: int = 1, detail: str | None = None) -> dict:
+    return _mover("deshecho", pasos, detail)
 
 
 @router.post("/api/redo")
-def redo(pasos: int = 1) -> dict:
-    return _state_or_error(lambda: S.doc.redo(pasos))
+def redo(pasos: int = 1, detail: str | None = None) -> dict:
+    return _mover("rehecho", pasos, detail)
 
 
 class ConfigIn(BaseModel):

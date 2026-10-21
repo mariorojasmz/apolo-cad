@@ -650,9 +650,15 @@
  },
  {
   "name": "undo",
-  "description": "Deshace la última operación.",
+  "description": "Deshace la última operación. `detail`: \"diff\" (def.) responde lo que cambió el paso\n—`deshecho` (qué revirtió), comandos quitados/restaurados/editados, piezas y uniones nuevas o\nborradas, `variables` cambiadas y `total_solidos`—; \"full\" lista toda la escena.",
   "inputSchema": {
-   "properties": {},
+   "properties": {
+    "detail": {
+     "default": "diff",
+     "title": "Detail",
+     "type": "string"
+    }
+   },
    "title": "undoArguments",
    "type": "object"
   },
@@ -1584,9 +1590,15 @@
  },
  {
   "name": "redo",
-  "description": "Rehace la última operación deshecha.",
+  "description": "Rehace la última operación deshecha. `detail` como en undo (`rehecho` = qué rehízo).",
   "inputSchema": {
-   "properties": {},
+   "properties": {
+    "detail": {
+     "default": "diff",
+     "title": "Detail",
+     "type": "string"
+    }
+   },
    "title": "redoArguments",
    "type": "object"
   },

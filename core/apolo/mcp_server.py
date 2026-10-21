@@ -333,10 +333,18 @@ def get_job(job_id: str, detail: str = "diff", wait_s: float = 20, path: str | N
                       ensure_ascii=False)
 
 
+def _paso(path: str, clave: str, detail: str) -> str:
+    if detail == "full":
+        return json.dumps(brief_paso(_api("POST", path).json(), clave), ensure_ascii=False)
+    return json.dumps(_api("POST", path, params={"detail": "diff"}).json(), ensure_ascii=False)
+
+
 @mcp.tool()
-def undo() -> str:
-    """Deshace la última operación."""
-    return json.dumps(brief_paso(_api("POST", "/api/undo").json(), "deshecho"), ensure_ascii=False)
+def undo(detail: str = "diff") -> str:
+    """Deshace la última operación. `detail`: "diff" (def.) responde lo que cambió el paso
+    —`deshecho` (qué revirtió), comandos quitados/restaurados/editados, piezas y uniones nuevas o
+    borradas, `variables` cambiadas y `total_solidos`—; "full" lista toda la escena."""
+    return _paso("/api/undo", "deshecho", detail)
 
 
 @mcp.tool()
@@ -687,9 +695,9 @@ def test_script(code: str) -> str:
 
 
 @mcp.tool()
-def redo() -> str:
-    """Rehace la última operación deshecha."""
-    return json.dumps(brief_paso(_api("POST", "/api/redo").json(), "rehecho"), ensure_ascii=False)
+def redo(detail: str = "diff") -> str:
+    """Rehace la última operación deshecha. `detail` como en undo (`rehecho` = qué rehízo)."""
+    return _paso("/api/redo", "rehecho", detail)
 
 
 @mcp.tool()

@@ -203,7 +203,8 @@ def test_brief_paso_omite_la_clave_sin_etiqueta(documento):
 
 
 def test_las_tools_undo_y_redo_dicen_que_revirtieron(monkeypatch):
-    """Por las tools reales, contra la API en proceso: `deshecho`/`rehecho` sin params nuevos."""
+    """Por las tools reales, contra la API en proceso: `deshecho`/`rehecho`, en corto por
+    defecto (`detail=diff`, mcp-sin-friccion D1)."""
     pytest.importorskip("mcp")
     from apolo import mcp_server
 
@@ -220,4 +221,9 @@ def test_las_tools_undo_y_redo_dicen_que_revirtieron(monkeypatch):
     assert deshecho["puede_rehacer"] is True
     rehecho = json.loads(mcp_server.redo())
     assert rehecho["rehecho"] == "Eliminar Caja «Motor»" and "deshecho" not in rehecho
-    assert llamadas == [("POST", "/api/undo", {}), ("POST", "/api/redo", {})]
+    corto = {"params": {"detail": "diff"}}
+    assert llamadas == [("POST", "/api/undo", corto), ("POST", "/api/redo", corto)]
+    assert "solidos" not in deshecho and "solidos" not in rehecho
+    completo = json.loads(mcp_server.undo(detail="full"))  # la escena de siempre, a pedido
+    assert completo["deshecho"] == "Eliminar Caja «Motor»" and "solidos" in completo
+    assert llamadas[-1] == ("POST", "/api/undo", {})
