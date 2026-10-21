@@ -320,4 +320,6 @@ def test_medicion_30_lazos_eslabones_contra_simple():
         doc.undo()
     print("\n30 lazos (regenerate s, teselado s):", {k: tuple(round(x, 2) for x in v)
                                                    for k, v in tiempos.items()})
-    assert sum(tiempos["simple"]) < sum(tiempos["eslabones"]) < 30.0
+    # Tope holgado: con la PC cargada por otras suites el detallado midió 31 s (2026-10-21) y 30
+    # daba rojos falsos; lo que importa es el orden simple < eslabones y no un desastre.
+    assert sum(tiempos["simple"]) < sum(tiempos["eslabones"]) < 90.0
