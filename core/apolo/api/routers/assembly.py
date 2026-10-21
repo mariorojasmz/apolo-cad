@@ -8,13 +8,15 @@ Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cua
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from apolo.services import conexiones
+from apolo.services.errors import ServiceError
 from apolo.state import STATE_LOCK
 
-from ..common import _remove_owner_command, _state_or_error
+from ..common import _expand_ids, _remove_owner_command, _state_or_error
 from ..session import S
 from ..sims import (
     MARCHAS,
@@ -77,16 +79,28 @@ def delete_constraint(name: str) -> dict:
 
 class SoundnessIn(BaseModel):
     with_autodetect: bool = False  # superpone uniones detectadas por geometría (efímeras)
+    resumen: bool = False  # mcp-sin-friccion D1: conteos + lo que flota (services/conexiones.py)
 
 
 @router.get("/api/connectivity")
-def get_connectivity() -> dict:
-    """Uniones declaradas del documento: fijadores (A↔B) y anclajes a tierra."""
+def get_connectivity(
+    ids: str | None = None, kind: str | None = None,
+    resumen: str = Query("no", pattern="^(no|si|auto)$"),
+) -> dict:
+    """Uniones declaradas del documento: fijadores (A↔B) y anclajes a tierra. Sin parámetros,
+    todas (la UI). `ids` (CSV de piezas, grupos o comandos) y `kind` (perno, soldadura, pegado,
+    contacto o anclaje) filtran; `resumen=si` agrupa por raíz de patrón y `auto` lo hace con más
+    de `MAX_UNIONES` (mcp-sin-friccion D1/D2, `services/conexiones.py`)."""
+    tokens = [t.strip() for t in (ids or "").split(",") if t.strip()]
     with STATE_LOCK:
-        return {
-            "fasteners": list(S.doc.fasteners.values()),
-            "grounds": list(S.doc.grounds.values()),
-        }
+        try:
+            fijadores, anclajes = conexiones.filtrar(S.doc, tokens, kind, expand=_expand_ids)
+        except ServiceError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        if resumen == "si" or (resumen == "auto"
+                               and len(fijadores) + len(anclajes) > conexiones.MAX_UNIONES):
+            return conexiones.resumen_conexiones(S.doc, fijadores, anclajes)
+        return {"fasteners": fijadores, "grounds": anclajes}
 
 
 @router.post("/api/assembly/autodetect")
@@ -249,7 +263,7 @@ def assembly_soundness(body: SoundnessIn) -> dict:
                 "n_grounds": len(detected["grounds"]),
                 "n_contactos": len(detected["fasteners"]),
             }
-        return report
+        return conexiones.sujecion_corta(S.doc, report) if body.resumen else report
 
 
 @router.get("/api/assembly/dof")

@@ -719,15 +719,17 @@ def get_dof() -> str:
 
 
 @mcp.tool()
-def check_assembly(with_autodetect: bool = False) -> str:
+def check_assembly(with_autodetect: bool = False, detail: str = "summary") -> str:
     """Validación de ensamblaje por CONECTIVIDAD: ¿cada pieza tiene un camino de sujeción
     hasta el piso? Devuelve las piezas FLOTANTES (caerían bajo gravedad — eje suelto, rodillo
     sin sujetar, guarda sin tornillo, motor flotando) y las AISLADAS (sin ninguna unión).
     Determinista. Por defecto cuenta SOLO lo DECLARADO (como delivery_check); True superpone
     sin persistir los contactos geométricos para EXPLORAR ('si fijara todo lo que se toca, ¿qué
-    seguiría flotando?'). Declara uniones reales con run_command(type='ground'|'fasten')."""
-    payload = _api("POST", "/api/assembly/soundness", json={"with_autodetect": with_autodetect}).json()
-    return json.dumps(payload, ensure_ascii=False)
+    seguiría flotando?'). Declara uniones reales con run_command(type='ground'|'fasten').
+    `detail`: "summary" (def.) da los conteos y SÓLO lo que flota (`floating_detail` con nombre,
+    `isolated`); "full" suma los ids sujetos y las componentes conexas."""
+    body = {"with_autodetect": with_autodetect, "resumen": detail != "full"}
+    return json.dumps(_api("POST", "/api/assembly/soundness", json=body).json(), ensure_ascii=False)
 
 
 @mcp.tool()
@@ -741,10 +743,18 @@ def autodetect_connections() -> str:
 
 
 @mcp.tool()
-def get_connections() -> str:
+def get_connections(
+    ids: list[str] | None = None, kind: str | None = None, resumen: bool | None = None
+) -> str:
     """Uniones de ensamblaje DECLARADAS (persistidas) del documento: fijadores (a↔b) y anclajes a
-    tierra, con sus nombres (para borrarlas con delete_connection). Read-only."""
-    return json.dumps(_api("GET", "/api/connectivity").json(), ensure_ascii=False)
+    tierra, con sus nombres (para borrarlas con delete_connection). Read-only. Filtra con `ids`
+    (piezas, NOMBRES DE GRUPO o command_ids: las uniones donde participa alguna) y `kind` (perno |
+    soldadura | pegado | contacto | anclaje). Con más de 40 uniones responde el RESUMEN —conteos
+    por tipo y una fila por patrón {kind, a, b, n, ejemplo}—; `resumen=true` lo fuerza y
+    `resumen=false` trae la lista entera."""
+    params = {"resumen": {None: "auto", True: "si", False: "no"}[resumen],
+              **({"ids": ",".join(ids)} if ids else {}), **({"kind": kind} if kind else {})}
+    return json.dumps(_api("GET", "/api/connectivity", params=params).json(), ensure_ascii=False)
 
 
 @mcp.tool()

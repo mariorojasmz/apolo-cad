@@ -3489,7 +3489,8 @@
     "url": "http://127.0.0.1:8000/api/assembly/soundness",
     "query": [],
     "cuerpo": {
-     "with_autodetect": false
+     "with_autodetect": false,
+     "resumen": true
     },
     "cabeceras": {
      "accept": "*/*",
@@ -3522,7 +3523,42 @@
     "url": "http://127.0.0.1:8000/api/assembly/soundness",
     "query": [],
     "cuerpo": {
-     "with_autodetect": true
+     "with_autodetect": true,
+     "resumen": true
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "sujeción completa",
+  "tool": "check_assembly",
+  "args": {
+   "detail": "full"
+  },
+  "salida": [
+   {
+    "texto": "{\"flotantes\": [], \"aisladas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/assembly/soundness",
+    "query": [],
+    "cuerpo": {
+     "with_autodetect": false,
+     "resumen": false
     },
     "cabeceras": {
      "accept": "*/*",
@@ -3682,6 +3718,46 @@
   "args": {},
   "salida": [
    {
+    "texto": "{\"n_fijadores\": 57, \"n_anclajes\": 1, \"por_tipo\": {\"perno\": 38, \"contacto\": 19}, \"resumen\": [{\"kind\": \"perno\", \"patron\": \"r*_eje_larguero_my\", \"n\": 19, \"ejemplo\": {\"nombre\": \"r1_eje_larguero_my\", \"a\": \"c57_1\", \"b\": \"c9\", \"piezas\": [\"Eje\", \"Larguero (-Y)\"]}}], \"anclajes\": [{\"nombre\": \"g1\", \"pieza\": \"c1\"}], \"seguir\": \"la lista con nombres: get_connections(…, resumen=false)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/connectivity",
+    "query": [
+     [
+      "resumen",
+      "auto"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "conexiones filtradas",
+  "tool": "get_connections",
+  "args": {
+   "ids": [
+    "c1",
+    "Estructura"
+   ],
+   "kind": "perno",
+   "resumen": false
+  },
+  "salida": [
+   {
     "texto": "{\"grounds\": [{\"name\": \"g1\"}], \"fasteners\": []}"
    }
   ],
@@ -3690,7 +3766,60 @@
    {
     "metodo": "GET",
     "url": "http://127.0.0.1:8000/api/connectivity",
-    "query": [],
+    "query": [
+     [
+      "resumen",
+      "no"
+     ],
+     [
+      "ids",
+      "c1,Estructura"
+     ],
+     [
+      "kind",
+      "perno"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "conexiones en resumen",
+  "tool": "get_connections",
+  "args": {
+   "kind": "contacto",
+   "resumen": true
+  },
+  "salida": [
+   {
+    "texto": "{\"n_fijadores\": 57, \"n_anclajes\": 1, \"por_tipo\": {\"perno\": 38, \"contacto\": 19}, \"resumen\": [{\"kind\": \"perno\", \"patron\": \"r*_eje_larguero_my\", \"n\": 19, \"ejemplo\": {\"nombre\": \"r1_eje_larguero_my\", \"a\": \"c57_1\", \"b\": \"c9\", \"piezas\": [\"Eje\", \"Larguero (-Y)\"]}}], \"anclajes\": [{\"nombre\": \"g1\", \"pieza\": \"c1\"}], \"seguir\": \"la lista con nombres: get_connections(…, resumen=false)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/connectivity",
+    "query": [
+     [
+      "resumen",
+      "si"
+     ],
+     [
+      "kind",
+      "contacto"
+     ]
+    ],
     "cuerpo": null,
     "cabeceras": {
      "accept": "*/*",

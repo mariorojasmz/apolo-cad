@@ -1684,13 +1684,18 @@
  },
  {
   "name": "check_assembly",
-  "description": "Validación de ensamblaje por CONECTIVIDAD: ¿cada pieza tiene un camino de sujeción\nhasta el piso? Devuelve las piezas FLOTANTES (caerían bajo gravedad — eje suelto, rodillo\nsin sujetar, guarda sin tornillo, motor flotando) y las AISLADAS (sin ninguna unión).\nDeterminista. Por defecto cuenta SOLO lo DECLARADO (como delivery_check); True superpone\nsin persistir los contactos geométricos para EXPLORAR ('si fijara todo lo que se toca, ¿qué\nseguiría flotando?'). Declara uniones reales con run_command(type='ground'|'fasten').",
+  "description": "Validación de ensamblaje por CONECTIVIDAD: ¿cada pieza tiene un camino de sujeción\nhasta el piso? Devuelve las piezas FLOTANTES (caerían bajo gravedad — eje suelto, rodillo\nsin sujetar, guarda sin tornillo, motor flotando) y las AISLADAS (sin ninguna unión).\nDeterminista. Por defecto cuenta SOLO lo DECLARADO (como delivery_check); True superpone\nsin persistir los contactos geométricos para EXPLORAR ('si fijara todo lo que se toca, ¿qué\nseguiría flotando?'). Declara uniones reales con run_command(type='ground'|'fasten').\n`detail`: \"summary\" (def.) da los conteos y SÓLO lo que flota (`floating_detail` con nombre,\n`isolated`); \"full\" suma los ids sujetos y las componentes conexas.",
   "inputSchema": {
    "properties": {
     "with_autodetect": {
      "default": false,
      "title": "With Autodetect",
      "type": "boolean"
+    },
+    "detail": {
+     "default": "summary",
+     "title": "Detail",
+     "type": "string"
     }
    },
    "title": "check_assemblyArguments",
@@ -1734,9 +1739,49 @@
  },
  {
   "name": "get_connections",
-  "description": "Uniones de ensamblaje DECLARADAS (persistidas) del documento: fijadores (a↔b) y anclajes a\ntierra, con sus nombres (para borrarlas con delete_connection). Read-only.",
+  "description": "Uniones de ensamblaje DECLARADAS (persistidas) del documento: fijadores (a↔b) y anclajes a\ntierra, con sus nombres (para borrarlas con delete_connection). Read-only. Filtra con `ids`\n(piezas, NOMBRES DE GRUPO o command_ids: las uniones donde participa alguna) y `kind` (perno |\nsoldadura | pegado | contacto | anclaje). Con más de 40 uniones responde el RESUMEN —conteos\npor tipo y una fila por patrón {kind, a, b, n, ejemplo}—; `resumen=true` lo fuerza y\n`resumen=false` trae la lista entera.",
   "inputSchema": {
-   "properties": {},
+   "properties": {
+    "ids": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Ids"
+    },
+    "kind": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Kind"
+    },
+    "resumen": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Resumen"
+    }
+   },
    "title": "get_connectionsArguments",
    "type": "object"
   },
