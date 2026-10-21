@@ -239,6 +239,10 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   edita a mano. Las muestras de color muestran el albedo. Relieves procedurales con UV de caja
   en mm (`relieve.ts`) y texturas de color y brillo (`textura.ts`; el cepillado pasa a
   `MeshPhysicalMaterial` por la anisotropía). [visor-realista](../docs/plans/visor-realista.md)
+- Una pieza con `feat.zonas` (la seta roja sobre amarillo) es UNA malla con `geometry.groups` y
+  un ARREGLO de materiales (`viewport/zonas.ts`; el albedo de cada zona ya viene resuelto): todo
+  lo que lea o clone `mesh.material` acepta un arreglo (`materialesDe`, `liberarMaterial`).
+  [seta-de-emergencia](../docs/plans/seta-de-emergencia.md)
 - Calidad del visor (`calidad.ts`, store propia; el botón vive en `BarraVista`): «alta» = estudio
   procedural como IBL (`estudio.ts`) + GTAO + SMAA SIN MSAA (`calidadVista.ts`); «normal» =
   RoomEnvironment + MSAA ×4. El pipeline la sigue en caliente. El GTAO hace una SEGUNDA pasada de

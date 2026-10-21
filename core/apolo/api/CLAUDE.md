@@ -149,6 +149,10 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   lo no re-ejecutado). `scene_payload(known=…)` manda `same: true` + metadatos volátiles
   (id/rev/name/color/visible/group/is_guide/acabado/albedo) de lo que el cliente ya tiene (`POST /api/scene/delta`).
   Un metadato nuevo que el viewport deba ver va también en la entrada `same`: no sube el rev.
+- Zonas de acabado: la pieza de un componente con zonas lleva `zonas: [{acabado, albedo, desde,
+  hasta}]` (triángulos de SU malla o de la de su definición; también en `same`); las cachés
+  teselan con `componente` y `_sin_zonas` saca los rangos con nombre de la malla. Sin zonas,
+  byte-idéntico (`tests/test_seta_payload.py`). [seta-de-emergencia](../../../docs/plans/seta-de-emergencia.md)
 - `SCENE_EPOCH` (uuid por proceso): si el cliente trae otro, se manda el payload COMPLETO (tras un
   restart los revs renacen en 1 y colisionarían). Cliente: [ui](../../../ui/CLAUDE.md).
   [V6.2](../../../docs/plans/V6.2-rendimiento.md) · [V6.2e](../../../docs/plans/V6.2e-fixes-revision.md)

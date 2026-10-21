@@ -3,6 +3,7 @@ import type { EffectComposer } from "three/examples/jsm/postprocessing/EffectCom
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass.js";
 import type { Calidad } from "./calidad";
+import { materialesDe } from "./zonas";
 
 /* Los pases de la calidad «alta» del visor (video-realista D1) y el interruptor que los prende:
    - GTAO (oclusión ambiental): oscurece rincones y encuentros entre piezas. Hace una SEGUNDA
@@ -103,7 +104,7 @@ export function crearCalidadVista(
     gtao.setSceneClipBox(caja.expandByScalar(radio * 2));
     // planos de sección: los mismos que llevan los materiales de las piezas
     const malla = maquina.children.find((o) => (o as THREE.Mesh).isMesh) as THREE.Mesh | undefined;
-    const planos = (malla?.material as THREE.Material | undefined)?.clippingPlanes ?? null;
+    const planos = materialesDe(malla?.material)[0]?.clippingPlanes ?? null; // con zonas, un arreglo
     if (gtao.normalMaterial.clippingPlanes !== planos) gtao.normalMaterial.clippingPlanes = planos;
   };
 

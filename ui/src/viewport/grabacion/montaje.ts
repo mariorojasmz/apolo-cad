@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { materialesDe } from "../zonas";
 import { intensidadResalte } from "./planGuion";
 
 /* El montaje del video en el visor (plan video-realista, D5): las piezas de la máquina terminada
@@ -39,13 +40,14 @@ export function crearMontaje(meshes: Map<string, THREE.Mesh>, ids: readonly stri
     const m = meshes.get(id);
     if (m && m.visible) mallas.set(id, m);
   }
-  const resaltes = new Map<string, { n0: number; original: THREE.Material; copia: Material }>();
+  // una pieza con zonas de acabado lleva un arreglo de materiales: se resalta cada uno
+  const resaltes = new Map<string, { n0: number; original: THREE.Material | THREE.Material[]; copias: Material[] }>();
   const apagar = (id: string) => {
     const r = resaltes.get(id);
     const m = mallas.get(id);
     if (!r || !m) return;
     m.material = r.original;
-    r.copia.dispose();
+    for (const c of r.copias) c.dispose();
     resaltes.delete(id);
   };
   return {
@@ -59,15 +61,15 @@ export function crearMontaje(meshes: Map<string, THREE.Mesh>, ids: readonly stri
         const m = mallas.get(id);
         if (!m) continue;
         m.visible = true;
-        if (resaltes.has(id) || Array.isArray(m.material) || !m.material) continue;
-        const original = m.material as THREE.Material;
-        const copia = original.clone() as Material;
-        if (!copia.emissive) {
-          copia.dispose();
+        if (resaltes.has(id) || !m.material) continue;
+        const original = m.material;
+        const copias = materialesDe(original).map((x) => x.clone() as Material);
+        if (!copias.length || copias.some((c) => !c.emissive)) {
+          for (const c of copias) c.dispose();
           continue; // un material sin emisivo (líneas) no se resalta
         }
-        m.material = copia;
-        resaltes.set(id, { n0: n, original, copia });
+        m.material = Array.isArray(original) ? copias : copias[0];
+        resaltes.set(id, { n0: n, original, copias });
       }
     },
     completar: () => {
@@ -81,8 +83,10 @@ export function crearMontaje(meshes: Map<string, THREE.Mesh>, ids: readonly stri
           apagar(id);
           continue;
         }
-        r.copia.emissive!.copy(ACENTO);
-        r.copia.emissiveIntensity = BRILLO_RESALTE * k;
+        for (const c of r.copias) {
+          c.emissive!.copy(ACENTO);
+          c.emissiveIntensity = BRILLO_RESALTE * k;
+        }
       }
     },
     caja: () => {

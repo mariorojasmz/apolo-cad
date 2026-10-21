@@ -1,4 +1,5 @@
 import type * as THREE from "three";
+import { liberarMaterial } from "./zonas";
 
 /* TINTE de FALLO de guardado: una pieza cuyo guardado FALLÓ (y se reintenta en segundo plano) se
    tiñe de rojizo hasta que persiste, para avisar que ese cambio aún NO está en disco. Durante el
@@ -15,14 +16,18 @@ export function crearTinteBloqueo(
     const want = new Set<THREE.Mesh>();
     for (const id of blockedRef.current) { const mm = meshes.get(id) as THREE.Mesh | undefined; if (mm) want.add(mm); }
     for (const [mesh, orig] of tinted) { // restaura las que ya no están bloqueadas
-      if (!want.has(mesh)) { (mesh.material as THREE.Material).dispose?.(); mesh.material = orig; tinted.delete(mesh); }
+      if (!want.has(mesh)) { liberarMaterial(mesh.material); mesh.material = orig; tinted.delete(mesh); }
     }
-    for (const mesh of want) { // tinta las nuevas (guardado fallido)
-      if (tinted.has(mesh) || Array.isArray(mesh.material) || !mesh.material) continue;
-      const orig = mesh.material;
-      const clone = (orig as THREE.MeshStandardMaterial).clone();
+    const tenir = (m: THREE.Material) => {
+      const clone = (m as THREE.MeshStandardMaterial).clone();
       if (clone.emissive) { clone.emissive.setHex(0x8a2417); clone.emissiveIntensity = 1; }
-      mesh.material = clone; tinted.set(mesh, orig);
+      return clone;
+    };
+    for (const mesh of want) { // tinta las nuevas (guardado fallido); con zonas, cada material
+      if (tinted.has(mesh) || !mesh.material) continue;
+      const orig = mesh.material;
+      mesh.material = Array.isArray(orig) ? orig.map(tenir) : tenir(orig);
+      tinted.set(mesh, orig);
     }
   };
   return applyBlockedTint;

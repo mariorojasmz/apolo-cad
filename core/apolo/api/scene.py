@@ -7,6 +7,11 @@ documento (variables, grupos, salud del autosave), las cachés por IDENTIDAD del
 `_open_briefing`) y el color por pieza (`_feature_colors`, el mismo del viewport). Es transporte,
 no dominio (D9): lee `S` y no toma locks — el llamador sostiene `STATE_LOCK`.
 
+Zonas de acabado (plan seta-de-emergencia, D2/D3): una pieza de un componente con zonas que
+conserva la forma del builder lleva `zonas: [{acabado, albedo, desde, hasta}]` (índices de
+triángulo de su malla o de la de su definición), también en la entrada `same`; una pieza sin
+zonas sale byte a byte como antes.
+
 `main` re-exporta por IDENTIDAD lo que usan los tests (`scene_payload`, `_GEOM_REVS`,
 `_DEF_MESH_CACHE`, `_definition_mesh`, `_cached_render`, `_open_briefing`): las cachés se
 mutan en sitio, nunca se reasignan.
@@ -77,7 +82,20 @@ def document_payload() -> dict:
 _DEF_MESH_CACHE: dict[str, dict] = {}
 
 
-def _definition_mesh(key: str) -> dict | None:
+def _zona_por_cara(componente: str | None, shape) -> tuple[str, ...] | None:
+    """Zona de cada cara si la pieza es de un componente con zonas y conserva la forma del
+    builder (seta-de-emergencia D1); None en todo otro caso (lo de siempre)."""
+    if not componente:
+        return None
+    from apolo.library.zonas import zona_por_cara
+
+    return zona_por_cara(componente, shape)
+
+
+def _definition_mesh(key: str, componente: str | None = None) -> dict | None:
+    """Malla de la definición `key`. Con `componente` (el de las piezas que la instancian: una
+    definición es de UN componente) los triángulos van agrupados por zona y el dict lleva las
+    `zonas` de `mesh_payload`, que el payload saca antes de mandarlo (`_sin_zonas`)."""
     from apolo.commands.registry import DEFINITIONS, touch_definition
 
     if key not in DEFINITIONS:
@@ -86,8 +104,40 @@ def _definition_mesh(key: str) -> dict | None:
     if key not in _DEF_MESH_CACHE:
         if len(_DEF_MESH_CACHE) > 128:
             _DEF_MESH_CACHE.clear()
-        _DEF_MESH_CACHE[key] = mesh_payload(DEFINITIONS[key])
+        shape = DEFINITIONS[key]
+        _DEF_MESH_CACHE[key] = mesh_payload(shape,
+                                            zona_por_cara=_zona_por_cara(componente, shape))
     return _DEF_MESH_CACHE[key]
+
+
+def _sin_zonas(mesh: dict) -> dict:
+    """La malla tal como viaja: sin los rangos por nombre de zona (van en la pieza, con su
+    apariencia). Una malla sin zonas es el MISMO objeto (payload byte-idéntico)."""
+    if "zonas" not in mesh:
+        return mesh
+    return {k: v for k, v in mesh.items() if k != "zonas"}
+
+
+def _zonas_pieza(rangos: list[dict] | None, aps: dict[str, dict] | None) -> list[dict] | None:
+    """`zonas` de la entrada de una pieza (seta-de-emergencia D2): `[{acabado, albedo, desde,
+    hasta}]` en índices de TRIÁNGULO de su malla (o de la de su definición), contiguos y
+    cubriendo todos. None si la malla no se partió o la pieza no tiene apariencias de zona."""
+    if not rangos or not aps or any(r["zona"] not in aps for r in rangos):
+        return None
+    return [{"acabado": aps[r["zona"]]["acabado"], "albedo": aps[r["zona"]]["color"],
+             "desde": r["desde"], "hasta": r["hasta"]} for r in rangos]
+
+
+def _rangos_de(feat) -> list[dict] | None:
+    """Rangos de zona de la malla que el payload completo le da a `feat` (la de su definición
+    o la propia): los mismos que ya tiene el cliente de una entrada `same` (cachés por
+    identidad; sólo re-tesela si se desalojaron)."""
+    malla = None
+    if feat.mesh_key and feat.matrix:
+        malla = _definition_mesh(feat.mesh_key, feat.component)
+    if malla is None:
+        malla = _cached_render(feat.shape, want_mesh=True, componente=feat.component)["mesh"]
+    return malla.get("zonas")
 
 
 # Caché de datos de render por IDENTIDAD del shape OCCT (mesh/volumen/bbox). El
@@ -98,7 +148,9 @@ _SHAPE_CACHE: dict[int, tuple] = {}
 _SHAPE_CACHE_CAP = 2048
 
 
-def _cached_render(shape, want_mesh: bool) -> dict:
+def _cached_render(shape, want_mesh: bool, componente: str | None = None) -> dict:
+    """Volumen, bbox y (con `want_mesh`) malla del shape, por identidad. `componente` = la ref
+    de catálogo de la pieza: si tiene zonas, la malla las lleva (como `_definition_mesh`)."""
     key = id(shape)
     hit = _SHAPE_CACHE.get(key)
     if hit is None or hit[0] is not shape:
@@ -108,7 +160,7 @@ def _cached_render(shape, want_mesh: bool) -> dict:
         _SHAPE_CACHE[key] = hit
     data = hit[1]
     if want_mesh and "mesh" not in data:
-        data["mesh"] = mesh_payload(shape)
+        data["mesh"] = mesh_payload(shape, zona_por_cara=_zona_por_cara(componente, shape))
     return data
 
 
@@ -142,7 +194,7 @@ def scene_payload(known: dict | None = None) -> dict:
     tocar geometría) y las definiciones ya conocidas se omiten. ``known=None`` (default) =
     payload COMPLETO idéntico al de siempre + el campo ``rev`` por feature (aditivo)."""
     from apolo.kernel.matrix import to_column_major16
-    from apolo.services.apariencia import apariencias_documento
+    from apolo.services.apariencia import apariencias_documento, zonas_documento
 
     known_revs = (known or {}).get("revs") or {}
     known_defs = set((known or {}).get("defs") or [])
@@ -151,28 +203,39 @@ def scene_payload(known: dict | None = None) -> dict:
     definitions: dict[str, dict] = {}
     cmd_types = {c["id"]: c["type"] for c in S.doc.commands}
     # acabado (tabla D5 de visor-realista) y albedo por pieza: metadato VOLÁTIL (set_material y
-    # set_color no cambian el rev) → viaja también en las entradas `same`
+    # set_color no cambian el rev) → viaja también en las entradas `same`. Igual el de cada zona
+    # de acabado (seta-de-emergencia D2/D3), sólo en las piezas que las tienen.
     aps = apariencias_documento(S.doc)
+    aps_zonas = zonas_documento(S.doc)
     live: set[str] = set()
     for i, feat in enumerate(S.doc.scene.values()):
         live.add(feat.id)
         rev = _geom_rev(feat.id, feat.shape)
         color = S.doc.colors.get(feat.id) or PALETTE[i % len(PALETTE)]
         ap = aps[feat.id]
+        con_zonas = feat.id in aps_zonas
+        def_mesh = None
         if known_revs.get(feat.id) == rev:
             # geometría sin cambios: el cliente conserva su malla/bbox/volumen (los mergea de
             # su estado anterior). Solo mandamos id + rev + señal + metadatos VOLÁTILES (los
-            # que cambian sin tocar geometría). Ni teselar ni tocar la definición.
-            features.append({
+            # que cambian sin tocar geometría). Ni teselar ni tocar la definición (salvo una
+            # pieza con zonas: sus rangos salen de la malla en caché).
+            entry = {
                 "id": feat.id, "rev": rev, "same": True,
                 "name": feat.name, "color": color,
                 "visible": feat.visible, "group": feat.group,
                 "is_guide": feat.is_guide,  # V6.2e Fix 7: toggle de guía es metadato (rev estable)
                 "acabado": ap["acabado"], "albedo": ap["color"],
-            })
+            }
+            if con_zonas:
+                zonas = _zonas_pieza(_rangos_de(feat), aps_zonas[feat.id])
+                if zonas is not None:
+                    entry["zonas"] = zonas
+            features.append(entry)
             continue
-        def_mesh = _definition_mesh(feat.mesh_key) if feat.mesh_key and feat.matrix else None
-        rd = _cached_render(feat.shape, want_mesh=def_mesh is None)
+        if feat.mesh_key and feat.matrix:
+            def_mesh = _definition_mesh(feat.mesh_key, feat.component)
+        rd = _cached_render(feat.shape, want_mesh=def_mesh is None, componente=feat.component)
         entry = {
             "id": feat.id,
             "name": feat.name,
@@ -197,9 +260,15 @@ def scene_payload(known: dict | None = None) -> dict:
             entry["mesh_key"] = feat.mesh_key
             entry["matrix"] = to_column_major16(feat.matrix)
             if feat.mesh_key not in known_defs:  # la definición solo si el cliente no la tiene
-                definitions[feat.mesh_key] = def_mesh
+                definitions[feat.mesh_key] = _sin_zonas(def_mesh)
+            malla = def_mesh
         else:
-            entry["mesh"] = rd["mesh"]
+            malla = rd["mesh"]
+            entry["mesh"] = _sin_zonas(malla)
+        if con_zonas:
+            zonas = _zonas_pieza(malla.get("zonas"), aps_zonas[feat.id])
+            if zonas is not None:
+                entry["zonas"] = zonas
         features.append(entry)
     # podar revs de features que ya no existen (evita crecer sin límite entre proyectos)
     for gone in [f for f in _GEOM_REVS if f not in live]:

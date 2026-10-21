@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato del 2026-10-20 (D1–D7 aprobadas por delegación de Mario); F0 medida y F1 implementada (zonas por índice de cara en library + kernel, ESTOP-40 y ESTOP-40-CAJA, epoch 6); faltan F2 (payload y visor), F3 (VTK y GLB) y F4
+nota: contrato del 2026-10-20 (D1–D7 aprobadas por delegación de Mario); F0 medida, F1 implementada (zonas por índice de cara en library + kernel, ESTOP-40 y ESTOP-40-CAJA, epoch 6) y F2 implementada (zonas en el payload de escena y grupos de material en el visor, D3); faltan F3 (VTK y GLB) y F4
 descripcion: La parada de emergencia del catálogo se ve como una de verdad —seta roja sobre fondo amarillo—, y una pieza comprada puede tener partes de distinto color sin dejar de ser UNA línea de la BOM
 ---
 
@@ -223,3 +223,57 @@ validada por número de caras y volumen.
 - **Para F2.** El payload llama a `zona_por_cara(feat.component, shape)` y pasa la tupla a
   `mesh_payload`. Ojo: las piezas instanciadas mandan la malla de la DEFINICIÓN (mismo orden
   de caras). `Zona.fijo` decide si el color asignado pinta.
+
+### F2 (2026-10-20): zonas en el payload de escena y en el visor
+
+- **Apariencia (D3).** `library/apariencia.apariencias_de_zonas(zonas, asignado, color_paleta)`
+  (pura) da `{zona: apariencia}`: una zona `fijo` ignora el color asignado; las demás lo toman
+  sólo si su acabado es pintable, como una pieza entera. `services/apariencia.zonas_documento(doc)`
+  la aplica a las piezas cuyo componente declara zonas (las demás no aparecen).
+- **Payload (D2, `api/scene.py`).**
+  - `_cached_render(shape, want_mesh, componente)` y `_definition_mesh(key, componente)` teselan
+    con `zona_por_cara` (la definición es de UN componente: sus instancias comparten malla y
+    rangos).
+  - La entrada de la pieza suma `zonas: [{acabado, albedo, desde, hasta}]` en índices de
+    triángulo de la malla que recibe (la propia o la de su definición).
+  - Los rangos con nombre (`mesh.zonas` de F1) no viajan: `_sin_zonas` los saca. Una malla sin
+    zonas es el MISMO objeto.
+  - **Decisión**: la entrada `same` del delta también lleva `zonas`. El color cambia sin subir el
+    rev; los rangos salen de la malla en caché (`_rangos_de`).
+  - Una pieza taladrada no calza con la huella: sale sin `zonas`, de un solo acabado.
+- **Visor.**
+  - `viewport/zonas.ts`: `gruposDeZonas` valida que los rangos empiecen en 0, sean contiguos y
+    no vacíos, y cubran la malla; si no, la pieza va con UN material. Con un arreglo de
+    materiales, un triángulo sin grupo no se dibujaría.
+  - Los grupos van en vértices (×3): la geometría del visor es no indexada.
+  - `meshes.ts`: un material por zona, con la misma fábrica que una pieza entera
+    (`featDeZona`), así cada zona lleva el relieve y la textura procedural de su acabado. El
+    boceto-guía sigue con un material. Las instancias ponen los grupos en la geometría
+    COMPARTIDA; los materiales son de cada malla.
+  - `applyAppearance` reusa los grupos y `appearanceSig` suma la apariencia de cada zona (sin
+    zonas, la firma de siempre).
+  - `mergeSceneDelta` (`zonasDelDelta`): en una `same`, los rangos son los de la geometría que
+    el visor YA tiene y la apariencia, la del delta.
+  - **Decisión**: lo que trataba el material como uno solo ahora acepta un arreglo:
+    - el resalte del montaje de la grabación (`grabacion/montaje.ts`), que antes se saltaba los
+      arreglos y la seta habría entrado sin resalte;
+    - el tinte de guardado fallido;
+    - los planos de sección del GTAO (`calidadVista.ts`).
+
+    La sombra de contacto, el GTAO y la grabación no cambian: los primeros dibujan con un
+    material de reemplazo, que cubre todos los grupos.
+- **Tests.**
+  - `tests/test_seta_payload.py` (6): zonas que cubren la malla, instancias que comparten
+    definición y rangos, pieza sin zonas byte a byte igual (con la maquinaria apagada da el
+    mismo texto), `set_color` no pinta lo fijo (entrada `same`), `apariencias_de_zonas` pura,
+    pieza taladrada sin zonas.
+  - `ui/src/viewport/zonas.test.ts` (11): los grupos cubren todos los índices; un rango malo
+    se descarta; el material de cada grupo es el de su zona (color, rugosidad y metalicidad);
+    la textura por zona; lo fijo no se repinta; repintado en sitio por delta; instancias con la
+    geometría compartida; pieza sin zonas con un solo material y la firma de siempre.
+- **Verificación en el navegador.** API de prueba en :8100 sobre una copia de la base, con el
+  proyecto «seta-f2-prueba»: puerta + ESTOP-40 + ESTOP-40-CAJA.
+  - Calidad alta: la seta roja sobre la leyenda amarilla y la caja amarilla.
+  - Tras `set_color` azul a las dos piezas, la caja se repinta en sitio, sin reconstruir la
+    malla (`builds` = 3). La seta, la leyenda y el collar no cambian.
+  - Calidad normal: igual. Sin errores en la consola.

@@ -273,6 +273,19 @@ def apariencias_escena(scene: dict, colores: dict | None = None, *,
     return out
 
 
+def apariencias_de_zonas(zonas, asignado: str | None, color_paleta: str) -> dict[str, dict]:
+    """{zona: apariencia} de una pieza con zonas de acabado (plan seta-de-emergencia, D3).
+    `zonas` = las `Zona` del componente; `asignado` = el color que el usuario dio a la pieza
+    (None si no tiene); `color_paleta` = el de la paleta por su índice en la escena. Una zona
+    `fijo` (color de norma: la seta roja, el fondo amarillo) ignora el asignado; las demás lo
+    toman sólo si su acabado es `pintable`, como una pieza entera."""
+    out = {}
+    for z in zonas:
+        pinta = bool(asignado) and not z.fijo
+        out[z.nombre] = apariencia(z.acabado, asignado if pinta else color_paleta, asignado=pinta)
+    return out
+
+
 def tabla_ui() -> dict:
     """La tabla tal como la lee el visor (`ui/src/viewport/acabados.json`)."""
     return {"por_defecto": POR_DEFECTO, "tipos_relieve": list(TIPOS_RELIEVE),

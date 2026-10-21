@@ -5,6 +5,7 @@
  * las marca, plan modo-visor D8). Salió de `store.ts` para hacer lugar bajo su trinquete (D12).
  */
 import type { FeatureOut, SceneOut } from "../types";
+import { zonasDelDelta } from "../viewport/zonas";
 
 /** Reconstruye una SceneOut COMPLETA a partir de un delta (V6.2b): las features `same`
  * heredan la geometría (mesh/bbox/volumen/mesh_key/matrix) de la escena anterior y solo
@@ -18,10 +19,13 @@ export function mergeSceneDelta(prev: SceneOut, delta: SceneOut): SceneOut {
     const old = prevById.get(f.id);
     if (!old) continue; // `same` sin prev (no debería pasar): descartar (evita feature sin malla)
     // conserva la geometría anterior; sobrescribe solo lo VOLÁTIL que trae el delta
+    const { zonas: _viejas, ...geometria } = old;
+    const zonas = zonasDelDelta(old.zonas, f.zonas); // rangos de la geometría vieja, apariencia nueva
     features.push({
-      ...old, rev: f.rev, name: f.name, color: f.color,
+      ...geometria, rev: f.rev, name: f.name, color: f.color,
       visible: f.visible, group: f.group, is_guide: f.is_guide, // V6.2e Fix 7: guía es metadato
       acabado: f.acabado, albedo: f.albedo, // material y color: metadatos (no cambian el rev)
+      ...(zonas ? { zonas } : {}), // sin zonas, la pieza de siempre (sin la clave)
     });
   }
   const allDefs = { ...prev.definitions, ...delta.definitions };

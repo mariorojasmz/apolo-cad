@@ -23,6 +23,17 @@ export interface FeatureOut {
   albedo?: string;  // color con que se pinta: el asignado, el propio del acabado o el de paleta
   rev?: number;  // revisión de GEOMETRÍA (V6.2b): sube al cambiar el shape; estable si no
   same?: boolean;  // delta: el cliente ya tiene esta geometría (se mergea la anterior)
+  zonas?: ZonaOut[];  // zonas de acabado (seta-de-emergencia D2): sólo las piezas que las tienen
+}
+
+/** Una zona de acabado de una pieza: su apariencia (resuelta en el servidor: una zona de color
+ * de norma no toma el color asignado) y su rango `[desde, hasta)` en índices de TRIÁNGULO de
+ * la malla de la pieza o de su definición. Las zonas de una pieza son contiguas y la cubren. */
+export interface ZonaOut {
+  acabado: string;
+  albedo: string;
+  desde: number;
+  hasta: number;
 }
 
 /* Masa de una pieza (`GET /api/mass-properties?ids=`): una de catálogo pesa por su ficha
