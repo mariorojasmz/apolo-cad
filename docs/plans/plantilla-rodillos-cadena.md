@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F4 mergeadas y re-verificadas por el revisor ciego el 2026-10-21 (sin ALTA); F5 (pies niveladores, v3) implementada en rama, sin mergear; 4 preguntas a Mario
+nota: F0–F5 mergeadas a main el 2026-10-21 (create_roller_conveyor v3, re-verificada por el revisor ciego sin ALTA); quedan las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
