@@ -74,6 +74,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-20 | V8.3 | F0 | S | 18 | 270 | medición: inventario del catálogo, stepper prototipo, cota de la laptop |
 | 2026-10-20 | V8.3 | F1 | M | 45 | 352 | compilador ST → Python seguro, runtime de scan, 174 tests |
 | 2026-10-20 | video-realista | F3 | M | 155 | 539 | guion en el navegador + Edge sin ventana + encuadre pedido a mitad de fase; grabó dos videos de 65–75 s |
+| 2026-10-20 | V8.3 | F2 | M | 40 | 398 | modelos de dispositivo + catálogo eléctrico completo, 102 tests |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
