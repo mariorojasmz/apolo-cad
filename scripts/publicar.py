@@ -24,6 +24,21 @@ video-tienda-pulido). Si a la API le falta ODA File Converter, `guion` y `genera
 empezar y el paquete sale sin DWG (D5). `-B`: un script que importa `apolo` escribe `.pyc` y la API con `--reload` se recarga y
 blanquea el documento en memoria; este script lo desactiva igual al arrancar. La lógica vive en
 `apolo.publicacion.flujo`; aquí sólo quedan los argumentos. Sale con 2 si se niega o falla.
+
+Un tercer paso sube a la tienda (apolocad.com) el paquete que dejó `generar` y lo publica, sin
+navegador (F6 del plan):
+
+    $env:APOLO_TIENDA_LLAVE = 'apolo_pub_...'   # Mi cuenta → Llaves de publicación
+    .\.venv\Scripts\python.exe -B scripts\publicar.py subir --project 38
+        [--slug S] [--version V] [--tienda https://apolocad.com] [--borrador] [--ensayo]
+
+La llave sale SÓLO de `APOLO_TIENDA_LLAVE` (como argumento quedaría en el historial); para que
+quede en las consolas nuevas: `[Environment]::SetEnvironmentVariable('APOLO_TIENDA_LLAVE',
+'apolo_pub_...','User')`. Nunca se imprime entera. `--project` busca el slug por el nombre del
+proyecto en la API sin abrirlo; con `--slug` no hace falta la API. Sin `--version`, la última
+versión generada. `--tienda` (o `APOLO_TIENDA_URL`) cambia la tienda; `--borrador` importa sin
+publicar; `--ensayo` sólo pide la revisión e imprime el plan. La lógica, en
+`apolo.publicacion.tienda`.
 """
 
 from __future__ import annotations
@@ -79,7 +94,47 @@ def _parser() -> argparse.ArgumentParser:
     gen.add_argument("--nivel", choices=("rapido", "maximo"), default="rapido",
                      help="con --render navegador: rapido (el visor en calidad alta) o maximo "
                           "(trazado de rayos por cuadro: horas por video, para correr de noche)")
+    sube = sub.add_parser("subir", help="sube el paquete generado a la tienda y lo publica "
+                                         "(llave en APOLO_TIENDA_LLAVE)")
+    sube.add_argument("--project", type=int, default=None,
+                      help="id del proyecto en Apolo (para el slug; sobra con --slug)")
+    sube.add_argument("--url", default="http://127.0.0.1:8000", help="la API de Apolo")
+    sube.add_argument("--slug", default=None, help="carpeta de la publicación")
+    sube.add_argument("--version", default=None,
+                      help="versión a subir, X.Y.Z (por defecto, la última generada)")
+    sube.add_argument("--tienda", default=None,
+                      help="la tienda (por defecto APOLO_TIENDA_URL o https://apolocad.com)")
+    sube.add_argument("--borrador", action="store_true", help="importa sin publicar")
+    sube.add_argument("--ensayo", action="store_true",
+                      help="sólo la revisión de la tienda y el plan: no sube nada")
     return ap
+
+
+def _subir(args, cliente=None) -> int:
+    """`publicar subir`: la llave y la tienda antes de tocar la red; el slug, de --slug o del
+    nombre del proyecto en la API."""
+    import httpx
+
+    from apolo import paths
+    from apolo.publicacion import tienda
+    from apolo.publicacion.paquete import PublicacionError
+
+    try:
+        llave = tienda.llave_del_entorno()
+        url = tienda.url_de_la_tienda(args.tienda)
+        slug = args.slug
+        if slug is None:
+            if args.project is None:
+                raise PublicacionError("Pasa --project (o --slug) para saber qué paquete subir.")
+            with httpx.Client(base_url=args.url, timeout=30.0) as api:
+                slug = tienda.slug_de_proyecto(api, args.project)
+        carpeta = tienda.carpeta_publicada(paths.publicaciones_dir(), slug, args.version)
+        tienda.subir(carpeta, tienda=url, llave=llave, borrador=args.borrador,
+                     ensayo=args.ensayo, cliente=cliente)
+    except PublicacionError as exc:
+        print(f"\n{exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 def _escenario(ruta: str | None) -> dict | None:
@@ -100,11 +155,14 @@ def _escenario(ruta: str | None) -> dict | None:
 
 
 def main(argv: list[str] | None = None, cliente=None) -> int:
-    """`cliente`: un httpx.Client ya apuntado a la API (los tests pasan un TestClient)."""
+    """`cliente`: un httpx.Client ya apuntado a la API (los tests pasan un TestClient); en
+    `subir`, el que habla con la tienda."""
     for flujo_ in (sys.stdout, sys.stderr):
         with contextlib.suppress(AttributeError, ValueError):
             flujo_.reconfigure(encoding="utf-8", errors="replace")  # consola cp1252 de Windows
     args = _parser().parse_args(argv)
+    if args.paso == "subir":
+        return _subir(args, cliente=cliente)
     import httpx
 
     from apolo.media.codificar import FfmpegNoEncontrado

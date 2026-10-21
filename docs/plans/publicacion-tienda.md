@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1–F4 en main; piloto lista (proyecto 2, revisión 4, VERDE con gravedad); F5 corrida el 2026-10-10 (video de 75 s y zips; a Mario le gustó); el pulido va en video-tienda-pulido y falta la música de Mario; F0 (resto) espera saldo; preguntas de tienda, licencias e idioma sin contestar
+nota: F1–F4 en main; piloto lista (proyecto 2, revisión 4, VERDE con gravedad); F5 corrida el 2026-10-10 (video de 75 s y zips; a Mario le gustó); el pulido va en video-tienda-pulido y falta la música de Mario; F6 (`publicar subir`) implementada contra una tienda falsa: falta la primera subida real a apolocad.com con una llave de Mario; F0 (resto) espera saldo; preguntas de licencias e idioma sin contestar
 descripcion: Una máquina terminada sale de Apolo como paquete listo para la tienda (gratis y completo) y con un video MP4 de cómo se construyó, con texto y música
 ---
 
@@ -274,11 +274,43 @@ que no pisa la primera.
 - Las reglas durables van al CLAUDE.md que corresponda; se actualizan los conteos y el backlog
   (sale el MP4).
 
+**F6 — Subir a la tienda** (`publicacion/tienda.py` + `scripts/publicar.py` · S · depende de
+F4 y de la autenticación por llave de la tienda). Mario eligió plataforma (D9): su propia
+tienda, apolocad.com. El adaptador es un tercer subcomando, sin navegador:
+
+```powershell
+$env:APOLO_TIENDA_LLAVE = 'apolo_pub_...'   # tienda: Mi cuenta → Llaves de publicación
+.\.venv\Scripts\python.exe -B scripts\publicar.py subir --project 38 [--slug S] [--version V] [--tienda URL] [--borrador] [--ensayo]
+```
+
+- La llave sale SÓLO de `APOLO_TIENDA_LLAVE` (un argumento quedaría en el historial) y nunca se
+  imprime: en un error, sus 12 primeros caracteres. `--tienda` o `APOLO_TIENDA_URL`; por defecto
+  `https://apolocad.com`. Sin `--version`, la última versión generada (con `ficha.json`).
+  `--project` lee el nombre en `GET /api/projects` (sin abrirlo: la UI no cambia); con `--slug`
+  no hace falta la API.
+- Contrato (todo con `Authorization: Bearer <llave>`; errores `{error, errores?, campos?}`, que se
+  muestran tal cual):
+  1. `POST /api/maquina/importacion/revision {ficha, nombres}` → `plan {archivos, ignorados,
+     faltan, errores}`. Con errores, o sin `miniatura` o `paquete_gratis`, no se sube nada.
+     `nombres` son los archivos de la raíz de la carpeta con tipo aceptado (png, jpg, webp, mp4,
+     glb, zip); ficha.yaml, guion.json, generacion.json y youtube.txt no salen nunca.
+  2. Por archivo del plan: `POST /api/archivos/subidas` (nombre, tipo, tamaño, sha256,
+     visibilidad, requiere_cuenta) → la subida firmada se manda TAL CUAL (más Content-Length,
+     en streaming desde disco); el Bearer sólo si la url es del mismo origen que la tienda.
+     `POST /api/archivos/subidas/confirmacion {clave}`: 409 reintenta 3 veces. Si un archivo
+     falla, no se importa.
+  3. `POST /api/maquina/importacion {ficha, archivos:[{archivo_id, rol}]}` (409: un reintento).
+  4. Salvo `--borrador`: `PUT /api/maquina/<id>/estado {estado: "publicada"}`. Imprime
+     `<tienda>/maquinas/<slug>`. `--ensayo` sólo hace el paso 1.
+
+Se verifica con `tests/test_publicar_tienda.py`: una tienda y un bucket falsos con `http.server`
+en otro puerto (el bucket rechaza el Bearer; la confirmación compara tamaño y sha256).
+
 Gate de cada fase: pytest completo y `ruff check core tests scripts`.
 
 ## Lo que este plan NO hace
 
-- Subir a la tienda: el adaptador se escribe cuando Mario elija plataforma (D9).
+- Subir a otra tienda que no sea apolocad.com (F6): otro adaptador, si hace falta.
 - Subir a YouTube por API (D15).
 - Voz en off, subtítulos SRT, video vertical para Shorts o TikTok y versión en inglés automática.
   El layout queda parametrizado para que el vertical sea un preset después.
