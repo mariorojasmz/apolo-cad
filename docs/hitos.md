@@ -32,7 +32,7 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 
 | hito | fases | por qué en este lugar | plan |
 |---|---|---|---|
-| **B. Prueba virtual de la máquina** (puesta en marcha virtual) | F0, F1 (PLC) y F2 (modelos) hechas; F3 (redes) corriendo → F4 (acople) → F5 (MCP) → F6 (verifica) | el objetivo grande de V8; F1 y F2 no se pisan y van juntas | [V8.3](plans/V8.3-prueba-virtual.md) |
+| **B. Prueba virtual de la máquina** (puesta en marcha virtual) | F0, F1 (PLC), F2 (modelos) y F3 (redes) hechas; F4 (acople) corriendo → F4 (acople) → F5 (MCP) → F6 (verifica) | el objetivo grande de V8; F1 y F2 no se pisan y van juntas | [V8.3](plans/V8.3-prueba-virtual.md) |
 | **C. Seta de emergencia real** | F0+F1 corriendo → F2 → F3 → F4 | va en todas las máquinas; entra en paralelo con B cuando un agente quede libre | [seta-de-emergencia](plans/seta-de-emergencia.md) |
 | **D. Varias máquinas a la vez** | F0+F1 hechas (WAL, APOLO_PROJECT, identidad); F2 (candado por proyecto) → F3 (flota) → F4 | destraba E: las verificaciones por MCP pasan de a una a varias en paralelo | [varias-maquinas-a-la-vez](plans/varias-maquinas-a-la-vez.md) |
 | **F. Manual de montaje rápido** | plan por escribir: las 12 fotos del manual con VTK en vez de matplotlib (hoy 23 min en la piloto, 3–5 min por foto con las cadenas) | es el cuello de la publicación (video-tienda F3) | — |
