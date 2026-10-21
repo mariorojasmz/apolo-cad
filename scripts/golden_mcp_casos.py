@@ -223,12 +223,35 @@ PROPUESTA = {
     ],
     "resumen": [{"kind": "soldadura", "a": "c1", "b": "c57", "n": 1,
                  "ejemplo": {"a": "c1", "b": "c57_1", "nombres": ["Base", "Eje"]}}],
+    "omitidas": [{"a": "c9", "b": "c98_1", "motivo": "'Larguero' ↔ 'Tuerca': la tuerca es parte "
+                                                     "de su perno: la unión es c57_1 ↔ c9"}],
 }
+#: La forma corta (D6 de mcp-sin-friccion, `services/estructura_corta.py`).
+PROPUESTA_CORTA = {
+    "aplicar": False, "n_grounds": 1, "n_fasteners": 2, "n_a_revisar": 1, "n_omitidas": 1,
+    "por_tipo": {"perno": 1, "contacto": 1}, "anclajes": ["c1"],
+    "patrones": [
+        {"kind": "perno", "a": "Eje del rodillo", "b": "Larguero", "n": 20,
+         "fasten": [{"a": "c11+c57", "b": "c9"}]},
+        {"kind": "contacto", "a": "Eje del rodillo", "b": "Piñón", "n": 1, "a_revisar": True,
+         "fasten": [{"a": "c57_1", "b": "c62_1"}]}],
+    "a_revisar": [{"a": "c57_1", "b": "c62_1", "kind": "contacto",
+                   "motivo": "'Eje' ↔ 'Piñón': ¿eje vivo (chaveta o soldadura) o fijo (rodamiento)?"}],
+    "omitidas": [{"a": "Larguero", "b": "Tuerca del eje", "n": 40,
+                  "motivo": "la tuerca es parte de su perno"}],
+    "seguir": "aplica con run_batch un fasten por fila de `patrones`",
+}
+APLICADA = {"anclajes_declarados": 1, "uniones_declaradas": 2,
+            "por_tipo": {"perno": 1, "contacto": 1}, "grounds": 1, "fasteners": 2,
+            "a_revisar": ["auto_f_2"], "affected_command_ids": ["c60", "c61", "c62"]}
 
 
 def _declare(req):
-    if req.content and json.loads(req.content).get("aplicar") is False:
-        return J(PROPUESTA)
+    cuerpo = json.loads(req.content) if req.content else {}
+    if cuerpo.get("aplicar") is False:
+        return J(PROPUESTA_CORTA if cuerpo.get("resumen") else PROPUESTA)
+    if cuerpo.get("resumen"):
+        return J(APLICADA)
     return J({**escena(["c1"]), "a_revisar": ["auto_f_2"]})
 
 
@@ -513,9 +536,7 @@ CASOS = [
     caso("autodetección", "autodetect_connections"),
     caso("proponer estructura", "declare_structure"),
     caso("declarar estructura", "declare_structure", {"aplicar": True}),
-    caso("proponer estructura sin la lista", "declare_structure", rutas={
-        ("POST", r"/api/assembly/declare"): J({**PROPUESTA, "acciones": [
-            PROPUESTA["acciones"][1]] * 61})}),
+    caso("proponer estructura completa", "declare_structure", {"completo": True}),
     caso("conexiones", "get_connections"),
     caso("conexiones filtradas", "get_connections", {"ids": ["c1", "Estructura"], "kind": "perno",
                                                      "resumen": False}),

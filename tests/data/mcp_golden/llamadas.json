@@ -3774,7 +3774,7 @@
   "args": {},
   "salida": [
    {
-    "texto": "{\"n_grounds\": 1, \"n_fasteners\": 2, \"n_a_revisar\": 1, \"resumen\": [{\"kind\": \"soldadura\", \"a\": \"c1\", \"b\": \"c57\", \"n\": 1, \"ejemplo\": {\"a\": \"c1\", \"b\": \"c57_1\", \"nombres\": [\"Base\", \"Eje\"]}}], \"acciones\": [{\"type\": \"ground\", \"params\": {\"name\": \"auto_g_1\", \"feature\": \"c1\", \"nota\": \"base\"}}, {\"type\": \"fasten\", \"params\": {\"name\": \"auto_f_1\", \"a\": \"c1\", \"b\": \"c57_1\", \"kind\": \"soldadura\", \"nota\": \"'Base' ↔ 'Eje'\"}}, {\"type\": \"fasten\", \"params\": {\"name\": \"auto_f_2\", \"a\": \"c57_1\", \"b\": \"c9\", \"kind\": \"contacto\", \"nota\": \"a revisar: …\"}, \"a_revisar\": true, \"motivo\": \"'Eje' ↔ 'Piñón'; no se suelda: 'Piñón' es transmision\"}]}"
+    "texto": "{\"n_grounds\": 1, \"n_fasteners\": 2, \"n_a_revisar\": 1, \"n_omitidas\": 1, \"por_tipo\": {\"perno\": 1, \"contacto\": 1}, \"anclajes\": [\"c1\"], \"patrones\": [{\"kind\": \"perno\", \"a\": \"Eje del rodillo\", \"b\": \"Larguero\", \"n\": 20, \"fasten\": [{\"a\": \"c11+c57\", \"b\": \"c9\"}]}, {\"kind\": \"contacto\", \"a\": \"Eje del rodillo\", \"b\": \"Piñón\", \"n\": 1, \"a_revisar\": true, \"fasten\": [{\"a\": \"c57_1\", \"b\": \"c62_1\"}]}], \"a_revisar\": [{\"a\": \"c57_1\", \"b\": \"c62_1\", \"kind\": \"contacto\", \"motivo\": \"'Eje' ↔ 'Piñón': ¿eje vivo (chaveta o soldadura) o fijo (rodamiento)?\"}], \"omitidas\": [{\"a\": \"Larguero\", \"b\": \"Tuerca del eje\", \"n\": 40, \"motivo\": \"la tuerca es parte de su perno\"}], \"seguir\": \"aplica con run_batch un fasten por fila de `patrones`\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3784,7 +3784,8 @@
     "url": "http://127.0.0.1:8000/api/assembly/declare",
     "query": [],
     "cuerpo": {
-     "aplicar": false
+     "aplicar": false,
+     "resumen": true
     },
     "cabeceras": {
      "accept": "*/*",
@@ -3807,7 +3808,7 @@
   },
   "salida": [
    {
-    "texto": "{\"grounds\": 1, \"fasteners\": 0, \"a_revisar\": [\"auto_f_2\"], \"detalle\": {\"grounds\": [{\"name\": \"g1\"}], \"fasteners\": []}}"
+    "texto": "{\"anclajes_declarados\": 1, \"uniones_declaradas\": 2, \"por_tipo\": {\"perno\": 1, \"contacto\": 1}, \"grounds\": 1, \"fasteners\": 2, \"a_revisar\": [\"auto_f_2\"]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3817,7 +3818,8 @@
     "url": "http://127.0.0.1:8000/api/assembly/declare",
     "query": [],
     "cuerpo": {
-     "aplicar": true
+     "aplicar": true,
+     "resumen": true
     },
     "cabeceras": {
      "accept": "*/*",
@@ -3829,31 +3831,18 @@
      "base_url": "http://127.0.0.1:8000",
      "timeout": 120
     }
-   },
-   {
-    "metodo": "GET",
-    "url": "http://127.0.0.1:8000/api/connectivity",
-    "query": [],
-    "cuerpo": null,
-    "cabeceras": {
-     "accept": "*/*",
-     "connection": "keep-alive",
-     "host": "127.0.0.1:8000"
-    },
-    "cliente": {
-     "base_url": "http://127.0.0.1:8000",
-     "timeout": 120
-    }
    }
   ]
  },
  {
-  "caso": "proponer estructura sin la lista",
+  "caso": "proponer estructura completa",
   "tool": "declare_structure",
-  "args": {},
+  "args": {
+   "completo": true
+  },
   "salida": [
    {
-    "texto": "{\"n_grounds\": 1, \"n_fasteners\": 2, \"n_a_revisar\": 1, \"resumen\": [{\"kind\": \"soldadura\", \"a\": \"c1\", \"b\": \"c57\", \"n\": 1, \"ejemplo\": {\"a\": \"c1\", \"b\": \"c57_1\", \"nombres\": [\"Base\", \"Eje\"]}}], \"acciones_omitidas\": 61, \"seguir\": \"declara por conjuntos desde `resumen`, o pide la lista entera con declare_structure(completo=true)\"}"
+    "texto": "{\"n_grounds\": 1, \"n_fasteners\": 2, \"n_a_revisar\": 1, \"acciones\": [{\"type\": \"ground\", \"params\": {\"name\": \"auto_g_1\", \"feature\": \"c1\", \"nota\": \"base\"}}, {\"type\": \"fasten\", \"params\": {\"name\": \"auto_f_1\", \"a\": \"c1\", \"b\": \"c57_1\", \"kind\": \"soldadura\", \"nota\": \"'Base' ↔ 'Eje'\"}}, {\"type\": \"fasten\", \"params\": {\"name\": \"auto_f_2\", \"a\": \"c57_1\", \"b\": \"c9\", \"kind\": \"contacto\", \"nota\": \"a revisar: …\"}, \"a_revisar\": true, \"motivo\": \"'Eje' ↔ 'Piñón'; no se suelda: 'Piñón' es transmision\"}], \"resumen\": [{\"kind\": \"soldadura\", \"a\": \"c1\", \"b\": \"c57\", \"n\": 1, \"ejemplo\": {\"a\": \"c1\", \"b\": \"c57_1\", \"nombres\": [\"Base\", \"Eje\"]}}], \"omitidas\": [{\"a\": \"c9\", \"b\": \"c98_1\", \"motivo\": \"'Larguero' ↔ 'Tuerca': la tuerca es parte de su perno: la unión es c57_1 ↔ c9\"}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3863,7 +3852,8 @@
     "url": "http://127.0.0.1:8000/api/assembly/declare",
     "query": [],
     "cuerpo": {
-     "aplicar": false
+     "aplicar": false,
+     "resumen": false
     },
     "cabeceras": {
      "accept": "*/*",

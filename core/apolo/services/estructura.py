@@ -1,15 +1,19 @@
-"""La estructura propuesta de un documento (plan uniones-en-lote, D3).
+"""La estructura propuesta de un documento (planes uniones-en-lote D3 y mcp-sin-friccion D6).
 
 `propuesta_estructura` arma, sobre el grafo de soporte de `assembly.autodetect.detect_structure`
-(con las juntas del documento: lo que gira no se suelda, D2), las acciones `ground`/`fasten` que
-faltan declarar, listas para un lote. Es la fuente única de `POST /api/assembly/declare`: con
-`aplicar` el endpoint las ejecuta; sin él, las devuelve para que el agente las corrija y las
-aplique él, idealmente en pocas órdenes con los CONJUNTOS de `fasten` (D1).
+(qué se toca y qué carga a qué), las acciones `ground`/`fasten` que faltan declarar, listas para
+un lote. El TIPO de cada unión lo decide el criterio de taller (`criterio_uniones.py`: lo
+desmontable va atornillado, lo que gira no se suelda, la tuerca es parte de su perno, la guarda
+no se fija a lo que gira); lo que el criterio no declara va en `omitidas`, salvo que sin esa
+unión una pieza quede suelta (entonces se propone a revisar). Es la fuente única de `POST
+/api/assembly/declare`: con `aplicar` el endpoint las ejecuta; sin él, las devuelve para que el
+agente las corrija y las aplique él, idealmente en pocas órdenes con los CONJUNTOS de `fasten`.
 
 Cada acción lleva `{type, params}` (el formato de `run_batch`); la que hay que revisar suma
 `a_revisar: true` y su `motivo` FUERA de `params` (un lote ignora esas claves). `resumen` agrupa
 las uniones por la raíz de sus piezas (la copia `c57_3` del patrón `c57` → `c57`, la misma regla
-de `commands/exec_uniones.py`): cada fila es candidata a UN `fasten` en lote.
+de `commands/exec_uniones.py`): cada fila es candidata a UN `fasten` en lote. El modo corto para
+el agente está en `estructura_corta.py`.
 
 Puro: lee un `Document` explícito, sin locks (el llamador sostiene `STATE_LOCK`).
 """
@@ -28,8 +32,65 @@ def raiz(scene: dict, fid: str) -> str:
     return cmd if sufijo.isdigit() else fid
 
 
+def roles_de(doc) -> dict[str, tuple[str, str]]:
+    """{id: (rol de unión, cuerpo)} de toda la escena (`roles.rol_union`); los tramos de nombre
+    que nombran un grupo (la máquina de una plantilla) no cuentan como rol."""
+    from apolo.library.catalog import CATALOG
+
+    from .roles import rol_union
+
+    maquinas = set(doc.groups) | {g.rsplit("/", 1)[-1] for g in doc.groups}
+    out = {}
+    for fid, feat in doc.scene.items():
+        comp = CATALOG.get(getattr(feat, "component", None) or "")
+        out[fid] = rol_union(getattr(feat, "name", ""), comp.category if comp else None,
+                             comp.name if comp else None, maquinas)
+    return out
+
+
+def uniones_con_criterio(doc, det: dict) -> list[dict]:
+    """Los candidatos de `det` con el tipo del criterio de taller (`kind` None = no se declara).
+    Una omitida sin la cual alguna pieza sujeta quedaría suelta vuelve, a revisar."""
+    from apolo.assembly.autodetect import piezas_que_giran
+    from apolo.library.materials import piece_role
+
+    from .criterio_uniones import criterio
+    from .roles import BED_RE
+
+    camas = {fid for fid, f in doc.scene.items() if BED_RE.search(piece_role(f.name))}
+    roles = roles_de(doc)
+    uniones = criterio({k: r for k, (r, _) in roles.items()}, det["fasteners"],
+                       piezas_que_giran(doc.scene, doc.joints), camas,
+                       cuerpos={k: c for k, (_, c) in roles.items() if c})
+    for u in uniones:
+        u["motivo"] = f"'{_nombre(doc, u['a'])}' ↔ '{_nombre(doc, u['b'])}'" + (
+            f": {u['motivo']}" if u["motivo"] else "")
+    _sin_piezas_sueltas(doc, det, uniones)
+    return uniones
+
+
+def _sin_piezas_sueltas(doc, det: dict, uniones: list[dict]) -> None:
+    """Devuelve (a revisar) las omitidas que dejan suelta una pieza que la geometría sujetaba."""
+    from apolo.assembly.connectivity import build_graph, soundness_report
+
+    sujetas = {g["feature"] for g in det["grounds"]} | {
+        x for f in det["fasteners"] for x in (f["a"], f["b"])}
+    semillas = {g["feature"] for g in det["grounds"]}
+    while True:
+        aristas = [(u["a"], u["b"], u["kind"], "") for u in uniones if u["kind"]]
+        grafo = build_graph(doc.scene, doc.joints, doc.mates, doc.fasteners, doc.grounds,
+                            extra_edges=aristas, extra_grounds=semillas)
+        sueltas = sujetas - set(soundness_report(grafo)["grounded"])
+        volver = [u for u in uniones if u["kind"] is None and (u["a"] in sueltas or u["b"] in sueltas)]
+        if not volver:
+            return
+        for u in volver:
+            u["kind"], u["a_revisar"] = "contacto", True
+            u["motivo"] += "; sin esta unión la pieza queda suelta: ¿cómo se sujeta?"
+
+
 def propuesta_estructura(doc) -> dict:
-    """`{acciones, resumen}`: lo que `declare` aplicaría, sin repetir lo ya declarado.
+    """`{acciones, resumen, omitidas}`: lo que `declare` aplicaría, sin repetir lo declarado.
 
     Idempotente como el endpoint de siempre: omite anclajes de piezas ya ancladas y pares ya
     unidos (también los de un `fasten` en lote, que el documento guarda expandidos), y nombra
@@ -56,21 +117,24 @@ def propuesta_estructura(doc) -> dict:
         acciones.append({"type": "ground", "params": {
             "name": unico("auto_g_"), "feature": g["feature"],
             "nota": (g.get("reason") or "")[:_NOTA_MAX]}})
-    for f in det["fasteners"]:
-        par = frozenset((f["a"], f["b"]))
+    omitidas: list[dict] = []
+    for u in uniones_con_criterio(doc, det):
+        par = frozenset((u["a"], u["b"]))
         if par in pares:
             continue
         pares.add(par)
-        motivo = f.get("reason") or ""
-        revisar = bool(f.get("a_revisar"))
+        if u["kind"] is None:
+            omitidas.append({"a": u["a"], "b": u["b"], "motivo": u["motivo"]})
+            continue
+        revisar = bool(u["a_revisar"])
         accion: dict = {"type": "fasten", "params": {
-            "name": unico("auto_f_"), "a": f["a"], "b": f["b"], "kind": f["kind"],
-            "nota": ((_A_REVISAR if revisar else "") + motivo)[:_NOTA_MAX]}}
+            "name": unico("auto_f_"), "a": u["a"], "b": u["b"], "kind": u["kind"],
+            "nota": ((_A_REVISAR if revisar else "") + u["motivo"])[:_NOTA_MAX]}}
         if revisar:
             accion["a_revisar"] = True
-            accion["motivo"] = motivo
+            accion["motivo"] = u["motivo"]
         acciones.append(accion)
-    return {"acciones": acciones, "resumen": resumen(doc, acciones)}
+    return {"acciones": acciones, "resumen": resumen(doc, acciones), "omitidas": omitidas}
 
 
 def resumen(doc, acciones: list[dict]) -> list[dict]:

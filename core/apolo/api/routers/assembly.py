@@ -171,37 +171,46 @@ def remove_connections(body: ConnectionsRemoveIn) -> dict:
 
 class DeclareIn(BaseModel):
     aplicar: bool = True  # False = sólo PROPONE (D3 de uniones-en-lote); sin cuerpo, aplica
+    resumen: bool = False  # True = la respuesta corta del agente (D6 de mcp-sin-friccion)
 
 
 @router.post("/api/assembly/declare")
 def assembly_declare(body: DeclareIn | None = None) -> dict:
     """Auto-declara la ESTRUCTURA real (anclajes al piso + uniones de soporte) como comandos
     PERSISTIDOS. Inteligente (grafo de soporte dirigido): no fija las piezas colgantes (p. ej.
-    rodillos de retorno) → la prueba de gravedad EXACTA las tira; con las juntas del documento,
-    no suelda lo que gira (`a_revisar`). Idempotente: no recrea uniones ya declaradas. Tras
-    esto, `stability` con `with_autodetect=false` valida solo lo declarado.
+    rodillos de retorno) → la prueba de gravedad EXACTA las tira; el TIPO de cada unión sale del
+    criterio de taller (`services/criterio_uniones.py`: lo desmontable va atornillado, lo que
+    gira no se suelda). Idempotente: no recrea uniones ya declaradas. Tras esto, `stability`
+    con `with_autodetect=false` valida solo lo declarado.
 
-    `aplicar=false` no muta: devuelve `{aplicar, acciones, resumen, n_*}` de
-    `services/estructura.py` para que el agente la corrija y la aplique en un lote. Aplicada, la
-    escena suma `a_revisar` (nombres) sólo si alguna unión lo está."""
+    `aplicar=false` no muta: devuelve `{aplicar, acciones, resumen, omitidas, n_*}` de
+    `services/estructura.py` para que el agente la corrija y la aplique en un lote; con
+    `resumen=true`, el modo corto de `services/estructura_corta.py`. Aplicada, la escena suma
+    `a_revisar` (nombres) sólo si alguna unión lo está; con `resumen=true`, en vez de la escena,
+    los conteos de lo declarado."""
     from apolo.batch import execute_batch
     from apolo.services.estructura import propuesta_estructura
+    from apolo.services.estructura_corta import aplicada_corta, propuesta_corta
 
     aplicar = body is None or body.aplicar
+    corto = body is not None and body.resumen
     with STATE_LOCK:
         prop = propuesta_estructura(S.doc)
         acciones = prop["acciones"]
         if not aplicar:
+            if corto:
+                return {"aplicar": False, **propuesta_corta(S.doc, prop)}
             fasten = [a for a in acciones if a["type"] == "fasten"]
             return {"aplicar": False, "n_grounds": len(acciones) - len(fasten),
                     "n_fasteners": len(fasten),
                     "n_a_revisar": sum(1 for a in fasten if a.get("a_revisar")), **prop}
+        armar = (lambda: aplicada_corta(S.doc, acciones)) if corto else None
         if not acciones:
-            return _state_or_error(lambda: None)
+            return _state_or_error(lambda: None, armar=armar)
         lote = [{"type": a["type"], "params": a["params"]} for a in acciones]
-        payload = _state_or_error(lambda: execute_batch(S.doc, lote))
+        payload = _state_or_error(lambda: execute_batch(S.doc, lote), armar=armar)
     revisar = [a["params"]["name"] for a in acciones if a.get("a_revisar")]
-    if revisar:
+    if revisar and not corto:
         payload["a_revisar"] = revisar
     return payload
 

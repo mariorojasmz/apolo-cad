@@ -110,7 +110,8 @@ def test_resumen_agrupa_por_raiz_y_omite_lo_declarado_en_lote():
     prop = _proponer(client)
     filas = {(f["a"], f["b"]): f for f in prop["resumen"]}
     copias = filas[tuple(sorted((base, patron)))]
-    assert copias["n"] == 3 and copias["kind"] == "contacto" and "a_revisar" not in copias
+    # poste a tope sobre la base: marco soldado (criterio de taller, D6 de mcp-sin-friccion)
+    assert copias["n"] == 3 and copias["kind"] == "soldadura" and "a_revisar" not in copias
     assert "Base" in copias["ejemplo"]["nombres"]
     assert any(n.startswith("Poste") for n in copias["ejemplo"]["nombres"])
     assert filas[tuple(sorted((base, poste)))]["n"] == 1  # la fuente no es de la raíz
