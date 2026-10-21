@@ -3,7 +3,12 @@
   - `faja_directo()`: `create_belt_conveyor` 3000×500×800 con el tablero de arranque directo de
     V8.1 (`tablero_electrico.arranque_directo`: guardamotor, contactor con autorretención, seta);
   - `faja_variador()`: la misma faja con el tablero (b) por variador y PLC
-    (`tablero_electrico.arranque_variador_plc`), rampas de 1 s para que la prueba sea corta;
+    (`tablero_electrico.arranque_variador_plc`), rampas de 1 s para que la prueba sea corta (y,
+    con `sobrecarga_s`, la curva I²t del variador en otra escala de tiempo);
+  - `atasco_parcial(...)` (F6): un atasco que FRENA sin trabar (el motor sigue girando sobre su
+    curva estable) y sube la corriente a la zona de la sobrecarga térmica: del variador
+    (150 % 60 s) con `PAR_PARCIAL_VARIADOR_NM` y del guardamotor en arranque directo con
+    `PAR_PARCIAL_DIRECTO_NM` (medidos: 1,35 × I_salida del VFD a 1637 rpm; 1,5 × Ir a 1561 rpm);
   - `PROGRAMA`: marcha/paro con autorretención en el PLC, seta, falla del variador y conteo de
     cajas con la fotocelda.
 Más lectores de las trazas: `cambios`, `primer_cambio`, `serie`, `en`.
@@ -58,16 +63,31 @@ def _faja(nombre: str) -> Document:
     return doc
 
 
-def faja_directo() -> Document:
+def faja_directo(guardamotor: tuple[str, float] | None = None) -> Document:
+    """`guardamotor` = (ref, Ir_A) en lugar del GM-2.5-4A a 3,2 A del tablero de V8.1."""
     doc = _faja("faja-directo")
-    doc.execute_many(arranque_directo())
+    cmds = arranque_directo()
+    if guardamotor:
+        gm = next(c for c in cmds if c["params"].get("designacion") == "-Q2")
+        gm["params"].update(ref=guardamotor[0], ajustes={"Ir_A": guardamotor[1]})
+    doc.execute_many(cmds)
     return doc
 
 
-def faja_variador() -> Document:
+def faja_variador(sobrecarga_s: float | None = None) -> Document:
     doc = _faja("faja-variador")
-    doc.execute_many(arranque_variador_plc(ajustes_variador={"acel_s": 1.0, "decel_s": 1.0}))
+    vfd = {"acel_s": 1.0, "decel_s": 1.0, **({"sobrecarga_s": sobrecarga_s} if sobrecarga_s else {})}
+    doc.execute_many(arranque_variador_plc(ajustes_variador=vfd))
     return doc
+
+
+#: Atascos PARCIALES (F6): el tambor frena pero el motor sigue en la parte estable de su curva.
+PAR_PARCIAL_VARIADOR_NM = 650.0   # NMRV-090 i = 30: ~1,35 × I_salida del VFD-2K2-220
+PAR_PARCIAL_DIRECTO_NM = 250.0    # MOTOR-075: ~1,5 × Ir del guardamotor (265 N·m ya lo traba)
+
+
+def atasco_parcial(t: float, par_Nm: float) -> dict:
+    return {"t": t, "tipo": "atasco", "junta": JUNTA, "par_Nm": par_Nm}
 
 
 def escenario_variador(duracion_s: float, *, acciones=(), eventos=(), cajas: bool = False) -> dict:
