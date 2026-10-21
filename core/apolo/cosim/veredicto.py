@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import difflib
 
-from .aserciones import EPS_T, TOL, texto_ancla
+from .aserciones import EPS_T, FIN, TOL, texto_ancla
 
 PASA, FALLA, SIN_ASERCIONES = "pasa", "falla", "sin_aserciones"
+#: Una violación de «siempre/nunca desde X» a menos de esto del ancla, sin margen, sugiere el
+#: margen `+ N ms` (filtro de entrada, scan, STO, apertura de un contactor: decenas de ms).
+REACCION_S = 0.1
 
 
 def _cumple(v, op: str, valor, tol: float) -> bool:
@@ -57,6 +60,20 @@ class Lector:
 
     def nombres(self) -> list[str]:
         return sorted(set(self.disc) | set(self.an) | set(self.final))
+
+    def tipo(self, n: str) -> tuple[str | None, object]:
+        """(«bool» | «texto» | «numero» | None, un valor de ejemplo) de la señal `n`."""
+        if n in self.an:
+            return "numero", next((x for x in self.an[n] if x is not None), None)
+        vals = [x for _, x in self.disc.get(n, [])] + [self.final.get(n)]
+        x = next((v for v in vals if v is not None and v != ""), next((v for v in vals if v is not None), None))
+        if isinstance(x, bool):
+            return "bool", x
+        if isinstance(x, str):
+            return "texto", next((v for v in vals if isinstance(v, str) and v), x)
+        if isinstance(x, (int, float)):
+            return "numero", x
+        return None, x
 
     def resolver(self, senal: str) -> tuple[str | None, str]:
         """(nombre en las trazas, '') o (None, por qué). «-K1.cuenta» → «-K1.Main.cuenta» si es
@@ -132,12 +149,70 @@ def _extremo(pts: list, op: str) -> str:
     return f"; entre {_fmt(min(nums))} y {_fmt(max(nums))}"
 
 
+def _tipo_incompatible(n: str, valor, lec: Lector) -> str | None:
+    """Por qué `valor` no se compara con la señal `n`, o None. Un texto sólo con texto,
+    true/false sólo con una booleana, un número con una numérica o booleana (0/1)."""
+    tipo, ejemplo = lec.tipo(n)
+    if tipo is None:
+        return None
+    es_txt, es_bool = isinstance(valor, str), isinstance(valor, bool)
+    if ((tipo == "texto" and es_txt) or (tipo == "bool" and not es_txt)
+            or (tipo == "numero" and not es_txt and not es_bool)):
+        return None
+    que = "texto" if es_txt else "booleano" if es_bool else "número"
+    des = n.split(".")[0]
+    bools = [m for m in lec.nombres() if m.startswith(des + ".") and m != n and lec.tipo(m)[0] == "bool"]
+    if tipo == "texto":
+        como = (f"compárala con su texto («{n} == {ejemplo or 'falla'}», «{n} != \"\"» = no vacía)"
+                + (f" o usa una señal booleana de {des}: {', '.join(bools[:6])}" if bools else ""))
+    elif tipo == "bool":
+        como = f"compárala con true o false («{n} == true»)"
+    else:
+        como = f"compárala con un número («{n} > 0»)"
+    return (f"comparación de tipos: «{n}» es {'un texto' if tipo == 'texto' else 'booleana' if tipo == 'bool' else 'numérica'}"
+            f" (vale p. ej. «{_fmt(ejemplo)}») y la aserción la compara con un {que}: {como}")
+
+
+def _mantenida(lec: Lector, n: str, pts: list, t0: float, t1: float, a: dict) -> dict:
+    """«dentro_de Δ desde X y se mantiene D»: el primer t* ≤ t1 desde el que se cumple D s seguidos
+    (o hasta el final). {pasa, t?, detalle}."""
+    op, valor, tol, m = a["op"], a["valor"], a.get("tol", TOL), a["mantener_s"]
+    cumple = [(t, x) for t, x in pts if _cumple(x, op, valor, tol)]
+    malo, corto, visto = None, False, -1.0
+    for t, _x in cumple:
+        if t <= visto + EPS_T:
+            continue  # cae antes de la última violación: no puede sostenerse
+        fin = lec.dur if m == FIN else t + m
+        if fin > lec.dur + EPS_T:
+            corto = True
+            break
+        rompe = next(((tt, xx) for tt, xx in lec.puntos(n, t, fin) if not _cumple(xx, op, valor, tol)), None)
+        if rompe is None:
+            hasta = "hasta el final" if m == FIN else f"{m:g} s"
+            return {"pasa": True, "t": round(t, 6),
+                    "detalle": f"se cumple a los {t - t0:.3g} s (t = {t:g} s) y se mantiene {hasta}"}
+        malo, visto = rompe, rompe[0]
+    if not cumple:
+        return {"pasa": False, "detalle": f"no se cumple en [{t0:g}, {t1:g}] s: termina en "
+                                          f"{_fmt(pts[-1][1] if pts else None)}{_extremo(pts, op)}"}
+    if corto and malo is None:
+        return {"pasa": False, "detalle": f"se cumple en t = {cumple[0][0]:g} s pero la corrida termina "
+                                          f"antes de los {m:g} s que tiene que mantenerse"}
+    extra = "; la corrida termina antes de poder confirmarlo después" if corto else ""
+    return {"pasa": False, "t": round(malo[0], 6),
+            "detalle": f"se cumple (t = {cumple[0][0]:g} s) pero no se mantiene: deja de cumplirse en "
+                       f"t = {malo[0]:g} s (vale {_fmt(malo[1])}){extra}"}
+
+
 def evaluar_una(a: dict, lec: Lector) -> dict:
     out = {"asercion": a["texto"], "pasa": False}
     n, motivo = lec.resolver(a["senal"])
     if n is None:
         return {**out, "detalle": motivo}
     out["senal"] = n
+    tipo = _tipo_incompatible(n, a["valor"], lec)
+    if tipo:
+        return {**out, "detalle": tipo}
     op, valor, tol = a["op"], a["valor"], a.get("tol", TOL)
     v = a["ventana"]
     if v == "al_final":
@@ -153,9 +228,13 @@ def evaluar_una(a: dict, lec: Lector) -> dict:
         t0 = lec.ancla(a["desde"])
         if t0 is None:
             return {**out, "detalle": f"«{texto_ancla(a['desde'])}» no ocurrió en la corrida"}
+    t_ancla = t0
+    t0 += a.get("tras_ms", 0.0) / 1000.0
     if v == "dentro_de":
         t1 = t0 + a["delta_s"]
         pts = lec.puntos(n, t0, t1)
+        if "mantener_s" in a:
+            return {**out, **_mantenida(lec, n, pts, t0, t1, a)}
         hit = next(((t, x) for t, x in pts if _cumple(x, op, valor, tol)), None)
         if hit is not None:
             return {**out, "pasa": True, "t": round(hit[0], 6),
@@ -166,17 +245,27 @@ def evaluar_una(a: dict, lec: Lector) -> dict:
                                   f"{_fmt(ultimo)}{_extremo(pts, op)}"}
     pts = lec.puntos(n, t0, lec.dur)
     desde = f" desde t = {t0:g} s" if "desde" in a else ""
+
+    def margen(t: float) -> str:
+        """Sin margen y a pocos ms del ancla: probablemente el tiempo de reacción del tablero."""
+        if "desde" not in a or "tras_ms" in a or t - t_ancla > REACCION_S + EPS_T:
+            return ""
+        return (f" — a {1000 * (t - t_ancla):.3g} ms del ancla: si es el tiempo de reacción esperado "
+                f"(filtro de entrada, scan del PLC, STO, apertura de un contactor), da un margen: "
+                f"«… desde {texto_ancla(a['desde'])} + 50 ms» (`tras_ms`)")
+
     if v == "siempre":
         malo = next(((t, x) for t, x in pts if not _cumple(x, op, valor, tol)), None)
         if malo is None:
             return {**out, "pasa": bool(pts), "detalle": f"se cumple en toda la corrida{desde}"
                     if pts else "la señal no tiene muestras en la ventana"}
         return {**out, "t": round(malo[0], 6), "detalle": f"deja de cumplirse en t = {malo[0]:g} s "
-                                                         f"(vale {_fmt(malo[1])}){desde}"}
+                                                         f"(vale {_fmt(malo[1])}){desde}{margen(malo[0])}"}
     hit = next(((t, x) for t, x in pts if _cumple(x, op, valor, tol)), None)  # nunca
     if hit is None:
         return {**out, "pasa": True, "detalle": f"no ocurre en ninguna muestra{desde}"}
-    return {**out, "t": round(hit[0], 6), "detalle": f"ocurre en t = {hit[0]:g} s (vale {_fmt(hit[1])})"}
+    return {**out, "t": round(hit[0], 6), "detalle": f"ocurre en t = {hit[0]:g} s (vale {_fmt(hit[1])})"
+                                                     f"{margen(hit[0])}"}
 
 
 def evaluar(aserciones: list[dict], res: dict) -> dict:

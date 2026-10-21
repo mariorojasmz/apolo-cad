@@ -19,9 +19,22 @@ ancla hasta el final). El ANCLA es una acción del escenario («pulsar -S1») o 
 primer intercambio con t ≥ su hora), la que la agenda deja en `eventos`. Un ancla que el
 escenario no tiene es error al leerlo.
 
-Valores: número (con coma o punto), true/false (o verdadero/falso) o texto («falla»). Un `==`
-numérico compara con tolerancia (`tol`, 1e-6 por defecto). La señal es la de D10 («-M1.rpm»,
-«-K1.%QX0.0», «c1_banda.v_m_s»); la variable de un PLC puede ir sin su PROGRAM («-K1.cuenta» →
+Dos modificadores (V8.3 F6):
+  - `siempre`/`nunca desde <ancla> + 50 ms` (`tras_ms`): la ventana empieza 50 ms DESPUÉS del
+    ancla. Sin margen (el default, deliberado) mira también el instante del ancla: una
+    aserción de seguridad no esconde un retardo. Úsalo cuando la respuesta tiene un tiempo de
+    reacción propio que no es el defecto buscado (filtro de entrada 6,4 ms, scan del PLC, STO
+    10 ms, apertura de un contactor 20 ms);
+  - `dentro_de Δ desde <ancla> y se mantiene [D s]` (`mantener_s`, número o «fin»): no basta
+    con TOCAR el valor; desde el primer instante t* ≤ t0 + Δ en que se cumple tiene que seguir
+    cumpliéndose D segundos (sin D, hasta el final de la corrida).
+
+Valores: número (con coma o punto), true/false (o verdadero/falso) o texto («falla», `""`). Un
+`==` numérico compara con tolerancia (`tol`, 1e-6 por defecto). La comparación TIPA (lo hace
+el veredicto): un texto sólo con una señal de texto, true/false con una booleana y un número con
+una numérica (o booleana, como 0/1); «-T2.falla == true» no se cumple con «sobrecorriente»: es
+error que dice cómo escribirla. La señal es la de D10 («-M1.rpm», «-K1.%QX0.0»,
+«c1_banda.v_m_s»); la variable de un PLC puede ir sin su PROGRAM («-K1.cuenta» →
 «-K1.Main.cuenta») si no es ambigua. Puro: stdlib; lo evalúa la API sobre el JSON del worker.
 """
 
@@ -37,6 +50,10 @@ TOL = 1e-6
 EPS_T = 1e-9
 _VERDAD = {"true": True, "verdadero": True, "false": False, "falso": False}
 _NUM = re.compile(r"^[+-]?(\d+([.,]\d*)?|[.,]\d+)([eE][+-]?\d+)?$")
+#: «… y se mantiene [D s]» y «… + 50 ms» al final de «desde <ancla>» (F6).
+_MANTIENE = re.compile(r"\s*\by\s+se\s+mantiene(?:\s+(\d+(?:[.,]\d+)?)\s*s?)?\s*$")
+_MARGEN = re.compile(r"\s*\+\s*(\d+(?:[.,]\d+)?)\s*(ms|s)\s*$")
+FIN = "fin"
 
 
 class AsercionInvalida(ValueError):
@@ -163,11 +180,24 @@ def _de_texto(s: str, donde: str) -> dict:
     if resto:
         if resto[0] != "desde":
             raise AsercionInvalida(f"{donde}: sobra «{' '.join(resto)}» (¿falta «desde»?)")
-        d["desde"] = " ".join(resto[1:])
+        cola = " ".join(resto[1:])
+        m = _MANTIENE.search(cola)
+        if m:
+            d["mantener_s"] = m.group(1) or FIN
+            cola = cola[:m.start()]
+        elif re.search(r"\by\s+se\s+mantiene\b", cola):
+            raise AsercionInvalida(f"{donde}: «y se mantiene» va al final, solo («hasta el final de la "
+                                   "corrida») o con su duración: «y se mantiene 1 s»")
+        m = _MARGEN.search(cola)
+        if m:
+            x = float(m.group(1).replace(",", "."))
+            d["tras_ms"] = x if m.group(2) == "ms" else x * 1000.0
+            cola = cola[:m.start()]
+        d["desde"] = cola.strip()
     return d
 
 
-_CLAVES = {"senal", "op", "valor", "ventana", "t", "delta_s", "desde", "tol"}
+_CLAVES = {"senal", "op", "valor", "ventana", "t", "delta_s", "desde", "tol", "tras_ms", "mantener_s"}
 
 
 def leer_asercion(a, k: int, duracion: float, acciones=(), eventos=()) -> dict:
@@ -214,6 +244,26 @@ def leer_asercion(a, k: int, duracion: float, acciones=(), eventos=()) -> dict:
         if ventana not in ("dentro_de", "siempre", "nunca"):
             raise AsercionInvalida(f"{donde}: «desde» va con dentro_de, siempre o nunca")
         out["desde"] = _ancla(d["desde"], donde, acciones, eventos)
+    if d.get("tras_ms") is not None:
+        if ventana not in ("siempre", "nunca") or "desde" not in out:
+            raise AsercionInvalida(f"{donde}: el margen «+ N ms» (`tras_ms`) va con siempre o nunca "
+                                   "desde un ancla: «-M1.par_Nm == 0 siempre desde presionar -S0 + 50 ms»")
+        tras = _numero(d["tras_ms"], donde, "«tras_ms»")
+        if tras < 0:
+            raise AsercionInvalida(f"{donde}: tras_ms = {tras:g}; tiene que ser ≥ 0 (ms después del ancla)")
+        out["tras_ms"] = tras
+    if d.get("mantener_s") is not None:
+        if ventana != "dentro_de":
+            raise AsercionInvalida(f"{donde}: «y se mantiene» (`mantener_s`) va con dentro_de: "
+                                   "«-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1 y se mantiene 1 s»")
+        m = d["mantener_s"]
+        if isinstance(m, str) and m.strip().lower() in (FIN, "final"):
+            out["mantener_s"] = FIN
+        else:
+            m = _numero(m, donde, "«mantener_s» (s, o «fin»)")
+            if m <= 0:
+                raise AsercionInvalida(f"{donde}: mantener_s = {m:g} s; tiene que ser > 0 (o «fin»)")
+            out["mantener_s"] = m
     if d.get("tol") is not None:
         out["tol"] = abs(_numero(d["tol"], donde, "«tol»"))
     out["texto"] = texto(out)
@@ -224,13 +274,17 @@ def texto(a: dict) -> str:
     """El texto canónico de una aserción normalizada."""
     v = a["valor"]
     v = ("true" if v else "false") if isinstance(v, bool) else (f"{v:g}" if isinstance(v, float) else v)
-    partes = [a["senal"], a["op"], str(v), a["ventana"]]
+    partes = [a["senal"], a["op"], str(v) if v != "" else '""', a["ventana"]]
     if "t" in a:
         partes += [f"{a['t']:g}", "s"]
     if "delta_s" in a:
         partes += [f"{a['delta_s']:g}", "s"]
     if "desde" in a:
         partes += ["desde", texto_ancla(a["desde"])]
+    if "tras_ms" in a:
+        partes += ["+", f"{a['tras_ms']:g}", "ms"]
+    if "mantener_s" in a:
+        partes += ["y se mantiene"] + ([] if a["mantener_s"] == FIN else [f"{a['mantener_s']:g}", "s"])
     if "tol" in a:
         partes += [f"(tol {a['tol']:g})"]
     return " ".join(partes)
