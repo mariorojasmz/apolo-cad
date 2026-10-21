@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida (corrigió D5–D7), F1 (WAL, APOLO_PROJECT, identidad) y F2 (candado por proyecto) implementadas; faltan F3–F4
+nota: F0 medida (corrigió D5–D7), F1 (WAL, APOLO_PROJECT, identidad), F2 (candado por proyecto) y F3 (scripts/flota.py, regla de la raíz) implementadas; falta F4 (tres modeladores claude -p a la vez)
 descripcion: Varios agentes modelan máquinas distintas a la vez, cada una en su propio proceso de la API, sin pisarse ni perder guardados
 ---
 
@@ -357,3 +357,60 @@ los puertos de D5/D6, el append atómico de D7 y su test en F1, y los números d
   `autosave_failed`; A muerto con `taskkill /F` (sin shutdown) → B abre 74 al instante (pid
   muerto). Un tercero SIN `APOLO_PROJECT` (como el `:8000`) abre el reciente (74, cuyo dueño B
   también murió a la fuerza) y guarda.
+
+### F3 — `scripts/flota.py` (2026-10-20)
+
+- **`scripts/flota.py`** (`arrancar`, `estado`, `parar`; `--dir` cambia `data/flota/`) y
+  **`scripts/flota_so.py`** (lo que se le pregunta al sistema). Stdlib pura: `psutil` no es
+  dependencia de Apolo (en el venv llega por `ipython`, en el CI no), y **no importa `apolo`**:
+  `import apolo.projects` tardó 19,5 s en frío. Los candados se leen y borran con SQL directo
+  sobre `project_leases`; los tests lo cruzan con `ProjectStore`.
+  - *arrancar*: valida el tope, que los ids existan y no se repitan; elige puertos LIBRES desde
+    `--puerto-base` (8100): ni escuchados (`netstat -ano` por la dirección remota `0.0.0.0:0`,
+    porque el estado «LISTENING» viene traducido; `/proc` en Linux; `lsof` en el resto) ni
+    imposibles de abrir en exclusiva (atrapa los rangos que reserva Hyper-V/WSL), nunca el 8000
+    (D6) ni uno de la flota. Lanza `python -B -m uvicorn` sin `--reload`, con `APOLO_PROJECT`,
+    `APOLO_PORT`, `APOLO_DB` y `PYTHONPATH=<repo>/core`, la salida a `data/flota/api-<puerto>.log`
+    y, en Windows, fuera del job de la terminal si el job lo deja (`CREATE_BREAKAWAY_FROM_JOB`).
+    Espera `/api/health` (300 s): sin `startup_error`, con SU proyecto, y el dueño real del
+    puerto = EXACTAMENTE el pid de health, que cuelga del lanzador (snapshot Toolhelp por
+    ctypes). Escribe `mcp-<puerto>.json` (servidor `apolo-cad`, `APOLO_URL` de su puerto, el
+    python de la flota). Si uno falla, mata los que lanzó en esa llamada: todo o nada.
+  - *estado*: cada entrada con lo que dice HOY su health (el proyecto puede haber cambiado por
+    `open_project`): `vivo`, `colgado` (el pid vive y no responde), `caído` o `ajeno` (responde
+    otro pid o escucha más de uno: zombie-socket).
+  - *parar*: mata el árbol (lanzador → API → worker del sandbox; en Windows `taskkill /T /F`,
+    sin shutdown; en POSIX SIGTERM, 5 s, SIGKILL) sólo si sigue siendo nuestro (un pid muerto
+    pudo reciclarse), espera que suelte el puerto, borra los candados del dueño `*:pid:puerto`
+    y comprueba que no quede ninguno; sólo entonces lo saca de `flota.json` y borra su mcp.
+- **Tope (D8)**: `min(núcleos lógicos // 2 − vivos de la flota, RAM libre // 900 MiB)` (el pico
+  de F0, 893 MB, redondeado hacia arriba; con 0,9 GiB exactos los 4,5 GB de F0 daban 4, no 5).
+  La RAM libre ya descuenta a los vivos; el CPU, no: por eso se restan. Excedido → exit 2.
+- **Fuera de la letra**: `paths.logs_dir()` acepta `APOLO_LOGS` (como `APOLO_DB`). Sin él, el
+  409 que provoca el test lo escribía en el `logs/errors.log` real (el conftest sólo redirige el
+  proceso de la suite). `start-apolo.ps1` no se tocó: un `-Project` tendría que fijar
+  `$env:APOLO_PROJECT` en la sesión de PowerShell de Mario y deshacerlo al salir; la flota ya lo
+  cubre.
+- **Tests** (`tests/test_flota.py`, 16, ~1 min): el tope (cálculo, rechazo sin lanzar con exit
+  2, el real + 1), el zombie y el proceso ajeno, puertos que saltan 8000/escuchados/evitados,
+  el árbol, un id inexistente o repetido, `APOLO_LOGS`, soltar sólo los candados de un dueño, y
+  **dos uvicorn reales** sobre una base NUEVA en tmp con un puerto tapado a propósito: arrancan
+  saltándolo, el dueño real de cada puerto es su pid de health, `estado` (y su `--json`) los ve,
+  abrir desde A el proyecto de B da el 409 exacto (y queda en el log de la prueba firmado por
+  A), abrir uno libre suelta el anterior, los mcp-*.json son válidos y `parar` mata los árboles,
+  libera los puertos y deja la tabla sin candados. **Todo o nada**: si el segundo arranca con
+  startup_error (su proyecto lo tiene un dueño vivo), mueren los dos, no queda lota.json
+  ni mcp-*.json y el candado del primero se suelta (el test pescó un mcp escrito antes de
+  saber si los demás arrancaban: ahora se escriben al final; y, en la suite completa, un dueño de
+  prueba SIN latido vencía a los 30 s mientras la máquina cargada arrancaba los hijos: el test
+  late cada 5 s, como un proceso real). Un finalizer los mata aunque algo falle
+  (probado corriendo sólo los primeros: no quedó nada en 8100–8200).
+- **En vivo**, sobre una COPIA de `data/apolo.db` en el scratchpad (backup de sqlite, 30
+  proyectos) con el sandbox precalentado: `arrancar 74 38 28 72` → exit 2 («caben 2 … 2,2 GB
+  libres»); `arrancar 38 28 --forzar` → `:8100` y `:8101` en 37 s, vivos tras salir la CLI;
+  `:8100` abre 28 → 409 «El proyecto 28 está abierto en el puerto 8101 (pid 24820)»;
+  `scripts/e2e_mcp.py --puerto 8100 --proyecto 38` pasa 26/27 (el que falla es su `list_tools`,
+  que espera 79 tools y hay 83: desfase previo del script, no de la flota); `parar` → los dos
+  parados, candados `[38]` y `[28]` sueltos, tabla vacía y nada escuchando en 8100–8200.
+- **Raíz (D9)**: la regla «Una máquina a la vez» pasó a «una máquina por proceso; varias, con
+  `scripts/flota.py`».

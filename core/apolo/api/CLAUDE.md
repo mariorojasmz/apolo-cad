@@ -241,6 +241,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   `_flush_autosave()` antes de leer disco.
 - `tests/conftest.py` (autouse, sesión) redirige `logs/errors.log` a tmp: sin él la tortura
   escribía errores FALSOS en el log que se lee al «revisa» (commit `3e935f4`).
+- Ese conftest no alcanza a OTRO proceso: un test que levanta APIs reales (uvicorn, la flota de
+  `tests/test_flota.py`) les pasa `APOLO_DB` y `APOLO_LOGS` (`paths.logs_dir()`) a tmp.
 
 ## Dominio en `services`, coreografía en la API
 

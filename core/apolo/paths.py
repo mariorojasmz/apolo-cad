@@ -45,8 +45,11 @@ def data_dir() -> Path:
 
 
 def logs_dir() -> Path:
-    """Carpeta de logs (`errors.log` de las sesiones de prueba). No se crea aquí."""
-    return _base() / "logs"
+    """Carpeta de logs (`errors.log` de las sesiones de prueba); `APOLO_LOGS` manda, como
+    `APOLO_DB` en la base: los tests que levantan APIs reales (`tests/test_flota.py`) no
+    escriben en el log que se lee al «revisa». No se crea aquí."""
+    env = os.environ.get("APOLO_LOGS")
+    return Path(env).expanduser() if env else _base() / "logs"
 
 
 def publicaciones_dir() -> Path:

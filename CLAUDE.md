@@ -180,8 +180,10 @@ mergear una fase, se agrega su fila.
 autocontenido (no puede preguntar a mitad: decide con criterio y lo reporta) y contexto fresco;
 modelar dentro de una sesión larga relee todo su contexto en cada llamada (la piloto de
 [publicacion-tienda](docs/plans/publicacion-tienda.md): 36 M tokens leídos en 14 min). ⚠️ **Una
-máquina a la vez**: la API tiene UN documento activo (`api/session.py`, `S.doc`) y
-`open_project` lo cambia para todos; dos agentes a la vez se pisan.
+máquina por proceso; varias, con `scripts/flota.py`** ([plan](docs/plans/varias-maquinas-a-la-vez.md)):
+cada API tiene UN documento (`S.doc`) que `open_project` cambia para todos sus clientes, y los
+subagentes comparten el MCP de su sesión → cada modelador extra es un `claude -p --mcp-config
+data/flota/mcp-<puerto>.json --strict-mcp-config`.
 
 **Antes de entregar una máquina la revisa OTRO subagente** de sólo lectura (segundo plano,
 contexto fresco, a ciegas, cuando el modelador ya terminó) con el prompt de
