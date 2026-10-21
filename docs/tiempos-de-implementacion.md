@@ -88,6 +88,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-21 | varias-maquinas-a-la-vez | F3 | S | 205 | 224 | `scripts/flota.py`; atípico: tests con APIs reales y suite de 75 min con la PC cargada |
 | 2026-10-21 | V8.3 | F6 (verif. MCP) | S | 13 | 7 200 (caché) | sesión `claude -p` sobre la flota: 62 llamadas, USD 3,79 |
 | 2026-10-21 | manual-rapido | F0+F1 | S+M | 231 | 363 | atípico: midió el manual de la piloto en frío (3 h 29 min antes) |
+| 2026-10-21 | video-realista | F4 | M | 228 | 478 | trazado de rayos (three-gpu-pathtracer 0.0.23) + Foto realista; rodeó 4 fallas de la librería |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |

@@ -25,7 +25,7 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 
 | hito | qué falta | plan |
 |---|---|---|
-| **A. Video de YouTube realista** | F3 hecha (el video sale solo con `publicar generar --render navegador`); falta F4 (trazado de rayos) y F5 (verificación en el escritorio, con Mario) | [video-realista](plans/video-realista.md) |
+| **A. Video de YouTube realista** | F0–F4 hechas (visor alta, grabación, guion en el navegador, trazado de rayos y Foto realista); falta F5 (verificación en el escritorio con la 4070 Ti, con Mario) | [video-realista](plans/video-realista.md) |
 | **A′. Pulido del video de la tienda** | F3 hecha; F2 reducida por video-realista D8; F4 con la música de Mario | [video-tienda-pulido](plans/video-tienda-pulido.md) |
 
 ## Siguientes, en este orden
