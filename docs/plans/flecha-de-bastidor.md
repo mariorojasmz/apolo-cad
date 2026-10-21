@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1–F2 en main (2026-10-19): viga continua exacta, secciones de tabla y regla en `engineering_check`/memoria (piloto = cálculo a mano); falta F3 (verificación por MCP) y decidir D4: una faja a mano recibe la regla vieja y ésta
+nota: F3 verificada por MCP (2026-10-21): `engineering_check` coincide con el cálculo a mano (1,50 mm, 45,7 MPa); `calc_report` por MCP FALLA (timeout del MCP a 120 s, STATE_LOCK ~15 min) — lo arregla manual-rapido F2; falta decidir D4
 descripcion: La memoria de cálculo verifica la flecha y la tensión de cualquier viga del bastidor, aunque la máquina no salga de una plantilla
 ---
 
@@ -142,3 +142,10 @@ esa forma. Parte de [revision-de-taller](revision-de-taller.md).
 - Fuera de alcance, declarado: la faja que `detect_conveyor` reconoce POR NOMBRE (sin
   `create_conveyor`) y con requisitos recibe las dos reglas (la vieja «flecha del bastidor» y
   ésta); D4 sólo excluye `create_conveyor`, como dice el plan.
+
+### F3 (2026-10-21): verificación por MCP — FALLA por la memoria, el cálculo pasa
+
+**Cómo** (ola 5, 2026-10-21): una sesión NUEVA `claude -p --model opus` con sólo las tools `apolo-cad` + lectura del repo, contra una API de la flota en :8100 con el proyecto 78 (copia de la piloto 74). Una sesión para cinco verificaciones: 53 min, 114 turnos, USD 5,28.
+- `engineering_check` (~71 s): larguero -Y flecha 1,50 mm (lím. 7,10), voladizo 0,26 mm, M 0,298 kN·m, σ 45,7 MPa; +Y 1,54 mm. A mano: 1,49 mm, 0,296 kN·m, 45,4 MPa. Coincide.
+- `calc_report(path=…)`: timeout a ~120 s (httpx del MCP), nunca escribe el PDF; el endpoint es síncrono y sostiene STATE_LOCK ~15–17 min (portada matplotlib bajo el lock). Lo corrige [manual-rapido](manual-rapido.md) F2 (portada VTK fuera del lock + memoria como job).
+- Fricción: las 40 reglas «unión apernada · rN_eje_larguero» salen una por una (las vigas sí se agrupan). Hito H.

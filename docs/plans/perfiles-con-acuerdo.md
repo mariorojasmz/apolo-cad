@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1–F3 en main (2026-10-19): r1/r2 de norma, lint de asiento (40/40 avisos en la rev. 3 del piloto, 0 en la 4), orientación declarativa y anclas de perfil abierto (`insert_component` v2); falta F4 — la verificación por MCP
+nota: sin pendientes de código: F4 verificada por MCP (2026-10-21): dos ángulos orientados con D3 a la primera y lint de asiento 0 en la piloto; fricción (schema de 11 KB, render con ejes) en el hito H
 descripcion: Los perfiles del catálogo saben dónde es plana el alma y cómo se orientan, así que un taladro mal puesto ya no sale en VERDE
 ---
 
@@ -149,3 +149,10 @@ asiento sobre el acuerdo del perfil».
 - **Piloto** (revisión 124, sólo lectura): 40 avisos por anclas y 40 por bbox; los dos
   largueros UPN-100 (`c9`, `c10`, taladrados → sin matrix) publican las cinco anclas, con la
   zona plana del alma en z ∈ [662.87, 727.13] (eje del larguero a 695: s = 17.87).
+
+### F4 (2026-10-21): verificación por MCP — PASA CON OBSERVACIONES
+
+**Cómo** (ola 5, 2026-10-21): una sesión NUEVA `claude -p --model opus` con sólo las tools `apolo-cad` + lectura del repo, contra una API de la flota en :8100 con el proyecto 78 (copia de la piloto 74). Una sesión para cinco verificaciones: 53 min, 114 turnos, USD 5,28.
+- Copia del larguero `ANG-75X6` con `orientacion {alas:["-y","+z"]}`: bbox y 5 anclas idénticos a c9, a la primera; clip `ANG-50X5` también.
+- Lint de asiento: 0 avisos (= rev. 4 de F2).
+- Fricción: `get_command_schemas("insert_component")` pesa ~11 KB (el enum del catálogo); `render_view(show_axes=true)` encuadra el origen y la pieza queda chica. Hito H.

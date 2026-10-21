@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2 en main (2026-10-19): fantasmas de herramienta en la puerta de entrega; piloto rev. 3 ROJO en 40/40 tuercas, rev. 4 verde; la puerta tarda ~10–20 % más; falta F3 — la verificación por MCP
+nota: sin pendientes de código: F3 verificada por MCP (2026-10-21): piloto VERDE 40/40 en ~53 s y ROJO al simular el ala de la rev. 3; la rev. 3 real no se re-midió (la copia no trae revisiones)
 descripcion: Apolo avisa cuando una tuerca o un perno no se puede apretar porque la llave no entra
 ---
 
@@ -132,3 +132,9 @@ cambiando a ángulo L 75×6 (revisión 4). Parte de [revision-de-taller](revisio
   nombre) y endpoint `POST /api/delivery-check`.
 - Gate: pytest completo 2852 pasan + 1 saltado (+21 nuevos sobre los 2832), ruff limpio.
   Pendiente F3: re-correr F0 por MCP (`delivery_check` sobre el piloto) y anotar los números.
+
+### F3 (2026-10-21): verificación por MCP — PASA CON OBSERVACIONES
+
+**Cómo** (ola 5, 2026-10-21): una sesión NUEVA `claude -p --model opus` con sólo las tools `apolo-cad` + lectura del repo, contra una API de la flota en :8100 con el proyecto 78 (copia de la piloto 74). Una sesión para cinco verificaciones: 53 min, 114 turnos, USD 5,28.
+- `delivery_check`: VERDE, acceso de herramienta 40 fijadores, 0 sin acceso, ~53 s (la tool no informa su tiempo).
+- La copia no trae revisiones: la rev. 3 (40/40 rojas) se simuló con una placa de 6 mm a 11,5 mm de la tuerca c97 → ROJO «1 tuerca… estorban: Ala simulada UPN» en ~46 s.

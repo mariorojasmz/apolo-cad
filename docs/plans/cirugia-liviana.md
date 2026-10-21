@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F2 en main (2026-10-19): `remove_commands` con `detail=diff` (8,2 MB → 284 B en el piloto) y dependientes en 1 undo; falta F3 — borrar y restaurar una pieza del piloto por MCP
+nota: sin pendientes de código: F3 verificada por MCP (2026-10-21): borrar con dependientes responde 0,6 KB y el undo deja el proyecto idéntico; el undo responde 52,7 KB (brief entero, a propósito) — en el hito H de docs/hitos.md
 descripcion: Borrar piezas desde el agente es una tool más y responde corto, así que corregir una máquina gasta menos
 ---
 
@@ -94,3 +94,10 @@ lista que pidió Mario.
   diff fue sólo la tool nueva, sus casos y el docstring de `get_job`.
 - Test de punta a punta (tool → `TestClient` real) con dependientes: < 5 KB, la vara de F3.
   F3 (por MCP contra el proyecto 2 en vivo) queda para la sesión principal.
+
+### F3 (2026-10-21): verificación por MCP — PASA CON OBSERVACIONES
+
+**Cómo** (ola 5, 2026-10-21): una sesión NUEVA `claude -p --model opus` con sólo las tools `apolo-cad` + lectura del repo, contra una API de la flota en :8100 con el proyecto 78 (copia de la piloto 74). Una sesión para cinco verificaciones: 53 min, 114 turnos, USD 5,28.
+- `remove_commands(["c90"])` sin dependientes: 400 que no sugiere `con_dependientes=true`.
+- Con `con_dependientes=true, detail="diff"`: ~0,6 KB; borra c90, sus 2 fijadores y lo saca del grupo.
+- `undo` → `get_scene(summary)` idéntico (201 piezas, 145,877 kg). Pero el `undo` responde 52,7 KB (brief de toda la escena, `brief.py::brief_paso`): el ciclo borrar + restaurar no entra en < 5 KB. Va al hito H.

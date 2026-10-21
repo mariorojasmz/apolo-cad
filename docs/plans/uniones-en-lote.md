@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 en main (2026-10-19): `fasten` con conjuntos, la autodetección no suelda lo que gira y `declare_structure` propone sin aplicar; falta F4 — redeclarar la estructura del piloto con < 30 órdenes por MCP
+nota: sin pendientes de código: F4 verificada por MCP (2026-10-21): la estructura de la piloto redeclarada con 27 órdenes en 2 llamadas, 264 uniones idénticas, sujeción, gravedad y puerta igual de verdes; la propuesta de `declare_structure` no sirve tal cual — en el hito H
 descripcion: El agente declara de una vez cómo se une cada pieza repetida («cada eje a su larguero») y la detección automática ya no suelda cadenas a la guarda
 ---
 
@@ -140,3 +140,10 @@ Decisiones propias (vetables):
   resumen; `completo=true` la trae entera (la piloto proponía 460 uniones ≈ 100 KB). El recorte
   es del cliente MCP: la API devuelve siempre todo.
 - Sigue en `CHAT` como `muta` (con `aplicar=true` cambia el documento).
+
+### F4 (2026-10-21): verificación por MCP — PASA
+
+**Cómo** (ola 5, 2026-10-21): una sesión NUEVA `claude -p --model opus` con sólo las tools `apolo-cad` + lectura del repo, contra una API de la flota en :8100 con el proyecto 78 (copia de la piloto 74). Una sesión para cinco verificaciones: 53 min, 114 turnos, USD 5,28.
+- 27 órdenes (< 30): un `remove_commands` de 228 ids (~11 KB) y un `run_batch` de 26 (4 `ground`, `fasten` por conjuntos `c11+c57`, `(c15+c61)[::2]`…), aceptado a la primera.
+- Después: 264 uniones con los mismos tipos y el mismo emparejamiento piñón ↔ buje; `check_assembly` 201/201, `gravity_test` 0 caen, `delivery_check` VERDE.
+- `declare_structure`: la propuesta (420 uniones, 114 a revisar, ~38 KB) suelda eje ↔ larguero, tuerca ↔ larguero y guarda ↔ motorreductor, y deja pata ↔ larguero como contacto; ya no suelda piñones ni cadenas. Fricción: `run_batch` no dice cuántas uniones expandió; `get_connections` 57–70 KB sin filtro; `check_assembly` lista los 201 ids dos veces. Hito H.
