@@ -60,6 +60,28 @@ def test_brief_diff_empty_affected_returns_all():
     assert len(_scene_brief(p, "diff")["solidos"]) == 2
 
 
+def test_brief_con_muchos_afectados_resume_por_comando():
+    """mcp-sin-friccion D1: una plantilla de cientos de sólidos no se lista pieza a pieza en
+    "diff" ni en "summary"; "full" y una consulta (sin afectados) siguen listando."""
+    from apolo.brief import MAX_SOLIDOS
+
+    plantilla = [dict(_feat(f"c7_p{k}", f"c7_p{k}"), group="Bastidor" if k % 2 else "Rodillos")
+                 for k in range(MAX_SOLIDOS)]
+    p = _payload([_feat("c1", "c1"), *plantilla, _feat("c8", "c8")], affected=["c7", "c8"])
+    for detail in ("diff", "summary"):
+        b = _scene_brief(p, detail)
+        assert "solidos" not in b and b["solidos_afectados"] == MAX_SOLIDOS + 1
+        assert b["por_comando"] == [
+            {"comando": "c7", "n": MAX_SOLIDOS, "ejemplo": {"id": "c7_p0", "nombre": "c7_p0"},
+             "grupos": {"Rodillos": MAX_SOLIDOS // 2, "Bastidor": MAX_SOLIDOS // 2}},
+            {"comando": "c8", "n": 1, "ejemplo": {"id": "c8", "nombre": "c8"}}]
+        assert "get_scene" in b["seguir"] and b["total_solidos"] == MAX_SOLIDOS + 2
+    assert len(_scene_brief(p, "full")["solidos"]) == MAX_SOLIDOS + 2
+    # justo en el tope, lista como siempre
+    p = _payload([_feat(f"c7_{k}", "c7") for k in range(MAX_SOLIDOS)], affected=["c7"])
+    assert _scene_brief(p, "summary")["solidos_mostrados"] == MAX_SOLIDOS
+
+
 def test_one_or_many_excluyentes():
     """Params `x`/`xs` de las tools por lote (V6.8-A): exactamente uno de los dos."""
     assert _one_or_many("c1", None) == ["c1"]

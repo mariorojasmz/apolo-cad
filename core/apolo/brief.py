@@ -50,6 +50,27 @@ def _one_or_many(one: str | None, many: list[str] | None, campo: str = "feature"
     return [one] if one else list(many)
 
 
+#: Con más sólidos afectados que esto, "diff" y "summary" resumen por comando (mcp-sin-friccion D1).
+MAX_SOLIDOS = 40
+
+
+def _por_comando(shown: list[dict], affected: set[str]) -> list[dict]:
+    """Los sólidos afectados por comando afectado (los de command_id sintético `{cmd}_…` van
+    con su `cmd`): `{comando, n, ejemplo, grupos?}`, en el orden en que aparecen."""
+    filas: dict[str, dict] = {}
+    for f in shown:
+        cid = f["command_id"]
+        raiz = cid if cid in affected else next(
+            (a for a in sorted(affected) if cid.startswith(a + "_")), cid)
+        fila = filas.setdefault(raiz, {"comando": raiz, "n": 0,
+                                       "ejemplo": {"id": f["id"], "nombre": f["name"]}})
+        fila["n"] += 1
+        if f.get("group"):
+            fila.setdefault("grupos", {})
+            fila["grupos"][f["group"]] = fila["grupos"].get(f["group"], 0) + 1
+    return list(filas.values())
+
+
 def _scene_brief(payload: dict, detail: str = "diff") -> dict:
     """Resumen sin mallas (las mallas son para el viewport, no para el agente).
 
@@ -59,7 +80,9 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
                     (`affected_command_ids`). Si no hay afectados (consultas), lista
                     todos. Es el default: evita volcar cientos de sólidos al editar uno.
       - "summary" → solo id/nombre/comando de los afectados (sin bbox/volumen).
-    Siempre incluye `total_solidos` (conteo de la escena) y `solidos_mostrados`.
+    Siempre incluye `total_solidos` (conteo de la escena) y, si lista, `solidos_mostrados`. Con más de
+    `MAX_SOLIDOS` afectados, "diff" y "summary" no listan: dan `solidos_afectados` y
+    `por_comando` (D1 de mcp-sin-friccion).
     """
     doc = payload.get("document", {})
     feats = payload.get("features", [])
@@ -77,33 +100,41 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
             or any(f["command_id"].startswith(a + "_") for a in affected)
         ]
 
-    if detail == "summary":
-        solidos = [
-            {"id": f["id"], "nombre": f["name"], "comando": f["command_id"]} for f in shown
-        ]
-    else:
-        solidos = [
-            brief_pieza(
-                f["id"], f["name"], f["visible"], f["bbox"], f["volume_mm3"], f["command_id"],
-                componente=f.get("component"), grupo=f.get("group"), boceto=f.get("is_guide"),
-            )
-            for f in shown
-        ]
-    # `variables` es verboso (~33 entradas) y se repetía en CADA mutación. Lo incluimos
-    # solo cuando aporta: vista completa, consulta (sin afectados) o cuando la operación
-    # tocó alguna variable (su command_id es un set_variable). Las mutaciones de geometría
-    # —el caso común— ya no lo arrastran. Para verlas siempre, usar get_scene.
-    var_ids = {c["id"] for c in doc.get("commands", []) if c.get("type") == "set_variable"}
-    include_vars = detail == "full" or not affected or bool(affected & var_ids)
     out = {
         "proyecto": doc.get("name"),
         "configuraciones": doc.get("configurations"),
         "puede_deshacer": doc.get("can_undo"),
         "puede_rehacer": doc.get("can_redo"),
         "total_solidos": total,
-        "solidos_mostrados": len(solidos),
-        "solidos": solidos,
     }
+    if affected and detail != "full" and len(shown) > MAX_SOLIDOS:
+        # D1 de mcp-sin-friccion: una plantilla de 297 sólidos no se lista pieza a pieza
+        out["solidos_afectados"] = len(shown)
+        out["por_comando"] = _por_comando(shown, affected)
+        out["seguir"] = ("lista sus piezas con get_scene(name=…) o get_scene(ids=[grupo]); "
+                         "detail='full' trae la escena entera")
+    else:
+        if detail == "summary":
+            solidos = [
+                {"id": f["id"], "nombre": f["name"], "comando": f["command_id"]} for f in shown
+            ]
+        else:
+            solidos = [
+                brief_pieza(
+                    f["id"], f["name"], f["visible"], f["bbox"], f["volume_mm3"],
+                    f["command_id"], componente=f.get("component"), grupo=f.get("group"),
+                    boceto=f.get("is_guide"),
+                )
+                for f in shown
+            ]
+        out["solidos_mostrados"] = len(solidos)
+        out["solidos"] = solidos
+    # `variables` es verboso (~33 entradas) y se repetía en CADA mutación. Lo incluimos
+    # solo cuando aporta: vista completa, consulta (sin afectados) o cuando la operación
+    # tocó alguna variable (su command_id es un set_variable). Las mutaciones de geometría
+    # —el caso común— ya no lo arrastran. Para verlas siempre, usar get_scene.
+    var_ids = {c["id"] for c in doc.get("commands", []) if c.get("type") == "set_variable"}
+    include_vars = detail == "full" or not affected or bool(affected & var_ids)
     if include_vars:
         out["variables"] = doc.get("variables")
     if payload.get("aviso_estructura"):  # alarma ambiental (V6.9-B): 0 anclajes declarados

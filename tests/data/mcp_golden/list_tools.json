@@ -396,7 +396,7 @@
  },
  {
   "name": "run_command",
-  "description": "Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos\naceptan '=expresión' con variables del proyecto. `detail`: \"diff\" (def.) devuelve\nsolo los sólidos nuevos + `total_solidos`; \"full\" toda la escena; \"summary\" solo\nid/nombre de lo nuevo. El bloque `variables` solo aparece si la operación tocó\nalguna (o detail=\"full\"); usa get_scene para verlas siempre. Si tarda, recibes un\nRECIBO {\"job\": id}: recógelo con get_job(id) y NO reenvíes el comando.",
+  "description": "Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos\naceptan '=expresión' con variables del proyecto. `detail`: \"diff\" (def.) devuelve\nsolo los sólidos nuevos + `total_solidos`; \"full\" toda la escena; \"summary\" solo\nid/nombre de lo nuevo (con más de 40, \"diff\" y \"summary\" resumen `por_comando`). El bloque\n`variables` solo aparece si la operación tocó alguna (o detail=\"full\"); usa get_scene para\nverlas siempre. Si tarda, recibes un RECIBO {\"job\": id}: recógelo con get_job(id) y NO\nreenvíes el comando.",
   "inputSchema": {
    "properties": {
     "type": {

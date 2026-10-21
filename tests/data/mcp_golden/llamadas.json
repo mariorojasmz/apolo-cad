@@ -991,6 +991,81 @@
   ]
  },
  {
+  "caso": "lote de una plantilla → por comando",
+  "tool": "run_batch",
+  "args": {
+   "actions": [
+    {
+     "type": "create_box",
+     "params": {
+      "name": "A",
+      "width": 50
+     }
+    }
+   ],
+   "detail": "summary"
+  },
+  "salida": [
+   {
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 44, \"solidos_afectados\": 41, \"por_comando\": [{\"comando\": \"c7\", \"n\": 41, \"ejemplo\": {\"id\": \"c7_r0\", \"nombre\": \"Rodillo 0\"}, \"grupos\": {\"Rodillos\": 41}}], \"seguir\": \"lista sus piezas con get_scene(name=…) o get_scene(ids=[grupo]); detail='full' trae la escena entera\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/commands/batch",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "actions": [
+      {
+       "type": "create_box",
+       "params": {
+        "name": "A",
+        "width": 50
+       }
+      }
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/j1",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "lote → job en error",
   "tool": "run_batch",
   "args": {

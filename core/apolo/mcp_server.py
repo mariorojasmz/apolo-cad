@@ -246,9 +246,10 @@ def run_command(type: str, params: dict, detail: str = "diff") -> str:
     """Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos
     aceptan '=expresión' con variables del proyecto. `detail`: "diff" (def.) devuelve
     solo los sólidos nuevos + `total_solidos`; "full" toda la escena; "summary" solo
-    id/nombre de lo nuevo. El bloque `variables` solo aparece si la operación tocó
-    alguna (o detail="full"); usa get_scene para verlas siempre. Si tarda, recibes un
-    RECIBO {"job": id}: recógelo con get_job(id) y NO reenvíes el comando."""
+    id/nombre de lo nuevo (con más de 40, "diff" y "summary" resumen `por_comando`). El bloque
+    `variables` solo aparece si la operación tocó alguna (o detail="full"); usa get_scene para
+    verlas siempre. Si tarda, recibes un RECIBO {"job": id}: recógelo con get_job(id) y NO
+    reenvíes el comando."""
     return _mutacion("POST", "/api/commands", {"type": type, "params": params}, detail)
 
 

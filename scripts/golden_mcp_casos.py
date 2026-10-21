@@ -416,6 +416,8 @@ CASOS = [
     caso("lote con contrato", "run_batch", {"actions": [_ESC, _ESC], "detail": "summary",
                                            "expect": [{"tipo": "existe", "id": "$1"}]}),
     caso("lote → recibo", "run_batch", {"actions": [_ESC]}, espera=0.0),
+    caso("lote de una plantilla → por comando", "run_batch", {"actions": [_ESC], "detail": "summary"},
+         rutas={("GET", r"/api/jobs/[^/]+"): J({"estado": "ok", "resultado": _escena_grande()})}),
     caso("lote → job en error", "run_batch", {"actions": [_ESC]}, rutas={
         ("GET", r"/api/jobs/[^/]+"): J({"estado": "error", "http_status": 400,
                                         "error": "Contrato incumplido: medido 150 > 10"})}),
