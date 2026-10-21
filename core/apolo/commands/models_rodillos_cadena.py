@@ -35,11 +35,13 @@ class CreateRollerConveyorParams(BaseModel):
     vertical por dentro, ala horizontal ABAJO y hacia AFUERA), rodillos de tubo redondo sobre
     eje fijo M12 con tapas de rodamiento 6201 y tuerca a cada lado (atornillado al ala vertical),
     piñón doble-simple ASA 40 Z15 soldado a un buje en cada rodillo, cadenas ASA 40 1:1
-    alternando las dos hileras, motorreductor bajo el último rodillo con piñón Z30 y cadena
+    alternando las dos hileras, motorreductor bajo el último rodillo con su piñón y cadena
     motriz, patas de tubo 2x2 en H (travesaño ENTRE las patas, placa base con 2 anclajes y
-    `ground`), guarda de cadenas sobre separadores soldados y guarda de la transmisión. Todas
-    las uniones van declaradas (`fasten` en conjuntos) y las piezas quedan en el grupo `name`
-    con sus subgrupos Bastidor, Rodillos, Cadenas, Patas, Motorreductor y Guardas.
+    `ground`), guarda de cadenas sobre separadores soldados, guarda de la transmisión CERRADA
+    (cárter que corre con el motor + guarda fija atornillada al larguero, ISO 14120) y bandeja
+    inferior de cadenas en tramos atornillados. Todas las uniones van declaradas (`fasten` en
+    conjuntos) y las piezas quedan en el grupo `name` con sus subgrupos Bastidor, Rodillos,
+    Cadenas, Patas, Motorreductor y Guardas.
 
     CÓMO MONTAR (IMPORTANTE):
     - Transporte a lo largo de +X: la alimentación en x = position.x y la motriz (motor) en
@@ -52,9 +54,17 @@ class CreateRollerConveyorParams(BaseModel):
       extremo al final del larguero) y los rodillos quedan centrados.
     - `ancho_util` = largo del tubo (lo que ve el producto). Con `motriz: cadena` el motor va
       entre las patas, bajo los rodillos: si no cabe, el error dice el ancho mínimo.
-    - La cadena motriz va inclinada 20° hacia la alimentación y el motor DESLIZA ±20 mm en X
-      sobre ranuras abiertas de su base: así se tensa. Sus eslabones y centros salen solos
-      (centros exactos, nunca una cota a mano).
+    - La cadena motriz va inclinada 20° hacia la alimentación y se TENSA sobre su línea de
+      centros: el travesaño portamotor (con base, motor y cárter) va atornillado a las patas por
+      orejas de ranuras paralelas a esa línea; corre lo que pide el estirado de reemplazo (3 %
+      del largo de la cadena) y 3 mm hacia adentro para montar el eslabón de unión. Sus
+      eslabones y centros salen solos (centros exactos, nunca una cota a mano).
+    - `velocidad_m_s` (opcional) = velocidad del PRODUCTO: elige el piñón del motor (ASA 40
+      simple del catálogo) que la da dentro de ±10 %; si ninguno, el error dice las velocidades
+      que salen con ese motor y qué motor + piñón da la pedida. Sin ella, piñón Z30. El motor
+      sigue siendo el que diga `motor`.
+    - Todas las estaciones llevan el travesaño a la misma altura (la del portamotor; a media
+      pata con `motriz: libre`).
     - Las estaciones de patas quedan con el mismo voladizo en los dos extremos y se agregan
       intermedias para que el vano del larguero (ángulo libre, flecha L/240 con `carga_kg`
       repartida) no pase de 1.8 m. `carga_kg` es la carga TOTAL sobre el transportador; con
@@ -96,6 +106,10 @@ class CreateRollerConveyorParams(BaseModel):
     motor: str = Field(
         "MOTOR-037", title="Motorreductor", description="sólo con transmisión por cadena",
         json_schema_extra=lambda schema: schema.update({"enum": _motores()}),
+    )
+    velocidad_m_s: float | None = Field(
+        None, gt=0, le=3, title="Velocidad",
+        description="m/s del producto (opcional): elige el piñón del motor; vacío = piñón Z30",
     )
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
 

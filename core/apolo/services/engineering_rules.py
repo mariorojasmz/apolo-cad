@@ -9,13 +9,27 @@ from __future__ import annotations
 
 
 def conveyor_params_from_doc(doc) -> dict | None:
+    """Los params del ÚLTIMO transportador paramétrico del log: un `create_conveyor` o un
+    `create_roller_conveyor` (éste con `plantilla`, que `conveyor_engineering_check` valida con
+    sus reglas propias contra la ficha; plan plantilla-rodillos-cadena D9)."""
     from apolo.commands import resolve_params
 
-    cmd = next((c for c in reversed(doc.commands) if c["type"] == "create_conveyor"), None)
+    tipos = ("create_conveyor", "create_roller_conveyor")
+    cmd = next((c for c in reversed(doc.commands) if c["type"] in tipos), None)
     if cmd is None:
         return None
+    params = resolve_params(cmd["params"], doc.variables_resolved)
+    if cmd["type"] == "create_roller_conveyor":
+        from apolo.commands.models_rodillos_cadena import CreateRollerConveyorParams
+
+        try:
+            params = CreateRollerConveyorParams.model_validate(params, extra="ignore").model_dump(
+                exclude={"position"})
+        except ValueError:  # params rotos: las reglas lo dicen como error, sin tumbar el chequeo
+            pass
+        return {"plantilla": cmd["type"], **params}
     defaults = {"largo": 2000, "ancho": 600, "altura": 750, "paso": 100, "rodillo": "RODILLO-50", "motor": "ninguno"}
-    return {**defaults, **resolve_params(cmd["params"], doc.variables_resolved)}
+    return {**defaults, **params}
 
 
 def requirement_inputs(doc, carga_kg, largo_paquete_mm, ancho_paquete_mm) -> tuple:

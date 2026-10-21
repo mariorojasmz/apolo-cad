@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 hechas (2026-10-21): un transportador de 3 m sale con 1 orden en 7 min (piloto a mano: 1 h 10 min), VERDE; el revisor ciego halló 2 ALTA (guardas abiertas abajo y del lado motor) y 3 MEDIA (sin param de velocidad, tensado de la motriz ~8 mm, lazos sin tensado) — hito I
+nota: F0–F3 hechas (2026-10-21; 3 m con 1 orden en 7 min, VERDE). F4 implementada en rama, sin mergear (2026-10-21) — guardas cerradas, bandeja, velocidad, tensado sobre la línea de centros, engineering_check; quedan las «Preguntas para Mario» — hito I
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -144,6 +144,92 @@ tensado: lo arregla la plantilla, que es donde vive la lección.
   después (como `create_conveyor`).
 
 ## Bitácora
+
+### F4 (2026-10-21): v2 — guardas cerradas, bandeja, velocidad, tensado y engineering_check
+
+- Archivos:
+  - `library/rodillos_cadena.py` queda de fachada (cotas del bastidor, `disposicion`);
+  - `rodillos_cadena_motriz.py`: motor, piñón por velocidad, portamotor con orejas, recorrido;
+  - `rodillos_cadena_guardas.py`: cárter, guarda fija y bandeja como polígonos XZ/YZ;
+  - `rodillos_cadena_reglas.py`: las reglas de D9;
+  - `commands/receta_rodillos_guardas.py`: las guardas pasadas a comandos.
+  - `rules.conveyor_engineering_check` deriva a las reglas nuevas cuando el dict trae
+    `plantilla` (927 líneas, una menos). `services/engineering_rules.conveyor_params_from_doc`
+    devuelve también el último `create_roller_conveyor`. `/api/checks` y la memoria no cambiaron.
+  - `create_roller_conveyor` v2 con `velocidad_m_s` opcional (huella nueva). La etiqueta de
+    `insert_project` suma `create_roller_conveyor@2`.
+- Tests: 15 en `tests/test_plantilla_rodillos_f4.py` y el banco `tests/banco_guardas.py`
+  (sonda de dedo por rayos + interferencias sin el tope de 400 parejas). La tortura D3 suma la
+  máquina de F3: los 4 tamaños dan VERDE con gravedad (49, 85, 114 y 127 s). Suite completa en
+  el worktree: **4062 passed, 2 skipped**; ruff limpio.
+- **Medido** sobre la máquina de F3 (3 m, ficha 0.25 m/s, paquetes de 400 mm y 25 kg,
+  `carga_kg` 200):
+  - 312 sólidos y 411 uniones; regenerate en 6.4 s.
+  - Interferencias: 0 sin excluir lo declarado, sin tope de parejas. También 0 con el conjunto
+    que corre en +3 mm y en −8.76 mm. Las guardas de D4/D5 quedan a ≥ 3 mm de toda cadena y
+    piñón en las dos puntas. Los ramales de la motriz, medidos en 2D, tampoco las tocan.
+  - Puerta: VERDE sin truncar. Son 367 parejas candidatas de 400 (2 m: 254; 4 m TUBOR-3: 364).
+  - Sonda de dedo Ø8: ningún alcance desde abajo, desde el lado del motor (bajo los tubos) ni
+    desde afuera. La grilla va a 3.5–4 mm en la transmisión y a 9 mm en el resto.
+    - Controles: sin bandeja y sin guarda de la transmisión, la sonda llega a un lazo y a la
+      motriz.
+    - Sin el faldón llega a los lazos desde afuera: es un defecto nuevo de F2, ver abajo.
+  - Tensado: 46 eslabones, +8.76 mm (1.5 % de 584 mm) y −3 mm. Las dos ranuras frenan a 1.5 mm
+    del recorrido.
+  - Velocidad: 0.25 da el Z30 (0.266 m/s, +6.4 %). 0.15 da el Z17 (0.151 m/s). 0.40 con
+    MOTOR-037 da error con las velocidades que salen y «MOTOR-150 + piñón Z30 da 0.372 m/s, pero
+    no cabe entre las patas: ancho_util mínimo 606».
+  - `engineering_check`:
+    - velocidad ok;
+    - 4 rodillos bajo el paquete;
+    - rodillo: 6.2 kg contra 37 kg de capacidad (FS 5.9);
+    - carga de diseño 175 ≤ 200 kg;
+    - motor FS 4.05;
+    - **cadena FS 1.09 → aviso** (el que leyó el revisor);
+    - tensado ok.
+- **Decisiones que tomó la implementación**:
+  - **Rendija de 5 mm** en las cuatro paredes. El solape sobre la línea de centros es 20 + b + 3
+    + 2 (33.8 mm en la de 3 m).
+    - La guarda fija arranca 3 mm + el recorrido de montaje sobre el eje del motor: es la única
+      pared que el eje cruza y no lleva barreno.
+    - El cárter sube hasta ahí más el solape. Tope: 3 mm bajo las cadenas 1:1 en la punta de
+      montaje.
+  - **Extremo +X del cárter** vertical al pie, para librar el riel de patas del motor (2 mm).
+    Después sigue la línea de centros.
+  - **Extremo +X de la guarda fija**: se pliega a 45° hasta una vertical dentro del bastidor y
+    a ≥ 3 mm del último piñón. Lo cierra hasta la guarda de cadenas una **tapa** en YZ, con la
+    muesca por donde baja la pestaña interior de la guarda.
+  - **Orejas**: chapa de 6 que va de 75 mm arriba a 75 mm abajo del travesaño.
+    - 2 M10 pasantes a la pata, los dos sobre el eje de la pata.
+    - La ranura A abre arriba y frena el montaje; la B abre abajo y frena el tensado.
+    - El tubo del portamotor se acorta 2 × 6 mm.
+  - **Base del motor lisa** con 4 roscas M8 bajo los rieles. Su borde +Y queda a 1 mm de la
+    oreja.
+  - **D9, FS < 1 = error en `engineering_check`**, no en la plantilla. Si la plantilla lo
+    rechazara, un log v1 con MOTOR-075/150 dejaría de regenerar: con Z30 la cadena da FS < 1.
+    La plantilla sigue rechazando sólo potencia insuficiente, como en v1.
+  - **D9, carga**: en la ficha, `carga_kg` es la de UN paquete (como en
+    `conveyor_engineering_check`). «Lleno» = paquetes sin hueco. El motor se verifica con la
+    mayor de las dos cargas.
+  - **D6**: el piñón elegido tiene que armar también las guardas. Con el Z17 el extremo +X no
+    libraba la cadena del último piñón: por eso el pliegue hacia afuera.
+  - **Puerta de entrega**: `interference_report` corta en 400 parejas candidatas por caja.
+    - La pestaña exterior original de la guarda de cadenas bajaba la caja a los tubos: se
+      reemplazó por un **faldón** aparte, soldado a los separadores.
+    - Las pestañas atornilladas (bandeja y guarda fija) suben sólo hasta bajo los tubos cuando
+      la zona plana del ala deja el M6.
+    - Con TUBOR-3 la bandeja va sin pestaña interior y con el borde bajo el extremo del tubo.
+  - `create_extrude_poly` extruye hacia la normal del polígono: en sentido horario, la chapa
+    salía corrida un espesor. La receta lo pasa antihorario.
+- **Defecto nuevo** (lo halló la sonda, ya en [defectos](../defectos.md)): la guarda de cadenas
+  de F2 dejaba por fuera 24 mm entre el canto del ala y la chapa. Sólo los separadores la
+  cortaban, cada 8 pasos.
+- **Fuera** (no se decidió):
+  - las «Preguntas para Mario»;
+  - el tope de 400 parejas de la puerta (hito H): una máquina más larga lo vuelve a pasar;
+  - los M6 y M10 no tienen geometría, así que el acceso de herramienta no los evalúa;
+  - el tiro de la cadena sobre el eje y la L10 de rodillos libres sin velocidad en la ficha
+    quedan fuera de la capacidad del rodillo.
 
 ### F2 (2026-10-20): `create_roller_conveyor`, el super-comando
 

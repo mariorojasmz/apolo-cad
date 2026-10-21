@@ -468,15 +468,14 @@ def infer_from_solids(scene: dict, solid_ids: list[str]) -> dict | None:
     }
 
 
-def conveyor_engineering_check(
-    conveyor: dict,
-    carga_kg: float,
-    largo_paquete_mm: float,
-    velocidad_m_s: float,
-    ancho_paquete_mm: float | None = None,
-) -> list[dict]:
-    """Valida un transportador (rodillos o banda) contra el paquete. Acepta el dict
-    de create_conveyor o el inferido por detect_conveyor (con tipo/tambor_d/rpm/par)."""
+def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm: float,
+                               velocidad_m_s: float, ancho_paquete_mm: float | None = None) -> list[dict]:
+    """Valida un transportador (rodillos o banda) contra el paquete. Acepta el dict de
+    create_conveyor, el inferido por detect_conveyor (con tipo/tambor_d/rpm/par) o el de un
+    create_roller_conveyor (`plantilla`: sus reglas puras, `rodillos_cadena_reglas.py`)."""
+    if conveyor.get("plantilla") == "create_roller_conveyor":
+        from .rodillos_cadena_reglas import reglas_rodillos_cadena as reglas
+        return reglas(conveyor, carga_kg, largo_paquete_mm, velocidad_m_s, ancho_paquete_mm)
     checks: list[dict] = []
     largo = float(conveyor.get("largo") or 2000)
     ancho = float(conveyor.get("ancho") or 600)

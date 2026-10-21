@@ -18,6 +18,9 @@ import math
 
 from apolo.library import rodillos_cadena as rc
 from apolo.library.catalog import CATALOG
+from apolo.library.rodillos_cadena_motriz import OREJA_T, PERNO_OREJA, RANURA_OREJA
+
+from .receta_rodillos_guardas import bandeja, guarda_cadenas, guarda_transmision, placa_xz
 
 #: (grupo, rol) en el orden del árbol; la raíz es el nombre del transportador.
 GRUPOS = (("Bastidor", "estructura"), ("Rodillos", "rodillos"), ("Cadenas", "transmision"),
@@ -146,8 +149,7 @@ def _cadenas(r: _Receta, d: rc.Disposicion) -> None:
         return r.id("pinon") if i == 0 else f"{r.id('pinons')}_{i}"
 
     m = d.motriz
-    rpm = m.rpm * float(CATALOG[rc.PINON_MOTRIZ].specs["z"]) / float(
-        CATALOG[rc.PINON_RODILLO].specs["z"])
+    rpm = m.rpm * m.z_pinon / float(CATALOG[rc.PINON_RODILLO].specs["z"])
     for k in range(len(d.xs) - 1):
         hilera = 1 if k % 2 == 0 else 2
         # cada lazo se verifica con TODA la potencia del motor (el primero la lleva casi entera)
@@ -156,6 +158,31 @@ def _cadenas(r: _Receta, d: rc.Disposicion) -> None:
             "hilera_a": hilera, "hilera_b": hilera, "eslabones": d.eslabones_rr, "fase": "auto",
             "potencia_kw": m.potencia_kw, "rpm_a": round(rpm, 4), "servicio": "moderado"})
     r.ultimo_pinon = pinon(len(d.xs) - 1)
+
+
+def _portamotor(r: _Receta, d: rc.Disposicion, k: int, donde: str, patas: dict) -> str:
+    """Travesaño portamotor ATORNILLADO a las caras interiores de las patas con orejas soldadas
+    a sus extremos, de ranuras paralelas a la línea de centros (D7)."""
+    m, w = d.motriz, float(CATALOG[rc.PATA].specs["width"])
+    pm, o = m.portamotor, m.oreja
+    trav = r.pieza("insert_component", f"trav_e{k}", "Patas", f"Travesaño portamotor ({donde})", {
+        "component": rc.PATA, "length": round(pm["largo"], 4),
+        "position": r.pos(pm["x"], pm["y"], pm["z"]), "rotation": _EN_Y})
+    puntos = [[pm["x"] + x, pm["z"] + z] for x, z in o["puntos"]]
+    for s, rot, y0, y1, eje in (("m", "-Y", d.y_in_m, d.y_in_m + OREJA_T, "-y"),
+                                ("p", "+Y", d.y_in_p - OREJA_T, d.y_in_p, "y")):
+        oreja = placa_xz(r, f"oreja_{s}", "Patas", f"Oreja del portamotor ({rot})", puntos, y0, y1)
+        r.union(f"oreja_trav_{s}", oreja, trav, "soldadura", "oreja soldada al extremo del portamotor",
+                throat_mm=4, length_mm=4 * w)
+        cara = y0 if s == "m" else y1
+        for j, (px, pz) in enumerate(o["pernos"]):
+            r.taladro(f"tal_pata_{s}{j}", patas[s], r.pos(pm["x"] + px, cara, pm["z"] + pz), eje,
+                      RANURA_OREJA)
+        r.union(f"oreja_pata_{s}", oreja, patas[s], "perno",
+                f"2 {PERNO_OREJA} pasantes a la pata por ranuras sobre la línea de centros: corre "
+                f"+{m.tensado_mm:.1f}/−{m.montaje_mm:g} mm y tensa la cadena",
+                size=PERNO_OREJA, qty=2)
+    return trav
 
 
 def _estaciones(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str) -> dict:
@@ -191,8 +218,10 @@ def _estaciones(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str) -> dict
                 "name": r.id(f"piso_{s}_e{k}"), "feature": placa,
                 "nota": "placa al piso con 2 pernos de expansión M12"}))
             patas[s] = pata
-        rol = "Travesaño portamotor" if est.rol == "motriz" and d.motriz else "Travesaño"
-        trav = r.pieza("insert_component", f"trav_e{k}", "Patas", f"{rol} ({donde})", {
+        if est.rol == "motriz" and d.motriz:
+            travesanos[est.rol] = _portamotor(r, d, k, donde, patas)
+            continue
+        trav = r.pieza("insert_component", f"trav_e{k}", "Patas", f"Travesaño ({donde})", {
             "component": rc.PATA, "length": round(d.travesano_largo, 4),
             "position": r.pos(est.x, yc, est.z_travesano), "rotation": _EN_Y})
         for s, pata in patas.items():
@@ -202,18 +231,23 @@ def _estaciones(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str) -> dict
     return travesanos
 
 
-def _motorreductor(r: _Receta, d: rc.Disposicion, portamotor: str) -> None:
-    m = d.motriz
-    b = m.base
-    base = r.pieza("create_extrude_poly", "base_motor", "Motorreductor",
-                   "Base del motor (ranuras de tensado)", {
-                       "points": b["puntos"], "height": rc.BASE_MOTOR_T,
-                       "position": r.pos(b["x"], b["y"], b["z"])})
+def _motorreductor(r: _Receta, d: rc.Disposicion, portamotor: str) -> str:
+    m, b = d.motriz, d.guardas["carter"]["base"]
+    base = r.pieza("create_box", "base_motor", "Motorreductor", "Base del motor", {
+        "width": round(b["x1"] - b["x0"], 4), "depth": round(b["y1"] - b["y0"], 4),
+        "height": rc.BASE_MOTOR_T,
+        "position": r.pos((b["x0"] + b["x1"]) / 2.0, (b["y0"] + b["y1"]) / 2.0,
+                          b["z1"] - rc.BASE_MOTOR_T / 2.0)})
+    for i, (x0, x1) in enumerate(m.pies):  # 2 roscas M8 bajo cada riel de patas
+        for j, y in enumerate((m.y_base0 + 30.0, m.pies_y1 - 25.0)):
+            r.pasos.append(("drill_hole", f"rosca_motor{i}{j}", {
+                "feature": base, "position": r.pos((x0 + x1) / 2.0, y, b["z1"]), "axis": "-z",
+                "depth": 0, "thread": "M8"}))
     motor = r.pieza("insert_component", "motor", "Motorreductor", "Motorreductor", {
         "component": m.motor, "position": r.pos(m.x, m.y, m.z),
         "rotation": {"x": 0, "y": 0, "z": 90}})
-    pinon = r.pieza("insert_component", "pinon_m", "Motorreductor", "Piñón motriz Z30", {
-        "component": rc.PINON_MOTRIZ, "position": r.pos(m.x, m.y_pinon, m.z), "rotation": _EN_Y})
+    pinon = r.pieza("insert_component", "pinon_m", "Motorreductor", f"Piñón motriz Z{m.z_pinon}", {
+        "component": m.pinon, "position": r.pos(m.x, m.y_pinon, m.z), "rotation": _EN_Y})
     r.taladro("tal_pinon_m", pinon, r.pos(m.x, m.y_pinon + 10.0, m.z), "-y", round(m.eje_d, 4),
               fit="H7")
     r.pieza("create_chain", "cad_m", "Motorreductor", "Cadena motriz", {
@@ -223,46 +257,11 @@ def _motorreductor(r: _Receta, d: rc.Disposicion, portamotor: str) -> None:
     r.union("base_portamotor", base, portamotor, "soldadura", "base del motor sobre el portamotor",
             throat_mm=4, length_mm=200)
     r.union("motor_base", motor, base, "perno",
-            f"patas en ranuras abiertas: el motor corre ±{m.tensado_mm:g} mm en X y tensa la cadena",
-            size="M8", qty=4)
+            "patas del motor a las roscas M8 de la base: corre con el portamotor sobre la línea "
+            "de centros", size="M8", qty=4)
     r.union("pinon_motor", pinon, motor, "perno", "chaveta + prisionero en el eje de salida",
             size="M6", qty=1)
-
-
-def _guardas(r: _Receta, d: rc.Disposicion, larg_p: str, portamotor: str) -> None:
-    a2 = d.ancho_util / 2.0
-    y0, y1 = a2 - 3.0, d.y_in_p + rc.SEPARADOR_FONDO
-    yg, ys = (y0 + y1) / 2.0, d.y_in_p + rc.SEPARADOR_FONDO / 2.0
-    base = d.guarda_z - rc.GUARDA_T
-    seps = []
-    for i, x in enumerate(d.separadores):
-        sep = r.pieza("create_box", f"sep{i}", "Guardas", "Separador de guarda", {
-            "width": rc.SEPARADOR_X, "depth": rc.SEPARADOR_FONDO, "height": round(base - d.sep_z0, 4),
-            "position": r.pos(x, ys, (base + d.sep_z0) / 2.0)})
-        r.pasos.append(("drill_hole", f"rosca_sep{i}", {
-            "feature": sep, "position": r.pos(x, ys, base), "axis": "-z", "depth": 15,
-            "thread": "M6"}))
-        r.union(f"sep_larg{i}", sep, larg_p, "soldadura",
-                "separador soldado sobre el canto del ala vertical, entre rodillos", throat_mm=3,
-                length_mm=2 * rc.SEPARADOR_X)
-        seps.append(sep)
-    guarda = r.pieza("create_sheet_metal", "guarda_cad", "Guardas", "Guarda de cadenas", {
-        "ancho": d.largo, "fondo": round(y1 - y0, 4), "espesor": rc.GUARDA_T, "lados": ["frente"],
-        "altura_pestana": rc.GUARDA_PESTANA, "radio": 2,
-        "holes": [{"x": round(x - d.largo / 2.0, 4), "y": round(yg - ys, 4), "d": 6.6}
-                  for x in d.separadores],
-        "position": r.pos(d.largo / 2.0, yg, d.guarda_z), "rotation": {"x": 180, "y": 0, "z": 0}})
-    for i, sep in enumerate(seps):
-        r.union(f"guarda_sep{i}", guarda, sep, "perno", "tornillo M6 a la rosca del separador",
-                size="M6", qty=1)
-    g = d.motriz.guarda
-    tr = r.pieza("create_sheet_metal", "guarda_tr", "Guardas", "Guarda de la transmisión", {
-        "ancho": round(g["ancho"], 4), "fondo": round(g["alto"], 4), "espesor": rc.GUARDA_T,
-        "lados": ["atras", "izquierda", "derecha"], "altura_pestana": round(g["pestana"], 4),
-        "radio": 2, "position": r.pos(g["x"], g["y"], g["z"]),
-        "rotation": {"x": 90, "y": 0, "z": 0}})
-    r.union("guarda_tr", tr, portamotor, "perno", "tornillo autorroscante M6 a la pared del tubo",
-            size="M6", qty=2)
+    return base
 
 
 def receta(d: rc.Disposicion, cmd_id: str, nombre: str, origen=(0.0, 0.0, 0.0)):
@@ -277,6 +276,8 @@ def receta(d: rc.Disposicion, cmd_id: str, nombre: str, origen=(0.0, 0.0, 0.0)):
         _cadenas(r, d)
     travesanos = _estaciones(r, d, larg_m, larg_p)
     if motriz:
-        _motorreductor(r, d, travesanos["motriz"])
-        _guardas(r, d, larg_p, travesanos["motriz"])
+        base = _motorreductor(r, d, travesanos["motriz"])
+        guarda_cadenas(r, d, larg_p)
+        guarda_transmision(r, d, larg_p, base)
+        bandeja(r, d, larg_p)
     return r.pasos, {g: m for g, m in r.grupos.items() if m}

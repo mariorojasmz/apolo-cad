@@ -4,9 +4,8 @@ que arma un transportador de rodillos motorizado por cadena con los executors de
 Es COMPUESTO (`composite=True`, como `insert_project`): corre `insert_component`,
 `create_chain`, `drill_hole`, `fasten`… con ids `{cmd_id}_{sufijo}`, así que su firma de caché
 lleva las versiones ≠ 1 de todo el registro. La huella de D11 cubre SÓLO esta función: si
-cambian las cotas (`library/rodillos_cadena.py`) o la receta (`receta_rodillos_cadena.py`)
-con los mismos params, sube la `version` de su `CommandSpec` (regla D10,
-`commands/CLAUDE.md`).
+cambian las cotas (`library/rodillos_cadena*.py`) o la receta (`receta_rodillos_*.py`) con
+los mismos params, sube la `version` de su `CommandSpec` (regla D10, `commands/CLAUDE.md`).
 """
 
 from __future__ import annotations
@@ -37,10 +36,16 @@ def _grupos(ctx: ExecContext, cmd_id: str, raiz: str, grupos: dict) -> None:
         raise CommandError(f"Transportador de rodillos: {exc}") from exc
 
 
-def _exec_create_roller_conveyor(ctx: ExecContext, cmd_id: str,
-                                 p: CreateRollerConveyorParams) -> None:
+def disposicion_de(p: CreateRollerConveyorParams):
+    """La `Disposicion` (cotas puras) de unos params ya validados."""
     from apolo.library.rodillos_cadena import disposicion
 
+    return disposicion(p.largo, p.ancho_util, p.paso, p.rodillo, p.altura, p.carga_kg,
+                       p.motriz == "cadena", p.motor, p.velocidad_m_s)
+
+
+def _exec_create_roller_conveyor(ctx: ExecContext, cmd_id: str,
+                                 p: CreateRollerConveyorParams) -> None:
     from .receta_rodillos_cadena import receta
     from .registry import REGISTRY
 
@@ -48,8 +53,7 @@ def _exec_create_roller_conveyor(ctx: ExecContext, cmd_id: str,
         raise CommandError(f"Ya existe un grupo llamado '{p.name}': el transportador necesita "
                            "un nombre único (name)")
     try:
-        d = disposicion(p.largo, p.ancho_util, p.paso, p.rodillo, p.altura, p.carga_kg,
-                        p.motriz == "cadena", p.motor)
+        d = disposicion_de(p)
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Transportador de rodillos: {exc}") from exc
     pasos, grupos = receta(d, cmd_id, p.name, p.position.tuple())
@@ -67,16 +71,13 @@ def subcomandos(cmd: dict, variables: dict) -> list[dict]:
     """Las entradas de log (`{id, type, params}`) que corre un `create_roller_conveyor`, para
     las reglas que recorren el log buscando un tipo (la «transmisión por cadena» mide así las
     cadenas de la plantilla). [] si sus params no resuelven: el regenerate ya lo rechazó."""
-    from apolo.library.rodillos_cadena import disposicion
-
     from .expressions import ExpressionError, resolve_params
     from .receta_rodillos_cadena import receta
 
     try:
         p = CreateRollerConveyorParams.model_validate(
             resolve_params(cmd.get("params") or {}, variables), extra="ignore")
-        d = disposicion(p.largo, p.ancho_util, p.paso, p.rodillo, p.altura, p.carga_kg,
-                        p.motriz == "cadena", p.motor)
+        d = disposicion_de(p)
     except (ExpressionError, ValidationError, ValueError, KeyError):
         return []
     pasos, _ = receta(d, cmd["id"], p.name, p.position.tuple())
@@ -97,5 +98,8 @@ SPECS_RODILLOS_CADENA = [
     CommandSpec(
         "create_roller_conveyor", "Transportador de rodillos por cadena", "biblioteca",
         CreateRollerConveyorParams, _exec_create_roller_conveyor, composite=True,
+        # v2 (F4): guardas cerradas, bandeja, tensado sobre la línea de centros y travesaños a
+        # una altura; rodillos, cadenas y motor de un log v1 quedan donde estaban
+        version=2,
     ),
 ]

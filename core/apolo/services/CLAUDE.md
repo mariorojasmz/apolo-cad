@@ -115,7 +115,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   que tocan `BED_RE` o, sin cama, las más altas. Piezas de `create_conveyor` → `no_aplica` (D4).
   Sin vigas → `[]` (memoria intacta). [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
 - `conveyor_params_from_doc` es de los tres clientes (checks, memoria, tool `engineering_check`
-  del agente, que la importa con su nombre viejo).
+  del agente, que la importa con su nombre viejo). Con un `create_roller_conveyor` (el último
+  transportador del log) devuelve sus params con `plantilla` y `conveyor_engineering_check` los
+  valida con `library/rodillos_cadena_reglas.py` contra la ficha: los endpoints no cambian.
+  [plan](../../../docs/plans/plantilla-rodillos-cadena.md) (D9)
 - `fea_rules`: VIGENCIA por volumen (>0.1 % de cambio, o pieza borrada → aviso «re-ejecuta»); el
   de ensamblaje por volumen CONJUNTO de `piezas_fids`. Tabla por pieza con tope 8 filas, 5 si
   hay historial de convergencia (el calc_report imprime ≤ 12); `hipotesis` va a la memoria.

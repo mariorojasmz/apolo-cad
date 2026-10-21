@@ -167,6 +167,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 
 ## Validación: interferencias, lints y puerta de entrega
 
+- `interference_report` corta en `MAX_PAIRS` (400) parejas candidatas por CAJA y la puerta da
+  AMARILLO: una pieza larga y baja (bandeja, guarda) cruza las cajas de todos los rodillos.
+  Un super-comando la mantiene fuera de cajas ajenas cuando puede (F4 de
+  [plantilla-rodillos-cadena](../../../docs/plans/plantilla-rodillos-cadena.md): faldón
+  aparte, pestañas bajo los tubos) y su test verifica `interferencias_truncado` falso.
 - `check_interference` (booleanas OCCT) excluye pares de junta, `same_command_pairs` y el herraje
   `HARDWARE_CATS`; `interpenetration_report` mide el EXCESO sobre la pose de diseño en pares con
   junta. `HARDWARE_CATS` NO se amplía (semántica de interferencia, lista de corte y lints): el FEA

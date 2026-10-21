@@ -115,8 +115,8 @@ CAMPOS: dict[str, str] = {
     ),
     "create_robot_arm": "name alcance position position.x position.y position.z",
     "create_roller_conveyor": (
-        "name largo ancho_util paso rodillo altura carga_kg motriz motor position position.x "
-        "position.y position.z"
+        "name largo ancho_util paso rodillo altura carga_kg motriz motor velocidad_m_s position "
+        "position.x position.y position.z"
     ),
     "create_sheet_metal": (
         "name ancho fondo espesor lados altura_pestana angulo radio k_factor holes holes[].x "
@@ -262,7 +262,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "create_revolve": (1, "1688dc48118c2a15"),
     "create_robot_arm": (1, "c4ceee70195b1ad0"),
     # compuesto: la huella es la del executor; cotas y receta viven en otros módulos (regla D10)
-    "create_roller_conveyor": (1, "bd80d875fc875fe6"),
+    "create_roller_conveyor": (2, "450707432cde2d9d"),
     "create_sheet_metal": (1, "2aeed3174e15adda"),
     "create_structural_profile": (1, "ada70bc0722ffb7f"),
     "create_take_up": (1, "a02e2fb07d4773ae"),  # +coronado_mm: con 0 (default) la geometría no cambia

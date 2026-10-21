@@ -22,7 +22,6 @@ from apolo.commands.receta_rodillos_cadena import receta
 from apolo.commands.registry import REGISTRY
 from apolo.doc import Document
 from apolo.doc.errors import DocumentError
-from apolo.library import interference_report
 from apolo.library import rodillos_cadena as rc
 from apolo.library.catalog import build_component
 from apolo.library.checks import hardware_ids
@@ -31,6 +30,7 @@ from apolo.library.transmision import (
     TOL_ESTIRADO_MM, centros_para_eslabones, estirado_lazo,
 )
 from apolo.services.delivery_inputs import delivery_inputs
+from banco_guardas import interferencias_sin_tope
 
 
 def _piloto(**kw) -> rc.Disposicion:
@@ -66,8 +66,9 @@ def test_la_disposicion_de_la_piloto():
     assert m.eslabones % 2 == 0
     assert m.centros == pytest.approx(centros_para_eslabones(12.7, 30, 15, m.eslabones))
     assert math.hypot(d.xs[-1] - m.x, d.h_eje - m.z) == pytest.approx(m.centros)
-    assert m.angulo_deg > 0  # inclinada: el motor corre en X y tensa
-    assert m.tensado_mm * math.sin(math.radians(m.angulo_deg)) >= 12.7 / 2  # medio eslabón
+    assert m.angulo_deg > 0  # inclinada hacia la alimentación
+    # F4 (D7): corre sobre la línea de centros lo que pide el estirado de reemplazo (3 % / 2)
+    assert m.tensado_mm == pytest.approx(0.015 * m.eslabones * 12.7)
     assert rc.holgura_motriz(d.paso, m.centros, m.angulo_deg) >= 5.0
     assert m.y + rc.motor_local(m.motor).x_min >= d.y_in_m + 15.0  # cabe entre las patas
     assert d.velocidad_m_s == pytest.approx(math.pi * 50.8 * 100 / 60000)
@@ -136,8 +137,8 @@ def test_regenera_integro_y_determinista(chico):
 def test_ninguna_pieza_se_mete_en_otra(chico):
     """Sin excluir lo declarado: ni las piezas unidas se solapan (tapas, buje y piñón, patas,
     guardas…). Sólo la tornillería (tuercas en la rosca) queda fuera, como en la puerta."""
-    rep = interference_report(chico.scene, exclude_pairs=set(), exclude_ids=hardware_ids(chico))
-    assert rep["interferencias"] == []
+    formas = {f: x.shape for f, x in chico.scene.items()}  # sin el tope de 400 parejas
+    assert interferencias_sin_tope(formas, hardware_ids(chico)) == []
 
 
 def test_la_puerta_de_entrega_da_verde(chico):
@@ -181,18 +182,8 @@ def test_la_guarda_se_atornilla_a_la_rosca_de_cada_separador(chico):
         assert not f.shape.is_inside((c.X, c.Y, b.max.Z - 5.0))  # la rosca M6 del separador
 
 
-def test_el_motor_tensa_sobre_ranuras_abiertas(chico):
-    base = chico.scene["c1_base_motor"].shape
-    motor = chico.scene["c1_motor"]
-    pies = motor.shape.bounding_box()
-    z = base.bounding_box().center().Z
-    b = base.bounding_box()
-    y_ranura = b.min.Y + 25.0
-    x_m = (pies.min.X + pies.max.X) / 2.0
-    pie_y = rc.motor_local("MOTOR-037").pie_y
-    for x in (x_m - pie_y, x_m + pie_y):  # el perno de cada riel cae en una ranura...
-        assert not base.is_inside((x, y_ranura, z))
-        assert base.is_inside((x, y_ranura + 15.0, z))  # ...y la placa sigue al lado
+# (el tensado sobre ranuras de la base de F2 lo reemplazaron las orejas del portamotor, F4 D7:
+# tests/test_plantilla_rodillos_f4.py)
 
 
 # ------------------------------------------------------------------ edición y variantes
@@ -249,6 +240,7 @@ def test_un_contrato_con_dolar_k_ve_sus_piezas():
 @pytest.mark.parametrize("params", [
     {"largo": 1000},
     {"largo": 2000, "altura": 750.4},
+    {"largo": 3000, "velocidad_m_s": 0.25, "carga_kg": 200},  # la de F3, con las guardas de F4
     {"largo": 4000, "ancho_util": 800, "paso": 120.65, "rodillo": "TUBOR-3", "carga_kg": 400,
      "motor": "MOTOR-075", "altura": 900},
 ])
