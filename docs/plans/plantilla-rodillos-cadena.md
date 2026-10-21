@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 hechas (2026-10-21; 3 m con 1 orden en 7 min, VERDE). F4 implementada en rama, sin mergear (2026-10-21) — guardas cerradas, bandeja, velocidad, tensado sobre la línea de centros, engineering_check; quedan las «Preguntas para Mario» — hito I
+nota: F0–F4 mergeadas a main el 2026-10-21 (create_roller_conveyor v2); falta re-verificar por MCP con el revisor ciego y las 4 preguntas a Mario
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
