@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 (inventario de la piloto), F1 (create_chain v2) y F2 (create_roller_conveyor) hechas; falta F3 (verificación por MCP con un transportador de 3 m)
+nota: F0–F3 hechas (2026-10-21): un transportador de 3 m sale con 1 orden en 7 min (piloto a mano: 1 h 10 min), VERDE; el revisor ciego halló 2 ALTA (guardas abiertas abajo y del lado motor) y 3 MEDIA (sin param de velocidad, tensado de la motriz ~8 mm, lazos sin tensado) — hito I
 descripcion: Un transportador de rodillos por cadena sale completo con una sola orden, ya con las correcciones de la piloto
 ---
 
@@ -263,3 +263,39 @@ menos el paso de 12.7):
   UNA familia ×`n_rod`: la cadena gira los alternos.
 - **Centros de la motriz**: `= centros_cadena(12.7, 30, 15, 48)` en vez de 159.034.
 - **Las 224 uniones** van en conjuntos.
+
+### F3 (2026-10-21): verificación por MCP — un transportador de 3 m en 7 min
+
+Sesión nueva `claude -p --model opus` sobre la flota (:8100): proyecto 79
+«transportador-rodillos-cadena-3m», ficha del encargo con `set_requirements`.
+- **Órdenes:** 2 (`create_roller_conveyor` con `expect` sin interferencia: 297 sólidos, 30 rodillos,
+  29 lazos + motriz, 3 estaciones; y el tablero de arranque directo en un `run_batch` de 44 acciones
+  con `{"erc":"sin_errores"}`).
+- **Resultado:** `delivery_check` VERDE con gravedad, sin avisos. 0 interferencias, 297/297 sujetas,
+  0 caen, flecha de largueros 0,08 mm, ERC limpio.
+- **Costo:** 6 min 56 s, 20 llamadas MCP, USD 2,02, ~150 k tokens de contexto. La piloto a mano: ~1 h
+  10 min y ~60 M tokens leídos.
+- **Fricción** (hito H): `engineering_check` no reconoce el transportador de la plantilla («no hay
+  ningún transportador»), así que no valida la velocidad ni el motor contra lo pedido; respuestas
+  de 40–70 KB; los nombres de subgrupo de la plantilla no resuelven en `render_view(isolate)`;
+  `check_interference` global trunca a 400 parejas sin decir cuántas faltan.
+
+**El revisor de taller a ciegas** (sesión nueva sólo con las tools de lectura del prompt de
+[revisor-de-taller](../revisor-de-taller.md); 8,7 min, USD 1,65) encontró en la plantilla:
+- **ALTA — guarda de la transmisión abierta hacia el lado del motor:** desde −Y se ven el piñón Z30
+  y la cadena motriz; hay 72,4 mm de franja abierta en la entrada cadena–piñón.
+- **ALTA — los 29 lazos y los piñones Z15 quedan al aire por debajo en los 3 m:** la guarda sólo
+  tapa por arriba; los ramales inferiores van a 687 mm del piso (ISO 14120: todos los lados
+  accesibles).
+- **MEDIA — velocidad 0,32 m/s contra 0,25 de la ficha:** la plantilla no tiene param de
+  velocidad. El FS de potencia es 1,09.
+- **MEDIA — tensado útil de la cadena motriz de ~8 mm:** las ranuras van casi perpendiculares a la
+  línea de centros (a ~70°).
+- **MEDIA — los lazos rodillo a rodillo no se pueden tensar:** ejes fijos con 1 M12 y eslabones
+  exactos. Es una pregunta al cliente.
+- **BAJA:** los dos extremos resuelven distinto el travesaño (bajo en la alimentación, alto en la
+  motriz); no hay riostra longitudinal; no hay guía lateral del lado −Y.
+
+Bien según el revisor: el acceso a la tuerca M12 (35,4 mm), que el motor sale sin quedar atrapado
+y cero interferencias. Los defectos de la plantilla van al hito I de [hitos](../hitos.md) y a
+[defectos](../defectos.md).

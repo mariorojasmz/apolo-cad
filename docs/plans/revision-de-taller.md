@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 en main (2026-10-19): revisor ciego 3½ de 4 con D3 reescrita, prompt generado desde `design/revision.py`, ficha del encargo en `requirements` y `docs/defectos.md`; falta F4 — una segunda máquina con ficha + modelador + revisor, y Mario cuenta sus defectos
+nota: F0–F4 hechas (F4 el 2026-10-21: segunda máquina = transportador de 3 m de la plantilla, revisor ciego con 2 ALTA y 3 MEDIA); falta que Mario cuente sus defectos en el proyecto 79 (D5)
 descripcion: Antes de entregarte una máquina, un segundo agente la revisa con ojos de taller y cada error que encuentres se vuelve una regla que no se repite
 ---
 
@@ -196,3 +196,17 @@ Esos hallazgos se convierten en reglas en F3 (`docs/defectos.md`), no en esta fa
   («pendiente»); sólo las tuercas tienen plan, el resto descansa en las preguntas del revisor o
   en nada (rodillo flotante, eje de una máquina armada a mano).
 - La plantilla del revisor y la línea del CLAUDE.md raíz apuntan a la tabla.
+
+### F4 (2026-10-21): la segunda máquina con ficha + modelador + revisor
+
+La segunda máquina es el transportador de 3 m de [plantilla-rodillos-cadena](plantilla-rodillos-cadena.md)
+F3 (proyecto 79):
+- ficha del encargo con `set_requirements`;
+- modelador por MCP en una sesión nueva;
+- revisor en OTRA sesión nueva, a ciegas, con el prompt generado de
+  [revisor-de-taller](../revisor-de-taller.md).
+
+El revisor reportó 8 hallazgos con evidencia: 2 ALTA, 3 MEDIA y 3 BAJA (detalle en la bitácora
+de la plantilla). Respetó «sólo lectura» y «preguntar, no rediseñar». Una llamada fuera de su
+lista quedó denegada. Los hallazgos son de la PLANTILLA, no del modelado. Falta D5: que Mario
+cuente sus propios defectos en el 79 para comparar contra el revisor.
