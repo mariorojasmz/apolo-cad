@@ -318,12 +318,14 @@ def subir(carpeta, *, tienda: str, llave: str, borrador: bool = False, ensayo: b
                                   exc.status) from None
         r = t.api("POST", "/api/maquina/importacion", "importar la máquina",
                   {"ficha": ficha, "archivos": subidos}, reintentar={409: 1})
+        # la tienda contesta maquina {id, creada, estado}, sin slug: el slug es el de la ficha
         maquina = r.get("maquina") or {}
-        eco(f"Importada: {maquina.get('slug')} (id {maquina.get('id')}, "
+        slug = maquina.get("slug") or ficha.get("slug")
+        eco(f"Importada: {slug} (id {maquina.get('id')}, "
             + ("nueva)." if maquina.get("creada") else "actualizada)."))
         if r.get("faltan"):
             eco("  la tienda dice que falta: " + ", ".join(r["faltan"]))
-        url = f"{tienda}/maquinas/{maquina.get('slug') or ficha.get('slug')}"
+        url = f"{tienda}/maquinas/{slug}"
         if not borrador:
             try:
                 maquina = t.api("PUT", f"/api/maquina/{maquina.get('id')}/estado",
