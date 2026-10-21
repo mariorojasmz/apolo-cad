@@ -8,7 +8,7 @@ Router de la API (F6b del plan `docs/plans/partir-api-main.md`): movidas tal cua
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ from apolo.services.drawing_maps import (
 )
 from apolo.state import STATE_LOCK
 
-from ..common import _drawing_meta, _expand_ids
+from ..common import _drawing_meta, _expand_ids, _job_entregable, _mismo_proyecto
 from ..scene import _feature_colors
 from ..session import S
 
@@ -144,23 +144,60 @@ def drawing_pdf(sheet: str = "A3", hidden: bool = False, dims: str = "", section
     )
 
 
+def _fotos_de(pages) -> list:
+    """Bajo `STATE_LOCK`: las isométricas sombreadas reservadas de `pages`, extraídas sin teselar
+    (plan manual-rapido F2b). Se teselan y dibujan con `fotos_planos.revelar`, fuera del lock."""
+    from apolo.drawing import fotos_planos
+    from apolo.services.apariencia import apariencias_render
+    from apolo.services.definiciones import definiciones_de
+
+    if not any(p.hueco_iso is not None for p in pages):
+        return []
+    return fotos_planos.extraer(pages, apariencias=apariencias_render(S.doc),
+                                definiciones=definiciones_de(S.doc.scene))
+
+
+def _revelar(fotos: list) -> None:
+    """Fuera de `STATE_LOCK`: tesela tomándolo pieza por pieza y dibuja (VTK bajo `RENDER_LOCK`)."""
+    from apolo.drawing import fotos_planos
+
+    if fotos:
+        fotos_planos.revelar(fotos, STATE_LOCK)
+
+
 @router.get("/api/drawingset.pdf")
-def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool = False) -> Response:
+def drawingset_pdf(template: str = "generico", sheet: str = "A3", shaded: bool = False,
+                   async_: bool = Query(False, alias="async")) -> Response:
     """Juego de planos en PDF MULTIPÁGINA: conjunto (con BOM) + 1 lámina por pieza acotada +
     cédula de corte/herraje. `template`: carpinteria/weldment/chapa/generico. `shaded`: el
-    conjunto lleva isométrica SOMBREADA a color (estilo Inventor)."""
+    conjunto lleva isométrica SOMBREADA a color (estilo Inventor).
+
+    Dos locks (plan manual-rapido F2b): las láminas (HLR) se componen bajo `STATE_LOCK` con las
+    isométricas sombreadas RESERVADAS; se teselan tomando el lock pieza por pieza y se dibujan
+    fuera (VTK bajo `RENDER_LOCK`, o matplotlib sin OpenGL). Con `?async=true` va como JOB
+    (`_job_entregable`): 202 + recibo; el PDF se baja del resultado."""
+    return _job_entregable("drawing_set", lambda proyecto: _juego_pdf(
+        proyecto, template, sheet, shaded), async_)
+
+
+def _juego_pdf(proyecto, template: str, sheet: str, shaded: bool) -> Response:
     from apolo.drawing import sheet_set, sheets_to_pdf
 
     with STATE_LOCK:
+        _mismo_proyecto(proyecto)
         try:
             pages = sheet_set(S.doc.scene, project_name=S.doc.name, template=template,
                               meta=_drawing_meta(), sheet=sheet, shaded=shaded,
-                              colors=_feature_colors(), **sheet_set_maps(S.doc))
+                              foto_diferida=True, colors=_feature_colors(),
+                              **sheet_set_maps(S.doc))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        fotos = _fotos_de(pages)
+        name = S.doc.name
+    _revelar(fotos)
     return Response(
         content=sheets_to_pdf(pages), media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "juego"}-planos.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{name or "juego"}-planos.pdf"'},
     )
 
 
@@ -252,12 +289,14 @@ def get_threads(size: str) -> dict:
 
 
 @router.post("/api/drawing/spec")
-def drawing_spec(spec: DrawingSpecIn) -> Response:
+def drawing_spec(spec: DrawingSpecIn, async_: bool = Query(False, alias="async")) -> Response:
     """Plano profesional por INTENCIÓN: una sola spec declara vistas/corte/detalle/cotas/
     BOM/aislado/cajetín y el motor lo compone. format = pdf|svg|dxf. Read-only (el aislado
-    filtra la escena sin tocar la visibilidad del documento)."""
-    from apolo.drawing import compose_sheet, sheet_to_dxf, sheet_to_pdf, sheet_to_svg
+    filtra la escena sin tocar la visibilidad del documento).
 
+    La isométrica SOMBREADA (`shaded`, sólo pdf/svg: el DXF no lleva imágenes) se dibuja fuera
+    de `STATE_LOCK`, como en el juego de planos (plan manual-rapido F2b). Con `?async=true` va
+    como JOB (`_job_entregable`): 202 + recibo; el archivo se baja del resultado."""
     if spec.format == "dwg":  # sin ODA, el 400 antes del HLR (D5 de video-tienda-pulido)
         from apolo.drawing.dwg import DwgError, require_odafc
 
@@ -265,7 +304,14 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
             require_odafc()
         except DwgError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _job_entregable("drawing", lambda proyecto: _plano(proyecto, spec), async_)
+
+
+def _plano(proyecto, spec: DrawingSpecIn) -> Response:
+    from apolo.drawing import compose_sheet, sheet_to_dxf, sheet_to_pdf, sheet_to_svg
+
     with STATE_LOCK:
+        _mismo_proyecto(proyecto)
         scene = S.doc.scene
         if spec.isolate:
             iso = _expand_ids(spec.isolate) or []  # acepta NOMBRES de grupo (V5.2)
@@ -295,13 +341,16 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
                 auto_dims=spec.auto_dims, interface_dims=spec.interface_dims,
                 hardware=spec.hardware, explode=spec.explode,
                 notes=spec.notes or None, assembly_notes=spec.assembly_notes,
-                shaded=spec.shaded, colors=_feature_colors(),
+                shaded=spec.shaded, foto_diferida=True, colors=_feature_colors(),
                 hole_fits=fits_map or None, hole_threads=threads_map or None,
                 fasteners=S.doc.fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 en el conjunto/GA
                 meta={**_drawing_meta(), **(spec.meta or {})},
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        fotos = _fotos_de([model]) if spec.format in ("pdf", "svg") else []
+        name = S.doc.name
+    _revelar(fotos)
     if spec.format == "svg":
         return Response(content=sheet_to_svg(model), media_type="image/svg+xml")
     if spec.format == "dxf":
@@ -317,4 +366,4 @@ def drawing_spec(spec: DrawingSpecIn) -> Response:
         return Response(content=data, media_type="application/acad",
                         headers={"Content-Disposition": "attachment; filename=plano.dwg"})
     return Response(content=sheet_to_pdf(model), media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "plano"}.pdf"'})
+                    headers={"Content-Disposition": f'attachment; filename="{name or "plano"}.pdf"'})

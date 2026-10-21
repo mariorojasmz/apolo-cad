@@ -1,7 +1,8 @@
-"""Los entregables en archivo que tardan (memoria de cálculo, manual de ensamblaje) van como JOB.
+"""Los entregables en archivo que tardan (memoria, manual, planos) van como JOB.
 
 Plan manual-rapido F2: la memoria de la piloto tardaba más que los 120 s del httpx del MCP y el
-agente recibía «timed out» sin PDF. Ahora la tool pide la ruta con `?async=true` (la cola
+agente recibía «timed out» sin PDF; F2b suma el juego de planos y el plano por intención (sus
+isométricas sombreadas). Ahora la tool pide la ruta con `?async=true` (la cola
 `ENTREGABLES_JOBS` de la API), espera lo mismo que una mutación (`_submit_and_wait`) y:
   - si el job termina, baja el archivo de `resultado.archivo` y lo escribe en `path`: la tool
     responde lo de siempre, `{ok, path, bytes}`;
@@ -21,6 +22,7 @@ import pathlib
 #: job → `path` donde lo pidió la tool (lo usa `get_job` si no le pasan otro). En memoria del
 #: proceso del MCP: un reinicio lo pierde y `get_job` pide el `path`.
 _PENDIENTES: dict[str, str] = {}
+PLANO = "/api/drawing/spec"
 
 
 def _recibo(job_id: str, path: str) -> str:
@@ -35,13 +37,30 @@ def _guardar(api, resultado: dict, path: str) -> dict:
     return {"ok": True, "path": path, "bytes": len(data)}
 
 
-def pedir(api, esperar, ruta: str, params: dict, path: str) -> str:
+def pedir(api, esperar, ruta: str, params: dict, path: str, *, metodo: str = "GET",
+          cuerpo: dict | None = None) -> str:
     """La tool: el entregable de `ruta` como job, guardado en `path` o, si tarda, el recibo."""
-    resultado, job_id = esperar("GET", ruta, None, params)
+    resultado, job_id = esperar(metodo, ruta, cuerpo, params)
     if job_id:
         _PENDIENTES[job_id] = path
         return _recibo(job_id, path)
     return json.dumps(_guardar(api, resultado, path), ensure_ascii=False)
+
+
+def plano(api, esperar, spec: dict, path: str | None) -> str:
+    """La tool `drawing`: con `path`, como `pedir`; sin él, el SVG en texto (format="svg") o
+    `{ok, bytes, hint}`, como siempre. Si tarda, el recibo (sin `path`, `get_job` lo pide)."""
+    if path:
+        return pedir(api, esperar, PLANO, {}, path, metodo="POST", cuerpo=spec)
+    resultado, job_id = esperar("POST", PLANO, spec, {})
+    if job_id:
+        return json.dumps({"job": job_id, "estado": "corriendo", "seguir":
+                           f"llama get_job('{job_id}') con path para guardar el plano"},
+                          ensure_ascii=False)
+    if spec.get("format") == "svg":
+        return api("GET", resultado["archivo"]).text
+    return json.dumps({"ok": True, "bytes": resultado["bytes"],
+                       "hint": "pasa path=... para guardar el pdf/dxf"}, ensure_ascii=False)
 
 
 def recoger(api, job_id: str, resultado: dict, path: str | None) -> str:

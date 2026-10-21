@@ -52,11 +52,11 @@ EXCEPCIONES: dict[str, int] = {
     "core/apolo/commands/models.py": 1312,
     "core/apolo/commands/registry.py": 2147,
     "core/apolo/doc/document.py": 1023,
-    "core/apolo/drawing/sheet.py": 893,
+    "core/apolo/drawing/sheet.py": 882,
     "core/apolo/library/builders.py": 847,
     "core/apolo/library/engineering/report.py": 555,
     "core/apolo/library/rules.py": 928,
-    "core/apolo/mcp_server.py": 1404,
+    "core/apolo/mcp_server.py": 1392,
 }
 
 # ── Medición ──────────────────────────────────────────────────────────────────

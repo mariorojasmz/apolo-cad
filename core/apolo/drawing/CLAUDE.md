@@ -86,6 +86,10 @@ reglas están en [services](../services/CLAUDE.md).
   `extraer_foto` bajo el lock, `teselar_foto(ex, STATE_LOCK)` y `dibujar_foto` fuera; lo que la
   composición lee de OCCT (el peso, `calc_report.peso_memoria`) se calcula bajo el lock y llega
   en `meta`. Nunca `render_scene_png` bajo `STATE_LOCK` en un entregable nuevo.
+- La isométrica SOMBREADA de un plano (`compose_sheet(shaded=True)`) va por `fotos_planos.py`:
+  con `foto_diferida=True` (los endpoints) la lámina sólo RESERVA su lugar (`model.hueco_iso`);
+  `extraer` en la misma toma del lock, `revelar(…, STATE_LOCK)` fuera: todas las fotos del juego
+  en UNA `EscenaViva` (fondo blanco, recortada). Sin diferir, las tres fases de corrido.
 - Con estructura DECLARADA el endpoint pasa `stages` = la secuencia de montaje de
   `services/montaje.py` (la misma del video; [services](../services/CLAUDE.md)) y `_instruction`
   suma su `union` («Se atornilla (M12) a…»). Sin ella, lo de abajo.

@@ -119,7 +119,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   esperando a las mutaciones; `GET /api/jobs/{id}` mira las dos. Su closure toma sus locks (snapshot
   bajo `STATE_LOCK`, worker fuera) y guarda el resultado sólo si `S.doc` sigue siendo el del
   snapshot. [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D11)
-- Los entregables en archivo que tardan (memoria, manual) van en `ENTREGABLES_JOBS`
+- Los entregables en archivo que tardan (memoria, manual, juego de planos, plano por intención)
+  van en `ENTREGABLES_JOBS`
   (`_job_entregable`, `?async=true`), tampoco en `JOBS`: un job guarda JSON, así que el PDF queda
   en `ARCHIVOS` (en memoria, retención de 20) y el resultado trae `archivo` = `GET
   /api/archivos/{clave}`. Revalidan el proyecto en su primera toma del lock (`_mismo_proyecto`:
@@ -171,8 +172,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 
 - Bajo `STATE_LOCK` sólo se EXTRAE (OCCT → datos puros: teselado, cascos, XML MuJoCo, STEP); el
   proceso pesado corre fuera con su lock (`RENDER_LOCK`, `PHYSICS_LOCK`, `FEA_LOCK`). Un endpoint
-  nuevo de render o simulación sigue el patrón. `export_stl` y `drawing_spec` siguen bajo el lock
-  (su HLR es OCCT).
+  nuevo de render o simulación sigue el patrón. `export_stl` y el HLR de los planos siguen bajo
+  el lock (OCCT); su isométrica sombreada, no ([drawing](../drawing/CLAUDE.md)).
 - La serie de la marcha del visor (`GET|POST /api/physics/dynamics/serie`) se cachea EN MEMORIA
   (`sims.MARCHAS`, lock hoja) por firma (log + materiales) y escenario (la petición sin `fps`).
   Toda dinámica exitosa, también la tool `simulate`, deja su escenario como el último del

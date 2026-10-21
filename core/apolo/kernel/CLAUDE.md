@@ -41,7 +41,8 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
 - `EscenaViva.mostrar(plenas, fantasmas)` (manual de ensamblaje): plena / fantasma / oculta por
   VISIBILIDAD de actores ya creados, sin re-teselar ni mover la cámara. El fantasma (gris
   translúcido, sin aristas) es el mismo de lo no resaltado de `render_vtk`:
-  `render_comun.GRIS_FANTASMA`/`OPACIDAD_FANTASMA`. [manual-rapido](../../../docs/plans/manual-rapido.md)
+  `render_comun.GRIS_FANTASMA`/`OPACIDAD_FANTASMA`. `encuadrar(bbox)` + `fondo=` liso: varias
+  fotos de escenas distintas en una ventana (planos). [manual-rapido](../../../docs/plans/manual-rapido.md)
 - glTF/GLB: `glb.py` (escritor de OCCT); sus trampas están en el docstring. Lo clave: prototipo SIN
   ubicación + componente ubicado (o se pierde la ubicación), color en el COMPONENTE (el del prototipo
   pisa el de la instancia), `TDataStd_Name` con `isMultiByte=True` y `SetMergeFaces`.

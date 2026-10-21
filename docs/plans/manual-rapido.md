@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0, F1 y F2 hechas; F2 sin mergear, sobre teselado-rapido F1 (manual de la piloto 12 538 s → 425 s en frío; memoria 1 060 s → 52 s, y memoria y manual van como job por MCP); falta F3 (publicar generar de la piloto); quedan bajo el lock con matplotlib el juego de planos y el GA sombreados (§ Bitácora F2)
+nota: F0, F1, F2 y F2b hechas; F2 y F2b sin mergear, sobre teselado-rapido F1 (piloto: manual 12 538 s → 425 s en frío; memoria 1 060 s → 52 s; juego de planos sombreado 1 301 s → 55 s; GA sombreado 986 s → 38 s; los cuatro van como job por MCP); falta F3 (publicar generar de la piloto)
 descripcion: El manual de montaje de una máquina sale en segundos, no en 23 minutos, y mientras se arma Apolo no se congela
 ---
 
@@ -95,13 +95,37 @@ Mario delegó en Claude el orden de los hitos ([docs/hitos.md](../hitos.md)); é
 
   Medir el manual de la piloto antes y después.
 - **F2 (S, `drawing` + `api`)**: la portada de la memoria de cálculo por el mismo camino.
+- **F2b (M, `drawing` + `api` + MCP)**: las isométricas SOMBREADAS de los planos por el mismo
+  camino. Por qué (lo encontró F2, § Bitácora): el juego de planos con `shaded=true`
+  (`drawing_set`, 16 fotos: 1 073 s de 1 237 en la piloto) y la hoja de conjunto GA sombreada
+  (`drawing/spec`: 1 140 s de 1 246) dibujan con matplotlib BAJO `STATE_LOCK` y por MCP pasan
+  los 120 s; los dos los pide `publicar generar`.
+  - `compose_sheet(shaded=True)` deja RESERVADO el lugar de la isométrica (centro, caja máxima,
+    rótulo) y la escena a fotografiar; las vistas de línea (HLR), las cotas, las tablas y el
+    cajetín se componen como hoy, bajo el lock.
+  - Las fotos se extraen en esa misma toma del lock, se teselan pieza por pieza (con las
+    definiciones) y se dibujan fuera, bajo `RENDER_LOCK`, todas en UNA `EscenaViva` (cada foto
+    cambia la cámara y lo visible); sin OpenGL, matplotlib sobre las mismas mallas con aviso.
+    Luego se pegan en su lugar reservado.
+  - Fondo BLANCO y recorte al modelo, como la isométrica de hoy (matplotlib transparente y
+    `bbox_inches="tight"`): en el papel la pieza ocupa el cuadrante igual que antes, sin el
+    degradado de `render_view`.
+  - `GET /api/drawingset.pdf` y `POST /api/drawing/spec` aceptan `?async=true` →
+    `ENTREGABLES_JOBS`; las tools `drawing_set` y `drawing` esperan como una mutación con recibo
+    (`tools/entregable.py`). Sin `?async`, la respuesta de siempre (la publicación no cambia).
+
+  Tests: las mismas láminas y textos que main en un caso chico (congelados antes del cambio);
+  las fotos con píxeles de la máquina; `STATE_LOCK` libre mientras se dibuja; respaldo sin
+  OpenGL; los jobs (éxito, 400 igual que directo, 409 si cambia el proyecto). Medir el juego y el
+  GA de la piloto antes y después.
 - **F3 (S, verificación)**: `publicar generar` de la piloto, con el tiempo total antes y después.
   Mario mira el PDF del manual.
 
 ## Lo que este plan NO hace
 
 - No cambia la secuencia de montaje ni el texto del manual.
-- No toca los planos de taller: sus vistas son HLR 2D, no fotos.
+- No toca las vistas de línea de los planos (HLR 2D, siguen bajo el lock): F2b sólo mueve sus
+  isométricas SOMBREADAS, que sí son fotos.
 
 ## Riesgos
 
@@ -249,3 +273,57 @@ con la suite completa corriendo a la vez: los números absolutos son altos (vide
 462 y 231 s los dos entregables enteros), pero en los dos la foto es ~90 % del tiempo y todo va
 bajo el lock. La cotización y la lámina de instalación no dibujan 3D. El juego de planos y el GA tampoco van
 por job: con la piloto pasan los 120 s del MCP (`drawing_set`, `drawing`) igual que la memoria.
+
+### F2b — las isométricas sombreadas de los planos fuera del lock, y los planos como job (2026-10-21)
+
+- `drawing/fotos_planos.py` (nuevo): `compose_sheet(shaded=True, foto_diferida=True)` compone la
+  lámina como siempre (HLR, cotas, tablas y cajetín, bajo el lock) y sólo RESERVA la isométrica
+  en `model.hueco_iso` (`HuecoIso`: centro, caja, rótulo, dónde insertar imagen y rótulo para
+  conservar el orden de antes, y la escena). `extraer` (misma toma del lock, sin teselar) →
+  `revelar(…, STATE_LOCK)` (teselado pieza por pieza y dibujo fuera). `sheet_set(foto_diferida=)`
+  marca en cada lámina por pieza su `origen` (la pieza del documento): su foto lleva la
+  apariencia de esa pieza, sin zonas (el sólido puede ser sólo una parte del comando).
+- **Una sola ventana**: las 16 fotos del juego salen de UNA `EscenaViva` (crear la ventana
+  cuesta ~2 s, F0). Los ids llevan el prefijo de su foto (las láminas por pieza repiten el id
+  sintético «P»); cada foto hace `encuadrar(bbox)` (nuevo en `kernel/render_vivo`) y `mostrar`
+  sólo lo suyo.
+- **Decisión: fondo blanco y recorte al modelo** (`EscenaViva(fondo=)`, nuevo; el video y el
+  manual siguen con el degradado): la isométrica de matplotlib era transparente y recortada
+  (`bbox_inches="tight"`); con el degradado de `render_view` y la esfera de `ResetCamera`, la
+  máquina quedaba chica dentro de un recuadro gris. En la piloto, la máquina ocupaba el 59 % del
+  ancho de la foto del GA (matplotlib encuadra un cubo) y ahora el 98 %: sale más grande en la
+  misma caja de la lámina.
+- Sin `foto_diferida` (`compose_sheet` llamado por quien es dueño del documento: tests,
+  scripts) hace las tres fases de corrido, también con VTK. El respaldo sin OpenGL es
+  matplotlib sobre las mismas mallas (`foto_escena._foto_matplotlib`), con aviso en el log.
+- `GET /api/drawingset.pdf` y `POST /api/drawing/spec` aceptan `?async=true` →
+  `_job_entregable` (`ENTREGABLES_JOBS`), revalidan el proyecto en su primera toma del lock
+  (409) y, sin `?async`, responden lo de siempre (la publicación no cambia). En `drawing/spec`
+  la foto sólo se dibuja para pdf y svg (el DXF no lleva imágenes: antes se dibujaba igual).
+  MCP: `drawing_set` usa `entregable.pedir`; `drawing`, `entregable.plano` (con `path`, como
+  `pedir`; sin él, el SVG en texto o `{ok, bytes, hint}` como antes). Golden re-congelado
+  (revisado: tres docstrings, las rutas por job y dos llamadas nuevas: recibo del juego y
+  `get_job` al `path` del recibo; las salidas de las llamadas viejas no cambian).
+- Tests (`tests/test_planos_sombreados.py`, 15): el juego y el GA de un caso chico con las
+  MISMAS láminas, textos en su orden y cantidad de imágenes que main (congelados antes del
+  cambio en `tests/data/planos_sombreados_main.json`); el GA con las dos piezas a color y cada
+  lámina por pieza sólo con la suya; el rótulo sobre la foto; lo oculto no sale y sin nada que
+  fotografiar no hay foto ni rótulo; `STATE_LOCK` se toma y se muta mientras se dibuja (juego y
+  GA); el teselado toma el candado una vez por pieza y hay UNA ventana; sin OpenGL, matplotlib y
+  lo dice; `compose_sheet` sin diferir sigue dibujando; por job: el archivo para bajar (pdf y
+  svg), el mismo 400 que en directo y 409 si cambia el proyecto.
+
+Medido por el endpoint (`TestClient` con el arranque real) sobre copias de `data/apolo.db`,
+piloto 74; «antes» con el código de la base (F2) desde una copia en el scratchpad, la PC
+compartida con otra sesión y, el último tramo, con la suite corriendo:
+
+| | antes | después |
+|---|---|---|
+| juego de planos sombreado (19 láminas, 16 fotos) | 1 301 s | **55 s** (53 s tras el GA) |
+| `STATE_LOCK` del juego, la toma más larga | 1 294 s | 43 s (el HLR) |
+| hoja GA sombreada | 986 s | **38 s** en frío, 32 s tras el juego |
+| `STATE_LOCK` del GA, la toma más larga | 977 s | 28 s (el HLR) |
+
+Los PDF de la piloto salen con las mismas páginas, el mismo texto (pypdf, página por página) y
+la misma cantidad de imágenes; cambian sólo las fotos. Lo que queda bajo el lock de un tirón es
+el HLR de las vistas de línea (OCCT), que este plan no toca.

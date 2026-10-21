@@ -110,6 +110,7 @@ class SheetModel:
     polygons: list[Polygon] = field(default_factory=list)
     images: list[Image] = field(default_factory=list)
     meta: dict = field(default_factory=dict)
+    hueco_iso: object = None  # isométrica sombreada reservada (fotos_planos.HuecoIso), sin dibujar
 
     def rect(self, x: float, y: float, w: float, h: float, kind: str = "frame") -> None:
         self.lines += [
@@ -459,6 +460,7 @@ def compose_sheet(
     assembly_notes: list[str] | None = None,  # bloque NOTAS DE MONTAJE: None=off · []=auto-semilla del herraje · [..]=explícitas
     show_iso: bool = True,  # incluir la isométrica (las láminas por pieza la omiten: 3 vistas bastan)
     shaded: bool = False,  # isométrica SOMBREADA a color (estilo Inventor) en vez del alambre
+    foto_diferida: bool = False,  # con shaded: sólo RESERVA la foto (model.hueco_iso); la dibuja fotos_planos fuera del lock
     hole_fits: dict[float, str] | None = None,  # {Ø_nominal → "H7"}: callouts con clase+límites ISO 286 (V5.4)
     hole_threads: dict[float, str] | None = None,  # {Ø_broca → "M8"}: callout de rosca + cosmético ISO 6410 (V5.7)
     colors: dict | None = None,  # color por pieza para el sombreado (= viewport web: DOC.colors+paleta)
@@ -680,29 +682,16 @@ def compose_sheet(
                 model.circles.append(Circle(px, py, 2.8, "globo"))
                 model.labels.append(Label(px, py - 1.0, str(k + 1), 2.8))
     elif shaded and show_iso:
-        # VISTA ISOMÉTRICA SOMBREADA A COLOR (estilo Inventor): render 3D embebido en la lámina
-        import struct
+        # ISOMÉTRICA SOMBREADA A COLOR (estilo Inventor): foto 3D en el cuadrante, reservada y
+        # dibujada fuera de STATE_LOCK (fotos_planos, manual-rapido F2b). Rótulo sólo si el
+        # cuadrante de arriba está libre (en las láminas por pieza lo ocupa el perfil).
+        from . import fotos_planos
 
-        from ..kernel.render import render_scene_png
-
-        try:
-            vscene = scene if include_hidden else {fid: f for fid, f in scene.items() if f.visible}
-            png = render_scene_png(vscene, view="iso", size_px=760, clean=True, colors=colors)
-            pw, ph = struct.unpack(">II", png[16:24])
-            aspect = (pw / ph) if ph else 1.33
-            cxs, cys = centers["iso"]
-            bw, bh = cell_w, iso_cell_h
-            if bw / bh > aspect:
-                bw = bh * aspect
-            else:
-                bh = bw / aspect
-            model.images.append(Image(cxs - bw / 2, cys - bh / 2, bw, bh, png))
-            # rótulo solo si el cuadrante superior-derecho está libre (el conjunto no lleva perfil);
-            # en las láminas por pieza el perfil ocupa esa banda → se omite para no solaparse.
-            if "lateral" not in placed:
-                model.labels.append(Label(cxs, cys + bh / 2 + 3, "ISOMÉTRICA · sombreado", 3.0))
-        except Exception:  # si falta matplotlib o el render falla, no rompemos la lámina
-            pass
+        fotos_planos.reservar(model, centers["iso"], cell_w, iso_cell_h, "lateral" not in placed,
+                              scene if include_hidden else
+                              {fid: f for fid, f in scene.items() if f.visible}, colors)
+        if not foto_diferida:  # dueño del documento: las tres fases de corrido
+            fotos_planos.revelar(fotos_planos.extraer([model]))
     elif "iso" in views and views["iso"].width > 0:
         iso = views["iso"]
         iso_scale = min(cell_w / iso.width, iso_cell_h / iso.height) * 0.9

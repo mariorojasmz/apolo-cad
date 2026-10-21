@@ -5245,8 +5245,47 @@
      [
       "shaded",
       "true"
+     ],
+     [
+      "async",
+      "true"
      ]
     ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jjp",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/archivos/k3",
+    "query": [],
     "cuerpo": null,
     "cabeceras": {
      "accept": "*/*",
@@ -5261,6 +5300,107 @@
   ],
   "archivos": {
    "juego.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
+  }
+ },
+ {
+  "caso": "juego de planos → recibo",
+  "tool": "drawing_set",
+  "args": {
+   "path": "juego2.pdf",
+   "shaded": true
+  },
+  "salida": [
+   {
+    "texto": "{\"job\": \"jjp\", \"estado\": \"corriendo\", \"seguir\": \"llama get_job('jjp') para guardar el archivo en juego2.pdf cuando termine\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/drawingset.pdf",
+    "query": [
+     [
+      "template",
+      "generico"
+     ],
+     [
+      "sheet",
+      "A3"
+     ],
+     [
+      "shaded",
+      "true"
+     ],
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "job del juego: al path del recibo",
+  "tool": "get_job",
+  "args": {
+   "job_id": "jjp"
+  },
+  "salida": [
+   {
+    "texto": "{\"ok\": true, \"path\": \"juego2.pdf\", \"bytes\": 19, \"job\": \"jjp\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jjp",
+    "query": [
+     [
+      "wait_s",
+      "20"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/archivos/k3",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ],
+  "archivos": {
+   "juego2.pdf": "a0f72467632ca37e76a75d381c6f68ca167614ed4d50f1d916511ac0ef2e14cf"
   }
  },
  {
@@ -5699,7 +5839,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/drawing/spec",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "sheet": "A3"
     },
@@ -5707,6 +5852,41 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jpp",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/archivos/k4",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -5737,7 +5917,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/drawing/spec",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "format": "svg"
     },
@@ -5745,6 +5930,41 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jps",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/archivos/k5",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {
@@ -5772,7 +5992,12 @@
    {
     "metodo": "POST",
     "url": "http://127.0.0.1:8000/api/drawing/spec",
-    "query": [],
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
     "cuerpo": {
      "format": "pdf"
     },
@@ -5780,6 +6005,26 @@
      "accept": "*/*",
      "connection": "keep-alive",
      "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jpp",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
      "host": "127.0.0.1:8000"
     },
     "cliente": {

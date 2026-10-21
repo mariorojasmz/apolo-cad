@@ -102,7 +102,8 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
               installation: "tuple[dict, dict] | None" = None,
               hole_threads: dict[float, str] | None = None,
               thread_rows: list[dict] | None = None,
-              fasteners: dict | None = None) -> list[SheetModel]:
+              fasteners: dict | None = None,
+              foto_diferida: bool = False) -> list[SheetModel]:
     """Juego de planos PRO (paquete de fabricación): [conjunto con DESPIECE+globos,
     1 lámina por pieza acotada, LISTA DE CORTE, CÉDULA DE HERRAJE]. `template` =
     carpinteria/weldment/chapa/generico (carpinteria/generico incluyen la cédula de
@@ -118,7 +119,11 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     peso, p. ej. ["+z","-x"]} (derivado de los fasteners por el llamador) — su lámina
     mide las posiciones de agujero desde la arista del primer lado que proyecte como
     borde en cada vista, con el datum «A» encima; sin entrada → esquina inf-izq
-    (fallback honesto)."""
+    (fallback honesto).
+
+    `foto_diferida` (con `shaded`): las isométricas sombreadas quedan RESERVADAS en cada
+    `model.hueco_iso` (la de una pieza, con `origen` = su pieza del documento) y la API las
+    dibuja fuera de `STATE_LOCK` con `fotos_planos` (plan manual-rapido F2b)."""
     from collections import Counter
 
     from apolo.commands.registry import Feature
@@ -160,7 +165,8 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     # superpone decenas de círculos de herraje y el pitch auto-detectado satura; es una opción
     # para placas/bridas de interfaz simples (spec interface_dims=true).
     pages.append(compose_sheet(scene, cutlist=True, hardware=True, assembly_notes=[],
-                               shaded=shaded, colors=colors, sheet_refs=sheet_refs,
+                               shaded=shaded, foto_diferida=foto_diferida, colors=colors,
+                               sheet_refs=sheet_refs,
                                hole_fits=hole_fits, hole_threads=hole_threads,
                                fasteners=fasteners,  # V7.2 A: símbolos de soldadura ISO 2553 en el GA
                                project_name=f"{project_name} · CONJUNTO", sheet=sheet, meta=page_meta(1)))
@@ -216,7 +222,10 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
                                    shop_notes=True,  # V7.2 B/C: tolerancia ISO 2768 + proceso/acabado
                                    datum_side=pdatum,  # V7.5 E2.2: datum por cara funcional
                                    datum_frame=pframe, pos_tols=ptols,  # V7.6 A: GD&T
-                                   dim_tols=pdims))  # V7.6 B: tolerancia justificada
+                                   dim_tols=pdims,  # V7.6 B: tolerancia justificada
+                                   foto_diferida=foto_diferida))
+        if pages[-1].hueco_iso is not None:  # su foto lleva la apariencia de SU pieza
+            pages[-1].hueco_iso.origen = {"P": r["_rep"]}
     # PLANTA DE INSTALACIÓN Y ANCLAJE (V7.6 C): tras las láminas de pieza, antes de las
     # tablas — es la hoja que el cliente separa para la obra civil
     if want_inst:

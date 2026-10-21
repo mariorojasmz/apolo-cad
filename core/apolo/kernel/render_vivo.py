@@ -151,6 +151,16 @@ class _Actor:
     estado: str = "plena"            # plena | fantasma | oculta (`mostrar`)
 
 
+def _caja(bbox):
+    import numpy as np
+
+    lo, hi = (np.asarray(b, dtype=float) for b in bbox)
+    if lo.shape != (3,) or hi.shape != (3,) or not (np.isfinite(lo).all()
+                                                    and np.isfinite(hi).all()):
+        raise ValueError(f"bbox inválido: {bbox!r} (se espera (min, max) finitos en 3D)")
+    return lo, hi
+
+
 def _lado_par(nombre: str, valor) -> int:
     try:
         n = operator.index(valor)
@@ -171,24 +181,20 @@ class EscenaViva:
     visor): da el color y el brillo de cada pieza y gana sobre `colores`. `definiciones`
     (`commands.registry.DEFINITIONS`) es lo que `actualizar` pasa a `extraer_piezas`. Tamaño
     por defecto 1920×1080; vale cualquier tamaño par. MSAA 8×; depth peeling sólo mientras haya
-    una pieza translúcida (vidrio), como `render_vtk`. Se usa como context manager o con
-    `cerrar()`.
+    una pieza translúcida (vidrio), como `render_vtk`. `fondo` = RGB 0..1 liso en lugar del
+    degradado de `render_view`. Se usa como context manager o con `cerrar()`.
     """
 
     def __init__(self, bbox, colores: dict[str, str], *, ancho: int = 1920, alto: int = 1080,
                  view: str = "iso", aristas: bool = True, acento: str = ACENTO,
-                 apariencias: dict | None = None, definiciones: dict | None = None):
-        import numpy as np
+                 apariencias: dict | None = None, definiciones: dict | None = None,
+                 fondo: tuple | None = None):
         import vtk
 
         self.ancho = _lado_par("ancho", ancho)
         self.alto = _lado_par("alto", alto)
-        lo, hi = (np.asarray(b, dtype=float) for b in bbox)
-        if lo.shape != (3,) or hi.shape != (3,) or not (np.isfinite(lo).all()
-                                                        and np.isfinite(hi).all()):
-            raise ValueError(f"bbox inválido: {bbox!r} (se espera (min, max) finitos en 3D)")
         self.view = view
-        self._lo, self._hi = lo, hi
+        self._lo, self._hi = _caja(bbox)
         self._colores = dict(colores)
         self._apariencias = dict(apariencias or {})
         for fid, ap in self._apariencias.items():
@@ -200,7 +206,10 @@ class EscenaViva:
         self._resalte: dict[str, float] = {}
 
         self._ren = vtk.vtkRenderer()
-        poner_fondo(self._ren)
+        if fondo is None:
+            poner_fondo(self._ren)
+        else:   # liso (las isométricas de los planos: fondo de papel, manual-rapido F2b)
+            self._ren.SetBackground(*fondo)
         poner_luces(self._ren)
         self._rw = vtk.vtkRenderWindow()
         self._rw.SetOffScreenRendering(1)
@@ -235,6 +244,13 @@ class EscenaViva:
         self._viva()
         poner_camara(self._ren, self._lo, self._hi, view=self.view, azimuth=azimut,
                      elevation=elevacion, zoom=zoom)
+
+    def encuadrar(self, bbox) -> None:
+        """Cambia el bbox que encuadra la cámara y la pone en el preset `view`: varias fotos de
+        escenas distintas en UNA ventana (las isométricas de un juego de planos)."""
+        self._viva()
+        self._lo, self._hi = _caja(bbox)
+        self.orbitar()
 
     def camara(self) -> dict:
         """Estado de la cámara: posición, foco y view-up en mm, escala paralela (semialtura)."""

@@ -323,7 +323,8 @@ def edit_batch(
 def get_job(job_id: str, detail: str = "diff", wait_s: float = 20, path: str | None = None) -> str:
     """Recoge el resultado de una mutación que devolvió un RECIBO {"job": id} (run_command,
     edit_command, set_variable, run_batch, edit_batch o remove_commands tardaron más que la
-    espera; también calc_report y assembly_manual: guarda el PDF en su `path` o en `path`).
+    espera; también calc_report, assembly_manual, drawing_set y drawing: guarda el archivo en su
+    `path` o en `path`).
     Espera hasta `wait_s` segundos (long-poll: responde en cuanto el job termina) y
     devuelve lo MISMO que habría devuelto la tool (sólidos + `contrato`), o
     `{"estado": "corriendo"}` si aún no acaba — vuelve a llamar. El resultado queda CACHEADO:
@@ -1133,13 +1134,10 @@ def drawing_set(path: str, template: str = "generico", sheet: str = "A3", shaded
     por pieza ACOTADA + cédula de corte/herraje, y lo guarda en `path` (.pdf). `template`:
     carpinteria/weldment/chapa/generico. `shaded=true`: el conjunto lleva isométrica SOMBREADA
     a color (estilo Inventor). Devuelve nº de bytes guardados. ¿DWG para clientes AutoCAD?
-    GET /api/drawingset.dwg = ZIP con un DWG por lámina (V5.9, requiere ODA File Converter)."""
-    import pathlib
-
-    resp = _api("GET", "/api/drawingset.pdf",
-                params={"template": template, "sheet": sheet, "shaded": shaded})
-    pathlib.Path(path).write_bytes(resp.content)
-    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+    GET /api/drawingset.dwg = ZIP con un DWG por lámina (V5.9, requiere ODA File Converter).
+    Si tarda, RECIBO {"job"}: get_job lo guarda en `path` al terminar."""
+    return entregable.pedir(_api, _submit_and_wait, "/api/drawingset.pdf",
+                            {"template": template, "sheet": sheet, "shaded": shaded}, path)
 
 
 @mcp.tool()
@@ -1227,19 +1225,9 @@ def drawing(spec: dict, path: str | None = None) -> str:
     los drill_hole con fit/thread ya se rotulan SOLOS: "Ø20 H7 (+0.021/0)" y "M8 - 6H (broca Ø6.8)"
     + cosmético ISO 6410 en capa DXF ROSCA),
     meta:{drawing_no,material,...}}. Con `path` guarda el archivo (pdf/dxf/svg); si format="svg" y sin
-    path devuelve el SVG (úsalo con show_widget para VER el plano inline). Read-only."""
-    import pathlib
-
-    resp = _api("POST", "/api/drawing/spec", json=spec)
-    if path:
-        pathlib.Path(path).write_bytes(resp.content)
-        return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
-    if spec.get("format") == "svg":
-        return resp.text
-    return json.dumps(
-        {"ok": True, "bytes": len(resp.content), "hint": "pasa path=... para guardar el pdf/dxf"},
-        ensure_ascii=False,
-    )
+    path devuelve el SVG (úsalo con show_widget para VER el plano inline). Read-only.
+    Si tarda, RECIBO {"job"}: get_job lo guarda en `path` al terminar."""
+    return entregable.plano(_api, _submit_and_wait, spec, path)
 
 
 # ------------------------------------------------------------------ visibilidad

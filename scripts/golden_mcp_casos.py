@@ -99,8 +99,13 @@ def _archivo(clave: str, nombre: str) -> dict:
             "nombre": nombre}
 
 
+SVG = b"<svg>golden</svg>"
 JOBS_SUELTOS = {"jmc": _archivo("k1", "golden-memoria-calculo.pdf"),
                 "jma": _archivo("k2", "golden-ensamblaje.pdf"),
+                "jjp": _archivo("k3", "golden-planos.pdf"),
+                "jpp": _archivo("k4", "golden.pdf"),
+                "jps": {"archivo": "/api/archivos/k5", "bytes": len(SVG),
+                        "tipo": "image/svg+xml", "nombre": "drawing"},
                 "jc": MUTA["json"], "jv": escena(["v1"]), "jr": BORRADO, "jrf": escena(),
                 "jcs": COSIM, "jpl": {**COSIM, **PLC_OK, "escenario": None, "guardado": None,
                                       "trazas": {"discretas": {"-K1.%QX0.0": {
@@ -143,9 +148,13 @@ def _preview(req):
         if json.loads(req.content).get("data") else B(PNG, "image/png")
 
 
-def _drawing(req):
-    if json.loads(req.content).get("format") == "svg":
-        return B(b"<svg>golden</svg>", "image/svg+xml")
+def _drawing(req):  # el plano por intención también va por job (manual-rapido F2b)
+    return _encolado("jps" if json.loads(req.content).get("format") == "svg" else "jpp")
+
+
+def _archivo_bajado(req):
+    if req.url.path.endswith("/k5"):
+        return B(SVG, "image/svg+xml")
     return B(PDF, "application/pdf")
 
 
@@ -278,10 +287,11 @@ RUTAS = [
     ("GET", r"/api/pick", J({"feature": "c1", "punto": [0, 0, 0]})),
     ("GET", r"/api/cutlist\.json", J({"piezas": []})),
     ("GET", r"/api/nesting\.json", J({"planchas": 1, "desperdicio_pct": 12.0})),
-    ("GET", r"/api/(drawingset|quote)\.pdf", B(PDF, "application/pdf")),
+    ("GET", r"/api/quote\.pdf", B(PDF, "application/pdf")),
+    ("GET", r"/api/drawingset\.pdf", _encolado("jjp")),
     ("GET", r"/api/calc-report\.pdf", _encolado("jmc")),
     ("GET", r"/api/assembly-manual\.pdf", _encolado("jma")),
-    ("GET", r"/api/archivos/[^/]+", B(PDF, "application/pdf")),
+    ("GET", r"/api/archivos/[^/]+", _archivo_bajado),
     ("POST", r"/api/drawing/spec", _drawing),
     ("GET", r"/api/resolve-expression", J({"ok": True, "value": 2000.0})),
     ("GET", r"/api/expression-grammar", J({"funciones": ["sqrt"]})),
@@ -505,6 +515,9 @@ CASOS = [
     caso("nesting", "nesting", {"mode": "1d", "stock_w": 6000, "material": "acero"}),
     caso("juego de planos", "drawing_set", {"path": "juego.pdf", "template": "weldment",
                                             "shaded": True}),
+    caso("juego de planos → recibo", "drawing_set", {"path": "juego2.pdf", "shaded": True},
+         espera=0.0),
+    caso("job del juego: al path del recibo", "get_job", {"job_id": "jjp"}),
     caso("memoria", "calc_report", {"path": "memoria.pdf", "carga_kg": 15,
                                     "largo_paquete_mm": 400}),
     caso("cotización", "quotation", {"path": "cot.pdf", "currency": "PEN", "fx": 3.7}),
