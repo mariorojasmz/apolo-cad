@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito el 2026-10-20 a pedido de Mario («debemos diseñar uno»); D1–D7 vetables; nada implementado
+nota: contrato del 2026-10-20 (D1–D7 aprobadas por delegación de Mario); F0 medida (bitácora), con la zona guardada por ÍNDICE de cara; F1–F4 pendientes
 descripcion: La parada de emergencia del catálogo se ve como una de verdad —seta roja sobre fondo amarillo—, y una pieza comprada puede tener partes de distinto color sin dejar de ser UNA línea de la BOM
 ---
 
@@ -52,6 +52,12 @@ inspector de seguridad es una caja.
 
   Por qué: sirve también para la botonera, la placa del motor o el display del variador, sin
   inventar kits.
+
+  Precisión de la F0: la etiqueta es la zona de cada CARA por su índice en el orden de
+  `faces()` del sólido del builder (sale de la historia de la fusión). No va por la identidad
+  del TShape, porque la caché de geometría la pierde al abrir en caliente y el orden de caras
+  lo conserva. Se valida contra la forma de la pieza (mismo número de caras y volumen); si no
+  calza (la pieza se taladró, por ejemplo), la pieza se ve de un solo acabado, como hoy.
 - **D2. Las zonas viajan como rangos de triángulos.**
   - El teselado (`kernel/mesh.py`) marca de qué zona viene cada cara.
   - El payload de escena agrega `zonas: [{acabado, albedo, desde, hasta}]`, en índices de
@@ -128,3 +134,41 @@ inspector de seguridad es una caja.
   epoch. La interferencia con la puerta se revisa en F4.
 
 ## Bitácora
+
+### F0 (2026-10-20): medición, sólo lectura
+
+Sobre un prototipo de la seta de puerta (leyenda, collar, seta y cuerpo solapados): 1 sólido de
+14 caras, 684 triángulos. Script de medición fuera del repo, en el scratchpad de la sesión.
+
+1. **Dónde se pierde la relación cara → triángulo.**
+   - `Shape.tessellate` (build123d 0.10) recorre `faces()` y concatena nodos y triángulos con
+     un offset, pero no devuelve cuántos triángulos aporta cada cara.
+   - `kernel/mesh.py::mesh_payload` aplana a `positions`/`indices`.
+   - Las dos cachés por `id(shape)` (`_SHAPE_CACHE` de `api/scene.py`, `_RENDER_MESH_CACHE` de
+     `kernel/render_comun.py`) guardan sólo ese resultado.
+   - Se recupera barato: justo después de teselar, `BRep_Tool.Triangulation_s(cara)
+     .NbTriangles()` en el mismo orden suma exacto el total (684 = 684, 0,7–1,5 ms). Hay que
+     contar EN LA MISMA llamada: el payload (0,4/0,3) y el render (0,5/0,25) usan otra
+     tolerancia angular, y un re-mallado entre medio cambiaría los conteos.
+   - Identidad: `place` (la colocación de `insert_component`) comparte el TShape. La caché de
+     geometría (BinTools) NO lo comparte, pero conserva el orden de caras (14 = 14, mismos
+     centros) y el teselado. → La zona se guarda por ÍNDICE de cara (precisión de D1).
+   - La fusión con historia (`BRepAlgoAPI_Fuse` + `Modified`/`IsDeleted`) asigna las 14 caras
+     a su zona, sin huérfanas, en 42 ms.
+2. **Peso del payload.** La malla de la seta pesa 26 061 B en JSON; `zonas` con 4 zonas
+   (`acabado`, `albedo`, `desde`, `hasta`) suma 363 B, el 1,4 % de la pieza y unos 90 B por
+   zona. Una pieza sin zonas suma 0 B. El máximo de una máquina es n.º de setas × ~360 B (una
+   faja con 3 setas, ~1 KB sobre un payload de MB).
+3. **VTK, partir el actor por zona.** Armar normales + aristas: 2,3 ms con 1 actor y 3,7 ms con
+   4 por zona (+1,5 ms por seta). En el cuadro, 150 piezas + 4 setas dan 13,3 ms con 1 actor y
+   10,8 ms con 4: ruido, no se distingue. D2 se sostiene sin colores por celda.
+4. **GLB.** `glb.py` arma un prototipo por TShape, sin color, y una instancia por pieza con el
+   color y el material en el componente. `SetMergeFaces(True)` da una primitiva por pieza.
+   Probado: con el color por cara en sub-formas del PROTOTIPO (`AddSubShape` + `SetColor`), el
+   escritor saca una primitiva por estilo (5 primitivas, 4 materiales). Para F3: el estilo
+   vive entonces en el prototipo, y la regla de `glb.py` (color en el componente) se mantiene
+   sólo para las piezas sin zonas. Una zona pintable repintada distinto en dos instancias
+   necesita su propio prototipo.
+
+Nada contradice D1–D7. D1 gana la precisión de arriba: la etiqueta va por índice de cara,
+validada por número de caras y volumen.
