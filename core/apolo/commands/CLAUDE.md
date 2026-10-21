@@ -114,8 +114,9 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
 - `create_roller_conveyor` es COMPUESTO (`composite=True`): corre executors del registro con
   ids `{cmd}_{sufijo}` (command_id sintético, como `insert_project`: la puerta revisa
   interferencias ENTRE sus piezas). Cotas en `library/rodillos_cadena*.py` (motriz, guardas,
-  reglas de `engineering_check`), receta en `receta_rodillos_*.py`: la huella D11 no las ve, así
-  que cambiar su geometría con los mismos params es subir su `version` a mano (v2 = F4). Una
+  pies, reglas de `engineering_check`), receta en `receta_rodillos_*.py`: la huella D11 no las
+  ve, así que cambiar su geometría con los mismos params es subir su `version` a mano (v2 = F4,
+  v3 = F5). Una
   regla que busque un tipo en el log recorre `comandos_efectivos` (lo hace la de cadenas).
   `create_extrude_poly` extruye hacia la normal del polígono: la receta lo pasa ANTIHORARIO
   (`receta_rodillos_guardas._antihorario`), si no la chapa sale corrida un espesor.

@@ -36,7 +36,8 @@ class CreateRollerConveyorParams(BaseModel):
     eje fijo M12 con tapas de rodamiento 6201 y tuerca a cada lado (atornillado al ala vertical),
     piñón doble-simple ASA 40 Z15 soldado a un buje en cada rodillo, cadenas ASA 40 1:1
     alternando las dos hileras, motorreductor bajo el último rodillo con su piñón y cadena
-    motriz, patas de tubo 2x2 en H (travesaño ENTRE las patas, placa base con 2 anclajes y
+    motriz, patas de tubo 2x2 en H (travesaño ENTRE las patas) con pie nivelador de catálogo
+    (tuerca soldada bajo la placa de la pata; con `anclaje`, placa de piso con 2 anclajes y
     `ground`), guarda de cadenas sobre separadores soldados, guarda de la transmisión CERRADA
     (cárter que corre con el motor + guarda fija atornillada al larguero, ISO 14120) y bandeja
     inferior de cadenas en tramos atornillados. Todas las uniones van declaradas (`fasten` en
@@ -46,9 +47,15 @@ class CreateRollerConveyorParams(BaseModel):
     CÓMO MONTAR (IMPORTANTE):
     - Transporte a lo largo de +X: la alimentación en x = position.x y la motriz (motor) en
       x = position.x + largo. El centro de los tubos en y = position.y; la transmisión va hacia
-      +Y. position.z es el piso (las placas base apoyan en z = position.z). Para girarlo o
-      moverlo después, transform_group sobre el grupo `name`; no lleva rotation.
-    - `altura` = cara superior de los rodillos (altura de trabajo). El eje queda a altura − Ø/2.
+      +Y. position.z es el piso (las placas de piso, o los discos de los pies sin anclaje,
+      apoyan en z = position.z). Para girarlo o moverlo después, transform_group sobre el grupo
+      `name`; no lleva rotation.
+    - `altura` = cara superior de los rodillos (altura de trabajo), con los pies niveladores a
+      la mitad de su recorrido. El eje queda a altura − Ø/2.
+    - Pies niveladores: la familia sale de la carga por pata ((masa + carga_kg) / patas × 1.5
+      contra la carga del pie); engineering_check publica la carga por pie y el recorrido de
+      nivelación (±). `anclaje: true` (default) = cada disco sobre una placa de piso con 2
+      anclajes M12 (se nivela, se ancla y se suelda el disco); `false` = disco directo al piso.
     - `paso` NO es libre: con cadena 1:1 sólo cierran sin sobrante 95.25, 107.95 o 120.65 mm
       (30, 32 o 34 eslabones). El número de rodillos sale de `largo` (par, ≥ 50 mm del eje
       extremo al final del larguero) y los rodillos quedan centrados.
@@ -110,6 +117,11 @@ class CreateRollerConveyorParams(BaseModel):
     velocidad_m_s: float | None = Field(
         None, gt=0, le=3, title="Velocidad",
         description="m/s del producto (opcional): elige el piñón del motor; vacío = piñón Z30",
+    )
+    anclaje: bool = Field(
+        True, title="Anclaje al piso",
+        description="true = placa de piso con 2 anclajes bajo cada pie nivelador; false = el "
+                    "disco del pie apoya directo en el piso",
     )
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
 

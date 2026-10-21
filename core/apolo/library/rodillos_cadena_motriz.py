@@ -263,7 +263,7 @@ def motriz(motor: str, pinon: str, d: dict) -> Motriz:
     w = float(CATALOG[PATA].specs["width"])
     z_t = z_b - BASE_MOTOR_T - w / 2.0
     oreja = _oreja(tensado, a)
-    if z_t - oreja["medio_alto"] - tensado < PLACA_PATA_T + 20.0:
+    if z_t - oreja["medio_alto"] - tensado < d.get("z_pata0", PLACA_PATA_T) + 20.0:
         raise ValueError("altura insuficiente para el motorreductor bajo los rodillos: sube la "
                          "altura de trabajo")
     sp = CATALOG[motor].specs

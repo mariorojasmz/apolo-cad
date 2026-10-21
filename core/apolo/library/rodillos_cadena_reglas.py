@@ -13,6 +13,7 @@ Reglas (formato de `rules._check`, con `calc`):
 - capacidad del rodillo: 2 × 6201 a L10 = 20 000 h (ISO 281) y eje M12 a σ ≤ 0.5·σy;
 - ancho útil contra el ancho del paquete;
 - carga de diseño: la ficha con el transportador LLENO de paquetes contra `carga_kg`;
+- pies niveladores (D10): carga por pie contra la del catálogo y recorrido de nivelación (±);
 - motor (P_motor / P_requerida) y cadena (tabla ACA, servicio moderado, con el par nominal
   del motor en el primer lazo): FS < 1 = error, < 1.2 = aviso;
 - recorrido de tensado: el de las orejas contra el estirado de reemplazo (3 %).
@@ -154,6 +155,39 @@ def _carga_diseno(d, m_paq: float, largo_paq: float) -> tuple[dict, float]:
     return _check("carga de diseño", "ok", det, calc=calc), total
 
 
+def _pies(d, carga_total: float) -> dict:
+    """Carga por pie nivelador contra la del catálogo y su recorrido de nivelación (D10). La
+    plantilla eligió el pie con su `carga_kg`; aquí manda la mayor con la ficha llena."""
+    from .rodillos_cadena_pies import IMPACTO, MARGEN_MASA, familias
+
+    p = d.pies
+    carga = max(d.carga_kg, carga_total)
+    por_pie = (p.masa_kg + carga) / p.n * IMPACTO
+    fs = p.capacidad_kg / por_pie
+    nivela = f"±{p.recorrido / 2.0:.1f} mm"
+    calc = {"titulo": "Pies niveladores", "entradas": {
+                "máquina": f"{p.masa_kg:.0f} kg (estimada, ×{MARGEN_MASA:g} por soldadura y "
+                           "tornillería)",
+                "carga": f"{carga:g} kg", "patas": str(p.n),
+                "pie": f"{p.ref} (M{p.rosca:g}, {p.capacidad_kg:g} kg)",
+                "recorrido": f"vástago {p.vastago:g} − tuerca {p.tuerca_t:g} = {p.recorrido:g} mm"},
+            "formula": f"F = (m + Q) / n · {IMPACTO:g}",
+            "sustitucion": f"F = ({p.masa_kg:.0f} + {carga:g}) / {p.n} · {IMPACTO:g}",
+            "resultado": f"F = {por_pie:.0f} kg por pie → FS {fs:.2f}; nivela {nivela}",
+            "criterio": "F ≤ carga del pie", "fs": round(fs, 2),
+            "norma": "criterio de diseño (reparto igual entre patas, impacto ×1.5)"}
+    det = (f"{p.n} × {p.ref}: {por_pie:.0f} kg por pie de {p.capacidad_kg:g} (FS {fs:.2f}); "
+           f"nivela {nivela} con el pie a media rosca, "
+           + ("sobre placas de piso ancladas." if p.anclaje else "disco directo al piso."))
+    if fs < 1.0:
+        mayor = familias()[-1]
+        return _check("pies niveladores", "error", det,
+                      f"Ningún pie del catálogo alcanza (el {mayor} lleva "
+                      f"{float(CATALOG[mayor].specs['carga_kg']):g} kg): baja la carga o parte "
+                      "el transportador en tramos con más patas.", calc=calc)
+    return _check("pies niveladores", "ok", det, calc=calc)
+
+
 def _motor(d, carga_total: float) -> dict:
     from .rodillos_cadena import _masa_rodillo, potencia_requerida
 
@@ -228,7 +262,7 @@ def reglas_rodillos_cadena(params: dict, carga_kg: float, largo_paquete_mm: floa
     try:
         d = disposicion(params["largo"], params["ancho_util"], params["paso"], params["rodillo"],
                         params["altura"], params["carga_kg"], params["motriz"] == "cadena",
-                        params["motor"], params.get("velocidad_m_s"))
+                        params["motor"], params.get("velocidad_m_s"), params.get("anclaje", True))
     except (ValueError, KeyError) as exc:
         return [_check("transportador de rodillos", "error", f"La plantilla no se arma: {exc}")]
     reglas = []
@@ -244,7 +278,7 @@ def reglas_rodillos_cadena(params: dict, carga_kg: float, largo_paquete_mm: floa
                              f"mm (holgura {holgura:.0f} mm).",
                              None if estado == "ok" else "Sube ancho_util o agrega guías laterales."))
     carga, total = _carga_diseno(d, carga_kg, largo_paquete_mm)
-    reglas.append(carga)
+    reglas += [carga, _pies(d, total)]
     if d.motriz is not None:
         reglas += [_motor(d, total), _cadena(d), _tensado(d)]
     return reglas

@@ -41,7 +41,7 @@ def disposicion_de(p: CreateRollerConveyorParams):
     from apolo.library.rodillos_cadena import disposicion
 
     return disposicion(p.largo, p.ancho_util, p.paso, p.rodillo, p.altura, p.carga_kg,
-                       p.motriz == "cadena", p.motor, p.velocidad_m_s)
+                       p.motriz == "cadena", p.motor, p.velocidad_m_s, p.anclaje)
 
 
 def _exec_create_roller_conveyor(ctx: ExecContext, cmd_id: str,
@@ -99,7 +99,8 @@ SPECS_RODILLOS_CADENA = [
         "create_roller_conveyor", "Transportador de rodillos por cadena", "biblioteca",
         CreateRollerConveyorParams, _exec_create_roller_conveyor, composite=True,
         # v2 (F4): guardas cerradas, bandeja, tensado sobre la línea de centros y travesaños a
-        # una altura; rodillos, cadenas y motor de un log v1 quedan donde estaban
-        version=2,
+        # una altura; rodillos, cadenas y motor de un log v1 quedan donde estaban.
+        # v3 (F5): pie nivelador en cada pata (las patas se acortan) y placa de piso aparte
+        version=3,
     ),
 ]

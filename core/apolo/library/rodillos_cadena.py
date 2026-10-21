@@ -5,8 +5,9 @@ Sin `Document` ni OCCT: de los params del comando y del catálogo deriva TODAS l
 máquina (las que la piloto, proyecto 74, dejó a mano: § Bitácora F0, «Receta para la F2») y
 valida lo que no se puede fabricar con un error que dice qué cambiar. La receta de comandos
 que arma la máquina con estos números vive en `commands/receta_rodillos_cadena.py`; la motriz
-(motor, piñón por velocidad, portamotor con orejas) en `rodillos_cadena_motriz.py` y las
-guardas de la transmisión y la bandeja en `rodillos_cadena_guardas.py`.
+(motor, piñón por velocidad, portamotor con orejas) en `rodillos_cadena_motriz.py`, las
+guardas de la transmisión y la bandeja en `rodillos_cadena_guardas.py` y los pies niveladores
+en `rodillos_cadena_pies.py`.
 
 MARCO (local, antes de `position`): X a lo largo del transporte (x = 0 en la alimentación,
 x = largo en la motriz), Y = 0 en el centro del tubo de rodillo con la transmisión hacia +Y,
@@ -20,13 +21,15 @@ Lecciones de la piloto y del revisor de taller que quedan dentro (defectos.md):
 - una sola familia de piñones dobles-simples: la cadena `fase: "auto"` gira los alternos;
 - la cadena motriz se TENSA sobre su línea de centros (D7) y sus centros son los exactos de un
   número par de eslabones (`eslabones_pares`), nunca una cota a mano;
-- la transmisión va cerrada por todos los lados accesibles (D4, D5; ISO 14120).
+- la transmisión va cerrada por todos los lados accesibles (D4, D5; ISO 14120);
+- cada pata apoya en un pie nivelador de catálogo (D10): un bastidor soldado de 4 o más apoyos
+  no se nivela sobre placas lisas.
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .acuerdos import zona_plana_ala_angulo
 from .catalog import CATALOG
@@ -37,11 +40,14 @@ from .rodillos_cadena_motriz import (
     PLACA_PATA_T, Motriz, elegir_pinon, holgura_motriz, motor_local, motriz as _motriz,
     velocidad_producto,
 )
+from .rodillos_cadena_pies import Pies, pila
+from .rodillos_cadena_pies import elegir as elegir_pies
+from .rodillos_cadena_pies import familias as pies_familias
 from .transmision import diametro_primitivo
 
 __all__ = [
     "ANGULO_MOTRIZ", "BASE_MOTOR_T", "CADENA", "GUARDA_T", "MOTORES", "PATA", "PINON_MOTRIZ",
-    "PINON_RODILLO", "PLACA_PATA_T", "Disposicion", "Estacion", "Motriz", "disposicion",
+    "PINON_RODILLO", "PLACA_PATA_T", "Disposicion", "Estacion", "Motriz", "Pies", "disposicion",
     "holgura_motriz", "motor_local", "pasos_rodillo", "potencia_requerida", "vano_maximo",
 ]
 
@@ -63,7 +69,6 @@ CUELLO_BUJE_R = 20.0       # cuello del buje: ahí se suelda el cubo del piñón
 HOLGURA_HILERA2 = 1.5      # perno de la cadena de la hilera 2 ↔ brida del buje
 HOLGURA_CADENA_LARGUERO = 10.0
 PLACA_PATA = 150.0
-ANCLAJE_D = 14.0           # perno de expansión M12 al piso
 MARGEN_EXTREMO = 50.0      # eje del primer/último rodillo ↔ extremo del larguero (mínimo)
 LARGO_MIN = 1000.0
 GUARDA_PESTANA = 14.0
@@ -129,6 +134,7 @@ class Disposicion:
     r_cadena: float        # envolvente de las cadenas 1:1 alrededor del eje de un rodillo
     guardas: dict | None   # cárter móvil + guarda fija (D4)
     bandeja: dict | None   # bandeja inferior de cadenas (D5)
+    pies: Pies | None = None  # pie nivelador de cada pata y su pila (D10, `rodillos_cadena_pies`)
 
 
 def _masa_rodillo(ref: str, ancho_util: float, largo_eje: float, con_pinon: bool) -> float:
@@ -186,9 +192,12 @@ def _estaciones(largo: float, xs: tuple, mot: Motriz | None, vano: float, z_trav
 
 def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altura: float,
                 carga_kg: float, motriz: bool, motor: str | None,
-                velocidad_m_s: float | None = None) -> Disposicion:
+                velocidad_m_s: float | None = None, anclaje: bool = True) -> Disposicion:
     """Todas las cotas del transportador; `ValueError` accionable si no se puede fabricar.
-    `velocidad_m_s` (D6) elige el piñón del motor; sin ella, el de siempre (`PINON_MOTRIZ`)."""
+    `velocidad_m_s` (D6) elige el piñón del motor; sin ella, el de siempre (`PINON_MOTRIZ`).
+    El pie nivelador de las patas (D10) sale de la carga por pata; `anclaje` pone una placa de
+    piso con 2 anclajes bajo cada disco. Las cotas se arman con la pila del pie MAYOR (la más
+    alta: valida del lado seguro) y, ya elegido el pie, se alargan las patas."""
     if rodillo not in RODILLOS:
         raise ValueError(f"rodillo '{rodillo}': usa uno de {', '.join(RODILLOS)}")
     if motriz and motor not in MOTORES:
@@ -231,13 +240,14 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     eje_y0 = y_in_m - t - tuerca_t - SOBRE_TUERCA
     eje_y1 = y_in_p + t + tuerca_t + SOBRE_TUERCA
     z_bajo_larguero = h + TOPE_SOBRE_EJE - ala
-    pata = z_bajo_larguero - PLACA_PATA_T
+    z_pata0 = pila(pies_familias()[-1], anclaje).z_pata0
+    pata = z_bajo_larguero - z_pata0
     if pata < 250.0:
-        raise ValueError("altura de trabajo demasiado baja para patas con travesaño (mínimo "
-                         f"{math.ceil(altura - pata + 250.0):g} mm)")
+        raise ValueError("altura de trabajo demasiado baja para patas con travesaño y pie "
+                         f"nivelador (mínimo {math.ceil(altura - pata + 250.0):g} mm)")
     m_rod = len(xs) * _masa_rodillo(rodillo, ancho_util, eje_y1 - eje_y0, motriz)
     d = {"h_eje": h, "xs": xs, "y_h2": y_h2, "d_rodillo": d_rod, "paso": paso,
-         "y_in_m": y_in_m, "y_in_p": y_in_p, "ancho_util": ancho_util}
+         "y_in_m": y_in_m, "y_in_p": y_in_p, "ancho_util": ancho_util, "z_pata0": z_pata0}
     # guarda de cadenas: sobre los separadores, por encima de las cadenas y de los tubos
     r_cad = diametro_primitivo(float(sc["paso"]), int(sr["z"])) / 2.0 + float(sc["alto_placa"]) / 2.0
     guarda_base = max(h + r_cad + 3.0, h + d_rod / 2.0 + 3.0 + GUARDA_PESTANA + GUARDA_T)
@@ -258,7 +268,7 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         mot, guardas = armar(motor, elegir_pinon(motor, velocidad_m_s, d_rod, armar))
         band = bandeja(g, guardas["fija"]["x_izq"] - 1.0, guardas["fija"]["pared_int"]["y0"])
     vano = vano_maximo(carga_kg, m_rod, largo)
-    z_trav = mot.portamotor["z"] if mot is not None else PLACA_PATA_T + pata / 2.0
+    z_trav = mot.portamotor["z"] if mot is not None else z_pata0 + pata / 2.0
     estaciones = _estaciones(largo, xs, mot, vano, z_trav)
     velocidad = potencia = None
     if mot is not None:
@@ -272,7 +282,7 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
     cuantos = math.ceil((n - 4) / 8.0) + 1  # cada ≤ 8 pasos, siempre ENTRE dos rodillos
     seps = tuple(round(xs[0] + paso * (1.5 + round((n - 4) * k / max(1, cuantos - 1))), 6)
                  for k in range(cuantos)) if motriz else ()
-    return Disposicion(
+    prov = Disposicion(
         largo=largo, ancho_util=ancho_util, paso=paso, rodillo=rodillo, d_rodillo=d_rod,
         r_int_tubo=d_rod / 2.0 - pared, altura=altura, h_eje=h, carga_kg=carga_kg, xs=xs,
         eslabones_rr=round(int(sr["z"]) + 2.0 * paso / float(sc["paso"])),
@@ -283,3 +293,9 @@ def disposicion(largo: float, ancho_util: float, paso: float, rodillo: str, altu
         guarda_z=guarda_base + GUARDA_T, vano_max=vano, velocidad_m_s=velocidad,
         potencia_req_kw=potencia, motriz=mot, r_cadena=r_cad, guardas=guardas, bandeja=band,
     )
+    # D10: el pie sale de la carga por pata; la pata crece lo que la pila baja
+    pies = elegir_pies(prov, anclaje)
+    pata = z_bajo_larguero - pies.z_pata0
+    if mot is None:
+        estaciones = _estaciones(largo, xs, None, vano, pies.z_pata0 + pata / 2.0)
+    return replace(prov, pata_largo=pata, estaciones=estaciones, pies=pies)

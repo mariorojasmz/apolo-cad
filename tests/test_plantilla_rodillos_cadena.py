@@ -146,7 +146,8 @@ def test_la_puerta_de_entrega_da_verde(chico):
     assert rep["veredicto"] == VERDE, rep
     assert rep["avisos"] == [] and rep["bloqueantes"] == []
     ok = rep["resumen"]["chequeos_ok"]
-    assert "acceso de herramienta (20 fijador(es))" in ok  # entra la llave en cada tuerca
+    # entra la llave en cada tuerca: las 20 de los ejes y las 4 soldadas de los pies (F5)
+    assert "acceso de herramienta (24 fijador(es))" in ok
     assert "lints pre-entrega" in ok  # incluye el asiento en la zona plana del ángulo
 
 
@@ -203,7 +204,7 @@ def test_position_traslada_y_editar_regenera_todo():
     doc = Document("rodillos-edicion")
     doc.execute("create_roller_conveyor", {"largo": 1000, "motriz": "libre",
                                            "position": {"x": 300, "y": -100, "z": 50}})
-    b = doc.scene["c1_placa_m_e0"].shape.bounding_box()
+    b = doc.scene["c1_placa_piso_m_e0"].shape.bounding_box()  # F5: la placa de piso, bajo el pie
     assert b.min.Z == pytest.approx(50.0)
     assert doc.scene["c1_larg_m"].shape.bounding_box().min.X == pytest.approx(300.0)
     n = len(doc.scene)

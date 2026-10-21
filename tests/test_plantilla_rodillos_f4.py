@@ -119,7 +119,7 @@ def test_engineering_check_valida_la_plantilla_contra_la_ficha():
     reglas = {r["regla"]: r for r in reglas_rodillos_cadena(params, 25, 400, 0.25, 400)}
     assert set(reglas) == {"velocidad del producto", "apoyo del paquete", "capacidad de rodillo",
                            "ancho útil", "carga de diseño", "motor", "cadena",
-                           "recorrido de tensado"}
+                           "recorrido de tensado", "pies niveladores"}  # F5: los pies
     assert reglas["velocidad del producto"]["estado"] == "ok"
     assert reglas["apoyo del paquete"]["estado"] == "ok"  # 4 rodillos bajo 400 mm
     assert reglas["capacidad de rodillo"]["estado"] == "ok"
@@ -283,7 +283,8 @@ def test_bandeja_en_tramos_y_travesanos_a_una_altura(tres):
 
 def test_libre_lleva_el_travesano_a_media_pata():
     d = rc.disposicion(1000, 500, 95.25, "TUBOR-2", 750, 100, False, None)
-    assert {e.z_travesano for e in d.estaciones} == {rc.PLACA_PATA_T + d.pata_largo / 2.0}
+    # F5: la pata arranca sobre la pila del pie nivelador
+    assert {e.z_travesano for e in d.estaciones} == {d.pies.z_pata0 + d.pata_largo / 2.0}
 
 
 def test_engineering_check_reconoce_la_plantilla(tres):
@@ -329,7 +330,7 @@ def test_la_version_invalida_la_cache(monkeypatch):
     from apolo.doc.document import _cmd_sig
 
     cmd = {"id": "c1", "type": "create_roller_conveyor", "params": {"largo": 1000}}
-    assert REGISTRY["create_roller_conveyor"].version == 2
+    assert REGISTRY["create_roller_conveyor"].version >= 2  # v3 = F5
     v2 = _cmd_sig("", cmd)
     monkeypatch.setattr(REGISTRY["create_roller_conveyor"], "version", 1)
     assert _cmd_sig("", cmd) != v2

@@ -19,6 +19,7 @@ import math
 from apolo.library import rodillos_cadena as rc
 from apolo.library.catalog import CATALOG
 from apolo.library.rodillos_cadena_motriz import OREJA_T, PERNO_OREJA, RANURA_OREJA
+from apolo.library.rodillos_cadena_pies import ANCLAJE_D, ANCLAJE_XY, PLACA_PISO, PLACA_PISO_T
 
 from .receta_rodillos_guardas import bandeja, guarda_cadenas, guarda_transmision, placa_xz
 
@@ -185,6 +186,43 @@ def _portamotor(r: _Receta, d: rc.Disposicion, k: int, donde: str, patas: dict) 
     return trav
 
 
+def _pie(r: _Receta, d: rc.Disposicion, s: str, donde: str, x: float, y: float, pata: str) -> None:
+    """Pie nivelador bajo una pata (D10): placa de la pata con la tuerca de la rosca del pie
+    soldada por debajo y barreno de paso del vástago; el disco al piso o, con anclaje, a una
+    placa de piso con 2 anclajes en diagonal (se nivela, se ancla y se suelda el disco)."""
+    p = d.pies
+    placa = r.pieza("create_box", f"placa_{s}", "Patas", f"Placa de la pata ({donde})", {
+        "width": rc.PLACA_PATA, "depth": rc.PLACA_PATA, "height": rc.PLACA_PATA_T,
+        "position": r.pos(x, y, p.z_placa + rc.PLACA_PATA_T / 2.0)})
+    r.taladro(f"tal_pie_{s}", placa, r.pos(x, y, p.z_pata0 + 2.0), "-z", p.barreno)
+    r.union(f"placa_pata_{s}", placa, pata, "soldadura", "placa soldada al pie de la pata",
+            throat_mm=4, length_mm=4 * float(CATALOG[rc.PATA].specs["width"]))
+    tuerca = r.pieza("insert_component", f"tuerca_pie_{s}", "Patas",
+                     f"Tuerca soldada del pie ({donde})",
+                     {"component": p.tuerca, "position": r.pos(x, y, p.z_tuerca)})
+    r.union(f"tuerca_placa_{s}", tuerca, placa, "soldadura",
+            "tuerca de la rosca del pie soldada bajo la placa", throat_mm=2,
+            length_mm=round(2.0 * math.sqrt(3.0) * p.tuerca_ac, 1))
+    pie = r.pieza("insert_component", f"pie_{s}", "Patas", f"Pie nivelador ({donde})",
+                  {"component": p.ref, "position": r.pos(x, y, p.z_pie)})
+    r.union(f"pie_tuerca_{s}", pie, tuerca, "contacto",
+            f"vástago M{p.rosca:g} en la tuerca soldada: girarlo nivela ±{p.recorrido / 2.0:.1f} mm")
+    apoyo, nota = pie, "disco del pie nivelador apoyado en el piso, sin anclar"
+    if p.anclaje:
+        apoyo = r.pieza("create_box", f"placa_piso_{s}", "Patas", f"Placa de piso ({donde})", {
+            "width": PLACA_PISO, "depth": PLACA_PISO, "height": PLACA_PISO_T,
+            "position": r.pos(x, y, PLACA_PISO_T / 2.0)})
+        for j, sg in enumerate((1.0, -1.0)):  # dos anclajes en diagonal
+            r.taladro(f"anc_{s}{j}", apoyo, r.pos(x + sg * ANCLAJE_XY, y + sg * ANCLAJE_XY,
+                                                  PLACA_PISO_T + 2.0), "-z", ANCLAJE_D)
+        r.union(f"pie_piso_{s}", pie, apoyo, "soldadura",
+                "disco soldado a la placa de piso después de nivelar y anclar", throat_mm=3,
+                length_mm=round(math.pi * p.disco_d, 1))
+        nota = "placa de piso con 2 pernos de expansión M12"
+    r.pasos.append(("ground", f"piso_{s}", {"name": r.id(f"piso_{s}"), "feature": apoyo,
+                                            "nota": nota}))
+
+
 def _estaciones(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str) -> dict:
     w = float(CATALOG[rc.PATA].specs["width"])
     yc = (d.y_in_m + d.y_in_p) / 2.0
@@ -201,22 +239,10 @@ def _estaciones(r: _Receta, d: rc.Disposicion, larg_m: str, larg_p: str) -> dict
                                 ("p", "+Y", d.y_in_p + w / 2.0, larg_p)):
             pata = r.pieza("insert_component", f"pata_{s}_e{k}", "Patas", f"Pata ({rot}, {donde})",
                            {"component": rc.PATA, "length": round(d.pata_largo, 4),
-                            "position": r.pos(est.x, y, rc.PLACA_PATA_T + d.pata_largo / 2.0)})
-            placa = r.pieza("create_box", f"placa_{s}_e{k}", "Patas",
-                            f"Placa base ({rot}, {donde})", {
-                                "width": rc.PLACA_PATA, "depth": rc.PLACA_PATA,
-                                "height": rc.PLACA_PATA_T,
-                                "position": r.pos(est.x, y, rc.PLACA_PATA_T / 2.0)})
-            for j, sg in enumerate((1.0, -1.0)):  # dos anclajes en diagonal
-                r.taladro(f"anc_{s}_e{k}{j}", placa, r.pos(est.x + sg * 50.0, y + sg * 50.0, 12.0),
-                          "-z", rc.ANCLAJE_D)
+                            "position": r.pos(est.x, y, d.pies.z_pata0 + d.pata_largo / 2.0)})
             r.union(f"pata_larg_{s}_e{k}", pata, larg, "soldadura",
                     "pata soldada bajo el ala horizontal del ángulo", throat_mm=3, length_mm=4 * w)
-            r.union(f"placa_pata_{s}_e{k}", placa, pata, "soldadura", "placa base de la pata",
-                    throat_mm=4, length_mm=4 * w)
-            r.pasos.append(("ground", f"piso_{s}_e{k}", {
-                "name": r.id(f"piso_{s}_e{k}"), "feature": placa,
-                "nota": "placa al piso con 2 pernos de expansión M12"}))
+            _pie(r, d, f"{s}_e{k}", f"{rot}, {donde}", est.x, y, pata)
             patas[s] = pata
         if est.rol == "motriz" and d.motriz:
             travesanos[est.rol] = _portamotor(r, d, k, donde, patas)
