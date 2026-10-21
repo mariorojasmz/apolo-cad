@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSock
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from apolo import identidad
 from apolo.agent import chat as chat_http
 from apolo.commands import command_schemas, command_schemas_persona
 from apolo.state import STATE_LOCK
@@ -92,16 +93,22 @@ def get_schema(command_type: str) -> dict:
 
 
 @router.get("/api/health")
-def health() -> dict:
+def health(request: Request) -> dict:
     """Salud de operación (V6.1): integridad del documento en memoria + estado de la
     capa de persistencia. Lectura pura bajo STATE_LOCK. ``ok`` es verde solo si NO hay
     violaciones de integridad (los 'degradado' no cuentan) NI error de arranque. Sin
     tool MCP: es telemetría de operación (la UI pinta un chip; V6.x si se pide agente).
     ``dwg``: si hay con qué exportar DWG (ODA File Converter); la publicación lo lee al empezar
-    (D5 de video-tienda-pulido). Se descubre FUERA del lock: no toca el documento."""
+    (D5 de video-tienda-pulido). Se descubre FUERA del lock: no toca el documento.
+    ``pid``/``puerto``/``proyecto``: de quién es esta API cuando hay varias a la vez (D7 de
+    varias-maquinas-a-la-vez); el puerto, si el proceso no lo sabe, el de la petición."""
     from apolo.drawing.dwg import disponible as dwg_disponible
 
     dwg = dwg_disponible()
+    puerto = identidad.puerto()
+    if puerto is None:
+        servidor = request.scope.get("server")
+        puerto = servidor[1] if servidor else None
     with STATE_LOCK:
         raw = S.doc.check_integrity()
         issues = [i for i in raw if not i.startswith("degradado")]
@@ -122,6 +129,9 @@ def health() -> dict:
             "commands": len(S.doc.commands),
             "chat": chat_http.activo(),  # la UI muestra el panel del asistente sólo si es true
             "dwg": dwg,  # {disponible, aviso con el enlace de descarga}
+            "pid": identidad.pid(),
+            "puerto": puerto,
+            "proyecto": {"id": S.project_id, "nombre": S.doc.name},
         }
 
 

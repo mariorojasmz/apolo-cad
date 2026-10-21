@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida (corrigió D5–D7); faltan F1–F4
+nota: F0 medida (corrigió D5–D7) y F1 implementada (WAL, APOLO_PROJECT, identidad); faltan F2–F4
 descripcion: Varios agentes modelan máquinas distintas a la vez, cada una en su propio proceso de la API, sin pisarse ni perder guardados
 ---
 
@@ -269,3 +269,35 @@ worktree (`PYTHONPATH`, `-B`). `:8000` y la base real no se tocaron.
 
 Correcciones al contrato antes de F1: el tamaño de lo que guarda el autosave (§ El problema),
 los puertos de D5/D6, el append atómico de D7 y su test en F1, y los números de D8.
+
+### F1 — WAL, `APOLO_PROJECT` e identidad (2026-10-20)
+
+- **D2** (`core/apolo/projects.py`): `__init__` pone `PRAGMA journal_mode=WAL` una vez y guarda
+  el modo resultante en `journal_mode`; si no quedó en WAL (carpeta de red), el arranque lo
+  anota en `errors.log`. `_conn` pasó a ser un context manager: `timeout=BUSY_TIMEOUT_S` (30 s),
+  transacción y **cierre** de la conexión. Antes se cerraba recién en el GC (lo sufría
+  `scripts/perf_baseline.py` con su `ignore_cleanup_errors`); con WAL, una conexión viva retiene
+  el `-wal`. Nuevo `exists(id)`.
+- **D3** (`api/session.py`): `APOLO_PROJECT` manda sobre el reciente. Si no es número o no
+  existe, `_fallo_de_arranque` deja `startup_error`, doc vacío y `project_id=None`, sin crear
+  nada; en una base vacía tampoco crea el «Sin título». El mensaje del reciente corrupto no
+  cambió.
+- **D7**: `apolo/identidad.py` (pid; puerto de `APOLO_PORT` o del `--port` de uvicorn, con 8000
+  si uvicorn no trae `--port`) y `apolo/anexar.py` (append atómico: `FILE_APPEND_DATA` por
+  ctypes en Windows, `O_APPEND` en POSIX; los saltos de línea se escapan como `\n`).
+  `errorlog.py` dejó `logging`: cada entrada es `fecha | pid=… puerto=… | origen | mensaje |
+  json`. `GET /api/health` suma `pid`, `puerto` (si el proceso no lo sabe, el de la petición) y
+  `proyecto` = `{id, nombre}`; `project_id` sigue. `apolo` (cli) fija `APOLO_PORT`;
+  `start-apolo.ps1` no hizo falta tocarlo (pasa `--port`).
+- **Tests**: `tests/test_sqlite_varios_procesos.py` (dos procesos × 200 guardados del mismo
+  proyecto sin un `locked`, ~30 s, casi todo el import de los hijos; WAL + busy_timeout; base
+  vieja en rollback que pasa a WAL; un lector no espera a una transacción EXCLUSIVE abierta;
+  ninguna conexión queda viva), `tests/test_arranque_e_identidad.py` (APOLO_PROJECT pedido,
+  inexistente, en base vacía, no numérico; health con pid, puerto y proyecto; el puerto desde
+  la línea de comandos; pid y puerto en cada línea del log) y `tests/test_errorlog.py` (4
+  procesos × 1500 líneas sin perder ni mezclar una). `conftest` ya no toca handlers de
+  `logging`.
+- **En vivo**, sobre una copia y en `:8111`/`:8112` (muertas al terminar): con
+  `APOLO_PROJECT=74` el health dio `{pid, puerto: 8111, proyecto: {id: 74, nombre:
+  "transportador-rodillos-cadena-2m"}}` y 201 sólidos, y el pid es del árbol lanzado; con 999,
+  `ok: false`, `startup_error` y la copia siguió con sus 30 proyectos. La copia quedó en WAL.

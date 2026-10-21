@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import threading
 import webbrowser
@@ -53,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
         print("Falta uvicorn: pip install 'apolo-cad'", file=sys.stderr)
         return 1
 
+    # la API se identifica con su puerto en /api/health y en errors.log (varias-maquinas D7);
+    # uvicorn.run no se lo pasa a la app y el worker de --reload hereda el entorno
+    os.environ["APOLO_PORT"] = str(args.port)
     uvicorn.run("apolo.api.main:app", host=args.host, port=args.port, reload=args.reload)
     return 0
 

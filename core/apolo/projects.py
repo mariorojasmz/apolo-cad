@@ -9,10 +9,18 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from apolo.doc import Document
+
+#: espera máxima de una conexión por el lock de otra (plan varias-maquinas-a-la-vez, D2). Con
+#: varios procesos de la API sobre la misma base, los escritores esperan EN FILA en vez de
+#: fallar con `database is locked`: en F0, con WAL y 5 procesos, una espera llegó a 7,3 s, así
+#: que los 5 s por defecto de sqlite3 no alcanzan.
+BUSY_TIMEOUT_S = 30.0
 
 
 def _now() -> str:
@@ -23,6 +31,15 @@ class ProjectStore:
     def __init__(self, path: str | Path):
         self.path = str(path)
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        # WAL (D2): los lectores no esperan al escritor. Persiste en el ARCHIVO, así que basta
+        # una vez al abrir el almacén; una base vieja (rollback) se convierte sola. En una
+        # carpeta de red sqlite no lo acepta y devuelve el modo de antes: queda en
+        # `journal_mode` para que el arranque avise.
+        con = sqlite3.connect(self.path, timeout=BUSY_TIMEOUT_S)
+        try:
+            self.journal_mode = str(con.execute("PRAGMA journal_mode=WAL").fetchone()[0])
+        finally:
+            con.close()
         with self._conn() as con:
             con.executescript(
                 """
@@ -54,10 +71,18 @@ class ProjectStore:
                 """
             )
 
-    def _conn(self) -> sqlite3.Connection:
-        con = sqlite3.connect(self.path)
-        con.execute("PRAGMA foreign_keys = ON")
-        return con
+    @contextmanager
+    def _conn(self) -> Iterator[sqlite3.Connection]:
+        """Una conexión por operación: transacción (commit, o rollback si lanza) y CIERRE al
+        salir. Cerrar importa con WAL: una conexión viva retiene `-wal`/`-shm` y, en Windows,
+        el archivo (antes se cerraba recién en el GC)."""
+        con = sqlite3.connect(self.path, timeout=BUSY_TIMEOUT_S)
+        try:
+            con.execute("PRAGMA foreign_keys = ON")
+            with con:
+                yield con
+        finally:
+            con.close()
 
     # ------------------------------------------------------------- proyectos
     def list_projects(self) -> list[dict]:
@@ -180,6 +205,11 @@ class ProjectStore:
         doc = self.load(project_id)
         doc.name = new_name or f"{doc.name} (copia)"
         return self.create(doc)
+
+    def exists(self, project_id: int) -> bool:
+        with self._conn() as con:
+            row = con.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone()
+        return row is not None
 
     def most_recent_id(self) -> int | None:
         with self._conn() as con:

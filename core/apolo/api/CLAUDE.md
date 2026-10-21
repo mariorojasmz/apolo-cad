@@ -197,13 +197,21 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - Durable: reintentos `_AUTOSAVE_RETRIES`; agotados (también si falla la serialización) →
   `S.autosave_error` en el payload + WS `autosave_failed`. La caché de geometría va aparte,
   best-effort. Flush FORZOSO en shutdown/restore.
-- Arranque: reciente corrupto → carga tolerante; si ni así abre → `S.startup_error` + doc vacío
-  con `S.project_id = None` (no crea un «Sin título» que pise el reciente). `project/new` y `project/open`
-  (upload) crean id PROPIO.
+- Arranque: abre `APOLO_PROJECT=<id>` si está, si no el reciente; corrupto → carga tolerante; si
+  ni así abre, o el pedido no existe → `S.startup_error` + doc vacío con `S.project_id = None`
+  (no crea un «Sin título» que pise el reciente). `project/new` y `project/open`
+  (upload) crean id PROPIO. [varias-maquinas](../../../docs/plans/varias-maquinas-a-la-vez.md) (D3)
 - `GET /api/health` = `check_integrity` + suprimidos + `autosave_pending`/`autosave_failed` +
   `startup_error` + `documento` (el token de la guardia) + `chat` + `dwg` ({disponible, aviso}:
   una capacidad que un cliente lee ANTES de pedir; la publicación la cruza con
-  `Entregable.requiere`); no tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
+  `Entregable.requiere`) + `pid`/`puerto`/`proyecto` (de quién es, con varias APIs a la vez); no
+  tiene tool MCP. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
+- **Varios procesos comparten la SQLite y `errors.log`**: la base va en WAL con
+  `BUSY_TIMEOUT_S` = 30 (`projects.py`; 5 s daban `database is locked` con 5 procesos) y cada
+  `_conn` CIERRA su conexión. Una entrada del log es UNA línea `pid=… puerto=…` anexada con
+  `apolo/anexar.py` (append atómico del sistema): nunca un `logging.FileHandler` ni `open('a')`,
+  que en Windows pierden líneas entre procesos. El puerto, de `apolo/identidad.py`
+  (`APOLO_PORT` o el `--port` de uvicorn). [varias-maquinas](../../../docs/plans/varias-maquinas-a-la-vez.md) (F0)
 
 ## Tests de la API
 

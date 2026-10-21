@@ -245,8 +245,8 @@ def main() -> None:
         api.DOC = old_doc
 
     # 4) autosave: to_apolo_bytes + save a una SQLite TEMPORAL (jamás la BD real).
-    # ignore_cleanup_errors: sqlite en Windows retiene el handle hasta el GC (el patrón
-    # `with self._conn()` de projects.py hace commit pero no close) → el rmtree falla.
+    # ignore_cleanup_errors: red de seguridad en Windows; desde varias-maquinas F1 el `_conn` de
+    # projects.py cierra cada conexión (antes el handle quedaba hasta el GC y el rmtree fallaba).
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         from apolo.projects import ProjectStore
 

@@ -86,29 +86,56 @@ def prewarm_sandbox() -> bool:
     return True
 
 
+def _fallo_de_arranque(mensaje: str) -> None:
+    """Arranque sin proyecto: `startup_error` + doc VACÍO con `project_id=None` (el autosave
+    no-opea con None: no pisa nada ni crea un «Sin título»). Bajo `STATE_LOCK`."""
+    S.startup_error = mensaje
+    log_error("backend.startup", mensaje)
+    S.doc = Document()
+    S.project_id = None
+
+
 def initialize_store(db_path: str) -> None:
-    """Inicializa el almacén y abre el proyecto reciente. Extraído del lifespan para
-    testearlo SIN FastAPI (los tests no ejecutan el startup). Robustez (Fix E): el
-    reciente se abre TOLERANTE (suprime comandos rotos en vez de negar la apertura); si
-    ni así abre (ZIP roto), se deja STARTUP_ERROR + un doc VACÍO en memoria con
-    PROJECT_ID=None (el autosave no-opea con None) y NO se crea un 'Sin título' que PISE
-    al reciente como más nuevo. STORE.create solo cuando la BD está de verdad VACÍA."""
+    """Inicializa el almacén y abre el proyecto del arranque. Extraído del lifespan para
+    testearlo SIN FastAPI (los tests no ejecutan el startup).
+
+    Qué abre: `APOLO_PROJECT=<id>` si está (plan varias-maquinas-a-la-vez, D3: cada proceso de
+    una flota abre SU máquina); si no, el reciente. Robustez (Fix E): se abre TOLERANTE
+    (suprime comandos rotos en vez de negar la apertura); si ni así abre (ZIP roto), o el
+    pedido no existe, se deja STARTUP_ERROR + un doc VACÍO en memoria con PROJECT_ID=None y NO
+    se crea un 'Sin título' que PISE al reciente como más nuevo. STORE.create sólo cuando la BD
+    está de verdad VACÍA y nadie pidió un proyecto."""
 
     from apolo.projects import ProjectStore
 
     S.store = ProjectStore(db_path)
     S.startup_error = None
+    if S.store.journal_mode.lower() != "wal":  # D2: p. ej. una carpeta de red
+        log_error("backend.startup", f"La base {db_path} no quedó en WAL "
+                  f"(journal_mode={S.store.journal_mode}): varios procesos a la vez pueden "
+                  "dar 'database is locked'. Ponla en un disco local.")
+    pedido = os.environ.get("APOLO_PROJECT", "").strip()
     with STATE_LOCK:
-        recent = S.store.most_recent_id()
-        if recent is None:
-            S.doc = Document()
-            S.project_id = S.store.create(S.doc)
-            return
+        if pedido:
+            try:
+                objetivo = int(pedido)
+            except ValueError:
+                _fallo_de_arranque(f"APOLO_PROJECT={pedido!r} no es un id de proyecto")
+                return
+            if not S.store.exists(objetivo):
+                _fallo_de_arranque(f"No existe el proyecto {objetivo} (APOLO_PROJECT)")
+                return
+            cual = f"{objetivo} (APOLO_PROJECT)"
+        else:
+            objetivo = S.store.most_recent_id()
+            if objetivo is None:
+                S.doc = Document()
+                S.project_id = S.store.create(S.doc)
+                return
+            cual = f"reciente {objetivo}"
         try:
-            S.doc = S.store.load(recent, tolerant=True)
-            S.project_id = recent
+            S.doc = S.store.load(objetivo, tolerant=True)
+            S.project_id = objetivo
         except Exception as exc:
-            S.startup_error = f"No se pudo abrir el proyecto reciente {recent}: {exc!r}"
-            log_error("backend.startup", S.startup_error)
-            S.doc = Document()
-            S.project_id = None  # el autosave no-opea → NO se sobrescribe el reciente corrupto
+            # el autosave no-opea → NO se sobrescribe el proyecto corrupto
+            _fallo_de_arranque(f"No se pudo abrir el proyecto {cual}: {exc!r}")
