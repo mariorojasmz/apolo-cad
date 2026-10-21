@@ -21,7 +21,7 @@ from .render import _clip_to_section, _shape_of
 from .render_comun import (
     OPACIDAD_VIDRIO,
     actor_aristas,
-    actor_superficie,
+    actores_superficie,
     bounds_malla,
     color_pieza,
     es_vidrio,
@@ -31,7 +31,7 @@ from .render_comun import (
     poner_camara,
     poner_fondo,
     poner_luces,
-    teselar,
+    teselar_con_zonas,
 )
 
 _H = 0.78  # factor alto/ancho de la ventana de render (aspecto); lo comparten render y pick
@@ -56,6 +56,7 @@ class _RenderItem:
     label_pos: object | None
     label_text: str
     pbr: tuple | None = None   # (metalness, roughness) del acabado; None = Phong genérico
+    partes: list | None = None  # zonas de acabado (`render_comun.teselar_con_zonas`) o None
 
 
 @dataclass
@@ -254,16 +255,18 @@ def extract_render_scene(
     any_translucent = False   # ¿hay alguna pieza traslúcida? → activar depth-peeling
 
     for i, feat in enumerate(feats):
-        shape = _shape_of(feat, shapes_override)
+        shape = entera = _shape_of(feat, shapes_override)
         if section:
             shape = _clip_to_section(shape, section, lo, hi)
             if shape is None:
                 continue
-        vertices, triangles = teselar(shape)
+        ap = (apariencias or {}).get(feat.id)
+        # zonas de acabado (seta-de-emergencia F3): sólo sobre la forma entera; cortada, no calza
+        zonas = (ap or {}).get("zonas") if shape is entera else None
+        vertices, triangles, partes = teselar_con_zonas(shape, zonas)
         if not len(vertices) or not len(triangles):
             continue
         is_hi = feat.id in highlight
-        ap = (apariencias or {}).get(feat.id)
         col = hex_a_rgb(ap["color"]) if ap else color_pieza(feat.id, i, colors)
         pbr = (ap["metalness"], ap["roughness"]) if ap else None
         op_vidrio = ap["opacidad"] if ap else (OPACIDAD_VIDRIO if es_vidrio(feat) else 1.0)
@@ -273,7 +276,7 @@ def extract_render_scene(
             if xray:
                 op = 0.16                         # rayos-X: el contexto translúcido EN SU COLOR
             else:
-                col, op, pbr = (0.62, 0.66, 0.70), 0.18, None  # fantasma gris (de-énfasis)
+                col, op, pbr, partes = (0.62, 0.66, 0.70), 0.18, None, None  # fantasma gris
         elif op_vidrio < 1.0:
             op = op_vidrio                        # vidrio translúcido (como el viewport web)
         elif xray:
@@ -287,7 +290,7 @@ def extract_render_scene(
         bmn, bmx = bounds_malla(vertices)
         label_pos = ((bmn + bmx) / 2.0) if (labels and op > 0.25) else None
         items.append(_RenderItem(vertices, triangles, col, op, draw_edges, label_pos, feat.id,
-                                 pbr))
+                                 pbr, partes))
         smins = np.minimum(smins, bmn)
         smaxs = np.maximum(smaxs, bmx)
         if feat.id in fit:
@@ -321,7 +324,9 @@ def render_snapshot_vtk(snap: RenderSnapshot) -> bytes:
     label_actors = []  # rótulos de id → se pintan en la capa overlay (siempre encima)
     for item in snap.items:
         pd = polydata(item.vertices, item.triangles)
-        ren.AddActor(actor_superficie(pd, item.color, item.opacity, item.pbr))
+        for actor in actores_superficie(item.vertices, item.triangles, pd, item.color,
+                                        item.opacity, item.pbr, item.partes):
+            ren.AddActor(actor)
         if item.draw_edges:
             ren.AddActor(actor_aristas(pd))
         if item.label_pos is not None:

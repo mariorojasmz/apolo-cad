@@ -26,11 +26,16 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
 - Zonas de una pieza (`mesh.py`): `teselar_caras` cuenta los triángulos de cada cara EN LA MISMA
   llamada (otro mallado con otra tolerancia cambiaría los conteos) y `agrupar_por_zona` los deja
   contiguos por zona; `render_comun.teselar_zonas` usa la caché de `teselar`. Sin zonas, todo
-  sale como siempre. [seta-de-emergencia](../../../docs/plans/seta-de-emergencia.md)
+  sale como siempre. La foto VTK y el GLB reciben las zonas como DATO en la apariencia
+  (`services.apariencia.apariencias_render`: clave `zonas` = {por_cara, aps}); VTK hace un actor
+  por zona (`actores_superficie`), sólo sobre la forma ENTERA (una sección la corta: un acabado).
+  `render_vivo` (video de respaldo) sigue de un acabado. [seta-de-emergencia](../../../docs/plans/seta-de-emergencia.md)
 - glTF/GLB: `glb.py` (escritor de OCCT); sus trampas están en el docstring. Lo clave: prototipo SIN
   ubicación + componente ubicado (o se pierde la ubicación), color en el COMPONENTE (el del prototipo
   pisa el de la instancia), `TDataStd_Name` con `isMultiByte=True` y `SetMergeFaces`.
-  [vista-3d-tienda](../../../docs/plans/vista-3d-tienda.md)
+  [vista-3d-tienda](../../../docs/plans/vista-3d-tienda.md). Pieza con zonas (`glb_zonas.py`):
+  prototipo = compuesto con un sub-compuesto de caras por zona, estilo en el PROTOTIPO, instancia
+  sin color, prototipo por TShape + estilos; el escritor da una primitiva por ESTILO distinto.
 - `pick.py` (píxel → pieza/cara EXACTA) comparte la matriz de cámara del render sin contexto
   OpenGL: el caller pasa los MISMOS params del `render_view` (`isolate`, `section`, cámara) o el
   píxel no coincide con lo que se ve.

@@ -179,7 +179,7 @@ def render_png(
         if (vtk_only or shade) and not view_list:
             try:
                 from apolo.kernel.render_vtk import extract_render_scene
-                from apolo.services.apariencia import apariencias_documento
+                from apolo.services.apariencia import apariencias_render
 
                 snapshot = extract_render_scene(
                     scene, view,
@@ -189,7 +189,7 @@ def render_png(
                     ignore_visibility=bool(isolate_ids),
                     azimuth=azimuth, elevation=elevation, dimension=dimension, edges=edges,
                     xray=xray, labels=labels, roll=roll, pan=pan_xy,
-                    apariencias=apariencias_documento(S.doc),
+                    apariencias=apariencias_render(S.doc),
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc

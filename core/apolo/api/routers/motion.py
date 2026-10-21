@@ -130,7 +130,7 @@ def motion_gif(body: MotionGifIn) -> Response:
     cámara FIJA a todo el recorrido (si no, el encuadre 'respira' al moverse el mecanismo).
     Espejo de `/api/physics/drop.gif` pero para cinemática, no para física."""
     from apolo.robotics.anim import extract_motion_frames, render_motion_gif
-    from apolo.services.apariencia import apariencias_documento
+    from apolo.services.apariencia import apariencias_render
 
     with STATE_LOCK:  # FASE OCCT: FK + teselado → snapshots de datos PUROS
         kfs = S.doc.motion.get(body.name)
@@ -146,7 +146,7 @@ def motion_gif(body: MotionGifIn) -> Response:
                 S.doc, kfs, steps=body.steps, pingpong=body.pingpong,
                 view=body.view, azimuth=body.azimuth, elevation=body.elevation,
                 zoom=body.zoom, size_px=body.size_px, colors=_feature_colors(),
-                edges=body.edges, apariencias=apariencias_documento(S.doc),
+                edges=body.edges, apariencias=apariencias_render(S.doc),
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

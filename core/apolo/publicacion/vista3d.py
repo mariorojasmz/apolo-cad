@@ -20,7 +20,9 @@ vía `services.apariencia.apariencias_documento`, la misma resolución que el pa
 (material → rol → catálogo; albedo del acabado o el color asignado/de paleta si es pintable). El
 GLB lleva por material el albedo, `metallicFactor` y `roughnessFactor` del acabado: sin ellos
 glTF asume metal = 1 y rugosidad = 1 y un visor externo muestra la máquina oscura y apagada. La
-textura procedural y el relieve son del visor de Apolo y no viajan.
+textura procedural y el relieve son del visor de Apolo y no viajan. Una pieza con zonas de
+acabado (la seta de emergencia) lleva una primitiva por estilo de zona, con su material
+(`apariencias_render`, plan seta-de-emergencia F3).
 """
 
 from __future__ import annotations
@@ -72,16 +74,29 @@ def piezas(doc) -> list:
     grupo (D5: el GLB es sólo apariencia y no lleva los nombres de las piezas, que dirían cómo
     está hecho el diseño); una pieza sin grupo, `SIN_GRUPO`."""
     from apolo.kernel.glb import PiezaGlb
-    from apolo.services.apariencia import apariencias_documento
+    from apolo.services.apariencia import apariencias_render
 
-    aps = apariencias_documento(doc)
+    aps = apariencias_render(doc)
     out = []
     for fid in ids_glb(doc):
         feat = doc.scene[fid]
         ruta = _ruta_grupos(feat.group, doc.groups)
         out.append(PiezaGlb(ruta[-1] if ruta else SIN_GRUPO, feat.shape, grupos=ruta,
-                            **apariencia(aps[fid])))
+                            **apariencia(aps[fid]), **_zonas(aps[fid])))
     return out
+
+
+def _zonas(ap: dict) -> dict:
+    """Los kwargs de zona de una `PiezaGlb` (plan seta-de-emergencia, F3: una primitiva por
+    zona, con su material): vacío si la pieza va de un solo acabado."""
+    from apolo.kernel.glb import ZonaGlb
+
+    zonas = ap.get("zonas")
+    if not zonas:
+        return {}
+    return {"zona_por_cara": tuple(zonas["por_cara"]),
+            "zonas": tuple(ZonaGlb(nombre, **apariencia(z))
+                           for nombre, z in zonas["aps"].items())}
 
 
 def buscar_gltfpack() -> str | None:

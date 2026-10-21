@@ -76,6 +76,24 @@ def teselar_zonas(shape, zona_por_cara):
     return vertices, agrupados, rangos
 
 
+def teselar_con_zonas(shape, zonas: dict | None):
+    """(vertices, triangulos, partes) de una pieza para la foto VTK (plan seta-de-emergencia,
+    F3). `zonas` = la clave `zonas` de su apariencia (`services.apariencia.apariencias_render`:
+    {"por_cara", "aps"}). `partes` = [(desde, hasta, rgb, (metalness, roughness))] en índices de
+    triángulo, contiguos; None = pieza de un solo acabado, con el teselado de `teselar` (sin
+    `zonas` es EXACTAMENTE el de siempre)."""
+    if not zonas:
+        vertices, triangles = teselar(shape)
+        return vertices, triangles, None
+    vertices, triangles, rangos = teselar_zonas(shape, zonas.get("por_cara"))
+    aps = zonas.get("aps") or {}
+    if rangos is None or any(r["zona"] not in aps for r in rangos):
+        return vertices, triangles, None
+    partes = [(r["desde"], r["hasta"], hex_a_rgb(aps[r["zona"]]["color"]),
+               (aps[r["zona"]]["metalness"], aps[r["zona"]]["roughness"])) for r in rangos]
+    return vertices, triangles, partes
+
+
 def es_vidrio(feat) -> bool:
     """¿La pieza es vidrio? (material override o nombre — espejo del `isGlass` del viewport web)."""
     if _GLASS_RE.search(getattr(feat, "material", None) or ""):
@@ -182,6 +200,17 @@ def actor_superficie(pd, color, opacidad: float, pbr: tuple[float, float] | None
         prop.SetSpecularPower(ph["potencia"])
         prop.SetSpecularColor(*ph["color_especular"])
     return actor
+
+
+def actores_superficie(vertices, triangles, pd, color, opacidad: float,
+                       pbr: tuple[float, float] | None = None, partes: list | None = None):
+    """Los actores sombreados de una pieza: uno (`actor_superficie` sobre `pd`) o, con `partes`
+    (`teselar_con_zonas`), uno por zona de acabado con su color y su brillo y la opacidad de la
+    pieza (seta-de-emergencia D2: VTK parte el polydata por zona)."""
+    if not partes:
+        return [actor_superficie(pd, color, opacidad, pbr)]
+    return [actor_superficie(polydata(vertices, triangles[desde:hasta]), rgb, opacidad, pbr_zona)
+            for desde, hasta, rgb, pbr_zona in partes]
 
 
 def actor_aristas(pd):

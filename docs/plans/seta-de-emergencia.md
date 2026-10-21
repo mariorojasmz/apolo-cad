@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato del 2026-10-20 (D1–D7 aprobadas por delegación de Mario); F0 medida, F1 implementada (zonas por índice de cara en library + kernel, ESTOP-40 y ESTOP-40-CAJA, epoch 6) y F2 implementada (zonas en el payload de escena y grupos de material en el visor, D3); faltan F3 (VTK y GLB) y F4
+nota: contrato del 2026-10-20 (D1–D7 aprobadas por delegación de Mario); F0 medida, F1 implementada (zonas por índice de cara en library + kernel, ESTOP-40 y ESTOP-40-CAJA, epoch 6) , F2 implementada (zonas en el payload de escena y grupos de material en el visor, D3) y F3 implementada (un actor por zona en la foto VTK, una primitiva por estilo de zona en el GLB); falta F4 (verificación con Mario); el video VTK de respaldo (`render_vivo`) sigue de un acabado
 descripcion: La parada de emergencia del catálogo se ve como una de verdad —seta roja sobre fondo amarillo—, y una pieza comprada puede tener partes de distinto color sin dejar de ser UNA línea de la BOM
 ---
 
@@ -277,3 +277,48 @@ validada por número de caras y volumen.
   - Tras `set_color` azul a las dos piezas, la caja se repinta en sitio, sin reconstruir la
     malla (`builds` = 3). La seta, la leyenda y el collar no cambian.
   - Calidad normal: igual. Sin errores en la consola.
+
+### F3 (2026-10-20): zonas en la foto VTK y en el GLB de la tienda
+
+- **Dato, no import.** `services/apariencia.apariencias_render(doc)` = `apariencias_documento`
+  más, en cada pieza que conserva sus zonas (`zona_por_cara` calza), la clave
+  `zonas: {por_cara, aps}` con las apariencias de `zonas_documento` (D3 ya aplicado). El kernel
+  la lee de la apariencia que ya recibía: no importa `library`. La usan `render_view`
+  (`routers/render.py`), el GIF de movimiento (`routers/motion.py`) y `publicacion/vista3d.py`.
+  `apariencias_documento` no cambia: el payload de escena no paga el `zona_por_cara` extra.
+- **VTK.** `render_comun.teselar_con_zonas` da las `partes` `(desde, hasta, rgb, pbr)` y
+  `actores_superficie` arma un actor por zona (misma opacidad; las aristas, del polydata
+  entero). `render_vtk` sólo cambia el teselado y el alta de actores.
+  - **Decisión**: con `section` la forma se corta y la pieza sale de un acabado (los índices de
+    cara ya no son los del builder). El fantasma gris del `highlight` también va de un color;
+    `xray` conserva los colores de zona.
+  - **Decisión (fuera de F3)**: `render_vivo` (video VTK de respaldo y GIF de dinámica) sigue de
+    un acabado: recibe `apariencias_documento` y no lee `zonas`. El video de la tienda es el del
+    navegador (F2). Si Mario lo pide, se hace con `actores_superficie` en `EscenaViva._crear`
+    (`resaltar` y `mover` tendrían que recorrer los actores de zona).
+- **GLB** (`kernel/glb_zonas.py`). Con `SetMergeFaces`, el escritor junta caras por ESTILO, y el
+  estilo de un sub-shape de cara suelta no da una primitiva por zona (F0: 5 para 4). El prototipo
+  de una pieza con zonas es un COMPUESTO con un sub-compuesto de caras por zona (en el orden de
+  `faces()` de build123d, replicado en `glb_zonas.caras` con su test) y cada sub-compuesto lleva
+  color + material PBR (`AddSubShape`). La instancia no lleva estilo (el del prototipo lo
+  pisaría). El prototipo se comparte por TShape + estilos: una caja repintada tiene el suyo.
+  - **Medido**: ESTOP-40 da 4 primitivas y 4 materiales en su nodo.
+  - **Decisión**: dos zonas con el mismo estilo se funden en una primitiva. ESTOP-40-CAJA da 3:
+    rojo, amarillo (leyenda + caja) y negro (collar + prensaestopa). No se distinguen en un
+    visor y es lo que hace el escritor. Con la caja repintada salen 4.
+  - Dos `insert_component` de la misma ref NO comparten TShape (pasa igual sin zonas): cada una
+    es su prototipo.
+- **Sin zonas, idéntico.** Una escena sin piezas con zonas da el mismo PNG (vistas, `xray` y
+  `highlight`) y el mismo GLB byte a byte en `main` (15f30e2) y en la rama (script fuera del repo,
+  en el scratchpad). Una `zona_por_cara` que no calza con las caras da el mismo GLB que sin zonas.
+- **Tests** (`tests/test_seta_render.py`, 10):
+  - foto cenital de ESTOP-40: rojo y amarillo concéntricos, el amarillo en anillo alrededor;
+  - ESTOP-40-CAJA en iso: la seta roja arriba; con `set_color` azul la seta no cambia, queda el
+    anillo amarillo y la caja sale azul;
+  - en ESTOP-40 el color asignado no cambia el PNG;
+  - sin zonas el PNG es el de siempre; con sección o taladro, de un acabado;
+  - GLB: primitivas por estilo con el color de la tabla, la roja delante, y las cotas Ø40 y Ø60;
+  - en el GLB, el color asignado no pinta lo fijo;
+  - el prototipo se comparte sólo con los mismos estilos;
+  - pieza sin zonas, mismo GLB;
+  - orden de caras igual al de build123d.

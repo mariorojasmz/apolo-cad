@@ -35,3 +35,21 @@ def zonas_documento(doc) -> dict[str, dict[str, dict]]:
         out[feat.id] = apariencias_de_zonas(comp.zonas, colores.get(feat.id),
                                             PALETTE[i % len(PALETTE)])
     return out
+
+
+def apariencias_render(doc) -> dict:
+    """`apariencias_documento` más, en cada pieza que conserva sus zonas de acabado, la clave
+    `zonas` = {"por_cara": (zona de cada cara, en el orden de `faces()`), "aps": {zona:
+    apariencia}}: lo que leen la foto VTK (`kernel/render_vtk`) y el GLB de la tienda para
+    partirla por zona (plan seta-de-emergencia, F3). El kernel la recibe como DATO: no importa
+    `library`. Una pieza sin zonas, o taladrada (no calza con la huella), va igual que en
+    `apariencias_documento`."""
+    from apolo.library.zonas import zona_por_cara
+
+    aps = apariencias_documento(doc)
+    for fid, por_zona in zonas_documento(doc).items():
+        feat = doc.scene[fid]
+        por_cara = zona_por_cara(feat.component, feat.shape) if feat.shape is not None else None
+        if por_cara is not None:
+            aps[fid] = {**aps[fid], "zonas": {"por_cara": por_cara, "aps": por_zona}}
+    return aps

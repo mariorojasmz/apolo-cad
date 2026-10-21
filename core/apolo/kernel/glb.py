@@ -19,6 +19,7 @@ Escritor glTF de OCCT (`RWGltf_CafWriter`) sobre un documento XCAF propio:
 - **Nombres**: cada etiqueta lleva `TDataStd_Name` con `isMultiByte=True` (sin eso el UTF-8 se
   codifica dos veces: «PiÃ±Ã³n»); sin nombre propio, XCAF bautiza la instancia «=>[0:1:1:n]».
 - **Una primitiva por pieza** (`SetMergeFaces`): sin eso, una por cara (17 823 en la piloto).
+  Una pieza con zonas de acabado, una por ZONA y su estilo en el prototipo (`glb_zonas.py`).
 - **Tope de triángulos DIBUJADOS** (D2 tras la F0): se tesela todo al detalle de vista y, mientras
   la suma (triángulos × instancias) pase el tope, se baja un nivel al prototipo que más aporta.
   Así cae primero lo repetido y denso (las cadenas: 89 % de la piloto), no toda la máquina; lo
@@ -56,10 +57,23 @@ _MEDIO_PI = 1.5707963267948966
 
 
 @dataclass(frozen=True)
+class ZonaGlb:
+    """El estilo de una zona de acabado (plan seta-de-emergencia, D2): sale como su propia
+    primitiva, con su material, en el nodo de la pieza (`glb_zonas.py`)."""
+
+    nombre: str
+    color: str
+    metal: float = METAL
+    rugosidad: float = RUGOSIDAD
+
+
+@dataclass(frozen=True)
 class PiezaGlb:
     """Una pieza a exportar. `shape`: TopoDS_Shape o un shape de build123d (`.wrapped`);
     `color`: «#rrggbb»; `grupos`: ruta de grupos desde la raíz («Transmisión», «Motor»); vacía =
-    pieza suelta, colgada de la raíz."""
+    pieza suelta, colgada de la raíz. `zona_por_cara` (la zona de cada cara, en el orden de
+    `faces()`) y `zonas` (sus estilos) la parten en una primitiva por zona; sin ellos, o si no
+    corresponden a las caras, sale de un solo color."""
 
     nombre: str
     shape: object
@@ -67,6 +81,8 @@ class PiezaGlb:
     grupos: tuple[str, ...] = ()
     metal: float = METAL
     rugosidad: float = RUGOSIDAD
+    zona_por_cara: tuple[str, ...] | None = None
+    zonas: tuple[ZonaGlb, ...] = ()
 
 
 @dataclass
@@ -88,8 +104,9 @@ class InformeGlb:
 class _Proto:
     """Un prototipo: la copia sin ubicación que comparten las piezas con el mismo TShape."""
 
-    def __init__(self, base, copia, nombre: str):
+    def __init__(self, base, copia, nombre: str, zonas: tuple | None = None):
         self.base, self.copia, self.nombre = base, copia, nombre
+        self.zonas = zonas  # estilos por zona (en el prototipo) o None: color en la instancia
         self.instancias = 0
         self.nivel = 0
         self.triangulos = 0
@@ -180,21 +197,27 @@ def ajustar_detalle(protos, tope: int) -> bool:
 
 
 def _prototipos(piezas):
-    """[(pieza, proto, ubicación)] y la lista de prototipos (por TShape, en orden de aparición)."""
+    """[(pieza, proto, ubicación)] y la lista de prototipos (por TShape, en orden de aparición;
+    una pieza con zonas, por TShape y estilos de zona: `glb_zonas.py`)."""
     from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
     from OCP.TopLoc import TopLoc_Location
 
-    cubetas: dict[int, list[_Proto]] = {}
+    from .glb_zonas import compuesto_por_zona, zonas_de
+
+    cubetas: dict = {}
     protos: list[_Proto] = []
     filas = []
     for p in piezas:
         forma = _topods(p.shape)
         base = forma.Located(TopLoc_Location())
-        proto = next((q for q in cubetas.get(hash(base), ()) if q.base.IsPartner(base)), None)
+        zonas = zonas_de(p, base)
+        clave = hash(base) if zonas is None else (hash(base), zonas)
+        proto = next((q for q in cubetas.get(clave, ()) if q.base.IsPartner(base)), None)
         if proto is None:
-            copia = BRepBuilderAPI_Copy(base, True, False).Shape()
-            proto = _Proto(base, copia, p.nombre)
-            cubetas.setdefault(hash(base), []).append(proto)
+            fuente = base if zonas is None else compuesto_por_zona(base, p.zona_por_cara, zonas)
+            copia = BRepBuilderAPI_Copy(fuente, True, False).Shape()
+            proto = _Proto(base, copia, p.nombre, zonas)
+            cubetas.setdefault(clave, []).append(proto)
             protos.append(proto)
         proto.instancias += 1
         filas.append((p, proto, forma.Location()))
@@ -239,6 +262,8 @@ def _documento(filas, protos, titulo: str, piso_mm: float):
     from OCP.XCAFApp import XCAFApp_Application
     from OCP.XCAFDoc import XCAFDoc_ColorType, XCAFDoc_DocumentTool
 
+    from .glb_zonas import estilar
+
     xdoc = TDocStd_Document(TCollection_ExtendedString("XmlOcaf"))
     app = XCAFApp_Application.GetApplication_s()
     app.NewDocument(TCollection_ExtendedString("MDTV-XCAF"), xdoc)
@@ -256,6 +281,9 @@ def _documento(filas, protos, titulo: str, piso_mm: float):
     for proto in protos:  # sin color: el del prototipo pisaría el de cada instancia
         proto.etiqueta = st.AddShape(proto.copia, False, False)
         _nombre(proto.etiqueta, proto.nombre)
+        if proto.zonas:  # salvo las zonas: su estilo va en el prototipo (`glb_zonas.py`)
+            estilar(st, ct, proto.etiqueta, proto.copia, proto.zonas,
+                    lambda sub, z: mt.SetShapeMaterial(sub, _material(mt, materiales, z)))
 
     grupos: dict[tuple[str, ...], object] = {}
 
@@ -271,8 +299,9 @@ def _documento(filas, protos, titulo: str, piso_mm: float):
         else:  # suelta: cuelga de la raíz con la conversión de ejes compuesta
             comp = st.AddComponent(raiz, proto.etiqueta, arriba.Multiplied(ubic))
         _nombre(comp, pieza.nombre)  # si no, «=>[0:1:1:n]»
-        ct.SetColor(comp, _color(pieza.color), superficie)
-        mt.SetShapeMaterial(comp, _material(mt, materiales, pieza))
+        if not proto.zonas:
+            ct.SetColor(comp, _color(pieza.color), superficie)
+            mt.SetShapeMaterial(comp, _material(mt, materiales, pieza))
     for ruta in sorted(list(grupos), key=len):  # los padres primero, para crearlos todos
         for k in range(1, len(ruta)):
             grupo(ruta[:k])
