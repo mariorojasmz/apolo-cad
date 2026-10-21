@@ -20,6 +20,9 @@ estado build123d (``joints``/``children``) que NO round-trip-ea por pickle (revi
 deserializar en ciertas piezas); el BinTools del TopoDS crudo sí es fiable. Al restaurar,
 el shape se re-envuelve por su tipo TopoDS (Solid/Compound/…): las operaciones de Apolo
 (volumen/bbox/teselado/booleanas) son de ``Shape``, la subclase primitiva no importa.
+Con ``cache_geometria=True`` (plan teselado-rapido, F2): sin la malla de render (D3 descartado)
+y con la VERSION_3 de BinTools de último recurso, la única que lee las cadenas
+(``brep_io.serialize_robust``).
 
 Kill-switch: ``APOLO_GEOM_CACHE=0`` desactiva lectura y escritura (ver ``ProjectStore``).
 
@@ -58,6 +61,9 @@ from apolo.commands.state import RegenState
 #    (`seta_emergencia`, plan seta-de-emergencia D6) con los MISMOS params de `insert_component`:
 #    un open caliente serviría la caja vieja. Builder + YAML del catálogo = no se acota a un
 #    executor.
+#  (sin bump, 2026-10-21, teselado-rapido F2): la VERSION_3 de último recurso y el blob sin malla
+#    de render los lee el mismo `unpack` (BinTools lee la versión de su cabecera) y un blob v6
+#    sigue valiendo: lo que antes no se podía empacar no tenía caché.
 GEOM_CACHE_EPOCH = 6
 
 
@@ -124,7 +130,7 @@ def pack(doc) -> bytes | None:
         scene = state.scene  # dict fid -> Feature (COPIAS: shape compartido, seguro de vaciar)
         scene_shapes: dict[str, bytes] = {}
         for fid, feat in scene.items():
-            blob = _serialize_robust(feat.shape.wrapped)
+            blob = _serialize_robust(feat.shape.wrapped, cache_geometria=True)
             if blob is None:  # serialize_shape devuelve None ante fallo (no lanza)
                 return None
             scene_shapes[fid] = blob
@@ -133,7 +139,7 @@ def pack(doc) -> bytes | None:
         definitions: dict[str, bytes] = {}
         for k in keys:
             if k in DEFINITIONS:
-                blob = _serialize_robust(DEFINITIONS[k].wrapped)
+                blob = _serialize_robust(DEFINITIONS[k].wrapped, cache_geometria=True)
                 if blob is not None:
                     definitions[k] = blob
         return pickle.dumps(

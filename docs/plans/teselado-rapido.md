@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 y F1 hechas, sin mergear (primer render_view de la piloto 218 s → 21 s; manual en frío 226 s → 46 s); faltan F2 (D3, a decidir con los números de F0; la piloto no tiene caché de geometría) y F3
+nota: F0 y F1 en main (primer render_view de la piloto 218 s → 21 s; manual en frío 226 s → 46 s); F2 hecha, sin mergear (la piloto 74 y el layout 53 ya tienen caché de geometría y abren en 0,2 s; D3 descartado); falta F3
 descripcion: La primera foto, el primer manual o el primer render de una máquina con cadenas sale en segundos, no en minutos
 ---
 
@@ -49,7 +49,7 @@ sola vez y la instancia con su matriz.
   junto al estado que ya guarda `doc/geomcache.py` (open caliente). Así un reinicio de la API o
   un proceso de la flota no re-teselan. Cambia el formato del blob: se sube `GEOM_CACHE_EPOCH`
   con su motivo. Se mide en F0 si el tamaño lo justifica; si pesa demasiado, se descarta D3 y
-  quedan D1 + D2.
+  quedan D1 + D2. **Descartada en la F2** (§ Bitácora): el blob va sin malla.
 - **D4. La malla de eslabones no se simplifica.** Un LOD que dibujara la cadena como un sólido
   liso cambiaría lo que se ve en el manual y en las fotos de la tienda. Primero se mide cuánto
   dan D1–D3.
@@ -190,3 +190,61 @@ la caché de la 74).
 
   El PNG de la piloto antes y después difiere en el 0,056 % de los píxeles, en 2 niveles de 255
   como mucho. El segundo `render_view` ya no tesela: lo que queda es VTK sobre 1,3 M triángulos.
+
+### F2 — la caché de la piloto y D3 (2026-10-21)
+
+Sobre copias de `data/apolo.db` (backup de sqlite, una por medición) con scripts en el
+scratchpad; cada open en su propio proceso. La PC estaba cargada por otras sesiones: los tiempos
+en frío varían ±50 %.
+
+- **Por qué la piloto no tenía caché.** Las cadenas de `create_chain` son la FUSIÓN de 30+ copias
+  colocadas de un rodillo y unas placas (`cadena_por_rodillos`). BinTools las escribe, pero al
+  leerlas `ReadGeometry` pide un índice de curva que no está en la tabla
+  (`Standard_OutOfRange NCollection_IndexedMap::FindKey`), cruda y tras `BRepBuilderAPI_Copy`.
+  Pasa en las versiones 1, 2 y 4 del formato (4 = la actual); la **VERSION_3 la lee bien**. No es
+  una cara ni la ubicación: cada una de las 690 caras round-trip-ea sola, la definición (sin
+  ubicación) falla igual, y el mismo lazo SIN fundir (un `Compound`) pasa siempre. Depende de la
+  fusión de forma caprichosa: con las capas reales de ASA 40, una recta de 8 eslabones falla y una
+  de 12 no. Una pieza que no se empaca deja al proyecto entero sin caché.
+- **Encuesta** (74, 73, 38, 28, 53 y 72; 799 piezas): la VERSION_3 round-trip-ea todas, con las
+  mismas caras en el mismo orden (área y centro por índice: las zonas de acabado van por índice).
+  El **layout 53 tampoco tenía caché**: una pieza sólo la lee la VERSION_3.
+- **La cura** (`brep_io.serialize_robust(cache_geometria=True)`, sólo desde `geomcache.pack`):
+  crudo → copia → VERSION_3, verificando cada uno. Va al final: lo que ya se empacaba sale con los
+  mismos bytes. El sandbox no la pide (su respaldo es STEP; cambiarlo cambiaría lo que entrega
+  `run_script`). **Sin bump de epoch**: el mismo `unpack` lee las dos versiones (BinTools lee la
+  suya de la cabecera) y un blob v6 sigue valiendo; lo que antes fallaba no tenía caché.
+- **Open** (`ProjectStore.load`, 3 seguidos sobre la misma copia):
+
+  | | antes | después |
+  |---|---|---|
+  | piloto 74 | 4,8–7,2 s, siempre frío (sin caché) | 1.º frío + `pack` 14,5 s; luego **0,21 s** |
+  | layout 53 | 10,9–12,8 s, siempre frío | 1.º 13,1 s; luego **0,10–0,14 s** |
+  | faja 73 | 0,2–2,3 s caliente | igual (mismo blob, 2 370 571 B) |
+
+  Blob: 7 845 819 B en la 74 y 2 761 610 B en la 53. `pack` de la 74: 1,2–4,0 s; antes gastaba
+  1,9–2,5 s para devolver None, y lo repetía en cada flush del autosave (sin caché guardada, la
+  marca `_GEOM_MARK` nunca quedaba).
+- **D3, descartado.** Tras un open caliente, teselar las piezas visibles a resolución de render
+  (D1 + D2) cuesta 2,9–4,8 s en la 74 y 2,0–3,8 s en la 73: es lo único que D3 ahorraría, una vez
+  por proceso y proyecto. En contra:
+  - poblarla: el `pack` del open frío corre ANTES de todo render, así que la malla sólo entraría
+    teselando dentro de `pack` (segundos bajo `STATE_LOCK` en el autosave) o con un camino nuevo
+    render → SQLite que cruza `kernel`, `api` y `doc`;
+  - el tamaño: +1,3 MB con zlib sobre los 7,8 MB de la 74 (F0) y el empaque en cada flush.
+
+  Medido además lo que ya pasaba sin querer: BinTools guarda por defecto la triangulación que
+  tenga la forma, así que un autosave DESPUÉS de un render metía la malla en el blob: 19,8 MB en
+  la 74 (`pack` 2,2 s) y 9,3 MB en la 73, para teselar en 2,35 s y 0,63 s en vez de 2,9 y 2,0. Por
+  coherencia con el descarte, el blob va **sin malla** (`cache_geometria=True`): pesa lo mismo
+  haya habido render o no.
+- **Queda anotado, no se hace**: en la 74, 98 instancias comparten el TShape con su definición y
+  el blob guarda cada una entera (las 20 cadenas son ~5 MB de los 7,8). Guardarlas como
+  (definición, matriz) bajaría el blob y el `pack`, y el open caliente volvería a compartir el
+  TShape como el frío. Cambia el formato del blob (epoch).
+- **Tests** (`tests/test_geomcache_cadenas.py`, 5): el síntoma (la cadena no round-trip-ea por el
+  camino del sandbox y sí con `cache_geometria`); un documento con cadena se empaca y el open
+  caliente re-ejecuta 0 comandos y da las mismas firmas, escena, matrices, volúmenes, bbox y
+  caras en el mismo orden que el frío; `ProjectStore` la puebla en el open frío y el segundo es
+  caliente; tras teselar, el blob pesa lo mismo y sus formas no traen triangulación; sin
+  `cache_geometria` los bytes son los de `serialize_shape`.

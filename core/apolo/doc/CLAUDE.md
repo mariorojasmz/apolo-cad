@@ -75,7 +75,11 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
 - `pack`/`unpack` nunca lanzan (None → replay frío). `pack` serializa el TopoDS CRUDO (no el
   wrapper build123d, que lleva joints frágiles) y verifica cada shape deserializándolo: crudo →
   copia (`BRepBuilderAPI_Copy`) → None (`brep_io.serialize_robust`, compartido con el sandbox:
-  cambiarlo cambia los dos); BinTools falla por shape de forma caprichosa.
+  cambiarlo cambia los dos); BinTools falla por shape de forma caprichosa. Con
+  `cache_geometria=True` (sólo la caché) va SIN malla de render y prueba al final la VERSION_3:
+  una cadena (fusión de copias colocadas) no se lee en la 1, 2 ni 4 (la actual). Una pieza que
+  no se empaca deja al proyecto SIN caché (la piloto 74 abría siempre en frío).
+  [teselado-rapido](../../../docs/plans/teselado-rapido.md) (F2)
 - `pack` empaca el checkpoint ORGÁNICO del último comando de ESCENA (`_regen_ckpts[n-1]`, n =
   `carril.n_escena`: el carril de V8.1 no ocupa índice; antes de los mates), no el estado
   final: si no, la cola ejecutaría contra geometría desplazada y los selectores de posición
