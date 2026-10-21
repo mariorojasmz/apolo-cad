@@ -2306,7 +2306,7 @@
   },
   "salida": [
    {
-    "texto": "{\"ingenieria\": [{\"ok\": true}], \"estructura\": {\"reglas\": []}}"
+    "texto": "{\"ingenieria\": [{\"ok\": true}], \"estructura\": {\"reglas\": []}, \"conteo\": {\"ingenieria\": {\"ok\": 1}, \"estructura\": {}}}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -2321,7 +2321,52 @@
      "ancho_paquete_mm": null,
      "conveyor": null,
      "conveyor_solid_ids": null,
+     "grupo": null,
+     "solo_fallas": false,
+     "resumen": true,
      "velocidad_m_s": 0.5
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "ingeniería filtrada y completa",
+  "tool": "engineering_check",
+  "args": {
+   "grupo": "unión apernada",
+   "solo_fallas": true,
+   "detail": "full"
+  },
+  "salida": [
+   {
+    "texto": "{\"ingenieria\": [{\"ok\": true}], \"estructura\": {\"reglas\": []}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [],
+    "cuerpo": {
+     "carga_kg": null,
+     "largo_paquete_mm": null,
+     "ancho_paquete_mm": null,
+     "conveyor": null,
+     "conveyor_solid_ids": null,
+     "grupo": "unión apernada",
+     "solo_fallas": true,
+     "resumen": false
     },
     "cabeceras": {
      "accept": "*/*",
@@ -2349,7 +2394,7 @@
   },
   "salida": [
    {
-    "texto": "{\"ingenieria\": [{\"ok\": true}], \"estructura\": {\"reglas\": []}}"
+    "texto": "{\"ingenieria\": [{\"ok\": true}], \"estructura\": {\"reglas\": []}, \"conteo\": {\"ingenieria\": {\"ok\": 1}, \"estructura\": {}}}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -2367,7 +2412,10 @@
      },
      "conveyor_solid_ids": [
       "c1"
-     ]
+     ],
+     "grupo": null,
+     "solo_fallas": false,
+     "resumen": true
     },
     "cabeceras": {
      "accept": "*/*",

@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from apolo.doc import DocumentError
 from apolo.library import conveyor_engineering_check, interference_report
+from apolo.services import reglas_cortas as rc
 from apolo.services.assertions import verify_checks
 from apolo.services.delivery_inputs import delivery_inputs
 from apolo.services.engineering_rules import (
@@ -41,6 +42,10 @@ class ChecksIn(BaseModel):
     conveyor: dict | None = None  # validación predictiva: params de faja a evaluar sin construirla
     conveyor_solid_ids: list[str] | None = None  # marca explícita de los sólidos que forman la faja
     interference_ids: list[str] | None = None  # V6.5b: acota la interferencia a pares que tocan estos ids/grupos
+    # mcp-sin-friccion D1/D2 (`services/reglas_cortas.py`): sin ellos, byte-idéntico (la UI)
+    grupo: str | None = None  # familia de regla («unión apernada», «flecha de viga»…)
+    solo_fallas: bool = False  # sólo lo que no está «ok»
+    resumen: bool = False  # patrones repetidos en una línea con su peor caso, sin `calc` salvo error
 
 
 @router.post("/api/checks")
@@ -115,7 +120,15 @@ def run_checks(body: ChecksIn) -> dict:
             S.doc.scene, S.doc.commands, S.doc.fasteners, S.doc.grounds, S.doc.joints, S.doc.mates,
             resolve=lambda p: resolve_params(p, S.doc.variables_resolved),
         )
-    return {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
+    out = {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
+    if body.grupo or body.solo_fallas or body.resumen:
+        for k in ("ingenieria", "estructura"):
+            out[k] = rc.filtrar_reglas(out[k], body.grupo, body.solo_fallas)
+        if body.resumen:
+            out["conteo"] = {k: rc.conteo(out[k]) for k in ("ingenieria", "estructura")}
+            out["ingenieria"] = rc.reglas_cortas(out["ingenieria"])
+            out["estructura"] = rc.reglas_cortas(out["estructura"])
+    return out
 
 
 class VerifyIn(BaseModel):

@@ -375,6 +375,7 @@ def engineering_check(
     carga_kg: float | None = None, largo_paquete_mm: float | None = None,
     velocidad_m_s: float | None = None, ancho_paquete_mm: float | None = None,
     conveyor: dict | None = None, conveyor_solid_ids: list[str] | None = None,
+    grupo: str | None = None, solo_fallas: bool = False, detail: str = "summary",
 ) -> str:
     """Valida el modelo con criterio de ingeniería. Devuelve DOS bloques: `ingenieria`
     (reglas del transportador: apoyo del paquete, capacidad de rodillo, ancho útil,
@@ -386,22 +387,20 @@ def engineering_check(
     vuelco). Sin argumentos usa los REQUISITOS guardados del proyecto (set_requirements);
     los parámetros explícitos ganan. Sin `conveyor` valida la faja del documento; con
     `conveyor` (dict {largo,ancho,altura,paso,rodillo,motor}) valida ANTES de construir;
-    `conveyor_solid_ids` marca qué sólidos forman la faja. Las reglas numéricas traen
-    `calc` (fórmula, sustitución, criterio, factor de seguridad)."""
-    body = {
-        "carga_kg": carga_kg,
-        "largo_paquete_mm": largo_paquete_mm,
-        "ancho_paquete_mm": ancho_paquete_mm,
-        "conveyor": conveyor,
-        "conveyor_solid_ids": conveyor_solid_ids,
-    }
+    `conveyor_solid_ids` marca qué sólidos forman la faja. `grupo` filtra por familia de regla
+    ('unión apernada', 'soldadura', 'flecha de viga', 'transmisión por cadena'…) y `solo_fallas`
+    deja lo que no está ok. `detail`: "summary" (def.) agrupa las reglas repetidas por patrón en
+    UNA línea (`n`, estado y detalle del PEOR caso, que nombra `peor`), suma `conteo` por estado y
+    sólo trae `calc` (fórmula, sustitución, criterio, FS) donde da error; "full" lo da en todas."""
+    body = {"carga_kg": carga_kg, "largo_paquete_mm": largo_paquete_mm,
+            "ancho_paquete_mm": ancho_paquete_mm, "conveyor": conveyor,
+            "conveyor_solid_ids": conveyor_solid_ids, "grupo": grupo, "solo_fallas": solo_fallas,
+            "resumen": detail != "full"}
     if velocidad_m_s is not None:
         body["velocidad_m_s"] = velocidad_m_s
     payload = _api("POST", "/api/checks", json=body).json()
-    return json.dumps(
-        {"ingenieria": payload.get("ingenieria"), "estructura": payload.get("estructura")},
-        ensure_ascii=False,
-    )
+    claves = ["ingenieria", "estructura"] + (["conteo"] if "conteo" in payload else [])
+    return json.dumps({k: payload.get(k) for k in claves}, ensure_ascii=False)
 
 
 @mcp.tool()

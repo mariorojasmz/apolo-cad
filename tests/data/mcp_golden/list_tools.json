@@ -764,7 +764,7 @@
  },
  {
   "name": "engineering_check",
-  "description": "Valida el modelo con criterio de ingeniería. Devuelve DOS bloques: `ingenieria`\n(reglas del transportador: apoyo del paquete, capacidad de rodillo, ancho útil,\nmotorización por CONSTRUCCIÓN — CEMA slider-bed si banda sobre cama / ISO 5048-DIN\n22101 si banda sobre rodillos —, par + par de arranque, adherencia del tambor\nmotriz Euler-Eytelwein con la T2 mínima que el tensor debe garantizar, flecha del\nbastidor, flexión del eje) y `estructura` (chequeo UNIVERSAL de cualquier ensamblaje: uniones\napernadas vs ISO 898-1, soldaduras, vida L10 de rodamientos, pandeo de patas,\nvuelco). Sin argumentos usa los REQUISITOS guardados del proyecto (set_requirements);\nlos parámetros explícitos ganan. Sin `conveyor` valida la faja del documento; con\n`conveyor` (dict {largo,ancho,altura,paso,rodillo,motor}) valida ANTES de construir;\n`conveyor_solid_ids` marca qué sólidos forman la faja. Las reglas numéricas traen\n`calc` (fórmula, sustitución, criterio, factor de seguridad).",
+  "description": "Valida el modelo con criterio de ingeniería. Devuelve DOS bloques: `ingenieria`\n(reglas del transportador: apoyo del paquete, capacidad de rodillo, ancho útil,\nmotorización por CONSTRUCCIÓN — CEMA slider-bed si banda sobre cama / ISO 5048-DIN\n22101 si banda sobre rodillos —, par + par de arranque, adherencia del tambor\nmotriz Euler-Eytelwein con la T2 mínima que el tensor debe garantizar, flecha del\nbastidor, flexión del eje) y `estructura` (chequeo UNIVERSAL de cualquier ensamblaje: uniones\napernadas vs ISO 898-1, soldaduras, vida L10 de rodamientos, pandeo de patas,\nvuelco). Sin argumentos usa los REQUISITOS guardados del proyecto (set_requirements);\nlos parámetros explícitos ganan. Sin `conveyor` valida la faja del documento; con\n`conveyor` (dict {largo,ancho,altura,paso,rodillo,motor}) valida ANTES de construir;\n`conveyor_solid_ids` marca qué sólidos forman la faja. `grupo` filtra por familia de regla\n('unión apernada', 'soldadura', 'flecha de viga', 'transmisión por cadena'…) y `solo_fallas`\ndeja lo que no está ok. `detail`: \"summary\" (def.) agrupa las reglas repetidas por patrón en\nUNA línea (`n`, estado y detalle del PEOR caso, que nombra `peor`), suma `conteo` por estado y\nsólo trae `calc` (fórmula, sustitución, criterio, FS) donde da error; \"full\" lo da en todas.",
   "inputSchema": {
    "properties": {
     "carga_kg": {
@@ -842,6 +842,28 @@
      ],
      "default": null,
      "title": "Conveyor Solid Ids"
+    },
+    "grupo": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Grupo"
+    },
+    "solo_fallas": {
+     "default": false,
+     "title": "Solo Fallas",
+     "type": "boolean"
+    },
+    "detail": {
+     "default": "summary",
+     "title": "Detail",
+     "type": "string"
     }
    },
    "title": "engineering_checkArguments",
