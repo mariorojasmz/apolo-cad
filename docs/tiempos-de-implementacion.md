@@ -82,6 +82,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-20 | varias-maquinas-a-la-vez | F2 | M | 54 | 231 | candado por proyecto con latido; probado con dos APIs reales |
 | 2026-10-20 | seta-de-emergencia | F2 | M | 46 | 296 | zonas en el payload y el visor; probado en el navegador |
 | 2026-10-20 | V8.3 | F5 | M | 109 | 542 | add_program, escenarios con aserciones, 4 tools MCP, regla de la puerta; 64 tests |
+| 2026-10-20 | seta-de-emergencia | F3 | S | 109 | 273 | zonas en VTK y GLB (render_view, GIF, vista 3D); suite lenta con 3 suites en paralelo |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
