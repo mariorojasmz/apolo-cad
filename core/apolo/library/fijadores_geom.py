@@ -171,46 +171,82 @@ def _dentro(solid, p) -> bool:
     return cls.State() == TopAbs_IN
 
 
-def reconocer_fijador(solid) -> FijadorGeom | None:
-    """El fijador del `solid` (un sólido build123d) o None si no tiene hexágono reconocible."""
+def _tramos(trio, centro0, eje) -> list[tuple[float, float]]:
+    """Tramos axiales [t0, t1] de los hexágonos: las caras laterales de las tres líneas, unidas
+    donde se tocan. Un perno con su tuerca modelado como UN sólido (la cabeza bajo la placa, la
+    tuerca encima: mismas líneas de cara) da DOS tramos; leídos como uno, el «hexágono» medía
+    todo el juego y la llave se buscaba desde la punta de la tuerca hacia adentro, atravesando
+    las placas (V8.1 F4c, D-c5: los 24 M10 de las garruchas de la faja 77). Sólo cuenta un tramo
+    con caras de las tres líneas (un hexágono completo)."""
+    caras = []
+    for k, (_, grupo, _) in enumerate(trio):
+        for _, vs in grupo:
+            ts = [_dot(_add(v, centro0, -1.0), eje) for v in vs]
+            caras.append((min(ts), max(ts), k))
+    caras.sort()
+    tramos: list[list] = []
+    for a, b, k in caras:
+        if tramos and a <= tramos[-1][1] + _TOL_MM:
+            tramos[-1][1] = max(tramos[-1][1], b)
+            tramos[-1][2].add(k)
+        else:
+            tramos.append([a, b, {k}])
+    return [(a, b) for a, b, ks in tramos if len(ks) == 3]
+
+
+def reconocer_fijadores(solid) -> list[FijadorGeom]:
+    """Los fijadores del `solid` (un sólido build123d): uno por hexágono (un perno con su tuerca
+    fundidos en un sólido da dos); [] si no tiene hexágono reconocible."""
     try:
         caras = _caras_planas(solid)
         lineas = _lineas(caras)
         if len(lineas) > _MAX_LINEAS:
-            return None
+            return []
         hexa = _hexagono(lineas)
         if hexa is None:
-            return None
+            return []
         eje, planas, s, trio = hexa
         n1, _, (lo1, hi1) = trio[0]
         n2, _, (lo2, hi2) = trio[1]
         centro0 = _resolver_eje(n1, (lo1 + hi1) / 2.0, n2, (lo2 + hi2) / 2.0, eje)
-        # alcance axial del hexágono (vértices de sus caras laterales) y del sólido entero
-        t_hex = [_dot(_add(v, centro0, -1.0), eje)
-                 for _, grupo, _ in trio for _, vs in grupo for v in vs]
+        # alcance axial de cada hexágono (vértices de sus caras laterales) y del sólido entero
+        tramos = _tramos(trio, centro0, eje)
         t_sol = [_dot(_add((v.X, v.Y, v.Z), centro0, -1.0), eje) for v in solid.vertices()]
-        t0, t1, s0, s1 = min(t_hex), max(t_hex), min(t_sol), max(t_sol)
+        s0, s1 = min(t_sol), max(t_sol)
         # ¿exterior o interior? un punto 0.5 mm MÁS ALLÁ de una cara lateral, radialmente
         cara_c = trio[0][1][0][0]
         radial = _add(cara_c, _add(centro0, eje, _dot(_add(cara_c, centro0, -1.0), eje)), -1.0)
         sonda = _add(cara_c, _unit(radial), 0.5)
         interior = _dentro(solid, sonda)
     except Exception:  # noqa: BLE001  — geometría rara: no evaluable, nunca rompe la puerta
-        return None
+        return []
+    if not tramos:
+        return []
 
     def punto(t: float) -> Vec:
         return _add(centro0, eje, t)
 
     menos = (-eje[0], -eje[1], -eje[2])
     if interior:  # hueco Allen: la llave entra por el extremo del sólido al que llega el hueco
+        t0, t1 = min(a for a, _ in tramos), max(b for _, b in tramos)
         if s1 - t1 < _TOL_MM:
-            return FijadorGeom("allen", punto(s1), eje, 0.0, s, planas)
+            return [FijadorGeom("allen", punto(s1), eje, 0.0, s, planas)]
         if t0 - s0 < _TOL_MM:
-            return FijadorGeom("allen", punto(s0), menos, 0.0, s, planas)
-        return None
-    sale_menos, sale_mas = s0 < t0 - _TOL_MM, s1 > t1 + _TOL_MM
-    if sale_menos and not sale_mas:  # vástago hacia −eje: la cabeza mira a +eje
-        return FijadorGeom("cabeza_hex", punto(t0), eje, t1 - t0, s, planas)
-    if sale_mas and not sale_menos:
-        return FijadorGeom("cabeza_hex", punto(t1), menos, t1 - t0, s, planas)
-    return FijadorGeom("tuerca", punto(t0), eje, t1 - t0, s, planas, lado_conocido=False)
+            return [FijadorGeom("allen", punto(s0), menos, 0.0, s, planas)]
+        return []
+    out = []
+    for t0, t1 in tramos:
+        sale_menos, sale_mas = s0 < t0 - _TOL_MM, s1 > t1 + _TOL_MM
+        if sale_menos and not sale_mas:  # vástago hacia −eje: la cabeza mira a +eje
+            out.append(FijadorGeom("cabeza_hex", punto(t0), eje, t1 - t0, s, planas))
+        elif sale_mas and not sale_menos:
+            out.append(FijadorGeom("cabeza_hex", punto(t1), menos, t1 - t0, s, planas))
+        else:
+            out.append(FijadorGeom("tuerca", punto(t0), eje, t1 - t0, s, planas, lado_conocido=False))
+    return out
+
+
+def reconocer_fijador(solid) -> FijadorGeom | None:
+    """El (primer) fijador del `solid` o None si no tiene hexágono reconocible."""
+    fjs = reconocer_fijadores(solid)
+    return fjs[0] if fjs else None

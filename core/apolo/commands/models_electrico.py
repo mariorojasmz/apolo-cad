@@ -191,7 +191,11 @@ class AddCableParams(BaseModel):
     - `ref`: cable del catálogo (CABLE-4G1.5, CABLE-5G1, CABLE-3X0.75…).
     - `desde` / `hasta`: ubicación («+TAB1») o dispositivo («-M1») de cada extremo.
     - `largo_m`: opcional y DECLARADO (el ruteo real es de V8.5): la BOM compra por metro; sin
-      largo, la fila sale sin costo y con aviso."""
+      largo, la fila sale sin costo y con aviso.
+    - `piezas`: opcional, LIGA el cable a los tramos que lo modelan en 3D (ids de sólido o el
+      command_id que los creó). Un cable 3D no se fabrica: lo cobra su add_cable; uno que ningún
+      add_cable cubre (ligado, o con los mismos hilos × sección en el nombre) no se cobra en
+      ninguna parte y el ERC lo avisa."""
 
     designacion: str = Field("", max_length=40, title="Designación",
                              description="IEC 81346, p. ej. «-W1»; vacía = la siguiente libre")
@@ -205,6 +209,8 @@ class AddCableParams(BaseModel):
                               description="ubicación («+CAMPO») o dispositivo («-M1»)")
     largo_m: float | None = Field(None, gt=0, le=10000, title="Largo",
                                   description="m, declarado (la BOM compra por metro)")
+    piezas: list[str] = Field(default_factory=list, max_length=200, title="Piezas 3D",
+                              description="ids (o command_id) de los tramos 3D que modelan el cable")
 
     _v_designacion = field_validator("designacion")(_designacion)
 

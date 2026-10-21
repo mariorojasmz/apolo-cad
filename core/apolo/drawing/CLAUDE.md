@@ -20,6 +20,12 @@ reglas están en [services](../services/CLAUDE.md).
   costeo (`library/costing.py`) declara la fuente de cada fila (specs.cost / estimación peso ×
   material × 3 / fabricación × 2.5). En el bloque «HIPÓTESIS Y ALCANCE» (tope 18 líneas) el
   alcance y la nota del analista van al FINAL para que el corte no los mate.
+- **Una tabla nueva de un entregable va por `tabla.py`** (`hojas_tabla`), no por `_table_sheet`
+  (anchos fijos, recorta a N caracteres): ancho de columna por CONTENIDO medido con la fuente del
+  PDF, texto partido en líneas (nunca recortado) y paginación por altura sobre el cajetín. La
+  cotización la usa (detalle y «AVISOS DE COBRO», con el costeo de `services/cobros.py`); su test
+  renderiza cada hoja y exige que ningún texto salga de su celda.
+  [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4c)
 - DWG: DXF → DWG R2018 con ODA File Converter (`ezdxf.addons.odafc`); `_discover()` busca la
   carpeta VERSIONADA del instalador; sin ODA → 400 amable con la URL, ANTES de componer láminas
   (`require_odafc` al entrar al endpoint: el juego gastaba ~70 s de HLR bajo `STATE_LOCK` para

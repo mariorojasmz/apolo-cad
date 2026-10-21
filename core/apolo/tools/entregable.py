@@ -31,6 +31,13 @@ def _recibo(job_id: str, path: str) -> str:
                       ensure_ascii=False)
 
 
+def avisos_de_cobro(resp) -> dict:
+    """`{avisos, monto_en_riesgo_usd}` de la cabecera `X-Apolo-Avisos` de la cotización (V8.1
+    F4c: lo que se cobraría dos veces o no se cobra); {} si no hay."""
+    crudo = (getattr(resp, "headers", None) or {}).get("X-Apolo-Avisos")
+    return json.loads(crudo) if crudo else {}
+
+
 def escribir(path: str, data: bytes) -> pathlib.Path:
     """Escribe `data` en `path` creando sus carpetas (los exports del MCP); devuelve la ruta."""
     target = pathlib.Path(path)

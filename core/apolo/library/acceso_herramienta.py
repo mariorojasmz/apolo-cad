@@ -35,7 +35,7 @@ from dataclasses import dataclass
 
 from .checks import MIN_VOLUME_MM3, _bboxes_overlap
 from .fantasmas_herramienta import Fantasmas, marco
-from .fijadores_geom import FijadorGeom, reconocer_fijador
+from .fijadores_geom import FijadorGeom, reconocer_fijadores
 from .herramientas import LARGO_LIBRE_COPA_MM, brazo_allen, llave_para
 
 HOLGURA_ASIENTO_MM = 1.0  # los fantasmas arrancan a 1 mm de la cara de asiento
@@ -210,22 +210,24 @@ def tool_access_report(scene: dict, *, catalog=None) -> dict | None:
     for propio in todos:
         if propio.fid not in candidatos:
             continue
-        fj = reconocer_fijador(propio.solid)
-        res = (_evaluar(fj, _vecinos(propio, todos, fj.base, _alcance(fj)), fx)
-               if fj is not None else
-               {"estado": "no_evaluado", "motivo": "sin hexágono reconocible"})
-        if res["estado"] == "no_evaluado":
+        fjs = reconocer_fijadores(propio.solid)  # uno por hexágono (perno + tuerca fundidos: 2)
+        if not fjs:
             rep["no_evaluados"].append({"id": propio.fid, "nombre": propio.nombre,
-                                        "motivo": res["motivo"]})
-            continue
-        rep["evaluados"] += 1
-        if res["estado"] == "ok":
-            rep["ok"] += 1
-            continue
-        rep[res["estado"]].append({
-            "id": propio.fid, "nombre": propio.nombre, "tipo": fj.tipo,
-            "llave_mm": round(fj.s, 1),
-            "bloquean": sorted({o.nombre for o in res["bloquean"]}),
-        })
+                                        "motivo": "sin hexágono reconocible"})
+        for fj in fjs:
+            res = _evaluar(fj, _vecinos(propio, todos, fj.base, _alcance(fj)), fx)
+            if res["estado"] == "no_evaluado":
+                rep["no_evaluados"].append({"id": propio.fid, "nombre": propio.nombre,
+                                            "motivo": res["motivo"]})
+                continue
+            rep["evaluados"] += 1
+            if res["estado"] == "ok":
+                rep["ok"] += 1
+                continue
+            rep[res["estado"]].append({
+                "id": propio.fid, "nombre": propio.nombre, "tipo": fj.tipo,
+                "llave_mm": round(fj.s, 1),
+                "bloquean": sorted({o.nombre for o in res["bloquean"]}),
+            })
     rep["ms"] = round((time.perf_counter() - t_ini) * 1000.0)
     return rep

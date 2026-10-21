@@ -139,7 +139,20 @@ def _extremo(texto: str | None, dispositivos: dict) -> str | None:
                      f"{sufijo_sugerencia(ref.designacion, dispositivos)}")
 
 
-def _cable(entrada: dict, dispositivos: dict, catalogo) -> Cable:
+def _piezas_cable(piezas: list[str], escena: dict) -> tuple[str, ...]:
+    """Los sólidos que modelan un cable en 3D: cada id, o todas las piezas de ese command_id."""
+    out: list[str] = []
+    for pieza in piezas:
+        hijas = ([pieza] if pieza in escena else
+                 [fid for fid, f in escena.items() if getattr(f, "command_id", None) == pieza])
+        if not hijas:
+            raise ValueError(f"la pieza «{pieza}» no existe en el modelo."
+                             f"{sufijo_sugerencia(pieza, list(escena))}")
+        out += [fid for fid in hijas if fid not in out]
+    return tuple(out)
+
+
+def _cable(entrada: dict, dispositivos: dict, catalogo, escena: dict | None = None) -> Cable:
     p = entrada["params"]
     comp = catalogo.get(p.ref)
     ficha = comp.electrico if comp is not None else None
@@ -153,7 +166,8 @@ def _cable(entrada: dict, dispositivos: dict, catalogo) -> Cable:
     return Cable(p.designacion, p.ref, hilos=ficha.conductor.hilos,
                  seccion_mm2=ficha.conductor.seccion_mm2,
                  desde=_extremo(p.desde, dispositivos), hasta=_extremo(p.hasta, dispositivos),
-                 largo_m=p.largo_m, id=entrada["id"])
+                 largo_m=p.largo_m, id=entrada["id"],
+                 piezas=_piezas_cable(getattr(p, "piezas", None) or [], escena or {}))
 
 
 def _conductor(entrada: dict, dispositivos: dict, cables: dict, catalogo) -> Conductor:
@@ -238,14 +252,19 @@ def evaluar_carril(entradas: list[dict], escena: dict, variables: dict, fallo) -
         if designa(e, d.designacion):
             dispositivos[d.designacion] = d
     cables: dict[str, Cable] = {}
+    ligadas: dict[str, str] = {}  # pieza 3D → cable que la liga (una pieza, un cable)
     for e in por_tipo["add_cable"]:
         try:
-            c = _cable(e, dispositivos, catalogo)
+            c = _cable(e, dispositivos, catalogo, escena)
+            otra = next((f"{fid} ya la liga {ligadas[fid]}" for fid in c.piezas if fid in ligadas), None)
+            if otra:
+                raise ValueError(f"la pieza {otra}: cada tramo 3D es de un solo cable")
         except ValueError as exc:
             fallo(e, str(exc))
             continue
         if designa(e, c.designacion):
             cables[c.designacion] = c
+            ligadas.update({fid: c.designacion for fid in c.piezas})
     conductores: list[Conductor] = []
     for e in por_tipo["add_wire"]:
         try:

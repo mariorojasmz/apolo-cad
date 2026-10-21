@@ -17,8 +17,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Biblioteca paramétrica > STEP de fabricante (sólo para la compra puntual). `cost`,
   `cost_por_m` y `COST_PER_KG_USD` son REFERENCIALES: actualizar con proveedor para cotizar firme.
   Una ref ELÉCTRICA lleva siempre `cost` (sin él sale «sin precio», nunca estimada por peso:
-  `tests/test_cotizacion_electrica_f4.py`); un cable modelado en 3D es material `cable` y no se
-  cobra (se compra por metro con `add_cable`). [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4)
+  `tests/test_cotizacion_electrica_f4.py`), y una pieza a medida de ROL eléctrico (clavija, toma,
+  prensaestopa: `piezas_electricas.es_rol_electrico`, con guarda contra la clavija de madera y la
+  toma de fuerza) también. Un cable modelado en 3D es material `cable`, no se cobra (lo cobra su
+  `add_cable`) y su largo en la BOM es el RECORRIDO (volumen / sección, `recorrido_mm`), no el
+  bbox. [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4, F4c)
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
   `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara
   de montaje de la placa: [plan](../../../docs/plans/garruchas-catalogo.md)). Los perfiles se
@@ -204,6 +207,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   boca y mango que barren ±15°, Allen: `fantasmas_herramienta.py`, medidas en `herramientas.py`)
   se cruzan con los vecinos. La pieza de asiento NO se excluye entera (el ala que estorba suele
   ser de ella): los fantasmas arrancan a 1 mm del asiento. Ninguna libre = ROJO en la puerta,
-  sólo boca = aviso, sin hexágono = no evaluado. [plan](../../../docs/plans/acceso-de-herramienta.md)
+  sólo boca = aviso, sin hexágono = no evaluado. Un sólido con VARIOS hexágonos coaxiales (perno
+  + tuerca fundidos) son varios fijadores (`reconocer_fijadores`): leídos como uno daban un falso
+  ROJO ([V8.1](../../../docs/plans/V8.1-modelo-electrico.md) F4c, D-c5).
+  [plan](../../../docs/plans/acceso-de-herramienta.md)
 - `MIN_SOLIDOS_SUJECION` también dispara la alarma ambiental `aviso_estructura` de toda mutación
   ([api](../api/CLAUDE.md)). [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)

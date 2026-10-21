@@ -178,12 +178,12 @@ def get_bom(by_group: bool = False) -> str:
 
 @mcp.tool()
 def get_costing() -> str:
-    """BOM COSTEADO en USD: cada fila del BOM con costo_ud/costo_total y su FUENTE
-    (precio referencial de catálogo / estimación de hardware peso×material×3 /
-    fabricación a medida peso×material×2.5) + totales por categoría, catálogo vs
-    fabricación y el ÍTEM MÁS COSTOSO. Úsalo para optimizar costos ('¿qué pieza es la
-    más cara?', comparar alternativas) y como base de la cotización. Precios
-    referenciales — confirmar con proveedor para cotizar en firme. Read-only."""
+    """BOM COSTEADO en USD: cada fila con costo_ud/costo_total y su FUENTE (catálogo
+    referencial / hardware peso×material×3 / a medida peso×material×2.5) + totales por categoría,
+    catálogo vs fabricación y el ÍTEM MÁS COSTOSO: para optimizar costos y como base de la
+    cotización. Si algo se cobra dos veces o no se cobra, trae `avisos` con su
+    `monto_en_riesgo_usd` y la llamada que lo arregla (no se descuentan solos). Precios
+    referenciales: confirmar con proveedor. Read-only."""
     return json.dumps(_api("GET", "/api/costing.json").json(), ensure_ascii=False)
 
 
@@ -1165,22 +1165,21 @@ def calc_report(path: str, carga_kg: float | None = None, largo_paquete_mm: floa
 @mcp.tool()
 def quotation(path: str, margin_pct: float = 25.0, tax_pct: float = 0.0,
               currency: str | None = None, fx: float | None = None) -> str:
-    """Genera la COTIZACIÓN del proyecto (PDF multipágina) y la guarda en `path` (.pdf):
-    resumen económico (catálogo vs fabricación, desglose por categoría, margen %,
-    impuesto % opcional, PRECIO DE VENTA, ítem más costoso, notas comerciales) + detalle
-    de partidas = el BOM costeado completo con la FUENTE de cada precio (referencial de
-    catálogo / estimación). Complemento comercial de calc_report (la memoria justifica
-    el diseño; la cotización lo VENDE). Precios referenciales — confirmar con proveedor."""
-    import pathlib
-
+    """Genera la COTIZACIÓN (PDF multipágina) y la guarda en `path` (.pdf): resumen económico
+    (catálogo vs fabricación, desglose por categoría, margen %, impuesto % opcional, PRECIO DE
+    VENTA, notas) + detalle de partidas con la FUENTE de cada precio. Complemento comercial de
+    calc_report. Si algo se cobra dos veces (dispositivo sin ligar a su pieza 3D) o no se cobra
+    (cable 3D sin add_cable), devuelve `avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo;
+    el PDF los lista en su hoja 2. Precios referenciales: confirmar con proveedor."""
     params: dict = {"margin_pct": margin_pct, "tax_pct": tax_pct}
     if currency:
         params["currency"] = currency
     if fx is not None:
         params["fx"] = fx
     resp = _api("GET", "/api/quote.pdf", params=params)
-    pathlib.Path(path).write_bytes(resp.content)
-    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content)}, ensure_ascii=False)
+    entregable.escribir(path, resp.content)
+    return json.dumps({"ok": True, "path": path, "bytes": len(resp.content),
+                       **entregable.avisos_de_cobro(resp)}, ensure_ascii=False)
 
 
 @mcp.tool()

@@ -128,6 +128,8 @@ def prefijar(cmd_type: str, params, funcion: str, prefijo: str):
     if cmd_type == "add_program" and out.get("plc"):  # el ST nombra bornes, no designaciones
         out["plc"] = _con_funcion(out["plc"], funcion)
     if cmd_type == "add_cable":
+        if isinstance(out.get("piezas"), list):
+            out["piezas"] = [f"{prefijo}_{p}" for p in out["piezas"]]
         for k in ("desde", "hasta"):
             if isinstance(out.get(k), str) and out[k].strip()[:1] in ("-", "="):
                 out[k] = _con_funcion(out[k], funcion)

@@ -13,7 +13,8 @@ import re
 from apolo.kernel.shapes import is_surface
 
 from .catalog import CATALOG
-from .materials import density, resolve_material
+from .materials import CABLE, density, resolve_material
+from .piezas_electricas import recorrido_mm
 
 # sufijos de instancia que añaden los patrones/espejos/copias: " (2)", " (1,2)",
 # " (espejo)", " (copia)". Se quitan para agrupar piezas idénticas en una fila.
@@ -96,6 +97,9 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
             if by_group:
                 key = key + (grp,)
             if key not in rows:
+                largo = dims[-1] if dims else None
+                if mat == CABLE:  # V8.1 F4c (D-c2): el RECORRIDO, no la mayor cota del bbox
+                    largo = recorrido_mm(feat.shape) or largo
                 rows[key] = {
                     "ref": "A-MEDIDA",
                     "descripcion": base,
@@ -103,7 +107,7 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
                     "material": mat,
                     "norma": "",
                     "cantidad": 0,
-                    "longitud_mm": dims[-1] if dims else None,
+                    "longitud_mm": largo,
                     "peso_unitario_kg": round(vol * density(mat), 3) if vol is not None else None,
                     "peso_total_kg": None,
                     "_rep": sid,

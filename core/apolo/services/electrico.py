@@ -8,9 +8,9 @@ regenerate (`doc/carril.py`), y lo entrega a sus clientes:
   - `chequeo`: el ERC con su resumen (`GET /api/electrico/check`, tool `electrical_check`);
   - `reglas_erc`: el ERC para la puerta de entrega y la aserción `{"erc": "sin_errores"}`
     (None sin carril: la puerta no cambia), más el aviso «ajustes para simular» (V8.3 F6: los
-    ajustes obligatorios de la co-simulación que faltan, todos juntos por dispositivo) y el
+    ajustes obligatorios de la co-simulación que faltan, todos juntos por dispositivo), el
     aviso «pieza sin ligar» (V8.1 F4: un dispositivo con la ref de una pieza 3D que no liga se
-    cobraría dos veces);
+    cobraría dos veces) y el «cable 3D sin cobrar» (F4c: `cobros.py`);
   - `filas_bom`: las filas de BOM del tablero (`library/bom_electrico.py`).
 El llamador sostiene STATE_LOCK. El modelo es inmutable: el ERC corre sobre él (~1 ms en la faja
 piloto) sin copiarlo.
@@ -112,8 +112,10 @@ def reglas_erc(doc) -> list[dict] | None:
         return None
     from apolo.library.electrico.erc import erc
 
+    from .cobros import regla_cables
+
     m = modelo(doc)
-    return erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m)
+    return erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
 
 
 def chequeo(doc) -> dict:

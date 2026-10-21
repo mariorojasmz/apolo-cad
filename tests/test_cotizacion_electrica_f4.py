@@ -102,7 +102,8 @@ def test_un_cable_3d_no_se_fabrica_ni_se_cobra():
     d.execute("create_box", {"name": "Cable motor 4x2.5 mm2 (variador -> motor)", "width": 2000,
                              "depth": 10, "height": 10})
     [fila] = costed_bom(d.scene)
-    assert fila["material"] == CABLE and fila["costo_ud_usd"] is None and fila["costo_fuente"] == CABLE_3D
+    assert fila["material"] == CABLE and fila["costo_ud_usd"] is None
+    assert fila["costo_fuente"] == CABLE_3D + " (recorrido 2.00 m)"  # F4c: el recorrido, no el bbox
     assert fila["peso_unitario_kg"] == pytest.approx(2000 * 10 * 10 * 2.3e-6, rel=1e-3)
 
 

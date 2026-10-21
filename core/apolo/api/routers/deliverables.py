@@ -55,11 +55,13 @@ def get_costing() -> dict:
     """BOM COSTEADO (misma agrupación del BOM + costo_ud/costo_total USD por fila con su
     fuente: catálogo referencial / estimación hardware / fabricación) + totales por
     categoría, catálogo vs fabricación e ítem más costoso; con tablero eléctrico, sus
-    dispositivos, cables y conductores (V8.1 D10). Read-only."""
-    from apolo.library.costing import scene_costing
+    dispositivos, cables y conductores (V8.1 D10). Si algo se cobraría dos veces o no se cobra
+    (un dispositivo sin ligar a su pieza 3D, un cable 3D sin add_cable), suma `avisos` y
+    `monto_en_riesgo_usd` (V8.1 F4c); si no, el dict de siempre. Read-only."""
+    from apolo.services.cobros import costeo
 
     with STATE_LOCK:
-        return scene_costing(S.doc.scene, S.doc.default_material(), filas_bom(S.doc))
+        return costeo(S.doc)
 
 
 @router.get("/api/bom.csv")
@@ -292,23 +294,32 @@ def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
     impuesto opcional, PRECIO DE VENTA, ítem más costoso, notas comerciales) + detalle
     de partidas (BOM costeado completo con la fuente de cada precio). `currency`/`fx`
     (tipo de cambio sobre USD, solo presentación) caen a los requisitos del proyecto
-    (claves `moneda`/`tipo_cambio`); los params explícitos ganan. Read-only."""
+    (claves `moneda`/`tipo_cambio`); los params explícitos ganan. Read-only.
+
+    Los avisos de cobro (V8.1 F4c: doble cobro, cable 3D sin cobrar) van en el PDF (resumen +
+    hoja «AVISOS DE COBRO») y, para el agente, en la cabecera `X-Apolo-Avisos` (JSON ASCII:
+    `{avisos, monto_en_riesgo_usd}`; sólo si hay)."""
+    import json
+
     from apolo.drawing import sheets_to_pdf
     from apolo.drawing.quote import quotation_pages
+    from apolo.services.cobros import costeo
 
     with STATE_LOCK:
         req = S.doc.requirements or {}
         cur = currency or str(req.get("moneda") or "USD")
         fx_eff = fx if fx is not None else float(req.get("tipo_cambio") or 1.0)
+        data = costeo(S.doc)
         pages = quotation_pages(
             S.doc.scene, project_name=S.doc.name or "Sin título",
             requirements=S.doc.requirements, margin_pct=margin_pct, tax_pct=tax_pct,
-            currency=cur, fx=fx_eff, meta=_drawing_meta(), extra_rows=filas_bom(S.doc),
+            currency=cur, fx=fx_eff, meta=_drawing_meta(), costeo=data,
         )
-    return Response(
-        content=sheets_to_pdf(pages), media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-cotizacion.pdf"'},
-    )
+    headers = {"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-cotizacion.pdf"'}
+    if data.get("avisos"):
+        headers["X-Apolo-Avisos"] = json.dumps(
+            {"avisos": data["avisos"], "monto_en_riesgo_usd": data["monto_en_riesgo_usd"]})
+    return Response(content=sheets_to_pdf(pages), media_type="application/pdf", headers=headers)
 
 
 @router.get("/api/assembly-manual.pdf")

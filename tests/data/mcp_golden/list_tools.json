@@ -176,7 +176,7 @@
  },
  {
   "name": "get_costing",
-  "description": "BOM COSTEADO en USD: cada fila del BOM con costo_ud/costo_total y su FUENTE\n(precio referencial de catálogo / estimación de hardware peso×material×3 /\nfabricación a medida peso×material×2.5) + totales por categoría, catálogo vs\nfabricación y el ÍTEM MÁS COSTOSO. Úsalo para optimizar costos ('¿qué pieza es la\nmás cara?', comparar alternativas) y como base de la cotización. Precios\nreferenciales — confirmar con proveedor para cotizar en firme. Read-only.",
+  "description": "BOM COSTEADO en USD: cada fila con costo_ud/costo_total y su FUENTE (catálogo\nreferencial / hardware peso×material×3 / a medida peso×material×2.5) + totales por categoría,\ncatálogo vs fabricación y el ÍTEM MÁS COSTOSO: para optimizar costos y como base de la\ncotización. Si algo se cobra dos veces o no se cobra, trae `avisos` con su\n`monto_en_riesgo_usd` y la llamada que lo arregla (no se descuentan solos). Precios\nreferenciales: confirmar con proveedor. Read-only.",
   "inputSchema": {
    "properties": {},
    "title": "get_costingArguments",
@@ -3012,7 +3012,7 @@
  },
  {
   "name": "quotation",
-  "description": "Genera la COTIZACIÓN del proyecto (PDF multipágina) y la guarda en `path` (.pdf):\nresumen económico (catálogo vs fabricación, desglose por categoría, margen %,\nimpuesto % opcional, PRECIO DE VENTA, ítem más costoso, notas comerciales) + detalle\nde partidas = el BOM costeado completo con la FUENTE de cada precio (referencial de\ncatálogo / estimación). Complemento comercial de calc_report (la memoria justifica\nel diseño; la cotización lo VENDE). Precios referenciales — confirmar con proveedor.",
+  "description": "Genera la COTIZACIÓN (PDF multipágina) y la guarda en `path` (.pdf): resumen económico\n(catálogo vs fabricación, desglose por categoría, margen %, impuesto % opcional, PRECIO DE\nVENTA, notas) + detalle de partidas con la FUENTE de cada precio. Complemento comercial de\ncalc_report. Si algo se cobra dos veces (dispositivo sin ligar a su pieza 3D) o no se cobra\n(cable 3D sin add_cable), devuelve `avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo;\nel PDF los lista en su hoja 2. Precios referenciales: confirmar con proveedor.",
   "inputSchema": {
    "properties": {
     "path": {

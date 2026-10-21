@@ -102,6 +102,16 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   vencido = AMARILLO en la puerta, nunca rojo ni verde. El snapshot toma los programas del carril y `programas=` los pisa por PLC (`test_plc`).
   [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D12, D14)
 
+## Cobros dudosos (`cobros.py`)
+
+- Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
+  la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y
+  `monto_en_riesgo_usd` sólo si hay (sin ellos, el dict de siempre): dispositivo sin ligar a su
+  pieza 3D (monto = mín(dispositivos, piezas) × precio de la ref) y cable 3D que ningún add_cable
+  cubre (lo liga con `piezas` o tiene los mismos hilos × sección en el nombre). Nunca descuenta:
+  ligar es del modelo. El ERC suma el mismo «cable 3D sin cobrar» (`regla_cables`).
+  [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4c)
+
 ## Reglas de ingeniería y FEA (`engineering_rules.py`, `fea_rules.py`)
 
 - `/api/checks` y la memoria comparten SÓLO lo idéntico (`requirement_inputs`,

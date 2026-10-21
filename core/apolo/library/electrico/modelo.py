@@ -135,6 +135,8 @@ class Cable:
     hasta: str | None = None
     largo_m: float | None = None
     id: str | None = None
+    #: sólidos de la escena que lo modelan en 3D (`add_cable.piezas`, V8.1 F4c): no se cobran aparte
+    piezas: tuple[str, ...] = ()
 
     def hilo(self, hilo_id: str) -> Hilo | None:
         return next((h for h in self.hilos if h.id == hilo_id), None)
