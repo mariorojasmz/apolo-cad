@@ -166,6 +166,24 @@ class Parametros:
         return {str(k): v[k] for k in v}
 
 
+class RecolectorAjustes(Parametros):
+    """Unos `Parametros` que, en vez de cortar en el PRIMER ajuste obligatorio que falta, los
+    anotan todos en `faltan` (con el punto medio para seguir armando): así el ERC y el snapshot
+    los piden JUNTOS (V8.3 F6), no de a uno como un `test_plc` tras otro."""
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.faltan: list[dict] = []
+
+    def ajustado(self, clave: str, que: str) -> float:
+        rango = self.modelo.get(clave)
+        if _es_rango(rango) and clave not in self.ajustes:
+            lo, hi = sorted(float(x) for x in rango)
+            self.faltan.append({"clave": clave, "que": que, "rango": [lo, hi]})
+            return (lo + hi) / 2
+        return super().ajustado(clave, que)
+
+
 class Modelo:
     """Base de todo modelo de dispositivo. Las subclases fijan `tipo` y `ACCIONES`."""
 

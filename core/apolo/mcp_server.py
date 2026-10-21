@@ -661,7 +661,7 @@ def find_commands(
       - type: tipo exacto ('chamfer', 'create_box', 'add_joint', …).
       - feature: comandos que CREARON ese sólido o lo REFERENCIAN en sus params
         (feature/feature_a/b, members, parent/child, selectores…).
-      - name: substring case-insensitive del nombre de la pieza.
+      - name: substring (sin mayúsculas) del nombre; en el carril eléctrico, '-M1', 'NMRV'…
     Combínalos (type='chamfer', feature='c14' = los chaflanes sobre c14). Read-only."""
     params: dict = {"limit": limit}
     if type:

@@ -13,7 +13,7 @@ D10. Puro y sin MuJoCo ni OCCT: no importa nada de `apolo` fuera de este paquete
 from __future__ import annotations
 
 from .alimentacion import Fuente, Red
-from .base import Modelo, ModeloIncompleto, Parametros, entrada_tipo1
+from .base import Modelo, ModeloIncompleto, Parametros, RecolectorAjustes, entrada_tipo1
 from .maniobra import Contactor, Rele
 from .mandos import Piloto, Pulsador, Selector, Seccionador, Sensor, Seta
 from .motor import Motor, placa_v82
@@ -42,7 +42,23 @@ def crear_modelo(designacion: str, ref: str, modelo: dict | None, ajustes: dict 
     return clase(p, cantidad) if clase is Fusible else clase(p)
 
 
+def ajustes_faltantes(designacion: str, ref: str, modelo: dict | None, ajustes: dict | None = None,
+                      *, cantidad: int = 1) -> list[dict]:
+    """TODOS los ajustes obligatorios (`Parametros.ajustado`) que le faltan al dispositivo para
+    simularse, `[{clave, que, rango}]`, en el orden en que su modelo los lee (V8.3 F6). Un modelo
+    incompleto por otra cosa corta ahí: eso lo dice `crear_modelo` al simular."""
+    clase = MODELOS.get((modelo or {}).get("tipo"))
+    if clase is None:
+        return []
+    p = RecolectorAjustes(designacion, ref, modelo, ajustes)
+    try:
+        clase(p, cantidad) if clase is Fusible else clase(p)
+    except ModeloIncompleto:
+        pass
+    return p.faltan
+
+
 __all__ = ["MODELOS", "Contactor", "Fuente", "Fusible", "Guardamotor", "Itm", "Modelo",
            "ModeloIncompleto", "Motor", "Parametros", "Piloto", "PlcES", "Pulsador", "Red", "Rele",
-           "ReleTermico", "Seccionador", "Selector", "Sensor", "Seta", "Variador", "crear_modelo",
-           "direccion_iec", "entrada_tipo1", "placa_v82"]
+           "ReleTermico", "Seccionador", "Selector", "Sensor", "Seta", "Variador", "ajustes_faltantes",
+           "crear_modelo", "direccion_iec", "entrada_tipo1", "placa_v82"]

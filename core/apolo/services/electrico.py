@@ -7,7 +7,8 @@ regenerate (`doc/carril.py`), y lo entrega a sus clientes:
     (`GET /api/electrico/circuito`, tool `get_circuit`);
   - `chequeo`: el ERC con su resumen (`GET /api/electrico/check`, tool `electrical_check`);
   - `reglas_erc`: el ERC para la puerta de entrega y la aserción `{"erc": "sin_errores"}`
-    (None sin carril: la puerta no cambia);
+    (None sin carril: la puerta no cambia), más el aviso «ajustes para simular» (V8.3 F6: los
+    ajustes obligatorios de la co-simulación que faltan, todos juntos por dispositivo);
   - `filas_bom`: las filas de BOM del tablero (`library/bom_electrico.py`).
 El llamador sostiene STATE_LOCK. El modelo es inmutable: el ERC corre sobre él (~1 ms en la faja
 piloto) sin copiarlo.
@@ -31,13 +32,52 @@ def tiene_carril(doc) -> bool:
     return bool(m.dispositivos or m.conductores or m.cables)
 
 
+def ajustes_faltantes(m) -> list[tuple]:
+    """[(dispositivo, [{clave, que, rango}])] de los que no se pueden simular por ajustes
+    obligatorios sin declarar (los de cada uno JUNTOS: V8.3 F6)."""
+    from apolo.cosim.modelos import ajustes_faltantes as faltan
+
+    out = []
+    for d in m.dispositivos:
+        f = faltan(d.designacion, d.ref, d.modelo, d.ajustes, cantidad=int(d.cantidad or 1))
+        if f:
+            out.append((d, f))
+    return out
+
+
+def texto_ajustes_faltantes(d, faltan: list[dict]) -> str:
+    """Qué falta y el `edit_command` listo (PATCH superficial: `ajustes` va ENTERO)."""
+    import json
+
+    def rango(x):
+        return f"{x['rango'][0]:g}–{x['rango'][1]:g}"
+
+    claves = [f"{x['clave']} ({x['que']}, {rango(x)})" for x in faltan]
+    ejemplo = {**d.ajustes, **{x["clave"]: round(sum(x["rango"]) / 2, 3) for x in faltan}}
+    return (f"{d.designacion} ({d.ref}): para simularse le faltan los ajustes que fija el instalador "
+            f"{'; '.join(claves)}. Decláralos juntos: edit_command('{d.id}', "
+            f"{json.dumps({'ajustes': ejemplo}, ensure_ascii=False)}) — los valores son ejemplos "
+            f"dentro del rango: usa los de la placa o el catálogo del fabricante")
+
+
+def _regla_ajustes(m) -> list[dict]:
+    """Avisos del ERC: lo que la co-simulación (V8.3) pediría de a uno. Sin hallazgos no suma
+    fila (un tablero completo da el ERC de siempre)."""
+    return [{"regla": "ajustes para simular", "estado": "aviso", "detalle": texto_ajustes_faltantes(d, f),
+             "recomendacion": "Declara en add_device.ajustes lo que el instalador fija en el aparato "
+                              "(o nómbralo en la pieza ligada: «… i=30», «η=0,7»).",
+             "norma": "criterio de diseño", "elementos": [d.designacion]}
+            for d, f in ajustes_faltantes(m)]
+
+
 def reglas_erc(doc) -> list[dict] | None:
     """Las reglas del ERC, o None si el documento no tiene carril."""
     if not tiene_carril(doc):
         return None
     from apolo.library.electrico.erc import erc
 
-    return erc(modelo(doc))
+    m = modelo(doc)
+    return erc(m) + _regla_ajustes(m)
 
 
 def chequeo(doc) -> dict:
@@ -93,6 +133,7 @@ def circuito(doc, designacion: str | None = None) -> dict:
             **({"ubicacion": d.ubicacion} if d.ubicacion else {}),
             **({"pieza": d.pieza} if d.pieza else {}),
             **({"ajustes": d.ajustes} if d.ajustes else {}),
+            **({"ajustes_deducidos": d.deducidos} if d.deducidos else {}),
             "comando": d.id, "bornes": bornes,
         })
     redes = [{"id": r.id, **({"nombre": r.nombre} if r.nombre else {}), "puntos": list(r.puntos),

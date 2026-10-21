@@ -21,7 +21,7 @@ declarado más ADELANTE en el log: el carril se evalúa entero.
 
 from __future__ import annotations
 
-from apolo.library.electrico.ajustes import validar_ajustes
+from apolo.library.electrico.ajustes import deducir_de_la_pieza, validar_ajustes
 from apolo.library.electrico.modelo import (
     Cable,
     Conductor,
@@ -100,9 +100,14 @@ def _dispositivo(entrada: dict, escena: dict, catalogo) -> Dispositivo:
                          "vacía al ejecutar el comando para que se asigne sola")
     ajustes = validar_ajustes(p.ajustes, ficha.modelo, p.ref)
     pieza = _pieza(p.pieza, p.ref, escena) if p.pieza else None
+    # V8.3 F6: la relación y el η del reductor que dice el nombre de la pieza ligada
+    deducidos = (deducir_de_la_pieza(getattr(escena[pieza], "name", None), pieza, ficha.modelo, ajustes)
+                 if pieza else {})
+    ajustes = {**ajustes, **{k: x["valor"] for k, x in deducidos.items()}}
     return dispositivo_desde_ficha(p.designacion, p.ref, ficha, ubicacion=p.ubicacion,
                                    ajustes=ajustes, pieza=pieza, cantidad=p.cantidad,
-                                   id=entrada["id"])
+                                   id=entrada["id"],
+                                   deducidos={k: x["origen"] for k, x in deducidos.items()})
 
 
 def _extremo(texto: str | None, dispositivos: dict) -> str | None:

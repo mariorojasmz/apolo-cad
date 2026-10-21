@@ -15,6 +15,11 @@
 Por último corre la agenda del escenario en seco sobre un tablero desechable: un dispositivo,
 una acción o una rama que no existen salen aquí, con su corrección.
 
+F6: los ajustes obligatorios que faltan salen TODOS juntos (`electrico.ajustes_faltantes`), una
+banda que no avanza con cajas encima o con aserciones es error (`cosim_bandas.bandas_quietas`),
+los avisos de la preparación de la dinámica van, con «mecánica: », a los avisos del resultado y
+los ajustes deducidos de la pieza ligada (`Dispositivo.deducidos`), a las hipótesis.
+
 Todo error es `ServiceError(400, texto)`. Sin locks: el llamador sostiene STATE_LOCK. Los
 programas salen del carril (`add_program`, F5, ya compilados en el regenerate); `programas=`
 pone otros ENCIMA, por PLC, sin guardarlos (`test_plc`).
@@ -134,8 +139,9 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     from apolo.physics.dinamica import prepare_dynamics
     from apolo.physics.sim import PhysicsError
 
+    from .cosim_bandas import bandas_quietas
     from .cosim_red import entrada_red
-    from .electrico import modelo
+    from .electrico import ajustes_faltantes, modelo, texto_ajustes_faltantes
 
     try:
         esc = leer_escenario(escenario)
@@ -145,6 +151,11 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     if not me.dispositivos:
         raise ServiceError(400, "el documento no tiene tablero (add_device): no hay nada que co-simular; "
                                 "para la mecánica sola usa simulate")
+    faltan = ajustes_faltantes(me)  # F6: todos juntos, no el primero de uno solo
+    if faltan:
+        raise ServiceError(400, " | ".join(texto_ajustes_faltantes(d, f) for d, f in faltan))
+    hipotesis = [f"{d.designacion}: {k} = {d.ajustes[k]:g}, {origen}"
+                 for d in me.dispositivos for k, origen in d.deducidos.items()]
     dispositivos = [DispositivoCosim(d.designacion, d.ref, _plano(d.modelo or {}), _plano(d.ajustes or {}),
                                      int(d.cantidad or 1)) for d in me.dispositivos]
     red = _plano(entrada_red(me))
@@ -163,6 +174,10 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
         raise ServiceError(400, f"mecánica: {exc}") from exc
     if dyn.early is not None:
         raise ServiceError(400, f"mecánica: {dyn.early.get('mensaje')}")
+    error = bandas_quietas(doc.scene, esc, dyn)  # F6: una banda que no avanza da verdes triviales
+    if error:
+        raise ServiceError(400, error)
+    avisos += [f"mecánica: {a}" for a in dyn.avisos]  # F6: los de la dinámica, todos
     motores = [AcopleMotor(des, a["junta"], md.nombre, math.copysign(1.0, md.consigna))
                for (des, a), md in zip(esc.motores.items(), dyn.motores)]
     acoples_s = [AcopleSensor(des, _nombre_rayo(des)) for des in esc.sensores]
@@ -173,4 +188,4 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
         raise ServiceError(400, str(exc)) from exc
     return CosimSnapshot(dinamica=dyn, red=red, dispositivos=dispositivos, programas=progs,
                          motores=motores, sensores=acoples_s, escenario=esc,
-                         hipotesis=[], avisos=avisos)  # los de la mecánica van en su salida
+                         hipotesis=hipotesis, avisos=avisos)

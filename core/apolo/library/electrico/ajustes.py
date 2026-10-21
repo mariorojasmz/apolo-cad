@@ -11,12 +11,29 @@ lo que la ficha declara en `modelo`, y con el tipo que la ficha le da:
     y el `tipo` del modelo (V8.3 D7) no se ajustan: son dato de placa.
 
 Una clave que la ficha no declara es error con «¿quisiste decir…?» y la lista de las válidas.
+
+`deducir_de_la_pieza` (V8.3 F6): un motorreductor cuya ficha da la relación `i` y el rendimiento
+`eta_reductor` como RANGO (el sinfín NMRV: dependen de la unidad que se compre) los toma del
+NOMBRE de la pieza ligada («Motorreductor NMRV-090 (eje hueco, i=30)», «… 1:30», «η=0,7») si
+no vienen en los ajustes y caen dentro del rango. Lo deducido se declara (`Dispositivo.deducidos`),
+nunca se inventa: sin dato en el nombre, el ajuste sigue faltando y el ERC lo pide.
 Puro: recibe la ficha ya cargada, nunca el catálogo.
 """
 
 from __future__ import annotations
 
+import re
+
 from .referencias import sufijo_sugerencia
+
+_NUM = r"(\d+(?:[.,]\d+)?|[.,]\d+)"
+#: Lo que un nombre de pieza puede decir de su reductor: clave → [(patrón, escala)].
+_DEL_NOMBRE = {
+    "i": [(re.compile(r"(?<![A-Za-z0-9_])i\s*[=:]\s*" + _NUM), 1.0),
+          (re.compile(r"(?<![\d.,:])1\s*:\s*" + _NUM + r"(?![\d:])"), 1.0)],
+    "eta_reductor": [(re.compile(r"(?:η|(?<![A-Za-z])eta(?:_reductor)?)\s*[=:]\s*" + _NUM + r"\s*%"), 0.01),
+                     (re.compile(r"(?:η|(?<![A-Za-z])eta(?:_reductor)?)\s*[=:]\s*" + _NUM), 1.0)],
+}
 
 #: Valores de los ajustes de texto que el ERC interpreta.
 CONEXIONES = ("triangulo", "estrella")
@@ -65,4 +82,26 @@ def validar_ajustes(ajustes: dict, modelo: dict, ref: str) -> dict:
         elif isinstance(ficha, str) and not isinstance(valor, str):
             raise ValueError(f"el ajuste {clave} de {ref} es un texto (recibí {valor!r})")
         out[clave] = valor
+    return out
+
+
+def deducir_de_la_pieza(nombre: str | None, pieza: str, modelo: dict, ajustes: dict) -> dict:
+    """{clave: {valor, origen}} de los ajustes de RANGO que el nombre de la pieza ligada dice y
+    los `ajustes` no traen (ver el docstring del módulo). Un valor fuera del rango no se toma."""
+    out: dict = {}
+    if not nombre:
+        return out
+    for clave, patrones in _DEL_NOMBRE.items():
+        rango = (modelo or {}).get(clave)
+        if clave in ajustes or not _es_rango(rango):
+            continue
+        lo, hi = sorted(float(x) for x in rango)
+        for patron, escala in patrones:
+            m = patron.search(nombre)
+            if m is None:
+                continue
+            v = float(m.group(1).replace(",", ".")) * escala
+            if lo <= v <= hi:
+                out[clave] = {"valor": round(v, 6), "origen": f"del nombre de la pieza {pieza} («{nombre}»)"}
+            break
     return out

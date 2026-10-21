@@ -93,6 +93,9 @@ class Dispositivo:
     bornera: bool = False
     id: str | None = None  # comando que lo declaró (trazabilidad)
     cantidad: int = 1  # unidades de una bornera (la BOM compra un borne por unidad)
+    #: ajustes que no declaró el `add_device` y salieron de la pieza ligada (V8.3 F6), con su
+    #: origen: {clave: «del nombre de la pieza c682 (…)»}. Ya están en `ajustes`.
+    deducidos: dict = field(default_factory=dict)
 
     def borne(self, borne_id: str) -> Borne | None:
         return next((b for b in self.bornes if b.id == borne_id), None)
@@ -201,7 +204,8 @@ def expandir_bornera(bornes: tuple[Borne, ...], caminos: tuple[Camino, ...],
 
 def dispositivo_desde_ficha(designacion: str, ref: str, ficha, *, ubicacion: str = "",
                             ajustes: dict | None = None, pieza: str | None = None,
-                            cantidad: int | None = None, id: str | None = None) -> Dispositivo:
+                            cantidad: int | None = None, id: str | None = None,
+                            deducidos: dict | None = None) -> Dispositivo:
     """Instancia un `Dispositivo` desde la ficha de catálogo (`FichaElectrica`). La ficha llega
     como argumento: este módulo no importa el catálogo (que arrastra la geometría)."""
     bornes, caminos = ficha.bornes, ficha.caminos
@@ -215,5 +219,5 @@ def dispositivo_desde_ficha(designacion: str, ref: str, ficha, *, ubicacion: str
         ubicacion=ubicacion or "", ajustes=dict(ajustes or {}), pieza=pieza,
         modelo=dict(ficha.modelo), protege_motor=ficha.protege_motor,
         parada_emergencia=ficha.parada_emergencia, bornera=ficha.bornera, id=id,
-        cantidad=int(cantidad or 1) if ficha.bornera else 1,
+        cantidad=int(cantidad or 1) if ficha.bornera else 1, deducidos=dict(deducidos or {}),
     )

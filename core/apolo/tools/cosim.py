@@ -111,14 +111,19 @@ def registrar(mcp, api, esperar) -> None:
          acoples: {motores: {"-M1": {junta, direccion_transporte}}, sensores: {"-B1": {origen,
                    direccion, alcance_mm?}}},   ← qué junta mueve cada motor y dónde mira cada
                                                   sensor: obligatorio para los motores
-         mecanica?: {bandas, juntas, timestep, nstep, con_autodeteccion…},
+         mecanica?: {bandas, juntas, timestep, nstep, con_autodeteccion…},   ← una banda HECHA A
+                    MANO va en bandas [{pieza, junta_motriz}]: sin ella no avanza y un escenario
+                    con cajas encima o aserciones sobre ella es error,
          trazas?: {analogicas_hz, senales},
          aserciones: ["-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1",
                       "-M1.par_Nm == 0 dentro_de 0,5 s desde presionar -S0",
                       "-Q2.disparado dentro_de 10 s desde atasco", "-K1.cuenta == 10 al_final",
                       "-T2.f_Hz <= 61 siempre", "-K1.Main.en_marcha nunca desde liberar -S0",
                       "-M1.rpm > 100 en 2,5 s"]}
-        Ventanas: al_final, en t, dentro_de Δ desde <acción o evento>, siempre/nunca [desde …].
+        Ventanas: al_final, en t, dentro_de Δ desde <acción o evento> [y se mantiene D s] (sin
+        «y se mantiene» basta TOCAR el valor), siempre/nunca [desde … [+ 50 ms]] (sin margen
+        miran también el instante del ancla: el filtro de entrada, el scan y el STO tardan ms).
+        La comparación tipa: un texto con una señal de texto, true/false con una booleana.
         Córrelo con simulate(escenario="<nombre>"): el resultado queda guardado con su vigencia."""
         if escenario is None:
             return json.dumps(api("DELETE", f"/api/escenarios/{nombre}").json(), ensure_ascii=False)

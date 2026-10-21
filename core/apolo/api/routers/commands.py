@@ -307,11 +307,33 @@ def _params_reference(params: dict, fid: str) -> str | None:
     return None
 
 
+def _resumen_carril(t: str, p: dict) -> str | None:
+    """El carril eléctrico no tiene `name`: su etiqueta es la designación y la ref (V8.3 F6)."""
+    def j(*xs):
+        return " ".join(str(x) for x in xs if x)
+
+    if t == "add_device":
+        return j(p.get("designacion"), p.get("ref"), f"(pieza {p['pieza']})" if p.get("pieza") else "")
+    if t == "add_cable":
+        tramo = " → ".join(str(x) for x in (p.get("desde"), p.get("hasta")) if x)
+        return j(p.get("designacion"), p.get("ref"), f"({tramo})" if tramo else "")
+    if t == "add_wire":
+        hilo = f"({p['cable']} hilo {p.get('hilo')})" if p.get("cable") else ""
+        return j(" → ".join(map(str, p.get("puntos") or [])), hilo)
+    if t == "add_program":
+        return j("programa", p.get("nombre") or "", "de", p.get("plc"))
+    return None
+
+
 def _command_resumen(cmd: dict) -> str:
-    """Etiqueta compacta de una fila del log: el `name` si existe, o «tipo sobre X»."""
+    """Etiqueta compacta de una fila del log: el `name` si existe, la designación y la ref en el
+    carril eléctrico, o «tipo sobre X»."""
     p = cmd.get("params", {})
     if p.get("name"):
         return str(p["name"])
+    carril = _resumen_carril(cmd["type"], p)
+    if carril:
+        return carril
     for k in ("feature", "feature_a", "target", "a", "parent", "members"):
         v = p.get(k)
         if v:
@@ -331,7 +353,8 @@ def find_commands_endpoint(
     entero ya lo da GET /api/document). Filas compactas [{id, type, resumen}].
       - type: match exacto del tipo de comando.
       - feature: comandos que CREARON ese feature id o lo REFERENCIAN en params.
-      - name: substring case-insensitive del param `name`.
+      - name: substring case-insensitive del param `name` (en el carril eléctrico, que no
+        tiene `name`, de su resumen: designación, ref, bornes o PLC).
     Read-only. `total` declara el conteo sin recortar; `truncado` si limit lo cortó."""
     if not (type or feature or name):
         raise HTTPException(
@@ -350,7 +373,8 @@ def find_commands_endpoint(
             if type and c["type"] != type:
                 continue
             params = c.get("params", {})
-            if name and name.lower() not in str(params.get("name", "")).lower():
+            if name and name.lower() not in str(params.get("name")
+                                                or _resumen_carril(c["type"], params) or "").lower():
                 continue
             if feature:
                 es_creador = c["id"] in (feature, creator)
