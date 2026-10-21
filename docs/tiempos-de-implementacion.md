@@ -95,6 +95,8 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-21 | (verif. MCP) | V8.3 F6b + V8.1 F4 | 2×S | 18 | 3,18 USD | re-verificación tras B′ |
 | 2026-10-21 | manual-rapido | F2 | S | 72 | 356 | memoria 1 060 → 52 s; memoria y manual como job por MCP |
 | 2026-10-21 | V8.3/V8.1 | B″ (5 defectos de F6b) | M | 82 | 470 | COSIM_EPOCH en la vigencia, tipos al declarar, cotización sin doble cobro |
+| 2026-10-21 | manual-rapido | F2b | M | 62 | 330 | planos sombreados 1 301 → 55 s y GA 986 → 38 s, fuera del lock y como job |
+| 2026-10-21 | (verif. MCP) | plantilla F3 + revisor ciego | 2×S | 16 | 3,67 USD | 3 m con 1 orden en 7 min; el revisor halló 2 ALTA de la plantilla |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
