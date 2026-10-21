@@ -53,6 +53,8 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
   previa.
 - Las preguntas P1–P4 de [V8](plans/V8-maquina-viva.md): mercados, marcas, PLC del primer
   exporte y KiCad.
+- Decidir la mesa o rampa de recepción a la descarga de la faja 72/73: sin ella las cajas caen ~0,85 m y se
+  apilan contra la cabeza (lo vio la prueba virtual, V8.3 F6b defecto 4).
 - Rehacer por MCP la banda hecha a mano de las fajas 72/73 (el fix del tambor engomado cubre
   sólo el super-comando).
 

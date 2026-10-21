@@ -94,6 +94,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-21 | (verif. MCP) | ola 5 piloto | 5×S | 53 | 5,28 USD | una sesión `claude -p` sobre la flota: 4 pasan, 1 falla (memoria) |
 | 2026-10-21 | (verif. MCP) | V8.3 F6b + V8.1 F4 | 2×S | 18 | 3,18 USD | re-verificación tras B′ |
 | 2026-10-21 | manual-rapido | F2 | S | 72 | 356 | memoria 1 060 → 52 s; memoria y manual como job por MCP |
+| 2026-10-21 | V8.3/V8.1 | B″ (5 defectos de F6b) | M | 82 | 470 | COSIM_EPOCH en la vigencia, tipos al declarar, cotización sin doble cobro |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
