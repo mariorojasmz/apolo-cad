@@ -8,7 +8,9 @@ regenerate (`doc/carril.py`), y lo entrega a sus clientes:
   - `chequeo`: el ERC con su resumen (`GET /api/electrico/check`, tool `electrical_check`);
   - `reglas_erc`: el ERC para la puerta de entrega y la aserción `{"erc": "sin_errores"}`
     (None sin carril: la puerta no cambia), más el aviso «ajustes para simular» (V8.3 F6: los
-    ajustes obligatorios de la co-simulación que faltan, todos juntos por dispositivo);
+    ajustes obligatorios de la co-simulación que faltan, todos juntos por dispositivo) y el
+    aviso «pieza sin ligar» (V8.1 F4: un dispositivo con la ref de una pieza 3D que no liga se
+    cobraría dos veces);
   - `filas_bom`: las filas de BOM del tablero (`library/bom_electrico.py`).
 El llamador sostiene STATE_LOCK. El modelo es inmutable: el ERC corre sobre él (~1 ms en la faja
 piloto) sin copiarlo.
@@ -70,6 +72,40 @@ def _regla_ajustes(m) -> list[dict]:
             for d, f in ajustes_faltantes(m)]
 
 
+def piezas_sin_ligar(doc, m) -> list[tuple]:
+    """[(dispositivo, [fids])]: dispositivos SIN `pieza` cuya ref es la de piezas 3D del proyecto
+    que ningún dispositivo liga (V8.1 F4). Sin ligar, la BOM y la cotización los cobran dos
+    veces: la pieza de la escena y la fila del tablero."""
+    ligadas = {d.pieza for d in m.dispositivos if d.pieza}
+    por_ref: dict[str, list[str]] = {}
+    for fid in sorted(doc.scene):
+        f = doc.scene[fid]
+        ref = getattr(f, "component", None)
+        if ref and fid not in ligadas and not getattr(f, "is_guide", False):
+            por_ref.setdefault(ref, []).append(fid)
+    return [(d, por_ref[d.ref]) for d in m.dispositivos if not d.pieza and por_ref.get(d.ref)]
+
+
+def _regla_piezas(doc, m) -> list[dict]:
+    """Avisos del ERC: el dispositivo que parece ser una pieza 3D del proyecto (misma ref) y no
+    la liga. Sin hallazgos no suma fila."""
+    import json
+
+    filas = []
+    for d, fids in piezas_sin_ligar(doc, m):
+        cual = (f"la pieza {fids[0]}" if len(fids) == 1 else
+                f"una de las piezas {', '.join(fids[:4])}{'…' if len(fids) > 4 else ''}")
+        filas.append({
+            "regla": "pieza sin ligar", "estado": "aviso",
+            "detalle": (f"{d.designacion} {d.ref} parece ser {cual}: lígala con pieza=… "
+                        f"(edit_command('{d.id}', {json.dumps({'pieza': fids[0]})})); sin ligar, la "
+                        "BOM y la cotización la cobran dos veces (la pieza 3D y el dispositivo)"),
+            "recomendacion": "Liga cada dispositivo a su pieza 3D con `pieza` (add_device): una sola "
+                             "línea de BOM, y la designación en el modelo.",
+            "norma": "criterio de diseño", "elementos": [d.designacion, *fids[:4]]})
+    return filas
+
+
 def reglas_erc(doc) -> list[dict] | None:
     """Las reglas del ERC, o None si el documento no tiene carril."""
     if not tiene_carril(doc):
@@ -77,7 +113,7 @@ def reglas_erc(doc) -> list[dict] | None:
     from apolo.library.electrico.erc import erc
 
     m = modelo(doc)
-    return erc(m) + _regla_ajustes(m)
+    return erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m)
 
 
 def chequeo(doc) -> dict:

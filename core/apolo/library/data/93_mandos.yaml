@@ -15,6 +15,9 @@ category: mandos
 # norma (seta ROJA sobre fondo AMARILLO, ISO 13850 §4.3.6, IEC 60204-1 §10.7.3) que el color
 # de la pieza no repinta. Cotas típicas, sin verificar. Las dos setas llevan la misma ficha;
 # la de caja cambia sólo `montaje` (va en la máquina, no en la puerta del tablero).
+# cost = USD REFERENCIAL (mercado de Lima, aprox., como el catálogo eléctrico de V8.1): actualizar
+# con el proveedor para cotizar en firme. Una ref eléctrica sin `cost` sale «sin precio» en la
+# cotización (no se estima por peso: V8.1 F4).
 components:
   - ref: ESTOP-40
     name: Paro de emergencia Ø40
@@ -33,6 +36,7 @@ components:
       leyenda: "Ø60 amarilla"
       linea_referencia: "orden de Schneider Harmony XB5AS8445 + ZBY9140 / Siemens SIRIUS ACT 3SU1"
       cotas_verificadas: false
+      cost: 30
     zonas:
       seta: {acabado: plastico_rojo_seguridad, fijo: true}
       collar: {acabado: plastico_negro}
@@ -84,7 +88,7 @@ components:
     builder: box
     params: {width: 80, depth: 60, height: 120}
     weight: 0.3
-    specs: {pulsadores: 2, diametro: "Ø22", incluye: "potenciómetro 10kOhm"}
+    specs: {pulsadores: 2, diametro: "Ø22", incluye: "potenciómetro 10kOhm", linea_referencia: "orden de una caja de 2 pulsadores Schneider Harmony XALD + potenciómetro 10 kΩ", cotas_verificadas: false, cost: 35}
     electrico:
       funcion: S
       simbolo: botonera

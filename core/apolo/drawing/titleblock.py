@@ -36,6 +36,11 @@ def projection_symbol(model, x: float, y: float, s: float = 7.0, first_angle: bo
     model.circles.append(Circle(cx, y + s * 0.5, s * 0.22, "dim"))
 
 
+def _peso(kg) -> str:
+    """«12.5 kg», o «— kg» si nadie lo dio (una cotización sin peso decía «None kg», V8.1 F4)."""
+    return f"{kg} kg" if kg is not None else "— kg"
+
+
 def draw_title_block(model, fields: dict) -> None:
     """Cajetín 180×40 mm abajo-derecha + tabla de revisiones encima. `fields`:
     project, drawing_no, scale, sheet, sheet_no, n_sheets, material, finish, tolerance,
@@ -96,7 +101,7 @@ def draw_title_block(model, fields: dict) -> None:
     _txt(model, x0 + 2, y0 + TITLE_H * 0.34, 2.3, "Material")
     _txt(model, x0 + 2, y0 + TITLE_H * 0.10, 3.0, str(f.get("material", "—"))[:18])
     _txt(model, c1 + 2, y0 + TITLE_H * 0.34, 2.3, "Acabado / Peso")
-    _txt(model, c1 + 2, y0 + TITLE_H * 0.10, 2.6, f"{f.get('finish', '—')} · {f.get('weight_kg', 0)} kg")
+    _txt(model, c1 + 2, y0 + TITLE_H * 0.10, 2.6, f"{f.get('finish', '—')} · {_peso(f.get('weight_kg'))}")
     _txt(model, c2 + 2, y0 + TITLE_H * 0.34, 2.3, "Tol. gral / Unid.")
     _txt(model, c2 + 2, y0 + TITLE_H * 0.10, 2.6, f"{f.get('tolerance', 'ISO 2768-mK')} · {f.get('units', 'mm')}")
     _txt(model, c3 + 2, y0 + TITLE_H * 0.34, 2.3, "Escala / Hoja")

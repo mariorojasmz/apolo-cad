@@ -9,6 +9,11 @@ Tres fuentes de costo, en orden de fiabilidad (cada fila declara la suya):
 3. **Fabricación a medida**: volumen × densidad × USD/kg del material × factor de
    fabricación (corte + soldadura + acabado + merma).
 
+Dos excepciones honestas (V8.1 F4): una ref ELÉCTRICA sin `cost` no se estima por peso (una
+seta de 0,15 kg salía a 0,67 USD) y queda «sin precio»; y un cable modelado en 3D (material
+«cable») no se fabrica: se compra por metro con `add_cable`, así que su fila va sin costo para
+no cobrarlo dos veces.
+
 Los factores son hipótesis DECLARADAS (aparecen en la fila y en las notas de la
 cotización), no números escondidos. Construye sobre `bom_from_scene` (misma
 agrupación que el BOM de siempre); no muta nada.
@@ -18,7 +23,7 @@ from __future__ import annotations
 
 from .bom import bom_from_scene
 from .catalog import CATALOG
-from .materials import cost_per_kg
+from .materials import CABLE, cost_per_kg
 
 # factor de manufactura para hardware de catálogo SIN precio explícito (una pieza
 # comercial — rodamiento, bisagra, tornillo — cuesta ~3× su peso en materia prima)
@@ -28,6 +33,10 @@ HW_FACTOR = 3.0
 FAB_FACTOR = 2.5
 # piso de precio de un ítem comercial (nada se compra por menos de esto)
 MIN_HW_COST = 0.5
+SIN_PRECIO_ELECTRICO = ("sin precio: ref eléctrica sin `cost` en el catálogo (no se estima por "
+                        "peso); pide cotización al proveedor")
+CABLE_3D = ("cable modelado en 3D: se compra por metro (add_cable con ref y largo_m); sin costo "
+            "aquí para no cobrarlo dos veces")
 
 
 def _catalog_cost(row: dict) -> tuple[float | None, str]:
@@ -45,6 +54,8 @@ def _catalog_cost(row: dict) -> tuple[float | None, str]:
             # `cost` en un cortable sin cost_por_m se interpreta por METRO
             return cost * cut / 1000.0, "catálogo (USD/m)"
         return cost, "catálogo"
+    if getattr(comp, "electrico", None) is not None:
+        return None, SIN_PRECIO_ELECTRICO
     peso = row.get("peso_unitario_kg") or 0.0
     est = max(peso * cost_per_kg(row.get("material")) * HW_FACTOR, MIN_HW_COST)
     return est, f"estimado (peso × material × {HW_FACTOR:g})"
@@ -52,6 +63,8 @@ def _catalog_cost(row: dict) -> tuple[float | None, str]:
 
 def _custom_cost(row: dict) -> tuple[float | None, str]:
     """(costo unitario, fuente) de una pieza a medida: materia prima × factor."""
+    if row.get("material") == CABLE:
+        return None, CABLE_3D
     peso = row.get("peso_unitario_kg")
     if peso is None:
         return None, ""

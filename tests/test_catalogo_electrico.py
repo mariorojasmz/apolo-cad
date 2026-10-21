@@ -153,7 +153,7 @@ def test_categorias_nuevas_al_final_y_en_su_subsistema():
 def test_refs_fijadas_conservan_specs_y_geometria():
     assert CATALOG["VFD-1K5-220"].specs == {
         "potencia_kW": 1.5, "potencia_HP": 2, "tension": "220V 3F", "corriente_A": 8.5,
-        "control": "vectorial sensorless", "proteccion": "STO"}
+        "control": "vectorial sensorless", "proteccion": "STO", "cost": 240}  # cost: V8.1 F4
     assert CATALOG["VFD-2K2-220"].specs == {
         "potencia_kW": 2.2, "potencia_HP": 3, "tension": "220V 3F", "corriente_A": 11.0,
         "control": "vectorial sensorless", "proteccion": "STO", "cost": 280}
@@ -162,7 +162,10 @@ def test_refs_fijadas_conservan_specs_y_geometria():
     assert {k: estop[k] for k in ("tipo", "contacto", "norma")} == {
         "tipo": "hongo Ø40", "contacto": "NC apertura positiva", "norma": "ISO 13850"}
     assert estop["cotas_verificadas"] is False and estop["linea_referencia"].strip()
-    assert CATALOG["FOTO-M18"].specs == {"rosca": "M18", "alcance_mm": 400, "salida": "PNP", "tension": "10-30 VDC"}
+    foto = CATALOG["FOTO-M18"].specs  # + linea_referencia y cost referencial (V8.1 F4)
+    assert {k: foto[k] for k in ("rosca", "alcance_mm", "salida", "tension")} == {
+        "rosca": "M18", "alcance_mm": 400, "salida": "PNP", "tension": "10-30 VDC"}
+    assert foto["cost"] == 28 and foto["cotas_verificadas"] is False
     assert CATALOG["MOTOR-150-EH"].specs["tension"] == "220/380V" and CATALOG["MOTOR-150-EH"].weight == 25.0
     nmrv = CATALOG["NMRV-090"]
     assert "electrico" not in nmrv.specs and nmrv.specs["potencia_kW"] == 2.2 and nmrv.weight == 45.0

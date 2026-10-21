@@ -16,6 +16,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   trinquete; `loader.py` une los registros y rechaza nombres repetidos.
 - Biblioteca paramétrica > STEP de fabricante (sólo para la compra puntual). `cost`,
   `cost_por_m` y `COST_PER_KG_USD` son REFERENCIALES: actualizar con proveedor para cotizar firme.
+  Una ref ELÉCTRICA lleva siempre `cost` (sin él sale «sin precio», nunca estimada por peso:
+  `tests/test_cotizacion_electrica_f4.py`); un cable modelado en 3D es material `cable` y no se
+  cobra (se compra por metro con `add_cable`). [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4)
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
   `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara
   de montaje de la placa: [plan](../../../docs/plans/garruchas-catalogo.md)). Los perfiles se

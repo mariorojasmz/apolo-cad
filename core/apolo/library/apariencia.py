@@ -154,7 +154,7 @@ POR_DEFECTO = "acero_pintado"
 _POR_MATERIAL: tuple[tuple[re.Pattern, str], ...] = tuple(
     (re.compile(p), k) for p, k in (
         (r"vidrio|cristal|glass", "vidrio"),
-        (r"caucho|goma|engomado|lagging", "caucho"),
+        (r"caucho|goma|engomado|lagging|^cable$", "caucho"),   # ^cable$: su cubierta
         (r"pvc|poliuretano|polimero", "pvc_banda"),
         (r"carton", "carton"),
         (r"madera|copaiba", "madera"),

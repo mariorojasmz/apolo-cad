@@ -28,6 +28,10 @@ DENSITY_KG_MM3 = {
     "pvc": 1.4e-6,      # ~1400 kg/m³ (banda transportadora PVC, perfil plástico)
     "caucho": 1.5e-6,   # ~1500 kg/m³ (engomado/lagging de tambor, goma)
     "carton": 1.4e-7,   # ~140 kg/m³ densidad a granel de un bulto/paquete (caja+contenido)
+    # cable flexible modelado en 3D: cobre + aislamiento y cubierta de PVC. Criterio de diseño:
+    # ~2300 kg/m³ medio (el CABLE-4G2.5 del catálogo, 0,18 kg/m con Ø 10,5 mm, da ~2100; un
+    # unipolar H07V-K 2,5 mm², ~2700). Un cable no se fabrica: el costeo no lo cobra (V8.1 F4).
+    "cable": 2.3e-6,
 }
 DEFAULT_DENSITY = 7.85e-6  # acero
 
@@ -101,6 +105,12 @@ _WOOD_WORDS = (
 )
 # polímeros/goma: banda PVC y engomado de tambor son plástico/caucho, no acero
 _PVC_WORDS = ("pvc", "poliuretano", "polimero")
+#: ROL cable eléctrico («Cable motor 4x2.5 mm2 …», «Cable setas 4x1 mm2: tablero -> seta»): ni
+#: acero por «motor» ni madera por «tablero» (V8.1 F4). Anclado al inicio del rol («Soporte del
+#: cable» no es cable); un cable de acero (de izar, de un tensor) es acero.
+CABLE = "cable"
+_CABLE_ROLE = re.compile(r"^cables?\b")
+_CABLE_METAL = re.compile(r"acero|inox|alambre|galvaniz")
 _RUBBER_WORDS = ("engomado", "lagging", "caucho", "goma")
 # ROL banda (transportadora) = polímero aunque el nombre no diga «PVC». Se mira el ROL, no el
 # nombre entero: «Faja de banda · Larguero (1)» trae «banda» del super-comando y «Cama de la
@@ -175,6 +185,8 @@ def resolve_material(feat, catalog: dict | None = None, default: str = "acero") 
         if mat:
             return mat
     name = (getattr(feat, "name", "") or "").lower()
+    if _CABLE_ROLE.match(piece_role(name)) and not _CABLE_METAL.search(name):
+        return CABLE
     if any(w in name for w in _GLASS_WORDS):
         return "vidrio"
     if any(w in name for w in _RUBBER_WORDS):

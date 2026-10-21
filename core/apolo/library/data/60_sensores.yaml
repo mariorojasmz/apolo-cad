@@ -4,6 +4,7 @@ category: sensores
 # toca la geometría (sin bump de GEOM_CACHE_EPOCH). `electrico.modelo` (plan V8.3 D7):
 # `t_respuesta_ms` = 1 e `I_salida_mA` = 100 (orden de la ficha de una fotocélula difusa M18
 # PNP: 0,5–2,5 ms, 100 mA; verificar), funciona desde `U_alim_min_V` = 10 (su rango 10–30 VDC).
+# cost = USD REFERENCIAL (mercado de Lima, aprox., V8.1 F4): actualizar con el proveedor.
 components:
   - ref: FOTO-M18
     name: Fotocélula M18
@@ -11,7 +12,7 @@ components:
     builder: sensor
     params: {}
     weight: 0.08
-    specs: {rosca: M18, alcance_mm: 400, salida: PNP, tension: "10-30 VDC"}
+    specs: {rosca: M18, alcance_mm: 400, salida: PNP, tension: "10-30 VDC", linea_referencia: "orden de Sick GTE6 / Omron E3F2-DS / Autonics BR400-DDTN (difusa M18 PNP)", cotas_verificadas: false, cost: 28}
     electrico:
       funcion: B
       simbolo: sensor_pnp_na

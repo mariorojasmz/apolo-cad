@@ -20,10 +20,27 @@ from .sheetset import _table_sheet
 from .titleblock import draw_title_block
 
 _ROWS_PER_PAGE = 18
+#: Altura (mm) del rótulo «NOTAS» del resumen: la columna izquierda (desglose + ítem más
+#: costoso) termina por encima, agrupando las categorías que no caben (V8.1 F4: en A4 apaisado,
+#: con 15 categorías, «Ítem más costoso» caía encima de las notas).
+_NOTAS_Y = 92.0
+_PASO_CAT = 4.4
 
 
 def _money(x: float | None, currency: str) -> str:
     return f"{x:,.2f} {currency}" if x is not None else "—"
+
+
+def _categorias(por_categoria: dict, y0: float, *, con_top: bool) -> list[tuple[str, float]]:
+    """Las filas del desglose que caben entre `y0` y las NOTAS (con el ítem más costoso debajo);
+    las que no, juntas en «otras (N categorías)»: el total del desglose no cambia."""
+    piso = _NOTAS_Y + 8.0 + (12.6 if con_top else 0.0)
+    caben = max(1, int((y0 - piso) // _PASO_CAT) + 1)
+    filas = list(por_categoria.items())
+    if len(filas) <= caben:
+        return filas
+    resto = filas[caben - 1:]
+    return filas[:caben - 1] + [(f"otras ({len(resto)} categorías)", round(sum(v for _, v in resto), 2))]
 
 
 def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
@@ -45,11 +62,11 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
         y -= 6
     m.labels.append(Label(16, y, "DESGLOSE POR CATEGORÍA", 3.4, anchor="start"))
     y -= 6
-    for cat, val in list(totals.get("por_categoria", {}).items())[:12]:
+    top = totals.get("item_mas_costoso")
+    for cat, val in _categorias(totals.get("por_categoria", {}), y, con_top=bool(top)):
         m.labels.append(Label(18, y, str(cat)[:34], 2.7, anchor="start"))
         m.labels.append(Label(120, y, _money(val, currency), 2.7, anchor="end"))
-        y -= 4.4
-    top = totals.get("item_mas_costoso")
+        y -= _PASO_CAT
     if top:
         y -= 3
         m.labels.append(Label(16, y, "Ítem más costoso:", 3.0, anchor="start"))
@@ -85,7 +102,7 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     m.labels.append(Label(W - 18, yy, _money(venta, currency), 4.2, anchor="end"))
 
     # notas comerciales (honestidad + condiciones)
-    ny = 92
+    ny = _NOTAS_Y
     m.labels.append(Label(16, ny, "NOTAS", 3.2, anchor="start"))
     ny -= 5
     notas = [
@@ -107,6 +124,15 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
         idx += 1
     draw_title_block(m, {**base_meta, "sheet_no": 1})
     return m
+
+
+def _peso(scene: dict, meta: dict | None) -> float:
+    """El peso del cajetín: el de `meta` o el de la máquina (como la memoria: con lo oculto)."""
+    if (meta or {}).get("weight_kg") is not None:
+        return meta["weight_kg"]
+    from apolo.library.cutlist import scene_weight_kg
+
+    return round(scene_weight_kg(scene, include_hidden=True), 1)
 
 
 def quotation_pages(scene: dict, *, project_name: str = "Sin título",
@@ -155,7 +181,7 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
         "project": project_name,
         "drawing_no": (meta or {}).get("drawing_no", "COT-001"),
         "scale": "—", "sheet": sheet, "material": "—", "finish": "—",
-        "weight_kg": (meta or {}).get("weight_kg"), "tolerance": "—", "units": "mm",
+        "weight_kg": _peso(scene, meta), "tolerance": "—", "units": "mm",
         "drawn_by": (meta or {}).get("drawn_by", "Apolo · agente IA"),
         "checked_by": "", "approved_by": "",
         "date": (meta or {}).get("date", date.today().isoformat()),

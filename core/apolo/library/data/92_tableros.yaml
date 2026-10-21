@@ -16,7 +16,7 @@ components:
     builder: box
     params: {width: 500, depth: 200, height: 400}
     weight: 12.0
-    specs: {ancho_mm: 500, alto_mm: 400, fondo_mm: 200, proteccion: IP54, material: "acero pintado"}
+    specs: {ancho_mm: 500, alto_mm: 400, fondo_mm: 200, proteccion: IP54, material: "acero pintado", linea_referencia: "orden de Schneider Spacial S3D (500x400x200) / Rittal AX", cotas_verificadas: false, cost: 150}
     electrico: *gabinete
   - ref: GAB-6040
     name: Gabinete 600x400x200
