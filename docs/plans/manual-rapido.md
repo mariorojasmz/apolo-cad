@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito el 2026-10-20 (hito F de docs/hitos.md); nada implementado
+nota: F0 medida (D2 corregida: el teselado toma el lock pieza por pieza); faltan F1, F2 (portada de la memoria) y F3 (publicar generar de la piloto)
 descripcion: El manual de montaje de una máquina sale en segundos, no en 23 minutos, y mientras se arma Apolo no se congela
 ---
 
@@ -51,6 +51,14 @@ Mario delegó en Claude el orden de los hitos ([docs/hitos.md](../hitos.md)); é
   - `componer_manual(...)`: las láminas `SheetModel`, puras.
 
   Lo mismo para la foto de portada de la memoria de cálculo.
+
+  **Corregida por la F0** (§ Bitácora): teselar en frío las mallas de la piloto cuesta ~280 s,
+  así que «las mallas bajo `STATE_LOCK`» de un tirón congelaba la API casi 5 min. La extracción
+  queda en dos pasos: `extraer_manual` (secuencia, textos, cajetín y la foto id/shape de cada
+  pieza, bajo UNA toma del lock) y `teselar_manual(ex, STATE_LOCK)`, que tesela tomando el lock
+  PIEZA POR PIEZA (la mutación que llegue espera, como mucho, una pieza: ~12–20 s una cadena en
+  frío). Las formas son las de la foto del primer paso (ningún executor muta un shape en sitio):
+  el manual es el del documento tal como estaba al pedirlo.
 - **D3. Mismo aspecto que `render_view`.** Usa la tabla de acabados de
   [visor-realista](visor-realista.md) F1 y las zonas de [seta-de-emergencia](seta-de-emergencia.md)
   cuando F3 las dé en VTK, sin aristas negras gruesas. El manual se ve como el resto de los
@@ -103,3 +111,32 @@ Mario delegó en Claude el orden de los hitos ([docs/hitos.md](../hitos.md)); é
   publique Mario.
 
 ## Bitácora
+
+### F0 — medición (2026-10-21)
+
+Sobre una copia de `data/apolo.db` (backup de sqlite) con `APOLO_DB`, piloto 74 (201 piezas, 10
+pasos de montaje: hoy son 10, no 11). Scripts en el scratchpad, no en el repo. Las corridas
+compartieron la máquina (12 hilos; matplotlib usa uno): los números absolutos son de esta PC.
+
+- **Hoy (matplotlib, todo bajo `STATE_LOCK`)**, por el endpoint con `TestClient`: portada (201
+  piezas) **1 760 s**; pasos 1–5 (17–177 piezas) 16, 21, 66, 228 y 230 s; paso 6 (196 piezas,
+  entran las 19 cadenas) **2 107 s**. Cada foto re-tesela todo lo que dibuja (`_draw_view` llama
+  a `shape.tessellate` sin caché) y matplotlib ordena ~1,3 M triángulos. El lock queda tomado
+  todo el manual. El total sale en la bitácora de F1 (la corrida sigue).
+- **Prototipo con UNA `EscenaViva`** (sin zonas, resalte con el acento del video):
+  - lo que iría bajo el lock sin teselar: `pasos_manual` 1,8 s + textos, cajetín y herraje
+    10,0 s + `apariencias_render` 0,04 s;
+  - **teselado en frío 277,7 s** (caliente 0,003 s): las 19 cadenas tardan 9–18 s cada una y los
+    piñones ~2 s. De los ~12 s de una cadena, `BRepMesh` es 0,7 s: el resto es el Python de
+    `Shape.tessellate` (un `Vector` por nodo; un bucle propio sobre `Poly_Triangulation` sólo
+    baja a 6 s, no vale la pena aquí);
+  - fotos: ventana 2,0 s, cada fotograma 0,3–4,6 s, pero crear los actores de las cadenas tardó
+    hasta 38 s: el `polydata` de `render_comun` arma puntos y celdas en bucles Python.
+- **Portada de la memoria**: matplotlib **2 322 s** bajo el lock hoy; con VTK, teselado frío
+  347 s (lock) + render 81 s (los mismos bucles del `polydata`).
+
+**Lo que contradice el plan**: D2 suponía una extracción barata; con el teselado en frío serían
+~290 s de lock seguidos. Se corrige D2 (arriba): el teselado toma el lock pieza por pieza. Y la
+F1 suma dos arreglos del `kernel` que la F0 señaló: `polydata` con numpy y la conversión
+vértices → numpy cacheada por lista (la pedían la caja y el `polydata`), los dos con el mismo
+PNG byte a byte. D1, D3, D4 y D5 quedan como estaban.
