@@ -110,6 +110,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-22 | puerta-de-publicacion | create_belt_conveyor v4 | L | 65 | 620 | 15 choques → 0, 77 uniones declaradas, UCT205-150 (carrera 150 mm), bastidor FS 1,94; la puerta sólo pide D15; 6 módulos nuevos para el trinquete |
 | 2026-10-22 | puerta-de-publicacion | F4 | M | 30 | 320 | fábrica de 8 pasos: revision.json por firma con re-revisión a ciegas, cuadros.json por sha256 del video, familias.json (D10) en el repo privado; 3 briefs en apolo-fabrica |
 | 2026-10-22 | puerta-de-publicacion | F5 | M | 56 | 423 | 4 testigos públicos con veredicto por ítem, 24 defectos sembrados con test de cobertura, testigos privados de la tienda; destapó la caída falsa de pernos de join_bolted en la gravedad; +47 s a la suite |
+| 2026-10-22 | puerta-de-publicacion | F6: fixes de los revisores | M | 45 | 330 | ancho útil de banda (mín. banda/luz entre guías), BOM de banda por lazo y largo de tornillería, join_bolted criterio 4 (ala de perfil abierto → perno + tuerca) |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
