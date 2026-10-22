@@ -104,6 +104,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-21 | plantilla-rodillos-cadena | F5 | S | 86 | 321 | pies niveladores de catálogo por carga (3 m: M8, 108/120 kg, ±11,75 mm), placa de piso con anclaje; v3 |
 | 2026-10-21 | mcp-sin-friccion | F3 | M | 61 | 347 | declare_structure con criterio de taller: piloto 25 → 100 % (ajustada), plantilla 95,4 %, 0 soldaduras desmontables; aplicar 83 KB → 0,1 KB |
 | 2026-10-21 | V8.1 | F4c | M | 86 | 398 | cotización que avisa 310 USD en riesgo, 7 cables 3D sin cobrar, tablas del PDF sin solapes, falso positivo de garruchas; la suite del escritorio (11 min) halló la medida de texto frágil con matplotlib 3.11 |
+| 2026-10-21 | mcp-sin-friccion | F5 | M | 87 | 495 | la propuesta sobre la plantilla 182 → 0, aplicar por conjuntos y dimensionado, interferencia paginada, engineering_check 13,2 → 3,5 KB; suite en el escritorio 12 min |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 mergeadas y F4 verificada por MCP el 2026-10-21 (8 fricciones) → F5 implementada en rama, sin mergear (D7–D12). Vetables de F3: lo que gira junto se suelda y el cárter soldado a la base del motor; de F5: la dimensión por defecto (`library/engineering/union_por_defecto.py`) y lo «ok» sin detalle en engineering_check
+nota: F0–F5 mergeadas a main el 2026-10-21 (F4 = verificación por MCP). Vetables: lo que gira junto se suelda (contra D2 de uniones-en-lote), el cárter soldado a la base del motor, la tabla de dimensiones por defecto de D8 (library/engineering/union_por_defecto.py)
 descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respuestas cortas, errores que dicen cómo seguir y propuestas de estructura que no sueldan lo que se atornilla
 ---
 
