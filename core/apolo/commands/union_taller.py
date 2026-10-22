@@ -1,13 +1,16 @@
-"""Criterio de TALLER de `join_bolted` (plan `union-en-perfil-hueco`, D1–D4): `criterio` 2 y 3
-(el 1 de los logs viejos vive en `exec_union.py`). El 3, el de todo comando nuevo, es el 2 con el
-largo del perno de catálogo y sin respaldo silencioso a 200 mm (plan puerta-de-publicacion D3).
+"""Criterio de TALLER de `join_bolted` (plan `union-en-perfil-hueco`, D1–D4): `criterio` 2, 3 y 4
+(el 1 de los logs viejos vive en `exec_union.py`). El 3 es el 2 con el largo del perno de catálogo
+y sin respaldo silencioso a 200 mm (plan puerta-de-publicacion D3); el 4, el de todo comando
+nuevo, es el 3 sabiendo que el ala de un perfil ABIERTO tiene acceso por detrás (la otra ala
+vuelve a cruzar el eje, pero el hueco se abre al costado: `_abierto_al_costado`).
 
 Por cada punto del patrón se tira un RAYO por el eje del taladro (`kernel/rayo.py`) y se mide
 lo que el perno atraviesa de verdad:
 
 - **base** = la pieza más gruesa en el eje de la unión (empate → `a`); la otra se AGREGA;
 - la pared de la base que toca a la pieza agregada, su espesor y lo que hay DETRÁS: si el rayo
-  vuelve a entrar en la base (la pared de enfrente de un tubo) es un perfil cerrado; si otra
+  vuelve a entrar en la base (la pared de enfrente de un tubo) es un perfil cerrado (desde el
+  criterio 4, salvo que ese hueco se abra a un costado: el ala de un UPN); si otra
   pieza ocupa el espacio de la tuerca y su llave (alto de tuerca + 3 filetes + el largo libre
   de la copa), hay obstáculo. Cualquiera de los dos = sin acceso por detrás (D1);
 - D2: el agarre es la suma de los dos espesores; D3: la cabeza va del lado de la pieza que se
@@ -28,9 +31,40 @@ from .state import ExecContext
 
 _TOL_CONTACTO = 0.6  # mm: la pared de la base empieza donde termina la pieza agregada
 _MARGEN = 5.0        # mm: el taladro arranca fuera de la cara de la cabeza
+# mm: hasta dónde la mano lleva la tuerca por la abertura de un perfil abierto (criterio 4):
+# el semiancho de ala de una IPE grande; más hondo (el extremo de un tubo) no es acceso
+_ALCANCE_LATERAL = 150.0
 
 
-def _medir(h: dict, base, anadida, pt: list[float], otros: list, acceso: float) -> dict:
+def _abierto_al_costado(base, h: dict, pt: list[float], t: float) -> bool:
+    """Criterio 4: ¿el hueco detrás de la pared (punto `pt` con la coordenada `stack` = `t`) se
+    abre hacia un COSTADO de la base a ≤ `_ALCANCE_LATERAL` mm? Es el ala de un perfil ABIERTO
+    (UPN, IPE, L): la otra ala vuelve a cruzar el eje, pero la tuerca entra por la abertura. Se
+    tiran rayos en los dos ejes del plano de la unión salvo el más LARGO de la base (el del
+    perfil: un tubo también está abierto por sus extremos); un tubo cerrado choca con sus
+    paredes en los dos sentidos."""
+    from apolo.kernel.rayo import tramos_en_eje
+
+    st = h["stack"]
+    bb = base.shape.bounding_box()
+    lo, hi = (bb.min.X, bb.min.Y, bb.min.Z), (bb.max.X, bb.max.Y, bb.max.Z)
+    ext = {k: hi[k] - lo[k] for k in range(3) if k != st}
+    corto = min(ext, key=ext.get)
+    probar = list(ext) if math.isclose(*ext.values()) else [corto]
+    p = list(pt)
+    p[st] = t
+    for k in probar:
+        tramos = tramos_en_eje(base.shape, k, p, lo[k] - 1.0, hi[k] + 1.0)
+        if any(a < p[k] < b for a, b in tramos):
+            return False  # el punto está dentro de material: no es un hueco
+        if (not any(a >= p[k] for a, _ in tramos) and hi[k] - p[k] <= _ALCANCE_LATERAL) or (
+                not any(b <= p[k] for _, b in tramos) and p[k] - lo[k] <= _ALCANCE_LATERAL):
+            return True
+    return False
+
+
+def _medir(h: dict, base, anadida, pt: list[float], otros: list, acceso: float,
+           criterio: int = 3) -> dict:
     """Lo que atraviesa el eje que pasa por `pt` (coordenada `stack` libre)."""
     from apolo.kernel.rayo import tramos_en_eje
 
@@ -62,6 +96,8 @@ def _medir(h: dict, base, anadida, pt: list[float], otros: list, acceso: float) 
                   if (x[0] > atras + 1e-3 if s > 0 else x[1] < atras - 1e-3)]
     cerrado = bool(reentradas)
     libre = min(reentradas) if reentradas else math.inf
+    if cerrado and criterio >= 4 and _abierto_al_costado(base, h, pt, atras + s * libre / 2.0):
+        cerrado = False  # el ala de un perfil abierto: la otra ala no tapa el acceso
     tramo = (atras, atras + s * acceso)
     for o in otros:
         for x in tramos_en_eje(o.shape, st, pt, min(tramo), max(tramo)):
@@ -195,7 +231,7 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
             pt = [0.0, 0.0, 0.0]
             pt[u], pt[v] = pu, pv
             puntos.append(pt)
-    medidas = [_medir(h, base, anadida, pt, otros, acceso) for pt in puntos]
+    medidas = [_medir(h, base, anadida, pt, otros, acceso, p.criterio) for pt in puntos]
     fij = _elegir(p, h, base, anadida, medidas)
     for ref in (fij.ref, fij.tuerca):
         if ref is not None and ref not in CATALOG:

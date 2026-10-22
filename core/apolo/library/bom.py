@@ -12,7 +12,9 @@ import re
 
 from apolo.kernel.shapes import is_surface
 
+from .banda_lazo import es_banda, largo_de_lazo
 from .catalog import CATALOG
+from .largo_tornilleria import largo_de_compra
 from .materials import CABLE, density, resolve_material
 from .piezas_electricas import recorrido_mm
 
@@ -49,10 +51,15 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
         if component and component in CATALOG:
             comp = CATALOG[component]
             cut = getattr(feat, "cut_length", None)
+            largo = cut
+            if cut is None and not comp.cuttable:  # tornillería: se compra por su largo
+                largo = largo_de_compra(feat, comp)
+                if (comp.specs or {}).get("length") is None:
+                    cut = largo  # a medida: el largo va en la fila (la ficha fija ya lo nombra)
             miter = getattr(feat, "miter", None)
             mtr = tuple(miter) if miter else None  # ingleteado ≠ recto del mismo largo
-            key = (component, round(cut, 1) if cut else None, mtr, grp) if by_group else (
-                component, round(cut, 1) if cut else None, mtr)
+            key = (component, round(largo, 1) if largo else None, mtr, grp) if by_group else (
+                component, round(largo, 1) if largo else None, mtr)
             if key not in rows:
                 unit_weight = (
                     comp.weight * (cut / 1000.0) if comp.cuttable and cut else comp.weight
@@ -68,7 +75,7 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
                     "material": (comp.specs or {}).get("material", ""),
                     "norma": (comp.specs or {}).get("norma", ""),
                     "cantidad": 0,
-                    "longitud_mm": cut,
+                    "longitud_mm": largo,
                     "peso_unitario_kg": round(unit_weight, 3),
                     "peso_total_kg": 0.0,
                     "_rep": sid,  # pieza representante (globos en lámina)
@@ -100,6 +107,8 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
                 largo = dims[-1] if dims else None
                 if mat == CABLE:  # V8.1 F4c (D-c2): el RECORRIDO, no la mayor cota del bbox
                     largo = recorrido_mm(feat.shape) or largo
+                elif es_banda(feat.name) and (lazo := largo_de_lazo(feat.shape)):
+                    largo = round(lazo, 1)  # la banda se compra por su LAZO, no por su caja
                 rows[key] = {
                     "ref": "A-MEDIDA",
                     "descripcion": base,

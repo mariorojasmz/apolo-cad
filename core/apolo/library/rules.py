@@ -15,6 +15,7 @@ import math
 import re
 from collections import Counter
 
+from .ancho_util import medir_banda, regla_ancho_util
 from .catalog import CATALOG, category_refs_sorted
 from .engineering.belt import belt_power_kw, belt_pull_n, belt_startup_torque_nm, estimate_belt_kg
 from .materials import density, piece_role, resolve_material, yield_strength, young_modulus
@@ -278,6 +279,8 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
             base["banda_kg"] = round(kg, 2)
     if base.get("frame") is None:
         base["frame"] = _frame_from_scene(scene, v)
+    if base.get("tipo") == "banda":  # el ancho útil es el de la banda y sus guías, no el bbox
+        base.update({k: x for k, x in medir_banda(scene).items() if k not in base})
     # --- señales normativas (V5.10): la regla elige el MÉTODO por construcción
     if "soporte" not in base and base.get("tipo") == "banda":
         # cama deslizante (slider bed) si hay mesa/cama; si no y hay
@@ -572,23 +575,9 @@ def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm
             calc=calc_rod,
         ))
 
-    # 3 · ancho útil
+    # 3 · ancho útil (rodillos: entre largueros; banda: la banda y sus guías, `ancho_util.py`)
     if ancho_paquete_mm is not None:
-        ancho_util = ancho - 2 * RAIL_W - 4
-        if ancho_util >= ancho_paquete_mm + 40:
-            checks.append(_check("ancho útil", "ok", f"{ancho_util:.0f} mm útiles para paquete de {ancho_paquete_mm:g} mm."))
-        elif ancho_util >= ancho_paquete_mm:
-            checks.append(_check(
-                "ancho útil", "aviso",
-                f"Holgura justa: {ancho_util - ancho_paquete_mm:.0f} mm.",
-                "Deja ≥ 40 mm de holgura total o añade guías laterales.",
-            ))
-        else:
-            checks.append(_check(
-                "ancho útil", "error",
-                f"El paquete de {ancho_paquete_mm:g} mm no cabe en {ancho_util:.0f} mm útiles.",
-                f"Aumenta el ancho total a ≥ {ancho_paquete_mm + 2 * RAIL_W + 44:.0f} mm.",
-            ))
+        checks.append(regla_ancho_util(conveyor, ancho, ancho_paquete_mm, RAIL_W))
 
     # 4 · motorización — una BANDA sobre cama desliza (μ≈0.33, engineering/belt.py),
     # MUY distinto de la rodadura (μ=0.06) del transportador de rodillos.

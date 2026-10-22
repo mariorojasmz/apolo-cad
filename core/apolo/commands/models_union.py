@@ -6,7 +6,8 @@ el agente los ven ni los eligen: el criterio es de Apolo, no del modelador) y lo
 de entrada (`exec_union.sellar`) a cada comando NUEVO:
 
 - `criterio`: 1 = el de V6.5b/c (largo por la caja, cabeza arriba); 2 = el de taller; 3 = el
-  de taller con el largo de catálogo y sin respaldo a 200 mm (plan puerta-de-publicacion D3).
+  de taller con el largo de catálogo y sin respaldo a 200 mm (plan puerta-de-publicacion D3);
+  4 = el 3 con acceso por detrás en el ala de un perfil ABIERTO (perno + tuerca en un UPN).
   Un log viejo no lo trae → 1 → regenera con la MISMA tornillería y la misma firma.
 - `madera`: las piezas (a/b) que eran de madera al crear la unión (`set_material` o el vertical
   carpintería: metadatos del manifest que el regenerate no ve).
@@ -61,7 +62,7 @@ class JoinBoltedParams(BaseModel):
     )
     norma: str = Field("DIN 933", max_length=20, title="Norma del perno")
     # Fuera del schema: los pone el sello de entrada (docstring del módulo).
-    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=3)
+    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=4)
     madera: SkipJsonSchema[list[str]] = Field(default_factory=list, max_length=2)
 
     @field_validator("patron")

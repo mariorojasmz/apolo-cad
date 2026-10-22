@@ -54,7 +54,7 @@ def test_join_bolted_pasa_los_tres_controles():
     items = _items(doc)
     assert {i.estado for i in items.values()} == {OK}, items
     assert items["agarre.retencion"].evidencia["evaluados"] == 2
-    assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == 3
+    assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == 4  # vigente (F6: perfil abierto)
 
 
 def test_sin_tornilleria_no_aplica():
@@ -173,7 +173,7 @@ def _bloques(doc):
 
 
 def test_join_bolted_nuevo_sin_largo_de_catalogo_da_error_accionable():
-    assert CRITERIO_VIGENTE == 3
+    assert CRITERIO_VIGENTE >= 3  # el 4 (F6: perfil abierto) conserva el largo estricto del 3
     doc = Document("sello")
     a, b = _bloques(doc)
     with pytest.raises(Exception) as exc:
