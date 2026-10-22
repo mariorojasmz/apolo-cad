@@ -719,3 +719,61 @@ factor de servicio (sin requisitos) SIN_EVALUAR.
 Medido (laptop): la suite por defecto suma ~47 s (testigo `faja` 7,4 s; nueve defectos de la faja
 ≈ 2,6 s c/u —0,9 s de cargar el `.apolo`—; la cadena 3,2 s; el resto ≤ 0,5 s). El testigo
 `rodillos` (49 s) va con `-m torture`.
+
+### F6 — huecos de la puerta (2026-10-22)
+
+Dos huecos que salieron al pasar las máquinas de la tienda por la puerta (8D: cada uno con su
+testigo malo antes del arreglo). `VERSION_REGISTRO` = 3.
+
+**1. Las sondas ISO 13857 sólo veían en línea recta.** El revisor de taller halló en la faja de
+motor central (proyecto 4) una cuña que la puerta daba OK: la «Guarda del drive (+X)» llega a
+z 636 y la banda de retorno pasa a 642; junto a cada borde de la banda queda una ranura de 36 mm
+(borde ↔ larguero) abierta hasta la cama, y desde ahí hay ~60 mm a la cuña retorno ↔ desvío
+(c277, z ≈ 625). Reproducido en proceso: la cuña ES un peligro detectado con sus seis objetivos;
+ni 4096 direcciones de sondas rectas la alcanzan. **Causa raíz**: el modelo de alcance era una
+línea de vista desde el contorno; la mano llega subiendo entre las patas, pasando por encima de
+la guarda junto al borde de la banda y bajando bajo la banda — un brazo DOBLADO, que ISO 13857
+admite (tabla 4: por una abertura > 20 mm entra el brazo hasta el hombro; tabla 6: alcance
+alrededor con codo y muñeca). La banda, la caja de partida y el piso no tenían la culpa.
+
+Arreglo general (un modo de falla, no esta máquina): `library/seguridad/alcance.py` (puro) arma
+sobre una grilla de 10 mm el campo de la MUÑECA: voxeles transitables para una sonda de brazo de
+20 mm (muestras del teselado de cada sólido cada 5 mm, EDT + KD-tree; ningún paso salta una
+pared), brazo RECTO desde fuera de la caja de la máquina o desde el piso (la vara de las rectas),
+y antebrazo RECTO desde donde llega el brazo (26 direcciones de la red, barrido por capas);
+profundidad > 850 mm no llega. `services/calidad_codo.py`: desde cada objetivo, la mano sale
+recta (≤ 230 mm, tabla 6) hasta el primer sólido ajeno; el primer punto del tramo al que llega la
+muñeca es el origen de una sonda que `sondas.veredicto` juzga con sus haces (la abertura que pasa
+la mano decide sr). En una cuña la mano tiene que llegar a la cuña (tocar el tambor a > 20 mm
+del punto no cuenta); las rectas no cambian. Corre sólo sobre los peligros que las rectas dieron
+por resguardados (~3–6 s por máquina; nada en el transportador de rodillos, ya en FALLA). La
+evidencia cuenta `n_brazo_doblado` y cada sonda dice su `codo` y su profundidad.
+
+Calibración (`riesgos.partes_moviles`, antes → después):
+
+| máquina | antes | después |
+|---|---|---|
+| faja motor central (privada) | FALLA: cuñas de cola y cabeza (11 + 11 rectas) | FALLA: además desvío +X (14 dobladas, la del revisor), desvío −X (5) y motriz (15): el cajón del drive queda abierto por las dos ranuras |
+| faja motor cabeza (privada) | FALLA: cuñas de cola y motriz | igual (el extremo de eje sigue OK) |
+| rodillos con cadena 2 m (privada) | FALLA: transmisión expuesta (377) | igual (las dobladas no corren: ya falla) |
+| `create_belt_conveyor` v4 por defecto | OK | **FALLA, real**: cuñas de cola (20) y motriz (35), sólo dobladas: (1) la ranura de 35 mm borde de banda ↔ larguero está abierta por abajo entre las guardas de los tambores (más allá de la bandeja): el brazo pasa junto al borde del retorno, entra al lazo y baja la mano a las cuñas (600–700 mm desde el contorno); (2) el tubo del larguero está abierto en sus extremos y la ranura del tensor en su alma deja la cuña de cola a ~340 mm |
+
+La v4 necesita una v5 (decisión del orquestador): el testigo público `faja` lleva desde ahora los
+cierres que faltan (`scripts/testigos.py::cierres_faja`: guarda inferior atornillada bajo la
+ranura —ala a 10 mm del retorno, por fuera del borde de la banda— y tapas de los largueros) y
+aprueba entero. Defecto sembrado `sin_cierres` (la v4 tal cual) y
+`test_las_rectas_no_ven_la_ranura_junto_a_la_banda` (las rectas solas dan OK: el hueco).
+Tests puros del campo y de la mano en `tests/test_calidad_alcance.py`.
+
+**2. D3b era de la plantilla.** El transportador de rodillos a mano (19 lazos ASA 40 Z15–Z15 a
+95,25 mm, 30 eslabones, y la motriz de 48) salía SIN_EVALUAR «sin tensor»: `lazos_cadena` sólo
+ponía `centros_fijos` a los `{cmd}_cad{k}` de `create_roller_conveyor`. Ahora todo lazo de
+`create_chain` lleva su medida de centros y, si ningún tensor actúa sobre él, el control decide
+(exactos ± `TOL_CENTROS_MM` → OK con el reemplazo al 3 %; con holgura → SIN_EVALUAR «sin mecanismo
+de tensado reconocido y centros fijos a … mm»); con tensor, manda su carrera. Rodillos 2 m:
+`transmision_flexible.tension` SIN_EVALUAR → OK (20 de 20); las dos fajas, sin cambio (motor
+cabeza SIN_EVALUAR, motor central FALLA de carrera); la v4, OK.
+
+Testigos públicos re-congelados (registro v3; `faja` con firma nueva por sus cierres, sin ítems
+movidos). Los privados se movieron sólo en `version_registro` y en la tensión del de rodillos; su
+JSON no se tocó (repo privado: lo re-congela quien corrige las máquinas).

@@ -186,15 +186,18 @@ def peligros_mecanicos(piezas: dict[str, Pieza], juntas: list[dict], uniones: li
 
 def resultado_peligro(peligro: dict, sondas: list[dict], ms: float,
                       max_evidencias: int = 5) -> dict:
-    """Agrega las sondas de un peligro: FALLA si alguna alcanza, SIN_EVALUAR sin objetivos."""
+    """Agrega las sondas de un peligro (rectas y con el brazo doblado): FALLA si alguna alcanza,
+    SIN_EVALUAR sin objetivos."""
     alcanzan = [s for s in sondas if s.get("alcanza")]
     if not peligro.get("objetivos"):
         estado = "SIN_EVALUAR"
     else:
         estado = "FALLA" if alcanzan else "OK"
     resguardos = sorted({b for s in sondas for b in s.get("bloquea", ()) if b})
+    doblado = sum(1 for s in alcanzan if s.get("via"))  # las del brazo doblado (`calidad_codo`)
     return {"id": peligro["id"], "estado": estado, "n_sondas": len(sondas),
-            "n_alcanzan": len(alcanzan), "fallas": alcanzan[:max_evidencias],
+            "n_alcanzan": len(alcanzan), **({"n_brazo_doblado": doblado} if doblado else {}),
+            "fallas": alcanzan[:max_evidencias],
             "bloqueado_por": resguardos, "ms": round(ms),
             **({"motivo": peligro["motivo"]} if peligro.get("motivo") else {})}
 

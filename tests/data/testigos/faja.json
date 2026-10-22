@@ -1,10 +1,10 @@
 {
  "testigo": "faja",
- "descripcion": "create_belt_conveyor v4 por defecto con requisitos y funciones D15: aprueba entera",
+ "descripcion": "create_belt_conveyor v4 por defecto + sus cierres (guarda inferior bajo la ranura banda-larguero y tapas de los largueros: lo que la v4 no trae, F6) con requisitos y funciones D15: aprueba entera",
  "tortura": false,
  "aprobado": true,
- "version_registro": "2",
- "firma": "dc10072faa9c7f1c67a4",
+ "version_registro": "3",
+ "firma": "1c359794c1b2466f6a85",
  "items": {
   "entrega.semaforo": "OK",
   "entrega.gravedad": "OK",

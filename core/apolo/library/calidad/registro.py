@@ -52,7 +52,10 @@ Reglas del agregador (`evaluar`):
 
 `VERSION_REGISTRO` sube cuando cambia un ítem, un umbral o un `aplica_si`: viaja en `calidad.json`
 junto a la firma del modelo (`services/puerta_publicacion.firma_modelo`), que la fábrica compara
-antes de generar. v2: entra F3 (seguridad y reparabilidad) y la tabla de riesgos.
+antes de generar. v2: entra F3 (seguridad y reparabilidad) y la tabla de riesgos. v3 (F6):
+`riesgos.partes_moviles` suma las sondas con el brazo DOBLADO (ISO 13857, tabla 6) y
+`transmision_flexible.tension` acepta sin tensor todo lazo de cadena de centros exactos (D3b
+general, no sólo el de la plantilla de rodillos).
 """
 
 from __future__ import annotations
@@ -63,7 +66,7 @@ from typing import Callable
 from . import puerta as p
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "2"
+VERSION_REGISTRO = "3"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]

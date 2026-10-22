@@ -102,7 +102,8 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - Miden los INSUMOS de los controles puros de `library/calidad/` (formato en sus docstrings): lo
   que cruza el eje de cada perno (rayos OCCT, por SÓLIDO, eje y cabeza de la geometría) y los
   lazos con sus tensores RECONOCIDOS (take-up, catálogo con `carrera_mm`, plantilla, metadato
-  `tensores`), nunca por nombre de pieza. Lo no medible sale SIN_EVALUAR, jamás OK.
+  `tensores`), nunca por nombre de pieza. Lo no medible sale SIN_EVALUAR, jamás OK. Todo lazo de
+  `create_chain` lleva su medida de centros (D3b es de la cadena, no de la plantilla: F6).
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F2)
 - `puerta_publicacion.reunir` arma TODOS los insumos del registro bajo el lock del llamador (la
   gravedad y la marcha las corre la API fuera, con los suyos); `puerta_hechos.py` son los

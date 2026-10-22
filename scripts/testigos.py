@@ -72,11 +72,60 @@ FUNCIONES_FAJA = [
 
 
 # ------------------------------------------------------------------ recetas de los públicos
+def _caja_de(d, nombre: str):
+    bb = next(f for f in d.scene.values() if f.name == nombre).shape.bounding_box()
+    return (bb.min.X, bb.min.Y, bb.min.Z), (bb.max.X, bb.max.Y, bb.max.Z)
+
+
+def _box(d, nombre, x0, x1, y0, y1, z0, z1) -> str:
+    return d.execute("create_box", {"name": nombre, "width": x1 - x0, "depth": y1 - y0,
+                                    "height": z1 - z0, "position": {
+                                        "x": (x0 + x1) / 2, "y": (y0 + y1) / 2,
+                                        "z": (z0 + z1) / 2}})
+
+
+def cierres_faja(d) -> list[str]:
+    """Lo que la v4 de `create_belt_conveyor` no trae y la puerta pide (F6 de
+    puerta-de-publicacion, sondas con el brazo doblado): (1) una guarda inferior bajo la ranura
+    banda ↔ larguero entre las guardas de los tambores (ala a 10 mm bajo el ramal de retorno, por
+    fuera del borde de la banda; pared atornillada a la cara interior del larguero): por esa ranura
+    de 35 mm el brazo entraba al lazo y llegaba a las cuñas de los dos tambores; (2) tapas en los
+    extremos de los largueros (tubo abierto: por adentro se llegaba a la cuña de cola por la ranura
+    del tensor). Medidas leídas del modelo. Devuelve los ids de lo agregado."""
+    banda = _caja_de(d, "Faja de banda · Banda")
+    x_c = _caja_de(d, "Faja de banda · Guarda del tambor de cola")[1][0]
+    x_m = _caja_de(d, "Faja de banda · Guarda del tambor motriz")[0][0]
+    borde, z_ret = banda[1][1], banda[0][2]
+    ids = []
+    for k, s in ((1, -1.0), (2, 1.0)):
+        rail = next(i for i, f in d.scene.items() if f.name == f"Faja de banda · Larguero ({k})")
+        lo, hi = _caja_de(d, f"Faja de banda · Larguero ({k})")
+        y_in = hi[1] if s < 0 else lo[1]
+        ys = sorted((s * (abs(y_in) - 3.0), y_in))
+        yl = sorted((s * (borde + 1.0), s * (abs(y_in) - 3.0)))
+        z0 = z_ret - 13.0
+        pared = _box(d, f"Guarda inferior ({k}) · pared", x_c + 1, x_m - 1, *ys, z0, lo[2] + 33)
+        ala = _box(d, f"Guarda inferior ({k}) · ala", x_c + 1, x_m - 1, *yl, z0, z0 + 3)
+        d.execute("fasten", {"name": f"gi{k}", "a": ala, "b": pared, "kind": "soldadura",
+                             "throat_mm": 2, "length_mm": 1000})
+        d.execute("fasten", {"name": f"gp{k}", "a": pared, "b": rail, "kind": "perno",
+                             "size": "M6", "qty": 7})
+        ids += [pared, ala]
+        for x0, lado in ((lo[0] - 3.0, "cola"), (hi[0], "cabeza")):
+            t = _box(d, f"Tapa del larguero ({k}, {lado})", x0, x0 + 3.0, lo[1], hi[1], lo[2],
+                     hi[2])
+            d.execute("fasten", {"name": f"gt{k}_{lado}", "a": t, "b": rail, "kind": "perno",
+                                 "size": "M6", "qty": 2})
+            ids.append(t)
+    return ids
+
+
 def _faja():
     from apolo.doc import Document
 
     d = Document("faja-de-banda")
     d.execute("create_belt_conveyor", {})
+    cierres_faja(d)
     d.set_requirements(dict(REQUISITOS))
     d.funciones = [dict(f) for f in FUNCIONES_FAJA]
     return d
@@ -116,8 +165,9 @@ def _mensula_atornillada():
 
 #: nombre → (receta, descripción, tortura)
 RECETAS = {
-    "faja": (_faja, "create_belt_conveyor v4 por defecto con requisitos y funciones D15: "
-                    "aprueba entera", False),
+    "faja": (_faja, "create_belt_conveyor v4 por defecto + sus cierres (guarda inferior bajo la "
+                    "ranura banda-larguero y tapas de los largueros: lo que la v4 no trae, F6) con "
+                    "requisitos y funciones D15: aprueba entera", False),
     "rodillos": (_rodillos, "create_roller_conveyor de 1500 mm con requisitos (sin D15): su "
                             "veredicto de hoy, con lo que falta", True),
     "mensula": (_mensula, "una ménsula suelta anclada: pieza estática que se aprueba", False),

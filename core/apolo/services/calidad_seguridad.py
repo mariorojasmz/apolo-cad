@@ -11,7 +11,8 @@ extrae datos puros y corre los controles de `library/seguridad/`.
   `seguridad.guarda_con_herramienta` y `seguridad.electrico`, más la tabla de riesgos;
 - `items_seguridad(doc, contexto)`: la `Fuente` «seguridad» del registro (F3 entero, una vez).
 
-Sin locks (el llamador sostiene `STATE_LOCK`); el trazado de rayos, en `calidad_sondas.py`.
+Sin locks (el llamador sostiene `STATE_LOCK`); el trazado de rayos, en `calidad_sondas.py`; las
+sondas con el brazo doblado (sobre lo que las rectas dieron por resguardado), en `calidad_codo.py`.
 """
 
 from __future__ import annotations
@@ -194,10 +195,40 @@ def _fila_electrica(estado: str | None) -> dict:
     return fila if estado is None else {**fila, "estado": estado}
 
 
+def _alcanzan(r: dict) -> str:
+    txt = f"{r['n_alcanzan']} sondas alcanzan"
+    return txt + (f", {r['n_brazo_doblado']} con el brazo doblado" if r.get("n_brazo_doblado")
+                  else "")
+
+
+def _con_brazo_doblado(tr, dc: dict, peligros: list[dict], sondas: dict, resultados: dict,
+                       n_direcciones: int) -> dict:
+    """Las sondas con el brazo DOBLADO (`calidad_codo`) sobre los peligros que las rectas dieron
+    por resguardados: el campo del brazo se arma UNA vez y sólo si hace falta. → evidencia."""
+    from apolo.library.seguridad.peligros import resultado_peligro
+
+    from .calidad_codo import campo_alcance, sondas_con_codo
+
+    pendientes = [p for p in peligros if resultados[p["id"]]["estado"] == "OK"]
+    if not pendientes:
+        return {"peligros": 0, "motivo": "ningún peligro quedó resguardado por las rectas"}
+    t0 = time.perf_counter()
+    campo = campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"])
+    ms_campo = (time.perf_counter() - t0) * 1000.0
+    for p in pendientes:
+        extra, ms = sondas_con_codo(tr, campo, p, n_direcciones)
+        resultados[p["id"]] = resultado_peligro(p, sondas[p["id"]] + extra,
+                                                resultados[p["id"]]["ms"] + ms)
+    return {"peligros": len(pendientes), "voxel_mm": round(campo.paso, 1),
+            "ms_campo": round(ms_campo)}
+
+
 def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
-                        an: dict | None = None, electrico: bool = True) -> dict:
+                        an: dict | None = None, electrico: bool = True,
+                        brazo_doblado: bool = True) -> dict:
     """→ {items: [resguardo, guarda, eléctrico], riesgos: [filas], peligros: [...], ms}. `an`: el
-    `analisis` ya hecho; `electrico=False` no corre el ERC (ni su ítem ni su fila)."""
+    `analisis` ya hecho; `electrico=False` no corre el ERC (ni su ítem ni su fila);
+    `brazo_doblado=False` deja sólo las sondas rectas (para medir el hueco que cierran)."""
     from apolo.library.seguridad import guardas as G
     from apolo.library.seguridad.iso13857 import NORMA as NORMA_13857
     from apolo.library.seguridad.modelo import item
@@ -210,7 +241,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
     dc, piezas = an["dc"], an["dc"]["piezas"]
     peligros = [dict(p) for p in an["peligros"]]  # se les ponen objetivos: el análisis no cambia
     tr = Trazador(dc["solidos"]) if peligros else None
-    resultados = {}
+    resultados, sondas_de = {}, {}
     for p in peligros:
         if p.get("cuna"):
             b, t = p["cuna"]["banda"], p["cuna"]["tambor"]
@@ -219,7 +250,10 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
             if not c["puntos"]:
                 p["motivo"] = c.get("motivo")
         sondas, ms = evaluar_peligro(tr, p, dc["caja"], dc["z_piso"], n_direcciones)
+        sondas_de[p["id"]] = sondas
         resultados[p["id"]] = resultado_peligro(p, sondas, ms)
+    doblado = (_con_brazo_doblado(tr, dc, peligros, sondas_de, resultados, n_direcciones)
+               if brazo_doblado and peligros else None)
 
     titulo = "Cada peligro mecánico queda fuera del alcance (sondas ISO 13857)"
     modo = "atrapamiento o enganche de manos y brazos en lo que gira o en una cuña"
@@ -235,11 +269,12 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
                            for p in peligros],
               "direcciones": n_direcciones, "rayos": tr.n_rayos,
               "excepcion": "el ramal de carga de la banda (zona de trabajo) no es peligro; "
-                           "sus cuñas con los tambores sí"}
+                           "sus cuñas con los tambores sí",
+              **({"brazo_doblado": doblado} if doblado is not None else {})}
         it_res = item(ID_RESGUARDO, titulo, estado, modo, NORMA_13857, ev,
                       [i for p in malos for i in p["piezas"]],
                       "; ".join(f"{p['peligro']}: {resultados[p['id']]['estado']} "
-                                f"({resultados[p['id']]['n_alcanzan']} sondas alcanzan)"
+                                f"({_alcanzan(resultados[p['id']])})"
                                 for p in malos[:6]) or f"{len(peligros)} peligros resguardados")
 
     rg = an["guardas"]

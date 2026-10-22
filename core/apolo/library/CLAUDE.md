@@ -264,4 +264,6 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   es peligro ni se atraviesa; el rodillo portante liso no es peligro), guarda atornillada, desgaste
   sin soldar y desmontable, banda montable. Entran por la fuente «seguridad» (`seguridad.electrico`
   se descarta: es `riesgos.electrico`); umbrales y calibración en el
-  [plan](../../../docs/plans/puerta-de-publicacion.md) § F3.
+  [plan](../../../docs/plans/puerta-de-publicacion.md) § F3. Las sondas rectas no ven lo que se
+  alcanza doblando el brazo: `alcance.py` (campo de la muñeca, brazo + antebrazo rectos) +
+  `services/calidad_codo.py` (la mano ≤ 230 mm, juzgada por `sondas.veredicto`). § F6.

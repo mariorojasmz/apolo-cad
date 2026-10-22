@@ -14,7 +14,11 @@ paralelas (`sondas.py`), así que la clase de abertura es la del haz más ancho 
 from __future__ import annotations
 
 ALCANCE_BRAZO_MM = 850.0
-NORMA = "ISO 13857:2019 tabla 4 (ranura) + alcance del brazo 850 mm"
+#: Tabla 6 (alcance alrededor de una estructura), brazo apoyado hasta la MUÑECA: la mano alcanza
+#: R = 230 mm. El último tramo de las sondas con el brazo doblado (`services/calidad_codo.py`).
+ALCANCE_DESDE_MUNECA_MM = 230.0
+NORMA = ("ISO 13857:2019 tabla 4 (ranura) + alcance del brazo 850 mm + tabla 6 (brazo doblado: "
+         "codo y muñeca)")
 
 # (e_max de la fila, sr mínima) — tabla 4, ranura: e ≤ 4 → 2; 4 < e ≤ 6 → 10; … ; e > 20 → 850
 TABLA4_RANURA: tuple[tuple[float, float], ...] = (

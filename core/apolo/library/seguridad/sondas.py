@@ -20,6 +20,9 @@ Reglas del veredicto (declaradas):
 4. Si no, la abertura es la del haz más ancho que pasa; su `sr` sale de la tabla 4 y se mide desde
    la abertura (el último sólido que estrechó el haz siguiente) hasta el peligro: sr < requerida →
    FALLA.
+
+Una recta sólo ve líneas de vista: lo que se alcanza DOBLANDO el brazo lo prueban `alcance.py`
+(el campo de la muñeca) y `services/calidad_codo.py` (la mano), con este mismo `veredicto`.
 """
 
 from __future__ import annotations

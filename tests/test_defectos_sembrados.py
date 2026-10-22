@@ -22,7 +22,7 @@ from tablero_electrico import arranque_directo
 
 import apolo.api.main as api
 from apolo.doc import Document
-from apolo.library.calidad.item import FALLA
+from apolo.library.calidad.item import FALLA, OK
 from apolo.library.calidad.registro import REGISTRO, Entrada, Fuente, evaluar
 from apolo.services import escenarios as E
 from apolo.services import puerta_publicacion as pp
@@ -217,6 +217,17 @@ def sin_guardas(d):
     _editar_faja(d, guardas=False)
 
 
+def sin_cierres(d):
+    """La v4 de create_belt_conveyor TAL CUAL (F6): sin la guarda inferior bajo la ranura banda ↔
+    larguero (35 mm, abierta por abajo entre las guardas de los tambores) ni las tapas de los
+    largueros. Por ahí el brazo entra al lazo y baja la mano a las cuñas: sólo se ve doblándolo."""
+    piezas = {i for i, f in d.scene.items()
+              if f.name.startswith(("Guarda inferior", "Tapa del larguero"))}
+    assert piezas, "el testigo faja ya no trae sus cierres (scripts/testigos.py::cierres_faja)"
+    d.remove_commands([c["id"] for c in d.commands if c["id"] in piezas or (
+        c["type"] == "fasten" and {c["params"].get("a"), c["params"].get("b")} & piezas)])
+
+
 def resguardo_sin_declarar(d):  # D15: nadie dijo por qué las guardas son así
     d.funciones = [f for f in d.funciones if f["funcion"] != "resguardo"]
 
@@ -270,6 +281,7 @@ DEFECTOS = (
     Defecto("travesano_en_el_lazo", "faja", travesano_en_el_lazo,
             {"consumibles.reemplazables": FALLA}),
     Defecto("sin_guardas", "faja", sin_guardas, {"riesgos.partes_moviles": FALLA}),
+    Defecto("sin_cierres", "faja", sin_cierres, {"riesgos.partes_moviles": FALLA}),
     Defecto("resguardo_sin_declarar", "faja", resguardo_sin_declarar,
             {"diseno.soluciones_por_funcion": FALLA}),
 )
@@ -340,3 +352,25 @@ def test_la_tornilleria_asentada_no_cae_en_la_gravedad_de_las_puertas():
     api.DOC = d
     rep = TestClient(api.app).post("/api/delivery-check", json={"con_gravedad": True}).json()
     assert rep["veredicto"] == "VERDE", rep
+
+
+# ------------------------------------------------------------------ el hueco de las rectas (F6)
+def test_las_rectas_no_ven_la_ranura_junto_a_la_banda():
+    """8D del defecto de producción de la F6 (la cuña retorno ↔ desvío de la faja de motor
+    central, a 60 mm de una ranura de 36 mm junto al borde de la banda): con sólo las sondas
+    RECTAS, la v4 sin cierres sale resguardada —el hueco—; con el brazo doblado (ISO 13857 tabla 6)
+    fallan las cuñas de los dos tambores, y sólo por las sondas dobladas."""
+    from apolo.services.calidad_seguridad import controles_seguridad
+
+    d = _base("faja")
+    sin_cierres(d)
+    rectas = controles_seguridad(d, electrico=False, brazo_doblado=False)["items"][0]
+    assert rectas["estado"] == OK, rectas["detalle"]
+    it = controles_seguridad(d, electrico=False)["items"][0]
+    assert it["estado"] == FALLA
+    malos = [p for p in it["evidencia"]["peligros"] if p["estado"] == FALLA]
+    assert len(malos) == 2 and all(p["id"].startswith("atrapamiento:") for p in malos)
+    assert all(p["n_brazo_doblado"] == p["n_alcanzan"] > 0 for p in malos)
+    f = malos[0]["fallas"][0]
+    assert f["via"] == "brazo doblado" and f["distancia_mm"] <= 850 and len(f["codo"]) == 3
+    assert "con el brazo doblado" in it["detalle"]
