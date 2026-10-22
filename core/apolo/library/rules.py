@@ -473,6 +473,9 @@ def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm
     if conveyor.get("plantilla") == "create_roller_conveyor":
         from .rodillos_cadena_reglas import reglas_rodillos_cadena as reglas
         return reglas(conveyor, carga_kg, largo_paquete_mm, velocidad_m_s, ancho_paquete_mm)
+    if conveyor.get("a_mano"):  # rodillos de tubo con eje y rodamientos: capacidad y motor medidos
+        from .rodillos_a_mano_reglas import reglas_a_mano
+        return reglas_a_mano(conveyor, carga_kg, largo_paquete_mm, velocidad_m_s, ancho_paquete_mm)
     checks: list[dict] = []
     largo = float(conveyor.get("largo") or 2000)
     ancho = float(conveyor.get("ancho") or 600)
@@ -543,7 +546,7 @@ def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm
     else:
         support_count = 1
 
-    # 2 · capacidad del rodillo (uno a medida, sin ficha: `rodillos_a_mano.capacidad_a_medida`)
+    # 2 · capacidad del rodillo (uno a medida, sin ficha: `rodillos_a_mano_reglas`)
     carga_por_rodillo = carga_kg / max(1, support_count)
     capacidad = float(rodillo.specs.get("capacidad_kg") or 0.0)
     calc_rod = {
@@ -558,14 +561,11 @@ def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm
         "norma": "CEMA (clasificación de carga de rodillos/idlers) — ficha de fabricante",
     }
     if not capacidad:
-        from .rodillos_a_mano import capacidad_a_medida
-        checks.append(capacidad_a_medida(rodillo_ref, carga_kg, support_count))
+        from .rodillos_a_mano_reglas import capacidad_a_medida
+        checks.append(capacidad_a_medida(conveyor, carga_kg, support_count, v_eff))
     elif carga_por_rodillo <= capacidad:
-        checks.append(_check(
-            "capacidad de rodillo", "ok",
-            f"{carga_por_rodillo:.1f} kg/rodillo ≤ {capacidad:g} kg ({rodillo_ref}).",
-            calc=calc_rod,
-        ))
+        checks.append(_check("capacidad de rodillo", "ok", f"{carga_por_rodillo:.1f} kg/rodillo ≤ "
+                             f"{capacidad:g} kg ({rodillo_ref}).", calc=calc_rod))
     else:
         sugerido = recommend_roller(carga_kg, largo_paquete_mm, paso or largo_paquete_mm / 3.0)
         checks.append(_check(

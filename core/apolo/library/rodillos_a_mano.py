@@ -12,6 +12,10 @@ puerta-de-publicacion), nunca por el nombre de una máquina; sale de `rules.py` 
   documento queda como antes) y nada con rol de banda o tambor (eso es una faja: la ven el
   patrón de catálogo o `_detect_by_name`).
 
+Lo MEDIDO de cada rodillo (eje, apoyos, rodamientos, masa que gira) lo arma
+`rodillos_a_mano_medida`; su capacidad y el motor los calcula `rodillos_a_mano_reglas` (el dict
+lleva `a_mano`: `rules.conveyor_engineering_check` le cede las reglas).
+
 El bastidor NO entra al dict: la flecha la calcula `services/vigas_rules` con la sección real del
 perfil (un ángulo flecta por sus ejes principales; `_frame_from_scene` lo leería como tubo).
 """
@@ -23,7 +27,7 @@ from collections import Counter
 
 from .catalog import CATALOG
 from .materials import piece_role
-from .rules import _BANDA_RE, _check
+from .rules import _BANDA_RE
 
 MIN_RODILLOS = 3
 _MOTORES = ("motorreductores", "motorreductores_sinfin")
@@ -51,17 +55,18 @@ def _cilindro(caja) -> tuple | None:
     return k, ext[k], max(a, b), tuple((lo[i] + hi[i]) / 2.0 for i in range(3))
 
 
-def _atravesado(caja, cil, cajas) -> bool:
-    """¿Otra pieza va DENTRO de la sección del tubo y asoma por sus dos extremos (su eje)?"""
+def _eje_de(caja, cil, cajas):
+    """La clave de la pieza que va DENTRO de la sección del tubo y asoma por sus dos extremos
+    (su eje), o None. `cajas`: pares (clave, caja)."""
     k, _largo, d, _c = cil
     lo, hi = caja
-    for olo, ohi in cajas:
+    for clave, (olo, ohi) in cajas:
         if not (olo[k] < lo[k] - 1.0 and ohi[k] > hi[k] + 1.0):
             continue
         if all(olo[i] >= lo[i] - _TOL and ohi[i] <= hi[i] + _TOL and ohi[i] - olo[i] < 0.9 * d
                for i in range(3) if i != k):
-            return True
-    return False
+            return clave
+    return None
 
 
 def lecho_de_rodillos(scene: dict) -> list[tuple]:
@@ -77,7 +82,7 @@ def lecho_de_rodillos(scene: dict) -> list[tuple]:
             continue
         if comp.category == "tubos_circulares" and not (
                 "rodillo" in piece_role(getattr(f, "name", "") or "").lower()
-                or _atravesado(cajas[fid], cil, (c for o, c in cajas.items() if o != fid))):
+                or _eje_de(cajas[fid], cil, ((o, c) for o, c in cajas.items() if o != fid))):
             continue
         rodillos.append((f, comp.ref, cil))
     grupos: list[list[tuple]] = []  # mismo eje, misma altura y mismo largo (±_TOL) que el 1.º
@@ -94,12 +99,18 @@ def lecho_de_rodillos(scene: dict) -> list[tuple]:
 
 
 def detectar_rodillos_a_mano(scene: dict) -> dict | None:
-    """El dict de `conveyor_engineering_check` (tipo «rodillos») de un transportador de rodillos
-    hecho a mano, o None (sin motorreductor de catálogo, sin lecho o si es una faja)."""
+    """El dict de `conveyor_engineering_check` (tipo «rodillos», `a_mano`) de un transportador
+    de rodillos hecho a mano, o None (sin motorreductor de catálogo, sin lecho o si es una faja).
+    Lleva lo MEDIDO de sus rodillos (`rodillos_medidos`, `rodillos_a_mano_medida`) y la potencia
+    del motor (ficha; si no la tiene, la placa del nombre): las reglas a mano
+    (`rodillos_a_mano_reglas`) calculan con eso su capacidad y su motor."""
+    from .rodillos_a_mano_medida import medir_lecho
+    from .rules import _parse_power_kw
+
     roles = [piece_role(getattr(f, "name", "") or "").lower() for f in scene.values()]
     if any(_BANDA_RE.match(r) or _TAMBOR_RE.match(r) for r in roles):
         return None
-    motores = [f.component for f in scene.values()
+    motores = [f for f in scene.values()
                if (c := CATALOG.get(getattr(f, "component", None) or "")) is not None
                and c.category in _MOTORES]
     lecho = lecho_de_rodillos(scene) if motores else []
@@ -110,37 +121,24 @@ def detectar_rodillos_a_mano(scene: dict) -> dict | None:
     xs = sorted(cil[3][avance] for _f, _r, cil in lecho)
     gaps = sorted(b - a for a, b in zip(xs, xs[1:]) if b - a > 1.0)
     largo_rodillo = round(max(cil[1] for _f, _r, cil in lecho), 1)
-    specs = CATALOG[motores[0]].specs
+    motor = motores[0]
+    specs = CATALOG[motor.component].specs
+    medidos = medir_lecho(scene, lecho)
     return {
         "tipo": "rodillos",
+        "a_mano": True,
         "largo": round(xs[-1] - xs[0], 1),
         "ancho": largo_rodillo,
         "ancho_util_mm": largo_rodillo,  # el paquete apoya en el tubo: su largo es el útil
         "altura": round(max(cil[3][2] + cil[2] / 2.0 for _f, _r, cil in lecho), 1),
         "paso": round(gaps[len(gaps) // 2], 2) if gaps else None,  # mediana: un hueco no la mueve
         "rodillo": Counter(r for _f, r, _c in lecho).most_common(1)[0][0],
-        "motor": motores[0],
+        "motor": motor.component,
+        "motor_kW": specs.get("potencia_kW") or _parse_power_kw(getattr(motor, "name", "")),
         "tambor_d": None,
         "rpm_motor": specs.get("rpm_salida"),
         "torque_Nm": specs.get("torque_Nm"),
         "n_rodillos": len(lecho),
+        "masa_rodillos_kg": round(sum(m["n"] * m.get("masa_kg", 0.0) for m in medidos), 2),
+        "rodillos_medidos": medidos,
     }
-
-
-def capacidad_a_medida(ref: str, carga_kg: float, apoyos: int) -> dict:
-    """«capacidad de rodillo» de un rodillo SIN ficha de capacidad (un tubo de catálogo armado
-    a mano): la carga por rodillo se calcula, la capacidad no se inventa → aviso."""
-    p = carga_kg / max(1, apoyos)
-    calc = {"titulo": "Capacidad de rodillo",
-            "entradas": {"carga por paquete": f"{carga_kg:g} kg", "apoyos": f"{max(1, apoyos)}",
-                         "rodillo": f"{ref} a medida (sin capacidad de ficha)"},
-            "formula": "P = carga / n_apoyos",
-            "sustitucion": f"P = {carga_kg:g} / {max(1, apoyos)}",
-            "resultado": f"P = {p:.1f} kg/rodillo",
-            "criterio": "P ≤ capacidad del rodillo (rodamiento L10 y eje): sin dato, no se verifica",
-            "fs": None, "norma": "criterio de diseño"}
-    return _check("capacidad de rodillo", "aviso",
-                  f"{p:.1f} kg/rodillo sobre un rodillo a medida ({ref}): su capacidad no tiene "
-                  "ficha y nadie verificó su rodamiento ni su eje.",
-                  "Inserta su rodamiento de catálogo (vida L10, ISO 281) o usa un rodillo de "
-                  "catálogo (categoría «rodillos»).", calc=calc)

@@ -79,17 +79,19 @@ def test_detecta_el_transportador_de_tubos_sobre_angulo(con_motor):
 
 def test_el_factor_de_servicio_se_calcula_con_los_requisitos(con_motor):
     reglas = {r["regla"]: r for r in reglas_de_ingenieria(con_motor)}
-    mot = reglas["motorización"]
+    # el motor con el método de la plantilla (`rodillos_a_mano_reglas.motor_a_mano`)
+    assert "motorización" not in reglas
+    mot = reglas["motor"]
     assert mot["estado"] == "ok" and mot["calc"]["fs"] > 1.0
-    # la capacidad de un rodillo a medida no se inventa: aviso con la carga calculada
+    # sin rodamiento reconocible la capacidad no se inventa: aviso con el motivo
     cap = reglas["capacidad de rodillo"]
     assert cap["estado"] == "aviso" and cap["calc"]["fs"] is None
-    assert "a medida" in cap["detalle"]
+    assert "a medida" in cap["detalle"] and "ningún rodamiento reconocible" in cap["detalle"]
     assert reglas["ancho útil"]["estado"] == "ok"  # 500 mm de tubo para 400 de paquete
     item = _item(con_motor, "vida.factor_servicio")
     assert item.estado == "OK"
     assert item.evidencia["valores"][0]["factor_servicio"] == pytest.approx(
-        mot["calc"]["fs"] * 1.3, abs=0.02)
+        mot["calc"]["fs"] * 1.5, abs=0.02)  # el arranque ×1.5 de la plantilla
 
 
 def test_antes_quedaba_sin_evaluar(con_motor, monkeypatch):
