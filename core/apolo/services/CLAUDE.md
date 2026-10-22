@@ -159,7 +159,7 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [cirugia-liviana](../../../docs/plans/cirugia-liviana.md)
 - `como_seguir` arma el 400 de un borrado con referencias rotas (tras el rollback): lo que
   `con_dependientes=true` arrastraría y los comandos que no (juntas, mates, patrones y
-  operaciones que nombran lo borrado, `fasten` por conjuntos), con sus ids y recortado. Un id inexistente deja el error tal cual. [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md) (D4)
+  operaciones que nombran lo borrado, `fasten` por conjuntos), con sus ids y recortado. Un id inexistente deja el error tal cual. Lo que CREA un comando borrado (command_id `{cmd}_…`: los `fasten` internos de una plantilla) no es dependiente. [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md) (D4, D11)
 
 ## Respuestas cortas para el agente (`paso.py`, `conexiones.py`, `reglas_cortas.py`)
 
@@ -167,12 +167,16 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   sólo lo que CAMBIÓ o FALLÓ; el detalle, a pedido. Una lista larga se recorta con
   `paso.recortar` (`MAX_LISTA`) y declara `<clave>_omitidas`: nunca un recorte silencioso.
 - «Repetido» = mismo nombre con los números cambiados por `*` (`reglas_cortas.patron`): agrupa
-  reglas (una línea, `n`, el PEOR caso en `peor`) y uniones (`resumen` de `get_connections`). Por
-  raíz de pieza, como la propuesta de estructura, la piloto daba 84 filas (cada cadena es su
-  comando).
+  reglas (una línea, `n`, el PEOR caso en `peor`). Una UNIÓN se agrupa por el PAR de patrones de
+  sus piezas (`conexiones.patron_de`: sin los tramos de la máquina ni paréntesis), no por su
+  nombre (`auto_f_*` mezclaba 163 contactos): el `resumen` de `get_connections` y, con
+  `clave_de_reglas`, las reglas de cada unión (D9, D12). En corto lo «ok» va sin detalle salvo
+  con `grupo`.
 - Un recorte o un error dice cómo seguir (D4): la interferencia truncada suma `como_acotar`
-  (`interferencias.py`: cuántas faltan + grupos de primer nivel), un `fasten` por conjuntos se
-  cuenta en `conexiones.expandidas` y la puerta anota segundos por regla (`delivery_inputs(tiempos=)`).
+  (`interferencias.py`: la llamada de la página siguiente, `desde`, y zonas que NO son lo ya
+  pedido: D10), un `fasten` por conjuntos se cuenta en `conexiones.expandidas` y la puerta anota
+  segundos por regla (`delivery_inputs(tiempos=)`). `excluir_declaradas` usa las exclusiones de la
+  puerta (`delivery_inputs.exclusiones_declaradas`, una sola fuente).
 
 ## Estructura propuesta (`estructura.py`)
 
@@ -188,10 +192,17 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `scripts/fixture_estructura.py`) debe seguir ≥ 95 % y sin soldaduras desmontables. `kind` None
   = no se declara (`omitidas`), salvo que deje suelta una pieza que la geometría sujetaba: vuelve a
   revisar. [mcp-sin-friccion](../../../docs/plans/mcp-sin-friccion.md) (D6)
+- No repite lo declarado: omite todo par que las uniones declaradas YA unen, directo o en cadena
+  (`unidas_por_lo_declarado`; los anclajes no unen). Sobre una plantilla recién generada propone 0
+  (D7).
+- Cada `fasten` propuesto lleva su dimensión (`dimensionado.py`, tabla en
+  `library/engineering/union_por_defecto.py`): nada queda «sin dimensionar» (D8). Aplicada, el endpoint
+  ejecuta `lote_compacto` (un `fasten` por conjunto verificado, con la menor dimensión de la fila;
+  las uniones a revisar, sueltas): las MISMAS uniones que la propuesta.
 - Corto (`estructura_corta.py`, `resumen=true` del endpoint): filas por patrón de nombre (sin
-  paréntesis) con los `fasten` por conjuntos VERIFICADOS expandiéndolos con `pares_de_union`
-  (nunca uno que no dé exactamente los pares de la fila); ids sólo de `a_revisar`. Aplicada,
-  conteos (`aplicada_corta`), nunca la lista de conexiones.
+  paréntesis) con su dimensión y los `fasten` por conjuntos VERIFICADOS expandiéndolos con
+  `pares_de_union` (nunca uno que no dé exactamente los pares de la fila); ids sólo de
+  `a_revisar`. Aplicada, conteos (`aplicada_corta`, con `ordenes`), nunca la lista de conexiones.
 
 ## Video y vista 3D de la tienda (`construccion.py`, `rotulos.py`, `datos_rotulos.py`, `guion_video.py`, `cifras_grupo.py`)
 
@@ -237,4 +248,6 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - `rol_union` (roles de unión) lee el SUSTANTIVO que encabeza cada tramo « · » (anclado al
   inicio: «Eje del rodillo» es eje, «Separador de guarda» es estructura), del último al primero y
   sin los tramos que nombran un grupo (la máquina de una plantilla); el catálogo de tornillería,
-  rodamientos, equipos y lo que gira manda antes que el nombre.
+  rodamientos, equipos y lo que gira manda antes que el nombre. Una tapa sin otro rol es guarda; el
+  `cuerpo` conserva la numeración si la pieza ES ese tramo («Bandeja (tramo 1)» ≠ «(tramo 2)»:
+  perno) y la quita si es una parte («Guarda · extremo (+X)»: soldadura con su pared). (D7)

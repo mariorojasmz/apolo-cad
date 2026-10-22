@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 mergeadas y F4 verificada por MCP el 2026-10-21 (mejora lo medido; 8 fricciones) → F5 en curso (D7–D12). Vetables de F3: lo que gira junto se suelda y el cárter soldado a la base del motor
+nota: F0–F3 mergeadas y F4 verificada por MCP el 2026-10-21 (8 fricciones) → F5 implementada en rama, sin mergear (D7–D12). Vetables de F3: lo que gira junto se suelda y el cárter soldado a la base del motor; de F5: la dimensión por defecto (`library/engineering/union_por_defecto.py`) y lo «ok» sin detalle en engineering_check
 descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respuestas cortas, errores que dicen cómo seguir y propuestas de estructura que no sueldan lo que se atornilla
 ---
 
@@ -400,3 +400,70 @@ llamadas de más son los pasos de prueba.
   - `engineering_check()` por defecto agrupa también las reglas de una plantilla (≤ 5 KB en la
     de 3 m).
 - **Tests**: un test por D, con la plantilla de 3 m generada en el test. Golden revisado.
+
+### F5 (2026-10-21): D7–D12
+
+Medido como F0 (las tools reales del MCP contra la API en proceso) sobre la plantilla
+`create_roller_conveyor` de 3 m recién generada (330 sólidos, 429 uniones que ella declara); el
+número de cada fila es el de la lista de fricciones de F4.
+
+| # | tool | antes | después |
+|---|---|---|---|
+| 2 | `declare_structure()` | 9 237 B: 182 uniones (163 contacto, 10 soldadura, 9 perno) y 227 omitidas | **335 B: 0 y 0** |
+| 3 | `declare_structure(aplicar=true)` sobre la plantilla sin sus uniones | una orden por unión, pernos sin métrica y soldaduras sin garganta | **609 uniones en 181 órdenes**; 0 «sin dimensionar» |
+| 4 | `get_connections()` | 11 921 B, filas por nombre de la unión | 10 098 B, 32 filas por par de piezas (60 ejes ↔ larguero en una) |
+| 1 | `check_interference(ids=["Rodillos"])` | 677 B: 400 de 660, sugería «Rodillos» otra vez | 444 B con la llamada siguiente (`desde=400`: 260 parejas, sin truncar); `excluir_declaradas`: 271 candidatas, sin truncar |
+| 5 | `remove_commands(["c1"])` con una unión externa | 853 B: 106 «dependientes» internos (`c1_u_*`) | **325 B: sólo la externa** |
+| 6 | `create_project` | sin id | `{id, nombre, …}` |
+| 7 | `get_command_schemas("create_roller_conveyor")` | 10 927 B | 6 734 B |
+| 8 | `engineering_check()` | 13 234 B, 37 líneas | **3 516 B**, 32 líneas |
+
+El criterio sobre las uniones que declara la plantilla de 3 m: 420 / 427 (98,4 %); los 7 son los
+de F3 (orejas con pernos en ranura, cárter soldado a la base, tapa soldada al tramo 1).
+
+Decisiones tomadas al implementar:
+
+- **«Cubre» = ya unidas en cadena por lo declarado** (`estructura.unidas_por_lo_declarado`,
+  union-find sobre `doc.fasteners`, que guarda expandidos los conjuntos y los de un
+  super-comando). Medido: las 182 de F4 estaban todas a 2–5 uniones de distancia (buje ↔ eje por
+  el tubo y la tapa…); un criterio de «una sola unión» no llegaba a 0. Los anclajes no unen (dos
+  máquinas ancladas que se tocan siguen sin unir entre sí). Las omitidas cubiertas tampoco se
+  listan.
+- **Tramos numerados**: `roles._cuerpo` conserva la numeración cuando la pieza ES el tramo que
+  decide el rol («Bandeja de cadenas (tramo 1)») y la quita cuando es una parte («Guarda de la
+  transmisión · extremo (+X)»): sin regla nueva en el criterio. **Tapa**: rol guarda sólo si
+  ningún tramo decide otra cosa («Guarda de la transmisión · tapa del extremo» sigue siendo parte
+  de su guarda; «Tapa con rodamiento», rodamiento).
+- **Dimensión por defecto** (`services/dimensionado.py`, tabla en
+  `library/engineering/union_por_defecto.py`, vetable; no en `design/guidelines.py`: `services`
+  no puede importar `design`, `tests/test_capas_services.py`): perno con eje = la rosca que cabe en su Ø (eje Ø12 → M12 ×1,
+  como la plantilla); si no, por el rol que manda (chumacera M12×2, equipo M10×4, guarda M6×2, el
+  resto M10×2). Soldadura: garganta 3 mm y longitud = perímetro de la huella común de las cajas
+  (pata bajo el larguero: 203,2 mm, como la plantilla; en contactos redondos sobrestima ~27 %); sin
+  huella, 50 mm. La lleva la propuesta misma (lo que propone es lo que aplica) y cada fila de
+  `patrones` (la menor de la fila).
+- **Aplicar compacto** (`estructura_corta.lote_compacto`): un `fasten` por conjunto verificado de
+  cada fila, con el nombre de una de sus uniones (libre por construcción); las uniones a revisar
+  van sueltas (cada una con su motivo, para borrarla sola) y las de una fila sin conjunto (las
+  cadenas: cada una es su comando) también. Mismo camino con y sin `resumen` (la UI recibe las
+  mismas uniones). No cambia ningún executor: un log viejo regenera igual; el test regenera el log
+  nuevo y obtiene las mismas uniones. `nombres` suma los de los conjuntos (se expanden a
+  `{name}[k]`).
+- **D12, `engineering_check`**: agrupar las reglas de cada unión por el par de piezas
+  (`conexiones.clave_de_reglas`) bajó 13,2 → 11,4 KB, no alcanzaba: en corto, una línea «ok» va
+  sin detalle (`{regla, n?, estado}`) salvo con `grupo`; lo que no está ok conserva el suyo.
+- **D10**: `interference_report(desde=)` en la librería (sin `desde`, el dict de siempre; con él,
+  `desde`, total y `desde_siguiente`); `excluir_declaradas` usa `exclusiones_declaradas`, que
+  ahora comparte la puerta. `como_acotar` con `ids` sugiere sólo subgrupos de lo pedido (si no
+  tiene, sólo la página siguiente).
+- **D12, schema**: sólo `/api/schemas/{type}` quita la `description` de la raíz del schema
+  cuando repite la de la entrada; la lista entera no cambia (`test_vista_persona` lo fija).
+- Trinquete: `mcp_server.py` 1382 → 1379 (render_view arma sus params en bucle) aunque
+  `check_interference` ganó dos params y tres docstrings crecieron; las tools del chat siguen bajo
+  sus 60 KB (`test_chat_http`: hubo que acortar lo agregado a los docstrings). Golden: 172 → 173
+  llamadas (la página siguiente sin lo declarado) y 5 descripciones.
+
+Fuera de F5: `check_interference` sigue corriendo TODO `/api/checks` (≈ 8 s de reglas que no
+devuelve en la de 3 m: el test de D10 tarda 30 s); `get_connections()` en resumen sigue en 10 KB
+(el `ejemplo` de cada fila nombra las piezas enteras); la longitud de soldadura en contactos
+redondos es la de la caja.
