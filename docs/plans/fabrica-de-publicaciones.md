@@ -413,7 +413,6 @@ $env:APOLO_TIENDA_LLAVE = 'apolo_pub_...'
   `test_construccion`, `test_publicacion_paquete`, `test_video_navegador`,
   `test_publicacion_ficha_auto`, `test_media_composicion` y `test_publicar_youtube` (sólo el
   título de un capítulo de ejemplo). Sin goldens tocados.
-/^>>>>>>> 78aa9c2/d
 ### Ajuste D10 — la máquina andando con producto (2026-10-21, implementado con tests)
 
 Mario: «una faja moviéndose sin cajas no parece que se mueva». La fábrica ya no graba la marcha
