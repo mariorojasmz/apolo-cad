@@ -231,3 +231,8 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   [plan](../../../docs/plans/acceso-de-herramienta.md)
 - `MIN_SOLIDOS_SUJECION` también dispara la alarma ambiental `aviso_estructura` de toda mutación
   ([api](../api/CLAUDE.md)). [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
+- **Puerta de publicación — seguridad y reparabilidad** (`seguridad/`, `reparabilidad.py`; OCCT en
+  `services/calidad_*.py`): peligros ISO 12100 derivados del modelo, sondas ISO 13857 (la banda no
+  es peligro ni se atraviesa; el rodillo portante liso no es peligro), guarda atornillada, desgaste
+  sin soldar y desmontable, banda montable. Devuelven ítems de F1; umbrales y calibración en el
+  [plan](../../../docs/plans/puerta-de-publicacion.md) § F3.

@@ -224,7 +224,7 @@ proyecto 3: 122 fijadores evaluados, 122 libres (incluidos los dos DIN 912 Allen
 único «no evaluado» es `c223 Eje fijo de cola Ø25 g6 (roscado p/ perno)`, tomado por tornillería
 por su nombre.
 
-### F2 — función mecánica (2026-10-22, en rama, sin mergear)
+### F2 — función mecánica (2026-10-22, mergeada)
 
 Construido (controles PUROS en `library/calidad/`, insumos en `services/calidad_*.py`; la F1 sólo
 los registra):
@@ -266,3 +266,58 @@ FALLA de carrera con el agarre OK en los dos extremos. Los lazos rodillo a rodil
 lazos de centros fijos sin tensor, con su criterio, o se pide un tensor?). Costo: ~0,05 s por perno
 (rayos con el intersector cargado una vez por sólido). 63 tests nuevos
 (`tests/test_puerta_agarre.py`, `_tensor.py`, `_vida_util.py`).
+
+### F3 — seguridad y reparabilidad (2026-10-22)
+
+Seis controles que devuelven ítems con el esquema de F1 (`{id, titulo, estado, modo_de_falla,
+norma, evidencia, piezas, detalle}`) y la tabla de riesgos. Puro en `library/seguridad/`
+(`iso13857`, `sondas`, `peligros`, `guardas`, `modelo`) y `library/reparabilidad.py`; OCCT en
+`services/calidad_seguridad.py` (extracción + `controles_f3(doc)`), `calidad_sondas.py`
+(trazador, cuñas) y `calidad_reparabilidad.py` (barridos). Tests: `tests/test_calidad_seguridad*.py`.
+
+| ítem | mide | umbral |
+|---|---|---|
+| `seguridad.resguardo_iso13857` | sondas desde 64 direcciones (Fibonacci) a cada objetivo de cada peligro; el rayo arranca 50 mm fuera de la caja de la máquina o en el PISO; se bloquea en cualquier sólido que no sea el peligro | alcanza si la profundidad desde el contorno ≤ 850 mm y pasa el haz de 20 mm, o si, por una abertura menor (haces de 4/6/8/10/12/20 mm), la distancia a la abertura es < sr de la tabla 4 (ranura) |
+| `seguridad.guarda_con_herramienta` | grafo de `fasten` del cuerpo de cada guarda (ella + lo soldado que no es estructura) | ≥ 1 perno; sin soldadura/pegado a la máquina; nada unido a lo que gira; sólo contacto = FALLA |
+| `seguridad.electrico` | `services/electrico.chequeo` | sin carril → NO_APLICA; errores del ERC → FALLA |
+| `reparabilidad.desgaste_sin_soldadura` | unidad soldada de cada pieza de desgaste ∩ marco soldado (grupo soldado con estructura o anclaje) | vacía |
+| `reparabilidad.desgaste_desmontable` | rayos desde 160 vértices del teselado de la unidad (hundidos 0,3 mm) en ±X/±Y/±Z hasta salir | alguna dirección sin marco soldado |
+| `reparabilidad.banda_montable` | rayos desde 240 vértices de la banda a lo largo del eje de sus tambores | algún lado sin marco soldado que además pase por dentro del lazo (caja de la banda −3 mm); empalme mecánico en el nombre = OK |
+
+Peligros (ISO 12100): cuñas banda ↔ tambor (arco de contacto buscado cada 5° a r + 1 mm DENTRO
+de la banda; cuña a φ = acos(r/(r+20)) del borde del arco, a radio r + 10 —separación 20 mm < 25
+de ISO 13854—, en el centro y a ±15 mm de los bordes; las dos cuñas cuentan: el sentido de
+marcha no se conoce), transmisiones (cadena + piñones, centro de cada pieza; ≤ 64 objetivos y
+≤ 4096 sondas centrales), extremos de eje giratorio (extremos axiales del cuerpo, 3 mm adentro)
+y piezas hijas de junta de giro. La banda no es peligro (zona de trabajo) y no se atraviesa, pero
+tampoco estrecha el haz en su propia cuña (`forman`). Redondo = caja con dos lados iguales ±6 %
+y ≥ 20 mm; «toca la banda» = unión declarada o ≤ 1,5 mm.
+
+**Calibración** con las máquinas de la tienda (`.apolo` copiados, sólo lectura):
+
+| máquina | piezas | peligros | resultado | ¿real? | tiempo |
+|---|---|---|---|---|---|
+| faja motor cabeza 1.0.5 | 228 | 2 cuñas + extremos del eje motriz | cuñas cola y motriz FALLA (13 y 6 sondas); eje OK; 8 guardas OK; desgaste 6 OK / 5 desmontables; banda FALLA | **real**: ranura de 27–30 mm entre el borde de la banda y la guarda superior / el soporte en C, sobre los extremos de los tambores, abierta desde arriba y desde el extremo de cola. Banda: la cama está soldada a los dos largueros (marco cerrado que la abraza) | 1,6 s |
+| faja motor central 1.0.3 | 206 | 5 cuñas + extremos | cuñas cola y cabeza FALLA (11 y 11); desvíos y motriz OK (cajón del drive); guardas FALLA ×2; banda FALLA | **real**: extremos de los tambores alcanzables desde los extremos de la máquina. Guardas: «Tapa protectora del eje» y «Tapa del eje hueco del reductor» están declaradas `pegado` (D4 pide perno). Banda: travesaños de cama soldados a los largueros | 3,9 s |
+| rodillos cadena 2 m 1.0.0 | 201 | 1 transmisión (20 cadenas, 41 ruedas) | FALLA 377/3904 sondas; 2 guardas OK; desgaste 82 OK / 62 desmontables | **real**: cadenas y piñones expuestos por abajo (la v1 no tiene bandeja) y por el extremo de alimentación | 34 s (sondas 23 s, 11 866 rayos) |
+
+Falsas alarmas halladas y corregidas en el código, cada una con su test: el rodillo portante
+liso salía peligro (cada fondo de rodillo FALLA) → no es peligro, lo es su transmisión; el eje del
+rodillo atornillado al larguero salía giratorio → eje fijo; «Faja de banda · Tensor trotadora» y
+«· Cama» salían «flexibles» por el nombre de la máquina → primer tramo común de un comando de
+≥ 3 piezas = máquina; «Tapa porta-rodamiento» salía pieza de desgaste → sólo catálogo o nombre
+que EMPIEZA por rodamiento; la tapa-cubo del tambor (gira con él) salía guarda → se excluye y se
+lista. Rendimiento: el `IntCurvesFace_ShapeIntersector` del compuesto tardaba 10 ms por rayo con
+las 17 800 caras de los rodillos (212 s la máquina) → cajas de cara en numpy + intersección cara a
+cara en caché: 2 ms por rayo (34 s).
+
+Hallazgos en plantillas (no publicadas): `create_belt_conveyor` deja los dos ramales rectos de la
+banda a la altura del PISO (`_belt_loop`: `Polygon` centra por defecto, falta `align=None`) y los
+arcos quedan como anillos completos → sus cuñas dan SIN_EVALUAR («no se encontró el arco»); el
+arreglo cambia geometría (sube `version`) y queda fuera de F3. `create_roller_conveyor` v2: el
+cárter del piñón motriz está SOLDADO a la base del motor (guarda FALLA y piñón motriz no
+desmontable) y las cadenas se alcanzan desde la zona de trabajo entre rodillos por debajo del
+borde interior de la guarda de cadenas (41 sondas).
+
+No hecho: el cizallamiento banda ↔ estructura y carga ↔ fijo; la tabla 4 en columnas cuadrado y
+círculo (se usa ranura, la más exigente); mallas finas (< 4 mm) se tratan con sr 2 mm.
