@@ -156,7 +156,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 ## Reglas de conveyor (`rules.py`) y requisitos
 
 - `detect_conveyor` se enriquece con VARIABLES, nombres y specs de catálogo (reconoce
-  `motorreductores_sinfin`: η = 0.75 sinfín vs 0.85 helicoidal).
+  `motorreductores_sinfin`: η = 0.75 sinfín vs 0.85 helicoidal). Un transportador de rodillos a
+  mano (tubo redondo de catálogo con eje, bastidor de ángulo) lo reconoce `rodillos_a_mano.py`
+  por catálogo y geometría, sólo con motorreductor; la capacidad de un rodillo sin ficha es
+  AVISO, nunca inventada. [defectos](../../../docs/defectos.md) (F6)
 - «Ancho útil» (`ancho_util.py`): rodillos = ancho − 2 largueros; BANDA = el ancho MEDIDO de la
   banda (rol) y, si es menor, la luz entre guías laterales que suben sobre ella. Los largueros de
   una faja de banda van por fuera: restarlos daba holguras falsas.

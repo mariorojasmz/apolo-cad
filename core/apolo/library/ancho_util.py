@@ -2,7 +2,7 @@
 paquete para pasar. Sale de `rules.py` (congelado por el trinquete de tamaño). Puro.
 
 - **Rodillos**: los largueros van DENTRO del ancho del transportador → útil = ancho − 2 largueros
-  − 4 mm de juego (el tubo del rodillo).
+  − 4 mm de juego (el tubo del rodillo); hecho a mano, el largo MEDIDO del tubo (`ancho_util_mm`).
 - **Banda**: el paquete corre SOBRE la banda y las guías van por fuera → útil = el ancho de la
   banda MEDIDO (`banda_lazo.ancho_de_banda`; sin banda reconocida, el `ancho` del transportador)
   y, si hay guías laterales que suben sobre la banda a los dos lados, el menor de los dos con la
@@ -80,7 +80,8 @@ def regla_ancho_util(conveyor: dict, ancho: float, ancho_paquete_mm: float, rail
         falta = (f"Usa una banda de ≥ {ancho_paquete_mm + _HOLGURA_OK:.0f} mm"
                  + (" y abre las guías laterales." if luz and float(luz) < banda else "."))
     else:
-        util = ancho - 2 * rail_w - 4
+        # medido (el largo del tubo de un rodillo a mano, `rodillos_a_mano`) o el del ancho
+        util = float(conveyor.get("ancho_util_mm") or 0.0) or ancho - 2 * rail_w - 4
         detalle = f"{util:.0f} mm útiles para paquete de {ancho_paquete_mm:g} mm."
         justa = "Deja ≥ 40 mm de holgura total o añade guías laterales."
         falta = f"Aumenta el ancho total a ≥ {ancho_paquete_mm + 2 * rail_w + 44:.0f} mm."

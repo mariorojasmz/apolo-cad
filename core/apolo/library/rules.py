@@ -318,7 +318,7 @@ def detect_conveyor(scene: dict, variables: dict | None = None) -> dict | None:
     la detección (Ø tambor, rpm, motor a-medida, eje, bastidor para la flecha).
 
     Patrón: ≥1 motorreductor de catálogo Y ≥1 perfil Y (≥1 rodillo de catálogo O
-    ≥1 tambor = cilindro sin componente cuyo nombre contiene 'tambor')."""
+    ≥1 tambor sin componente con 'tambor' en el nombre); si no, `rodillos_a_mano` y los nombres."""
     motors: list = []
     rollers: list = []
     perfiles: list = []
@@ -337,10 +337,9 @@ def detect_conveyor(scene: dict, variables: dict | None = None) -> dict | None:
             tambores.append(feat)
 
     if not motors or not perfiles or (not rollers and not tambores):
-        return _detect_by_name(scene, variables)
-
-    def _bb(f):
-        return f.shape.bounding_box()
+        from .rodillos_a_mano import detectar_rodillos_a_mano  # rodillo de tubo, bastidor de ángulo
+        return detectar_rodillos_a_mano(scene) or _detect_by_name(scene, variables)
+    _bb = _bbox_safe
 
     def _cx(f):
         b = _bb(f)
@@ -360,10 +359,8 @@ def detect_conveyor(scene: dict, variables: dict | None = None) -> dict | None:
     if gaps:
         paso = round(sum(gaps) / len(gaps), 1)
 
-    tambor_d = None
-    if tambores:
-        ds = [min(_bb(f).max.X - _bb(f).min.X, _bb(f).max.Z - _bb(f).min.Z) for f in tambores]
-        tambor_d = round(max(ds), 1)
+    ds = [min(_bb(f).max.X - _bb(f).min.X, _bb(f).max.Z - _bb(f).min.Z) for f in tambores]
+    tambor_d = round(max(ds), 1) if ds else None
 
     motor_ref = motors[0][1]
     motor_specs = CATALOG[motor_ref].specs
@@ -546,9 +543,9 @@ def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm
     else:
         support_count = 1
 
-    # 2 · capacidad del rodillo
+    # 2 · capacidad del rodillo (uno a medida, sin ficha: `rodillos_a_mano.capacidad_a_medida`)
     carga_por_rodillo = carga_kg / max(1, support_count)
-    capacidad = float(rodillo.specs["capacidad_kg"])
+    capacidad = float(rodillo.specs.get("capacidad_kg") or 0.0)
     calc_rod = {
         "titulo": "Capacidad de rodillo",
         "entradas": {"carga por paquete": f"{carga_kg:g} kg", "apoyos": f"{support_count}",
@@ -560,7 +557,10 @@ def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm
         "fs": round(capacidad / carga_por_rodillo, 2) if carga_por_rodillo > 0 else None,
         "norma": "CEMA (clasificación de carga de rodillos/idlers) — ficha de fabricante",
     }
-    if carga_por_rodillo <= capacidad:
+    if not capacidad:
+        from .rodillos_a_mano import capacidad_a_medida
+        checks.append(capacidad_a_medida(rodillo_ref, carga_kg, support_count))
+    elif carga_por_rodillo <= capacidad:
         checks.append(_check(
             "capacidad de rodillo", "ok",
             f"{carga_por_rodillo:.1f} kg/rodillo ≤ {capacidad:g} kg ({rodillo_ref}).",
@@ -819,7 +819,7 @@ def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm
 
     # 6 · velocidad ↔ rodillo (informativo)
     if v_eff > 0:
-        d = float(rodillo.specs["diametro_mm"])
+        d = float(rodillo.specs.get("diametro_mm") or rodillo.specs["od"])  # rodillo o su tubo
         rpm_req = v_eff * 60000.0 / (math.pi * d)
         checks.append(_check(
             "velocidad", "ok",
