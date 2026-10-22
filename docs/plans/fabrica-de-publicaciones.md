@@ -218,3 +218,24 @@ PED-124 (términos, privacidad y aviso de responsabilidad, con `/terminos#respon
   (`Range`) y del error de cupo; que `thumbnails.set` acepte el PNG por POST con el cuerpo
   crudo; que el 401 con la sesión abierta se arregle renovando el token. Lo confirma la subida
   real con Mario.
+
+### T — la cola en la tienda (PED-125, entregado 2026-10-21, revisión sin bloqueantes)
+
+Contrato para el subidor (F3), todo con `Authorization: Bearer apolo_pub_…` y `MAQUINA_GESTIONAR`;
+errores `{error}`:
+- `GET /api/maquina/youtube/cola?limite=N` (1–20, 6 por defecto) → `{ok, maquinas: [{id, slug,
+  titulo, url, estado, intentos, video: {url, bytes, sha256}, miniatura: {url, bytes} | null,
+  youtube: {titulo, descripcion, etiquetas, origen: "paquete" | "por_defecto"}}]}`, de la más
+  antigua; entran publicadas con video vigente en `pendiente`, `fallo` con < 3 intentos o
+  `subiendo` con la reserva (3 h) vencida.
+- `POST /api/maquina/<id>/youtube/reserva` (sin cuerpo) → `{ok, maquina, reservada_hasta}`;
+  atómica; 409 = otro la tomó / ya subida / no disponible → pedir la cola y tomar otra.
+- `PUT /api/maquina/<id>/youtube` con `{resultado: "subido", video_id (11, [A-Za-z0-9_-]), url
+  (https://www.youtube.com/… o https://youtu.be/…), privacidad (private|unlisted|public)}` |
+  `{resultado: "fallo", error}` (suma intento; 3 = fuera) | `{resultado: "cupo"}` (vuelve a
+  pendiente sin intento). 409 si `fallo`/`cupo` sobre una no reservada; `subido` se acepta
+  siempre que haya entrado a la cola.
+- Bloque `youtube` de `ficha.json` (opcional): `{titulo (1–100), descripcion (≤ 5000 BYTES
+  UTF-8), etiquetas (lista; suma con comas y comillas ≤ 500)}`, sin `<` ni `>`; si no cumple se
+  guarda null en silencio y la tienda arma textos por defecto. → F2 debe validar con los MISMOS
+  límites antes de generar, para no caer en silencio al texto por defecto.
