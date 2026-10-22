@@ -25,6 +25,7 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 
 | hito | qué falta | plan |
 |---|---|---|
+| **Q. Puerta de publicación** (calidad en piedra; Mario, 2026-10-22: nada se publica sin pasarla) | F2 (función mecánica) lanzada en paralelo con D13 de la fábrica; luego F1 (núcleo, tras D13), F3 (seguridad y reparabilidad), F4, F5, F6. Mientras tanto no se publican máquinas nuevas | [puerta-de-publicacion](plans/puerta-de-publicacion.md) |
 | **A. Video de YouTube realista** | F0–F4 hechas (visor alta, grabación, guion en el navegador, trazado de rayos y Foto realista); falta F5 (verificación en el escritorio con la 4070 Ti, con Mario) | [video-realista](plans/video-realista.md) |
 | **A′. Pulido del video de la tienda** | F3 hecha; F2 reducida por video-realista D8; F4 con la música de Mario | [video-tienda-pulido](plans/video-tienda-pulido.md) |
 | **A″. Fábrica de publicaciones** (máquinas → tienda → cola de YouTube) | F1 (cliente de YouTube) lanzada; luego T (cola en la tienda, pedido de Caronte), F2 (ficha automática), F3 (fábrica y subidor) y F4 (dos máquinas reales con Mario); F5 (corto vertical para shorts/reels) aprobada | [fabrica-de-publicaciones](plans/fabrica-de-publicaciones.md) |
