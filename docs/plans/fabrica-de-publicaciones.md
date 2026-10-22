@@ -459,3 +459,40 @@ sólo cuando alguien pasa `--marcha`: con `--render navegador` la decide sola.
   armar o de simular; el paso guion con guion nuevo, existente, con marcha, de diseño, vtk y
   `--sin-marcha`; reporte).
 - Sin verificar: el video real en el navegador con la marcha automática (lo verá F4).
+
+### Ajuste D13 — lo que el video dibuja aparte del modelo se prueba contra el modelo (2026-10-22, contrato)
+
+Mario, viendo el video de la faja de motor central (proyecto 4, v1.0.3): «según tus rayos X la
+faja está bien puesta, pero en el video la faja mágicamente atraviesa las guardas… ¿acaso no
+tenemos algo que testee eso? No podemos tener esas equivocaciones».
+
+**Causa.** En marcha el visor NO dibuja el sólido de la banda: dibuja una cinta que calcula
+`library/ruta_faja.py` como el CASCO CONVEXO de los tambores redondos dentro del encuadre de la
+banda. Un drive central en Ω no es convexo: la banda baja a abrazar el tambor motriz por debajo de
+los dos de desvío. El casco une la cola y la cabeza con el motriz en línea recta, los desvíos no
+tocan esa recta (no cuentan como apoyo) y la cinta corta las guardas y las placas del drive.
+Ninguna prueba compara la cinta animada con el sólido que sí pasó interferencias y la puerta de
+entrega: lo que valida la puerta es el modelo, y el video dibuja otra cosa.
+
+**Decisiones.**
+- **D13a — La forma sale del modelo.** La línea media de la cinta se toma de la SECCIÓN del sólido
+  de la banda (plano ⟂ al eje de los tambores, en el centro del ancho; mitad OCCT en
+  `services/marcha_visual.py`, bajo el `STATE_LOCK` que ya sostiene el llamador): ese contorno es
+  el que validaron las interferencias. El casco convexo queda sólo como respaldo cuando la sección
+  no da un lazo cerrado. La comba del retorno se conserva donde el tramo del modelo es recto y
+  libre por debajo.
+- **D13b — Prueba de fidelidad, siempre.** Función pura (`library/`): la ruta animada no se aparta
+  del contorno del modelo más que la comba permitida (hacia afuera del lazo, ≤ el tope CEMA del
+  vano) y ningún punto de la cinta barrida en su ancho entra en otra pieza (salvo las que abraza o
+  la apoyan, con la tolerancia de contacto). La corren el endpoint de la marcha visual (devuelve el
+  veredicto con los datos) y la fábrica.
+- **D13c — La fábrica no publica un video que miente.** Si la prueba falla, el paso de video
+  FALLA con el motivo (qué pieza atraviesa y cuánto); la máquina no se publica hasta corregirlo. No
+  se cae en silencio a «sin marcha».
+- **D13d — Lo mismo para las cadenas**: el lazo animado (`rodillos_del_lazo`) contra su sólido.
+- **D13e — Los videos ya publicados se rehacen**: la v1.0.3 de la faja de motor central se
+  reemplaza por una versión nueva; el video privado ya subido a YouTube lo borra Mario.
+
+**Tests**: el Ω (drive central con dos desvíos) reproduce el defecto con la regla vieja y sale
+fiel con la nueva; casco convexo de cola-cabeza sigue igual; una ruta que corta una guarda hace
+fallar la prueba y la fábrica; la cadena contra su sólido.
