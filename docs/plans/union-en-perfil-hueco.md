@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1 implementada en rama (worktree-agent-a08e7f92f652a36bd), sin mergear; falta F2 (verificación por MCP en las tres máquinas)
+nota: F1 mergeada a main el 2026-10-21; falta F2 (verificar por MCP la placa en las fajas 38, 72 y la puerta 28)
 descripcion: Atornillar una pieza a un tubo cerrado, a una C de chapa o a madera da una unión que se puede montar: la fijación correcta, el largo por el espesor real y la tuerca del lado que se alcanza
 ---
 
