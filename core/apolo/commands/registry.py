@@ -84,7 +84,7 @@ from .exec_uniones import _exec_fasten
 from .exec_union import _exec_join_bolted, sellar as _sellar_join_bolted
 from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
 from .exec_rodillos_cadena import SPECS_RODILLOS_CADENA  # super-comando compuesto
-from .exec_faja import CreateBeltConveyorParams, _exec_create_belt_conveyor
+from .exec_faja import CreateBeltConveyorParams, _exec_create_belt_conveyor, sellar as _sellar_faja
 from .errors import CommandError
 from .spec import CommandSpec, run_executor
 from .state import ExecContext, RegenState
@@ -1768,7 +1768,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec(
             "create_belt_conveyor", "Faja de banda", "biblioteca", CreateBeltConveyorParams,
             _exec_create_belt_conveyor, composite=True,  # corre fasten/ground (exec_faja)
-            version=4,  # v2: engomado; v3: tramos en su sitio; v4: montaje y uniones (puerta)
+            version=5, al_crear=_sellar_faja,  # v2 engomado; v3 tramos; v4 uniones; v5 cierres
         ),
         CommandSpec(
             "create_take_up", "Tensor de cola (trotadora)", "biblioteca", CreateTakeUpParams,

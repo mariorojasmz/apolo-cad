@@ -1,4 +1,4 @@
-"""Cotas puras de `create_belt_conveyor` (v4): de los params a las medidas de cada pieza, sin OCCT.
+"""Cotas puras de `create_belt_conveyor` (v4–v5): de los params a las medidas de cada pieza, sin OCCT.
 
 Las piezas las arman `belt_conveyor_bastidor.py`, `belt_conveyor_tambores.py` y
 `belt_conveyor_guardas.py` con estas cotas; el orden y la banda, `belt_conveyor.py`.
@@ -74,6 +74,7 @@ class Cotas:
     x_leg_h: float
     motor: str | None
     guardas: bool
+    cierres: bool = False    # v5: guardas inferiores y placas de cierre de los largueros
 
     @property
     def viaje(self) -> float:
@@ -147,7 +148,8 @@ def tensor_v4(ref: str | None, d_cola: float) -> str | None:
 
 
 def cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: str, tubo: str,
-          tensor: str | None, motor: str | None, espesor: float, guardas: bool) -> Cotas:
+          tensor: str | None, motor: str | None, espesor: float, guardas: bool,
+          cierres: bool = False) -> Cotas:
     r_m, r_c = radio_exterior(tambor_m), radio_exterior(tambor_c)
     d_m = float(CATALOG[tambor_m].specs["eje_mm"])
     d_c = float(CATALOG[tambor_c].specs["eje_mm"])
@@ -198,4 +200,4 @@ def cotas(largo: float, ancho: float, altura: float, tambor_m: str, tambor_c: st
         tubo=tubo, rail_t=rail_t, rail_h=rail_h, wall=wall, y_in=y_in, rail_y=y_in + rail_t / 2.0,
         y_out=y_in + rail_t, rail_top=rail_top, rail_bot=rail_bot, x0=-half - voladizo_c, x1=x1,
         chum_m=chum_m, chum_c=chum_c, uct=uct, carrera=carrera, x_leg_t=x_leg_t, x_leg_h=half,
-        motor=motor, guardas=guardas)
+        motor=motor, guardas=guardas, cierres=cierres)

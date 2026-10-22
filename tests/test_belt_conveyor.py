@@ -131,7 +131,9 @@ def test_belt_conveyor_genera_todas_las_piezas():
     assert cuenta("Brazo de la base del motor") == 2
     assert cuenta("Guarda lateral") == 2 and cuenta("Guarda del tambor") == 2
     assert cuenta("Guarda del acople") == 1
-    assert len(d.scene) == 58
+    # v5 (cierres): guarda inferior en 2 tramos por lado y las placas de cierre de los largueros
+    assert cuenta("Guarda inferior") == 4 and cuenta("Placa de cierre del larguero") == 4
+    assert len(d.scene) == 66
 
 
 def test_belt_conveyor_banda_es_lazo_hueco():

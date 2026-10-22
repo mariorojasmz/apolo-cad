@@ -798,3 +798,49 @@ cabeza SIN_EVALUAR, motor central FALLA de carrera); la v4, OK.
 Testigos públicos re-congelados (registro v3; `faja` con firma nueva por sus cierres, sin ítems
 movidos). Los privados se movieron sólo en `version_registro` y en la tensión del de rodillos; su
 JSON no se tocó (repo privado: lo re-congela quien corrige las máquinas).
+
+**3. v5 de la plantilla** (`create_belt_conveyor` v5). Los cierres que el testigo llevaba a mano
+pasan a la plantilla, con criterio de taller:
+
+- **guarda inferior** a cada lado, entre las guardas de los tambores: chapa de 3 mm plegada en L;
+  la pared, a ras del alma interior del larguero y atornillada a ella (fasten perno M6, perno
+  pasante con tuerca por fuera del tubo; 30 mm de solape), el ala horizontal a 10 mm bajo el
+  ramal de retorno desde 1 mm FUERA del borde de la banda (no la toca ni la estrecha). En tramos
+  de ≤ 3 m (plegadora de taller) a 1 mm entre sí, cada uno con sus pernos (`guardas.inferiores`);
+- **placa de cierre** de 3 mm SOLDADA en cada punta de los largueros (cordón perimetral de
+  a = 2): es estructura, no resguardo (detrás no hay nada que mantener; nombre «Placa de cierre
+  del larguero», rol estructura), y cierra el camino por dentro del tubo a la ranura del tensor
+  (`bastidor.placas_de_cierre`);
+- el **techo de la guarda de cola** llega hasta 20 mm pasada la punta de la cama
+  (`TECHO_SOBRE_CAMA`): al medir la v5 en 8 m × 1000 la cuña de cola aún FALLABA (6 sondas
+  dobladas) por el tramo libre de la banda entre el tambor y la cama (la carrera del tensor), junto
+  a la guarda lateral, donde la banda se empuja; sólo con el voxel de 10,7 mm de una máquina grande.
+  Costo declarado: la zona de carga empieza 20 mm pasada la punta de la cama (≈ r_cola + media
+  carrera + 30 mm del eje de cola; 156 mm por defecto); la v4 ya tapaba el tambor por arriba, así
+  que la alimentación en línea por la cola no existía. `tests/test_dinamica_banda.py` corre su
+  primera caja a x0 = −1250 (con −1350 quedaba bajo el techo);
+- las paredes de las guardas (de tambor e inferiores) se **escotan** donde bajan las placas de los
+  soportes de la cama: con un larguero de poco canto (TUBO-3X2) la v4 chocaba ahí (54 mm³ × 4).
+
+Compatibilidad: campo OCULTO `cierres` (fuera del JSON Schema, como `join_bolted.criterio`) con
+default False = la v4 tal cual; el SELLO de entrada (`exec_faja.sellar`, `CommandSpec.al_crear`)
+lo pone en True a todo comando nuevo; el replay y los edits no sellan. Un log v4 regenera con las
+mismas piezas, volúmenes, cajas y uniones que `main` antes de la v5 (comparado en tres variantes).
+`version` 5 (invalida la caché de los proyectos con la faja; la geometría v4 no cambia).
+
+Medido con la puerta entera (en proceso, requisitos y D15 del testigo), `riesgos.partes_moviles`
+v4 → v5:
+
+| variante | v4 | v5 | resto de la puerta (igual en v4 y v5) |
+|---|---|---|---|
+| por defecto (4000 × 600) | FALLA (cuñas de cola 127 y motriz 215) | **OK**, aprobada | todo OK |
+| 1500 × 300 | FALLA (183 + 222) | **OK** | `ingenieria.reglas` FALLA: ancho útil, holgura 0 con el paquete de 300 |
+| 8000 × 1000 | FALLA (74 + 89) | **OK** | tensión (carrera 150 < 183,5), par de arranque y factor de servicio FALLA: el tensor y el motor por defecto no dan para 8 m |
+| TUBO-3X2, tambores de 80, sin tensor | FALLA (41 + 39) + 4 choques internos | **OK**, sin choques | tensión SIN_EVALUAR (sin tensor), ancho útil |
+| sin tensor ni motor | FALLA (256 + 349) | **OK** | tensión, L10 y factor de servicio SIN_EVALUAR |
+
+El testigo público `faja` es la v5 por defecto, sin `cierres_faja` (borrada de
+`scripts/testigos.py`): aprueba entero, sin ítems movidos (sólo su firma). El defecto sembrado
+`sin_cierres` es la v5 editada con `cierres=False` (la v4) y sigue en FALLA; las rectas solas siguen
+dando OK (`test_las_rectas_no_ven_la_ranura_junto_a_la_banda`). Tests:
+`tests/test_belt_conveyor_v5.py`.

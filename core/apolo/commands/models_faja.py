@@ -1,12 +1,14 @@
 """Schema de la faja de banda (`create_belt_conveyor`) con sus listas de catálogo.
 
 Sale de `models.py` (congelado por el trinquete de tamaño). Las cotas viven en
-`apolo/library/belt_conveyor*.py`; el executor, en `exec_faja.py`.
+`apolo/library/belt_conveyor*.py`; el executor y el sello de entrada (`cierres`, v5), en
+`exec_faja.py`.
 """
 
 from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from .models import Rot3, Vec3, _motor_refs
 
@@ -47,7 +49,8 @@ class CreateBeltConveyorParams(BaseModel):
     tensado); motorreductor coaxial del lado +Y con acople flexible sobre una base en voladizo
     soldada a la pata; cama atornillada sobre soportes (la banda se cambia de costado quitando
     pernos); guardas atornilladas (`guardas`: laterales en L, cajas de los tambores, tapas de los
-    extremos de eje y cubierta del acople). Declara sus uniones (perno/soldadura/contacto) y
+    extremos de eje, cubierta del acople y guardas inferiores bajo la ranura entre el borde de la
+    banda y el larguero); las puntas de los largueros, cerradas con placa soldada. Declara sus uniones (perno/soldadura/contacto) y
     sus anclajes (los pies), así que sale con camino de carga a tierra. Editar cualquier
     parámetro regenera la faja entera."""
 
@@ -77,6 +80,10 @@ class CreateBeltConveyorParams(BaseModel):
         json_schema_extra=lambda schema: schema.update({"enum": ["ninguno"] + _motor_refs()}),
     )
     guardas: bool = Field(True, title="Guardas")
+    # v5, FUERA del schema (criterio de Apolo, no del modelador): placas de cierre de los
+    # largueros y guardas inferiores bajo la ranura banda ↔ larguero. Lo pone el sello de
+    # entrada (`exec_faja.sellar`) a todo comando NUEVO; un log v4 no lo trae → False → igual.
+    cierres: SkipJsonSchema[bool] = Field(False)
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
 

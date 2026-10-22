@@ -30,7 +30,9 @@ def _run(doc, req):
     return snap, simulate_dynamics(snap)
 
 
-def _cajas(n=10, x0=-1350.0, paso=200.0, **extra):
+def _cajas(n=10, x0=-1250.0, paso=200.0, **extra):
+    # x0: la primera caja empieza pasado el techo de la guarda de cola (v5: llega 20 mm más allá
+    # de la punta de la cama, x ≈ −1344); con −1350 la v5 la dejaba trabada bajo el techo
     return [{"nombre": f"caja{k}", "dims_mm": CAJA, "masa_kg": 2.0,
              "posicion_mm": [x0 + paso * k, 0, Z_CAJA], **extra} for k in range(n)]
 

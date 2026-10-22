@@ -218,14 +218,13 @@ def sin_guardas(d):
 
 
 def sin_cierres(d):
-    """La v4 de create_belt_conveyor TAL CUAL (F6): sin la guarda inferior bajo la ranura banda ↔
-    larguero (35 mm, abierta por abajo entre las guardas de los tambores) ni las tapas de los
-    largueros. Por ahí el brazo entra al lazo y baja la mano a las cuñas: sólo se ve doblándolo."""
-    piezas = {i for i, f in d.scene.items()
-              if f.name.startswith(("Guarda inferior", "Tapa del larguero"))}
-    assert piezas, "el testigo faja ya no trae sus cierres (scripts/testigos.py::cierres_faja)"
-    d.remove_commands([c["id"] for c in d.commands if c["id"] in piezas or (
-        c["type"] == "fasten" and {c["params"].get("a"), c["params"].get("b")} & piezas)])
+    """La v5 de create_belt_conveyor sin sus cierres = la v4 TAL CUAL (F6): sin la guarda inferior
+    bajo la ranura banda ↔ larguero (35 mm, abierta por abajo entre las guardas de los tambores),
+    sin las placas de cierre de los largueros y con el techo de cola sólo sobre el tambor. Por ahí
+    el brazo entra al lazo y baja la mano a las cuñas: sólo se ve doblándolo."""
+    assert any(f.name.endswith("Guarda inferior (1, tramo 1)") for f in d.scene.values()), \
+        "el testigo faja ya no trae sus cierres (create_belt_conveyor v5)"
+    _editar_faja(d, cierres=False)
 
 
 def resguardo_sin_declarar(d):  # D15: nadie dijo por qué las guardas son así

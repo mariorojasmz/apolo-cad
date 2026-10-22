@@ -1,5 +1,6 @@
 """Bastidor de `create_belt_conveyor` (v4): largueros con el paso de los ejes, patas con pie
-nivelador, travesaños y la cama de deslizamiento con sus soportes.
+nivelador, travesaños y la cama de deslizamiento con sus soportes; en la v5, las placas de
+cierre de las puntas de los largueros.
 
 Uniones (D: lo que la plantilla toca, lo declara ella):
 - patas soldadas bajo los largueros y travesaños soldados entre patas: el marco soldado queda
@@ -34,6 +35,8 @@ from .belt_conveyor_cotas import (
 )
 from .belt_conveyor_plan import Plan, caja, cilindro_y, ranura_x
 from .catalog import CATALOG, build_component
+
+CIERRE_T = 3.0           # placa de cierre de la punta del larguero (v5)
 
 
 def material_de(ref: str) -> str:
@@ -120,6 +123,36 @@ def patas(plan: Plan, c: Cotas) -> None:
                        length_mm=round(4 * LEG_W, 1))
 
 
+def x_soportes(c: Cotas) -> list[float]:
+    """X de los soportes de la cama: cada ≤ `SOPORTE_PASO`, a 40 mm de las puntas de la cama."""
+    x0, x1 = c.cama_x0, c.cama_x1
+    n = max(2, math.ceil((x1 - x0) / SOPORTE_PASO) + 1)
+    paso = (x1 - x0 - 2.0 * 40.0) / (n - 1)
+    return [x0 + 40.0 + (k - 1) * paso for k in range(1, n + 1)]
+
+
+def z_soportes(c: Cotas) -> tuple[float, float]:
+    """(z0, z1) de los soportes de la cama y de sus placas de extremo (bajo la chapa)."""
+    z1 = c.cama_top - CAMA_T
+    return z1 - LEG_W, z1
+
+
+def placas_de_cierre(plan: Plan, c: Cotas) -> None:
+    """v5: placa de chapa SOLDADA en cada punta de los largueros (cordón perimetral): el tubo
+    abierto dejaba entrar el brazo por adentro hasta la ranura del tensor y la cuña de cola (F6
+    de puerta-de-publicacion). Es estructura, no resguardo: detrás no hay nada que mantener."""
+    perimetro = round(2.0 * (c.rail_t + c.rail_h), 1)
+    for i, s in ((1, -1.0), (2, 1.0)):
+        for x0, lado in ((c.x0 - CIERRE_T, "cola"), (c.x1, "cabeza")):
+            suf = f"cierre{i}_{lado}"
+            plan.pieza(suf, f"Placa de cierre del larguero ({i}, {lado})",
+                       caja(x0, x0 + CIERRE_T, s * c.y_in, s * c.y_out, c.rail_bot, c.rail_top),
+                       material="acero")
+            plan.union(f"{suf}_sold", suf, f"rail{i}", "soldadura",
+                       "placa soldada a la punta del tubo (cordón perimetral)", throat_mm=2,
+                       length_mm=perimetro)
+
+
 def cama(plan: Plan, c: Cotas) -> None:
     """Cama de deslizamiento (chapa) atornillada sobre soportes transversales cada ≤ 800 mm;
     cada soporte es un tubo con placas de extremo soldadas, atornilladas a los largueros."""
@@ -128,14 +161,10 @@ def cama(plan: Plan, c: Cotas) -> None:
     top = c.cama_top
     plan.pieza("cama", "Cama de deslizamiento", caja(x0, x1, -w, w, top - CAMA_T, top),
                material="acero")
-    n = max(2, math.ceil((x1 - x0) / SOPORTE_PASO) + 1)
-    paso = (x1 - x0 - 2.0 * 40.0) / (n - 1)
     largo = 2.0 * (c.y_in - PLACA_SOPORTE_T)
     tubo, cut = build_component(LEG_REF, largo)
-    z1 = top - CAMA_T
-    z0 = z1 - LEG_W
-    for k in range(1, n + 1):
-        x = x0 + 40.0 + (k - 1) * paso
+    z0, z1 = z_soportes(c)
+    for k, x in enumerate(x_soportes(c), start=1):
         sop = f"sop{k}"
         plan.pieza(sop, f"Soporte de cama ({k})", tubo, comp=LEG_REF, cut=cut,
                    pos=(x, 0.0, (z0 + z1) / 2.0), rot=(90, 0, 0), key=f"comp|{LEG_REF}|{cut}",

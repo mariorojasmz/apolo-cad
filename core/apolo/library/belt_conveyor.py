@@ -15,6 +15,11 @@ industria y declara lo que toca. Disposición (Z arriba, transporte hacia +X, mo
   tambores, tapas de los extremos de eje y cubierta del acople;
 - las cotas, puras, en `belt_conveyor_cotas.py`; el plan (piezas + uniones + anclajes), en
   `belt_conveyor_plan.py`.
+
+v5 (F6 de puerta-de-publicacion, sondas con el brazo doblado): con `cierres` (lo trae todo
+comando NUEVO por el sello de entrada; un log v4 no lo trae y regenera igual) los largueros
+llevan placa de cierre soldada en sus puntas y, con guardas, una guarda inferior atornillada
+bajo la ranura banda ↔ larguero entre las guardas de los tambores.
 """
 
 from __future__ import annotations
@@ -79,10 +84,14 @@ def belt_conveyor_parts(
     motor_ref: str | None,
     espesor_banda: float,
     guardas_on: bool,
+    cierres: bool = False,
 ) -> Plan:
-    """El plan de la faja: piezas (sufijo, nombre, forma…), uniones declaradas y anclajes."""
+    """El plan de la faja: piezas (sufijo, nombre, forma…), uniones declaradas y anclajes.
+    `cierres` (v5; False = la v4 tal cual, la de los logs viejos): placas de cierre soldadas en
+    las puntas de los largueros y, con guardas, las guardas inferiores bajo la ranura banda ↔
+    larguero."""
     c = cotas(largo, ancho_banda, altura, tambor_motriz_ref, tambor_cola_ref, tubo_ref,
-              tensor_ref, motor_ref, espesor_banda, guardas_on)
+              tensor_ref, motor_ref, espesor_banda, guardas_on, cierres)
     plan = Plan()
     bastidor.largueros(plan, c)
 
@@ -130,4 +139,8 @@ def belt_conveyor_parts(
     if c.guardas:
         guardas.laterales(plan, c)
         guardas.de_tambores(plan, c)
+    if c.cierres:
+        bastidor.placas_de_cierre(plan, c)
+        if c.guardas:
+            guardas.inferiores(plan, c)
     return plan

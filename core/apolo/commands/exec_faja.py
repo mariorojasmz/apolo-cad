@@ -1,4 +1,4 @@
-"""Executor de `create_belt_conveyor` (faja de banda; plan puerta-de-publicacion, v4).
+"""Executor de `create_belt_conveyor` (faja de banda; plan puerta-de-publicacion, v4–v5).
 
 Emite las piezas del plan (`library/belt_conveyor.py`) como `{cmd_id}_{sufijo}` (command_id del
 comando: la puerta de entrega no revisa sus pares por `same_command_pairs`; la de publicación sí,
@@ -6,9 +6,17 @@ D13b) y corre `fasten` y `ground` del registro con las uniones y los anclajes de
 `{cmd_id}_u_{sufijo}` / `{cmd_id}_g_{sufijo}` (como `create_roller_conveyor`): por eso es
 COMPUESTO. La huella D11 cubre SÓLO esta función: si cambian las cotas o el plan
 (`library/belt_conveyor*.py`) con los mismos params, sube su `version` a mano (regla D10).
+
+v5 (F6 de la puerta: sondas con el brazo doblado): el campo oculto `cierres` agrega las placas
+de cierre de los largueros y las guardas inferiores. `sellar` es el sello de entrada
+(`CommandSpec.al_crear`, como `join_bolted.criterio`): todo comando NUEVO nace con
+`cierres=True`; un log v4 no trae el campo → False → regenera con la misma geometría (el replay
+y los edits no sellan; un cliente que manda `cierres=False` explícito lo conserva).
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable
 
 from pydantic import ValidationError
 
@@ -16,6 +24,13 @@ from .errors import CommandError
 from .models_faja import CreateBeltConveyorParams
 from .spec import run_executor
 from .state import ExecContext
+
+
+def sellar(params: dict, material_de: Callable[[str], str | None]) -> dict:
+    """Sello de entrada de una faja NUEVA: con los cierres de la v5 (lo que el cliente ya trae
+    se respeta: un test puede pedir la v4 tal cual)."""
+    params.setdefault("cierres", True)
+    return params
 
 
 def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConveyorParams) -> None:
@@ -30,7 +45,7 @@ def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConve
             p.largo, p.ancho_banda, p.altura, p.tambor_motriz, p.tambor_cola, p.tubo,
             None if p.tensor == "ninguno" else p.tensor,
             None if p.motor == "ninguno" else p.motor,
-            p.espesor_banda, p.guardas,
+            p.espesor_banda, p.guardas, p.cierres,
         )
     except (ValueError, KeyError) as exc:
         raise CommandError(f"Faja de banda: {exc}") from exc

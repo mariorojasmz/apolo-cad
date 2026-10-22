@@ -197,7 +197,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   SIN exclusiones (`tests/test_belt_conveyor.py`) y la puerta de publicación lo mira (D13b). La
   v4 (`belt_conveyor_*.py`: cotas, plan, bastidor, tambores, guardas) declara cada unión que
   toca y ancla los pies: una pieza nueva entra con su `Plan.union`, y el bastidor lleva el
-  material de ficha (`Feature.material`: «larguero» sería madera por el nombre).
+  material de ficha (`Feature.material`: «larguero» sería madera por el nombre). La v5
+  (`Cotas.cierres`) cierra lo que el brazo doblado alcanzaba: toda pieza o cota nueva de un
+  resguardo se mide con la puerta en varias variantes, también una GRANDE (> 12 M voxeles: el
+  voxel crece y aparecen ventanas que el de 10 mm no ve). Una placa que cierra un tubo es
+  «Placa de cierre…» (estructura, soldada); «Tapa…» sería guarda y pediría pernos.
   [defectos](../../../docs/defectos.md)
 - La faja EN MARCHA (`ruta_faja_modelo.py`, puro): la cinta es la línea media de la SECCIÓN del
   sólido de la banda (el casco de `ruta_faja.py`, sólo sin lazo cerrado) y `fidelidad_faja.py` la
