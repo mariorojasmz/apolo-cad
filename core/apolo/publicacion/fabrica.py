@@ -9,7 +9,9 @@ Encadena ocho pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>
      automática de un transportador, simulada antes; a un guion que no la trae se le suma. Si
      no hay marcha posible, lo avisa y sigue (`marcha=False`: `--sin-marcha`); si la faja que
      dibujaría el visor no es fiel al modelo (ajuste D13c), PARA con la pieza que atraviesa y
-     cuánto, también con la marcha que ya traía el guion;
+     cuánto, también con la marcha que ya traía el guion. Un `guion.json` armado sobre otra
+     versión del log se REHACE aquí (no en `generar`), conservando su marcha, título, subtítulo
+     y lema (`publicacion/guion_vigente.py`, F6 de puerta-de-publicacion);
   2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`) y la `familia` declarada (D10 de
      puerta-de-publicacion); si falla, PARA y dice qué falta: la ficha la redacta el modelador
      (D1), la fábrica no la inventa;
@@ -137,7 +139,13 @@ def paso_guion(e: Encargo) -> dict:
     if porque:
         e.eco(f"Sin la máquina andando: {porque}.")
     if (e.carpeta / GUION).is_file():
-        e.eco(f"{GUION} ya está en {e.carpeta}: no lo rehago.")
+        from apolo.publicacion import guion_vigente
+
+        viejo = guion_vigente.leer(e.carpeta)
+        firmas = guion_vigente.firma_vencida(e, viejo)
+        if firmas:  # el modelo cambió después de armarlo: generar lo rechazaría (F6)
+            return guion_vigente.rehacer(e, viejo, firmas, sin_marcha=porque)
+        e.eco(f"{GUION} ya está en {e.carpeta} y es del modelo de hoy: no lo rehago.")
         return {"ya_estaba": True, "marcha_s": None if porque else _marcha_en_guion(e)}
     elegida: dict = {}
 
@@ -235,6 +243,15 @@ def paso_generar(e: Encargo) -> dict:
         e.eco(f"{paquete.FICHA_JSON} ya está en {e.carpeta}: el paquete está generado, no lo "
               "rehago.")
         return {"ya_estaba": True}
+    from apolo.publicacion import guion_vigente
+
+    firmas = guion_vigente.firma_vencida(e, guion_vigente.leer(e.carpeta))
+    if firmas:  # el guion se hizo en una corrida anterior y el modelo cambió después
+        raise FabricaError(
+            f"{GUION} se armó sobre otra versión del proyecto (firma {firmas[0]}; hoy "
+            f"{firmas[1]}). Corre `publicar fabrica --desde guion`: rehace el guion conservando "
+            "su marcha, título, subtítulo y lema, y vuelve a pasar la ficha, la calidad y la "
+            "revisión sobre el modelo de hoy.")
     with Candado(e.candado, que=f"{e.slug} {e.version} (proyecto {e.proyecto})",
                  sin_esperar=e.sin_esperar, eco=e.eco) as c:
         r = flujo.generar(e.cliente, e.proyecto, raiz=e.raiz, slug=e.slug, version=e.version,
@@ -388,6 +405,7 @@ def reporte(estado: dict, eco=print) -> None:
         x = pasos.get(p) or {}
         datos = x.get("datos") or {}
         nota = ("ya estaba" if datos.get("ya_estaba") else
+                "rehecho: el modelo cambió" if datos.get("rehecho") else
                 f"video con {datos['render']}" if p == "generar" and "render" in datos else "")
         if p == "guion" and "marcha_s" in datos:
             nota += ("; " if nota else "") + (f"{datos['marcha_s']:g} s andando"
