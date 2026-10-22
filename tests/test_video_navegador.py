@@ -75,7 +75,8 @@ def _guion(doc, *, marcha: bool = True, modo: str = MODO_MONTAJE) -> dict:
     g["portada"]["duracion_s"] = 0.5
     for e in g["etapas"]:
         e["duracion_s"] = 1.0
-    g["cifras"]["duracion_s"], g["orbita"]["duracion_s"], g["cierre"]["duracion_s"] = 0.4, 1.0, 0.4
+    g["cifras"]["duracion_s"] = 0.4  # D10: se ignora (las cifras no salen en el video)
+    g["orbita"]["duracion_s"], g["cierre"]["duracion_s"] = 1.0, 0.4
     return g
 
 
@@ -89,7 +90,8 @@ def test_la_marcha_es_opcional_cuenta_en_la_duracion_y_vtk_la_quita(mesa):
     assert duracion_total(g) == pytest.approx(duracion_total(sin_marcha(g)) + 0.6)
     assert "marcha" not in sin_marcha(g) and "marcha" in g
     partes = [t.parte for t in lt.tramos(g)]
-    assert partes.index("marcha") == partes.index("cifras") - 1  # tras las etapas, antes de cifras
+    assert partes.index("marcha") == partes.index("orbita") - 1  # tras las etapas, antes de la vuelta
+    assert "cifras" not in partes  # D10 de fabrica-de-publicaciones
     assert "marcha" not in [t.parte for t in lt.tramos(sin_marcha(g))]
     capitulos(g)  # la marcha cae dentro del último capítulo, sin romper la regla
 
@@ -131,7 +133,8 @@ def test_el_plan_reparte_el_guion_como_el_video_de_vtk(mesa):
     az = p["cuadro"]["az"]
     m, o = tramos["marcha"], tramos["orbita"]
     assert az[o["inicio"]] == pytest.approx(az[m["fin"] - 1], abs=1e-3)
-    assert all(az[f] is None for f in range(tramos["cifras"]["inicio"], tramos["cifras"]["fin"]))
+    assert "cifras" not in tramos  # D10: el cierre es la portada de la tienda, sin cifras
+    assert all(az[f] is None for f in range(tramos["cierre"]["inicio"], tramos["cierre"]["fin"]))
     assert az[o["fin"] - 1] - az[o["inicio"]] > 300  # la vuelta final, casi completa
     assert az[etapas[0]["inicio"]] == pytest.approx(lt.AZIMUT_INICIAL)
 
@@ -141,11 +144,11 @@ def test_los_fundidos_y_el_reloj_de_la_marcha(mesa):
     tramos = {t["parte"]: t for t in p["tramos"]}
     mezcla, mt = p["cuadro"]["mezcla"], p["cuadro"]["marcha_t"]
     assert tramos["marcha"]["cruza"] is False and mezcla[tramos["marcha"]["inicio"]] is None
-    for parte in ("cifras", "orbita", "cierre"):
+    for parte in ("orbita", "cierre"):
         assert tramos[parte]["cruza"] and mezcla[tramos[parte]["inicio"]] is not None
     a = tramos["marcha"]["inicio"]
     assert mt[a - 1] is None and mt[a] == 0 and mt[a + 1] == pytest.approx(1 / FPS)
-    assert all(mt[f] is None for f in range(tramos["cifras"]["inicio"], tramos["cifras"]["fin"]))
+    assert all(mt[f] is None for f in range(tramos["cierre"]["inicio"], tramos["cierre"]["fin"]))
     o = tramos["orbita"]["inicio"]
     assert mt[o] == pytest.approx((o - a) / FPS)  # en la vuelta final la máquina sigue andando
     assert p["marcha"]["escenario"] == {"duracion_s": 2.0}
@@ -233,11 +236,12 @@ def test_la_sesion_guarda_guion_y_plan_y_dibuja_tarjetas_y_rotulos(cliente):
     assert malo.status_code == 400 and "La foto mide 64" in malo.json()["detail"]
     assert cliente.c.post(f"/api/video/grabacion/{sid}/foto", content=_imagen("PNG")).status_code == 200
     assert cliente.c.get(f"/api/video/grabacion/{sid}/foto").content == _imagen("PNG")
-    for parte in ("portada", "cifras", "cierre"):
+    for parte in ("portada", "cierre"):
         r = cliente.c.get(f"/api/video/grabacion/{sid}/tarjeta/{parte}")
         assert r.status_code == 200 and r.headers["content-type"] == "image/png"
         assert Image.open(io.BytesIO(r.content)).size == (ANCHO, ALTO)
     assert cliente.c.get(f"/api/video/grabacion/{sid}/tarjeta/otra").status_code == 404
+    assert cliente.c.get(f"/api/video/grabacion/{sid}/tarjeta/cifras").status_code == 404  # D10
     capa = Image.open(io.BytesIO(cliente.c.get(f"/api/video/grabacion/{sid}/rotulo/0").content))
     assert capa.mode == "RGBA" and capa.size == (ANCHO, ALTO)
     assert cliente.c.get(f"/api/video/grabacion/{sid}/rotulo/99").status_code == 404
@@ -312,7 +316,7 @@ class _Pagina:
         p = self.c.get(f"{base}/plan").json()
         assert self.c.post(f"{base}/foto", content=_imagen("PNG", color=(200, 30, 30))).status_code == 200
         for t in p["tramos"]:
-            if t["parte"] in ("portada", "cifras", "cierre"):
+            if t["parte"] in ("portada", "cierre"):
                 assert self.c.get(f"{base}/tarjeta/{t['parte']}").status_code == 200
         for n in range(p["cuadros"]):
             assert self.c.post(f"{base}/cuadro/{n}", content=_imagen()).status_code == 200

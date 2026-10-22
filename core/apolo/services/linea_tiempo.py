@@ -2,14 +2,16 @@
 en cada fotograma (plan publicacion-tienda, F4). Puro: sin VTK ni Pillow, se prueba solo.
 
 Partes, en orden (las de 0 s se saltan): portada → una por etapa → marcha (si el guion la trae:
-la máquina andando, sólo en el navegador, D5 de video-realista) → cifras → órbita → cierre.
+la máquina andando, sólo en el navegador, D5 de video-realista) → órbita → cierre. Las `cifras`
+del guion NO salen en el video (D10 de fabrica-de-publicaciones: las muestra la tienda); su
+`duracion_s` se ignora, también la de un guion de antes.
 Los bordes salen de los segundos ACUMULADOS redondeados a fotogramas, así la suma no deriva:
 el video dura exactamente `round(duracion_total × fps)` fotogramas, lo que `sondear` mide.
 
 Efectos (constantes en segundos):
   - fundido desde negro al empezar y a negro al terminar;
   - fundido cruzado al entrar a cada parte que no sea otra etapa (portada → construcción,
-    construcción → cifras → órbita → cierre): entre etapas la escena 3D sigue sin corte;
+    construcción → órbita → cierre): entre etapas la escena 3D sigue sin corte;
   - rótulo de cada etapa con fundido de entrada y de salida;
   - resaltado de lo que aparece, que se desvanece;
   - órbita lenta y continua durante la construcción y una vuelta completa, suavizada, al final.
@@ -35,7 +37,7 @@ ELEVACION = 22.0
 class Tramo:
     """Una parte del video: fotogramas [inicio, fin)."""
 
-    parte: str  # portada | etapa | marcha | cifras | orbita | cierre
+    parte: str  # portada | etapa | marcha | orbita | cierre
     inicio: int
     fin: int
     etapa: int | None = None  # índice en guion["etapas"]
@@ -52,7 +54,7 @@ def tramos(g: dict) -> list[Tramo]:
     partes += [("etapa", i, e["duracion_s"]) for i, e in enumerate(g["etapas"])]
     if g.get("marcha"):
         partes.append(("marcha", None, g["marcha"]["duracion_s"]))
-    partes += [(p, None, g[p]["duracion_s"]) for p in ("cifras", "orbita", "cierre")]
+    partes += [(p, None, g[p]["duracion_s"]) for p in ("orbita", "cierre")]
     out, t = [], 0.0
     for parte, i, dur in partes:
         a = round(t * fps)

@@ -194,7 +194,7 @@ def paquete(tmp_path) -> Path:
         "video": {"archivo": "video.mp4", "duracion_s": 60.0,
                   "capitulos": [{"inicio_s": 0, "titulo": "Patas"},
                                 {"inicio_s": 15, "titulo": "Tablero"},
-                                {"inicio_s": 30, "titulo": "En cifras"}],
+                                {"inicio_s": 30, "titulo": "La máquina terminada"}],
                   "musica": {"titulo": "Seno", "autor": "Prueba", "fuente": "La suite",
                              "licencia": "CC0 1.0", "atribucion": ""}},
         "miniatura": "miniatura.png"}), encoding="utf-8")

@@ -11,8 +11,10 @@ Fotograma a fotograma, sin PNG en disco:
      rol, y las de un patrón crecen en oleadas (`revelado`, D2). Lo que aparece o cambia se resalta
      y el resaltado se desvanece. La cámara orbita lento y sin cortes entre etapas, y cada
      etapa lleva su rótulo inferior con fundido de entrada y de salida.
-  3. Tarjeta de cifras, una vuelta completa a la máquina terminada y el cierre.
-Los tiempos y efectos están en `linea_tiempo.py`; las tarjetas, en `apolo.media.composicion`;
+  3. Una vuelta completa a la máquina terminada y el cierre: la portada de la tienda con su
+     dominio (D10 de fabrica-de-publicaciones; las cifras las muestra la tienda).
+Los tiempos y efectos están en `linea_tiempo.py`; las tarjetas, en `apolo.media.composicion`
+y `apolo.media.cierre`;
 ffmpeg recibe los fotogramas por stdin (`apolo.media.codificar`) y, si hay música, la mezcla
 en una segunda pasada (D8).
 
@@ -178,10 +180,10 @@ def renderizar(doc, g: dict, carpeta, *, musica=None, estilo=None, progreso=None
 def _tarjeta(comp, parte: str, g: dict, foto_final, estilo):
     if parte == "portada":
         return comp.portada(g["titulo"], g["subtitulo"], fondo=foto_final, estilo=estilo)
-    if parte == "cifras":
-        items = [(c["etiqueta"], c["valor"]) for c in g["cifras"]["items"]]
-        return comp.tarjeta_cifras(items, g["cifras"]["titulo"], estilo)
-    return comp.cierre(g["cierre"]["texto"], g["cierre"]["url"], estilo)
+    from apolo.media.cierre import cierre, textos_cierre
+
+    lema, dominio = textos_cierre(g)
+    return cierre(lema, dominio, estilo)
 
 
 def _fija(escritor: _Escritor, tramo, imagen, fps: int, cruza: bool) -> None:

@@ -186,7 +186,7 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
         + ("" if veredicto == paquete.VERDE else " — `generar` se negará sin --forzar"))
     eco(f"Escrito en {carpeta}:\n  {GUION}\n  {FICHA_YAML}")
     eco("Revisa antes de `publicar generar`:\n"
-        "  - guion.json: el título y el texto (rótulo) de cada etapa, las cifras y el cierre;\n"
+        "  - guion.json: el título y el texto (rótulo) de cada etapa y el lema del cierre;\n"
         "    las duraciones van en segundos. No cambies «documento»: ata el guion a este log.\n"
         "  - ficha.yaml: la descripción (obligatoria), etiquetas, nivel y precio; valídala con\n"
         "    `publicar ficha --revisar` (la música la elige la biblioteca, o --musica).")

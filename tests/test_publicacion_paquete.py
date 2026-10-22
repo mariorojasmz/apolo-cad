@@ -244,11 +244,11 @@ def test_una_version_publicada_no_se_pisa(tmp_path):
 def test_la_linea_de_tiempo_cuadra_con_la_duracion_del_guion():
     g = _guion_largo()
     plan = lt.tramos(g)
-    assert [t.parte for t in plan] == ["portada"] + ["etapa"] * 4 + ["cifras", "orbita", "cierre"]
+    # D10 de fabrica-de-publicaciones: las cifras no salen en el video aunque el guion (uno de
+    # antes) les dé 6 s; tampoco cuentan en la duración
+    assert [t.parte for t in plan] == ["portada"] + ["etapa"] * 4 + ["orbita", "cierre"]
     assert lt.total_fotogramas(plan) == round(duracion_total(g) * 30)
     assert all(a.fin == b.inicio for a, b in zip(plan, plan[1:]))
-    g["cifras"]["duracion_s"] = 0.0
-    assert "cifras" not in [t.parte for t in lt.tramos(g)]
 
 
 def test_reparto_y_revelado_escalonado():

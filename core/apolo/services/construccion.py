@@ -28,7 +28,7 @@ del comando o de las piezas que toca (el grupo final, el del último prefijo). S
 clave es el rol del paso o el nombre del super-comando, no el tipo de comando que dice D4: cinco
 `create_box` seguidos serían una etapa «Caja» que no dice nada. Peso de un paso: 1, más 0,5 por
 cada familia extra de lo que agrega; un retoque, 0,5. El presupuesto (la duración objetivo menos
-portada, cifras, órbita y cierre) da una unidad por peso, con tope por paso; la etapa más corta
+portada, órbita y cierre) da una unidad por peso, con tope por paso; la etapa más corta
 se fusiona con su vecina (la que comparte grupo padre; si no, la que no pase del máximo y, entre
 ellas, la más corta) hasta que todas lleguen a `etapa_min_s` (6 s). Al final el presupuesto se
 reparte por peso entre `etapa_min_s` y `etapa_max_s` (15 s; y cada paso a lo más `paso_max_s`):
@@ -220,11 +220,11 @@ def pasos_visuales(doc) -> list[Paso]:
 # ------------------------------------------------------------------ etapas (D4)
 @dataclass(frozen=True)
 class Tiempos:
-    """Duraciones del video en segundos. Las fijas (portada, cifras, órbita y cierre) salen
-    del presupuesto; las etapas reparten el resto."""
+    """Duraciones del video en segundos. Las fijas (portada, órbita y cierre) salen del
+    presupuesto; las etapas reparten el resto. Sin cifras: no salen en el video (D10 de
+    fabrica-de-publicaciones)."""
 
     portada_s: float = 4.0
-    cifras_s: float = 6.0
     orbita_s: float = 8.0
     cierre_s: float = 5.0
     paso_min_s: float = 0.1  # 3 fotogramas a 30 fps: un log enorme queda en time-lapse
@@ -234,7 +234,7 @@ class Tiempos:
 
     @property
     def fijos_s(self) -> float:
-        return self.portada_s + self.cifras_s + self.orbita_s + self.cierre_s
+        return self.portada_s + self.orbita_s + self.cierre_s
 
 
 TIEMPOS = Tiempos()
@@ -349,7 +349,7 @@ def _repartir(pesos: list[float], lo: list[float], hi: list[float], total: float
 def etapas(pasos: list[Paso], duracion_objetivo_s: float = 75.0, *,
            tiempos: Tiempos = TIEMPOS, datos=None) -> list[Etapa]:
     """Agrupa los pasos visuales en etapas y les da duración y rótulo (D4 y D2; reglas en el
-    docstring del módulo). `duracion_objetivo_s` es la del video ENTERO, con portada, cifras y
+    docstring del módulo). `duracion_objetivo_s` es la del video ENTERO, con portada, órbita y
     cierre; `datos` (`datos_rotulos.datos_rotulos(doc)`) prende las plantillas de ingeniería
     de los rótulos (D1); sin ellos, el conteo de piezas."""
     if isinstance(duracion_objetivo_s, bool) or not duracion_objetivo_s > 0:

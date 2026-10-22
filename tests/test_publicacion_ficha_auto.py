@@ -203,10 +203,12 @@ def test_la_miniatura_corta_usa_letra_grande():
 
 
 def test_el_cierre_lleva_el_aviso_en_los_dos_renders():
-    sin = comp.cierre("Descarga", "https://apolocad.com/maquinas/x", aviso="")
-    con = comp.cierre("Descarga", "https://apolocad.com/maquinas/x")
+    from apolo.media import cierre as c
+
+    sin = c.cierre("Descarga", "apolocad.com", aviso="")
+    con = c.cierre("Descarga", "apolocad.com")
     assert sin.tobytes() != con.tobytes()
-    assert "no fue construido ni probado" in comp.AVISO_CIERRE
+    assert "no fue construido ni probado" in c.AVISO_CIERRE
     # el navegador pide la misma tarjeta a `tarjetas` (la dibuja `cierre` con su aviso)
     g = {"cierre": {"texto": "Descarga", "url": "https://apolocad.com/maquinas/x"}}
     png = tarjetas.tarjeta(g, "cierre", 1920, 1080)

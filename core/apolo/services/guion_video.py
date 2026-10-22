@@ -3,8 +3,8 @@ D3 y D15). Las etapas que ordena salen de `construccion.py`.
 
 `guion(doc, etapas)` arma un dict JSON (`"version": 1`) que una persona o Claude pule a mano
 entre `publicar guion` y `publicar generar` (D3): título, subtítulo, tamaño y fps del video,
-portada, etapas (título, rótulo, pasos `k` y duración), tarjeta de cifras, órbita final y cierre
-con la URL de la tienda vacía. El texto inicial es determinista (nombres de grupo y de pieza,
+portada, etapas (título, rótulo, pasos `k` y duración), cifras, órbita final y cierre (el lema
+de la tienda; la URL la pone `publicar guion`). El texto inicial es determinista (nombres de grupo y de pieza,
 cantidades, cifras de la masa y de los requisitos): el pipeline no llama a ningún modelo.
 
 `validar_guion` rechaza una edición mal formada con TODOS sus problemas en un mensaje en
@@ -22,10 +22,13 @@ sin él, «diseño»: cada paso es un `k` del log, como siempre.
 
 `capitulos` da los capítulos de YouTube (D15): el primero en 0, cada uno de ≥ 10 s, al menos
 3; si no se puede cumplir, ninguno (YouTube los ignoraría). La portada va dentro del primero y
-cifras, órbita y cierre forman el último («La máquina terminada»). Segundos ENTEROS, como los
+órbita y cierre forman el último («La máquina terminada»). Segundos ENTEROS, como los
 lee YouTube: la regla se comprueba sobre los segundos redondeados, no sobre los decimales.
 
-Las cifras se calculan con `scene_mass_properties` (la misma masa que la memoria y la
+Las `cifras` NO salen en el video (D10 de fabrica-de-publicaciones: el cierre es la portada de la
+tienda y las cifras se ven dentro de ella); el guion las sigue llevando porque de ahí salen las
+de `ficha.json` y del LEEME. Su `duracion_s` se escribe en 0 y se ignora (también la de un
+guion de antes). Se calculan con `scene_mass_properties` (la misma masa que la memoria y la
 instalación, con las piezas ocultas: ocultar no le quita peso a la máquina) y los requisitos
 del proyecto. Nunca precios (D11): `tipo_cambio` y `notas` no salen.
 """
@@ -35,6 +38,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 
 from apolo.services.construccion import TIEMPOS, Etapa, Tiempos
 from apolo.services.rotulos import MAX_TEXTO, MAX_TITULO_ETAPA, corta
@@ -49,7 +53,10 @@ MODO_DISENO = "diseño"
 MODOS = (MODO_MONTAJE, MODO_DISENO)
 VIDEO = {"ancho": 1920, "alto": 1080, "fps": 30}
 SUBTITULO = "Así se construyó en Apolo CAD"
-CIERRE = "Descarga los planos y el modelo 3D"
+#: El lema del cierre: el de la tienda (copia de `media/cierre.LEMA`; services no importa media).
+#: `APOLO_TIENDA_LEMA` lo cambia al armar el guion.
+CIERRE = "Máquinas listas para fabricar"
+LEMA_ENV = "APOLO_TIENDA_LEMA"
 TITULO_CIFRAS = "En cifras"
 TITULO_FINAL = "La máquina terminada"
 #: Tope de la tarjeta de cifras: el mismo de `media/composicion.py` (services no importa media).
@@ -154,10 +161,10 @@ def guion(doc, etapas: list[Etapa], *, titulo: str | None = None,
         "etapas": [{"titulo": e.titulo, "texto": e.texto,
                     "pasos": [list(p) for p in e.pasos] if montaje else list(e.pasos),
                     "duracion_s": e.duracion_s} for e in etapas],
-        "cifras": {"titulo": TITULO_CIFRAS, "items": items,
-                   "duracion_s": tiempos.cifras_s if items else 0.0},
+        "cifras": {"titulo": TITULO_CIFRAS, "items": items, "duracion_s": 0.0},
         "orbita": {"duracion_s": tiempos.orbita_s},
-        "cierre": {"texto": CIERRE, "url": "", "duracion_s": tiempos.cierre_s},
+        "cierre": {"texto": (os.environ.get(LEMA_ENV) or "").strip()[:MAX_CORTO] or CIERRE,
+                   "url": "", "duracion_s": tiempos.cierre_s},
     }
 
 
@@ -260,7 +267,7 @@ def validar_guion(g, doc=None) -> None:
     if r.objeto(g["cifras"], "cifras", "cifras"):
         c = g["cifras"]
         r.texto(c["titulo"], "cifras.titulo", MAX_TITULO_ETAPA)
-        dura = r.numero(c["duracion_s"], "cifras.duracion_s")
+        r.numero(c["duracion_s"], "cifras.duracion_s")  # se ignora: no salen en el video
         if not isinstance(c["items"], list) or len(c["items"]) > MAX_CIFRAS:
             r.errores.append(f"cifras.items: debe ser una lista de hasta {MAX_CIFRAS} cifras")
         else:
@@ -268,9 +275,6 @@ def validar_guion(g, doc=None) -> None:
                 if r.objeto(item, f"cifras.items[{i}]", "cifra"):
                     r.texto(item["etiqueta"], f"cifras.items[{i}].etiqueta", 40, vacio=False)
                     r.texto(item["valor"], f"cifras.items[{i}].valor", 40, vacio=False)
-            if dura and c["duracion_s"] > 0 and not c["items"]:
-                r.errores.append("cifras: dura más de 0 s pero no tiene cifras (pon "
-                                 "«duracion_s»: 0 para saltar la tarjeta)")
     if r.objeto(g["cierre"], "cierre", "cierre"):
         r.texto(g["cierre"]["texto"], "cierre.texto", MAX_CORTO)
         url = g["cierre"]["url"]
@@ -360,9 +364,10 @@ def _fallar(r: _Revision) -> None:
 
 # ------------------------------------------------------------------ capítulos (D15)
 def duracion_total(g: dict) -> float:
+    """Lo que dura el video (las cifras no salen en él: D10 de fabrica-de-publicaciones)."""
     return (g["portada"]["duracion_s"] + sum(e["duracion_s"] for e in g["etapas"])
             + (g.get("marcha") or {}).get("duracion_s", 0.0)
-            + g["cifras"]["duracion_s"] + g["orbita"]["duracion_s"] + g["cierre"]["duracion_s"])
+            + g["orbita"]["duracion_s"] + g["cierre"]["duracion_s"])
 
 
 def sin_marcha(g: dict) -> dict:

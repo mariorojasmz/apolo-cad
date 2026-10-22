@@ -47,8 +47,6 @@ def test_cada_tarjeta_sale_rgb_del_tamano_del_estilo():
     tarjetas = [
         c.portada("Transportador de rodillos", "Así se diseñó"),
         c.portada("Transportador de rodillos", "Así se diseñó", fondo=_render()),
-        c.tarjeta_cifras([("Largo", "3 000 mm"), ("Ancho útil", "600 mm")], "En cifras"),
-        c.cierre("Descarga los planos", "https://ejemplo.com/maquina"),
     ]
     for im in tarjetas:
         assert im.mode == "RGB"
@@ -151,29 +149,6 @@ def test_la_fuente_explicita_se_usa():
     estilo = c.Estilo(fuente=c.ruta_fuente_por_defecto(negrita=True))
     assert c.cargar_fuente(estilo, 30).getname()[1] == "Bold"
     assert c.cargar_fuente(c.ESTILO, 30).getname()[1] == "Book"
-
-
-# ── Cifras y cierre ───────────────────────────────────────────────────────────
-
-
-def test_la_tarjeta_de_cifras_valida_y_aguanta_valores_largos():
-    with pytest.raises(ValueError, match="al menos"):
-        c.tarjeta_cifras([])
-    with pytest.raises(ValueError, match="hasta 12"):
-        c.tarjeta_cifras([("a", "1")] * 13)
-    cifras = [(f"Etiqueta muy larga número {i} " * 3, f"{i * 1000} mm " * 6) for i in range(12)]
-    im = c.tarjeta_cifras(cifras, "Un título larguísimo " * 10, CHICO)
-    assert im.size == (640, 360)
-    m = CHICO.px(CHICO.margen)
-    borde = im.crop((CHICO.ancho - m // 2, 0, CHICO.ancho, CHICO.alto))
-    assert borde.convert("L").getextrema()[1] < 80, "algo se salió por la derecha"
-
-
-def test_el_cierre_achica_la_url_antes_que_cortarla():
-    url = "https://tienda.ejemplo.com/maquinas/transportador-de-rodillos-motorizado-v2"
-    texto, fuente = c._una_linea(url, c.ESTILO, c.ESTILO.px(38), c.ESTILO.px(22), 1200)
-    assert texto == url and fuente.getlength(url) <= 1200
-    assert c.cierre("Gracias", url).size == (1920, 1080)
 
 
 # ── Miniatura ─────────────────────────────────────────────────────────────────

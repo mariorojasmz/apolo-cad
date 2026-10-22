@@ -1,6 +1,6 @@
-"""Las imágenes fijas del video que graba el navegador (plan video-realista, D5): portada, cifras,
-cierre y el rótulo de cada etapa, dibujadas con las MISMAS funciones de `composicion.py` que el
-video de VTK. El navegador las pide a la API y las pone sobre su cuadro: el texto y su aspecto
+"""Las imágenes fijas del video que graba el navegador (plan video-realista, D5): portada, cierre
+y el rótulo de cada etapa, dibujadas con las MISMAS funciones de `composicion.py` y `cierre.py`
+que el video de VTK. El navegador las pide a la API y las pone sobre su cuadro: el texto y su aspecto
 son los mismos en los dos videos.
 
 Puro: recibe el guion (un dict ya validado) y, para la portada, la foto de la máquina terminada
@@ -12,7 +12,8 @@ from __future__ import annotations
 import io
 from dataclasses import replace
 
-PARTES = ("portada", "cifras", "cierre")
+#: Las cifras ya no salen en el video (D10 de fabrica-de-publicaciones): las muestra la tienda.
+PARTES = ("portada", "cierre")
 
 
 class TarjetaError(ValueError):
@@ -39,13 +40,11 @@ def tarjeta(g: dict, parte: str, ancho: int, alto: int, foto=None) -> bytes:
     estilo = _estilo(ancho, alto)
     if parte == "portada":
         return _png(comp.portada(g["titulo"], g["subtitulo"], fondo=foto, estilo=estilo))
-    if parte == "cifras":
-        items = [(c["etiqueta"], c["valor"]) for c in g["cifras"]["items"]]
-        if not items:
-            raise TarjetaError("El guion no tiene cifras: su tarjeta no sale en el video.")
-        return _png(comp.tarjeta_cifras(items, g["cifras"]["titulo"], estilo))
     if parte == "cierre":
-        return _png(comp.cierre(g["cierre"]["texto"], g["cierre"]["url"], estilo))
+        from .cierre import cierre, textos_cierre
+
+        lema, dominio = textos_cierre(g)
+        return _png(cierre(lema, dominio, estilo))
     raise TarjetaError(f"La tarjeta «{parte}» no existe (son: {', '.join(PARTES)}).")
 
 

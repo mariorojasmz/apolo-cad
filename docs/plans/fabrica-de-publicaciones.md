@@ -382,3 +382,34 @@ $env:APOLO_TIENDA_LLAVE = 'apolo_pub_...'
 - **Sin verificar de verdad**: la tarea registrada en el Programador de tareas (que lea la
   variable de usuario y corra con `pythonw`), la cola contra la tienda real y su R2 (URLs
   absolutas de otro origen, sin Bearer) y el cupo real de YouTube. Lo verifica F4.
+
+### D10 — ajustes de Mario tras el primer video real (2026-10-21)
+
+- **Sin «En cifras» en el video** (salía al final con textos cortados: «cajas de cartón y…»,
+  «2 000 × 742 × 77…»; nadie lo lee ahí y la tienda ya muestra esos datos). `linea_tiempo.tramos`
+  no tiene la parte `cifras` y `duracion_total` no la cuenta: VTK y navegador dejan de mostrarla
+  sin tocar `ui/` (el navegador pide sólo las tarjetas del plan). `Tiempos.cifras_s` se fue: con
+  el mismo objetivo, esos 6 s pasan a las etapas. `composicion.tarjeta_cifras` se borró y
+  `tarjetas` da 404 a `cifras`. El guion SIGUE llevando `cifras.items` (de ahí salen las de
+  `ficha.json` y del LEEME); el nuevo escribe `duracion_s: 0` y la de un guion de antes se ignora
+  (ya no es error «dura más de 0 s pero no tiene cifras»). Los capítulos ya cerraban en «La
+  máquina terminada»: sin cambios.
+- **El cierre es la portada de la tienda** (`media/cierre.py`, fuera de `composicion.py`, que
+  quedaba en 500): el hero de apolocad.com en modo oscuro (tokens de `marca-oscuro` de la tienda:
+  lienzo `#0f151b` con su rejilla técnica apagada hacia los bordes), la A de taller (dibujada con
+  la geometría del maestro SVG, que un test compara: `docs/` no viaja en PyPI), el lema en blanco
+  y negrita en ≤ 3 líneas parejas (la letra más grande con la que entra entero), el subrayado de
+  `TituloDeLaPortada.js` (la misma curva, acento `#5b8cff`, 104 % de la última línea), el dominio
+  en ámbar `#f0b43c` y al pie, chico, el aviso de D8 («…no fue construido ni probado
+  físicamente.»). Dura lo de siempre (5 s, con el fundido cruzado de entrada y a negro).
+- **Textos** (`cierre.textos_cierre`): lema = `cierre.texto` del guion (el nuevo lo escribe:
+  `APOLO_TIENDA_LEMA` o «Máquinas listas para fabricar», el `tienda.lema` de la tienda); vacío o
+  el de antes («Descarga los planos y el modelo 3D») → el lema por defecto, así un guion viejo
+  sale con la portada nueva. Dominio = host de `cierre.url` (la página de la máquina) sin `www.`;
+  sin URL, el de `APOLO_TIENDA_URL` o apolocad.com. La miniatura no cambia.
+- Tests: `tests/test_media_cierre.py` (textos, maqueta sin cortes ni solapes en 1920×1080 y
+  1280×720 con lema y dominio largos, colores, la A contra el maestro, VTK = navegador, sin
+  tarjeta de cifras, guion viejo válido sin cifras en el video, capítulos); ajustes en
+  `test_construccion`, `test_publicacion_paquete`, `test_video_navegador`,
+  `test_publicacion_ficha_auto`, `test_media_composicion` y `test_publicar_youtube` (sólo el
+  título de un capítulo de ejemplo). Sin goldens tocados.

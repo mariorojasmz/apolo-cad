@@ -315,7 +315,17 @@ def test_el_guion_es_json_editable_y_valido(proyecto):
     assert g["cierre"]["url"] == "" and g["orbita"]["duracion_s"] == TIEMPOS.orbita_s
     assert [e["titulo"] for e in g["etapas"]] == ["Bastidor", "Transporte"]
     assert 1 <= len(g["cifras"]["items"]) <= MAX_CIFRAS
+    # D10 de fabrica-de-publicaciones: las cifras van a ficha.json, no al video; el cierre
+    # lleva el lema de la tienda
+    assert g["cifras"]["duracion_s"] == 0.0
+    assert g["cierre"]["texto"] == "Máquinas listas para fabricar"
     assert guion(d, [], titulo="Otro")["titulo"] == "Otro"
+
+
+def test_el_lema_del_cierre_se_cambia_por_entorno(proyecto, monkeypatch):
+    d, _, pasos = proyecto
+    monkeypatch.setenv("APOLO_TIENDA_LEMA", "Planos que se fabrican")
+    assert guion(d, etapas(pasos))["cierre"]["texto"] == "Planos que se fabrican"
 
 
 def test_un_guion_de_otra_version_del_log_se_rechaza(proyecto):
@@ -337,7 +347,7 @@ def test_un_guion_de_otra_version_del_log_se_rechaza(proyecto):
     (lambda g: g.update(titulo=""), "titulo: no puede quedar vacío"),
     (lambda g: g["cierre"].update(url="ftp://x"), "https://"),
     (lambda g: g["cifras"].update(items=[{"etiqueta": "a", "valor": "b"}] * 13), "hasta 12"),
-    (lambda g: g["cifras"].update(items=[]), "no tiene cifras"),
+    (lambda g: g["cifras"].update(duracion_s=-1), "cifras.duracion_s"),
     (lambda g: g["etapas"].append("nada"), "etapas[2]: debe ser un objeto"),
 ])
 def test_validar_guion_rechaza_ediciones_mal_formadas(proyecto, editar, mensaje):

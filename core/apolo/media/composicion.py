@@ -1,4 +1,5 @@
-"""Tarjetas y rótulos del video, dibujados con Pillow (plan publicacion-tienda, D6).
+"""Portada, rótulos y miniatura del video, dibujados con Pillow (plan publicacion-tienda, D6).
+El cierre (la portada de la tienda, D10 de fabrica-de-publicaciones) está en `cierre.py`.
 
 Funciones puras: reciben textos e imágenes y devuelven una `PIL.Image` RGB del tamaño del
 `Estilo` (la miniatura, 1280×720). No conocen el documento ni el render: el fotograma les
@@ -17,7 +18,6 @@ import importlib.util
 import warnings
 from dataclasses import dataclass, replace
 from functools import lru_cache
-from math import ceil
 from pathlib import Path
 
 try:
@@ -31,11 +31,8 @@ Color = tuple[int, int, int]
 TAM_MINIATURA = (1280, 720)
 LIMITE_MINIATURA = 2_000_000
 MAX_LINEAS_ROTULO = 3
-MAX_CIFRAS = 12
-#: La marca de la miniatura y el aviso del cierre (D8 de fabrica-de-publicaciones).
+#: La marca de la miniatura. El cierre (la portada de la tienda) vive en `cierre.py`.
 MARCA = "Apolo CAD"
-AVISO_CIERRE = ("Diseño generado y validado por software: no fue construido ni probado "
-                "físicamente. Lee el aviso de responsabilidad antes de fabricar.")
 ELIPSIS = "…"
 #: Los tamaños del `Estilo` son px para un lado corto de 1080; se escalan con el real.
 _REF = 1080
@@ -423,78 +420,3 @@ def capa_rotulo(titulo: str, texto: str = "", estilo: Estilo = ESTILO) -> Image.
         capa.paste(_panel_rotulo(maqueta, estilo, opacidad_rotulo_legible(estilo)),
                    maqueta.caja[:2])
     return capa
-
-
-# ── Tarjeta de cifras y cierre ────────────────────────────────────────────────
-
-
-def tarjeta_cifras(cifras: list[tuple[str, str]], titulo: str = "",
-                   estilo: Estilo = ESTILO) -> Image.Image:
-    """Tarjeta con pares (etiqueta, valor), p. ej. («Largo», «3 000 mm»): una rejilla de
-    hasta 4 columnas; cada valor y cada etiqueta en una línea (achica la letra o elide)."""
-    if not cifras:
-        raise ValueError("La tarjeta de cifras necesita al menos una cifra")
-    if len(cifras) > MAX_CIFRAS:
-        raise ValueError(f"La tarjeta de cifras admite hasta {MAX_CIFRAS}; llegaron {len(cifras)}")
-    im = _lienzo(estilo)
-    draw = ImageDraw.Draw(im)
-    m = estilo.px(estilo.margen)
-    filas = ceil(len(cifras) / 4)
-    columnas = ceil(len(cifras) / filas)
-    ancho_celda = (estilo.ancho - 2 * m) / columnas
-    util = ancho_celda - estilo.px(32)
-    tam_valor, tam_etiqueta = estilo.px(estilo.tam_titulo * 0.7), estilo.px(estilo.tam_texto * 0.8)
-    barra = estilo.px(6)
-    alto_celda = (barra + estilo.px(18) + _alto_linea(cargar_fuente(estilo, tam_valor, titulo=True))
-                  + _alto_linea(cargar_fuente(estilo, tam_etiqueta)))
-    paso = alto_celda + estilo.px(48)
-    alto_bloque = filas * paso - estilo.px(48)
-    if titulo:
-        texto, f_tit = _una_linea(titulo, estilo, estilo.px(estilo.tam_titulo * 0.8),
-                                  estilo.px(estilo.tam_texto), estilo.ancho - 2 * m, titulo=True)
-        alto_bloque += _alto_linea(f_tit) + estilo.px(64)
-    y = max(m, (estilo.alto - alto_bloque) / 2)
-    if titulo:
-        draw.text((m, y), texto, font=f_tit, fill=estilo.color_texto, anchor="la")
-        y += _alto_linea(f_tit) + estilo.px(64)
-    for i, (etiqueta, valor) in enumerate(cifras):
-        cx = m + (i % columnas) * ancho_celda
-        cy = y + (i // columnas) * paso
-        draw.rectangle((cx, cy, cx + estilo.px(56), cy + barra - 1), fill=estilo.color_acento)
-        cy += barra + estilo.px(18)
-        valor_s, f_val = _una_linea(str(valor), estilo, tam_valor, estilo.px(estilo.tam_texto),
-                                    util, titulo=True)
-        draw.text((cx, cy), valor_s, font=f_val, fill=estilo.color_texto, anchor="la")
-        cy += _alto_linea(cargar_fuente(estilo, tam_valor, titulo=True))
-        f_eti = cargar_fuente(estilo, tam_etiqueta)
-        draw.text((cx, cy), elidir(str(etiqueta), f_eti, util), font=f_eti,
-                  fill=estilo.color_secundario, anchor="la")
-    return im
-
-
-def cierre(texto: str, url: str = "", estilo: Estilo = ESTILO,
-           aviso: str = AVISO_CIERRE) -> Image.Image:
-    """Tarjeta final: el texto (hasta 3 líneas), la URL en una y, al pie, el aviso en letra
-    chica (D8 de fabrica-de-publicaciones). La usan VTK y el navegador (`tarjetas.py`)."""
-    im = _lienzo(estilo)
-    draw = ImageDraw.Draw(im)
-    m = estilo.px(estilo.margen)
-    ancho_texto = estilo.ancho - 2 * m
-    f_txt = cargar_fuente(estilo, estilo.px(estilo.tam_titulo * 0.8), titulo=True)
-    barra = estilo.px(10)
-    items: list = [barra * 3]
-    items += [(s, f_txt, estilo.color_texto) for s in envolver(texto, f_txt, ancho_texto, 3)]
-    if url:
-        url_s, f_url = _una_linea(url, estilo, estilo.px(estilo.tam_texto),
-                                  estilo.px(estilo.tam_texto * 0.6), ancho_texto)
-        items += [estilo.px(28), (url_s, f_url, estilo.color_acento)]
-    if aviso:
-        f_av = cargar_fuente(estilo, estilo.px(estilo.tam_texto * 0.7))
-        items += [estilo.px(56)] + [(s, f_av, estilo.color_secundario)
-                                    for s in envolver(aviso, f_av, ancho_texto * 0.6, 2)]
-    y = (estilo.alto - _alto_bloque(items)) / 2
-    cx = estilo.ancho / 2
-    draw.rectangle((cx - estilo.px(70), y, cx + estilo.px(70), y + barra - 1),
-                   fill=estilo.color_acento)
-    _bloque(draw, items, cx, y, centrado=True)
-    return im

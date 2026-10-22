@@ -173,7 +173,7 @@ def _png(fn, sesion: str, *args) -> Response:
 
 @router.get("/api/video/grabacion/{sesion}/tarjeta/{parte}")
 def tarjeta_grabacion(sesion: str, parte: str) -> Response:
-    """La tarjeta `parte` (portada, cifras o cierre) del guion, del tamaño del video, en PNG. La
+    """La tarjeta `parte` (portada o cierre) del guion, del tamaño del video, en PNG. La
     portada va sobre la foto que subió el navegador."""
     from PIL import Image
 
