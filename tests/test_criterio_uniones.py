@@ -70,12 +70,15 @@ def test_plantilla_de_rodillos_coincide_con_sus_propias_uniones():
     declarado = {frozenset((f["a"], f["b"])): f["kind"] for f in doc.fasteners.values()}
     detectados = {par: k for par, k in declarado.items() if par in tipo}
     aciertos = sum(1 for par, k in detectados.items() if tipo[par] == k)
-    # medido: 145 de 152 pares detectados (154 declarados); los 7 son decisiones de ESTA máquina
+    # medido con los pies de F5: 157 de 164 pares detectados; los 7 son decisiones de ESTA máquina
     # (cárter soldado a la base que corre con el motor, orejas con pernos en ranura, tapa soldada)
     assert aciertos / len(detectados) >= 0.95, f"{aciertos}/{len(detectados)}"
     roles = {k: r for k, (r, _) in roles_de(doc).items()}
+    # la tuerca del pie nivelador va soldada a la placa de la pata (F5): no es desmontable
+    soldadas = {k for k, (r, c) in roles_de(doc).items() if r == "tuerca" and "soldad" in c}
     assert not [par for par, k in tipo.items()
-                if k == "soldadura" and _soldadura_desmontable(roles, *sorted(par))]
+                if k == "soldadura" and not par & soldadas
+                and _soldadura_desmontable(roles, *sorted(par))]
     # las reglas de D6, con las piezas de la plantilla
     eje, larguero, tuerca = _ids(doc, "Eje del rodillo")[0], _ids(doc, "Larguero (-Y)")[0], \
         _ids(doc, "Tuerca del eje (-Y)")[0]

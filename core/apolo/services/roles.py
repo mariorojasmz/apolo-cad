@@ -23,6 +23,7 @@ _GIRA_PARTE = r"(tubo|buje|cubo|maza|brida|manto|camisa)\s+(del?|de\s+la)\s+"
 _GIRA_CUERPO = r"(rodillo|tambor|polea|pi[ñn][oó]n|catarina|sprocket|engrane|engranaje|rueda|volante)"
 _ROLES_NOMBRE = (
     ("tuerca", r"(contra)?tuercas?|nuts?"),
+    ("pie", r"pies?\s+nivelador(es)?|niveladores?|leveling\s+f(oo|ee)t"),
     ("perno", r"pernos?|tornillos?|torniller[ií]a|bul[oó]n|esp[aá]rragos?|prisioneros?|"
               r"varilla\s+roscada|bolts?|screws?|studs?"),
     ("chumacera", r"chumaceras?|soporte\s+de\s+rodamiento|pillow\s*block|uc[pft]l?\d*"),
@@ -48,10 +49,14 @@ _ROL_CATEGORIA = {
 _ESTRUCTURA_CATEGORIA = {"perfiles_abiertos", "tubos_estructurales", "perfiles", "patas"}
 
 
+def _cuerpo(tramo: str) -> str:
+    return re.sub(r"\([^)]*\)|\d+", "", tramo).strip().lower()
+
+
 def rol_union(nombre: str | None, categoria: str | None = None,
               nombre_catalogo: str | None = None, maquinas=()) -> tuple[str, str]:
     """(rol, cuerpo) de una pieza para decidir sus uniones. `rol`: tuerca, perno, chumacera,
-    rodamiento, eje, flexible, equipo, guarda, gira, estructura o «» (sin rol: decide la
+    rodamiento, eje, pie (nivelador), flexible, equipo, guarda, gira, estructura o «» (sin rol: decide la
     geometría). `cuerpo`: el tramo del nombre que lo decidió, sin números ni paréntesis («Guarda
     de la transmisión · extremo (+X)» → «guarda de la transmisión»): dos partes de la MISMA
     guarda comparten cuerpo.
@@ -61,13 +66,13 @@ def rol_union(nombre: str | None, categoria: str | None = None,
     « · », del último al primero, sin los que nombran un grupo de `maquinas`: «Faja de banda ·
     Oreja» no es una banda; «… con rodamiento» es un asiento de rodamiento); por último los
     perfiles estructurales del catálogo."""
-    if categoria in _ROL_CATEGORIA:
-        return _ROL_CATEGORIA[categoria], ""
+    tramos = [t for t in (nombre or "").split("·") if t.strip() and t.strip() not in maquinas]
+    if categoria in _ROL_CATEGORIA:  # el cuerpo, del nombre: «Tuerca soldada del pie» se suelda
+        return _ROL_CATEGORIA[categoria], _cuerpo(tramos[-1]) if tramos else ""
     if categoria == "transmision":
         return ("flexible" if _FLEXIBLE_RE.match(nombre_catalogo or "") else "gira"), ""
-    tramos = [t for t in (nombre or "").split("·") if t.strip() and t.strip() not in maquinas]
     for tramo in reversed(tramos):
-        cuerpo = re.sub(r"\([^)]*\)|\d+", "", tramo).strip().lower()
+        cuerpo = _cuerpo(tramo)
         for rol, regex in _ROL_RE:
             if regex.match(tramo):
                 if rol in ("estructura", "gira") and _RODAMIENTO_RE.search(tramo):

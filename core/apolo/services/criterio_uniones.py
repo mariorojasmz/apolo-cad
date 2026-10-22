@@ -8,6 +8,9 @@ vecinas, en este orden (gana la primera regla que aplica):
 1. tornillería: la tuerca va en `contacto` con su perno o eje; con lo que aprieta NO se declara
    (es parte de su perno: la unión es perno ↔ pieza); sin perno a la vista, `perno` a revisar.
    Un perno ↔ la pieza que atraviesa: `contacto` (la unión de las piezas es `perno`, regla 5).
+   Una tuerca «soldada» (la del nivelador) va `soldadura` a la pieza.
+1b. pie nivelador: con su placa de piso, `soldadura` (el disco se suelda tras nivelar); con lo
+   demás, `contacto` (pasa por la placa: la unión es su tuerca).
 2. cadena o banda: `contacto` con lo que gira o con la cama; con todo lo demás, ninguna.
 3. guarda: con lo que gira o con el equipo que cubre, ninguna; con su soporte, `perno`; con otra
    parte de la MISMA guarda (mismo cuerpo de nombre), `soldadura`; con otra guarda, `perno`.
@@ -29,7 +32,7 @@ prueba sobre un fixture de la piloto (`tests/data/estructura_piloto74.json`).
 from __future__ import annotations
 
 _TORNILLERIA = ("tuerca", "perno")
-_ROSCA = ("perno", "eje")
+_ROSCA = ("perno", "eje", "pie")
 
 
 def criterio(roles: dict[str, str], candidatos: list[dict], moviles: dict | None = None,
@@ -84,10 +87,18 @@ def _decidir(a, b, geo, ctx):
         if rol(t) == "perno" or rol(x) in _ROSCA + ("tuerca",):
             que = "perno" if rol(t) == "perno" else "tuerca"
             return "contacto", f"{que} en su rosca o a través de la pieza: la unión es el perno", False
+        if rol(t) == "tuerca" and "soldad" in cuerpos.get(t, ""):
+            return "soldadura", "tuerca soldada a la pieza (la rosca de un nivelador)", False
         roscas = [n for n in vec.get(t, ()) if rol(n) in _ROSCA]
         if any(x in vec.get(n, ()) for n in roscas):
             return None, f"la tuerca es parte de su perno: la unión es {roscas[0]} ↔ {x}", False
         return "perno", "tuerca sin perno ni eje a la vista: ¿qué aprieta?", True
+    par = _uno(a, b, rol, ("pie",))
+    if par:
+        p, x = par
+        if "piso" in cuerpos.get(x, ""):
+            return "soldadura", "disco del nivelador soldado a su placa de piso tras nivelar", False
+        return "contacto", "el nivelador pasa por su placa o apoya: la unión es su tuerca", False
     par = _uno(a, b, rol, ("flexible",))
     if par:
         f, x = par
