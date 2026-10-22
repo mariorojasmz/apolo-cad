@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 mergeadas, F3 conectada al registro (fuente «seguridad», registro v2, tabla de riesgos) y create_belt_conveyor v4 sin choques internos (la puerta sólo le pide D15, metadato del proyecto); faltan F4, F5 y F6
+nota: F0–F4 mergeadas (F3 en el registro con la tabla de riesgos, create_belt_conveyor v4 sin choques, fábrica de 8 pasos con revisión, cuadros y familia); F5 en curso; F6 pendiente
 descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
 ---
 
