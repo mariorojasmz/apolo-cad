@@ -59,6 +59,10 @@ Origen de todos: [estado-regen-y-params-estrictos](plans/estado-regen-y-params-e
 
 ## Lectura MCP a escala
 
+- **Fricción chica de union-en-perfil-hueco F2** ([plan](plans/union-en-perfil-hueco.md) § F2):
+  `$0` en lotes (3 de 3 modeladores; aceptar `$0` como alias o decirlo en el docstring de
+  `run_batch`); la jamba sin material tratada como acero en una puerta de carpintería; `measure`
+  no acepta «+Y»; `render_view(zoom=2.5)` en blanco.
 Origen de todos: revisión de [V6.5](plans/V6.5-mcp-a-escala.md) y de
 [V6.5e](plans/V6.5e-mcp-jobs-asincronos.md).
 

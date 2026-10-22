@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F1 mergeada a main el 2026-10-21; falta F2 (verificar por MCP la placa en las fajas 38, 72 y la puerta 28)
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: F1 mergeada y F2 verificada por MCP el 2026-10-21 (las tres uniones se montan); fricción chica al backlog
 descripcion: Atornillar una pieza a un tubo cerrado, a una C de chapa o a madera da una unión que se puede montar: la fijación correcta, el largo por el espesor real y la tuerca del lado que se alcanza
 ---
 
@@ -127,3 +127,23 @@ Supone dos chapas macizas que se alcanzan por los dos lados:
   3 mm, tablero y placa de 1,5; la puerta sin aviso y el acceso de herramienta ok en las tres; el
   log viejo byte a byte y su edit sin sellar; criterio fuera del schema; la vista previa. Los
   conteos de catálogo pasan de 362 a 370 refs. Suite completa verde.
+
+### F2 (2026-10-21): verificación por MCP — las tres uniones se montan
+
+La misma tarea de varias-maquinas F4 (placa de identificación en el lado de operación), con tres
+`claude -p --model opus` a la vez en la laptop y las APIs en el escritorio (túnel SSH, copia de la
+base): 101 s de pared, 2,30 USD, cero `database is locked`.
+
+| máquina | fijación que eligió `join_bolted` | se monta |
+|---|---|---|
+| faja 38 (tubo cerrado) | remache ciego Ø4,8×8 DIN 7337: atraviesa 4,5 mm y sobran 3,4 adentro; cabeza del lado de la placa | sí (antes, cabeza dentro del tubo) |
+| puerta 28 (madera) | tornillo para madera Ø6×40 DIN 571, sin tuerca: 38,5 mm dentro, sin asomar | sí, una vez declarada madera la jamba |
+| faja 72 (C de chapa) | M6×12 DIN 933 + DIN 934: atraviesa 4,5 mm, la tuerca dentro de la C con acceso | sí (antes M6×60), puerta VERDE |
+
+**Fricción que queda** (al [backlog](../backlog.md)):
+- **`$0`.** Los tres modeladores volvieron a usar `$0`; ahora el 400 explica que la numeración
+  arranca en `$1`, pero se pierde un lote.
+- **Jamba sin material.** Una jamba de puerta sin material declarado se trata como acero (perno
+  pasante M6×80): el vertical carpintería no la tiñe madera.
+- **`measure`** no acepta la dirección «+Y».
+- **`render_view`** con `zoom` 2,5 salió en blanco.
