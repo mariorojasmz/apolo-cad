@@ -1,0 +1,270 @@
+"""`publicar fabrica`: una máquina modelada sale publicada en la tienda con un solo comando (plan
+fabrica-de-publicaciones, F3 · D2, D5–D7).
+
+Encadena cuatro pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>/<version>/`):
+
+  1. `guion`: `flujo.guion` si la carpeta no tiene `guion.json` (lo normal es que ya lo haya
+     corrido el modelador al redactar la ficha);
+  2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`); si falla, PARA y dice qué
+     falta: la ficha la redacta el modelador (D1), la fábrica no la inventa;
+  3. `generar`: `flujo.generar` con el navegador en nivel rápido (D2; si cae a VTK, lo dice),
+     bajo el candado de render de la PC (D7: una GPU, una grabación a la vez). Con `ficha.json`
+     en la carpeta ya está generado y no se rehace;
+  4. `tienda`: `tienda.subir` (publica, o deja en borrador con `borrador`).
+
+Cada paso queda en `estado.json` de la carpeta (hecho/fallo, cuándo, cuánto tardó, las últimas
+líneas de su salida y el error). Volver a correrla salta lo hecho y retoma desde el paso que
+falló (D6); `desde` fuerza a rehacer desde un paso. No toca YouTube (D5): una máquina publicada
+entra sola a la cola de la tienda y la sube el subidor (`cola_youtube`).
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+
+from apolo.publicacion import paquete
+from apolo.publicacion.paquete import GUION, PublicacionError
+
+PASOS = ("guion", "ficha", "generar", "tienda")
+ESTADO = "estado.json"
+LINEAS = 15  # de la salida de cada paso, en estado.json
+RENDERS = ("navegador", "vtk")
+#: Los errores con mensaje para la persona (PublicacionError y FfmpegNoEncontrado son
+#: RuntimeError; FichaError, GuionError y SaneoError, ValueError): paran con el mensaje.
+ESPERABLES = (RuntimeError, ValueError, OSError)
+
+
+class FabricaError(PublicacionError):
+    """La fábrica paró en un paso; el mensaje dice cuál, por qué y cómo seguir."""
+
+
+@dataclass
+class Encargo:
+    """Lo que necesitan los pasos. `cliente`: el de la API de Apolo; `cliente_tienda`: el de la
+    tienda (los tests); `paralelo`: entregables en paralelo con el video (sólo con la API en otro
+    proceso, ver `flujo.generar`)."""
+
+    proyecto: int
+    carpeta: Path
+    slug: str
+    version: str
+    raiz: Path
+    tienda: str
+    cliente: object = None
+    url: str | None = None
+    llave: str | None = None
+    render: str = "navegador"
+    borrador: bool = False
+    paralelo: bool = False
+    sin_esperar: bool = False
+    candado: Path | None = None
+    cliente_tienda: object = None
+    eco: object = print
+    datos: dict = field(default_factory=dict)
+
+
+# ------------------------------------------------------------------ los pasos
+def paso_guion(e: Encargo) -> dict:
+    from apolo.publicacion import flujo
+
+    if (e.carpeta / GUION).is_file():
+        e.eco(f"{GUION} ya está en {e.carpeta}: no lo rehago.")
+        return {"ya_estaba": True}
+    r = flujo.guion(e.cliente, e.proyecto, raiz=e.raiz, slug=e.slug, version=e.version,
+                    tienda=e.tienda, eco=e.eco)
+    return {"etapas": r["etapas"], "duracion_s": round(r["duracion_s"], 1)}
+
+
+def paso_ficha(e: Encargo) -> dict:
+    from apolo.publicacion import preparar
+    from apolo.publicacion.ficha import FichaError
+
+    try:
+        preparar.revisar(e.carpeta, tienda=e.tienda, eco=e.eco)
+    except (FichaError, PublicacionError) as exc:
+        raise FabricaError(
+            f"{exc}\nLa ficha la redacta el modelador (D1), no la fábrica: completa "
+            f"{e.carpeta / paquete.FICHA_YAML}, revísala con `publicar ficha --revisar` hasta que "
+            "salga limpia y vuelve a correr `publicar fabrica` (retoma desde la ficha).") from None
+    return {}
+
+
+def paso_generar(e: Encargo) -> dict:
+    from apolo.publicacion import flujo
+    from apolo.publicacion.candado import Candado
+
+    if paquete.publicada(e.carpeta):
+        e.eco(f"{paquete.FICHA_JSON} ya está en {e.carpeta}: el paquete está generado, no lo "
+              "rehago.")
+        return {"ya_estaba": True}
+    with Candado(e.candado, que=f"{e.slug} {e.version} (proyecto {e.proyecto})",
+                 sin_esperar=e.sin_esperar, eco=e.eco) as c:
+        r = flujo.generar(e.cliente, e.proyecto, raiz=e.raiz, slug=e.slug, version=e.version,
+                          render=e.render, nivel="rapido", tienda=e.tienda, url=e.url,
+                          paralelo=e.paralelo, eco=e.eco)
+    usado = r["video"]["render"]
+    if usado != e.render:
+        e.eco(f"Aviso: el video salió con {usado}, no con {e.render} (D2: sin navegador o sin "
+              "GPU, la fábrica cae a VTK). Más arriba está el porqué.")
+    return {"render": usado, "pedido": e.render, "veredicto": r["calidad"]["veredicto"],
+            "espera_candado_s": round(c.esperado_s, 1),
+            "tiempos_s": {k: round(v, 1) for k, v in r["tiempos_s"].items()}}
+
+
+def paso_tienda(e: Encargo) -> dict:
+    from apolo.publicacion import tienda
+
+    r = tienda.subir(e.carpeta, tienda=e.tienda, llave=e.llave, borrador=e.borrador, eco=e.eco,
+                     cliente=e.cliente_tienda)
+    return {"url": r["url"], "publicada": r["publicada"]}
+
+
+PASOS_REALES = {"guion": paso_guion, "ficha": paso_ficha, "generar": paso_generar,
+                "tienda": paso_tienda}
+
+
+# ------------------------------------------------------------------ estado.json
+def leer_estado(carpeta) -> dict | None:
+    try:
+        datos = json.loads((Path(carpeta) / ESTADO).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return datos if isinstance(datos, dict) and isinstance(datos.get("pasos"), dict) else None
+
+
+def terminada(estado: dict | None) -> bool:
+    return bool(estado) and all((estado["pasos"].get(p) or {}).get("estado") == "hecho"
+                                for p in PASOS)
+
+
+def _guardar(carpeta: Path, estado: dict) -> None:
+    carpeta.mkdir(parents=True, exist_ok=True)
+    estado["actualizado"] = datetime.now().isoformat(timespec="seconds")
+    tmp = carpeta / f".{ESTADO}.tmp"
+    tmp.write_text(json.dumps(estado, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, carpeta / ESTADO)
+
+
+def carpeta_de_trabajo(raiz, slug: str, version: str | None, *, desde: str | None = None) -> Path:
+    """La versión que toca: la pedida; si no, una con la fábrica a medias (la última), con
+    `desde` la última que pasó por la fábrica, la única con guion sin generar, o una nueva
+    (`paquete.version_libre`: 1.0.0 si está libre)."""
+    raiz = Path(raiz)
+    if version:
+        return paquete.carpeta_version(raiz, slug, version)
+    todas = paquete.versiones(raiz, slug)
+    estados = {v: leer_estado(paquete.carpeta_version(raiz, slug, v)) for v in todas}
+    a_medias = [v for v in todas if estados[v] and not terminada(estados[v])]
+    if not a_medias and desde is not None:
+        a_medias = [v for v in todas if estados[v]]
+    if a_medias:
+        return paquete.carpeta_version(raiz, slug, a_medias[-1])
+    pendientes = [v for v in todas if (paquete.carpeta_version(raiz, slug, v) / GUION).exists()
+                  and not paquete.publicada(paquete.carpeta_version(raiz, slug, v))]
+    if len(pendientes) > 1:
+        raise PublicacionError(f"«{slug}» tiene varias versiones sin publicar "
+                               f"({', '.join(pendientes)}): elige una con --version.")
+    if pendientes:
+        return paquete.carpeta_version(raiz, slug, pendientes[0])
+    return paquete.carpeta_version(raiz, slug, paquete.version_libre(raiz, slug))
+
+
+# ------------------------------------------------------------------ la cadena
+def _ocultar(texto: str, llave: str | None) -> str:
+    if not llave:
+        return texto
+    from apolo.publicacion.tienda import prefijo
+
+    return texto.replace(llave, prefijo(llave))
+
+
+def fabricar(e: Encargo, *, desde: str | None = None, pasos: dict | None = None,
+             entorno=None) -> dict:
+    """Corre los pasos que faltan y deja `estado.json`. `pasos`: {nombre: función(Encargo) →
+    dict} para reemplazar alguno (los tests). Devuelve el estado final; si un paso falla, lo
+    anota y lanza `FabricaError` con el error y cómo retomar."""
+    from apolo.publicacion import tienda
+
+    if desde is not None and desde not in PASOS:
+        raise PublicacionError(f"Paso desconocido: {desde!r} (válidos: {', '.join(PASOS)})")
+    if e.render not in RENDERS:
+        raise PublicacionError(f"Render desconocido: {e.render!r} (válidos: {', '.join(RENDERS)})")
+    pasos = {**PASOS_REALES, **(pasos or {})}
+    eco = e.eco or (lambda *_a, **_k: None)
+    estado = leer_estado(e.carpeta) or {"formato": 1, "pasos": {}}
+    estado.update(proyecto=e.proyecto, slug=e.slug, version=e.version)
+    if desde is not None:
+        for p in PASOS[PASOS.index(desde):]:
+            estado["pasos"].pop(p, None)
+    hecho = {p for p in PASOS if (estado["pasos"].get(p) or {}).get("estado") == "hecho"}
+    if "tienda" not in hecho and e.llave is None:
+        e.llave = tienda.llave_del_entorno(entorno)  # antes de minutos de trabajo, no al final
+    eco(f"Fábrica: «{e.slug}» {e.version} (proyecto {e.proyecto}) en {e.carpeta}")
+    for p in PASOS:
+        if p in hecho:
+            eco(f"[{p}] hecho en una corrida anterior: lo salto.")
+            continue
+        lineas: list[str] = []
+
+        def eco_paso(*a, _lineas=lineas, **_k):
+            texto = " ".join(str(x) for x in a)
+            _lineas.extend(texto.splitlines() or [""])
+            eco(texto)
+
+        e.eco = eco_paso
+        eco(f"[{p}] …")
+        inicio, t = datetime.now().isoformat(timespec="seconds"), time.perf_counter()
+        try:
+            datos = pasos[p](e) or {}
+        except Exception as exc:  # noqa: BLE001 — se anota y sube: esperable o no, retoma aquí
+            error = _ocultar(str(exc) or type(exc).__name__, e.llave)
+            estado["pasos"][p] = {"estado": "fallo", "inicio": inicio,
+                                  "segundos": round(time.perf_counter() - t, 1),
+                                  "error": error,
+                                  "salida": [_ocultar(x, e.llave) for x in lineas[-LINEAS:]]}
+            _guardar(e.carpeta, estado)
+            if not isinstance(exc, ESPERABLES):
+                raise  # un error de programa: con su traza
+            raise FabricaError(f"La fábrica paró en «{p}»:\n{error}\nEstado en "
+                               f"{e.carpeta / ESTADO}; al volver a correr `publicar fabrica`, "
+                               f"retoma desde «{p}».") from None
+        finally:
+            e.eco = eco
+        estado["pasos"][p] = {"estado": "hecho", "inicio": inicio,
+                              "segundos": round(time.perf_counter() - t, 1),
+                              "datos": datos,
+                              "salida": [_ocultar(x, e.llave) for x in lineas[-LINEAS:]]}
+        _guardar(e.carpeta, estado)
+    reporte(estado, eco)
+    return estado
+
+
+def reporte(estado: dict, eco=print) -> None:
+    """Tiempos por paso, la URL de la tienda, si quedó publicada y qué sigue (YouTube, D5)."""
+    pasos = estado["pasos"]
+    eco(f"\nFábrica terminada: «{estado['slug']}» {estado['version']} "
+        f"(proyecto {estado['proyecto']})")
+    for p in PASOS:
+        x = pasos.get(p) or {}
+        datos = x.get("datos") or {}
+        nota = ("ya estaba" if datos.get("ya_estaba") else
+                f"video con {datos['render']}" if p == "generar" and "render" in datos else "")
+        if p == "generar" and datos.get("espera_candado_s"):
+            nota += f"; esperó el candado {datos['espera_candado_s'] / 60:.1f} min"
+        eco(f"  {p:<8} {x.get('segundos', 0):>7.1f} s  ({x.get('inicio', '?')})"
+            + (f"  {nota}" if nota else ""))
+    eco(f"  total    {sum((pasos.get(p) or {}).get('segundos', 0) for p in PASOS):>7.1f} s")
+    t = (pasos.get("tienda") or {}).get("datos") or {}
+    if t.get("publicada"):
+        eco(f"Publicada en la tienda: {t.get('url')}")
+        eco("YouTube: la máquina quedó en la cola de la tienda; la sube el subidor "
+            "(`publicar youtube --cola`, tarea diaria en UNA sola PC), PRIVADA hasta la "
+            "auditoría: pásala a pública en YouTube Studio cuando toque.")
+    else:
+        eco(f"Quedó en BORRADOR en la tienda: {t.get('url')}. No entra a la cola de YouTube "
+            "hasta que la publiques (en la tienda, o `publicar subir` sin --borrador).")

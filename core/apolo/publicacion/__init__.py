@@ -22,6 +22,10 @@ video sobre su propia copia del documento, sin locks compartidos.
   - `tienda`: `publicar subir`, el paquete generado a apolocad.com (publicacion-tienda F6).
   - `youtube` y `youtube_oauth`: `publicar youtube`, el video a YouTube con su permiso OAuth
     (fabrica-de-publicaciones F1).
+  - `fabrica` y `candado`: `publicar fabrica`, guion → ficha → generar → tienda con
+    `estado.json`, bajo el candado de render de la PC (fabrica-de-publicaciones F3).
+  - `cola_youtube` y `tarea_cola`: `publicar youtube --cola`, el subidor que vacía la cola de
+    la tienda, y su tarea diaria de Windows (fabrica-de-publicaciones F3).
 
 Fronteras (`tests/test_capas_publicacion.py`): de `apolo` sólo importa `services`, `doc`,
 `kernel`, `media` y `paths`; nunca `apolo.api` ni `apolo.state` (la API es un servidor al

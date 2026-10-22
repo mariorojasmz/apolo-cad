@@ -14,7 +14,8 @@ toca la API de Apolo ni el documento. Cuatro pasos, cada uno corta antes del sig
   3. importar la ficha con los archivos subidos;
   4. publicarla (salvo `borrador`).
 
-La llave nunca se imprime: en un error, a lo sumo su prefijo (`prefijo`).
+La llave nunca se imprime: en un error, a lo sumo su prefijo (`prefijo`). `Cliente` (Bearer,
+errores, archivos por trozos) lo usa también el subidor de la cola de YouTube (`cola_youtube`).
 """
 
 from __future__ import annotations
@@ -160,7 +161,7 @@ def _mensaje(resp) -> str:
     return "\n".join(partes)
 
 
-class _Tienda:
+class Cliente:
     def __init__(self, url: str, llave: str, cliente=None, eco=print, espera_s: float = 2.0):
         import httpx
 
@@ -198,9 +199,10 @@ class _Tienda:
             texto = f"La tienda rechazó {que} ({resp.status_code}): {detalle}"
         return TiendaError(texto.replace(self.llave, prefijo(self.llave)), resp.status_code)
 
-    def api(self, metodo: str, ruta: str, que: str, cuerpo: dict, *, reintentar: dict = None):
-        """Una llamada JSON a la tienda con el Bearer. `reintentar`: {status: veces} que se
-        repiten con espera antes de rendirse."""
+    def api(self, metodo: str, ruta: str, que: str, cuerpo: dict | None, *,
+            reintentar: dict = None):
+        """Una llamada JSON a la tienda con el Bearer (`cuerpo` None: sin cuerpo). `reintentar`:
+        {status: veces} que se repiten con espera antes de rendirse."""
         pendientes = dict(reintentar or {})
         while True:
             resp = self._enviar(metodo, self.url + ruta, que, json=cuerpo, headers=self._bearer())
@@ -233,6 +235,25 @@ class _Tienda:
                               f"{(resp.text or '').strip()[:300] or '(sin detalle)'}",
                               resp.status_code)
 
+    def bajar(self, url: str, destino: Path, que: str) -> Path:
+        """Un archivo de la tienda (su URL pública, quizá en otro origen: el bucket) a disco, por
+        trozos; el Bearer, sólo si la url es de la propia tienda (fabrica-de-publicaciones F3)."""
+        url = urljoin(self.url + "/", url)
+        propia = self.mismo_origen(url)
+        try:
+            with self.c.stream("GET", url, headers=self._bearer() if propia else {}) as resp:
+                if resp.status_code >= 400:
+                    resp.read()
+                    if propia:
+                        raise self._rechazo(resp, que)
+                    raise TiendaError(f"No pude {que} ({resp.status_code}).", resp.status_code)
+                with open(destino, "wb") as fh:
+                    for trozo in resp.iter_bytes(TROZO):
+                        fh.write(trozo)
+        except self._httpx.HTTPError as exc:
+            raise TiendaError(f"No pude {que}: no responde ({exc}).") from None
+        return destino
+
 
 def _leer(ruta: Path, eco):
     """El archivo por trozos desde disco, con el avance por consola si es grande."""
@@ -248,7 +269,7 @@ def _leer(ruta: Path, eco):
 
 
 # ------------------------------------------------------------------ los cuatro pasos
-def _plan(t: _Tienda, ficha: dict, archivos: list[Path], eco) -> dict:
+def _plan(t: Cliente, ficha: dict, archivos: list[Path], eco) -> dict:
     nombres = [p.name for p in archivos]
     r = t.api("POST", "/api/maquina/importacion/revision", "revisar la ficha",
               {"ficha": ficha, "nombres": nombres})
@@ -277,7 +298,7 @@ def _plan(t: _Tienda, ficha: dict, archivos: list[Path], eco) -> dict:
     return plan
 
 
-def _subir_archivo(t: _Tienda, ruta: Path, a: dict, eco) -> dict:
+def _subir_archivo(t: Cliente, ruta: Path, a: dict, eco) -> dict:
     tamano = ruta.stat().st_size
     eco(f"  subiendo {ruta.name} ({tamano / 1e6:.1f} MB)…")
     firma = t.api("POST", "/api/archivos/subidas", f"pedir la subida de {ruta.name}", {
@@ -301,7 +322,7 @@ def subir(carpeta, *, tienda: str, llave: str, borrador: bool = False, ensayo: b
     eco = eco or (lambda *_a, **_k: None)
     carpeta = Path(carpeta)
     ficha, archivos = contenido(carpeta)
-    t = _Tienda(tienda, llave, cliente=cliente, eco=eco, espera_s=espera_s)
+    t = Cliente(tienda, llave, cliente=cliente, eco=eco, espera_s=espera_s)
     try:
         plan = _plan(t, ficha, archivos, eco)
         if ensayo:

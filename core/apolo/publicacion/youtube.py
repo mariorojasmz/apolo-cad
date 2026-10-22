@@ -17,6 +17,9 @@ que `youtube.txt`; un paquete de antes lo arma con `textos.datos_youtube` (sin `
 la ficha, el enlace es `<tienda>/maquinas/<slug>`). Privado
 salvo `publico` (D4: YouTube deja privado lo que sube un proyecto sin auditar). El cupo diario
 agotado es `CupoAgotado`, un estado esperable, y no deja `youtube.json`.
+
+`conectar` (permiso + canal) y `subir_video` (un video con sus textos tal cual) son los dos
+trozos que comparte el subidor de la cola de la tienda (`cola_youtube`, F3).
 """
 
 from __future__ import annotations
@@ -257,6 +260,54 @@ def _escribir(carpeta: Path, resultado: dict) -> None:
     os.replace(tmp, carpeta / RESULTADO)
 
 
+def conectar(http, *, reautorizar: bool = False, eco=print, abrir=webbrowser.open,
+             entorno=None, espera_s: float = 2.0,
+             espera_navegador_s: float = oauth.ESPERA_NAVEGADOR_S) -> tuple[_YouTube, dict]:
+    """(cliente de YouTube con el permiso, canal {id, titulo}): el permiso guardado (o el del
+    navegador la primera vez) y el canal al que se sube. Una vez por corrida: el subidor de la
+    cola lo comparte entre sus videos (F3)."""
+    dir_ = oauth.carpeta(entorno)
+    cliente_oauth = oauth.leer_cliente(dir_)
+    ext = oauth.extremos(cliente_oauth, entorno)
+    p = oauth.permiso(http, dir_, ext, cliente_oauth, reautorizar=reautorizar, eco=eco,
+                      abrir=abrir, espera_s=espera_navegador_s)
+    yt = _YouTube(http, ext, p, eco, espera_s)
+    canal = yt.canal()
+    oauth.anotar_canal(dir_, canal)
+    return yt, canal
+
+
+def subir_video(yt: _YouTube, canal: dict, video: Path, miniatura: Path | None, d: dict, *,
+                publico: bool = False, trozo: int = TROZO) -> tuple[dict, str | None]:
+    """Sube `video` con los textos `d` ({titulo, descripcion, etiquetas}, tal cual) y la
+    miniatura. Devuelve (lo de `youtube.json`, aviso de la miniatura o None)."""
+    if trozo <= 0 or trozo % GRANO:
+        raise ValueError(f"el trozo debe ser múltiplo de {GRANO} bytes")
+    cuerpo = metadatos(d, publico=publico)
+    privacidad = cuerpo["status"]["privacyStatus"]
+    yt.eco(f"Subiendo al canal «{canal['titulo']}»: {d['titulo']} ({privacidad})")
+    sesion = yt.iniciar(cuerpo, video.stat().st_size)
+    subido = yt.subir_archivo(sesion, video, trozo)
+    video_id = subido.get("id")
+    if not video_id:
+        raise YoutubeError(f"YouTube cerró la subida sin el id del video: {str(subido)[:300]}")
+    aviso = (yt.miniatura(video_id, miniatura) if miniatura is not None
+             else "la máquina no tiene miniatura")
+    return {"video_id": video_id, "url": url_video(video_id), "privacidad": privacidad,
+            "canal": canal["titulo"], "canal_id": canal["id"],
+            "subido_en": datetime.now().isoformat(timespec="seconds"),
+            "titulo": d["titulo"], "miniatura": aviso is None}, aviso
+
+
+def avisar_subido(eco, resultado: dict, aviso: str | None) -> None:
+    if aviso:
+        eco(f"Aviso: la miniatura no se subió ({aviso}). El video ya está en YouTube: súbela a "
+            "mano en YouTube Studio.")
+    eco(f"Subido: {resultado['url']}"
+        + (" — PRIVADO (D4): pásalo a público en YouTube Studio cuando toque."
+           if resultado["privacidad"] == "private" else " — público."))
+
+
 def subir(carpeta, *, tienda: str, publico: bool = False, ensayo: bool = False,
           forzar: bool = False, reautorizar: bool = False, eco=print, cliente=None,
           abrir=webbrowser.open, entorno=None, espera_s: float = 2.0, trozo: int = TROZO,
@@ -284,20 +335,13 @@ def subir(carpeta, *, tienda: str, publico: bool = False, ensayo: bool = False,
     if not video.is_file() or video.stat().st_size == 0:
         raise PublicacionError(f"No hay video en {video}: corre `publicar generar` primero.")
     d = datos(ficha, tienda)
-    cuerpo = metadatos(d, publico=publico)
-
-    dir_ = oauth.carpeta(entorno)
-    cliente_oauth = oauth.leer_cliente(dir_)
-    ext = oauth.extremos(cliente_oauth, entorno)
+    oauth.leer_cliente(oauth.carpeta(entorno))  # sin cliente OAuth, nada toca la red
     http = cliente or httpx.Client(timeout=httpx.Timeout(120.0))
     try:
-        p = oauth.permiso(http, dir_, ext, cliente_oauth, reautorizar=reautorizar, eco=eco,
-                          abrir=abrir, espera_s=espera_navegador_s)
-        yt = _YouTube(http, ext, p, eco, espera_s)
-        canal = yt.canal()
-        oauth.anotar_canal(dir_, canal)
-        privacidad = cuerpo["status"]["privacyStatus"]
+        yt, canal = conectar(http, reautorizar=reautorizar, eco=eco, abrir=abrir, entorno=entorno,
+                             espera_s=espera_s, espera_navegador_s=espera_navegador_s)
         if ensayo:
+            privacidad = metadatos(d, publico=publico)["status"]["privacyStatus"]
             eco(f"Canal: «{canal['titulo']}»\nTítulo: {d['titulo']}\nPrivacidad: {privacidad}\n"
                 f"Etiquetas: {', '.join(d['etiquetas']) or '(ninguna)'}\nVideo: {video.name} "
                 f"({video.stat().st_size / 1e6:.1f} MB)\nDescripción:\n{d['descripcion']}")
@@ -306,25 +350,12 @@ def subir(carpeta, *, tienda: str, publico: bool = False, ensayo: bool = False,
             eco("Ensayo: no subí nada.")
             return {"titulo": d["titulo"], "canal": canal["titulo"], "privacidad": privacidad,
                     "descripcion": d["descripcion"], "etiquetas": d["etiquetas"], "nuevo": False}
-        eco(f"Subiendo al canal «{canal['titulo']}»: {d['titulo']} ({privacidad})")
-        sesion = yt.iniciar(cuerpo, video.stat().st_size)
-        subido = yt.subir_archivo(sesion, video, trozo)
-        video_id = subido.get("id")
-        if not video_id:
-            raise YoutubeError(f"YouTube cerró la subida sin el id del video: {str(subido)[:300]}")
-        aviso = yt.miniatura(video_id, carpeta / (ficha.get("miniatura") or "miniatura.png"))
+        resultado, aviso = subir_video(
+            yt, canal, video, carpeta / (ficha.get("miniatura") or "miniatura.png"), d,
+            publico=publico, trozo=trozo)
     finally:
         if cliente is None:
             http.close()
-    resultado = {"video_id": video_id, "url": url_video(video_id), "privacidad": privacidad,
-                 "canal": canal["titulo"], "canal_id": canal["id"],
-                 "subido_en": datetime.now().isoformat(timespec="seconds"),
-                 "titulo": d["titulo"], "miniatura": aviso is None}
     _escribir(carpeta, resultado)
-    if aviso:
-        eco(f"Aviso: la miniatura no se subió ({aviso}). El video ya está en YouTube: súbela a "
-            "mano en YouTube Studio.")
-    eco(f"Subido: {resultado['url']}"
-        + (" — PRIVADO (D4): pásalo a público en YouTube Studio cuando toque."
-           if privacidad == "private" else " — público."))
+    avisar_subido(eco, resultado, aviso)
     return {**resultado, "nuevo": True}

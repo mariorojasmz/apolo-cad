@@ -72,6 +72,41 @@ existe no resube, salvo `--forzar`. `--ensayo` muestra canal, título, descripci
 sin subir (sirve para autorizar la primera vez). `--reautorizar` pide el permiso de nuevo. Con
 el cupo diario agotado sale con 2 y lo dice: se sigue al día siguiente. La lógica, en
 `apolo.publicacion.youtube`.
+
+La fábrica encadena todo lo anterior menos YouTube (fabrica-de-publicaciones F3, D6):
+
+    $env:APOLO_TIENDA_LLAVE = 'apolo_pub_...'
+    .\.venv\Scripts\python.exe -B scripts\publicar.py fabrica --project 38
+        [--url http://127.0.0.1:8000] [--slug S] [--version V] [--tienda URL]
+        [--render navegador|vtk] [--borrador] [--desde guion|ficha|generar|tienda] [--sin-esperar]
+
+guion (si la carpeta no tiene `guion.json`) → `ficha --revisar` (si falla, PARA: la ficha la
+redacta el modelador) → `generar --render navegador --nivel rapido` (si cae a VTK, lo dice) →
+`subir`. Cada paso queda en `estado.json` de la carpeta de la versión; volver a correrla retoma
+desde el que falló y `--desde` rehace desde uno. Sin `--version`, la versión con la fábrica a
+medias, la única con guion sin generar o 1.0.0. Una sola grabación a la vez por PC: el candado
+`~\.apolo\render.lock` (`APOLO_CANDADO_RENDER`); si otra fábrica graba, espera avisando, o falla
+con `--sin-esperar`. Al terminar, la máquina publicada queda en la cola de YouTube de la tienda.
+
+El subidor vacía esa cola en UNA sola PC (D5), con la llave y el permiso de YouTube de arriba:
+
+    .\.venv\Scripts\python.exe -B scripts\publicar.py youtube --cola
+        [--limite N] [--tienda URL] [--publico] [--ensayo] [--reautorizar]
+    .\.venv\Scripts\python.exe -B scripts\publicar.py youtube --cola --instalar-tarea [--hora 02:30]
+    .\.venv\Scripts\python.exe -B scripts\publicar.py youtube --cola --quitar-tarea
+
+Por cada máquina de la cola (la más antigua primero; 6 por defecto, `--limite` hasta 20): la
+reserva (si otra PC la tomó, la salta), baja video y miniatura, verifica bytes y sha256, la sube
+PRIVADA con los textos que da la tienda y anota el resultado en la tienda. Con el cupo agotado
+avisa a esa máquina y para: el resto sigue mañana. Lo que ya está en YouTube (`youtube.json`
+local o el registro `subidas.json` de la carpeta del permiso) no se resube. `--ensayo` muestra el
+canal y la cola sin reservar (sirve para autorizar la primera vez). `--instalar-tarea` registra
+la tarea de Windows «Apolo - cola de YouTube» que lo corre cada día a `--hora` (02:30 por
+defecto, tras el reinicio del cupo a medianoche del Pacífico) con el `pythonw.exe` del venv,
+sin navegador (`--registro`: la salida va a `logs\cola-youtube.log`). La tarea lee
+`APOLO_TIENDA_LLAVE` de las variables de USUARIO (`SetEnvironmentVariable(…,'User')`): al
+instalar se verifica. Sale con 2 si una máquina falló. La lógica, en
+`apolo.publicacion.fabrica`, `cola_youtube` y `tarea_cola`.
 """
 
 from __future__ import annotations
@@ -157,7 +192,27 @@ def _parser() -> argparse.ArgumentParser:
     sube.add_argument("--borrador", action="store_true", help="importa sin publicar")
     sube.add_argument("--ensayo", action="store_true",
                       help="sólo la revisión de la tienda y el plan: no sube nada")
-    yt = sub.add_parser("youtube", help="sube el video del paquete generado a YouTube (privado)")
+    fa = sub.add_parser("fabrica", help="guion → ficha revisada → generar → tienda, con "
+                                        "estado.json y reanudación (no toca YouTube)")
+    fa.add_argument("--project", type=int, required=True, help="id del proyecto en Apolo")
+    fa.add_argument("--url", default="http://127.0.0.1:8000", help="la API de Apolo")
+    fa.add_argument("--slug", default=None,
+                    help="carpeta y nombre (por defecto, del nombre del proyecto)")
+    fa.add_argument("--version", default=None,
+                    help="versión X.Y.Z (por defecto, la que tiene la fábrica a medias, la única "
+                         "con guion sin generar o 1.0.0)")
+    fa.add_argument("--tienda", default=None,
+                    help="la tienda (por defecto APOLO_TIENDA_URL o https://apolocad.com)")
+    fa.add_argument("--render", choices=("navegador", "vtk"), default="navegador",
+                    help="quién graba el video (D2: navegador en nivel rápido; cae a vtk solo)")
+    fa.add_argument("--borrador", action="store_true",
+                    help="importa en la tienda sin publicar (no entra a la cola de YouTube)")
+    fa.add_argument("--desde", choices=("guion", "ficha", "generar", "tienda"), default=None,
+                    help="rehace desde ese paso aunque estado.json lo dé por hecho")
+    fa.add_argument("--sin-esperar", action="store_true",
+                    help="si otra fábrica está grabando en esta PC, falla en vez de esperarla")
+    yt = sub.add_parser("youtube", help="sube el video del paquete generado a YouTube (privado); "
+                                        "con --cola, vacía la cola de la tienda")
     yt.add_argument("--project", type=int, default=None,
                     help="id del proyecto en Apolo (para el slug; sobra con --slug)")
     yt.add_argument("--url", default="http://127.0.0.1:8000", help="la API de Apolo")
@@ -175,6 +230,20 @@ def _parser() -> argparse.ArgumentParser:
                     help="sube aunque youtube.json diga que ya se subió (queda duplicado)")
     yt.add_argument("--reautorizar", action="store_true",
                     help="borra el permiso guardado y lo pide de nuevo en el navegador")
+    yt.add_argument("--cola", action="store_true",
+                    help="el subidor: sube las máquinas de la cola de la tienda hasta el cupo "
+                         "(llave en APOLO_TIENDA_LLAVE)")
+    yt.add_argument("--limite", type=int, default=None,
+                    help="con --cola: cuántas máquinas pedir (1 a 20; por defecto, 6)")
+    yt.add_argument("--instalar-tarea", action="store_true",
+                    help="con --cola: registra la tarea diaria de Windows que corre el subidor")
+    yt.add_argument("--quitar-tarea", action="store_true", help="borra la tarea diaria")
+    yt.add_argument("--hora", default=None,
+                    help="con --instalar-tarea: HH:MM (por defecto 02:30, tras el reinicio del "
+                         "cupo a medianoche del Pacífico)")
+    yt.add_argument("--registro", action="store_true",
+                    help="la salida va a logs/cola-youtube.log y no se abre el navegador (lo usa "
+                         "la tarea)")
     return ap
 
 
@@ -247,6 +316,75 @@ def _youtube(args, cliente=None, abrir=None) -> int:
     return 0
 
 
+def _cola(args, abrir=None, ejecutar=None) -> int:
+    """`publicar youtube --cola` (el subidor) y su tarea diaria: la lógica, en
+    `apolo.publicacion.cola_youtube` y `tarea_cola`."""
+    from apolo import paths
+    from apolo.publicacion import cola_youtube, tarea_cola, tienda
+    from apolo.publicacion.paquete import PublicacionError
+
+    inyectado = {} if ejecutar is None else {"ejecutar": ejecutar}
+    try:
+        sobran = [n for n, v in (("--slug", args.slug), ("--version", args.version),
+                                 ("--project", args.project), ("--forzar", args.forzar)) if v]
+        if sobran:
+            raise PublicacionError(f"--cola no usa {', '.join(sobran)}: sube lo que diga la "
+                                   "cola de la tienda.")
+        if args.hora and not args.instalar_tarea:
+            raise PublicacionError("--hora va con --instalar-tarea.")
+        if args.quitar_tarea:
+            tarea_cola.quitar(**inyectado)
+            return 0
+        if args.instalar_tarea:
+            extra = ((["--tienda", args.tienda] if args.tienda else [])
+                     + (["--limite", str(args.limite)] if args.limite else [])
+                     + (["--publico"] if args.publico else []))
+            tarea_cola.instalar(Path(__file__), hora=args.hora or tarea_cola.HORA, extra=extra,
+                                **inyectado)
+            return 0
+        r = cola_youtube.vaciar(
+            tienda=tienda.url_de_la_tienda(args.tienda), llave=tienda.llave_del_entorno(),
+            limite=args.limite, publico=args.publico, ensayo=args.ensayo,
+            reautorizar=args.reautorizar, interactivo=not args.registro,
+            raiz=paths.publicaciones_dir(), **({} if abrir is None else {"abrir": abrir}))
+    except PublicacionError as exc:
+        print(f"\n{exc}", file=sys.stderr)
+        return 2
+    return 2 if r["fallidas"] else 0
+
+
+def _fabrica(args, cliente=None, cliente_tienda=None) -> int:
+    """`publicar fabrica`: la lógica, en `apolo.publicacion.fabrica`."""
+    import httpx
+
+    from apolo import paths
+    from apolo.publicacion import fabrica, tienda
+    from apolo.publicacion.entregables import TIMEOUT
+    from apolo.publicacion.paquete import PublicacionError
+
+    print(f"Aviso: la fábrica abre el proyecto {args.project} en Apolo ({args.url}) para el "
+          "guion y el video: la UI que tengas abierta cambia a ese proyecto.")
+    propio = cliente is None
+    cliente = cliente or httpx.Client(base_url=args.url, timeout=TIMEOUT)
+    try:
+        url_tienda = tienda.url_de_la_tienda(args.tienda)
+        slug = args.slug or tienda.slug_de_proyecto(cliente, args.project)
+        raiz = paths.publicaciones_dir()
+        carpeta = fabrica.carpeta_de_trabajo(raiz, slug, args.version, desde=args.desde)
+        fabrica.fabricar(fabrica.Encargo(
+            proyecto=args.project, carpeta=carpeta, slug=slug, version=carpeta.name, raiz=raiz,
+            tienda=url_tienda, cliente=cliente, url=args.url, render=args.render,
+            borrador=args.borrador, paralelo=propio, sin_esperar=args.sin_esperar,
+            cliente_tienda=cliente_tienda), desde=args.desde)
+    except PublicacionError as exc:
+        print(f"\n{exc}", file=sys.stderr)
+        return 2
+    finally:
+        if propio:
+            cliente.close()
+    return 0
+
+
 def _escenario(ruta: str | None) -> dict | None:
     import json
 
@@ -264,17 +402,31 @@ def _escenario(ruta: str | None) -> dict | None:
     return datos
 
 
-def main(argv: list[str] | None = None, cliente=None, abrir=None) -> int:
+def main(argv: list[str] | None = None, cliente=None, abrir=None, ejecutar=None,
+         cliente_tienda=None) -> int:
     """`cliente`: un httpx.Client ya apuntado a la API (los tests pasan un TestClient); en
     `subir`, el que habla con la tienda; en `youtube`, con Google. `abrir`: cómo `youtube` abre
-    el navegador (los tests simulan la vuelta)."""
+    el navegador (los tests simulan la vuelta). `ejecutar`: quien corre `schtasks` (los tests
+    sólo miran la línea). `cliente_tienda`: el de la tienda en `fabrica`."""
     for flujo_ in (sys.stdout, sys.stderr):
         with contextlib.suppress(AttributeError, ValueError):
             flujo_.reconfigure(encoding="utf-8", errors="replace")  # consola cp1252 de Windows
     args = _parser().parse_args(argv)
     if args.paso == "subir":
         return _subir(args, cliente=cliente)
+    if args.paso == "fabrica":
+        return _fabrica(args, cliente=cliente, cliente_tienda=cliente_tienda)
+    if args.paso == "youtube" and (args.cola or args.instalar_tarea or args.quitar_tarea):
+        if args.registro:
+            from apolo.publicacion.tarea_cola import registro
+
+            with registro():
+                return _cola(args, abrir=abrir, ejecutar=ejecutar)
+        return _cola(args, abrir=abrir, ejecutar=ejecutar)
     if args.paso == "youtube":
+        if args.limite or args.hora or args.registro:
+            print("\n--limite, --hora y --registro van con --cola.", file=sys.stderr)
+            return 2
         return _youtube(args, cliente=cliente, abrir=abrir)
     if args.paso == "ficha":
         return _ficha(args)

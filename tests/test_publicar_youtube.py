@@ -51,6 +51,7 @@ class Google:
         self.puts = 0
         self.consultas = 0
         self.metadatos = None
+        self.sesiones: list[dict] = []  # los metadatos de cada subida abierta
         self.largo_declarado = None
         self.recibido = b""
         self.miniatura = None
@@ -107,6 +108,8 @@ def _handler(g: Google):
                         {"reason": "quotaExceeded", "domain": "youtube.quota"}]}})
                 g.metadatos = json.loads(cuerpo)
                 g.largo_declarado = self.headers.get("X-Upload-Content-Length")
+                g.sesiones.append(g.metadatos)  # una sesión nueva empieza de cero (la cola sube varias)
+                g.recibido = b""
                 return self._responder(200, cabeceras={"Location": f"{g.url}/sesion/1"})
             if ruta == "/upload/youtube/v3/thumbnails/set":
                 if g.falla_miniatura:
@@ -137,7 +140,7 @@ def _handler(g: Google):
             g.llamadas.append(("PUT", self.path))
             assert self.path == "/sesion/1" and self._autorizado()
             datos = self._cuerpo()
-            total = len(VIDEO)
+            total = int(g.largo_declarado)
             rango = self.headers["Content-Range"]
             if rango == f"bytes */{total}":
                 g.consultas += 1
