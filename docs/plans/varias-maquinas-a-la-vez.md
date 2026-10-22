@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 medida (corrigió D5–D7), F1 (WAL, APOLO_PROJECT, identidad), F2 (candado por proyecto) y F3 (scripts/flota.py, regla de la raíz) implementadas; falta F4 (tres modeladores claude -p a la vez)
+nota: F0–F3 implementadas; F4 medida el 2026-10-21 en el escritorio por túnel SSH (3 en paralelo 90 s vs 213 s en serie, +0,5 GB, cero locks, 409 ok) — lo juzga Mario
 descripcion: Varios agentes modelan máquinas distintas a la vez, cada una en su propio proceso de la API, sin pisarse ni perder guardados
 ---
 
@@ -414,3 +414,37 @@ los puertos de D5/D6, el append atómico de D7 y su test en F1, y los números d
   parados, candados `[38]` y `[28]` sueltos, tabla vacía y nada escuchando en 8100–8200.
 - **Raíz (D9)**: la regla «Una máquina a la vez» pasó a «una máquina por proceso; varias, con
   `scripts/flota.py`».
+
+### F4 (2026-10-21): tres modeladores a la vez — en el escritorio, por túnel SSH
+
+Las APIs corrieron en la PC de escritorio (`apolo-cad-pruebas`, `scripts/flota.py arrancar 38 28
+72` sobre una COPIA de la base de la laptop) y los tres `claude -p --model opus` en la laptop, cada
+uno con su `--mcp-config` a `127.0.0.1:820x` por un túnel `ssh -L`. La tarea fue la misma para los
+tres: una placa de identificación atornillada en el lado de operación, validada con render,
+interferencia y puerta.
+
+| | en paralelo | en serie |
+|---|---|---|
+| faja 38 | 80 s | 69 s |
+| puerta 28 | 59 s | 79 s |
+| faja de chapa 72 | 90 s | 65 s |
+| **total de pared** | **90 s** | **213 s** (×2,4) |
+| costo | 2,10 USD | 1,82 USD |
+
+- **RAM:** cada API ocupa ~0,5 GB. La RAM usada del escritorio pasó de 19,9 GB (lo de Mario) a
+  un pico de 20,45 GB: sobra para muchos más.
+- **Locks:** cero `database is locked` en `logs/errors.log`.
+- **El candado da 409:** abrir el 28 desde la API que tiene el 38 responde 409.
+- **Lo que halló la tarea** (los tres usaron `join_bolted`):
+  - en un tubo cerrado (la 38) la cabeza del perno quedó DENTRO del tubo: no se puede montar.
+    Corresponde remache o autorroscante;
+  - en la C de chapa (la 72) midió el grip con la caja del perfil (50 mm), no con el alma de 3 mm:
+    M6×60;
+  - la tuerca quedó del lado visible de la placa;
+  - no ofrece tornillo para madera (la puerta);
+  - `delivery_check` avisa que los pernos que inserta el propio `join_bolted` «no tienen unión
+    declarada»;
+  - `$k` empieza en `$1`: dos de tres usaron `$0` y el primer lote falló.
+
+  Van al hito J de [hitos](../hitos.md).
+- Lo juzga Mario (el contrato de F4).
