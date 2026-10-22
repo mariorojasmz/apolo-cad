@@ -1,0 +1,225 @@
+---
+estado: en curso   # implementado | en curso | sin verificar | descartado
+nota: contrato escrito y lanzado por Claude por mandato de Mario (2026-10-22, «procede a tu criterio»); Mario puede vetar por número; F0–F6 pendientes
+descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
+---
+
+# Una máquina sólo se publica si se puede construir, armar, reparar y operar sin accidentes
+
+## Estado y origen
+
+Mario, 2026-10-22, tras ver la banda del video de la faja de motor central atravesar las guardas
+(ajuste D13 de [fabrica-de-publicaciones](fabrica-de-publicaciones.md)) y saber que el perno del
+tensor de la otra faja entra por una sola aleta:
+
+> «Quién es el encargado de verificar esto? Tenemos que tener test y pruebas de calidad antes de
+> lanzarlo… la máquina tiene que ser construida en virtual para que lo puedan construir en la
+> realidad, cada pieza que agregas tiene que ser pensada para que en la realidad pueda ser
+> ensamblada, reparada, evitar accidentes y funcionar con buena vida útil (son máquinas
+> industriales), todo esto debe estar en piedra y no sólo depender de tu memoria o claude.md, si
+> podemos crear software con código determinista ayuda… eres tú el encargado… procede a tu
+> criterio, supera tus límites.» Y: «cópiate de lo que hacen las grandes industrias y mejóralo».
+
+**El encargado es Claude** (la sesión que orquesta la fábrica): el modelador y el revisor
+trabajan para él y la última palabra antes de publicar es suya. Este plan convierte esa
+responsabilidad en CÓDIGO que bloquea, para que no dependa de que alguien se acuerde.
+
+## Lo que hay hoy (medido, 2026-10-22)
+
+Lo publicado hoy pasa por `paquete.calidad` (`publicacion/paquete.py:113-131`): exige VERDE de la
+puerta de entrega (`library/delivery.py:81-317`). El VERDE dice «sin choques, sujeción declarada,
+lints, salud, llave que entra»; NO dice que la máquina funcione ni que se pueda construir:
+
+| Hueco | Evidencia |
+|---|---|
+| `engineering_check` (tracción, L10, ejes, pernos, soldaduras, motor, vuelco, flecha) no bloquea nada: sólo lo leen la tool, `/api/checks` y la memoria | nadie en `publicacion/` lo consume; el `NO CONFORME` de la memoria sólo se imprime (`drawing/calc_report.py:48-58`) |
+| La fábrica pide la puerta CON gravedad, pero si falla la llamada cae en silencio a SIN gravedad y la gravedad queda en `no_aplica` → VERDE | `publicacion/flujo.py:73-81` |
+| `no_aplica` nunca bloquea; «1 fijador no evaluado» pasa VERDE (en la faja #1 era el eje roscado, tomado por perno por su nombre) | `delivery.py:48-78`; medido con `tool_access_report` sobre el proyecto 3 |
+| El tensor se reconoce por el NOMBRE de la pieza (tensor/take-up…) y con eso la adherencia sale `ok`; nadie mide la carrera | `library/rules.py:296-300, 816-830`; la única carrera es la de la plantilla de rodillos (`rodillos_cadena_reglas.py:239-253`) |
+| Ningún chequeo del agarre de un perno (que cruce todas las piezas y le sobre hilo); un perno sin largo comercial cae a 200 mm SIN aviso | `library/fijacion.py:76-80`, `engineering/bolts.py:58-61,98-99` |
+| Ninguna regla de guardas: sólo la pregunta del revisor | `grep guard` vacío en lints, rules, delivery, engineering |
+| El revisor de taller no está en el flujo: es un agente aparte y su veredicto no se guarda ni se exige | nada en `publicacion/` lo llama |
+| La cinta animada del video no se compara con el modelo | ajuste D13 (en curso) |
+| No hay corrida de regresión de máquinas de referencia | `scripts/benchmark_package.py` es manual y sin pass/fail |
+| Lo que se guarda con la versión es `{veredicto, resumen}`: ni reglas, ni hallazgos, ni evidencia | `paquete.py:236-244` |
+
+Y un hecho de proceso: el hallazgo del revisor (perno M12×50 por una sola aleta) se cerró como
+«asumido» porque el catálogo no tenía el largo, y se publicó igual.
+
+## Lo que se revisó antes de escribir esto
+
+- Las herramientas existentes (mapa con `archivo:línea` en la Bitácora F0): puerta de entrega,
+  `engineering_check` (familias de reglas y severidades `ok|aviso|error`), acceso de herramienta,
+  gravedad, `scan_motion`, escenarios de co-simulación, stack-up, FEA, ERC, `check_assembly`.
+  Casi todo lo que hace falta YA se calcula; falta que bloquee, que no quede «no evaluado» y lo
+  que no existe (agarre, tensor, guardas, reparabilidad).
+- Lo que hace la industria y se copia (y se mejora):
+  - **DVP&R / matriz de trazabilidad** (automotriz, modelo en V): cada requisito → su prueba → su
+    evidencia. Aquí: cada ítem de la ficha de calidad cita su norma y lleva sus números.
+  - **DFMEA** (AIAG-VDA): por función, sus modos de falla y el CONTROL que los detecta. Aquí: cada
+    ítem dice qué modo de falla previene; un modo sin control determinista es un hueco declarado.
+  - **ISO 12100** (evaluación y reducción de riesgos de máquinas) + **ISO 13857** (distancias de
+    seguridad para que brazos y manos no alcancen zonas peligrosas): el análisis de riesgos se
+    DERIVA del modelo y cada peligro debe tener su medida verificada.
+  - **Stage-gate con revisor independiente** (aviación: quien firma no es quien hizo).
+  - **Jidoka** (Toyota): ante un defecto la línea se para; aquí la fábrica no publica.
+  - **8D / lecciones aprendidas**: cada defecto → regla + test; ya existe `docs/defectos.md`.
+  - **La mejora**: la industria hace esto a mano, una vez, por muestreo. Aquí es código que
+    re-corre entero en CADA versión de CADA máquina, con **defectos sembrados** (testigos malos)
+    que prueban que la puerta los atrapa — eso la industria no lo puede pagar.
+
+## Decisiones (para vetar)
+
+- **D1 — Una puerta de publicación DETERMINISTA, separada de la puerta de entrega.** La de entrega
+  sigue siendo la del modelador (rápida, para iterar). La de publicación es más dura: un REGISTRO
+  de ítems en `library/calidad/` (puro: id, título, modo de falla que previene, norma o «criterio
+  de diseño», `aplica_si`, función que evalúa insumos ya extraídos) + `services/puerta_publicacion.py`
+  (lee el documento) + `POST /api/puerta-publicacion` + tool MCP `publication_gate` (el modelador
+  la corre antes de terminar). Cada ítem da **OK | FALLA | SIN_EVALUAR | NO_APLICA**, con
+  evidencia (números, ids, bloque `calc`). NO_APLICA sólo si `aplica_si` es falso, con el porqué
+  («sin tablero eléctrico»). **Se publica sólo si TODO ítem aplicable está OK.** SIN_EVALUAR
+  bloquea igual que FALLA. *Porqué*: el VERDE de hoy mezcla «no se pudo ver» con «está bien».
+- **D2 — Lo que ya existe pasa a bloquear, con umbrales industriales.**
+  - Puerta de entrega VERDE, **con gravedad obligatoria**: sin MuJoCo o si la simulación falla →
+    SIN_EVALUAR, nunca la caída silenciosa de `flujo.py:73-81`.
+  - `engineering_check`: `error` → FALLA. `aviso` → FALLA salvo las reglas que el registro marca
+    *informativas* (con su porqué). Umbrales para la tienda: **L10h ≥ 20 000 h** (ISO 281;
+    máquina de 8 h/día en servicio continuo, tablas de vida recomendada de SKF/FAG), **motor y
+    reductor con factor de servicio ≥ 1,25** (AGMA, carga uniforme, 8–10 h/día), FS de cadena y
+    transmisión ≥ 1,2 (ya en las reglas), vuelco con margen ≥ 10 % de la base, flecha ≤ L/240,
+    pandeo FS ≥ 3, unión apernada utilización ≤ 0,7, uniones y soldaduras TODAS dimensionadas.
+  - La memoria de cálculo en `NO CONFORME` → FALLA.
+  - Acceso de herramienta: todo fijador evaluado; un «no evaluado» se resuelve (arreglar el
+    reconocimiento o el modelo), no se tolera. Primer caso: un eje con «perno» en el nombre no es
+    tornillería.
+- **D3 — Función mecánica: lo que hoy nadie mide** (determinista, sobre la geometría):
+  - **Agarre de perno**: por cada perno (catálogo, `join_bolted` o reconocido por geometría), un
+    rayo por su eje: cruza TODAS las piezas que une hasta su tuerca u hoyo roscado; con tuerca le
+    sobran ≥ 2 pasos de hilo; en hoyo roscado engancha ≥ 1·d en acero (≥ 1,5·d en aluminio o
+    fundición; VDI 2230 / criterio de taller). El largo es de la serie comercial (ISO 4014/4017/
+    4762) y **existe en el catálogo**: el respaldo silencioso a 200 mm desaparece para los comandos
+    NUEVOS (sello de entrada, como `join_bolted.criterio`: un log viejo regenera igual) y la
+    puerta lo marca FALLA en los viejos.
+  - **Tensor**: todo lazo (banda o cadena) debe tener un mecanismo de tensado RECONOCIDO —
+    `create_take_up`, chumacera tensora de catálogo (UCT) en su marco, ranuras del motor de la
+    plantilla, o declarado en el metadato `tensores` `{piezas, carrera_mm, eje}` — con **carrera
+    ≥ 1 % del largo del lazo + 20 mm de montaje** en banda (estiramiento de servicio de una banda
+    de PVC de 2 capas: 0,5–1 %, CEMA/fabricantes) y ≥ 3 % en cadena (la regla existente). El
+    perno o husillo del tensor pasa el control de agarre en TODA la carrera. Sin tensor reconocido
+    → SIN_EVALUAR. La adherencia (Eytelwein) deja de dar `ok` por el nombre: usa este
+    reconocimiento.
+  - **Vida útil** (D2): L10h, factor de servicio, fatiga del eje (σ_adm ya es 0,5·σy).
+- **D4 — Seguridad: análisis de riesgos ISO 12100 DERIVADO del modelo + guardas ISO 13857.**
+  - Se identifican los peligros mecánicos desde el modelo: lo que gira (juntas giratorias,
+    tambores, ejes, poleas, piñones, cadenas, acoples), los puntos de atrapamiento de entrada
+    (banda ↔ tambor, cadena ↔ piñón), los extremos de eje salientes; eléctricos si hay tablero.
+  - Por cada peligro, **la guarda se verifica con sondas**: rayos rectos desde una esfera de
+    direcciones hacia la zona peligrosa; todo rayo que llega sin cruzar un sólido antes de la
+    distancia de seguridad de ISO 13857 (tabla 2 para alcance a través de aberturas por tamaño
+    de abertura; 850 mm de alcance del brazo por defecto) es una FALLA con la dirección y el punto.
+    Excepción declarada: la superficie de trabajo (el tramo de carga de la banda), salvo sus
+    puntos de entrada en cabeza y cola, que sí se guardan.
+  - La guarda fija **se quita sólo con herramienta**: unida por perno (no soldada, no apoyada).
+  - Sale una **tabla de riesgos** (peligro → medida → verificación) que va en el paquete.
+- **D5 — Reparable: las piezas de desgaste se cambian sin cortar ni soldar** (MIL-HDBK-470 /
+  DFMA). Piezas de desgaste por rol: banda, rodamientos y chumaceras, cadena, piñones, rodillos,
+  motorreductor. Por cada una, en el grafo de uniones declaradas: entre ella y lo que la sujeta no
+  hay soldadura, y su camino de salida queda libre quitando sólo piezas atornilladas. **La banda
+  sin fin se puede montar**: su lazo sale por un costado (a lo largo del eje de los tambores)
+  quitando sólo piezas atornilladas. Las herramientas: las del acceso de herramienta.
+- **D6 — El revisor de taller entra al flujo y su veredicto se exige.** La fábrica pide
+  `revision.json` (el formato de `design/revision.py`) hecho sobre la **misma firma** del modelo
+  que se publica, sin hallazgos ALTA ni MEDIA abiertos. Un hallazgo se cierra sólo con una
+  **re-revisión a ciegas** de la versión corregida (no lo cierra quien corrigió). «Asumido» no es
+  un cierre. *Porqué*: el revisor es un LLM (no determinista), pero la exigencia de su veredicto y
+  de la firma sí lo es.
+- **D7 — Lo publicado se prueba contra el modelo**: el D13 de la fábrica (la cinta y las cadenas
+  animadas, fieles al sólido) es un ítem de esta puerta; y la fábrica saca 3 cuadros del video
+  (armado, marcha, cierre) que revisa otro agente con visión antes de subir (no determinista,
+  queda como evidencia con su veredicto).
+- **D8 — Ficha de calidad con la versión y en el paquete.** `calidad.json` (todos los ítems con
+  estado y evidencia, la firma del modelo, versiones de Apolo y del registro) y `calidad.md`
+  legible en la carpeta de la versión; la ficha de calidad y la tabla de riesgos van en el ZIP
+  gratis («validado por software, no construido ni probado físicamente»: el aviso legal de la
+  tienda sigue). La tienda se niega a importar un paquete sin `calidad.json` aprobado.
+- **D9 — Testigos y defectos sembrados en la suite.** Los `.apolo` (logs de KB) de las máquinas de
+  referencia entran a `tests/data/testigos/` con su veredicto congelado: un cambio de Apolo que
+  mueve un veredicto pone roja la suite. Y por cada ítem, un **testigo malo** con el defecto
+  SEMBRADO (perno corto, tensor sin carrera, eje sin guarda, cadena expuesta, rodamiento soldado,
+  cinta que cruza la guarda…): la puerta tiene que atraparlo. Cada defecto nuevo que aparezca en
+  producción suma su testigo malo antes de corregirse (8D).
+- **D10 — Familia nueva: Mario aprueba las 2 primeras.** La ficha declara su `familia` (p. ej.
+  «faja de banda», «transportador de rodillos»); con menos de 2 publicaciones aprobadas de esa
+  familia, la fábrica se detiene antes del paso `tienda` hasta `publicar.py aprobar --slug`. El
+  registro de familias aprobadas vive en el repo privado (`apolo-fabrica/familias.json`).
+- **D11 — En piedra = código + test, no memoria.** La regla durable es el registro de ítems; el
+  CLAUDE.md sólo enlaza a este plan. `--forzar` no existe en la fábrica ni en el paso `tienda`
+  (sólo en `publicar generar`, para ensayos que nunca llegan a la tienda).
+- **D12 — Lo ya publicado pasa por la puerta.** Las dos fajas publicadas se re-corren con la
+  puerta (F6); lo que falle se corrige en una versión nueva y se re-publica. Mientras tanto no se
+  publican máquinas nuevas.
+
+## Alternativas descartadas
+
+- **Endurecer la puerta de entrega existente**: la usa el modelador en cada iteración y el MCP la
+  congela en el golden; endurecerla rompería el flujo de diseño. Dos puertas con fines distintos.
+- **Que el revisor LLM lo cubra todo con más preguntas**: no es determinista ni repetible; sirve
+  para lo que el código todavía no mide, no como control principal.
+- **FEA obligatorio de toda la máquina**: caro y, para estas máquinas, la flecha de viga, el
+  pandeo y las uniones ya se calculan con norma; queda como ítem de una familia que lo pida.
+- **Copiar la Directiva de Máquinas entera (expediente técnico CE)**: es para quien vende la
+  máquina construida; aquí se vende el diseño. Se copia su núcleo técnico (ISO 12100/13857).
+
+## Fases
+
+Máx. 2 agentes a la vez (hoy ya corre el D13 de la fábrica).
+
+- **F0 — Medir** (S, sólo lectura). Correr lo que ya existe (puerta con gravedad, engineering_check,
+  acceso de herramienta) sobre las dos fajas publicadas (proyectos 3 y 4 del escritorio), la 38 y
+  la 72; anotar qué ítems de D2 fallarían hoy y exportar sus `.apolo` para F5. Dueño: Claude.
+- **F1 — Núcleo de la puerta** (M; `library/calidad/`, `services/`, `api/`, `tools/`, `publicacion/`).
+  Registro, estados, `calidad.json`/`.md`, endpoint, tool MCP (golden + catálogo), paso `calidad`
+  en la fábrica antes de `generar`, gravedad sin caída silenciosa, D2 (lo existente bloquea), la
+  tienda exige `calidad.json`. Depende de que D13 esté mergeado (toca `fabrica.py`).
+- **F2 — Función mecánica** (M/L; `library/`, `services/`, sello de `join_bolted`). Agarre de perno
+  y largos comerciales, tensor reconocido y carrera, umbrales de vida útil; cada control como
+  función pura que devuelve ítems del registro (interfaz de F1: `{id, estado, evidencia, piezas}`).
+  Puede correr en paralelo con D13.
+- **F3 — Seguridad y reparabilidad** (L; `library/`, `services/`). Peligros ISO 12100 desde el
+  modelo, sondas ISO 13857, guarda que se quita con herramienta, piezas de desgaste
+  reemplazables, banda montable, tabla de riesgos. Calibra con los testigos de F0.
+- **F4 — Revisión y aprobación en el flujo** (M; `publicacion/`, repo privado). `revision.json`
+  por firma, re-revisión, familia nueva con aprobación, cuadros del video revisados; briefs de
+  orquestación en `apolo-fabrica`.
+- **F5 — Testigos y defectos sembrados** (M; `tests/`). Fixtures, veredictos congelados, un
+  testigo malo por ítem; `scripts/testigos.py` para correrlos a mano contra una API.
+- **F6 — Verificar** (M). Las dos fajas por la puerta completa; corregir; re-publicar en versión
+  nueva; Mario mira el resultado (D10: es la familia nueva).
+
+## Lo que este plan NO hace
+
+- No construye la máquina física: la validación es por software y el aviso legal se mantiene.
+  Lo único que valida de verdad un diseño es construirlo; se recomienda a Mario construir una
+  máquina piloto por familia para calibrar (fuera de este plan).
+- No certifica (CE, UL, NR-12): da la evidencia técnica que un certificador pediría.
+- No cubre fatiga de estructura soldada, vibraciones ni ruido.
+
+## Riesgos
+
+- **Falsos rojos** (sondas de guardas, agarre en piezas raras): F0 calibra con máquinas reales;
+  cada falso rojo se arregla en el código con su testigo, nunca con una excepción a mano.
+- **Lentitud** (gravedad + sondas + agarre en 200+ piezas): presupuesto de tiempo por ítem en
+  `calidad.json`; la puerta corre una vez por versión, no por iteración.
+- **El modelador se traba en la puerta**: la tool `publication_gate` le dice qué ítem y qué pieza;
+  el brief le pide correrla antes de terminar.
+- **Registro de familias en un solo repo** con varias PCs: es un archivo en git; con más PCs pasa
+  a la tienda.
+
+## Bitácora
+
+### F0 — mapa de lo existente (2026-10-22)
+
+Leído por un agente de sólo lectura (resumen en «Lo que hay hoy»). Acceso de herramienta en el
+proyecto 3: 122 fijadores evaluados, 122 libres (incluidos los dos DIN 912 Allen del tensor); el
+único «no evaluado» es `c223 Eje fijo de cola Ø25 g6 (roscado p/ perno)`, tomado por tornillería
+por su nombre.
