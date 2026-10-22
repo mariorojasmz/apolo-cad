@@ -157,6 +157,19 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
   (`create_chain`) suman 23 s de 29, entre 1,2 y 2 s cada una. Después quedan en caché. Cura
   posible: el casco de la cadena por su lazo o por su bbox.
 
+## Fábrica de publicaciones: lo que halló la F4 (2026-10-22, fajas 3 y 4 en el escritorio)
+
+- La BOM no lleva el largo de los pernos «no cortables» del catálogo, ni con `join_bolted`, ni el espesor
+  de plancha: la BOM no sirve para comprar tornillería (`insert_component`/`join_bolted` deben guardar el largo).
+- `join_bolted` no acepta el ala de un canal UPN (la toma por perfil cerrado), ni chumaceras con agujeros
+  propios, ni un patrón que no cabe con borde mínimo; en una guarda eligió remache ciego (una guarda se desmonta).
+- `engineering_check`: «ancho útil» descuenta 40 mm genéricos por lado en vez de medir las guías reales;
+  «capacidad de rodillo» se dispara en cama deslizante si una polea se llama «rodillo».
+- El material heurístico por nombre tiñó los «largueros» como madera (ver memoria de material por rol) y eso
+  disparó un error de flexión del eje.
+- El guion rotula «apoya en rodillos» en un drive central por sus tambores de desvío.
+- Falta seeger (DIN 471/472) y prisioneros DIN 916 en el catálogo.
+
 ## Ingeniería y negocio
 
 - `funcion`/rol por pieza.
