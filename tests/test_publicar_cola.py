@@ -125,6 +125,13 @@ def _handler(t: Tienda):
     return H
 
 
+@pytest.fixture(autouse=True)
+def _permiso_aparte(monkeypatch, tmp_path):
+    """La carpeta del permiso de YouTube, siempre propia: sin ella `oauth.carpeta` llama a
+    `paths.home()`, que queda en caché para los tests que después cambian APOLO_HOME."""
+    monkeypatch.setenv(oauth.DIR_ENV, str(tmp_path / "permiso"))
+
+
 @pytest.fixture
 def tienda(monkeypatch, tmp_path):
     t = Tienda()
@@ -350,7 +357,8 @@ def test_tarea_avisa_sin_llave_de_usuario(tmp_path):
     salida = []
     tarea_cola.instalar(tmp_path / "publicar.py", ejecutar=Ejecutor(), plataforma="win32",
                         leer_llave=lambda _n: None, python=tmp_path / "python.exe",
-                        entorno={LLAVE_ENV: LLAVE}, eco=salida.append)
+                        entorno={LLAVE_ENV: LLAVE, oauth.DIR_ENV: str(tmp_path)},
+                        eco=salida.append)
     texto = "\n".join(salida)
     assert "no está en tus variables de USUARIO (sólo en esta consola)" in texto
     assert "SetEnvironmentVariable" in texto and LLAVE not in texto
