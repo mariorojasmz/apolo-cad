@@ -111,6 +111,9 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-22 | puerta-de-publicacion | F4 | M | 30 | 320 | fábrica de 8 pasos: revision.json por firma con re-revisión a ciegas, cuadros.json por sha256 del video, familias.json (D10) en el repo privado; 3 briefs en apolo-fabrica |
 | 2026-10-22 | puerta-de-publicacion | F5 | M | 56 | 423 | 4 testigos públicos con veredicto por ítem, 24 defectos sembrados con test de cobertura, testigos privados de la tienda; destapó la caída falsa de pernos de join_bolted en la gravedad; +47 s a la suite |
 | 2026-10-22 | puerta-de-publicacion | F6: fixes de los revisores | M | 45 | 330 | ancho útil de banda (mín. banda/luz entre guías), BOM de banda por lazo y largo de tornillería, join_bolted criterio 4 (ala de perfil abierto → perno + tuerca) |
+| 2026-10-22 | puerta-de-publicacion | F6: detect_conveyor a mano | S | n/d | n/d | rodillos de tubo de catálogo atravesados por su eje; relanzado tras un corte de red |
+| 2026-10-22 | puerta-de-publicacion | F6: materiales y BOM comercial | M | 49 | 288 | guarda del vertical en resolve_material, engomado = caucho, lint de soldadura imposible, norma y largo nominal de comerciales a mano |
+| 2026-10-22 | puerta-de-publicacion | F6: huecos de la puerta | L | 110 | 582 | sondas con el brazo doblado (ISO 13857 tabla 6), banda empujable en ranuras, D3b general; incluye un corte de red y su retoma |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |

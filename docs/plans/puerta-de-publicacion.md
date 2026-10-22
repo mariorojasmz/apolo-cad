@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F5 mergeadas (F3 en el registro con la tabla de riesgos, create_belt_conveyor v4, fábrica de 8 pasos, testigos y 24 defectos sembrados; D16: los .apolo de la tienda son testigos privados); falta F6 (corregir y re-publicar las 3 máquinas de la tienda)
+nota: F0–F5 mergeadas (F3 en el registro con la tabla de riesgos, create_belt_conveyor v4, fábrica de 8 pasos, testigos y 24 defectos sembrados; D16: los .apolo de la tienda son testigos privados); F6 en curso: fixes de código mergeados (ancho útil, BOM por lazo, tornillería, join_bolted, detect_conveyor a mano, materiales por vertical, sondas con el brazo doblado y banda empujable, D3b general; registro v3); faltan la v5 de create_belt_conveyor (cierres bajo la banda y tapas de larguero), la capacidad de rodillos a mano y corregir y re-publicar las 3 máquinas
 descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
 ---
 
