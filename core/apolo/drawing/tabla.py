@@ -28,6 +28,9 @@ PAD_X = 1.4      # mm a cada lado del texto dentro de la celda
 PAD_Y = 1.1      # mm arriba y abajo
 INTERLINEA = 1.32  # alto de línea / tamaño de la fuente (em)
 ANCHO_MIN_FLEX = 16.0  # mm: una columna flexible no baja de esto
+# lo que mide el renderer Agg y lo que escribe el PDF difieren entre versiones de matplotlib
+# (3.11 escribe ~4 % más ancho que lo que 3.10 mide): se mide con margen
+HOLGURA_ANCHO = 1.06
 
 
 @lru_cache(maxsize=1)
@@ -46,7 +49,7 @@ def ancho_mm(texto: str, size: float) -> float:
 
     w, _, _ = _renderer().get_text_width_height_descent(
         texto, FontProperties(size=size * PT_POR_MM_ETIQUETA), ismath=False)
-    return w * MM_POR_PT
+    return w * MM_POR_PT * HOLGURA_ANCHO
 
 
 def alto_linea_mm(size: float) -> float:
