@@ -10,10 +10,15 @@ Un tensor se reconoce por lo que ES, nunca por el nombre de una pieza:
 - una unidad de catálogo con su carrera de ficha (`specs.carrera_mm`: las UCT) o de la familia
   `tensores_trotadora` (sin carrera tabulada → SIN_EVALUAR la carrera);
 - las ranuras del portamotor de la plantilla de rodillos (`tensado_mm` de su disposición) para
-  la cadena motriz `{cmd}_cad_m`; los lazos rodillo a rodillo `{cmd}_cad{k}` no llevan tensor:
-  van con `centros_fijos` (medidos) y el control decide (D3b);
+  la cadena motriz `{cmd}_cad_m`;
 - el metadato `doc.tensores` [{piezas, carrera_mm, eje}] (si entre sus piezas hay un perno, se
   le mide el agarre en la carrera como al de un take-up).
+
+Todo lazo de cadena (`create_chain`, lo cree quien lo cree: la plantilla de rodillos o el modelo a
+mano) lleva sus `centros_fijos` MEDIDOS (eslabones, centros, exactos, tolerancia
+`TOL_CENTROS_MM`): si no tiene tensor, el control decide por D3b (centros exactos → OK sin tensor;
+con holgura → SIN_EVALUAR). Es un criterio de la cadena entre dos ruedas de ejes fijos, no de la
+plantilla (D14; F6 de puerta-de-publicacion).
 
 Un tensor actúa sobre un lazo si su caja toca la del lazo (banda, estirada a lo largo del eje de
 sus tambores: el tensor va en el muñón) o la de un piñón (cadena), con `_HOLGURA_MM` de margen.
@@ -27,8 +32,6 @@ _HOLGURA_MM = 60.0
 _ALCANCE_EJE_MM = 300.0  # cuánto sale el muñón de un tambor más allá del ancho de la banda
 _BANDA_RE = re.compile(r"^(bandas?|cintas?)\b", re.I)  # sobre `piece_role` (como cosim_bandas)
 _TAKE_UP = ("create_take_up", "create_drive_roller")
-#: Un lazo rodillo a rodillo de la plantilla de rodillos (`receta_rodillos_cadena._cadenas`).
-_RODILLO_A_RODILLO = re.compile(r"(.+)_cad\d+")
 
 
 def _caja(shape):
@@ -148,13 +151,10 @@ def _plantilla_motriz(doc, cmd_id: str) -> float | None:
 
 def lazos_cadena(doc) -> list[dict]:
     from apolo.commands.exec_rodillos_cadena import comandos_efectivos
-    from apolo.commands.exec_transmision import medir_transmision
+    from apolo.commands.exec_transmision import TOL_CENTROS_MM, medir_transmision
     from apolo.commands.expressions import resolve_params
     from apolo.commands.models_transmision import CreateChainParams
 
-    from apolo.commands.exec_transmision import TOL_CENTROS_MM
-
-    rodillos = {c["id"] for c in doc.commands if c["type"] == "create_roller_conveyor"}
     out = []
     for cmd in comandos_efectivos(doc.commands, doc.variables_resolved):
         if cmd["type"] != "create_chain":
@@ -172,8 +172,7 @@ def lazos_cadena(doc) -> list[dict]:
         lazo = {"id": cmd["id"], "nombre": nombre, "tipo": "cadena", "largo_mm": largo,
                 "motivo": motivo, "piezas": [cmd["id"], *pinones],
                 "_caja": _union_cajas([_caja_de(doc, x) for x in pinones])}
-        rr = _RODILLO_A_RODILLO.fullmatch(cmd["id"])
-        if t is not None and rr and rr.group(1) in rodillos:  # D3b: lazo de centros fijos
+        if t is not None:  # D3b (lo quita `lazos` si el lazo resulta tener tensor)
             lazo["centros_fijos"] = {"eslabones": t.eslabones, "centros_mm": t.centros,
                                      "exactos_mm": t.centros_exactos, "paso_mm": t.paso,
                                      "tolerancia_mm": TOL_CENTROS_MM}
@@ -293,6 +292,8 @@ def lazos(doc, medir: bool = True, cadenas: bool = True) -> list[dict]:
                   if _tocan(t["_caja"], caja) or lz["id"] in t.get("_piezas", [])]
         lz["tensores"] = propios + [{k: v for k, v in t.items() if not k.startswith("_")}
                                     for t in actuan]
+        if lz["tensores"]:  # con tensor, los centros no son fijos: D3b no aplica
+            lz.pop("centros_fijos", None)
         out.append(lz)
     return out
 

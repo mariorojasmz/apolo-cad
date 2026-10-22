@@ -154,8 +154,47 @@ def test_d3b_lazo_de_centros_fijos_con_holgura_queda_sin_evaluar():
     assert "centros exactos" in exacto["reconocido"][1]
     flojo = evaluar_lazo({**base, "centros_fijos": {**cf, "centros_mm": 94.0}})
     assert flojo["reconocido"][0] == SIN_EVALUAR and "1.250" in flojo["reconocido"][1]
-    # una cadena suelta (sin `centros_fijos`, no es de la plantilla) sigue sin tensor reconocido
+    # un lazo sin la medida de centros (no se pudo medir) sigue sin tensor reconocido
     assert evaluar_lazo(base)["reconocido"][0] == SIN_EVALUAR
+
+
+def _cadena_a_mano(c: float) -> Document:
+    """Dos piñones ASA 40 Z15 a `c` mm y una cadena de `create_chain` entre ellos: un lazo hecho
+    a MANO, fuera de toda plantilla (el transportador de rodillos de la tienda, F6)."""
+    doc = Document("cadena a mano")
+    a = doc.execute("insert_component", {"component": "PINON-ASA40-1-Z15"})
+    b = doc.execute("insert_component", {"component": "PINON-ASA40-1-Z15",
+                                         "position": {"x": c}})
+    doc.execute("create_chain", {"name": "Cadena rodillo a rodillo", "pinon_a": a,
+                                 "pinon_b": b})
+    return doc
+
+
+def test_d3b_es_general_lazo_de_cadena_hecho_a_mano():
+    """D14: el criterio de centros fijos es de la CADENA entre dos ruedas de ejes fijos, no de la
+    plantilla. A los centros exactos de 30 eslabones (95,25 mm) → OK sin tensor con su criterio de
+    reemplazo; con holgura (96 mm: el exacto de 32 eslabones es 107,95) → sigue pidiendo tensor."""
+    (lz,) = lazos(_cadena_a_mano(95.25))
+    assert lz["tensores"] == [] and lz["centros_fijos"]["eslabones"] == 30
+    items = _items(_cadena_a_mano(95.25))
+    assert items["tensor.reconocido"].estado == OK and items["tensor.carrera"].estado == OK
+    assert items["tensor.reconocido"].evidencia["centros_fijos"] == 1
+    assert "261.6" in items["tensor.reconocido"].evidencia["mantenimiento"][0]
+    flojo = _items(_cadena_a_mano(96.0))
+    assert flojo["tensor.reconocido"].estado == SIN_EVALUAR
+    (caso,) = flojo["tensor.reconocido"].evidencia["casos"]
+    assert "sin mecanismo de tensado reconocido" in caso["detalle"]
+    assert "+11.950" in caso["detalle"]
+
+
+def test_cadena_con_tensor_no_lleva_centros_fijos():
+    """Con un tensor que actúa sobre el lazo, se juzga su carrera: D3b no entra."""
+    doc = _cadena_a_mano(96.0)
+    pinon = next(i for i in doc.scene if doc.scene[i].component == "PINON-ASA40-1-Z15")
+    doc.tensores = [{"piezas": [pinon], "carrera_mm": 30.0, "eje": "x"}]
+    (lz,) = lazos(doc)
+    assert lz["tensores"] and "centros_fijos" not in lz
+    assert evaluar_lazo(lz)["reconocido"][0] == OK
 
 
 def _perno_tensor(largo: float) -> dict:

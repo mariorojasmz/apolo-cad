@@ -17,10 +17,12 @@ Los requisitos:
 - **reconocido**: todo lazo tiene un mecanismo de tensado reconocido (`create_take_up`, unidad
   de catálogo con su carrera de ficha, las ranuras del motor de la plantilla de rodillos o el
   metadato `tensores`); sin él, SIN_EVALUAR (no se sabe si se puede tensar). Excepción D3b: un
-  lazo rodillo a rodillo de `create_roller_conveyor` (`centros_fijos` en el lazo) va SIN tensor
-  si sus centros son los exactos de sus eslabones dentro de la tolerancia de la plantilla: OK
-  «sin tensor: centros exactos», con el criterio de reemplazo al 3 % para el mantenimiento
-  (precedente: los transportadores de rodillos vivos lazo a lazo comerciales van a centros fijos);
+  lazo de cadena entre dos ruedas de ejes FIJOS (`centros_fijos` en el lazo: todo `create_chain`
+  sin tensor, lo cree la plantilla de rodillos o el modelo a mano) va SIN tensor si sus centros
+  son los exactos de sus eslabones dentro de `TOL_CENTROS_MM`: OK «sin tensor: centros exactos»,
+  con el criterio de reemplazo al 3 % para el mantenimiento (precedente: los transportadores de
+  rodillos vivos lazo a lazo comerciales van a centros fijos). Es un criterio GENERAL (D14), no de
+  la plantilla: la F6 lo sacó de `create_roller_conveyor`;
 - **carrera**: banda ≥ 1 % del largo del lazo + 20 mm de montaje (estiramiento de servicio de una
   banda de PVC de 2 capas 0,5–1 %: CEMA y fabricantes); cadena ≥ 3 % del largo / 2 sobre la línea
   de centros (estirado de reemplazo del 3 %, Tsubaki/Renold: la regla de la plantilla);
@@ -86,9 +88,10 @@ def reemplazo_cadena(paso_mm: float) -> str:
 
 
 def centros_fijos(lazo: dict) -> tuple | None:
-    """D3b: un lazo rodillo a rodillo de `create_roller_conveyor` (centros FIJOS, sin tensor) se
-    acepta si sus centros son los exactos de su número de eslabones y la holgura queda dentro de la
-    tolerancia de la plantilla. (estado, texto, números), o None si el lazo no es de esa clase."""
+    """D3b: un lazo de cadena de centros FIJOS (sin tensor, de cualquier comando) se acepta si
+    sus centros son los exactos de su número de eslabones y la holgura queda dentro de la
+    tolerancia (`TOL_CENTROS_MM`). (estado, texto, números), o None si el lazo no trae la medida
+    (no es una cadena o no se pudo medir)."""
     cf = lazo.get("centros_fijos")
     if lazo.get("tipo") != "cadena" or not cf:
         return None
@@ -99,9 +102,9 @@ def centros_fijos(lazo: dict) -> tuple | None:
     if abs(holgura) <= float(cf["tolerancia_mm"]) + 1e-9:
         return (OK, "sin tensor: centros exactos; reemplazo de la cadena al 3 % de estiramiento",
                 {**nums, "mantenimiento": reemplazo_cadena(float(cf["paso_mm"]))})
-    return (SIN_EVALUAR, f"centros fijos a {holgura:+.3f} mm de los exactos de {cf['eslabones']} "
-                         f"eslabones (tolerancia ±{cf['tolerancia_mm']:g} mm): sin tensor no hay con "
-                         "qué recoger esa holgura", nums)
+    return (SIN_EVALUAR, f"sin mecanismo de tensado reconocido y centros fijos a {holgura:+.3f} mm "
+                         f"de los exactos de {cf['eslabones']} eslabones (tolerancia "
+                         f"±{cf['tolerancia_mm']:g} mm): no hay con qué recoger esa holgura", nums)
 
 
 def evaluar_lazo(lazo: dict) -> dict:
