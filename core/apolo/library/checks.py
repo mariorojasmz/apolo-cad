@@ -26,6 +26,7 @@ def interference_report(
     exclude_pairs: set[frozenset] | None = None,
     exclude_ids: set[str] | None = None,
     focus: set[str] | list[str] | None = None,
+    desde: int = 0,
 ) -> dict:
     """shapes_override permite analizar formas posadas (colisión en pose).
     exclude_pairs descarta parejas que se tocan por diseño (eslabones unidos
@@ -35,7 +36,11 @@ def interference_report(
     `focus` (V6.5b) ACOTA a las parejas donde participa AL MENOS un id del conjunto
     (O(k·n) en vez de O(n²)): el agente valida su zona de trabajo tras una operación
     sin recorrer la máquina entera. Difiere de `only` (que restringe AMBOS extremos al
-    subconjunto): `focus` conserva las colisiones contra el resto de la escena."""
+    subconjunto): `focus` conserva las colisiones contra el resto de la escena.
+
+    `desde` (D10 de mcp-sin-friccion) PAGINA: revisa las parejas candidatas `desde`…`desde +
+    MAX_PAIRS` (en el orden estable de la escena); con él declara `desde` y el total, y al
+    truncar, `desde_siguiente`. Sin él, el dict de siempre."""
     feats = [f for f in scene.values()
              if f.visible and not getattr(f, "is_guide", False) and (only is None or f.id in only)]
     if exclude_ids:
@@ -57,8 +62,9 @@ def interference_report(
             if _bboxes_overlap(boxes[a.id], boxes[b.id]):
                 candidates.append((a, b))
     n_candidatas = len(candidates)
-    truncated = n_candidatas > MAX_PAIRS
-    candidates = candidates[:MAX_PAIRS]
+    desde = max(int(desde or 0), 0)
+    truncated = n_candidatas > desde + MAX_PAIRS
+    candidates = candidates[desde:desde + MAX_PAIRS]
 
     collisions = []
     for a, b in candidates:
@@ -85,9 +91,13 @@ def interference_report(
         "truncado": truncated,
         "interferencias": collisions,
     }
+    if desde:  # una página que no es la primera (D10)
+        out["desde"] = desde
+        out["parejas_candidatas"] = n_candidatas
     if truncated:  # sin caps silenciosos: cuántas quedaron SIN revisar (mcp-sin-friccion D4)
         out["parejas_candidatas"] = n_candidatas
-        out["parejas_sin_revisar"] = n_candidatas - MAX_PAIRS
+        out["parejas_sin_revisar"] = n_candidatas - desde - MAX_PAIRS
+        out["desde_siguiente"] = desde + MAX_PAIRS
     return out
 
 

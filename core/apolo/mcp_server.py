@@ -144,11 +144,8 @@ def get_command_schemas(command_type: str | None = None) -> str:
     run_command/run_batch. Sin argumento lista TODOS (es grande, ~180 KB); pasa
     `command_type` (p. ej. "create_belt_conveyor") para traer SOLO ese schema. Un campo con
     refs del catálogo trae `x-catalogo` (categorías) en vez de la lista: búscalas con get_catalog."""
-    if command_type:
-        return json.dumps(
-            _api("GET", f"/api/schemas/{command_type}").json(), ensure_ascii=False
-        )
-    return json.dumps(_api("GET", "/api/schemas").json(), ensure_ascii=False)
+    ruta = f"/api/schemas/{command_type}" if command_type else "/api/schemas"
+    return json.dumps(_api("GET", ruta).json(), ensure_ascii=False)
 
 
 @mcp.tool()
@@ -360,15 +357,17 @@ def set_variable(name: str, expression: str) -> str:
 
 # -------------------------------------------------------------- validación
 @mcp.tool()
-def check_interference(joint_values: dict | None = None, ids: list[str] | None = None) -> str:
+def check_interference(joint_values: dict | None = None, ids: list[str] | None = None,
+                       desde: int = 0, excluir_declaradas: bool = False) -> str:
     """Interferencias entre sólidos (booleanas OCCT). Con joint_values {junta: valor}
     comprueba la colisión del mecanismo EN POSE. Con `ids` (feature_ids o NOMBRES DE GRUPO)
     ACOTA a las parejas donde participa al menos uno de ellos (O(k·n) en vez de O(n²)):
-    valida TU zona de trabajo tras una operación en vez de la máquina entera. Sin `ids` = global,
-    hasta 400 parejas candidatas: con más, `truncado` suma `parejas_sin_revisar` y `como_acotar`."""
-    body: dict = {"joint_values": joint_values or {}}
-    if ids:
-        body["interference_ids"] = ids
+    valida TU zona de trabajo tras una operación en vez de la máquina entera. Hasta 400 parejas
+    por llamada: con más, `truncado` suma `parejas_sin_revisar`, `desde_siguiente` y
+    `como_acotar` (la llamada siguiente); `desde` pide esa página. `excluir_declaradas=true` deja
+    fuera los pares con unión declarada (como la puerta)."""
+    body = {"joint_values": joint_values or {}, "interference_desde": desde,
+            "excluir_declaradas": excluir_declaradas, **({"interference_ids": ids} if ids else {})}
     payload = _api("POST", "/api/checks", json=body).json()
     return json.dumps(payload["interferencias"], ensure_ascii=False)
 
@@ -392,9 +391,10 @@ def engineering_check(
     `conveyor` (dict {largo,ancho,altura,paso,rodillo,motor}) valida ANTES de construir;
     `conveyor_solid_ids` marca qué sólidos forman la faja. `grupo` filtra por familia de regla
     ('unión apernada', 'soldadura', 'flecha de viga', 'transmisión por cadena'…) y `solo_fallas`
-    deja lo que no está ok. `detail`: "summary" (def.) agrupa las reglas repetidas por patrón en
-    UNA línea (`n`, estado y detalle del PEOR caso, que nombra `peor`), suma `conteo` por estado y
-    sólo trae `calc` (fórmula, sustitución, criterio, FS) donde da error; "full" lo da en todas."""
+    deja lo que no está ok. `detail`: "summary" (def.) agrupa lo repetido (las reglas de una
+    unión, por su par de piezas) en UNA línea (`n`, estado y detalle del PEOR caso, `peor`; lo ok
+    sin detalle salvo con `grupo`), suma `conteo` por estado y sólo trae `calc` (fórmula,
+    criterio, FS) donde da error; "full" lo da todo."""
     body = {"carga_kg": carga_kg, "largo_paquete_mm": largo_paquete_mm,
             "ancho_paquete_mm": ancho_paquete_mm, "conveyor": conveyor,
             "conveyor_solid_ids": conveyor_solid_ids, "grupo": grupo, "solo_fallas": solo_fallas,
@@ -470,12 +470,9 @@ def render_view(
         "shade": "true",      # VTK siempre sombreado a color
         "vtk_only": "true",   # fuerza VTK; sin fallback a matplotlib (captura limpia garantizada)
     }
-    if highlight_ids:
-        params["highlight"] = ",".join(highlight_ids)
-    if fit_ids:
-        params["fit"] = ",".join(fit_ids)
-    if isolate:
-        params["isolate"] = ",".join(isolate)
+    for clave, lista in (("highlight", highlight_ids), ("fit", fit_ids), ("isolate", isolate)):
+        if lista:
+            params[clave] = ",".join(lista)
     if joint_values:
         params["joints"] = json.dumps(joint_values)
     if section:
@@ -488,10 +485,7 @@ def render_view(
         params["measure"] = ",".join(measure)
     if not edges:
         params["edges"] = "false"   # default del endpoint es true
-    if xray:
-        params["xray"] = "true"
-    if labels:
-        params["labels"] = "true"
+    params.update({k: "true" for k, v in (("xray", xray), ("labels", labels)) if v})
     if roll:
         params["roll"] = roll
     if pan and len(pan) == 2:
@@ -545,9 +539,12 @@ def open_project(project_id: int) -> str:
 
 @mcp.tool()
 def create_project(name: str, template: str | None = None) -> str:
-    """Crea y abre un proyecto. template: null | 'transportador' | 'brazo'."""
+    """Crea y abre un proyecto: devuelve su `id` (para open_project), su `nombre` y la escena.
+    template: null | 'transportador' | 'brazo'."""
     payload = _api("POST", "/api/projects", json={"name": name, "template": template}).json()
-    return json.dumps(_scene_brief(payload), ensure_ascii=False)
+    doc = payload.get("document", {})
+    out = {"id": doc.get("project_id"), "nombre": doc.get("name"), **_scene_brief(payload)}
+    return json.dumps(out, ensure_ascii=False)
 
 
 @mcp.tool()
@@ -745,8 +742,8 @@ def get_connections(
     tierra, con sus nombres (para borrarlas con delete_connection). Read-only. Filtra con `ids`
     (piezas, NOMBRES DE GRUPO o command_ids: las uniones donde participa alguna) y `kind` (perno |
     soldadura | pegado | contacto | anclaje). Con más de 40 uniones responde el RESUMEN —conteos
-    por tipo y una fila por patrón {kind, a, b, n, ejemplo}—; `resumen=true` lo fuerza y
-    `resumen=false` trae la lista entera."""
+    por tipo y una fila por tipo y PAR de piezas {kind, a, b, n, ejemplo}—; `resumen=true` lo
+    fuerza y `resumen=false` trae la lista entera."""
     params = {"resumen": {None: "auto", True: "si", False: "no"}[resumen],
               **({"ids": ",".join(ids)} if ids else {}), **({"kind": kind} if kind else {})}
     return json.dumps(_api("GET", "/api/connectivity", params=params).json(), ensure_ascii=False)

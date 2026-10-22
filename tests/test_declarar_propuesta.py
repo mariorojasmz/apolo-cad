@@ -73,10 +73,20 @@ def test_aplicar_declara_lo_mismo_y_nombra_lo_que_hay_que_revisar(bastidor):
     assert r.status_code == 200
     revisar = [a["params"]["name"] for a in prop["acciones"] if a.get("a_revisar")]
     assert r.json()["a_revisar"] == revisar
+    # las mismas uniones, con su tipo y su dimensión; las que se repiten, en un `fasten` por
+    # conjunto (D8 de mcp-sin-friccion: los dos largueros a la base en una orden)
+    por_par = {frozenset((f["a"], f["b"])): f for f in doc.fasteners.values()}
     for a in prop["acciones"]:
-        tabla = doc.grounds if a["type"] == "ground" else doc.fasteners
-        declarado = tabla[a["params"]["name"]]
-        assert {k: declarado[k] for k in a["params"]} == a["params"]
+        p = a["params"]
+        if a["type"] == "ground":
+            assert {k: doc.grounds[p["name"]][k] for k in p} == p
+            continue
+        declarado = por_par[frozenset((p["a"], p["b"]))]
+        assert {k: declarado.get(k) for k in p if k not in ("name", "a", "b", "nota")} == {
+            k: v for k, v in p.items() if k not in ("name", "a", "b", "nota")}
+        assert declarado["name"] == p["name"] or "conjunto" in declarado
+    assert len(doc.fasteners) == prop["n_fasteners"]
+    assert any("conjunto" in f for f in doc.fasteners.values())
     assert len(doc._undo) == n_undo + 1  # un lote = un undo
     # idempotente: ya no queda nada que proponer
     assert _proponer(client)["acciones"] == []

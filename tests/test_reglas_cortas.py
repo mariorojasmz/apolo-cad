@@ -86,7 +86,10 @@ def test_checks_sin_campos_nuevos_no_cambia_y_con_resumen_agrupa():
     corto = client.post("/api/checks", json={"resumen": True}).json()
     assert corto["conteo"]["estructura"] == rc.conteo(completo["estructura"])
     lineas = [r for r in corto["estructura"] if r["regla"].startswith("unión apernada")]
-    assert len(lineas) == 1 and lineas[0]["n"] == 4 and lineas[0]["regla"].endswith("m*_placa")
+    # D12 (F5): por el par de piezas de la unión, no por su nombre; lo «ok», sin detalle
+    assert lineas == [{"regla": "unión apernada · Ménsula ↔ Placa", "n": 4, "estado": "ok"}]
+    con_grupo = client.post("/api/checks", json={"resumen": True, "grupo": "apernada"}).json()
+    assert con_grupo["estructura"][0]["detalle"] and con_grupo["estructura"][0]["n"] == 4
     assert corto["interferencias"] == completo["interferencias"]
     solo = client.post("/api/checks", json={"grupo": "apernada", "solo_fallas": True}).json()
     assert all(r["estado"] != "ok" and "apernada" in r["regla"] for r in solo["estructura"])

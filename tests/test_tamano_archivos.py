@@ -56,7 +56,7 @@ EXCEPCIONES: dict[str, int] = {
     "core/apolo/library/builders.py": 847,
     "core/apolo/library/engineering/report.py": 555,
     "core/apolo/library/rules.py": 927,
-    "core/apolo/mcp_server.py": 1381,
+    "core/apolo/mcp_server.py": 1378,
 }
 
 # ── Medición ──────────────────────────────────────────────────────────────────

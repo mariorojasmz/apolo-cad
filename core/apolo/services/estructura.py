@@ -89,18 +89,44 @@ def _sin_piezas_sueltas(doc, det: dict, uniones: list[dict]) -> None:
             u["motivo"] += "; sin esta unión la pieza queda suelta: ¿cómo se sujeta?"
 
 
+def unidas_por_lo_declarado(fasteners):
+    """`misma(a, b)`: ¿las une ya, directa o en cadena, una unión declarada? (D7 de
+    mcp-sin-friccion). El documento guarda expandidas las de un `fasten` por conjuntos y las que
+    declara un super-comando, así que cuentan igual. Los anclajes no unen: dos máquinas ancladas
+    que se tocan siguen sin unir entre sí."""
+    padre: dict[str, str] = {}
+
+    def raiz_de(x: str) -> str:
+        padre.setdefault(x, x)
+        while padre[x] != x:
+            padre[x] = padre[padre[x]]
+            x = padre[x]
+        return x
+
+    for f in fasteners:
+        ra, rb = raiz_de(f["a"]), raiz_de(f["b"])
+        if ra != rb:
+            padre[ra] = rb
+    return lambda a, b: a in padre and b in padre and raiz_de(a) == raiz_de(b)
+
+
 def propuesta_estructura(doc) -> dict:
     """`{acciones, resumen, omitidas}`: lo que `declare` aplicaría, sin repetir lo declarado.
 
-    Idempotente como el endpoint de siempre: omite anclajes de piezas ya ancladas y pares ya
-    unidos (también los de un `fasten` en lote, que el documento guarda expandidos), y nombra
-    `auto_g_N`/`auto_f_N` sin chocar con los nombres existentes."""
+    Idempotente como el endpoint de siempre: omite anclajes de piezas ya ancladas y todo par que
+    lo declarado ya une, directo o en cadena (también por un `fasten` en lote o un super-comando:
+    sobre una plantilla recién generada no propone nada, D7), y nombra `auto_g_N`/`auto_f_N` sin
+    chocar con los nombres existentes (ni con los de un conjunto, que se expanden a `{name}[k]`)."""
     from apolo.assembly.autodetect import detect_structure
 
+    from .dimensionado import dimension
+
     det = detect_structure(doc.scene, joints=doc.joints)
-    nombres = set(doc.fasteners) | set(doc.grounds)
+    nombres = set(doc.fasteners) | set(doc.grounds) | {
+        f["conjunto"] for f in doc.fasteners.values() if f.get("conjunto")}
     anclados = {g["feature"] for g in doc.grounds.values()}
     pares = {frozenset((f["a"], f["b"])) for f in doc.fasteners.values()}
+    unidas = unidas_por_lo_declarado(doc.fasteners.values())
 
     def unico(prefijo: str) -> str:
         i = 1
@@ -118,9 +144,11 @@ def propuesta_estructura(doc) -> dict:
             "name": unico("auto_g_"), "feature": g["feature"],
             "nota": (g.get("reason") or "")[:_NOTA_MAX]}})
     omitidas: list[dict] = []
+    roles = {k: r for k, (r, _) in roles_de(doc).items()}
+    cajas: dict = {}
     for u in uniones_con_criterio(doc, det):
         par = frozenset((u["a"], u["b"]))
-        if par in pares:
+        if par in pares or unidas(u["a"], u["b"]):
             continue
         pares.add(par)
         if u["kind"] is None:
@@ -129,6 +157,7 @@ def propuesta_estructura(doc) -> dict:
         revisar = bool(u["a_revisar"])
         accion: dict = {"type": "fasten", "params": {
             "name": unico("auto_f_"), "a": u["a"], "b": u["b"], "kind": u["kind"],
+            **dimension(doc, u["a"], u["b"], u["kind"], roles, cajas),  # D8: nada sin dimensionar
             "nota": ((_A_REVISAR if revisar else "") + u["motivo"])[:_NOTA_MAX]}}
         if revisar:
             accion["a_revisar"] = True

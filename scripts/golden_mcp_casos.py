@@ -146,9 +146,10 @@ def _paso(req):
     return J(escena(deshechos=["Variable «L»: 2000 → 3200"]))
 
 
-#: `connectivity` (D1/D2): la lista, o el resumen por patrón si lo pide (`resumen=si`/`auto`).
+#: `connectivity` (D1/D2): la lista, o el resumen por par de piezas si lo pide (`resumen=si`/`auto`,
+#: D9 de F5: por el par de patrones de pieza, no por el nombre de la unión).
 RESUMEN_UNIONES = {"n_fijadores": 57, "n_anclajes": 1, "por_tipo": {"perno": 38, "contacto": 19},
-                   "resumen": [{"kind": "perno", "patron": "r*_eje_larguero_my", "n": 19,
+                   "resumen": [{"kind": "perno", "a": "Eje", "b": "Larguero", "n": 19,
                                 "ejemplo": {"nombre": "r1_eje_larguero_my", "a": "c57_1",
                                             "b": "c9", "piezas": ["Eje", "Larguero (-Y)"]}}],
                    "anclajes": [{"nombre": "g1", "pieza": "c1"}],
@@ -231,7 +232,7 @@ PROPUESTA_CORTA = {
     "aplicar": False, "n_grounds": 1, "n_fasteners": 2, "n_a_revisar": 1, "n_omitidas": 1,
     "por_tipo": {"perno": 1, "contacto": 1}, "anclajes": ["c1"],
     "patrones": [
-        {"kind": "perno", "a": "Eje del rodillo", "b": "Larguero", "n": 20,
+        {"kind": "perno", "a": "Eje del rodillo", "b": "Larguero", "n": 20, "size": "M12", "qty": 1,
          "fasten": [{"a": "c11+c57", "b": "c9"}]},
         {"kind": "contacto", "a": "Eje del rodillo", "b": "Piñón", "n": 1, "a_revisar": True,
          "fasten": [{"a": "c57_1", "b": "c62_1"}]}],
@@ -242,7 +243,7 @@ PROPUESTA_CORTA = {
     "seguir": "aplica con run_batch un fasten por fila de `patrones`",
 }
 APLICADA = {"anclajes_declarados": 1, "uniones_declaradas": 2,
-            "por_tipo": {"perno": 1, "contacto": 1}, "grounds": 1, "fasteners": 2,
+            "por_tipo": {"perno": 1, "contacto": 1}, "ordenes": 3, "grounds": 1, "fasteners": 2,
             "a_revisar": ["auto_f_2"], "affected_command_ids": ["c60", "c61", "c62"]}
 
 
@@ -307,7 +308,8 @@ RUTAS = [
     ("POST", r"/api/commands/preview", _preview),
     ("GET", r"/api/projects", J([{"id": 38, "name": "faja"}])),
     ("POST", r"/api/projects/\d+/open", J({**escena(), "briefing": {"grupos": 6}})),
-    ("POST", r"/api/projects", J(escena())),
+    ("POST", r"/api/projects", J({**escena(), "document": {**escena()["document"],
+                                                            "project_id": 41}})),
     ("POST", r"/api/revisions", J({"id": 7, "note": "golden"})),
     ("POST", r"/api/configurations", J(escena())),
     ("PUT", r"/api/configurations/[^/]+", J(escena())),
@@ -491,6 +493,15 @@ CASOS = [
             "como_acotar": "Se revisaron 400 de 1234 parejas candidatas: faltan 834. …"}})}),
     caso("interferencia acotada en pose", "check_interference",
          {"joint_values": {"j1": 30}, "ids": ["Estructura"]}),
+    caso("interferencia acotada, página siguiente sin lo declarado", "check_interference",
+         {"ids": ["Rodillos"], "desde": 400, "excluir_declaradas": True}, rutas={
+             ("POST", r"/api/checks"): J({"interferencias": {
+                 "solidos": 330, "parejas_analizadas": 400, "truncado": True, "interferencias": [],
+                 "desde": 400, "parejas_candidatas": 1100, "parejas_sin_revisar": 300,
+                 "desde_siguiente": 800,
+                 "como_acotar": "Se revisaron las parejas 401–800 de 1100 parejas candidatas: "
+                                "faltan 300. Sigue con la página siguiente: check_interference("
+                                "ids=[\"Rodillos\"], excluir_declaradas=true, desde=800)."}})}),
     caso("ingeniería", "engineering_check", {"carga_kg": 15, "velocidad_m_s": 0.5}),
     caso("ingeniería filtrada y completa", "engineering_check",
          {"grupo": "unión apernada", "solo_fallas": True, "detail": "full"}),

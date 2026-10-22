@@ -98,15 +98,16 @@ def test_errores_accionables():
     assert client.get("/api/connectivity", params={"resumen": "quizas"}).status_code == 422
 
 
-def test_resumen_agrupa_por_patron_de_nombre():
+def test_resumen_agrupa_por_par_de_piezas():
     client = _cliente(_modelo())
     out = _ok(client.get("/api/connectivity", params={"resumen": "si"}))
     assert out["n_fijadores"] == 7 and out["n_anclajes"] == 1
     assert out["por_tipo"] == {"perno": 5, "soldadura": 1, "contacto": 1}
-    filas = {(f["kind"], f["patron"]): f["n"] for f in out["resumen"]}
-    # eje0_viga … eje4_viga (la fuente c3 y sus copias c4_k) = UNA fila, la más larga primero
-    assert filas == {("perno", "eje*_viga"): 5, ("soldadura", "viga_base"): 1,
-                     ("contacto", "tapa_base"): 1}
+    filas = {(f["kind"], f["a"], f["b"]): f["n"] for f in out["resumen"]}
+    # eje0_viga … eje4_viga (la fuente c3 y sus copias c4_k) = UNA fila, la más larga primero;
+    # por el par de piezas, no por el nombre de la unión (D9 de mcp-sin-friccion)
+    assert filas == {("perno", "Eje", "Viga"): 5, ("soldadura", "Base", "Viga"): 1,
+                     ("contacto", "Base", "Tapa"): 1}
     fila = out["resumen"][0]
     assert fila["ejemplo"] == {"nombre": "eje0_viga", "a": "c3", "b": "c2",
                                "piezas": ["Eje", "Viga"]}

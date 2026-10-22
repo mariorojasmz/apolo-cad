@@ -12,8 +12,10 @@ vecinas, en este orden (gana la primera regla que aplica):
 1b. pie nivelador: con su placa de piso, `soldadura` (el disco se suelda tras nivelar); con lo
    demás, `contacto` (pasa por la placa: la unión es su tuerca).
 2. cadena o banda: `contacto` con lo que gira o con la cama; con todo lo demás, ninguna.
-3. guarda: con lo que gira o con el equipo que cubre, ninguna; con su soporte, `perno`; con otra
-   parte de la MISMA guarda (mismo cuerpo de nombre), `soldadura`; con otra guarda, `perno`.
+3. guarda (también una tapa): con lo que gira o con el equipo que cubre, ninguna; con su
+   soporte o la estructura, `perno`; con otra parte de la MISMA guarda (mismo cuerpo de nombre),
+   `soldadura`; con otra guarda, `perno` (también dos tramos numerados de la misma, «Bandeja
+   (tramo 1)» ↔ «(tramo 2)»: son piezas distintas, `roles._cuerpo`).
 4. rodamiento: `contacto` (ajuste, nunca soldadura); chumacera: con el eje, `contacto`; con su
    soporte, `perno`.
 5. dos piezas que aprieta la MISMA tuerca o perno: `perno` (el eje roscado al larguero).

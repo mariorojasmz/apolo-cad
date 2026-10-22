@@ -2374,7 +2374,9 @@
     "url": "http://127.0.0.1:8000/api/checks",
     "query": [],
     "cuerpo": {
-     "joint_values": {}
+     "joint_values": {},
+     "interference_desde": 0,
+     "excluir_declaradas": false
     },
     "cabeceras": {
      "accept": "*/*",
@@ -2405,7 +2407,9 @@
     "url": "http://127.0.0.1:8000/api/checks",
     "query": [],
     "cuerpo": {
-     "joint_values": {}
+     "joint_values": {},
+     "interference_desde": 0,
+     "excluir_declaradas": false
     },
     "cabeceras": {
      "accept": "*/*",
@@ -2446,8 +2450,52 @@
      "joint_values": {
       "j1": 30
      },
+     "interference_desde": 0,
+     "excluir_declaradas": false,
      "interference_ids": [
       "Estructura"
+     ]
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "interferencia acotada, página siguiente sin lo declarado",
+  "tool": "check_interference",
+  "args": {
+   "ids": [
+    "Rodillos"
+   ],
+   "desde": 400,
+   "excluir_declaradas": true
+  },
+  "salida": [
+   {
+    "texto": "{\"solidos\": 330, \"parejas_analizadas\": 400, \"truncado\": true, \"interferencias\": [], \"desde\": 400, \"parejas_candidatas\": 1100, \"parejas_sin_revisar\": 300, \"desde_siguiente\": 800, \"como_acotar\": \"Se revisaron las parejas 401–800 de 1100 parejas candidatas: faltan 300. Sigue con la página siguiente: check_interference(ids=[\\\"Rodillos\\\"], excluir_declaradas=true, desde=800).\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/checks",
+    "query": [],
+    "cuerpo": {
+     "joint_values": {},
+     "interference_desde": 400,
+     "excluir_declaradas": true,
+     "interference_ids": [
+      "Rodillos"
      ]
     },
     "cabeceras": {
@@ -2960,7 +3008,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
+    "texto": "{\"id\": 41, \"nombre\": \"golden\", \"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 3, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c1\", \"grupo\": \"Estructura\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"visible\": false, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c2_c1\", \"componente\": \"RODILLO-50\"}, {\"id\": \"c3\", \"nombre\": \"Croquis\", \"visible\": true, \"bbox\": {\"min\": [0, 0, 0], \"max\": [100, 50, 20]}, \"volumen_mm3\": 100000.0, \"comando\": \"c3\", \"boceto\": true}], \"variables\": [{\"name\": \"L\", \"expression\": \"2000\", \"value\": 2000.0}]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3774,7 +3822,7 @@
   "args": {},
   "salida": [
    {
-    "texto": "{\"n_grounds\": 1, \"n_fasteners\": 2, \"n_a_revisar\": 1, \"n_omitidas\": 1, \"por_tipo\": {\"perno\": 1, \"contacto\": 1}, \"anclajes\": [\"c1\"], \"patrones\": [{\"kind\": \"perno\", \"a\": \"Eje del rodillo\", \"b\": \"Larguero\", \"n\": 20, \"fasten\": [{\"a\": \"c11+c57\", \"b\": \"c9\"}]}, {\"kind\": \"contacto\", \"a\": \"Eje del rodillo\", \"b\": \"Piñón\", \"n\": 1, \"a_revisar\": true, \"fasten\": [{\"a\": \"c57_1\", \"b\": \"c62_1\"}]}], \"a_revisar\": [{\"a\": \"c57_1\", \"b\": \"c62_1\", \"kind\": \"contacto\", \"motivo\": \"'Eje' ↔ 'Piñón': ¿eje vivo (chaveta o soldadura) o fijo (rodamiento)?\"}], \"omitidas\": [{\"a\": \"Larguero\", \"b\": \"Tuerca del eje\", \"n\": 40, \"motivo\": \"la tuerca es parte de su perno\"}], \"seguir\": \"aplica con run_batch un fasten por fila de `patrones`\"}"
+    "texto": "{\"n_grounds\": 1, \"n_fasteners\": 2, \"n_a_revisar\": 1, \"n_omitidas\": 1, \"por_tipo\": {\"perno\": 1, \"contacto\": 1}, \"anclajes\": [\"c1\"], \"patrones\": [{\"kind\": \"perno\", \"a\": \"Eje del rodillo\", \"b\": \"Larguero\", \"n\": 20, \"size\": \"M12\", \"qty\": 1, \"fasten\": [{\"a\": \"c11+c57\", \"b\": \"c9\"}]}, {\"kind\": \"contacto\", \"a\": \"Eje del rodillo\", \"b\": \"Piñón\", \"n\": 1, \"a_revisar\": true, \"fasten\": [{\"a\": \"c57_1\", \"b\": \"c62_1\"}]}], \"a_revisar\": [{\"a\": \"c57_1\", \"b\": \"c62_1\", \"kind\": \"contacto\", \"motivo\": \"'Eje' ↔ 'Piñón': ¿eje vivo (chaveta o soldadura) o fijo (rodamiento)?\"}], \"omitidas\": [{\"a\": \"Larguero\", \"b\": \"Tuerca del eje\", \"n\": 40, \"motivo\": \"la tuerca es parte de su perno\"}], \"seguir\": \"aplica con run_batch un fasten por fila de `patrones`\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3808,7 +3856,7 @@
   },
   "salida": [
    {
-    "texto": "{\"anclajes_declarados\": 1, \"uniones_declaradas\": 2, \"por_tipo\": {\"perno\": 1, \"contacto\": 1}, \"grounds\": 1, \"fasteners\": 2, \"a_revisar\": [\"auto_f_2\"]}"
+    "texto": "{\"anclajes_declarados\": 1, \"uniones_declaradas\": 2, \"por_tipo\": {\"perno\": 1, \"contacto\": 1}, \"ordenes\": 3, \"grounds\": 1, \"fasteners\": 2, \"a_revisar\": [\"auto_f_2\"]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3874,7 +3922,7 @@
   "args": {},
   "salida": [
    {
-    "texto": "{\"n_fijadores\": 57, \"n_anclajes\": 1, \"por_tipo\": {\"perno\": 38, \"contacto\": 19}, \"resumen\": [{\"kind\": \"perno\", \"patron\": \"r*_eje_larguero_my\", \"n\": 19, \"ejemplo\": {\"nombre\": \"r1_eje_larguero_my\", \"a\": \"c57_1\", \"b\": \"c9\", \"piezas\": [\"Eje\", \"Larguero (-Y)\"]}}], \"anclajes\": [{\"nombre\": \"g1\", \"pieza\": \"c1\"}], \"seguir\": \"la lista con nombres: get_connections(…, resumen=false)\"}"
+    "texto": "{\"n_fijadores\": 57, \"n_anclajes\": 1, \"por_tipo\": {\"perno\": 38, \"contacto\": 19}, \"resumen\": [{\"kind\": \"perno\", \"a\": \"Eje\", \"b\": \"Larguero\", \"n\": 19, \"ejemplo\": {\"nombre\": \"r1_eje_larguero_my\", \"a\": \"c57_1\", \"b\": \"c9\", \"piezas\": [\"Eje\", \"Larguero (-Y)\"]}}], \"anclajes\": [{\"nombre\": \"g1\", \"pieza\": \"c1\"}], \"seguir\": \"la lista con nombres: get_connections(…, resumen=false)\"}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -3958,7 +4006,7 @@
   },
   "salida": [
    {
-    "texto": "{\"n_fijadores\": 57, \"n_anclajes\": 1, \"por_tipo\": {\"perno\": 38, \"contacto\": 19}, \"resumen\": [{\"kind\": \"perno\", \"patron\": \"r*_eje_larguero_my\", \"n\": 19, \"ejemplo\": {\"nombre\": \"r1_eje_larguero_my\", \"a\": \"c57_1\", \"b\": \"c9\", \"piezas\": [\"Eje\", \"Larguero (-Y)\"]}}], \"anclajes\": [{\"nombre\": \"g1\", \"pieza\": \"c1\"}], \"seguir\": \"la lista con nombres: get_connections(…, resumen=false)\"}"
+    "texto": "{\"n_fijadores\": 57, \"n_anclajes\": 1, \"por_tipo\": {\"perno\": 38, \"contacto\": 19}, \"resumen\": [{\"kind\": \"perno\", \"a\": \"Eje\", \"b\": \"Larguero\", \"n\": 19, \"ejemplo\": {\"nombre\": \"r1_eje_larguero_my\", \"a\": \"c57_1\", \"b\": \"c9\", \"piezas\": [\"Eje\", \"Larguero (-Y)\"]}}], \"anclajes\": [{\"nombre\": \"g1\", \"pieza\": \"c1\"}], \"seguir\": \"la lista con nombres: get_connections(…, resumen=false)\"}"
    }
   ],
   "estructurado": "= {result: texto}",

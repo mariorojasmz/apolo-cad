@@ -16,9 +16,10 @@ from pydantic import BaseModel
 
 from apolo.doc import DocumentError
 from apolo.library import conveyor_engineering_check, interference_report
+from apolo.services import conexiones
 from apolo.services import reglas_cortas as rc
 from apolo.services.assertions import verify_checks
-from apolo.services.delivery_inputs import delivery_inputs
+from apolo.services.delivery_inputs import delivery_inputs, exclusiones_declaradas
 from apolo.services.engineering_rules import (
     conveyor_params_from_doc,
     inherit_inclination,
@@ -45,6 +46,9 @@ class ChecksIn(BaseModel):
     conveyor: dict | None = None  # validación predictiva: params de faja a evaluar sin construirla
     conveyor_solid_ids: list[str] | None = None  # marca explícita de los sólidos que forman la faja
     interference_ids: list[str] | None = None  # V6.5b: acota la interferencia a pares que tocan estos ids/grupos
+    # mcp-sin-friccion D10: página de parejas candidatas y el criterio de la puerta (sin lo declarado)
+    interference_desde: int = 0
+    excluir_declaradas: bool = False
     # mcp-sin-friccion D1/D2 (`services/reglas_cortas.py`): sin ellos, byte-idéntico (la UI)
     grupo: str | None = None  # familia de regla («unión apernada», «flecha de viga»…)
     solo_fallas: bool = False  # sólo lo que no está «ok»
@@ -68,14 +72,17 @@ def run_checks(body: ChecksIn) -> dict:
         # V6.5b: `interference_ids` acota a las parejas donde participa un id/grupo dado
         # (O(k·n)) — el agente valida SU zona de trabajo, no la máquina entera.
         focus = _expand_ids(body.interference_ids) if body.interference_ids else None
+        excl_pares, excl_ids = (exclusiones_declaradas(S.doc) if body.excluir_declaradas
+                                else (set(), set()))
         interferencias = interference_report(
             S.doc.scene, shapes_override=shapes_override,
-            exclude_pairs=jpairs | same_command_pairs(S.doc),
-            exclude_ids=hardware_ids(S.doc),
-            focus=focus,
+            exclude_pairs=jpairs | same_command_pairs(S.doc) | excl_pares,
+            exclude_ids=hardware_ids(S.doc) | excl_ids,
+            focus=focus, desde=body.interference_desde,
         )
-        if interferencias["truncado"]:  # D4 de mcp-sin-friccion: cuántas faltan y cómo acotar
-            interferencias["como_acotar"] = como_acotar(S.doc, interferencias)
+        if interferencias["truncado"]:  # D4/D10 de mcp-sin-friccion: la página siguiente y zonas
+            interferencias["como_acotar"] = como_acotar(
+                S.doc, interferencias, body.interference_ids, body.excluir_declaradas)
         if shapes_override is not None:  # interpenetración de cuerpos con junta compartida
             interferencias["interferencias"] += interpenetration_report(
                 S.doc.scene, shapes_override, jpairs
@@ -129,10 +136,12 @@ def run_checks(body: ChecksIn) -> dict:
     if body.grupo or body.solo_fallas or body.resumen:
         for k in ("ingenieria", "estructura"):
             out[k] = rc.filtrar_reglas(out[k], body.grupo, body.solo_fallas)
-        if body.resumen:
+        if body.resumen:  # D12: las de cada unión, por el par de piezas; lo «ok», sin detalle
             out["conteo"] = {k: rc.conteo(out[k]) for k in ("ingenieria", "estructura")}
-            out["ingenieria"] = rc.reglas_cortas(out["ingenieria"])
-            out["estructura"] = rc.reglas_cortas(out["estructura"])
+            with STATE_LOCK:  # la clave lee las uniones y los nombres del documento
+                clave = conexiones.clave_de_reglas(S.doc)
+                for k in ("ingenieria", "estructura"):
+                    out[k] = rc.reglas_cortas(out[k], clave, ok_sin_detalle=not body.grupo)
     return out
 
 

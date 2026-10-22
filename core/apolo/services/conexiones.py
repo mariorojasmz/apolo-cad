@@ -1,11 +1,12 @@
 """Uniones declaradas y sujeción, en corto (plan mcp-sin-friccion, D1 y D2).
 
 `filtrar` acota las uniones de `GET /api/connectivity` por piezas (`ids`) y por tipo (`kind`);
-`resumen_conexiones` las agrupa por tipo y PATRÓN de nombre (los números → `*`, la misma regla
-que las reglas de ingeniería en corto: `r0_tuerca_py` … `r18_tuerca_py` es UNA fila), con
-conteos por tipo: lo que el agente lee de una máquina de cientos de uniones sin volcarlas. (Por
-raíz de pieza, como la propuesta de `estructura.py`, la piloto daba 84 filas: cada cadena es su
-propio comando.) `sujecion_corta` es el modo corto de
+`resumen_conexiones` las agrupa por tipo y PAR de patrones de pieza (el nombre de la pieza sin
+la máquina ni paréntesis, con los números → `*`: D9), con conteos por tipo: lo que el agente
+lee de una máquina de cientos de uniones sin volcarlas. (Por el nombre de la unión, F4 vio una
+fila `auto_f_*` con 163 contactos distintos; por raíz de pieza, la piloto daba 84 filas: cada
+cadena es su propio comando.) `clave_de_reglas` agrupa igual las reglas de ingeniería de cada
+unión (D12). `sujecion_corta` es el modo corto de
 `POST /api/assembly/soundness`: conteos + lo que FLOTA, sin repetir los ids sujetos.
 
 Sin estos modos, las rutas responden byte-idéntico (la UI). Puro: lee un `Document` explícito,
@@ -15,6 +16,7 @@ sin locks (el llamador sostiene `STATE_LOCK`); los nombres de grupo los expande 
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 
 from .cirugia import piezas_de
@@ -28,6 +30,8 @@ TIPOS = ("perno", "soldadura", "pegado", "contacto", "anclaje")
 
 #: Con más uniones que esto (y sin `resumen` explícito) la respuesta va en resumen.
 MAX_UNIONES = 40
+
+_PARENTESIS = re.compile(r"\s*\([^)]*\)")
 
 
 def piezas_pedidas(doc, ids: list[str], expand=None) -> set[str]:
@@ -73,16 +77,39 @@ def filtrar(doc, ids: list[str] | None = None, kind: str | None = None,
     return fijadores, anclajes
 
 
+def _maquinas(doc) -> set[str]:
+    """Los nombres de grupo (y su último tramo): el tramo «Transportador de rodillos · » que un
+    super-comando antepone a cada pieza no distingue nada dentro de la máquina."""
+    return set(doc.groups) | {g.rsplit("/", 1)[-1] for g in doc.groups}
+
+
+def patron_de(doc, fid: str, maquinas: set[str]) -> str:
+    """El patrón de la pieza para agrupar: su nombre sin los tramos de la máquina, sin
+    paréntesis y con los números → `*` («Transportador de rodillos · Pata (-Y, motriz)» →
+    «Pata»; «Piñón doble-simple Z15» → «Piñón doble-simple Z*»)."""
+    tramos = [t.strip() for t in _nombre(doc, fid).split("·") if t.strip()]
+    propios = [t for t in tramos if t not in maquinas] or tramos[-1:]  # «… · Motorreductor»
+    return patron(_PARENTESIS.sub("", " · ".join(propios)).strip())
+
+
+def par_de(doc, a: str, b: str, maquinas: set[str]) -> tuple[str, str]:
+    """El par de patrones de dos piezas, en orden: la misma unión vale en los dos sentidos."""
+    return tuple(sorted((patron_de(doc, a, maquinas), patron_de(doc, b, maquinas))))
+
+
 def resumen_conexiones(doc, fijadores: list[dict], anclajes: list[dict]) -> dict:
-    """Conteos por tipo + una fila por PATRÓN de nombre y tipo, de mayor a menor: `{kind,
-    patron, n, ejemplo}` (`r0_eje_larguero_my` … `r18_eje_larguero_my` → `r*_eje_larguero_my`,
-    la regla de las reglas de ingeniería), + los anclajes (recortados a `MAX_LISTA`). `ejemplo`
-    da el nombre de una unión de la fila (para `delete_connection`), sus piezas y sus nombres."""
+    """Conteos por tipo + una fila por tipo y PAR de patrones de pieza (D9 de mcp-sin-friccion:
+    por las piezas, no por el nombre del comando, que en una plantilla es `auto_f_*` o
+    `c1_eje_larg_m[*]` y `…_p[*]` para la misma unión), de mayor a menor: `{kind, a, b, n,
+    ejemplo}`, + los anclajes (recortados a `MAX_LISTA`). `ejemplo` da el nombre de una unión de
+    la fila (para `delete_connection`), sus piezas y sus nombres."""
+    maquinas = _maquinas(doc)
     grupos: dict[tuple, dict] = {}
     for f in fijadores:
-        clave = (f.get("kind"), patron(f["name"]))
+        pa, pb = par_de(doc, f["a"], f["b"], maquinas)
+        clave = (f.get("kind"), pa, pb)
         if clave not in grupos:
-            grupos[clave] = {"kind": clave[0], "patron": clave[1], "n": 0, "ejemplo": {
+            grupos[clave] = {"kind": clave[0], "a": pa, "b": pb, "n": 0, "ejemplo": {
                 "nombre": f["name"], "a": f["a"], "b": f["b"],
                 "piezas": [_nombre(doc, f["a"]), _nombre(doc, f["b"])]}}
         grupos[clave]["n"] += 1
@@ -90,12 +117,30 @@ def resumen_conexiones(doc, fijadores: list[dict], anclajes: list[dict]) -> dict
         "n_fijadores": len(fijadores),
         "n_anclajes": len(anclajes),
         "por_tipo": dict(Counter(f.get("kind") for f in fijadores).most_common()),
-        "resumen": sorted(grupos.values(), key=lambda g: (-g["n"], g["kind"], g["patron"])),
+        "resumen": sorted(grupos.values(), key=lambda g: (-g["n"], g["kind"], g["a"], g["b"])),
     }
     recortar(out, "anclajes", [{"nombre": g["name"], "pieza": g["feature"]} for g in anclajes])
     out["seguir"] = ("la lista con nombres: get_connections(ids=[pieza, grupo o comando], "
                      "kind=…, resumen=false)")
     return out
+
+
+def clave_de_reglas(doc):
+    """`clave(regla)` para `reglas_cortas`: una regla de UNA unión declarada («unión apernada ·
+    c1_eje_larg_m[0]», «soldadura · auto_f_7») se agrupa por su familia y el par de patrones de
+    sus piezas, como `resumen_conexiones` (D12: en una plantilla, «…_m[*]» y «…_p[*]» son la
+    misma unión); el resto, None (su patrón de nombre)."""
+    maquinas = _maquinas(doc)
+
+    def clave(regla: dict) -> str | None:
+        familia, _, resto = str(regla.get("regla", "")).partition(" · ")
+        f = doc.fasteners.get(resto)
+        if f is None or f.get("a") not in doc.scene or f.get("b") not in doc.scene:
+            return None
+        pa, pb = par_de(doc, f["a"], f["b"], maquinas)
+        return f"{familia} · {pa} ↔ {pb}"
+
+    return clave
 
 
 def expandidas(doc, command_ids) -> dict | None:

@@ -22,6 +22,17 @@ def _cronometro(tiempos: dict | None, regla: str):
             tiempos[regla] = round(tiempos.get(regla, 0.0) + time.perf_counter() - t0, 2)
 
 
+def exclusiones_declaradas(doc) -> tuple[set[frozenset], set[str]]:
+    """(pares con `fasten`, tornillería a medida): lo DECLARADO que la puerta no cuenta como
+    interferencia. Lo usa también `check_interference(excluir_declaradas=true)` (D10 de
+    mcp-sin-friccion): el mismo criterio, una sola fuente."""
+    from apolo.library.catalog import CATALOG
+    from apolo.library.lints import _is_bolt
+
+    return ({frozenset((f["a"], f["b"])) for f in doc.fasteners.values()},
+            {fid for fid, f in doc.scene.items() if _is_bolt(f, CATALOG)})
+
+
 def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
     """Los kwargs de `delivery_report` (todos salvo `gravedad`) para `doc`. Llamar bajo
     STATE_LOCK; `expand` resuelve nombres de grupo (lo inyecta la API). Con `tiempos` (un dict)
@@ -41,10 +52,8 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
     # TORNILLERÍA a-medida (por nombre/rol, misma convención que los lints V7.2b)
     # se excluye como la de catálogo: asentada en su alojamiento por diseño.
     from apolo.library.catalog import CATALOG
-    from apolo.library.lints import _is_bolt
 
-    fasten_pairs = {frozenset((f["a"], f["b"])) for f in doc.fasteners.values()}
-    bolt_ids = {fid for fid, f in doc.scene.items() if _is_bolt(f, CATALOG)}
+    fasten_pairs, bolt_ids = exclusiones_declaradas(doc)
     with _cronometro(tiempos, "interferencias"):
         rep_inter = interference_report(
             doc.scene,

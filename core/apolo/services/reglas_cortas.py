@@ -58,23 +58,31 @@ def _corta(regla: dict) -> dict:
     return out
 
 
-def reglas_cortas(reglas: list[dict] | None) -> list[dict] | None:
+def reglas_cortas(reglas: list[dict] | None, clave=None,
+                  ok_sin_detalle: bool = False) -> list[dict] | None:
     """Una línea por patrón repetido (`n`, `estado` y `detalle` de su peor caso, que nombra
-    `peor`); las únicas, recortadas. Conserva el orden de la primera aparición."""
+    `peor`); las únicas, recortadas. Conserva el orden de la primera aparición. `clave(regla)`
+    (opcional) da el patrón de una regla —el par de piezas de una unión,
+    `conexiones.clave_de_reglas`—; si da None, el de su nombre. `ok_sin_detalle`: una línea en
+    «ok» queda en `{regla, n?, estado}` (lo que pasa no pide acción; D12: la plantilla de 3 m
+    bajó de 11 a < 5 KB)."""
     if reglas is None:
         return None
     grupos: dict[str, list[dict]] = {}
     for r in reglas:
-        grupos.setdefault(patron(r.get("regla", "")), []).append(r)
+        grupos.setdefault((clave and clave(r)) or patron(r.get("regla", "")), []).append(r)
     out: list[dict] = []
     for nombre, miembros in grupos.items():
         if len(miembros) == 1:
-            out.append(_corta(miembros[0]))
-            continue
-        peor = max(miembros, key=_peso)
-        out.append({"regla": nombre, "n": len(miembros),
-                    **{k: v for k, v in _corta(peor).items() if k != "regla"},
-                    "peor": peor.get("regla")})
+            linea = _corta(miembros[0])
+        else:
+            peor = max(miembros, key=_peso)
+            linea = {"regla": nombre, "n": len(miembros),
+                     **{k: v for k, v in _corta(peor).items() if k != "regla"},
+                     "peor": peor.get("regla")}
+        if ok_sin_detalle and linea.get("estado") == "ok":
+            linea = {k: linea[k] for k in ("regla", "n", "estado") if k in linea}
+        out.append(linea)
     return out
 
 

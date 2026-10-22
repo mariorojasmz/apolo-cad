@@ -81,9 +81,13 @@ def test_vista_desconocida_da_422(client):
 
 
 def test_el_schema_de_un_comando_sigue_igual(client):
+    """El del agente, salvo la raíz del schema que repetía la description de la entrada (D12 de
+    mcp-sin-friccion); la persona no lo toca."""
     r = client.get("/api/schemas/drill_hole")
     assert r.status_code == 200
-    assert r.json() == json.loads(json.dumps(command_schemas("drill_hole")[0], ensure_ascii=False))
+    esperado = json.loads(json.dumps(command_schemas("drill_hole")[0], ensure_ascii=False))
+    assert esperado["schema"].pop("description") == esperado["description"]
+    assert r.json() == esperado
 
 
 # ── la vista persona ──────────────────────────────────────────────────────────

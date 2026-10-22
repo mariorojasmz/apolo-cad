@@ -713,7 +713,7 @@
  },
  {
   "name": "check_interference",
-  "description": "Interferencias entre sólidos (booleanas OCCT). Con joint_values {junta: valor}\ncomprueba la colisión del mecanismo EN POSE. Con `ids` (feature_ids o NOMBRES DE GRUPO)\nACOTA a las parejas donde participa al menos uno de ellos (O(k·n) en vez de O(n²)):\nvalida TU zona de trabajo tras una operación en vez de la máquina entera. Sin `ids` = global,\nhasta 400 parejas candidatas: con más, `truncado` suma `parejas_sin_revisar` y `como_acotar`.",
+  "description": "Interferencias entre sólidos (booleanas OCCT). Con joint_values {junta: valor}\ncomprueba la colisión del mecanismo EN POSE. Con `ids` (feature_ids o NOMBRES DE GRUPO)\nACOTA a las parejas donde participa al menos uno de ellos (O(k·n) en vez de O(n²)):\nvalida TU zona de trabajo tras una operación en vez de la máquina entera. Hasta 400 parejas\npor llamada: con más, `truncado` suma `parejas_sin_revisar`, `desde_siguiente` y\n`como_acotar` (la llamada siguiente); `desde` pide esa página. `excluir_declaradas=true` deja\nfuera los pares con unión declarada (como la puerta).",
   "inputSchema": {
    "properties": {
     "joint_values": {
@@ -743,6 +743,16 @@
      ],
      "default": null,
      "title": "Ids"
+    },
+    "desde": {
+     "default": 0,
+     "title": "Desde",
+     "type": "integer"
+    },
+    "excluir_declaradas": {
+     "default": false,
+     "title": "Excluir Declaradas",
+     "type": "boolean"
     }
    },
    "title": "check_interferenceArguments",
@@ -764,7 +774,7 @@
  },
  {
   "name": "engineering_check",
-  "description": "Valida el modelo con criterio de ingeniería. Devuelve DOS bloques: `ingenieria`\n(reglas del transportador: apoyo del paquete, capacidad de rodillo, ancho útil,\nmotorización por CONSTRUCCIÓN — CEMA slider-bed si banda sobre cama / ISO 5048-DIN\n22101 si banda sobre rodillos —, par + par de arranque, adherencia del tambor\nmotriz Euler-Eytelwein con la T2 mínima que el tensor debe garantizar, flecha del\nbastidor, flexión del eje) y `estructura` (chequeo UNIVERSAL de cualquier ensamblaje: uniones\napernadas vs ISO 898-1, soldaduras, vida L10 de rodamientos, pandeo de patas,\nvuelco). Sin argumentos usa los REQUISITOS guardados del proyecto (set_requirements);\nlos parámetros explícitos ganan. Sin `conveyor` valida la faja del documento; con\n`conveyor` (dict {largo,ancho,altura,paso,rodillo,motor}) valida ANTES de construir;\n`conveyor_solid_ids` marca qué sólidos forman la faja. `grupo` filtra por familia de regla\n('unión apernada', 'soldadura', 'flecha de viga', 'transmisión por cadena'…) y `solo_fallas`\ndeja lo que no está ok. `detail`: \"summary\" (def.) agrupa las reglas repetidas por patrón en\nUNA línea (`n`, estado y detalle del PEOR caso, que nombra `peor`), suma `conteo` por estado y\nsólo trae `calc` (fórmula, sustitución, criterio, FS) donde da error; \"full\" lo da en todas.",
+  "description": "Valida el modelo con criterio de ingeniería. Devuelve DOS bloques: `ingenieria`\n(reglas del transportador: apoyo del paquete, capacidad de rodillo, ancho útil,\nmotorización por CONSTRUCCIÓN — CEMA slider-bed si banda sobre cama / ISO 5048-DIN\n22101 si banda sobre rodillos —, par + par de arranque, adherencia del tambor\nmotriz Euler-Eytelwein con la T2 mínima que el tensor debe garantizar, flecha del\nbastidor, flexión del eje) y `estructura` (chequeo UNIVERSAL de cualquier ensamblaje: uniones\napernadas vs ISO 898-1, soldaduras, vida L10 de rodamientos, pandeo de patas,\nvuelco). Sin argumentos usa los REQUISITOS guardados del proyecto (set_requirements);\nlos parámetros explícitos ganan. Sin `conveyor` valida la faja del documento; con\n`conveyor` (dict {largo,ancho,altura,paso,rodillo,motor}) valida ANTES de construir;\n`conveyor_solid_ids` marca qué sólidos forman la faja. `grupo` filtra por familia de regla\n('unión apernada', 'soldadura', 'flecha de viga', 'transmisión por cadena'…) y `solo_fallas`\ndeja lo que no está ok. `detail`: \"summary\" (def.) agrupa lo repetido (las reglas de una\nunión, por su par de piezas) en UNA línea (`n`, estado y detalle del PEOR caso, `peor`; lo ok\nsin detalle salvo con `grupo`), suma `conteo` por estado y sólo trae `calc` (fórmula,\ncriterio, FS) donde da error; \"full\" lo da todo.",
   "inputSchema": {
    "properties": {
     "carga_kg": {
@@ -1161,7 +1171,7 @@
  },
  {
   "name": "create_project",
-  "description": "Crea y abre un proyecto. template: null | 'transportador' | 'brazo'.",
+  "description": "Crea y abre un proyecto: devuelve su `id` (para open_project), su `nombre` y la escena.\ntemplate: null | 'transportador' | 'brazo'.",
   "inputSchema": {
    "properties": {
     "name": {
@@ -1739,7 +1749,7 @@
  },
  {
   "name": "get_connections",
-  "description": "Uniones de ensamblaje DECLARADAS (persistidas) del documento: fijadores (a↔b) y anclajes a\ntierra, con sus nombres (para borrarlas con delete_connection). Read-only. Filtra con `ids`\n(piezas, NOMBRES DE GRUPO o command_ids: las uniones donde participa alguna) y `kind` (perno |\nsoldadura | pegado | contacto | anclaje). Con más de 40 uniones responde el RESUMEN —conteos\npor tipo y una fila por patrón {kind, a, b, n, ejemplo}—; `resumen=true` lo fuerza y\n`resumen=false` trae la lista entera.",
+  "description": "Uniones de ensamblaje DECLARADAS (persistidas) del documento: fijadores (a↔b) y anclajes a\ntierra, con sus nombres (para borrarlas con delete_connection). Read-only. Filtra con `ids`\n(piezas, NOMBRES DE GRUPO o command_ids: las uniones donde participa alguna) y `kind` (perno |\nsoldadura | pegado | contacto | anclaje). Con más de 40 uniones responde el RESUMEN —conteos\npor tipo y una fila por tipo y PAR de piezas {kind, a, b, n, ejemplo}—; `resumen=true` lo\nfuerza y `resumen=false` trae la lista entera.",
   "inputSchema": {
    "properties": {
     "ids": {
@@ -4008,7 +4018,7 @@
  },
  {
   "name": "declare_structure",
-  "description": "Estructura real de la máquina (anclajes al piso + uniones de soporte) desde la\ngeometría, por un grafo de soporte dirigido (NO fija lo que cuelga sin nada debajo), con\nel TIPO de cada unión por criterio de taller según el rol de las piezas: eje ↔ larguero\napretado con tuerca = perno; la tuerca va en contacto con su eje o perno y no se une a lo\nque aprieta; la guarda se atornilla a su soporte y no se fija a lo que gira ni al motor;\nrodamiento = contacto; motor = perno; lo que gira no se suelda a lo fijo; pata ↔ larguero\n= soldadura de marco. Lo dudoso va `a_revisar` con su motivo. Idempotente: omite lo ya\ndeclarado.\n\nPor defecto PROPONE en corto, sin tocar el modelo (`aplicar=false`): conteos\n(`n_grounds`, `n_fasteners`, `n_a_revisar`, `n_omitidas`, `por_tipo`), `anclajes`,\n`patrones` —una fila por patrón de nombre {kind, a, b, n, a_revisar?, fasten: [{a, b}]}\ndonde `fasten` son los conjuntos verificados que declaran la fila entera—, `a_revisar`\n(sólo esas uniones, con ids y motivo) y `omitidas` (lo que el criterio NO declara, por\npatrón y motivo). Aplica con run_batch en POCAS órdenes: un `fasten` por cada {a, b} de\nuna fila, con su `kind` (corrige lo que no compartas). Gramática de conjuntos: raíz de\npatrón = sus copias (a='c57' → c57_1…), '+' concatena (la fuente NO está en su raíz:\n'c11+c57'), conjunto ↔ conjunto se empareja por posición, corte a la Python sobre el\nconjunto entero ('(c15+c61)[::2]'). `completo=true` trae cada acción {type, params}\n—el formato de run_batch, que ignora `a_revisar`/`motivo`—, el resumen por raíz y cada\nomitida.\n\n`aplicar=true` declara la propuesta TAL CUAL en un lote (1 undo) y devuelve conteos:\nlo declarado por tipo, los totales del documento y los nombres de las uniones a revisar.\nDespués, `gravity_test()` es la prueba EXACTA (cae lo suelto); para corregir una unión,\n`delete_connection(name)`; para verlas, get_connections.",
+  "description": "Estructura real de la máquina (anclajes al piso + uniones de soporte) desde la\ngeometría, por un grafo de soporte dirigido (NO fija lo que cuelga sin nada debajo), con\nel TIPO de cada unión por criterio de taller según el rol de las piezas: eje ↔ larguero\napretado con tuerca = perno; la tuerca va en contacto con su eje o perno y no se une a lo\nque aprieta; la guarda se atornilla a su soporte y no se fija a lo que gira ni al motor;\nrodamiento = contacto; motor = perno; lo que gira no se suelda a lo fijo; pata ↔ larguero\n= soldadura de marco; tapa o guarda ↔ estructura y tramos numerados = perno. Lo dudoso va\n`a_revisar` con su motivo. Omite lo que lo declarado ya une, aun en cadena. Cada perno y\nsoldadura lleva su dimensión por defecto.\n\nPor defecto PROPONE en corto, sin tocar el modelo (`aplicar=false`): conteos\n(`n_grounds`, `n_fasteners`, `n_a_revisar`, `n_omitidas`, `por_tipo`), `anclajes`,\n`patrones` —una fila por patrón de nombre {kind, a, b, n, a_revisar?, size/qty o\nthroat_mm/length_mm, fasten: [{a, b}]} donde `fasten` son los conjuntos verificados que\ndeclaran la fila—, `a_revisar` (con ids y motivo) y `omitidas` (por patrón y motivo).\nAplica con run_batch en POCAS órdenes: un `fasten` por cada {a, b} de una fila, con su\n`kind` y dimensión. Gramática de conjuntos: raíz de\npatrón = sus copias (a='c57' → c57_1…), '+' concatena (la fuente NO está en su raíz:\n'c11+c57'), conjunto ↔ conjunto se empareja por posición, corte a la Python sobre el\nconjunto entero ('(c15+c61)[::2]'). `completo=true` trae cada acción {type, params}\n—el formato de run_batch, que ignora `a_revisar`/`motivo`—, el resumen por raíz y cada\nomitida.\n\n`aplicar=true` la declara TAL CUAL en un lote (1 undo), un `fasten` por conjunto, y\ndevuelve conteos: por tipo, `ordenes` del log, totales y las uniones a revisar.\nDespués, `gravity_test()` es la prueba EXACTA (cae lo suelto); para corregir una unión,\n`delete_connection(name)`; para verlas, get_connections.",
   "inputSchema": {
    "properties": {
     "aplicar": {

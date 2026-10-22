@@ -47,51 +47,96 @@ def propuesta_corta(doc, prop: dict) -> dict:
         "por_tipo": dict(Counter(a["params"]["kind"] for a in fasten).most_common()),
     }
     recortar(out, "anclajes", [a["params"]["feature"] for a in acciones if a["type"] == "ground"])
-    recortar(out, "patrones", patrones(doc, [(a["params"]["a"], a["params"]["b"],
-                                              a["params"]["kind"], bool(a.get("a_revisar")))
-                                             for a in fasten]))
+    recortar(out, "patrones", patrones(doc, fasten))
     recortar(out, "a_revisar", [{"a": a["params"]["a"], "b": a["params"]["b"],
                                  "kind": a["params"]["kind"], "motivo": a["motivo"]}
                                 for a in revisar])
     recortar(out, "omitidas", _omitidas(doc, prop.get("omitidas", [])))
-    out["seguir"] = ("aplica con run_batch un fasten por fila de `patrones` (su `fasten` + "
-                     "`kind`), corrigiendo lo de `a_revisar`; o declare_structure(aplicar=true) "
-                     "tal cual. Cada unión con su id: declare_structure(completo=true)")
+    out["seguir"] = ("aplica con run_batch un fasten por cada {a, b} de una fila de `patrones` "
+                     "(con su `kind` y su dimensión), corrigiendo lo de `a_revisar`; o "
+                     "declare_structure(aplicar=true) tal cual. Cada unión con su id: "
+                     "declare_structure(completo=true)")
     return out
 
 
-def aplicada_corta(doc, acciones: list[dict]) -> dict:
+def aplicada_corta(doc, acciones: list[dict], ordenes: int | None = None) -> dict:
     """Lo que `declare(aplicar)` dejó, en corto (sin la lista de conexiones): cuántos anclajes y
-    uniones se declararon, por tipo, los totales del documento y los NOMBRES de las uniones a
-    revisar (recortados)."""
+    uniones se declararon, por tipo, en cuántas órdenes del log (`ordenes`: los `fasten` por
+    conjuntos cuentan una), los totales del documento y los NOMBRES de las uniones a revisar
+    (recortados)."""
     fasten = [a for a in acciones if a["type"] == "fasten"]
     out: dict = {"anclajes_declarados": len(acciones) - len(fasten),
                  "uniones_declaradas": len(fasten),
                  "por_tipo": dict(Counter(a["params"]["kind"] for a in fasten).most_common()),
                  "grounds": len(doc.grounds), "fasteners": len(doc.fasteners)}
+    if ordenes is not None:
+        out["ordenes"] = ordenes
     recortar(out, "a_revisar", [a["params"]["name"] for a in fasten if a.get("a_revisar")])
     return out
 
 
-def patrones(doc, uniones: list[tuple]) -> list[dict]:
-    """Filas `{kind, a, b, n, a_revisar?, fasten?}` por (tipo, revisar, patrón de cada lado),
-    de mayor a menor; `fasten` = [{a, b}] (sin él, la fila no se declara en pocas órdenes)."""
+#: Lo que una fila de `patrones` copia de los params de sus uniones (la dimensión de D8).
+_DIMENSION = ("size", "qty", "throat_mm", "length_mm")
+
+
+def _filas(doc, fasten: list[dict]) -> list[tuple[dict, list[dict]]]:
+    """(fila, acciones de la fila) por (tipo, revisar, patrón de cada lado), de mayor a menor."""
+    from .dimensionado import combinar
+
     grupos: dict[tuple, list] = {}
-    for a, b, kind, revisar in uniones:
-        pa, pb = patron_pieza(doc, a), patron_pieza(doc, b)
+    for acc in fasten:
+        p = acc["params"]
+        a, b, pa, pb = p["a"], p["b"], patron_pieza(doc, p["a"]), patron_pieza(doc, p["b"])
         if pb < pa:
             a, b, pa, pb = b, a, pb, pa
-        grupos.setdefault((kind, revisar, pa, pb), []).append((a, b))
+        grupos.setdefault((p["kind"], bool(acc.get("a_revisar")), pa, pb), []).append((a, b, acc))
     filas = []
-    for (kind, revisar, pa, pb), pares in grupos.items():
-        fila: dict = {"kind": kind, "a": pa, "b": pb, "n": len(pares)}
+    for (kind, revisar, pa, pb), miembros in grupos.items():
+        fila: dict = {"kind": kind, "a": pa, "b": pb, "n": len(miembros)}
         if revisar:
             fila["a_revisar"] = True
-        conj = conjuntos(doc, pares)
+        fila.update(combinar([{k: m[2]["params"][k] for k in _DIMENSION if k in m[2]["params"]}
+                              for m in miembros]))
+        conj = conjuntos(doc, [(a, b) for a, b, _ in miembros])
         if conj:
             fila["fasten"] = conj
-        filas.append(fila)
-    return sorted(filas, key=lambda f: (-f["n"], f["kind"], f["a"], f["b"]))
+        filas.append((fila, [m[2] for m in miembros]))
+    return sorted(filas, key=lambda f: (-f[0]["n"], f[0]["kind"], f[0]["a"], f[0]["b"]))
+
+
+def patrones(doc, fasten: list[dict]) -> list[dict]:
+    """Filas `{kind, a, b, n, a_revisar?, size?, qty?, throat_mm?, length_mm?, fasten?}` de las
+    acciones `fasten` propuestas, por (tipo, revisar, patrón de cada lado), de mayor a menor;
+    `fasten` = [{a, b}] (sin él, la fila no se declara en pocas órdenes) y la dimensión, la menor
+    de la fila (`dimensionado.combinar`)."""
+    return [fila for fila, _ in _filas(doc, fasten)]
+
+
+def lote_compacto(doc, acciones: list[dict]) -> list[dict]:
+    """El lote que `declare(aplicar)` ejecuta (D8): los anclajes, un `fasten` por cada conjunto
+    verificado de una fila —con la dimensión de la fila y el nombre de una de sus uniones, libre
+    por construcción— y, sueltas, las uniones a revisar (cada una con su motivo, para borrarla
+    sola) y las de una fila sin conjunto. Declara exactamente las mismas uniones que `acciones`."""
+    lote = [{"type": a["type"], "params": a["params"]} for a in acciones if a["type"] == "ground"]
+    fasten = [a for a in acciones if a["type"] == "fasten"]
+    for fila, miembros in _filas(doc, fasten):
+        if fila.get("a_revisar") or "fasten" not in fila or len(miembros) == 1:
+            lote += [{"type": "fasten", "params": m["params"]} for m in miembros]
+            continue
+        # la nota de una unión es «'A' ↔ 'B': motivo»; la del lote nombra los patrones
+        _, _, motivo = miembros[0]["params"]["nota"].partition("': ")
+        nota = f"{_corto(fila['a'])} ↔ {_corto(fila['b'])}" + (f": {motivo}" if motivo else "")
+        for conj, m in zip(fila["fasten"], miembros):
+            lote.append({"type": "fasten", "params": {
+                "name": m["params"]["name"], **conj, "kind": fila["kind"],
+                **{k: fila[k] for k in _DIMENSION if k in fila}, "nota": nota[:120]}})
+    return lote
+
+
+def _corto(patron_nombre: str) -> str:
+    """El último tramo de un patrón de nombre («Transportador · Eje del rodillo» → «Eje del
+    rodillo»): la nota de un `fasten` en lote tiene 120 caracteres."""
+    return patron_nombre.rsplit(" · ", 1)[-1]
 
 
 def conjuntos(doc, pares: list[tuple[str, str]]) -> list[dict] | None:

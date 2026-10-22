@@ -38,6 +38,9 @@ _ROLES_NOMBRE = (
 )
 _ROL_RE = [(rol, re.compile(rf"^\s*({pat})\b", re.I)) for rol, pat in _ROLES_NOMBRE]
 _FLEXIBLE_RE = dict(_ROL_RE)["flexible"]
+# una TAPA cubre (guarda) sólo si ningún tramo del nombre decide otra cosa: «Guarda de la
+# transmisión · tapa del extremo» es parte de su guarda; «Tapa de la bandeja», una guarda (D7)
+_TAPA_RE = re.compile(r"^\s*tapas?\b", re.I)
 _RODAMIENTO_RE = re.compile(r"\b(rodamientos?|bearings?|rodaje)\b", re.I)
 # categorías del catálogo que deciden el rol antes que el nombre (la tornillería y lo que gira)
 _ROL_CATEGORIA = {
@@ -49,7 +52,13 @@ _ROL_CATEGORIA = {
 _ESTRUCTURA_CATEGORIA = {"perfiles_abiertos", "tubos_estructurales", "perfiles", "patas"}
 
 
-def _cuerpo(tramo: str) -> str:
+def _cuerpo(tramo: str, entero: bool = False) -> str:
+    """El tramo que decidió el rol, en minúsculas. Si es el ÚLTIMO del nombre (`entero`: la pieza
+    es ese cuerpo, no una parte de él) conserva su numeración —«Bandeja de cadenas (tramo 1)» y
+    «(tramo 2)» son piezas DISTINTAS (D7)—; si no, la quita: «Guarda de la transmisión · extremo
+    (+X)» y «· pared exterior» son partes del MISMO cuerpo."""
+    if entero:
+        return re.sub(r"\s+", " ", tramo).strip().lower()
     return re.sub(r"\([^)]*\)|\d+", "", tramo).strip().lower()
 
 
@@ -57,22 +66,23 @@ def rol_union(nombre: str | None, categoria: str | None = None,
               nombre_catalogo: str | None = None, maquinas=()) -> tuple[str, str]:
     """(rol, cuerpo) de una pieza para decidir sus uniones. `rol`: tuerca, perno, chumacera,
     rodamiento, eje, pie (nivelador), flexible, equipo, guarda, gira, estructura o «» (sin rol: decide la
-    geometría). `cuerpo`: el tramo del nombre que lo decidió, sin números ni paréntesis («Guarda
-    de la transmisión · extremo (+X)» → «guarda de la transmisión»): dos partes de la MISMA
-    guarda comparten cuerpo.
+    geometría). `cuerpo`: el tramo del nombre que lo decidió (`_cuerpo`: sin números ni
+    paréntesis si la pieza es una PARTE de él, «Guarda de la transmisión · extremo (+X)» →
+    «guarda de la transmisión»; con ellos si es el último tramo): dos partes de la MISMA guarda
+    comparten cuerpo y dos tramos numerados no.
 
     Primero el catálogo de tornillería, rodamientos, equipos y lo que gira (`transmision` es
     flexible si el componente es una cadena o correa, si no gira); después el nombre (tramos de
     « · », del último al primero, sin los que nombran un grupo de `maquinas`: «Faja de banda ·
-    Oreja» no es una banda; «… con rodamiento» es un asiento de rodamiento); por último los
-    perfiles estructurales del catálogo."""
+    Oreja» no es una banda; «… con rodamiento» es un asiento de rodamiento); después los
+    perfiles estructurales del catálogo; por último, una TAPA sin otro rol es una guarda."""
     tramos = [t for t in (nombre or "").split("·") if t.strip() and t.strip() not in maquinas]
     if categoria in _ROL_CATEGORIA:  # el cuerpo, del nombre: «Tuerca soldada del pie» se suelda
         return _ROL_CATEGORIA[categoria], _cuerpo(tramos[-1]) if tramos else ""
     if categoria == "transmision":
         return ("flexible" if _FLEXIBLE_RE.match(nombre_catalogo or "") else "gira"), ""
-    for tramo in reversed(tramos):
-        cuerpo = _cuerpo(tramo)
+    for i in range(len(tramos) - 1, -1, -1):
+        tramo, cuerpo = tramos[i], _cuerpo(tramos[i], entero=i == len(tramos) - 1)
         for rol, regex in _ROL_RE:
             if regex.match(tramo):
                 if rol in ("estructura", "gira") and _RODAMIENTO_RE.search(tramo):
@@ -80,4 +90,9 @@ def rol_union(nombre: str | None, categoria: str | None = None,
                 return rol, cuerpo
         if _RODAMIENTO_RE.search(tramo):
             return "rodamiento", cuerpo
-    return ("estructura" if categoria in _ESTRUCTURA_CATEGORIA else ""), ""
+    if categoria in _ESTRUCTURA_CATEGORIA:
+        return "estructura", ""
+    tapa = next((i for i in range(len(tramos) - 1, -1, -1) if _TAPA_RE.match(tramos[i])), None)
+    if tapa is not None:
+        return "guarda", _cuerpo(tramos[tapa], entero=tapa == len(tramos) - 1)
+    return "", ""

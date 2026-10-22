@@ -185,12 +185,13 @@ def assembly_declare(body: DeclareIn | None = None) -> dict:
 
     `aplicar=false` no muta: devuelve `{aplicar, acciones, resumen, omitidas, n_*}` de
     `services/estructura.py` para que el agente la corrija y la aplique en un lote; con
-    `resumen=true`, el modo corto de `services/estructura_corta.py`. Aplicada, la escena suma
-    `a_revisar` (nombres) sólo si alguna unión lo está; con `resumen=true`, en vez de la escena,
-    los conteos de lo declarado."""
+    `resumen=true`, el modo corto de `services/estructura_corta.py`. Aplicada, escribe esas
+    mismas uniones, dimensionadas, con un `fasten` por CONJUNTO (`lote_compacto`, D8 de
+    mcp-sin-friccion); la escena suma `a_revisar` (nombres) sólo si alguna unión lo está; con
+    `resumen=true`, en vez de la escena, los conteos de lo declarado."""
     from apolo.batch import execute_batch
     from apolo.services.estructura import propuesta_estructura
-    from apolo.services.estructura_corta import aplicada_corta, propuesta_corta
+    from apolo.services.estructura_corta import aplicada_corta, lote_compacto, propuesta_corta
 
     aplicar = body is None or body.aplicar
     corto = body is not None and body.resumen
@@ -204,10 +205,10 @@ def assembly_declare(body: DeclareIn | None = None) -> dict:
             return {"aplicar": False, "n_grounds": len(acciones) - len(fasten),
                     "n_fasteners": len(fasten),
                     "n_a_revisar": sum(1 for a in fasten if a.get("a_revisar")), **prop}
-        armar = (lambda: aplicada_corta(S.doc, acciones)) if corto else None
+        lote = lote_compacto(S.doc, acciones)
+        armar = (lambda: aplicada_corta(S.doc, acciones, len(lote))) if corto else None
         if not acciones:
             return _state_or_error(lambda: None, armar=armar)
-        lote = [{"type": a["type"], "params": a["params"]} for a in acciones]
         payload = _state_or_error(lambda: execute_batch(S.doc, lote), armar=armar)
     revisar = [a["params"]["name"] for a in acciones if a.get("a_revisar")]
     if revisar and not corto:

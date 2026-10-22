@@ -116,7 +116,10 @@ def como_seguir(doc, ids: list[str], error: str) -> str:
     for attr, tipo, claves in _REFERENCIAS:  # y las uniones registradas (conjuntos, plantillas)
         for nombre, u in getattr(doc, attr).items():
             cid = u.get("command_id")
-            if cid and cid not in fuera and any(u.get(k) in piezas for k in claves):
+            # lo que CREA un comando borrado (los `fasten` `c1_u_*` de una plantilla) se va con
+            # él: no es un dependiente externo (D11 de mcp-sin-friccion)
+            propio = cid and any(cid == p or cid.startswith(p + "_") for p in fuera)
+            if cid and not propio and any(u.get(k) in piezas for k in claves):
                 otras.setdefault(cid, f"{u.get('conjunto') or nombre} ({cid}, {tipo})")
     partes = [error.rstrip(".") + "."]
     if arrastra:

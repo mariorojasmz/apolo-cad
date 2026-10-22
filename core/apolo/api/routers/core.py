@@ -86,10 +86,14 @@ def get_schemas(vista: str = Query("agente", pattern="^(agente|persona)$")) -> l
 
 @router.get("/api/schemas/{command_type}")
 def get_schema(command_type: str) -> dict:
-    """JSON Schema de UN comando por type (evita volcar todos)."""
+    """JSON Schema de UN comando por type (evita volcar todos). Sin la `description` de la raíz
+    del schema cuando repite la de la entrada (D12 de mcp-sin-friccion: la de
+    `create_roller_conveyor` son 4 KB dos veces); la lista entera la conserva."""
     res = command_schemas_agente(command_type)
     if not res:
         raise HTTPException(status_code=404, detail=f"No existe el comando '{command_type}'")
+    if res[0]["schema"].get("description") == res[0].get("description"):
+        del res[0]["schema"]["description"]
     return res[0]
 
 
