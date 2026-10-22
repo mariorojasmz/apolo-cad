@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: V8.0 medida y V8.2 cerrada (2026-10-19); a V8.1 le falta F4 (verifica); contrato de V8.3 escrito el 2026-10-20 ([V8.3](V8.3-prueba-virtual.md)), espera el veto de Mario; P1–P4 sin contestar (no bloquean V8.1–V8.4)
+nota: V8.0 medida y V8.2 cerrada (2026-10-19); a V8.1 le falta F4 (verifica); contrato de V8.3 escrito el 2026-10-20 ([V8.3](V8.3-prueba-virtual.md)), espera el veto de Mario; P1 contestada (EE.UU., Europa y Perú); P2–P4 sin contestar (no bloquean V8.1–V8.4)
 descripcion: Las máquinas de Apolo traen su tablero eléctrico real (dispositivos, cables, PLC) y, si hace falta, sus placas a la medida; el agente lo diseña por MCP, la máquina se mueve en una co-simulación eléctrica y mecánica casi real que se ve en 3D con sus datos vivos, y sale con planos eléctricos, memoria de cálculo y el programa del PLC
 ---
 
@@ -393,7 +393,10 @@ Medido sobre `main` en `0592a0c`.
 
 Preguntas que sólo Mario contesta (no bloquean V8.0–V8.4):
 1. **Mercados.** Perú (CNE + IEC) por defecto. ¿Vas a vender máquinas a EE.UU. (UL 508A /
-   NFPA 79) u otro país?
+   NFPA 79) u otro país? → **Contestada (Mario, 2026-10-22): EE.UU., Europa y Perú, los tres
+   donde sea posible.** Perfiles por mercado: Perú (CNE-Utilización + IEC, 220/380/440 V 60 Hz),
+   Europa (IEC/EN 60204-1, EN 61439, 230/400 V 50 Hz, marcado CE) y EE.UU. (NFPA 79, UL 508A,
+   NEC, 120/208/480 V 60 Hz); el mercado es un parámetro de la máquina (variante), no un fork.
 2. **Marcas del catálogo.** Recomendación: Schneider, Siemens y ABB como gama alta, más una
    económica (Chint o LS), según lo que se consiga en Lima. ¿Cuáles usas o cotizas?
 3. **PLC del primer exporte.** ¿Siemens S7-1200 (TIA Portal, SCL), Schneider o Codesys (PLCopen
