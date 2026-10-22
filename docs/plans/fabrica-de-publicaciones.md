@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 lanzada; faltan F0, T (pedido de la tienda tras PED-124), F2, F3 y F4
+nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); faltan F0, T (pedido de la tienda tras PED-124), F2, F3 y F4
 descripcion: Mario pide «crea estas máquinas» y Apolo entrega cada una modelada, revisada, con su video en YouTube y publicada en apolocad.com, sin pasos a mano
 ---
 
@@ -177,4 +177,44 @@ PED-124 (términos, privacidad y aviso de responsabilidad, con `/terminos#respon
 
 ## Bitácora
 
-(vacía)
+### F1 — cliente de YouTube (2026-10-21, implementada; falta la subida real)
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts\publicar.py youtube --slug S [--version V] [--publico] [--ensayo] [--forzar] [--reautorizar]
+```
+
+- `publicacion/youtube_oauth.py` (permiso) y `publicacion/youtube.py` (subida) en dos módulos:
+  uno solo pasaba de las 500 líneas y son dos responsabilidades. httpx + stdlib (D3).
+- **Credenciales**: `paths.home()/youtube` (`APOLO_HOME` o `~/.apolo`), `APOLO_YOUTUBE_DIR`
+  la cambia. `token.json` guarda SÓLO el token de refresco, los scopes y el canal (el access
+  token vive en memoria; se refresca en cada corrida, es una llamada). Se escribe con 0600 vía
+  temporal + `os.replace`. Ningún mensaje lleva client_secret, código ni tokens (`_ocultar` en
+  los errores de Google; la URL de autorización sólo trae el client_id, que no es secreto).
+- **OAuth**: loopback `http://127.0.0.1:<libre>/` con `HTTPServer` que atiende pedidos hasta
+  recibir `code` o `error` (un `favicon` no lo corta), 5 min de espera, PKCE S256, `state`
+  comparado con `compare_digest`, `access_type=offline` + `prompt=consent`. Si el permiso
+  llega sin la casilla de subir (consentimiento granular) o sin refresh token, lo dice y pide
+  `--reautorizar`. `invalid_grant` al refrescar → `SinAutorizacion` con `--reautorizar`.
+  Extremos: parámetro > variable (`APOLO_YOUTUBE_API`, `APOLO_YOUTUBE_UPLOAD`,
+  `APOLO_GOOGLE_TOKEN_URL`, `APOLO_GOOGLE_AUTH_URL`) > `client_secret.json` > Google.
+- **Textos, una fuente**: `textos.datos_youtube(ficha, capitulos, musica)` → {titulo,
+  descripcion, etiquetas}; `textos.youtube()` (el `youtube.txt`) la envuelve y la subida la usa
+  con lo de `ficha.json` (capítulos y crédito de `video`). Cambio de paso: `youtube.txt` ya no
+  acredita la música de `ficha.yaml` si el video salió sin ella (usa el mismo crédito que
+  `ficha.json`). Sin `url_tienda` en la ficha, la subida deriva `<tienda>/maquinas/<slug>`
+  (`--tienda`/`APOLO_TIENDA_URL`); `youtube.txt` sigue igual hasta F2.
+- **Subida**: se dice el canal antes de subir; sesión reanudable con los metadatos (categoría
+  28, `es`, privado salvo `--publico`, `selfDeclaredMadeForKids: false`); trozos de 8 MiB desde
+  disco; un 5xx o un corte espera con backoff (2 s × 2ⁿ, tope 60 s, 6 seguidos) y pregunta
+  `bytes */total` antes de seguir; un 401 renueva el access token una vez; un 404 de la sesión
+  = venció, se empieza de cero. Miniatura > 2 MB o rechazada = aviso, el video queda.
+  `quotaExceeded`/`uploadLimitExceeded`/`dailyLimitExceeded` → `CupoAgotado` sin
+  `youtube.json`. `youtube.json` existente → no resube salvo `--forzar` (ni pide permiso).
+  `--ensayo` sí obtiene el permiso (sirve para autorizar la primera vez sin subir).
+- Tests: `tests/test_publicar_youtube.py` (17, Google falso en un hilo; el navegador simulado
+  vuelve al loopback con código y `state`).
+- **Sin verificar contra Google** (sólo con el falso): que el loopback `127.0.0.1` con barra
+  final se acepte como `redirect_uri` de un cliente de escritorio; la forma exacta del 308
+  (`Range`) y del error de cupo; que `thumbnails.set` acepte el PNG por POST con el cuerpo
+  crudo; que el 401 con la sesión abierta se arregle renovando el token. Lo confirma la subida
+  real con Mario.
