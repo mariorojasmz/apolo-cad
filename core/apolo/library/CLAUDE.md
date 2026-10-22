@@ -26,7 +26,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara
   de montaje de la placa: [plan](../../../docs/plans/garruchas-catalogo.md)). Los perfiles se
   extruyen en Z (rotar 90° sobre Y → larguero en X).
-- Builders: todo término empieza con `Pos(...) *` (un `Rotation(...) * shape` pelado da
+- Builders: `Polygon(*pts)` CENTRA sus puntos (pasa `align=None` para coordenadas absolutas: los
+  tramos de la banda de `create_belt_conveyor` quedaron en el piso hasta su v3). Todo término
+  empieza con `Pos(...) *` (un `Rotation(...) * shape` pelado da
   `ValueError: other must be a list of Locations`); las partes de un mismo sólido SOLAPAN
   0.5–8 mm (tangentes → Compound; disjuntas → ShapeList sin `.volume`); `build_component(ref, L)`
   ignora `L` si el componente no es `cuttable`.
@@ -163,11 +165,12 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   va 6 mm más abajo que la cola. Un choque DENTRO de un super-comando no lo ve
   `interference_report(exclude_pairs=same_command_pairs)`: el super-comando lo prueba él mismo
   (`tests/test_belt_conveyor.py`). [defectos](../../../docs/defectos.md)
-- La faja y las cadenas EN MARCHA (`ruta_faja.py`, `marcha_visual.py`, puros): la banda abraza el
-  casco de los tambores redondos DENTRO de su encuadre; lo de afuera que toca su cara (≤ 1 mm) parte
-  el retorno; comba = mín(CEMA 2 %, w·l²/8T con el T2 de Eytelwein de la tracción MEDIDA, holgura
-  con lo de abajo) y `tramos[].limita` dice cuál mandó: V8.2 no modela la pretensión del tensor.
-  [visor-realista](../../../docs/plans/visor-realista.md) (F3)
+- La faja EN MARCHA (`ruta_faja_modelo.py`, puro): la cinta es la línea media de la SECCIÓN del
+  sólido de la banda (el casco de `ruta_faja.py`, sólo sin lazo cerrado) y `fidelidad_faja.py` la
+  prueba siempre contra el modelo (desvío ≤ comba CEMA hacia afuera; no entra en una pieza más que
+  el sólido + 1 mm): una que falla no se publica. Comba = mín(CEMA 2 %, w·l²/8T de la tracción
+  MEDIDA, holgura con lo de abajo) sólo en tramos rectos del retorno.
+  [fabrica-de-publicaciones](../../../docs/plans/fabrica-de-publicaciones.md) (D13)
 - `Document.requirements` (metadato): `/api/checks`, la memoria y la cotización CAEN a ellos (un
   param explícito gana) → `engineering_check()` funciona sin argumentos.
 - Se validan en `requisitos.py` (`Document.set_requirements` delega; la CARGA no valida: un

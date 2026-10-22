@@ -54,6 +54,12 @@ class SinMarcha(Exception):
     """No hay marcha de ejemplo: el mensaje dice por qué y qué hacer."""
 
 
+class MarchaInfiel(Exception):
+    """La máquina andando NO es fiel al modelo (ajuste D13c): la cinta que dibuja el visor
+    atraviesa una pieza o se aparta del sólido de la banda. El mensaje dice cuál y cuánto. No es
+    una `SinMarcha`: quien publica no puede seguir en silencio sin ella."""
+
+
 @dataclass
 class Marcha:
     """La marcha armada: `escenario` (la petición de la dinámica), `duracion_s` (la parte del
@@ -261,11 +267,28 @@ def _sentido(b: _Banda):
     return d if float(hacia @ d) >= 0 else -d
 
 
+def fidelidad(doc, bandas: list[dict], res: dict) -> list[dict]:
+    """La prueba D13b de cada faja animada (`library/fidelidad_faja.py`), con lo mismo que usa
+    la marcha del visor: `bandas` = `marcha_visual.bandas_de_snap(snap)` y `res` el resultado de
+    `simulate_dynamics`. Devuelve [{pieza, origen, desvio_mm}]; `MarchaInfiel` si alguna falla."""
+    from apolo.library.marcha_visual import armar
+    from apolo.services.marcha_visual import extraer_marcha_visual
+
+    fajas = armar(extraer_marcha_visual(doc, bandas), res)["fajas"]
+    malas = [f for f in fajas if not f["fidelidad"]["ok"]]
+    if malas:
+        raise MarchaInfiel("; ".join(f"la banda «{f['pieza']}» {f['fidelidad']['motivo']}"
+                                     for f in malas))
+    return [{"pieza": f["pieza"], "origen": f["modelo"],
+             "desvio_mm": (f["fidelidad"]["desvio"] or {}).get("desvio_mm")} for f in fajas]
+
+
 def probar(doc, escenario: dict, *, minimo_mm: float | None = 200.0) -> dict:
     """Corre la dinámica de `escenario` sobre `doc` (en proceso, sin locks: el documento es del
     llamador) y exige que algún producto AVANCE al menos `minimo_mm` (None: sólo que simule, para
-    un escenario escrito a mano). Devuelve {segundos, avance_mm, productos, avisos}; `SinMarcha`
-    con el porqué si falla o nada avanza."""
+    un escenario escrito a mano). Devuelve {segundos, avance_mm, productos, avisos, fidelidad};
+    `SinMarcha` con el porqué si falla o nada avanza, y `MarchaInfiel` si la faja que dibujará
+    el visor no es fiel al modelo (`fidelidad`, ajuste D13)."""
     import time
 
     import numpy as np
@@ -294,5 +317,8 @@ def probar(doc, escenario: dict, *, minimo_mm: float | None = 200.0) -> dict:
     if minimo_mm is not None and avance < minimo_mm:
         raise SinMarcha(f"los productos no avanzan sobre la banda (el que más, {avance:.0f} mm); "
                         "revisa la junta motriz y la banda")
+    from apolo.services.marcha_visual import bandas_de_snap
+
+    fiel = fidelidad(doc, bandas_de_snap(snap), res)
     return {"segundos": round(time.perf_counter() - t, 1), "avance_mm": round(avance),
-            "productos": len(finales), "avisos": list(res.get("avisos") or [])}
+            "productos": len(finales), "avisos": list(res.get("avisos") or []), "fidelidad": fiel}

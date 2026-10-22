@@ -17,7 +17,8 @@ import pytest
 from apolo.doc.document import Document
 from apolo.publicacion import fabrica, flujo
 from apolo.publicacion import marcha as marchas
-from apolo.publicacion.fabrica import Encargo
+from apolo.publicacion.fabrica import Encargo, FabricaError
+from apolo.publicacion.paquete import PublicacionError
 from apolo.services import marcha_ejemplo as me
 
 ESCENARIO = {"duracion_s": 4.0, "motores": [{"junta": "j", "modo": "velocidad", "valor": 30}]}
@@ -86,6 +87,8 @@ def test_la_automatica_simula_y_las_cajas_avanzan(faja):
     esc = dict(m.escenario, duracion_s=2.0)  # corta: basta con ver que avanzan
     r = me.probar(faja, esc)
     assert r["avance_mm"] >= 300 and r["productos"] >= 2
+    # D13: la faja que dibujará el visor sale de la sección de la banda y es fiel al modelo
+    assert [(f["pieza"], f["origen"]) for f in r["fidelidad"]] == [("c1_banda", "seccion")]
 
 
 def test_sin_banda_no_hay_marcha_y_dice_por_que():
@@ -267,12 +270,53 @@ def test_al_guion_del_modelador_se_le_suma_la_marcha(tmp_path, api_falsa, monkey
 
 def test_un_guion_con_marcha_o_de_diseno_no_se_toca(tmp_path, api_falsa, monkeypatch):
     monkeypatch.setattr(marchas, "elegir", lambda *a, **k: pytest.fail("no debía elegir"))
+    probadas: list = []
+    monkeypatch.setattr(me, "probar", lambda doc, esc, minimo_mm: probadas.append((esc, minimo_mm))
+                        or {"fidelidad": [{"pieza": "b", "origen": "seccion"}]})
     e = _encargo(tmp_path)
-    _guion_del_modelador(e, marcha={"duracion_s": 5.0, "escenario": {}})
+    _guion_del_modelador(e, marcha={"duracion_s": 5.0, "escenario": {"x": 1}})
+    antes = (e.carpeta / "guion.json").read_text(encoding="utf-8")
     assert fabrica.paso_guion(e)["marcha_s"] == 5.0
+    assert (e.carpeta / "guion.json").read_text(encoding="utf-8") == antes
+    assert probadas == [({"x": 1}, None)] and api_falsa == [7]  # D13c: se prueba contra el modelo
     _guion_del_modelador(e, modo="diseño")
     assert fabrica.paso_guion(e)["marcha_s"] is None
-    assert api_falsa == []
+    assert api_falsa == [7]
+
+
+INFIEL = ("la banda «c51» la cinta animada atraviesa «Guarda motriz (1)» (c210) 38 mm más que "
+          "el modelo")
+
+
+def _infiel(*_a, **_k):
+    raise me.MarchaInfiel(INFIEL)
+
+
+def test_una_marcha_infiel_no_cae_en_silencio_a_sin_marcha(tmp_path, sin_simular, monkeypatch):
+    monkeypatch.setattr(me, "probar", _infiel)
+    with pytest.raises(PublicacionError, match="(?s)NO es fiel al modelo.*Guarda motriz \\(1\\).*38 mm"
+                                               ".*false en marcha.json"):
+        marchas.elegir(object(), tmp_path, eco=None)
+
+
+def test_la_fabrica_para_en_el_guion_si_la_marcha_atraviesa_una_guarda(tmp_path, guion_falso,
+                                                                       sin_simular, monkeypatch):
+    monkeypatch.setattr(me, "probar", _infiel)
+    e = _encargo(tmp_path, llave="k")
+    pasos = {p: (lambda _e: pytest.fail("no debía seguir")) for p in ("ficha", "generar", "tienda")}
+    with pytest.raises(FabricaError, match="(?s)paró en «guion».*atraviesa «Guarda motriz \\(1\\)».*38 mm"):
+        fabrica.fabricar(e, pasos=pasos)
+    estado = fabrica.leer_estado(e.carpeta)
+    assert estado["pasos"]["guion"]["estado"] == "fallo"
+    assert "Guarda motriz" in estado["pasos"]["guion"]["error"]
+
+
+def test_la_marcha_que_ya_traia_el_guion_tambien_se_prueba(tmp_path, api_falsa, monkeypatch):
+    monkeypatch.setattr(me, "probar", _infiel)
+    e = _encargo(tmp_path)
+    _guion_del_modelador(e, marcha={"duracion_s": 5.0, "escenario": {}})
+    with pytest.raises(PublicacionError, match="NO es fiel al modelo"):
+        fabrica.paso_guion(e)
 
 
 def test_si_no_hay_marcha_el_guion_del_modelador_queda_igual(tmp_path, api_falsa, monkeypatch):

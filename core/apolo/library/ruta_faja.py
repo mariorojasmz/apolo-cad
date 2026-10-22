@@ -17,6 +17,10 @@ eje de los tambores), en mm:
   tensada (2 % del vano: la tensión del tensor no se modela, el tensor la debe dar) y la holgura
   con lo que hay debajo (la banda no atraviesa un travesaño).
 
+Desde el ajuste D13 de fabrica-de-publicaciones la ruta sale de la SECCIÓN del sólido de la
+banda (`ruta_faja_modelo.py`): el casco convexo de aquí es sólo el RESPALDO cuando esa sección no
+da un lazo cerrado (un drive central en Ω no es convexo). La comba (`_vano`) es de las dos.
+
 El recorrido es ANTIHORARIO en (u, w): con w hacia arriba, el ramal superior va hacia −u. La
 normal hacia AFUERA de un tramo es la derecha del sentido de recorrido.
 """
@@ -74,6 +78,11 @@ class RutaFaja:
     envueltos: list               # [{pieza, u, w, r, abrazamiento_deg}] dentro del lazo, en orden
     apoyos_fuera: list            # [{pieza, u, w, r}] rodillos redondos que apoyan por afuera
     tramos: list = field(default_factory=list)   # vanos que cuelgan: {largo_mm, comba_mm, limita}
+    # ajuste D13: la línea media del MODELO (sección del sólido) de la que sale la ruta, los
+    # tramos rectos que cuelgan [(i, j)] en sus índices (j = n es el cierre) y de dónde salió
+    modelo: list | None = None
+    combables: list = field(default_factory=list)
+    origen: str = "casco"
 
 
 def encuadre_cuadrado(du: float, dw: float) -> bool:

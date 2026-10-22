@@ -10,11 +10,14 @@ D3: lo animado se deriva de la física, así nunca la contradice.
   giro de un diente corre un eslabón. El signo es el del eje de la junta sobre el Z del lazo (los
   dos piñones giran antihorario sobre +Z cuando el lazo avanza en su orden). El otro piñón, si la
   física no lo hace girar (el del motor, sin junta), gira con la cadena: 2π·avance/z.
-- **Faja**: la ruta real (`ruta_faja`) con la comba que da la tensión del ramal flojo, la mínima
+- **Faja**: la ruta real (de la sección del sólido, `ruta_faja_modelo`; sin lazo cerrado, el casco
+  de `ruta_faja`) con la comba que da la tensión del ramal flojo, la mínima
   que transmite la tracción MEDIDA sin patinar (Euler-Eytelwein, T2 = F_U/(e^{μα} − 1), con F_U =
   par del motor / radio y α el abrazamiento del tambor motriz en la ruta); el avance de la textura
   sale de la velocidad de la banda de la serie. Los tambores y rodillos que la banda toca y que la
-  física no hace girar (cola, retorno) giran con ella: ángulo = recorrido / radio.
+  física no hace girar (cola, retorno) giran con ella: ángulo = recorrido / radio. Cada faja
+  lleva su veredicto `fidelidad` (`fidelidad_faja.verificar_faja`, ajuste D13b de
+  fabrica-de-publicaciones) y, si falla, un aviso con la pieza que atraviesa.
 """
 
 from __future__ import annotations
@@ -22,7 +25,9 @@ from __future__ import annotations
 import statistics
 
 from .engineering.iso5048 import MU_DRUM, eytelwein_t2_min_n
+from .fidelidad_faja import verificar_faja
 from .ruta_faja import PiezaPlano, ruta_faja
+from .ruta_faja_modelo import ruta_modelo
 from .transmision import capas_cadena, rodillos_del_lazo
 
 GIRATORIAS = ("giratoria", "continua")
@@ -92,10 +97,29 @@ def _traccion_n(res: dict, junta: str, radio_m: float | None) -> float | None:
     return f if f > 1e-6 else None
 
 
+def _obstaculos(cortes: list | None) -> dict:
+    """{pieza: [(u, w)]} con los contornos de sus cortes en todos los planos (la comba los
+    respeta: lo de abajo es lo que REALMENTE hay, no su encuadre)."""
+    out: dict = {}
+    for c in cortes or []:
+        for pieza, caras in (c.get("piezas") or {}).items():
+            pts = out.setdefault(pieza, [])
+            for cara in caras:
+                for lazo in [cara["ext"], *(cara.get("huecos") or [])]:
+                    pts += [tuple(p) for p in lazo]
+    return out
+
+
+def _ruta(f: dict, banda: PiezaPlano, piezas: list, **kw):
+    """La de la sección del modelo (D13a); sin lazo cerrado, el casco convexo de siempre."""
+    ruta = ruta_modelo(banda, piezas, f.get("seccion"), obstaculos=_obstaculos(f.get("cortes")), **kw)
+    return ruta or ruta_faja(banda, piezas, volumen_mm3=f.get("volumen_mm3"), **kw)
+
+
 def faja_visual(f: dict, res: dict, cuerpos: dict) -> dict:
     banda = PiezaPlano(**f["banda"])
     piezas = [PiezaPlano(**p) for p in f["piezas"]]
-    base = ruta_faja(banda, piezas, volumen_mm3=f.get("volumen_mm3"))
+    base = _ruta(f, banda, piezas)
     junta = f["junta"]
     giran = {p for p, cu in cuerpos.items() if cu[2] in GIRATORIAS}
     motriz = [e for e in base.envueltos if cuerpos.get(e["pieza"], (None,))[0] == junta]
@@ -104,7 +128,7 @@ def faja_visual(f: dict, res: dict, cuerpos: dict) -> dict:
     t2 = eytelwein_t2_min_n(traccion, MU_DRUM["liso"], alfa) if traccion else None
     masa = f.get("masa_kg")
     peso = masa * G / base.largo_mm if masa and base.largo_mm > 0 else None
-    ruta = ruta_faja(banda, piezas, peso_n_mm=peso, tension_n=t2, volumen_mm3=f.get("volumen_mm3"))
+    ruta = _ruta(f, banda, piezas, peso_n_mm=peso, tension_n=t2)
     m = f["marco"]
     o, u, w, v = m["origen"], m["u"], m["w"], m["v"]
     v_c = (banda.v0 + banda.v1) / 2.0
@@ -133,6 +157,9 @@ def faja_visual(f: dict, res: dict, cuerpos: dict) -> dict:
                     "t2_min_n": round(t2, 1) if t2 else None, "mu": MU_DRUM["liso"],
                     "abrazamiento_deg": alfa, "peso_n_m": round(peso * 1000, 2) if peso else None},
         "rodillos": rodillos,
+        "modelo": ruta.origen,
+        # D13b: la cinta contra el sólido de la banda (lo que validó la puerta de entrega)
+        "fidelidad": verificar_faja(ruta, cortes=f.get("cortes"), nombres=f.get("nombres")),
     }
 
 
@@ -152,9 +179,12 @@ def armar(vis: dict, res: dict) -> dict:
         avisos.append(f"{quietas} {'cadena queda quieta' if quietas == 1 else 'cadenas quedan quietas'}"
                       ": ninguno de sus piñones gira en la marcha (dales una junta que gire)")
     for f in fajas:
-        if len(f["envueltos"]) < 2:
+        if f["modelo"] == "casco" and len(f["envueltos"]) < 2:
             avisos.append(f"La banda '{f['pieza']}' no abraza dos tambores redondos que se puedan medir: "
                           "se dibuja como un lazo de pista dentro de su encuadre")
+        if not f["fidelidad"]["ok"]:
+            avisos.append(f"La banda '{f['pieza']}' en marcha NO es fiel al modelo: "
+                          f"{f['fidelidad']['motivo']}")
     return {"cadenas": cadenas, "fajas": fajas, "avisos": avisos}
 
 

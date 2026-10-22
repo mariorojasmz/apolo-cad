@@ -164,7 +164,8 @@ def test_belt_conveyor_banda_es_pvc_en_bom_y_masa():
     assert belt.name == "Faja de banda · Banda"
     fm = feature_mass(belt, default_material=d.default_material())
     assert fm["material"] == "pvc"
-    assert fm["masa_kg"] == pytest.approx(belt.shape.volume * density("pvc"), rel=1e-6)
+    # feature_mass redondea a 4 decimales
+    assert fm["masa_kg"] == pytest.approx(belt.shape.volume * density("pvc"), abs=1e-4)
     assert 15.0 < fm["masa_kg"] < 20.0
     rows = {r["descripcion"]: r for r in bom_from_scene(d.scene, d.default_material())}
     assert rows["Faja de banda · Banda"]["material"] == "pvc"

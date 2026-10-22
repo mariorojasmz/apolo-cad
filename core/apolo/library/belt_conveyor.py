@@ -63,7 +63,10 @@ def _belt_loop(x_m: float, z_m: float, r_m: float, x_c: float, z_c: float, r_c: 
 
     def region(extra: float):
         r1, r2 = r_c + extra, r_m + extra
-        cuad = extrude(Plane.XZ * Polygon(*tangentes(r1, r2)), amount=width / 2.0, both=True)
+        # align=None: Polygon CENTRA sus puntos por defecto y los tramos quedaban a la altura del
+        # piso, separados de los tubos (fabrica-de-publicaciones, ajuste D13: lo vio la sección)
+        cuad = extrude(Plane.XZ * Polygon(*tangentes(r1, r2), align=None), amount=width / 2.0,
+                       both=True)
         caps = (
             place(Cylinder(r1, width), (x_c, 0, z_c), (90, 0, 0))
             + place(Cylinder(r2, width), (x_m, 0, z_m), (90, 0, 0))

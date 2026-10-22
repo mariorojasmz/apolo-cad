@@ -185,15 +185,12 @@ MARCHAS = Marchas()
 def _extraer_visual(doc, snap) -> dict | None:
     """La faja y las cadenas del documento para dibujarlas en marcha (visor-realista D6), bajo
     el STATE_LOCK del llamador. Un fallo aquí no tumba la marcha: se dibuja sin ellas."""
-    from apolo.services.marcha_visual import extraer_marcha_visual
+    from apolo.services.marcha_visual import bandas_de_snap, extraer_marcha_visual
 
     if snap.early is not None:
         return None
-    bandas = [{"pieza": b.pieza, "junta": b.junta, "d": b.d, "n": b.n, "a": b.a, "e": b.e,
-               "centro_mm": [c * 1000.0 for c in b.centro], "radio_m": b.radio,
-               "masa_kg": b.masa_banda} for b in snap.bandas]
     try:
-        return extraer_marcha_visual(doc, bandas)
+        return extraer_marcha_visual(doc, bandas_de_snap(snap))
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
 

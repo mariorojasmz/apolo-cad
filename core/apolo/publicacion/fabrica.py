@@ -7,7 +7,9 @@ Encadena cuatro pasos sobre la carpeta de la versión (`publicaciones_dir()/<slu
      corrido el modelador al redactar la ficha). Con el navegador, el video lleva la máquina
      ANDANDO CON PRODUCTO (ajuste D10, `publicacion/marcha.py`): la de `marcha.json` o la
      automática de un transportador, simulada antes; a un guion que no la trae se le suma. Si
-     no hay marcha posible, lo avisa y sigue (`marcha=False`: `--sin-marcha`);
+     no hay marcha posible, lo avisa y sigue (`marcha=False`: `--sin-marcha`); si la faja que
+     dibujaría el visor no es fiel al modelo (ajuste D13c), PARA con la pieza que atraviesa y
+     cuánto, también con la marcha que ya traía el guion;
   2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`); si falla, PARA y dice qué
      falta: la ficha la redacta el modelador (D1), la fábrica no la inventa;
   3. `generar`: `flujo.generar` con el navegador en nivel rápido (D2; si cae a VTK, lo dice),
@@ -89,16 +91,19 @@ def _marcha_en_guion(e: Encargo) -> float | None:
 
     ruta = e.carpeta / GUION
     g = json.loads(ruta.read_text(encoding="utf-8"))
+    if g.get("marcha") or g.get("modo") == MODO_MONTAJE:
+        api = flujo._Api(e.cliente)
+        api.abrir(e.proyecto)
+        doc = flujo._documento(api.apolo())
     if g.get("marcha"):
-        e.eco(f"{GUION} ya trae la máquina andando: la dejo como está.")
+        e.eco(f"{GUION} ya trae la máquina andando: la dejo como está y la pruebo contra el "
+              "modelo (D13).")
+        marcha.verificar(doc, g["marcha"], eco=e.eco)
         return float(g["marcha"].get("duracion_s") or 0.0)
     if g.get("modo") != MODO_MONTAJE:
         e.eco("Aviso: el guion es de diseño (el navegador graba el de montaje): sin la máquina "
               "andando.")
         return None
-    api = flujo._Api(e.cliente)
-    api.abrir(e.proyecto)
-    doc = flujo._documento(api.apolo())
     m = marcha.elegir(doc, e.carpeta, extra_s=marcha.extra_del_guion(g), eco=e.eco)
     if m is None:
         return None

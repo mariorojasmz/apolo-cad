@@ -13,7 +13,10 @@ D5) en este orden:
 
 Antes de ponerla en el guion la SIMULA en proceso sobre la copia del documento (la misma
 dinámica que el navegador pedirá a la API al grabar): si falla, o si en la automática ninguna
-caja avanza, el video sale sin marcha y lo avisa. Nunca frena la fábrica.
+caja avanza, el video sale sin marcha y lo avisa. Lo único que SÍ frena la fábrica (ajuste D13c):
+que la faja que dibujará el visor no sea fiel al modelo (atraviesa una pieza o se aparta del
+sólido de la banda): `PublicacionError` con la pieza y cuánto, nunca un «sin marcha» callado.
+`verificar` hace la misma prueba con la marcha que ya trae un guion.
 
 La simulación dura la parte de la marcha más lo que la máquina sigue andando en el video
 después (`extra_s`: la tarjeta de cifras y la órbita final, `plan_navegador`), con el tope de
@@ -114,6 +117,39 @@ def elegir(doc, carpeta, *, extra_s: float = EXTRA_S, eco=print) -> dict | None:
     except me.SinMarcha as exc:
         eco(f"Aviso: el video sale SIN la máquina andando: {exc}")
         return None
+    except me.MarchaInfiel as exc:
+        raise _infiel(exc) from None
     eco(f"Marcha {origen}: simulada en {prueba['segundos']} s, {prueba['productos']} "
         f"producto(s), el que más avanzó recorrió {prueba['avance_mm']} mm.")
+    _eco_fiel(prueba, eco)
     return {"duracion_s": float(m["duracion_s"]), "escenario": esc}
+
+
+def _infiel(exc) -> PublicacionError:
+    """D13c: la marcha que el video dibujaría NO es la del modelo. Para: no cae a «sin marcha»."""
+    return PublicacionError(
+        f"La máquina andando del video NO es fiel al modelo: {exc}.\nEl visor dibuja la banda "
+        "desde la sección de su sólido (fabrica-de-publicaciones, ajuste D13): si la sección no "
+        "es un lazo cerrado (tramos sueltos que no se tocan), únelos en un sólido; si el modelo "
+        f"es el que está mal, corrígelo. Para publicar SIN la máquina andando, escribe false en "
+        f"{MARCHA_JSON} junto a ficha.yaml.")
+
+
+def _eco_fiel(prueba: dict, eco) -> None:
+    for f in prueba.get("fidelidad") or []:
+        de = "la sección del modelo" if f["origen"] == "seccion" else "el casco de sus tambores"
+        eco(f"La banda {f['pieza']} en marcha sale de {de} y no atraviesa nada (D13).")
+
+
+def verificar(doc, m: dict, *, eco=print) -> None:
+    """La marcha que YA trae un guion, probada contra el modelo (D13c): `PublicacionError` si no
+    es fiel. Si ni siquiera simula, sólo avisa (el navegador dirá lo suyo al grabar)."""
+    from apolo.services import marcha_ejemplo as me
+
+    eco = eco or _eco_nulo
+    try:
+        _eco_fiel(me.probar(doc, m.get("escenario") or {}, minimo_mm=None), eco)
+    except me.SinMarcha as exc:
+        eco(f"Aviso: la máquina andando del guion no simula aquí: {exc}")
+    except me.MarchaInfiel as exc:
+        raise _infiel(exc) from None

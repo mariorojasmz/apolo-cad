@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); T entregada (PED-125); F2 implementada con tests y los briefs escritos en apolo-fabrica (falta que Mario los revise y los commitee allá, y verla con una ficha escrita por un modelador real en F4); F3 implementada con tests (la fábrica, el subidor de la cola y su tarea diaria; falta correrlos de verdad contra la tienda y YouTube, lo que hace F4); ajuste D10 (la máquina andando con producto en el video de la fábrica) implementado con tests, falta verlo en un video real; faltan F0 y F4
+nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); T entregada (PED-125); F2 implementada con tests y los briefs escritos en apolo-fabrica (falta que Mario los revise y los commitee allá, y verla con una ficha escrita por un modelador real en F4); F3 implementada con tests (la fábrica, el subidor de la cola y su tarea diaria; falta correrlos de verdad contra la tienda y YouTube, lo que hace F4); ajuste D10 (la máquina andando con producto en el video de la fábrica) implementado con tests, falta verlo en un video real; ajuste D13 (la cinta del video sale de la sección del modelo y se prueba contra él; la fábrica para si miente) implementado con tests, falta correrlo sobre el proyecto 4 y rehacer su video (D13e); faltan F0 y F4
 descripcion: Mario pide «crea estas máquinas» y Apolo entrega cada una modelada, revisada, con su video en YouTube y publicada en apolocad.com, sin pasos a mano
 ---
 
@@ -496,3 +496,51 @@ entrega: lo que valida la puerta es el modelo, y el video dibuja otra cosa.
 **Tests**: el Ω (drive central con dos desvíos) reproduce el defecto con la regla vieja y sale
 fiel con la nueva; casco convexo de cola-cabeza sigue igual; una ruta que corta una guarda hace
 fallar la prueba y la fábrica; la cadena contra su sólido.
+
+#### Bitácora D13 (2026-10-22, implementado con tests)
+
+- **D13a** (`library/ruta_faja_modelo.py`, OCCT en `services/seccion_plano.py`): el sólido de la
+  banda se coloca en el marco de la faja (`place_matrix` con la inversa: x = u, y = w, z = v) y se
+  corta con el plano z = v del centro del ancho; las caras del corte se funden y la que tiene
+  hueco es el lazo. **Línea media = promedio de cada punto del contorno exterior con el punto MÁS
+  CERCANO de los huecos** (no hace falta emparejar polilíneas muestreadas distinto; en un arco el
+  más cercano está sobre el radio, así queda en r + t/2); espesor = la mediana de esas distancias;
+  un punto cuyo más cercano no es creíble (|d − t| > t/2) se corre t/2 por la normal. Tambores: una
+  pieza redonda a ≤ r + t/2 + 1 mm de la línea media la toca; adentro del lazo abraza
+  (`envueltos`), afuera es desvío o rodillo de retorno (`apoyos_fuera`, gira al revés); el
+  abrazamiento es lo que barre la línea media en contacto. La comba (`ruta_faja._vano`, la misma)
+  va sólo en tramos RECTOS del modelo (puntos a ≤ 0,2 mm de la cuerda, ≥ 80 mm) del ramal de
+  retorno, con los contornos REALES de los cortes como lo de abajo. Sin lazo, el casco de siempre.
+- **D13b** (`library/fidelidad_faja.py`): (1) desvío en los dos sentidos (cinta → modelo y
+  modelo → cinta, muestreadas cada 5 mm): ≤ 1 mm, salvo en un tramo que cuelga, donde la cinta
+  puede salir HACIA AFUERA hasta 2 % del tramo (CEMA); (2) cruces: las dos caras y la línea media
+  de la cinta, cada 5 mm, en planos a lo ancho (cerca de los dos cantos, el centro y uno por cada
+  pieza delgada en v que ésos no corten: elección voraz), no entran en ninguna pieza más de lo que
+  entra el BORDE del sólido de la banda en esa misma pieza y plano, + 1 mm. Así los tambores que
+  abraza y lo que la apoya (que el modelo ya toca) pasan sin lista de excepciones. El veredicto
+  (`fidelidad`: ok, origen, desvío, cruces con pieza, nombre, mm y dónde, motivo) va en cada faja
+  de la serie del endpoint, con un aviso si falla.
+- **D13c**: `services/marcha_ejemplo.probar` corre la prueba con lo mismo que la serie del visor
+  (`fidelidad` → `MarchaInfiel`, que no es `SinMarcha`); `publicacion/marcha.elegir` la convierte
+  en `PublicacionError` (no cae a «sin marcha») y la fábrica para en «guion» con la pieza y los mm.
+  Un `guion.json` que ya traía marcha también se prueba (`marcha.verificar`). Salida: `false` en
+  `marcha.json` para publicar sin la máquina andando, decidido a la vista.
+- **D13d**: exacta por construcción. `services/marcha_visual._cadena` toma los números de la
+  `mesh_key` con que `create_chain` hizo el sólido y su `Feature.matrix`, y el visor anima
+  `rodillos_del_lazo` con ellos; el test pone cada rodillo animado (muestra cada 7 + los
+  extremos del asentado en A) DENTRO del sólido de la cadena con OCCT. Sin prueba en marcha.
+- **Hallazgo**: la sección destapó un defecto de `create_belt_conveyor`: `Polygon` de build123d
+  CENTRA sus puntos y los tramos rectos de la banda quedaban a la altura del piso (z ≈ ±58),
+  sueltos de los tubos de los tambores (el visor dibujaba el casco, así que el video salía bien
+  y el CAD no; las interferencias dentro de un super-comando no se miran). Arreglado con
+  `align=None` → **`create_belt_conveyor` v3** (sólo la geometría de la banda; masa casi igual).
+- **Medido** (laptop): Ω de prueba (cola y cabeza r 50 a ±1000, desvíos r 40, motriz r 80 300 mm
+  más abajo, guardas bajo el retorno): el casco atraviesa las dos guardas 37 mm y se aparta del
+  modelo 239 mm; la ruta del modelo sale fiel (comba 16 mm en los dos tramos de 800 mm,
+  abrazamientos 180°/142,6°/71,2°). La faja de `create_belt_conveyor` 3000 × 500: la ruta del
+  modelo cae a ≤ 0,19 mm de la del casco, mismo largo (6353,6 mm) y abrazamientos; extraer con
+  los cortes 0,22 s; la prueba, 0,04–0,08 s. El Ω del test (banda como polígono de ~500 caras)
+  extrae en ~1,9 s.
+- **Sin verificar**: el proyecto 4 real (su base está en la PC de escritorio; no se pudo copiar
+  aquí) y rehacer su video (D13e). Al correr la fábrica sobre él, si su banda es un lazo cerrado la
+  cinta saldrá de la sección; si no, la fábrica parará diciendo qué guarda atraviesa.

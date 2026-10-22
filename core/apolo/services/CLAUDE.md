@@ -245,6 +245,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   piñones por las uniones `{cadena}_a|_b`. De la faja mide encuadres en SU marco (diestro: v = u×w)
   y la redondez (encuadre cuadrado que no crece girado 45°: un tubo cuadrado no es tambor).
   [visor-realista](../../../docs/plans/visor-realista.md) (F3)
+- Además corta con OCCT (`seccion_plano.py`) la banda y lo que podría cruzar su cinta en planos a
+  lo ancho: la forma de la cinta y su prueba salen de esas secciones, y `marcha_ejemplo.fidelidad`
+  lanza `MarchaInfiel` (la fábrica PARA, nunca «sin marcha»).
+  [fabrica-de-publicaciones](../../../docs/plans/fabrica-de-publicaciones.md) (D13)
 
 ## Roles por nombre (`roles.py`)
 
