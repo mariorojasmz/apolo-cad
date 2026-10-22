@@ -4,9 +4,9 @@
 La validación va al LEEME en lenguaje humano, como argumento de venta, nunca como volcado del
 JSON (D11): cada chequeo verde de la puerta de entrega es una frase; una publicación forzada
 (D13) lo dice arriba, «con observaciones», con lo que quedó pendiente. La licencia nombra las
-licencias y sus URL oficiales, no copia sus textos. `youtube.txt` junta lo que se pega a mano
-en YouTube Studio (D15): título, descripción con el enlace a la tienda, capítulos, etiquetas y
-créditos de la música.
+licencias y sus URL oficiales, no copia sus textos. `datos_youtube` arma título, descripción
+(con el enlace a la tienda, capítulos y créditos de la música) y etiquetas del video: de ahí
+salen `youtube.txt` (D15) y la subida de `publicar youtube`.
 """
 
 from __future__ import annotations
@@ -175,14 +175,20 @@ def _sin_angulos(texto: str) -> str:
     return texto.replace("<", "‹").replace(">", "›")  # YouTube rechaza < y >
 
 
-def youtube(ficha: dict, capitulos: list[tuple[int, str]]) -> str:
-    """youtube.txt (D15). `capitulos` = `guion_video.capitulos(guion)` (vacío si no cumplen)."""
+def datos_youtube(ficha: dict, capitulos: list[tuple[int, str]],
+                  musica: dict | None = None) -> dict:
+    """{titulo, descripcion, etiquetas} del video en YouTube: la ÚNICA fuente de `youtube.txt`
+    y de la subida de `publicar youtube` (fabrica-de-publicaciones F1). `ficha` = la de
+    `ficha.yaml` o `ficha.json` (titulo, descripcion, url_tienda, etiquetas); `capitulos` =
+    `guion_video.capitulos(guion)` (vacío si no cumplen); `musica` = el crédito publicado
+    (`ficha.musica_publica`, el `video.musica` de ficha.json) o None si el video va sin
+    música. Lanza `ValueError` si la descripción no entra en la de YouTube."""
     desc = [ficha["descripcion"].strip(), ""]
     desc.append("Descarga los planos y el modelo 3D: "
-                + (ficha["url_tienda"] or "(pon aquí el enlace de la tienda)"))
+                + (ficha.get("url_tienda") or "(pon aquí el enlace de la tienda)"))
     if capitulos:
         desc += ["", "Capítulos:"] + [f"{_tiempo(s)} {_sin_angulos(t)}" for s, t in capitulos]
-    musica = ficha.get("musica") or {}
+    musica = musica or {}
     if musica.get("titulo"):
         desc += ["", f"Música: «{musica['titulo']}» de {musica.get('autor', '')} "
                      f"({musica.get('fuente', '')}) · Licencia: {musica.get('licencia', '')}"]
@@ -193,8 +199,16 @@ def youtube(ficha: dict, capitulos: list[tuple[int, str]]) -> str:
     if len(descripcion) > MAX_DESCRIPCION_YOUTUBE:
         raise ValueError(f"La descripción para YouTube tiene {len(descripcion)} caracteres "
                          f"(máximo {MAX_DESCRIPCION_YOUTUBE}): acorta la de ficha.yaml")
-    partes = ["TÍTULO", ficha["titulo"], "", "DESCRIPCIÓN", descripcion, "",
-              "ETIQUETAS", ", ".join(ficha.get("etiquetas") or []), "",
+    return {"titulo": ficha["titulo"], "descripcion": descripcion,
+            "etiquetas": list(ficha.get("etiquetas") or [])}
+
+
+def youtube(ficha: dict, capitulos: list[tuple[int, str]], musica: dict | None = None) -> str:
+    """youtube.txt (D15): lo de `datos_youtube`, para leerlo o pegarlo a mano en YouTube Studio
+    (lo sube solo `publicar youtube`)."""
+    d = datos_youtube(ficha, capitulos, musica)
+    partes = ["TÍTULO", d["titulo"], "", "DESCRIPCIÓN", d["descripcion"], "",
+              "ETIQUETAS", ", ".join(d["etiquetas"]), "",
               "MINIATURA", "miniatura.png (1280×720) — súbela como miniatura personalizada.", ""]
     if not capitulos:
         partes += ["(Sin capítulos: YouTube pide al menos 3 de 10 s o más, y este video no los "

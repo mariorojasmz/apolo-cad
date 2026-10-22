@@ -39,6 +39,22 @@ proyecto en la API sin abrirlo; con `--slug` no hace falta la API. Sin `--versio
 versión generada. `--tienda` (o `APOLO_TIENDA_URL`) cambia la tienda; `--borrador` importa sin
 publicar; `--ensayo` sólo pide la revisión e imprime el plan. La lógica, en
 `apolo.publicacion.tienda`.
+
+Y el video del mismo paquete va a YouTube, sin YouTube Studio (plan fabrica-de-publicaciones,
+F1):
+
+    .\.venv\Scripts\python.exe -B scripts\publicar.py youtube --slug S
+        [--version V] [--publico] [--ensayo] [--forzar] [--reautorizar] [--tienda URL]
+
+Necesita el cliente OAuth de escritorio en `~\.apolo\youtube\client_secret.json`
+(`APOLO_YOUTUBE_DIR` cambia la carpeta). La primera vez abre el navegador: entra con la cuenta
+del canal y elige «Apolo CAD»; el permiso queda en `token.json` de esa carpeta y las siguientes
+no piden nada. Antes de subir imprime el canal. Sube PRIVADO (D4) salvo `--publico`, con la
+miniatura y el texto de `youtube.txt`, y deja `youtube.json` (id y enlace) en la carpeta: si ya
+existe no resube, salvo `--forzar`. `--ensayo` muestra canal, título, descripción y etiquetas
+sin subir (sirve para autorizar la primera vez). `--reautorizar` pide el permiso de nuevo. Con
+el cupo diario agotado sale con 2 y lo dice: se sigue al día siguiente. La lógica, en
+`apolo.publicacion.youtube`.
 """
 
 from __future__ import annotations
@@ -107,30 +123,70 @@ def _parser() -> argparse.ArgumentParser:
     sube.add_argument("--borrador", action="store_true", help="importa sin publicar")
     sube.add_argument("--ensayo", action="store_true",
                       help="sólo la revisión de la tienda y el plan: no sube nada")
+    yt = sub.add_parser("youtube", help="sube el video del paquete generado a YouTube (privado)")
+    yt.add_argument("--project", type=int, default=None,
+                    help="id del proyecto en Apolo (para el slug; sobra con --slug)")
+    yt.add_argument("--url", default="http://127.0.0.1:8000", help="la API de Apolo")
+    yt.add_argument("--slug", default=None, help="carpeta de la publicación")
+    yt.add_argument("--version", default=None,
+                    help="versión a subir, X.Y.Z (por defecto, la última generada)")
+    yt.add_argument("--tienda", default=None,
+                    help="la tienda del enlace de la descripción si la ficha no trae url_tienda "
+                         "(por defecto APOLO_TIENDA_URL o https://apolocad.com)")
+    yt.add_argument("--publico", action="store_true",
+                    help="sube PÚBLICO (sólo tras la auditoría de YouTube; por defecto, privado)")
+    yt.add_argument("--ensayo", action="store_true",
+                    help="muestra canal, título, descripción y etiquetas: no sube nada")
+    yt.add_argument("--forzar", action="store_true",
+                    help="sube aunque youtube.json diga que ya se subió (queda duplicado)")
+    yt.add_argument("--reautorizar", action="store_true",
+                    help="borra el permiso guardado y lo pide de nuevo en el navegador")
     return ap
 
 
-def _subir(args, cliente=None) -> int:
-    """`publicar subir`: la llave y la tienda antes de tocar la red; el slug, de --slug o del
-    nombre del proyecto en la API."""
+def _carpeta(args):
+    """La carpeta de la versión: el slug, de --slug o del nombre del proyecto en la API."""
     import httpx
 
     from apolo import paths
     from apolo.publicacion import tienda
     from apolo.publicacion.paquete import PublicacionError
 
+    slug = args.slug
+    if slug is None:
+        if args.project is None:
+            raise PublicacionError("Pasa --project (o --slug) para saber qué paquete subir.")
+        with httpx.Client(base_url=args.url, timeout=30.0) as api:
+            slug = tienda.slug_de_proyecto(api, args.project)
+    return tienda.carpeta_publicada(paths.publicaciones_dir(), slug, args.version)
+
+
+def _subir(args, cliente=None) -> int:
+    """`publicar subir`: la llave y la tienda antes de tocar la red."""
+    from apolo.publicacion import tienda
+    from apolo.publicacion.paquete import PublicacionError
+
     try:
         llave = tienda.llave_del_entorno()
         url = tienda.url_de_la_tienda(args.tienda)
-        slug = args.slug
-        if slug is None:
-            if args.project is None:
-                raise PublicacionError("Pasa --project (o --slug) para saber qué paquete subir.")
-            with httpx.Client(base_url=args.url, timeout=30.0) as api:
-                slug = tienda.slug_de_proyecto(api, args.project)
-        carpeta = tienda.carpeta_publicada(paths.publicaciones_dir(), slug, args.version)
-        tienda.subir(carpeta, tienda=url, llave=llave, borrador=args.borrador,
+        tienda.subir(_carpeta(args), tienda=url, llave=llave, borrador=args.borrador,
                      ensayo=args.ensayo, cliente=cliente)
+    except PublicacionError as exc:
+        print(f"\n{exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _youtube(args, cliente=None, abrir=None) -> int:
+    """`publicar youtube`: la lógica, en `apolo.publicacion.youtube`."""
+    from apolo.publicacion import tienda, youtube
+    from apolo.publicacion.paquete import PublicacionError
+
+    extra = {} if abrir is None else {"abrir": abrir}
+    try:
+        youtube.subir(_carpeta(args), tienda=tienda.url_de_la_tienda(args.tienda),
+                      publico=args.publico, ensayo=args.ensayo, forzar=args.forzar,
+                      reautorizar=args.reautorizar, cliente=cliente, **extra)
     except PublicacionError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 2
@@ -154,15 +210,18 @@ def _escenario(ruta: str | None) -> dict | None:
     return datos
 
 
-def main(argv: list[str] | None = None, cliente=None) -> int:
+def main(argv: list[str] | None = None, cliente=None, abrir=None) -> int:
     """`cliente`: un httpx.Client ya apuntado a la API (los tests pasan un TestClient); en
-    `subir`, el que habla con la tienda."""
+    `subir`, el que habla con la tienda; en `youtube`, con Google. `abrir`: cómo `youtube` abre
+    el navegador (los tests simulan la vuelta)."""
     for flujo_ in (sys.stdout, sys.stderr):
         with contextlib.suppress(AttributeError, ValueError):
             flujo_.reconfigure(encoding="utf-8", errors="replace")  # consola cp1252 de Windows
     args = _parser().parse_args(argv)
     if args.paso == "subir":
         return _subir(args, cliente=cliente)
+    if args.paso == "youtube":
+        return _youtube(args, cliente=cliente, abrir=abrir)
     import httpx
 
     from apolo.media.codificar import FfmpegNoEncontrado

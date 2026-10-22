@@ -147,7 +147,7 @@ def test_youtube_txt_trae_capitulos_que_youtube_acepta():
              "url_tienda": "https://tienda.example/transportador", "etiquetas": ["a", "b"],
              "musica": {"titulo": "Pista", "autor": "Autor", "fuente": "YouTube",
                         "licencia": "Libre", "atribucion": "Música: Autor"}}
-    txt = textos.youtube(ficha, capitulos(g))
+    txt = textos.youtube(ficha, capitulos(g), ficha["musica"])
     lineas = txt.splitlines()
     i = lineas.index("Capítulos:")
     caps = []

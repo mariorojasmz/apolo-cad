@@ -19,6 +19,9 @@ video sobre su propia copia del documento, sin locks compartidos.
   - `textos`: LEEME, licencia, aviso de responsabilidad y `youtube.txt` (D11, D15).
   - `paquete`: puerta de calidad, niveles, zips, hashes y la carpeta versionada (D9–D14).
   - `flujo`: los dos pasos del CLI, `guion` y `generar` (D3).
+  - `tienda`: `publicar subir`, el paquete generado a apolocad.com (publicacion-tienda F6).
+  - `youtube` y `youtube_oauth`: `publicar youtube`, el video a YouTube con su permiso OAuth
+    (fabrica-de-publicaciones F1).
 
 Fronteras (`tests/test_capas_publicacion.py`): de `apolo` sólo importa `services`, `doc`,
 `kernel`, `media` y `paths`; nunca `apolo.api` ni `apolo.state` (la API es un servidor al

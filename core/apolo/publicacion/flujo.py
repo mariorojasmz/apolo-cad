@@ -385,8 +385,9 @@ def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, sta
 
     t = time.perf_counter()
     caps = capitulos(g)
+    musica = fichas.musica_publica(f) if pista else None  # el mismo crédito que ficha.json
     try:
-        (staging / "youtube.txt").write_text(textos.youtube(f, caps), encoding="utf-8")
+        (staging / "youtube.txt").write_text(textos.youtube(f, caps, musica), encoding="utf-8")
     except ValueError as exc:  # la descripción no entra en la de YouTube
         raise PublicacionError(str(exc)) from exc
     glb, html = staging / vista["archivo"], staging / vista["html"]["archivo"]
@@ -398,7 +399,7 @@ def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, sta
     publica = paquete.ficha_json(
         f, staging=staging, zips=zips, video=video.ruta, miniatura=video.miniatura,
         duracion_s=video.duracion_s, capitulos=caps,
-        musica=fichas.musica_publica(f) if pista else None, calidad_=calidad,
+        musica=musica, calidad_=calidad,
         cifras=g["cifras"]["items"],
         vista_3d={"glb": glb, "html": html, "triangulos": vista["triangulos"],
                   "etiquetas": vista["html"]["etiquetas"]})
@@ -486,7 +487,7 @@ def _imprimir(eco, r: dict) -> None:
                                 for n in r["zips"]))
     eco("  tiempos: " + " · ".join(f"{k} {x:.1f} s" for k, x in r["tiempos_s"].items())
         + (" (entregables en paralelo con la vista 3D y el video)" if r.get("paralelo") else ""))
-    eco("Sube a mano a YouTube video.mp4 con miniatura.png y el texto de youtube.txt (D15); "
-        "luego pon el enlace en url_video de ficha.json.")
+    eco("YouTube: `publicar youtube --slug <slug>` sube video.mp4 con miniatura.png y el texto "
+        "de youtube.txt (privado; deja el enlace en youtube.json).")
     eco(f"Vista 3D: sube {w['archivo']}, {w['html']['poster']} y el trozo de "
         f"{w['html']['archivo']} a la tienda (cómo, en el comentario al principio del trozo).")
