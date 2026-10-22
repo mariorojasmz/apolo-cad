@@ -76,9 +76,9 @@ def tienda(tmp_path):
         api.PROJECT_ID = None
 
 
-def _preparar(t, proyecto: int) -> dict:
+def _preparar(t, proyecto: int, version: str | None = None) -> dict:
     """`guion` y lo que haría una persona: video chico y corto, ficha con descripción."""
-    r = flujo.guion(t.c, proyecto, raiz=t.raiz, eco=None)
+    r = flujo.guion(t.c, proyecto, raiz=t.raiz, version=version, eco=None)
     g = json.loads(r["guion"].read_text(encoding="utf-8"))
     g["video"].update(ancho=320, alto=180)
     g["portada"]["duracion_s"] = 1.0
@@ -87,8 +87,7 @@ def _preparar(t, proyecto: int) -> dict:
     g["cifras"]["duracion_s"], g["orbita"]["duracion_s"], g["cierre"]["duracion_s"] = 1.0, 1.5, 1.0
     r["guion"].write_text(json.dumps(g, ensure_ascii=False), encoding="utf-8")
     texto = r["ficha"].read_text(encoding="utf-8")
-    r["ficha"].write_text(texto.replace('descripcion: ""', 'descripcion: "Mesa de taller."')
-                          .replace('url_tienda: ""', 'url_tienda: "https://tienda.example/mesa"'),
+    r["ficha"].write_text(texto.replace('descripcion: ""', 'descripcion: "Mesa de taller."'),
                           encoding="utf-8")
     return {**r, "g": g}
 
@@ -106,7 +105,15 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
     prep = _preparar(tienda, tienda.verde)
     carpeta = prep["carpeta"]
     assert carpeta == tienda.raiz / "mesa-de-taller" / "1.0.0"
-    res = flujo.generar(tienda.c, tienda.verde, raiz=tienda.raiz, eco=None)
+    # el guion trae la URL derivada (con la tienda por defecto) y la ficha ya no la pide
+    assert prep["g"]["cierre"]["url"] == "https://apolocad.com/maquinas/mesa-de-taller"
+    assert "url_tienda" not in prep["ficha"].read_text(encoding="utf-8").split("musica:")[0]
+    avisos: list[str] = []
+    res = flujo.generar(tienda.c, tienda.verde, raiz=tienda.raiz, eco=avisos.append,
+                        tienda="https://tienda.example")
+    # otra tienda al generar: el cierre muestra la de ahora y lo avisa; sin pistas, sin música
+    assert any("el video muestra la segunda" in a for a in avisos)
+    assert any("sale SIN música" in a for a in avisos)
 
     nombres = {p.name for p in carpeta.iterdir()}
     assert {"guion.json", "ficha.yaml", "ficha.json", "generacion.json", "video.mp4",
@@ -180,7 +187,14 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
     mini = carpeta / ficha["miniatura"]
     assert Image.open(mini).size == (1280, 720)
     youtube = (carpeta / "youtube.txt").read_text(encoding="utf-8")
-    assert "Mesa de taller" in youtube and "https://tienda.example/mesa" in youtube
+    url = "https://tienda.example/maquinas/mesa-de-taller"
+    assert "Mesa de taller" in youtube and url in youtube and ficha["url_tienda"] == url
+    # F2: el bloque youtube de ficha.json es el texto de youtube.txt, con el aviso (D8)
+    yt = ficha["youtube"]
+    assert yt["titulo"] == "Mesa de taller" and yt["descripcion"] in youtube
+    assert "no fue construido ni probado físicamente" in yt["descripcion"]
+    assert "https://tienda.example/terminos#responsabilidad" in yt["descripcion"]
+    assert len(yt["descripcion"].encode("utf-8")) <= 5000
     leeme = zips["gratis"]["LEEME.md"].decode()
     assert "con observaciones" not in leeme and "Sin interferencias" in leeme
 
@@ -247,6 +261,54 @@ def test_forzada_queda_con_observaciones_y_con_su_musica(tienda, tmp_path):
         (carpeta / "youtube.txt").read_text(encoding="utf-8")
 
 
+def test_un_texto_de_youtube_que_la_tienda_rechazaria_corta_antes_de_trabajar(tienda,
+                                                                               monkeypatch):
+    """Bitácora T: si el bloque youtube no cumple, la tienda lo guarda null EN SILENCIO y usa su
+    texto por defecto. `generar` falla antes de la puerta y del video, sin tocar la carpeta."""
+    from apolo.publicacion import textos
+
+    prep = _preparar(tienda, tienda.verde)
+    antes = sorted(p.name for p in prep["carpeta"].iterdir())
+    monkeypatch.setattr(textos, "MAX_DESCRIPCION_BYTES", 100)  # el aviso solo ya no entra
+    with pytest.raises(PublicacionError, match=r"bytes UTF-8 \(máximo 100") as exc:
+        flujo.generar(tienda.c, tienda.verde, raiz=tienda.raiz, con_gravedad=False, eco=None)
+    assert "publicar ficha --revisar" in str(exc.value)
+    assert sorted(p.name for p in prep["carpeta"].iterdir()) == antes
+
+
+@con_ffmpeg
+def test_sin_musica_explicita_usa_la_menos_usada_de_la_biblioteca(tienda, tmp_path, monkeypatch):
+    from apolo.media.codificar import sondear
+
+    biblioteca = tmp_path / "musica"
+    biblioteca.mkdir()
+    _pista(biblioteca / "a.wav")
+    _pista(biblioteca / "b.wav")
+    (biblioteca / "pistas.json").write_text(json.dumps([
+        {"archivo": n, "titulo": t, "autor": "Prueba", "fuente": "Pixabay Music",
+         "licencia": "Pixabay Content License"} for n, t in (("a.wav", "Seno A"), ("b.wav", "Seno B"))
+    ]), encoding="utf-8")
+    (biblioteca / "usos.json").write_text('{"a.wav": 2}', encoding="utf-8")
+    monkeypatch.setenv("APOLO_MUSICA_DIR", str(biblioteca))
+    prep = _preparar(tienda, tienda.rojo)
+    flujo.generar(tienda.c, tienda.rojo, raiz=tienda.raiz, forzar=True, con_gravedad=False,
+                  eco=None)
+    carpeta = prep["carpeta"]
+    ficha = json.loads((carpeta / "ficha.json").read_text(encoding="utf-8"))
+    assert ficha["video"]["musica"]["titulo"] == "Seno B" and sondear(carpeta / "video.mp4")["audio"]
+    assert "Música: «Seno B» de Prueba (Pixabay Music)" in ficha["youtube"]["descripcion"]
+    assert "b.wav" not in json.dumps(ficha)  # la ruta local no se publica
+    assert json.loads((biblioteca / "usos.json").read_text(encoding="utf-8")) == \
+        {"a.wav": 2, "b.wav": 1}
+    # --sin-musica fuerza silencio aunque haya pistas
+    r = _preparar(tienda, tienda.rojo, version="1.0.1")
+    flujo.generar(tienda.c, tienda.rojo, raiz=tienda.raiz, version="1.0.1", forzar=True,
+                  con_gravedad=False, sin_musica=True, eco=None)
+    assert json.loads((r["carpeta"] / "ficha.json").read_text(encoding="utf-8"))["video"][
+        "musica"] is None
+    assert json.loads((biblioteca / "usos.json").read_text(encoding="utf-8"))["b.wav"] == 1
+
+
 def test_el_guion_es_de_montaje_salvo_que_pidas_diseno(tienda):
     """D8 de video-tienda-pulido: por defecto el video sigue cómo se ARMA (las patas ancladas y
     después el tablero atornillado); `modo="diseño"` deja el guion de siempre (pasos = k)."""
@@ -299,3 +361,18 @@ def test_el_cli_escribe_el_guion_y_explica_lo_que_falta(tienda, monkeypatch, cap
     # la ficha sigue en borrador: generar se niega y dice qué falta
     assert cli.main(["generar", "--project", str(tienda.verde)], cliente=tienda.c) == 2
     assert "descripcion: no puede quedar vacío" in capsys.readouterr().err
+    # `ficha --revisar` (F2) dice lo mismo sin abrir el proyecto, y en verde imprime el texto
+    assert cli.main(["ficha", "--slug", "mesa-de-taller", "--revisar"]) == 2
+    assert "descripcion: no puede quedar vacío" in capsys.readouterr().err
+    ruta = tienda.raiz / "mesa-de-taller" / "1.0.0" / "ficha.yaml"
+    ruta.write_text(ruta.read_text(encoding="utf-8").replace(
+        'descripcion: ""', 'descripcion: "Mesa de taller soldada."'), encoding="utf-8")
+    assert cli.main(["ficha", "--slug", "mesa-de-taller", "--revisar"]) == 2
+    assert "etiquetas: vacía" in capsys.readouterr().err
+    ruta.write_text(ruta.read_text(encoding="utf-8").replace(
+        "etiquetas: []", 'etiquetas: ["mesa", "taller", "mesa de trabajo"]'), encoding="utf-8")
+    assert cli.main(["ficha", "--slug", "mesa-de-taller", "--revisar"]) == 0
+    salida = capsys.readouterr().out
+    assert "https://apolocad.com/maquinas/mesa-de-taller" in salida
+    assert "Diseño generado y validado por software" in salida
+    assert "ficha.yaml lista para `publicar generar`" in salida

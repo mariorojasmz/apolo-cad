@@ -77,6 +77,29 @@ def siguiente(version: str) -> str:
     return ".".join(partes)
 
 
+def version_libre(raiz, slug: str, inicial: str = "1.0.0") -> str:
+    """La versión de un guion nuevo: `inicial` si está libre; si no, que la elija quien llama."""
+    existentes = versiones(raiz, slug)
+    if inicial not in existentes:
+        return inicial
+    raise PublicacionError(f"«{slug}» ya tiene las versiones {', '.join(existentes)}: elige "
+                           f"una nueva con --version (p. ej. {siguiente(existentes[-1])}).")
+
+
+def version_pendiente(raiz, slug: str) -> str:
+    """La única versión de `slug` con guion y sin publicar."""
+    pendientes = [v for v in versiones(raiz, slug)
+                  if (carpeta_version(raiz, slug, v) / GUION).exists()
+                  and not publicada(carpeta_version(raiz, slug, v))]
+    if len(pendientes) == 1:
+        return pendientes[0]
+    if not pendientes:
+        raise PublicacionError(f"No hay ningún guion pendiente de «{slug}» en {raiz}: corre "
+                               "`publicar guion` primero (o pasa --slug si usaste otro).")
+    raise PublicacionError(f"«{slug}» tiene varias versiones sin publicar "
+                           f"({', '.join(pendientes)}): elige una con --version.")
+
+
 def exigir_no_publicada(carpeta: Path) -> None:
     carpeta = Path(carpeta)
     if publicada(carpeta):
@@ -182,10 +205,12 @@ def _info(ruta: Path, nombre: str, **extra) -> dict:
 def ficha_json(ficha: dict, *, staging: Path, zips: dict[str, Path], video: Path,
                miniatura: Path, duracion_s: float, capitulos: list[tuple[int, str]],
                musica: dict | None, calidad_: dict, cifras: list[dict],
-               vista_3d: dict | None = None) -> dict:
+               vista_3d: dict | None = None, youtube: dict | None = None) -> dict:
     """Lo público de la publicación, con cada archivo y su sha256 (también los de los zips).
     `vista_3d` (plan vista-3d-tienda F3): {glb, html} (rutas), `triangulos` y `etiquetas`; el
-    póster es la miniatura. Sin ella, la ficha no tiene la sección."""
+    póster es la miniatura. Sin ella, la ficha no tiene la sección. `youtube`
+    (fabrica-de-publicaciones F2): {titulo, descripcion, etiquetas} ya validado con los límites
+    de la tienda (`textos.datos_youtube`), el que la cola de YouTube sube tal cual."""
     archivos = []
     for nivel, ruta in zips.items():
         carpeta = staging / nivel
@@ -203,8 +228,10 @@ def ficha_json(ficha: dict, *, staging: Path, zips: dict[str, Path], video: Path
             "bytes": glb.stat().st_size, "triangulos": vista_3d["triangulos"],
             "etiquetas": [{"grupo": e["grupo"], "cifra": e["cifra"]}
                           for e in vista_3d["etiquetas"]]}
-    publica = {k: ficha[k] for k in ("titulo", "slug", "version", "descripcion", "nivel",
-                                     "precio_usd", "licencias", "etiquetas", "url_tienda")}
+    publica = {k: ficha.get(k, "") for k in ("titulo", "slug", "version", "descripcion", "nivel",
+                                             "precio_usd", "licencias", "etiquetas", "url_tienda")}
+    if youtube:
+        extra["youtube"] = {k: youtube[k] for k in ("titulo", "descripcion", "etiquetas")}
     return {
         "formato": FORMATO,
         **publica,

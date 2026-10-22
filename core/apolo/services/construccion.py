@@ -35,9 +35,11 @@ reparte por peso entre `etapa_min_s` y `etapa_max_s` (15 s; y cada paso a lo má
 con poco que mostrar, el video sale más corto que el objetivo, no más lento (D2). Los capítulos
 de YouTube (≥ 10 s, D15) los funde aparte `guion_video.capitulos`.
 
-**Título** (D2): el nombre del grupo; si la etapa junta varios, el grupo padre común o los
-nombres («Bastidor y Rodillos», con « · » si un nombre ya lleva «y»), sin contar los grupos que
-sólo se retocaron; si no caben en `MAX_TITULO_GENERADO` (32), el grupo que más pesa.
+**Título** (D2): el nombre del grupo; si la etapa junta varios, el grupo padre común o los DOS
+que más pesan, en su orden («Bastidor y rodillos»; nunca una lista de tres ni «y 2 más»: el
+título va en una línea del rótulo y es el capítulo de YouTube, fabrica-de-publicaciones F2),
+sin contar los grupos que sólo se retocaron (con « · » si un nombre ya lleva «y»); si no caben
+en `MAX_TITULO_GENERADO` (32), el grupo que más pesa.
 
 Capa `services`: recibe `doc` explícito, sin locks ni transporte. `pasos_visuales` recorre
 los prefijos en una copia privada (`iter_prefijos`): no toca `doc`, pero comparte las cachés de
@@ -54,6 +56,7 @@ from apolo.services.rotulos import (
     corta,
     familia,
     lista_y,
+    minuscula,
     rol,
     textos_etapas,
 )
@@ -306,7 +309,7 @@ def _prefijo_comun(rutas) -> tuple:
 
 def _titulo_etapa(partes: list[tuple]) -> str:
     """Título de una etapa a partir de sus partes (clave, peso, agrega) (regla en el docstring
-    del módulo): nunca «y 2 más»."""
+    del módulo): nunca «y 2 más» ni listas de tres."""
     aportan = [p for p in partes if p[2]] or partes
     distintas = list(dict.fromkeys(c for c, _, _ in aportan))
     if len(distintas) > 1 and all(c[0] == "grupo" for c in distintas):
@@ -317,11 +320,14 @@ def _titulo_etapa(partes: list[tuple]) -> str:
     for c, w, _ in aportan:
         pesos[_nombre_clave(c)] = pesos.get(_nombre_clave(c), 0.0) + w
     nombres = list(pesos)
-    unido = (" · ".join(nombres) if any(" y " in n for n in nombres)
-             else lista_y(nombres, len(nombres)))
-    if len(unido) <= MAX_TITULO_GENERADO:
-        return unido
-    return corta(max(nombres, key=lambda n: (pesos[n], -nombres.index(n))), MAX_TITULO_GENERADO)
+    por_peso = sorted(nombres, key=lambda n: (-pesos[n], nombres.index(n)))
+    dos = sorted(por_peso[:2], key=nombres.index)  # los que más pesan, en su orden
+    if len(dos) == 2:
+        unido = (" · ".join(dos) if any(" y " in n for n in dos)
+                 else f"{dos[0]} y {minuscula(dos[1])}")
+        if len(unido) <= MAX_TITULO_GENERADO:
+            return unido
+    return corta(por_peso[0], MAX_TITULO_GENERADO)
 
 
 def _repartir(pesos: list[float], lo: list[float], hi: list[float], total: float) -> list[float]:

@@ -45,6 +45,19 @@ def _sandbox_perezoso():
         yield
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _publicacion_aislada(tmp_path_factory):
+    """La biblioteca de música (`APOLO_MUSICA_DIR`) en una carpeta vacía y la tienda por
+    defecto, en toda la suite: `publicar generar` sin `--musica` elige la pista menos usada de
+    `~/.apolo/musica` y anota su uso (fabrica-de-publicaciones D9); sin esto, un test usaría la
+    biblioteca REAL de la PC y le sumaría usos, y una `APOLO_TIENDA_URL` de la consola cambiaría
+    las URL esperadas. Quien prueba la biblioteca pasa su propia carpeta."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("APOLO_MUSICA_DIR", str(tmp_path_factory.mktemp("musica-vacia")))
+        mp.delenv("APOLO_TIENDA_URL", raising=False)
+        yield
+
+
 @pytest.fixture(autouse=True)
 def _sesion_api_aislada():
     """Cada test deja la sesión de la API como la encontró (D11 del plan

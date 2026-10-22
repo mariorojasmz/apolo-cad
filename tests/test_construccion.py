@@ -206,10 +206,10 @@ def test_el_rotulo_cuenta_lo_que_entra_y_no_la_herramienta(proyecto):
     _, i, pasos = proyecto
     por = _por_cmd(pasos)
     bastidor = [por[i[k]] for k in ("placa", "agujero", "bool", "fillet", "pata", "patas")]
-    assert texto_etapa(bastidor) == "Se suman «Placa base» y 4 patas."
+    assert texto_etapa(bastidor) == "Se suman la placa base y 4 patas."
     # trabajar una pieza de una etapa anterior es «ajustar»
     assert texto_etapa([por[i["fillet"]]]) == "Se ajusta «Placa base»."
-    assert texto_etapa([por[i["guarda"]], por[i["mover"]]]) == "Se suma «Guarda»."
+    assert texto_etapa([por[i["guarda"]], por[i["mover"]]]) == "Se suma la guarda."
 
 
 # ------------------------------------------------------------------ etapas (D4)
@@ -217,7 +217,7 @@ def test_las_etapas_siguen_los_grupos(proyecto):
     _, i, pasos = proyecto
     es = etapas(pasos, 75)
     assert [e.titulo for e in es] == ["Bastidor", "Transporte"]  # Guardas se funde en su padre
-    assert es[0].texto == "Se suman «Placa base» y 4 patas."
+    assert es[0].texto == "Se suman la placa base y 4 patas."
     assert es[1].texto.startswith("Se suman 2 largueros, 7 rodillos, 4 patas y 3 piezas más")
     # un paso del video por paso compacto (la pata y su patrón son uno), en orden
     assert [k for e in es for k in e.pasos] == [u[-1].k for u in compactar(pasos)]
@@ -253,7 +253,7 @@ def test_la_duracion_cae_cerca_del_objetivo():
 def test_un_log_corto_no_se_estira_mas_del_tope():
     es = etapas([_paso(1), _paso(2, titulo="Otra")], 75)
     assert len(es) == 1 and es[0].duracion_s == 2 * TIEMPOS.paso_max_s
-    assert es[0].titulo == "P1 y Otra"
+    assert es[0].titulo == "P1 y otra"
 
 
 def test_el_superpaso_pesa_mas():

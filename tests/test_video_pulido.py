@@ -173,7 +173,7 @@ def test_una_maquina_sin_rodillos_no_se_rompe():
     assert datos.fs_cadena == {} and datos.requisitos == {}
     es = etapas(pasos, 75, datos=datos)
     assert [e.titulo for e in es] == ["Estructura"]
-    assert es[0].texto == "Se suman «Base» y «Torre»."
+    assert es[0].texto == "Se suman la base y la torre."
     assert etapas(pasos, 75) == es  # sin plantilla que aplique, el texto de siempre
 
 
@@ -245,14 +245,64 @@ def _grupos(*cuantos) -> list[Paso]:
 
 
 def test_titulos_sin_y_mas_y_con_el_grupo_que_pesa():
-    # tres grupos chicos se funden: «A, B y C» no cabe en 32 → el que más pesa
+    # tres grupos chicos se funden: los dos que más pesan (nunca una lista de tres)
     es = etapas(_grupos(1, 1, 3), 30)
+    assert [e.titulo for e in es] == ["Bastidor · Patas y travesaños"]
+    # si los dos no caben en 32, el que más pesa
+    es = etapas(_grupos(0, 0, 3, 1), 30)
     assert [e.titulo for e in es] == ["Patas y travesaños"]
     # un nombre con «y» se separa con « · »
     es = etapas(_grupos(1, 0, 1), 30)
     assert es[0].titulo == "Bastidor · Patas y travesaños"
     es = etapas(_grupos(1, 1), 30)
-    assert es[0].titulo == "Bastidor y Rodillos"
+    assert es[0].titulo == "Bastidor y rodillos"
+
+
+def test_una_etapa_de_muchos_grupos_nombra_los_dos_que_pesan():
+    """fabrica-de-publicaciones F2: el video real tituló «Patas y travesaños, Motorreductor y 2
+    más» (cortado en el rótulo). Con cuatro grupos en una etapa, los dos que más pesan, en su
+    orden y sin listas: cabe en la línea del título y es el capítulo de YouTube."""
+    from apolo.media.composicion import ESTILO, maquetar_rotulo
+
+    es = etapas(_grupos(0, 0, 0, 1, 3, 2), 30)
+    assert [e.titulo for e in es] == ["Guardas y cadenas"]
+    es = etapas(_grupos(0, 0, 2, 1, 1, 1), 30)
+    assert [e.titulo for e in es] == ["Patas y travesaños"]  # el que pesa; «y» no se encadena
+    for cuantos in ((40, 18, 19, 11, 5, 4), (1, 1, 1, 1, 1, 1), (3, 60, 2, 2, 1, 30)):
+        for e in etapas(_grupos(*cuantos), 50):
+            assert "," not in e.titulo and "más" not in e.titulo, e.titulo
+            assert len(e.titulo) <= MAX_TITULO_GENERADO
+            tit = [s for s, *_r, es_tit in maquetar_rotulo(e.titulo, e.texto, ESTILO).lineas
+                   if es_tit]
+            assert tit == [e.titulo], tit  # entra entero, sin «…»
+
+
+def test_el_rotulo_cuenta_por_rol_sin_lados_ni_ejes():
+    """El texto de la piloto real: «Se suman «Pata (-Y, alimentación)», «Pata (+Y,
+    alimentación)», «Pata (-Y, motriz)» y 57 piezas más». Cada rol se cuenta y una pieza suelta
+    va por su rol con artículo."""
+    nombres = ["Pata (-Y, alimentación)", "Pata (+Y, alimentación)", "Pata (-Y, motriz)",
+               "Pata (+Y, motriz)", "Travesaño (alimentación)", "Travesaño (motriz)",
+               "Motorreductor", "Placa base (-Y)"]
+    fids = [f"p{i}" for i in range(len(nombres))]
+    paso = Paso(k=1, cmd_id="m", tipo="montaje", titulo="Patas", etiqueta="",
+                agregados=tuple(fids), quitados=(), reemplazados=(), revelado=(tuple(fids),),
+                roles=("Pata",), nombres=dict(zip(fids, nombres)), grupos=("Patas y travesaños",))
+    texto = texto_etapa([paso])
+    assert texto == "Se suman 4 patas, 2 travesaños, el motorreductor y la placa base.", texto
+    assert "(" not in texto and "«" not in texto
+
+
+@pytest.mark.parametrize("rol_, esperado", [
+    ("Motorreductor", "el motorreductor"), ("Placa base", "la placa base"),
+    ("Guarda de cadenas (+Y)", "la guarda de cadenas"), ("Base", "la base"),
+    ("Eje motriz", "el eje motriz"), ("UCP 205", "el UCP 205"), ("Unión", "la unión"),
+    ("Piñón motriz", "el piñón motriz"), ("Sistema de tensión", "el sistema de tensión"),
+])
+def test_con_articulo(rol_, esperado):
+    from apolo.services.rotulos import con_articulo
+
+    assert con_articulo(rol_) == esperado
 
 
 def test_un_grupo_retocado_no_da_nombre_a_la_etapa():
@@ -342,11 +392,11 @@ def test_la_plantilla_dispara_en_la_etapa_que_mas_piezas_agrega():
     datos = DatosRotulo(piezas=piezas)
     uno = _p(1, roles=("Tubo del rodillo",), agregados=("t0",))
     resto = _p(2, roles=("Tubo del rodillo",), agregados=tuple(f"t{i}" for i in range(1, 8)))
-    assert texto_etapa([uno], datos) == 'Se suma «Tubo del rodillo».'  # 1 sola: sin paso
+    assert texto_etapa([uno], datos) == "Se suma el tubo del rodillo."  # 1 sola: sin paso
     from apolo.services.rotulos import textos_etapas
 
     primero, segundo = textos_etapas([[uno], [resto]], datos)
-    assert primero == "Se suma «Tubo del rodillo»."
+    assert primero == "Se suma el tubo del rodillo."
     assert segundo == 'Se suman 7 rodillos Ø2" cada 95,25 mm.'
 
 

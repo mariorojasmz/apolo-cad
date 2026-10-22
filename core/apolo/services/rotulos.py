@@ -13,8 +13,9 @@ tildes; une los pasos seguidos de un mismo patrón (D2 de video-tienda-pulido).
 
 **Rótulo** (`textos_etapas`): frases deterministas (las pule una persona en el guion), de hasta
 `MAX_TEXTO_ROTULO` caracteres, las DOS líneas del rótulo de 1080p. «Se suman 2 largueros, 12
-rodillos y «Placa base».» cuenta lo que ENTRA en la etapa por base, en orden de aparición; una
-pieza suelta va por su nombre entre comillas. «Se ajusta «X».» nombra las piezas de etapas
+rodillos y la placa base.» cuenta lo que ENTRA en la etapa por base, en orden de aparición; una
+pieza suelta va por su rol con artículo (`con_articulo`), nunca por su nombre con lados y ejes
+(«Pata (-Y, alimentación)»: fabrica-de-publicaciones F2). «Se ajusta «X».» nombra las piezas de etapas
 anteriores que se trabajan (booleana, redondeo, mover, mate) y «Se retira «X».», lo que se
 borra. Lo que entra y sale en la misma etapa (la herramienta de una booleana) no se cuenta, y
 una pieza que entra y se trabaja en la misma etapa sólo «se suma».
@@ -112,10 +113,38 @@ def cifra(valor: float, decimales: int = 2) -> str:
     return texto.replace(",", "_").replace(".", ",").replace("_", NBSP)
 
 
-def _minuscula(texto: str) -> str:
+def minuscula(texto: str) -> str:
+    """La inicial en minúscula, salvo en una sigla («Motorreductor» → «motorreductor», «UCP»
+    queda)."""
     if len(texto) > 1 and texto[0].isupper() and texto[1].islower():
         return texto[0].lower() + texto[1:]
     return texto
+
+
+_minuscula = minuscula
+
+
+#: Excepciones al género por la terminación (`con_articulo`): lo que en una máquina se nombra.
+_FEMENINAS = {"base", "llave", "clave", "torre", "fuente", "nave", "mano", "foto", "moto",
+              "polea", "red", "pared", "luz", "cruz", "nariz", "lente", "corriente"}
+_MASCULINAS = {"sistema", "esquema", "problema", "programa", "diagrama", "mapa", "día",
+               "camión", "avión", "tranvía", "tema", "clima"}
+
+
+def con_articulo(rol_: str) -> str:
+    """Una pieza suelta del rótulo por su rol, con artículo y en minúscula: «el motorreductor»,
+    «la placa base» (nunca «Pata (-Y, alimentación)», con lados y ejes que no dicen nada). El
+    género sale de la terminación de la primera palabra (-a, -ión, -dad, -tud, -umbre: la),
+    con excepciones; una sigla va con «el». Plan fabrica-de-publicaciones, F2."""
+    texto = _minuscula(base(rol_))
+    primera = texto.split(" ", 1)[0]
+    clave = primera.lower()
+    if primera.isupper() or clave in _MASCULINAS:
+        femenina = False
+    else:
+        femenina = clave in _FEMENINAS or clave.endswith(
+            ("a", "ión", "dad", "tad", "tud", "umbre", "sis"))
+    return f"{'la' if femenina else 'el'} {texto}"
 
 
 def plural(rol_: str) -> str:
@@ -345,12 +374,11 @@ def _texto(nuevas: dict, ajustan: list, retiran: list, datos: DatosRotulo | None
     for b, fids in _por_base(nuevas).items():
         frase = plantilla(b, fids, datos) if datos is not None and b in dispara else None
         if frase is None:
-            texto = f"«{sin_prefijo(nuevas[fids[0]])}»" if len(fids) == 1 else (
-                f"{len(fids)} {plural(b)}")
+            texto = con_articulo(b) if len(fids) == 1 else f"{len(fids)} {plural(b)}"
             ricos.append((texto, len(fids), False))
             cortos.append((texto, len(fids), False))
             continue
-        sujeto = (f"«{sin_prefijo(nuevas[fids[0]])}»" if len(fids) == 1
+        sujeto = (con_articulo(b) if len(fids) == 1
                   else f"{len(fids)} {frase.sustantivo or plural(b)}")
         ricos.append((f"{sujeto} {frase.desc}{frase.detalle}", len(fids), True))
         cortos.append((f"{sujeto} {frase.desc}", len(fids), True))

@@ -22,7 +22,6 @@ Abrir el proyecto lo cambia en la UI de Apolo: el CLI lo avisa al empezar.
 from __future__ import annotations
 
 import contextlib
-import copy
 import io
 import json
 import shutil
@@ -32,12 +31,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from apolo.publicacion import ficha as fichas
-from apolo.publicacion import paquete
+from apolo.publicacion import paquete, preparar
 from apolo.publicacion.entregables import NIVELES, EnFondo, Recolector, lista, omitidos
 from apolo.publicacion.paquete import FICHA_YAML, GUION, PublicacionError
 
 DURACION_S = 75.0
-VERSION_INICIAL = "1.0.0"
 
 
 class _Api:
@@ -117,13 +115,16 @@ def _avisos_de_capacidad(fuera: dict[str, str], entregables: list, cierre: str) 
 def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
           version: str | None = None, duracion_s: float = DURACION_S, titulo: str | None = None,
           eco=print, modo: str = "montaje", marcha: dict | None = None,
-          marcha_s: float | None = None) -> dict:
+          marcha_s: float | None = None, tienda: str | None = None) -> dict:
     """`publicar guion`: escribe `guion.json` y el borrador de `ficha.yaml`. Devuelve
     {carpeta, guion, ficha, etapas, duracion_s, capitulos}. `modo`: «montaje» (cómo se arma,
     D8 de video-tienda-pulido) o «diseño» (el orden del log). `marcha`: el escenario de la
     simulación (la petición de `simulate`) para sumar la máquina andando (video-realista D5:
-    sólo la graba `--render navegador`); su tiempo sale de la duración objetivo."""
+    sólo la graba `--render navegador`); su tiempo sale de la duración objetivo. `tienda`: la
+    de la URL del cierre (`tienda.url_de_la_tienda`: `APOLO_TIENDA_URL` o apolocad.com)."""
     from apolo import paths
+    from apolo.publicacion import textos
+    from apolo.publicacion.tienda import url_de_la_tienda
     from apolo.services.datos_rotulos import datos_rotulos
     from apolo.services.guion_video import (
         MARCHA_S,
@@ -138,6 +139,7 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     if modo not in MODOS:
         raise PublicacionError(f"Modo de video desconocido: {modo!r} (válidos: {', '.join(MODOS)})")
     eco = eco or _eco_nulo
+    tienda = url_de_la_tienda(tienda)
     api = _Api(cliente)
     t0 = time.perf_counter()
     nombre = api.abrir(proyecto)
@@ -148,7 +150,7 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
         eco(aviso)
     slug = slug or fichas.slug(nombre)
     raiz = Path(raiz or paths.publicaciones_dir())
-    version = version or _version_libre(raiz, slug)
+    version = version or paquete.version_libre(raiz, slug)
     carpeta = paquete.carpeta_version(raiz, slug, version)
     paquete.exigir_no_publicada(carpeta)
     if (carpeta / GUION).exists():
@@ -167,6 +169,7 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     objetivo = max(duracion_s - (con_marcha["duracion_s"] if con_marcha else 0.0), 1.0)
     g = armar_guion(doc, etapas_del_modo(doc, objetivo, modo, datos=datos_rotulos(doc)),
                     titulo=titulo, modo=modo, marcha=con_marcha)
+    g["cierre"]["url"] = textos.url_maquina(tienda, slug)  # D1: derivada, no la escribe nadie
     validar_guion(g, doc)
     carpeta.mkdir(parents=True, exist_ok=True)
     (carpeta / GUION).write_text(json.dumps(g, indent=2, ensure_ascii=False) + "\n",
@@ -185,35 +188,13 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     eco("Revisa antes de `publicar generar`:\n"
         "  - guion.json: el título y el texto (rótulo) de cada etapa, las cifras y el cierre;\n"
         "    las duraciones van en segundos. No cambies «documento»: ata el guion a este log.\n"
-        "  - ficha.yaml: la descripción (obligatoria), etiquetas, nivel y precio, url_tienda\n"
-        "    y, si vas a usar --musica, los datos de la pista.")
+        "  - ficha.yaml: la descripción (obligatoria), etiquetas, nivel y precio; valídala con\n"
+        "    `publicar ficha --revisar` (la música la elige la biblioteca, o --musica).")
     eco("Capítulos para YouTube: " + (" · ".join(f"{s // 60:02d}:{s % 60:02d} {t}"
                                                 for s, t in caps) or "ninguno (no cumplen D15)"))
     return {"carpeta": carpeta, "guion": carpeta / GUION, "ficha": carpeta / FICHA_YAML,
             "etapas": len(g["etapas"]), "duracion_s": duracion_total(g), "capitulos": caps,
             "avisos": avisos, "segundos": time.perf_counter() - t0}
-
-
-def _version_libre(raiz: Path, slug: str) -> str:
-    existentes = paquete.versiones(raiz, slug)
-    if VERSION_INICIAL not in existentes:
-        return VERSION_INICIAL
-    ultima = existentes[-1]
-    raise PublicacionError(f"«{slug}» ya tiene las versiones {', '.join(existentes)}: elige "
-                           f"una nueva con --version (p. ej. {paquete.siguiente(ultima)}).")
-
-
-def _version_pendiente(raiz: Path, slug: str) -> str:
-    pendientes = [v for v in paquete.versiones(raiz, slug)
-                  if (paquete.carpeta_version(raiz, slug, v) / GUION).exists()
-                  and not paquete.publicada(paquete.carpeta_version(raiz, slug, v))]
-    if len(pendientes) == 1:
-        return pendientes[0]
-    if not pendientes:
-        raise PublicacionError(f"No hay ningún guion pendiente de «{slug}» en {raiz}: corre "
-                               "`publicar guion` primero (o pasa --slug si usaste otro).")
-    raise PublicacionError(f"«{slug}» tiene varias versiones sin publicar "
-                           f"({', '.join(pendientes)}): elige una con --version.")
 
 
 RENDERS = ("vtk", "navegador")
@@ -222,9 +203,12 @@ RENDERS = ("vtk", "navegador")
 def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
             version: str | None = None, musica=None, forzar: bool = False,
             con_gravedad: bool = True, eco=print, paralelo: bool = False, render: str = "vtk",
-            conservar_cuadros: bool = False, url: str | None = None, nivel: str = "rapido") -> dict:
+            conservar_cuadros: bool = False, url: str | None = None, nivel: str = "rapido",
+            tienda: str | None = None, sin_musica: bool = False, dir_musica=None) -> dict:
     """`publicar generar`: valida, pasa la puerta, trae entregables, renderiza el video y
     arma el paquete. Devuelve el resumen (carpeta, tiempos, video, faltantes, saneo).
+    `tienda`: la de `url_tienda` y del aviso (D1, D8); sin `musica` ni `sin_musica`, la pista
+    sale de ficha.yaml o de la biblioteca `dir_musica` (D9; reglas en `preparar`).
     `render`: «vtk» (el de siempre) o «navegador» (video-realista D7: Edge o Chrome sin
     ventana; sin navegador o sin GPU, avisa y cae a VTK). `url`: la de la API para el
     navegador (por defecto, la del cliente). `nivel`: «rapido» o «maximo» (trazado de rayos por
@@ -241,16 +225,18 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
         raise PublicacionError(f"Nivel desconocido: {nivel!r} (válidos: {', '.join(NIVELES)})")
     from apolo import paths
     from apolo.media.codificar import buscar_ffmpeg, buscar_ffprobe
-    from apolo.services.guion_video import GuionError, validar_guion
+    from apolo.publicacion.tienda import url_de_la_tienda
+    from apolo.services.guion_video import GuionError, capitulos, validar_guion
 
     eco = eco or _eco_nulo
+    tienda = url_de_la_tienda(tienda)
     tiempos: dict[str, float] = {}
     t = time.perf_counter()
     api = _Api(cliente)
     nombre = api.abrir(proyecto)
     slug = slug or fichas.slug(nombre)
     raiz = Path(raiz or paths.publicaciones_dir())
-    version = version or _version_pendiente(raiz, slug)
+    version = version or paquete.version_pendiente(raiz, slug)
     carpeta = paquete.carpeta_version(raiz, slug, version)
     paquete.exigir_no_publicada(carpeta)
     if not (carpeta / GUION).exists():
@@ -260,21 +246,24 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     except json.JSONDecodeError as exc:
         raise PublicacionError(f"{GUION} no es JSON válido (¿una coma de más al editarlo?): "
                                f"{exc}") from None
-    f = fichas.leer(carpeta / FICHA_YAML)
-    pista = Path(musica) if musica else (
-        Path(f["musica"]["archivo"]) if isinstance(f.get("musica"), dict)
-        and f["musica"].get("archivo") else None)
+    de_la_ficha: list[str] = []  # después de lo que falta en la API (D5 de pulido)
+    f, pista, de_biblioteca = preparar.elegir_musica(
+        fichas.leer(carpeta / FICHA_YAML), musica, sin_musica=sin_musica,
+        eco=de_la_ficha.append, dir_musica=dir_musica)
     fichas.validar(f, con_musica=pista is not None)
     if (f["slug"], f["version"]) != (slug, version):
         raise PublicacionError(f"ficha.yaml dice {f['slug']} {f['version']} y la carpeta es "
                                f"{slug}/{version}: el slug y la versión los fija `publicar guion`.")
     if pista is not None and not pista.is_file():
         raise PublicacionError(f"No encuentro la música {pista}")
+    f = preparar.con_url(f, tienda, de_la_ficha.append)
+    # el texto de YouTube se valida ANTES de trabajar (bitácora T: la tienda no avisa)
+    preparar.bloque_youtube(f, capitulos(g), fichas.musica_publica(f) if pista else None, tienda)
     salud = api.salud()
     todos = _de_la_tienda(proyecto, nombre)
     fuera = omitidos(salud, todos)
     for aviso in _avisos_de_capacidad(fuera, todos, "El resto sale igual y el LEEME dice qué "
-                                      "falta."):
+                                      "falta.") + de_la_ficha:
         eco(aviso)
     data = api.apolo()
     doc = _documento(data)
@@ -300,7 +289,7 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
         resumen = _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista,
                          staging, tiempos, eco,
                          {"render": render, "conservar_cuadros": conservar_cuadros, "url": url,
-                          "nivel": nivel})
+                          "nivel": nivel, "tienda": tienda})
         if _firma_de(api.apolo()) != _firma_de(data) or \
                 api.salud().get("project_id") != salud.get("project_id"):
             raise PublicacionError("El proyecto cambió (o se abrió otro) mientras se generaba: "
@@ -310,6 +299,7 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+    preparar.anotar(de_biblioteca)  # D9: el uso cuenta sólo si el paquete salió
     resumen.update(carpeta=carpeta, tiempos_s=tiempos, calidad=calidad)
     _imprimir(eco, resumen)
     return resumen
@@ -386,10 +376,8 @@ def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, sta
     t = time.perf_counter()
     caps = capitulos(g)
     musica = fichas.musica_publica(f) if pista else None  # el mismo crédito que ficha.json
-    try:
-        (staging / "youtube.txt").write_text(textos.youtube(f, caps, musica), encoding="utf-8")
-    except ValueError as exc:  # la descripción no entra en la de YouTube
-        raise PublicacionError(str(exc)) from exc
+    yt = preparar.bloque_youtube(f, caps, musica, como["tienda"])  # youtube.txt = ficha.json
+    (staging / "youtube.txt").write_text(textos.youtube(f, caps, datos=yt), encoding="utf-8")
     glb, html = staging / vista["archivo"], staging / vista["html"]["archivo"]
     zips = paquete.armar(staging, staging / "entregables", todos, registros, ficha=f,
                          cifras=g["cifras"]["items"], calidad_=calidad,
@@ -402,7 +390,7 @@ def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, sta
         musica=musica, calidad_=calidad,
         cifras=g["cifras"]["items"],
         vista_3d={"glb": glb, "html": html, "triangulos": vista["triangulos"],
-                  "etiquetas": vista["html"]["etiquetas"]})
+                  "etiquetas": vista["html"]["etiquetas"]}, youtube=yt)
     tiempos["paquete"] = time.perf_counter() - t
     return {"ficha_json": publica, "faltantes": [f"{r['label']}: {r['note']}" for r in faltan],
             "saneo": informe_saneo, "registros": registros, "vista_3d": vista,
@@ -436,9 +424,7 @@ def _lo_local(cliente, doc, data, g, f, pista, staging, tiempos, eco, entregas: 
     tiempos["vista 3d"] = time.perf_counter() - t
 
     t = time.perf_counter()
-    if not g["cierre"]["url"] and f["url_tienda"]:
-        g = copy.deepcopy(g)
-        g["cierre"]["url"] = f["url_tienda"]
+    g = preparar.guion_para_video(g, f, eco)  # el título de la ficha y la URL derivada
     ultimo = [-1.0]
 
     def progreso(hechos: int, total: int) -> None:

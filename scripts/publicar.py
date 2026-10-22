@@ -1,15 +1,32 @@
 r"""Publica una máquina terminada para la tienda: paquete gratis y completo, ficha y video de
 cómo se construyó (plan `docs/plans/publicacion-tienda.md`, F4).
 
-Dos pasos con un guion editable en medio (D3):
+Dos pasos con un guion editable en medio (D3) y la ficha revisada antes de generar
+(fabrica-de-publicaciones, F2):
 
     .\.venv\Scripts\python.exe -B scripts\publicar.py guion --project 38
         [--url http://127.0.0.1:8000] [--slug S] [--version 1.0.0] [--duracion 75] [--titulo T]
-        [--modo montaje|diseño] [--marcha escenario.json [--marcha-s 8]]
+        [--modo montaje|diseño] [--marcha escenario.json [--marcha-s 8]] [--tienda URL]
     # revisa guion.json y completa ficha.yaml en data\publicaciones\<slug>\<version>\
+    .\.venv\Scripts\python.exe -B scripts\publicar.py ficha --project 38 --revisar
+        [--slug S] [--version V] [--tienda URL]
     .\.venv\Scripts\python.exe -B scripts\publicar.py generar --project 38
-        [--musica C:\musica\pista.mp3] [--forzar] [--sin-gravedad] [--slug S] [--version V]
-        [--render vtk|navegador] [--conservar-cuadros] [--nivel rapido|maximo]
+        [--musica C:\musica\pista.mp3 | --sin-musica] [--forzar] [--sin-gravedad] [--slug S]
+        [--version V] [--render vtk|navegador] [--conservar-cuadros] [--nivel rapido|maximo]
+        [--tienda URL]
+
+`ficha --revisar` valida ficha.yaml (descripción, etiquetas, nivel, precio) y los límites de
+YouTube del texto que saldría (los mismos de la tienda: título ≤ 100, descripción ≤ 5000 bytes
+UTF-8, etiquetas ≤ 500 contando comas y comillas), lo imprime y sale con 2 si algo falla:
+quien redacta la ficha la corre hasta que sale limpia. La URL de la máquina no se escribe: es
+`<tienda>/maquinas/<slug>` (`--tienda` o `APOLO_TIENDA_URL`, por defecto apolocad.com) y va a
+la ficha, al cierre del video y a la descripción, que además lleva el aviso de responsabilidad
+con el enlace a `<tienda>/terminos#responsabilidad`.
+
+Música (D9): sin `--musica`, la pista de `musica.archivo` de ficha.yaml o, si no hay, la menos
+usada de la biblioteca `~\.apolo\musica\pistas.json` (`APOLO_MUSICA_DIR` la cambia), que se
+acredita sola en la descripción; sin pistas, el video sale sin música y lo avisa.
+`--sin-musica` fuerza silencio.
 
 `--render navegador` (plan video-realista, D7) graba el video con el visor de Apolo en Edge o
 Chrome sin ventana (con la GPU, nada se descarga); sin navegador o sin GPU avisa y usa VTK. Con
@@ -81,6 +98,9 @@ def _parser() -> argparse.ArgumentParser:
     comunes.add_argument("--version", default=None,
                          help="versión del diseño, X.Y.Z (guion: 1.0.0 si está libre; generar: "
                               "la única sin publicar)")
+    comunes.add_argument("--tienda", default=None,
+                         help="la tienda de la URL de la máquina y del aviso (por defecto "
+                              "APOLO_TIENDA_URL o https://apolocad.com)")
     g = sub.add_parser("guion", parents=[comunes],
                        help="escribe guion.json y el borrador de ficha.yaml para revisar")
     g.add_argument("--duracion", type=float, default=75.0,
@@ -97,7 +117,10 @@ def _parser() -> argparse.ArgumentParser:
     gen = sub.add_parser("generar", parents=[comunes],
                          help="puerta de entrega, entregables, video y paquete")
     gen.add_argument("--musica", default=None,
-                     help="pista de música (tuya, con su licencia: D8); pisa musica.archivo")
+                     help="pista de música (tuya, con su licencia: D8); pisa musica.archivo y "
+                          "la biblioteca")
+    gen.add_argument("--sin-musica", action="store_true",
+                     help="el video sale sin música (no usa la biblioteca)")
     gen.add_argument("--forzar", action="store_true",
                      help="publica aunque la puerta de entrega no esté en verde («con observaciones»)")
     gen.add_argument("--sin-gravedad", action="store_true",
@@ -110,6 +133,17 @@ def _parser() -> argparse.ArgumentParser:
     gen.add_argument("--nivel", choices=("rapido", "maximo"), default="rapido",
                      help="con --render navegador: rapido (el visor en calidad alta) o maximo "
                           "(trazado de rayos por cuadro: horas por video, para correr de noche)")
+    fi = sub.add_parser("ficha", help="revisa ficha.yaml y muestra el texto de YouTube que saldría")
+    fi.add_argument("--project", type=int, default=None,
+                    help="id del proyecto en Apolo (para el slug; sobra con --slug)")
+    fi.add_argument("--url", default="http://127.0.0.1:8000", help="la API de Apolo")
+    fi.add_argument("--slug", default=None, help="carpeta de la publicación")
+    fi.add_argument("--version", default=None,
+                    help="versión, X.Y.Z (por defecto, la única con guion sin publicar)")
+    fi.add_argument("--tienda", default=None,
+                    help="la tienda (por defecto APOLO_TIENDA_URL o https://apolocad.com)")
+    fi.add_argument("--revisar", action="store_true", required=True,
+                    help="valida la ficha y los límites de YouTube; sale con 2 si algo falla")
     sube = sub.add_parser("subir", help="sube el paquete generado a la tienda y lo publica "
                                          "(llave en APOLO_TIENDA_LLAVE)")
     sube.add_argument("--project", type=int, default=None,
@@ -144,21 +178,41 @@ def _parser() -> argparse.ArgumentParser:
     return ap
 
 
-def _carpeta(args):
-    """La carpeta de la versión: el slug, de --slug o del nombre del proyecto en la API."""
+def _carpeta(args, *, pendiente: bool = False):
+    """La carpeta de la versión: el slug, de --slug o del nombre del proyecto en la API. Con
+    `pendiente`, la versión con guion sin publicar (la de `ficha --revisar`)."""
     import httpx
 
     from apolo import paths
-    from apolo.publicacion import tienda
+    from apolo.publicacion import paquete, tienda
     from apolo.publicacion.paquete import PublicacionError
 
     slug = args.slug
     if slug is None:
         if args.project is None:
-            raise PublicacionError("Pasa --project (o --slug) para saber qué paquete subir.")
+            raise PublicacionError("Pasa --project (o --slug) para saber qué paquete usar.")
         with httpx.Client(base_url=args.url, timeout=30.0) as api:
             slug = tienda.slug_de_proyecto(api, args.project)
-    return tienda.carpeta_publicada(paths.publicaciones_dir(), slug, args.version)
+    raiz = paths.publicaciones_dir()
+    if pendiente:
+        version = args.version or paquete.version_pendiente(raiz, slug)
+        return paquete.carpeta_version(raiz, slug, version)
+    return tienda.carpeta_publicada(raiz, slug, args.version)
+
+
+def _ficha(args) -> int:
+    """`publicar ficha --revisar`: la lógica, en `apolo.publicacion.preparar.revisar`."""
+    from apolo.publicacion import preparar, tienda
+    from apolo.publicacion.ficha import FichaError
+    from apolo.publicacion.paquete import PublicacionError
+
+    try:
+        preparar.revisar(_carpeta(args, pendiente=True),
+                         tienda=tienda.url_de_la_tienda(args.tienda))
+    except (FichaError, PublicacionError) as exc:
+        print(f"\n{exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 def _subir(args, cliente=None) -> int:
@@ -222,6 +276,8 @@ def main(argv: list[str] | None = None, cliente=None, abrir=None) -> int:
         return _subir(args, cliente=cliente)
     if args.paso == "youtube":
         return _youtube(args, cliente=cliente, abrir=abrir)
+    if args.paso == "ficha":
+        return _ficha(args)
     import httpx
 
     from apolo.media.codificar import FfmpegNoEncontrado
@@ -240,7 +296,8 @@ def main(argv: list[str] | None = None, cliente=None, abrir=None) -> int:
         if args.paso == "guion":
             flujo.guion(cliente, args.project, slug=args.slug, version=args.version,
                         duracion_s=args.duracion, titulo=args.titulo, modo=args.modo,
-                        marcha=_escenario(args.marcha), marcha_s=args.marcha_s)
+                        marcha=_escenario(args.marcha), marcha_s=args.marcha_s,
+                        tienda=args.tienda)
         else:
             # D6 de video-tienda-pulido: con la API en otro proceso (la URL), los entregables
             # se piden mientras aquí se renderiza el video; un cliente prestado (los tests, con
@@ -249,7 +306,8 @@ def main(argv: list[str] | None = None, cliente=None, abrir=None) -> int:
                           musica=args.musica, forzar=args.forzar,
                           con_gravedad=not args.sin_gravedad, paralelo=propio,
                           render=args.render, conservar_cuadros=args.conservar_cuadros,
-                          url=args.url, nivel=args.nivel)
+                          url=args.url, nivel=args.nivel, tienda=args.tienda,
+                          sin_musica=args.sin_musica)
     except (PublicacionError, FichaError, GuionError, SaneoError, FfmpegNoEncontrado) as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 2

@@ -174,7 +174,7 @@ def test_youtube_txt_sin_capitulos_lo_dice():
         g[parte]["duracion_s"] = 1.0
     assert capitulos(g) == []
     txt = textos.youtube({"titulo": "T", "descripcion": "d", "url_tienda": "", "etiquetas": []}, [])
-    assert "Sin capítulos" in txt and "(pon aquí el enlace de la tienda)" in txt
+    assert "Sin capítulos" in txt and "modelo 3D: https://apolocad.com\n" in txt
 
 
 # ------------------------------------------------------------------ zips (D11)

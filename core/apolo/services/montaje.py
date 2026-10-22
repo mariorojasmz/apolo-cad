@@ -38,7 +38,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from apolo.services.rotulos import base, corta, familia, lista_y, plural, rol, sin_prefijo
+from apolo.services.rotulos import (
+    base,
+    corta,
+    familia,
+    lista_y,
+    minuscula,
+    plural,
+    rol,
+    sin_prefijo,
+)
 
 #: Uniones que hacen un conjunto de taller (no se desarman).
 PERMANENTES = ("soldadura", "pegado")
@@ -344,10 +353,16 @@ def _union(piezas: list[str], i: int, nivel: dict, uniones, puesto: dict, pos: i
 def _titulo(scene: dict, ids: tuple, union: str, grupo: str | None) -> str:
     if union == "soldado":
         return corta(f"Conjunto soldado · {grupo}" if grupo else "Conjunto soldado", MAX_TITULO)
-    bases = list(dict.fromkeys(base(rol(scene[p].name, p)) for p in ids))
+    todas = [base(rol(scene[p].name, p)) for p in ids]
+    bases = list(dict.fromkeys(todas))
     if len(bases) == 1:
         return corta(bases[0], MAX_TITULO)
-    return corta(grupo or lista_y(bases, 2), MAX_TITULO)
+    if grupo:
+        return corta(grupo, MAX_TITULO)
+    # sin grupo, las dos bases con más piezas, en su orden: nunca «Pata y 3 más»
+    dos = sorted(sorted(bases, key=lambda b: (-todas.count(b), bases.index(b)))[:2],
+                 key=bases.index)
+    return corta(f"{dos[0]} y {minuscula(dos[1])}", MAX_TITULO)
 
 
 def _destinos(scene: dict, fids: list[str]) -> str:

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); faltan F0, T (pedido de la tienda tras PED-124), F2, F3 y F4
+nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); T entregada (PED-125); F2 implementada con tests y los briefs escritos en apolo-fabrica (falta que Mario los revise y los commitee allá, y verla con una ficha escrita por un modelador real en F4); faltan F0, F3 y F4
 descripcion: Mario pide «crea estas máquinas» y Apolo entrega cada una modelada, revisada, con su video en YouTube y publicada en apolocad.com, sin pasos a mano
 ---
 
@@ -239,3 +239,71 @@ errores `{error}`:
   UTF-8), etiquetas (lista; suma con comas y comillas ≤ 500)}`, sin `<` ni `>`; si no cumple se
   guarda null en silencio y la tienda arma textos por defecto. → F2 debe validar con los MISMOS
   límites antes de generar, para no caer en silencio al texto por defecto.
+
+### F2 — ficha y textos automáticos (2026-10-21, implementada con tests)
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts\publicar.py ficha --project N --revisar [--slug S] [--version V] [--tienda URL]
+.\.venv\Scripts\python.exe -B scripts\publicar.py generar --project N [--musica X | --sin-musica] [--tienda URL]
+```
+
+- **Una fuente, validada antes de trabajar**: `textos.datos_youtube` arma {titulo, descripcion,
+  etiquetas} y `textos.problemas_youtube` aplica los límites de T. `generar` lo valida al
+  empezar (con los capítulos del guion y la música elegida: falla antes de la puerta y del
+  video, sin tocar la carpeta) y otra vez al armar el paquete, y escribe el MISMO dict en
+  `youtube.txt` y en el bloque `youtube` de `ficha.json`; `publicar youtube` sube ese bloque tal
+  cual (un paquete de antes lo arma como en F1). «Caracteres» = unidades UTF-16 (`length` de
+  JavaScript: un emoji cuenta 2), nunca menos de lo que cuenta la tienda; la descripción en
+  bytes UTF-8; etiquetas = letras + una coma entre cada una + 2 por las que llevan espacios.
+  `ficha.validar` cuenta igual (descripción ≤ 3000 BYTES, etiquetas ≤ 500 con esa suma).
+- **`url_tienda` derivada** (`textos.url_maquina`: `<tienda>/maquinas/<slug>`; la tienda,
+  `tienda.url_de_la_tienda`: `--tienda` > `APOLO_TIENDA_URL` > apolocad.com). El borrador de
+  ficha.yaml ya no la trae y `validar` la acepta como opcional (las fichas de antes la tienen);
+  una escrita a mano que no coincide se avisa y gana la derivada. `guion` la escribe en
+  `cierre.url`; `generar` la pone en la ficha, el LEEME, la licencia, ficha.json, el cierre (si el
+  guion trae otra, lo avisa) y la descripción.
+- **Aviso (D8)**: la descripción suma «Diseño generado y validado por software: no fue
+  construido ni probado físicamente. Antes de fabricar, lee el aviso:
+  `<tienda>/terminos#responsabilidad`», después del enlace a la máquina. El cierre del video
+  lleva una línea corta equivalente en letra chica (`composicion.AVISO_CIERRE`), dibujada por
+  `composicion.cierre`, que usan VTK (`publicacion/video.py`) y el navegador
+  (`media/tarjetas.py`): sin tocar `ui/`.
+- **Rótulos cortos**: el título de etapa nombra los DOS grupos que más pesan, en su orden
+  («Cadenas y motorreductor», el segundo en minúscula; « · » si uno ya lleva «y»), nunca una
+  lista de tres ni «y 2 más»; si no caben en 32, el que más pesa. Los capítulos de YouTube son
+  esos títulos. El rótulo cuenta por rol y una pieza suelta va por su rol con artículo
+  (`rotulos.con_articulo`: «4 patas, 2 travesaños, el motorreductor y la placa base»), nunca por
+  su nombre con lados y ejes. El paso de montaje sin grupo se titula con sus dos bases con más
+  piezas («Pata y travesaño»), no «Pata y 3 más» (también lo lee el manual). Sobre el `.apolo`
+  saneado de la primera publicación real (proyecto 2), hoy salen «Bastidor», «Rodillos» y
+  «Cadenas y motorreductor» (el guion de entonces decía «Patas y travesaños, Motorreductor y 2
+  más»). Tests golden/guion actualizados: los textos «Se suman «Base» y «Torre».» y «P1 y Otra»
+  pasaron a «la base y la torre» y «P1 y otra».
+- **Miniatura**: lleva el TÍTULO de la ficha (el guion con el título por defecto —el nombre del
+  proyecto, a menudo el slug— lo toma de la ficha también para la portada:
+  `preparar.guion_para_video`) y la marca «Apolo CAD». `composicion.maquetar_miniatura` elige la
+  letra más grande con la que el título entra ENTERO en 2 líneas (o en 3 con letra ≤ 1.0), sin
+  «…», palabras partidas ni una última línea de 1–3 letras («2 / m»); 1280×720 y ≤ 2 MB como
+  antes (`guardar_miniatura`). La tienda usa el mismo archivo (rol `miniatura`): sin cambios.
+- **Música (D9)**: `publicacion/musica.py`. Biblioteca en `paths.home()/musica`
+  (`APOLO_MUSICA_DIR`); `pistas.json` lo escribe una persona y nunca se reescribe; los usos van
+  en `usos.json` al lado (sólo se anotan si el paquete salió). Orden: `--musica` >
+  `musica.archivo` de ficha.yaml > la menos usada de la biblioteca (a igualdad, la primera) >
+  sin música, avisado; `--sin-musica` fuerza silencio. Una biblioteca rota (pista sin
+  licencia, archivo ausente, clave desconocida) es un error con todos los problemas. La suite
+  apunta `APOLO_MUSICA_DIR` a una carpeta vacía (`conftest.py`) para no usar ni sumar usos a la
+  biblioteca real.
+- **`publicar ficha --revisar`** (`preparar.revisar`): valida ficha.yaml (además, etiquetas no
+  vacías y slug/versión de la carpeta), deriva la URL, elige la música que tocaría (sin anotar),
+  arma el texto con los capítulos de `guion.json` y lo imprime con lo que pesa; sale con 2 y los
+  problemas si algo falla. No abre el proyecto (con `--project` sólo lee su nombre).
+- Lo de `generar` que no es flujo se fue a `publicacion/preparar.py` y las versiones a
+  `paquete.py` (`version_libre`, `version_pendiente`): `flujo.py` quedaba sobre 500 líneas.
+- **Briefs (D12)**: `briefs/modelador.md` (modelar por MCP + redactar la ficha + `ficha
+  --revisar` hasta verde) y `briefs/orquestacion.md` (encargo, flota, revisor ciego,
+  correcciones, publicar, cola de YouTube; `publicar fabrica` marcado como F3) en el repo
+  privado `apolo-fabrica`; nada de eso va en `docs/`.
+- Tests: `tests/test_publicacion_ficha_auto.py` (límites, URL, aviso, música, miniatura, cierre)
+  y casos nuevos en `test_publicacion_e2e.py` (bloque youtube en ficha.json, falla temprana de
+  `generar`, biblioteca y `--sin-musica`, `ficha --revisar` por el CLI), `test_video_pulido.py`
+  (títulos de muchos grupos, rótulo por rol) y `test_publicar_youtube.py` (el bloque va tal cual).

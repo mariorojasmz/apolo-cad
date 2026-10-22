@@ -12,8 +12,9 @@ con la YouTube Data API v3 con el permiso de `youtube_oauth` (D3). Pasos:
   4. la miniatura (`thumbnails.set`): si falla es un AVISO, el video ya subió;
   5. `youtube.json` con {video_id, url, privacidad, canal, subido_en, titulo}.
 
-Título, descripción y etiquetas salen de `textos.datos_youtube`, la misma fuente que
-`youtube.txt`; sin `url_tienda` en la ficha, el enlace es `<tienda>/maquinas/<slug>`. Privado
+Título, descripción y etiquetas son el bloque `youtube` de `ficha.json` (F2), la misma fuente
+que `youtube.txt`; un paquete de antes lo arma con `textos.datos_youtube` (sin `url_tienda` en
+la ficha, el enlace es `<tienda>/maquinas/<slug>`). Privado
 salvo `publico` (D4: YouTube deja privado lo que sube un proyecto sin auditar). El cupo diario
 agotado es `CupoAgotado`, un estado esperable, y no deja `youtube.json`.
 """
@@ -63,15 +64,25 @@ def leer_resultado(carpeta: Path) -> dict | None:
 
 
 def datos(ficha: dict, tienda: str) -> dict:
-    """{titulo, descripcion, etiquetas} desde `ficha.json` (capítulos y música, los de su
-    `video`); el enlace a la tienda, el de la ficha o el derivado del slug."""
+    """{titulo, descripcion, etiquetas}: el bloque `youtube` de `ficha.json` tal cual (F2: el
+    mismo texto que `youtube.txt` y que la cola de la tienda) o, en un paquete de antes, armado
+    desde `ficha.json` (capítulos y música, los de su `video`; el enlace, el de la ficha o el
+    derivado del slug). Con los límites de la tienda (`textos.problemas_youtube`)."""
+    bloque = ficha.get("youtube")
+    if isinstance(bloque, dict):
+        d = {k: bloque.get(k) for k in ("titulo", "descripcion", "etiquetas")}
+        problemas = textos.problemas_youtube(d)
+        if problemas:
+            raise PublicacionError("El bloque youtube de ficha.json no cumple los límites de "
+                                   "YouTube:\n  - " + "\n  - ".join(problemas))
+        return d
     video = ficha.get("video") or {}
     caps = [(int(c["inicio_s"]), c["titulo"]) for c in video.get("capitulos") or []]
     con_url = {**ficha, "url_tienda": ficha.get("url_tienda")
-               or f"{tienda}/maquinas/{ficha['slug']}"}
+               or textos.url_maquina(tienda, ficha["slug"])}
     try:
-        return textos.datos_youtube(con_url, caps, video.get("musica"))
-    except ValueError as exc:  # la descripción no entra en la de YouTube
+        return textos.datos_youtube(con_url, caps, video.get("musica"), tienda=tienda)
+    except ValueError as exc:  # no cumple los límites de YouTube
         raise PublicacionError(str(exc)) from None
 
 

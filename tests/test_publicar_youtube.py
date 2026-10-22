@@ -288,6 +288,23 @@ def test_url_tienda_de_la_ficha_gana(google, paquete):
     assert "https://tienda.example/mesa" in yt.datos(ficha, "https://apolocad.com")["descripcion"]
 
 
+def test_el_bloque_youtube_de_ficha_json_va_tal_cual(google, paquete):
+    """F2: `generar` deja en ficha.json el texto ya validado (el mismo de youtube.txt y el que
+    sube la cola de la tienda); la subida no lo vuelve a armar. Uno que no cumple, no sube."""
+    ficha = json.loads((paquete / "ficha.json").read_text(encoding="utf-8"))
+    ficha["youtube"] = {"titulo": "Mesa de taller", "descripcion": "Texto ya armado.",
+                        "etiquetas": ["mesa de taller"]}
+    (paquete / "ficha.json").write_text(json.dumps(ficha), encoding="utf-8")
+    _subir(paquete)
+    s = google.metadatos["snippet"]
+    assert s["description"] == "Texto ya armado." and s["tags"] == ["mesa de taller"]
+    ficha["youtube"]["descripcion"] = "ñ" * 2501
+    from apolo.publicacion.paquete import PublicacionError
+
+    with pytest.raises(PublicacionError, match="bytes UTF-8"):
+        yt.datos(ficha, "https://apolocad.com")
+
+
 def test_refresca_sin_navegador(google, paquete):
     _token_guardado(google)
     r = _subir(paquete, abrir=_sin_navegador)

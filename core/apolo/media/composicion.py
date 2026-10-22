@@ -32,6 +32,10 @@ TAM_MINIATURA = (1280, 720)
 LIMITE_MINIATURA = 2_000_000
 MAX_LINEAS_ROTULO = 3
 MAX_CIFRAS = 12
+#: La marca de la miniatura y el aviso del cierre (D8 de fabrica-de-publicaciones).
+MARCA = "Apolo CAD"
+AVISO_CIERRE = ("Diseño generado y validado por software: no fue construido ni probado "
+                "físicamente. Lee el aviso de responsabilidad antes de fabricar.")
 ELIPSIS = "…"
 #: Los tamaños del `Estilo` son px para un lado corto de 1080; se escalan con el real.
 _REF = 1080
@@ -232,11 +236,16 @@ def _alto_bloque(items: list) -> int:
 # ── Portada y miniatura ───────────────────────────────────────────────────────
 
 
+def _ancho_portada(estilo: Estilo) -> float:
+    return (estilo.ancho - 2 * estilo.px(estilo.margen)) * (0.8 if estilo.ancho > estilo.alto
+                                                             else 1.0)
+
+
 def _portada(titulo: str, subtitulo: str, fondo, estilo: Estilo, escala: float) -> Image.Image:
     im = _lienzo(estilo, fondo)
     draw = ImageDraw.Draw(im)
     m = estilo.px(estilo.margen)
-    ancho_texto = (estilo.ancho - 2 * m) * (0.8 if estilo.ancho > estilo.alto else 1.0)
+    ancho_texto = _ancho_portada(estilo)
     f_tit = cargar_fuente(estilo, estilo.px(estilo.tam_titulo * escala), titulo=True)
     f_sub = cargar_fuente(estilo, estilo.px(estilo.tam_texto * 1.2))
     barra = estilo.px(10)
@@ -260,10 +269,32 @@ def portada(titulo: str, subtitulo: str = "", fondo: Image.Image | None = None,
     return _portada(titulo, subtitulo, fondo, estilo, 1.0)
 
 
-def miniatura(render: Image.Image | None, titulo: str, estilo: Estilo = ESTILO) -> Image.Image:
-    """Miniatura de YouTube (1280×720, D15): el render y el título en letra grande."""
+ESCALAS_MINIATURA = (1.45, 1.3, 1.15, 1.0, 0.9, 0.8, 0.7, 0.6)
+
+
+def maquetar_miniatura(titulo: str, estilo: Estilo = ESTILO) -> tuple[float, list[str]]:
+    """(escala, líneas) del título en la miniatura: la letra más grande con la que entra ENTERO
+    (sin «…», palabras partidas ni una última línea de 1-3 letras, «2 / m») en 2 líneas; si no,
+    en 3 con letra de 1.0 para abajo. Más de 100 caracteres se cortan en la más chica."""
+    est = replace(estilo, ancho=TAM_MINIATURA[0], alto=TAM_MINIATURA[1])
+    palabras = titulo.split()
+    for maximo, escalas in ((2, ESCALAS_MINIATURA), (3, [e for e in ESCALAS_MINIATURA if e <= 1])):
+        for escala in escalas:
+            f = cargar_fuente(est, est.px(est.tam_titulo * escala), titulo=True)
+            lineas = envolver(titulo, f, _ancho_portada(est))
+            if (len(lineas) <= maximo and " ".join(lineas).split() == palabras
+                    and (len(lineas) == 1 or len(lineas[-1]) > 3)):
+                return escala, lineas
+    return escala, envolver(titulo, f, _ancho_portada(est), 3)
+
+
+def miniatura(render: Image.Image | None, titulo: str, estilo: Estilo = ESTILO,
+              marca: str = MARCA) -> Image.Image:
+    """Miniatura de YouTube y póster de la tienda (1280×720, D15): el render, el título legible
+    lo más grande que entre entero (`maquetar_miniatura`) y la marca debajo."""
     ancho, alto = TAM_MINIATURA
-    return _portada(titulo, "", render, replace(estilo, ancho=ancho, alto=alto), 1.45)
+    escala, _ = maquetar_miniatura(titulo, estilo)
+    return _portada(titulo, marca, render, replace(estilo, ancho=ancho, alto=alto), escala)
 
 
 def guardar_miniatura(imagen: Image.Image, ruta, limite: int = LIMITE_MINIATURA) -> Path:
@@ -441,8 +472,10 @@ def tarjeta_cifras(cifras: list[tuple[str, str]], titulo: str = "",
     return im
 
 
-def cierre(texto: str, url: str = "", estilo: Estilo = ESTILO) -> Image.Image:
-    """Tarjeta final: el texto centrado (hasta 3 líneas) y, debajo, la URL en una línea."""
+def cierre(texto: str, url: str = "", estilo: Estilo = ESTILO,
+           aviso: str = AVISO_CIERRE) -> Image.Image:
+    """Tarjeta final: el texto (hasta 3 líneas), la URL en una y, al pie, el aviso en letra
+    chica (D8 de fabrica-de-publicaciones). La usan VTK y el navegador (`tarjetas.py`)."""
     im = _lienzo(estilo)
     draw = ImageDraw.Draw(im)
     m = estilo.px(estilo.margen)
@@ -455,6 +488,10 @@ def cierre(texto: str, url: str = "", estilo: Estilo = ESTILO) -> Image.Image:
         url_s, f_url = _una_linea(url, estilo, estilo.px(estilo.tam_texto),
                                   estilo.px(estilo.tam_texto * 0.6), ancho_texto)
         items += [estilo.px(28), (url_s, f_url, estilo.color_acento)]
+    if aviso:
+        f_av = cargar_fuente(estilo, estilo.px(estilo.tam_texto * 0.7))
+        items += [estilo.px(56)] + [(s, f_av, estilo.color_secundario)
+                                    for s in envolver(aviso, f_av, ancho_texto * 0.6, 2)]
     y = (estilo.alto - _alto_bloque(items)) / 2
     cx = estilo.ancho / 2
     draw.rectangle((cx - estilo.px(70), y, cx + estilo.px(70), y + barra - 1),

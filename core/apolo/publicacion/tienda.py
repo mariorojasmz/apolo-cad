@@ -26,11 +26,12 @@ import time
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
+from apolo.publicacion import textos
 from apolo.publicacion.paquete import FICHA_JSON, PublicacionError, publicada, versiones
 
 LLAVE_ENV = "APOLO_TIENDA_LLAVE"
 URL_ENV = "APOLO_TIENDA_URL"
-TIENDA = "https://apolocad.com"
+TIENDA = textos.TIENDA
 #: Lo que la tienda acepta, por extensión; el resto de la carpeta (ficha.yaml, guion.json,
 #: generacion.json, youtube.txt, vista-3d.html) es privado o no va a la tienda.
 MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
