@@ -50,4 +50,9 @@ class FastenParams(BaseModel):
         description="solo kind='soldadura'; garganta a = 0.707·cateto",
     )
     length_mm: float | None = Field(None, gt=0, title="Longitud total de cordón (mm)")
-    nota: str = Field("", max_length=120, title="Nota")
+    nota: str = Field(
+        "", max_length=120, title="Nota",
+        description="kind='perno' sin tornillería modelada: la BOM la compra leyendo la nota "
+        "(«M8x40 DIN 933 + tuerca», «autorroscante», «prisionero», «punta roscada» = sin perno; "
+        "«tuerca»/«pasante» suma la tuerca); sin largo, la fila lo pide",
+    )

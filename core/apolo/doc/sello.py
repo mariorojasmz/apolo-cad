@@ -35,3 +35,11 @@ def sellar(doc, cmd_type: str, params: dict) -> dict:
     if spec is None or spec.al_crear is None:
         return params
     return spec.al_crear(dict(params), lambda fid: material_de(doc, fid))
+
+
+def al_editar(cmd_type: str, params: dict, previos: dict) -> dict:
+    """Los params editados con el sello de edición de su comando (los mismos si no tiene)."""
+    spec = REGISTRY.get(cmd_type)
+    if spec is None or spec.al_editar is None:
+        return params
+    return spec.al_editar(dict(params), previos)

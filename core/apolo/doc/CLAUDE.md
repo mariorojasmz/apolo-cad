@@ -22,8 +22,9 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   (regla en [commands](../commands/CLAUDE.md)); en los lotes se revisan antes del snapshot y sin
   mirar valores: las variables que el propio lote define todavía no existen. `regenerate` no.
 - `_append_record` SELLA el comando que nace (`sello.py` → `CommandSpec.al_crear`): lo de hoy
-  (el criterio vigente, el material del manifest) queda escrito en sus params; el replay y los
-  edits no sellan. `preview` le pasa al clon `vertical` y `scene` para que selle igual.
+  (el criterio vigente, el material del manifest) queda escrito en sus params; el replay no
+  sella y un edit sólo pasa por `CommandSpec.al_editar` del comando (si lo tiene). `preview` le
+  pasa al clon `vertical` y `scene` para que selle igual.
   [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md)
 - El snapshot de undo incluye la caché de regen (`"regen"`): `_restore` la repone ANTES de
   regenerar → el rollback resume del último checkpoint (replay ~0) y es inmune a un fallo

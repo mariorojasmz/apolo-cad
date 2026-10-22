@@ -1,0 +1,23 @@
+category: pernos
+# Pernos de CUELLO CUADRADO DIN 603 («de coche», carriage bolt; ISO 8677 equivalente), grado 4.6
+# zincado. Cabeza de hongo lisa (no se le mete llave) + cuello cuadrado que se clava en la madera o
+# entra en un agujero cuadrado y frena el giro: se aprieta por la TUERCA DIN 934 (TUERCA-M6..M12,
+# 109_tuercas.yaml) del lado de atrás. Uso típico: tablas de madera, listones y guardas de chapa
+# con agujero cuadrado (sin acceso para una segunda llave del lado de la cabeza).
+# Cotas de cabeza y cuello (head_d = dk, head_k = k, neck_v = v, neck_f = f) = máximos de la
+# tabla de DIN 603 (verificar con el proveedor). LARGOS que se compran (`largo_min_mm`..
+# `largo_max_mm`, sobre la serie de `library/largos_perno.py`; el largo nominal es bajo cabeza,
+# cuello incluido): rango REFERENCIAL de stock (criterio de diseño).
+# cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+families:
+  - name_tpl: "Perno de cuello cuadrado {ref} 4.6"
+    description_tpl: "Perno de cuello cuadrado (de coche) {ref} DIN 603 4.6 zincado, cabeza de hongo Ø{head_d}; se aprieta con la tuerca DIN 934 (largo a medida: length de insert_component)."
+    builder: carriage_bolt
+    param_keys: [d, head_d, head_k, neck_v, neck_f]
+    weight_formula: "7.85e-6 * (0.785 * d * d * 40 + 0.39 * head_d * head_d * head_k + neck_v * neck_v * neck_f)"
+    specs_common: {tipo: "perno de cuello cuadrado", material: "acero grado 4.6 zincado", grado: "4.6", norma: "DIN 603"}
+    variants:
+      - {ref: "PERNO-COCHE-M6", d: 6, head_d: 16.55, head_k: 3.88, neck_v: 6.48, neck_f: 4.1, tuerca: "TUERCA-M6", cost: 0.08, largo_min_mm: 16, largo_max_mm: 150}
+      - {ref: "PERNO-COCHE-M8", d: 8, head_d: 20.65, head_k: 4.88, neck_v: 8.58, neck_f: 5.6, tuerca: "TUERCA-M8", cost: 0.12, largo_min_mm: 20, largo_max_mm: 200}
+      - {ref: "PERNO-COCHE-M10", d: 10, head_d: 24.65, head_k: 5.38, neck_v: 10.58, neck_f: 6.6, tuerca: "TUERCA-M10", cost: 0.2, largo_min_mm: 20, largo_max_mm: 200}
+      - {ref: "PERNO-COCHE-M12", d: 12, head_d: 30.65, head_k: 6.95, neck_v: 12.7, neck_f: 8.8, tuerca: "TUERCA-M12", cost: 0.32, largo_min_mm: 25, largo_max_mm: 200}

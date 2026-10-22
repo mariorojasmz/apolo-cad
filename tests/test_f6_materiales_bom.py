@@ -186,7 +186,7 @@ def test_la_puerta_de_entrega_lee_el_vertical_del_documento():
 def test_bom_perno_comercial_a_mano_norma_y_largo_nominal():
     perno = Pos(0, 0, 0) * Cylinder(6, 157.5)  # cuerpo 150 + cabeza 7,5: lo que mide el sólido
     fila = bom_from_scene({"p": _F("Perno tensor de cola M12x150 DIN 933", perno)}, "acero")[0]
-    assert fila["ref"] == "A-MEDIDA"
+    assert fila["ref"] == "COMPRA" and fila["categoria"] == "pernos"  # se compra, no se fabrica
     assert fila["norma"] == "DIN 933"
     assert fila["longitud_mm"] == 150
 
@@ -197,8 +197,9 @@ def test_bom_arandela_y_seeger_llevan_su_norma():
     filas = {r["descripcion"]: r for r in bom_from_scene(scene, "acero")}
     assert filas["Arandela cuña DIN 434"]["norma"] == "DIN 434"
     assert filas["Seeger DIN 472-52"]["norma"] == "DIN 472"
-    # sin designación de largo, manda lo medido
-    assert filas["Arandela cuña DIN 434"]["longitud_mm"] == pytest.approx(24.0)
+    # se piden por designación: sin medida de corte, en la categoría de compra
+    assert filas["Arandela cuña DIN 434"]["longitud_mm"] is None
+    assert filas["Seeger DIN 472-52"]["categoria"] == "tornilleria"
     cedula = {r["nombre"]: r for r in hardware_schedule(scene)}
     assert cedula["Seeger DIN 472-52"]["norma"] == "DIN 472"
 

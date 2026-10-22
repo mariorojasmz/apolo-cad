@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
 from apolo.library import bom_from_scene, bom_to_csv, catalog_payload
-from apolo.services.electrico import filas_bom
+from apolo.services.bom_filas import filas_extra
 from apolo.state import STATE_LOCK
 
 from ..common import (
@@ -36,9 +36,10 @@ def get_catalog(category: str | None = None, names_only: bool = False) -> list[d
 def get_bom(by_group: bool = False) -> list[dict]:
     """Con `by_group=true` cada fila lleva su `grupo` (sub-ensamblaje) y las piezas
     iguales de grupos distintos salen separadas — subtotales por grupo/instancia. Con tablero
-    eléctrico, al final van sus filas (`origen: "electrico"`, V8.1 D10)."""
+    eléctrico, al final van sus filas (`origen: "electrico"`, V8.1 D10); con uniones `perno`
+    declaradas sin tornillería modelada, la que compran (`origen: "union_declarada"`, F6)."""
     with STATE_LOCK:
-        filas = filas_bom(S.doc)
+        filas = filas_extra(S.doc)
         if by_group:
             filas = [{**f, "grupo": None} for f in filas]
         return bom_from_scene(S.doc.scene, S.doc.default_material(), by_group=by_group) + filas
@@ -62,7 +63,7 @@ def get_costing() -> dict:
 def get_bom_csv() -> Response:
     with STATE_LOCK:
         csv_text = bom_to_csv(bom_from_scene(S.doc.scene, S.doc.default_material())
-                              + filas_bom(S.doc))
+                              + filas_extra(S.doc))
     return Response(
         content=csv_text.encode("utf-8-sig"),
         media_type="text/csv; charset=utf-8",

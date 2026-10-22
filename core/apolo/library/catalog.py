@@ -129,8 +129,17 @@ def catalog_payload(category: str | None = None, names_only: bool = False) -> li
     """Catálogo completo o filtrado. `category` filtra por categoría;
     `names_only` devuelve solo ref/name/category (payload ligero). Un componente con ficha
     eléctrica trae además `electrico` (bornes, caminos, cargas y fuentes: lo que el agente
-    necesita para cablear con `add_wire`, plan V8.1 F3); lo mecánico no la lleva."""
+    necesita para cablear con `add_wire`, plan V8.1 F3); lo mecánico no la lleva. La tornillería
+    de largo A MEDIDA trae `largos_mm`: los largos que se compran y que `insert_component(length)`
+    acepta (F6: el agente no encontraba cómo pedir un M6x20)."""
     from .electrico.ficha import ficha_payload
+    from .largos_perno import largos_catalogo
+
+    def _largos(c) -> dict:
+        if c.cuttable or (c.specs or {}).get("length") is not None:
+            return {}
+        largos = largos_catalogo(c.ref)
+        return {"largos_mm": largos} if largos else {}
 
     comps = [c for c in CATALOG.values() if not category or c.category == category]
     if names_only:
@@ -146,6 +155,7 @@ def catalog_payload(category: str | None = None, names_only: bool = False) -> li
             "cuttable": c.cuttable,
             "default_length": c.default_length,
             **({"electrico": ficha_payload(c.electrico)} if c.electrico is not None else {}),
+            **_largos(c),
         }
         for c in comps
     ]

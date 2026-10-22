@@ -23,10 +23,14 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   `add_cable`) y su largo en la BOM es el RECORRIDO (volumen / sección, `recorrido_mm`), no el
   bbox. [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4, F4c)
 - La BOM es para COMPRAR: la banda (rol) cerrada sale por su LAZO (`banda_lazo.py`, la medida de
-  la puerta) y la tornillería de largo a medida con su largo (`largo_tornilleria.py`: ficha fija →
-  geometría → nombre del comando), una fila por largo. La comercial modelada A MANO lleva la
-  norma de su nombre (`designacion_comercial.py`: con designación o rol de compra) y, si es
-  tornillería, el largo NOMINAL («M12x150» → 150, no lo medido). [defectos](../../../docs/defectos.md) (F6)
+  la puerta) y la tornillería de largo a medida con su largo NOMINAL (`largo_tornilleria.py`:
+  `cut_length` del param → ficha fija → nombre → geometría, que fuera de serie se pide por el
+  inmediato superior con `aviso`), una fila por largo. La comercial modelada A MANO
+  (`designacion_comercial.es_comercial`: rol de compra o norma con designación, nunca una de
+  plano/perfil) es ref `COMPRA` en la categoría de compra del catálogo, en BOM, costeo y cédula
+  (una fuente: el mismo módulo), con su norma y sin medida de corte salvo largo nominal o lazo.
+  Lo que una unión `perno` DECLARA y nadie modeló lo suma `tornilleria_declarada.py` (por la
+  `nota`, sin duplicar lo modelado: reglas en su docstring). [defectos](../../../docs/defectos.md) (F6)
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
   `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara
   de montaje de la placa: [plan](../../../docs/plans/garruchas-catalogo.md)). Los perfiles se

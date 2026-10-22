@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from .models import Rot3, Vec3
 
@@ -43,7 +44,12 @@ class OrientacionPerfil(BaseModel):
 
 class InsertComponentParams(BaseModel):
     """Inserta un componente del catálogo (biblioteca). Los componentes
-    cortables (perfiles, rodillos, patas, guardas) aceptan length a medida.
+    cortables (perfiles, rodillos, patas, guardas) aceptan length a medida, y la TORNILLERÍA
+    de largo a medida (PERNO-HEX-*, PERNO-M*, PERNO-COCHE-*…: specs `largo_min_mm`/
+    `largo_max_mm` en `catalog`) también: `length` = largo NOMINAL bajo cabeza de la serie
+    normalizada dentro de ese rango (M6x20 → length 20); sin length, el largo de referencia del
+    builder (50). La BOM lo compra por ese largo. Para una unión atornillada completa (taladros
+    + perno + tuerca con el largo calculado) usa join_bolted.
     Perfiles abiertos (UPN, IPE, ángulo L): en vez de `rotation` puedes dar `orientacion`
     por ejes del mundo (U: largo + abre_hacia; I: largo + canto; L: alas) y publican anclas
     para mates: U/I `cara_alma_interior`, `dorso_alma` (U) / `cara_alma_opuesta` (I),
@@ -62,7 +68,9 @@ class InsertComponentParams(BaseModel):
     )
     name: str = Field("", title="Nombre", description="vacío = nombre del catálogo")
     length: float | None = Field(
-        None, gt=0, le=12000, title="Longitud", description="mm, solo componentes cortables; vacío = estándar"
+        None, gt=0, le=12000, title="Longitud",
+        description="mm: largo de corte de un cortable, o largo NOMINAL de la tornillería de "
+        "largo a medida (de su serie de catálogo); vacío = estándar",
     )
     position: Vec3 = Field(default_factory=Vec3, title="Posición")
     rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
@@ -72,6 +80,11 @@ class InsertComponentParams(BaseModel):
         description="sólo UPN/IPE/ángulo L; excluye rotation. U: {largo, abre_hacia}; I: "
         "{largo, canto}; L: {alas: [ala_1, ala_2]}",
     )
+
+    # Fuera del schema: lo pone el sello de entrada (`exec_componente.sellar`) a cada comando
+    # NUEVO. 1 = log viejo: `length` se ignora en lo no cortable (regenera igual); 2 = la
+    # tornillería de largo a medida usa `length` y lo que no lo admite lo rechaza (F6).
+    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=2)
 
     @field_validator("component")
     @classmethod

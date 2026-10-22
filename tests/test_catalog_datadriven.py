@@ -125,7 +125,8 @@ def test_all_new_families_present():
     assert len(refs_in_category("rieles_corredera")) == 2
     assert len(refs_in_category("correderas_colgantes")) == 2
     # tornillería comercial para tensores (DIN 912) + pernos hex DIN 933 de join_bolted (V6.5b)
-    assert len(refs_in_category("pernos")) == 13  # 4 Allen (socket_cap) + 9 hex (M6–M24)
+    # + 4 de cuello cuadrado DIN 603 (F6 de la puerta de publicación)
+    assert len(refs_in_category("pernos")) == 17  # 4 Allen (socket_cap) + 9 hex (M6–M24) + 4 DIN 603
     assert len(refs_in_category("tuercas")) == 9  # M6-M24 DIN 934, pareja del DIN 933 (V6.5c)
     # motorreductores sinfín-corona NMRV (eje hueco, montaje directo sobre el eje)
     assert len(refs_in_category("motorreductores_sinfin")) == 8
@@ -137,7 +138,8 @@ def test_all_new_families_present():
     # +4 remaches ciegos DIN 7337 y +4 tornillos DIN 571 (union-en-perfil-hueco D1/D4)
     # +3 tensores de carro UCT204/205/206-150 (puerta-de-publicacion D3)
     # +1 tambor de cola de eje vivo TAMBOR-102-RET (create_belt_conveyor v4)
-    assert len(CATALOG) == 374
+    # +4 pernos de cuello cuadrado DIN 603 (F6 de la puerta de publicación)
+    assert len(CATALOG) == 378
 
 
 def test_door_sliding_hardware():

@@ -67,6 +67,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   orienta UPN/IPE/L por ejes del mundo (U `largo`+`abre_hacia`, I `largo`+`canto`, L `alas`);
   excluye `rotation` ≠ 0 y sólo da giros rectos. v2 por las anclas de perfil abierto.
   [plan](../../../docs/plans/perfiles-con-acuerdo.md)
+- `insert_component.criterio` (oculto, como el de `join_bolted`): 2 = la tornillería de largo a
+  medida usa `length` (serie del catálogo o error con la lista) y lo deja en `cut_length`; 1 (log
+  viejo) lo ignora como antes. Un dato que el criterio viejo ignoraba en silencio también se
+  re-sella al EDITARLO (`CommandSpec.al_editar`, `doc/sello.py`): el modelador edita, no recrea.
+  [defectos](../../../docs/defectos.md) (F6)
 - Trampas: la cara «tope» (bbox) de una barra INCLINADA es su extremo cuesta arriba; para la
   cara superior usa `cerca` con un punto encima. Un taladro OBLICUO arranca EN el punto de
   entrada y deja sin remover la cuña cuesta arriba (⅔·r³·tanθ).

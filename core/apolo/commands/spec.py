@@ -52,6 +52,11 @@ class CommandSpec:
     # hoy a esa pieza (set_material/vertical: el regenerate no ve el manifest). Lo llama
     # `doc/sello.py`.
     al_crear: Callable[[dict, Callable[[str], str | None]], dict] | None = None
+    # Sello de EDICIÓN: `(params_nuevos, params_previos) -> params` cuando un cliente edita el
+    # comando (nunca el replay). Para que un dato que el criterio viejo ignoraba en silencio
+    # (`insert_component.length` en un perno) no se siga ignorando al pedirlo: lo llama
+    # `doc/sello.py::al_editar` desde `Document.edit`/`edit_many`.
+    al_editar: Callable[[dict, dict], dict] | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:

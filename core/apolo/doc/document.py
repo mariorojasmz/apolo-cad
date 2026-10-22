@@ -546,11 +546,10 @@ class Document:
         return [c for c in created if c is not None]
 
     def edit_many(self, edits: list[dict], merge: bool = False, verify=None) -> list[str]:
-        """Edita VARIOS comandos en UN lote atómico: un solo regenerate y un solo paso
-        de undo. edits = [{"command_id": "...", "params": {...}}, ...]. Como execute_many,
-        sólo las claves son estrictas (una clave NUEVA que el comando no declara revierte el
-        lote; una ya guardada pasa) y los valores los valida el regenerate final. merge=True
-        hace PATCH superficial por comando (un sub-objeto se reemplaza entero), como edit.
+        """Edita VARIOS comandos en UN lote atómico: un solo regenerate y un solo paso de undo.
+        edits = [{"command_id": "...", "params": {...}}, ...]. Como execute_many, sólo las claves
+        son estrictas (una NUEVA que el comando no declara revierte el lote; una guardada pasa) y
+        los valores los valida el regenerate final. merge=True: PATCH superficial, como edit.
 
         `verify` (V6.5b) = contrato del lote, igual que en execute_many (recibe los
         command_ids TOCADOS como `created` → `$k` referencia el k-ésimo editado)."""
@@ -568,6 +567,7 @@ class Document:
                 if merge:
                     params = {**cmd["params"], **params}
                 reject_unknown(REGISTRY.get(cmd["type"]), params, previous=cmd["params"])
+                params = sello.al_editar(cmd["type"], params, cmd["params"])
                 cmd["params"] = carril.materializar(self.commands, cmd["type"], params, cid)
                 touched.append(cid)
             self.regenerate()
@@ -610,10 +610,9 @@ class Document:
     def edit(
         self, command_id: str, params: dict, coalesce: bool = False, merge: bool = False
     ) -> str:
-        """Edita los params de un comando. Por defecto REEMPLAZA (los campos omitidos
-        vuelven a su default). Con `merge=True` hace PATCH superficial: combina con los
-        params actuales (un sub-objeto como position/rotation se reemplaza entero). Estricta:
-        rechaza una clave NUEVA que el comando no declara (una ya guardada pasa)."""
+        """Edita los params de un comando: REEMPLAZA (lo omitido vuelve a su default) o, con
+        `merge=True`, PATCH superficial (un sub-objeto se reemplaza entero). Estricta: rechaza
+        una clave NUEVA que el comando no declara (una ya guardada pasa); luego, `al_editar`."""
         cmd = next((c for c in self.commands if c["id"] == command_id), None)
         if cmd is None:
             raise DocumentError(f"No existe el comando '{command_id}'")
@@ -621,6 +620,7 @@ class Document:
             params = {**cmd["params"], **params}
         validate_params(cmd["type"], params, self.variables_raw, strict=True,
                         previous=cmd["params"])
+        params = sello.al_editar(cmd["type"], params, cmd["params"])
 
         def apply():
             cmd["params"] = carril.materializar(self.commands, cmd["type"], params, command_id)

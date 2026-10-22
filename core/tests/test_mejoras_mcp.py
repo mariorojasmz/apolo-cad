@@ -78,8 +78,10 @@ def test_bom_colapsa_instancias_de_patron():
         "Perno M12 (espejo)", "Perno M12 (espejo) (copia)",
     ]
     scene = {str(i): Feature(str(i), n, Box(20, 20, 60), f"c{i}") for i, n in enumerate(names)}
-    rows = [r for r in bom_from_scene(scene) if r["ref"] == "A-MEDIDA"]
+    # «Perno M12» se COMPRA (F6): fila de compra, no «a medida»
+    rows = [r for r in bom_from_scene(scene) if r["ref"] == "COMPRA"]
     assert len(rows) == 1
+    assert rows[0]["categoria"] == "pernos"
     assert rows[0]["cantidad"] == 5
     assert rows[0]["descripcion"] == "Perno M12"
 

@@ -172,7 +172,7 @@ CAMPOS: dict[str, str] = {
     "insert_component": (
         "component name length position position.x position.y position.z rotation rotation.x "
         "rotation.y rotation.z orientacion orientacion.largo orientacion.abre_hacia "
-        "orientacion.canto orientacion.alas"
+        "orientacion.canto orientacion.alas criterio"
     ),
     "insert_project": (
         "project_id attachment name overrides position position.x position.y position.z rotation "
@@ -257,7 +257,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "create_chain": (2, "c0911a5d981a48bd"),
     "create_conveyor": (1, "57fa344a272c945c"),
     "create_cylinder": (1, "df2b2a1a5fb50cf9"),
-    "create_drive_roller": (1, "5d9571216a3a26e0"),
+    "create_drive_roller": (2, "5d9571216a3a26e0"),  # v2: «Anillo Seeger DIN 472-Ø» (F6)
     "create_extrude_poly": (1, "1b52acc21ee53008"),
     "create_frame": (1, "d8387fb3400cbec1"),
     "create_group": (1, "450675e65cecac8a"),
@@ -267,7 +267,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "create_roller_conveyor": (3, "450707432cde2d9d"),
     "create_sheet_metal": (1, "2aeed3174e15adda"),
     "create_structural_profile": (1, "ada70bc0722ffb7f"),
-    "create_take_up": (1, "a02e2fb07d4773ae"),  # +coronado_mm: con 0 (default) la geometría no cambia
+    # +coronado_mm: con 0 (default) la geometría no cambia; v2: «Anillo Seeger DIN 472-Ø» (F6)
+    "create_take_up": (2, "a02e2fb07d4773ae"),
     "create_weldment": (1, "344bdbf91fff4cd9"),
     "delete_faces": (1, "1f3b55e6bf50bed4"),
     "delete_feature": (1, "131eec22d5b444b7"),
@@ -279,7 +280,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "fillet": (1, "f63f072057031b48"),
     "ground": (1, "afb091e73600725e"),
     "import_step": (1, "d75412508c6ccfdd"),
-    "insert_component": (2, "34abc0a7df042701"),  # v2: anclas de perfil abierto (perfiles-con-acuerdo D4)
+    # v2: anclas de perfil abierto; criterio 2 (F6): un log viejo trae 1 → misma geometría y firma
+    "insert_component": (2, "26b05f2f1a36a2ed"),
     "insert_project": (1, "01664975967281c6"),
     "join_bolted": (1, "24fbb11752560dc0"),  # criterio 2 (union-en-perfil-hueco): un log viejo trae 1 → misma geometría y firma
     "mirror_feature": (1, "6973b59545d49469"),

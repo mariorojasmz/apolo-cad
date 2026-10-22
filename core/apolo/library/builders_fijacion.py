@@ -1,6 +1,7 @@
 """Builders de la fijación de taller de `join_bolted` (plan union-en-perfil-hueco, D1/D4):
-remache ciego y tornillo para madera de cabeza hexagonal. Módulo propio: `builders.py` está
-congelado por el trinquete de tamaño.
+remache ciego y tornillo para madera de cabeza hexagonal; y el perno de cuello cuadrado DIN 603
+(F6 de la puerta de publicación). Módulo propio: `builders.py` está congelado por el trinquete
+de tamaño.
 
 Convención de la tornillería (la de `hex_bolt`): eje Z, ORIGEN en la cara de asiento de la
 cabeza, cabeza hacia +Z y vástago hacia −Z. Rosca modelada lisa.
@@ -8,7 +9,7 @@ cabeza, cabeza hacia +Z y vástago hacia −Z. Rosca modelada lisa.
 
 from __future__ import annotations
 
-from build123d import Cone, Cylinder, Pos
+from build123d import Box, Cone, Cylinder, Pos, Sphere
 
 from .builders import _hex_prism
 
@@ -58,4 +59,26 @@ def hex_wood_screw(d: float, across_flats: float, head_h: float, length: float =
     return build
 
 
-BUILDERS = {"blind_rivet": blind_rivet, "hex_wood_screw": hex_wood_screw}
+def carriage_bolt(d: float, head_d: float, head_k: float, neck_v: float, neck_f: float,
+                  length: float = 50.0):
+    """Perno de cuello cuadrado DIN 603 («de coche»): cabeza de hongo Ø head_d × head_k (casquete
+    esférico, lisa: no se le mete llave), cuello cuadrado neck_v × neck_v de neck_f de alto que
+    se clava en la madera o en un agujero cuadrado y frena el giro, y vástago Ø d. `largo` =
+    largo nominal bajo cabeza (el cuello incluido), como en la norma. Se aprieta por la TUERCA
+    DIN 934 (TUERCA-M*). Las partes solapan 0,5 mm (un sólido)."""
+
+    def build(largo=None):
+        L = float(largo) if largo else length
+        a = head_d / 2.0
+        r = (a * a + head_k * head_k) / (2.0 * head_k)  # radio de la esfera del casquete
+        domo = (Pos(0, 0, head_k - r) * Sphere(r)) & (Pos(0, 0, head_k / 2.0) * Box(
+            head_d + 2.0, head_d + 2.0, head_k))
+        cuello = Pos(0, 0, -neck_f / 2.0 + 0.25) * Box(neck_v, neck_v, neck_f + 0.5)
+        vastago = Pos(0, 0, -L / 2.0 + 0.25) * Cylinder(d / 2.0, L + 0.5)  # z ∈ [−L, ½]
+        return domo + cuello + vastago
+
+    return build
+
+
+BUILDERS = {"blind_rivet": blind_rivet, "hex_wood_screw": hex_wood_screw,
+            "carriage_bolt": carriage_bolt}

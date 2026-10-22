@@ -76,7 +76,7 @@ from .models import (
 from .models_rodillos import CreateDriveRollerParams, CreateTakeUpParams
 from .models_transmision import CreateChainParams
 from .models_uniones import FastenParams
-from .exec_componente import _exec_insert_component
+from .exec_componente import SELLOS as SELLOS_COMPONENTE, _exec_insert_component
 from .exec_rodillos import _exec_create_drive_roller, _exec_create_take_up
 from .models_componente import InsertComponentParams
 from .exec_transmision import _exec_create_chain
@@ -1758,7 +1758,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec("import_step", "Importar STEP", "crear", ImportStepParams, _exec_import_step),
         CommandSpec(
             "insert_component", "Componente", "biblioteca", InsertComponentParams,
-            _exec_insert_component, version=2,  # v2: anclas de perfil abierto (exec_componente)
+            _exec_insert_component, version=2, **SELLOS_COMPONENTE,  # v2: anclas; F6: criterio 2
         ),
         CommandSpec(
             "insert_project", "Insertar proyecto", "biblioteca", InsertProjectParams,
@@ -1772,11 +1772,11 @@ REGISTRY: dict[str, CommandSpec] = {
         ),
         CommandSpec(
             "create_take_up", "Tensor de cola (trotadora)", "biblioteca", CreateTakeUpParams,
-            _exec_create_take_up,
+            _exec_create_take_up, version=2,  # v2: «Anillo Seeger DIN 472-Ø» (nombre comercial, F6)
         ),
         CommandSpec(
             "create_drive_roller", "Rodillo motriz (trotadora)", "biblioteca", CreateDriveRollerParams,
-            _exec_create_drive_roller,
+            _exec_create_drive_roller, version=2,  # v2: «Anillo Seeger DIN 472-Ø» (F6)
         ),
         CommandSpec("create_chain", "Cadena", "biblioteca", CreateChainParams, _exec_create_chain, version=2),
         CommandSpec(

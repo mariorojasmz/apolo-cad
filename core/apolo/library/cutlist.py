@@ -13,43 +13,27 @@ from __future__ import annotations
 
 import csv
 import io
-import re
 from collections import defaultdict
 
 from .bom import _base_name
 from .catalog import CATALOG
-from .designacion_comercial import ROL_COMPRA, norma_del_nombre
+from .designacion_comercial import (
+    categoria_de_compra, es_comercial, nombre_de_compra, norma_del_nombre,
+)
 from .materials import resolve_material
 
-# ROL de COMPRA (herraje/consumible a-medida): pieza que se COMPRA, no se corta ni
-# mecaniza — no le corresponde lámina de fabricación ni fila de lista de corte. El rol
-# es lo que sigue al último " · " del nombre (convención rol-primero, tolerando el
-# prefijo de sub-ensamblaje "Grupo · Rol"). Así "Tensor de cola · Seeger retención" es
-# COMPRA pero "Tensor de cola · Eje fijo (roscado p/ perno)" NO (el eje se fabrica,
-# solo MENCIONA el perno). Fuente única: `designacion_comercial.ROL_COMPRA`.
-_PURCHASE_RE = ROL_COMPRA
-
-
-def _role(name: str) -> str:
-    return (name or "").split("·")[-1].strip()
-
-
-def _purchase_category(role: str) -> str:
-    r = role.lower()
-    if re.match(r"^(pernos?|tornill|arandela|tuerca|esp[áa]rrago|prisionero|seeger|circlip)", r):
-        return "tornillería"
-    if re.match(r"^(pies?\s+nivelador|nivelador)", r):
-        return "niveladores"
-    if re.match(r"^(banda|correa)", r):
-        return "banda / correa"
-    return "compra"
+# Pieza COMERCIAL a-medida: se COMPRA, no se corta ni mecaniza — no le corresponde lámina de
+# fabricación ni fila de lista de corte. Rol de compra (lo que sigue al último " · ": "Tensor de
+# cola · Seeger retención" es COMPRA pero "Tensor de cola · Eje fijo (roscado p/ perno)" NO) o
+# norma comercial con designación («Anillo seeger DIN 472-52»). Fuente única, la de la BOM:
+# `designacion_comercial` (categoría y nombre de compra incluidos).
 
 
 def _is_purchased_custom(feat) -> bool:
-    """Pieza a-medida (sin componente de catálogo) cuyo ROL es de COMPRA."""
+    """Pieza a-medida (sin componente de catálogo) que se COMPRA (`es_comercial`)."""
     if getattr(feat, "component", None) and CATALOG.get(feat.component):
         return False  # el catálogo ya se enruta por `cuttable`
-    return bool(_PURCHASE_RE.match(_role(getattr(feat, "name", "") or "")))
+    return es_comercial(getattr(feat, "name", "") or "")
 
 
 def _solids(shape) -> list:
@@ -150,7 +134,7 @@ def hardware_schedule(scene: dict) -> list[dict]:
             # (nombre base sin sufijo de instancia, +1 por feature, peso del feature) →
             # las filas de COMPRA de la cédula coinciden con las del BOM (consistencia
             # BOM↔cédula, C4): 24 pernos = 24, no 24 filas ni 16 «pies» por sólido.
-            base = _base_name(getattr(f, "name", "") or "")
+            base = nombre_de_compra(_base_name(getattr(f, "name", "") or ""))  # como la BOM
             key = f"custom:{base.lower()}"
             try:
                 w_ud = round(float(f.shape.volume) * density(resolve_material(f, CATALOG)), 3)
@@ -160,7 +144,7 @@ def hardware_schedule(scene: dict) -> list[dict]:
             if g is None:
                 g = groups[key] = {
                     "ref": "COMPRA", "nombre": base,
-                    "categoria": _purchase_category(_role(base)),
+                    "categoria": categoria_de_compra(base),
                     "material": resolve_material(f, CATALOG), "norma": norma_del_nombre(base),
                     "cantidad": 0, "peso_ud_kg": w_ud, "_rep": sid,
                 }

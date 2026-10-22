@@ -158,8 +158,11 @@ def test_belt_conveyor_bom_usa_piezas_nuevas():
 
 def test_belt_conveyor_bom_separa_banda_y_cama():
     d, _ = _belt_doc()
-    custom = [r for r in bom_from_scene(d.scene) if r["ref"] == "A-MEDIDA"]
+    custom = [r for r in bom_from_scene(d.scene) if r["ref"] in ("A-MEDIDA", "COMPRA")]
     rows = {r["descripcion"].split(" · ")[-1]: r["cantidad"] for r in custom}
+    # la banda se COMPRA (F6): categoría de compra; la cama se fabrica
+    cats = {r["descripcion"].split(" · ")[-1]: r["categoria"] for r in custom}
+    assert cats["Banda"] == "bandas" and cats["Cama de deslizamiento"] == "a medida"
     # piezas a medida DISTINTAS del mismo super-comando → filas separadas (no colapsan)
     assert rows["Banda"] == 1
     assert rows["Cama de deslizamiento"] == 1

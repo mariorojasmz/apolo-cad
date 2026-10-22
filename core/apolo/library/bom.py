@@ -1,7 +1,9 @@
 """Lista de materiales (BOM) calculada desde la escena.
 
 Las piezas de catálogo se agrupan por referencia + longitud de corte; las
-piezas a medida (geometría propia) se agrupan por el comando que las creó.
+piezas a medida (geometría propia) se agrupan por el comando que las creó. Una pieza a mano
+COMERCIAL (rol de compra o norma con designación: `designacion_comercial`) sale con ref `COMPRA`
+en la categoría de compra del catálogo («pernos», «tornilleria»…), no en «a medida» (F6).
 """
 
 from __future__ import annotations
@@ -14,14 +16,19 @@ from apolo.kernel.shapes import is_surface
 
 from .banda_lazo import es_banda, largo_de_lazo
 from .catalog import CATALOG
-from .designacion_comercial import norma_del_nombre
-from .largo_tornilleria import largo_de_compra, largo_nominal_a_medida
+from .designacion_comercial import (
+    categoria_de_compra, es_comercial, nombre_de_compra, norma_del_nombre,
+)
+from .largo_tornilleria import largo_de_compra_con_aviso, largo_nominal_a_medida
 from .materials import CABLE, density, resolve_material
 from .piezas_electricas import recorrido_mm
 
 # sufijos de instancia que añaden los patrones/espejos/copias: " (2)", " (1,2)",
 # " (espejo)", " (copia)". Se quitan para agrupar piezas idénticas en una fila.
 _INSTANCE_SUFFIX = re.compile(r"\s*\((?:espejo|copia|\d+(?:,\s*\d+)*)\)")
+
+#: ref de la pieza COMERCIAL modelada a mano (la de la cédula): se compra, no se fabrica (F6)
+COMPRA = "COMPRA"
 
 
 def _base_name(name: str) -> str:
@@ -52,9 +59,9 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
         if component and component in CATALOG:
             comp = CATALOG[component]
             cut = getattr(feat, "cut_length", None)
-            largo = cut
+            largo, aviso = cut, ""
             if cut is None and not comp.cuttable:  # tornillería: se compra por su largo
-                largo = largo_de_compra(feat, comp)
+                largo, aviso = largo_de_compra_con_aviso(feat, comp)
                 if (comp.specs or {}).get("length") is None:
                     cut = largo  # a medida: el largo va en la fila (la ficha fija ya lo nombra)
             miter = getattr(feat, "miter", None)
@@ -81,11 +88,17 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     "peso_total_kg": 0.0,
                     "_rep": sid,  # pieza representante (globos en lámina)
                     **({"grupo": grp} if by_group else {}),
+                    **({"aviso": aviso} if aviso else {}),
                 }
+            elif aviso and "aviso" not in rows[key]:
+                rows[key]["aviso"] = aviso
             rows[key]["cantidad"] += 1
         else:
             mat = resolve_material(feat, CATALOG, default_material)
             base = _base_name(feat.name)
+            comercial = es_comercial(base)  # F6: se COMPRA → categoría de compra, no «a medida»
+            if comercial:
+                base = nombre_de_compra(base)
             vol = None
             dims = None
             try:
@@ -112,10 +125,12 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     largo = round(lazo, 1)  # la banda se compra por su LAZO, no por su caja
                 elif (nominal := largo_nominal_a_medida(feat)) is not None:
                     largo = nominal  # «Perno … M12x150»: se compra por 150, no por 157,5 medido
+                elif comercial and categoria_de_compra(base) not in ("pernos", "bandas"):
+                    largo = None  # arandela, seeger, rodamiento: se piden por designación, sin corte
                 rows[key] = {
-                    "ref": "A-MEDIDA",
+                    "ref": COMPRA if comercial else "A-MEDIDA",
                     "descripcion": base,
-                    "categoria": "a medida",
+                    "categoria": categoria_de_compra(base) if comercial else "a medida",
                     "material": mat,
                     "norma": norma_del_nombre(base),  # comercial modelada: «… DIN 933»
                     "cantidad": 0,

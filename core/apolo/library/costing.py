@@ -9,6 +9,9 @@ Tres fuentes de costo, en orden de fiabilidad (cada fila declara la suya):
 3. **Fabricación a medida**: volumen × densidad × USD/kg del material × factor de
    fabricación (corte + soldadura + acabado + merma).
 
+Una pieza COMERCIAL modelada a mano (ref `COMPRA` del BOM: «Perno M8x20 DIN 933» sin ficha) se
+compra: se estima como hardware (2) y suma a `catalogo_usd` (lo comprado), no a la fabricación.
+
 Excepciones honestas (V8.1 F4 y F4c): una ref ELÉCTRICA sin `cost` no se estima por peso (una
 seta de 0,15 kg salía a 0,67 USD) y queda «sin precio», igual que una pieza a medida con ROL
 eléctrico (clavija, toma, prensaestopa: `piezas_electricas.es_rol_electrico`); y un cable
@@ -23,7 +26,7 @@ agrupación que el BOM de siempre); no muta nada.
 
 from __future__ import annotations
 
-from .bom import bom_from_scene
+from .bom import COMPRA, bom_from_scene
 from .catalog import CATALOG
 from .materials import CABLE, cost_per_kg
 from .piezas_electricas import es_rol_electrico
@@ -96,6 +99,19 @@ def _custom_cost(row: dict, sin_cubrir: set | None = None) -> tuple[float | None
     return est, f"fabricación (peso × material × {FAB_FACTOR:g})"
 
 
+def _compra_cost(row: dict, sin_cubrir: set | None = None) -> tuple[float | None, str]:
+    """(costo unitario, fuente) de una pieza COMERCIAL modelada a mano (F6: «Perno M8x20 DIN 933»
+    sin ficha): se COMPRA, así que se estima como hardware (peso × material × HW_FACTOR, con su
+    piso), no como fabricación. Cable 3D y rol eléctrico, lo de siempre."""
+    if row.get("material") == CABLE or es_rol_electrico(row.get("descripcion")):
+        return _custom_cost(row, sin_cubrir)
+    peso = row.get("peso_unitario_kg")
+    if peso is None:
+        return None, ""
+    est = max(peso * cost_per_kg(row.get("material")) * HW_FACTOR, MIN_HW_COST)
+    return est, f"estimado comercial a mano (peso × material × {HW_FACTOR:g}); cotiza con proveedor"
+
+
 def costed_bom(scene: dict, default_material: str | None = None,
                extra: list[dict] | None = None,
                cables_sin_cubrir: set | None = None) -> list[dict]:
@@ -109,6 +125,8 @@ def costed_bom(scene: dict, default_material: str | None = None,
     for row in rows:
         if row.get("sin_largo"):
             cost, fuente = None, "sin largo declarado"
+        elif row.get("ref") == COMPRA:
+            cost, fuente = _compra_cost(row, cables_sin_cubrir)
         elif row.get("ref") != "A-MEDIDA":
             cost, fuente = _catalog_cost(row)
         else:

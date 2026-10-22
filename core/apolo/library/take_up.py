@@ -80,7 +80,10 @@ def _roller_body(diam_rodillo: float, cara: float, big: float, engomado: bool, n
 
 
 def _bearing_seeger_parts(rodamiento: str, big: float, width_b: float, half: float) -> list[ConveyorPart]:
-    """2 rodamientos de catálogo en los extremos del tubo + 2 seeger de retención."""
+    """2 rodamientos de catálogo en los extremos del tubo + 2 seeger de retención. El seeger es
+    COMERCIAL (anillo de retención para AGUJERO, DIN 472, del Ø del alojamiento del rodamiento):
+    su nombre lleva la designación para que la BOM lo compre (F6; v2 de create_take_up y
+    create_drive_roller: el nombre es dato derivado, un log viejo regenera con el nuevo)."""
     parts: list[ConveyorPart] = []
     brg_shape, _ = build_component(rodamiento)
     for i, sgn in enumerate((-1.0, 1.0), start=1):
@@ -94,7 +97,7 @@ def _bearing_seeger_parts(rodamiento: str, big: float, width_b: float, half: flo
             )
         )
         seeger = _cyl_y(big / 2.0 + 2.0, 2.0, sgn * (half - 1.0)) - _cyl_y(big / 2.0 - 3.0, 4.0, sgn * (half - 1.0))
-        parts.append(ConveyorPart(f"seeger{i}", f"Seeger retención ({i})", seeger, None, None))
+        parts.append(ConveyorPart(f"seeger{i}", f"Anillo Seeger DIN 472-{big:g} ({i})", seeger, None, None))
     return parts
 
 

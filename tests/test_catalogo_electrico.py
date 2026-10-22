@@ -61,7 +61,8 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     for categoria in NUEVAS_CATEGORIAS:
         assert sorted(refs_in_category(categoria)) == sorted(NUEVAS[categoria])
     # + ESTOP-40-CAJA (seta D4) + 8 de union-en-perfil-hueco + 3 UCT + TAMBOR-102-RET (faja v4)
-    assert len(CATALOG) == 374
+    # + 4 pernos de cuello cuadrado DIN 603 (F6)
+    assert len(CATALOG) == 378
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS)

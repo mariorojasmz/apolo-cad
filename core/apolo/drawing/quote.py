@@ -85,7 +85,7 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     impuesto = base * tax_pct / 100.0
     venta = base + impuesto
     filas = [
-        ("Componentes de catálogo", totals.get("catalogo_usd")),
+        ("Componentes comprados", totals.get("catalogo_usd")),  # catálogo + comerciales a mano
         ("Fabricación a medida", totals.get("fabricacion_usd")),
         ("Costo directo", directo),
         (f"Margen ({margin_pct:g}%)", margen),
