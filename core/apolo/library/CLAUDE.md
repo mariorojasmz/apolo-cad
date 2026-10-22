@@ -24,7 +24,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   bbox. [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4, F4c)
 - La BOM es para COMPRAR: la banda (rol) cerrada sale por su LAZO (`banda_lazo.py`, la medida de
   la puerta) y la tornillería de largo a medida con su largo (`largo_tornilleria.py`: ficha fija →
-  geometría → nombre del comando), una fila por largo. [defectos](../../../docs/defectos.md) (F6)
+  geometría → nombre del comando), una fila por largo. La comercial modelada A MANO lleva la
+  norma de su nombre (`designacion_comercial.py`: con designación o rol de compra) y, si es
+  tornillería, el largo NOMINAL («M12x150» → 150, no lo medido). [defectos](../../../docs/defectos.md) (F6)
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
   `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara
   de montaje de la placa: [plan](../../../docs/plans/garruchas-catalogo.md)). Los perfiles se
@@ -54,7 +56,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 ## Materiales (`materials.py`)
 
 - `resolve_material`: override → catálogo → heurística por nombre → default del VERTICAL
-  (`set_vertical('carpinteria')` = madera; si no, acero).
+  (`set_vertical('carpinteria')` = madera; si no, acero). Quien tiene el documento pasa
+  `doc.default_material()`: con el vertical CONOCIDO la palabra de carpintería no decide (la
+  guarda de BOM, masa, costeo, corte, planos vía `meta["material_vertical"]` y apariencia);
+  `None` = desconocido, la heurística vieja. Polímero, caucho (rol anclado: «Engomado…»,
+  «Recubrimiento del tambor») y vidrio miran el ROL. [defectos](../../../docs/defectos.md) (F6)
 - `_norm` devuelve la primera clave que sea SUBCADENA: las especies van ANTES de `"madera"` en
   los dicts («madera copaiba» → copaiba).
 - La heurística por nombre muerde: «larguero» es palabra de madera (`_WOOD_WORDS`). Quien
@@ -69,7 +75,7 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   renderizadores. Un material de catálogo o del registro nuevo necesita su acabado
   (`tests/test_apariencia.py` lo exige); tras editar la tabla, `python -B
   scripts/acabados_ui.py --escribir` regenera la copia del visor. La palabra de carpintería sólo
-  pinta madera en el vertical madera (guarda propia; la BOM aún la sufre). El color asignado
+  pinta madera en el vertical madera (la guarda de `resolve_material`). El color asignado
   (`Document.colors`) define el albedo SÓLO en un acabado `pintable` (pintado, caucho, PVC,
   madera, cartón); en un metal manda el albedo de la tabla y el asignado queda en el manifest
   sin pintar. Acero liso por rol: cadena → pavonado, eje/piñón → mecanizado, rodillo/tambor (y
@@ -220,7 +226,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - `lints.predelivery_lints`: «barreno de paso Ø7-22 sin perno en su eje» y «pieza sin grupo NI
   unión declarada» (excluye guías, superficies y herraje). Reconoce tornillería a medida por
   NOMBRE (`_is_bolt`). Todo matcher por nombre nuevo lleva guarda de anclaje/plurales y un test
-  con el nombre REAL del modelo.
+  con el nombre REAL del modelo. «Soldadura imposible» (`lint_soldadura.py`: madera, caucho, PVC…
+  o acero con aluminio) es el único lint ERROR: `delivery.py` lo pone en bloqueantes (ROJO); sin
+  `material_vertical`, asume acero (no inventa una madera por el nombre).
 - Perfiles abiertos: `r1`/`r2`/`pendiente_ala` son datos de NORMA que el builder no lee (la
   geometría sigue prismática → sin bump); `acuerdos.py` deriva la zona plana y el lint
   «asiento fuera de la zona plana» (`lint_asiento.py`) lee los taladros de la GEOMETRÍA, no de
