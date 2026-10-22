@@ -102,6 +102,14 @@ PED-124 (términos, privacidad y aviso de responsabilidad, con `/terminos#respon
   (ritmo, rótulos, encuadres, texto) entra como cambio al guion o a los textos, no como paso
   manual permanente.
 
+- **D12 — Código público, receta privada** (Mario, 2026-10-21, ante el riesgo de que alguien
+  compita con otra tienda y otro canal; Apolo CAD sigue MIT). El código genérico (`publicar
+  subir`, `youtube`, `fabrica`, la cola) va en este repo: no da ventaja (se copia en días) y lo
+  usarán los creadores de la parte 3. Los briefs de producción (modelador + «redacta la ficha»,
+  orquestación de varias máquinas y PCs), los criterios de qué máquinas hacer y `pistas.json`
+  van al repo PRIVADO `apolo-fabrica` (hermano de este checkout). El revisor de taller se queda
+  público: es parte del producto. Credenciales en ningún repo (`~/.apolo/` de cada PC).
+
 ## Alternativas descartadas
 
 - **google-api-python-client + google-auth-oauthlib**: funciona, pero suma dependencias al
@@ -132,8 +140,8 @@ PED-124 (términos, privacidad y aviso de responsabilidad, con `/terminos#respon
   orden de PED-124 (no lo pisa).
 - **F2 — Ficha y textos automáticos (M, `publicacion/`).** `url_tienda` derivada; `publicar
   ficha --revisar`; aviso de responsabilidad en la descripción y en el cierre (D8); biblioteca
-  de música (D9); el brief del modelador suma la sección «redacta la ficha» (D1) en
-  `docs/fabrica.md`, junto con el orden de la orquestación (D7). Depende de PED-124 sólo por el
+  de música (D9); el brief del modelador suma la sección «redacta la ficha» (D1) y el orden de la
+  orquestación (D7), en el repo privado `apolo-fabrica` (D12); aquí sólo el código. Depende de PED-124 sólo por el
   enlace `/terminos`. Verifica: tests de textos y de ficha; una ficha escrita por un modelador
   pasa `--revisar`.
 - **F3 — La fábrica y el subidor (M, `publicacion/fabrica.py` + `publicar fabrica` y `publicar
