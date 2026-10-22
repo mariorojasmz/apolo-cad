@@ -120,6 +120,19 @@ class Trazador:
         return sorted(out)
 
 
+def primero_salvo(tr, o, d, t_max: float, salta=None, t_min: float = 0.0):
+    """`tr.primero` saltando los cruces que `salta(fid, punto)` deja pasar (la banda dentro de la
+    abertura de una guarda: se empuja, `calidad_codo.BandaEmpujable`)."""
+    while True:
+        h = tr.primero(o, d, t_max, t_min)
+        if h is None or salta is None:
+            return h
+        q = tuple(o[i] + h[0] * d[i] for i in range(3))
+        if not salta(h[1], q):
+            return h
+        t_min = h[0] + 1e-3
+
+
 def _dentro(solidos, p) -> bool:
     from OCP.BRepClass3d import BRepClass3d_SolidClassifier
     from OCP.gp import gp_Pnt
@@ -187,10 +200,11 @@ def cunas(banda_solidos, banda_caja, tambor_caja, redondo) -> dict:
 
 
 def evaluar_peligro(tr: Trazador, peligro: dict, caja, z_piso: float,
-                    n_direcciones: int = 64) -> tuple[list[dict], float]:
+                    n_direcciones: int = 64, salta=None) -> tuple[list[dict], float]:
     """Las sondas de un peligro: por objetivo y dirección, el veredicto de `sondas.veredicto`.
     Devuelve ([sonda], ms). Cada sonda que alcanza lleva dirección, entrada al contorno, punto
-    tocado, profundidad y abertura; las bloqueadas, la pieza que las paró (`bloquea`)."""
+    tocado, profundidad y abertura; las bloqueadas, la pieza que las paró (`bloquea`). `salta`:
+    los cruces que no bloquean (la banda empujable en la abertura de una guarda)."""
     t0 = time.perf_counter()
     objetivos = peligro.get("objetivos") or []
     n = n_direcciones
@@ -206,7 +220,7 @@ def evaluar_peligro(tr: Trazador, peligro: dict, caja, z_piso: float,
         for d in dirs:
             ori = origen(p, d, caja, z_piso)
             o, t_obj = ori["origen"], ori["t_objetivo"]
-            hit = tr.primero(o, d, t_obj + 0.5)
+            hit = primero_salvo(tr, o, d, t_obj + 0.5, salta)
             if hit is not None and hit[1] not in propias:
                 sondas.append({"alcanza": False, "bloquea": [hit[1]]})
                 continue
@@ -216,7 +230,7 @@ def evaluar_peligro(tr: Trazador, peligro: dict, caja, z_piso: float,
                 out = []
                 for off in desplazamientos(ancho, d):
                     oo = tuple(o[i] + off[i] for i in range(3))
-                    h = tr.primero(oo, d, t_llega)
+                    h = primero_salvo(tr, oo, d, t_llega, salta)
                     out.append(h[0] if h is not None and h[1] not in forman else None)
                 return out
 

@@ -202,7 +202,7 @@ def _alcanzan(r: dict) -> str:
 
 
 def _con_brazo_doblado(tr, dc: dict, peligros: list[dict], sondas: dict, resultados: dict,
-                       n_direcciones: int) -> dict:
+                       n_direcciones: int, empuje) -> dict:
     """Las sondas con el brazo DOBLADO (`calidad_codo`) sobre los peligros que las rectas dieron
     por resguardados: el campo del brazo se arma UNA vez y sólo si hace falta. → evidencia."""
     from apolo.library.seguridad.peligros import resultado_peligro
@@ -213,10 +213,10 @@ def _con_brazo_doblado(tr, dc: dict, peligros: list[dict], sondas: dict, resulta
     if not pendientes:
         return {"peligros": 0, "motivo": "ningún peligro quedó resguardado por las rectas"}
     t0 = time.perf_counter()
-    campo = campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"])
+    campo = campo_alcance(dc["solidos"], dc["caja"], dc["z_piso"], empuje)
     ms_campo = (time.perf_counter() - t0) * 1000.0
     for p in pendientes:
-        extra, ms = sondas_con_codo(tr, campo, p, n_direcciones)
+        extra, ms = sondas_con_codo(tr, campo, p, n_direcciones, empuje)
         resultados[p["id"]] = resultado_peligro(p, sondas[p["id"]] + extra,
                                                 resultados[p["id"]]["ms"] + ms)
     return {"peligros": len(pendientes), "voxel_mm": round(campo.paso, 1),
@@ -225,15 +225,17 @@ def _con_brazo_doblado(tr, dc: dict, peligros: list[dict], sondas: dict, resulta
 
 def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
                         an: dict | None = None, electrico: bool = True,
-                        brazo_doblado: bool = True) -> dict:
+                        brazo_doblado: bool = True, banda_empujable: bool = True) -> dict:
     """→ {items: [resguardo, guarda, eléctrico], riesgos: [filas], peligros: [...], ms}. `an`: el
     `analisis` ya hecho; `electrico=False` no corre el ERC (ni su ítem ni su fila);
-    `brazo_doblado=False` deja sólo las sondas rectas (para medir el hueco que cierran)."""
+    `brazo_doblado=False` deja sólo las sondas rectas y `banda_empujable=False` hace de la banda una
+    pared también en las aberturas (las dos, para medir el hueco que cierran: F6)."""
     from apolo.library.seguridad import guardas as G
     from apolo.library.seguridad.iso13857 import NORMA as NORMA_13857
     from apolo.library.seguridad.modelo import item
     from apolo.library.seguridad.peligros import resultado_peligro, tabla_riesgos
 
+    from .calidad_codo import BandaEmpujable
     from .calidad_sondas import Trazador, cunas, evaluar_peligro
 
     t0 = time.perf_counter()
@@ -241,6 +243,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
     dc, piezas = an["dc"], an["dc"]["piezas"]
     peligros = [dict(p) for p in an["peligros"]]  # se les ponen objetivos: el análisis no cambia
     tr = Trazador(dc["solidos"]) if peligros else None
+    empuje = BandaEmpujable(dc) if peligros and banda_empujable else None  # se empuja (F6)
     resultados, sondas_de = {}, {}
     for p in peligros:
         if p.get("cuna"):
@@ -249,10 +252,11 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
             p["objetivos"] = c["puntos"]
             if not c["puntos"]:
                 p["motivo"] = c.get("motivo")
-        sondas, ms = evaluar_peligro(tr, p, dc["caja"], dc["z_piso"], n_direcciones)
+        sondas, ms = evaluar_peligro(tr, p, dc["caja"], dc["z_piso"], n_direcciones,
+                                     empuje.salta if empuje is not None else None)
         sondas_de[p["id"]] = sondas
         resultados[p["id"]] = resultado_peligro(p, sondas, ms)
-    doblado = (_con_brazo_doblado(tr, dc, peligros, sondas_de, resultados, n_direcciones)
+    doblado = (_con_brazo_doblado(tr, dc, peligros, sondas_de, resultados, n_direcciones, empuje)
                if brazo_doblado and peligros else None)
 
     titulo = "Cada peligro mecánico queda fuera del alcance (sondas ISO 13857)"

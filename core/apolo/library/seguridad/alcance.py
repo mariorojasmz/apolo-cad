@@ -188,6 +188,21 @@ class CampoAlcance:
             np.minimum(mejor, np.moveaxis(cur, 0, a), out=mejor)
         return mejor
 
+    def cerca(self, p, radio: float):
+        """Los voxeles a los que llega la muñeca a ≤ `radio` de `p`: (centros (n, 3), profundidad
+        (n,), distancia a p (n,)), numpy."""
+        import numpy as np
+
+        p = np.asarray(p, dtype=float)
+        a = np.maximum(0, np.floor((p - radio - self.lo) / self.paso).astype(int))
+        b = np.minimum(self.forma, np.ceil((p + radio - self.lo) / self.paso).astype(int) + 1)
+        sub = self._prof[a[0]:b[0], a[1]:b[1], a[2]:b[2]]
+        idx = np.argwhere(np.isfinite(sub))
+        centros = self.lo + (idx + a + 0.5) * self.paso
+        dist = np.linalg.norm(centros - p, axis=1)
+        ok = dist <= radio
+        return centros[ok], sub[tuple(idx[ok].T)], dist[ok]
+
     def profundidad(self, p) -> float | None:
         """La profundidad (mm) del voxel de `p` por el brazo recto, o None si no llega (o no cabe)."""
         ijk = [int(math.floor((p[k] - self.lo[k]) / self.paso)) for k in range(3)]

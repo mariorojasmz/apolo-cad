@@ -746,17 +746,17 @@ recta (≤ 230 mm, tabla 6) hasta el primer sólido ajeno; el primer punto del t
 muñeca es el origen de una sonda que `sondas.veredicto` juzga con sus haces (la abertura que pasa
 la mano decide sr). En una cuña la mano tiene que llegar a la cuña (tocar el tambor a > 20 mm
 del punto no cuenta); las rectas no cambian. Corre sólo sobre los peligros que las rectas dieron
-por resguardados (~3–6 s por máquina; nada en el transportador de rodillos, ya en FALLA). La
+por resguardados (~4–10 s por máquina con 1b; nada en el transportador de rodillos, ya en FALLA). La
 evidencia cuenta `n_brazo_doblado` y cada sonda dice su `codo` y su profundidad.
 
 Calibración (`riesgos.partes_moviles`, antes → después):
 
 | máquina | antes | después |
 |---|---|---|
-| faja motor central (privada) | FALLA: cuñas de cola y cabeza (11 + 11 rectas) | FALLA: además desvío +X (14 dobladas, la del revisor), desvío −X (5) y motriz (15): el cajón del drive queda abierto por las dos ranuras |
+| faja motor central (privada) | FALLA: cuñas de cola y cabeza (11 + 11 rectas) | FALLA: además desvío +X (99 dobladas, la del revisor), desvío −X (83) y motriz (257): el cajón del drive queda abierto por las dos ranuras |
 | faja motor cabeza (privada) | FALLA: cuñas de cola y motriz | igual (el extremo de eje sigue OK) |
 | rodillos con cadena 2 m (privada) | FALLA: transmisión expuesta (377) | igual (las dobladas no corren: ya falla) |
-| `create_belt_conveyor` v4 por defecto | OK | **FALLA, real**: cuñas de cola (20) y motriz (35), sólo dobladas: (1) la ranura de 35 mm borde de banda ↔ larguero está abierta por abajo entre las guardas de los tambores (más allá de la bandeja): el brazo pasa junto al borde del retorno, entra al lazo y baja la mano a las cuñas (600–700 mm desde el contorno); (2) el tubo del larguero está abierto en sus extremos y la ranura del tensor en su alma deja la cuña de cola a ~340 mm |
+| `create_belt_conveyor` v4 por defecto | OK | **FALLA, real**: cuñas de cola (127) y motriz (215), sólo dobladas: (1) la ranura de 35 mm borde de banda ↔ larguero está abierta por abajo entre las guardas de los tambores (más allá de la bandeja): el brazo pasa junto al borde del retorno, entra al lazo y baja la mano a las cuñas (600–700 mm desde el contorno); (2) el tubo del larguero está abierto en sus extremos y la ranura del tensor en su alma deja la cuña de cola a ~340 mm |
 
 La v4 necesita una v5 (decisión del orquestador): el testigo público `faja` lleva desde ahora los
 cierres que faltan (`scripts/testigos.py::cierres_faja`: guarda inferior atornillada bajo la
@@ -764,6 +764,27 @@ ranura —ala a 10 mm del retorno, por fuera del borde de la banda— y tapas de
 aprueba entero. Defecto sembrado `sin_cierres` (la v4 tal cual) y
 `test_las_rectas_no_ven_la_ranura_junto_a_la_banda` (las rectas solas dan OK: el hueco).
 Tests puros del campo y de la mano en `tests/test_calidad_alcance.py`.
+
+**1b. La banda que cruza una ranura de la guarda** (re-revisión de la faja central, con la guarda
+del drive ya corregida): la banda de retorno atraviesa la guarda por una ranura de ~10–12 mm a
+cada lado (23,6 mm empujando la banda) a 59 mm de la cuña del desvío, y las sondas seguían dando
+OK por dos cosas: (a) la banda era pared también DENTRO de la abertura (el rayo central se
+paraba en ella y el brazo no cabía junto a ella); (b) las manos salían en 64 direcciones fijas y
+la ventana de la ranura es más estrecha que su separación. Arreglo: `calidad_codo.BandaEmpujable`
+— un punto de banda a ≤ 15 mm de una guarda y SIN apoyo a esa distancia (ni tambor, ni cama, ni
+otra pieza: un tramo libre) se empuja: no bloquea la sonda (rectas y dobladas), no estrecha el haz
+y no es pared del campo del brazo; donde abraza un tambor o asienta en la cama, no se mueve (sin
+esa condición, el techo de la guarda de cola dejaba «empujar» la banda sobre el tambor: falso
+rojo medido en el testigo). Y las manos van ahora a los voxeles a los que llega la muñeca (los dos
+más cercanos en cada una de 256 direcciones), no a una esfera fija: las ventanas estrechas
+aparecen. Réplica medida sobre el `.apolo` de la tienda con una guarda superior y ranura de
+23,6 mm (a todo lo ancho, y sólo del ancho de la banda): rectas solas OK; ahora desvío +X y −X
+FALLA (18/15 y 12/10 sondas). Testigo malo público:
+`test_la_banda_que_cruza_una_ranura_de_la_guarda_se_empuja` (faja a mano con una caja de chapa
+alrededor del tambor y una ranura de 24 mm por ramal: OK con la banda como pared, OK con el brazo
+doblado solo, FALLA con la banda empujable). Costo: la puerta de la faja v4 ~6 → ~11 s.
+Criterio declarado: dentro de la ranura la banda no tapa en ningún sentido (el haz pasa de un
+lado al otro), como pide la re-revisión.
 
 **2. D3b era de la plantilla.** El transportador de rodillos a mano (19 lazos ASA 40 Z15–Z15 a
 95,25 mm, 30 eslabones, y la motriz de 48) salía SIN_EVALUAR «sin tensor»: `lazos_cadena` sólo

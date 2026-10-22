@@ -134,6 +134,37 @@ def test_cuna_con_guarda_ok():
     assert _item(r["items"], ID_GUARDA)["estado"] == "OK"
 
 
+# caja de chapa alrededor del tambor +X con una ranura de 24 mm en su cara −X por la que pasa cada
+# ramal de la banda (4 mm): sin empujar la banda quedan ~10 mm a cada lado
+_CAJA_RANURADA = (
+    "caja = Pos(600, 0, 700) * Box(260, 600, 200) - Pos(600, 0, 700) * Box(254, 594, 194)\n"
+    "for z in (648, 752):\n"
+    "    caja = caja - Pos(471.5, 0, z) * Box(10, 420, 24)\n"
+    "result = caja\n"
+)
+
+
+def test_la_banda_que_cruza_una_ranura_de_la_guarda_se_empuja():
+    """8D de la re-revisión de la faja central (F6): la banda cruza la guarda por una ranura de
+    ~10 mm a cada lado (24 mm empujándola) a menos de 100 mm de la cuña. Con la banda como pared
+    y sólo rectas, la cuña sale resguardada (el hueco); con la banda empujable (en un tramo libre
+    dentro de la abertura no tapa ni estrecha) y el brazo doblado, FALLA."""
+    d, ids = _faja()
+    g = d.execute("run_script", {"name": "Guarda del tambor (+X)", "code": _CAJA_RANURADA})
+    for k, lado in enumerate(("+Y", "-Y")):
+        d.execute("fasten", {"name": f"gr{k}", "a": g, "b": ids[f"larg{lado}"],
+                             "kind": "perno", "size": "M8", "qty": 2})
+    antes = _item(controles_seguridad(d, n_direcciones=48, brazo_doblado=False,
+                                      banda_empujable=False)["items"], ID_RESGUARDO)
+    assert _peligro(antes, ids["tambor+X"])["estado"] == "OK"
+    pared = _item(controles_seguridad(d, n_direcciones=48, banda_empujable=False)["items"],
+                  ID_RESGUARDO)
+    assert _peligro(pared, ids["tambor+X"])["estado"] == "OK"  # el brazo doblado solo, tampoco
+    it = _item(controles_seguridad(d, n_direcciones=48)["items"], ID_RESGUARDO)
+    p = _peligro(it, ids["tambor+X"])
+    assert p["estado"] == "FALLA" and p["n_alcanzan"] > 0, p
+
+
 def test_guarda_soldada_falla():
     d, ids = _faja(guardas="soldadura")
     it = _item(controles_seguridad(d, n_direcciones=16)["items"], ID_GUARDA)
