@@ -36,7 +36,7 @@ def test_banda_sin_tensor_queda_sin_evaluar():
     (lz,) = lazos(doc)
     assert lz["tipo"] == "banda" and lz["tensores"] == []
     # el lazo de pista: 2·4000 entre ejes + la vuelta a cada tambor (medido de la geometría)
-    assert 8500 < lz["largo_mm"] < 8900
+    assert 8300 < lz["largo_mm"] < 8400
     items = _items(doc)
     assert {i.estado for i in items.values()} == {SIN_EVALUAR}
     assert items["tensor.reconocido"].piezas == ["c1_banda"]
@@ -51,7 +51,7 @@ def test_tensor_trotadora_de_catalogo_se_reconoce_pero_sin_carrera():
 
 def test_take_up_con_carrera_insuficiente_falla():
     """create_take_up: el eje corre 12 mm a cada lado entre las aletas (24 mm), la banda de
-    ~8,7 m pide 1 % + 20 ≈ 107 mm. El perno tensor agarra en los dos extremos."""
+    ~8,35 m pide 1 % + 20 ≈ 104 mm. El perno tensor agarra en los dos extremos."""
     doc = _faja()
     doc.execute("create_take_up", {"position": COLA})
     (lz,) = lazos(doc)

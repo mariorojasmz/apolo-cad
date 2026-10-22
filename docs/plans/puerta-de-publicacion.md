@@ -259,7 +259,7 @@ los registra):
   `error`/`aviso` → FALLA salvo `INFORMATIVAS` (arrastre de banda, velocidad, geometría,
   transportador, alcance de la memoria), cada una con su porqué.
 
-Medido: `create_belt_conveyor` por defecto da un lazo de 8 709 mm (pide 107 mm de carrera); su
+Medido: `create_belt_conveyor` por defecto da un lazo de 8 351 mm tras la v3 de D13 (pide 104 mm de carrera); su
 `TENSOR-TROT-25` queda SIN_EVALUAR y un `create_take_up` corre 24 mm (12 + 12 entre aletas) →
 FALLA de carrera con el agarre OK en los dos extremos. Los lazos rodillo a rodillo de
 `create_roller_conveyor` (centros fijos) quedan SIN_EVALUAR: **decisión pendiente** (¿se aceptan
