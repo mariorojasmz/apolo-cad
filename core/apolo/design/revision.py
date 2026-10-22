@@ -80,6 +80,20 @@ PREGUNTAS_POR_PIEZA: list[dict[str, str]] = [
         "busca ranuras o tensores donde haga falta ajuste.",
     },
     {
+        "clave": "tensado",
+        "titulo": "Tensor (carrera y perno)",
+        "pregunta": "Por cada tensor (de cola, del drive, de cadena): ¿cuánto recorre? La "
+        "carrera debe cubrir el estiramiento de la banda o cadena en servicio (≈ 1 % del largo "
+        "del lazo en una banda de PVC) más el margen para montarla. ¿El perno o tornillo de "
+        "tensado atraviesa TODAS las piezas que debe (las dos aletas de un soporte en C, la "
+        "tuerca o el hilo del eje) con hilo de sobra al final de la carrera? ¿El tipo de tensor "
+        "corresponde a la máquina (largo, carga, servicio) o hay uno de mercado más simple "
+        "(chumacera tensora, chumacera en ranura con empujador)? Si hay dos, lo dices sin elegir.",
+        "como": "render_view(section) o get_topology del soporte para medir la ranura o el "
+        "hilo; measure del largo del perno contra el paquete que cruza (aletas + eje + "
+        "arandelas); get_bom para el largo comprado.",
+    },
+    {
         "clave": "herramienta",
         "titulo": "Acceso de herramienta",
         "pregunta": "¿Entra la herramienta a cada fijador (llave, dado, soldadora) y tiene "

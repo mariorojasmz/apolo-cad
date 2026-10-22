@@ -31,6 +31,12 @@ class CreateTakeUpParams(BaseModel):
 
     PARA QUÉ SIRVE: rodillo de cola (no motriz) de una faja de banda, con tensado integrado.
 
+    ES UNA OPCIÓN, NO EL DEFAULT: es la solución de taller de UN cliente (fajas cortas y
+    livianas, sin chumaceras que comprar). Antes de usarla compárala con las de mercado:
+    chumacera tensora (UCT) en su marco, chumacera de pie (UCP) en ranura con empujador, o
+    contrapeso en fajas largas; elige por largo, carga, servicio y lo que se consigue, y
+    reporta la descartada.
+
     CORONADO (`coronado_mm`, opcional; 0 = cilindro recto): con banda PLANA sobre rodillo de
     ACERO LISO (sin engomado) es lo que CENTRA la banda, que migra hacia el Ø mayor: un rodillo
     más alto al centro la devuelve sola al eje de la faja. Forma TRAPEZOIDAL: centro recto = 1/2

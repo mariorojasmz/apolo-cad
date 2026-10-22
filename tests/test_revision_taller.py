@@ -33,8 +33,8 @@ def test_la_pasada_estructural_es_la_de_d3_y_va_primero():
 
 def test_las_preguntas_por_pieza_cubren_d3():
     claves = {p["clave"] for p in revision.PREGUNTAS_POR_PIEZA}
-    assert claves == {"funcion", "material", "perfil_mercado", "montaje", "herramienta",
-                      "guardas", "ficha"}
+    assert claves == {"funcion", "material", "perfil_mercado", "montaje", "tensado",
+                      "herramienta", "guardas", "ficha"}
 
 
 def test_cada_pregunta_esta_completa_y_las_claves_no_se_repiten():
