@@ -25,7 +25,7 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 
 | hito | qué falta | plan |
 |---|---|---|
-| **Q. Puerta de publicación** (calidad en piedra; Mario, 2026-10-22: nada se publica sin pasarla) | D13, F1, F2 y F3 mergeadas. Lanzadas (escritorio, 2026-10-22): F3 conectada al registro + tabla de riesgos en el paquete, y la v4 de `create_belt_conveyor` sin choques internos. Luego F4, F5, F6. Las 3 máquinas no se re-publican hasta pasarla | [puerta-de-publicacion](plans/puerta-de-publicacion.md) |
+| **Q. Puerta de publicación** (calidad en piedra; Mario, 2026-10-22: nada se publica sin pasarla) | D13, F1, F2, F3, F3 en el registro (tabla de riesgos en el paquete) y la v4 de `create_belt_conveyor` (sin choques; la puerta sólo le pide D15) mergeadas. Falta F4, F5, F6. Las 3 máquinas no se re-publican hasta pasarla | [puerta-de-publicacion](plans/puerta-de-publicacion.md) |
 | **A. Video de YouTube realista** | F0–F4 hechas (visor alta, grabación, guion en el navegador, trazado de rayos y Foto realista); falta F5 (verificación en el escritorio con la 4070 Ti, con Mario) | [video-realista](plans/video-realista.md) |
 | **A′. Pulido del video de la tienda** | F3 hecha; F2 reducida por video-realista D8; F4 con la música de Mario | [video-tienda-pulido](plans/video-tienda-pulido.md) |
 | **A″. Fábrica de publicaciones** (máquinas → tienda → cola de YouTube) | F1 (cliente de YouTube) lanzada; luego T (cola en la tienda, pedido de Caronte), F2 (ficha automática), F3 (fábrica y subidor) y F4 (dos máquinas reales con Mario); F5 (corto vertical para shorts/reels) aprobada | [fabrica-de-publicaciones](plans/fabrica-de-publicaciones.md) |

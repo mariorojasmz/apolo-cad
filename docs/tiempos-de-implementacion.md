@@ -107,6 +107,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-21 | mcp-sin-friccion | F5 | M | 87 | 495 | la propuesta sobre la plantilla 182 → 0, aplicar por conjuntos y dimensionado, interferencia paginada, engineering_check 13,2 → 3,5 KB; suite en el escritorio 12 min |
 | 2026-10-21 | union-en-perfil-hueco | F1 | M | 72 | 435 | join_bolted: remache ciego en tubo cerrado, M6×12 en la C (antes ×65), DIN 571 en madera, tuerca atrás; log viejo idéntico por sello de criterio |
 | 2026-10-22 | puerta-de-publicacion | F3 en el registro | S | 43 | 305 | fuente «seguridad» una vez por corrida (`Contexto`), detectores con el criterio de F3, tabla ISO 12100 en calidad.json/md; registro v2; rodillos 36 → 45 s |
+| 2026-10-22 | puerta-de-publicacion | create_belt_conveyor v4 | L | 65 | 620 | 15 choques → 0, 77 uniones declaradas, UCT205-150 (carrera 150 mm), bastidor FS 1,94; la puerta sólo pide D15; 6 módulos nuevos para el trinquete |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
