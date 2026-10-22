@@ -232,6 +232,7 @@ def _textos_fuera_de_su_celda(model) -> list[str]:
 
     cols, filas, x0, x1, y0, top = _grilla(model)
     fig = _figure(model)
+    fig.set_dpi(600)  # el PDF es vectorial: medir sin el hinting de pocos dpi
     try:
         fig.canvas.draw()
         ren = fig.canvas.get_renderer()
