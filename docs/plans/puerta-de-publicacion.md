@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 y F2 hechas; F1 (núcleo, D3b, D13b, D14, D15) implementada con tests, pendiente de revisión y merge; F3–F6 pendientes; create_belt_conveyor tiene choques internos reales (D13b, ver F1)
+nota: F0, F1, F2 y F3 mergeadas; falta conectar F3 al registro (la línea comentada de MAPA_SEGURIDAD) y la tabla de riesgos en el paquete, la v4 de create_belt_conveyor sin choques internos (D13b), F4, F5 y F6
 descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
 ---
 
