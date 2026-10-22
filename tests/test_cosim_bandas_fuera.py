@@ -128,10 +128,11 @@ def test_la_banda_quieta_se_rechaza_antes_de_preparar_la_dinamica(doc, monkeypat
     det = e.value.detail
     assert det.startswith("mecánica: 'c1_banda' («Faja de banda · Banda») no avanza en esta simulación")
     assert "el escenario pone caja encima" in det and '"junta_motriz": "eje_motriz"' in det
-    # sin tierra declarada (esta faja la toma de la autodetección) la junta del tambor queda
-    # fuera: la previsión lo dice igual que la dinámica
+    # sin tierra declarada la junta del tambor queda fuera: la previsión lo dice igual que la
+    # dinámica (la faja v4 ancla sus pies; aquí se le quitan los anclajes)
     con_bandas = {**sin_auto, "bandas": BANDAS}
-    with pytest.raises(ServiceError, match="su junta motriz 'eje_motriz' quedó fuera"):
+    with monkeypatch.context() as m,             pytest.raises(ServiceError, match="su junta motriz 'eje_motriz' quedó fuera"):
+        m.setattr(doc, "grounds", {})
         snapshot_cosim(doc, _escenario(con_bandas, ["-K1.cuenta >= 0 al_final"]))
     # con autodetección no se puede prever barato: decide la dinámica (el chequeo de después)
     assert prever(doc.scene, doc.joints, doc.fasteners, doc.grounds, {**A_MANO, "duracion_s": 1}) is None

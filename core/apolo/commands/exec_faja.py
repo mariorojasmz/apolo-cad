@@ -1,0 +1,65 @@
+"""Executor de `create_belt_conveyor` (faja de banda; plan puerta-de-publicacion, v4).
+
+Emite las piezas del plan (`library/belt_conveyor.py`) como `{cmd_id}_{sufijo}` (command_id del
+comando: la puerta de entrega no revisa sus pares por `same_command_pairs`; la de publicación sí,
+D13b) y corre `fasten` y `ground` del registro con las uniones y los anclajes del plan, con ids
+`{cmd_id}_u_{sufijo}` / `{cmd_id}_g_{sufijo}` (como `create_roller_conveyor`): por eso es
+COMPUESTO. La huella D11 cubre SÓLO esta función: si cambian las cotas o el plan
+(`library/belt_conveyor*.py`) con los mismos params, sube su `version` a mano (regla D10).
+"""
+
+from __future__ import annotations
+
+from pydantic import ValidationError
+
+from .errors import CommandError
+from .models_faja import CreateBeltConveyorParams
+from .spec import run_executor
+from .state import ExecContext
+
+
+def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConveyorParams) -> None:
+    from apolo.kernel.matrix import compose_place, multiply
+    from apolo.kernel.shapes import place
+    from apolo.library.belt_conveyor import belt_conveyor_parts
+
+    from .registry import REGISTRY, Feature, _publish_axis_anchor, register_definition
+
+    try:
+        plan = belt_conveyor_parts(
+            p.largo, p.ancho_banda, p.altura, p.tambor_motriz, p.tambor_cola, p.tubo,
+            None if p.tensor == "ninguno" else p.tensor,
+            None if p.motor == "ninguno" else p.motor,
+            p.espesor_banda, p.guardas,
+        )
+    except (ValueError, KeyError) as exc:
+        raise CommandError(f"Faja de banda: {exc}") from exc
+    pos, rot = p.position.tuple(), p.rotation.tuple()
+    cmd_matrix = compose_place(pos, rot)
+    for part in plan.piezas:
+        fid = f"{cmd_id}_{part.suffix}"
+        matrix = None
+        if part.base_key and part.base_shape is not None:
+            register_definition(part.base_key, part.base_shape)
+            matrix = multiply(cmd_matrix, compose_place(part.position, part.rotation))
+        ctx.scene[fid] = Feature(
+            fid, f"{p.name} · {part.name}", place(part.shape, pos, rot), cmd_id,
+            component=part.component, cut_length=part.cut_length,
+            mesh_key=part.base_key if matrix is not None else None, matrix=matrix,
+            material=part.material,
+        )
+    _publish_axis_anchor(ctx.scene, f"{cmd_id}_tambor_motriz", "eje_motriz")
+    _publish_axis_anchor(ctx.scene, f"{cmd_id}_tambor_cola", "eje_cola")
+    pasos = [("fasten", f"u_{suf}", {"name": f"{cmd_id}_{suf}", "a": f"{cmd_id}_{a}",
+                                     "b": f"{cmd_id}_{b}", "kind": kind, "nota": nota, **dim})
+             for suf, a, b, kind, nota, dim in plan.uniones]
+    pasos += [("ground", f"g_{suf}", {"name": f"{cmd_id}_{suf}", "feature": f"{cmd_id}_{pieza}",
+                                      "nota": nota})
+              for suf, pieza, nota in plan.anclajes]
+    for tipo, suf, params in pasos:
+        spec = REGISTRY[tipo]
+        try:
+            run_executor(spec, ctx, f"{cmd_id}_{suf}", spec.model.model_validate(params,
+                                                                                extra="forbid"))
+        except (ValidationError, CommandError) as exc:
+            raise CommandError(f"Faja de banda ({tipo} {suf}): {exc}") from exc

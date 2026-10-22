@@ -200,24 +200,6 @@ def _motor_refs() -> list[str]:
     return refs_in_category("motorreductores")
 
 
-def _drum_refs() -> list[str]:
-    from apolo.library.catalog import refs_in_category
-
-    return refs_in_category("tambores")
-
-
-def _tube_refs() -> list[str]:
-    from apolo.library.catalog import refs_in_category
-
-    return refs_in_category("tubos_estructurales")
-
-
-def _takeup_refs() -> list[str]:
-    from apolo.library.catalog import refs_in_category
-
-    return refs_in_category("tensores_trotadora")
-
-
 ANCHOR_NAMES = Literal["centro", "base", "tope", "min_x", "max_x", "min_y", "max_y"]
 
 
@@ -319,70 +301,6 @@ class CreateConveyorParams(BaseModel):
     @field_validator("motor")
     @classmethod
     def _known_motor(cls, v: str) -> str:
-        if v != "ninguno" and v not in _motor_refs():
-            raise ValueError(f"motor desconocido '{v}'")
-        return v
-
-
-class CreateBeltConveyorParams(BaseModel):
-    """Faja de banda plana paramétrica con cama de deslizamiento y 2 tambores de
-    extremo: bastidor de tubo estructural, banda envolvente, tambor motriz engomado +
-    tambor de cola con tensor tipo TROTADORA (sin chumacera), motorreductor de eje
-    hueco y guardas opcionales. Editar cualquier parámetro regenera la faja entera."""
-
-    name: str = Field("Faja de banda", title="Nombre")
-    largo: float = Field(4000, gt=0, le=30000, title="Largo entre tambores", description="mm")
-    ancho_banda: float = Field(600, gt=0, le=3000, title="Ancho de banda", description="mm")
-    altura: float = Field(900, gt=0, le=2500, title="Altura de trabajo", description="mm, cara superior de la banda")
-    espesor_banda: float = Field(4, gt=0, le=30, title="Espesor de banda", description="mm")
-    tambor_motriz: str = Field(
-        "TAMBOR-102", title="Tambor motriz",
-        json_schema_extra=lambda schema: schema.update({"enum": _drum_refs()}),
-    )
-    tambor_cola: str = Field(
-        "TAMBOR-102-COLA", title="Tambor de cola",
-        json_schema_extra=lambda schema: schema.update({"enum": _drum_refs()}),
-    )
-    tubo: str = Field(
-        "TUBO-4X2", title="Tubo del bastidor",
-        json_schema_extra=lambda schema: schema.update({"enum": _tube_refs()}),
-    )
-    tensor: str = Field(
-        "TENSOR-TROT-25", title="Tensor (trotadora)",
-        json_schema_extra=lambda schema: schema.update({"enum": ["ninguno"] + _takeup_refs()}),
-    )
-    motor: str = Field(
-        "MOTOR-150-EH", title="Motorreductor",
-        json_schema_extra=lambda schema: schema.update({"enum": ["ninguno"] + _motor_refs()}),
-    )
-    guardas: bool = Field(True, title="Guardas laterales")
-    position: Vec3 = Field(default_factory=Vec3, title="Posición")
-    rotation: Rot3 = Field(default_factory=Rot3, title="Rotación")
-
-    @field_validator("tambor_motriz", "tambor_cola")
-    @classmethod
-    def _known_drum(cls, v: str) -> str:
-        if v not in _drum_refs():
-            raise ValueError(f"tambor desconocido '{v}'")
-        return v
-
-    @field_validator("tubo")
-    @classmethod
-    def _known_tube(cls, v: str) -> str:
-        if v not in _tube_refs():
-            raise ValueError(f"tubo desconocido '{v}'")
-        return v
-
-    @field_validator("tensor")
-    @classmethod
-    def _known_tensor(cls, v: str) -> str:
-        if v != "ninguno" and v not in _takeup_refs():
-            raise ValueError(f"tensor desconocido '{v}'")
-        return v
-
-    @field_validator("motor")
-    @classmethod
-    def _known_motor_eh(cls, v: str) -> str:
         if v != "ninguno" and v not in _motor_refs():
             raise ValueError(f"motor desconocido '{v}'")
         return v

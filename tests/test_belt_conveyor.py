@@ -112,17 +112,26 @@ def _belt_doc(**overrides):
 def test_belt_conveyor_genera_todas_las_piezas():
     d, _ = _belt_doc()
     names = [f.name for f in d.scene.values()]
-    assert sum("Larguero" in n for n in names) == 2
+
+    def cuenta(rol):
+        return sum(n.split(" · ")[-1].startswith(rol) for n in names)
+
+    assert cuenta("Larguero") == 2
     assert sum(n == "Faja de banda · Tambor motriz" for n in names) == 1
     assert sum(n == "Faja de banda · Tambor de cola" for n in names) == 1
-    assert sum("Banda" in n for n in names) == 1
-    assert sum("Cama de deslizamiento" in n for n in names) == 1
-    assert sum("Pata" in n for n in names) == 4
-    assert sum("Pie nivelador" in n for n in names) == 4
-    assert sum("Tensor trotadora" in n for n in names) == 2
-    assert sum("Motorreductor" in n for n in names) == 1
-    assert sum("Guarda lateral" in n for n in names) == 2
-    assert len(d.scene) == 21  # 2 largueros + 2 tambores + banda + cama + 4 patas + 4 pies + 2 travesaños + 2 tensores (C+M16) + motor + 2 guardas
+    assert cuenta("Banda") == 1 and cuenta("Cama de deslizamiento") == 1
+    assert cuenta("Pata") == 4 and cuenta("Placa de la pata") == 4 and cuenta("Pie nivelador") == 4
+    assert cuenta("Travesaño") == 2
+    assert cuenta("Soporte de cama") == 6 and cuenta("Placa del soporte de cama") == 12
+    assert cuenta("Chumacera motriz") == 2 and cuenta("Placa porta-chumacera motriz") == 2
+    assert cuenta("Tensor de carro") == 2 and cuenta("Tapa del tensor") == 2
+    assert cuenta("Tapa del eje motriz") == 1  # el otro extremo va al acople del motor
+    assert cuenta("Motorreductor") == 1 and cuenta("Acople flexible") == 1
+    assert cuenta("Base del motor") == 1 and cuenta("Ménsula del motor") == 1
+    assert cuenta("Brazo de la base del motor") == 2
+    assert cuenta("Guarda lateral") == 2 and cuenta("Guarda del tambor") == 2
+    assert cuenta("Guarda del acople") == 1
+    assert len(d.scene) == 58
 
 
 def test_belt_conveyor_banda_es_lazo_hueco():
@@ -137,11 +146,12 @@ def test_belt_conveyor_banda_es_lazo_hueco():
 def test_belt_conveyor_bom_usa_piezas_nuevas():
     d, _ = _belt_doc()
     refs = {r["ref"] for r in bom_from_scene(d.scene)}
-    assert {"TUBO-4X2", "TUBO-2X2", "TAMBOR-102", "TAMBOR-102-COLA",
-            "MOTOR-150-EH", "TENSOR-TROT-25", "PIE-M12-50", "GUARDA-150"} <= refs
-    # los largueros salen cortados al largo + voladizos
+    assert {"TUBO-4X2", "TUBO-2X2", "TAMBOR-102", "TAMBOR-102-RET", "MOTOR-150-EH",
+            "UCT205-150", "UCF205", "PIE-M12-50"} <= refs
+    # los largueros: el largo entre tambores + el voladizo motriz (Ø/2 + engomado + banda + 40)
+    # + el de cola (medio marco del tensor UCT205-150 + 15)
     rows = {(r["ref"], r["longitud_mm"]): r["cantidad"] for r in bom_from_scene(d.scene)}
-    assert rows[("TUBO-4X2", 4201.6)] == 2  # 4000 + 2·(50.8 + 6 engomado + 4 + 40) voladizos
+    assert rows[("TUBO-4X2", 4274.3)] == 2
 
 
 def test_belt_conveyor_bom_separa_banda_y_cama():
@@ -272,3 +282,120 @@ def test_belt_conveyor_ramal_de_carga_plano_con_tambor_engomado():
     assert sup("Banda") == pytest.approx(900, abs=0.5)
     assert sup("Tambor motriz") == pytest.approx(900 - 4, abs=0.5)
     assert sup("Tambor de cola") == pytest.approx(900 - 4, abs=0.5)
+
+
+# ----------------------------------------------- v4: montaje, uniones y tensor (puerta de publicación)
+#: El default y una variante de otro largo, ancho y altura (con el tensor de la v3 en el log).
+VARIANTES = [{}, {"largo": 2500, "ancho_banda": 450, "altura": 750, "tensor": "TENSOR-TROT-25"}]
+
+
+@pytest.fixture(scope="module", params=range(len(VARIANTES)), ids=["default", "variante"])
+def faja_v4(request):
+    return _belt_doc(**VARIANTES[request.param])
+
+
+def test_v4_sin_choques_internos_ni_siquiera_entre_lo_declarado(faja_v4):
+    """D13b de la puerta: la v3 chocaba por dentro (motor ↔ larguero 392 599 mm³, cama ↔ guardas,
+    ejes por los largueros sin barreno…). La v4 no tiene NINGUNA pareja con volumen común, sin
+    excluir nada (ni `same_command_pairs` ni las uniones declaradas): los ejes pasan por barrenos
+    con holgura y los asientos (eje en el inserto, cubo del acople) son contactos de volumen 0."""
+    d, _ = faja_v4
+    r = interference_report(d.scene)
+    assert not r["truncado"]
+    assert [(i["a"], i["b"], i["volumen_mm3"]) for i in r["interferencias"]] == []
+
+
+def test_v4_declara_sus_uniones_y_anclajes(faja_v4):
+    """Todo lo que la plantilla toca entre sus piezas va DECLARADO por ella (perno lo
+    desmontable, soldadura el marco, contacto los apoyos): cada pieza tiene unión y camino de
+    carga a tierra por los pies niveladores, sin autodetección."""
+    from apolo.assembly.connectivity import build_graph, soundness_report
+
+    d, cid = faja_v4
+    unidas = {f[k] for f in d.fasteners.values() for k in ("a", "b")}
+    assert set(d.scene) <= unidas
+    assert sorted(g["feature"] for g in d.grounds.values()) == [f"{cid}_foot{k}" for k in range(1, 5)]
+    assert all(g["command_id"].startswith(f"{cid}_g_") for g in d.grounds.values())
+    rep = soundness_report(build_graph(d.scene, d.joints, d.mates, d.fasteners, d.grounds))
+    assert rep["floating"] == [] and rep["n_grounded"] == len(d.scene)
+    tipos = {f["name"].split(f"{cid}_", 1)[1]: f["kind"] for f in d.fasteners.values()}
+    assert tipos["guarda1_larg"] == tipos["guarda_m_larg1"] == "perno"  # resguardos: con perno
+    assert tipos["chum_m1_placa"] == tipos["tensor1_larg"] == "perno"  # se cambian sin cortar
+    assert tipos["larg_pata1"] == tipos["chum_m1_placa_sold"] == "soldadura"
+    assert tipos["cama_sop1"] == tipos["sop1_m_larg"] == "perno"  # nada soldado abraza la banda
+    assert tipos["banda_motriz"] == tipos["chum_m1_eje"] == "contacto"
+    pernos = [f for f in d.fasteners.values() if f["kind"] == "perno"]
+    soldaduras = [f for f in d.fasteners.values() if f["kind"] == "soldadura"]
+    assert all(f.get("size") and f.get("qty") for f in pernos)
+    assert all(f.get("throat_mm") and f.get("length_mm") for f in soldaduras)
+
+
+def test_v4_bastidor_de_acero_explicito_no_por_el_nombre(faja_v4):
+    """«larguero» es palabra de madera en la heurística del nombre: la memoria tomaba los
+    largueros como madera (flecha 253,8 mm, NO CONFORME). La plantilla pone el material."""
+    from apolo.library.materials import resolve_material
+    from apolo.library.rules import _frame_from_scene
+
+    d, cid = faja_v4
+    for suf in ("rail1", "rail2", "leg1", "brace1", "sop1"):
+        f = d.scene[f"{cid}_{suf}"]
+        assert f.material and "acero" in f.material and "acero" in resolve_material(f)
+    frame = _frame_from_scene(d.scene, {})
+    assert "acero" in frame["material"]
+    # el vano es el de las patas (por su ROL tras « · »), no el largo del larguero
+    xs = sorted({round(d.scene[f"{cid}_leg{k}"].shape.bounding_box().center().X, 1)
+                 for k in range(1, 5)})
+    assert frame["span_mm"] == pytest.approx(xs[-1] - xs[0], abs=0.2)
+
+
+def test_v4_tensor_de_carro_con_carrera_para_el_lazo(faja_v4):
+    """El tensor de la plantilla es la unidad tensora de carro UCT de catálogo (tornillo
+    estándar, carrera de ficha 150 mm), que reconoce la puerta: cubre 1 %·lazo + 20 mm. Un log
+    con el tensor trotadora de la v3 regenera con la UCT del mismo eje."""
+    from apolo.library.calidad.tensor import carrera_requerida
+    from apolo.services.calidad_tensores import lazos
+
+    d, cid = faja_v4
+    (lz,) = lazos(d)
+    assert {t["id"] for t in lz["tensores"]} == {f"{cid}_tensor1", f"{cid}_tensor2"}
+    assert all(t["tipo"] == "catalogo" and t["carrera_mm"] == 150 for t in lz["tensores"])
+    assert max(t["carrera_mm"] for t in lz["tensores"]) >= carrera_requerida("banda",
+                                                                             lz["largo_mm"])
+    assert d.scene[f"{cid}_tensor1"].component == "UCT205-150"
+
+
+def test_v4_ejes_vivos_en_chumaceras_por_fuera_de_los_largueros():
+    """Ningún eje entra al larguero sin barreno: el motriz cruza el alma por un barreno de
+    Ø eje + 6 y apoya en dos UCF por fuera; el de cola, por la ranura de la carrera del tensor."""
+    d, cid = _belt_doc()
+    rail = d.scene[f"{cid}_rail2"].shape
+    tm = d.scene[f"{cid}_tambor_motriz"].shape.bounding_box()
+    y_out = rail.bounding_box().max.Y
+    assert tm.max.Y > y_out and tm.min.Y < -y_out  # el eje atraviesa los dos largueros
+    for suf in ("chum_m1", "chum_m2"):
+        c = d.scene[f"{cid}_{suf}"]
+        assert c.component == "UCF205" and abs(c.shape.bounding_box().center().Y) > y_out
+    motor = d.scene[f"{cid}_motor"].shape.bounding_box()
+    assert motor.min.Y > y_out  # el motorreductor no cruza el larguero: va por fuera, en su base
+
+
+def test_v4_sin_tensor_la_cola_va_en_chumaceras_y_no_hay_tensado():
+    from apolo.services.calidad_tensores import lazos
+
+    d, cid = _belt_doc(tensor="ninguno")
+    assert d.scene[f"{cid}_chum_c1"].component == "UCF205"
+    assert interference_report(d.scene)["interferencias"] == []
+    (lz,) = lazos(d)
+    assert lz["tensores"] == []  # honesto: sin tensor, la puerta no lo inventa
+
+
+def test_v4_un_log_v3_regenera_con_la_geometria_nueva():
+    """Los params de un log v3 (trotadora, cola de eje fijo) regeneran en v4 sin error: la
+    trotadora se monta como su UCT y el tambor de cola de eje fijo queda en el carro."""
+    p = {"largo": 4000, "ancho_banda": 600, "altura": 900, "tensor": "TENSOR-TROT-25",
+         "tambor_cola": "TAMBOR-102-COLA", "motor": "MOTOR-150-EH", "guardas": True}
+    d = Document.from_apolo_bytes(_belt_doc(**p)[0].to_apolo_bytes())  # el log, releído
+    assert d.commands[0]["params"]["tensor"] == "TENSOR-TROT-25"
+    assert d.scene["c1_tensor1"].component == "UCT205-150"
+    assert d.scene["c1_tambor_cola"].component == "TAMBOR-102-COLA"
+    assert interference_report(d.scene)["interferencias"] == []

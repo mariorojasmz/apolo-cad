@@ -154,11 +154,10 @@ def _frame_from_scene(scene: dict, variables: dict | None) -> dict | None:
                   if "larguero" in _name(f) or "perfil" in _name(f)]
     if not candidatas:
         return None
-    # los largueros REALES (los que reciben la flecha) llevan el rol "larguero" al inicio
-    # del nombre → no cuentan las ménsulas que solo lo MENCIONAN ("… bajo el larguero",
-    # "… → larguero + pata"). Sin ninguno nombrado (bastidor de perfiles a mano) se cae al
-    # conteo permisivo de candidatas.
-    beams = [f for f in candidatas if _LARG_RE.match(_name(f))] or candidatas
+    # los largueros REALES (los que reciben la flecha) llevan el ROL "larguero" (tras « · »:
+    # «Faja de banda · Larguero (1)»), no las ménsulas que solo lo MENCIONAN. Sin ninguno
+    # nombrado (bastidor de perfiles a mano) se cae al conteo permisivo de candidatas.
+    beams = [f for f in candidatas if _LARG_RE.match(piece_role(_name(f)))] or candidatas
     f0 = beams[0]
     b = _bbox_safe(f0)
     if b is None:
@@ -171,7 +170,7 @@ def _frame_from_scene(scene: dict, variables: dict | None) -> dict | None:
     # vano: mayor hueco entre patas (apoyos); sin ≥2 patas → la longitud completa.
     # Solo cuentan las patas por ROL (no piezas que mencionan "pata"), para no meter
     # posiciones espurias en el reparto del vano.
-    patas = [f for f in scene.values() if _LEG_RE.match(_name(f))]
+    patas = [f for f in scene.values() if _LEG_RE.match(piece_role(_name(f)))]
     xs = sorted({round((bb.min.X + bb.max.X) / 2.0, 1)
                  for f in patas if (bb := _bbox_safe(f))})
     span = max((b2 - a for a, b2 in zip(xs, xs[1:])), default=0.0)
@@ -216,8 +215,7 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
             rpm = rm / rr if (rm and rr) else None
         base["rpm_motor"] = rpm
     if base.get("motor", "ninguno") == "ninguno":
-        cands = [f for f in scene.values()
-                 if any(w in _name(f) for w in ("motor", "reductor", "motorreductor"))]
+        cands = [f for f in scene.values() if any(w in _name(f) for w in ("motor", "reductor"))]
         if cands:
             base["motor"] = "documento"
             # de todos los candidatos (motor + reductor), el de mayor potencia CONOCIDA:
@@ -230,8 +228,10 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
                 name_kw = _parse_power_kw(getattr(f, "name", "")) or 0.0
                 if max(spec_kw, name_kw) > kw:
                     kw, kw_comp = max(spec_kw, name_kw), comp
-            if kw > 0:
+            if kw > 0:  # un motorreductor de catálogo trae sus rpm de salida (par, vida L10)
                 base["motor_kW"] = kw
+                base["rpm_motor"] = base.get("rpm_motor") or (
+                    (kw_comp.specs or {}) if kw_comp is not None else {}).get("rpm_salida")
                 if not base.get("torque_Nm") and base.get("rpm_motor"):
                     omega = base["rpm_motor"] * 2.0 * math.pi / 60.0
                     if omega > 0:

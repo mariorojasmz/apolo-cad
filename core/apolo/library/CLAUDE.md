@@ -175,8 +175,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano): el motriz engomado
   va 6 mm más abajo que la cola. Un choque DENTRO de un super-comando no lo ve
   `interference_report(exclude_pairs=same_command_pairs)`: el super-comando lo prueba él mismo
-  (`tests/test_belt_conveyor.py`) y la puerta de publicación lo mira (D13b; la v3 aún choca:
-  motor ↔ larguero, cama ↔ guardas, ejes por los largueros). [defectos](../../../docs/defectos.md)
+  SIN exclusiones (`tests/test_belt_conveyor.py`) y la puerta de publicación lo mira (D13b). La
+  v4 (`belt_conveyor_*.py`: cotas, plan, bastidor, tambores, guardas) declara cada unión que
+  toca y ancla los pies: una pieza nueva entra con su `Plan.union`, y el bastidor lleva el
+  material de ficha (`Feature.material`: «larguero» sería madera por el nombre).
+  [defectos](../../../docs/defectos.md)
 - La faja EN MARCHA (`ruta_faja_modelo.py`, puro): la cinta es la línea media de la SECCIÓN del
   sólido de la banda (el casco de `ruta_faja.py`, sólo sin lazo cerrado) y `fidelidad_faja.py` la
   prueba siempre contra el modelo (desvío ≤ comba CEMA hacia afuera; no entra en una pieza más que

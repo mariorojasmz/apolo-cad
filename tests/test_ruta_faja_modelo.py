@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 
 from apolo.library.fidelidad_faja import verificar_faja
-from apolo.library.marcha_visual import armar
+from apolo.library.marcha_visual import _obstaculos, armar
 from apolo.library.ruta_faja import PiezaPlano, ruta_faja
 from apolo.library.ruta_faja_modelo import distancia_polilinea, linea_media, ruta_modelo
 from apolo.services import marcha_ejemplo as me
@@ -229,7 +229,10 @@ def test_la_faja_del_super_comando_sigue_igual_y_su_banda_es_un_lazo(faja):
     assert [e["pieza"] for e in nueva.envueltos] == ["c1_tambor_cola", "c1_tambor_motriz"]
     assert [e["abrazamiento_deg"] for e in nueva.envueltos] == pytest.approx(
         [e["abrazamiento_deg"] for e in reversed(vieja.envueltos)], abs=0.5)
-    assert verificar_faja(nueva, cortes=f["cortes"])["ok"]
+    # la cinta que se dibuja es la de los obstáculos REALES (secciones): con los encuadres, el
+    # retorno de la v4 colgaría 2 % (CEMA) dentro de la bandeja de la guarda de cada tambor
+    dibujada = ruta_modelo(bp, piezas, f["seccion"], obstaculos=_obstaculos(f["cortes"]))
+    assert verificar_faja(dibujada, cortes=f["cortes"])["ok"]
 
 
 # ------------------------------------------------------------------ D13d: la cadena

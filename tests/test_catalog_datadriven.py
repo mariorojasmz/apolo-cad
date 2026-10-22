@@ -101,7 +101,7 @@ def test_all_new_families_present():
     assert len(refs_in_category("topes")) == 3
     assert len(refs_in_category("pies_niveladores")) == 3
     # realismo: familia de tambores motrices/reenvío con eje
-    assert len(refs_in_category("tambores")) == 5  # + Ø102 motriz y cola (faja de banda)
+    assert len(refs_in_category("tambores")) == 6  # + Ø102 motriz, cola eje fijo y eje vivo
     assert len(refs_in_category("motorreductores")) == 4  # + MOTOR-150-EH
     # faja de banda: tensor trotadora + eléctrico (variador, tablero, mandos)
     assert len(refs_in_category("tensores_trotadora")) == 2
@@ -136,7 +136,8 @@ def test_all_new_families_present():
     # +2 redes 2F y 1F+N (V8.3 D15) +1 seta en caja ESTOP-40-CAJA (seta-de-emergencia D4)
     # +4 remaches ciegos DIN 7337 y +4 tornillos DIN 571 (union-en-perfil-hueco D1/D4)
     # +3 tensores de carro UCT204/205/206-150 (puerta-de-publicacion D3)
-    assert len(CATALOG) == 373
+    # +1 tambor de cola de eje vivo TAMBOR-102-RET (create_belt_conveyor v4)
+    assert len(CATALOG) == 374
 
 
 def test_door_sliding_hardware():

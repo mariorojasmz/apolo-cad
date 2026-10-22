@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 mergeadas, F3 conectada al registro (fuente «seguridad», registro v2, tabla de riesgos en calidad.json/md); falta la v4 de create_belt_conveyor sin choques internos (D13b), F4, F5 y F6
+nota: F0–F3 mergeadas, F3 conectada al registro (fuente «seguridad», registro v2, tabla de riesgos) y create_belt_conveyor v4 sin choques internos (la puerta sólo le pide D15, metadato del proyecto); faltan F4, F5 y F6
 descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
 ---
 
@@ -495,3 +495,81 @@ prefijo o sin general, `vacio_ok`, la tabla y su estado), la fuente que no corre
 `seguridad.electrico` sin correr el ERC, una cadena expuesta → `riesgos.partes_moviles` FALLA,
 una ménsula → los tres NO_APLICA con su porqué, F3 una vez por puerta (cuenta `controles_f3`,
 `_analizar` y `datos_calidad`), la tabla en `calidad.json`/`calidad.md`.
+
+### create_belt_conveyor v4 (2026-10-22, mergeada)
+
+La v3 no aprobaba por defectos REALES de la plantilla (medido en F1). La v4 la monta como en la
+industria y DECLARA lo que toca; `version` 4, compuesta (`commands/exec_faja.py` corre `fasten` y
+`ground` con ids `{cmd}_u_…`/`{cmd}_g_…`, como `create_roller_conveyor`). Cotas puras en
+`library/belt_conveyor_cotas.py`; el plan (piezas + uniones + anclajes) en `belt_conveyor_plan.py`;
+bastidor, tambores y resguardos en `belt_conveyor_bastidor.py`, `_tambores.py` y `_guardas.py`.
+
+Construido (default: 58 piezas, 77 uniones, 4 anclajes):
+
+- **Bastidor**: largueros con la cara superior 3 mm sobre el tope de los tambores y los ejes por
+  el ALMA con holgura (barreno Ø eje + 6; en la cola, la ranura de la carrera); material de
+  ficha explícito (`Feature.material`) en todo el acero. Patas soldadas bajo los largueros, una
+  estación bajo el eje motriz y otra junto al tensor (más intermedias si un vano pasa de 4 m),
+  placa soldada al pie de la pata con el pie nivelador roscado (disco al piso = anclaje),
+  travesaño soldado por estación. Cama de chapa de 6 mm ATORNILLADA sobre soportes (tubo + placas
+  de extremo) atornillados al alma de los largueros, cada ≤ 800 mm: nada soldado abraza la banda.
+- **Tambores**: el motriz, de eje vivo, en dos chumaceras de brida UCF205 atornilladas a placas
+  porta-chumacera soldadas por fuera de los largueros (la brida a roscas de la placa: se cambia
+  sin desarmar). La cola en dos **unidades tensoras de carro UCT205-150** de catálogo, por fuera
+  de los largueros sobre su ranura: tensor de tornillo estándar de mercado, carrera de ficha
+  150 mm (NSK) que la puerta reconoce. El soporte en C / `create_take_up` (diseño de Mario) no es
+  el default. Tambor de cola nuevo de catálogo `TAMBOR-102-RET` (eje vivo: gira en la UCT; el
+  `TAMBOR-102-COLA` de eje fijo sigue aceptado). `tensor="ninguno"` = cola en UCF, sin tensado
+  (la puerta lo dice SIN_EVALUAR). Un log con `TENSOR-TROT-xx` regenera con la UCT del mismo eje.
+- **Accionamiento**: el MOTOR-150-EH del catálogo es geometría EN LÍNEA con patas y eje macizo
+  (no hueca), así que se monta como tal: coaxial al eje motriz del lado +Y, con acople flexible
+  (cubos de 1,5·d) y apoyado por sus patas en una base sobre dos brazos soldados a una ménsula
+  soldada a la pata del lado motriz. Accionamiento directo en el lado lento (sin cadena ni faja
+  que tensar). Las cotas del motor (patas, cara del reductor) se MIDEN en su forma.
+- **Resguardos atornillados** (`guardas=True`): guarda lateral en L (pared de 150 mm a 3 mm del
+  borde de la banda + ala sobre el larguero que tapa la ranura banda ↔ larguero); caja de cada
+  tambor (bandeja 20 mm bajo el retorno, paredes a ras del larguero, tapa de extremo; la de cola
+  con techo, la cabeza descarga por arriba), ≥ 330 mm hacia adentro de la cuña; tapas de los
+  extremos libres de eje (copa a la brida de la UCF, disco al carro de la UCT); cubierta del
+  acople escotada sobre las patas del motor.
+- **Reglas** (`library/rules.py`, sin crecer): larguero y pata se reconocen por `piece_role`
+  (el vano de la flecha era el largo entero: «Faja de banda · Pata» no casaba con `^pata`) y el
+  motorreductor de catálogo hallado por nombre aporta sus `rpm_salida` (L10 y par).
+
+Medido (laptop, requisitos 15 kg, paquete 400 × 300, 0,3 m/s; ~6 s la puerta, F3 0,7 s):
+
+| ítem | v3 | v4 por defecto | v4 con `TENSOR-TROT-25` |
+|---|---|---|---|
+| `montaje.interferencia_interna` | FALLA (15 choques) | OK (0, ni crudo) | OK |
+| `entrega.semaforo` | FALLA (ROJO) | OK (VERDE) | OK |
+| `entrega.gravedad` | FALLA (20 caen) | OK | OK |
+| `estructura.flecha` | FALLA (253,8 mm, madera) | OK (bastidor FS 1,94) | OK |
+| `estructura.vuelco` | FALLA (sin huella) | OK | OK |
+| `transmision_flexible.tension` | SIN_EVALUAR | OK (150 ≥ 103,5 mm) | OK (la UCT) |
+| `memoria.veredicto` | FALLA (NO CONFORME) | OK (APROBADO) | OK |
+| `elementos_rodantes.l10` | NO_APLICA | OK | OK |
+| `ingenieria.reglas` | FALLA (lint) | OK | OK |
+| `diseno.soluciones_por_funcion` | FALLA | FALLA (metadato del proyecto) | FALLA |
+
+F3 (`controles_f3`), v3 → v4: `resguardo_iso13857` FALLA (cuñas 21 y 12 sondas, extremos de eje
+8 y 11) → OK (4 peligros resguardados); `guarda_con_herramienta` FALLA (guardas sin unión) → OK
+(8 guardas atornilladas); `electrico` NO_APLICA; `desgaste_sin_soldadura`, `desgaste_desmontable`
+y `banda_montable` OK → OK.
+
+Variantes: 3000 × 500 × 800, 1000 × 300 × 700, 6000 × 800 × 1000 (3 estaciones de patas),
+`TUBO-4X3`, `MOTOR-037`, posición y giro: todo OK salvo D15. `largo` 9000: `tension` FALLA
+(el lazo de 18,4 m pide 203 mm; la UCT da 150) y `ingenieria.reglas` («par de arranque» del
+MOTOR-150-EH): reales, no de la plantilla. `tensor="ninguno"`: tensión SIN_EVALUAR (honesto).
+`motor="ninguno"`: L10 y factor de servicio SIN_EVALUAR (no hay rpm ni motor). `guardas=False`:
+F3 `resguardo_iso13857` FALLA (honesto).
+
+Tests: `tests/test_belt_conveyor.py` (sin choques SIN exclusiones, uniones y anclajes, acero
+explícito, carrera del tensor, ejes por fuera, sin tensor, log v3; default y una variante),
+`test_puerta_publicacion.py` (el testigo de choques pasa a OK; la puerta sobre la faja exige los
+ítems de arriba), `test_puerta_tensor.py` (la trotadora suelta sigue sin carrera tabulada).
+
+Pendiente: la banda montable pasa la regla (nada soldado ATRAVIESA el lazo), pero en el taller
+cambiar una banda sin fin exige soltar un lado (la pata y el larguero quedan dentro del lazo
+visto de costado): con PVC se monta con empalme mecánico; no se declara en el nombre. Una faja de
+más de ~6,5 m necesita un tensor de más carrera (UCT de 300 mm o de gravedad): no está en el
+catálogo. El MOTOR-150-EH dice «eje hueco» en su ficha y su geometría es en línea con patas.

@@ -34,7 +34,6 @@ from .models import (
     BoundarySurfaceParams,
     CenterInParams,
     ChamferParams,
-    CreateBeltConveyorParams,
     CreateBoxParams,
     CreateConveyorParams,
     CreateCylinderParams,
@@ -85,6 +84,7 @@ from .exec_uniones import _exec_fasten
 from .exec_union import _exec_join_bolted, sellar as _sellar_join_bolted
 from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
 from .exec_rodillos_cadena import SPECS_RODILLOS_CADENA  # super-comando compuesto
+from .exec_faja import CreateBeltConveyorParams, _exec_create_belt_conveyor
 from .errors import CommandError
 from .spec import CommandSpec, run_executor
 from .state import ExecContext, RegenState
@@ -1670,23 +1670,6 @@ def _exec_create_conveyor(ctx: ExecContext, cmd_id: str, p: CreateConveyorParams
         _publish_axis_anchor(ctx.scene, f"{cmd_id}_rod{max(roller_idx)}", "eje_motriz")
 
 
-def _exec_create_belt_conveyor(ctx: ExecContext, cmd_id: str, p: CreateBeltConveyorParams) -> None:
-    from apolo.library.belt_conveyor import belt_conveyor_parts
-
-    try:
-        parts = belt_conveyor_parts(
-            p.largo, p.ancho_banda, p.altura, p.tambor_motriz, p.tambor_cola, p.tubo,
-            None if p.tensor == "ninguno" else p.tensor,
-            None if p.motor == "ninguno" else p.motor,
-            p.espesor_banda, p.guardas,
-        )
-    except (ValueError, KeyError) as exc:
-        raise CommandError(f"Faja de banda: {exc}") from exc
-    _emit_weldment_parts(ctx.scene, cmd_id, p.name, parts, p.position.tuple(), p.rotation.tuple())
-    _publish_axis_anchor(ctx.scene, f"{cmd_id}_tambor_motriz", "eje_motriz")
-    _publish_axis_anchor(ctx.scene, f"{cmd_id}_tambor_cola", "eje_cola")
-
-
 def _emit_weldment_parts(scene: Scene, cmd_id: str, name: str, parts, position, rotation) -> None:
     """Vuelca las piezas de un super-comando tipo bastidor (weldment/esqueleto) en la
     escena, aplicando la transformación del comando y reusando instancias compartidas."""
@@ -1784,7 +1767,8 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec("create_conveyor", "Transportador", "biblioteca", CreateConveyorParams, _exec_create_conveyor),
         CommandSpec(
             "create_belt_conveyor", "Faja de banda", "biblioteca", CreateBeltConveyorParams,
-            _exec_create_belt_conveyor, version=3,  # v2: abraza el engomado; v3: tramos en su sitio
+            _exec_create_belt_conveyor, composite=True,  # corre fasten/ground (exec_faja)
+            version=4,  # v2: engomado; v3: tramos en su sitio; v4: montaje y uniones (puerta)
         ),
         CommandSpec(
             "create_take_up", "Tensor de cola (trotadora)", "biblioteca", CreateTakeUpParams,

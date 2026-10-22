@@ -45,3 +45,12 @@ components:
     cuttable: true
     default_length: 650
     specs: {diametro_mm: 101.6, eje_mm: 25, stub_mm: 90, shaft_hole_mm: 16.5, hole_inset_mm: 22, material: acero, tipo: tambor de cola eje fijo (agujero M16 pasante)}
+  - ref: TAMBOR-102-RET
+    name: Tambor de cola Ø101.6 (4") eje vivo
+    description: Tambor de cola/retorno Ø101.6 (4") liso con eje VIVO Ø25 pasante (gira con el tambor), para chumaceras o unidad tensora de carro UCT.
+    builder: drum
+    params: {diameter: 101.6, shaft_d: 25, stub: 90}
+    weight: 13.0
+    cuttable: true
+    default_length: 650
+    specs: {diametro_mm: 101.6, eje_mm: 25, stub_mm: 90, material: acero, tipo: tambor de cola eje vivo (chumaceras o tensor UCT)}

@@ -229,19 +229,16 @@ def test_un_asiento_tolerado_o_un_contacto_declarado_no_es_choque():
     assert pp.interferencia_interna(d)["choques"] == []
 
 
-def test_create_belt_conveyor_v3_tiene_choques_internos_reales():
-    """Medido (F1, D13b): la plantilla de la faja de banda tiene choques DENTRO de sí que la
-    puerta de entrega nunca vio (el motorreductor atraviesa el larguero, la cama entra en las
-    guardas, los ejes de los tambores pasan por los largueros sin barreno…). Este testigo pasa a
-    OK cuando la plantilla se corrija."""
+def test_create_belt_conveyor_v4_sin_choques_internos():
+    """Medido (F1, D13b): la v3 de la faja de banda chocaba DENTRO de sí (15 choques: el
+    motorreductor atravesaba el larguero 392 599 mm³, la cama entraba en las guardas, los ejes
+    pasaban por los largueros sin barreno…). La v4 (montaje de taller) no choca: el testigo
+    quedó en OK."""
     d = Document("faja")
     d.execute("create_belt_conveyor", {})
     it = pp.interferencia_interna(d)
-    pares = {frozenset((c["a"], c["b"])) for c in it["choques"]}
-    assert frozenset(("c1_rail2", "c1_motor")) in pares
-    assert frozenset(("c1_cama", "c1_guarda1")) in pares
-    assert it["choques"][0]["volumen_mm3"] > 300000  # motor ↔ larguero
-    assert frozenset(("c1_banda", "c1_tambor_motriz")) not in pares  # la banda (v3) abraza bien
+    assert it["comandos"] == 1 and it["choques"] == []
+    assert p.interferencia_interna({"interna": it})["estado"] == OK
 
 
 # ------------------------------------------------------------------ firma, endpoint y gravedad
@@ -313,8 +310,10 @@ def test_endpoint_como_job_y_el_modelo_que_cambia_da_409(monkeypatch):
 
 
 def test_la_puerta_sobre_create_belt_conveyor():
-    """De punta a punta sobre la faja de la plantilla: su marcha es fiel (D13), pero no se publica
-    (choques internos, sin anclajes, se cae)."""
+    """De punta a punta sobre la faja de la plantilla (v4): su marcha es fiel (D13), no choca por
+    dentro, declara uniones y anclajes (no se cae), su bastidor es de acero, su tensor de carro
+    cubre el lazo y la memoria sale conforme. No se publica sin las funciones declaradas (D15:
+    metadato del proyecto, no de la plantilla)."""
     d = Document("faja")
     d.execute("create_belt_conveyor", {})
     d.set_requirements({"carga_kg": 15, "largo_paquete_mm": 400, "ancho_paquete_mm": 300,
@@ -326,8 +325,11 @@ def test_la_puerta_sobre_create_belt_conveyor():
     assert est["publicado.sustitutos_fieles"] == OK
     assert items["publicado.sustitutos_fieles"]["evidencia"]["elementos"] == {"banda": 1}
     assert items["transmision_flexible.tension"]["evidencia"]["elementos"] == {"banda": 1}
-    assert est["montaje.interferencia_interna"] == FALLA and est["entrega.gravedad"] == FALLA
-    assert est["memoria.veredicto"] == FALLA and out["aprobado"] is False
+    for iid in ("montaje.interferencia_interna", "entrega.semaforo", "entrega.gravedad",
+                "estructura.flecha", "estructura.vuelco", "transmision_flexible.tension",
+                "memoria.veredicto", "elementos_rodantes.l10"):
+        assert est[iid] == OK, (iid, items[iid]["detalle"])
+    assert out["aprobado"] is False
     assert est["diseno.soluciones_por_funcion"] == FALLA  # nadie declaró por qué es así
 
 

@@ -43,7 +43,11 @@ def test_banda_sin_tensor_queda_sin_evaluar():
 
 
 def test_tensor_trotadora_de_catalogo_se_reconoce_pero_sin_carrera():
-    items = _items(_faja("TENSOR-TROT-25"))
+    # la plantilla v4 monta la trotadora de un log v3 como su UCT: aquí va suelta, de catálogo
+    doc = _faja()
+    doc.execute("insert_component", {"component": "TENSOR-TROT-25",
+                                     "position": {**COLA, "y": 420}})
+    items = _items(doc)
     assert items["tensor.reconocido"].estado == OK
     assert items["tensor.carrera"].estado == SIN_EVALUAR
     assert "no tabula su carrera" in items["tensor.carrera"].evidencia["casos"][0]["detalle"]

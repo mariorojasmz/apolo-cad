@@ -102,7 +102,7 @@ def test_insert_project_cambia_con_cualquier_version(monkeypatch):
     assert _cmd_sig("", ins) != antes_ins  # reproduce executors que sus params no nombran
     assert _cmd_sig("", box) == antes_box
     assert version_tag(REGISTRY, "insert_project") == (
-        "|v:create_belt_conveyor@3,create_chain@2,create_roller_conveyor@3,fillet@3,"
+        "|v:create_belt_conveyor@4,create_chain@2,create_roller_conveyor@3,fillet@3,"
         "insert_component@2,run_script@2")
 
 
@@ -184,8 +184,9 @@ def test_la_version_se_valida_al_registrar(version):
 def test_defaults_de_un_comando_nuevo():
     spec = CommandSpec("x", "X", "crear", CreateBoxParams, lambda ctx, cmd_id, p: None)
     assert spec.version == 1 and spec.composite is False
-    # los compuestos (corren executors ajenos): el proyecto insertado y la plantilla de rodillos
-    assert [t for t, s in REGISTRY.items() if s.composite] == ["insert_project",
-                                                              "create_roller_conveyor"]
-    assert version_tag(REGISTRY, "create_roller_conveyor") == version_tag(REGISTRY,
-                                                                          "insert_project")
+    # los compuestos (corren executors ajenos): el proyecto insertado y las plantillas de faja
+    # (sus fasten/ground) y de rodillos
+    assert [t for t, s in REGISTRY.items() if s.composite] == [
+        "insert_project", "create_belt_conveyor", "create_roller_conveyor"]
+    for t in ("create_belt_conveyor", "create_roller_conveyor"):
+        assert version_tag(REGISTRY, t) == version_tag(REGISTRY, "insert_project")

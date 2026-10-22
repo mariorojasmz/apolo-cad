@@ -250,7 +250,8 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "boundary_surface": (1, "31495c5cb0a9bf8d"),
     "center_in": (1, "228e71c9315f37c8"),
     "chamfer": (1, "2fcdc6b118e984ba"),
-    "create_belt_conveyor": (3, "2d52f5d929dd5e0b"),
+    # compuesto (v4): corre fasten/ground; cotas y plan en library/belt_conveyor*.py (D10)
+    "create_belt_conveyor": (4, "5b454e4e6abbd48d"),
     "create_box": (1, "fcc825dfc9669eac"),
     "create_chain": (2, "c0911a5d981a48bd"),
     "create_conveyor": (1, "57fa344a272c945c"),

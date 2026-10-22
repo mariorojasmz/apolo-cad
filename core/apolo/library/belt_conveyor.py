@@ -1,45 +1,37 @@
-"""Plantilla paramétrica de FAJA DE BANDA (belt conveyor).
+"""Plantilla paramétrica de FAJA DE BANDA (belt conveyor): super-comando `create_belt_conveyor`.
 
-Super-comando create_belt_conveyor: una faja de banda plana con cama de
-deslizamiento y 2 tambores de extremo es una sola entrada del historial,
-editable paramétricamente. A diferencia de ``conveyor.py`` (transportador de
-RODILLOS), aquí los extremos son TAMBORES (motriz engomado + cola), hay BANDA
-envolvente (lazo), cama de deslizamiento, bastidor de tubo estructural de acero,
-tensor tipo trotadora (sin chumacera) y motorreductor de eje hueco.
+Una faja de banda plana con cama de deslizamiento y dos tambores de extremo es UNA entrada del
+historial, editable paramétricamente. A diferencia de `conveyor.py` (rodillos), los extremos son
+TAMBORES (motriz engomado + cola), hay BANDA envolvente (lazo) y cama de deslizamiento.
 
-Disposición (Z arriba, transporte a lo largo de X; tambores en ±largo/2):
-- 2 largueros de tubo estructural a lo largo de X
-- tambor motriz (cabeza, +X) y tambor de cola/tensor (-X), eje en Y
-- banda = lazo (racetrack) hueco envolviendo ambos tambores
-- cama de deslizamiento (plancha) bajo el ramal de carga
-- 4 patas de tubo + pies niveladores + 2 travesaños de arriostrado
-- 2 tensores tipo trotadora en la cola (opcional)
-- motorreductor de eje hueco en el tambor motriz (opcional)
-- 2 guardas laterales (opcional)
+v4 (plan puerta-de-publicacion, Bitácora «create_belt_conveyor v4»): se monta como en la
+industria y declara lo que toca. Disposición (Z arriba, transporte hacia +X, motriz en +X):
+- bastidor (`belt_conveyor_bastidor.py`): 2 largueros de tubo con el paso de los ejes por el
+  alma, 4 patas soldadas con pie nivelador, 2 travesaños; cama atornillada sobre soportes;
+- tambores y accionamiento (`belt_conveyor_tambores.py`): motriz de eje vivo en chumaceras UCF
+  por fuera de los largueros; cola en unidades tensoras de carro UCT (o en UCF sin tensor);
+  motorreductor coaxial con acople flexible sobre una base en voladizo;
+- resguardos atornillados (`belt_conveyor_guardas.py`): guardas laterales en L, cajas de los
+  tambores, tapas de los extremos de eje y cubierta del acople;
+- las cotas, puras, en `belt_conveyor_cotas.py`; el plan (piezas + uniones + anclajes), en
+  `belt_conveyor_plan.py`.
 """
 
 from __future__ import annotations
 
 import math
 
-from build123d import Box, Cylinder, Plane, Polygon, extrude
+from build123d import Cylinder, Plane, Polygon, extrude
 
 from apolo.kernel.shapes import place
 
-from .catalog import CATALOG, build_component
-from .conveyor import ConveyorPart
+from . import belt_conveyor_bastidor as bastidor
+from . import belt_conveyor_guardas as guardas
+from . import belt_conveyor_tambores as tambores
+from .belt_conveyor_cotas import FACE_MARGIN, cotas, radio_exterior  # noqa: F401 — re-export
+from .belt_conveyor_plan import Plan
 
-LEG_REF = "TUBO-2X2"
-BRACE_REF = "TUBO-2X2"
-FOOT_REF = "PIE-M12-50"
-GUARD_REF = "GUARDA-150"
-FACE_MARGIN = 50.0  # ancho de cara del tambor = ancho de banda + margen (25/lado)
-
-
-def _radio_exterior(ref: str) -> float:
-    """Radio que ABRAZA la banda: el del tambor más su engomado (`lagging_mm`), si lo tiene."""
-    specs = CATALOG[ref].specs
-    return float(specs["diametro_mm"]) / 2.0 + float(specs.get("lagging_mm", 0.0))
+_radio_exterior = radio_exterior  # nombre histórico
 
 
 def _belt_loop(x_m: float, z_m: float, r_m: float, x_c: float, z_c: float, r_c: float,
@@ -86,118 +78,56 @@ def belt_conveyor_parts(
     tensor_ref: str | None,
     motor_ref: str | None,
     espesor_banda: float,
-    guardas: bool,
-) -> list[ConveyorPart]:
-    # cada tambor con su radio EXTERIOR (engomado incluido): la banda abraza ése, y cada eje baja
-    # lo que crece su tambor para que el ramal de carga quede plano a la altura de trabajo
-    r_m = _radio_exterior(tambor_motriz_ref)
-    r_c = _radio_exterior(tambor_cola_ref)
-    tube = CATALOG[tubo_ref]
-    rail_t = float(tube.specs["height"])  # espesor del larguero en Y (tras tumbarlo)
-    rail_h = float(tube.specs["width"])   # peralte del larguero en Z (vertical)
+    guardas_on: bool,
+) -> Plan:
+    """El plan de la faja: piezas (sufijo, nombre, forma…), uniones declaradas y anclajes."""
+    c = cotas(largo, ancho_banda, altura, tambor_motriz_ref, tambor_cola_ref, tubo_ref,
+              tensor_ref, motor_ref, espesor_banda, guardas_on)
+    plan = Plan()
+    bastidor.largueros(plan, c)
 
-    cara = ancho_banda + FACE_MARGIN
-    if largo < 2.0 * (r_m + r_c) + 200.0:
-        raise ValueError(f"Largo mínimo {2.0 * (r_m + r_c) + 200.0:g} mm (dos tambores + holgura)")
-    if ancho_banda < 100.0:
-        raise ValueError("Ancho de banda mínimo 100 mm")
-    if altura <= rail_h + max(r_m, r_c) + 60.0:
-        raise ValueError(f"Altura de trabajo mínima {rail_h + max(r_m, r_c) + 60.0:g} mm")
+    # tambor motriz: chumaceras UCF a los dos lados; del lado +Y el acople del motorreductor
+    lados = {-1.0: "rail1", 1.0: "rail2"}
+    collar = {s: tambores.chumacera(plan, c, c.chum_m, c.half, c.zm, s, f"chum_m{i}",
+                                    "motriz", lados[s], "tambor_motriz")
+              for i, s in ((1, -1.0), (2, 1.0))}
+    y_eje = {s: collar[s] + 2.0 for s in (-1.0, 1.0)}
+    if c.motor:
+        y_eje[1.0] = tambores.motorreductor(plan, c, collar[1.0])
+    tambores.tambor(plan, c, "tambor_motriz", "Tambor motriz", c.tambor_m, c.half, c.zm,
+                    -y_eje[-1.0], y_eje[1.0])
+    if c.guardas:
+        for i, s in ((1, -1.0), (2, 1.0)):
+            if s < 0 or not c.motor:
+                tambores.tapa_brida(plan, c, c.chum_m, c.half, c.zm, s, f"tapa_m{i}", "motriz",
+                                    f"chum_m{i}", y_eje[s])
 
-    zc = altura - r_c - espesor_banda               # eje del tambor de cola (y de los largueros)
-    zm = altura - r_m - espesor_banda               # eje del tambor motriz
-    rail_center_z = zc - rail_h / 2.0               # cara superior del larguero al eje
-    rail_y = ancho_banda / 2.0 + 35.0 + rail_t / 2.0
-    half = largo / 2.0
-    overhang = max(r_m, r_c) + espesor_banda + 40.0
-    rail_len = largo + 2.0 * overhang
+    # tambor de cola: unidades tensoras de carro (tensor de tornillo de catálogo) o UCF
+    if c.uct:
+        y_cola = max(tambores.tensor_carro(plan, c, i, s, lados[s])
+                     for i, s in ((1, -1.0), (2, 1.0)))
+    else:
+        y_cola = max(tambores.chumacera(plan, c, c.chum_c, -c.half, c.zc, s, f"chum_c{i}",
+                                        "de cola", lados[s], "tambor_cola")
+                     for i, s in ((1, -1.0), (2, 1.0))) + 2.0
+        if c.guardas:
+            for i, s in ((1, -1.0), (2, 1.0)):
+                tambores.tapa_brida(plan, c, c.chum_c, -c.half, c.zc, s, f"tapa_c{i}", "de cola",
+                                    f"chum_c{i}", y_cola)
+    tambores.tambor(plan, c, "tambor_cola", "Tambor de cola", c.tambor_c, -c.half, c.zc,
+                    -y_cola, y_cola)
 
-    parts: list[ConveyorPart] = []
-
-    def add(suffix, name, base, base_key, component, cut, position, rotation):
-        parts.append(
-            ConveyorPart(
-                suffix, name, place(base, position, rotation), component, cut,
-                base_key=base_key, base_shape=base, position=position, rotation=rotation,
-            )
-        )
-
-    # largueros (tubo estructural): extruidos en Z → tumbados a lo largo de X (rot Y=90)
-    rail_shape, rail_cut = build_component(tubo_ref, rail_len)
-    rail_key = f"comp|{tubo_ref}|{rail_cut}"
-    for i, sign in enumerate((-1.0, 1.0), start=1):
-        add(f"rail{i}", f"Larguero ({i})", rail_shape, rail_key, tubo_ref, rail_cut,
-            (0, sign * rail_y, rail_center_z), (0, 90, 0))
-
-    # tambores (eje en Y → rot X=90)
-    drive_shape, drive_cut = build_component(tambor_motriz_ref, cara)
-    add("tambor_motriz", "Tambor motriz", drive_shape, f"comp|{tambor_motriz_ref}|{drive_cut}",
-        tambor_motriz_ref, drive_cut, (half, 0, zm), (90, 0, 0))
-    tail_shape, tail_cut = build_component(tambor_cola_ref, cara)
-    add("tambor_cola", "Tambor de cola", tail_shape, f"comp|{tambor_cola_ref}|{tail_cut}",
-        tambor_cola_ref, tail_cut, (-half, 0, zc), (90, 0, 0))
-
-    # banda = lazo envolvente (geometría a medida)
-    belt = _belt_loop(half, zm, r_m, -half, zc, r_c, espesor_banda, ancho_banda)
-    add("banda", "Banda", belt, None, None, None, (0, 0, 0), (0, 0, 0))
-
-    # cama de deslizamiento (plancha a medida) bajo el ramal de carga
-    deck_t = 20.0
-    deck = Box(largo - 2.0 * max(r_m, r_c), ancho_banda + 20.0, deck_t)
-    deck_z = altura - espesor_banda - 2.0 - deck_t / 2.0
-    add("cama", "Cama de deslizamiento", deck, None, None, None, (0, 0, deck_z), (0, 0, 0))
-
-    # patas + pies niveladores
-    leg_len = rail_center_z - rail_h / 2.0
-    leg_x = half - 150.0
-    leg_shape, leg_cut = build_component(LEG_REF, leg_len)
-    leg_key = f"comp|{LEG_REF}|{leg_cut}"
-    foot_shape, _ = build_component(FOOT_REF)
-    foot_key = f"comp|{FOOT_REF}|std"
-    n = 1
-    for px in (-leg_x, leg_x):
-        for py in (-rail_y, rail_y):
-            add(f"leg{n}", f"Pata ({n})", leg_shape, leg_key, LEG_REF, leg_cut,
-                (px, py, leg_len / 2.0), (0, 0, 0))
-            add(f"foot{n}", f"Pie nivelador ({n})", foot_shape, foot_key, FOOT_REF, None,
-                (px, py, 25.0), (0, 0, 0))
-            n += 1
-
-    # travesaños de arriostrado (eje Y) bajo los largueros, en las estaciones de patas
-    brace_len = 2.0 * rail_y - rail_t
-    brace_shape, brace_cut = build_component(BRACE_REF, brace_len)
-    brace_key = f"comp|{BRACE_REF}|{brace_cut}"
-    for i, px in enumerate((-leg_x, leg_x), start=1):
-        add(f"brace{i}", f"Travesaño ({i})", brace_shape, brace_key, BRACE_REF, brace_cut,
-            (px, 0, leg_len - 30.0), (90, 0, 0))
-
-    # tensor tipo TROTADORA en el tambor de cola: soporte en «C» + tornillo M16 VERTICAL que
-    # pasa por el agujero transversal del eje (uno por lado). El eje de TAMBOR-102-COLA ya trae
-    # los agujeros; el M16 cae a `hole_inset` mm del extremo del eje (mismo valor que el builder).
-    if tensor_ref:
-        cola_specs = CATALOG[tambor_cola_ref].specs
-        cola_stub = float(cola_specs.get("stub_mm", 40.0))
-        hole_inset = float(cola_specs.get("hole_inset_mm", 22.0))
-        takeup_y = cara / 2.0 + cola_stub - hole_inset
-        tensor_shape, _ = build_component(tensor_ref)
-        tensor_key = f"comp|{tensor_ref}|std"
-        for i, sy in enumerate((-1.0, 1.0), start=1):
-            rot = (0, 0, 180) if sy > 0 else (0, 0, 0)  # el alma de la «C» mira hacia afuera
-            add(f"tensor{i}", f"Tensor trotadora ({i})", tensor_shape, tensor_key, tensor_ref, None,
-                (-half, sy * takeup_y, zc), rot)
-
-    # motorreductor de eje hueco en el tambor motriz
-    if motor_ref:
-        motor_shape, _ = build_component(motor_ref)
-        add("motor", "Motorreductor", motor_shape, f"comp|{motor_ref}|std", motor_ref, None,
-            (half, cara / 2.0 + 100.0, zm), (0, 0, 0))
-
-    # guardas laterales (contención de paquetes)
-    if guardas:
-        guard_shape, guard_cut = build_component(GUARD_REF, largo)
-        guard_key = f"comp|{GUARD_REF}|{guard_cut}"
-        for i, sy in enumerate((-1.0, 1.0), start=1):
-            add(f"guarda{i}", f"Guarda lateral ({i})", guard_shape, guard_key, GUARD_REF, guard_cut,
-                (0, sy * (ancho_banda / 2.0 + 12.0), altura + 60.0), (0, 0, 0))
-
-    return parts
+    # banda = lazo envolvente (geometría a medida), apoyada en los tambores y en la cama
+    plan.pieza("banda", "Banda", _belt_loop(c.half, c.zm, c.r_m, -c.half, c.zc, c.r_c, c.t,
+                                            c.ancho))
+    bastidor.cama(plan, c)
+    plan.union("banda_motriz", "banda", "tambor_motriz", "contacto",
+               "la banda abraza el tambor motriz (engomado)")
+    plan.union("banda_cola", "banda", "tambor_cola", "contacto", "la banda abraza el tambor de cola")
+    plan.union("banda_cama", "banda", "cama", "contacto",
+               "el ramal de carga desliza sobre la cama")
+    bastidor.patas(plan, c)
+    if c.guardas:
+        guardas.laterales(plan, c)
+        guardas.de_tambores(plan, c)
+    return plan
