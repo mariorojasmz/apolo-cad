@@ -141,6 +141,7 @@ def run_checks(body: ChecksIn) -> dict:
         estructura += predelivery_lints(
             S.doc.scene, S.doc.commands, S.doc.fasteners, S.doc.grounds, S.doc.joints, S.doc.mates,
             resolve=lambda p: resolve_params(p, S.doc.variables_resolved),
+            material_vertical=S.doc.default_material(),
         )
     out = {"interferencias": interferencias, "ingenieria": ingenieria, "estructura": estructura}
     if body.grupo or body.solo_fallas or body.resumen:

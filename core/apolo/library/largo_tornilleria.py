@@ -11,7 +11,9 @@ una métrica colapsaban en una sola fila. El largo sale, en este orden:
 3. del NOMBRE que escribió el comando («Perno M8×20 DIN 933», «Remache ciego Ø4.8×10 DIN
    7337»): el remache COLOCADO ya no mide lo que se compra (la cabeza ciega está recalcada).
 
-Sin ninguno → None (la fila sale sin largo, como antes). Caché por `id(shape)` que guarda la
+Sin ninguno → None (la fila sale sin largo, como antes). La tornillería modelada A MANO (sin
+ficha) se compra por el largo NOMINAL de su nombre (`largo_nominal_a_medida`); su norma la lee
+`designacion_comercial.py`. Caché por `id(shape)` que guarda la
 referencia y verifica `is` (regla de [core/apolo](../CLAUDE.md)).
 """
 
@@ -53,6 +55,29 @@ def _de_geometria(shape, specs: dict) -> float | None:
 def _del_nombre(nombre: str) -> float | None:
     m = _LARGO_RE.search(nombre or "")
     return float(m.group(1).replace(",", ".")) if m else None
+
+
+#: designación métrica con largo: «M12x150», «M12×1.5×60» (el último factor es el largo; el paso
+#: fino, si lo hay, es menor que el Ø)
+_DESIGNACION_RE = re.compile(r"(?<![A-Za-z])M\s*(\d+(?:[.,]\d+)?)((?:\s*[x×]\s*\d+(?:[.,]\d+)?)+)")
+
+
+def largo_nominal_a_medida(feat) -> float | None:
+    """Largo de COMPRA de tornillería MODELADA a mano (sin ficha; F6): el NOMINAL de la
+    designación del nombre («Perno tensor de cola M12x150 DIN 933» → 150), no lo que mide el
+    sólido (cuerpo + cabeza: 157,5). None si la pieza no es tornillería por su nombre
+    (`lints.es_nombre_de_tornilleria`) o no trae designación con largo: entonces manda lo medido."""
+    from .lints import es_nombre_de_tornilleria
+
+    nombre = getattr(feat, "name", "") or ""
+    if not es_nombre_de_tornilleria(nombre):
+        return None
+    m = _DESIGNACION_RE.search(nombre)
+    if m is None:
+        return None
+    d = float(m.group(1).replace(",", "."))
+    largo = float(re.split(r"[x×]", m.group(2))[-1].strip().replace(",", "."))
+    return largo if largo > d else None
 
 
 def largo_de_compra(feat, comp) -> float | None:

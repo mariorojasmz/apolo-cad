@@ -111,7 +111,14 @@ _PVC_WORDS = ("pvc", "poliuretano", "polimero")
 CABLE = "cable"
 _CABLE_ROLE = re.compile(r"^cables?\b")
 _CABLE_METAL = re.compile(r"acero|inox|alambre|galvaniz")
-_RUBBER_WORDS = ("engomado", "lagging", "caucho", "goma")
+#: caucho por el ROL (F6 de la puerta de publicación): el recubrimiento de un tambor se llama
+#: «Engomado…», «Lagging…» o «Recubrimiento/Revestimiento/Forro del tambor…» (este último salía
+#: ACERO por «tambor»). Anclado al inicio del rol: «Tambor motriz engomado» es el TAMBOR (acero);
+#: un recubrimiento cerámico, metálico o de poliuretano no es caucho.
+_RUBBER_WORDS = re.compile(r"\b(caucho|gomas?|neopreno)\b")  # «goma» no muerde «engomado»
+_RUBBER_ROLE = re.compile(r"^(engomad\w*|lagging)\b")
+_LINING_ROLE = re.compile(r"^(recubrimiento|revestimiento|forro)s?\b.*\b(tambor|polea|rodillo)")
+_LINING_OTHER = re.compile(r"cer[aá]mic|acero|inox|met[aá]l|poliuretano|pvc|uhmw")
 # ROL banda (transportadora) = polímero aunque el nombre no diga «PVC». Se mira el ROL, no el
 # nombre entero: «Faja de banda · Larguero (1)» trae «banda» del super-comando y «Cama de la
 # banda» sólo la MENCIONA. Un metal explícito gana («Banda de malla de acero»).
@@ -170,10 +177,26 @@ def cost_per_kg(material: str | None) -> float:
     return COST_PER_KG_USD.get(_norm(material), DEFAULT_COST_PER_KG)
 
 
-def resolve_material(feat, catalog: dict | None = None, default: str = "acero") -> str:
+def _es_caucho(rol: str) -> bool:
+    if _RUBBER_ROLE.match(rol) or _RUBBER_WORDS.search(rol):
+        return True
+    return bool(_LINING_ROLE.match(rol)) and not _LINING_OTHER.search(rol)
+
+
+def resolve_material(feat, catalog: dict | None = None, default: str | None = None) -> str:
     """Material de una feature. Prioridad: override explícito (``feat.material`` /
     set_material) → material de catálogo (``specs['material']``) → heurística por
-    nombre. `default` para lo no reconocido (lo fija el vertical del proyecto)."""
+    nombre → `default`, el material del VERTICAL (`Document.default_material()`).
+
+    Guarda del vertical (una sola fuente: BOM, masa, costeo, apariencia, sello de `join_bolted`):
+    la palabra de CARPINTERÍA del nombre («Larguero», «Travesaño», «Marco», «Tablero») no decide
+    madera cuando el vertical se CONOCE: en madera ya es el default y en una máquina de acero
+    esos roles son acero («Escuadra desmontable del travesaño de cama» salía madera en la BOM de
+    una faja, F6). `default=None` = vertical DESCONOCIDO (quien no tiene el documento): la
+    palabra de carpintería decide como siempre y lo no reconocido es acero.
+
+    Los matchers de polímero, caucho y vidrio miran el ROL (`piece_role`), no el nombre entero:
+    el prefijo de un super-comando o de un `insert_project` («Faja PVC · Tapa…») no decide."""
     override = getattr(feat, "material", None)
     if override:
         return override
@@ -185,17 +208,18 @@ def resolve_material(feat, catalog: dict | None = None, default: str = "acero") 
         if mat:
             return mat
     name = (getattr(feat, "name", "") or "").lower()
-    if _CABLE_ROLE.match(piece_role(name)) and not _CABLE_METAL.search(name):
+    rol = piece_role(name)
+    if _CABLE_ROLE.match(rol) and not _CABLE_METAL.search(name):
         return CABLE
-    if any(w in name for w in _GLASS_WORDS):
+    if any(w in rol for w in _GLASS_WORDS):
         return "vidrio"
-    if any(w in name for w in _RUBBER_WORDS):
+    if _es_caucho(rol):
         return "caucho"
-    if any(w in name for w in _PVC_WORDS):
+    if any(w in rol for w in _PVC_WORDS):
         return "pvc"
     # antes que las palabras de acero que sólo MENCIONA («Banda (sobre tambor motriz)») y que
     # la sección de 3 cotas («Banda 500x6000x4»)
-    if _BELT_ROLE.match(piece_role(name)) and not _BELT_METAL.search(name):
+    if _BELT_ROLE.match(rol) and not _BELT_METAL.search(name):
         return "pvc"
     # una señal explícita de metal (grado/inox/sección de tubo) gana sobre las
     # palabras de carpintería: "Larguero 80x40x3 A36" es acero, no madera.
@@ -203,22 +227,15 @@ def resolve_material(feat, catalog: dict | None = None, default: str = "acero") 
         return _norm(name) or "acero"
     if any(w in name for w in _STEEL_WORDS):
         return "acero"
-    if any(w in name for w in _WOOD_WORDS):
+    if default is None and any(w in name for w in _WOOD_WORDS):
         return "madera"
-    return default
+    return default or "acero"
 
 
 def resolve_material_vertical(feat, catalog: dict | None = None, default: str = "acero") -> str:
-    """`resolve_material` con la guarda del vertical: la palabra de carpintería del nombre
-    («Larguero (+Y)», «Marco», «Tablero») sólo da MADERA si el vertical es de madera; en una
-    máquina de acero esos roles son acero. Un override o el catálogo mandan. La usan la
-    apariencia y el sello de `join_bolted` (plan union-en-perfil-hueco, D4)."""
-    material = resolve_material(feat, catalog, default)
-    if material == "madera" and default != "madera" and not getattr(feat, "material", None):
-        comp = (catalog or {}).get(getattr(feat, "component", None) or "")
-        if not (getattr(comp, "specs", None) or {}).get("material"):
-            return default
-    return material
+    """`resolve_material` con el vertical CONOCIDO (alias histórico: la guarda vive allí). La
+    usan la apariencia y el sello de `join_bolted` (plan union-en-perfil-hueco, D4)."""
+    return resolve_material(feat, catalog, default or "acero")
 
 
 def es_madera(material: str | None) -> bool:

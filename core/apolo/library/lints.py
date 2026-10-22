@@ -192,15 +192,18 @@ def _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog) -> list[
 
 
 def predelivery_lints(scene, commands, fasteners, grounds, joints, mates, *,
-                      catalog=None, resolve=None) -> list[dict]:
+                      catalog=None, resolve=None, material_vertical=None) -> list[dict]:
     """Lints pre-entrega: barrenos sin perno + piezas sin grupo ni unión + asiento fuera de
-    la zona plana de un perfil abierto (`lint_asiento.py`). Devuelve una
-    lista de avisos (formato `_check`); vacía si el modelo está sano. `resolve(params)`
+    la zona plana de un perfil abierto (`lint_asiento.py`) + soldadura entre materiales que no
+    se sueldan (`lint_soldadura.py`, ERROR: bloquea la puerta). Devuelve una
+    lista de reglas (formato `_check`); vacía si el modelo está sano. `resolve(params)`
     (inyectado por la API) sustituye las "=expresión" de los comandos por su valor —
     los modelos paramétricos posicionan los barrenos con expresiones; sin resolver
-    (default identidad) un barreno parametrizado simplemente se salta."""
+    (default identidad) un barreno parametrizado simplemente se salta. `material_vertical` =
+    `Document.default_material()` (sin él, la soldadura asume acero lo no reconocido)."""
     from .catalog import CATALOG
     from .lint_asiento import asiento_zona_plana_lint
+    from .lint_soldadura import soldadura_imposible_lint
 
     catalog = catalog if catalog is not None else CATALOG
     resolve = resolve or (lambda p: p)
@@ -210,4 +213,5 @@ def predelivery_lints(scene, commands, fasteners, grounds, joints, mates, *,
     out += _hole_bolt_lint(scene, commands or [], catalog, resolve)
     out += _loose_part_lint(scene, fasteners, grounds, joints, mates, catalog)
     out += asiento_zona_plana_lint(scene, catalog)
+    out += soldadura_imposible_lint(scene, fasteners or {}, catalog, default=material_vertical)
     return out

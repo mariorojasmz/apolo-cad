@@ -131,7 +131,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
 
     base = dict(meta or {})
     base.setdefault("date", date.today().isoformat())
-    rows = cut_list(scene)
+    rows = cut_list(scene, base.get("material_vertical"))  # el vertical: guarda del material
     hw = hardware_schedule(scene)
     # la cédula lista TODO lo que se COMPRA (catálogo + herraje a-medida): un taller la
     # necesita en cualquier plantilla, no solo carpintería/genérico.

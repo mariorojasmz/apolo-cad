@@ -39,7 +39,7 @@ def _bbox(shape) -> tuple[list[float], list[float]]:
     )
 
 
-def feature_mass(feat, catalog: dict | None = None, default_material: str = "acero") -> dict:
+def feature_mass(feat, catalog: dict | None = None, default_material: str | None = None) -> dict:
     """Propiedades de masa de UNA pieza: masa (catálogo o volumen×densidad),
     material resuelto, COM real y bbox."""
     catalog = catalog if catalog is not None else CATALOG
@@ -75,7 +75,7 @@ def scene_mass_properties(
     scene: dict,
     catalog: dict | None = None,
     ids: list[str] | None = None,
-    default_material: str = "acero",
+    default_material: str | None = None,
     include_hidden: bool = False,
 ) -> dict:
     """Masa/COM/bbox por pieza y agregado. `ids=None` → todas las VISIBLES

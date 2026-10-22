@@ -104,7 +104,8 @@ def mass_properties(ids: str | None = None) -> dict:
     wanted = [s.strip() for s in ids.split(",") if s.strip()] if ids else None
     with STATE_LOCK:
         try:
-            return scene_mass_properties(S.doc.scene, ids=wanted)
+            return scene_mass_properties(S.doc.scene, ids=wanted,
+                                         default_material=S.doc.default_material())
         except KeyError as exc:
             raise _not_found(exc.args[0]) from exc
 

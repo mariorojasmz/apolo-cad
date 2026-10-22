@@ -77,7 +77,7 @@ def cutlist_json() -> dict:
     from apolo.library.cutlist import cut_list, cut_list_totals, hardware_schedule
 
     with STATE_LOCK:
-        rows = cut_list(S.doc.scene)
+        rows = cut_list(S.doc.scene, S.doc.default_material())
         return {
             "lista_de_corte": rows,
             "totales": cut_list_totals(rows),
@@ -90,7 +90,7 @@ def cutlist_csv_endpoint() -> Response:
     from apolo.library.cutlist import cut_list, cut_list_csv, cut_list_totals
 
     with STATE_LOCK:
-        rows = cut_list(S.doc.scene)
+        rows = cut_list(S.doc.scene, S.doc.default_material())
         text = cut_list_csv(rows, cut_list_totals(rows))
     return Response(
         content=text, media_type="text/csv",
@@ -103,7 +103,8 @@ def _nesting_model(mode: str, stock_w: float, stock_h: float, material: str | No
     from apolo.library.nesting import nest_1d, nest_2d, nesting_sheet_1d, nesting_sheet_2d
 
     with STATE_LOCK:
-        rows = [r for r in cut_list(S.doc.scene) if not material or r["material"] == material]
+        rows = [r for r in cut_list(S.doc.scene, S.doc.default_material())
+                if not material or r["material"] == material]
     if mode == "1d":
         lengths = [r["largo_mm"] for r in rows for _ in range(r["cantidad"])]
         bars = nest_1d(lengths, stock_w, kerf)
@@ -150,7 +151,8 @@ def nesting_json(
     from apolo.library.nesting import nest_1d, nest_2d, waste_1d, waste_2d
 
     with STATE_LOCK:
-        rows = [r for r in cut_list(S.doc.scene) if not material or r["material"] == material]
+        rows = [r for r in cut_list(S.doc.scene, S.doc.default_material())
+                if not material or r["material"] == material]
     if mode == "1d":
         lengths = [r["largo_mm"] for r in rows for _ in range(r["cantidad"])]
         bars = nest_1d(lengths, stock_w, kerf)

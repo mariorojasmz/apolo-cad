@@ -88,6 +88,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         lints = predelivery_lints(
             doc.scene, doc.commands, doc.fasteners, doc.grounds, doc.joints, doc.mates,
             resolve=lambda p: resolve_params(p, doc.variables_resolved),
+            material_vertical=doc.default_material(),
         )
     from .electrico import reglas_erc
 

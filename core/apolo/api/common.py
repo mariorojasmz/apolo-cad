@@ -310,7 +310,10 @@ def _store_required():
 
 def _drawing_meta() -> dict:
     """Cajetín: nº de plano (id de proyecto) + revisiones del proyecto (SQLite)."""
-    meta: dict = {"drawing_no": str(S.project_id) if S.project_id is not None else "—"}
+    meta: dict = {"drawing_no": str(S.project_id) if S.project_id is not None else "—",
+                  # el material del VERTICAL: lo leen la BOM y el DESPIECE de las láminas (guarda
+                  # de `materials.resolve_material`); el cajetín no lo imprime
+                  "material_vertical": S.doc.default_material()}
     store = S.store
     if store is not None and S.project_id is not None:
         try:

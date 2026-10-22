@@ -225,10 +225,9 @@ def acabado_pieza(feat, *, catalog: dict | None = None, default_material: str = 
     """Acabado de una feature: material resuelto (override → catálogo → nombre → vertical) +
     rol + categoría de catálogo.
 
-    Guarda del vertical (`materials.resolve_material_vertical`): la palabra de carpintería en el nombre («Larguero (+Y)»,
-    «Marco», «Tablero») sólo pinta MADERA si el vertical es de madera. En una máquina de acero
-    esos roles son acero y la heurística de `resolve_material` los volvería de madera a la vista
-    (la BOM la arrastra igual: backlog de `materials.py`). Un override o el catálogo mandan."""
+    Guarda del vertical (la de `materials.resolve_material`, la misma de la BOM): la palabra de
+    carpintería en el nombre («Larguero (+Y)», «Marco», «Tablero») sólo pinta MADERA si el
+    vertical es de madera. Un override o el catálogo mandan."""
     if catalog is None:
         from .catalog import CATALOG as catalog
     material = resolve_material_vertical(feat, catalog, default_material)

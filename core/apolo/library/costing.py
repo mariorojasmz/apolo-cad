@@ -96,7 +96,7 @@ def _custom_cost(row: dict, sin_cubrir: set | None = None) -> tuple[float | None
     return est, f"fabricación (peso × material × {FAB_FACTOR:g})"
 
 
-def costed_bom(scene: dict, default_material: str = "acero",
+def costed_bom(scene: dict, default_material: str | None = None,
                extra: list[dict] | None = None,
                cables_sin_cubrir: set | None = None) -> list[dict]:
     """Filas del BOM (misma agrupación de `bom_from_scene`) + `costo_ud_usd`,
@@ -154,7 +154,7 @@ def costing_totals(rows: list[dict]) -> dict:
     }
 
 
-def scene_costing(scene: dict, default_material: str = "acero",
+def scene_costing(scene: dict, default_material: str | None = None,
                   extra: list[dict] | None = None,
                   cables_sin_cubrir: set | None = None) -> dict:
     """Costeo completo de la escena (+ las filas `extra` del tablero): filas + totales (lo

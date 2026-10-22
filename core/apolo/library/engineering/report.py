@@ -531,7 +531,7 @@ def structure_engineering_check(
     carga_kg: float = 0.0,
     rpm: float | None = None,
     belt_radial_n: float | None = None,
-    default_material: str = "acero",
+    default_material: str | None = None,
 ) -> list[dict]:
     """Chequeo estructural del ensamblaje completo (no exige que sea una faja).
     Devuelve reglas en el MISMO formato que conveyor_engineering_check."""

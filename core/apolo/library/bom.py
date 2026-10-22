@@ -14,7 +14,8 @@ from apolo.kernel.shapes import is_surface
 
 from .banda_lazo import es_banda, largo_de_lazo
 from .catalog import CATALOG
-from .largo_tornilleria import largo_de_compra
+from .designacion_comercial import norma_del_nombre
+from .largo_tornilleria import largo_de_compra, largo_nominal_a_medida
 from .materials import CABLE, density, resolve_material
 from .piezas_electricas import recorrido_mm
 
@@ -36,7 +37,7 @@ def _eslabones(comp, cut) -> str:
     return f" ({round(cut / paso)} eslabones)"
 
 
-def bom_from_scene(scene: dict, default_material: str = "acero",
+def bom_from_scene(scene: dict, default_material: str | None = None,
                    by_group: bool = False) -> list[dict]:
     """BOM agrupado por referencia+corte (catálogo) o firma geométrica (a medida).
     Con `by_group=True` (V5.2) cada fila lleva además su `grupo` (sub-ensamblaje) y
@@ -109,12 +110,14 @@ def bom_from_scene(scene: dict, default_material: str = "acero",
                     largo = recorrido_mm(feat.shape) or largo
                 elif es_banda(feat.name) and (lazo := largo_de_lazo(feat.shape)):
                     largo = round(lazo, 1)  # la banda se compra por su LAZO, no por su caja
+                elif (nominal := largo_nominal_a_medida(feat)) is not None:
+                    largo = nominal  # «Perno … M12x150»: se compra por 150, no por 157,5 medido
                 rows[key] = {
                     "ref": "A-MEDIDA",
                     "descripcion": base,
                     "categoria": "a medida",
                     "material": mat,
-                    "norma": "",
+                    "norma": norma_del_nombre(base),  # comercial modelada: «… DIN 933»
                     "cantidad": 0,
                     "longitud_mm": largo,
                     "peso_unitario_kg": round(vol * density(mat), 3) if vol is not None else None,

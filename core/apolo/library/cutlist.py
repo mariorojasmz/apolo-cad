@@ -18,6 +18,7 @@ from collections import defaultdict
 
 from .bom import _base_name
 from .catalog import CATALOG
+from .designacion_comercial import ROL_COMPRA, norma_del_nombre
 from .materials import resolve_material
 
 # ROL de COMPRA (herraje/consumible a-medida): pieza que se COMPRA, no se corta ni
@@ -25,10 +26,8 @@ from .materials import resolve_material
 # es lo que sigue al último " · " del nombre (convención rol-primero, tolerando el
 # prefijo de sub-ensamblaje "Grupo · Rol"). Así "Tensor de cola · Seeger retención" es
 # COMPRA pero "Tensor de cola · Eje fijo (roscado p/ perno)" NO (el eje se fabrica,
-# solo MENCIONA el perno).
-_PURCHASE_RE = re.compile(
-    r"^(pernos?|tornill\w*|arandelas?|tuercas?|esp[áa]rragos?|prisioneros?|"
-    r"pies?\s+nivelador\w*|nivelador\w*|seegers?|circlips?|bandas?|correas?)\b", re.I)
+# solo MENCIONA el perno). Fuente única: `designacion_comercial.ROL_COMPRA`.
+_PURCHASE_RE = ROL_COMPRA
 
 
 def _role(name: str) -> str:
@@ -71,9 +70,10 @@ def _dims_sorted(solid) -> tuple[float, float, float]:
     )))
 
 
-def cut_list(scene: dict) -> list[dict]:
+def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:
     """Piezas a CORTAR (a-medida + catálogo cortable), agrupadas por
-    ``(material, espesor, ancho, largo)``. Cada Feature se descompone en sus sólidos."""
+    ``(material, espesor, ancho, largo)``. Cada Feature se descompone en sus sólidos.
+    `default_material` = el del vertical (guarda de `resolve_material`; None = desconocido)."""
     groups: dict[tuple, dict] = {}
     for sid, f in scene.items():
         if not getattr(f, "visible", True):
@@ -83,7 +83,7 @@ def cut_list(scene: dict) -> list[dict]:
             continue  # herraje no cortable → cédula
         if _is_purchased_custom(f):
             continue  # herraje/consumible a-medida (pernos, pies, banda) → COMPRA, no corte
-        mat = resolve_material(f, CATALOG)
+        mat = resolve_material(f, CATALOG, default_material)
         miter = getattr(f, "miter", None)
         mtr = tuple(miter) if miter else None  # (α1, α2) — separa recto de ingleteado
         for solid in _solids(f.shape):
@@ -161,7 +161,7 @@ def hardware_schedule(scene: dict) -> list[dict]:
                 g = groups[key] = {
                     "ref": "COMPRA", "nombre": base,
                     "categoria": _purchase_category(_role(base)),
-                    "material": resolve_material(f, CATALOG), "norma": "",
+                    "material": resolve_material(f, CATALOG), "norma": norma_del_nombre(base),
                     "cantidad": 0, "peso_ud_kg": w_ud, "_rep": sid,
                 }
             g["cantidad"] += 1

@@ -709,7 +709,7 @@ def compose_sheet(
             model, ax0=ax0, aw=aw, ah=ah, ay0=ay0, placed=placed, scene=scene, center3=center3,
             title="LISTA DE MATERIALES",
             columns=[("N.º", 10), ("Ref", 34), ("Descripción", 102), ("Cant", 14)],
-            rows=bom_from_scene(visible_scene),
+            rows=bom_from_scene(visible_scene, (meta or {}).get("material_vertical")),
             cell_values=lambda i, row: (str(i + 1), row["ref"], row["descripcion"][:44], str(row["cantidad"])),
             planta_dim_rows=planta_dim_rows, anchor_view="planta",
         )
@@ -735,7 +735,7 @@ def compose_sheet(
             )
         table_bottom = _draw_table_with_balloons(
             model, ax0=ax0, aw=aw, ah=ah, ay0=ay0, placed=placed, scene=scene, center3=center3,
-            title="DESPIECE", columns=_cl_cols, rows=cut_list(visible_scene),
+            title="DESPIECE", columns=_cl_cols, rows=cut_list(visible_scene, (meta or {}).get("material_vertical")),
             cell_values=_cl_cells,
             planta_dim_rows=planta_dim_rows, anchor_view="alzado",
         )

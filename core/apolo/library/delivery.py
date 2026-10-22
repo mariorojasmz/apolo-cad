@@ -197,10 +197,10 @@ def delivery_report(
 
     # 3 · lints pre-entrega -----------------------------------------------------
     if lints:
-        for lint in lints:
-            avisos.append({
+        for lint in lints:  # un lint «error» (soldadura imposible) bloquea; el resto avisa
+            (bloqueantes if lint.get("estado") == "error" else avisos).append({
                 "regla": lint.get("regla", "lint pre-entrega"),
-                "piezas": [],
+                "piezas": _nombres(lint.get("piezas") or [], nombre_de),
                 "detalle": (lint.get("detalle", "") +
                             (f" → {lint['recomendacion']}" if lint.get("recomendacion") else "")),
             })
