@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F4 mergeadas (F3 en el registro con la tabla de riesgos, create_belt_conveyor v4 sin choques, fábrica de 8 pasos con revisión, cuadros y familia); F5 en curso; F6 pendiente
+nota: F0–F5 mergeadas (F3 en el registro con la tabla de riesgos, create_belt_conveyor v4, fábrica de 8 pasos, testigos y 24 defectos sembrados; D16: los .apolo de la tienda son testigos privados); falta F6 (corregir y re-publicar las 3 máquinas de la tienda)
 descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
 ---
 
@@ -194,6 +194,13 @@ Y un hecho de proceso: el hallazgo del revisor (perno M12×50 por una sola aleta
   descartada y su motivo; si no, FALLA. Una pieza estática: NO_APLICA. *Porqué*: una solución
   elegida sin comparar es memoria de nadie; el registro de la alternativa y su motivo es el DFMEA
   de la decisión.
+- **D16 — Testigos públicos sintéticos, testigos de la tienda privados** (decisión del
+  orquestador, vetable por Mario, 2026-10-22). El repo es PÚBLICO (MIT) y las máquinas de la
+  tienda se venden: sus `.apolo` NO entran a `tests/data/`. Testigos públicos = modelos hechos con
+  las plantillas y piezas sintéticas (`scripts/testigos.py`, sus recetas), corridos en cada suite.
+  Las máquinas de la tienda son testigos PRIVADOS en `apolo-fabrica/testigos/`, con su veredicto
+  congelado, y se corren a mano con `scripts/testigos.py --puerto N` contra una API. Corrige D9
+  («los `.apolo` de las máquinas de referencia entran a `tests/data/testigos/`»).
 
 ## Alternativas descartadas
 
@@ -630,3 +637,85 @@ fixtures.
 
 Pendiente: los briefs se prueban en la F6 (las dos fajas); `familias.json` no existe todavía en
 el repo privado (lo crea el primer `aprobar`).
+
+### F5 — testigos y defectos sembrados (2026-10-22)
+
+Construido:
+
+- **Testigos públicos** (`tests/data/testigos/`, D16): `<nombre>.apolo` + `<nombre>.json` con el
+  veredicto POR ÍTEM (id → estado), la firma del modelo y la versión del registro. Las recetas
+  viven en `scripts/testigos.py` (`--generar` rehace los `.apolo`): `faja` (create_belt_conveyor
+  v4 por defecto + requisitos 15 kg, 400 × 300, 0,3 m/s + las cinco funciones D15: APRUEBA entera),
+  `mensula` (suelta y anclada: aprueba), `mensula_atornillada` (placa base anclada + ménsula con
+  `join_bolted` M10: aprueba) y `rodillos` (create_roller_conveyor de 1500 mm con requisitos, sin
+  D15: no aprueba; 49 s → `tortura`). `tests/test_testigos.py` corre cada uno por el ENDPOINT con
+  la app en proceso (gravedad y marcha reales) y falla nombrando el ítem que se movió, de qué a qué
+  y su detalle de ahora (también si cambió la firma: el `.apolo` se tocó sin re-congelar).
+  Re-congelar es a propósito: `python -B scripts/testigos.py --en-proceso --congelar [--solo X]`.
+- **`scripts/testigos.py`**: `--en-proceso` o `--puerto N` (abre cada `.apolo` con `POST
+  /api/project/open` —crea un proyecto en la base de esa API: siempre una COPIA— y corre la
+  puerta como job; rehúsa el :8000 sin `--forzar`); compara públicos y, si existe la carpeta
+  (`--privados`, `APOLO_FABRICA` o `../apolo-fabrica/testigos`), privados; sale 1 si algo se
+  movió. `--exportar-tienda <apolo.db>` saca los `.apolo` de una base de uso abierta en SÓLO
+  LECTURA (`?mode=ro`): los `--ids` (3, 4) y el primer proyecto cuyo nombre dice rodillos…cadena.
+  Los cuatro públicos dan lo mismo en proceso y contra una API.
+- **Defectos sembrados** (`tests/test_defectos_sembrados.py`): 24 mutaciones mínimas sobre un
+  testigo BUENO; cada una exige su ítem general en FALLA. Cobertura: cada id general del registro
+  (las entradas + las claves de los mapas de cada fuente) tiene ≥ 1 defecto o una exención con su
+  porqué (`EXENTOS`); un ítem nuevo sin defecto, una exención de un id que ya no existe o un
+  defecto con un id que el registro no tiene ponen roja la suite. La gravedad real sólo corre en
+  su defecto (endpoint); el resto, `reunir` + `evaluar` con la gravedad dada por estable y sin la
+  marcha.
+
+| ítem general | defecto sembrado (testigo) | obtenido |
+|---|---|---|
+| `entrega.semaforo` | bloque olvidado dentro de la placa base (ménsula atornillada) | FALLA (ROJO) |
+| `entrega.gravedad` | tapa sin unión a 200 mm (ménsula atornillada, MuJoCo) | FALLA |
+| `entrega.no_evaluado` | exento: todo `no_aplica` de la entrega se justifica por construcción; caso puro en `test_puerta_publicacion` | — |
+| `union.acceso_herramienta` | cuatro paredes a 1 mm de la cabeza de un perno | FALLA |
+| `union.agarre` | perno de catálogo que cruza un ala de una C y no la otra | FALLA |
+| `union.retencion` | M10×50 a mano por 46 mm de chapa: la tuerca sin hilo | FALLA |
+| `union.largo_comercial` | perno M10×47 modelado a mano (cabeza hexagonal + vástago) | FALLA |
+| `montaje.interferencia_interna` | motorreductor de la faja corrido 100 mm (`transform`) | FALLA |
+| `transmision_flexible.tension` | faja sin UCT y tensor declarado de 20 mm (pide ~104) | FALLA |
+| `elementos_rodantes.l10`, `accionamiento.factor_servicio`, `ingenieria.reglas`, `memoria.veredicto` | requisito de 300 kg sobre la faja | FALLA ×4 |
+| `transmision.capacidad` | cadena ASA 40 simple con 3 kW a 60 rpm (ménsula) | FALLA |
+| `estructura.vuelco` | contrapeso de 212 kg atornillado fuera de la huella | FALLA |
+| `estructura.flecha` (+ `memoria.veredicto`) | largueros de la faja en madera | FALLA |
+| `estructura.pandeo` | pata de 8 × 8 × 1500 mm | FALLA |
+| `union.capacidad` | ~2 t colgando de un M6 | FALLA |
+| `union.soldaduras` | 212 kg en un cordón a = 1, L = 10 | FALLA |
+| `union.dimensionadas` | `fasten` perno sin métrica | FALLA |
+| `fabricabilidad` | superficie sin espesor olvidada (`boundary_surface`) | FALLA |
+| `diseno.soluciones_por_funcion` | la faja sin la función «resguardo» declarada | FALLA |
+| `riesgos.electrico` | tablero de arranque directo sin el PE del motor | FALLA |
+| `funcion.escenarios` | escenario cuyo último run vigente falla | FALLA |
+| `publicado.sustitutos_fieles` | exento: la cinta se deriva de la sección del sólido y sólo se autodetecta el lazo convexo de la plantilla; defecto en `test_ruta_faja_modelo` (Ω con la regla vieja) | — |
+| `riesgos.partes_moviles` | faja con `guardas=False` | FALLA |
+| `riesgos.resguardos_desmontables_con_herramienta` | guarda lateral soldada al larguero | FALLA |
+| `consumibles.reemplazables` | chumacera soldada a su placa; travesaño soldado dentro del lazo (banda no montable) | FALLA ×2 |
+
+**Bug que destapó el testigo de la ménsula atornillada** (arreglado): por la API, la gravedad de
+las puertas hacía CAER los pernos de un `join_bolted` (38 mm): `prepare_stability` los dejaba
+dinámicos (no son nodo del grafo: los representa su `fasten`) y el casco CONVEXO del perno no cabe
+en su barreno, así que MuJoCo lo expulsaba → `entrega.gravedad` y `entrega.semaforo` FALLA en toda
+máquina con `join_bolted`. Ahora `prepare_stability(asentadas=)` y `_stability(...,
+tornilleria_asentada=True)` (sólo la puerta de entrega con gravedad y la de publicación) tratan la
+tornillería como asentada, con el mismo criterio que su sujeción declarada
+(`delivery_inputs.exclusiones_declaradas`); la que no tiene unión sigue saliendo como aviso de la
+entrega. `gravity_test` no cambia. Las tres máquinas de la tienda no lo sufrían (sus pernos tienen
+`fasten`: 0 caídas con y sin el arreglo). Test: `test_la_tornilleria_asentada_no_cae_…`.
+
+**Testigos privados** (`apolo-fabrica/testigos/`, rama `f5-testigos` del repo privado, sin push):
+los `.apolo` de los proyectos 3, 4 y 2 de la base de uso y su veredicto congelado contra una API
+sobre una copia de la base. Ninguna aprueba (punto de partida de F6; detalle en su README):
+faja motor cabeza — `union.agarre`, `ingenieria.reglas`, D15, `riesgos.partes_moviles` (cuñas de
+cola y motriz), `consumibles.reemplazables` (banda no montable) FALLA y la tensión SIN_EVALUAR;
+faja motor central — `union.retencion`, `transmision_flexible.tension` (carrera), D15, cuñas,
+guardas `pegado`, banda no montable; rodillos 2 m — `transmision.capacidad`,
+`union.dimensionadas`, D15, transmisión expuesta (377 sondas) FALLA y la tensión (20 lazos) y el
+factor de servicio (sin requisitos) SIN_EVALUAR.
+
+Medido (laptop): la suite por defecto suma ~47 s (testigo `faja` 7,4 s; nueve defectos de la faja
+≈ 2,6 s c/u —0,9 s de cargar el `.apolo`—; la cadena 3,2 s; el resto ≤ 0,5 s). El testigo
+`rodillos` (49 s) va con `-m torture`.

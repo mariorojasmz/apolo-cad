@@ -33,19 +33,27 @@ class StabilityIn(BaseModel):
     include_frames: bool = False  # incluir las poses por fotograma (para animar en el viewport)
 
 
-def _stability(body: StabilityIn) -> dict:
+def _stability(body: StabilityIn, *, tornilleria_asentada: bool = False) -> dict:
     """Dos-locks (V6.2c): (a) STATE_LOCK extrae la geometría (grafo de sujeción + cascos
     convexos) → snapshot PURO; (b) PHYSICS_LOCK corre el bucle MuJoCo FUERA del lock del
-    doc → una gravedad de varios segundos no congela las mutaciones/lecturas del server."""
+    doc → una gravedad de varios segundos no congela las mutaciones/lecturas del server.
+    `tornilleria_asentada` (las puertas de entrega y de publicación): la tornillería es
+    estática, como en su sujeción declarada (`delivery_inputs.exclusiones_declaradas`)."""
     from apolo.physics import PhysicsError
     from apolo.physics.stability import prepare_stability, simulate_stability
 
     try:
         with STATE_LOCK:
+            asentadas = None
+            if tornilleria_asentada:
+                from apolo.services.delivery_inputs import exclusiones_declaradas
+
+                asentadas = exclusiones_declaradas(S.doc)[1]
             snap = prepare_stability(
                 S.doc.scene, S.doc.joints, S.doc.mates, S.doc.fasteners, S.doc.grounds,
                 seconds=body.seconds, gravity=body.gravity, fps=body.fps,
                 with_autodetect=body.with_autodetect, exclude=body.exclude,
+                asentadas=asentadas,
             )
         with PHYSICS_LOCK:
             return simulate_stability(snap)

@@ -191,8 +191,9 @@ def delivery_check_endpoint(body: DeliveryIn) -> dict:
     tiempos: dict = {}
     gravedad = None
     if body.con_gravedad:
-        # dos-locks propio (_stability); with_autodetect=False: la puerta es DECLARADA
-        res = _stability(StabilityIn(with_autodetect=False))
+        # dos-locks propio (_stability); with_autodetect=False: la puerta es DECLARADA, y su
+        # tornillería, asentada (como en su sujeción)
+        res = _stability(StabilityIn(with_autodetect=False), tornilleria_asentada=True)
         gravedad = {k: res.get(k) for k in ("fell", "estables", "settled", "n_grounded")}
         tiempos["gravedad"] = round(time.perf_counter() - t0, 2)
 
@@ -215,10 +216,11 @@ def puerta_publicacion(async_: bool = Query(False, alias="async")):
 
 
 def _gravedad_obligatoria() -> dict:
-    """La gravedad de la puerta (dos locks propios, `_stability`, sujeción DECLARADA). Si no corre,
-    `resultado` None y el porqué: el ítem sale SIN_EVALUAR."""
+    """La gravedad de la puerta (dos locks propios, `_stability`, sujeción DECLARADA y la
+    tornillería asentada: su casco convexo no cabe en el barreno). Si no corre, `resultado` None
+    y el porqué: el ítem sale SIN_EVALUAR."""
     try:
-        res = _stability(StabilityIn(with_autodetect=False))
+        res = _stability(StabilityIn(with_autodetect=False), tornilleria_asentada=True)
     except HTTPException as exc:
         return {"resultado": None, "motivo": str(exc.detail)}
     except Exception as exc:  # noqa: BLE001 — sin MuJoCo (ImportError) u otro fallo del motor

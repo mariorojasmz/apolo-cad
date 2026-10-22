@@ -12,6 +12,9 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
 - `gravity_test`: piezas sujetas = estáticas, el resto cae, con casco CONVEXO por sólido.
   `drop_test` usa AABB. Su `fps` es el TOTAL de fotogramas (lo usa la puerta de entrega: no se
   toca); el de la dinámica es por segundo simulado.
+- El casco convexo de un perno no cabe en su barreno: MuJoCo lo expulsa. Las puertas (entrega
+  con gravedad y publicación) pasan la tornillería en `asentadas` (estática, como su sujeción
+  declarada); `gravity_test` no. [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F5)
 
 ## Dinámica (`dinamica*.py`, `banda.py`, `sensores.py`)
 

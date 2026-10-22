@@ -111,6 +111,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `calidad_seguridad.analisis`, que el `Contexto` de la corrida calcula UNA vez para detectores y
   fuente; `firma_modelo` es la firma única que comparte con `publicacion/calidad.py`. Las reglas de la
   memoria salen de `memoria_reglas.py` (también el PDF). (F1)
+- **Un ítem general nuevo = su defecto sembrado** en `tests/test_defectos_sembrados.py` (una
+  mutación mínima de un testigo bueno que lo pone en FALLA) o una exención con su porqué; si no, la
+  suite se pone roja. Los testigos (`tests/data/testigos/`, públicos y sintéticos: D16) congelan el
+  veredicto por ítem: un cambio que lo mueve se re-congela A PROPÓSITO con
+  `scripts/testigos.py --en-proceso --congelar`. (F5)
 
 ## Escenarios de prueba (`escenarios.py`, `cosim_snapshot.py`)
 

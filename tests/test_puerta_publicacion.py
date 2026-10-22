@@ -269,7 +269,7 @@ def _mesa_chica() -> Document:
 def test_gravedad_no_disponible_queda_sin_evaluar_y_no_aprueba(monkeypatch):
     from apolo.api.routers import validation
 
-    def sin_mujoco(_body):
+    def sin_mujoco(_body, **_kw):
         raise HTTPException(status_code=400, detail="MuJoCo no está instalado")
 
     monkeypatch.setattr(validation, "_stability", sin_mujoco)
@@ -300,9 +300,9 @@ def test_endpoint_como_job_y_el_modelo_que_cambia_da_409(monkeypatch):
     # si el modelo cambia mientras corre la gravedad, no hay veredicto que mezcle dos modelos
     real = validation._stability
 
-    def y_edita(body):
+    def y_edita(body, **kw):
         api.DOC.set_requirements({"carga_kg": 5})
-        return real(body)
+        return real(body, **kw)
 
     monkeypatch.setattr(validation, "_stability", y_edita)
     r = c.post("/api/puerta-publicacion")

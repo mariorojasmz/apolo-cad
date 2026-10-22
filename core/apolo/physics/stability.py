@@ -66,16 +66,22 @@ def _grounded_set(scene, joints, mates, fasteners, grounds, with_autodetect, exc
 def prepare_stability(
     scene, joints, mates, fasteners, grounds, *,
     seconds: float = 2.0, gravity: float = 9.81, fps: int = 12,
-    with_autodetect: bool = False, exclude=None,
+    with_autodetect: bool = False, exclude=None, asentadas=None,
 ) -> StabilitySnapshot:
     """FASE OCCT (bajo STATE_LOCK): grafo de sujeción + cascos convexos + masa/volumen
     por pieza → un XML de MuJoCo con la geometría horneada. NO corre la simulación.
-    Devuelve un StabilitySnapshot de datos PUROS (V6.2c)."""
+    Devuelve un StabilitySnapshot de datos PUROS (V6.2c).
+
+    `asentadas`: piezas que se modelan ESTÁTICAS aunque el grafo no las sujete — la
+    tornillería, que las puertas tratan como asentada (la representa su `fasten`): su casco
+    CONVEXO no cabe en su barreno y MuJoCo la expulsaba (un perno de `join_bolted` «caía»
+    38 mm). Las de `exclude` siguen dinámicas."""
     from apolo.physics.hull import hull_vertices
 
     seconds = max(0.1, min(float(seconds), 30.0))
     fps = max(2, min(int(fps), 60))
     grounded = _grounded_set(scene, joints, mates, fasteners, grounds, with_autodetect, exclude)
+    grounded |= set(asentadas or ()) - set(exclude or ())
 
     assets: list[str] = []
     statics: list[str] = []
@@ -181,7 +187,7 @@ def simulate_stability(snap: StabilitySnapshot) -> dict:
 def stability_test(
     scene, joints, mates, fasteners, grounds, *,
     seconds: float = 2.0, gravity: float = 9.81, fps: int = 12,
-    with_autodetect: bool = False, exclude=None,
+    with_autodetect: bool = False, exclude=None, asentadas=None,
 ) -> dict:
     """Simula la gravedad sobre la máquina. Devuelve {fell, estables, products,
     frames, settled, n_grounded, n_dynamic}. `products`/`frames` tienen el formato
@@ -190,5 +196,5 @@ def stability_test(
     para el patrón dos-locks, V6.2c)."""
     return simulate_stability(prepare_stability(
         scene, joints, mates, fasteners, grounds, seconds=seconds, gravity=gravity,
-        fps=fps, with_autodetect=with_autodetect, exclude=exclude,
+        fps=fps, with_autodetect=with_autodetect, exclude=exclude, asentadas=asentadas,
     ))
