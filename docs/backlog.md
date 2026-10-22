@@ -160,6 +160,13 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
 - L10 con reparto real.
 - **Memoria de cálculo: carga por garrucha vs `carga_kg` del catálogo** (dato ya en el YAML de
   garruchas, `110_garruchas.yaml`). Origen: [garruchas-catalogo](plans/garruchas-catalogo.md) § 7.
+- **Cotización eléctrica, lo que F4c no ve** ([V8.1](plans/V8.1-modelo-electrico.md) § F4d,
+  < 50 USD cada uno):
+  - conductores sueltos que repiten un cable declarado (la acometida -G1 → -Q1 y -W4);
+  - el número de setas del 3D contra el circuito cuando la ref difiere (ESTOP-40 ×5 vs -S0 +
+    ESTOP-40-CAJA);
+  - un cable 3D «4x1» ligado a un 5G1 sin aviso de hilos distintos;
+  - la pieza «sin precio» con material acero en la BOM.
 
 ## UI
 
