@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); T entregada (PED-125); F2 implementada con tests y los briefs escritos en apolo-fabrica (falta que Mario los revise y los commitee allá, y verla con una ficha escrita por un modelador real en F4); faltan F0, F3 y F4
+nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); T entregada (PED-125); F2 implementada con tests y los briefs escritos en apolo-fabrica (falta que Mario los revise y los commitee allá, y verla con una ficha escrita por un modelador real en F4); F3 implementada con tests (la fábrica, el subidor de la cola y su tarea diaria; falta correrlos de verdad contra la tienda y YouTube, lo que hace F4); faltan F0 y F4
 descripcion: Mario pide «crea estas máquinas» y Apolo entrega cada una modelada, revisada, con su video en YouTube y publicada en apolocad.com, sin pasos a mano
 ---
 
@@ -307,3 +307,68 @@ errores `{error}`:
   y casos nuevos en `test_publicacion_e2e.py` (bloque youtube en ficha.json, falla temprana de
   `generar`, biblioteca y `--sin-musica`, `ficha --revisar` por el CLI), `test_video_pulido.py`
   (títulos de muchos grupos, rótulo por rol) y `test_publicar_youtube.py` (el bloque va tal cual).
+
+### F3 — la fábrica y el subidor (2026-10-21, implementada con tests)
+
+```powershell
+$env:APOLO_TIENDA_LLAVE = 'apolo_pub_...'
+.\.venv\Scripts\python.exe -B scripts\publicar.py fabrica --project N [--url U] [--slug S] [--version V] [--tienda T] [--render navegador|vtk] [--borrador] [--desde guion|ficha|generar|tienda] [--sin-esperar]
+.\.venv\Scripts\python.exe -B scripts\publicar.py youtube --cola [--limite N] [--tienda T] [--publico] [--ensayo] [--reautorizar]
+.\.venv\Scripts\python.exe -B scripts\publicar.py youtube --cola --instalar-tarea [--hora 02:30]
+.\.venv\Scripts\python.exe -B scripts\publicar.py youtube --cola --quitar-tarea
+```
+
+- **Fábrica** (`publicacion/fabrica.py`): guion (sólo si falta `guion.json`: lo normal es que
+  el modelador ya lo corrió al redactar la ficha) → `preparar.revisar` (en rojo PARA y dice que
+  la ficha la completa el modelador, D1) → `flujo.generar` con navegador y nivel rápido (D2; si
+  el video sale con VTK, lo avisa; con `ficha.json` en la carpeta ya está generado y no se
+  rehace) → `tienda.subir`. Cada paso en `estado.json` de la carpeta de la versión: hecho/fallo,
+  inicio, segundos, `datos` y las últimas 15 líneas de su salida (la llave, enmascarada). Al
+  volver a correrla salta lo hecho; `--desde` borra ese paso y los siguientes del estado. Un
+  error con mensaje (RuntimeError, ValueError, OSError: los de la publicación) para con
+  `FabricaError`; otro se anota y sube con su traza. La llave se exige ANTES del primer paso si
+  la tienda está pendiente (no tras minutos de video). Sin `--version`: la versión con la
+  fábrica a medias, con `--desde` la última que pasó por ella, la única con guion sin generar o
+  1.0.0 (`version_libre`). No toca YouTube (D5): el reporte da tiempos por paso, la URL y si
+  quedó publicada (entra sola a la cola) o en borrador (no entra).
+- **Candado de render** (`publicacion/candado.py`, D7): JSON en `paths.home()/render.lock`
+  (`APOLO_CANDADO_RENDER`; la suite lo apunta a una carpeta temporal en `conftest.py`) con pid,
+  PC, qué se graba, desde y vence (3 h). Se crea con `O_EXCL`; uno vencido o de un proceso
+  muerto de esta PC se aparta con un rename (atómico: entre dos, gana uno) y se toma. Ocupado:
+  espera avisando cada 2 min, o `--sin-esperar` falla. Envuelve TODO `generar` (entregables
+  incluidos: es lo simple, y en la laptop la CPU también es el cuello). En Windows la vida del pid
+  se mira con `OpenProcess`, nunca con `os.kill(pid, 0)`: ahí la señal 0 es CTRL_C_EVENT.
+- **Subidor** (`publicacion/cola_youtube.py`, D5) con el contrato de T. Reutiliza el
+  `tienda.Cliente` (antes `_Tienda`; suma `bajar`, por trozos, con el Bearer sólo en el origen
+  de la tienda) y el cliente de F1, partido en `youtube.conectar` (permiso + canal, una vez por
+  lote y sólo si hay algo que subir) y `youtube.subir_video` (sube con los textos dados TAL
+  CUAL; `subir` de F1 los usa igual). Por máquina: ¿ya subida? (registro `subidas.json` en la
+  carpeta del permiso, por sha256 del video, o una carpeta local del mismo slug con
+  `youtube.json` y el MISMO video según el sha256 de su `ficha.json`) → reserva (409 = saltar)
+  → baja video y miniatura a un temporal (bytes y sha256 del video; una miniatura que no baja o
+  no pesa lo dicho sube el video sin ella, con aviso) → sube → anota `subidas.json` ANTES de
+  avisar `subido` (si la tienda no contesta, la próxima corrida no duplica el video). `fallo`
+  lleva la primera línea del error (≤ 300, sin la llave). `CupoAgotado` (subiendo o al leer el
+  canal) → `cupo` a esa y para. `SinAutorizacion` tras reservar → `cupo` (vuelve a pendiente sin
+  gastar intento) y sube: es de la PC, no de la máquina. Sale con 2 si alguna falló; el cupo
+  agotado no es falla. Reporte: subidas, ya estaban, saltadas, fallidas, cuántas quedan (otro
+  GET con límite 20: «20 o más») y cuántas esperan el clic de Mario por ser privadas.
+- **Tarea diaria** (`publicacion/tarea_cola.py`): `schtasks /Create /SC DAILY /TN "Apolo - cola
+  de YouTube" /TR "<pythonw> -B <publicar.py> youtube --cola --registro [--tienda/--limite/
+  --publico]" /ST HH:MM /F` (sin `/RU`: corre como el usuario con su sesión abierta). El
+  `pythonw.exe` del venv del checkout (sin ventana a las 02:30; si no hay, el de este proceso).
+  `/TR` de más de 261 caracteres (tope de schtasks) se rechaza al instalar. `--registro` manda la
+  salida a `logs/cola-youtube.log` (pasado 1 MB, el anterior queda en `.1`) y no abre el
+  navegador: sin permiso guardado falla y pide `publicar youtube --cola --ensayo` una vez a mano
+  (el ensayo lista la cola y el canal sin reservar, y autoriza). Al instalar avisa si
+  `APOLO_TIENDA_LLAVE` no está en las variables de USUARIO (`HKCU\Environment`; «sólo en esta
+  consola» si está en `$env:`) o si falta el permiso de YouTube. En no-Windows, mensaje con
+  cron/systemd.
+- Tests: `tests/test_publicar_cola.py` (tienda falsa con la cola, reserva 409, PUT y los
+  archivos públicos; Google falso de `test_publicar_youtube.py`, que ahora reinicia lo recibido
+  en cada sesión de subida y toma el total del largo declarado) y
+  `tests/test_publicar_fabrica.py` (pasos falsos, ficha y tienda reales; corte y reanudación,
+  ficha en rojo, candado ocupado/vencido/muerto/con espera, borrador, `--desde`, CLI).
+- **Sin verificar de verdad**: la tarea registrada en el Programador de tareas (que lea la
+  variable de usuario y corra con `pythonw`), la cola contra la tienda real y su R2 (URLs
+  absolutas de otro origen, sin Bearer) y el cupo real de YouTube. Lo verifica F4.
