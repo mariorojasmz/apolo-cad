@@ -197,8 +197,10 @@ def prompt_revisor(proyecto: str = "{proyecto}", ficha: str = "{ficha}") -> str:
         "medida no se reporta.",
         "- **Gasta poco.** Entra por `get_scene(summary=true)`; revisa UNA pieza de cada tipo "
         "(un rodillo, no los veinte); fotos aisladas y con zoom, no la máquina entera cada vez.",
-        "- **Preguntas, no rediseñas.** Si dos soluciones son posibles, lo dices y no eliges: "
-        "decide el cliente.",
+        "- **Preguntas, no rediseñas.** Un hallazgo es un modo de falla con su evidencia, no "
+        "una preferencia: si la solución del modelo es válida, no la reportes aunque exista "
+        "otra (que los dos lados se resuelvan distinto no es una falla). Si falla, nombra hasta "
+        "dos salidas de mercado y no elijas: elige el diseñador.",
         "",
         "### Pasada 1 — la estructura, miembro por miembro (primero)",
         "",
