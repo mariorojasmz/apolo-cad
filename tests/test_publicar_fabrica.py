@@ -157,7 +157,9 @@ def test_desde_rehace_y_guion_existente_se_respeta(tmp_path, falsa):
     # el paso real de guion no rehace un guion.json que ya está (el del modelador)
     e2 = _encargo(tmp_path, falsa.url, eco=salida.append)
     (e2.carpeta / "guion.json").write_text("{}", encoding="utf-8")
-    assert fabrica.paso_guion(e2) == {"ya_estaba": True}
+    # (un guion de diseño no lleva la máquina andando: ajuste D10, tests en test_fabrica_marcha)
+    assert fabrica.paso_guion(e2) == {"ya_estaba": True, "marcha_s": None}
+    assert (e2.carpeta / "guion.json").read_text(encoding="utf-8") == "{}"
     with pytest.raises(fabrica.PublicacionError, match="Paso desconocido"):
         fabrica.fabricar(e2, desde="youtube")
 

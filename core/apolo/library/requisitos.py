@@ -18,9 +18,12 @@ from __future__ import annotations
 import unicodedata
 
 #: Claves de convención NUMÉRICA: float > 0 (la inclinación admite 0 y negativos: declive).
+#: `peso_paquete_kg` y `paquetes_por_minuto` son el producto de ejemplo con el que la fábrica
+#: arma la marcha del video (`services/marcha_ejemplo.py`).
 NUMERICAS: tuple[str, ...] = (
     "carga_kg", "largo_paquete_mm", "ancho_paquete_mm", "alto_paquete_mm",
     "velocidad_m_s", "inclinacion_deg", "temperatura_c", "tipo_cambio", "ancho_producto_mm",
+    "peso_paquete_kg", "paquetes_por_minuto",
 )
 
 #: Las claves de la ficha del encargo (D1), en el orden en que se piden.

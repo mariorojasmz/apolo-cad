@@ -327,6 +327,24 @@ def test_el_guion_es_de_montaje_salvo_que_pidas_diseno(tienda):
                     eco=None)
 
 
+def test_la_marcha_que_decide_la_fabrica_entra_al_guion(tienda):
+    """Ajuste D10 de fabrica-de-publicaciones: la fábrica pasa la marcha como función del
+    documento (la elige con él); sus segundos salen de la duración objetivo."""
+    vistos: list = []
+
+    def marcha(doc):
+        vistos.append(doc.name)
+        return {"duracion_s": 9.0, "escenario": {"duracion_s": 20.0}}
+
+    r = flujo.guion(tienda.c, tienda.verde, raiz=tienda.raiz, eco=None, marcha=marcha)
+    g = json.loads(r["guion"].read_text(encoding="utf-8"))
+    assert vistos == [tienda.mesa.name] and g["marcha"] == {"duracion_s": 9.0,
+                                                           "escenario": {"duracion_s": 20.0}}
+    sin = flujo.guion(tienda.c, tienda.verde, raiz=tienda.raiz, version="1.0.1", eco=None,
+                      marcha=lambda doc: None)
+    assert "marcha" not in json.loads(sin["guion"].read_text(encoding="utf-8"))
+
+
 def test_un_log_que_cambio_desde_el_guion_se_niega(tienda):
     prep = _preparar(tienda, tienda.verde)
     r = tienda.c.post("/api/commands", json={"type": "create_box", "params": {

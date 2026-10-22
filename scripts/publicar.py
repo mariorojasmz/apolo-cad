@@ -79,9 +79,12 @@ La fábrica encadena todo lo anterior menos YouTube (fabrica-de-publicaciones F3
     .\.venv\Scripts\python.exe -B scripts\publicar.py fabrica --project 38
         [--url http://127.0.0.1:8000] [--slug S] [--version V] [--tienda URL]
         [--render navegador|vtk] [--borrador] [--desde guion|ficha|generar|tienda] [--sin-esperar]
+        [--sin-marcha]
 
-guion (si la carpeta no tiene `guion.json`) → `ficha --revisar` (si falla, PARA: la ficha la
-redacta el modelador) → `generar --render navegador --nivel rapido` (si cae a VTK, lo dice) →
+guion (si la carpeta no tiene `guion.json`; con el navegador le suma la máquina andando con
+producto: la de `marcha.json` junto a ficha.yaml, o la automática de un transportador con el
+producto de los requisitos; si no hay, lo avisa y sigue) → `ficha --revisar` (si falla, PARA:
+la ficha la redacta el modelador) → `generar --render navegador --nivel rapido` (si cae a VTK, lo dice) →
 `subir`. Cada paso queda en `estado.json` de la carpeta de la versión; volver a correrla retoma
 desde el que falló y `--desde` rehace desde uno. Sin `--version`, la versión con la fábrica a
 medias, la única con guion sin generar o 1.0.0. Una sola grabación a la vez por PC: el candado
@@ -211,6 +214,8 @@ def _parser() -> argparse.ArgumentParser:
                     help="rehace desde ese paso aunque estado.json lo dé por hecho")
     fa.add_argument("--sin-esperar", action="store_true",
                     help="si otra fábrica está grabando en esta PC, falla en vez de esperarla")
+    fa.add_argument("--sin-marcha", action="store_true",
+                    help="el video sin la máquina andando (ni marcha.json ni la automática)")
     yt = sub.add_parser("youtube", help="sube el video del paquete generado a YouTube (privado); "
                                         "con --cola, vacía la cola de la tienda")
     yt.add_argument("--project", type=int, default=None,
@@ -375,7 +380,7 @@ def _fabrica(args, cliente=None, cliente_tienda=None) -> int:
             proyecto=args.project, carpeta=carpeta, slug=slug, version=carpeta.name, raiz=raiz,
             tienda=url_tienda, cliente=cliente, url=args.url, render=args.render,
             borrador=args.borrador, paralelo=propio, sin_esperar=args.sin_esperar,
-            cliente_tienda=cliente_tienda), desde=args.desde)
+            marcha=not args.sin_marcha, cliente_tienda=cliente_tienda), desde=args.desde)
     except PublicacionError as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 2

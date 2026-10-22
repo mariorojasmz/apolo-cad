@@ -4,7 +4,10 @@ fabrica-de-publicaciones, F3 · D2, D5–D7).
 Encadena cuatro pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>/<version>/`):
 
   1. `guion`: `flujo.guion` si la carpeta no tiene `guion.json` (lo normal es que ya lo haya
-     corrido el modelador al redactar la ficha);
+     corrido el modelador al redactar la ficha). Con el navegador, el video lleva la máquina
+     ANDANDO CON PRODUCTO (ajuste D10, `publicacion/marcha.py`): la de `marcha.json` o la
+     automática de un transportador, simulada antes; a un guion que no la trae se le suma. Si
+     no hay marcha posible, lo avisa y sigue (`marcha=False`: `--sin-marcha`);
   2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`); si falla, PARA y dice qué
      falta: la ficha la redacta el modelador (D1), la fábrica no la inventa;
   3. `generar`: `flujo.generar` con el navegador en nivel rápido (D2; si cae a VTK, lo dice),
@@ -62,6 +65,7 @@ class Encargo:
     borrador: bool = False
     paralelo: bool = False
     sin_esperar: bool = False
+    marcha: bool = True
     candado: Path | None = None
     cliente_tienda: object = None
     eco: object = print
@@ -69,15 +73,66 @@ class Encargo:
 
 
 # ------------------------------------------------------------------ los pasos
-def paso_guion(e: Encargo) -> dict:
-    from apolo.publicacion import flujo
+def _sin_marcha_porque(e: Encargo) -> str | None:
+    if not e.marcha:
+        return "pediste --sin-marcha"
+    if e.render != "navegador":
+        return f"con --render {e.render} el video no anima la máquina andando"
+    return None
 
+
+def _marcha_en_guion(e: Encargo) -> float | None:
+    """Suma la marcha (`publicacion/marcha.py`) al guion.json que dejó el modelador sin ella.
+    Devuelve sus segundos, o None si el video va sin marcha (avisado)."""
+    from apolo.publicacion import flujo, marcha
+    from apolo.services.guion_video import MODO_MONTAJE, GuionError, validar_guion
+
+    ruta = e.carpeta / GUION
+    g = json.loads(ruta.read_text(encoding="utf-8"))
+    if g.get("marcha"):
+        e.eco(f"{GUION} ya trae la máquina andando: la dejo como está.")
+        return float(g["marcha"].get("duracion_s") or 0.0)
+    if g.get("modo") != MODO_MONTAJE:
+        e.eco("Aviso: el guion es de diseño (el navegador graba el de montaje): sin la máquina "
+              "andando.")
+        return None
+    api = flujo._Api(e.cliente)
+    api.abrir(e.proyecto)
+    doc = flujo._documento(api.apolo())
+    m = marcha.elegir(doc, e.carpeta, extra_s=marcha.extra_del_guion(g), eco=e.eco)
+    if m is None:
+        return None
+    try:
+        validar_guion({**g, "marcha": m}, doc)
+    except GuionError as exc:
+        e.eco(f"Aviso: no sumo la máquina andando al guion: {exc}")
+        return None
+    ruta.write_text(json.dumps({**g, "marcha": m}, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8")
+    e.eco(f"Sumé {m['duracion_s']:g} s de la máquina andando a {GUION}.")
+    return m["duracion_s"]
+
+
+def paso_guion(e: Encargo) -> dict:
+    from apolo.publicacion import flujo, marcha
+
+    porque = _sin_marcha_porque(e)
+    if porque:
+        e.eco(f"Sin la máquina andando: {porque}.")
     if (e.carpeta / GUION).is_file():
         e.eco(f"{GUION} ya está en {e.carpeta}: no lo rehago.")
-        return {"ya_estaba": True}
+        return {"ya_estaba": True, "marcha_s": None if porque else _marcha_en_guion(e)}
+    elegida: dict = {}
+
+    def _marcha(doc):
+        elegida["m"] = marcha.elegir(doc, e.carpeta, eco=e.eco)
+        return elegida["m"]
+
     r = flujo.guion(e.cliente, e.proyecto, raiz=e.raiz, slug=e.slug, version=e.version,
-                    tienda=e.tienda, eco=e.eco)
-    return {"etapas": r["etapas"], "duracion_s": round(r["duracion_s"], 1)}
+                    tienda=e.tienda, eco=e.eco, marcha=None if porque else _marcha)
+    m = elegida.get("m")
+    return {"etapas": r["etapas"], "duracion_s": round(r["duracion_s"], 1),
+            "marcha_s": m["duracion_s"] if m else None}
 
 
 def paso_ficha(e: Encargo) -> dict:
@@ -254,6 +309,9 @@ def reporte(estado: dict, eco=print) -> None:
         datos = x.get("datos") or {}
         nota = ("ya estaba" if datos.get("ya_estaba") else
                 f"video con {datos['render']}" if p == "generar" and "render" in datos else "")
+        if p == "guion" and "marcha_s" in datos:
+            nota += ("; " if nota else "") + (f"{datos['marcha_s']:g} s andando"
+                                              if datos["marcha_s"] else "sin la máquina andando")
         if p == "generar" and datos.get("espera_candado_s"):
             nota += f"; esperó el candado {datos['espera_candado_s'] / 60:.1f} min"
         eco(f"  {p:<8} {x.get('segundos', 0):>7.1f} s  ({x.get('inicio', '?')})"

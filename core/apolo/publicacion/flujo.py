@@ -120,7 +120,8 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     {carpeta, guion, ficha, etapas, duracion_s, capitulos}. `modo`: «montaje» (cómo se arma,
     D8 de video-tienda-pulido) o «diseño» (el orden del log). `marcha`: el escenario de la
     simulación (la petición de `simulate`) para sumar la máquina andando (video-realista D5:
-    sólo la graba `--render navegador`); su tiempo sale de la duración objetivo. `tienda`: la
+    sólo la graba `--render navegador`), o una función doc → {duracion_s, escenario} | None (la
+    fábrica, ajuste D10); su tiempo sale de la duración objetivo. `tienda`: la
     de la URL del cierre (`tienda.url_de_la_tienda`: `APOLO_TIENDA_URL` o apolocad.com)."""
     from apolo import paths
     from apolo.publicacion import textos
@@ -162,6 +163,9 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     if doc.regen_suppressed:
         eco(f"Aviso: {len(doc.regen_suppressed)} comando(s) no regeneran; la puerta de "
             "entrega lo marcará en rojo.")
+    if callable(marcha):  # la fábrica la decide con el documento (`publicacion/marcha.py`)
+        elegida = marcha(doc) or {}
+        marcha, marcha_s = elegida.get("escenario"), elegida.get("duracion_s")
     con_marcha = None
     if marcha is not None:
         con_marcha = {"duracion_s": MARCHA_S if marcha_s is None else float(marcha_s),
