@@ -155,6 +155,16 @@ PED-124 (términos, privacidad y aviso de responsabilidad, con `/terminos#respon
   correcciones y `publicar fabrica` de cada una. Mario ve los dos videos y la ficha; sus ajustes
   vuelven a F2/F3. Al cerrar: Mario pide la auditoría de YouTube.
 
+- **F5 — El corto vertical (shorts y reels) (M, aprobado por Mario 2026-10-21).** Además del
+  video largo, cada máquina saca un corto 9:16 de 20–40 s: en los primeros 2 s la máquina
+  terminada (andando si hay marcha), luego el armado rápido y al final la portada con
+  apolocad.com. Va a la cola de YouTube como Short (cuenta como otra subida: con el cupo sin
+  auditar baja a ~3 máquinas/día) enlazado al largo como «video relacionado» (los enlaces de la
+  descripción de un Short no se pueden cliquear); el mismo archivo sirve para Instagram Reels y
+  TikTok (a mano al principio). Se arma después de que Mario ajuste los dos videos de F4, para
+  heredar el ritmo. Depende de F4 y de la cola (T): la tienda tiene que distinguir el largo del
+  corto (pedido de Caronte).
+
 ## Lo que este plan NO hace
 
 - Videos con trazado de rayos (D2), ni música generada por IA.
