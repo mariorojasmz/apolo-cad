@@ -131,6 +131,16 @@ SEVERIDADES: dict[str, str] = {
     "BAJA": "terminación o mejora; no cambia si la máquina funciona.",
 }
 
+#: Para publicar (plan puerta-de-publicacion, D6) los hallazgos van a `revision.json` de la
+#: carpeta de la versión: una lista de REVISIONES (`CAMPOS_REVISION`), la última sobre la firma
+#: que se publica, y cada hallazgo con su `estado`. ALTA y MEDIA bloquean hasta `cerrado`, y sólo
+#: los cierra OTRA revisión (a ciegas, de la versión corregida, por un revisor que no corrigió).
+#: El validador es `publicacion/revision_check.py` (no importa `design`: un test exige que sus
+#: constantes coincidan con éstas).
+CAMPOS_REVISION: tuple[str, ...] = ("id", "revisor", "firma", "fecha", "hallazgos")
+ESTADOS_HALLAZGO: tuple[str, ...] = ("abierto", "corregido", "cerrado")
+SEVERIDADES_QUE_BLOQUEAN: tuple[str, ...] = ("ALTA", "MEDIA")
+
 #: La ÚNICA tool que cambia algo: el documento activo de la API (es para todos los clientes).
 TOOL_APERTURA = "open_project"
 
@@ -217,8 +227,40 @@ def prompt_revisor(proyecto: str = "{proyecto}", ficha: str = "{ficha}") -> str:
     return "\n".join(lineas)
 
 
+def formato_revision() -> list[str]:
+    """Cómo se guarda la revisión de una máquina que se va a publicar (`revision.json`, D6)."""
+    return [
+        "## Para publicar: `revision.json`",
+        "",
+        "La fábrica (`publicar fabrica`, paso «revision») no deja pasar una versión sin "
+        "`revision.json` en su carpeta ([puerta de publicación](plans/puerta-de-publicacion.md), "
+        "D6). Quien lanza al revisor guarda su lista de hallazgos así:",
+        "",
+        "```json",
+        '{"formato": 1, "revisiones": [',
+        '  {"id": "r1", "revisor": "<quién revisó>", "firma": "<firma de calidad.json>",',
+        '   "fecha": "2026-10-22T10:00:00", "hallazgos": [',
+        '    {"pieza": "…", "pregunta": "tensado", "evidencia": "…", "severidad": "ALTA",',
+        '     "estado": "cerrado", "corregido_por": "<quién corrigió>",',
+        '     "cerrado_por": {"revision": "r2", "evidencia": "<lo que midió la re-revisión>"}}]},',
+        '  {"id": "r2", "revisor": "<otro revisor>", "firma": "<firma corregida>", '
+        '"fecha": "…", "hallazgos": []}]}',
+        "```",
+        "",
+        "- Claves de una revisión: " + ", ".join(f"`{c}`" for c in CAMPOS_REVISION) + "; de un "
+        "hallazgo, las cuatro de arriba + `estado` (" + " | ".join(ESTADOS_HALLAZGO) + ").",
+        "- La ÚLTIMA revisión es sobre la firma que se publica (`firma` de `calidad.json`).",
+        "- " + " y ".join(SEVERIDADES_QUE_BLOQUEAN) + " bloquean hasta `cerrado`. Se cierra sólo "
+        "con `cerrado_por` = OTRA revisión de la lista, posterior, sobre la versión corregida "
+        "(otra firma), de un revisor que no es `corregido_por` ni el que lo encontró, y con su "
+        "evidencia. «Asumido» no es un estado ni un cierre.",
+        "",
+    ]
+
+
 def plantilla_revisor() -> str:
-    """El contenido EXACTO de `docs/revisor-de-taller.md`: cómo se usa + el prompt."""
+    """El contenido EXACTO de `docs/revisor-de-taller.md`: cómo se usa + el prompt + cómo se
+    guarda para publicar."""
     cabecera = [
         "<!-- Generado por scripts/plantilla_revisor.py desde core/apolo/design/revision.py: "
         "no se edita a mano. -->",
@@ -235,4 +277,5 @@ def plantilla_revisor() -> str:
         "## Prompt",
         "",
     ]
-    return "\n".join(cabecera) + "\n" + prompt_revisor() + "\n"
+    return ("\n".join(cabecera) + "\n" + prompt_revisor() + "\n\n"
+            + "\n".join(formato_revision()))

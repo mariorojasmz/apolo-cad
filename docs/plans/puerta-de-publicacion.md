@@ -573,3 +573,60 @@ cambiar una banda sin fin exige soltar un lado (la pata y el larguero quedan den
 visto de costado): con PVC se monta con empalme mecánico; no se declara en el nombre. Una faja de
 más de ~6,5 m necesita un tensor de más carrera (UCT de 300 mm o de gravedad): no está en el
 catálogo. El MOTOR-150-EH dice «eje hueco» en su ficha y su geometría es en línea con patas.
+
+### F4 — revisión y aprobación en el flujo (2026-10-22)
+
+Lo NO determinista (revisores LLM, Mario) entra al flujo y su veredicto se exige de forma
+determinista, sobre la MISMA firma del modelo (`firma` de `calidad.json`) y el MISMO video
+(sha256) que se publican. Reglas puras en `publicacion/revision_check.py`; archivos y pasos en
+`publicacion/aprobacion.py`.
+
+- **Fábrica** (`fabrica.PASOS`, 8): guion → ficha (+ `familia` declarada) → calidad →
+  **revision** → generar → **cuadros** → **familia** → tienda. La revisión va ANTES del video:
+  una corrección cambia la firma y no se graba dos veces. `tienda.subir` llama
+  `aprobacion.exigir_publicable` tras `calidad.exigir_subible` (las tres cosas en un mensaje,
+  también en `--ensayo`, antes de tocar la tienda). Ningún paso, ni `subir` ni `aprobar`, tiene
+  `--forzar` (D11, con test). `terminada` = el paso `tienda` hecho: una versión publicada antes
+  de F4 no se reabre sola al correr la fábrica sin `--version`.
+- **D6 — `revision.json`** (formato en `design/revision.py::formato_revision`, impreso al final de
+  `docs/revisor-de-taller.md`; `revision_check` copia sus constantes porque la publicación no
+  importa `design`, y un test exige que coincidan):
+  `{"formato": 1, "revisiones": [{id, revisor, firma, fecha, hallazgos: [{pieza, pregunta,
+  evidencia, severidad, estado: abierto|corregido|cerrado, corregido_por?, correccion?,
+  cerrado_por?: {revision, evidencia}}]}]}`. PARA si falta, si la ÚLTIMA revisión no es de la
+  firma que se publica, o si un ALTA/MEDIA (de cualquier revisión) no está `cerrado`. Un cierre
+  vale sólo si `cerrado_por.revision` es OTRA revisión de la lista, POSTERIOR, de otra firma (la
+  versión corregida), cuyo revisor no es `corregido_por` NI el revisor que lo encontró (decisión
+  propia: el mismo agente no revisa a ciegas lo que ya vio), con evidencia. «Asumido» no es un
+  estado y, en la evidencia del cierre o en la corrección, invalida el cierre. BAJA abierta pasa.
+- **D7 — `cuadros/` + `cuadros.json`**: el paso saca con ffmpeg tres PNG del video a
+  `cuadros/` (subcarpeta: un PNG en la raíz la tienda lo tomaría por miniatura) en el medio de la
+  última etapa (armado), de la marcha (o de la órbita si el video no la trae) y del cierre
+  (`linea_tiempo.tramos` del guion; sin guion, 40/75/97 % del video) y deja
+  `{"formato": 1, "video": {archivo, sha256}, "cuadros": [{momento, archivo, segundo, parte,
+  veredicto: null, nota}], "revisor": null, "fecha": null}`. El agente con visión pone
+  `veredicto` OK|RECHAZADO, `nota`, `revisor` y `fecha`. Si el video cambia, el paso vuelve a
+  sacarlos (los veredictos de otro video no valen); `subir` compara el sha256.
+- **D10 — familia**: `familia` en `ficha.yaml` (opcional para `ficha --revisar`, obligatoria en
+  el paso `ficha` de la fábrica). Registro `familias.json` en el repo privado
+  (`paths.fabrica_dir()`: `APOLO_FABRICA`, o la carpeta hermana del checkout; sin el repo → PARA
+  con el porqué): `{"formato": 1, "familias": {<clave normalizada>: {nombre, aprobadas: [{slug,
+  version, firma, por, fecha}]}}}`. Pasa si la familia tiene ≥ 2 máquinas (slugs distintos)
+  aprobadas o si ESTA versión con ESTA firma está aprobada (decisión propia: cuentan máquinas, no
+  versiones; un cambio de modelo pide aprobar de nuevo). `publicar.py aprobar --slug S [--version
+  V]` (por defecto la versión generada que la fábrica no terminó) registra la aprobación sólo si
+  la puerta, la revisión y los cuadros ya pasaron, e imprime los dos `git -C` para guardarlo en el
+  repo privado (no hace commit).
+- **Briefs** en `apolo-fabrica/briefs/` (rama `f4-revision`): revisor de taller → `revision.json`,
+  re-revisión a ciegas, revisor de cuadros; `orquestacion.md` con los pasos nuevos.
+
+Tests: `tests/test_fabrica_revision.py` (40): el validador (ausente, otra firma, ALTA/MEDIA
+abierta o corregida, cierre por la misma revisión, por quien corrigió, por quien lo encontró, de
+la misma firma, «asumido»), cuadros (otro video, rechazado, sin veredicto, ffmpeg real con
+`testsrc`), momentos, familia 0/1/2 y la firma, sin repo privado, la fábrica que para en cada
+paso nuevo, `aprobar` que destraba y que se niega, `tienda.subir` que se niega en 11 casos, sin
+`--forzar`. `test_publicar_tienda`/`_fabrica` llevan los tres veredictos aprobados en sus
+fixtures.
+
+Pendiente: los briefs se prueban en la F6 (las dos fajas); `familias.json` no existe todavía en
+el repo privado (lo crea el primer `aprobar`).

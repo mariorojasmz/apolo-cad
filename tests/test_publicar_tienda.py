@@ -170,6 +170,52 @@ def calidad_aprobada(carpeta: Path, firma: str = FIRMA) -> dict:
             "version_registro": "1", "firma": firma}
 
 
+FAMILIA = "mesa de taller"
+
+
+def revision_aprobada(carpeta: Path, firma: str = FIRMA) -> dict:
+    """`revision.json` del revisor de taller sobre `firma`, sin ALTA ni MEDIA (F4 · D6)."""
+    rev = {"formato": 1, "revisiones": [{
+        "id": "r1", "revisor": "revisor-a", "firma": firma, "fecha": "2026-10-22T10:00:00",
+        "hallazgos": [{"pieza": "c3 «Tablero»", "pregunta": "material", "evidencia": "render",
+                       "severidad": "BAJA", "estado": "abierto"}]}]}
+    (carpeta / "revision.json").write_text(json.dumps(rev), encoding="utf-8")
+    return rev
+
+
+def cuadros_aprobados(carpeta: Path, video: str = "video.mp4") -> dict:
+    """`cuadros.json` con los tres cuadros en OK para el video de la carpeta (F4 · D7)."""
+    datos = {"formato": 1, "video": {"archivo": video,
+                                     "sha256": tiendas.sha256(carpeta / video)},
+             "cuadros": [{"momento": m, "archivo": f"cuadros/{m}.png", "segundo": 1.0,
+                          "veredicto": "OK", "nota": ""} for m in ("armado", "marcha", "cierre")],
+             "revisor": "revisor-vision", "fecha": "2026-10-22T11:00:00"}
+    (carpeta / "cuadros.json").write_text(json.dumps(datos), encoding="utf-8")
+    return datos
+
+
+def familia_aprobada(dir_fabrica: Path, slug: str = SLUG, version: str = VERSION,
+                     firma: str = FIRMA) -> None:
+    """`familias.json` del repo privado con esta versión aprobada por Mario (F4 · D10)."""
+    from apolo.publicacion import revision_check as rc
+
+    dir_fabrica.mkdir(parents=True, exist_ok=True)
+    ruta = dir_fabrica / "familias.json"
+    previo = json.loads(ruta.read_text(encoding="utf-8")) if ruta.is_file() else None
+    reg = rc.registrar(previo, FAMILIA, slug=slug, version=version, firma=firma, por="Mario",
+                       fecha="2026-10-22T12:00:00")
+    ruta.write_text(json.dumps(reg), encoding="utf-8")
+
+
+@pytest.fixture(autouse=True)
+def repo_fabrica(tmp_path, monkeypatch) -> Path:
+    """El repo privado apolo-fabrica de los tests, con `mesa-de-taller` 1.0.0 aprobada."""
+    dir_ = tmp_path / "apolo-fabrica"
+    monkeypatch.setenv("APOLO_FABRICA", str(dir_))
+    familia_aprobada(dir_)
+    return dir_
+
+
 @pytest.fixture
 def paquete(tmp_path) -> Path:
     carpeta = tmp_path / SLUG / VERSION
@@ -183,8 +229,11 @@ def paquete(tmp_path) -> Path:
     (carpeta / "vista-3d.glb").write_bytes(b"glTF" + b"g" * 50)
     (carpeta / f"{SLUG}-{VERSION}-gratis.zip").write_bytes(b"PK" + b"z" * 70)
     (carpeta / f"{SLUG}-{VERSION}-completo.zip").write_bytes(b"PK" + b"Z" * 90)
-    for privado in ("ficha.yaml", "guion.json", "generacion.json", "youtube.txt"):
+    for privado in ("guion.json", "generacion.json", "youtube.txt"):
         (carpeta / privado).write_text("privado", encoding="utf-8")
+    (carpeta / "ficha.yaml").write_text(f'familia: "{FAMILIA}"  # privado\n', encoding="utf-8")
+    revision_aprobada(carpeta)
+    cuadros_aprobados(carpeta)
     return carpeta
 
 
@@ -206,7 +255,8 @@ def test_flujo_completo_publica(falsa, paquete):
     assert falsa.importada["ficha"]["slug"] == SLUG
     # lo privado de la carpeta no se ofrece; el bucket recibió todo sin el Bearer
     nombres = {d["nombre"] for d in falsa.subidas.values()}
-    assert not nombres & {"ficha.yaml", "guion.json", "generacion.json", "youtube.txt"}
+    assert not nombres & {"ficha.yaml", "guion.json", "generacion.json", "youtube.txt",
+                          "revision.json", "cuadros.json"}
     assert len(falsa.recibido) == 5 and falsa.auth_bucket == [None] * 5
     completo = next(d for d in falsa.subidas.values() if d["nombre"].endswith("completo.zip"))
     assert completo["requiere_cuenta"] is True and completo["tipo"] == "application/zip"

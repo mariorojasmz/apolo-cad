@@ -51,3 +51,21 @@ Una lista JSON de hallazgos, de ALTA a BAJA, cada uno con exactamente estas clav
 ```
 
 Después, en dos líneas: qué miembros cubrió la pasada 1 y qué piezas únicas la pasada 2, y lo que no pudiste revisar y por qué.
+
+## Para publicar: `revision.json`
+
+La fábrica (`publicar fabrica`, paso «revision») no deja pasar una versión sin `revision.json` en su carpeta ([puerta de publicación](plans/puerta-de-publicacion.md), D6). Quien lanza al revisor guarda su lista de hallazgos así:
+
+```json
+{"formato": 1, "revisiones": [
+  {"id": "r1", "revisor": "<quién revisó>", "firma": "<firma de calidad.json>",
+   "fecha": "2026-10-22T10:00:00", "hallazgos": [
+    {"pieza": "…", "pregunta": "tensado", "evidencia": "…", "severidad": "ALTA",
+     "estado": "cerrado", "corregido_por": "<quién corrigió>",
+     "cerrado_por": {"revision": "r2", "evidencia": "<lo que midió la re-revisión>"}}]},
+  {"id": "r2", "revisor": "<otro revisor>", "firma": "<firma corregida>", "fecha": "…", "hallazgos": []}]}
+```
+
+- Claves de una revisión: `id`, `revisor`, `firma`, `fecha`, `hallazgos`; de un hallazgo, las cuatro de arriba + `estado` (abierto | corregido | cerrado).
+- La ÚLTIMA revisión es sobre la firma que se publica (`firma` de `calidad.json`).
+- ALTA y MEDIA bloquean hasta `cerrado`. Se cierra sólo con `cerrado_por` = OTRA revisión de la lista, posterior, sobre la versión corregida (otra firma), de un revisor que no es `corregido_por` ni el que lo encontró, y con su evidencia. «Asumido» no es un estado ni un cierre.

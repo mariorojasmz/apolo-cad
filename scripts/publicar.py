@@ -78,18 +78,17 @@ La fábrica encadena todo lo anterior menos YouTube (fabrica-de-publicaciones F3
     $env:APOLO_TIENDA_LLAVE = 'apolo_pub_...'
     .\.venv\Scripts\python.exe -B scripts\publicar.py fabrica --project 38
         [--url http://127.0.0.1:8000] [--slug S] [--version V] [--tienda URL]
-        [--render navegador|vtk] [--borrador] [--desde guion|ficha|generar|tienda] [--sin-esperar]
-        [--sin-marcha]
+        [--render navegador|vtk] [--borrador] [--desde PASO] [--sin-esperar] [--sin-marcha]
 
-guion (si la carpeta no tiene `guion.json`; con el navegador le suma la máquina andando con
-producto: la de `marcha.json` junto a ficha.yaml, o la automática de un transportador con el
-producto de los requisitos; si no hay, lo avisa y sigue) → `ficha --revisar` (si falla, PARA:
-la ficha la redacta el modelador) → `generar --render navegador --nivel rapido` (si cae a VTK, lo dice) →
-`subir`. Cada paso queda en `estado.json` de la carpeta de la versión; volver a correrla retoma
-desde el que falló y `--desde` rehace desde uno. Sin `--version`, la versión con la fábrica a
-medias, la única con guion sin generar o 1.0.0. Una sola grabación a la vez por PC: el candado
-`~\.apolo\render.lock` (`APOLO_CANDADO_RENDER`); si otra fábrica graba, espera avisando, o falla
-con `--sin-esperar`. Al terminar, la máquina publicada queda en la cola de YouTube de la tienda.
+guion (si falta, con la máquina andando) → ficha (con su `familia`) → calidad (la puerta) →
+revision (`revision.json`) → generar (navegador, rápido) → cuadros (`cuadros.json` con veredicto)
+→ familia (nueva: la aprueba Mario) → subir; cada paso en `estado.json`: se retoma desde el que
+falló y `--desde` rehace desde uno. Sin `--version`, la versión a medias, la única con guion sin
+generar o 1.0.0. Una grabación a la vez por PC (`~\.apolo\render.lock`; `--sin-esperar`).
+Publicada, queda en la cola de YouTube de la tienda. Mario aprueba una máquina de una familia
+nueva (`familias.json` del repo privado apolo-fabrica, `APOLO_FABRICA`) ya revisada:
+
+    .\.venv\Scripts\python.exe -B scripts\publicar.py aprobar --slug S [--version V]
 
 El subidor vacía esa cola en UNA sola PC (D5), con la llave y el permiso de YouTube de arriba:
 
@@ -210,8 +209,12 @@ def _parser() -> argparse.ArgumentParser:
                     help="quién graba el video (D2: navegador en nivel rápido; cae a vtk solo)")
     fa.add_argument("--borrador", action="store_true",
                     help="importa en la tienda sin publicar (no entra a la cola de YouTube)")
-    fa.add_argument("--desde", choices=("guion", "ficha", "generar", "tienda"), default=None,
+    fa.add_argument("--desde", choices=("guion", "ficha", "calidad", "revision", "generar",
+                                        "cuadros", "familia", "tienda"), default=None,
                     help="rehace desde ese paso aunque estado.json lo dé por hecho")
+    ok = sub.add_parser("aprobar", help="Mario aprueba una máquina de una familia nueva (D10)")
+    ok.add_argument("--slug", required=True, help="carpeta de la publicación")
+    ok.add_argument("--version", default=None, help="X.Y.Z (por defecto, la no terminada)")
     fa.add_argument("--sin-esperar", action="store_true",
                     help="si otra fábrica está grabando en esta PC, falla en vez de esperarla")
     fa.add_argument("--sin-marcha", action="store_true",
@@ -390,6 +393,23 @@ def _fabrica(args, cliente=None, cliente_tienda=None) -> int:
     return 0
 
 
+def _aprobar(args) -> int:
+    """`publicar aprobar`: la lógica, en `apolo.publicacion.aprobacion.aprobar`."""
+    from apolo import paths
+    from apolo.publicacion import aprobacion, paquete
+    from apolo.publicacion.paquete import PublicacionError
+
+    try:
+        raiz = paths.publicaciones_dir()
+        version = args.version or aprobacion.version_por_aprobar(raiz, args.slug)
+        aprobacion.aprobar(paquete.carpeta_version(raiz, args.slug, version), slug=args.slug,
+                           version=version)
+    except PublicacionError as exc:
+        print(f"\n{exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
 def _escenario(ruta: str | None) -> dict | None:
     import json
 
@@ -421,6 +441,8 @@ def main(argv: list[str] | None = None, cliente=None, abrir=None, ejecutar=None,
         return _subir(args, cliente=cliente)
     if args.paso == "fabrica":
         return _fabrica(args, cliente=cliente, cliente_tienda=cliente_tienda)
+    if args.paso == "aprobar":
+        return _aprobar(args)
     if args.paso == "youtube" and (args.cola or args.instalar_tarea or args.quitar_tarea):
         if args.registro:
             from apolo.publicacion.tarea_cola import registro

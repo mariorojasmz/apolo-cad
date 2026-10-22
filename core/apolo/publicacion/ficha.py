@@ -45,8 +45,11 @@ _CLAVES = {
     "licencias": ("gratis", "completo"),
     "musica": ("archivo", "titulo", "autor", "fuente", "licencia", "atribucion"),
 }
-#: Claves que pueden faltar: `url_tienda` se deriva (una ficha de antes la trae).
-_OPCIONALES = {"": ("url_tienda",)}
+#: Claves que pueden faltar: `url_tienda` se deriva (una ficha de antes la trae); `familia`
+#: (D10 de puerta-de-publicacion) la exige la fábrica, no `ficha --revisar` (una ficha de antes
+#: no la trae).
+_OPCIONALES = {"": ("url_tienda", "familia")}
+MAX_FAMILIA = 60
 #: Lo que la música necesita para publicarse (D8); `atribucion` sólo si la licencia la pide.
 MUSICA_OBLIGATORIA = ("titulo", "autor", "fuente", "licencia")
 
@@ -81,6 +84,7 @@ titulo: {_y(titulo)}  # máx. {MAX_TITULO} caracteres (YouTube), sin < ni >
 slug: {_y(slug_)}  # lo fija `publicar guion`: carpeta y nombre de los zips
 version: {_y(version)}  # lo fija `publicar guion`: una versión publicada no se pisa
 descripcion: ""  # OBLIGATORIA: qué es, para qué sirve, capacidades y qué trae (máx. {MAX_DESCRIPCION} bytes)
+familia: ""  # OBLIGATORIA para la fábrica: p. ej. "faja de banda" (las 2 primeras las aprueba Mario)
 nivel: gratis  # gratis | pago: el paquete completo se regala o se vende
 precio_usd: 0  # 0 si el nivel es gratis; mayor que 0 si es pago
 licencias:
@@ -170,6 +174,7 @@ def validar(f, *, con_musica: bool = False) -> None:
         for nivel in _CLAVES["licencias"]:
             r.texto(f["licencias"][nivel], f"licencias.{nivel}", 120, vacio=False)
     _etiquetas(r, f["etiquetas"])
+    r.texto(f.get("familia") or "", "familia", MAX_FAMILIA)
     url = f.get("url_tienda") or ""
     if r.texto(url, "url_tienda", 500) and url and not url.startswith(("https://", "http://")):
         r.errores.append(f"url_tienda: debe empezar con https:// (llegó {url!r})")

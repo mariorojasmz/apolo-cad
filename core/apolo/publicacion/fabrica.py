@@ -1,7 +1,7 @@
 """`publicar fabrica`: una máquina modelada sale publicada en la tienda con un solo comando (plan
 fabrica-de-publicaciones, F3 · D2, D5–D7).
 
-Encadena cinco pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>/<version>/`):
+Encadena ocho pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>/<version>/`):
 
   1. `guion`: `flujo.guion` si la carpeta no tiene `guion.json` (lo normal es que ya lo haya
      corrido el modelador al redactar la ficha). Con el navegador, el video lleva la máquina
@@ -10,16 +10,24 @@ Encadena cinco pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug
      no hay marcha posible, lo avisa y sigue (`marcha=False`: `--sin-marcha`); si la faja que
      dibujaría el visor no es fiel al modelo (ajuste D13c), PARA con la pieza que atraviesa y
      cuánto, también con la marcha que ya traía el guion;
-  2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`); si falla, PARA y dice qué
-     falta: la ficha la redacta el modelador (D1), la fábrica no la inventa;
+  2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`) y la `familia` declarada (D10 de
+     puerta-de-publicacion); si falla, PARA y dice qué falta: la ficha la redacta el modelador
+     (D1), la fábrica no la inventa;
   3. `calidad`: la puerta de publicación (plan puerta-de-publicacion, F1) en la API; deja
      `calidad.json` y `calidad.md` y PARA si no aprueba, con cada ítem que no pasó;
-  4. `generar`: `flujo.generar` con el navegador en nivel rápido (D2; si cae a VTK, lo dice),
+  4. `revision`: `revision.json` del revisor de taller sobre la firma de `calidad.json`, sin
+     ALTA ni MEDIA abiertos (F4 · D6, `aprobacion.exigir_revision`); antes del video: si el
+     modelo se corrige, no se graba dos veces;
+  5. `generar`: `flujo.generar` con el navegador en nivel rápido (D2; si cae a VTK, lo dice),
      bajo el candado de render de la PC (D7: una GPU, una grabación a la vez). Se niega sin
      `calidad.json` aprobado sobre el mismo modelo. Con `ficha.json` en la carpeta ya está
      generado y no se rehace;
-  5. `tienda`: `tienda.subir` (publica, o deja en borrador con `borrador`); se niega sin la
-     calidad aprobada.
+  6. `cuadros`: saca tres cuadros del video (armado, marcha, cierre) y PARA hasta que
+     `cuadros.json` diga OK en los tres, para ESE video (F4 · D7);
+  7. `familia`: con < 2 máquinas aprobadas de su familia, PARA hasta `publicar aprobar` (D10);
+  8. `tienda`: `tienda.subir` (publica, o deja en borrador con `borrador`); se niega sin la
+     calidad, la revisión, los cuadros o la familia aprobados. Ningún paso tiene `--forzar`
+     (D11).
 
 Cada paso queda en `estado.json` de la carpeta (hecho/fallo, cuándo, cuánto tardó, las últimas
 líneas de su salida y el error). Volver a correrla salta lo hecho y retoma desde el paso que
@@ -39,7 +47,7 @@ from pathlib import Path
 from apolo.publicacion import paquete
 from apolo.publicacion.paquete import GUION, PublicacionError
 
-PASOS = ("guion", "ficha", "calidad", "generar", "tienda")
+PASOS = ("guion", "ficha", "calidad", "revision", "generar", "cuadros", "familia", "tienda")
 ESTADO = "estado.json"
 LINEAS = 15  # de la salida de cada paso, en estado.json
 RENDERS = ("navegador", "vtk")
@@ -155,7 +163,16 @@ def paso_ficha(e: Encargo) -> dict:
             f"{exc}\nLa ficha la redacta el modelador (D1), no la fábrica: completa "
             f"{e.carpeta / paquete.FICHA_YAML}, revísala con `publicar ficha --revisar` hasta que "
             "salga limpia y vuelve a correr `publicar fabrica` (retoma desde la ficha).") from None
-    return {}
+    from apolo.publicacion import aprobacion
+
+    familia = aprobacion.familia(e.carpeta)
+    if not familia:
+        raise FabricaError(
+            f"{e.carpeta / paquete.FICHA_YAML} no declara su «familia» (p. ej. «faja de banda», "
+            "«transportador de rodillos»): las dos primeras máquinas de cada familia las aprueba "
+            "Mario (plan puerta-de-publicacion, D10). Complétala y vuelve a correr `publicar "
+            "fabrica` (retoma desde la ficha).")
+    return {"familia": familia}
 
 
 def paso_calidad(e: Encargo) -> dict:
@@ -186,6 +203,28 @@ def paso_calidad(e: Encargo) -> dict:
     return {"aprobado": True, "conteos": c, "firma": r.get("firma"),
             "version_registro": r.get("version_registro"),
             "segundos_api": (r.get("tiempos_s") or {}).get("total")}
+
+
+def paso_revision(e: Encargo) -> dict:
+    """D6: el veredicto del revisor de taller sobre la firma que aprobó la puerta."""
+    from apolo.publicacion import aprobacion
+
+    return aprobacion.exigir_revision(e.carpeta)
+
+
+def paso_cuadros(e: Encargo) -> dict:
+    """D7: los tres cuadros del video, revisados por un agente con visión."""
+    from apolo.publicacion import aprobacion
+
+    aprobacion.preparar_cuadros(e.carpeta, eco=e.eco)
+    return aprobacion.exigir_cuadros(e.carpeta)
+
+
+def paso_familia(e: Encargo) -> dict:
+    """D10: familia nueva → Mario aprueba."""
+    from apolo.publicacion import aprobacion
+
+    return aprobacion.exigir_familia(e.carpeta, e.slug, e.version)
 
 
 def paso_generar(e: Encargo) -> dict:
@@ -219,8 +258,8 @@ def paso_tienda(e: Encargo) -> dict:
 
 
 PASOS_REALES = {"guion": paso_guion, "ficha": paso_ficha, "calidad": paso_calidad,
-                "generar": paso_generar,
-                "tienda": paso_tienda}
+                "revision": paso_revision, "generar": paso_generar, "cuadros": paso_cuadros,
+                "familia": paso_familia, "tienda": paso_tienda}
 
 
 # ------------------------------------------------------------------ estado.json
@@ -233,8 +272,9 @@ def leer_estado(carpeta) -> dict | None:
 
 
 def terminada(estado: dict | None) -> bool:
-    return bool(estado) and all((estado["pasos"].get(p) or {}).get("estado") == "hecho"
-                                for p in PASOS)
+    """Llegó a la tienda (el último paso). Una versión publicada antes de que la fábrica tuviera
+    los pasos de F4 sigue terminada: no se reabre sola."""
+    return bool(estado) and (estado["pasos"].get(PASOS[-1]) or {}).get("estado") == "hecho"
 
 
 def _guardar(carpeta: Path, estado: dict) -> None:

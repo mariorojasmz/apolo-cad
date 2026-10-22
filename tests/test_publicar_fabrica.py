@@ -19,7 +19,15 @@ import time
 from pathlib import Path
 
 import pytest
-from test_publicar_tienda import LLAVE, calidad_aprobada, falsa  # noqa: F401 — `falsa` es un fixture
+from test_publicar_tienda import (  # noqa: F401 — `falsa` y `repo_fabrica` son fixtures
+    FAMILIA,
+    LLAVE,
+    calidad_aprobada,
+    cuadros_aprobados,
+    falsa,
+    repo_fabrica,
+    revision_aprobada,
+)
 from test_publicar_youtube import _cli
 
 from apolo import paths
@@ -32,7 +40,8 @@ from apolo.publicacion.tienda import LlaveFaltante
 SLUG, VERSION = "mesa-de-taller", "1.0.0"
 FICHA_OK = (fichas.borrador("Mesa de taller", SLUG, VERSION)
             .replace('descripcion: ""', 'descripcion: "Una mesa de taller soldada, con tablero."')
-            .replace("etiquetas: []", 'etiquetas: ["mesa", "taller", "soldadura"]'))
+            .replace("etiquetas: []", 'etiquetas: ["mesa", "taller", "soldadura"]')
+            .replace('familia: ""', f'familia: "{FAMILIA}"'))
 
 
 class Pasos:
@@ -50,6 +59,7 @@ class Pasos:
     def calidad(self, e: Encargo) -> dict:
         self.calidades += 1
         self.bloque = calidad_aprobada(e.carpeta)  # lo que deja la puerta aprobada
+        revision_aprobada(e.carpeta)  # y el revisor de taller sobre la misma firma (F4)
         return {"aprobado": True}
 
     def guion(self, e: Encargo) -> dict:
@@ -72,6 +82,7 @@ class Pasos:
         (e.carpeta / "miniatura.png").write_bytes(b"\x89PNG" + b"m" * 50)
         (e.carpeta / "video.mp4").write_bytes(b"v" * 300)
         (e.carpeta / f"{SLUG}-{VERSION}-gratis.zip").write_bytes(b"PK" + b"z" * 40)
+        cuadros_aprobados(e.carpeta)  # lo que el agente con visión aprobó de ESTE video (F4)
         if self.render != e.render:
             e.eco(f"Aviso: el video salió con {self.render}")
         return {"render": self.render, "pedido": e.render}
@@ -99,7 +110,7 @@ def test_cadena_completa_publica_y_deja_estado(tmp_path, falsa):
     assert p.llamadas == ["guion", "generar"] and falsa.estado == "publicada"
     guardado = _estado(e)
     assert guardado == estado and fabrica.terminada(guardado)
-    assert [guardado["pasos"][x]["estado"] for x in fabrica.PASOS] == ["hecho"] * 5
+    assert [guardado["pasos"][x]["estado"] for x in fabrica.PASOS] == ["hecho"] * 8
     assert guardado["pasos"]["tienda"]["datos"] == {"url": f"{falsa.url}/maquinas/{SLUG}",
                                                     "publicada": True}
     assert "guion escrito" in guardado["pasos"]["guion"]["salida"]
