@@ -362,6 +362,12 @@ No están en `design/guidelines.py`; valen al modelar por MCP.
 
 ### Windows y operación
 
+- **La PC de escritorio, por SSH** (`ssh escritorio`, PowerShell; i7 8 núcleos, 32 GB, RTX 4070 Ti;
+  allá no hay Claude): las pruebas van en `C:\Users\Mario\source\repos\apolo-cad-pruebas` (su
+  `.venv` con `core[dev,physics,fea]`), NUNCA en `apolo-cad`, la carpeta de uso de Mario con sus
+  proyectos. El código va con `git push escritorio <rama>:refs/remotes/laptop/<rama>` (el remoto
+  ya existe) y allá `git checkout --detach refs/remotes/laptop/<rama>`. La suite tarda ~11 min allá
+  (~30 en la laptop) y trae matplotlib 3.11, como el CI. Una suite a la vez en esa carpeta.
 - **Editar sólo YAML NO recarga el worker** (`--reload` vigila los `.py` por contenido): toca un
   `.py` o reinicia. Sin `--reload`, reinicia siempre tras un cambio.
 - **Zombie-socket :8000**: un `multiprocessing.spawn` huérfano (hijo de un uvicorn muerto)
