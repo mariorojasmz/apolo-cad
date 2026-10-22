@@ -52,6 +52,10 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   Sin mesa de recepción las cajas descargadas se apilan en la cabeza y frenan a las que siguen:
   para contar con la fotocelda, alimenta en serie (`cada_s`).
   [F3](../../../docs/plans/V8.2-maquina-se-mueve.md)
+- La marcha de la banda = la arista recta SUPERIOR del contorno del lazo (`_direccion_tramo`),
+  nunca la recta entre ejes ni el eje largo del casco: con tambores de distinto Ø (motriz
+  engomado) salen inclinados y la tolerancia de 0,5 mm del tramo plano deja fuera el ramal
+  (`tests/test_dinamica_banda_a_mano.py`).
 - La serie del visor (`dinamica_serie.py`) manda cada cuerpo RELATIVO a su pose inicial
   (T(t) = P(t)·P(0)⁻¹, como el GIF): el origen del cuerpo MuJoCo no es el de la malla. La
   velocidad de banda sale del `BandaDatos` del snapshot (`e`, `radio`), no de la salida D9.

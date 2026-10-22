@@ -98,24 +98,61 @@ def detectar_bandas(scene, joints: dict, explicitas: list, auto: bool) -> tuple[
     return salida, virtuales, avisos
 
 
-def _direccion_ramal(plano, d, a):
-    """Dirección del ramal superior: de eje a eje sólo si los dos tambores miden lo mismo. Un
-    motriz engomado es más grande y su eje va más abajo (el ramal queda plano): se toma la recta
-    entre los puntos más altos de cada extremo del lazo, del lado de la normal de eje a eje."""
+# El tramo superior es la arista RECTA más larga del contorno del lazo (casco en el plano ⟂ eje)
+# del lado de arriba: se acepta si se aparta ≤ TRAMO_DESVIO_MAX_DEG de la dirección aproximada
+# (eje a eje o eje largo del casco) y cubre ≥ TRAMO_FRACCION_MIN del largo del lazo. Dos tambores
+# de Ø113,6 y Ø101,6 a 2000 mm inclinan la tangente 0,17° respecto de la recta entre ejes: con la
+# tolerancia de 0,5 mm del tramo plano eso basta para dejar fuera el ramal entero.
+TRAMO_DESVIO_MAX_DEG = 10.0
+TRAMO_FRACCION_MIN = 0.5
+
+
+def _normal_arriba(d, a):
     n = np.cross(d, a)
     if n[2] < 0 or (abs(n[2]) < 1e-9 and n.sum() < 0):
         n = -n
-    ud = plano @ d
-    lo, hi = float(ud.min()), float(ud.max())
-    corte = 0.1 * (hi - lo)
-    cola_, cabeza = plano[ud <= lo + corte], plano[ud >= hi - corte]
-    if len(cola_) == 0 or len(cabeza) == 0:
+    return n
+
+
+def _casco_2d(p):
+    """Casco convexo 2D (cadena monótona de Andrew), en sentido antihorario."""
+    pts = sorted(set(map(tuple, np.round(p, 9))))
+    if len(pts) < 3:
+        return np.asarray(pts, float)
+
+    def media(seq):
+        h = []
+        for q in seq:
+            while len(h) >= 2 and ((h[-1][0] - h[-2][0]) * (q[1] - h[-2][1])
+                                   - (h[-1][1] - h[-2][1]) * (q[0] - h[-2][0])) <= 0:
+                h.pop()
+            h.append(q)
+        return h
+
+    abajo, arriba = media(pts), media(reversed(pts))
+    return np.asarray(abajo[:-1] + arriba[:-1], float)
+
+
+def _direccion_tramo(plano, d, a):
+    """Dirección REAL del tramo superior: la de la arista recta más larga de arriba del contorno
+    del lazo (la tangente común superior a los dos tambores), no la recta entre ejes ni el eje
+    largo del casco, que con tambores de distinto Ø (motriz engomado) salen inclinados. Si el
+    contorno no tiene esa arista, devuelve `d` y el chequeo de tramo plano decide."""
+    n = _normal_arriba(d, a)
+    p = np.column_stack((plano @ d, plano @ n))
+    casco = _casco_2d(p)
+    if len(casco) < 3:
         return d
-    p0, p1 = cola_[np.argmax(cola_ @ n)], cabeza[np.argmax(cabeza @ n)]
-    nueva = p1 - p0
-    nueva -= (nueva @ a) * a
-    if np.linalg.norm(nueva) < 1e-9:
+    lados = np.roll(casco, -1, axis=0) - casco
+    largos = np.linalg.norm(lados, axis=1)
+    # casco antihorario → la normal exterior de cada lado es (dy, −dx)/largo; «arriba» = +n
+    arriba = np.divide(-lados[:, 0], largos, out=np.zeros_like(largos), where=largos > 0)
+    ok = (arriba >= np.cos(np.radians(TRAMO_DESVIO_MAX_DEG))) & (
+        largos >= TRAMO_FRACCION_MIN * float(np.ptp(p[:, 0])))
+    if not ok.any():
         return d
+    k = int(np.argmax(np.where(ok, largos, 0.0)))
+    nueva = lados[k, 0] * d + lados[k, 1] * n
     nueva /= np.linalg.norm(nueva)
     return nueva if nueva @ d > 0 else -nueva
 
@@ -140,11 +177,8 @@ def superficie_banda(feat, junta: dict, radio_mm, direccion, mu, mu_cama, geom: 
     if np.linalg.norm(d) < 1e-9:
         raise PhysicsError(f"No se pudo orientar la banda '{feat.id}'")
     d /= np.linalg.norm(d)
-    if cola is not None:  # el ramal va tangente a los dos tambores, no de eje a eje
-        d = _direccion_ramal(plano, d, a)
-    n = np.cross(d, a)
-    if n[2] < 0 or (abs(n[2]) < 1e-9 and n.sum() < 0):
-        n = -n
+    d = _direccion_tramo(plano, d, a)  # tangente a los dos tambores, no de eje a eje
+    n = _normal_arriba(d, a)
     tope = float((verts @ n).max())
     plana = verts[(verts @ n) >= tope - 0.5]
     ud, ua = plana @ d, plana @ a
