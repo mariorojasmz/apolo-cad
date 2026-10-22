@@ -314,7 +314,9 @@ cara en caché: 2 ms por rayo (34 s).
 Hallazgos en plantillas (no publicadas): `create_belt_conveyor` deja los dos ramales rectos de la
 banda a la altura del PISO (`_belt_loop`: `Polygon` centra por defecto, falta `align=None`) y los
 arcos quedan como anillos completos → sus cuñas dan SIN_EVALUAR («no se encontró el arco»); el
-arreglo cambia geometría (sube `version`) y queda fuera de F3. `create_roller_conveyor` v2: el
+arreglo cambia geometría (sube `version`) y queda fuera de F3 — **ya arreglado** en el ajuste D13 de la fábrica (v3, mergeado antes que F3).
+
+**Decisiones del orquestador sobre lo que F3 dejó abierto** (2026-10-22): (1) ISO 14120 admite guardas fijas soldadas, pero una guarda soldada impide el mantenimiento de lo que cubre: se mantiene D4 (guarda fija = con perno). Las «tapas» `pegado` de la faja central se corrigen en F6. (2) Banda montable: con el marco soldado, la banda sin fin sólo se monta con empalme mecánico (grapas tipo Flexco, habitual en PVC) o con un marco que se abre por un lado; la regla queda como está y la corrección de cada faja se elige en F6. `create_roller_conveyor` v2: el
 cárter del piñón motriz está SOLDADO a la base del motor (guarda FALLA y piñón motriz no
 desmontable) y las cadenas se alcanzan desde la zona de trabajo entre rodillos por debajo del
 borde interior de la guarda de cadenas (41 sondas).
