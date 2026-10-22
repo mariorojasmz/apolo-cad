@@ -1,6 +1,6 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0 y F1 en main (primer render_view de la piloto 218 s → 21 s; manual en frío 226 s → 46 s); F2 en main (2026-10-21: la piloto 74 y el layout 53 ya tienen caché de geometría y abren en 0,2 s; D3 descartado); falta F3
+estado: implementado   # implementado | en curso | sin verificar | descartado
+nota: F0–F2 en main; F3 verificada por MCP el 2026-10-21 (en frío: 1.er render 7 s, manual 9 s, memoria 12 s); D3 descartado
 descripcion: La primera foto, el primer manual o el primer render de una máquina con cadenas sale en segundos, no en minutos
 ---
 
@@ -248,3 +248,20 @@ en frío varían ±50 %.
   caras en el mismo orden que el frío; `ProjectStore` la puebla en el open frío y el segundo es
   caliente; tras teselar, el blob pesa lo mismo y sus formas no traen triangulación; sin
   `cache_geometria` los bytes son los de `serialize_shape`.
+
+### F3 (2026-10-21): verificación por MCP en frío — PASA
+
+Sesión nueva `claude -p --model opus` sobre la flota (:8100, la API recién arrancada con la piloto
+74): 3 min 5 s, 30 turnos, 0,80 USD. Los tiempos incluyen ~1–2 s del MCP.
+
+| entregable (piloto 74) | ahora, en frío | antes | factor |
+|---|---|---|---|
+| 1.er `render_view` iso | 7,3 s | 217,8 s (main) → 21,3 s (F1) | ×30 |
+| `assembly_manual` | 9,0 s | 225,8 s → 46 s (F1) | ×25 |
+| `calc_report` | 12,2 s | 1 060 s → 52 s (manual-rapido F2) | ×87 |
+| `drawing_set` sombreado | 52,6 s | 1 301 s → 55 s (manual-rapido F2b) | ×25 (lo manda el HLR) |
+
+- `open_project(74)` tardó 16,7 s: es la primera apertura tras los merges del día, que reescribe el
+  blob de la caché, el «1.º frío + pack» de F2. La siguiente abre en ~0,2 s.
+- El manual y la memoria corrieron después del primer render, así que ya tenían las mallas
+  teseladas. Aun sumándoles el teselado del render (~7 s), quedan lejos del minuto.
