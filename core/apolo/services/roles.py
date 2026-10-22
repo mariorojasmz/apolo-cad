@@ -41,6 +41,27 @@ _FLEXIBLE_RE = dict(_ROL_RE)["flexible"]
 # una TAPA cubre (guarda) sólo si ningún tramo del nombre decide otra cosa: «Guarda de la
 # transmisión · tapa del extremo» es parte de su guarda; «Tapa de la bandeja», una guarda (D7)
 _TAPA_RE = re.compile(r"^\s*tapas?\b", re.I)
+# …salvo que sea la tapa DE algo que no es un resguardo (F6 de puerta-de-publicacion): la de un
+# rodillo o tambor es la tapa-cubo que gira con él («Tapa del rodillo (alojamiento 6203)») y la
+# de un tubo o perfil lo cierra (estructura); una tapa con el alojamiento de un rodamiento, de
+# rodamiento. Las demás cubren: «Tapa de la bandeja», y también la de una polea, un piñón, un eje
+# o una chumacera (tapan lo que gira: errar hacia «guarda» sólo pide pernos de más).
+_TAPA_DE_RE = re.compile(r"^\s*tapas?(?:[\s-]+cubo)?\s+(?:del?|de\s+la|de\s+l[oa]s)\s+(\w+)", re.I)
+_TAPA_DE = (
+    ("gira", re.compile(r"^(rodillos?|tambor(es)?)$", re.I)),
+    ("estructura", re.compile(r"^(tubos?|perfil(es)?|largueros?|travesa[ñn]os?|columnas?|"
+                              r"postes?|patas?|vigas?|ca[ñn]os?)$", re.I)),
+)
+_ALOJAMIENTO_RE = re.compile(r"\baloj\w*\s+(?:del?\s+)?(?:rodamientos?\b|\d{4,5}\b)", re.I)
+
+
+def _rol_tapa(tramo: str) -> str:
+    """El rol de una TAPA por lo que tapa (ver `_TAPA_DE`); sin otro, «guarda»."""
+    if (m := _TAPA_DE_RE.match(tramo)) is not None:
+        for rol, regex in _TAPA_DE:
+            if regex.match(m.group(1)):
+                return rol
+    return "rodamiento" if _ALOJAMIENTO_RE.search(tramo) else "guarda"
 _RODAMIENTO_RE = re.compile(r"\b(rodamientos?|bearings?|rodaje)\b", re.I)
 # categorías del catálogo que deciden el rol antes que el nombre (la tornillería y lo que gira)
 _ROL_CATEGORIA = {
@@ -75,7 +96,9 @@ def rol_union(nombre: str | None, categoria: str | None = None,
     flexible si el componente es una cadena o correa, si no gira); después el nombre (tramos de
     « · », del último al primero, sin los que nombran un grupo de `maquinas`: «Faja de banda ·
     Oreja» no es una banda; «… con rodamiento» es un asiento de rodamiento); después los
-    perfiles estructurales del catálogo; por último, una TAPA sin otro rol es una guarda."""
+    perfiles estructurales del catálogo; por último, una TAPA sin otro rol es una guarda, salvo
+    la de un rodillo o tambor (gira), la de un tubo o perfil (estructura) o la que aloja un
+    rodamiento (`_rol_tapa`)."""
     tramos = [t for t in (nombre or "").split("·") if t.strip() and t.strip() not in maquinas]
     if categoria in _ROL_CATEGORIA:  # el cuerpo, del nombre: «Tuerca soldada del pie» se suelda
         return _ROL_CATEGORIA[categoria], _cuerpo(tramos[-1]) if tramos else ""
@@ -94,5 +117,5 @@ def rol_union(nombre: str | None, categoria: str | None = None,
         return "estructura", ""
     tapa = next((i for i in range(len(tramos) - 1, -1, -1) if _TAPA_RE.match(tramos[i])), None)
     if tapa is not None:
-        return "guarda", _cuerpo(tramos[tapa], entero=tapa == len(tramos) - 1)
+        return _rol_tapa(tramos[tapa]), _cuerpo(tramos[tapa], entero=tapa == len(tramos) - 1)
     return "", ""

@@ -106,10 +106,34 @@ def test_plantilla_de_rodillos_coincide_con_sus_propias_uniones():
     ("Chumacera UCP207 (lado motriz)", None, "chumacera"),
     ("Faja de banda · Pata (1)", None, "estructura"),
     ("Transportador de rodillos · Oreja del portamotor (-Y)", None, ""),
+    # una tapa es guarda sólo si cubre (F6): la de un rodillo gira con él, la de un tubo lo cierra
+    ("Tapa del rodillo (alojamiento 6203)", None, "gira"),
+    ("Tapa-cubo del tambor motriz", None, "gira"),
+    ("Tapa (alojamiento 6203)", None, "rodamiento"),
+    ("Tapa del tubo (-X)", None, "estructura"),
+    ("Tapa de la bandeja", None, "guarda"),
+    ("Tapa de la polea", None, "guarda"),
+    ("Tapa", None, "guarda"),
 ])
 def test_rol_por_el_sustantivo_que_encabeza_el_nombre(nombre, categoria, rol):
     maquinas = {"Transportador de rodillos", "Faja de banda"}
     assert rol_union(nombre, categoria, None, maquinas)[0] == rol
+
+
+def test_la_tapa_del_rodillo_no_es_una_guarda_que_pida_pernos():
+    """Una tapa ESTRUCTURAL de rodillo se tomaba por guarda y la puerta le exigía fijación
+    desmontable con herramienta; la tapa de una bandeja sigue siendo guarda."""
+    from apolo.library.seguridad.guardas import revisar_guardas
+    from apolo.library.seguridad.modelo import Pieza
+
+    caja = ((0.0, 0.0, 0.0), (10.0, 10.0, 10.0))
+    nombres = {"t": "Tapa del rodillo (alojamiento 6203) (3)", "b": "Tapa de la bandeja",
+               "m": "Larguero (-Y)"}
+    piezas = {i: Pieza(i, n, rol_union(n)[0], None, None, caja, None, False)
+              for i, n in nombres.items()}
+    uniones = [{"a": "t", "b": "m", "kind": "contacto"}, {"a": "b", "b": "m", "kind": "contacto"}]
+    r = revisar_guardas(piezas, uniones, set())
+    assert [(g["nombre"], g["estado"]) for g in r["guardas"]] == [("Tapa de la bandeja", "FALLA")]
 
 
 def test_dos_partes_de_la_misma_guarda_comparten_cuerpo():
