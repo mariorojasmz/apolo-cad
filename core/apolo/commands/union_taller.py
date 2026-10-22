@@ -1,5 +1,6 @@
-"""Criterio de TALLER de `join_bolted` (plan `union-en-perfil-hueco`, D1–D4): el de todo
-comando nuevo (`criterio` 2; el 1 de los logs viejos vive en `exec_union.py`).
+"""Criterio de TALLER de `join_bolted` (plan `union-en-perfil-hueco`, D1–D4): `criterio` 2 y 3
+(el 1 de los logs viejos vive en `exec_union.py`). El 3, el de todo comando nuevo, es el 2 con el
+largo del perno de catálogo y sin respaldo silencioso a 200 mm (plan puerta-de-publicacion D3).
 
 Por cada punto del patrón se tira un RAYO por el eje del taladro (`kernel/rayo.py`) y se mide
 lo que el perno atraviesa de verdad:
@@ -113,7 +114,9 @@ def _elegir(p: JoinBoltedParams, h: dict, base, anadida, medidas: list[dict]):
                 )
             return fj.remache_ciego(size, max(m["t_add"] + m["t_base"] for m in medidas),
                                     min(m["libre"] for m in medidas))
-        return fj.perno_pasante(size, max(m["t_add"] + m["t_base"] for m in medidas), p.norma)
+        # criterio 3: el largo sale del catálogo, sin respaldo silencioso a 200 mm
+        return fj.perno_pasante(size, max(m["t_add"] + m["t_base"] for m in medidas), p.norma,
+                                estricto=p.criterio >= 3)
     except (KeyError, ValueError) as exc:
         raise CommandError(str(exc).strip("'\"")) from exc
 

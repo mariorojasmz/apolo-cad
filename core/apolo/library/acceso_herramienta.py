@@ -56,7 +56,7 @@ def es_tornilleria_de_llave(feat, catalog) -> bool:
     """Tornillería que se aprieta con LLAVE (o se coloca con remachadora): catálogo
     (tuercas/pernos/tornillería) o a medida por nombre (misma convención `_is_bolt` de los
     lints). Los tirafondos avellanados no; el de cabeza hexagonal DIN 571 sí (`llave: true`)."""
-    from .lints import _BOLT_NAME_RE
+    from .lints import es_nombre_de_tornilleria
 
     comp = catalog.get(getattr(feat, "component", None) or "") if catalog else None
     if comp is not None:
@@ -64,7 +64,7 @@ def es_tornilleria_de_llave(feat, catalog) -> bool:
             return True
         if comp.category == "tornilleria_madera":
             return bool((comp.specs or {}).get("llave"))
-    return bool(_BOLT_NAME_RE.search(getattr(feat, "name", "") or ""))
+    return es_nombre_de_tornilleria(getattr(feat, "name", "") or "")
 
 
 def _es_remache(feat, catalog) -> bool:

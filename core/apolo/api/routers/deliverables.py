@@ -15,6 +15,7 @@ from apolo.services.electrico import filas_bom
 from apolo.services.engineering_rules import (
     conveyor_params_from_doc,
     inherit_inclination,
+    inherit_tensor,
     requirement_inputs,
     structure_rules,
 )
@@ -220,6 +221,7 @@ def _memoria(proyecto, carga_kg, largo_paquete_mm, ancho_paquete_mm, velocidad_m
             conveyor_params_from_doc(S.doc) or detect_conveyor(S.doc.scene, S.doc.variables_resolved))
         if conveyor:
             inherit_inclination(conveyor, req)
+            inherit_tensor(S.doc, conveyor)
             rules += conv_check(conveyor, carga_kg=carga, largo_paquete_mm=largo_paq,
                                 velocidad_m_s=velocidad, ancho_paquete_mm=ancho_paq)
         # estructura/uniones/vuelco + página FEA en la memoria (con chequeo de vigencia)

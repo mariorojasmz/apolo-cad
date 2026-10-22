@@ -73,19 +73,39 @@ def paso_grueso(size: str) -> float:
     return COARSE.get(size, (0.125 * d, 0.0))[0]
 
 
-def largo_perno(size: str, grip: float) -> float:
-    """D2: el largo comercial más corto que deja ≥ 2 hilos fuera de la tuerca DIN 934."""
+def largo_perno(size: str, grip: float, estricto: bool = False) -> float:
+    """D2: el largo comercial más corto que deja ≥ 2 hilos fuera de la tuerca DIN 934.
+
+    `estricto` (criterio 3 de join_bolted, plan puerta-de-publicacion D3): el largo sale de los
+    que el CATÁLOGO vende para `PERNO-HEX-{size}` y, si ninguno alcanza, ValueError accionable.
+    Sin él (criterio 2, logs guardados) se conserva el respaldo silencioso al más largo de la
+    serie (200 mm): un log viejo regenera igual y la puerta lo marca FALLA."""
+    from .largos_perno import largo_comercial, largos_catalogo
+
     _, m = hex_nut_mm(size)
     minimo = grip + m + 2.0 * paso_grueso(size)
-    return float(next((L for L in STD_LENGTHS if L >= minimo - 1e-6), STD_LENGTHS[-1]))
+    if not estricto:
+        return float(next((L for L in STD_LENGTHS if L >= minimo - 1e-6), STD_LENGTHS[-1]))
+    ref = f"PERNO-HEX-{size}"
+    largo = largo_comercial(ref, minimo)
+    if largo is None:
+        largos = largos_catalogo(ref)
+        mayor = f"{size}×{largos[-1]:g}" if largos else f"ninguno (la ficha {ref} no declara largos)"
+        raise ValueError(
+            f"El agarre de {grip:.1f} mm pide un perno {size} de ≥ {minimo:.1f} mm (agarre + "
+            f"tuerca + 2 hilos) y el más largo de catálogo es {mayor}: une piezas más delgadas "
+            "en el eje del perno, sube la métrica o usa una varilla roscada con dos tuercas."
+        )
+    return float(largo)
 
 
-def perno_pasante(size: str, grip: float, norma: str = "DIN 933") -> Fijacion:
-    """Perno hexagonal DIN 933 + tuerca DIN 934, largo por D2."""
+def perno_pasante(size: str, grip: float, norma: str = "DIN 933",
+                  estricto: bool = False) -> Fijacion:
+    """Perno hexagonal DIN 933 + tuerca DIN 934, largo por D2 (`estricto`: ver `largo_perno`)."""
     d = nominal_diameter_mm(size)
     s, k = hex_head_mm(size)
     ts, tm = hex_nut_mm(size)
-    largo = largo_perno(size, grip)
+    largo = largo_perno(size, grip, estricto)
     clear = clearance_hole_mm(size)
     return Fijacion("perno", f"PERNO-HEX-{size}", f"Perno {size}×{largo:g} {norma}", d, largo,
                     clear, clear, s, k, tuerca=f"TUERCA-{size}", tuerca_s=ts, tuerca_m=tm,

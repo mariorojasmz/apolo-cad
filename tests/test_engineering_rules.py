@@ -406,7 +406,9 @@ def test_enrich_deriva_senales_de_la_escena():
     base = _enrich_conveyor({"tipo": "banda", "largo": 4000}, doc.scene, {})
     assert base["soporte"] == "cama"
     assert base["tambor_engomado"] is True
-    assert base["tiene_tensor"] is True
+    # el tensor ya no sale del NOMBRE (plan puerta-de-publicacion D3): lo pone el documento con
+    # el reconocido (`engineering_rules.inherit_tensor`, tests/test_puerta_tensor.py)
+    assert "tiene_tensor" not in base
 
 
 # --------------------------------------- V7.1c A: la memoria lee del MODELO, no defaults

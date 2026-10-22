@@ -30,6 +30,23 @@ _AXIS_VEC = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
 # «Tornillería ménsula soporte motor» y el \b de «tornillo» no la muerde (brecha 1).
 _BOLT_NAME_RE = re.compile(r"\b(perno|tornillo|tuerca|bulón|bulon|esp[aá]rrago|allen|"
                            r"bolt|screw|stud|nut)s?\b|torniller[ií]a", re.I)
+# lo que sólo MENCIONA la tornillería no es tornillería: «Eje fijo de cola Ø25 g6 (roscado p/
+# perno)» es un EJE que recibe el perno del tensor (plan puerta-de-publicacion D2: era el «1
+# fijador no evaluado» de la faja #1). Se quitan las menciones «p/ perno», «para perno(s)»…
+# y un rol que EMPIEZA por eje/árbol/shaft no es tornillería aunque nombre un perno.
+_MENCION_RE = re.compile(r"(?<!\w)(p/|para|por)\s+(el\s+|los\s+|un\s+)?"
+                         r"(perno|tornillo|bulón|bulon|esp[aá]rrago|allen)s?\b", re.I)
+_EJE_ROL_RE = re.compile(r"^\s*(eje|árbol|arbol|shaft)\b", re.I)
+
+
+def es_nombre_de_tornilleria(nombre: str | None) -> bool:
+    """¿El NOMBRE dice que la pieza ES tornillería (no que la menciona)?"""
+    from .materials import piece_role
+
+    nombre = nombre or ""
+    if _EJE_ROL_RE.match(piece_role(nombre)):
+        return False
+    return bool(_BOLT_NAME_RE.search(_MENCION_RE.sub(" ", nombre)))
 
 
 def _is_bolt(feat, catalog) -> bool:
@@ -37,7 +54,7 @@ def _is_bolt(feat, catalog) -> bool:
     comp = catalog.get(getattr(feat, "component", None) or "")
     if comp is not None and comp.category in HARDWARE_CATS:
         return True
-    return bool(_BOLT_NAME_RE.search(getattr(feat, "name", "") or ""))
+    return es_nombre_de_tornilleria(getattr(feat, "name", "") or "")
 
 
 def _bbox_center(feat) -> tuple[float, float, float] | None:

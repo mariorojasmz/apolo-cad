@@ -85,9 +85,9 @@ class Document:
         self.fea: dict[str, dict] = {}  # feature_id → resumen del último FEA (metadato)
         self.stackups: dict[str, dict] = {}  # cadenas de cotas con nombre (V7.3) → {eslabones, requisito}
         self.escenarios: dict[str, dict] = {}  # V8.3 D12: nombre → {escenario, resultado?} (services/escenarios)
+        self.tensores: list[dict] = []  # puerta-de-publicacion D3: {piezas, carrera_mm, eje} declarados
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
-        # comandos SUPRIMIDOS por una carga tolerante (transitorio: NUNCA se persiste en
-        # el manifest; se recalcula en cada regenerate — vacío en modo estricto)
+        # SUPRIMIDOS por una carga tolerante (transitorio, NUNCA al manifest; vacío si estricto)
         self.regen_suppressed: list[dict] = []
         self.electrico = carril.vacio()  # el carril evaluado (V8.1): derivado, nunca se guarda
         self._seq = 0
@@ -918,7 +918,7 @@ class Document:
                         "requirements": self.requirements,
                         "fea": self.fea,
                         "stackups": self.stackups,
-                        "escenarios": self.escenarios,
+                        "escenarios": self.escenarios, **({"tensores": self.tensores} if self.tensores else {}),
                         "agent_notes": self.agent_notes,
                     },
                     indent=2,
@@ -984,7 +984,7 @@ class Document:
         doc.fea = manifest.get("fea", {})
         doc.stackups = manifest.get("stackups", {})  # cadenas de cotas (V7.3)
         doc.escenarios = manifest.get("escenarios", {})  # pruebas de la máquina (V8.3 D12)
-        doc.agent_notes = manifest.get("agent_notes", [])
+        doc.tensores, doc.agent_notes = manifest.get("tensores", []), manifest.get("agent_notes", [])
         # guardia de seq: el próximo cmd_id nunca debe colisionar con uno del log aunque
         # el manifest venga sin `seq` o con un `seq` menor que el mayor c-id vivo (un log
         # con removes deja huecos: len(commands) < max(sufijo)).

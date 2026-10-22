@@ -63,3 +63,23 @@ families:
       - {ref: "UCFL206", d: 30, flange: "oval", size_w: 148, size_h: 80, bolt_span: 117, N: 14, Bi: 38.1, s: 16, C_kN: 19.5, carga_kg: 180, cost: 13, weight: 1.20}
       - {ref: "UCFL207", d: 35, flange: "oval", size_w: 161, size_h: 86, bolt_span: 130, N: 17, Bi: 42.9, s: 17, C_kN: 25.5, carga_kg: 250, cost: 17, weight: 1.55}
       - {ref: "UCFL208", d: 40, flange: "oval", size_w: 175, size_h: 95, bolt_span: 137, N: 17, Bi: 49.2, s: 18, C_kN: 30.7, carga_kg: 320, cost: 21, weight: 1.90}
+  # --- Unidades TENSORAS de carro (take-up stretcher: soporte UCT que corre en un marco con
+  # tornillo de ajuste). Son el tensor de catálogo que reconoce la puerta de publicación (plan
+  # puerta-de-publicacion D3): `carrera_mm` es la de la ficha. Cotas L (largo del marco), H (alto),
+  # A (ancho de base), J (carrera = 150) y TM (tornillo de ajuste) de las fichas NSK
+  # UCT204-15D1 / UCT205-15D1 / UCT206-15D1 (nsk.com, «take-up stretcher unit»); C_kN = la del
+  # inserto UC2xx, como las UCP. Marco, rieles y tornillo del builder son REPRESENTATIVOS.
+  - family: "UCT"
+    name_tpl: "Tensor de carro {ref}"
+    description_tpl: "Unidad tensora de carro (soporte UCT en marco con tornillo de ajuste {tornillo}), eje Ø{d} mm, carrera {carrera_mm} mm; marco {L}×{H} mm."
+    builder: take_up_unit
+    param_keys: [d, L, H, A, carrera, tm]
+    specs_common:
+      tipo: "unidad tensora de carro (UCT + marco)"
+      material: "hierro fundido"
+      montaje: "marco atornillado al bastidor; el eje del rodillo pasa por el soporte"
+      norma: "estándar comercial UC/UCT (NSK take-up stretcher unit)"
+    variants:
+      - {ref: "UCT204-150", d: 20, L: 317, H: 199, A: 50, carrera: 150, carrera_mm: 150, tm: 16, tornillo: "TM16×3", Bi: 31.0, C_kN: 12.7, carga_kg: 100, cost: 45, weight: 4.5}
+      - {ref: "UCT205-150", d: 25, L: 317, H: 199, A: 50, carrera: 150, carrera_mm: 150, tm: 16, tornillo: "TM16×3", Bi: 34.1, C_kN: 14.0, carga_kg: 130, cost: 50, weight: 4.8}
+      - {ref: "UCT206-150", d: 30, L: 337, H: 212, A: 50, carrera: 150, carrera_mm: 150, tm: 18, tornillo: "TM18×4", Bi: 38.1, C_kN: 19.5, carga_kg: 180, cost: 58, weight: 5.6}

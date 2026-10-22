@@ -1,4 +1,5 @@
-"""Rutas de validación: chequeos, aserciones `verify`, puerta de entrega, requisitos y stack-up.
+"""Rutas de validación: chequeos, aserciones `verify`, puerta de entrega, requisitos, stack-up y
+los tensores declarados (metadato de la puerta de publicación).
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
 `main.py`. El dominio (aserciones, insumos de la puerta, reglas de ingeniería, evaluación de
@@ -23,6 +24,7 @@ from apolo.services.delivery_inputs import delivery_inputs, exclusiones_declarad
 from apolo.services.engineering_rules import (
     conveyor_params_from_doc,
     inherit_inclination,
+    inherit_tensor,
     requirement_inputs,
     structure_rules,
 )
@@ -105,6 +107,7 @@ def run_checks(body: ChecksIn) -> dict:
                 or detect_conveyor(S.doc.scene, S.doc.variables_resolved)
             )
             inherit_inclination(conveyor, req)
+            inherit_tensor(S.doc, conveyor)
             if conveyor:
                 ingenieria = conveyor_engineering_check(
                     conveyor,
@@ -213,6 +216,34 @@ def put_requirements(body: RequirementsIn) -> dict:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         _autosave()
         return {"ok": True, "requirements": S.doc.requirements}
+
+
+class TensoresIn(BaseModel):
+    tensores: list = []
+
+
+@router.get("/api/tensores")
+def get_tensores() -> dict:
+    """Los tensores DECLARADOS (metadato de la puerta de publicación, plan
+    puerta-de-publicacion D3): [{piezas, carrera_mm, eje, nota?}]."""
+    with STATE_LOCK:
+        return {"tensores": S.doc.tensores}
+
+
+@router.put("/api/tensores")
+def put_tensores(body: TensoresIn) -> dict:
+    """Reemplaza los tensores declarados (metadato: no entra al log ni al undo)."""
+    from apolo.services.calidad_tensores import poner_tensores
+    from apolo.services.errors import ServiceError
+
+    with STATE_LOCK:
+        _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
+        try:
+            tensores = poner_tensores(S.doc, body.tensores)
+        except ServiceError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        _autosave()
+        return {"ok": True, "tensores": tensores}
 
 
 class StackupIn(BaseModel):

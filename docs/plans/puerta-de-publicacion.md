@@ -223,3 +223,46 @@ Leído por un agente de sólo lectura (resumen en «Lo que hay hoy»). Acceso de
 proyecto 3: 122 fijadores evaluados, 122 libres (incluidos los dos DIN 912 Allen del tensor); el
 único «no evaluado» es `c223 Eje fijo de cola Ø25 g6 (roscado p/ perno)`, tomado por tornillería
 por su nombre.
+
+### F2 — función mecánica (2026-10-22, en rama, sin mergear)
+
+Construido (controles PUROS en `library/calidad/`, insumos en `services/calidad_*.py`; la F1 sólo
+los registra):
+
+- **Interfaz** (`calidad/item.py`): `Item{id, titulo, estado, modo_de_falla, norma, evidencia,
+  piezas, detalle}`, estados `OK | FALLA | SIN_EVALUAR | NO_APLICA`, `peor()` y `aprobado()` (todo
+  aplicable OK; SIN_EVALUAR bloquea; sin aplicables = no aprobado). Cada control agrega sus casos
+  en un ítem (`evidencia.casos`, recortados a 20 con `casos_omitidos`).
+  `services/calidad_mecanica.items_funcion_mecanica(doc, reglas=None)` da los 16 ítems.
+- **Agarre** (`agarre.cruza|retencion|largo`): eje y cabeza por GEOMETRÍA (`fijadores_geom` +
+  cilindros coaxiales), rayos de OCCT paralelos al eje (`kernel/rayo.Rayos`: seis entre vástago y
+  cabeza, cuatro dentro del vástago para la rosca). Cruza lo que su `fasten` dice y no termina
+  entre dos paredes de una pieza que ya cruzó; tuerca con ≥ 2 pasos fuera; rosca ≥ 1·d acero,
+  1,5·d aluminio/fundición, 2/3 del largo en madera; largo de la serie ISO y del rango del YAML
+  (`largo_min_mm`/`largo_max_mm`, REFERENCIAL). El eje «roscado p/ perno» ya no es tornillería
+  (`lints.es_nombre_de_tornilleria`); una pieza con «roscado» en el nombre cuenta como rosca.
+- **Sello**: `join_bolted` criterio 3 (vigente) = el 2 con largo de catálogo o error accionable
+  (largo pedido y el mayor de catálogo); el 2 de los logs guardados conserva el respaldo a 200 mm y
+  la puerta lo marca FALLA («el perno no llega a su tuerca… respaldo de 200 mm»). Sin `version` ni
+  epoch: la geometría del 2 no cambió; `test_contrato_comandos` verde con la misma huella.
+- **Tensor** (`tensor.reconocido|carrera|agarre`): take-up (carrera medida sobre el eje del perno
+  entre las aletas), unidad de catálogo con `carrera_mm` (UCT204/205/206-150 nuevas, NSK
+  take-up stretcher unit, J = 150), `tensores_trotadora` (reconocido, carrera SIN_EVALUAR: la ficha
+  no la tabula), ranuras del portamotor de la plantilla y el metadato `tensores` (manifest + `GET|PUT
+  /api/tensores`; la clave se escribe sólo si hay tensores: el saneo de `publicacion/` aún no la
+  tiene en `MANIFEST_PUBLICO` y la F1 decide si es pública). Banda ≥ 1 %·L + 20; cadena ≥ 3 %·L/2 sobre centros (la regla de la plantilla).
+  El perno tensor se evalúa con la pieza corrida a los dos extremos. Eytelwein: `tiene_tensor` sale
+  de este reconocimiento (`engineering_rules.inherit_tensor`), no del nombre.
+- **Vida útil** (`vida.*`, 10 ítems): L10 ≥ 20 000 h, FS del accionamiento = P_motor/P_absorbida
+  ≥ 1,25 (el reductor de catálogo no publica capacidad: se toma ≥ 1 a placa), cadena FS ≥ 1,2,
+  vuelco, L/240, pandeo FS ≥ 3, utilización ≤ 0,7, soldaduras, todo dimensionado; el resto
+  `error`/`aviso` → FALLA salvo `INFORMATIVAS` (arrastre de banda, velocidad, geometría,
+  transportador, alcance de la memoria), cada una con su porqué.
+
+Medido: `create_belt_conveyor` por defecto da un lazo de 8 709 mm (pide 107 mm de carrera); su
+`TENSOR-TROT-25` queda SIN_EVALUAR y un `create_take_up` corre 24 mm (12 + 12 entre aletas) →
+FALLA de carrera con el agarre OK en los dos extremos. Los lazos rodillo a rodillo de
+`create_roller_conveyor` (centros fijos) quedan SIN_EVALUAR: **decisión pendiente** (¿se aceptan
+lazos de centros fijos sin tensor, con su criterio, o se pide un tensor?). Costo: ~0,05 s por perno
+(rayos con el intersector cargado una vez por sólido). 63 tests nuevos
+(`tests/test_puerta_agarre.py`, `_tensor.py`, `_vida_util.py`).

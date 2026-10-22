@@ -3,7 +3,9 @@
 # resistencia, comerciales). Se giran con llave Allen. La cabeza (Ø≈1.5·d, alto≈d) y el hueco
 # hexagonal se derivan de d en el builder; la rosca se modela lisa. El largo del vástago lo fija
 # quien lo usa (p. ej. el tensor de cola/motriz). `across_flats`/`head_h` quedan en specs solo
-# para el cálculo de peso.
+# para el cálculo de peso. LARGOS que se compran (`largo_min_mm`..`largo_max_mm`, sobre la
+# serie de `library/largos_perno.py`): rango REFERENCIAL de las tablas de ISO 4762 (verificar
+# con el proveedor).
 # cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
 families:
   - name_tpl: "Tornillo Allen {ref} 8.8"
@@ -13,14 +15,18 @@ families:
     weight_formula: "7.85e-6 * (0.785 * d * d * 60 + 0.785 * (1.5*d) * (1.5*d) * d)"
     specs_common: {tipo: "tornillo Allen cabeza cilíndrica", material: "acero grado 8.8", grado: "8.8", norma: "DIN 912"}
     variants:
-      - {ref: "PERNO-M10", d: 10, across_flats: 17, head_h: 10.0, cost: 0.35}
-      - {ref: "PERNO-M12", d: 12, across_flats: 18, head_h: 12.0, cost: 0.5}
-      - {ref: "PERNO-M16", d: 16, across_flats: 24, head_h: 16.0, cost: 0.9}
-      - {ref: "PERNO-M20", d: 20, across_flats: 30, head_h: 20.0, cost: 1.6}
+      - {ref: "PERNO-M10", d: 10, across_flats: 17, head_h: 10.0, cost: 0.35, largo_min_mm: 16, largo_max_mm: 100}
+      - {ref: "PERNO-M12", d: 12, across_flats: 18, head_h: 12.0, cost: 0.5, largo_min_mm: 20, largo_max_mm: 120}
+      - {ref: "PERNO-M16", d: 16, across_flats: 24, head_h: 16.0, cost: 0.9, largo_min_mm: 25, largo_max_mm: 160}
+      - {ref: "PERNO-M20", d: 20, across_flats: 30, head_h: 20.0, cost: 1.6, largo_min_mm: 30, largo_max_mm: 200}
   # Pernos de cabeza HEXAGONAL DIN 933 (ISO 4017) 8.8, la tornillería estructural más común.
   # Los usa el super-comando join_bolted (V6.5b) para materializar una unión atornillada: el
   # largo del vástago lo fija join_bolted (grip + protrusión), aquí el peso es de un perno de
   # ~40 mm (REFERENCIAL). across_flats/head_h = cabeza DIN 933 (espejo de HEX_HEAD_MM en bolts.py).
+# LARGOS que se compran (`largo_min_mm`..`largo_max_mm`, sobre la serie ISO 4017/4014 de
+# `library/largos_perno.py`): rango comercial REFERENCIAL de DIN 933/931 en stock (criterio de
+# diseño; verificar con el proveedor). Fuera del rango, join_bolted (criterio 3) lo rechaza y la
+# puerta de publicación lo marca FALLA (plan puerta-de-publicacion D3).
   - name_tpl: "Perno hexagonal {ref} 8.8"
     description_tpl: "Perno cabeza hexagonal {ref} DIN 933 8.8 (unión atornillada; largo a medida)."
     builder: hex_bolt
@@ -28,12 +34,12 @@ families:
     weight_formula: "7.85e-6 * (0.785 * d * d * 40 + 0.866 * across_flats * across_flats * head_h)"
     specs_common: {tipo: "perno cabeza hexagonal", material: "acero grado 8.8", grado: "8.8", norma: "DIN 933"}
     variants:
-      - {ref: "PERNO-HEX-M6", d: 6, across_flats: 10, head_h: 4.0, cost: 0.06}
-      - {ref: "PERNO-HEX-M8", d: 8, across_flats: 13, head_h: 5.3, cost: 0.1}
-      - {ref: "PERNO-HEX-M10", d: 10, across_flats: 16, head_h: 6.4, cost: 0.18}
-      - {ref: "PERNO-HEX-M12", d: 12, across_flats: 18, head_h: 7.5, cost: 0.28}
-      - {ref: "PERNO-HEX-M14", d: 14, across_flats: 21, head_h: 8.8, cost: 0.42}
-      - {ref: "PERNO-HEX-M16", d: 16, across_flats: 24, head_h: 10.0, cost: 0.6}
-      - {ref: "PERNO-HEX-M18", d: 18, across_flats: 27, head_h: 11.5, cost: 0.85}
-      - {ref: "PERNO-HEX-M20", d: 20, across_flats: 30, head_h: 12.5, cost: 1.1}
-      - {ref: "PERNO-HEX-M24", d: 24, across_flats: 36, head_h: 15.0, cost: 1.9}
+      - {ref: "PERNO-HEX-M6", d: 6, across_flats: 10, head_h: 4.0, cost: 0.06, largo_min_mm: 10, largo_max_mm: 100}
+      - {ref: "PERNO-HEX-M8", d: 8, across_flats: 13, head_h: 5.3, cost: 0.1, largo_min_mm: 12, largo_max_mm: 120}
+      - {ref: "PERNO-HEX-M10", d: 10, across_flats: 16, head_h: 6.4, cost: 0.18, largo_min_mm: 16, largo_max_mm: 150}
+      - {ref: "PERNO-HEX-M12", d: 12, across_flats: 18, head_h: 7.5, cost: 0.28, largo_min_mm: 20, largo_max_mm: 200}
+      - {ref: "PERNO-HEX-M14", d: 14, across_flats: 21, head_h: 8.8, cost: 0.42, largo_min_mm: 25, largo_max_mm: 200}
+      - {ref: "PERNO-HEX-M16", d: 16, across_flats: 24, head_h: 10.0, cost: 0.6, largo_min_mm: 25, largo_max_mm: 200}
+      - {ref: "PERNO-HEX-M18", d: 18, across_flats: 27, head_h: 11.5, cost: 0.85, largo_min_mm: 30, largo_max_mm: 200}
+      - {ref: "PERNO-HEX-M20", d: 20, across_flats: 30, head_h: 12.5, cost: 1.1, largo_min_mm: 35, largo_max_mm: 200}
+      - {ref: "PERNO-HEX-M24", d: 24, across_flats: 36, head_h: 15.0, cost: 1.9, largo_min_mm: 45, largo_max_mm: 240}

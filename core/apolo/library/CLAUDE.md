@@ -107,8 +107,8 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Roscas (`threads.py`): `drill_hole.thread` taladra a la broca de machuelado PUBLICADA (M8 →
   Ø6.8; `diameter` se ignora); fit y thread son excluyentes (la rosca interior es 6H fija). Las
   roscas exteriores, fuera de alcance (por nombre, como los fits). [devlog § V5.7](../../../docs/devlog.md)
-- Fijación de taller (`fijacion.py`, puro; la usa `join_bolted` criterio 2): perno DIN 933 con
-  L ≥ agarre + tuerca + 2 pasos; sin acceso por detrás → remache ciego DIN 7337 (M6→Ø4.8,
+- Fijación de taller (`fijacion.py`, puro; la usa `join_bolted` criterio 2/3): perno DIN 933 con
+  L ≥ agarre + tuerca + 2 pasos (criterio 3: el largo de catálogo o error, sin respaldo a 200); sin acceso por detrás → remache ciego DIN 7337 (M6→Ø4.8,
   M8→Ø6.4; más grande = error, no hay ciega de catálogo); base de madera → DIN 571 con ≥ 2/3
   dentro y la punta ≥ 2 mm antes de la cara de atrás. Sus tablas son espejo de
   `112_fijacion_ciega.yaml`/`113_tirafondos_hex.yaml`. Madera = `materials.es_madera` sobre
@@ -158,8 +158,13 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   5048/DIN 22101 (`iso5048.py`, C(L); L < 80 m es interpolación referencial). El μ = 0.06 de
   rodadura es SÓLO para rodillos.
 - Adherencia del tambor motriz (Euler-Eytelwein): μ 0.35 engomado / 0.25 liso por NOMBRE del
-  tambor; FS sólo con `t2_n` declarado (no se inventa la tensión del tensor).
+  tambor; FS sólo con `t2_n` declarado (no se inventa la tensión del tensor). `tiene_tensor` NO
+  sale del nombre: lo pone `services/engineering_rules.inherit_tensor` con el tensor RECONOCIDO.
   [devlog § V5.10](../../../docs/devlog.md)
+- **Puerta de publicación** (`calidad/`, puro): cada control devuelve `item.Item` (OK | FALLA |
+  SIN_EVALUAR | NO_APLICA, con evidencia): agarre de perno, tensor y vida útil; sus insumos los
+  miden `services/calidad_*.py`. Largos de perno: `largos_perno.py` (serie ISO + rango del YAML).
+  [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)
 - La banda de `create_belt_conveyor` abraza el radio EXTERIOR de cada tambor (`diametro_mm/2 +
   lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano): el motriz engomado
   va 6 mm más abajo que la cola. Un choque DENTRO de un super-comando no lo ve

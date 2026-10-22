@@ -97,7 +97,7 @@ def test_all_new_families_present():
     # 5 poleas dentadas + 3 tensores + 6 poleas en V + 6 cadenas + 38 piñones (cadenas-pinones)
     assert len(refs_in_category("transmision")) == 58
     # V2: chumaceras (UCP204-208 pie + UCF204-208 brida cuad. + UCFL204-208 brida oval), topes, pies
-    assert len(refs_in_category("chumaceras")) == 15
+    assert len(refs_in_category("chumaceras")) == 18  # + UCT204/205/206-150 (puerta-de-publicacion)
     assert len(refs_in_category("topes")) == 3
     assert len(refs_in_category("pies_niveladores")) == 3
     # realismo: familia de tambores motrices/reenvío con eje
@@ -135,7 +135,8 @@ def test_all_new_families_present():
     # +44 cadenas y piñones (cadenas-pinones) +59 del catálogo eléctrico de la faja piloto (V8.1 D6)
     # +2 redes 2F y 1F+N (V8.3 D15) +1 seta en caja ESTOP-40-CAJA (seta-de-emergencia D4)
     # +4 remaches ciegos DIN 7337 y +4 tornillos DIN 571 (union-en-perfil-hueco D1/D4)
-    assert len(CATALOG) == 370
+    # +3 tensores de carro UCT204/205/206-150 (puerta-de-publicacion D3)
+    assert len(CATALOG) == 373
 
 
 def test_door_sliding_hardware():

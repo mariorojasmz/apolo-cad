@@ -52,3 +52,59 @@ def tramos_en_eje(shape, eje: int, punto, t0: float, t1: float) -> list[tuple[fl
         else:
             out.append([a, b])
     return [(a, b) for a, b in out]
+
+
+class Rayos:
+    """Tramos de material de un sólido a lo largo de rectas ARBITRARIAS (plan
+    puerta-de-publicacion D3: el eje de un perno no tiene por qué ser un eje del mundo).
+
+    Intersección recta-caras de OCCT (`IntCurvesFace_ShapeIntersector`, cargado UNA vez por
+    sólido) y clasificación del punto medio de cada tramo entre cortes: dentro → material. Mucho
+    más barato que la varilla booleana de `tramos_en_eje` cuando un mismo sólido se cruza con
+    muchas rectas. Puro: no muta nada."""
+
+    def __init__(self, solid) -> None:
+        self.solid = solid
+        self._inter = None
+
+    def _cargar(self):
+        if self._inter is None:
+            from OCP.IntCurvesFace import IntCurvesFace_ShapeIntersector
+
+            self._inter = IntCurvesFace_ShapeIntersector()
+            self._inter.Load(self.solid.wrapped, 1e-6)
+        return self._inter
+
+    def tramos(self, origen, direccion, t0: float, t1: float) -> list[tuple[float, float]]:
+        """Tramos [a, b] (parámetro t sobre la recta `origen + t·direccion`, `direccion`
+        unitaria) dentro del sólido entre `t0` y `t1`, ordenados; [] si falla OCCT."""
+        from OCP.BRepClass3d import BRepClass3d_SolidClassifier
+        from OCP.gp import gp_Dir, gp_Lin, gp_Pnt
+        from OCP.TopAbs import TopAbs_IN
+
+        try:
+            inter = self._cargar()
+            inter.Perform(gp_Lin(gp_Pnt(*origen), gp_Dir(*direccion)), t0, t1)
+            if not inter.IsDone():
+                return []
+            cortes = sorted({round(inter.WParameter(i), 6) for i in range(1, inter.NbPnt() + 1)})
+        except Exception:  # noqa: BLE001 — OCCT caprichoso: sin dato, nunca rompe al llamador
+            return []
+        bordes = [t0, *[c for c in cortes if t0 < c < t1], t1]
+        out: list[list[float]] = []
+        for a, b in zip(bordes, bordes[1:]):
+            if b - a <= _UNIR_MM:
+                continue
+            m = (a + b) / 2.0
+            p = gp_Pnt(*(origen[k] + m * direccion[k] for k in range(3)))
+            try:
+                dentro = BRepClass3d_SolidClassifier(self.solid.wrapped, p, 1e-6).State() == TopAbs_IN
+            except Exception:  # noqa: BLE001
+                continue
+            if not dentro:
+                continue
+            if out and a <= out[-1][1] + _UNIR_MM:
+                out[-1][1] = b
+            else:
+                out.append([a, b])
+        return [(a, b) for a, b in out]

@@ -89,9 +89,10 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
 - `join_bolted` (`exec_union.py`) taladra AMBAS piezas EN SITIO, inserta la fijación de catálogo
   y declara el `fasten` `jb_{cmd_id}`. Contacto y patrón por solape de cajas (borde ≥ 1.5·d, paso
   ≥ 2.5·d, n·m ≤ 100, asientos planos ≥ 50 % de la huella). Campo OCULTO `criterio`: 1 (log
-  viejo, sin el campo) = V6.5b/c tal cual (largo por la caja); 2 (todo comando nuevo) = taller
-  (`union_taller.py`: rayo por el eje, base = la más gruesa, perno/remache ciego/tornillo para
-  madera por `library/fijacion.py`). Lo pone el SELLO de entrada (`CommandSpec.al_crear`,
+  viejo, sin el campo) = V6.5b/c tal cual (largo por la caja); 2 = taller (`union_taller.py`:
+  rayo por el eje, base = la más gruesa, perno/remache ciego/tornillo para madera por
+  `library/fijacion.py`); 3 (todo comando nuevo) = el 2 con el largo de CATÁLOGO o error
+  accionable, sin el respaldo silencioso a 200 mm ([puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)). Lo pone el SELLO de entrada (`CommandSpec.al_crear`,
   `doc/sello.py`), con `madera` = las piezas de madera al crear: el replay y los edits no sellan,
   por eso no hubo `version` ni epoch. Cambiar el criterio 1 rompe logs guardados.
   [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md) ·

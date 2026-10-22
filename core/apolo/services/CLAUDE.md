@@ -97,6 +97,14 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   declarada» (`declarada_por_join_bolted`, por el TIPO del comando, no por `jb_*`).
   [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md) (D5)
 
+## Puerta de publicación (`calidad_pernos.py`, `calidad_tensores.py`, `calidad_mecanica.py`)
+
+- Miden los INSUMOS de los controles puros de `library/calidad/` (formato en sus docstrings): lo
+  que cruza el eje de cada perno (rayos OCCT, por SÓLIDO, eje y cabeza de la geometría) y los
+  lazos con sus tensores RECONOCIDOS (take-up, catálogo con `carrera_mm`, plantilla, metadato
+  `tensores`), nunca por nombre de pieza. Lo no medible sale SIN_EVALUAR, jamás OK.
+  [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F2)
+
 ## Escenarios de prueba (`escenarios.py`, `cosim_snapshot.py`)
 
 - La vigencia de un resultado es `firma_documento` (log ENTERO + materiales + las fichas del

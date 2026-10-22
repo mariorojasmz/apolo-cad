@@ -50,6 +50,17 @@ def inherit_inclination(conveyor: dict | None, req: dict) -> None:
         conveyor["inclinacion_deg"] = req["inclinacion_deg"]
 
 
+def inherit_tensor(doc, conveyor: dict | None) -> None:
+    """La adherencia de Eytelwein sabe si hay tensor por el RECONOCIMIENTO de la puerta de
+    publicación (`calidad_tensores`: take-up, unidad de catálogo, ranuras de la plantilla o el
+    metadato `tensores`), nunca por el nombre de una pieza (plan puerta-de-publicacion D3). Un
+    `tiene_tensor` explícito del cliente gana (muta)."""
+    if conveyor and "tiene_tensor" not in conveyor:
+        from .calidad_tensores import tiene_tensor_reconocido
+
+        conveyor["tiene_tensor"] = tiene_tensor_reconocido(doc)
+
+
 def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
     """Chequeo estructural UNIVERSAL (pernos/soldaduras/L10/pandeo/vuelco): aplica a
     cualquier ensamblaje, no exige carga ni faja detectada; más la flecha de las vigas del

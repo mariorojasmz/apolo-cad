@@ -6,7 +6,11 @@ Dos criterios por el campo oculto `criterio` (`models_union.py`):
 - **1** (V6.5b/c, el de todo log viejo): contacto y patrón por las cajas, largo = caja entera
   + tuerca + 3 filetes, cabeza en la cara alta de la caja. Se conserva TAL CUAL: un log viejo
   regenera con la misma tornillería y su firma no cambia (por eso la `version` sigue en 1).
-- **2** (taller, D1–D4): el de todo comando nuevo, en `union_taller.py`.
+- **2** (taller, D1–D4), en `union_taller.py`: el de los logs del 2026-10-21 al 22.
+- **3** (taller + largo de catálogo, plan puerta-de-publicacion D3): el de todo comando nuevo.
+  Igual que el 2, salvo que un agarre al que no le alcanza ningún largo de catálogo es un error
+  accionable en vez del respaldo silencioso a 200 mm; la geometría del 2 no cambia (sin
+  `version`).
 
 `sellar` es el sello de entrada (`CommandSpec.al_crear`): un comando NUEVO nace con el criterio
 vigente y con las piezas que eran de madera al crearlo.
@@ -20,7 +24,7 @@ from .errors import CommandError
 from .models_union import JoinBoltedParams
 from .state import ExecContext
 
-CRITERIO_VIGENTE = 2
+CRITERIO_VIGENTE = 3
 _AXNAME = {0: "X", 1: "Y", 2: "Z"}
 
 

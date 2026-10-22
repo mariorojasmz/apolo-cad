@@ -293,11 +293,8 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
             and any(w in _name(f) for w in ("engomado", "lagging", "goma"))
             for f in scene.values()
         )
-    if "tiene_tensor" not in base:
-        base["tiene_tensor"] = any(
-            any(w in _name(f) for w in ("tensor", "trotadora", "take-up", "take up", "templador"))
-            for f in scene.values()
-        )
+    # `tiene_tensor` ya NO sale del nombre de una pieza (plan puerta-de-publicacion D3): lo pone
+    # el documento con el tensor RECONOCIDO (`services/engineering_rules.inherit_tensor`)
     if not base.get("q_ro_kg_m") and base.get("largo"):
         # masa por metro de partes giratorias (rodillos de catálogo, por FICHA)
         kg = 0.0
@@ -818,15 +815,16 @@ def conveyor_engineering_check(conveyor: dict, carga_kg: float, largo_paquete_mm
                 "adherencia del tambor motriz", "ok",
                 f"Tambor {'engomado' if engomado else 'liso'} (μ={mu_t:g}, α={alpha:g}°): "
                 f"el tensor debe garantizar T2 ≥ {t2_min:.1f} N para transmitir "
-                f"{pull_n:.1f} N sin patinar (hay tensor en el modelo).",
+                f"{pull_n:.1f} N sin patinar (hay un tensor reconocido en el modelo).",
                 calc=calc_eyt,
             ))
         else:
             checks.append(_check(
                 "adherencia del tambor motriz", "aviso",
-                f"Sin tensor detectado: la banda necesita T2 ≥ {t2_min:.1f} N en el ramal "
+                f"Sin tensor reconocido: la banda necesita T2 ≥ {t2_min:.1f} N en el ramal "
                 f"flojo para no patinar (tambor {'engomado' if engomado else 'liso'}, μ={mu_t:g}).",
-                "Añade un tensor (take-up) o verifica la tensión de montaje de la banda.",
+                "Añade un tensor reconocible (create_take_up, una unidad UCT de catálogo o el "
+                "metadato `tensores` con su carrera) o verifica la tensión de montaje.",
                 calc=calc_eyt,
             ))
 

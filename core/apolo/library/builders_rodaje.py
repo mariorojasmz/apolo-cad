@@ -1,4 +1,5 @@
-"""Builders de RODAJE del catálogo: garruchas de placa (giratoria, con freno total y fija).
+"""Builders de RODAJE del catálogo: garruchas de placa (giratoria, con freno total y fija) y la
+unidad tensora de carro UCT (`take_up_unit`, al final del módulo).
 
 Módulo propio porque `builders.py` está congelado por el trinquete de tamaño
 (`tests/test_tamano_archivos.py`); `loader.py` une este registro con el de `builders.py` y
@@ -188,6 +189,33 @@ def caster(tipo: str, rueda_d: float, rueda_b: float, altura: float,
     return build
 
 
+def take_up_unit(d: float, L: float, H: float, A: float, carrera: float, tm: float):
+    """Unidad tensora de CARRO (take-up stretcher, UCT + marco; plan puerta-de-publicacion D3):
+    marco rectangular de L (a lo largo de la carrera, X) × H (Z) × A (Y) con dos rieles y dos
+    cabezales, el soporte UCT que corre entre los rieles con su agujero Ø`d` (eje del rodillo a lo
+    largo de Y) y el tornillo de ajuste Ø`tm` que lo empuja desde el cabezal +X. Origen = centro
+    del agujero con el soporte a MITAD de carrera (= centro de la caja). Marco, rieles y tornillo
+    son REPRESENTATIVOS; L, H, A, d y la carrera son los de la ficha."""
+
+    def build(_length=None):
+        riel, cab = 12.0, 12.0
+        largo_soporte = L - 2.0 * cab - carrera
+        if largo_soporte < 2.0 * d:
+            raise ValueError(f"UCT: la carrera {carrera:g} no deja soporte en un marco de {L:g}")
+        cuerpo = (Pos(0, 0, H / 2.0 - riel / 2.0) * Box(L, A, riel)
+                  + Pos(0, 0, -H / 2.0 + riel / 2.0) * Box(L, A, riel)
+                  + Pos(L / 2.0 - cab / 2.0, 0, 0) * Box(cab, A, H)
+                  + Pos(-L / 2.0 + cab / 2.0, 0, 0) * Box(cab, A, H))
+        soporte = Pos(0, 0, 0) * Box(largo_soporte, A, H - 2.0 * riel + 2.0 * _SOLAPE)
+        soporte = soporte - Pos(0, 0, 0) * Rotation(90, 0, 0) * Cylinder(d / 2.0, A + 2.0)
+        x0, x1 = largo_soporte / 2.0 - _SOLAPE, L / 2.0 - cab + _SOLAPE
+        tornillo = Pos((x0 + x1) / 2.0, 0, 0) * Rotation(0, 90, 0) * Cylinder(tm / 2.0, x1 - x0)
+        return (cuerpo + soporte + tornillo).clean()
+
+    return build
+
+
 BUILDERS = {
     "caster": caster,  # garrucha de placa: giratoria / freno total / fija (marco: cara de montaje)
+    "take_up_unit": take_up_unit,  # unidad tensora de carro UCT + marco (carrera de ficha)
 }
