@@ -22,6 +22,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   toma de fuerza) también. Un cable modelado en 3D es material `cable`, no se cobra (lo cobra su
   `add_cable`) y su largo en la BOM es el RECORRIDO (volumen / sección, `recorrido_mm`), no el
   bbox. [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4, F4c)
+- La BOM es para COMPRAR: la banda (rol) cerrada sale por su LAZO (`banda_lazo.py`, la medida de
+  la puerta) y la tornillería de largo a medida con su largo (`largo_tornilleria.py`: ficha fija →
+  geometría → nombre del comando), una fila por largo. [defectos](../../../docs/defectos.md) (F6)
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
   `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara
   de montaje de la placa: [plan](../../../docs/plans/garruchas-catalogo.md)). Los perfiles se
@@ -108,7 +111,8 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   Ø6.8; `diameter` se ignora); fit y thread son excluyentes (la rosca interior es 6H fija). Las
   roscas exteriores, fuera de alcance (por nombre, como los fits). [devlog § V5.7](../../../docs/devlog.md)
 - Fijación de taller (`fijacion.py`, puro; la usa `join_bolted` criterio 2/3): perno DIN 933 con
-  L ≥ agarre + tuerca + 2 pasos (criterio 3: el largo de catálogo o error, sin respaldo a 200); sin acceso por detrás → remache ciego DIN 7337 (M6→Ø4.8,
+  L ≥ agarre + tuerca + 2 pasos (criterio 3: el largo de catálogo o error, sin respaldo a 200); sin acceso por detrás (el ala de un
+  perfil abierto SÍ lo tiene: criterio 4, [commands](../commands/CLAUDE.md)) → remache ciego DIN 7337 (M6→Ø4.8,
   M8→Ø6.4; más grande = error, no hay ciega de catálogo); base de madera → DIN 571 con ≥ 2/3
   dentro y la punta ≥ 2 mm antes de la cara de atrás. Sus tablas son espejo de
   `112_fijacion_ciega.yaml`/`113_tirafondos_hex.yaml`. Madera = `materials.es_madera` sobre
@@ -153,6 +157,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 
 - `detect_conveyor` se enriquece con VARIABLES, nombres y specs de catálogo (reconoce
   `motorreductores_sinfin`: η = 0.75 sinfín vs 0.85 helicoidal).
+- «Ancho útil» (`ancho_util.py`): rodillos = ancho − 2 largueros; BANDA = el ancho MEDIDO de la
+  banda (rol) y, si es menor, la luz entre guías laterales que suben sobre ella. Los largueros de
+  una faja de banda van por fuera: restarlos daba holguras falsas.
 - Método de arrastre POR CONSTRUCCIÓN (`soporte` derivado del modelo): cama/mesa → CEMA
   slider-bed μ = 0.33 + par de arranque 1.6× (`engineering/belt.py`); rodillos portantes → ISO
   5048/DIN 22101 (`iso5048.py`, C(L); L < 80 m es interpolación referencial). El μ = 0.06 de

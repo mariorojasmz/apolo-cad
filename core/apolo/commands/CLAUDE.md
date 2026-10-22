@@ -91,8 +91,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   ≥ 2.5·d, n·m ≤ 100, asientos planos ≥ 50 % de la huella). Campo OCULTO `criterio`: 1 (log
   viejo, sin el campo) = V6.5b/c tal cual (largo por la caja); 2 = taller (`union_taller.py`:
   rayo por el eje, base = la más gruesa, perno/remache ciego/tornillo para madera por
-  `library/fijacion.py`); 3 (todo comando nuevo) = el 2 con el largo de CATÁLOGO o error
-  accionable, sin el respaldo silencioso a 200 mm ([puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)). Lo pone el SELLO de entrada (`CommandSpec.al_crear`,
+  `library/fijacion.py`); 3 = el 2 con el largo de CATÁLOGO o error
+  accionable, sin el respaldo silencioso a 200 mm ([puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md));
+  4 (todo comando nuevo) = el 3 con acceso por detrás en el ala de un perfil ABIERTO (la otra ala
+  re-cruza el eje, pero el hueco se abre al costado → perno + tuerca, no remache). Un criterio
+  nuevo, no un cambio del viejo: el que cambia qué inserta `join_bolted` es un número más. Lo pone el SELLO de entrada (`CommandSpec.al_crear`,
   `doc/sello.py`), con `madera` = las piezas de madera al crear: el replay y los edits no sellan,
   por eso no hubo `version` ni epoch. Cambiar el criterio 1 rompe logs guardados.
   [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md) ·
