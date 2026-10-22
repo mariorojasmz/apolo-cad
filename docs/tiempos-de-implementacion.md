@@ -106,6 +106,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-21 | V8.1 | F4c | M | 86 | 398 | cotización que avisa 310 USD en riesgo, 7 cables 3D sin cobrar, tablas del PDF sin solapes, falso positivo de garruchas; la suite del escritorio (11 min) halló la medida de texto frágil con matplotlib 3.11 |
 | 2026-10-21 | mcp-sin-friccion | F5 | M | 87 | 495 | la propuesta sobre la plantilla 182 → 0, aplicar por conjuntos y dimensionado, interferencia paginada, engineering_check 13,2 → 3,5 KB; suite en el escritorio 12 min |
 | 2026-10-21 | union-en-perfil-hueco | F1 | M | 72 | 435 | join_bolted: remache ciego en tubo cerrado, M6×12 en la C (antes ×65), DIN 571 en madera, tuerca atrás; log viejo idéntico por sello de criterio |
+| 2026-10-22 | puerta-de-publicacion | F3 en el registro | S | 43 | 305 | fuente «seguridad» una vez por corrida (`Contexto`), detectores con el criterio de F3, tabla ISO 12100 en calidad.json/md; registro v2; rodillos 36 → 45 s |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
