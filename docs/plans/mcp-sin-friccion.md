@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F3 mergeadas a main el 2026-10-21; falta F4 (verificación por MCP). Vetables de F3: lo que gira junto se suelda (contra D2 de uniones-en-lote) y el cárter de la plantilla soldado a la base del motor
+nota: F0–F3 mergeadas y F4 verificada por MCP el 2026-10-21 (mejora lo medido; 8 fricciones) → F5 en curso (D7–D12). Vetables de F3: lo que gira junto se suelda y el cárter soldado a la base del motor
 descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respuestas cortas, errores que dicen cómo seguir y propuestas de estructura que no sueldan lo que se atornilla
 ---
 
@@ -84,6 +84,8 @@ escaso del agente (raíz § MCP: «Escala»): cada KB de respuesta se paga en ca
 - **F2 (S, `api` + `mcp` + `commands`)**: D4 y D5.
 - **F3 (M, `services` + `assembly`)**: D6. Test: la propuesta en la piloto coincide con la
   estructura declarada en ≥ 95 % de las uniones, y cero soldaduras en pares desmontables.
+- **F5 (M, `services` + `api` + `mcp`)**: D7–D12, las fricciones que halló F4 (contrato en la
+  § Bitácora).
 - **F4 (S, verificación por MCP)**: repetir con una sesión nueva sobre la flota la verificación
   de uniones-en-lote F4 y la de plantilla F3. Medir contexto total y llamadas antes y después.
 
@@ -339,3 +341,62 @@ Fuera de F3: las orejas o placas con pernos en ranura no se reconocen (haría fa
 taladros, como `lint_asiento`); `detect_structure` no ve 2 pares de la plantilla (guarda fija ↔
 larguero, pared ↔ pared); el estado vetable de la regla «guarda ↔ soporte = perno» frente al cárter
 que corre con el motor queda para Mario.
+
+### F4 (2026-10-21): verificación por MCP — mejora lo medido; quedan 8 fricciones
+
+Sesión nueva `claude -p --model opus` sobre la flota (:8100): el mismo encargo de plantilla F3 (3 m)
+más los pasos de D1–D6. Proyecto 80, VERDE con gravedad y ERC, 2 órdenes de modelado, 8 min 35 s,
+47 turnos, 32 llamadas, 2,32 USD (F3: 7 min 20 s, 42 turnos, 20 llamadas, 2,02 USD). Las 12
+llamadas de más son los pasos de prueba.
+- **Sirve**:
+  - `undo`: 0,23 KB con el diff;
+  - `run_batch` de la plantilla: 2,4 KB, con las uniones expandidas;
+  - `check_assembly`: 0,11 KB;
+  - `engineering_check(solo_fallas)`: 2,2 KB;
+  - `delivery_check`: con sus tiempos por regla;
+  - `declare_structure(aplicar)`: 0,15 KB;
+  - `get_connections(ids=["Bastidor"])`: 3,6 KB;
+  - `render_view(isolate=["Bastidor"])` resuelve el subgrupo;
+  - `show_axes` dibuja el triedro en la esquina sin tocar el encuadre;
+  - `check_interference` dice cuántas parejas faltan.
+- **Fricción** (contrato F5):
+  1. `check_interference(ids=["Rodillos"])` también trunca (faltan 260 de 660) y `como_acotar`
+     sugiere el mismo grupo: no hay cómo cubrirlo por MCP.
+  2. `declare_structure()` sobre la plantilla, que ya declara todo, propone 182 uniones más:
+     - suelda los tramos atornillados de la bandeja entre sí y la tapa (guarda) al larguero;
+     - suelda la base del motor a la oreja del portamotor.
+  3. Lo aplicado sale sin métrica ni garganta (2 avisos «sin dimensionar») y en 182 comandos
+     sueltos, no en un `fasten` por conjunto.
+  4. `get_connections()` agrupa por el nombre `auto_f_*`: una fila mezcla 163 contactos distintos.
+  5. El 400 de `remove_commands(["c1"])` cuenta como dependientes los 107 `fasten` INTERNOS de la
+     plantilla (`c1_u_*`); el único externo es `c7` (`add_device` con su pieza).
+  6. `create_project` no devuelve el id (hubo que pedir `list_projects`, 3,8 KB).
+  7. `get_command_schemas(create_roller_conveyor)` repite la descripción entera (10,5 KB).
+  8. `engineering_check()` por defecto sigue en 14 KB en la plantilla.
+
+### F5 — contrato (las fricciones de F4)
+
+- **D7. La propuesta no repite lo declarado.** `declare_structure` saca de la propuesta todo par
+  que ya cubre una unión declarada (también la de un `fasten` por conjuntos o la que declara un
+  super-comando). Sobre una plantilla recién generada propone 0. Los tramos numerados de una
+  misma pieza («Bandeja de cadenas (tramo 1)», «(tramo 2)») son partes DISTINTAS: se unen con
+  `perno`, no con la regla «misma guarda». Una tapa o guarda contra la estructura va con `perno`.
+- **D8. Lo aplicado es dimensionado y compacto.** `aplicar=true` escribe un `fasten` por conjunto
+  (como `run_batch` con uniones por conjuntos), con la métrica o la garganta por defecto del
+  criterio (`design/guidelines.py` o la regla del catálogo que ya exista). Nada queda «sin
+  dimensionar».
+- **D9. Agrupar por par de roles, no por nombre.** `get_connections` en resumen agrupa por (tipo,
+  patrón del par de piezas), no por el nombre del comando.
+- **D10. Interferencia acotada que cubre.**
+  - `check_interference(ids=…)` pagina (`desde=`) cuando trunca y dice la llamada siguiente.
+  - Con `excluir_declaradas=true` (el criterio de la puerta) deja fuera los pares con unión
+    declarada.
+  - `como_acotar` nunca sugiere el grupo que ya se pidió.
+- **D11. Dependientes de verdad.** El 400 de `remove_commands` no cuenta como externo lo que el
+  mismo comando crea (`fasten` internos de una plantilla); lista sólo lo de otros comandos.
+- **D12. Respuestas que faltan o sobran.**
+  - `create_project` devuelve `{id, nombre}`.
+  - `get_command_schemas(tipo)` no repite la descripción.
+  - `engineering_check()` por defecto agrupa también las reglas de una plantilla (≤ 5 KB en la
+    de 3 m).
+- **Tests**: un test por D, con la plantilla de 3 m generada en el test. Golden revisado.
