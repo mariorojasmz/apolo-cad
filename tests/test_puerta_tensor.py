@@ -118,19 +118,40 @@ def test_api_tensores_get_put():
 
 def test_cadenas_de_la_plantilla_de_rodillos():
     """La cadena motriz se tensa con las ranuras del portamotor (carrera de la plantilla); los
-    lazos rodillo a rodillo, de centros fijos, no tienen tensor: SIN_EVALUAR."""
+    lazos rodillo a rodillo van a centros FIJOS sin tensor y se aceptan por D3b (centros exactos
+    de sus eslabones), con el criterio de reemplazo al 3 % para el mantenimiento."""
     doc = Document("rodillos")
     doc.execute("create_roller_conveyor", {"largo": 1000})
     por_id = {lz["id"]: lz for lz in lazos(doc)}
     motriz = por_id["c1_cad_m"]
     (t,) = motriz["tensores"]
-    assert t["tipo"] == "plantilla"
+    assert t["tipo"] == "plantilla" and "centros_fijos" not in motriz
     assert t["carrera_mm"] >= carrera_requerida("cadena", motriz["largo_mm"]) - 1e-6
     r = evaluar_lazo(motriz)
     assert r["carrera"][0] == OK and r["agarre"][0] == NO_APLICA
     otros = [lz for i, lz in por_id.items() if i != "c1_cad_m"]
     assert otros and all(not lz["tensores"] for lz in otros)
-    assert _items(doc)["tensor.reconocido"].estado == SIN_EVALUAR
+    assert all(lz["centros_fijos"]["eslabones"] == 30 for lz in otros)
+    items = _items(doc)
+    assert items["tensor.reconocido"].estado == OK and items["tensor.carrera"].estado == OK
+    assert items["tensor.reconocido"].evidencia["centros_fijos"] == len(otros)
+    (mant,) = items["tensor.reconocido"].evidencia["mantenimiento"]
+    assert "3 %" in mant and "254.0" in mant and "261.6" in mant  # 20 pasos de 1/2″
+
+
+def test_d3b_lazo_de_centros_fijos_con_holgura_queda_sin_evaluar():
+    """D3b sólo vale con los centros EXACTOS: con holgura fuera de la tolerancia de la plantilla
+    no hay con qué recogerla → SIN_EVALUAR (igual que un lazo sin tensor)."""
+    base = {"id": "c1_cad0", "nombre": "Cadena rodillos 1-2", "tipo": "cadena", "largo_mm": 381.0,
+            "motivo": "", "tensores": []}
+    cf = {"eslabones": 30, "exactos_mm": 95.25, "paso_mm": 12.7, "tolerancia_mm": 0.05}
+    exacto = evaluar_lazo({**base, "centros_fijos": {**cf, "centros_mm": 95.25}})
+    assert exacto["reconocido"][0] == OK and exacto["agarre"][0] == NO_APLICA
+    assert "centros exactos" in exacto["reconocido"][1]
+    flojo = evaluar_lazo({**base, "centros_fijos": {**cf, "centros_mm": 94.0}})
+    assert flojo["reconocido"][0] == SIN_EVALUAR and "1.250" in flojo["reconocido"][1]
+    # una cadena suelta (sin `centros_fijos`, no es de la plantilla) sigue sin tensor reconocido
+    assert evaluar_lazo(base)["reconocido"][0] == SIN_EVALUAR
 
 
 def _perno_tensor(largo: float) -> dict:

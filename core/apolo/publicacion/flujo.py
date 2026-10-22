@@ -70,13 +70,18 @@ class _Api:
     def apolo(self) -> bytes:
         return self._pedir("GET", "/api/project/file", "bajar el .apolo").content
 
-    def puerta(self, con_gravedad: bool) -> dict:
+    def puerta(self, con_gravedad: bool, forzar: bool = False) -> dict:
+        """La puerta de entrega. Sin gravedad posible, sólo un ensayo `--forzar` sigue sin ella
+        (y lo declara); si no, para: nunca la caída silenciosa (puerta-de-publicacion D2)."""
         if con_gravedad:
             try:
                 return self._pedir("POST", "/api/delivery-check",
                                    "pasar la puerta de entrega", json={"con_gravedad": True}).json()
-            except PublicacionError as exc:  # sin MuJoCo, p. ej.: la puerta corre sin gravedad
-                self.sin_gravedad = str(exc)  # y la declara en `no_aplica` (el LEEME lo dice)
+            except PublicacionError as exc:
+                if not forzar:
+                    raise PublicacionError(f"{exc}\nLa gravedad es obligatoria para publicar.") \
+                        from None
+                self.sin_gravedad = str(exc)  # ensayo: sin gravedad y declarada en `no_aplica`
         return self._pedir("POST", "/api/delivery-check", "pasar la puerta de entrega",
                            json={"con_gravedad": False}).json()
 
@@ -276,10 +281,15 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     except GuionError as exc:
         raise PublicacionError(f"{exc}\n(el log del proyecto cambió desde `publicar guion`, o "
                                "el guion se editó mal)") from None
+    # puerta-de-publicacion D8/D11: sin calidad.json aprobado sobre ESTE modelo no se genera;
+    # `--forzar` (ensayos) lo salta, y ese paquete no sube nunca a la tienda
+    from apolo.publicacion import calidad as cal_pub
+
+    puerta = cal_pub.leer(carpeta) if forzar else cal_pub.exigir(carpeta, data)
     tiempos["abrir y validar"] = time.perf_counter() - t
 
     t = time.perf_counter()
-    calidad = paquete.calidad(api.puerta(con_gravedad), forzar=forzar)
+    calidad = paquete.calidad(api.puerta(con_gravedad, forzar), forzar=forzar)
     tiempos["puerta de entrega"] = time.perf_counter() - t
     if api.sin_gravedad:
         eco(f"Aviso: la gravedad no se simuló ({api.sin_gravedad}); el LEEME lo dice.")
@@ -293,7 +303,9 @@ def generar(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
         resumen = _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista,
                          staging, tiempos, eco,
                          {"render": render, "conservar_cuadros": conservar_cuadros, "url": url,
-                          "nivel": nivel, "tienda": tienda})
+                          "nivel": nivel, "tienda": tienda,
+                          "puerta": cal_pub.bloque_ficha(puerta, forzar),
+                          "calidad_md": carpeta / cal_pub.CALIDAD_MD})
         if _firma_de(api.apolo()) != _firma_de(data) or \
                 api.salud().get("project_id") != salud.get("project_id"):
             raise PublicacionError("El proyecto cambió (o se abrió otro) mientras se generaba: "
@@ -383,18 +395,19 @@ def _armar(cliente, todos, fuera, paralelo, doc, data, g, f, calidad, pista, sta
     yt = preparar.bloque_youtube(f, caps, musica, como["tienda"])  # youtube.txt = ficha.json
     (staging / "youtube.txt").write_text(textos.youtube(f, caps, datos=yt), encoding="utf-8")
     glb, html = staging / vista["archivo"], staging / vista["html"]["archivo"]
+    ficha_calidad = [(como["calidad_md"], textos.CALIDAD_MD)] if como["calidad_md"].is_file() else []
     zips = paquete.armar(staging, staging / "entregables", todos, registros, ficha=f,
                          cifras=g["cifras"]["items"], calidad_=calidad,
                          variables=dict(doc.variables_raw), apolo=apolo,
                          extras=[(html, textos.VISTA_3D_HTML), (glb, textos.VISTA_3D_GLB),
-                                 (video.miniatura, textos.VISTA_3D_POSTER)])
+                                 (video.miniatura, textos.VISTA_3D_POSTER), *ficha_calidad])
     publica = paquete.ficha_json(
         f, staging=staging, zips=zips, video=video.ruta, miniatura=video.miniatura,
         duracion_s=video.duracion_s, capitulos=caps,
         musica=musica, calidad_=calidad,
         cifras=g["cifras"]["items"],
         vista_3d={"glb": glb, "html": html, "triangulos": vista["triangulos"],
-                  "etiquetas": vista["html"]["etiquetas"]}, youtube=yt)
+                  "etiquetas": vista["html"]["etiquetas"]}, youtube=yt, puerta=como["puerta"])
     tiempos["paquete"] = time.perf_counter() - t
     return {"ficha_json": publica, "faltantes": [f"{r['label']}: {r['note']}" for r in faltan],
             "saneo": informe_saneo, "registros": registros, "vista_3d": vista,

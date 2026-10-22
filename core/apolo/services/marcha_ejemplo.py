@@ -274,7 +274,10 @@ def fidelidad(doc, bandas: list[dict], res: dict) -> list[dict]:
     from apolo.library.marcha_visual import armar
     from apolo.services.marcha_visual import extraer_marcha_visual
 
-    fajas = armar(extraer_marcha_visual(doc, bandas), res)["fajas"]
+    return _veredicto_fidelidad(armar(extraer_marcha_visual(doc, bandas), res)["fajas"])
+
+
+def _veredicto_fidelidad(fajas: list[dict]) -> list[dict]:
     malas = [f for f in fajas if not f["fidelidad"]["ok"]]
     if malas:
         raise MarchaInfiel("; ".join(f"la banda «{f['pieza']}» {f['fidelidad']['motivo']}"
@@ -283,28 +286,62 @@ def fidelidad(doc, bandas: list[dict], res: dict) -> list[dict]:
              "desvio_mm": (f["fidelidad"]["desvio"] or {}).get("desvio_mm")} for f in fajas]
 
 
+def preparar_prueba(doc, escenario: dict):
+    """Fase OCCT de `probar` (bajo el `STATE_LOCK` de quien lo tenga): el snapshot de la dinámica
+    y lo que dibujará el visor (`marcha_visual.extraer_marcha_visual`, la misma adquisición que
+    usa la serie del visor). Devuelve (snap, visual); `SinMarcha` si no hay nada que simular."""
+    from apolo.physics.dinamica import prepare_dynamics
+    from apolo.physics.sim import PhysicsError
+    from apolo.services.marcha_visual import bandas_de_snap, extraer_marcha_visual
+
+    try:
+        snap = prepare_dynamics(doc.scene, doc.joints, doc.fasteners, doc.grounds, escenario,
+                                mates=doc.mates)
+    except PhysicsError as exc:
+        raise SinMarcha(f"la simulación falló: {exc}") from None
+    if snap.early is not None:
+        raise SinMarcha(snap.early.get("mensaje") or "nada que simular")
+    return snap, extraer_marcha_visual(doc, bandas_de_snap(snap))
+
+
+def simular_prueba(snap) -> dict:
+    """La dinámica del snapshot, sin el documento (fuera del `STATE_LOCK`; quien la corra en la API
+    toma `PHYSICS_LOCK`). `SinMarcha` si la simulación falla."""
+    from apolo.physics.dinamica import simulate_dynamics
+    from apolo.physics.sim import PhysicsError
+
+    try:
+        return simulate_dynamics(snap)
+    except PhysicsError as exc:
+        raise SinMarcha(f"la simulación falló: {exc}") from None
+
+
 def probar(doc, escenario: dict, *, minimo_mm: float | None = 200.0) -> dict:
     """Corre la dinámica de `escenario` sobre `doc` (en proceso, sin locks: el documento es del
     llamador) y exige que algún producto AVANCE al menos `minimo_mm` (None: sólo que simule, para
     un escenario escrito a mano). Devuelve {segundos, avance_mm, productos, avisos, fidelidad};
     `SinMarcha` con el porqué si falla o nada avanza, y `MarchaInfiel` si la faja que dibujará
-    el visor no es fiel al modelo (`fidelidad`, ajuste D13)."""
+    el visor no es fiel al modelo (`fidelidad`, ajuste D13). Las tres fases (`preparar_prueba`,
+    `simular_prueba`, `concluir_prueba`) las corre por separado la puerta de publicación, con los
+    locks de la API."""
+    import time
+
+    t = time.perf_counter()
+    snap, visual = preparar_prueba(doc, escenario)
+    return concluir_prueba(visual, simular_prueba(snap), minimo_mm=minimo_mm, desde=t)
+
+
+def concluir_prueba(visual: dict, res: dict, *, minimo_mm: float | None = 200.0,
+                    desde: float | None = None) -> dict:
+    """Puro (lo extraído y el resultado de la simulación): el avance de los productos y la fidelidad de
+    la faja animada (D13b). Ver `probar`."""
     import time
 
     import numpy as np
 
-    from apolo.physics.dinamica import prepare_dynamics, simulate_dynamics
-    from apolo.physics.sim import PhysicsError
+    from apolo.library.marcha_visual import armar as armar_visual
 
-    t = time.perf_counter()
-    try:
-        snap = prepare_dynamics(doc.scene, doc.joints, doc.fasteners, doc.grounds, escenario,
-                                mates=doc.mates)
-        if snap.early is not None:
-            raise SinMarcha(snap.early.get("mensaje") or "nada que simular")
-        res = simulate_dynamics(snap)
-    except PhysicsError as exc:
-        raise SinMarcha(f"la simulación falló: {exc}") from None
+    t = time.perf_counter() if desde is None else desde
     inicio = {p["name"]: np.array([p["x"], p["y"], p["z"]], float) for p in res["productos"]}
     finales = res["resumen"]["productos"]
     avance = 0.0
@@ -317,8 +354,6 @@ def probar(doc, escenario: dict, *, minimo_mm: float | None = 200.0) -> dict:
     if minimo_mm is not None and avance < minimo_mm:
         raise SinMarcha(f"los productos no avanzan sobre la banda (el que más, {avance:.0f} mm); "
                         "revisa la junta motriz y la banda")
-    from apolo.services.marcha_visual import bandas_de_snap
-
-    fiel = fidelidad(doc, bandas_de_snap(snap), res)
+    fiel = _veredicto_fidelidad(armar_visual(visual, res)["fajas"])
     return {"segundos": round(time.perf_counter() - t, 1), "avance_mm": round(avance),
             "productos": len(finales), "avisos": list(res.get("avisos") or []), "fidelidad": fiel}

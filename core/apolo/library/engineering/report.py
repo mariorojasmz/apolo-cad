@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import math
 
-from ..materials import resolve_material, yield_strength, young_modulus
+from ..materials import piece_role, resolve_material, yield_strength, young_modulus
 from ..rules import _check, _LEG_RE, _parse_diam, _parse_wall, _SECTION_RE
 from .bearings import L10_MIN_H, L10_TARGET_H, l10_hours
 from .bolts import TENSILE_AREA_MM2, bolt_shear_capacity_n
@@ -267,7 +267,7 @@ def _buckling_checks(scene, masses, catalog, carga_kg: float) -> list[dict]:
     # una PATA de verdad lleva el rol "pata" al inicio del nombre (convención rol-primero):
     # así no cuentan piezas que solo la MENCIONAN ("Ménsula … → larguero + pata", "Disco …
     # a la pata"), que inflaban el reparto de carga (n patas). "zapata" no empieza por "pata".
-    candidatas = [(fid, f) for fid, f in scene.items() if _LEG_RE.match(_name(f))]
+    candidatas = [(fid, f) for fid, f in scene.items() if _LEG_RE.match(piece_role(_name(f)))]
     if not candidatas:
         return []
     # solo las COLUMNAS verticales (largo ≥ 50 mm) reparten la carga axial y pandean;

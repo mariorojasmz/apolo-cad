@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from test_publicacion_e2e import _cli, _mesa, con_ffmpeg
+from test_publicacion_e2e import _cli, _mesa, aprobar_calidad, con_ffmpeg
 
 import apolo.api.main as api
 import apolo.drawing as drawing
@@ -185,7 +185,7 @@ def test_sin_oda_avisa_al_empezar_y_el_paquete_lo_dice(mesa, monkeypatch):
     r = flujo.guion(mesa.c, mesa.verde, raiz=mesa.raiz, eco=dichos.append)
     assert len(r["avisos"]) == 1 and dichos[0] == r["avisos"][0]  # lo primero que se dice
     assert "juego de planos (DWG zip)" in dichos[0] and dwg_mod.ODA_URL in dichos[0]
-    _achicar(r)
+    _achicar(r, mesa.c)
 
     pedidas = []
     real = mesa.c.request
@@ -205,9 +205,11 @@ def test_sin_oda_avisa_al_empezar_y_el_paquete_lo_dice(mesa, monkeypatch):
     assert "espera de entregables" not in res["tiempos_s"]
 
 
-def _achicar(r: dict) -> None:
+def _achicar(r: dict, cliente) -> None:
     """Lo que hace una persona tras `guion` (como `_preparar` de test_publicacion_e2e): video
-    chico y corto, ficha con descripción."""
+    chico y corto, ficha con descripción; y la puerta de publicación aprobada (sin ella, `generar`
+    se niega: puerta-de-publicacion D8)."""
+    aprobar_calidad(cliente, r["carpeta"])
     g = json.loads(r["guion"].read_text(encoding="utf-8"))
     g["video"].update(ancho=320, alto=180)
     for parte in ("portada", "cifras", "orbita", "cierre"):
@@ -251,7 +253,7 @@ def _por_turnos(mesa, monkeypatch, fallar=None) -> _PorTurnos:
 
 @con_ffmpeg
 def test_en_paralelo_los_entregables_van_en_su_hilo(mesa, monkeypatch):
-    _achicar(flujo.guion(mesa.c, mesa.verde, raiz=mesa.raiz, eco=None))
+    _achicar(flujo.guion(mesa.c, mesa.verde, raiz=mesa.raiz, eco=None), mesa.c)
     cli = _por_turnos(mesa, monkeypatch)
     res = flujo.generar(cli, mesa.verde, raiz=mesa.raiz, eco=None, paralelo=True)
     assert res["paralelo"] is True and "espera de entregables" in res["tiempos_s"]
@@ -265,7 +267,7 @@ def test_en_paralelo_los_entregables_van_en_su_hilo(mesa, monkeypatch):
 def test_en_paralelo_un_entregable_caido_aborta_el_video(mesa, monkeypatch):
     from apolo.publicacion import video as videos
 
-    _achicar(flujo.guion(mesa.c, mesa.verde, raiz=mesa.raiz, eco=None))
+    _achicar(flujo.guion(mesa.c, mesa.verde, raiz=mesa.raiz, eco=None), mesa.c)
     empezo, abortado = threading.Event(), []
     real = videos.renderizar
 

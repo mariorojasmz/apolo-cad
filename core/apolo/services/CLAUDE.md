@@ -104,6 +104,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   lazos con sus tensores RECONOCIDOS (take-up, catálogo con `carrera_mm`, plantilla, metadato
   `tensores`), nunca por nombre de pieza. Lo no medible sale SIN_EVALUAR, jamás OK.
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F2)
+- `puerta_publicacion.reunir` arma TODOS los insumos del registro bajo el lock del llamador (la
+  gravedad y la marcha las corre la API fuera, con los suyos); `puerta_hechos.py` son los
+  DETECTORES de elementos por tipo general (D14: una familia de máquinas nueva suma su clase ahí)
+  y `firma_modelo` es la firma única que comparte con `publicacion/calidad.py`. Las reglas de la
+  memoria salen de `memoria_reglas.py` (también el PDF). (F1)
 
 ## Escenarios de prueba (`escenarios.py`, `cosim_snapshot.py`)
 
@@ -127,7 +132,7 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 
 - `/api/checks` y la memoria comparten SÓLO lo idéntico (`requirement_inputs`,
   `inherit_inclination`, `structure_rules` = estructura universal + FEA). Sus diferencias son
-  deliberadas y quedan en cada endpoint: velocidad con `or` (checks) vs `is not None` (memoria),
+  deliberadas y quedan en `/api/checks` y en `memoria_reglas.py` (la memoria): velocidad con `or` (checks) vs `is not None` (memoria),
   lints sólo en checks, stack-up y «alcance de la memoria» sólo en la memoria. No las unifiques.
 - `vigas_rules.beam_rules` (flecha de viga, dentro de `structure_rules`): viga = perfil de
   catálogo cortable HORIZONTAL con ≥ 2 uniones perno/soldadura a vecinos de MENOR nivel (BFS

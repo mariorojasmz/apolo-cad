@@ -165,11 +165,17 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   SIN_EVALUAR | NO_APLICA, con evidencia): agarre de perno, tensor y vida útil; sus insumos los
   miden `services/calidad_*.py`. Largos de perno: `largos_perno.py` (serie ISO + rango del YAML).
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)
+- `calidad/registro.py` es LA regla (D1, D14): ítems GENERALES por modo de falla
+  (`transmision_flexible.tension`, `union.agarre`…), nunca de un mecanismo; una máquina nueva suma
+  un detector (`services/puerta_hechos.py`) o un evaluador, no un ítem. NO_APLICA sólo por
+  `aplica_si`; los ids de F2/F3 entran por el `mapa` de su `Fuente` (F3 = una línea). Cambiar un
+  ítem, umbral o `aplica_si` sube `VERSION_REGISTRO`. Los controles de lo existente: `puerta.py`.
 - La banda de `create_belt_conveyor` abraza el radio EXTERIOR de cada tambor (`diametro_mm/2 +
   lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano): el motriz engomado
   va 6 mm más abajo que la cola. Un choque DENTRO de un super-comando no lo ve
   `interference_report(exclude_pairs=same_command_pairs)`: el super-comando lo prueba él mismo
-  (`tests/test_belt_conveyor.py`). [defectos](../../../docs/defectos.md)
+  (`tests/test_belt_conveyor.py`) y la puerta de publicación lo mira (D13b; la v3 aún choca:
+  motor ↔ larguero, cama ↔ guardas, ejes por los largueros). [defectos](../../../docs/defectos.md)
 - La faja EN MARCHA (`ruta_faja_modelo.py`, puro): la cinta es la línea media de la SECCIÓN del
   sólido de la banda (el casco de `ruta_faja.py`, sólo sin lazo cerrado) y `fidelidad_faja.py` la
   prueba siempre contra el modelo (desvío ≤ comba CEMA hacia afuera; no entra en una pieza más que

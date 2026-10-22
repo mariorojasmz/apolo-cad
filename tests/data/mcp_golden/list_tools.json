@@ -4091,5 +4091,33 @@
    "title": "remove_commandsOutput",
    "type": "object"
   }
+ },
+ {
+  "name": "publication_gate",
+  "description": "LA PUERTA DE PUBLICACIÓN: córrela ANTES de dar por terminada una máquina que va a la\ntienda (después de delivery_check en VERDE). Es más dura que la de entrega: un registro de\nítems de calidad (estructura, función, montaje, seguridad, publicado, proceso), cada uno\nOK | FALLA | SIN_EVALUAR | NO_APLICA con su evidencia; se publica SÓLO si todo ítem\naplicable está OK (SIN_EVALUAR bloquea igual que FALLA: «no se pudo ver» no es «está\nbien»). Corre la gravedad (obligatoria), las interferencias DENTRO de cada super-comando,\nel agarre de cada perno, el tensor y su carrera, la vida útil (L10 ≥ 20 000 h, factor de\nservicio ≥ 1,25…), la memoria de cálculo, el ERC y la marcha del video contra el modelo.\nDevuelve aprobado, conteos, por_familia y `pendientes` (cada ítem que falla o no se pudo\nevaluar, con la pieza y el porqué: corrige el MODELO, no el ítem). `completo=true` trae\ntodos los ítems con su evidencia. Read-only; tarda (simula): si no llega, RECIBO {\"job\"}:\nget_job.",
+  "inputSchema": {
+   "properties": {
+    "completo": {
+     "default": false,
+     "title": "Completo",
+     "type": "boolean"
+    }
+   },
+   "title": "publication_gateArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "publication_gateOutput",
+   "type": "object"
+  }
  }
 ]

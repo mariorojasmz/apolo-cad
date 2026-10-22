@@ -1,7 +1,7 @@
 """`publicar fabrica`: una máquina modelada sale publicada en la tienda con un solo comando (plan
 fabrica-de-publicaciones, F3 · D2, D5–D7).
 
-Encadena cuatro pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>/<version>/`):
+Encadena cinco pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>/<version>/`):
 
   1. `guion`: `flujo.guion` si la carpeta no tiene `guion.json` (lo normal es que ya lo haya
      corrido el modelador al redactar la ficha). Con el navegador, el video lleva la máquina
@@ -12,10 +12,14 @@ Encadena cuatro pasos sobre la carpeta de la versión (`publicaciones_dir()/<slu
      cuánto, también con la marcha que ya traía el guion;
   2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`); si falla, PARA y dice qué
      falta: la ficha la redacta el modelador (D1), la fábrica no la inventa;
-  3. `generar`: `flujo.generar` con el navegador en nivel rápido (D2; si cae a VTK, lo dice),
-     bajo el candado de render de la PC (D7: una GPU, una grabación a la vez). Con `ficha.json`
-     en la carpeta ya está generado y no se rehace;
-  4. `tienda`: `tienda.subir` (publica, o deja en borrador con `borrador`).
+  3. `calidad`: la puerta de publicación (plan puerta-de-publicacion, F1) en la API; deja
+     `calidad.json` y `calidad.md` y PARA si no aprueba, con cada ítem que no pasó;
+  4. `generar`: `flujo.generar` con el navegador en nivel rápido (D2; si cae a VTK, lo dice),
+     bajo el candado de render de la PC (D7: una GPU, una grabación a la vez). Se niega sin
+     `calidad.json` aprobado sobre el mismo modelo. Con `ficha.json` en la carpeta ya está
+     generado y no se rehace;
+  5. `tienda`: `tienda.subir` (publica, o deja en borrador con `borrador`); se niega sin la
+     calidad aprobada.
 
 Cada paso queda en `estado.json` de la carpeta (hecho/fallo, cuándo, cuánto tardó, las últimas
 líneas de su salida y el error). Volver a correrla salta lo hecho y retoma desde el paso que
@@ -35,7 +39,7 @@ from pathlib import Path
 from apolo.publicacion import paquete
 from apolo.publicacion.paquete import GUION, PublicacionError
 
-PASOS = ("guion", "ficha", "generar", "tienda")
+PASOS = ("guion", "ficha", "calidad", "generar", "tienda")
 ESTADO = "estado.json"
 LINEAS = 15  # de la salida de cada paso, en estado.json
 RENDERS = ("navegador", "vtk")
@@ -154,6 +158,36 @@ def paso_ficha(e: Encargo) -> dict:
     return {}
 
 
+def paso_calidad(e: Encargo) -> dict:
+    """La puerta de publicación (plan puerta-de-publicacion, F1): corre en la API, deja
+    `calidad.json` y `calidad.md` en la carpeta y PARA si no aprueba, con cada ítem que no pasó
+    (Jidoka: ante un defecto la línea se para; no hay `--forzar` en la fábrica, D11)."""
+    from apolo.publicacion import calidad, flujo
+    from apolo.publicacion.ficha import FichaError, leer
+
+    eco = e.eco or (lambda *_a, **_k: None)
+    api = flujo._Api(e.cliente)
+    api.abrir(e.proyecto)
+    r = calidad.pedir(api, eco=eco)
+    try:
+        titulo = leer(e.carpeta / paquete.FICHA_YAML).get("titulo") or e.slug
+    except (FichaError, OSError, ValueError):
+        titulo = e.slug
+    calidad.escribir(e.carpeta, r, titulo=titulo, proyecto=e.proyecto)
+    c = r.get("conteos") or {}
+    eco(f"Puerta de publicación: {'APROBADA' if r['aprobado'] else 'NO aprobada'} "
+          f"({c.get('OK', 0)} cumplen, {c.get('FALLA', 0)} no cumplen, "
+          f"{c.get('SIN_EVALUAR', 0)} sin evaluar, {c.get('NO_APLICA', 0)} no aplican).")
+    if not r["aprobado"]:
+        raise FabricaError(
+            f"La puerta de publicación NO aprobó «{e.slug}» {e.version} (detalle en "
+            f"{e.carpeta / calidad.CALIDAD_MD}):\n{calidad.fallas(r)}\nCorrige el MODELO (no el "
+            "ítem) y vuelve a correr `publicar fabrica`: retoma desde «calidad».")
+    return {"aprobado": True, "conteos": c, "firma": r.get("firma"),
+            "version_registro": r.get("version_registro"),
+            "segundos_api": (r.get("tiempos_s") or {}).get("total")}
+
+
 def paso_generar(e: Encargo) -> dict:
     from apolo.publicacion import flujo
     from apolo.publicacion.candado import Candado
@@ -184,7 +218,8 @@ def paso_tienda(e: Encargo) -> dict:
     return {"url": r["url"], "publicada": r["publicada"]}
 
 
-PASOS_REALES = {"guion": paso_guion, "ficha": paso_ficha, "generar": paso_generar,
+PASOS_REALES = {"guion": paso_guion, "ficha": paso_ficha, "calidad": paso_calidad,
+                "generar": paso_generar,
                 "tienda": paso_tienda}
 
 

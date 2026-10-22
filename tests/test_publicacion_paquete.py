@@ -77,10 +77,20 @@ def test_el_apolo_saneado_no_trae_notas_ni_precios_y_regenera_igual():
 def test_la_lista_blanca_cubre_el_manifest_de_hoy():
     """Una clave nueva del manifest obliga a decidir si es pública (D12): si no está en
     `MANIFEST_PUBLICO`, el saneo la quitaría en silencio y el comprador recibiría un diseño
-    incompleto."""
-    with zipfile.ZipFile(io.BytesIO(Document("x").to_apolo_bytes())) as zf:
+    incompleto. `tensores` (puerta-de-publicacion D3) se escribe sólo si hay: es dato de diseño
+    del mecanismo y es pública."""
+    d = Document("x")
+    d.execute("create_box", {"name": "Eje", "width": 20, "depth": 20, "height": 300})
+    d.tensores = [{"piezas": ["c1"], "carrera_mm": 50.0, "eje": "x"}]
+    d.funciones = [{"funcion": "estructura", "solucion": "bloque macizo", "piezas": ["c1"],
+                    "descartadas": [{"solucion": "tubo", "motivo": "no hay"}]}]  # D15
+    with zipfile.ZipFile(io.BytesIO(d.to_apolo_bytes())) as zf:
         claves = set(json.loads(zf.read("manifest.json")))
     assert claves - {"agent_notes"} == set(saneo.MANIFEST_PUBLICO)
+    limpio, informe = saneo.sanear_apolo(d.to_apolo_bytes(), nombre="x")
+    abierto = Document.from_apolo_bytes(limpio)
+    assert abierto.tensores == d.tensores and abierto.funciones == d.funciones
+    assert informe["desconocido"] == []
 
 
 def test_lo_desconocido_se_quita_y_se_informa():

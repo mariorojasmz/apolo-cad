@@ -10,7 +10,8 @@ Un tensor se reconoce por lo que ES, nunca por el nombre de una pieza:
 - una unidad de catálogo con su carrera de ficha (`specs.carrera_mm`: las UCT) o de la familia
   `tensores_trotadora` (sin carrera tabulada → SIN_EVALUAR la carrera);
 - las ranuras del portamotor de la plantilla de rodillos (`tensado_mm` de su disposición) para
-  la cadena motriz `{cmd}_cad_m`;
+  la cadena motriz `{cmd}_cad_m`; los lazos rodillo a rodillo `{cmd}_cad{k}` no llevan tensor:
+  van con `centros_fijos` (medidos) y el control decide (D3b);
 - el metadato `doc.tensores` [{piezas, carrera_mm, eje}] (si entre sus piezas hay un perno, se
   le mide el agarre en la carrera como al de un take-up).
 
@@ -26,6 +27,8 @@ _HOLGURA_MM = 60.0
 _ALCANCE_EJE_MM = 300.0  # cuánto sale el muñón de un tambor más allá del ancho de la banda
 _BANDA_RE = re.compile(r"^(bandas?|cintas?)\b", re.I)  # sobre `piece_role` (como cosim_bandas)
 _TAKE_UP = ("create_take_up", "create_drive_roller")
+#: Un lazo rodillo a rodillo de la plantilla de rodillos (`receta_rodillos_cadena._cadenas`).
+_RODILLO_A_RODILLO = re.compile(r"(.+)_cad\d+")
 
 
 def _caja(shape):
@@ -149,21 +152,31 @@ def lazos_cadena(doc) -> list[dict]:
     from apolo.commands.expressions import resolve_params
     from apolo.commands.models_transmision import CreateChainParams
 
+    from apolo.commands.exec_transmision import TOL_CENTROS_MM
+
+    rodillos = {c["id"] for c in doc.commands if c["type"] == "create_roller_conveyor"}
     out = []
     for cmd in comandos_efectivos(doc.commands, doc.variables_resolved):
         if cmd["type"] != "create_chain":
             continue
         nombre = (cmd.get("params") or {}).get("name") or cmd["id"]
+        t = None
         try:
             p = CreateChainParams.model_validate(
                 resolve_params(cmd["params"], doc.variables_resolved), extra="ignore")
-            largo, motivo = medir_transmision(doc.scene, p).largo_mm, ""
+            t = medir_transmision(doc.scene, p)
+            largo, motivo = t.largo_mm, ""
             pinones = [p.pinon_a, p.pinon_b]
         except Exception as exc:  # noqa: BLE001 — la regla de cadenas ya da el error
             largo, motivo, pinones = None, f"no se pudo medir la cadena: {exc}", []
         lazo = {"id": cmd["id"], "nombre": nombre, "tipo": "cadena", "largo_mm": largo,
                 "motivo": motivo, "piezas": [cmd["id"], *pinones],
                 "_caja": _union_cajas([_caja_de(doc, x) for x in pinones])}
+        rr = _RODILLO_A_RODILLO.fullmatch(cmd["id"])
+        if t is not None and rr and rr.group(1) in rodillos:  # D3b: lazo de centros fijos
+            lazo["centros_fijos"] = {"eslabones": t.eslabones, "centros_mm": t.centros,
+                                     "exactos_mm": t.centros_exactos, "paso_mm": t.paso,
+                                     "tolerancia_mm": TOL_CENTROS_MM}
         tensado = _plantilla_motriz(doc, cmd["id"])
         lazo["_tensores"] = [] if tensado is None else [{
             "tipo": "plantilla", "id": cmd["id"], "nombre": "ranuras del portamotor",

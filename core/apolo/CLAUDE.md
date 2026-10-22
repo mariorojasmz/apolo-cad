@@ -22,7 +22,7 @@ backend: se mantiene ≤ 10 KB.
 - Sólo habla HTTP con la API: sin lógica de dominio ni imports de `doc`/`kernel`. Una tool nueva
   = endpoint en `api/` + wrapper (`mcp_server.py` está en el trinquete de tamaño: va a
   `tools/<tema>.py` con un `registrar(mcp, api)` que `mcp_server` llama al final, como
-  `tools/mcp_electrico.py` y `tools/simulacion.py`; una mutación recibe `_mutacion` en vez de `_api`,
+  `tools/mcp_electrico.py`, `tools/simulacion.py` y `tools/calidad.py` (`publication_gate`); una mutación recibe `_mutacion` en vez de `_api`,
   como `tools/cirugia.py`, y lo que corre como job sin ser mutación, `_submit_and_wait` (`esperar`,
   `tools/cosim.py`); ese módulo NUNCA importa `apolo.mcp_server`: con `-m` el servidor es
   `__main__` y la tool caería en otra copia) + su caso en `scripts/golden_mcp_casos.py` + su lugar en

@@ -52,6 +52,7 @@ METODOS_EN_ORDEN = {
     "/api/revisions": ["POST", "GET"],
     "/api/requirements": ["GET", "PUT"],
     "/api/tensores": ["GET", "PUT"],  # tensores declarados (puerta-de-publicacion D3)
+    "/api/funciones": ["GET", "PUT"],  # solución declarada por función (D15)
     "/api/stackup": ["GET", "PUT", "DELETE"],
     "/api/motion": ["GET", "PUT", "DELETE"],
     "/api/physics/dynamics/serie": ["GET", "POST"],  # la marcha del visor (visor-realista D4)

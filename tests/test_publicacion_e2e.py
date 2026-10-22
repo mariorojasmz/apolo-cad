@@ -92,6 +92,24 @@ def _preparar(t, proyecto: int, version: str | None = None) -> dict:
     return {**r, "g": g}
 
 
+def aprobar_calidad(cliente, carpeta: Path) -> dict:
+    """Lo que deja la puerta de publicación APROBADA sobre el modelo abierto (plan
+    puerta-de-publicacion D8): `calidad.json` + `calidad.md` con la firma del `.apolo` que
+    `generar` va a bajar. La puerta real se prueba en `test_puerta_publicacion.py`."""
+    from apolo.publicacion import calidad
+
+    r = {"aprobado": True, "version_registro": "1",
+         "firma": calidad.firma_de_apolo(cliente.get("/api/project/file").content),
+         "conteos": {"OK": 1, "FALLA": 0, "SIN_EVALUAR": 0, "NO_APLICA": 0},
+         "por_familia": {"montaje": {"estado": "OK", "OK": 1}},
+         "items": [{"id": "entrega.semaforo", "familia": "montaje", "estado": "OK",
+                    "titulo": "La puerta de entrega está en VERDE", "detalle": "VERDE",
+                    "norma": "criterio de diseño", "piezas": [], "evidencia": {}}],
+         "mantenimiento": []}
+    calidad.escribir(carpeta, r, titulo="Mesa de taller")
+    return r
+
+
 def _sha(blob: bytes) -> str:
     return hashlib.sha256(blob).hexdigest()
 
@@ -108,6 +126,10 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
     # el guion trae la URL derivada (con la tienda por defecto) y la ficha ya no la pide
     assert prep["g"]["cierre"]["url"] == "https://apolocad.com/maquinas/mesa-de-taller"
     assert "url_tienda" not in prep["ficha"].read_text(encoding="utf-8").split("musica:")[0]
+    # puerta-de-publicacion D8: sin calidad.json aprobado sobre ESTE modelo, generar se niega
+    with pytest.raises(PublicacionError, match="No hay calidad.json"):
+        flujo.generar(tienda.c, tienda.verde, raiz=tienda.raiz, eco=None)
+    cal = aprobar_calidad(tienda.c, carpeta)
     avisos: list[str] = []
     res = flujo.generar(tienda.c, tienda.verde, raiz=tienda.raiz, eco=avisos.append,
                         tienda="https://tienda.example")
@@ -136,13 +158,16 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
     ficha = json.loads((carpeta / "ficha.json").read_text(encoding="utf-8"))
     assert ficha["estado"] == "verificado" and ficha["url_video"] == ""
     assert ficha["validacion"]["veredicto"] == "VERDE"
+    assert ficha["calidad"] == {"aprobado": True, "forzado": False, "conteos": cal["conteos"],
+                                "version_registro": "1", "firma": cal["firma"]}
 
     # niveles (D10) y nada prohibido (D11, D12)
     zips = {}
     for nivel in ("gratis", "completo"):
         with zipfile.ZipFile(carpeta / f"mesa-de-taller-1.0.0-{nivel}.zip") as zf:
             zips[nivel] = {n.split("/", 1)[1]: zf.read(n) for n in zf.namelist()}
-    vista = {"vista-3d.glb", "vista-3d.html", ficha["miniatura"]}  # F3: en los dos niveles
+    # F3: la vista 3D en los dos niveles; la ficha de calidad también (puerta-de-publicacion D8)
+    vista = {"vista-3d.glb", "vista-3d.html", ficha["miniatura"], "calidad.md"}
     assert set(zips["gratis"]) == {"LEEME.md", "LICENCIA.txt", "AVISO.txt", "bom.csv",
                                    "modelo.step", "planos/conjunto_GA.pdf", "render/iso.png",
                                    "render/lateral.png", "render/planta.png"} | vista
@@ -151,6 +176,8 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
     for nivel in zips:
         assert zips[nivel]["vista-3d.glb"] == (carpeta / "vista-3d.glb").read_bytes()
         assert "`vista-3d.html` | Vista 3D para la web" in zips[nivel]["LEEME.md"].decode()
+        assert zips[nivel]["calidad.md"] == (carpeta / "calidad.md").read_bytes()
+        assert "no fue construido ni probado físicamente" in zips[nivel]["calidad.md"].decode()
     # ficha.json nombra la vista 3D, con su sha256 en `archivos`
     assert ficha["vista_3d"] == {
         "modelo": "vista-3d.glb", "html": "vista-3d.html", "poster": ficha["miniatura"],
@@ -209,6 +236,7 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
 
 def test_la_puerta_roja_se_niega_sin_tocar_la_carpeta(tienda):
     prep = _preparar(tienda, tienda.rojo)
+    aprobar_calidad(tienda.c, prep["carpeta"])
     antes = sorted(p.name for p in prep["carpeta"].iterdir())
     with pytest.raises(PuertaRoja, match="sujeción · sin anclajes"):
         flujo.generar(tienda.c, tienda.rojo, raiz=tienda.raiz, con_gravedad=False, eco=None)

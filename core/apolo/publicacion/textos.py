@@ -23,8 +23,11 @@ APOLO_URL = "https://github.com/mariorojasmz/apolo-cad"
 #: La tienda por defecto (`APOLO_TIENDA_URL` o `--tienda` la cambian, `tienda.url_de_la_tienda`).
 TIENDA = "https://apolocad.com"
 #: D8: el aviso de responsabilidad que viaja con el video (descripción); el enlace, aparte.
-AVISO_YOUTUBE = ("Diseño generado y validado por software: no fue construido ni probado "
-                 "físicamente. Antes de fabricar, lee el aviso: ")
+AVISO_SOFTWARE = ("Diseño generado y validado por software: no fue construido ni probado "
+                  "físicamente.")
+AVISO_YOUTUBE = AVISO_SOFTWARE + " Antes de fabricar, lee el aviso: "
+#: La ficha de calidad en los zips (plan puerta-de-publicacion, D8).
+CALIDAD_MD = "Ficha de calidad: qué se verificó por software, con qué norma y con qué resultado"
 MAX_TITULO_YOUTUBE = 100
 MAX_DESCRIPCION_BYTES = 5000
 MAX_ETIQUETAS_YOUTUBE = 500
@@ -131,6 +134,51 @@ def leeme(ficha: dict, nivel: str, *, cifras: list[dict], calidad: dict,
     lineas += ["", "## Licencia y responsabilidad", "",
                f"Licencia de este paquete: **{ficha['licencias'][nivel]}** (ver `LICENCIA.txt`). "
                "Lee `AVISO.txt` antes de fabricar: el diseño no está certificado."]
+    return "\n".join(lineas).rstrip() + "\n"
+
+
+_ESTADO = {"OK": "cumple", "FALLA": "no cumple", "SIN_EVALUAR": "sin evaluar",
+           "NO_APLICA": "no aplica"}
+
+
+def _celda(texto) -> str:
+    return _fila(str(texto or ""), 300).replace("|", "/")
+
+
+def calidad_md(r: dict, titulo: str) -> str:
+    """calidad.md (plan puerta-de-publicacion, D8): la ficha de calidad de la puerta de
+    publicación para una persona — el veredicto, por familia, lo que no pasó con sus piezas, cada
+    ítem con su norma y lo que el mantenimiento debe vigilar. `r` = el resultado de la puerta."""
+    ok = bool(r.get("aprobado"))
+    lineas = [f"# Ficha de calidad: {titulo}", "",
+              ("**Aprobada.** Todos los controles que aplican a esta máquina se cumplen."
+               if ok else "**No aprobada.** Hay controles que no se cumplen o que no se pudieron "
+                          "evaluar: esta versión no se publica."), "",
+              f"> {AVISO_SOFTWARE} Antes de fabricar, haz revisar el diseño por un ingeniero de "
+              "tu localidad.", "",
+              f"Firma del modelo: `{r.get('firma')}` · registro de calidad v{r.get('version_registro')}",
+              "", "## Resumen por familia", "",
+              "| Familia | Resultado | Cumple | No cumple | Sin evaluar | No aplica |",
+              "|---|---|---|---|---|---|"]
+    for fam, c in (r.get("por_familia") or {}).items():
+        lineas.append(f"| {fam} | {_ESTADO.get(c['estado'], c['estado'])} | {c.get('OK', 0)} | "
+                      f"{c.get('FALLA', 0)} | {c.get('SIN_EVALUAR', 0)} | {c.get('NO_APLICA', 0)} |")
+    malos = [i for i in r.get("items", []) if i["estado"] in ("FALLA", "SIN_EVALUAR")]
+    if malos:
+        lineas += ["", "## Lo que no pasó", ""]
+        for i in malos:
+            piezas = ", ".join(i.get("piezas") or [])
+            lineas.append(f"- **{i['titulo']}** ({_ESTADO[i['estado']]}): {_fila(i['detalle'])}"
+                          + (f" Piezas: {_fila(piezas, 200)}." if piezas else ""))
+    lineas += ["", "## Controles", "", "| Control | Familia | Resultado | Detalle | Norma |",
+               "|---|---|---|---|---|"]
+    for i in r.get("items", []):
+        lineas.append(f"| {_celda(i['titulo'])} | {i.get('familia', '')} | "
+                      f"{_ESTADO.get(i['estado'], i['estado'])} | {_celda(i.get('detalle'))} | "
+                      f"{_celda(i.get('norma'))} |")
+    if r.get("mantenimiento"):
+        lineas += ["", "## Mantenimiento", ""] + [f"- {m[:1].upper() + m[1:]}."
+                                                    for m in r["mantenimiento"]]
     return "\n".join(lineas).rstrip() + "\n"
 
 

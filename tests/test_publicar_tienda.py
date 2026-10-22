@@ -157,13 +157,27 @@ def falsa():
         s.server_close()
 
 
+FIRMA = "f1rma0de0prueba00000"
+
+
+def calidad_aprobada(carpeta: Path, firma: str = FIRMA) -> dict:
+    """Lo que deja la puerta de publicación aprobada (`calidad.json`) y el bloque `calidad` que
+    `generar` pone en ficha.json (puerta-de-publicacion D8): sin ellos la tienda no recibe nada."""
+    cal = {"aprobado": True, "firma": firma, "version_registro": "1",
+           "conteos": {"OK": 3, "FALLA": 0, "SIN_EVALUAR": 0, "NO_APLICA": 2}, "items": []}
+    (carpeta / "calidad.json").write_text(json.dumps(cal), encoding="utf-8")
+    return {"aprobado": True, "forzado": False, "conteos": cal["conteos"],
+            "version_registro": "1", "firma": firma}
+
+
 @pytest.fixture
 def paquete(tmp_path) -> Path:
     carpeta = tmp_path / SLUG / VERSION
     carpeta.mkdir(parents=True)
     (carpeta / "ficha.json").write_text(json.dumps(
         {"formato": 1, "titulo": "Mesa de taller", "slug": SLUG, "version": VERSION,
-         "descripcion": "Una mesa.", "nivel": "gratis", "precio_usd": 0}), encoding="utf-8")
+         "descripcion": "Una mesa.", "nivel": "gratis", "precio_usd": 0,
+         "calidad": calidad_aprobada(carpeta)}), encoding="utf-8")
     (carpeta / "miniatura.png").write_bytes(b"\x89PNG" + b"m" * 100)
     (carpeta / "video.mp4").write_bytes(b"v" * (3 * 1024 * 1024 + 7))
     (carpeta / "vista-3d.glb").write_bytes(b"glTF" + b"g" * 50)
@@ -248,6 +262,39 @@ def test_confirmacion_409_reintenta(falsa, paquete):
     with pytest.raises(TiendaError, match="409"):
         _subir(falsa, paquete)
     assert falsa.importada is None
+
+
+def _ficha(carpeta: Path) -> dict:
+    return json.loads((carpeta / "ficha.json").read_text(encoding="utf-8"))
+
+
+def _con_ficha(carpeta: Path, **calidad) -> None:
+    f = _ficha(carpeta)
+    f["calidad"] = {**f["calidad"], **calidad}
+    (carpeta / "ficha.json").write_text(json.dumps(f), encoding="utf-8")
+
+
+@pytest.mark.parametrize(("estropear", "texto"), [
+    (lambda c: (c / "calidad.json").unlink(), "no tiene calidad.json"),
+    (lambda c: (c / "calidad.json").write_text(json.dumps(
+        {"aprobado": False, "firma": FIRMA, "items": [
+            {"id": "entrega.gravedad", "familia": "estructura", "estado": "FALLA",
+             "titulo": "Estable con gravedad", "detalle": "2 piezas caen", "piezas": ["c3"]}]}),
+        encoding="utf-8"), "(?s)no la aprobó.*entrega.gravedad.*2 piezas caen.*c3"),
+    (lambda c: _con_ficha(c, forzado=True, aprobado=False), "--forzar"),
+    (lambda c: _con_ficha(c, firma="otra"), "firma de ficha.json"),
+    (lambda c: (c / "ficha.json").write_text(json.dumps(
+        {k: v for k, v in _ficha(c).items() if k != "calidad"}), encoding="utf-8"),
+     "bloque «calidad»"),
+])
+def test_la_tienda_no_recibe_un_paquete_sin_la_calidad_aprobada(falsa, paquete, estropear, texto):
+    """D8/D11 de puerta-de-publicacion: sin calidad.json aprobado, generado con --forzar o con
+    otra firma, `subir` se niega ANTES de llamar a la tienda (tampoco en ensayo)."""
+    estropear(paquete)
+    for ensayo in (False, True):
+        with pytest.raises(tiendas.PublicacionError, match=texto):
+            _subir(falsa, paquete, ensayo=ensayo)
+    assert falsa.llamadas == []
 
 
 def test_carpeta_publicada_toma_la_ultima_generada(paquete, tmp_path):

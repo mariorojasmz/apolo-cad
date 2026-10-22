@@ -2,7 +2,8 @@
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
 `main.py`. La memoria de cálculo comparte con `/api/checks` SÓLO lo idéntico
-(`services.engineering_rules`); sus diferencias son deliberadas (D7) y se quedan aquí.
+(`services.engineering_rules`); sus diferencias son deliberadas (D7) y viven en
+`services.memoria_reglas` (también las lee la puerta de publicación).
 """
 
 from __future__ import annotations
@@ -12,13 +13,6 @@ from fastapi.responses import Response
 
 from apolo.library import bom_from_scene, bom_to_csv, catalog_payload
 from apolo.services.electrico import filas_bom
-from apolo.services.engineering_rules import (
-    conveyor_params_from_doc,
-    inherit_inclination,
-    inherit_tensor,
-    requirement_inputs,
-    structure_rules,
-)
 from apolo.state import STATE_LOCK
 
 from ..common import (
@@ -26,7 +20,6 @@ from ..common import (
     _expand_ids,
     _job_entregable,
     _mismo_proyecto,
-    _stackup_rules,
 )
 from ..scene import _feature_colors
 from ..session import S
@@ -200,46 +193,19 @@ def _memoria(proyecto, carga_kg, largo_paquete_mm, ancho_paquete_mm, velocidad_m
     from apolo.drawing import sheets_to_pdf
     from apolo.drawing.calc_report import calc_report, peso_memoria
     from apolo.drawing.foto_escena import dibujar_foto, extraer_foto, teselar_foto
-    from apolo.library.rules import conveyor_engineering_check as conv_check
-    from apolo.library.rules import detect_conveyor
     from apolo.services.apariencia import apariencias_render
     from apolo.services.definiciones import definiciones_de
+    from apolo.services.memoria_reglas import reglas_memoria
 
     with STATE_LOCK:
         _mismo_proyecto(proyecto)
-        req, carga, largo_paq, ancho_paq = requirement_inputs(
-            S.doc, carga_kg, largo_paquete_mm, ancho_paquete_mm)
-        velocidad = velocidad_m_s if velocidad_m_s is not None else float(req.get("velocidad_m_s") or 0)
         # carga/largo de paquete son requisitos del VERTICAL transportadores: sin ellos se
         # omiten las reglas de conveyor y la memoria se emite igual con las verificaciones
-        # UNIVERSALES (estructura/uniones/vuelco + FEA + cadenas de cotas). Exigirlos para
-        # todo bloqueaba la memoria de cualquier proyecto que no fuera una faja — hallazgo
-        # del SEGUNDO testigo (puerta de carpintería, 2026-07-24).
-        sin_req_conveyor = not carga or not largo_paq
-        rules: list[dict] = []
-        conveyor = None if sin_req_conveyor else (
-            conveyor_params_from_doc(S.doc) or detect_conveyor(S.doc.scene, S.doc.variables_resolved))
-        if conveyor:
-            inherit_inclination(conveyor, req)
-            inherit_tensor(S.doc, conveyor)
-            rules += conv_check(conveyor, carga_kg=carga, largo_paquete_mm=largo_paq,
-                                velocidad_m_s=velocidad, ancho_paquete_mm=ancho_paq)
-        # estructura/uniones/vuelco + página FEA en la memoria (con chequeo de vigencia)
-        rules += structure_rules(S.doc, carga, conveyor)
-        rules += _stackup_rules()  # V7.3: cadenas de cotas (stack-up) declaradas/auto
-        if sin_req_conveyor:
-            # DECLARAR lo omitido: una memoria que calla lo que no verificó miente por
-            # ausencia. Va como regla-aviso, así viaja a la misma página que el resto.
-            rules.append({
-                "regla": "alcance de la memoria",
-                "estado": "aviso",
-                "detalle": "Sin `carga_kg` / `largo_paquete_mm` declarados: se OMITEN las "
-                           "verificaciones de transportador (arrastre, adherencia del tambor, "
-                           "capacidad, velocidad). Lo verificado aquí es estructural y de "
-                           "uniones.",
-                "recomendacion": "Declara los requisitos con set_requirements si el equipo "
-                                 "transporta producto.",
-            })
+        # UNIVERSALES (estructura/uniones/vuelco + FEA + cadenas de cotas) y DECLARA lo omitido
+        # — hallazgo del SEGUNDO testigo (puerta de carpintería, 2026-07-24). Las reglas son las
+        # mismas que lee la puerta de publicación (`services/memoria_reglas.py`).
+        rules, req_efectivos = reglas_memoria(S.doc, carga_kg, largo_paquete_mm,
+                                              ancho_paquete_mm, velocidad_m_s)
         # el modelo vacío es el que no tiene piezas, no el que las tiene ocultas; sólo el
         # render de la portada respeta la visibilidad (es una vista)
         if not rules or not S.doc.scene:
@@ -260,18 +226,6 @@ def _memoria(proyecto, carga_kg, largo_paquete_mm, ancho_paquete_mm, velocidad_m
             {"rev": rev, "date": date.today().isoformat(), "note": "Memoria de cálculo"}
         ]
         meta["weight_kg"] = peso_memoria(S.doc.scene)  # OCCT: aquí, no al componer
-        # los requisitos completos van a la portada; los efectivos ganan
-        # sin requisitos de transportador NO se inyectan claves vacías a la portada (un
-        # «carga_kg: None» impreso es peor que la ausencia del renglón)
-        req_efectivos = dict(req)
-        if carga:
-            req_efectivos["carga_kg"] = carga
-        if largo_paq:
-            req_efectivos["largo_paquete_mm"] = largo_paq
-        if ancho_paq:
-            req_efectivos["ancho_paquete_mm"] = ancho_paq
-        if velocidad:
-            req_efectivos["velocidad_m_s"] = velocidad
         name = S.doc.name
     png = None
     if foto is not None:

@@ -1,7 +1,7 @@
 """Qué tools del MCP usa el chat de la app y cómo (plan chat-cliente-igual, D5).
 
 Las `@mcp.tool` de `mcp_server.py` (y de los módulos que registra: `mcp_electrico.py`,
-`simulacion.py`, `cosim.py`, `estructura.py`, `cirugia.py`) son LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada
+`simulacion.py`, `cosim.py`, `estructura.py`, `cirugia.py`, `calidad.py`) son LA fuente (D1): el chat no redefine ninguna, sólo decide cuáles ve. Cada
 tool está en UNO de los dos lados, y `tests/test_catalogo_chat.py` falla si una tool nueva no
 está en ninguno:
 
@@ -147,6 +147,9 @@ FUERA_DEL_CHAT: dict[str, str] = {
     "fea_assembly": ("tarda minutos (malla de todo el bastidor): no cabe en una vuelta del "
                      "chat; se corre desde el MCP"),
     "test_plc": _FAT,
+    "publication_gate": ("la puerta de publicación es de la fábrica y del modelador por MCP: "
+                         "simula gravedad y marcha (minutos) y no cabe en una vuelta del chat; "
+                         "el chat valida con delivery_check"),
     "get_simulation": _FAT,
     "get_scenarios": _FAT,
     "set_scenario": _FAT,

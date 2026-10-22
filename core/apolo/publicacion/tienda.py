@@ -317,10 +317,14 @@ def _subir_archivo(t: Cliente, ruta: Path, a: dict, eco) -> dict:
 def subir(carpeta, *, tienda: str, llave: str, borrador: bool = False, ensayo: bool = False,
           eco=print, cliente=None, espera_s: float = 2.0) -> dict:
     """`publicar subir`: revisa, sube cada archivo, importa y (salvo `borrador`) publica.
+    Sin `calidad.json` aprobado (o generado con `--forzar`) se niega antes de llamar a la tienda.
     `ensayo`: sólo la revisión y el plan. `cliente`: un `httpx.Client` (los tests). Devuelve
     {plan, subidos, maquina, url, publicada}."""
+    from apolo.publicacion.calidad import exigir_subible
+
     eco = eco or (lambda *_a, **_k: None)
     carpeta = Path(carpeta)
+    exigir_subible(carpeta)  # puerta-de-publicacion D8/D11: antes de tocar la tienda
     ficha, archivos = contenido(carpeta)
     t = Cliente(tienda, llave, cliente=cliente, eco=eco, espera_s=espera_s)
     try:

@@ -61,6 +61,11 @@ def _verdict(rules: list[dict]) -> str:
     return "APROBADO"
 
 
+#: El veredicto de la portada, sin componer el PDF: lo lee la puerta de publicación
+#: (`services/memoria_reglas.veredicto_memoria`; «NO CONFORME» bloquea, plan puerta-de-publicacion D2).
+veredicto = _verdict
+
+
 def _req_rows(requirements: dict) -> list[str]:
     """Una fila por requisito; lo que el ingeniero ASUMIÓ (lista `asumidos`, ficha del
     encargo) lleva «(asumido)»: la memoria no presenta un supuesto como dato del cliente."""

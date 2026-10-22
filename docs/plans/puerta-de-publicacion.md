@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito y lanzado por Claude por mandato de Mario (2026-10-22, «procede a tu criterio»); Mario puede vetar por número; F0–F6 pendientes
+nota: F0 y F2 hechas; F1 (núcleo, D3b, D13b, D14, D15) implementada con tests, pendiente de revisión y merge; F3–F6 pendientes; create_belt_conveyor tiene choques internos reales (D13b, ver F1)
 descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
 ---
 
@@ -158,6 +158,42 @@ Y un hecho de proceso: el hallazgo del revisor (perno M12×50 por una sola aleta
 - **D12 — Lo ya publicado pasa por la puerta.** Las dos fajas publicadas se re-corren con la
   puerta (F6); lo que falle se corrige en una versión nueva y se re-publica. Mientras tanto no se
   publican máquinas nuevas.
+- **D3b — Cadenas lazo a lazo de `create_roller_conveyor` sin tensor** (decisión del orquestador,
+  2026-10-22). Los lazos rodillo a rodillo (centros fijos) se aceptan SIN tensor cuando la
+  distancia entre centros es la exacta de su número de eslabones (la plantilla ya la calcula) y
+  la holgura queda dentro de la tolerancia de la plantilla (`TOL_CENTROS_MM`, ±0,05 mm). El ítem
+  dice «sin tensor: centros exactos; reemplazo de la cadena al 3 % de estiramiento» como OK y el
+  mantenimiento lleva el criterio medible (20 pasos de 1/2″: nueva 254,0 mm, reemplazo a
+  261,6 mm). El manual de ensamblaje no tiene sección de mantenimiento: la línea va en
+  `calidad.md`. *Precedente*: los transportadores comerciales de rodillos vivos lazo a lazo van a
+  centros fijos. Fuera de la tolerancia, SIN_EVALUAR (no hay con qué recoger la holgura).
+- **D13b — La puerta de publicación revisa las interferencias DENTRO de los super-comandos.** La
+  puerta de entrega las excluye (`same_command_pairs`) y eso escondió la banda de
+  `create_belt_conveyor` en el piso (corregida en la v3 por el D13 de la fábrica). Ítem
+  `montaje.interferencia_interna`: lo declarado (juntas, `fasten`, herraje asentado) no cuenta y
+  un asiento ≤ `EXCESS_TOL_MM3` se tolera y se declara; el resto es FALLA. Los contactos reales de
+  una plantilla se declaran en la plantilla (`fasten` contacto), nunca con una lista blanca.
+- **D14 — Los ítems de la puerta son GENERALES; los mecanismos concretos son evaluadores que se
+  enchufan debajo** (Mario, 2026-10-22: «estás poniendo en piedra cosas específicas cuando debe
+  ser general; Apolo crea múltiples piezas y máquinas»). Un ítem del registro nombra un modo de
+  falla general (`transmision_flexible.tension`, `union.agarre`, `elementos_rodantes.l10`,
+  `publicado.sustitutos_fieles`, `riesgos.partes_moviles`, `consumibles.reemplazables`…); debajo,
+  detectores y evaluadores por tipo de elemento, y la evidencia dice qué elementos evaluó
+  (`elementos: {"banda": 1, "cadena": 13}`). Una familia de máquinas nueva suma un detector o un
+  evaluador, nunca un ítem. Sin elementos de su tipo, NO_APLICA con el porqué («la máquina no
+  tiene transmisiones flexibles»); una pieza estática suelta se puede publicar con los ítems de
+  estructura, fabricabilidad y uniones. Los ids de F2/F3 no se reescriben: el registro los lleva a
+  los generales con un mapa (`agarre.cruza` → `union.agarre`, `tensor.*` →
+  `transmision_flexible.tension`, `vida.l10` → `elementos_rodantes.l10`…).
+- **D15 — Solución declarada por función** (Mario la aprobó). Metadato `funciones: [{funcion,
+  solucion, descartadas: [{solucion, motivo}], piezas}]` en el manifest (fuera del log), con
+  `GET|PUT /api/funciones` y público en el `.apolo` publicado. Ítem
+  `diseno.soluciones_por_funcion`: cada familia de función que el modelo tiene (transmisión
+  flexible, apoyo rotativo, accionamiento, resguardo y la estructura de una máquina con ≥ 1 parte
+  móvil) cubierta por una función declarada —por su nombre o por sus piezas— con ≥ 1 alternativa
+  descartada y su motivo; si no, FALLA. Una pieza estática: NO_APLICA. *Porqué*: una solución
+  elegida sin comparar es memoria de nadie; el registro de la alternativa y su motivo es el DFMEA
+  de la decisión.
 
 ## Alternativas descartadas
 
@@ -323,3 +359,86 @@ borde interior de la guarda de cadenas (41 sondas).
 
 No hecho: el cizallamiento banda ↔ estructura y carga ↔ fijo; la tabla 4 en columnas cuadrado y
 círculo (se usa ranura, la más exigente); mallas finas (< 4 mm) se tratan con sr 2 mm.
+
+### F1 — núcleo de la puerta (2026-10-22, en rama, sin mergear)
+
+Construido:
+
+- **Registro** (`library/calidad/registro.py`, puro): `Entrada` (un ítem evaluado sobre insumos ya
+  extraídos, `library/calidad/puerta.py`) y `Fuente` (los ítems de un servicio, F2 hoy; F3 es la
+  línea comentada con `MAPA_SEGURIDAD`). Cada ítem: id, título, modo de falla, norma, familia
+  (estructura, función, montaje, seguridad, publicado, proceso), `aplica_si` sobre los HECHOS y su
+  evaluador. Agregador `evaluar` → `{aprobado, items, por_familia, conteos, mantenimiento, firma,
+  version_registro, tiempos_s}`. NO_APLICA sólo por `aplica_si`; un control que dice «no aplica»
+  donde aplica → SIN_EVALUAR; un control que revienta o una fuente que no corre → SIN_EVALUAR; si
+  el control evaluó algo que los hechos no esperaban, gana lo evaluado.
+- **D14 (ítems generales)**, por pedido de Mario a mitad de la fase: 25 ítems con ids de modo de
+  falla (lista en el docstring del registro); los 16 de F2 entran por un mapa
+  (`agarre.cruza` → `union.agarre`, `tensor.*` → `transmision_flexible.tension`, `vida.l10` →
+  `elementos_rodantes.l10`, `vida.cadena` → `transmision.capacidad`…) sin tocar su módulo; un ítem
+  de una fuente que ningún general recoge sale tal cual (nunca se pierde). Detectores por tipo de
+  elemento en `services/puerta_hechos.py` (`hechos.elementos`: {tipo: {clase: n}}); la evidencia
+  de cada ítem nombra los elementos que evaluó. Nuevo `fabricabilidad`: cada pieza es de catálogo
+  o un sólido válido con volumen, material y proceso (`drawing/process.infer_process`).
+- **D15**: metadato `funciones` (validador puro `library/calidad/funciones.py`, setter
+  `services/puerta_publicacion.poner_funciones`, `GET|PUT /api/funciones`, en el manifest sólo si
+  hay y en `MANIFEST_PUBLICO`); ítem `diseno.soluciones_por_funcion` sobre las familias detectadas
+  (transmisión flexible, apoyo rotativo, accionamiento, resguardo, estructura con partes móviles).
+- **Insumos** (`services/puerta_publicacion.reunir`, bajo el `STATE_LOCK` del llamador): la puerta
+  de entrega con la gravedad que corrió la API, sus `no_aplica` justificados por hechos
+  (`entrega.no_evaluado`; lo desconocido bloquea), acceso de herramienta («no evaluado» →
+  SIN_EVALUAR), los choques DENTRO de cada super-comando (`interferencia_interna`, sin
+  `same_command_pairs`, paginado), el veredicto de la memoria (`services/memoria_reglas.py`, que
+  ahora es también la fuente del PDF; `calc_report.veredicto`), ERC y escenarios, las fuentes y la
+  firma `firma_modelo(log + hidden, materiales, vertical, estudios, requisitos, FEA, cotas,
+  escenarios, tensores, funciones)`: la misma función calcula la publicación desde el `.apolo`.
+- **API**: `POST /api/puerta-publicacion` (`?async=true` → `COSIM_JOBS`): (a) firma bajo
+  `STATE_LOCK`; (b) gravedad con `_stability` (dos locks; sin MuJoCo o si falla → SIN_EVALUAR,
+  nunca la caída silenciosa); (c) insumos y la fase OCCT de la marcha (`marcha_ejemplo.armar` +
+  `preparar_prueba`) bajo `STATE_LOCK`; (d) la dinámica bajo `PHYSICS_LOCK`; (e) la fidelidad D13
+  pura (`concluir_prueba`: infiel → FALLA; no simula → SIN_EVALUAR); 409 si la firma cambió entre
+  las tomas. `probar` quedó partido en esas tres fases (mismo comportamiento).
+- **MCP**: tool `publication_gate(completo=false)` en `tools/calidad.py` (job con recibo; resume a
+  los ítems que fallan o no se evaluaron); golden con 3 casos; `FUERA_DEL_CHAT` (simula minutos).
+- **Fábrica**: paso `calidad` entre `ficha` y `generar`: escribe `calidad.json` (ítems, evidencia,
+  firma, registro, versión de Apolo) y `calidad.md` (para una persona, con el aviso «validado por
+  software, no construido ni probado físicamente» y la sección de mantenimiento) y PARA con cada
+  ítem que no pasó. `generar` se niega sin `calidad.json` aprobado o con otra firma (`--forzar`
+  manual sólo para ensayos); la puerta de entrega de `generar` ya no cae a «sin gravedad» salvo
+  con `--forzar`. `ficha.json` lleva `calidad` {aprobado, forzado, conteos, version_registro,
+  firma}; los dos zips llevan `calidad.md`; `tienda.subir` se niega (antes de tocar la tienda)
+  sin `calidad.json` aprobado, con `--forzar` o con firmas distintas. `tensores` y `funciones`
+  son públicos en el `.apolo` saneado.
+- **D3b** en `library/calidad/tensor.py` (`centros_fijos` en el lazo, puesto por
+  `calidad_tensores.lazos_cadena` para `{cmd}_cad{k}` de un `create_roller_conveyor`).
+- **Arreglado de paso**: el pandeo de patas (`engineering/report.py`) leía el NOMBRE entero, así
+  que las patas de una plantilla («Transportador de rodillos · Pata …») no pandeaban nunca; ahora
+  lee el rol (`piece_role`).
+
+Medido (laptop, en proceso, requisitos 15 kg, paquete 400 × 300, 0,3 m/s):
+
+- `create_belt_conveyor` (v3, por defecto y con `TENSOR-TROT-25`): NO aprobada, ~5 s (la marcha
+  3,5 s). FALLA reales: **choques internos** (15: el motorreductor atraviesa el larguero
+  392 599 mm³, la cama entra en las dos guardas laterales 34 978 mm³ c/u, el motorreductor en el
+  tambor motriz 9 697 mm³, los ejes de los dos tambores y los tensores atraviesan los largueros sin
+  barreno 3 700–7 100 mm³, los tambores en las guardas 444–1 422 mm³, la pata 4 en el motor
+  1 038 mm³) — la plantilla necesita una v4 de geometría (fuera de F1); sin anclajes ni uniones
+  (semáforo ROJO, se cae entera, vuelco sin huella, lint «pieza sin grupo ni unión»); flecha del
+  bastidor 253,8 mm en 4 202 mm (madera por el nombre «larguero»: memoria NO CONFORME); sin
+  funciones declaradas. SIN_EVALUAR: la carrera del tensor de catálogo (la ficha no la tabula) o
+  la del take-up. OK: la marcha fiel (D13), fabricabilidad, factor de servicio, pandeo.
+- `create_roller_conveyor` largo 1500: NO aprobada, 36 s (gravedad 18 s, interferencias 6 s).
+  Pasan estructura, montaje (32 fijadores con llave, sin choques internos) y la tensión (14 lazos:
+  13 por D3b + la motriz por sus ranuras). FALLA reales: **cadena FS 1,09 < 1,2** (piñón Z15,
+  par nominal del MOTOR-037 en la motriz y el primer lazo); «velocidad del producto» 0,266 m/s
+  contra los 0,3 pedidos (−11 %); sin funciones declaradas (D15). `elementos_rodantes.l10`
+  NO_APLICA: los 6201 de los rodillos no son piezas de catálogo, nadie calcula su L10 (hueco).
+- Tests: `tests/test_puerta_publicacion.py` (registro, cuatro estados, fuentes y mapa general,
+  generalidad: un eje con chumaceras sin banda y una ménsula suelta que se aprueba, D15, controles,
+  choque sembrado y la faja v3, firma, gravedad sin MuJoCo, job y 409, la puerta sobre la faja,
+  tool, `calidad.md`, la fábrica que para y `generar` que se niega); `test_puerta_tensor.py` (D3b),
+  `test_publicar_tienda.py` (la tienda se niega, 5 casos), e2e de publicación con la puerta.
+- **Pendiente**: la v4 de `create_belt_conveyor` sin choques internos; L10 de rodamientos que no
+  son piezas de catálogo (rodillos de la plantilla); los testigos de F5; F3 entra con su línea
+  (`riesgos.partes_moviles`, `riesgos.resguardos_desmontables_con_herramienta`,
+  `consumibles.reemplazables`; `riesgos.electrico` hoy es sólo el ERC).

@@ -16,7 +16,11 @@ cabeza y `despues` mm hacia la punta sobre el eje del perno (la carrera es la su
 Los requisitos:
 - **reconocido**: todo lazo tiene un mecanismo de tensado reconocido (`create_take_up`, unidad
   de catálogo con su carrera de ficha, las ranuras del motor de la plantilla de rodillos o el
-  metadato `tensores`); sin él, SIN_EVALUAR (no se sabe si se puede tensar);
+  metadato `tensores`); sin él, SIN_EVALUAR (no se sabe si se puede tensar). Excepción D3b: un
+  lazo rodillo a rodillo de `create_roller_conveyor` (`centros_fijos` en el lazo) va SIN tensor
+  si sus centros son los exactos de sus eslabones dentro de la tolerancia de la plantilla: OK
+  «sin tensor: centros exactos», con el criterio de reemplazo al 3 % para el mantenimiento
+  (precedente: los transportadores de rodillos vivos lazo a lazo comerciales van a centros fijos);
 - **carrera**: banda ≥ 1 % del largo del lazo + 20 mm de montaje (estiramiento de servicio de una
   banda de PVC de 2 capas 0,5–1 %: CEMA y fabricantes); cadena ≥ 3 % del largo / 2 sobre la línea
   de centros (estirado de reemplazo del 3 %, Tsubaki/Renold: la regla de la plantilla);
@@ -74,6 +78,32 @@ def _mejor(tensores: list[dict]) -> dict:
     return max(con, key=lambda t: t["carrera_mm"]) if con else tensores[0]
 
 
+def reemplazo_cadena(paso_mm: float) -> str:
+    """El criterio de reemplazo de una cadena sin tensor (D3b), medible en el taller."""
+    nueva = 20 * paso_mm
+    return (f"reemplaza la cadena cuando se estire un 3 %: mide 20 pasos con la cadena tensa "
+            f"(nueva {nueva:.1f} mm) y cámbiala al llegar a {nueva * (1 + ESTIRADO_CADENA):.1f} mm")
+
+
+def centros_fijos(lazo: dict) -> tuple | None:
+    """D3b: un lazo rodillo a rodillo de `create_roller_conveyor` (centros FIJOS, sin tensor) se
+    acepta si sus centros son los exactos de su número de eslabones y la holgura queda dentro de la
+    tolerancia de la plantilla. (estado, texto, números), o None si el lazo no es de esa clase."""
+    cf = lazo.get("centros_fijos")
+    if lazo.get("tipo") != "cadena" or not cf:
+        return None
+    holgura = float(cf["exactos_mm"]) - float(cf["centros_mm"])
+    nums = {"eslabones": cf["eslabones"], "centros_mm": round(float(cf["centros_mm"]), 4),
+            "exactos_mm": round(float(cf["exactos_mm"]), 4), "holgura_mm": round(holgura, 4),
+            "tolerancia_mm": cf["tolerancia_mm"]}
+    if abs(holgura) <= float(cf["tolerancia_mm"]) + 1e-9:
+        return (OK, "sin tensor: centros exactos; reemplazo de la cadena al 3 % de estiramiento",
+                {**nums, "mantenimiento": reemplazo_cadena(float(cf["paso_mm"]))})
+    return (SIN_EVALUAR, f"centros fijos a {holgura:+.3f} mm de los exactos de {cf['eslabones']} "
+                         f"eslabones (tolerancia ±{cf['tolerancia_mm']:g} mm): sin tensor no hay con "
+                         "qué recoger esa holgura", nums)
+
+
 def evaluar_lazo(lazo: dict) -> dict:
     """{"reconocido", "carrera", "agarre"} → (estado, texto, números) de UN lazo."""
     tipo, largo = lazo["tipo"], lazo.get("largo_mm")
@@ -81,6 +111,11 @@ def evaluar_lazo(lazo: dict) -> dict:
     nums = {"lazo": lazo["id"], "tipo": tipo,
             "largo_mm": None if largo is None else round(largo, 1)}
     if not tensores:
+        fijos = centros_fijos(lazo)
+        if fijos is not None:
+            e, txt, n = fijos
+            return {"reconocido": (e, txt, {**nums, **n}), "carrera": (e, txt, {**nums, **n}),
+                    "agarre": (NO_APLICA, "centros fijos: sin perno tensor", nums)}
         sin = (SIN_EVALUAR, "sin mecanismo de tensado reconocido", nums)
         return {"reconocido": sin, "carrera": sin, "agarre": sin}
     t = _mejor(tensores)
@@ -130,9 +165,14 @@ def controlar_tensores(lazos: list[dict]) -> list[Item]:
                  for lz, (e, txt, n) in malos]
         estado = peor(estados)
         piezas = list(dict.fromkeys(pz for lz, _ in malos for pz in lz.get("piezas", [lz["id"]])))
+        # D3b: lo que el manual de mantenimiento debe decir (cadenas de centros fijos)
+        mant = sorted({r[clave][2]["mantenimiento"] for _, r in res
+                       if r[clave][0] == OK and "mantenimiento" in r[clave][2]})
+        fijos = sum(1 for _, r in res if r[clave][0] == OK and "mantenimiento" in r[clave][2])
         items.append(Item(
             iid, titulo, estado, modo, norma,
             evidencia={"lazos": len(res), "ok": sum(1 for e in estados if e == OK),
+                       **({"centros_fijos": fijos, "mantenimiento": mant} if mant else {}),
                        **recortar(casos)},
             piezas=piezas,
             detalle=("no aplica a ningún lazo" if estado == NO_APLICA else

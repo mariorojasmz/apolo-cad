@@ -99,6 +99,30 @@ def _archivo(clave: str, nombre: str) -> dict:
             "nombre": nombre}
 
 
+#: `POST /api/puerta-publicacion` (puerta-de-publicacion F1): el registro de ítems; la tool resume
+#: (sólo lo que falla o no se pudo evaluar) salvo `completo`.
+PUERTA_PUBLICACION = {
+    "aprobado": False, "firma": "8670f64c1b6582ae1f9a", "version_registro": "1",
+    "conteos": {"OK": 1, "FALLA": 1, "SIN_EVALUAR": 1, "NO_APLICA": 1},
+    "por_familia": {"montaje": {"estado": "FALLA", "OK": 0, "FALLA": 1, "SIN_EVALUAR": 0,
+                                "NO_APLICA": 1},
+                    "estructura": {"estado": "SIN_EVALUAR", "OK": 1, "FALLA": 0,
+                                   "SIN_EVALUAR": 1, "NO_APLICA": 0}},
+    "items": [
+        {"id": "entrega.gravedad", "familia": "estructura", "estado": "OK",
+         "titulo": "Estable con gravedad", "detalle": "estable", "piezas": [], "evidencia": {}},
+        {"id": "montaje.interferencia_interna", "familia": "montaje", "estado": "FALLA",
+         "titulo": "Sin choques entre las piezas de un mismo super-comando",
+         "detalle": "1 choque(s); el peor: Larguero (2) ↔ Motorreductor (392599 mm³)",
+         "piezas": ["c1_rail2", "c1_motor"], "evidencia": {"comandos": 1}},
+        {"id": "estructura.pandeo", "familia": "estructura", "estado": "SIN_EVALUAR",
+         "titulo": "Columnas y patas con FS de pandeo ≥ 3", "detalle": "el control no lo evaluó",
+         "piezas": [], "evidencia": {}},
+        {"id": "union.agarre", "familia": "montaje", "estado": "NO_APLICA",
+         "titulo": "Cada unión atornillada atraviesa todo lo que une",
+         "detalle": "el modelo no tiene tornillería que medir", "piezas": [], "evidencia": {}}],
+    "mantenimiento": ["reemplaza la cadena cuando se estire un 3 %"],
+    "tiempos_s": {"total": 16.7, "gravedad": 2.2}}
 SVG = b"<svg>golden</svg>"
 JOBS_SUELTOS = {"jmc": _archivo("k1", "golden-memoria-calculo.pdf"),
                 "jma": _archivo("k2", "golden-ensamblaje.pdf"),
@@ -110,7 +134,8 @@ JOBS_SUELTOS = {"jmc": _archivo("k1", "golden-memoria-calculo.pdf"),
                 "jcs": COSIM, "jpl": {**COSIM, **PLC_OK, "escenario": None, "guardado": None,
                                       "trazas": {"discretas": {"-K1.%QX0.0": {
                                           "cambios": [[0.0, False], [0.31, True]], "total": 2,
-                                          "offset": 0, "truncado": False}}}}}
+                                          "offset": 0, "truncado": False}}}},
+                "jpu": PUERTA_PUBLICACION}
 
 
 def _plc_test(req):
@@ -333,6 +358,7 @@ RUTAS = [
     ("GET", r"/api/connectivity", _conexiones),
     ("POST", r"/api/connections/remove", J({**escena(), "conexiones_borradas": ["f1", "g1"]})),
     ("POST", r"/api/delivery-check", J({"veredicto": "VERDE", "bloqueantes": []})),
+    ("POST", r"/api/puerta-publicacion", _encolado("jpu")),
     ("POST", r"/api/assembly/stability", J({"n_grounded": 2, "n_dynamic": 1, "fell": [],
                                             "estables": ["c1"], "settled": True,
                                             "mensaje": "ok", "frames": [1, 2]})),
@@ -560,6 +586,9 @@ CASOS = [
         ("POST", r"/api/delivery-check"): J({"veredicto": "VERDE", "bloqueantes": [],
                                              "tiempos_s": {"total": 12.3, "por_regla": {
                                                  "interferencias": 10.2, "poses": 0.4}}})}),
+    caso("puerta de publicación", "publication_gate"),
+    caso("puerta de publicación completa", "publication_gate", {"completo": True}),
+    caso("puerta de publicación → recibo", "publication_gate", espera=0),
     caso("gravedad", "gravity_test"),
     caso("gravedad con gif", "gravity_test", {"with_autodetect": True, "exclude": ["c3"],
                                               "seconds": 1.5, "path": "gravedad.gif"}),

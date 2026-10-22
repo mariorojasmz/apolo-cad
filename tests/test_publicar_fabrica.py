@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 import pytest
-from test_publicar_tienda import LLAVE, falsa  # noqa: F401 — `falsa` es un fixture
+from test_publicar_tienda import LLAVE, calidad_aprobada, falsa  # noqa: F401 — `falsa` es un fixture
 from test_publicar_youtube import _cli
 
 from apolo import paths
@@ -44,6 +44,13 @@ class Pasos:
         self.ficha = ficha
         self.falla_generar = 0
         self.render = "navegador"
+        self.calidades = 0  # la puerta de publicación (paso «calidad»), aparte de `llamadas`
+        self.bloque = None
+
+    def calidad(self, e: Encargo) -> dict:
+        self.calidades += 1
+        self.bloque = calidad_aprobada(e.carpeta)  # lo que deja la puerta aprobada
+        return {"aprobado": True}
 
     def guion(self, e: Encargo) -> dict:
         self.llamadas.append("guion")
@@ -59,7 +66,8 @@ class Pasos:
             e.eco("video: 10/100 fotogramas")
             raise fabrica.PublicacionError("El video no salió: se cortó la luz")
         f = {"formato": 1, "titulo": "Mesa de taller", "slug": SLUG, "version": VERSION,
-             "descripcion": "Una mesa.", "nivel": "gratis", "precio_usd": 0}
+             "descripcion": "Una mesa.", "nivel": "gratis", "precio_usd": 0,
+             "calidad": self.bloque or calidad_aprobada(e.carpeta)}
         (e.carpeta / "ficha.json").write_text(json.dumps(f), encoding="utf-8")
         (e.carpeta / "miniatura.png").write_bytes(b"\x89PNG" + b"m" * 50)
         (e.carpeta / "video.mp4").write_bytes(b"v" * 300)
@@ -69,7 +77,7 @@ class Pasos:
         return {"render": self.render, "pedido": e.render}
 
     def dict(self) -> dict:
-        return {"guion": self.guion, "generar": self.generar}
+        return {"guion": self.guion, "calidad": self.calidad, "generar": self.generar}
 
 
 def _encargo(tmp_path, tienda_url: str, **kw) -> Encargo:
@@ -91,7 +99,7 @@ def test_cadena_completa_publica_y_deja_estado(tmp_path, falsa):
     assert p.llamadas == ["guion", "generar"] and falsa.estado == "publicada"
     guardado = _estado(e)
     assert guardado == estado and fabrica.terminada(guardado)
-    assert [guardado["pasos"][x]["estado"] for x in fabrica.PASOS] == ["hecho"] * 4
+    assert [guardado["pasos"][x]["estado"] for x in fabrica.PASOS] == ["hecho"] * 5
     assert guardado["pasos"]["tienda"]["datos"] == {"url": f"{falsa.url}/maquinas/{SLUG}",
                                                     "publicada": True}
     assert "guion escrito" in guardado["pasos"]["guion"]["salida"]
@@ -214,7 +222,8 @@ def test_candado_ocupado_para_la_fabrica_sin_esperar(tmp_path, falsa, monkeypatc
     monkeypatch.setattr(flujo, "generar", lambda *a, **k: llamado.append(1))
     e = _encargo(tmp_path, falsa.url, candado=candado, sin_esperar=True)
     with pytest.raises(FabricaError, match="(?s)otra fábrica está grabando.*faja 1.0.0"):
-        fabrica.fabricar(e, pasos={"guion": Pasos().guion})
+        p = Pasos()
+        fabrica.fabricar(e, pasos={"guion": p.guion, "calidad": p.calidad})
     assert llamado == [] and _estado(e)["pasos"]["generar"]["estado"] == "fallo"
     assert json.loads(candado.read_text(encoding="utf-8"))["ficha"] == "ajena"  # no lo tocó
 

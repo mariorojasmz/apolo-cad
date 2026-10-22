@@ -20,10 +20,9 @@ from mcp.server.fastmcp import Image
 
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
-from apolo.tools import cirugia, cosim, destino, entregable, estructura, fastmcp_limpio
+from apolo.tools import calidad, cirugia, cosim, destino, entregable, estructura, fastmcp_limpio
 from apolo.tools import mcp_electrico, simulacion
-from apolo.tools.recibo import job_receipt as _job_receipt
-from apolo.tools.recibo import job_result as _job_result
+from apolo.tools.recibo import job_receipt as _job_receipt, job_result as _job_result
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
 
@@ -1367,6 +1366,7 @@ simulacion.registrar(mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _submit
 cosim.registrar(mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _submit_and_wait(*a, **k))
 estructura.registrar(mcp, lambda *a, **k: _api(*a, **k))  # declare_structure (uniones-en-lote D3)
 cirugia.registrar(mcp, lambda *a, **k: _mutacion(*a, **k))  # remove_commands (cirugia-liviana)
+calidad.registrar(mcp, lambda *a, **k: _submit_and_wait(*a, **k))  # puerta de publicación (F1)
 
 
 def main() -> None:

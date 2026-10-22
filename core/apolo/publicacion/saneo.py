@@ -30,7 +30,7 @@ import zipfile
 MANIFEST_PUBLICO = (
     "app", "version", "name", "units", "hidden", "seq", "configurations",
     "configurations_format", "colors", "materials", "sketch_guides", "vertical", "motion",
-    "requirements", "fea", "stackups", "escenarios",
+    "requirements", "fea", "stackups", "escenarios", "tensores", "funciones",
 )
 #: Requisitos que son precios, no ingeniería (D11).
 REQUISITOS_PRIVADOS = ("tipo_cambio", "moneda")

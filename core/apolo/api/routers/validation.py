@@ -1,5 +1,5 @@
-"""Rutas de validación: chequeos, aserciones `verify`, puerta de entrega, requisitos, stack-up y
-los tensores declarados (metadato de la puerta de publicación).
+"""Rutas de validación: chequeos, aserciones `verify`, puerta de entrega, puerta de publicación,
+requisitos, stack-up y los tensores declarados (metadato de la puerta de publicación).
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
 `main.py`. El dominio (aserciones, insumos de la puerta, reglas de ingeniería, evaluación de
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from apolo.doc import DocumentError
@@ -32,7 +32,14 @@ from apolo.services.interferencias import como_acotar
 from apolo.services.stackup_eval import evaluate_stackups
 from apolo.state import STATE_LOCK
 
-from ..common import _autosave, _expand_ids, _verificar_documento
+from ..common import (
+    PHYSICS_LOCK,
+    _autosave,
+    _expand_ids,
+    _job_cosim,
+    _mismo_proyecto,
+    _verificar_documento,
+)
 from ..session import S
 from ..sims import StabilityIn, _stability
 
@@ -196,6 +203,77 @@ def delivery_check_endpoint(body: DeliveryIn) -> dict:
     return out
 
 
+@router.post("/api/puerta-publicacion", response_model=dict)
+def puerta_publicacion(async_: bool = Query(False, alias="async")):
+    """PUERTA DE PUBLICACIÓN (plan puerta-de-publicacion, F1): el registro de ítems de calidad
+    (`library/calidad/registro.py`) sobre el documento activo → {aprobado, items, por_familia,
+    conteos, mantenimiento, firma, version_registro, tiempos_s}. Read-only. Corre la gravedad (sin
+    MuJoCo o si falla: SIN_EVALUAR, nunca la caída silenciosa) y simula la marcha del video; las
+    dos FUERA de `STATE_LOCK` con `PHYSICS_LOCK` (dos locks). Tarda: con `?async=true` va como JOB
+    a `COSIM_JOBS` (la cola de las simulaciones largas) y vuelve el recibo."""
+    return _job_cosim("puerta_publicacion", _puerta_publicacion, async_)
+
+
+def _gravedad_obligatoria() -> dict:
+    """La gravedad de la puerta (dos locks propios, `_stability`, sujeción DECLARADA). Si no corre,
+    `resultado` None y el porqué: el ítem sale SIN_EVALUAR."""
+    try:
+        res = _stability(StabilityIn(with_autodetect=False))
+    except HTTPException as exc:
+        return {"resultado": None, "motivo": str(exc.detail)}
+    except Exception as exc:  # noqa: BLE001 — sin MuJoCo (ImportError) u otro fallo del motor
+        return {"resultado": None, "motivo": f"{type(exc).__name__}: {exc}"}
+    return {"resultado": {k: res.get(k) for k in ("fell", "estables", "settled", "n_grounded")},
+            "motivo": ""}
+
+
+def _misma_firma(firma: str) -> None:
+    """Bajo STATE_LOCK: la puerta evalúa UN modelo; si cambió mientras corría la gravedad o la
+    marcha, 409 (el veredicto mezclaría dos modelos)."""
+    from apolo.services.puerta_publicacion import firma as firma_de
+
+    if firma_de(S.doc) != firma:
+        raise HTTPException(status_code=409, detail=(
+            "El modelo cambió mientras corría la puerta de publicación: no doy un veredicto que "
+            "mezcle dos modelos. Vuelve a correrla cuando termines de editar."))
+
+
+def _puerta_publicacion(proyecto) -> dict:
+    from apolo.library.calidad.registro import evaluar
+    from apolo.services import marcha_ejemplo as me
+    from apolo.services import puerta_publicacion as pp
+
+    t0 = time.perf_counter()
+    tiempos: dict = {}
+    with STATE_LOCK:
+        _mismo_proyecto(proyecto)
+        firma = pp.firma(S.doc)
+    gravedad = _gravedad_obligatoria()  # (a) STATE_LOCK extrae, (b) PHYSICS_LOCK simula
+    tiempos["gravedad"] = round(time.perf_counter() - t0, 2)
+    with STATE_LOCK:
+        _mismo_proyecto(proyecto)
+        _misma_firma(firma)
+        insumos = pp.reunir(S.doc, expand=_expand_ids, gravedad=gravedad, tiempos=tiempos)
+        t = time.perf_counter()
+        animadas = insumos["hechos"]["elementos"].get("sustitutos_animados")
+        prep = (pp.preparar_marcha(S.doc) if animadas else
+                {"resultado": "sin_marcha", "detalle": "nada se dibuja en lugar de su sólido"})
+    res = error = None
+    if "snap" in prep:
+        try:
+            with PHYSICS_LOCK:
+                res = me.simular_prueba(prep["snap"])
+        except me.SinMarcha as exc:
+            error = str(exc)
+    insumos["marcha"] = pp.concluir_marcha(prep, res, error, desde=t)
+    tiempos["marcha"] = round(time.perf_counter() - t, 2)
+    with STATE_LOCK:
+        _mismo_proyecto(proyecto)
+        _misma_firma(firma)
+    tiempos["total"] = round(time.perf_counter() - t0, 2)
+    return evaluar(insumos)
+
+
 class RequirementsIn(BaseModel):
     fields: dict = {}
 
@@ -244,6 +322,37 @@ def put_tensores(body: TensoresIn) -> dict:
             raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
         _autosave()
         return {"ok": True, "tensores": tensores}
+
+
+class FuncionesIn(BaseModel):
+    funciones: list = []
+
+
+@router.get("/api/funciones")
+def get_funciones() -> dict:
+    """La solución DECLARADA por función (plan puerta-de-publicacion D15): [{funcion, solucion,
+    descartadas: [{solucion, motivo}], piezas}]. La puerta de publicación exige una por cada
+    familia de función que la máquina tiene."""
+    from apolo.library.calidad.funciones import FAMILIAS_FUNCION
+
+    with STATE_LOCK:
+        return {"funciones": S.doc.funciones, "familias": FAMILIAS_FUNCION}
+
+
+@router.put("/api/funciones")
+def put_funciones(body: FuncionesIn) -> dict:
+    """Reemplaza las funciones declaradas (metadato: no entra al log ni al undo)."""
+    from apolo.services.errors import ServiceError
+    from apolo.services.puerta_publicacion import poner_funciones
+
+    with STATE_LOCK:
+        _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
+        try:
+            funciones = poner_funciones(S.doc, body.funciones)
+        except ServiceError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        _autosave()
+        return {"ok": True, "funciones": funciones}
 
 
 class StackupIn(BaseModel):

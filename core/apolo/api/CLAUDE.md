@@ -23,7 +23,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `render` | `render.png` y `pick` (misma cámara) |
 | `projects` | proyectos, revisiones, importar/exportar (STEP, STL, `.apolo`) |
 | `deliverables` | catálogo, BOM y costeo, lista de corte, nesting, memoria de cálculo, cotización, manual |
-| `validation` | `/api/checks`, `verify`, puerta de entrega, requisitos, stack-up |
+| `validation` | `/api/checks`, `verify`, puerta de entrega y de publicación, requisitos, stack-up, tensores y funciones declarados |
 | `motion` | cinemática, juntas, estudios de movimiento y su GIF, URDF/SDF |
 | `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica y la serie de la marcha |
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
@@ -123,6 +123,10 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   esperando a las mutaciones; `GET /api/jobs/{id}` mira las dos. Su closure toma sus locks (snapshot
   bajo `STATE_LOCK`, worker fuera) y guarda el resultado sólo si `S.doc` sigue siendo el del
   snapshot. [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D11)
+- `POST /api/puerta-publicacion` (`?async=true`) también va en `COSIM_JOBS`: gravedad y marcha
+  bajo `PHYSICS_LOCK`, insumos bajo `STATE_LOCK` (`services/puerta_publicacion.py`), y 409 si la
+  firma del modelo cambia entre las tomas: un veredicto no mezcla dos modelos.
+  [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F1)
 - Los entregables en archivo que tardan (memoria, manual, juego de planos, plano por intención)
   van en `ENTREGABLES_JOBS`
   (`_job_entregable`, `?async=true`), tampoco en `JOBS`: un job guarda JSON, así que el PDF queda

@@ -205,12 +205,15 @@ def _info(ruta: Path, nombre: str, **extra) -> dict:
 def ficha_json(ficha: dict, *, staging: Path, zips: dict[str, Path], video: Path,
                miniatura: Path, duracion_s: float, capitulos: list[tuple[int, str]],
                musica: dict | None, calidad_: dict, cifras: list[dict],
-               vista_3d: dict | None = None, youtube: dict | None = None) -> dict:
+               vista_3d: dict | None = None, youtube: dict | None = None,
+               puerta: dict | None = None) -> dict:
     """Lo público de la publicación, con cada archivo y su sha256 (también los de los zips).
     `vista_3d` (plan vista-3d-tienda F3): {glb, html} (rutas), `triangulos` y `etiquetas`; el
     póster es la miniatura. Sin ella, la ficha no tiene la sección. `youtube`
     (fabrica-de-publicaciones F2): {titulo, descripcion, etiquetas} ya validado con los límites
-    de la tienda (`textos.datos_youtube`), el que la cola de YouTube sube tal cual."""
+    de la tienda (`textos.datos_youtube`), el que la cola de YouTube sube tal cual. `puerta`
+    (puerta-de-publicacion D8): el bloque `calidad` {aprobado, forzado, conteos,
+    version_registro, firma}; sin él la tienda no la recibe (`calidad.exigir_subible`)."""
     archivos = []
     for nivel, ruta in zips.items():
         carpeta = staging / nivel
@@ -232,6 +235,8 @@ def ficha_json(ficha: dict, *, staging: Path, zips: dict[str, Path], video: Path
                                              "precio_usd", "licencias", "etiquetas", "url_tienda")}
     if youtube:
         extra["youtube"] = {k: youtube[k] for k in ("titulo", "descripcion", "etiquetas")}
+    if puerta is not None:  # la puerta de publicación (`calidad.bloque_ficha`, D8)
+        extra["calidad"] = puerta
     return {
         "formato": FORMATO,
         **publica,
