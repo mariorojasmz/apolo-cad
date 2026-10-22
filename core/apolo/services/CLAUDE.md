@@ -228,6 +228,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md) (F1b)
 - La `marcha` del guion (opcional) cuenta en `duracion_total` y en los capítulos, pero sólo la
   graba el navegador: todo render que no la anime usa `sin_marcha(g)`.
+- La marcha de EJEMPLO de un transportador (`marcha_ejemplo.py`, la que arma la fábrica) sale de
+  la detección de la dinámica (`detectar_bandas`, `superficie_banda`), nunca de otra; `probar` la
+  simula y exige que una caja avance. [fabrica-de-publicaciones](../../../docs/plans/fabrica-de-publicaciones.md) (ajuste D10)
 - `linea_tiempo.py` (tiempos y efectos del video) y `plan_navegador.py` (el plan cuadro por
   cuadro que el visor sólo dibuja) viven aquí y no en `publicacion/`: el backend no importa la
   publicación (`test_capas_publicacion.py`) y la API arma el plan del botón «Grabar video». Una

@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); T entregada (PED-125); F2 implementada con tests y los briefs escritos en apolo-fabrica (falta que Mario los revise y los commitee allá, y verla con una ficha escrita por un modelador real en F4); F3 implementada con tests (la fábrica, el subidor de la cola y su tarea diaria; falta correrlos de verdad contra la tienda y YouTube, lo que hace F4); faltan F0 y F4
+nota: aprobado por Mario (2026-10-21) con la cola de YouTube en la tienda (D5); F1 implementada con tests (falta su verificación real — Mario autoriza el canal «Apolo CAD» en el navegador y sube un video privado — y, tras ella, pedir la auditoría, D11); T entregada (PED-125); F2 implementada con tests y los briefs escritos en apolo-fabrica (falta que Mario los revise y los commitee allá, y verla con una ficha escrita por un modelador real en F4); F3 implementada con tests (la fábrica, el subidor de la cola y su tarea diaria; falta correrlos de verdad contra la tienda y YouTube, lo que hace F4); ajuste D10 (la máquina andando con producto en el video de la fábrica) implementado con tests, falta verlo en un video real; faltan F0 y F4
 descripcion: Mario pide «crea estas máquinas» y Apolo entrega cada una modelada, revisada, con su video en YouTube y publicada en apolocad.com, sin pasos a mano
 ---
 
@@ -413,3 +413,50 @@ $env:APOLO_TIENDA_LLAVE = 'apolo_pub_...'
   `test_construccion`, `test_publicacion_paquete`, `test_video_navegador`,
   `test_publicacion_ficha_auto`, `test_media_composicion` y `test_publicar_youtube` (sólo el
   título de un capítulo de ejemplo). Sin goldens tocados.
+/^>>>>>>> 78aa9c2/d
+### Ajuste D10 — la máquina andando con producto (2026-10-21, implementado con tests)
+
+Mario: «una faja moviéndose sin cajas no parece que se mueva». La fábrica ya no graba la marcha
+sólo cuando alguien pasa `--marcha`: con `--render navegador` la decide sola.
+
+- **Qué marcha** (`publicacion/marcha.py`): `marcha.json` de la carpeta de la versión o, si no,
+  de la del slug (el escenario de `simulate` tal cual, `{"escenario", "duracion_s"}`, o `false`
+  = sin marcha); si no hay archivo, la AUTOMÁTICA de un transportador
+  (`services/marcha_ejemplo.py`). Antes de ponerla en el guion la simula en proceso sobre la
+  copia del documento (prepare + simulate de la dinámica, lo mismo que el navegador pide a la
+  API al grabar); si falla o, en la automática, ninguna caja avanza 200 mm, el video sale sin
+  marcha y lo avisa. Nunca para la fábrica. `--sin-marcha` la apaga; con `--render vtk` no se
+  arma (VTK no la anima).
+- **La automática** reutiliza la detección de la dinámica: la banda de `create_belt_conveyor`
+  (`detectar_bandas`, con su junta virtual) y la hecha a mano con rol «Banda» si hay UNA junta
+  de giro «motriz» (o una sola de giro), declarada en `bandas`; el tramo superior sale de
+  `superficie_banda`. Sentido: de la cola al tambor motriz. Producto: `largo/ancho/alto_paquete_mm`
+  y dos claves nuevas de los requisitos, `peso_paquete_kg` (UNA caja: `carga_kg` es la carga de
+  diseño, no se usa) y `paquetes_por_minuto`; lo que falte, caja de 300 × 300 × 200 mm y 5 kg, y
+  0,3 m/s sin `velocidad_m_s` (avisado como «asumido»). El ancho se recorta al 90 % de la banda.
+  Cajas repartidas sobre el 55 % de la banda desde el primer cuadro (el movimiento se lee de
+  entrada) + alimentación en serie por la cola, al paso que deja ~4,5 cajas a la vista (≤ 1,5 m).
+- **Cuánto dura**: la parte del video = lo que tarda la caja más adelantada en caer por la
+  descarga + 2 s, entre 8 y 20 s (crece con el largo, baja con la velocidad); la simulación dura
+  además lo que el video sigue en 3D (cifras + órbita del guion: la marcha sigue andando), ≤ 60 s.
+- **El guion**: si la fábrica lo escribe, `flujo.guion` recibe la marcha como función del
+  documento y la descuenta de la duración objetivo; si el modelador ya lo dejó sin marcha, la
+  fábrica abre el proyecto, la elige y la SUMA a `guion.json` (el video crece esos segundos). Un
+  guion con marcha o de diseño no se toca. `estado.json` anota `marcha_s` y el reporte dice «N s
+  andando» o «sin la máquina andando».
+- **Medido** (laptop, en proceso sobre copias de la base): proyecto 73 (banda a mano, `j_eje_motriz`
+  a 0,35 m/s, cajas 600 × 400 de los requisitos) → 8 s de marcha, 22 s simulados en ~7–10 s, 11
+  cajas; proyecto 32 (dos `create_belt_conveyor`, sin requisitos) → 20 s, 34 s simulados en ~10 s.
+  Cuadros con el GIF de la dinámica (VTK): las cajas viajan sobre la banda y caen por la cabeza.
+  Sin marcha y avisados: 38 (banda a mano sin junta de giro) y los de rodillos 74/79/80
+  (`create_roller_conveyor` no declara juntas: nada gira). **Pendiente**: la marcha automática de
+  un transportador de rodillos pide juntas en sus rodillos (o que la dinámica las derive de la
+  plantilla, como la junta virtual de la faja): es un cambio de `physics/`, fuera de este ajuste.
+- Brief del modelador (repo privado): declarar el producto de ejemplo en los requisitos al cerrar y,
+  si la máquina no es un transportador, escribir `marcha.json` probado con `simulate`.
+- Tests: `tests/test_fabrica_marcha.py` (automática real sobre una `create_belt_conveyor`, con y
+  sin requisitos, recorte de ancho, duración por largo y velocidad, sin banda, banda a mano sin
+  junta, simulación que no avanza; `marcha.json` de la versión y del slug, `false`, roto; falla de
+  armar o de simular; el paso guion con guion nuevo, existente, con marcha, de diseño, vtk y
+  `--sin-marcha`; reporte).
+- Sin verificar: el video real en el navegador con la marcha automática (lo verá F4).
