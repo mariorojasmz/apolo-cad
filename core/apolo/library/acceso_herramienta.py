@@ -11,6 +11,8 @@ y se cruza con los vecinos:
 - **boca**: la cabeza abierta + el arranque del mango, barriendo ±15°, en alguna de las 6
   direcciones de las caras (cada 60°);
 - **Allen** (cabeza con hueco): el brazo corto de la L, coaxial.
+- **remachadora** (remache ciego de catálogo, `herramienta: remachadora`; no tiene hexágono):
+  nariz y cabezal coaxiales desde la cabeza (plan union-en-perfil-hueco).
 
 D2: basta UNA herramienta libre; libre = no corta (> 1 mm³) nada salvo el propio fijador, lo
 que pasa por su agujero (su perno o su eje) y lo que queda del lado del asiento (todo fantasma
@@ -35,8 +37,8 @@ from dataclasses import dataclass
 
 from .checks import MIN_VOLUME_MM3, _bboxes_overlap
 from .fantasmas_herramienta import Fantasmas, marco
-from .fijadores_geom import FijadorGeom, reconocer_fijadores
-from .herramientas import LARGO_LIBRE_COPA_MM, brazo_allen, llave_para
+from .fijadores_geom import FijadorGeom, reconocer_fijadores, reconocer_remache
+from .herramientas import LARGO_LIBRE_COPA_MM, REMACHADORA, brazo_allen, llave_para
 
 HOLGURA_ASIENTO_MM = 1.0  # los fantasmas arrancan a 1 mm de la cara de asiento
 _CATS_LLAVE = {"tuercas", "pernos", "tornilleria"}  # se aprietan con llave (no tirafondos)
@@ -51,8 +53,9 @@ class _Solido:
 
 
 def es_tornilleria_de_llave(feat, catalog) -> bool:
-    """Tornillería que se aprieta con LLAVE: catálogo (tuercas/pernos/tornillería) o a medida
-    por nombre (misma convención `_is_bolt` de los lints). Los tirafondos no."""
+    """Tornillería que se aprieta con LLAVE (o se coloca con remachadora): catálogo
+    (tuercas/pernos/tornillería) o a medida por nombre (misma convención `_is_bolt` de los
+    lints). Los tirafondos avellanados no; el de cabeza hexagonal DIN 571 sí (`llave: true`)."""
     from .lints import _BOLT_NAME_RE
 
     comp = catalog.get(getattr(feat, "component", None) or "") if catalog else None
@@ -60,8 +63,13 @@ def es_tornilleria_de_llave(feat, catalog) -> bool:
         if comp.category in _CATS_LLAVE:
             return True
         if comp.category == "tornilleria_madera":
-            return False
+            return bool((comp.specs or {}).get("llave"))
     return bool(_BOLT_NAME_RE.search(getattr(feat, "name", "") or ""))
+
+
+def _es_remache(feat, catalog) -> bool:
+    comp = catalog.get(getattr(feat, "component", None) or "") if catalog else None
+    return comp is not None and (comp.specs or {}).get("herramienta") == "remachadora"
 
 
 def _choque(ghost, mrc, vecinos: list[_Solido]) -> _Solido | None:
@@ -102,6 +110,13 @@ def _evaluar(fj: FijadorGeom, vecinos: list[_Solido], fx: Fantasmas) -> dict:
             bloquean.append(o)
         return o is None
 
+    if fj.tipo == "remache":  # la nariz y el cabezal de la remachadora, coaxiales a la cabeza
+        r = REMACHADORA
+        mrc = marco(fj.base, fj.eje, x_dir)
+        ok = (libre(fx.cilindro(r.nariz_d / 2.0, eps, r.nariz_largo), mrc)
+              and libre(fx.cilindro(r.cabezal_d / 2.0, r.nariz_largo, r.largo), mrc))
+        return {"estado": "ok" if ok else "sin_herramienta",
+                "herramienta": "remachadora" if ok else None, "bloquean": bloquean}
     if fj.tipo == "allen":
         largo = brazo_allen(fj.s)
         if largo is None:
@@ -157,6 +172,8 @@ def _evaluar(fj: FijadorGeom, vecinos: list[_Solido], fx: Fantasmas) -> dict:
 
 def _alcance(fj: FijadorGeom) -> float:
     """Radio de influencia: hasta dónde puede llegar un fantasma de este fijador."""
+    if fj.tipo == "remache":
+        return REMACHADORA.largo + REMACHADORA.cabezal_d + 2.0
     ll = llave_para(fj.s)
     if ll is None:
         return (brazo_allen(fj.s) or 0.0) + fj.s + 2.0
@@ -211,6 +228,8 @@ def tool_access_report(scene: dict, *, catalog=None) -> dict | None:
         if propio.fid not in candidatos:
             continue
         fjs = reconocer_fijadores(propio.solid)  # uno por hexágono (perno + tuerca fundidos: 2)
+        if not fjs and _es_remache(scene[propio.fid], catalog):
+            fjs = reconocer_remache(propio.solid)
         if not fjs:
             rep["no_evaluados"].append({"id": propio.fid, "nombre": propio.nombre,
                                         "motivo": "sin hexágono reconocible"})

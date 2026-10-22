@@ -1,0 +1,19 @@
+category: tornilleria_madera
+# Tornillos para madera de cabeza HEXAGONAL DIN 571 («tirafondo hexagonal»), acero zincado. Se
+# aprietan con llave (`llave: true`: entran al chequeo de acceso de herramienta, a diferencia de
+# los tirafondos avellanados de 103_tornilleria_madera.yaml). Los usa join_bolted cuando la base
+# es madera (plan union-en-perfil-hueco D4); s y k son espejo de TIRAFONDOS_HEX en
+# library/fijacion.py. El largo lo fija join_bolted; el peso es el de un tornillo de 50 mm.
+# cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+families:
+  - name_tpl: "Tornillo para madera Ø{d} DIN 571"
+    description_tpl: "Tornillo para madera de cabeza hexagonal Ø{d} (entrecaras {across_flats}) DIN 571, acero zincado; con pretaladro ≈ 0,7·d."
+    builder: hex_wood_screw
+    param_keys: [d, across_flats, head_h]
+    weight_formula: "7.85e-6 * (0.785 * d * d * 50 + 0.866 * across_flats * across_flats * head_h)"
+    specs_common: {tipo: "tornillo para madera cabeza hexagonal", material: "acero zincado", norma: "DIN 571", llave: true}
+    variants:
+      - {ref: "TIRAFONDO-HEX-6", d: 6, across_flats: 10, head_h: 4.0, cost: 0.08}
+      - {ref: "TIRAFONDO-HEX-8", d: 8, across_flats: 13, head_h: 5.5, cost: 0.14}
+      - {ref: "TIRAFONDO-HEX-10", d: 10, across_flats: 17, head_h: 7.0, cost: 0.24}
+      - {ref: "TIRAFONDO-HEX-12", d: 12, across_flats: 19, head_h: 8.0, cost: 0.36}

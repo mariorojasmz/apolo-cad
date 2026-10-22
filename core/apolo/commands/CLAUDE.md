@@ -21,7 +21,8 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   rechaza las que el cliente INTRODUCE (la UI reenvía los params guardados). Los modelos NO fijan
   `extra`: cambiaría el JSON Schema publicado. Quitar o renombrar un campo exige upcaster; un
   campo nuevo entra con un default que reproduce lo anterior (trinquete D12:
-  `tests/test_contrato_comandos.py`).
+  `tests/test_contrato_comandos.py`); si lo NUEVO debe nacer con otro valor, el sello de entrada
+  (`CommandSpec.al_crear`) se lo pone sólo al comando que nace (`join_bolted.criterio`).
 - `models.py` y `registry.py` están congelados por el trinquete de tamaño: un modelo que crece
   sale a su módulo por familia con sus listas de catálogo (`models_rodillos.py`) y `registry.py`
   lo importa de ahí.
@@ -85,14 +86,16 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   copias `{raíz}_{n}` (sin la fuente), `+` y corte `(…)[i:j:k]`; una unión `{name}[k]` por
   instancia, re-expandida en cada regenerate. Dos piezas sueltas = el dict de siempre (un log
   viejo regenera igual). [plan](../../../docs/plans/uniones-en-lote.md)
-- `join_bolted` taladra barrenos de PASO (ISO 273 serie media) en AMBAS piezas EN SITIO, inserta
-  perno HEX DIN 933 + tuerca DIN 934 de catálogo y declara el `fasten` `jb_{cmd_id}`. Contacto
-  AUTO por solape de cajas (`_join_bolted_geometry`, puro: el patrón se recentra si una pieza
-  crece). Exige caras PLANAS ⊥ al eje en contacto y asientos (≥ 50 % de la huella), borde
-  ≥ 1.5·d, paso ≥ 2.5·d, n·m ≤ 100; largo = grip + tuerca 0.8·d + 3 filetes, redondeado a
-  comercial. Pieza rotada/no prismática o separadas → error que pide mates o `snap_to`, nunca
-  pernos flotantes. [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md) ·
-  [V6.5c](../../../docs/plans/V6.5c-fixes-revision.md)
+- `join_bolted` (`exec_union.py`) taladra AMBAS piezas EN SITIO, inserta la fijación de catálogo
+  y declara el `fasten` `jb_{cmd_id}`. Contacto y patrón por solape de cajas (borde ≥ 1.5·d, paso
+  ≥ 2.5·d, n·m ≤ 100, asientos planos ≥ 50 % de la huella). Campo OCULTO `criterio`: 1 (log
+  viejo, sin el campo) = V6.5b/c tal cual (largo por la caja); 2 (todo comando nuevo) = taller
+  (`union_taller.py`: rayo por el eje, base = la más gruesa, perno/remache ciego/tornillo para
+  madera por `library/fijacion.py`). Lo pone el SELLO de entrada (`CommandSpec.al_crear`,
+  `doc/sello.py`), con `madera` = las piezas de madera al crear: el replay y los edits no sellan,
+  por eso no hubo `version` ni epoch. Cambiar el criterio 1 rompe logs guardados.
+  [V6.5b](../../../docs/plans/V6.5b-mcp-accion-con-contrato.md) ·
+  [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md)
 
 ## Super-comandos de máquina
 

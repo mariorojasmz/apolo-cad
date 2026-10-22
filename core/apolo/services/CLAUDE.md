@@ -93,6 +93,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   medida por `_is_bolt`) con las MISMAS exclusiones en diseño y en las poses de REPOSO
   (`delivery_poses`: extremos + dwells); el porqué, en [library](../library/CLAUDE.md).
   [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
+- La tornillería que insertó un `join_bolted` con su fijador declarado no es «sin unión
+  declarada» (`declarada_por_join_bolted`, por el TIPO del comando, no por `jb_*`).
+  [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md) (D5)
 
 ## Escenarios de prueba (`escenarios.py`, `cosim_snapshot.py`)
 

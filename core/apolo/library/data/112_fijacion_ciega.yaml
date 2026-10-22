@@ -1,0 +1,19 @@
+category: tornilleria
+# Remaches ciegos de cabeza plana DIN 7337 forma A / ISO 15983 (cuerpo y mandril de inoxidable
+# A2). Fijación CIEGA: se colocan desde un solo lado, con remachadora. Los usa join_bolted cuando
+# la base no tiene acceso por detrás (perfil cerrado u obstáculo; plan union-en-perfil-hueco D1).
+# dk ≈ 2·d y k ≈ 0,3·d (espejo de REMACHES en library/fijacion.py); taladro d + 0,1. El largo lo
+# fija join_bolted por el agarre real; aquí el peso es el de un remache de 10 mm (REFERENCIAL).
+# cost = USD REFERENCIAL por unidad (mercado aprox.; actualizar con proveedor para cotizar en firme).
+families:
+  - name_tpl: "Remache ciego Ø{d} DIN 7337"
+    description_tpl: "Remache ciego de cabeza plana Ø{d} (cabeza Ø{dk}×{k}) DIN 7337 forma A / ISO 15983, inoxidable A2; se coloca desde un solo lado."
+    builder: blind_rivet
+    param_keys: [d, dk, k]
+    weight_formula: "8.0e-6 * (0.785 * d * d * 10 + 0.785 * dk * dk * k)"
+    specs_common: {tipo: "remache ciego", material: "acero inoxidable A2", norma: "DIN 7337 / ISO 15983", herramienta: remachadora}
+    variants:
+      - {ref: "REMACHE-3.2", d: 3.2, dk: 6.5, k: 1.0, cost: 0.03}
+      - {ref: "REMACHE-4", d: 4.0, dk: 8.0, k: 1.2, cost: 0.04}
+      - {ref: "REMACHE-4.8", d: 4.8, dk: 9.5, k: 1.5, cost: 0.05}
+      - {ref: "REMACHE-6.4", d: 6.4, dk: 13.0, k: 1.9, cost: 0.09}

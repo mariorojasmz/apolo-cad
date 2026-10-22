@@ -38,7 +38,7 @@ from types import SimpleNamespace
 from apolo.kernel.render import PALETTE
 from apolo.kernel.render_comun import OPACIDAD_VIDRIO
 
-from .materials import piece_role, resolve_material
+from .materials import piece_role, resolve_material_vertical
 
 #: Tipos de relieve procedural que sabe dibujar el visor (`ui/src/viewport/relieve.ts`).
 TIPOS_RELIEVE = ("pintura", "cepillado", "moteado", "fundicion", "veta", "tejido")
@@ -225,19 +225,15 @@ def acabado_pieza(feat, *, catalog: dict | None = None, default_material: str = 
     """Acabado de una feature: material resuelto (override → catálogo → nombre → vertical) +
     rol + categoría de catálogo.
 
-    Guarda propia de la apariencia: la palabra de carpintería en el nombre («Larguero (+Y)»,
+    Guarda del vertical (`materials.resolve_material_vertical`): la palabra de carpintería en el nombre («Larguero (+Y)»,
     «Marco», «Tablero») sólo pinta MADERA si el vertical es de madera. En una máquina de acero
     esos roles son acero y la heurística de `resolve_material` los volvería de madera a la vista
     (la BOM la arrastra igual: backlog de `materials.py`). Un override o el catálogo mandan."""
     if catalog is None:
         from .catalog import CATALOG as catalog
-    material = resolve_material(feat, catalog, default_material)
+    material = resolve_material_vertical(feat, catalog, default_material)
     componente = getattr(feat, "component", None)
     comp = catalog.get(componente) if componente else None
-    specs = getattr(comp, "specs", None) or {}
-    if (material == "madera" and default_material != "madera"
-            and not getattr(feat, "material", None) and not specs.get("material")):
-        material = default_material
     return acabado_de(material, getattr(feat, "name", "") or "", componente=componente,
                       categoria=getattr(comp, "category", None))
 

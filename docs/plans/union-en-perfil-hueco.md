@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: contrato escrito el 2026-10-21 (hito J de docs/hitos.md) con lo que halló varias-maquinas F4; nada implementado
+nota: F1 implementada en rama (worktree-agent-a08e7f92f652a36bd), sin mergear; falta F2 (verificación por MCP en las tres máquinas)
 descripcion: Atornillar una pieza a un tubo cerrado, a una C de chapa o a madera da una unión que se puede montar: la fijación correcta, el largo por el espesor real y la tuerca del lado que se alcanza
 ---
 
@@ -75,3 +75,55 @@ Supone dos chapas macizas que se alcanzan por los dos lados:
   con la `version` nueva del executor, o con un param que el log viejo no tiene; el test lo cubre.
 
 ## Bitácora
+
+### F1 — criterio de taller en `join_bolted` (2026-10-21)
+
+- **Cómo regenera un log viejo** (Riesgos): campo OCULTO `criterio` (fuera del JSON Schema; ni
+  la UI ni el agente lo eligen). Sin él → 1 = V6.5b/c tal cual (`exec_union._criterio_1`). Todo
+  comando NUEVO nace con 2 por un **sello de entrada** (`CommandSpec.al_crear`, llamado desde
+  `Document._append_record` vía `doc/sello.py`); el replay y los edits no sellan. Así el log viejo
+  conserva params, firma y geometría: **sin `version` nueva ni bump de `GEOM_CACHE_EPOCH`**
+  (sólo la huella D11). Medido: el mismo log (tubo + placa y C + placa, M6) regenerado con el
+  código de `main` y con el de la rama da el MISMO volcado (nombres, refs, volúmenes, cajas y
+  fijadores): `Perno M6×65` por la caja en los dos casos, como lo vio F4. Los YAML nuevos sólo
+  agregan refs: ninguna geometría cacheada cambia.
+- **D1** (`union_taller.py` + `kernel/rayo.py`): por cada punto del patrón, una varilla de
+  0,1 mm intersecada con cada pieza da los tramos de material. Base = la más gruesa en el eje
+  (empate → `a`). Perfil cerrado = el rayo vuelve a entrar en la base; obstáculo = otra pieza a
+  menos de tuerca + 3 filetes + 15 mm (el largo libre de la copa) detrás de la pared. Ciega =
+  remache DIN 7337 / ISO 15983 (`112_fijacion_ciega.yaml`, M6→Ø4.8, M8→Ø6.4), taladro sólo de la
+  pared cercana. Tubo HSS 2″×2″×3,2 + placa: `Remache ciego Ø4.8×10` (antes M6×65 por las dos
+  paredes).
+- **D2/D3**: agarre = espesor de la pieza agregada + el de la pared que toca; L ≥ agarre + m +
+  2·paso. C de 3 mm + placa de 1,5: **M6×12** (antes M6×65), cabeza bajo la placa, tuerca contra
+  la cara interior del alma, con la placa a cualquier lado (`a`/`b` en los dos órdenes).
+- **D4**: `madera` (oculto) = las piezas que eran de madera al crear la unión (override →
+  catálogo → nombre con la guarda del vertical: `materials.resolve_material_vertical`, ahora
+  también de la apariencia). Base de madera → DIN 571 (`113_tirafondos_hex.yaml`), sin tuerca,
+  pretaladro ≈ 0,7·d; tablero de 18 + placa de 1,5: `Tornillo Ø6×16` (penetración 14,5 ≥ 2/3·16 y
+  la punta a 3,5 mm de la cara de atrás). Entre los largos válidos, el más corto con ≥ 6·d dentro
+  o, si la madera no da, el más largo.
+- **D5** (`services/delivery_inputs.declarada_por_join_bolted`): la tornillería de un
+  `join_bolted` con su fijador declarado no entra a «tornillería sin unión declarada»; un perno
+  suelto sí sigue avisando.
+- **D6** (`batch.py`): `check_refs` revisa los `$k` antes de tocar el documento; `$0` → «los
+  resultados se numeran desde $1 (el primer comando del lote)», fuera de rango → el total del
+  lote. El mensaje viejo decía «este lote tiene N» con N = las acciones ya procesadas (0 en la
+  primera). `mcp_server.py` no se tocó.
+- **Acceso de herramienta ok en las tres**: el DIN 571 (`llave: true`) entra como tornillería de
+  llave; el remache (sin hexágono) se reconoce por su cilindro mayor y se le cruza la remachadora
+  (nariz Ø16 × 25 + cabezal Ø32 hasta 120 mm, criterio de diseño en `herramientas.py`).
+- **Tiempos** (mediana de 3, patrón 2×2, sólo el `execute`): tubo 179 → 272 ms, C 176 → 314 ms,
+  madera 124 → 325 ms (criterio 1 → 2): los rayos y los asientos reales cuestan ~0,1–0,2 s.
+- **Decisiones fuera de la letra**: (1) no hay tuerca remachable ni autorroscante: el remache
+  cubre M6–M8 y cualquier agarre ≤ 30 − 0,7·d; M10+ sin acceso por detrás = error que dice qué
+  hacer (una tuerca remachable necesita avellanar la placa, y un autorroscante ISO 7049 no pasa de
+  Ø6,3). (2) La fijación ciega y el tornillo para madera declaran el fijador `perno` con `size`
+  None y `fijacion` = su nombre: el chequeo de pernos M no les calcula una capacidad que no
+  tienen. (3) El material se lee al CREAR la unión: cambiarlo después no la cambia (hay que
+  recrearla); `preview` pasa `vertical` y `scene` al clon para sellar igual. (4) Madera agregada
+  sobre una base sin acceso → error (un remache no sujeta madera).
+- **Tests**: `tests/test_union_en_perfil_hueco.py` (18): uno o más por D sobre tubo HSS, C de
+  3 mm, tablero y placa de 1,5; la puerta sin aviso y el acceso de herramienta ok en las tres; el
+  log viejo byte a byte y su edit sin sellar; criterio fuera del schema; la vista previa. Los
+  conteos de catálogo pasan de 362 a 370 refs. Suite completa verde.

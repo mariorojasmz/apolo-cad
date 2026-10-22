@@ -10,7 +10,7 @@ def test_categorias_presentes_y_cuentan():
     assert len(refs_in_category("bisagras")) == 14  # 4 pala + 2 piano + 2 cazoleta + 4 split + 2 resorte
     assert len(refs_in_category("tiradores")) == 7  # 4 barras + 3 pomos
     assert len(refs_in_category("correderas")) == 2
-    assert len(refs_in_category("tornilleria_madera")) == 4
+    assert len(refs_in_category("tornilleria_madera")) == 8  # 4 avellanados + 4 DIN 571 hex
     assert len(refs_in_category("cerraduras")) == 2
     assert len(refs_in_category("imanes_topes")) == 2
 

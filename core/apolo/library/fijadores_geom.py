@@ -28,7 +28,8 @@ Vec = tuple[float, float, float]
 class FijadorGeom:
     """Fijador reconocido. Coordenadas MUNDO (mm).
 
-    - `tipo`: "tuerca" | "cabeza_hex" | "allen".
+    - `tipo`: "tuerca" | "cabeza_hex" | "allen" | "remache" (`reconocer_remache`: `s` = Ø de
+      la cabeza, `base` = su cara exterior).
     - `base`: punto del eje en la cara de ASIENTO (t = 0). En la tuerca, una de sus dos caras
       (el asiento real lo decide el chequeo con los vecinos: `lado_conocido=False`). En el Allen,
       la cara SUPERIOR de la cabeza (por donde entra la llave).
@@ -244,6 +245,46 @@ def reconocer_fijadores(solid) -> list[FijadorGeom]:
         else:
             out.append(FijadorGeom("tuerca", punto(t0), eje, t1 - t0, s, planas, lado_conocido=False))
     return out
+
+
+def reconocer_remache(solid) -> list[FijadorGeom]:
+    """Un remache (sin hexágono: se coloca con remachadora, plan union-en-perfil-hueco D1): el
+    eje es el de su cilindro de MAYOR radio (la cabeza) y la cabeza mira hacia el extremo del
+    sólido más cercano a ese cilindro. `base` = cara exterior de la cabeza (por donde apoya la
+    nariz), `s` = Ø de la cabeza. [] si no hay cilindros (geometría rara: no evaluable)."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+
+    try:
+        mejor = None
+        for f in solid.faces():
+            ad = BRepAdaptor_Surface(f.wrapped)
+            if ad.GetType() != GeomAbs_Cylinder:
+                continue
+            cil = ad.Cylinder()
+            if mejor is None or cil.Radius() > mejor[0].Radius() + 1e-6:
+                mejor = (cil, f)
+        if mejor is None:
+            return []
+        cil, cara = mejor
+        loc, dr = cil.Axis().Location(), cil.Axis().Direction()
+        o, eje = (loc.X(), loc.Y(), loc.Z()), _unit((dr.X(), dr.Y(), dr.Z()))
+        t_sol = [_dot(_add((v.X, v.Y, v.Z), o, -1.0), eje) for v in solid.vertices()]
+        t_cab = [_dot(_add((v.X, v.Y, v.Z), o, -1.0), eje) for v in cara.vertices()]
+    except Exception:  # noqa: BLE001 — geometría rara: no evaluable, nunca rompe la puerta
+        return []
+    if not t_sol or not t_cab:
+        return []
+    s0, s1 = min(t_sol), max(t_sol)
+    c = (min(t_cab) + max(t_cab)) / 2.0
+    altura = max(t_cab) - min(t_cab)
+    otro = (1.0, 0.0, 0.0) if abs(eje[0]) < 0.9 else (0.0, 1.0, 0.0)
+    x_dir = _unit(_cross(eje, otro))
+    planas = (x_dir, x_dir, x_dir)
+    if s1 - c <= c - s0:
+        return [FijadorGeom("remache", _add(o, eje, s1), eje, altura, 2.0 * cil.Radius(), planas)]
+    menos = (-eje[0], -eje[1], -eje[2])
+    return [FijadorGeom("remache", _add(o, eje, s0), menos, altura, 2.0 * cil.Radius(), planas)]
 
 
 def reconocer_fijador(solid) -> FijadorGeom | None:

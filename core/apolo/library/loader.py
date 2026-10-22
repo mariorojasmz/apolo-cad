@@ -19,6 +19,7 @@ import yaml
 
 from .acuerdos import validar_acuerdo
 from .builders import BUILDERS as _BUILDERS_BASE
+from .builders_fijacion import BUILDERS as _BUILDERS_FIJACION
 from .builders_mandos import ANCLAS as _ANCLAS_MANDOS
 from .builders_mandos import BUILDERS as _BUILDERS_MANDOS
 from .builders_mandos import ZONADOS
@@ -58,7 +59,7 @@ def merge_anclas(builders: dict, *registros: dict) -> dict:
 
 
 BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION,
-                          _BUILDERS_MANDOS)
+                          _BUILDERS_MANDOS, _BUILDERS_FIJACION)
 ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES, _ANCLAS_MANDOS)
 
 

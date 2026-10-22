@@ -46,6 +46,12 @@ class CommandSpec:
     # Campos de primer nivel que son TEXTO aunque empiecen con «=» (no `=expr`): la designación
     # y las referencias IEC 81346 del carril eléctrico («=Faja1-Q1:2», plan V8.1 D4).
     literales: tuple[str, ...] = ()
+    # Sello de ENTRADA (plan union-en-perfil-hueco): `(params, material_de) -> params` para un
+    # comando NUEVO (no el replay ni un edit). Un campo cuyo default reproduce los logs viejos
+    # entra aquí con el valor de hoy; `material_de(fid)` = el material que el documento le da
+    # hoy a esa pieza (set_material/vertical: el regenerate no ve el manifest). Lo llama
+    # `doc/sello.py`.
+    al_crear: Callable[[dict, Callable[[str], str | None]], dict] | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:

@@ -105,6 +105,13 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Roscas (`threads.py`): `drill_hole.thread` taladra a la broca de machuelado PUBLICADA (M8 →
   Ø6.8; `diameter` se ignora); fit y thread son excluyentes (la rosca interior es 6H fija). Las
   roscas exteriores, fuera de alcance (por nombre, como los fits). [devlog § V5.7](../../../docs/devlog.md)
+- Fijación de taller (`fijacion.py`, puro; la usa `join_bolted` criterio 2): perno DIN 933 con
+  L ≥ agarre + tuerca + 2 pasos; sin acceso por detrás → remache ciego DIN 7337 (M6→Ø4.8,
+  M8→Ø6.4; más grande = error, no hay ciega de catálogo); base de madera → DIN 571 con ≥ 2/3
+  dentro y la punta ≥ 2 mm antes de la cara de atrás. Sus tablas son espejo de
+  `112_fijacion_ciega.yaml`/`113_tirafondos_hex.yaml`. Madera = `materials.es_madera` sobre
+  `resolve_material_vertical` (la guarda del vertical, también de la apariencia).
+  [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md)
 - Pernos (`bolts.py`): broca de paso ISO 273 serie media (M12 → Ø13.5). Par de apriete
   `tightening_torque_nm` = K·d·(0.7·A_s·R_y) con `TORQUE_K` por condición (seco/zincado/lubricado)
   + `wrench_size_mm`. [devlog § E5](../../../docs/devlog.md)
@@ -210,7 +217,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   ser de ella): los fantasmas arrancan a 1 mm del asiento. Ninguna libre = ROJO en la puerta,
   sólo boca = aviso, sin hexágono = no evaluado. Un sólido con VARIOS hexágonos coaxiales (perno
   + tuerca fundidos) son varios fijadores (`reconocer_fijadores`): leídos como uno daban un falso
-  ROJO ([V8.1](../../../docs/plans/V8.1-modelo-electrico.md) F4c, D-c5).
+  ROJO ([V8.1](../../../docs/plans/V8.1-modelo-electrico.md) F4c, D-c5). Sin hexágono: un
+  remache de catálogo (`herramienta: remachadora`) se lee por su cilindro mayor y se le cruza la
+  remachadora coaxial; un DIN 571 (`llave: true`) entra como tornillería de llave.
   [plan](../../../docs/plans/acceso-de-herramienta.md)
 - `MIN_SOLIDOS_SUJECION` también dispara la alarma ambiental `aviso_estructura` de toda mutación
   ([api](../api/CLAUDE.md)). [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)

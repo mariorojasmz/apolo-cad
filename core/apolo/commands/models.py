@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 # la selección de caras/aristas vive en su módulo; se re-exporta con el mismo nombre
 from .models_selectores import EdgeSelector, SlideUV
+from .models_union import JoinBoltedParams  # noqa: F401 — se re-exporta (salió por tamaño)
 
 
 def _floor_to_int(v: Any) -> Any:
@@ -1111,54 +1112,6 @@ class AddConstraintParams(BaseModel):
         default_factory=lambda: Vec3(x=1), title="Dirección (recta) / normal (plano)",
     )
     value: float = Field(0.0, title="Distancia (mm)", description="solo tipo 'distancia'; acepta =expr")
-
-
-class JoinBoltedParams(BaseModel):
-    """Une DOS piezas con un patrón de pernos en UN comando (super-comando, V6.5b): taladra
-    barrenos de PASO alineados en AMBAS piezas + inserta la tornillería DIN 933 de catálogo +
-    declara el fijador `perno` dimensionado. Hace de una sola vez lo que serían 6-10 llamadas
-    coherentes entre sí (el defecto «19 de 24 pernos» nació de ese flujo manual).
-
-    Criterio de ingeniería INTEGRADO: broca de paso ISO 273 serie media (M12→Ø13.5),
-    distancia al borde ≥1.5·d, patrón centrado en la HUELLA de solape (paramétrico: si una
-    pieza crece, el patrón se recentra al regenerar), perno de largo = grip + protrusión
-    redondeado a comercial. Muta las piezas EN SITIO (conserva ids/juntas); los pernos son
-    herraje (fuera de interferencias y lista de corte).
-
-    MONTAJE: la cara de contacto se detecta por el solape de las cajas (v1: caras PLANAS
-    paralelas a un plano principal, en contacto). Se atornilla desde la cara exterior; la
-    tuerca va por el otro lado. Para caras inclinadas/arbitrarias o piezas separadas, usa
-    add_mate + drill_hole/fasten a mano."""
-
-    name: str = Field("Unión atornillada", max_length=40, title="Nombre")
-    a: str = Field(..., title="Pieza A", description="id de feature (se taladra en sitio)")
-    b: str = Field(..., title="Pieza B", description="id de feature (se taladra en sitio)")
-    size: str = Field(
-        "M10", pattern=r"^M\d{1,2}$", title="Métrica del perno",
-        description="M6–M24 (DIN 933); fija la broca de paso, la cabeza y la capacidad",
-    )
-    count: int = Field(
-        2, ge=1, le=100, title="Nº de pernos (fila)",
-        description="pernos en una fila a lo largo del lado más largo de la huella; ignorado si das `patron`",
-    )
-    patron: list[int] | None = Field(
-        None, min_length=2, max_length=2, title="Patrón n×m",
-        description="rejilla [n, m] (n a lo largo del lado más largo, m del corto); reemplaza a count",
-    )
-    spacing: float | None = Field(
-        None, gt=0, title="Paso entre pernos (mm)",
-        description="pitch centro-a-centro; si falta se reparte en la huella respetando el borde",
-    )
-    norma: str = Field("DIN 933", max_length=20, title="Norma del perno")
-
-    @field_validator("patron")
-    @classmethod
-    def _patron_positive(cls, v):
-        if v is not None and (v[0] < 1 or v[1] < 1):
-            raise ValueError("patron debe ser [n, m] con n, m ≥ 1")
-        if v is not None and v[0] * v[1] > 100:  # V6.5c: mismo tope que count (n·m booleanas)
-            raise ValueError(f"patron [{v[0]}, {v[1]}] = {v[0] * v[1]} pernos supera el tope de 100")
-        return v
 
 
 class CreateGroupParams(BaseModel):

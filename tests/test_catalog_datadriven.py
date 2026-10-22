@@ -1,4 +1,4 @@
-﻿"""Catálogo data-driven (V3 bloque #1): loader YAML, familias paramétricas y
+"""Catálogo data-driven (V3 bloque #1): loader YAML, familias paramétricas y
 builders geométricos genéricos. Verifica la migración 1:1 de los 14 componentes
 originales y las 4 familias nuevas sembradas."""
 import math
@@ -92,7 +92,7 @@ def test_family_expands_to_variants():
 
 
 def test_all_new_families_present():
-    assert len(refs_in_category("tornilleria")) == 6
+    assert len(refs_in_category("tornilleria")) == 10  # +4 remaches ciegos (union-en-perfil-hueco)
     assert len(refs_in_category("guias_lineales")) == 10  # 5 rieles + 5 carros
     # 5 poleas dentadas + 3 tensores + 6 poleas en V + 6 cadenas + 38 piñones (cadenas-pinones)
     assert len(refs_in_category("transmision")) == 58
@@ -118,7 +118,7 @@ def test_all_new_families_present():
     assert len(refs_in_category("bisagras")) == 14
     assert len(refs_in_category("tiradores")) == 7
     assert len(refs_in_category("correderas")) == 2
-    assert len(refs_in_category("tornilleria_madera")) == 4
+    assert len(refs_in_category("tornilleria_madera")) == 8  # + 4 DIN 571 (union-en-perfil-hueco)
     assert len(refs_in_category("cerraduras")) == 2
     assert len(refs_in_category("imanes_topes")) == 2
     # herraje de puerta corrediza/colgante (Ducasse U-100 / D-100)
@@ -134,7 +134,8 @@ def test_all_new_families_present():
     # +9 pernos DIN 933 (V6.5b) +5 tuercas DIN 934 (V6.5c) +24 garruchas (garruchas-catalogo) +1 VFD 2.2 kW
     # +44 cadenas y piñones (cadenas-pinones) +59 del catálogo eléctrico de la faja piloto (V8.1 D6)
     # +2 redes 2F y 1F+N (V8.3 D15) +1 seta en caja ESTOP-40-CAJA (seta-de-emergencia D4)
-    assert len(CATALOG) == 362
+    # +4 remaches ciegos DIN 7337 y +4 tornillos DIN 571 (union-en-perfil-hueco D1/D4)
+    assert len(CATALOG) == 370
 
 
 def test_door_sliding_hardware():

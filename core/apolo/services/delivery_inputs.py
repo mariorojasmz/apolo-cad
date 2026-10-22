@@ -33,6 +33,16 @@ def exclusiones_declaradas(doc) -> tuple[set[frozenset], set[str]]:
             {fid for fid, f in doc.scene.items() if _is_bolt(f, CATALOG)})
 
 
+def declarada_por_join_bolted(doc) -> set[str]:
+    """Las piezas que insertó un `join_bolted` cuyo fijador quedó declarado: su tornillería
+    está cubierta por ESA unión, aunque no sea nodo del grafo. Por el TIPO del comando que
+    creó el fijador, no por el nombre `jb_*` (como las cadenas auto de `stackup_eval`)."""
+    tipo = {c["id"]: c.get("type") for c in doc.commands}
+    jb = {f.get("command_id") for f in doc.fasteners.values()
+          if tipo.get(f.get("command_id")) == "join_bolted"}
+    return {fid for fid, f in doc.scene.items() if getattr(f, "command_id", None) in jb}
+
+
 def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
     """Los kwargs de `delivery_report` (todos salvo `gravedad`) para `doc`. Llamar bajo
     STATE_LOCK; `expand` resuelve nombres de grupo (lo inyecta la API). Con `tiempos` (un dict)
@@ -64,8 +74,11 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         soundness = soundness_report(build_graph(
             doc.scene, doc.joints, doc.mates, doc.fasteners, doc.grounds))
     # tornillería flotante NO bloquea (no es nodo estructural: la representa su
-    # fasten — convención del lint «pieza suelta») pero SÍ se declara como aviso.
-    tornilleria_flotante = [f for f in soundness.get("floating", []) if f in bolt_ids]
+    # fasten — convención del lint «pieza suelta») pero SÍ se declara como aviso, salvo la que
+    # insertó un join_bolted que declaró su fijador (union-en-perfil-hueco D5).
+    cubiertos = declarada_por_join_bolted(doc)
+    tornilleria_flotante = [f for f in soundness.get("floating", [])
+                            if f in bolt_ids and f not in cubiertos]
     soundness = {**soundness,
                  "floating": [f for f in soundness.get("floating", [])
                               if f not in bolt_ids],

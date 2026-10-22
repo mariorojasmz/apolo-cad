@@ -206,3 +206,21 @@ def resolve_material(feat, catalog: dict | None = None, default: str = "acero") 
     if any(w in name for w in _WOOD_WORDS):
         return "madera"
     return default
+
+
+def resolve_material_vertical(feat, catalog: dict | None = None, default: str = "acero") -> str:
+    """`resolve_material` con la guarda del vertical: la palabra de carpintería del nombre
+    («Larguero (+Y)», «Marco», «Tablero») sólo da MADERA si el vertical es de madera; en una
+    máquina de acero esos roles son acero. Un override o el catálogo mandan. La usan la
+    apariencia y el sello de `join_bolted` (plan union-en-perfil-hueco, D4)."""
+    material = resolve_material(feat, catalog, default)
+    if material == "madera" and default != "madera" and not getattr(feat, "material", None):
+        comp = (catalog or {}).get(getattr(feat, "component", None) or "")
+        if not (getattr(comp, "specs", None) or {}).get("material"):
+            return default
+    return material
+
+
+def es_madera(material: str | None) -> bool:
+    """¿Es una madera (genérica o especie)? La que se raya como madera en los planos."""
+    return HATCH.get(_norm(material)) == "madera"

@@ -178,7 +178,7 @@ CAMPOS: dict[str, str] = {
         "project_id attachment name overrides position position.x position.y position.z rotation "
         "rotation.x rotation.y rotation.z keep_grounds"
     ),
-    "join_bolted": "name a b size count patron spacing norma",
+    "join_bolted": "name a b size count patron spacing norma criterio madera",
     "mirror_feature": "feature plane offset",
     "pattern_circular": (
         "feature count axis_point axis_point.x axis_point.y axis_point.z axis_dir total_angle"
@@ -279,7 +279,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "import_step": (1, "d75412508c6ccfdd"),
     "insert_component": (2, "34abc0a7df042701"),  # v2: anclas de perfil abierto (perfiles-con-acuerdo D4)
     "insert_project": (1, "01664975967281c6"),
-    "join_bolted": (1, "2646f20725916e71"),
+    "join_bolted": (1, "24fbb11752560dc0"),  # criterio 2 (union-en-perfil-hueco): un log viejo trae 1 → misma geometría y firma
     "mirror_feature": (1, "6973b59545d49469"),
     "pattern_circular": (1, "608d05fdba3297c0"),
     "pattern_group": (1, "cb174b5f27cebde8"),

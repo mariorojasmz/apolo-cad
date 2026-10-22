@@ -53,6 +53,22 @@ _ALLEN: dict[float, float] = {
 
 
 @dataclass(frozen=True)
+class Remachadora:
+    """Envolvente de la remachadora manual de un remache ciego (plan union-en-perfil-hueco):
+    la NARIZ apoya en la cabeza y, detrás, el cabezal con las mordazas. Criterio de diseño:
+    remachadora de palanca corriente (nariz Ø 10–14 mm; cabezal Ø ≈ 30 mm), redondeado arriba.
+    Se arma coaxial al remache, desde su cabeza hacia afuera (no gira: no barre)."""
+
+    nariz_d: float = 16.0
+    nariz_largo: float = 25.0
+    cabezal_d: float = 32.0
+    largo: float = 120.0
+
+
+REMACHADORA = Remachadora()
+
+
+@dataclass(frozen=True)
 class Llave:
     """Envolventes de las herramientas para un entrecaras `s` (mm)."""
 

@@ -21,7 +21,7 @@ from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_comma
 from apolo.commands.spec import version_tag
 from apolo.commands.state import RegenState
 from apolo.commands.strict import reject_unknown
-from apolo.doc import carril, variantes
+from apolo.doc import carril, sello, variantes
 from apolo.doc import pasos as _pasos
 from apolo.doc.errors import ContractError, DocumentError  # noqa: F401 — se re-exportan
 
@@ -488,7 +488,7 @@ class Document:
     def _append_record(self, cmd_type: str, params: dict) -> str:
         """Asigna cmd_id, incrementa seq e inserta el record (los 'vars' se hoist-ean al principio;
         el carril materializa su designación, V8.1 D3). NO valida ni regenera: execute(_many)."""
-        params = carril.materializar(self.commands, cmd_type, params)
+        params = sello.sellar(self, cmd_type, carril.materializar(self.commands, cmd_type, params))
         self._seq += 1
         cmd_id = f"c{self._seq}"
         # deshacer devuelve `seq` pero no `hidden` (D12): un id reciclado no nace oculto
@@ -596,7 +596,7 @@ class Document:
         clone._seq = self._seq
         clone.variables_raw = dict(self.variables_raw)
         clone.attachments = dict(self.attachments)  # import_step/insert_project los leen
-        clone.materials = dict(self.materials)
+        clone.materials, clone.vertical, clone.scene = dict(self.materials), self.vertical, self.scene
         clone.sketch_guides = set(self.sketch_guides)
         clone._regen_sigs = list(self._regen_sigs)
         clone._regen_ckpts = dict(self._regen_ckpts)  # comparte refs de shape OCCT (read-only)
