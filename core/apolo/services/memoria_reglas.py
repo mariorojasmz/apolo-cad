@@ -41,7 +41,8 @@ def reglas_memoria(doc, carga_kg=None, largo_paquete_mm=None, ancho_paquete_mm=N
     sin_req_conveyor = not carga or not largo_paq
     rules: list[dict] = []
     conveyor = None if sin_req_conveyor else (
-        conveyor_params_from_doc(doc) or detect_conveyor(doc.scene, doc.variables_resolved))
+        conveyor_params_from_doc(doc) or detect_conveyor(doc.scene, doc.variables_resolved,
+                                                         doc.fasteners))
     if conveyor:
         inherit_inclination(conveyor, req)
         inherit_tensor(doc, conveyor)

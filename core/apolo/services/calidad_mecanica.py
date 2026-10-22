@@ -30,8 +30,8 @@ def reglas_de_ingenieria(doc) -> list[dict]:
     reglas: list[dict] = []
     conveyor = None
     if carga and largo_paq:
-        conveyor = conveyor_params_from_doc(doc) or detect_conveyor(doc.scene,
-                                                                    doc.variables_resolved)
+        conveyor = conveyor_params_from_doc(doc) or detect_conveyor(
+            doc.scene, doc.variables_resolved, doc.fasteners)
         inherit_inclination(conveyor, req)
         inherit_tensor(doc, conveyor)
         if conveyor:

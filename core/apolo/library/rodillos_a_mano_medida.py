@@ -6,13 +6,20 @@ máquina. Lo usa `rodillos_a_mano.detectar_rodillos_a_mano`; el cálculo, `rodil
 Coordenadas: `s` es la posición A LO LARGO del eje del rodillo, medida desde el centro del tubo.
 
 - **Eje**: la pieza que va dentro de la sección del tubo y asoma por los dos extremos
-  (`rodillos_a_mano._eje_de`); su Ø es el de su caja (eje macizo).
+  (`rodillos_a_mano._eje_de`). Su Ø es el que TRABAJA: el MENOR Ø exterior de sus caras
+  cilíndricas coaxiales en el vano entre las caras interiores de los apoyos (asientos de los
+  rodamientos incluidos: la flecha y la tensión las manda el tramo más fino), no el de su caja
+  (un eje escalonado con hombro Ø24 y cuerpo Ø17 es Ø17). Sin caras cilíndricas, el de la caja.
 - **Coaxial**: una pieza con el centro de su caja sobre la línea del eje (±`_TOL`): tapas,
   rodamientos, bujes, piñones, tuercas.
 - **Apoyos**: a cada lado del tubo, la pieza NO coaxial que el eje cruza más afuera (la de un
   perfil de catálogo primero; la tornillería, la transmisión y las guardas de catálogo nunca). El
   apoyo es el centro del tramo de eje dentro de su caja: con la caja de un ángulo ese tramo
   incluye la tuerca de afuera, así que el vano sale algo MAYOR que el real (del lado seguro).
+  También apoya, sin que el eje la cruce, la pieza A TOPE de un extremo del eje (≤ `_A_TOPE_MM`,
+  cubriendo su línea) con una unión rígida DECLARADA entre las dos (perno, soldadura, pegado): el
+  eje fijo de rosca HEMBRA, apretado contra cada ala por un perno desde afuera. Su apoyo es la
+  cara del ala que mira al tubo.
 - **Rodamientos**: piezas coaxiales entre los apoyos que son un rodamiento de catálogo (categoría
   «rodamientos», con `C_kN`) o que lo NOMBRAN con su serie («Tapa con rodamiento 6201»: la serie
   tiene que existir en el catálogo); si no hay ninguna y el tubo nombra la serie, dos en los
@@ -31,6 +38,16 @@ _ESTRUCTURA = ("perfiles", "perfiles_abiertos", "tubos_estructurales", "tubos_ci
 _NO_APOYO = ("transmision", "tornilleria", "pernos", "tuercas", "guardas", "rodamientos",
              "chumaceras")
 _SERIE_RE = re.compile(r"rodamiento\w*\D{0,20}?(\d{4,5})", re.I)
+_TORNILLERIA = ("tornilleria", "pernos", "tuercas")  # coaxial al eje fijo: no gira con el tubo
+_RIGIDAS = ("perno", "soldadura", "pegado")  # uniones que hacen apoyo a tope
+_A_TOPE_MM = 1.5  # hueco máximo entre el extremo del eje y la cara del ala que lo aprieta
+
+
+def unidos_rigidos(fasteners: dict | None) -> frozenset:
+    """{frozenset({a, b})} de las uniones rígidas declaradas (`doc.fasteners`, ya expandidas por
+    instancia)."""
+    return frozenset(frozenset((u.get("a"), u.get("b"))) for u in (fasteners or {}).values()
+                     if isinstance(u, dict) and u.get("kind", "perno") in _RIGIDAS)
 
 
 def _centro(caja, i: int) -> float:
@@ -75,18 +92,39 @@ def _tramo_libre(a: float, b: float, ocupados: list[tuple[float, float]]) -> tup
     return min(libres, key=lambda t: min(abs(t[0]), abs(t[1])), default=(a, b))
 
 
-def _apoyos(scene, cajas, excluir, eje_caja, k, centro, tol):
+def _a_tope(caja, eje_caja, k, centro) -> int:
+    """El lado (±1) del extremo del eje contra el que está A TOPE la caja (≤ `_A_TOPE_MM`,
+    cubriendo la línea del eje), o 0."""
+    if not all(caja[0][i] <= centro[i] <= caja[1][i] for i in range(3) if i != k):
+        return 0
+    if 0.0 <= caja[0][k] - eje_caja[1][k] <= _A_TOPE_MM:
+        return 1
+    if 0.0 <= eje_caja[0][k] - caja[1][k] <= _A_TOPE_MM:
+        return -1
+    return 0
+
+
+def _apoyos(scene, cajas, excluir, eje_caja, k, centro, tol, *, eje=None,
+            unidos: frozenset = frozenset()):
     """{-1: (s, s_interior, nombre), +1: …}: el apoyo más afuera a cada lado del tubo. Su `s` es
     el centro del tramo de eje dentro de su caja que no ocupa una pieza coaxial (la caja de un
-    ángulo abarca también la tuerca que lo aprieta por fuera)."""
+    ángulo abarca también la tuerca que lo aprieta por fuera); el de una pieza A TOPE unida al
+    `eje` (`unidos`), su cara interior."""
     ocupados = [(c[0][k] - centro[k], c[1][k] - centro[k]) for o, c in cajas.items()
                 if o not in excluir and _solapan(c, eje_caja) and _coaxial(c, k, centro, tol)]
     por_lado: dict[int, list] = {-1: [], 1: []}
     for fid, caja in cajas.items():
-        if fid in excluir or not _solapan(caja, eje_caja) or _coaxial(caja, k, centro, tol):
+        if fid in excluir or _coaxial(caja, k, centro, tol):
             continue
         cat = _categoria(scene[fid])
         if cat in _NO_APOYO:
+            continue
+        if not _solapan(caja, eje_caja):
+            lado = _a_tope(caja, eje_caja, k, centro) if frozenset((fid, eje)) in unidos else 0
+            if lado:
+                cara = (caja[0][k] if lado == 1 else caja[1][k]) - centro[k]
+                por_lado[lado].append((cat in _ESTRUCTURA, abs(cara), cara, cara,
+                                       getattr(scene[fid], "name", fid)))
             continue
         a = max(caja[0][k], eje_caja[0][k]) - centro[k]
         b = min(caja[1][k], eje_caja[1][k]) - centro[k]
@@ -104,7 +142,49 @@ def _apoyos(scene, cajas, excluir, eje_caja, k, centro, tol):
     return out
 
 
-def medir_rodillo(scene: dict, cajas: dict, f_tubo, cil) -> dict:
+def _cilindros_coaxiales(shape, k: int, centro, tol: float) -> list[tuple[float, float, float]]:
+    """[(s0, s1, r)] de las caras cilíndricas del eje sobre su línea (eje de la superficie a lo
+    largo de `k`, a ±`tol` del centro del tubo); `s` desde el centro del tubo."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+
+    out = []
+    try:
+        caras = shape.faces()
+    except Exception:  # noqa: BLE001 — sin topología: se queda con la caja
+        return out
+    for cara in caras:
+        try:
+            sup = BRepAdaptor_Surface(cara.wrapped)
+            if sup.GetType() != GeomAbs_Cylinder:
+                continue
+            cil = sup.Cylinder()
+            d, p = cil.Axis().Direction(), cil.Axis().Location()
+            bb = cara.bounding_box()
+        except Exception:  # noqa: BLE001
+            continue
+        if abs(abs((d.X(), d.Y(), d.Z())[k]) - 1.0) > 1e-3:
+            continue
+        if any(abs((p.X(), p.Y(), p.Z())[i] - centro[i]) > tol for i in range(3) if i != k):
+            continue
+        lo, hi = (bb.min.X, bb.min.Y, bb.min.Z)[k], (bb.max.X, bb.max.Y, bb.max.Z)[k]
+        out.append((lo - centro[k], hi - centro[k], cil.Radius()))
+    return out
+
+
+def diametro_de_trabajo(cilindros, a: float, b: float, d_caja: float) -> float:
+    """El menor Ø EXTERIOR del eje en [a, b] (en cada tramo, el mayor radio de las caras que lo
+    cubren: un agujero roscado de la punta no cuenta); sin caras en el tramo, `d_caja`."""
+    cortes = sorted({a, b, *(s for s0, s1, _r in cilindros for s in (s0, s1) if a < s < b)})
+    radios = []
+    for x, y in zip(cortes, cortes[1:]):
+        m = (x + y) / 2.0
+        if y - x > 0.05 and (rs := [r for s0, s1, r in cilindros if s0 <= m <= s1]):
+            radios.append(max(rs))
+    return 2.0 * min(radios) if radios else d_caja
+
+
+def medir_rodillo(scene: dict, cajas: dict, f_tubo, cil, unidos: frozenset = frozenset()) -> dict:
     """Lo medido de UN rodillo (dict plano, ver el docstring del módulo); `motivo` dice qué
     falta para calcularlo (sin él, está completo)."""
     from .engineering.mass import feature_mass
@@ -121,10 +201,14 @@ def medir_rodillo(scene: dict, cajas: dict, f_tubo, cil) -> dict:
         return {**out, "motivo": "ningún eje lo atraviesa: no hay eje que verificar"}
     eje, eje_caja = scene[fid_eje], cajas[fid_eje]
     mat = resolve_material(eje, CATALOG)
-    out["eje"] = {"d": round(max(
-        eje_caja[1][i] - eje_caja[0][i] for i in range(3) if i != k), 2), "material": mat,
-        "sy": yield_strength(mat), "E": young_modulus(mat)}
-    apoyos = _apoyos(scene, cajas, {fid_tubo, fid_eje}, eje_caja, k, centro, _TOL)
+    apoyos = _apoyos(scene, cajas, {fid_tubo, fid_eje}, eje_caja, k, centro, _TOL, eje=fid_eje,
+                     unidos=unidos)
+    vano = ((apoyos[-1][1], apoyos[1][1]) if len(apoyos) == 2
+            else (eje_caja[0][k] - centro[k], eje_caja[1][k] - centro[k]))
+    d_caja = max(eje_caja[1][i] - eje_caja[0][i] for i in range(3) if i != k)
+    d = diametro_de_trabajo(_cilindros_coaxiales(eje.shape, k, centro, _TOL), *vano, d_caja)
+    out["eje"] = {"d": round(d, 2), "material": mat, "sy": yield_strength(mat),
+                  "E": young_modulus(mat)}
     if len(apoyos) < 2:
         return {**out, "motivo": "su eje no apoya en el bastidor por los dos lados: no se mide el "
                                  "vano"}
@@ -134,7 +218,8 @@ def medir_rodillo(scene: dict, cajas: dict, f_tubo, cil) -> dict:
     s_min, s_max = apoyos[-1][1], apoyos[1][1]
     gira, rodamientos = [f_tubo], []
     for fid, caja in cajas.items():
-        if fid in (fid_tubo, fid_eje) or not _coaxial(caja, k, centro, _TOL):
+        if (fid in (fid_tubo, fid_eje) or not _coaxial(caja, k, centro, _TOL)
+                or _categoria(scene[fid]) in _TORNILLERIA):
             continue
         s = _centro(caja, k) - centro[k]
         if not (s_min < s < s_max):
@@ -153,15 +238,17 @@ def medir_rodillo(scene: dict, cajas: dict, f_tubo, cil) -> dict:
     return out
 
 
-def medir_lecho(scene: dict, lecho: list[tuple]) -> list[dict]:
+def medir_lecho(scene: dict, lecho: list[tuple], fasteners: dict | None = None) -> list[dict]:
     """Lo medido de cada rodillo del lecho, agrupado: los rodillos iguales son UNA entrada con
-    su cuenta `n` (un patrón de 20 rodillos no repite 20 veces el mismo dict)."""
+    su cuenta `n` (un patrón de 20 rodillos no repite 20 veces el mismo dict). `fasteners`: las
+    uniones declaradas (`doc.fasteners`), para los apoyos a tope."""
     from .rodillos_a_mano import _caja
 
     cajas = {fid: c for fid, f in scene.items() if (c := _caja(f)) is not None}
+    unidos = unidos_rigidos(fasteners)
     grupos: list[dict] = []
     for f, _ref, cil in lecho:
-        m = medir_rodillo(scene, cajas, f, cil)
+        m = medir_rodillo(scene, cajas, f, cil, unidos)
         firma = {k: v for k, v in m.items() if k != "nombres"}  # el n.º del nombre no cuenta
         igual = next((g for g in grupos
                       if {k: v for k, v in g.items() if k not in ("n", "nombres")} == firma), None)

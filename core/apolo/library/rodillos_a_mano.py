@@ -98,12 +98,13 @@ def lecho_de_rodillos(scene: dict) -> list[tuple]:
     return mayor if len(mayor) >= MIN_RODILLOS else []
 
 
-def detectar_rodillos_a_mano(scene: dict) -> dict | None:
+def detectar_rodillos_a_mano(scene: dict, fasteners: dict | None = None) -> dict | None:
     """El dict de `conveyor_engineering_check` (tipo «rodillos», `a_mano`) de un transportador
     de rodillos hecho a mano, o None (sin motorreductor de catálogo, sin lecho o si es una faja).
     Lleva lo MEDIDO de sus rodillos (`rodillos_medidos`, `rodillos_a_mano_medida`) y la potencia
     del motor (ficha; si no la tiene, la placa del nombre): las reglas a mano
-    (`rodillos_a_mano_reglas`) calculan con eso su capacidad y su motor."""
+    (`rodillos_a_mano_reglas`) calculan con eso su capacidad y su motor. `fasteners` (las uniones
+    declaradas) reconoce el eje apretado A TOPE contra el bastidor por un perno."""
     from .rodillos_a_mano_medida import medir_lecho
     from .rules import _parse_power_kw
 
@@ -123,7 +124,7 @@ def detectar_rodillos_a_mano(scene: dict) -> dict | None:
     largo_rodillo = round(max(cil[1] for _f, _r, cil in lecho), 1)
     motor = motores[0]
     specs = CATALOG[motor.component].specs
-    medidos = medir_lecho(scene, lecho)
+    medidos = medir_lecho(scene, lecho, fasteners)
     return {
         "tipo": "rodillos",
         "a_mano": True,

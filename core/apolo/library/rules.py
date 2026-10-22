@@ -310,7 +310,7 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
     return base
 
 
-def detect_conveyor(scene: dict, variables: dict | None = None) -> dict | None:
+def detect_conveyor(scene: dict, variables: dict | None = None, fasteners=None) -> dict | None:
     """Infiere los parámetros de una faja HECHA A MANO a partir de sus piezas
     (no del super-comando create_conveyor). Devuelve el mismo dict que consume
     conveyor_engineering_check (+ tipo/tambor_d/rpm_motor/torque_Nm/n_rodillos/frame),
@@ -338,7 +338,7 @@ def detect_conveyor(scene: dict, variables: dict | None = None) -> dict | None:
 
     if not motors or not perfiles or (not rollers and not tambores):
         from .rodillos_a_mano import detectar_rodillos_a_mano  # rodillo de tubo, bastidor de ángulo
-        return detectar_rodillos_a_mano(scene) or _detect_by_name(scene, variables)
+        return detectar_rodillos_a_mano(scene, fasteners) or _detect_by_name(scene, variables)
     _bb = _bbox_safe
 
     def _cx(f):

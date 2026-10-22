@@ -111,7 +111,7 @@ def run_checks(body: ChecksIn) -> dict:
                 or conveyor_params_from_doc(S.doc)
                 or (infer_from_solids(S.doc.scene, body.conveyor_solid_ids)
                     if body.conveyor_solid_ids else None)
-                or detect_conveyor(S.doc.scene, S.doc.variables_resolved)
+                or detect_conveyor(S.doc.scene, S.doc.variables_resolved, S.doc.fasteners)
             )
             inherit_inclination(conveyor, req)
             inherit_tensor(S.doc, conveyor)

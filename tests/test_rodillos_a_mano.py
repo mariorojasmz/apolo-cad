@@ -96,7 +96,8 @@ def test_el_factor_de_servicio_se_calcula_con_los_requisitos(con_motor):
 
 def test_antes_quedaba_sin_evaluar(con_motor, monkeypatch):
     """Sin el detector (lo de antes) el motor queda sin carga calculada: SIN_EVALUAR."""
-    monkeypatch.setattr(rodillos_a_mano, "detectar_rodillos_a_mano", lambda scene: None)
+    monkeypatch.setattr(rodillos_a_mano, "detectar_rodillos_a_mano",
+                        lambda scene, fasteners=None: None)
     assert detect_conveyor(con_motor.scene, con_motor.variables_resolved) is None
     assert _item(con_motor, "vida.factor_servicio").estado == "SIN_EVALUAR"
 
