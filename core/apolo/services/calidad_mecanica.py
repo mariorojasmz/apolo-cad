@@ -45,9 +45,10 @@ def reglas_de_ingenieria(doc) -> list[dict]:
     return reglas
 
 
-def items_funcion_mecanica(doc, reglas: list[dict] | None = None) -> list:
+def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=None) -> list:
     """Los ítems (`library/calidad/item.Item`) de agarre, tensor y vida útil del documento.
-    `reglas` = las de `engineering_check` si el llamador ya las tiene."""
+    `reglas` = las de `engineering_check` si el llamador ya las tiene; `contexto` (el memo de la
+    corrida de la puerta, protocolo de las fuentes del registro) no lo usa."""
     from apolo.library.calidad.agarre import controlar_agarre
     from apolo.library.calidad.tensor import controlar_tensores
     from apolo.library.calidad.vida_util import controlar_vida_util

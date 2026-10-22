@@ -42,11 +42,13 @@ def registrar(mcp, esperar) -> None:
         aplicable está OK (SIN_EVALUAR bloquea igual que FALLA: «no se pudo ver» no es «está
         bien»). Corre la gravedad (obligatoria), las interferencias DENTRO de cada super-comando,
         el agarre de cada perno, el tensor y su carrera, la vida útil (L10 ≥ 20 000 h, factor de
-        servicio ≥ 1,25…), la memoria de cálculo, el ERC y la marcha del video contra el modelo.
+        servicio ≥ 1,25…), la memoria de cálculo, el ERC, la marcha del video contra el modelo,
+        las sondas ISO 13857 sobre lo que gira (cuñas, transmisiones, extremos de eje), que cada
+        guarda se quite sólo con herramienta y que cada pieza de desgaste se cambie sin cortar.
         Devuelve aprobado, conteos, por_familia y `pendientes` (cada ítem que falla o no se pudo
         evaluar, con la pieza y el porqué: corrige el MODELO, no el ítem). `completo=true` trae
-        todos los ítems con su evidencia. Read-only; tarda (simula): si no llega, RECIBO {"job"}:
-        get_job."""
+        todos los ítems con su evidencia y la tabla de riesgos ISO 12100. Read-only; tarda
+        (simula): si no llega, RECIBO {"job"}: get_job."""
         payload, job_id = esperar("POST", "/api/puerta-publicacion", {})
         if job_id:
             return _recibo(job_id)

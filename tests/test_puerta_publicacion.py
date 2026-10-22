@@ -60,7 +60,7 @@ def test_agregador_los_cuatro_estados_y_aprobado():
     assert est["a.dice_no_aplica"]["estado"] == SIN_EVALUAR
     assert "no vi nada" in est["a.dice_no_aplica"]["detalle"]
     assert est["a.revienta"]["estado"] == SIN_EVALUAR and "sin datos" in est["a.revienta"]["detalle"]
-    assert r["aprobado"] is False and r["firma"] == "f" and r["version_registro"] == "1"
+    assert r["aprobado"] is False and r["firma"] == "f" and r["version_registro"] == "2"
     assert r["conteos"] == {OK: 1, FALLA: 1, SIN_EVALUAR: 2, NO_APLICA: 1}
     assert r["por_familia"]["estructura"] == {"estado": FALLA, OK: 0, FALLA: 1, SIN_EVALUAR: 0,
                                               NO_APLICA: 0}
@@ -129,7 +129,8 @@ def test_el_registro_es_general_y_coherente():
     from apolo.library.calidad.registro import MAPA_SEGURIDAD, _ids_de_f2
 
     ids = [e.id for e in REGISTRO if isinstance(e, Entrada)]
-    (mecanica,) = [e for e in REGISTRO if isinstance(e, Fuente)]
+    mecanica, seguridad = [e for e in REGISTRO if isinstance(e, Fuente)]
+    assert seguridad.mapa is MAPA_SEGURIDAD  # F3 entra por su fuente
     generales = ids + list(mecanica.mapa) + list(MAPA_SEGURIDAD)
     assert len(generales) == len(set(generales))
     assert all(e.familia in FAMILIAS for e in REGISTRO if isinstance(e, Entrada))
@@ -296,7 +297,7 @@ def test_endpoint_como_job_y_el_modelo_que_cambia_da_409(monkeypatch):
     r = c.post("/api/puerta-publicacion?async=true")
     assert r.status_code == 202
     job = c.get(f"/api/jobs/{r.json()['job_id']}", params={"wait_s": 30}).json()
-    assert job["estado"] == "ok" and job["resultado"]["version_registro"] == "1"
+    assert job["estado"] == "ok" and job["resultado"]["version_registro"] == "2"
     grav = next(i for i in job["resultado"]["items"] if i["id"] == "entrega.gravedad")
     assert grav["estado"] == OK  # la mesa anclada no se cae
     # si el modelo cambia mientras corre la gravedad, no hay veredicto que mezcle dos modelos

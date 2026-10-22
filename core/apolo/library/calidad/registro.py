@@ -21,17 +21,26 @@ Ids estables (familia):
 - `fabricabilidad` y `memoria.veredicto` y `diseno.soluciones_por_funcion` (proceso);
 - `riesgos.electrico` (seguridad); `publicado.sustitutos_fieles` (publicado: lo que el visor o el
   video dibujan en lugar de un sólido —la banda animada, mañana un cable— es fiel al modelo);
-- F3 (con su línea): `riesgos.partes_moviles`, `riesgos.resguardos_desmontables_con_herramienta`
-  (seguridad) y `consumibles.reemplazables` (montaje).
+- F3 (fuente «seguridad»): `riesgos.partes_moviles`,
+  `riesgos.resguardos_desmontables_con_herramienta` (seguridad) y `consumibles.reemplazables`
+  (montaje).
 
 Dos clases de entrada:
 - `Entrada`: un ítem evaluado aquí (`puerta.py`) sobre los insumos ya extraídos;
-- `Fuente`: los ítems de un SERVICIO que lee el documento (`servicio` = «módulo:función»,
-  `función(doc) -> list[Item | dict]`; lo resuelve `services/puerta_publicacion.py`), llevados a
-  los ítems generales por su `mapa` (los ids propios del módulo NO se reescriben: F2 sigue
-  diciendo `agarre.cruza`, el registro lo publica como `union.agarre`). Varios ids de origen
-  pueden ir a un general (el peor manda); un `*` final es un prefijo. Un ítem de la fuente que
-  ningún general recoge sale TAL CUAL (nunca se pierde en silencio). **F3 es una línea.**
+- `Fuente`: los ítems de un SERVICIO que lee el documento, llevados a los ítems generales por su
+  `mapa` (los ids propios del módulo NO se reescriben: F2 sigue diciendo `agarre.cruza`, el
+  registro lo publica como `union.agarre`). Varios ids de origen pueden ir a un general (el peor
+  manda); un `*` final es un prefijo. Un ítem de la fuente que ningún general recoge sale TAL CUAL
+  (nunca se pierde en silencio).
+
+El servicio (`servicio` = «módulo:función») lo resuelve `services/puerta_publicacion.py` UNA vez
+por corrida: `función(doc, contexto=…)`, donde `contexto` es el memo de la corrida (lo caro que la
+fuente comparte con los detectores de los hechos, p. ej. la extracción OCCT de F3, se calcula una
+sola vez). Devuelve `list[Item | dict]` o `{"items": [...], "riesgos": [filas]}`; lo que llega a
+`insumos["fuentes"][clave]` es eso mismo, o `{"error"}` si no corrió. Las filas de `riesgos` (la
+tabla peligro → medida → verificación de ISO 12100, D4) salen en el resultado de `evaluar`
+(clave `riesgos`, de todas las fuentes): su `verificacion` se traduce al ítem GENERAL que la
+publica y una fila sin `estado` propio toma el de ese ítem.
 
 Reglas del agregador (`evaluar`):
 - NO_APLICA sólo por `aplica_si`, con su porqué. Si un control dice NO_APLICA y su entrada dice
@@ -43,7 +52,7 @@ Reglas del agregador (`evaluar`):
 
 `VERSION_REGISTRO` sube cuando cambia un ítem, un umbral o un `aplica_si`: viaja en `calidad.json`
 junto a la firma del modelo (`services/puerta_publicacion.firma_modelo`), que la fábrica compara
-antes de generar.
+antes de generar. v2: entra F3 (seguridad y reparabilidad) y la tabla de riesgos.
 """
 
 from __future__ import annotations
@@ -54,7 +63,7 @@ from typing import Callable
 from . import puerta as p
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "1"
+VERSION_REGISTRO = "2"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]
@@ -172,7 +181,9 @@ _MECANICA = {
                                  "función", ("vida.reglas",), vacio_ok=("vida.reglas",)),
 }
 
-#: F3 (seguridad y reparabilidad) → ítems generales; se activa con su línea en `REGISTRO`.
+#: F3 (seguridad y reparabilidad) → ítems generales. `seguridad.electrico` no está: la fuente lo
+#: descarta (repite `riesgos.electrico`, `services/calidad_seguridad.items_seguridad`). Con piezas
+#: de desgaste, «sin desgaste rígido» y «sin banda» no tienen nada que juzgar: se cumplen.
 MAPA_SEGURIDAD = {
     "riesgos.partes_moviles": General(
         "Ninguna parte móvil, punto de atrapamiento o extremo giratorio al alcance (ISO 13857)",
@@ -184,7 +195,8 @@ MAPA_SEGURIDAD = {
     "consumibles.reemplazables": General(
         "Cada pieza de desgaste o consumible se cambia sin cortar uniones permanentes "
         "(también los lazos cerrados, que deben salir de sus apoyos)", "montaje",
-        ("reparabilidad.*",), hay("consumibles", "sin piezas de desgaste"), "consumibles"),
+        ("reparabilidad.*",), hay("consumibles", "sin piezas de desgaste"), "consumibles",
+        vacio_ok=("reparabilidad.desgaste_desmontable", "reparabilidad.banda_montable")),
 }
 
 REGISTRO: tuple = (
@@ -237,8 +249,7 @@ REGISTRO: tuple = (
             "validado", "criterio de diseño (D13 de fabrica-de-publicaciones)", "publicado",
             hay("sustitutos_animados", "nada se dibuja en lugar de su sólido (sin banda animada)"),
             p.marcha, "sustitutos_animados"),
-    # F3 — seguridad y reparabilidad (una línea):
-    # Fuente("seguridad", "apolo.services.calidad_seguridad:items_seguridad", MAPA_SEGURIDAD),
+    Fuente("seguridad", "apolo.services.calidad_seguridad:items_seguridad", MAPA_SEGURIDAD),
 )
 
 
@@ -293,8 +304,8 @@ def _general(gid: str, g: General, origen: list[dict], hechos: dict, servicio: s
     if not evaluados and not aplica:
         return _item(gid, g.titulo, modo, norma, NO_APLICA, porque)
     partes = []  # (id de origen, estado efectivo, detalle)
-    for d in origen:
-        e, det = d["estado"], d.get("detalle", "")
+    for d in origen:  # sin detalle, el motivo de la evidencia (así lo dicen los ítems de F3)
+        e, det = d["estado"], d.get("detalle") or (d.get("evidencia") or {}).get("motivo", "")
         if e == NO_APLICA and d["id"] in g.vacio_ok:
             e, det = OK, f"nada que verificar ({det})"
         elif e == NO_APLICA:  # aplica (o el control evaluó algo de lo suyo): no se pudo ver
@@ -315,8 +326,34 @@ def _general(gid: str, g: General, origen: list[dict], hechos: dict, servicio: s
                  [x for d in origen for x in (d.get("piezas") or [])])
 
 
-def _de_fuente(f: Fuente, insumos: dict, hechos: dict) -> list[tuple[Item, str]]:
+def _datos_de(insumos: dict, f: Fuente):
+    """Los ítems de la fuente (lista), o el dict de error / None si no corrió."""
     datos = (insumos.get("fuentes") or {}).get(f.clave)
+    return datos["items"] if isinstance(datos, dict) and "items" in datos else datos
+
+
+def _general_de(f: Fuente, iid: str) -> str:
+    """El id GENERAL que publica el id de origen `iid` (o el mismo, si ninguno lo recoge)."""
+    return next((gid for gid, g in f.mapa.items() if any(_casa(iid, pat) for pat in g.origen)),
+                iid)
+
+
+def _riesgos(registro, insumos: dict, items: list[dict]) -> list[dict]:
+    """La tabla de riesgos de todas las fuentes, verificada por los ítems publicados."""
+    estado_de = {i["id"]: i["estado"] for i in items}
+    out = []
+    for f in fuentes(registro):
+        datos = (insumos.get("fuentes") or {}).get(f.clave)
+        for fila in (datos.get("riesgos") or []) if isinstance(datos, dict) else []:
+            fila = {**fila, "verificacion": _general_de(f, fila.get("verificacion", ""))}
+            if "estado" not in fila:
+                fila["estado"] = estado_de.get(fila["verificacion"], SIN_EVALUAR)
+            out.append(fila)
+    return out
+
+
+def _de_fuente(f: Fuente, insumos: dict, hechos: dict) -> list[tuple[Item, str]]:
+    datos = _datos_de(insumos, f)
     if datos is None or isinstance(datos, dict):
         motivo = (datos or {}).get("error") or "no corrió"
         return [(_item(f"{f.clave}.fuente", f"Los controles de «{f.clave}» corrieron",
@@ -339,7 +376,7 @@ def _de_fuente(f: Fuente, insumos: dict, hechos: dict) -> list[tuple[Item, str]]
 
 
 def evaluar(insumos: dict, registro=None) -> dict:
-    """La puerta: {aprobado, items, por_familia, conteos, mantenimiento, firma,
+    """La puerta: {aprobado, items, por_familia, conteos, mantenimiento, riesgos, firma,
     version_registro, tiempos_s}. `insumos` los reúne `services/puerta_publicacion.py`."""
     registro = REGISTRO if registro is None else registro
     hechos = insumos.get("hechos") or {}
@@ -367,6 +404,7 @@ def evaluar(insumos: dict, registro=None) -> dict:
         "por_familia": por_familia,
         "items": items,
         "mantenimiento": mantenimiento,
+        "riesgos": _riesgos(registro, insumos, items),
         "tiempos_s": dict(insumos.get("tiempos") or {}),
     }
 

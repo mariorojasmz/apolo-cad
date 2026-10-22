@@ -27,7 +27,8 @@ AVISO_SOFTWARE = ("Diseño generado y validado por software: no fue construido n
                   "físicamente.")
 AVISO_YOUTUBE = AVISO_SOFTWARE + " Antes de fabricar, lee el aviso: "
 #: La ficha de calidad en los zips (plan puerta-de-publicacion, D8).
-CALIDAD_MD = "Ficha de calidad: qué se verificó por software, con qué norma y con qué resultado"
+CALIDAD_MD = ("Ficha de calidad: qué se verificó por software, con qué norma y con qué "
+              "resultado, y el análisis de riesgos")
 MAX_TITULO_YOUTUBE = 100
 MAX_DESCRIPCION_BYTES = 5000
 MAX_ETIQUETAS_YOUTUBE = 500
@@ -148,7 +149,8 @@ def _celda(texto) -> str:
 def calidad_md(r: dict, titulo: str) -> str:
     """calidad.md (plan puerta-de-publicacion, D8): la ficha de calidad de la puerta de
     publicación para una persona — el veredicto, por familia, lo que no pasó con sus piezas, cada
-    ítem con su norma y lo que el mantenimiento debe vigilar. `r` = el resultado de la puerta."""
+    ítem con su norma, el análisis de riesgos ISO 12100 (D4, si `r` trae `riesgos`) y lo que el
+    mantenimiento debe vigilar. `r` = el resultado de la puerta."""
     ok = bool(r.get("aprobado"))
     lineas = [f"# Ficha de calidad: {titulo}", "",
               ("**Aprobada.** Todos los controles que aplican a esta máquina se cumplen."
@@ -176,10 +178,43 @@ def calidad_md(r: dict, titulo: str) -> str:
         lineas.append(f"| {_celda(i['titulo'])} | {i.get('familia', '')} | "
                       f"{_ESTADO.get(i['estado'], i['estado'])} | {_celda(i.get('detalle'))} | "
                       f"{_celda(i.get('norma'))} |")
+    if "riesgos" in r:
+        lineas += ["", *_riesgos_md(r)]
     if r.get("mantenimiento"):
         lineas += ["", "## Mantenimiento", ""] + [f"- {m[:1].upper() + m[1:]}."
                                                     for m in r["mantenimiento"]]
     return "\n".join(lineas).rstrip() + "\n"
+
+
+def _medida(fila: dict) -> str:
+    """La medida de una fila de la tabla de riesgos, en palabras."""
+    m = fila.get("medida")
+    if isinstance(m, list) and m:
+        return "resguardo: " + ", ".join(fila.get("medida_nombres") or m)
+    if isinstance(m, str) and m != "ninguna":
+        return m
+    return ("fuera del alcance por distancia o por la propia estructura"
+            if fila.get("estado") == "OK" else "ninguna")
+
+
+def _riesgos_md(r: dict) -> list[str]:
+    """La tabla de riesgos de la puerta (plan puerta-de-publicacion, D4): peligro → medida →
+    verificación → estado."""
+    filas = r.get("riesgos") or []
+    lineas = ["## Análisis de riesgos (ISO 12100)", ""]
+    if not filas:
+        return lineas + ["No se detectaron peligros mecánicos ni eléctricos en el modelo: ninguna "
+                         "pieza gira ni se mueve y no hay tablero eléctrico."]
+    titulo = {i["id"]: i.get("titulo") for i in r.get("items", [])}
+    lineas += ["Peligros identificados en el modelo, la medida que los resguarda y el control que "
+               "lo verificó.", "", "| Peligro | Medida | Verificación | Resultado |",
+               "|---|---|---|---|"]
+    for f in filas:
+        v = f.get("verificacion", "")
+        lineas.append(f"| {_celda(f.get('peligro'))} | {_celda(_medida(f))} | "
+                      f"{_celda(titulo.get(v) or v)} | "
+                      f"{_ESTADO.get(f.get('estado'), f.get('estado'))} |")
+    return lineas
 
 
 def licencia(nombre: str, ficha: dict) -> str:

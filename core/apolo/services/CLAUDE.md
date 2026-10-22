@@ -107,7 +107,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - `puerta_publicacion.reunir` arma TODOS los insumos del registro bajo el lock del llamador (la
   gravedad y la marcha las corre la API fuera, con los suyos); `puerta_hechos.py` son los
   DETECTORES de elementos por tipo general (D14: una familia de máquinas nueva suma su clase ahí)
-  y `firma_modelo` es la firma única que comparte con `publicacion/calidad.py`. Las reglas de la
+  con el MISMO criterio que su control: partes móviles, resguardos y consumibles leen
+  `calidad_seguridad.analisis`, que el `Contexto` de la corrida calcula UNA vez para detectores y
+  fuente; `firma_modelo` es la firma única que comparte con `publicacion/calidad.py`. Las reglas de la
   memoria salen de `memoria_reglas.py` (también el PDF). (F1)
 
 ## Escenarios de prueba (`escenarios.py`, `cosim_snapshot.py`)

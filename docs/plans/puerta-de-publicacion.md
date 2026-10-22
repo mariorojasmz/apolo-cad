@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0, F1, F2 y F3 mergeadas; falta conectar F3 al registro (la línea comentada de MAPA_SEGURIDAD) y la tabla de riesgos en el paquete, la v4 de create_belt_conveyor sin choques internos (D13b), F4, F5 y F6
+nota: F0–F3 mergeadas, F3 conectada al registro (fuente «seguridad», registro v2, tabla de riesgos en calidad.json/md); falta la v4 de create_belt_conveyor sin choques internos (D13b), F4, F5 y F6
 descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
 ---
 
@@ -360,7 +360,7 @@ borde interior de la guarda de cadenas (41 sondas).
 No hecho: el cizallamiento banda ↔ estructura y carga ↔ fijo; la tabla 4 en columnas cuadrado y
 círculo (se usa ranura, la más exigente); mallas finas (< 4 mm) se tratan con sr 2 mm.
 
-### F1 — núcleo de la puerta (2026-10-22, en rama, sin mergear)
+### F1 — núcleo de la puerta (2026-10-22, mergeada)
 
 Construido:
 
@@ -442,3 +442,56 @@ Medido (laptop, en proceso, requisitos 15 kg, paquete 400 × 300, 0,3 m/s):
   son piezas de catálogo (rodillos de la plantilla); los testigos de F5; F3 entra con su línea
   (`riesgos.partes_moviles`, `riesgos.resguardos_desmontables_con_herramienta`,
   `consumibles.reemplazables`; `riesgos.electrico` hoy es sólo el ERC).
+
+### F3 en el registro (2026-10-22, mergeada)
+
+Construido:
+
+- **Fuente «seguridad»** (`services/calidad_seguridad.items_seguridad`, línea activa en `REGISTRO`):
+  los seis ítems de F3 llegan a sus tres generales (`riesgos.partes_moviles` ← `seguridad.resguardo*`,
+  `riesgos.resguardos_desmontables_con_herramienta` ← `seguridad.guarda*`,
+  `consumibles.reemplazables` ← `reparabilidad.*`, con `vacio_ok` para «sin desgaste rígido» y «sin
+  banda»: con piezas de desgaste, esos dos no tienen nada que juzgar). `VERSION_REGISTRO` = 2.
+- **Protocolo de las fuentes**: el servicio recibe `(doc, contexto=)` y devuelve sus ítems o
+  `{items, riesgos}`; `items_de_fuentes` lo llama UNA vez por corrida y cronometra
+  `fuentes.<clave>`. `Contexto` (`services/puerta_publicacion.py`) es el memo de una corrida: la
+  detección de F3 (`calidad_seguridad.analisis`: `datos_calidad` + qué gira, peligros, guardas y
+  piezas de desgaste) se calcula una vez y la comparten los detectores y la fuente. De paso, la
+  reparabilidad ya no repite `tambores_de_banda` (recibe el análisis).
+- **Tabla de riesgos**: `evaluar` publica `riesgos` (todas las fuentes): la `verificacion` de cada
+  fila se traduce al ítem GENERAL (`seguridad.resguardo_iso13857` → `riesgos.partes_moviles`) y una
+  fila sin `estado` toma el del ítem que la verifica. `tabla_riesgos` suma `medida_nombres` (las
+  guardas por su nombre). `calidad.json` la lleva tal cual; `calidad.md` suma «Análisis de riesgos
+  (ISO 12100)» (peligro → medida → verificación → resultado; sin peligros, lo dice). Los dos zips
+  ya llevaban `calidad.md` (`test_publicacion_e2e`); su línea del LEEME nombra el análisis.
+- **Detectores coherentes** (`puerta_hechos`): `partes_moviles` = los peligros de
+  `peligros_mecanicos` por clase (`cuna_banda_tambor`, `transmision`, `extremo_eje`,
+  `pieza_giratoria`); `resguardos` = las guardas de `revisar_guardas`; `consumibles` = las piezas
+  de `piezas_de_desgaste` por clase; la familia D15 `resguardo` = las piezas de esas guardas. Se va
+  la regex `_GUARDA_RE`. «Mecanismo» (memoria y familias D15) = lo de antes (juntas, lazos, motores,
+  rodantes) o un peligro de F3. Si la detección revienta, los tres tipos quedan `sin_detectar`
+  (aplican; la fuente dirá el error).
+- El detalle de un origen sin `detalle` usa el `motivo` de su evidencia (así lo escriben los ítems
+  de F3): «nada que verificar (sin banda)», no «()».
+- MCP: el docstring de `publication_gate` nombra los controles de F3 y la tabla (golden congelado).
+
+Decisiones:
+
+- **`seguridad.electrico` se descarta** (orquestador): repite la Entrada `riesgos.electrico` (el
+  mismo ERC; ésa además bloquea los avisos). El adaptador no corre el ERC (`electrico=False`) y la
+  fila eléctrica de la tabla queda sin estado, verificada por `riesgos.electrico`.
+- `riesgos` siempre en el resultado (lista vacía sin peligros); `resumir` (la tool sin `completo`)
+  no la trae: los peligros que fallan ya están en `pendientes`.
+
+Medido (en proceso por la API, requisitos 15 kg, paquete 400 × 300, 0,3 m/s):
+
+| plantilla | total | F3 (fuente) | hechos | `riesgos.partes_moviles` | `riesgos.resguardos…` | `consumibles.reemplazables` |
+|---|---|---|---|---|---|---|
+| `create_roller_conveyor` largo 1500 | 45,4 s (F1: 36 s) | 15,0 s | 0,5 s | FALLA: transmisión (14 cadenas, 29 ruedas), 60 sondas alcanzan | FALLA: el cárter soldado (pared exterior, interior y extremos) | FALLA: el piñón motriz Z30 encerrado por la base del motor y el cárter soldados; sin soldadura OK (58 piezas), banda: nada que verificar |
+| `create_belt_conveyor` (v3, por defecto) | 5,1 s | 0,5 s | 0,04 s | FALLA: las dos cuñas (21 y 12 sondas) y los extremos de los dos tambores | FALLA: las dos guardas laterales sin unión declarada | OK: banda sale por +Y, motorreductor desmontable |
+
+Tests: `tests/test_puerta_f3.py` (9): el registro con F3 (generales, orígenes, un ítem nuevo por
+prefijo o sin general, `vacio_ok`, la tabla y su estado), la fuente que no corre, el descarte de
+`seguridad.electrico` sin correr el ERC, una cadena expuesta → `riesgos.partes_moviles` FALLA,
+una ménsula → los tres NO_APLICA con su porqué, F3 una vez por puerta (cuenta `controles_f3`,
+`_analizar` y `datos_calidad`), la tabla en `calidad.json`/`calidad.md`.

@@ -3,8 +3,13 @@ extrae datos puros y corre los controles de `library/seguridad/`.
 
 - `datos_calidad(doc)`: piezas (rol, catálogo, caja, redondez, anclaje), juntas, uniones
   declaradas, sólidos y la caja de la máquina — lo comparte la reparabilidad.
+- `analisis(doc, contexto)`: la DETECCIÓN (qué gira, los peligros, las guardas, las piezas de
+  desgaste) sin sondas ni barridos. Con el `contexto` de una corrida de la puerta
+  (`puerta_publicacion.Contexto`) se calcula UNA vez y la comparten los detectores
+  (`puerta_hechos`) y los controles: el mismo criterio y una sola extracción OCCT;
 - `controles_seguridad(doc)`: los ítems `seguridad.resguardo_iso13857`,
-  `seguridad.guarda_con_herramienta` y `seguridad.electrico`, más la tabla de riesgos.
+  `seguridad.guarda_con_herramienta` y `seguridad.electrico`, más la tabla de riesgos;
+- `items_seguridad(doc, contexto)`: la `Fuente` «seguridad» del registro (F3 entero, una vez).
 
 Sin locks (el llamador sostiene `STATE_LOCK`); el trazado de rayos, en `calidad_sondas.py`.
 """
@@ -157,27 +162,53 @@ def _item_electrico(doc) -> dict:
                 detalle=f"ERC: {ev['errores']} errores, {ev['avisos']} avisos")
 
 
-def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64) -> dict:
-    """→ {items: [resguardo, guarda, eléctrico], riesgos: [filas], peligros: [...], ms}."""
-    from apolo.library.seguridad import guardas as G
-    from apolo.library.seguridad.iso13857 import NORMA as NORMA_13857
-    from apolo.library.seguridad.modelo import clase_flexible, item
-    from apolo.library.seguridad.peligros import (
-        giratorias,
-        peligros_mecanicos,
-        resultado_peligro,
-        tabla_riesgos,
-    )
+def _analizar(dc: dict) -> dict:
+    from apolo.library.reparabilidad import piezas_de_desgaste
+    from apolo.library.seguridad.guardas import revisar_guardas
+    from apolo.library.seguridad.modelo import clase_flexible
+    from apolo.library.seguridad.peligros import giratorias, peligros_mecanicos
 
-    from .calidad_sondas import Trazador, cunas, evaluar_peligro
-
-    t0 = time.perf_counter()
-    dc = dc or datos_calidad(doc)
     piezas, juntas, uniones = dc["piezas"], dc["juntas"], dc["uniones"]
     tocan = tambores_de_banda(dc)
     gira = giratorias(piezas, juntas, uniones, {i for ids in tocan.values() for i in ids})
     tambores = _tambor_por_cuerpo(tocan, piezas, gira, juntas, uniones)
-    peligros = peligros_mecanicos(piezas, juntas, uniones, gira, tambores)
+    moviles = gira | {i for i, p in piezas.items() if clase_flexible(p)}
+    return {"dc": dc, "tocan": tocan, "gira": gira, "tambores": tambores, "moviles": moviles,
+            "peligros": peligros_mecanicos(piezas, juntas, uniones, gira, tambores),
+            "guardas": revisar_guardas(piezas, uniones, moviles),
+            "desgaste": piezas_de_desgaste(piezas)}
+
+
+def analisis(doc, contexto=None) -> dict:
+    """{dc, tocan, gira, tambores, moviles, peligros, guardas, desgaste}: lo que F3 detecta antes
+    de medir. Con `contexto`, una vez por corrida (memo `f3.analisis`)."""
+    if contexto is not None:
+        return contexto.una_vez("f3.analisis", lambda: analisis(doc))
+    return _analizar(datos_calidad(doc))
+
+
+def _fila_electrica(estado: str | None) -> dict:
+    fila = {"peligro": "Contacto eléctrico directo o indirecto", "tipo": "eléctrico",
+            "piezas": [], "zona": None, "medida": "tablero verificado por el ERC",
+            "verificacion": ID_ELECTRICO}
+    return fila if estado is None else {**fila, "estado": estado}
+
+
+def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64, *,
+                        an: dict | None = None, electrico: bool = True) -> dict:
+    """→ {items: [resguardo, guarda, eléctrico], riesgos: [filas], peligros: [...], ms}. `an`: el
+    `analisis` ya hecho; `electrico=False` no corre el ERC (ni su ítem ni su fila)."""
+    from apolo.library.seguridad import guardas as G
+    from apolo.library.seguridad.iso13857 import NORMA as NORMA_13857
+    from apolo.library.seguridad.modelo import item
+    from apolo.library.seguridad.peligros import resultado_peligro, tabla_riesgos
+
+    from .calidad_sondas import Trazador, cunas, evaluar_peligro
+
+    t0 = time.perf_counter()
+    an = an or _analizar(dc or datos_calidad(doc))
+    dc, piezas = an["dc"], an["dc"]["piezas"]
+    peligros = [dict(p) for p in an["peligros"]]  # se les ponen objetivos: el análisis no cambia
     tr = Trazador(dc["solidos"]) if peligros else None
     resultados = {}
     for p in peligros:
@@ -211,8 +242,7 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64) ->
                                 f"({resultados[p['id']]['n_alcanzan']} sondas alcanzan)"
                                 for p in malos[:6]) or f"{len(peligros)} peligros resguardados")
 
-    moviles = gira | {i for i, p in piezas.items() if clase_flexible(p)}
-    rg = G.revisar_guardas(piezas, uniones, moviles)
+    rg = an["guardas"]
     tit_g = "La guarda fija se quita sólo con herramienta (atornillada, no soldada ni apoyada)"
     modo_g = "guarda que se quita a mano, que no se puede quitar, o que gira con la máquina"
     if not rg["guardas"]:
@@ -225,25 +255,47 @@ def controles_seguridad(doc, dc: dict | None = None, n_direcciones: int = 64) ->
                     "; ".join(f"{g['nombre']}: {g['motivo']}" for g in malas[:6])
                     or f"{len(rg['guardas'])} guardas atornilladas")
 
-    it_e = _item_electrico(doc)
+    items = [it_res, it_g]
     riesgos = tabla_riesgos(peligros, resultados, piezas, ID_RESGUARDO)
-    if it_e["estado"] != "NO_APLICA":
-        riesgos.append({"peligro": "Contacto eléctrico directo o indirecto", "tipo": "eléctrico",
-                        "piezas": [], "zona": None, "medida": "tablero verificado por el ERC",
-                        "verificacion": ID_ELECTRICO, "estado": it_e["estado"]})
-    return {"items": [it_res, it_g, it_e], "riesgos": riesgos, "peligros": peligros,
+    if electrico:
+        it_e = _item_electrico(doc)
+        items.append(it_e)
+        if it_e["estado"] != "NO_APLICA":
+            riesgos.append(_fila_electrica(it_e["estado"]))
+    return {"items": items, "riesgos": riesgos, "peligros": peligros,
             "ms": round((time.perf_counter() - t0) * 1000.0)}
 
 
-def controles_f3(doc, n_direcciones: int = 64) -> dict:
+def controles_f3(doc, n_direcciones: int = 64, *, contexto=None, electrico: bool = True) -> dict:
     """Los seis ítems de F3 (seguridad + reparabilidad) con UNA extracción, y la tabla de
-    riesgos. → {items, riesgos, ms}."""
+    riesgos. → {items, riesgos, ms}. `contexto`: el de la corrida de la puerta (el `analisis`
+    que ya usaron los detectores)."""
     from .calidad_reparabilidad import controles_reparabilidad
 
     t0 = time.perf_counter()
-    dc = datos_calidad(doc)
-    seg = controles_seguridad(doc, dc, n_direcciones)
-    rep = controles_reparabilidad(doc, dc)
+    an = analisis(doc, contexto)
+    seg = controles_seguridad(doc, an["dc"], n_direcciones, an=an, electrico=electrico)
+    rep = controles_reparabilidad(doc, an["dc"], an=an)
     return {"items": seg["items"] + rep["items"], "riesgos": seg["riesgos"],
             "ms": {"seguridad": seg["ms"], "reparabilidad": rep["ms"],
                    "total": round((time.perf_counter() - t0) * 1000.0)}}
+
+
+def items_seguridad(doc, contexto=None) -> dict:
+    """La `Fuente` «seguridad» del registro (`library/calidad/registro.py`): F3 entero en UNA
+    corrida (las sondas cuestan hasta ~34 s) → {items, riesgos, ms}. El registro lleva los ítems a
+    sus generales y publica `riesgos` (la tabla ISO 12100) en el resultado de la puerta.
+
+    `seguridad.electrico` se DESCARTA a propósito: repite la `Entrada` `riesgos.electrico` (el
+    mismo ERC, y ésa además bloquea los avisos); publicar los dos daría dos ítems para un mismo
+    modo de falla y, si discreparan, dos veredictos. Por eso aquí el ERC no corre. Su fila de la
+    tabla de riesgos se queda, SIN estado propio y verificada por `riesgos.electrico`: el registro
+    le pone el estado de ese ítem."""
+    from .electrico import tiene_carril
+
+    r = controles_f3(doc, contexto=contexto, electrico=False)
+    riesgos = list(r["riesgos"])
+    if tiene_carril(doc):
+        riesgos.append({**_fila_electrica(None), "verificacion": "riesgos.electrico"})
+    items = [i for i in r["items"] if i["id"] != ID_ELECTRICO]  # descartado: ver el docstring
+    return {"items": items, "riesgos": riesgos, "ms": r["ms"]}

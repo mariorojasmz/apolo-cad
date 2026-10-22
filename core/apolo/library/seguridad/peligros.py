@@ -202,7 +202,8 @@ def resultado_peligro(peligro: dict, sondas: list[dict], ms: float,
 def tabla_riesgos(peligros: list[dict], resultados: dict[str, dict], piezas: dict[str, Pieza],
                   item_id: str) -> list[dict]:
     """Filas peligro → medida → verificación (ISO 12100 6.2/6.3). `medida`: las guardas (rol
-    «guarda») que bloquearon alguna sonda del peligro, o «ninguna»."""
+    «guarda») que bloquearon alguna sonda del peligro, o «ninguna»; `medida_nombres`, sus nombres
+    (para la ficha de calidad que lee una persona)."""
     filas = []
     for p in peligros:
         r = resultados.get(p["id"], {})
@@ -216,5 +217,6 @@ def tabla_riesgos(peligros: list[dict], resultados: dict[str, dict], piezas: dic
                     "puntos": [[round(v, 1) for v in q] for q in (p.get("objetivos") or [])][:8]}
         filas.append({"peligro": p["peligro"], "tipo": p["tipo"], "piezas": p["piezas"],
                       "zona": zona, "medida": guardas or "ninguna",
+                      "medida_nombres": [piezas[i].nombre for i in guardas],
                       "verificacion": item_id, "estado": r.get("estado", "SIN_EVALUAR")})
     return filas

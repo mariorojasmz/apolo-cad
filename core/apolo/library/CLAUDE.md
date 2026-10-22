@@ -168,7 +168,8 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - `calidad/registro.py` es LA regla (D1, D14): ítems GENERALES por modo de falla
   (`transmision_flexible.tension`, `union.agarre`…), nunca de un mecanismo; una máquina nueva suma
   un detector (`services/puerta_hechos.py`) o un evaluador, no un ítem. NO_APLICA sólo por
-  `aplica_si`; los ids de F2/F3 entran por el `mapa` de su `Fuente` (F3 = una línea). Cambiar un
+  `aplica_si`; los ids de F2/F3 entran por el `mapa` de su `Fuente` (servicio `(doc, contexto=)`,
+  UNA vez por puerta; puede dar `riesgos`: la tabla ISO 12100 del resultado). Cambiar un
   ítem, umbral o `aplica_si` sube `VERSION_REGISTRO`. Los controles de lo existente: `puerta.py`.
 - La banda de `create_belt_conveyor` abraza el radio EXTERIOR de cada tambor (`diametro_mm/2 +
   lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano): el motriz engomado
@@ -240,5 +241,6 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - **Puerta de publicación — seguridad y reparabilidad** (`seguridad/`, `reparabilidad.py`; OCCT en
   `services/calidad_*.py`): peligros ISO 12100 derivados del modelo, sondas ISO 13857 (la banda no
   es peligro ni se atraviesa; el rodillo portante liso no es peligro), guarda atornillada, desgaste
-  sin soldar y desmontable, banda montable. Devuelven ítems de F1; umbrales y calibración en el
+  sin soldar y desmontable, banda montable. Entran por la fuente «seguridad» (`seguridad.electrico`
+  se descarta: es `riesgos.electrico`); umbrales y calibración en el
   [plan](../../../docs/plans/puerta-de-publicacion.md) § F3.

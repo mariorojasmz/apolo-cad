@@ -102,7 +102,7 @@ def _archivo(clave: str, nombre: str) -> dict:
 #: `POST /api/puerta-publicacion` (puerta-de-publicacion F1): el registro de ítems; la tool resume
 #: (sólo lo que falla o no se pudo evaluar) salvo `completo`.
 PUERTA_PUBLICACION = {
-    "aprobado": False, "firma": "8670f64c1b6582ae1f9a", "version_registro": "1",
+    "aprobado": False, "firma": "8670f64c1b6582ae1f9a", "version_registro": "2",
     "conteos": {"OK": 1, "FALLA": 1, "SIN_EVALUAR": 1, "NO_APLICA": 1},
     "por_familia": {"montaje": {"estado": "FALLA", "OK": 0, "FALLA": 1, "SIN_EVALUAR": 0,
                                 "NO_APLICA": 1},
@@ -122,6 +122,9 @@ PUERTA_PUBLICACION = {
          "titulo": "Cada unión atornillada atraviesa todo lo que une",
          "detalle": "el modelo no tiene tornillería que medir", "piezas": [], "evidencia": {}}],
     "mantenimiento": ["reemplaza la cadena cuando se estire un 3 %"],
+    "riesgos": [{"peligro": "Atrapamiento banda ↔ tambor: Tambor de cola", "tipo": "atrapamiento",
+                 "piezas": ["c1_tcola"], "zona": None, "medida": "ninguna", "medida_nombres": [],
+                 "verificacion": "riesgos.partes_moviles", "estado": "FALLA"}],
     "tiempos_s": {"total": 16.7, "gravedad": 2.2}}
 SVG = b"<svg>golden</svg>"
 JOBS_SUELTOS = {"jmc": _archivo("k1", "golden-memoria-calculo.pdf"),

@@ -201,21 +201,18 @@ def banda_montable(dc: dict, tr, tambores: dict[str, list[str]]) -> dict:
                                   for r in resultados))
 
 
-def controles_reparabilidad(doc, dc: dict | None = None) -> dict:
-    """→ {items: [sin soldadura, desmontable, banda montable], ms}."""
+def controles_reparabilidad(doc, dc: dict | None = None, *, an: dict | None = None) -> dict:
+    """→ {items: [sin soldadura, desmontable, banda montable], ms}. `an`: el
+    `calidad_seguridad.analisis` ya hecho (qué gira y qué tambores abraza cada banda)."""
     from apolo.library.reparabilidad import item_sin_soldadura
-    from apolo.library.seguridad.peligros import giratorias
 
-    from .calidad_seguridad import _tambor_por_cuerpo, datos_calidad, tambores_de_banda
+    from .calidad_seguridad import _analizar, datos_calidad
     from .calidad_sondas import Trazador
 
     t0 = time.perf_counter()
-    dc = dc or datos_calidad(doc)
+    an = an or _analizar(dc or datos_calidad(doc))
+    dc = an["dc"]
     tr = Trazador(dc["solidos"])
-    tocan = tambores_de_banda(dc)
-    gira = giratorias(dc["piezas"], dc["juntas"], dc["uniones"],
-                      {i for ids in tocan.values() for i in ids})
-    tambores = _tambor_por_cuerpo(tocan, dc["piezas"], gira, dc["juntas"], dc["uniones"])
     items = [item_sin_soldadura(dc["piezas"], dc["uniones"], ID_SIN_SOLDADURA),
-             desgaste_desmontable(dc, tr), banda_montable(dc, tr, tambores)]
+             desgaste_desmontable(dc, tr), banda_montable(dc, tr, an["tambores"])]
     return {"items": items, "ms": round((time.perf_counter() - t0) * 1000.0)}

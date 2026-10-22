@@ -2,7 +2,7 @@
 tiene el modelo, por tipo general y clase concreta, para que cada ítem general del registro
 (`library/calidad/registro.py`) sepa si aplica y diga qué evaluó. El llamador sostiene STATE_LOCK.
 
-`hechos(doc, entrega_kwargs)` →
+`hechos(doc, entrega_kwargs, contexto)` →
 - `elementos`: {tipo general: {clase: n}} — `transmisiones_flexibles` {banda, cadena},
   `elementos_rodantes` {rodamiento, chumacera}, `accionamientos`, `transmisiones`, `apoyos`,
   `vigas`, `columnas`, `uniones` / `uniones_apernadas` / `soldaduras`, `tornilleria`,
@@ -15,7 +15,11 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
 
 Cada detector usa el MISMO criterio que el control que lo evalúa (la tornillería:
 `calidad_pernos.tipo_de_tornilleria`; los lazos: `calidad_tensores`; la banda animada:
-`marcha_ejemplo.bandas`).
+`marcha_ejemplo.bandas`; `partes_moviles`, `resguardos`, `consumibles` y la familia `resguardo`:
+la detección de F3, `calidad_seguridad.analisis` — los peligros de `peligros_mecanicos` por clase,
+las guardas de `guardas.revisar_guardas` y las piezas de `reparabilidad.piezas_de_desgaste`—,
+compartida con la fuente «seguridad» por el `contexto` de la corrida). Si esa detección revienta,
+los tres tipos quedan con `sin_detectar` (aplican: la fuente dirá por qué no corrió), nunca vacíos.
 """
 
 from __future__ import annotations
@@ -23,11 +27,13 @@ from __future__ import annotations
 import re
 
 _PATA_RE = re.compile(r"^(patas?|columnas?|postes?)\b", re.I)
-_GUARDA_RE = re.compile(r"^(guardas?|resguardos?|cárter|carter)\b", re.I)
 _MOTORES = ("motorreductores", "motorreductores_sinfin")
 _RODANTES = {"rodamientos": "rodamiento", "chumaceras": "chumacera"}
 _GIRO = ("giratoria", "continua")
 _VIGA_MIN_MM = 300.0  # un perfil horizontal más corto no trabaja como viga
+#: clase de cada peligro de `peligros_mecanicos` (por el prefijo de su id)
+_CLASE_PELIGRO = {"atrapamiento": "cuna_banda_tambor", "transmision": "transmision",
+                  "extremo_eje": "extremo_eje", "giro": "pieza_giratoria"}
 
 
 def _n(d: dict) -> dict:
@@ -44,7 +50,27 @@ def _ground_fid(g) -> str | None:
     return g.get("feature") or g.get("a") if isinstance(g, dict) else None
 
 
-def hechos(doc, entrega_kwargs: dict) -> dict:
+def _de_f3(doc, contexto) -> tuple[dict, dict, dict, list[str]]:
+    """(partes_moviles, resguardos, consumibles, ids de las guardas) con el criterio de F3."""
+    from .calidad_seguridad import analisis
+
+    try:
+        an = analisis(doc, contexto)
+    except Exception:  # noqa: BLE001 — aplican igual: la fuente «seguridad» dirá el error
+        return {"sin_detectar": 1}, {"sin_detectar": 1}, {"sin_detectar": 1}, []
+    moviles: dict[str, int] = {}
+    for p in an["peligros"]:
+        clase = _CLASE_PELIGRO.get(p["id"].split(":", 1)[0], "otro")
+        moviles[clase] = moviles.get(clase, 0) + 1
+    consumibles: dict[str, int] = {}
+    for clase in an["desgaste"].values():
+        consumibles[clase] = consumibles.get(clase, 0) + 1
+    guardas = an["guardas"]["guardas"]
+    return (moviles, _n({"guarda": len(guardas)}), consumibles,
+            [i for g in guardas for i in g["ids"]])
+
+
+def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from apolo.commands.exec_rodillos_cadena import comandos_efectivos
     from apolo.library.catalog import CATALOG
     from apolo.library.delivery import MIN_SOLIDOS_SUJECION
@@ -85,16 +111,16 @@ def hechos(doc, entrega_kwargs: dict) -> dict:
                 vigas += _horizontal_largo(solidos[f].shape)
             except Exception:  # noqa: BLE001 — sin bbox no cuenta
                 pass
-    guardas = [f for f, r in rol.items() if _GUARDA_RE.match(r)]
+    partes_moviles, resguardos, consumibles, guardas = _de_f3(doc, contexto)
     anclados = [g for g in (_ground_fid(x) for x in doc.grounds.values()) if g in solidos]
-    moviles = _n({"junta": len(doc.joints), "transmision_flexible": len(bandas) + len(cadenas),
-                  "accionamiento": len(motores), "elemento_rodante": len(rodantes)})
+    # un MECANISMO (memoria y familias D15): lo que se mueve por el modelo o un peligro de F3
+    mecanismo = bool(doc.joints or bandas or cadenas or motores or rodantes or partes_moviles)
     familias = {k: v for k, v in {
         "transmision_flexible": bandas + cadenas,
         "apoyo_rotativo": list(rodantes) + giran,
         "accionamiento": motores,
-        "resguardo": guardas if moviles else [],
-        "estructura": (anclados or list(solidos)) if moviles else [],
+        "resguardo": guardas if mecanismo else [],
+        "estructura": (anclados or list(solidos)) if mecanismo else [],
     }.items() if v}
     elementos = {
         "transmisiones_flexibles": _n({"banda": len(bandas), "cadena": len(cadenas)}),
@@ -114,10 +140,9 @@ def hechos(doc, entrega_kwargs: dict) -> dict:
         "piezas": _n({"catalogo": sum(1 for c in comps.values() if c is not None),
                       "a_medida": sum(1 for c in comps.values() if c is None)}),
         "sustitutos_animados": _n({"banda": animadas}),
-        "partes_moviles": moviles,
-        "resguardos": _n({"guarda": len(guardas)}),
-        "consumibles": _n({"banda": len(bandas), "cadena": len(cadenas),
-                           "rodamiento": len(rodantes)}),
+        "partes_moviles": partes_moviles,
+        "resguardos": resguardos,
+        "consumibles": consumibles,
     }
     return {
         "n_solidos": len(solidos),
@@ -126,7 +151,7 @@ def hechos(doc, entrega_kwargs: dict) -> dict:
         "sin_poses": entrega_kwargs.get("poses") == [],
         "carril": tiene_carril(doc),
         "escenarios": bool(doc.escenarios),
-        "memoria_aplica": bool(moviles or elementos["uniones"] or doc.requirements
+        "memoria_aplica": bool(mecanismo or elementos["uniones"] or doc.requirements
                                or doc.grounds),
         "elementos": elementos,
         "familias_funcion": familias,

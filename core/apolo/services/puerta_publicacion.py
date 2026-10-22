@@ -12,8 +12,13 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
   insumos crudos de acceso de herramienta, ERC y escenarios;
 - `interna`: los choques DENTRO de cada super-comando, sin `same_command_pairs` (D13b);
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
-- `fuentes`: los ítems de cada `Fuente` del registro (F2 hoy; F3 con una línea allá);
+- `fuentes`: lo que da cada `Fuente` del registro (F2: función mecánica; F3: seguridad y
+  reparabilidad, con la tabla de riesgos), cada una UNA vez;
 - `firma`: `firma_modelo` del documento (la misma que calcula la publicación del `.apolo`).
+
+Un `Contexto` por corrida: lo caro que comparten los detectores de los hechos y las fuentes (la
+detección de F3 sobre la extracción OCCT de `calidad_seguridad.datos_calidad`) se calcula una
+vez; cada detector usa así el MISMO criterio que el control que lo evalúa, sin pagarlo dos veces.
 """
 
 from __future__ import annotations
@@ -21,6 +26,20 @@ from __future__ import annotations
 import importlib
 import time
 from contextlib import contextmanager
+
+
+class Contexto:
+    """Memo de UNA corrida de la puerta (vive lo que dura `reunir`; nunca es estado global)."""
+
+    def __init__(self) -> None:
+        self._memo: dict = {}
+
+    def una_vez(self, clave: str, calcular):
+        """`calcular()` la primera vez que se pide `clave`; después, lo mismo. Si revienta, no se
+        guarda (quien lo vuelva a pedir lo verá fallar)."""
+        if clave not in self._memo:
+            self._memo[clave] = calcular()
+        return self._memo[clave]
 
 
 @contextmanager
@@ -114,19 +133,29 @@ def interferencia_interna(doc) -> dict:
             "tolerancia_mm3": EXCESS_TOL_MM3}
 
 
-def items_de_fuentes(doc, registro=None) -> dict:
-    """{clave: [ítems como dict]} de cada `Fuente` del registro, o {clave: {"error"}} si no corre."""
+def items_de_fuentes(doc, registro=None, contexto: Contexto | None = None,
+                     tiempos: dict | None = None) -> dict:
+    """{clave: {"items": [ítems como dict], "riesgos"?: [filas]}} de cada `Fuente` del registro
+    (cada servicio corre UNA vez, `función(doc, contexto=)`), o {clave: {"error"}} si no corre.
+    `tiempos` recibe `fuentes.<clave>` en segundos."""
     from apolo.library.calidad.item import Item
     from apolo.library.calidad.registro import fuentes
 
+    contexto = contexto or Contexto()
+    tiempos = {} if tiempos is None else tiempos
     out: dict = {}
     for f in fuentes(registro):
         modulo, nombre = f.servicio.split(":")
-        try:
-            items = getattr(importlib.import_module(modulo), nombre)(doc)
-            out[f.clave] = [i.to_dict() if isinstance(i, Item) else dict(i) for i in items]
-        except Exception as exc:  # noqa: BLE001 — una fuente que no corre: SIN_EVALUAR
-            out[f.clave] = {"error": f"{type(exc).__name__}: {exc}"}
+        with _cronometro(tiempos, f"fuentes.{f.clave}"):
+            try:
+                r = getattr(importlib.import_module(modulo), nombre)(doc, contexto=contexto)
+                items = r["items"] if isinstance(r, dict) else r
+                out[f.clave] = {"items": [i.to_dict() if isinstance(i, Item) else dict(i)
+                                          for i in items]}
+                if isinstance(r, dict) and r.get("riesgos") is not None:
+                    out[f.clave]["riesgos"] = list(r["riesgos"])
+            except Exception as exc:  # noqa: BLE001 — una fuente que no corre: SIN_EVALUAR
+                out[f.clave] = {"error": f"{type(exc).__name__}: {exc}"}
     return out
 
 
@@ -140,13 +169,14 @@ def reunir(doc, *, expand, gravedad: dict, registro=None, tiempos: dict | None =
     from .puerta_hechos import fabricacion, hechos
 
     tiempos = {} if tiempos is None else tiempos
+    contexto = Contexto()
     por_regla: dict = {}
     with _cronometro(tiempos, "entrega"):
         kw = delivery_inputs(doc, expand=expand, tiempos=por_regla)
         entrega = delivery_report(**kw, gravedad=gravedad.get("resultado"))
     tiempos.update({f"entrega.{k}": v for k, v in por_regla.items()})
     with _cronometro(tiempos, "hechos"):
-        h = hechos(doc, kw)
+        h = hechos(doc, kw, contexto)
     with _cronometro(tiempos, "interferencia_interna"):
         interna = interferencia_interna(doc)
     with _cronometro(tiempos, "memoria"):
@@ -155,7 +185,7 @@ def reunir(doc, *, expand, gravedad: dict, registro=None, tiempos: dict | None =
         except Exception as exc:  # noqa: BLE001 — sin memoria: SIN_EVALUAR
             memoria = {"error": f"{type(exc).__name__}: {exc}"}
     with _cronometro(tiempos, "fuentes"):
-        fuentes = items_de_fuentes(doc, registro)
+        fuentes = items_de_fuentes(doc, registro, contexto, tiempos)
     with _cronometro(tiempos, "fabricabilidad"):
         fab = fabricacion(doc)
     return {"firma": firma(doc), "hechos": h, "entrega": entrega, "gravedad": gravedad,
