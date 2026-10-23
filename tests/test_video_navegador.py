@@ -4,7 +4,7 @@
   VTK la quita (`sin_marcha`).
 - `services/plan_navegador.py` arma el plan cuadro por cuadro con las MISMAS funciones que el
   video de VTK: partes, piezas que entran, órbita, fundidos, rótulo y el reloj de la marcha.
-- El rótulo del navegador se lee a ≥ 4.5:1 sobre cualquier cuadro (D4 de video-tienda-pulido).
+- El rótulo del navegador se lee a ≥ 4.5:1 sobre cualquier cuadro (D4 de video-montaje-pulido).
 - La API guarda guion y plan en la sesión, recibe la foto, dibuja tarjetas y rótulos y anota el
   fallo del navegador; `POST /api/video/guion` los arma para el botón «Grabar video».
 - El lado del CLI (`publicar generar --render navegador`: buscar el navegador, lanzar la página

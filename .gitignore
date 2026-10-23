@@ -11,6 +11,8 @@ logs/
 # ignoraba también core/apolo/library/data/ (el CATÁLOGO YAML, código fuente).
 /data/
 .claude/settings.local.json
+# instrucciones locales del titular para Claude (fuera del repo público)
+CLAUDE.local.md
 # worktrees de sesiones concurrentes (EnterWorktree): cada uno es un checkout aparte
 .claude/worktrees/
 

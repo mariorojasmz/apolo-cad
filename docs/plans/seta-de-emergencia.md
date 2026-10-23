@@ -114,7 +114,7 @@ inspector de seguridad es una caja.
 - **F2 (M, `api` + `ui`)**: D2 y D3 en el payload y en el visor (grupos de material, calidad
   alta y normal, la sombra de contacto sin cambios). vitest de los grupos; pieza sin zonas
   idéntica a hoy.
-- **F3 (S, `kernel/render_vtk` + `kernel/glb`)**: D2 en VTK y en el GLB de la tienda.
+- **F3 (S, `kernel/render_vtk` + `kernel/glb`)**: D2 en VTK y en el GLB de la vista web.
 - **F4 (S, verificación)**: render del tablero de la faja 73 con la seta en la puerta y otra en
   la máquina. Pasan el video de video-realista y el GLB, y el ERC sigue verde. Lo juzga Mario.
 
@@ -278,7 +278,7 @@ validada por número de caras y volumen.
     malla (`builds` = 3). La seta, la leyenda y el collar no cambian.
   - Calidad normal: igual. Sin errores en la consola.
 
-### F3 (2026-10-20): zonas en la foto VTK y en el GLB de la tienda
+### F3 (2026-10-20): zonas en la foto VTK y en el GLB de la vista web
 
 - **Dato, no import.** `services/apariencia.apariencias_render(doc)` = `apariencias_documento`
   más, en cada pieza que conserva sus zonas (`zona_por_cara` calza), la clave
@@ -293,7 +293,7 @@ validada por número de caras y volumen.
     cara ya no son los del builder). El fantasma gris del `highlight` también va de un color;
     `xray` conserva los colores de zona.
   - **Decisión (fuera de F3)**: `render_vivo` (video VTK de respaldo y GIF de dinámica) sigue de
-    un acabado: recibe `apariencias_documento` y no lee `zonas`. El video de la tienda es el del
+    un acabado: recibe `apariencias_documento` y no lee `zonas`. El video de la máquina es el del
     navegador (F2). Si Mario lo pide, se hace con `actores_superficie` en `EscenaViva._crear`
     (`resaltar` y `mover` tendrían que recorrer los actores de zona).
 - **GLB** (`kernel/glb_zonas.py`). Con `SetMergeFaces`, el escritor junta caras por ESTILO, y el

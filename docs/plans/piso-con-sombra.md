@@ -12,7 +12,7 @@ Mario, al ver el piloto (proyecto 74) con los acabados nuevos de
 [visor-realista](visor-realista.md) F1, preguntó si el piso con sombra «es también mejora» y
 pidió: «sí, escribe el plan y lánzalo» (2026-10-19). Es el pendiente que dejó visor-realista F1
 (§ Bitácora F1, «Pendiente de F1 — piso con sombra de contacto»): sin sombra de contacto la
-máquina parece flotar sobre el fondo oscuro, y eso pesa en las capturas, el video de la tienda y
+máquina parece flotar sobre el fondo oscuro, y eso pesa en las capturas, el video de la máquina y
 la primera impresión del visor.
 
 ## El problema / lo que hay hoy
@@ -112,7 +112,7 @@ la primera impresión del visor.
 
 ## Lo que este plan NO hace
 
-- No cambia el render VTK (fotos, GIF, video) ni el GLB de la tienda: cada uno tiene su motor.
+- No cambia el render VTK (fotos, GIF, video) ni el GLB de la vista web: cada uno tiene su motor.
 - No agrega reflejos en el piso, piso con textura ni fondo de estudio: sólo el apoyo.
 - No toca la lógica de interacción: F1 la MUEVE sin cambiarla.
 

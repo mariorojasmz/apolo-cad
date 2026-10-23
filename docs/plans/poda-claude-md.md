@@ -9,7 +9,7 @@ descripcion: Cada sesión del agente arranca con un CLAUDE.md de ≤ 30 KB; el d
 ## Estado y origen
 
 Pedido de Mario (2026-10-03): «dale, arranca con el plan de poda del CLAUDE.md». Viene de
-adoptar la cultura de Caronte (commit `1ac7eba`), cuya regla fija **raíz ≤ 30 KB, CLAUDE.md de
+adoptar la cultura de otro proyecto del titular (commit `1ac7eba`), cuya regla fija **raíz ≤ 30 KB, CLAUDE.md de
 subpaquete ≤ 35 KB** («se cargan en cada sesión: cada línea cuesta»). Al adoptarla quedó
 declarado en el propio CLAUDE.md que hoy pesa cuatro veces eso.
 

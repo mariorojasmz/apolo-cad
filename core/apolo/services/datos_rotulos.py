@@ -1,4 +1,4 @@
-"""Las cifras de ingeniería que leen los rótulos del video (plan video-tienda-pulido, F1 · D1).
+"""Las cifras de ingeniería que leen los rótulos del video (plan video-montaje-pulido, F1 · D1).
 
 `datos_rotulos(doc)` lee el documento REGENERADO una vez y devuelve un `rotulos.DatosRotulo`
 puro, sin shapes: por pieza, su referencia de catálogo (nombre, categoría, specs), el largo de

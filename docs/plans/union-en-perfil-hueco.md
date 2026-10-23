@@ -8,7 +8,7 @@ descripcion: Atornillar una pieza a un tubo cerrado, a una C de chapa o a madera
 
 ## Estado y origen
 
-Hito J de [docs/hitos.md](../hitos.md). Lo halló la F4 de
+Lo halló la F4 de
 [varias-maquinas-a-la-vez](varias-maquinas-a-la-vez.md) (§ Bitácora): tres modeladores pusieron la
 misma placa de identificación con `join_bolted` en tres máquinas, y en las tres la unión salió mal.
 

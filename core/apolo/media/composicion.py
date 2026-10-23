@@ -403,7 +403,7 @@ def _panel_rotulo(maqueta: MaquetaRotulo, estilo: Estilo, opacidad_panel: float)
 
 def opacidad_rotulo_legible(estilo: Estilo = ESTILO) -> float:
     """La opacidad del panel con la que el título y el texto del rótulo se leen a ≥ 4.5:1 sobre
-    CUALQUIER cuadro (D4 de video-tienda-pulido): nunca menos que la del estilo."""
+    CUALQUIER cuadro (D4 de video-montaje-pulido): nunca menos que la del estilo."""
     from .contraste import opacidad_legible
 
     return opacidad_legible((estilo.color_texto, estilo.color_secundario), estilo.color_panel,

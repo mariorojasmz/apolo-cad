@@ -1,4 +1,4 @@
-"""`kernel/glb.py`: el GLB de la vista 3D de la tienda (plan vista-3d-tienda, F1 · D1, D2).
+"""`kernel/glb.py`: el GLB de la vista 3D de la tienda (plan vista-3d-web, F1 · D1, D2).
 
 Una máquina sintética en mm y Z arriba, que NO apoya en z = 0 (las patas bajan a −260), con
 grupos anidados, una pieza girada, una pieza suelta, piezas repetidas (mismo TShape, una con

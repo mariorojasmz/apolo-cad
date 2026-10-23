@@ -8,7 +8,7 @@ descripcion: Antes de entregarte una máquina, un segundo agente la revisa con o
 
 ## Estado y origen
 
-Mario, al revisar la máquina piloto de [publicacion-tienda](publicacion-tienda.md) (proyecto 2,
+Mario, al revisar la máquina piloto (proyecto 2,
 «transportador-rodillos-cadena-2m»), encontró a ojo cuatro defectos que el agente entregó en
 VERDE:
 

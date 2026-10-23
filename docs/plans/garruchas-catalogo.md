@@ -85,7 +85,7 @@ polipropileno, balinera de precisión; «disponibles con o sin freno total».
 | ancho de banda PU | — | 1 3/4" | 1 3/4" | — |
 
 No publica: Ø de agujero, espesor de placa, avance, peso, ni la altura de la variante con
-freno total. La tienda de Lima anuncia la 4X2 PU 45 A con freno a 350 kg (la ficha dice 200).
+freno total. Un proveedor de Lima anuncia la 4X2 PU 45 A con freno a 350 kg (la ficha dice 200).
 
 **Descartadas como familia** (quedan citadas en el YAML): Tente Alpha 3470/3477/3478 (no hay
 Ø150, usa 160; no hay freno total Ø100 con placa P63; la fija cambia de placa), Colson USA
@@ -99,14 +99,14 @@ SERRATURE 150 mm PU: S/ 89.60 giratoria · S/ 115.26 freno · S/ 82.17 fija.
 ## 4. Decisiones (para vetar)
 
 - **D1. Categoría `garruchas`, archivo `110_garruchas.yaml`.** «Garrucha» es la palabra de
-  Mario y de las tiendas de Lima. El prefijo 110 la carga AL FINAL: no reordena las refs
+  Mario y de los proveedores de Lima. El prefijo 110 la carga AL FINAL: no reordena las refs
   existentes ni el enum de `insert_component`.
 - **D2. Dos familias, 24 refs (231 → 255).** Blickle LH-ALTH (12: giratoria, `-ST`, fija ×
   Ø100/125/150/200) por ser la ficha más completa y consistente; Colson Colombia serie 44/45 PU
   (12: giratoria, freno total, fija × 4"/5"/6"/8") por ser **la que se compra en Lima**. Las
   refs son el código comercial: `LH-ALTH-125K-3-ST`, `BH-ALTH-150K`…;
-  `COLSON-5X2-PU-45-A`, `COLSON-5X2-PU-45-A-FT`, `COLSON-5X2-PU-44-A` (la nomenclatura de la
-  tienda + `-FT` para freno total, porque el código exacto de freno del fabricante no quedó
+  `COLSON-5X2-PU-45-A`, `COLSON-5X2-PU-45-A-FT`, `COLSON-5X2-PU-44-A` (la nomenclatura del
+  proveedor + `-FT` para freno total, porque el código exacto de freno del fabricante no quedó
   verificado).
 - **D3. Lo no publicado se declara, no se disimula.** Cada variante lleva `no_publicado: "…"`
   en specs (lo ven el agente, la BOM y quien cotiza) y el YAML comenta de dónde sale cada valor:

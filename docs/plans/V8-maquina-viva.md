@@ -97,7 +97,7 @@ Medido sobre `main` en `0592a0c`.
   `SketcherDialog.tsx`.
 - En modo Visor no se acoplan paneles (`dock/dockApi.ts:115-120`): una vista 2D grande junto al
   3D no tiene dónde ir.
-- `kernel/render_vivo.py` (publicacion-tienda F2, recién en `main`) da una ventana VTK
+- `kernel/render_vivo.py` (recién en `main`) da una ventana VTK
   persistente a 7,9 ms por fotograma. Sirve para el video de una simulación.
 
 **Planos y entregables reutilizables**:
@@ -140,7 +140,7 @@ Medido sobre `main` en `0592a0c`.
   | Freerouting | GPL-3 | binario externo |
 
   Lo GPL se llama sólo como **binario externo por subproceso**, igual que ffmpeg en
-  [publicacion-tienda](publicacion-tienda.md) D7 (y como kicad-mcp, MIT, que llama a Freerouting
+  la codificación del video (y como kicad-mcp, MIT, que llama a Freerouting
   por subproceso).
 - **KiCad 9.** Exportar y correr el DRC sólo se puede con `kicad-cli`. La API IPC exige la GUI
   abierta y el modo sin GUI llega recién en KiCad 11.

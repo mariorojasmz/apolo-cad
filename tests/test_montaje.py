@@ -1,4 +1,4 @@
-"""La secuencia de MONTAJE desde el grafo de uniones (plan video-tienda-pulido, F1b · D8):
+"""La secuencia de MONTAJE desde el grafo de uniones (plan video-montaje-pulido, F1b · D8):
 `services/montaje.py`, su uso en el manual de ensamblaje y el video en modo montaje
 (`services/montaje_video.py`, `guion_video` con `modo`; las tandas del video las arma la
 fábrica de publicaciones, fuera del núcleo).

@@ -1,5 +1,5 @@
 """La cifra principal de cada grupo de la máquina: las etiquetas de la vista 3D de la tienda
-(plan vista-3d-tienda, F2 · D3).
+(plan vista-3d-web, F2 · D3).
 
 `cifras_grupos(doc, ids)` junta las piezas `ids` (las que muestra el GLB) por su grupo RAÍZ (un
 subgrupo cuenta para su raíz: las etiquetas no se apilan unas sobre otras) y da de cada grupo

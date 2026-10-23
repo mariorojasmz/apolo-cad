@@ -62,7 +62,7 @@ SIN_ODA = (f"El export DWG requiere ODA File Converter (gratuito): descárgalo d
 
 def disponible() -> dict:
     """¿Hay con qué exportar DWG? {disponible, aviso}: lo publica `GET /api/health` para que un
-    cliente lo sepa ANTES de pedir un plano (video-tienda-pulido D5). Barato tras la primera
+    cliente lo sepa ANTES de pedir un plano (video-montaje-pulido D5). Barato tras la primera
     llamada (el descubrimiento se cachea por proceso: instalar ODA pide reiniciar la API)."""
     ok = _discover()
     return {"disponible": ok, "aviso": None if ok else SIN_ODA}

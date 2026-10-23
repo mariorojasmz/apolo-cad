@@ -146,6 +146,10 @@ merece persistirse y actualiza el archivo que corresponde sin que se lo pidan.
   `.github/instructions/` ni similares: divergen solos.
 - Un cambio a un CLAUDE.md se verifica con una sesión FRESCA después del merge (§ Sesiones
   concurrentes explica por qué no sirve un subagente).
+- **Las reglas de operación del titular** (su cola de trabajo, sus tiempos medidos, sus
+  máquinas) viven fuera del repo y llegan por un `CLAUDE.local.md` ignorado por git en la raíz de
+  su checkout. El árbol público sólo lleva el núcleo: lo vigila `tests/test_negocio_fuera.py`
+  ([núcleo abierto](docs/plans/nucleo-abierto-extensiones-privadas.md) D13–D15).
 
 ## Planes (`docs/plans/`)
 
@@ -167,19 +171,13 @@ CLAUDE.md a respetar, alcance estricto, tests como único gate y sin mergear. Al
 el diff contra el contrato, **re-correr las suites uno mismo** (pytest y, si tocó `ui/`,
 `npm test` + `npm run build`), rechazar lo que no cumple y sólo entonces rebase y merge.
 
-**Hitos: Claude organiza y lanza** (Mario, 2026-10-20): cada idea de Mario entra a un hito de
-[docs/hitos.md](docs/hitos.md) y Claude decide el orden y lanza las fases (máx. 2 agentes en
-paralelo). Las decisiones de cada plan siguen siendo vetables; la lista se actualiza al lanzar
-y al mergear.
-
-**Estimar con tiempos medidos de Claude, no de un humano**: [tiempos de implementación](docs/tiempos-de-implementacion.md)
-(una fase S/M de un agente ≈ 40–65 min con sus suites; revisión y merge ≈ 35 min por lote). Al
-mergear una fase, se agrega su fila.
+**Estimar con tiempos medidos de Claude, no de un humano** (una fase S/M de un agente ≈ 40–65
+min con sus suites; revisión y merge ≈ 35 min por lote).
 
 **Modelar una máquina por MCP también se delega**: un subagente en segundo plano con brief
 autocontenido (no puede preguntar a mitad: decide con criterio y lo reporta) y contexto fresco;
-modelar dentro de una sesión larga relee todo su contexto en cada llamada (la piloto de
-[publicacion-tienda](docs/plans/publicacion-tienda.md): 36 M tokens leídos en 14 min). ⚠️ **Una
+modelar dentro de una sesión larga relee todo su contexto en cada llamada (medido: 36 M tokens
+leídos en 14 min). ⚠️ **Una
 máquina por proceso; varias, con `scripts/flota.py`** ([plan](docs/plans/varias-maquinas-a-la-vez.md)):
 cada API tiene UN documento (`S.doc`) que `open_project` cambia para todos sus clientes, y los
 subagentes comparten el MCP de su sesión → cada modelador extra es un `claude -p --mcp-config
@@ -362,12 +360,6 @@ No están en `design/guidelines.py`; valen al modelar por MCP.
 
 ### Windows y operación
 
-- **La PC de escritorio, por SSH** (`ssh escritorio`, PowerShell; i7 8 núcleos, 32 GB, RTX 4070 Ti;
-  allá no hay Claude): las pruebas van en `C:\Users\Mario\source\repos\apolo-cad-pruebas` (su
-  `.venv` con `core[dev,physics,fea]`), NUNCA en `apolo-cad`, la carpeta de uso de Mario con sus
-  proyectos. El código va con `git push escritorio <rama>:refs/remotes/laptop/<rama>` (el remoto
-  ya existe) y allá `git checkout --detach refs/remotes/laptop/<rama>`. La suite tarda ~11 min allá
-  (~30 en la laptop) y trae matplotlib 3.11, como el CI. Una suite a la vez en esa carpeta.
 - **Editar sólo YAML NO recarga el worker** (`--reload` vigila los `.py` por contenido): toca un
   `.py` o reinicia. Sin `--reload`, reinicia siempre tras un cambio.
 - **Zombie-socket :8000**: un `multiprocessing.spawn` huérfano (hijo de un uvicorn muerto)

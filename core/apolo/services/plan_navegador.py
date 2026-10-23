@@ -7,7 +7,7 @@ tandas por peso de roles (`construccion.peso_roles`), el mismo escalonado de las
 calcula ESTE módulo, con las mismas funciones; el navegador sólo lo dibuja. Así no hay dos guiones
 que diverjan: una regla nueva del video entra en `linea_tiempo.py` y la reciben los dos.
 
-Sólo el modo MONTAJE (D8 de video-tienda-pulido): cada paso es una tanda de piezas de la escena
+Sólo el modo MONTAJE (D8 de video-montaje-pulido): cada paso es una tanda de piezas de la escena
 final, que el navegador ya tiene. El modo diseño regenera prefijos del log y eso sólo lo hace VTK.
 
 Lo que el navegador agrega (D5): la `marcha` del guion, la máquina andando después de las etapas,

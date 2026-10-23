@@ -52,7 +52,7 @@ class Entregable:
     cuerpo: dict | None = None
     opcional: bool = False  # su falta no frena una publicación (p. ej. el DWG sin ODA)
     #: capacidad de la API que necesita, como la publica `GET /api/health` ({"disponible",
-    #: "aviso"}): sin ella la publicación no lo pide y avisa al empezar (D5 de video-tienda-pulido)
+    #: "aviso"}): sin ella la publicación no lo pide y avisa al empezar (D5 de video-montaje-pulido)
     requiere: str = ""
     #: lo que dice el LEEME a quien compra si falta (opcional); vacío = «No trae <etiqueta>.»
     sin_el: str = ""
@@ -199,7 +199,7 @@ class Recolector:
 
 def omitidos(salud: dict, entregables: list[Entregable]) -> dict[str, str]:
     """{archivo: por qué no se pide} de los entregables cuya capacidad (`requiere`) la API dice
-    no tener en `GET /api/health` (D5 de video-tienda-pulido: el DWG sin ODA). Una API que no
+    no tener en `GET /api/health` (D5 de video-montaje-pulido: el DWG sin ODA). Una API que no
     publica la capacidad no la niega: se pide y, si falla, queda registrado como siempre."""
     fuera = {}
     for e in entregables:
@@ -210,7 +210,7 @@ def omitidos(salud: dict, entregables: list[Entregable]) -> dict[str, str]:
 
 
 class EnFondo:
-    """`Recolector.traer` en un hilo propio (D6 de video-tienda-pulido): mientras la API arma
+    """`Recolector.traer` en un hilo propio (D6 de video-montaje-pulido): mientras la API arma
     los entregables, quien llama renderiza el video. Sólo vale si la API es OTRO proceso: el
     hilo sólo espera HTTP. Con la API en el mismo proceso (el `TestClient` de los tests),
     `paralelo=False` lo trae todo aquí mismo, antes de volver.

@@ -25,8 +25,8 @@ terminar V8.2; respondió «sí» al plan.
   (`scene-setup.ts:19-22`). Lo que falta para «parecer real» no es el motor: materiales por tipo
   (todo es un color + metalness/roughness genérico), sombra de contacto con el piso, y que la
   máquina SE MUEVA.
-- **Dos renderizadores**: el visor (three.js) y el video de la tienda
-  ([publicacion-tienda](publicacion-tienda.md), VTK en `kernel/render_vivo.py`) no comparten
+- **Dos renderizadores**: el visor (three.js) y el video de la máquina
+  (VTK en `kernel/render_vivo.py`) no comparten
   materiales: hoy se verían distintos.
 - La faja se dibuja como un sólido rígido; las cadenas, como sólidos del CAD que no avanzan.
 
@@ -84,7 +84,7 @@ terminar V8.2; respondió «sí» al plan.
   renderizadores; piso con sombra de contacto.
 - **F2 (M, `api` + `ui`)**: reproductor D4 sobre el resultado de `simulate` (requiere V8.2 F2).
 - **F3 (M, `library` + `ui`)**: faja con forma real y cadenas que avanzan (D6).
-- **F4 (S, `publicacion`)**: el video de la tienda cierra con «la máquina andando» (mismo
+- **F4 (S, `publicacion`)**: el video de la máquina cierra con «la máquina andando» (mismo
   resultado y mismos materiales, renderizado por VTK).
 - **F5 (S, verificación)**: clip de 20 s de la piloto andando, cajas incluidas; lo juzga Mario.
 
@@ -120,7 +120,7 @@ Hecha la tabla D5; el piso con sombra de contacto queda PENDIENTE (ver abajo).
   `tests/test_apariencia.py` compara byte a byte. VTK recibe las apariencias como dato
   (`extract_render_scene(apariencias=)`, `EscenaViva(apariencias=)`, el kernel no importa
   `library`) en la foto de `render_view`, el GIF de movimiento, el GIF de dinámica y el video de
-  la tienda. Como el render VTK no tiene luz por imagen, `render_comun.phong_de_pbr` traduce PBR
+  la máquina. Como el render VTK no tiene luz por imagen, `render_comun.phong_de_pbr` traduce PBR
   → Phong, calibrado para que el acero pintado quede como el Phong de antes.
 - **Relieves procedurales** (`ui/src/viewport/relieve.ts`): 6 tipos (pintura, cepillado,
   moteado, fundición, veta, tejido) generados con semilla fija, como `bumpMap`; las piezas no
@@ -162,7 +162,7 @@ asignado `#c3c9d1` y parecía plástico blanco, y los piñones mecanizados se ve
   (acero pintado) siguen con su color.
 - Pendiente (fuera de este fix): elegir un color en Propiedades para una pieza metálica guarda el
   color pero no cambia nada a la vista; falta decirlo en la ficha. `publicacion/vista3d.py`
-  (GLB de la tienda) todavía no lee la tabla (su enganche D6).
+  (GLB de la vista web) todavía no lee la tabla (su enganche D6).
 
 ### F2 (2026-10-20): reproductor de la marcha
 

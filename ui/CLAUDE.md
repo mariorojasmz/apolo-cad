@@ -128,8 +128,8 @@ inglés en rótulos ni `aria-label` (salvo las siglas de la tabla).
 - **`src/tuteoNeutro.test.ts`** recorre `src/` entero y rebota voseo (también con pronombre
   pegado: «revisala»), «usted» y españolismos inconfundibles («pulsa», «ratón»). Lo que se
   enumera son las excepciones, con su razón; una excepción que ya no hace falta también falla.
-- Los dos son copia del estándar de Caronte: al actualizarlos, traer la versión nueva y
-  re-aplicar sólo el bloque «Configuración del proyecto».
+- Los dos son copia de un estándar común a otros proyectos del titular: al actualizarlos, traer
+  la versión nueva y re-aplicar sólo el bloque «Configuración del proyecto».
 - **`src/tamanoArchivos.test.ts`**: ningún `.ts`/`.tsx` de `src/` pasa de 500 líneas; los que ya
   pasan, congelados en su `EXCEPCIONES` (trinquete: el número sólo baja).
 - Los `*.test.ts` están fuera de `tsconfig.json` (usan `node:fs`; la app no carga los tipos de

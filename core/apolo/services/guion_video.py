@@ -12,7 +12,7 @@ español: una clave desconocida (un typo como `duracion` por `duracion_s` se ign
 silencio), un tipo equivocado, una duración negativa, pasos fuera de orden o, si recibe el
 documento, un guion armado sobre otra versión del log (`documento.firma`).
 
-`modo` (D8 de video-tienda-pulido, opcional): «montaje» = las etapas siguen la secuencia de
+`modo` (D8 de video-montaje-pulido, opcional): «montaje» = las etapas siguen la secuencia de
 `montaje.py` y cada paso es una TANDA de piezas (ids de la escena final, cada una una sola vez);
 sin él, «diseño»: cada paso es un `k` del log, como siempre.
 
@@ -45,7 +45,7 @@ from apolo.services.rotulos import MAX_TEXTO, MAX_TITULO_ETAPA, corta
 
 VERSION = 1
 IDIOMA = "es"
-#: El orden del video (D8 de video-tienda-pulido): cómo se ARMA (la secuencia de `montaje.py`;
+#: El orden del video (D8 de video-montaje-pulido): cómo se ARMA (la secuencia de `montaje.py`;
 #: cada paso es la lista de piezas que entra) o cómo se DISEÑÓ (el log; cada paso es un `k`). Un
 #: guion sin «modo» es de diseño: así siguen valiendo los de antes.
 MODO_MONTAJE = "montaje"

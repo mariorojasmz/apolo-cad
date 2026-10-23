@@ -1,4 +1,4 @@
-"""Contraste de texto sobre un panel semitransparente (regla de D4 de video-tienda-pulido: el
+"""Contraste de texto sobre un panel semitransparente (regla de D4 de video-montaje-pulido: el
 texto del video se lee con contraste ≥ 4.5:1, el mínimo WCAG AA para texto normal).
 
 El panel del rótulo va sobre el cuadro, que puede ser cualquier cosa (una pieza galvanizada casi

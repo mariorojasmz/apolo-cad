@@ -8,7 +8,7 @@ descripcion: El catálogo trae cadenas de rodillos y piñones reales (ASA 40, qu
 
 ## Estado y origen
 
-Mario (2026-10-08) eligió como máquina piloto de [publicacion-tienda](publicacion-tienda.md) un
+Mario (2026-10-08) eligió como máquina piloto (detalle fuera del núcleo) un
 transportador de rodillos motorizado por cadena. Al revisar el catálogo salió que no hay piñones
 ni cadenas, y Mario pidió: «seria bueno tener el catalogo de piñones y cadenas». Después: «cuando
 tengas el plan, implementalo defrente, no me preguntes».
@@ -62,7 +62,7 @@ Hubo dos investigaciones (2026-10-08, agentes con navegador) y cuentas propias.
   - Provinsur (Chorrillos);
   - Ducasse (Miraflores), que vende Tsubaki, Martin y Rexnord;
   - MUCASA, MegaChain, Vercelli, EMSAC y J.REMES.
-- **ASA tiene más stock.** En Rodasur, 58 de 95 piñones son ASA (contado con la API de su tienda).
+- **ASA tiene más stock.** En Rodasur, 58 de 95 piñones son ASA (contado en su catálogo en línea).
 - Nombres locales: «PIÑON SIMPLE PASO ASA 40/1 B Z20 1/2″» («B» = con cubo); «catalina», el
   piñón grande; «candado», el eslabón de unión. El piñón se compra con agujero sin terminar y se
   maquina en taller con chaveta y prisionero.
@@ -222,7 +222,7 @@ Piñones:
     - 08B-1 doble-simple ×1: `PINON-08B-DS-Z14`.
     - 10B-1 ×2.
     - 12B-1 ×1.
-  - Nombres como en la tienda: «Piñón ASA 40-1 Z15 (tipo B)», «Cadena ASA 40-1».
+  - Nombres como en el catálogo del proveedor: «Piñón ASA 40-1 Z15 (tipo B)», «Cadena ASA 40-1».
   - Fuera de v1, por falta de datos de cubo verificados: ASA 35/50/60/80 y 06B/16B.
 - **D3 — Lo no publicado se declara, no se disimula** (como D3 de garruchas). Cada ref lleva
   `no_publicado: "…"` en specs con lo [E] y el YAML comenta la fuente de cada valor. El piloto se
@@ -371,7 +371,7 @@ Tests en `tests/test_catalog_cadenas.py`:
   queda en su pose de diseño.
 - No modela el chavetero ni el prisionero: se rotulan (D3).
 - No incluye guardas de cadena de catálogo (se modelan como chapa), cotización firme ni el
-  transportador piloto, que es trabajo de modelado de [publicacion-tienda](publicacion-tienda.md)
+  transportador piloto, que es trabajo de modelado (fuera del núcleo)
   una vez esto esté en `main`.
 
 ## Riesgos

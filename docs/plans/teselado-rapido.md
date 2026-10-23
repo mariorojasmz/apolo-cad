@@ -39,7 +39,7 @@ sola vez y la instancia con su matriz.
   malla de su definición, teselada UNA vez y transformada por su matriz al dibujar: en VTK, un
   `vtkTransform` por actor o un actor por instancia sobre el mismo `polydata`. Sirve para
   `render_view`, el manual, la memoria, el GIF y el video VTK. Es lo que ya hace el visor y lo
-  que hace el GLB de la tienda.
+  que hace el GLB de la vista web.
 - **D2. Extracción propia de la triangulación.** Se lee `Poly_Triangulation` de cada cara con
   `BRep_Tool.Triangulation_s`, a numpy y con la ubicación de la cara, en lugar de
   `Shape.tessellate`. Se usa la misma deflexión (0,5 / 0,25) y se compara contra build123d en un
@@ -51,7 +51,7 @@ sola vez y la instancia con su matriz.
   con su motivo. Se mide en F0 si el tamaño lo justifica; si pesa demasiado, se descarta D3 y
   quedan D1 + D2. **Descartada en la F2** (§ Bitácora): el blob va sin malla.
 - **D4. La malla de eslabones no se simplifica.** Un LOD que dibujara la cadena como un sólido
-  liso cambiaría lo que se ve en el manual y en las fotos de la tienda. Primero se mide cuánto
+  liso cambiaría lo que se ve en el manual y en las fotos de la máquina. Primero se mide cuánto
   dan D1–D3.
 
 ## Alternativas descartadas

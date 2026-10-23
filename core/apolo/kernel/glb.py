@@ -1,4 +1,4 @@
-"""GLB (glTF binario) de una máquina para MIRARLA en la web (plan vista-3d-tienda, D1–D2).
+"""GLB (glTF binario) de una máquina para MIRARLA en la web (plan vista-3d-web, D1–D2).
 
 Escritor glTF de OCCT (`RWGltf_CafWriter`) sobre un documento XCAF propio:
 

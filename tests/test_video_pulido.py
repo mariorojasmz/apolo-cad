@@ -1,5 +1,5 @@
 """Rótulos con datos de ingeniería y ritmo parejo del video de la tienda (plan
-video-tienda-pulido, F1 · D1 y D2: `services/rotulos.py`, `services/datos_rotulos.py` y las
+video-montaje-pulido, F1 · D1 y D2: `services/rotulos.py`, `services/datos_rotulos.py` y las
 etapas de `services/construccion.py`).
 
 La piloto (proyecto 2 en los planes) no está en la CI: una «piloto en miniatura» en memoria la

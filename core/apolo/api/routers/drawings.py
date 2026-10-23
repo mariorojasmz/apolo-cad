@@ -211,7 +211,7 @@ def drawingset_dwg(template: str = "generico", sheet: str = "A3") -> Response:
     from apolo.drawing import DwgError, sheet_set, sheet_to_dwg
     from apolo.drawing.dwg import require_odafc
 
-    try:  # sin ODA se niega YA, no tras componer todas las láminas (video-tienda-pulido D5)
+    try:  # sin ODA se niega YA, no tras componer todas las láminas (video-montaje-pulido D5)
         require_odafc()
     except DwgError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -297,7 +297,7 @@ def drawing_spec(spec: DrawingSpecIn, async_: bool = Query(False, alias="async")
     La isométrica SOMBREADA (`shaded`, sólo pdf/svg: el DXF no lleva imágenes) se dibuja fuera
     de `STATE_LOCK`, como en el juego de planos (plan manual-rapido F2b). Con `?async=true` va
     como JOB (`_job_entregable`): 202 + recibo; el archivo se baja del resultado."""
-    if spec.format == "dwg":  # sin ODA, el 400 antes del HLR (D5 de video-tienda-pulido)
+    if spec.format == "dwg":  # sin ODA, el 400 antes del HLR (D5 de video-montaje-pulido)
         from apolo.drawing.dwg import DwgError, require_odafc
 
         try:

@@ -1,4 +1,4 @@
-"""Lo que trae un GLB, leído del JSON sin decodificar buffers (plan vista-3d-tienda, F1).
+"""Lo que trae un GLB, leído del JSON sin decodificar buffers (plan vista-3d-web, F1).
 
 Sirve igual para el GLB crudo de OCCT y para el comprimido de `gltfpack` (meshopt deja los
 `accessors` con su `count`, `min` y `max`; la cuantización de posiciones va en la escala del

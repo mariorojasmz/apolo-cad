@@ -1,18 +1,18 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
 nota: F0–F3 implementadas (2026-10-20): `publicar generar` deja vista-3d.glb (piloto 0,33 MB, 296 k triángulos; gltfpack opcional) y vista-3d.html (etiqueta por grupo) en los dos zips y en ficha.json; falta F4 (Mario pega el trozo en una página de prueba y prueba la RA en su celular)
-descripcion: Cada máquina publicada trae su modelo 3D liviano y un trozo de HTML para pegar en la tienda: el visitante la gira, la ve con etiquetas y, en el celular, a tamaño real en su taller
+descripcion: Cada máquina publicada trae su modelo 3D liviano y un trozo de HTML para pegar en una página web: el visitante la gira, la ve con etiquetas y, en el celular, a tamaño real en su taller
 ---
 
-# El visitante de la tienda gira la máquina en 3D
+# El visitante de la página web gira la máquina en 3D
 
 ## Estado y origen
 
-Mario (2026-10-10): «la página web tienda, ¿puede tener una vista en 3D, como lo tiene Apolo?,
-para que pueda ver bien?» y «si tengo miles de visitantes, ¿será un reto al servidor o el recurso
+Mario (2026-10-10) pidió que una página web muestre la máquina en 3D, como Apolo, y preguntó
+«si tengo miles de visitantes, ¿será un reto al servidor o el recurso
 que corre es el navegador del usuario?». Se le recomendó un GLB con `<model-viewer>` (lo dibuja
 el navegador del visitante; el servidor sólo entrega archivos estáticos) y respondió «sí, crea
-el plan». Extiende [publicacion-tienda](publicacion-tienda.md).
+el plan». Extiende la publicación de máquinas (detalle fuera del núcleo).
 
 ## El problema / lo que hay hoy
 
@@ -42,9 +42,8 @@ el plan». Extiende [publicacion-tienda](publicacion-tienda.md).
   principal («Motorreductor 0.37 kW»), leídas del documento. Lleva el decodificador meshopt
   FIJO (`meshoptDecoderLocation`, `meshoptimizer@0.22.0`: `<model-viewer>` 4.0 no lo trae) y
   `loading="eager"` (F0).
-- **D4. Archivos estáticos, nunca Apolo**: el GLB y el HTML se suben a la tienda o a una CDN; la
-  página no llama a la API de Apolo. La guía de subida va en `youtube.txt` o en un
-  `LEEME-tienda.txt` del paquete.
+- **D4. Archivos estáticos, nunca Apolo**: el GLB y el HTML se suben a un sitio web o a una CDN;
+  la página no llama a la API de Apolo. La guía de subida viaja en un texto del paquete.
 - **D5. Sólo apariencia**: el GLB es una malla sin cotas ni planos; los nodos llevan nombres de
   grupo, no los de las piezas. No regala el diseño del paquete completo.
 - **D6. Materiales**: los de la tabla única de [visor-realista](visor-realista.md) D5
@@ -76,7 +75,7 @@ el plan». Extiende [publicacion-tienda](publicacion-tienda.md).
 
 - La máquina andando dentro del GLB (rodillos y cadenas girando): llega después de
   [visor-realista](visor-realista.md) F3, como animación glTF.
-- La tienda misma (plataforma, pagos): sigue siendo pregunta abierta de publicacion-tienda.
+- La página que lo aloja (detalle fuera del núcleo).
 
 ## Riesgos
 
@@ -234,8 +233,7 @@ girado). Caja [0, 0, −0.397]–[2.0, 0.77, 0.345] m, patas en Y = 0, nombres c
   tesela a 0.5 mm y BRepMesh reusaría una malla más fina que encontrara).
 - **Nombres de instancia = nombre de la pieza** en la F1. D5 (F2) decide si pasan a grupo o rol:
   el kernel recibe el nombre que le da `vista3d.piezas`, el cambio va ahí.
-- **`gltfpack` en una instalación limpia**: binario externo OPCIONAL, como ffmpeg (D7 de
-  publicacion-tienda); ni dependencia pip ni descarga automática. Se busca en `APOLO_GLTFPACK`
+- **`gltfpack` en una instalación limpia**: binario externo OPCIONAL, como ffmpeg; ni dependencia pip ni descarga automática. Se busca en `APOLO_GLTFPACK`
   (el ejecutable o su carpeta) o en el PATH: el binario de las releases de meshoptimizer o
   `npm install -g gltfpack` (deja `gltfpack.cmd`; pide Node). Si falta, si la variable apunta a
   nada o si falla, el GLB sale crudo (≈ 6× más pesado, igual de correcto) y el aviso con cómo
@@ -289,7 +287,7 @@ las seis etiquetas quedan sobre su pieza y, en la vista de celular, aparece «Ve
   lejano de los ya puestos.
 - **La página no descarga nada que no pida**: `data-src` → `src` al tocar «Ver en 3D»; el
   comentario de cabecera es la guía de subida de D4 (viaja con el trozo). Trozo, no página: sin
-  `<html>` ni `<meta>`, se pega dentro de la página de la tienda; id del contenedor por slug.
+  `<html>` ni `<meta>`, se pega dentro de la página web; id del contenedor por slug.
 
 **Intentos fallidos (lo que corrigió la prueba en el navegador):**
 
@@ -310,7 +308,7 @@ las seis etiquetas quedan sobre su pieza y, en la vista de celular, aparece «Ve
 `paquete.ficha_json(vista_3d=…)` suma a `archivos` el GLB y el HTML (nivel gratis, con sha256, como
 el video) y una sección `vista_3d` {modelo, html, poster, bytes, triangulos, etiquetas [{grupo,
 cifra}]}; las posiciones de las etiquetas quedan en `generacion.json`, que no se publica. El eco
-final de `generar` dice qué subir a la tienda. Tests: uno nuevo en `test_publicacion_paquete.py`
+final de `generar` dice qué subir. Tests: uno nuevo en `test_publicacion_paquete.py`
 (sin ffmpeg) y el E2E pide los tres archivos en los dos zips, el GLB idéntico al de la carpeta y la
 sección de la ficha. Cada zip de la piloto crece en el GLB (0.33 MB con gltfpack, 2.1 MB sin él), el
 HTML (5.7 KB) y la miniatura.
@@ -322,4 +320,4 @@ HTML (5.7 KB) y la miniatura.
 - **El LEEME avisa** que el HTML se abre desde un servidor web: con doble clic (`file://`) el
   navegador no deja leer el `.glb`.
 - **`ficha.json` sigue en `formato` 1**: la sección `vista_3d` es ADITIVA (ninguna clave cambió ni
-  se fue) y todavía no hay quien la lea (la tienda es la pregunta abierta de publicacion-tienda).
+  se fue) y todavía no hay quien la lea (detalle fuera del núcleo).

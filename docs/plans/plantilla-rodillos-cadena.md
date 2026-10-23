@@ -8,7 +8,7 @@ descripcion: Un transportador de rodillos por cadena sale completo con una sola 
 
 ## Estado y origen
 
-Mario quiere sacar muchas máquinas para su tienda ([publicacion-tienda](publicacion-tienda.md)).
+Mario quiere sacar muchas máquinas (detalle fuera del núcleo).
 La piloto (proyecto 2, transportador de rodillos motorizado por cadena, 2 m) costó ~1 h 10 min y
 ~60 M tokens leídos, y aun así tuvo 4 defectos que vio Mario
 ([revision-de-taller](revision-de-taller.md)). Recomendación aceptada el 2026-10-10: lo que se
@@ -545,7 +545,7 @@ Sesión nueva `claude -p --model opus` sobre la flota (:8100): proyecto 79
   motriz); no hay riostra longitudinal; no hay guía lateral del lado −Y.
 
 Bien según el revisor: el acceso a la tuerca M12 (35,4 mm), que el motor sale sin quedar atrapado
-y cero interferencias. Los defectos de la plantilla van al hito I de [hitos](../hitos.md) y a
+y cero interferencias. Los defectos de la plantilla van a su cola de trabajo (fuera del núcleo) y a
 [defectos](../defectos.md).
 
 ### F4b (2026-10-21): re-verificación con el revisor de taller ciego

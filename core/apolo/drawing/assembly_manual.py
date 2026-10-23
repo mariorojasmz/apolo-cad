@@ -427,7 +427,7 @@ def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "S
     """Manual de ensamblaje paso a paso: [portada con secuencia + 1 lámina por PASO]. Cada paso
     muestra el render acumulado (lo nuevo resaltado, lo previo en gris) + piezas/herraje + nota.
     `stages` = la secuencia de montaje ya derivada del grafo de uniones ({label, ids, is_hw,
-    union}: `services/montaje.py`, D8 de video-tienda-pulido); sin ella, del log de comandos +
+    union}: `services/montaje.py`, D8 de video-montaje-pulido); sin ella, del log de comandos +
     familias de catálogo + soporte autodetectado.
 
     Atajo de las fases de `manual_fotos` para quien es dueño de su documento (tests, CLI).

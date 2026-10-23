@@ -229,7 +229,7 @@ def test_las_etapas_siguen_los_grupos(proyecto):
 
 def _paso(k: int, grupos=(), titulo: str | None = None, subs: int = 1) -> Paso:
     """Un paso sintético; sin `titulo`, uno propio («P7»): dos pasos con el mismo título son
-    del mismo patrón y se compactan (D2 de video-tienda-pulido)."""
+    del mismo patrón y se compactan (D2 de video-montaje-pulido)."""
     titulo = titulo or f"P{k}"
     ids = tuple(f"c{k}_{n}" for n in range(subs))
     roles = (titulo,) if subs == 1 else tuple(f"{titulo}-{n}" for n in range(subs))

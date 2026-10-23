@@ -1,5 +1,5 @@
 """Las palabras del video de construcción: el rol de una pieza y el rótulo de una etapa (planes
-publicacion-tienda, F1 · D2 y D3, y video-tienda-pulido, F1 · D1). Puro: recibe nombres, pasos y
+publicacion-tienda, F1 · D2 y D3, y video-montaje-pulido, F1 · D1). Puro: recibe nombres, pasos y
 `DatosRotulo` (los arma `datos_rotulos.py` desde el documento), no el documento.
 
 **Rol** (`rol`): sale del NOMBRE de la pieza. Es lo que sigue al último « · » (las piezas de un
@@ -9,7 +9,7 @@ suelto («Rodillo 7»; «Perno M10» queda entero). Sin nombre, el sufijo del id
 (`c3_rod7` → «rod»). Agrupa el revelado escalonado de un super-comando (D2). **Base** (`base`):
 el rol sin el paréntesis final («Pata (-Y, alimentación)» → «Pata»): con ella se cuentan las
 piezas del rótulo. **Familia** (`familia`): la primera palabra de la base, en minúscula y sin
-tildes; une los pasos seguidos de un mismo patrón (D2 de video-tienda-pulido).
+tildes; une los pasos seguidos de un mismo patrón (D2 de video-montaje-pulido).
 
 **Rótulo** (`textos_etapas`): frases deterministas (las pule una persona en el guion), de hasta
 `MAX_TEXTO_ROTULO` caracteres, las DOS líneas del rótulo de 1080p. «Se suman 2 largueros, 12
@@ -48,7 +48,7 @@ NBSP = chr(0xA0)
 #: Topes del guion que se VALIDAN (un texto editado a mano): el rótulo de una etapa y su título.
 MAX_TEXTO = 280
 MAX_TITULO_ETAPA = 60
-#: Topes de lo que se GENERA (D1 y D2 de video-tienda-pulido): dos líneas del rótulo de 1080p
+#: Topes de lo que se GENERA (D1 y D2 de video-montaje-pulido): dos líneas del rótulo de 1080p
 #: (≈ 55 caracteres por línea, medido con `media.composicion.maquetar_rotulo`) y un título que
 #: entra en la suya (en la piloto, 103 caracteres caben en dos líneas y 111 ya no).
 MAX_TEXTO_ROTULO = 100

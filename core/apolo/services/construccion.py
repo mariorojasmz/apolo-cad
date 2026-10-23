@@ -13,11 +13,11 @@ aparece de golpe. Sus piezas nuevas se reparten en sub-listas, una por ROL (`rot
 sale del nombre: «Transportador · Rodillo (7)» → «Rodillo»), en el orden en que aparece cada
 rol en la escena, que es el de creación. Hay hasta `MAX_REVELADOS` sub-listas; si hay más
 roles, los consecutivos se juntan. Las piezas de UN solo rol (un patrón: 20 rodillos) crecen en
-hasta `MAX_REVELADOS` oleadas (D2 de video-tienda-pulido). El resultado de una booleana sin
+hasta `MAX_REVELADOS` oleadas (D2 de video-montaje-pulido). El resultado de una booleana sin
 nombre propio (el default «Booleana») hereda el nombre del objetivo, también en los pasos que lo
 trabajan después.
 
-**Compactar** (D2 de video-tienda-pulido): los pasos seguidos de una misma clave que agregan
+**Compactar** (D2 de video-montaje-pulido): los pasos seguidos de una misma clave que agregan
 piezas de la misma familia (`rotulos.familia`: 19 `create_chain` iguales, la pata y su patrón)
 son UN paso del video, el último `k`; los que sólo retocan piezas (40 `drill_hole` seguidos, el
 taladro del piñón que se acaba de poner) se juntan entre sí o con el paso que puso esas piezas.
@@ -229,7 +229,7 @@ class Tiempos:
     cierre_s: float = 5.0
     paso_min_s: float = 0.1  # 3 fotogramas a 30 fps: un log enorme queda en time-lapse
     paso_max_s: float = 4.0  # un log corto no se estira hasta aburrir
-    etapa_min_s: float = 6.0  # D2 de video-tienda-pulido: ritmo parejo
+    etapa_min_s: float = 6.0  # D2 de video-montaje-pulido: ritmo parejo
     etapa_max_s: float = 15.0
 
     @property

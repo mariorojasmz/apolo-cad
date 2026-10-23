@@ -8,7 +8,7 @@ descripcion: El agente gasta menos contexto y se equivoca menos por MCP: respues
 
 ## Estado y origen
 
-Hito H de [docs/hitos.md](../hitos.md). Mario delegó en Claude el orden de los hitos. La fricción
+La fricción
 sale de sesiones NUEVAS de Claude que trabajaron sólo por MCP contra la flota, el 2026-10-21:
 - la ola 5 sobre la piloto: [cirugia-liviana](cirugia-liviana.md) F3,
   [perfiles-con-acuerdo](perfiles-con-acuerdo.md) F4,

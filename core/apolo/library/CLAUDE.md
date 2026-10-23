@@ -218,8 +218,7 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   sólido de la banda (el casco de `ruta_faja.py`, sólo sin lazo cerrado) y `fidelidad_faja.py` la
   prueba siempre contra el modelo (desvío ≤ comba CEMA hacia afuera; no entra en una pieza más que
   el sólido + 1 mm): una que falla no se publica. Comba = mín(CEMA 2 %, w·l²/8T de la tracción
-  MEDIDA, holgura con lo de abajo) sólo en tramos rectos del retorno.
-  [fabrica-de-publicaciones](../../../docs/plans/fabrica-de-publicaciones.md) (D13)
+  MEDIDA, holgura con lo de abajo) sólo en tramos rectos del retorno (detalle fuera del núcleo).
 - `Document.requirements` (metadato): `/api/checks`, la memoria y la cotización CAEN a ellos (un
   param explícito gana) → `engineering_check()` funciona sin argumentos.
 - Se validan en `requisitos.py` (`Document.set_requirements` delega; la CARGA no valida: un

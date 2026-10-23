@@ -1,30 +1,29 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
 nota: F0–F4 hechas (2026-10-21): «Calidad alta» y acabados con textura; reloj virtual y codificación en la API (F2); F3 graba en el navegador el MISMO guion de montaje con rótulos, la máquina andando y la vuelta final (`publicar generar --render navegador`, botón «Grabar video»; 65 s de la 74 en 7 min en una Intel UHD), con encuadre por ángulo; F4 suma el nivel máximo (three-gpu-pathtracer 0.0.23, `--nivel maximo`, ~40 s por cuadro en la Intel UHD, nunca por defecto) y el botón «Foto realista»; falta F5 (medir en la 4070 Ti)
-descripcion: El video de YouTube y de la tienda sale del visor con calidad de foto de catálogo (y trazado de rayos de noche), generado solo, sin instalar Blender
+descripcion: El video de la máquina sale del visor con calidad de foto de catálogo (y trazado de rayos de noche), generado solo, sin instalar Blender
 ---
 
-# El video de YouTube muestra la máquina como si fuera una foto
+# El video muestra la máquina como si fuera una foto
 
 ## Estado y origen
 
 Mario, al ver el piloto con los acabados y la sombra de contacto (2026-10-20): «¿esto es lo más
 real posible que se puede obtener? ¿no podemos llegar a un realismo como Unreal Engine 5?». Se le
-explicaron dos capas: un visor mejorado en tiempo real y un render por trazado de rayos para la
-tienda. Eligió el visor mejorado y descartó Blender: «no quiero bajar blender». Después precisó:
-«justo quiero que la máquina se vea lo más realista posible para el video a youtube», y pidió:
+explicaron dos capas: un visor mejorado en tiempo real y un render por trazado de rayos para las
+fotos. Eligió el visor mejorado y descartó Blender: «no quiero bajar blender». Después precisó:
+que la máquina se viera lo más realista posible en el video, y pidió:
 «sí, escribe el plan y lánzalo».
 
-La máquina y los videos se construyen en la PC de escritorio: i7 de 8 núcleos, 32 GB de RAM y
-una RTX 4070 Ti. La laptop sólo desarrolla.
+La máquina de referencia para medir: i7 de 8 núcleos, 32 GB de RAM y una RTX 4070 Ti.
 
-Requisito heredado de [publicacion-tienda](publicacion-tienda.md) (§ Estado y origen): «el video
-se tiene que generar de forma automática». Un botón en el visor no basta: `publicar generar`
+Requisito heredado (detalle fuera del núcleo): el video se tiene que generar de forma
+automática. Un botón en el visor no basta: `publicar generar`
 tiene que poder producirlo sin que nadie lo mire.
 
 ## El problema / lo que hay hoy
 
-- **El video de la tienda lo dibuja VTK en el servidor.** Lo hacen `kernel/render_vivo.py` y
+- **El video de la máquina lo dibuja VTK en el servidor.** Lo hacen `kernel/render_vivo.py` y
   `publicacion/video.py` (276 líneas), y lo codifica `media/codificar.py` con un ffmpeg EXTERNO
   (`APOLO_FFMPEG` o el PATH).
   - VTK sólo hace raster con sombreado simple: no tiene oclusión ambiental, ni entorno de luz,
@@ -41,7 +40,7 @@ tiene que poder producirlo sin que nadie lo mire.
     en el target);
   - acabados lisos: un color, una rugosidad y un metalness por acabado, sin textura.
 - **El visor ya reproduce la máquina andando** (visor-realista F2, `viewport/marcha/`) y la
-  secuencia de montaje existe como servicio (video-tienda-pulido F1b, `services/montaje.py`).
+  secuencia de montaje existe como servicio (video-montaje-pulido F1b, `services/montaje.py`).
   Falta que algo grabe eso cuadro por cuadro a una resolución fija.
 - **Lo que pesa un video**: 60 s a 30 fps son 1 800 cuadros.
   - En raster, a ~0,1 s por cuadro, son minutos.
@@ -100,22 +99,22 @@ tiene que poder producirlo sin que nadie lo mire.
   1. `POST /api/video/grabacion` abre una sesión.
   2. `POST …/{sesion}/cuadro/{n}` sube cada PNG, que se guarda en `data/`.
   3. `POST …/{sesion}/cerrar` codifica con `media/codificar.py`: el mismo ffmpeg, la misma música
-     (`--musica`, [video-tienda-pulido](video-tienda-pulido.md) D7) y el mismo CRF.
+     (`--musica`, [video-montaje-pulido](video-montaje-pulido.md) D7) y el mismo CRF.
 
   No toma `STATE_LOCK`: es E/S pura. Por qué: un solo codificador para todos los videos.
 - **D5. Lo que se graba es el MISMO guion del video de hoy.** Son las etapas y rótulos de
   `services/guion_video.py` y `services/montaje.py`, más la máquina andando (la serie de
   visor-realista F2/F3) y un giro final. El navegador lo pide a la API en JSON y lo reproduce.
   Los rótulos se dibujan en 2D sobre el cuadro, con el mismo texto y la misma regla de contraste
-  (D4 de video-tienda-pulido). Por qué: no dos guiones que diverjan.
+  (D4 de video-montaje-pulido). Por qué: no dos guiones que diverjan.
 - **D6. Dos niveles de calidad.**
   - **Rápido**: visor mejorado + TAA; un video de 60 s en minutos.
   - **Máximo**: `three-gpu-pathtracer` en cada cuadro, con N muestras + denoiser; de noche.
 
   La foto «realista» del visor (botón) usa el nivel máximo. Mario (2026-10-20): con 1–2 h por
   video el máximo «no es viable ahora, pero igual lo quiero». Se implementa (F4) y queda
-  disponible, pero no como nivel por defecto. Por qué: la miniatura de YouTube y
-  las fotos de la tienda valen el tiempo; el video entero, según el saldo de GPU.
+  disponible, pero no como nivel por defecto. Por qué: la miniatura del video y
+  las fotos de la máquina valen el tiempo; el video entero, según el saldo de GPU.
 - **D7. Automático con el navegador que ya está.** `publicar generar --render navegador`:
   1. busca Edge o Chrome instalados (Edge viene con Windows);
   2. los lanza sin ventana con la GPU contra `http://127.0.0.1:<puerto>/?grabar=<sesion>`;
@@ -127,7 +126,7 @@ tiene que poder producirlo sin que nadie lo mire.
   GPU, y para los renders de planos y del MCP (`render_view`). Por eso:
   - [visor-realista](visor-realista.md) F4 («la máquina andando» renderizada por VTK) queda
     **reemplazada** por la F3 de este plan;
-  - video-tienda-pulido F2 (D3/D4: aspecto del video VTK) se reduce a lo que el respaldo
+  - video-montaje-pulido F2 (D3/D4: aspecto del video VTK) se reduce a lo que el respaldo
     necesita: aristas finas y cierre legible.
 
   Mario veta si prefiere mantenerlas.
@@ -185,16 +184,16 @@ tiene que poder producirlo sin que nadie lo mire.
   Depende de F2.
 - **F5 (S, verificación en el escritorio)**. Video de 60 s de la piloto (montaje + marcha +
   giro), en los dos niveles y con la música de Mario. Se miden el tiempo total y el tiempo por
-  cuadro en la 4070 Ti. Lo juzga Mario, en YouTube como no listado si quiere.
+  cuadro en la 4070 Ti. Lo juzga Mario.
 
 ## Lo que este plan NO hace
 
 - No toca la física (D9) ni la serie de la marcha.
 - No borra VTK (D8).
-- No sube nada a YouTube: eso lo hace Mario.
+- No sube el video a ningún lado (detalle fuera del núcleo).
 - No hace realidad virtual, ni un recorrido de cámara a mano, ni una edición de video con cortes
   libres: el guion manda.
-- No cambia el GLB de la tienda ([vista-3d-tienda](vista-3d-tienda.md)), aunque D2 puede
+- No cambia el GLB de la vista web ([vista-3d-web](vista-3d-web.md)), aunque D2 puede
   reusarse ahí después.
 
 ## Riesgos
@@ -407,7 +406,7 @@ grabaciones en el scratchpad), en el panel de navegador del escritorio.
   (es un error del reloj, no un reintento). Se escribe a `.parcial` y se renombra.
 - `POST …/{sesion}/cerrar` (`musica`, `salida`, `conservar_cuadros`): exige 0…N−1 sin huecos
   (si no, 400 con cuáles faltan), los decodifica con Pillow hacia el MISMO `Codificador` del video
-  de la tienda (BT.709, CRF 18) y mezcla la música con `mezclar_musica`. Borra los cuadros salvo
+  VTK (BT.709, CRF 18) y mezcla la música con `mezclar_musica`. Borra los cuadros salvo
   `conservar_cuadros`. Si la codificación falla, los cuadros QUEDAN y la sesión pasa a «error»:
   se puede volver a cerrar.
 - `GET …/{sesion}` da el estado (con `codificados` mientras codifica) y `DELETE` la descarta.
@@ -448,8 +447,8 @@ tareas y publicó `window.__apolo.grabar`):
 
 - `toBlob` de PNG y JPEG no gana nada en paralelo: Chromium los codifica en serie.
 - Decisión: JPEG 0,95 por defecto (2,7× más rápido, 5× menos disco: 1 800 cuadros ≈ 0,6 GB en
-  vez de 3 GB) y PNG a pedido para cuando haga falta sin pérdida. Los −2,7 dB no se ven, y YouTube
-  recodifica muy por debajo.
+  vez de 3 GB) y PNG a pedido para cuando haga falta sin pérdida. Los −2,7 dB no se ven, y un sitio de
+  video recodifica muy por debajo.
 - El PNG de F0 (230–730 ms) era más lento que el de hoy (113 ms): otra captura y otra medición.
 
 **Primer video**: la faja 73 girando y andando, con la marcha del brief (`j_eje_motriz` a
@@ -579,7 +578,7 @@ Intentos fallidos:
   E/S pura de D4 (`test_la_grabacion_es_e_s_pura_sin_el_documento`). De ahí el plan armado por
   quien abre y `video_guion.py`.
 - El plan vivía en `publicacion/`: el backend no puede importar la publicación
-  (`test_capas_publicacion.py`, D1 de publicacion-tienda). `plan_navegador.py` y
+  (`test_capas_publicacion.py`; detalle fuera del núcleo). `plan_navegador.py` y
   `linea_tiempo.py` pasaron a `services/`, que usan los dos.
 
 Tests:

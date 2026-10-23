@@ -446,5 +446,5 @@ interferencia y puerta.
     declarada»;
   - `$k` empieza en `$1`: dos de tres usaron `$0` y el primer lote falló.
 
-  Van al hito J de [hitos](../hitos.md).
+  Van a la cola de trabajo (fuera del núcleo).
 - Lo juzga Mario (el contrato de F4).

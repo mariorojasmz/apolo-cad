@@ -1,14 +1,14 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
 nota: F0–F1b en main (2026-10-19/20; manual y video siguen la secuencia de montaje); F3 implementada (2026-10-20): sin ODA `publicar guion`/`generar` lo avisan al empezar y el paquete sale sin DWG diciéndolo, y los entregables van en paralelo con el video (ganancia medida chica: el manual, 1 381 s de renders matplotlib, es el cuello); faltan F2 (en revisión por video-realista D8), F4, la música de Mario y decidir si se muestra el FS 1,09 de la cadena motriz
-descripcion: El video de la tienda explica la máquina con sus datos de ingeniería, corta las etapas con ritmo parejo y se ve como un producto terminado
+descripcion: El video de la máquina explica la máquina con sus datos de ingeniería, corta las etapas con ritmo parejo y se ve como un producto terminado
 ---
 
-# El video de la tienda se ve y se lee como un producto
+# El video de la máquina se ve y se lee como un producto
 
 ## Estado y origen
 
-Primera corrida real de [publicacion-tienda](publicacion-tienda.md) F5 sobre la piloto (proyecto
+Primera corrida real de la publicación (detalle fuera del núcleo) sobre la piloto (proyecto
 2, revisión 4), el 2026-10-10: `publicar guion` + `publicar generar` sin música → video de 75 s
 (2250 fotogramas), zips de 2.9 y 4.3 MB, puerta VERDE. Tiempos: abrir y validar 15.7 s, puerta
 25.2 s, entregables 429.7 s, video 138.6 s. Mario: «ya vi y me gustó, y también acepto tus
@@ -65,7 +65,7 @@ Revisado cuadro por cuadro (fotogramas 150, 750, 1350 y 2100):
   fija; lo que tapa el acceso a un fijador va después, con el chequeo de
   [acceso-de-herramienta](acceso-de-herramienta.md) si ya existe) en un módulo puro de
   `services`, y la usan el manual y el video (`--modo montaje`; `--modo diseño` = el de hoy).
-  Para la tienda, el video por defecto es el de montaje: le sirve a quien fabrica.
+  Por defecto, el video es el de montaje: le sirve a quien fabrica.
 - **D7. La música la pone Mario** con `--musica` y sus datos de licencia en `ficha.yaml`; el plan
   no busca pistas.
 
@@ -85,8 +85,8 @@ Revisado cuadro por cuadro (fotogramas 150, 750, 1350 y 2100):
 ## Lo que este plan NO hace
 
 - La máquina andando al final del video: es [visor-realista](visor-realista.md) F4.
-- Voz en off, subtítulos en otros idiomas y subida automática a YouTube (D15 de
-  publicacion-tienda: manual).
+- Voz en off, subtítulos en otros idiomas y subida automática del video (detalle fuera del
+  núcleo).
 
 ## Riesgos
 
@@ -131,7 +131,7 @@ quedan como se vetaron: con 52 s de presupuesto (75 − 23 fijos) caben 5 etapas
   puso la pieza. La piloto baja de 99 pasos a 23. Un patrón crece en hasta 8 oleadas parejas
   (`revelado`) y pesa 1 (`peso_roles`, por familias; retoque 0,5), peso que ahora comparte
   `publicacion/video.py` en vez de duplicar la fórmula.
-- **Ritmo** (D2): `etapa_min_s` 6 (antes 10, el mínimo de un capítulo de YouTube: los capítulos
+- **Ritmo** (D2): `etapa_min_s` 6 (antes 10, el mínimo de un capítulo de video: los capítulos
   ya se funden aparte en `guion_video.capitulos`) y `etapa_max_s` 15. La duración se reparte por
   nivel entre 6 y 15 s; con poco que mostrar el video sale **más corto** que el objetivo, no más
   lento: una etapa larga se topa en 15 s en vez de partirse en «Rodillos (1/2)».
@@ -196,7 +196,7 @@ Implementó un subagente en un worktree; la piloto se leyó en sólo lectura de 
   OPCIONAL: un guion sin ella es de diseño y sigue valiendo) y cada paso es una TANDA de ids, que
   `validar_guion` revisa (lista no vacía, cada pieza una vez, que existan). `publicacion/video.py`
   las suma con `_Tandas` sobre `doc.scene`: no regenera prefijos.
-- `publicar guion --modo montaje|diseño` (por defecto montaje: D8, el de la tienda);
+- `publicar guion --modo montaje|diseño` (por defecto montaje: D8);
   `flujo.guion(modo=)` rechaza un modo desconocido antes de abrir el proyecto.
 
 **Piloto** — la secuencia (10 pasos, 201 piezas):

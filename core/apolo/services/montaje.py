@@ -1,4 +1,4 @@
-"""La secuencia de MONTAJE de una máquina, desde su grafo de uniones (plan video-tienda-pulido,
+"""La secuencia de MONTAJE de una máquina, desde su grafo de uniones (plan video-montaje-pulido,
 F1b · D8). Una sola secuencia para el manual de ensamblaje y el video de la tienda: el log dice
 cómo se DISEÑÓ; esto, cómo se ARMA en el taller.
 

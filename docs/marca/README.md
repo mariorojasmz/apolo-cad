@@ -14,7 +14,7 @@ redondeadas) sobre un cuadrado redondeado azul; el travesaño ámbar es la cota 
 | archivo | qué es |
 |---|---|
 | `apolo-icono.svg` | **el maestro** (viewBox 64×64). Todo lo demás sale de aquí. |
-| `apolo-icono-{16,32,48,180,192,256,512}.png` | PNG con transparencia en las esquinas (favicon, apple-touch, PWA, tienda) |
+| `apolo-icono-{16,32,48,180,192,256,512}.png` | PNG con transparencia en las esquinas (favicon, apple-touch, PWA, web) |
 | `apolo-icono.ico` | ICO multi-tamaño 16/32/48/256, para el instalador de Windows |
 
 La UI lleva su copia en `ui/public/`: `favicon.svg` (el maestro), `favicon.ico` (16/32/48) y

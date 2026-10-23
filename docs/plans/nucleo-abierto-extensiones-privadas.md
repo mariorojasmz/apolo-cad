@@ -28,7 +28,7 @@ Lo que se puede decidir es qué se publica DE AQUÍ EN ADELANTE.
 ## Lo que hay hoy
 
 Todo vive en un repo, `github.com/mariorojasmz/apolo-cad` (MIT). La receta de producción
-(briefs, criterios, testigos) ya está aparte, en el repo privado `apolo-fabrica`. El núcleo no tiene ningún punto de extensión:
+(briefs, criterios, testigos) ya está aparte, en un repo privado de producción. El núcleo no tiene ningún punto de extensión:
 todo lo que suma una función está enumerado a mano en el código.
 
 | qué | dónde se enumera | cómo |
@@ -52,7 +52,7 @@ Un comando que el núcleo no conoce:
 Hoy un proyecto hecho con un comando privado y abierto en una instalación pública se ve a
 medias y no se puede editar, sin explicarlo.
 
-`core/apolo/publicacion/` (tienda, YouTube, fábrica de publicaciones; 6217 líneas) no lo
+`core/apolo/publicacion/` (la fábrica de publicaciones; 6217 líneas) no lo
 importa ningún otro módulo del núcleo: sólo `scripts/` y `tests/` (26 archivos). Sacarlo es
 limpio.
 
@@ -86,8 +86,8 @@ ni protección de `main`.
   sirve a su negocio.** Lo que ya se publicó (V8.0–V8.4 incluido) se queda en el núcleo: no se
   puede retirar y sacarlo sólo rompería a quien lo usa. Propuesta, ítem por ítem (Mario veta
   cada uno):
-  - **(a) Fábrica de publicaciones:** `core/apolo/publicacion/` (tienda, YouTube, fábrica,
-    música, guion). Es operación del negocio y a un tercero no le sirve. Se MUEVE (F4).
+  - **(a) Fábrica de publicaciones:** `core/apolo/publicacion/` (detalle fuera del núcleo).
+    Es operación del negocio y a un tercero no le sirve. Se MUEVE (F4).
   - **(b) Planos eléctricos IEC y memoria de cálculo eléctrica:** V8.6 en adelante, un
     entregable de despacho.
   - **(c) Seguridad funcional y fallas:** V8.7 (PL/SIL, FMEA).
@@ -97,7 +97,7 @@ ni protección de `main`.
     - V8.5 (tablero 3D) y V8.9 (neumática): son modelado, la base sobre la que otros
       construyen.
     - La puerta de publicación (`library/calidad`): «máquinas validadas» es reputación, y la
-      receta de qué se exige ya está en `apolo-fabrica`.
+      receta de qué se exige ya está en el repo privado de producción.
     - Todo el CAD, el MCP, la física, el modelo eléctrico y la co-simulación.
 - **D3 — Un solo mecanismo: el grupo de entry points `apolo.extensiones`.**
   - **Qué declara cada paquete:** UN objeto `Extension`, con:
@@ -180,45 +180,48 @@ ni protección de `main`.
 
 ### Ajuste del 2026-10-23: el árbol público es sólo el núcleo (D13–D16)
 
-Mario (2026-10-23, tras la F4a): «el repo publico solo debe ser el nucleo y nada mas, no debe
-ver nuestro trabajo de fabrica, youtube, avances de la tienda apolocad y esas cosas». La F4a
+Mario (2026-10-23, tras la F4a): «el repo publico solo debe ser el nucleo y nada mas» (la frase
+sigue con lo que no debe verse: detalle fuera del núcleo). La F4a
 movió el CÓDIGO de la fábrica; sus planes, la cola de trabajo y la operación de Mario siguen en
-el árbol público. Medido sobre `564c49c` (`git grep` de tienda, YouTube, apolocad, Caronte,
-`apolo-fabrica`, PED-…): 25 archivos de `docs/` y unos 70 de código, tests y configuración.
+el árbol público. Medido sobre `564c49c` (`git grep` de las palabras del negocio, las que hoy
+cuenta `tests/test_negocio_fuera.py`): 25 archivos de `docs/` y unos 70 de código, tests y configuración.
 
 - **D13 — Qué sale del árbol público.**
-  - **Planes enteros cuyo código ya vive en el privado:** `fabrica-de-publicaciones` y
-    `publicacion-tienda`.
-  - **La cola de trabajo y su medición:** `docs/hitos.md` y `docs/tiempos-de-implementacion.md`.
-  - **Pasajes del negocio dentro de planes del núcleo** (tienda, YouTube, Caronte, pedidos,
-    `apolo-fabrica`, la copia de uso de Mario, la tarea programada, las máquinas a publicar): se
+  - **Planes enteros cuyo código ya vive en el privado:** los dos de la fábrica de
+    publicaciones.
+  - **La cola de trabajo y su medición:** la lista de hitos y la tabla de tiempos.
+  - **Pasajes del negocio dentro de planes del núcleo** (la venta, los videos publicados, los
+    pedidos, los repos privados, las carpetas de trabajo de Mario, la tarea programada, las
+    máquinas a publicar): se
     reemplazan por una línea «(detalle fuera del núcleo)». El texto completo se copia ANTES al
     privado, así no se pierde nada. Vale también para este plan (la bitácora de F0 y de F4a).
   - **La operación de Mario en el CLAUDE.md raíz:** hitos, tiempos, la PC del escritorio por
-    SSH, la copia de uso y lo que sólo sirve para producir máquinas para la tienda.
+    SSH, las carpetas de trabajo y lo que sólo sirve para producir máquinas para la venta.
   - **Se queda público:** todo plan cuyo código vive en el núcleo (visor y video realista,
     vista 3D, puerta de publicación, manual rápido, `defectos.md`…), sin sus pasajes del
-    negocio. Los que llevan la tienda en el nombre se renombran con sus links:
-    `vista-3d-tienda` → `vista-3d-web` y `video-tienda-pulido` → `video-montaje-pulido`.
+    negocio. Los que llevaban el negocio en el nombre se renombran con sus links: hoy son
+    `vista-3d-web` y `video-montaje-pulido`.
 - **D14 — Adónde van.** Al repo de desarrollo privado, `apolo-pro/docs/`: los planes, la cola de
-  hitos, la tabla de tiempos y los pasajes copiados. `apolo-fabrica` sigue con lo de producción
-  (recetas, briefs, `COORDINACION.md`). Desde el privado, un plan público se enlaza por su URL de
+  hitos, la tabla de tiempos y los pasajes copiados. El repo privado de producción sigue con lo
+  suyo (recetas, briefs, coordinación). Desde el privado, un plan público se enlaza por su URL de
   GitHub.
 - **D15 — Las reglas de operación siguen llegando a cada sesión, sin estar en el público.**
   - **Cómo:** un `CLAUDE.local.md` ignorado por git en cada checkout de Mario (escritorio y
     laptop) importa `apolo-pro/docs/operacion.md` con `@`.
   - **Se mide primero:** que una sesión fresca (`claude -p` desde el árbol principal) cargue esa
-    importación. Si no carga, plan B: una línea en el `~/.claude/CLAUDE.md` de Mario, acotada a
+    importación. **Medido en la F4c: una importación `@` a un archivo de fuera del proyecto NO
+    carga**; el mecanismo que quedó está en su bitácora. Si no carga, plan B: una línea en el `~/.claude/CLAUDE.md` de Mario, acotada a
     `apolo-cad-dev`.
   - **Gate en el núcleo:** un trinquete (como el de tamaño de archivos) cuenta por archivo las
     palabras del negocio en el árbol público. `docs/` y los CLAUDE.md quedan en cero; el código
     arranca con lo medido y su número sólo baja.
 - **D16 — El código del negocio que quedó en el núcleo también sale, en una fase aparte.**
-  - **Qué es:** la tarjeta final con la marca de la tienda (`media/cierre.py`, `APOLO_TIENDA_*`,
-    el dominio), los capítulos de YouTube del guion y los comentarios que cuentan el negocio.
+  - **Qué es:** la tarjeta final con la marca del negocio (`media/cierre.py`, sus variables de
+    entorno, el dominio), los capítulos del video del guion y los comentarios que cuentan el
+    negocio.
   - **Cómo:** cada pieza se decide en la fase. Lo que es función genérica (una tarjeta final
-    con marca, capítulos de video) queda en el núcleo, parametrizado y sin nombrar la tienda. Lo
-    que sólo sirve a la tienda pasa al privado por un punto de extensión. Un comentario se
+    con marca, capítulos de video) queda en el núcleo, parametrizado y sin nombrar el negocio.
+    Lo que sólo sirve al negocio pasa al privado por un punto de extensión. Un comentario se
     neutraliza.
   - **Límite:** lo ya publicado sigue en el historial de git, en los clones y forks, y en la
     versión 0.1.0 de PyPI. Reescribir la historia no lo retira (ver «Alternativas descartadas»)
@@ -245,8 +248,7 @@ el árbol público. Medido sobre `564c49c` (`git grep` de tienda, YouTube, apolo
     arriba, completada). Incluye los tests que cuentan tools o comandos (90 tools, 59
     comandos), las firmas y `COSIM_EPOCH`, `GET /api/health` y lo que lee la UI al arrancar.
   - **Inventario de la mudanza (a) de D2:** archivos, tests y scripts de `publicacion`; lo que
-    nombran `logs\fabrica.ps1` de la copia de uso y los briefs de `apolo-fabrica`; las variables
-    de entorno.
+    la nombra fuera del repo (detalle fuera del núcleo); las variables de entorno.
   - **Sale:** la lista y el tamaño real de F1–F4.
 - **F1 — Puntos de extensión del backend** (`core/apolo/extensiones.py`, `commands`, `api`,
   `mcp_server`/`tools`, `library/loader`, `cosim`, `doc` · M/L · depende de F0).
@@ -266,10 +268,9 @@ el árbol público. Medido sobre `564c49c` (`git grep` de tienda, YouTube, apolo
   - **Se verifica:** en el escritorio, instalado sobre `apolo-cad-dev`.
 - **F4 — Mudanza de la fábrica de publicaciones** (D2 (a) · M/L · depende de F3).
   - **Qué hace:** `publicacion` con sus tests y scripts pasa a `apolo-pro`. El núcleo la borra
-    en un commit que dice adónde fue. Se actualizan `fabrica.ps1` y los briefs de
-    `apolo-fabrica` (coordinado en `COORDINACION.md`).
-  - **Se verifica:** con la fábrica corriendo una publicación de prueba de punta a punta en la
-    copia de uso, sin subir nada a la tienda.
+    en un commit que dice adónde fue. La operación que la llama se actualiza fuera del núcleo.
+  - **Se verifica:** con la fábrica corriendo una publicación de prueba de punta a punta, sin
+    subir nada (detalle fuera del núcleo).
 - **F4c — Los papeles del negocio salen del público** (D13–D15 · `docs/`, CLAUDE.md, un test,
   `apolo-pro/docs/` · M · independiente de F4b).
   - **Qué hace:** primero mide D15. Luego copia al privado, mueve y neutraliza según D13, arregla
@@ -300,7 +301,7 @@ el árbol público. Medido sobre `564c49c` (`git grep` de tienda, YouTube, apolo
     excepciones del trinquete.
   - **Mario lo prueba.**
 
-Tiempo estimado con lo medido ([tiempos](../tiempos-de-implementacion.md)): F0 ≈ 30 min; F1–F4
+Tiempo estimado con lo medido (tabla de tiempos fuera del núcleo): F0 ≈ 30 min; F1–F4
 ≈ 45–65 min cada una más ≈ 35 min de revisión y merge por lote; F5 ≈ 30 min más lo de Mario. En
 total, unas 5 horas de agente, en dos noches.
 
@@ -408,10 +409,10 @@ ellos, las fases quedan así:
 - **F1b** (D4: `doc/solo_lectura.py`, el 409 en `_verificar_documento`, autosave, `duplicate`,
   `insert_project`, el campo en `scene_payload` y `GET /api/health`), después de F1a porque
   comparten `routers/core.py`.
-- **F3** → **F4a** (mudar y partir los tests) → **F4b** (tarea programada, `fabrica.ps1`,
-  briefs y publicación de prueba, con Mario) → **F6**.
+- **F3** → **F4a** (mudar y partir los tests) → **F4b** (la operación fuera del repo y una
+  publicación de prueba, con Mario) → **F6**.
 - **`core/apolo/publicacion/` queda CONGELADA en el núcleo hasta F4**: nada nuevo entra ahí
-  (el lado Apolo de PED-127/128 y el eje `mercado` van después, en `apolo-pro`).
+  (lo nuevo de la fábrica va después, en `apolo-pro`).
 
 #### Inventario: cada enumeración que una extensión toca
 
@@ -485,14 +486,13 @@ ellos, las fases quedan así:
 
 #### Mudanza D2 (a): `publicacion/`
 
-- **Código:** 26 archivos, 6217 líneas (`flujo.py` 499, `fabrica.py` 438, `tienda.py` 378,
-  `textos.py` 370, `youtube.py` 361, `paquete.py` 332…).
+- **Código:** 26 archivos, 6217 líneas (`flujo.py` 499, `fabrica.py` 438, `textos.py` 370,
+  `paquete.py` 332…).
 - **Nadie del núcleo lo importa** (lo exige `tests/test_capas_publicacion.py:91`). Ningún router ni
   tool depende de él: `publication_gate` (`tools/calidad.py`) y `POST /api/puerta-publicacion`
   son de `library/calidad` + `services/puerta_publicacion` y se quedan públicos. No hay entry
   point: `core/pyproject.toml` declara sólo `apolo` y `apolo-mcp`; la fábrica se corre como
-  `scripts/publicar.py` (513 líneas; subcomandos guion, generar, ficha, subir, fabrica, aprobar,
-  youtube).
+  `scripts/publicar.py` (513 líneas; siete subcomandos).
 - **Lo que importa del núcleo** (queda como API estable para `apolo-pro`): `apolo.paths`
   (`home`, `logs_dir`, `repo_root`, `publicaciones_dir`, `fabrica_dir`); `services.` `linea_tiempo`,
   `guion_video`, `puerta_publicacion.firma_modelo`, `marcha_ejemplo`, `plan_navegador`,
@@ -520,24 +520,11 @@ ellos, las fases quedan así:
     importar del núcleo).
   - Docs que la nombran: `services/CLAUDE.md` (l. 115, 245), `ui/CLAUDE.md` (l. 273,
     `publicar generar --render navegador`), `.github/workflows/ci.yml:74` (comentario de ffmpeg).
-- **Variables de entorno:** `APOLO_TIENDA_LLAVE`, `APOLO_TIENDA_URL`, `APOLO_FABRICA`,
-  `APOLO_MUSICA_DIR`, `APOLO_YOUTUBE_DIR`, `APOLO_YOUTUBE_API`, `APOLO_YOUTUBE_UPLOAD`,
-  `APOLO_GOOGLE_TOKEN_URL`, `APOLO_GOOGLE_AUTH_URL`, `APOLO_NAVEGADOR`, `APOLO_GLTFPACK`,
-  `APOLO_CANDADO_RENDER`; usa también `APOLO_URL` y `APOLO_HOME` del núcleo.
-- **Fuera del repo** (leído, sin tocar):
-  - `apolo-cad\logs\fabrica.ps1` corre `$HOME\source\repos\apolo-cad\.venv\Scripts\python.exe -B
-    scripts\publicar.py fabrica …` con `APOLO_TIENDA_LLAVE` de las variables de usuario.
-  - **La tarea programada «Apolo - cola de YouTube» EXISTE en el escritorio** (`schtasks /Query`,
-    próxima 24/10/2026 02:30) y apunta a `C:\Users\Mario\source\repos\apolo-cad\scripts\publicar.py
-    youtube --cola --registro`. Si F4 borra ese archivo, la cola nocturna falla en silencio: F4
-    re-instala la tarea (`publicar youtube --cola --instalar-tarea` desde `apolo-pro`;
-    `publicacion/tarea_cola.py:38-55` arma la ruta desde `paths.repo_root()` y el script).
-  - `apolo-fabrica\briefs`: `modelador.md:99,144` (`{repo}\scripts\publicar.py guion|ficha`) y
-    `orquestacion.md:87,101,119-121` (`fabrica`, `aprobar`, `youtube --cola`).
-    `COORDINACION.md` ya anuncia la mudanza (§ «Núcleo abierto + extensiones privadas»).
-- **Riesgo de la ventana:** el lado Apolo de PED-127/128 (bloques `familia` y `aprobacion`) y el
-  eje `mercado` tocan la fábrica y COORDINACION dice que van después de F4, ya en `apolo-pro`.
-  Lo que entre a `publicacion/` en el núcleo entre F0 y F4 se muda también: conviene congelarla.
+- **Variables de entorno:** una docena propias de la fábrica (detalle fuera del núcleo); usa
+  también `APOLO_URL` y `APOLO_HOME` del núcleo.
+- **Fuera del repo:** lo que llama a la fábrica (detalle fuera del núcleo).
+- **Riesgo de la ventana:** lo que entre a `publicacion/` en el núcleo entre F0 y F4 se muda
+  también: conviene congelarla.
 
 #### Empaquetado
 
@@ -582,9 +569,9 @@ ellos, las fases quedan así:
   - Volumen: 26 módulos (6217 líneas), `scripts/publicar.py`, 15 tests puros (3978 líneas) y
     8 mixtos a partir.
   - Pendientes de decidir ahí: `entregables.py` + benchmark, `paths.py`, `revision.py`.
-  - Fuera del repo: la tarea programada, `fabrica.ps1` y 2 briefs.
-  - Conviene llevarla a F4a (mover y partir los tests: código) y F4b (re-instalar la tarea,
-    `fabrica.ps1`, briefs y la publicación de prueba en la copia de uso: operación, con Mario).
+  - Fuera del repo: la operación que llama a la fábrica (detalle fuera del núcleo).
+  - Conviene llevarla a F4a (mover y partir los tests: código) y F4b (la operación fuera del
+    repo y la publicación de prueba, con Mario).
 
 ### F5 (2026-10-23): contribuciones
 
@@ -1190,8 +1177,8 @@ arrancar 1 --puerto-base 8108`):
     `publicaciones_dir` de `test_paths`.
 - `test_fabrica_marcha` se partió en `tests/test_marcha_ejemplo.py`, que se queda con la marcha
   automática de `services/marcha_ejemplo.py` y su prueba con MuJoCo.
-- `_publicacion_aislada` de `tests/conftest.py` pasó a `_tienda_por_defecto`: sólo quita
-  `APOLO_TIENDA_URL`, porque `media/cierre.py` la sigue leyendo.
+- `_publicacion_aislada` de `tests/conftest.py` pasó a una fixture que sólo quita la URL de
+  destino que `media/cierre.py` sigue leyendo (la F4d decide ese código).
 
 **Qué se quedó y por qué (decidido por el agente, vetable):**
 
@@ -1204,7 +1191,7 @@ arrancar 1 --puerto-base 8108`):
   - `tests/test_benchmark_entregables.py` suma el test de importación liviana que antes hacía
     `test_capas_publicacion`.
   - Los niveles `gratis` y `completo` siguen en la lista: son destinos de la misma lista, no
-    operación de la tienda.
+    operación del negocio.
 - **`design/revision.py` no cambia**, salvo un comentario. Sus constantes de `revision.json` arman
   el prompt público del revisor de taller. La copia de `revision_check.py` y el test que exige que
   coincidan se fueron con la fábrica.
@@ -1223,9 +1210,9 @@ arrancar 1 --puerto-base 8108`):
 - `apolo_pro/publicacion/`:
   - los 25 módulos, con los imports `apolo.publicacion` → `apolo_pro.publicacion` y `apolo.entregables`;
   - `lugares.py`, con `publicaciones_dir()` y `fabrica_dir()`, que resuelven igual que antes sobre
-    `apolo.paths` del núcleo (la copia de uso encuentra `data/publicaciones` y `apolo-fabrica`);
+    `apolo.paths` del núcleo (encuentran las mismas carpetas de datos que antes);
   - el CLI en `cli.py` + `cli_parser.py`.
-- **Comandos nuevos**: el console script `apolo-publicar <guion|generar|ficha|subir|fabrica|aprobar|youtube>`
+- **Comandos nuevos**: el console script `apolo-publicar` (siete subcomandos)
   y `python -m apolo_pro.publicacion.cli`. Además, `scripts\publicar.py` de compatibilidad, para
   quien lo llama por ruta.
 - **`tarea_cola`**: arma el comando de la tarea con el `pythonw.exe` del `.venv` del checkout del
@@ -1239,8 +1226,8 @@ arrancar 1 --puerto-base 8108`):
   - cada módulo se importa liviano;
   - todo uso del núcleo está declarado en `extensiones_api`.
 - **`tests/conftest.py`**:
-  - suma `_publicacion_aislada`: música, candado, permiso de YouTube, llave y URL de la tienda;
-    ningún test usa red ni llaves reales;
+  - suma `_publicacion_aislada`: música, candado, permisos, llaves y URLs de destino; ningún
+    test usa red ni llaves reales;
   - fija `APOLO_EXTENSIONES=0` en el proceso, porque importar `apolo.api.main` cargaba `pro` para
     toda la sesión y `con_pro` ya no la podía cargar desde cero.
 - **De la F1c**: `test_punta_a_punta` le da al MCP por stdio una `api_falsa` que reporta `pro`
@@ -1267,36 +1254,15 @@ arrancar 1 --puerto-base 8108`):
     estática).
   - `apolo-publicar --help` lista los 7 subcomandos.
 - **Corrida en seco**:
-  - API de `venv-f4` en :8121 sobre una copia (`sqlite3.backup`) de la base de la copia de uso, en
+  - API de `venv-f4` en :8121 sobre una copia (`sqlite3.backup`) de la base de uso de Mario, en
     `C:\t\f4\seco`, con `pro` cargada; las publicaciones, desviadas a `C:\t\f4\seco\publicaciones`.
   - `guion --project 4` escribió `guion.json` y `ficha.yaml`: 330 comandos, 46 pasos, puerta
     VERDE y aviso de DWG sin ODA.
   - `ficha --revisar` salió con 2: la descripción está vacía en el borrador, como debe.
-  - No se subió nada, ni a la tienda ni a YouTube, y la API se paró.
+  - No se subió nada a ningún destino y la API se paró.
 
-**F4b** (operación con Mario; no se tocó nada de esto):
-
-1. **Mergear y pushear** esta fase al núcleo. El CI de `apolo-pro` contra `main` la necesita.
-2. **En el `.venv` de `apolo-cad`** (la copia de uso), tras `git pull` del núcleo:
-   `& C:\Users\Mario\source\repos\apolo-cad\.venv\Scripts\python.exe -m pip install --no-deps -e C:\Users\Mario\source\repos\apolo-pro`.
-   Lo mismo en el `.venv` de `apolo-cad-dev`, si la fábrica corre también ahí.
-3. **Reinstalar la tarea** «Apolo - cola de YouTube», porque hoy apunta a
-   `apolo-cad\scripts\publicar.py`, que deja de existir con el pull:
-   `& C:\Users\Mario\source\repos\apolo-cad\.venv\Scripts\python.exe -B C:\Users\Mario\source\repos\apolo-pro\scripts\publicar.py youtube --cola --instalar-tarea`
-   (con `--hora` y `--tienda`/`--limite`/`--publico` si la vieja los tenía). Después,
-   `schtasks /Query /TN "Apolo - cola de YouTube" /V /FO LIST` debe mostrar `apolo-pro\scripts\publicar.py`.
-   - Ojo con el tope de 261 caracteres del `/TR`.
-   - Hacer el pull y la reinstalación seguidos, fuera de las 02:30.
-4. **`apolo-cad\logs\fabrica.ps1`**: cambiar `scripts\publicar.py fabrica …` por
-   `C:\Users\Mario\source\repos\apolo-pro\scripts\publicar.py fabrica …`, o por
-   `.venv\Scripts\apolo-publicar.exe fabrica …`, con el mismo python del `.venv`.
-5. **Briefs de `apolo-fabrica`**, anotado en `COORDINACION.md`:
-   - `briefs\modelador.md:99,144`: `{repo}\scripts\publicar.py guion|ficha` pasa a `apolo-publicar guion|ficha`
-     (o la ruta de `apolo-pro`);
-   - `briefs\orquestacion.md:87,101,119-121`: `fabrica`, `aprobar` y `youtube --cola`, igual.
-6. **Publicación de prueba de punta a punta** en la copia de uso, sin subir, como pide F4:
-   `guion` → `ficha --revisar` → `generar`. `fabrica --borrador` SÍ sube (importa sin publicar),
-   así que no sirve para esta prueba.
+**F4b** (operación con Mario; no se tocó nada de esto): mergear y pushear esta fase al núcleo
+(el CI de `apolo-pro` contra `main` la necesita); el resto de los pasos, fuera del núcleo.
 
 ### F5, cierre (2026-10-23): CLA Assistant Lite en vez de la app
 
@@ -1316,3 +1282,76 @@ arrancar 1 --puerto-base 8108`):
   al workflow sólo rige desde el siguiente evento. Falta probar una firma real de una cuenta
   ajena: llega con el primer contribuyente.
 - **CONTRIBUTING** dice ahora cómo se firma (la frase, y `recheck`).
+
+### F4c (2026-10-23): los papeles del negocio salen del árbol público
+
+**D15 medido primero** (repo de juguete en `C:\t\d15`, `claude -p` 2.1.308, una palabra centinela
+por vía):
+
+| vía | raíz del checkout | worktree anidado (`.claude/worktrees/…`) | worktree hermano |
+|---|---|---|---|
+| texto directo en `CLAUDE.local.md` | carga | carga (hereda los CLAUDE de la carpeta padre) | no carga |
+| `@docs/x.md` (dentro del repo) | carga | no carga (queda fuera del proyecto del worktree) | — |
+| `@C:/…` absoluta, fuera del repo | **no carga** | — | — |
+| `@../…` relativa, fuera del repo | **no carga** | — | — |
+| symlink `CLAUDE.local.md` → archivo de fuera | Windows pide administrador | — | — |
+
+- **Por qué la importación externa no carga:** una importación de fuera del proyecto pide una
+  aprobación única por proyecto (`hasClaudeMdExternalIncludesApproved`, en falso en todos los
+  proyectos de Mario). `claude -p` nunca la pregunta, y cada worktree es un proyecto aparte.
+- **Mecanismo que quedó:** `CLAUDE.local.md` en la raíz del checkout principal es una COPIA de
+  `apolo-pro/docs/operacion.md`, instalada con `Copy-Item` (el comando va en la cabecera de ese
+  archivo). Las sesiones y subagentes de Mario corren en worktrees anidados, así que la heredan.
+- **Verificado:** con el archivo real instalado en el juguete, una sesión fresca desde un worktree
+  anidado respondió dónde vive la lista de hitos y cuándo se actualiza.
+- **Plan B** (una línea en el `~/.claude/CLAUDE.md` de Mario) no hizo falta y no se probó.
+
+**Movido al privado** (`apolo-pro`, rama `f4c-papeles`, sin push):
+
+- Los dos planes de la fábrica de publicaciones, a `docs/plans/`.
+- La lista de hitos y la tabla de tiempos, a `docs/`.
+- En los cuatro, los links relativos a planes públicos pasaron a URL de GitHub; los links entre
+  ellos siguen relativos.
+- Copia ORIGINAL (como estaba en `b9aa28f`) de cada archivo público que se tocó, en
+  `docs/nucleo-original/<ruta>`: 33 archivos, entre planes, `defectos.md`, `marca/README.md`, los
+  CLAUDE.md y `ci.yml`.
+- `docs/operacion.md`: las reglas de operación que salieron del CLAUDE.md raíz (hitos, tiempos, la
+  PC del escritorio, las carpetas de trabajo, la coordinación) y la regla de que hitos y tiempos se
+  actualizan allá, al lanzar y al mergear.
+
+**Neutralizado en el público:**
+
+- **Planes:** este mismo (bitácoras de F0 y F4a, y los pasos de F4b), puerta de publicación, video
+  realista, visor realista, manual rápido, tanda pos-piloto, cadenas y piñones, garruchas,
+  plantilla de rodillos con cadena, revisión de taller, seta de emergencia, piso con sombra,
+  teselado rápido, texto agente vs persona, poda de CLAUDE.md, V8, V8.1 y V8.3, cirugía liviana,
+  MCP sin fricción, unión en perfil hueco y varias máquinas a la vez.
+- **Otros docs:** `defectos.md` (salieron tres filas cuya corrección ya vive en el privado, con
+  una nota) y `marca/README.md`.
+- **Renombrados con `git mv`:** `vista-3d-web.md` y `video-montaje-pulido.md`. Sus nombres
+  cambiaron también en los comentarios y docstrings del código (sólo el nombre);
+  `test_contrato_comandos` y las huellas siguieron verdes.
+- **CLAUDE.md raíz:** salieron «Hitos», el link a la tabla de tiempos (la regla de estimar con
+  tiempos medidos se queda), la PC del escritorio y la mención a la piloto. Se sumó una línea:
+  las reglas de operación del titular llegan por `CLAUDE.local.md`.
+- **CLAUDE.md anidados** (`services`, `kernel`, `drawing`, `library`, `ui`): los links a planes
+  movidos y las menciones del negocio.
+- **Otros:** el comentario de ffmpeg de `ci.yml`, y `CLAUDE.local.md` sumado al `.gitignore`.
+
+**Trinquete** (`tests/test_negocio_fuera.py`, sobre `git ls-files`):
+
+- **Zona cero** (`docs/`, todo CLAUDE.md, README*, CONTRIBUTING*, SECURITY*, `.github/`): queda
+  en cero.
+- **Topes medidos**, en líneas que nombran el negocio: 55 archivos y 142 líneas.
+  - `core/`: 27 archivos, 69 líneas.
+  - `tests/`: 23 archivos, 52 líneas.
+  - `scripts/`: 2 archivos, 18 líneas.
+  - `ui/`: 3 archivos, 3 líneas.
+- **Nombres propios:** van por sha256, tokenizados, también dentro de un identificador
+  (`APOLO_X_Y` da `x-y`).
+- **Diferencias con el `git grep`:**
+  - cuenta líneas, no coincidencias;
+  - detecta también una variable de entorno que nombra el repo de producción;
+  - la palabra «fábrica» no entra: también es genérica («de fábrica», costeo de fabricación).
+- **Lo que queda para la F4d:** el código de esos 55 archivos (la tarjeta final, los capítulos
+  del guion, `scripts/testigos.py`, los fixtures de `tests/conftest.py`, el YAML de garruchas).

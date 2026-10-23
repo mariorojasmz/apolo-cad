@@ -17,7 +17,7 @@ reglas están en [services](../services/CLAUDE.md).
   `process.py`. Planos por intención: `POST /api/drawing/spec` (tool `drawing`). Detector de
   solapes de texto: `scripts/_check_overlaps.py`.
 - El veredicto de la memoria (`calc_report.veredicto`) lo lee también la puerta de publicación
-  sin componer el PDF: «NO CONFORME» bloquea la tienda; las reglas, de `services/memoria_reglas.py`.
+  sin componer el PDF: «NO CONFORME» bloquea la publicación; las reglas, de `services/memoria_reglas.py`.
 - Entregables honestos: la memoria trae fórmula, sustitución, FS y norma por verificación; el
   costeo (`library/costing.py`) declara la fuente de cada fila (specs.cost / estimación peso ×
   material × 3 / fabricación × 2.5). En el bloque «HIPÓTESIS Y ALCANCE» (tope 18 líneas) el
@@ -33,7 +33,7 @@ reglas están en [services](../services/CLAUDE.md).
   (`require_odafc` al entrar al endpoint: el juego gastaba ~70 s de HLR bajo `STATE_LOCK` para
   fallar). `dwg.disponible()` va en `GET /api/health` → `dwg`. DWG no es multipágina: el juego
   sale como ZIP con un DWG por lámina. [devlog § V5.9](../../../docs/devlog.md) ·
-  [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md) (D5)
+  [video-montaje-pulido](../../../docs/plans/video-montaje-pulido.md) (D5)
 
 ## Láminas por pieza: el último kilómetro
 

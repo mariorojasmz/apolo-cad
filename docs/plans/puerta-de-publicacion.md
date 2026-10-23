@@ -1,7 +1,7 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0–F5 mergeadas (F3 en el registro con la tabla de riesgos, create_belt_conveyor v4, fábrica de 8 pasos, testigos y 24 defectos sembrados; D16: los .apolo de la tienda son testigos privados); F6 en curso: fixes de código mergeados (ancho útil, BOM por lazo, tornillería, join_bolted, detect_conveyor a mano, materiales por vertical, sondas con el brazo doblado y banda empujable, D3b general; registro v3; capacidad de rodillos a mano; create_belt_conveyor v5 con cierres; el revisor no deja abierto «decide el cliente»); tornillería de la BOM mergeada; faltan un lote de huecos de la fábrica y de la medida de rodillos (en curso) y re-publicar las 3 máquinas (la faja motor cabeza espera la aprobación de Mario)
-descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
+nota: F0–F5 mergeadas (F3 en el registro con la tabla de riesgos, create_belt_conveyor v4, flujo de publicación de 8 pasos, testigos y 24 defectos sembrados; D16: los .apolo de las máquinas publicadas son testigos privados); F6 en curso: fixes de código mergeados (ancho útil, BOM por lazo, tornillería, join_bolted, detect_conveyor a mano, materiales por vertical, sondas con el brazo doblado y banda empujable, D3b general; registro v3; capacidad de rodillos a mano; create_belt_conveyor v5 con cierres; el revisor no deja abierto «decide el cliente»); tornillería de la BOM mergeada; faltan un lote de huecos del flujo de publicación y de la medida de rodillos (en curso) y re-publicar las 3 máquinas (la faja motor cabeza espera la aprobación de Mario)
+descripcion: ninguna máquina se publica sin pasar una puerta de calidad determinista — construible, armable, reparable, segura y con vida útil industrial — con su ficha de calidad y su análisis de riesgos en el paquete
 ---
 
 # Una máquina sólo se publica si se puede construir, armar, reparar y operar sin accidentes
@@ -9,7 +9,7 @@ descripcion: ninguna máquina llega a la tienda sin pasar una puerta de calidad 
 ## Estado y origen
 
 Mario, 2026-10-22, tras ver la banda del video de la faja de motor central atravesar las guardas
-(ajuste D13 de [fabrica-de-publicaciones](fabrica-de-publicaciones.md)) y saber que el perno del
+(detalle fuera del núcleo) y saber que el perno del
 tensor de la otra faja entra por una sola aleta:
 
 > «Quién es el encargado de verificar esto? Tenemos que tener test y pruebas de calidad antes de
@@ -83,7 +83,7 @@ Y un hecho de proceso: el hallazgo del revisor (perno M12×50 por una sola aleta
   - Puerta de entrega VERDE, **con gravedad obligatoria**: sin MuJoCo o si la simulación falla →
     SIN_EVALUAR, nunca la caída silenciosa de `flujo.py:73-81`.
   - `engineering_check`: `error` → FALLA. `aviso` → FALLA salvo las reglas que el registro marca
-    *informativas* (con su porqué). Umbrales para la tienda: **L10h ≥ 20 000 h** (ISO 281;
+    *informativas* (con su porqué). Umbrales para publicar: **L10h ≥ 20 000 h** (ISO 281;
     máquina de 8 h/día en servicio continuo, tablas de vida recomendada de SKF/FAG), **motor y
     reductor con factor de servicio ≥ 1,25** (AGMA, carga uniforme, 8–10 h/día), FS de cadena y
     transmisión ≥ 1,2 (ya en las reglas), vuelco con margen ≥ 10 % de la base, flecha ≤ L/240,
@@ -140,8 +140,8 @@ Y un hecho de proceso: el hallazgo del revisor (perno M12×50 por una sola aleta
 - **D8 — Ficha de calidad con la versión y en el paquete.** `calidad.json` (todos los ítems con
   estado y evidencia, la firma del modelo, versiones de Apolo y del registro) y `calidad.md`
   legible en la carpeta de la versión; la ficha de calidad y la tabla de riesgos van en el ZIP
-  gratis («validado por software, no construido ni probado físicamente»: el aviso legal de la
-  tienda sigue). La tienda se niega a importar un paquete sin `calidad.json` aprobado.
+  gratis («validado por software, no construido ni probado físicamente»: el aviso legal
+  sigue). La publicación se niega a subir un paquete sin `calidad.json` aprobado.
 - **D9 — Testigos y defectos sembrados en la suite.** Los `.apolo` (logs de KB) de las máquinas de
   referencia entran a `tests/data/testigos/` con su veredicto congelado: un cambio de Apolo que
   mueve un veredicto pone roja la suite. Y por cada ítem, un **testigo malo** con el defecto
@@ -150,11 +150,11 @@ Y un hecho de proceso: el hallazgo del revisor (perno M12×50 por una sola aleta
   producción suma su testigo malo antes de corregirse (8D).
 - **D10 — Familia nueva: Mario aprueba las 2 primeras.** La ficha declara su `familia` (p. ej.
   «faja de banda», «transportador de rodillos»); con menos de 2 publicaciones aprobadas de esa
-  familia, la fábrica se detiene antes del paso `tienda` hasta `publicar.py aprobar --slug`. El
-  registro de familias aprobadas vive en el repo privado (`apolo-fabrica/familias.json`).
+  familia, la publicación se detiene antes de subir hasta que Mario la aprueba. El registro de
+  familias aprobadas vive en el repo privado (detalle fuera del núcleo).
 - **D11 — En piedra = código + test, no memoria.** La regla durable es el registro de ítems; el
-  CLAUDE.md sólo enlaza a este plan. `--forzar` no existe en la fábrica ni en el paso `tienda`
-  (sólo en `publicar generar`, para ensayos que nunca llegan a la tienda).
+  CLAUDE.md sólo enlaza a este plan. `--forzar` no existe en el paso que publica
+  (sólo en los ensayos, que nunca se publican).
 - **D12 — Lo ya publicado pasa por la puerta.** Las dos fajas publicadas se re-corren con la
   puerta (F6); lo que falle se corrige en una versión nueva y se re-publica. Mientras tanto no se
   publican máquinas nuevas.
@@ -194,11 +194,11 @@ Y un hecho de proceso: el hallazgo del revisor (perno M12×50 por una sola aleta
   descartada y su motivo; si no, FALLA. Una pieza estática: NO_APLICA. *Porqué*: una solución
   elegida sin comparar es memoria de nadie; el registro de la alternativa y su motivo es el DFMEA
   de la decisión.
-- **D16 — Testigos públicos sintéticos, testigos de la tienda privados** (decisión del
-  orquestador, vetable por Mario, 2026-10-22). El repo es PÚBLICO (MIT) y las máquinas de la
-  tienda se venden: sus `.apolo` NO entran a `tests/data/`. Testigos públicos = modelos hechos con
+- **D16 — Testigos públicos sintéticos, testigos de las máquinas publicadas privados** (decisión del
+  orquestador, vetable por Mario, 2026-10-22). El repo es PÚBLICO (MIT) y las máquinas
+  publicadas se venden: sus `.apolo` NO entran a `tests/data/`. Testigos públicos = modelos hechos con
   las plantillas y piezas sintéticas (`scripts/testigos.py`, sus recetas), corridos en cada suite.
-  Las máquinas de la tienda son testigos PRIVADOS en `apolo-fabrica/testigos/`, con su veredicto
+  Las máquinas publicadas son testigos PRIVADOS (fuera del núcleo), con su veredicto
   congelado, y se corren a mano con `scripts/testigos.py --puerto N` contra una API. Corrige D9
   («los `.apolo` de las máquinas de referencia entran a `tests/data/testigos/`»).
 
@@ -223,7 +223,7 @@ Máx. 2 agentes a la vez (hoy ya corre el D13 de la fábrica).
 - **F1 — Núcleo de la puerta** (M; `library/calidad/`, `services/`, `api/`, `tools/`, `publicacion/`).
   Registro, estados, `calidad.json`/`.md`, endpoint, tool MCP (golden + catálogo), paso `calidad`
   en la fábrica antes de `generar`, gravedad sin caída silenciosa, D2 (lo existente bloquea), la
-  tienda exige `calidad.json`. Depende de que D13 esté mergeado (toca `fabrica.py`).
+  publicación exige `calidad.json`. Depende de que D13 esté mergeado (toca `fabrica.py`).
 - **F2 — Función mecánica** (M/L; `library/`, `services/`, sello de `join_bolted`). Agarre de perno
   y largos comerciales, tensor reconocido y carrera, umbrales de vida útil; cada control como
   función pura que devuelve ítems del registro (interfaz de F1: `{id, estado, evidencia, piezas}`).
@@ -233,7 +233,7 @@ Máx. 2 agentes a la vez (hoy ya corre el D13 de la fábrica).
   reemplazables, banda montable, tabla de riesgos. Calibra con los testigos de F0.
 - **F4 — Revisión y aprobación en el flujo** (M; `publicacion/`, repo privado). `revision.json`
   por firma, re-revisión, familia nueva con aprobación, cuadros del video revisados; briefs de
-  orquestación en `apolo-fabrica`.
+  orquestación (fuera del núcleo).
 - **F5 — Testigos y defectos sembrados** (M; `tests/`). Fixtures, veredictos congelados, un
   testigo malo por ítem; `scripts/testigos.py` para correrlos a mano contra una API.
 - **F6 — Verificar** (M). Las dos fajas por la puerta completa; corregir; re-publicar en versión
@@ -256,7 +256,7 @@ Máx. 2 agentes a la vez (hoy ya corre el D13 de la fábrica).
 - **El modelador se traba en la puerta**: la tool `publication_gate` le dice qué ítem y qué pieza;
   el brief le pide correrla antes de terminar.
 - **Registro de familias en un solo repo** con varias PCs: es un archivo en git; con más PCs pasa
-  a la tienda.
+  a un servicio (fuera del núcleo).
 
 ## Bitácora
 
@@ -336,7 +336,7 @@ y piezas hijas de junta de giro. La banda no es peligro (zona de trabajo) y no s
 tampoco estrecha el haz en su propia cuña (`forman`). Redondo = caja con dos lados iguales ±6 %
 y ≥ 20 mm; «toca la banda» = unión declarada o ≤ 1,5 mm.
 
-**Calibración** con las máquinas de la tienda (`.apolo` copiados, sólo lectura):
+**Calibración** con las máquinas publicadas (`.apolo` copiados, sólo lectura):
 
 | máquina | piezas | peligros | resultado | ¿real? | tiempo |
 |---|---|---|---|---|---|
@@ -413,7 +413,7 @@ Construido:
   ítem que no pasó. `generar` se niega sin `calidad.json` aprobado o con otra firma (`--forzar`
   manual sólo para ensayos); la puerta de entrega de `generar` ya no cae a «sin gravedad» salvo
   con `--forzar`. `ficha.json` lleva `calidad` {aprobado, forzado, conteos, version_registro,
-  firma}; los dos zips llevan `calidad.md`; `tienda.subir` se niega (antes de tocar la tienda)
+  firma}; los dos zips llevan `calidad.md`; la subida se niega (antes de tocar el sitio)
   sin `calidad.json` aprobado, con `--forzar` o con firmas distintas. `tensores` y `funciones`
   son públicos en el `.apolo` saneado.
 - **D3b** en `library/calidad/tensor.py` (`centros_fijos` en el lazo, puesto por
@@ -444,7 +444,7 @@ Medido (laptop, en proceso, requisitos 15 kg, paquete 400 × 300, 0,3 m/s):
   generalidad: un eje con chumaceras sin banda y una ménsula suelta que se aprueba, D15, controles,
   choque sembrado y la faja v3, firma, gravedad sin MuJoCo, job y 409, la puerta sobre la faja,
   tool, `calidad.md`, la fábrica que para y `generar` que se niega); `test_puerta_tensor.py` (D3b),
-  `test_publicar_tienda.py` (la tienda se niega, 5 casos), e2e de publicación con la puerta.
+  los tests de la subida (se niega, 5 casos), e2e de publicación con la puerta.
 - **Pendiente**: la v4 de `create_belt_conveyor` sin choques internos; L10 de rodamientos que no
   son piezas de catálogo (rodillos de la plantilla); los testigos de F5; F3 entra con su línea
   (`riesgos.partes_moviles`, `riesgos.resguardos_desmontables_con_herramienta`,
@@ -585,19 +585,10 @@ catálogo. El MOTOR-150-EH dice «eje hueco» en su ficha y su geometría es en 
 
 Lo NO determinista (revisores LLM, Mario) entra al flujo y su veredicto se exige de forma
 determinista, sobre la MISMA firma del modelo (`firma` de `calidad.json`) y el MISMO video
-(sha256) que se publican. Reglas puras en `publicacion/revision_check.py`; archivos y pasos en
-`publicacion/aprobacion.py`.
+(sha256) que se publican. Del núcleo queda el formato de la revisión:
 
-- **Fábrica** (`fabrica.PASOS`, 8): guion → ficha (+ `familia` declarada) → calidad →
-  **revision** → generar → **cuadros** → **familia** → tienda. La revisión va ANTES del video:
-  una corrección cambia la firma y no se graba dos veces. `tienda.subir` llama
-  `aprobacion.exigir_publicable` tras `calidad.exigir_subible` (las tres cosas en un mensaje,
-  también en `--ensayo`, antes de tocar la tienda). Ningún paso, ni `subir` ni `aprobar`, tiene
-  `--forzar` (D11, con test). `terminada` = el paso `tienda` hecho: una versión publicada antes
-  de F4 no se reabre sola al correr la fábrica sin `--version`.
 - **D6 — `revision.json`** (formato en `design/revision.py::formato_revision`, impreso al final de
-  `docs/revisor-de-taller.md`; `revision_check` copia sus constantes porque la publicación no
-  importa `design`, y un test exige que coincidan):
+  `docs/revisor-de-taller.md`; quien lo valida copia sus constantes y un test exige que coincidan):
   `{"formato": 1, "revisiones": [{id, revisor, firma, fecha, hallazgos: [{pieza, pregunta,
   evidencia, severidad, estado: abierto|corregido|cerrado, corregido_por?, correccion?,
   cerrado_por?: {revision, evidencia}}]}]}`. PARA si falta, si la ÚLTIMA revisión no es de la
@@ -606,37 +597,9 @@ determinista, sobre la MISMA firma del modelo (`firma` de `calidad.json`) y el M
   versión corregida), cuyo revisor no es `corregido_por` NI el revisor que lo encontró (decisión
   propia: el mismo agente no revisa a ciegas lo que ya vio), con evidencia. «Asumido» no es un
   estado y, en la evidencia del cierre o en la corrección, invalida el cierre. BAJA abierta pasa.
-- **D7 — `cuadros/` + `cuadros.json`**: el paso saca con ffmpeg tres PNG del video a
-  `cuadros/` (subcarpeta: un PNG en la raíz la tienda lo tomaría por miniatura) en el medio de la
-  última etapa (armado), de la marcha (o de la órbita si el video no la trae) y del cierre
-  (`linea_tiempo.tramos` del guion; sin guion, 40/75/97 % del video) y deja
-  `{"formato": 1, "video": {archivo, sha256}, "cuadros": [{momento, archivo, segundo, parte,
-  veredicto: null, nota}], "revisor": null, "fecha": null}`. El agente con visión pone
-  `veredicto` OK|RECHAZADO, `nota`, `revisor` y `fecha`. Si el video cambia, el paso vuelve a
-  sacarlos (los veredictos de otro video no valen); `subir` compara el sha256.
-- **D10 — familia**: `familia` en `ficha.yaml` (opcional para `ficha --revisar`, obligatoria en
-  el paso `ficha` de la fábrica). Registro `familias.json` en el repo privado
-  (`paths.fabrica_dir()`: `APOLO_FABRICA`, o la carpeta hermana del checkout; sin el repo → PARA
-  con el porqué): `{"formato": 1, "familias": {<clave normalizada>: {nombre, aprobadas: [{slug,
-  version, firma, por, fecha}]}}}`. Pasa si la familia tiene ≥ 2 máquinas (slugs distintos)
-  aprobadas o si ESTA versión con ESTA firma está aprobada (decisión propia: cuentan máquinas, no
-  versiones; un cambio de modelo pide aprobar de nuevo). `publicar.py aprobar --slug S [--version
-  V]` (por defecto la versión generada que la fábrica no terminó) registra la aprobación sólo si
-  la puerta, la revisión y los cuadros ya pasaron, e imprime los dos `git -C` para guardarlo en el
-  repo privado (no hace commit).
-- **Briefs** en `apolo-fabrica/briefs/` (rama `f4-revision`): revisor de taller → `revision.json`,
-  re-revisión a ciegas, revisor de cuadros; `orquestacion.md` con los pasos nuevos.
 
-Tests: `tests/test_fabrica_revision.py` (40): el validador (ausente, otra firma, ALTA/MEDIA
-abierta o corregida, cierre por la misma revisión, por quien corrigió, por quien lo encontró, de
-la misma firma, «asumido»), cuadros (otro video, rechazado, sin veredicto, ffmpeg real con
-`testsrc`), momentos, familia 0/1/2 y la firma, sin repo privado, la fábrica que para en cada
-paso nuevo, `aprobar` que destraba y que se niega, `tienda.subir` que se niega en 11 casos, sin
-`--forzar`. `test_publicar_tienda`/`_fabrica` llevan los tres veredictos aprobados en sus
-fixtures.
-
-Pendiente: los briefs se prueban en la F6 (las dos fajas); `familias.json` no existe todavía en
-el repo privado (lo crea el primer `aprobar`).
+Los pasos del flujo, los cuadros del video, el registro de familias, los briefs y sus tests:
+(detalle fuera del núcleo).
 
 ### F5 — testigos y defectos sembrados (2026-10-22)
 
@@ -655,8 +618,8 @@ Construido:
 - **`scripts/testigos.py`**: `--en-proceso` o `--puerto N` (abre cada `.apolo` con `POST
   /api/project/open` —crea un proyecto en la base de esa API: siempre una COPIA— y corre la
   puerta como job; rehúsa el :8000 sin `--forzar`); compara públicos y, si existe la carpeta
-  (`--privados`, `APOLO_FABRICA` o `../apolo-fabrica/testigos`), privados; sale 1 si algo se
-  movió. `--exportar-tienda <apolo.db>` saca los `.apolo` de una base de uso abierta en SÓLO
+  de testigos privados (`--privados`), privados; sale 1 si algo se movió. Una opción de
+  exportación (`<apolo.db>`) saca los `.apolo` de una base de uso abierta en SÓLO
   LECTURA (`?mode=ro`): los `--ids` (3, 4) y el primer proyecto cuyo nombre dice rodillos…cadena.
   Los cuatro públicos dan lo mismo en proceso y contra una API.
 - **Defectos sembrados** (`tests/test_defectos_sembrados.py`): 24 mutaciones mínimas sobre un
@@ -703,10 +666,10 @@ máquina con `join_bolted`. Ahora `prepare_stability(asentadas=)` y `_stability(
 tornilleria_asentada=True)` (sólo la puerta de entrega con gravedad y la de publicación) tratan la
 tornillería como asentada, con el mismo criterio que su sujeción declarada
 (`delivery_inputs.exclusiones_declaradas`); la que no tiene unión sigue saliendo como aviso de la
-entrega. `gravity_test` no cambia. Las tres máquinas de la tienda no lo sufrían (sus pernos tienen
+entrega. `gravity_test` no cambia. Las tres máquinas publicadas no lo sufrían (sus pernos tienen
 `fasten`: 0 caídas con y sin el arreglo). Test: `test_la_tornilleria_asentada_no_cae_…`.
 
-**Testigos privados** (`apolo-fabrica/testigos/`, rama `f5-testigos` del repo privado, sin push):
+**Testigos privados** (fuera del núcleo):
 los `.apolo` de los proyectos 3, 4 y 2 de la base de uso y su veredicto congelado contra una API
 sobre una copia de la base. Ninguna aprueba (punto de partida de F6; detalle en su README):
 faja motor cabeza — `union.agarre`, `ingenieria.reglas`, D15, `riesgos.partes_moviles` (cuñas de
@@ -722,7 +685,7 @@ Medido (laptop): la suite por defecto suma ~47 s (testigo `faja` 7,4 s; nueve de
 
 ### F6 — huecos de la puerta (2026-10-22)
 
-Dos huecos que salieron al pasar las máquinas de la tienda por la puerta (8D: cada uno con su
+Dos huecos que salieron al pasar las máquinas publicadas por la puerta (8D: cada uno con su
 testigo malo antes del arreglo). `VERSION_REGISTRO` = 3.
 
 **1. Las sondas ISO 13857 sólo veían en línea recta.** El revisor de taller halló en la faja de
@@ -777,7 +740,7 @@ y no es pared del campo del brazo; donde abraza un tambor o asienta en la cama, 
 esa condición, el techo de la guarda de cola dejaba «empujar» la banda sobre el tambor: falso
 rojo medido en el testigo). Y las manos van ahora a los voxeles a los que llega la muñeca (los dos
 más cercanos en cada una de 256 direcciones), no a una esfera fija: las ventanas estrechas
-aparecen. Réplica medida sobre el `.apolo` de la tienda con una guarda superior y ranura de
+aparecen. Réplica medida sobre el `.apolo` de la máquina publicada con una guarda superior y ranura de
 23,6 mm (a todo lo ancho, y sólo del ancho de la banda): rectas solas OK; ahora desvío +X y −X
 FALLA (18/15 y 12/10 sondas). Testigo malo público:
 `test_la_banda_que_cruza_una_ranura_de_la_guarda_se_empuja` (faja a mano con una caja de chapa
@@ -845,8 +808,8 @@ El testigo público `faja` es la v5 por defecto, sin `cierres_faja` (borrada de
 dando OK (`test_las_rectas_no_ven_la_ranura_junto_a_la_banda`). Tests:
 `tests/test_belt_conveyor_v5.py`.
 
-**4. Lote de huecos de la fábrica, de la medida y de la BOM** (revisores ciegos de las máquinas
-de la tienda; registro **v4**). Cada uno general, por modo de falla:
+**4. Lote de huecos de la publicación, de la medida y de la BOM** (revisores ciegos de las
+máquinas publicadas; registro **v4**). Cada uno general, por modo de falla:
 
 - **Distancia al borde y paso de los agujeros de perno** (EN 1993-1-8, tabla 3.3). Ítem nuevo
   `union.distancia_al_borde` (estructura) en la fuente mecánica, con `borde.distancia`
@@ -870,16 +833,7 @@ de la tienda; registro **v4**). Cada uno general, por modo de falla:
   mínimo (la huella por cajas no ve una muesca ni el extremo de una pieza más corta). Defecto
   sembrado `agujero_al_canto` (Ø11 a 6 mm del canto). Testigos públicos re-congelados: sólo
   entra el ítem (OK en la ménsula atornillada, NO_APLICA en el resto).
-- **Ficha vencida** (`publicacion/ficha_vigente.py`, el modelo de `guion_vigente`):
-  `ficha.firma.json` guarda la firma del log con que se redactó (`publicar guion` al dejar el
-  borrador) o se re-validó (`publicar ficha --revisar --vigente --project N`); una ficha de antes
-  se data por su guion (el vencido, si se rehízo). El paso «ficha» PARA si no es la de hoy y no
-  se re-sella solo. Verificador mínimo: masa («pesa/peso/masa … kg», nunca una carga) y medidas
-  generales (L × A × H en mm o m, L sobre X o Y) contra `scene_mass_properties`, ±2 %.
-- **«Publicada» = subida**: `tienda.subir` deja `subida.json`; `paquete.publicada` lo lee (un
-  borrador no cuenta) o el paso «tienda» de la fábrica; un paquete generado desde hoy
-  (`generacion.json` con `registra_subida`) y sin subida se regenera; uno de antes, no (no se sabe
-  si subió). `paquete.generada` = tiene `ficha.json`.
+- **Ficha vencida y «publicada»**: (detalle fuera del núcleo).
 - **Memoria**: (a) masa con la fuente de mass-properties (`scene_mass_properties` + material del
   vertical; con `scene_weight_kg` un «Larguero» de acero pesaba como madera: 252,4 contra 260,6
   kg); (b) Ø del tambor de una faja a mano medido (`library/diametro_tambor.py`): la «Guarda del

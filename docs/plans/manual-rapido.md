@@ -8,10 +8,9 @@ descripcion: El manual de montaje de una máquina sale en segundos, no en 23 min
 
 ## Estado y origen
 
-Lo encontró video-tienda-pulido F3 (2026-10-20, § Bitácora): en `publicar generar` de la piloto
+Lo encontró video-montaje-pulido F3 (2026-10-20, § Bitácora): al generar el paquete de la piloto
 (proyecto 74), los entregables suman 3 693 s y **el manual de ensamblaje se lleva 1 381 s**.
-Mario delegó en Claude el orden de los hitos ([docs/hitos.md](../hitos.md)); éste es el hito F,
-«es el cuello de la publicación».
+Mario lo priorizó: «es el cuello de la publicación».
 
 ## El problema / lo que hay hoy
 
@@ -27,10 +26,10 @@ Mario delegó en Claude el orden de los hitos ([docs/hitos.md](../hitos.md)); é
   documento durante ~23 min. Eso viola la regla de los dos locks (raíz § Concurrencia y locks:
   bajo `STATE_LOCK` sólo se EXTRAE; lo pesado va fuera con su propio lock).
 - **La memoria de cálculo** también hace su foto de portada con matplotlib (256 s en total,
-  bitácora de video-tienda F3).
+  bitácora de video-montaje-pulido F3).
 - **Ya existe un render VTK rápido y persistente.** `kernel/render_vivo.EscenaViva`
   (`render_vivo.py:140`, con `mover` y `fotograma`) teesela UNA vez, saca un fotograma en
-  ~8–40 ms y ya lo usan el video de la tienda y el GIF de la dinámica. `render_view` del MCP
+  ~8–40 ms y ya lo usan el video de la máquina y el GIF de la dinámica. `render_view` del MCP
   usa `render_snapshot_vtk` (`render_vtk.py:311`), con el patrón de los dos locks.
 
 ## Decisiones (para vetar)
@@ -66,7 +65,7 @@ Mario delegó en Claude el orden de los hitos ([docs/hitos.md](../hitos.md)); é
 - **D4. Respaldo sin OpenGL.** Si VTK no puede abrir contexto (un servidor sin GPU ni OSMesa),
   el manual cae a matplotlib como hoy y lo dice en el log, igual que `render_view` sin
   `vtk_only` (`api/routers/render.py:175`). Por qué: el entregable no puede desaparecer.
-- **D5. La secuencia y el texto no cambian.** `services/montaje.py` (F1b de video-tienda), las
+- **D5. La secuencia y el texto no cambian.** `services/montaje.py` (F1b de video-montaje-pulido), las
   instrucciones, las filas y la tabla de contenidos quedan igual. Sólo cambian las imágenes y
   dónde corren.
 
@@ -201,7 +200,7 @@ Medido por el endpoint sobre la misma copia (piloto 74), dos pedidos en un proce
 | fotos | 12 485 s (11 fotos) | 38 s (`RENDER_LOCK`) | 36 s |
 
 «Antes» se midió con la PC compartida (otras suites corrían a la vez): las fotos con las cadenas
-tardaron 1 590–2 530 s cada una, más que los 180–290 s de la bitácora de video-tienda F3; la
+tardaron 1 590–2 530 s cada una, más que los 180–290 s de la bitácora de video-montaje-pulido F3; la
 proporción no cambia. En frío manda el teselado (353 s, repartidos en 201 tomas del lock): es
 el Python de `Shape.tessellate` y lo paga también `render_view`. Queda como pendiente para
 otro plan (mallar las cadenas con menos nodos o cachear la malla de render por firma, como la
@@ -269,7 +268,7 @@ F0 había medido la portada en 2 322 s con la PC más cargada; la proporción no
 | `POST /api/commands/preview` sin `data` (PNG del fantasma) | `routers/commands.py` | 1 | no es entregable |
 
 Medidos en un proceso, el GA primero (el juego ya encontró las caras malladas por `BRepMesh`) y
-con la suite completa corriendo a la vez: los números absolutos son altos (video-tienda F3 midió
+con la suite completa corriendo a la vez: los números absolutos son altos (video-montaje-pulido F3 midió
 462 y 231 s los dos entregables enteros), pero en los dos la foto es ~90 % del tiempo y todo va
 bajo el lock. La cotización y la lámina de instalación no dibujan 3D. El juego de planos y el GA tampoco van
 por job: con la piloto pasan los 120 s del MCP (`drawing_set`, `drawing`) igual que la memoria.

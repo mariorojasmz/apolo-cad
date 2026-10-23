@@ -104,7 +104,7 @@ def health(request: Request) -> dict:
     violaciones de integridad (los 'degradado' no cuentan) NI error de arranque. Sin
     tool MCP: es telemetría de operación (la UI pinta un chip; V6.x si se pide agente).
     ``dwg``: si hay con qué exportar DWG (ODA File Converter); la publicación lo lee al empezar
-    (D5 de video-tienda-pulido). Se descubre FUERA del lock: no toca el documento.
+    (D5 de video-montaje-pulido). Se descubre FUERA del lock: no toca el documento.
     ``pid``/``puerto``/``proyecto``: de quién es esta API cuando hay varias a la vez (D7 de
     varias-maquinas-a-la-vez); el puerto, si el proceso no lo sabe, el de la petición."""
     from apolo.drawing.dwg import disponible as dwg_disponible

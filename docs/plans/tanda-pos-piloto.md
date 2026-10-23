@@ -17,7 +17,7 @@ Planes de la tanda (cada uno con su contrato, decisiones y fases):
 [perfiles-con-acuerdo](perfiles-con-acuerdo.md) · [flecha-de-bastidor](flecha-de-bastidor.md) ·
 [uniones-en-lote](uniones-en-lote.md) · [cirugia-liviana](cirugia-liviana.md) ·
 [V8.2](V8.2-maquina-se-mueve.md) (F2 y F3) · [visor-realista](visor-realista.md) ·
-[video-tienda-pulido](video-tienda-pulido.md) · [vista-3d-tienda](vista-3d-tienda.md) ·
+[video-montaje-pulido](video-montaje-pulido.md) · [vista-3d-web](vista-3d-web.md) ·
 [escaneo-a-pieza](escaneo-a-pieza.md) · [plantilla-rodillos-cadena](plantilla-rodillos-cadena.md).
 
 ## Lo que se revisó antes de escribir esto: dónde chocan
@@ -28,8 +28,8 @@ Planes de la tanda (cada uno con su contrato, decisiones y fases):
   módulos `exec_*.py` distintos (registry.py está congelado).
 - **`library/`**: perfiles, acceso, flecha, visor F1 y escaneo F3 tocan archivos distintos; se
   pueden hacer en paralelo, pero se mergean de a uno.
-- **Tabla de materiales** (visor-realista F1, D5): la usan video-tienda-pulido F2 y
-  vista-3d-tienda; va ANTES que ellos.
+- **Tabla de materiales** (visor-realista F1, D5): la usan video-montaje-pulido F2 y
+  vista-3d-web; va ANTES que ellos.
 - **Las suites se corren de a una** (dos en paralelo dan timeouts falsos, raíz § Sesiones
   concurrentes): los merges son en serie aunque los agentes trabajen en paralelo.
 - **Las tools MCP nuevas sólo se ven tras reiniciar el host MCP** (raíz § Ejecutar y probar):
@@ -58,11 +58,11 @@ Planes de la tanda (cada uno con su contrato, decisiones y fases):
 | ola | en paralelo | depende de |
 |---|---|---|
 | **0 · medir** | las F0 de los 11 planes (las que usan la API, de a una sobre la copia; las offline, en paralelo) | — |
-| **1 · bases** | perfiles F1+F2 · revision-de-taller F1–F3 · cirugia F1 → F2 · video-tienda F1 | ola 0 |
+| **1 · bases** | perfiles F1+F2 · revision-de-taller F1–F3 · cirugia F1 → F2 · video-montaje F1 | ola 0 |
 | **2 · chequeos y física** | acceso F1+F2 · flecha F1+F2 · visor F1 (materiales) · uniones F1+F2 · V8.2 F2 (después de cirugia F2, por el golden) | ola 1 |
-| **3 · lo que se ve** | video-tienda F1b (secuencia de montaje, después de acceso) + F2 + F3 · vista-3d F1–F3 · visor F2+F3 · perfiles F3 · uniones F3 (después de V8.2 F2) · escaneo F1 → F2 → F3 (F2 después de uniones F3) | ola 2 (materiales, simulate) |
+| **3 · lo que se ve** | video-montaje F1b (secuencia de montaje, después de acceso) + F2 + F3 · vista-3d F1–F3 · visor F2+F3 · perfiles F3 · uniones F3 (después de V8.2 F2) · escaneo F1 → F2 → F3 (F2 después de uniones F3) | ola 2 (materiales, simulate) |
 | **4 · la plantilla** | plantilla F1 → F2 · visor F4 (el video cierra con la máquina andando) | acceso, perfiles F3, uniones, flecha, V8.2 F2 |
-| **5 · verificar** | en sesión nueva, de a una: cirugia F3 · perfiles F4 · acceso F3 · flecha F3 · uniones F4 · V8.2 F3 · plantilla F3 (= revision-de-taller F4) · visor F5 · video-tienda F4 · vista-3d F4 · escaneo F4 | todo lo anterior mergeado, API y host MCP reiniciados |
+| **5 · verificar** | en sesión nueva, de a una: cirugia F3 · perfiles F4 · acceso F3 · flecha F3 · uniones F4 · V8.2 F3 · plantilla F3 (= revision-de-taller F4) · visor F5 · video-montaje F4 · vista-3d F4 · escaneo F4 | todo lo anterior mergeado, API y host MCP reiniciados |
 
 Después de la tanda: V8.3 (la faja arranca desde su tablero), con FMI y OPC UA anotados para
 V8.8 ([V8](V8-maquina-viva.md) § Bitácora 2026-10-10).
@@ -71,7 +71,7 @@ V8.8 ([V8](V8-maquina-viva.md) § Bitácora 2026-10-10).
 
 - **Ola 0**: un escaneo de uno de sus motores (escaneo-a-pieza F0) y probar en su celular el GLB
   de la piloto (vista-3d F0).
-- **Antes de la ola 5**: la pista de música con su licencia (video-tienda F4); instalar ODA File
+- **Antes de la ola 5**: la pista de música con su licencia (video-montaje F4); instalar ODA File
   Converter si quiere DWG.
 - **En cualquier momento**: vetar decisiones por número en cada plan.
 - **Ola 5**: juzgar el video final, el clip de la máquina andando y la vista 3D en su celular.

@@ -1,4 +1,4 @@
-"""El video de la tienda en modo MONTAJE (plan video-tienda-pulido, F1b · D8): las etapas siguen
+"""El video de la tienda en modo MONTAJE (plan video-montaje-pulido, F1b · D8): las etapas siguen
 la secuencia de `montaje.py` (cómo se arma en el taller), no el log (cómo se diseñó).
 
 Cada paso de montaje se vuelve un `construccion.Paso` SINTÉTICO, con `k` = su número en la

@@ -71,7 +71,7 @@ jobs:
       # OCP y VTK enlazan libGL; gmsh (FLTK) pide GLU + Xcursor/Xft/Xinerama al importarse.
       # Xvfb + Mesa (llvmpipe) dan el contexto OpenGL que el render off-screen de VTK 9.3
       # necesita (sin display, VTK/X11 aborta el proceso en vez de lanzar una excepción).
-      # ffmpeg es un binario externo (plan publicacion-tienda, D7): sin él, los tests de
+      # ffmpeg es un binario externo (codificación del video): sin él, los tests de
       # codificación del video (tests/test_media_codificar.py) se saltan; aquí corren.
       - name: Librerías de sistema (Linux)
         if: runner.os == 'Linux'

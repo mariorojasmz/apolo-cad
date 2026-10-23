@@ -9,7 +9,7 @@ descripcion: Cada diálogo de comando te dice en una frase qué hace, el detalle
 ## Estado y origen
 
 **Origen**: deuda declarada en `ui/CLAUDE.md` § «Texto y ayuda» al adoptar el estándar de textos
-de Caronte: «Separar el texto del agente del de la persona es plan pendiente (toca backend + UI)».
+común a otros proyectos del titular: «Separar el texto del agente del de la persona es plan pendiente (toca backend + UI)».
 Mario la priorizó en la lista de pendientes de la auditoría del 2026-10-03 y delegó su ejecución:
 «me voy a ir por muchas horas, ejecuta todo los planes pendientes al final revisamos». Por eso el
 contrato se implementa **sin aprobación previa**: las decisiones D1–D13 quedan para que las vete al
@@ -208,7 +208,7 @@ worktree de integración en el puerto 8001 (base vacía, `data/` del worktree), 
 - **El plan de partir `main.py` corre en la misma rama de integración**: el cambio aquí son 2
   líneas; si el endpoint se mueve a un router, van con él.
 - **El ribbon sin pestañas hasta que cargan los schemas**: milisegundos; se verifica en preview.
-- **Un cambio del estándar de Caronte rompe el parseo de `tuteoNeutro.test.ts`**: falla fuerte.
+- **Un cambio del estándar común rompe el parseo de `tuteoNeutro.test.ts`**: falla fuerte.
 - **`limpiar_historia` borra algo legítimo**: sólo actúa sobre `title`/`description`, con casos
   «220V» y «Vista 3D».
 - **Más densidad visual por las ⓘ**: sólo si la descripción dice algo más que la unidad.
@@ -299,7 +299,7 @@ con `ensure_ascii=False`):
   `SIN_TILDE`, `NO_ES_VOSEO`, el doble pronombre y las formas sueltas de `VOSEO` (se rearma
   `CON_PRONOMBRE` igual que en TS) y `OTRO_REGISTRO`; de `textoDeAyuda.test.ts`
   `FIN_DE_ORACION` y la regla de versión. Si el formato cambia, el parseo falla con «cambió el
-  estándar de Caronte».
+  estándar».
 - Siglas que el gate acepta en mayúsculas (lista cerrada): STEP, BOM, ISO, DIN, DXF, DWG, SVG,
   PDF, CSV, URDF, SDF, IA, FEA. «usted»/«ustedes» se suma a `OTRO_REGISTRO` (el gate de la UI no
   lo trae como palabra suelta).

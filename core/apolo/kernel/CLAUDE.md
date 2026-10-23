@@ -13,7 +13,6 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
   `render_comun.py`: lo comparten `render_vtk` (foto) y `render_vivo` (ventana persistente del
   video, ~6 ms/fotograma: actores por id + `is` del shape, colores y cámara fijados con la escena
   FINAL); un cambio de look va ahí o las dos imágenes divergen.
-  [publicacion-tienda](../../../docs/plans/publicacion-tienda.md)
 - El material de cada pieza llega como DATO (`apariencias`: {id: color, metalness, roughness,
   opacidad}, de `services/apariencia.apariencias_documento`): el kernel no importa `library`.
   Todo caller que pinte el documento lo pasa (foto, GIF, video); sin él cae al Phong genérico.
@@ -49,7 +48,7 @@ directo y croquis; no conoce `Document`. Lo transversal (locks, log, flujo de tr
 - glTF/GLB: `glb.py` (escritor de OCCT); sus trampas están en el docstring. Lo clave: prototipo SIN
   ubicación + componente ubicado (o se pierde la ubicación), color en el COMPONENTE (el del prototipo
   pisa el de la instancia), `TDataStd_Name` con `isMultiByte=True` y `SetMergeFaces`.
-  [vista-3d-tienda](../../../docs/plans/vista-3d-tienda.md). Pieza con zonas (`glb_zonas.py`):
+  [vista-3d-web](../../../docs/plans/vista-3d-web.md). Pieza con zonas (`glb_zonas.py`):
   prototipo = compuesto con un sub-compuesto de caras por zona, estilo en el PROTOTIPO, instancia
   sin color, prototipo por TShape + estilos; el escritor da una primitiva por ESTILO distinto.
 - `pick.py` (píxel → pieza/cara EXACTA) comparte la matriz de cámara del render sin contexto

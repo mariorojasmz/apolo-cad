@@ -237,14 +237,14 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `pares_de_union` (nunca uno que no dé exactamente los pares de la fila); ids sólo de
   `a_revisar`. Aplicada, conteos (`aplicada_corta`, con `ordenes`), nunca la lista de conexiones.
 
-## Video y vista 3D de la tienda (`construccion.py`, `rotulos.py`, `datos_rotulos.py`, `guion_video.py`, `cifras_grupo.py`)
+## Video y vista 3D web (`construccion.py`, `rotulos.py`, `datos_rotulos.py`, `guion_video.py`, `cifras_grupo.py`)
 
 - Un rótulo sólo dice cifras leídas del documento, del catálogo o de un cálculo ya hecho
   (`datos_rotulos`), nunca escritas a mano; una plantilla nueva va en `rotulos.PLANTILLAS` con
   su test cifra por cifra. Las etiquetas de la vista 3D (`cifras_grupo`) usan las MISMAS
-  plantillas: no se escribe otra fórmula. [vista-3d-tienda](../../../docs/plans/vista-3d-tienda.md) El peso de un paso (`peso_roles`) lo usan las etapas Y
+  plantillas: no se escribe otra fórmula. [vista-3d-web](../../../docs/plans/vista-3d-web.md) El peso de un paso (`peso_roles`) lo usan las etapas Y
   el video de la fábrica (fuera del núcleo): no se duplica la fórmula.
-  [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md)
+  [video-montaje-pulido](../../../docs/plans/video-montaje-pulido.md)
 
 ## Secuencia de montaje (`montaje.py`, `montaje_video.py`)
 
@@ -255,12 +255,12 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   tapa al final, se termina lo empezado) están en el docstring: una regla nueva va ahí con su
   caso en `tests/test_montaje.py`. El acceso de herramienta NO impone orden (si la llave entra
   con la máquina terminada, entra con menos piezas).
-  [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md) (F1b)
+  [video-montaje-pulido](../../../docs/plans/video-montaje-pulido.md) (F1b)
 - La `marcha` del guion (opcional) cuenta en `duracion_total` y en los capítulos, pero sólo la
   graba el navegador: todo render que no la anime usa `sin_marcha(g)`.
 - La marcha de EJEMPLO de un transportador (`marcha_ejemplo.py`, la que arma la fábrica) sale de
   la detección de la dinámica (`detectar_bandas`, `superficie_banda`), nunca de otra; `probar` la
-  simula y exige que una caja avance. [fabrica-de-publicaciones](../../../docs/plans/fabrica-de-publicaciones.md) (ajuste D10)
+  simula y exige que una caja avance (detalle fuera del núcleo).
   Lleva `sumideros` (fin del tramo superior y bajo la banda) y la cola nace donde la caja no toca
   pieza (`_choca`): con placa de transferencia o el techo de la guarda de cola, las cajas se
   encimaban. [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F6)
@@ -280,8 +280,7 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [visor-realista](../../../docs/plans/visor-realista.md) (F3)
 - Además corta con OCCT (`seccion_plano.py`) la banda y lo que podría cruzar su cinta en planos a
   lo ancho: la forma de la cinta y su prueba salen de esas secciones, y `marcha_ejemplo.fidelidad`
-  lanza `MarchaInfiel` (la fábrica PARA, nunca «sin marcha»).
-  [fabrica-de-publicaciones](../../../docs/plans/fabrica-de-publicaciones.md) (D13)
+  lanza `MarchaInfiel` (quien la usa PARA, nunca «sin marcha»; detalle fuera del núcleo).
 
 ## Roles por nombre (`roles.py`)
 
