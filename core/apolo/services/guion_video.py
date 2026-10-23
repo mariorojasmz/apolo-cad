@@ -113,7 +113,7 @@ def _unidad(valor, unidad: str) -> str:
 
 def masa_y_medidas(doc) -> dict:
     """{n_piezas, masa_kg, bbox_mm, …} de la máquina (con lo oculto y el material del vertical):
-    la fuente de la tarjeta y de la verificación de la ficha (`publicacion/ficha_vigente.py`)."""
+    la fuente de la tarjeta y de la verificación de la ficha (la fábrica, fuera del núcleo)."""
     from apolo.library.catalog import CATALOG
     from apolo.library.engineering.mass import scene_mass_properties
 

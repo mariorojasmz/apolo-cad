@@ -1,11 +1,10 @@
 """Puerta de publicación — F3 en el registro (plan puerta-de-publicacion, D4, D5, D8, D14): la fuente
 «seguridad» lleva sus seis ítems a los tres generales, descarta `seguridad.electrico` (repite
 `riesgos.electrico`), corre UNA vez por puerta, los detectores de los hechos usan su mismo
-criterio y la tabla de riesgos llega a `calidad.json` y `calidad.md`."""
+criterio y el resultado trae la tabla de riesgos (que la fábrica de publicaciones, fuera del
+núcleo, lleva a `calidad.json` y `calidad.md`)."""
 
 from __future__ import annotations
-
-import json
 
 import pytest
 from test_calidad_seguridad import _transmision
@@ -14,7 +13,6 @@ from test_puerta_publicacion import _puerta
 from apolo.doc import Document
 from apolo.library.calidad.item import FALLA, NO_APLICA, OK, SIN_EVALUAR
 from apolo.library.calidad.registro import REGISTRO, evaluar
-from apolo.publicacion import calidad, textos
 from apolo.services import calidad_seguridad as cs
 
 
@@ -137,8 +135,6 @@ def test_una_pieza_estatica_no_tiene_ninguno_de_los_tres():
         "riesgos.resguardos_desmontables_con_herramienta": (NO_APLICA, "sin resguardos"),
         "consumibles.reemplazables": (NO_APLICA, "sin piezas de desgaste")}
     assert r["riesgos"] == [] and r["aprobado"] is True
-    md = textos.calidad_md(r, "Ménsula")
-    assert "## Análisis de riesgos (ISO 12100)" in md and "No se detectaron peligros" in md
 
 
 def test_f3_corre_una_vez_y_la_deteccion_se_comparte(monkeypatch):
@@ -155,30 +151,6 @@ def test_f3_corre_una_vez_y_la_deteccion_se_comparte(monkeypatch):
     r = _puerta(d)
     assert llamadas == {"controles_f3": 1, "_analizar": 1, "datos_calidad": 1}
     assert _por_id(r)["riesgos.partes_moviles"]["estado"] == FALLA  # abierta por abajo
-
-
-# ------------------------------------------------------------------ la tabla en el paquete
-def test_la_tabla_de_riesgos_va_en_calidad_json_y_md(cadena_expuesta, tmp_path):
-    _d, _p, r = cadena_expuesta
-    (fila,) = r["riesgos"]
-    assert fila["tipo"] == "atrapamiento" and fila["verificacion"] == "riesgos.partes_moviles"
-    assert fila["estado"] == FALLA and fila["medida"] == "ninguna"
-    j, m = calidad.escribir(tmp_path, r, titulo="Transmisión de prueba")
-    assert json.loads(j.read_text(encoding="utf-8"))["riesgos"] == json.loads(
-        json.dumps(r["riesgos"]))
-    md = m.read_text(encoding="utf-8")
-    assert "## Análisis de riesgos (ISO 12100)" in md
-    assert "| Peligro | Medida | Verificación | Resultado |" in md
-    titulo = _por_id(r)["riesgos.partes_moviles"]["titulo"]
-    linea = next(x for x in md.splitlines() if x.startswith("| Transmisión ("))
-    assert "| ninguna |" in linea and titulo in linea and linea.endswith("| no cumple |")
-
-
-def test_la_fila_resguardada_nombra_su_guarda():
-    fila = {"peligro": "Cuña", "medida": ["c9"], "medida_nombres": ["Guarda del tambor (+X)"],
-            "verificacion": "riesgos.partes_moviles", "estado": OK}
-    md = textos.calidad_md({"items": [], "riesgos": [fila]}, "x")
-    assert "| resguardo: Guarda del tambor (+X) |" in md and "| cumple |" in md
 
 
 def test_f3_es_una_fuente_del_registro():

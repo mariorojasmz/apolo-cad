@@ -1,17 +1,19 @@
 """Los entregables de una máquina pedidos a la API viva: cliente HTTP puro (plan
 publicacion-tienda, F4).
 
-Nació dentro de `scripts/benchmark_package.py` y se extrajo para que el benchmark y la
-publicación pidan los MISMOS artefactos con las MISMAS rutas y parámetros: si uno cambia un
-plano, el otro lo recibe igual. Lo que difiere es CUÁLES pide cada uno, y lo declara cada
-`Entregable` en `destinos`:
+El paquete de entregables (planos, BOM, memoria, manual, STEP, renders) es el producto del
+núcleo (doctrina de resultados del CLAUDE.md raíz): por eso esta lista vive aquí y la usan
+`scripts/benchmark_package.py` y, desde fuera del núcleo, la fábrica de publicaciones (se mudó a
+un paquete aparte en la F4a de nucleo-abierto-extensiones-privadas). Los dos piden los MISMOS
+artefactos con las MISMAS rutas y parámetros: si uno cambia un plano, el otro lo recibe igual. Lo
+que difiere es CUÁLES pide cada uno, y lo declara cada `Entregable` en `destinos`:
   - `benchmark`: el paquete de calidad (`docs/benchmark/...`), con todo, incluidos el costeo y
     la cotización;
-  - `gratis` y `completo`: los niveles de la tienda (D10). El costeo y la cotización NUNCA
-    (D11): los precios son internos y locales.
+  - `gratis` y `completo`: los niveles de una publicación (D10 de publicacion-tienda). El
+    costeo y la cotización NUNCA (D11): los precios son internos y locales.
 
 No importa nada de `apolo` (sólo httpx): el benchmark lo importa sin cargar el CAD, y el
-`.pyc` que escribe es el de este archivo solo.
+`.pyc` que escribe es el de este archivo solo (`tests/test_benchmark_entregables.py`).
 """
 
 from __future__ import annotations

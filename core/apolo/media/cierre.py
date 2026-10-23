@@ -10,7 +10,8 @@ en ámbar y, al pie, chico y apagado, el aviso de responsabilidad (D8).
 Textos (`textos_cierre`): el lema es `cierre.texto` del guion; vacío o el texto de antes
 («Descarga los planos…», un guion viejo) → `APOLO_TIENDA_LEMA` o `LEMA`. El dominio es el host
 de `cierre.url` (la página de la máquina) sin `www.`; sin URL, el de `APOLO_TIENDA_URL` o
-`DOMINIO`. Lo dibujan VTK (`publicacion/video.py`) y el navegador (`media/tarjetas.py`).
+`DOMINIO`. Lo dibujan VTK (el video de la fábrica, fuera del núcleo) y el navegador
+(`media/tarjetas.py`).
 
 La A se dibuja aquí con la geometría de `docs/marca/apolo-icono.svg` (la carpeta `docs/` no
 viaja en el paquete de PyPI); `tests/test_media_cierre.py` exige que coincida con el maestro.

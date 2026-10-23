@@ -3,10 +3,12 @@
 - VTK parte el actor de una pieza con zonas: la seta sale roja sobre el anillo amarillo, en su
   lugar (concéntricos, el rojo dentro). Lo `fijo` no toma el color asignado (D3); la caja de
   superficie, pintable, sí.
-- El GLB lleva una primitiva por estilo de zona en el nodo de la pieza, cada una con su
-  material (dos zonas con el mismo acabado y color se funden: no se distinguen).
-- Sin zonas (pieza sin zonas, taladrada o cortada por una sección) todo sale EXACTAMENTE como
-  antes: mismo PNG y mismo GLB.
+- El GLB (`kernel/glb.py`) recorre las caras en el orden de build123d; una pieza sin zonas, o con
+  zonas que no casan con sus caras, sale EXACTAMENTE como antes. Lo que arma con eso la vista 3D
+  de la tienda (una primitiva por estilo de zona, prototipos compartidos) se prueba con la fábrica
+  de publicaciones, que vive fuera del núcleo.
+- Sin zonas (pieza sin zonas, taladrada o cortada por una sección) la foto sale EXACTAMENTE como
+  antes: el mismo PNG.
 """
 
 from __future__ import annotations
@@ -20,7 +22,6 @@ from apolo.doc import Document
 from apolo.kernel import glb
 from apolo.kernel.glb_resumen import leer
 from apolo.library.apariencia import ACABADOS
-from apolo.publicacion import vista3d
 from apolo.services.apariencia import apariencias_documento, apariencias_render
 
 ROJO = ACABADOS["plastico_rojo_seguridad"].color
@@ -160,97 +161,14 @@ def test_una_seccion_o_un_taladro_dejan_la_seta_de_un_solo_acabado(doc):
 # ── GLB ───────────────────────────────────────────────────────────────────────
 
 
-def _lineal(hexa: str):
-    c = np.array([int(hexa[k:k + 2], 16) for k in (1, 3, 5)], dtype=float) / 255.0
-    return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
-
-
-def _glb(doc, ruta):
-    inf = glb.escribir_glb(vista3d.piezas(doc), ruta, titulo="seta")
-    return inf, leer(ruta)
-
-
-def _primitivas(js, nodo_mesh):
-    """[(hex más cercano, accessor de posición)] de las primitivas de la malla."""
-    out = []
-    for p in js["meshes"][nodo_mesh]["primitives"]:
-        color = np.array(js["materials"][p["material"]]["pbrMetallicRoughness"]
-                         ["baseColorFactor"][:3])
-        hexa = min((ROJO, AMARILLO, NEGRO, GRIS, AZUL),
-                   key=lambda h: np.abs(_lineal(h) - color).max())
-        assert np.abs(_lineal(hexa) - color).max() < 2e-3
-        out.append((hexa, js["accessors"][p["attributes"]["POSITION"]]))
-    return out
-
-
-def _mallas_por_ref(doc, js):
-    """{ref: [índice de malla]} en el orden de la escena (el GLB nombra por grupo, no por
-    pieza: las instancias salen en el orden de `vista3d.ids_glb`)."""
-    con_malla = [n for n in js["nodes"] if "mesh" in n]
-    refs = [doc.scene[fid].component for fid in vista3d.ids_glb(doc)]
-    assert len(con_malla) == len(refs)
-    out: dict = {}
-    for ref, n in zip(refs, con_malla):
-        out.setdefault(ref, []).append(n["mesh"])
-    return out
-
-
-def test_el_glb_lleva_una_primitiva_por_zona_con_su_material(doc, tmp_path):
-    inf, js = _glb(doc, tmp_path / "seta.glb")
-    mallas = _mallas_por_ref(doc, js)
-    assert len(js["meshes"][mallas[None][0]]["primitives"]) == 1   # la puerta: como siempre
-    puerta = _primitivas(js, mallas["ESTOP-40"][0])
-    assert sorted(h for h, _ in puerta) == sorted((ROJO, AMARILLO, NEGRO, GRIS))
-    acc = dict(puerta)
-    # la seta, roja, es lo que más sale hacia el operador (+Z local: el nodo lleva el Y arriba)
-    assert acc[ROJO]["max"][2] > acc[AMARILLO]["max"][2] + 0.01
-    assert acc[ROJO]["max"][0] - acc[ROJO]["min"][0] == pytest.approx(0.040, abs=2e-3)
-    assert acc[AMARILLO]["max"][0] - acc[AMARILLO]["min"][0] == pytest.approx(0.060, abs=2e-3)
-    assert inf.piezas == 4
-    # la de caja: la leyenda y la caja (mismo amarillo) se funden, igual el negro
-    caja = _primitivas(js, mallas["ESTOP-40-CAJA"][0])
-    assert sorted(h for h, _ in caja) == sorted((ROJO, AMARILLO, NEGRO))
-
-
-def test_el_color_asignado_en_el_glb_no_pinta_lo_fijo(doc, tmp_path):
-    fid = _fid(doc, "ESTOP-40-CAJA")
-    puerta = _fid(doc, "ESTOP-40")
-    doc.colors[fid] = AZUL
-    doc.colors[puerta] = AZUL
-    try:
-        _, js = _glb(doc, tmp_path / "pintada.glb")
-    finally:
-        doc.colors.pop(fid)
-        doc.colors.pop(puerta)
-    mallas = _mallas_por_ref(doc, js)
-    caja = _primitivas(js, mallas["ESTOP-40-CAJA"][0])
-    assert sorted(h for h, _ in caja) == sorted((ROJO, AMARILLO, NEGRO, AZUL))
-    acc = dict(caja)
-    assert acc[AZUL]["max"][0] - acc[AZUL]["min"][0] == pytest.approx(0.072, abs=2e-3)
-    # la seta de puerta repintada no cambia: nada en ella es pintable
-    assert sorted(h for h, _ in _primitivas(js, mallas["ESTOP-40"][0])) == sorted(
-        (ROJO, AMARILLO, NEGRO, GRIS))
-
-
-def test_el_prototipo_se_comparte_solo_con_los_mismos_estilos(doc, tmp_path):
-    from build123d import Location
+def test_las_caras_del_glb_van_en_el_orden_de_build123d(doc):
+    from apolo.kernel.glb_zonas import caras
 
     seta = doc.scene[_fid(doc, "ESTOP-40-CAJA")].shape
-    base = apariencias_render(doc)[_fid(doc, "ESTOP-40-CAJA")]
-
-    def pieza(x, color=None):
-        kw = vista3d._zonas(base)
-        if color:  # la caja (pintable) repintada en esta instancia
-            kw["zonas"] = tuple(glb.ZonaGlb(z.nombre, color) if z.nombre == "caja" else z
-                                for z in kw["zonas"])
-        return glb.PiezaGlb("Seta", seta.moved(Location((x, 0, 0))), "#808080", **kw)
-
-    iguales = glb.escribir_glb([pieza(0), pieza(100)], tmp_path / "a.glb", titulo="t")
-    assert iguales.prototipos == 1
-    distintas = glb.escribir_glb([pieza(0), pieza(100, AZUL)], tmp_path / "b.glb", titulo="t")
-    assert distintas.prototipos == 2
-    js = leer(tmp_path / "b.glb")
-    assert sorted(len(m["primitives"]) for m in js["meshes"]) == [3, 4]
+    nuestras = caras(seta.wrapped)
+    suyas = [f.wrapped for f in seta.faces()]
+    assert len(nuestras) == len(suyas)
+    assert all(a.IsSame(b) for a, b in zip(nuestras, suyas))
 
 
 def test_una_pieza_sin_zonas_sale_igual_en_el_glb(doc, tmp_path):
@@ -264,13 +182,3 @@ def test_una_pieza_sin_zonas_sale_igual_en_el_glb(doc, tmp_path):
     assert (tmp_path / "a.glb").read_bytes() == (tmp_path / "b.glb").read_bytes()
     js = leer(tmp_path / "a.glb")
     assert [len(m["primitives"]) for m in js["meshes"]] == [1]
-
-
-def test_las_caras_del_glb_van_en_el_orden_de_build123d(doc):
-    from apolo.kernel.glb_zonas import caras
-
-    seta = doc.scene[_fid(doc, "ESTOP-40-CAJA")].shape
-    nuestras = caras(seta.wrapped)
-    suyas = [f.wrapped for f in seta.faces()]
-    assert len(nuestras) == len(suyas)
-    assert all(a.IsSame(b) for a, b in zip(nuestras, suyas))

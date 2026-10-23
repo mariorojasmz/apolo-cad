@@ -52,25 +52,6 @@ def logs_dir() -> Path:
     return Path(env).expanduser() if env else _base() / "logs"
 
 
-def publicaciones_dir() -> Path:
-    """Carpeta de las publicaciones de tienda (plan publicacion-tienda, D14): una carpeta por
-    máquina y versión, con el video y los zips. Vive FUERA de git (`/data/` está ignorado): un
-    video pesa decenas de MB. No se crea aquí."""
-    return data_dir() / "publicaciones" if repo_root() is not None else home() / "publicaciones"
-
-
-def fabrica_dir() -> Path:
-    """El repo PRIVADO de la receta de la fábrica (`apolo-fabrica`: briefs y `familias.json`,
-    plan puerta-de-publicacion D10). `APOLO_FABRICA` manda; si no, en un checkout es la carpeta
-    hermana del repo (`…/repos/apolo-fabrica`) e instalado, `APOLO_HOME/apolo-fabrica`. No se
-    crea aquí: sin el repo, la fábrica PARA y lo dice."""
-    env = os.environ.get("APOLO_FABRICA")
-    if env:
-        return Path(env).expanduser()
-    root = repo_root()
-    return root.parent / "apolo-fabrica" if root is not None else home() / "apolo-fabrica"
-
-
 def grabaciones_dir() -> Path:
     """Carpeta de las grabaciones del visor (plan video-realista, D4): una carpeta por sesión con
     sus cuadros (se borran al codificar) y el video. Fuera de git, como `data/`. No se crea aquí."""

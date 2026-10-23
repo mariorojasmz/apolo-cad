@@ -112,7 +112,8 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   DETECTORES de elementos por tipo general (D14: una familia de máquinas nueva suma su clase ahí)
   con el MISMO criterio que su control: partes móviles, resguardos y consumibles leen
   `calidad_seguridad.analisis`, que el `Contexto` de la corrida calcula UNA vez para detectores y
-  fuente; `firma_modelo` es la firma única que comparte con `publicacion/calidad.py`. Las reglas de la
+  fuente; `firma_modelo` es la firma única que comparte con la fábrica de publicaciones (fuera del
+  núcleo: la lee del `.apolo`). Las reglas de la
   memoria salen de `memoria_reglas.py` (también el PDF). (F1)
 - **Un ítem general nuevo = su defecto sembrado** en `tests/test_defectos_sembrados.py` (una
   mutación mínima de un testigo bueno que lo pone en FALLA) o una exención con su porqué; si no, la
@@ -242,7 +243,7 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   (`datos_rotulos`), nunca escritas a mano; una plantilla nueva va en `rotulos.PLANTILLAS` con
   su test cifra por cifra. Las etiquetas de la vista 3D (`cifras_grupo`) usan las MISMAS
   plantillas: no se escribe otra fórmula. [vista-3d-tienda](../../../docs/plans/vista-3d-tienda.md) El peso de un paso (`peso_roles`) lo usan las etapas Y
-  `publicacion/video.py`: no se duplica la fórmula.
+  el video de la fábrica (fuera del núcleo): no se duplica la fórmula.
   [video-tienda-pulido](../../../docs/plans/video-tienda-pulido.md)
 
 ## Secuencia de montaje (`montaje.py`, `montaje_video.py`)
@@ -264,8 +265,8 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   pieza (`_choca`): con placa de transferencia o el techo de la guarda de cola, las cajas se
   encimaban. [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F6)
 - `linea_tiempo.py` (tiempos y efectos del video) y `plan_navegador.py` (el plan cuadro por
-  cuadro que el visor sólo dibuja) viven aquí y no en `publicacion/`: el backend no importa la
-  publicación (`test_capas_publicacion.py`) y la API arma el plan del botón «Grabar video». Una
+  cuadro que el visor sólo dibuja) viven aquí y no en la fábrica de publicaciones (fuera del
+  núcleo; las usa como API) y la API arma el plan del botón «Grabar video». Una
   regla nueva del video va en `linea_tiempo.py` y la reciben VTK y el navegador.
   [video-realista](../../../docs/plans/video-realista.md) (D5)
 

@@ -1,16 +1,15 @@
 """Puerta de publicación F1 — el núcleo (plan puerta-de-publicacion, D1, D2, D8, D11 y D13b): el
 registro y su agregador (los cuatro estados, NO_APLICA sólo por `aplica_si`), los controles de lo
 que ya existe, los choques DENTRO de un super-comando, la gravedad obligatoria, la firma del modelo,
-el endpoint y la tool MCP, y la fábrica que para en «calidad»."""
+el endpoint y la tool MCP. Lo de la fábrica de publicaciones (la ficha `calidad.md`, la firma
+leída del `.apolo` y la fábrica que para en «calidad») se prueba con ella, fuera del núcleo."""
 
 from __future__ import annotations
 
-import json
 
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from test_publicacion_e2e import _preparar, aprobar_calidad, tienda  # noqa: F401 — fixture
 
 import apolo.api.main as api
 from apolo.doc import Document
@@ -27,8 +26,6 @@ from apolo.library.calidad.registro import (
     hecho,
     siempre,
 )
-from apolo.publicacion import calidad, flujo, textos
-from apolo.publicacion.paquete import PublicacionError
 from apolo.services import puerta_publicacion as pp
 
 
@@ -245,12 +242,12 @@ def test_create_belt_conveyor_v4_sin_choques_internos():
 def test_la_firma_es_la_misma_desde_el_documento_y_desde_el_apolo():
     d = _dos_cajas(10.0)
     f0 = pp.firma(d)
-    assert calidad.firma_de_apolo(d.to_apolo_bytes()) == f0
+    assert pp.firma(Document.from_apolo_bytes(d.to_apolo_bytes())) == f0
     d.colors["c1"] = "#ff0000"
     assert pp.firma(d) == f0  # el color no cambia lo que la puerta evalúa
     d.set_requirements({"carga_kg": 20})
     assert pp.firma(d) != f0
-    assert calidad.firma_de_apolo(d.to_apolo_bytes()) == pp.firma(d)
+    assert pp.firma(Document.from_apolo_bytes(d.to_apolo_bytes())) == pp.firma(d)
 
 
 def _mesa_chica() -> Document:
@@ -445,7 +442,7 @@ def test_api_funciones_get_put():
     assert len(api.DOC.funciones) == 1  # el rechazo no tocó lo guardado
 
 
-# ------------------------------------------------------------------ la tool MCP y los textos
+# ------------------------------------------------------------------ la tool MCP
 def test_la_tool_resume_lo_que_falta():
     from apolo.tools.calidad import resumir
 
@@ -453,44 +450,3 @@ def test_la_tool_resume_lo_que_falta():
     corto = resumir(r)
     assert [x["id"] for x in corto["pendientes"]] == ["b"] and corto["aprobado"] is False
     assert "evidencia" not in corto["pendientes"][0]
-
-
-def test_calidad_md_para_una_persona():
-    r = evaluar({"hechos": {}, "firma": "abc"}, (
-        _entrada("a", _r(OK, mantenimiento=["reemplaza la cadena al 3 %"])),
-        _entrada("b", _r(FALLA, "el perno no llega a su tuerca"))))
-    md = textos.calidad_md(r, "Faja de prueba")
-    assert md.startswith("# Ficha de calidad: Faja de prueba") and "**No aprobada.**" in md
-    assert "no fue construido ni probado físicamente" in md and "`abc`" in md
-    assert "## Lo que no pasó" in md and "el perno no llega a su tuerca" in md and "c1" in md
-    assert "## Mantenimiento" in md and "- Reemplaza la cadena al 3 %." in md
-
-
-# ------------------------------------------------------------------ la fábrica
-def test_la_fabrica_para_en_calidad_y_deja_la_ficha(tienda, tmp_path):  # noqa: F811
-    from apolo.publicacion import fabrica
-
-    prep = _preparar(tienda, tienda.verde)
-    e = fabrica.Encargo(proyecto=tienda.verde, carpeta=prep["carpeta"], slug="mesa-de-taller",
-                        version="1.0.0", raiz=tienda.raiz, tienda="https://apolocad.com",
-                        cliente=tienda.c, eco=None)
-    with pytest.raises(fabrica.FabricaError, match="(?s)NO aprobó.*retoma desde «calidad»"):
-        fabrica.paso_calidad(e)
-    cal = json.loads((prep["carpeta"] / "calidad.json").read_text(encoding="utf-8"))
-    assert cal["aprobado"] is False and cal["proyecto"] == tienda.verde
-    assert cal["firma"] == calidad.firma_de_apolo(tienda.c.get("/api/project/file").content)
-    assert len(cal["items"]) >= 20 and "Apolo CAD" in cal["generado_con"]
-    md = (prep["carpeta"] / "calidad.md").read_text(encoding="utf-8")
-    assert "**No aprobada.**" in md and "## Lo que no pasó" in md
-    # y generar se niega sin la aprobación
-    with pytest.raises(PublicacionError, match="(?s)NO aprobó esta versión.*\\[.*\\]"):
-        flujo.generar(tienda.c, tienda.verde, raiz=tienda.raiz, eco=None)
-
-
-def test_generar_se_niega_si_el_modelo_cambio_desde_la_puerta(tienda):  # noqa: F811
-    prep = _preparar(tienda, tienda.verde)
-    aprobar_calidad(tienda.c, prep["carpeta"])
-    tienda.c.put("/api/requirements", json={"fields": {"carga_kg": 30}})  # otro modelo
-    with pytest.raises(PublicacionError, match="El modelo cambió desde la puerta"):
-        flujo.generar(tienda.c, tienda.verde, raiz=tienda.raiz, eco=None)
-    assert not (prep["carpeta"] / "ficha.json").exists()

@@ -1,6 +1,7 @@
 """La secuencia de MONTAJE desde el grafo de uniones (plan video-tienda-pulido, F1b · D8):
 `services/montaje.py`, su uso en el manual de ensamblaje y el video en modo montaje
-(`services/montaje_video.py`, `guion_video` con `modo`, `publicacion/video._Tandas`).
+(`services/montaje_video.py`, `guion_video` con `modo`; las tandas del video las arma la
+fábrica de publicaciones, fuera del núcleo).
 
 La piloto (proyecto 74 de la base local) no está en la CI: una «piloto de uniones» la reproduce
 con cajas y SU MISMO grafo —bastidor soldado y anclado, ejes atornillados a los largueros, tapas,
@@ -328,17 +329,3 @@ def test_el_guion_de_montaje_se_valida_contra_el_documento(piloto):
     roto(lambda h: h["etapas"][0]["pasos"][0].append("c999"), r"piezas \['c999'\] no existen")
     with pytest.raises(ValueError, match="Modo de video desconocido"):
         etapas_del_modo(d, 60, "armado")
-
-
-def test_las_tandas_suman_piezas_de_la_escena_final(piloto):
-    from apolo.publicacion.video import _Tandas
-
-    d, pasos = piloto
-    t = _Tandas(d.scene)
-    primera = t.tomar(list(pasos[0].ids))
-    assert list(primera.escena) == list(pasos[0].ids)
-    segunda = t.tomar([*pasos[1].ids, "c999"])  # una pieza que no está se ignora
-    assert list(segunda.escena) == [*pasos[0].ids, *pasos[1].ids]
-    assert all(segunda.escena[f] is d.scene[f] for f in segunda.escena)  # los mismos shapes
-    assert primera.escena is not segunda.escena  # la tanda anterior no se pisa
-    assert t.tomar(len(d.commands)).escena is d.scene  # la órbita: la máquina entera

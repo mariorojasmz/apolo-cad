@@ -1,6 +1,7 @@
 """El benchmark y la publicación de tienda piden los MISMOS entregables (plan
-publicacion-tienda, F4): la lista vive en `apolo.publicacion.entregables` y
-`scripts/benchmark_package.py` la importa.
+publicacion-tienda, F4): la lista vive en `apolo.entregables` (el paquete de entregables es el
+producto del núcleo) y la importan `scripts/benchmark_package.py` y la fábrica de publicaciones,
+que vive fuera del núcleo.
 
 Se congela lo que el benchmark pedía antes de la extracción (método, ruta, parámetros, cuerpo
 y archivo de cada artefacto A2–A6): si alguien cambia un plano para la tienda, el benchmark lo
@@ -11,13 +12,14 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import parse_qsl
 
 import httpx
 
-from apolo.publicacion import entregables as E
+from apolo import entregables as E
 
 RAIZ = Path(__file__).resolve().parents[1]
 
@@ -109,3 +111,15 @@ def test_la_tienda_sale_de_la_misma_lista_y_nunca_trae_precios():
         assert e.archivo not in E.NUNCA_PUBLICAR, e
     # lo único que la tienda pide y el benchmark no: la BOM resumida en CSV
     assert {e.archivo for e in todos} - {x[2] for x in BENCHMARK_38} == {"bom.csv"}
+
+
+def test_entregables_se_importa_sin_cargar_el_cad():
+    """El benchmark lo importa sin arrastrar el CAD (venía de `test_capas_publicacion.py`)."""
+    pesados = ["OCP", "build123d", "vtkmodules", "PIL", "apolo.doc", "apolo.kernel",
+               "apolo.services", "apolo.media", "apolo.state", "apolo.api", "fastapi"]
+    codigo = ("import sys, apolo.entregables\n"
+              f"cargados = [m for m in {pesados!r} if m in sys.modules]\n"
+              "assert not cargados, cargados\n")
+    res = subprocess.run([sys.executable, "-B", "-c", codigo], capture_output=True, text=True,
+                         timeout=300)
+    assert res.returncode == 0, res.stderr[-2000:]

@@ -7,9 +7,9 @@
 - El rótulo del navegador se lee a ≥ 4.5:1 sobre cualquier cuadro (D4 de video-tienda-pulido).
 - La API guarda guion y plan en la sesión, recibe la foto, dibuja tarjetas y rótulos y anota el
   fallo del navegador; `POST /api/video/guion` los arma para el botón «Grabar video».
-- `publicar generar --render navegador`: busca el navegador, lanza la página `?grabar=<sesion>`
-  con un perfil temporal y espera; sin navegador o sin GPU cae a VTK. El navegador se SIMULA
-  con un cliente que hace lo que haría la página (lo que codifica se salta sin ffmpeg).
+- El lado del CLI (`publicar generar --render navegador`: buscar el navegador, lanzar la página
+  `?grabar=<sesion>` y caer a VTK) es de la fábrica de publicaciones y se prueba con ella, fuera
+  del núcleo. Lo que codifica se salta sin ffmpeg.
 """
 
 from __future__ import annotations
@@ -26,10 +26,7 @@ from apolo.api.routers import video as rv
 from apolo.doc import Document
 from apolo.media import grabacion as gr
 from apolo.services import linea_tiempo as lt
-from apolo.publicacion import navegador
-from apolo.publicacion.paquete import PublicacionError
 from apolo.services.plan_navegador import PlanError, plan
-from apolo.publicacion.video import ffmpeg_disponible
 from apolo.services.guion_video import (
     MODO_DISENO,
     MODO_MONTAJE,
@@ -41,7 +38,19 @@ from apolo.services.guion_video import (
 )
 
 Image = pytest.importorskip("PIL.Image")
-con_ffmpeg = pytest.mark.skipif(not ffmpeg_disponible(), reason="sin ffmpeg/ffprobe")
+def _ffmpeg_disponible() -> bool:
+    """¿Hay ffmpeg y ffprobe? (lo que codifica se salta sin ellos)."""
+    from apolo.media.codificar import FfmpegNoEncontrado, buscar_ffmpeg, buscar_ffprobe
+
+    try:
+        buscar_ffmpeg()
+        buscar_ffprobe()
+    except FfmpegNoEncontrado:
+        return False
+    return True
+
+
+con_ffmpeg = pytest.mark.skipif(not _ffmpeg_disponible(), reason="sin ffmpeg/ffprobe")
 ANCHO, ALTO, FPS = 160, 90, 10
 
 
@@ -282,128 +291,3 @@ def test_cerrar_sin_cuerpo_usa_lo_que_fijo_quien_abrio(cliente):
                               content=_imagen()).status_code == 200
     inf = cliente.c.post(f"/api/video/grabacion/{s['sesion']}/cerrar").json()["informe"]
     assert inf["video"] == str(salida) and salida.is_file() and inf["cuadros_conservados"]
-
-
-# ── publicar generar --render navegador ───────────────────────────────────────
-
-
-def test_busca_el_navegador_y_lo_lanza_sin_tocar_el_perfil_de_la_persona(tmp_path, monkeypatch):
-    exe = tmp_path / "msedge.exe"
-    exe.write_bytes(b"")
-    monkeypatch.setenv("APOLO_NAVEGADOR", str(exe))
-    assert navegador.buscar_navegador() == exe
-    monkeypatch.setenv("APOLO_NAVEGADOR", str(tmp_path / "no-esta.exe"))
-    assert navegador.buscar_navegador() is None
-    cmd = navegador.comando(exe, "http://127.0.0.1:8000/?grabar=abc", tmp_path / "perfil")
-    assert "--headless=new" in cmd and f"--user-data-dir={tmp_path / 'perfil'}" in cmd
-    assert cmd[-1] == "http://127.0.0.1:8000/?grabar=abc"
-    assert not any("gpu" in a.lower() and "disable" in a.lower() for a in cmd)
-
-
-class _Pagina:
-    """Lo que hace la página `?grabar=<sesion>` en el navegador, por la API de tests."""
-
-    def __init__(self, c, fallo: dict | None = None):
-        self.c, self.fallo, self.url, self.perfil, self.terminado = c, fallo, None, None, False
-
-    def __call__(self, ejecutable, url, perfil):
-        self.url, self.perfil = url, perfil
-        sid = url.split("?grabar=")[1].split("&")[0]
-        base = f"/api/video/grabacion/{sid}"
-        if self.fallo:
-            self.c.post(f"{base}/fallo", json=self.fallo)
-            return self
-        p = self.c.get(f"{base}/plan").json()
-        assert self.c.post(f"{base}/foto", content=_imagen("PNG", color=(200, 30, 30))).status_code == 200
-        for t in p["tramos"]:
-            if t["parte"] in ("portada", "cierre"):
-                assert self.c.get(f"{base}/tarjeta/{t['parte']}").status_code == 200
-        for n in range(p["cuadros"]):
-            assert self.c.post(f"{base}/cuadro/{n}", content=_imagen()).status_code == 200
-        assert self.c.post(f"{base}/cerrar").status_code == 200
-        return self
-
-    def poll(self):
-        return 0 if self.terminado else None
-
-    def terminate(self):
-        self.terminado = True
-
-    def wait(self, timeout=None):
-        return 0
-
-
-@pytest.fixture
-def con_navegador(cliente, monkeypatch, tmp_path):
-    exe = tmp_path / "msedge.exe"
-    exe.write_bytes(b"")
-    monkeypatch.setenv("APOLO_NAVEGADOR", str(exe))
-    return cliente
-
-
-@con_ffmpeg
-def test_el_cli_graba_en_el_navegador_y_arma_la_miniatura(con_navegador):
-    from apolo.media.codificar import sondear
-
-    t = con_navegador
-    g = _guion(api.DOC)
-    carpeta = t.tmp / "staging"
-    carpeta.mkdir()
-    pagina = _Pagina(t.c)
-    inf = navegador.renderizar(t.c, api.DOC, g, carpeta, lanzador=pagina)
-    assert pagina.url.startswith("http://testserver/?grabar=") and pagina.terminado
-    assert pagina.perfil.parent.parent == t.tmp / "grabaciones"  # dentro de la sesión
-    assert not pagina.perfil.exists()
-    assert inf.ruta == carpeta / "video.mp4" and inf.fotogramas == round(duracion_total(g) * FPS)
-    assert sondear(inf.ruta)["fotogramas"] == inf.fotogramas
-    mini = Image.open(inf.miniatura)
-    r, _g, b = mini.convert("RGB").getpixel((640, 8))
-    assert mini.size == (1280, 720) and r - b > 80  # la foto roja de fondo
-    assert t.almacen._sesiones == {}  # la sesión se borró
-
-
-@pytest.mark.parametrize("fallo, error", [
-    ({"mensaje": "Este navegador dibuja sin GPU.", "motivo": "sin_gpu"}, navegador.NavegadorNoDisponible),
-    ({"mensaje": "Se cayó el visor.", "motivo": "error"}, PublicacionError),
-])
-def test_el_fallo_de_la_pagina_llega_al_cli(con_navegador, fallo, error):
-    t = con_navegador
-    with pytest.raises(error, match=fallo["mensaje"].split()[0]):
-        navegador.renderizar(t.c, api.DOC, _guion(api.DOC), t.tmp, lanzador=_Pagina(t.c, fallo))
-    assert t.almacen._sesiones == {}
-
-
-def test_nivel_maximo_va_en_la_url_y_un_nivel_desconocido_no_abre_nada(con_navegador, monkeypatch):
-    """`--nivel maximo` (video-realista D6): la página lo lee de la URL; el rápido no la toca."""
-    assert navegador.url_grabacion("http://h", "abc123") == "http://h/?grabar=abc123"
-    assert navegador.url_grabacion("http://h", "abc123", "maximo") == "http://h/?grabar=abc123&nivel=maximo"
-    t = con_navegador
-    pagina = _Pagina(t.c, {"mensaje": "Se cayó el visor.", "motivo": "error"})
-    with pytest.raises(PublicacionError):
-        navegador.renderizar(t.c, api.DOC, _guion(api.DOC), t.tmp, lanzador=pagina, nivel="maximo")
-    assert pagina.url.endswith("&nivel=maximo")
-    with pytest.raises(PublicacionError, match="Nivel desconocido"):
-        navegador.renderizar(t.c, api.DOC, _guion(api.DOC), t.tmp, nivel="ultra")
-    assert t.almacen._sesiones == {}
-
-
-def test_sin_navegador_no_abre_nada(cliente, monkeypatch):
-    monkeypatch.setattr(navegador, "buscar_navegador", lambda: None)
-    with pytest.raises(navegador.NavegadorNoDisponible, match="Edge ni Chrome"):
-        navegador.renderizar(cliente.c, api.DOC, _guion(api.DOC), cliente.tmp)
-    assert cliente.almacen._sesiones == {}
-
-
-@con_ffmpeg
-def test_generar_sin_navegador_cae_a_vtk_sin_la_marcha(cliente, monkeypatch, tmp_path):
-    from apolo.publicacion import flujo
-
-    monkeypatch.setattr(navegador, "buscar_navegador", lambda: None)
-    avisos: list[str] = []
-    g = _guion(api.DOC)
-    video, grabado, render = flujo._video(cliente.c, api.DOC, g, tmp_path, None, None,
-                                          avisos.append, {"render": "navegador",
-                                                          "conservar_cuadros": False, "url": None})
-    assert render == "vtk" and "marcha" not in grabado
-    assert video.fotogramas == round(duracion_total(sin_marcha(g)) * FPS)
-    assert any("uso el render VTK, sin la máquina andando" in a for a in avisos)

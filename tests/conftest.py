@@ -22,17 +22,10 @@ pytest_plugins = ["apolo.pruebas"]
 
 
 @pytest.fixture(autouse=True, scope="session")
-def _publicacion_aislada(tmp_path_factory):
-    """La biblioteca de música (`APOLO_MUSICA_DIR`) en una carpeta vacía y la tienda por
-    defecto, en toda la suite: `publicar generar` sin `--musica` elige la pista menos usada de
-    `~/.apolo/musica` y anota su uso (fabrica-de-publicaciones D9); sin esto, un test usaría la
-    biblioteca REAL de la PC y le sumaría usos, y una `APOLO_TIENDA_URL` de la consola cambiaría
-    las URL esperadas. Quien prueba la biblioteca pasa su propia carpeta. El candado de render de
-    la fábrica (F3, D7) tampoco es el de la PC: un test no espera a una fábrica real. Se muda con
-    la fábrica (F4 del plan nucleo-abierto)."""
+def _tienda_por_defecto():
+    """El cierre del video (`media/cierre.py`) toma su dominio de `APOLO_TIENDA_URL`: una de la
+    consola cambiaría lo esperado. Lo demás que aislaba la fábrica de publicaciones (música,
+    candado de render) se fue con ella fuera del núcleo (F4a de nucleo-abierto)."""
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("APOLO_MUSICA_DIR", str(tmp_path_factory.mktemp("musica-vacia")))
-        mp.setenv("APOLO_CANDADO_RENDER",
-                  str(tmp_path_factory.mktemp("candado") / "render.lock"))
         mp.delenv("APOLO_TIENDA_URL", raising=False)
         yield

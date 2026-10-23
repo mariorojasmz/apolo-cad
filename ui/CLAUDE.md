@@ -278,8 +278,9 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   pase Viewport) y acumula N muestras con jitter en vez del `RenderPass`. La foto se toma con
   `drawImage` en el MISMO hilo que el render (sin `preserveDrawingBuffer`).
   [video-realista](../docs/plans/video-realista.md) (F2)
-- El guion del video (`grabacion/guionVista.ts`; «Grabar video» y `?grabar=<sesion>` de
-  `publicar generar --render navegador`, vía `grabacion/registro.ts`) REPRODUCE el plan que manda
+- El guion del video (`grabacion/guionVista.ts`; «Grabar video» y `?grabar=<sesion>`, que abre
+  la fábrica de publicaciones —fuera del núcleo— para grabar en un navegador sin ventana, vía
+  `grabacion/registro.ts`) REPRODUCE el plan que manda
   la API (`planGuion.ts`): ninguna regla del guion (tiempos, fundidos, órbita, quién entra) se
   calcula aquí, se agrega en `services/plan_navegador.py`. Tarjetas y rótulos son PNG de la
   API. El montaje toca sólo lo visible y clona materiales; la marcha se carga al EMPEZAR su parte

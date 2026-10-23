@@ -41,17 +41,3 @@ def test_sin_ningun_bundle_queda_headless(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "_PKG", tmp_path / "core" / "apolo")
     monkeypatch.setattr(paths, "repo_root", lambda: tmp_path)
     assert paths.ui_dist() is None
-
-
-def test_publicaciones_en_un_checkout_van_a_data(tmp_path, monkeypatch):
-    """D14 del plan publicacion-tienda: en un checkout, junto a la SQLite (`/data/` está
-    fuera de git: un video pesa decenas de MB). No se crea al consultarla."""
-    monkeypatch.setattr(paths, "repo_root", lambda: tmp_path)
-    assert paths.publicaciones_dir() == tmp_path / "data" / "publicaciones"
-    assert not paths.publicaciones_dir().exists()
-
-
-def test_publicaciones_instalado_van_a_apolo_home(tmp_path, monkeypatch):
-    monkeypatch.setattr(paths, "repo_root", lambda: None)
-    monkeypatch.setattr(paths, "home", lambda: tmp_path / ".apolo")
-    assert paths.publicaciones_dir() == tmp_path / ".apolo" / "publicaciones"

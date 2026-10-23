@@ -135,8 +135,8 @@ SEVERIDADES: dict[str, str] = {
 #: carpeta de la versión: una lista de REVISIONES (`CAMPOS_REVISION`), la última sobre la firma
 #: que se publica, y cada hallazgo con su `estado`. ALTA y MEDIA bloquean hasta `cerrado`, y sólo
 #: los cierra OTRA revisión (a ciegas, de la versión corregida, por un revisor que no corrigió).
-#: El validador es `publicacion/revision_check.py` (no importa `design`: un test exige que sus
-#: constantes coincidan con éstas).
+#: El validador es de la fábrica de publicaciones, que vive fuera del núcleo: copia estas
+#: constantes y SU test exige que coincidan. Cambiarlas rompe esa copia.
 CAMPOS_REVISION: tuple[str, ...] = ("id", "revisor", "firma", "fecha", "hallazgos")
 ESTADOS_HALLAZGO: tuple[str, ...] = ("abierto", "corregido", "cerrado")
 SEVERIDADES_QUE_BLOQUEAN: tuple[str, ...] = ("ALTA", "MEDIA")

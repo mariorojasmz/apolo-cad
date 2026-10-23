@@ -252,7 +252,7 @@ class Etapa:
 def peso_roles(roles) -> float:
     """Cuánto tiempo relativo merece un paso por los roles de su revelado: 1, más 0,5 por
     cada familia extra; sin piezas nuevas (un retoque), `PESO_RETOQUE`. La usa también el
-    video (`publicacion/video.py`) para repartir la etapa entre sus pasos."""
+    video de la fábrica (fuera del núcleo) para repartir la etapa entre sus pasos."""
     familias = {familia(r) for r in roles}
     return 1.0 + 0.5 * (len(familias) - 1) if familias else PESO_RETOQUE
 

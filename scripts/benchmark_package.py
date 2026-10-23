@@ -8,9 +8,9 @@ tiempos+bytes. Correrlo tras cada V7.x y re-calificar con `docs/benchmark/rubric
 = el test de regresión de CALIDAD del producto.
 
 CLIENTE HTTP PURO: todo va por la API viva; requiere el servidor arriba. De `apolo` importa
-SÓLO `apolo.publicacion.entregables` (httpx puro, sin CAD), la lista de artefactos que
-comparte con `scripts/publicar.py` (plan publicacion-tienda, F4: los dos piden lo mismo con
-los mismos parámetros). Lo importa SIN escribir `.pyc`: un script que recompila el paquete,
+SÓLO `apolo.entregables` (httpx puro, sin CAD), la lista de artefactos que comparte con la
+fábrica de publicaciones, que vive fuera del núcleo (plan publicacion-tienda, F4: los dos piden
+lo mismo con los mismos parámetros). Lo importa SIN escribir `.pyc`: un script que recompila el paquete,
 con la API en `--reload`, recarga el worker y BLANQUEA el DOC en memoria (gotcha de la casa).
 
 Determinista salvo timestamps: la memoria/cotización usan los REQUISITOS guardados del
@@ -50,7 +50,7 @@ sys.dont_write_bytecode = True
 if str(RAIZ / "core") not in sys.path:
     sys.path.insert(0, str(RAIZ / "core"))
 
-from apolo.publicacion import entregables as E  # noqa: E402 — tras fijar sys.path
+from apolo import entregables as E  # noqa: E402 — tras fijar sys.path
 
 # la consola de Windows es cp1252: un solo carácter fuera de esa página (≠, ·, ✓…) en
 # CUALQUIER línea de progreso mata el script a mitad del paquete. Se descubrió al correr
@@ -243,7 +243,7 @@ def main() -> None:
                     vbytes.stat().st_size, 0.0, "ok")
 
         # ============ A2 planos · A3 memoria · A4 BOM y cotización · A5 manual · A6 modelo ============
-        # la MISMA lista que publica la tienda (apolo.publicacion.entregables); el benchmark
+        # la MISMA lista que publica la tienda (apolo.entregables); el benchmark
         # pide también lo que nunca se publica (costeo y cotización, D11)
         b.traer(benchmark_entregables(args.project, proj_name, args.template))
 

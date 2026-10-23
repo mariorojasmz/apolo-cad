@@ -49,7 +49,7 @@ TOPE_TRIANGULOS = 300_000
 #: (rodillos, ejes) para ganar casi nada si lo pesado ya no puede bajar más.
 APORTE_MINIMO = 0.01
 #: PBR por defecto de una `PiezaGlb` sin acabado (D6): acero PINTADO. La vista 3D de la tienda
-#: pasa el de la tabla D5 de cada pieza (`publicacion/vista3d.py`); sin un material PBR
+#: pasa el de la tabla D5 de cada pieza (la fábrica, fuera del núcleo); sin un material PBR
 #: explícito glTF toma metal = 1 y rugosidad = 1 y la máquina se ve como metal crudo oscuro.
 METAL = 0.0
 RUGOSIDAD = 0.55

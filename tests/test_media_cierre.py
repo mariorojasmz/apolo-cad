@@ -154,17 +154,6 @@ def test_la_a_es_la_del_maestro_de_la_marca():
 # ── Los dos caminos: el cierre nuevo y sin cifras ─────────────────────────────
 
 
-def test_vtk_y_el_navegador_dibujan_el_mismo_cierre():
-    from apolo.publicacion import video
-
-    g = _guion_viejo()
-    est = replace(comp.ESTILO, ancho=320, alto=180)
-    vtk = video._tarjeta(comp, "cierre", g, None, est)
-    nav = tarjetas.tarjeta(g, "cierre", 320, 180)
-    assert nav == tarjetas._png(vtk)
-    assert vtk.tobytes() == c.cierre(*c.textos_cierre(g), est).tobytes()
-
-
 def test_la_tarjeta_de_cifras_ya_no_existe():
     assert "cifras" not in tarjetas.PARTES
     with pytest.raises(tarjetas.TarjetaError, match="no existe"):
