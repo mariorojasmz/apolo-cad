@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 y F5 mergeadas; A1–A7 de la F0 aceptados por Claude (vetables por Mario); F1a ∥ F2 lanzadas, luego F1b → F3 → F4a → F4b (con Mario) → F6; pasos manuales de GitHub de F5 pendientes; `publicacion/` congelada en el núcleo hasta F4
+nota: F0, F1a–F1c, F2, F3, F4a y F5 mergeadas (F4a: la fábrica ya vive en apolo-pro); ajuste D13–D16 (el árbol público es sólo el núcleo) escrito el 2026-10-23, espera la aprobación de Mario; faltan F4b (con Mario) ∥ F4c → F4d → F6; Mario instala el CLA Assistant
 descripcion: el núcleo de Apolo sigue público y abierto a contribuciones; lo nuevo que diferencia el servicio de diseño vive en un paquete privado que se engancha al núcleo sin tocarlo
 ---
 
@@ -178,6 +178,52 @@ ni protección de `main`.
   - **Por qué:** instalar o quitar la extensión no puede servir geometría vieja de la caché
     para un proyecto que no la usa.
 
+### Ajuste del 2026-10-23: el árbol público es sólo el núcleo (D13–D16)
+
+Mario (2026-10-23, tras la F4a): «el repo publico solo debe ser el nucleo y nada mas, no debe
+ver nuestro trabajo de fabrica, youtube, avances de la tienda apolocad y esas cosas». La F4a
+movió el CÓDIGO de la fábrica; sus planes, la cola de trabajo y la operación de Mario siguen en
+el árbol público. Medido sobre `564c49c` (`git grep` de tienda, YouTube, apolocad, Caronte,
+`apolo-fabrica`, PED-…): 25 archivos de `docs/` y unos 70 de código, tests y configuración.
+
+- **D13 — Qué sale del árbol público.**
+  - **Planes enteros cuyo código ya vive en el privado:** `fabrica-de-publicaciones` y
+    `publicacion-tienda`.
+  - **La cola de trabajo y su medición:** `docs/hitos.md` y `docs/tiempos-de-implementacion.md`.
+  - **Pasajes del negocio dentro de planes del núcleo** (tienda, YouTube, Caronte, pedidos,
+    `apolo-fabrica`, la copia de uso de Mario, la tarea programada, las máquinas a publicar): se
+    reemplazan por una línea «(detalle fuera del núcleo)». El texto completo se copia ANTES al
+    privado, así no se pierde nada. Vale también para este plan (la bitácora de F0 y de F4a).
+  - **La operación de Mario en el CLAUDE.md raíz:** hitos, tiempos, la PC del escritorio por
+    SSH, la copia de uso y lo que sólo sirve para producir máquinas para la tienda.
+  - **Se queda público:** todo plan cuyo código vive en el núcleo (visor y video realista,
+    vista 3D, puerta de publicación, manual rápido, `defectos.md`…), sin sus pasajes del
+    negocio. Los que llevan la tienda en el nombre se renombran con sus links:
+    `vista-3d-tienda` → `vista-3d-web` y `video-tienda-pulido` → `video-montaje-pulido`.
+- **D14 — Adónde van.** Al repo de desarrollo privado, `apolo-pro/docs/`: los planes, la cola de
+  hitos, la tabla de tiempos y los pasajes copiados. `apolo-fabrica` sigue con lo de producción
+  (recetas, briefs, `COORDINACION.md`). Desde el privado, un plan público se enlaza por su URL de
+  GitHub.
+- **D15 — Las reglas de operación siguen llegando a cada sesión, sin estar en el público.**
+  - **Cómo:** un `CLAUDE.local.md` ignorado por git en cada checkout de Mario (escritorio y
+    laptop) importa `apolo-pro/docs/operacion.md` con `@`.
+  - **Se mide primero:** que una sesión fresca (`claude -p` desde el árbol principal) cargue esa
+    importación. Si no carga, plan B: una línea en el `~/.claude/CLAUDE.md` de Mario, acotada a
+    `apolo-cad-dev`.
+  - **Gate en el núcleo:** un trinquete (como el de tamaño de archivos) cuenta por archivo las
+    palabras del negocio en el árbol público. `docs/` y los CLAUDE.md quedan en cero; el código
+    arranca con lo medido y su número sólo baja.
+- **D16 — El código del negocio que quedó en el núcleo también sale, en una fase aparte.**
+  - **Qué es:** la tarjeta final con la marca de la tienda (`media/cierre.py`, `APOLO_TIENDA_*`,
+    el dominio), los capítulos de YouTube del guion y los comentarios que cuentan el negocio.
+  - **Cómo:** cada pieza se decide en la fase. Lo que es función genérica (una tarjeta final
+    con marca, capítulos de video) queda en el núcleo, parametrizado y sin nombrar la tienda. Lo
+    que sólo sirve a la tienda pasa al privado por un punto de extensión. Un comentario se
+    neutraliza.
+  - **Límite:** lo ya publicado sigue en el historial de git, en los clones y forks, y en la
+    versión 0.1.0 de PyPI. Reescribir la historia no lo retira (ver «Alternativas descartadas»)
+    y rompería a quien ya clonó. El ajuste vale de aquí en adelante.
+
 ## Alternativas descartadas
 
 - **Pasar todo el repo a privado:** no recupera nada de lo publicado y pierde la reputación, el
@@ -187,6 +233,9 @@ ni protección de `main`.
 - **Submódulo privado dentro del repo público:** la ruta y el nombre quedan a la vista, y el CI
   público falla sin acceso.
 - **Plugins de UI en tiempo de ejecución:** ver D5.
+- **Reescribir la historia de git para borrar lo del negocio (D16):** lo publicado ya está en
+  clones, forks y PyPI; un force-push de `main` está bloqueado por la regla de GitHub y rompería
+  a quien clonó.
 - **AGPL más licencia comercial ya:** ver D10; queda abierta si un competidor copia.
 
 ## Fases
@@ -221,6 +270,20 @@ ni protección de `main`.
     `apolo-fabrica` (coordinado en `COORDINACION.md`).
   - **Se verifica:** con la fábrica corriendo una publicación de prueba de punta a punta en la
     copia de uso, sin subir nada a la tienda.
+- **F4c — Los papeles del negocio salen del público** (D13–D15 · `docs/`, CLAUDE.md, un test,
+  `apolo-pro/docs/` · M · independiente de F4b).
+  - **Qué hace:** primero mide D15. Luego copia al privado, mueve y neutraliza según D13, arregla
+    los links, y deja el trinquete con `docs/` y los CLAUDE.md en cero.
+  - **Se verifica:**
+    - la suite completa, incluido `test_claude_md` con sus links;
+    - una sesión fresca desde el árbol principal que sí ve las reglas de hitos (D15);
+    - el `git grep` de D13 vacío en `docs/` y en los CLAUDE.md.
+- **F4d — El código del negocio sale del núcleo** (D16 · `media`, `services`, `scripts`, tests
+  · M · depende de F4c y de F4b).
+  - **Qué hace:** decide cada pieza de D16 y baja el trinquete del código a cero, o a una
+    excepción con su motivo.
+  - **Se verifica:** con las suites de los dos repos y un video de prueba de la fábrica con su
+    tarjeta final igual a la de hoy.
 - **F5 — Contribuciones** (repo público · S · independiente).
   - **Qué hace:** `CONTRIBUTING.md` (D7), plantilla de PR, `CODEOWNERS`, sección «Contribuir»
     en los README.
@@ -233,6 +296,8 @@ ni protección de `main`.
     privado.
   - **Con `apolo-pro`:** aparecen su comando, su tool y su panel.
   - **Proyecto con `pro.hola` en la instalación pública:** abre en sólo lectura con el aviso.
+  - **El árbol público, leído como lo leería un visitante:** el `git grep` de D13 sólo da las
+    excepciones del trinquete.
   - **Mario lo prueba.**
 
 Tiempo estimado con lo medido ([tiempos](../tiempos-de-implementacion.md)): F0 ≈ 30 min; F1–F4
