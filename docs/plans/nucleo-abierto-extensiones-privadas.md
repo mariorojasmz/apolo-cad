@@ -269,4 +269,127 @@ total, unas 5 horas de agente, en dos noches.
 
 ## Bitácora
 
-(vacía hasta F0)
+### F5 (2026-10-23): contribuciones
+
+**Archivos** (todo lo público, bilingüe salvo `CODEOWNERS`):
+
+- `CONTRIBUTING.md`: criterio de D7 (CLAUDE.md, CI, mantenimiento, issue previo para
+  arquitectura, `.apolo` y puntos de extensión), comandos de entorno/tests/build para Linux/macOS
+  y PowerShell, el CLA, estilo de commits con ejemplos del `git log` y el tuteo neutro.
+- `docs/CLA.md`: ICLA estilo Apache v1.0; la versión en inglés es la vinculante.
+- `SECURITY.md`: reporte privado con «Report a vulnerability»; se atiende la última de PyPI.
+- `.github/CODEOWNERS` (`* @mariorojasmz`), `.github/pull_request_template.md`,
+  `.github/ISSUE_TEMPLATE/` (`bug.yml`, `propuesta.yml`, `config.yml` sin issues en blanco y con el
+  enlace al reporte de seguridad).
+- `README.md` / `README.es.md`: sección «Contributing» / «Contribuir», sin cifras (para no
+  cruzarse con los patrones de `scripts/release.py`).
+
+**Decidido por el agente (vetable):**
+
+- **CLA, cláusulas extra al pedido:**
+  - **Transferencia (§5):** Mario puede ceder las licencias a un sucesor del proyecto (p. ej.
+    Genix) sin que nadie vuelva a firmar.
+  - **Terminación defensiva de patentes:** igual que el Apache ICLA.
+  - **Exclusión «Not a Contribution».**
+  - **Sin ley aplicable ni jurisdicción**, como se pidió.
+- **Commits en inglés:** se aceptan de quien no escribe español, con la misma forma
+  `tipo(ámbito): …`.
+- **Etiquetas de los formularios:** `bug` y `enhancement`, las que GitHub crea por defecto.
+- **La protección de `main` va en una regla NUEVA, no en la existente:** la lista de bypass de
+  un ruleset vale para TODAS sus reglas. Meter a Mario en el bypass de «main: sin force-push ni
+  borrado» le permitiría también el force-push, que hoy no tiene excepciones. Con dos reglas, el
+  force-push sigue bloqueado para todos y el PR obligatorio se salta sólo con el rol admin.
+
+**Pasos que Mario hace a mano en GitHub** (después de mergear y pushear F5 a `main`, para que
+`CODEOWNERS`, las plantillas y `docs/CLA.md` ya estén en GitHub):
+
+**(a) CLA Assistant**
+
+1. **Publicar el CLA como gist.** CLA Assistant (cla-assistant.io) sólo lee el texto desde un
+   gist de GitHub y guarda qué revisión del gist firmó cada persona. Por eso conviene:
+   1. Entra a <https://gist.github.com> con la cuenta `mariorojasmz`.
+   2. Descripción: `Genix Apolo CAD — Contributor License Agreement`. Nombre del archivo:
+      `CLA.md`.
+   3. Pega el contenido COMPLETO de `docs/CLA.md` tal como está en `main`.
+   4. En la flecha del botón verde, elige **Create public gist**. Copia la URL del gist.
+   5. ⚠️ Cada edición del gist es una revisión nueva y CLA Assistant pide firmar otra vez. Sólo
+      se edita si cambia el CLA de verdad, y entonces se cambian juntos el gist y
+      `docs/CLA.md` (subiendo «Version»).
+2. **Entrar a CLA Assistant.** En <https://cla-assistant.io>, clic en **Sign in with GitHub**.
+   GitHub muestra los permisos que pide la app (webhooks y estados de commit del repo); revísalos
+   y clic en **Authorize**. Si ofrece acceso a repos privados, no hace falta: sólo se usa en el
+   público.
+3. **Vincular el repo.** Clic en **Configure CLA**:
+   1. En **Choose a repository**, elige `mariorojasmz/apolo-cad`.
+   2. En **Choose a CLA**, pega la URL del gist.
+   3. Clic en **Link**.
+4. **Excluirse a uno mismo (opcional).** En la lista de repos vinculados, abre la edición del
+   vínculo. Si aparece el campo de lista de exclusión (*allowlist*, antes *whitelist*), agrega
+   `mariorojasmz`, para que tus propios PR no esperen la firma. Si no aparece, firma tú una vez
+   en el PR de prueba.
+5. **Comprobar.** En el repo, **Settings → Webhooks** debe mostrar uno de `cla-assistant.io`.
+   Desde el primer PR, cada PR lleva el check `license/cla`.
+
+**(b) Protección de `main` para terceros** (regla nueva; la existente no se toca)
+
+1. **Crear la regla.** En el repo, pestaña **Settings** → barra lateral, sección
+   **Code and automation** → **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**.
+2. **Nombre y estado.** **Ruleset Name**: `main: PR y CI para terceros`. **Enforcement status**:
+   **Active**.
+3. **Bypass.**
+   1. **Bypass list** → **Add bypass** → marca **Repository admin** (el rol de tu cuenta, con la
+      que pushean las sesiones) → **Add selected**.
+   2. En la fila agregada, el modo debe quedar en **Always allow**, NO en «For pull requests
+      only»: lo que necesita el bypass es el push directo con `--ff-only` de hoy.
+4. **Rama.** **Targets** → **Add target** → **Include default branch**.
+5. **Reglas.** En **Branch rules**:
+   - **Restrict deletions** y **Block force pushes:** déjalas como vengan. La otra regla ya las
+     impone sin excepciones.
+   - **Require a pull request before merging:** márcala y, en lo que despliega:
+     - **Required approvals:** `1`.
+     - Marca **Require review from Code Owners**.
+     - Marca **Dismiss stale pull request approvals when new commits are pushed**.
+     - Opcional: marca **Require conversation resolution before merging**.
+     - Opcional: en **Allowed merge methods**, deja sólo **Squash** y **Rebase**, para mantener
+       la historia lineal de `main`.
+   - **Require status checks to pass:** márcala, marca **Require branches to be up to date
+     before merging** y, con **Add checks**, escribe y elige cada uno de los checks reales de
+     `.github/workflows/ci.yml`:
+     - `ruff`
+     - `pytest (ubuntu-latest, py3.11)`
+     - `pytest (ubuntu-latest, py3.12)`
+     - `pytest (ubuntu-latest, py3.13)`
+     - `pytest (windows-latest, py3.13)`
+     - `UI (vitest + build)`
+     - `build + twine check`
+     - `license/cla` (el de CLA Assistant). Si todavía no aparece en la búsqueda, agrégalo
+       después del PR de prueba, cuando CLA Assistant ya lo haya reportado una vez.
+6. **Guardar.** Clic en **Create**.
+7. **Primer PR de cada persona.** En **Settings → Actions → General → Fork pull request
+   workflows from outside collaborators**, deja **Require approval for first-time
+   contributors** (es el valor por defecto).
+   - En el primer PR de alguien aparece **Approve and run workflows**: hasta que lo apruebas, el
+     CI no corre y el PR no se puede mergear.
+   - El CI de un fork corre sin secretos (D8); `ci.yml` no usa ninguno.
+8. **Tus propios PR.** No puedes aprobarlos tú (GitHub no deja autoaprobar). Con el bypass,
+   el botón de merge ofrece **Merge without waiting for requirements (bypass rules)**.
+9. ⚠️ **Si cambia `ci.yml`:** si se renombra un job o cambia la matriz, hay que actualizar esta
+   lista de checks. Si no, todo PR se queda esperando un check que ya no existe.
+
+**(c) Reporte privado de vulnerabilidades**
+
+1. **Activarlo.** En el repo, **Settings** → barra lateral, sección **Security** →
+   **Advanced Security** (en algunas cuentas se llama **Code security** o **Code security and
+   analysis**) → **Private vulnerability reporting** → **Enable**.
+2. **Comprobar.** Con otra cuenta, la pestaña **Security** del repo muestra **Report a
+   vulnerability**. Es el enlace que dan `SECURITY.md` y el formulario de issues.
+
+**(d) Verificación de la fase** (la de «Fases», F5), con otra cuenta:
+
+1. Abre un PR trivial desde un fork; por ejemplo, una errata en `docs/`.
+2. Debe pasar todo esto:
+   - CLA Assistant comenta pidiendo la firma y `license/cla` queda pendiente;
+   - aparece **Approve and run workflows**;
+   - el merge queda bloqueado por la revisión de code owner.
+3. Firma, aprueba el CI y aprueba el PR: sólo entonces debe poder mergearse.
+4. Cierra el PR sin mergear.
