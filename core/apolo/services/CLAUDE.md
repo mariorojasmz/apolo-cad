@@ -127,6 +127,12 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `hash_escenario` + `COSIM_EPOCH` (regla en [cosim](../cosim/CLAUDE.md); sin el dato = versión 1);
   vencido = AMARILLO en la puerta, nunca rojo ni verde. El snapshot toma los programas del carril y `programas=` los pisa por PLC (`test_plc`).
   [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D12, D14)
+- Una sesión en vivo vuelta escenario (`sesion_viva.py`) tiene que dar por lote la huella de la
+  sesión: la cola de productos queda con las instancias que tuvo la SESIÓN (`fijar_cola`: su pool
+  sale de la duración de la BASE), más de 60 s se guarda por tramo inicial (`hasta_s`), y otra
+  firma o una base borrada o cambiada se rechazan. Las aserciones se SUGIEREN (sólo las que pasan
+  sobre esa corrida, `cosim/sugeridas.py`), nunca se guardan solas.
+  [V8.4](../../../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F4)
 
 ## Cobros dudosos (`cobros.py`)
 
