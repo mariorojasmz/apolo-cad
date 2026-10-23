@@ -153,6 +153,10 @@ FUERA_DEL_CHAT: dict[str, str] = {
     "get_simulation": _FAT,
     "get_scenarios": _FAT,
     "set_scenario": _FAT,
+    "save_live_session": ("vuelve prueba una sesión en vivo de V8.4 (corrida por lote de hasta un "
+                          "minuto) y sus aserciones se aceptan con set_scenario, que tampoco está en "
+                          "el chat; el chat viene apagado (D19) y su presupuesto (D8: < 60 KB) no "
+                          "tiene lugar"),
     "edit_agent_note": ("corregir o borrar notas viejas es mantenimiento del modelador por MCP "
                         "(F6 de puerta-de-publicacion); el chat, apagado por defecto (D19), anota "
                         "con add_agent_note y no cabe otra tool en su presupuesto (D8: < 60 KB)"),

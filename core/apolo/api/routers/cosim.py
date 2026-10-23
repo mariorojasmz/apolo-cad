@@ -4,7 +4,9 @@
     (`services/escenarios.py`), con el estado y la vigencia de cada uno;
   - `POST /api/cosim/run`: corre un escenario (guardado o inline) y evalúa sus aserciones;
   - `POST /api/cosim/plc/test`: compila un ST y, con escenario, lo corre SIN guardarlo;
-  - `GET /api/cosim/simulaciones[/{id}]`: las últimas corridas, por partes (`cosim/consulta.py`).
+  - `GET /api/cosim/simulaciones[/{id}]`: las últimas corridas, por partes (`cosim/consulta.py`);
+  - `POST /api/cosim/vivo/escenario`: una sesión en vivo terminada vuelta escenario, corrida por
+    lote y con aserciones sugeridas (V8.4 F4, `services/sesion_viva.py`).
 
 Coreografía de una corrida (D11): (a) bajo `STATE_LOCK`, el snapshot (`snapshot_cosim`), la firma
 del documento y el hash del escenario; (b) FUERA de todo lock, el worker en su proceso
@@ -253,6 +255,120 @@ def cosim_plc_test(body: PruebaPlcIn, async_: bool = Query(False, alias="async")
         return out
 
     return _job_cosim("test_plc", _work, async_)
+
+
+# ── de la sesión en vivo a la prueba (V8.4 F4) ─────────────────────────────────────────────
+
+
+class SesionIn(BaseModel):
+    nombre: str
+    sesion: str | None = None            # el `sesion` del `fin`; sin él ni grabación, la última
+    grabacion: list[dict] | None = None  # o la sesión entera, como la trae el `fin`
+    duracion_s: float | None = None
+    base: str | None = None
+    firma: str | None = None
+    hash_base: str | None = None
+    hasta_s: float | None = None         # guardar sólo el tramo inicial
+    reemplazar: bool = False
+
+
+def _sesion_de(body: SesionIn, pid) -> dict:
+    """La sesión a guardar: la del cuerpo, la `sesion` en memoria o la última del proyecto."""
+    from ..sims import SESIONES_GRABADAS
+
+    if body.grabacion is not None:
+        return {k: getattr(body, k) for k in ("grabacion", "duracion_s", "base", "firma", "hash_base")}
+    ent = SESIONES_GRABADAS.get(body.sesion) if body.sesion else SESIONES_GRABADAS.ultima(pid)
+    if ent is None:
+        hay = ", ".join(f"{e['id']} ({e['hora']}, proyecto {e['proyecto']}, {e['duracion_s']:g} s)"
+                        for e in SESIONES_GRABADAS.lista())
+        que = f"«{body.sesion}»" if body.sesion else "terminada de este proyecto"
+        raise HTTPException(status_code=404, detail=(
+            f"No hay sesión en vivo {que} en memoria (se guardan las últimas "
+            f"{SESIONES_GRABADAS.TOPE}; un reinicio las pierde, pero el `fin` de la sesión las trae "
+            f"enteras: pasa su grabacion, duracion_s, base y firma). Sesiones: {hay or 'ninguna'}"))
+    if ent.get("proyecto") != pid:
+        raise HTTPException(status_code=409, detail=(
+            f"La sesión {ent['id']} es del proyecto {ent.get('proyecto')} y el abierto es el {pid}: "
+            "ábrelo para guardarla."))
+    return ent
+
+
+def _guardar_sesion(body: SesionIn, proyecto) -> dict:
+    """(a) bajo STATE_LOCK: validar y armar el escenario + el snapshot; (b) la corrida por lote
+    fuera de todo lock; (c) las aserciones sugeridas, puras; (d) el escenario y su corrida al
+    manifest si el documento sigue siendo el mismo."""
+    from apolo.cosim.consulta import compacto
+    from apolo.cosim.proceso import CosimError, correr_en_proceso
+    from apolo.cosim.veredicto import evaluar
+    from apolo.services import escenarios as E
+    from apolo.services import sesion_viva as SV
+    from apolo.services.cosim_snapshot import snapshot_cosim
+
+    with STATE_LOCK:  # (a)
+        if proyecto is not None and S.project_id != proyecto:
+            raise HTTPException(status_code=409, detail=(
+                f"El proyecto activo cambió mientras esperaba en cola (era {proyecto}, ahora "
+                f"{S.project_id}): no se guardó. Abre el proyecto y reenvíalo."))
+        pid, doc = S.project_id, S.doc
+        _verificar_documento()
+        sesion = _sesion_de(body, pid)
+        try:
+            prep = SV.preparar(doc, body.nombre, sesion, hasta_s=body.hasta_s, reemplazar=body.reemplazar)
+            esc, nombre = prep["escenario"], prep["nombre"]
+            firma, h = E.firma_documento(doc), E.hash_escenario(esc)
+            snap = snapshot_cosim(doc, esc)
+        except ServiceError as exc:
+            raise _http_error(exc) from exc
+    try:  # (b)
+        res = correr_en_proceso(snap)
+    except CosimError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    ver = evaluar([], res)  # (c) se guarda sin aserciones: las sugeridas se proponen
+    sugeridas = SV.sugerir(esc, res)
+    sim_id = "s" + uuid.uuid4().hex[:8]
+    base = compacto(res, ver, simulacion=sim_id, escenario=nombre)
+    SIMULACIONES.guardar({"id": sim_id, "proyecto": pid, "escenario": nombre, "veredicto": ver["veredicto"],
+                          "creado": time.strftime("%H:%M:%S"), "prueba_plc": False, "res": res,
+                          "base": base, "hipotesis_id": base.get("hipotesis_id")})
+    out = {"nombre": nombre, **({"sesion": sesion["id"]} if sesion.get("id") else {}),
+           **{k: prep[k] for k in ("base", "duracion_s", "recortada", "n_acciones", "n_eventos", "cola")},
+           "simulacion": sim_id, "huella": (res.get("resumen") or {}).get("huella"),
+           "aserciones_sugeridas": sugeridas,
+           "aceptar": (f"son sugerencias: para que la prueba las exija, declara «{nombre}» (este "
+                       "`escenario`) con las que quieras en `aserciones` (set_scenario o PUT "
+                       f"/api/escenarios/{nombre}) y córrelo con simulate(escenario=\"{nombre}\")"),
+           "avisos": list(res.get("avisos") or []), "escenario": esc}
+    with STATE_LOCK:  # (d)
+        if S.project_id != pid or S.doc is not doc or E.firma_documento(doc) != firma:
+            out["guardado"] = False
+            out["aviso_guardado"] = ("El documento cambió durante la corrida: el escenario NO se guardó "
+                                     "(la grabación es del modelo de antes). Reinicia la sesión en vivo.")
+            return out
+        if nombre in doc.escenarios and not body.reemplazar:  # lo declararon mientras corría
+            out["guardado"] = False
+            out["aviso_guardado"] = (f"Mientras corría se declaró otro escenario «{nombre}»: NO se pisó. "
+                                     "Vuelve a guardar con otro nombre o con reemplazar=true.")
+            return out
+        try:
+            puesto = E.poner(doc, nombre, esc)
+        except ServiceError as exc:
+            raise _http_error(exc) from exc
+        E.guardar_resultado(doc, nombre, E.resultado_compacto(ver, res, firma=firma, hash_esc=h,
+                                                              simulacion=sim_id))
+        _autosave()
+        out.update(guardado=True, estado=E.estado(doc, nombre)["estado"])
+        out["avisos"] += puesto["avisos"]
+    return out
+
+
+@router.post("/api/cosim/vivo/escenario", response_model=dict)
+def cosim_vivo_escenario(body: SesionIn, async_: bool = Query(False, alias="async")):
+    """Guarda una sesión EN VIVO terminada como escenario de prueba (V8.4 D10): sus acciones y
+    eventos con la hora virtual en que entraron, sobre su escenario de base (con la cola de cajas
+    que tuvo la sesión). La corre por lote —mismas trazas que la sesión— y propone aserciones con
+    lo que pasó (`aserciones_sugeridas`, que pasan sobre esa corrida); no las impone."""
+    return _job_cosim("sesion_viva", lambda proyecto: _guardar_sesion(body, proyecto), async_)
 
 
 @router.get("/api/cosim/simulaciones")

@@ -7942,5 +7942,182 @@
     }
    }
   ]
+ },
+ {
+  "caso": "guardar sesión en vivo",
+  "tool": "save_live_session",
+  "args": {
+   "nombre": "arranque-vivo"
+  },
+  "salida": [
+   {
+    "texto": "{\"nombre\": \"arranque-vivo\", \"sesion\": \"v1a2b3c4\", \"base\": \"marcha\", \"duracion_s\": 6.2, \"recortada\": false, \"n_acciones\": 3, \"n_eventos\": 0, \"cola\": [{\"nombre\": \"caja\", \"cantidad\": 10, \"desde_s\": 0.0, \"cada_s\": 2.0}], \"simulacion\": \"s5e6f7a8\", \"huella\": \"02b3\", \"aserciones_sugeridas\": [{\"asercion\": \"-M1.rpm >= 1570 dentro_de 1.6 s desde pulsar -S1\", \"observado\": \"se cumple a los 1.21 s (t = 1.51 s, vale 1571.2)\"}, {\"asercion\": \"-M1.par_Nm == 0 dentro_de 0.2 s desde presionar -S0\", \"observado\": \"se cumple a los 0.02 s (t = 4.02 s, vale 0)\"}], \"aceptar\": \"son sugerencias: para que la prueba las exija, declara «arranque-vivo» …\", \"avisos\": [], \"escenario\": {\"duracion_s\": 6.2, \"acciones\": [{\"t\": 0.3, \"accion\": \"pulsar\", \"dispositivo\": \"-S1\"}, {\"t\": 4.0, \"accion\": \"presionar\", \"dispositivo\": \"-S0\"}]}, \"guardado\": true, \"estado\": \"sin_aserciones\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/cosim/vivo/escenario",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "nombre": "arranque-vivo",
+     "reemplazar": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jsv",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "guardar el tramo de una sesión",
+  "tool": "save_live_session",
+  "args": {
+   "nombre": "marcha",
+   "sesion": "v1a2b3c4",
+   "hasta_s": 30.0,
+   "reemplazar": true
+  },
+  "salida": [
+   {
+    "texto": "{\"nombre\": \"arranque-vivo\", \"sesion\": \"v1a2b3c4\", \"base\": \"marcha\", \"duracion_s\": 6.2, \"recortada\": false, \"n_acciones\": 3, \"n_eventos\": 0, \"cola\": [{\"nombre\": \"caja\", \"cantidad\": 10, \"desde_s\": 0.0, \"cada_s\": 2.0}], \"simulacion\": \"s5e6f7a8\", \"huella\": \"02b3\", \"aserciones_sugeridas\": [{\"asercion\": \"-M1.rpm >= 1570 dentro_de 1.6 s desde pulsar -S1\", \"observado\": \"se cumple a los 1.21 s (t = 1.51 s, vale 1571.2)\"}, {\"asercion\": \"-M1.par_Nm == 0 dentro_de 0.2 s desde presionar -S0\", \"observado\": \"se cumple a los 0.02 s (t = 4.02 s, vale 0)\"}], \"aceptar\": \"son sugerencias: para que la prueba las exija, declara «arranque-vivo» …\", \"avisos\": [], \"escenario\": {\"duracion_s\": 6.2, \"acciones\": [{\"t\": 0.3, \"accion\": \"pulsar\", \"dispositivo\": \"-S1\"}, {\"t\": 4.0, \"accion\": \"presionar\", \"dispositivo\": \"-S0\"}]}, \"guardado\": true, \"estado\": \"sin_aserciones\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/cosim/vivo/escenario",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "nombre": "marcha",
+     "reemplazar": true,
+     "sesion": "v1a2b3c4",
+     "hasta_s": 30.0
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jsv",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "sesión que ya no reproduce",
+  "tool": "save_live_session",
+  "args": {
+   "nombre": "x"
+  },
+  "error": "Error executing tool save_live_session: Apolo rechazó la operación (400): la sesión se grabó con otro modelo",
+  "peticiones": [
+   {
+    "metodo": "POST",
+    "url": "http://127.0.0.1:8000/api/cosim/vivo/escenario",
+    "query": [
+     [
+      "async",
+      "true"
+     ]
+    ],
+    "cuerpo": {
+     "nombre": "x",
+     "reemplazar": false
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   },
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/jobs/jsv",
+    "query": [
+     [
+      "wait_s",
+      "20.0"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
  }
 ]

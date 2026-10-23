@@ -1,5 +1,6 @@
 """Simulaciones físicas de la API (MuJoCo): gravedad sobre la máquina, drop-test, dinámica y la
-serie de la marcha que reproduce el visor (con su caché en memoria, `MARCHAS`).
+serie de la marcha que reproduce el visor (con su caché en memoria, `MARCHAS`), y las últimas
+sesiones en vivo terminadas (`SESIONES_GRABADAS`, V8.4 F4).
 
 Movido tal cual desde `main.py` (F6a del plan `docs/plans/partir-api-main.md`). Patrón
 dos-locks (V6.2c): bajo `STATE_LOCK` se EXTRAE la geometría (grafo de sujeción, cascos, AABB) a
@@ -188,6 +189,41 @@ class Marchas:
 
 
 MARCHAS = Marchas()
+
+
+class SesionesGrabadas:
+    """Las últimas sesiones en vivo TERMINADAS (`WS /api/cosim/vivo`), EN MEMORIA, para volverlas
+    escenario (`POST /api/cosim/vivo/escenario`, V8.4 F4): grabación, duración, escenario de base
+    con su hash y la firma del documento. Las comparten el router de la sesión (escribe) y el de
+    la co-simulación (lee); un reinicio las pierde (el `fin` de la UI las trae enteras). Lock HOJA."""
+
+    TOPE = 8
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._d: OrderedDict = OrderedDict()
+
+    def guardar(self, entrada: dict) -> None:
+        with self._lock:
+            self._d[entrada["id"]] = entrada
+            while len(self._d) > self.TOPE:
+                self._d.popitem(last=False)
+
+    def get(self, sesion_id: str) -> dict | None:
+        with self._lock:
+            return self._d.get(sesion_id)
+
+    def ultima(self, proyecto) -> dict | None:
+        with self._lock:
+            return next((e for e in reversed(self._d.values()) if e.get("proyecto") == proyecto), None)
+
+    def lista(self) -> list[dict]:
+        with self._lock:
+            return [{k: e.get(k) for k in ("id", "proyecto", "base", "duracion_s", "hora")}
+                    | {"n_grabados": len(e.get("grabacion") or [])} for e in reversed(self._d.values())]
+
+
+SESIONES_GRABADAS = SesionesGrabadas()
 
 
 def _extraer_visual(doc, snap) -> dict | None:

@@ -22,7 +22,9 @@ MENSAJES servidor → cliente (JSON salvo el fotograma):
   textos        las señales de texto que cambiaron (estado del PLC, falla)
   factor        al cruzar ×0,95 del ritmo: la máquina no alcanza a la pared y va más lenta
   sesion_vieja  {vieja: true|false} cuando la firma del documento cambia (D3: la sesión sigue)
-  pausa/reanudar, error (con `codigo`) y fin {motivo, t, grabacion, escenario?}
+  pausa/reanudar, error (con `codigo`) y fin {motivo, t, grabacion, y si avanzó: sesion, base,
+                firma, hash_base, duracion_s y `escenario` (o `aviso_escenario`)} — lo que pide
+                `POST /api/cosim/vivo/escenario` para volverla prueba (F4)
 Cliente → servidor: las acciones de `cosim/vivo.py` («{"pulsar": "-S1"}», «{"control": "pausa"}»).
 Códigos de cierre: 1000 fin, 4400 escenario que no corre, 4401 sin token, 4403 origen (sin
 aceptar), 4409 token de otro documento, 4423 ya hay una sesión viva, 4500 el worker falló.
@@ -35,6 +37,7 @@ import json
 import os
 import threading
 import time
+import uuid
 from urllib.parse import urlsplit
 
 import anyio
@@ -46,7 +49,7 @@ from apolo.state import STATE_LOCK
 
 from ..common import _token_documento
 from ..session import S
-from ..sims import _extraer_visual, _sumar_visual
+from ..sims import SESIONES_GRABADAS, _extraer_visual, _sumar_visual
 
 router = APIRouter()
 
@@ -55,7 +58,6 @@ MAX_MENSAJE = 4096
 VIGILAR_FIRMA_S = 2.0
 COLA_MAX_FOTOGRAMAS = 60          # ~2 s de fotogramas sin enviar: los más viejos se descartan
 MAX_RITMO = 4.0
-DURACION_LOTE_MAX_S = 60.0        # la dinámica por lote (`dinamica_peticion.DURACION_MAX_S`)
 
 
 def max_s_vivo() -> float:
@@ -188,13 +190,14 @@ def _preparar(token: str | None, nombre: str | None) -> dict:
         try:
             nombre, base = E.resolver(doc, nombre)
             esc = escenario_vivo(base)
+            hash_base = E.hash_escenario(base)
             firma = E.firma_documento(doc)
             snap = snapshot_cosim(doc, esc)
         except ServiceError as exc:
             raise _Rechazo(4400, "escenario", f"escenario «{nombre}»: {exc.detail}") from exc
         vis = _extraer_visual(doc, snap.dinamica)
         return {"doc": doc, "proyecto": S.project_id, "nombre": nombre, "esc": esc, "firma": firma,
-                "snap": snap, "vis": vis}
+                "hash_base": hash_base, "snap": snap, "vis": vis}
 
 
 def _firma_ahora(doc) -> str | None:
@@ -218,15 +221,26 @@ def _inicio(prep: dict, tabla: dict, config: dict, pid) -> dict:
 
 
 def _fin(prep: dict, msg: dict, motivo: str | None) -> dict:
-    from apolo.cosim.vivo import escenario_grabado
+    """El `fin` con lo que hace falta para volver la sesión un escenario (F4): queda en
+    `SESIONES_GRABADAS` con su `sesion` y viaja entero (base, firma, hash_base), y `escenario`
+    es el que se guardaría (`services/sesion_viva.py`, con la cola de cajas fijada)."""
+    from apolo.services.sesion_viva import escenario_de_sesion
 
     out = {**msg, "motivo": motivo or msg.get("motivo")}
-    t = float(msg.get("t") or 0.0)
-    if 0.0 < t <= DURACION_LOTE_MAX_S:
-        out["escenario"] = escenario_grabado(prep["esc"], msg.get("grabacion") or [], round(t, 6))
-    elif t > DURACION_LOTE_MAX_S:
-        out["aviso_escenario"] = (f"la sesión duró {t:.1f} s y la co-simulación por lote llega a "
-                                  f"{DURACION_LOTE_MAX_S:g} s: la grabación queda, el escenario hay que partirlo")
+    t = round(float(msg.get("t") or 0.0), 6)
+    if t <= 0.0:
+        return out
+    grabacion = msg.get("grabacion") or []
+    sesion = "v" + uuid.uuid4().hex[:8]
+    datos = {"base": prep["nombre"], "firma": prep["firma"], "hash_base": prep["hash_base"],
+             "duracion_s": t}
+    SESIONES_GRABADAS.guardar({"id": sesion, "proyecto": prep["proyecto"], "grabacion": grabacion,
+                               "hora": time.strftime("%H:%M:%S"), **datos})
+    out.update(sesion=sesion, **datos)
+    try:
+        out["escenario"] = escenario_de_sesion(prep["esc"], grabacion, t, base=prep["nombre"])["escenario"]
+    except ServiceError as exc:
+        out["aviso_escenario"] = exc.detail
     return out
 
 

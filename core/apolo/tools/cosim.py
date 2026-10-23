@@ -1,5 +1,6 @@
-"""Tools MCP de la prueba virtual (plan V8.3 D13): `test_plc`, `get_simulation`, `get_scenarios`
-y `set_scenario`; y `correr_escenario`, el camino de `simulate(escenario=…)`.
+"""Tools MCP de la prueba virtual (plan V8.3 D13): `test_plc`, `get_simulation`, `get_scenarios`,
+`set_scenario` y `save_live_session` (V8.4 F4: una sesión en vivo vuelta escenario); y
+`correr_escenario`, el camino de `simulate(escenario=…)`.
 
 Cliente fino como el resto: sólo HTTP (`/api/escenarios`, `/api/cosim/…`). Vive fuera de
 `mcp_server.py` (trinquete de tamaño), que la registra al final con `registrar(mcp, api,
@@ -34,7 +35,7 @@ def correr_escenario(esperar, escenario) -> str:
 
 
 def registrar(mcp, api, esperar) -> None:
-    """Registra las cuatro tools en `mcp` (el del servidor que corre), en este orden."""
+    """Registra las cinco tools en `mcp` (el del servidor que corre), en este orden."""
 
     @mcp.tool()
     def test_plc(
@@ -130,3 +131,28 @@ def registrar(mcp, api, esperar) -> None:
             return json.dumps(api("DELETE", f"/api/escenarios/{nombre}").json(), ensure_ascii=False)
         return json.dumps(api("PUT", f"/api/escenarios/{nombre}", json={"escenario": escenario}).json(),
                           ensure_ascii=False)
+
+    @mcp.tool()
+    def save_live_session(
+        nombre: str,
+        sesion: str | None = None,
+        hasta_s: float | None = None,
+        reemplazar: bool = False,
+    ) -> str:
+        """Vuelve una SESIÓN EN VIVO (la persona maneja la máquina en el visor: aprieta el verde,
+        la seta…) en el escenario de prueba `nombre`: sus acciones y eventos con la hora virtual
+        en que entraron, sobre su escenario de base y con la cola de cajas que tuvo la sesión. La
+        corre por lote (las mismas trazas que se vieron) y devuelve `aserciones_sugeridas` con lo
+        que pasó («-M1.rpm >= 1570 dentro_de 1.6 s desde pulsar -S1», «-M1.par_Nm == 0
+        dentro_de 0.2 s desde presionar -S0»), todas verdes sobre esa corrida: NO quedan en el
+        escenario; acepta las que quieras con set_scenario(nombre, {…el `escenario` devuelto,
+        aserciones: […]}). `sesion` = el id del `fin` de la sesión (sin él, la última terminada
+        del proyecto; viven en memoria); `hasta_s` guarda sólo el tramo inicial (obligatorio si
+        duró más de 60 s). Un nombre ya usado pide reemplazar=true. Si tarda, RECIBO {"job"}:
+        get_job."""
+        body: dict = {"nombre": nombre, "reemplazar": reemplazar}
+        if sesion:
+            body["sesion"] = sesion
+        if hasta_s is not None:
+            body["hasta_s"] = hasta_s
+        return correr_job(esperar, "/api/cosim/vivo/escenario", body)

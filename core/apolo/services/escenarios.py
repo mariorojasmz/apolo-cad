@@ -99,14 +99,20 @@ def _revisar_tipos(doc, e) -> tuple[list[str], list[str]]:
     return revisar(e.aserciones, valores_iniciales(me.dispositivos, me.programas))
 
 
-def poner(doc, nombre: str, esc: dict) -> dict:
-    """Guarda (o reemplaza) el escenario `nombre`. El resultado anterior se conserva: si el
-    escenario cambió, queda «vencido» por su hash. Una aserción cuyo tipo no casa con su señal
-    es 400 AL DECLARAR (F6b); una señal que el tablero no da, aviso."""
+def validar_nombre(nombre) -> str:
+    """El nombre de un escenario, sin espacios a los lados, o `ServiceError(400)`."""
     nombre = str(nombre or "").strip()
     if not _NOMBRE.match(nombre):
         raise ServiceError(400, "el escenario necesita un nombre de 1 a 60 caracteres, sin «/», "
                                 "«\\», «?», «#» ni «%» (p. ej. «marcha», «seta», «atasco»)")
+    return nombre
+
+
+def poner(doc, nombre: str, esc: dict) -> dict:
+    """Guarda (o reemplaza) el escenario `nombre`. El resultado anterior se conserva: si el
+    escenario cambió, queda «vencido» por su hash. Una aserción cuyo tipo no casa con su señal
+    es 400 AL DECLARAR (F6b); una señal que el tablero no da, aviso."""
+    nombre = validar_nombre(nombre)
     if not isinstance(esc, dict):
         raise ServiceError(400, "el escenario es un objeto {duracion_s, acciones, eventos, "
                                 "aserciones, acoples, …}")
@@ -125,11 +131,11 @@ def poner(doc, nombre: str, esc: dict) -> dict:
 
 def quitar(doc, nombre: str) -> None:
     if nombre not in doc.escenarios:
-        raise ServiceError(404, _no_existe(doc, nombre))
+        raise ServiceError(404, no_existe(doc, nombre))
     del doc.escenarios[nombre]
 
 
-def _no_existe(doc, nombre: str) -> str:
+def no_existe(doc, nombre: str) -> str:
     from apolo.library.electrico.referencias import sufijo_sugerencia
 
     return (f"No existe el escenario «{nombre}». Escenarios: "
@@ -142,7 +148,7 @@ def resolver(doc, escenario) -> tuple[str | None, dict]:
     if isinstance(escenario, str):
         ent = doc.escenarios.get(escenario.strip())
         if ent is None:
-            raise ServiceError(404, _no_existe(doc, escenario))
+            raise ServiceError(404, no_existe(doc, escenario))
         return escenario.strip(), ent["escenario"]
     if isinstance(escenario, dict):
         return None, escenario
@@ -177,7 +183,7 @@ def listar(doc, nombre: str | None = None) -> dict:
     firma = firma_documento(doc)
     if nombre is not None:
         if nombre not in doc.escenarios:
-            raise ServiceError(404, _no_existe(doc, nombre))
+            raise ServiceError(404, no_existe(doc, nombre))
         ent = doc.escenarios[nombre]
         return {"nombre": nombre, **estado(doc, nombre, firma), "escenario": ent["escenario"],
                 **({"resultado": ent["resultado"]} if ent.get("resultado") else {})}

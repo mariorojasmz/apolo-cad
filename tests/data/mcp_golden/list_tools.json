@@ -3965,6 +3965,65 @@
   }
  },
  {
+  "name": "save_live_session",
+  "description": "Vuelve una SESIÓN EN VIVO (la persona maneja la máquina en el visor: aprieta el verde,\nla seta…) en el escenario de prueba `nombre`: sus acciones y eventos con la hora virtual\nen que entraron, sobre su escenario de base y con la cola de cajas que tuvo la sesión. La\ncorre por lote (las mismas trazas que se vieron) y devuelve `aserciones_sugeridas` con lo\nque pasó («-M1.rpm >= 1570 dentro_de 1.6 s desde pulsar -S1», «-M1.par_Nm == 0\ndentro_de 0.2 s desde presionar -S0»), todas verdes sobre esa corrida: NO quedan en el\nescenario; acepta las que quieras con set_scenario(nombre, {…el `escenario` devuelto,\naserciones: […]}). `sesion` = el id del `fin` de la sesión (sin él, la última terminada\ndel proyecto; viven en memoria); `hasta_s` guarda sólo el tramo inicial (obligatorio si\nduró más de 60 s). Un nombre ya usado pide reemplazar=true. Si tarda, RECIBO {\"job\"}:\nget_job.",
+  "inputSchema": {
+   "properties": {
+    "nombre": {
+     "title": "Nombre",
+     "type": "string"
+    },
+    "sesion": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Sesion"
+    },
+    "hasta_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Hasta S"
+    },
+    "reemplazar": {
+     "default": false,
+     "title": "Reemplazar",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "nombre"
+   ],
+   "title": "save_live_sessionArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "save_live_sessionOutput",
+   "type": "object"
+  }
+ },
+ {
   "name": "declare_structure",
   "description": "Estructura real de la máquina (anclajes al piso + uniones de soporte) desde la\ngeometría, por un grafo de soporte dirigido (NO fija lo que cuelga sin nada debajo), con\nel TIPO de cada unión por criterio de taller según el rol de las piezas: eje ↔ larguero\napretado con tuerca = perno; la tuerca va en contacto con su eje o perno y no se une a lo\nque aprieta; la guarda se atornilla a su soporte y no se fija a lo que gira ni al motor;\nrodamiento = contacto; motor = perno; lo que gira no se suelda a lo fijo; pata ↔ larguero\n= soldadura de marco; tapa o guarda ↔ estructura y tramos numerados = perno. Lo dudoso va\n`a_revisar` con su motivo. Omite lo que lo declarado ya une, aun en cadena. Cada perno y\nsoldadura lleva su dimensión por defecto.\n\nPor defecto PROPONE en corto, sin tocar el modelo (`aplicar=false`): conteos\n(`n_grounds`, `n_fasteners`, `n_a_revisar`, `n_omitidas`, `por_tipo`), `anclajes`,\n`patrones` —una fila por patrón de nombre {kind, a, b, n, a_revisar?, size/qty o\nthroat_mm/length_mm, fasten: [{a, b}]} donde `fasten` son los conjuntos verificados que\ndeclaran la fila—, `a_revisar` (con ids y motivo) y `omitidas` (por patrón y motivo).\nAplica con run_batch en POCAS órdenes: un `fasten` por cada {a, b} de una fila, con su\n`kind` y dimensión. Gramática de conjuntos: raíz de\npatrón = sus copias (a='c57' → c57_1…), '+' concatena (la fuente NO está en su raíz:\n'c11+c57'), conjunto ↔ conjunto se empareja por posición, corte a la Python sobre el\nconjunto entero ('(c15+c61)[::2]'). `completo=true` trae cada acción {type, params}\n—el formato de run_batch, que ignora `a_revisar`/`motivo`—, el resumen por raíz y cada\nomitida.\n\n`aplicar=true` la declara TAL CUAL en un lote (1 undo), un `fasten` por conjunto, y\ndevuelve conteos: por tipo, `ordenes` del log, totales y las uniones a revisar.\nDespués, `gravity_test()` es la prueba EXACTA (cae lo suelto); para corregir una unión,\n`delete_connection(name)`; para verlas, get_connections.",
   "inputSchema": {

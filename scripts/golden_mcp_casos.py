@@ -127,6 +127,22 @@ PUERTA_PUBLICACION = {
                  "verificacion": "riesgos.partes_moviles", "estado": "FALLA"}],
     "tiempos_s": {"total": 16.7, "gravedad": 2.2}}
 SVG = b"<svg>golden</svg>"
+#: Una sesión en vivo vuelta escenario (V8.4 F4): corrida por lote + aserciones sugeridas.
+SESION_VIVA = {
+    "nombre": "arranque-vivo", "sesion": "v1a2b3c4", "base": "marcha", "duracion_s": 6.2,
+    "recortada": False, "n_acciones": 3, "n_eventos": 0,
+    "cola": [{"nombre": "caja", "cantidad": 10, "desde_s": 0.0, "cada_s": 2.0}],
+    "simulacion": "s5e6f7a8", "huella": "02b3",
+    "aserciones_sugeridas": [
+        {"asercion": "-M1.rpm >= 1570 dentro_de 1.6 s desde pulsar -S1",
+         "observado": "se cumple a los 1.21 s (t = 1.51 s, vale 1571.2)"},
+        {"asercion": "-M1.par_Nm == 0 dentro_de 0.2 s desde presionar -S0",
+         "observado": "se cumple a los 0.02 s (t = 4.02 s, vale 0)"}],
+    "aceptar": "son sugerencias: para que la prueba las exija, declara «arranque-vivo» …",
+    "avisos": [], "escenario": {"duracion_s": 6.2, "acciones": [
+        {"t": 0.3, "accion": "pulsar", "dispositivo": "-S1"},
+        {"t": 4.0, "accion": "presionar", "dispositivo": "-S0"}]},
+    "guardado": True, "estado": "sin_aserciones"}
 JOBS_SUELTOS = {"jmc": _archivo("k1", "golden-memoria-calculo.pdf"),
                 "jma": _archivo("k2", "golden-ensamblaje.pdf"),
                 "jjp": _archivo("k3", "golden-planos.pdf"),
@@ -138,7 +154,7 @@ JOBS_SUELTOS = {"jmc": _archivo("k1", "golden-memoria-calculo.pdf"),
                                       "trazas": {"discretas": {"-K1.%QX0.0": {
                                           "cambios": [[0.0, False], [0.31, True]], "total": 2,
                                           "offset": 0, "truncado": False}}}},
-                "jpu": PUERTA_PUBLICACION}
+                "jpu": PUERTA_PUBLICACION, "jsv": SESION_VIVA}
 
 
 def _plc_test(req):
@@ -422,6 +438,7 @@ RUTAS = [
                                          "aserciones": ["-M1.par_Nm == 0 dentro_de 0.5 s desde "
                                                         "presionar -S0"], "avisos": []})),
     ("DELETE", r"/api/escenarios/[^/]+", J({"borrado": "viejo", **ESCENARIOS})),
+    ("POST", r"/api/cosim/vivo/escenario", _encolado("jsv")),
 ]
 # «POST|PATCH» → dos entradas (el motor compara el método exacto)
 RUTAS = [(m, rx, spec) for metodos, rx, spec in RUTAS for m in metodos.split("|")]
@@ -719,4 +736,9 @@ CASOS = [
         "acoples": {"motores": {"-M1": {"junta": "c1_eje_motriz"}}},
         "aserciones": ["-M1.par_Nm == 0 dentro_de 0,5 s desde presionar -S0"]}}),
     caso("borrar escenario", "set_scenario", {"nombre": "viejo"}),
+    caso("guardar sesión en vivo", "save_live_session", {"nombre": "arranque-vivo"}),
+    caso("guardar el tramo de una sesión", "save_live_session", {
+        "nombre": "marcha", "sesion": "v1a2b3c4", "hasta_s": 30.0, "reemplazar": True}),
+    caso("sesión que ya no reproduce", "save_live_session", {"nombre": "x"},
+         rutas=_job_error("la sesión se grabó con otro modelo")),
 ]
