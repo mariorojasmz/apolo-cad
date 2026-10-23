@@ -15,7 +15,7 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
                  {"t": 7, "tipo": "cable_cortado", "rama": "-W3"},
                  {"t": 7, "tipo": "sensor_pegado", "dispositivo": "-B1", "valor": true},
                  {"t": 0, "tipo": "producto", "nombre": "caja", "dims_mm": […], …}],
-     "mecanica": {…claves de la petición de V8.2: bandas, juntas, fps, timestep, nstep…},
+     "mecanica": {…claves de la petición de V8.2: bandas, juntas, fps, timestep, nstep, sumideros…},
      "acoples": {"motores": {"-M1": {"junta": "j_tambor", "direccion_transporte": [1, 0, 0]}},
                  "sensores": {"-B1": {"origen": […], "direccion": […], "alcance_mm": 800}}},
      "trazas": {"analogicas_hz": 50, "senales": ["-K1:A1.U_V"]},
@@ -24,7 +24,8 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
 
 Los productos son los de V8.2 (`t` es su `desde_s`). Un evento con `duracion_s` se deshace solo
 al terminar. Las acciones y eventos se aplican en el primer intercambio con t ≥ su hora (reloj
-virtual: el mismo escenario da el mismo orden siempre). Puro: stdlib.
+virtual: el mismo escenario da el mismo orden siempre). En vivo (V8.4) las acciones y los eventos
+llegan SIN hora: `leer_accion_viva` / `leer_evento_vivo` los validan igual. Puro: stdlib.
 """
 
 from __future__ import annotations
@@ -41,7 +42,7 @@ TIPOS_EVENTO = ("atasco", "corte_de_fase", "caida_de_red", "cable_cortado", "sen
 #: Claves de la petición de V8.2 que el escenario pasa tal cual (`mecanica`). Motores, productos,
 #: sensores y duración los arma la co-simulación desde el tablero y el escenario.
 CLAVES_MECANICA = ("bandas", "auto_bandas", "juntas", "fps", "timestep", "nstep", "gravedad",
-                   "con_autodeteccion", "colisiones_maquina", "modelo_banda")
+                   "con_autodeteccion", "colisiones_maquina", "modelo_banda", "sumideros")
 ANALOGICAS_HZ = 50.0
 CLAVES = {"duracion_s", "descripcion", "condiciones", "acciones", "eventos", "mecanica", "acoples",
           "trazas", "aserciones"}
@@ -139,6 +140,31 @@ def _accion(a, k: int, duracion: float) -> Accion:
     t = _num(a, "t", donde, minimo=0.0, maximo=duracion)
     if t is None:
         raise EscenarioInvalido(f"{donde}: falta «t» (s, la hora de la acción)")
+    return _accion_en(a, t, donde)
+
+
+def leer_accion_viva(a, t: float) -> Accion:
+    """Una acción del operador SIN hora (la sesión en vivo, V8.4 D1): la misma validación que en
+    un escenario, con t = el intercambio en que llega (lo pone el que la recibe)."""
+    a = _claves(a, {"accion", "dispositivo", "valor", "durante_s", "actuador"}, "acción")
+    return _accion_en(a, t, "acción")
+
+
+def leer_evento_vivo(e, t: float) -> Evento:
+    """Un evento del mundo SIN hora (un atasco provocado en vivo): la validación del escenario.
+    Un producto no: MuJoCo no crea cuerpos en marcha (las cajas son las del escenario de base)."""
+    if not isinstance(e, dict):
+        raise EscenarioInvalido("evento: se espera un objeto")
+    if e.get("tipo") == "producto":
+        raise EscenarioInvalido("evento: en vivo no se agregan productos (MuJoCo no crea cuerpos en "
+                                "marcha): las cajas son la cola del escenario de base")
+    if "t" in e:
+        raise EscenarioInvalido("evento: en vivo no lleva «t» (entra en el intercambio en que llega)")
+    x = _evento({**e, "t": 0.0}, 0, math.inf)
+    return Evento(t, x.tipo, x.datos, x.duracion_s)
+
+
+def _accion_en(a: dict, t: float, donde: str) -> Accion:
     accion = _texto(a, "accion", donde, ACCIONES)
     durante = _num(a, "durante_s", donde, minimo=0.0)
     if durante is not None and accion != "pulsar":
@@ -187,6 +213,34 @@ def _evento(e, k: int, duracion: float) -> Evento | dict:
     return Evento(t, tipo, datos, _num(e, "duracion_s", donde, minimo=0.0))
 
 
+def _vec3(v, donde: str, *, unitario: bool = False) -> None:
+    if (not isinstance(v, list) or len(v) != 3
+            or any(not isinstance(c, (int, float)) or isinstance(c, bool) or not math.isfinite(c) for c in v)):
+        raise EscenarioInvalido(f"{donde}: se espera [x, y, z] (tres números), llegó {v!r}")
+    if unitario and not any(v):
+        raise EscenarioInvalido(f"{donde}: la normal no puede ser [0, 0, 0] (apunta al lado que retira)")
+
+
+def _sumideros(mecanica: dict) -> None:
+    """`mecanica.sumideros` (los de la petición de V8.2, F6 de puerta-de-publicacion): planos
+    {punto_mm, normal} que RETIRAN el producto que los pasa. Se validan al declarar el escenario,
+    no a mitad de la preparación de la dinámica."""
+    lista = mecanica.get("sumideros")
+    if lista is None:
+        return
+    if not isinstance(lista, list):
+        raise EscenarioInvalido("mecanica: «sumideros» es una lista de {punto_mm: [x, y, z], normal: [x, y, z]}")
+    for k, s in enumerate(lista):
+        donde = f"mecanica.sumideros[{k}]"
+        s = _claves(s, {"punto_mm", "normal"}, donde)
+        for c in ("punto_mm", "normal"):
+            if s.get(c) is None:
+                raise EscenarioInvalido(f"{donde}: falta «{c}» [x, y, z] (el plano que retira el producto "
+                                        "que lo pasa: punto en mm y normal hacia el lado que retira)")
+        _vec3(s["punto_mm"], f"{donde}.punto_mm")
+        _vec3(s["normal"], f"{donde}.normal", unitario=True)
+
+
 def _acoples(a) -> tuple[dict, dict]:
     a = _claves(a, {"motores", "sensores"}, "acoples")
     motores, sensores = {}, {}
@@ -227,6 +281,7 @@ def leer_escenario(d) -> Escenario:
         x = _evento(e, k, duracion)
         (productos if isinstance(x, dict) else eventos).append(x)
     mecanica = dict(_claves(d.get("mecanica"), set(CLAVES_MECANICA), "mecanica"))
+    _sumideros(mecanica)
     motores, sensores = _acoples(d.get("acoples"))
     tr = _claves(d.get("trazas"), {"analogicas_hz", "senales"}, "trazas")
     try:

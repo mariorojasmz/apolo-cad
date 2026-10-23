@@ -33,7 +33,30 @@ class Agenda:
         self.items = sorted(items, key=lambda x: (x[0], x[1]))
         self.i = 0
         self.eventos: list[dict] = []
+        self._seq = len(items)
+        #: seq de lo inyectado en vivo → su id (V8.4 D1): su error vuelve en `respuestas`
+        self._inyectadas: dict[int, object] = {}
+        self.respuestas: list[dict] = []
         self._iniciales()
+
+    def inyectar(self, x, t: float, ident=None) -> None:
+        """Agenda una acción o un evento SIN hora (la sesión en vivo, V8.4 D1) para el instante t,
+        ORDENADO por (t, seq) desde la posición actual: va después de lo ya agendado a la misma
+        hora, como en un escenario por lote. Un evento con `duracion_s` agenda su reverso. Al
+        aplicarse deja en `respuestas` {id, ok, t} o {id, ok: false, motivo}: un error del modelo
+        (dispositivo, acción o valor que no van) rechaza ESA acción y la corrida sigue."""
+        nuevos = [(t, x, False)]
+        if isinstance(x, Evento) and x.duracion_s:
+            nuevos.append((t + x.duracion_s, x, True))
+        for tt, xx, reverso in nuevos:
+            item = (tt, self._seq, xx, reverso)
+            if not reverso:
+                self._inyectadas[self._seq] = ident
+            self._seq += 1
+            j = self.i
+            while j < len(self.items) and (self.items[j][0], self.items[j][1]) <= (tt, item[1]):
+                j += 1
+            self.items.insert(j, item)
 
     def _modelo(self, des: str):
         m = self.tab.modelos.get(des)
@@ -55,8 +78,11 @@ class Agenda:
 
     def aplicar(self, t: float) -> None:
         while self.i < len(self.items) and self.items[self.i][0] <= t + EPS_T:
-            t_prog, _, x, reverso = self.items[self.i]
+            t_prog, seq, x, reverso = self.items[self.i]
             self.i += 1
+            if seq in self._inyectadas:
+                self._aplicar_inyectada(t, t_prog, seq, x)
+                continue
             if isinstance(x, Accion):
                 self._accion(x)
                 reg = {"accion": x.accion, "dispositivo": x.dispositivo}
@@ -66,6 +92,25 @@ class Agenda:
                 self._evento(x, reverso)
                 reg = {"evento": x.tipo + (".fin" if reverso else ""), **x.datos}
             self.eventos.append({"t": round(t, 6), "programado_s": round(t_prog, 6), **reg})
+
+    def _aplicar_inyectada(self, t: float, t_prog: float, seq: int, x) -> None:
+        ident = self._inyectadas.pop(seq)
+        try:
+            if isinstance(x, Accion):
+                self._accion(x)
+                reg = {"accion": x.accion, "dispositivo": x.dispositivo}
+                if x.valor is not None:
+                    reg["valor"] = x.valor
+            else:
+                self._evento(x, False)
+                reg = {"evento": x.tipo, **x.datos}
+        except (ValueError, KeyError) as exc:
+            if isinstance(x, Evento) and x.duracion_s:  # sin el evento, su reverso tampoco
+                self.items = [it for it in self.items if not (it[2] is x and it[3])]
+            self.respuestas.append({"id": ident, "ok": False, "motivo": str(exc).strip("'\"")})
+            return
+        self.eventos.append({"t": round(t, 6), "programado_s": round(t_prog, 6), **reg})
+        self.respuestas.append({"id": ident, "ok": True, "t": round(t, 6)})
 
     # ── acciones del operador ───────────────────────────────────────────────────────────────
 
@@ -85,13 +130,14 @@ class Agenda:
         d = e.datos
         if e.tipo == "atasco":
             junta = d["junta"]
-            if self.acople is not None:
+            juntas = self.juntas if self.acople is None else set(self.acople.integ.juntas)
+            if self.acople is not None and junta in juntas:
                 self.acople.atasco[self.acople.dof(junta)] = 0.0 if reverso else float(d["par_Nm"])
-            elif self.juntas is not None and junta not in self.juntas:
-                parecida = difflib.get_close_matches(junta, sorted(self.juntas), n=1)
+            elif juntas is not None and junta not in juntas:
+                parecida = difflib.get_close_matches(junta, sorted(juntas), n=1)
                 pista = f" ¿Quisiste decir «{parecida[0]}»?" if parecida else ""
                 raise ValueError(f"atasco: la junta «{junta}» no está en la simulación.{pista} "
-                                 f"Móviles: {', '.join(sorted(self.juntas)) or 'ninguna'}")
+                                 f"Móviles: {', '.join(sorted(juntas)) or 'ninguna'}")
         elif e.tipo == "corte_de_fase":
             self.tab.red(d.get("red")).accionar("reponer_fase" if reverso else "perder_fase", d["fase"])
         elif e.tipo == "caida_de_red":
