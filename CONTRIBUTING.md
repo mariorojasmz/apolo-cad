@@ -88,8 +88,9 @@ Para levantar la app: `python -m uvicorn apolo.api.main:app --port 8000` con el 
 ## El CLA (acuerdo de licencia del contribuyente)
 
 Para aceptar tu aporte, necesitamos que firmes una vez el [CLA](docs/CLA.md). Al abrir tu primer
-PR, el bot de **CLA Assistant** deja un comentario con un enlace: entras con tu cuenta de GitHub,
-lo aceptas y listo; vale para todos tus PR siguientes.
+PR, un bot deja un comentario con la frase de firma: la comentas tal cual en tu PR
+(`I have read the CLA Document and I hereby sign the CLA`) y listo; vale para todos tus PR
+siguientes. Si el check «CLA» no se pone verde, comenta `recheck`.
 
 Qué dice, en corto: sigues siendo dueño de tu código y le das a Mario Rojas, titular del
 proyecto, una licencia amplia para usarlo y distribuirlo, también bajo otras licencias. Si lo
@@ -206,8 +207,9 @@ Windows, `.\start-apolo.ps1`).
 ## The CLA (Contributor License Agreement)
 
 To accept your contribution we need you to sign the [CLA](docs/CLA.md) once. When you open your
-first PR, the **CLA Assistant** bot leaves a comment with a link: sign in with your GitHub
-account, accept it, and you're done; it covers all your later PRs.
+first PR, a bot leaves a comment with the signing sentence: post it verbatim as a comment on your
+PR (`I have read the CLA Document and I hereby sign the CLA`) and you're done; it covers all your
+later PRs. If the «CLA» check does not turn green, comment `recheck`.
 
 What it says, in short: you keep the copyright of your code and give Mario Rojas, the project
 owner, a broad license to use and distribute it, including under other licenses. If you wrote
