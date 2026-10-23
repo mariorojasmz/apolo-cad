@@ -53,11 +53,9 @@ def _cerca(a: float, b: float) -> bool:
 
 def cifras_del_modelo(doc) -> dict:
     """{masa_kg, bbox_mm} del modelo: la misma fuente que la tarjeta del video."""
-    from apolo.library.catalog import CATALOG
-    from apolo.library.engineering.mass import scene_mass_properties
+    from apolo.services.guion_video import masa_y_medidas
 
-    t = scene_mass_properties(doc.scene, CATALOG, default_material=doc.default_material(),
-                              include_hidden=True)["total"]
+    t = masa_y_medidas(doc)
     return {"masa_kg": float(t["masa_kg"]), "bbox_mm": [float(x) for x in t["bbox_mm"]]}
 
 

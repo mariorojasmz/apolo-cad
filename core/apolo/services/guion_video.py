@@ -111,16 +111,22 @@ def _unidad(valor, unidad: str) -> str:
     return f"{numero(valor)}{unidad}" if unidad == "°" else f"{numero(valor)}{NBSP}{unidad}"
 
 
-def cifras(doc) -> list[dict]:
-    """Las cifras de la tarjeta: piezas, masa y medidas generales de la escena (si está
-    regenerada) más los requisitos del proyecto. [{etiqueta, valor}], hasta MAX_CIFRAS."""
+def masa_y_medidas(doc) -> dict:
+    """{n_piezas, masa_kg, bbox_mm, …} de la máquina (con lo oculto y el material del vertical):
+    la fuente de la tarjeta y de la verificación de la ficha (`publicacion/ficha_vigente.py`)."""
     from apolo.library.catalog import CATALOG
     from apolo.library.engineering.mass import scene_mass_properties
 
+    return scene_mass_properties(doc.scene, CATALOG, default_material=doc.default_material(),
+                                 include_hidden=True)["total"]
+
+
+def cifras(doc) -> list[dict]:
+    """Las cifras de la tarjeta: piezas, masa y medidas generales de la escena (si está
+    regenerada) más los requisitos del proyecto. [{etiqueta, valor}], hasta MAX_CIFRAS."""
     items: list[tuple[str, str]] = []
     if doc.scene:
-        total = scene_mass_properties(doc.scene, CATALOG, default_material=doc.default_material(),
-                                      include_hidden=True)["total"]
+        total = masa_y_medidas(doc)
         if total.get("n_piezas"):
             items.append(("Piezas", numero(total["n_piezas"])))
             if total.get("masa_kg"):
