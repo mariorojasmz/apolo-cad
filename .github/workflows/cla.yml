@@ -35,7 +35,7 @@ jobs:
           path-to-document: https://github.com/mariorojasmz/apolo-cad/blob/main/docs/CLA.md
           path-to-signatures: firmas/cla.json
           branch: cla-firmas
-          allowlist: dependabot[bot],github-actions[bot]
+          allowlist: mariorojasmz,dependabot[bot],github-actions[bot]
           custom-pr-sign-comment: I have read the CLA Document and I hereby sign the CLA
           custom-notsigned-prcomment: >-
             Gracias por tu aporte. Antes de revisarlo necesitamos que firmes una vez el
