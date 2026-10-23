@@ -116,6 +116,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-22 | puerta-de-publicacion | F6: huecos de la puerta | L | 110 | 582 | sondas con el brazo doblado (ISO 13857 tabla 6), banda empujable en ranuras, D3b general; incluye un corte de red y su retoma |
 | 2026-10-22 | puerta-de-publicacion | F6: capacidad de rodillos a mano | M | 39 | 287 | L10 por rodamiento, eje como viga (desalineación ≤ 10′/15′), motor con potencia_requerida; la máquina real daba 29′ |
 | 2026-10-22 | puerta-de-publicacion | F6: create_belt_conveyor v5 | L | 67 | 335 | guardas inferiores en tramos ≤ 3 m, placas de cierre de largueros, techo de cola; campo oculto `cierres` sellado al crear; 5 variantes medidas |
+| 2026-10-22 | puerta-de-publicacion | F6: tornillería de la BOM | L | 68 | 395 | comerciales a mano → compra, largo nominal (el 84,5 del Allen), `insert_component` ignoraba `length` (criterio oculto 2), DIN 603, Seeger con norma, tornillería declarada sin pieza |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
