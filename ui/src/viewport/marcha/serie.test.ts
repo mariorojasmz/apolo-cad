@@ -62,6 +62,13 @@ describe("poseProducto", () => {
     expect(poseProducto(caja, 2, 0.5, m)).toBe(true);
     expect(new THREE.Vector3().setFromMatrixPosition(m).x).toBeCloseTo(10);
   });
+
+  it("deja de existir cuando se acaban sus poses (un sumidero la retiró)", () => {
+    const m = new THREE.Matrix4();
+    expect(poseProducto(caja, 3, 0.5, m)).toBe(true);
+    expect(new THREE.Vector3().setFromMatrixPosition(m).x).toBeCloseTo(15);
+    expect(poseProducto(caja, 4, 0, m)).toBe(false);
+  });
 });
 
 describe("valores y textos", () => {

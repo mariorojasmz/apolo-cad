@@ -20,7 +20,8 @@ export interface ProductoSerie {
   dims_mm: [number, number, number];
   /** Primera muestra en la que existe (nace en su hora con `cada_s`). */
   desde: number;
-  /** Pose ABSOLUTA del centro de la caja desde `desde`. 7 números por muestra. */
+  /** Pose ABSOLUTA del centro de la caja desde `desde`. 7 números por muestra; se acaba antes
+   *  que la serie si un sumidero la retiró (la máquina siguiente se la lleva). */
   poses: number[];
 }
 
@@ -150,9 +151,9 @@ export function poseEn(poses: number[], k: number, f: number, out: THREE.Matrix4
   return out.compose(_pa, _qa, _uno);
 }
 
-/** Pose de un producto en el tramo (i, f); `false` si todavía no nació. */
+/** Pose de un producto en el tramo (i, f); `false` si todavía no nació o ya se retiró. */
 export function poseProducto(p: ProductoSerie, i: number, f: number, out: THREE.Matrix4): boolean {
-  if (i < p.desde) return false;
+  if (i < p.desde || (i - p.desde) * 7 >= p.poses.length) return false;
   poseEn(p.poses, i - p.desde, f, out);
   return true;
 }

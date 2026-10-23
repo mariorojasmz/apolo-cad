@@ -27,3 +27,4 @@ class DynamicsSnapshot:
     sensores: list = field(default_factory=list)
     avisos: list = field(default_factory=list)
     early: dict | None = None
+    sumideros: list = field(default_factory=list)   # [(punto_m, normal)]: retiran productos

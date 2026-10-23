@@ -80,7 +80,8 @@ def registrar(mcp, api, esperar) -> None:
         - con_autodeteccion: cuenta los contactos geométricos como sujeción (exploración); por
           defecto sólo lo DECLARADO, como gravity_test.
         - opciones: fps, timestep (1 ms), nstep (2), gravedad, modelo_banda ('contacto' |
-          'rapido'), colisiones_maquina, auto_bandas.
+          'rapido'), colisiones_maquina, auto_bandas, sumideros [{punto_mm, normal}] (el producto
+          cuyo centro pasa ese plano, del lado de la normal, sale del mundo: la descarga).
         duracion_s ≤ 60. Devuelve resumen (velocidades finales de juntas, bandas y productos,
         productos caídos, juntas en su límite, factor de tiempo real), motores (consigna, kv,
         tope), sensores, cuerpos y avisos. Con `path` escribe además un GIF de la marcha a tiempo

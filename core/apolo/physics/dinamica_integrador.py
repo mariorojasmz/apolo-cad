@@ -80,6 +80,12 @@ class Integrador:
         # vectorizados, rehechos sólo cuando entra un producto
         self.pendientes = sorted((k for k in range(len(prods)) if not self.activo[k]),
                                  key=lambda k: prods[k]["aparece_s"])
+        # los sumideros (F6 de puerta-de-publicacion) RETIRAN el producto que pasa su plano:
+        # vuelve a su estacionamiento y sale de los fotogramas; un snapshot sin ellos, igual
+        self.sumideros = [(np.asarray(p, float), np.asarray(n, float))
+                          for p, n in getattr(snap, "sumideros", None) or []]
+        self.retirados: list[int] = []
+        self.retiro: dict[int, dict] = {}
         self._estacion: dict = {}
         self._rehacer_estacion()
         mujoco.mj_forward(m, d)
@@ -131,14 +137,14 @@ class Integrador:
             self.fotos.muestrear(t)
 
     def _rehacer_estacion(self):
-        ks, prods = self.pendientes, self.snap.productos
+        ks, prods = self.pendientes + self.retirados, self.snap.productos
         est = self._estacion
         est["q"] = np.array([self.qadr[k] + i for k in ks for i in range(7)], dtype=int)
         est["qv"] = np.array([c for k in ks for c in (*prods[k]["estacion"], 1.0, 0.0, 0.0, 0.0)])
         est["v"] = np.array([self.vadr[k] + i for k in ks for i in range(6)], dtype=int)
 
     def _estacionar(self):
-        if self.pendientes:
+        if self.pendientes or self.retirados:
             self.d.qpos[self._estacion["q"]] = self._estacion["qv"]
             self.d.qvel[self._estacion["v"]] = 0.0
 
@@ -180,6 +186,8 @@ class Integrador:
         if d.warning[mujoco.mjtWarning.mjWARN_BADQACC].number or not np.all(np.isfinite(d.qacc)):
             raise PhysicsError(f"La simulación divergió cerca de t = {t:.3f} s: baja 'timestep' o "
                                "revisa productos que nacen dentro de la máquina o solapados")
+        if self.sumideros:
+            self._retirar(d)
         if self.fotos:
             self.fotos.medir(d, d.time)
         if d.time >= self._prox - 1e-9:
@@ -187,6 +195,23 @@ class Integrador:
             while self._prox <= d.time + 1e-9:
                 self._prox += self._paso_frame
         self.hechos += 1
+
+    def _retirar(self, d) -> None:
+        """Saca del mundo los productos activos con su centro pasado un sumidero."""
+        nuevos = []
+        for k, b in enumerate(self.bid_prod):
+            if not self.activo[k]:
+                continue
+            c = np.asarray(d.xpos[b], float)
+            if any(float((c - p) @ n) > 0.0 for p, n in self.sumideros):
+                self.activo[k] = False
+                self.retiro[k] = {"t": round(float(d.time), 4),
+                                  "pos": [round(float(x) / MM, 1) for x in c]}
+                nuevos.append(k)
+        if nuevos:
+            self.retirados += nuevos
+            self._rehacer_estacion()
+            self._estacionar()
 
     def correr(self) -> dict:
         """El bucle cerrado de V8.2: todos los intercambios y la salida."""
@@ -200,15 +225,23 @@ class Integrador:
             self._muestra(self.d.time)
         return salida_dinamica(self.snap, self.d, self.frames, self.trazas, self.en_limite,
                                self.fotos, self.arrastre, self.juntas, self.giro, self.activo,
-                               self.bid_prod, self.vadr, pared)
+                               self.bid_prod, self.vadr, pared, retiro=self.retiro)
 
 
 def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas, giro, activo,
-                    bid_prod, vadr, pared) -> dict:
-    """La salida D9 de V8.2 (formato del animador de gravedad y de caída, trazas por junta)."""
+                    bid_prod, vadr, pared, retiro=None) -> dict:
+    """La salida D9 de V8.2 (formato del animador de gravedad y de caída, trazas por junta).
+    Un producto RETIRADO por un sumidero sale con la posición en que se retiró y `retirado_s`;
+    `resumen.productos_retirados` sólo existe si alguno se retiró."""
     prods = snap.productos
     res_prod, caidos = {}, []
+    retiro = retiro or {}
     for k, p in enumerate(prods):
+        if k in retiro:
+            res_prod[p["name"]] = {"posicion_final_mm": retiro[k]["pos"],
+                                   "velocidad_final_mm_s": [0.0, 0.0, 0.0], "cayo": False,
+                                   "retirado_s": retiro[k]["t"]}
+            continue
         if not activo[k]:
             continue
         pos = [round(float(c) / MM, 1) for c in d.xpos[bid_prod[k]]]
@@ -251,6 +284,8 @@ def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas,
             "factor_tiempo_real": round(float(d.time) / pared, 2) if pared > 0 else None,
             "juntas": res_juntas, "bandas": res_bandas, "productos": res_prod,
             "productos_caidos": caidos, "juntas_en_limite": list(en_limite.values()),
+            **({"productos_retirados": [prods[k]["name"] for k in sorted(retiro)]}
+               if retiro else {}),
         },
         "avisos": snap.avisos,
     }

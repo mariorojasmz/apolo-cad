@@ -16,7 +16,12 @@ la descarga. Reutiliza lo que la dinámica ya sabe detectar, sin inventar otra d
 - **la velocidad**: `velocidad_m_s` de los requisitos, o 0,3 m/s.
 
 Las cajas ya van repartidas sobre la primera mitad de la banda desde el primer cuadro (el
-movimiento se lee de entrada) y una alimentación en serie sigue entrando por la cola. La parte
+movimiento se lee de entrada) y una alimentación en serie sigue entrando por la cola. Cada banda
+lleva dos SUMIDEROS (`sumideros` de la petición, F6 de puerta-de-publicacion): la caja que pasa
+el extremo de descarga (su centro pasa el fin de la banda: ya no la arrastra) o que cae bajo la
+banda sale del mundo, como la que se lleva la máquina siguiente. Sin ellos, con una placa de
+transferencia en la descarga las cajas se paraban en ella, frenaban toda la fila y la
+alimentación nacía DENTRO de la caja detenida en la cola: el video las mostraba encimadas. La parte
 del video (`duracion_s`) crece con el largo de la banda y baja con la velocidad: lo que tarda en
 llegar a la descarga la caja más adelantada, entre 8 y 20 s; la simulación dura además lo que
 la máquina sigue andando después (la órbita final, `extra_s`).
@@ -47,6 +52,8 @@ HUECO_MIN_MM = 150.0
 MARGEN_COLA_MM = 60.0
 #: Tope de cajas por banda (la dinámica admite 200 en total).
 MAX_POR_BANDA = 40
+#: De a cuánto se adelanta la cola hasta que la caja no toca otra pieza (mm).
+PASO_BUSQUEDA_MM = 20.0
 DURACION_MAX_S = 60.0
 
 
@@ -172,8 +179,51 @@ def duracion_marcha(largo_mm: float, v_m_s: float) -> float:
     return float(min(MARCHA_MAX_S, max(MARCHA_MIN_S, math.ceil(t))))
 
 
-def _cajas(b: _Banda, k_banda: int, dims, masa, v, ppm, duracion_s, asumido) -> list[dict]:
-    """Las cajas de una banda: repartidas sobre su primer tramo + la alimentación por la cola."""
+def sumideros(b: _Banda, dims) -> list[dict]:
+    """Los dos semiespacios que retiran las cajas de una banda: pasado el extremo de descarga y
+    bajo la banda (la que cae)."""
+    import numpy as np
+
+    s = b.datos
+    centro, d, n = np.asarray(s.centro, float) * 1000.0, _sentido(b), np.asarray(s.n, float)
+    largo, cara = 2000.0 * s.medio[0], 1000.0 * s.medio[2]
+    hc = dims[2]
+    fin = centro + (largo / 2.0) * d
+    abajo = centro + (cara - hc - 100.0) * n
+    return [{"punto_mm": [round(float(c), 1) for c in fin],
+             "normal": [round(float(c), 6) for c in d]},
+            {"punto_mm": [round(float(c), 1) for c in abajo],
+             "normal": [round(-float(c), 6) for c in n]}]
+
+
+def _choca(doc, banda: str, centro, dims, giro_deg: float) -> bool:
+    """¿Una caja con ese centro y giro (sobre Z) toca algún sólido del modelo salvo la banda?"""
+    from build123d import Box, Pos, Rot
+
+    caja = Pos(*centro) * Rot(0, 0, giro_deg) * Box(*dims)
+    cb = caja.bounding_box()
+    for fid, f in doc.scene.items():
+        if fid == banda or getattr(f, "is_guide", False) or f.shape is None:
+            continue
+        try:
+            bb = f.shape.bounding_box()
+            if (bb.min.X > cb.max.X or bb.max.X < cb.min.X or bb.min.Y > cb.max.Y
+                    or bb.max.Y < cb.min.Y or bb.min.Z > cb.max.Z or bb.max.Z < cb.min.Z):
+                continue
+            corte = caja & f.shape
+            if corte is not None and float(corte.volume) > 1.0:
+                return True
+        except Exception:  # noqa: BLE001 — una booleana rara no bloquea la marcha
+            continue
+    return False
+
+
+def _cajas(b: _Banda, k_banda: int, dims, masa, v, ppm, duracion_s, asumido,
+           choca=None) -> list[dict]:
+    """Las cajas de una banda: repartidas sobre su primer tramo + la alimentación por la cola.
+    `choca(centro, dims, giro)`: si la caja nacería dentro de otra pieza (el techo de la guarda
+    de cola de una v5 tapa la banda junto al tambor), la cola arranca más adelante, donde la
+    banda está libre (F6: nacía apoyada en el techo, quieta, y la siguiente nacía dentro de ella)."""
     import numpy as np
 
     s = b.datos
@@ -198,15 +248,21 @@ def _cajas(b: _Banda, k_banda: int, dims, masa, v, ppm, duracion_s, asumido) -> 
 
     base = {"dims_mm": [round(lc, 1), round(ac, 1), round(hc, 1)], "masa_kg": masa,
             "rotacion_deg": [0.0, 0.0, round(giro, 2)]}
+    x0 = 0.0
+    while choca is not None and x0 <= largo / 2 and choca(en(x0), (lc, ac, hc), giro):
+        x0 += PASO_BUSQUEDA_MM
+    if x0 > largo / 2:
+        asumido.append("la cola de la banda está tapada: las cajas nacen en su arranque igual")
+        x0 = 0.0
     cajas = []
-    x = 0.0
+    x = x0
     while x <= TRAMO_INICIAL * largo - lc and len(cajas) < MAX_POR_BANDA // 2:
         cajas.append({"nombre": f"caja_{k_banda}_{len(cajas)}", "posicion_mm": en(x), **base})
         x += paso
     cada = paso / 1000.0 / v
     cantidad = int(min(MAX_POR_BANDA - len(cajas), max(1, math.floor((duracion_s - cada) / cada) + 1)))
     if cada <= duracion_s:
-        cajas.append({"nombre": f"cola_{k_banda}", "posicion_mm": en(0.0), "cada_s": round(cada, 3),
+        cajas.append({"nombre": f"cola_{k_banda}", "posicion_mm": en(x0), "cada_s": round(cada, 3),
                       "desde_s": round(cada, 3), "cantidad": cantidad, **base})
     return cajas
 
@@ -239,7 +295,7 @@ def armar(doc, *, extra_s: float = 14.0) -> Marcha:
     largo_max = max(2000.0 * b.datos.medio[0] for b in encontradas)
     duracion = duracion_marcha(largo_max, v)
     total_s = min(DURACION_MAX_S, duracion + max(0.0, float(extra_s)))
-    motores, declaradas, productos = [], [], []
+    motores, declaradas, productos, retiran = [], [], [], []
     for k, b in enumerate(encontradas):
         hacia = [round(float(c), 4) for c in _sentido(b)]
         motores.append({"junta": b.junta["name"], "modo": "velocidad", "v_superficie_m_s": v,
@@ -247,8 +303,11 @@ def armar(doc, *, extra_s: float = 14.0) -> Marcha:
         if b.declarar:
             declaradas.append({"pieza": b.pieza, "junta_motriz": b.junta["name"],
                                "direccion_transporte": hacia})
-        productos += _cajas(b, k, dims, masa, v, ppm, total_s, asumido)
-    escenario = {"duracion_s": round(total_s, 2), "motores": motores, "productos": productos}
+        productos += _cajas(b, k, dims, masa, v, ppm, total_s, asumido,
+                            choca=lambda c, dd, g, _b=b.pieza: _choca(doc, _b, c, dd, g))
+        retiran += sumideros(b, dims)
+    escenario = {"duracion_s": round(total_s, 2), "motores": motores, "productos": productos,
+                 "sumideros": retiran}
     if declaradas:
         escenario["bandas"] = declaradas
     lc, ac, hc = dims

@@ -117,7 +117,9 @@ def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = N
 
     snap = DynamicsSnapshot(xml=None, duracion_s=pet.duracion_s, timestep=pet.timestep,
                             nstep=pet.nstep, fps=pet.fps, gravedad=pet.gravedad,
-                            modelo_banda=pet.modelo_banda)
+                            modelo_banda=pet.modelo_banda,
+                            sumideros=[(tuple(c * MM for c in z.punto_mm), tuple(z.normal))
+                                       for z in pet.sumideros])
     mod = dm.ModeloMJ(timestep=pet.timestep, gravedad=pet.gravedad,
                       colisiones_maquina=pet.colisiones_maquina)
     padres_estaticos = {todas[n]["parent"] for n in cls.orden if cls.padre_cuerpo[n] is None} - {None}

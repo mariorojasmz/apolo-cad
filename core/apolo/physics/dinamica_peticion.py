@@ -73,6 +73,15 @@ class SensorPeticion:
 
 
 @dataclass
+class SumideroPeticion:
+    """Un semiespacio que RETIRA los productos: el que tiene su centro pasado el plano (del lado
+    de `normal`) sale del mundo (F6 de puerta-de-publicacion: la máquina siguiente se lo lleva;
+    sin esto las cajas descargadas se acumulan, frenan la fila y se enciman)."""
+    punto_mm: tuple
+    normal: tuple
+
+
+@dataclass
 class JuntaOpciones:
     amortiguamiento: float = 0.0
     friccion: float = 0.0
@@ -95,6 +104,7 @@ class Peticion:
     con_autodeteccion: bool = False
     colisiones_maquina: bool = False
     modelo_banda: str = "contacto"
+    sumideros: list = field(default_factory=list)
 
 
 def _claves(obj, validas: set, donde: str) -> dict:
@@ -247,6 +257,16 @@ def _sensor(s, k: int) -> SensorPeticion:
     )
 
 
+def _sumidero(s, k: int) -> SumideroPeticion:
+    donde = f"sumideros[{k}]"
+    s = _claves(s, {"punto_mm", "normal"}, donde)
+    punto, normal = _vec(s, "punto_mm", donde), _vec(s, "normal", donde, unitario=True)
+    if punto is None or normal is None:
+        raise PhysicsError(f"{donde}: pide 'punto_mm' [x, y, z] y 'normal' [x, y, z] (el lado "
+                           "que retira)")
+    return SumideroPeticion(punto_mm=punto, normal=normal)
+
+
 def _lista(obj, k: str) -> list:
     v = obj.get(k) or []
     if not isinstance(v, list):
@@ -260,6 +280,7 @@ def parse_peticion(req: dict | None) -> Peticion:
     req = _claves(req or {}, {
         "motores", "bandas", "auto_bandas", "productos", "sensores", "juntas", "duracion_s", "fps",
         "timestep", "nstep", "gravedad", "con_autodeteccion", "colisiones_maquina", "modelo_banda",
+        "sumideros",
     }, "petición")
     pet = Peticion(
         duracion_s=_f(req, "duracion_s", "petición", 3.0, minimo=0.0, maximo=DURACION_MAX_S, abierto=True),
@@ -282,6 +303,7 @@ def parse_peticion(req: dict | None) -> Peticion:
     pet.bandas = [_banda(b, k) for k, b in enumerate(_lista(req, "bandas"))]
     pet.productos = [_producto(p, k) for k, p in enumerate(_lista(req, "productos"))]
     pet.sensores = [_sensor(s, k) for k, s in enumerate(_lista(req, "sensores"))]
+    pet.sumideros = [_sumidero(s, k) for k, s in enumerate(_lista(req, "sumideros"))]
     juntas = _claves(req.get("juntas"), set(req.get("juntas") or {}), "juntas")
     for nombre, op in juntas.items():
         op = _claves(op, {"amortiguamiento", "friccion", "armadura"}, f"juntas.{nombre}")

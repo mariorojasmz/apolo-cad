@@ -10,7 +10,8 @@ que el visor reproduce a 60 fps interpolando, sin volver a pedir nada:
   aplanados por muestra. El visor la aplica sobre la malla de diseño de cada pieza del cuerpo:
   no depende de dónde puso MuJoCo el origen del cuerpo (lo mismo hace el GIF).
 - `productos`: pose ABSOLUTA del centro de cada caja desde la muestra `desde` (la primera en la
-  que existe: con `cada_s` nacen en su hora); el visor dibuja la caja con `dims_mm`.
+  que existe: con `cada_s` nacen en su hora) hasta la última en que existe (un sumidero la
+  retira: sus poses son más cortas que `t`); el visor dibuja la caja con `dims_mm`.
 - `juntas`: el valor `q` de cada junta por muestra (grados o mm): el ángulo del piñón del que
   F3 deriva el avance de las cadenas.
 - `bandas`: la velocidad de la cara superior por muestra (m/s, positiva hacia `direccion`): la
@@ -83,7 +84,12 @@ def serie_reproduccion(res: dict, bandas=(), *, hz: int) -> dict:
         desde = next((k for k, f in enumerate(frames) if nombre in f["poses"]), None)
         if desde is None:   # nació después del final: no se ve
             continue
-        poses = [v for f in frames[desde:] for v in _pq(np.asarray(f["poses"][nombre], float))]
+        vivos = []  # hasta que un sumidero lo retira (F6): el visor deja de dibujarlo ahí
+        for f in frames[desde:]:
+            if nombre not in f["poses"]:
+                break
+            vivos.append(f)
+        poses = [v for f in vivos for v in _pq(np.asarray(f["poses"][nombre], float))]
         productos.append({"name": nombre, "producto": p.get("producto", nombre),
                           "dims_mm": [p["w"], p["d"], p["h"]], "desde": desde, "poses": poses})
     trazas = res.get("juntas") or {}
