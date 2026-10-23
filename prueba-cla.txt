@@ -1,1 +1,2 @@
 Prueba del workflow del CLA. No se mergea.
+Segundo commit: el workflow nuevo de main.
