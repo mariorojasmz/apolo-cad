@@ -184,8 +184,11 @@ def guion(cliente, proyecto: int, *, raiz=None, slug: str | None = None,
     (carpeta / GUION).write_text(json.dumps(g, indent=2, ensure_ascii=False) + "\n",
                                  encoding="utf-8")
     if not (carpeta / FICHA_YAML).exists():
+        from apolo.publicacion import ficha_vigente
+
         (carpeta / FICHA_YAML).write_text(fichas.borrador(g["titulo"], slug, version),
                                           encoding="utf-8")
+        ficha_vigente.sellar(carpeta, g["documento"]["firma"], "redactada")  # F6: ficha vencida
     veredicto = api.puerta(con_gravedad=False).get("veredicto")
     caps = capitulos(g)
     eco(f"Proyecto {proyecto} «{nombre}»: {len(doc.commands)} comandos, "

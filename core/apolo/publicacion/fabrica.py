@@ -12,9 +12,11 @@ Encadena ocho pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>
      cuánto, también con la marcha que ya traía el guion. Un `guion.json` armado sobre otra
      versión del log se REHACE aquí (no en `generar`), conservando su marcha, título, subtítulo
      y lema (`publicacion/guion_vigente.py`, F6 de puerta-de-publicacion);
-  2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`) y la `familia` declarada (D10 de
-     puerta-de-publicacion); si falla, PARA y dice qué falta: la ficha la redacta el modelador
-     (D1), la fábrica no la inventa;
+  2. `ficha`: `preparar.revisar` (= `publicar ficha --revisar`), la `familia` declarada (D10 de
+     puerta-de-publicacion) y que la ficha sea del modelo de HOY (`ficha_vigente.py`, F6: la
+     firma del log con que se redactó o re-validó, y su masa y medidas contra el modelo); si
+     falla, PARA y dice qué falta: la ficha la redacta el modelador (D1), la fábrica no la
+     inventa ni la re-sella;
   3. `calidad`: la puerta de publicación (plan puerta-de-publicacion, F1) en la API; deja
      `calidad.json` y `calidad.md` y PARA si no aprueba, con cada ítem que no pasó;
   4. `revision`: `revision.json` del revisor de taller sobre la firma de `calidad.json`, sin
@@ -180,7 +182,13 @@ def paso_ficha(e: Encargo) -> dict:
             "«transportador de rodillos»): las dos primeras máquinas de cada familia las aprueba "
             "Mario (plan puerta-de-publicacion, D10). Complétala y vuelve a correr `publicar "
             "fabrica` (retoma desde la ficha).")
-    return {"familia": familia}
+    from apolo.publicacion import ficha_vigente
+
+    try:
+        vigente = ficha_vigente.exigir(e.carpeta, e.cliente, e.proyecto, eco=e.eco)
+    except ValueError as exc:
+        raise FabricaError(str(exc)) from None
+    return {"familia": familia, "firma": vigente["firma"]}
 
 
 def paso_calidad(e: Encargo) -> dict:

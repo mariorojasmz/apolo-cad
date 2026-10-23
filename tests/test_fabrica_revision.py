@@ -369,17 +369,20 @@ def test_aprobar_se_niega_si_falta_lo_demas(paquete, repo_fabrica, monkeypatch, 
 
 
 def test_la_ficha_sin_familia_para_la_fabrica(tmp_path, monkeypatch):
-    from apolo.publicacion import preparar
+    from apolo.doc import Document
+    from apolo.publicacion import ficha_vigente, preparar
 
     monkeypatch.setattr(preparar, "revisar", lambda *a, **k: None)
+    monkeypatch.setattr(ficha_vigente, "_hoy", lambda _c, _p: ("f", Document("hoy")))
     carpeta = tmp_path / SLUG / VERSION
     carpeta.mkdir(parents=True)
     (carpeta / "ficha.yaml").write_text('familia: ""\n', encoding="utf-8")
     with pytest.raises(FabricaError, match="no declara su «familia»"):
         fabrica.paso_ficha(_encargo(carpeta, "https://apolocad.com"))
     (carpeta / "ficha.yaml").write_text('familia: "Faja de banda"\n', encoding="utf-8")
+    ficha_vigente.sellar(carpeta, "f", "redactada")
     assert fabrica.paso_ficha(_encargo(carpeta, "https://apolocad.com")) == {
-        "familia": "Faja de banda"}
+        "familia": "Faja de banda", "firma": "f"}
 
 
 def test_sin_forzar_en_la_fabrica_ni_en_la_tienda():

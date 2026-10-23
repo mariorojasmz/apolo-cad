@@ -181,6 +181,9 @@ def _parser() -> argparse.ArgumentParser:
                     help="la tienda (por defecto APOLO_TIENDA_URL o https://apolocad.com)")
     fi.add_argument("--revisar", action="store_true", required=True,
                     help="valida la ficha y los límites de YouTube; sale con 2 si algo falla")
+    fi.add_argument("--vigente", action="store_true",
+                    help="con --project: confirmas que la ficha dice el modelo de HOY (re-sella "
+                         "ficha.firma.json tras verificar su masa y medidas)")
     sube = sub.add_parser("subir", help="sube el paquete generado a la tienda y lo publica "
                                          "(llave en APOLO_TIENDA_LLAVE)")
     sube.add_argument("--project", type=int, default=None,
@@ -284,9 +287,19 @@ def _ficha(args) -> int:
     from apolo.publicacion.paquete import PublicacionError
 
     try:
-        preparar.revisar(_carpeta(args, pendiente=True),
-                         tienda=tienda.url_de_la_tienda(args.tienda))
-    except (FichaError, PublicacionError) as exc:
+        carpeta = _carpeta(args, pendiente=True)
+        preparar.revisar(carpeta, tienda=tienda.url_de_la_tienda(args.tienda))
+        if args.vigente:
+            import httpx
+
+            from apolo.publicacion import ficha_vigente
+            from apolo.publicacion.entregables import TIMEOUT
+
+            if args.project is None:
+                raise PublicacionError("--vigente necesita --project: la firma es la del log.")
+            with httpx.Client(base_url=args.url, timeout=TIMEOUT) as c:
+                ficha_vigente.revalidar(carpeta, c, args.project)
+    except (FichaError, PublicacionError, ValueError) as exc:
         print(f"\n{exc}", file=sys.stderr)
         return 2
     return 0

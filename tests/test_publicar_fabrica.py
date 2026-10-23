@@ -31,7 +31,7 @@ from test_publicar_tienda import (  # noqa: F401 — `falsa` y `repo_fabrica` so
 from test_publicar_youtube import _cli
 
 from apolo import paths
-from apolo.publicacion import fabrica, flujo
+from apolo.publicacion import fabrica, ficha_vigente, flujo
 from apolo.publicacion import ficha as fichas
 from apolo.publicacion.candado import Candado, CandadoOcupado
 from apolo.publicacion.fabrica import Encargo, FabricaError
@@ -42,6 +42,19 @@ FICHA_OK = (fichas.borrador("Mesa de taller", SLUG, VERSION)
             .replace('descripcion: ""', 'descripcion: "Una mesa de taller soldada, con tablero."')
             .replace("etiquetas: []", 'etiquetas: ["mesa", "taller", "soldadura"]')
             .replace('familia: ""', f'familia: "{FAMILIA}"'))
+
+
+FIRMA_HOY = "firma-de-hoy"
+
+
+@pytest.fixture(autouse=True)
+def _modelo_de_hoy(monkeypatch):
+    """El paso «ficha» compara la firma de la ficha con la del proyecto (F6, `ficha_vigente`):
+    aquí no hay API, el proyecto de hoy es un documento vacío con `FIRMA_HOY`."""
+    from apolo.doc import Document
+    from apolo.publicacion import ficha_vigente
+
+    monkeypatch.setattr(ficha_vigente, "_hoy", lambda _c, _p: (FIRMA_HOY, Document("hoy")))
 
 
 class Pasos:
@@ -66,6 +79,7 @@ class Pasos:
         self.llamadas.append("guion")
         e.carpeta.mkdir(parents=True, exist_ok=True)
         (e.carpeta / "ficha.yaml").write_text(self.ficha, encoding="utf-8")
+        ficha_vigente.sellar(e.carpeta, FIRMA_HOY, "redactada")  # lo que hace `flujo.guion`
         e.eco("guion escrito")
         return {"etapas": 0}
 
