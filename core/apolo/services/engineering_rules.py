@@ -77,6 +77,7 @@ def structure_rules(doc, carga, conveyor: dict | None) -> list[dict]:
         carga_kg=carga or 0.0,
         rpm=(conveyor or {}).get("rpm_motor"),
         belt_radial_n=(conveyor or {}).get("bearing_radial_n"),
+        default_material=doc.default_material(),  # la masa de mass-properties (F6)
     )
     rules += beam_rules(doc, carga)
     rules += chain_rules(doc)

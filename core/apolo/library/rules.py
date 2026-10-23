@@ -18,6 +18,7 @@ from collections import Counter
 from .ancho_util import medir_banda, regla_ancho_util
 from .catalog import CATALOG, category_refs_sorted
 from .engineering.belt import belt_power_kw, belt_pull_n, belt_startup_torque_nm, estimate_belt_kg
+from .diametro_tambor import diametro_tambor
 from .materials import density, piece_role, resolve_material, yield_strength, young_modulus
 from .structural import beam_udl_deflection_mm, rect_tube_inertia_mm4, shaft_bending_stress_mpa
 
@@ -203,11 +204,8 @@ def _enrich_conveyor(base: dict, scene: dict, variables: dict | None) -> dict:
     if not base.get("tambor_d"):
         td = _f(v.get("diam_tambor"))
         if td is None:
-            cils = [f for f in scene.values()
-                    if any(w in _name(f) for w in ("rodillo", "tambor", "polea"))]
-            ds = [min(bb.max.X - bb.min.X, bb.max.Z - bb.min.Z)
-                  for f in cils if (bb := _bbox_safe(f))]
-            td = round(max(ds), 1) if ds else None
+            td = diametro_tambor(f for f in scene.values()  # el Ø medido (F6)
+                                 if any(w in _name(f) for w in ("rodillo", "tambor", "polea")))
         base["tambor_d"] = td
     if not base.get("rpm_motor"):
         rpm = _f(v.get("rpm_salida"))
@@ -359,8 +357,7 @@ def detect_conveyor(scene: dict, variables: dict | None = None, fasteners=None) 
     if gaps:
         paso = round(sum(gaps) / len(gaps), 1)
 
-    ds = [min(_bb(f).max.X - _bb(f).min.X, _bb(f).max.Z - _bb(f).min.Z) for f in tambores]
-    tambor_d = round(max(ds), 1) if ds else None
+    tambor_d = diametro_tambor(tambores)  # el Ø de la cara motriz, no el de su guarda (F6)
 
     motor_ref = motors[0][1]
     motor_specs = CATALOG[motor_ref].specs
@@ -413,11 +410,7 @@ def _detect_by_name(scene: dict, variables: dict | None = None) -> dict | None:
     sb = [b for f in (banda or soporte) if (b := _bbox_safe(f))]
     ancho = round(max((b.max.Y - b.min.Y for b in sb), default=600.0), 1)
     altura = round(max((b.max.Z for f in soporte if (b := _bbox_safe(f))), default=750.0), 1)
-    tambor_d = None
-    if tambores:
-        ds = [min(b.max.X - b.min.X, b.max.Z - b.min.Z)
-              for f in tambores if (b := _bbox_safe(f))]
-        tambor_d = round(max(ds), 1) if ds else None
+    tambor_d = diametro_tambor(tambores)
     return _enrich_conveyor({
         "tipo": "banda" if (banda or tambores) else "rodillos",
         "largo": largo,
@@ -445,11 +438,7 @@ def infer_from_solids(scene: dict, solid_ids: list[str]) -> dict | None:
     altura = round(max(b.max.Z for b in bbs), 1)
     tambores = [f for f in feats if "tambor" in (getattr(f, "name", "") or "").lower()]
     rodillos = [f for f in feats if "rodillo" in (getattr(f, "name", "") or "").lower()]
-    tambor_d = None
-    if tambores:
-        ds = [min(b.max.X - b.min.X, b.max.Z - b.min.Z)
-              for f in tambores if (b := _bbox_safe(f))]
-        tambor_d = round(max(ds), 1) if ds else None
+    tambor_d = diametro_tambor(tambores)
     return {
         "tipo": "banda" if tambores else "rodillos",
         "largo": largo,

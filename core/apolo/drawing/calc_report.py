@@ -245,13 +245,19 @@ def _misc_page(W: float, H: float, *, misc: list[dict], page_no: int,
     return m
 
 
-def peso_memoria(scene: dict | None) -> float:
+def peso_memoria(scene: dict | None, default_material: str | None = None) -> float:
     """El peso del cajetín: el de la MÁQUINA, como el del vuelco (lo oculto en la vista también
-    pesa). Lee OCCT: en la API va bajo `STATE_LOCK` y llega a `calc_report` en `meta`."""
-    from apolo.library.cutlist import scene_weight_kg
+    pesa), con la MISMA fuente que `GET /api/mass-properties` (`scene_mass_properties` con el
+    material del vertical, `doc.default_material()`): con `scene_weight_kg` sin el vertical, un
+    «Larguero» de acero pesaba como madera y la memoria de una faja decía 252,4 kg contra los
+    260,6 de mass-properties (F6 de puerta-de-publicacion). Lee OCCT: en la API va bajo
+    `STATE_LOCK` y llega a `calc_report` en `meta`."""
+    from apolo.library.catalog import CATALOG
+    from apolo.library.engineering.mass import scene_mass_properties
 
     try:
-        return scene_weight_kg(scene or {}, include_hidden=True)
+        return scene_mass_properties(scene or {}, CATALOG, default_material=default_material,
+                                     include_hidden=True)["total"]["masa_kg"]
     except Exception:
         return 0.0
 

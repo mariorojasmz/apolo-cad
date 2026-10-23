@@ -228,7 +228,7 @@ def _memoria(proyecto, carga_kg, largo_paquete_mm, ancho_paquete_mm, velocidad_m
         meta["revisions"] = (meta.get("revisions") or []) + [
             {"rev": rev, "date": date.today().isoformat(), "note": "Memoria de cálculo"}
         ]
-        meta["weight_kg"] = peso_memoria(S.doc.scene)  # OCCT: aquí, no al componer
+        meta["weight_kg"] = peso_memoria(S.doc.scene, S.doc.default_material())  # OCCT: aquí
         name = S.doc.name
     png = None
     if foto is not None:

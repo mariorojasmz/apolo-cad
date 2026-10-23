@@ -325,7 +325,7 @@ def _buckling_checks(scene, masses, catalog, carga_kg: float) -> list[dict]:
     return [_check("pandeo de patas", "ok", det, calc=calc)]
 
 
-def _tipping_check(scene, grounds, catalog, carga_kg: float) -> list[dict]:
+def _tipping_check(scene, grounds, catalog, carga_kg: float, default_material=None) -> list[dict]:
     footprint: list[tuple[float, float]] = []
     for g in grounds.values():
         f = scene.get(g.get("feature"))
@@ -344,7 +344,7 @@ def _tipping_check(scene, grounds, catalog, carga_kg: float) -> list[dict]:
             "Declara los apoyos con `ground` (o declare_structure) para verificar el vuelco.",
         )]
     hull = convex_hull_2d(footprint)
-    props = scene_mass_properties(scene, catalog, include_hidden=True)
+    props = scene_mass_properties(scene, catalog, None, default_material, include_hidden=True)
     com = props["total"]["com_mm"]
     margin = hull_margin_mm((com[0], com[1]), hull)
     xs = [p[0] for p in hull]
@@ -551,5 +551,5 @@ def structure_engineering_check(
     checks += _bearing_checks(scene, catalog, carga_kg, rpm, belt_radial_n)
     checks += _fit_checks(scene, fasteners, joints, mates, catalog)
     checks += _buckling_checks(scene, masses, catalog, carga_kg)
-    checks += _tipping_check(scene, grounds, catalog, carga_kg)
+    checks += _tipping_check(scene, grounds, catalog, carga_kg, default_material)
     return checks
