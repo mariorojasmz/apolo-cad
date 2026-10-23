@@ -76,6 +76,9 @@ def document_payload() -> dict:
         # autosave (None = sano). La UI pinta un chip cuando el disco no responde.
         "suppressed_commands": S.doc.regen_suppressed,
         "autosave_failed": S.autosave_error,
+        # D4 (nucleo-abierto F1b): {extensiones, aviso} si usa una extensión ausente; sin la
+        # clave si es editable (byte-idéntico). La UI lo lee (F2: `state/soloLectura.ts`).
+        **({"solo_lectura": sl} if (sl := getattr(S.doc, "solo_lectura", None)) else {}),
     }
 
 
@@ -354,6 +357,8 @@ def _open_briefing() -> dict:
             "suprimidos": getattr(S.doc, "regen_suppressed", []),
         },
     }
+    if getattr(S.doc, "solo_lectura", None):  # D4: el agente se entera al abrir, no al editar
+        brief["salud"]["solo_lectura"] = S.doc.solo_lectura
     if len(notas) > 20:
         brief["notas_truncadas"] = len(notas) - 20  # sin caps silenciosos
 

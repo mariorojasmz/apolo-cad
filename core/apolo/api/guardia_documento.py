@@ -78,6 +78,15 @@ def verificar(doc) -> None:
         raise HTTPException(status_code=409, detail=DOCUMENTO_CAMBIO)
 
 
+def solo_lectura(doc) -> None:
+    """409 con el aviso de D4 si `doc` usa una extensión que no está instalada
+    (`doc/solo_lectura.py`, plan nucleo-abierto-extensiones-privadas F1b): se ve, no se edita.
+    Mismo lugar y momento que `verificar`: bajo `STATE_LOCK`, antes de tocar nada."""
+    marca = getattr(doc, "solo_lectura", None)
+    if marca:
+        raise HTTPException(status_code=409, detail=marca["aviso"])
+
+
 class CabeceraDocumento:
     """Middleware ASGI puro: copia `X-Apolo-Documento` al ContextVar de la petición. No
     rechaza nada (eso pasa bajo el lock, en `verificar`) ni toca la respuesta: sin la cabecera

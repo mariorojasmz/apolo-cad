@@ -944,3 +944,88 @@ principal). El núcleo no se tocó en esta fase.
   núcleo la rompe sin subir `CONTRATO_EXTENSIONES`; el CI nocturno del privado es la red.
 - **D4 (sólo lectura sin la extensión) sigue pendiente de F1b.** Hasta entonces, un proyecto con
   `pro.hola` abierto sin la extensión suprime la placa y la primera edición revienta.
+
+### F1b (2026-10-23): proyecto con una extensión ausente → sólo lectura (D4)
+
+**Qué quedó** (rutas relativas a `core/apolo/`):
+
+- `doc/solo_lectura.py` (puro): `faltantes`/`detectar` sacan los prefijos ausentes del log —tipo
+  «x.algo» sin spec en `REGISTRY` y, además, la ref «x.algo» de un `insert_component` que no está
+  en el catálogo (F1a prefija también las refs)— y de los logs de los adjuntos de
+  `insert_project` (recursivo hasta `MAX_DEPTH`, con `subproject._log_del_snapshot`). Devuelve
+  `{"extensiones": [prefijos], "aviso": texto}` o None; el texto es el mismo que arma la UI
+  (`ui/src/state/soloLectura.ts`). Un tipo desconocido SIN prefijo (deriva vieja) no cuenta.
+- **Marcado**: `Document.from_apolo_bytes` lo hace en toda carga que regenera
+  (`solo_lectura.marcar`) y la marca FUERZA la carga tolerante. Así quedan cubiertas de una vez
+  todas las rutas de la F0 (arranque, open por id, restore, upload) y también `duplicate`, que
+  cargaba estricto. `doc/prefijos.py` (video) no aplica: copia con `regenerate=False`, regenera
+  tolerante por su cuenta y nunca muta el log.
+- **Bloqueo**:
+  - `Document._snapshot()` llama a `solo_lectura.bloquear` (las cuatro puertas,
+    `remove_commands`, variantes y deshacer/rehacer pasan por ahí).
+  - `document.py` queda en 1023 líneas: las tres líneas nuevas se compensaron uniendo
+    comentarios.
+  - API: `common._verificar_documento` suma `guardia_documento.solo_lectura(S.doc)`, un 409 con el
+    aviso. Lo pasan `_state_or_error`, el job de `_sync_or_job` y las mutaciones fuera del embudo.
+  - El MCP lo recibe como `_reject` («Apolo rechazó la operación (409): Este proyecto usa la
+    extensión «prueba»…»), probado con `run_command` y `edit_batch`.
+  - `autosave._flush_body` no escribe un documento marcado.
+- **El caso medido en la F0 queda cerrado**: `remove_commands` de lo suprimido da 409 por la API y
+  `DocumentError` por `Document`; el `.apolo` guardado queda byte a byte.
+- **Exposición**: `document.solo_lectura` en `scene_payload` sólo si hay (sin la clave, el payload
+  es byte-idéntico: `test_api_deshacer` fija las claves), `GET /api/health` → `solo_lectura`
+  (siempre; None si es editable) y `briefing.salud.solo_lectura` al abrir (el agente se entera al
+  abrir, no al primer 409).
+
+**Decidido por el agente (vetable):**
+
+- **`duplicate`**: copia el log tal cual (la carga ya no revienta) y la copia también abre en
+  sólo lectura. De paso, un id inexistente da 404 y un `.apolo` roto 400 (antes, 500).
+- **`insert_project` de un proyecto que usa una extensión ausente**: `build_subproject` lo rechaza
+  con «El proyecto insertado usa la extensión «x», que no está instalada: no se puede insertar ni
+  regenerar aquí.» Al crear es un 400; un 409 previo en la API habría duplicado la lectura del
+  adjunto. El anfitrión que ya lo tenía abre ENTERO en sólo lectura. El sub-ensamblaje se ve
+  suprimido con ese motivo, pero no se pierde: el log y el adjunto quedan intactos. Mostrar las
+  piezas del sub que sí regeneran exigiría que el executor supiera si corre en una carga o en una
+  mutación (un flag de contexto); no se hizo.
+- **Revisiones**: guardar una revisión de un proyecto en sólo lectura sí se puede (no toca su log).
+  Restaurar da 409 en dos casos:
+  - sobre un proyecto cuyo log guardado usa una extensión ausente, porque se perderían sus
+    comandos;
+  - una revisión que la usa, porque restaurada quedaría en sólo lectura, el autosave no la
+    escribiría y el disco no la reflejaría.
+- **Subir un `.apolo` así** (`POST /api/project/open`) crea el proyecto nuevo con su log intacto
+  (`store.create` serializa el documento; `commands.json` es el mismo) y queda en sólo lectura.
+- **Lo que no se bloquea**:
+  - Los resultados de FEA, como aceptó la F0: escriben metadato que el autosave no va a guardar.
+  - `POST /api/commands/preview`: es una lectura; sobre un documento así da el 400 de siempre
+    («Comando desconocido»), no el texto de D4.
+- **Sin bump de `GEOM_CACHE_EPOCH` ni de versiones**: no cambia la geometría de ningún comando. Un
+  documento con suprimidos no se cachea (regla de siempre).
+
+**Hallazgo — la caché de geometría muestra lo de la extensión:** si el proyecto se guardó en esta
+misma máquina CON la extensión, el open caliente reanuda del checkpoint cacheado y las piezas de
+la extensión se ven, sin suprimidos. La marca no cambia (sale del log), así que no se puede
+editar. No se tocó: «se ve» es lo que pide D4, y esa caché vive sólo en la SQLite local.
+
+**Verificación en vivo** (base propia `C:\t\f1b\apolo.db`, `flota.py --dir C:\t\f1b\flota
+arrancar 1 --puerto-base 8108`):
+
+1. Con `APOLO_EXTENSIONES_EXTRA=ext_prueba:EXTENSION`, `GET /api/health` dio la extensión cargada
+   y `solo_lectura` null. `create_box` y `prueba.hola` por REST dieron las piezas «Base» y «Hola»,
+   y el autosave guardó. Se paró la flota: el `.apolo` del proyecto quedó con sha256 `456398b2…`
+   (518 B).
+2. Sin la extensión:
+   - `health.extensiones` vacío;
+   - `health.solo_lectura` y `document.solo_lectura` con `["prueba"]` y el aviso;
+   - escena con «Base» y «Hola» (open caliente, ver el hallazgo);
+   - `POST /api/commands`, `/api/commands/remove {"ids": ["c2"]}`, `/api/undo` y
+     `/api/variables` dieron 409 con el texto de D4.
+3. Se paró la flota y el `.apolo` seguía con el mismo sha256.
+
+**Números:**
+
+- Suite: 4925 → 4958; pasan 4952 y se saltan 6, como antes. Los 33 nuevos están en
+  `tests/test_solo_lectura.py`.
+- `ruff check core tests scripts` limpio.
+- `document.py` sigue en 1023 líneas.

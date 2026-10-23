@@ -21,7 +21,7 @@ from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_comma
 from apolo.commands.spec import version_tag
 from apolo.commands.state import RegenState
 from apolo.commands.strict import reject_unknown
-from apolo.doc import carril, sello, variantes
+from apolo.doc import carril, sello, solo_lectura, variantes
 from apolo.doc import pasos as _pasos
 from apolo.doc.errors import ContractError, DocumentError  # noqa: F401 — se re-exportan
 
@@ -87,8 +87,8 @@ class Document:
         self.escenarios: dict[str, dict] = {}  # V8.3 D12: nombre → {escenario, resultado?} (services/escenarios)
         self.tensores, self.funciones = [], []  # puerta-de-publicacion D3 y D15: declarados
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
-        # SUPRIMIDOS por una carga tolerante (transitorio, NUNCA al manifest; vacío si estricto)
-        self.regen_suppressed: list[dict] = []
+        self.regen_suppressed: list[dict] = []  # SUPRIMIDOS por una carga tolerante (transitorio, NUNCA al manifest; vacío si estricto)
+        self.solo_lectura: dict | None = None  # D4: usa una extensión ausente (doc/solo_lectura.py, al cargar)
         self.electrico = carril.vacio()  # el carril evaluado (V8.1): derivado, nunca se guarda
         self._seq = 0
         self._undo: list[dict] = []
@@ -103,9 +103,9 @@ class Document:
 
     # ------------------------------------------------------------- estado
     def _snapshot(self) -> dict:
-        # la caché de regen viaja en el snapshot (Fix C): al restaurar se repone ANTES
-        # de regenerar → el rollback resume del último checkpoint del log viejo (replay
-        # de ~0 comandos) e inmune a un fallo repetido durante la propia restauración.
+        # la caché de regen viaja en el snapshot (Fix C): al restaurar se repone ANTES de regenerar →
+        # el rollback resume del último checkpoint (replay ~0) e inmune a un fallo repetido.
+        solo_lectura.bloquear(self)  # D4: toda mutación del log y deshacer pasan por aquí
         return {
             "commands": copy.deepcopy(self.commands),
             "hidden": set(self.hidden),
@@ -995,12 +995,12 @@ class Document:
                 max_suffix = max(max_suffix, int(mo.group(1)))
         doc._seq = max(int(manifest.get("seq", 0) or 0), len(commands), max_suffix)
         if regenerate:
+            tolerant = solo_lectura.marcar(doc) or tolerant  # D4: con extensión ausente, ver sí
             if warm is not None:
                 doc._try_warm(warm)  # siembra la caché de regen si la firma es prefijo
                 # cinturón y tirantes: el regenerate SEMBRADO no debe (a) LANZAR ni (b) dejar
-                # violaciones no-degradadas. En cualquiera de los dos → descartar la caché y
-                # replay FRÍO. (a) cubre una excepción arbitraria de OCCT en la cola / un
-                # DocumentError de resolve_all / un ckpt corrupto (V6.2e Fix 5); (b) lo de V6.2a.
+                # violaciones no-degradadas → descartar la caché y replay FRÍO. (a) cubre una excepción
+                # de OCCT en la cola / un DocumentError de resolve_all / un ckpt corrupto (V6.2e Fix 5).
                 cold_needed = False
                 try:
                     doc.regenerate(tolerant=tolerant)

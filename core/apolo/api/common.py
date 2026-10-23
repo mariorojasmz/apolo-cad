@@ -42,7 +42,7 @@ from .autosave import (  # el resto, kit de los routers: lo importan de AQUÍ (g
     _flush_autosave,  # noqa: F401
     _project_switch,  # noqa: F401
 )
-from .guardia_documento import esperado, esperando, token, verificar
+from .guardia_documento import esperado, esperando, solo_lectura, token, verificar
 from .jobs import JOB_UNKNOWN, Archivos, JobStore  # noqa: F401 — JOB_UNKNOWN: kit de los routers
 from .scene import scene_payload
 from .session import S
@@ -133,8 +133,11 @@ def _normalize_affected(v) -> list[str]:
 def _verificar_documento() -> None:
     """Guardia del documento para una mutación FUERA de `_state_or_error`: si la petición trae
     `X-Apolo-Documento` y no es el token del documento activo → 409 sin aplicar nada. Llamar
-    BAJO `STATE_LOCK`, en la misma adquisición que la mutación y antes de tocar nada."""
+    BAJO `STATE_LOCK`, en la misma adquisición que la mutación y antes de tocar nada. Un
+    documento en SÓLO LECTURA (usa una extensión ausente, D4 de nucleo-abierto F1b) también da
+    409: éste es el embudo de toda mutación (puertas, deshacer, variables, color, material...)."""
     verificar(S.doc)
+    solo_lectura(S.doc)
 
 
 def _token_documento() -> str:

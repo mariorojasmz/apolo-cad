@@ -18,6 +18,11 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   puede lanzar. `tolerant=True` va SÓLO en rutas de carga (arranque, open por id, upload,
   restore): suprime el comando roto en `regen_suppressed` y poda huérfanos; el log jamás se
   toca. Las mutaciones regeneran siempre estrictas.
+- **Sólo lectura** (`solo_lectura.py`): un log que nombra un prefijo de extensión AUSENTE (tipo
+  «x.algo» sin spec, ref «x.algo» de `insert_component` fuera del catálogo; también en los
+  adjuntos de `insert_project`) se marca en `from_apolo_bytes` (fuerza la carga tolerante) y
+  `_snapshot()` lanza: se ve, nunca se edita a medias. Una deriva SIN prefijo sigue tolerante y
+  editable. [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1b)
 - Las cuatro puertas (`execute`, `edit`, `execute_many`, `edit_many`) son estrictas de CLAVES
   (regla en [commands](../commands/CLAUDE.md)); en los lotes se revisan antes del snapshot y sin
   mirar valores: las variables que el propio lote define todavía no existen. `regenerate` no.

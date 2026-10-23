@@ -92,6 +92,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   `_state_or_error`, el job de `_sync_or_job` y, con `_verificar_documento()` de `common`, cada
   mutación FUERA del embudo: **una mutación nueva fuera del embudo la llama**. Sin cabecera, nada
   cambia. [chat-cliente-igual](../../../docs/plans/chat-cliente-igual.md) (D3)
+- **Sólo lectura** (extensión ausente): `_verificar_documento` también da 409 con el aviso de
+  `doc.solo_lectura` (no lo pasan los resultados de FEA: metadato que el disco no verá);
+  `_flush_body` no escribe ese documento y restaurar sobre él, o una revisión así, da 409. Escena
+  y briefing llevan `solo_lectura` sólo si hay; `GET /api/health`, siempre (None).
+  [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1b)
 - `PUT /api/commands/{id}` REEMPLAZA los params por defecto (`merge=false`); con `merge=true` es
   PATCH superficial (un sub-objeto `position`/`rotation` se reemplaza entero). El MCP manda
   `merge=true`; la UI elige por caso ([ui](../../../ui/CLAUDE.md)).

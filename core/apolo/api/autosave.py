@@ -59,7 +59,9 @@ def _flush_body() -> None:
     global _GEOM_MARK
     with STATE_LOCK:  # snapshot ATÓMICO con el doc (STORE/PROJECT_ID/bytes de la MISMA foto)
         store, project_id = S.store, S.project_id
-        if store is None or project_id is None:
+        # D4 (nucleo-abierto F1b): un documento en sólo lectura no se reescribe jamás; su .apolo
+        # queda byte a byte como estaba (lo que no regenera sigue en su log)
+        if store is None or project_id is None or getattr(S.doc, "solo_lectura", None):
             return
         try:
             name, pieces, data = S.doc.name, len(S.doc.scene), S.doc.to_apolo_bytes()

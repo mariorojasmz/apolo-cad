@@ -64,6 +64,7 @@ def build_subproject(data: bytes, overrides: dict | None) -> SubprojectState:
         raise SubprojectError(
             f"Se superó la profundidad máxima de proyectos anidados ({MAX_DEPTH} niveles)"
         )
+    from apolo.doc import solo_lectura
     from apolo.doc.carril import es_carril
     from apolo.doc.document import Document, DocumentError
 
@@ -73,6 +74,12 @@ def build_subproject(data: bytes, overrides: dict | None) -> SubprojectState:
             doc = Document.from_apolo_bytes(data, regenerate=False)
         except DocumentError as exc:
             raise SubprojectError(f"Snapshot inválido: {exc}") from exc
+        # D4 (nucleo-abierto): con una extensión ausente el replay perdería sus piezas en
+        # silencio → se rechaza al insertar; el anfitrión que ya lo tenía abre en sólo lectura.
+        faltan = sorted(solo_lectura.faltantes(doc.commands, doc.attachments))
+        if faltan:
+            raise SubprojectError(solo_lectura.aviso(
+                faltan, "El proyecto insertado","no se puede insertar ni regenerar aquí"))
         # el carril del origen (V8.1) no entra a este replay de ESCENA: lo trae el carril del
         # anfitrión con el aspecto de función (`carril_insertado`, D9).
         doc.commands = [c for c in doc.commands if not es_carril(c)]

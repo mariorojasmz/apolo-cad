@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from apolo.doc import Document, DocumentError
+from apolo.doc.solo_lectura import aviso, detectar
 from apolo.kernel import export_step_file
 from apolo.state import STATE_LOCK
 
@@ -95,7 +96,14 @@ def delete_project(project_id: int) -> dict:
 
 @router.post("/api/projects/{project_id}/duplicate")
 def duplicate_project(project_id: int) -> dict:
-    new_id = _store_required().duplicate(project_id)
+    """Copia el log TAL CUAL. Uno que usa una extensión ausente se copia igual (la carga lo
+    marca y abre tolerante, D4 de nucleo-abierto F1b) y la copia también abre en sólo lectura."""
+    try:
+        new_id = _store_required().duplicate(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DocumentError as exc:  # ZIP roto / no regenera: 400 claro (antes: 500 opaco)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"id": new_id}
 
 
@@ -134,6 +142,23 @@ def list_revisions() -> list[dict]:
     return store.list_revisions(S.project_id)
 
 
+def _sin_extension_ausente(store, project_id: int, revision) -> None:
+    """D4 (nucleo-abierto F1b): restaurar REEMPLAZA el log guardado del proyecto. 409 si ese log
+    usa una extensión ausente (se perderían sus comandos) o si la revisión la usa (restaurada,
+    quedaría en sólo lectura y el autosave no la guardaría: el disco no la reflejaría)."""
+    try:
+        actual = Document.from_apolo_bytes(store.load_bytes(project_id), regenerate=False)
+    except (KeyError, DocumentError):
+        actual = None  # sin log legible que proteger
+    marca = actual is not None and detectar(actual.commands, actual.attachments)
+    if marca:
+        raise HTTPException(status_code=409, detail=aviso(
+            marca["extensiones"], "Este proyecto", "puedes verlo, no restaurar una revisión sobre él"))
+    if revision.solo_lectura:
+        raise HTTPException(status_code=409, detail=aviso(
+            revision.solo_lectura["extensiones"], "Esta revisión", "no se puede restaurar aquí"))
+
+
 @router.post("/api/revisions/{revision_id}/restore")
 def restore_revision(revision_id: int) -> dict:
     store = _store_required()
@@ -144,6 +169,7 @@ def restore_revision(revision_id: int) -> dict:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except DocumentError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _sin_extension_ausente(store, project_id, doc)
         with candado.cambio_a(store, project_id, S.project_id):  # D4: 409 si es de otro vivo
             S.doc = doc
             S.project_id = project_id

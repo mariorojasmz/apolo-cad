@@ -139,6 +139,8 @@ def health(request: Request) -> dict:
             "proyecto": {"id": S.project_id, "nombre": S.doc.name},
             # nucleo-abierto (D3): [{nombre, version, cargada, motivo?}]; [] sin extensiones
             "extensiones": extensiones.estado(),
+            # D4 (F1b): {extensiones, aviso} si el documento usa una extensión ausente; None si no
+            "solo_lectura": getattr(S.doc, "solo_lectura", None),
         }
 
 
