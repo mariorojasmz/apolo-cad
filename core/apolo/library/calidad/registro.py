@@ -17,7 +17,8 @@ Ids estables (familia):
 - `transmision_flexible.tension` (función: todo lazo — banda, cadena, correa, cable — con un
   tensado reconocido y carrera suficiente); `transmision.capacidad`, `elementos_rodantes.l10`,
   `accionamiento.factor_servicio`, `ingenieria.reglas` y `funcion.escenarios` (función);
-- `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo` (estructura);
+- `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
+  (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado);
 - `fabricabilidad` y `memoria.veredicto` y `diseno.soluciones_por_funcion` (proceso);
 - `riesgos.electrico` (seguridad); `publicado.sustitutos_fieles` (publicado: lo que el visor o el
   video dibujan en lugar de un sólido —la banda animada, mañana un cable— es fiel al modelo);
@@ -55,7 +56,9 @@ junto a la firma del modelo (`services/puerta_publicacion.firma_modelo`), que la
 antes de generar. v2: entra F3 (seguridad y reparabilidad) y la tabla de riesgos. v3 (F6):
 `riesgos.partes_moviles` suma las sondas con el brazo DOBLADO (ISO 13857, tabla 6) y
 `transmision_flexible.tension` acepta sin tensor todo lazo de cadena de centros exactos (D3b
-general, no sólo el de la plantilla de rodillos).
+general, no sólo el de la plantilla de rodillos). v4 (F6): entra `union.distancia_al_borde`
+(`borde.distancia` e ≥ 1,2·d0 —1,5·d0 en ranura— y `borde.paso` p ≥ 2,2·d0, medidos en la
+geometría de cada pieza del taller que cruza un perno: `services/calidad_bordes.py`).
 """
 
 from __future__ import annotations
@@ -66,7 +69,7 @@ from typing import Callable
 from . import puerta as p
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "3"
+VERSION_REGISTRO = "4"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]
@@ -125,10 +128,12 @@ class Fuente:
 def _ids_de_f2() -> tuple:
     """Los ids que da F2 (sus tablas): el test exige que `_MECANICA` los recoja todos."""
     from .agarre import _CONTROLES as AGARRE
+    from .bordes import _CONTROLES as BORDES
     from .tensor import _CONTROLES as TENSOR
     from .vida_util import _FAMILIAS as VIDA
 
-    return (*(c[0] for c in AGARRE.values()), *(c[0] for c in TENSOR.values()),
+    return (*(c[0] for c in AGARRE.values()), *(c[0] for c in BORDES.values()),
+            *(c[0] for c in TENSOR.values()),
             *(f[0] for f in VIDA), "vida.reglas")
 
 
@@ -144,6 +149,11 @@ _MECANICA = {
                                      "montaje", ("agarre.largo",),
                                      hay("tornilleria", "sin tornillería que medir"),
                                      "tornilleria"),
+    "union.distancia_al_borde": General(
+        "Cada agujero de perno a ≥ 1,2·d0 del canto libre (1,5·d0 en ranura) y a un paso "
+        "≥ 2,2·d0 del vecino", "estructura", ("borde.distancia", "borde.paso"),
+        hay("tornilleria", "sin tornillería que medir"), "tornilleria",
+        vacio_ok=("borde.distancia", "borde.paso")),
     "transmision_flexible.tension": General(
         "Cada transmisión flexible (banda, cadena, correa, cable) se puede tensar en servicio",
         "función", ("tensor.reconocido", "tensor.carrera", "tensor.agarre"),

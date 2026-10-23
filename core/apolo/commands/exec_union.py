@@ -10,9 +10,12 @@ Dos criterios por el campo oculto `criterio` (`models_union.py`):
 - **3** (taller + largo de catálogo, plan puerta-de-publicacion D3): igual que el 2, salvo que
   un agarre al que no le alcanza ningún largo de catálogo es un error accionable en vez del
   respaldo silencioso a 200 mm; la geometría del 2 no cambia (sin `version`).
-- **4** (el de todo comando nuevo, F6 de la puerta): el 3 con el ala de un perfil ABIERTO (UPN,
-  IPE, L) con acceso por detrás → perno + tuerca, no remache ciego. Los 2 y 3 guardados
-  regeneran igual (sin `version`: el criterio viaja en los params).
+- **4** (F6 de la puerta): el 3 con el ala de un perfil ABIERTO (UPN, IPE, L) con acceso por
+  detrás → perno + tuerca, no remache ciego. Los 2 y 3 guardados regeneran igual (sin
+  `version`: el criterio viaja en los params).
+- **5** (el de todo comando nuevo, F6 de la puerta): el 4 que mide la distancia al canto de cada
+  agujero en la geometría real (EN 1993-1-8, e ≥ 1,2·d0) y rechaza el que queda bajo el mínimo
+  (`union_taller._exigir_bordes`). No cambia la geometría: sólo rechaza.
 
 `sellar` es el sello de entrada (`CommandSpec.al_crear`): un comando NUEVO nace con el criterio
 vigente y con las piezas que eran de madera al crearlo.
@@ -26,7 +29,7 @@ from .errors import CommandError
 from .models_union import JoinBoltedParams
 from .state import ExecContext
 
-CRITERIO_VIGENTE = 4
+CRITERIO_VIGENTE = 5
 _AXNAME = {0: "X", 1: "Y", 2: "Z"}
 
 

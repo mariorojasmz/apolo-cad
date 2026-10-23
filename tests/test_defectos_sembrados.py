@@ -114,6 +114,17 @@ def perno_a_medida(d):  # un perno M10×47 modelado a mano: ese largo no se comp
     d.execute("insert_component", {"component": "TUERCA-M10", "position": {"x": 400, "z": -4}})
 
 
+def agujero_al_canto(d):  # F6: el revisor halló agujeros a 1,5 mm del canto de una placa
+    a = _caja(d, "Placa A", 120, 80, 10, 400, 0, 5)
+    b = _caja(d, "Placa B", 120, 80, 8, 400, 0, 14)
+    for f, z in ((b, 18), (a, 10)):  # Ø11 a 6 mm del canto x = 340 (pide 1,2·11 = 13,2)
+        d.execute("drill_hole", {"feature": f, "position": {"x": 346, "z": z}, "axis": "-z",
+                                 "diameter": 11})
+    d.execute("insert_component", {"component": "PERNO-HEX-M10",
+                                   "position": {"x": 346, "z": 18}})
+    d.execute("insert_component", {"component": "TUERCA-M10", "position": {"x": 346, "z": -4}})
+
+
 def pata_esbelta(d):  # 8 × 8 mm y 1,5 m: pandea con su propio peso y el de la máquina
     p = _caja(d, "Pata esbelta", 8, 8, 1500, 0, 90, 762)
     d.execute("ground", {"name": "gp", "feature": p})
@@ -251,6 +262,8 @@ DEFECTOS = (
     Defecto("perno_corto", "mensula_atornillada", perno_corto, {"union.retencion": FALLA}),
     Defecto("perno_a_medida", "mensula_atornillada", perno_a_medida,
             {"union.largo_comercial": FALLA}),
+    Defecto("agujero_al_canto", "mensula_atornillada", agujero_al_canto,
+            {"union.distancia_al_borde": FALLA}),
     Defecto("pata_esbelta", "mensula_atornillada", pata_esbelta, {"estructura.pandeo": FALLA}),
     Defecto("contrapeso_en_voladizo", "mensula_atornillada", contrapeso_en_voladizo,
             {"estructura.vuelco": FALLA}),

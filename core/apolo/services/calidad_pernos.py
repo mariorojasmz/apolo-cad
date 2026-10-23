@@ -306,11 +306,14 @@ def esperadas_por_union(doc) -> dict[str, list[str]]:
     return out
 
 
-def insumos_pernos(doc, ids: set[str] | None = None) -> list[dict]:
-    """Los insumos de agarre de todos los pernos del documento (o de los `ids`)."""
+def insumos_pernos(doc, ids: set[str] | None = None,
+                   escena: _Escena | None = None) -> list[dict]:
+    """Los insumos de agarre de todos los pernos del documento (o de los `ids`). `escena` (la
+    misma `_Escena` del documento) se comparte con quien mida después sobre esos pernos (los
+    bordes de sus agujeros): sus `Rayos` se cargan una vez."""
     from apolo.library.catalog import CATALOG
 
-    esc = _Escena(doc.scene)
+    esc = escena if escena is not None else _Escena(doc.scene)
     esperadas = esperadas_por_union(doc)
     out = []
     for fid, feat in doc.scene.items():

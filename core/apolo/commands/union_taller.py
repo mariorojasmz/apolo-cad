@@ -1,8 +1,12 @@
-"""Criterio de TALLER de `join_bolted` (plan `union-en-perfil-hueco`, D1–D4): `criterio` 2, 3 y 4
+"""Criterio de TALLER de `join_bolted` (plan `union-en-perfil-hueco`, D1–D4): `criterio` 2–5
 (el 1 de los logs viejos vive en `exec_union.py`). El 3 es el 2 con el largo del perno de catálogo
-y sin respaldo silencioso a 200 mm (plan puerta-de-publicacion D3); el 4, el de todo comando
-nuevo, es el 3 sabiendo que el ala de un perfil ABIERTO tiene acceso por detrás (la otra ala
-vuelve a cruzar el eje, pero el hueco se abre al costado: `_abierto_al_costado`).
+y sin respaldo silencioso a 200 mm (plan puerta-de-publicacion D3); el 4 es el 3 sabiendo que el
+ala de un perfil ABIERTO tiene acceso por detrás (la otra ala vuelve a cruzar el eje, pero el
+hueco se abre al costado: `_abierto_al_costado`); el 5, el de todo comando nuevo (F6 de la
+puerta), es el 4 que, ya taladrado, mide la distancia al canto de cada agujero en la geometría
+REAL de las dos piezas (`library/borde_agujero.py`, la misma medida de la puerta: EN 1993-1-8,
+e ≥ 1,2·d0) y rechaza el que queda bajo el mínimo. El patrón por la huella de las cajas no ve
+el canto de una muesca, una ranura o el extremo de una pieza más corta que su caja.
 
 Por cada punto del patrón se tira un RAYO por el eje del taladro (`kernel/rayo.py`) y se mide
 lo que el perno atraviesa de verdad:
@@ -265,8 +269,45 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
                 f"{cmd_id}_tuerca{n}", nombre_tuerca, Pos(*centro) * Rotation(*rot) * tuerca,
                 cmd_id, component=fij.tuerca,
             )
+    if p.criterio >= 5 and fij.tipo != "tornillo_madera":
+        _exigir_bordes(h, base, anadida, puntos, medidas, fij.d)
     fijador = {"kind": "perno", "size": size if fij.tipo == "perno" else None,
                "qty": len(puntos), "nota": p.name}
     if fij.tipo != "perno":
         fijador["fijacion"] = fij.nombre
     terminar(ctx, cmd_id, p, a, b, fijador, ConnectivityError, register_fastener)
+
+
+def _exigir_bordes(h: dict, base, anadida, puntos: list, medidas: list, d: float) -> None:
+    """Criterio 5: cada agujero ya taladrado a ≥ e_min del canto libre de su pieza (la madera
+    tiene su propia regla: no entra). CommandError accionable con e medido y requerido."""
+    from apolo.kernel.rayo import Rayos
+    from apolo.library.borde_agujero import medir_borde
+
+    st = h["stack"]
+    eje = [0.0, 0.0, 0.0]
+    eje[st] = 1.0
+    for pieza, ext in ((anadida, ("cabeza", "contacto")), (base, ("contacto", "atras"))):
+        solidos = list(pieza.shape.solids())
+        for n, (pt, m) in enumerate(zip(puntos, medidas, strict=True), start=1):
+            t0, t1 = sorted((m[ext[0]], m[ext[1]]))
+            origen = list(pt)
+            origen[st] = 0.0
+            centro = list(pt)
+            centro[st] = (t0 + t1) / 2.0
+            otros = [(tuple(q[:st] + [0.0] + q[st + 1:]), tuple(eje), h["clear"] / 2.0)
+                     for q in puntos if q is not pt]
+            for sol in solidos:
+                bb = sol.bounding_box()
+                lo, hi = (bb.min.X, bb.min.Y, bb.min.Z), (bb.max.X, bb.max.Y, bb.max.Z)
+                if not all(lo[k] - 0.05 <= centro[k] <= hi[k] + 0.05 for k in range(3)):
+                    continue
+                r = medir_borde(Rayos(sol), tuple(origen), tuple(eje), t0, t1, d, otros)
+                if r["estado"] == "medido" and not r["cumple"]:
+                    regla = "1,5·d0 (ranura)" if r["forma"] == "ranura" else "1,2·d0"
+                    raise CommandError(
+                        f"El agujero {n} de la unión queda a e = {r['e']:g} mm del canto de "
+                        f"«{pieza.name}» (EN 1993-1-8 pide ≥ {r['e_min']:g} mm = {regla}, d0 = "
+                        f"{r['d0']:g} mm): mueve las piezas para ganar solape, usa un perno menor "
+                        "o cambia count/patron/spacing."
+                    )

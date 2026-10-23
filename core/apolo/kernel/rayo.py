@@ -75,6 +75,39 @@ class Rayos:
             self._inter.Load(self.solid.wrapped, 1e-6)
         return self._inter
 
+    def cortes(self, origen, direccion, t0: float, t1: float) -> list[float]:
+        """Parámetros t (ordenados, sin repetir a 1e-4) donde la recta corta una cara del
+        sólido entre `t0` y `t1`, SIN clasificar: quien sabe de qué lado arranca (un punto en el
+        hueco de un taladro, uno dentro del material) lee la paridad y se ahorra el
+        clasificador por tramo de `tramos`. [] si falla OCCT."""
+        from OCP.gp import gp_Dir, gp_Lin, gp_Pnt
+
+        try:
+            inter = self._cargar()
+            inter.Perform(gp_Lin(gp_Pnt(*origen), gp_Dir(*direccion)), t0, t1)
+            if not inter.IsDone():
+                return []
+            ts = sorted(inter.WParameter(i) for i in range(1, inter.NbPnt() + 1))
+        except Exception:  # noqa: BLE001 — OCCT caprichoso: sin dato
+            return []
+        out: list[float] = []
+        for t in ts:
+            if not out or t - out[-1] > 1e-4:
+                out.append(t)
+        return out
+
+    def dentro(self, punto) -> bool:
+        """¿`punto` está DENTRO del sólido (clasificador de OCCT)? False si falla."""
+        from OCP.BRepClass3d import BRepClass3d_SolidClassifier
+        from OCP.gp import gp_Pnt
+        from OCP.TopAbs import TopAbs_IN
+
+        try:
+            return BRepClass3d_SolidClassifier(self.solid.wrapped, gp_Pnt(*punto),
+                                               1e-6).State() == TopAbs_IN
+        except Exception:  # noqa: BLE001
+            return False
+
     def tramos(self, origen, direccion, t0: float, t1: float) -> list[tuple[float, float]]:
         """Tramos [a, b] (parámetro t sobre la recta `origen + t·direccion`, `direccion`
         unitaria) dentro del sólido entre `t0` y `t1`, ordenados; [] si falla OCCT."""

@@ -46,15 +46,18 @@ def reglas_de_ingenieria(doc) -> list[dict]:
 
 
 def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=None) -> list:
-    """Los ítems (`library/calidad/item.Item`) de agarre, tensor y vida útil del documento.
+    """Los ítems (`library/calidad/item.Item`) de agarre, distancia al borde y paso de los
+    agujeros (F6), tensor y vida útil del documento.
     `reglas` = las de `engineering_check` si el llamador ya las tiene; `contexto` (el memo de la
     corrida de la puerta, protocolo de las fuentes del registro) no lo usa."""
     from apolo.library.calidad.agarre import controlar_agarre
+    from apolo.library.calidad.bordes import controlar_bordes
     from apolo.library.calidad.tensor import controlar_tensores
     from apolo.library.calidad.vida_util import controlar_vida_util
     from apolo.library.catalog import CATALOG
 
-    from .calidad_pernos import insumos_pernos
+    from .calidad_bordes import insumos_bordes
+    from .calidad_pernos import _Escena, insumos_pernos
     from .calidad_tensores import lazos
 
     if reglas is None:
@@ -63,5 +66,8 @@ def items_funcion_mecanica(doc, reglas: list[dict] | None = None, *, contexto=No
                     and c.category in _MOTORES for f in doc.scene.values())
     hay_uniones = any(f.get("kind", "perno") in ("perno", "soldadura")
                       for f in doc.fasteners.values())
-    return (controlar_agarre(insumos_pernos(doc)) + controlar_tensores(lazos(doc))
+    esc = _Escena(doc.scene)
+    pernos = insumos_pernos(doc, escena=esc)
+    return (controlar_agarre(pernos) + controlar_bordes(*insumos_bordes(doc, pernos, esc))
+            + controlar_tensores(lazos(doc))
             + controlar_vida_util(reglas, hay_motor=hay_motor, hay_uniones=hay_uniones))
