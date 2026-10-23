@@ -199,9 +199,35 @@ class AgentNoteIn(BaseModel):
     text: str
 
 
-#: memoria acotada del agente: caracteres por nota y notas que se conservan (las últimas)
-NOTA_MAX_CARACTERES = 500
+#: memoria acotada del agente: caracteres por nota y notas que se conservan (las últimas).
+#: F6 de puerta-de-publicacion: 500 cortaba en silencio notas de decisión reales; una nota más
+#: larga que el tope se RECHAZA con el porqué (no se recorta) y una vieja se corrige o se borra.
+NOTA_MAX_CARACTERES = 2000
 NOTAS_MAX = 30
+
+
+def _texto_de_nota(texto: str) -> str:
+    """El texto de una nota sin espacios a los lados, o 400 si está vacía o pasa el tope."""
+    limpio = (texto or "").strip()
+    if not limpio:
+        raise HTTPException(400, "La nota está vacía: escribe la decisión o el dato que quieres "
+                                 "recordar (para quitar una nota, bórrala por su número).")
+    if len(limpio) > NOTA_MAX_CARACTERES:
+        raise HTTPException(400, f"La nota tiene {len(limpio)} caracteres y el tope es "
+                                 f"{NOTA_MAX_CARACTERES}: resúmela (decisión + porqué) o pártela "
+                                 "en dos notas.")
+    return limpio
+
+
+def _indice_de_nota(nota: int) -> int:
+    """El índice en `agent_notes` de la nota número `nota` (1 = la primera), o 404 que guía."""
+    n = len(S.doc.agent_notes)
+    if not 1 <= nota <= n:
+        rango = f"de la 1 a la {n}" if n else "ninguna todavía"
+        raise HTTPException(404, f"No existe la nota {nota}: el proyecto tiene {n} nota(s) "
+                                 f"({rango}). Léelas con get_agent_notes: el número es su "
+                                 "posición en la lista.")
+    return nota - 1
 
 
 @router.get("/api/agent/notes")
@@ -210,14 +236,36 @@ def get_agent_notes() -> dict:
         return {"notes": list(S.doc.agent_notes)}
 
 
-# D18 del plan chat-cliente-igual: la nota se recorta (sin espacios a los lados, ≤ 500
-# caracteres) como lo hacía el chat de la app → el MCP y el chat guardan la misma nota.
+# D18 del plan chat-cliente-igual: el MCP y el chat guardan la misma nota (sin espacios a los
+# lados); el tope de largo es de F6 (`_texto_de_nota`).
 @router.post("/api/agent/notes")
 def add_agent_note(body: AgentNoteIn) -> dict:
     with STATE_LOCK:
         _verificar_documento()
-        S.doc.agent_notes.append(body.text.strip()[:NOTA_MAX_CARACTERES])
+        S.doc.agent_notes.append(_texto_de_nota(body.text))
         del S.doc.agent_notes[:-NOTAS_MAX]  # tope 30 (memoria acotada del agente)
+        _autosave()
+        return {"notes": list(S.doc.agent_notes)}
+
+
+@router.put("/api/agent/notes/{nota}")
+def replace_agent_note(nota: int, body: AgentNoteIn) -> dict:
+    """Reemplaza la nota número `nota` (1 = la primera de GET): metadato del manifest, fuera
+    del log (no entra a la pila de deshacer)."""
+    with STATE_LOCK:
+        _verificar_documento()
+        i = _indice_de_nota(nota)
+        S.doc.agent_notes[i] = _texto_de_nota(body.text)
+        _autosave()
+        return {"notes": list(S.doc.agent_notes)}
+
+
+@router.delete("/api/agent/notes/{nota}")
+def delete_agent_note(nota: int) -> dict:
+    """Borra la nota número `nota` (las siguientes bajan un número)."""
+    with STATE_LOCK:
+        _verificar_documento()
+        del S.doc.agent_notes[_indice_de_nota(nota)]
         _autosave()
         return {"notes": list(S.doc.agent_notes)}
 

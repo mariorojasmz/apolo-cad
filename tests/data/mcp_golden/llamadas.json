@@ -5062,6 +5062,71 @@
   ]
  },
  {
+  "caso": "corregir nota",
+  "tool": "edit_agent_note",
+  "args": {
+   "nota": 1,
+   "text": "nota corregida"
+  },
+  "salida": [
+   {
+    "texto": "{\"notes\": [\"nota corregida\"]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/agent/notes/1",
+    "query": [],
+    "cuerpo": {
+     "text": "nota corregida"
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "borrar nota",
+  "tool": "edit_agent_note",
+  "args": {
+   "nota": 1,
+   "borrar": true
+  },
+  "salida": [
+   {
+    "texto": "{\"notes\": [\"nota corregida\"]}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "DELETE",
+    "url": "http://127.0.0.1:8000/api/agent/notes/1",
+    "query": [],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "revisiones",
   "tool": "list_revisions",
   "args": {},

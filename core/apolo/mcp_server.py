@@ -21,7 +21,7 @@ from mcp.server.fastmcp import Image
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
 from apolo.tools import calidad, cirugia, cosim, destino, entregable, estructura, fastmcp_limpio
-from apolo.tools import mcp_electrico, simulacion
+from apolo.tools import mcp_electrico, notas, simulacion
 from apolo.tools.recibo import job_receipt as _job_receipt, job_result as _job_result
 
 APOLO_URL = os.environ.get("APOLO_URL", "http://127.0.0.1:8000")
@@ -895,18 +895,6 @@ def set_stackup(name: str, eslabones: list, requisito: dict | None = None) -> st
 
 
 @mcp.tool()
-def get_agent_notes() -> str:
-    """Lee la memoria de sesión del agente (notas del proyecto)."""
-    return json.dumps(_api("GET", "/api/agent/notes").json(), ensure_ascii=False)
-
-
-@mcp.tool()
-def add_agent_note(text: str) -> str:
-    """Añade una nota a la memoria de sesión del agente (tope 30, persiste en el proyecto)."""
-    return json.dumps(_api("POST", "/api/agent/notes", json={"text": text}).json(), ensure_ascii=False)
-
-
-@mcp.tool()
 def list_revisions() -> str:
     """Lista las revisiones (instantáneas restaurables) del proyecto abierto."""
     return json.dumps(_api("GET", "/api/revisions").json(), ensure_ascii=False)
@@ -1367,6 +1355,7 @@ cosim.registrar(mcp, lambda *a, **k: _api(*a, **k), lambda *a, **k: _submit_and_
 estructura.registrar(mcp, lambda *a, **k: _api(*a, **k))  # declare_structure (uniones-en-lote D3)
 cirugia.registrar(mcp, lambda *a, **k: _mutacion(*a, **k))  # remove_commands (cirugia-liviana)
 calidad.registrar(mcp, lambda *a, **k: _submit_and_wait(*a, **k))  # puerta de publicación (F1)
+notas.registrar(mcp, lambda *a, **k: _api(*a, **k))  # memoria del agente (F6 de la puerta)
 
 
 def main() -> None:

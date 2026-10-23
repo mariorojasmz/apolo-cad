@@ -2215,58 +2215,6 @@
   }
  },
  {
-  "name": "get_agent_notes",
-  "description": "Lee la memoria de sesión del agente (notas del proyecto).",
-  "inputSchema": {
-   "properties": {},
-   "title": "get_agent_notesArguments",
-   "type": "object"
-  },
-  "outputSchema": {
-   "properties": {
-    "result": {
-     "title": "Result",
-     "type": "string"
-    }
-   },
-   "required": [
-    "result"
-   ],
-   "title": "get_agent_notesOutput",
-   "type": "object"
-  }
- },
- {
-  "name": "add_agent_note",
-  "description": "Añade una nota a la memoria de sesión del agente (tope 30, persiste en el proyecto).",
-  "inputSchema": {
-   "properties": {
-    "text": {
-     "title": "Text",
-     "type": "string"
-    }
-   },
-   "required": [
-    "text"
-   ],
-   "title": "add_agent_noteArguments",
-   "type": "object"
-  },
-  "outputSchema": {
-   "properties": {
-    "result": {
-     "title": "Result",
-     "type": "string"
-    }
-   },
-   "required": [
-    "result"
-   ],
-   "title": "add_agent_noteOutput",
-   "type": "object"
-  }
- },
- {
   "name": "list_revisions",
   "description": "Lista las revisiones (instantáneas restaurables) del proyecto abierto.",
   "inputSchema": {
@@ -4117,6 +4065,98 @@
     "result"
    ],
    "title": "publication_gateOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "get_agent_notes",
+  "description": "Lee la memoria de sesión del agente (notas del proyecto; la n.º k es notes[k-1]).",
+  "inputSchema": {
+   "properties": {},
+   "title": "get_agent_notesArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "get_agent_notesOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "add_agent_note",
+  "description": "Añade una nota a la memoria de sesión del agente (tope 30, ≤ 2000 caracteres; persiste\nen el proyecto).",
+  "inputSchema": {
+   "properties": {
+    "text": {
+     "title": "Text",
+     "type": "string"
+    }
+   },
+   "required": [
+    "text"
+   ],
+   "title": "add_agent_noteArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "add_agent_noteOutput",
+   "type": "object"
+  }
+ },
+ {
+  "name": "edit_agent_note",
+  "description": "Corrige o borra la nota número `nota` de la memoria del agente (1 = la primera de\nget_agent_notes; léelas antes: al borrar, las siguientes bajan un número). Con `text`\nla reemplaza (hasta 2000 caracteres); con `borrar=true` la quita, p. ej. una nota\nobsoleta que nombra piezas que ya no existen. Devuelve las notas que quedan.",
+  "inputSchema": {
+   "properties": {
+    "nota": {
+     "title": "Nota",
+     "type": "integer"
+    },
+    "text": {
+     "default": "",
+     "title": "Text",
+     "type": "string"
+    },
+    "borrar": {
+     "default": false,
+     "title": "Borrar",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "nota"
+   ],
+   "title": "edit_agent_noteArguments",
+   "type": "object"
+  },
+  "outputSchema": {
+   "properties": {
+    "result": {
+     "title": "Result",
+     "type": "string"
+    }
+   },
+   "required": [
+    "result"
+   ],
+   "title": "edit_agent_noteOutput",
    "type": "object"
   }
  }

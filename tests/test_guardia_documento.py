@@ -5,7 +5,8 @@ ESE documento: con otro activo, 409 sin aplicar nada —ni comando, ni autoguard
 por WebSocket—. La comparación ocurre DENTRO del `STATE_LOCK` de la mutación, así que un
 cambio de proyecto entre que la petición llega y que toma el lock tampoco la deja pasar. Sin
 cabecera todo queda como estaba. D18: `/api/sketch/solve` resuelve `'=expresión'` y
-`POST /api/agent/notes` recorta como lo hacía el chat de la app.
+`POST /api/agent/notes` guarda la nota sin espacios a los lados, como el chat de la app (el tope
+de largo y corregir o borrar una nota son de F6 de puerta-de-publicacion).
 """
 
 from __future__ import annotations
@@ -45,6 +46,7 @@ def _modelo() -> Document:
     d.save_configuration("v1", ["L"])
     d.set_motion("existente", [{"t": 0, "values": {"puerta": 0}}, {"t": 1, "values": {"puerta": 10}}])
     d.set_stackup("holgura", [{"nombre": "a", "nominal_mm": 10, "sentido": 1, "tol": {"pm": 0.1}}])
+    d.agent_notes = ["nota vieja", "otra nota"]
     return d
 
 
@@ -88,6 +90,8 @@ RUTAS = {
     "import_step": ("POST", "/api/import", {"files": "STEP"}),
     # fuera de `_state_or_error`: cada una llama a la guardia a mano
     "add_agent_note": ("POST", "/api/agent/notes", {"json": {"text": "nota"}}),
+    "edit_agent_note": ("PUT", "/api/agent/notes/1", {"json": {"text": "nota corregida"}}),
+    "edit_agent_note_borrar": ("DELETE", "/api/agent/notes/2", {}),
     "set_motion": ("PUT", "/api/motion", {"json": {"name": "abrir", "keyframes": [
         {"t": 0, "values": {"puerta": 0}}, {"t": 1, "values": {"puerta": 30}}]}}),
     "delete_motion": ("DELETE", "/api/motion", {"json": {"name": "existente"}}),
@@ -400,11 +404,32 @@ def test_el_croquis_resuelve_expresiones_con_las_variables_del_proyecto(monkeypa
     assert doc.commands and len(doc.commands) == 2  # probar el croquis no toca el proyecto
 
 
-def test_la_nota_se_recorta_como_en_el_chat(monkeypatch):
+def test_la_nota_larga_se_rechaza_con_el_porque_y_el_tope_es_de_30(monkeypatch):
+    """F6 de puerta-de-publicacion: una nota de decisión de 600 caracteres ya no se corta a 500;
+    hasta 2000 entra entera (sin espacios a los lados) y una más larga se RECHAZA."""
     doc, _ = _preparar(monkeypatch)
+    doc.agent_notes = []
     cliente = TestClient(api.app)
     notas = cliente.post("/api/agent/notes", json={"text": "  " + "x" * 600 + " \n"}).json()["notes"]
-    assert notas == ["x" * 500]
+    assert notas == ["x" * 600]
+    largo = cliente.post("/api/agent/notes", json={"text": "y" * 2001})
+    assert largo.status_code == 400 and "2001 caracteres y el tope es 2000" in largo.json()["detail"]
+    assert cliente.post("/api/agent/notes", json={"text": "   "}).status_code == 400
     for i in range(35):
         cliente.post("/api/agent/notes", json={"text": f" nota {i} "})
     assert doc.agent_notes == [f"nota {i}" for i in range(5, 35)]  # tope de 30, las últimas
+
+
+def test_una_nota_se_corrige_o_se_borra_por_su_numero(monkeypatch):
+    doc, espias = _preparar(monkeypatch)
+    cliente = TestClient(api.app)
+    r = cliente.put("/api/agent/notes/1", json={"text": "  la guarda va con 4 pernos M8  "})
+    assert r.json()["notes"] == ["la guarda va con 4 pernos M8", "otra nota"]
+    assert cliente.delete("/api/agent/notes/2").json()["notes"] == ["la guarda va con 4 pernos M8"]
+    assert doc.agent_notes == ["la guarda va con 4 pernos M8"] and len(espias["autoguardado"]) == 2
+    falta = cliente.delete("/api/agent/notes/5")
+    assert falta.status_code == 404 and "tiene 1 nota(s) (de la 1 a la 1)" in falta.json()["detail"]
+    assert cliente.put("/api/agent/notes/1", json={"text": "z" * 2500}).status_code == 400
+    assert doc.agent_notes == ["la guarda va con 4 pernos M8"]  # un rechazo no toca nada
+    # metadato del manifest: viaja en el .apolo y no entra a la pila de deshacer
+    assert Document.from_apolo_bytes(doc.to_apolo_bytes()).agent_notes == doc.agent_notes

@@ -45,6 +45,7 @@ PARES_EN_ORDEN = [
 #: Paths con varios métodos, en el orden en que se declaran (el primero da el `Allow`).
 METODOS_EN_ORDEN = {
     "/api/agent/notes": ["GET", "POST"],
+    "/api/agent/notes/{nota}": ["PUT", "DELETE"],  # corregir o borrar una nota (F6 de la puerta)
     "/api/commands": ["POST", "GET"],
     "/api/commands/batch": ["POST", "PATCH"],
     "/api/configurations/{name}": ["PUT", "DELETE"],
