@@ -142,9 +142,19 @@ const _pb = new THREE.Vector3();
 const _qa = new THREE.Quaternion();
 const _qb = new THREE.Quaternion();
 const _uno = new THREE.Vector3(1, 1, 1);
+const _qd = new THREE.Quaternion();
+const _qf = new THREE.Quaternion();
+const _u = new THREE.Vector3();
+const _t = new THREE.Vector3();
+const _c = new THREE.Vector3();
+const _v = new THREE.Vector3();
 
 /** Pose en la muestra `k` de un arreglo aplanado (7 por muestra), interpolada hacia `k + 1` con
- *  la fracción `f` (lerp de la posición, slerp de la rotación). */
+ *  la fracción `f` como movimiento RÍGIDO (por tornillo): gira `f·θ` alrededor del eje real del
+ *  tramo y avanza `f` de lo que corre a lo largo de él. Un lerp de la posición con slerp de la
+ *  rotación NO es rígido: un cuerpo que gira sobre un eje lejos del origen (las poses son
+ *  T = P(t)·P(0)⁻¹, con la traslación c − R·c) se salía de su eje a mitad de cada muestra
+ *  (el eje motriz de la faja, a x ≈ 3,8 m, ~15 mm por fotograma en la sesión viva). */
 export function poseEn(poses: number[], k: number, f: number, out: THREE.Matrix4): THREE.Matrix4 {
   const a = k * 7;
   _pa.set(poses[a], poses[a + 1], poses[a + 2]);
@@ -153,10 +163,35 @@ export function poseEn(poses: number[], k: number, f: number, out: THREE.Matrix4
   if (f > 0 && b + 6 < poses.length && !Number.isNaN(poses[b])) {
     _pb.set(poses[b], poses[b + 1], poses[b + 2]);
     _qb.set(poses[b + 3], poses[b + 4], poses[b + 5], poses[b + 6]);
-    _pa.lerp(_pb, f);
-    _qa.slerp(_qb, f);
+    interpolarRigido(f);
   }
   return out.compose(_pa, _qa, _uno);
+}
+
+/** Deja en `_pa`/`_qa` la pose rígida a la fracción `f` entre A (`_pa`, `_qa`) y B (`_pb`, `_qb`).
+ *  W = B·A⁻¹ (en el mundo) es un tornillo: rotación θ sobre el eje `u` que pasa por `c` más un
+ *  avance a lo largo de `u`; W(f) gira f·θ sobre ese mismo eje y avanza f. Pose = W(f)·A. */
+function interpolarRigido(f: number): void {
+  _qd.copy(_qb).multiply(_qf.copy(_qa).invert());
+  if (_qd.w < 0) _qd.set(-_qd.x, -_qd.y, -_qd.z, -_qd.w); // el camino corto (θ ≤ 180°)
+  _t.copy(_pa).applyQuaternion(_qd).negate().add(_pb); // traslación de W
+  const s = Math.hypot(_qd.x, _qd.y, _qd.z);
+  const theta = 2 * Math.atan2(s, _qd.w);
+  if (theta < 1e-9) {
+    _pa.lerp(_pb, f);
+    _qa.slerp(_qb, f);
+    return;
+  }
+  _u.set(_qd.x / s, _qd.y / s, _qd.z / s);
+  const avance = _t.dot(_u);
+  _t.addScaledVector(_u, -avance); // la parte perpendicular al eje
+  // Punto del eje (⟂ u): c = ½·(t⊥ + cot(θ/2)·(u × t⊥)).
+  _c.crossVectors(_u, _t).multiplyScalar(1 / Math.tan(theta / 2)).add(_t).multiplyScalar(0.5);
+  _qf.setFromAxisAngle(_u, f * theta);
+  // p(f) = R(fθ)·(pA − c) + c + f·avance·u
+  _v.copy(_pa).sub(_c).applyQuaternion(_qf).add(_c).addScaledVector(_u, f * avance);
+  _pa.copy(_v);
+  _qa.premultiply(_qf);
 }
 
 /** Pose de un producto en el tramo (i, f); `false` si todavía no nació o ya se retiró (en la

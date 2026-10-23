@@ -52,6 +52,8 @@
 .barra-vivo .bv-vieja { color: var(--warn); }
 .barra-vivo .bv-espacio { flex: 1; min-width: 4px; }
 .barra-vivo button { gap: 4px; }
+.barra-vivo .bv-paneles { display: inline-flex; gap: 2px; }
+.barra-vivo .bv-paneles button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
 
 /* ── etiquetas sobre el 3D (CSS2DRenderer) ────────────────────────────────────────────── */
 .etiquetas-vivas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; }

@@ -232,6 +232,10 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   de los efectos de mallas y pose. La gravedad y el drop-test mueven las mismas mallas: cargar
   uno quita la marcha, y «Ver la marcha» limpia los dos.
   [visor-realista](../docs/plans/visor-realista.md) (F2)
+- Una pose de la serie se interpola entre muestras como movimiento RÍGIDO (por tornillo,
+  `serie.ts::poseEn`), nunca lerp de la posición + slerp de la rotación: con T = P(t)·P(0)⁻¹, un
+  cuerpo que gira sobre un eje lejos del origen se sale de su eje a mitad de cada muestra.
+  [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) § F5
 - En marcha, `marcha/transmision.ts` oculta la banda y la cadena del CAD y pone en `ctx.group` (con
   `raycast` no-op) la cinta con su ruta real (`faja.ts`: UV en mm, corre la TEXTURA) y los eslabones
   instanciados (`cadena.ts`). Cada pieza trae su propio material: las cadenas comparten instancias

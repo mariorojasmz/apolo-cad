@@ -37,14 +37,54 @@ describe("tramo", () => {
 describe("poseEn", () => {
   const poses = [...pq(0, 0, 0), ...pq(100, 0, 0, Math.PI / 2)];
 
-  it("interpola la posición en línea y la rotación por slerp", () => {
+  it("la rotación a mitad de tramo es la mitad del giro", () => {
     const m = poseEn(poses, 0, 0.5, new THREE.Matrix4());
-    const p = new THREE.Vector3();
     const q = new THREE.Quaternion();
-    m.decompose(p, q, new THREE.Vector3());
-    expect(p.x).toBeCloseTo(50);
+    m.decompose(new THREE.Vector3(), q, new THREE.Vector3());
     const esperado = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 4);
     expect(q.angleTo(esperado)).toBeLessThan(1e-6);
+  });
+
+  it("una traslación pura se interpola en línea", () => {
+    const m = poseEn([...pq(0, 0, 0), ...pq(100, 40, -20)], 0, 0.25, new THREE.Matrix4());
+    const p = new THREE.Vector3().setFromMatrixPosition(m);
+    expect(p.x).toBeCloseTo(25);
+    expect(p.y).toBeCloseTo(10);
+    expect(p.z).toBeCloseTo(-5);
+  });
+
+  it("un cuerpo que gira sobre un eje lejos del origen no se sale de su eje", () => {
+    // T = P(t)·P(0)⁻¹ de un eje Y que pasa por (3806, ·, 791): traslación c − R·c.
+    const c = new THREE.Vector3(3806, 0, 791);
+    const eje = new THREE.Vector3(0, 1, 0);
+    const pose = (ang: number) => {
+      const q = new THREE.Quaternion().setFromAxisAngle(eje, ang);
+      const p = c.clone().sub(c.clone().applyQuaternion(q));
+      return [p.x, p.y, p.z, q.x, q.y, q.z, q.w];
+    };
+    const serie = [...pose(0.2), ...pose(0.2 + 0.35)];
+    for (const f of [0.1, 0.5, 0.9]) {
+      const m = poseEn(serie, 0, f, new THREE.Matrix4());
+      for (const y of [-469, 0, 595]) {
+        const punto = new THREE.Vector3(c.x, y, c.z);
+        expect(punto.clone().applyMatrix4(m).distanceTo(punto)).toBeLessThan(1e-6);
+      }
+      const q = new THREE.Quaternion();
+      m.decompose(new THREE.Vector3(), q, new THREE.Vector3());
+      expect(q.angleTo(new THREE.Quaternion().setFromAxisAngle(eje, 0.2 + 0.35 * f))).toBeLessThan(1e-6);
+    }
+  });
+
+  it("un tornillo (giro + avance por el eje) avanza en proporción", () => {
+    const c = new THREE.Vector3(500, -200, 0);
+    const eje = new THREE.Vector3(0, 0, 1);
+    const q = new THREE.Quaternion().setFromAxisAngle(eje, 1);
+    const p = c.clone().sub(c.clone().applyQuaternion(q)).add(new THREE.Vector3(0, 0, 80));
+    const m = poseEn([...pq(0, 0, 0), p.x, p.y, p.z, q.x, q.y, q.z, q.w], 0, 0.5, new THREE.Matrix4());
+    const punto = new THREE.Vector3(c.x, c.y, 10).applyMatrix4(m);
+    expect(punto.x).toBeCloseTo(c.x);
+    expect(punto.y).toBeCloseTo(c.y);
+    expect(punto.z).toBeCloseTo(50);
   });
 
   it("en la última muestra no lee más allá", () => {
