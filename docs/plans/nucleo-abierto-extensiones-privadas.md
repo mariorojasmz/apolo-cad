@@ -1232,3 +1232,22 @@ arrancar 1 --puerto-base 8108`):
 6. **Publicación de prueba de punta a punta** en la copia de uso, sin subir, como pide F4:
    `guion` → `ficha --revisar` → `generar`. `fabrica --borrador` SÍ sube (importa sin publicar),
    así que no sirve para esta prueba.
+
+### F5, cierre (2026-10-23): CLA Assistant Lite en vez de la app
+
+- **Por qué cambió:** la app de cla-assistant.io pide permisos sobre TODA la cuenta de Mario
+  (gists, webhooks de todos sus repos, correos) y, al instalarla, su servidor respondía 503. Con el
+  check obligatorio en `main`, un servicio externo caído bloquea todos los PR de terceros.
+- **Qué hay:** `.github/workflows/cla.yml` con `contributor-assistant/github-action` v2.6.1
+  fijada por SHA, con el `GITHUB_TOKEN`. Las firmas van a `firmas/cla.json` en la rama huérfana
+  `cla-firmas`, nunca a `main`. Usa `pull_request_target` sin checkout del PR. La frase de firma
+  es la de la Action, en inglés (el texto que vale del CLA es el inglés). Excepciones: Mario y los
+  bots.
+- **Regla de `main`** (25733518): el check obligatorio `license/cla` pasa a `CLA`; el bypass del
+  admin no cambió.
+- **Prueba** (PR #2, cerrado sin mergear): sin Mario en las excepciones, el check quedó en rojo,
+  el bot pidió la firma y el PR quedó `BLOCKED`. Con Mario agregado y un commit nuevo al PR, el
+  check pasó a verde. Ojo: un re-run (`recheck`) usa el workflow del evento ORIGINAL; un cambio
+  al workflow sólo rige desde el siguiente evento. Falta probar una firma real de una cuenta
+  ajena: llega con el primer contribuyente.
+- **CONTRIBUTING** dice ahora cómo se firma (la frase, y `recheck`).
