@@ -53,11 +53,14 @@ SUPERFICIE: dict[str, str] = {
     "Document": "apolo.doc.document:Document",
 }
 
-#: módulo → nombres que una extensión de dominio usa de él (medido sobre `publicacion/` en la F0;
-#: `paths.publicaciones_dir`/`fabrica_dir` se mudan con la fábrica, F4a).
+#: módulo → nombres que una extensión de dominio usa de él (medido sobre `publicacion/` en la F0 y
+#: re-medido al mudarla en la F4a: `paths.publicaciones_dir`/`fabrica_dir` se fueron con ella, que
+#: los arma con `data_dir`/`home`/`repo_root`; `entregables` se quedó en el núcleo).
 MODULOS: dict[str, tuple[str, ...]] = {
     "apolo": ("__version__",),
-    "apolo.paths": ("home", "logs_dir", "repo_root"),
+    "apolo.entregables": ("COMPLETO", "EnFondo", "GRATIS", "NIVELES", "NUNCA_PUBLICAR",
+                          "Recolector", "TIMEOUT", "lista", "omitidos"),
+    "apolo.paths": ("data_dir", "home", "logs_dir", "repo_root"),
     "apolo.pruebas": ("api_falsa", "extensiones_aisladas"),
     "apolo.doc.document": ("Document",),
     "apolo.doc.prefijos": ("iter_prefijos",),

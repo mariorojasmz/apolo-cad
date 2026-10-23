@@ -1108,3 +1108,127 @@ arrancar 1 --puerto-base 8108`):
   `tests/test_extensiones_api.py` (uno por nombre de `SUPERFICIE` y por módulo de `MODULOS`), 11 en
   `tests/test_extensiones_coherencia.py` y 1 en `tests/test_contrato_comandos.py` (`problemas_de_campos`).
 - `ruff check core tests scripts` limpio. `mcp_server.py`, `document.py` y `registry.py` no se tocaron.
+
+### F4a (2026-10-23): la fábrica de publicaciones se muda a `apolo-pro` (sólo código)
+
+**Qué se fue del núcleo:**
+
+- `core/apolo/publicacion/` (25 módulos; `entregables.py` se quedó) y `scripts/publicar.py`.
+- `paths.publicaciones_dir` y `paths.fabrica_dir`: sólo los usaba la fábrica.
+- Los 15 tests puros de la fábrica y `tests/test_capas_publicacion.py`.
+- La parte de fábrica de los 8 mixtos:
+  - de `test_puerta_publicacion` y `test_puerta_f3`: `calidad.md`, la fábrica que para en
+    «calidad», `generar` que se niega y la tabla de riesgos en `calidad.json`;
+  - de `test_video_navegador`: el lado del CLI (`navegador.renderizar` y la caída a VTK);
+  - de `test_seta_render`: los 3 tests del GLB que arma `vista3d`;
+  - uno de `test_montaje` (`_Tandas`), uno de `test_media_cierre` (el cierre de VTK) y los dos de
+    `publicaciones_dir` de `test_paths`.
+- `test_fabrica_marcha` se partió en `tests/test_marcha_ejemplo.py`, que se queda con la marcha
+  automática de `services/marcha_ejemplo.py` y su prueba con MuJoCo.
+- `_publicacion_aislada` de `tests/conftest.py` pasó a `_tienda_por_defecto`: sólo quita
+  `APOLO_TIENDA_URL`, porque `media/cierre.py` la sigue leyendo.
+
+**Qué se quedó y por qué (decidido por el agente, vetable):**
+
+- **`entregables.py` → `core/apolo/entregables.py`.** Es la lista de entregables (planos, BOM,
+  memoria, manual, STEP, renders) y el cliente que los pide. Por la doctrina de resultados, ese
+  paquete es el producto del núcleo; el benchmark público lo usa. La fábrica lo importa.
+  - Va en la raíz de `apolo/`, no en `services/` ni `drawing/`: es httpx puro y el benchmark lo
+    importa sin cargar el CAD. Los `__init__` de `drawing` cargan OCCT, y `services` es dominio
+    que LEE un `Document`.
+  - `tests/test_benchmark_entregables.py` suma el test de importación liviana que antes hacía
+    `test_capas_publicacion`.
+  - Los niveles `gratis` y `completo` siguen en la lista: son destinos de la misma lista, no
+    operación de la tienda.
+- **`design/revision.py` no cambia**, salvo un comentario. Sus constantes de `revision.json` arman
+  el prompt público del revisor de taller. La copia de `revision_check.py` y el test que exige que
+  coincidan se fueron con la fábrica.
+- **`extensiones_api.MODULOS`** (F1c) suma `apolo.entregables` y `paths.data_dir`, que es como
+  `lugares.publicaciones_dir` arma la ruta. Del lado privado, un test exige que todo lo que la
+  fábrica usa del núcleo esté declarado ahí.
+- **Docs y comentarios que nombraban `publicacion/`** ahora dicen «la fábrica de publicaciones,
+  fuera del núcleo», sin nombrar el repo privado:
+  - `services/CLAUDE.md` y `ui/CLAUDE.md`;
+  - `glb.py`, `cierre.py`, `construccion.py` y `guion_video.py` (sin cambio de geometría);
+  - el comentario de ffmpeg de `ci.yml` no la nombraba y sigue valiendo (los tests de `media/`
+    lo usan): no se tocó.
+
+**En `apolo-pro`** (rama `main`, sin push):
+
+- `apolo_pro/publicacion/`:
+  - los 25 módulos, con los imports `apolo.publicacion` → `apolo_pro.publicacion` y `apolo.entregables`;
+  - `lugares.py`, con `publicaciones_dir()` y `fabrica_dir()`, que resuelven igual que antes sobre
+    `apolo.paths` del núcleo (la copia de uso encuentra `data/publicaciones` y `apolo-fabrica`);
+  - el CLI en `cli.py` + `cli_parser.py`.
+- **Comandos nuevos**: el console script `apolo-publicar <guion|generar|ficha|subir|fabrica|aprobar|youtube>`
+  y `python -m apolo_pro.publicacion.cli`. Además, `scripts\publicar.py` de compatibilidad, para
+  quien lo llama por ruta.
+- **`tarea_cola`**: arma el comando de la tarea con el `pythonw.exe` del `.venv` del checkout del
+  NÚCLEO y `scripts\publicar.py` del checkout de `apolo-pro` (`script_de_la_tarea`). Si se instala
+  sin checkout, usa `-m apolo_pro.publicacion.cli`.
+- **Tests**: los 15 puros, la parte de fábrica de los mixtos (`test_puerta_en_paquete`,
+  `test_video_navegador`, `test_vista3d_zonas`, `test_video_partes`, `test_fabrica_marcha`,
+  `test_lugares`) y `test_capas_publicacion` reescrito:
+  - del núcleo, sólo `services`, `doc`, `kernel`, `media`, `paths` y `entregables`;
+  - nada fuera de `publicacion/` la importa;
+  - cada módulo se importa liviano;
+  - todo uso del núcleo está declarado en `extensiones_api`.
+- **`tests/conftest.py`**:
+  - suma `_publicacion_aislada`: música, candado, permiso de YouTube, llave y URL de la tienda;
+    ningún test usa red ni llaves reales;
+  - fija `APOLO_EXTENSIONES=0` en el proceso, porque importar `apolo.api.main` cargaba `pro` para
+    toda la sesión y `con_pro` ya no la podía cargar desde cero.
+- **De la F1c**: `test_punta_a_punta` le da al MCP por stdio una `api_falsa` que reporta `pro`
+  cargada, y `test_contrato` usa `extensiones_api`.
+- **El CI privado** instala `apolo-cad[dev,physics]`, Xvfb y ffmpeg, y corre bajo `xvfb-run`.
+  - Contra `main` del núcleo falla hasta que esta fase se mergee y se pushee: la fábrica importa
+    `apolo.entregables`.
+
+**Verificación:**
+
+- **Núcleo** (worktree, `.venv` del árbol principal con `PYTHONPATH=core`, rebasado sobre
+  `dc887fc`, F1c):
+  - suite 5018 → 4782: pasan 4777 y se saltan 5. El sexto salto de antes (gltfpack) se fue con la
+    fábrica.
+  - Neto −236: se fueron 238 tests y entraron 2 (el de `entregables` liviano y el del módulo
+    nuevo de `MODULOS`).
+  - `ruff check core tests scripts` limpio.
+  - Ningún `apolo.publicacion`, `publicaciones_dir`, `fabrica_dir` ni `publicar.py` en `core/`,
+    `scripts/`, `tests/` ni `ui/`.
+- **Privado** (`C:\t\venv-f4`: el núcleo editable de este worktree y `apolo-pro` editable):
+  - 21 → 265 tests: pasan 264 y se salta 1 (gltfpack). Ruff limpio.
+  - Llegaron los 238 del núcleo y hay 6 nuevos: 3 de `lugares` y de la tarea, 1 del uso declarado
+    y 2 que parten asserts de tests que se quedaron (la firma del `.apolo` y la ficha de una pieza
+    estática).
+  - `apolo-publicar --help` lista los 7 subcomandos.
+- **Corrida en seco**:
+  - API de `venv-f4` en :8121 sobre una copia (`sqlite3.backup`) de la base de la copia de uso, en
+    `C:\t\f4\seco`, con `pro` cargada; las publicaciones, desviadas a `C:\t\f4\seco\publicaciones`.
+  - `guion --project 4` escribió `guion.json` y `ficha.yaml`: 330 comandos, 46 pasos, puerta
+    VERDE y aviso de DWG sin ODA.
+  - `ficha --revisar` salió con 2: la descripción está vacía en el borrador, como debe.
+  - No se subió nada, ni a la tienda ni a YouTube, y la API se paró.
+
+**F4b** (operación con Mario; no se tocó nada de esto):
+
+1. **Mergear y pushear** esta fase al núcleo. El CI de `apolo-pro` contra `main` la necesita.
+2. **En el `.venv` de `apolo-cad`** (la copia de uso), tras `git pull` del núcleo:
+   `& C:\Users\Mario\source\repos\apolo-cad\.venv\Scripts\python.exe -m pip install --no-deps -e C:\Users\Mario\source\repos\apolo-pro`.
+   Lo mismo en el `.venv` de `apolo-cad-dev`, si la fábrica corre también ahí.
+3. **Reinstalar la tarea** «Apolo - cola de YouTube», porque hoy apunta a
+   `apolo-cad\scripts\publicar.py`, que deja de existir con el pull:
+   `& C:\Users\Mario\source\repos\apolo-cad\.venv\Scripts\python.exe -B C:\Users\Mario\source\repos\apolo-pro\scripts\publicar.py youtube --cola --instalar-tarea`
+   (con `--hora` y `--tienda`/`--limite`/`--publico` si la vieja los tenía). Después,
+   `schtasks /Query /TN "Apolo - cola de YouTube" /V /FO LIST` debe mostrar `apolo-pro\scripts\publicar.py`.
+   - Ojo con el tope de 261 caracteres del `/TR`.
+   - Hacer el pull y la reinstalación seguidos, fuera de las 02:30.
+4. **`apolo-cad\logs\fabrica.ps1`**: cambiar `scripts\publicar.py fabrica …` por
+   `C:\Users\Mario\source\repos\apolo-pro\scripts\publicar.py fabrica …`, o por
+   `.venv\Scripts\apolo-publicar.exe fabrica …`, con el mismo python del `.venv`.
+5. **Briefs de `apolo-fabrica`**, anotado en `COORDINACION.md`:
+   - `briefs\modelador.md:99,144`: `{repo}\scripts\publicar.py guion|ficha` pasa a `apolo-publicar guion|ficha`
+     (o la ruta de `apolo-pro`);
+   - `briefs\orquestacion.md:87,101,119-121`: `fabrica`, `aprobar` y `youtube --cola`, igual.
+6. **Publicación de prueba de punta a punta** en la copia de uso, sin subir, como pide F4:
+   `guion` → `ficha --revisar` → `generar`. `fabrica --borrador` SÍ sube (importa sin publicar),
+   así que no sirve para esta prueba.
