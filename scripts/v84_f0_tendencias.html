@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tendencias F0</title>
+<style>
+  :root { --fondo: #ffffff; --texto: #1f2328; --rejilla: #e6e8eb; }
+  body { margin: 0; padding: 16px; background: var(--fondo); color: var(--texto); font: 13px system-ui, sans-serif; }
+  #caja { width: 100%; max-width: 960px; height: 260px; border: 1px solid var(--rejilla); }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1 style="font-size:16px">Tendencias F0 (V8.4): 4 señales a 50 Hz, ventana de 30 s, 30 fps</h1>
+<div id="caja"></div>
+<pre id="out">midiendo 12 s…</pre>
+<script>
+/* Panel de tendencias de prueba: anillo Float32 por señal, una escala por señal, dibujo 2D a
+   30 fps con rAF y medición del tiempo de dibujo por cuadro con performance.now(). */
+window.iniciarTendencias = function (caja, opts) {
+  const o = Object.assign({ n: 4, hz: 50, ventana_s: 30, fps: 30, medir_s: 12 }, opts || {});
+  const cap = Math.ceil(o.hz * o.ventana_s) + 2;
+  const colores = ["#2a6fdb", "#e0732b", "#2e9e62", "#a14ad1", "#c23b5a", "#3aa6b9", "#8a7a1f", "#555"];
+  const cv = document.createElement("canvas");
+  cv.style.width = "100%"; cv.style.height = "100%"; cv.style.display = "block";
+  caja.appendChild(cv);
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  function talla() { const r = caja.getBoundingClientRect(); cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr); }
+  talla();
+  const t = new Float64Array(cap), v = []; for (let s = 0; s < o.n; s++) v.push(new Float32Array(cap));
+  let cabeza = 0, cuantos = 0, tv = 0;
+  function empujar() { // una muestra de las n señales (como si llegara del fotograma)
+    tv += 1 / o.hz; t[cabeza] = tv;
+    for (let s = 0; s < o.n; s++) v[s][cabeza] = Math.sin(tv * (0.7 + s * 0.31)) * (10 + s * 40) + Math.random() * (1 + s);
+    cabeza = (cabeza + 1) % cap; cuantos = Math.min(cuantos + 1, cap);
+  }
+  const tiempos = [], intervalos = [];
+  let ultimo = 0, ultimoRaf = 0, iniMuestras = performance.now(), fin = performance.now() + o.medir_s * 1000;
+  function dibujar() {
+    const a = performance.now();
+    const W = cv.width, H = cv.height, pad = 6 * dpr;
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = "#e6e8eb"; ctx.lineWidth = 1;
+    ctx.beginPath(); for (let i = 1; i < 6; i++) { const x = (W * i) / 6; ctx.moveTo(x, 0); ctx.lineTo(x, H); } ctx.stroke();
+    const t1 = tv, t0 = t1 - o.ventana_s, kx = W / o.ventana_s;
+    const ini = (cabeza - cuantos + cap) % cap;
+    ctx.lineWidth = 1.5 * dpr; ctx.lineJoin = "round";
+    for (let s = 0; s < o.n; s++) {
+      const col = v[s]; let mn = Infinity, mx = -Infinity;
+      for (let k = 0; k < cuantos; k++) { const y = col[(ini + k) % cap]; if (y < mn) mn = y; if (y > mx) mx = y; }
+      const ky = (H - 2 * pad) / Math.max(1e-9, mx - mn);
+      ctx.strokeStyle = colores[s % colores.length]; ctx.beginPath();
+      for (let k = 0; k < cuantos; k++) {
+        const j = (ini + k) % cap; const x = (t[j] - t0) * kx, y = H - pad - (col[j] - mn) * ky;
+        if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = colores[s % colores.length]; ctx.font = (11 * dpr) + "px system-ui";
+      ctx.fillText("señal " + (s + 1) + ": " + col[(cabeza - 1 + cap) % cap].toFixed(1), 8 * dpr, (14 + 14 * s) * dpr);
+    }
+    tiempos.push(performance.now() - a);
+  }
+  return new Promise((resolve) => {
+    // llenar la ventana entera antes de medir (el peor caso: 30 s de historia)
+    for (let i = 0; i < cap; i++) empujar();
+    function cuadro(ahora) {
+      if (ultimoRaf) intervalos.push(ahora - ultimoRaf);
+      ultimoRaf = ahora;
+      // las muestras que «llegaron» desde el último cuadro, a 50 Hz
+      const debidas = Math.floor((ahora - iniMuestras) / (1000 / o.hz));
+      for (let i = 0; i < debidas; i++) empujar();
+      iniMuestras += debidas * (1000 / o.hz);
+      if (ahora - ultimo >= 1000 / o.fps - 1) { ultimo = ahora; dibujar(); }
+      if (ahora < fin) requestAnimationFrame(cuadro);
+      else {
+        const q = (arr, p) => { const s = [...arr].sort((x, y) => x - y); return +s[Math.min(s.length - 1, Math.floor(p * s.length))].toFixed(3); };
+        const res = { senales: o.n, hz: o.hz, ventana_s: o.ventana_s, puntos_por_senal: cuantos, canvas_px: [cv.width, cv.height], dpr,
+          cuadros: tiempos.length, dibujo_ms_p50: q(tiempos, 0.5), dibujo_ms_p95: q(tiempos, 0.95), dibujo_ms_max: q(tiempos, 1),
+          raf_ms_p50: q(intervalos, 0.5), raf_ms_p95: q(intervalos, 0.95), raf_ms_max: q(intervalos, 1) };
+        window.__tendencias = res; cv.remove(); resolve(res);
+      }
+    }
+    requestAnimationFrame(cuadro);
+  });
+};
+</script>
+<script>
+(async () => {
+  const caja = document.getElementById("caja");
+  const r4 = await window.iniciarTendencias(caja, { n: 4 });
+  const r8 = await window.iniciarTendencias(caja, { n: 8, ventana_s: 60 });
+  window.__resultados = { r4, r8 };
+  document.getElementById("out").textContent = JSON.stringify(window.__resultados, null, 1);
+})();
+</script>
+</body>
+</html>
