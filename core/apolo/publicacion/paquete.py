@@ -29,6 +29,8 @@ from apolo.publicacion import textos
 from apolo.publicacion.entregables import COMPLETO, GRATIS, NIVELES, NUNCA_PUBLICAR
 
 GUION, FICHA_YAML, FICHA_JSON = "guion.json", "ficha.yaml", "ficha.json"
+#: El registro de la SUBIDA a la tienda (`tienda.subir`): lo que hace «publicada» una versión.
+SUBIDA = "subida.json"
 TEMPORAL = ".generando"
 FORMATO = 1
 VERDE = "VERDE"
@@ -49,8 +51,48 @@ def carpeta_version(raiz, slug: str, version: str) -> Path:
     return Path(raiz) / slug / version
 
 
-def publicada(carpeta: Path) -> bool:
+def generada(carpeta: Path) -> bool:
+    """El paquete está armado (`ficha.json`, lo último que escribe `instalar`)."""
     return (Path(carpeta) / FICHA_JSON).exists()
+
+
+def _json(ruta: Path):
+    try:
+        return json.loads(ruta.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def publicada(carpeta: Path) -> bool:
+    """La versión está PUBLICADA en la tienda (no se pisa: F6 de puerta-de-publicacion). Antes
+    era «tiene `ficha.json`», y una versión generada que nunca subió no se podía rehacer. Hoy:
+
+    - `subida.json` (lo escribe `tienda.subir`) dice si quedó publicada (en borrador, no: se
+      puede regenerar y volver a subir, la tienda la actualiza);
+    - sin él, la fábrica: su paso «tienda» terminado con la máquina publicada;
+    - un paquete generado desde este cambio (`generacion.json` con `registra_subida`) y sin
+      nada de lo anterior NO está publicado;
+    - uno de antes (generado sin ese registro) sigue contando como publicado: no se sabe si
+      subió y pisarlo sería peor."""
+    carpeta = Path(carpeta)
+    subida = _json(carpeta / SUBIDA)
+    if isinstance(subida, dict):
+        return bool(subida.get("publicada", True))
+    if not generada(carpeta):
+        return False
+    estado = _json(carpeta / "estado.json")  # el de la fábrica (`fabrica.ESTADO`)
+    if isinstance(estado, dict) and isinstance(estado.get("pasos"), dict):
+        t = estado["pasos"].get("tienda") or {}
+        return t.get("estado") == "hecho" and bool((t.get("datos") or {}).get("publicada", True))
+    gen = _json(carpeta / "generacion.json")
+    return not (isinstance(gen, dict) and gen.get("registra_subida"))
+
+
+def registrar_subida(carpeta: Path, *, url: str | None, publicada_: bool, maquina) -> None:
+    datos = {"url": url, "publicada": publicada_, "maquina": maquina,
+             "cuando": datetime.now().isoformat(timespec="seconds")}
+    texto = json.dumps(datos, indent=2, ensure_ascii=False) + "\n"
+    (Path(carpeta) / SUBIDA).write_text(texto, encoding="utf-8")
 
 
 def versiones(raiz, slug: str) -> list[str]:
@@ -282,7 +324,9 @@ def instalar(staging: Path, carpeta: Path, ficha_publica: dict, extra: dict) -> 
             continue
         os.replace(item, carpeta / item.name)
     shutil.rmtree(staging, ignore_errors=True)
+    (carpeta / SUBIDA).unlink(missing_ok=True)  # la de un borrador anterior: este es otro
     (carpeta / "generacion.json").write_text(
-        json.dumps(extra, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        json.dumps({**extra, "registra_subida": True}, indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8")
     (carpeta / FICHA_JSON).write_text(json.dumps(ficha_publica, indent=2, ensure_ascii=False),
                                       encoding="utf-8")

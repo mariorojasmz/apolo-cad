@@ -28,7 +28,13 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 from apolo.publicacion import textos
-from apolo.publicacion.paquete import FICHA_JSON, PublicacionError, publicada, versiones
+from apolo.publicacion.paquete import (
+    FICHA_JSON,
+    PublicacionError,
+    generada,
+    registrar_subida,
+    versiones,
+)
 
 LLAVE_ENV = "APOLO_TIENDA_LLAVE"
 URL_ENV = "APOLO_TIENDA_URL"
@@ -109,7 +115,7 @@ def carpeta_publicada(raiz, slug: str, version: str | None, eco=print) -> Path:
     """La carpeta de la versión a subir: la pedida o, sin `version`, la última generada (la que
     tiene `ficha.json`)."""
     raiz = Path(raiz)
-    hechas = [v for v in versiones(raiz, slug) if publicada(raiz / slug / v)]
+    hechas = [v for v in versiones(raiz, slug) if generada(raiz / slug / v)]
     if version is None:
         if not hechas:
             raise PublicacionError(f"No hay ningún paquete generado de «{slug}» en {raiz}: "
@@ -120,7 +126,7 @@ def carpeta_publicada(raiz, slug: str, version: str | None, eco=print) -> Path:
             eco(f"Subo la versión {version}, la última generada de «{slug}» "
                 f"(hay {', '.join(hechas)}; elige otra con --version).")
     carpeta = raiz / slug / version
-    if not publicada(carpeta):
+    if not generada(carpeta):
         raise PublicacionError(f"{carpeta} no tiene {FICHA_JSON}: esa versión no está generada. "
                                "Corre `publicar generar` primero.")
     return carpeta
@@ -366,6 +372,7 @@ def subir(carpeta, *, tienda: str, llave: str, borrador: bool = False, ensayo: b
                                   exc.status) from None
     finally:
         t.cerrar()
+    registrar_subida(carpeta, url=url, publicada_=not borrador, maquina=maquina.get("id"))
     eco(("Quedó en borrador (no se publicó): " if borrador else "Publicada: ") + url)
     return {"plan": plan, "subidos": subidos, "maquina": maquina, "url": url,
             "publicada": not borrador}

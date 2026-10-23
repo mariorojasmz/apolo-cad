@@ -225,7 +225,11 @@ def test_guion_y_generar_dejan_un_paquete_publicable(tienda):
     leeme = zips["gratis"]["LEEME.md"].decode()
     assert "con observaciones" not in leeme and "Sin interferencias" in leeme
 
-    # una versión publicada no se pisa (D14)
+    # una versión PUBLICADA (subida a la tienda: F6) no se pisa (D14); generada y no subida, sí
+    from apolo.publicacion import paquete as pq
+
+    assert pq.generada(carpeta) and not pq.publicada(carpeta)
+    pq.registrar_subida(carpeta, url=url, publicada_=True, maquina=1)
     with pytest.raises(PublicacionError, match="ya está publicada"):
         flujo.generar(tienda.c, tienda.verde, raiz=tienda.raiz, version="1.0.0", eco=None)
     with pytest.raises(PublicacionError, match="ya está publicada"):

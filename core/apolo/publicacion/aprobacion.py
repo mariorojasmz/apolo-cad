@@ -245,7 +245,7 @@ def version_por_aprobar(raiz, slug: str) -> str:
     from apolo.publicacion import fabrica, paquete
 
     hechas = [v for v in paquete.versiones(raiz, slug)
-              if paquete.publicada(paquete.carpeta_version(raiz, slug, v))]
+              if paquete.generada(paquete.carpeta_version(raiz, slug, v))]
     if not hechas:
         raise AprobacionError(f"«{slug}» no tiene ninguna versión generada en {raiz}: la fábrica "
                               "genera el paquete antes de pedir la aprobación.")

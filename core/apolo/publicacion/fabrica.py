@@ -24,8 +24,9 @@ Encadena ocho pasos sobre la carpeta de la versión (`publicaciones_dir()/<slug>
      modelo se corrige, no se graba dos veces;
   5. `generar`: `flujo.generar` con el navegador en nivel rápido (D2; si cae a VTK, lo dice),
      bajo el candado de render de la PC (D7: una GPU, una grabación a la vez). Se niega sin
-     `calidad.json` aprobado sobre el mismo modelo. Con `ficha.json` en la carpeta ya está
-     generado y no se rehace;
+     `calidad.json` aprobado sobre el mismo modelo. Una versión PUBLICADA en la tienda
+     (`paquete.publicada`: lo registra la subida) no se rehace; una generada y nunca subida, sí
+     (F6 de puerta-de-publicacion);
   6. `cuadros`: saca tres cuadros del video (armado, marcha, cierre) y PARA hasta que
      `cuadros.json` diga OK en los tres, para ESE video (F4 · D7);
   7. `familia`: con < 2 máquinas aprobadas de su familia, PARA hasta `publicar aprobar` (D10);
@@ -248,9 +249,12 @@ def paso_generar(e: Encargo) -> dict:
     from apolo.publicacion.candado import Candado
 
     if paquete.publicada(e.carpeta):
-        e.eco(f"{paquete.FICHA_JSON} ya está en {e.carpeta}: el paquete está generado, no lo "
+        e.eco(f"La versión {e.version} ya está publicada en la tienda ({e.carpeta}): no la "
               "rehago.")
         return {"ya_estaba": True}
+    if paquete.generada(e.carpeta):  # generada y nunca subida: se rehace sobre el modelo de hoy
+        e.eco(f"{paquete.FICHA_JSON} ya está en {e.carpeta}, pero esa versión no se subió a la "
+              "tienda: la regenero.")
     from apolo.publicacion import guion_vigente
 
     firmas = guion_vigente.firma_vencida(e, guion_vigente.leer(e.carpeta))
