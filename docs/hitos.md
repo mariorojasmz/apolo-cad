@@ -29,6 +29,7 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 | **A. Video de YouTube realista** | F0–F4 hechas (visor alta, grabación, guion en el navegador, trazado de rayos y Foto realista); falta F5 (verificación en el escritorio con la 4070 Ti, con Mario) | [video-realista](plans/video-realista.md) |
 | **A′. Pulido del video de la tienda** | F3 hecha; F2 reducida por video-realista D8; F4 con la música de Mario | [video-tienda-pulido](plans/video-tienda-pulido.md) |
 | **A″. Fábrica de publicaciones** (máquinas → tienda → cola de YouTube) | F1 (cliente de YouTube) lanzada; luego T (cola en la tienda, pedido de Caronte), F2 (ficha automática), F3 (fábrica y subidor) y F4 (dos máquinas reales con Mario); F5 (corto vertical para shorts/reels) aprobada | [fabrica-de-publicaciones](plans/fabrica-de-publicaciones.md) |
+| **N. Núcleo abierto, extensiones privadas** (Mario, 2026-10-23: «tener el nucleo publico y algunas partes como V8 aparte») | contrato aprobado (D1–D12); F0 (medir) ∥ F5 (contribuciones) → F1 ∥ F2 (puntos de extensión) → F3 (esqueleto de apolo-pro) → F4 (mudanza de la fábrica) → F6 con Mario | [nucleo-abierto-extensiones-privadas](plans/nucleo-abierto-extensiones-privadas.md) |
 
 ## Siguientes, en este orden
 
