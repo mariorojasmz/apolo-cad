@@ -52,6 +52,13 @@ def _enganche(t: dict, largo: float) -> float:
     return sum(max(0.0, min(b, largo) - max(a, 0.0)) for a, b in t.get("rosca", []))
 
 
+def rosca_enganchada(tramo: dict, largo: float, d: float) -> tuple[float, float]:
+    """(enganche, pide) en mm de la rosca de UN tramo: el hilo dentro de la pieza hasta la punta
+    del perno y el mínimo k·d por material (el de `agarre.retencion`). Lo usa la distancia al
+    borde para la barra roscada, que no juzga con la tabla de chapas."""
+    return _enganche(tramo, largo), _k_material(tramo.get("material")) * d
+
+
 def evaluar_perno(p: dict, desplazar: dict | None = None) -> dict:
     """{"cruza", "retencion", "largo"} → (estado, texto, números) de UN perno. `desplazar`
     ({fid: Δt}) corre los tramos de una pieza a lo largo del eje: lo usa el tensor para ver el

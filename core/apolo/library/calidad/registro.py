@@ -58,7 +58,12 @@ antes de generar. v2: entra F3 (seguridad y reparabilidad) y la tabla de riesgos
 `transmision_flexible.tension` acepta sin tensor todo lazo de cadena de centros exactos (D3b
 general, no sólo el de la plantilla de rodillos). v4 (F6): entra `union.distancia_al_borde`
 (`borde.distancia` e ≥ 1,2·d0 —1,5·d0 en ranura— y `borde.paso` p ≥ 2,2·d0, medidos en la
-geometría de cada pieza del taller que cruza un perno: `services/calidad_bordes.py`).
+geometría de cada pieza del taller que cruza un perno: `services/calidad_bordes.py`). v5 (F6):
+`union.distancia_al_borde` juzga sólo CHAPAS y alas; una BARRA maciza (eje redondo o barra
+cuadrada atravesada: tramo del perno t ≥ 1,5·d0 y sección W ≤ 1,25·t, `library/borde_agujero.py`)
+sale de la tabla 3.3 («no_juzgados: barra») y, si es roscada, se juzga su rosca enganchada
+(≥ k·d, VDI 2230). El eje Ø25 «roscado p/ perno» del tensor daba un falso FALLA (e = 12 < 15,6):
+ahí el perno tira según su eje y no aplasta una pared de chapa.
 """
 
 from __future__ import annotations
@@ -69,7 +74,7 @@ from typing import Callable
 from . import puerta as p
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "4"
+VERSION_REGISTRO = "5"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]
@@ -150,8 +155,9 @@ _MECANICA = {
                                      hay("tornilleria", "sin tornillería que medir"),
                                      "tornilleria"),
     "union.distancia_al_borde": General(
-        "Cada agujero de perno a ≥ 1,2·d0 del canto libre (1,5·d0 en ranura) y a un paso "
-        "≥ 2,2·d0 del vecino", "estructura", ("borde.distancia", "borde.paso"),
+        "Cada agujero de perno en chapa o ala a ≥ 1,2·d0 del canto libre (1,5·d0 en ranura) "
+        "y a un paso ≥ 2,2·d0 del vecino; la barra roscada, con su rosca enganchada",
+        "estructura", ("borde.distancia", "borde.paso"),
         hay("tornilleria", "sin tornillería que medir"), "tornilleria",
         vacio_ok=("borde.distancia", "borde.paso")),
     "transmision_flexible.tension": General(

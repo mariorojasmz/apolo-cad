@@ -290,4 +290,6 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - **Distancia al borde de un agujero de perno** (`borde_agujero.py`, EN 1993-1-8 tabla 3.3): la
   MISMA medida para la puerta (`calidad/bordes.py`) y `join_bolted` criterio 5. Canto = donde la
   pieza tiene el espesor de la chapa (no la esquina de un tubo, el talón de un ángulo ni un eje);
-  el agujero de otro perno es paso. Medir sobre la geometría, nunca sobre la huella de cajas. § F6.
+  el agujero de otro perno es paso. La tabla es de CHAPAS: una barra maciza (eje, barra cuadrada:
+  t ≥ 1,5·d0 y W ≤ 1,25·t) sale como `barra` y, roscada, se juzga por su rosca enganchada (v5).
+  Medir sobre la geometría, nunca sobre la huella de cajas. § F6.

@@ -82,7 +82,80 @@ def test_arandela_y_perno_sin_agujero_no_se_juzgan():
 def test_eje_cruzado_por_un_perno_no_es_una_chapa():
     eje = Rot(90, 0, 0) * Cylinder(12.5, 400) - Pos(0, 0, 0) * Cylinder(6.5, 60)
     r = medir_borde(Rayos(eje), (0, 0, -30), Z, 17.5, 42.5, 12.0)
-    assert r["estado"] == "medido" and r["e"] is None  # la superficie del eje no es canto
+    assert r["estado"] == "barra"  # t = 25 ≥ 1,5·13 y la sección es tan ancha como gruesa
+    assert r["espesor"] == pytest.approx(25.0) and r["ancho"] == pytest.approx(25.0, abs=0.1)
+
+
+# ── la barra maciza: falso positivo del eje del tensor (F6) ────────────────────────────
+
+
+def _eje_tensor(e: float = 12.0):
+    """Eje Ø25 a lo largo de Y (y ∈ [-200, 200]) con el paso Ø13 del perno tensor M12 cruzándolo
+    según Z a `e` mm de su punta +Y: el «Eje fijo Ø25 g6 (roscado p/ perno)» de los tensores."""
+    eje = Pos(0, 0, 0) * Rot(90, 0, 0) * Cylinder(12.5, 400)
+    return eje - Pos(0, 200 - e, 0) * Cylinder(6.5, 60)
+
+
+def test_el_perno_tensor_en_la_punta_del_eje_no_se_juzga_como_chapa():
+    eje = _eje_tensor(12.0)
+    r = medir_borde(Rayos(eje), (0, 188, -30), Z, 17.5, 42.5, 12.0, roscado=True)
+    assert r["estado"] == "barra" and r["roscado"] and r["d0"] == pytest.approx(13.0)
+    assert "tabla 3.3 es de chapas" in r["motivo"] and "rosca enganchada" in r["motivo"]
+
+
+def test_una_barra_cuadrada_tambien_es_barra():
+    barra = Box(25, 400, 25) - Pos(0, 188, 0) * Cylinder(6.5, 60)
+    r = medir_borde(Rayos(barra), (0, 188, -30), Z, 17.5, 42.5, 12.0)
+    assert r["estado"] == "barra"
+
+
+def test_la_chapa_gruesa_y_la_platina_angosta_se_siguen_juzgando():
+    """No se afloja la regla para chapas: una placa de 20 mm (t ≥ 1,5·d0) pero ancha, y una
+    platina angosta de 6 mm, siguen con la tabla 3.3."""
+    gruesa = Pos(0, 0, 10) * Box(100, 60, 20) - Pos(-42, 0, 10) * Cylinder(6.5, 40)
+    r = medir_borde(Rayos(gruesa), (-42, 0, -10), Z, 10.0, 30.0, 12.0)
+    assert r["estado"] == "medido" and not r["cumple"]  # e = 8 < 15,6
+    platina = Pos(0, 0, 3) * Box(200, 30, 6) - Pos(-90, 0, 3) * Cylinder(5.5, 20)
+    r = medir_borde(Rayos(platina), (-90, 0, -10), Z, 10.0, 16.0, 10.0)
+    assert r["estado"] == "medido" and r["e"] == pytest.approx(10.0, abs=0.1) and not r["cumple"]
+    oreja = Pos(0, 0, 10) * Box(200, 40, 20) - Pos(-88, 0, 10) * Cylinder(6.5, 40)
+    r = medir_borde(Rayos(oreja), (-88, 0, -10), Z, 10.0, 30.0, 12.0)
+    assert r["estado"] == "medido" and not r["cumple"]  # W = 40 > 1,25·20: oreja, no barra
+
+
+def test_la_barra_roscada_se_juzga_por_su_rosca():
+    def barra(rosca, minimo=12.0):
+        return {"perno": "p", "pieza": "eje", "nombre": "Eje fijo Ø25 (roscado p/ perno)",
+                "estado": "barra", "d0": 13.0, "espesor": 25.0, "ancho": 25.0,
+                "roscado": True, "rosca_mm": rosca, "rosca_min_mm": minimo}
+
+    ok = controlar_bordes([barra(23.8)], [])[0]
+    assert ok.estado == OK and "1 en barras macizas" in ok.detalle
+    assert ok.evidencia["no_juzgados"] == {"barra": 1}
+    assert ok.evidencia["barras"][0]["rosca_mm"] == 23.8
+    corta = controlar_bordes([barra(8.0)], [])[0]
+    assert corta.estado == FALLA and "engancha 8.0 mm < 12.0 mm" in corta.detalle
+    assert corta.piezas == ["eje", "p"]
+    pasante = {**barra(0.0), "roscado": False, "rosca_mm": None, "rosca_min_mm": None}
+    assert controlar_bordes([pasante], [])[0].estado == NO_APLICA
+
+
+def test_el_tensor_de_la_plantilla_sale_barra_con_su_rosca():
+    """`create_take_up`: el perno tensor M12 atraviesa el eje Ø25 «roscado p/ perno» a 12 mm de
+    su punta. Antes FALLA (e = 12 < 15,6); ahora barra, con la rosca enganchada medida."""
+    doc = Document("tensor-barra")
+    doc.execute("create_take_up", {"rodamiento": "6205", "perno": "PERNO-HEX-M12",
+                                   "eje_fit": "g6"})
+    esc = _Escena(doc.scene)
+    agujeros, pasos = insumos_bordes(doc, insumos_pernos(doc, escena=esc), esc)
+    en_eje = [a for a in agujeros if "Eje fijo" in (a.get("nombre") or "")]
+    assert len(en_eje) == 2 and all(a["estado"] == "barra" and a["roscado"] for a in en_eje)
+    assert all(a["espesor"] >= 1.5 * a["d0"] and a["ancho"] == pytest.approx(25.0, abs=0.1)
+               for a in en_eje)
+    assert all(a["rosca_mm"] >= a["rosca_min_mm"] == 12.0 for a in en_eje)
+    dist = controlar_bordes(agujeros, pasos)[0]
+    assert dist.evidencia["no_juzgados"]["barra"] == 2
+    assert not {a["pieza"] for a in en_eje} & set(dist.piezas)
 
 
 def test_el_borde_de_otro_agujero_es_paso_no_canto():

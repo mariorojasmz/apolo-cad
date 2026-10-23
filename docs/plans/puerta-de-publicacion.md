@@ -897,3 +897,21 @@ de la tienda; registro **v4**). Cada uno general, por modo de falla:
   + largo + material con `ubicaciones` (antes «M10x25 DIN 933» 4 + 40); la norma sólo hace
   comercial a la pieza si está en la cabeza del rol y el rol no es de los que se fabrican
   («Eje fijo del rodillo … (con anillos DIN 471)» es una barra mecanizada).
+- **La barra maciza no es una chapa** (registro **v5**). La distancia al borde daba FALLA en el
+  «Eje fijo Ø25 g6 (roscado p/ perno)» de los tensores (`create_take_up`: perno M12 a e = 12 <
+  15,6 de la punta del eje). La tabla 3.3 cubre chapas y alas a cortante/aplastamiento (t pequeño
+  frente al ancho); ahí el perno tira según su eje dentro de una barra. `borde_agujero` saca de la
+  tabla la **barra** (tramo del perno t ≥ 1,5·d0 y ancho más angosto de la sección por el agujero
+  W ≤ 1,25·t; criterio de diseño, declarado): «no_juzgados: barra» y la lista `barras` en la
+  evidencia; tampoco cuenta para el paso. La barra ROSCADA se juzga por su rosca enganchada hasta
+  la punta del perno (≥ k·d, VDI 2230, `agarre.rosca_enganchada`): con contratuerca,
+  `agarre.retencion` mira la tuerca y no ese hilo. El arrancamiento del extremo de una barra con
+  perno PASANTE queda fuera del alcance (se cuenta). Chapa gruesa (20 mm, ancha), platina angosta
+  y oreja siguen en la tabla (tests). Medido offline sobre el GET de hoy: proyecto 7, 14 → 8
+  agujeros en FALLA (quedan las ranuras M10 de las placas del drive, 14,5 < 16,5; barras: los 6
+  agujeros de los ejes Ø25 y 2 tacos de alineación, rosca OK); proyecto 8, 4 → 4 (orejas
+  ranuradas 15,7 < 16,5; barras: los 40 de los ejes Ø17 de rodillo con su M10 axial y 4 calzos del
+  motor, rosca OK). `join_bolted` criterio 5 usa la misma medida (no rechaza una barra). Al medir
+  apareció una falla real de chapa: `create_take_up` POR DEFECTO (M16) deja el agujero de las
+  aletas del soporte en C a e = 17 < 20,4 (pendiente). Testigos públicos re-congelados: sólo
+  `version_registro`; el defecto sembrado `agujero_al_canto` sigue en FALLA.
