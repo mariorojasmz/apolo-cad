@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: V8.0 medida y V8.2 cerrada (2026-10-19); a V8.1 le falta F4 (verifica); contrato de V8.3 escrito el 2026-10-20 ([V8.3](V8.3-prueba-virtual.md)), espera el veto de Mario; P1 contestada (EE.UU., Europa y Perú); P2–P4 sin contestar (no bloquean V8.1–V8.4)
+nota: V8.0–V8.4 hechas (hito «la faja arranca desde su tablero y se ve viva» probado por Mario el 2026-10-23); P1–P4 contestadas; lo siguiente, tras el núcleo abierto, es V8.5 en el núcleo; V8.6–V8.8 y V8.10–V8.12 van fuera del núcleo (D2 de [núcleo abierto](nucleo-abierto-extensiones-privadas.md))
 descripcion: Las máquinas de Apolo traen su tablero eléctrico real (dispositivos, cables, PLC) y, si hace falta, sus placas a la medida; el agente lo diseña por MCP, la máquina se mueve en una co-simulación eléctrica y mecánica casi real que se ve en 3D con sus datos vivos, y sale con planos eléctricos, memoria de cálculo y el programa del PLC
 ---
 
@@ -399,12 +399,16 @@ Preguntas que sólo Mario contesta (no bloquean V8.0–V8.4):
    NEC, 120/208/480 V 60 Hz); el mercado es un parámetro de la máquina (variante), no un fork.
 2. **Marcas del catálogo.** Recomendación: Schneider, Siemens y ABB como gama alta, más una
    económica (Chint o LS), según lo que se consiga en Lima. ¿Cuáles usas o cotizas?
+   → **Contestada (Mario, 2026-10-23): la recomendación tal cual** (Schneider, Siemens y ABB;
+   Chint o LS como económica).
 3. **PLC del primer exporte.** ¿Siemens S7-1200 (TIA Portal, SCL), Schneider o Codesys (PLCopen
    XML), Delta o Allen-Bradley? Decide qué formato se hace primero en V8.8.
+   → **Contestada (2026-10-23)**; el detalle vive fuera del núcleo.
 4. **Placas** (lo necesita V8.10). En esta PC hay KiCad 7.0.6, pero su `kicad-cli` sólo exporta:
    el DRC y el ERC por línea de comandos piden KiCad 8 o más (el plan supone 9). Faltan
    Freerouting y ngspice como ejecutable; Java 21 sí está. ¿Actualizas KiCad? ¿Fabricante
    preferido (JLCPCB, PCBWay)?
+   → **Contestada (2026-10-23)**; el detalle vive fuera del núcleo.
 
 ## Alternativas descartadas
 
@@ -510,7 +514,7 @@ V8.1):
 - Se verifica con: interferencia cero dentro del tablero, largo de cada cable con ±5 % de un
   ruteo a mano y la puerta que abre (junta) sin chocar.
 
-**V8.6 — Planos eléctricos y memoria de cálculo eléctrica** (`drawing/electrico`, `services`,
+**V8.6 — Planos eléctricos y memoria de cálculo eléctrica** (fuera del núcleo · `drawing/electrico`, `services`,
 `library/electrico` · L · depende de V8.1 y V8.5):
 - Juego IEC 61082 (D6), con cajetín, índice, referencias cruzadas y etiquetas para marcar cables
   y dispositivos.
@@ -528,14 +532,14 @@ V8.1):
 - Eje nuevo del [benchmark](../benchmark/README.md): «E7 eléctrico», con su rúbrica (lo que
   entrega un despacho con EPLAN).
 
-**V8.7 — Seguridad funcional y fallas** (`library/electrico`, `cosim` · M · depende de V8.3):
+**V8.7 — Seguridad funcional y fallas** (fuera del núcleo · `library/electrico`, `cosim` · M · depende de V8.3):
 - ISO 13849-1: PLr por gráfico de riesgo, categoría, MTTFd (B10d del catálogo), DCavg, CCF y el
   PL alcanzado frente al requerido.
 - Inyección de fallas: contacto soldado, cable cortado, corto, pérdida de fase, sensor pegado,
   atasco. Comprueba que la función de seguridad se mantiene ante una falla (categoría 3).
 - Informe de FAT virtual: protocolo más resultados con trazas.
 
-**V8.8 — Del gemelo al PLC real** (`plc`, `api` · L · depende de V8.3 y de P3):
+**V8.8 — Del gemelo al PLC real** (fuera del núcleo · `plc`, `api` · L · depende de V8.3 y de P3):
 - Exportes (D4) y tabla de tags.
 - PLC real o virtual del fabricante en el lazo, por OPC UA y Modbus TCP: Apolo hace de planta
   (comisionamiento virtual de verdad).
@@ -551,19 +555,19 @@ V8.1):
 - Bobinas de válvula en la red eléctrica. Caso canónico: el empujador de una faja
   clasificadora.
 
-**V8.10 — Placas I: esquema de la placa y SPICE** (`pcb`, `drawing` · L · depende de V8.1 y de
+**V8.10 — Placas I: esquema de la placa y SPICE** (fuera del núcleo · `pcb`, `drawing` · L · depende de V8.1 y de
 P4):
 - Red de la placa (D12) y ERC de placa.
 - Símbolos y huellas: se verifica la licencia de las librerías de KiCad.
 - SPICE con ngspice por proceso.
 
-**V8.11 — Placas II: de la placa a la fábrica** (`pcb` · L · depende de V8.10):
+**V8.11 — Placas II: de la placa a la fábrica** (fuera del núcleo · `pcb` · L · depende de V8.10):
 - Colocación por reglas, ruteo con Freerouting y DRC con `kicad-cli`.
 - Gerber, taladros, pick and place y BOM.
 - STEP de vuelta a Apolo dentro de su caja.
 - Reglas de fabricación del fabricante elegido.
 
-**V8.12 — Placas III: el firmware mueve la máquina** (`pcb`, `cosim` · M/L · depende de V8.3 y
+**V8.12 — Placas III: el firmware mueve la máquina** (fuera del núcleo · `pcb`, `cosim` · M/L · depende de V8.3 y
 V8.11):
 - Firmware compilado afuera (`arm-none-eabi-gcc` / `arduino-cli`), emulado en Renode, con sus GPIO
   conectados a la co-simulación.

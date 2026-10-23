@@ -36,7 +36,9 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 | hito | fases | por qué en este lugar | plan |
 |---|---|---|---|
 | **B. Prueba virtual de la máquina** (puesta en marcha virtual) | F0–F6 hechas: la FAT virtual de la faja 73 pasó por MCP (2026-10-21) | el objetivo grande de V8; F1 y F2 no se pisan y van juntas | [V8.3](plans/V8.3-prueba-virtual.md) |
-| **B‴. Ver la máquina viva** (V8.4) | contrato aprobado (2026-10-23, D1–D10); F0 → F1 → F2 ∥ F4 → F3 de noche; F5 con Mario | el hito visible de V8 que Mario pidió tras la FAT | [V8.4](plans/V8.4-maquina-viva-en-pantalla.md) |
+| **B‴. Ver la máquina viva** (V8.4) | hecho: F0–F5; Mario la probó y la dio por buena (2026-10-23) | el hito visible de V8 que Mario pidió tras la FAT | [V8.4](plans/V8.4-maquina-viva-en-pantalla.md) |
+| **K. El tablero 3D de verdad** (V8.5, núcleo) | contrato por escribir; marcas: Schneider, Siemens, ABB y Chint o LS (P2) | lo siguiente de V8 tras N; es modelado y queda público (D2 de N) | [V8](plans/V8-maquina-viva.md) |
+| **L. Seguridad funcional y fallas** (V8.7, fuera del núcleo) | contrato por escribir, en paralelo con K | no depende de P3 ni de P4; no toca los archivos de K | [V8](plans/V8-maquina-viva.md) |
 | **C. Seta de emergencia real** | F0–F3 hechas (zonas, ESTOP-40 y ESTOP-40-CAJA, visor, VTK y GLB); falta F4 (que Mario la vea) | va en todas las máquinas; entra en paralelo con B cuando un agente quede libre | [seta-de-emergencia](plans/seta-de-emergencia.md) |
 | **D. Varias máquinas a la vez** | F0–F4 hechas: tres modeladores a la vez en el escritorio por túnel SSH, 90 s contra 213 s en serie, +0,5 GB, cero locks; falta que Mario lo juzgue | destraba E: las verificaciones por MCP pasan de a una a varias en paralelo | [varias-maquinas-a-la-vez](plans/varias-maquinas-a-la-vez.md) |
 | **F. Manual de montaje rápido** | F0–F2b hechas: manual, memoria, juego de planos y GA sombreados fuera del lock con VTK y como job por MCP (piloto: 3 h 29 min / 18 / 22 / 16 min → 56 / 52 / 55 / 38 s); falta F3 (Mario mira los PDF) | es el cuello de la publicación y además congela la API mientras se arma | [manual-rapido](plans/manual-rapido.md) |
@@ -57,10 +59,6 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 - Vetar D1–D13 de [estado-regen](plans/estado-regen-y-params-estrictos.md) y de
   [texto-agente-vs-persona](plans/texto-agente-vs-persona.md), implementados sin aprobación
   previa.
-- Las preguntas P1–P4 de [V8](plans/V8-maquina-viva.md): mercados, marcas, PLC del primer
-  exporte y KiCad.
-- Decidir la mesa o rampa de recepción a la descarga de la faja 72/73: sin ella las cajas caen ~0,85 m y se
-  apilan contra la cabeza (lo vio la prueba virtual, V8.3 F6b defecto 4).
 - Rehacer por MCP la banda hecha a mano de las fajas 72/73 (el fix del tambor engomado cubre
   sólo el super-comando).
 
