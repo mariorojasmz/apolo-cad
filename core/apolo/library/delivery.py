@@ -17,6 +17,7 @@ JAMÁS cuenta como verde.
 from __future__ import annotations
 
 from .checks import MAX_PAIRS as MAX_PAIRS_INTERFERENCIA
+from .checks import PAREJAS_POR_SOLIDO
 
 VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 
@@ -155,8 +156,9 @@ def delivery_report(
                    if interferencias_sin_revisar else "quedaron parejas candidatas sin revisar")
         avisos.append({
             "regla": "interferencias · reporte truncado", "piezas": [],
-            "detalle": f"{cuantas} (el chequeo global revisa {MAX_PAIRS_INTERFERENCIA} como "
-                       "máximo). Revísalas por zonas con check_interference(ids=[grupo]) "
+            "detalle": f"{cuantas} (el chequeo global revisa hasta {PAREJAS_POR_SOLIDO} por "
+                       f"sólido, mín. {MAX_PAIRS_INTERFERENCIA}). Revísalas por zonas con "
+                       "check_interference(ids=[grupo]) "
                        "—get_groups lista los grupos— hasta cubrir la máquina.",
         })
 

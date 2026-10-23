@@ -1,14 +1,24 @@
 """Detección de interferencias entre sólidos de la escena.
 
-Prefiltro por solape de cajas envolventes y después intersección booleana
-OCCT solo en las parejas candidatas. El contacto cara-a-cara (volumen ~0)
-no se considera interferencia.
+Prefiltro EXACTO (`interferencias_filtro.py`: cajas por barrido, volumen de la caja común,
+caras en la zona común) y después intersección booleana OCCT sólo en las parejas candidatas. El
+contacto cara-a-cara (volumen ~0) no se considera interferencia.
 """
 
 from __future__ import annotations
 
 MIN_VOLUME_MM3 = 1.0
+#: Parejas candidatas por PÁGINA (`desde`) de `check_interference`.
 MAX_PAIRS = 400
+#: El chequeo GLOBAL (puertas de entrega y de publicación, `verify`) revisa hasta este número de
+#: candidatas por sólido (mín. `MAX_PAIRS`): una máquina de 20 rodillos ya pasaba de 400 y la
+#: puerta quedaba AMARILLA (F6 de puerta-de-publicacion).
+PAREJAS_POR_SOLIDO = 10
+
+
+def tope_global(scene: dict) -> int:
+    """El tope de candidatas del chequeo global para esta escena."""
+    return max(MAX_PAIRS, PAREJAS_POR_SOLIDO * len(scene))
 
 
 def _bboxes_overlap(a, b, margin: float = 0.01) -> bool:
@@ -27,6 +37,7 @@ def interference_report(
     exclude_ids: set[str] | None = None,
     focus: set[str] | list[str] | None = None,
     desde: int = 0,
+    tope: int | None = None,
 ) -> dict:
     """shapes_override permite analizar formas posadas (colisión en pose).
     exclude_pairs descarta parejas que se tocan por diseño (eslabones unidos
@@ -40,31 +51,39 @@ def interference_report(
 
     `desde` (D10 de mcp-sin-friccion) PAGINA: revisa las parejas candidatas `desde`…`desde +
     MAX_PAIRS` (en el orden estable de la escena); con él declara `desde` y el total, y al
-    truncar, `desde_siguiente`. Sin él, el dict de siempre."""
+    truncar, `desde_siguiente`. Sin él, el dict de siempre. `tope`: candidatas por página
+    (None = `MAX_PAIRS`; el chequeo global pasa `tope_global(scene)`).
+
+    Una candidata es una pareja que PUEDE interferir según el prefiltro exacto
+    (`interferencias_filtro`): las que sólo comparten caja (la bandeja que abarca los rodillos)
+    o se apoyan cara a cara no cuentan ni gastan booleana."""
+    from .interferencias_filtro import Filtro, caja, pares_por_caja
+
     feats = [f for f in scene.values()
              if f.visible and not getattr(f, "is_guide", False) and (only is None or f.id in only)]
     if exclude_ids:
         feats = [f for f in feats if f.id not in exclude_ids]
     focus = set(focus) if focus is not None else None
+    tope = MAX_PAIRS if tope is None else max(int(tope), 1)
 
     def shape_of(f):
         return shapes_override.get(f.id, f.shape) if shapes_override else f.shape
 
-    boxes = {f.id: shape_of(f).bounding_box() for f in feats}
-
+    cajas = [caja(shape_of(f).bounding_box()) for f in feats]
+    filtro = Filtro()
     candidates = []
-    for i, a in enumerate(feats):
-        for b in feats[i + 1:]:
-            if exclude_pairs and frozenset((a.id, b.id)) in exclude_pairs:
-                continue
-            if focus is not None and a.id not in focus and b.id not in focus:
-                continue
-            if _bboxes_overlap(boxes[a.id], boxes[b.id]):
-                candidates.append((a, b))
+    for i, j in pares_por_caja(cajas):
+        a, b = feats[i], feats[j]
+        if exclude_pairs and frozenset((a.id, b.id)) in exclude_pairs:
+            continue
+        if focus is not None and a.id not in focus and b.id not in focus:
+            continue
+        if filtro.puede_interferir(shape_of(a), shape_of(b), cajas[i], cajas[j], MIN_VOLUME_MM3):
+            candidates.append((a, b))
     n_candidatas = len(candidates)
     desde = max(int(desde or 0), 0)
-    truncated = n_candidatas > desde + MAX_PAIRS
-    candidates = candidates[desde:desde + MAX_PAIRS]
+    truncated = n_candidatas > desde + tope
+    candidates = candidates[desde:desde + tope]
 
     collisions = []
     for a, b in candidates:
@@ -96,8 +115,8 @@ def interference_report(
         out["parejas_candidatas"] = n_candidatas
     if truncated:  # sin caps silenciosos: cuántas quedaron SIN revisar (mcp-sin-friccion D4)
         out["parejas_candidatas"] = n_candidatas
-        out["parejas_sin_revisar"] = n_candidatas - desde - MAX_PAIRS
-        out["desde_siguiente"] = desde + MAX_PAIRS
+        out["parejas_sin_revisar"] = n_candidatas - desde - tope
+        out["desde_siguiente"] = desde + tope
     return out
 
 

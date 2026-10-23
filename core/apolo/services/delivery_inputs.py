@@ -50,7 +50,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
     from apolo.assembly.connectivity import build_graph, soundness_report
     from apolo.commands.expressions import resolve_params
     from apolo.library import interference_report
-    from apolo.library.checks import hardware_ids, joint_pairs, same_command_pairs
+    from apolo.library.checks import hardware_ids, joint_pairs, same_command_pairs, tope_global
     from apolo.library.lints import predelivery_lints
 
     from .assertions import delivery_poses
@@ -68,7 +68,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         rep_inter = interference_report(
             doc.scene,
             exclude_pairs=joint_pairs(doc) | same_command_pairs(doc) | fasten_pairs,
-            exclude_ids=hardware_ids(doc) | bolt_ids,
+            exclude_ids=hardware_ids(doc) | bolt_ids, tope=tope_global(doc.scene),
         )
     with _cronometro(tiempos, "sujecion"):
         soundness = soundness_report(build_graph(

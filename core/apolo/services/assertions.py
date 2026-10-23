@@ -22,11 +22,12 @@ def verify_checks(doc, scene: dict, checks: list[dict], *, expand,
     tornillería a-medida) — None = semántica de contratos intacta."""
     from apolo.library import interference_report
     from apolo.library.checks import (
-        hardware_ids, interpenetration_report, joint_pairs, same_command_pairs,
+        hardware_ids, interpenetration_report, joint_pairs, same_command_pairs, tope_global,
     )
     from apolo.library.verify import run_verify
 
     jpairs = joint_pairs(doc)
+    tope = tope_global(scene)  # una aserción es un chequeo global: no se pagina
     excl_pairs = jpairs | same_command_pairs(doc) | (extra_exclude_pairs or set())
     excl_ids = hardware_ids(doc) | (extra_exclude_ids or set())
 
@@ -34,7 +35,7 @@ def verify_checks(doc, scene: dict, checks: list[dict], *, expand,
         focus_ids = expand(focus) if focus else None
         rep = interference_report(  # reporte COMPLETO: run_verify propaga `truncado`
             scene, focus=focus_ids, shapes_override=shapes_override,
-            exclude_pairs=excl_pairs, exclude_ids=excl_ids,
+            exclude_pairs=excl_pairs, exclude_ids=excl_ids, tope=tope,
         )
         if shapes_override is not None:  # pares con junta: interpenetración vs diseño,
             rep["interferencias"] = rep["interferencias"] + interpenetration_report(

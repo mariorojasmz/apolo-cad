@@ -135,8 +135,10 @@ def test_la_tool_remove_commands_trae_la_sugerencia(mcp_tool):
 
 # ------------------------------------------------------- D4: interferencia truncada
 def _amontonadas(monkeypatch) -> Document:
-    """5 cajas en el mismo sitio (10 parejas candidatas), 2 en un grupo; tope de 3 parejas."""
+    """5 cajas en el mismo sitio (10 parejas candidatas), 2 en un grupo; tope de 3 parejas (la
+    página y también el chequeo global de la puerta, que escala con los sólidos: F6)."""
     monkeypatch.setattr(checks, "MAX_PAIRS", 3)
+    monkeypatch.setattr(checks, "PAREJAS_POR_SOLIDO", 0)
     doc = Document("f2-truncado")
     ids = [_caja(doc, f"P{k}", 5.0 * k) for k in range(5)]
     doc.execute("create_group", {"name": "Zona", "members": ids[:2]})

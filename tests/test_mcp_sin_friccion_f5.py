@@ -200,21 +200,23 @@ def test_d9_get_connections_agrupa_por_el_par_de_piezas(activa, mcp_tool):
 # ------------------------------------------------------- D10: interferencia acotada que cubre
 def test_d10_check_interference_pagina_y_no_sugiere_lo_pedido(activa, mcp_tool, monkeypatch):
     """Medido con el tope real (400): 660 parejas, faltaban 260 y `como_acotar` sugería
-    «Rodillos» otra vez (F4). Aquí, con páginas de 100 para que la prueba no tarde un minuto."""
+    «Rodillos» otra vez (F4). Aquí, con páginas de 100 para que la prueba no tarde un minuto. Con
+    el prefiltro exacto (F6 de puerta-de-publicacion) las que sólo comparten caja o se apoyan
+    cara a cara ya no son candidatas: 482."""
     monkeypatch.setattr(checks, "MAX_PAIRS", 100)
     uno = json.loads(mcp_tool("check_interference", {"ids": ["Rodillos"]}))
-    assert uno["truncado"] and uno["parejas_candidatas"] == 660
-    assert uno["desde_siguiente"] == 100 and uno["parejas_sin_revisar"] == 560
+    assert uno["truncado"] and uno["parejas_candidatas"] == 482
+    assert uno["desde_siguiente"] == 100 and uno["parejas_sin_revisar"] == 382
     texto = uno["como_acotar"]
     assert 'check_interference(ids=["Rodillos"], desde=100)' in texto
     assert "Grupos:" not in texto and "excluir_declaradas=true" in texto
     # la última página, directo en la librería (el endpoint suma ~8 s de reglas que no devuelve)
     ultima = checks.interference_report(
         activa.scene, exclude_pairs=checks.joint_pairs(activa) | checks.same_command_pairs(activa),
-        exclude_ids=checks.hardware_ids(activa), desde=600,
+        exclude_ids=checks.hardware_ids(activa), desde=400,
         focus=set(group_features(activa.scene, activa.groups, "Transportador de rodillos/Rodillos")))
-    assert not ultima["truncado"] and ultima["desde"] == 600
-    assert ultima["parejas_analizadas"] == 60 and ultima["parejas_candidatas"] == 660
+    assert not ultima["truncado"] and ultima["desde"] == 400
+    assert ultima["parejas_analizadas"] == 82 and ultima["parejas_candidatas"] == 482
     sin = json.loads(mcp_tool("check_interference", {"ids": ["Rodillos"],
                                                      "excluir_declaradas": True}))
     assert 100 < sin["parejas_candidatas"] < 330  # las de tubo ↔ tapa, eje ↔ tapa… no cuentan
