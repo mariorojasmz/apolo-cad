@@ -48,7 +48,10 @@ ARCHIVOS = (
     "services/cosim_snapshot.py",
 )
 
-HUELLA: tuple[int, str] = (3, "0113320bfdb4e40e")
+#: V8.4 F1 (sin subir): el paso compartido lote/vivo da la MISMA huella de trazas (la 77 en sus
+#: tres casos de F0 y `tests/test_cosim_vivo.py` contra el bucle de V8.3); `sumideros` sólo deja
+#: correr escenarios que antes eran 400 y el color/pieza del snapshot no entran al resultado.
+HUELLA: tuple[int, str] = (3, "36fb770d044ab5e2")
 
 
 def archivos() -> list[Path]:

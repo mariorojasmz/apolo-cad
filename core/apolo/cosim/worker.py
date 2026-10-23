@@ -10,6 +10,9 @@ PROTOCOLO, binario (frame = largo en 4 bytes big-endian + cuerpo, el del sandbox
   padre → hijo  pickle         el `CosimSnapshot` (lo hornea el propio proceso de la API)
   hijo → padre  `K` + JSON     el resultado de `planificador.correr` + `proceso`
                 `E` + texto    el error, con las últimas líneas de la traza
+Modo VIVO (V8.4 D1): si el primer frame del padre es `V` + JSON (la configuración: `ritmo`,
+`max_s`), el segundo es el snapshot y la sesión sigue con el protocolo de `worker_vivo.py`
+(acciones `A` que entran; tabla, acks y fin `J` y fotogramas `F` que salen) hasta EOF o «parar».
 El resultado vuelve en JSON y no en pickle: el hijo corre código ST del usuario (compilado y
 verificado, D6) y el padre no des-serializa objetos que vengan de él. Una corrida por proceso:
 el estado de MuJoCo, del PLC y de los modelos no se arrastra de una prueba a la otra.
@@ -117,8 +120,19 @@ def main() -> int:
     cuerpo = read_frame(entrada)
     if cuerpo is None:
         return 0
+    config = None
+    if cuerpo[:1] == b"V":  # modo vivo (V8.4 D1): la configuración y después el snapshot
+        config = json.loads(cuerpo[1:].decode("utf-8"))
+        cuerpo = read_frame(entrada)
+        if cuerpo is None:
+            return 0
     try:
         snap = pickle.loads(cuerpo)  # noqa: S301 — lo serializó el proceso de la API
+        if config is not None:
+            from apolo.cosim.worker_vivo import correr_vivo
+
+            correr_vivo(snap, config, entrada, salida)
+            return 0
         res = planificador.correr(snap)
         res["proceso"] = {"pid": os.getpid(), "import_s": round(import_s, 4),
                           "modulos_pesados": pesados_cargados(),

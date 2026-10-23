@@ -44,6 +44,16 @@ def _plano(x):
     return json.loads(json.dumps(x, default=str))
 
 
+def _color(ref: str) -> str | None:
+    """El color físico de la ficha (`specs.color`: verde, rojo, azul, ámbar…), o None. Viaja al
+    worker para la tabla de mandos y pilotos de la sesión en vivo (V8.4 D4, D5)."""
+    from apolo.library.catalog import CATALOG
+
+    c = CATALOG.get(ref)
+    color = (getattr(c, "specs", None) or {}).get("color") if c is not None else None
+    return str(color) if color else None
+
+
 def _nombre_rayo(des: str) -> str:
     return "sensor_" + re.sub(r"[^A-Za-z0-9_]", "_", des)
 
@@ -164,7 +174,8 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     hipotesis = [f"{d.designacion}: {k} = {d.ajustes[k]:g}, {origen}"
                  for d in me.dispositivos for k, origen in d.deducidos.items()]
     dispositivos = [DispositivoCosim(d.designacion, d.ref, _plano(d.modelo or {}), _plano(d.ajustes or {}),
-                                     int(d.cantidad or 1)) for d in me.dispositivos]
+                                     int(d.cantidad or 1), d.pieza or None, _color(d.ref))
+                    for d in me.dispositivos]
     red = _plano(entrada_red(me))
     try:
         tab = Tablero(red, dispositivos)

@@ -213,6 +213,17 @@ class Integrador:
             self._rehacer_estacion()
             self._estacionar()
 
+    def podar(self) -> None:
+        """Olvida la historia (fotogramas, trazas por junta, flancos y muestras de las
+        fotoceldas) y conserva la última muestra: la sesión en vivo de V8.4 corre sin límite y
+        no acumula. Nada de lo olvidado entra al paso siguiente (sólo a `salida`)."""
+        del self.frames[:-1]
+        for tr in self.trazas.values():
+            for lista in tr.values():
+                del lista[:-1]
+        if self.fotos:
+            self.fotos.podar()
+
     def correr(self) -> dict:
         """El bucle cerrado de V8.2: todos los intercambios y la salida."""
         for _ in range(self.n_int):

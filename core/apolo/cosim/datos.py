@@ -23,6 +23,8 @@ class DispositivoCosim:
     modelo: dict
     ajustes: dict
     cantidad: int = 1
+    pieza: str | None = None     # la pieza 3D ligada (`add_device.pieza`): la tabla del vivo, V8.4
+    color: str | None = None     # el color físico de su ficha (`specs.color`): mandos y pilotos
 
 
 @dataclass(frozen=True)

@@ -55,6 +55,12 @@ class Fotoceldas:
         for k in range(len(self.sensores)):
             self.muestras[k].append([round(t, 4), int(self.estado[k])])
 
+    def podar(self) -> None:
+        """Olvida flancos y muestras (la sesión en vivo de V8.4 no guarda historia): el estado de
+        cada rayo, que es lo que se lee, no cambia."""
+        for lista in (*self.flancos, *self.muestras):
+            lista.clear()
+
     def salida(self) -> dict:
         return {
             s.nombre: {
