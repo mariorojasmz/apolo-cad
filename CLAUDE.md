@@ -85,9 +85,9 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 los datos van a `APOLO_HOME` (~/.apolo) y la UI sale del paquete (`apolo/webui`, la stagea
 `scripts/stage_ui.py`). Publicar: § Publicación.
 
-### Estado actual (2026-10-21)
+### Estado actual (2026-10-23)
 
-5018 tests (+27 de tortura vía `-m torture`) · 449 tests vitest · 90 tools MCP · 59 comandos ·
+4786 tests (+27 de tortura vía `-m torture`) · 449 tests vitest · 90 tools MCP · 59 comandos ·
 catálogo 378 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [V8 — la máquina viva](docs/plans/V8-maquina-viva.md) (tablero eléctrico real, co-simulación y
 placas; cada V8.x con su contrato). Lo que falta de cada plan, en la `nota:` de su frontmatter.

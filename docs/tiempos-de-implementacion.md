@@ -125,6 +125,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-23 | nucleo-abierto | F1a (backend) | L | 44 | 429 | entry points, prefijos, firma con epoch de catálogo sólo con extensiones, cifras de release 76 → 90 tools; 4897 → 4925 |
 | 2026-10-23 | nucleo-abierto | F3 (esqueleto de apolo-pro) | M | 16 | 265 | pro.hola + tool + panel + CI + CLAUDE.md; 21 tests, UI compuesta servida por la API |
 | 2026-10-23 | nucleo-abierto | F1b (sólo lectura) | M | 42 | 315 | 409 en el embudo único, autosave no reescribe, duplicate 500 → sólo lectura; 4925 → 4958 |
+| 2026-10-23 | nucleo-abierto | F4a (mudanza de la fábrica) | L | 92 | 266 | dos repos; 238 tests al privado (21 → 265), núcleo 5022 → 4786; `entregables.py` queda en el núcleo |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |

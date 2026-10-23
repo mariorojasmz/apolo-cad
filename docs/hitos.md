@@ -53,7 +53,6 @@ criterio, yo te voy pasando ideas y tú te vas organizando, puedes llamarlo hito
 ## Esperan a Mario
 
 - El escaneo de un motor ([escaneo-a-pieza](plans/escaneo-a-pieza.md) F0).
-- La música con su licencia (video-tienda F4).
 - Probar la vista 3D y la realidad aumentada en su celular (vista-3d F4).
 - D4 de [flecha-de-bastidor](plans/flecha-de-bastidor.md): qué regla recibe una faja hecha a mano.
 - Vetar D1–D13 de [estado-regen](plans/estado-regen-y-params-estrictos.md) y de
