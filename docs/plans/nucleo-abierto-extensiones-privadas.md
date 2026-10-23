@@ -645,3 +645,23 @@ ellos, las fases quedan así:
    - el merge queda bloqueado por la revisión de code owner.
 3. Firma, aprueba el CI y aprueba el PR: sólo entonces debe poder mergearse.
 4. Cierra el PR sin mergear.
+
+#### F5: lo aplicado en GitHub (sesión principal, 2026-10-23, con el sí de Mario)
+
+- **Regla «main: sin force-push ni borrado»** (id 25730737): bloquea borrar `main` y reescribir su
+  historia. Sin excepciones, también para Mario.
+- **Regla «main: PR y CI para terceros»** (id 25733518), aplicada por API:
+  - PR obligatorio con 1 aprobación de CODEOWNERS; las aprobaciones viejas caen con un push nuevo;
+  - checks requeridos y al día con `main`: `ruff`, `pytest (ubuntu-latest, py3.11)`, `py3.12`,
+    `py3.13`, `pytest (windows-latest, py3.13)`, `UI (vitest + build)`, `build + twine check`
+    (todos de GitHub Actions) y `license/cla`;
+  - bypass «always» para el rol Repository admin, así que el push con `--ff-only` de las
+    sesiones sigue entrando directo.
+- **Private vulnerability reporting:** activado.
+- **Falta (Mario):** CLA Assistant, pasos 1 y 2 de arriba. Hasta que lo instale, el check
+  `license/cla` no existe y un PR de terceros no puede mergearse.
+- ⚠️ **Hallazgo:** los tres `pytest` de Linux están en ROJO en `main` desde el 2026-10-09 (último
+  verde: 472d602). La suite muere al ~60 % con código 141 (SIGPIPE), sin traceback; Windows pasa.
+  Mientras siga así, ningún PR de terceros pasa el CI requerido. Queda propuesto como sesión
+  aparte («Arreglar el CI de Linux»).
+
