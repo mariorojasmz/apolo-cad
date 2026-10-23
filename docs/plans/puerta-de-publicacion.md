@@ -844,3 +844,56 @@ El testigo público `faja` es la v5 por defecto, sin `cierres_faja` (borrada de
 `sin_cierres` es la v5 editada con `cierres=False` (la v4) y sigue en FALLA; las rectas solas siguen
 dando OK (`test_las_rectas_no_ven_la_ranura_junto_a_la_banda`). Tests:
 `tests/test_belt_conveyor_v5.py`.
+
+**4. Lote de huecos de la fábrica, de la medida y de la BOM** (revisores ciegos de las máquinas
+de la tienda; registro **v4**). Cada uno general, por modo de falla:
+
+- **Distancia al borde y paso de los agujeros de perno** (EN 1993-1-8, tabla 3.3). Ítem nuevo
+  `union.distancia_al_borde` (estructura) en la fuente mecánica, con `borde.distancia`
+  (e ≥ 1,2·d0; 1,5·d0 en ranura, e3/e4) y `borde.paso` (p ≥ 2,2·d0: p2 ≥ 2,4·d0 pide la
+  dirección de la carga, que el modelo no declara). Medida (`library/borde_agujero.py`): en el
+  plano medio del tramo del perno que cruza cada pieza del taller, 36 rayos por paridad
+  (`Rayos.cortes`, sin clasificador por tramo) dan la pared del agujero y el canto; un canto
+  sólo cuenta si la pieza ahí tiene el espesor de la chapa (0,5·t a 1,5·t: la esquina de un
+  tubo, el talón de un ángulo o un pliegue siguen en otra pared; la superficie de un eje cruzado
+  se afina), y el agujero de otro perno de la pieza es paso, no canto. No se juzga: anillo
+  coaxial (arandela, separador), pieza de catálogo no cortable (agujero del fabricante), abertura
+  > 2·d + 2; perno sin su agujero = «no se pudo ver» (SIN_EVALUAR sólo si no se midió ninguno).
+  Un taladro roscado macizo (el control de agarre lo lee como rosca) mide con la pared en el Ø
+  nominal. Medido (offline sobre el `.apolo` bajado por GET): faja motor central (proyecto 7,
+  338 piezas) FALLA, 20 de 202 agujeros (el perno tensor a 5,5 mm de la punta del eje Ø25 de
+  los tres tambores, e = 12 < 15,6; las ranuras M10 de las placas del drive a 14,5 < 16,5);
+  rodillos con cadena (proyecto 8, 403 piezas) FALLA, 14 de 108 (guarda fija 5,8 < 7,9; topes y
+  soportes del tirante 10 < 13,2; orejas ranuradas 15 < 16,5; escuadras de la bandeja 7,4 < 7,9).
+  Costo: 0,9 s y 0,4 s sobre los insumos de agarre (la misma `_Escena`). `join_bolted` criterio
+  5 (vigente): ya taladrado, mide el canto REAL de las dos piezas y rechaza el agujero bajo el
+  mínimo (la huella por cajas no ve una muesca ni el extremo de una pieza más corta). Defecto
+  sembrado `agujero_al_canto` (Ø11 a 6 mm del canto). Testigos públicos re-congelados: sólo
+  entra el ítem (OK en la ménsula atornillada, NO_APLICA en el resto).
+- **Ficha vencida** (`publicacion/ficha_vigente.py`, el modelo de `guion_vigente`):
+  `ficha.firma.json` guarda la firma del log con que se redactó (`publicar guion` al dejar el
+  borrador) o se re-validó (`publicar ficha --revisar --vigente --project N`); una ficha de antes
+  se data por su guion (el vencido, si se rehízo). El paso «ficha» PARA si no es la de hoy y no
+  se re-sella solo. Verificador mínimo: masa («pesa/peso/masa … kg», nunca una carga) y medidas
+  generales (L × A × H en mm o m, L sobre X o Y) contra `scene_mass_properties`, ±2 %.
+- **«Publicada» = subida**: `tienda.subir` deja `subida.json`; `paquete.publicada` lo lee (un
+  borrador no cuenta) o el paso «tienda» de la fábrica; un paquete generado desde hoy
+  (`generacion.json` con `registra_subida`) y sin subida se regenera; uno de antes, no (no se sabe
+  si subió). `paquete.generada` = tiene `ficha.json`.
+- **Memoria**: (a) masa con la fuente de mass-properties (`scene_mass_properties` + material del
+  vertical; con `scene_weight_kg` un «Larguero» de acero pesaba como madera: 252,4 contra 260,6
+  kg); (b) Ø del tambor de una faja a mano medido (`library/diametro_tambor.py`): la «Guarda del
+  tambor» daba Ø120 (21,2 m/min) en vez del engomado motriz Ø113,6 (20,1).
+- **Marcha del video**: la causa no era sólo la placa. Medido en una v5 con placa de
+  transferencia: las cajas se paraban en la placa, frenaban la fila, y la alimentación nacía
+  apoyada en el techo de la guarda de cola (3–5 mm sobre la banda: sin arrastre, quieta); la
+  siguiente nacía DENTRO de ella (97 mm de solape, una salió despedida). No es la física
+  empujando: dos cajas que se empujan quedan a ≤ 2 mm (la compliancia del contacto). Arreglo:
+  `sumideros` de la petición de la dinámica (el producto que pasa el plano sale del mundo:
+  estacionamiento, sin fotogramas; la serie del visor corta sus poses y la UI deja de dibujarlo)
+  —la marcha de ejemplo pone dos por banda: el fin del tramo plano superior y bajo la banda— y la
+  cola nace donde la caja no toca ninguna pieza. Con placa: 0 mm de solape y 7 cajas retiradas.
+- **BOM** (proyecto 8): una compra con norma se agrupa por su designación (rol + medida + norma)
+  + largo + material con `ubicaciones` (antes «M10x25 DIN 933» 4 + 40); la norma sólo hace
+  comercial a la pieza si está en la cabeza del rol y el rol no es de los que se fabrican
+  («Eje fijo del rodillo … (con anillos DIN 471)» es una barra mecanizada).

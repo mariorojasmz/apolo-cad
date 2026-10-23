@@ -53,7 +53,10 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   tensor y el aviso pide `arrastrar`, que NO es la cura. Tambor en eje vivo tocando sus
   chumaceras: `arrastrar` no lo lleva (todo en `frontera`): continua al eje + `fija` eje→tambor.
   Sin mesa de recepción las cajas descargadas se apilan en la cabeza y frenan a las que siguen:
-  para contar con la fotocelda, alimenta en serie (`cada_s`).
+  para contar con la fotocelda, alimenta en serie (`cada_s`); para una marcha larga, `sumideros`
+  (el producto que pasa el plano sale del mundo: vuelve a su estacionamiento, deja los fotogramas
+  y su serie se acaba ahí; sin ellos, todo igual). Un producto que nace DENTRO de otro (la cola
+  bajo una caja quieta) sale despedido: quien arma productos los nace en banda libre.
   [F3](../../../docs/plans/V8.2-maquina-se-mueve.md)
 - La marcha de la banda = la arista recta SUPERIOR del contorno del lazo (`_direccion_tramo`),
   nunca la recta entre ejes ni el eje largo del casco: con tambores de distinto Ø (motriz

@@ -103,7 +103,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   que cruza el eje de cada perno (rayos OCCT, por SÓLIDO, eje y cabeza de la geometría) y los
   lazos con sus tensores RECONOCIDOS (take-up, catálogo con `carrera_mm`, plantilla, metadato
   `tensores`), nunca por nombre de pieza. Lo no medible sale SIN_EVALUAR, jamás OK. Todo lazo de
-  `create_chain` lleva su medida de centros (D3b es de la cadena, no de la plantilla: F6).
+  `create_chain` lleva su medida de centros (D3b es de la cadena, no de la plantilla: F6). Los
+  bordes de los agujeros (`calidad_bordes.py`) se miden sobre los insumos de agarre con la MISMA
+  `_Escena` (sus `Rayos` se cargan una vez).
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F2)
 - `puerta_publicacion.reunir` arma TODOS los insumos del registro bajo el lock del llamador (la
   gravedad y la marcha las corre la API fuera, con los suyos); `puerta_hechos.py` son los
@@ -252,6 +254,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - La marcha de EJEMPLO de un transportador (`marcha_ejemplo.py`, la que arma la fábrica) sale de
   la detección de la dinámica (`detectar_bandas`, `superficie_banda`), nunca de otra; `probar` la
   simula y exige que una caja avance. [fabrica-de-publicaciones](../../../docs/plans/fabrica-de-publicaciones.md) (ajuste D10)
+  Lleva `sumideros` (fin del tramo superior y bajo la banda) y la cola nace donde la caja no toca
+  pieza (`_choca`): con placa de transferencia o el techo de la guarda de cola, las cajas se
+  encimaban. [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F6)
 - `linea_tiempo.py` (tiempos y efectos del video) y `plan_navegador.py` (el plan cuadro por
   cuadro que el visor sólo dibuja) viven aquí y no en `publicacion/`: el backend no importa la
   publicación (`test_capas_publicacion.py`) y la API arma el plan del botón «Grabar video». Una

@@ -26,9 +26,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   la puerta) y la tornillería de largo a medida con su largo NOMINAL (`largo_tornilleria.py`:
   `cut_length` del param → ficha fija → nombre → geometría, que fuera de serie se pide por el
   inmediato superior con `aviso`), una fila por largo. La comercial modelada A MANO
-  (`designacion_comercial.es_comercial`: rol de compra o norma con designación, nunca una de
-  plano/perfil) es ref `COMPRA` en la categoría de compra del catálogo, en BOM, costeo y cédula
-  (una fuente: el mismo módulo), con su norma y sin medida de corte salvo largo nominal o lazo.
+  (`designacion_comercial.es_comercial`: rol de compra o norma con designación en la CABEZA del
+  rol, nunca una de plano/perfil ni en un rol que se fabrica —«Eje … (con anillos DIN 471)»—) es
+  ref `COMPRA` en la categoría de compra del catálogo, en BOM, costeo y cédula (una fuente: el
+  mismo módulo), con su norma y sin medida de corte salvo largo nominal o lazo; con norma, UNA
+  fila por designación + largo + material y sus `ubicaciones` (nunca por pieza de origen).
   Lo que una unión `perno` DECLARA y nadie modeló lo suma `tornilleria_declarada.py` (por la
   `nota`, sin duplicar lo modelado: reglas en su docstring). [defectos](../../../docs/defectos.md) (F6)
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
@@ -175,6 +177,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   L10 + σ del eje + desalineación eje↔tubo en el rodamiento (≤ 10′, el tubo sigue la cuerda), y el
   motor con el método de la plantilla («motor», no «motorización»); sin un dato real, AVISO con
   el motivo, nunca una capacidad inventada. [defectos](../../../docs/defectos.md) (F6)
+- El Ø del tambor de una faja a mano (velocidad, par) es el MEDIDO de lo redondo y largo
+  (`diametro_tambor.py`: lo motriz primero, sin ejes, tapas ni guardas por rol), nunca el lado
+  menor de la caja de lo que se llame «tambor» (la guarda daba Ø120). (F6)
 - «Ancho útil» (`ancho_util.py`): rodillos = ancho − 2 largueros; BANDA = el ancho MEDIDO de la
   banda (rol) y, si es menor, la luz entre guías laterales que suben sobre ella. Los largueros de
   una faja de banda van por fuera: restarlos daba holguras falsas.
@@ -282,3 +287,7 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   [plan](../../../docs/plans/puerta-de-publicacion.md) § F3. Las sondas rectas no ven lo que se
   alcanza doblando el brazo: `alcance.py` (campo de la muñeca, brazo + antebrazo rectos) +
   `services/calidad_codo.py` (la mano ≤ 230 mm, juzgada por `sondas.veredicto`). § F6.
+- **Distancia al borde de un agujero de perno** (`borde_agujero.py`, EN 1993-1-8 tabla 3.3): la
+  MISMA medida para la puerta (`calidad/bordes.py`) y `join_bolted` criterio 5. Canto = donde la
+  pieza tiene el espesor de la chapa (no la esquina de un tubo, el talón de un ángulo ni un eje);
+  el agujero de otro perno es paso. Medir sobre la geometría, nunca sobre la huella de cajas. § F6.
