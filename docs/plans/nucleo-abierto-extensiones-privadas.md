@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0, F1a–F1c, F2, F3, F4a y F5 mergeadas (F4a: la fábrica ya vive en apolo-pro); ajuste D13–D16 (el árbol público es sólo el núcleo) escrito el 2026-10-23, espera la aprobación de Mario; faltan F4b (con Mario) ∥ F4c → F4d → F6; Mario instala el CLA Assistant
+nota: F0, F1a–F1c, F2, F3, F4a y F5 mergeadas (F4a: la fábrica ya vive en apolo-pro); CLA con CLA Assistant Lite (F5 cierre); ajuste D13–D16 (el árbol público es sólo el núcleo) aprobado por Mario el 2026-10-23; F4c lanzada; faltan F4b (con Mario) → F4d → F6
 descripcion: el núcleo de Apolo sigue público y abierto a contribuciones; lo nuevo que diferencia el servicio de diseño vive en un paquete privado que se engancha al núcleo sin tocarlo
 ---
 
