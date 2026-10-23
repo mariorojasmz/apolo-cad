@@ -216,6 +216,13 @@ agente-nativa que ningún CAD grande tiene**. No persigue paridad función-por-f
 Fusion/SolidWorks (es una **cuña**, no un reemplazo general). Fuera de alcance deliberado: CAM,
 FEA real, PCB, nube multiusuario.
 
+## Contribuir
+
+Los aportes son bienvenidos. Lee primero [CONTRIBUTING.md](CONTRIBUTING.md): qué se acepta, cómo
+correr los tests y el build, y el estilo de los commits. En tu primer pull request se te pide
+firmar una vez el [acuerdo de licencia del contribuyente](docs/CLA.md) (CLA), con CLA Assistant.
+Para reportar un problema de seguridad, sigue [SECURITY.md](SECURITY.md).
+
 ## Licencia
 
 [MIT](LICENSE) © 2026 Mario Rojas.

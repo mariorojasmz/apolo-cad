@@ -1,0 +1,63 @@
+name: "Propuesta · Proposal"
+description: "Una función nueva o un cambio de diseño, antes del código · A new feature or a design change, before the code"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Puedes escribir en español o en inglés. · You can write in Spanish or English.
+        Lo que toca la arquitectura se acuerda aquí ANTES de abrir el PR (ver CONTRIBUTING.md). · Anything that touches the architecture is agreed here BEFORE opening the PR (see CONTRIBUTING.md).
+  - type: textarea
+    id: problema
+    attributes:
+      label: "Qué problema resuelve · What problem it solves"
+      description: "Qué quieres lograr y qué te lo impide hoy. · What you want to achieve and what stops you today."
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: "Qué propones · What you propose"
+      description: "Cómo se vería: comandos, parámetros, tools, pantallas. · What it would look like: commands, parameters, tools, screens."
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Área · Area"
+      multiple: true
+      options:
+        - "kernel (geometría · geometry)"
+        - "commands (registro de comandos · command registry)"
+        - "doc (log, .apolo, undo)"
+        - "library (catálogo, cálculo · catalog, calculations)"
+        - "assembly (mates, juntas · mates, joints)"
+        - "drawing (planos · drawings)"
+        - "fea / physics / cosim / plc"
+        - "api"
+        - "mcp / agent"
+        - "ui"
+        - "docs"
+        - "Otro · Other"
+    validations:
+      required: true
+  - type: dropdown
+    id: arquitectura
+    attributes:
+      label: "¿Toca la arquitectura, el formato .apolo o los puntos de extensión? · Does it touch the architecture, the .apolo format or the extension points?"
+      options:
+        - "No"
+        - "Sí · Yes"
+        - "No sé · Not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: "Alternativas que consideraste · Alternatives you considered"
+  - type: checkboxes
+    id: implementar
+    attributes:
+      label: "Implementación · Implementation"
+      options:
+        - label: "Quiero implementarla yo, si se acepta · I'd like to implement it myself, if accepted"

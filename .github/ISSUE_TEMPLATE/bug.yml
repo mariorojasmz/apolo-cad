@@ -1,0 +1,70 @@
+name: "Error · Bug report"
+description: "Algo no funciona como debería · Something doesn't work as it should"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Puedes escribir en español o en inglés. · You can write in Spanish or English.
+        **¿Es un problema de seguridad?** No lo reportes aquí: sigue SECURITY.md. · **Is it a security problem?** Don't report it here: follow SECURITY.md.
+  - type: textarea
+    id: que-pasa
+    attributes:
+      label: "Qué pasa · What happens"
+      description: "Lo que ves, con el mensaje de error si hay uno. · What you see, with the error message if there is one."
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: "Qué esperabas · What you expected"
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: "Pasos para reproducirlo · Steps to reproduce"
+      description: "Lo más corto posible. Si puedes, adjunta el `.apolo` o el lote de comandos. · As short as possible. If you can, attach the `.apolo` file or the command batch."
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: dropdown
+    id: cliente
+    attributes:
+      label: "Por dónde lo usas · How you use it"
+      options:
+        - "Agente por MCP · Agent over MCP"
+        - "Interfaz web · Web UI"
+        - "API HTTP directa · HTTP API directly"
+        - "Otro · Other"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: "Versión · Version"
+      description: "`pip show apolo-cad`, o el commit si trabajas desde el repo. · Or the commit if you run from the repo."
+    validations:
+      required: true
+  - type: input
+    id: entorno
+    attributes:
+      label: "Sistema y Python · OS and Python"
+      placeholder: "Windows 11, Python 3.13"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Registro o traza · Log or traceback"
+      render: shell
+  - type: checkboxes
+    id: buscado
+    attributes:
+      label: "Antes de enviar · Before submitting"
+      options:
+        - label: "Busqué en los issues abiertos y cerrados · I searched the open and closed issues"
+          required: true

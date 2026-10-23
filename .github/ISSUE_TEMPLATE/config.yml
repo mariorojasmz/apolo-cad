@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Problema de seguridad · Security problem"
+    url: https://github.com/mariorojasmz/apolo-cad/security/advisories/new
+    about: "Repórtalo en privado, no en un issue público · Report it privately, not in a public issue"

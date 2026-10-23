@@ -218,6 +218,13 @@ capability no big CAD has**. It does not chase feature-for-feature parity with F
 (it's a **wedge**, not a general replacement). Deliberately out of scope: CAM, real FEA, PCB,
 multi-user cloud.
 
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: what gets accepted, how
+to run the tests and the build, and the commit style. On your first pull request you'll be asked
+to sign the [Contributor License Agreement](docs/CLA.md) once, through CLA Assistant. To report a
+security problem, follow [SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE) © 2026 Mario Rojas.
