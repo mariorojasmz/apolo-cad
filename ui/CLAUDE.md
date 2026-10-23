@@ -94,6 +94,11 @@ Cada concepto tiene UN nombre en toda la interfaz. La tabla se mantiene acá y s
 | la lista de piezas y compras | **BOM** (sigla del oficio, se acepta) | lista de materiales en un rótulo |
 | lo que se pierde / lo que sale de una lista | **Eliminar** / **Quitar** | Borrar, Remover |
 | el correo · la acción del mouse | **correo** · **haz clic** / **toca** | email, mail · pulsa, click, ratón |
+| el cuadro eléctrico con sus aparatos | **tablero** | gabinete, panel eléctrico (un «panel» es de Apolo) |
+| pulsador, seta, selector o seccionador que maneja la persona | **mando** | control, botonera (si no es el aparato) |
+| un valor con nombre que mide la simulación (`-M1.rpm`) | **señal** | variable, tag, canal |
+| la situación que se simula (condiciones, cajas, acciones) | **escenario** | caso, prueba |
+| la simulación que manejas mientras corre | **sesión viva** | sesión en vivo, modo en vivo, live |
 
 La interfaz habla en **plural** («te avisamos»). Los nombres internos del código no aparecen
 en la vista del usuario. Registro: tuteo neutro latinoamericano, sin voseo ni usted; nada de
@@ -273,6 +278,17 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
   para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).
+- **Excepción acotada de color**: el color FÍSICO de un mando o un piloto (`vivo/mandos.ts::colorFisico`,
+  del `specs.color` del catálogo; el emisivo de un piloto con pieza) y el color por dato con su
+  leyenda (tendencias). Nunca un rojizo ni un verde de ESTADO. [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) D9
+- La máquina viva (`ui/src/vivo/`, nunca en `Viewport.tsx`): `sesion.ts` lee el `WS /api/cosim/vivo`
+  y carga en `useMarcha` una serie `vivo: true` que CRECE EN SITIO (`serieViva.ts`, anillo de 60 s;
+  jamás `cargar` por fotograma: rehace el reproductor); `enVista.ts` la arma con
+  `reproductorVivo.ts` (el mismo reproductor siguiendo `reloj.ts`, más etiquetas `CSS2DRenderer` y
+  mandos 3D). El clic en un mando 3D se toma en CAPTURA sobre el contenedor del canvas (antes que
+  selección y órbita). Un pulsador se mantiene ≥ 150 ms (`PULSO_MIN_MS`): un clic más corto entra y
+  sale en la misma ventana de 33 ms y el PLC no lo ve. Zustand: selectores PRIMITIVOS en el panel.
+  [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F2)
 - Agarrar y mover: el pointerdown selecciona y arma un `movePick` pendiente; el arrastre real
   empieza al superar `DRAG_THRESHOLD_PX = 5` (= umbral de `onClick`). Bajo el umbral es un clic:
   no mueve ni commitea.
