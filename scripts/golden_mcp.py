@@ -37,6 +37,9 @@ RAIZ = Path(__file__).resolve().parents[1]
 # Mide ESTE árbol: en un worktree el venv apunta al checkout principal (CLAUDE.md raíz).
 if str(RAIZ / "core") not in sys.path:
     sys.path.insert(0, str(RAIZ / "core"))
+# El golden es del NÚCLEO: las tools de una extensión instalada no entran (A3 del plan
+# nucleo-abierto-extensiones-privadas). Antes de importar `apolo.mcp_server`.
+os.environ["APOLO_EXTENSIONES"] = "0"
 
 
 def _cargar_casos():

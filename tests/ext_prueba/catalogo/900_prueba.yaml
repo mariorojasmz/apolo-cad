@@ -1,0 +1,11 @@
+# Catálogo de la extensión FALSA de la suite (plan nucleo-abierto-extensiones-privadas, D9): una
+# sola ref, con el prefijo de la extensión. Builder del núcleo (una caja).
+category: prueba_catalogo
+components:
+  - ref: prueba.caja
+    name: Caja de prueba
+    description: Ref de la extensión falsa de la suite; comprueba que el catálogo de una extensión se suma al del núcleo.
+    builder: box
+    params: {width: 40, depth: 40, height: 40}
+    weight: 0.1
+    specs: {cost: 1}

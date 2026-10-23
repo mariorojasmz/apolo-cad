@@ -57,7 +57,10 @@ ARCHIVOS = (
 #: 4 — V8.4, cola en vivo: la caja de la cola nace sólo con su lugar de entrada libre
 #: (`physics/dinamica_nacimiento.py`). Los 5 escenarios de la 77 dan la misma huella (su banda
 #: anda antes de que toque la segunda caja), pero un escenario cuya cola encimaba cajas cambia.
-HUELLA: tuple[int, str] = (4, "b1e0105e3466940b")
+#: nucleo-abierto F1a (sin subir): el snapshot lleva los modelos de EXTENSIÓN del tablero
+#: (`modelos_extension`, `extensiones`) y el worker los registra; sin extensiones van vacíos y
+#: ningún resultado cambia. Su vigencia (la versión de la extensión) va en `services/escenarios`.
+HUELLA: tuple[int, str] = (4, "63c586609153f731")
 
 
 def archivos() -> list[Path]:

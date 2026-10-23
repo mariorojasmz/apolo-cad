@@ -89,14 +89,22 @@ def db_path() -> str:
     return str(path)
 
 
-def ui_dist() -> Path | None:
+def ui_dist(de_extension: Path | None = None) -> Path | None:
     """Carpeta del bundle de la UI, o `None` si no hay (la API queda headless).
 
     Prioridad: en un checkout gana el build de `ui/dist` (lo que acabas de compilar) y la
     UI empaquetada queda de respaldo; instalado, solo existe la empaquetada. Antes ganaba
     SIEMPRE la empaquetada: tras un `stage_ui.py` de release, el checkout servía en :8000
     ese bundle congelado y los cambios nuevos de la UI no se veían.
+
+    `de_extension` (`apolo.extensiones.webui()`, D5 del plan nucleo-abierto-extensiones-privadas)
+    gana a las dos: es la UI del núcleo compuesta con la de la extensión. `APOLO_UI=nucleo` la
+    salta: con la extensión instalada en el checkout del núcleo, su bundle sale de una etiqueta
+    y los cambios de la UI del núcleo no se verían.
     """
+    if (de_extension is not None and os.environ.get("APOLO_UI", "").strip().lower() != "nucleo"
+            and (Path(de_extension) / "index.html").is_file()):
+        return Path(de_extension)
     packaged = _PKG / "webui"
     root = repo_root()
     if root is not None:

@@ -47,7 +47,7 @@ def _cmd_sig(prev: str, cmd: dict) -> str:
     h = hashlib.sha1(prev.encode())
     h.update(cmd["id"].encode())
     h.update(json.dumps(cmd["params"], sort_keys=True, default=str).encode())
-    h.update(version_tag(REGISTRY, cmd["type"]).encode())  # b"" con todo en v1: la histórica
+    h.update(version_tag(REGISTRY, cmd["type"], cmd["params"]).encode())  # b"" en v1 y sin extensiones
     return h.hexdigest()
 
 

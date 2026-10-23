@@ -10,8 +10,8 @@ checkpoints, como `motion` o `fea`) con la forma `{nombre: {"escenario": {...}, 
     «vencido»;
   - vigencia (como las reglas del FEA): el resultado guarda la `firma_documento` (log +
     materiales + las fichas eléctricas del tablero: lo que decide la máquina), el
-    `hash_escenario` y la versión del motor (`cosim.COSIM_EPOCH`, F6b); si cualquiera cambió,
-    «vencido»;
+    `hash_escenario` y la versión del motor (`cosim.COSIM_EPOCH`, F6b) y, si el tablero usa
+    modelos de una extensión, su versión (`extensiones`); si cualquiera cambió, «vencido»;
   - `resultado_compacto` + `guardar_resultado`: lo que queda del último run (veredicto y cada
     aserción, sin las trazas, que van a la memoria de la API);
   - `reglas_escenarios`: la regla «escenarios» de la puerta de entrega (D14).
@@ -173,6 +173,11 @@ def estado(doc, nombre: str, firma: str | None = None) -> dict:
         motivos.append("la máquina cambió desde que se corrió")
     if res.get("hash_escenario") != hash_escenario(ent["escenario"]):
         motivos.append("el escenario cambió desde que se corrió")
+    ext = res.get("extensiones") or {}
+    hoy = extensiones_usadas(doc, ext)  # A4: como el epoch, pero de la extensión
+    if ext != hoy:
+        motivos.append(f"cambió una extensión cuyos modelos usa el tablero (era {ext or 'ninguna'}, "
+                       f"hoy {hoy or 'ninguna'})")
     if motivos:
         return {"estado": VENCIDO, "motivo": "; ".join(motivos), "ultimo": res.get("veredicto")}
     return {"estado": res.get("veredicto")}
@@ -202,10 +207,24 @@ def listar(doc, nombre: str | None = None) -> dict:
     return {"escenarios": filas, "firma_documento": firma}
 
 
+def extensiones_usadas(doc, previas: dict | None = None) -> dict:
+    """{extensión: versión} de las extensiones cuyos modelos de co-simulación usa el tablero
+    (plan nucleo-abierto-extensiones-privadas, A4: `COSIM_EPOCH` es sólo del núcleo). Sin
+    extensiones cargadas ni `previas` guardadas, `{}` sin armar el tablero."""
+    from apolo.cosim.modelos import DE_EXTENSION, de_extension
+
+    if not DE_EXTENSION and not previas:
+        return {}
+    from .electrico import modelo
+
+    return de_extension((d.modelo or {}).get("tipo") for d in modelo(doc).dispositivos)[1]
+
+
 def resultado_compacto(veredicto: dict, res: dict, *, firma: str, hash_esc: str,
-                       simulacion: str | None) -> dict:
+                       simulacion: str | None, extensiones: dict | None = None) -> dict:
     """Lo que se guarda en el manifest del último run: sin trazas (pesan cientos de KB). Con la
-    versión del motor que lo produjo (`cosim_epoch`, F6b)."""
+    versión del motor que lo produjo (`cosim_epoch`, F6b) y, sólo si el tablero usó modelos de
+    una extensión, sus versiones (`extensiones`, A4)."""
     from apolo.cosim import COSIM_EPOCH
 
     r = res.get("resumen") or {}
@@ -213,7 +232,8 @@ def resultado_compacto(veredicto: dict, res: dict, *, firma: str, hash_esc: str,
             "firma_documento": firma, "hash_escenario": hash_esc, "cosim_epoch": COSIM_EPOCH,
             "fecha": time.strftime("%Y-%m-%dT%H:%M:%S"), "huella": r.get("huella"),
             "duracion_s": r.get("duracion_s"), "factor_tiempo_real": r.get("factor_tiempo_real"),
-            **({"simulacion": simulacion} if simulacion else {})}
+            **({"simulacion": simulacion} if simulacion else {}),
+            **({"extensiones": dict(extensiones)} if extensiones else {})}
 
 
 def guardar_resultado(doc, nombre: str, compacto: dict) -> bool:

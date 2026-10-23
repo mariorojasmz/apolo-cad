@@ -21,11 +21,19 @@ los comandos exactos al terminar.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+# Las cifras públicas son las del NÚCLEO: una extensión privada instalada en el mismo .venv
+# escribiría en los README sus comandos y tools (fuga; A3 del plan
+# nucleo-abierto-extensiones-privadas). Antes de importar `apolo`, también para el `pytest`
+# que lanza `--tests` (hereda el entorno).
+os.environ["APOLO_EXTENSIONES"] = "0"
 
 ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = ROOT / "core" / "pyproject.toml"
@@ -35,8 +43,12 @@ READMES = [ROOT / "README.md", ROOT / "README.es.md", ROOT / "core" / "README.md
 
 # --------------------------------------------------------------------- cifras
 def count_tools() -> int:
-    src = (ROOT / "core" / "apolo" / "mcp_server.py").read_text(encoding="utf-8")
-    return len(re.findall(r"^@mcp\.tool", src, re.M))
+    """Las tools que ve un cliente MCP (`list_tools()`), no los `@mcp.tool` de `mcp_server.py`:
+    las de `tools/*.py` también cuentan (el regex daba 76 con 90 tools reales)."""
+    sys.path.insert(0, str(ROOT / "core"))
+    from apolo.mcp_server import mcp
+
+    return len(asyncio.run(mcp.list_tools()))
 
 
 def count_commands() -> int:

@@ -1,12 +1,10 @@
 """Servidor MCP de Genix Apolo CAD (stdio).
 
-Expone el CAD como tools estándar MCP para que CUALQUIER agente (Claude Code,
-Claude Desktop…) pueda diseñar en Apolo. Es un cliente fino de la API HTTP:
-exactamente las mismas operaciones que la UI y el chat integrado, y los
-cambios aparecen en vivo en el navegador (WebSocket).
+Expone el CAD como tools estándar MCP para que CUALQUIER agente (Claude Code, Claude Desktop…)
+pueda diseñar en Apolo. Es un cliente fino de la API HTTP: exactamente las mismas operaciones
+que la UI y el chat integrado, y los cambios aparecen en vivo en el navegador (WebSocket).
 
-Uso:  python -m apolo.mcp_server   (APOLO_URL configura el servidor, por
-defecto http://127.0.0.1:8000 — el servidor Apolo debe estar corriendo).
+Uso: `python -m apolo.mcp_server` (APOLO_URL, por defecto http://127.0.0.1:8000; la API arriba).
 """
 
 from __future__ import annotations
@@ -18,6 +16,7 @@ import time
 import httpx
 from mcp.server.fastmcp import Image
 
+from apolo import extensiones
 from apolo.brief import _one_or_many, _scene_brief, brief_paso
 from apolo.design.instrucciones import instrucciones_mcp
 from apolo.tools import calidad, cirugia, cosim, destino, entregable, estructura, fastmcp_limpio
@@ -1356,6 +1355,7 @@ estructura.registrar(mcp, lambda *a, **k: _api(*a, **k))  # declare_structure (u
 cirugia.registrar(mcp, lambda *a, **k: _mutacion(*a, **k))  # remove_commands (cirugia-liviana)
 calidad.registrar(mcp, lambda *a, **k: _submit_and_wait(*a, **k))  # puerta de publicación (F1)
 notas.registrar(mcp, lambda *a, **k: _api(*a, **k))  # memoria del agente (F6 de la puerta)
+extensiones.registrar_tools(mcp, globals())  # las de extensiones, al final (nucleo-abierto A3)
 
 
 def main() -> None:

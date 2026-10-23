@@ -61,3 +61,8 @@ class CosimSnapshot:
     escenario: object            # apolo.cosim.escenario.Escenario
     hipotesis: list = field(default_factory=list)
     avisos: list = field(default_factory=list)
+    # Plan nucleo-abierto-extensiones-privadas (A4): los modelos de EXTENSIÓN que usa el tablero
+    # ({tipo: clase}: pickle los importa por nombre en el worker, que los registra) y
+    # {extensión: versión}, que el resultado guardado anota. Vacíos sin extensiones.
+    modelos_extension: dict = field(default_factory=dict)
+    extensiones: dict = field(default_factory=dict)

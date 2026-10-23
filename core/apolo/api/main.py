@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from apolo import extensiones
 from apolo import paths as _paths
 from apolo.services.drawing_maps import (  # D4: nombres viejos por IDENTIDAD (tests)
     feature_fit_maps as _feature_fit_maps,  # noqa: F401
@@ -185,14 +186,21 @@ def _fea_rules() -> list[dict]:
 # -------------------------------------------------------------------- routers
 # Cada router agrupa las rutas de un tema; las rutas que pueden casar la MISMA URL viven en
 # el mismo router y en su orden de siempre (D5 del plan partir-api-main).
-for _router in (core, commands, features, render, projects, deliverables, validation, motion,
-                assembly, fea, drawings, electrico, cosim, cosim_vivo, video, video_guion):
-    app.include_router(_router.router)
+_ROUTERS = (core, commands, features, render, projects, deliverables, validation, motion,
+            assembly, fea, drawings, electrico, cosim, cosim_vivo, video, video_guion)
+# Extensiones (plan nucleo-abierto-extensiones-privadas, A3): se cargan AQUÍ, antes de las
+# rutas (su prefijo no puede ser un tramo /api/<x>/ del núcleo), y sus routers van DESPUÉS de
+# los del núcleo y ANTES de la UI (un `Mount("/")` previo los taparía). Nunca tumban el arranque.
+extensiones.cargar(rutas_nucleo=[getattr(r, "path", "") for r in (
+    *app.routes, *(x for m in _ROUTERS for x in m.router.routes))])
+for _router in (*(m.router for m in _ROUTERS), *extensiones.routers()):
+    app.include_router(_router)
 
 
 # ------------------------------------------------------------------- UI build
 # `paths.ui_dist()` resuelve la UI empaquetada (instalación pip) o el build del
-# checkout; None = sin bundle → la API sirve solo /api (headless, útil para MCP).
-_ui_dist = _paths.ui_dist()
+# checkout; None = sin bundle → la API sirve solo /api (headless, útil para MCP). La de una
+# extensión cargada gana salvo `APOLO_UI=nucleo` (D5).
+_ui_dist = _paths.ui_dist(extensiones.webui())
 if _ui_dist is not None:
     app.mount("/", StaticFiles(directory=str(_ui_dist), html=True), name="ui")

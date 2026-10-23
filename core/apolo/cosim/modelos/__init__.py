@@ -26,6 +26,30 @@ MODELOS: dict[str, type[Modelo]] = {m.tipo: m for m in (
     Red, Fuente, Seccionador, Itm, Guardamotor, ReleTermico, Fusible, Contactor, Rele, PlcES,
     Variador, Motor, Pulsador, Seta, Selector, Piloto, Sensor)}
 
+#: tipo → (extensión, versión) de los modelos que sumó una extensión (plan
+#: nucleo-abierto-extensiones-privadas, A4): el resultado guardado de un escenario anota las
+#: extensiones cuyos modelos usó el tablero.
+DE_EXTENSION: dict[str, tuple[str, str]] = {}
+
+
+def registrar_modelos(clases: dict, origen: tuple[str, str] | None = None) -> None:
+    """Suma los modelos de una extensión a `MODELOS`. En la API, `apolo.extensiones.cargar` (con
+    `origen`); en el worker, las clases que trae el snapshot (`CosimSnapshot.modelos_extension`:
+    el worker no busca extensiones ni importa el resto de su código). Un tipo que ya es de otra
+    clase es error."""
+    for tipo, clase in clases.items():
+        if MODELOS.get(tipo, clase) is not clase:
+            raise ValueError(f"el tipo de modelo «{tipo}» ya es de otra clase")
+        MODELOS[tipo] = clase
+        if origen is not None:
+            DE_EXTENSION[tipo] = origen
+
+
+def de_extension(tipos) -> tuple[dict, dict]:
+    """De los `tipos` de un tablero, los de extensión: ({tipo: clase}, {extensión: versión})."""
+    usados = sorted(t for t in set(tipos) if t in DE_EXTENSION)
+    return ({t: MODELOS[t] for t in usados}, {DE_EXTENSION[t][0]: DE_EXTENSION[t][1] for t in usados})
+
 
 def crear_modelo(designacion: str, ref: str, modelo: dict | None, ajustes: dict | None = None,
                  *, cantidad: int = 1) -> Modelo | None:
@@ -58,7 +82,8 @@ def ajustes_faltantes(designacion: str, ref: str, modelo: dict | None, ajustes: 
     return p.faltan
 
 
-__all__ = ["MODELOS", "Contactor", "Fuente", "Fusible", "Guardamotor", "Itm", "Modelo",
+__all__ = ["DE_EXTENSION", "MODELOS", "Contactor", "Fuente", "Fusible", "Guardamotor", "Itm", "Modelo",
            "ModeloIncompleto", "Motor", "Parametros", "Piloto", "PlcES", "Pulsador", "Red", "Rele",
            "ReleTermico", "Seccionador", "Selector", "Sensor", "Seta", "Variador", "ajustes_faltantes",
-           "crear_modelo", "direccion_iec", "entrada_tipo1", "placa_v82"]
+           "crear_modelo", "de_extension", "direccion_iec", "entrada_tipo1", "placa_v82",
+           "registrar_modelos"]

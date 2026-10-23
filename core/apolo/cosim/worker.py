@@ -113,6 +113,7 @@ def main() -> int:
 
     import apolo
     from apolo.cosim import planificador
+    from apolo.cosim.modelos import registrar_modelos
 
     import_s = time.perf_counter() - t0
     write_frame(salida, b"R" + json.dumps({"pid": os.getpid(), "apolo": apolo.__file__,
@@ -128,6 +129,8 @@ def main() -> int:
             return 0
     try:
         snap = pickle.loads(cuerpo)  # noqa: S301 — lo serializó el proceso de la API
+        # los modelos de extensión del tablero vienen en el snapshot (nucleo-abierto A3)
+        registrar_modelos(getattr(snap, "modelos_extension", None) or {})
         if config is not None:
             from apolo.cosim.worker_vivo import correr_vivo
 

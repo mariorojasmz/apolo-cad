@@ -117,7 +117,8 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
                                          "equivocado). Abre el proyecto y vuelve a correrlo.")
             else:
                 out["guardado"] = E.guardar_resultado(doc, nombre, E.resultado_compacto(
-                    ver, res, firma=firma, hash_esc=h, simulacion=sim_id))
+                    ver, res, firma=firma, hash_esc=h, simulacion=sim_id,
+                    extensiones=getattr(snap, "extensiones", None)))
                 if out["guardado"]:
                     _autosave()
                 out["estado"] = E.estado(doc, nombre)["estado"] if nombre in doc.escenarios else None
@@ -355,7 +356,8 @@ def _guardar_sesion(body: SesionIn, proyecto) -> dict:
         except ServiceError as exc:
             raise _http_error(exc) from exc
         E.guardar_resultado(doc, nombre, E.resultado_compacto(ver, res, firma=firma, hash_esc=h,
-                                                              simulacion=sim_id))
+                                                              simulacion=sim_id,
+                                                              extensiones=getattr(snap, "extensiones", None)))
         _autosave()
         out.update(guardado=True, estado=E.estado(doc, nombre)["estado"])
         out["avisos"] += puesto["avisos"]

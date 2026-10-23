@@ -148,7 +148,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     from apolo.cosim.agenda import validar
     from apolo.cosim.datos import AcopleMotor, AcopleSensor, CosimSnapshot, DispositivoCosim
     from apolo.cosim.escenario import EscenarioInvalido, leer_escenario
-    from apolo.cosim.modelos import ModeloIncompleto
+    from apolo.cosim.modelos import ModeloIncompleto, de_extension
     from apolo.cosim.red import EntradaInvalida
     from apolo.cosim.tablero import Tablero
     from apolo.physics.dinamica import prepare_dynamics
@@ -211,6 +211,8 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
         validar(esc, tab, set(dyn.juntas))
     except EscenarioInvalido as exc:
         raise ServiceError(400, str(exc)) from exc
+    clases, extensiones = de_extension((d.modelo or {}).get("tipo") for d in dispositivos)
     return CosimSnapshot(dinamica=dyn, red=red, dispositivos=dispositivos, programas=progs,
                          motores=motores, sensores=acoples_s, escenario=esc,
-                         hipotesis=hipotesis, avisos=avisos)
+                         hipotesis=hipotesis, avisos=avisos,
+                         modelos_extension=clases, extensiones=extensiones)

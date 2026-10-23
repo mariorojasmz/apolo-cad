@@ -14,6 +14,8 @@ está en ninguno:
 
 El ORDEN de `CHAT` es el orden de las definiciones que recibe el modelo (`agent/herramientas.py`):
 fijo, para que el prefijo de la caché de prompt no cambie (D12). Puro: sin imports de `apolo`.
+Una extensión suma las suyas con `agregar` (sin el punto en el nombre: A7 del plan
+nucleo-abierto-extensiones-privadas).
 """
 
 from __future__ import annotations
@@ -161,3 +163,21 @@ FUERA_DEL_CHAT: dict[str, str] = {
                         "(F6 de puerta-de-publicacion); el chat, apagado por defecto (D19), anota "
                         "con add_agent_note y no cabe otra tool en su presupuesto (D8: < 60 KB)"),
 }
+
+#: Las tools que sumó una extensión → su nombre (plan nucleo-abierto-extensiones-privadas, A7).
+DE_EXTENSION: dict[str, str] = {}
+
+
+def agregar(nombre: str, extension: str, en_chat: EnChat | None, motivo: str) -> None:
+    """Pone la tool de una extensión en un lado: en `CHAT` (al final, tras las del núcleo: el
+    prefijo de caché no cambia) si la declaró así, o en `FUERA_DEL_CHAT` con `motivo`. La llama
+    `apolo.extensiones.registrar_tools`; repetirla para la misma extensión no hace nada."""
+    if DE_EXTENSION.get(nombre) == extension:
+        return
+    if nombre in CHAT or nombre in FUERA_DEL_CHAT or nombre in DE_EXTENSION:
+        raise ValueError(f"la tool «{nombre}» ya está en el catálogo del chat")
+    DE_EXTENSION[nombre] = extension
+    if en_chat is not None:
+        CHAT[nombre] = en_chat
+    else:
+        FUERA_DEL_CHAT[nombre] = motivo

@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSock
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from apolo import identidad
+from apolo import extensiones, identidad
 from apolo.agent import chat as chat_http
 from apolo.commands import command_schemas_agente, command_schemas_persona
 from apolo.state import STATE_LOCK
@@ -137,6 +137,8 @@ def health(request: Request) -> dict:
             "pid": identidad.pid(),
             "puerto": puerto,
             "proyecto": {"id": S.project_id, "nombre": S.doc.name},
+            # nucleo-abierto (D3): [{nombre, version, cargada, motivo?}]; [] sin extensiones
+            "extensiones": extensiones.estado(),
         }
 
 

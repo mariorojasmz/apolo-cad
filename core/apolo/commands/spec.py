@@ -72,13 +72,41 @@ def run_executor(spec: CommandSpec, ctx: ExecContext, cmd_id: str, model: Any) -
     spec.executor(ctx, cmd_id, model)
 
 
-def version_tag(registry: Mapping[str, CommandSpec], cmd_type: str) -> str:
+#: Ref del catálogo de una extensión → «extensión@epoch_catalogo» (plan
+#: nucleo-abierto-extensiones-privadas, A4): `apolo.extensiones` la llena al cargar. Vacío (sin
+#: extensiones) → ninguna firma cambia.
+REFS_DE_EXTENSION: dict[str, str] = {}
+
+
+def _cadenas(x):
+    if isinstance(x, str):
+        yield x
+    elif isinstance(x, dict):
+        for v in x.values():
+            yield from _cadenas(v)
+    elif isinstance(x, (list, tuple)):
+        for v in x:
+            yield from _cadenas(v)
+
+
+def version_tag(registry: Mapping[str, CommandSpec], cmd_type: str, params=None) -> str:
     """Lo que las versiones aportan a la firma de un comando del log (D9): "" si todo lo que
     le concierne está en v1 (firma byte-idéntica a la histórica). Un comando compuesto lleva
-    las versiones ≠ 1 de TODO el registro: reproduce executors que sus params no nombran."""
+    las versiones ≠ 1 de TODO el registro: reproduce executors que sus params no nombran.
+
+    Con `params` y alguna extensión con catálogo (A4), suma el `epoch_catalogo` de cada
+    extensión cuya ref nombran los params (un compuesto, el de TODAS: su replay puede insertar
+    refs que sus params no nombran, p. ej. dentro del adjunto de un `insert_project`). Sin
+    extensiones, la firma de siempre."""
     spec = registry.get(cmd_type)
     if spec is None:
         return ""
     pares = registry.items() if spec.composite else [(cmd_type, spec)]
     tags = [f"{t}@{s.version}" for t, s in sorted(pares, key=lambda par: par[0]) if s.version != 1]
-    return "|v:" + ",".join(tags) if tags else ""
+    tag = "|v:" + ",".join(tags) if tags else ""
+    if params is not None and REFS_DE_EXTENSION:
+        epochs = (REFS_DE_EXTENSION.values() if spec.composite else
+                  (REFS_DE_EXTENSION[c] for c in _cadenas(params) if c in REFS_DE_EXTENSION))
+        if (epochs := sorted(set(epochs))):
+            tag += "|ext:" + ",".join(epochs)
+    return tag
