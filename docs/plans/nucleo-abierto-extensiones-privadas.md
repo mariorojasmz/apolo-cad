@@ -830,3 +830,117 @@ en 1367 líneas, `document.py` en 1023 y `registry.py` en 1913.
 
 **Pendiente:** builders con zonas de acabado (`ZONADOS`) en una extensión; el golden de las
 tools de extensión (F3); D4 (sólo lectura) y `document.solo_lectura`, de F1b.
+
+### F3 (2026-10-23): esqueleto de `apolo-pro`
+
+En el repo privado `mariorojasmz/apolo-pro` (rama `main`, sin push: lo revisa y pushea la sesión
+principal). El núcleo no se tocó en esta fase.
+
+**Qué hay:**
+
+- **Paquete `apolo_pro`** (distribución `apolo-pro`): `pyproject` con `apolo-cad>=0.1` suelto (A2)
+  y el entry point `pro = "apolo_pro:EXTENSION"`. `Extension(nombre="pro", prefijo="pro",
+  nucleo=(1, 1))` con:
+  - el comando `pro.hola`: una placa paramétrica (largo, ancho, espesor, posición; acepta
+    `"=expr"`), kind `scene`, en la pestaña nueva «Pro», con su pista y dos pistas de campo;
+  - `GET /api/pro/estado`: versión, contrato, comandos, tools y con qué sha del núcleo se compiló
+    la UI;
+  - la tool `pro_hola`, fuera del chat;
+  - `webui`: el `dist` compuesto, si existe.
+  Los campos pesados van perezosos, como en la extensión falsa.
+- **Tests** (21, con `pytest_plugins = ["apolo.pruebas"]`; la extensión se carga por su entry
+  point dentro de `extensiones_aisladas`):
+  - `pro.hola` entra al `REGISTRY` y a la vista persona, es paramétrico (`set_variable` + `=L`) y
+    regenera igual tras `to_apolo_bytes` → `from_apolo_bytes`;
+  - `CAMPOS`/`VERSIONES` propios;
+  - los 6 gates de `tests/test_pistas.py` del núcleo corridos con la extensión cargada, más
+    `faltas` sobre cada texto propio;
+  - API y MCP en procesos aparte (`GET /api/health`, el comando por REST, la ruta, la tool al
+    final de `list_tools` sin cargar OCCT) y un golden propio de `pro_hola` (nombre, docstring,
+    schema y la petición que manda).
+- **UI**: `ui/` con `index.ts` (`export default` con el panel `pro.estado`, «Pro», ícono de
+  lucide), `PanelPro.tsx` (lee `/api/pro/estado`, tuteo neutro) y `estado.ts` puro con su
+  `estado.test.ts`.
+- **`scripts/compilar_ui.py`**:
+  1. clona el núcleo en una carpeta temporal: por defecto el repo público en `main`, o
+     `--nucleo <checkout o URL> --ref <ref>`. Nunca compila dentro del checkout: su `ui/dist` es
+     lo que ese checkout sirve;
+  2. copia `ui/` en `ui/src/extensiones/pro/`;
+  3. corre `npm ci`, `npm test` y `npm run build`;
+  4. deja el `dist` en `apolo_pro/webui/` (o `--destino`), con un `compilado.json` que dice la
+     ref y el sha del núcleo. El `dist` no se commitea.
+- **CI**: un job, Linux, Python 3.13.
+  - Instala el núcleo por `git+https…@<ref>#subdirectory=core` y hace checkout del núcleo a la
+    misma ref en `nucleo/`, para los gates que no viajan en la wheel y para la UI.
+  - Corre ruff, pytest (`APOLO_NUCLEO=nucleo`) y la UI compuesta.
+  - Push y PR van contra `NUCLEO_FIJO: main`, que se fija a una etiqueta cuando exista; cada noche
+    corre contra `main`, y a mano, contra la ref que se pida.
+- **`CLAUDE.md`** (7,7 KB): la regla de oro de una sola dirección, el contrato, cómo instalar y
+  compilar, D6 y la coordinación por `COORDINACION.md`. También un `README.md`, el `.gitignore` y
+  `docs/plans/README.md`.
+
+**Cómo se instala y compila** (en las máquinas de Mario):
+
+- En el `.venv` de cada checkout del núcleo:
+  `python -m pip install --no-deps -e <checkout de apolo-pro>`.
+- La UI: `python scripts\compilar_ui.py --nucleo <checkout del núcleo> --trabajo C:\t`.
+  `--trabajo` acorta las rutas de `node_modules`.
+- `APOLO_UI=nucleo` vuelve a la UI del núcleo; `APOLO_PRO_WEBUI` apunta a otro `dist`.
+
+**Verificación:**
+
+- **Entorno:** un venv aparte con el núcleo editable de este árbol y `apolo-pro` editable, sin
+  tocar el `.venv` de ningún checkout.
+- **Suite:** pytest de `apolo-pro` con 21 tests, ruff limpio.
+- **UI desde un checkout local del núcleo (`main` = `8f8ea48`):** vitest 452 = 449 del núcleo + 3
+  de la extensión, que corren bajo los gates de texto, tuteo y tamaño. El build trae el panel.
+- **UI desde el repo público:** también se compiló.
+- **API en :8109**, sin `--reload`, sobre una base vacía en una carpeta temporal y con
+  `APOLO_LOGS` aparte:
+  - `GET /api/health` dio `extensiones: [{nombre: "pro", version: "0.1.0", cargada: true}]`;
+  - `POST /api/commands pro.hola` dio 200 con «Placa Pro»;
+  - `/api/schemas?vista=persona` la sirve con su pista y la pestaña «Pro»;
+  - `GET /api/pro/estado` respondió;
+  - `GET /` sirvió el bundle compuesto, que trae `pro.estado` y `/api/pro/estado`.
+- **MCP:** un cliente real por stdio (`scripts/e2e_mcp.py` de `apolo-pro`) vio 91 tools, la última
+  `pro_hola`, la corrió como job y un `undo` dejó el conteo de comandos como estaba (1 → 2 → 1).
+- **Al terminar:** el `errors.log` aparte sólo tenía los inicios de sesión; la API se paró.
+
+**Decidido por el agente (vetable):**
+
+- **`webui` condicional.** El núcleo RECHAZA la extensión entera si `webui` apunta a una carpeta
+  sin `index.html` (`validar_webui`). Sin compilar la UI, se perderían también el comando y las
+  rutas, mientras el MCP (que sólo valida la cabecera) seguiría registrando la tool. Por eso
+  `apolo_pro.carpeta_webui()` da `None` si no hay build: la extensión carga sin UI propia.
+- **El `dist` vive dentro del paquete** (`apolo_pro/webui/`, en `package-data`) y no se commitea.
+  Una wheel construida después de compilar lo lleva; un `pip install git+ssh…` sin compilar
+  carga sin UI.
+- **Los gates que no viajan se leen del checkout del núcleo** (`tests/nucleo.py`: `APOLO_NUCLEO`
+  o la raíz del núcleo editable), sin copiarlos. Sin checkout se saltan; en el CI la variable
+  está fijada y, si falta, fallan.
+- **Golden propio y mínimo** para `pro_hola` (`--congelar`): `golden_mcp.py` del núcleo apaga
+  las extensiones siempre.
+- **`/api/pro/estado` lista las tools llamando a `tools_mcp` con un anotador.** En el proceso de
+  la API nadie llama a `registrar_tools`, y `catalogo.DE_EXTENSION` queda vacío.
+- **Pestaña «Pro» con orden 90** (la extensión falsa usa el mismo número, pero nunca cargan
+  juntas).
+- **Sin `--filter=blob:none` contra un checkout local.** Contra el checkout SHALLOW de
+  `actions/checkout`, el clon parcial entró en un bucle de fetch perezoso: cientos de
+  `git-upload-pack` colgados, medido y matado. Sólo se usa contra una URL.
+
+**Lo que le falta al contrato del núcleo** (no se cambió; para decidir):
+
+- **`problemas_de_version` y `huella` siguen en `tests/test_contrato_comandos.py`.** La F0
+  decía que F1 los pasaría a `apolo/` para que viajaran; no se hizo, así que la extensión los lee
+  del checkout. `field_paths` sí viaja.
+- **`validar_webui` es todo o nada.** Una UI ausente podría dejar la extensión cargada sin UI (con
+  un aviso en `GET /api/health`) en vez de rechazarla entera. Hoy la API y el MCP de una misma
+  instalación pueden discrepar: el MCP registra la tool de una extensión que la API rechazó.
+- **Las tools de una extensión no tienen lectura en la API.** No hay un
+  `extensiones.tools(nombre)`: el catálogo del chat sólo se llena en el proceso del MCP.
+- **Lo que la extensión importa del núcleo fuera de `extensiones.py`** es API de hecho, no
+  declarada: `commands.models.Vec3`, `commands.registry.Feature`, `commands.spec.CommandSpec`,
+  `kernel.make_box`, `commands.strict.field_paths` y `tools.fastmcp_limpio`. Un refactor del
+  núcleo la rompe sin subir `CONTRATO_EXTENSIONES`; el CI nocturno del privado es la red.
+- **D4 (sólo lectura sin la extensión) sigue pendiente de F1b.** Hasta entonces, un proyecto con
+  `pro.hola` abierto sin la extensión suprime la placa y la primera edición revienta.
