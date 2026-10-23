@@ -63,3 +63,44 @@
   font-variant-numeric: tabular-nums;
 }
 .etiqueta-viva strong { font-size: 10px; color: var(--muted); font-weight: 600; }
+
+/* ── «Provocar atasco» (panel Mandos) ─────────────────────────────────────────────────── */
+.eventos-vivos input[type="number"] { width: 70px; }
+.campo-evento { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+
+/* ── panel «Señales»: el árbol dispositivo → señales ─────────────────────────────────── */
+.panel-senales input[type="search"] { width: 100%; margin-bottom: 6px; }
+.rama-senales { border-bottom: 1px solid var(--border); padding: 3px 0; }
+.rama-senales summary { display: flex; align-items: baseline; gap: 6px; cursor: pointer; padding: 2px 0; }
+.rama-senales summary .hint { font-size: 11px; }
+.rama-senales .cuenta-senales { margin-left: auto; }
+.lista-senales { list-style: none; margin: 2px 0 4px; padding: 0 0 0 10px; display: flex; flex-direction: column; gap: 1px; }
+.fila-senal { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 1px 0; }
+.nombre-senal { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.valor-senal { font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.fila-senal .inst-icono { padding: 2px 4px; display: inline-flex; align-items: center; }
+.fila-senal .inst-icono.apretado { background: var(--accent-soft); border-color: var(--accent); }
+.fila-senal .muestra-color { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* ── panel «PLC»: el programa ST con los valores al lado (monitor online) ─────────────── */
+.programa-plc { margin-bottom: 10px; }
+.programa-plc header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.programa-plc h3 { margin: 0; }
+.modo-plc {
+  font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); color: var(--muted);
+}
+.modo-plc.en-run { color: var(--text); border-color: var(--accent); }
+.falla-plc { flex-basis: 100%; font-size: 11px; }
+.codigo-st {
+  margin: 0; padding: 6px 8px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  overflow: auto; white-space: pre; color: var(--text);
+}
+.st-comentario { color: var(--muted); }
+.st-valor {
+  display: inline-block; margin: 0 2px 0 3px; padding: 0 4px; border-radius: 3px;
+  font-size: 10.5px; line-height: 1.35; background: var(--panel3); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.st-valor.verdadero { background: var(--accent-soft); color: var(--text); outline: 1px solid var(--accent); }

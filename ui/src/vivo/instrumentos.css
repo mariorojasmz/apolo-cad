@@ -1,0 +1,43 @@
+/* Instrumentos de la sesión viva (plan V8.4 D6 y D7): multímetro y osciloscopio sobre el 3D,
+   arriba de la barra de la sesión (`.barra-vivo`, bottom 60 px) y a la derecha de la columna de
+   herramientas del visor. El color de cada curva es un DATO (paleta de `paleta.ts`, con su
+   leyenda); los textos van en la tinta del tema. */
+
+.instrumentos {
+  position: absolute; left: 72px; bottom: 108px; z-index: 6;
+  width: min(820px, calc(100% - 88px));
+  display: flex; align-items: stretch; gap: 8px;
+  pointer-events: none;
+}
+.instrumentos > section {
+  pointer-events: auto;
+  background: rgba(18, 20, 25, 0.88); backdrop-filter: blur(5px);
+  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-1);
+  padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.instrumentos header { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.instrumentos h3 { margin: 0; font-size: 12px; font-weight: 600; }
+.instrumentos select, .instrumentos input[type="number"] { width: auto; font-size: 12px; padding: 2px 4px; }
+.instrumentos input[type="number"] { width: 72px; }
+.inst-espacio { flex: 1; }
+.inst-icono { padding: 3px 5px; display: inline-flex; align-items: center; justify-content: center; }
+
+/* multímetro: la señal anclada, en grande */
+.multimetro { width: 180px; flex: none; }
+.multimetro header { justify-content: space-between; }
+.mm-senal { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.mm-valor { font-size: 28px; font-weight: 600; line-height: 1.1; color: var(--text); }
+.mm-valor small { font-size: 14px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.instrumentos.plegado .mm-valor { font-size: 18px; }
+
+/* osciloscopio */
+.osciloscopio { flex: 1; }
+.control-disparo { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 12px; }
+.umbral-disparo { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.estado-disparo { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.leyenda-osc { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; }
+.leyenda-osc li { display: inline-flex; align-items: center; gap: 4px; color: var(--text); }
+.leyenda-osc .inst-icono { padding: 1px 3px; background: transparent; border-color: transparent; }
+.muestra-color { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.lienzo-osc { width: 100%; display: block; cursor: crosshair; touch-action: none; }
+.osciloscopio .estado-aviso { margin: 0; font-size: 11px; }

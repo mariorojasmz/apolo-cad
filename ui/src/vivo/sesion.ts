@@ -8,6 +8,7 @@ import {
   type Fotograma, type InicioVivo, type MandoVivo, type MensajeVivo,
 } from "./protocolo";
 import { empujar, serieDesdeInicio, type SerieViva } from "./serieViva";
+import { registrarMuestra, reiniciarHistoria } from "./medicion";
 
 /* La sesión viva del lado del navegador (plan V8.4, F2): abre `WS /api/cosim/vivo` con el token
    del documento (`GET /api/health`) y el escenario elegido, y reparte lo que llega:
@@ -170,6 +171,15 @@ export function accionar(a: Accion, m: MandoVivo): void {
   enviar(a, esperaDe(a, m));
 }
 
+/** Un evento del mundo en vivo (el atasco provocado de `EventosVivos.tsx`); un rechazo llega
+ *  como el de una acción. */
+export function enviarEvento(evento: Record<string, unknown>): void {
+  const ws = s.ws;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ evento, id: `e${++s.ids}` }));
+  useVivo.getState().set({ rechazo: null });
+}
+
 export function controlar(c: "pausa" | "reanudar" | "parar"): void {
   const ws = s.ws;
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ control: c }));
@@ -184,6 +194,7 @@ function alMensaje(m: MensajeVivo): void {
       s.valores.clear();
       s.ultimo = null;
       s.viva = serieDesdeInicio(m);
+      reiniciarHistoria();
       const store = useStore.getState();
       store.clearGravity(); // mueven las mismas mallas
       store.clearPhysics();
@@ -241,6 +252,7 @@ function alFotograma(f: Fotograma): void {
     if (n !== undefined && !Number.isNaN(v)) s.valores.set(n, v);
   }
   s.ultimo = f;
+  registrarMuestra(f.t, s.nombres, f.senales); // el osciloscopio y su disparo
   publicar(false);
 }
 

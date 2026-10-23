@@ -7,13 +7,15 @@ import { formatear, lecturasDe } from "./lecturas";
 import { alApretar, alSoltar, colorFisico, encendido, esMomentaneo, girar, nombreTipo, rotuloAccion } from "./mandos";
 import type { MandoVivo, PilotoVivo } from "./protocolo";
 import { abrirSesion, accionar } from "./sesion";
+import { abrirPanel } from "./abrirPanel";
+import EventosVivos from "./EventosVivos";
 import "./vivo.css";
 
 /* Panel «Mandos» de la máquina viva (plan V8.4 D4): el camino PRINCIPAL para manejar la
    máquina, tenga o no la botonera modelada. Sin sesión: elegir el escenario y abrirla. Con
    sesión: cada mando del tablero con su color físico (pulsador = mientras lo mantienes
    apretado; seta = queda retenida hasta liberarla), los pilotos encendidos en su color y las
-   lecturas del motor, el variador y el contador. */
+   lecturas del motor, el variador y el contador; «Provocar atasco» y el paso a «Señales» y «PLC». */
 
 export default function PanelMandos() {
   const fase = useVivo((s) => s.fase);
@@ -116,6 +118,12 @@ function Tablero() {
         </>
       )}
       <Lecturas />
+      <EventosVivos quieto={quieto} />
+      <h3>Medir</h3>
+      <div className="kin-actions">
+        <button onClick={() => void abrirPanel("senales")}>Ver las señales</button>
+        <button onClick={() => void abrirPanel("plc")}>Ver el programa del PLC</button>
+      </div>
     </>
   );
 }

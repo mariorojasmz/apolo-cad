@@ -109,3 +109,8 @@ export function colorFisico(nombre: string | null | undefined): string | null {
 export function encendido(valor: number | undefined): boolean {
   return valor !== undefined && Number.isFinite(valor) && valor >= 0.5;
 }
+
+/** La junta que frena «Provocar atasco»: la que mueve la banda (la primera), o la primera junta. */
+export function juntaMotriz(ini: { bandas: { junta: string }[]; juntas: { name: string }[] }): string | null {
+  return ini.bandas[0]?.junta ?? ini.juntas[0]?.name ?? null;
+}
