@@ -48,7 +48,7 @@ ARCHIVOS = (
     "services/cosim_snapshot.py",
 )
 
-HUELLA: tuple[int, str] = (3, "063f02c8f4744715")
+HUELLA: tuple[int, str] = (3, "0113320bfdb4e40e")
 
 
 def archivos() -> list[Path]:
