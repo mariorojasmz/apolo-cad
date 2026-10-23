@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { useStore } from "../state/store";
+import { soloLecturaDe } from "../state/soloLectura";
 
 /* Capa de atajos de teclado ("CAD pro"). Un único listener en window que delega:
    - acciones de documento/selección → store (getState)
@@ -21,6 +22,10 @@ export interface ShortcutHandlers {
 }
 
 type Estado = ReturnType<typeof useStore.getState>;
+
+/** Atajos que editan el documento (sin Ctrl/Cmd; con Ctrl/Cmd: z, y, d). En sólo lectura (D4 del
+   plan núcleo-abierto-extensiones-privadas) no hacen nada: el servidor los rechazaría igual. */
+const EDITAN = new Set(["Delete", "Backspace", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown"]);
 
 /** Hay un diálogo modal abierto (comando, variables, biblioteca, planos, inicio, croquis). */
 export function modalAbierto(s: Estado): boolean {
@@ -65,6 +70,8 @@ export function installShortcuts(getHandlers: () => ShortcutHandlers | null): ()
     }
 
     if (modalOpen || h.isBusy()) return;
+    const edita = e.ctrlKey || e.metaKey ? /^[zyd]$/i.test(e.key) : EDITAN.has(e.key);
+    if (edita && soloLecturaDe(s.scene)) return;
 
     if (e.ctrlKey || e.metaKey) {
       const k = e.key.toLowerCase();

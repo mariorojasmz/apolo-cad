@@ -155,6 +155,14 @@ export interface DocumentOut {
   // robustez (V6.1): comandos suprimidos por una carga tolerante + estado del autosave
   suppressed_commands?: { command_id: string | null; type: string; error: string }[];
   autosave_failed?: string | null;
+  // el proyecto usa extensiones que esta instalación no tiene: se ve, no se edita (null = editable)
+  solo_lectura?: SoloLecturaOut | null;
+}
+
+/** Plan núcleo-abierto-extensiones-privadas, D4: qué extensiones faltan y el aviso del servidor. */
+export interface SoloLecturaOut {
+  extensiones: string[];
+  aviso: string;
 }
 
 export interface ProjectInfo {

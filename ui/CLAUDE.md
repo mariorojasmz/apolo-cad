@@ -170,9 +170,18 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   `exitMaximizedGroup()` no dispara `onDidLayoutChange`: nunca se persiste maximizado
   (`guardarLayout`). Algo nuevo para el visor va a la capa, no al ribbon ni a la StatusBar
   (no se montan). [plan](../docs/plans/modo-visor.md)
-- Panel nuevo = `dock/paneles.ts` `PANELES` (componente, título y rótulo; de ahí salen Dockview, la
-  StatusBar y los cajones del visor) + `HERRAMIENTAS` si se conmuta (StatusBar y «Más» del visor)
-  + `ui/icons.tsx` `PANEL_ICONS`.
+- Panel nuevo = `dock/paneles.ts` `NUCLEO` (componente, título, rótulo e ícono; de ahí salen
+  Dockview, la StatusBar y los cajones del visor) + `HERRAMIENTAS_NUCLEO` si se conmuta (StatusBar y
+  «Más» del visor). Un id que llega como texto (layout guardado, cajón) pasa por `esPanel`, y el
+  layout guardado se poda al restaurar (`dock/podarLayout.ts`): Dockview monta un panel que el
+  bundle no trae con un componente vacío y React revienta.
+- **Extensión de la UI** (paquete privado, se compone al COMPILAR): su `ui/` se copia en
+  `src/extensiones/<nombre>/` (ignorado por git) con un `index.ts` cuyo `export default` es una
+  `Extension` (`extensiones/tipos.ts`; paneles con id `<nombre>.<panel>`). `extensiones/registro.ts`
+  la recoge con `import.meta.glob` y la valida: no se edita ningún archivo del núcleo y los gates la
+  recorren. Lo que crezca entra como campo OPCIONAL de `Extension`. Un proyecto en sólo lectura
+  (falta una extensión) se lee con `state/soloLectura.ts`.
+  [plan](../docs/plans/nucleo-abierto-extensiones-privadas.md) (D4, D5)
 - Feedback de carga global: `guard`/`runTracked` + `BUSY_TEXT` (store).
 - Otros paneles accionan el viewport por `CustomEvent` (`"apolo:fit"` con `{id}` o `{ids}`,
   `"apolo:export-gltf"`) para no acoplar el store a three.js. El glTF se exporta en el cliente

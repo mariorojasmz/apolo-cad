@@ -3,6 +3,7 @@ import SchemaForm from "../forms/SchemaForm";
 import Pista from "../ui/Pista";
 import VerDetalle from "../ui/VerDetalle";
 import { textoTecnico } from "../ui/textoTecnico";
+import { soloLecturaDe } from "../state/soloLectura";
 
 /* Diálogo de un comando: título, la pista (qué hace, en una frase), el detalle técnico
    plegado y el formulario. La descripción completa del agente NO se pinta aquí: llega
@@ -14,8 +15,10 @@ export default function CommandDialog() {
   const openDialog = useStore((s) => s.openDialog);
   const runCommand = useStore((s) => s.runCommand);
   const busy = useStore((s) => s.busy);
+  // en sólo lectura (D4 del plan núcleo-abierto-extensiones-privadas) no se ejecuta nada
+  const soloLectura = useStore((s) => soloLecturaDe(s.scene) !== null);
 
-  if (!schema) return null;
+  if (!schema || soloLectura) return null;
 
   return (
     <div className="modal-backdrop" onClick={() => !busy && openDialog(null)}>

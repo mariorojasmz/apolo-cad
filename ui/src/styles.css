@@ -164,6 +164,11 @@ h4 { margin: 10px 0 4px; font-size: 11px; color: var(--muted); }
 .cmd-btn:hover:not(:disabled) { background: var(--panel2); border-color: var(--border); }
 .cmd-btn svg { color: var(--accent); opacity: 0.92; }
 .cmd-btn span { max-width: 80px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* sólo lectura (D4 del plan núcleo-abierto-extensiones-privadas): el motivo, al final de la fila */
+.ribbon-aviso {
+  align-self: center; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  color: #d8703a; font-size: 12px;
+}
 
 /* ---------------------------------------------------------- workspace */
 /* ----- shell de ventanas acoplables (Dockview) ----- */

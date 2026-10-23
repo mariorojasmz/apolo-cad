@@ -3,6 +3,7 @@ import { useStore } from "../state/store";
 import type { FeatureOut, JointOut } from "../types";
 import type { GizmoMode, SectionAxis } from "./BarraVista";
 import type { VistaCtx } from "./interaccion/ctx";
+import { soloLecturaDe } from "../state/soloLectura";
 
 /* Planos de sección, gizmo enganchado a la selección y pose cinemática (sólo visual). Salieron
    de Viewport.tsx sin cambiar la lógica (plan piso-con-sombra, F1). */
@@ -29,7 +30,8 @@ export function sectionPlanes(axis: SectionAxis, pos: number, features: FeatureO
 
 export function attachGizmo(ctx: Pick<VistaCtx, "gizmo" | "meshes">, selection: string[], mode: GizmoMode, jointValues: Record<string, number>) {
   const posing = Object.values(jointValues).some((v) => v !== 0);
-  if (mode === "off" || selection.length !== 1 || posing) {
+  // en sólo lectura (D4 del plan núcleo-abierto-extensiones-privadas) no hay gizmo: no se edita
+  if (mode === "off" || selection.length !== 1 || posing || soloLecturaDe(useStore.getState().scene)) {
     ctx.gizmo.detach();
     return;
   }

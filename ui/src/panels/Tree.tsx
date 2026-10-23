@@ -8,6 +8,7 @@ import { selectFeatures, useStore } from "../state/store";
 import { iconFor } from "../ui/icons";
 import type { FeatureOut } from "../types";
 import { useVisor } from "../visor/estado";
+import { soloLecturaDe } from "../state/soloLectura";
 import "../visor/aviso.css"; // .punto-nuevo
 
 /* Árbol del modelo en DOS niveles: subsistema (estructura, rodillos, tornillería…)
@@ -111,6 +112,7 @@ export default function Tree() {
   const bulkVisibility = useStore((s) => s.bulkVisibility);
   const isolate = useStore((s) => s.isolate);
   const runCommand = useStore((s) => s.runCommand);
+  const soloLectura = useStore((s) => soloLecturaDe(s.scene) !== null); // D4 (núcleo abierto)
   const openContextMenu = useStore((s) => s.openContextMenu);
   const nuevas = useVisor((s) => s.nuevas); // piezas nuevas del último cambio del agente (modo-visor D8)
   const esNueva = useMemo(() => new Set(nuevas), [nuevas]);
@@ -262,7 +264,7 @@ export default function Tree() {
           <button title="Aislar (ocultar el resto)" onClick={(e) => { e.stopPropagation(); void isolate([f.id]); }}>
             <Filter size={13} />
           </button>
-          <button title="Eliminar" onClick={(e) => { e.stopPropagation(); void runCommand("delete_feature", { feature: f.id }); }}>
+          <button title="Eliminar" disabled={soloLectura} onClick={(e) => { e.stopPropagation(); void runCommand("delete_feature", { feature: f.id }); }}>
             <Trash2 size={13} />
           </button>
         </span>

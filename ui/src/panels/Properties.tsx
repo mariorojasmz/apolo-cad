@@ -3,11 +3,14 @@ import { EyeOff, Focus, Trash2 } from "lucide-react";
 import { useStore } from "../state/store";
 import SchemaForm from "../forms/SchemaForm";
 import { acabadoDe } from "../viewport/acabados";
+import { soloLecturaDe } from "../state/soloLectura";
 
 /* Panel de propiedades schema-driven: edita los parámetros del COMANDO que
    creó el sólido seleccionado y regenera el documento (edición paramétrica).
    Con "Vista previa en vivo", cada cambio se aplica con un debounce y toda la
-   sesión de ajustes ocupa un único paso de deshacer (edición coalescente). */
+   sesión de ajustes ocupa un único paso de deshacer (edición coalescente).
+   En sólo lectura (D4 del plan núcleo-abierto-extensiones-privadas) se ven los parámetros, pero
+   el `<fieldset disabled>` apaga el formulario entero y no se ofrece eliminar ni editar el croquis. */
 
 export default function Properties() {
   const scene = useStore((s) => s.scene);
@@ -15,6 +18,7 @@ export default function Properties() {
   const schemas = useStore((s) => s.schemas);
   const editCommand = useStore((s) => s.editCommand);
   const busy = useStore((s) => s.busy);
+  const soloLectura = useStore((s) => soloLecturaDe(s.scene) !== null);
   const deleteSelection = useStore((s) => s.deleteSelection);
   const hideSelection = useStore((s) => s.hideSelection);
   const isolate = useStore((s) => s.isolate);
@@ -23,7 +27,7 @@ export default function Properties() {
 
   const actionRow = (
     <div className="prop-actions">
-      <button className="ghost" title="Eliminar selección (Supr)" onClick={() => void deleteSelection()}>
+      <button className="ghost" title="Eliminar selección (Supr)" disabled={soloLectura} onClick={() => void deleteSelection()}>
         <Trash2 size={13} /> Eliminar
       </button>
       <button className="ghost" title="Ocultar selección (H)" onClick={() => void hideSelection()}>
@@ -127,7 +131,7 @@ export default function Properties() {
       </h3>
       {actionRow}
 
-      {command && (command.type === "sketch_extrude" || command.type === "sketch_revolve") && (
+      {command && !soloLectura && (command.type === "sketch_extrude" || command.type === "sketch_revolve") && (
         <button
           className="primary"
           style={{ marginBottom: 8 }}
@@ -154,7 +158,7 @@ export default function Properties() {
         </div>
       )}
       {command && schema ? (
-        <>
+        <fieldset disabled={soloLectura} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
           <label className="field-inline live-toggle">
             <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} />
             Vista previa en vivo
@@ -169,7 +173,7 @@ export default function Properties() {
             onSubmit={(values) => void editCommand(command.id, values)}
             onChange={live ? liveApply : undefined}
           />
-        </>
+        </fieldset>
       ) : (
         <p className="hint">Sin comando editable.</p>
       )}

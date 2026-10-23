@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronUp } from "lucide-react";
 import { useStore } from "../state/store";
 import { HERRAMIENTAS, PANELES, type PanelId } from "../dock/paneles";
-import { PANEL_ICONS } from "../ui/icons";
 import { useChatActivo } from "../chat/activo";
 import { useVisor } from "./estado";
 import { CIERRA_CON_ESC, panelesDelMenu } from "./cajones";
@@ -18,8 +17,7 @@ const CON_BOTON: PanelId[] = ["bom", "checks", "history"];
 const DEL_MENU = panelesDelMenu(HERRAMIENTAS, CON_BOTON);
 
 function BotonPanel({ id, on, onClick }: { id: PanelId; on: boolean; onClick: () => void }) {
-  const Icono = PANEL_ICONS[id];
-  const rotulo = PANELES[id].rotulo;
+  const { icono: Icono, rotulo } = PANELES[id];
   return (
     <button type="button" className={on ? "on" : ""} aria-pressed={on} title={rotulo} onClick={onClick}>
       <Icono size={16} strokeWidth={1.8} />

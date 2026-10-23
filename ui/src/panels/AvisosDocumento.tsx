@@ -1,23 +1,35 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Lock } from "lucide-react";
 import { useStore } from "../state/store";
+import { soloLecturaDe, textoSoloLectura } from "../state/soloLectura";
 
 /* Avisos de robustez del documento (V6.1): el backend avisa si el autoguardado no llega al
    disco o si abrió un proyecto suprimiendo comandos rotos (schema drift). Los muestra la
    StatusBar en Completo y la capa del visor, que no monta la StatusBar (plan modo-visor F3).
+   El de sólo lectura (plan núcleo-abierto-extensiones-privadas, D4) va con su texto a la vista
+   mientras dure: es el motivo de que no se pueda editar nada. En la StatusBar (`breve`) no cabe:
+   ahí dice «Sólo lectura» y el texto entero lo lleva el ribbon, en el lugar de los comandos.
    Sin nada que avisar, no pinta nada. */
 
 interface Props {
   /** Clase de un contenedor propio (el visor lo ubica flotando); sin ella, van sueltos. */
   envoltura?: string;
+  /** Sólo lectura sin su texto entero (la StatusBar: el texto va en el ribbon). */
+  breve?: boolean;
 }
 
-export default function AvisosDocumento({ envoltura }: Props) {
+export default function AvisosDocumento({ envoltura, breve }: Props) {
   const autosaveFailed = useStore((s) => s.scene?.document.autosave_failed ?? null);
   const suppressed = useStore((s) => s.scene?.document.suppressed_commands?.length ?? 0);
-  if (!autosaveFailed && suppressed === 0) return null;
+  const soloLectura = useStore((s) => soloLecturaDe(s.scene));
+  if (!autosaveFailed && suppressed === 0 && !soloLectura) return null;
 
   const avisos = (
     <>
+      {soloLectura && (
+        <span className="busy-badge aviso-solo-lectura" role="status" style={{ color: "#d8703a" }}>
+          <Lock size={13} strokeWidth={1.9} /> {breve ? "Sólo lectura" : textoSoloLectura(soloLectura)}
+        </span>
+      )}
       {autosaveFailed && (
         <span
           className="busy-badge"

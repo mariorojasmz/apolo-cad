@@ -665,3 +665,89 @@ ellos, las fases quedan así:
   Mientras siga así, ningún PR de terceros pasa el CI requerido. Queda propuesto como sesión
   aparte («Arreglar el CI de Linux»).
 
+### F2 (2026-10-23): punto de extensión de la UI
+
+Sólo `ui/` (A5). vitest 424 → 449.
+
+**Convención para el privado** (sin editar ningún archivo del núcleo):
+
+- Copia su `ui/` en `ui/src/extensiones/<nombre>/` de un checkout del núcleo a la etiqueta;
+  `ui/.gitignore` ignora `src/extensiones/*/`, así el checkout nunca la commitea.
+- Esa carpeta trae `index.ts` (o `.tsx`) con `export default` de un objeto `Extension`
+  (`ui/src/extensiones/tipos.ts`): `nombre` = el de la carpeta y `paneles: [{id, titulo, rotulo,
+  Componente, icono, herramienta?}]`, con `id` = `<nombre>.<panel>` (minúsculas). Importa React,
+  lucide y lo que necesite del núcleo por ruta relativa (`../../state/store`): resuelve el
+  `node_modules` del núcleo.
+- `ui/src/extensiones/registro.ts` la recoge con `import.meta.glob("./*/index.{ts,tsx}", {eager})`,
+  la valida (nombre = carpeta, prefijo, título, componente, ícono, ids únicos; todos los problemas
+  en un solo error al cargar) y exporta `EXTENSIONES`, ordenadas por nombre.
+- `npm test` y `npm run build` del núcleo, corridos con la carpeta copiada, son su gate: los de
+  texto, tuteo y tamaño recorren `src/` entero (verificado: un voseo en la carpeta copiada rompe
+  `tuteoNeutro.test.ts`), y `registro.test.ts` falla si la extensión está mal formada.
+
+**Hecho:**
+
+- `dock/paneles.ts`: `PANELES`/`HERRAMIENTAS` = `NUCLEO` + lo registrado, armado por
+  `dock/componerPaneles.ts` (puro). Los paneles de extensión van DETRÁS de las herramientas del
+  núcleo (StatusBar y «Más» del visor; ninguno gana botón propio en la barra del visor).
+- **`PanelId` = `PanelNucleo | ${string}.${string}`**: los ids del núcleo siguen literales (`tsc`
+  rebota «bmo», que no lleva punto) y los de extensión son cualquier `a.b`. Un id suelto se valida
+  con `esPanel`. Los 10 usuarios de `PanelId` compilan sin cambios salvo los dos que leían
+  `PANEL_ICONS`.
+- **Ícono dentro del panel:** `PanelDef.icono` reemplaza a `PANEL_ICONS` de `ui/icons.tsx`
+  (borrado). Una sola fuente para el ícono del núcleo y el de la extensión, y `icons.tsx` no importa
+  el registro (evita un ciclo registro → extensión → `ui/icons` → registro al cargar los módulos).
+- **Layout guardado:** Dockview 7 no rechaza un panel desconocido en `fromJSON`: lo monta con un
+  componente `undefined` y React revienta (el `try` de `DockShell` no lo atrapaba).
+  `dock/podarLayout.ts` (puro) lo quita ANTES de `fromJSON`: de `panels`, de `views`/`activeView` de
+  cada grupo (grilla, flotantes, emergentes) y de `panelIds` de los grupos de pestañas. Después,
+  `DockShell` quita los grupos que quedaron vacíos. El resto del layout se conserva.
+- **Aviso de D4:** `types.ts` `DocumentOut.solo_lectura?: {extensiones, aviso} | null`;
+  `state/soloLectura.ts` (puro) lo valida y arma el texto: «Este proyecto usa la extensión «x», que
+  no está instalada: puedes verlo, no editarlo.» (plural con varias; sin nombres, el `aviso` del
+  servidor). Dónde se ve:
+  - en el visor, entero en `AvisosDocumento` (caja de avisos, ≤ 460 px);
+  - en Completo, entero al final de la fila del ribbon, y «Sólo lectura» en la StatusBar
+    (`AvisosDocumento breve`): a 1400 px la StatusBar ya ocupa ~950 px de botones y la frase
+    entera se partía en dos líneas.
+- **No hay un punto central de «se puede editar»**: cada acción llama a la store o a `fetch`
+  directo, y `store.ts` está congelada en 916. Se deshabilita lo principal:
+  - ribbon (comandos, Croquis, Catálogo) y el diálogo de comando (no se abre);
+  - Propiedades: `<fieldset disabled>` sobre el formulario (se ven los parámetros), Eliminar y
+    «Editar croquis»;
+  - Deshacer/Rehacer y su lista;
+  - el gizmo no se engancha (`poses.ts::attachGizmo`);
+  - el arrastre y los tiradores del 3D sólo seleccionan (`manipular.ts`, como una pieza
+    bloqueada). Importa: sin esto, el 409 de un arrastre silencioso caería en el reintento
+    automático con tinte rojo;
+  - los atajos que editan (Supr, flechas, RePág/AvPág, Ctrl+Z/Y/D);
+  - Eliminar del árbol.
+
+  Lo demás (menú contextual, Variables, grupos, ocultar, color, material, variantes) llega al
+  servidor y su 409 se muestra como error con el texto de D4.
+
+**Verificación:**
+
+- `npm test` 449 y `npm run build` en verde.
+- Build con `ui/src/extensiones/prueba/` (panel «Hola»): el bundle trae su marca, `git status` no
+  ve la carpeta y la suite pasa con ella. Sin la carpeta, el bundle no la trae.
+- Preview del worktree (`vite preview` en :5196 contra la API de prueba :8106; la config
+  `ui-preview-8106` sirve el árbol principal):
+  - «Hola» aparece en «Más» de la barra del visor y abre su cajón;
+  - en Completo, su botón en la StatusBar lo acopla y queda en el layout guardado;
+  - reconstruido SIN la extensión, la app arranca y el layout pierde sólo ese panel;
+  - un layout inyectado con un panel desconocido junto a BOM conserva BOM; uno solo en su grupo
+    deja 3 grupos, no uno vacío.
+- Sólo lectura, inyectando el campo en la escena por `window.__apolo.store` (el backend lo emite
+  en F1b):
+  - el aviso se ve en el visor, en el ribbon y en la StatusBar;
+  - los 8 botones del ribbon y los 4 de deshacer/rehacer quedan deshabilitados;
+  - el gizmo y el arrastre no se probaron en el navegador.
+
+**Decidido por el agente (vetable):**
+
+- Convención `export default` en vez de un `registrarExtension(...)` con efecto: sin ciclo de
+  módulos (el glob importa la extensión, que importaría al registro a medio evaluar).
+- Una extensión mal formada rompe al cargar, no se ignora: el error lo ve su CI, no una persona.
+- El texto del aviso lo arma la UI con `extensiones`; el `aviso` del servidor queda de respaldo.
+- El aviso de sólo lectura convive con el de «N suprimidos» si el backend también los lista.

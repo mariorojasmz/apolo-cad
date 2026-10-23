@@ -1,0 +1,4 @@
+# Extensiones de la UI compiladas desde un paquete privado (plan núcleo-abierto-extensiones-privadas,
+# D5): se COPIAN en src/extensiones/<nombre>/ para compilar. El núcleo sólo trae los archivos
+# sueltos de src/extensiones/ (registro.ts, tipos.ts); una carpeta ahí nunca se commitea.
+src/extensiones/*/

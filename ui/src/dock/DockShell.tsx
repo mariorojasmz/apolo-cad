@@ -10,6 +10,7 @@ import {
   LAYOUT_KEY,
 } from "./dockApi";
 import { PANELES } from "./paneles";
+import { podarLayout } from "./podarLayout";
 
 /* Shell de ventanas acoplables (Dockview). El viewport es el centro fijo; el resto de
    paneles se acoplan/redimensionan/agrupan en pestañas y el layout se guarda en localStorage.
@@ -57,7 +58,11 @@ function onReady(event: DockviewReadyEvent): void {
   }
   if (saved) {
     try {
-      api.fromJSON(JSON.parse(saved));
+      // sin los paneles que este bundle no tiene (una extensión quitada): Dockview los montaría
+      // con un componente vacío y React reventaría al dibujarlos
+      const { layout, quitados } = podarLayout(JSON.parse(saved), (c) => Object.prototype.hasOwnProperty.call(COMPONENTS, c));
+      api.fromJSON(layout as Parameters<typeof api.fromJSON>[0]);
+      if (quitados.length) api.groups.filter((g) => g.panels.length === 0).forEach((g) => api.removeGroup(g));
       restored = api.getPanel("viewport") != null;
     } catch {
       restored = false;

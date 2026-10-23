@@ -4,6 +4,7 @@ import { distanceAlongAxis, rayPlanePoint } from "../pushpull";
 import { anglePointOnAxis, axisBasis, boxDimsFromBbox, shortestAngleDiff, snapAngleByDistance, type StretchAffect } from "../handles";
 import { buildOverlay, ROT_MAT, WORLD_Z } from "../gizmoRot";
 import { crearHoverTiradores } from "./hoverTiradores";
+import { soloLecturaDe } from "../../state/soloLectura";
 import type { CtxInteraccion } from "./ctx";
 
 /* Manipulación directa con el botón izquierdo: agarrar-y-mover un sólido, estirar una caja por
@@ -54,6 +55,7 @@ export function instalarManipulacion(ctx: CtxInteraccion): () => void {
     if ((gizmo as unknown as { dragging?: boolean }).dragging) return;
     const st = useStore.getState();
     const posing = Object.values(st.jointValues).some((v) => v !== 0);
+    const soloLectura = soloLecturaDe(st.scene) !== null; // D4 (núcleo abierto): sólo seleccionar
     const rect = renderer.domElement.getBoundingClientRect();
     const pointer = new THREE.Vector2(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -62,7 +64,7 @@ export function instalarManipulacion(ctx: CtxInteraccion): () => void {
     raycaster.setFromCamera(pointer, camera);
     // 1) ¿un TIRADOR/ANILLO de la pieza seleccionada? → estirar o rotar (prioridad sobre el cuerpo).
     // BLOQUEO: si la pieza seleccionada tiene un guardado fallido, no se manipula hasta que se guarde.
-    if (handlesGroup.children.length && !e.ctrlKey && !e.metaKey && !posing && !blockedRef.current.includes(st.selection[0])) {
+    if (handlesGroup.children.length && !e.ctrlKey && !e.metaKey && !posing && !soloLectura && !blockedRef.current.includes(st.selection[0])) {
       const hHits = raycaster.intersectObjects(handlesGroup.children, false);
       if (hHits.length) {
         const ud = hHits[0].object.userData as
@@ -121,7 +123,7 @@ export function instalarManipulacion(ctx: CtxInteraccion): () => void {
     if (hits.length && !e.shiftKey && !e.ctrlKey && !e.metaKey && !posing) {
       const fid = hits[0].object.userData.featureId as string;
       if (!st.selection.includes(fid)) st.select([fid]);
-      if (blockedRef.current.includes(fid)) { e.preventDefault(); return; } // bloqueada (guardado fallido) → solo seleccionar
+      if (soloLectura || blockedRef.current.includes(fid)) { e.preventDefault(); return; } // bloqueada o sólo lectura → solo seleccionar
       const mesh = hits[0].object as THREE.Mesh;
       const z = hits[0].point.z;
       const startPlane = rayPlanePoint(raycaster.ray, z) ?? hits[0].point.clone();

@@ -3,6 +3,7 @@ import { ChevronDown, Redo2, Undo2 } from "lucide-react";
 import { useStore } from "../state/store";
 import type { DocumentOut } from "../types";
 import { CIERRA_CON_ESC } from "../visor/cajones";
+import { soloLecturaDe } from "../state/soloLectura";
 import {
   etiquetasDe, filaConTecla, hayCambios, rotuloAbrir, rotuloLista, textoPie, tituloBoton, type Sentido,
 } from "./deshacer";
@@ -17,6 +18,7 @@ import {
 export default function HistorialCambios({ sentido }: { sentido: Sentido }) {
   const doc = useStore((s) => s.scene?.document);
   const busy = useStore((s) => s.busy);
+  const soloLectura = useStore((s) => soloLecturaDe(s.scene) !== null); // D4: nada que deshacer aquí
   const accion = useStore((s) => (sentido === "deshacer" ? s.undo : s.redo));
   // Abierta = el documento con el que se abrió sigue siendo el vigente: con uno nuevo deja de
   // estarlo en el mismo render, sin mostrar un instante la lista vieja.
@@ -88,7 +90,7 @@ export default function HistorialCambios({ sentido }: { sentido: Sentido }) {
       <button
         type="button"
         className="icon-btn"
-        disabled={!hayCambios(doc, sentido) || busy}
+        disabled={!hayCambios(doc, sentido) || busy || soloLectura}
         onClick={() => void accion()}
         title={titulo}
         aria-label={titulo}
@@ -99,7 +101,7 @@ export default function HistorialCambios({ sentido }: { sentido: Sentido }) {
         type="button"
         ref={abrir}
         className="icon-btn historial-abrir"
-        disabled={busy || etiquetas.length === 0}
+        disabled={busy || soloLectura || etiquetas.length === 0}
         onClick={alternar}
         title={rotuloAbrir(sentido)}
         aria-label={rotuloAbrir(sentido)}

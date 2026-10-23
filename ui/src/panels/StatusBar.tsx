@@ -1,6 +1,5 @@
 import { Keyboard, LayoutDashboard } from "lucide-react";
 import { useStore } from "../state/store";
-import { PANEL_ICONS } from "../ui/icons";
 import Spinner from "../ui/Spinner";
 import { togglePanel, resetLayout } from "../dock/dockApi";
 import { HERRAMIENTAS, PANELES } from "../dock/paneles";
@@ -21,8 +20,7 @@ export default function StatusBar() {
   return (
     <footer className="statusbar">
       {HERRAMIENTAS.map((key) => {
-        const Icon = PANEL_ICONS[key];
-        const label = PANELES[key].rotulo;
+        const { icono: Icon, rotulo: label } = PANELES[key];
         const active = dockPanels.includes(key);
         return (
           <button
@@ -37,7 +35,7 @@ export default function StatusBar() {
         );
       })}
       <span className="status-right">
-        <AvisosDocumento />
+        <AvisosDocumento breve />
         {busy && (
           <span className="busy-badge" role="status" aria-live="polite">
             <Spinner size={13} />

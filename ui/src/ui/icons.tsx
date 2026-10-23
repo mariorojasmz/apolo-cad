@@ -6,9 +6,7 @@ import {
   PenTool, Disc, Waypoints, Spline,
   SquareDashed, PaintBucket, Layers2,
   Combine, Scissors, Drill, FlipHorizontal2, Rows3, CircleDot, Move3d, Magnet, Trash2,
-  Link2, Bot, Cog,
-  History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor, ClipboardList, Blocks, Power, Gauge, Cpu,
-  ListTree, SlidersHorizontal, Sparkles,
+  Link2, Bot, Cog, Boxes,
   type LucideIcon,
 } from "lucide-react";
 
@@ -60,21 +58,4 @@ export function iconFor(type: string): LucideIcon {
   return COMMAND_ICONS[type] ?? FALLBACK;
 }
 
-/** Iconos de los paneles (ids de `dock/paneles.ts`): StatusBar y barra de paneles del visor. */
-export const PANEL_ICONS: Record<string, LucideIcon> = {
-  tree: ListTree,
-  properties: SlidersHorizontal,
-  chat: Sparkles,
-  history: History,
-  reqs: ClipboardList,
-  bom: ListChecks,
-  checks: ShieldCheck,
-  kin: Activity,
-  mates: Boxes,
-  fisica: Atom,
-  ensamblaje: Anchor,
-  boceto: Blocks,
-  mandos: Power,
-  senales: Gauge,
-  plc: Cpu,
-};
+// Los íconos de los paneles van con cada panel, en `dock/paneles.ts` (`icono`).
