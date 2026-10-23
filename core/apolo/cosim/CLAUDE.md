@@ -8,6 +8,10 @@ backend: [core/apolo](../CLAUDE.md).
 - Un modelo por `electrico.modelo.tipo` (`MODELOS` = `library/electrico/ficha.TIPOS_MODELO`, un
   test las ata: tipo nuevo = clase aquí + entrada allá). Estado explícito, `paso(dt, entradas)`,
   `senales()` con nombres de D10.
+- Un modelo de EXTENSIÓN (tipo «x.algo») entra por `registrar_modelos`; viaja al worker en el
+  snapshot (`modelos_extension`, la clase por pickle) y `worker.main` lo registra: el worker nunca
+  busca extensiones (cargaría lo de `PESADOS`). Su vigencia es la `extensiones` del resultado
+  (`services/escenarios`), no `COSIM_EPOCH`. [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (A4)
 - Todo parámetro por `Parametros`: falta → `ModeloIncompleto`; rango = `ajustado` (obligatorio),
   banda = `de_banda` (en `hipotesis`). Nunca un default silencioso: una cifra nueva cita su norma
   o dice «criterio de diseño» en el YAML; las curvas de NORMA van en el código.

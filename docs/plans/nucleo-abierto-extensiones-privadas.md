@@ -751,3 +751,82 @@ Sólo `ui/` (A5). vitest 424 → 449.
 - Una extensión mal formada rompe al cargar, no se ignora: el error lo ve su CI, no una persona.
 - El texto del aviso lo arma la UI con `extensiones`; el `aviso` del servidor queda de respaldo.
 - El aviso de sólo lectura convive con el de «N suprimidos» si el backend también los lista.
+
+### F1a (2026-10-23): puntos de extensión del backend
+
+**Qué quedó** (rutas relativas a `core/apolo/`):
+
+- `extensiones.py` es el contrato: `CONTRATO_EXTENSIONES = 1` (A1), el dataclass `Extension`,
+  `descubrir()`, `cargar()`, `estado()`, `cargadas()`, `routers()`, `webui()`,
+  `registrar_tools()` y `aislado()` (tests). `extensiones_puntos.py` tiene el detalle de cada
+  punto (un archivo de 500 líneas no entraba).
+- Enganches: `api/main.py` (cargar antes de `include_router`, routers después, UI de la
+  extensión), `api/routers/core.py` (`extensiones` en `GET /api/health`), `mcp_server.py` (una
+  línea al final, ±0 líneas: el docstring del módulo se reflujó), `tools/catalogo.py`
+  (`agregar`, `DE_EXTENSION`), `commands/spec.py` + `doc/document.py:50` (±0: la firma, A4),
+  `library/electrico/ficha.py` (`TIPOS_MODELO` pasa a lista), `cosim/modelos/__init__.py`
+  (`registrar_modelos`, `de_extension`, `DE_EXTENSION`), `cosim/datos.py` y
+  `services/cosim_snapshot.py` (el snapshot lleva los modelos de extensión), `cosim/worker.py`
+  (los registra), `services/escenarios.py` + `api/routers/cosim.py` (vigencia por la versión de
+  la extensión), `paths.py` (`ui_dist(de_extension)`, `APOLO_UI=nucleo`).
+- A6: `pruebas.py`, plugin de pytest con `_errorlog_aislado`, `_sandbox_perezoso`,
+  `_sesion_api_aislada` y `extensiones_aisladas`. `tests/conftest.py` fija
+  `APOLO_EXTENSIONES=0` en `os.environ` (también para los procesos que lanzan los tests) y lo
+  carga con `pytest_plugins`. `_publicacion_aislada` se queda en `tests/conftest.py`: se muda
+  con la fábrica en F4.
+- A3: `scripts/release.py` y `scripts/golden_mcp.py` fijan `APOLO_EXTENSIONES=0` antes de
+  importar `apolo`. `count_tools()` cuenta con `list_tools()`: `release.py --check` da 90 tools,
+  59 comandos y 378 refs (el regex daba 76). Los README siguen en 79: se corrigen en la próxima
+  publicación, que no es esta fase.
+- D9: la extensión falsa `tests/ext_prueba/` (comando `prueba.hola`, ruta
+  `GET /api/prueba/hola`, tool `prueba_hola`, ref `prueba.caja`, modelo `prueba.lampara`, sus
+  campos pesados perezosos) y `tests/test_extensiones.py` (28 tests): el núcleo idéntico apagado,
+  cada punto cargado, los rechazos, la API y el MCP en procesos aparte y el gate del nombre del
+  paquete privado en `core/`, `ui/src` y `scripts/`.
+
+**Decidido por el agente (vetable):**
+
+- **Todo lo que nombra una extensión lleva prefijo**, no sólo los comandos: refs, builders y
+  tipos de modelo «x.algo»; tools «x_algo»; rutas «/api/x/…». Es el argumento de D4 (un nombre
+  futuro del núcleo cambiaría el significado de un log viejo) y deja a F1b detectar una
+  extensión ausente por el prefijo. Por eso un choque con un nombre del núcleo es imposible por
+  construcción; los choques que quedan (con otra extensión, con un tramo de rutas del núcleo)
+  sí se prueban.
+- **A4 en un compuesto: el epoch de TODAS las extensiones.** `insert_project` puede insertar
+  refs de una extensión que sus params no nombran (las lleva el adjunto), y servir geometría
+  vieja es peor que un replay en frío. Costo: al instalar una extensión con catálogo, o subir su
+  `epoch_catalogo`, los proyectos con `insert_project`, `create_belt_conveyor` o
+  `create_roller_conveyor` regeneran una vez en frío. Sin extensiones con catálogo, la firma es
+  la histórica byte a byte (lo prueba la suite) y `GEOM_CACHE_EPOCH` no sube.
+- **El worker no llama a `cargar()`:** importar una extensión carga `apolo.commands` (está en
+  `PESADOS`). El snapshot lleva `{tipo: clase}` de los modelos de extensión que usa el tablero
+  (pickle los importa por nombre) y `worker.main` los registra. El gate de imports de
+  `test_cosim_worker.py` no cambió.
+- **El MCP no llama a `cargar()` entero:** `registrar_tools(mcp, globals())` descubre, valida el
+  contrato y registra sólo las tools. Con los campos pesados perezosos, el MCP con la extensión
+  falsa no carga OCCT (medido en el test). `globals()` mantiene la línea corta y que un test
+  que parchea `_api`/`_mutacion` lo vea.
+- **Las tools de extensión van FUERA_DEL_CHAT** salvo que la extensión las ponga en
+  `tools_chat`; si van al chat, al final de `CHAT` (no mueven el prefijo de caché).
+- **Una categoría de comando sin pestaña en el ribbon no carga**; una extensión no redefine las
+  pestañas del núcleo.
+- **`GET /api/health`:** `extensiones: [{nombre, version, cargada, motivo?}]`, la forma del
+  pedido (el inventario proponía `{cargadas, rechazadas}`). No se agregó el campo `ui`.
+- **`COSIM_EPOCH` no sube** (sigue en 4): sin extensiones ningún resultado cambia. Sólo se
+  actualizó la huella de `tests/test_cosim_epoch.py`.
+- **`golden_mcp.py` apaga las extensiones siempre:** el golden de una extensión (F3) necesita
+  otra carpeta y una bandera; no se adelantó.
+
+**Verificación en vivo** (copia `C:\t\fat\apolo.db`, `flota.py arrancar --puerto-base 8107`):
+el proyecto 77 estaba tomado en esa copia por otro proceso vivo (puerto 8106, pid 41208), así que
+se usó el 70. Con `APOLO_EXTENSIONES_EXTRA=ext_prueba:EXTENSION`, `GET /api/health` dio la
+extensión cargada; `POST /api/commands prueba.hola` dio 200 con la pieza; `GET /api/prueba/hola`
+respondió; un cliente MCP real por stdio vio 91 tools (la última, `prueba_hola`) y la corrió
+como job. Dos `undo` dejaron el log en sus 298 comandos y la flota se paró.
+
+**Números:** suite 4897 → 4925 (+28 de `test_extensiones.py`; 4919 pasan y 6 se saltan, como
+antes; los 27 de tortura, aparte). `ruff check core tests scripts` limpio. `mcp_server.py` queda
+en 1367 líneas, `document.py` en 1023 y `registry.py` en 1913.
+
+**Pendiente:** builders con zonas de acabado (`ZONADOS`) en una extensión; el golden de las
+tools de extensión (F3); D4 (sólo lectura) y `document.solo_lectura`, de F1b.

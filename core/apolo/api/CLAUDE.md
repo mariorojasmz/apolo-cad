@@ -48,6 +48,17 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   Nadie importa `main`.
   Un test que llama una ruta directo la toma de `main` (re-export por IDENTIDAD, D4).
 
+## Extensiones (`apolo/extensiones.py`)
+
+- `main` llama `extensiones.cargar()` ANTES de `include_router` (con las rutas del núcleo: un
+  prefijo de extensión no puede ser un tramo `/api/<x>/` suyo) e incluye los routers de las
+  extensiones DESPUÉS de los del núcleo y antes de la UI. Nada se carga al importar `apolo` y la
+  suite corre con `APOLO_EXTENSIONES=0` (lo fija `tests/conftest.py` antes de importar):
+  `test_extensiones.py` la prende con `extensiones_aisladas` (`apolo.pruebas`). Todo lo que nombra
+  una extensión lleva su prefijo (`x.algo`, tool `x_algo`, `/api/x/…`) y un registro mutable NUEVO
+  que una extensión toque entra a `extensiones._registros()`, o su rechazo no se deshace.
+  [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1a)
+
 ## Estado de sesión (`session.S`)
 
 - El documento activo, el almacén, el proyecto y la salud viven en UN objeto,
@@ -269,10 +280,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - Los tests no ejecutan el lifespan → no tocan `data/apolo.db`. Patrón:
   `api.DOC = Document("t"); TestClient(api.app)`; el arranque real vive en
   `session.initialize_store(db_path)` (`api.initialize_store`).
-- `tests/conftest.py` (autouse, por test) devuelve `S` a como estaba y cancela el Timer del
+- `apolo/pruebas.py` (plugin de pytest que viaja en la wheel; `tests/conftest.py` lo carga con
+  `pytest_plugins`, una extensión igual) devuelve `S` a como estaba y cancela el Timer del
   autosave al terminar cada test: un test no hereda el documento de otro. Fixtures con STORE:
   `_flush_autosave()` antes de leer disco.
-- `tests/conftest.py` (autouse, sesión) redirige `logs/errors.log` a tmp: sin él la tortura
+- El mismo plugin (autouse, sesión) redirige `logs/errors.log` a tmp: sin él la tortura
   escribía errores FALSOS en el log que se lee al «revisa» (commit `3e935f4`).
 - Ese conftest no alcanza a OTRO proceso: un test que levanta APIs reales (uvicorn, la flota de
   `tests/test_flota.py`) les pasa `APOLO_DB` y `APOLO_LOGS` (`paths.logs_dir()`) a tmp.
