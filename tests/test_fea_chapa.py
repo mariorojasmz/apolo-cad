@@ -422,8 +422,9 @@ def _tets_sin_campo(step: str, size: float) -> int:
     """Tets de la malla de antes de F2: importar, tamaños por defecto y `generate`."""
     import gmsh
 
-    gmsh.initialize(interruptible=False)
-    try:
+    from apolo.fea.sesion_gmsh import sesion
+
+    with sesion(gmsh):
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.model.occ.importShapes(step)
         gmsh.model.occ.synchronize()
@@ -431,8 +432,6 @@ def _tets_sin_campo(step: str, size: float) -> int:
         gmsh.option.setNumber("Mesh.MeshSizeMin", size / 3.0)
         gmsh.model.mesh.generate(3)
         return int(sum(len(t) for t in gmsh.model.mesh.getElements(3)[1]))
-    finally:
-        gmsh.finalize()
 
 
 @requires_fea

@@ -9,8 +9,10 @@ log, flujo de trabajo) está en el [CLAUDE.md raíz](../../../CLAUDE.md).
 
 ## Reglas de la casa
 
-- `gmsh.initialize(interruptible=False)`: los endpoints sync corren en el threadpool y el handler
-  de SIGINT sólo se instala en el hilo principal.
+- gmsh se abre SIEMPRE con `sesion_gmsh.sesion(gmsh)`, nunca `initialize`/`finalize` sueltos: usa
+  `interruptible=False` (el handler de SIGINT sólo vale en el hilo principal y los endpoints sync
+  corren en el threadpool) y devuelve SIGPIPE a `SIG_IGN`, que gmsh deja en `SIG_DFL` (luego un
+  pipe roto —ffmpeg— mataba al proceso con 141 en Linux; `tests/test_sesion_gmsh.py`).
 - Dos locks: bajo `STATE_LOCK` se resuelven selectores y se exporta el STEP; el solve corre FUERA
   con `FEA_LOCK` (gmsh es una instancia global única). Al volver, el resultado se guarda SÓLO si
   el proyecto activo es el del solve ([api](../api/CLAUDE.md)).

@@ -23,6 +23,7 @@ from dataclasses import dataclass
 
 from . import FeaError, _require_fea, refine
 from .fallo_malla import etiqueta_pieza, generar_3d, tipo_es
+from .sesion_gmsh import sesion
 
 FEA_LOCK = threading.Lock()
 
@@ -101,11 +102,9 @@ def _mallar(gmsh, construir, msh_path: str) -> tuple[dict, dict]:
     mucho dos intentos. Devuelve (contexto, {n_nodos, n_tets, size_mm, refinamiento}).
     Llamar bajo FEA_LOCK."""
     for etapa in (1, 2):
-        # interruptible=False: NO instala el handler de SIGINT — obligatorio porque
-        # los endpoints sync de FastAPI corren en un threadpool (signal solo funciona
-        # en el hilo principal; sin esto el primer análisis da 500).
-        gmsh.initialize(interruptible=False)
-        try:
+        # La sesión restaura SIGPIPE (gmsh lo deja en SIG_DFL) y no instala el handler de
+        # SIGINT, que en el threadpool de FastAPI daría 500 (sesion_gmsh.py).
+        with sesion(gmsh):
             gmsh.option.setNumber("General.Terminal", 0)
             ctx = construir()
             size = ctx["size"]
@@ -117,7 +116,7 @@ def _mallar(gmsh, construir, msh_path: str) -> tuple[dict, dict]:
                            ensamblaje=ctx["ensamblaje"])
             except FeaError:
                 if etapa == 1 and reintentable:
-                    continue  # el finally cierra gmsh; la vuelta siguiente reconstruye
+                    continue  # la sesión cierra gmsh; la vuelta siguiente reconstruye
                 raise
 
             n_nodos = len(gmsh.model.mesh.getNodes()[0])
@@ -133,8 +132,6 @@ def _mallar(gmsh, construir, msh_path: str) -> tuple[dict, dict]:
             gmsh.write(msh_path)
             return ctx, {"n_nodos": n_nodos, "n_tets": n_tets, "size_mm": round(size, 2),
                          "refinamiento": ref}
-        finally:
-            gmsh.finalize()
     raise AssertionError("inalcanzable: la etapa 2 devuelve o lanza")
 
 
