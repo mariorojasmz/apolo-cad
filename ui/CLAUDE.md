@@ -99,6 +99,7 @@ Cada concepto tiene UN nombre en toda la interfaz. La tabla se mantiene acá y s
 | un valor con nombre que mide la simulación (`-M1.rpm`) | **señal** | variable, tag, canal |
 | la situación que se simula (condiciones, cajas, acciones) | **escenario** | caso, prueba |
 | la simulación que manejas mientras corre | **sesión viva** | sesión en vivo, modo en vivo, live |
+| las curvas de las señales en el tiempo (con disparo) · la señal anclada en grande | **osciloscopio** · **multímetro** | tendencias, gráfico · medidor, display |
 
 La interfaz habla en **plural** («te avisamos»). Los nombres internos del código no aparecen
 en la vista del usuario. Registro: tuteo neutro latinoamericano, sin voseo ni usted; nada de
@@ -280,7 +281,7 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).
 - **Excepción acotada de color**: el color FÍSICO de un mando o un piloto (`vivo/mandos.ts::colorFisico`,
   del `specs.color` del catálogo; el emisivo de un piloto con pieza) y el color por dato con su
-  leyenda (tendencias). Nunca un rojizo ni un verde de ESTADO. [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) D9
+  leyenda (el osciloscopio, `vivo/paleta.ts`). Nunca un rojizo ni un verde de ESTADO. [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) D9
 - La máquina viva (`ui/src/vivo/`, nunca en `Viewport.tsx`): `sesion.ts` lee el `WS /api/cosim/vivo`
   y carga en `useMarcha` una serie `vivo: true` que CRECE EN SITIO (`serieViva.ts`, anillo de 60 s;
   jamás `cargar` por fotograma: rehace el reproductor); `enVista.ts` la arma con
@@ -289,6 +290,14 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   selección y órbita). Un pulsador se mantiene ≥ 150 ms (`PULSO_MIN_MS`): un clic más corto entra y
   sale en la misma ventana de 33 ms y el PLC no lo ve. Zustand: selectores PRIMITIVOS en el panel.
   [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F2)
+- Medir en vivo (F3): la historia de TODAS las señales vive fuera de React (`vivo/medicion.ts`, anillo
+  `historia.ts`; `sesion.ts` le pasa cada fotograma y ahí avanza el disparo) y el osciloscopio la
+  dibuja con su propio rAF a ≤ 30 fps (`dibujoOsciloscopio.ts`): nunca por un `set` de zustand por
+  fotograma. UN CARRIL POR SEÑAL con su escala (sin ejes dobles), ≤ 8 señales, color de
+  `vivo/paleta.ts` (la paleta categórica de datos, validada contra `--panel`) que sigue a la señal,
+  no a su orden. Multímetro y osciloscopio van sobre el 3D (`Instrumentos.tsx`, montado por
+  `BarraVivo`); el árbol en el panel «Señales» y el ST con valores en «PLC» (el texto sale del log,
+  `add_program.fuente`; global `-K1.v`, local `-K1.Main.v`).
 - Agarrar y mover: el pointerdown selecciona y arma un `movePick` pendiente; el arrastre real
   empieza al superar `DRAG_THRESHOLD_PX = 5` (= umbral de `onClick`). Bajo el umbral es un clic:
   no mueve ni commitea.
