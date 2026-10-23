@@ -4,6 +4,11 @@ Las piezas de catálogo se agrupan por referencia + longitud de corte; las
 piezas a medida (geometría propia) se agrupan por el comando que las creó. Una pieza a mano
 COMERCIAL (rol de compra o norma con designación: `designacion_comercial`) sale con ref `COMPRA`
 en la categoría de compra del catálogo («pernos», «tornilleria»…), no en «a medida» (F6).
+
+Una COMPRA con norma se agrupa por su DESIGNACIÓN (rol + medida + norma, `designacion`) + largo
++ material, no por el nombre de cada pieza ni por su geometría: «Perno M10x25 DIN 933 del
+tensado» (4) y «… del eje» (40) son UNA línea de 44, con `ubicaciones` [{nombre, cantidad}] que
+dice dónde va cada una (F6: el mismo artículo salía en dos líneas).
 """
 
 from __future__ import annotations
@@ -17,7 +22,7 @@ from apolo.kernel.shapes import is_surface
 from .banda_lazo import es_banda, largo_de_lazo
 from .catalog import CATALOG
 from .designacion_comercial import (
-    categoria_de_compra, es_comercial, nombre_de_compra, norma_del_nombre,
+    categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
 )
 from .largo_tornilleria import largo_de_compra_con_aviso, largo_nominal_a_medida
 from .materials import CABLE, density, resolve_material
@@ -95,10 +100,11 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             rows[key]["cantidad"] += 1
         else:
             mat = resolve_material(feat, CATALOG, default_material)
-            base = _base_name(feat.name)
+            base = donde = _base_name(feat.name)
             comercial = es_comercial(base)  # F6: se COMPRA → categoría de compra, no «a medida»
+            desig = designacion(base) if comercial else None
             if comercial:
-                base = nombre_de_compra(base)
+                base = desig or nombre_de_compra(base)
             vol = None
             dims = None
             try:
@@ -115,6 +121,8 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             # material + volumen + bbox): patrones, espejos y copias idénticos colapsan
             # en una fila con su cantidad, sin confundir piezas DISTINTAS.
             key = ("__custom__", base, mat, round(vol, 1) if vol is not None else None, dims)
+            if desig:  # la misma compra, venga de donde venga (F6)
+                key = ("__compra__", desig.lower(), mat, largo_nominal_a_medida(feat))
             if by_group:
                 key = key + (grp,)
             if key not in rows:
@@ -139,11 +147,17 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     "peso_total_kg": None,
                     "_rep": sid,
                     **({"grupo": grp} if by_group else {}),
+                    **({"_donde": {}} if desig else {}),
                 }
             rows[key]["cantidad"] += 1
+            if desig:
+                rows[key]["_donde"][donde] = rows[key]["_donde"].get(donde, 0) + 1
 
     out = []
     for row in rows.values():
+        donde = row.pop("_donde", None)
+        if donde and (len(donde) > 1 or next(iter(donde)) != row["descripcion"]):
+            row["ubicaciones"] = [{"nombre": n, "cantidad": c} for n, c in sorted(donde.items())]
         if row["peso_unitario_kg"] is not None:
             row["peso_total_kg"] = round(row["peso_unitario_kg"] * row["cantidad"], 3)
         out.append(row)

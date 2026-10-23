@@ -92,8 +92,11 @@ def _escena_comerciales():
 
 def test_bom_pone_lo_comercial_en_su_categoria_de_compra():
     filas = {r["descripcion"]: r for r in bom_from_scene(_escena_comerciales(), "acero")}
-    perno = filas["Perno M8x20 DIN 933 guarda sup. drive"]  # las dos ubicaciones, una fila
+    perno = filas["Perno M8x20 DIN 933"]  # las dos ubicaciones, una fila por su designación
     assert (perno["ref"], perno["categoria"], perno["cantidad"]) == ("COMPRA", "pernos", 2)
+    assert [u["nombre"] for u in perno["ubicaciones"]] == [
+        "Perno M8x20 DIN 933 guarda sup. drive (+X, +Y, inf)",
+        "Perno M8x20 DIN 933 guarda sup. drive (-X, +Y, inf)"]
     assert perno["norma"] == "DIN 933" and perno["longitud_mm"] == 20
     seeger = filas["Anillo seeger DIN 472-52"]
     assert (seeger["categoria"], seeger["cantidad"], seeger["longitud_mm"]) == ("tornilleria", 2, None)
@@ -123,7 +126,7 @@ def test_cedula_y_lista_de_corte_coinciden_con_la_bom():
     cedula = {r["nombre"]: r for r in hardware_schedule(scene)}
     assert cedula["Anillo seeger DIN 472-52"]["cantidad"] == 2
     assert cedula["Anillo seeger DIN 472-52"]["categoria"] == "tornilleria"
-    assert cedula["Perno M8x20 DIN 933 guarda sup. drive"]["categoria"] == "pernos"
+    assert cedula["Perno M8x20 DIN 933"]["categoria"] == "pernos"
 
 
 # ── 2 · largo nominal de la tornillería de catálogo ──────────────────────────────────────

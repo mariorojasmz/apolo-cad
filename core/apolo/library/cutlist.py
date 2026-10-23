@@ -18,7 +18,7 @@ from collections import defaultdict
 from .bom import _base_name
 from .catalog import CATALOG
 from .designacion_comercial import (
-    categoria_de_compra, es_comercial, nombre_de_compra, norma_del_nombre,
+    categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
 )
 from .materials import resolve_material
 
@@ -134,7 +134,8 @@ def hardware_schedule(scene: dict) -> list[dict]:
             # (nombre base sin sufijo de instancia, +1 por feature, peso del feature) →
             # las filas de COMPRA de la cédula coinciden con las del BOM (consistencia
             # BOM↔cédula, C4): 24 pernos = 24, no 24 filas ni 16 «pies» por sólido.
-            base = nombre_de_compra(_base_name(getattr(f, "name", "") or ""))  # como la BOM
+            nombre = _base_name(getattr(f, "name", "") or "")
+            base = designacion(nombre) or nombre_de_compra(nombre)  # como la BOM (F6)
             key = f"custom:{base.lower()}"
             try:
                 w_ud = round(float(f.shape.volume) * density(resolve_material(f, CATALOG)), 3)
