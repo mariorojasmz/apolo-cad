@@ -279,6 +279,8 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - `rol_union` (roles de unión) lee el SUSTANTIVO que encabeza cada tramo « · » (anclado al
   inicio: «Eje del rodillo» es eje, «Separador de guarda» es estructura), del último al primero y
   sin los tramos que nombran un grupo (la máquina de una plantilla); el catálogo de tornillería,
-  rodamientos, equipos y lo que gira manda antes que el nombre. Una tapa sin otro rol es guarda; el
+  rodamientos, equipos y lo que gira manda antes que el nombre. Una tapa sin otro rol es guarda
+  salvo la de un rodillo o tambor (gira), un tubo o perfil (estructura) o la que aloja un
+  rodamiento (`_rol_tapa`, F6): ante la duda, guarda (sólo pide pernos de más); el
   `cuerpo` conserva la numeración si la pieza ES ese tramo («Bandeja (tramo 1)» ≠ «(tramo 2)»:
   perno) y la quita si es una parte («Guarda · extremo (+X)»: soldadura con su pared). (D7)

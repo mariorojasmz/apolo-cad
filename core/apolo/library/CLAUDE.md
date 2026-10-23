@@ -169,7 +169,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   `motorreductores_sinfin`: η = 0.75 sinfín vs 0.85 helicoidal). Un transportador de rodillos a
   mano (tubo redondo de catálogo con eje, bastidor de ángulo) lo reconoce `rodillos_a_mano.py`
   por catálogo y geometría, sólo con motorreductor. Su capacidad sale de lo MEDIDO
-  (`rodillos_a_mano_medida.py`: eje, apoyos, rodamientos de catálogo o nombrados con su serie):
+  (`rodillos_a_mano_medida.py`: eje con el Ø que TRABAJA —el menor del vano, no el de su caja—,
+  apoyos —también el ala a tope de un eje de rosca hembra con su perno DECLARADO: quien llame a
+  `detect_conveyor` le pasa `doc.fasteners`—, rodamientos de catálogo o nombrados con su serie):
   L10 + σ del eje + desalineación eje↔tubo en el rodamiento (≤ 10′, el tubo sigue la cuerda), y el
   motor con el método de la plantilla («motor», no «motorización»); sin un dato real, AVISO con
   el motivo, nunca una capacidad inventada. [defectos](../../../docs/defectos.md) (F6)
@@ -222,11 +224,13 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 
 ## Validación: interferencias, lints y puerta de entrega
 
-- `interference_report` corta en `MAX_PAIRS` (400) parejas candidatas por CAJA y la puerta da
-  AMARILLO: una pieza larga y baja (bandeja, guarda) cruza las cajas de todos los rodillos.
-  Un super-comando la mantiene fuera de cajas ajenas cuando puede (F4 de
-  [plantilla-rodillos-cadena](../../../docs/plans/plantilla-rodillos-cadena.md): faldón
-  aparte, pestañas bajo los tubos) y su test verifica `interferencias_truncado` falso.
+- `interference_report`: candidata = pareja que PUEDE interferir según el prefiltro EXACTO de
+  `interferencias_filtro.py` (barrido por cajas; caja común ≤ `MIN_VOLUME_MM3`; ninguna cara de
+  una en la zona común y ningún sólido de la otra dentro): un descarte nuevo ahí tiene que ser
+  exacto y entra con su caso en `tests/test_interferencias_escala.py` (contra la fuerza bruta).
+  `check_interference` pagina de a `MAX_PAIRS`; el chequeo GLOBAL (puerta de entrega, `verify`)
+  pasa `tope=tope_global(scene)` (10 por sólido, mín. 400): con 400 fijos una máquina de 20
+  rodillos quedaba AMARILLA. [defectos](../../../docs/defectos.md) (F6)
 - `check_interference` (booleanas OCCT) excluye pares de junta, `same_command_pairs` y el herraje
   `HARDWARE_CATS`; `interpenetration_report` mide el EXCESO sobre la pose de diseño en pares con
   junta. `HARDWARE_CATS` NO se amplía (semántica de interferencia, lista de corte y lints): el FEA

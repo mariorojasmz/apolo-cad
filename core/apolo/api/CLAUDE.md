@@ -105,7 +105,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 - Un 404 por id (near, measure, get_topology, edit_command, mass) sale de `_not_found`, que suma
   el «¿quisiste decir…?» de `services/lookup.py`.
 - `open_project` devuelve `briefing` (`_open_briefing`, < 10 KB): resumen por grupo + variables +
-  requisitos + `ficha` (qué falta y qué está asumido) + notas (últimas 20 + `notas_truncadas`) +
+  requisitos + `ficha` (qué falta y qué está asumido) + notas (últimas 20 + `notas_truncadas`; una
+  nota se corrige o borra por NÚMERO, `PUT|DELETE /api/agent/notes/{nota}`, y una de > 2000
+  caracteres se rechaza, no se recorta: F6 de [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)) +
   salud + variantes.
 
 ## Jobs asíncronos (`jobs.py`)
