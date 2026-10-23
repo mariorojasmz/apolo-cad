@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Mario el 2026-10-23 (D1–D12 tal cual); repo privado mariorojasmz/apolo-pro creado por Mario (vacío, se llena en F3); F0 y F5 lanzadas
+nota: F0 y F5 mergeadas; A1–A7 de la F0 aceptados por Claude (vetables por Mario); F1a ∥ F2 lanzadas, luego F1b → F3 → F4a → F4b (con Mario) → F6; pasos manuales de GitHub de F5 pendientes; `publicacion/` congelada en el núcleo hasta F4
 descripcion: el núcleo de Apolo sigue público y abierto a contribuciones; lo nuevo que diferencia el servicio de diseño vive en un paquete privado que se engancha al núcleo sin tocarlo
 ---
 
@@ -268,6 +268,258 @@ total, unas 5 horas de agente, en dos noches.
   (D6).
 
 ## Bitácora
+
+### F0 — Medir (2026-10-23, escritorio, sólo lectura sobre `1180253`)
+
+Se leyó el código, no se cambió nada. Las rutas son relativas a `core/apolo/` salvo que digan
+`tests/`, `scripts/` o `ui/`.
+
+#### Hallazgos que cambian el contrato (para vetar)
+
+- **A1 — D3 `nucleo` no puede ser la versión del paquete.** `core/pyproject.toml` dice `0.1.0`
+  y nunca se subió: todo checkout (`apolo-cad-dev`, `apolo-cad`, worktrees) y PyPI reportan
+  `0.1.0` (`importlib.metadata.version("apolo-cad")`, medido en el `.venv`), aunque V8 no está
+  en PyPI. Un rango sobre eso no distingue nada. **Ajuste:** el núcleo publica un entero
+  `CONTRATO_EXTENSIONES = 1` en `apolo/extensiones.py` (sube sólo si cambia lo que una extensión
+  usa) y `Extension.nucleo` es un rango sobre ESE número.
+- **A2 — D1 «versión fijada» rompería las máquinas de Mario.** El núcleo está instalado EDITABLE
+  en cada `.venv` (`direct_url.json` → `editable: true`, `file:///…/apolo-cad-dev/core`). Si
+  `apolo-pro` declara `apolo-cad @ git+…@vX`, `pip install` desinstala el editable y deja una
+  copia congelada: el checkout seguiría pasando pytest con `PYTHONPATH` y la API correría otro
+  código. **Ajuste:** el `pyproject` de `apolo-pro` declara `apolo-cad>=0.1` (suelto), la
+  compatibilidad real la decide A1 al arrancar, y SU CI instala el núcleo a la etiqueta con
+  `pip install "apolo-cad[dev] @ git+https://github.com/mariorojasmz/apolo-cad@<tag>#subdirectory=core"`
+  (el repo es público: https sin llave; el paquete vive en `core/`, de ahí el `subdirectory`).
+- **A3 — Las extensiones NO se cargan al importar `apolo`, y la suite y `release.py` las
+  APAGAN.** Con `apolo-pro` instalado en el mismo `.venv` (D11), cargarlas al importar pondría
+  rojos `tests/test_despacho_unico.py:32` (`len(REGISTRY) == 59`), el golden, `CAMPOS`/`VERSIONES`
+  de `tests/test_contrato_comandos.py`, `tests/test_pistas.py` y los `len(CATALOG) == 378`; y
+  `scripts/release.py` escribiría en los README públicos las cifras CON lo privado (fuga).
+  **Ajuste:** `extensiones.cargar()` explícito en tres puntos: `api/main.py` (antes de
+  `include_router` y del montaje de la UI), el final de `mcp_server.py` y el worker de la co-sim
+  (sólo sus modelos). `APOLO_EXTENSIONES=0` las apaga: lo fija `tests/conftest.py` ANTES de
+  importar `apolo`, y `release.py`/`golden_mcp.py` también. Para la extensión falsa de D9, una
+  variable de desarrollo `APOLO_EXTENSIONES_EXTRA=modulo:objeto` carga además de los entry
+  points (sin `pip install` de la falsa).
+- **A4 — D12 tiene dos huecos que el contrato no nombra.**
+  - El catálogo y los builders de una extensión no los cubre `CommandSpec.version`: un
+    `insert_component(component="<ref de pro>")` es un comando del NÚCLEO y su firma
+    (`doc/document.py:50`) sólo lleva params. **Ajuste:** `Extension.epoch_catalogo` entra a la
+    firma de los comandos cuyos params nombran una ref de esa extensión (sólo entonces: sin ella,
+    firma histórica).
+  - La co-sim: `COSIM_EPOCH` hashea sólo `core/apolo` (`tests/test_cosim_epoch.py:27-50`). **Ajuste:**
+    el resultado guardado suma `extensiones: {nombre: version}` sólo si el tablero usa un modelo
+    de extensión, y `services/escenarios.estado` (l. 165-178) lo compara como al epoch.
+  - Menor, sin geometría vieja: un compuesto (`insert_project`, `create_belt_conveyor`,
+    `create_roller_conveyor`) lleva en su firma las versiones ≠ 1 de TODO el registro
+    (`commands/spec.py:75-84`); el día que la extensión suba un comando a v2, esos proyectos
+    replayan una vez en frío. Se acepta (una extensión nace con todo en v1).
+- **A5 — El aviso de D4 en la UI no está en ninguna fase, y F1 ∥ F2 chocan en Python.** F2 dice
+  «`api` (servir el `webui`)», pero el montaje de la UI vive en `api/main.py:196-198`, el mismo
+  bloque donde F1 incluye los routers de la extensión (l. 188-190), y la prioridad en
+  `paths.py:92-108`. **Ajuste:** todo el Python (servir el `webui` de la extensión incluido) es de
+  F1; F2 toca sólo `ui/` (más el aviso de D4: `panels/AvisosDocumento.tsx` + `types.ts`, contra
+  el campo `document.solo_lectura = {extensiones: [...], aviso}` del payload de escena que fija
+  esta bitácora). Así no comparten ni un archivo.
+- **A6 — Lo que el contrato da por hecho y no existe: fixtures de prueba empaquetadas.** Los tests
+  de la fábrica usan `tests/conftest.py` (reponer `S`, cancelar el Timer del autosave, desviar
+  `errors.log`, `_publicacion_aislada`), que no viaja en la wheel. **Ajuste:** F1 saca a
+  `apolo/pruebas.py` (plugin de pytest, `pytest_plugins = ["apolo.pruebas"]`) lo que una extensión
+  necesita; F3 y F4 lo usan.
+- **A7 — Nombres.** Un comando de extensión puede ser `pro.hola` (nada valida el tipo con regex;
+  `/api/schemas/{command_type}` acepta el punto). Una **tool MCP NO**: el chat las pasa a la API
+  de Anthropic, cuyo nombre de tool no admite «.» → `pro_hola`. Y un comando de extensión sólo
+  puede ser `kind` `scene` o `vars`: el carril eléctrico tiene UN evaluador (`doc/carril.py:123`,
+  `ModeloElectrico`); un `kind="electrico"` de extensión necesita su plan (V8.6).
+
+#### Ajustes aceptados (sesión principal, 2026-10-23; vetables por Mario)
+
+A1–A7 se aceptan tal cual: corrigen CÓMO se cumple el contrato, no QUÉ decidió Mario. Con
+ellos, las fases quedan así:
+
+- **F1a** (backend: registro, rutas, tools, catálogo, co-sim, D12 con A4, A3, A6, A7, servir
+  el `webui` de la extensión y el bug de cifras de `release.py`) ∥ **F2** (sólo `ui/`, con el
+  aviso de D4 contra `document.solo_lectura`).
+- **F1b** (D4: `doc/solo_lectura.py`, el 409 en `_verificar_documento`, autosave, `duplicate`,
+  `insert_project`, el campo en `scene_payload` y `GET /api/health`), después de F1a porque
+  comparten `routers/core.py`.
+- **F3** → **F4a** (mudar y partir los tests) → **F4b** (tarea programada, `fabrica.ps1`,
+  briefs y publicación de prueba, con Mario) → **F6**.
+- **`core/apolo/publicacion/` queda CONGELADA en el núcleo hasta F4**: nada nuevo entra ahí
+  (el lado Apolo de PED-127/128 y el eje `mercado` van después, en `apolo-pro`).
+
+#### Inventario: cada enumeración que una extensión toca
+
+| qué | dónde | cómo se arma hoy | qué hace falta (sin romper lo de hoy) |
+|---|---|---|---|
+| comandos | `commands/registry.py:1735-1847` | dict literal + `*SPECS_RODILLOS_CADENA`, `*SPECS_ELECTRICO` (l. 1844-1845) | `extensiones.cargar()` hace `REGISTRY.update(...)` EN SITIO (todos lo leen por nombre: `document.py`, `carril.py:50`, `pasos.py`, `sello.py:34,42`, `construccion.py`): 0 líneas en `registry.py` (congelado en 1913). Choque con un nombre del núcleo o tipo sin «prefijo.» → no carga |
+| desconocido | `registry.py:1865-1866` | `CommandError("Comando desconocido")` | igual; D4 distingue «prefijo.» ausente de la deriva vieja |
+| firma | `doc/document.py:50` + `commands/spec.py:75` | `version_tag`; compuesto = todas las ≠ 1 | ver A4 |
+| sello | `doc/sello.py:34,42` | `CommandSpec.al_crear`/`al_editar` | nada: viene en el `CommandSpec` |
+| schemas | `registry.py:1906` → `vista_agente.py`, `vista_persona.py:143-163` | recorren `REGISTRY` | nada |
+| pistas | `commands/pistas.py:18` (`PESTANAS`), `:32` (`PISTAS`), `:158` (`PISTAS_CAMPO`) | dicts literales | `Extension` trae pistas, pistas de campo y pestañas; `update` en sitio. `vista_persona.py:156` da `pestana: None` a una categoría sin pestaña (se perdería del ribbon): el cargador lo rechaza |
+| gate de pistas | `tests/test_pistas.py:145-147`, `:193-195` | `set(REGISTRY) == set(PISTAS)` | con A3 corre sobre el núcleo; la extensión corre los MISMOS criterios en su CI desde el checkout del núcleo a la etiqueta (lee `ui/src`, no viaja en la wheel) |
+| contrato de comandos | `tests/test_contrato_comandos.py:37` (`CAMPOS`), `:238` (`VERSIONES`), `:320` (`problemas_de_version`) | literales sobre `REGISTRY` | con A3, sólo núcleo; la extensión lleva su propio `CAMPOS`/`VERSIONES` reusando `field_paths` (`commands/strict.py`, empaquetado) y la lógica de `problemas_de_version` (hoy en `tests/`: F1 la pasa a `apolo/` para que viaje) |
+| conteos | `tests/test_despacho_unico.py:32` (59); `tests/test_catalogo_electrico.py:65` y `tests/test_catalog_datadriven.py:142` (378) | fijos | se quedan (A3) |
+| rutas de la API | `api/main.py:59-76` (imports), `:188-190` (`include_router`), `:196-198` (`app.mount("/")`) | tupla de routers al IMPORTAR `main` | los routers de la extensión se incluyen al importar, ANTES del montaje (`tests/test_rutas_api.py:153` exige UI después de la API; un `Mount("/")` previo taparía la ruta). Prefijo `/api/<nombre>/…` obligatorio; un (método, path) que ya existe → no carga. `PARES_EN_ORDEN` (`test_rutas_api.py:30`) no cambia: las rutas de la extensión no se solapan por el prefijo |
+| tools MCP | `mcp_server.py:1352-1358` (`registrar` por tema), `:35` (`mcp`) | llamadas al importar | UNA línea al final (`extensiones.registrar_tools(mcp, api, mutacion, esperar)`), compensada con otra: `mcp_server.py` está congelado en 1367 |
+| catálogo del chat | `tools/catalogo.py:41` (`CHAT`), `:131` (`FUERA_DEL_CHAT`); gate `tests/test_catalogo_chat.py:52-59`; presupuesto `tests/test_chat_http.py:235` (< 60 KB) | dicts literales | la tool de extensión declara su lado; por defecto `FUERA_DEL_CHAT` (no gasta el presupuesto; el chat viene apagado, D19) |
+| golden | `tests/test_mcp_golden.py`, `scripts/golden_mcp_casos.py`, `tests/data/mcp_golden/list_tools.json` (90 tools) | una `call_tool` por tool | el golden del núcleo EXCLUYE las de extensión (A3); la extensión congela el suyo con `scripts/golden_mcp.py` del checkout del núcleo a la etiqueta |
+| catálogo | `library/loader.py:34` (`DATA_DIR`), `:177-195` (`load_catalog(data_dir)`: UN directorio), `library/catalog.py:55` (`CATALOG` al importar), `:59` (`CATEGORIES`) | glob de un directorio | dos lugares asumen un solo directorio (`loader.py:179-181` y `catalog.py:55`); el cargador hace `CATALOG.update(load_catalog(dir_ext))` con choque de ref = error (ya lo es dentro de un directorio, l. 192-193). Los que leen `CATALOG` lo hacen perezoso (`models_componente.py:111-114`, `vista_agente.py:25`): ven lo agregado. `CATEGORIES` es orden de UI: una categoría nueva va al final |
+| builders | `library/loader.py:61-63` (`merge_builders`, `merge_anclas`), `builders_mandos.ZONADOS` | unión al importar, duplicado = `ValueError` | `BUILDERS.update`/`ANCLAS.update` con la misma regla, ANTES de leer el YAML de la extensión |
+| tipos de modelo | `library/electrico/ficha.py:42` (`TIPOS_MODELO`, TUPLA), `:282` | tupla | pasa a un registro mutable; los tipos de la extensión entran ANTES de su YAML |
+| modelos co-sim | `cosim/modelos/__init__.py:25` (`MODELOS`), `:37`; `cosim/tipos.py:30`; `cosim/tablero.py:70`; gate `tests/test_cosim_modelos_catalogo.py:35` | dict | `MODELOS.update` en la API. El worker (`cosim/worker.py`, otro proceso con `python -m`) no carga entry points: el snapshot (pickle, l. 130) lleva `{tipo: clase}` de los modelos de extensión que usa el tablero y el worker los registra antes de `planificador.correr`. Su pureza la vigila en cada corrida `proceso.modulos_pesados` (`worker.py:35`, `PESADOS`); el gate estático de `tests/test_cosim_worker.py:113-125` no ve código privado: la extensión lo copia |
+| epoch co-sim | `cosim/__init__.py:21` (`COSIM_EPOCH = 4`), `tests/test_cosim_epoch.py:30` (`ARCHIVOS`), `:60` (`HUELLA`) | huella de `core/apolo` | sigue del núcleo; tocar el snapshot y el worker cambia la huella: es refactor sin efecto (sólo la huella) salvo que cambie un resultado. Extensión: A4 |
+| puerta de publicación | `library/calidad/registro.py:77` (`VERSION_REGISTRO`), `:221` (`REGISTRO`), `:275` `fuentes(registro=None)`, `:397` `evaluar(insumos, registro=None)` | tupla | **no hace falta punto en F1**: ya acepta un registro inyectado; si V8.7 quiere ítems, su plan lo usa |
+| caché de geometría | `doc/geomcache.py:67` (`GEOM_CACHE_EPOCH = 6`), `:124` (un doc con suprimidos no se empaca) | firma por comando | queda del núcleo; la extensión, por `CommandSpec.version` y A4 |
+| salud | `api/routers/core.py:100-140` | dict | suma `extensiones: {cargadas: [{nombre, version}], rechazadas: [{nombre, motivo}]}` y `solo_lectura` (D4); `ui` = de dónde sale el bundle |
+| lo que lee la UI al arrancar | `ui/src/api.ts:30` (`/api/schemas?vista=persona`: ribbon), `:33` (`/api/health`: sólo `chat`), escena (`document.suppressed_commands`, `api/scene.py:77` → `panels/AvisosDocumento.tsx:16`) | — | los comandos de extensión llegan solos al ribbon por la vista persona; los paneles, por D5 |
+| paneles | `ui/src/dock/paneles.ts:31` (`PANELES`), `:49` (`PanelId = keyof typeof PANELES`), `:54` (`HERRAMIENTAS`), `ui/src/ui/icons.tsx:64` (`PANEL_ICONS`) | literales tipados | `PanelId` pasa de literal a `string` validado con `esPanel` (`paneles.ts:58`): 10 archivos lo usan (`dockApi.ts`, `BarraPaneles.tsx`, `Cajon.tsx`, `StatusBar.tsx`, `DockShell.tsx`, `BarraVivo.tsx`, `visor/estado.ts`, `MatesPanel.tsx`, `icons.tsx`, `paneles.ts`); ninguno está en el trinquete de la UI. Un layout guardado con un panel que ya no existe (se desinstaló la extensión) lo descarta `esPanel` |
+| UI empaquetada | `scripts/stage_ui.py` (`ui/dist` → `core/apolo/webui`), `paths.py:92-108` (`ui_dist`) | en un CHECKOUT gana `ui/dist`; instalado, el `webui` del paquete | gana el `webui` de la extensión cargada; `APOLO_UI=nucleo` lo fuerza al del núcleo (si no, en `apolo-cad-dev` con `apolo-pro` instalado los cambios de UI del núcleo no se verían: el bundle de `apolo-pro` sale de una etiqueta). `stage_ui.py` no cambia: el privado tiene su propio paso |
+| cifras públicas | `scripts/release.py:37-55`; README (`README.md:18,59,91,124,163`, `README.es.md`, `core/README.md`) | `count_tools()` cuenta `^@mcp.tool` SÓLO en `mcp_server.py` | **bug previo:** da 76, `list_tools()` da 90 y los README dicen 79. F1 lo cuenta con `list_tools()` y extensiones apagadas (A3) |
+
+#### D4: proyecto que necesita una extensión ausente (medido en el código)
+
+- **Rutas de carga** (todas tolerantes salvo dos):
+  - arranque: `api/session.py:145`;
+  - open por id: `api/routers/projects.py:71`;
+  - restore: `projects.py:142` (+ flush FORZOSO, l. 151);
+  - upload: `projects.py:216` (crea un proyecto NUEVO con el log tal cual);
+  - fuera de la API: `doc/prefijos.py:92` (video) y `publicacion/flujo.py:101`;
+  - **estrictas**: `duplicate` (`projects.py:98` → `projects.py:224`, `store.load` sin
+    `tolerant`): con un comando desconocido revienta como 500 (`DocumentError` no se traduce); y
+    `insert_project` de un subproyecto que usa la extensión: `doc/subproject.py:73-83` regenera
+    estricto → `SubprojectError` («El proyecto instanciado no regenera: … Comando desconocido»),
+    400 al crear y, en la carga del anfitrión, el `insert_project` ENTERO se suprime (desaparece
+    el sub-ensamblaje). La detección tiene que mirar también los logs de los adjuntos de
+    `insert_project` (hasta `MAX_DEPTH`; `subproject._log_del_snapshot` ya los cachea por digest).
+- **¿El autosave puede perder un comando suprimido? Él solo, no.** `to_apolo_bytes`
+  (`document.py:898-930`) escribe `self.commands`, que la carga tolerante nunca toca
+  (`document.py:238-248` sólo anota en `regen_suppressed`); el flush escribe sólo si hay `dirty`.
+  **Pero hoy SÍ se pierde por una mutación:** `remove_commands` (`document.py:631-644`) de los
+  comandos suprimidos deja un log que regenera ESTRICTO sin error, `regen_suppressed` vuelve a
+  `[]` (l. 288) y el autosave persiste el log sin ellos. Cualquier otra mutación revienta
+  (regenerate estricto) y revierte el log (`_mutate`, l. 459-470), con un error que no dice que
+  falta una extensión. La sólo-lectura de D4 cierra ese camino.
+- **Dónde marcar y bloquear:**
+  - Detección: función pura nueva (`doc/solo_lectura.py`): tipos «prefijo.x» del log y de los
+    adjuntos sin spec en `REGISTRY` → `{extensiones: [...]}`. Se calcula al cargar; mientras está
+    en sólo lectura el log no cambia.
+  - API: `api/common.py:133` (`_verificar_documento`) ya es el ÚNICO punto que pasan
+    `_state_or_error` (l. 152), el job de `_sync_or_job` (l. 247) y las mutaciones fuera del
+    embudo (`cosim.py`, `motion.py`, `validation.py`, `core.py`): un 409 ahí, con el texto de
+    D4, cubre las cuatro puertas, deshacer, variables, variantes, color y material. No lo pasan
+    los resultados de FEA (`routers/fea.py`), que escriben metadato y no el log: se aceptan.
+  - `Document`: una línea en `_snapshot()` (`document.py:105`; la llaman `_mutate`,
+    `execute_many`, `edit_many` y `_mover`) para quien use `Document` sin la API; `document.py`
+    está congelado en 1023 → la línea se compensa.
+  - MCP: nada propio; el 409 llega como `_reject` (mismo texto).
+  - Autosave: `_flush_body` (`api/autosave.py:50-72`) no escribe un documento en sólo lectura.
+  - UI: `document.solo_lectura` en `scene_payload` (`api/scene.py`, junto a `suppressed_commands`
+    l. 77) → aviso en `AvisosDocumento.tsx` (F2, A5).
+
+#### Mudanza D2 (a): `publicacion/`
+
+- **Código:** 26 archivos, 6217 líneas (`flujo.py` 499, `fabrica.py` 438, `tienda.py` 378,
+  `textos.py` 370, `youtube.py` 361, `paquete.py` 332…).
+- **Nadie del núcleo lo importa** (lo exige `tests/test_capas_publicacion.py:91`). Ningún router ni
+  tool depende de él: `publication_gate` (`tools/calidad.py`) y `POST /api/puerta-publicacion`
+  son de `library/calidad` + `services/puerta_publicacion` y se quedan públicos. No hay entry
+  point: `core/pyproject.toml` declara sólo `apolo` y `apolo-mcp`; la fábrica se corre como
+  `scripts/publicar.py` (513 líneas; subcomandos guion, generar, ficha, subir, fabrica, aprobar,
+  youtube).
+- **Lo que importa del núcleo** (queda como API estable para `apolo-pro`): `apolo.paths`
+  (`home`, `logs_dir`, `repo_root`, `publicaciones_dir`, `fabrica_dir`); `services.` `linea_tiempo`,
+  `guion_video`, `puerta_publicacion.firma_modelo`, `marcha_ejemplo`, `plan_navegador`,
+  `datos_rotulos`, `montaje_video`, `apariencia`, `definiciones`, `construccion`, `cifras_grupo`,
+  `rotulos`; `media.` `codificar`, `tarjetas`, `composicion`, `cierre`; `doc.document.Document`,
+  `doc.prefijos`; `kernel.` `render_vivo`, `shapes.is_surface`, `glb`, `glb_resumen`; y las
+  constantes de `design/revision.py:140-142`, que `publicacion/revision_check.py` copia (un test
+  las compara: pasa a `apolo-pro`).
+- **No es tan limpio como dice «Lo que hay hoy»:**
+  - 15 tests son sólo de la fábrica (3978 líneas, ~164 tests): `test_publicacion_*` (7),
+    `test_publicar_*` (4), `test_publicada_es_subida`, `test_fabrica_revision`,
+    `test_ficha_vigente`, `test_guion_vencido`.
+  - 8 MEZCLAN núcleo y fábrica y hay que partirlos:
+    - `test_puerta_publicacion` (24 tests; importa fixtures de `test_publicacion_e2e`) y
+      `test_puerta_f3`, que importa de él;
+    - `test_video_navegador` (17), `test_fabrica_marcha` (22), `test_seta_render` (1 de 10),
+      `test_montaje` (1 de 18), `test_media_cierre` (1 de 10);
+    - `test_paths` (`publicaciones_dir`);
+    - y `tests/conftest.py:49-60` (`_publicacion_aislada`).
+  - `scripts/benchmark_package.py` y `tests/test_benchmark_entregables.py` usan
+    `publicacion/entregables.py`: el benchmark es público. F4 decide entre dejar `entregables.py`
+    en el núcleo o llevar el benchmark.
+  - `paths.py:55` (`publicaciones_dir`) y `:62` (`fabrica_dir`) son de la fábrica: se mudan.
+  - `tests/test_capas_publicacion.py` se reescribe en `apolo-pro` (lo que la fábrica puede
+    importar del núcleo).
+  - Docs que la nombran: `services/CLAUDE.md` (l. 115, 245), `ui/CLAUDE.md` (l. 273,
+    `publicar generar --render navegador`), `.github/workflows/ci.yml:74` (comentario de ffmpeg).
+- **Variables de entorno:** `APOLO_TIENDA_LLAVE`, `APOLO_TIENDA_URL`, `APOLO_FABRICA`,
+  `APOLO_MUSICA_DIR`, `APOLO_YOUTUBE_DIR`, `APOLO_YOUTUBE_API`, `APOLO_YOUTUBE_UPLOAD`,
+  `APOLO_GOOGLE_TOKEN_URL`, `APOLO_GOOGLE_AUTH_URL`, `APOLO_NAVEGADOR`, `APOLO_GLTFPACK`,
+  `APOLO_CANDADO_RENDER`; usa también `APOLO_URL` y `APOLO_HOME` del núcleo.
+- **Fuera del repo** (leído, sin tocar):
+  - `apolo-cad\logs\fabrica.ps1` corre `$HOME\source\repos\apolo-cad\.venv\Scripts\python.exe -B
+    scripts\publicar.py fabrica …` con `APOLO_TIENDA_LLAVE` de las variables de usuario.
+  - **La tarea programada «Apolo - cola de YouTube» EXISTE en el escritorio** (`schtasks /Query`,
+    próxima 24/10/2026 02:30) y apunta a `C:\Users\Mario\source\repos\apolo-cad\scripts\publicar.py
+    youtube --cola --registro`. Si F4 borra ese archivo, la cola nocturna falla en silencio: F4
+    re-instala la tarea (`publicar youtube --cola --instalar-tarea` desde `apolo-pro`;
+    `publicacion/tarea_cola.py:38-55` arma la ruta desde `paths.repo_root()` y el script).
+  - `apolo-fabrica\briefs`: `modelador.md:99,144` (`{repo}\scripts\publicar.py guion|ficha`) y
+    `orquestacion.md:87,101,119-121` (`fabrica`, `aprobar`, `youtube --cola`).
+    `COORDINACION.md` ya anuncia la mudanza (§ «Núcleo abierto + extensiones privadas»).
+- **Riesgo de la ventana:** el lado Apolo de PED-127/128 (bloques `familia` y `aprobacion`) y el
+  eje `mercado` tocan la fábrica y COORDINACION dice que van después de F4, ya en `apolo-pro`.
+  Lo que entre a `publicacion/` en el núcleo entre F0 y F4 se muda también: conviene congelarla.
+
+#### Empaquetado
+
+- **Entry points hoy:** `core/pyproject.toml` `[project.scripts]`: `apolo = apolo.cli:main`,
+  `apolo-mcp = apolo.mcp_server:main`. Ningún grupo propio.
+- **`importlib.metadata.entry_points(group=...)` con el editable funciona:** medido en el `.venv`
+  del árbol principal (Python 3.13.2, pip 26.2.2). `console_scripts` lista los dos de `apolo-cad`
+  y `group="apolo.extensiones"` devuelve `[]`. Un `pip install -e` de `apolo-pro` registra su
+  entry point en su `dist-info`. Cambiar la DECLARACIÓN del entry point exige reinstalar; cambiar
+  el código, no.
+- **Instalación (D11 + A2):**
+  - en las máquinas de Mario: `pip install --no-deps -e <checkout de apolo-pro>` (o
+    `git+ssh://git@github.com/mariorojasmz/apolo-pro.git@<tag>`) en el `.venv` de cada checkout
+    del núcleo;
+  - su CI: el núcleo a la etiqueta por `git+https…#subdirectory=core` y la extensión encima;
+  - el tope `fastapi<0.137` del núcleo (`include_router` plano) también lo hereda la extensión.
+
+#### Tamaño real de F1–F4
+
+- **F1 — backend: L, no M/L** (≈ 20 archivos).
+  - Nuevos: `extensiones.py`, `doc/solo_lectura.py`, `pruebas.py` (A6), la extensión falsa en
+    `tests/`, `tests/test_extensiones.py` y el gate de D9.
+  - Cambian: `api/main.py`, `api/common.py`, `api/routers/core.py`, `api/scene.py`,
+    `api/autosave.py`, `paths.py`, `mcp_server.py` (±0 líneas), `doc/document.py` (±0),
+    `commands/spec.py`, `tools/catalogo.py`, `library/loader.py`,
+    `library/electrico/ficha.py`, `cosim/modelos/__init__.py`, el snapshot y el worker de la
+    co-sim (huella de `test_cosim_epoch`), `services/escenarios.py`, `tests/conftest.py`,
+    `scripts/release.py` y `scripts/golden_mcp.py`.
+  - Se puede partir en F1a (registro, catálogo, co-sim, rutas, tools, D12) → F1b (D4 y salud),
+    en serie: comparten `routers/core.py`.
+- **F2 — UI: M.**
+  - Nuevo: `ui/src/extensiones/registro.ts`.
+  - Cambian: `paneles.ts`, `icons.tsx`, los 8 usuarios de `PanelId`, `AvisosDocumento.tsx` +
+    `types.ts` (A5) y vitest.
+  - Sin Python (A5). El privado compila copiando su `ui/` dentro de `ui/src/extensiones/<nombre>/`
+    de un checkout del núcleo a la etiqueta: así resuelve React/three del `node_modules` del
+    núcleo y pasa los mismos gates de texto y tamaño.
+- **F1 ∥ F2: seguro con A5** (cero archivos en común; el único contrato entre las dos es el campo
+  `document.solo_lectura`, fijado arriba). Sin A5 chocan en `api/main.py` y `paths.py`.
+- **F3: M**, tal cual, más su CI con los gates del núcleo a la etiqueta (pistas, contrato, golden).
+- **F4: L, no M/L.**
+  - Volumen: 26 módulos (6217 líneas), `scripts/publicar.py`, 15 tests puros (3978 líneas) y
+    8 mixtos a partir.
+  - Pendientes de decidir ahí: `entregables.py` + benchmark, `paths.py`, `revision.py`.
+  - Fuera del repo: la tarea programada, `fabrica.ps1` y 2 briefs.
+  - Conviene llevarla a F4a (mover y partir los tests: código) y F4b (re-instalar la tarea,
+    `fabrica.ps1`, briefs y la publicación de prueba en la copia de uso: operación, con Mario).
 
 ### F5 (2026-10-23): contribuciones
 
