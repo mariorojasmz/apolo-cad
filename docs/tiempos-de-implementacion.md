@@ -118,6 +118,7 @@ suites incluidas; corre en paralelo con otro, así que cada uno frena un poco al
 | 2026-10-22 | puerta-de-publicacion | F6: create_belt_conveyor v5 | L | 67 | 335 | guardas inferiores en tramos ≤ 3 m, placas de cierre de largueros, techo de cola; campo oculto `cierres` sellado al crear; 5 variantes medidas |
 | 2026-10-22 | puerta-de-publicacion | F6: tornillería de la BOM | L | 68 | 395 | comerciales a mano → compra, largo nominal (el 84,5 del Allen), `insert_component` ignoraba `length` (criterio oculto 2), DIN 603, Seeger con norma, tornillería declarada sin pieza |
 | 2026-10-22 | puerta-de-publicacion | F6: huecos de fábrica y rodillos (lote 2) | L | 54 | 397 | guion vencido se rehace, Ø de trabajo del eje, apoyo a tope con unión declarada, «tapa» por lo que tapa, interferencias sin truncar (963 sólidos 10,6 → 7,2 s), notas editables |
+| 2026-10-22 | puerta-de-publicacion | F6: huecos lote 3 | L | 123 | 601 | distancia al borde EN 1993-1-8 (registro v4), ficha atada a la firma del log, publicada = subida, memoria con masa y Ø de tambor reales, sumideros en la marcha, BOM agrupada por designación |
 | anterior | deshacer-con-etiqueta | F1 / F2 / F3 | — | 83 / 41 / 10 | 272 / 220 / 190 | otra sesión |
 | anterior | fea-chapa-empernada | F1 / F2 | — | 31 / 56 | 240 / 288 | otra sesión |
 | anterior | chat-cliente-igual | D19 | — | 44 | 211 | otra sesión |
