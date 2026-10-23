@@ -12,6 +12,7 @@ import MatesPanel from "../panels/MatesPanel";
 import PhysicsPanel from "../panels/PhysicsPanel";
 import AssemblyPanel from "../panels/AssemblyPanel";
 import SketchBlockPanel from "../panels/SketchBlockPanel";
+import PanelMandos from "../vivo/PanelMandos";
 
 /* Los paneles de Apolo, una sola vez: el mismo componente lo monta Dockview en Completo
    (`DockShell.tsx`) y un cajón en el visor (`visor/Cajon.tsx`, plan modo-visor D3). El
@@ -38,6 +39,7 @@ export const PANELES = {
   fisica: { titulo: "Física", rotulo: "Física", Componente: PhysicsPanel },
   ensamblaje: { titulo: "Montaje", rotulo: "Montaje", Componente: AssemblyPanel },
   boceto: { titulo: "Boceto de masas", rotulo: "Boceto", Componente: SketchBlockPanel },
+  mandos: { titulo: "Mandos", rotulo: "Mandos", Componente: PanelMandos },
 } satisfies Record<string, PanelDef>;
 
 export type PanelId = keyof typeof PANELES;
@@ -46,7 +48,7 @@ export type PanelId = keyof typeof PANELES;
    paneles), en el orden en que se muestran. Árbol, Propiedades y Asistente IA (sólo con el
    chat prendido, `chat/activo.ts`) forman el layout por defecto de Completo y no se listan. */
 export const HERRAMIENTAS: PanelId[] = [
-  "history", "reqs", "bom", "checks", "kin", "mates", "fisica", "ensamblaje", "boceto",
+  "history", "reqs", "bom", "checks", "kin", "mates", "fisica", "ensamblaje", "boceto", "mandos",
 ];
 
 export function esPanel(id: string): id is PanelId {

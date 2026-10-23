@@ -32,6 +32,9 @@ export interface BandaSerie {
   /** Hacia dónde avanza la cara superior con velocidad positiva. */
   direccion: [number, number, number];
   v_m_s: number[];
+  /** Recorrido acumulado (mm) por muestra. Lo trae la serie VIVA (crece con ella y se recorta
+   *  igual); sin él, la faja lo integra de `v_m_s` al armarse. */
+  s_mm?: number[];
 }
 
 /** Una cadena que avanza (F3, D6): sus rodillos en el marco del lazo y la junta que la mueve.
@@ -98,7 +101,9 @@ export interface SerieMarcha {
   t: number[];
   cuerpos: Record<string, CuerpoSerie>;
   productos: ProductoSerie[];
-  juntas: Record<string, { tipo: string; unidad: string; q: number[] }>;
+  /** `q0`: la q de la PRIMERA muestra cuando la serie viva ya recortó su comienzo (la cadena
+   *  avanza desde ahí). */
+  juntas: Record<string, { tipo: string; unidad: string; q: number[]; q0?: number }>;
   bandas: BandaSerie[];
   /** F3: ausentes en una serie de antes (la faja y las cadenas quedan rígidas). */
   cadenas?: CadenaSerie[];
@@ -109,6 +114,9 @@ export interface SerieMarcha {
   firma?: string;
   escenario?: string;
   en_cache?: boolean;
+  /** Serie de la máquina viva (plan V8.4): llega fotograma a fotograma por el WebSocket y
+   *  crece en un anillo (`vivo/serieViva.ts`); el reproductor sigue su última muestra. */
+  vivo?: boolean;
 }
 
 /** Tramo de `t` que contiene `x`: el índice `i` con t[i] ≤ x < t[i+1] y la fracción entre los
@@ -142,7 +150,7 @@ export function poseEn(poses: number[], k: number, f: number, out: THREE.Matrix4
   _pa.set(poses[a], poses[a + 1], poses[a + 2]);
   _qa.set(poses[a + 3], poses[a + 4], poses[a + 5], poses[a + 6]);
   const b = a + 7;
-  if (f > 0 && b + 6 < poses.length) {
+  if (f > 0 && b + 6 < poses.length && !Number.isNaN(poses[b])) {
     _pb.set(poses[b], poses[b + 1], poses[b + 2]);
     _qb.set(poses[b + 3], poses[b + 4], poses[b + 5], poses[b + 6]);
     _pa.lerp(_pb, f);
@@ -151,9 +159,11 @@ export function poseEn(poses: number[], k: number, f: number, out: THREE.Matrix4
   return out.compose(_pa, _qa, _uno);
 }
 
-/** Pose de un producto en el tramo (i, f); `false` si todavía no nació o ya se retiró. */
+/** Pose de un producto en el tramo (i, f); `false` si todavía no nació o ya se retiró (en la
+ *  serie viva, NaN: la caja no está en el mundo). */
 export function poseProducto(p: ProductoSerie, i: number, f: number, out: THREE.Matrix4): boolean {
   if (i < p.desde || (i - p.desde) * 7 >= p.poses.length) return false;
+  if (Number.isNaN(p.poses[(i - p.desde) * 7])) return false;
   poseEn(p.poses, i - p.desde, f, out);
   return true;
 }

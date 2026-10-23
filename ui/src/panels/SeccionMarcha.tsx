@@ -4,13 +4,14 @@ import { useStore } from "../state/store";
 import VerDetalle from "../ui/VerDetalle";
 import { useMarcha } from "../viewport/marcha/estado";
 import { resumenMarcha } from "../viewport/marcha/serie";
+import { abrirPanelMandos } from "../vivo/abrirPanel";
 import "../viewport/marcha/marcha.css";
 
 /* «Máquina en marcha» del panel Física (plan visor-realista, D4): trae la última simulación de la
    máquina (la que corrió el agente) y la reproduce en el 3D con su línea de tiempo
    (`viewport/marcha/BarraMarcha.tsx`). Si el modelo cambió desde entonces, el servidor la vuelve
    a simular. Un 404 (todavía no hay simulación) es un estado esperado: se muestra aquí, no va al
-   log de errores. */
+   log de errores. «Máquina viva» (plan V8.4) abre el panel «Mandos», donde se abre la sesión. */
 
 export default function SeccionMarcha() {
   const serie = useMarcha((s) => s.serie);
@@ -43,12 +44,13 @@ export default function SeccionMarcha() {
         <h3>Máquina en marcha</h3>
         <div className="kin-actions">
           <button className="primary" disabled={cargando} onClick={() => void ver()}>
-            {cargando ? "Simulando…" : serie ? "↻ Actualizar la marcha" : "▶ Ver la marcha"}
+            {cargando ? "Simulando…" : serie && !serie.vivo ? "↻ Actualizar la marcha" : "▶ Ver la marcha"}
           </button>
+          <button onClick={() => void abrirPanelMandos()}>Máquina viva</button>
         </div>
       </div>
       {problema && <p className="estado-aviso">{problema}</p>}
-      {serie && !problema && (
+      {serie && !serie.vivo && !problema && (
         <>
           <p className="hint">{resumenMarcha(serie)}</p>
           {serie.avisos.length > 0 && (

@@ -167,7 +167,7 @@ export function crearFajas(serie: SerieMarcha, material: (pieza: string) => THRE
     malla.raycast = () => {};
     malla.userData.marcha = true;
     objetos.push(malla);
-    corredores.push({ f, s: banda ? recorridos(serie.t, banda.v_m_s) : [], texturas });
+    corredores.push({ f, s: banda ? banda.s_mm ?? recorridos(serie.t, banda.v_m_s) : [], texturas });
   }
   const recorrido = new Map<string, number>();
   return {

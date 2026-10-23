@@ -7,7 +7,7 @@ import {
   SquareDashed, PaintBucket, Layers2,
   Combine, Scissors, Drill, FlipHorizontal2, Rows3, CircleDot, Move3d, Magnet, Trash2,
   Link2, Bot, Cog,
-  History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor, ClipboardList, Blocks,
+  History, ListChecks, ShieldCheck, Activity, Boxes, Atom, Anchor, ClipboardList, Blocks, Power,
   ListTree, SlidersHorizontal, Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -74,4 +74,5 @@ export const PANEL_ICONS: Record<string, LucideIcon> = {
   fisica: Atom,
   ensamblaje: Anchor,
   boceto: Blocks,
+  mandos: Power,
 };

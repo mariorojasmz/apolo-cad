@@ -80,6 +80,9 @@ export function crearReproductor(
   tInicial = 0,
   /** Donde van la cinta y los eslabones (el grupo de las piezas: proyectan la sombra). */
   grupoPiezas: THREE.Object3D = escena,
+  /** Serie VIVA (plan V8.4): el instante a mostrar lo da este reloj en cada fotograma (sigue la
+   *  última muestra que llegó, `vivo/reloj.ts`) y la línea de tiempo no manda. */
+  seguir?: (nowMs: number) => number | null,
 ): Reproductor {
   const piezas: PiezaMovida[] = [];
   for (const c of Object.values(serie.cuerpos)) {
@@ -123,6 +126,17 @@ export function crearReproductor(
   return {
     tiempo: () => t,
     tick: (nowMs) => {
+      if (seguir) {
+        const x = seguir(nowMs);
+        if (x === null || x === t) return;
+        t = x;
+        posar(t);
+        if (nowMs - publicadoEn >= PUBLICAR_MS) {
+          publicadoEn = nowMs;
+          avisos.publicar(t, false);
+        }
+        return;
+      }
       const { reproduciendo, velocidad, salto } = leer();
       let movio = false;
       if (salto !== null) {

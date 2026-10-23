@@ -188,6 +188,8 @@ export const api = {
 
   // la última marcha simulada del proyecto como serie de tiempo (visor-realista D4)
   marcha: () => fetch("/api/physics/dynamics/serie").then((r) => json<SerieMarcha>(r)),
+  // los escenarios guardados (co-simulación): la sesión viva elige uno de base (V8.4)
+  escenarios: () => fetch("/api/escenarios").then((r) => json<{ escenarios: { nombre: string }[] }>(r)),
 
   soundness: (withAutodetect: boolean) =>
     fetch("/api/assembly/soundness", {

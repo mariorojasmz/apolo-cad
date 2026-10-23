@@ -52,9 +52,10 @@ export function posicionEnLazo(c: CadenaSerie, p: number, out: Punto2): Punto2 {
 
 /** Avance del lazo en pasos en el tramo (i, f) de la serie. */
 export function avanceCadena(c: CadenaSerie, serie: SerieMarcha, i: number, f: number): number {
-  const q = serie.juntas[c.junta]?.q ?? [];
+  const j = serie.juntas[c.junta];
+  const q = j?.q ?? [];
   if (!q.length) return 0;
-  return (c.signo * (valorEn(q, i, f) - q[0]) * c.z) / 360;
+  return (c.signo * (valorEn(q, i, f) - (j?.q0 ?? q[0])) * c.z) / 360;
 }
 
 /** Placa de eslabón: estadio de largo `paso` entre centros (en +X desde el origen), alto `alto`,

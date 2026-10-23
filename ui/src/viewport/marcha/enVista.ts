@@ -3,13 +3,16 @@ import { useStore } from "../../state/store";
 import type { FeatureOut, JointOut } from "../../types";
 import type { VistaCtx } from "../interaccion/ctx";
 import { applyKinematicPoses } from "../poses";
+import { crearReproductorVivo } from "../../vivo/reproductorVivo";
 import { useMarcha } from "./estado";
 import { crearReproductor, type Reproductor } from "./reproductor";
 
 /* El reproductor de la marcha dentro del viewport (plan visor-realista, D4). `Viewport.tsx` lo
    llama DESPUÉS de sus efectos de mallas y pose cinemática (los efectos corren en orden): así el
    reproductor se arma sobre las mallas ya reconstruidas. El bucle de render llama
-   `reproRef.current?.tick` en cada fotograma (`pipeline.antesDeComponer`). */
+   `reproRef.current?.tick` en cada fotograma (`pipeline.antesDeComponer`). Una serie VIVA (plan
+   V8.4) se arma con el reproductor de la máquina viva (`vivo/reproductorVivo.ts`): el mismo,
+   siguiendo la sesión, más etiquetas y mandos 3D. */
 
 export function useMarchaEnVista(
   ctxRef: MutableRefObject<VistaCtx | null>,
@@ -39,11 +42,10 @@ export function useMarchaEnVista(
       return;
     }
     const m = useMarcha.getState();
-    reproRef.current = crearReproductor(serie, ctx.meshes, ctx.scene, () => useMarcha.getState(), {
-      saltoHecho: m.saltoHecho,
-      publicar: m.publicar,
-      alPosar: () => ctx.sombra.marcarSucia(),
-    }, t0, ctx.group);
+    const avisos = { saltoHecho: m.saltoHecho, publicar: m.publicar, alPosar: () => ctx.sombra.marcarSucia() };
+    reproRef.current = serie.vivo
+      ? crearReproductorVivo(serie, ctx, avisos)
+      : crearReproductor(serie, ctx.meshes, ctx.scene, () => useMarcha.getState(), avisos, t0, ctx.group);
   }, [serie, token, features, kinJoints, jointValues]);
 
   // la caída por gravedad y el drop-test mueven las mismas mallas: no conviven con la marcha

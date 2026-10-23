@@ -107,6 +107,30 @@ describe("crearReproductor", () => {
     expect(log.publicados.at(-1)).toEqual([1, true]);
   });
 
+  it("en modo vivo sigue su reloj: lee la serie que CRECE y no mira la línea de tiempo (V8.4)", () => {
+    const s = serie();
+    s.t = [0, 0.5];
+    s.cuerpos.b_j.poses = s.cuerpos.b_j.poses.slice(0, 14);
+    let reloj: number | null = null;
+    const meshes = new Map([["tambor", malla(100)]]);
+    const estado: Mando = { reproduciendo: false, velocidad: 1, salto: null };
+    const publicados: number[] = [];
+    const r = crearReproductor(s, meshes, new THREE.Scene(), () => estado, {
+      saltoHecho: () => {}, publicar: (t) => publicados.push(t), alPosar: () => {},
+    }, 0, undefined, () => reloj);
+    r.tick(0);
+    expect(r.tiempo()).toBe(0); // sin muestras todavía: quieto
+    // llega otra muestra (la serie viva empuja en sitio) y el reloj la sigue
+    s.t.push(1);
+    s.cuerpos.b_j.poses.push(...pq(0, 0, 0, quatZ(Math.PI / 2)));
+    reloj = 0.75;
+    r.tick(16);
+    expect(r.tiempo()).toBeCloseTo(0.75);
+    const ang = (3 * Math.PI) / 8;
+    expect(pos(meshes.get("tambor")!.matrix).x).toBeCloseTo(100 * Math.cos(ang));
+    expect(publicados).toEqual([0.75]);
+  });
+
   it("restaurar devuelve las mallas a su pose base y retira las cajas", () => {
     const { r, meshes, escena, estado } = armar();
     estado.salto = 1;
