@@ -30,6 +30,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
 | `electrico` | circuito y ERC del tablero |
 | `cosim` | escenarios de prueba, co-simulación y `test_plc` (job en `COSIM_JOBS`), simulaciones por partes |
+| `cosim_vivo` | `WS /api/cosim/vivo`: la sesión en vivo (protocolo en su docstring) |
 | `video` | grabación del visor: sesión (con guion y plan), cuadros, foto, tarjetas, rótulos, fallo y cierre que codifica (`media/grabacion.py`); E/S pura |
 | `video_guion` | el guion de montaje + su plan del documento activo para «Grabar video» (lee la escena bajo `STATE_LOCK`) |
 
@@ -201,6 +202,11 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   proyecto: el GET lo re-simula si el documento cambió. Trae `cadenas` y `fajas` (F3): se extraen
   en la MISMA adquisición que `prepare_dynamics` y se arman fuera de los locks; si fallan, la marcha
   sale igual con un aviso. [visor-realista](../../../docs/plans/visor-realista.md) (F2, F3)
+- **WebSocket que acepta acciones** (`WS /api/cosim/vivo`): chequea `Origin` ANTES de aceptar y
+  exige el token del documento por query (`?documento=`: el navegador no pone cabeceras en un WS);
+  una sesión por API (`SESIONES`). Todo lo que sale va por UNA cola y UNA tarea que envía; las
+  tareas van en un task group de anyio y la limpieza del `finally` NO hace `await` (con la tarea
+  cancelada no correría: el worker quedaba huérfano). [V8.4](../../../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F1)
 - La grabación del visor (`/api/video/grabacion…`) no toma `STATE_LOCK`: es E/S pura y su lock
   (`media/grabacion.py`) es HOJA. Las sesiones viven en memoria (un reinicio las pierde; los
   cuadros quedan en `data/grabaciones/`); el cierre codifica dentro de la request, y si falla los

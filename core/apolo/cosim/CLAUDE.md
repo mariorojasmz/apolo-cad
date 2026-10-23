@@ -24,6 +24,11 @@ backend: [core/apolo](../CLAUDE.md).
   `cosim`, `plc` y la física SIN OCCT (`physics/dinamica_{integrador,arrastre,control,datos}`,
   `sensores`, `sim`): un import nuevo de ahí pasa el gate de `test_cosim_worker.py` o va al
   snapshot (`services/cosim_snapshot.py`). El resultado vuelve en JSON, nunca pickle.
+- **Un solo paso para el lote y el vivo**: `corrida.Corrida.intercambio` (V8.4). Lo que cambie el
+  intercambio va AHÍ, nunca en una copia del bucle; una acción en vivo entra con
+  `Agenda.inyectar` en el PRÓXIMO intercambio y su error es rechazo de esa acción (la corrida
+  sigue). El vivo no guarda historia (`Integrador.podar`); su grabación es la lista de acciones
+  con hora (`vivo.py`, `worker_vivo.py`). [V8.4](../../../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F1)
 - Motor = placa SIEMPRE (el snapshot la arma; sin `forcelimited` no se escribe el tope). El
   atasco es `dof_frictionloss`, no `qfrc_applied` (un par explícito vibra en ω = 0).
 - La potencia se re-resuelve sólo si algo cambió más de `TOL_POTENCIA`; un dato nuevo que la
