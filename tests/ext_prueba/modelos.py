@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apolo.cosim.modelos import Modelo
+from apolo.extensiones_api import Modelo
 
 
 class Lampara(Modelo):

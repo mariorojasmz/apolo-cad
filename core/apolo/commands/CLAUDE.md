@@ -39,7 +39,8 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   OTROS executors va con `composite=True` (hoy `insert_project`). El trinquete D11
   (`tests/test_contrato_comandos.py`) guarda versión + huella del código de cada executor: si el
   código cambia y la versión no, falla y obliga a decidir (subirla, o sólo la huella si fue un
-  refactor). Un comando de EXTENSIÓN («x.algo», kind `scene`/`vars`) sigue la misma regla; una
+  refactor). La lógica de los dos trinquetes vive en `apolo/contrato_comandos.py` (viaja en la
+  wheel; el test sólo guarda `CAMPOS`/`VERSIONES`). Un comando de EXTENSIÓN («x.algo», kind `scene`/`vars`) sigue la misma regla, con esas funciones; una
   ref de su catálogo suma el `epoch_catalogo` sólo a la firma de quien la nombra en sus params
   (`spec.REFS_DE_EXTENSION`; un compuesto, todas). [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (A4)
 - Errores de OCCT accionables: fillet/chamfer nombran la arista más corta seleccionada; `shell`

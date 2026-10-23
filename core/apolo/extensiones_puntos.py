@@ -35,10 +35,10 @@ def con_prefijo(nombre, prefijo: str, que: str) -> None:
         raise ExtensionRechazada(f"{que} «{nombre}» no lleva el prefijo «{prefijo}.»")
 
 
-def sumar_builders(ext) -> None:
+def sumar_builders(ext) -> list[str]:
     builders, anclas = dict(valor(ext.builders) or {}), dict(valor(ext.anclas) or {})
     if not builders and not anclas:
-        return
+        return []
     from apolo.library import loader
 
     for nombre in builders:
@@ -50,14 +50,15 @@ def sumar_builders(ext) -> None:
         raise ExtensionRechazada(f"anclas de builders que la extensión no declara: {', '.join(huerfanas)}")
     loader.BUILDERS.update(builders)
     loader.ANCLAS.update(anclas)
+    return sorted(builders)
 
 
-def sumar_modelos(ext) -> None:
+def sumar_modelos(ext) -> list[str]:
     """Los modelos de la co-simulación: a `MODELOS` (con su origen, A4) y sus tipos a
     `TIPOS_MODELO`, ANTES del catálogo (su YAML los nombra en `electrico.modelo.tipo`)."""
     modelos = dict(valor(ext.modelos_cosim) or {})
     if not modelos:
-        return
+        return []
     from apolo.cosim import modelos as M
     from apolo.library.electrico import ficha
 
@@ -71,13 +72,14 @@ def sumar_modelos(ext) -> None:
             raise ExtensionRechazada(f"la clase {clase.__name__} declara tipo «{clase.tipo}», no «{tipo}»")
     M.registrar_modelos(modelos, origen=(ext.nombre, ext.version))
     ficha.TIPOS_MODELO.extend(t for t in modelos if t not in ficha.TIPOS_MODELO)
+    return sorted(modelos)
 
 
-def sumar_catalogo(ext) -> None:
+def sumar_catalogo(ext) -> list[str]:
     """Las carpetas YAML de la extensión: refs «prefijo.x» nuevas (un choque no carga), sus
     categorías al final del orden de la UI y su `epoch_catalogo` a la firma (A4)."""
     if not ext.catalogo:
-        return
+        return []
     from apolo.commands import spec
     from apolo.library import catalog, loader
 
@@ -101,14 +103,15 @@ def sumar_catalogo(ext) -> None:
             catalog.CATEGORIES.append(categoria)
     etiqueta = f"{ext.nombre}@{ext.epoch_catalogo}"
     spec.REFS_DE_EXTENSION.update({ref: etiqueta for ref in nuevos})
+    return sorted(nuevos)
 
 
-def sumar_comandos(ext) -> None:
+def sumar_comandos(ext) -> list[str]:
     """Los `CommandSpec` al MISMO `REGISTRY` (schema-driven: el agente y la UI los ven como
     cualquier comando), con sus pistas y las pestañas de sus categorías nuevas."""
     specs = list(valor(ext.comandos) or ())
     if not specs and not (ext.pistas or ext.pistas_campo or ext.pestanas):
-        return
+        return []
     from apolo.commands import pistas as P
     from apolo.commands.registry import REGISTRY
     from apolo.commands.spec import CommandSpec
@@ -143,6 +146,7 @@ def sumar_comandos(ext) -> None:
     P.PESTANAS.update(ext.pestanas)
     P.PISTAS.update(ext.pistas)
     P.PISTAS_CAMPO.update(ext.pistas_campo)
+    return tipos
 
 
 def resolver_routers(ext, reservados: set[str]) -> list:
@@ -228,12 +232,16 @@ def grabar_tools(ext, de_otras: Mapping[str, str], api=_nunca, mutacion=_nunca,
     return g.tools
 
 
-def validar_webui(ext, cargadas) -> None:
-    """Un `dist` compilado con su index.html, y una sola extensión con UI (D5)."""
+def webui_efectiva(ext, con_ui: Mapping[str, Path]) -> tuple[Path | None, str | None]:
+    """`(carpeta, aviso)`: la UI que la API sirve de esta extensión (D5). La UI NUNCA rechaza la
+    extensión (F1c): sin `index.html`, o si otra cargada ya sirve la suya (`con_ui`: nombre →
+    carpeta; hay una sola UI), se descarta con un aviso y la extensión carga sin UI propia. Así
+    la API y el MCP, que no mira la UI, cargan lo mismo."""
     if ext.webui is None:
-        return
+        return None, None
     if not (Path(ext.webui) / "index.html").is_file():
-        raise ExtensionRechazada(f"webui {ext.webui} no tiene index.html (¿falta el build?)")
-    otra = next((e for e in cargadas if e.webui is not None), None)
-    if otra is not None:
-        raise ExtensionRechazada(f"ya sirve su UI la extensión «{otra.nombre}»: hay una sola UI")
+        return None, f"su UI no se sirve: {ext.webui} no tiene index.html (¿falta el build?)"
+    if con_ui:
+        otra = next(iter(con_ui))
+        return None, f"su UI no se sirve: ya sirve la suya la extensión «{otra}» (hay una sola UI)"
+    return Path(ext.webui), None

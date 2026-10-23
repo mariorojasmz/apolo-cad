@@ -22,16 +22,24 @@ falla y obliga a elegir: subir la versión (cambió la geometría) o actualizar 
 (fue un refactor). La huella es la de la función del executor, no la de los helpers que
 llama: un helper compartido lo cubre la regla D10 (`core/apolo/commands/CLAUDE.md`).
 
+La lógica (`problemas_de_campos`, `problemas_de_version`, `huella`) vive en
+`apolo/contrato_comandos.py`, que viaja en la wheel: la suite de una extensión aplica los MISMOS
+trinquetes a sus comandos con su propio `CAMPOS`/`VERSIONES` (nucleo-abierto F1c).
+
 `python tests/test_contrato_comandos.py` imprime los dos literales actuales para pegar.
 """
 
 from __future__ import annotations
 
-import hashlib
-import inspect
-
 from apolo.commands.registry import REGISTRY
 from apolo.commands.strict import field_paths
+from apolo.contrato_comandos import (
+    huella,
+    literal_campos,
+    literal_versiones,
+    problemas_de_campos,
+    problemas_de_version,
+)
 
 # ── Rutas de campos por comando (se generan; ver el docstring) ───────────────────────────
 CAMPOS: dict[str, str] = {
@@ -303,82 +311,11 @@ VERSIONES: dict[str, tuple[int, str]] = {
 }
 
 
-# ── Medición ──────────────────────────────────────────────────────────────────────────────
-
-
-def rutas_actuales() -> dict[str, list[str]]:
-    return {t: field_paths(spec.model) for t, spec in sorted(REGISTRY.items())}
-
-
-def huella(fn) -> str:
-    """sha1 (16 hex) del código fuente de `fn`, con los saltos de línea normalizados: la
-    huella no depende de cómo el checkout guarde los finales de línea."""
-    fuente = inspect.getsource(fn).replace("\r\n", "\n")
-    return hashlib.sha1(fuente.encode("utf-8")).hexdigest()[:16]
-
-
-def problemas_de_version(registro, declaradas: dict[str, tuple[int, str]]) -> list[str]:
-    out = []
-    for tipo, spec in sorted(registro.items()):
-        if tipo not in declaradas:
-            out.append(f"  {tipo}: comando sin declarar en VERSIONES")
-            continue
-        version, declarada = declaradas[tipo]
-        actual = huella(spec.executor)
-        if spec.version < version:
-            out.append(f"  {tipo}: la versión BAJÓ de {version} a {spec.version} (nunca baja: "
-                       "volvería a casar con las firmas de cachés de una versión vieja)")
-        elif spec.version > version:
-            out.append(f'  {tipo}: subiste a v{spec.version}: declara ({spec.version}, "{actual}")')
-        elif actual != declarada:
-            out.append(f"  {tipo}: el código de su executor cambió y su versión no (v{version})")
-    out += [f"  {t}: ya no existe en el registro" for t in declaradas if t not in registro]
-    return out
-
-
-def literal_versiones() -> str:
-    out = ["VERSIONES: dict[str, tuple[int, str]] = {"]
-    for tipo, spec in sorted(REGISTRY.items()):
-        out.append(f'    "{tipo}": ({spec.version}, "{huella(spec.executor)}"),')
-    return "\n".join(out + ["}"])
-
-
-def _envuelve(rutas: list[str], ancho: int = 88) -> list[str]:
-    lineas, actual = [], ""
-    for r in rutas:
-        if actual and len(actual) + 1 + len(r) > ancho:
-            lineas.append(actual + " ")
-            actual = r
-        else:
-            actual = f"{actual} {r}" if actual else r
-    return lineas + [actual]
-
-
-def literal_campos() -> str:
-    out = ["CAMPOS: dict[str, str] = {"]
-    for tipo, rutas in rutas_actuales().items():
-        partes = _envuelve(rutas)
-        if len(partes) == 1 and len(tipo) + len(partes[0]) < 86:
-            out.append(f'    "{tipo}": "{partes[0]}",')
-        else:
-            out.append(f'    "{tipo}": (')
-            out += [f'        "{p}"' for p in partes]
-            out.append("    ),")
-    return "\n".join(out + ["}"])
-
-
-# ── Gate ──────────────────────────────────────────────────────────────────────────────────
+# ── Gate (la lógica viaja en la wheel: `apolo.contrato_comandos`, la usa también una extensión) ─
 
 
 def test_ningun_campo_desaparece_sin_upcaster():
-    perdidos = []
-    for tipo, declaradas in CAMPOS.items():
-        actuales = set(field_paths(REGISTRY[tipo].model)) if tipo in REGISTRY else set()
-        faltan = [r for r in declaradas.split() if r not in actuales]
-        if tipo not in REGISTRY:
-            perdidos.append(f"  {tipo}: el comando ya no existe (sus logs no tienen executor)")
-        elif faltan:
-            perdidos.append(f"  {tipo}: {', '.join(faltan)}")
+    perdidos, _ = problemas_de_campos(REGISTRY, CAMPOS)
     assert not perdidos, (
         "Desaparecieron campos que un log guardado puede usar (el replay los ignoraría en "
         "silencio y regeneraría con el default):\n" + "\n".join(perdidos) + "\n"
@@ -388,14 +325,7 @@ def test_ningun_campo_desaparece_sin_upcaster():
 
 
 def test_cada_campo_nuevo_queda_declarado():
-    nuevos = []
-    for tipo, rutas in rutas_actuales().items():
-        declaradas = set(CAMPOS.get(tipo, "").split())
-        sobran = [r for r in rutas if r not in declaradas]
-        if tipo not in CAMPOS:
-            nuevos.append(f"  {tipo}: comando nuevo")
-        elif sobran:
-            nuevos.append(f"  {tipo}: {', '.join(sobran)}")
+    _, nuevos = problemas_de_campos(REGISTRY, CAMPOS)
     assert not nuevos, (
         "Campos o comandos sin declarar en CAMPOS (un campo nuevo entra con un default que "
         "reproduce lo anterior; después, declarado aquí, ya no puede desaparecer sin "
@@ -445,7 +375,27 @@ def test_el_trinquete_de_versiones_ve_cada_salida():
     assert "ya no existe" in problemas_de_version({}, declarado)[0]
 
 
+def test_el_trinquete_de_campos_ve_cada_salida():
+    """Sobre un registro cualquiera (lo que hace la suite de una extensión): campo perdido,
+    comando que ya no existe, campo nuevo y comando nuevo."""
+    from types import SimpleNamespace
+
+    from pydantic import BaseModel
+
+    class P(BaseModel):
+        a: int = 1
+        b: int = 2
+
+    reg = {"x.uno": SimpleNamespace(model=P)}
+    assert problemas_de_campos(reg, {"x.uno": "a b"}) == ([], [])
+    perdidos, nuevos = problemas_de_campos(reg, {"x.uno": "a b c", "x.dos": "a"})
+    assert perdidos == ["  x.uno: c", "  x.dos: el comando ya no existe (sus logs no tienen executor)"]
+    assert problemas_de_campos(reg, {"x.uno": "a"})[1] == ["  x.uno: b"]
+    assert problemas_de_campos(reg, {})[1] == ["  x.uno: comando nuevo"]
+    assert '"x.uno": "a b"' in literal_campos(reg)
+
+
 if __name__ == "__main__":
-    print(literal_campos())
+    print(literal_campos(REGISTRY))
     print()
-    print(literal_versiones())
+    print(literal_versiones(REGISTRY))

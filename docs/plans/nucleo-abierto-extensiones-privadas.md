@@ -1029,3 +1029,82 @@ arrancar 1 --puerto-base 8108`):
   `tests/test_solo_lectura.py`.
 - `ruff check core tests scripts` limpio.
 - `document.py` sigue en 1023 líneas.
+
+### F1c (2026-10-23): los huecos del contrato que encontró la F3
+
+**Qué quedó** (rutas relativas a `core/apolo/`):
+
+1. **Los trinquetes de comandos viajan en la wheel.** `contrato_comandos.py` (puro, sobre CUALQUIER
+   registro): `huella`, `problemas_de_version`, `problemas_de_campos` (nuevo: lo que hacían a mano
+   los dos tests de `CAMPOS`), `rutas`, `literal_campos`, `literal_versiones`.
+   `tests/test_contrato_comandos.py` sólo guarda `CAMPOS`/`VERSIONES` y los usa desde ahí; una
+   extensión, igual con los suyos.
+   - **Lo que NO se movió:** el gate de pistas (`tests/test_pistas.py`) lee sus criterios de tuteo
+     y ayuda de `ui/src` (`textoDeAyuda.test.ts`, `tuteoNeutro.test.ts`): son DATOS de la UI, que
+     no viajan en la wheel. Moverlos exigiría copiarlos al paquete y vigilar la copia. La extensión
+     sigue leyéndolos del checkout del núcleo, como el resto de su UI compuesta.
+   - Tampoco el gate estático de imports del worker de la co-sim ni el golden del MCP: el primero
+     mira el código del núcleo; el segundo, sus tools (la extensión ya tiene el suyo).
+2. **API ↔ MCP: una sola regla.**
+   - **La `webui` nunca rechaza la extensión** (`extensiones_puntos.webui_efectiva`, reemplaza a
+     `validar_webui`): una carpeta sin `index.html` o una segunda UI se descartan con `aviso` en
+     `estado()` (`GET /api/health`) y la extensión carga sin UI propia. Era la discrepancia conocida:
+     el MCP no mira la UI.
+   - **El MCP por stdio registra sólo las tools de las extensiones que SU API tiene cargadas con la
+     misma versión** (`_para_tools`): al arrancar, sólo si hay alguna extensión, pregunta
+     `GET /api/extensiones` (3 s). Sin respuesta, no registra ninguna (lo dice por stderr: se
+     reinicia el host con la API arriba, como con toda tool nueva). Con la API en el mismo proceso
+     (el chat), las cargadas, como antes. Sin extensiones, el MCP no pregunta nada.
+   - `apolo.pruebas.api_falsa(rutas)`: una API de mentira en un puerto libre para probar el MCP por
+     stdio en otro proceso (`APOLO_URL`) sin la API de verdad ni la :8000 de la máquina.
+3. **La API lista lo de cada extensión.** `GET /api/extensiones` (`routers/core.py`) devuelve
+   `extensiones.detalle()`: el `estado()` de cada una más, si cargó, `comandos`, `tools`, `rutas`
+   («MÉTODO /api/x/…»), `refs`, `modelos_cosim`, `builders` y `ui`. Sale de la `Extension` al
+   cargarla (`_aplicar`; las tools, del `Grabador`), no del proceso del MCP.
+   `GET /api/health → extensiones` conserva su forma corta (`{nombre, version, cargada, motivo?}`,
+   más `aviso?`): el `in` de la F3 sobre ese dict sigue valiendo.
+4. **Superficie estable: `extensiones_api.py`.**
+   - `SUPERFICIE` (19 nombres): `Extension`, `ExtensionRechazada`, `CONTRATO_EXTENSIONES`,
+     `KINDS_EXTENSION`, `CommandSpec`, `CommandError`, `Feature`, `Vec3`, `make_box`,
+     `field_paths`, los cinco de `contrato_comandos`, `EnChat`, `FastMCPLimpio`, `Modelo` y
+     `Document`. Re-exportados PEREZOSOS por `__getattr__` (mismo objeto; importar el módulo no
+     carga OCCT, medido en un proceso aparte).
+   - `MODULOS` (25 módulos): lo que la fábrica importa (§ Mudanza), con cada nombre que usa de
+     `paths`, `services.*`, `media.*`, `doc.document`, `doc.prefijos`, `kernel.*` y `apolo.pruebas`.
+     Se declaran, no se re-exportan ni se movió nada. `paths.publicaciones_dir`/`fabrica_dir` no
+     están: se mudan en la F4a.
+   - `tests/test_extensiones_api.py` falla si un nombre declarado deja de existir. La extensión
+     falsa (`tests/ext_prueba/`) importa del núcleo SÓLO por `extensiones_api` (lo exige el test).
+   - `CONTRATO_EXTENSIONES` sigue en 1: no se quitó ni renombró nada.
+
+**Decidido por el agente (vetable):**
+
+- **Sin API que responda, el MCP no registra tools de extensión** (no «registra igual»). Es lo
+  único que cumple «nunca expone lo que la API no tiene»; el costo es reiniciar el host si se
+  arrancó antes que la API, lo mismo que ya pasa con una tool nueva.
+- **Ruta propia en vez de engordar `/api/health`.** La salud la lee la UI al arrancar y el chat en
+  cada turno; el detalle sólo lo leen el MCP al arrancar y quien lo pida.
+- **La segunda UI también se descarta con aviso** (antes, rechazo): misma regla para todo lo de la
+  UI.
+- **`detalle()` incluye `builders`**, aunque el pedido nombraba sólo comandos y tools: sale gratis
+  de `sumar_builders`.
+
+**Lo que cambia para `apolo-pro`** (no se tocó el repo privado):
+
+- `tests/test_punta_a_punta.py` (el MCP por stdio, sin API): ahora tiene que levantar
+  `api_falsa({"/api/extensiones": [{"nombre": "pro", "version": …, "cargada": true}]})` y pasar
+  su URL en `APOLO_URL`; si no, `pro_hola` no se registra.
+- `tests/test_contrato.py` puede usar `apolo.contrato_comandos` (o `apolo.extensiones_api`) en vez
+  de leer `problemas_de_version`/`huella` del checkout.
+- `carpeta_webui()` que da `None` sin build ya no hace falta (sin build, la extensión carga con
+  aviso); se puede dejar.
+- `/api/pro/estado` puede leer comandos y tools de `extensiones.detalle()` en vez del anotador.
+- Sus imports del núcleo (`Vec3`, `Feature`, `CommandSpec`, `make_box`, `field_paths`,
+  `fastmcp_limpio`) están todos en `SUPERFICIE`; conviene pasarlos a `apolo.extensiones_api`.
+
+**Números:**
+
+- Suite: 4958 → 5018; pasan 5012 y se saltan 6, como antes. Los 60 nuevos: 48 en
+  `tests/test_extensiones_api.py` (uno por nombre de `SUPERFICIE` y por módulo de `MODULOS`), 11 en
+  `tests/test_extensiones_coherencia.py` y 1 en `tests/test_contrato_comandos.py` (`problemas_de_campos`).
+- `ruff check core tests scripts` limpio. `mcp_server.py`, `document.py` y `registry.py` no se tocaron.

@@ -16,7 +16,13 @@ Contrato (lo que una extensión usa; `CONTRATO_EXTENSIONES` sube sólo si cambia
   admite el punto, A7); rutas «/api/x/…». Un nombre que ya existe o sin prefijo, un comando de
   kind «electrico» (A7) o un `nucleo` que no incluye `CONTRATO_EXTENSIONES` → la extensión NO
   se carga (todo o nada) y queda con su motivo en `estado()` (`GET /api/health`). Nunca tumba
-  el arranque. El detalle de cada punto: `extensiones_puntos.py`.
+  el arranque. El detalle de cada punto: `extensiones_puntos.py`. La `webui` NUNCA rechaza: sin
+  build, o una segunda UI, se descarta con `aviso` y la extensión carga sin UI propia (F1c).
+- API ↔ MCP (F1c): la API publica por extensión lo que sumó (`detalle()`, `GET /api/extensiones`:
+  comandos, tools, rutas, refs…); el MCP por stdio registra sólo las tools de las extensiones que
+  ESA API reporta cargadas con la misma versión (sin API que responda, ninguna).
+- Lo que una extensión importa del núcleo está declarado en `apolo/extensiones_api.py`: quitar o
+  renombrar algo de ahí sube `CONTRATO_EXTENSIONES`.
 - Los campos pesados (`comandos`, `routers`, `modelos_cosim`, `builders`, `anclas`) aceptan el
   valor o una función sin argumentos que lo devuelve: el MCP resuelve sólo las tools y no carga
   OCCT por ellos.
@@ -41,8 +47,8 @@ from apolo import extensiones_puntos as _P
 from apolo.extensiones_puntos import KINDS_EXTENSION, ExtensionRechazada
 
 __all__ = ["CONTRATO_EXTENSIONES", "GRUPO", "KINDS_EXTENSION", "Extension", "ExtensionRechazada",
-           "aislado", "apagadas", "cargadas", "cargar", "descubrir", "estado", "registrar_tools",
-           "routers", "webui"]
+           "aislado", "apagadas", "cargadas", "cargar", "descubrir", "detalle", "estado",
+           "registrar_tools", "routers", "webui"]
 
 #: La versión de lo que una extensión usa del núcleo (A1): `Extension.nucleo` es un rango sobre
 #: ESTE número, no sobre la versión del paquete (todo checkout reporta 0.1.0).
@@ -83,6 +89,8 @@ class _Registro:
     cargadas: list = field(default_factory=list)  # [Extension]
     routers: dict = field(default_factory=dict)  # nombre → [APIRouter] ya resueltos
     tools: dict = field(default_factory=dict)  # tool → nombre de su extensión
+    webui: dict = field(default_factory=dict)  # nombre → carpeta de la UI que se sirve (una)
+    detalle: dict = field(default_factory=dict)  # nombre → lo que sumó (`detalle()`)
 
 
 _R = _Registro()
@@ -158,15 +166,21 @@ def _cabecera(ext: Extension, ya: Iterable[Extension]) -> None:
         raise ExtensionRechazada(f"epoch_catalogo «{epoch}» inválido (entero ≥ 1)")
 
 
-def _aplicar(ext: Extension, reservados: set[str]) -> tuple[list, list]:
-    """Valida y suma TODO lo de `ext`; si algo lanza, `cargar` deshace (todo o nada)."""
+def _aplicar(ext: Extension, reservados: set[str]) -> tuple[list, list, dict]:
+    """Valida y suma TODO lo de `ext`; si algo lanza, `cargar` deshace (todo o nada). Devuelve
+    sus routers, sus tools grabadas y lo que sumó (para `detalle()`, sin pasar por el MCP)."""
     _cabecera(ext, _R.cargadas)
-    _P.validar_webui(ext, _R.cargadas)
-    _P.sumar_builders(ext)
-    _P.sumar_modelos(ext)  # antes del catálogo: su YAML nombra los tipos de modelo
-    _P.sumar_catalogo(ext)
-    _P.sumar_comandos(ext)
-    return _P.resolver_routers(ext, reservados), _P.grabar_tools(ext, _R.tools)
+    builders = _P.sumar_builders(ext)
+    modelos = _P.sumar_modelos(ext)  # antes del catálogo: su YAML nombra los tipos de modelo
+    refs = _P.sumar_catalogo(ext)
+    comandos = _P.sumar_comandos(ext)
+    routers_ext = _P.resolver_routers(ext, reservados)
+    tools = _P.grabar_tools(ext, _R.tools)
+    rutas = [f"{m} {r.path}" for router in routers_ext for r in router.routes
+             for m in sorted(getattr(r, "methods", None) or {"WS"})]
+    return routers_ext, tools, {"comandos": comandos, "tools": [t[0] for t in tools],
+                                "rutas": rutas, "refs": refs, "modelos_cosim": modelos,
+                                "builders": builders}
 
 
 def _registros() -> list:
@@ -216,7 +230,7 @@ def cargar(rutas_nucleo: Iterable[str] = ()) -> list[dict]:
             continue
         foto = instantanea()
         try:
-            routers_ext, tools = _aplicar(ext, reservados)
+            routers_ext, tools, suma = _aplicar(ext, reservados)
         except Exception as exc:  # noqa: BLE001 — el código de la extensión también puede lanzar
             restaurar(foto)
             motivo = str(exc) if isinstance(exc, ExtensionRechazada) else f"{type(exc).__name__}: {exc}"
@@ -227,15 +241,36 @@ def cargar(rutas_nucleo: Iterable[str] = ()) -> list[dict]:
         _R.cargadas.append(ext)
         _R.routers[ext.nombre] = routers_ext
         _R.tools.update({t[0]: ext.nombre for t in tools})
-        _R.estado.append({"nombre": ext.nombre, "version": ext.version, "cargada": True})
+        entrada = {"nombre": ext.nombre, "version": ext.version, "cargada": True}
+        ui, aviso = _P.webui_efectiva(ext, _R.webui)  # la UI nunca rechaza la extensión (F1c)
+        if ui is not None:
+            _R.webui[ext.nombre] = ui
+        if aviso:
+            entrada["aviso"] = aviso
+            print(f"apolo: extensión {ext.nombre}: {aviso}", file=sys.stderr)
+        _R.detalle[ext.nombre] = {**suma, "ui": ui is not None}
+        _R.estado.append(entrada)
     return estado()
 
 
 # ── lo que leen la API y el MCP ─────────────────────────────────────────────────────────────
 
 def estado() -> list[dict]:
-    """`[{nombre, version, cargada, motivo?}]` de cada extensión que se intentó cargar."""
+    """`[{nombre, version, cargada, motivo?, aviso?}]` de cada extensión que se intentó cargar
+    (`GET /api/health`). `aviso`: cargó, pero sin algo que no la rechaza (su UI, F1c)."""
     return [dict(e) for e in _R.estado]
+
+
+def detalle() -> list[dict]:
+    """`estado()` más, por cada cargada, lo que sumó al núcleo: `comandos`, `tools`, `rutas`
+    («MÉTODO /api/x/…»), `refs`, `modelos_cosim`, `builders` y si se sirve su `ui`
+    (`GET /api/extensiones`). Sale de la `Extension` al cargarla (las tools, grabadas con un
+    `mcp` de mentira): la API lo sabe sin el proceso del MCP."""
+    out = []
+    for e in _R.estado:
+        suma = _R.detalle.get(e["nombre"]) if e.get("cargada") else None
+        out.append({**e, **{k: list(v) if isinstance(v, list) else v for k, v in (suma or {}).items()}})
+    return out
 
 
 def cargadas() -> list[Extension]:
@@ -249,14 +284,37 @@ def routers() -> list:
 
 
 def webui() -> Path | None:
-    """El `dist` de la extensión cargada que trae UI (D5), o None: `paths.ui_dist` decide."""
-    ext = next((e for e in _R.cargadas if e.webui is not None), None)
-    return Path(ext.webui) if ext is not None else None
+    """El `dist` de la extensión cargada que trae UI válida (D5), o None: `paths.ui_dist`
+    decide. Una UI sin build o una segunda UI se descartaron con aviso al cargar."""
+    return next((_R.webui[e.nombre] for e in _R.cargadas if e.nombre in _R.webui), None)
 
 
-def _para_tools() -> list[Extension]:
-    """Con `cargar()` ya corrido (la API, cuando el chat importa el MCP), las cargadas; si no (el
-    MCP por stdio), las descubiertas con el contrato al día, sin resolver sus comandos."""
+#: Cuánto espera el MCP por stdio a que la API diga qué extensiones tiene (sólo si hay alguna).
+ESPERA_API_S = 3.0
+
+
+def _en_la_api(servidor: Mapping) -> dict | None:
+    """`{nombre: version}` de las extensiones CARGADAS en la API a la que habla este MCP
+    (`GET /api/extensiones`), o None si no responde (caída, o una API anterior a F1c)."""
+    api = servidor.get("_api")
+    if api is None:
+        return None
+    try:
+        datos = api("GET", "/api/extensiones", timeout=ESPERA_API_S).json()
+        return {e["nombre"]: e.get("version") for e in datos if e.get("cargada")}
+    except Exception as exc:  # noqa: BLE001 — sin API, el MCP arranca igual (sin estas tools)
+        print(f"apolo: no pude preguntar a la API qué extensiones tiene: {exc}", file=sys.stderr)
+        return None
+
+
+def _para_tools(servidor: Mapping) -> list[Extension]:
+    """Las extensiones cuyas tools se registran. Regla única (F1c): el MCP sólo expone las tools
+    de una extensión que la API TIENE cargada, con la misma versión.
+
+    - Con `cargar()` ya corrido (la API, cuando el chat importa el MCP): las cargadas.
+    - Si no (el MCP por stdio, otro proceso): las descubiertas con el contrato al día (sin
+      resolver sus comandos: no carga OCCT) que la API reporta cargadas. Si la API no responde,
+      ninguna: el host se reinicia con la API arriba para verlas (como toda tool nueva)."""
     if _R.hecho:
         return list(_R.cargadas)
     out: list[Extension] = []
@@ -269,8 +327,18 @@ def _para_tools() -> list[Extension]:
             print(f"apolo: extensión {getattr(ext, 'nombre', origen)}: {exc}", file=sys.stderr)
             continue
         out.append(ext)
-    return out
-
+    if not out:
+        return out
+    en_api = _en_la_api(servidor) or {}
+    for ext in out:
+        if ext.nombre not in en_api:
+            print(f"apolo: las tools de la extensión {ext.nombre} no se registran: la API no la "
+                  "tiene cargada (mira GET /api/health; reinicia el host con la API arriba)",
+                  file=sys.stderr)
+        elif en_api[ext.nombre] != ext.version:
+            print(f"apolo: las tools de la extensión {ext.nombre} no se registran: la API tiene la "
+                  f"versión {en_api[ext.nombre]} y este MCP la {ext.version}", file=sys.stderr)
+    return [e for e in out if en_api.get(e.nombre, object()) == e.version]
 
 def registrar_tools(mcp, servidor: Mapping) -> list[str]:
     """Registra en `mcp` (el que CORRE: `__main__` con `-m`) las tools de las extensiones, con
@@ -289,7 +357,7 @@ def registrar_tools(mcp, servidor: Mapping) -> list[str]:
         return servidor["_submit_and_wait"](*a, **k)
 
     hechas: list[str] = []
-    for ext in _para_tools():
+    for ext in _para_tools(servidor):
         otras = {t: e for t, e in _R.tools.items() if e != ext.nombre}
         try:
             grabadas = _P.grabar_tools(ext, otras, api, mutacion, esperar)

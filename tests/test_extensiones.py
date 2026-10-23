@@ -34,11 +34,14 @@ RAIZ = Path(__file__).resolve().parents[1]
 EXTRA = "APOLO_EXTENSIONES_EXTRA"
 
 
-def _entorno_hijo(extra: str) -> dict:
+def _entorno_hijo(extra: str, url: str | None = None) -> dict:
     """El entorno de un proceso hijo con la extensión falsa: sin el `APOLO_EXTENSIONES=0` de la
-    suite y con `tests/` en el PYTHONPATH (ahí vive `ext_prueba`)."""
+    suite y con `tests/` en el PYTHONPATH (ahí vive `ext_prueba`). `url`: la API a la que habla
+    el MCP (nunca la :8000 de la máquina: un proceso de Mario la cambiaría)."""
     env = {k: v for k, v in os.environ.items() if k != "APOLO_EXTENSIONES"}
     env[EXTRA] = extra
+    if url is not None:
+        env["APOLO_URL"] = url
     env["PYTHONPATH"] = os.pathsep.join(
         p for p in (str(RAIZ / "core"), str(RAIZ / "tests"), os.environ.get("PYTHONPATH")) if p)
     return env
@@ -352,6 +355,9 @@ def run(self, *a, **k):
     servidor = sys.modules["__main__"]
     servidor._mutacion = lambda *a, **k: "mutacion " + json.dumps(a[2])
     nombres = [t.name for t in asyncio.run(self.list_tools())]
+    if "prueba_hola" not in nombres:
+        print(json.dumps({"n": len(nombres), "nombres": nombres}))
+        return
     out = asyncio.run(self.call_tool("prueba_hola", {"lado": 7}))
     bloques = out[0] if isinstance(out, tuple) else out
     from apolo.tools import catalogo
@@ -364,9 +370,18 @@ runpy.run_module("apolo.mcp_server", run_name="__main__", alter_sys=True)
 """
 
 
-def test_el_mcp_por_stdio_registra_la_tool_al_final_sin_cargar_occt():
+def _mcp_hijo(url: str):
     out = subprocess.run([sys.executable, "-B", "-c", _MCP], capture_output=True, text=True,
-                         env=_entorno_hijo("ext_prueba:EXTENSION"), timeout=300, cwd=RAIZ)
+                         env=_entorno_hijo("ext_prueba:EXTENSION", url), timeout=300, cwd=RAIZ)
+    return out
+
+
+def test_el_mcp_por_stdio_registra_la_tool_al_final_sin_cargar_occt():
+    from apolo.pruebas import api_falsa
+
+    cargada = [{"nombre": "ext-prueba", "version": "0.1.0", "cargada": True}]
+    with api_falsa({"/api/extensiones": cargada}) as url:
+        out = _mcp_hijo(url)
     assert out.returncode == 0, out.stderr[-3000:]
     res = json.loads(out.stdout.strip().splitlines()[-1])
     assert res["n"] == 91 and res["nombres"][-1] == "prueba_hola"

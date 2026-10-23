@@ -15,6 +15,10 @@ Trae, autouse:
 Y a pedido, `extensiones_aisladas`: `apolo.extensiones.cargar()` puede volver a correr dentro
 del test (con `APOLO_EXTENSIONES_EXTRA`) y al salir los registros del núcleo quedan como estaban.
 
+Y una función, `api_falsa(rutas)`: una API HTTP de mentira para probar en otro proceso el MCP por
+stdio (`APOLO_URL`) sin levantar la de verdad; p. ej. `{"/api/extensiones": [...]}`, que el MCP lee al
+arrancar para saber qué tools de extensión registrar (F1c).
+
 Lo que una suite apaga ANTES de importar `apolo` (p. ej. `APOLO_EXTENSIONES=0` en la del núcleo,
 que cuenta 59 comandos y 90 tools) va en su conftest, no aquí: este plugin no decide qué se carga.
 """
@@ -22,7 +26,11 @@ que cuenta 59 comandos y 90 tools) va en su conftest, no aquí: este plugin no d
 from __future__ import annotations
 
 import dataclasses
+import json
 import sys
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
@@ -84,3 +92,32 @@ def extensiones_aisladas(monkeypatch):
     monkeypatch.delenv("APOLO_EXTENSIONES", raising=False)
     with extensiones.aislado():
         yield extensiones
+
+
+@contextmanager
+def api_falsa(rutas: dict):
+    """Una API de mentira en un puerto libre de 127.0.0.1: responde cada GET de `rutas` (path →
+    dato) con su JSON y 404 al resto. Devuelve su URL base, para el `APOLO_URL` de un proceso
+    hijo (el MCP por stdio). Se apaga al salir."""
+
+    class _Manejador(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 — nombre de http.server
+            ruta = self.path.split("?", 1)[0]
+            cuerpo = json.dumps(rutas[ruta] if ruta in rutas else {"detail": "Not Found"}).encode()
+            self.send_response(200 if ruta in rutas else 404)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(cuerpo)))
+            self.end_headers()
+            self.wfile.write(cuerpo)
+
+        def log_message(self, *_a):  # sin ruido en la salida de la suite
+            pass
+
+    servidor = ThreadingHTTPServer(("127.0.0.1", 0), _Manejador)
+    hilo = threading.Thread(target=servidor.serve_forever, daemon=True)
+    hilo.start()
+    try:
+        yield f"http://127.0.0.1:{servidor.server_address[1]}"
+    finally:
+        servidor.shutdown()
+        servidor.server_close()

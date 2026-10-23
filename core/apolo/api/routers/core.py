@@ -144,6 +144,16 @@ def health(request: Request) -> dict:
         }
 
 
+@router.get("/api/extensiones")
+def extensiones_cargadas() -> list[dict]:
+    """Por extensión, lo que sumó al núcleo (`extensiones.detalle()`): comandos, tools, rutas,
+    refs, modelos de la co-sim y si se sirve su UI; las rechazadas, con su motivo. Sale de la
+    `Extension` al cargarla, no del proceso del MCP: el MCP por stdio lo lee al arrancar y
+    registra sólo las tools de lo que esta API tiene (nucleo-abierto F1c). Sin lock: no toca el
+    documento."""
+    return extensiones.detalle()
+
+
 @router.get("/api/scene")
 def get_scene(
     ids: str | None = None,

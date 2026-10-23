@@ -58,6 +58,12 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   una extensión lleva su prefijo (`x.algo`, tool `x_algo`, `/api/x/…`) y un registro mutable NUEVO
   que una extensión toque entra a `extensiones._registros()`, o su rechazo no se deshace.
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1a)
+- Lo que una extensión puede importar del núcleo está declarado en `extensiones_api.py`
+  (`SUPERFICIE`, re-exportada perezosa; `MODULOS`): quitar o renombrar algo de ahí sube
+  `CONTRATO_EXTENSIONES` (`tests/test_extensiones_api.py`). La `webui` nunca rechaza (sin build o
+  segunda UI → `aviso`), y el MCP por stdio registra sólo las tools de lo que su API publica
+  cargado en `GET /api/extensiones`: un rechazo nuevo va en `cargar()`, nunca sólo en un proceso.
+  [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1c)
 
 ## Estado de sesión (`session.S`)
 

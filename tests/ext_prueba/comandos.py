@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from apolo.commands.registry import Feature
-from apolo.commands.spec import CommandSpec
-from apolo.kernel import make_box
+from apolo.extensiones_api import CommandSpec, Feature, make_box
 
 
 class HolaParams(BaseModel):

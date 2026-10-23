@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from apolo.extensiones import Extension
+from apolo.extensiones_api import Extension
 
 from .tools import registrar, registrar_con_punto
 
