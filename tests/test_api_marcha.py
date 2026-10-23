@@ -141,7 +141,9 @@ def test_la_ultima_marcha_es_de_cada_proyecto(cliente, monkeypatch):
 
 
 def test_productos_en_serie_nacen_en_su_muestra(cliente):
-    pet = {**PETICION, "productos": [{"nombre": "caja", "dims_mm": [150, 120, 100], "masa_kg": 2.0,
+    # 40 mm de largo: a 0,25 m/s la anterior despeja la entrada antes de los 0,3 s (si no, la
+    # siguiente espera su lugar: V8.4, cola en vivo)
+    pet = {**PETICION, "productos": [{"nombre": "caja", "dims_mm": [40, 120, 100], "masa_kg": 2.0,
                                       "posicion_mm": [-1000.0, 0, 850.5], "cada_s": 0.3}]}
     s = cliente.post("/api/physics/dynamics/serie", json=pet).json()
     desde = {p["name"]: p["desde"] for p in s["productos"]}

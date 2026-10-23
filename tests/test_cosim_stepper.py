@@ -34,7 +34,9 @@ def _peticion(motor: dict) -> dict:
     return {
         "con_autodeteccion": True, "duracion_s": 1.0, "fps": 40,
         "motores": [{"junta": "c1_eje_motriz", "modo": "velocidad", "direccion_transporte": [1, 0, 0], **motor}],
-        "productos": [{"nombre": "caja", "dims_mm": [150, 120, 100], "masa_kg": 2.0, "cada_s": 0.3,
+        # en serie SIN encimarse (V8.4: la que encuentra su lugar ocupado espera y V8.2 no lo hacía):
+        # 40 mm de largo y cada 0,45 s, la anterior ya despejó la entrada con los dos motores
+        "productos": [{"nombre": "caja", "dims_mm": [40, 120, 100], "masa_kg": 2.0, "cada_s": 0.45,
                        "posicion_mm": [-300, 0, Z_CAJA]}],
         "sensores": [{"nombre": "foto", "origen": [-150, -400, 850], "direccion": [0, 1, 0], "alcance_mm": 800}],
     }
@@ -53,6 +55,7 @@ def test_el_integrador_reproduce_simulate_dynamics_de_v82_bit_a_bit(faja, motor)
     snap = prepare_dynamics(faja.scene, faja.joints, faja.fasteners, faja.grounds, _peticion(motor),
                             mates=faja.mates)
     nuevo = simulate_dynamics(snap)
+    assert not any("nacio_s" in p for p in nuevo["resumen"]["productos"].values())  # ninguna esperó
     assert _sin_pared(nuevo) == _sin_pared(simulate_dynamics_v82(snap))
     assert nuevo["sensores"]["foto"]["cuentas"] >= 1  # hubo cajas, banda y fotocelda de verdad
 

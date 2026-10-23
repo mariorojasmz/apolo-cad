@@ -55,9 +55,7 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   Sin mesa de recepción las cajas descargadas se apilan en la cabeza y frenan a las que siguen:
   para contar con la fotocelda, alimenta en serie (`cada_s`); para una marcha larga, `sumideros`
   (el producto que pasa el plano sale del mundo: vuelve a su estacionamiento, deja los fotogramas
-  y su serie se acaba ahí; sin ellos, todo igual). Un producto que nace DENTRO de otro (la cola
-  bajo una caja quieta) sale despedido: quien arma productos los nace en banda libre.
-  [F3](../../../docs/plans/V8.2-maquina-se-mueve.md)
+  y su serie se acaba ahí; sin ellos, todo igual). [F3](../../../docs/plans/V8.2-maquina-se-mueve.md)
 - La marcha de la banda = la arista recta SUPERIOR del contorno del lazo (`_direccion_tramo`),
   nunca la recta entre ejes ni el eje largo del casco: con tambores de distinto Ø (motriz
   engomado) salen inclinados y la tolerancia de 0,5 mm del tramo plano deja fuera el ramal
@@ -66,5 +64,11 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   (T(t) = P(t)·P(0)⁻¹, como el GIF): el origen del cuerpo MuJoCo no es el de la malla. La
   velocidad de banda sale del `BandaDatos` del snapshot (`e`, `radio`), no de la salida D9.
   [visor-realista](../../../docs/plans/visor-realista.md) (F2)
-- Productos con `cada_s`: nacen en su hora; antes esperan estacionados lejos (MuJoCo no crea
-  cuerpos en marcha) y no salen en los fotogramas.
+- Productos con `cada_s`: antes de nacer esperan estacionados lejos (MuJoCo no crea cuerpos en
+  marcha) y no salen en los fotogramas. **Nacen a su hora sólo con su lugar de entrada LIBRE**
+  (`dinamica_nacimiento.py`, en el `Integrador`: vivo, lote y dinámica): a ≥ 10 mm de otro
+  producto y sin meterse > 2 mm en la máquina (apoyar no es ocupar); si no, ESPERAN (FIFO por
+  producto) y nacen al liberarse, con `nacio_s`, `productos_sin_nacer` y un aviso en la salida.
+  Decide sólo con el estado simulado (el lote reproduce la sesión viva) y sin espera es bit a bit
+  lo de antes: un test que compare con V8.2 deja que la cola despeje la entrada entre cajas.
+  [V8.4](../../../docs/plans/V8.4-maquina-viva-en-pantalla.md) (cola en vivo)

@@ -16,4 +16,6 @@ Este `__init__` no importa nada: el worker importa sólo lo que usa, sin OCCT.
 #: resultado o el veredicto de un escenario con el MISMO documento (modelos, redes, planificador,
 #: PLC, dinámica, snapshot, lectura o evaluación de aserciones); un refactor sin efecto no la
 #: sube. `tests/test_cosim_epoch.py` obliga a decidir (regla en `cosim/CLAUDE.md`).
-COSIM_EPOCH = 3
+#: 4 (V8.4, cola en vivo): una caja de la cola nace sólo con su lugar de entrada libre
+#: (`physics/dinamica_nacimiento.py`); un escenario cuya cola encimaba cajas cambia de trazas.
+COSIM_EPOCH = 4

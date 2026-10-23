@@ -24,6 +24,7 @@ import numpy as np
 
 from apolo.physics.dinamica_arrastre import ArrastreBanda, eje_texto
 from apolo.physics.dinamica_control import ControlMotores
+from apolo.physics.dinamica_nacimiento import Nacimientos
 from apolo.physics.sensores import Fotoceldas
 from apolo.physics.sim import MM, PhysicsError, _pose_matrix, _require_mujoco
 
@@ -86,6 +87,8 @@ class Integrador:
                           for p, n in getattr(snap, "sumideros", None) or []]
         self.retirados: list[int] = []
         self.retiro: dict[int, dict] = {}
+        # una caja de la cola nace sólo con su lugar de entrada libre (V8.4): si no, espera
+        self.nac = Nacimientos(mujoco, m, self.bid_prod, [p["name"] for p in prods])
         self._estacion: dict = {}
         self._rehacer_estacion()
         mujoco.mj_forward(m, d)
@@ -163,15 +166,7 @@ class Integrador:
         prods = snap.productos
         t = d.time
         if self.pendientes and prods[self.pendientes[0]]["aparece_s"] <= t + 1e-9:
-            while self.pendientes and prods[self.pendientes[0]]["aparece_s"] <= t + 1e-9:
-                k = self.pendientes.pop(0)
-                p = prods[k]
-                self.activo[k] = True
-                q, v = self.qadr[k], self.vadr[k]
-                d.qpos[q: q + 3] = (p["x"] * MM, p["y"] * MM, p["z"] * MM)
-                d.qpos[q + 3: q + 7] = p["quat"]
-                d.qvel[v: v + 6] = (*p["vel_m_s"], 0.0, 0.0, 0.0)
-            self._rehacer_estacion()
+            self._nacer(d, t)
         self._estacionar()
         if control is None:
             self.motores.aplicar(d, t)
@@ -195,6 +190,35 @@ class Integrador:
             while self._prox <= d.time + 1e-9:
                 self._prox += self._paso_frame
         self.hechos += 1
+
+    def _nacer(self, d, t) -> None:
+        """Los productos a los que les tocó nacen, cada uno sólo con su lugar de entrada libre
+        (`dinamica_nacimiento`); el que lo encuentra ocupado espera, y detrás de él las
+        siguientes instancias de su MISMO producto (cola FIFO)."""
+        prods, nac = self.snap.productos, self.nac
+        quedan, trancados, nacieron = [], {}, False
+        for i, k in enumerate(self.pendientes):
+            p = prods[k]
+            if p["aparece_s"] > t + 1e-9:
+                quedan += self.pendientes[i:]
+                break
+            pos = (p["x"] * MM, p["y"] * MM, p["z"] * MM)
+            por = trancados.get(p["producto"]) or nac.ocupante(d, k, pos, p["quat"], self.activo)
+            if por is not None:
+                trancados[p["producto"]] = por
+                nac.espera(k, t, por)
+                quedan.append(k)
+                continue
+            self.activo[k] = True
+            nacieron = True
+            nac.nacio(k, p["aparece_s"], t)
+            q, v = self.qadr[k], self.vadr[k]
+            d.qpos[q: q + 3] = pos
+            d.qpos[q + 3: q + 7] = p["quat"]
+            d.qvel[v: v + 6] = (*p["vel_m_s"], 0.0, 0.0, 0.0)
+        self.pendientes = quedan
+        if nacieron:
+            self._rehacer_estacion()
 
     def _retirar(self, d) -> None:
         """Saca del mundo los productos activos con su centro pasado un sumidero."""
@@ -236,17 +260,24 @@ class Integrador:
             self._muestra(self.d.time)
         return salida_dinamica(self.snap, self.d, self.frames, self.trazas, self.en_limite,
                                self.fotos, self.arrastre, self.juntas, self.giro, self.activo,
-                               self.bid_prod, self.vadr, pared, retiro=self.retiro)
+                               self.bid_prod, self.vadr, pared, retiro=self.retiro,
+                               nacimientos=(self.nac, self.pendientes))
 
 
 def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas, giro, activo,
-                    bid_prod, vadr, pared, retiro=None) -> dict:
+                    bid_prod, vadr, pared, retiro=None, nacimientos=None) -> dict:
     """La salida D9 de V8.2 (formato del animador de gravedad y de caída, trazas por junta).
     Un producto RETIRADO por un sumidero sale con la posición en que se retiró y `retirado_s`;
-    `resumen.productos_retirados` sólo existe si alguno se retiró."""
+    `resumen.productos_retirados` sólo existe si alguno se retiró. Uno que nació TARDE porque su
+    lugar de entrada estaba ocupado lleva `nacio_s`; los que no llegaron a nacer por eso van en
+    `resumen.productos_sin_nacer`, con su aviso (sólo si los hay: sin espera, la salida de V8.2)."""
     prods = snap.productos
     res_prod, caidos = {}, []
     retiro = retiro or {}
+    nac, pendientes = nacimientos if nacimientos else (None, [])
+    demoradas = nac.demoradas if nac else {}
+    sin_nacer = [prods[k]["name"] for k in pendientes if nac and k in nac.esperando]
+    avisos = snap.avisos + (nac.avisos(prods, pendientes) if nac else [])
     for k, p in enumerate(prods):
         if k in retiro:
             res_prod[p["name"]] = {"posicion_final_mm": retiro[k]["pos"],
@@ -259,7 +290,8 @@ def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas,
         vel = [round(float(c) / MM, 2) for c in d.qvel[vadr[k]: vadr[k] + 3]]
         medio = max(p["w"], p["d"], p["h"]) / 2
         cayo = pos[2] < medio + 10.0 and p["z"] > medio + 60.0
-        res_prod[p["name"]] = {"posicion_final_mm": pos, "velocidad_final_mm_s": vel, "cayo": cayo}
+        res_prod[p["name"]] = {"posicion_final_mm": pos, "velocidad_final_mm_s": vel, "cayo": cayo,
+                               **({"nacio_s": demoradas[k]["nacio_s"]} if k in demoradas else {})}
         if cayo:
             caidos.append(p["name"])
     res_juntas = {}
@@ -297,6 +329,7 @@ def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas,
             "productos_caidos": caidos, "juntas_en_limite": list(en_limite.values()),
             **({"productos_retirados": [prods[k]["name"] for k in sorted(retiro)]}
                if retiro else {}),
+            **({"productos_sin_nacer": sin_nacer} if sin_nacer else {}),
         },
-        "avisos": snap.avisos,
+        "avisos": avisos,
     }

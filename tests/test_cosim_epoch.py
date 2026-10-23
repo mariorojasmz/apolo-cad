@@ -39,6 +39,7 @@ ARCHIVOS = (
     "physics/dinamica_integrador.py",
     "physics/dinamica_modelo.py",
     "physics/dinamica_motores.py",
+    "physics/dinamica_nacimiento.py",
     "physics/dinamica_peticion.py",
     "physics/hull.py",
     "physics/sensores.py",
@@ -53,7 +54,10 @@ ARCHIVOS = (
 #: correr escenarios que antes eran 400 y el color/pieza del snapshot no entran al resultado.
 #: V8.4 F4 (sin subir): `services/escenarios.py` sólo saca `validar_nombre` y `no_existe` a
 #: públicos (los usa `sesion_viva.py`); la vigencia y la lectura no cambian.
-HUELLA: tuple[int, str] = (3, "38a3c509f45837cc")
+#: 4 — V8.4, cola en vivo: la caja de la cola nace sólo con su lugar de entrada libre
+#: (`physics/dinamica_nacimiento.py`). Los 5 escenarios de la 77 dan la misma huella (su banda
+#: anda antes de que toque la segunda caja), pero un escenario cuya cola encimaba cajas cambia.
+HUELLA: tuple[int, str] = (4, "b1e0105e3466940b")
 
 
 def archivos() -> list[Path]:
