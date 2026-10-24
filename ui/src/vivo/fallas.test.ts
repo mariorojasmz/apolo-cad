@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  activaIgual, activasDe, armarFalla, camposDe, conAckDeRama, elegidoInicial, objetivosDe, resumenActivas,
-  rotuloFalla, valorDe, type EventoFalla, type Objetivo,
+  activaIgual, activasDe, armarFalla, camposDe, conAckDeRama, elegidoInicial, nombreTipoFalla, objetivosDe,
+  resumenActivas, rotuloFalla, valorDe, type EventoFalla, type Objetivo,
 } from "./fallas";
 import type { InicioVivo } from "./protocolo";
 
@@ -178,5 +178,18 @@ describe("las activas", () => {
     expect(activaIgual(activas, armarFalla(plc, f, { borne: "I0.1" }))).toBeUndefined();
     expect(activaIgual(activas, armarFalla(de("d:-K1"), falla(de("d:-K1"), "soldado")))).toBeDefined();
     expect(activaIgual(activas, armarFalla(de("d:-K1"), falla(de("d:-K1"), "no_cierra")))).toBeUndefined();
+  });
+});
+
+describe("el diferencial (plan datos-de-corte-y-acometida D8)", () => {
+  it("tiene nombre de tipo y sus fallas se dicen como las de una protección", () => {
+    expect(nombreTipoFalla("diferencial")).toBe("Interruptor diferencial");
+    const inicio: Pick<InicioVivo, "fallas" | "ramas"> = {
+      fallas: [{ designacion: "-F1", tipo: "diferencial", fallas: [{ falla: "no_dispara", pide: "" }, { falla: "abierto", pide: "" }] }],
+      ramas: [],
+    };
+    const [a, b] = activasDe({ "-F1.averia": "abierto, no_dispara" }, inicio);
+    expect(a.frase).toBe("protección disparada sola en -F1");
+    expect(b.frase).toBe("protección que no dispara en -F1");
   });
 });

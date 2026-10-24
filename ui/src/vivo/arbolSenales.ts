@@ -21,6 +21,7 @@ const TIPOS: Record<string, string> = {
   contactor: "Contactor", rele: "Relé", guardamotor: "Guardamotor", itm: "Interruptor termomagnético",
   rele_termico: "Relé térmico", fusible: "Fusible", fuente: "Fuente", red: "Red",
   resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
+  diferencial: "Interruptor diferencial",
 };
 
 /** La designación de una señal de tablero (`-M1`, `=F1-Q1`, `+TAB1-K1`), o null. */

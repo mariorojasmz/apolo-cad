@@ -2,7 +2,8 @@
 
 `erc(modelo)` devuelve las reglas con la forma de siempre (`library/rules.py`):
 `{regla, estado: ok|aviso|error, detalle, recomendacion?, norma, elementos}`. Una regla sin
-hallazgos da UN «ok»; con hallazgos, un dict por hallazgo. Las redes y el peor caso salen de
+hallazgos da UN «ok»; con hallazgos, un dict por hallazgo. Una regla que sólo aplica a un aparato
+(«tipo de diferencial») no da fila sin él: el ERC de un tablero sin diferencial es el de siempre. Las redes y el peor caso salen de
 `redes.analizar` (contactos y protecciones cerrados).
 
 Cada regla cita su norma o dice «criterio de diseño». Fuera de alcance (V8.6): sección del
@@ -31,6 +32,9 @@ NORMAS = {
     "borne suelto": CRITERIO,
     "color del conductor": "IEC 60204-1 §13.2",
     "parada de emergencia": "ISO 13850 · IEC 60204-1 §10.7",
+    # la cita IEC 60364-5-53 §531.3.3 no se confirmó con el texto de la norma (plan
+    # datos-de-corte-y-acometida, D10): queda como criterio de diseño
+    "tipo de diferencial": CRITERIO,
 }
 _N_PE = "IEC 60204-1 §5.1 (el neutro no se une al circuito de protección dentro del equipo)"
 _FASES = ("L1", "L2", "L3")
@@ -372,8 +376,46 @@ def _parada_emergencia(a: Analisis) -> list[dict]:
     return [_r("parada de emergencia", "ok", det, elementos=setas)]
 
 
+def _diferencial_de(a: Analisis, etiqueta: str) -> Dispositivo | None:
+    """El diferencial del camino «-F1:1-2» de una llegada (None si es de otro aparato)."""
+    d = a.dispositivos.get(etiqueta.rsplit(":", 1)[0])
+    return d if d is not None and d.modelo.get("tipo") == "diferencial" else None
+
+
+def _tipo_diferencial(a: Analisis) -> list[dict]:
+    """Un variador alimentado a través de un diferencial que no ve la corriente de falla continua
+    lisa de su rectificador: clase AC o A siempre; F con entrada trifásica (la F es de los
+    variadores monofásicos). Sin diferenciales en el modelo, no aplica (sin fila)."""
+    difs = [d for d in a.dispositivos.values() if d.modelo.get("tipo") == "diferencial"]
+    if not difs:
+        return []
+    out, vistos = [], set()
+    for v in (d for d in a.dispositivos.values() if d.modelo.get("tipo") == "variador"):
+        for c in (c for c in v.cargas if c.tipo == "alimentacion"):
+            malas = ("AC", "A", "F") if len(c.bornes) == 3 else ("AC", "A")
+            for b in c.bornes:
+                idx = a.red(v.designacion, b)
+                for ll in a.llegadas[idx] if idx is not None else ():
+                    for et in ll.via:
+                        d = _diferencial_de(a, et)
+                        clase = d.modelo.get("clase_residual") if d is not None else None
+                        if d is None or clase not in malas or (v.designacion, d.designacion) in vistos:
+                            continue
+                        vistos.add((v.designacion, d.designacion))
+                        out.append(_r("tipo de diferencial", "aviso",
+                                      f"{_quien(v)} se alimenta a través de {_quien(d)}, clase {clase}: "
+                                      "un variador puede dar una corriente de falla continua lisa que "
+                                      f"un diferencial clase {clase} no ve (y lo ciega).",
+                                      "Usa un diferencial clase B para el circuito del variador (o "
+                                      "sepáralo del diferencial de clase A/AC de los demás circuitos).",
+                                      [v.designacion, d.designacion]))
+    return out or [_r("tipo de diferencial", "ok",
+                      f"{len(difs)} diferencial(es): ningún variador se alimenta a través de uno que "
+                      "no vea la corriente de falla continua lisa.", elementos=[d.designacion for d in difs])]
+
+
 _REGLAS = (_referencias, _duplicadas, _cortocircuitos, _tensiones, _proteccion_motor, _tierra,
-           _sueltos, _colores, _parada_emergencia)
+           _sueltos, _colores, _parada_emergencia, _tipo_diferencial)
 
 
 def erc(modelo: ModeloElectrico, analisis: Analisis | None = None) -> list[dict]:

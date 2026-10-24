@@ -8,7 +8,7 @@ avanza el lado eléctrico UN intercambio (2 ms), en este orden:
      corriente que pide el mando (`pedidas()` ANTES del paso: F3);
   3. el mando, con esas tensiones;
   4. cada modelo con sus tensiones y corrientes: bobinas, pilotos, protecciones (la corriente de
-     sus contactos en las dos redes), mandos, E/S del PLC, sensores, los modelos con
+     sus contactos en las dos redes; el diferencial, los FASORES para sumarlos), mandos, E/S del PLC, sensores, los modelos con
      `BORNES_ENTRADA` (el relé de seguridad: lee esas entradas y mueve sus contactos con
      `actuadores()`), variadores y motores;
   5. lo que queda para el paso que viene: la carga de cada motor (D8: EN MARCHA = potencia que
@@ -42,6 +42,7 @@ from .modelos import (
     Variador,
     crear_modelo,
 )
+from .modelos.diferencial import Diferencial
 from .modelos.electrovalvula import Electrovalvula
 from .modelos.mandos import _Mando
 from .neumatica import crear_modelo_aire
@@ -122,7 +123,7 @@ class Tablero:
             fuentes.setdefault(f.get("dispositivo"), []).append(f["id"])
         self.contactores, self.pilotos, self.protecciones, self.mandos = [], [], [], []
         self.fuentes_dc, self.redes_ac, self.plcs, self.sensores, self.variadores = [], [], [], [], []
-        self.motores, self.logicos, self.valvulas = [], [], []
+        self.motores, self.logicos, self.valvulas, self.diferenciales = [], [], [], []
         for des, m in self.modelos.items():
             fs = fuentes.get(des, [])
             if isinstance(m, Contactor):
@@ -132,6 +133,8 @@ class Tablero:
                 self.pilotos.append((des, m, self._carga(des, "piloto")))
             elif isinstance(m, (Itm, Guardamotor, ReleTermico, Fusible)):
                 self.protecciones.append((des, m, self._ramas_proteccion(des)))
+            elif isinstance(m, Diferencial):  # la residual: los fasores de sus polos, aparte
+                self.diferenciales.append((des, m, self._ramas_proteccion(des)))
             elif isinstance(m, Fuente):
                 self.fuentes_dc.append((des, m, fs[0] if fs else des, self._carga(des, "alimentacion")))
             elif isinstance(m, Red):
@@ -177,7 +180,7 @@ class Tablero:
         self._Um: list = [0.0] * len(ia)
         # los nombres de los actuadores, una vez
         self._k_bobina = [(f"{des}.bobina", m) for des, m, *_ in self.contactores]
-        self._k_prot = [(des, f"{des}.", m) for des, m, _ in self.protecciones]
+        self._k_prot = [(des, f"{des}.", m) for des, m, _ in self.protecciones + self.diferenciales]
         self._k_plc = [(m, [(b, f"{des}.{b}") for b in m.DO]) for des, m, *_ in self.plcs]
         self._k_sensor = [(f"{des}.señal", m) for des, m, _ in self.sensores]
         self._k_vfd = [(f"{des}.rele_falla", m) for des, m, *_ in self.variadores]
@@ -346,8 +349,12 @@ class Tablero:
         return list(c.get("U_lineas_vivas_V") or [c["U_V"]])
 
     def _corriente(self, en_potencia: bool, rid: str) -> float:
+        return abs(self._fasor(en_potencia, rid))
+
+    def _fasor(self, en_potencia: bool, rid: str) -> complex:
+        """La corriente de una rama de `de` a `a` (fasor en la potencia, real en el mando)."""
         res = self.pot if en_potencia else self.mando
-        return abs(res.corriente(rid)) if res is not None else 0.0
+        return complex(res.corriente(rid)) if res is not None else 0j
 
     def _aparatos(self, dt: float, vivas: dict) -> None:
         for _des, m, cid, en_pot in self.contactores:
@@ -361,6 +368,8 @@ class Tablero:
             m.paso(dt, {f"U_{lado}": abs(self.U(cid)) for lado, cid in cids.items()})
         for _des, m, ramas in self.protecciones:
             m.paso(dt, {"I_A": [self._corriente(p, rid) for p, rid in ramas]})
+        for _des, m, ramas in self.diferenciales:
+            m.paso(dt, {"I_fasores": [self._fasor(p, rid) for p, rid in ramas]})
         for _des, m in self.mandos:
             m.paso(dt, {})
         for des, m, bornes, alim in self.plcs:

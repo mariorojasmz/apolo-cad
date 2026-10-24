@@ -46,13 +46,16 @@ COLORES = ("BK", "BN", "RD", "OG", "YE", "GN", "BU", "LBU", "VT", "GY", "WH", "P
 #: (`apolo/extensiones.py`, plan nucleo-abierto-extensiones-privadas).
 TIPOS_MODELO = ["red", "fuente", "seccionador", "itm", "guardamotor", "rele_termico", "fusible",
                 "contactor", "rele", "plc", "variador", "motor", "pulsador", "seta", "selector",
-                "piloto", "sensor", "resguardo", "rele_seguridad", "electrovalvula"]
+                "piloto", "sensor", "resguardo", "rele_seguridad", "electrovalvula", "diferencial"]
 #: Clases de disparo de un relé de sobrecarga (IEC 60947-4-1): la banda de cada una, en el modelo.
 CLASES_DISPARO = ("10A", "10", "20", "30")
 #: Curvas de un ITM (IEC 60898-1) y de un cartucho de fusible 5×20 (IEC 60127-2: F rápido,
 #: T temporizado).
 CURVAS_ITM = ("B", "C", "D")
 CURVAS_FUSIBLE = ("F", "T")
+#: Clases de corriente residual de un diferencial (IEC 61008-1 / IEC 62423): su respuesta, en el
+#: modelo (`cosim/modelos/diferencial.py`), y la regla «tipo de diferencial» del ERC.
+CLASES_RESIDUAL = ("AC", "A", "F", "B")
 #: Sistema de una red (V8.3 D15) → (fases, neutro) de la tensión de su fuente.
 SISTEMAS = {"1F+N": (1, False), "2F": (2, False), "3F": (3, False), "3F+N": (3, True)}
 
@@ -304,6 +307,9 @@ def _modelo(err: _Err, crudo, fuentes: tuple[Fuente, ...]) -> dict:
     if "cartucho_curva" in modelo:
         modelo["cartucho_curva"] = _uno_de(err, "modelo.cartucho_curva",
                                            str(modelo["cartucho_curva"]).strip(), CURVAS_FUSIBLE)
+    if "clase_residual" in modelo:
+        modelo["clase_residual"] = _uno_de(err, "modelo.clase_residual",
+                                           str(modelo["clase_residual"]).strip().upper(), CLASES_RESIDUAL)
     if tipo == "red":
         sistema = _uno_de(err, "modelo.sistema", modelo.get("sistema"), tuple(SISTEMAS))
         fases, neutro = SISTEMAS[sistema]

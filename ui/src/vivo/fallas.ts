@@ -48,6 +48,7 @@ const TIPOS: Record<string, string> = {
   itm: "Interruptor termomagnético", guardamotor: "Guardamotor", rele_termico: "Relé térmico",
   fusible: "Fusible", plc: "PLC", variador: "Variador", fuente: "Fuente",
   resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
+  diferencial: "Interruptor diferencial",
   contacto: "Contacto", conductor: "Cable",
 };
 
@@ -59,7 +60,7 @@ export function nombreTipoFalla(tipo: string): string {
 /** Rótulo de la opción y frase para la barra («contacto soldado»), por falla y tipo. */
 interface Nombre { rotulo: string; frase: (arg?: string) => string }
 
-const PROTECCIONES = new Set(["itm", "guardamotor", "rele_termico", "fusible"]);
+const PROTECCIONES = new Set(["itm", "guardamotor", "rele_termico", "fusible", "diferencial"]);
 
 function nombreDe(falla: string, tipo: string, clase: Objetivo["clase"]): Nombre {
   if (clase === "rama") {

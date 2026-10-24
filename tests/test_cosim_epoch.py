@@ -82,7 +82,13 @@ ARCHIVOS = (
 #: contactor soldado y no_cierra, piloto fundido, corte de fase, cajas con seta y sensor pegado)
 #: dan la MISMA huella que en 06d44ac. Un documento con válvulas cambia de firma por su ficha
 #: eléctrica (el `modelo` nuevo de la bobina): sus resultados de antes quedan vencidos solos.
-HUELLA: tuple[int, str] = (4, "0d6351d126cae213")
+#: datos-de-corte-y-acometida F1b (sin subir, D11): modelo NUEVO (`diferencial`, la residual por
+#: fasores), indexado aparte en el tablero; las demás protecciones siguen recibiendo los mismos
+#: módulos (`_corriente` = |`_fasor`|, bit a bit). Ningún documento existente usa el tipo: 10
+#: escenarios del banco (marcha, seta, atasco parcial, contactor soldado y no_cierra, piloto
+#: fundido, corte de fase, corto entre fases, cajas con seta y sensor pegado) dan la MISMA huella
+#: que en 194e119 (bitácora del plan).
+HUELLA: tuple[int, str] = (4, "c6581877e1b42fcd")
 
 
 def archivos() -> list[Path]:

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from .alimentacion import Fuente, Red
 from .base import Modelo, ModeloIncompleto, Parametros, RecolectorAjustes, entrada_tipo1
+from .diferencial import Diferencial
 from .electrovalvula import Electrovalvula
 from .maniobra import Contactor, Rele
 from .mandos import Piloto, Pulsador, Selector, Seccionador, Sensor, Seta
@@ -26,7 +27,8 @@ from .variador import Variador
 #: tipo → clase. `library/electrico/ficha.TIPOS_MODELO` valida el YAML con la misma lista.
 MODELOS: dict[str, type[Modelo]] = {m.tipo: m for m in (
     Red, Fuente, Seccionador, Itm, Guardamotor, ReleTermico, Fusible, Contactor, Rele, PlcES,
-    Variador, Motor, Pulsador, Seta, Selector, Piloto, Sensor, Resguardo, ReleSeguridad, Electrovalvula)}
+    Variador, Motor, Pulsador, Seta, Selector, Piloto, Sensor, Resguardo, ReleSeguridad, Electrovalvula,
+    Diferencial)}
 
 #: tipo → (extensión, versión) de los modelos que sumó una extensión (plan
 #: nucleo-abierto-extensiones-privadas, A4): el resultado guardado de un escenario anota las
@@ -84,7 +86,7 @@ def ajustes_faltantes(designacion: str, ref: str, modelo: dict | None, ajustes: 
     return p.faltan
 
 
-__all__ = ["DE_EXTENSION", "MODELOS", "Contactor", "Electrovalvula", "Fuente", "Fusible", "Guardamotor", "Itm", "Modelo",
+__all__ = ["DE_EXTENSION", "MODELOS", "Contactor", "Diferencial", "Electrovalvula", "Fuente", "Fusible", "Guardamotor", "Itm", "Modelo",
            "ModeloIncompleto", "Motor", "Parametros", "Piloto", "PlcES", "Pulsador", "Red", "Rele",
            "ReleSeguridad", "ReleTermico", "Resguardo", "Seccionador", "Selector", "Sensor", "Seta",
            "Variador", "ajustes_faltantes", "crear_modelo", "de_extension", "direccion_iec", "entrada_tipo1", "placa_v82",

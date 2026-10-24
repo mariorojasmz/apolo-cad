@@ -70,7 +70,7 @@ def test_apagadas_el_nucleo_queda_identico(extensiones_aisladas, monkeypatch):
     monkeypatch.setenv("APOLO_EXTENSIONES", "0")
     monkeypatch.setenv(EXTRA, "ext_prueba:EXTENSION")  # aunque la pidan
     assert extensiones_aisladas.cargar() == [] and extensiones_aisladas.descubrir() == []
-    assert len(REGISTRY) == 62 and len(CATALOG) == 420
+    assert len(REGISTRY) == 62 and len(CATALOG) == 428
     assert len(asyncio.run(mcp_server.mcp.list_tools())) == 90
     assert extensiones_aisladas.routers() == [] and extensiones_aisladas.webui() is None
 
@@ -104,7 +104,7 @@ def test_cada_punto_entra_al_registro_del_nucleo(con_prueba):
 
     assert "prueba.hola" in REGISTRY and len(REGISTRY) == 63 and "prueba.hola" in PISTAS
     assert PESTANAS["prueba"] == {"orden": 90, "rotulo": "Prueba"}
-    assert CATALOG["prueba.caja"].category == "prueba_catalogo" and len(CATALOG) == 421
+    assert CATALOG["prueba.caja"].category == "prueba_catalogo" and len(CATALOG) == 429
     assert CATEGORIES[-1] == "prueba_catalogo"
     assert MODELOS["prueba.lampara"] is Lampara and "prueba.lampara" in TIPOS_MODELO
     assert DE_EXTENSION["prueba.lampara"] == ("ext-prueba", "0.1.0")

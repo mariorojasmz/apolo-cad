@@ -27,6 +27,14 @@ category: proteccion_electrica
 #      ensayó (IEC 60947-3).
 #    · `T_max_C`: el tope de la «temperatura ambiente de funcionamiento» de la ficha de la línea
 #      (por familia, en el ancla).
+#    · Diferencial: la corriente condicional de cortocircuito Inc con la protección con que se
+#      ensayó y el poder de cierre y corte asignado Im (IEC 61008-1).
+#  - Diferencial = interruptor diferencial SIN protección de sobrecorriente (RCCB, IEC 61008-1):
+#    se compone con un ITM aguas abajo o arriba. `modelo`: In, sensibilidad `IDn_mA`, clase de
+#    corriente residual (`clase_residual`: AC, A, F o B) y polos; las bandas de disparo son de
+#    NORMA y van en el modelo (`cosim/modelos/diferencial.py`). Todos sus polos, el N incluido,
+#    son caminos `proteccion` de LÍNEA (`de`) a CARGA (`a`): la residual es la suma de sus fasores.
+#    Un variador trifásico aguas abajo pide clase B (regla «tipo de diferencial» del ERC).
 _datos_itm: &datos_itm {T_max_C: 70}
 _datos_gm: &datos_gm {T_max_C: 60}
 _datos_secc: &datos_secc {T_max_C: 50}
@@ -210,6 +218,123 @@ components:
       <<: *itm_1pn
       perdidas_W: 2
       modelo: {tipo: itm, In_A: 6, curva: C, Icn_kA: 6, polos: "1P+N"}
+  # ── interruptores diferenciales (RCCB, IEC 61008-1) ─────────────────────────────────────
+  # Las cifras de ficha (Inc con su protección, Im y la temperatura de funcionamiento) NO se
+  # verificaron: las fichas de las líneas de referencia no se pudieron descargar (2026-10-24), y
+  # van en `a_confirmar` SIN valor. In, IΔn, clase y polos son lo que DEFINE la ref (lo que hay
+  # que respetar al reemplazarla por la local).
+  - ref: DIF-2P-25A-30MA-A
+    name: Diferencial 2P 25 A 30 mA clase A
+    description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 30 mA, clase A (IEC 61008-1), riel DIN; protección de personas contra contactos. Se compone con un ITM. Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 75, height: 90}
+    weight: 0.2
+    specs: {In_A: 25, IDn_mA: 30, clase_residual: A, polos: 2, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (2P, clase A)", cotas_verificadas: false, cost: 45}
+    electrico: &diferencial_2p
+      funcion: F
+      simbolo: diferencial_2p
+      montaje: din
+      bornes:
+        - {id: "1", rol: potencia, lado: linea}
+        - {id: "2", rol: potencia, lado: carga}
+        - {id: N1, rol: potencia, lado: linea}
+        - {id: N2, rol: potencia, lado: carga}
+      caminos:
+        - {de: "1", a: "2", tipo: proteccion}
+        - {de: N1, a: N2, tipo: proteccion}
+      modelo: {tipo: diferencial, In_A: 25, IDn_mA: 30, clase_residual: A, polos: 2}
+      a_confirmar: &a_confirmar_dif [Inc_kA, Inc_con, Im_A, T_max_C]
+      fuente: &fuente_dif "sin ficha verificada: las de Schneider Acti9 iID, ABB F200, Siemens 5SV3 y Eaton xEffect FRCmM no se pudieron descargar (2026-10-24); Inc con su protección, Im y la temperatura de funcionamiento, a confirmar con la ficha del aparato que se compre"
+      nota: "N1/N2 = polo de neutro (marcado N en el aparato), lado línea y lado carga; pasa por el toroide y se abre con el disparo. En la red 2F (220 V entre dos fases, sin neutro) el polo N lleva la segunda fase."
+  - ref: DIF-2P-25A-300MA-A
+    name: Diferencial 2P 25 A 300 mA clase A
+    description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 300 mA, clase A (IEC 61008-1), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 75, height: 90}
+    weight: 0.2
+    specs: {In_A: 25, IDn_mA: 300, clase_residual: A, polos: 2, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (2P, clase A)", cotas_verificadas: false, cost: 50}
+    electrico:
+      <<: *diferencial_2p
+      modelo: {tipo: diferencial, In_A: 25, IDn_mA: 300, clase_residual: A, polos: 2}
+  - ref: DIF-2P-25A-30MA-B
+    name: Diferencial 2P 25 A 30 mA clase B
+    description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 30 mA, clase B (IEC 61008-1 / IEC 62423, detecta también la corriente de falla continua lisa de un variador), riel DIN. Se compone con un ITM. Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 75, height: 90}
+    weight: 0.25
+    specs: {In_A: 25, IDn_mA: 30, clase_residual: B, polos: 2, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (2P)", cotas_verificadas: false, cost: 220}
+    electrico:
+      <<: *diferencial_2p
+      modelo: {tipo: diferencial, In_A: 25, IDn_mA: 30, clase_residual: B, polos: 2}
+  - ref: DIF-2P-25A-300MA-B
+    name: Diferencial 2P 25 A 300 mA clase B
+    description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 300 mA, clase B (IEC 61008-1 / IEC 62423), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
+    builder: box
+    params: {width: 36, depth: 75, height: 90}
+    weight: 0.25
+    specs: {In_A: 25, IDn_mA: 300, clase_residual: B, polos: 2, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (2P)", cotas_verificadas: false, cost: 230}
+    electrico:
+      <<: *diferencial_2p
+      modelo: {tipo: diferencial, In_A: 25, IDn_mA: 300, clase_residual: B, polos: 2}
+  - ref: DIF-4P-40A-30MA-A
+    name: Diferencial 4P 40 A 30 mA clase A
+    description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 30 mA, clase A (IEC 61008-1), riel DIN, para una red 380/220 V con neutro. Se compone con un ITM. Verificar con el proveedor.
+    builder: box
+    params: {width: 72, depth: 75, height: 90}
+    weight: 0.4
+    specs: {In_A: 40, IDn_mA: 30, clase_residual: A, polos: 4, modulos_DIN: 4, linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (4P, clase A)", cotas_verificadas: false, cost: 85}
+    electrico: &diferencial_4p
+      funcion: F
+      simbolo: diferencial_4p
+      montaje: din
+      bornes:
+        - {id: "1", rol: potencia, lado: linea}
+        - {id: "2", rol: potencia, lado: carga}
+        - {id: "3", rol: potencia, lado: linea}
+        - {id: "4", rol: potencia, lado: carga}
+        - {id: "5", rol: potencia, lado: linea}
+        - {id: "6", rol: potencia, lado: carga}
+        - {id: N1, rol: potencia, lado: linea}
+        - {id: N2, rol: potencia, lado: carga}
+      caminos:
+        - {de: "1", a: "2", tipo: proteccion}
+        - {de: "3", a: "4", tipo: proteccion}
+        - {de: "5", a: "6", tipo: proteccion}
+        - {de: N1, a: N2, tipo: proteccion}
+      modelo: {tipo: diferencial, In_A: 40, IDn_mA: 30, clase_residual: A, polos: 4}
+      a_confirmar: *a_confirmar_dif
+      fuente: *fuente_dif
+      nota: "N1/N2 = polo de neutro, lado línea y lado carga. En la red 3F sin neutro el polo N queda sin cablear (no entra a la residual): verificar con la ficha que el aparato que se compre funcione sin neutro (el circuito de prueba puede ir entre fase y N)."
+  - ref: DIF-4P-40A-300MA-A
+    name: Diferencial 4P 40 A 300 mA clase A
+    description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 300 mA, clase A (IEC 61008-1), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
+    builder: box
+    params: {width: 72, depth: 75, height: 90}
+    weight: 0.4
+    specs: {In_A: 40, IDn_mA: 300, clase_residual: A, polos: 4, modulos_DIN: 4, linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (4P, clase A)", cotas_verificadas: false, cost: 90}
+    electrico:
+      <<: *diferencial_4p
+      modelo: {tipo: diferencial, In_A: 40, IDn_mA: 300, clase_residual: A, polos: 4}
+  - ref: DIF-4P-40A-30MA-B
+    name: Diferencial 4P 40 A 30 mA clase B
+    description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 30 mA, clase B (IEC 61008-1 / IEC 62423, detecta también la corriente de falla continua lisa de un variador trifásico), riel DIN. Se compone con un ITM. Verificar con el proveedor.
+    builder: box
+    params: {width: 72, depth: 75, height: 90}
+    weight: 0.45
+    specs: {In_A: 40, IDn_mA: 30, clase_residual: B, polos: 4, modulos_DIN: 4, linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (4P)", cotas_verificadas: false, cost: 380}
+    electrico:
+      <<: *diferencial_4p
+      modelo: {tipo: diferencial, In_A: 40, IDn_mA: 30, clase_residual: B, polos: 4}
+  - ref: DIF-4P-40A-300MA-B
+    name: Diferencial 4P 40 A 300 mA clase B
+    description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 300 mA, clase B (IEC 61008-1 / IEC 62423), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
+    builder: box
+    params: {width: 72, depth: 75, height: 90}
+    weight: 0.45
+    specs: {In_A: 40, IDn_mA: 300, clase_residual: B, polos: 4, modulos_DIN: 4, linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (4P)", cotas_verificadas: false, cost: 390}
+    electrico:
+      <<: *diferencial_4p
+      modelo: {tipo: diferencial, In_A: 40, IDn_mA: 300, clase_residual: B, polos: 4}
   # ── guardamotores de clase 10 (1–10 A sin huecos) ───────────────────────────────────────
   - ref: GM-1-1.6A
     name: Guardamotor 1-1,6 A clase 10

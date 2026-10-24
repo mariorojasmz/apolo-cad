@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass, field
 
 CLASES = ("alimentacion", "potencia", "control", "bornera")
 _CLASE_POR_TIPO = {"seccionador": "alimentacion", "itm": "alimentacion", "fusible": "alimentacion",
+                   "diferencial": "alimentacion",
                    "guardamotor": "potencia", "contactor": "potencia", "rele_termico": "potencia",
                    "variador": "potencia"}
 MONTAJES = ("din", "placa", "puerta")

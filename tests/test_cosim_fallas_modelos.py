@@ -197,6 +197,30 @@ def test_proteccion_que_no_dispara(ref, aj, I, t):
     assert not s["disparado"] and s["termico_pct"] > 50  # el bimetal calentó igual
 
 
+def test_diferencial_que_no_dispara_mide_la_residual_igual():
+    sano, malo = gemelos("DIF-2P-25A-30MA-A")
+    malo.fallar("no_dispara")
+    fuga = {"I_fasores": [complex(1.0, 0.2), complex(-0.95, -0.2)]}  # 50 mA que no vuelven
+    assert correr(sano, 0.2, fuga)["disparado"]
+    s = correr(malo, 0.2, fuga)
+    assert not s["disparado"] and s["cerrado"] and s["I_residual_mA"] == pytest.approx(50.0)
+    assert malo.senales()["-X1.averia"] == "no_dispara" and "-X1.averia" not in sano.senales()
+
+
+def test_diferencial_abierto_solo_no_rearma_mientras_dura():
+    sano, malo = gemelos("DIF-4P-40A-30MA-B")
+    malo.fallar("abierto")
+    assert sano.salidas()["cerrado"] and correr(sano, 0.1, {"I_fasores": [1.0, -1.0]})["cerrado"]
+    s = malo.salidas()
+    assert not s["cerrado"] and s["disparado"] and s["causa"] == "avería"
+    malo.accionar("rearmar")
+    assert malo.salidas()["disparado"]
+    malo.reparar("abierto")
+    assert malo.salidas()["disparado"]  # reparado, sigue disparado hasta que lo rearmen
+    malo.accionar("rearmar")
+    assert malo.salidas()["cerrado"]
+
+
 def test_proteccion_abierta_sola_no_rearma_mientras_dura():
     sano, malo = gemelos("GM-2.5-4A", Ir_A=3.2)
     malo.fallar("abierto")
