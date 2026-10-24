@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0, F1a–F1c, F2, F3, F4a, F4c y F5 mergeadas (la fábrica y sus papeles viven fuera del núcleo; reglas de operación por `CLAUDE.local.md`; trinquete `test_negocio_fuera.py`); faltan F4b (con Mario) → F4d (el código del trinquete a cero) → F6
+nota: F0, F1a–F1c, F2, F3, F4a, F4c y F5 mergeadas (la fábrica y sus papeles viven fuera del núcleo; reglas de operación por `CLAUDE.local.md`; trinquete `test_negocio_fuera.py`); faltan F1d (huecos de la primera extensión real), F4b (con Mario) → F4d (el código del trinquete a cero) → F6
 descripcion: el núcleo de Apolo sigue público y abierto a contribuciones; lo nuevo que diferencia el servicio de diseño vive en un paquete privado que se engancha al núcleo sin tocarlo
 ---
 
@@ -285,6 +285,18 @@ cuenta `tests/test_negocio_fuera.py`): 25 archivos de `docs/` y unos 70 de códi
     excepción con su motivo.
   - **Se verifica:** con las suites de los dos repos y un video de prueba de la fábrica con su
     tarjeta final igual a la de hoy.
+- **F1d — Huecos que encontró la primera extensión real** (`doc`, `extensiones_api`,
+  `library/calidad`, `api` · M · independiente de F4b–F4d). Medidos el 2026-10-23 al preparar
+  una extensión que lee y escribe el documento:
+  - el manifest pierde toda clave desconocida (lista cerrada en `doc/document.py`) → una clave
+    `ext` que el núcleo conserva en abrir, guardar, autosave, revisiones, duplicar y exportar,
+    sin crecer `document.py`;
+  - una ruta de extensión no puede leer ni mutar el documento → una fachada en
+    `extensiones_api` (lock, sesión, autosave, guardia del documento, jobs);
+  - la puerta de publicación no admite ítems de una extensión → `Extension.puerta`, que entra
+    en la versión del registro;
+  - el motor de láminas (`drawing/sheet`, `pdf`, `tabla`, `titleblock`) entra a `MODULOS`.
+  - **Se verifica:** con la extensión falsa de `tests/` usando cada punto, y la suite completa.
 - **F5 — Contribuciones** (repo público · S · independiente).
   - **Qué hace:** `CONTRIBUTING.md` (D7), plantilla de PR, `CODEOWNERS`, sección «Contribuir»
     en los README.

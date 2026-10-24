@@ -1,0 +1,157 @@
+---
+estado: en curso
+nota: contrato aprobado por Mario el 2026-10-23 (lo pidió como «Simular falla» en la máquina viva); F0 medida; F1a (backend) lanzada, luego F1b (UI)
+descripcion: en la co-simulación un aparato puede fallar a propósito (contacto soldado, seta trabada, cable cortado, corto) en un escenario o en la máquina viva, para ver si la máquina para igual
+---
+
+# La máquina se prueba con un aparato que falla
+
+## Estado y origen
+
+- La co-simulación (V8.3, V8.4) prueba la máquina cuando todo funciona y ante eventos del mundo
+  (atasco, fase perdida, caída de red, cable cortado, sensor pegado). Falta lo que más importa
+  para saber si una parada es confiable: que un APARATO falle (un contactor que queda soldado, un
+  contacto que no abre, una salida de PLC que queda prendida) y ver si la máquina igual corta el
+  par.
+- Quien evalúa lo hace en el visor (`ui/CLAUDE.md` § Calidad visual): la falla se tiene que poder
+  simular también en la sesión viva y VERSE.
+- Lo pidió Mario (2026-10-23) junto con «Simular falla» en la máquina viva.
+
+## Lo que hay hoy
+
+Rutas relativas a `core/apolo/`, medidas sobre `93bcd73`.
+
+- **Eventos del mundo** (`cosim/escenario.py:41`, `:177-183`; aplicados en
+  `cosim/agenda.py:129-154`): `atasco`, `corte_de_fase`, `caida_de_red`, `cable_cortado` (abre una
+  rama: `red/nodal.py:109-118`) y `sensor_pegado` (`Sensor.forzar`, `cosim/modelos/mandos.py:205`).
+- `RedNodal.cortocircuito(id, a, b, R)` existe (`red/nodal.py:120-130`, también en la de
+  potencia, `red/potencia.py:169-170` y `:217`) y NINGÚN evento lo usa.
+- No se puede simular: un contactor soldado, un contacto suelto pegado, un mando trabado, una
+  protección que no dispara, una entrada o salida de PLC pegada, un canal del STO pegado.
+- Los contactos se mueven por actuador (`«-K1.bobina»`, `«-S0.mano»`): la red los lee de
+  `Tablero.estados()` (`cosim/tablero.py:218-241`) y los cierra en `RedNodal._cerrados`
+  (`red/nodal.py:138-140`), que usan las dos redes (`red/potencia.py:214`).
+- En vivo un evento entra sin hora (`cosim/vivo.py:71-74` → `leer_evento_vivo` →
+  `Agenda.inyectar`, `agenda.py:42`) y queda en la grabación; en la UI sólo hay «Provocar
+  atasco» (`ui/src/vivo/EventosVivos.tsx`, dentro de `PanelMandos.tsx:121`).
+- El `inicio` del WS lista `dispositivos` [{designacion, tipo, ref, pieza?}]
+  (`cosim/vivo_fotograma.py:102-104`), sin lo que cada uno puede sufrir.
+- La señal `falla` ya existe y es del variador (`-T1.falla`, `cosim/modelos/variador.py:218`).
+- La tool `set_scenario` documenta los eventos (`tools/cosim.py:110`; golden del MCP).
+- El ancla «desde <evento> <arg>» de las aserciones ya casa el segundo token contra los datos
+  del evento (`cosim/aserciones.py:129-134`).
+
+## Lo que se revisó antes de escribir esto
+
+- Que un contactor soldado deba arrastrar sus auxiliares: los contactos de un aparato siguen a
+  su actuador (`«-K1.bobina»`); forzar el aparato los mueve a todos, que es el comportamiento de
+  los contactos espejo (IEC 60947-4-1 Anexo F) que una realimentación necesita. Para UN contacto
+  que falla solo (el NC de un canal) hace falta una falla de RED, no del aparato.
+- Que un mando trabado y un contacto pegado son fallas distintas: la primera afecta a todos los
+  contactos del mando a la vez; la segunda, a uno.
+- `tests/test_cosim_epoch.py` y `tests/test_cosim_worker.py` (huella y determinismo bit a bit).
+
+## Decisiones (para vetar)
+
+- **D1 — Un modelo declara las fallas que sabe tomar.**
+  - `Modelo.FALLAS: dict[str, str]` (nombre → qué valor pide, o `""`), como `ACCIONES`;
+    `fallar(nombre, valor=None)` y `reparar(nombre)` en la base (`modelos/base.py`), con
+    `_falla_<nombre>` por modelo.
+  - Una falla que el modelo no declara es error accionable con la lista de las que sí.
+  - Sin falla activa, el modelo da EXACTAMENTE las mismas salidas de hoy.
+- **D2 — Las fallas de cada aparato** (lo razonable para su modelo, nada más):
+  | modelo | fallas |
+  |---|---|
+  | contactor, relé | `soldado` (sigue cerrado sin bobina), `no_cierra` (inducido trabado o bobina abierta: no consume) |
+  | seta, pulsador, selector, seccionador | `trabado` (la mano no mueve sus contactos; valor opcional: la posición en que queda) |
+  | sensor | `pegado` (true/false; `sensor_pegado` queda como alias), `sin_salida` |
+  | ITM, guardamotor, relé térmico, fusible | `no_dispara`, `abierto` (disparado o fundido solo) |
+  | PLC (E/S) | `entrada_pegada` {borne, valor}, `salida_pegada` {borne, valor}, `detenido` (salidas a 0) |
+  | variador | `canal_sto_pegado` {canal: S1 \| S2} (lee 24 V sin tenerlos), `falla_interna` |
+  | fuente | `sin_salida` |
+  | piloto | `fundido` |
+  | red, motor | ninguna nueva: la red ya tiene fase perdida, caída y corte; el motor recibe las suyas por la red |
+- **D3 — Fallas de la red, no de un aparato.**
+  - `abierto` en una rama (= `cable_cortado`, que queda como alias).
+  - `pegado` en UN contacto {rama, cerrado}: el contacto queda como se dice y el resto del
+    aparato sigue a su actuador. Va como máscara en `RedNodal._cerrados` (la usan las dos redes)
+    y entra a las firmas que deciden refactorizar (`RedNodal._firma`, `RedPotencia._firma_actual`,
+    `Tablero._firma_potencia`): si no, la red no se re-resolvería.
+  - `corto` {a, b, R_ohm?} entre dos puntos, también a PE, sobre el `cortocircuito` existente.
+- **D4 — UN evento de escenario, `falla`.**
+  - Formas: `{"t", "tipo": "falla", "dispositivo": "-K1", "falla": "soldado"}`,
+    `{"tipo": "falla", "rama": "-K1:13-14", "falla": "pegado", "valor": true}` y
+    `{"tipo": "falla", "falla": "corto", "a": "-X1:1", "b": "-X1:PE"}`; `valor` y `duracion_s`
+    opcionales (con duración se repara sola).
+  - Se valida al declarar (claves) y en `agenda.validar` (el dispositivo o la rama existen y
+    admiten esa falla), con «¿quisiste decir…?».
+  - Los eventos de hoy siguen y dan la misma huella.
+- **D5 — La traza la registra y se puede anclar.** La agenda deja
+  `{"evento": "falla", dispositivo | rama, falla}` en `eventos`; «desde falla -K1» y «falla.fin»
+  sirven de ancla sin cambiar `aserciones.py`. Cada aparato con una falla activa publica
+  `<des>.averia` (texto: las activas), que en vivo viaja en `textos`. No se llama `falla`: ese
+  nombre es del variador.
+- **D6 — En vivo, el mismo evento.**
+  - `{"evento": {"tipo": "falla", …}}` por el WS, sin hora; `"quitar": true` la repara (en vivo no
+    hay reverso sin duración).
+  - El `inicio` gana `fallas`: [{designacion, tipo, fallas: [{falla, pide}]}] y `ramas`: los ids
+    de contactos y conductores que se pueden pegar o cortar.
+  - La grabación las incluye: la sesión vuelta escenario reproduce la falla.
+- **D7 — «Simular falla» en la máquina viva.**
+  - En el panel «Mandos», debajo de «Eventos»: elegir dispositivo (o rama), la falla y su valor
+    si lo pide, y «Simular» (`ui/src/vivo/FallasVivas.tsx`).
+  - En la barra de la sesión, una línea «Falla activa: contacto soldado en -K1» con «Quitar»;
+    con varias, la cuenta y la lista al pedirla.
+  - Los rótulos de cada falla viven en la UI (`vivo/fallas.ts`, tuteo, gates de texto); sin
+    colores de estado (tokens del tema, `ui/CLAUDE.md` § Calidad visual).
+  - `abrirSesion(escenario, {fallas})` abre la sesión con fallas ya puestas (las manda al llegar
+    el `inicio`), para que otro panel ofrezca «Probar en vivo».
+- **D8 — `COSIM_EPOCH` sube sólo si cambia la huella de un escenario sin fallas.** Un escenario
+  viejo no tiene `falla` y su hash no cambia; si los de referencia (la 77 y los de los tests) dan
+  la misma huella, sólo se actualiza la `HUELLA` de `test_cosim_epoch.py`, como en V8.4 F1. Si
+  alguno cambia, sube a 5.
+- **D9 — MCP: sin tool nueva.** El agente declara la falla en el escenario (`set_scenario`
+  documenta `falla`; el golden cambia a propósito). `get_circuit` no cambia.
+- **D10 — Límite.** Una falla es la que se pide, en la hora que se pide: no hay azar, tasas ni
+  probabilidades (eso es otro análisis). Lo que el modelo de un aparato no tiene (p. ej. que un
+  variador detecte la discrepancia entre sus dos canales) no se inventa: va como hipótesis del
+  resultado.
+
+## Alternativas descartadas
+
+- **Forzar señales en vez de fallas de aparato** («-K1.cerrado = true»): la red no la vería
+  (los contactos leen el actuador, no la señal) y no distingue un aparato trabado de un contacto
+  pegado.
+- **Un evento por cada falla** (`contactor_soldado`, `salida_pegada`…): multiplica las claves del
+  escenario y del ancla; con uno solo, una falla nueva es una línea del modelo.
+- **Fallas al azar** (inyección estadística): no es determinista y rompe la huella de las
+  trazas.
+
+## Fases
+
+- **F0 — Medir** (sólo lectura): hecha, ver «Lo que hay hoy».
+- **F1 — Fallas en el motor** (`cosim/` + `services/escenarios` + `tools/cosim.py` · M/L ·
+  depende de F0): D1–D6, D8, D9. Tests: cada falla en su modelo (verde y rojo), contacto pegado
+  en las dos redes, el evento en lote y en vivo con la misma huella, la grabación vuelta
+  escenario, los escenarios sin fallas con la huella de antes.
+- **F2 — «Simular falla» en la UI** (`ui/src/vivo/` · M · depende de F1): D7, con su preview y la
+  revisión de diseño a ciegas (claro y oscuro, ancho y angosto).
+- **F3 — Verifica** (S): sobre una COPIA de la 77, un escenario con la seta y un contacto pegado
+  y otro con el contactor soldado; en la sesión viva, simular la falla, apretar la seta y ver el
+  resultado. Mario lo juzga.
+
+## Lo que este plan NO hace
+
+- Calcular confiabilidad (tasas, MTTF, probabilidad de falla): sólo la prueba con la falla puesta.
+- Fallas mecánicas nuevas (el atasco ya existe; un eje roto o una banda cortada, en otro plan).
+- Aparatos nuevos del catálogo.
+
+## Riesgos
+
+| riesgo | mitigación |
+|---|---|
+| Tocar los modelos cambia resultados viejos | sin falla, salidas idénticas; huella de los escenarios de referencia antes y después (D8) |
+| Un contacto pegado no re-resuelve la red | la máscara entra a las tres firmas (D3), con su test en mando y en potencia |
+| La UI ofrece fallas que el modelo no toma | la lista sale del `inicio` (D6), no de la UI |
+
+## Bitácora
