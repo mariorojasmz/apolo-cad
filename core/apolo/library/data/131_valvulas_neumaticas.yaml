@@ -1,0 +1,228 @@
+category: valvulas_neumaticas
+# Electroválvulas de distribución genéricas (plan V8.9 D6, D16). Cada ref es un EJEMPLO por
+# FUNCIÓN: se reemplaza por cualquier válvula de las mismas vías y posiciones, el mismo mando
+# (posición de reposo), la misma rosca, una tensión de bobina igual y un caudal (C) no menor.
+# Líneas de referencia (P1 de V8.9, provisoria): Festo y SMC como gama alta, Airtac como
+# económica; `linea_referencia` sólo cita «del orden de». Montaje en la máquina o en un panel
+# neumático propio, NUNCA dentro del tablero eléctrico (D6).
+#
+# Ficha neumática (`library/neumatica/ficha.py`): vías por ISO 5599-3 (1 alimentación, 2 y 4
+# trabajo, 3 y 5 escape), pilotaje interno (sin puertos 12/14), bobinas en el lado 14 (5/2 monoestable), 14 y 12 (dos bobinas) o 12 (3/2: conecta 1→2),
+# caudal ISO 6358 como C y b o como Qn de 6 a 5 bar, que la ficha convierte (D3). La bobina
+# eléctrica (bornes A1/A2 en el carril) la cablea F1b; aquí va su lado y su tensión.
+# Fuentes (lo que no tiene fuente va en `a_confirmar`):
+#  [V1] Festo VUVG-L14-M52-AT-G18 (576256), 5/2 monoestable G1/8: Qn 680–730 L/min, 2,5–8 bar,
+#       conmutación 14 ms / 22 ms, 24 VDC 1 W, accionamiento manual (hoja del distribuidor
+#       klefinghaus.de). Se toma el Qn MENOR (680): el reemplazo debe dar al menos eso.
+#  [V2] Festo VUVG-L14 5/3 centro cerrado G1/8 (566510): Qn 620–650 L/min (listado del
+#       distribuidor coastpneumatics.com).
+#  [V3] SMC VF3130, 5/2 monoestable G1/4: C = 4,0 dm³/(s·bar) de 1→4/2 y 3,1 de 4/2→5/3, Cv 1,0 y
+#       0,75 (listado del distribuidor Motion); la conversión de Cv con b = 0,3 da 3,99 y 2,99
+#       (`tests/test_neumatica_iso6358.py`), coherente con la ficha.
+#  [V4] Airtac 4V210-08, 5/2 G1/4: Cv 1,1, 0,15–0,8 MPa (listado del distribuidor KTB Europe).
+#  [V5] Festo VUVG-L14-T32U-MT-G18 (2×3/2 normalmente abierta, G1/8): Qn 480–500 L/min, y
+#       VUVG-L18 2×3/2 cerrada G1/4: 880 L/min (hojas de Festo en klefinghaus.de y rs-online):
+#       el ORDEN de una 3/2 del mismo tamaño, a confirmar.
+# Criterios de diseño y a confirmar:
+#  - `b` = 0,3 en todas: ninguna fuente leída publica b (SMC lo publica en su ficha completa):
+#    hipótesis declarada (D3) hasta leerla;
+#  - la referencia del Qn de Festo se toma ANR (ISO 8778), a confirmar con su ficha;
+#  - el rango de presión es el MÁS ESTRECHO de las líneas citadas (vale para cualquiera);
+#  - biestables y 5/3 de escape y de presión: el caudal y los tiempos de su hermana de la misma
+#    línea y tamaño, a confirmar; la caja es una envolvente provisoria del cuerpo con la bobina.
+_puertos_5_g18: &puertos_5_g18
+  - {id: "1", rol: alimentacion, rosca: G1/8}
+  - {id: "2", rol: trabajo, rosca: G1/8}
+  - {id: "3", rol: escape, rosca: G1/8}
+  - {id: "4", rol: trabajo, rosca: G1/8}
+  - {id: "5", rol: escape, rosca: G1/8}
+_puertos_5_g14: &puertos_5_g14
+  - {id: "1", rol: alimentacion, rosca: G1/4}
+  - {id: "2", rol: trabajo, rosca: G1/4}
+  - {id: "3", rol: escape, rosca: G1/4}
+  - {id: "4", rol: trabajo, rosca: G1/4}
+  - {id: "5", rol: escape, rosca: G1/4}
+_caudal_g18: &caudal_g18 {Qn_l_min: 680, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}
+_caudal_g14: &caudal_g14 {C: 4.0, b: 0.3}
+_escape_g14: &escape_g14 {C: 3.1, b: 0.3}
+_fuente_g18: &fuente_g18 "Festo VUVG-L14-M52-AT-G18 (576256): Qn, presión, tiempos y bobina (hoja del distribuidor klefinghaus.de)"
+_fuente_g14: &fuente_g14 "SMC VF3130 (listado Motion: C 4,0 / 3,1, Cv 1,0 / 0,75); Airtac 4V210-08 (listado KTB: Cv 1,1, 0,15–0,8 MPa)"
+components:
+  # ── 5/2 G1/8 ──────────────────────────────────────────────────────────────────────────────
+  - ref: VAL-52-MONO-G18
+    name: Electroválvula 5/2 monoestable G1/8 24 VDC
+    description: Electroválvula 5/2 monoestable (bobina + muelle) G1/8, pilotaje interno, bobina 24 VDC con accionamiento manual; al cortar la energía vuelve a 1→2 (el cilindro se retira). Verificar con el proveedor.
+    builder: box
+    params: {width: 16, depth: 110, height: 50}
+    weight: 0.15
+    specs: {vias: 5, posiciones: 2, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-M52 / SMC SY5120 / Airtac 4V110-06", fuente: "[V1]", a_confirmar: "envolvente de la caja", cotas_verificadas: false, cost: 35}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_2_monoestable
+      fuente: *fuente_g18
+      puertos: *puertos_5_g18
+      modelo: {tipo: valvula, vias: 5, posiciones: 2, mando: monoestable, accionamiento: electrico, bobinas: ["14"], tension_bobina: "24 VDC", manual: true, t_on_ms: 14, t_off_ms: 22, p_min_bar: 2.5, p_max_bar: 8, caudal: *caudal_g18}
+      a_confirmar: [caudal.b, caudal.referencia]
+  - ref: VAL-52-BI-G18
+    name: Electroválvula 5/2 biestable G1/8 24 VDC
+    description: Electroválvula 5/2 biestable (dos bobinas, memoria) G1/8, pilotaje interno, bobinas 24 VDC con accionamiento manual; sin tensión conserva la última posición. Verificar con el proveedor.
+    builder: box
+    params: {width: 16, depth: 140, height: 50}
+    weight: 0.20
+    specs: {vias: 5, posiciones: 2, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-B52 / SMC SY5220 / Airtac 4V120-06", fuente: "[V1]", a_confirmar: "caudal y tiempos de la monoestable de la línea; envolvente de la caja", cotas_verificadas: false, cost: 40}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_2_biestable
+      fuente: *fuente_g18
+      puertos: *puertos_5_g18
+      modelo: {tipo: valvula, vias: 5, posiciones: 2, mando: biestable, accionamiento: electrico, bobinas: ["14", "12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 14, t_off_ms: 22, p_min_bar: 2.5, p_max_bar: 8, caudal: *caudal_g18}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.Qn_l_min, caudal.b, caudal.referencia]
+  # ── 5/3 G1/8 (centrada por muelles, dos bobinas) ──────────────────────────────────────────
+  - ref: VAL-53-CC-G18
+    name: Electroválvula 5/3 centro cerrado G1/8 24 VDC
+    description: Electroválvula 5/3 de centro cerrado G1/8 (centrada por muelles, dos bobinas 24 VDC, manual); sin tensión bloquea las dos cámaras y el cilindro se detiene donde está. Verificar con el proveedor.
+    builder: box
+    params: {width: 16, depth: 140, height: 50}
+    weight: 0.21
+    specs: {vias: 5, posiciones: 3, centro: cerrado, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-P53C / SMC SY5320 / Airtac 4V130C-06", fuente: "[V2] [V1]", a_confirmar: "tiempos; envolvente de la caja", cotas_verificadas: false, cost: 55}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_3_centro_cerrado
+      fuente: "Festo VUVG-L14 5/3 cerrada (566510): Qn 620–650 L/min (listado coastpneumatics.com); presión y bobina de la VUVG-L14 5/2"
+      puertos: *puertos_5_g18
+      modelo: {tipo: valvula, vias: 5, posiciones: 3, mando: centro_cerrado, accionamiento: electrico, bobinas: ["14", "12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 14, t_off_ms: 22, p_min_bar: 2.5, p_max_bar: 8, caudal: {Qn_l_min: 620, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.b, caudal.referencia]
+  - ref: VAL-53-CE-G18
+    name: Electroválvula 5/3 centro a escape G1/8 24 VDC
+    description: Electroválvula 5/3 de centro a escape G1/8 (centrada por muelles, dos bobinas 24 VDC, manual); sin tensión descarga las dos cámaras y el cilindro queda libre. Verificar con el proveedor.
+    builder: box
+    params: {width: 16, depth: 140, height: 50}
+    weight: 0.21
+    specs: {vias: 5, posiciones: 3, centro: escape, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-P53E / SMC SY5420 / Airtac 4V130E-06", fuente: "[V2] [V1]", a_confirmar: "caudal y tiempos de la 5/3 cerrada de la línea; envolvente de la caja", cotas_verificadas: false, cost: 55}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_3_centro_escape
+      fuente: "Festo VUVG-L14 5/3 cerrada (566510) como hermana de la línea: Qn 620–650 L/min (listado coastpneumatics.com)"
+      puertos: *puertos_5_g18
+      modelo: {tipo: valvula, vias: 5, posiciones: 3, mando: centro_escape, accionamiento: electrico, bobinas: ["14", "12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 14, t_off_ms: 22, p_min_bar: 2.5, p_max_bar: 8, caudal: {Qn_l_min: 620, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.Qn_l_min, caudal.b, caudal.referencia]
+  - ref: VAL-53-CP-G18
+    name: Electroválvula 5/3 centro a presión G1/8 24 VDC
+    description: Electroválvula 5/3 de centro a presión G1/8 (centrada por muelles, dos bobinas 24 VDC, manual); sin tensión alimenta las dos cámaras. Verificar con el proveedor.
+    builder: box
+    params: {width: 16, depth: 140, height: 50}
+    weight: 0.21
+    specs: {vias: 5, posiciones: 3, centro: presion, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-P53U / SMC SY5520 / Airtac 4V130P-06", fuente: "[V2] [V1]", a_confirmar: "caudal y tiempos de la 5/3 cerrada de la línea; envolvente de la caja", cotas_verificadas: false, cost: 55}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_3_centro_presion
+      fuente: "Festo VUVG-L14 5/3 cerrada (566510) como hermana de la línea: Qn 620–650 L/min (listado coastpneumatics.com)"
+      puertos: *puertos_5_g18
+      modelo: {tipo: valvula, vias: 5, posiciones: 3, mando: centro_presion, accionamiento: electrico, bobinas: ["14", "12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 14, t_off_ms: 22, p_min_bar: 2.5, p_max_bar: 8, caudal: {Qn_l_min: 620, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.Qn_l_min, caudal.b, caudal.referencia]
+  # ── 5/2 y 5/3 G1/4 ────────────────────────────────────────────────────────────────────────
+  - ref: VAL-52-MONO-G14
+    name: Electroválvula 5/2 monoestable G1/4 24 VDC
+    description: Electroválvula 5/2 monoestable (bobina + muelle) G1/4, pilotaje interno, bobina 24 VDC con accionamiento manual; al cortar la energía vuelve a 1→2 (el cilindro se retira). Verificar con el proveedor.
+    builder: box
+    params: {width: 22, depth: 130, height: 55}
+    weight: 0.25
+    specs: {vias: 5, posiciones: 2, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3130 / Festo VUVG-L18-M52 / Airtac 4V210-08", fuente: "[V3] [V4]", a_confirmar: "tiempos; envolvente de la caja", cotas_verificadas: false, cost: 45}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_2_monoestable
+      fuente: *fuente_g14
+      puertos: *puertos_5_g14
+      modelo: {tipo: valvula, vias: 5, posiciones: 2, mando: monoestable, accionamiento: electrico, bobinas: ["14"], tension_bobina: "24 VDC", manual: true, t_on_ms: 20, t_off_ms: 30, p_min_bar: 1.5, p_max_bar: 8, caudal: *caudal_g14, escape: *escape_g14}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.b, escape.b]
+  - ref: VAL-52-BI-G14
+    name: Electroválvula 5/2 biestable G1/4 24 VDC
+    description: Electroválvula 5/2 biestable (dos bobinas, memoria) G1/4, pilotaje interno, bobinas 24 VDC con accionamiento manual; sin tensión conserva la última posición. Verificar con el proveedor.
+    builder: box
+    params: {width: 22, depth: 160, height: 55}
+    weight: 0.32
+    specs: {vias: 5, posiciones: 2, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3230 / Festo VUVG-L18-B52 / Airtac 4V220-08", fuente: "[V3] [V4]", a_confirmar: "caudal y tiempos de la monoestable de la línea; envolvente de la caja", cotas_verificadas: false, cost: 50}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_2_biestable
+      fuente: *fuente_g14
+      puertos: *puertos_5_g14
+      modelo: {tipo: valvula, vias: 5, posiciones: 2, mando: biestable, accionamiento: electrico, bobinas: ["14", "12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 20, t_off_ms: 30, p_min_bar: 1.5, p_max_bar: 8, caudal: *caudal_g14, escape: *escape_g14}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.C, caudal.b, escape.C, escape.b]
+  - ref: VAL-53-CC-G14
+    name: Electroválvula 5/3 centro cerrado G1/4 24 VDC
+    description: Electroválvula 5/3 de centro cerrado G1/4 (centrada por muelles, dos bobinas 24 VDC, manual); sin tensión bloquea las dos cámaras y el cilindro se detiene donde está. Verificar con el proveedor.
+    builder: box
+    params: {width: 22, depth: 160, height: 55}
+    weight: 0.34
+    specs: {vias: 5, posiciones: 3, centro: cerrado, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3330 / Festo VUVG-L18-P53C / Airtac 4V230C-08", fuente: "[V3] [V4]", a_confirmar: "caudal y tiempos de la 5/2 de la línea; envolvente de la caja", cotas_verificadas: false, cost: 65}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_3_centro_cerrado
+      fuente: *fuente_g14
+      puertos: *puertos_5_g14
+      modelo: {tipo: valvula, vias: 5, posiciones: 3, mando: centro_cerrado, accionamiento: electrico, bobinas: ["14", "12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 20, t_off_ms: 30, p_min_bar: 1.5, p_max_bar: 8, caudal: *caudal_g14, escape: *escape_g14}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.C, caudal.b, escape.C, escape.b]
+  - ref: VAL-53-CE-G14
+    name: Electroválvula 5/3 centro a escape G1/4 24 VDC
+    description: Electroválvula 5/3 de centro a escape G1/4 (centrada por muelles, dos bobinas 24 VDC, manual); sin tensión descarga las dos cámaras y el cilindro queda libre. Verificar con el proveedor.
+    builder: box
+    params: {width: 22, depth: 160, height: 55}
+    weight: 0.34
+    specs: {vias: 5, posiciones: 3, centro: escape, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3430 / Festo VUVG-L18-P53E / Airtac 4V230E-08", fuente: "[V3] [V4]", a_confirmar: "caudal y tiempos de la 5/2 de la línea; envolvente de la caja", cotas_verificadas: false, cost: 65}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_3_centro_escape
+      fuente: *fuente_g14
+      puertos: *puertos_5_g14
+      modelo: {tipo: valvula, vias: 5, posiciones: 3, mando: centro_escape, accionamiento: electrico, bobinas: ["14", "12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 20, t_off_ms: 30, p_min_bar: 1.5, p_max_bar: 8, caudal: *caudal_g14, escape: *escape_g14}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.C, caudal.b, escape.C, escape.b]
+  - ref: VAL-53-CP-G14
+    name: Electroválvula 5/3 centro a presión G1/4 24 VDC
+    description: Electroválvula 5/3 de centro a presión G1/4 (centrada por muelles, dos bobinas 24 VDC, manual); sin tensión alimenta las dos cámaras. Verificar con el proveedor.
+    builder: box
+    params: {width: 22, depth: 160, height: 55}
+    weight: 0.34
+    specs: {vias: 5, posiciones: 3, centro: presion, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3530 / Festo VUVG-L18-P53U / Airtac 4V230P-08", fuente: "[V3] [V4]", a_confirmar: "caudal y tiempos de la 5/2 de la línea; envolvente de la caja", cotas_verificadas: false, cost: 65}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_5_3_centro_presion
+      fuente: *fuente_g14
+      puertos: *puertos_5_g14
+      modelo: {tipo: valvula, vias: 5, posiciones: 3, mando: centro_presion, accionamiento: electrico, bobinas: ["14", "12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 20, t_off_ms: 30, p_min_bar: 1.5, p_max_bar: 8, caudal: *caudal_g14, escape: *escape_g14}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.C, caudal.b, escape.C, escape.b]
+  # ── 3/2 NC (simple efecto, soplado, pilotaje) ─────────────────────────────────────────────
+  - ref: VAL-32-NC-G18
+    name: Electroválvula 3/2 normalmente cerrada G1/8 24 VDC
+    description: Electroválvula 3/2 normalmente cerrada G1/8 (bobina + muelle, 24 VDC, manual), para un cilindro de simple efecto, un soplado o un pilotaje; sin tensión cierra 1 y descarga 2 por 3. Verificar con el proveedor.
+    builder: box
+    params: {width: 16, depth: 100, height: 50}
+    weight: 0.14
+    specs: {vias: 3, posiciones: 2, reposo: NC, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-M32C / SMC VT317 / Airtac 3V110-06", fuente: "[V5] [V1]", a_confirmar: "caudal (orden de la 2×3/2 de la línea) y tiempos; envolvente de la caja", cotas_verificadas: false, cost: 30}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_3_2_nc
+      fuente: "Festo VUVG-L14-T32U-MT-G18 (2×3/2): Qn 480–500 L/min, como orden de una 3/2 G1/8 (hoja del distribuidor klefinghaus.de); presión y bobina de la VUVG-L14"
+      puertos:
+        - {id: "1", rol: alimentacion, rosca: G1/8}
+        - {id: "2", rol: trabajo, rosca: G1/8}
+        - {id: "3", rol: escape, rosca: G1/8}
+      modelo: {tipo: valvula, vias: 3, posiciones: 2, mando: monoestable, reposo: NC, accionamiento: electrico, bobinas: ["12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 14, t_off_ms: 22, p_min_bar: 2.5, p_max_bar: 8, caudal: {Qn_l_min: 480, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.Qn_l_min, caudal.b, caudal.referencia]
+  - ref: VAL-32-NC-G14
+    name: Electroválvula 3/2 normalmente cerrada G1/4 24 VDC
+    description: Electroválvula 3/2 normalmente cerrada G1/4 (bobina + muelle, 24 VDC, manual), para un cilindro de simple efecto, un soplado o un pilotaje; sin tensión cierra 1 y descarga 2 por 3. Verificar con el proveedor.
+    builder: box
+    params: {width: 22, depth: 120, height: 55}
+    weight: 0.22
+    specs: {vias: 3, posiciones: 2, reposo: NC, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L18-M32C / SMC VT325 / Airtac 3V210-08", fuente: "[V5] [V4]", a_confirmar: "caudal (orden de la 2×3/2 de la línea) y tiempos; envolvente de la caja", cotas_verificadas: false, cost: 35}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_3_2_nc
+      fuente: "Festo VUVG-L18 2×3/2 cerrada G1/4: 880 L/min, como orden de una 3/2 G1/4 (hoja de Festo en rs-online); presión de la Airtac 4V210-08 (listado KTB)"
+      puertos:
+        - {id: "1", rol: alimentacion, rosca: G1/4}
+        - {id: "2", rol: trabajo, rosca: G1/4}
+        - {id: "3", rol: escape, rosca: G1/4}
+      modelo: {tipo: valvula, vias: 3, posiciones: 2, mando: monoestable, reposo: NC, accionamiento: electrico, bobinas: ["12"], tension_bobina: "24 VDC", manual: true, t_on_ms: 20, t_off_ms: 30, p_min_bar: 1.5, p_max_bar: 8, caudal: {Qn_l_min: 880, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [t_on_ms, t_off_ms, caudal.Qn_l_min, caudal.b, caudal.referencia]

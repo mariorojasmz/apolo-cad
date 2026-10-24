@@ -65,7 +65,8 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
         assert sorted(refs_in_category(categoria)) == sorted(NUEVAS[categoria] + extra)
     # + ESTOP-40-CAJA (seta D4) + 8 de union-en-perfil-hueco + 3 UCT + TAMBOR-102-RET (faja v4)
     # + 4 pernos de cuello cuadrado DIN 603 (F6) + 10 del armado del tablero (V8.5 F1a)
-    assert len(CATALOG) == 393  # + 5 de mandos-de-seguridad (las 4 de SEGURIDAD y RESG-LENGUETA)
+    # + 5 de mandos-de-seguridad (las 4 de SEGURIDAD y RESG-LENGUETA)
+    assert len(CATALOG) == 420  # + 27 del catálogo neumático (V8.9 F1a)
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS)
@@ -142,7 +143,9 @@ def test_contactores_con_bobina_de_24vdc_y_220vac():
 
 
 def test_categorias_nuevas_al_final_y_en_su_subsistema():
-    assert CATEGORIES[-4:] == NUEVAS_CATEGORIAS  # al final: no reordenan la UI
+    i = CATEGORIES.index(NUEVAS_CATEGORIAS[0])  # al final, antes de las neumáticas (V8.9)
+    assert CATEGORIES[i:i + 4] == NUEVAS_CATEGORIAS and CATEGORIES[i + 4:] == [
+        "cilindros_neumaticos", "valvulas_neumaticas", "aire_comprimido"]
     tree = (RAIZ / "ui" / "src" / "panels" / "Tree.tsx").read_text(encoding="utf-8")
     for cat in NUEVAS_CATEGORIAS:
         assert CAT2SUB[cat] == "Sensores y control"

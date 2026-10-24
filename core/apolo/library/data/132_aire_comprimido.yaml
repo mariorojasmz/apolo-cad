@@ -1,0 +1,149 @@
+category: aire_comprimido
+# Tratamiento y conducción del aire de la máquina (plan V8.9 D16): unidad de mantenimiento a la
+# entrada, válvula de corte con escape (aislamiento de la energía, ISO 4414) y tubo de PU por
+# metro. Cada ref es un EJEMPLO por FUNCIÓN; se reemplaza por la equivalente que dé el mismo
+# filtrado, el mismo rango de regulación, la misma rosca y un caudal no menor. Líneas de
+# referencia (P1 de V8.9, provisoria): Festo y SMC como gama alta, Airtac como económica.
+#
+# Fuentes y a confirmar:
+#  - Sin lubricador: los cilindros del catálogo son sin lubricación (SMC C96 «non-lube», manual
+#    C96*-OM0001Q, ver 130_cilindros_neumaticos.yaml [F1]).
+#  - Unidad de mantenimiento y válvula de corte: ninguna ficha leída en la F1a; filtrado, rango
+#    de regulación, presión máxima y caudal son el ORDEN de las líneas citadas y van TODOS en
+#    `a_confirmar` (criterio de diseño hasta leer la ficha del proveedor). La presión de
+#    regulación es un AJUSTE: la fija el instalador en `add_device.ajustes` (D2); 6 bar
+#    manométricos es el ejemplo del plan (P2, provisoria).
+#  - Tubo PU: Ø exterior × interior de la designación SMC TU (TU0425, TU0604, TU0805, TU1065
+#    llevan DE×DI en el código); presión máxima a 20 °C y radio mínimo de curvatura a confirmar;
+#    peso por metro con la densidad del PU ≈ 1,2 g/cm³ (criterio de diseño).
+#  - Las cajas son envolventes provisorias (a confirmar).
+components:
+  # ── unidad de mantenimiento (filtro + regulador) ──────────────────────────────────────────
+  - ref: FR-G14
+    name: Unidad de mantenimiento filtro-regulador G1/4
+    description: Filtro-regulador G1/4 con manómetro y purga, a la entrada del circuito de aire de la máquina; regula la presión de trabajo (la fija el instalador) y filtra el aire. Sin lubricador. Verificar con el proveedor.
+    builder: box
+    params: {width: 53, depth: 60, height: 170}
+    weight: 0.45
+    specs: {rosca_puertos: G1/4, filtro_um: 5, linea_referencia: "orden de SMC AW20 / Festo MS4-LFR / Airtac GFR200-08", a_confirmar: "filtrado, regulación, presión, caudal y envolvente", cotas_verificadas: false, cost: 45}
+    neumatico:
+      funcion: AZ
+      simbolo: frl_filtro_regulador
+      fuente: "orden de las líneas citadas (sin ficha leída en la F1a): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: G1/4}
+        - {id: "2", rol: salida, rosca: G1/4}
+      modelo: {tipo: frl, filtro_um: 5, lubricador: false, vaciado: semiautomatico, p_max_bar: 10, p_regulada_bar: [0.5, 8.5], caudal: {Qn_l_min: 750, referencia: ANR, p1_bar: 7, p2_bar: 6, b: 0.3}}
+      a_confirmar: [filtro_um, vaciado, p_max_bar, p_regulada_bar, caudal.Qn_l_min, caudal.referencia, caudal.p1_bar, caudal.p2_bar, caudal.b]
+  - ref: FR-G12
+    name: Unidad de mantenimiento filtro-regulador G1/2
+    description: Filtro-regulador G1/2 con manómetro y purga, a la entrada del circuito de aire de una máquina con varios cilindros; regula la presión de trabajo (la fija el instalador) y filtra el aire. Sin lubricador. Verificar con el proveedor.
+    builder: box
+    params: {width: 75, depth: 85, height: 230}
+    weight: 1.10
+    specs: {rosca_puertos: G1/2, filtro_um: 5, linea_referencia: "orden de SMC AW40 / Festo MS6-LFR / Airtac GFR400-15", a_confirmar: "filtrado, regulación, presión, caudal y envolvente", cotas_verificadas: false, cost: 80}
+    neumatico:
+      funcion: AZ
+      simbolo: frl_filtro_regulador
+      fuente: "orden de las líneas citadas (sin ficha leída en la F1a): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: G1/2}
+        - {id: "2", rol: salida, rosca: G1/2}
+      modelo: {tipo: frl, filtro_um: 5, lubricador: false, vaciado: semiautomatico, p_max_bar: 10, p_regulada_bar: [0.5, 8.5], caudal: {Qn_l_min: 3000, referencia: ANR, p1_bar: 7, p2_bar: 6, b: 0.3}}
+      a_confirmar: [filtro_um, vaciado, p_max_bar, p_regulada_bar, caudal.Qn_l_min, caudal.referencia, caudal.p1_bar, caudal.p2_bar, caudal.b]
+  # ── válvula de corte con escape (aislamiento de la energía, ISO 4414) ─────────────────────
+  - ref: CORTE-ESC-G14
+    name: Válvula de corte con escape G1/4 bloqueable
+    description: Válvula de corte 3/2 manual G1/4 con escape y candado, aguas abajo de la unidad de mantenimiento; al cerrarla descarga el aire de la máquina (aislamiento de la energía para el mantenimiento). Verificar con el proveedor.
+    builder: box
+    params: {width: 40, depth: 60, height: 80}
+    weight: 0.20
+    specs: {vias: 3, rosca_puertos: G1/4, bloqueable: true, linea_referencia: "orden de SMC VHS20 / Festo MS4-EM / Airtac HSV-08", a_confirmar: "presión, caudal y envolvente", cotas_verificadas: false, cost: 40}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_corte_con_escape
+      fuente: "orden de las líneas citadas (sin ficha leída en la F1a): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: alimentacion, rosca: G1/4}
+        - {id: "2", rol: trabajo, rosca: G1/4}
+        - {id: "3", rol: escape, rosca: G1/4}
+      modelo: {tipo: valvula_corte, accionamiento: manual, con_escape: true, bloqueable: true, p_max_bar: 10, caudal: {Qn_l_min: 1000, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [p_max_bar, caudal.Qn_l_min, caudal.referencia, caudal.b]
+  - ref: CORTE-ESC-G12
+    name: Válvula de corte con escape G1/2 bloqueable
+    description: Válvula de corte 3/2 manual G1/2 con escape y candado, aguas abajo de la unidad de mantenimiento; al cerrarla descarga el aire de la máquina (aislamiento de la energía para el mantenimiento). Verificar con el proveedor.
+    builder: box
+    params: {width: 60, depth: 80, height: 100}
+    weight: 0.50
+    specs: {vias: 3, rosca_puertos: G1/2, bloqueable: true, linea_referencia: "orden de SMC VHS40 / Festo MS6-EM / Airtac HSV-15", a_confirmar: "presión, caudal y envolvente", cotas_verificadas: false, cost: 70}
+    neumatico:
+      funcion: QM
+      simbolo: valvula_corte_con_escape
+      fuente: "orden de las líneas citadas (sin ficha leída en la F1a): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: alimentacion, rosca: G1/2}
+        - {id: "2", rol: trabajo, rosca: G1/2}
+        - {id: "3", rol: escape, rosca: G1/2}
+      modelo: {tipo: valvula_corte, accionamiento: manual, con_escape: true, bloqueable: true, p_max_bar: 10, caudal: {Qn_l_min: 4000, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [p_max_bar, caudal.Qn_l_min, caudal.referencia, caudal.b]
+  # ── tubo de poliuretano (por metro) ───────────────────────────────────────────────────────
+  - ref: TUBO-PU-4
+    name: Tubo de poliuretano Ø4×2,5
+    description: Tubo neumático de poliuretano Ø4 exterior × 2,5 interior, por metro, para racores instantáneos Ø4 (pilotajes, mini cilindros). Verificar con el proveedor.
+    builder: round_tube
+    params: {od: 4, wall: 0.75}
+    cuttable: true
+    default_length: 1000
+    weight: 0.0092
+    specs: {D_ext_mm: 4, D_int_mm: 2.5, material_tubo: PU, linea_referencia: "orden de SMC TU0425 / Festo PUN-4X0,75 / Airtac US0425", a_confirmar: "presión máxima y radio de curvatura", cotas_verificadas: false, cost_por_m: 0.6}
+    neumatico:
+      funcion: WP
+      simbolo: tubo
+      fuente: "Ø exterior × interior de la designación SMC TU0425"
+      tubo: {D_ext_mm: 4, D_int_mm: 2.5, material: PU, p_max_bar: 8, radio_min_mm: 10}
+      a_confirmar: [tubo.p_max_bar, tubo.radio_min_mm]
+  - ref: TUBO-PU-6
+    name: Tubo de poliuretano Ø6×4
+    description: Tubo neumático de poliuretano Ø6 exterior × 4 interior, por metro, para racores instantáneos Ø6 (cilindros hasta Ø40 con válvula G1/8). Verificar con el proveedor.
+    builder: round_tube
+    params: {od: 6, wall: 1}
+    cuttable: true
+    default_length: 1000
+    weight: 0.0189
+    specs: {D_ext_mm: 6, D_int_mm: 4, material_tubo: PU, linea_referencia: "orden de SMC TU0604 / Festo PUN-6X1 / Airtac US0604", a_confirmar: "presión máxima y radio de curvatura", cotas_verificadas: false, cost_por_m: 0.8}
+    neumatico:
+      funcion: WP
+      simbolo: tubo
+      fuente: "Ø exterior × interior de la designación SMC TU0604"
+      tubo: {D_ext_mm: 6, D_int_mm: 4, material: PU, p_max_bar: 8, radio_min_mm: 15}
+      a_confirmar: [tubo.p_max_bar, tubo.radio_min_mm]
+  - ref: TUBO-PU-8
+    name: Tubo de poliuretano Ø8×5
+    description: Tubo neumático de poliuretano Ø8 exterior × 5 interior, por metro, para racores instantáneos Ø8 (cilindros Ø40–63, válvulas G1/4). Verificar con el proveedor.
+    builder: round_tube
+    params: {od: 8, wall: 1.5}
+    cuttable: true
+    default_length: 1000
+    weight: 0.0368
+    specs: {D_ext_mm: 8, D_int_mm: 5, material_tubo: PU, linea_referencia: "orden de SMC TU0805 / Festo PUN-8X1,25 / Airtac US0805", a_confirmar: "presión máxima y radio de curvatura", cotas_verificadas: false, cost_por_m: 1.1}
+    neumatico:
+      funcion: WP
+      simbolo: tubo
+      fuente: "Ø exterior × interior de la designación SMC TU0805"
+      tubo: {D_ext_mm: 8, D_int_mm: 5, material: PU, p_max_bar: 8, radio_min_mm: 20}
+      a_confirmar: [tubo.p_max_bar, tubo.radio_min_mm]
+  - ref: TUBO-PU-10
+    name: Tubo de poliuretano Ø10×6,5
+    description: Tubo neumático de poliuretano Ø10 exterior × 6,5 interior, por metro, para la alimentación de la máquina y los colectores. Verificar con el proveedor.
+    builder: round_tube
+    params: {od: 10, wall: 1.75}
+    cuttable: true
+    default_length: 1000
+    weight: 0.0544
+    specs: {D_ext_mm: 10, D_int_mm: 6.5, material_tubo: PU, linea_referencia: "orden de SMC TU1065 / Festo PUN-10X1,5 / Airtac US1065", a_confirmar: "presión máxima y radio de curvatura", cotas_verificadas: false, cost_por_m: 1.5}
+    neumatico:
+      funcion: WP
+      simbolo: tubo
+      fuente: "Ø exterior × interior de la designación SMC TU1065"
+      tubo: {D_ext_mm: 10, D_int_mm: 6.5, material: PU, p_max_bar: 8, radio_min_mm: 27}
+      a_confirmar: [tubo.p_max_bar, tubo.radio_min_mm]

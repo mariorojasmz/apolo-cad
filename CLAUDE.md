@@ -87,8 +87,8 @@ los datos van a `APOLO_HOME` (~/.apolo) y la UI sale del paquete (`apolo/webui`,
 
 ### Estado actual (2026-10-24)
 
-5152 tests (+27 de tortura vía `-m torture`) · 515 tests vitest · 90 tools MCP · 60 comandos ·
-catálogo 393 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
+5242 tests (+27 de tortura vía `-m torture`) · 515 tests vitest · 90 tools MCP · 60 comandos ·
+catálogo 420 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
 [V8 — la máquina viva](docs/plans/V8-maquina-viva.md) (tablero eléctrico real, co-simulación y
 placas; cada V8.x con su contrato). Lo que falta de cada plan, en la `nota:` de su frontmatter.
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %

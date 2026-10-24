@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from .electrico.ficha import FichaElectrica
     from .electrico.ficha_tablero import FichaTablero
+    from .neumatica.ficha import FichaNeumatica
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,9 @@ class Component:
     # ficha de ARMADO del bloque `tablero:` (`electrico/ficha_tablero.py`, plan V8.5 A2–A4):
     # interior del gabinete, cara de apoyo, mando de puerta, accesorio acoplado, riel, canaleta.
     tablero: FichaTablero | None = field(repr=False, default=None)
+    # ficha NEUMÁTICA del bloque `neumatico:` (`neumatica/ficha.py`, plan V8.9 D2): puertos ISO
+    # 5599-3, modelo por tipo con su caudal ISO 6358, o el tubo por metro. None = sin aire.
+    neumatico: FichaNeumatica | None = field(repr=False, default=None)
     # NOMBRE del builder y sus params tal como los declara el YAML: los lee la sección de una
     # viga (`engineering/secciones.seccion_catalogo`, plan flecha-de-bastidor F2). Metadato:
     # no cambia la geometría.
@@ -74,6 +78,8 @@ CATEGORIES = [
     # catálogo eléctrico de la faja piloto (plan V8.1 D6); pulsadores, pilotos, sensores y
     # gabinetes van en sus categorías de siempre (mandos, sensores, tableros)
     "alimentacion_electrica", "proteccion_electrica", "maniobra_control", "conexion_electrica",
+    # catálogo neumático genérico (plan V8.9 D16)
+    "cilindros_neumaticos", "valvulas_neumaticas", "aire_comprimido",
 ]
 
 
@@ -138,6 +144,7 @@ def catalog_payload(category: str | None = None, names_only: bool = False) -> li
     acepta (F6: el agente no encontraba cómo pedir un M6x20)."""
     from .electrico.ficha import ficha_payload
     from .largos_perno import largos_catalogo
+    from .neumatica.ficha import ficha_payload as ficha_neumatica
 
     def _largos(c) -> dict:
         if c.cuttable or (c.specs or {}).get("length") is not None:
@@ -159,6 +166,7 @@ def catalog_payload(category: str | None = None, names_only: bool = False) -> li
             "cuttable": c.cuttable,
             "default_length": c.default_length,
             **({"electrico": ficha_payload(c.electrico)} if c.electrico is not None else {}),
+            **({"neumatico": ficha_neumatica(c.neumatico)} if c.neumatico is not None else {}),
             **_largos(c),
         }
         for c in comps

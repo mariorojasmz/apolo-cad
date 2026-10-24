@@ -30,6 +30,8 @@ from .builders_transmision import BUILDERS as _BUILDERS_TRANSMISION
 from .electrico.ficha import fusionar as _fusionar_electrico
 from .electrico.ficha import parse_ficha
 from .electrico.ficha_tablero import parse_tablero
+from .neumatica.ficha import fusionar as _fusionar_neumatico
+from .neumatica.ficha import parse_ficha_neumatica
 from .perfiles_abiertos import ANCLAS as _ANCLAS_PERFILES
 from .zonas import parse_zonas, unir_zonas
 
@@ -124,6 +126,7 @@ def _component_from_item(item: dict, category: str):
     tablero = parse_tablero(item.get("tablero"), ref, familia=builder_name, params=params,
                             montaje=electrico.montaje if electrico is not None else None,
                             bornes=electrico.ids_bornes if electrico is not None else None)
+    neumatico = parse_ficha_neumatica(item.get("neumatico"), ref)  # plan V8.9 D2: incompleto, no carga
 
     return Component(
         ref=ref,
@@ -138,6 +141,7 @@ def _component_from_item(item: dict, category: str):
         anchors=_anclas_de(anclas_fn, params, specs) if anclas_fn else None,
         electrico=electrico,
         tablero=tablero,
+        neumatico=neumatico,
         familia=builder_name,
         params=dict(params),
         zonas=zonas,
@@ -147,13 +151,14 @@ def _component_from_item(item: dict, category: str):
 def _expand_family(fam: dict) -> list[dict]:
     """Convierte una familia paramétrica en items de componente individuales. El bloque
     `electrico` de la familia vale para cada variante; el de la variante lo completa (su
-    `modelo`, p. ej. la placa del motor, se fusiona clave a clave) y NO pasa a sus specs."""
+    `modelo`, p. ej. la placa del motor, se fusiona clave a clave) y NO pasa a sus specs. Igual
+    el bloque `neumatico` (plan V8.9 D2)."""
     param_keys = fam.get("param_keys", [])
     common = fam.get("specs_common", {})
     items = []
     for variant in fam["variants"]:
         ref = variant["ref"]
-        var_specs = {k: v for k, v in variant.items() if k not in ("ref", "electrico", "tablero")}
+        var_specs = {k: v for k, v in variant.items() if k not in ("ref", "electrico", "tablero", "neumatico")}
         specs = {**common, **var_specs}
         ctx = {"ref": ref, **specs}
         item = {
@@ -169,6 +174,9 @@ def _expand_family(fam: dict) -> list[dict]:
         electrico = _fusionar_electrico(fam.get("electrico"), variant.get("electrico"))
         if electrico is not None:
             item["electrico"] = electrico
+        neumatico = _fusionar_neumatico(fam.get("neumatico"), variant.get("neumatico"))
+        if neumatico is not None:
+            item["neumatico"] = neumatico
         if fam.get("tablero") is not None or variant.get("tablero") is not None:
             item["tablero"] = {**(fam.get("tablero") or {}), **(variant.get("tablero") or {})}
         if fam.get("zonas") is not None:  # las zonas de la familia valen para cada variante

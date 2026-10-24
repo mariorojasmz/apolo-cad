@@ -14,6 +14,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Bloque `electrico.modelo` (V8.3 D7): `tipo` elige el modelo de la co-simulación y cada cifra
   cita su norma o dice «criterio de diseño» en el comentario del YAML; un rango [mín, máx] de lo
   que fija el instalador es un AJUSTE obligatorio. Reglas: [cosim](../cosim/CLAUDE.md).
+- Bloque `neumatico:` (V8.9 D2, `neumatica/ficha.py`): a diferencia de `electrico.modelo`, la
+  COMPLETITUD se valida al cargar (`neumatica/ficha_tipos.REQUERIDOS` por `modelo.tipo`; un ajuste
+  es rango [mín, máx]); `fuente` obligatoria y lo que no tiene fuente va en `a_confirmar`. Caudal
+  = (C, b) de ISO 6358-1; Qn, S, Kv y Cv sólo como entrada convertida con su punto. El paquete
+  `neumatica/` usa sólo la biblioteca estándar. [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
   canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva

@@ -142,7 +142,8 @@ def test_all_new_families_present():
     # +1 tambor de cola de eje vivo TAMBOR-102-RET (create_belt_conveyor v4)
     # +4 pernos de cuello cuadrado DIN 603 (F6 de la puerta de publicación)
     # +10 del armado del tablero (V8.5 F1a)
-    assert len(CATALOG) == 393  # +5 de mandos-de-seguridad (2 setas 2NC, resguardo, lengüeta, relé)
+    # +5 de mandos-de-seguridad (2 setas 2NC, resguardo, lengüeta, relé)
+    assert len(CATALOG) == 420  # +27 del catálogo neumático (V8.9 F1a)
 
 
 def test_door_sliding_hardware():
