@@ -1,5 +1,5 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
+estado: implementado   # implementado | en curso | sin verificar | descartado
 nota: sin pendientes de código: F3 verificada por MCP (2026-10-21): piloto VERDE 40/40 en ~53 s y ROJO al simular el ala de la rev. 3; la rev. 3 real no se re-midió (la copia no trae revisiones)
 descripcion: Apolo avisa cuando una tuerca o un perno no se puede apretar porque la llave no entra
 ---

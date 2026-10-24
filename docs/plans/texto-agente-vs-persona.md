@@ -1,6 +1,6 @@
 ---
 estado: implementado   # implementado | en curso | sin verificar | descartado
-nota: F0–F5 hechas en la rama de integración, sin mergear a main; falta que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
+nota: F0–F5 hechas y en main; falta que Mario revise D1–D13 y la tabla de pistas de la Bitácora (implementación delegada sin aprobación previa)
 descripcion: Cada diálogo de comando te dice en una frase qué hace, el detalle técnico queda a un clic y aparece la pestaña Superficies en el ribbon
 ---
 

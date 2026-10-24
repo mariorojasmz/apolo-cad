@@ -1,5 +1,5 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
+estado: implementado   # implementado | en curso | sin verificar | descartado
 nota: sin pendientes de código: F4 verificada por MCP (2026-10-21): la estructura de la piloto redeclarada con 27 órdenes en 2 llamadas, 264 uniones idénticas, sujeción, gravedad y puerta igual de verdes; la propuesta de `declare_structure` no sirve tal cual — en el hito H
 descripcion: El agente declara de una vez cómo se une cada pieza repetida («cada eje a su larguero») y la detección automática ya no suelda cadenas a la guarda
 ---

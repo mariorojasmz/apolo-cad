@@ -198,25 +198,20 @@ medio stagear, commits que arrastran trabajo ajeno).
 - ⚠️ **`EnterWorktree` nace de `origin/main`**: si no se pushea seguido, nace atrás. Primer
   comando: `git merge main --ff-only`. Y `git merge main` antes de cada tanda de cambios, no
   sólo al final.
-- ⚠️ **Python en un worktree prueba el checkout PRINCIPAL**: el `.venv` es el del árbol
-  principal y su instalación editable apunta a SU `core/` → pytest da verde sobre código que
-  no es el tuyo. En el worktree: `$env:PYTHONPATH = "$PWD\core"` antes de correr pytest (y
-  `-B`, o el `.pyc` recompila el principal y recarga la API con `--reload`). Tampoco levantes
-  la API desde un worktree: `paths.repo_root()` sería el worktree y arrancaría con un `data/`
-  vacío.
-- ⚠️ **La raíz que rige es la del checkout principal, tal como estaba al arrancar** (medido,
-  [plan de poda](docs/plans/poda-claude-md.md) § Bitácora): un subagente recibe el CLAUDE.md
-  raíz que cargó la sesión padre al ARRANCAR, no el archivo actual; las sesiones y subagentes
-  en un worktree (también con `isolation: "worktree"`) leen la raíz del checkout PRINCIPAL (los
-  anidados sí, del worktree). → Un cambio a la raíz en un worktree no rige hasta mergearse;
-  para verificarlo, mergea y abre una sesión fresca con `claude -p` desde el árbol principal.
+- ⚠️ **Python en un worktree prueba el checkout PRINCIPAL** (el `.venv` editable apunta a SU
+  `core/`): antes de pytest, `$env:PYTHONPATH = "$PWD\core"` y `-B` (si no, el `.pyc` recompila
+  el principal y recarga la API). Nunca levantes la API desde un worktree (arrancaría con un
+  `data/` vacío).
+- ⚠️ **La raíz que rige es la del checkout principal, tal como estaba al arrancar**: los
+  subagentes heredan la que cargó la sesión padre y los worktrees leen la del PRINCIPAL (los
+  anidados, del worktree). Un cambio a la raíz se verifica mergeado, con una sesión fresca
+  (`claude -p`) desde el árbol principal. [plan de poda](docs/plans/poda-claude-md.md) § Bitácora
 - Subagentes que editan en paralelo: `isolation: "worktree"`. ⚠️ Nunca un subagente sin
   aislamiento que haga `EnterWorktree`: su shell sigue al worktree de la sesión padre.
 - Antes de cada commit: `git diff --cached --name-only`; lo ajeno se saca con
   `git restore --staged`.
-- **Editar SIEMPRE dentro del worktree**: una ruta absoluta al árbol principal compila, pasa
-  tests y no aparece en el `git status` del worktree. Si pasó: `git -C <principal> diff >
-  patch`, `git apply` en el worktree, `git restore` en el principal.
+- **Editar SIEMPRE dentro del worktree**: una ruta absoluta al principal pasa tests y no sale en
+  el `git status` del worktree (si pasó: `diff` → `git apply` en el worktree → `git restore`).
 - Dentro de un worktree, **un comando git por llamada**: sin `&&`, bucles ni `$(…)`.
 - El worktree no trae `ui/node_modules`: `npm ci` en `ui/` si se toca la UI. **No omitir los
   tests**: son el único gate. Las suites se corren de a una; dos en paralelo dan timeouts
@@ -227,15 +222,12 @@ medio stagear, commits que arrastran trabajo ajeno).
   ```powershell
   git -C <worktree> rebase main; if ($?) { git -C <principal> merge <rama-del-worktree> --ff-only }
   ```
-- ⚠️ **`main` avanza también entre que el agente rebasa y Mario pega el comando.** Un
-  `CONFLICT` lo resuelve el agente, no Mario: rebasa de nuevo, corre los tests y vuelve a dar
-  el comando.
+- Un `CONFLICT` al rebasar lo resuelve quien mergea: rebasa de nuevo, corre los tests y mergea.
 - **Borrar un worktree**: antes, probar que no sea el cwd de una sesión viva (renombrar la
-  carpeta y devolverle el nombre; si falla, está ocupada: ni git ni la antigüedad lo detectan) y
-  borrar el `node_modules` que uno instaló; después, `git worktree remove` sin `--force`. Si
-  explota con *Filename too long* y deja la carpeta: `robocopy <carpeta-vacía> <ruta> /MIR`,
-  `Remove-Item <ruta> -Recurse -Force` y `git worktree prune` (`robocopy` sale ≠ 0 aun cuando
-  funciona: encadenar con `;`, nunca con `if ($?)`).
+  carpeta y devolverle el nombre; si falla, está ocupada) y que su rama no tenga commits fuera
+  de `main`; luego `git worktree remove` sin `--force`. Con *Filename too long*:
+  `robocopy <vacía> <ruta> /MIR` (sale ≠ 0 aun funcionando: encadenar con `;`), `Remove-Item` y
+  `git worktree prune`.
 
 ## Publicación
 
@@ -362,14 +354,12 @@ No están en `design/guidelines.py`; valen al modelar por MCP.
 
 - **Editar sólo YAML NO recarga el worker** (`--reload` vigila los `.py` por contenido): toca un
   `.py` o reinicia. Sin `--reload`, reinicia siempre tras un cambio.
-- **Zombie-socket :8000**: un `multiprocessing.spawn` huérfano (hijo de un uvicorn muerto)
-  retiene el puerto y sirve código VIEJO; un «reinicio» sin verificar el dueño real VALIDA EN
-  FALSO. Detectar: `Get-NetTCPConnection -LocalPort 8000` + buscar en `Win32_Process` el
-  `--multiprocessing-fork` con el padre muerto; matarlo (o todos los python del venv).
-- **Script offline + `--reload`**: un script que haga `import apolo.*` recompila `.pyc` →
-  recarga el worker → blanquea el DOC en memoria (el autosave ya guardó: `open_project(id)`
-  recupera). Si un segundo reload corta la carga del arranque, queda un «Sin título» vacío como
-  reciente → reabre el real y borra el basura desde la UI.
+- **Zombie-socket :8000**: un `--multiprocessing-fork` huérfano (padre uvicorn muerto) retiene
+  el puerto y sirve código VIEJO: un «reinicio» sin verificar el dueño valida en falso. Buscarlo
+  con `Get-NetTCPConnection -LocalPort 8000` + `Win32_Process` y matarlo.
+- **Script offline + `--reload`**: un `import apolo.*` recompila `.pyc` → recarga el worker →
+  blanquea el DOC en memoria (`open_project(id)` lo recupera del autosave; un «Sin título» vacío
+  que quede como reciente se borra desde la UI).
 - **Flujo «revisa»**: Mario prueba la UI a mano y los errores caen en `logs/errors.log`; al
   decir «revisa» → leer, agrupar por causa raíz, parchear y limpiar el log.
 

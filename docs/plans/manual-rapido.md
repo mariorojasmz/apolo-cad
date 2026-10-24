@@ -1,6 +1,6 @@
 ---
 estado: en curso   # implementado | en curso | sin verificar | descartado
-nota: F0, F1, F2 y F2b hechas; F2 y F2b sin mergear, sobre teselado-rapido F1 (piloto: manual 12 538 s → 425 s en frío; memoria 1 060 s → 52 s; juego de planos sombreado 1 301 s → 55 s; GA sombreado 986 s → 38 s; los cuatro van como job por MCP); falta F3 (publicar generar de la piloto)
+nota: F0, F1, F2 y F2b hechas; F2 y F2b en main (piloto: manual 12 538 s → 425 s en frío; memoria 1 060 s → 52 s; juego de planos sombreado 1 301 s → 55 s; GA sombreado 986 s → 38 s; los cuatro van como job por MCP); falta F3 (publicar generar de la piloto)
 descripcion: El manual de montaje de una máquina sale en segundos, no en 23 minutos, y mientras se arma Apolo no se congela
 ---
 

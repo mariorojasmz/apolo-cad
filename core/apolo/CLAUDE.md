@@ -3,7 +3,7 @@
 Lo común del backend que no tiene paquete propio: MCP (`mcp_server.py`), agente de la app
 (`agent/`), criterio de diseño (`design/`), sandbox de scripts y cinemática (`robotics/`). Cada
 paquete con CLAUDE.md propio (`kernel`, `commands`, `doc`, `assembly`, `library`, `drawing`,
-`fea`, `services`, `api`, `physics`, `plc`, `cosim`) trae sus reglas; lo transversal (locks, log, flujo
+`fea`, `services`, `api`, `physics` —dos fases de lock—, `plc`, `cosim`) trae sus reglas; lo transversal (locks, log, flujo
 de trabajo) está en el [CLAUDE.md raíz](../../CLAUDE.md). Este archivo carga en TODA lectura de
 backend: se mantiene ≤ 10 KB.
 
@@ -23,13 +23,12 @@ backend: se mantiene ≤ 10 KB.
   = endpoint en `api/` + wrapper (`mcp_server.py` está en el trinquete de tamaño: va a
   `tools/<tema>.py` con un `registrar(mcp, api)` que `mcp_server` llama al final, como
   `tools/mcp_electrico.py`, `tools/simulacion.py` y `tools/calidad.py` (`publication_gate`); una mutación recibe `_mutacion` en vez de `_api`,
-  como `tools/cirugia.py`, y lo que corre como job sin ser mutación, `_submit_and_wait` (`esperar`,
-  `tools/cosim.py`); ese módulo NUNCA importa `apolo.mcp_server`: con `-m` el servidor es
-  `__main__` y la tool caería en otra copia) + su caso en `scripts/golden_mcp_casos.py` + su lugar en
-  `tools/catalogo.py`: en `CHAT` (`muta`, `etiqueta`, `ocultar` las rutas de archivo) o en
-  `FUERA_DEL_CHAT` con el motivo — si falta, `tests/test_catalogo_chat.py` falla. Una lectura
-  nueva del chat lleva además su muestra en ese test (se corre contra la API y no debe mutar).
-  El host MCP se reinicia para verla.
+  como `tools/cirugia.py`, y lo que corre como job sin ser mutación, `_submit_and_wait`
+  (`tools/cosim.py`); ese módulo NUNCA importa `apolo.mcp_server`: con `-m` el servidor es
+  `__main__` y la tool caería en otra copia) + su caso en `scripts/golden_mcp_casos.py` + su lugar
+  en `tools/catalogo.py` (`CHAT` o `FUERA_DEL_CHAT` con el motivo; lo exige
+  `tests/test_catalogo_chat.py`, donde una lectura nueva del chat lleva su muestra). El host MCP
+  se reinicia para verla.
 - **Golden** (`tests/test_mcp_golden.py`): congela instructions, `list_tools()` y una
   `call_tool` real por tool (peticiones y salida) contra un transporte falso. Cambiar lo que ve
   un cliente MCP —docstring, default, orden de params, salida— lo pone rojo; si es deliberado,
@@ -73,21 +72,12 @@ backend: se mantiene ≤ 10 KB.
   `mcp.list_tools()` en el orden del catálogo y `ejecutar()` corre `mcp.call_tool` en el hilo
   del chat apuntado a `tools/destino.py`; en modo propuesta lo que `muta` no corre. El MCP se
   importa perezoso restaurando el logger raíz (FastMCP lo reconfigura al construirse).
-- `agent/modelo.py` es el cliente de Anthropic del chat: config LEÍDA en cada
-  llamada (`APOLO_MODEL`, `APOLO_MAX_TOKENS`, `APOLO_EFFORT`, `APOLO_CHAT_VUELTAS`; los defaults
-  esperan D11), caché en el último bloque de `system` + el automático, conversación append-only,
-  `nuevo: true` en el primer trozo no vacío de cada bloque `thinking` (cada nota de avance es su
-  bloque, en varios deltas: la UI reemplaza la nota en vez de pegarla)
-  y ningún final silencioso: `aviso` ante `max_tokens`/`refusal`/vueltas agotadas.
-- `agent/chat.py` es el chat de la app: un cliente HTTP más de la propia API
-  ([chat-cliente-igual](../../docs/plans/chat-cliente-igual.md)). **Viene APAGADO** (D19: Apolo
-  se usa por MCP): sólo `APOLO_CHAT=1` lo prende ([api](api/CLAUDE.md)). Lee el token de
-  `GET /api/health` al empezar y lo manda en `X-Apolo-Documento` (un 409 corta el turno); el modo
-  va en el ÚLTIMO mensaje de la persona, en `<modo_del_turno>` (nunca una etiqueta con nombre de
-  sistema) y nunca en `messages[0]`; cupo `APOLO_CHAT_MAX` → 429. Ningún módulo de `agent/` llega
-  a `apolo.state`, `apolo.api` ni `anyio` (gate transitivo sin exentos en
-  `tests/test_chat_http_capas.py`): el chat toca el documento sólo por HTTP. Eventos SSE en
-  `agent/eventos.py`, en espejo de `ui/src/chat/sse.ts`.
+- El chat de la app (`agent/chat.py`, cliente de Anthropic en `agent/modelo.py`) **viene
+  APAGADO** (D19: Apolo se usa por MCP; `APOLO_CHAT=1` lo prende). Es un cliente HTTP más de la
+  API: ningún módulo de `agent/` llega a `apolo.state`, `apolo.api` ni `anyio`
+  (`tests/test_chat_http_capas.py`); config leída en cada llamada, sin final silencioso (`aviso`).
+  Detalle (token de documento, modo del turno, caché, SSE en espejo de `ui/src/chat/sse.ts`):
+  [chat-cliente-igual](../../docs/plans/chat-cliente-igual.md).
 - `design/guidelines.py` es la fuente ÚNICA del criterio de ingeniería: `design_brief()` (capa 1)
   va siempre en los dos clientes; `design_guidelines()` (capa 2), bajo demanda. Se edita ahí,
   nunca en las copias.
@@ -125,8 +115,3 @@ backend: se mantiene ≤ 10 KB.
   `RENDER_LOCK`. La cámara se fija a la UNIÓN de los bbox de todo el recorrido (si no, cada
   fotograma se re-encuadra y el mecanismo «respira»); `fit_ids` explícito gana. El teselado no
   se cachea entre fotogramas (cada pose crea shapes nuevos): costo ≈ steps × escena.
-
-## Física (`physics/`)
-
-- Dos fases (`prepare_*` bajo `STATE_LOCK`, `simulate_*` bajo `PHYSICS_LOCK`); gravedad, caída
-  y dinámica: [physics](physics/CLAUDE.md).

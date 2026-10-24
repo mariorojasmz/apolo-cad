@@ -1,5 +1,5 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
+estado: implementado   # implementado | en curso | sin verificar | descartado
 nota: sin pendientes de código: F4 verificada por MCP (2026-10-21): dos ángulos orientados con D3 a la primera y lint de asiento 0 en la piloto; fricción (schema de 11 KB, render con ejes) en el hito H
 descripcion: Los perfiles del catálogo saben dónde es plana el alma y cómo se orientan, así que un taladro mal puesto ya no sale en VERDE
 ---

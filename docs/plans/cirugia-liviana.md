@@ -1,5 +1,5 @@
 ---
-estado: en curso   # implementado | en curso | sin verificar | descartado
+estado: implementado   # implementado | en curso | sin verificar | descartado
 nota: sin pendientes de código: F3 verificada por MCP (2026-10-21): borrar con dependientes responde 0,6 KB y el undo deja el proyecto idéntico; el undo responde 52,7 KB (brief entero, a propósito)
 descripcion: Borrar piezas desde el agente es una tool más y responde corto, así que corregir una máquina gasta menos
 ---
