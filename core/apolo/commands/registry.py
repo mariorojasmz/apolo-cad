@@ -1887,11 +1887,11 @@ def validate_params(cmd_type: str, params: dict, variables: dict | None = None,
 
 
 def execute_command(
-    state: RegenState, cmd_id: str, cmd_type: str, params: dict, attachments: dict | None = None
-) -> None:
-    """Ejecuta UN comando del log sobre `state` (sus dicts se mutan en sitio)."""
+    state: RegenState, cmd_id: str, cmd_type: str, params: dict, attachments: dict | None = None,
+    carril: tuple = ()) -> None:
+    """Ejecuta UN comando del log sobre `state` (dicts en sitio); `carril`: doc/carril.lectura."""
     model = validate_params(cmd_type, params, state.variables)
-    ctx = ExecContext(state, attachments if attachments is not None else {})
+    ctx = ExecContext(state, attachments if attachments is not None else {}, carril)
     run_executor(REGISTRY[cmd_type], ctx, cmd_id, model)
 
 

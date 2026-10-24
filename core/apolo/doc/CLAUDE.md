@@ -47,6 +47,12 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   `carril.n_escena` o `len(_regen_sigs)`, nunca `len(commands)` ni `k-1`. Un problema del
   evaluador va por `fallo(entrada, msg)`, nunca un `raise` propio.
   [V8.1](../../../docs/plans/V8.1-modelo-electrico.md)
+- **Un comando de escena que LEE el carril** (`CommandSpec.lee_carril`, V8.5 D1): las firmas
+  salen de `carril.firmas(escena, carril)` (`cmd_sig` = la `_cmd_sig` histórica, re-exportada);
+  lo que firma y lo que recibe en `ExecContext.carril` es lo MISMO (`carril.lectura`: sólo
+  `CAMPOS_LECTURA` de su ubicación). Un campo que el layout use y no esté ahí = caché vieja:
+  súmalo a `CAMPOS_LECTURA`. Checkpoint extra antes de cada uno (`antes_de_leer`).
+  [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
 - `from_apolo_bytes` fija `seq = max(seq, len(commands), máx c-id)`: sin colisión de ids aunque
   el log tenga huecos. [V6.1](../../../docs/plans/V6.1-robustez-industrial.md)
 

@@ -23,19 +23,37 @@ conductores, cables). Además (F3):
 - `materializar` escribe la designación que falta al ENTRAR (D3: nunca se deriva del orden);
 - `evaluar` suma el carril de cada `insert_project` vivo con su aspecto de función (D9,
   `doc/subproject.carril_insertado`), validado contra las variables del ORIGEN.
+
+**Un comando de escena que LEE el carril** (V8.5 D1, `CommandSpec.lee_carril`: el
+`layout_tablero`) es la única excepción a «el carril no entra a la firma», y entra acotado:
+- lo que lee (`lectura`) es lo que firma (`firmas`): los `add_device` de SU ubicación (ref,
+  designación, ubicación, cantidad, pieza) y los `add_cable` que entran o salen de ella (ref,
+  desde, hasta), del carril PROPIO (A5, A14: lo de un `insert_project` no). Un `add_wire` o un
+  `add_program` no cambian su firma: el ruteo no se cachea (D12);
+- su firma suma ese hash y, por el encadenado, también las de los comandos que lo siguen (por
+  eso el agente lo pone al final de la escena); las de antes no cambian;
+- el regenerate guarda un checkpoint JUSTO ANTES de cada uno (`antes_de_leer`, A6): editar un
+  dispositivo re-ejecuta el layout y la cola, no la ventana de 16 comandos que lo precede.
+Sin un comando que lea el carril, `firmas` da byte a byte las de siempre (`cmd_sig` es la
+`_cmd_sig` histórica de `document.py`, que la re-exporta): ni epoch ni versiones.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable
+from types import MappingProxyType
 from typing import Any, NamedTuple
 
 from apolo.commands import electrico as _electrico
 from apolo.commands.electrico_eval import evaluar_carril
 from apolo.commands.errors import CommandError
 from apolo.commands.registry import REGISTRY, validate_params
+from apolo.commands.spec import version_tag
 from apolo.doc.errors import DocumentError
 from apolo.library.electrico.modelo import ModeloElectrico
+from apolo.library.electrico.referencias import ReferenciaError, parse_referencia
 
 KINDS_CARRIL = frozenset({"electrico"})  # `CommandSpec.kind` de los comandos del carril
 
@@ -75,6 +93,111 @@ def separar(commands: list[dict]) -> Particion:
 def n_escena(commands: list[dict]) -> int:
     """Cuántos comandos de escena tiene el log: el rango de las firmas y los checkpoints."""
     return sum(1 for cmd in commands if not es_carril(cmd))
+
+
+# ── firmas del regenerate y lo que lee un comando de escena (V8.5 D1, A5, A6, A14) ────────
+
+#: Lo que la firma (y la lectura) de un `lee_carril` toma de cada comando del carril (A5).
+CAMPOS_LECTURA = {
+    "add_device": ("ref", "designacion", "ubicacion", "cantidad", "pieza"),
+    "add_cable": ("ref", "desde", "hasta"),
+}
+
+
+def cmd_sig(prev: str, cmd: dict, carril: str = "") -> str:
+    """Firma acumulada de un comando de escena: previa + id + params + su versión ≠ 1 (la
+    histórica `_cmd_sig`) y, sólo en uno que lee el carril, el hash de lo que lee."""
+    h = hashlib.sha1(prev.encode())
+    h.update(cmd["id"].encode())
+    h.update(json.dumps(cmd["params"], sort_keys=True, default=str).encode())
+    h.update(version_tag(REGISTRY, cmd["type"], cmd["params"]).encode())  # b"" en v1 y sin extensiones
+    if carril:
+        h.update(f"|carril:{carril}".encode())
+    return h.hexdigest()
+
+
+def lee_carril(cmd: dict) -> bool:
+    tipo = cmd.get("type")
+    spec = REGISTRY.get(tipo) if isinstance(tipo, str) else None
+    return spec is not None and spec.lee_carril
+
+
+def _ubicacion(texto) -> str:
+    """«TAB1» / «+TAB1» → «+TAB1» (lo que hace el validador de `add_device`); vacío → ''."""
+    t = str(texto or "").strip()
+    return f"+{t}" if t and not t.startswith("+") else t
+
+
+def _toca(extremo, ubicacion: str, designaciones: set[str]) -> bool:
+    """El extremo de un `add_cable` («+TAB1», «+TAB1-Q1», «-Q1») cae en la ubicación."""
+    t = str(extremo or "").strip()
+    if not t:
+        return False
+    if _ubicacion(t) == ubicacion:
+        return True
+    try:
+        ref = parse_referencia(t)
+    except ReferenciaError:
+        return False
+    if ref.funcion:
+        return False  # A14: lo de un proyecto insertado no es del carril propio
+    if ref.ubicacion:
+        return f"+{ref.ubicacion}" == ubicacion
+    return ref.producto in designaciones
+
+
+def _proyectar(cmd: dict) -> MappingProxyType:
+    crudos = cmd.get("params") or {}
+    params = {k: json.loads(json.dumps(crudos[k], default=str))
+              for k in CAMPOS_LECTURA[cmd["type"]] if k in crudos}
+    return MappingProxyType({"id": cmd["id"], "type": cmd["type"],
+                             "params": MappingProxyType(params)})
+
+
+def lectura(cmd: dict, carril: list[dict]) -> tuple:
+    """Lo que el comando de escena `cmd` lee del carril PROPIO (`ExecContext.carril`), de
+    sólo lectura y en el orden del log: `{id, type, params}` con sólo los `CAMPOS_LECTURA`
+    (los params CRUDOS: el executor los valida con `validate_params` contra `ctx.variables`,
+    las del punto del layout en el log, A15). `()` si el comando no lee el carril.
+
+    La ubicación es la del param `ubicacion` del comando; sin ella, todos los dispositivos y
+    cables propios. Un cable entra si su `desde` o su `hasta` es la ubicación, una referencia
+    con esa ubicación («+TAB1-Q1») o la designación de un dispositivo de ella («-Q1»)."""
+    if not lee_carril(cmd):
+        return ()
+    u = _ubicacion((cmd.get("params") or {}).get("ubicacion"))
+    disp = [c for c in carril if c.get("type") == "add_device"
+            and (not u or _ubicacion((c.get("params") or {}).get("ubicacion")) == u)]
+    nombres = {str((c.get("params") or {}).get("designacion") or "").strip() for c in disp}
+    cables = [c for c in carril if c.get("type") == "add_cable"
+              and (not u or any(_toca((c.get("params") or {}).get(k), u, nombres)
+                                for k in ("desde", "hasta")))]
+    elegidos = {id(c) for c in disp + cables}
+    return tuple(_proyectar(c) for c in carril if id(c) in elegidos)
+
+
+def hash_lectura(entradas: tuple) -> str:
+    """El hash de lo que lee un comando (entra a su firma). Sin entradas también es un hash
+    (nunca ''): un layout sin dispositivos lee igual, y su firma cambia al llegar el primero."""
+    plano = [{"id": e["id"], "type": e["type"], "params": dict(e["params"])} for e in entradas]
+    return hashlib.sha1(json.dumps(plano, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def firmas(escena: list[dict], carril: list[dict] = ()) -> list[str]:
+    """La firma acumulada de cada comando de escena (`separar`), en orden. Un comando que lee
+    el carril suma el hash de su `lectura`; sin ninguno, las firmas históricas."""
+    sigs, prev = [], ""
+    for cmd in escena:
+        extra = hash_lectura(lectura(cmd, list(carril))) if lee_carril(cmd) else ""
+        prev = cmd_sig(prev, cmd, extra)
+        sigs.append(prev)
+    return sigs
+
+
+def antes_de_leer(escena: list[dict]) -> set[int]:
+    """Índices de escena donde guardar un checkpoint extra: el comando previo a cada uno que
+    lee el carril (A6). Vacío en un log sin ellos (las claves de siempre)."""
+    return {i - 1 for i, cmd in enumerate(escena) if i > 0 and lee_carril(cmd)}
 
 
 def vacio() -> ModeloElectrico:

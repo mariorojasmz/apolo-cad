@@ -57,10 +57,16 @@ class CommandSpec:
     # (`insert_component.length` en un perno) no se siga ignorando al pedirlo: lo llama
     # `doc/sello.py::al_editar` desde `Document.edit`/`edit_many`.
     al_editar: Callable[[dict, dict], dict] | None = None
+    # Comando de ESCENA que LEE el carril (V8.5 D1: `layout_tablero`): recibe en
+    # `ExecContext.carril` lo de su ubicación y su firma suma el hash de eso (`doc/carril.py`).
+    lee_carril: bool = False
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
             raise ValueError(f"{self.type}: kind '{self.kind}' inválido (válidos: {KINDS})")
+        if self.lee_carril and self.kind != "scene":
+            raise ValueError(f"{self.type}: sólo un comando de escena lee el carril (kind "
+                             f"'{self.kind}')")
         if not callable(self.executor):
             raise ValueError(f"{self.type}: el executor no es invocable")
         if isinstance(self.version, bool) or not isinstance(self.version, int) or self.version < 1:

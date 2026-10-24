@@ -87,6 +87,9 @@ class ExecContext:
 
     state: RegenState
     attachments: dict[str, bytes] = field(default_factory=dict)  # adjuntos (STEP, .apolo)
+    # V8.5 D1: lo que un `CommandSpec.lee_carril` lee del carril PROPIO, de sólo lectura
+    # (`doc/carril.lectura`: `{id, type, params}` crudos, sólo lo que firma); `()` en el resto.
+    carril: tuple = ()
 
     @property
     def scene(self) -> dict[str, Any]:

@@ -18,7 +18,6 @@ from pathlib import Path
 
 from apolo.commands.expressions import ExpressionError, resolve_all
 from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_command, validate_params
-from apolo.commands.spec import version_tag
 from apolo.commands.state import RegenState
 from apolo.commands.strict import reject_unknown
 from apolo.doc import carril, sello, solo_lectura, variantes
@@ -41,23 +40,9 @@ _CID_RE = re.compile(r"^c(\d+)$")
 # --------- regeneración incremental: firma por comando + snapshot de estado ---------
 # Los executors NUNCA mutan el shape OCCT in-place → un checkpoint comparte los shapes sin
 # copiar geometría (`RegenState.copy()`). Firma = previa + id + params + versión ≠ 1 (D9).
-# Firmas y checkpoints se indexan sobre los comandos de ESCENA: el carril no entra (V8.1 D1).
-
-def _cmd_sig(prev: str, cmd: dict) -> str:
-    h = hashlib.sha1(prev.encode())
-    h.update(cmd["id"].encode())
-    h.update(json.dumps(cmd["params"], sort_keys=True, default=str).encode())
-    h.update(version_tag(REGISTRY, cmd["type"], cmd["params"]).encode())  # b"" en v1 y sin extensiones
-    return h.hexdigest()
-
-
-def _firmas(escena: list[dict]) -> list[str]:
-    """La firma acumulada de cada comando de escena (`carril.separar`), en orden."""
-    sigs, prev = [], ""
-    for cmd in escena:
-        prev = _cmd_sig(prev, cmd)
-        sigs.append(prev)
-    return sigs
+# Firmas y checkpoints se indexan sobre los comandos de ESCENA: el carril no entra (V8.1 D1),
+# salvo el hash de lo que lee un `lee_carril` (V8.5 D1): `carril.firmas`/`carril.cmd_sig`.
+_cmd_sig = carril.cmd_sig  # el nombre histórico (lo importan los tests)
 
 
 class Document:
@@ -206,7 +191,7 @@ class Document:
 
         # 1) firma acumulada por comando de ESCENA (el carril va aparte: doc/carril.py)
         escena, lane, _ = carril.separar(self.commands)
-        sigs = _firmas(escena)
+        sigs, leen = carril.firmas(escena, lane), carril.antes_de_leer(escena)
         # 2) caché incremental blindada (Fix B): si los checkpoints están corruptos, se
         #    ignoran → replay completo, NUNCA se lanza por culpa de la caché
         ckpts = self._regen_ckpts if self._ckpts_ok() else {}
@@ -236,7 +221,8 @@ class Document:
         for i in range(start, len(escena)):
             cmd = escena[i]
             try:
-                execute_command(state, cmd["id"], cmd["type"], cmd["params"], self.attachments)
+                execute_command(state, cmd["id"], cmd["type"], cmd["params"], self.attachments,
+                                carril.lectura(cmd, lane))
             except CommandError as exc:
                 if tolerant:
                     suppressed.append(
@@ -246,7 +232,7 @@ class Document:
                     raise DocumentError(
                         f"Error al regenerar {cmd['id']} ({cmd['type']}): {exc}"
                     ) from exc
-            if i == last or i % self._REGEN_STRIDE == 0:
+            if i == last or i % self._REGEN_STRIDE == 0 or i in leen:  # A6: antes de leer
                 new_ckpts[i] = state.copy()
         # 6) referencias colgando: estricto lanza, tolerante poda + reporta
         self._prune_or_raise(state, tolerant, suppressed)
@@ -304,7 +290,7 @@ class Document:
             return
         if not cached_sigs or not isinstance(cached_sigs, list) or not isinstance(state, RegenState):
             return
-        sigs = _firmas(carril.separar(self.commands).escena)  # las del log realmente cargado
+        sigs = carril.firmas(*carril.separar(self.commands)[:2])  # las del log realmente cargado
         # las firmas cacheadas deben ser PREFIJO (o iguales) de las del log (el log pudo
         # crecer desde la última caché; si en cambio DIVERGE o es más largo → descartar)
         n = len(cached_sigs)
