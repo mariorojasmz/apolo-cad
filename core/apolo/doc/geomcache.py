@@ -64,7 +64,11 @@ from apolo.commands.state import RegenState
 #  (sin bump, 2026-10-21, teselado-rapido F2): la VERSION_3 de último recurso y el blob sin malla
 #    de render los lee el mismo `unpack` (BinTools lee la versión de su cabecera) y un blob v6
 #    sigue valiendo: lo que antes no se podía empacar no tenía caché.
-GEOM_CACHE_EPOCH = 6
+#  v7 (2026-10-24): los 7 cilindros neumáticos (`CIL-ISO15552-*`, `CIL-ISO6432-*`) dejan la caja
+#    envolvente provisoria de la F1a de V8.9 por sus builders propios (`cilindro_iso15552`,
+#    `cilindro_iso6432`) con los MISMOS params de `insert_component`: como v6, builder + YAML del
+#    catálogo no se acota a un executor.
+GEOM_CACHE_EPOCH = 7
 
 
 def _apolo_version() -> str:

@@ -39,7 +39,7 @@ def get_bom(by_group: bool = False) -> list[dict]:
     eléctrico, al final van sus filas (`origen: "electrico"`, V8.1 D10); con uniones `perno`
     declaradas sin tornillería modelada, la que compran (`origen: "union_declarada"`, F6). La
     puerta (y la placa, si la trae) de un tablero armado sale en `incluye` de su gabinete (V8.5)."""
-    from apolo.services.tablero import incluidas
+    from apolo.services.incluidas import incluidas
 
     with STATE_LOCK:
         filas = filas_extra(S.doc)
@@ -65,7 +65,7 @@ def get_costing() -> dict:
 
 @router.get("/api/bom.csv")
 def get_bom_csv() -> Response:
-    from apolo.services.tablero import incluidas
+    from apolo.services.incluidas import incluidas
 
     with STATE_LOCK:
         csv_text = bom_to_csv(bom_from_scene(S.doc.scene, S.doc.default_material(),

@@ -23,6 +23,8 @@ from .builders_fijacion import BUILDERS as _BUILDERS_FIJACION
 from .builders_mandos import ANCLAS as _ANCLAS_MANDOS
 from .builders_mandos import BUILDERS as _BUILDERS_MANDOS
 from .builders_mandos import ZONADOS
+from .builders_neumatica import ANCLAS as _ANCLAS_NEUMATICA
+from .builders_neumatica import BUILDERS as _BUILDERS_NEUMATICA
 from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
 from .builders_tablero import BUILDERS as _BUILDERS_TABLERO
 from .builders_transmision import ANCLAS as _ANCLAS_TRANSMISION
@@ -65,8 +67,10 @@ def merge_anclas(builders: dict, *registros: dict) -> dict:
 
 
 BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION,
-                          _BUILDERS_MANDOS, _BUILDERS_FIJACION, _BUILDERS_TABLERO)
-ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES, _ANCLAS_MANDOS)
+                          _BUILDERS_MANDOS, _BUILDERS_FIJACION, _BUILDERS_TABLERO,
+                          _BUILDERS_NEUMATICA)
+ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES, _ANCLAS_MANDOS,
+                      _ANCLAS_NEUMATICA)
 
 
 def _zonas_de(item: dict, builder_name: str, ref: str):
