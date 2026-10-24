@@ -202,3 +202,37 @@ Backend (D1–D6, D8–D10) sobre `0a61be6`. Suite completa verde en el escritor
   `{"evento": {"tipo": "falla", …}}` y `{…, "quitar": true}`; la falla activa llega como texto
   en `<des>.averia` por `textos` («» al quitarla). Sin conductores con largo, `ramas` trae sólo
   contactos (los hilos ideales no se cortan).
+
+### F1b (2026-10-23) — hecha, sin mergear
+
+UI (D7) sobre `34463e7`, sólo `ui/`. `npm test` 477 → 490 (13 nuevos en `vivo/fallas.test.ts`) y
+`npm run build` verdes. Rama `wip/cosim-fallas-f1b`.
+- `vivo/fallas.ts` (puro): rótulos y frases de cada falla de D2/D3 (una desconocida sale con su
+  nombre legible), los campos por `pide`, el evento, las activas y su `quitar`.
+  `vivo/FallasVivas.tsx` va en «Mandos» debajo de «Eventos»; `vivo/FallasActivas.tsx`, como primera
+  línea de la barra. `abrirSesion(escenario, {reemplazar, fallas})` las manda al llegar el `inicio`.
+- Muestrario: «Mandos · simular falla» y «Barra de la sesión viva · fallas activas» con un `inicio`
+  de ejemplo (contactor, seta, pulsador, sensor, PLC con analógica, variador con STO, guardamotor,
+  fuente, piloto, tres contactos y un cable); simular y quitar imitan al servidor
+  (`?fallas=0|1|3`, `?lista=1`).
+- **Decisiones de F1b** (para vetar):
+  - Si la falla elegida (con el mismo borne, canal o unidad) ya está puesta, el botón pasa a
+    «Quitar la falla»: no hay un segundo control para reparar en el panel.
+  - Las fallas de RAMA no publican `averia` (son de la red): la UI las lleva por el ack de su
+    evento (`conAckDeRama`, `useVivo.ramasEnFalla`). Se pierden si se recarga la página a mitad.
+  - Un valor opcional (`bool?`, `posicion?`, `unidad?`) arranca en «Como está ahora» / «Todas» y
+    no se manda; el sensor pegado arranca en «Detectando siempre»; el contacto pegado, «Cerrado».
+  - Un borne `AI…` pide su cuenta (número) en vez del nivel: el catálogo no distingue analógicas,
+    la UI lo deduce del nombre que da `plc_es` (`AI0`…).
+  - «Reiniciar» y «Abrir de nuevo» reponen las fallas con que se ABRIÓ la sesión, no las puestas
+    después a mano.
+  - La barra con fallas toma ancho (`min(520px, 100% − 32 px)`); sin ellas sigue como estaba.
+  - El aviso usa `<IconoSeveridad severidad="aviso">` (el ámbar del tema), sin colores nuevos.
+- Pendiente:
+  - Backend (hueco, no bloquea): el catálogo no publica la escala de la analógica (`AI_escala`) ni
+    las ramas en falla (una sesión que se reabre en otra pestaña no las ve); el `inicio` tampoco
+    trae las fallas ya puestas.
+  - Sin test de `abrirSesion` con fallas (pide un WebSocket falso y `sesion.ts` arrastra la store
+    de la app): se probó la lógica pura y el muestrario a mano.
+  - Hoy sólo hay tema oscuro (A12 de V8.5): «claro y oscuro» de la revisión queda en oscuro.
+  - La revisión de diseño a ciegas (ancho y angosto) y F3 sobre una copia de la 77.
