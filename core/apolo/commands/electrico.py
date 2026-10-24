@@ -134,6 +134,8 @@ def prefijar(cmd_type: str, params, funcion: str, prefijo: str):
     if cmd_type == "add_cable":
         if isinstance(out.get("piezas"), list):
             out["piezas"] = [f"{prefijo}_{p}" for p in out["piezas"]]
+        if isinstance(out.get("por"), list):  # V8.5 F4: las piezas del recorrido, no los puntos
+            out["por"] = [f"{prefijo}_{p}" if isinstance(p, str) else p for p in out["por"]]
         for k in ("desde", "hasta"):
             if isinstance(out.get(k), str) and out[k].strip()[:1] in ("-", "="):
                 out[k] = _con_funcion(out[k], funcion)

@@ -184,6 +184,17 @@ class AddWireParams(BaseModel):
         return self
 
 
+class PuntoPaso(BaseModel):
+    """Un punto de paso del recorrido de un cable de campo (mm, en el mundo)."""
+
+    x: float = Field(..., description="mm")
+    y: float = Field(..., description="mm")
+    z: float = Field(..., description="mm")
+
+    def tuple(self) -> tuple[float, float, float]:
+        return (self.x, self.y, self.z)
+
+
 class AddCableParams(BaseModel):
     """Declara un CABLE MULTIPOLAR (4G2,5 al motor, 5G1 a la botonera…): lo que se compra, se
     rotula y se rutea. Sus hilos quedan disponibles para `add_wire` con `cable` + `hilo` (los
@@ -192,8 +203,16 @@ class AddCableParams(BaseModel):
     - `designacion`: «-W1»…; VACÍA = la siguiente libre (se escribe en el comando).
     - `ref`: cable del catálogo (CABLE-4G1.5, CABLE-5G1, CABLE-3X0.75…).
     - `desde` / `hasta`: ubicación («+TAB1») o dispositivo («-M1») de cada extremo.
-    - `largo_m`: opcional y DECLARADO (el ruteo real es de V8.5): la BOM compra por metro; sin
-      largo, la fila sale sin costo y con aviso.
+    - `por` (V8.5 F4): opcional, el RECORRIDO del cable de campo, en orden desde `desde`:
+      puntos de paso {x, y, z} (mm, aceptan «=expr») o ids de piezas de la estructura (o el
+      command_id que las creó) por las que va sujeto (entra por el punto de su caja más cercano
+      al anterior y sale por el más cercano al siguiente). Con `por`, Apolo calcula el cable:
+      sale del prensaestopas del tablero armado con layout_tablero, pasa por `por` y llega a la
+      pieza ligada del dispositivo del otro extremo; su largo (lo de dentro del tablero + el
+      recorrido + la reserva de conexión) se compra por metro y el ERC avisa si toca lo que gira.
+      Vacío = no se calcula ni se dibuja (como antes).
+    - `largo_m`: opcional y DECLARADO: si está, manda en la BOM (y el ERC avisa si difiere mucho
+      del calculado con `por`); sin largo ni `por`, la fila sale sin costo y con aviso.
     - `piezas`: opcional, LIGA el cable a los tramos que lo modelan en 3D (ids de sólido o el
       command_id que los creó). Un cable 3D no se fabrica: lo cobra su add_cable; uno que ningún
       add_cable cubre (ligado, o con los mismos hilos × sección en el nombre) no se cobra en
@@ -213,8 +232,19 @@ class AddCableParams(BaseModel):
                                   description="m, declarado (la BOM compra por metro)")
     piezas: list[str] = Field(default_factory=list, max_length=200, title="Piezas 3D",
                               description="ids (o command_id) de los tramos 3D que modelan el cable")
+    por: list[PuntoPaso | str] = Field(
+        default_factory=list, max_length=50, title="Recorrido",
+        description="puntos de paso {x, y, z} o ids de piezas por las que va, en orden desde «desde»")
 
     _v_designacion = field_validator("designacion")(_designacion)
+
+    @field_validator("por")
+    @classmethod
+    def _por(cls, v: list) -> list:
+        for x in v:
+            if isinstance(x, str) and not x.strip():
+                raise ValueError("un paso de `por` vacío: usa el id de una pieza o {x, y, z}")
+        return [x.strip() if isinstance(x, str) else x for x in v]
 
 
 class AddProgramParams(BaseModel):

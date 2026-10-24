@@ -27,6 +27,7 @@ from apolo.library.electrico.modelo import (
     Conductor,
     Dispositivo,
     ModeloElectrico,
+    Paso,
     Programa,
     dispositivo_desde_ficha,
 )
@@ -152,6 +153,18 @@ def _piezas_cable(piezas: list[str], escena: dict) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _por(por: list, escena: dict) -> tuple[Paso, ...]:
+    """El recorrido de campo (`add_cable.por`, V8.5 F4): cada punto tal cual y cada pieza con sus
+    sólidos (el id, o las piezas de ese command_id); una que no existe es error con sugerencia."""
+    out = []
+    for x in por:
+        if isinstance(x, str):
+            out.append(Paso(pieza=x, piezas=_piezas_cable([x], escena)))
+        else:
+            out.append(Paso(punto=tuple(float(c) for c in x.tuple())))
+    return tuple(out)
+
+
 def _cable(entrada: dict, dispositivos: dict, catalogo, escena: dict | None = None) -> Cable:
     p = entrada["params"]
     comp = catalogo.get(p.ref)
@@ -167,7 +180,8 @@ def _cable(entrada: dict, dispositivos: dict, catalogo, escena: dict | None = No
                  seccion_mm2=ficha.conductor.seccion_mm2,
                  desde=_extremo(p.desde, dispositivos), hasta=_extremo(p.hasta, dispositivos),
                  largo_m=p.largo_m, id=entrada["id"],
-                 piezas=_piezas_cable(getattr(p, "piezas", None) or [], escena or {}))
+                 piezas=_piezas_cable(getattr(p, "piezas", None) or [], escena or {}),
+                 por=_por(getattr(p, "por", None) or [], escena or {}))
 
 
 def _conductor(entrada: dict, dispositivos: dict, cables: dict, catalogo) -> Conductor:

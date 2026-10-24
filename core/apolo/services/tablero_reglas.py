@@ -7,7 +7,8 @@ Sólo con un `layout_tablero` vivo (sin él, el ERC de siempre):
   (el ruteo lo lleva hasta el prensaestopas; afuera tiene que ir dentro de un cable);
 - «largo declarado vs ruteado»: el `largo_m` escrito a mano manda en la BOM (D3), y si difiere
   del ruteado más que `Criterio.difiere_largo` se avisa con las dos cifras (la F0 mostró que los
-  declarados no se sostienen).
+  declarados no se sostienen). La fila es `fila_largo_declarado`: la usan también los cables de
+  campo (F4, `cables_campo.py`).
 Cada regla tiene su SELECTOR (`llenas`, `salen_sin_cable`, `declarados_que_no_cuadran`): el
 ERC de aquí y el panel del visor (`tablero_panel.py`, F3b) leen lo mismo (D15). El llamador
 sostiene STATE_LOCK.
@@ -92,19 +93,36 @@ def _sale(t) -> list[dict]:
     return filas
 
 
+def fila_largo_declarado(cid: str, que: str, declarado_mm: float, calculado_mm: float, donde: str,
+                         limite: float) -> dict | None:
+    """La fila «largo declarado vs ruteado» (aviso si difieren más que `limite`), o None. La usan
+    los conductores del tablero (`donde` = «por las canaletas de +TAB1») y los cables de campo
+    (V8.5 F4, `cables_campo.py`)."""
+    if calculado_mm <= 0:
+        return None
+    dif = (declarado_mm - calculado_mm) / calculado_mm
+    if abs(dif) <= limite:
+        return None
+    return {
+        "regla": "largo declarado vs ruteado", "estado": "aviso",
+        "detalle": (f"{cid} ({que}): declarado {declarado_mm / 1000:.2f} m, "
+                    f"ruteado {donde} {calculado_mm / 1000:.2f} m "
+                    f"({dif * 100:+.0f} %); la BOM compra el declarado. Si no lo mediste, "
+                    f"quítalo y compra el ruteado: edit_command('{cid}', "
+                    f"{json.dumps({'largo_m': None})})"),
+        "recomendacion": "Deja que el largo salga del ruteo (dentro de un tablero armado o por el "
+                         "recorrido `por` de un cable); declara `largo_m` sólo si lo mediste.",
+        "norma": NORMA, "elementos": [cid]}
+
+
 def _declarados(t) -> list[dict]:
     filas = []
-    for r, dif in declarados_que_no_cuadran(t):
-        filas.append({
-            "regla": "largo declarado vs ruteado", "estado": "aviso",
-            "detalle": (f"{r.id} ({' → '.join(r.puntos)}): declarado {r.declarado_mm / 1000:.2f} m, "
-                        f"ruteado por las canaletas de {t.ubicacion} {r.largo_mm / 1000:.2f} m "
-                        f"({dif * 100:+.0f} %); la BOM compra el declarado. Si no lo mediste en el "
-                        f"tablero, quítalo y compra el ruteado: edit_command('{r.id}', "
-                        f"{json.dumps({'largo_m': None})})"),
-            "recomendacion": "Dentro de un tablero armado deja que el largo salga del ruteo; "
-                             "declara `largo_m` sólo si lo mediste.",
-            "norma": NORMA, "elementos": [r.id]})
+    limite = t.ruteo.criterio["difiere_largo"]
+    for r, _dif in declarados_que_no_cuadran(t):
+        fila = fila_largo_declarado(r.id, " → ".join(r.puntos), r.declarado_mm, r.largo_mm,
+                                    f"por las canaletas de {t.ubicacion}", limite)
+        if fila is not None:
+            filas.append(fila)
     return filas
 
 

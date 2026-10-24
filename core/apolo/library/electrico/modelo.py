@@ -126,6 +126,17 @@ class Conductor:
 
 
 @dataclass(frozen=True)
+class Paso:
+    """Un paso del recorrido de un cable de campo (`add_cable.por`, V8.5 F4): un punto del mundo
+    (mm) o una pieza de la estructura (lo que escribió el agente y los sólidos que resolvió: el
+    id, o todas las piezas de ese command_id)."""
+
+    punto: tuple[float, float, float] | None = None
+    pieza: str | None = None
+    piezas: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Cable:
     designacion: str
     ref: str
@@ -137,6 +148,8 @@ class Cable:
     id: str | None = None
     #: sólidos de la escena que lo modelan en 3D (`add_cable.piezas`, V8.1 F4c): no se cobran aparte
     piezas: tuple[str, ...] = ()
+    #: el recorrido de campo (`add_cable.por`, V8.5 F4): vacío = no se calcula
+    por: tuple[Paso, ...] = ()
 
     def hilo(self, hilo_id: str) -> Hilo | None:
         return next((h for h in self.hilos if h.id == hilo_id), None)

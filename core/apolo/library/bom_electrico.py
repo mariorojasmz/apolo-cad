@@ -11,7 +11,8 @@ suman lo que el tablero compra y la escena no tiene, sin duplicar:
     de un tablero armado, con el RUTEADO (V8.5 F2: `largo_origen` dice cuánto es de cada uno);
     los que no tienen ninguno van en una fila SIN largo y con `aviso` (su costo queda en blanco:
     no se inventa); un puente o un conductor sin `tipo` no se compra por metro (el sin tipo avisa);
-  - un conductor dentro de un cable no se compra aparte: se compra el CABLE, por metro, igual.
+  - un conductor dentro de un cable no se compra aparte: se compra el CABLE, por metro, igual;
+    sin `largo_m`, con el CALCULADO por su recorrido de campo (`add_cable.por`, V8.5 F4).
 
 Cada fila lleva `origen: "electrico"`; `sin_largo: True` le dice al costeo que no la estime.
 Recibe el `ModeloElectrico` (puro), nunca un documento.
@@ -72,12 +73,13 @@ def _por_metro(ref: str, largos: list[float | None], que: str,
 
 
 def filas_electricas(modelo, dibujados: frozenset = frozenset(),
-                     ruteados: dict | None = None) -> list[dict]:
+                     ruteados: dict | None = None, cables_calculados: dict | None = None) -> list[dict]:
     """Las filas de BOM del `ModeloElectrico` (vacía si no hay carril), en orden estable:
     dispositivos por ref, cables y conductores por ref. `dibujados` = las designaciones que un
     `layout_tablero` dibujó en la escena (V8.5): cuentan por su cuerpo, como una `pieza`.
     `ruteados` = {id del conductor: m} que salen del RUTEO de un tablero armado (V8.5 F2: los de
-    dentro, sueltos y sin largo declarado): se compran por ese largo; el declarado manda (D3)."""
+    dentro, sueltos y sin largo declarado): se compran por ese largo; el declarado manda (D3).
+    `cables_calculados` = {id del add_cable: m} de su recorrido de campo (V8.5 F4), igual."""
     if modelo is None:
         return []
     filas: list[dict] = []
@@ -89,10 +91,16 @@ def filas_electricas(modelo, dibujados: frozenset = frozenset(),
         por_ref[d.ref] = por_ref.get(d.ref, 0) + (d.cantidad if d.bornera else 1)
     filas += [_fila(CATALOG[ref], n) for ref, n in sorted(por_ref.items())]
     cables: dict[str, list] = {}
+    cables_ruteo: dict[str, list] = {}
+    calculados = cables_calculados or {}
     for c in modelo.cables:
+        if not c.largo_m and calculados.get(c.id):
+            cables_ruteo.setdefault(c.ref, []).append(calculados[c.id])
+            cables.setdefault(c.ref, [])
+            continue
         cables.setdefault(c.ref, []).append(c.largo_m)
     for ref, largos in sorted(cables.items()):
-        filas += _por_metro(ref, largos, "cable(s)")
+        filas += _por_metro(ref, largos, "cable(s)", cables_ruteo.get(ref))
     conductores: dict[str, list] = {}
     por_ruteo: dict[str, list] = {}
     ruteados = ruteados or {}

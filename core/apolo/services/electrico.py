@@ -11,7 +11,8 @@ regenerate (`doc/carril.py`), y lo entrega a sus clientes:
     ajustes obligatorios de la co-simulación que faltan, todos juntos por dispositivo), el
     aviso «pieza sin ligar» (V8.1 F4: un dispositivo con la ref de una pieza 3D que no liga se
     cobraría dos veces) y el «cable 3D sin cobrar» (F4c: `cobros.py`);
-  - `filas_bom`: las filas de BOM del tablero (`library/bom_electrico.py`).
+  - `filas_bom`: las filas de BOM del tablero (`library/bom_electrico.py`), con los largos del
+    ruteo (F2) y de los cables de campo (V8.5 F4, `cables_campo.py`).
 El llamador sostiene STATE_LOCK. El modelo es inmutable: el ERC corre sobre él (~1 ms en la faja
 piloto) sin copiarlo.
 """
@@ -118,12 +119,13 @@ def reglas_erc(doc) -> list[dict] | None:
     from apolo.library.electrico.erc import erc
 
     from . import tablero_reglas
+    from .cables_campo import reglas as reglas_campo
     from .cobros import regla_cables
     from .tablero import regla_orden
 
     m = modelo(doc)
     return (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
-            + regla_orden(doc) + tablero_reglas.reglas(doc, m))
+            + regla_orden(doc) + tablero_reglas.reglas(doc, m) + reglas_campo(doc, m))
 
 
 def chequeo(doc) -> dict:
@@ -165,10 +167,13 @@ def circuito(doc, designacion: str | None = None) -> dict:
             raise ServiceError(404, f"No hay dispositivo {filtro} en el tablero."
                                f"{sufijo_sugerencia(filtro, [d.designacion for d in m.dispositivos])}")
     elegidos = {d.designacion for d in dispositivos}
+    from .cables_campo import recorridos
     from .tablero import ruteos
 
     # V8.5 F2: el largo de cada conductor dentro de un tablero armado (lo de dentro si sale)
-    ruteado = {r.id: r for t in ruteos(doc, m) for r in t.ruteo.rutas}
+    tableros = ruteos(doc, m)
+    ruteado = {r.id: r for t in tableros for r in t.ruteo.rutas}
+    campo = {c.id: c for c in recorridos(doc, m, tableros) if c.calculado}  # F4: por su recorrido
     redes_vistas: set[int] = set()
     salida_disp = []
     for d in dispositivos:
@@ -208,7 +213,8 @@ def circuito(doc, designacion: str | None = None) -> dict:
     cables = [{"designacion": c.designacion, "ref": c.ref, "comando": c.id,
                "hilos": {h.id: h.color for h in c.hilos},
                **{k: v for k, v in (("desde", c.desde), ("hasta", c.hasta),
-                                    ("largo_m", c.largo_m)) if v}}
+                                    ("largo_m", c.largo_m)) if v},
+               **({"largo_calculado_m": round(campo[c.id].largo_mm / 1000.0, 3)} if c.id in campo else {})}
               for c in m.cables if not designacion or c.designacion in usados]
     # V8.3 D4: la tabla de tags de cada programa (sólo si hay: sin programas, lo de siempre)
     programas = [{"plc": p.plc, "nombre": p.nombre, "lenguaje": p.lenguaje, "ciclo_ms": p.ciclo_ms,
@@ -229,7 +235,10 @@ def filas_bom(doc) -> list[dict]:
         return []
     from apolo.library.bom_electrico import filas_electricas
 
+    from . import cables_campo
     from .tablero import dibujados, largos, ruteos
 
     m = modelo(doc)
-    return filas_electricas(m, frozenset(dibujados(doc, m)), largos(ruteos(doc, m)))
+    tableros = ruteos(doc, m)
+    return filas_electricas(m, frozenset(dibujados(doc, m)), largos(tableros),
+                            cables_campo.largos(cables_campo.recorridos(doc, m, tableros)))

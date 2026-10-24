@@ -43,7 +43,7 @@ from apolo.contrato_comandos import (
 
 # ── Rutas de campos por comando (se generan; ver el docstring) ───────────────────────────
 CAMPOS: dict[str, str] = {
-    "add_cable": "designacion ref desde hasta largo_m piezas",
+    "add_cable": "designacion ref desde hasta largo_m piezas por",
     "add_constraint": (
         "name tipo joint anchor anchor.x anchor.y anchor.z point point.x point.y point.z axis "
         "axis.x axis.y axis.z value"
