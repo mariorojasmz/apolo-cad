@@ -133,11 +133,12 @@ def _declarados(t) -> list[dict]:
 def cables_cortos(doc, m, tableros) -> list[tuple]:
     """[(Cable, mínimo en mm, partes)] de los cables SIN `por` con `largo_m` declarado y hilos
     ruteados dentro de un tablero armado cuyo declarado no alcanza lo que se puede medir (F5b):
-    lo de dentro (su hilo más largo, por tablero), lo que mide al menos cada tramo 3D ligado con
-    `piezas` (el lado mayor de su caja: un recorrido no es más corto que eso) y la reserva de cada
+    lo de dentro (su hilo más largo, por tablero), el recorrido de cada tramo 3D ligado con
+    `piezas` (`piezas_electricas.recorrido_mm`, volumen / sección: el de la BOM) y la reserva de cada
     aparato de campo ligado a su pieza (`CriterioCampo.reserva_campo_mm`, la de F4). `partes` =
     [(texto, mm)] para la fila."""
     from apolo.library.electrico.cable_campo import CriterioCampo
+    from apolo.library.piezas_electricas import recorrido_mm
 
     from .cables_campo import _extremo
 
@@ -156,9 +157,9 @@ def cables_cortos(doc, m, tableros) -> list[tuple]:
             continue
         for fid in c.piezas:
             f = doc.scene.get(fid)
-            if f is not None and f.shape is not None:
-                bb = f.shape.bounding_box()
-                partes.append((f"el tramo 3D {fid} (al menos)", max(bb.size.X, bb.size.Y, bb.size.Z)))
+            largo = recorrido_mm(f.shape) if f is not None and f.shape is not None else None
+            if largo:
+                partes.append((f"el tramo 3D {fid}", largo))
         for texto in (c.desde, c.hasta):
             e = _extremo(doc, m, tabs, texto)
             if e[0] == "aparato":

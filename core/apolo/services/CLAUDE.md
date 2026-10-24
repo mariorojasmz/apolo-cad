@@ -123,8 +123,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 
 ## Escenarios de prueba (`escenarios.py`, `cosim_snapshot.py`)
 
-- La vigencia de un resultado es `firma_documento` (log ENTERO + materiales + las fichas del
-  tablero armado: el carril, los programas y el YAML eléctrico cuentan, el color no) +
+- La vigencia de un resultado es `firma_documento` (log sin lo que sólo organiza, `SIN_FISICA`:
+  `create_group` salvo con `transform_group` + materiales + las fichas del tablero armado: el
+  carril, los programas y el YAML eléctrico cuentan, el color no; versión «2:», la 1 se lee con
+  `firmas_v1`: [V8.5](../../../docs/plans/V8.5-tablero-3d.md) F5b) +
   `hash_escenario` + `COSIM_EPOCH` (regla en [cosim](../cosim/CLAUDE.md); sin el dato = versión 1);
   vencido = AMARILLO en la puerta, nunca rojo ni verde. El snapshot toma los programas del carril y `programas=` los pisa por PLC (`test_plc`).
   [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D12, D14)
@@ -157,6 +159,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   otro criterio. (F4) El panel los cuenta en `tablero_cables.py` sobre las filas de `vista` (con los
   `ruteos` que ya tiene); el texto crudo de `tecnico` sale de las funciones del ERC
   (`detalle_choque`, `detalle_incompleto`), no de otra redacción. (F4b)
+- Un largo que la BOM calcula (ruteo, recorrido `por`) es también el de la co-simulación
+  (`cosim_red.largos_calculados`): el declarado manda, nunca otra cuenta. El ERC que mira la
+  escena (pieza de seguridad sin circuito, altura de los mandos) está en `erc_escena.py`; una
+  regla del ERC que sólo da filas con hallazgo entra en `electrico.REVISA` para salir en
+  `revisadas` cuando pasa. (F5b)
 
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y

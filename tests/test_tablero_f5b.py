@@ -227,7 +227,7 @@ def test_un_cable_sin_por_mas_corto_que_lo_de_adentro_avisa():
                 and r["regla"] == "largo declarado vs ruteado"]
 
 
-def test_el_tramo_3d_cuenta_lo_que_mide_al_menos():
+def test_el_tramo_3d_cuenta_su_recorrido():
     from apolo.services.electrico import modelo
     from apolo.services.tablero import ruteos
     from apolo.services.tablero_reglas import cables_cortos
@@ -235,7 +235,7 @@ def test_el_tramo_3d_cuenta_lo_que_mide_al_menos():
     d = _red_por_cable(1.0, tramo=True)
     m = modelo(d)
     ((c, minimo, partes),) = cables_cortos(d, m, ruteos(d, m))
-    assert c.designacion == "-W4" and ("el tramo 3D c5 (al menos)", pytest.approx(800.0)) in partes
+    assert c.designacion == "-W4" and ("el tramo 3D c5", pytest.approx(800.0)) in partes
     assert minimo > 1000.0
 
 
