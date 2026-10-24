@@ -187,6 +187,6 @@ def test_defaults_de_un_comando_nuevo():
     # los compuestos (corren executors ajenos): el proyecto insertado y las plantillas de faja
     # (sus fasten/ground) y de rodillos
     assert [t for t, s in REGISTRY.items() if s.composite] == [
-        "insert_project", "create_belt_conveyor", "create_roller_conveyor"]
+        "insert_project", "create_belt_conveyor", "create_roller_conveyor", "layout_tablero"]
     for t in ("create_belt_conveyor", "create_roller_conveyor"):
         assert version_tag(REGISTRY, t) == version_tag(REGISTRY, "insert_project")
