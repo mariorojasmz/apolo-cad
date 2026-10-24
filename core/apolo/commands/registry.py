@@ -83,6 +83,7 @@ from .exec_transmision import _exec_create_chain
 from .exec_uniones import _exec_fasten
 from .exec_union import _exec_join_bolted, sellar as _sellar_join_bolted
 from .electrico import SPECS_ELECTRICO  # el carril eléctrico (V8.1 D2): fuera del bucle
+from .cilindro import SPECS_CILINDRO  # super-comando compuesto (V8.9 D5)
 from .exec_rodillos_cadena import SPECS_RODILLOS_CADENA  # super-comando compuesto
 from .exec_faja import CreateBeltConveyorParams, _exec_create_belt_conveyor, sellar as _sellar_faja
 from .errors import CommandError
@@ -1779,9 +1780,7 @@ REGISTRY: dict[str, CommandSpec] = {
             _exec_create_drive_roller, version=2,  # v2: «Anillo Seeger DIN 472-Ø» (F6)
         ),
         CommandSpec("create_chain", "Cadena", "biblioteca", CreateChainParams, _exec_create_chain, version=2),
-        CommandSpec(
-            "create_weldment", "Bastidor", "biblioteca", CreateWeldmentParams, _exec_create_weldment
-        ),
+        CommandSpec("create_weldment", "Bastidor", "biblioteca", CreateWeldmentParams, _exec_create_weldment),
         CommandSpec("create_frame", "Esqueleto", "biblioteca", CreateFrameParams, _exec_create_frame),
         CommandSpec(
             "create_sheet_metal", "Chapa metálica", "biblioteca", SheetMetalParams,
@@ -1841,7 +1840,7 @@ REGISTRY: dict[str, CommandSpec] = {
         CommandSpec(
             "set_variable", "Variable", "variables", SetVariableParams, _exec_set_variable, kind="vars"
         ),
-        *SPECS_RODILLOS_CADENA,
+        *SPECS_RODILLOS_CADENA, *SPECS_CILINDRO,  # V8.9 D5: el cilindro neumático en 3D
         *SPECS_ELECTRICO,
     ]
 }

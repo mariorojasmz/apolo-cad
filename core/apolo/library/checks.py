@@ -185,6 +185,8 @@ FEA_HARDWARE_CATS = HARDWARE_CATS | {
     # catálogo eléctrico (plan V8.1 D6): envolventes de aparatos DIN, fuentes, PLC, borneras y
     # conductores; ninguno es estructural
     "alimentacion_electrica", "proteccion_electrica", "maniobra_control", "conexion_electrica",
+    # neumática (plan V8.9 F2): cilindros, válvulas y aire comprimido no son estructurales
+    "cilindros_neumaticos", "valvulas_neumaticas", "aire_comprimido",
 }
 
 

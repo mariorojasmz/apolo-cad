@@ -71,6 +71,9 @@ PISTAS: dict[str, str] = {
     "create_belt_conveyor": (
         "Crea una faja de banda montada: chumaceras y tensores por fuera, motor con acople en su base y guardas con perno."
     ),
+    "create_pneumatic_cylinder": (
+        "Coloca un cilindro neumático con su carrera: brida o pies atornillados a la tapa y empujador roscado al vástago."
+    ),
     "create_take_up": (
         "Crea el rodillo de cola de una faja de banda, con su tensor tipo trotadora y un coronado opcional que la centra."
     ),

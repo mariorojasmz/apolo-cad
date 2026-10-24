@@ -117,6 +117,10 @@ CAMPOS: dict[str, str] = {
         "rotation rotation.x rotation.y rotation.z"
     ),
     "create_group": "name members parent role",
+    "create_pneumatic_cylinder": (
+        "name ref carrera position position.x position.y position.z eje puertos montaje empujador "
+        "empujador.ancho empujador.alto empujador.espesor"
+    ),
     "create_revolve": (
         "name profile angle axis position position.x position.y position.z rotation rotation.x "
         "rotation.y rotation.z"
@@ -273,6 +277,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "create_extrude_poly": (1, "1b52acc21ee53008"),
     "create_frame": (1, "d8387fb3400cbec1"),
     "create_group": (1, "450675e65cecac8a"),
+    "create_pneumatic_cylinder": (1, "bb680c70c129efc1"),  # V8.9 F2: comando nuevo
     "create_revolve": (1, "1688dc48118c2a15"),
     "create_robot_arm": (1, "c4ceee70195b1ad0"),
     # compuesto: la huella es la del executor; cotas y receta viven en otros módulos (regla D10)

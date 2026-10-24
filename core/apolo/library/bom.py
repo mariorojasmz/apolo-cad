@@ -40,6 +40,17 @@ def _base_name(name: str) -> str:
     return _INSTANCE_SUFFIX.sub("", name or "").strip()
 
 
+def _medida(comp, cut) -> str:
+    """« L=… mm» de lo cortado; « carrera … mm» de un cilindro neumático (V8.9 D5: la ref se
+    pide con su carrera)."""
+    if not cut:
+        return ""
+    neu = getattr(comp, "neumatico", None)
+    if neu is not None and neu.tipo == "cilindro":
+        return f" carrera {cut:g} mm"
+    return f" L={cut:g} mm"
+
+
 def _eslabones(comp, cut) -> str:
     """« (30 eslabones)» en una cadena de rodillos cortada (lo que se pide en el mostrador:
     plan cadenas-pinones D7); vacío en todo lo demás."""
@@ -92,7 +103,7 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
                     angs = " ∠" + "/".join(f"{a:g}°" if a is not None else "0°" for a in mtr)
                 rows[key] = {
                     "ref": comp.ref,
-                    "descripcion": comp.name + (f" L={cut:g} mm" if cut else "")
+                    "descripcion": comp.name + _medida(comp, cut)
                     + _eslabones(comp, cut) + angs,
                     "categoria": comp.category,
                     "material": (comp.specs or {}).get("material", ""),
