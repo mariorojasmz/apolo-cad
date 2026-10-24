@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -61,11 +60,39 @@ def test_importar_la_superficie_no_carga_occt():
 
 
 def test_la_extension_falsa_importa_del_nucleo_solo_por_la_superficie():
-    """La extensión de la suite es el ejemplo: todo `from apolo…` suyo pasa por `extensiones_api`."""
+    """La extensión de la suite es el ejemplo: todo `from apolo…` suyo pasa por `extensiones_api`
+    o, para el trabajo de dominio (sus láminas, F1d), por un módulo de `MODULOS` y sólo con los
+    nombres que declara."""
+    import ast
+
     otros = []
     for ruta in sorted((RAIZ / "tests" / "ext_prueba").glob("*.py")):
-        for n, linea in enumerate(ruta.read_text(encoding="utf-8").splitlines(), 1):
-            m = re.match(r"\s*(?:from|import)\s+(apolo[\w.]*)", linea)
-            if m and m.group(1) != "apolo.extensiones_api":
-                otros.append(f"{ruta.name}:{n}: {linea.strip()}")
+        for nodo in ast.walk(ast.parse(ruta.read_text(encoding="utf-8"))):
+            if isinstance(nodo, ast.Import):
+                otros += [f"{ruta.name}:{nodo.lineno}: import {a.name}" for a in nodo.names
+                          if a.name.split(".")[0] == "apolo"]
+            elif isinstance(nodo, ast.ImportFrom) and (nodo.module or "").split(".")[0] == "apolo":
+                nombres = {a.name for a in nodo.names}
+                declarados = set(extensiones_api.MODULOS.get(nodo.module, ()))
+                if nodo.module != "apolo.extensiones_api" and not (
+                        nodo.module in extensiones_api.MODULOS and nombres <= declarados):
+                    otros.append(f"{ruta.name}:{nodo.lineno}: from {nodo.module} import "
+                                 f"{', '.join(sorted(nombres - declarados))}")
     assert not otros, "\n".join(otros)
+
+
+def test_el_motor_de_laminas_esta_declarado_y_la_extension_falsa_lo_usa():
+    """F1d: `drawing.sheet`, `tabla`, `titleblock` y `pdf` en `MODULOS`, y una extensión arma con
+    ellos un PDF de varias hojas con su cajetín (`tests/ext_prueba/laminas.py`)."""
+    from ext_prueba import laminas
+
+    assert {"apolo.drawing.sheet", "apolo.drawing.tabla", "apolo.drawing.titleblock",
+            "apolo.drawing.pdf"} <= set(extensiones_api.MODULOS)
+    filas = [[i, f"Pieza de prueba número {i} con una descripción larga que se parte", i * 2]
+             for i in range(1, 61)]
+    hojas = laminas.laminas(filas)
+    assert len(hojas) >= 2  # 60 filas partidas no entran en una A4: pagina por altura
+    assert any(lb.text == "EXTENSIÓN DE PRUEBA" for lb in hojas[0].labels)
+    laminas.cajetin_suelto(hojas[0])
+    pdf = laminas.pdf(filas[:5])
+    assert pdf.startswith(b"%PDF")

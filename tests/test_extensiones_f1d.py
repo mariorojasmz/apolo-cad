@@ -142,6 +142,49 @@ def test_poner_ext_solo_escribe_la_de_una_extension_cargada(clientes):
     assert exc.value.status_code == 400
 
 
+_API = """
+import io, json, zipfile
+from fastapi.testclient import TestClient
+import apolo.api.main as api
+from apolo.doc import Document
+
+api.DOC = Document("t")
+c = TestClient(api.app)
+caja = c.post("/api/prueba/caja", params={"lado": 25})
+nota = c.put("/api/prueba/nota", json={"de": "la API real"}).json()
+with zipfile.ZipFile(io.BytesIO(c.get("/api/project/file").content)) as z:
+    manifest = json.loads(z.read("manifest.json"))
+undo = c.post("/api/undo").status_code
+print(json.dumps({"caja": [caja.status_code, caja.json()], "nota": nota,
+                  "ext": manifest.get("ext"), "undo": undo, "comandos": len(api.DOC.commands),
+                  "nota_tras_undo": c.get("/api/prueba/nota").json()}))
+"""
+
+
+def test_en_la_api_real_las_rutas_de_la_fachada_cargan_y_mutan():
+    """En un proceso aparte, como corre la API: `main` incluye las rutas de la extensión (que
+    importan la fachada al cargarse, sin ciclo) y éstas mutan con undo y guardan su `ext`."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[1]
+    env = {k: v for k, v in os.environ.items() if k != "APOLO_EXTENSIONES"}
+    env[EXTRA] = "ext_prueba:EXTENSION"
+    env["PYTHONPATH"] = os.pathsep.join(
+        p for p in (str(raiz / "core"), str(raiz / "tests"), os.environ.get("PYTHONPATH")) if p)
+    out = subprocess.run([sys.executable, "-B", "-c", _API], capture_output=True, text=True,
+                         env=env, timeout=600, cwd=raiz)
+    assert out.returncode == 0, out.stderr[-3000:]
+    res = json.loads(out.stdout.strip().splitlines()[-1])
+    assert res["caja"] == [200, {"piezas": 1, "affected_command_ids": ["c1"]}]
+    assert res["nota"] == {"nota": {"de": "la API real"}}
+    assert res["ext"] == {"ext-prueba": {"de": "la API real"}}
+    assert res["undo"] == 200 and res["comandos"] == 0
+    assert res["nota_tras_undo"] == {"nota": {"de": "la API real"}}  # metadato: el undo no la toca
+
+
 def test_la_fachada_es_la_misma_funcion_que_la_api():
     from apolo import extensiones_api
     from apolo.api import fachada

@@ -1414,7 +1414,15 @@ por vía):
    - La extensión falsa (`tests/ext_prueba/puerta.py`): una `Entrada` que siempre pasa y una `Fuente`
      que lee su nota del manifest y falla si la nota lo pide; cuatro variantes que no cargan.
 
-**Falta:** el motor de láminas en `MODULOS`.
+4. **Motor de láminas en `MODULOS`**: `drawing.sheet` (el modelo de lámina y sus elementos,
+   `SHEETS`, `MARGIN`, `compose_sheet`), `drawing.tabla` (`hojas_tabla` y sus medidas),
+   `drawing.titleblock` (`draw_title_block`, `projection_symbol`, `REV_ROW_H`, `TITLE_H`) y
+   `drawing.pdf` (`sheet_to_pdf`, `sheets_to_pdf`). La extensión falsa arma con ellos una tabla
+   paginada con cajetín y su PDF (`tests/ext_prueba/laminas.py`). El gate de imports de la extensión
+   falsa admite ahora, además de `extensiones_api`, un módulo de `MODULOS` con SUS nombres
+   declarados (lo lee por AST).
+
+**Falta:** la suite completa y los conteos.
 
 **Decidido por el agente (vetable):**
 
