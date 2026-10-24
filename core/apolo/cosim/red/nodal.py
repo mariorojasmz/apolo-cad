@@ -3,7 +3,9 @@
 Cada rama es una o dos ESTAMPAS (admitancia entre dos nodos locales; un potenciómetro, dos). Las
 fijas (conductor, resistencia) valen lo mismo siempre; las de contacto valen 1/R_on o 1/R_off
 según el estado de su actuador («-K1.bobina») en el paso. Las fallas del escenario (D12) abren
-una rama (`cortar`, el `cable_cortado`) o agregan una estampa (`cortocircuito`).
+una rama (`cortar`, el `cable_cortado`) o agregan una estampa (`cortocircuito`); un contacto
+PEGADO (cosim-fallas D3) queda como se dice aunque su actuador cambie: es una máscara sobre los
+contactos (`_cerrados`, la usan las dos redes) que entra a sus firmas.
 """
 
 from __future__ import annotations
@@ -41,12 +43,15 @@ class RedNodal:
         self._y0: list = []
         self._de_rama: dict[str, list[int]] = {}
         self._contactos: list[tuple[int, str, str]] = []  # (estampa, actuador, contacto)
+        self._pos_contacto: dict[str, int] = {}  # rama → su lugar en `_contactos`
         self._potes: list[tuple[int, int, str, float]] = []  # (de-cursor, cursor-a, actuador, R)
         self._fijas: list[int] = []
         for r in dom.ramas:
             self._agregar_rama(r)
         self._cortadas: set[str] = set()
         self._cortos: dict[str, tuple[str, str, float]] = {}
+        #: contactos pegados: lugar en `_contactos` → cerrado (cosim-fallas D3)
+        self._pegados: dict[int, bool] = {}
         self._firma = None
 
     # ── armado ──────────────────────────────────────────────────────────────────────────────
@@ -62,6 +67,7 @@ class RedNodal:
         ks: list[int] = []
         if r.tipo == "contacto":
             ks.append(self._estampa(ix(r.de), ix(r.a), 0.0))
+            self._pos_contacto[r.id] = len(self._contactos)
             self._contactos.append((ks[0], r.actuador, r.contacto))
         elif r.tipo == "conductor":
             T = r.temperatura_C if r.temperatura_C is not None else self._T
@@ -129,6 +135,24 @@ class RedNodal:
         if self._cortos.pop(id, None) is not None:
             self._construir()
 
+    def pegar(self, rama_id: str, cerrado: bool) -> None:
+        """Un contacto PEGADO: queda `cerrado` (o abierto) aunque su actuador cambie, hasta
+        `despegar`; el resto del aparato sigue a su actuador (cosim-fallas D3)."""
+        j = self._pos_contacto.get(rama_id)
+        if j is None:
+            raise KeyError(f"la red de {self.nombre} no tiene el contacto «{rama_id}»")
+        self._pegados[j] = bool(cerrado)
+        self._firma = None
+
+    def despegar(self, rama_id: str) -> None:
+        j = self._pos_contacto.get(rama_id)
+        if j is not None and self._pegados.pop(j, None) is not None:
+            self._firma = None
+
+    def firma_pegados(self) -> tuple:
+        """Lo que la máscara pone en las firmas (sin orden de dict)."""
+        return tuple(sorted(self._pegados.items()))
+
     # ── admitancias de un paso ──────────────────────────────────────────────────────────────
 
     def _valores(self, estados: dict | None) -> tuple:
@@ -137,7 +161,10 @@ class RedNodal:
 
     def _cerrados(self, valores: tuple) -> np.ndarray:
         acc = np.fromiter((bool(valores[j]) for j in self._j_cont), dtype=bool, count=len(self._j_cont))
-        return acc ^ self._nc
+        cerrados = acc ^ self._nc
+        for j, cerrado in self._pegados.items():
+            cerrados[j] = cerrado
+        return cerrados
 
     def _y_ramas(self, valores: tuple) -> np.ndarray:
         """Admitancias de las estampas propias (sin los cortos) con los contactos de `valores`."""

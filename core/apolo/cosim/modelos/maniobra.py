@@ -13,6 +13,13 @@ cerrados. La corriente de bobina es la de su placa: en DC R = Uc²/P; en AC la d
 mientras no ha cerrado y la de MANTENIMIENTO cerrado (|Z| = Uc²/S).
 
 Señales (D10): `-K1.cerrado`, `-K1.estado`, `-K1.I_bobina_A`.
+
+Fallas (cosim-fallas D2):
+  - `soldado`: los contactos quedan CERRADOS sin bobina (el inducido no suelta); al repararla
+    abre por su cuenta si la bobina ya no está;
+  - `no_cierra`: el inducido trabado o la bobina cortada: no cierra (si estaba cerrado, abre) y
+    la bobina no consume (`abre_su_carga`: el tablero la saca de la red).
+Los auxiliares siguen al aparato (son contactos espejo de la misma bobina).
 """
 
 from __future__ import annotations
@@ -22,6 +29,9 @@ from .base import EPS_T, Modelo, ModeloIncompleto, Parametros, magnitud
 
 class Contactor(Modelo):
     tipo = "contactor"
+    FALLAS = {"soldado": "", "no_cierra": ""}
+    soldado = False
+    no_cierra = False
 
     def __init__(self, p: Parametros):
         super().__init__(p)
@@ -58,6 +68,8 @@ class Contactor(Modelo):
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
         u = magnitud((entradas or {}).get("U_bobina_V", 0.0))
+        if self.no_cierra:
+            u = 0.0  # la bobina cortada no ve tensión ni consume
         self.U = u
         cierra, cae = u >= self.u_cierre * self.Uc - 1e-9, u < self.u_caida * self.Uc
         if self.estado == "abierto" and cierra:
@@ -75,7 +87,26 @@ class Contactor(Modelo):
             self.t += dt
             if self.t >= self.t_apertura - EPS_T:
                 self.estado = "abierto"
+        if self.soldado:
+            self.estado, self.t = "cerrado", 0.0
         return self.salidas()
+
+    @property
+    def abre_su_carga(self) -> bool:
+        return self.no_cierra
+
+    def _falla_soldado(self, _v=None) -> None:
+        self.soldado = True
+        self.estado, self.t = "cerrado", 0.0
+
+    def _reparar_soldado(self, _v=None) -> None:
+        self.soldado = False
+
+    def _falla_no_cierra(self, _v=None) -> None:
+        self.no_cierra = True
+
+    def _reparar_no_cierra(self, _v=None) -> None:
+        self.no_cierra = False
 
     @property
     def I_bobina_A(self) -> float:

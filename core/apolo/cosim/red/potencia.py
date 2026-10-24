@@ -167,7 +167,7 @@ class RedPotencia(RedNodal):
             cargas.append((modo, S if modo == "impedancia" else None,
                            self._overrides.get(cg.c.id, {}).get("R_ohm")))
         return (valores, tuple(norton), ideal, tuple(cargas), frozenset(self._cortadas),
-                tuple(self._cortos.items()))
+                tuple(self._cortos.items()), self.firma_pegados())
 
     def _admitancias(self, valores: tuple, firma: tuple) -> np.ndarray:
         y = self._y_ramas(valores)

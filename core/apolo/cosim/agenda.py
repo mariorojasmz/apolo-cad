@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import difflib
 
+from . import fallas
 from .escenario import Accion, EscenarioInvalido, Evento
 
 EPS_T = 1e-9
@@ -152,6 +153,10 @@ class Agenda:
                 (red.reponer if reverso else red.cortar)(rid)
         elif e.tipo == "sensor_pegado":
             self._modelo(d["dispositivo"]).accionar("forzar", None if reverso else d["valor"])
+        elif e.tipo == "falla":  # cosim-fallas D4: el reverso o `quitar` la reparan
+            for h in fallas.aplicar(self.tab, d, reverso or bool(d.get("quitar"))):
+                if h not in self.tab.hipotesis:
+                    self.tab.hipotesis.append(h)
 
 
 def validar(esc, tablero, juntas: set) -> None:

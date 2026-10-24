@@ -15,6 +15,11 @@ backend: [core/apolo](../CLAUDE.md).
 - Todo parámetro por `Parametros`: falta → `ModeloIncompleto`; rango = `ajustado` (obligatorio),
   banda = `de_banda` (en `hipotesis`). Nunca un default silencioso: una cifra nueva cita su norma
   o dice «criterio de diseño» en el YAML; las curvas de NORMA van en el código.
+- **Fallas a propósito** ([cosim-fallas](../../../docs/plans/cosim-fallas.md)): una falla nueva =
+  entrada en `FALLAS` + `_falla_<n>`/`_reparar_<n>` del modelo, con su gemelo sano en
+  `test_cosim_fallas_modelos.py`. Sin falla, las salidas son las de siempre (sin `averia`: la
+  publica `Modelo.publicadas` sólo si el modelo falló). Lo de la red (pegado, abierto, corto) va
+  en `fallas.py`; un contacto pegado es máscara de `RedNodal._cerrados` y entra a sus firmas.
 - PUROS sin OCCT (`test_capas_cosim.py`): ni `apolo.library` (su `__init__` carga OCP). Las
   redes leen el formato plano de `red/entrada.py` (lo arma `services/cosim_red.py`); la alterna
   de mando va en la de potencia. `pedidas()` ANTES de `paso`.

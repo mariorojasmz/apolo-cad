@@ -185,11 +185,25 @@ class RecolectorAjustes(Parametros):
 
 
 class Modelo:
-    """Base de todo modelo de dispositivo. Las subclases fijan `tipo` y `ACCIONES`."""
+    """Base de todo modelo de dispositivo. Las subclases fijan `tipo`, `ACCIONES` y `FALLAS`.
+
+    Fallas (plan cosim-fallas D1): `FALLAS` = {nombre: lo que pide su valor} (`""` = nada; ver
+    `PIDE`). `fallar(nombre, valor)` llama a `_falla_<nombre>(valor)`, que la aplica y devuelve
+    su ETIQUETA («soldado», «entrada_pegada I0.0»); `reparar(nombre, valor)` llama a
+    `_reparar_<nombre>(valor)`, que la quita y devuelve las etiquetas que se van. Mientras el
+    modelo tuvo alguna, publica `averia` (texto: las activas, «» al repararlas); sin ninguna, sus
+    salidas son EXACTAMENTE las de antes del plan.
+    """
 
     tipo: str = ""
     #: Acciones de `accionar`: las del operador o del mundo que el escenario agenda (V8.3 D12).
     ACCIONES: tuple[str, ...] = ()
+    #: Fallas que el modelo sabe tomar: {nombre: lo que pide su valor} (cosim-fallas D1, D2).
+    FALLAS: dict[str, str] = {}
+    #: El modelo abre la carga de su bobina o lámpara en la red (una bobina cortada no consume).
+    abre_su_carga = False
+    #: etiqueta → nombre de las fallas activas; None mientras nunca falló (sin `averia`).
+    _averias: dict | None = None
 
     def __init__(self, p: Parametros):
         self.designacion = p.designacion
@@ -202,9 +216,15 @@ class Modelo:
     def salidas(self) -> dict:
         raise NotImplementedError
 
+    def publicadas(self) -> dict:
+        """`salidas()` más `averia` si el modelo tuvo alguna falla (D5)."""
+        if self._averias is None:
+            return self.salidas()
+        return {**self.salidas(), "averia": self.averia}
+
     def senales(self) -> dict:
         """Las salidas escalares con su nombre estable de D10: «-K1.cerrado»."""
-        return {f"{self.designacion}.{k}": v for k, v in self.salidas().items()
+        return {f"{self.designacion}.{k}": v for k, v in self.publicadas().items()
                 if isinstance(v, (bool, int, float, str))}
 
     def accionar(self, accion: str, valor=None) -> None:
@@ -212,6 +232,58 @@ class Modelo:
             raise ValueError(f"{self.designacion} ({self.ref}, {self.tipo}) no admite «{accion}»; "
                              f"acciones: {', '.join(self.ACCIONES) or '(ninguna)'}")
         getattr(self, f"_accion_{accion}")(valor)
+
+    # ── fallas (cosim-fallas D1) ────────────────────────────────────────────────────────────
+
+    def _falla_valida(self, nombre: str) -> None:
+        if nombre not in self.FALLAS:
+            raise ValueError(f"{self.designacion} ({self.ref}, {self.tipo}) no admite la falla «{nombre}»; "
+                             f"fallas: {', '.join(self.FALLAS) or '(ninguna)'}")
+
+    def fallar(self, nombre: str, valor=None) -> str:
+        """Aplica la falla `nombre` (con su `valor` si lo pide); devuelve su etiqueta."""
+        self._falla_valida(nombre)
+        etiqueta = getattr(self, f"_falla_{nombre}")(valor) or nombre
+        if self._averias is None:
+            self._averias = {}
+        self._averias[etiqueta] = nombre
+        return etiqueta
+
+    def reparar(self, nombre: str, valor=None) -> None:
+        """Quita la falla `nombre` (la de `valor` si hay varias del mismo nombre: un borne)."""
+        self._falla_valida(nombre)
+        idas = getattr(self, f"_reparar_{nombre}")(valor)
+        if self._averias:
+            for e in ([idas] if isinstance(idas, str) else idas or [nombre]):
+                self._averias.pop(e, None)
+
+    def con_falla(self, nombre: str) -> bool:
+        return bool(self._averias) and nombre in self._averias.values()
+
+    @property
+    def averia(self) -> str:
+        """Las fallas activas, en el orden en que entraron («» sin ninguna)."""
+        return ", ".join(self._averias or ())
+
+    @staticmethod
+    def _bool(valor, que: str, defecto: bool | None = None) -> bool:
+        if valor is None and defecto is not None:
+            return defecto
+        if not isinstance(valor, bool):
+            raise ValueError(f"{que} es true o false (llegó {valor!r})")
+        return valor
+
+
+#: Lo que pide el valor de una falla (`Modelo.FALLAS`): lo lee la UI (D6/D7) para armar el campo.
+PIDE = {
+    "": "nada",
+    "bool": "true o false",
+    "bool?": "opcional: true o false (cómo queda)",
+    "posicion?": "opcional: la posición en que queda",
+    "unidad?": "opcional: la unidad (1…n) de la bornera; sin ella, todas",
+    "borne,valor": "{borne, valor}: el borne y cómo queda",
+    "canal": "el canal: S1 o S2",
+}
 
 
 def magnitud(v) -> float:

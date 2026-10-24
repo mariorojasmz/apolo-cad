@@ -11,7 +11,10 @@ TABLA (va UNA vez, en el primer mensaje del WebSocket; los índices ordenan el f
     en `{"tipo": "textos", "t", "valores"}` sólo cuando cambian;
   - `mandos`: [{designacion, tipo, ref, acciones, color, pieza?, retorno?, actuadores?,
     potenciometro?, posiciones?, senales}] · `pilotos`: [{designacion, ref, color, pieza?, senal}]
-    · `dispositivos`: [{designacion, tipo, ref, pieza?}] (las etiquetas de D5: motor, variador…).
+    · `dispositivos`: [{designacion, tipo, ref, pieza?}] (las etiquetas de D5: motor, variador…);
+  - `fallas`: [{designacion, tipo, fallas: [{falla, pide, opciones?}]}] y `ramas`: [{id, tipo:
+    contacto | conductor, red, dispositivo?}] — lo que se puede hacer fallar (cosim-fallas D6,
+    `fallas.catalogo`); la UI ofrece sólo eso. Una falla activa viaja en `<des>.averia` (texto).
 
 FOTOGRAMA (float32 little-endian; `FORMATO` = 1):
   [0] formato · [1] t (s virtuales) · [2] factor de tiempo real medido · [3] nc · [4] np · [5] nj
@@ -32,6 +35,8 @@ import numpy as np
 
 from apolo.physics.dinamica_serie import _quat_xyzw
 from apolo.physics.sim import MM, _pose_matrix
+
+from .fallas import catalogo
 
 FORMATO = 1
 CABECERA = 8
@@ -115,6 +120,7 @@ class Fotograma:
                         "direccion": [round(float(x), 6) for x in b.e]} for b in dyn.bandas],
             "senales": list(self.senales),
             "mandos": mandos, "pilotos": pilotos, "dispositivos": dispositivos,
+            **catalogo(c.tab),
         }
 
     # ── cada fotograma ───────────────────────────────────────────────────────────────────────

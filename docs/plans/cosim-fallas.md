@@ -155,3 +155,42 @@ Rutas relativas a `core/apolo/`, medidas sobre `93bcd73`.
 | La UI ofrece fallas que el modelo no toma | la lista sale del `inicio` (D6), no de la UI |
 
 ## Bitácora
+
+### F1a (2026-10-23) — en curso
+
+Backend (D1–D6, D8–D10) sobre `0a61be6`. Falta: el docstring de `set_scenario` con su golden
+(D9) y la suite completa.
+
+- **Fallas por modelo** (`Modelo.FALLAS`, `fallar`/`reparar`, `_falla_<n>`/`_reparar_<n>`; `pide`
+  sale de `modelos/base.PIDE`, un vocabulario corto que la UI lee: `""`, `bool`, `bool?`,
+  `posicion?`, `unidad?`, `borne,valor`, `canal`). Las de D2, todas; la red y el motor, ninguna.
+- **Decisiones de F1a** (dentro del contrato, para vetar):
+  - `trabado` = la mano acciona y el mecanismo no se mueve (la acción se acepta y no cambia
+    nada; un pulsador trabado tampoco vuelve por resorte). El potenciómetro de una botonera no
+    lo alcanza la traba.
+  - `abierto` de una protección = dispara sola con causa «avería»; mientras dura no se rearma ni
+    se repone y, reparada, queda disparada hasta que la rearmen (un disparo de verdad).
+  - `falla_interna` del variador = falla «interna» que no se rearma mientras dura.
+  - `detenido` del PLC: el planificador (`corrida._plc`) pasa el programa a STOP; reparado,
+    arranque en caliente si el escenario está en RUN.
+  - `no_cierra` y `fundido` sacan la bobina o la lámpara de la red (`abre_su_carga`: R_off en el
+    mando por `cargas`, `R_ohm` en la potencia), así «no consume» vale también para la fuente.
+  - `canal_sto_pegado` deja una hipótesis en el resultado: el modelo no detecta la discrepancia
+    entre canales (D10).
+  - `sensor_pegado` y `cable_cortado` siguen por su camino de siempre (sin `averia`): así sus
+    escenarios dan la misma huella; `falla` con `pegado`/`abierto` hace lo mismo y además lo
+    publica.
+  - `quitar: true` también vale en lote: la grabación de una sesión lo trae y tiene que
+    reproducirse.
+  - El `inicio` publica `fallas` [{designacion, tipo, fallas: [{falla, pide, opciones?}]}] (con
+    `opciones`: posiciones, bornes, canales, unidades) y `ramas` [{id, tipo, red, dispositivo?}].
+    No publica puntos para el corto (D7 no lo ofrece en la UI).
+  - `tipos.valores_iniciales` suma `<des>.averia = ""` para tipar las aserciones al declarar.
+- **D8, `COSIM_EPOCH` sigue en 4**: 9 escenarios del banco (`cosim_lazo_banco`: marcha, seta,
+  atasco, corte de fase, cable cortado, cajas, sensor pegado, caída de red, atasco parcial) dan
+  la MISMA huella antes y después; sólo se actualizó la `HUELLA` de `test_cosim_epoch.py`. La 77
+  no se midió aquí (el brief prohíbe tocar `data/`): va en F3, sobre su copia.
+- Tests: `tests/test_cosim_fallas_modelos.py` (24: cada falla con su gemelo sano) y
+  `tests/test_cosim_fallas.py` (30: lote y vivo con la faja del banco, contacto pegado en mando
+  y en potencia, cortos, `quitar`, la grabación vuelta escenario con la misma huella, el
+  rechazo en el snapshot con su pista, la huella determinista).

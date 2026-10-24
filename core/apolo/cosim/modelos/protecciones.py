@@ -12,6 +12,10 @@ están abajo, con su norma; el punto dentro de la banda es criterio de diseño),
 es un umbral instantáneo: dispara en el mismo paso.
 
 Señales (D10): `-Q1.disparado`, `-Q1.termico_pct` (θ/k² en %), `-Q1.cerrado`.
+
+Fallas (cosim-fallas D2): `no_dispara` (el bimetal calienta pero ni el térmico ni el magnético
+abren) y `abierto` (dispara o funde SOLO, con causa «avería»: mientras dura no se rearma ni se
+repone; reparada, queda disparada hasta que alguien la rearme, como un disparo de verdad).
 """
 
 from __future__ import annotations
@@ -87,6 +91,9 @@ class _Proteccion(Modelo):
     """Estado común: cerrada (la manija), disparada (la protección abrió sola)."""
 
     ACCIONES = ("rearmar", "abrir", "cerrar")
+    FALLAS = {"no_dispara": "", "abierto": ""}
+    no_dispara = False
+    abierto = False
     polos: int = 1
     nominal: float = 1.0  # la corriente a la que x = 1
 
@@ -110,7 +117,21 @@ class _Proteccion(Modelo):
         return self.salidas()
 
     def _disparar(self, causa: str) -> None:
-        self.disparado, self.causa = True, causa
+        if not self.no_dispara:
+            self.disparado, self.causa = True, causa
+
+    def _falla_no_dispara(self, _v=None) -> None:
+        self.no_dispara = True
+
+    def _reparar_no_dispara(self, _v=None) -> None:
+        self.no_dispara = False
+
+    def _falla_abierto(self, _v=None) -> None:
+        self.abierto = True
+        self.disparado, self.causa = True, "avería"
+
+    def _reparar_abierto(self, _v=None) -> None:
+        self.abierto = False
 
     @property
     def cerrado(self) -> bool:
@@ -122,7 +143,7 @@ class _Proteccion(Modelo):
 
     def _puede_rearmar(self) -> bool:
         # el bimetal tiene que enfriarse hasta su régimen nominal (θ ≤ 1): criterio de diseño
-        return max(self.termico.theta) <= 1.0
+        return max(self.termico.theta) <= 1.0 and not self.abierto
 
     def _accion_rearmar(self, _valor=None) -> None:
         if self.disparado and self._puede_rearmar():
@@ -208,6 +229,8 @@ class Fusible(Modelo):
 
     tipo = "fusible"
     ACCIONES = ("reponer",)
+    FALLAS = {"no_dispara": "", "abierto": "unidad?"}
+    no_dispara = False
 
     def __init__(self, p: Parametros, cantidad: int = 1):
         super().__init__(p)
@@ -221,12 +244,14 @@ class Fusible(Modelo):
         self.unidades = int(cantidad)
         self.termico = ImagenTermica(FUSIBLE_TAU_S[self.curva], FUSIBLE_K, self.unidades)
         self.fundido = [False] * self.unidades
+        self.abiertas: set[int] = set()  # unidades con la falla `abierto` (0-indexadas)
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
         corrientes = por_polo((entradas or {}).get("I_A", 0.0), self.unidades)
         corrientes = [0.0 if f else i for f, i in zip(self.fundido, corrientes)]
         self.termico.paso(dt, [i / self.nominal for i in corrientes])
-        self.fundido = [f or th >= self.termico.k2 for f, th in zip(self.fundido, self.termico.theta)]
+        if not self.no_dispara:
+            self.fundido = [f or th >= self.termico.k2 for f, th in zip(self.fundido, self.termico.theta)]
         return self.salidas()
 
     def salidas(self) -> dict:
@@ -237,6 +262,35 @@ class Fusible(Modelo):
 
     def _accion_reponer(self, unidad=None) -> None:
         for k in range(self.unidades):
-            if unidad in (None, k + 1):
+            if unidad in (None, k + 1) and k not in self.abiertas:
                 self.fundido[k] = False
                 self.termico.theta[k] = 0.0
+
+    def _unidades(self, unidad) -> list[int]:
+        if unidad is None:
+            return list(range(self.unidades))
+        if isinstance(unidad, bool) or not isinstance(unidad, int) or not 1 <= unidad <= self.unidades:
+            raise ValueError(f"{self.designacion}: la unidad va de 1 a {self.unidades} (llegó {unidad!r})")
+        return [unidad - 1]
+
+    def _etiqueta(self, unidad) -> str:
+        return "abierto" if unidad is None or self.unidades == 1 else f"abierto {unidad}"
+
+    def _falla_no_dispara(self, _v=None) -> None:
+        self.no_dispara = True
+
+    def _reparar_no_dispara(self, _v=None) -> None:
+        self.no_dispara = False
+
+    def _falla_abierto(self, unidad=None) -> str:
+        for k in self._unidades(unidad):
+            self.abiertas.add(k)
+            self.fundido[k] = True
+        return self._etiqueta(unidad)
+
+    def _reparar_abierto(self, unidad=None) -> list[str]:
+        ks = self._unidades(unidad)
+        self.abiertas.difference_update(ks)
+        if unidad is None:
+            return [e for e, n in (self._averias or {}).items() if n == "abierto"]
+        return [self._etiqueta(unidad)]

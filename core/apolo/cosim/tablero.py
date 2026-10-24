@@ -42,6 +42,7 @@ from .modelos import (
 )
 from .modelos.mandos import _Mando
 from .red import armar, fasores_nominales
+from .red.mna import R_OFF
 
 SQ3 = math.sqrt(3.0)
 #: Factor de potencia de un motor a rotor bloqueado (el arranque directo): criterio de diseño,
@@ -165,6 +166,11 @@ class Tablero:
         self._k_sensor = [(f"{des}.señal", m) for des, m, _ in self.sensores]
         self._k_vfd = [(f"{des}.rele_falla", m) for des, m, *_ in self.variadores]
         self._k_mando = [(f"{des}.", f"{des}.potenciometro", m) for des, m in self.mandos]
+        # las cargas que un modelo con falla saca de la red (bobina cortada, lámpara fundida)
+        self._con_carga = [(m, cid) for _d, m, cid, _p in self.contactores if cid] + [
+            (m, cid) for _d, m, cid in self.pilotos if cid]
+        self._abiertas: set = set()
+        self._cargas_mando: dict = {}
 
     def _en_potencia(self, cid: str | None) -> bool:
         return bool(cid and self.pot_red is not None and cid in self.pot_red._carga_idx)
@@ -256,8 +262,10 @@ class Tablero:
                 self.pot = self.pot_red.paso(est, fuentes, self.cargas_pot)
                 self._firma_pot = firma
                 self.resoluciones_potencia += 1
+        self._cargas_que_abren()
         fuentes_dc: dict = {}
-        pedidas = self.mando_red.pedidas(est) if self.mando_red is not None else {}
+        cm = self._cargas_mando or None
+        pedidas = self.mando_red.pedidas(est, cm) if self.mando_red is not None else {}
         for _des, m, fid, cid in self.fuentes_dc:
             m.paso(dt, {"U_entrada_V": self.U(cid), "I_carga_A": pedidas.get(fid, 0.0)})
             fuentes_dc[fid] = m.U
@@ -268,16 +276,32 @@ class Tablero:
             if dc is not None:  # los 10 V del potenciómetro: con la red de su entrada en rango
                 fuentes_dc[dc[0]] = dc[1] if max(vivas[des], default=0.0) >= m.U_min else 0.0
         if self.mando_red is not None:
-            self.mando = self.mando_red.paso(est, fuentes_dc)
+            self.mando = self.mando_red.paso(est, fuentes_dc, cm)
             v = self.mando.v
             self._Um = (v[self._ia_m] - v[self._ib_m]).tolist()
         self._aparatos(dt, vivas)
         self._motores(dt)
 
+    def _cargas_que_abren(self) -> None:
+        """Una bobina cortada o una lámpara fundida (cosim-fallas D2) sale de la red: en el mando,
+        R_off en su lugar; en la potencia, con su próxima carga (`_aparatos`). Al repararse vuelve
+        la de la entrada (un override vacío es la carga original)."""
+        for m, cid in self._con_carga:
+            abre = m.abre_su_carga
+            if abre == (cid in self._abiertas):
+                continue
+            (self._abiertas.add if abre else self._abiertas.discard)(cid)
+            ov = {"R_ohm": R_OFF} if abre else {}
+            if self._donde.get(cid) == "m":
+                self._cargas_mando[cid] = ov
+            elif self._donde.get(cid) == "p" and not isinstance(m, Contactor):
+                self.cargas_pot[cid] = ov
+
     def _firma_potencia(self, est: dict, fuentes: dict) -> tuple:
         """(lo discreto, los números) de lo que entra a la red de potencia en este paso."""
         red = self.pot_red
-        disc = [red._valores(est), tuple(sorted(red._cortadas)), tuple(red._cortos)]  # sin orden de set
+        disc = [red._valores(est), tuple(sorted(red._cortadas)), tuple(red._cortos),  # sin orden de set
+                red.firma_pegados()]
         nums: list = []
         for fid, e in fuentes.items():
             fas = e.get("fasores", {})
@@ -286,7 +310,7 @@ class Tablero:
             if "Z_ohm" in e:
                 nums.append(e["Z_ohm"])
         for cid, ov in self.cargas_pot.items():
-            disc.append((cid, ov.get("modo")))
+            disc.append((cid, ov.get("modo"), ov.get("R_ohm")))
             nums.append(complex(ov.get("S", ov.get("S_VA", 0.0))))
         return tuple(disc), nums
 
@@ -309,7 +333,8 @@ class Tablero:
         for _des, m, cid, en_pot in self.contactores:
             m.paso(dt, {"U_bobina_V": abs(self.U(cid))})
             if en_pot:
-                self.cargas_pot[cid] = {"S_VA": m.S_mant if m.estado == "cerrado" else m.S_llamada}
+                self.cargas_pot[cid] = {"S_VA": m.S_mant if m.estado == "cerrado" else m.S_llamada,
+                                        **({"R_ohm": R_OFF} if m.abre_su_carga else {})}
         for _des, m, cid in self.pilotos:
             m.paso(dt, {"U_V": abs(self.U(cid))})
         for _des, m, ramas in self.protecciones:
@@ -378,7 +403,7 @@ class Tablero:
     def salidas_por_prefijo(self) -> list[tuple[str, dict]]:
         """[(«-K1.», salidas del modelo)]: lo que las trazas recorren en cada intercambio sin armar
         un dict con todos los nombres de D10."""
-        return [(self._prefijos[des], m.salidas()) for des, m in self.modelos.items()]
+        return [(self._prefijos[des], m.publicadas()) for des, m in self.modelos.items()]
 
     def senales_red(self, extra: set) -> dict:
         """Corriente de cada conductor («-W1.1.I_A») y las tensiones de borne pedidas

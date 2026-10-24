@@ -18,6 +18,11 @@ que siguen sus rampas, y lo que manda es su programación (el `modelo` de la ref
 
 Señales (D10): `-T1.f_Hz` (con signo: negativa = atrás), `-T1.estado`, `-T1.falla`, más
 `U_V`, `par_habilitado`, `sto`, `rele_falla`, `limitando`, `I_entrada_A`, `termico_pct`.
+
+Fallas (cosim-fallas D2; `falla` es la señal del variador, la avería del modelo es `averia`):
+  - `canal_sto_pegado` {canal: S1 | S2}: ese canal lee 24 V aunque no los tenga. El modelo NO
+    detecta la discrepancia entre canales (D10: no se inventa; queda como hipótesis);
+  - `falla_interna`: el variador pasa a falla «interna» y no se rearma mientras dura.
 """
 
 from __future__ import annotations
@@ -39,6 +44,8 @@ _SOBRECARGA_K2 = 1.1 ** 2
 class Variador(Modelo):
     tipo = "variador"
     ACCIONES = ("rearmar",)
+    FALLAS = {"canal_sto_pegado": "canal", "falla_interna": ""}
+    falla_interna = False
 
     def __init__(self, p: Parametros):
         super().__init__(p)
@@ -88,6 +95,7 @@ class Variador(Modelo):
         self.U = 0.0
         self.I_entrada = 0.0
         self.sin_red = False
+        self.sto_pegados: set[str] = set()  # canales que leen 24 V sin tenerlos
 
     # ── helpers ──────────────────────────────────────────────────────────────────────────────
 
@@ -156,9 +164,12 @@ class Variador(Modelo):
             self.falla = ""
             self.esperar_flanco = True
         self.rearme_previo = rearme
+        if self.falla_interna:
+            self._fallar("interna")
         # 5. STO
         if self.tiene_sto:
-            self.s = [entrada_tipo1(float(e.get(c, 0.0)), prev) for c, prev in zip(("S1", "S2"), self.s)]
+            self.s = [c in self.sto_pegados or entrada_tipo1(float(e.get(c, 0.0)), prev)
+                      for c, prev in zip(("S1", "S2"), self.s)]
             if all(self.s):
                 self.t_sto_abierto = 0.0
                 self.sto = False
@@ -221,6 +232,35 @@ class Variador(Modelo):
                 "termico_pct": 100.0 * self.theta / _SOBRECARGA_K2}
 
     def _accion_rearmar(self, _valor=None) -> None:
-        if self.falla:
+        if self.falla and not self.falla_interna:
             self.falla = ""
             self.esperar_flanco = True
+
+    def _canal(self, valor) -> str:
+        c = valor.get("canal") if isinstance(valor, dict) else valor
+        if not self.tiene_sto:
+            raise ValueError(f"{self.designacion}: no tiene entrada STO")
+        if c not in ("S1", "S2"):
+            raise ValueError(f"{self.designacion}: «canal_sto_pegado» pide el canal, S1 o S2 (llegó {valor!r})")
+        return c
+
+    def _falla_canal_sto_pegado(self, valor) -> str:
+        c = self._canal(valor)
+        self.sto_pegados.add(c)
+        if not any("discrepancia" in h for h in self.hipotesis):
+            self.hipotesis.append("el modelo del variador no detecta la discrepancia entre los dos "
+                                  "canales del STO (cosim-fallas D10): un canal pegado sólo se ve "
+                                  "porque el otro sigue cortando")
+        return f"canal_sto_pegado {c}"
+
+    def _reparar_canal_sto_pegado(self, valor=None) -> list[str]:
+        cs = sorted(self.sto_pegados) if valor is None else [self._canal(valor)]
+        self.sto_pegados.difference_update(cs)
+        return [f"canal_sto_pegado {c}" for c in cs]
+
+    def _falla_falla_interna(self, _v=None) -> None:
+        self.falla_interna = True
+        self._fallar("interna")
+
+    def _reparar_falla_interna(self, _v=None) -> None:
+        self.falla_interna = False

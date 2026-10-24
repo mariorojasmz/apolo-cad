@@ -14,6 +14,9 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
                  {"t": 6, "tipo": "caida_de_red", "factor": 0.0, "duracion_s": 0.05},
                  {"t": 7, "tipo": "cable_cortado", "rama": "-W3"},
                  {"t": 7, "tipo": "sensor_pegado", "dispositivo": "-B1", "valor": true},
+                 {"t": 2, "tipo": "falla", "dispositivo": "-K1", "falla": "soldado"},
+                 {"t": 2, "tipo": "falla", "rama": "-S0:11-12", "falla": "pegado", "valor": true},
+                 {"t": 3, "tipo": "falla", "falla": "corto", "a": "-X1:1", "b": "-X1:PE"},
                  {"t": 0, "tipo": "producto", "nombre": "caja", "dims_mm": […], …}],
      "mecanica": {…claves de la petición de V8.2: bandas, juntas, fps, timestep, nstep, sumideros…},
      "acoples": {"motores": {"-M1": {"junta": "j_tambor", "direccion_transporte": [1, 0, 0]}},
@@ -23,7 +26,9 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
      "descripcion": "marcha y conteo"}
 
 Los productos son los de V8.2 (`t` es su `desde_s`). Un evento con `duracion_s` se deshace solo
-al terminar. Las acciones y eventos se aplican en el primer intercambio con t ≥ su hora (reloj
+al terminar. Una `falla` (plan cosim-fallas D4) es de un aparato (`dispositivo` + la falla que su
+modelo toma), de una rama (`rama` + `abierto` | `pegado`) o un `corto` entre `a` y `b`; `valor`
+y `duracion_s` opcionales y `quitar: true` la repara (lo que manda la sesión en vivo). Las acciones y eventos se aplican en el primer intercambio con t ≥ su hora (reloj
 virtual: el mismo escenario da el mismo orden siempre). En vivo (V8.4) las acciones y los eventos
 llegan SIN hora: `leer_accion_viva` / `leer_evento_vivo` los validan igual. Puro: stdlib.
 """
@@ -38,7 +43,8 @@ from .aserciones import AsercionInvalida, leer_aserciones
 
 DURACION_MAX_S = 300.0
 ACCIONES = ("pulsar", "soltar", "presionar", "liberar", "girar", "rearmar", "abrir", "cerrar", "reponer")
-TIPOS_EVENTO = ("atasco", "corte_de_fase", "caida_de_red", "cable_cortado", "sensor_pegado", "producto")
+TIPOS_EVENTO = ("atasco", "corte_de_fase", "caida_de_red", "cable_cortado", "sensor_pegado", "falla",
+                "producto")
 #: Claves de la petición de V8.2 que el escenario pasa tal cual (`mecanica`). Motores, productos,
 #: sensores y duración los arma la co-simulación desde el tablero y el escenario.
 CLAVES_MECANICA = ("bandas", "auto_bandas", "juntas", "fps", "timestep", "nstep", "gravedad",
@@ -183,6 +189,61 @@ _CLAVES_EVENTO = {
 }
 
 
+#: Las claves de una `falla` (cosim-fallas D4), en el orden en que quedan en sus datos.
+_CLAVES_FALLA = ("dispositivo", "rama", "a", "b", "falla", "valor", "R_ohm", "quitar")
+_FALLAS_RAMA = ("abierto", "pegado")
+
+
+def _falla(e: dict, donde: str) -> dict:
+    """Los datos de una `falla`: de un aparato, de una rama o un corto (el modelo y la red la
+    validan contra el tablero en `agenda.validar`)."""
+    _claves(e, set(_CLAVES_FALLA) | {"tipo", "t", "duracion_s"}, donde)
+    falla = _texto(e, "falla", donde)
+    if "quitar" in e and not isinstance(e["quitar"], bool):
+        raise EscenarioInvalido(f"{donde}: «quitar» es true o false (true repara la falla)")
+    if e.get("quitar") and e.get("duracion_s") is not None:
+        raise EscenarioInvalido(f"{donde}: «quitar» repara la falla ya puesta: no lleva «duracion_s»")
+    formas = [c for c in ("dispositivo", "rama") if c in e] + (["a/b"] if "a" in e or "b" in e else [])
+    if len(formas) != 1:
+        raise EscenarioInvalido(f"{donde}: una «falla» es de un «dispositivo», de una «rama» o un corto entre "
+                                f"«a» y «b» (una sola forma; llegó {', '.join(formas) or 'ninguna'})")
+    if formas[0] == "a/b" or falla == "corto":
+        if falla != "corto" or formas[0] != "a/b":
+            raise EscenarioInvalido(f"{donde}: un corto es {{\"falla\": \"corto\", \"a\": \"-X1:1\", "
+                                    "\"b\": \"-X1:PE\"} (dos puntos «designación:borne»)")
+        for c in ("a", "b"):
+            v = e.get(c)
+            if not isinstance(v, str) or ":" not in v:
+                raise EscenarioInvalido(f"{donde}: «{c}» es un punto «designación:borne» (p. ej. «-X1:1»)")
+        if "valor" in e:
+            raise EscenarioInvalido(f"{donde}: el corto no lleva «valor» (su resistencia es «R_ohm»)")
+        _num(e, "R_ohm", donde, minimo=0.0)
+        if e.get("R_ohm") == 0:
+            raise EscenarioInvalido(f"{donde}: «R_ohm» del corto es > 0 (sin él, franco)")
+    elif "R_ohm" in e:
+        raise EscenarioInvalido(f"{donde}: «R_ohm» es del corto")
+    elif formas[0] == "rama":
+        _texto(e, "rama", donde)
+        if falla not in _FALLAS_RAMA:
+            raise EscenarioInvalido(f"{donde}: la falla de una rama es {', '.join(_FALLAS_RAMA)}."
+                                    f"{_pista_txt(falla, _FALLAS_RAMA)}")
+        if falla == "pegado" and not isinstance(e.get("valor", True), bool):
+            raise EscenarioInvalido(f"{donde}: «valor» del contacto pegado es true (cerrado) o false (abierto)")
+        if falla == "abierto" and "valor" in e:
+            raise EscenarioInvalido(f"{donde}: la rama abierta no lleva «valor»")
+    else:
+        _texto(e, "dispositivo", donde)
+    datos = {c: e[c] for c in _CLAVES_FALLA if c in e}
+    if falla == "pegado" and "rama" in datos:
+        datos["valor"] = e.get("valor", True)
+    return datos
+
+
+def _pista_txt(v: str, opciones) -> str:
+    parecida = difflib.get_close_matches(v, opciones, n=1)
+    return f" ¿Quisiste decir «{parecida[0]}»?" if parecida else ""
+
+
 def _evento(e, k: int, duracion: float) -> Evento | dict:
     donde = f"eventos[{k}]"
     if not isinstance(e, dict):
@@ -193,6 +254,8 @@ def _evento(e, k: int, duracion: float) -> Evento | dict:
         p = {c: v for c, v in e.items() if c not in ("tipo", "t")}
         p.setdefault("desde_s", t)
         return p
+    if tipo == "falla":
+        return Evento(t, tipo, _falla(e, donde), _num(e, "duracion_s", donde, minimo=0.0))
     validas, obligatorias = _CLAVES_EVENTO[tipo]
     _claves(e, validas | {"tipo", "t", "duracion_s"}, donde)
     for c in obligatorias:

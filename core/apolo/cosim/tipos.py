@@ -3,7 +3,8 @@
 `set_scenario` aceptaba «-T2.falla == true» y el error de tipo aparecía recién en el veredicto,
 tras 17 s de simulación. Aquí se arma la tabla {señal D10: valor en reposo} del tablero:
   - cada modelo (`modelos/`) armado con su ficha y sus ajustes (un ajuste obligatorio que falta
-    toma el punto medio, como `ajustes_faltantes`: sólo importa el TIPO) da sus `senales()`;
+    toma el punto medio, como `ajustes_faltantes`: sólo importa el TIPO) da sus `senales()`, y
+    el que toma fallas, su «averia» (texto, «» sin falla: cosim-fallas D5);
   - cada PLC con programa da sus variables («-K1.Main.cuenta») y «estado»/«falla» (textos), como
     las publica el planificador (`_fuentes_plc`).
 `revisar(aserciones, valores)` cruza las aserciones con esa tabla, con las mismas reglas que el
@@ -34,6 +35,8 @@ def valores_iniciales(dispositivos, programas=()) -> dict:
         try:
             m = clase(p, int(d.cantidad or 1)) if clase is Fusible else clase(p)
             out.update(m.senales())
+            if m.FALLAS:  # la avería (cosim-fallas D5) es texto: «» sin falla
+                out[f"{d.designacion}.averia"] = ""
         except Exception:  # noqa: BLE001 — un modelo incompleto lo dice el snapshot; aquí no hay tipos
             continue
     for prog in programas:

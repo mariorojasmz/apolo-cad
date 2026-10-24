@@ -15,6 +15,14 @@ en cada flanco, si está alimentado.
 
 Señales (D10): `-S1.accionado` (o una por actuador: `-S9.marcha`), `-S5.posicion`,
 `-Q1.cerrado`, `-H1.encendido`, `-B1.activo`.
+
+Fallas (cosim-fallas D2):
+  - mandos, `trabado`: el mecanismo no se mueve; la mano acciona y nada cambia (una seta
+    trabada no se retiene, un pulsador no vuelve por resorte). El valor opcional es cómo queda:
+    true/false (seta, pulsador —o {actuador: bool}—, seccionador) o la posición del selector;
+  - piloto, `fundido`: no enciende ni consume (`abre_su_carga`);
+  - sensor, `pegado` (true/false: la detección fija, como `sensor_pegado`) y `sin_salida` (la
+    salida no conmuta: queda apagada).
 """
 
 from __future__ import annotations
@@ -23,6 +31,29 @@ from .base import EPS_T, Modelo, ModeloIncompleto, Parametros, magnitud
 
 
 class _Mando(Modelo):
+    FALLAS = {"trabado": "bool?"}
+    trabado = False
+
+    def accionar(self, accion: str, valor=None) -> None:
+        if self.trabado and accion in self.ACCIONES and not self._suelto(accion):
+            return  # la mano acciona y el mecanismo trabado no se mueve
+        super().accionar(accion, valor)
+
+    def _suelto(self, accion: str) -> bool:
+        """Lo que la traba no alcanza (el potenciómetro de una botonera)."""
+        return False
+
+    def _falla_trabado(self, valor=None) -> None:
+        if valor is not None:
+            self._quedar(valor)
+        self.trabado = True
+
+    def _reparar_trabado(self, _v=None) -> None:
+        self.trabado = False
+
+    def _quedar(self, valor) -> None:
+        raise NotImplementedError
+
     def actuadores(self) -> dict[str, bool]:
         """{actuador: accionado} para la red de mando (F3)."""
         raise NotImplementedError
@@ -77,7 +108,24 @@ class Pulsador(_Mando):
             raise ValueError(f"{self.designacion}: no tiene potenciómetro")
         self.potenciometro = min(1.0, max(0.0, float(valor)))
 
+    def _suelto(self, accion: str) -> bool:
+        return accion == "girar"
+
+    def _quedar(self, valor) -> None:
+        if isinstance(valor, dict):
+            for a, v in valor.items():
+                if a not in self.estado:
+                    raise ValueError(f"{self.designacion}: no tiene el actuador «{a}»; tiene "
+                                     f"{', '.join(self.nombres)}")
+                self.estado[a] = self._bool(v, f"{self.designacion}: «{a}» trabado")
+        else:
+            v = self._bool(valor, f"{self.designacion}: el pulsador trabado")
+            self.estado = {a: v for a in self.nombres}
+        self.resta = {a: None for a in self.nombres}
+
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
+        if self.trabado:
+            return self.salidas()  # trabado: tampoco vuelve por resorte
         for a, resta in self.resta.items():
             if resta is not None:
                 resta -= dt
@@ -111,6 +159,9 @@ class Seta(_Mando):
     def _accion_liberar(self, _v=None) -> None:
         self.retenida = False
 
+    def _quedar(self, valor) -> None:
+        self.retenida = self._bool(valor, f"{self.designacion}: la seta trabada")
+
     def actuadores(self) -> dict[str, bool]:
         return {"mano": self.retenida}
 
@@ -118,6 +169,7 @@ class Seta(_Mando):
 class Selector(_Mando):
     tipo = "selector"
     ACCIONES = ("girar",)
+    FALLAS = {"trabado": "posicion?"}
 
     def __init__(self, p: Parametros):
         super().__init__(p)
@@ -136,6 +188,9 @@ class Selector(_Mando):
         if posicion not in self.posiciones:
             raise ValueError(f"{self.designacion}: «{posicion}» no es una posición ({', '.join(self.posiciones)})")
         self.posicion = posicion
+
+    def _quedar(self, valor) -> None:
+        self._accion_girar(valor)
 
     def actuadores(self) -> dict[str, bool]:
         return {a: self.posicion == pos for a, pos in self.cierra_en.items()}
@@ -159,6 +214,9 @@ class Seccionador(_Mando):
     def _accion_cerrar(self, _v=None) -> None:
         self.cerrado = True
 
+    def _quedar(self, valor) -> None:
+        self.cerrado = self._bool(valor, f"{self.designacion}: el seccionador trabado")
+
     def actuadores(self) -> dict[str, bool]:
         return {"mano": self.cerrado}
 
@@ -168,6 +226,8 @@ class Seccionador(_Mando):
 
 class Piloto(Modelo):
     tipo = "piloto"
+    FALLAS = {"fundido": ""}
+    fundido = False
 
     def __init__(self, p: Parametros):
         super().__init__(p)
@@ -179,9 +239,20 @@ class Piloto(Modelo):
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
         u = magnitud((entradas or {}).get("U_V", 0.0))
-        self.encendido = u >= self.umbral * self.Un - 1e-9
+        self.encendido = u >= self.umbral * self.Un - 1e-9 and not self.fundido
         self.I_A = self.I * min(u / self.Un, 1.1) if self.encendido else 0.0
         return self.salidas()
+
+    @property
+    def abre_su_carga(self) -> bool:
+        return self.fundido
+
+    def _falla_fundido(self, _v=None) -> None:
+        self.fundido = True
+        self.encendido, self.I_A = False, 0.0
+
+    def _reparar_fundido(self, _v=None) -> None:
+        self.fundido = False
 
     def salidas(self) -> dict:
         return {"encendido": self.encendido, "I_A": self.I_A}
@@ -190,6 +261,8 @@ class Piloto(Modelo):
 class Sensor(Modelo):
     tipo = "sensor"
     ACCIONES = ("forzar",)
+    FALLAS = {"pegado": "bool", "sin_salida": ""}
+    sin_salida = False
 
     def __init__(self, p: Parametros):
         super().__init__(p)
@@ -206,10 +279,23 @@ class Sensor(Modelo):
         """`sensor_pegado` (D12): True/False fija la detección; None la devuelve al mundo."""
         self.forzado = None if valor is None else bool(valor)
 
+    def _falla_pegado(self, valor) -> None:
+        self.forzado = self._bool(valor, f"{self.designacion}: el sensor pegado")
+
+    def _reparar_pegado(self, _v=None) -> None:
+        self.forzado = None
+
+    def _falla_sin_salida(self, _v=None) -> None:
+        self.sin_salida = True
+
+    def _reparar_sin_salida(self, _v=None) -> None:
+        self.sin_salida = False
+
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
         e = entradas or {}
         detecta = bool(e.get("detecta", False)) if self.forzado is None else self.forzado
-        objetivo = (detecta != (self.contacto == "NC")) and float(e.get("U_alim_V", 0.0)) >= self.U_min
+        objetivo = ((detecta != (self.contacto == "NC")) and float(e.get("U_alim_V", 0.0)) >= self.U_min
+                    and not self.sin_salida)
         if objetivo != self.activo:
             self.t += dt
             if self.t >= self.t_resp - EPS_T:

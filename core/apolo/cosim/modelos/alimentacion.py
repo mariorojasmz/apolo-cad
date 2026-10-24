@@ -16,6 +16,9 @@ límite limita a corriente constante (`modo_limite`: la tensión baja como en un
 resistiva, U = Un·I_lím/I_pedida) y se recupera sola al bajar la carga.
 
 Señales (D10): `-G1.conectada`, `-G1.U_V`; `-T1.U_V`, `-T1.I_A`, `-T1.limitando`, `-T1.ok`.
+
+Falla de la fuente (cosim-fallas D2): `sin_salida` (la salida cae a 0 V con la entrada bien).
+La red no suma fallas: ya tiene sus eventos (fase perdida, caída, corte).
 """
 
 from __future__ import annotations
@@ -107,6 +110,8 @@ class Red(Modelo):
 
 class Fuente(Modelo):
     tipo = "fuente"
+    FALLAS = {"sin_salida": ""}
+    sin_salida = False
 
     def __init__(self, p: Parametros):
         super().__init__(p)
@@ -133,13 +138,19 @@ class Fuente(Modelo):
             self.t_sin_entrada += dt
             ok = self.t_sin_entrada < self.t_ret - EPS_T
         pedida = max(0.0, float(e.get("I_carga_A", 0.0)))  # lo que la carga tomaría a la nominal
-        if not ok:
+        if not ok or self.sin_salida:
             self.U, self.I, self.limitando = 0.0, 0.0, False
         elif pedida > self.I_lim:
             self.U, self.I, self.limitando = self.Un * self.I_lim / pedida, self.I_lim, True
         else:
             self.U, self.I, self.limitando = self.Un, pedida, False
         return self.salidas()
+
+    def _falla_sin_salida(self, _v=None) -> None:
+        self.sin_salida = True
+
+    def _reparar_sin_salida(self, _v=None) -> None:
+        self.sin_salida = False
 
     @property
     def ok(self) -> bool:

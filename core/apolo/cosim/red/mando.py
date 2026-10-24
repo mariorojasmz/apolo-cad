@@ -100,9 +100,10 @@ class RedMando(RedNodal):
             if nuevos != self._overrides:
                 self._overrides = nuevos
                 self._firma = None
-        if valores != self._firma:
+        firma = (valores, self.firma_pegados()) if self._pegados else valores  # cosim-fallas D3
+        if firma != self._firma:
             self._refactorizar(valores)
-            self._firma = valores
+            self._firma = firma
 
     def pedidas(self, estados: dict | None = None, cargas: dict | None = None) -> dict[str, float]:
         """La corriente que la carga de ESTE paso tomaría de cada fuente a su tensión nominal: lo

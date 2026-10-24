@@ -60,7 +60,11 @@ ARCHIVOS = (
 #: nucleo-abierto F1a (sin subir): el snapshot lleva los modelos de EXTENSIÓN del tablero
 #: (`modelos_extension`, `extensiones`) y el worker los registra; sin extensiones van vacíos y
 #: ningún resultado cambia. Su vigencia (la versión de la extensión) va en `services/escenarios`.
-HUELLA: tuple[int, str] = (4, "63c586609153f731")
+#: cosim-fallas F1a (sin subir, D8): las fallas a propósito (`Modelo.FALLAS`, el evento `falla`,
+#: la máscara de contactos pegados) sólo actúan con un evento `falla`; sin él las salidas son las
+#: de antes: 9 escenarios del banco (marcha, seta, atasco, fase, cable, cajas, sensor pegado,
+#: caída de red, atasco parcial) dan la MISMA huella antes y después (bitácora del plan).
+HUELLA: tuple[int, str] = (4, "bff0215c9cfaf2bb")
 
 
 def archivos() -> list[Path]:

@@ -20,7 +20,7 @@ from __future__ import annotations
 import time
 
 from apolo.physics.dinamica_integrador import Integrador
-from apolo.plc import PLC, SIN_TENSION
+from apolo.plc import PLC, RUN, SIN_TENSION
 
 from .acople import AcopleMecanico
 from .agenda import Agenda
@@ -48,6 +48,15 @@ def _plc(des: str, plc, tab: Tablero, t_ms: int, run: bool) -> None:
         plc.reponer(t_ms)
         if not run:
             plc.stop()
+    if es.detenido or es.reanudar:  # la falla `detenido` de su hardware (cosim-fallas D2)
+        if es.detenido:
+            if plc.estado == RUN:
+                plc.stop()
+            tab.plc_salidas[des] = dict(plc.salidas)
+            return
+        es.reanudar = False
+        if run:
+            plc.run(t_ms)
     for b in plc.compilado.entradas:
         plc.escribir_entrada(b, es.analog[b] if b.startswith("AI") else es.imagen[b])
     plc.paso(t_ms)
