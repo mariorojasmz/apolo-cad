@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por Mario el 2026-10-24; F1 mergeada (A1 superficie de lectura eléctrica en `MODULOS`, A2 `Extension.costeo`, A3 `Extension.entrega` en `delivery_check`; sin extensiones, todo byte-idéntico)
+nota: contrato derivado de un plan aprobado por Mario el 2026-10-24; F1 mergeada (A1 superficie de lectura eléctrica en `MODULOS`, A2 `Extension.costeo`, A3 `Extension.entrega` en `delivery_check`; sin extensiones, todo byte-idéntico); F2 en curso (trazos de esquema y panel ancho)
 descripcion: una extensión de entregables lee el modelo eléctrico por una superficie declarada, suma filas al costeo y a la cotización y pone ítems en la puerta de entrega, sin tocar el núcleo
 ---
 
@@ -112,6 +112,43 @@ Rutas relativas a `core/apolo/`, medidas sobre `5a78cc9`.
 - **D5 — `GET /api/extensiones` suma `costeo` y `entrega`** (los ids que aportó cada extensión),
   como hoy `puerta`.
 
+### Una extensión que dibuja esquemas (F2)
+
+Una extensión que dibuja esquemas (eléctricos, neumáticos) con el motor de láminas necesita dos
+cosas más. Hoy los exportadores (`drawing/svg.py`, `pdf.py`, `dxf.py`) dibujan todo `Circle` como
+globo (relleno claro, borde azul) y todo `Polygon` como cara de corte (relleno gris o rayado): no
+hay un círculo negro sin relleno ni un punto de unión negro, y el prototipo de la extensión los
+tuvo que hacer con segmentos. Y en el modo Visor un panel de extensión abre en el cajón derecho de
+400 px: una lámina no se lee.
+
+- **D6 — Trazos de esquema en los tres exportadores**, en un módulo aparte
+  (`drawing/esquema.py`; `sheet.py` está congelado por el trinquete de tamaño y no crece).
+  - Dos estilos (`kind`) que valen para `Line`, `Circle` y `Polygon`: `simbolo` (trazo negro, sin
+    relleno: el cuerpo de un símbolo y la línea de conexión) y `simbolo_lleno` (negro relleno: el
+    punto de unión, una punta de flecha). Ayudas: `conductor`, `circulo`, `punto_union` y
+    `poligono`.
+  - **Grosor: criterio de diseño declarado.** El núcleo no tiene una convención de esquemas (en
+    lo mecánico usa 0,5 / 0,25 / 0,7 mm en SVG y DXF). Un esquema va con UN ancho para símbolos y
+    conexiones, como es práctica de IEC 61082-1; se toma 0,35 mm de la serie de ISO 128 (legible
+    en A3 y en copia reducida a A4) y un punto de unión de 1,2 mm de diámetro (≈ 3,5 veces el
+    trazo). En el PDF el grosor se convierte a puntos. El negro es el de las aristas visibles
+    (`#16181d`), no un color nuevo.
+  - **DXF:** capa `ESQUEMA` (ACI 7, continua, 0,35 mm) que sólo se crea si la lámina la usa; lo
+    lleno lleva además un sombreado sólido.
+  - **Lo de antes no cambia de aspecto:** un test congela la firma del SVG, de los artistas del
+    PDF y de las entidades del DXF de una lámina con todos los estilos anteriores, sacada del
+    código previo a la F2.
+  - No hay símbolos de norma ni cajetín de esquema en el núcleo: son de la extensión.
+- **D7 — Panel ancho en la UI:** `PanelDeExtension.ancho?: "lamina"`. En el modo Visor el cajón
+  derecho de ese panel abre al ancho de una lámina (`min(960 px, todo el visor)`) en vez de
+  400 px; en Completo los paneles-herramienta ya van debajo del viewport a todo el ancho y no
+  cambia nada. El registro rechaza otro valor. La extensión de prueba del muestrario lo usa con
+  la lámina de la extensión falsa en SVG en línea (la misma que exporta el núcleo; un test exige
+  que esté al día). Sólo tokens del tema; ningún color nuevo.
+- **D8 — `MODULOS` suma `apolo.drawing.esquema`** (estilos, grosores y ayudas) y los dos
+  exportadores que faltaban, `apolo.drawing.svg` (`sheet_to_svg`, lo que muestra el panel) y
+  `apolo.drawing.dxf` (`sheet_to_dxf`). Agregar no sube `CONTRATO_EXTENSIONES`.
+
 ## Alternativas descartadas
 
 - **Que la extensión devuelva filas sin costear y el núcleo las costee por su ref:** una hora de
@@ -131,6 +168,13 @@ Rutas relativas a `core/apolo/`, medidas sobre `5a78cc9`.
   - **Se verifica:** con la suite completa y `ruff` limpio; los tests nuevos prueban cada punto con
     la extensión falsa cargada, cada rechazo (todo o nada) y que sin extensiones el costeo y el
     semáforo son los de siempre.
+- **F2 — Trazos de esquema y panel ancho** (`drawing/esquema.py` nuevo, los tres exportadores,
+  `extensiones_api.py`, la extensión falsa; `ui/src/extensiones/`, `dock/`, `visor/` y el
+  muestrario · S/M · sin dependencias): D6–D8.
+  - **Se verifica:** suite completa, `ruff` limpio, `npm test` y `npm run build`; los tests
+    nuevos prueban cada estilo en SVG, PDF y DXF, que la lámina mecánica sale idéntica, que el
+    registro de la UI acepta `ancho: "lamina"` y rechaza otro valor, y una captura del muestrario
+    con el panel ancho.
 
 ## Lo que este plan NO hace
 
@@ -138,8 +182,8 @@ Rutas relativas a `core/apolo/`, medidas sobre `5a78cc9`.
   engancha.
 - No cambia el formato del `.apolo`, del log ni de la SQLite.
 - No suma tools MCP ni cambia el golden.
-- Los otros ajustes que pidió el mismo plan (trazos de esquema en los exportadores, panel ancho
-  en la UI, datos de ficha y de acometida) van en sus propios planes.
+- No dibuja símbolos de norma ni un cajetín de esquema (F2 sólo da los trazos).
+- Los datos de ficha y de acometida que pidió el mismo plan van en su propio plan.
 
 ## Riesgos
 
