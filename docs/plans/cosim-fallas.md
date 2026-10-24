@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato aprobado por Mario el 2026-10-23 (lo pidió como «Simular falla» en la máquina viva); F0 medida; F1a (backend) lanzada, luego F1b (UI)
+nota: contrato aprobado por Mario el 2026-10-23 (lo pidió como «Simular falla» en la máquina viva); F0 medida; F1a (backend) mergeada: fallas en modelos, red y escenario, COSIM_EPOCH sin cambio; falta F1b (UI «Simular falla»)
 descripcion: en la co-simulación un aparato puede fallar a propósito (contacto soldado, seta trabada, cable cortado, corto) en un escenario o en la máquina viva, para ver si la máquina para igual
 ---
 
