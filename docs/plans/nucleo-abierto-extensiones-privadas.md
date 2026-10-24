@@ -1367,3 +1367,31 @@ por vía):
   - la palabra «fábrica» no entra: también es genérica («de fábrica», costeo de fabricación).
 - **Lo que queda para la F4d:** el código de esos 55 archivos (la tarjeta final, los capítulos
   del guion, `scripts/testigos.py`, los fixtures de `tests/conftest.py`, el YAML de garruchas).
+
+### F1d (2026-10-23, en curso): los huecos que encontró la primera extensión real
+
+**Hecho:**
+
+1. **Clave `ext` del manifest** (`core/apolo/doc/ext_manifest.py`, puro): `{nombre de la
+   extensión: dict de JSON plano}`, metadato fuera del log, de los checkpoints y del undo.
+   - `Document.ext`; `to_apolo_bytes` la escribe sólo si hay datos (sin ellos, el manifest es byte
+     a byte el de antes) y `from_apolo_bytes` la lee tolerante: descarta sin lanzar lo que no tiene
+     la forma. Como todo abrir y guardar pasa por esas dos funciones, la conservan abrir por id
+     (`store.load`), autosave, carga tolerante, revisiones, duplicar, exportar y subir, y el adjunto
+     de un `insert_project` (son los bytes del donante). La de una extensión NO instalada también.
+   - `poner(doc, nombre, datos, conocidas=)` valida antes de tocar nada (nombre de extensión, dict,
+     JSON plano con números finitos y claves de texto, ≤ 1 MB) y `leer` devuelve una copia.
+   - `document.py` sigue en 1009 líneas (trinquete): las tres líneas nuevas se compensaron uniendo
+     dos asignaciones y un comentario.
+   - Tests: `tests/test_ext_manifest.py`.
+
+**Falta:** la fachada de documento en `extensiones_api`, `Extension.puerta` con la versión del
+registro y el motor de láminas en `MODULOS`; la extensión falsa usando cada punto.
+
+**Decidido por el agente (vetable):**
+
+- **La clave va por `Extension.nombre`** (no por el prefijo), con un nombre permisivo
+  (`ext-prueba` lleva guion). La fachada sólo deja escribir la de una extensión cargada.
+- **El donante de un `insert_project` no mezcla su `ext` con la del anfitrión**: viaja en el
+  adjunto, como el resto de su manifest.
+- **Valor = dict** (no cualquier JSON): el espacio de cada extensión crece con claves propias.

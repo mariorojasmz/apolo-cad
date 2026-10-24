@@ -65,6 +65,11 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
   materiales, ocultos y notas del agente viven en el manifest, FUERA del log y de los checkpoints
   (por qué: raíz). Un metadato nuevo sigue el patrón de `motion` (setter que valida + endpoint),
   no un comando.
+- `ext` (`ext_manifest.py`): `{extensión: dict de JSON plano}` que el núcleo NO interpreta y
+  conserva siempre, también la de una extensión ausente (todo abrir/guardar pasa por
+  `to_apolo_bytes`/`from_apolo_bytes`; un camino nuevo que copie metadatos a mano la tiene que
+  llevar). Sin datos, ni aparece. Se escribe por la fachada de `extensiones_api`.
+  [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1d)
 - `set_motion` valida cada fotograma `{"t", "values": {junta: valor}}`: claves sueltas, juntas
   inexistentes, valores no numéricos o estudio todo vacío → `DocumentError` accionable. Aceptarlo
   en silencio dejaba un estudio que «reproducía» sin mover nada (commit `a8593f4`).

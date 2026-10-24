@@ -20,7 +20,7 @@ from apolo.commands.expressions import ExpressionError, resolve_all
 from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_command, validate_params
 from apolo.commands.state import RegenState
 from apolo.commands.strict import reject_unknown
-from apolo.doc import carril, sello, solo_lectura, variantes
+from apolo.doc import carril, ext_manifest, sello, solo_lectura, variantes
 from apolo.doc import pasos as _pasos
 from apolo.doc.errors import ContractError, DocumentError  # noqa: F401 — se re-exportan
 
@@ -71,6 +71,7 @@ class Document:
         self.stackups: dict[str, dict] = {}  # cadenas de cotas con nombre (V7.3) → {eslabones, requisito}
         self.escenarios: dict[str, dict] = {}  # V8.3 D12: nombre → {escenario, resultado?} (services/escenarios)
         self.tensores, self.funciones = [], []  # puerta-de-publicacion D3 y D15: declarados
+        self.ext: dict[str, dict] = {}  # datos de cada extensión (doc/ext_manifest.py, nucleo-abierto F1d)
         self.agent_notes: list[str] = []  # memoria de proyecto del agente IA
         self.regen_suppressed: list[dict] = []  # SUPRIMIDOS por una carga tolerante (transitorio, NUNCA al manifest; vacío si estricto)
         self.solo_lectura: dict | None = None  # D4: usa una extensión ausente (doc/solo_lectura.py, al cargar)
@@ -79,8 +80,7 @@ class Document:
         self._undo: list[dict] = []
         self._redo: list[dict] = []
         self._coalesce_key: str | None = None
-        # caché de regeneración incremental: firma acumulada por comando + checkpoints
-        # (estado tras ejecutar ciertos comandos) para reanudar desde el primer cambio.
+        # caché de regen incremental: firma acumulada por comando + checkpoints (para reanudar)
         self._regen_sigs: list[str] = []
         self._regen_ckpts: dict[int, RegenState] = {}
 
@@ -904,7 +904,7 @@ class Document:
                         "requirements": self.requirements,
                         "fea": self.fea,
                         "stackups": self.stackups,
-                        "escenarios": self.escenarios, **({"tensores": self.tensores} if self.tensores else {}), **({"funciones": self.funciones} if self.funciones else {}),
+                        "escenarios": self.escenarios, **({"tensores": self.tensores} if self.tensores else {}), **({"funciones": self.funciones} if self.funciones else {}), **ext_manifest.al_manifest(self),
                         "agent_notes": self.agent_notes,
                     },
                     indent=2,
@@ -971,6 +971,7 @@ class Document:
         doc.stackups = manifest.get("stackups", {})  # cadenas de cotas (V7.3)
         doc.escenarios = manifest.get("escenarios", {})  # pruebas de la máquina (V8.3 D12)
         doc.tensores, doc.funciones, doc.agent_notes = (manifest.get(k, []) for k in ("tensores", "funciones", "agent_notes"))
+        doc.ext = ext_manifest.de_manifest(manifest)  # la de toda extensión, instalada o no (F1d)
         # guardia de seq: el próximo cmd_id nunca debe colisionar con uno del log aunque
         # el manifest venga sin `seq` o con un `seq` menor que el mayor c-id vivo (un log
         # con removes deja huecos: len(commands) < max(sufijo)).
@@ -997,8 +998,7 @@ class Document:
                         not i.startswith("degradado") for i in doc.check_integrity()
                     )
                 if cold_needed:
-                    doc._regen_sigs = []
-                    doc._regen_ckpts = {}
+                    doc._regen_sigs, doc._regen_ckpts = [], {}
                     doc.regenerate(tolerant=tolerant)  # frío: si ESTE lanza, el doc sí está roto
             else:
                 doc.regenerate(tolerant=tolerant)
