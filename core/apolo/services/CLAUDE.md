@@ -151,6 +151,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   de los selectores de `tablero_reglas.py` (los del ERC) y el veredicto, con la regla de
   `ui/src/diseno/atencion.ts::veredictoDe` (cambiar una es cambiar las dos). Sus textos son para
   la persona (sin comandos ni parámetros): el crudo va en `tecnico`. (F3b)
+- Los cables de campo (`cables_campo.py`, F4) tampoco se cachean: `recorridos(doc, m, tableros)`
+  es la ÚNICA cuenta de su recorrido y su largo (BOM, `circuito`, ERC y `vista`, lo que dibuja el
+  visor); sólo con `por`. Lo que gira sale de `calidad_seguridad.analisis` (sin el layout): no
+  otro criterio. (F4)
 
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y

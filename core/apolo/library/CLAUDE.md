@@ -25,6 +25,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   su docstring y cada cifra en `Criterio` (sale en `Ruteo.criterio`). Una regla nueva va con su
   caso en `tests/test_ruteo_tablero.py`, donde los largos de placa de la piloto tienen que seguir
   a ±5 % del ruteo a mano (`A_MANO`). [V8.5](../../../docs/plans/V8.5-tablero-3d.md) (F2)
+- Recorrido del cable de campo (`electrico/cable_campo.py`, F4): PURO, reglas en su docstring y
+  cada cifra en `CriterioCampo`; una regla nueva va con su caso en `tests/test_cables_campo.py`,
+  donde el cable del motor de la piloto se compara punto a punto con el armado a mano. (F4)
 - Para agregar partes: editar/crear YAML en `data/` (el prefijo numérico ordena); builder nuevo
   sólo si la geometría no existe. `param_keys` lee del VARIANT (no de `specs_common`); el loader
   vuelca cualquier clave extra del variant a `specs`. Editar sólo YAML no recarga el worker (raíz).

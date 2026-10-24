@@ -51,6 +51,9 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
 - `add_program` (V8.3 D3) es del carril: lo compila `electrico_programa.py` contra los bornes de
   SU PLC (caché por fuente + bornes) y un PLC lleva uno solo; varias tareas = varios PROGRAM en
   la misma fuente con `ciclos`. [V8.3](../../../docs/plans/V8.3-prueba-virtual.md)
+- `add_cable.por` (V8.5 F4) es carril: el evaluador resuelve sus piezas (`modelo.Paso`) y el
+  recorrido del cable de campo NO es geometría de escena: lo calcula al leer
+  `services/cables_campo.py` (por qué, en el plan). [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
 
 ## Modelado y colocación
 
