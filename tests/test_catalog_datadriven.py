@@ -106,7 +106,8 @@ def test_all_new_families_present():
     # faja de banda: tensor trotadora + eléctrico (variador, tablero, mandos)
     assert len(refs_in_category("tensores_trotadora")) == 2
     assert len(refs_in_category("variadores")) == 2  # 1.5 kW + 2.2 kW (NMRV-090 de la faja 38)
-    assert len(refs_in_category("tableros")) == 3  # + gabinetes 6040 y 8060 (V8.1 D6)
+    # + gabinetes 6040 y 8060 (V8.1 D6) + 10 del armado: rieles, canaletas, tope y tapa (V8.5 F1a)
+    assert len(refs_in_category("tableros")) == 13
     # + 8 pulsadores, selectores y pilotos Ø22 (V8.1 D6) + la seta en caja (seta-de-emergencia D4)
     assert len(refs_in_category("mandos")) == 11
     # familias de norma (ISO 15 / ASTM A500 / EN): tubos y perfiles
@@ -139,7 +140,7 @@ def test_all_new_families_present():
     # +3 tensores de carro UCT204/205/206-150 (puerta-de-publicacion D3)
     # +1 tambor de cola de eje vivo TAMBOR-102-RET (create_belt_conveyor v4)
     # +4 pernos de cuello cuadrado DIN 603 (F6 de la puerta de publicación)
-    assert len(CATALOG) == 378
+    assert len(CATALOG) == 388  # +10 del armado del tablero (V8.5 F1a)
 
 
 def test_door_sliding_hardware():

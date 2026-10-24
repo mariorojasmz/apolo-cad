@@ -27,6 +27,7 @@ components:
       amarillo Ø60 «PARADA DE EMERGENCIA». Verificar con el proveedor.
     builder: seta_emergencia
     params: {d_seta: 40, montaje: puerta, d_leyenda: 60, panel_mm: 2}
+    tablero: {puerta: {delante_mm: 33, detras_mm: 44}}
     weight: 0.15
     specs:
       tipo: "hongo Ø40"

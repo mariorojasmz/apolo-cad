@@ -24,10 +24,12 @@ from .builders_mandos import ANCLAS as _ANCLAS_MANDOS
 from .builders_mandos import BUILDERS as _BUILDERS_MANDOS
 from .builders_mandos import ZONADOS
 from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
+from .builders_tablero import BUILDERS as _BUILDERS_TABLERO
 from .builders_transmision import ANCLAS as _ANCLAS_TRANSMISION
 from .builders_transmision import BUILDERS as _BUILDERS_TRANSMISION
 from .electrico.ficha import fusionar as _fusionar_electrico
 from .electrico.ficha import parse_ficha
+from .electrico.ficha_tablero import parse_tablero
 from .perfiles_abiertos import ANCLAS as _ANCLAS_PERFILES
 from .zonas import parse_zonas, unir_zonas
 
@@ -59,7 +61,7 @@ def merge_anclas(builders: dict, *registros: dict) -> dict:
 
 
 BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION,
-                          _BUILDERS_MANDOS, _BUILDERS_FIJACION)
+                          _BUILDERS_MANDOS, _BUILDERS_FIJACION, _BUILDERS_TABLERO)
 ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES, _ANCLAS_MANDOS)
 
 
@@ -117,6 +119,10 @@ def _component_from_item(item: dict, category: str):
         weight = round(eval_formula(item["weight_formula"], specs), 4)
     else:
         raise ValueError(f"Componente '{ref}': falta 'weight' o 'weight_formula'")
+    electrico = parse_ficha(item.get("electrico"), ref)  # plan V8.1 D5: mal escrito, no carga
+    # bloque `tablero:` (plan V8.5 A2–A4): cómo se monta en el gabinete, validado aquí
+    tablero = parse_tablero(item.get("tablero"), ref, familia=builder_name, params=params,
+                            montaje=electrico.montaje if electrico is not None else None)
 
     return Component(
         ref=ref,
@@ -129,8 +135,8 @@ def _component_from_item(item: dict, category: str):
         default_length=item.get("default_length"),
         builder=builder_fn,
         anchors=_anclas_de(anclas_fn, params, specs) if anclas_fn else None,
-        # bloque `electrico:` (plan V8.1 D5): validado aquí; un bloque mal escrito no carga
-        electrico=parse_ficha(item.get("electrico"), ref),
+        electrico=electrico,
+        tablero=tablero,
         familia=builder_name,
         params=dict(params),
         zonas=zonas,
@@ -146,7 +152,7 @@ def _expand_family(fam: dict) -> list[dict]:
     items = []
     for variant in fam["variants"]:
         ref = variant["ref"]
-        var_specs = {k: v for k, v in variant.items() if k not in ("ref", "electrico")}
+        var_specs = {k: v for k, v in variant.items() if k not in ("ref", "electrico", "tablero")}
         specs = {**common, **var_specs}
         ctx = {"ref": ref, **specs}
         item = {
@@ -162,6 +168,8 @@ def _expand_family(fam: dict) -> list[dict]:
         electrico = _fusionar_electrico(fam.get("electrico"), variant.get("electrico"))
         if electrico is not None:
             item["electrico"] = electrico
+        if fam.get("tablero") is not None or variant.get("tablero") is not None:
+            item["tablero"] = {**(fam.get("tablero") or {}), **(variant.get("tablero") or {})}
         if fam.get("zonas") is not None:  # las zonas de la familia valen para cada variante
             item["zonas"] = fam["zonas"]
         if "weight" in variant:

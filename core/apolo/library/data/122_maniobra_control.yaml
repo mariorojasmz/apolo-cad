@@ -124,6 +124,7 @@ components:
     description: Bloque de contactos auxiliares frontal 1NA (53-54) + 1NC (61-62) para contactor. Se designa aparte (p. ej. -Q3A) y sus contactos se mueven con la bobina del contactor sobre el que va. Verificar con el proveedor.
     builder: box
     params: {width: 45, depth: 40, height: 40}
+    tablero: {acopla_a: {simbolos: [contactor_3p], cara: frente}}
     weight: 0.05
     specs: {contactos: "1NA+1NC", linea_referencia: "orden de Schneider TeSys LADN11 / Siemens SIRIUS 3RH2911", cotas_verificadas: false, cost: 10}
     electrico:

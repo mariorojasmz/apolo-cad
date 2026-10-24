@@ -8,6 +8,10 @@ category: mandos
 # el selector dice en qué posición cierra cada actuador (`cierra_en`). Piloto LED: `I_mA` = 18 a
 # 24 V (orden de la ficha de la línea) y enciende desde U_encendido_pct = 70 % de Un (criterio
 # de diseño: un LED con su resistencia serie se ve desde ~0,7 Un).
+# ARMADO (plan V8.5 A3): `tablero.puerta` parte el fondo de la caja (`depth`) en lo que asoma
+# DELANTE de la cara exterior de la puerta (botón, maneta, lente) y lo que queda DETRÁS, chapa
+# incluida (cuello + portacontactos con su bloque): lo de detrás no puede caer sobre lo profundo
+# de la placa. Orden de la línea de referencia, sin verificar; no toca la geometría.
 _contacto_na: &contacto_na
   - {id: "13", rol: contacto}
   - {id: "14", rol: contacto}
@@ -20,6 +24,7 @@ components:
     description: Pulsador rasante Ø22 mm verde con 1 contacto NA (13-14), para MARCHA. Verificar con el proveedor.
     builder: box
     params: {width: 30, depth: 50, height: 30}
+    tablero: {puerta: {delante_mm: 12, detras_mm: 38}}
     weight: 0.04
     specs: {diametro: "Ø22", color: verde, contactos: "1NA", linea_referencia: "orden de Schneider Harmony XB5AA31 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
     electrico:
@@ -34,6 +39,7 @@ components:
     description: Pulsador rasante Ø22 mm rojo con 1 contacto NC (11-12), para PARO. No reemplaza a la seta de emergencia. Verificar con el proveedor.
     builder: box
     params: {width: 30, depth: 50, height: 30}
+    tablero: {puerta: {delante_mm: 12, detras_mm: 38}}
     weight: 0.04
     specs: {diametro: "Ø22", color: rojo, contactos: "1NC", linea_referencia: "orden de Schneider Harmony XB5AA42 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
     electrico:
@@ -50,6 +56,7 @@ components:
     description: Pulsador rasante Ø22 mm azul con 1 contacto NA (13-14), para REARME tras una falla o una parada de emergencia. Verificar con el proveedor.
     builder: box
     params: {width: 30, depth: 50, height: 30}
+    tablero: {puerta: {delante_mm: 12, detras_mm: 38}}
     weight: 0.04
     specs: {diametro: "Ø22", color: azul, contactos: "1NA", linea_referencia: "orden de Schneider Harmony XB5AA61 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
     electrico:
@@ -64,6 +71,7 @@ components:
     description: Selector de maneta Ø22 mm de 2 posiciones mantenidas (0-I) con 1 contacto NA (13-14), p. ej. MANUAL/AUTOMÁTICO. Verificar con el proveedor.
     builder: box
     params: {width: 30, depth: 55, height: 30}
+    tablero: {puerta: {delante_mm: 17, detras_mm: 38}}
     weight: 0.05
     specs: {diametro: "Ø22", posiciones: 2, contactos: "1NA", linea_referencia: "orden de Schneider Harmony XB5AD21 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 8}
     electrico:
@@ -78,6 +86,7 @@ components:
     description: Selector de maneta Ø22 mm de 3 posiciones mantenidas (I-0-II) con 2 contactos NA (13-14 en I, 23-24 en II). Verificar con el proveedor.
     builder: box
     params: {width: 30, depth: 55, height: 30}
+    tablero: {puerta: {delante_mm: 17, detras_mm: 38}}
     weight: 0.06
     specs: {diametro: "Ø22", posiciones: 3, contactos: "2NA", linea_referencia: "orden de Schneider Harmony XB5AD33 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 10}
     electrico:
@@ -98,6 +107,7 @@ components:
     description: Lámpara piloto LED Ø22 mm verde, 24 V AC/DC (X1-X2), p. ej. EN MARCHA. Verificar con el proveedor.
     builder: box
     params: {width: 30, depth: 45, height: 30}
+    tablero: {puerta: {delante_mm: 10, detras_mm: 35}}
     weight: 0.03
     specs: {diametro: "Ø22", color: verde, tension: "24 V AC/DC", linea_referencia: "orden de Schneider Harmony XB5AVB3 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
     electrico: &piloto_24
@@ -113,6 +123,7 @@ components:
     description: Lámpara piloto LED Ø22 mm roja, 24 V AC/DC (X1-X2), p. ej. FALLA. Verificar con el proveedor.
     builder: box
     params: {width: 30, depth: 45, height: 30}
+    tablero: {puerta: {delante_mm: 10, detras_mm: 35}}
     weight: 0.03
     specs: {diametro: "Ø22", color: rojo, tension: "24 V AC/DC", linea_referencia: "orden de Schneider Harmony XB5AVB4 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
     electrico: *piloto_24
@@ -121,6 +132,7 @@ components:
     description: Lámpara piloto LED Ø22 mm ámbar, 24 V AC/DC (X1-X2), p. ej. ADVERTENCIA o mantenimiento. Verificar con el proveedor.
     builder: box
     params: {width: 30, depth: 45, height: 30}
+    tablero: {puerta: {delante_mm: 10, detras_mm: 35}}
     weight: 0.03
     specs: {diametro: "Ø22", color: ambar, tension: "24 V AC/DC", linea_referencia: "orden de Schneider Harmony XB5AVB5 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
     electrico: *piloto_24

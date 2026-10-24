@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from .electrico.ficha import FichaElectrica
+    from .electrico.ficha_tablero import FichaTablero
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,9 @@ class Component:
     # ficha eléctrica (bornes, caminos, cargas, fuentes, modelo) del bloque `electrico:` del
     # YAML (`electrico/ficha.py`, plan V8.1 D5). None = pieza mecánica.
     electrico: FichaElectrica | None = field(repr=False, default=None)
+    # ficha de ARMADO del bloque `tablero:` (`electrico/ficha_tablero.py`, plan V8.5 A2–A4):
+    # interior del gabinete, cara de apoyo, mando de puerta, accesorio acoplado, riel, canaleta.
+    tablero: FichaTablero | None = field(repr=False, default=None)
     # NOMBRE del builder y sus params tal como los declara el YAML: los lee la sección de una
     # viga (`engineering/secciones.seccion_catalogo`, plan flecha-de-bastidor F2). Metadato:
     # no cambia la geometría.

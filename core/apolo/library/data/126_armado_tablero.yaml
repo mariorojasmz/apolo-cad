@@ -1,0 +1,109 @@
+category: tableros
+# Armado interior del tablero (plan V8.5, D9): rieles DIN, canaletas ranuradas y los topes de la
+# bornera. No son aparatos (sin bloque `electrico`): no tienen bornes ni designación; el layout
+# del tablero los corta y los coloca, y la BOM los compra por metro (riel, canaleta) o por pieza.
+#  - ref GENÉRICA por rol, sin marca; `specs.linea_referencia` = «orden de …» de las marcas del
+#    plan madre (P2: Schneider, Siemens, ABB; Chint o LS económica); `cotas_verificadas: false`;
+#  - cost / cost_por_m = USD REFERENCIAL (mercado de Lima, aprox.); verificar con el proveedor;
+#  - riel y canaleta son CORTABLES a lo largo de Z (`builders_tablero.py`): sección en XY, Y = lo
+#    que sale de la placa (`tablero.apoyo` −Y por familia); peso en kg/m;
+#  - canaleta: `tablero.canaleta.seccion_util_mm2` = el interior que llenan los conductores con
+#    la tapa puesta (orden de la ficha: interior menos los dedos), la que usa el llenado de D3.
+components:
+  # ── riel DIN sombrero TH35 (EN 60715) ───────────────────────────────────────────────────
+  - ref: RIEL-DIN-TH35-7.5
+    name: Riel DIN TH35×7,5 perforado
+    description: Riel DIN sombrero de 35 × 7,5 mm (EN 60715), acero zincado de 1 mm, perforado; para aparatos modulares, bornes y fuentes. Se corta a medida y se atornilla a la placa de montaje cada 100–150 mm. Verificar con el proveedor.
+    builder: din_rail
+    params: {alto: 7.5, espesor: 1.0}
+    tablero: {riel: {norma: "EN 60715", perfil: "TH35-7,5"}}
+    weight: 0.33
+    cuttable: true
+    default_length: 1000
+    specs: {perfil: "TH35-7,5", norma: "EN 60715", material: "acero zincado", espesor_mm: 1.0, linea_referencia: "orden de Schneider AM1DP200 / ABB / Chint", cotas_verificadas: false, cost_por_m: 2.5}
+  - ref: RIEL-DIN-TH35-15
+    name: Riel DIN TH35×15 perforado
+    description: Riel DIN sombrero de 35 × 15 mm (EN 60715), acero zincado de 1,5 mm, perforado; el alto de 15 deja pasar conductores por debajo y aguanta aparatos pesados. Se corta a medida. Verificar con el proveedor.
+    builder: din_rail
+    params: {alto: 15, espesor: 1.5}
+    tablero: {riel: {norma: "EN 60715", perfil: "TH35-15"}}
+    weight: 0.62
+    cuttable: true
+    default_length: 1000
+    specs: {perfil: "TH35-15", norma: "EN 60715", material: "acero zincado", espesor_mm: 1.5, linea_referencia: "orden de Schneider AM1DE200 / ABB / Chint", cotas_verificadas: false, cost_por_m: 4.0}
+  # ── canaleta ranurada de PVC con tapa (ancho × alto) ───────────────────────────────────
+  - ref: CANALETA-25X25
+    name: Canaleta ranurada 25×25
+    description: Canaleta ranurada de PVC gris con tapa, 25 de ancho × 25 de alto (mm), para el cableado de mando entre filas. Verificar con el proveedor.
+    builder: canaleta
+    params: {ancho: 25, alto: 25, pared: 1.5}
+    tablero: {canaleta: {seccion_util_mm2: 440}}
+    weight: 0.18
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "25x25", material: PVC, linea_referencia: "orden de Schneider (canaleta ranurada) / Chint", cotas_verificadas: false, cost_por_m: 2.0}
+  - ref: CANALETA-25X40
+    name: Canaleta ranurada 25×40
+    description: Canaleta ranurada de PVC gris con tapa, 25 de ancho × 40 de alto (mm); la de uso común entre filas de un tablero chico. Verificar con el proveedor.
+    builder: canaleta
+    params: {ancho: 25, alto: 40, pared: 1.5}
+    tablero: {canaleta: {seccion_util_mm2: 756}}
+    weight: 0.25
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "25x40", material: PVC, linea_referencia: "orden de Schneider (canaleta ranurada) / Chint", cotas_verificadas: false, cost_por_m: 2.5}
+  - ref: CANALETA-40X40
+    name: Canaleta ranurada 40×40
+    description: Canaleta ranurada de PVC gris con tapa, 40 de ancho × 40 de alto (mm). Verificar con el proveedor.
+    builder: canaleta
+    params: {ancho: 40, alto: 40, pared: 1.5}
+    tablero: {canaleta: {seccion_util_mm2: 1250}}
+    weight: 0.33
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "40x40", material: PVC, linea_referencia: "orden de Schneider (canaleta ranurada) / Chint", cotas_verificadas: false, cost_por_m: 3.0}
+  - ref: CANALETA-40X60
+    name: Canaleta ranurada 40×60
+    description: Canaleta ranurada de PVC gris con tapa, 40 de ancho × 60 de alto (mm), para la potencia o los laterales. Verificar con el proveedor.
+    builder: canaleta
+    params: {ancho: 40, alto: 60, pared: 1.8}
+    tablero: {canaleta: {seccion_util_mm2: 1950}}
+    weight: 0.45
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "40x60", material: PVC, linea_referencia: "orden de Schneider (canaleta ranurada) / Chint", cotas_verificadas: false, cost_por_m: 3.8}
+  - ref: CANALETA-60X60
+    name: Canaleta ranurada 60×60
+    description: Canaleta ranurada de PVC gris con tapa, 60 de ancho × 60 de alto (mm). Verificar con el proveedor.
+    builder: canaleta
+    params: {ancho: 60, alto: 60, pared: 1.8}
+    tablero: {canaleta: {seccion_util_mm2: 3000}}
+    weight: 0.55
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "60x60", material: PVC, linea_referencia: "orden de Schneider (canaleta ranurada) / Chint", cotas_verificadas: false, cost_por_m: 4.5}
+  - ref: CANALETA-60X80
+    name: Canaleta ranurada 60×80
+    description: Canaleta ranurada de PVC gris con tapa, 60 de ancho × 80 de alto (mm), para los laterales de un gabinete grande. Verificar con el proveedor.
+    builder: canaleta
+    params: {ancho: 60, alto: 80, pared: 2.0}
+    tablero: {canaleta: {seccion_util_mm2: 4050}}
+    weight: 0.75
+    cuttable: true
+    default_length: 1000
+    specs: {seccion: "60x80", material: PVC, linea_referencia: "orden de Schneider (canaleta ranurada) / Chint", cotas_verificadas: false, cost_por_m: 5.5}
+  # ── accesorios de la bornera ────────────────────────────────────────────────────────────
+  - ref: TOPE-DIN-35
+    name: Tope de riel DIN 35
+    description: Tope de fijación con tornillo para riel TH35 (EN 60715); cierra cada extremo de una bornera o de una fila de aparatos para que no se deslicen. Verificar con el proveedor.
+    builder: box
+    params: {width: 9.5, depth: 35, height: 47}
+    weight: 0.01
+    specs: {riel: "TH35", ancho_mm: 9.5, linea_referencia: "orden de Schneider Linergy / Siemens 8WH / Chint", cotas_verificadas: false, cost: 0.6}
+  - ref: TAPA-BORNE-2.5-4
+    name: Tapa final de borne 2,5–4 mm²
+    description: Tapa final para la última cara abierta de una bornera de bornes de paso o de tierra de 2,5 y 4 mm² (ancho 5,2–6,2). Verificar con el proveedor.
+    builder: box
+    params: {width: 2.2, depth: 47, height: 42.5}
+    weight: 0.002
+    specs: {para: "BORNE-PASO-2.5, BORNE-PASO-4, BORNE-PE-2.5, BORNE-PE-4", ancho_mm: 2.2, linea_referencia: "orden de Schneider Linergy / Siemens 8WH / Chint", cotas_verificadas: false, cost: 0.3}

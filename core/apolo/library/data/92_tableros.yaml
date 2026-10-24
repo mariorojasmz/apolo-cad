@@ -4,6 +4,10 @@ category: tableros
 # que ya existían (sin bump de GEOM_CACHE_EPOCH). Los gabinetes GAB-* son del catálogo eléctrico
 # de la faja piloto (D6): convenciones en la cabecera de 120_alimentacion_electrica.yaml; cotas
 # alto × ancho × fondo.
+# ARMADO (plan V8.5 A2): `tablero.gabinete` = el interior (placa útil ancho × alto, fondo útil de
+# la placa a la puerta, placa–fondo, espesores, bisagra vista de frente, placa pasacables); lo lee
+# la colocación del layout, no el builder (la caja sigue maciza: sin bump de GEOM_CACHE_EPOCH).
+# Cotas del orden de la línea, SIN verificar: la placa útil ≈ la caja − 50 mm en ancho y en alto.
 _gabinete: &gabinete
   funcion: U
   simbolo: gabinete
@@ -15,6 +19,7 @@ components:
     description: Gabinete metálico IP54 500x400x200 mm para variador, protecciones, contactor y borneras.
     builder: box
     params: {width: 500, depth: 200, height: 400}
+    tablero: {gabinete: {placa_util_mm: [450, 350], fondo_util_mm: 160, placa_fondo_mm: 25, espesor_mm: 1.5, espesor_puerta_mm: 1.5, bisagra: izquierda, pasacables: {cara: inferior, ancho_mm: 400, fondo_mm: 120}, linea_referencia: "orden de Schneider Spacial S3D (placa de montaje NSYMM, placa pasacables inferior) / ABB / Chint", cotas_verificadas: false}}
     weight: 12.0
     specs: {ancho_mm: 500, alto_mm: 400, fondo_mm: 200, proteccion: IP54, material: "acero pintado", linea_referencia: "orden de Schneider Spacial S3D (500x400x200) / Rittal AX", cotas_verificadas: false, cost: 150}
     electrico: *gabinete
@@ -23,6 +28,7 @@ components:
     description: Gabinete metálico de pared IP66, 600 de alto x 400 de ancho x 200 de fondo (mm), con placa de montaje galvanizada; para el tablero de una faja con variador o arranque directo. Verificar con el proveedor.
     builder: box
     params: {width: 400, depth: 200, height: 600}
+    tablero: {gabinete: {placa_util_mm: [350, 550], fondo_util_mm: 160, placa_fondo_mm: 25, espesor_mm: 1.5, espesor_puerta_mm: 1.5, bisagra: izquierda, pasacables: {cara: inferior, ancho_mm: 300, fondo_mm: 120}, linea_referencia: "orden de Schneider Spacial S3D (placa de montaje NSYMM, placa pasacables inferior) / ABB / Chint", cotas_verificadas: false}}
     weight: 16.0
     specs: {alto_mm: 600, ancho_mm: 400, fondo_mm: 200, proteccion: IP66, material: "acero pintado", placa_montaje: true, linea_referencia: "orden de Schneider Spacial S3D (600x400x200) / Rittal AX", cotas_verificadas: false, cost: 180}
     electrico: *gabinete
@@ -31,6 +37,7 @@ components:
     description: Gabinete metálico de pared IP66, 800 de alto x 600 de ancho x 250 de fondo (mm), con placa de montaje galvanizada; para el tablero con PLC, variador y reserva. Verificar con el proveedor.
     builder: box
     params: {width: 600, depth: 250, height: 800}
+    tablero: {gabinete: {placa_util_mm: [550, 750], fondo_util_mm: 205, placa_fondo_mm: 25, espesor_mm: 1.5, espesor_puerta_mm: 1.5, bisagra: izquierda, pasacables: {cara: inferior, ancho_mm: 500, fondo_mm: 170}, linea_referencia: "orden de Schneider Spacial S3D (placa de montaje NSYMM, placa pasacables inferior) / ABB / Chint", cotas_verificadas: false}}
     weight: 28.0
     specs: {alto_mm: 800, ancho_mm: 600, fondo_mm: 250, proteccion: IP66, material: "acero pintado", placa_montaje: true, linea_referencia: "orden de Schneider Spacial S3D (800x600x250) / Rittal AX", cotas_verificadas: false, cost: 290}
     electrico: *gabinete
