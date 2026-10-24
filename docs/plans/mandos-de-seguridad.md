@@ -106,3 +106,49 @@ Rutas relativas a `core/apolo/`, medidas sobre `1b0a8ff`.
 | El bloque extra no entra en la puerta | la profundidad trasera va en el marco de montaje y la colocación (A7 de V8.5) lo respeta |
 
 ## Bitácora
+
+### F1 (2026-10-24) — hecha, sin mergear
+
+Catálogo, builder y modelos (D1–D6) sobre `bf69175`, rama `wip/mandos-seguridad-f1`. Suite
+completa verde en el worktree (5037 pasan, 10 saltan; 25 nuevos en `test_mandos_seguridad.py` y
+`test_mandos_seguridad_faja.py`) y `ruff` limpio. Catálogo 388 → 393 refs.
+- **Refs**: `ESTOP-40-2NC` y `ESTOP-40-CAJA-2NC` (`93_mandos.yaml`, misma ficha que la de 1 NC
+  con 21-22 y el modelo `seta`), `RESG-2NC` + `RESG-LENGUETA` (`93_mandos.yaml`, builder
+  `interruptor_resguardo` en `library/builders_mandos.py`) y `RS-2C-24VDC`
+  (`122_maniobra_control.yaml`). Modelos en `cosim/modelos/seguridad.py`.
+- **D5, sin bumps**: `ESTOP-40` y `ESTOP-40-CAJA` dan el mismo volumen, caras, aristas y bbox que
+  en `bf69175` (congelado en `tests/test_mandos_seguridad.py`); 11 escenarios del banco (marcha,
+  seta, atasco, corte de fase, cable cortado, caída de red, atasco parcial, cajas, sensor pegado,
+  la seta por variador y el NC de la seta pegado) dan la MISMA huella en `bf69175` y en la rama:
+  sólo se actualizó la `HUELLA` de `test_cosim_epoch.py`.
+- **La pareja verde/roja** (`tests/test_mandos_seguridad_faja.py`, faja del banco por variador,
+  `-S0:11-12` pegado a 1,0 s y la seta apretada a 1,5 s, final a 2,2 s): con UN NC (11-12 en
+  paralelo a S1 y S2) el STO no corta (`-T2.sto` false, par habilitado, 1800 rpm: ROJO); con DOS
+  NC (11-12 a S1, 21-22 a S2) `-T2.sto` true y la faja baja a 1540 rpm igual que sana (VERDE).
+  Con los dos NC pegados ya no para (la categoría 3 tolera una falla). Con resguardo + relé: abrir
+  para; con `-B2:11-12` pegado para igual y, cerrado y rearmado, el relé no rearma
+  (`-K2.espera_ciclo`); con el NA 13-14 soldado para por S2.
+- **Decisiones de F1** (para vetar):
+  - La lengüeta es una ref APARTE (`RESG-LENGUETA`, sin ficha eléctrica): así se compra y así el
+    agente la pone en la hoja del resguardo. Anclas `ranura` (cuerpo) y `punta` (lengüeta).
+  - Los NC del interruptor los mueve el actuador «-B2.abierto» (el interruptor se ACCIONA al sacar
+    la lengüeta, IEC 60947-5-1 Anexo K); la señal publicada es `-B2.cerrado`. Función IEC 81346-2
+    «B» (interruptor de posición). `trabado`: el resguardo se abre igual (`cerrado` lo dice) y los
+    NC quedan donde estaban, o como diga el valor; reparado, vuelven a seguir a la lengüeta.
+  - El segundo bloque de la seta va APILADO (alarga 14 mm el portacontactos: `detras_mm` 44 → 58,
+    como pide D1); en la caja van adentro y la caja sube de 55 a 69 de alto. `bloques=1` (default)
+    reproduce la geometría de antes.
+  - Relé: S11, S21 y S33 salen de A1 por dentro (caminos `fijo`; la vigilancia de cruces entre
+    canales no se modela); canales y rearme son cargas `entrada` a A2 con IEC 61131-2 tipo 1;
+    funciona desde 85 % de Un; `t_conexion_ms` 50 y `t_desconexion_ms` 20 (orden de la ficha, sin
+    verificar); sin alimentación abre y al volver arranca de cero (sin ciclo pendiente). El NC de
+    señal 41-42 abre mientras algún NA de seguridad está cerrado (guía forzada) y con un NA
+    soldado el relé NO rearma (lo publicado de los relés de guía forzada, EN 50205).
+  - `rele_seguridad` lo indexa el tablero por `BORNES_ENTRADA` (genérico), no por su clase.
+  - `PIDE` suma «salida» (opciones: las `salidas` de la ficha). `set_scenario` documenta las
+    fallas nuevas (golden re-congelado, sólo esa descripción).
+- Pendiente para F2:
+  - La UI no conoce aún el tipo `resguardo` (`vivo_fotograma.MANDOS` no lo incluye: no se puede
+    abrir el resguardo en la sesión viva) ni el `pide` «salida» (la falla `salida_pegada` del
+    relé se ofrece sin campo y el servidor la rechaza sin valor). F2 sólo necesita la seta.
+  - La verificación sobre una copia de la faja piloto recableada con `ESTOP-40-2NC`.

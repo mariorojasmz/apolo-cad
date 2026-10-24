@@ -20,6 +20,10 @@ backend: [core/apolo](../CLAUDE.md).
   `test_cosim_fallas_modelos.py`. Sin falla, las salidas son las de siempre (sin `averia`: la
   publica `Modelo.publicadas` sólo si el modelo falló). Lo de la red (pegado, abierto, corto) va
   en `fallas.py`; un contacto pegado es máscara de `RedNodal._cerrados` y entra a sus firmas.
+- Un modelo que LEE entradas de la red y mueve sus contactos sin ser mando ni PLC (el relé de
+  seguridad) declara `BORNES_ENTRADA` (cargas `entrada` de cada borne) y `actuadores()`: el
+  tablero lo indexa sin rama propia. Un mando de dos canales lleva un NC POR CANAL (rama propia:
+  `pegado` pega uno). [mandos-de-seguridad](../../../docs/plans/mandos-de-seguridad.md)
 - PUROS sin OCCT (`test_capas_cosim.py`): ni `apolo.library` (su `__init__` carga OCP). Las
   redes leen el formato plano de `red/entrada.py` (lo arma `services/cosim_red.py`); la alterna
   de mando va en la de potencia. `pedidas()` ANTES de `paso`.
