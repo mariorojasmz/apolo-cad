@@ -1,7 +1,7 @@
 """Los puntos de extensión del núcleo (plan nucleo-abierto-extensiones-privadas, F1a: D3, D12,
 A1–A7) con la extensión FALSA de `tests/ext_prueba/`:
 
-- apagadas (`APOLO_EXTENSIONES=0`, lo que fija `conftest.py`), el núcleo queda idéntico: 60
+- apagadas (`APOLO_EXTENSIONES=0`, lo que fija `conftest.py`), el núcleo queda idéntico: 61
   comandos, 90 tools y 393 refs, sin nada en `GET /api/health`;
 - cargada (`APOLO_EXTENSIONES_EXTRA`), cada punto: comando con prefijo en el MISMO `REGISTRY`
   (regenera, lo ve la vista persona con su pestaña), ruta, tool (MCP por stdio y el registro del
