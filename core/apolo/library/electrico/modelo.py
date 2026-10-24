@@ -118,7 +118,7 @@ class Conductor:
     hilo: str | None = None
     potencial: str | None = None  # nombre declarado («L1», «24V»)
     id: str | None = None
-    largo_m: float | None = None  # declarado (el ruteo real es de V8.5): la BOM compra por metro
+    largo_m: float | None = None  # declarado: la BOM compra por metro (sin él, el ruteo de V8.5 F2)
 
     @property
     def etiqueta(self) -> str:

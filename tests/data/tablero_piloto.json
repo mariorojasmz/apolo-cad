@@ -1,5 +1,5 @@
 {
- "origen": "V8.5 F0/F1a: el circuito del tablero +TAB1 de la faja piloto (sus add_device) con las cajas de catálogo medidas en la F0 y el armado de F1a (fondo de puerta, interior de los gabinetes). Congelado: la colocación se prueba sin el catálogo.",
+ "origen": "V8.5 F0/F1a: el circuito del tablero +TAB1 de la faja piloto (sus add_device) con las cajas de catálogo medidas en la F0 y el armado de F1a (fondo de puerta, interior de los gabinetes). Congelado: la colocación se prueba sin el catálogo. F2: el cableado del tablero (sus add_wire y add_cable, con los `largo_m` que declaró el agente) y los dispositivos de campo a los que llega, sin sus piezas 3D.",
  "ubicacion": "+TAB1",
  "dispositivos": [
   {
@@ -264,5 +264,440 @@
    "espesor_puerta": 1.5,
    "bisagra": "izquierda"
   }
- }
+ },
+ "campo": [
+  {
+   "designacion": "-G1",
+   "ref": "RED-3F-220V-60HZ",
+   "ubicacion": "+CAMPO"
+  },
+  {
+   "designacion": "-S3",
+   "ref": "ESTOP-40-CAJA",
+   "ubicacion": "+CAMPO"
+  },
+  {
+   "designacion": "-B1",
+   "ref": "FOTO-M18",
+   "ubicacion": "+CAMPO"
+  },
+  {
+   "designacion": "-M1",
+   "ref": "NMRV-090",
+   "ubicacion": "+CAMPO"
+  }
+ ],
+ "cables": [
+  {
+   "id": "c1600",
+   "designacion": "-W1",
+   "ref": "CABLE-4G2.5",
+   "desde": "+TAB1",
+   "hasta": "-M1",
+   "largo_m": 6
+  },
+  {
+   "id": "c1601",
+   "designacion": "-W2",
+   "ref": "CABLE-3X0.75",
+   "desde": "+TAB1",
+   "hasta": "-B1",
+   "largo_m": 7
+  },
+  {
+   "id": "c1602",
+   "designacion": "-W3",
+   "ref": "CABLE-5G1",
+   "desde": "+TAB1",
+   "hasta": "-S3",
+   "largo_m": 11
+  },
+  {
+   "id": "c1637",
+   "designacion": "-W4",
+   "ref": "CABLE-4G4",
+   "desde": "-G1",
+   "hasta": "+TAB1",
+   "largo_m": 1.5
+  },
+  {
+   "id": "c1638",
+   "designacion": "-W5",
+   "ref": "CABLE-7G1",
+   "desde": "+TAB1",
+   "hasta": "-S1",
+   "largo_m": 1
+  }
+ ],
+ "conductores": [
+  {
+   "id": "c1603",
+   "puntos": [
+    "-G1:L1",
+    "-Q1:1"
+   ],
+   "seccion_mm2": 4,
+   "color": "BK",
+   "tipo": "COND-H07VK-4",
+   "potencial": "L1",
+   "largo_m": 2
+  },
+  {
+   "id": "c1604",
+   "puntos": [
+    "-G1:L2",
+    "-Q1:3"
+   ],
+   "seccion_mm2": 4,
+   "color": "BK",
+   "tipo": "COND-H07VK-4",
+   "potencial": "L2",
+   "largo_m": 2
+  },
+  {
+   "id": "c1605",
+   "puntos": [
+    "-G1:L3",
+    "-Q1:5"
+   ],
+   "seccion_mm2": 4,
+   "color": "BK",
+   "tipo": "COND-H07VK-4",
+   "potencial": "L3",
+   "largo_m": 2
+  },
+  {
+   "id": "c1606",
+   "puntos": [
+    "-G1:PE",
+    "-X0:1"
+   ],
+   "seccion_mm2": 4,
+   "color": "GNYE",
+   "tipo": "COND-H07VK-4",
+   "potencial": "PE",
+   "largo_m": 2
+  },
+  {
+   "id": "c1607",
+   "puntos": [
+    "-Q1:2",
+    "-F1:1",
+    "-F2:1"
+   ],
+   "seccion_mm2": 2.5,
+   "color": "BK",
+   "tipo": "COND-H07VK-2.5",
+   "largo_m": 0.6
+  },
+  {
+   "id": "c1608",
+   "puntos": [
+    "-Q1:4",
+    "-F1:3",
+    "-F2:3"
+   ],
+   "seccion_mm2": 2.5,
+   "color": "BK",
+   "tipo": "COND-H07VK-2.5",
+   "largo_m": 0.6
+  },
+  {
+   "id": "c1609",
+   "puntos": [
+    "-Q1:6",
+    "-F1:5"
+   ],
+   "seccion_mm2": 2.5,
+   "color": "BK",
+   "tipo": "COND-H07VK-2.5",
+   "largo_m": 0.4
+  },
+  {
+   "id": "c1610",
+   "puntos": [
+    "-F1:2",
+    "-T2:L1"
+   ],
+   "seccion_mm2": 2.5,
+   "color": "BK",
+   "tipo": "COND-H07VK-2.5",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1611",
+   "puntos": [
+    "-F1:4",
+    "-T2:L2"
+   ],
+   "seccion_mm2": 2.5,
+   "color": "BK",
+   "tipo": "COND-H07VK-2.5",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1612",
+   "puntos": [
+    "-F1:6",
+    "-T2:L3"
+   ],
+   "seccion_mm2": 2.5,
+   "color": "BK",
+   "tipo": "COND-H07VK-2.5",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1613",
+   "puntos": [
+    "-F2:2",
+    "-T1:L"
+   ],
+   "seccion_mm2": 1.5,
+   "color": "BK",
+   "tipo": "COND-H07VK-1.5",
+   "largo_m": 0.4
+  },
+  {
+   "id": "c1614",
+   "puntos": [
+    "-F2:4",
+    "-T1:N"
+   ],
+   "seccion_mm2": 1.5,
+   "color": "BK",
+   "tipo": "COND-H07VK-1.5",
+   "largo_m": 0.4
+  },
+  {
+   "id": "c1615",
+   "puntos": [
+    "-X0:1",
+    "-T1:PE",
+    "-T2:PE",
+    "-K1:PE",
+    "-X0:2"
+   ],
+   "seccion_mm2": 2.5,
+   "color": "GNYE",
+   "tipo": "COND-H07VK-2.5",
+   "potencial": "PE",
+   "largo_m": 1.5
+  },
+  {
+   "id": "c1616",
+   "puntos": [
+    "-T2:U",
+    "-M1:U1"
+   ],
+   "cable": "-W1",
+   "hilo": "1"
+  },
+  {
+   "id": "c1617",
+   "puntos": [
+    "-T2:V",
+    "-M1:V1"
+   ],
+   "cable": "-W1",
+   "hilo": "2"
+  },
+  {
+   "id": "c1618",
+   "puntos": [
+    "-T2:W",
+    "-M1:W1"
+   ],
+   "cable": "-W1",
+   "hilo": "3"
+  },
+  {
+   "id": "c1619",
+   "puntos": [
+    "-X0:2",
+    "-M1:PE"
+   ],
+   "cable": "-W1",
+   "hilo": "PE"
+  },
+  {
+   "id": "c1620",
+   "puntos": [
+    "-T1:L+",
+    "-K1:L+",
+    "-K1:3L+",
+    "-S1:13",
+    "-S2:11",
+    "-S0:11",
+    "-T2:RC"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "potencial": "24V",
+   "largo_m": 1.5
+  },
+  {
+   "id": "c1621",
+   "puntos": [
+    "-T1:M",
+    "-K1:M",
+    "-K1:1M",
+    "-K1:3M",
+    "-T2:COM",
+    "-T2:SCM",
+    "-T2:GND",
+    "-H1:X2",
+    "-H2:X2"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "potencial": "0V",
+   "largo_m": 1.5
+  },
+  {
+   "id": "c1622",
+   "puntos": [
+    "-S1:14",
+    "-K1:I0.0"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1623",
+   "puntos": [
+    "-S2:12",
+    "-K1:I0.1"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1624",
+   "puntos": [
+    "-S0:12",
+    "-S3:11"
+   ],
+   "cable": "-W3",
+   "hilo": "1"
+  },
+  {
+   "id": "c1625",
+   "puntos": [
+    "-S3:12",
+    "-T2:S1"
+   ],
+   "cable": "-W3",
+   "hilo": "2"
+  },
+  {
+   "id": "c1626",
+   "puntos": [
+    "-T2:S1",
+    "-T2:S2",
+    "-K1:I0.2"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "potencial": "STO",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1627",
+   "puntos": [
+    "-T1:L+",
+    "-B1:BN"
+   ],
+   "cable": "-W2",
+   "hilo": "BN"
+  },
+  {
+   "id": "c1628",
+   "puntos": [
+    "-T1:M",
+    "-B1:BU"
+   ],
+   "cable": "-W2",
+   "hilo": "BU"
+  },
+  {
+   "id": "c1629",
+   "puntos": [
+    "-B1:BK",
+    "-K1:I0.3"
+   ],
+   "cable": "-W2",
+   "hilo": "BK"
+  },
+  {
+   "id": "c1630",
+   "puntos": [
+    "-T2:RA",
+    "-K1:I0.4"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1631",
+   "puntos": [
+    "-K1:Q0.0",
+    "-T2:DI1"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1632",
+   "puntos": [
+    "-K1:Q0.1",
+    "-H1:X1"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "largo_m": 0.8
+  },
+  {
+   "id": "c1633",
+   "puntos": [
+    "-K1:Q0.2",
+    "-H2:X1"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "largo_m": 0.8
+  },
+  {
+   "id": "c1634",
+   "puntos": [
+    "-K1:Q0.3",
+    "-T2:DI3"
+   ],
+   "seccion_mm2": 0.75,
+   "color": "BU",
+   "tipo": "COND-H05VK-0.75",
+   "largo_m": 0.5
+  },
+  {
+   "id": "c1635",
+   "puntos": [
+    "-T2:+10V",
+    "-T2:AI1"
+   ],
+   "tipo": "puente",
+   "largo_m": 0.1
+  }
+ ]
 }

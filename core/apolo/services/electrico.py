@@ -117,12 +117,13 @@ def reglas_erc(doc) -> list[dict] | None:
         return None
     from apolo.library.electrico.erc import erc
 
+    from . import tablero_reglas
     from .cobros import regla_cables
     from .tablero import regla_orden
 
     m = modelo(doc)
     return (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
-            + regla_orden(doc))
+            + regla_orden(doc) + tablero_reglas.reglas(doc, m))
 
 
 def chequeo(doc) -> dict:
@@ -164,6 +165,10 @@ def circuito(doc, designacion: str | None = None) -> dict:
             raise ServiceError(404, f"No hay dispositivo {filtro} en el tablero."
                                f"{sufijo_sugerencia(filtro, [d.designacion for d in m.dispositivos])}")
     elegidos = {d.designacion for d in dispositivos}
+    from .tablero import ruteos
+
+    # V8.5 F2: el largo de cada conductor dentro de un tablero armado (lo de dentro si sale)
+    ruteado = {r.id: r for t in ruteos(doc, m) for r in t.ruteo.rutas}
     redes_vistas: set[int] = set()
     salida_disp = []
     for d in dispositivos:
@@ -195,6 +200,9 @@ def circuito(doc, designacion: str | None = None) -> dict:
                                  ("tipo", c.tipo), ("cable", c.cable), ("hilo", c.hilo),
                                  ("potencial", c.potencial), ("largo_m", c.largo_m)) if v},
             **({"red": a.redes[idx].id} if idx is not None else {}),
+            **({"largo_ruteado_m": round(ruteado[c.id].largo_mm / 1000.0, 3),
+                **({"sale_del_tablero": True} if ruteado[c.id].sale else {})}
+               if c.id in ruteado else {}),
         })
     usados = {c.get("cable") for c in conductores}
     cables = [{"designacion": c.designacion, "ref": c.ref, "comando": c.id,
@@ -221,7 +229,7 @@ def filas_bom(doc) -> list[dict]:
         return []
     from apolo.library.bom_electrico import filas_electricas
 
-    from .tablero import dibujados
+    from .tablero import dibujados, largos, ruteos
 
     m = modelo(doc)
-    return filas_electricas(m, frozenset(dibujados(doc, m)))
+    return filas_electricas(m, frozenset(dibujados(doc, m)), largos(ruteos(doc, m)))

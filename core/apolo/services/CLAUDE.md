@@ -141,6 +141,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   en la ESCENA con su ref, como una `pieza`: la BOM del carril y «pieza sin ligar» lo saltan. Un
   consumidor nuevo del carril que cobre o cuente dispositivos usa esa misma función.
   [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
+- El ruteo del tablero NO se cachea (D12): `tablero.ruteos(doc)` recalcula `plan` del executor
+  con las variables y la `lectura` del carril y rutea; largos (BOM, `circuito`) y reglas del ERC
+  (`tablero_reglas.py`) salen de ahí, nunca de otra cuenta. La puerta (y la placa con
+  `specs.placa_montaje`) viene con el gabinete: `tablero.incluidas` → `bom_from_scene(incluidas=)`
+  y `scene_costing(incluidas=)`; un consumidor nuevo de la BOM de compra la pasa. (F2)
 
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y

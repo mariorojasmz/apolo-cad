@@ -138,10 +138,12 @@ def costeo(doc) -> dict:
     from apolo.library.costing import scene_costing
 
     from .bom_filas import filas_extra
+    from .tablero import incluidas
 
     cables = cables_sin_cubrir(doc)
     sin = {c["id"] for c in cables}
-    data = scene_costing(doc.scene, doc.default_material(), filas_extra(doc), sin or None)
+    data = scene_costing(doc.scene, doc.default_material(), filas_extra(doc), sin or None,
+                         incluidas(doc) or None)
     avisos = avisos_cobro(doc, cables)
     if avisos:
         data["avisos"] = avisos

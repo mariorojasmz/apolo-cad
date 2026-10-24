@@ -11,7 +11,7 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   que fija el instalador es un AJUSTE obligatorio. Reglas: [cosim](../cosim/CLAUDE.md).
 - Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
-  canaleta). Lo lee la colocación, no el builder: agregarlo no es bump. Una ref de puerta nueva
+  canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva
   lo trae o la colocación la rechaza. [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
 - Colocación del tablero (`electrico/colocacion*.py`, D2/D8): PURA y determinista; las reglas
   en el docstring de `colocacion.py`, cada cifra en `Reglas` (sale en `Layout.supuestos`). Una
@@ -20,6 +20,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   cajas en el marco del gabinete (puerta en −Y): `electrico/armado.py`; el recorrido de la puerta
   (D5, ejes separadores, puro): `electrico/recorrido_puerta.py`. Todo lo del tablero es caja
   alineada: una pieza nueva del armado entra ahí como `Caja`, o el recorrido no la ve.
+- Ruteo del tablero (`electrico/ruteo.py`, D3/A8) y cara de cada borne (`electrico/bornes_pos.py`,
+  D4: familia por `modelo.tipo` o `tablero.bornes` de la ref, con su `fuente`): PUROS, reglas en
+  su docstring y cada cifra en `Criterio` (sale en `Ruteo.criterio`). Una regla nueva va con su
+  caso en `tests/test_ruteo_tablero.py`, donde los largos de placa de la piloto tienen que seguir
+  a ±5 % del ruteo a mano (`A_MANO`). [V8.5](../../../docs/plans/V8.5-tablero-3d.md) (F2)
 - Para agregar partes: editar/crear YAML en `data/` (el prefijo numérico ordena); builder nuevo
   sólo si la geometría no existe. `param_keys` lee del VARIANT (no de `specs_common`); el loader
   vuelca cualquier clave extra del variant a `specs`. Editar sólo YAML no recarga el worker (raíz).

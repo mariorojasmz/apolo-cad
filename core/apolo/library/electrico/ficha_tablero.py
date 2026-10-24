@@ -29,7 +29,10 @@ Bloques (todas las cotas en mm):
   riel propio; `orden` = 1 el más cercano al aparato (A4);
 - `riel`: {norma, perfil}: el riel DIN (EN 60715) que da su builder;
 - `canaleta`: {seccion_util_mm2}: lo que llenan los conductores (el ancho y el alto son los
-  params de su builder).
+  params de su builder);
+- `bornes` (F2, D4): {arriba, abajo, frente: [ids], fuente}: la cara de cada borne de ESTA ref
+  cuando su línea no sigue el patrón de su familia (`bornes_pos.py`); `fuente` dice de dónde
+  sale (la línea del fabricante o «supuesto»). Un borne que no nombra sigue el de la familia.
 """
 
 from __future__ import annotations
@@ -47,7 +50,9 @@ CARAS_ACOPLE = ("frente", "abajo", "arriba", "izquierda", "derecha")
 #: Tolerancia de `delante + detras = depth` en una caja.
 TOL_FONDO_MM = 0.5
 
-_CLAVES = ("gabinete", "apoyo", "puerta", "acopla_a", "riel", "canaleta")
+_CLAVES = ("gabinete", "apoyo", "puerta", "acopla_a", "riel", "canaleta", "bornes")
+#: las caras de un borne que una ref puede declarar (`bornes`); la puerta y la bornera son de familia
+CARAS_BORNE = ("arriba", "abajo", "frente")
 _CLAVES_GABINETE = ("placa_util_mm", "fondo_util_mm", "placa_fondo_mm", "espesor_mm",
                     "espesor_puerta_mm", "bisagra", "pasacables", "linea_referencia",
                     "cotas_verificadas")
@@ -102,6 +107,16 @@ class FichaCanaleta:
 
 
 @dataclass(frozen=True)
+class CarasBornes:
+    """`tablero.bornes`: borne → cara, en el orden del YAML, y de dónde sale."""
+    caras: tuple[tuple[str, str], ...]
+    fuente: str
+
+    def de(self, borne: str) -> str | None:
+        return next((c for b, c in self.caras if b == borne), None)
+
+
+@dataclass(frozen=True)
 class FichaTablero:
     apoyo: str | None = None
     gabinete: InteriorGabinete | None = None
@@ -109,6 +124,7 @@ class FichaTablero:
     acopla_a: Acople | None = None
     riel: FichaRiel | None = None
     canaleta: FichaCanaleta | None = None
+    bornes: CarasBornes | None = None
 
 
 def apoyo_de(familia: str | None, ficha: FichaTablero | None) -> str | None:
@@ -251,11 +267,38 @@ def _canaleta(err: _Err, crudo, params: dict, familia: str | None) -> FichaCanal
     return FichaCanaleta(ancho, alto, util)
 
 
+def _caras_bornes(err: _Err, crudo, montaje: str | None, ids: tuple[str, ...] | None) -> CarasBornes:
+    _claves(err, "bornes", crudo, CARAS_BORNE + ("fuente",))
+    if montaje not in ("din", "placa"):
+        raise err("bornes", f"sólo un aparato de placa o de riel declara la cara de sus bornes; el "
+                            f"montaje es «{montaje}» (la puerta y la bornera siguen a su familia)")
+    fuente = str(crudo.get("fuente") or "").strip()
+    if not fuente:
+        raise err("bornes.fuente", "vacía: nombra la línea del fabricante que se sigue o «supuesto»")
+    caras: list[tuple[str, str]] = []
+    for cara in CARAS_BORNE:
+        lista = crudo.get(cara) or []
+        if not isinstance(lista, list):
+            raise err(f"bornes.{cara}", f"se espera una lista de ids de borne, llegó {lista!r}")
+        for b in lista:
+            bid = str(b).strip()
+            if ids is not None and bid not in ids:
+                raise err(f"bornes.{cara}", f"el borne «{bid}» no existe; bornes: {', '.join(ids)}."
+                                            f"{_parecida(bid, ids)}")
+            if any(x == bid for x, _ in caras):
+                raise err(f"bornes.{cara}", f"el borne «{bid}» ya tiene cara: cada uno va en una sola")
+            caras.append((bid, cara))
+    if not caras:
+        raise err("bornes", f"sin bornes: nombra al menos uno en {', '.join(CARAS_BORNE)}")
+    return CarasBornes(tuple(caras), fuente)
+
+
 def parse_tablero(crudo, ref: str, *, familia: str | None = None, params: dict | None = None,
-                  montaje: str | None = None) -> FichaTablero | None:
+                  montaje: str | None = None, bornes: tuple[str, ...] | None = None) -> FichaTablero | None:
     """Bloque `tablero:` del YAML → `FichaTablero` validada (None si no hay bloque).
     `familia`/`params` son el builder y sus params (las cotas exteriores contra las que se
-    valida); `montaje`, el de la ficha eléctrica (`puerta` sólo en un mando de puerta)."""
+    valida); `montaje`, el de la ficha eléctrica (`puerta` sólo en un mando de puerta);
+    `bornes`, los ids de la ficha eléctrica (contra los que se valida `tablero.bornes`)."""
     if crudo is None:
         return None
     err = _Err(ref)
@@ -276,4 +319,6 @@ def parse_tablero(crudo, ref: str, *, familia: str | None = None, params: dict |
         riel=_riel(err, crudo["riel"], familia) if crudo.get("riel") is not None else None,
         canaleta=(_canaleta(err, crudo["canaleta"], params, familia)
                   if crudo.get("canaleta") is not None else None),
+        bornes=(_caras_bornes(err, crudo["bornes"], montaje, bornes)
+                if crudo.get("bornes") is not None else None),
     )

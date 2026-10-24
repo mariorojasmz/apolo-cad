@@ -93,6 +93,15 @@ _vfd_cargas: &vfd_cargas
   - {bornes: [AI1, GND], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
   - {bornes: [S1, SCM], tension: "24 VDC", tipo: entrada, polar: true}
   - {bornes: [S2, SCM], tension: "24 VDC", tipo: entrada, polar: true}
+# ARMADO (plan V8.5 F2, D4): la cara de cada borne en la caja (la potencia del variador cambia de
+# cara de una línea a otra: estas refs llevan la suya, no la de la familia). Red y PE arriba, motor
+# abajo, regleta de control al frente (abajo): orden de SINAMICS V20 FSB, SIN verificar con el
+# manual de la línea que se compre (en Delta MS300 la red entra por abajo).
+_vfd_caras: &vfd_caras
+  arriba: [L1, L2, L3, PE]
+  abajo: [U, V, W]
+  frente: [DI1, DI2, DI3, DI4, COM, AI1, +10V, GND, RA, RB, RC, S1, S2, SCM]
+  fuente: "orden de SINAMICS V20 FSB (red arriba, motor abajo, control al frente): verificar con el manual"
 _vfd_fuentes: &vfd_fuentes
   - {polos: {U: L1, V: L2, W: L3}, tension: "220 VAC 3F"}
   - {polos: {+10V: "+", GND: "-"}, tension: "10 VDC"}
@@ -102,6 +111,7 @@ components:
     description: Variador de frecuencia (VFD) 1.5 kW / 2 HP, salida 220 V trifásica, control vectorial sensorless + STO, para faja de banda 0.5-1.0 m/s.
     builder: box
     params: {width: 90, depth: 160, height: 200}
+    tablero: {bornes: *vfd_caras}
     weight: 1.2
     specs: {potencia_kW: 1.5, potencia_HP: 2, tension: "220V 3F", corriente_A: 8.5, control: "vectorial sensorless", proteccion: STO, cost: 240}
     electrico:
@@ -123,6 +133,7 @@ components:
     description: Variador de frecuencia (VFD) 2.2 kW / 3 HP, entrada y salida 220 V trifásica, control vectorial sensorless + STO (entrada de seguridad para el lazo de setas de emergencia), rampa de arranque para fajas con motorreductor de 2.2 kW.
     builder: box
     params: {width: 140, depth: 145, height: 160}
+    tablero: {bornes: *vfd_caras}
     weight: 1.7
     specs: {potencia_kW: 2.2, potencia_HP: 3, tension: "220V 3F", corriente_A: 11.0, control: "vectorial sensorless", proteccion: STO, cost: 280}
     electrico:

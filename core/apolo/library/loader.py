@@ -122,7 +122,8 @@ def _component_from_item(item: dict, category: str):
     electrico = parse_ficha(item.get("electrico"), ref)  # plan V8.1 D5: mal escrito, no carga
     # bloque `tablero:` (plan V8.5 A2–A4): cómo se monta en el gabinete, validado aquí
     tablero = parse_tablero(item.get("tablero"), ref, familia=builder_name, params=params,
-                            montaje=electrico.montaje if electrico is not None else None)
+                            montaje=electrico.montaje if electrico is not None else None,
+                            bornes=electrico.ids_bornes if electrico is not None else None)
 
     return Component(
         ref=ref,

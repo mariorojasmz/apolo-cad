@@ -114,14 +114,15 @@ def _compra_cost(row: dict, sin_cubrir: set | None = None) -> tuple[float | None
 
 def costed_bom(scene: dict, default_material: str | None = None,
                extra: list[dict] | None = None,
-               cables_sin_cubrir: set | None = None) -> list[dict]:
+               cables_sin_cubrir: set | None = None, incluidas: dict | None = None) -> list[dict]:
     """Filas del BOM (misma agrupación de `bom_from_scene`) + `costo_ud_usd`,
     `costo_total_usd` y `costo_fuente` por fila. `extra` = filas que la escena no tiene (las
     del tablero eléctrico, `bom_electrico.filas_electricas`), al final; una `sin_largo` queda
     sin costo (no se estima un largo que nadie declaró). `cables_sin_cubrir` = ids de cables 3D
-    que ningún add_cable cobra (`services/cobros.py`): su fila lo dice. Sin `extra` ni
-    `cables_sin_cubrir`, lo de antes."""
-    rows = bom_from_scene(scene, default_material) + [dict(r) for r in extra or ()]
+    que ningún add_cable cobra (`services/cobros.py`): su fila lo dice. `incluidas` = lo que
+    viene con otra pieza de compra (`bom_from_scene`; V8.5: la puerta del gabinete). Sin `extra`,
+    `cables_sin_cubrir` ni `incluidas`, lo de antes."""
+    rows = bom_from_scene(scene, default_material, incluidas=incluidas) + [dict(r) for r in extra or ()]
     for row in rows:
         if row.get("sin_largo"):
             cost, fuente = None, "sin largo declarado"
@@ -174,8 +175,8 @@ def costing_totals(rows: list[dict]) -> dict:
 
 def scene_costing(scene: dict, default_material: str | None = None,
                   extra: list[dict] | None = None,
-                  cables_sin_cubrir: set | None = None) -> dict:
+                  cables_sin_cubrir: set | None = None, incluidas: dict | None = None) -> dict:
     """Costeo completo de la escena (+ las filas `extra` del tablero): filas + totales (lo
     consumen el endpoint `/api/costing.json`, el agente y la cotización)."""
-    rows = costed_bom(scene, default_material, extra, cables_sin_cubrir)
+    rows = costed_bom(scene, default_material, extra, cables_sin_cubrir, incluidas)
     return {"rows": rows, "totales": costing_totals(rows)}

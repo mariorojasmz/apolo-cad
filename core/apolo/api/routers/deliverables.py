@@ -37,12 +37,16 @@ def get_bom(by_group: bool = False) -> list[dict]:
     """Con `by_group=true` cada fila lleva su `grupo` (sub-ensamblaje) y las piezas
     iguales de grupos distintos salen separadas — subtotales por grupo/instancia. Con tablero
     eléctrico, al final van sus filas (`origen: "electrico"`, V8.1 D10); con uniones `perno`
-    declaradas sin tornillería modelada, la que compran (`origen: "union_declarada"`, F6)."""
+    declaradas sin tornillería modelada, la que compran (`origen: "union_declarada"`, F6). La
+    puerta (y la placa, si la trae) de un tablero armado sale en `incluye` de su gabinete (V8.5)."""
+    from apolo.services.tablero import incluidas
+
     with STATE_LOCK:
         filas = filas_extra(S.doc)
         if by_group:
             filas = [{**f, "grupo": None} for f in filas]
-        return bom_from_scene(S.doc.scene, S.doc.default_material(), by_group=by_group) + filas
+        return bom_from_scene(S.doc.scene, S.doc.default_material(), by_group=by_group,
+                              incluidas=incluidas(S.doc) or None) + filas
 
 
 @router.get("/api/costing.json")
@@ -61,8 +65,11 @@ def get_costing() -> dict:
 
 @router.get("/api/bom.csv")
 def get_bom_csv() -> Response:
+    from apolo.services.tablero import incluidas
+
     with STATE_LOCK:
-        csv_text = bom_to_csv(bom_from_scene(S.doc.scene, S.doc.default_material())
+        csv_text = bom_to_csv(bom_from_scene(S.doc.scene, S.doc.default_material(),
+                                             incluidas=incluidas(S.doc) or None)
                               + filas_extra(S.doc))
     return Response(
         content=csv_text.encode("utf-8-sig"),

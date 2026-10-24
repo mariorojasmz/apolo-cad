@@ -135,8 +135,10 @@ class AddWireParams(BaseModel):
     - `cable` + `hilo`: cuando el conductor va dentro de un cable multipolar declarado con
       add_cable (p. ej. cable «-W1», hilo «1» o «PE»): toma la sección y el color del hilo.
     - `potencial`: nombre opcional de la red («L1», «24V», «0V»).
-    - `largo_m`: opcional y DECLARADO (el ruteo real es de V8.5): la BOM compra por metro; sin
-      largo, la fila sale sin costo y con aviso (no se inventa)."""
+    - `largo_m`: opcional y DECLARADO: la BOM compra por metro. Dentro de un tablero armado con
+      layout_tablero el largo sale del RUTEO por las canaletas (V8.5 D3): no lo declares salvo
+      que lo hayas medido (si lo declaras, manda, y el ERC avisa si difiere mucho del ruteado).
+      Sin largo y fuera de un tablero armado, la fila sale sin costo y con aviso (no se inventa)."""
 
     puntos: list[str] = Field(..., min_length=2, title="Puntos",
                               description="bornes a unir, en orden: [«-Q1:2», «-Q3:1»]")

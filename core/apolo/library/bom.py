@@ -50,15 +50,25 @@ def _eslabones(comp, cut) -> str:
 
 
 def bom_from_scene(scene: dict, default_material: str | None = None,
-                   by_group: bool = False) -> list[dict]:
+                   by_group: bool = False, incluidas: dict | None = None) -> list[dict]:
     """BOM agrupado por referencia+corte (catálogo) o firma geométrica (a medida).
     Con `by_group=True` (V5.2) cada fila lleva además su `grupo` (sub-ensamblaje) y
     las piezas iguales de grupos DISTINTOS salen en filas separadas — para subtotales
-    por sub-ensamblaje. El default es byte-idéntico al histórico."""
+    por sub-ensamblaje. El default es byte-idéntico al histórico.
+    `incluidas` = {id de pieza: id de la pieza que la trae} (V8.5 F2: la puerta y la placa que
+    vienen con su gabinete): no salen en fila propia; la fila de quien las trae las nombra en
+    `incluye`."""
     rows: dict[tuple, dict] = {}
+    incluidas = incluidas or {}
+    traen: dict[str, list[str]] = {}
+    for sid, quien in incluidas.items():
+        if sid in scene:
+            traen.setdefault(quien, []).append(scene[sid].name or sid)
     for sid, feat in scene.items():
         if is_surface(feat.shape) or getattr(feat, "is_guide", False):
             continue  # superficie desnuda o boceto-guía = geometría de construcción, no es pieza
+        if sid in incluidas:
+            continue  # viene con otra pieza de compra (su fila la nombra)
         grp = getattr(feat, "group", None) if by_group else None
         component = getattr(feat, "component", None)
         if component and component in CATALOG:
@@ -98,6 +108,8 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             elif aviso and "aviso" not in rows[key]:
                 rows[key]["aviso"] = aviso
             rows[key]["cantidad"] += 1
+            if sid in traen:
+                rows[key].setdefault("incluye", []).extend(traen[sid])
         else:
             mat = resolve_material(feat, CATALOG, default_material)
             base = donde = _base_name(feat.name)
