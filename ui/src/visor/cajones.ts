@@ -22,6 +22,12 @@ export function cajonQueCierraEsc(c: Cajones, o: { prioridad: boolean; enCampo: 
   return null;
 }
 
+/** Clases del cajón: su lado y, si el panel pide el ancho de una lámina (`ancho: "lamina"`, plan
+   puntos-de-extension-entregables D7), `cajon-lamina`. El Árbol (izquierda) no cambia de ancho. */
+export function claseCajon(lado: Lado, ancho?: string): string {
+  return `cajon cajon-${lado}${lado === "der" && ancho === "lamina" ? " cajon-lamina" : ""}`;
+}
+
 /** El foco está en algo donde se escribe (input, textarea, select o contenido editable). */
 export function esCampoDeTexto(t: { tagName?: string; isContentEditable?: boolean } | null): boolean {
   if (!t) return false;

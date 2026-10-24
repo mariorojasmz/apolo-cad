@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
-import type { Extension, IdPanelExtension } from "../extensiones/tipos";
+import type { AnchoPanel, Extension, IdPanelExtension } from "../extensiones/tipos";
 
 /* Los paneles = los del núcleo + los que registran las extensiones (plan
    núcleo-abierto-extensiones-privadas, D5). Lógica pura, sin componentes reales: `paneles.ts` la
@@ -13,6 +13,8 @@ export interface PanelDef {
   rotulo: string;
   Componente: ComponentType;
   icono: LucideIcon;
+  /** Ancho del cajón del visor (sólo paneles de extensión; sin él, el normal). */
+  ancho?: AnchoPanel;
 }
 
 export interface Paneles<N extends string> {
@@ -33,7 +35,8 @@ export function componerPaneles<N extends string>(
   const herramientas: (N | IdPanelExtension)[] = [...herramientasNucleo];
   for (const ext of extensiones) {
     for (const p of ext.paneles ?? []) {
-      paneles[p.id] = { titulo: p.titulo, rotulo: p.rotulo, Componente: p.Componente, icono: p.icono };
+      paneles[p.id] = { titulo: p.titulo, rotulo: p.rotulo, Componente: p.Componente, icono: p.icono,
+        ...(p.ancho ? { ancho: p.ancho } : {}) };
       if (p.herramienta !== false) herramientas.push(p.id);
     }
   }

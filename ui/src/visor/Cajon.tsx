@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { X } from "lucide-react";
 import { useStore } from "../state/store";
 import { PANELES, esPanel, type PanelId } from "../dock/paneles";
 import { escTienePrioridad } from "../viewport/shortcuts";
 import { useVisor } from "./estado";
 import { CIERRA_CON_ESC, cajonQueCierraEsc, esCampoDeTexto, type Lado } from "./cajones";
+import MarcoCajon from "./MarcoCajon";
 import "./cajones.css";
 
 /* Cajones del visor (plan modo-visor, D3): flotan SOBRE el 3D, no lo achican. El izquierdo
@@ -13,27 +13,14 @@ import "./cajones.css";
    sigue montando su copia oculta del panel: hay dos instancias y se acepta (bitácora F0 c).
    Un cajón se monta al abrirse y se desmonta al cerrarse. */
 
+/** El panel abierto en su cajón; un panel de extensión con `ancho: "lamina"` abre ancho. */
 function Cajon({ lado, panel }: { lado: Lado; panel: PanelId }) {
   const cerrar = useVisor((s) => s.cerrarCajon);
-  const { titulo, Componente } = PANELES[panel];
+  const { titulo, Componente, ancho } = PANELES[panel];
   return (
-    <aside className={`cajon cajon-${lado}`} aria-label={titulo}>
-      <header className="cajon-cabecera">
-        <h2>{titulo}</h2>
-        <button
-          type="button"
-          className="cajon-cerrar"
-          title="Cerrar"
-          aria-label={`Cerrar ${titulo}`}
-          onClick={() => cerrar(lado)}
-        >
-          <X size={16} />
-        </button>
-      </header>
-      <div className="cajon-cuerpo">
-        <Componente />
-      </div>
-    </aside>
+    <MarcoCajon lado={lado} titulo={titulo} ancho={ancho} onCerrar={() => cerrar(lado)}>
+      <Componente />
+    </MarcoCajon>
   );
 }
 

@@ -11,6 +11,8 @@
   --cv-bajo-cubo: 116px;
   --cv-izq-ancho: min(300px, calc(100% - 2 * var(--cv-margen)));
   --cv-der-ancho: min(400px, calc(100% - 2 * var(--cv-margen)));
+  /* un panel de extensión que muestra una lámina (`ancho: "lamina"`, extensiones/tipos.ts) */
+  --cv-lamina-ancho: min(960px, calc(100% - 2 * var(--cv-margen)));
   --cv-vidrio: rgba(30, 34, 43, 0.97);
 }
 
@@ -27,6 +29,7 @@
   right: var(--cv-margen); top: var(--cv-bajo-cubo); width: var(--cv-der-ancho);
   animation-name: cajon-entra-der;
 }
+.capa-visor .cajon-der.cajon-lamina { width: var(--cv-lamina-ancho); }
 @keyframes cajon-entra-izq { from { opacity: 0; transform: translateX(-16px); } }
 @keyframes cajon-entra-der { from { opacity: 0; transform: translateX(16px); } }
 

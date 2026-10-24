@@ -7,6 +7,8 @@ import { recorridoDe } from "../../tablero/vista";
 import { PANEL_CON_FALLAS, PANEL_EN_ORDEN, PANEL_SIN_ARMAR } from "./datosTablero";
 import { BarraFallasDemo, PanelFallasDemo, PanelMandosDemo } from "./FallasDemo";
 import VueloDemo, { type Demo } from "./VueloDemo";
+import MarcoCajon from "../../visor/MarcoCajon";
+import { EXTENSION_PRUEBA } from "./extensionPrueba";
 import "./muestrario.css";
 
 /* Muestrario de diseño (plan V8.5 F3b-0, F3b): el panel «Tablero» REAL (`tablero/VistaTablero`)
@@ -14,7 +16,9 @@ import "./muestrario.css";
    un panel de Dockview, junto a un visor de ejemplo con el vuelo de cámara, la puerta y el
    recorrido de un conductor. Es la base de la revisión de diseño a ciegas (D14). Abajo,
    «Mandos» (con el resguardo y el relé de seguridad), «Simular falla» y la barra de la sesión
-   viva con datos de ejemplo (planes cosim-fallas D7 y mandos-de-seguridad).
+   viva con datos de ejemplo (planes cosim-fallas D7 y mandos-de-seguridad). Al final, el cajón
+   del visor con un panel de extensión de prueba que pide el ancho de una lámina
+   (`extensionPrueba.tsx`, plan puntos-de-extension-entregables D7).
    `?ancho=420` = una columna angosta; `?puerta=90` abre la puerta; `?conductor=c26` lo dibuja;
    `?detalle=1&item=largos` abre el detalle con ese ítem elegido (en el panel con fallas). */
 
@@ -70,14 +74,42 @@ export default function Muestrario() {
       <Marco rotulo="Barra de la sesión viva · fallas activas" doble>
         <BarraFallasDemo />
       </Marco>
+      <Marco rotulo="Visor · panel de extensión al ancho de una lámina" ancho entero>
+        <CajonDeExtension />
+      </Marco>
     </main>
   );
 }
 
-/** El marco del muestrario (no es parte de los componentes): rótulo y fondo de panel. */
-function Marco({ rotulo, ancho, doble, children }: { rotulo: string; ancho?: boolean; doble?: boolean; children: ReactNode }) {
+/** El cajón derecho del visor con el panel de la extensión de prueba (`ancho: "lamina"`), con
+   el CSS real de los cajones sobre un fondo que hace de 3D. */
+function CajonDeExtension() {
+  const [abierto, setAbierto] = useState(true);
+  const panel = EXTENSION_PRUEBA.paneles![0];
+  const { Componente } = panel;
   return (
-    <section className={`mu-marco${ancho ? " ancho" : ""}${doble ? " doble" : ""}`} aria-label={rotulo}>
+    <div className="app modo-visor mu-capa">
+      <div className="capa-visor">
+        {abierto ? (
+          <MarcoCajon lado="der" titulo={panel.titulo} ancho={panel.ancho} onCerrar={() => setAbierto(false)}>
+            <Componente />
+          </MarcoCajon>
+        ) : (
+          <button type="button" className="mu-reabrir" onClick={() => setAbierto(true)}>
+            Abrir {panel.rotulo.toLowerCase()}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** El marco del muestrario (no es parte de los componentes): rótulo y fondo de panel. */
+function Marco({ rotulo, ancho, doble, entero, children }: {
+  rotulo: string; ancho?: boolean; doble?: boolean; entero?: boolean; children: ReactNode;
+}) {
+  return (
+    <section className={`mu-marco${ancho ? " ancho" : ""}${doble ? " doble" : ""}${entero ? " entero" : ""}`} aria-label={rotulo}>
       <p className="mu-rotulo">{rotulo}</p>
       <div className="mu-panel">{children}</div>
     </section>

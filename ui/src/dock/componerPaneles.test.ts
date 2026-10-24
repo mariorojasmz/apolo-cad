@@ -47,6 +47,16 @@ describe("paneles del núcleo más los de las extensiones", () => {
     expect(herramientas).toEqual(["bom", "plc", "hola.saludo"]);
   });
 
+  it("el ancho que pide un panel de extensión llega a PANELES; sin él, no aparece", () => {
+    const lamina: Extension = {
+      nombre: "planos",
+      paneles: [{ id: "planos.hoja", titulo: "Hoja", rotulo: "Hoja", Componente, icono: Icono, ancho: "lamina" }],
+    };
+    const { paneles } = componerPaneles(NUCLEO, HERR, [hola, lamina]);
+    expect(paneles["planos.hoja"].ancho).toBe("lamina");
+    expect("ancho" in paneles["hola.saludo"]).toBe(false);
+  });
+
   it("no toca el objeto del núcleo", () => {
     componerPaneles(NUCLEO, HERR, [hola]);
     expect(Object.keys(NUCLEO)).toEqual(["tree", "bom", "plc"]);

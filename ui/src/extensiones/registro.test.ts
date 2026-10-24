@@ -1,4 +1,7 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { EXTENSION_PRUEBA } from "../diseno/muestrario/extensionPrueba";
 import { EXTENSIONES, validarExtensiones } from "./registro";
 
 /* El registro de extensiones de la UI (plan núcleo-abierto-extensiones-privadas, D5). La
@@ -58,6 +61,26 @@ describe("registro de extensiones de la UI", () => {
     expect(() => validarExtensiones(sin({ titulo: "" }))).toThrow(/título o rótulo/);
     expect(() => validarExtensiones(sin({ icono: undefined }))).toThrow(/componente o el ícono/);
     expect(() => validarExtensiones(sin({ Componente: undefined }))).toThrow(/componente o el ícono/);
+  });
+
+  it("un panel puede pedir el ancho de una lámina; otro ancho se rechaza", () => {
+    const con = (ancho: unknown) => ({
+      "./hola/index.ts": { default: { nombre: "hola", paneles: [panel("hola.hoja", { ancho })] } },
+    });
+    expect(validarExtensiones(con("lamina"))[0].paneles?.[0].ancho).toBe("lamina");
+    expect(validarExtensiones(con(undefined))).toHaveLength(1);
+    for (const malo of ["ancho", "960px", 960, null])
+      expect(() => validarExtensiones(con(malo)), String(malo)).toThrow(/ancho del panel «hola\.hoja» tiene que ser uno de: lamina/);
+  });
+
+  it("la extensión de prueba del muestrario es válida y su panel ancho trae la lámina en línea", () => {
+    const [ext] = validarExtensiones({ "./prueba/index.tsx": { default: EXTENSION_PRUEBA } });
+    const p = ext.paneles![0];
+    expect(p.ancho).toBe("lamina");
+    const html = renderToStaticMarkup(createElement(p.Componente));
+    expect(html).toContain('role="img" aria-label="Esquema de prueba, lámina 1 de 1"');
+    expect(html).toMatch(/<svg [^>]*viewBox="0 0 297.0 210.0"/); // la A4 de la extensión falsa
+    expect(html).toContain('fill="none" stroke="#16181d" stroke-width="0.35"'); // un símbolo
   });
 
   it("rechaza un id de panel repetido y junta todos los problemas en un mensaje", () => {

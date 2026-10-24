@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import type { Extension } from "./tipos";
+import { ANCHOS_PANEL, type Extension } from "./tipos";
 
 /* Registro de las extensiones de la UI (plan núcleo-abierto-extensiones-privadas, D5). El núcleo
    lo publica VACÍO: no trae ninguna carpeta dentro de `src/extensiones/` (el `.gitignore` de `ui/`
@@ -39,6 +39,8 @@ function problemasDe(carpeta: string, ext: unknown): string[] {
     if (!esTexto(panel.titulo) || !esTexto(panel.rotulo)) out.push(`${carpeta}: al panel «${id}» le falta título o rótulo`);
     if (!esComponente(panel.Componente) || !esComponente(panel.icono))
       out.push(`${carpeta}: al panel «${id}» le falta el componente o el ícono`);
+    if (panel.ancho !== undefined && !(ANCHOS_PANEL as readonly unknown[]).includes(panel.ancho))
+      out.push(`${carpeta}: el ancho del panel «${id}» tiene que ser uno de: ${ANCHOS_PANEL.join(", ")}`);
   }
   return out;
 }

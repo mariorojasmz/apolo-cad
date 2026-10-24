@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { cajonQueCierraEsc, esCampoDeTexto, panelesDelMenu } from "./cajones";
+import { cajonQueCierraEsc, claseCajon, esCampoDeTexto, panelesDelMenu } from "./cajones";
 import { useVisor } from "./estado";
 
 const libre = { prioridad: false, enCampo: false };
@@ -34,6 +37,20 @@ describe("Esc y los cajones del visor", () => {
     useVisor.getState().cerrarCajon("izq");
     expect(useVisor.getState()).toMatchObject({ cajonIzq: false, cajonDer: "history" });
     useVisor.getState().cerrarCajones();
+  });
+});
+
+describe("ancho del cajón", () => {
+  it("el derecho abre al ancho de una lámina si el panel lo pide; el Árbol, nunca", () => {
+    expect(claseCajon("der")).toBe("cajon cajon-der");
+    expect(claseCajon("der", "lamina")).toBe("cajon cajon-der cajon-lamina");
+    expect(claseCajon("izq", "lamina")).toBe("cajon cajon-izq");
+  });
+
+  it("el CSS del visor define ese ancho con el margen del visor", () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "cajones.css"), "utf8");
+    expect(css).toMatch(/--cv-lamina-ancho:\s*min\(960px, calc\(100% - 2 \* var\(--cv-margen\)\)\)/);
+    expect(css).toMatch(/\.capa-visor \.cajon-der\.cajon-lamina \{ width: var\(--cv-lamina-ancho\); \}/);
   });
 });
 
