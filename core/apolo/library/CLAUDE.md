@@ -291,7 +291,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   sujeción DECLARADA (soundness sin autodetect) + lints + integridad/suprimidos + colisión EN POSE
   en los fotogramas de REPOSO de los estudios (extremos + dwells; el tránsito lo valida
   `scan_motion`) + gravedad opt-in + ERC, acceso de herramienta y escenarios de prueba (V8.3 D14)
-  SÓLO si existen: sin ellos, la puerta da lo de siempre.
+  SÓLO si existen: sin ellos, la puerta da lo de siempre. Las reglas de una extensión
+  (`Extension.entrega`, `entrega_extension.py`) van al final con `id` y `origen`; sólo con ellas
+  sale `version_bateria` («1+nombre.v»: `VERSION_BATERIA` sube si cambia un chequeo del núcleo).
+  [plan](../../../docs/plans/puntos-de-extension-entregables.md)
 - Lo que no puede correr va en `no_aplica`: jamás cuenta verde. Un asiento ≤ `EXCESS_TOL_MM3`
   (`checks.py`) se tolera y se DECLARA (`contactos_tolerados`). Tornillería flotante = AVISO, no
   ROJO (no es nodo estructural).

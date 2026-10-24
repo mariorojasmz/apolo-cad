@@ -26,7 +26,11 @@ Contrato (lo que una extensión usa; `CONTRATO_EXTENSIONES` sube sólo si cambia
 - F1d: `puerta` suma `Entrada`/`Fuente` a la puerta de publicación (`library/calidad/registro`,
   `vigente()`; su `version_puerta` entra a `version_registro`) y `ext` del manifest guarda los
   datos de cada extensión en el `.apolo` (`doc/ext_manifest.py`, escrita por la fachada).
-- Los campos pesados (`comandos`, `routers`, `modelos_cosim`, `builders`, `anclas`, `puerta`) aceptan el
+- `costeo` suma filas al costeo y la cotización (`library/costeo_extension`, `services/cobros`) y
+  `entrega`, reglas a la puerta de entrega (`library/entrega_extension`, `delivery_inputs`); cada
+  uno con su versión (plan puntos-de-extension-entregables).
+- Los campos pesados (`comandos`, `routers`, `modelos_cosim`, `builders`, `anclas`, `puerta`,
+  `costeo`, `entrega`) aceptan el
   valor o una función sin argumentos que lo devuelve: el MCP resuelve sólo las tools y no carga
   OCCT por ellos.
 - D12/A4: cada comando lleva su `CommandSpec.version`; `epoch_catalogo` entra a la firma de los
@@ -83,6 +87,10 @@ class Extension:
     epoch_catalogo: int = 1  # súbelo si cambia la geometría de sus refs con los mismos params
     puerta: Any = ()  # Entrada/Fuente de la puerta de publicación (ids «prefijo.x»), o una función
     version_puerta: int = 1  # súbelo si cambia un ítem, umbral o `aplica_si` suyo (F1d)
+    costeo: Any = ()  # FuenteCosteo (ids «prefijo.x») del costeo y la cotización, o una función
+    version_costeo: int = 1  # súbelo si cambia lo que cobra una fuente suya
+    entrega: Any = ()  # ReglaEntrega (ids «prefijo.x») de la puerta de entrega, o una función
+    version_entrega: int = 1  # súbelo si cambia una regla o un umbral suyo
     webui: str | Path | None = None  # carpeta de un `dist` compilado (D5): la API lo sirve
 
 
@@ -166,7 +174,7 @@ def _cabecera(ext: Extension, ya: Iterable[Extension]) -> None:
         if otra.nombre == ext.nombre or otra.prefijo == ext.prefijo:
             raise ExtensionRechazada(f"choca con la extensión «{otra.nombre}» ya cargada (nombre o "
                                      f"prefijo «{otra.prefijo}»)")
-    for campo in ("epoch_catalogo", "version_puerta"):
+    for campo in ("epoch_catalogo", "version_puerta", "version_costeo", "version_entrega"):
         v = getattr(ext, campo)
         if isinstance(v, bool) or not isinstance(v, int) or v < 1:
             raise ExtensionRechazada(f"{campo} «{v}» inválido (entero ≥ 1)")
@@ -181,13 +189,16 @@ def _aplicar(ext: Extension, reservados: set[str]) -> tuple[list, list, dict]:
     refs = _P.sumar_catalogo(ext)
     comandos = _P.sumar_comandos(ext)
     puerta = _P.sumar_puerta(ext)
+    costeo = _P.sumar_costeo(ext)
+    entrega = _P.sumar_entrega(ext)
     routers_ext = _P.resolver_routers(ext, reservados)
     tools = _P.grabar_tools(ext, _R.tools)
     rutas = [f"{m} {r.path}" for router in routers_ext for r in router.routes
              for m in sorted(getattr(r, "methods", None) or {"WS"})]
     return routers_ext, tools, {"comandos": comandos, "tools": [t[0] for t in tools],
                                 "rutas": rutas, "refs": refs, "modelos_cosim": modelos,
-                                "builders": builders, "puerta": puerta}
+                                "builders": builders, "puerta": puerta, "costeo": costeo,
+                                "entrega": entrega}
 
 
 def _registros() -> list:
@@ -195,7 +206,7 @@ def _registros() -> list:
     from apolo.commands import pistas, spec
     from apolo.commands.registry import REGISTRY
     from apolo.cosim import modelos
-    from apolo.library import catalog, loader
+    from apolo.library import catalog, costeo_extension, entrega_extension, loader
     from apolo.library.calidad import registro
     from apolo.library.electrico import ficha
     from apolo.tools import catalogo
@@ -203,7 +214,8 @@ def _registros() -> list:
     return [REGISTRY, pistas.PESTANAS, pistas.PISTAS, pistas.PISTAS_CAMPO, spec.REFS_DE_EXTENSION,
             loader.BUILDERS, loader.ANCLAS, catalog.CATALOG, catalog.CATEGORIES, ficha.TIPOS_MODELO,
             modelos.MODELOS, modelos.DE_EXTENSION, catalogo.CHAT, catalogo.FUERA_DEL_CHAT,
-            catalogo.DE_EXTENSION, registro.DE_EXTENSION]
+            catalogo.DE_EXTENSION, registro.DE_EXTENSION, costeo_extension.DE_EXTENSION,
+            entrega_extension.DE_EXTENSION]
 
 
 def instantanea() -> list:
@@ -271,7 +283,8 @@ def estado() -> list[dict]:
 
 def detalle() -> list[dict]:
     """`estado()` más, por cada cargada, lo que sumó al núcleo: `comandos`, `tools`, `rutas`
-    («MÉTODO /api/x/…»), `refs`, `modelos_cosim`, `builders`, `puerta` y si se sirve su `ui`
+    («MÉTODO /api/x/…»), `refs`, `modelos_cosim`, `builders`, `puerta`, `costeo`, `entrega` y si
+    se sirve su `ui`
     (`GET /api/extensiones`). Sale de la `Extension` al cargarla (las tools, grabadas con un
     `mcp` de mentira): la API lo sabe sin el proceso del MCP."""
     out = []

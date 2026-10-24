@@ -76,7 +76,9 @@ def test_detalle_sale_de_la_extension_y_lo_sirve_la_api(extensiones_aisladas, mo
                             "GET /api/prueba/piezas", "GET /api/prueba/nota",
                             "PUT /api/prueba/nota"], "refs": ["prueba.caja"],
                   "modelos_cosim": ["prueba.lampara"], "builders": [],
-                  "puerta": ["prueba.nota_ok", "prueba.siempre"], "ui": False}
+                  "puerta": ["prueba.nota_ok", "prueba.siempre"],
+                  "costeo": ["prueba.conexionado", "prueba.revision"],
+                  "entrega": ["prueba.nota_entrega", "prueba.tablero"], "ui": False}
     assert not vieja["cargada"] and "contrato" in vieja["motivo"] and "comandos" not in vieja
     # /api/health sigue con la forma corta
     assert TestClient(api.app).get("/api/health").json()["extensiones"][0] == CARGADA

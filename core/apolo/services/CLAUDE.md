@@ -172,6 +172,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   cubre (lo liga con `piezas` o tiene los mismos hilos × sección en el nombre). Nunca descuenta:
   ligar es del modelo. El ERC suma el mismo «cable 3D sin cobrar» (`regla_cables`).
   [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4c)
+- Las filas de `Extension.costeo` (`filas_de_extensiones`) entran AL FINAL ya costeadas (`origen`
+  «extension:x», a `extensiones_usd`, ni compradas ni fabricadas); una fila sin la forma o una
+  fuente que lanza no se cobra y lo dice un aviso de cobro. Sin ellas, byte-idéntico.
+  [plan](../../../docs/plans/puntos-de-extension-entregables.md)
 
 ## Reglas de ingeniería y FEA (`engineering_rules.py`, `fea_rules.py`)
 

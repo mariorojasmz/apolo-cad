@@ -21,6 +21,11 @@ from .checks import PAREJAS_POR_SOLIDO
 
 VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 
+#: La versión de la batería del núcleo: súbela si cambia un chequeo o su umbral. Sólo se publica
+#: con reglas de extensión (`version_bateria` = «1+nombre.version_entrega»); sin ellas, el
+#: resultado es el de siempre (plan puntos-de-extension-entregables, D3).
+VERSION_BATERIA = 1
+
 # Umbral de sujeción (compartido con la alarma ambiental de la capa API): bajo esto
 # —un croquis de 2-3 piezas— exigir anclajes sería ruido. Conservador a propósito:
 # a 5 sólidos un proyecto ya es un ENSAMBLAJE y algo debe tocar tierra.
@@ -96,6 +101,7 @@ def delivery_report(
     electrico: list[dict] | None = None,
     acceso_herramienta: dict | None = None,
     escenarios: list[dict] | None = None,
+    extensiones: dict | None = None,
 ) -> dict:
     """Agrega los chequeos de cierre en un SEMÁFORO. Entradas (todas computadas por
     el llamador — aquí no corre ningún motor):
@@ -127,6 +133,10 @@ def delivery_report(
         `{escenario, estado ok|aviso|error, detalle}` por escenario de prueba; None = no hay:
         la puerta da EXACTAMENTE lo de siempre. Uno que falla vigente bloquea (ROJO); sin
         correr, vencido o sin aserciones, AMARILLO (V8.3 D14).
+      - `extensiones`: `{version, reglas}` de las reglas de entrega de las extensiones cargadas
+        (`services/delivery_inputs`); cada regla `{id, regla, origen, hallazgos | error}`. Un
+        hallazgo `error` bloquea, un `aviso` (o una regla que no corrió) da AMARILLO; None = no
+        hay: la puerta da EXACTAMENTE lo de siempre, sin `version_bateria`.
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
     """
     nombre_de = nombre_de or (lambda fid: str(fid))
@@ -304,8 +314,13 @@ def delivery_report(
         if escenarios and all(r["estado"] == "ok" for r in escenarios):
             ok.append(f"escenarios ({len(escenarios)}, vigentes)")
 
+    # 10 · reglas de las extensiones (sólo si hay alguna cargada) ------------------------------
+    if extensiones is not None:
+        for r in extensiones.get("reglas") or []:
+            _de_extension(r, bloqueantes, avisos, ok, nombre_de)
+
     veredicto = ROJO if bloqueantes else (AMARILLO if avisos else VERDE)
-    return {
+    out = {
         "veredicto": veredicto,
         "bloqueantes": bloqueantes,
         "avisos": avisos,
@@ -317,3 +332,23 @@ def delivery_report(
             "n_avisos": len(avisos),
         },
     }
+    if extensiones is not None:
+        out["version_bateria"] = f"{VERSION_BATERIA}{extensiones.get('version', '')}"
+    return out
+
+
+def _de_extension(r: dict, bloqueantes, avisos, ok, nombre_de) -> None:
+    """Una regla de entrega de una extensión (`library/entrega_extension`): sus hallazgos al
+    semáforo con `id` y `origen`; una que no corrió, aviso (nunca verde)."""
+    base = {"regla": r["regla"], "id": r["id"], "origen": r["origen"]}
+    if r.get("error"):
+        avisos.append({**base, "piezas": [],
+                       "detalle": f"la regla no se pudo evaluar ({r['error']}): queda SIN "
+                                  "verificar (no cuenta como verde)."})
+        return
+    malos = [h for h in r.get("hallazgos") or [] if h["estado"] in ("error", "aviso")]
+    for h in malos:
+        (bloqueantes if h["estado"] == "error" else avisos).append(
+            {**base, "piezas": _nombres(h.get("piezas") or [], nombre_de), "detalle": h["detalle"]})
+    if not malos:
+        ok.append(r["regla"])

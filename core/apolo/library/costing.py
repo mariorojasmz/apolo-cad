@@ -19,6 +19,10 @@ modelado en 3D (material «cable») no se fabrica: se compra por metro con `add_
 fila va sin costo para no cobrarlo dos veces. Si ningún `add_cable` lo cubre (lo decide
 `services/cobros.py`), la fila lo DICE: ese cable no se cobra en ninguna parte.
 
+Una fila de EXTENSIÓN (`origen` «extension:<nombre>», `costeo_extension.fila`) llega ya costeada
+por su fuente: no se re-costea y suma a `extensiones_usd` (sólo si hay alguna), no a lo comprado
+ni a lo fabricado.
+
 Los factores son hipótesis DECLARADAS (aparecen en la fila y en las notas de la
 cotización), no números escondidos. Construye sobre `bom_from_scene` (misma
 agrupación que el BOM de siempre); no muta nada.
@@ -28,6 +32,7 @@ from __future__ import annotations
 
 from .bom import COMPRA, bom_from_scene
 from .catalog import CATALOG
+from .costeo_extension import es_de_extension
 from .materials import CABLE, cost_per_kg
 from .piezas_electricas import es_rol_electrico
 
@@ -124,6 +129,8 @@ def costed_bom(scene: dict, default_material: str | None = None,
     `cables_sin_cubrir` ni `incluidas`, lo de antes."""
     rows = bom_from_scene(scene, default_material, incluidas=incluidas) + [dict(r) for r in extra or ()]
     for row in rows:
+        if es_de_extension(row):  # ya viene costeada por su extensión (`costeo_extension.fila`)
+            continue
         if row.get("sin_largo"):
             cost, fuente = None, "sin largo declarado"
         elif row.get("ref") == COMPRA:
@@ -145,6 +152,7 @@ def costing_totals(rows: list[dict]) -> dict:
     costoso (la pregunta clásica de optimización)."""
     por_categoria: dict[str, float] = {}
     catalogo = fabricacion = 0.0
+    de_extension: float | None = None  # filas de una extensión: ni compradas ni fabricadas
     sin_costo = 0
     top = None
     for r in rows:
@@ -154,16 +162,20 @@ def costing_totals(rows: list[dict]) -> dict:
             continue
         cat = r.get("categoria") or "otros"
         por_categoria[cat] = round(por_categoria.get(cat, 0.0) + total, 2)
-        if r.get("ref") != "A-MEDIDA":
+        if es_de_extension(r):
+            de_extension = (de_extension or 0.0) + total
+        elif r.get("ref") != "A-MEDIDA":
             catalogo += total
         else:
             fabricacion += total
         if top is None or total > top["costo_total_usd"]:
             top = r
+    ext = {} if de_extension is None else {"extensiones_usd": round(de_extension, 2)}
     return {
         "catalogo_usd": round(catalogo, 2),
         "fabricacion_usd": round(fabricacion, 2),
-        "total_usd": round(catalogo + fabricacion, 2),
+        **ext,
+        "total_usd": round(catalogo + fabricacion + (de_extension or 0.0), 2),
         "por_categoria": dict(sorted(por_categoria.items(), key=lambda kv: -kv[1])),
         "n_filas_sin_costo": sin_costo,
         "item_mas_costoso": (

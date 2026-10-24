@@ -132,9 +132,42 @@ def monto_en_riesgo(avisos: list[dict]) -> float:
     return round(sum(a.get("monto_en_riesgo_usd") or 0.0 for a in avisos), 2)
 
 
+def filas_de_extensiones(doc) -> tuple[list[dict], list[dict]]:
+    """(filas costeadas, avisos) de las fuentes de costeo de las extensiones cargadas
+    (`Extension.costeo`; plan puntos-de-extension-entregables, D2). Una fuente que lanza o una
+    fila que no tiene la forma no se cobra y lo dice un aviso de cobro: nunca tumba el costeo."""
+    from apolo.library import costeo_extension as C
+
+    filas: list[dict] = []
+    avisos: list[dict] = []
+    for nombre, fuente in C.vigentes():
+        try:
+            salida = list(fuente.filas(doc) or ())
+        except Exception as exc:  # noqa: BLE001 — el código de la extensión puede lanzar
+            salida, motivo = [], f"{type(exc).__name__}: {exc}"
+            avisos.append(_aviso_extension(nombre, fuente.id, f"la fuente no corrió ({motivo})"))
+        for d in salida:
+            try:
+                filas.append(C.fila(nombre, fuente, d))
+            except ValueError as exc:
+                avisos.append(_aviso_extension(nombre, fuente.id, str(exc)))
+    return filas, avisos
+
+
+def _aviso_extension(nombre: str, fid: str, motivo: str) -> dict:
+    return {"tipo": "fila de extensión descartada", "monto_en_riesgo_usd": None,
+            "detalle": f"la fuente de costeo «{fid}» de la extensión «{nombre}» dio algo que no se "
+                       f"cobra: {motivo}"[:500],
+            "arreglo": "Corrige la extensión: ese concepto NO está en el precio.",
+            "elementos": [fid]}
+
+
 def costeo(doc) -> dict:
-    """El costeo del documento (escena + tablero) con sus avisos de cobro. Sin avisos, el dict
-    de siempre (`rows`, `totales`); con ellos, además `avisos` y `monto_en_riesgo_usd`."""
+    """El costeo del documento (escena + tablero + las filas de las extensiones, al final) con sus
+    avisos de cobro. Sin avisos, el dict de siempre (`rows`, `totales`); con ellos, además `avisos`
+    y `monto_en_riesgo_usd`; con extensiones de costeo cargadas, `extensiones`
+    ({nombre: version_costeo})."""
+    from apolo.library import costeo_extension
     from apolo.library.costing import scene_costing
 
     from .bom_filas import filas_extra
@@ -142,9 +175,12 @@ def costeo(doc) -> dict:
 
     cables = cables_sin_cubrir(doc)
     sin = {c["id"] for c in cables}
-    data = scene_costing(doc.scene, doc.default_material(), filas_extra(doc), sin or None,
+    de_ext, avisos_ext = filas_de_extensiones(doc)
+    data = scene_costing(doc.scene, doc.default_material(), filas_extra(doc) + de_ext, sin or None,
                          incluidas(doc) or None)
-    avisos = avisos_cobro(doc, cables)
+    if costeo_extension.DE_EXTENSION:
+        data["extensiones"] = costeo_extension.versiones()
+    avisos = avisos_cobro(doc, cables) + avisos_ext
     if avisos:
         data["avisos"] = avisos
         data["monto_en_riesgo_usd"] = monto_en_riesgo(avisos)

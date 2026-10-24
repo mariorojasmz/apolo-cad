@@ -87,6 +87,7 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     filas = [
         ("Componentes comprados", totals.get("catalogo_usd")),  # catálogo + comerciales a mano
         ("Fabricación a medida", totals.get("fabricacion_usd")),
+        *([("Otros conceptos", totals["extensiones_usd"])] if "extensiones_usd" in totals else []),
         ("Costo directo", directo),
         (f"Margen ({margin_pct:g}%)", margen),
     ]
@@ -177,6 +178,8 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
             **totals,
             "catalogo_usd": round(totals["catalogo_usd"] * fx, 2),
             "fabricacion_usd": round(totals["fabricacion_usd"] * fx, 2),
+            **({"extensiones_usd": round(totals["extensiones_usd"] * fx, 2)}
+               if "extensiones_usd" in totals else {}),
             "total_usd": round(totals["total_usd"] * fx, 2),
             "por_categoria": {k: round(v * fx, 2) for k, v in totals.get("por_categoria", {}).items()},
             "item_mas_costoso": (
@@ -185,7 +188,8 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
         }
 
     detail = [
-        [r["ref"], str(r["descripcion"]), r["cantidad"],
+        [r["ref"], str(r["descripcion"]),
+         f"{r['cantidad']:g} {r['unidad']}" if r.get("unidad") else r["cantidad"],
          _money(r.get("costo_ud_usd"), ""), _money(r.get("costo_total_usd"), ""),
          str(r.get("costo_fuente", ""))]
         for r in rows

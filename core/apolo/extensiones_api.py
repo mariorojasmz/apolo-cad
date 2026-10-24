@@ -72,6 +72,9 @@ SUPERFICIE: dict[str, str] = {
     "FALLA": "apolo.library.calidad.item:FALLA",
     "SIN_EVALUAR": "apolo.library.calidad.item:SIN_EVALUAR",
     "NO_APLICA": "apolo.library.calidad.item:NO_APLICA",
+    # filas del costeo y reglas de la puerta de entrega (plan puntos-de-extension-entregables)
+    "FuenteCosteo": "apolo.library.costeo_extension:FuenteCosteo",
+    "ReglaEntrega": "apolo.library.entrega_extension:ReglaEntrega",
 }
 
 #: módulo → nombres que una extensión de dominio usa de él (medido sobre `publicacion/` en la F0 y
@@ -120,6 +123,19 @@ MODULOS: dict[str, tuple[str, ...]] = {
     "apolo.services.plan_navegador": ("PlanError", "plan"),
     "apolo.services.puerta_publicacion": ("firma_modelo",),
     "apolo.services.rotulos": ("cifra",),
+    # la lectura eléctrica de una extensión de entregables (plan puntos-de-extension-entregables,
+    # D1): el modelo y su chequeo, las redes, el tablero armado y ruteado, los cables de campo, la
+    # R y la X de un conductor (las de la co-simulación) y el catálogo
+    "apolo.services.electrico": ("chequeo", "modelo"),
+    "apolo.library.electrico.redes": ("Analisis", "analizar"),
+    "apolo.library.electrico.modelo": ("Borne", "Cable", "Camino", "Carga", "Conductor",
+                                       "Dispositivo", "Fuente", "Hilo", "ModeloElectrico", "Paso",
+                                       "Programa", "Red"),
+    "apolo.services.tablero": ("Tablero", "armados", "largos", "ruteos"),
+    "apolo.services.cables_campo": ("CableCampo", "largos", "recorridos"),
+    "apolo.cosim.red.conductores": ("LAMBDA_OHM_M", "TEMPERATURA_DEFECTO_C", "r20_ohm_km",
+                                    "reactancia", "resistencia"),
+    "apolo.library.catalog": ("CATALOG",),
 }
 
 def resolver(origen: str):

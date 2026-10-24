@@ -202,6 +202,61 @@ def sumar_puerta(ext) -> list[str]:
     return sorted(i for e in entradas for i in ([e.id] if isinstance(e, R.Entrada) else e.mapa))
 
 
+def _sumar_ids(ext, entradas: list, tipo: type, que: str, registro: dict, validar) -> list[str]:
+    """Lo común de `costeo` y `entrega`: cada entrada es `tipo`, su id lleva «prefijo.», nada se
+    repite (en la extensión ni con otra ya cargada) y `validar(e)` revisa lo demás. Valida TODO
+    antes de tocar `registro`."""
+    tomados = {e.id for _v, es in registro.values() for e in es}
+    nuevos: list[str] = []
+    for e in entradas:
+        if not isinstance(e, tipo):
+            raise ExtensionRechazada(f"una entrada de {que} no es un {tipo.__name__}: {e!r}"[:300])
+        con_prefijo(e.id, ext.prefijo, f"el id de {que}")
+        if e.id in tomados or e.id in nuevos:
+            raise ExtensionRechazada(f"el id «{e.id}» de {que} ya existe")
+        validar(e)
+        nuevos.append(e.id)
+    return nuevos
+
+
+def sumar_costeo(ext) -> list[str]:
+    """Las `FuenteCosteo` del costeo y la cotización (`library/costeo_extension`): id
+    «prefijo.x», `filas` llamable, nada repetido. Van a `DE_EXTENSION` con su `version_costeo`;
+    sus filas se validan al costear (`costeo_extension.fila`)."""
+    entradas = list(valor(ext.costeo) or ())
+    if not entradas:
+        return []
+    from apolo.library import costeo_extension as C
+
+    def validar(e) -> None:
+        if not callable(e.filas):
+            raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: `filas` es una función (doc)")
+
+    nuevos = _sumar_ids(ext, entradas, C.FuenteCosteo, "costeo", C.DE_EXTENSION, validar)
+    C.DE_EXTENSION[ext.nombre] = (ext.version_costeo, tuple(entradas))
+    return sorted(nuevos)
+
+
+def sumar_entrega(ext) -> list[str]:
+    """Las `ReglaEntrega` de la puerta de entrega (`library/entrega_extension`): id «prefijo.x»,
+    título no vacío, `evaluar` llamable, nada repetido. Van a `DE_EXTENSION` con su
+    `version_entrega`, que firma `version_bateria`."""
+    entradas = list(valor(ext.entrega) or ())
+    if not entradas:
+        return []
+    from apolo.library import entrega_extension as E
+
+    def validar(e) -> None:
+        if not isinstance(e.titulo, str) or not e.titulo.strip():
+            raise ExtensionRechazada(f"la regla de entrega «{e.id}» no tiene título")
+        if not callable(e.evaluar):
+            raise ExtensionRechazada(f"la regla de entrega «{e.id}»: `evaluar` es una función (doc)")
+
+    nuevos = _sumar_ids(ext, entradas, E.ReglaEntrega, "entrega", E.DE_EXTENSION, validar)
+    E.DE_EXTENSION[ext.nombre] = (ext.version_entrega, tuple(entradas))
+    return sorted(nuevos)
+
+
 def resolver_routers(ext, reservados: set[str]) -> list:
     """Los routers de la extensión: toda ruta bajo «/api/<prefijo>/», un prefijo que no es un
     tramo de rutas del núcleo y ninguna (método, path) repetida."""

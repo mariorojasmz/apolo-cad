@@ -43,6 +43,28 @@ def declarada_por_join_bolted(doc) -> set[str]:
     return {fid for fid, f in doc.scene.items() if getattr(f, "command_id", None) in jb}
 
 
+def reglas_de_extensiones(doc) -> dict | None:
+    """`{version, reglas}` de las reglas de entrega de las extensiones cargadas
+    (`Extension.entrega`; plan puntos-de-extension-entregables, D3), o None si no hay ninguna.
+    Una regla que da None no aplica y no aparece; una que lanza o da otra forma sale con `error`
+    (aviso en el semáforo: nunca verde, nunca tumba la puerta)."""
+    from apolo.library import entrega_extension as E
+
+    if not E.DE_EXTENSION:
+        return None
+    reglas = []
+    for nombre, regla in E.vigentes():
+        base = {"id": regla.id, "regla": regla.titulo, "origen": E.ORIGEN + nombre}
+        try:
+            hallazgos = E.hallazgos(regla.evaluar(doc))
+        except Exception as exc:  # noqa: BLE001 — el código de la extensión puede lanzar
+            reglas.append({**base, "error": f"{type(exc).__name__}: {exc}"[:300]})
+            continue
+        if hallazgos is not None:
+            reglas.append({**base, "hallazgos": hallazgos})
+    return {"version": E.version(), "reglas": reglas}
+
+
 def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
     """Los kwargs de `delivery_report` (todos salvo `gravedad`) para `doc`. Llamar bajo
     STATE_LOCK; `expand` resuelve nombres de grupo (lo inyecta la API). Con `tiempos` (un dict)
@@ -108,7 +130,14 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         integridad = doc.check_integrity()
     with _cronometro(tiempos, "poses"):
         poses = delivery_poses(doc, fasten_pairs, bolt_ids, expand=expand)
+    from apolo.library import entrega_extension
+
+    de_ext = None  # sin extensiones con reglas, los kwargs (y los tiempos) de siempre
+    if entrega_extension.DE_EXTENSION:
+        with _cronometro(tiempos, "extensiones"):
+            de_ext = reglas_de_extensiones(doc)
     return dict(
+        **({"extensiones": de_ext} if de_ext is not None else {}),
         **({"electrico": erc} if erc is not None else {}),
         **({"escenarios": escenarios} if escenarios is not None else {}),
         **({"acceso_herramienta": acceso} if acceso is not None else {}),

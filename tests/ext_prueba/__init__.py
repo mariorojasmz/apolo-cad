@@ -9,7 +9,9 @@ de extensión del núcleo con lo mínimo, sin instalarse (se carga con
 - un modelo de co-simulación mínimo, tipo `prueba.lampara` (`modelos.py`);
 - (F1d) rutas que leen y mutan el documento por la fachada y guardan sus datos en la clave `ext`
   del manifest (`rutas.py`), dos ítems de la puerta de publicación (`puerta.py`) y una lámina
-  con el motor de planos (`laminas.py`).
+  con el motor de planos (`laminas.py`);
+- (puntos-de-extension-entregables) la lectura eléctrica por `MODULOS` (`electrico.py`), dos
+  fuentes de filas del costeo (`costeo.py`) y dos reglas de la puerta de entrega (`entrega.py`).
 
 Los campos pesados van PEREZOSOS (funciones): así lo hace una extensión real para que el MCP no
 cargue OCCT al leerla. Abajo, las variantes que el núcleo debe RECHAZAR (`test_extensiones.py`).
@@ -54,6 +56,16 @@ def _puerta(variante: str = "entradas"):
     return cargar
 
 
+def _de(modulo: str, variante: str):
+    """Una lista perezosa de `ext_prueba.<modulo>.<variante>()` (carga OCCT sólo al resolverla)."""
+    def cargar():
+        import importlib
+
+        return getattr(importlib.import_module(f"{__name__}.{modulo}"), variante)()
+
+    return cargar
+
+
 EXTENSION = Extension(
     nombre="ext-prueba",
     prefijo="prueba",
@@ -69,6 +81,10 @@ EXTENSION = Extension(
     epoch_catalogo=1,
     puerta=_puerta(),
     version_puerta=1,
+    costeo=_de("costeo", "fuentes"),
+    version_costeo=1,
+    entrega=_de("entrega", "reglas"),
+    version_entrega=1,
 )
 
 
@@ -98,10 +114,25 @@ TOOL_CON_PUNTO = replace(EXTENSION, tools_mcp=registrar_con_punto)
 DUPLICADA = replace(EXTENSION, nombre="ext-prueba-2")  # mismo prefijo que EXTENSION
 EN_RUTAS_DEL_NUCLEO = replace(EXTENSION, nombre="ext-fea", prefijo="fea", comandos=(), pistas={},
                               pestanas={}, catalogo=(), modelos_cosim={}, tools_mcp=None,
-                              puerta=(), routers=_routers_fea)
+                              puerta=(), costeo=(), entrega=(), routers=_routers_fea)
 PUERTA_SIN_PREFIJO = replace(EXTENSION, puerta=_puerta("sin_prefijo"))
 PUERTA_FAMILIA = replace(EXTENSION, puerta=_puerta("familia_inventada"))
 PUERTA_REPETIDA = replace(EXTENSION, puerta=_puerta("repetida"))
 PUERTA_NO_ENTRADA = replace(EXTENSION, puerta=_puerta("no_es_entrada"))
 PUERTA_V2 = replace(EXTENSION, version_puerta=2)
+# costeo y entrega (plan puntos-de-extension-entregables)
+COSTEO_SIN_PREFIJO = replace(EXTENSION, costeo=_de("costeo", "sin_prefijo"))
+COSTEO_REPETIDO = replace(EXTENSION, costeo=_de("costeo", "repetida"))
+COSTEO_NO_FUENTE = replace(EXTENSION, costeo=_de("costeo", "no_es_fuente"))
+COSTEO_NO_LLAMABLE = replace(EXTENSION, costeo=_de("costeo", "no_llamable"))
+COSTEO_VERSION_MALA = replace(EXTENSION, version_costeo=0)
+COSTEO_CON_FALLAS = replace(EXTENSION, costeo=_de("costeo", "con_fallas"))
+COSTEO_V3 = replace(EXTENSION, version_costeo=3)
+ENTREGA_SIN_PREFIJO = replace(EXTENSION, entrega=_de("entrega", "sin_prefijo"))
+ENTREGA_REPETIDA = replace(EXTENSION, entrega=_de("entrega", "repetida"))
+ENTREGA_SIN_TITULO = replace(EXTENSION, entrega=_de("entrega", "sin_titulo"))
+ENTREGA_NO_REGLA = replace(EXTENSION, entrega=_de("entrega", "no_es_regla"))
+ENTREGA_VERSION_MALA = replace(EXTENSION, version_entrega=True)
+ENTREGA_ROTA = replace(EXTENSION, entrega=_de("entrega", "rotas"))
+ENTREGA_V2 = replace(EXTENSION, version_entrega=2)
 NO_ES_EXTENSION = "una cadena no es una extensión"
