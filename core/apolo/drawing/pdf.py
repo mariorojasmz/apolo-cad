@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 
 from ..library.materials import hatch_pattern
+from .esquema import GROSOR_SIMBOLO_MM, LLENO, NEGRO, SIMBOLO, pt
 from .sheet import SheetModel
 
 # patrón de rayado matplotlib por material
@@ -16,7 +17,12 @@ STYLE = {
     "frame": {"color": "#16181d", "lw": 1.3, "ls": "-"},
     "dim": {"color": "#3a5e9c", "lw": 0.45, "ls": "-"},
     "center": {"color": "#b0413e", "lw": 0.4, "ls": (0, (6, 1.5, 1, 1.5))},
+    # trazos de esquema (`esquema.py`): el grosor va en mm y matplotlib lo mide en pt
+    SIMBOLO: {"color": NEGRO, "lw": pt(GROSOR_SIMBOLO_MM), "ls": "-"},
+    LLENO: {"color": NEGRO, "lw": pt(GROSOR_SIMBOLO_MM), "ls": "-"},
 }
+# círculo y polígono de esquema: sin relleno (símbolo) o negro relleno (punto de unión, flecha)
+RELLENO_ESQUEMA = {SIMBOLO: "none", LLENO: NEGRO}
 HA = {"start": "left", "middle": "center", "end": "right"}
 
 
@@ -55,7 +61,10 @@ def _figure(model: SheetModel):
                 verts += list(ring) + [ring[0]]
                 codes += [Path.MOVETO] + [Path.LINETO] * (len(ring) - 1) + [Path.CLOSEPOLY]
             path = Path(verts, codes)
-            if poly.material:
+            if poly.kind in RELLENO_ESQUEMA:
+                ax.add_patch(PathPatch(path, facecolor=RELLENO_ESQUEMA[poly.kind], edgecolor=NEGRO,
+                                       lw=pt(GROSOR_SIMBOLO_MM), joinstyle="round"))
+            elif poly.material:
                 hatch = PDF_HATCH.get(hatch_pattern(poly.material), "////")
                 ax.add_patch(PathPatch(path, facecolor="none", edgecolor="#16181d", lw=0.6, hatch=hatch))
             else:
@@ -74,6 +83,10 @@ def _figure(model: SheetModel):
         from matplotlib.patches import Circle as MplCircle
 
         for c in model.circles:
+            if c.kind in RELLENO_ESQUEMA:  # símbolo (sin relleno) o punto de unión (relleno)
+                ax.add_patch(MplCircle((c.x, c.y), c.r, facecolor=RELLENO_ESQUEMA[c.kind],
+                                       edgecolor=NEGRO, lw=pt(GROSOR_SIMBOLO_MM)))
+                continue
             ax.add_patch(MplCircle((c.x, c.y), c.r, facecolor="#fdfdfb", edgecolor="#3a5e9c", lw=0.7))
 
     if model.arcs:  # cosmético de rosca (ISO 6410): arco fino al Ø nominal

@@ -6,6 +6,7 @@ import base64
 from xml.sax.saxutils import escape
 
 from ..library.materials import hatch_pattern
+from .esquema import GROSOR_SIMBOLO_MM, LLENO, NEGRO, SIMBOLO
 from .sheet import SheetModel
 
 # patrones de rayado de sección por material (tile en userSpaceOnUse, mm)
@@ -26,7 +27,12 @@ STYLES = {
     "frame": 'stroke="#16181d" stroke-width="0.75"',
     "dim": 'stroke="#3a5e9c" stroke-width="0.25"',
     "center": 'stroke="#b0413e" stroke-width="0.25" stroke-dasharray="6,1.5,1,1.5"',
+    # trazos de esquema (`esquema.py`): un solo ancho para símbolos y conexiones
+    SIMBOLO: f'stroke="{NEGRO}" stroke-width="{GROSOR_SIMBOLO_MM:g}"',
+    LLENO: f'stroke="{NEGRO}" stroke-width="{GROSOR_SIMBOLO_MM:g}"',
 }
+# círculo y polígono de esquema: sin relleno (símbolo) o negro relleno (punto de unión, flecha)
+RELLENO_ESQUEMA = {SIMBOLO: "none", LLENO: NEGRO}
 ANCHORS = {"start": "start", "middle": "middle", "end": "end"}
 
 
@@ -50,6 +56,12 @@ def sheet_to_svg(model: SheetModel) -> str:
         d = ""
         for ring in poly.rings:
             d += "M " + " L ".join(f"{x:.2f} {h - y:.2f}" for x, y in ring) + " Z "
+        if poly.kind in RELLENO_ESQUEMA:
+            parts.append(
+                f'<path d="{d.strip()}" fill="{RELLENO_ESQUEMA[poly.kind]}" {STYLES[poly.kind]} '
+                f'stroke-linejoin="round" fill-rule="evenodd"/>'
+            )
+            continue
         fill = f"url(#h_{hatch_pattern(poly.material)})" if poly.material else "#ccd5e3"
         parts.append(
             f'<path d="{d.strip()}" fill="{fill}" stroke="#16181d" stroke-width="0.4" fill-rule="evenodd"/>'
@@ -61,7 +73,12 @@ def sheet_to_svg(model: SheetModel) -> str:
             f'x2="{line.x2:.2f}" y2="{h - line.y2:.2f}" {style} stroke-linecap="round"/>'
         )
     for c in model.circles:
-        if c.kind == "corte":  # taladro: trazo de corte, sin relleno
+        if c.kind in RELLENO_ESQUEMA:  # símbolo (sin relleno) o punto de unión (relleno)
+            parts.append(
+                f'<circle cx="{c.x:.2f}" cy="{h - c.y:.2f}" r="{c.r:.2f}" '
+                f'fill="{RELLENO_ESQUEMA[c.kind]}" {STYLES[c.kind]}/>'
+            )
+        elif c.kind == "corte":  # taladro: trazo de corte, sin relleno
             parts.append(
                 f'<circle cx="{c.x:.2f}" cy="{h - c.y:.2f}" r="{c.r:.2f}" '
                 f'fill="none" stroke="#c0392b" stroke-width="0.5"/>'

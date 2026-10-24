@@ -96,6 +96,12 @@ MODULOS: dict[str, tuple[str, ...]] = {
     "apolo.drawing.titleblock": ("REV_ROW_H", "TITLE_H", "draw_title_block",
                                  "projection_symbol"),
     "apolo.drawing.pdf": ("sheet_to_pdf", "sheets_to_pdf"),
+    # los trazos de esquema (plan puntos-de-extension-entregables, D6) y los otros dos
+    # exportadores: una extensión que dibuja esquemas los entrega en SVG (su panel) y DXF
+    "apolo.drawing.esquema": ("D_UNION_MM", "ESTILOS", "GROSOR_SIMBOLO_MM", "LLENO", "NEGRO",
+                              "SIMBOLO", "circulo", "conductor", "poligono", "punto_union"),
+    "apolo.drawing.svg": ("sheet_to_svg",),
+    "apolo.drawing.dxf": ("sheet_to_dxf",),
     "apolo.doc.prefijos": ("iter_prefijos",),
     "apolo.kernel.glb": ("PiezaGlb", "TOPE_TRIANGULOS", "ZonaGlb", "a_glb", "escribir_glb"),
     "apolo.kernel.glb_resumen": ("resumen",),
