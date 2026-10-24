@@ -45,6 +45,8 @@ TODAS_NUEVAS = [r for refs in NUEVAS.values() for r in refs]
 #: los mandos de seguridad de dos canales (plan mandos-de-seguridad D1–D3), eléctricos
 SEGURIDAD = ["ESTOP-40-2NC", "ESTOP-40-CAJA-2NC", "RESG-2NC", "RS-2C-24VDC"]
 SETAS = ["ESTOP-40-CAJA"] + SEGURIDAD
+#: las electroválvulas (plan V8.9 F1b): sus bobinas son cargas del mando (`neumatica/bobinas.py`)
+ELECTROVALVULAS = refs_in_category("valvulas_neumaticas")
 EXISTENTES = ["VFD-1K5-220", "VFD-2K2-220", "ESTOP-40", "BOTONERA-2", "FOTO-M18", "TABLERO-5040",
               "MOTOR-037", "MOTOR-075", "MOTOR-150", "MOTOR-150-EH"] + refs_in_category("motorreductores_sinfin")
 MARCAS = ("SCHNEIDER", "SIEMENS", "ABB", "PHOENIX", "WEIDMULLER", "OMRON", "SICK", "LAPP",
@@ -217,7 +219,7 @@ def test_placa_del_motor(ref):
 
 def test_toda_ficha_nombra_sus_propios_bornes():
     fichas = {ref: c.electrico for ref, c in CATALOG.items() if c.electrico is not None}
-    assert len(fichas) == len(TODAS_NUEVAS) + len(EXISTENTES) + len(SETAS)
+    assert len(fichas) == len(TODAS_NUEVAS) + len(EXISTENTES) + len(SETAS) + len(ELECTROVALVULAS)
     for ref, f in fichas.items():
         ids = f.ids_bornes
         assert len(ids) == len(set(ids)), ref

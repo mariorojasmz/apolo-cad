@@ -15,6 +15,9 @@ suma `SPECS_ELECTRICO` a su `REGISTRY`; por eso la lista lleva también `layout_
 - **D9, `insert_project` trae el carril del origen** con el aspecto de función de la instancia
   (`prefijar`): «-Q1» → «=Faja1-Q1», «=Sub-K1» → «=Faja1.Sub-K1»; la pieza ligada sigue el
   prefijo de ids `{cmd}_{orig}`.
+- **V8.9 D1, el aire en el mismo carril**: `add_device` acepta refs neumáticas (designación de
+  dos letras de su ficha `neumatico`: -MM, -QM, -AZ) y `add_tubo` une sus puertos; los evalúa
+  `neumatica_eval.py`.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ import unicodedata
 
 from .errors import CommandError
 from .models_electrico import AddCableParams, AddDeviceParams, AddProgramParams, AddWireParams
+from .models_neumatica import AddTuboParams
 from .spec import CommandSpec
 from .state import ExecContext
 from .tablero import SPECS_TABLERO
@@ -50,6 +54,9 @@ SPECS_ELECTRICO = [
     # V8.3 D3: el programa del PLC, compilado por el evaluador (`electrico_eval`)
     CommandSpec("add_program", "Programa del PLC", "electrico", AddProgramParams, _exec_carril,
                 kind="electrico", literales=("plc", "nombre", "fuente")),
+    # V8.9 D1: el tubo de aire, en el MISMO carril (lo evalúa `neumatica_eval`)
+    CommandSpec("add_tubo", "Tubo de aire", "electrico", AddTuboParams, _exec_carril,
+                kind="electrico", literales=("desde", "hasta")),
     # V8.5 D1: el tablero en 3D (de ESCENA, lee el carril; `registry.py` está congelado)
     *SPECS_TABLERO,
 ]
@@ -64,6 +71,8 @@ def _letra(cmd_type: str, params: dict) -> str | None:
     from apolo.library.catalog import CATALOG
 
     comp = CATALOG.get(params.get("ref")) if isinstance(params.get("ref"), str) else None
+    if comp is not None and comp.neumatico is not None and comp.neumatico.tubo is None:
+        return comp.neumatico.funcion  # V8.9 D1: las dos letras del aire (-MM, -QM, -AZ)
     if comp is None or comp.electrico is None:
         return None  # el evaluador dirá qué falla, con sus sugerencias
     return comp.electrico.funcion
@@ -138,6 +147,10 @@ def prefijar(cmd_type: str, params, funcion: str, prefijo: str):
             out["por"] = [f"{prefijo}_{p}" if isinstance(p, str) else p for p in out["por"]]
         for k in ("desde", "hasta"):
             if isinstance(out.get(k), str) and out[k].strip()[:1] in ("-", "="):
+                out[k] = _con_funcion(out[k], funcion)
+    if cmd_type == "add_tubo":  # V8.9 D1: los dos puertos, como los puntos de un conductor
+        for k in ("desde", "hasta"):
+            if out.get(k):
                 out[k] = _con_funcion(out[k], funcion)
     if cmd_type == "add_wire":
         if isinstance(out.get("puntos"), list):

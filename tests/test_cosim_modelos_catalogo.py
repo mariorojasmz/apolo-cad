@@ -47,10 +47,11 @@ def test_toda_ref_activa_se_emula_con_su_catalogo():
         for nombre in m.senales():
             assert re.fullmatch(r"-X1\.[%\w.]+", nombre), (ref, nombre)
     # sólo lo que no tiene comportamiento propio: bornes, conductores, gabinetes y los contactos
-    # auxiliares (siguen a su aparato)
+    # auxiliares (siguen a su aparato); las electroválvulas, hasta que V8.9 F3 les dé su modelo
     for ref in pasivas:
         f = fichas()[ref]
-        assert f.funcion in ("X", "W", "U") or f.simbolo == "contactos_aux", ref
+        assert (f.funcion in ("X", "W", "U") or f.simbolo == "contactos_aux"
+                or CATALOG[ref].neumatico is not None), ref
 
 
 @pytest.mark.parametrize("ref,senales", [

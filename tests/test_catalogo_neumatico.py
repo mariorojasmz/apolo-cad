@@ -48,7 +48,8 @@ def test_cada_ref_carga_con_su_ficha_y_su_fuente(ref):
     assert s["cotas_verificadas"] is False
     assert (s.get("cost_por_m") if c.cuttable else s.get("cost")), ref
     assert "Verificar con el proveedor" in c.description
-    assert c.electrico is None  # la bobina (bornes en el carril) la suma F1b
+    # F1b: una electroválvula lleva sus bobinas en `electrico:` (A1/A2 o 14A1…12A2); lo demás, no
+    assert (c.electrico is not None) == bool(f.modelo.get("bobinas")), ref
     build_component(ref, 500 if c.cuttable else None)
 
 

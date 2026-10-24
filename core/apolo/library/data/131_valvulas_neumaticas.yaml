@@ -8,8 +8,12 @@ category: valvulas_neumaticas
 #
 # Ficha neumática (`library/neumatica/ficha.py`): vías por ISO 5599-3 (1 alimentación, 2 y 4
 # trabajo, 3 y 5 escape), pilotaje interno (sin puertos 12/14), bobinas en el lado 14 (5/2 monoestable), 14 y 12 (dos bobinas) o 12 (3/2: conecta 1→2),
-# caudal ISO 6358 como C y b o como Qn de 6 a 5 bar, que la ficha convierte (D3). La bobina
-# eléctrica (bornes A1/A2 en el carril) la cablea F1b; aquí va su lado y su tensión.
+# caudal ISO 6358 como C y b o como Qn de 6 a 5 bar, que la ficha convierte (D3).
+# Ficha eléctrica (V8.9 F1b, `library/neumatica/bobinas.py`): cada bobina es una carga `bobina`
+# del mando, como la de un contactor (la red eléctrica la ve): una sola, bornes A1/A2; dos,
+# 14A1/14A2 y 12A1/12A2. Montaje de campo (fuera del tablero, D6). Sin `modelo` eléctrico
+# todavía: la potencia de la bobina y su modelo de co-simulación son de F3 (sin ellos la red de
+# la co-simulación no la carga y lo dice como hipótesis).
 # Fuentes (lo que no tiene fuente va en `a_confirmar`):
 #  [V1] Festo VUVG-L14-M52-AT-G18 (576256), 5/2 monoestable G1/8: Qn 680–730 L/min, 2,5–8 bar,
 #       conmutación 14 ms / 22 ms, 24 VDC 1 W, accionamiento manual (hoja del distribuidor
@@ -47,6 +51,18 @@ _caudal_g14: &caudal_g14 {C: 4.0, b: 0.3}
 _escape_g14: &escape_g14 {C: 3.1, b: 0.3}
 _fuente_g18: &fuente_g18 "Festo VUVG-L14-M52-AT-G18 (576256): Qn, presión, tiempos y bobina (hoja del distribuidor klefinghaus.de)"
 _fuente_g14: &fuente_g14 "SMC VF3130 (listado Motion: C 4,0 / 3,1, Cv 1,0 / 0,75); Airtac 4V210-08 (listado KTB: Cv 1,1, 0,15–0,8 MPa)"
+_ele_1bobina: &ele_1bobina
+  funcion: Q
+  simbolo: bobina_electrovalvula
+  montaje: campo
+  bornes: [{id: A1, rol: bobina}, {id: A2, rol: bobina}]
+  cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina}]
+_ele_2bobinas: &ele_2bobinas
+  funcion: Q
+  simbolo: bobinas_electrovalvula
+  montaje: campo
+  bornes: [{id: 14A1, rol: bobina}, {id: 14A2, rol: bobina}, {id: 12A1, rol: bobina}, {id: 12A2, rol: bobina}]
+  cargas: [{bornes: [14A1, 14A2], tension: "24 VDC", tipo: bobina}, {bornes: [12A1, 12A2], tension: "24 VDC", tipo: bobina}]
 components:
   # ── 5/2 G1/8 ──────────────────────────────────────────────────────────────────────────────
   - ref: VAL-52-MONO-G18
@@ -56,6 +72,7 @@ components:
     params: {width: 16, depth: 110, height: 50}
     weight: 0.15
     specs: {vias: 5, posiciones: 2, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-M52 / SMC SY5120 / Airtac 4V110-06", fuente: "[V1]", a_confirmar: "envolvente de la caja", cotas_verificadas: false, cost: 35}
+    electrico: *ele_1bobina
     neumatico:
       funcion: QM
       simbolo: valvula_5_2_monoestable
@@ -70,6 +87,7 @@ components:
     params: {width: 16, depth: 140, height: 50}
     weight: 0.20
     specs: {vias: 5, posiciones: 2, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-B52 / SMC SY5220 / Airtac 4V120-06", fuente: "[V1]", a_confirmar: "caudal y tiempos de la monoestable de la línea; envolvente de la caja", cotas_verificadas: false, cost: 40}
+    electrico: *ele_2bobinas
     neumatico:
       funcion: QM
       simbolo: valvula_5_2_biestable
@@ -85,6 +103,7 @@ components:
     params: {width: 16, depth: 140, height: 50}
     weight: 0.21
     specs: {vias: 5, posiciones: 3, centro: cerrado, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-P53C / SMC SY5320 / Airtac 4V130C-06", fuente: "[V2] [V1]", a_confirmar: "tiempos; envolvente de la caja", cotas_verificadas: false, cost: 55}
+    electrico: *ele_2bobinas
     neumatico:
       funcion: QM
       simbolo: valvula_5_3_centro_cerrado
@@ -99,6 +118,7 @@ components:
     params: {width: 16, depth: 140, height: 50}
     weight: 0.21
     specs: {vias: 5, posiciones: 3, centro: escape, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-P53E / SMC SY5420 / Airtac 4V130E-06", fuente: "[V2] [V1]", a_confirmar: "caudal y tiempos de la 5/3 cerrada de la línea; envolvente de la caja", cotas_verificadas: false, cost: 55}
+    electrico: *ele_2bobinas
     neumatico:
       funcion: QM
       simbolo: valvula_5_3_centro_escape
@@ -113,6 +133,7 @@ components:
     params: {width: 16, depth: 140, height: 50}
     weight: 0.21
     specs: {vias: 5, posiciones: 3, centro: presion, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-P53U / SMC SY5520 / Airtac 4V130P-06", fuente: "[V2] [V1]", a_confirmar: "caudal y tiempos de la 5/3 cerrada de la línea; envolvente de la caja", cotas_verificadas: false, cost: 55}
+    electrico: *ele_2bobinas
     neumatico:
       funcion: QM
       simbolo: valvula_5_3_centro_presion
@@ -128,6 +149,7 @@ components:
     params: {width: 22, depth: 130, height: 55}
     weight: 0.25
     specs: {vias: 5, posiciones: 2, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3130 / Festo VUVG-L18-M52 / Airtac 4V210-08", fuente: "[V3] [V4]", a_confirmar: "tiempos; envolvente de la caja", cotas_verificadas: false, cost: 45}
+    electrico: *ele_1bobina
     neumatico:
       funcion: QM
       simbolo: valvula_5_2_monoestable
@@ -142,6 +164,7 @@ components:
     params: {width: 22, depth: 160, height: 55}
     weight: 0.32
     specs: {vias: 5, posiciones: 2, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3230 / Festo VUVG-L18-B52 / Airtac 4V220-08", fuente: "[V3] [V4]", a_confirmar: "caudal y tiempos de la monoestable de la línea; envolvente de la caja", cotas_verificadas: false, cost: 50}
+    electrico: *ele_2bobinas
     neumatico:
       funcion: QM
       simbolo: valvula_5_2_biestable
@@ -156,6 +179,7 @@ components:
     params: {width: 22, depth: 160, height: 55}
     weight: 0.34
     specs: {vias: 5, posiciones: 3, centro: cerrado, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3330 / Festo VUVG-L18-P53C / Airtac 4V230C-08", fuente: "[V3] [V4]", a_confirmar: "caudal y tiempos de la 5/2 de la línea; envolvente de la caja", cotas_verificadas: false, cost: 65}
+    electrico: *ele_2bobinas
     neumatico:
       funcion: QM
       simbolo: valvula_5_3_centro_cerrado
@@ -170,6 +194,7 @@ components:
     params: {width: 22, depth: 160, height: 55}
     weight: 0.34
     specs: {vias: 5, posiciones: 3, centro: escape, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3430 / Festo VUVG-L18-P53E / Airtac 4V230E-08", fuente: "[V3] [V4]", a_confirmar: "caudal y tiempos de la 5/2 de la línea; envolvente de la caja", cotas_verificadas: false, cost: 65}
+    electrico: *ele_2bobinas
     neumatico:
       funcion: QM
       simbolo: valvula_5_3_centro_escape
@@ -184,6 +209,7 @@ components:
     params: {width: 22, depth: 160, height: 55}
     weight: 0.34
     specs: {vias: 5, posiciones: 3, centro: presion, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de SMC VF3530 / Festo VUVG-L18-P53U / Airtac 4V230P-08", fuente: "[V3] [V4]", a_confirmar: "caudal y tiempos de la 5/2 de la línea; envolvente de la caja", cotas_verificadas: false, cost: 65}
+    electrico: *ele_2bobinas
     neumatico:
       funcion: QM
       simbolo: valvula_5_3_centro_presion
@@ -199,6 +225,7 @@ components:
     params: {width: 16, depth: 100, height: 50}
     weight: 0.14
     specs: {vias: 3, posiciones: 2, reposo: NC, rosca_puertos: G1/8, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L14-M32C / SMC VT317 / Airtac 3V110-06", fuente: "[V5] [V1]", a_confirmar: "caudal (orden de la 2×3/2 de la línea) y tiempos; envolvente de la caja", cotas_verificadas: false, cost: 30}
+    electrico: *ele_1bobina
     neumatico:
       funcion: QM
       simbolo: valvula_3_2_nc
@@ -216,6 +243,7 @@ components:
     params: {width: 22, depth: 120, height: 55}
     weight: 0.22
     specs: {vias: 3, posiciones: 2, reposo: NC, rosca_puertos: G1/4, bobina: "24 VDC", linea_referencia: "orden de Festo VUVG-L18-M32C / SMC VT325 / Airtac 3V210-08", fuente: "[V5] [V4]", a_confirmar: "caudal (orden de la 2×3/2 de la línea) y tiempos; envolvente de la caja", cotas_verificadas: false, cost: 35}
+    electrico: *ele_1bobina
     neumatico:
       funcion: QM
       simbolo: valvula_3_2_nc

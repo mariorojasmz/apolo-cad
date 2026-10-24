@@ -140,7 +140,8 @@ PISTAS: dict[str, str] = {
     "delete_feature": "Elimina una pieza del modelo.",
     # eléctrico
     "add_device": (
-        "Agrega al tablero un aparato del catálogo eléctrico, como un contactor, un guardamotor o un pulsador."
+        "Agrega un aparato del catálogo eléctrico o neumático, como un contactor, un pulsador, una "
+        "electroválvula o un cilindro."
     ),
     "add_wire": "Une dos o más bornes con un conductor, en el orden en que se cablean.",
     "add_cable": "Declara un cable de varios hilos entre el tablero y el campo, para cablear por sus hilos.",
@@ -150,6 +151,7 @@ PISTAS: dict[str, str] = {
     "layout_tablero": (
         "Arma el tablero: placa atornillada al fondo, rieles y canaletas, aparatos al riel y mandos en la puerta."
     ),
+    "add_tubo": "Une dos puertos de aire con un tubo, por ejemplo la salida de una válvula con su cilindro.",
     # variables (sin pestaña: botón propio)
     "set_variable": (
         "Crea o cambia una variable que puedes usar en cualquier campo numérico; todo el modelo se actualiza con ella."

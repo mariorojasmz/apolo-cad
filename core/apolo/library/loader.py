@@ -30,6 +30,8 @@ from .builders_transmision import BUILDERS as _BUILDERS_TRANSMISION
 from .electrico.ficha import fusionar as _fusionar_electrico
 from .electrico.ficha import parse_ficha
 from .electrico.ficha_tablero import parse_tablero
+from .electrico.tension import parse_tension
+from .neumatica.bobinas import verificar as verificar_bobinas
 from .neumatica.ficha import fusionar as _fusionar_neumatico
 from .neumatica.ficha import parse_ficha_neumatica
 from .perfiles_abiertos import ANCLAS as _ANCLAS_PERFILES
@@ -127,6 +129,8 @@ def _component_from_item(item: dict, category: str):
                             montaje=electrico.montaje if electrico is not None else None,
                             bornes=electrico.ids_bornes if electrico is not None else None)
     neumatico = parse_ficha_neumatica(item.get("neumatico"), ref)  # plan V8.9 D2: incompleto, no carga
+    if neumatico is not None:  # V8.9 F1b: las bobinas de una electroválvula, en las dos fichas
+        verificar_bobinas(neumatico, electrico, ref, lambda t: str(parse_tension(t)))
 
     return Component(
         ref=ref,

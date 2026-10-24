@@ -12,7 +12,10 @@ suman lo que el tablero compra y la escena no tiene, sin duplicar:
     los que no tienen ninguno van en una fila SIN largo y con `aviso` (su costo queda en blanco:
     no se inventa); un puente o un conductor sin `tipo` no se compra por metro (el sin tipo avisa);
   - un conductor dentro de un cable no se compra aparte: se compra el CABLE, por metro, igual;
-    sin `largo_m`, con el CALCULADO por su recorrido de campo (`add_cable.por`, V8.5 F4).
+    sin `largo_m`, con el CALCULADO por su recorrido de campo (`add_cable.por`, V8.5 F4);
+  - los tubos de aire (`add_tubo`, V8.9 D1) por METRO y por ref con su `largo_m` declarado; los
+    que no lo tienen, en una fila «sin largo» con aviso, como los conductores. Un dispositivo de
+    aire sin pieza (cilindro, válvula, FRL) entra como cualquier dispositivo.
 
 Cada fila lleva `origen: "electrico"`; `sin_largo: True` le dice al costeo que no la estime.
 Recibe el `ModeloElectrico` (puro), nunca un documento.
@@ -118,6 +121,11 @@ def filas_electricas(modelo, dibujados: frozenset = frozenset(),
         conductores.setdefault(c.tipo, []).append(c.largo_m)
     for ref, largos in sorted(conductores.items()):
         filas += _por_metro(ref, largos, "conductor(es)", por_ruteo.get(ref))
+    tubos: dict[str, list] = {}  # V8.9 D1: el tubo de aire, por metro (el largo declarado manda)
+    for t in getattr(modelo, "tubos", ()):
+        tubos.setdefault(t.ref, []).append(t.largo_m)
+    for ref, largos in sorted(tubos.items()):
+        filas += _por_metro(ref, largos, "tubo(s) de aire")
     if sin_tipo:
         filas.append({
             "ref": "CONDUCTOR-SIN-TIPO", "descripcion": "Conductor sin tipo de catálogo",

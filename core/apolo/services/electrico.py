@@ -13,6 +13,8 @@ regenerate (`doc/carril.py`), y lo entrega a sus clientes:
     cobraría dos veces) y el «cable 3D sin cobrar» (F4c: `cobros.py`);
   - `filas_bom`: las filas de BOM del tablero (`library/bom_electrico.py`), con los largos del
     ruteo (F2) y de los cables de campo (V8.5 F4, `cables_campo.py`).
+El circuito de AIRE (V8.9 D1, D13) va en las mismas salidas: `neumatica.py` suma su sección al
+circuito, sus reglas al ERC y sus tubos a la BOM; sin aire, la salida de siempre.
 El llamador sostiene STATE_LOCK. El modelo es inmutable: el ERC corre sobre él (~1 ms en la faja
 piloto) sin copiarlo.
 """
@@ -32,7 +34,7 @@ def modelo(doc):
 
 def tiene_carril(doc) -> bool:
     m = modelo(doc)
-    return bool(m.dispositivos or m.conductores or m.cables)
+    return bool(m.dispositivos or m.conductores or m.cables or m.tubos)
 
 
 def ajustes_faltantes(m) -> list[tuple]:
@@ -156,7 +158,7 @@ def _erc_completo(doc) -> tuple[list[dict], list[dict]] | None:
         return None
     from apolo.library.electrico.erc import erc
 
-    from . import erc_escena, tablero_reglas
+    from . import erc_escena, neumatica, tablero_reglas
     from .cables_campo import reglas as reglas_campo
     from .cobros import regla_cables
     from .tablero import regla_orden
@@ -165,7 +167,8 @@ def _erc_completo(doc) -> tuple[list[dict], list[dict]] | None:
     alturas, supuesto = erc_escena.regla_alturas(doc, m)
     reglas = (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
               + erc_escena.regla_seguridad(doc, m) + alturas
-              + regla_orden(doc) + tablero_reglas.reglas(doc, m) + reglas_campo(doc, m))
+              + regla_orden(doc) + tablero_reglas.reglas(doc, m) + reglas_campo(doc, m)
+              + neumatica.reglas(m))  # V8.9 D9: el aire, al final (sin aire, nada)
     con_filas = {r["regla"] for r in reglas}
     revisadas = [{"regla": n, "revisa": REVISA[n],
                   **({"supuesto": supuesto} if n == erc_escena.ALTURA else {})}
@@ -193,7 +196,8 @@ def chequeo(doc) -> dict:
     reglas, revisadas = todo
     m = modelo(doc)
     return {**resumen(reglas), "n_dispositivos": len(m.dispositivos),
-            "n_conductores": len(m.conductores), "n_cables": len(m.cables), "reglas": reglas,
+            "n_conductores": len(m.conductores), "n_cables": len(m.cables),
+            **({"n_tubos": len(m.tubos)} if m.tubos else {}), "reglas": reglas,
             "revisadas": revisadas}
 
 
@@ -249,6 +253,9 @@ def circuito(doc, designacion: str | None = None) -> dict:
     tableros = ruteos(doc, m)
     ruteado = {r.id: r for t in tableros for r in t.ruteo.rutas}
     campo = {c.id: c for c in recorridos(doc, m, tableros) if c.calculado}  # F4: por su recorrido
+    from . import neumatica
+
+    aire = neumatica.analizar(m) if neumatica.hay_aire(m) else None  # V8.9 D13
     redes_vistas: set[int] = set()
     salida_disp = []
     for d in dispositivos:
@@ -265,6 +272,8 @@ def circuito(doc, designacion: str | None = None) -> dict:
             **({"ajustes": d.ajustes} if d.ajustes else {}),
             **({"ajustes_deducidos": d.deducidos} if d.deducidos else {}),
             "comando": d.id, "bornes": bornes,
+            **({"puertos": neumatica.puertos(aire, d)} if aire is not None and d.puertos else {}),
+            **({"servicio": d.servicio} if d.servicio else {}),
         })
     redes = [{"id": r.id, **({"nombre": r.nombre} if r.nombre else {}), "puntos": list(r.puntos),
               **({"tension": r.tension} if r.tension else {})}
@@ -298,11 +307,14 @@ def circuito(doc, designacion: str | None = None) -> dict:
                   **({"ciclos": p.ciclos} if p.ciclos else {}), "comando": p.id,
                   "tags": [dict(t) for t in p.tags]}
                  for p in m.programas if not designacion or p.plc in elegidos]
+    neu = (neumatica.seccion(m, aire, elegidos if designacion else None) if aire is not None else None)
     return {"dispositivos": salida_disp, "redes": redes, "conductores": conductores,
             "cables": cables, **({"programas": programas} if programas else {}),
+            **({"neumatica": neu} if neu is not None else {}),
             "resumen": {"n_dispositivos": len(m.dispositivos), "n_conductores": len(m.conductores),
                         "n_cables": len(m.cables), "n_redes": len(a.redes),
-                        **({"n_programas": len(m.programas)} if m.programas else {})}}
+                        **({"n_programas": len(m.programas)} if m.programas else {}),
+                        **({"n_tubos": len(m.tubos)} if m.tubos else {})}}
 
 
 def filas_bom(doc) -> list[dict]:

@@ -140,6 +140,10 @@ def resolver(punto: str, dispositivos: dict[str, Dispositivo]) -> tuple[tuple[st
         return None, f"«{punto}»: el dispositivo {ref.designacion} no existe.{pista}"
     if ref.ubicacion and disp.ubicacion and disp.ubicacion.lstrip("+") != ref.ubicacion:
         return None, f"«{punto}»: {disp.designacion} está en {disp.ubicacion}, no en +{ref.ubicacion}"
+    if disp.borne(ref.borne) is None and disp.puerto(ref.borne) is not None:  # V8.9 D1
+        return None, (f"«{punto}»: {ref.borne} es un PUERTO de aire de {disp.designacion} ({disp.ref}), "
+                      "no un borne: un puerto se une con add_tubo; un conductor va a un borne"
+                      + (f" ({', '.join(disp.ids_bornes)})" if disp.bornes else ""))
     if disp.borne(ref.borne) is None:
         return None, (f"«{punto}»: {disp.designacion} ({disp.ref}) no tiene el borne {ref.borne}; "
                       f"bornes: {', '.join(disp.ids_bornes)}.{sufijo_sugerencia(ref.borne, disp.ids_bornes)}")

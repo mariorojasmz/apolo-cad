@@ -18,7 +18,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   COMPLETITUD se valida al cargar (`neumatica/ficha_tipos.REQUERIDOS` por `modelo.tipo`; un ajuste
   es rango [mín, máx]); `fuente` obligatoria y lo que no tiene fuente va en `a_confirmar`. Caudal
   = (C, b) de ISO 6358-1; Qn, S, Kv y Cv sólo como entrada convertida con su punto. El paquete
-  `neumatica/` usa sólo la biblioteca estándar. [V8.9](../../../docs/plans/V8.9-neumatica.md)
+  `neumatica/` usa sólo la biblioteca estándar. Una electroválvula lleva ADEMÁS su `electrico:`
+  (montaje campo): una bobina = A1/A2, dos = 14A1/14A2 y 12A1/12A2, con la tensión de
+  `tension_bobina`; el loader lo exige (`neumatica/bobinas.py`). El ERC neumático
+  (`neumatica/erc.py`, sobre `lineas.py`) recibe el modelo del carril por atributos: cada regla
+  nueva, con su caso verde y rojo en `tests/test_neumatica_erc.py`. [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
   canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva

@@ -48,7 +48,11 @@ CAMPOS: dict[str, str] = {
         "name tipo joint anchor anchor.x anchor.y anchor.z point point.x point.y point.z axis "
         "axis.x axis.y axis.z value"
     ),
-    "add_device": "ref designacion ubicacion pieza ajustes cantidad",
+    "add_device": (
+        "ref designacion ubicacion pieza ajustes cantidad servicio servicio.carrera_mm "
+        "servicio.velocidad_m_s servicio.masa_kg servicio.fuerza_N servicio.caso_euler "
+        "servicio.largo_libre_mm"
+    ),
     "add_joinery": (
         "name type feature_a feature_b position position.x position.y position.z axis axis.x "
         "axis.y axis.z width height depth count spacing clearance"
@@ -68,6 +72,7 @@ CAMPOS: dict[str, str] = {
         "axis.y axis.z"
     ),
     "add_program": "plc nombre lenguaje fuente ciclo_ms ciclos",
+    "add_tubo": "desde hasta ref largo_m",
     "add_wire": "puntos seccion_mm2 color tipo cable hilo potencial largo_m",
     "attach": (
         "feature anchor target target_anchor offset offset.x offset.y offset.z align_my align_to"
@@ -256,6 +261,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "add_mate": (1, "a3596f3795b93db8"),
     "add_rail_constraint": (1, "591f0dc2cac566fe"),
     "add_program": (1, "d824d9f16db621b8"),
+    "add_tubo": (1, "d824d9f16db621b8"),
     "add_wire": (1, "d824d9f16db621b8"),
     "attach": (1, "cb91ea338ddcb3c9"),
     "boolean_op": (1, "81e15484e1e85781"),
