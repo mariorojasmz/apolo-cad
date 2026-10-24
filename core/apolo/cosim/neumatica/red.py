@@ -108,7 +108,7 @@ class RedAire:
         self.toma_directa = Toma()
         self._arriba: dict = {}
         self._escapes: dict = {}
-        self.cilindros =[(des, m) for des, m in modelos.items() if isinstance(m, Cilindro)]
+        self.cilindros = [(des, m) for des, m in modelos.items() if isinstance(m, Cilindro)]
         self.camaras: dict = {}
         for des, cil in self.cilindros:
             for lado in ("A", "B"):

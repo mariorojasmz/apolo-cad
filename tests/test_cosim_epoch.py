@@ -82,7 +82,7 @@ ARCHIVOS = (
 #: contactor soldado y no_cierra, piloto fundido, corte de fase, cajas con seta y sensor pegado)
 #: dan la MISMA huella que en 06d44ac. Un documento con válvulas cambia de firma por su ficha
 #: eléctrica (el `modelo` nuevo de la bobina): sus resultados de antes quedan vencidos solos.
-HUELLA: tuple[int, str] = (4, "b4458dd2d236bde7")
+HUELLA: tuple[int, str] = (4, "0d6351d126cae213")
 
 
 def archivos() -> list[Path]:

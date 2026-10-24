@@ -20,7 +20,8 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   = (C, b) de ISO 6358-1; Qn, S, Kv y Cv sólo como entrada convertida con su punto. El paquete
   `neumatica/` usa sólo la biblioteca estándar. Una electroválvula lleva ADEMÁS su `electrico:`
   (montaje campo): una bobina = A1/A2, dos = 14A1/14A2 y 12A1/12A2, con la tensión de
-  `tension_bobina`; el loader lo exige (`neumatica/bobinas.py`). El ERC neumático
+  `tension_bobina`; el loader lo exige (`neumatica/bobinas.py`); su `modelo` es `electrovalvula`
+  (la bobina en la co-simulación; los tiempos salen de la ficha neumática, no se repiten). El ERC neumático
   (`neumatica/erc.py`, sobre `lineas.py`) recibe el modelo del carril por atributos: cada regla
   nueva, con su caso verde y rojo en `tests/test_neumatica_erc.py`. La geometría del cilindro
   (`builders_neumatica.py`) lee las cotas de los `params` de la ref (con su fuente en el YAML) y

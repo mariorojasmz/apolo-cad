@@ -27,6 +27,13 @@ backend: [core/apolo](../CLAUDE.md).
   seguridad) declara `BORNES_ENTRADA` (cargas `entrada` de cada borne) y `actuadores()`: el
   tablero lo indexa sin rama propia. Un mando de dos canales lleva un NC POR CANAL (rama propia:
   `pegado` pega uno). [mandos-de-seguridad](../../../docs/plans/mandos-de-seguridad.md)
+- **El aire** (`neumatica/`, puro; puede importar `modelos`): cilindro, FRL y corte se arman por
+  `modelo["aire"]` (la ficha plana de `services/cosim_aire.py`, `MODELOS_AIRE`) y viven en
+  `Tablero.modelos`; la electroválvula es un modelo ELÉCTRICO (`modelos/electrovalvula.py`, por
+  `BOBINAS`). Las cámaras avanzan en `RedAire.paso` dentro de `Corrida.intercambio` (sub-pasos +
+  fuerza MEDIA al `<motor>`, D4: nunca la rigidez al actuador ni Euler de 2 ms); la fricción de los
+  sellos y la masa del pistón van al MJCF por el snapshot; cada simplificación, en `hipotesis`.
+  [V8.9](../../../docs/plans/V8.9-neumatica.md) (F3)
 - PUROS sin OCCT (`test_capas_cosim.py`): ni `apolo.library` (su `__init__` carga OCP). Las
   redes leen el formato plano de `red/entrada.py` (lo arma `services/cosim_red.py`); la alterna
   de mando va en la de potencia. `pedidas()` ANTES de `paso`.
