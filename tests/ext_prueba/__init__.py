@@ -6,7 +6,10 @@ de extensión del núcleo con lo mínimo, sin instalarse (se carga con
 - una ruta `GET /api/prueba/hola` (`rutas.py`);
 - una tool MCP `prueba_hola` que corre el comando (`tools.py`);
 - un YAML de catálogo con UNA ref, `prueba.caja` (`catalogo/`);
-- un modelo de co-simulación mínimo, tipo `prueba.lampara` (`modelos.py`).
+- un modelo de co-simulación mínimo, tipo `prueba.lampara` (`modelos.py`);
+- (F1d) rutas que leen y mutan el documento por la fachada y guardan sus datos en la clave `ext`
+  del manifest (`rutas.py`), dos ítems de la puerta de publicación (`puerta.py`) y una lámina
+  con el motor de planos (`laminas.py`).
 
 Los campos pesados van PEREZOSOS (funciones): así lo hace una extensión real para que el MCP no
 cargue OCCT al leerla. Abajo, las variantes que el núcleo debe RECHAZAR (`test_extensiones.py`).
@@ -42,6 +45,15 @@ def _modelos():
     return {"prueba.lampara": Lampara}
 
 
+def _puerta(variante: str = "entradas"):
+    def cargar():
+        from . import puerta
+
+        return getattr(puerta, variante)()
+
+    return cargar
+
+
 EXTENSION = Extension(
     nombre="ext-prueba",
     prefijo="prueba",
@@ -55,6 +67,8 @@ EXTENSION = Extension(
     catalogo=(str(CATALOGO),),
     modelos_cosim=_modelos,
     epoch_catalogo=1,
+    puerta=_puerta(),
+    version_puerta=1,
 )
 
 
@@ -84,5 +98,10 @@ TOOL_CON_PUNTO = replace(EXTENSION, tools_mcp=registrar_con_punto)
 DUPLICADA = replace(EXTENSION, nombre="ext-prueba-2")  # mismo prefijo que EXTENSION
 EN_RUTAS_DEL_NUCLEO = replace(EXTENSION, nombre="ext-fea", prefijo="fea", comandos=(), pistas={},
                               pestanas={}, catalogo=(), modelos_cosim={}, tools_mcp=None,
-                              routers=_routers_fea)
+                              puerta=(), routers=_routers_fea)
+PUERTA_SIN_PREFIJO = replace(EXTENSION, puerta=_puerta("sin_prefijo"))
+PUERTA_FAMILIA = replace(EXTENSION, puerta=_puerta("familia_inventada"))
+PUERTA_REPETIDA = replace(EXTENSION, puerta=_puerta("repetida"))
+PUERTA_NO_ENTRADA = replace(EXTENSION, puerta=_puerta("no_es_entrada"))
+PUERTA_V2 = replace(EXTENSION, version_puerta=2)
 NO_ES_EXTENSION = "una cadena no es una extensión"

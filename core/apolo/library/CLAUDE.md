@@ -209,6 +209,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   `aplica_si`; los ids de F2/F3 entran por el `mapa` de su `Fuente` (servicio `(doc, contexto=)`,
   UNA vez por puerta; puede dar `riesgos`: la tabla ISO 12100 del resultado). Cambiar un
   ítem, umbral o `aplica_si` sube `VERSION_REGISTRO`. Los controles de lo existente: `puerta.py`.
+  Una extensión suma los suyos (`Extension.puerta`, ids «prefijo.x») en `DE_EXTENSION`: quien
+  corre la puerta entera pasa `vigente()` a `reunir` y a `evaluar`, y `version(registro)` los
+  firma («5+nombre.v»); `evaluar(registro=None)` sigue siendo sólo el núcleo (testigos).
+  [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1d)
 - La banda de `create_belt_conveyor` abraza el radio EXTERIOR de cada tambor (`diametro_mm/2 +
   lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano): el motriz engomado
   va 6 mm más abajo que la cola. Un choque DENTRO de un super-comando no lo ve

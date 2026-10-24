@@ -51,6 +51,9 @@ Reglas del agregador (`evaluar`):
 - Un control que revienta, o una fuente que no corre, da SIN_EVALUAR con el error.
 - `aprobado` = todo ítem aplicable OK (SIN_EVALUAR bloquea como FALLA; `item.aprobado`).
 
+Una extensión suma sus `Entrada`/`Fuente` (ids «prefijo.x») con `Extension.puerta`: van en
+`DE_EXTENSION`, `vigente()` las pone al final y `version()` las firma («5+nombre.v»).
+
 `VERSION_REGISTRO` sube cuando cambia un ítem, un umbral o un `aplica_si`: viaja en `calidad.json`
 junto a la firma del modelo (`services/puerta_publicacion.firma_modelo`), que la fábrica compara
 antes de generar. v2: entra F3 (seguridad y reparabilidad) y la tabla de riesgos. v3 (F6):
@@ -272,6 +275,26 @@ REGISTRO: tuple = (
 )
 
 
+#: Las entradas de las extensiones cargadas (`Extension.puerta`, plan nucleo-abierto F1d):
+#: nombre → (version_puerta, entradas). Lo llena `apolo.extensiones_puntos.sumar_puerta`.
+DE_EXTENSION: dict[str, tuple] = {}
+
+
+def vigente() -> tuple:
+    """El registro que corre la puerta: el del núcleo y, al final, el de cada extensión cargada
+    (sin extensiones, `REGISTRO` tal cual)."""
+    return REGISTRO + tuple(e for _v, entradas in DE_EXTENSION.values() for e in entradas)
+
+
+def version(registro=None) -> str:
+    """`VERSION_REGISTRO` más «+nombre.version_puerta» por cada extensión que tiene entradas en
+    `registro`: un veredicto con ítems de una extensión vence si ésta cambia sus ítems."""
+    presentes = {id(e) for e in (REGISTRO if registro is None else registro)}
+    extra = [f"+{n}.{v}" for n, (v, entradas) in DE_EXTENSION.items()
+             if any(id(e) in presentes for e in entradas)]
+    return VERSION_REGISTRO + "".join(extra)
+
+
 def fuentes(registro=None) -> list[Fuente]:
     return [e for e in (REGISTRO if registro is None else registro) if isinstance(e, Fuente)]
 
@@ -417,7 +440,7 @@ def evaluar(insumos: dict, registro=None) -> dict:
     return {
         "aprobado": aprobado(items),
         "firma": insumos.get("firma"),
-        "version_registro": VERSION_REGISTRO,
+        "version_registro": version(registro),
         "conteos": {e: sum(1 for i in items if i["estado"] == e)
                     for e in (OK, FALLA, SIN_EVALUAR, NO_APLICA)},
         "por_familia": por_familia,

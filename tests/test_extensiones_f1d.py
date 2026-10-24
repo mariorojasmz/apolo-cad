@@ -148,3 +148,107 @@ def test_la_fachada_es_la_misma_funcion_que_la_api():
 
     for nombre in ("leer_documento", "mutar_documento", "leer_ext", "poner_ext", "proyecto_activo"):
         assert getattr(extensiones_api, nombre) is getattr(fachada, nombre)
+
+
+# ── los ítems de la puerta de publicación ────────────────────────────────────────────────────
+
+def _mesa() -> Document:
+    d = Document("mesa")
+    d.execute("create_box", {"name": "Tablero", "width": 400, "depth": 300, "height": 20})
+    return d
+
+
+def _puerta_por_la_ruta(monkeypatch) -> dict:
+    """La ruta entera (`POST /api/puerta-publicacion`) sin MuJoCo: la gravedad no corre (es
+    SIN_EVALUAR, como en `test_puerta_publicacion`); lo que se mira aquí es el registro."""
+    from fastapi import HTTPException
+
+    from apolo.api.routers import validation
+
+    def sin_mujoco(_body, **_kw):
+        raise HTTPException(status_code=400, detail="sin MuJoCo en este test")
+
+    monkeypatch.setattr(validation, "_stability", sin_mujoco)
+    r = TestClient(api.app).post("/api/puerta-publicacion")
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_sin_extensiones_el_registro_y_su_version_son_los_de_siempre():
+    from apolo.library.calidad import registro as R
+
+    assert R.DE_EXTENSION == {} and R.vigente() == R.REGISTRO
+    assert R.version() == R.version(R.vigente()) == R.VERSION_REGISTRO
+
+
+def test_los_items_de_la_extension_entran_a_la_ruta_y_a_la_version(con_prueba, monkeypatch):
+    from apolo.extensiones_api import poner_ext
+    from apolo.library.calidad import registro as R
+    from ext_prueba import puerta
+
+    assert R.DE_EXTENSION == {"ext-prueba": (1, (puerta.SIEMPRE, puerta.NOTA))}
+    assert R.vigente()[-2:] == (puerta.SIEMPRE, puerta.NOTA)
+    assert R.version(R.vigente()) == R.VERSION_REGISTRO + "+ext-prueba.1"
+    assert R.version() == R.VERSION_REGISTRO  # el registro del núcleo solo no la nombra
+    monkeypatch.setattr(api, "DOC", _mesa())
+    out = _puerta_por_la_ruta(monkeypatch)
+    items = {i["id"]: i for i in out["items"]}
+    assert out["version_registro"] == R.VERSION_REGISTRO + "+ext-prueba.1"
+    assert items["prueba.siempre"]["estado"] == "OK" and items["prueba.siempre"]["familia"] == "proceso"
+    assert items["prueba.nota_ok"]["estado"] == "OK"
+    assert items["prueba.nota_ok"]["evidencia"]["origen"] == "prueba.origen.nota"
+    antes = out["firma"]
+    poner_ext("ext-prueba", {"falla": True})  # su fuente lee la clave `ext` del manifest
+    out = _puerta_por_la_ruta(monkeypatch)
+    items = {i["id"]: i for i in out["items"]}
+    assert items["prueba.nota_ok"]["estado"] == "FALLA" and out["aprobado"] is False
+    assert out["firma"] != antes  # los datos de la extensión entran a la firma del modelo
+
+
+def test_la_version_de_la_puerta_de_la_extension_sube_la_del_registro(extensiones_aisladas,
+                                                                      monkeypatch):
+    from apolo.library.calidad import registro as R
+
+    monkeypatch.setenv(EXTRA, "ext_prueba:PUERTA_V2")
+    assert extensiones_aisladas.cargar()[0]["cargada"]
+    assert R.version(R.vigente()) == R.VERSION_REGISTRO + "+ext-prueba.2"
+
+
+def test_sin_ext_la_firma_del_modelo_es_la_historica():
+    from apolo.services import puerta_publicacion as pp
+
+    d = _mesa()
+    base = pp.firma(d)
+    assert pp.firma_modelo(d.commands, {}) == pp.firma_modelo(d.commands, {"ext": {}})
+    d.ext["zeta"] = {"a": 1}
+    assert pp.firma(d) != base
+    del d.ext["zeta"]
+    assert pp.firma(d) == base
+
+
+@pytest.mark.parametrize(("extra", "motivo"), [
+    ("ext_prueba:PUERTA_SIN_PREFIJO", "no lleva el prefijo «prueba.»"),
+    ("ext_prueba:PUERTA_FAMILIA", "familia «inventada»"),
+    ("ext_prueba:PUERTA_REPETIDA", "ya existe"),
+    ("ext_prueba:PUERTA_NO_ENTRADA", "no es Entrada ni Fuente"),
+])
+def test_una_puerta_que_no_cumple_no_carga_la_extension(extensiones_aisladas, monkeypatch, extra,
+                                                       motivo):
+    from apolo.commands.registry import REGISTRY
+    from apolo.library.calidad import registro as R
+
+    monkeypatch.setenv(EXTRA, extra)
+    (e,) = extensiones_aisladas.cargar()
+    assert e["cargada"] is False and motivo in e["motivo"], e
+    assert R.DE_EXTENSION == {} and "prueba.hola" not in REGISTRY  # todo o nada
+
+
+def test_al_salir_el_registro_de_la_puerta_queda_como_estaba(monkeypatch):
+    from apolo import extensiones
+    from apolo.library.calidad import registro as R
+
+    monkeypatch.delenv("APOLO_EXTENSIONES", raising=False)
+    monkeypatch.setenv(EXTRA, "ext_prueba:EXTENSION")
+    with extensiones.aislado():
+        assert extensiones.cargar()[0]["cargada"] and R.DE_EXTENSION
+    assert R.DE_EXTENSION == {} and R.vigente() == R.REGISTRO

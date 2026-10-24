@@ -149,6 +149,59 @@ def sumar_comandos(ext) -> list[str]:
     return tipos
 
 
+def _ids_de(entrada) -> list[str]:
+    """Los ids que publica una entrada del registro de la puerta: el de una `Entrada`; los
+    generales de una `Fuente` más su ítem de error («clave.fuente»)."""
+    from apolo.library.calidad import registro as R
+
+    if isinstance(entrada, R.Entrada):
+        return [entrada.id]
+    return [*entrada.mapa, f"{entrada.clave}.fuente"]
+
+
+def sumar_puerta(ext) -> list[str]:
+    """Las `Entrada`/`Fuente` de la puerta de publicación (`library/calidad/registro`): ids,
+    claves de fuente e ítems generales «prefijo.x», familias del registro, nada repetido (con el
+    núcleo ni con otra extensión). Van a `registro.DE_EXTENSION` con su `version_puerta`, que
+    firma `version_registro`. Devuelve los ids de sus ítems (los de entradas y generales)."""
+    entradas = list(valor(ext.puerta) or ())
+    if not entradas:
+        return []
+    from apolo.library.calidad import registro as R
+
+    tomados = {i for e in R.vigente() for i in (*_ids_de(e), getattr(e, "clave", ""))} - {""}
+    nuevos: list[str] = []
+    for e in entradas:
+        if isinstance(e, R.Entrada):
+            con_prefijo(e.id, ext.prefijo, "el ítem de la puerta")
+            if not (callable(e.aplica_si) and callable(e.evaluar)):
+                raise ExtensionRechazada(f"el ítem «{e.id}»: `aplica_si` y `evaluar` son funciones")
+            familias = [e.familia]
+        elif isinstance(e, R.Fuente):
+            con_prefijo(e.clave, ext.prefijo, "la fuente de la puerta")
+            modulo, _, funcion = str(e.servicio).partition(":")
+            if not modulo or not funcion:
+                raise ExtensionRechazada(f"la fuente «{e.clave}»: `servicio` es «modulo:funcion»")
+            for gid, g in e.mapa.items():
+                con_prefijo(gid, ext.prefijo, "el ítem de la puerta")
+                if not isinstance(g, R.General):
+                    raise ExtensionRechazada(f"el ítem «{gid}» no es un registro.General")
+            familias = [g.familia for g in e.mapa.values()]
+        else:
+            raise ExtensionRechazada(f"una entrada de la puerta no es Entrada ni Fuente: {e!r}")
+        for familia in familias:
+            if familia not in R.FAMILIAS:
+                raise ExtensionRechazada(f"familia «{familia}» de la puerta: es una de "
+                                         f"{', '.join(R.FAMILIAS)}")
+        for i in (*_ids_de(e), getattr(e, "clave", "")):
+            if i and (i in tomados or i in nuevos):
+                raise ExtensionRechazada(f"el ítem o la fuente «{i}» de la puerta ya existe")
+            if i:
+                nuevos.append(i)
+    R.DE_EXTENSION[ext.nombre] = (ext.version_puerta, tuple(entradas))
+    return sorted(i for e in entradas for i in ([e.id] if isinstance(e, R.Entrada) else e.mapa))
+
+
 def resolver_routers(ext, reservados: set[str]) -> list:
     """Los routers de la extensión: toda ruta bajo «/api/<prefijo>/», un prefijo que no es un
     tramo de rutas del núcleo y ninguna (método, path) repetida."""

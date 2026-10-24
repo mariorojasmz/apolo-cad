@@ -1396,7 +1396,25 @@ por vía):
      `tests/test_extensiones_f1d.py` lo prueba: undo y autosave, job, 400 sin dejar nada, 409 por
      la guardia y por sólo lectura, los datos que van al manifest y vuelven al reabrir.
 
-**Falta:** `Extension.puerta` con la versión del registro y el motor de láminas en `MODULOS`.
+3. **Ítems de la puerta de publicación desde una extensión**: `Extension.puerta` (sus `Entrada` y
+   `Fuente`, o una función que las da) y `Extension.version_puerta` (entero ≥ 1).
+   - `extensiones_puntos.sumar_puerta` valida: ids, claves de fuente e ítems generales «prefijo.x»,
+     familias del registro, `servicio` «modulo:funcion», nada repetido con el núcleo ni con otra
+     extensión. Lo que no cumple rechaza la extensión entera (todo o nada).
+   - `library/calidad/registro.py`: `DE_EXTENSION` (en `extensiones._registros()`), `vigente()` (el
+     núcleo y, al final, lo de cada extensión) y `version(registro)` = `VERSION_REGISTRO` más
+     «+nombre.version_puerta» por cada extensión con entradas en ese registro. `evaluar` publica
+     `version(registro)`: sin extensiones, «5» como siempre.
+   - La ruta (`routers/validation._puerta_publicacion`) pasa `vigente()` a `reunir` y a `evaluar`.
+   - `firma_modelo` suma `ext` sólo si hay datos: la fuente de una extensión puede leerlos, así que
+     cambiarlos cambia la firma; sin ellos, la firma histórica.
+   - `extensiones_api.SUPERFICIE` suma `Entrada`, `Fuente`, `General`, `FAMILIAS_PUERTA`,
+     `siempre`, `hay`, `hecho`, `Item` y sus cuatro estados, y `datos_ext(doc, nombre)` para el
+     servicio de una fuente, que ya recibe el `doc`.
+   - La extensión falsa (`tests/ext_prueba/puerta.py`): una `Entrada` que siempre pasa y una `Fuente`
+     que lee su nota del manifest y falla si la nota lo pide; cuatro variantes que no cargan.
+
+**Falta:** el motor de láminas en `MODULOS`.
 
 **Decidido por el agente (vetable):**
 

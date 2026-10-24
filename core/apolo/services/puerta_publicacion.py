@@ -54,7 +54,7 @@ def _cronometro(tiempos: dict, clave: str):
 #: Lo del manifest que decide la puerta (además del log): visibilidad (la interferencia mira lo
 #: visible), materiales y vertical (masa, material), estudios (poses), requisitos (cargas),
 #: FEA, cadenas de cotas, escenarios, tensores y funciones declarados (D15). Colores, nombres y
-#: notas no cuentan.
+#: notas no cuentan. Los datos de las extensiones (`ext`) cuentan sólo si hay (`firma_modelo`).
 CLAVES_FIRMA = {"hidden": [], "materials": {}, "vertical": "metalmecanica", "motion": {},
                 "requirements": {}, "fea": {}, "stackups": {}, "escenarios": {}, "tensores": [],
                 "funciones": []}
@@ -68,6 +68,8 @@ def firma_modelo(commands: list, manifest: dict) -> str:
     import json
 
     datos = [commands, {k: manifest.get(k, defecto) for k, defecto in CLAVES_FIRMA.items()}]
+    if manifest.get("ext"):  # los datos de las extensiones (F1d), sólo si hay: sin ellos, la de siempre
+        datos.append({"ext": manifest["ext"]})
     return hashlib.sha256(json.dumps(datos, sort_keys=True, default=str).encode()).hexdigest()[:20]
 
 
@@ -77,7 +79,8 @@ def firma(doc) -> str:
                 "vertical": doc.vertical, "motion": doc.motion,
                 "requirements": doc.requirements, "fea": doc.fea, "stackups": doc.stackups,
                 "escenarios": doc.escenarios, "tensores": getattr(doc, "tensores", None) or [],
-                "funciones": getattr(doc, "funciones", None) or []}
+                "funciones": getattr(doc, "funciones", None) or [],
+                "ext": getattr(doc, "ext", None) or {}}
     return firma_modelo(doc.commands, manifest)
 
 

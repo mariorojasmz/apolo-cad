@@ -58,6 +58,20 @@ SUPERFICIE: dict[str, str] = {
     "leer_ext": "apolo.api.fachada:leer_ext",
     "poner_ext": "apolo.api.fachada:poner_ext",
     "proyecto_activo": "apolo.api.fachada:proyecto_activo",
+    "datos_ext": "apolo.doc.ext_manifest:leer",  # (doc, nombre): para quien ya tiene el `doc`
+    # la puerta de publicación (F1d, `Extension.puerta`): sus entradas, el ítem y sus estados
+    "Entrada": "apolo.library.calidad.registro:Entrada",
+    "Fuente": "apolo.library.calidad.registro:Fuente",
+    "General": "apolo.library.calidad.registro:General",
+    "FAMILIAS_PUERTA": "apolo.library.calidad.registro:FAMILIAS",
+    "siempre": "apolo.library.calidad.registro:siempre",
+    "hay": "apolo.library.calidad.registro:hay",
+    "hecho": "apolo.library.calidad.registro:hecho",
+    "Item": "apolo.library.calidad.item:Item",
+    "OK": "apolo.library.calidad.item:OK",
+    "FALLA": "apolo.library.calidad.item:FALLA",
+    "SIN_EVALUAR": "apolo.library.calidad.item:SIN_EVALUAR",
+    "NO_APLICA": "apolo.library.calidad.item:NO_APLICA",
 }
 
 #: módulo → nombres que una extensión de dominio usa de él (medido sobre `publicacion/` en la F0 y

@@ -242,10 +242,11 @@ def _misma_firma(firma: str) -> None:
 
 
 def _puerta_publicacion(proyecto) -> dict:
-    from apolo.library.calidad.registro import evaluar
+    from apolo.library.calidad.registro import evaluar, vigente
     from apolo.services import marcha_ejemplo as me
     from apolo.services import puerta_publicacion as pp
 
+    registro = vigente()  # el del núcleo más los ítems de las extensiones cargadas (F1d)
     t0 = time.perf_counter()
     tiempos: dict = {}
     with STATE_LOCK:
@@ -256,7 +257,8 @@ def _puerta_publicacion(proyecto) -> dict:
     with STATE_LOCK:
         _mismo_proyecto(proyecto)
         _misma_firma(firma)
-        insumos = pp.reunir(S.doc, expand=_expand_ids, gravedad=gravedad, tiempos=tiempos)
+        insumos = pp.reunir(S.doc, expand=_expand_ids, gravedad=gravedad, registro=registro,
+                            tiempos=tiempos)
         t = time.perf_counter()
         animadas = insumos["hechos"]["elementos"].get("sustitutos_animados")
         prep = (pp.preparar_marcha(S.doc) if animadas else
@@ -274,7 +276,7 @@ def _puerta_publicacion(proyecto) -> dict:
         _mismo_proyecto(proyecto)
         _misma_firma(firma)
     tiempos["total"] = round(time.perf_counter() - t0, 2)
-    return evaluar(insumos)
+    return evaluar(insumos, registro)
 
 
 class RequirementsIn(BaseModel):
