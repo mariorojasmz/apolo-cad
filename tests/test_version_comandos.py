@@ -185,8 +185,9 @@ def test_defaults_de_un_comando_nuevo():
     spec = CommandSpec("x", "X", "crear", CreateBoxParams, lambda ctx, cmd_id, p: None)
     assert spec.version == 1 and spec.composite is False
     # los compuestos (corren executors ajenos): el proyecto insertado y las plantillas de faja
-    # (sus fasten/ground) y de rodillos
+    # (sus fasten/ground) y de rodillos, el tablero y el cilindro neumático (V8.9 F2)
     assert [t for t, s in REGISTRY.items() if s.composite] == [
-        "insert_project", "create_belt_conveyor", "create_roller_conveyor", "layout_tablero"]
+        "insert_project", "create_belt_conveyor", "create_roller_conveyor",
+        "create_pneumatic_cylinder", "layout_tablero"]
     for t in ("create_belt_conveyor", "create_roller_conveyor"):
         assert version_tag(REGISTRY, t) == version_tag(REGISTRY, "insert_project")
