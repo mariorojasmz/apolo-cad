@@ -220,8 +220,9 @@ def _uno(doc, m, tabs, c, crit) -> CableCampo:
             reserva += crit.reserva_campo_mm
             desc.append({"lado": lado, "tipo": "aparato", "designacion": e[2]})
             continue
-        vecino = items[0] if k == 0 and items else (items[-1] if items else None)
-        objetivo = (vecino.puntos[0] if isinstance(vecino, Fijo) else vecino.centro) if vecino else None
+        vecino = (items[0] if k == 0 else items[-1]) if items else None
+        objetivo = None if vecino is None else (
+            (vecino.puntos[0] if k == 0 else vecino.puntos[-1]) if isinstance(vecino, Fijo) else vecino.centro)
         fijo, dentro, s = _salida(tabs[e[1]], c.designacion, objetivo, crit)
         adentro += dentro
         sup += s
