@@ -70,6 +70,37 @@
 .eventos-vivos input[type="number"] { width: 70px; }
 .campo-evento { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 
+/* ── «Simular falla» (panel Mandos, FallasVivas.tsx; plan cosim-fallas D7) ────────────── */
+.fallas-vivas { display: flex; flex-direction: column; gap: var(--sp-2); }
+.campo-falla {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: var(--sp-2);
+  color: var(--muted); font-size: var(--fs-cuerpo);
+}
+.campo-falla select, .campo-falla input { min-width: 0; }
+.fallas-vivas-accion { display: flex; justify-content: flex-end; }
+.fallas-vivas-pista { margin: var(--sp-1) 0 0; font-size: var(--fs-nota); }
+
+/* ── fallas activas en la barra de la sesión (FallasActivas.tsx) ──────────────────────── */
+/* con fallas, la barra toma ancho: si no, se encoge a lo justo y la frase se parte en pedazos */
+.barra-marcha.barra-vivo:has(.bv-fallas) { width: min(520px, calc(100% - 32px)); }
+.barra-vivo .bv-donde { white-space: nowrap; }
+.barra-vivo .bv-fallas { flex-basis: 100%; display: flex; flex-direction: column; gap: var(--sp-1); }
+.barra-vivo .bv-fallas-linea { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); min-width: 0; }
+.barra-vivo .bv-fallas-texto {
+  flex: 1 1 160px; min-width: 0; color: var(--text);
+  font-size: var(--fs-cuerpo); font-weight: var(--fw-medio);
+}
+.barra-vivo .bv-fallas button { white-space: nowrap; }
+.barra-vivo .bv-fallas-lista {
+  list-style: none; margin: 0; padding: 0 0 var(--sp-1) 22px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.barra-vivo .bv-fallas-lista li {
+  display: flex; align-items: center; gap: var(--sp-2);
+  color: var(--text); font-size: var(--fs-cuerpo);
+}
+.barra-vivo .bv-fallas-lista li span { flex: 1; min-width: 0; }
+
 /* ── panel «Señales»: el árbol dispositivo → señales ─────────────────────────────────── */
 .panel-senales input[type="search"] { width: 100%; margin-bottom: 6px; }
 .rama-senales { border-bottom: 1px solid var(--border); padding: 3px 0; }

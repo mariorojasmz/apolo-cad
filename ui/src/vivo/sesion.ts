@@ -2,6 +2,7 @@ import { useStore } from "../state/store";
 import { useMarcha } from "../viewport/marcha/estado";
 import { INICIAL, useVivo } from "./estado";
 import { esperaDe } from "./accionar";
+import { conAckDeRama, type EventoFalla } from "./fallas";
 import type { Accion } from "./mandos";
 import {
   decodificarFotograma, leerMensaje, problemaDeCierre, textoFin,
@@ -36,12 +37,21 @@ interface Interno {
   ids: number;
   /** id de acción → señal esperada, para soltarla si se rechaza. */
   esperas: Map<string, string>;
+  /** Las fallas con que se abrió la sesión: se mandan al llegar el `inicio` (y al reiniciar). */
+  fallasAlAbrir: EventoFalla[];
 }
 
 const s: Interno = {
   ws: null, viva: null, inicio: null, nombres: [], valores: new Map(), ultimo: null, publicadoEn: 0,
-  error: null, escenario: null, ids: 0, esperas: new Map(),
+  error: null, escenario: null, ids: 0, esperas: new Map(), fallasAlAbrir: [],
 };
+
+export interface OpcionesSesion {
+  /** Cierra la sesión que haya en el servidor (otra pestaña) y abre esta. */
+  reemplazar?: boolean;
+  /** Fallas ya puestas al empezar (plan cosim-fallas D7): «Probar en vivo» desde otro panel. */
+  fallas?: EventoFalla[];
+}
 
 /** Lo que lee el 3D en cada cuadro (sin pasar por React). */
 export const sesionViva = {
@@ -80,14 +90,17 @@ function urlSesion(documento: string, escenario: string, reemplazar: boolean): s
   return `${proto}://${location.host}/api/cosim/vivo?${q}`;
 }
 
-/** Abre la sesión viva sobre el escenario `escenario` (con `reemplazar`, cierra la que haya). */
-export async function abrirSesion(escenario: string, reemplazar = false): Promise<void> {
+/** Abre la sesión viva sobre el escenario `escenario` (con `reemplazar`, cierra la que haya;
+ *  con `fallas`, las pone en cuanto llega el `inicio`). */
+export async function abrirSesion(escenario: string, opciones: OpcionesSesion = {}): Promise<void> {
+  const { reemplazar = false, fallas = [] } = opciones;
   vigilarMarcha();
   const previa = s.ws;
   s.ws = null;
   if (previa && previa.readyState <= WebSocket.OPEN) previa.close(1000);
   s.error = null;
   s.escenario = escenario;
+  s.fallasAlAbrir = [...fallas];
   const st = useVivo.getState();
   st.set({ ...INICIAL, fase: "abriendo", escenario });
   let documento: string;
@@ -124,9 +137,11 @@ export async function abrirSesion(escenario: string, reemplazar = false): Promis
   };
 }
 
-/** Reabre con el modelo de ahora (y cierra la sesión que haya en el servidor). */
-export function reiniciarSesion(): Promise<void> {
-  return abrirSesion(s.escenario ?? useVivo.getState().escenario ?? "", true);
+/** Reabre con el modelo de ahora (y cierra la sesión que haya en el servidor), con las mismas
+ *  fallas con que se abrió; las que se pusieron después no vuelven. Sin `reemplazar` (abrir de
+ *  nuevo tras un error), no toca la sesión de otra pestaña. */
+export function reiniciarSesion(reemplazar = true): Promise<void> {
+  return abrirSesion(s.escenario ?? useVivo.getState().escenario ?? "", { reemplazar, fallas: s.fallasAlAbrir });
 }
 
 /** Cierra la sesión y quita la máquina en movimiento del 3D. */
@@ -171,9 +186,9 @@ export function accionar(a: Accion, m: MandoVivo): void {
   enviar(a, esperaDe(a, m));
 }
 
-/** Un evento del mundo en vivo (el atasco provocado de `EventosVivos.tsx`); un rechazo llega
- *  como el de una acción. */
-export function enviarEvento(evento: Record<string, unknown>): void {
+/** Un evento del mundo en vivo (el atasco de `EventosVivos.tsx`, la falla de `FallasVivas.tsx`
+ *  y su `quitar`); un rechazo llega como el de una acción. */
+export function enviarEvento(evento: Record<string, unknown> | EventoFalla): void {
   const ws = s.ws;
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({ evento, id: `e${++s.ids}` }));
@@ -199,7 +214,8 @@ function alMensaje(m: MensajeVivo): void {
       store.clearGravity(); // mueven las mismas mallas
       store.clearPhysics();
       useMarcha.getState().cargar(s.viva.serie);
-      st.set({ fase: "corriendo", inicio: m, escenario: m.escenario, problema: null, fin: null });
+      st.set({ fase: "corriendo", inicio: m, escenario: m.escenario, problema: null, fin: null, ramasEnFalla: [] });
+      for (const f of s.fallasAlAbrir) enviarEvento(f); // entran en el primer intercambio
       return;
     }
     case "senales":
@@ -211,9 +227,12 @@ function alMensaje(m: MensajeVivo): void {
       st.set({ textos });
       return;
     }
-    case "ack":
+    case "ack": {
       if (m.id) s.esperas.delete(m.id);
+      const ramas = conAckDeRama(st.ramasEnFalla, m.evento);
+      if (ramas !== st.ramasEnFalla) st.set({ ramasEnFalla: ramas });
       return;
+    }
     case "rechazo": {
       const senal = m.id ? s.esperas.get(m.id) : undefined;
       if (m.id) s.esperas.delete(m.id);

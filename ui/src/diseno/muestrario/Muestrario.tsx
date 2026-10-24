@@ -7,12 +7,14 @@ import EstadoVacio from "../EstadoVacio";
 import ItemsAtencion from "../ItemsAtencion";
 import Veredicto from "../Veredicto";
 import { itemsTablero } from "./datos";
+import { BarraFallasDemo, PanelFallasDemo } from "./FallasDemo";
 import VueloDemo, { type Demo } from "./VueloDemo";
 import "./muestrario.css";
 
 /* Muestrario de diseño (plan V8.5 F3b-0): las piezas comunes con los datos de ejemplo del panel
    «Tablero», al ancho de un panel de Dockview, junto a un visor de ejemplo con el vuelo de
-   cámara. Es la base de la revisión de diseño a ciegas (D14); F3b arma el panel real. */
+   cámara. Es la base de la revisión de diseño a ciegas (D14); F3b arma el panel real. Abajo,
+   «Simular falla» y la barra de la sesión viva con datos de ejemplo (plan cosim-fallas D7). */
 
 export default function Muestrario() {
   const demo = useRef<Demo | null>(null);
@@ -49,14 +51,20 @@ export default function Muestrario() {
       <Marco rotulo="Visor · clic en un ítem para volar" ancho>
         <VueloDemo alListo={(d) => { demo.current = d; }} />
       </Marco>
+      <Marco rotulo="Mandos · simular falla">
+        <PanelFallasDemo />
+      </Marco>
+      <Marco rotulo="Barra de la sesión viva · fallas activas" doble>
+        <BarraFallasDemo />
+      </Marco>
     </main>
   );
 }
 
 /** El marco del muestrario (no es parte de los componentes): rótulo y fondo de panel. */
-function Marco({ rotulo, ancho, children }: { rotulo: string; ancho?: boolean; children: ReactNode }) {
+function Marco({ rotulo, ancho, doble, children }: { rotulo: string; ancho?: boolean; doble?: boolean; children: ReactNode }) {
   return (
-    <section className={`mu-marco${ancho ? " ancho" : ""}`} aria-label={rotulo}>
+    <section className={`mu-marco${ancho ? " ancho" : ""}${doble ? " doble" : ""}`} aria-label={rotulo}>
       <p className="mu-rotulo">{rotulo}</p>
       <div className="mu-panel">{children}</div>
     </section>

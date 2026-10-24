@@ -6,9 +6,10 @@ import { useVivo } from "./estado";
 import { formatear, lecturasDe } from "./lecturas";
 import { alApretar, alSoltar, colorFisico, encendido, esMomentaneo, girar, nombreTipo, rotuloAccion } from "./mandos";
 import type { MandoVivo, PilotoVivo } from "./protocolo";
-import { abrirSesion, accionar } from "./sesion";
+import { abrirSesion, accionar, reiniciarSesion } from "./sesion";
 import { abrirPanel } from "./abrirPanel";
 import EventosVivos from "./EventosVivos";
+import FallasVivas from "./FallasVivas";
 import "./vivo.css";
 
 /* Panel «Mandos» de la máquina viva (plan V8.4 D4): el camino PRINCIPAL para manejar la
@@ -29,7 +30,7 @@ export default function PanelMandos() {
         <div className="mandos-problema">
           <p className="estado-aviso">{problema.texto}</p>
           <div className="kin-actions">
-            <button className="primary" onClick={() => void abrirSesion(escenario ?? "", !!problema.reemplazable)}>
+            <button className="primary" onClick={() => void reiniciarSesion(!!problema.reemplazable)}>
               {problema.reemplazable ? "Reemplazar la otra sesión" : "Abrir de nuevo"}
             </button>
             <button onClick={() => useVivo.getState().set({ fase: "cerrada", problema: null })}>Elegir otro escenario</button>
@@ -119,6 +120,7 @@ function Tablero() {
       )}
       <Lecturas />
       <EventosVivos quieto={quieto} />
+      <FallasVivas quieto={quieto} />
       <h3>Medir</h3>
       <div className="kin-actions">
         <button onClick={() => void abrirPanel("senales")}>Ver las señales</button>

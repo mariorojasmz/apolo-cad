@@ -17,8 +17,14 @@ body { overflow: auto; }
 .mu-visor { position: relative; height: 560px; }
 .mu-visor canvas { display: block; }
 
+.muestrario:not(.angosto) .mu-marco.doble { grid-column: span 2; }
+/* la barra de la sesión viva, en el flujo (en el visor flota abajo al centro) */
+.mu-barra { display: flex; justify-content: center; padding: var(--sp-4) 0; }
+.mu-barra .barra-marcha { position: static; transform: none; max-width: 100%; }
+
 @media (max-width: 760px) {
   .muestrario { grid-template-columns: minmax(0, 1fr); }
+  .muestrario:not(.angosto) .mu-marco.doble { grid-column: auto; }
   .mu-visor { height: 340px; }
 }
 /* `?ancho=420`: todo en una columna de ese ancho (un panel angosto), sea cual sea la ventana */

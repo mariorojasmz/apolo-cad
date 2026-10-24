@@ -39,6 +39,29 @@ export interface DispositivoVivo {
   pieza?: string;
 }
 
+/** Una falla que un aparato sabe tomar (plan cosim-fallas D6): `pide` dice qué valor lleva
+ *  (`""`, `bool`, `bool?`, `posicion?`, `unidad?`, `borne,valor`, `canal`; `modelos/base.PIDE`). */
+export interface FallaCatalogo {
+  falla: string;
+  pide: string;
+  /** Lo que se puede elegir como valor: posiciones, bornes, canales, unidades. */
+  opciones?: (string | number)[];
+}
+
+export interface AparatoFallas {
+  designacion: string;
+  tipo: string;
+  fallas: FallaCatalogo[];
+}
+
+/** Un contacto (o un conductor con largo) que se puede pegar o cortar (D3, D6). */
+export interface RamaVivo {
+  id: string;
+  tipo: "contacto" | "conductor" | string;
+  red: string;
+  dispositivo?: string;
+}
+
 export interface InicioVivo {
   tipo: "inicio";
   version: number;
@@ -61,6 +84,9 @@ export interface InicioVivo {
   fajas: FajaSerie[];
   cadenas: CadenaSerie[];
   avisos: string[];
+  /** Lo que se puede hacer fallar (cosim-fallas D6); un servidor anterior no lo trae. */
+  fallas?: AparatoFallas[];
+  ramas?: RamaVivo[];
 }
 
 /** Los JSON cortos que llegan después del `inicio` (los que la UI usa). */
@@ -68,7 +94,7 @@ export type MensajeVivo =
   | InicioVivo
   | { tipo: "senales"; desde: number; nombres: string[] }
   | { tipo: "textos"; t: number; valores: Record<string, unknown> }
-  | { tipo: "ack"; id: string | null; t: number }
+  | { tipo: "ack"; id: string | null; t: number; evento?: Record<string, unknown> }
   | { tipo: "rechazo"; id: string | null; motivo: string }
   | { tipo: "factor"; lento: boolean; factor: number }
   | { tipo: "sesion_vieja"; vieja: boolean; mensaje?: string }

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { EventoFalla } from "./fallas";
 import type { InicioVivo, ProblemaVivo } from "./protocolo";
 
 /* Estado de la sesión viva para la interfaz (plan V8.4): el panel «Mandos» y la barra de la
@@ -24,6 +25,9 @@ export interface EstadoVivo {
   /** Lo que se acaba de pedir y su señal todavía no muestra (la seta presionada, el seccionador
    *  abierto): el panel lo muestra así hasta que la señal coincida o la acción se rechace. */
   esperadas: Record<string, number>;
+  /** Las fallas de rama puestas (las de un aparato llegan en `<des>.averia`, en `textos`; las
+   *  de la red no publican señal y se llevan por el ack de su evento, `fallas.ts`). */
+  ramasEnFalla: readonly EventoFalla[];
   /** El último rechazo de una acción, ya en palabras. */
   rechazo: string | null;
   problema: ProblemaVivo | null;
@@ -42,6 +46,7 @@ export const INICIAL = {
   lecturas: {},
   textos: {},
   esperadas: {},
+  ramasEnFalla: [] as readonly EventoFalla[],
   rechazo: null,
   problema: null,
   fin: null,

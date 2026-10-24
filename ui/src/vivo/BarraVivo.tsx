@@ -3,6 +3,7 @@ import { segundos } from "../viewport/marcha/serie";
 import { controlesBarra, rotuloFase, textoFactor } from "./barra";
 import { useVivo } from "./estado";
 import Instrumentos from "./Instrumentos";
+import FallasActivas from "./FallasActivas";
 import { cerrarSesion, controlar, reiniciarSesion } from "./sesion";
 import { abrirPanel, type PanelVivo } from "./abrirPanel";
 import { useVisor } from "../visor/estado";
@@ -14,7 +15,8 @@ import "./vivo.css";
    real (en ámbar si la máquina no alcanza al reloj), el aviso de modelo viejo (D3) y pausar,
    reanudar, parar, reiniciar y cerrar. Encima, los instrumentos (multímetro y osciloscopio, F3).
    Los paneles «Mandos», «Señales» y «PLC» se abren desde aquí: en el visor comparten UN cajón y,
-   sin estos botones, cerrar «Señales» o «PLC» dejaba la sesión sin camino de vuelta a los mandos. */
+   sin estos botones, cerrar «Señales» o «PLC» dejaba la sesión sin camino de vuelta a los mandos.
+   Arriba de los controles, las fallas activas con «Quitar» (plan cosim-fallas D7). */
 
 const PANELES: { id: PanelVivo; rotulo: string }[] = [
   { id: "mandos", rotulo: "Mandos" },
@@ -35,6 +37,7 @@ export default function BarraVivo() {
     <>
       <Instrumentos />
       <div className="barra-marcha barra-vivo" role="toolbar" aria-label="Máquina viva">
+        <FallasActivas />
         <span className={`bv-fase bv-${fase}`}>{rotuloFase(fase)}</span>
         <span className="bm-tiempo">{segundos(t)}</span>
         {(fase === "corriendo" || fase === "pausa") && (
