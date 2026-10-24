@@ -156,6 +156,11 @@ Origen: revisión de [V6.4](plans/V6.4-parametrico-profundo.md) y remate
   F2): en el piloto 74 la primera dinámica tarda ~60 s en `hull_vertices`. Las 20 cadenas
   (`create_chain`) suman 23 s de 29, entre 1,2 y 2 s cada una. Después quedan en caché. Cura
   posible: el casco de la cadena por su lazo o por su bbox.
+- **El N de un ITM 1P+N queda abierto en la co-simulación** (origen:
+  [datos-de-corte-y-acometida](plans/datos-de-corte-y-acometida.md) § Bitácora F1b): su camino
+  es `NA` con `accion: mano`, `-Q1.mano` arranca en `False` (`services/cosim_red._cerrado_inicial`)
+  y el modelo `Itm` no lo publica: una carga fase-neutro tras él no recibe tensión. Cura posible:
+  que el N siga al aparato (`-Q1.cerrado`), con su vigencia (`COSIM_EPOCH`).
 
 ## Fábrica de publicaciones: lo que halló la F4 (2026-10-22, fajas 3 y 4 en el escritorio)
 

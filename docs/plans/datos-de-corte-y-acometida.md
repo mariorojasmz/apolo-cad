@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a mergeada (bloque `electrico.datos` con completitud, poder de corte de 3 ITM, 5 guardamotores y 2 seccionadores con su ficha, `T_max_C` en 34 de 53 refs de tablero, el resto en `a_confirmar`); sigue F1b (diferencial; toca `cosim/tablero.py`, espera a que entre V8.9 F3) y luego F1c
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a mergeada (bloque `electrico.datos` con completitud, poder de corte de 3 ITM, 5 guardamotores y 2 seccionadores con su ficha, `T_max_C` en 34 de 53 refs de tablero, el resto en `a_confirmar`); F1b implementada, falta revisarla y mergearla (diferencial en la co-simulación, 8 refs con sus cifras de ficha a confirmar, regla «tipo de diferencial» del ERC); luego F1c
 descripcion: cada protección del catálogo dice cuánto corta y a qué temperatura trabaja, con su fuente; la acometida dice su esquema de tierra; el interruptor diferencial entra al catálogo y dispara en la prueba virtual
 ---
 
@@ -407,3 +407,85 @@ del gate paramétrico de `MODULOS`). `ruff check core tests scripts` limpio. Ref
 guardamotores y los 2 seccionadores), las 5 ITM restantes y el portafusible a confirmar.
 Búsqueda de fichas: ≈ 25 min (el tope era ≈ 20; se pasó en la última tanda de ITM, que sí dio 3
 refs exactas).
+
+### F1b — El diferencial (2026-10-24)
+
+**Qué se hizo.**
+- `cosim/modelos/diferencial.py` (nuevo): `Diferencial` (`tipo: diferencial`) con la residual
+  |Σ fasores|, el umbral `K` = 0,75 × IΔn, los tiempos en el medio de cada banda (`T_DISPARO_S`:
+  0,15 s desde K, 0,075 s desde 2 IΔn, 0,02 s desde 5 IΔn; las bandas de norma en `BANDAS_S`), el
+  contador que vuelve a cero si la residual baja, `rearmar`/`abrir`/`cerrar`, las fallas
+  `no_dispara` y `abierto` (el patrón de `_Proteccion`) y las señales `cerrado`, `disparado`,
+  `I_residual_mA`, `causa`. Cuatro hipótesis declaradas (k, tiempos, A = B, sin fuga natural).
+- `cosim/tablero.py`: el diferencial se indexa aparte (`diferenciales`, con las mismas ramas de
+  `_ramas_proteccion`) y recibe `I_fasores` de `_fasor` (complejo, sin `abs`); `_corriente` pasó a
+  ser `abs(_fasor(…))`: el mismo número bit a bit que antes (`abs(complex(x, 0))` = |x|). Sus
+  contactos se mueven con `-F1.cerrado`, como los de un ITM (`_k_prot`). 451 líneas.
+- `library/electrico/ficha.py`: `diferencial` en `TIPOS_MODELO` y `CLASES_RESIDUAL` (AC, A, F, B)
+  validada como `curva` (normaliza a mayúsculas). `colocacion_modelo`: clase «alimentacion».
+- `121_proteccion_electrica.yaml`: las 8 refs de D9 (anclas `&diferencial_2p`/`&diferencial_4p`):
+  bornes `1`–`2` (`1`–`6`) + `N1`/`N2`, TODOS los polos como camino `proteccion` de línea a carga
+  (el N pasa por el toroide y se abre con el disparo), `modulos_DIN` 2 y 4, `specs` con
+  `linea_referencia` «orden de», `cotas_verificadas: false` y `cost` referencial; nota de la red
+  2F (el N lleva la segunda fase) y del 4P en una red sin neutro.
+- `library/electrico/erc.py`: la regla «tipo de diferencial» (D10) por `Llegada.via`.
+- UI viva: «Interruptor diferencial» en `arbolSenales.ts` y `fallas.ts`, y `diferencial` en
+  `PROTECCIONES` (sus fallas se dicen «protección disparada sola», «protección que no dispara»).
+- Tests: `tests/test_cosim_diferencial.py` (18: bandas, ½ IΔn, el umbral, el contador, el rearme,
+  las hipótesis, la validación, las 8 refs con `de` = línea, el tablero 1F TN y 3F+N, el índice
+  aparte y la regla D10 verde, roja y sin fila); los dos gemelos en `test_cosim_fallas_modelos.py`;
+  las 8 refs en `test_catalogo_electrico` (categoría y honestidad); un caso en
+  `ui/src/vivo/fallas.test.ts`.
+
+**Cifras de ficha: ninguna verificada.** Las fichas de Schneider Acti9 iID (se.com y
+schneider-electric.cn: 403 o el reto anti-robots), ABB F200 y Eaton xEffect FRCmM (se agotó el
+tiempo de espera) y Siemens 5SV3 (403) no se pudieron descargar en ≈ 17 min; las cifras que se
+vieron venían de distribuidores, que no son fuente. Las 8 refs llevan `Inc_kA`, `Inc_con`, `Im_A` y
+`T_max_C` en `a_confirmar` SIN valor y una `fuente` que lo dice. Lo que define la ref (In, IΔn,
+clase, polos) va en `modelo`: es lo que hay que respetar al reemplazarla. Peso y `cost`, como en
+el resto del catálogo, referenciales.
+
+**Lo que se midió en el tablero.**
+- `RED-1F-220V-60HZ` (TN) → 2P 30 mA A → ITM C2 2P → 220 Ω: sana, residual 0,044 mA (la
+  conductancia mínima de 0,1 µS por nodo de `mna.py`: el piso de la red, lejos de 15 mA); con un
+  `corto` de 1 kΩ de `-Q1:2` a `-G1:PE`, el diferencial dispara (≈ 220 mA = 7,3 IΔn → 0,02 s) y el
+  ITM C2 no (1,22 A). El de 300 mA no dispara: 220 mA < 0,75 × 300 = 225 mA (margen del 2 %, pero
+  determinista: la residual es 220 V / 1 kΩ y la Zk de la red, 6 kA, no la mueve).
+- `RED-3F-380-220V-60HZ` (TN) → 4P 30 mA A → 100 Ω de cada fase al N (equilibrada, una y dos
+  fases): residual bajo el piso con 2,2 A por fase; un corto de 1 kΩ de `-F1:4` a PE dispara.
+
+**Vigencia (D11), medida.** `COSIM_EPOCH` sigue en 4: sólo la huella de `test_cosim_epoch.py`
+(`c6581877e1b42fcd`). 10 escenarios del banco (`cosim_lazo_banco`: marcha, seta, atasco parcial,
+contactor soldado, `no_cierra`, piloto fundido, corte de fase, corto entre fases —el que pasa por
+el `I_A` de las protecciones—, cajas con seta y sensor pegado) dan la MISMA huella en `194e119`
+(exportado limpio con `git archive`) y en esta rama, p. ej. marcha `40e10dae…`, corto entre fases
+`ca5eb984…`, cajas con seta `d17d7651…`. Firma del documento: no se mueve (ningún `modelo` de
+una ref existente cambió). Sin bump de `GEOM_CACHE_EPOCH` (refs nuevas: ninguna caché las tiene)
+ni de versiones de comandos. El ERC de un documento sin diferencial es el de siempre: la regla
+nueva no da fila sin uno (no entra a `services/electrico.REVISA`).
+
+**Decisiones propias (para vetar).**
+- **D10 avisa también con clase F si la entrada del variador es trifásica** (la F es de los
+  variadores monofásicos y tampoco ve la continua lisa); con entrada de dos bornes, sólo AC y A.
+- **D10 sin cita de norma**: el texto de IEC 60364-5-53 §531.3.3 no se pudo leer; «criterio de
+  diseño», como pide D10.
+- **La regla no da fila «ok» sin diferenciales** (aplica sólo con uno): así no cambia la salida
+  del ERC de ningún documento existente ni el golden del carril.
+- **Rearmar con la falla presente vuelve a disparar en su tiempo de disparo** (0,02 s a ≥ 5 IΔn),
+  no literalmente en el paso siguiente: abierto no ve la residual, y el aparato es de disparo libre.
+- **Tolerancia relativa de 1e-9 en el borde de cada banda** (`TOL_BORDE`): 5 × IΔn armado con
+  fasores llega como 4,999…; sin ella caía en la banda de 2 IΔn.
+- **Todos los polos del diferencial son `proteccion`**, el N incluido (en el ITM 1P+N el N es `NA
+  mano`): es lo que hace que la residual sea la suma y que el N abra con el disparo.
+
+**Hallazgo fuera de alcance (no se tocó).** En la co-simulación el polo N de los ITM 1P+N
+(`ITM-C2-1PN`, `ITM-C6-1PN`) queda ABIERTO siempre: su camino es `NA` con `accion: mano`, el
+actuador `-Q1.mano` arranca en `False` (`services/cosim_red._cerrado_inicial` sólo cierra los
+seccionadores) y el modelo `Itm` no lo publica. Una carga fase-neutro tras un 1P+N no recibe
+tensión (medido: 0,04 mA en lugar de 1 A). Por eso los tests usan el ITM C2 2P. Va al backlog.
+
+**Conteos medidos.** Suite completa en el escritorio (carril C, `35dc35b`): 5426 tests, 5416
+pasan y 10 se saltan, EXIT 0 (antes 5388: +18 de `test_cosim_diferencial.py`, +2 gemelos, y los
+parametrizados por ref del catálogo con las 8 nuevas). `ruff check core tests scripts` limpio
+(laptop y escritorio). vitest 520 → 521 y `npm run build` limpio. Refs del catálogo: 420 → 428
+(61 de tablero: 34 con `T_max_C` de ficha, 27 a confirmar). Búsqueda de fichas: ≈ 17 min.

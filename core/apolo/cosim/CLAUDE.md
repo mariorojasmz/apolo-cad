@@ -27,6 +27,11 @@ backend: [core/apolo](../CLAUDE.md).
   seguridad) declara `BORNES_ENTRADA` (cargas `entrada` de cada borne) y `actuadores()`: el
   tablero lo indexa sin rama propia. Un mando de dos canales lleva un NC POR CANAL (rama propia:
   `pegado` pega uno). [mandos-de-seguridad](../../../docs/plans/mandos-de-seguridad.md)
+- **El diferencial** (`modelos/diferencial.py`) suma los FASORES de sus caminos `proteccion`
+  (`I_fasores`, de `de` = lado LÍNEA a CARGA, el N incluido: un test del catálogo lo exige); el
+  tablero lo indexa aparte (`diferenciales`) y las demás protecciones siguen con módulos
+  (`_corriente` = |`_fasor`|). Sano no da 0 exacto: la conductancia mínima por nodo deja ~22 µA.
+  [plan](../../../docs/plans/datos-de-corte-y-acometida.md) (F1b)
 - **El aire** (`neumatica/`, puro; puede importar `modelos`): cilindro, FRL y corte se arman por
   `modelo["aire"]` (la ficha plana de `services/cosim_aire.py`, `MODELOS_AIRE`) y viven en
   `Tablero.modelos`; la electroválvula es un modelo ELÉCTRICO (`modelos/electrovalvula.py`, por
