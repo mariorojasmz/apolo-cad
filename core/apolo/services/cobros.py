@@ -171,7 +171,7 @@ def costeo(doc) -> dict:
     from apolo.library.costing import scene_costing
 
     from .bom_filas import filas_extra
-    from .incluidas import incluidas
+    from .tablero import incluidas
 
     cables = cables_sin_cubrir(doc)
     sin = {c["id"] for c in cables}

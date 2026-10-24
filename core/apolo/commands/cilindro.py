@@ -7,8 +7,8 @@ vástago, 0..carrera, sin arrastrar), la junta `fija` `{cmd}_jf_empujador` (la F
 hijos declarados) y los `fasten` internos `{cmd}_u_<sufijo>`: por eso es COMPUESTO.
 
 - BOM: el cuerpo lleva la ref con `cut_length` = la carrera (UNA fila por ref + carrera); el
-  vástago viene con la ref y no se cobra (`services/incluidas.py`); la brida, los pies y el
-  empujador son piezas propias.
+  vástago viene con la ref: ni se cobra ni se fabrica (`library/incluidas.py`, que lee los
+  sufijos `_cuerpo`/`_vastago`); la brida, los pies y el empujador son piezas propias.
 - Interferencia: el paso del vástago tiene holgura radial, el buje del empujador asienta en el
   hombro y los accesorios apoyan en la cara de su tapa: cero volumen común en todo el recorrido
   (`tests/test_cilindro_neumatico.py` lo recorre sin exclusiones).

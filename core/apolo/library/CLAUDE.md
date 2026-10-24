@@ -18,7 +18,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   COMPLETITUD se valida al cargar (`neumatica/ficha_tipos.REQUERIDOS` por `modelo.tipo`; un ajuste
   es rango [mín, máx]); `fuente` obligatoria y lo que no tiene fuente va en `a_confirmar`. Caudal
   = (C, b) de ISO 6358-1; Qn, S, Kv y Cv sólo como entrada convertida con su punto. El paquete
-  `neumatica/` usa sólo la biblioteca estándar. [V8.9](../../../docs/plans/V8.9-neumatica.md)
+  `neumatica/` usa sólo la biblioteca estándar. La geometría del cilindro (`builders_neumatica.py`,
+  F2) lee las cotas de los `params` de la ref (con su fuente en el YAML) y las de los accesorios
+  ISO 15552 de `neumatica/montajes.py` (tablas transcritas): nunca una cota de interfaz en el
+  builder. El vástago viene con su ref: `incluidas.py` lo saca de la BOM y de la lista de corte
+  por la escena sola (sin plomería del documento). [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
   canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva

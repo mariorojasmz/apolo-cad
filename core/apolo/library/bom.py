@@ -24,6 +24,7 @@ from .catalog import CATALOG
 from .designacion_comercial import (
     categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
 )
+from .incluidas import vastagos_incluidos
 from .largo_tornilleria import largo_de_compra_con_aviso, largo_nominal_a_medida
 from .materials import CABLE, density, resolve_material
 from .piezas_electricas import recorrido_mm
@@ -68,9 +69,10 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
     por sub-ensamblaje. El default es byte-idéntico al histórico.
     `incluidas` = {id de pieza: id de la pieza que la trae} (V8.5 F2: la puerta y la placa que
     vienen con su gabinete): no salen en fila propia; la fila de quien las trae las nombra en
-    `incluye`."""
+    `incluye`. El vástago de un cilindro neumático viene siempre con su ref (V8.9 F2,
+    `incluidas.vastagos_incluidos`): no hace falta pasarlo."""
     rows: dict[tuple, dict] = {}
-    incluidas = incluidas or {}
+    incluidas = {**vastagos_incluidos(scene), **(incluidas or {})}
     traen: dict[str, list[str]] = {}
     for sid, quien in incluidas.items():
         if sid in scene:
