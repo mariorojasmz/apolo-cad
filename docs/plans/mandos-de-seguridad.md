@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude el 2026-10-23 como la parte pública del ajuste A7 de un plan de seguridad funcional fuera del núcleo (aprobado por Mario; las alternativas de ingeniería las decide Claude, vetables); F1 mergeada (ESTOP-40-2NC y su caja, RESG-2NC con lengüeta, RS-2C-24VDC; modelos resguardo y rele_seguridad; pareja verde/roja de categoría 3 en los tests; sin bump de epoch); falta que la máquina viva abra el resguardo y elija la salida pegada del relé, y F2 (verifica con Mario)
+nota: contrato escrito por Claude el 2026-10-23 como la parte pública del ajuste A7 de un plan de seguridad funcional fuera del núcleo (aprobado por Mario; las alternativas de ingeniería las decide Claude, vetables); F1 mergeada (ESTOP-40-2NC y su caja, RESG-2NC con lengüeta, RS-2C-24VDC; modelos resguardo y rele_seguridad; pareja verde/roja de categoría 3 en los tests; sin bump de epoch); F1b mergeada (la máquina viva abre y cierra el resguardo, muestra el relé y su «no rearma», y la falla del relé pide su salida); faltan la revisión de diseño a ciegas y F2 (verifica con Mario)
 descripcion: mandos para funciones de seguridad de dos canales en el catálogo y en la co-simulación: seta de dos NC, interruptor de resguardo con actuador separado y relé de seguridad
 ---
 
