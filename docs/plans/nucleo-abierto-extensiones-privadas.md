@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0, F1a–F1c, F2, F3, F4a, F4c y F5 mergeadas (la fábrica y sus papeles viven fuera del núcleo; reglas de operación por `CLAUDE.local.md`; trinquete `test_negocio_fuera.py`); faltan F1d (huecos de la primera extensión real), F4b (con Mario) → F4d (el código del trinquete a cero) → F6
+nota: F0, F1a–F1d, F2, F3, F4a, F4c y F5 mergeadas (la fábrica y sus papeles viven fuera del núcleo; reglas de operación por `CLAUDE.local.md`; trinquete `test_negocio_fuera.py`); F1d deja la clave `ext` del manifest, la fachada del documento, `Extension.puerta` y las láminas en `MODULOS` para que apolo-pro los adopte; faltan F4b (con Mario) → F4d (el código del trinquete a cero) → F6
 descripcion: el núcleo de Apolo sigue público y abierto a contribuciones; lo nuevo que diferencia el servicio de diseño vive en un paquete privado que se engancha al núcleo sin tocarlo
 ---
 
