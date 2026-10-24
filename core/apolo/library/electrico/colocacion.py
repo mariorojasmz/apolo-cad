@@ -121,7 +121,9 @@ def resolver_acoples(aparatos: list[Aparato], overrides: dict) -> dict[str, str]
                                       f"{', '.join(nombres) or '(ninguno)'}.{sufijo_sugerencia(pedido, nombres)}")
             out[a.designacion] = pedido
             continue
-        prefijo = [n for n in nombres if a.designacion.startswith(n)]
+        # -Q3A → -Q3, pero -Q10 no es de -Q1: lo que sigue al prefijo no puede ser un dígito
+        prefijo = [n for n in nombres if a.designacion.startswith(n)
+                   and not a.designacion[len(n):][:1].isdigit()]
         if prefijo:
             out[a.designacion] = max(prefijo, key=len)
         elif len(hosts) == 1:

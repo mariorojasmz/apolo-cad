@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from itertools import combinations
 from pathlib import Path
 
@@ -206,6 +207,11 @@ def test_un_accesorio_ambiguo_pide_el_override():
         colocar([c1, c2, rt], "GRANDE", GABS)
     lay = colocar([c1, c2, rt], "GRANDE", GABS, overrides={"-F9": {"acopla": "-Q2"}})
     assert lay.de("-F9").acoplado_a == "-Q2"
+    # la designación con prefijo decide (-Q2A → -Q2), pero -Q10 no es «de» -Q1
+    aux = ap("-Q2A", 45, 40, 40, acopla=Acople(("contactor_3p",), "frente"))
+    assert colocar([c1, c2, aux], "GRANDE", GABS).de("-Q2A").acoplado_a == "-Q2"
+    with pytest.raises(ColocacionError, match=r"-Q10 \(REF\): no sé a cuál va pegado"):
+        colocar([c1, c2, replace(aux, designacion="-Q10")], "GRANDE", GABS)
     with pytest.raises(ColocacionError, match=r"no tiene ninguno"):
         colocar([rt], "GRANDE", GABS)
 
@@ -301,8 +307,6 @@ def test_el_adaptador_salta_el_gabinete_y_rechaza_lo_de_campo():
 
 
 def test_un_mando_de_puerta_sin_su_fondo_partido_no_se_coloca():
-    from dataclasses import replace
-
     from apolo.library.catalog import CATALOG
 
     cat = dict(CATALOG)
