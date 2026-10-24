@@ -101,8 +101,9 @@ class AddDeviceParams(BaseModel):
     - `ajustes` del aire: la presión regulada del FRL ({"p_regulada_bar": 6}), dentro del rango
       de su ficha.
     - `servicio`: sólo en un cilindro, lo que tiene que hacer: {carrera_mm, velocidad_m_s,
-      masa_kg, fuerza_N, caso_euler, largo_libre_mm}; con él el ERC revisa el pandeo del
-      vástago, la energía al fin de carrera y si el caudal de la válvula da la velocidad."""
+      masa_kg, fuerza_N, caso_euler, largo_libre_mm, ciclos_min}; con él el ERC revisa el pandeo
+      del vástago, la energía al fin de carrera, la relación de carga y si el caudal de la válvula
+      da la velocidad, y la memoria calcula el consumo por minuto."""
 
     ref: str = Field(
         ..., title="Referencia",

@@ -33,6 +33,7 @@ def reglas_memoria(doc, carga_kg=None, largo_paquete_mm=None, ancho_paquete_mm=N
         requirement_inputs,
         structure_rules,
     )
+    from . import neumatica
     from .stackup_eval import stackup_rules
 
     req, carga, largo_paq, ancho_paq = requirement_inputs(
@@ -50,6 +51,7 @@ def reglas_memoria(doc, carga_kg=None, largo_paquete_mm=None, ancho_paquete_mm=N
                             velocidad_m_s=velocidad, ancho_paquete_mm=ancho_paq)
     rules += structure_rules(doc, carga, conveyor)  # estructura/uniones/vuelco + FEA (vigencia)
     rules += stackup_rules(doc)  # V7.3: cadenas de cotas declaradas/auto
+    rules += neumatica.memoria(doc)  # V8.9 D10: el aire (sin aire, nada)
     if sin_req_conveyor:
         rules.append(dict(ALCANCE))
     # sin requisitos de transportador NO se inyectan claves vacías a la portada

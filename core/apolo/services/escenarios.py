@@ -14,7 +14,8 @@ checkpoints, como `motion` o `fea`) con la forma `{nombre: {"escenario": {...}, 
     `hash_escenario` y la versión del motor (`cosim.COSIM_EPOCH`, F6b) y, si el tablero usa
     modelos de una extensión, su versión (`extensiones`); si cualquiera cambió, «vencido»;
   - `resultado_compacto` + `guardar_resultado`: lo que queda del último run (veredicto y cada
-    aserción, sin las trazas, que van a la memoria de la API);
+    aserción, sin las trazas, que van a la memoria de la API; con cilindros, `aire`: sus carreras
+    medidas, que lee la memoria de cálculo, `aire_resultado.py`, V8.9 F4);
   - `reglas_escenarios`: la regla «escenarios» de la puerta de entrega (D14).
 """
 
@@ -289,13 +290,17 @@ def resultado_compacto(veredicto: dict, res: dict, *, firma: str, hash_esc: str,
     una extensión, sus versiones (`extensiones`, A4)."""
     from apolo.cosim import COSIM_EPOCH
 
+    from .aire_resultado import resumen_aire
+
     r = res.get("resumen") or {}
+    aire = resumen_aire(res)  # V8.9 F4: carreras y consumo del aire para la memoria (sin aire, nada)
     return {"veredicto": veredicto["veredicto"], "aserciones": veredicto["aserciones"],
             "firma_documento": firma, "hash_escenario": hash_esc, "cosim_epoch": COSIM_EPOCH,
             "fecha": time.strftime("%Y-%m-%dT%H:%M:%S"), "huella": r.get("huella"),
             "duracion_s": r.get("duracion_s"), "factor_tiempo_real": r.get("factor_tiempo_real"),
             **({"simulacion": simulacion} if simulacion else {}),
-            **({"extensiones": dict(extensiones)} if extensiones else {})}
+            **({"extensiones": dict(extensiones)} if extensiones else {}),
+            **({"aire": aire} if aire else {})}
 
 
 def guardar_resultado(doc, nombre: str, compacto: dict) -> bool:

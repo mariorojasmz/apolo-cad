@@ -10,11 +10,18 @@ from apolo.design import DESIGN_RULES, design_brief, design_guidelines
 
 def test_module_has_full_decalogue_with_verification():
     g = design_guidelines()
-    # Las 11 reglas no negociables (el decálogo + la eléctrica de V8.1 D11), cada una con
-    # detalle y CON QUÉ se verifica en Apolo.
-    assert len(g["reglas"]) == len(DESIGN_RULES) == 11
-    assert DESIGN_RULES[-1]["clave"] == "electrico"
-    assert "electrical_check" in DESIGN_RULES[-1]["verificar"]
+    # Las 12 reglas no negociables (el decálogo + la eléctrica de V8.1 D11 + la del aire de V8.9
+    # D9), cada una con detalle y CON QUÉ se verifica en Apolo.
+    assert len(g["reglas"]) == len(DESIGN_RULES) == 12
+    assert [r["clave"] for r in DESIGN_RULES[-2:]] == ["electrico", "neumatica"]
+    assert "electrical_check" in DESIGN_RULES[-2]["verificar"]
+    aire = DESIGN_RULES[-1]
+    assert "electrical_check" in aire["verificar"] and "delivery_check" in aire["verificar"]
+    # V8.9 D9: corte con escape a la entrada, reposo por lo que hace el cilindro sin energía,
+    # regulación por el escape y detectores donde el programa los necesita
+    for frase in ("válvula de corte CON escape", "5/2 monoestable", "5/3", "biestable", "ESCAPE",
+                  "detectores de fin de carrera"):
+        assert frase in aire["detalle"], frase
     for regla in g["reglas"]:
         assert regla["titulo"] and regla["detalle"] and regla["verificar"]
     # cubre los ejes que el usuario pidió: sujeción, herraje desmontable, geometría conforme.

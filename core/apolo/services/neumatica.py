@@ -61,8 +61,56 @@ def seccion(m, c, elegidos: set | None = None) -> dict:
             "resumen": {"n_dispositivos": len(aire), "n_tubos": len(m.tubos), "n_lineas": len(c.miembros)}}
 
 
+def disponibles() -> frozenset:
+    """Los `modelo.tipo` neumáticos que ofrece el catálogo: las reglas de silenciador y de regulación
+    de velocidad corren sólo si hay refs con qué cumplirlas (V8.9 F4, D16)."""
+    from apolo.library.catalog import CATALOG
+
+    return frozenset(c.neumatico.tipo for c in CATALOG.values()
+                     if c.neumatico is not None and c.neumatico.tipo)
+
+
 def reglas(m) -> list[dict]:
     """El ERC neumático del modelo (`[]` sin aire)."""
     from apolo.library.neumatica.erc import erc
 
-    return erc(m)
+    return erc(m, disponibles=disponibles())
+
+
+def cosim_vigente(doc) -> dict:
+    """{cilindro: lo medido} de los escenarios VIGENTES con aire (`resultado["aire"]`, que guarda
+    `escenarios.resultado_compacto`): por cilindro, el del escenario en que fue MÁS RÁPIDO (el peor
+    caso para el impacto y el caudal), con su nombre. Un vencido o sin correr no cuenta."""
+    from . import escenarios as E
+
+    out: dict = {}
+    if not doc.escenarios:
+        return out
+    firma, cache = E.firma_documento(doc), {}
+    for nombre, ent in doc.escenarios.items():
+        aire = (ent.get("resultado") or {}).get("aire")
+        if not aire or E.estado(doc, nombre, firma, cache)["estado"] in (E.SIN_CORRER, E.VENCIDO):
+            continue
+        for des, fila in (aire.get("cilindros") or {}).items():
+            if fila.get("t_avance_s") is None and not fila.get("v_max_m_s"):
+                continue  # no se movió en ese escenario
+            previo = out.get(des)
+            if previo is None or fila.get("v_max_m_s", 0) > previo.get("v_max_m_s", 0):
+                out[des] = {**fila, "escenario": nombre, "medicion": aire.get("medicion", "")}
+    return out
+
+
+def memoria(doc) -> list[dict]:
+    """Las verificaciones del aire para la memoria de cálculo (V8.9 D10, `library/neumatica/
+    memoria.py`): con lo medido en la co-simulación vigente y el % de fugas de los requisitos
+    (`fugas_aire_pct`). `[]` sin aire: la memoria de siempre."""
+    from apolo.library.neumatica.memoria import reglas as reglas_memoria
+
+    from .electrico import modelo
+
+    m = modelo(doc)
+    if not hay_aire(m):
+        return []
+    fugas = (doc.requirements or {}).get("fugas_aire_pct")
+    return reglas_memoria(analizar(m), cosim=cosim_vigente(doc),
+                          fugas_pct=float(fugas) if isinstance(fugas, (int, float)) else None)

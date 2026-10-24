@@ -38,6 +38,9 @@ class ServicioCilindro(BaseModel):
                                    description="montaje: 1 empotrado-libre, 2 articulado, 3, 4 empotrado")
     largo_libre_mm: float | None = Field(None, gt=0, le=10000, title="Largo libre",
                                          description="mm del vástago como columna; vacío = la carrera")
+    ciclos_min: float | None = Field(None, gt=0, le=600, title="Cadencia",
+                                     description="ciclos dobles por minuto: el consumo por minuto y la "
+                                                 "demanda de aire de la memoria")
 
 
 class AddTuboParams(BaseModel):

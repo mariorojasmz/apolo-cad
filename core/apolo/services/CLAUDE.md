@@ -168,7 +168,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - El circuito de AIRE (V8.9) sale en la MISMA salida que lo eléctrico: `neumatica.py` arma la
   sección `neumatica` de `circuito`, los `puertos` de cada aparato de aire y suma el ERC
   neumático (filas `medio: "aire"`) AL FINAL de `_erc_completo`; sin aire no suma nada (la
-  salida de siempre, que congela `tests/data/carril_v81_golden.json`).
+  salida de siempre, que congela `tests/data/carril_v81_golden.json`). La memoria del aire
+  (`neumatica.memoria`) usa la velocidad MEDIDA del escenario vigente más rápido si pasa la
+  declarada (`resultado["aire"]` de `aire_resultado.py`, sin trazas); un vencido no cuenta.
   [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y

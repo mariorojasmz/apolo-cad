@@ -36,6 +36,13 @@ CASOS_EULER = {1: 2.0, 2: 1.0, 3: 0.7, 4: 0.5}
 #: Sin fy del vástago, por debajo de esta esbeltez Euler puede no valer: λc = π·√(2E/fy) = 100
 #: para fy ≈ 415 MPa (criterio de diseño); se pide fy para pasar a Johnson.
 LAMBDA_SIN_FY = 100.0
+#: Tope de la relación de carga (fuerza requerida / fuerza teórica de avance) cuando la ficha no
+#: trae el suyo (`relacion_carga_max`): criterio de diseño. La fuerza que sobra acelera la carga y
+#: cubre la caída de presión del arranque; un cilindro al límite se mueve lento y a tirones.
+RELACION_CARGA_MAX = 0.7
+#: Caída de presión aceptada al verificar el caudal de un componente: criterio de diseño, la del
+#: punto del caudal nominal Qn (6 → 5 bar manométricos: Δp = 1 bar), el que publican las fichas.
+DP_CAUDAL_BAR = 1.0
 
 _HIP_PATM = "p_atm = 1,01325 bar (atmósfera estándar ISO 2533): el proyecto no declaró la de su sitio"
 
@@ -95,6 +102,28 @@ def fuerzas_de_ficha(ficha, p_bar_g: float) -> dict:
         r["estado"] = "error"
         r["calc"]["criterio"] += f" · presión dentro de {m['p_min_bar']:g}–{m['p_max_bar']:g} bar de la ficha"
     return r
+
+
+def relacion_carga(F_req_N: float, F_teorica_N: float, F_efectiva_N: float, *,
+                   tope: float | None = None) -> dict:
+    """Relación de carga η = F requerida / F teórica de avance contra el tope de la ficha o, sin él,
+    `RELACION_CARGA_MAX` (criterio de diseño): sobre el tope, aviso; si la carga pasa la fuerza
+    EFECTIVA (con la fricción de los sellos), el vástago no la mueve: error."""
+    eta = F_req_N / F_teorica_N
+    lim = RELACION_CARGA_MAX if tope is None else tope
+    hip = [] if tope is not None else [f"tope {lim:g}: criterio de diseño (la ficha no trae relación de carga)"]
+    estado = "error" if F_req_N > F_efectiva_N else ("aviso" if eta > lim else "ok")
+    return _res(
+        "Relación de carga", {"eta": eta, "tope": lim, "F_req_N": F_req_N, "F_teorica_N": F_teorica_N},
+        estado, hip,
+        entradas={"fuerza requerida": f"{F_req_N:g} N (servicio declarado)",
+                  "fuerza teórica de avance": f"{F_teorica_N:.0f} N",
+                  "fuerza efectiva (con fricción)": f"{F_efectiva_N:.0f} N"},
+        formula="η = F_requerida / F_teórica",
+        sustitucion=f"η = {F_req_N:g} / {F_teorica_N:.0f} = {eta:.2f}",
+        resultado=f"η = {eta:.2f} (tope {lim:g})",
+        criterio=f"η ≤ {lim:g} y F_requerida ≤ F_efectiva", fs=round(1 / eta, 2) if eta > 0 else None,
+        norma="criterio de diseño" if tope is None else "criterio de diseño (tope de la ficha del fabricante)")
 
 
 def volumen_tubo_cm3(D_int_mm: float, largo_m: float) -> float:

@@ -165,6 +165,31 @@ DESIGN_RULES: list[dict[str, str]] = [
         "verificar": "electrical_check (ERC) + get_circuit; en el lote que cablea, el contrato "
         "{\"erc\": \"sin_errores\"}; delivery_check lo incluye.",
     },
+    {
+        "clave": "neumatica",
+        "titulo": "Circuito de aire seguro",
+        "corto": "Si la máquina lleva aire: FRL y válvula de corte con escape a la entrada, cada "
+        "válvula en la posición de reposo que deja segura la máquina sin energía, regulación por "
+        "el escape y detectores donde el programa los necesita.",
+        "detalle": "El aire va en el mismo carril que lo eléctrico: add_device (cilindro -MM, "
+        "válvula -QM, FRL -AZ) y add_tubo entre puertos (válvulas por ISO 5599-3: 1 alimentación, "
+        "2 y 4 trabajo, 3 y 5 escape; cilindro A fondo, B vástago). A la ENTRADA, la unidad de "
+        "mantenimiento (FRL, con su p_regulada_bar) y aguas abajo la válvula de corte CON escape y "
+        "candado, que alimenta todas las válvulas: al cortar, el aire atrapado se descarga y nada "
+        "se mueve (ISO 4414). La POSICIÓN DE REPOSO de cada válvula se elige por lo que debe hacer "
+        "su cilindro al cortarse la energía: lo que puede volver solo (un empujador que se retira) "
+        "lleva 5/2 monoestable con su muelle; lo que sostiene una carga o no debe moverse lleva 5/3 "
+        "de centro cerrado o biestable, y lo dices en una nota. La velocidad se regula por el "
+        "ESCAPE (regulador unidireccional con su puerto 2 hacia el cilindro), no por la entrada. "
+        "Pon detectores de fin de carrera donde el programa necesita saber que el vástago llegó "
+        "(para seguir el ciclo o para enclavar), no en todos lados. Declara el `servicio` de cada "
+        "cilindro (carrera, velocidad, masa, montaje, ciclos_min) para que el ERC revise pandeo, "
+        "impacto, caudal y relación de carga, y la memoria calcule el aire que consume.",
+        "verificar": "electrical_check (las reglas con medio «aire») + get_circuit (sección "
+        "neumatica); simulate con acoples.cilindros prueba el ciclo y el corte de aire; "
+        "delivery_check incluye el ERC del aire; calc_report trae fuerza, consumo, tiempo, pandeo, "
+        "impacto y la demanda de aire.",
+    },
 ]
 
 # Doctrina de ESCALA (V6.5): cómo trabaja el agente un proyecto de MUCHAS piezas sin

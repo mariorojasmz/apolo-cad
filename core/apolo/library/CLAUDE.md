@@ -23,7 +23,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   `tension_bobina`; el loader lo exige (`neumatica/bobinas.py`); su `modelo` es `electrovalvula`
   (la bobina en la co-simulación; los tiempos salen de la ficha neumática, no se repiten). El ERC neumático
   (`neumatica/erc.py`, sobre `lineas.py`) recibe el modelo del carril por atributos: cada regla
-  nueva, con su caso verde y rojo en `tests/test_neumatica_erc.py`. La geometría del cilindro
+  nueva, con su caso verde y rojo en `tests/test_neumatica_erc.py`. Lo de cada cilindro (presión,
+  válvula a través de sus reguladores, C del escape, pandeo, relación de carga) es UNA cuenta,
+  `neumatica/cilindros.py`, para el ERC y la memoria (`neumatica/memoria.py`); una regla que pide
+  una ref que el catálogo aún no trae corre sólo si su tipo está en `disponibles` (si no, avisaría
+  en todo circuito sin arreglo). La geometría del cilindro
   (`builders_neumatica.py`) lee las cotas de los `params` de la ref (con su fuente en el YAML) y
   las de los accesorios ISO 15552 de `neumatica/montajes.py` (tablas transcritas): nunca una cota
   de interfaz en el builder. El vástago viene con su ref: `incluidas.py` lo saca de la BOM y de la

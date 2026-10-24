@@ -67,7 +67,8 @@ def test_el_circuito_verde_pasa_todas_las_reglas():
     reglas = erc(verde())
     assert [r["regla"] for r in reglas] == [
         "aislamiento del aire", "tubo sin puerto", "puerto libre", "presión de trabajo",
-        "servicio del cilindro", "caudal de la válvula", "pandeo del vástago", "energía al fin de carrera"]
+        "servicio del cilindro", "caudal de la válvula", "pandeo del vástago", "energía al fin de carrera",
+        "relación de carga"]
     assert all(r["estado"] == "ok" for r in reglas), [r["detalle"] for r in reglas if r["estado"] != "ok"]
     assert all(r["medio"] == "aire" and r["norma"] for r in reglas)
 
@@ -203,3 +204,91 @@ def test_sin_servicio_las_reglas_de_calculo_no_inventan(regla):
     m = verde(_MM1=disp("-MM1", "CIL-ISO15552-32"))
     (r,) = por_regla(erc(m), regla)
     assert r["estado"] == "ok" and "declara" in r["detalle"]
+
+
+# ── F4: relación de carga, silenciador, regulación de velocidad ──────────────────────────
+
+
+def test_la_relacion_de_carga():
+    def con(fuerza):
+        return verde(_MM1=disp("-MM1", "CIL-ISO15552-32", servicio={**SERVICIO, "fuerza_N": fuerza}))
+
+    assert not malas(erc(con(100)), "relación de carga")  # η = 0,21
+    (r,) = malas(erc(con(400)), "relación de carga")  # η = 0,83 > 0,7 (criterio de diseño)
+    assert r["estado"] == "aviso" and r["calc"]["sustitucion"] == "η = 400 / 483 = 0.83"
+    (r,) = malas(erc(con(450)), "relación de carga")  # pasa los 434 N efectivos (10 % de fricción)
+    assert r["estado"] == "error" and "no la mueve" in r["detalle"]
+
+
+def _ficha(tipo_: str):
+    from apolo.library.neumatica.ficha import parse_ficha_neumatica
+
+    if tipo_ == "regulador_caudal":
+        return parse_ficha_neumatica({
+            "funcion": "RZ", "simbolo": "regulador_caudal", "fuente": "sintética (test)",
+            "puertos": [{"id": "1", "rol": "entrada", "rosca": "G1/8"}, {"id": "2", "rol": "salida", "rosca": "G1/8"}],
+            "modelo": {"tipo": "regulador_caudal", "caudal": {"C": 1.0, "b": 0.3}, "C_regulado": [0.02, 1.0],
+                       "p_max_bar": 10}}, "RZ-TEST")
+    return parse_ficha_neumatica({
+        "funcion": "RZ", "simbolo": "silenciador", "fuente": "sintética (test)",
+        "puertos": [{"id": "1", "rol": "entrada", "rosca": "G1/8"}],
+        "modelo": {"tipo": "silenciador", "caudal": {"C": 3.0, "b": 0.3}}}, "SIL-TEST")
+
+
+def _sint(des: str, tipo_: str, ajustes=None) -> Dispositivo:
+    f = _ficha(tipo_)
+    return Dispositivo(designacion=des, ref=f"{tipo_}-test", funcion=f.funcion, bornes=(), puertos=f.puertos,
+                       neumatico=f, ajustes=dict(ajustes or {}))
+
+
+TODO = frozenset({"silenciador", "regulador_caudal"})
+
+
+def test_sin_refs_en_el_catalogo_no_hay_avisos_de_silenciador_ni_regulacion():
+    from apolo.services.neumatica import disponibles
+
+    reglas = erc(verde())  # el catálogo de hoy no trae silenciadores ni reguladores (D16)
+    assert not por_regla(reglas, "escape sin silenciador") and not por_regla(reglas, "regulación de velocidad")
+    assert "silenciador" not in disponibles() and "regulador_caudal" not in disponibles()
+
+
+def test_escape_sin_silenciador_avisa_si_el_catalogo_los_trae():
+    avisos = malas(erc(verde(), disponibles=TODO), "escape sin silenciador")
+    assert sorted(r["elementos"][0] for r in avisos) == ["-QM1:3", "-QM2:3", "-QM2:5"]
+    assert {r["estado"] for r in avisos} == {"aviso"}
+    sil = {f"_RZ{k}": _sint(f"-RZ{k}", "silenciador") for k in (1, 2, 3)}
+    ts = list(verde().tubos) + [tubo("-QM1:3", "-RZ1:1"), tubo("-QM2:3", "-RZ2:1"), tubo("-QM2:5", "-RZ3:1")]
+    assert not malas(erc(verde(**sil, tubos=ts), disponibles=TODO), "escape sin silenciador")
+
+
+def _con_reg(lado_cil: str, ajuste=None):
+    """El verde con un regulador en línea en cada puerto del cilindro; `lado_cil`, el puerto del
+    regulador que da al cilindro («2»: regula el escape)."""
+    otro = "1" if lado_cil == "2" else "2"
+    regs = {"_RZ1": _sint("-RZ1", "regulador_caudal", ajuste), "_RZ2": _sint("-RZ2", "regulador_caudal", ajuste)}
+    ts = [tubo("-AZ1:2", "-QM1:1", "TUBO-PU-8"), tubo("-QM1:2", "-QM2:1", "TUBO-PU-8"),
+          tubo("-QM2:4", f"-RZ1:{otro}"), tubo(f"-RZ1:{lado_cil}", "-MM1:A"),
+          tubo("-QM2:2", f"-RZ2:{otro}"), tubo(f"-RZ2:{lado_cil}", "-MM1:B")]
+    return verde(**regs, tubos=ts)
+
+
+def test_regulacion_de_velocidad_por_el_escape():
+    (r,) = malas(erc(verde(), disponibles=TODO), "regulación de velocidad")
+    assert r["estado"] == "aviso" and "sin regulador" in r["detalle"]
+    ok = erc(_con_reg("2", {"C_regulado": 0.15}), disponibles=TODO)
+    assert not malas(ok, "regulación de velocidad")
+    (r,) = malas(erc(_con_reg("1", {"C_regulado": 0.15}), disponibles=TODO), "regulación de velocidad")
+    assert "regula la ENTRADA" in r["detalle"]
+
+
+def test_el_caudal_se_revisa_a_traves_del_regulador():
+    """Antes de F4 un regulador en línea daba «ninguna válvula manda el puerto». Con el escape
+    estrangulado (C 0,15 en serie con la G1/8: 1/C² = Σ 1/Cᵢ², declarado), la cota de régimen del
+    avance es ≈ 0,15·1000/691 = 0,22 m/s: no llega a los 0,5 pedidos."""
+    av, rt = malas(erc(_con_reg("2", {"C_regulado": 0.15})), "caudal de la válvula")  # los dos sentidos
+    assert "en el avance" in av["detalle"] and "en el retroceso" in rt["detalle"]
+    r = av
+    assert r["estado"] == "error" and "C = 0.15" in r["detalle"] and "0.22 m/s" in r["detalle"]
+    assert any("1/C² = Σ 1/Cᵢ²" in h for h in r["calc"]["hipotesis"])
+    # sin el ajuste: la máxima apertura (C 1,0), declarada como hipótesis; la cota pasa los 0,5 m/s
+    assert not malas(erc(_con_reg("2")), "caudal de la válvula")

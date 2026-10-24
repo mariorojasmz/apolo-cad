@@ -28,8 +28,8 @@ def wire(*puntos: str, **p) -> dict:
     return {"type": "add_wire", "params": {"puntos": list(puntos), **p}}
 
 
-def empujador(valvula: str = "VAL-52-MONO-G18", carrera: int = CARRERA):
-    """(documento, cid del cilindro)."""
+def empujador(valvula: str = "VAL-52-MONO-G18", carrera: int = CARRERA, servicio: dict | None = None):
+    """(documento, cid del cilindro); `servicio`, el del cilindro en su `add_device` (F4)."""
     d = Document("empujador")
     cid = d.execute("create_pneumatic_cylinder", {
         "ref": "CIL-ISO15552-32", "carrera": carrera, "montaje": "pies", "eje": "+X", "puertos": "+Z",
@@ -50,7 +50,7 @@ def empujador(valvula: str = "VAL-52-MONO-G18", carrera: int = CARRERA):
         dev("FR-G14", ajustes={"p_regulada_bar": 6}),
         dev("CORTE-ESC-G14"),
         dev(valvula),
-        dev("CIL-ISO15552-32", pieza=f"{cid}_cuerpo"),
+        dev("CIL-ISO15552-32", pieza=f"{cid}_cuerpo", **({"servicio": servicio} if servicio else {})),
         tubo("-AZ1:2", "-QM1:1", "TUBO-PU-8", largo_m=0.5),
         tubo("-QM1:2", "-QM2:1", "TUBO-PU-8", largo_m=1.0),
         tubo("-QM2:4", "-MM1:A", largo_m=1.0),

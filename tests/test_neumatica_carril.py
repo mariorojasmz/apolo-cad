@@ -240,7 +240,7 @@ def test_get_circuit_muestra_el_aire(aire):
 def test_electrical_check_muestra_el_aire(aire):
     ch = S.chequeo(aire)
     del_aire = [r for r in ch["reglas"] if r.get("medio") == "aire"]
-    assert ch["n_tubos"] == 4 and len(del_aire) == 8
+    assert ch["n_tubos"] == 4 and len(del_aire) == 9  # + la relación de carga (F4)
     assert all(r["estado"] == "ok" for r in del_aire), [r["detalle"] for r in del_aire if r["estado"] != "ok"]
 
 

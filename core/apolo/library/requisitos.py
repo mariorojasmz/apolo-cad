@@ -23,7 +23,7 @@ import unicodedata
 NUMERICAS: tuple[str, ...] = (
     "carga_kg", "largo_paquete_mm", "ancho_paquete_mm", "alto_paquete_mm",
     "velocidad_m_s", "inclinacion_deg", "temperatura_c", "tipo_cambio", "ancho_producto_mm",
-    "peso_paquete_kg", "paquetes_por_minuto",
+    "peso_paquete_kg", "paquetes_por_minuto", "fugas_aire_pct",
 )
 
 #: Las claves de la ficha del encargo (D1), en el orden en que se piden.

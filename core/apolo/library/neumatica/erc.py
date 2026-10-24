@@ -23,7 +23,16 @@ Reglas (cada una con su norma o «criterio de diseño»):
     sin tubos ni carga: si ni así llega, no llega);
   - **pandeo del vástago** (error): Euler/Johnson con la fuerza teórica de avance (el vástago
     bloqueado recibe toda la fuerza del pistón) y FS ≥ 3;
-  - **energía al fin de carrera** (error): ½·m·v² contra la admisible de la amortiguación.
+  - **energía al fin de carrera** (error): ½·m·v² contra la admisible de la amortiguación;
+  - **relación de carga** (F4; aviso / error): η = `servicio.fuerza_N` / fuerza teórica de avance
+    sobre el tope de la ficha (`relacion_carga_max`) o, sin él, el criterio de diseño; error si
+    la carga pasa la fuerza EFECTIVA (con la fricción): el vástago no la mueve;
+  - **escape sin silenciador** y **regulación de velocidad** (F4; aviso): SÓLO si el catálogo
+    ofrece silenciadores / reguladores de caudal (`disponibles`): sin refs darían un aviso en
+    todo circuito que nadie puede resolver (D16 los trae).
+
+Las cuentas de cada cilindro (presión, válvula a través de sus reguladores, C del escape,
+pandeo) son las de `cilindros.py`, las mismas que usa la memoria (`memoria.py`).
 
 Puro (biblioteca estándar): recibe el modelo del carril por sus atributos, nunca un documento.
 """
@@ -31,6 +40,7 @@ Puro (biblioteca estándar): recibe el modelo del carril por sus atributos, nunc
 from __future__ import annotations
 
 from . import calculo as K
+from . import cilindros as Z
 from .lineas import Circuito, analizar, aguas_abajo, tipo
 
 CRITERIO = "criterio de diseño"
@@ -44,6 +54,9 @@ NORMAS = {
     "caudal de la válvula": "ISO 6358-1:2013 (caudal en bloqueo sónico) · ISO 8778 (ANR)",
     "pandeo del vástago": f"Euler / Johnson · {CRITERIO} (FS ≥ {K.FS_PANDEO:g})",
     "energía al fin de carrera": f"{CRITERIO} (energía admisible de la ficha del fabricante)",
+    "relación de carga": f"{CRITERIO} (tope de la ficha o η ≤ {K.RELACION_CARGA_MAX:g})",
+    "escape sin silenciador": f"{CRITERIO} (ruido de la descarga)",
+    "regulación de velocidad": f"{CRITERIO} (regulación por el escape en doble efecto)",
 }
 #: Roles de puerto que pueden quedar sin tubo (a la atmósfera o sin pilotaje externo).
 LIBRES = ("escape", "pilotaje")
@@ -188,24 +201,6 @@ def _presion(c: Circuito) -> list[dict]:
     return out or [_r("presión de trabajo", "ok", "La presión regulada cae dentro del rango de cada ficha.")]
 
 
-def _valvula_de(c: Circuito, cil, puerto: str):
-    """La válvula con una vía de trabajo en la línea del puerto del cilindro (o None)."""
-    i = c.linea(cil.designacion, puerto)
-    for des, p in (c.miembros[i] if i is not None else ()):
-        d = c.dispositivos[des]
-        if tipo(d) == "valvula" and p in ("2", "4"):
-            return d
-    return None
-
-
-def _p_trabajo(c: Circuito, cil) -> tuple[float, list[str]]:
-    pr = c.presion_de(cil)
-    if pr is not None:
-        return pr[1], []
-    p = cil.neumatico.modelo["p_max_bar"]
-    return p, [f"sin presión declarada: {p:g} bar, la máxima de la ficha (el peor caso)"]
-
-
 def _servicio(c: Circuito) -> list[dict]:
     cil = _de_tipo(c, "cilindro")
     sin = [d.designacion for d in cil if not d.servicio]
@@ -232,22 +227,21 @@ def _caudal(c: Circuito) -> list[dict]:
         # la A. Un simple efecto retrocede por su muelle: sólo el avance, por el lado que llena.
         lados = [("B", Ab, "avance"), ("A", A, "retroceso")] if m["efecto"] == "doble" else []
         for puerto, area, sentido in lados:
-            v = _valvula_de(c, cil, puerto)
+            v, regs = Z.hacia_valvula(c, cil, puerto)
             if v is None:
                 out.append(_r("caudal de la válvula", "aviso",
-                              f"{_quien(cil)}: ninguna válvula manda el puerto {puerto} directo; no se revisa el caudal.",
-                              "Une el puerto del cilindro a la vía 2 o 4 de su válvula.", [cil.designacion]))
+                              f"{_quien(cil)}: ninguna válvula manda el puerto {puerto}; no se revisa el caudal.",
+                              "Une el puerto del cilindro a la vía 2 o 4 de su válvula (directo o por su "
+                              "regulador de caudal).", [cil.designacion]))
                 break
-            caudal = v.neumatico.escape or v.neumatico.caudal
-            r = K.regimen(caudal.C, area, s["carrera_mm"], b=caudal.b)
-            r["calc"]["hipotesis"] = r["hipotesis"] + list(caudal.hipotesis) + (
-                [] if v.neumatico.escape else ["C del escape = el de la alimentación (la ficha no da el de 4→5)"])
-            r["calc"]["hipotesis"].append("sin la pérdida de los tubos ni la carga: la cota es optimista")
+            C, b, hip = Z.c_escape(v, regs)
+            r = K.regimen(C, area, s["carrera_mm"], b=b)
+            r["calc"]["hipotesis"] = r["hipotesis"] + hip + ["sin la pérdida de los tubos ni la carga: la cota es optimista"]
             vmax = r["valor"]["v_m_s"]
             if s["velocidad_m_s"] > vmax:
                 out.append(_r("caudal de la válvula", "error",
                               f"{_quien(cil)} pide {s['velocidad_m_s']:g} m/s y el escape de {v.designacion} "
-                              f"(C = {caudal.C:.2f}) da a lo sumo {vmax:.2f} m/s en el {sentido}.",
+                              f"(C = {C:.2f}) da a lo sumo {vmax:.2f} m/s en el {sentido}.",
                               "Usa una válvula de más caudal (C), un cilindro de menos Ø o pide menos velocidad.",
                               [cil.designacion, v.designacion], calc=r["calc"]))
     return out or [_r("caudal de la válvula", "ok",
@@ -258,31 +252,41 @@ def _caudal(c: Circuito) -> list[dict]:
 def _pandeo(c: Circuito) -> list[dict]:
     out, n = [], 0
     for cil in _de_tipo(c, "cilindro"):
-        s, m = cil.servicio, cil.neumatico.modelo
-        if not s:
+        if not cil.servicio:
             continue
         n += 1
-        p, hip = _p_trabajo(c, cil)
-        F = K.fuerzas(m["D_mm"], m["d_mm"], p, friccion_N=m.get("friccion_N"),
-                      friccion_pct=m.get("friccion_pct"))["valor"]["F_avance_N"]
-        caso = s.get("caso_euler") or 1
-        largo = s.get("largo_libre_mm") or s["carrera_mm"]
-        r = K.pandeo_vastago(m["d_mm"], largo, caso, F)
-        hip += r["hipotesis"]
-        if not s.get("caso_euler"):
-            hip.append("caso 1 de Euler (empotrado-libre, el más desfavorable): el servicio no declara el montaje")
-        if not s.get("largo_libre_mm"):
-            hip.append("largo libre = la carrera (a confirmar: el vástago fuera de la tapa suma)")
+        r, hip, F, p, largo = Z.pandeo(c, cil)
         if r["estado"] != "ok":
             v = r["valor"]
             out.append(_r("pandeo del vástago", r["estado"],
-                          f"{_quien(cil)}: el vástago Ø{m['d_mm']:g} con {largo:g} mm libres admite "
-                          f"{v['F_adm_N']:.0f} N y el pistón empuja {F:.0f} N a {p:g} bar (FS = {v['fs']:.2f}).",
+                          f"{_quien(cil)}: el vástago Ø{cil.neumatico.modelo['d_mm']:g} con {largo:g} mm libres "
+                          f"admite {v['F_adm_N']:.0f} N y el pistón empuja {F:.0f} N a {p:g} bar (FS = {v['fs']:.2f}).",
                           "Un cilindro de vástago mayor, menos carrera libre, un montaje más rígido (caso 2–4) "
                           "o una guía del vástago.", [cil.designacion], calc={**r["calc"], "hipotesis": hip}))
     return out or [_r("pandeo del vástago", "ok",
                       f"Los vástagos de los {n} cilindro(s) con servicio no pandean (FS ≥ {K.FS_PANDEO:g})."
                       if n else "Ningún cilindro declara su servicio.")]
+
+
+def _relacion(c: Circuito) -> list[dict]:
+    out, n = [], 0
+    for cil in _de_tipo(c, "cilindro"):
+        r = Z.relacion(c, cil)
+        if r is None:
+            continue
+        n += 1
+        if r["estado"] != "ok":
+            v = r["valor"]
+            que = ("no la mueve: la carga pasa la fuerza efectiva (con la fricción de los sellos)"
+                   if r["estado"] == "error" else f"pasa el tope de {v['tope']:g}")
+            out.append(_r("relación de carga", r["estado"],
+                          f"{_quien(cil)}: {v['F_req_N']:g} N contra {v['F_teorica_N']:.0f} N teóricos "
+                          f"(η = {v['eta']:.2f}): {que}.",
+                          "Un cilindro de más Ø, más presión (dentro de la ficha) o menos carga.",
+                          [cil.designacion], calc={**r["calc"], "hipotesis": r["hipotesis"]}))
+    return out or [_r("relación de carga", "ok",
+                      f"Los {n} cilindro(s) con fuerza declarada quedan bajo su tope de relación de carga."
+                      if n else "Ningún cilindro declara la fuerza a vencer (servicio.fuerza_N).")]
 
 
 def _impacto(c: Circuito) -> list[dict]:
@@ -307,12 +311,56 @@ def _impacto(c: Circuito) -> list[dict]:
                       if n else "Ningún cilindro declara su velocidad.")]
 
 
-_REGLAS = (_aislamiento, _tubos, _libres, _presion, _servicio, _caudal, _pandeo, _impacto)
+def _silenciadores(c: Circuito) -> list[dict]:
+    """Escape de válvula sin silenciador (aviso: el ruido de la descarga). Una vía de escape libre
+    descarga a la atmósfera por la rosca de la válvula."""
+    out = []
+    for v in _de_tipo(c, "valvula", "valvula_corte"):
+        for p in v.puertos:
+            if p.rol != "escape":
+                continue
+            i = c.linea(v.designacion, p.id)
+            if not any(tipo(c.dispositivos[d]) == "silenciador" for d, _p in c.miembros[i]):
+                out.append(_r("escape sin silenciador", "aviso",
+                              f"{_quien(v)}: el escape {p.id} descarga sin silenciador (ruido de la descarga).",
+                              f"Pon un silenciador en la vía de escape (add_device + add_tubo al puerto {p.id}).",
+                              [f"{v.designacion}:{p.id}"]))
+    return out or [_r("escape sin silenciador", "ok", "Cada escape de válvula lleva su silenciador.")]
 
 
-def erc(modelo, circuito: Circuito | None = None) -> list[dict]:
-    """Las reglas de D9 sobre el circuito de aire del modelo; `[]` si no tiene aire."""
+def _regulacion(c: Circuito) -> list[dict]:
+    """Cilindro sin regulación de velocidad (aviso): ningún regulador de caudal en el camino de sus
+    puertos; o uno que regula la ENTRADA (su puerto 1 hacia el cilindro) en un doble efecto (la
+    regulación va por el escape: el pistón queda entre dos cámaras con presión)."""
+    out = []
+    for cil in _de_tipo(c, "cilindro"):
+        regs = [r for p in cil.puertos for r in Z.hacia_valvula(c, cil, p.id)[1]]
+        if not regs:
+            out.append(_r("regulación de velocidad", "aviso",
+                          f"{_quien(cil)}: sin regulador de caudal, el vástago va a la velocidad que dé el "
+                          "escape de su válvula y golpea al final.",
+                          "Un regulador de caudal unidireccional en cada puerto, regulando el escape (su "
+                          "puerto 2 hacia el cilindro).", [cil.designacion]))
+        elif cil.neumatico.modelo["efecto"] == "doble" and any(lado == "1" for _reg, lado in regs):
+            out.append(_r("regulación de velocidad", "aviso",
+                          f"{_quien(cil)}: un regulador regula la ENTRADA del aire (su puerto 1 da al cilindro).",
+                          "En doble efecto se regula el escape: da vuelta el regulador (puerto 2 hacia el "
+                          "cilindro).", [cil.designacion]))
+    return out or [_r("regulación de velocidad", "ok", "Cada cilindro regula su velocidad por el escape.")]
+
+
+_REGLAS = (_aislamiento, _tubos, _libres, _presion, _servicio, _caudal, _pandeo, _impacto, _relacion)
+#: Las reglas que piden una ref que el catálogo puede no tener (D16): sólo corren si el catálogo
+#: ofrece ese tipo; si no, darían un aviso en TODO circuito sin forma de resolverlo.
+_CON_CATALOGO = (("silenciador", _silenciadores), ("regulador_caudal", _regulacion))
+
+
+def erc(modelo, circuito: Circuito | None = None, *, disponibles=frozenset()) -> list[dict]:
+    """Las reglas de D9 sobre el circuito de aire del modelo; `[]` si no tiene aire. `disponibles`:
+    los `modelo.tipo` neumáticos que ofrece el catálogo (`services/neumatica.py` los pasa): las
+    reglas de silenciador y de regulación corren sólo si hay con qué cumplirlas."""
     if not hay_aire(modelo):
         return []
     c = circuito or analizar(modelo)
-    return [r for regla in _REGLAS for r in regla(c)]
+    reglas = list(_REGLAS) + [f for t, f in _CON_CATALOGO if t in disponibles]
+    return [r for regla in reglas for r in regla(c)]
