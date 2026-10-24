@@ -164,6 +164,48 @@ def test_una_lamina_mecanica_no_crea_la_capa_del_esquema():
     assert "ESQUEMA" not in capas
 
 
+# firmas de la lámina de esquema de la F2 sacadas ANTES de sumar el trazo cortado (V8.9 F5, sobre
+# ec8d294): un estilo nuevo no cambia una lámina de esquema que no lo usa
+FIRMA_ESQUEMA_SVG = "059fcd504306f4e042b068ee2cce230c15316cb63d665e1931ee2a360d49e134"
+FIRMA_ESQUEMA_PDF = "f1694ea03541bad472b29fa9801b4cae6972a3475cff3fef4ca3cb281960ba0c"
+FIRMA_ESQUEMA_DXF = "ade921a69a98604efe878eec1ff6eb984757b85b32371f9e64aa27cfda2d47cc"
+
+
+def test_el_trazo_cortado_no_cambia_una_lamina_de_esquema_que_no_lo_usa():
+    m = _lamina_de_esquema()
+    assert (_firma_svg(m), _firma_pdf(m), _firma_dxf(m)) == (
+        FIRMA_ESQUEMA_SVG, FIRMA_ESQUEMA_PDF, FIRMA_ESQUEMA_DXF)
+
+
+def test_el_trazo_cortado_en_los_tres_exportadores():
+    """V8.9 F5: la línea de pilotaje (ISO 1219-1) con el grosor del esquema y trazos 12·d/3·d
+    (ISO 128-20 tipo 02)."""
+    import ezdxf
+
+    from apolo.drawing.esquema import PILOTAJE, TIPO_LINEA_DXF, pilotaje, trazos_mm
+
+    m = SheetModel(297.0, 210.0)
+    pilotaje(m, 20, 100, 120, 100)
+    trazo, hueco = trazos_mm()
+    assert (trazo, hueco) == pytest.approx((12 * GROSOR_SIMBOLO_MM, 3 * GROSOR_SIMBOLO_MM))
+    assert m.lines[0].kind == PILOTAJE
+    svg = sheet_to_svg(m)
+    assert f'stroke-width="{GROSOR_SIMBOLO_MM:g}" stroke-dasharray="{trazo:g},{hueco:g}"' in svg
+    linea = [a for a in _artistas_pdf(m) if a[0] == "LineCollection"]
+    assert linea == [["LineCollection", ["#16181d"], [round(GROSOR_SIMBOLO_MM * 72 / 25.4, 4)], 1]]
+    fig = _figure(m)
+    estilo = fig.axes[0].collections[0].get_linestyle()[0]
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+    assert estilo[1] is not None and len(estilo[1]) == 2  # un patrón de trazo y hueco
+    doc = ezdxf.read(io.StringIO(sheet_to_dxf(m).decode("utf-8")))
+    (e,) = list(doc.modelspace())
+    assert e.dxf.layer == "ESQUEMA" and e.dxf.linetype == TIPO_LINEA_DXF
+    assert TIPO_LINEA_DXF in doc.linetypes
+    assert TIPO_LINEA_DXF not in ezdxf.read(io.StringIO(sheet_to_dxf(_lamina_de_esquema()).decode())).linetypes
+
+
 def test_los_estilos_y_el_poligono_corto():
     assert (SIMBOLO, LLENO) == ("simbolo", "simbolo_lleno")
     with pytest.raises(ValueError, match="3 puntos"):

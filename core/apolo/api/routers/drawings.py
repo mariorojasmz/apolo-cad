@@ -258,6 +258,8 @@ class DrawingSpecIn(BaseModel):
     shaded: bool = False         # isométrica SOMBREADA a color (estilo Inventor)
     hole_fits: dict[str, str] = {}  # {"20": "H7"} Ø_nominal→clase ISO 286; se mergea SOBRE el mapa automático (V5.4)
     hole_threads: dict[str, str] = {}  # {"6.8": "M8"} Ø_broca→rosca; se mergea SOBRE el mapa automático (V5.7)
+    esquema: str = ""            # "neumatico": la lámina ISO 1219 del circuito de aire (V8.9 F5) en vez de un plano
+    neumatica: dict | None = None  # {ciclo: ["-MM1"], detectores: {"-BG1": {cilindro, en}}} de esa lámina
 
 
 @router.get("/api/fits")
@@ -304,12 +306,36 @@ def drawing_spec(spec: DrawingSpecIn, async_: bool = Query(False, alias="async")
             require_odafc()
         except DwgError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if spec.esquema and spec.esquema not in ESQUEMAS:
+        raise HTTPException(status_code=400, detail=f"esquema: «{spec.esquema}» no existe; "
+                                                    f"esquemas: {', '.join(ESQUEMAS)}")
     return _job_entregable("drawing", lambda proyecto: _plano(proyecto, spec), async_)
 
 
-def _plano(proyecto, spec: DrawingSpecIn) -> Response:
-    from apolo.drawing import compose_sheet, sheet_to_dxf, sheet_to_pdf, sheet_to_svg
+ESQUEMAS = ("neumatico",)
 
+
+def _esquema(proyecto, spec: DrawingSpecIn) -> Response:
+    """La lámina ISO 1219 del circuito de aire (V8.9 F5): sólo lee el carril, sin HLR."""
+    from apolo.services import neumatica_esquema
+    from apolo.services.errors import ServiceError
+
+    with STATE_LOCK:
+        _mismo_proyecto(proyecto)
+        try:
+            model = neumatica_esquema.lamina(S.doc, spec.neumatica, hoja=spec.sheet,
+                                             meta={**_drawing_meta(), **(spec.meta or {})})
+        except ServiceError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        name = S.doc.name
+    return _responder(model, spec.format, f"{name or 'esquema'}-neumatico")
+
+
+def _plano(proyecto, spec: DrawingSpecIn) -> Response:
+    from apolo.drawing import compose_sheet
+
+    if spec.esquema:
+        return _esquema(proyecto, spec)
     with STATE_LOCK:
         _mismo_proyecto(proyecto)
         scene = S.doc.scene
@@ -351,12 +377,19 @@ def _plano(proyecto, spec: DrawingSpecIn) -> Response:
         fotos = _fotos_de([model]) if spec.format in ("pdf", "svg") else []
         name = S.doc.name
     _revelar(fotos)
-    if spec.format == "svg":
+    return _responder(model, spec.format, name or "plano")
+
+
+def _responder(model, formato: str, nombre_pdf: str) -> Response:
+    """La lámina en su formato (pdf | svg | dxf | dwg), fuera de `STATE_LOCK`."""
+    from apolo.drawing import sheet_to_dxf, sheet_to_pdf, sheet_to_svg
+
+    if formato == "svg":
         return Response(content=sheet_to_svg(model), media_type="image/svg+xml")
-    if spec.format == "dxf":
+    if formato == "dxf":
         return Response(content=sheet_to_dxf(model), media_type="application/dxf",
                         headers={"Content-Disposition": "attachment; filename=plano.dxf"})
-    if spec.format == "dwg":  # V5.9: DXF convertido con ODA File Converter
+    if formato == "dwg":  # V5.9: DXF convertido con ODA File Converter
         from apolo.drawing import DwgError, sheet_to_dwg
 
         try:
@@ -366,4 +399,4 @@ def _plano(proyecto, spec: DrawingSpecIn) -> Response:
         return Response(content=data, media_type="application/acad",
                         headers={"Content-Disposition": "attachment; filename=plano.dwg"})
     return Response(content=sheet_to_pdf(model), media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="{name or "plano"}.pdf"'})
+                    headers={"Content-Disposition": f'attachment; filename="{nombre_pdf}.pdf"'})

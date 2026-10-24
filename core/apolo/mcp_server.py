@@ -1192,24 +1192,23 @@ def drawing(spec: dict, path: str | None = None) -> str:
     """Plano profesional por INTENCIÓN (el moat agente-nativo): UNA spec declara qué quieres y
     el motor lo dibuja con cotas/cortes/detalles/cajetín pro. spec = {sheet:"A3", section:"x"/"y"/"z",
     detail:{view,u,v,radius,scale}, dims:[ids] (tamaño), datum_dims:[ids] (posición desde la base),
-    bom:true, cutlist:true (tabla DESPIECE con L×A×E por tabla, globos en el alzado — para
-    ENSAMBLAJES, no solo el bbox), hardware:true (añade CÉDULA DE HERRAJE bajo el despiece, con
-    columna Norma — DIN/ISO/EN/ASTM — para los normalizados),
+    bom:true, cutlist:true (tabla DESPIECE con L×A×E por tabla, globos en el alzado — para ENSAMBLAJES, no
+    solo el bbox), hardware:true (añade CÉDULA DE HERRAJE bajo el despiece, con columna Norma — DIN/ISO/EN/ASTM),
     auto_dims:true (acota SOLO la posición x/y de cada agujero desde el datum — para FABRICAR),
     interface_dims:true (cotas de MONTAJE: pitch centro-a-centro del patrón de agujeros + luz total — para acoplar),
     explode:{axis:"x"/"y"/"z",factor} (VISTA EXPLOSIONADA: piezas separadas + globos de secuencia),
     shaded:true (isométrica SOMBREADA a color, estilo Inventor, embebida en la lámina; pdf/svg),
     notes:["...","..."] (bloque de NOTAS generales en la lámina),
     assembly_notes:[] (auto-genera NOTAS DE MONTAJE desde el herraje) o ["..."] (notas explícitas),
-    member_detail:{member,pick:[t,w,l],locate:[ids],scale,name} (vista de DETALLE de UNA tabla con
-    sus mortajas/bisagras acotadas desde la base; reemplaza la planta),
-    isolate:[ids] (solo esas piezas, sin tocar el documento), format:"pdf"/"svg"/"dxf"/"dwg"
-    (dwg V5.9: requiere ODA File Converter instalado — sin él, 400 con la instrucción),
-    hole_fits:{"20":"H7"} y hole_threads:{"6.8":"M8"} (overrides de los callouts de ajuste/rosca —
-    los drill_hole con fit/thread ya se rotulan SOLOS: "Ø20 H7 (+0.021/0)" y "M8 - 6H (broca Ø6.8)"
-    + cosmético ISO 6410 en capa DXF ROSCA),
-    meta:{drawing_no,material,...}}. Con `path` guarda el archivo (pdf/dxf/svg); si format="svg" y sin
-    path devuelve el SVG (úsalo con show_widget para VER el plano inline). Read-only.
+    member_detail:{member,pick:[t,w,l],locate:[ids],scale,name} (vista de DETALLE de UNA tabla con sus
+    mortajas/bisagras acotadas desde la base; reemplaza la planta), isolate:[ids] (solo esas piezas, sin
+    tocar el documento), format:"pdf"/"svg"/"dxf"/"dwg" (dwg V5.9: requiere ODA File Converter instalado
+    — sin él, 400 con la instrucción), hole_fits:{"20":"H7"} y hole_threads:{"6.8":"M8"} (overrides de
+    los callouts de ajuste/rosca — los drill_hole con fit/thread ya se rotulan SOLOS: "Ø20 H7 (+0.021/0)" y "M8 - 6H (broca Ø6.8)"
+    + cosmético ISO 6410 en capa DXF ROSCA), meta:{drawing_no,material,...}}.
+    ESQUEMA ISO 1219 del aire del carril (no un plano): {esquema:"neumatico", format, sheet, neumatica:{ciclo:
+    ["-MM1",...] (orden de los cilindros), detectores:{"-BG1":{cilindro:"-MM1", en:"atras"|"adelante"}}}}.
+    Con `path` guarda el archivo; si format="svg" y sin path devuelve el SVG (show_widget lo muestra). Read-only.
     Si tarda, RECIBO {"job"}: get_job lo guarda en `path` al terminar."""
     return entregable.plano(_api, _submit_and_wait, spec, path)
 

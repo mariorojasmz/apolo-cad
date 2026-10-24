@@ -6,8 +6,10 @@ import base64
 from xml.sax.saxutils import escape
 
 from ..library.materials import hatch_pattern
-from .esquema import GROSOR_SIMBOLO_MM, LLENO, NEGRO, SIMBOLO
+from .esquema import GROSOR_SIMBOLO_MM, LLENO, NEGRO, PILOTAJE, SIMBOLO, trazos_mm
 from .sheet import SheetModel
+
+_TRAZO, _HUECO = trazos_mm()
 
 # patrones de rayado de sección por material (tile en userSpaceOnUse, mm)
 HATCH_DEFS = (
@@ -30,6 +32,8 @@ STYLES = {
     # trazos de esquema (`esquema.py`): un solo ancho para símbolos y conexiones
     SIMBOLO: f'stroke="{NEGRO}" stroke-width="{GROSOR_SIMBOLO_MM:g}"',
     LLENO: f'stroke="{NEGRO}" stroke-width="{GROSOR_SIMBOLO_MM:g}"',
+    PILOTAJE: (f'stroke="{NEGRO}" stroke-width="{GROSOR_SIMBOLO_MM:g}" '
+               f'stroke-dasharray="{_TRAZO:g},{_HUECO:g}"'),
 }
 # círculo y polígono de esquema: sin relleno (símbolo) o negro relleno (punto de unión, flecha)
 RELLENO_ESQUEMA = {SIMBOLO: "none", LLENO: NEGRO}

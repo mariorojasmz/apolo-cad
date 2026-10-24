@@ -59,23 +59,29 @@ def report(name, model):
         print(f"     {a}  x  {b}   ({ar} mm2)")
 
 
-store = ProjectStore(str(ROOT / "data" / "apolo.db"))
-doc = store.load(28)
-revs = store.list_revisions(28)
-meta = {"drawing_no": "PLG-001",
-        "revisions": [{"rev": i + 1, "date": r.get("created_at", ""), "note": r.get("note", "")}
-                      for i, r in enumerate(revs)]}
+def main() -> None:
+    """El juego de la puerta (proyecto 28 de data/apolo.db) y casos sintéticos."""
+    store = ProjectStore(str(ROOT / "data" / "apolo.db"))
+    doc = store.load(28)
+    revs = store.list_revisions(28)
+    meta = {"drawing_no": "PLG-001",
+            "revisions": [{"rev": i + 1, "date": r.get("created_at", ""), "note": r.get("note", "")}
+                          for i, r in enumerate(revs)]}
 
-# 1) las 14 páginas del juego de la puerta (el caso real)
-for k, pg in enumerate(sheet_set(doc.scene, project_name="Puerta", template="carpinteria", meta=meta)):
-    report(f"juego pag {k:02d}", pg)
+    # 1) las 14 páginas del juego de la puerta (el caso real)
+    for k, pg in enumerate(sheet_set(doc.scene, project_name="Puerta", template="carpinteria", meta=meta)):
+        report(f"juego pag {k:02d}", pg)
 
-# 2) casos sintéticos variados
-d = Document()
-cid = d.execute("create_box", {"name": "brida", "width": 200, "depth": 120, "height": 20})
-for x, y in ((-70, -40), (70, -40), (-70, 40), (70, 40)):
-    d.execute("drill_hole", {"feature": cid, "position": {"x": x, "y": y, "z": -10}, "axis": "z", "diameter": 11, "depth": 0})
-report("brida auto_dims", compose_sheet(d.scene, auto_dims=True, meta=meta))
-report("brida explode", compose_sheet(d.scene, explode={"axis": "z"}, meta=meta))
-report("brida notas", compose_sheet(d.scene, notes=["Romper aristas", "Acabado granallado", "ISO 2768-m"], meta=meta))
-report("puerta conjunto", compose_sheet(doc.scene, cutlist=True, hardware=True, meta=meta))
+    # 2) casos sintéticos variados
+    d = Document()
+    cid = d.execute("create_box", {"name": "brida", "width": 200, "depth": 120, "height": 20})
+    for x, y in ((-70, -40), (70, -40), (-70, 40), (70, 40)):
+        d.execute("drill_hole", {"feature": cid, "position": {"x": x, "y": y, "z": -10}, "axis": "z", "diameter": 11, "depth": 0})
+    report("brida auto_dims", compose_sheet(d.scene, auto_dims=True, meta=meta))
+    report("brida explode", compose_sheet(d.scene, explode={"axis": "z"}, meta=meta))
+    report("brida notas", compose_sheet(d.scene, notes=["Romper aristas", "Acabado granallado", "ISO 2768-m"], meta=meta))
+    report("puerta conjunto", compose_sheet(doc.scene, cutlist=True, hardware=True, meta=meta))
+
+
+if __name__ == "__main__":
+    main()

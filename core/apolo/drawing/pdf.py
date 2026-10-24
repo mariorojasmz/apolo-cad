@@ -5,7 +5,16 @@ from __future__ import annotations
 import io
 
 from ..library.materials import hatch_pattern
-from .esquema import GROSOR_SIMBOLO_MM, LLENO, NEGRO, SIMBOLO, pt
+from .esquema import (
+    GROSOR_SIMBOLO_MM,
+    HUECO_X_GROSOR,
+    LLENO,
+    NEGRO,
+    PILOTAJE,
+    SIMBOLO,
+    TRAZO_X_GROSOR,
+    pt,
+)
 from .sheet import SheetModel
 
 # patrón de rayado matplotlib por material
@@ -20,6 +29,9 @@ STYLE = {
     # trazos de esquema (`esquema.py`): el grosor va en mm y matplotlib lo mide en pt
     SIMBOLO: {"color": NEGRO, "lw": pt(GROSOR_SIMBOLO_MM), "ls": "-"},
     LLENO: {"color": NEGRO, "lw": pt(GROSOR_SIMBOLO_MM), "ls": "-"},
+    # a trazos: matplotlib escala el patrón por el grosor (`lines.scale_dashes`), así que 12/3
+    # son 12·d y 3·d
+    PILOTAJE: {"color": NEGRO, "lw": pt(GROSOR_SIMBOLO_MM), "ls": (0, (TRAZO_X_GROSOR, HUECO_X_GROSOR))},
 }
 # círculo y polígono de esquema: sin relleno (símbolo) o negro relleno (punto de unión, flecha)
 RELLENO_ESQUEMA = {SIMBOLO: "none", LLENO: NEGRO}

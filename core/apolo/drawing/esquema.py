@@ -15,6 +15,13 @@ unión mide `D_UNION_MM` de diámetro (≈ 3,5 veces el trazo: se distingue de u
 aun reducido). Las láminas mecánicas no usan estos estilos y no cambian de aspecto.
 
 El color es el negro de las aristas visibles del núcleo (`NEGRO`), no uno nuevo.
+
+Un tercer estilo, sólo para `Line` (plan V8.9 F5, el esquema ISO 1219):
+
+- `PILOTAJE`: el mismo trazo, CORTADO (la línea de pilotaje y la envolvente de un conjunto, que
+  ISO 1219-1 dibuja a trazos). Trazos de 12·d y huecos de 3·d con d = el grosor (el tipo de línea
+  02 de ISO 128-20, criterio de diseño); en DXF, el tipo de línea `APOLO_TRAZOS` en la capa del
+  esquema, que se crea sólo si la lámina lo usa.
 """
 
 from __future__ import annotations
@@ -23,7 +30,10 @@ from .sheet import Circle, Line, Polygon, SheetModel
 
 SIMBOLO = "simbolo"
 LLENO = "simbolo_lleno"
-ESTILOS = (SIMBOLO, LLENO)
+PILOTAJE = "simbolo_trazos"
+ESTILOS = (SIMBOLO, LLENO, PILOTAJE)
+TRAZO_X_GROSOR, HUECO_X_GROSOR = 12.0, 3.0  # ISO 128-20, tipo 02 (trazos): 12·d y 3·d
+TIPO_LINEA_DXF = "APOLO_TRAZOS"
 
 NEGRO = "#16181d"  # el de las aristas visibles y el texto de los exportadores
 GROSOR_SIMBOLO_MM = 0.35
@@ -43,6 +53,18 @@ def conductor(model: SheetModel, x1: float, y1: float, x2: float, y2: float) -> 
     linea = Line(x1, y1, x2, y2, SIMBOLO)
     model.lines.append(linea)
     return linea
+
+
+def pilotaje(model: SheetModel, x1: float, y1: float, x2: float, y2: float) -> Line:
+    """Una línea a trazos del esquema (pilotaje, envolvente), con el grosor del esquema."""
+    linea = Line(x1, y1, x2, y2, PILOTAJE)
+    model.lines.append(linea)
+    return linea
+
+
+def trazos_mm() -> tuple[float, float]:
+    """(trazo, hueco) en mm de la línea `PILOTAJE`."""
+    return TRAZO_X_GROSOR * GROSOR_SIMBOLO_MM, HUECO_X_GROSOR * GROSOR_SIMBOLO_MM
 
 
 def circulo(model: SheetModel, x: float, y: float, r: float, lleno: bool = False) -> Circle:

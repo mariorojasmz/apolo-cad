@@ -34,6 +34,12 @@ reglas están en [services](../services/CLAUDE.md).
   usa. Un estilo nuevo en un exportador no puede cambiar lo de antes: `tests/test_trazos_esquema.py`
   congela la firma de SVG, PDF y DXF de una lámina mecánica.
   [puntos-de-extension-entregables](../../../docs/plans/puntos-de-extension-entregables.md) (D6)
+- **Esquema neumático ISO 1219** (`neumatica/`, tool `drawing` con `esquema: "neumatico"`): recibe
+  datos puros (`CircuitoAire`, los arma `services/neumatica_esquema.py`); un símbolo nuevo dibuja con
+  el `Lapiz` de `trazo.py` y devuelve su caja y sus puertos (extremo libre de un tramo, con su
+  dirección), con su caso en `tests/test_simbolos_iso1219.py`; las líneas las traza `rutas.py`
+  (carril por franja), nunca el símbolo. La línea de pilotaje va con el tercer estilo, `simbolo_trazos`
+  (sólo `Line`). Lo «a confirmar» de la norma: [V8.9](../../../docs/plans/V8.9-neumatica.md) (F5)
 - DWG: DXF → DWG R2018 con ODA File Converter (`ezdxf.addons.odafc`); `_discover()` busca la
   carpeta VERSIONADA del instalador; sin ODA → 400 amable con la URL, ANTES de componer láminas
   (`require_odafc` al entrar al endpoint: el juego gastaba ~70 s de HLR bajo `STATE_LOCK` para

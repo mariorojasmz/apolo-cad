@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 
 from ..library.materials import hatch_pattern
-from .esquema import CAPA_DXF, ESTILOS, LINEWEIGHT_DXF, LLENO
+from .esquema import CAPA_DXF, ESTILOS, LINEWEIGHT_DXF, LLENO, PILOTAJE, TIPO_LINEA_DXF, trazos_mm
 from .sheet import SheetModel
 
 # rayado ANSI31 con escala/color por material (ANSI31 existe siempre en ezdxf)
@@ -47,10 +47,15 @@ def sheet_to_dxf(model: SheetModel) -> bytes:
     for name, color, linetype, lw in (*LAYERS.values(), *([CAPA_ESQUEMA] if _usa_esquema(model) else [])):
         if name not in doc.layers:
             doc.layers.add(name, color=color, linetype=linetype, lineweight=lw)
+    if any(x.kind == PILOTAJE for x in model.lines):  # la línea a trazos del esquema (V8.9 F5)
+        trazo, hueco = trazos_mm()
+        doc.linetypes.add(TIPO_LINEA_DXF, pattern=[trazo + hueco, trazo, -hueco],
+                          description="Esquema: trazos 12d/3d (ISO 128-20 tipo 02)")
 
     for line in model.lines:
         layer = CAPA_DXF if line.kind in ESTILOS else LAYERS.get(line.kind, LAYERS["visible"])[0]
-        msp.add_line((line.x1, line.y1), (line.x2, line.y2), dxfattribs={"layer": layer})
+        attribs = {"layer": layer, **({"linetype": TIPO_LINEA_DXF} if line.kind == PILOTAJE else {})}
+        msp.add_line((line.x1, line.y1), (line.x2, line.y2), dxfattribs=attribs)
 
     for poly in model.polygons:
         if poly.kind in ESTILOS:  # contorno de símbolo; con `LLENO`, además el relleno sólido
