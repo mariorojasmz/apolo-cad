@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); medido sobre `fc53cff`; la F1 se parte en F1a → F1b → F1c; sigue F1a
+nota: F1a implementada (bitácora), pendiente de revisión y merge; siguen F1b (diferencial) y F1c (acometida en la co-simulación)
 descripcion: cada protección del catálogo dice cuánto corta y a qué temperatura trabaja, con su fuente; la acometida dice su esquema de tierra; el interruptor diferencial entra al catálogo y dispara en la prueba virtual
 ---
 
@@ -322,3 +322,88 @@ Al cerrar cada fase: conteos de «Estado actual» del CLAUDE.md raíz; una líne
 | Archivos al tope (`tablero.py` 426, `erc.py` 390, `potencia.py` 316) | el modelo va en un archivo propio y los datos en `ficha_datos.py`; ninguno pasa de 500 |
 
 ## Bitácora
+
+### F1a — Datos de ficha y `T_max_C` (2026-10-24)
+
+**Qué se hizo.**
+- `library/electrico/ficha_datos.py` (nuevo, puro: sólo `referencias.sugerir`): `REQUERIDOS` por
+  tipo (D3, con `diferencial` ya listado para la F1b), `T_MAX`, `requeridos(tipo, montaje)`,
+  `permitidas(tipo)`, `a_tension(mapa, U_V)` (D2), `parse_datos` (validación + completitud, D4)
+  y `payload`. `ficha.py` sólo lo engancha: `_CLAVES` suma `datos`, `fuente`, `a_confirmar`;
+  `FichaElectrica` suma los tres campos; `ficha_payload` los publica (tensiones como texto, claves
+  JSON). `fusionar` (familias) fusiona `datos` clave a clave, como `modelo`.
+- Los YAML 120–125, 91 y 93: `datos`/`fuente`/`a_confirmar` en las 53 refs de tablero (ancla por
+  familia: `&datos_itm`, `&datos_gm`, `&datos_secc`, `&datos_contactor`, `&datos_xb5`,
+  `&datos_seta`) y en las 4 redes. Comentario de convención en la cabecera de 120 y 121.
+- `extensiones_api.MODULOS` suma `apolo.library.electrico.ficha_datos` (`REQUERIDOS`,
+  `a_tension`, `requeridos`), sin subir `CONTRATO_EXTENSIONES` (D12).
+- Tests: `tests/test_ficha_datos.py` (32: cada rechazo, completitud por tipo y montaje, la red,
+  la familia, `a_tension`, las 53 refs, las cifras verificadas, el payload, la firma y el gate de
+  `MODULOS`); tres fixtures de tests viejos suman su `T_max_C` o `a_confirmar` (la completitud
+  los alcanzaba: `test_catalogo_electrico.BUENO`, `test_catalogo_tablero._PUERTA`,
+  `test_cosim_modelos_catalogo._cargar`, este último con `requeridos(tipo, montaje)`).
+
+**Cifras que entraron, con su fuente** (fichas de producto de Schneider Electric descargadas el
+2026-10-24 de schneider-electric.cn, salvo GV2ME06/08/10, fechadas 2022-12-29; leídas con
+`pypdf`, nunca de memoria):
+
+| ref | dato | ficha |
+|---|---|---|
+| ITM-C10-3P | Icu {240: 20, 415: 10} kA, Ics {240: 15, 415: 7,5} kA | iC60N A9F04310 |
+| ITM-C6-2P | Icu {240: 20, 415: 10} kA, Ics {240: 15, 415: 7,5} kA | iC60N A9F04206 |
+| ITM-C2-2P | Icu = Ics {240: 50, 415: 50} kA | iC60N A9F04202 |
+| 8 ITM | `T_max_C` 70 (−35…70 °C) | las tres iC60N de arriba (y A9F04603/04703) |
+| 5 guardamotores | Icu = Ics {240: 100, 415: 100} kA; `T_max_C` 60 (−20…60 °C) | GV2ME06, 07, 08, 10, 14 |
+| SECC-25A-3P | Icw 0,384 kA 1 s; Iq 10 kA con gG/aM 35 A a 400 V; `T_max_C` 50 | TeSys Vario VCF1 |
+| SECC-40A-3P | Icw 0,48 kA 1 s; Iq 10 kA con gG/aM 50 A a 400 V; `T_max_C` 50 | TeSys Vario VCF2 |
+| 2 relés térmicos | `T_max_C` 60 (−20…60 °C sin desclasificar) | LRD08, LRD10 |
+| 6 contactores | `T_max_C` 60 (−40…60 °C; 60…70 con desclasificación) | LC1D09BD, LC1D09M7 |
+| CONT-AUX-1NA1NC | `T_max_C` 60 (−5…60 °C) | LADN11 |
+| 8 mandos de puerta | `T_max_C` 70 (−40…70 °C) | Harmony XB5AA31/42/61, XB5AD21/33, XB5AVB3/4 |
+| 2 setas de puerta (+2 de caja que heredan el ancla) | `T_max_C` 70 | XB5AS8445, XB5AS8442 |
+
+**Quedó en `a_confirmar`, SIN valor:**
+- Icu/Ics de ITM-C6-3P, C16-3P, C20-3P, C2-1PN y C6-1PN: la Icu del iC60N cambia con In (las de
+  1–3 A dan 50 kA; las de 6–10 A, 20/10 kA) y con los polos; sin la ficha exacta de esa ref no
+  se infiere de la vecina. El CN no publica A9F04306/16/20 ni A9F04602/06.
+- `T_max_C` de 19 refs: las 2 fuentes 24 VDC (Mean Well / Phoenix), GM-AUX-1NA1NC (la ficha
+  GVAN11 no trae temperatura), los 2 relés de interfaz (Phoenix / Finder), el relé de seguridad
+  (Pilz / XPSAC5121: sin ficha descargable), el PLC (S7-1200), los 5 bornes, los 5 conductores y
+  los 2 variadores (V20 / MS300).
+- Portafusible 5x20: `cartucho_U_V`, `cartucho_Icn_A`, `cartucho_Icn_x_In` (la hoja de norma de
+  IEC 60127-2 no se pudo leer: no hay cifra de memoria) y `T_max_C`.
+- Las 4 redes: `Icc_kA`, `X_R` y `esquema`, con `fuente` «criterio de diseño».
+
+**Decisiones propias (para vetar).**
+- **`T_max_C` vale en toda ref, no sólo en las de tablero**: es obligatoria dentro del tablero y
+  opcional fuera. Las setas de caja (`montaje: campo`) heredan por el ancla el de su seta de
+  puerta, y rechazarlo obligaba a duplicar el bloque.
+- **`esquema` en `a_confirmar` también en las dos redes TN**: su TN es «supuesto y declarado»
+  (lo dicen sus descripciones), o sea un valor estimado; D6 lo pedía sólo «donde falta».
+- **La clave de un mapa es el TOPE del rango de tensión de la ficha** («220…240 V» → 240,
+  «380…415 V» → 415): con `a_tension` (menor ≥ U) la red de 220 V lee la fila de 220…240 y la de
+  380, la de 380…415.
+- **`MODELO_SIN_VALOR = {"red": ("esquema",)}`**: lo único de `modelo` que `a_confirmar` puede
+  nombrar sin valor. La F1c lo puede unificar con `ajustes.OPCIONALES` (`RA_ohm` no se sumó: sin
+  TT no aplica).
+- **`Ics ≤ Icu` sólo cuando vienen las dos**; con las dos, cada tensión de Ics tiene su Icu.
+- **Una ficha por familia** para `T_max_C` cuando la línea comparte el ancla (LRD08 vale por
+  LRD10; LC1D09 por los D12/D18): la serie publica la misma temperatura.
+- **`linea_referencia` de los seccionadores corregida**: citaba VCF02 (Ith 12 A) para el de 25 A
+  y VCF1 (32 A) para el de 40 A. Ahora VCF1 (Ithe 25 A) y VCF2 (Ith 40 A), de donde salen sus
+  cifras. Es `specs`: no entra a la firma ni a la geometría.
+
+**Vigencia (D11), medida.** Las firmas de documento de los 4 tableros del banco
+(`tests/tablero_electrico.py`: directo, variador+PLC, cat. 3 y relé de seguridad) son
+idénticas antes y después (`2:503cd4a3…`, `2:268d92d4…`, `2:3333d655…`, `2:26735e40…`), y un test
+lo vigila quitando los datos de todas las fichas. Sin bump de `GEOM_CACHE_EPOCH`, de versiones de
+comandos ni de `COSIM_EPOCH`: ningún gate lo pidió (no se tocó `cosim/` ni `services/cosim_red.py`).
+
+**Conteos medidos.** Suite completa en el worktree (`PYTHONPATH` al `core/` propio, `-B`):
+5285 tests, 5279 pasan y 6 se saltan, sin fallas (antes 5252: +32 de `test_ficha_datos.py` y +1
+del gate paramétrico de `MODULOS`). `ruff check core tests scripts` limpio. Refs del catálogo:
+420, sin cambio. 34 de 53 refs de tablero con
+`T_max_C` de ficha, 19 a confirmar; 10 de 15 protecciones con poder de corte de ficha (3 ITM, 5
+guardamotores y los 2 seccionadores), las 5 ITM restantes y el portafusible a confirmar.
+Búsqueda de fichas: ≈ 25 min (el tope era ≈ 20; se pasó en la última tanda de ITM, que sí dio 3
+refs exactas).

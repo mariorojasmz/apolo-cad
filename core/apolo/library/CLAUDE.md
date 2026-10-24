@@ -27,6 +27,12 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   las de los accesorios ISO 15552 de `neumatica/montajes.py` (tablas transcritas): nunca una cota
   de interfaz en el builder. El vástago viene con su ref: `incluidas.py` lo saca de la BOM y de la
   lista de corte por la escena sola. [V8.9](../../../docs/plans/V8.9-neumatica.md)
+- Bloque `electrico.datos` + `fuente` + `a_confirmar` (`electrico/ficha_datos.py`, puro): lo que
+  lee quien VERIFICA (poder de corte por tensión `{U_V: kA}` con la clave = tope del rango de la
+  ficha, `T_max_C`), FUERA de `modelo` (no vence firmas ni es ajuste). COMPLETITUD al cargar con
+  error (`REQUERIDOS` por tipo + `T_max_C` en toda ref de tablero): la cifra con su documento en
+  `fuente`, o la clave en `a_confirmar` SIN valor; nunca de memoria.
+  [plan](../../../docs/plans/datos-de-corte-y-acometida.md)
 - Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
   canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva
