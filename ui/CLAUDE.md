@@ -10,6 +10,18 @@ usted, sin españolismos. Vale para los strings de la UI, los mensajes de error 
 llegan a pantalla y los prompts de agentes que le hablan al usuario. Gate `src/tuteoNeutro.test.ts`:
 lo interno se declara en su `EXCEPCIONES` con la razón, o con `// voseo-interno` al final de la línea.
 
+## Calidad visual: sobria, clara, «como lo haría Apple» (Mario, 2026-10-23)
+
+La persona pide por MCP o al agente y EVALÚA en el visor: cada resultado que el agente lee tiene
+que poder verse ahí. Un panel nuevo:
+- responde UNA pregunta arriba (un veredicto), y el detalle se revela a pedido;
+- usa sólo los tokens del tema (claro y oscuro); jerarquía por peso y tamaño del texto, no por
+  cajas, bordes ni colores nuevos;
+- anima sólo lo que orienta (encuadre, abrir, plegar: ≈ 250–400 ms, aceleración suave) y respeta
+  `prefers-reduced-motion`; nada parpadea ni rebota;
+- se cierra con una revisión de diseño A CIEGAS: capturas en claro y oscuro, ancho y angosto, que
+  juzga un subagente sin contexto con la rúbrica del plan. [V8.5](../docs/plans/V8.5-tablero-3d.md) D13–D14
+
 ## Texto y ayuda: la pantalla se explica sola
 
 **Nunca un texto para tapar una interfaz confusa**: si hay que explicar cómo funciona la
