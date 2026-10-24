@@ -437,7 +437,8 @@ def test_contra_el_sdk_instalado(monkeypatch, modelo_env, beta):
     (req,) = pedidos
     cuerpo = json.loads(req.content)
     assert req.url.path == "/v1/messages" and req.headers.get("anthropic-beta") == beta
-    assert req.url.params.get("beta") == ("true" if beta else None)  # el endpoint beta del SDK
+    # el `?beta=true` del endpoint beta es detalle del SDK: la 2.1 lo manda y la 2.3 ya no
+    assert req.url.params.get("beta") in (("true", None) if beta else (None,))
     assert cuerpo["system"][-1]["cache_control"] == {"type": "ephemeral"}
     assert cuerpo["cache_control"] == {"type": "ephemeral"} and cuerpo["tools"] == TOOLS
     assert cuerpo["thinking"] == ({"type": "adaptive", "display": "updates"} if beta
