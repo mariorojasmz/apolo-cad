@@ -20,6 +20,9 @@ backend: [core/apolo](../CLAUDE.md).
   `test_cosim_fallas_modelos.py`. Sin falla, las salidas son las de siempre (sin `averia`: la
   publica `Modelo.publicadas` sólo si el modelo falló). Lo de la red (pegado, abierto, corto) va
   en `fallas.py`; un contacto pegado es máscara de `RedNodal._cerrados` y entra a sus firmas.
+  Un `pide` nuevo en `PIDE` lleva su campo en `ui/src/vivo/fallas.ts::camposDe` (si no, la UI la
+  ofrece sin valor y el servidor la rechaza), y un mando nuevo, su tipo en
+  `vivo_fotograma.MANDOS` y en `ui/src/vivo/mandos.ts`.
 - Un modelo que LEE entradas de la red y mueve sus contactos sin ser mando ni PLC (el relé de
   seguridad) declara `BORNES_ENTRADA` (cargas `entrada` de cada borne) y `actuadores()`: el
   tablero lo indexa sin rama propia. Un mando de dos canales lleva un NC POR CANAL (rama propia:

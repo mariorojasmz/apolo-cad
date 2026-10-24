@@ -152,3 +152,39 @@ completa verde en el worktree (5037 pasan, 10 saltan; 25 nuevos en `test_mandos_
     abrir el resguardo en la sesión viva) ni el `pide` «salida» (la falla `salida_pegada` del
     relé se ofrece sin campo y el servidor la rechaza sin valor). F2 sólo necesita la seta.
   - La verificación sobre una copia de la faja piloto recableada con `ESTOP-40-2NC`.
+
+### F1b (2026-10-24): la máquina viva
+
+Los dos huecos de F1 en la sesión viva, sobre `c6d8295`, rama `wip/vivo-resguardo`. `npm test`
+490 → 495 y `npm run build` verdes; pytest 5073 → 5074 (un test nuevo en
+`test_mandos_seguridad_faja.py`: el `inicio` con el resguardo como mando, la salida pegada con sus
+opciones y abrir en vivo) y `ruff` limpio.
+- **Backend**: `vivo_fotograma.MANDOS` suma `resguardo`. El `inicio` ya publicaba las `opciones`
+  de `salida_pegada` del relé (`fallas._opciones`, desde F1): no hizo falta tocar `fallas.py`. Sin
+  bump de `COSIM_EPOCH` (sólo cambia lo que ofrece la tabla del `inicio`, ni el paso ni las
+  trazas): se actualizó la `HUELLA` de `test_cosim_epoch.py`.
+- **UI**: el resguardo se maneja como el seccionador (`accionar.abreYCierra`): botón «Abrir» /
+  «Cerrar», tapa cuadrada sin color (la ficha no trae `specs.color`) y clic en su pieza 3D si la
+  tiene. «Simular falla» conoce el `pide` «salida» (lista «Bornes 13-14»…, de las `opciones` del
+  `inicio`; manda el texto de los bornes, que es lo que lee `ReleSeguridad._salida`, y lo quita con
+  el mismo). Rótulos: «Salida de seguridad soldada», «relé detenido», «interruptor trabado» y el
+  trabado del resguardo queda en «Contactos cerrados / abiertos».
+- Muestrario: «Mandos · resguardo y relé de seguridad» con la seta, el resguardo, el rearme `-S3`,
+  el relé y el motor; abrir, cerrar y rearmar los mueven como el modelo (en corto, en
+  `datosVivo.accionarLocal`). Pegando `-B2:11-12` en «Simular falla» y abriendo, cerrando y
+  rearmando, el relé queda en «Salidas abiertas» con la nota. El relé y su falla también están en
+  «Simular falla».
+- **Decisiones de F1b** (para vetar):
+  - La fila del mando dice su estado en la línea del tipo («Resguardo cerrado», «Resguardo
+    abierto»); el seccionador gana lo mismo para que los dos mandos de abrir y cerrar se lean
+    igual. Sin señal todavía, sólo el tipo.
+  - El relé va en «Lecturas», la vista que ya mostraba motor, variador y contador: «Salidas
+    cerradas / abiertas» como valor y, sólo cuando ES la razón (los dos canales cerrados y
+    `espera_ciclo`), la nota «No rearma hasta que abran y cierren los dos canales.» bajo la fila,
+    como la línea «Falla:». Con el resguardo abierto `espera_ciclo` también vale 1, pero ahí no
+    explica nada: no se muestra. La etiqueta 3D lleva sólo el valor. `estado` (texto) no se muestra:
+    lo dicen las salidas y la nota.
+  - El rearme bloqueado por una salida soldada no tiene nota propia: la falla ya está en la barra.
+  - `AccionarMando` (contexto de React, por defecto `sesion.accionar`) para que el muestrario
+    maneje los mandos sin WebSocket; `ListaMandos` y `Lecturas` se exportan de `PanelMandos.tsx`.
+- Pendiente: la revisión de diseño a ciegas del panel con el resguardo (ancho y angosto) y F2.
