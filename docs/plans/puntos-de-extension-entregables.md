@@ -151,3 +151,46 @@ Rutas relativas a `core/apolo/`, medidas sobre `5a78cc9`.
   se esconde.
 
 ## Bitácora
+
+### F1 (2026-10-24): los tres puntos
+
+**Hecho** (sobre `5a78cc9`):
+
+1. **D1 — lectura eléctrica en `MODULOS`** (`core/apolo/extensiones_api.py`): siete módulos con
+   los nombres de D1. La extensión falsa los usa en `tests/ext_prueba/electrico.py` (modelo, redes,
+   catálogo, R y X de cada conductor, ruteo del tablero y cables de campo) y el gate de imports de
+   `test_extensiones_api.py` lo acepta tal cual. `CONTRATO_EXTENSIONES` sigue en 1.
+2. **D2 — `Extension.costeo`** (`library/costeo_extension.py`, puro): `FuenteCosteo`,
+   `DE_EXTENSION` y `fila()` (valida y costea). `extensiones_puntos.sumar_costeo` valida al cargar;
+   `services/cobros.filas_de_extensiones` las corre bajo el lock y `costeo(doc)` las suma al final.
+   `costing.costed_bom` salta las que traen `origen` «extension:» y `costing_totals` las lleva a
+   `extensiones_usd` (sólo si hay). La cotización suma «Otros conceptos» (también con `fx`) y la
+   unidad en «Cant».
+3. **D3 — `Extension.entrega`** (`library/entrega_extension.py`, puro): `ReglaEntrega`,
+   `DE_EXTENSION`, `hallazgos()` (valida) y `version()`. `services/delivery_inputs.reglas_de_extensiones`
+   las corre (con su cronómetro «extensiones») y `delivery_report` las pone al final (sección 10)
+   con `id` y `origen`; `VERSION_BATERIA = 1` y `version_bateria` sólo con reglas.
+4. **D5** — `GET /api/extensiones` suma `costeo` y `entrega`
+   (`tests/test_extensiones_coherencia.py` actualizado).
+
+**Decidido por el agente (vetable):**
+
+- **Las filas de una fuente se validan al costear, no al cargar**: dependen del documento. Al
+  cargar se valida lo declarable (tipo, id, llamable, versión); una fila mala es un aviso de cobro
+  «fila de extensión descartada» (cuenta 0 en `monto_en_riesgo_usd`), nunca un 500.
+- **`categoria` opcional, «servicios» por defecto**; `cantidad` admite decimales (horas) y sale
+  entera si lo es.
+- **`ref` de la fila = el id de su fuente** («prueba.revision»): la cotización necesita una ref y
+  así se sabe de dónde salió.
+- **Una regla de entrega que da `None` no aparece** (como el eléctrico sin carril), no va a
+  `no_aplica`: «no aplica» no es «no pudo correr».
+- **`version_bateria` aparece con cualquier extensión que tenga reglas**, aunque ninguna aplique
+  a ese documento: la batería cambió.
+- **D1 suma, además de lo pedido, `Analisis`, los tipos `Tablero` y `CableCampo`, `LAMBDA_OHM_M` y
+  `TEMPERATURA_DEFECTO_C`**: son el resultado de lo que se lee o lo que una caída de tensión
+  necesita para dar lo mismo que la co-simulación.
+
+**Números:** suite 5118 → 5152 (pasan 5142, se saltan 10; los 27 de tortura, aparte). Los 34
+nuevos: 25 en `tests/test_extensiones_entregables.py` y 9 en `tests/test_extensiones_api.py` (uno
+por módulo y por nombre de `SUPERFICIE` nuevos). `ruff check core tests scripts` limpio; ningún
+archivo pasa de 500 líneas (`delivery.py` 354, `extensiones.py` 408, `extensiones_puntos.py` 355).
