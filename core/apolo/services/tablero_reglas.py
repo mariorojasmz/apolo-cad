@@ -8,7 +8,9 @@ Sólo con un `layout_tablero` vivo (sin él, el ERC de siempre):
 - «largo declarado vs ruteado»: el `largo_m` escrito a mano manda en la BOM (D3), y si difiere
   del ruteado más que `Criterio.difiere_largo` se avisa con las dos cifras (la F0 mostró que los
   declarados no se sostienen).
-El llamador sostiene STATE_LOCK.
+Cada regla tiene su SELECTOR (`llenas`, `salen_sin_cable`, `declarados_que_no_cuadran`): el
+ERC de aquí y el panel del visor (`tablero_panel.py`, F3b) leen lo mismo (D15). El llamador
+sostiene STATE_LOCK.
 """
 
 from __future__ import annotations
@@ -22,13 +24,42 @@ def _pct(x: float) -> str:
     return f"{x * 100:.0f} %"
 
 
+# ── lo que encuentra cada regla (lo leen el ERC de abajo y el panel, `tablero_panel.py`) ──
+
+
+def llenas(t) -> list:
+    """Los `Llenado` de las canaletas que pasan el tope (una fracción > 1 no entra)."""
+    tope = t.ruteo.criterio["llenado_tope"]
+    return [ll for ll in t.ruteo.llenados if ll.fraccion > tope]
+
+
+def salen_sin_cable(t) -> list:
+    """Las `Ruta` de los conductores sueltos con un extremo fuera de la ubicación (A10)."""
+    return [r for r in t.ruteo.rutas if r.sale and r.cable is None]
+
+
+def declarados_que_no_cuadran(t) -> list[tuple]:
+    """[(Ruta, diferencia relativa)] de los `largo_m` a mano que difieren del ruteado más que
+    `Criterio.difiere_largo`."""
+    limite = t.ruteo.criterio["difiere_largo"]
+    out = []
+    for r in t.ruteo.rutas:
+        if r.declarado_mm is None or r.sale or r.cable is not None or r.largo_mm <= 0:
+            continue
+        dif = (r.declarado_mm - r.largo_mm) / r.largo_mm
+        if abs(dif) > limite:
+            out.append((r, dif))
+    return out
+
+
+# ── las filas del ERC ─────────────────────────────────────────────────────────────────────
+
+
 def _llenado(t) -> list[dict]:
     tope = t.ruteo.criterio["llenado_tope"]
     filas = []
-    for ll in t.ruteo.llenados:
+    for ll in llenas(t):
         f = ll.fraccion
-        if f <= tope:
-            continue
         pieza = t.canaletas.get(ll.canaleta) or f"canaleta {ll.canaleta + 1}"
         eje = "u" if ll.orientacion == "h" else "v"
         a, b = ll.pasa or (ll.desde, ll.hasta)
@@ -48,9 +79,7 @@ def _llenado(t) -> list[dict]:
 
 def _sale(t) -> list[dict]:
     filas = []
-    for r in t.ruteo.rutas:
-        if not r.sale or r.cable is not None:
-            continue
+    for r in salen_sin_cable(t):
         filas.append({
             "regla": "sale del tablero sin cable", "estado": "aviso",
             "detalle": (f"{r.id} ({' → '.join(r.puntos)}) sale de {t.ubicacion} como conductor suelto: "
@@ -64,14 +93,8 @@ def _sale(t) -> list[dict]:
 
 
 def _declarados(t) -> list[dict]:
-    limite = t.ruteo.criterio["difiere_largo"]
     filas = []
-    for r in t.ruteo.rutas:
-        if r.declarado_mm is None or r.sale or r.cable is not None or r.largo_mm <= 0:
-            continue
-        dif = (r.declarado_mm - r.largo_mm) / r.largo_mm
-        if abs(dif) <= limite:
-            continue
+    for r, dif in declarados_que_no_cuadran(t):
         filas.append({
             "regla": "largo declarado vs ruteado", "estado": "aviso",
             "detalle": (f"{r.id} ({' → '.join(r.puntos)}): declarado {r.declarado_mm / 1000:.2f} m, "

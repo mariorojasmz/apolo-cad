@@ -3500,7 +3500,7 @@
  },
  {
   "name": "get_circuit",
-  "description": "Circuito del TABLERO ELÉCTRICO declarado (add_device/add_wire/add_cable): dispositivos\ncon sus bornes y la RED de cada borne, redes con su tensión inferida (qué potencial puede\nllegar a cada una con todos los contactos cerrados), conductores y cables. `designacion`\n(«-Q1», «=Faja1», «-M1») filtra a esos dispositivos y las redes y conductores que los\ntocan; úsalo para leer la designación que se asignó sola o para revisar un aparato antes\nde cablearlo. Read-only.",
+  "description": "Circuito del TABLERO ELÉCTRICO declarado (add_device/add_wire/add_cable): dispositivos\ncon sus bornes y la RED de cada borne, redes con su tensión inferida (qué potencial puede\nllegar a cada una con todos los contactos cerrados), conductores y cables. `designacion`\n(«-Q1», «=Faja1», «-M1») filtra a esos dispositivos y las redes y conductores que los\ntocan; úsalo para leer la designación que se asignó sola o para revisar un aparato antes\nde cablearlo. `tablero=true` suma `tableros`: por cada layout_tablero, lo MISMO que la\npersona ve en el panel «Tablero» del visor (veredicto, ítems con las piezas que señalan,\nlargo de cada conductor, llenado de cada canaleta, calentamiento y supuestos). Read-only.",
   "inputSchema": {
    "properties": {
     "designacion": {
@@ -3514,6 +3514,11 @@
      ],
      "default": null,
      "title": "Designacion"
+    },
+    "tablero": {
+     "default": false,
+     "title": "Tablero",
+     "type": "boolean"
     }
    },
    "title": "get_circuitArguments",

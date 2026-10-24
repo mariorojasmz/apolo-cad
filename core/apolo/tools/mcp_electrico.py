@@ -21,14 +21,18 @@ def registrar(mcp, api) -> None:
     corre). `api(method, path, **kw)` es su `_api`, buscado en cada llamada."""
 
     @mcp.tool()
-    def get_circuit(designacion: str | None = None) -> str:
+    def get_circuit(designacion: str | None = None, tablero: bool = False) -> str:
         """Circuito del TABLERO ELÉCTRICO declarado (add_device/add_wire/add_cable): dispositivos
         con sus bornes y la RED de cada borne, redes con su tensión inferida (qué potencial puede
         llegar a cada una con todos los contactos cerrados), conductores y cables. `designacion`
         («-Q1», «=Faja1», «-M1») filtra a esos dispositivos y las redes y conductores que los
         tocan; úsalo para leer la designación que se asignó sola o para revisar un aparato antes
-        de cablearlo. Read-only."""
+        de cablearlo. `tablero=true` suma `tableros`: por cada layout_tablero, lo MISMO que la
+        persona ve en el panel «Tablero» del visor (veredicto, ítems con las piezas que señalan,
+        largo de cada conductor, llenado de cada canaleta, calentamiento y supuestos). Read-only."""
         params = {"designacion": designacion} if designacion else {}
+        if tablero:
+            params["tablero"] = "true"
         return json.dumps(api("GET", "/api/electrico/circuito", params=params).json(),
                           ensure_ascii=False)
 

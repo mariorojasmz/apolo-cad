@@ -705,6 +705,7 @@ CASOS = [
                                                     "mesh_size_mm": 40}),
     caso("circuito", "get_circuit"),
     caso("circuito de un dispositivo", "get_circuit", {"designacion": "-Q1"}),
+    caso("circuito con el tablero armado", "get_circuit", {"tablero": True}),  # V8.5 F3b
     caso("chequeo eléctrico", "electrical_check"),
     # V8.3 D13: la prueba virtual
     caso("simulación con escenario", "simulate", {"escenario": "seta"}),

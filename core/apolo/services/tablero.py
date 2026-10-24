@@ -20,7 +20,8 @@ leído desde el `Document`. El llamador sostiene `STATE_LOCK`.
   cobran aparte (la puerta siempre; la placa si `specs.placa_montaje`).
 Las reglas del ERC que salen del ruteo están en `tablero_reglas.py`.
 
-F3b suma aquí lo que lee el panel (veredicto, ítems y detalle), la única fuente para el visor,
+Lo que lee el panel del visor (veredicto, ítems y detalle; F3b) está en `tablero_panel.py`, sobre
+`ruteos` y los selectores de `tablero_reglas.py`: la única fuente para el visor,
 `get_circuit tablero=true` y el ERC.
 """
 
@@ -122,6 +123,7 @@ class Tablero:
     canaleta_ref: str
     canaletas: dict = field(default_factory=dict)  # índice de Layout.canaletas → id de su pieza
     supuestos: tuple = ()
+    params: object = None           # LayoutTableroParams validados (posición del gabinete: F3b)
 
 
 def armados(doc) -> list[tuple[str, object, object, object]]:
@@ -201,7 +203,7 @@ def _con_bornes(lay, m, u: str) -> tuple[dict, frozenset]:
     return out, gabinete
 
 
-def _pieza_canaleta(cid: str, arm, k, desde: float, hasta: float) -> str | None:
+def pieza_canaleta(cid: str, arm, k, desde: float, hasta: float) -> str | None:
     """El id de la pieza de canaleta (las horizontales van cortadas) que contiene ese trozo."""
     mitad = (desde + hasta) / 2
     u, v = (mitad, (k.v0 + k.v1) / 2) if k.orientacion == "h" else ((k.u0 + k.u1) / 2, mitad)
@@ -241,9 +243,9 @@ def ruteos(doc, m=None) -> list[Tablero]:
                       ficha.seccion_util_mm2 if ficha else reglas.canaleta_ancho_mm * reglas.canaleta_alto_mm)
         aparatos, gabinete = _con_bornes(lay, m, p.ubicacion)
         r = rutear(lay, marco, aparatos, entradas, gabinete=gabinete)
-        piezas = {ll.canaleta: _pieza_canaleta(cid, arm, lay.canaletas[ll.canaleta], ll.desde, ll.hasta)
+        piezas = {ll.canaleta: pieza_canaleta(cid, arm, lay.canaletas[ll.canaleta], ll.desde, ll.hasta)
                   for ll in r.llenados}
-        out.append(Tablero(cid, p.ubicacion, lay, arm, r, rc, piezas, tuple(sup)))
+        out.append(Tablero(cid, p.ubicacion, lay, arm, r, rc, piezas, tuple(sup), p))
     return out
 
 

@@ -240,6 +240,16 @@ def _recortar(h: Canaleta, verticales: list[Canaleta]) -> list[tuple[float, floa
     return [(a, b) for a, b in tramos if b - a > 1.0]
 
 
+def y_de_la_placa(gab: Interior) -> float:
+    """La y del frente de la placa en G: a `fondo_util` de la cara interior de la puerta."""
+    return -gab.fondo / 2 + gab.espesor_puerta + gab.fondo_util
+
+
+def punto_g(gab: Interior, u: float, v: float, w: float) -> tuple[float, float, float]:
+    """Un punto (u, v, w) de la colocación (y del ruteo) en G: la fórmula del docstring."""
+    return (u - gab.placa_ancho / 2, y_de_la_placa(gab) - w, v - gab.placa_alto / 2)
+
+
 def armar(lay: Layout, gab: Interior, r: Reglas, apoyos: dict[str, str],
           huecos_por_ref: dict[str, tuple] | None = None,
           tapa_para: tuple[str, ...] = (), unidades: dict[str, int] | None = None) -> Armado:
@@ -250,7 +260,7 @@ def armar(lay: Layout, gab: Interior, r: Reglas, apoyos: dict[str, str],
     W, D, H = gab.ancho, gab.fondo, gab.alto
     e, tp = gab.espesor, gab.espesor_puerta
     y_ext = -D / 2
-    y_placa = y_ext + tp + gab.fondo_util
+    y_placa = y_de_la_placa(gab)
     fondo_int = D / 2 - e
     if y_placa + PLACA_MM > fondo_int - 1e-6:
         raise ArmadoError(f"{gab.ref}: la placa ({PLACA_MM:g} mm) no entra: fondo_util "
