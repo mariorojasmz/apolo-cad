@@ -75,15 +75,20 @@ def _regla_ajustes(m) -> list[dict]:
 def piezas_sin_ligar(doc, m) -> list[tuple]:
     """[(dispositivo, [fids])]: dispositivos SIN `pieza` cuya ref es la de piezas 3D del proyecto
     que ningún dispositivo liga (V8.1 F4). Sin ligar, la BOM y la cotización los cobran dos
-    veces: la pieza de la escena y la fila del tablero."""
-    ligadas = {d.pieza for d in m.dispositivos if d.pieza}
+    veces: la pieza de la escena y la fila del tablero. Lo que dibujó un `layout_tablero` (V8.5)
+    ya es la pieza de su dispositivo: ni sus piezas ni sus dispositivos cuentan."""
+    from .tablero import dibujados, piezas_del_layout
+
+    ligadas = {d.pieza for d in m.dispositivos if d.pieza} | piezas_del_layout(doc)
+    del_layout = dibujados(doc, m)
     por_ref: dict[str, list[str]] = {}
     for fid in sorted(doc.scene):
         f = doc.scene[fid]
         ref = getattr(f, "component", None)
         if ref and fid not in ligadas and not getattr(f, "is_guide", False):
             por_ref.setdefault(ref, []).append(fid)
-    return [(d, por_ref[d.ref]) for d in m.dispositivos if not d.pieza and por_ref.get(d.ref)]
+    return [(d, por_ref[d.ref]) for d in m.dispositivos
+            if not d.pieza and d.designacion not in del_layout and por_ref.get(d.ref)]
 
 
 def _regla_piezas(doc, m) -> list[dict]:
@@ -113,9 +118,11 @@ def reglas_erc(doc) -> list[dict] | None:
     from apolo.library.electrico.erc import erc
 
     from .cobros import regla_cables
+    from .tablero import regla_orden
 
     m = modelo(doc)
-    return erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
+    return (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
+            + regla_orden(doc))
 
 
 def chequeo(doc) -> dict:
@@ -208,9 +215,13 @@ def circuito(doc, designacion: str | None = None) -> dict:
 
 
 def filas_bom(doc) -> list[dict]:
-    """Las filas de BOM del tablero (sin duplicar lo que la escena ya cuenta: D10)."""
+    """Las filas de BOM del tablero (sin duplicar lo que la escena ya cuenta: D10; lo que dibujó
+    un `layout_tablero` también es escena, V8.5 F1b)."""
     if not tiene_carril(doc):
         return []
     from apolo.library.bom_electrico import filas_electricas
 
-    return filas_electricas(modelo(doc))
+    from .tablero import dibujados
+
+    m = modelo(doc)
+    return filas_electricas(m, frozenset(dibujados(doc, m)))

@@ -137,6 +137,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 
 ## Cobros dudosos (`cobros.py`)
 
+- Lo que dibujó un `layout_tablero` (`tablero.dibujados`: cuerpo `{cmd}_d_<designación>`) cuenta
+  en la ESCENA con su ref, como una `pieza`: la BOM del carril y «pieza sin ligar» lo saltan. Un
+  consumidor nuevo del carril que cobre o cuente dispositivos usa esa misma función.
+  [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
+
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y
   `monto_en_riesgo_usd` sólo si hay (sin ellos, el dict de siempre): dispositivo sin ligar a su

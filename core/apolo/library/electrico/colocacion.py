@@ -28,6 +28,10 @@ mismo (u, v): así se ve qué cae sobre qué con la puerta cerrada.
 7. D8 — overrides por designación, estrictos: `fila` (n.º de fila de riel desde arriba o la
    clase), `orden` (lugar en su fila, en la columna o en la puerta), `posicion` {u, v} (esquina
    inferior izquierda, fuera del flujo, sin solaparse con nada) y `acopla` (su aparato).
+8. F1b — los extremos de cada fila de riel: un tope (`tope_mm`) entre la canaleta y el primer
+   aparato, otro tras el último y, en una bornera, la tapa final (`tapa_mm`) antes de él. No
+   cuentan para la reserva (A13), pero tienen que entrar en el riel. Una fila nunca es más baja
+   que `alto_min_fila_mm` (el tope): si no, el tope se metería en la canaleta de al lado.
 
 `colocar(aparatos, gabinete, gabinetes)`: con una ref, el `Layout` o `ColocacionError` con lo
 que sobra y cuánto falta; con `"auto"`, el primer gabinete (de menor placa útil) donde entra.
@@ -292,20 +296,25 @@ def _colocar_placa(aps: list[Aparato], gab: Gabinete, r: Reglas, overrides: dict
         for nombre, miembros in _filas(pilas, overrides, capacidad):
             if not miembros:
                 continue
-            sube = max(p.sube for p in miembros)
-            baja = max(p.baja for p in miembros)
+            sube = max([p.sube for p in miembros] + [r.alto_min_fila_mm / 2])
+            baja = max([p.baja for p in miembros] + [r.alto_min_fila_mm / 2])
             v_riel = v_top - sube
-            u = u_r0
+            u = u_r0 + r.tope_mm  # regla 8: el tope izquierdo va entre la canaleta y el 1.er aparato
             for p in miembros:
                 colocados += _colocar_pila(p, u, v_riel, nombre, r.riel_alto_mm)
                 u += p.ancho
-            ocupado = u - u_r0
+            ocupado = u - u_r0 - r.tope_mm
             rieles.append(Riel(nombre, u_r0, PW - b, v_riel))
             filas_info.append(FilaRiel(nombre, largo, ocupado))
             if ocupado > capacidad + 1e-6:
                 problemas.append(f"fila {nombre}: {ocupado:.0f} de {largo:.0f} mm de riel, reserva "
                                  f"{1 - ocupado / largo:.0%} < {r.reserva:.0%}: sobran "
                                  f"{ocupado - capacidad:.0f} mm de aparatos")
+            extremos = 2 * r.tope_mm + (r.tapa_mm if nombre.split()[0] == "bornera" else 0.0)
+            if ocupado + extremos > largo + 1e-6:
+                problemas.append(f"fila {nombre}: con sus topes ({extremos:g} mm) ocupa "
+                                 f"{ocupado + extremos:.0f} de {largo:.0f} mm de riel: faltan "
+                                 f"{ocupado + extremos - largo:.0f} mm")
             v_bajo = v_riel - baja
             canaletas.append(Canaleta("h", u_r0 - b if columna else 0, PW, v_bajo - b, v_bajo))
             v_top = v_bajo - b

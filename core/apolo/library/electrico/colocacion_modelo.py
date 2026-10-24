@@ -29,6 +29,10 @@ class Reglas:
     holgura_puerta_mm: float = 10.0   # entre lo de detrás de la puerta y lo de la placa
     paso_puerta_mm: tuple = (70.0, 80.0)   # cuadrícula de la puerta (u, v)
     borde_puerta_mm: tuple = (40.0, 60.0)  # del lado opuesto a la bisagra y de arriba al 1.er centro
+    # F1b: los extremos de cada fila de riel (no se descuentan de la reserva, A13)
+    tope_mm: float = 9.5              # TOPE-DIN-35 a cada lado de la fila
+    tapa_mm: float = 2.2              # TAPA-BORNE-2.5-4 tras el último borne de una bornera
+    alto_min_fila_mm: float = 47.0    # el alto del tope: una fila más baja lo metería en la canaleta
 
     def supuestos(self) -> dict:
         return {k: (list(v) if isinstance(v, tuple) else v) for k, v in asdict(self).items()}

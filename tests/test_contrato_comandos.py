@@ -187,6 +187,10 @@ CAMPOS: dict[str, str] = {
         "rotation.x rotation.y rotation.z keep_grounds"
     ),
     "join_bolted": "name a b size count patron spacing norma criterio madera",
+    "layout_tablero": (
+        "name ubicacion gabinete position position.x position.y position.z rotation rotation.x "
+        "rotation.y rotation.z bisagra reserva ambiente_C overrides"
+    ),
     "mirror_feature": "feature plane offset",
     "pattern_circular": (
         "feature count axis_point axis_point.x axis_point.y axis_point.z axis_dir total_angle"
@@ -292,6 +296,7 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "insert_component": (2, "26b05f2f1a36a2ed"),
     "insert_project": (1, "01664975967281c6"),
     "join_bolted": (1, "24fbb11752560dc0"),  # criterio 2 (union-en-perfil-hueco): un log viejo trae 1 → misma geometría y firma
+    "layout_tablero": (1, "bd337fa48c4d3f52"),  # V8.5 F1b: comando nuevo
     "mirror_feature": (1, "6973b59545d49469"),
     "pattern_circular": (1, "608d05fdba3297c0"),
     "pattern_group": (1, "cb174b5f27cebde8"),

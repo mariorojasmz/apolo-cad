@@ -4,7 +4,8 @@
 Son del CARRIL (`kind="electrico"`, `doc/carril.py`): no entran a la firma encadenada, no corren
 en el bucle del regenerate (su executor lo dice si alguien lo llama) y se evalúan después, todos
 juntos, en `electrico_eval.evaluar_carril`. `registry.py` (congelado por el trinquete) sólo
-suma `SPECS_ELECTRICO` a su `REGISTRY`.
+suma `SPECS_ELECTRICO` a su `REGISTRY`; por eso la lista lleva también `layout_tablero` (V8.5,
+`tablero.py`), que es de ESCENA y lee el carril.
 
 - **D3, la designación se MATERIALIZA al entrar** (`materializar`): un `add_device` o un
   `add_cable` sin designación recibe la siguiente libre de su letra (la `funcion` de su ficha;
@@ -25,6 +26,7 @@ from .errors import CommandError
 from .models_electrico import AddCableParams, AddDeviceParams, AddProgramParams, AddWireParams
 from .spec import CommandSpec
 from .state import ExecContext
+from .tablero import SPECS_TABLERO
 
 #: Los tipos que designan (D3): su designación es el nombre que referencian los cables.
 DESIGNAN = ("add_device", "add_cable")
@@ -48,6 +50,8 @@ SPECS_ELECTRICO = [
     # V8.3 D3: el programa del PLC, compilado por el evaluador (`electrico_eval`)
     CommandSpec("add_program", "Programa del PLC", "electrico", AddProgramParams, _exec_carril,
                 kind="electrico", literales=("plc", "nombre", "fuente")),
+    # V8.5 D1: el tablero en 3D (de ESCENA, lee el carril; `registry.py` está congelado)
+    *SPECS_TABLERO,
 ]
 
 

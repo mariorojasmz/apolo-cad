@@ -3,7 +3,8 @@
 La BOM de siempre sale de la ESCENA: un dispositivo sin cuerpo 3D no aparecería. Estas filas
 suman lo que el tablero compra y la escena no tiene, sin duplicar:
 
-  - un dispositivo LIGADO a una pieza (`pieza`) ya cuenta en la escena: no entra;
+  - un dispositivo LIGADO a una pieza (`pieza`) ya cuenta en la escena: no entra; tampoco uno
+    que dibujó un `layout_tablero` (V8.5: su cuerpo lleva la ref);
   - uno SIN pieza entra como fila de catálogo, agrupado por ref (una bornera, por borne);
   - la red de suministro (`specs.suministro`) no se compra: no entra;
   - los conductores sueltos entran por METRO, por `tipo`, con el `largo_m` declarado; los que
@@ -63,16 +64,17 @@ def _por_metro(ref: str, largos: list[float | None], que: str) -> list[dict]:
     return filas
 
 
-def filas_electricas(modelo) -> list[dict]:
+def filas_electricas(modelo, dibujados: frozenset = frozenset()) -> list[dict]:
     """Las filas de BOM del `ModeloElectrico` (vacía si no hay carril), en orden estable:
-    dispositivos por ref, cables y conductores por ref."""
+    dispositivos por ref, cables y conductores por ref. `dibujados` = las designaciones que un
+    `layout_tablero` dibujó en la escena (V8.5): cuentan por su cuerpo, como una `pieza`."""
     if modelo is None:
         return []
     filas: list[dict] = []
     por_ref: dict[str, int] = {}
     for d in modelo.dispositivos:
         comp = CATALOG.get(d.ref)
-        if d.pieza or comp is None or (comp.specs or {}).get("suministro"):
+        if d.pieza or d.designacion in dibujados or comp is None or (comp.specs or {}).get("suministro"):
             continue
         por_ref[d.ref] = por_ref.get(d.ref, 0) + (d.cantidad if d.bornera else 1)
     filas += [_fila(CATALOG[ref], n) for ref, n in sorted(por_ref.items())]

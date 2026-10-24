@@ -147,6 +147,13 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   que nace; un log v4 no lo trae y regenera idéntico (`tests/test_belt_conveyor_v5.py`): tocar
   la rama `cierres=False` cambia los logs v4 guardados.
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)
+- `layout_tablero` (`tablero.py`, V8.5 D1) es de ESCENA, lee el carril (`lee_carril`) y es
+  COMPUESTO (corre `fasten`/`add_joint`); su spec va en `SPECS_ELECTRICO` porque `registry.py`
+  está congelado. Las cajas salen de `library/electrico/armado.py` y la geometría de
+  `tablero_geom.py`: la huella D11 no las ve (cambiar su geometría = subir su `version`). La
+  puerta es junta giratoria + una `fija` por mando (la FK no arrastra); D5 se verifica en el
+  executor (cajas cada 1° + vecinos con OCCT) y un choque es `CommandError` con la cifra.
+  [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
 - Bastidores con ingletes (`create_weldment`/`create_frame`): [library](../library/CLAUDE.md).
   `insert_project`: [doc](../doc/CLAUDE.md).
 

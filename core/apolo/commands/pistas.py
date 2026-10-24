@@ -147,6 +147,9 @@ PISTAS: dict[str, str] = {
     "add_program": (
         "Carga en el controlador programable del tablero su programa en texto estructurado y el ciclo en que corre."
     ),
+    "layout_tablero": (
+        "Arma el tablero: placa atornillada al fondo, rieles y canaletas, aparatos al riel y mandos en la puerta."
+    ),
     # variables (sin pestaña: botón propio)
     "set_variable": (
         "Crea o cambia una variable que puedes usar en cualquier campo numérico; todo el modelo se actualiza con ella."

@@ -16,7 +16,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Colocación del tablero (`electrico/colocacion*.py`, D2/D8): PURA y determinista; las reglas
   en el docstring de `colocacion.py`, cada cifra en `Reglas` (sale en `Layout.supuestos`). Una
   regla nueva va ahí con su caso en `tests/test_colocacion_tablero.py`; la piloto
-  (`tests/data/tablero_piloto.json`) tiene que seguir entrando en el 500 × 400.
+  (`tests/data/tablero_piloto.json`) tiene que seguir entrando en el 500 × 400. Del `Layout` a
+  cajas en el marco del gabinete (puerta en −Y): `electrico/armado.py`; el recorrido de la puerta
+  (D5, ejes separadores, puro): `electrico/recorrido_puerta.py`. Todo lo del tablero es caja
+  alineada: una pieza nueva del armado entra ahí como `Caja`, o el recorrido no la ve.
 - Para agregar partes: editar/crear YAML en `data/` (el prefijo numérico ordena); builder nuevo
   sólo si la geometría no existe. `param_keys` lee del VARIANT (no de `specs_common`); el loader
   vuelca cualquier clave extra del variant a `specs`. Editar sólo YAML no recarga el worker (raíz).
