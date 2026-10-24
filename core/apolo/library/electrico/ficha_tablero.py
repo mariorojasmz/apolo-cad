@@ -10,7 +10,8 @@ Marco local del sólido de catálogo (el del builder, centrado salvo la seta):
   puerta), hacia el soporte; lo que sale hacia el operador va por −apoyo. Por FAMILIA
   (`APOYO_POR_FAMILIA`): la caja (`box`, convención del catálogo eléctrico: ancho a lo largo
   del riel = X, lo que sale de la placa = Y, alto = Z) apoya por −Y; la seta
-  (`seta_emergencia`) por −Z, con el origen en el frente de la puerta. Una ref lo pisa con
+  (`seta_emergencia`) por −Z, con el origen en el frente de la puerta, y el interruptor de
+  resguardo (`interruptor_resguardo`, de campo) por −Z, en su cara de apoyo. Una ref lo pisa con
   `tablero.apoyo`.
 - Un mando de PUERTA (`electrico.montaje: puerta`) separa lo que asoma delante de la cara
   EXTERIOR de la puerta (`delante_mm`) de lo que queda detrás de ella, chapa incluida
@@ -43,7 +44,8 @@ from .referencias import sugerir
 
 EJES = ("+X", "-X", "+Y", "-Y", "+Z", "-Z")
 #: La cara de apoyo por familia (builder): la convención del catálogo eléctrico (A3).
-APOYO_POR_FAMILIA = {"box": "-Y", "seta_emergencia": "-Z", "din_rail": "-Y", "canaleta": "-Y"}
+APOYO_POR_FAMILIA = {"box": "-Y", "seta_emergencia": "-Z", "din_rail": "-Y", "canaleta": "-Y",
+                     "interruptor_resguardo": "-Z"}
 BISAGRAS = ("izquierda", "derecha")
 CARAS_PASACABLES = ("inferior", "superior")
 CARAS_ACOPLE = ("frente", "abajo", "arriba", "izquierda", "derecha")

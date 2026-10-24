@@ -283,6 +283,7 @@ PIDE = {
     "unidad?": "opcional: la unidad (1…n) de la bornera; sin ella, todas",
     "borne,valor": "{borne, valor}: el borne y cómo queda",
     "canal": "el canal: S1 o S2",
+    "salida": "la salida de seguridad que queda soldada (sus bornes: 13-14, 23-24…)",
 }
 
 

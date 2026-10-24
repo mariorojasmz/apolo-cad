@@ -122,6 +122,8 @@ def _opciones(m) -> dict:
         out["salida_pegada"] = list(m.DO)
     elif m.tipo == "variador" and m.tiene_sto:
         out["canal_sto_pegado"] = ["S1", "S2"]
+    elif m.tipo == "rele_seguridad":
+        out["salida_pegada"] = list(m.ids_salida)
     elif m.tipo == "fusible" and m.unidades > 1:
         out["abierto"] = list(range(1, m.unidades + 1))
     return out

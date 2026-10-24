@@ -1,5 +1,6 @@
 """Builders de MANDOS del catálogo: la seta de parada de emergencia (plan seta-de-emergencia,
-D4–D5).
+D4–D5; la de dos bloques NC, plan mandos-de-seguridad D1) y el interruptor de resguardo con su
+lengüeta (mandos-de-seguridad D2, marco junto a su builder).
 
 Módulo propio porque `builders.py` está congelado por el trinquete de tamaño; `loader.py` une
 este registro con los demás. Mismo contrato de factory `(**params) -> ((length|None) -> …)`,
@@ -15,7 +16,7 @@ MARCO CANÓNICO (`seta_emergencia`), el que fija `position` en `insert_component
 - Puerta: anillo de leyenda Ø`d_leyenda` × 1,5 en z ∈ [0, 1,5], collar Ø30, seta Ø`d_seta`
   con el frente en z = 12 + 0,525·d_seta (33 mm la de Ø40). Detrás, el cuello Ø22 que pasa por
   el agujero Ø22,5 de una puerta de `panel_mm` y el portacontactos 30 × 40 × 42 que aprieta
-  contra su cara trasera (z = −panel_mm).
+  contra su cara trasera (z = −panel_mm); con `bloques=2`, `BLOQUE_EXTRA` más hondo.
 - Caja: caja de superficie `lado_caja` × `lado_caja` × `alto_caja` en z ∈ [0, alto_caja], con
   2 agujeros pasantes Ø5,5 (M5) en diagonal, prensaestopa M20 (hexágono de 24 entre caras) en
   la cara −Y y la misma cabeza (leyenda, collar y seta) sobre la tapa.
@@ -47,6 +48,10 @@ COLLAR_D = 30.0
 COLLAR_ALTO = 13.0
 LEYENDA_T = 1.5
 CUERPO = (30.0, 40.0, 42.0)   # portacontactos + 1 bloque NC, detrás de la puerta (X, Y, Z)
+#: Lo que alarga el portacontactos cada bloque de contacto más (`bloques`, plan
+#: mandos-de-seguridad D1): orden de un módulo apilado de la línea, sin verificar.
+BLOQUE_EXTRA = 14.0
+BLOQUES_SETA = (1, 2)
 FIJACION_D = 5.5      # paso de M5
 PRENSA_AF = 24.0      # M20 × 1,5: hexágono de 24 entre caras
 _SOLAPE = 0.5
@@ -102,18 +107,33 @@ def _caja(lado: float, alto: float) -> tuple[object, object]:
     caja = Pos(0, 0, alto / 2) * caja.fillet(4.0, caja.edges().filter_by(Axis.Z))
     for x, y in _centros_fijacion(lado):
         caja = caja - Pos(x, y, alto / 2) * Cylinder(FIJACION_D / 2, alto + 2)
-    hexagono = Pos(0, 0, 0) * extrude(RegularPolygon(PRENSA_AF / math.sqrt(3), 6), 9.0)
-    tuerca = Pos(0, 0, 8.5 + 6.0) * Cylinder(11.0, 12.0)
-    salida = Pos(0, 0, 20.0 + 1.5) * Cylinder(5.0, 3.0)
-    prensa = Pos(0, -lado / 2 + 1.0, alto / 2) * Rotation(90, 0, 0) * (hexagono + tuerca + salida)
+    prensa = Pos(0, -lado / 2 + 1.0, alto / 2) * Rotation(90, 0, 0) * _prensa_m20()
     return caja, prensa
 
 
+def _prensa_m20():
+    """Prensaestopa M20 a lo largo de +Z desde z = 0: hexágono de 9 mm, tuerca ciega Ø22 de 12 mm
+    y la salida del cable Ø10 de 3 mm."""
+    hexagono = Pos(0, 0, 0) * extrude(RegularPolygon(PRENSA_AF / math.sqrt(3), 6), 9.0)
+    tuerca = Pos(0, 0, 8.5 + 6.0) * Cylinder(11.0, 12.0)
+    salida = Pos(0, 0, 20.0 + 1.5) * Cylinder(5.0, 3.0)
+    return hexagono + tuerca + salida
+
+
 def seta_emergencia(d_seta: float = 40, montaje: str = "puerta", d_leyenda: float = 60,
-                    panel_mm: float = 2.0, alto_caja: float = 55, lado_caja: float = 72):
+                    panel_mm: float = 2.0, alto_caja: float = 55, lado_caja: float = 72,
+                    bloques: int = 1):
     """Seta de parada de emergencia Ø`d_seta` (ISO 13850) en zonas: `seta`, `collar`,
-    `leyenda` y `cuerpo` (puerta) o `caja` + `prensaestopa` (caja de superficie)."""
+    `leyenda` y `cuerpo` (puerta) o `caja` + `prensaestopa` (caja de superficie). `bloques` = los
+    bloques NC (2 = dos canales): en la puerta, cada uno más alarga el portacontactos
+    `BLOQUE_EXTRA`; en la caja van adentro (la caja de 2 pide `alto_caja` para los dos)."""
     _validar(d_seta, montaje, d_leyenda, panel_mm, alto_caja, lado_caja)
+    if bloques not in BLOQUES_SETA:
+        raise ValueError(f"Seta de emergencia: bloques {bloques} fuera de la serie "
+                         f"({', '.join(map(str, BLOQUES_SETA))})")
+    if montaje == "caja" and alto_caja < 55 + BLOQUE_EXTRA * (bloques - 1):
+        raise ValueError(f"Seta de emergencia: con {bloques} bloques la caja pide alto_caja ≥ "
+                         f"{55 + BLOQUE_EXTRA * (bloques - 1):g} mm")
 
     def build(_length):
         if montaje == "puerta":
@@ -121,6 +141,7 @@ def seta_emergencia(d_seta: float = 40, montaje: str = "puerta", d_leyenda: floa
             # cuello: de 1 mm dentro del portacontactos a 1 mm dentro de la leyenda
             cuello = Pos(0, 0, -panel_mm / 2) * Cylinder(CUELLO_D / 2, panel_mm + 2.0)
             cx, cy, cz = CUERPO
+            cz += BLOQUE_EXTRA * (bloques - 1)
             portacontactos = Pos(0, 0, -panel_mm - cz / 2) * Box(cx, cy, cz)
             partes["cuerpo"] = cuello + portacontactos
             return partes
@@ -134,7 +155,8 @@ def seta_emergencia(d_seta: float = 40, montaje: str = "puerta", d_leyenda: floa
 
 
 def anclas_seta(d_seta: float = 40, montaje: str = "puerta", d_leyenda: float = 60,
-                panel_mm: float = 2.0, alto_caja: float = 55, lado_caja: float = 72) -> dict:
+                panel_mm: float = 2.0, alto_caja: float = 55, lado_caja: float = 72,
+                bloques: int = 1) -> dict:
     """Anclas LOCALES de la seta (marco del docstring del módulo)."""
     abajo = [0.0, 0.0, -1.0]
     out = {"montaje": {"origin": [0.0, 0.0, 0.0], "axis": abajo}}
@@ -147,7 +169,72 @@ def anclas_seta(d_seta: float = 40, montaje: str = "puerta", d_leyenda: float = 
     return out
 
 
-BUILDERS = {"seta_emergencia": seta_emergencia}
-ANCLAS = {"seta_emergencia": anclas_seta}
+# ── interruptor de resguardo con actuador separado (plan mandos-de-seguridad D2) ──────────────
+#
+# MARCO (`interruptor_resguardo`): ORIGEN en el centro de la CARA DE APOYO (la que se atornilla
+# a la estructura o a la hoja del resguardo), +Z sale del soporte, +Y hacia la cabeza.
+# - `parte="cuerpo"`: caja RESG_CUERPO en z ∈ [0, 30] con la RANURA de la lengüeta en la cara
+#   +Z junto a la cabeza (RESG_RANURA, centrada en y = RESG_Y_RANURA), 2 pasantes Ø5,5 (M5) en
+#   y = RESG_Y_FIJACION y la prensaestopa M20 por −Y (hacia el piso en una cara vertical).
+# - `parte="lengueta"`: la placa RESG_PLACA con 2 pasantes Ø4,5 (M4) en x = ±RESG_X_FIJACION y
+#   la lengüeta RESG_LENGUETA que sale por +Z.
+# - Anclas: `montaje` (la cara de apoyo, eje −Z), `fijacion_1/2`; el cuerpo, `ranura` (la boca,
+#   eje −Z: el sentido en que entra la lengüeta); la lengüeta, `punta` (eje +Z). Con la lengüeta
+#   a fondo (su punta en el fondo de la ranura) la placa queda a 7,5 mm del frente del cuerpo.
+# Cotas del orden de Schneider XCSPA + XCSZ01 / Siemens 3SE5 con actuador, sin verificar.
+RESG_CUERPO = (30.0, 92.0, 30.0)
+RESG_RANURA = (20.0, 4.5, 16.0)
+RESG_Y_RANURA = 36.0
+RESG_Y_FIJACION = (-38.0, 22.0)
+RESG_PLACA = (40.0, 14.0, 3.0)
+RESG_LENGUETA = (18.0, 3.5, 24.0)
+RESG_X_FIJACION = 14.0
+PARTES_RESGUARDO = ("cuerpo", "lengueta")
+
+
+def interruptor_resguardo(parte: str = "cuerpo"):
+    """Interruptor de resguardo (ISO 14119 tipo 2): el cuerpo con la ranura o su lengüeta, que
+    va en la hoja del resguardo (marco en el comentario de arriba)."""
+    if parte not in PARTES_RESGUARDO:
+        raise ValueError(f"Interruptor de resguardo: parte «{parte}» desconocida; usa "
+                         f"{' o '.join(PARTES_RESGUARDO)}")
+
+    def build(_length):
+        if parte == "cuerpo":
+            cx, cy, cz = RESG_CUERPO
+            cuerpo = Pos(0, 0, cz / 2) * Box(cx, cy, cz)
+            rx, ry, rz = RESG_RANURA
+            cuerpo = cuerpo - Pos(0, RESG_Y_RANURA, cz - rz / 2 + 0.5) * Box(rx, ry, rz + 1.0)
+            for y in RESG_Y_FIJACION:
+                cuerpo = cuerpo - Pos(0, y, cz / 2) * Cylinder(FIJACION_D / 2, cz + 2)
+            return cuerpo + Pos(0, -cy / 2 + 1.0, cz / 2) * Rotation(90, 0, 0) * _prensa_m20()
+        px, py, pz = RESG_PLACA
+        placa = Pos(0, 0, pz / 2) * Box(px, py, pz)
+        for x in (-RESG_X_FIJACION, RESG_X_FIJACION):
+            placa = placa - Pos(x, 0, pz / 2) * Cylinder(2.25, pz + 2)
+        lx, ly, lz = RESG_LENGUETA
+        return placa + Pos(0, 0, pz - _SOLAPE + lz / 2) * Box(lx, ly, lz)
+
+    return build
+
+
+def anclas_resguardo(parte: str = "cuerpo") -> dict:
+    """Anclas LOCALES del interruptor de resguardo (marco del comentario de arriba)."""
+    abajo = [0.0, 0.0, -1.0]
+    out = {"montaje": {"origin": [0.0, 0.0, 0.0], "axis": abajo}}
+    if parte == "cuerpo":
+        for k, y in enumerate(RESG_Y_FIJACION, start=1):
+            out[f"fijacion_{k}"] = {"origin": [0.0, float(y), 0.0], "axis": abajo}
+        out["ranura"] = {"origin": [0.0, RESG_Y_RANURA, RESG_CUERPO[2]], "axis": abajo}
+        return out
+    for k, x in enumerate((-RESG_X_FIJACION, RESG_X_FIJACION), start=1):
+        out[f"fijacion_{k}"] = {"origin": [float(x), 0.0, 0.0], "axis": abajo}
+    punta = RESG_PLACA[2] - _SOLAPE + RESG_LENGUETA[2]
+    out["punta"] = {"origin": [0.0, 0.0, punta], "axis": [0.0, 0.0, 1.0]}
+    return out
+
+
+BUILDERS = {"seta_emergencia": seta_emergencia, "interruptor_resguardo": interruptor_resguardo}
+ANCLAS = {"seta_emergencia": anclas_seta, "interruptor_resguardo": anclas_resguardo}
 #: Builders que devuelven `{zona: forma}` (el YAML que los nombra declara `zonas:`).
 ZONADOS = frozenset({"seta_emergencia"})

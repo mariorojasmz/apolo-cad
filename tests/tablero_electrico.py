@@ -132,5 +132,48 @@ def arranque_variador_plc(pieza_motor: str | None = None, *, ajustes_motor: dict
     ]
 
 
+def _sin_conductor(cmds: list[dict], *puntos: str) -> list[dict]:
+    """`cmds` sin el `add_wire` de esos `puntos` (tiene que existir)."""
+    i = next(k for k, c in enumerate(cmds) if c["type"] == "add_wire" and c["params"]["puntos"] == list(puntos))
+    return cmds[:i] + cmds[i + 1:]
+
+
+def _con_ref(cmds: list[dict], designacion: str, ref: str) -> list[dict]:
+    for c in cmds:
+        if c["type"] == "add_device" and c["params"]["designacion"] == designacion:
+            c["params"]["ref"] = ref
+    return cmds
+
+
+def arranque_variador_plc_cat3(**kw) -> list[dict]:
+    """El tablero (b) con la seta de DOS NC por canal (plan mandos-de-seguridad D6): 11-12 a S1
+    del STO (y a la I0.1 del PLC) y 21-22 a S2, sin el paralelo de un solo NC."""
+    bu = {"color": "BU", "seccion_mm2": 0.75}
+    cmds = _con_ref(arranque_variador_plc(**kw), "-S0", "ESTOP-40-2NC")
+    cmds = _sin_conductor(cmds, "-S0:12", "-T2:S1", "-T2:S2", "-K1:I0.1")
+    return cmds + [wire("-S0:12", "-T2:S1", "-K1:I0.1", **bu),
+                   wire("-T1:L+", "-S0:21", **bu), wire("-S0:22", "-T2:S2", **bu)]
+
+
+def arranque_variador_rele_seguridad(**kw) -> list[dict]:
+    """El tablero (b) con un relé de seguridad -K2 (plan mandos-de-seguridad D6): la seta de dos
+    NC -S0 y el interruptor del resguardo -B2 en serie en cada canal (S11-S12 y S21-S22), el
+    rearme -S3 (azul) en S33-S34, los NA 13-14 y 23-24 a S1 y S2 del STO y el 33-34 a la I0.1 del
+    PLC («seguridad ok»)."""
+    bu = {"color": "BU", "seccion_mm2": 0.75}
+    cmds = _con_ref(arranque_variador_plc(**kw), "-S0", "ESTOP-40-2NC")
+    cmds = _sin_conductor(cmds, "-S0:12", "-T2:S1", "-T2:S2", "-K1:I0.1")
+    cmds = _sin_conductor(cmds, "-T1:L+", "-S0:11")
+    return cmds + [
+        dev("RS-2C-24VDC", "-K2"), dev("RESG-2NC", "-B2", "+CAMPO"), dev("PULS-22-AZUL-NA", "-S3"),
+        wire("-T1:L+", "-K2:A1", **bu), wire("-K2:A2", "-T1:M", **bu),
+        wire("-K2:S11", "-S0:11", **bu), wire("-S0:12", "-B2:11", **bu), wire("-B2:12", "-K2:S12", **bu),
+        wire("-K2:S21", "-S0:21", **bu), wire("-S0:22", "-B2:21", **bu), wire("-B2:22", "-K2:S22", **bu),
+        wire("-K2:S33", "-S3:13", **bu), wire("-S3:14", "-K2:S34", **bu),
+        wire("-T1:L+", "-K2:13", "-K2:23", "-K2:33", **bu),
+        wire("-K2:14", "-T2:S1", **bu), wire("-K2:24", "-T2:S2", **bu), wire("-K2:34", "-K1:I0.1", **bu),
+    ]
+
+
 def no_ok(reglas: list[dict]) -> list[str]:
     return [f"{r['regla']}: {r['detalle']}" for r in reglas if r["estado"] != "ok"]

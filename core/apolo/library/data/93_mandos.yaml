@@ -83,6 +83,135 @@ components:
     electrico:
       <<: *ficha_seta
       montaje: campo
+  # DOS CANALES (plan mandos-de-seguridad D1): la misma seta con un segundo bloque NC de apertura
+  # positiva (21-22) para la categoría 3 de ISO 13849-1 (cada canal con su contacto). Mismo
+  # builder con `bloques: 2`: en la puerta el bloque apilado alarga el portacontactos 14 mm
+  # (detras_mm 44 → 58); en la caja van adentro, que sube a 69 de alto. Mismo modelo `seta`: los
+  # dos NC siguen a la mano y cada uno es una rama propia de la red (un `pegado` pega UNO).
+  # Cotas y costo del orden de la línea, sin verificar.
+  - ref: ESTOP-40-2NC
+    name: Paro de emergencia Ø40 2NC
+    description: >-
+      Pulsador de emergencia tipo hongo Ø40 mm para la puerta del tablero (agujero Ø22,5),
+      retención por giro, DOS contactos NC de apertura positiva (11-12 y 21-22, uno por canal:
+      ISO 13850, ISO 13849-1 categoría 3), con anillo de leyenda amarillo Ø60 «PARADA DE
+      EMERGENCIA». Verificar con el proveedor.
+    builder: seta_emergencia
+    params: {d_seta: 40, montaje: puerta, d_leyenda: 60, panel_mm: 2, bloques: 2}
+    tablero: {puerta: {delante_mm: 33, detras_mm: 58}}
+    weight: 0.17
+    specs:
+      tipo: "hongo Ø40"
+      contacto: "2NC apertura positiva"
+      norma: "ISO 13850"
+      agujero: "Ø22,5"
+      leyenda: "Ø60 amarilla"
+      linea_referencia: "orden de Schneider Harmony XB5AS8442 + ZBY9140 / Siemens SIRIUS ACT 3SU1 con dos bloques 1NC"
+      cotas_verificadas: false
+      cost: 36
+    zonas:
+      seta: {acabado: plastico_rojo_seguridad, fijo: true}
+      collar: {acabado: plastico_negro}
+      leyenda: {acabado: plastico_amarillo_seguridad, fijo: true}
+      cuerpo: {acabado: plastico_gris}
+    electrico: &ficha_seta_2nc
+      funcion: S
+      simbolo: seta_emergencia
+      montaje: puerta
+      parada_emergencia: true
+      bornes:
+        - {id: "11", rol: contacto}
+        - {id: "12", rol: contacto}
+        - {id: "21", rol: contacto}
+        - {id: "22", rol: contacto}
+      caminos:
+        - {de: "11", a: "12", tipo: NC, accion: mano}
+        - {de: "21", a: "22", tipo: NC, accion: mano}
+      modelo: {tipo: seta, retorno: retenido}
+  - ref: ESTOP-40-CAJA-2NC
+    name: Paro de emergencia Ø40 2NC en caja
+    description: >-
+      Pulsador de emergencia tipo hongo Ø40 mm en caja de superficie amarilla 72×72 para montar
+      en la máquina (2 agujeros M5, prensaestopa M20 abajo), retención por giro, DOS contactos NC
+      de apertura positiva (11-12 y 21-22, uno por canal: ISO 13850, ISO 13849-1 categoría 3),
+      con anillo de leyenda amarillo Ø60. Verificar con el proveedor.
+    builder: seta_emergencia
+    params: {d_seta: 40, montaje: caja, d_leyenda: 60, alto_caja: 69, lado_caja: 72, bloques: 2}
+    weight: 0.33
+    specs:
+      tipo: "hongo Ø40"
+      contacto: "2NC apertura positiva"
+      norma: "ISO 13850"
+      caja: "72×72×69 amarilla, IP65"
+      fijacion: "2 × M5"
+      prensaestopa: M20
+      leyenda: "Ø60 amarilla"
+      linea_referencia: "orden de Schneider Harmony XAPJ / XALK + XB5AS8442 / Siemens SIRIUS ACT 3SU1801 con dos bloques 1NC"
+      cotas_verificadas: false
+      cost: 52
+    zonas:
+      seta: {acabado: plastico_rojo_seguridad, fijo: true}
+      collar: {acabado: plastico_negro}
+      leyenda: {acabado: plastico_amarillo_seguridad, fijo: true}
+      caja: {acabado: plastico_amarillo_seguridad}
+      prensaestopa: {acabado: plastico_negro}
+    electrico:
+      <<: *ficha_seta_2nc
+      montaje: campo
+  # RESGUARDO (plan mandos-de-seguridad D2): interruptor de seguridad con ACTUADOR SEPARADO
+  # (ISO 14119 tipo 2). El cuerpo se atornilla a la estructura y la lengüeta (ref aparte, como
+  # se compra) a la hoja del resguardo. 2 NC de apertura positiva (IEC 60947-5-1 Anexo K) que
+  # están CERRADOS con la lengüeta adentro: los mueve el actuador «abierto» (el interruptor se
+  # acciona al sacar la lengüeta), cada uno una rama propia. Modelo `resguardo`: `abrir`/`cerrar`,
+  # arranca cerrado; falla `trabado`. Builder `interruptor_resguardo` (marco en
+  # `library/builders_mandos.py`). Cotas y costo del orden de la línea, sin verificar.
+  - ref: RESG-2NC
+    name: Interruptor de resguardo 2NC
+    description: >-
+      Interruptor de seguridad para resguardo móvil con actuador separado (ISO 14119 tipo 2),
+      2 contactos NC de apertura positiva (11-12 y 21-22, uno por canal), cerrados con la lengüeta
+      adentro; caja de plástico 30×92×30 con 2 agujeros M5 y prensaestopa M20. La lengüeta va
+      aparte (RESG-LENGUETA). Verificar con el proveedor.
+    builder: interruptor_resguardo
+    params: {parte: cuerpo}
+    weight: 0.12
+    specs:
+      tipo: "ISO 14119 tipo 2, actuador separado"
+      contacto: "2NC apertura positiva"
+      norma: "ISO 14119 / IEC 60947-5-1 Anexo K"
+      fijacion: "2 × M5"
+      prensaestopa: M20
+      actuador: RESG-LENGUETA
+      linea_referencia: "orden de Schneider Preventa XCSPA592 / Siemens SIRIUS 3SE5112 con actuador aparte"
+      cotas_verificadas: false
+      cost: 40
+    electrico:
+      funcion: B
+      simbolo: interruptor_resguardo
+      montaje: campo
+      bornes:
+        - {id: "11", rol: contacto}
+        - {id: "12", rol: contacto}
+        - {id: "21", rol: contacto}
+        - {id: "22", rol: contacto}
+      caminos:
+        - {de: "11", a: "12", tipo: NC, accion: mano, grupo: abierto}
+        - {de: "21", a: "22", tipo: NC, accion: mano, grupo: abierto}
+      modelo: {tipo: resguardo, actuador: separado}
+  - ref: RESG-LENGUETA
+    name: Lengüeta de interruptor de resguardo
+    description: >-
+      Actuador recto (lengüeta) del interruptor de resguardo RESG-2NC, para atornillar a la hoja
+      del resguardo con 2 tornillos M4. Verificar con el proveedor.
+    builder: interruptor_resguardo
+    params: {parte: lengueta}
+    weight: 0.02
+    specs:
+      para: RESG-2NC
+      fijacion: "2 × M4"
+      linea_referencia: "orden de Schneider Preventa XCSZ11 / Siemens SIRIUS 3SE5000-0AV01"
+      cotas_verificadas: false
+      cost: 10
   - ref: BOTONERA-2
     name: Botonera marcha/paro
     description: Botonera de 2 pulsadores Ø22 (marcha verde / paro rojo) con potenciómetro de velocidad.

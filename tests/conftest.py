@@ -13,7 +13,7 @@ import os
 import pytest
 
 # A3 (nucleo-abierto-extensiones-privadas): la suite mide el NÚCLEO (59 comandos, 90 tools,
-# 388 refs, golden). Una extensión instalada en el mismo .venv (D11) no se carga, tampoco en los
+# 393 refs, golden). Una extensión instalada en el mismo .venv (D11) no se carga, tampoco en los
 # procesos que lanzan los tests (uvicorn, el MCP por stdio, el worker): por eso `os.environ` y
 # no monkeypatch, y ANTES de importar `apolo`. `test_extensiones.py` la prende a propósito.
 os.environ["APOLO_EXTENSIONES"] = "0"

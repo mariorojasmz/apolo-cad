@@ -42,7 +42,9 @@ NUEVAS = {
 }
 TODAS_NUEVAS = [r for refs in NUEVAS.values() for r in refs]
 # la seta en caja de superficie (plan seta-de-emergencia D4): misma ficha que ESTOP-40
-SETAS = ["ESTOP-40-CAJA"]
+#: los mandos de seguridad de dos canales (plan mandos-de-seguridad D1–D3), eléctricos
+SEGURIDAD = ["ESTOP-40-2NC", "ESTOP-40-CAJA-2NC", "RESG-2NC", "RS-2C-24VDC"]
+SETAS = ["ESTOP-40-CAJA"] + SEGURIDAD
 EXISTENTES = ["VFD-1K5-220", "VFD-2K2-220", "ESTOP-40", "BOTONERA-2", "FOTO-M18", "TABLERO-5040",
               "MOTOR-037", "MOTOR-075", "MOTOR-150", "MOTOR-150-EH"] + refs_in_category("motorreductores_sinfin")
 MARCAS = ("SCHNEIDER", "SIEMENS", "ABB", "PHOENIX", "WEIDMULLER", "OMRON", "SICK", "LAPP",
@@ -59,10 +61,11 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
         for ref in refs:
             assert CATALOG[ref].category == categoria, ref
     for categoria in NUEVAS_CATEGORIAS:
-        assert sorted(refs_in_category(categoria)) == sorted(NUEVAS[categoria])
+        extra = ["RS-2C-24VDC"] if categoria == "maniobra_control" else []  # mandos-de-seguridad D3
+        assert sorted(refs_in_category(categoria)) == sorted(NUEVAS[categoria] + extra)
     # + ESTOP-40-CAJA (seta D4) + 8 de union-en-perfil-hueco + 3 UCT + TAMBOR-102-RET (faja v4)
-    # + 4 pernos de cuello cuadrado DIN 603 (F6)
-    assert len(CATALOG) == 388  # +10 del armado del tablero (V8.5 F1a)
+    # + 4 pernos de cuello cuadrado DIN 603 (F6) + 10 del armado del tablero (V8.5 F1a)
+    assert len(CATALOG) == 393  # + 5 de mandos-de-seguridad (las 4 de SEGURIDAD y RESG-LENGUETA)
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS)

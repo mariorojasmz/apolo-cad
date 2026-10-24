@@ -68,7 +68,7 @@ def test_la_cara_de_apoyo_es_por_familia():
 
 
 def test_todo_mando_de_puerta_parte_su_fondo():
-    assert len(_puerta()) == 11  # los 10 en caja + la seta
+    assert len(_puerta()) == 12  # los 10 en caja + la seta + la de 2NC (mandos-de-seguridad D1)
     for ref in _puerta():
         c = CATALOG[ref]
         p = c.tablero.puerta

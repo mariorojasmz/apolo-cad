@@ -175,6 +175,58 @@ components:
       perdidas_W: 0.8
       cargas: [{bornes: [A1, A2], tension: "230 VAC/DC", tipo: bobina}]
       modelo: {tipo: rele, contacto_A: 6, contacto_V: 250, Uc_V: 230, Uc: UC, U_cierre_pct: 80, U_caida_pct: 25, bobina_W: 0.5, cierre_ms: [8, 15], apertura_ms: [10, 25]}
+  # ── relé de seguridad (plan mandos-de-seguridad D3) ─────────────────────────────────────
+  # Dos canales con rearme vigilado, del orden de Pilz PNOZ X2.8P / Schneider Preventa XPSAC:
+  # S11, S21 y S33 salen de A1 por dentro (criterio de diseño: la vigilancia de cruces entre
+  # canales no se modela) y vuelven por el contacto externo a S12, S22 (canales) y S34 (rearme:
+  # actúa al SOLTAR el pulsador). Tres NA de seguridad (13-14, 23-24, 33-34) y un NC de señal
+  # (41-42) de guía forzada. `modelo` (`cosim/modelos/seguridad.py`): entradas IEC 61131-2
+  # tipo 1; funciona desde U_min_pct = 85 % de Un (orden de la ficha de la línea, 0,85–1,1 Un);
+  # `t_conexion_ms` y `t_desconexion_ms` del orden de la ficha (≤ 20 ms en la apertura),
+  # verificar. Sin datos de fiabilidad (B10d, PFHd): no son del núcleo.
+  - ref: RS-2C-24VDC
+    name: Relé de seguridad 2 canales 24 VDC
+    description: Relé de seguridad para parada de emergencia y resguardo, dos canales (S11-S12, S21-S22) con rearme vigilado (S33-S34, al soltar el pulsador), 3 NA de seguridad (13-14, 23-24, 33-34) y 1 NC de señal (41-42), alimentación 24 VDC, 22,5 mm de ancho. Verificar con el proveedor.
+    builder: box
+    params: {width: 22.5, depth: 114, height: 99}
+    weight: 0.2
+    specs: {canales: 2, rearme: vigilado, salidas: "3NA de seguridad + 1NC de señal", alimentacion: "24 VDC", ancho_mm: 22.5, linea_referencia: "orden de Pilz PNOZ X2.8P / Schneider Preventa XPSAC5121", cotas_verificadas: false, cost: 160}
+    electrico:
+      funcion: K
+      simbolo: rele_seguridad
+      montaje: din
+      perdidas_W: 2
+      bornes:
+        - {id: A1, rol: mando}
+        - {id: A2, rol: mando}
+        - {id: S11, rol: señal}
+        - {id: S12, rol: señal}
+        - {id: S21, rol: señal}
+        - {id: S22, rol: señal}
+        - {id: S33, rol: señal}
+        - {id: S34, rol: señal}
+        - {id: "13", rol: contacto}
+        - {id: "14", rol: contacto}
+        - {id: "23", rol: contacto}
+        - {id: "24", rol: contacto}
+        - {id: "33", rol: contacto}
+        - {id: "34", rol: contacto}
+        - {id: "41", rol: contacto}
+        - {id: "42", rol: contacto}
+      caminos:
+        - {de: A1, a: S11, tipo: fijo}
+        - {de: A1, a: S21, tipo: fijo}
+        - {de: A1, a: S33, tipo: fijo}
+        - {de: "13", a: "14", tipo: NA, accion: señal, grupo: salida_13}
+        - {de: "23", a: "24", tipo: NA, accion: señal, grupo: salida_23}
+        - {de: "33", a: "34", tipo: NA, accion: señal, grupo: salida_33}
+        - {de: "41", a: "42", tipo: NC, accion: señal, grupo: aux}
+      cargas:
+        - {bornes: [A1, A2], tension: "24 VDC", tipo: alimentacion, polar: true}
+        - {bornes: [S12, A2], tension: "24 VDC", tipo: entrada, polar: true}
+        - {bornes: [S22, A2], tension: "24 VDC", tipo: entrada, polar: true}
+        - {bornes: [S34, A2], tension: "24 VDC", tipo: entrada, polar: true}
+      modelo: {tipo: rele_seguridad, Un_V: 24, U_min_pct: 85, rearme: vigilado, salidas: ["13-14", "23-24", "33-34"], t_conexion_ms: 50, t_desconexion_ms: 20}
   # ── PLC compacto ────────────────────────────────────────────────────────────────────────
   - ref: PLC-14DI-10DO-24VDC
     name: PLC compacto 14 DI / 10 DO / 2 AI 24 VDC

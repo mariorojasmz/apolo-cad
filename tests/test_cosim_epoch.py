@@ -64,7 +64,11 @@ ARCHIVOS = (
 #: la máscara de contactos pegados) sólo actúan con un evento `falla`; sin él las salidas son las
 #: de antes: 9 escenarios del banco (marcha, seta, atasco, fase, cable, cajas, sensor pegado,
 #: caída de red, atasco parcial) dan la MISMA huella antes y después (bitácora del plan).
-HUELLA: tuple[int, str] = (4, "bff0215c9cfaf2bb")
+#: mandos-de-seguridad F1 (sin subir, D5): modelos NUEVOS (`resguardo`, `rele_seguridad`), el
+#: tablero lee los que declaran `BORNES_ENTRADA` y el vocabulario `pide` suma «salida»; sin esos
+#: aparatos nada cambia: 11 escenarios del banco (los 9 de arriba, la seta por variador y el NC de
+#: la seta pegado) dan la MISMA huella que en bf69175 (bitácora del plan).
+HUELLA: tuple[int, str] = (4, "5b3d0ebe9d443a19")
 
 
 def archivos() -> list[Path]:

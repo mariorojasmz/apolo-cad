@@ -43,7 +43,7 @@ COLORES = ("BK", "BN", "RD", "OG", "YE", "GN", "BU", "LBU", "VT", "GY", "WH", "P
 #: (`apolo/extensiones.py`, plan nucleo-abierto-extensiones-privadas).
 TIPOS_MODELO = ["red", "fuente", "seccionador", "itm", "guardamotor", "rele_termico", "fusible",
                 "contactor", "rele", "plc", "variador", "motor", "pulsador", "seta", "selector",
-                "piloto", "sensor"]
+                "piloto", "sensor", "resguardo", "rele_seguridad"]
 #: Clases de disparo de un relé de sobrecarga (IEC 60947-4-1): la banda de cada una, en el modelo.
 CLASES_DISPARO = ("10A", "10", "20", "30")
 #: Curvas de un ITM (IEC 60898-1) y de un cartucho de fusible 5×20 (IEC 60127-2: F rápido,

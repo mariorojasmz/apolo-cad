@@ -8,7 +8,9 @@ avanza el lado eléctrico UN intercambio (2 ms), en este orden:
      corriente que pide el mando (`pedidas()` ANTES del paso: F3);
   3. el mando, con esas tensiones;
   4. cada modelo con sus tensiones y corrientes: bobinas, pilotos, protecciones (la corriente de
-     sus contactos en las dos redes), mandos, E/S del PLC, sensores, variadores y motores;
+     sus contactos en las dos redes), mandos, E/S del PLC, sensores, los modelos con
+     `BORNES_ENTRADA` (el relé de seguridad: lee esas entradas y mueve sus contactos con
+     `actuadores()`), variadores y motores;
   5. lo que queda para el paso que viene: la carga de cada motor (D8: EN MARCHA = potencia que
      sale de su curva; DETENIDO en la red = impedancia de rotor bloqueado, F3), la de la entrada
      de cada fuente y variador, y el COMANDO de cada motor hacia MuJoCo (`comandos`).
@@ -112,7 +114,7 @@ class Tablero:
             fuentes.setdefault(f.get("dispositivo"), []).append(f["id"])
         self.contactores, self.pilotos, self.protecciones, self.mandos = [], [], [], []
         self.fuentes_dc, self.redes_ac, self.plcs, self.sensores, self.variadores = [], [], [], [], []
-        self.motores = []
+        self.motores, self.logicos = [], []
         for des, m in self.modelos.items():
             fs = fuentes.get(des, [])
             if isinstance(m, Contactor):
@@ -139,6 +141,9 @@ class Tablero:
                                         ac[0] if ac else None, (dc[0]["id"], float(dc[0]["U_V"])) if dc else None))
             elif isinstance(m, Motor):
                 self.motores.append((des, m, self._carga(des, "motor")))
+            elif getattr(m, "BORNES_ENTRADA", None):  # lee entradas y mueve contactos (relé de seguridad)
+                bornes = {b: self._carga(des, "entrada", b) for b in m.BORNES_ENTRADA}
+                self.logicos.append((des, m, bornes, self._carga(des, "alimentacion")))
             elif isinstance(m, _Mando):
                 self.mandos.append((des, m))
         self._red_ids = {fid: m for _, m, fid in self.redes_ac}
@@ -165,7 +170,8 @@ class Tablero:
         self._k_plc = [(m, [(b, f"{des}.{b}") for b in m.DO]) for des, m, *_ in self.plcs]
         self._k_sensor = [(f"{des}.señal", m) for des, m, _ in self.sensores]
         self._k_vfd = [(f"{des}.rele_falla", m) for des, m, *_ in self.variadores]
-        self._k_mando = [(f"{des}.", f"{des}.potenciometro", m) for des, m in self.mandos]
+        self._k_mando = [(f"{des}.", f"{des}.potenciometro", m) for des, m in self.mandos] + [
+            (f"{des}.", None, m) for des, m, *_ in self.logicos]
         # las cargas que un modelo con falla saca de la red (bobina cortada, lámpara fundida)
         self._con_carga = [(m, cid) for _d, m, cid, _p in self.contactores if cid] + [
             (m, cid) for _d, m, cid in self.pilotos if cid]
@@ -348,6 +354,8 @@ class Tablero:
             m.paso(dt, e)
         for des, m, alim in self.sensores:
             m.paso(dt, {"detecta": self.detecta.get(des, False), "U_alim_V": self.U(alim)})
+        for _des, m, bornes, alim in self.logicos:
+            m.paso(dt, {**{b: self.U(cid) for b, cid in bornes.items()}, "U_alim_V": self.U(alim)})
         for des, m, ent, alim, _fid, _dc in self.variadores:
             e = {b: self.U(cid) for b, cid in ent.items()}
             motor = self._motor_de.get(des)  # el que alimentó en el paso anterior
