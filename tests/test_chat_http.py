@@ -231,8 +231,10 @@ def test_mismos_bytes_de_tools_y_system_en_los_dos_modos(mundo):
     assert fijos["propuesta"] == fijos["autonomo"]
     assert kws["propuesta"]["tools"] == herramientas.definiciones()
     assert kws["propuesta"]["system"][0]["text"] == chat.system_prompt_chat()
-    # D8: sin los 53 schemas embebidos (el chat viejo mandaba 152 876 bytes de tools)
-    assert len(json.dumps(kws["propuesta"]["tools"], ensure_ascii=False).encode()) < 60_000
+    # D8: sin los 53 schemas embebidos (el chat viejo mandaba 152 876 bytes de tools). Es la red
+    # contra esa regresión, no un límite de la API: sube si una tool nueva lo pide (60 000 → 70 000
+    # tras V8.5 F3b, con 9 bytes de margen), nunca embebiendo schemas ni recortando docstrings.
+    assert len(json.dumps(kws["propuesta"]["tools"], ensure_ascii=False).encode()) < 70_000
     m_p, m_a = kws["propuesta"]["messages"], kws["autonomo"]["messages"]
     assert m_p[0]["content"][0] == m_a[0]["content"][0]  # sólo cambia el bloque del modo
 
