@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por Mario el 2026-10-24; F1 en curso
+nota: contrato derivado de un plan aprobado por Mario el 2026-10-24; F1 mergeada (A1 superficie de lectura eléctrica en `MODULOS`, A2 `Extension.costeo`, A3 `Extension.entrega` en `delivery_check`; sin extensiones, todo byte-idéntico)
 descripcion: una extensión de entregables lee el modelo eléctrico por una superficie declarada, suma filas al costeo y a la cotización y pone ítems en la puerta de entrega, sin tocar el núcleo
 ---
 
