@@ -54,8 +54,10 @@ def test_la_caja_sale_empujada_y_el_vastago_vuelve(base):
     assert en(r, "-MM1.pA_bar", 1.0) == pytest.approx(6.0, abs=0.01)   # A con la regulada del FRL
     assert en(r, "-MM1.F_N", 1.0) == pytest.approx(482.5, abs=1.0)     # p·A − p_atm·a (6 bar, Ø32/12)
     caja = r["mecanica"]["resumen"]["productos"]["p_caja"]
-    # empujada más allá de la carrera, derecho (a ~4 m/s sale despedida de la mesa)
-    assert caja["posicion_final_mm"][0] > CAJA_X + CARRERA and abs(caja["posicion_final_mm"][1]) < 5.0
+    # empujada más allá de la carrera, casi derecho (a ~4 m/s sale despedida de la mesa: el vuelo
+    # y la caída son caóticos, el desvío lateral exacto cambia de una máquina a otra)
+    assert caja["posicion_final_mm"][0] > CAJA_X + CARRERA
+    assert abs(caja["posicion_final_mm"][1]) < 0.05 * caja["posicion_final_mm"][0]
     assert en(r, "caja.x_mm", 0.2) == pytest.approx(CAJA_X, abs=0.5)   # quieta hasta que la toca
     # el aire del ciclo: avance + retroceso, contado una vez (en reposo no hay caudal)
     consumo = r["final"]["-AZ1.consumo_NL"]
@@ -153,5 +155,9 @@ def test_biestable_conserva_y_el_detector_lee_la_junta():
     assert [v for _, v in cambios(r, "-QM2.posicion")] == ["12", "14", "12"]
     assert en(r, "-MM1.x_mm", 1.0) == pytest.approx(CARRERA, abs=1.0)   # sin tensión, conserva
     assert en(r, "-MM1.x_mm", 1.95) == pytest.approx(0.0, abs=1.0)
+    # el detector conmuta al llegar el pistón (el rebote contra el tope a ~4 m/s puede hacerlo
+    # titilar unos ms, como a un reed real) y suelta al retroceder
     act = cambios(r, "-B1.activo")
-    assert [v for _, v in act] == [False, True, False] and 0.3 < act[1][0] < 0.6 and act[2][0] > 1.2
+    assert act[0] == [0.0, False] and act[1][1] is True and 0.3 < act[1][0] < 0.6
+    assert act[-1][1] is False and act[-1][0] > 1.2
+    assert [v for t, v in act if 0.6 < t < 1.2] == []          # firme mientras está afuera
