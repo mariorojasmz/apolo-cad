@@ -20,6 +20,7 @@ from .catalog import CATALOG
 from .designacion_comercial import (
     categoria_de_compra, designacion, es_comercial, nombre_de_compra, norma_del_nombre,
 )
+from .incluidas import vastagos_incluidos
 from .materials import resolve_material
 
 # Pieza COMERCIAL a-medida: se COMPRA, no se corta ni mecaniza — no le corresponde lámina de
@@ -59,8 +60,9 @@ def cut_list(scene: dict, default_material: str | None = None) -> list[dict]:
     ``(material, espesor, ancho, largo)``. Cada Feature se descompone en sus sólidos.
     `default_material` = el del vertical (guarda de `resolve_material`; None = desconocido)."""
     groups: dict[tuple, dict] = {}
+    con_su_ref = vastagos_incluidos(scene)  # V8.9 F2: el vástago se compra con su cilindro
     for sid, f in scene.items():
-        if not getattr(f, "visible", True):
+        if not getattr(f, "visible", True) or sid in con_su_ref:
             continue
         comp = CATALOG.get(getattr(f, "component", None) or "")
         if comp is not None and not comp.cuttable:

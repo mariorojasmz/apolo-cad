@@ -162,6 +162,14 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   puerta es junta giratoria + una `fija` por mando (la FK no arrastra); D5 se verifica en el
   executor (cajas cada 1° + vecinos con OCCT) y un choque es `CommandError` con la cifra.
   [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
+- `create_pneumatic_cylinder` (`cilindro.py`, V8.9 D5; `create_cylinder` ya es la primitiva) es
+  COMPUESTO (corre `add_joint`/`fasten`) y va en `SPECS_CILINDRO`. Marco local y piezas en
+  `cilindro_geom.py` + `library/builders_neumatica.py` (la huella D11 no los ve: cambiar su
+  geometría = subir su `version`; si cambia la forma de una ref, también `GEOM_CACHE_EPOCH`). Ejes
+  por `eje`/`puertos` del mundo (la FK sólo mueve ejes alineados), nunca Euler. El vástago
+  `{cmd}_vastago` viene con la ref: BOM y lista de corte lo saltan (`library/incluidas.py`, por
+  los sufijos `_cuerpo`/`_vastago`: renombrarlos lo cobra y lo manda a fabricar).
+  [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - Bastidores con ingletes (`create_weldment`/`create_frame`): [library](../library/CLAUDE.md).
   `insert_project`: [doc](../doc/CLAUDE.md).
 

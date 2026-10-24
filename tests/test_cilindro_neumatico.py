@@ -12,7 +12,7 @@ from apolo.doc import Document, DocumentError
 from apolo.library.bom import bom_from_scene
 from apolo.library.catalog import CATALOG, build_component, refs_in_category
 from apolo.library.checks import interference_report
-from apolo.services.incluidas import incluidas
+from apolo.library.cutlist import cut_list
 
 CILINDROS = refs_in_category("cilindros_neumaticos")
 ERRORES = (CommandError, DocumentError)
@@ -156,15 +156,18 @@ def test_una_fila_de_bom_por_cilindro():
     for x, carrera in ((0, 300), (200, 300), (400, 150)):
         d.execute("create_pneumatic_cylinder", {"ref": "CIL-ISO15552-32", "carrera": carrera,
                                                 "montaje": "pies", "position": {"x": x}})
-    filas = bom_from_scene(d.scene, incluidas=incluidas(d))
+    filas = bom_from_scene(d.scene)
     cil = [f for f in filas if f["ref"] == "CIL-ISO15552-32"]
     assert sorted((f["cantidad"], f["longitud_mm"]) for f in cil) == [(1, 150.0), (2, 300.0)]
     assert all("carrera" in f["descripcion"] for f in cil)
-    assert not any("Vástago" in f["descripcion"] for f in filas)  # viene con la ref
+    assert all(set(f["incluye"]) == {"Cilindro · Vástago"} for f in cil)  # viene con la ref
+    assert not any("Vástago" in f["descripcion"] for f in filas)
     pies = [f for f in filas if "Pie (MS1)" in f["descripcion"]]
     assert len(pies) == 1 and pies[0]["cantidad"] == 6  # los dos pies de cada uno, una fila
-    # sin `incluidas` el vástago saldría a medida: el consumidor de la BOM de compra la pasa
-    assert any("Vástago" in f["descripcion"] for f in bom_from_scene(d.scene))
+    # ni se fabrica: fuera de la lista de corte (y con ella del despiece y de las láminas)
+    despiece = cut_list(d.scene)
+    assert not any("Vástago" in r["nombre"] for r in despiece)
+    assert any("Pie (MS1)" in r["nombre"] for r in despiece)
 
 
 def test_costeo_no_cobra_el_vastago():
