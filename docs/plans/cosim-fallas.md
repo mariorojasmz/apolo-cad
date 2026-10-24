@@ -236,3 +236,9 @@ UI (D7) sobre `34463e7`, sólo `ui/`. `npm test` 477 → 490 (13 nuevos en `vivo
     de la app): se probó la lógica pura y el muestrario a mano.
   - Hoy sólo hay tema oscuro (A12 de V8.5): «claro y oscuro» de la revisión queda en oscuro.
   - La revisión de diseño a ciegas (ancho y angosto) y F3 sobre una copia de la 77.
+- **Revisión a ciegas (2026-10-24, en la rama `wip/cable-visor`, bitácora F4b de
+  [V8.5](V8.5-tablero-3d.md)):** «Simular falla» dejaba el estado al pie en gris («Esta falla ya está
+  puesta.») → va junto al botón que la quita, con el ícono de aviso; en la barra angosta con varias
+  fallas «Quitar todas» caía sola a la izquierda → las dos acciones van juntas a la derecha; las
+  fallas de la lista empezaban en minúscula → mayúscula inicial por CSS (la de una sola sigue tras
+  «Falla activa:»). Quedan, de toda la app: los botones de ícono de la barra, sus pestañas y el «×1,00».

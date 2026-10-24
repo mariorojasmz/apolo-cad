@@ -154,7 +154,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - Los cables de campo (`cables_campo.py`, F4) tampoco se cachean: `recorridos(doc, m, tableros)`
   es la ÚNICA cuenta de su recorrido y su largo (BOM, `circuito`, ERC y `vista`, lo que dibuja el
   visor); sólo con `por`. Lo que gira sale de `calidad_seguridad.analisis` (sin el layout): no
-  otro criterio. (F4)
+  otro criterio. (F4) El panel los cuenta en `tablero_cables.py` sobre las filas de `vista` (con los
+  `ruteos` que ya tiene); el texto crudo de `tecnico` sale de las funciones del ERC
+  (`detalle_choque`, `detalle_incompleto`), no de otra redacción. (F4b)
 
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y

@@ -29,8 +29,8 @@ color, tamaño o duración suelto en su CSS. Las capturas salen del muestrario (
 sólo con `npm run dev`; `?ancho=420` para angosto). Hoy sólo hay tema oscuro (A12 de V8.5).
 El panel «Tablero» (`src/tablero/`) es el modelo: muestra lo que decide `services/tablero_panel.py`
 sin reglas propias (veredicto, ítems, cifras como `valor`+`unidad`); `VistaTablero` va por props
-(la montan el panel y el muestrario) y un conductor elegido se dibuja con `recorrido3d.ts`
-(instalado en el visor, fuera de `group`). Una fila elegida abre lo suyo DEBAJO de ella
+(la montan el panel y el muestrario) y un conductor o un cable de campo elegido (comparten ids:
+son comandos) se dibuja con `recorrido3d.ts` (instalado en el visor, fuera de `group`). Una fila elegida abre lo suyo DEBAJO de ella
 (`ItemsAtencion` `elegida`/`debajo`), nunca al final de la lista. [V8.5](../docs/plans/V8.5-tablero-3d.md) F3b
 
 ## Texto y ayuda: la pantalla se explica sola

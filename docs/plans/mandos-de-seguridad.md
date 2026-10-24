@@ -188,3 +188,10 @@ opciones y abrir en vivo) y `ruff` limpio.
   - `AccionarMando` (contexto de React, por defecto `sesion.accionar`) para que el muestrario
     maneje los mandos sin WebSocket; `ListaMandos` y `Lecturas` se exportan de `PanelMandos.tsx`.
 - Pendiente: la revisión de diseño a ciegas del panel con el resguardo (ancho y angosto) y F2.
+- **Revisión a ciegas (2026-10-24, en la rama `wip/cable-visor`, bitácora F4b de
+  [V8.5](V8.5-tablero-3d.md)):** «Salidas cerradas / abiertas» era jerga → «Habilita la marcha» /
+  «Corta la marcha»; la seta sólo decía su estado con la tapa → «Seta de emergencia presionada /
+  liberada» en su línea, como el resguardo; dos verbos para lo mismo («Presionar» la seta,
+  «Apretar» el pulsador) → «Presionar»; las lecturas iban en la caja de los mandos y parecían botones
+  → fila plana. Queda, de toda la app: el encabezado en mayúsculas espaciadas («MANDOS») frente a los
+  del tablero, y el peso de las cifras de las lecturas.
