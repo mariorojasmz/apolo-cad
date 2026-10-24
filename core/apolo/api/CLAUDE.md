@@ -64,6 +64,10 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   segunda UI → `aviso`), y el MCP por stdio registra sólo las tools de lo que su API publica
   cargado en `GET /api/extensiones`: un rechazo nuevo va en `cargar()`, nunca sólo en un proceso.
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1c)
+- Una ruta de extensión toca el documento SÓLO por `fachada.py` (re-exportada en `SUPERFICIE`):
+  `mutar_documento` = `_sync_or_job` + `_state_or_error`, `leer_documento` bajo `STATE_LOCK`,
+  `leer_ext`/`poner_ext` (clave `ext`). Un cambio del embudo de mutación lo hereda sola; lo que
+  le falte a una extensión se suma ahí, no se le abre `common`. (F1d)
 
 ## Estado de sesión (`session.S`)
 

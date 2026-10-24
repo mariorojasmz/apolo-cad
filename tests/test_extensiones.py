@@ -112,7 +112,7 @@ def test_cada_punto_entra_al_registro_del_nucleo(con_prueba):
     assert persona["pestana"] == {"orden": 90, "rotulo": "Prueba"}
     assert persona["pista"].startswith("Crea una caja de prueba")
     rutas = [r.path for router in con_prueba.routers() for r in router.routes]
-    assert rutas == ["/api/prueba/hola"]
+    assert rutas[0] == "/api/prueba/hola" and "/api/prueba/caja" in rutas  # F1d: la fachada
     assert con_prueba.cargar() == con_prueba.estado()  # idempotente: no carga dos veces
     assert len(REGISTRY) == 60
 

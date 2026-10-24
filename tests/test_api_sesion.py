@@ -185,6 +185,7 @@ CAPAS_API = {
     "common": {"session", "scene", "autosave", "ws", "jobs", "guardia_documento", "candado"},
     "sims": {"session", "common"},
     "fea_runs": {"session", "autosave", "guardia_documento"},
+    "fachada": {"common", "session"},  # el documento para las rutas de una extensión (F1d)
     "routers": set(),
     "routers.*": {"common", "scene", "session", "sims", "fea_runs"},
 }

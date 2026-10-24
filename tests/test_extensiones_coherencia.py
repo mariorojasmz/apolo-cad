@@ -72,7 +72,9 @@ def test_detalle_sale_de_la_extension_y_lo_sirve_la_api(extensiones_aisladas, mo
     assert "prueba_hola" not in catalogo.DE_EXTENSION  # nadie registró tools en este proceso
     ok, vieja = TestClient(api.app).get("/api/extensiones").json()
     assert ok == {**CARGADA, "comandos": ["prueba.hola"], "tools": ["prueba_hola"],
-                  "rutas": ["GET /api/prueba/hola"], "refs": ["prueba.caja"],
+                  "rutas": ["GET /api/prueba/hola", "POST /api/prueba/caja",
+                            "GET /api/prueba/piezas", "GET /api/prueba/nota",
+                            "PUT /api/prueba/nota"], "refs": ["prueba.caja"],
                   "modelos_cosim": ["prueba.lampara"], "builders": [], "ui": False}
     assert not vieja["cargada"] and "contrato" in vieja["motivo"] and "comandos" not in vieja
     # /api/health sigue con la forma corta

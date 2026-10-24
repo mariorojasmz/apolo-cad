@@ -1384,9 +1384,19 @@ por vía):
    - `document.py` sigue en 1009 líneas (trinquete): las tres líneas nuevas se compensaron uniendo
      dos asignaciones y un comentario.
    - Tests: `tests/test_ext_manifest.py`.
+2. **Fachada del documento** (`core/apolo/api/fachada.py`, en `extensiones_api.SUPERFICIE`, gate de
+   capas: importa `common` y `session`):
+   - `mutar_documento(fn, asincrono=, tipo=, armar=)`: `fn(doc)` por las puertas de `Document`
+     dentro de `_state_or_error` (guardia del documento y sólo lectura → 409, error de dominio →
+     400, autosave, payload o `armar(doc)` + `affected_command_ids`, WebSocket) y, con
+     `asincrono`, por `_sync_or_job` (202 + recibo, guardia de proyecto).
+   - `leer_documento(fn)` bajo `STATE_LOCK`; `leer_ext`/`poner_ext` (sólo la de una extensión
+     cargada; guardia, autosave, sin undo); `proyecto_activo()`.
+   - La extensión falsa lo usa en `rutas.py` (`/api/prueba/caja`, `/piezas`, `/nota`) y
+     `tests/test_extensiones_f1d.py` lo prueba: undo y autosave, job, 400 sin dejar nada, 409 por
+     la guardia y por sólo lectura, los datos que van al manifest y vuelven al reabrir.
 
-**Falta:** la fachada de documento en `extensiones_api`, `Extension.puerta` con la versión del
-registro y el motor de láminas en `MODULOS`; la extensión falsa usando cada punto.
+**Falta:** `Extension.puerta` con la versión del registro y el motor de láminas en `MODULOS`.
 
 **Decidido por el agente (vetable):**
 

@@ -51,6 +51,13 @@ SUPERFICIE: dict[str, str] = {
     "Modelo": "apolo.cosim.modelos:Modelo",
     # el documento
     "Document": "apolo.doc.document:Document",
+    # la fachada del documento activo para las rutas de una extensión (F1d): lock, sesión,
+    # guardia del documento, sólo lectura, autosave, jobs y sus datos del manifest (`ext`)
+    "leer_documento": "apolo.api.fachada:leer_documento",
+    "mutar_documento": "apolo.api.fachada:mutar_documento",
+    "leer_ext": "apolo.api.fachada:leer_ext",
+    "poner_ext": "apolo.api.fachada:poner_ext",
+    "proyecto_activo": "apolo.api.fachada:proyecto_activo",
 }
 
 #: módulo → nombres que una extensión de dominio usa de él (medido sobre `publicacion/` en la F0 y
