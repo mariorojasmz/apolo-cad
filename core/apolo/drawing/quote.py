@@ -105,9 +105,10 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
         n_cab = sum(1 for a in avisos if a.get("tipo") == "cable 3D sin cobrar")
         yy -= 9
         m.labels.append(Label(rx, yy, "ATENCIÓN — AVISOS DE COBRO (hoja 2)", 3.2, anchor="start"))
-        yy -= 5.2
-        m.labels.append(Label(rx, yy, "Posible doble cobro incluido", 3.0, anchor="start"))
-        m.labels.append(Label(W - 18, yy, _money(riesgo, currency), 3.0, anchor="end"))
+        if riesgo:  # un aviso sin monto (fila de extensión descartada, cable) no es doble cobro
+            yy -= 5.2
+            m.labels.append(Label(rx, yy, "Posible doble cobro incluido", 3.0, anchor="start"))
+            m.labels.append(Label(W - 18, yy, _money(riesgo, currency), 3.0, anchor="end"))
         if n_cab:
             yy -= 5.2
             m.labels.append(Label(rx, yy, f"Cables 3D que no se cobran: {n_cab}", 3.0, anchor="start"))
