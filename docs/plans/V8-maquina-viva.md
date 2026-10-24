@@ -575,6 +575,15 @@ V8.11):
 **V8.13 — Verifica** (S · depende de todo lo anterior):
 - E2E completo sobre el piloto y sobre la faja 38.
 - Corrida del benchmark E7.
+- **Comparación vertical contra el incumbente** (pedido de Mario, 2026-10-23): la MISMA máquina
+  con tablero (la faja 38 con su tablero), entregada por Apolo con todo V8 y por un paquete
+  terminado a mano en AutoCAD Electrical y en EPLAN (sus mejores funciones, no la herramienta
+  básica). Se puntúa entregable por entregable con la rúbrica de E7: esquema y sus referencias
+  cruzadas, numeración de cables, planos de borneras y de E/S del PLC, tablero 3D y cableado,
+  memoria eléctrica, BOM y cotización, la prueba de la máquina antes de fabricarla, el tiempo
+  total. Hipótesis a medir, no a dar por buena: Apolo gana en integración, simulación y tiempo; el
+  incumbente, en el pulido de la lámina eléctrica y en el ancho del catálogo. Cada punto donde
+  pierda Apolo entra como pendiente con su plan.
 - Las reglas durables van a los CLAUDE.md, se actualizan los conteos y el roadmap.
 
 Orden y paralelismo:
