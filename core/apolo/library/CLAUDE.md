@@ -13,6 +13,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
   canaleta). Lo lee la colocación, no el builder: agregarlo no es bump. Una ref de puerta nueva
   lo trae o la colocación la rechaza. [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
+- Colocación del tablero (`electrico/colocacion*.py`, D2/D8): PURA y determinista; las reglas
+  en el docstring de `colocacion.py`, cada cifra en `Reglas` (sale en `Layout.supuestos`). Una
+  regla nueva va ahí con su caso en `tests/test_colocacion_tablero.py`; la piloto
+  (`tests/data/tablero_piloto.json`) tiene que seguir entrando en el 500 × 400.
 - Para agregar partes: editar/crear YAML en `data/` (el prefijo numérico ordena); builder nuevo
   sólo si la geometría no existe. `param_keys` lee del VARIANT (no de `specs_common`); el loader
   vuelca cualquier clave extra del variant a `specs`. Editar sólo YAML no recarga el worker (raíz).

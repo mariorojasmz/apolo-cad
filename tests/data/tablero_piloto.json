@@ -1,0 +1,268 @@
+{
+ "origen": "V8.5 F0/F1a: el circuito del tablero +TAB1 de la faja piloto (sus add_device) con las cajas de catálogo medidas en la F0 y el armado de F1a (fondo de puerta, interior de los gabinetes). Congelado: la colocación se prueba sin el catálogo.",
+ "ubicacion": "+TAB1",
+ "dispositivos": [
+  {
+   "designacion": "-Q1",
+   "ref": "SECC-25A-3P"
+  },
+  {
+   "designacion": "-F1",
+   "ref": "ITM-C16-3P"
+  },
+  {
+   "designacion": "-F2",
+   "ref": "ITM-C2-2P"
+  },
+  {
+   "designacion": "-T1",
+   "ref": "FUENTE-24VDC-5A"
+  },
+  {
+   "designacion": "-T2",
+   "ref": "VFD-2K2-220",
+   "pieza": "c1377"
+  },
+  {
+   "designacion": "-K1",
+   "ref": "PLC-14DI-10DO-24VDC"
+  },
+  {
+   "designacion": "-S1",
+   "ref": "PULS-22-VERDE-NA"
+  },
+  {
+   "designacion": "-S2",
+   "ref": "PULS-22-ROJO-NC"
+  },
+  {
+   "designacion": "-S0",
+   "ref": "ESTOP-40",
+   "pieza": "c1271"
+  },
+  {
+   "designacion": "-H1",
+   "ref": "PILOTO-24V-VERDE"
+  },
+  {
+   "designacion": "-H2",
+   "ref": "PILOTO-24V-ROJO"
+  },
+  {
+   "designacion": "-X0",
+   "ref": "BORNE-PE-4",
+   "cantidad": 2
+  }
+ ],
+ "fichas": {
+  "SECC-25A-3P": {
+   "familia": "box",
+   "caja": [
+    60.0,
+    80.0,
+    75.0
+   ],
+   "montaje": "puerta",
+   "tipo": "seccionador",
+   "bornera": false,
+   "funcion": "Q",
+   "simbolo": "seccionador_3p",
+   "puerta": [
+    30.0,
+    50.0
+   ]
+  },
+  "ITM-C16-3P": {
+   "familia": "box",
+   "caja": [
+    54.0,
+    75.0,
+    90.0
+   ],
+   "montaje": "din",
+   "tipo": "itm",
+   "bornera": false,
+   "funcion": "F",
+   "simbolo": "itm_3p",
+   "puerta": null
+  },
+  "ITM-C2-2P": {
+   "familia": "box",
+   "caja": [
+    36.0,
+    75.0,
+    90.0
+   ],
+   "montaje": "din",
+   "tipo": "itm",
+   "bornera": false,
+   "funcion": "F",
+   "simbolo": "itm_2p",
+   "puerta": null
+  },
+  "FUENTE-24VDC-5A": {
+   "familia": "box",
+   "caja": [
+    72.0,
+    60.0,
+    90.0
+   ],
+   "montaje": "din",
+   "tipo": "fuente",
+   "bornera": false,
+   "funcion": "T",
+   "simbolo": "fuente_ac_dc",
+   "puerta": null
+  },
+  "VFD-2K2-220": {
+   "familia": "box",
+   "caja": [
+    140.0,
+    145.0,
+    160.0
+   ],
+   "montaje": "placa",
+   "tipo": "variador",
+   "bornera": false,
+   "funcion": "T",
+   "simbolo": "variador",
+   "puerta": null
+  },
+  "PLC-14DI-10DO-24VDC": {
+   "familia": "box",
+   "caja": [
+    110.0,
+    75.0,
+    100.0
+   ],
+   "montaje": "din",
+   "tipo": "plc",
+   "bornera": false,
+   "funcion": "K",
+   "simbolo": "plc",
+   "puerta": null
+  },
+  "PULS-22-VERDE-NA": {
+   "familia": "box",
+   "caja": [
+    30.0,
+    50.0,
+    30.0
+   ],
+   "montaje": "puerta",
+   "tipo": "pulsador",
+   "bornera": false,
+   "funcion": "S",
+   "simbolo": "pulsador_na",
+   "puerta": [
+    12.0,
+    38.0
+   ]
+  },
+  "PULS-22-ROJO-NC": {
+   "familia": "box",
+   "caja": [
+    30.0,
+    50.0,
+    30.0
+   ],
+   "montaje": "puerta",
+   "tipo": "pulsador",
+   "bornera": false,
+   "funcion": "S",
+   "simbolo": "pulsador_nc",
+   "puerta": [
+    12.0,
+    38.0
+   ]
+  },
+  "ESTOP-40": {
+   "familia": "seta_emergencia",
+   "caja": [
+    60.0,
+    60.0,
+    77.0
+   ],
+   "montaje": "puerta",
+   "tipo": "seta",
+   "bornera": false,
+   "funcion": "S",
+   "simbolo": "seta_emergencia",
+   "puerta": [
+    33.0,
+    44.0
+   ]
+  },
+  "PILOTO-24V-VERDE": {
+   "familia": "box",
+   "caja": [
+    30.0,
+    45.0,
+    30.0
+   ],
+   "montaje": "puerta",
+   "tipo": "piloto",
+   "bornera": false,
+   "funcion": "P",
+   "simbolo": "piloto",
+   "puerta": [
+    10.0,
+    35.0
+   ]
+  },
+  "PILOTO-24V-ROJO": {
+   "familia": "box",
+   "caja": [
+    30.0,
+    45.0,
+    30.0
+   ],
+   "montaje": "puerta",
+   "tipo": "piloto",
+   "bornera": false,
+   "funcion": "P",
+   "simbolo": "piloto",
+   "puerta": [
+    10.0,
+    35.0
+   ]
+  },
+  "BORNE-PE-4": {
+   "familia": "box",
+   "caja": [
+    6.2,
+    47.0,
+    42.5
+   ],
+   "montaje": "din",
+   "tipo": null,
+   "bornera": true,
+   "funcion": "X",
+   "simbolo": "borne_pe",
+   "puerta": null
+  }
+ },
+ "gabinetes": {
+  "TABLERO-5040": {
+   "placa_ancho": 450.0,
+   "placa_alto": 350.0,
+   "fondo_util": 160.0,
+   "espesor_puerta": 1.5,
+   "bisagra": "izquierda"
+  },
+  "GAB-6040": {
+   "placa_ancho": 350.0,
+   "placa_alto": 550.0,
+   "fondo_util": 160.0,
+   "espesor_puerta": 1.5,
+   "bisagra": "izquierda"
+  },
+  "GAB-8060": {
+   "placa_ancho": 550.0,
+   "placa_alto": 750.0,
+   "fondo_util": 205.0,
+   "espesor_puerta": 1.5,
+   "bisagra": "izquierda"
+  }
+ }
+}
