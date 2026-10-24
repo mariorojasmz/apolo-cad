@@ -27,7 +27,8 @@ router = APIRouter()
 def get_circuit(designacion: str | None = None, tablero: bool = False) -> dict:
     """El circuito del tablero: dispositivos con sus bornes y la red de cada uno, redes con su
     tensión inferida, conductores y cables. `designacion` («-Q1», «=Faja1») filtra a esos
-    dispositivos y lo que los toca. `tablero=true` suma `tableros`: lo que ve la persona en el
+    dispositivos y lo que los toca; una ubicación («+TAB1»), a lo que está en ella; un cable
+    («-W4»), a sus hilos y los aparatos que tocan. `tablero=true` suma `tableros`: lo que ve la persona en el
     panel de cada tablero armado (veredicto, ítems, largos, llenado, calentamiento), sin los
     recorridos 3D. Read-only."""
     with STATE_LOCK:
@@ -41,7 +42,8 @@ def get_circuit(designacion: str | None = None, tablero: bool = False) -> dict:
 @router.get("/api/electrico/check")
 def electrical_check() -> dict:
     """ERC del tablero (cortocircuitos, tensiones cruzadas, motores sin protección, tierra,
-    bornes sueltos, colores IEC 60204-1, parada de emergencia) con su resumen. Read-only."""
+    bornes sueltos, colores IEC 60204-1, parada de emergencia) con su resumen y las reglas que
+    corrieron sin hallazgos (`revisadas`). Read-only."""
     with STATE_LOCK:
         return chequeo(S.doc)
 

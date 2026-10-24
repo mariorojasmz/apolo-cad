@@ -423,7 +423,9 @@ RUTAS = [
         "conductores": [{"comando": "c5", "puntos": ["-G1:L1", "-Q1:1"], "color": "BK"}],
         "cables": [], "resumen": {"n_dispositivos": 2, "n_conductores": 1}})),
     ("GET", r"/api/electrico/check", J({"estado": "error", "errores": 1, "avisos": 0, "reglas": [
-        {"regla": "protección del motor", "estado": "error", "detalle": "-M1 sin guardamotor"}]})),
+        {"regla": "protección del motor", "estado": "error", "detalle": "-M1 sin guardamotor"}],
+        "revisadas": [{"regla": "pieza sin ligar",  # V8.5 F5b: lo que corrió sin hallazgos
+                       "revisa": "que ningún dispositivo con la ref de una pieza 3D quede sin ligarla"}]})),
     ("POST", r"/api/cosim/run", _encolado("jcs")),
     ("POST", r"/api/cosim/plc/test", _plc_test),
     ("GET", r"/api/cosim/simulaciones", J({"simulaciones": [
@@ -705,6 +707,7 @@ CASOS = [
                                                     "mesh_size_mm": 40}),
     caso("circuito", "get_circuit"),
     caso("circuito de un dispositivo", "get_circuit", {"designacion": "-Q1"}),
+    caso("circuito de una ubicación", "get_circuit", {"designacion": "+TAB1"}),  # V8.5 F5b
     caso("circuito con el tablero armado", "get_circuit", {"tablero": True}),  # V8.5 F3b
     caso("chequeo eléctrico", "electrical_check"),
     # V8.3 D13: la prueba virtual

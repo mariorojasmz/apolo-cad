@@ -17,8 +17,10 @@ Lo que traduce:
   - cargas: bobina (su potencia de placa a Uc), piloto (Un/I), entrada (IEC 61131-2: ver
     `R_ENTRADA_*`), motor y alimentación en alterna (`potencia`: la da su modelo en cada paso);
     el potenciómetro de una botonera es una rama `potenciometro`;
-  - conductores: la sección y el largo del conductor, o los de su CABLE si es un hilo de uno;
-    sin largo, unión ideal.
+  - conductores: la sección y el largo del conductor, o los de su CABLE si es un hilo de uno.
+    El largo DECLARADO (`largo_m`) manda; sin él, el CALCULADO (`largos_calculados`, V8.5 F5b):
+    el ruteado de un conductor dentro de un tablero armado y el del recorrido de un cable de
+    campo con `por`, dicho en `hipotesis`. Sin ninguno, unión ideal.
 Lo que no se puede emular sin inventar va en `hipotesis` (lo que se supuso) o `avisos`.
 """
 
@@ -62,12 +64,13 @@ def _actuador_maestro(d) -> str | None:
 
 
 class _Armado:
-    def __init__(self, modelo, temperatura_C):
+    def __init__(self, modelo, temperatura_C, largos=None):
         from apolo.library.electrico.redes import resolver
 
         self._resolver = resolver
         self.modelo = modelo
         self.temperatura_C = temperatura_C
+        self.largos = largos or {}
         self.dispositivos: dict = {}
         for d in modelo.dispositivos:
             self.dispositivos.setdefault(d.designacion, d)
@@ -196,7 +199,11 @@ class _Armado:
 
     def conductores(self) -> None:
         cables = {c.designacion: c for c in self.modelo.cables}
+        por_cond = self.largos.get("conductores") or {}
+        por_cable = self.largos.get("cables") or {}
         ideales = 0
+        calc_cond: set[str] = set()
+        calc_cable: set[str] = set()
         for i, cond in enumerate(self.modelo.conductores):
             pts = []
             for p in cond.puntos:
@@ -211,6 +218,12 @@ class _Armado:
             cable = cables.get(cond.cable) if cond.cable else None
             seccion = (cable.seccion_mm2 if cable and cable.seccion_mm2 else None) or cond.seccion_mm2
             largo = cable.largo_m if cable and cable.largo_m is not None else cond.largo_m
+            if largo is None and cable is not None and por_cable.get(cable.id) is not None:
+                largo = por_cable[cable.id]  # el recorrido del cable de campo (F4)
+                calc_cable.add(cable.designacion)
+            elif largo is None and cable is None and por_cond.get(cond.id) is not None:
+                largo = por_cond[cond.id]  # el ruteado dentro del tablero armado (F2)
+                calc_cond.add(cond.id)
             base = f"{cond.cable}.{cond.hilo}" if cond.cable else (cond.id or f"conductor {i + 1}")
             tramos = list(zip(pts, pts[1:]))
             ideal = cond.tipo == "puente" or not seccion or largo is None
@@ -222,6 +235,14 @@ class _Armado:
                 else:
                     self.ramas.append({"id": rid, "tipo": "conductor", "de": a, "a": b,
                                        "seccion_mm2": float(seccion), "largo_m": float(largo) / len(tramos)})
+        if calc_cond:
+            self.hipotesis.append(f"{len(calc_cond)} conductor(es) del tablero sin largo declarado: se toma "
+                                  "el largo ruteado por las canaletas (layout_tablero); si lo mediste, "
+                                  "declara largo_m en add_wire")
+        if calc_cable:
+            self.hipotesis.append(f"cable(s) {', '.join(sorted(calc_cable))} sin largo declarado: se toma el "
+                                  "largo calculado de su recorrido (add_cable.por); si lo mediste, declara "
+                                  "largo_m en add_cable")
         if ideales:
             self.hipotesis.append(f"{ideales} conductor(es) sin largo o sección declarados: unión ideal, "
                                   "sin caída (declara largo_m en add_wire o add_cable)")
@@ -234,17 +255,41 @@ class _Armado:
         return out
 
 
-def entrada_red(modelo, *, temperatura_C: float | None = None) -> dict:
-    """El formato plano de `apolo.cosim.red` para un `ModeloElectrico` evaluado."""
-    a = _Armado(modelo, temperatura_C)
+def entrada_red(modelo, *, temperatura_C: float | None = None, largos: dict | None = None) -> dict:
+    """El formato plano de `apolo.cosim.red` para un `ModeloElectrico` evaluado. `largos` =
+    `largos_calculados` del documento (sin él, sólo los declarados: lo de siempre)."""
+    a = _Armado(modelo, temperatura_C, largos)
     for d in a.dispositivos.values():
         a.dispositivo(d)
     a.conductores()
     return a.dict()
 
 
+def largos_calculados(doc, m=None) -> dict:
+    """`{"conductores": {id: m}, "cables": {id del add_cable: m}}`: los largos que el documento
+    CALCULA para lo que no declara `largo_m` (V8.5 F5b), de las mismas cuentas que la BOM: el ruteo
+    del tablero armado (`tablero.largos`) y el recorrido de los cables de campo con `por`
+    (`cables_campo.largos`). Vacío sin tablero armado ni `por` (la red de siempre); si el ruteo no
+    se puede armar, vacío también (la red sigue con sus uniones ideales, dichas en la hipótesis)."""
+    from apolo.commands.errors import CommandError
+
+    from . import cables_campo
+    from .electrico import modelo
+    from .tablero import largos, ruteos
+
+    m = m if m is not None else modelo(doc)
+    try:
+        tableros = ruteos(doc, m)
+        cables = cables_campo.largos(cables_campo.recorridos(doc, m, tableros))
+    except (CommandError, ValueError):
+        return {}
+    return {k: v for k, v in (("conductores", largos(tableros)), ("cables", cables)) if v}
+
+
 def entrada_red_documento(doc, *, temperatura_C: float | None = None) -> dict:
-    """`entrada_red` del modelo eléctrico del documento (`doc.electrico`; vacío sin carril)."""
+    """`entrada_red` del modelo eléctrico del documento (`doc.electrico`; vacío sin carril), con
+    sus largos calculados."""
     from .electrico import modelo
 
-    return entrada_red(modelo(doc), temperatura_C=temperatura_C)
+    m = modelo(doc)
+    return entrada_red(m, temperatura_C=temperatura_C, largos=largos_calculados(doc, m))

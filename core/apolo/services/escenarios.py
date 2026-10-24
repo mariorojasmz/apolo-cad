@@ -8,8 +8,9 @@ checkpoints, como `motion` o `fea`) con la forma `{nombre: {"escenario": {...}, 
     tablero vuelven como `avisos` (el tablero puede declararse después);
   - `listar`: cada uno con su ESTADO: «sin_correr», «pasa», «falla», «sin_aserciones» o
     «vencido»;
-  - vigencia (como las reglas del FEA): el resultado guarda la `firma_documento` (log +
-    materiales + las fichas eléctricas del tablero: lo que decide la máquina), el
+  - vigencia (como las reglas del FEA): el resultado guarda la `firma_documento` (log sin los
+    `create_group` + materiales + las fichas eléctricas del tablero: lo que decide la máquina;
+    versión 2 desde V8.5 F5b, la 1 se sigue leyendo con `firmas_v1`), el
     `hash_escenario` y la versión del motor (`cosim.COSIM_EPOCH`, F6b) y, si el tablero usa
     modelos de una extensión, su versión (`extensiones`); si cualquiera cambió, «vencido»;
   - `resultado_compacto` + `guardar_resultado`: lo que queda del último run (veredicto y cada
@@ -47,13 +48,71 @@ def _fichas_electricas(doc) -> list:
             for grupo in (m.dispositivos, m.conductores, m.cables)]
 
 
-def firma_documento(doc) -> str:
-    """Lo que decide la máquina: el log entero (escena, variables y carril eléctrico, programas
-    incluidos), los materiales (la masa) y las fichas eléctricas del tablero. Color, ocultos y
-    metadatos no cuentan."""
-    texto = json.dumps([doc.commands, doc.materials, _fichas_electricas(doc)], sort_keys=True,
-                       default=str)
+#: Versión de la firma (V8.5 F5b). La 2 no firma los `create_group` (agrupar no cambia la física
+#: ni la red) y se escribe «2:<hash>»; la 1 (un hash pelado) firmaba el log entero.
+FIRMA_VERSION = 2
+#: Los comandos que no cambian la máquina: sólo organizan. `create_group` sí cuenta si el log
+#: tiene un `transform_group` (mueve lo que el grupo junta: la membresía es geometría).
+SIN_FISICA = frozenset({"create_group"})
+
+
+def _hash(comandos, doc, fichas) -> str:
+    texto = json.dumps([comandos, doc.materials, fichas], sort_keys=True, default=str)
     return hashlib.sha256(texto.encode()).hexdigest()[:20]
+
+
+def _que_cuenta(comandos: list) -> list:
+    if any(c.get("type") == "transform_group" for c in comandos):
+        return list(comandos)
+    return [c for c in comandos if c.get("type") not in SIN_FISICA]
+
+
+def firma_documento(doc) -> str:
+    """Lo que decide la máquina: el log (escena, variables y carril eléctrico, programas
+    incluidos) sin lo que sólo organiza (`SIN_FISICA`), los materiales (la masa) y las fichas
+    eléctricas del tablero. Color, ocultos, grupos y metadatos no cuentan."""
+    return f"{FIRMA_VERSION}:{_hash(_que_cuenta(doc.commands), doc, _fichas_electricas(doc))}"
+
+
+def firmas_v1(doc) -> set[str]:
+    """Las firmas de la versión 1 (log ENTERO) que un resultado viejo puede tener y siguen
+    describiendo esta máquina: la del log de hoy y las del log sin los `create_group` que se
+    agregaron AL FINAL después de correrlo (agrupar no cambia la física; F5b). Sin compatibilidad,
+    todo resultado guardado antes de la versión 2 quedaba vencido."""
+    fichas = _fichas_electricas(doc)
+    cmds = list(doc.commands)
+    out = {_hash(cmds, doc, fichas)}
+    if any(c.get("type") == "transform_group" for c in cmds):
+        return out
+    while cmds and cmds[-1].get("type") in SIN_FISICA:
+        cmds.pop()
+        out.add(_hash(cmds, doc, fichas))
+    return out
+
+
+CAMBIO = "la máquina cambió desde que se corrió"
+
+
+def _motivo_firma(doc, guardada, firma: str | None, cache: dict | None = None) -> str | None:
+    """Por qué la firma guardada en un resultado ya no describe el documento, o None si sigue. Una
+    de la versión 1 se compara con `firmas_v1` y, además, vence si la co-simulación de hoy toma
+    largos calculados que la de entonces no tomaba (F5b: unión ideal → conductor ruteado)."""
+    if guardada == (firma or firma_documento(doc)):
+        return None
+    if not isinstance(guardada, str) or ":" in guardada:  # de la versión de hoy (o una futura)
+        return CAMBIO
+    cache = cache if cache is not None else {}
+    if "v1" not in cache:
+        from .cosim_red import largos_calculados
+
+        cache["v1"] = firmas_v1(doc)
+        cache["largos"] = bool(largos_calculados(doc))
+    if guardada not in cache["v1"]:
+        return CAMBIO
+    if cache["largos"]:
+        return ("la co-simulación ahora toma los largos calculados (tablero armado, cables con por) "
+                "donde antes suponía unión ideal")
+    return None
 
 
 def hash_escenario(esc: dict) -> str:
@@ -156,8 +215,9 @@ def resolver(doc, escenario) -> tuple[str | None, dict]:
                             "del escenario")
 
 
-def estado(doc, nombre: str, firma: str | None = None) -> dict:
-    """El estado del escenario guardado `nombre`, con su vigencia."""
+def estado(doc, nombre: str, firma: str | None = None, cache: dict | None = None) -> dict:
+    """El estado del escenario guardado `nombre`, con su vigencia (`cache`: lo de la firma v1, una
+    vez por listado)."""
     ent = doc.escenarios[nombre]
     res = ent.get("resultado")
     if not res:
@@ -169,8 +229,9 @@ def estado(doc, nombre: str, firma: str | None = None) -> dict:
     if epoch != COSIM_EPOCH:
         motivos.append(f"el motor de la co-simulación cambió (versión {epoch} → {COSIM_EPOCH}) "
                        "desde que se corrió")
-    if res.get("firma_documento") != (firma or firma_documento(doc)):
-        motivos.append("la máquina cambió desde que se corrió")
+    motivo = _motivo_firma(doc, res.get("firma_documento"), firma, cache)
+    if motivo:
+        motivos.append(motivo)
     if res.get("hash_escenario") != hash_escenario(ent["escenario"]):
         motivos.append("el escenario cambió desde que se corrió")
     ext = res.get("extensiones") or {}
@@ -192,10 +253,10 @@ def listar(doc, nombre: str | None = None) -> dict:
         ent = doc.escenarios[nombre]
         return {"nombre": nombre, **estado(doc, nombre, firma), "escenario": ent["escenario"],
                 **({"resultado": ent["resultado"]} if ent.get("resultado") else {})}
-    filas = []
+    filas, cache = [], {}
     for n, ent in doc.escenarios.items():
         esc, res = ent["escenario"], ent.get("resultado") or {}
-        fila = {"nombre": n, **estado(doc, n, firma),
+        fila = {"nombre": n, **estado(doc, n, firma, cache),
                 **({"descripcion": esc["descripcion"]} if esc.get("descripcion") else {}),
                 "duracion_s": esc.get("duracion_s"), "n_aserciones": len(esc.get("aserciones") or [])}
         if res:
@@ -252,9 +313,9 @@ def reglas_escenarios(doc) -> list[dict] | None:
     if not doc.escenarios:
         return None
     firma = firma_documento(doc)
-    filas = []
+    filas, cache = [], {}
     for n in doc.escenarios:
-        st = estado(doc, n, firma)
+        st = estado(doc, n, firma, cache)
         e = st["estado"]
         res = doc.escenarios[n].get("resultado") or {}
         if e == "falla":

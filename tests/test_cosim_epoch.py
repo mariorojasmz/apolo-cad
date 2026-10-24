@@ -70,7 +70,11 @@ ARCHIVOS = (
 #: la seta pegado) dan la MISMA huella que en bf69175 (bitácora del plan).
 #: mandos-de-seguridad F1b (sin subir): `vivo_fotograma.MANDOS` suma `resguardo`; sólo cambia lo
 #: que la tabla del `inicio` ofrece en vivo, no el paso ni ninguna traza.
-HUELLA: tuple[int, str] = (4, "5281fbc909253972")
+#: V8.5 F5b (sin subir, D8): la red toma el largo CALCULADO (ruteo del tablero armado, recorrido
+#: `por`) de lo que no declara `largo_m`; con todo declarado, o sin tablero armado ni `por` (el
+#: banco y la 77 original), la entrada de la red es idéntica. Lo que sí cambia (un documento con
+#: largos calculados y un resultado de antes) lo vence la firma v1 (`services/escenarios`).
+HUELLA: tuple[int, str] = (4, "27242a7bc19d3c1d")
 
 
 def archivos() -> list[Path]:

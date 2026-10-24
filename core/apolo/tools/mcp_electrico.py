@@ -25,7 +25,8 @@ def registrar(mcp, api) -> None:
         """Circuito del TABLERO ELÉCTRICO declarado (add_device/add_wire/add_cable): dispositivos
         con la RED de cada borne, redes con su tensión inferida (contactos cerrados), conductores
         y cables. `designacion` («-Q1», «=Faja1») filtra a esos dispositivos y lo que los toca
-        (lee la designación asignada sola). `tablero=true` suma `tableros`: lo que la persona ve
+        (lee la designación asignada sola); una ubicación («+TAB1») da lo que está en ella y un
+        cable («-W4»), sus hilos y los aparatos que tocan. `tablero=true` suma `tableros`: lo que la persona ve
         del tablero armado en el visor (veredicto, ítems, largos, llenado). Read-only."""
         params = {"designacion": designacion} if designacion else {}
         if tablero:
@@ -37,7 +38,10 @@ def registrar(mcp, api) -> None:
     def electrical_check() -> str:
         """ERC del tablero eléctrico: cortocircuitos, tensiones cruzadas (una bobina de 24 VDC en
         220 VAC), motores sin protección, puesta a tierra, bornes sueltos, colores IEC 60204-1 y
-        parada de emergencia, cada regla con su norma. Devuelve {estado ok|aviso|error|sin_carril,
-        errores, avisos, reglas}. delivery_check lo incluye y, en un lote, el contrato
+        parada de emergencia, cada regla con su norma; con tablero armado y cables de campo, sus
+        reglas (canaletas, largos, lo que gira), las piezas de seguridad sin circuito y la altura
+        de los mandos. Devuelve {estado ok|aviso|error|sin_carril, errores, avisos, reglas,
+        revisadas}: `revisadas` = las reglas que corrieron sin hallazgos (no salen en `reglas`).
+        delivery_check lo incluye y, en un lote, el contrato
         {"erc": "sin_errores"} lo exige antes de aceptar el cableado. Read-only."""
         return json.dumps(api("GET", "/api/electrico/check").json(), ensure_ascii=False)

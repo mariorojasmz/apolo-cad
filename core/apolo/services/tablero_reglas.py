@@ -8,7 +8,9 @@ Sólo con un `layout_tablero` vivo (sin él, el ERC de siempre):
 - «largo declarado vs ruteado»: el `largo_m` escrito a mano manda en la BOM (D3), y si difiere
   del ruteado más que `Criterio.difiere_largo` se avisa con las dos cifras (la F0 mostró que los
   declarados no se sostienen). La fila es `fila_largo_declarado`: la usan también los cables de
-  campo (F4, `cables_campo.py`).
+  campo (F4, `cables_campo.py`) y, con la misma regla, un cable SIN `por` cuyo `largo_m` no
+  alcanza lo de dentro del tablero + sus tramos 3D + la reserva (`cables_cortos`, F5b: la -W4 de
+  la faja 77 declaraba 1,5 m y necesitaba 1,88).
 Cada regla tiene su SELECTOR (`llenas`, `salen_sin_cable`, `declarados_que_no_cuadran`): el
 ERC de aquí y el panel del visor (`tablero_panel.py`, F3b) leen lo mismo (D15). El llamador
 sostiene STATE_LOCK.
@@ -17,6 +19,7 @@ sostiene STATE_LOCK.
 from __future__ import annotations
 
 import json
+import math
 
 NORMA = "criterio de diseño"
 
@@ -94,22 +97,23 @@ def _sale(t) -> list[dict]:
 
 
 def fila_largo_declarado(cid: str, que: str, declarado_mm: float, calculado_mm: float, donde: str,
-                         limite: float) -> dict | None:
+                         limite: float, consejo: str | None = None) -> dict | None:
     """La fila «largo declarado vs ruteado» (aviso si difieren más que `limite`), o None. La usan
-    los conductores del tablero (`donde` = «por las canaletas de +TAB1») y los cables de campo
-    (V8.5 F4, `cables_campo.py`)."""
+    los conductores del tablero (`donde` = «por las canaletas de +TAB1»), los cables de campo
+    (V8.5 F4, `cables_campo.py`) y los cables sin `por` que se quedan cortos (F5b, con su
+    `consejo`: sin recorrido no hay largo calculado que comprar)."""
     if calculado_mm <= 0:
         return None
     dif = (declarado_mm - calculado_mm) / calculado_mm
     if abs(dif) <= limite:
         return None
+    consejo = consejo or (f"Si no lo mediste, quítalo y compra el ruteado: edit_command('{cid}', "
+                          f"{json.dumps({'largo_m': None})})")
     return {
         "regla": "largo declarado vs ruteado", "estado": "aviso",
         "detalle": (f"{cid} ({que}): declarado {declarado_mm / 1000:.2f} m, "
                     f"ruteado {donde} {calculado_mm / 1000:.2f} m "
-                    f"({dif * 100:+.0f} %); la BOM compra el declarado. Si no lo mediste, "
-                    f"quítalo y compra el ruteado: edit_command('{cid}', "
-                    f"{json.dumps({'largo_m': None})})"),
+                    f"({dif * 100:+.0f} %); la BOM compra el declarado. {consejo}"),
         "recomendacion": "Deja que el largo salga del ruteo (dentro de un tablero armado o por el "
                          "recorrido `por` de un cable); declara `largo_m` sólo si lo mediste.",
         "norma": NORMA, "elementos": [cid]}
@@ -126,12 +130,67 @@ def _declarados(t) -> list[dict]:
     return filas
 
 
+def cables_cortos(doc, m, tableros) -> list[tuple]:
+    """[(Cable, mínimo en mm, partes)] de los cables SIN `por` con `largo_m` declarado y hilos
+    ruteados dentro de un tablero armado cuyo declarado no alcanza lo que se puede medir (F5b):
+    lo de dentro (su hilo más largo, por tablero), lo que mide al menos cada tramo 3D ligado con
+    `piezas` (el lado mayor de su caja: un recorrido no es más corto que eso) y la reserva de cada
+    aparato de campo ligado a su pieza (`CriterioCampo.reserva_campo_mm`, la de F4). `partes` =
+    [(texto, mm)] para la fila."""
+    from apolo.library.electrico.cable_campo import CriterioCampo
+
+    from .cables_campo import _extremo
+
+    crit = CriterioCampo()
+    tabs = {t.ubicacion: t for t in tableros}
+    out = []
+    for c in m.cables:
+        if c.por or c.largo_m is None or not c.designacion:
+            continue
+        partes = []
+        for t in tableros:
+            hilos = [r.largo_mm for r in t.ruteo.rutas if r.cable == c.designacion and r.sale]
+            if hilos:
+                partes.append((f"dentro de {t.ubicacion}", max(hilos)))
+        if not partes:
+            continue
+        for fid in c.piezas:
+            f = doc.scene.get(fid)
+            if f is not None and f.shape is not None:
+                bb = f.shape.bounding_box()
+                partes.append((f"el tramo 3D {fid} (al menos)", max(bb.size.X, bb.size.Y, bb.size.Z)))
+        for texto in (c.desde, c.hasta):
+            e = _extremo(doc, m, tabs, texto)
+            if e[0] == "aparato":
+                partes.append((f"la reserva en {e[2]}", crit.reserva_campo_mm))
+        minimo = sum(mm for _, mm in partes)
+        if c.largo_m * 1000.0 < minimo - 1e-6:
+            out.append((c, minimo, partes))
+    return out
+
+
+def _cortos(doc, m, tableros) -> list[dict]:
+    filas = []
+    for c, minimo, partes in cables_cortos(doc, m, tableros):
+        donde = "como mínimo, con " + " + ".join(f"{t} {mm / 1000:.2f} m" for t, mm in partes) + ","
+        consejo = (f"Sin recorrido (por) no hay largo calculado: mídelo y corrígelo, edit_command('{c.id}', "
+                   f"{json.dumps({'largo_m': math.ceil(minimo / 100.0) / 10})}) es lo mínimo redondeado, "
+                   "o dale su recorrido por la estructura (add_cable.por) para que el largo salga solo")
+        fila = fila_largo_declarado(c.id or c.designacion, c.designacion, c.largo_m * 1000.0, minimo, donde,
+                                    0.0, consejo)
+        if fila is not None:
+            filas.append(fila)
+    return filas
+
+
 def reglas(doc, m=None) -> list[dict]:
     """Las filas del ERC del ruteo (vacía sin tablero armado)."""
     from apolo.commands.errors import CommandError
 
+    from .electrico import modelo
     from .tablero import ruteos
 
+    m = m if m is not None else modelo(doc)
     try:
         tableros = ruteos(doc, m)
     except (CommandError, ValueError) as exc:  # el layout regeneró: esto no debería pasar
@@ -140,4 +199,4 @@ def reglas(doc, m=None) -> list[dict]:
     filas: list[dict] = []
     for t in tableros:
         filas += _llenado(t) + _sale(t) + _declarados(t)
-    return filas
+    return filas + (_cortos(doc, m, tableros) if tableros else [])

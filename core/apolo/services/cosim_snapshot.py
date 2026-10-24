@@ -157,7 +157,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     from apolo.cosim.tipos import revisar, valores_iniciales
 
     from .cosim_bandas import bandas_quietas, prever
-    from .cosim_red import entrada_red
+    from .cosim_red import entrada_red, largos_calculados
     from .electrico import ajustes_faltantes, modelo, texto_ajustes_faltantes
 
     try:
@@ -176,7 +176,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     dispositivos = [DispositivoCosim(d.designacion, d.ref, _plano(d.modelo or {}), _plano(d.ajustes or {}),
                                      int(d.cantidad or 1), d.pieza or None, _color(d.ref))
                     for d in me.dispositivos]
-    red = _plano(entrada_red(me))
+    red = _plano(entrada_red(me, largos=largos_calculados(doc, me)))  # V8.5 F5b: los calculados
     try:
         tab = Tablero(red, dispositivos)
     except (ModeloIncompleto, EntradaInvalida) as exc:

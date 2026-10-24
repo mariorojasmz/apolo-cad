@@ -7290,6 +7290,41 @@
   ]
  },
  {
+  "caso": "circuito de una ubicación",
+  "tool": "get_circuit",
+  "args": {
+   "designacion": "+TAB1"
+  },
+  "salida": [
+   {
+    "texto": "{\"dispositivos\": [{\"designacion\": \"-Q1\", \"ref\": \"GM-2.5-4A\", \"funcion\": \"Q\", \"bornes\": [{\"id\": \"1\", \"rol\": \"potencia\", \"red\": \"N1\"}]}], \"redes\": [{\"id\": \"N1\", \"puntos\": [\"-G1:L1\", \"-Q1:1\"], \"tension\": \"-G1:L1 · 220 VAC\"}], \"conductores\": [{\"comando\": \"c5\", \"puntos\": [\"-G1:L1\", \"-Q1:1\"], \"color\": \"BK\"}], \"cables\": [], \"resumen\": {\"n_dispositivos\": 2, \"n_conductores\": 1}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/electrico/circuito",
+    "query": [
+     [
+      "designacion",
+      "+TAB1"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "circuito con el tablero armado",
   "tool": "get_circuit",
   "args": {
@@ -7330,7 +7365,7 @@
   "args": {},
   "salida": [
    {
-    "texto": "{\"estado\": \"error\", \"errores\": 1, \"avisos\": 0, \"reglas\": [{\"regla\": \"protección del motor\", \"estado\": \"error\", \"detalle\": \"-M1 sin guardamotor\"}]}"
+    "texto": "{\"estado\": \"error\", \"errores\": 1, \"avisos\": 0, \"reglas\": [{\"regla\": \"protección del motor\", \"estado\": \"error\", \"detalle\": \"-M1 sin guardamotor\"}], \"revisadas\": [{\"regla\": \"pieza sin ligar\", \"revisa\": \"que ningún dispositivo con la ref de una pieza 3D quede sin ligarla\"}]}"
    }
   ],
   "estructurado": "= {result: texto}",

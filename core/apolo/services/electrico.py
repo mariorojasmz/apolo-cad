@@ -112,35 +112,89 @@ def _regla_piezas(doc, m) -> list[dict]:
     return filas
 
 
-def reglas_erc(doc) -> list[dict] | None:
-    """Las reglas del ERC, o None si el documento no tiene carril."""
+#: Lo que revisa cada regla del ERC que sólo suma filas con hallazgo (las de `library/electrico/
+#: erc.py` ya dan su fila «ok»): sale en `revisadas` cuando corrió y no encontró nada (F5b).
+REVISA = {
+    "ajustes para simular": "los ajustes obligatorios de la co-simulación de cada dispositivo",
+    "pieza sin ligar": "que ningún dispositivo con la ref de una pieza 3D quede sin ligarla",
+    "cable 3D sin cobrar": "que todo cable modelado en 3D lo cubra un add_cable",
+    "pieza de seguridad sin circuito": "que toda seta, interruptor de resguardo o relé de seguridad de "
+                                       "la escena esté en el circuito",
+    "layout del tablero al final": "que el layout_tablero sea el último comando de la escena",
+    "llenado de canaleta": "el llenado de cada canaleta del tablero armado",
+    "sale del tablero sin cable": "que lo que sale del tablero armado vaya dentro de un cable",
+    "largo declarado vs ruteado": "los largo_m declarados contra lo ruteado o lo medido",
+    "cable de campo incompleto": "los extremos de cada cable con recorrido (por)",
+    "cable de campo contra lo que gira": "la distancia de cada cable de campo a lo que gira",
+    "altura de los mandos": "la altura de cada mando sobre el nivel de servicio (0,6–1,7 m)",
+}
+
+
+def _corridas(doc, m, supuesto_altura) -> list[str]:
+    """Las reglas de `REVISA` que aplicaron a este documento (corrieron)."""
+    from .tablero import LAYOUT, layouts
+
+    out = ["ajustes para simular", "pieza sin ligar", "cable 3D sin cobrar", "pieza de seguridad sin circuito"]
+    if any(c.get("type") == LAYOUT for c in doc.commands):
+        out.append("layout del tablero al final")
+    vivos = bool(layouts(doc))
+    con_por = any(c.por and c.id for c in m.cables)
+    if vivos:
+        out += ["llenado de canaleta", "sale del tablero sin cable"]
+    if vivos or con_por:
+        out.append("largo declarado vs ruteado")
+    if con_por:
+        out += ["cable de campo incompleto", "cable de campo contra lo que gira"]
+    if supuesto_altura is not None:
+        out.append("altura de los mandos")
+    return out
+
+
+def _erc_completo(doc) -> tuple[list[dict], list[dict]] | None:
+    """(reglas, revisadas) o None sin carril."""
     if not tiene_carril(doc):
         return None
     from apolo.library.electrico.erc import erc
 
-    from . import tablero_reglas
+    from . import erc_escena, tablero_reglas
     from .cables_campo import reglas as reglas_campo
     from .cobros import regla_cables
     from .tablero import regla_orden
 
     m = modelo(doc)
-    return (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
-            + regla_orden(doc) + tablero_reglas.reglas(doc, m) + reglas_campo(doc, m))
+    alturas, supuesto = erc_escena.regla_alturas(doc, m)
+    reglas = (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
+              + erc_escena.regla_seguridad(doc, m) + alturas
+              + regla_orden(doc) + tablero_reglas.reglas(doc, m) + reglas_campo(doc, m))
+    con_filas = {r["regla"] for r in reglas}
+    revisadas = [{"regla": n, "revisa": REVISA[n],
+                  **({"supuesto": supuesto} if n == erc_escena.ALTURA else {})}
+                 for n in _corridas(doc, m, supuesto) if n not in con_filas]
+    return reglas, revisadas
+
+
+def reglas_erc(doc) -> list[dict] | None:
+    """Las reglas del ERC, o None si el documento no tiene carril."""
+    todo = _erc_completo(doc)
+    return None if todo is None else todo[0]
 
 
 def chequeo(doc) -> dict:
-    """El ERC del tablero: `{estado, errores, avisos, reglas}`. Sin carril, estado «sin_carril»
-    (no es verde: no hay nada que revisar)."""
+    """El ERC del tablero: `{estado, errores, avisos, reglas, revisadas}` (`revisadas`: las reglas
+    que corrieron sin hallazgos y no dan fila «ok», F5b). Sin carril, estado «sin_carril» (no es
+    verde: no hay nada que revisar)."""
     from apolo.library.electrico.erc import resumen
 
-    reglas = reglas_erc(doc)
-    if reglas is None:
+    todo = _erc_completo(doc)
+    if todo is None:
         return {"estado": "sin_carril", "errores": 0, "avisos": 0, "reglas": [],
                 "detalle": "El proyecto no declara tablero eléctrico (add_device, add_wire, "
                            "add_cable)."}
+    reglas, revisadas = todo
     m = modelo(doc)
     return {**resumen(reglas), "n_dispositivos": len(m.dispositivos),
-            "n_conductores": len(m.conductores), "n_cables": len(m.cables), "reglas": reglas}
+            "n_conductores": len(m.conductores), "n_cables": len(m.cables), "reglas": reglas,
+            "revisadas": revisadas}
 
 
 def _coincide(designacion: str, filtro: str) -> bool:
@@ -150,22 +204,43 @@ def _coincide(designacion: str, filtro: str) -> bool:
             or (filtro.startswith("-") and designacion.endswith(filtro)))
 
 
+def _filtrar(m, filtro: str) -> tuple[list, set | None]:
+    """(dispositivos, cables elegidos o None) de una designación IEC 81346 (F5b): una UBICACIÓN
+    («+TAB1», lo que está en ella), un CABLE («-W4», sus hilos y los aparatos que tocan), una
+    ubicación con producto («+TAB1-Q1») o un dispositivo (función o producto). 404 si no casa."""
+    from apolo.library.electrico.referencias import sufijo_sugerencia
+
+    if filtro.startswith("+"):
+        u, _, prod = filtro.partition("-")
+        disp = [d for d in m.dispositivos if d.ubicacion and _coincide(d.ubicacion, u)
+                and (not prod or _coincide(d.designacion, f"-{prod}"))]
+        if disp:
+            return disp, None
+    cables = {c.designacion for c in m.cables if c.designacion and _coincide(c.designacion, filtro)}
+    if cables:
+        tocan = {p.rsplit(":", 1)[0] for c in m.conductores if c.cable in cables for p in c.puntos}
+        return [d for d in m.dispositivos if d.designacion in tocan], cables
+    disp = [d for d in m.dispositivos if _coincide(d.designacion, filtro)]
+    if disp:
+        return disp, None
+    validas = ([d.designacion for d in m.dispositivos] + [c.designacion for c in m.cables if c.designacion]
+               + sorted({d.ubicacion for d in m.dispositivos if d.ubicacion}))
+    raise ServiceError(404, f"No hay dispositivo, cable ni ubicación {filtro} en el tablero."
+                            f"{sufijo_sugerencia(filtro, validas)}")
+
+
 def circuito(doc, designacion: str | None = None) -> dict:
     """Dispositivos, redes, conductores y cables; con `designacion`, sólo lo de esos
-    dispositivos (los que casan por designación completa, aspecto de función o producto) y las
-    redes y conductores que los tocan. Una designación que no casa → 404 con sugerencias."""
+    dispositivos (los que casan por designación completa, aspecto de función o producto, o los
+    de una ubicación «+TAB1») y las redes y conductores que los tocan; con un cable («-W4»), sus
+    hilos y los aparatos que tocan. Una designación que no casa → 404 con sugerencias."""
     from apolo.library.electrico.redes import analizar
-    from apolo.library.electrico.referencias import sufijo_sugerencia
 
     m = modelo(doc)
     a = analizar(m)
-    dispositivos = list(m.dispositivos)
+    dispositivos, de_cables = list(m.dispositivos), None
     if designacion:
-        filtro = designacion.strip()
-        dispositivos = [d for d in dispositivos if _coincide(d.designacion, filtro)]
-        if not dispositivos:
-            raise ServiceError(404, f"No hay dispositivo {filtro} en el tablero."
-                               f"{sufijo_sugerencia(filtro, [d.designacion for d in m.dispositivos])}")
+        dispositivos, de_cables = _filtrar(m, designacion.strip())
     elegidos = {d.designacion for d in dispositivos}
     from .cables_campo import recorridos
     from .tablero import ruteos
@@ -196,6 +271,8 @@ def circuito(doc, designacion: str | None = None) -> dict:
              for i, r in enumerate(a.redes) if not designacion or i in redes_vistas]
     conductores = []
     for i, c in enumerate(m.conductores):
+        if de_cables is not None and c.cable not in de_cables:
+            continue
         if designacion and not any(p.rsplit(":", 1)[0] in elegidos for p in c.puntos):
             continue
         idx = a.conductor_red.get(i)
@@ -209,7 +286,7 @@ def circuito(doc, designacion: str | None = None) -> dict:
                 **({"sale_del_tablero": True} if ruteado[c.id].sale else {})}
                if c.id in ruteado else {}),
         })
-    usados = {c.get("cable") for c in conductores}
+    usados = de_cables if de_cables is not None else {c.get("cable") for c in conductores}
     cables = [{"designacion": c.designacion, "ref": c.ref, "comando": c.id,
                "hilos": {h.id: h.color for h in c.hilos},
                **{k: v for k, v in (("desde", c.desde), ("hasta", c.hasta),
