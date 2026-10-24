@@ -43,12 +43,12 @@ export default function FallasActivas({ alQuitar = enviarEvento, listaAbierta = 
             Quitar
           </button>
         ) : (
-          <>
+          <span className="bv-fallas-acciones">
             <button type="button" aria-expanded={abierta} onClick={() => setAbierta(!abierta)}>
               {abierta ? "Ocultar" : "Ver cuáles"}
             </button>
             <button type="button" onClick={() => activas.forEach((a) => alQuitar(a.quitar))}>Quitar todas</button>
-          </>
+          </span>
         )}
       </div>
       {!una && abierta && (

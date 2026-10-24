@@ -63,7 +63,7 @@ export function lecturasDe(ini: Pick<InicioVivo, "dispositivos">, nombres: reado
     } else if (d.tipo === "rele_seguridad") {
       rotulo = "Relé de seguridad";
       lineas = [
-        { senal: `${d.designacion}.salidas`, unidad: "", decimales: 0, si: "Salidas cerradas", no: "Salidas abiertas" },
+        { senal: `${d.designacion}.salidas`, unidad: "", decimales: 0, si: "Habilita la marcha", no: "Corta la marcha" },
         // con los dos canales cerrados es la razón por la que no rearma (un canal pegado)
         { senal: `${d.designacion}.espera_ciclo`, unidad: "", decimales: 0,
           si: "No rearma hasta que abran y cierren los dos canales.", no: "", nota: true,

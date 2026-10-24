@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import IconoSeveridad from "../diseno/IconoSeveridad";
 import { useVivo } from "./estado";
 import { useFallasActivas } from "./FallasActivas";
 import {
@@ -77,14 +78,20 @@ export default function FallasVivas({ quieto, alSimular = enviarEvento }: Props)
             alCambiar={(v) => setElegido({ ...elegido, [c.id]: v })} />
         ))}
         <div className="fallas-vivas-accion">
+          {activa && ( // el estado junto al botón que lo cambia, no al pie en gris
+            <span className="fallas-vivas-estado" aria-live="polite">
+              <IconoSeveridad severidad="aviso" tamano={14} />
+              Esta falla está puesta
+            </span>
+          )}
           <button type="button" disabled={quieto} onClick={() => alSimular(activa ? activa.quitar : ev)}>
             {activa ? "Quitar la falla" : "Simular falla"}
           </button>
         </div>
       </div>
-      <p className="hint fallas-vivas-pista">
-        {activa ? "Esta falla ya está puesta." : "Queda puesta hasta que la quites: mira si la máquina igual para."}
-      </p>
+      {!activa && (
+        <p className="hint fallas-vivas-pista">Queda puesta hasta que la quites: mira si la máquina igual para.</p>
+      )}
     </>
   );
 }

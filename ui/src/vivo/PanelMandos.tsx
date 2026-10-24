@@ -296,7 +296,7 @@ export function Lecturas() {
           const falla = textos[`${l.designacion}.falla`];
           const nota = textoLectura(l, (s) => lecturas[s], true);
           return (
-            <li key={l.designacion} className="fila-mando">
+            <li key={l.designacion} className="fila-mando fila-lectura">
               <div className="fila-mando-nombre">
                 <strong>{l.designacion}</strong>
                 <span className="hint">{l.rotulo}</span>

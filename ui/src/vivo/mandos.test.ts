@@ -57,7 +57,10 @@ describe("mando → mensaje", () => {
     expect(rotuloAccion(B2, { cerrado: false })).toBe("Cerrar");
     expect(nombreConEstado(B2, { cerrado: false })).toBe("Resguardo abierto");
     expect(nombreConEstado(B2)).toBe("Resguardo"); // sin señal todavía
-    expect(nombreConEstado(S0, { retenida: true })).toBe("Seta de emergencia");
+    expect(nombreConEstado(S0, { retenida: true })).toBe("Seta de emergencia presionada");
+    expect(nombreConEstado(S0, { retenida: false })).toBe("Seta de emergencia liberada");
+    expect(nombreConEstado(S0)).toBe("Seta de emergencia"); // sin señal todavía
+    expect(rotuloAccion(S1)).toBe("Presionar"); // un solo verbo para apretar un mando
     expect(estadoDeMando(B2, { lecturas: { "-B2.cerrado": 0 }, esperadas: {} })).toEqual({ cerrado: false });
     expect(esperaDe({ accion: "cerrar", dispositivo: "-B2" }, B2)).toEqual({ senal: "-B2.cerrado", valor: 1 });
   });

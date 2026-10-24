@@ -72,10 +72,12 @@ export function nombreTipo(m: MandoVivo): string {
   return NOMBRES[m.tipo] ?? "Mando";
 }
 
-/** El tipo con su estado, para los que se abren y se cierran: «Resguardo abierto»; sin señal
- *  todavía, o en los demás mandos, sólo el tipo. */
+/** El tipo con su estado, para los que se quedan como los dejas: «Resguardo abierto», «Seta de
+ *  emergencia presionada» (el estado en texto, no sólo en la tapa); sin señal todavía, o en un
+ *  pulsador, sólo el tipo. */
 export function nombreConEstado(m: MandoVivo, e: EstadoMando = {}): string {
   const tipo = nombreTipo(m);
+  if (m.tipo === "seta" && e.retenida !== undefined) return `${tipo} ${e.retenida ? "presionada" : "liberada"}`;
   if ((m.tipo !== "seccionador" && m.tipo !== "resguardo") || e.cerrado === undefined) return tipo;
   return `${tipo} ${e.cerrado ? "cerrado" : "abierto"}`;
 }
@@ -84,7 +86,7 @@ export function nombreConEstado(m: MandoVivo, e: EstadoMando = {}): string {
 export function rotuloAccion(m: MandoVivo, e: EstadoMando = {}): string {
   switch (m.tipo) {
     case "pulsador":
-      return m.retorno === "mantenido" ? "Alternar" : "Apretar";
+      return m.retorno === "mantenido" ? "Alternar" : "Presionar"; // el mismo verbo que la seta
     case "seta":
       return e.retenida ? "Liberar" : "Presionar";
     case "seccionador":

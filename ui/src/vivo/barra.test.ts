@@ -60,12 +60,12 @@ describe("lecturas", () => {
     expect(l.rotulo).toBe("Relé de seguridad");
     expect(l.lineas.map((x) => x.senal)).toEqual(["-K2.salidas", "-K2.espera_ciclo"]);
     const valores: Record<string, number> = { "-K2.salidas": 1, "-K2.espera_ciclo": 0, "-K2.canal1": 1, "-K2.canal2": 1 };
-    expect(textoLectura(l, (s) => valores[s])).toBe("Salidas cerradas");
+    expect(textoLectura(l, (s) => valores[s])).toBe("Habilita la marcha");
     Object.assign(valores, { "-K2.salidas": 0, "-K2.espera_ciclo": 1, "-K2.canal2": 0 });
     const v = (s: string) => valores[s];
-    expect([textoLectura(l, v), textoLectura(l, v, true)]).toEqual(["Salidas abiertas", ""]); // abierto: espera, pero no es la razón
+    expect([textoLectura(l, v), textoLectura(l, v, true)]).toEqual(["Corta la marcha", ""]); // abierto: espera, pero no es la razón
     valores["-K2.canal2"] = 1; // cerrado otra vez y un canal no abrió: por eso no rearma
-    expect(textoLectura(l, v)).toBe("Salidas abiertas"); // la etiqueta 3D, sólo el valor
+    expect(textoLectura(l, v)).toBe("Corta la marcha"); // la etiqueta 3D, sólo el valor
     expect(textoLectura(l, v, true)).toBe("No rearma hasta que abran y cierren los dos canales.");
     expect(textoLectura(l, () => undefined)).toBe("—"); // sin valores todavía
     expect(textoLectura(l, () => undefined, true)).toBe("");
