@@ -28,7 +28,7 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
 | `assembly` | mates, restricciones de riel, uniones, estructura, auto-grupo, DOF, gravedad, drop-test, dinámica y la serie de la marcha |
 | `fea` | FEA de pieza y de ensamblaje, resultados guardados, fringes |
 | `drawings` | lámina simple, desplegado de chapa, juego de planos, plano por intención, fits, roscas |
-| `electrico` | circuito y ERC del tablero |
+| `electrico` | circuito y ERC del tablero; el tablero armado que lee el panel (`/api/tablero`) |
 | `cosim` | escenarios de prueba, co-simulación y `test_plc` (job en `COSIM_JOBS`), simulaciones por partes, sesión en vivo vuelta escenario (las terminadas, en `sims.SESIONES_GRABADAS`) |
 | `cosim_vivo` | `WS /api/cosim/vivo`: la sesión en vivo (protocolo en su docstring) |
 | `video` | grabación del visor: sesión (con guion y plan), cuadros, foto, tarjetas, rótulos, fallo y cierre que codifica (`media/grabacion.py`); E/S pura |

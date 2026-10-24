@@ -146,6 +146,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   (`tablero_reglas.py`) salen de ahí, nunca de otra cuenta. La puerta (y la placa con
   `specs.placa_montaje`) viene con el gabinete: `tablero.incluidas` → `bom_from_scene(incluidas=)`
   y `scene_costing(incluidas=)`; un consumidor nuevo de la BOM de compra la pasa. (F2)
+- Lo que VE la persona del tablero (panel «Tablero», `GET /api/tablero/{ubicacion}`) y lo que lee
+  el agente (`get_circuit tablero=true`) es UNA función, `tablero_panel.panel`: los hallazgos salen
+  de los selectores de `tablero_reglas.py` (los del ERC) y el veredicto, con la regla de
+  `ui/src/diseno/atencion.ts::veredictoDe` (cambiar una es cambiar las dos). Sus textos son para
+  la persona (sin comandos ni parámetros): el crudo va en `tecnico`. (F3b)
 
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y

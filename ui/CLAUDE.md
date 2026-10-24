@@ -27,6 +27,11 @@ Las piezas viven en `src/diseno/` (`<Veredicto>`, `<ItemsAtencion>`, `<EstadoVac
 de 4 px, `--mov-*` y `--curva-suave`, a 0 con movimiento reducido); `diseno/tokens.test.ts` rebota un
 color, tamaño o duración suelto en su CSS. Las capturas salen del muestrario (`ui/muestrario.html`,
 sólo con `npm run dev`; `?ancho=420` para angosto). Hoy sólo hay tema oscuro (A12 de V8.5).
+El panel «Tablero» (`src/tablero/`) es el modelo: muestra lo que decide `services/tablero_panel.py`
+sin reglas propias (veredicto, ítems, cifras como `valor`+`unidad`); `VistaTablero` va por props
+(la montan el panel y el muestrario) y un conductor elegido se dibuja con `recorrido3d.ts`
+(instalado en el visor, fuera de `group`). Una fila elegida abre lo suyo DEBAJO de ella
+(`ItemsAtencion` `elegida`/`debajo`), nunca al final de la lista. [V8.5](../docs/plans/V8.5-tablero-3d.md) F3b
 
 ## Texto y ayuda: la pantalla se explica sola
 
