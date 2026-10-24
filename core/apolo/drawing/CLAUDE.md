@@ -28,6 +28,12 @@ reglas están en [services](../services/CLAUDE.md).
   cotización la usa (detalle y «AVISOS DE COBRO», con el costeo de `services/cobros.py`); su test
   renderiza cada hoja y exige que ningún texto salga de su celda.
   [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4c)
+- **Trazos de esquema** (`esquema.py`, para una extensión que dibuja esquemas): `kind`
+  `simbolo` (negro sin relleno) y `simbolo_lleno` (punto de unión, flecha) en `Line`, `Circle` y
+  `Polygon`, con un solo grosor (0,35 mm, criterio declarado); en DXF, capa `ESQUEMA` sólo si se
+  usa. Un estilo nuevo en un exportador no puede cambiar lo de antes: `tests/test_trazos_esquema.py`
+  congela la firma de SVG, PDF y DXF de una lámina mecánica.
+  [puntos-de-extension-entregables](../../../docs/plans/puntos-de-extension-entregables.md) (D6)
 - DWG: DXF → DWG R2018 con ODA File Converter (`ezdxf.addons.odafc`); `_discover()` busca la
   carpeta VERSIONADA del instalador; sin ODA → 400 amable con la URL, ANTES de componer láminas
   (`require_odafc` al entrar al endpoint: el juego gastaba ~70 s de HLR bajo `STATE_LOCK` para

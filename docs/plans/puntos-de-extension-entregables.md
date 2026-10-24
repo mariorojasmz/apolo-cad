@@ -234,7 +234,49 @@ tuvo que hacer con segmentos. Y en el modo Visor un panel de extensión abre en 
   `TEMPERATURA_DEFECTO_C`**: son el resultado de lo que se lee o lo que una caída de tensión
   necesita para dar lo mismo que la co-simulación.
 
-**Números:** suite 5118 → 5152 (pasan 5142, se saltan 10; los 27 de tortura, aparte). Los 34
+**Números (F1):** suite 5118 → 5152 (pasan 5142, se saltan 10; los 27 de tortura, aparte). Los 34
 nuevos: 25 en `tests/test_extensiones_entregables.py` y 9 en `tests/test_extensiones_api.py` (uno
 por módulo y por nombre de `SUPERFICIE` nuevos). `ruff check core tests scripts` limpio; ningún
 archivo pasa de 500 líneas (`delivery.py` 354, `extensiones.py` 408, `extensiones_puntos.py` 355).
+
+### F2 (2026-10-24): trazos de esquema y panel ancho
+
+**Hecho** (sobre `72f7c01`):
+
+1. **D6** — `core/apolo/drawing/esquema.py` (66 líneas): `SIMBOLO`/`LLENO`, `NEGRO`,
+   `GROSOR_SIMBOLO_MM` 0,35, `D_UNION_MM` 1,2 y las ayudas `conductor`, `circulo`, `punto_union` y
+   `poligono`. `svg.py`, `pdf.py` y `dxf.py` los dibujan (PDF: grosor en pt; DXF: capa `ESQUEMA`
+   y sombreado sólido para lo lleno). `tests/test_trazos_esquema.py` congela la firma de una
+   lámina con todos los estilos anteriores (SVG exacto, artistas del PDF, entidades y capas del
+   DXF) sacada del código de `72f7c01` antes de tocar los exportadores, y prueba cada estilo en
+   los tres formatos.
+2. **D7** — `PanelDeExtension.ancho?: "lamina"` (`ui/src/extensiones/tipos.ts`, validado en
+   `registro.ts`), llega a `PANELES` (`componerPaneles.ts`) y el cajón derecho del visor abre con
+   `cajon-lamina` (`visor/cajones.ts::claseCajon`, `--cv-lamina-ancho` en `cajones.css`). El cajón
+   sin estado sale a `visor/MarcoCajon.tsx`; el muestrario lo arma con la extensión de prueba
+   (`diseno/muestrario/extensionPrueba.tsx`), que muestra en línea `lamina-prueba.svg`.
+3. **D8** — `MODULOS` suma `apolo.drawing.esquema`, `apolo.drawing.svg` y `apolo.drawing.dxf`; la
+   extensión falsa los usa en `tests/ext_prueba/esquema.py` (una A4 de potencia de prueba: tres
+   fases con puntos de unión, protector, contacto, relé con flecha llena y motor).
+
+**Decidido por el agente (vetable):**
+
+- **`Line` también lleva el estilo `simbolo`**: el contrato pedía círculo y polígono, pero un
+  esquema con símbolos a 0,35 mm y conexiones a 0,5 (el «visible») no tiene un solo ancho.
+- **Los nombres de los estilos son `simbolo` y `simbolo_lleno`** (no «unión»): lo lleno sirve
+  también para una punta de flecha; el punto de unión es `punto_union()`.
+- **La capa `ESQUEMA` del DXF sólo existe si la lámina la usa**: así un DXF mecánico es idéntico
+  (capas incluidas).
+- **El SVG del muestrario es un archivo generado** (`python -B tests/ext_prueba/esquema.py`) y un
+  test de la suite de Python exige que coincida con lo que exporta el núcleo: lo que se ve en el
+  muestrario es lo que dibuja el exportador.
+- **El panel encaja la lámina entera en el cajón** (SVG a 100 % × 100 %, sin deformar): zoom y
+  arrastre son del visor de láminas de la extensión, no del núcleo.
+- **El cajón ancho conserva el `top` del cajón derecho** (bajo el ViewCube): a 960 px tapa el
+  centro del 3D pero deja ver el cubo.
+
+**Números (F2):** suite 5152 → 5162 (7 en `tests/test_trazos_esquema.py` y 3 en
+`tests/test_extensiones_api.py`, uno por módulo nuevo de `MODULOS`); vitest 515 → 520 (2 del
+registro, 1 de `componerPaneles`, 2 de los cajones). `ruff check core tests scripts` limpio;
+`npm run build` verde. Ningún archivo pasa de 500 líneas (`svg.py` 113, `pdf.py` 134, `dxf.py`
+102, `extensiones_api.py` 163); `sheet.py` no se tocó.

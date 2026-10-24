@@ -202,7 +202,9 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   `src/extensiones/<nombre>/` (ignorado por git) con un `index.ts` cuyo `export default` es una
   `Extension` (`extensiones/tipos.ts`; paneles con id `<nombre>.<panel>`). `extensiones/registro.ts`
   la recoge con `import.meta.glob` y la valida: no se edita ningún archivo del núcleo y los gates la
-  recorren. Lo que crezca entra como campo OPCIONAL de `Extension`. Un proyecto en sólo lectura
+  recorren. Lo que crezca entra como campo OPCIONAL de `Extension` (hoy, `ancho: "lamina"` de un
+  panel: el cajón del visor abre al ancho de una lámina; el muestrario lo arma con
+  `visor/MarcoCajon.tsx`). Un proyecto en sólo lectura
   (falta una extensión) se lee con `state/soloLectura.ts`.
   [plan](../docs/plans/nucleo-abierto-extensiones-privadas.md) (D4, D5)
 - Feedback de carga global: `guard`/`runTracked` + `BUSY_TEXT` (store).
