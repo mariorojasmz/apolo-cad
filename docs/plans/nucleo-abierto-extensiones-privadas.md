@@ -1368,7 +1368,7 @@ por vía):
 - **Lo que queda para la F4d:** el código de esos 55 archivos (la tarjeta final, los capítulos
   del guion, `scripts/testigos.py`, los fixtures de `tests/conftest.py`, el YAML de garruchas).
 
-### F1d (2026-10-23, en curso): los huecos que encontró la primera extensión real
+### F1d (2026-10-23): los huecos que encontró la primera extensión real
 
 **Hecho:**
 
@@ -1422,8 +1422,6 @@ por vía):
    falsa admite ahora, además de `extensiones_api`, un módulo de `MODULOS` con SUS nombres
    declarados (lo lee por AST).
 
-**Falta:** la suite completa y los conteos.
-
 **Decidido por el agente (vetable):**
 
 - **La clave va por `Extension.nombre`** (no por el prefijo), con un nombre permisivo
@@ -1431,3 +1429,25 @@ por vía):
 - **El donante de un `insert_project` no mezcla su `ext` con la del anfitrión**: viaja en el
   adjunto, como el resto de su manifest.
 - **Valor = dict** (no cualquier JSON): el espacio de cada extensión crece con claves propias.
+- **`ext` es metadato sin undo**, como color y material: deshacer no la toca (probado).
+- **La fachada vive en `api/` y se re-exporta perezosa**: importar `extensiones_api` sigue sin
+  cargar OCCT ni la API (el MCP lee la extensión igual que antes).
+- **`evaluar(registro=None)` sigue siendo sólo el núcleo**: los testigos, los defectos sembrados y
+  quien evalúa a mano no cambian; la puerta entera (la ruta) pasa `vigente()`.
+- **`version_puerta` propio** en vez de la versión del paquete: subir la extensión por otra cosa no
+  vence los veredictos ya dados.
+- **`CONTRATO_EXTENSIONES` sigue en 1.** Sólo se AGREGARON campos con default (`puerta`,
+  `version_puerta`) y nombres a `SUPERFICIE`/`MODULOS`; nada se quitó ni renombró. Una extensión
+  que use lo nuevo sobre un núcleo anterior falla al construir su `Extension` (campo desconocido):
+  la red es su CI contra la ref fijada del núcleo.
+- **El gate de imports de la extensión falsa** acepta un módulo de `MODULOS` con sus nombres
+  declarados: es lo que `MODULOS` promete («se importan de su módulo»).
+
+**Números:** suite 4937 → 4998 (pasan 4988, se saltan 10; los 27 de tortura, aparte). Los 61
+nuevos: 21 en `tests/test_ext_manifest.py`, 17 en `tests/test_extensiones_f1d.py` (uno corre la API
+real en un proceso aparte) y 23 en `tests/test_extensiones_api.py` (uno por nombre o módulo nuevo,
+más el de las láminas). `ruff check core tests scripts` limpio; `document.py` sigue en 1009.
+
+**Para `apolo-pro`** (no se tocó): sus rutas pueden pasar a la fachada (`mutar_documento`,
+`leer_documento`) y guardar lo suyo en `poner_ext`; un ítem de su puerta va en `puerta=` con ids
+«pro.x».
