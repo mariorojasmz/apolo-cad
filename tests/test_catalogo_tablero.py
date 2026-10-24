@@ -141,7 +141,8 @@ _GAB = {"placa_util_mm": [450, 350], "fondo_util_mm": 160, "placa_fondo_mm": 25,
         "pasacables": {"cara": "inferior", "ancho_mm": 400, "fondo_mm": 120},
         "linea_referencia": "orden de x", "cotas_verificadas": False}
 _PUERTA = {"funcion": "S", "simbolo": "pulsador_na", "montaje": "puerta",
-           "bornes": [{"id": "13", "rol": "contacto"}, {"id": "14", "rol": "contacto"}]}
+           "bornes": [{"id": "13", "rol": "contacto"}, {"id": "14", "rol": "contacto"}],
+           "a_confirmar": ["T_max_C"], "fuente": "prueba"}  # completitud (datos-de-corte-y-acometida)
 _DIN = {**_PUERTA, "montaje": "din"}
 
 

@@ -16,6 +16,20 @@ category: proteccion_electrica
 #    (el dial); el magnético del guardamotor es FIJO en `Ii_A` = 13 × Ir máx, no sigue al dial.
 #    El relé térmico sale de fábrica en rearme MANUAL (`rearme`). El cartucho del portafusible
 #    (125_) es un ajuste: In dentro del rango del portafusible, curva T por defecto.
+#  - `electrico.datos` (plan datos-de-corte-y-acometida, D1–D5): lo que lee quien VERIFICA, fuera
+#    de `modelo` (no entra a la firma del documento). Cada cifra sale de la ficha del fabricante
+#    que nombra `fuente` (la ref es un EJEMPLO: quien fabrica la reemplaza por la equivalente
+#    local que cumpla esas cifras); lo que no se verificó va en `a_confirmar` SIN valor.
+#    · ITM y guardamotor: Icu/Ics de IEC 60947-2 como mapa {U_V: kA}; la clave es el TOPE del
+#      rango de la ficha («220…240 V» → 240, «380…415 V» → 415). La Icn de IEC 60898-1 sigue en
+#      `modelo`.
+#    · Seccionador: Icw + su duración y la corriente condicional Iq con la protección con que se
+#      ensayó (IEC 60947-3).
+#    · `T_max_C`: el tope de la «temperatura ambiente de funcionamiento» de la ficha de la línea
+#      (por familia, en el ancla).
+_datos_itm: &datos_itm {T_max_C: 70}
+_datos_gm: &datos_gm {T_max_C: 60}
+_datos_secc: &datos_secc {T_max_C: 50}
 _polos_3p: &polos_3p
   - {id: "1", rol: potencia, lado: linea}
   - {id: "2", rol: potencia, lado: carga}
@@ -36,7 +50,7 @@ components:
     params: {width: 60, depth: 80, height: 75}
     tablero: {puerta: {delante_mm: 30, detras_mm: 50}}
     weight: 0.25
-    specs: {Ith_A: 25, polos: 3, candado: true, linea_referencia: "orden de Schneider TeSys Vario VCF02 / Siemens 3LD2 / ABB OT25", cotas_verificadas: false, cost: 45}
+    specs: {Ith_A: 25, polos: 3, candado: true, linea_referencia: "orden de Schneider TeSys Vario VCF1 / Siemens 3LD2 / ABB OT25", cotas_verificadas: false, cost: 45}
     electrico: &seccionador
       funcion: Q
       simbolo: seccionador_3p
@@ -48,6 +62,9 @@ components:
         - {de: "3", a: "4", tipo: NA, accion: mano}
         - {de: "5", a: "6", tipo: NA, accion: mano}
       modelo: {tipo: seccionador, Ith_A: 25, polos: 3}
+      # Icw 384 A 1 s y Iq 10 kA a 400 V con fusible gG o aM de 35 A (IEC 60947-3); −20…50 °C
+      datos: {<<: *datos_secc, Icw_kA: 0.384, Icw_t_s: 1, Iq_kA: 10, Iq_con: "fusible gG 35 A (o aM 35 A), a 400 V"}
+      fuente: "Schneider Electric, ficha de producto TeSys Vario VCF1 (Ithe 25 A; schneider-electric.cn, 2026-10-24)"
   - ref: SECC-40A-3P
     name: Seccionador rotativo 3P 40 A
     description: Interruptor-seccionador rotativo de 3 polos 40 A con manija roja sobre fondo amarillo bloqueable con candado, para el seccionamiento general del tablero. Verificar con el proveedor.
@@ -55,11 +72,14 @@ components:
     params: {width: 60, depth: 85, height: 75}
     tablero: {puerta: {delante_mm: 30, detras_mm: 55}}
     weight: 0.3
-    specs: {Ith_A: 40, polos: 3, candado: true, linea_referencia: "orden de Schneider TeSys Vario VCF1 / Siemens 3LD2 / ABB OT40", cotas_verificadas: false, cost: 60}
+    specs: {Ith_A: 40, polos: 3, candado: true, linea_referencia: "orden de Schneider TeSys Vario VCF2 / Siemens 3LD2 / ABB OT40", cotas_verificadas: false, cost: 60}
     electrico:
       <<: *seccionador
       perdidas_W: 3
       modelo: {tipo: seccionador, Ith_A: 40, polos: 3}
+      # Icw 480 A 1 s y Iq 10 kA a 400 V con fusible gG o aM de 50 A (IEC 60947-3); −20…50 °C
+      datos: {<<: *datos_secc, Icw_kA: 0.48, Icw_t_s: 1, Iq_kA: 10, Iq_con: "fusible gG 50 A (o aM 50 A), a 400 V"}
+      fuente: "Schneider Electric, ficha de producto TeSys Vario VCF2 (Ith 40 A; schneider-electric.cn, 2026-10-24)"
   # ── ITM curva C ─────────────────────────────────────────────────────────────────────────
   - ref: ITM-C6-3P
     name: ITM 3P C6
@@ -76,6 +96,9 @@ components:
       bornes: *polos_3p
       caminos: *proteccion_3p
       modelo: {tipo: itm, In_A: 6, curva: C, Icn_kA: 6, polos: 3}
+      datos: *datos_itm
+      a_confirmar: [Icu_kA, Ics_kA]
+      fuente: &fuente_itm "Schneider Electric, fichas de producto Acti9 iC60N A9F04202, A9F04206 y A9F04310 (schneider-electric.cn, 2026-10-24): temperatura de funcionamiento −35…70 °C, la misma en la serie. Icu/Ics de ESTA ref sin ficha verificada (cambian con In y con los polos): a confirmar"
   - ref: ITM-C10-3P
     name: ITM 3P C10
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 10 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
@@ -87,6 +110,10 @@ components:
       <<: *itm_3p
       perdidas_W: 6
       modelo: {tipo: itm, In_A: 10, curva: C, Icn_kA: 6, polos: 3}
+      # Icu 20 kA a 220…240 V y 10 kA a 380…415 V; Ics = 75 % de Icu (IEC 60947-2)
+      datos: {<<: *datos_itm, Icu_kA: {240: 20, 415: 10}, Ics_kA: {240: 15, 415: 7.5}}
+      a_confirmar: []
+      fuente: "Schneider Electric, ficha de producto Acti9 iC60N A9F04310 (3P C10; schneider-electric.cn, 2026-10-24)"
   - ref: ITM-C16-3P
     name: ITM 3P C16
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 16 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
@@ -130,6 +157,9 @@ components:
         - {de: "1", a: "2", tipo: proteccion}
         - {de: "3", a: "4", tipo: proteccion}
       modelo: {tipo: itm, In_A: 2, curva: C, Icn_kA: 6, polos: 2}
+      # Icu 50 kA a 220…240 V y a 380…415 V; Ics = 100 % de Icu (IEC 60947-2)
+      datos: {<<: *datos_itm, Icu_kA: {240: 50, 415: 50}, Ics_kA: {240: 50, 415: 50}}
+      fuente: "Schneider Electric, ficha de producto Acti9 iC60N A9F04202 (2P C2; schneider-electric.cn, 2026-10-24)"
   - ref: ITM-C6-2P
     name: ITM 2P C6
     description: Interruptor termomagnético (ITM) de 2 polos, curva C, 6 A, 6 kA (IEC 60898-1), para circuitos a 220 V entre dos fases en la red sin neutro. Verificar con el proveedor.
@@ -141,6 +171,9 @@ components:
       <<: *itm_2p
       perdidas_W: 3
       modelo: {tipo: itm, In_A: 6, curva: C, Icn_kA: 6, polos: 2}
+      # Icu 20 kA a 220…240 V y 10 kA a 380…415 V; Ics = 75 % de Icu (IEC 60947-2)
+      datos: {<<: *datos_itm, Icu_kA: {240: 20, 415: 10}, Ics_kA: {240: 15, 415: 7.5}}
+      fuente: "Schneider Electric, ficha de producto Acti9 iC60N A9F04206 (2P C6; schneider-electric.cn, 2026-10-24)"
   - ref: ITM-C2-1PN
     name: ITM 1P+N C2
     description: Interruptor termomagnético (ITM) 1P+N, curva C, 2 A, 6 kA (IEC 60898-1), para circuitos fase-neutro de una red CON neutro (380/220 V); el polo N se maniobra pero no se protege. Verificar con el proveedor.
@@ -162,6 +195,9 @@ components:
         - {de: "1", a: "2", tipo: proteccion}
         - {de: N1, a: N2, tipo: NA, accion: mano}
       modelo: {tipo: itm, In_A: 2, curva: C, Icn_kA: 6, polos: "1P+N"}
+      datos: *datos_itm
+      a_confirmar: [Icu_kA, Ics_kA]
+      fuente: *fuente_itm
       nota: "N1/N2 = polo de neutro (marcado N en el aparato), lado línea y lado carga."
   - ref: ITM-C6-1PN
     name: ITM 1P+N C6
@@ -191,6 +227,9 @@ components:
       bornes: *polos_3p
       caminos: *proteccion_3p
       modelo: {tipo: guardamotor, Ir_A: [1.0, 1.6], clase: "10", Ii_A: 20.8}
+      # Icu 100 kA a 230/240 V y a 400/415 V; Ics = 100 % de Icu (IEC 60947-2), en los 5 rangos
+      datos: {<<: *datos_gm, Icu_kA: {240: 100, 415: 100}, Ics_kA: {240: 100, 415: 100}}
+      fuente: "Schneider Electric, fichas de producto TeSys GV2ME06, GV2ME08 y GV2ME10 (2022-12-29) y GV2ME07 y GV2ME14 (schneider-electric.cn, 2026-10-24): Icu, Ics y temperatura ambiente de funcionamiento −20…60 °C iguales en los cinco rangos"
   - ref: GM-1.6-2.5A
     name: Guardamotor 1,6-2,5 A clase 10
     description: Interruptor automático de motor (guardamotor) de 3 polos, térmico regulable 1,6-2,5 A clase 10 + disparo magnético, para motores de ~0,55 kW a 220 V. Verificar con el proveedor.
@@ -251,6 +290,8 @@ components:
       caminos:
         - {de: "13", a: "14", tipo: NA, accion: acople}
         - {de: "21", a: "22", tipo: NC, accion: acople}
+      a_confirmar: [T_max_C]
+      fuente: "ficha de producto TeSys GVAN11 (schneider-electric.cn, 2026-10-24) sin temperatura de funcionamiento: a confirmar con la del aparato que se compre"
   # ── relés térmicos (bajo el contactor) ──────────────────────────────────────────────────
   - ref: RT-2.5-4A
     name: Relé térmico 2,5-4 A clase 10A
@@ -284,6 +325,8 @@ components:
         - {de: "95", a: "96", tipo: NC, accion: disparo}
         - {de: "97", a: "98", tipo: NA, accion: disparo}
       modelo: {tipo: rele_termico, Ir_A: [2.5, 4.0], clase: "10A", rearme: manual}
+      datos: {T_max_C: 60}
+      fuente: "Schneider Electric, fichas de producto TeSys LRD08 y LRD10 (schneider-electric.cn, 2026-10-24): temperatura ambiente −20…60 °C sin desclasificar (IEC 60947-4-1)"
   - ref: RT-4-6A
     name: Relé térmico 4-6 A clase 10A
     description: Relé térmico de sobrecarga de 3 polos, regulable 4-6 A clase 10A, con contactos 95-96 NC y 97-98 NA; se monta directo bajo el contactor. Verificar con el proveedor.

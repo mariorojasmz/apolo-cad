@@ -53,6 +53,8 @@ components:
         - {id: "12", rol: contacto}
       caminos: [{de: "11", a: "12", tipo: NC, accion: mano}]
       modelo: {tipo: seta, retorno: retenido}
+      datos: &datos_seta {T_max_C: 70}
+      fuente: &fuente_seta "Schneider Electric, fichas de producto Harmony XB5AS8445 y XB5AS8442 (schneider-electric.cn, 2026-10-24): temperatura de funcionamiento −40…70 °C"
   - ref: ESTOP-40-CAJA
     name: Paro de emergencia Ø40 en caja
     description: >-
@@ -128,6 +130,8 @@ components:
         - {de: "11", a: "12", tipo: NC, accion: mano}
         - {de: "21", a: "22", tipo: NC, accion: mano}
       modelo: {tipo: seta, retorno: retenido}
+      datos: *datos_seta
+      fuente: *fuente_seta
   - ref: ESTOP-40-CAJA-2NC
     name: Paro de emergencia Ø40 2NC en caja
     description: >-

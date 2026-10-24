@@ -142,6 +142,9 @@ MODULOS: dict[str, tuple[str, ...]] = {
     "apolo.cosim.red.conductores": ("LAMBDA_OHM_M", "TEMPERATURA_DEFECTO_C", "r20_ohm_km",
                                     "reactancia", "resistencia"),
     "apolo.library.catalog": ("CATALOG",),
+    # los datos de ficha (plan datos-de-corte-y-acometida, D12): qué pide cada tipo y el valor de
+    # un mapa por tensión, leídos por el contrato y no por fuera
+    "apolo.library.electrico.ficha_datos": ("REQUERIDOS", "a_tension", "requeridos"),
 }
 
 def resolver(origen: str):

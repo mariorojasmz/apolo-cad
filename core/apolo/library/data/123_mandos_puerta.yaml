@@ -34,6 +34,10 @@ components:
       bornes: *contacto_na
       caminos: [{de: "13", a: "14", tipo: NA, accion: mano}]
       modelo: {tipo: pulsador, retorno: resorte}
+      # datos de ficha (plan datos-de-corte-y-acometida, D5): tope de la temperatura de
+      # funcionamiento de la serie Harmony XB5
+      datos: &datos_xb5 {T_max_C: 70}
+      fuente: &fuente_xb5 "Schneider Electric, fichas de producto Harmony XB5AA31, XB5AA42, XB5AA61, XB5AD21, XB5AD33, XB5AVB3 y XB5AVB4 (schneider-electric.cn, 2026-10-24): temperatura de funcionamiento −40…70 °C, la misma en la serie"
   - ref: PULS-22-ROJO-NC
     name: Pulsador Ø22 rojo 1NC
     description: Pulsador rasante Ø22 mm rojo con 1 contacto NC (11-12), para PARO. No reemplaza a la seta de emergencia. Verificar con el proveedor.
@@ -51,6 +55,8 @@ components:
         - {id: "12", rol: contacto}
       caminos: [{de: "11", a: "12", tipo: NC, accion: mano}]
       modelo: {tipo: pulsador, retorno: resorte}
+      datos: *datos_xb5
+      fuente: *fuente_xb5
   - ref: PULS-22-AZUL-NA
     name: Pulsador Ø22 azul 1NA
     description: Pulsador rasante Ø22 mm azul con 1 contacto NA (13-14), para REARME tras una falla o una parada de emergencia. Verificar con el proveedor.
@@ -66,6 +72,8 @@ components:
       bornes: *contacto_na
       caminos: [{de: "13", a: "14", tipo: NA, accion: mano}]
       modelo: {tipo: pulsador, retorno: resorte}
+      datos: *datos_xb5
+      fuente: *fuente_xb5
   - ref: SEL-22-2POS-1NA
     name: Selector Ø22 2 posiciones 1NA
     description: Selector de maneta Ø22 mm de 2 posiciones mantenidas (0-I) con 1 contacto NA (13-14), p. ej. MANUAL/AUTOMÁTICO. Verificar con el proveedor.
@@ -81,6 +89,8 @@ components:
       bornes: *contacto_na
       caminos: [{de: "13", a: "14", tipo: NA, accion: mano}]
       modelo: {tipo: selector, retorno: mantenido, posiciones: ["0", "I"], cierra_en: {mano: "I"}}
+      datos: *datos_xb5
+      fuente: *fuente_xb5
   - ref: SEL-22-3POS-2NA
     name: Selector Ø22 3 posiciones 2NA
     description: Selector de maneta Ø22 mm de 3 posiciones mantenidas (I-0-II) con 2 contactos NA (13-14 en I, 23-24 en II). Verificar con el proveedor.
@@ -102,6 +112,8 @@ components:
         - {de: "13", a: "14", tipo: NA, accion: mano, grupo: posicion_I}
         - {de: "23", a: "24", tipo: NA, accion: mano, grupo: posicion_II}
       modelo: {tipo: selector, retorno: mantenido, posiciones: ["I", "0", "II"], cierra_en: {posicion_I: "I", posicion_II: "II"}}
+      datos: *datos_xb5
+      fuente: *fuente_xb5
   - ref: PILOTO-24V-VERDE
     name: Piloto LED Ø22 verde 24 V
     description: Lámpara piloto LED Ø22 mm verde, 24 V AC/DC (X1-X2), p. ej. EN MARCHA. Verificar con el proveedor.
@@ -118,6 +130,8 @@ components:
       bornes: *bornes_piloto
       cargas: [{bornes: [X1, X2], tension: "24 VAC/DC", tipo: piloto}]
       modelo: {tipo: piloto, Un_V: 24, I_mA: 18, U_encendido_pct: 70}
+      datos: *datos_xb5
+      fuente: *fuente_xb5
   - ref: PILOTO-24V-ROJO
     name: Piloto LED Ø22 rojo 24 V
     description: Lámpara piloto LED Ø22 mm roja, 24 V AC/DC (X1-X2), p. ej. FALLA. Verificar con el proveedor.

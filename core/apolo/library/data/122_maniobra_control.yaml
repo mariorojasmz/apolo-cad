@@ -61,6 +61,10 @@ components:
       caminos: *contactor_caminos
       cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina}]
       modelo: {tipo: contactor, Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, Uc_V: 24, Uc: DC, U_cierre_pct: 85, U_caida_pct: 40, bobina_W: 2.4, cierre_ms: [53, 73], apertura_ms: [16, 24]}
+      # datos de ficha (plan datos-de-corte-y-acometida, D5): temperatura del aire −40…60 °C
+      # (60…70 °C con desclasificación), igual en la bobina AC y la DC de la serie
+      datos: &datos_contactor {T_max_C: 60}
+      fuente: &fuente_contactor "Schneider Electric, fichas de producto TeSys D LC1D09BD y LC1D09M7 (schneider-electric.cn, 2026-10-24): temperatura del aire alrededor −40…60 °C, 60…70 °C con desclasificación"
   - ref: CONT-9A-220VAC
     name: Contactor 9 A AC-3 bobina 220 VAC
     description: Contactor tripolar 9 A en AC-3 (2,2 kW a 220 V), 1NA+1NC auxiliares, bobina 220 VAC 60 Hz para mando a 220 V entre fases. Verificar con el proveedor.
@@ -77,6 +81,8 @@ components:
       caminos: *contactor_caminos
       cargas: [{bornes: [A1, A2], tension: "220 VAC 60 Hz", tipo: bobina}]
       modelo: {tipo: contactor, Ie_AC3_A: 9, P_AC3_kW_220V: 2.2, Uc_V: 220, Uc: AC, U_cierre_pct: 85, U_caida_pct: 40, bobina_VA: {llamada: 70, mantenimiento: 7}, cierre_ms: [12, 22], apertura_ms: [4, 19]}
+      datos: *datos_contactor
+      fuente: *fuente_contactor
   - ref: CONT-12A-24VDC
     name: Contactor 12 A AC-3 bobina 24 VDC
     description: Contactor tripolar 12 A en AC-3 (3 kW a 220 V), 1NA+1NC auxiliares, bobina 24 VDC. Verificar con el proveedor.
@@ -139,6 +145,8 @@ components:
       caminos:
         - {de: "53", a: "54", tipo: NA, accion: acople}
         - {de: "61", a: "62", tipo: NC, accion: acople}
+      datos: {T_max_C: 60}
+      fuente: "Schneider Electric, ficha de producto TeSys LADN11 (schneider-electric.cn, 2026-10-24): temperatura de funcionamiento −5…60 °C"
   # ── relés de interfaz ───────────────────────────────────────────────────────────────────
   - ref: RELE-INT-24VDC
     name: Relé de interfaz 1 conmutado 24 VDC
@@ -163,6 +171,8 @@ components:
         - {de: "11", a: "12", tipo: NC, accion: bobina}
       cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina, polar: true}]
       modelo: {tipo: rele, contacto_A: 6, contacto_V: 250, Uc_V: 24, Uc: DC, U_cierre_pct: 80, U_caida_pct: 25, bobina_W: 0.2, cierre_ms: [5, 8], apertura_ms: [3, 6]}
+      a_confirmar: [T_max_C]
+      fuente: "sin ficha verificada de la línea de referencia (Phoenix Contact PLC-RSC / Finder 38.51): la temperatura de funcionamiento, a confirmar con el relé que se compre"
   - ref: RELE-INT-230V
     name: Relé de interfaz 1 conmutado 230 V AC/DC
     description: Relé de interfaz enchufable de 6,2 mm, bobina 230 V AC/DC (admite los 220 VAC de Lima), 1 contacto conmutado 6 A 250 VAC (11 común, 12 NC, 14 NA). Verificar con el proveedor.
@@ -227,6 +237,8 @@ components:
         - {bornes: [S22, A2], tension: "24 VDC", tipo: entrada, polar: true}
         - {bornes: [S34, A2], tension: "24 VDC", tipo: entrada, polar: true}
       modelo: {tipo: rele_seguridad, Un_V: 24, U_min_pct: 85, rearme: vigilado, salidas: ["13-14", "23-24", "33-34"], t_conexion_ms: 50, t_desconexion_ms: 20}
+      a_confirmar: [T_max_C]
+      fuente: "sin ficha verificada de la línea de referencia (Pilz PNOZ X2.8P / Schneider Preventa XPSAC5121): la temperatura de funcionamiento, a confirmar con el relé que se compre"
   # ── PLC compacto ────────────────────────────────────────────────────────────────────────
   - ref: PLC-14DI-10DO-24VDC
     name: PLC compacto 14 DI / 10 DO / 2 AI 24 VDC
@@ -305,3 +317,5 @@ components:
         - {bornes: [AI0, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
         - {bornes: [AI1, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
       modelo: {DI: 14, DO: 10, AI: 2, DI_tipo: "sumidero, IEC 61131-2 tipo 1", DO_tipo: "transistor fuente (PNP)", DO_A: 0.5, AI_V: [0, 10], tipo: plc, DI_filtro_ms: 6.4, DO_retardo_ms: 0.003, U_alim_min_V: 20.4, AI_escala: 27648}
+      a_confirmar: [T_max_C]
+      fuente: "sin ficha verificada de la línea de referencia (Siemens S7-1200 CPU 1214C): la temperatura de funcionamiento (depende de si va horizontal o vertical), a confirmar con el PLC que se compre"

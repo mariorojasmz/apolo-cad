@@ -11,7 +11,9 @@ corregir. Lo que valida:
     de tipo bobina;
   - `conductor` (conductores y cables): sección > 0, hilos con id único y color IEC 60757;
   - `modelo` (V8.3 D7): `tipo` conocido, rangos [mín, máx] ordenados, la `clase` de disparo en
-    UNA forma («10», «10A»), curvas válidas y el `sistema` de una red coherente con su fuente.
+    UNA forma («10», «10A»), curvas válidas y el `sistema` de una red coherente con su fuente;
+  - `datos`, `fuente` y `a_confirmar` (plan datos-de-corte-y-acometida, D1–D5): los datos de
+    ficha que lee quien verifica, fuera de `modelo`, con su COMPLETITUD (`ficha_datos.py`).
 
 Puro: no importa el catálogo ni la geometría.
 """
@@ -20,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import ficha_datos
 from .modelo import Borne, Camino, Carga, Fuente, Hilo
 from .referencias import sugerir
 from .tension import Tension, parse_tension, polos_obligatorios, polos_validos
@@ -54,7 +57,8 @@ CURVAS_FUSIBLE = ("F", "T")
 SISTEMAS = {"1F+N": (1, False), "2F": (2, False), "3F": (3, False), "3F+N": (3, True)}
 
 _CLAVES = ("funcion", "simbolo", "montaje", "perdidas_W", "bornes", "caminos", "cargas",
-           "fuentes", "modelo", "protege_motor", "parada_emergencia", "bornera", "conductor", "nota")
+           "fuentes", "modelo", "protege_motor", "parada_emergencia", "bornera", "conductor", "nota",
+           "datos", "fuente", "a_confirmar")
 _CLAVES_BORNE = ("id", "rol", "lado", "obligatorio")
 _CLAVES_CAMINO = ("de", "a", "tipo", "accion", "grupo")
 _CLAVES_CARGA = ("bornes", "tension", "tipo", "obligatoria", "polar")
@@ -85,6 +89,11 @@ class FichaElectrica:
     bornera: bool = False
     conductor: FichaConductor | None = None
     nota: str = ""
+    #: datos de ficha (fuera de `modelo`: no entran a la firma ni son ajustes), de dónde salen y
+    #: lo que queda por confirmar (`ficha_datos.py`)
+    datos: dict = field(default_factory=dict)
+    fuente: str = ""
+    a_confirmar: tuple[str, ...] = ()
 
     @property
     def ids_bornes(self) -> tuple[str, ...]:
@@ -337,24 +346,28 @@ def parse_ficha(crudo, ref: str) -> FichaElectrica | None:
     bornera = _bool(err, "", crudo, "bornera", False)
     if bornera and (cargas or fuentes):
         raise err("bornera", "una bornera no tiene cargas ni fuentes: sólo bornes y caminos")
+    d = ficha_datos.parse_datos(err, crudo.get("datos"), crudo.get("fuente"), crudo.get("a_confirmar"),
+                                tipo=modelo.get("tipo"), montaje=montaje, modelo=modelo)
     return FichaElectrica(
         funcion=funcion, simbolo=str(crudo["simbolo"]).strip(), montaje=montaje, bornes=bornes,
         caminos=caminos, cargas=cargas, fuentes=fuentes, modelo=dict(modelo), perdidas_W=perdidas,
         protege_motor=_bool(err, "", crudo, "protege_motor", False),
         parada_emergencia=_bool(err, "", crudo, "parada_emergencia", False), bornera=bornera,
         conductor=conductor, nota=str(crudo.get("nota") or "").strip(),
+        datos=d.datos, fuente=d.fuente, a_confirmar=d.a_confirmar,
     )
 
 
 def fusionar(familia: dict | None, variante: dict | None) -> dict | None:
     """Bloque de una variante de familia: el de la familia con lo que la variante redefine.
-    `modelo` se fusiona clave a clave (cada variante trae su placa); el resto se reemplaza."""
+    `modelo` y `datos` se fusionan clave a clave (cada variante trae su placa y sus cifras; la
+    familia, p. ej., su `T_max_C`); el resto se reemplaza."""
     if familia is None and variante is None:
         return None
     base = dict(familia or {})
     for k, v in (variante or {}).items():
-        if k == "modelo" and isinstance(v, dict) and isinstance(base.get("modelo"), dict):
-            base["modelo"] = {**base["modelo"], **v}
+        if k in ("modelo", "datos") and isinstance(v, dict) and isinstance(base.get(k), dict):
+            base[k] = {**base[k], **v}
         else:
             base[k] = v
     return base
@@ -387,4 +400,5 @@ def ficha_payload(ficha: FichaElectrica) -> dict:
                             **({"hilos": {h.id: h.color for h in c.hilos}} if c.hilos else {})}
     if ficha.modelo:
         out["modelo"] = dict(ficha.modelo)
+    out.update(ficha_datos.payload(ficha_datos.DatosFicha(ficha.datos, ficha.fuente, ficha.a_confirmar)))
     return out

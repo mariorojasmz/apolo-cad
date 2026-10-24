@@ -101,9 +101,13 @@ _BASE = {"funcion": "F", "simbolo": "x", "montaje": "din",
 
 
 def _cargar(tmp_path, modelo: dict, **extra):
+    from apolo.library.electrico.ficha_datos import requeridos
+
+    # los datos de ficha que pide el tipo, sin valor (plan datos-de-corte-y-acometida, D4)
+    datos = {"a_confirmar": list(requeridos(modelo.get("tipo"), _BASE["montaje"])), "fuente": "prueba"}
     comp = {"ref": "R", "name": "Prueba", "builder": "box", "weight": 1,
             "params": {"width": 18, "depth": 70, "height": 90},
-            "electrico": {**_BASE, "modelo": modelo, **extra}}
+            "electrico": {**_BASE, "modelo": modelo, **datos, **extra}}
     (tmp_path / "a.yaml").write_text(yaml.safe_dump({"category": "x", "components": [comp]}, allow_unicode=True),
                                      encoding="utf-8")
     return load_catalog(str(tmp_path))["R"].electrico

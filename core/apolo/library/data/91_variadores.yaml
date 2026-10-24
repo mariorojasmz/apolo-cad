@@ -125,6 +125,8 @@ components:
       cargas: *vfd_cargas
       fuentes: *vfd_fuentes
       modelo: {<<: *vfd_mando, P_kW: 1.5, I_salida_A: 8.5, I_entrada_A: 10, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}
+      a_confirmar: [T_max_C]
+      fuente: &fuente_vfd "sin ficha verificada de la línea de referencia (SINAMICS V20 / Delta MS300): la temperatura de funcionamiento y su desclasificación, a confirmar con el variador que se compre"
   # Para el NMRV-090 (motor 2.2 kW) de la faja 38: el de 1.5 kW quedaba corto. Envolvente
   # representativa de un VFD compacto de 2.2 kW 230 V 3F (orden de SINAMICS V20 FSB / Delta MS300
   # frame B): verificar cotas y precio con el proveedor antes de cotizar en firme.
@@ -147,3 +149,5 @@ components:
       cargas: *vfd_cargas
       fuentes: *vfd_fuentes
       modelo: {<<: *vfd_mando, P_kW: 2.2, I_salida_A: 11.0, I_entrada_A: 13, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}
+      a_confirmar: [T_max_C]
+      fuente: *fuente_vfd

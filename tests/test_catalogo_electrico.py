@@ -254,6 +254,7 @@ BUENO = {
     "caminos": [{"de": "1", "a": "2", "tipo": "NA", "accion": "bobina"}],
     "cargas": [{"bornes": ["A1", "A2"], "tension": "24 VDC", "tipo": "bobina"}],
     "modelo": {"Ie_AC3_A": 9},
+    "datos": {"T_max_C": 60}, "fuente": "ficha de prueba",  # completitud (datos-de-corte-y-acometida)
 }
 
 
