@@ -139,7 +139,7 @@ def _avisos_tablero(doc, e) -> list[str]:
         return ["el documento todavía no declara tablero (add_device): el escenario se valida "
                 "contra él al correrlo"]
     nombrados = {a.dispositivo for a in e.acciones} | set(e.selectores) | set(e.setas_retenidas)
-    nombrados |= set(e.motores) | set(e.sensores)
+    nombrados |= set(e.motores) | set(e.sensores) | set(e.cilindros)
     nombrados |= {a["senal"].split(".")[0] for a in e.aserciones if a["senal"][:1] in "-="}
     des |= {c.designacion for c in me.cables}  # «-W1.1.I_A»: la corriente de un hilo del cable
     faltan = sorted(n for n in nombrados if n not in des)
@@ -150,12 +150,13 @@ def _revisar_tipos(doc, e) -> tuple[list[str], list[str]]:
     """Las aserciones contra los tipos de las señales del tablero, SIN simular (F6b)."""
     from apolo.cosim.tipos import revisar, valores_iniciales
 
+    from .cosim_aire import dispositivos
     from .electrico import modelo
 
     me = modelo(doc)
     if not me.dispositivos:
         return [], []
-    return revisar(e.aserciones, valores_iniciales(me.dispositivos, me.programas))
+    return revisar(e.aserciones, valores_iniciales(dispositivos(doc, me, e.cilindros), me.programas))
 
 
 def validar_nombre(nombre) -> str:

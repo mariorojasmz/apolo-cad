@@ -126,6 +126,10 @@ def _opciones(m) -> dict:
         out["salida_pegada"] = list(m.ids_salida)
     elif m.tipo == "fusible" and m.unidades > 1:
         out["abierto"] = list(range(1, m.unidades + 1))
+    elif m.tipo == "electrovalvula":  # V8.9 D8: dónde queda el carrete y qué bobina se corta
+        out["pegada"] = list(m.posiciones)
+        if len(m.lados) > 1:
+            out["bobina_cortada"] = list(m.lados)
     return out
 
 

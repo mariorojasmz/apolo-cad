@@ -16,6 +16,7 @@ from apolo.library.electrico.ajustes import validar_ajustes
 from apolo.library.electrico.ficha import TIPOS_MODELO
 from apolo.library.electrico.tension import parse_tension, polos_validos, tension_entre
 from apolo.library.loader import load_catalog
+from apolo.services.cosim_aire import ficha_plana
 
 #: Lo que un instalador fija sí o sí (un rango del catálogo): un valor cualquiera del rango.
 _DATOS_DE_BANDA = ("cierre_ms", "apertura_ms", "AI_V")
@@ -35,10 +36,17 @@ def test_los_tipos_del_yaml_son_los_modelos():
     assert set(TIPOS_MODELO) == set(MODELOS)
 
 
+def _modelo_cosim(ref: str, f) -> dict:
+    """El `modelo` que llega a la co-simulación: el eléctrico con la ficha de aire plana (V8.9 F3,
+    `services/cosim_aire.py`), como en el snapshot."""
+    n = CATALOG[ref].neumatico
+    return {**f.modelo, "aire": ficha_plana(n)} if n is not None else f.modelo
+
+
 def test_toda_ref_activa_se_emula_con_su_catalogo():
     pasivas = []
     for ref, f in fichas().items():
-        m = crear_modelo("-X1", ref, f.modelo, ajustes_minimos(f.modelo))
+        m = crear_modelo("-X1", ref, _modelo_cosim(ref, f), ajustes_minimos(f.modelo))
         if m is None:
             pasivas.append(ref)
             continue
@@ -47,11 +55,27 @@ def test_toda_ref_activa_se_emula_con_su_catalogo():
         for nombre in m.senales():
             assert re.fullmatch(r"-X1\.[%\w.]+", nombre), (ref, nombre)
     # sólo lo que no tiene comportamiento propio: bornes, conductores, gabinetes y los contactos
-    # auxiliares (siguen a su aparato); las electroválvulas, hasta que V8.9 F3 les dé su modelo
+    # auxiliares (siguen a su aparato); las electroválvulas ya tienen el suyo (V8.9 F3)
     for ref in pasivas:
         f = fichas()[ref]
-        assert (f.funcion in ("X", "W", "U") or f.simbolo == "contactos_aux"
-                or CATALOG[ref].neumatico is not None), ref
+        assert f.funcion in ("X", "W", "U") or f.simbolo == "contactos_aux", ref
+
+
+def test_toda_ref_de_aire_con_estado_se_emula():
+    """V8.9 F3: cilindros, FRL y válvulas de corte arman su modelo de aire con la ficha del
+    catálogo (más la carrera del cilindro y el ajuste del FRL, que pone quien lo instala)."""
+    from apolo.cosim.neumatica import MODELOS_AIRE, crear_modelo_aire
+
+    vistos = set()
+    for ref, c in CATALOG.items():
+        if c.neumatico is None or c.neumatico.tipo not in MODELOS_AIRE:
+            continue
+        aire = {**ficha_plana(c.neumatico), "carrera_mm": 100.0}
+        m = crear_modelo_aire("-X1", ref, aire, {"p_regulada_bar": 6.0})
+        assert m.tipo == c.neumatico.tipo, ref
+        vistos.add(m.tipo)
+        assert all(re.fullmatch(r"-X1\.\w+", n) for n in m.senales()), ref
+    assert vistos == {"cilindro", "frl", "valvula_corte"}
 
 
 @pytest.mark.parametrize("ref,senales", [

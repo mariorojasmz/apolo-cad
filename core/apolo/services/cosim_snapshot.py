@@ -93,6 +93,8 @@ def _sensores(esc, modelos: dict, por_des: dict) -> tuple[list[dict], list[str]]
     for des, s in esc.sensores.items():
         if not isinstance(modelos.get(des), Sensor):
             raise ServiceError(400, f"acoples.sensores: «{des}» no es un sensor del tablero")
+        if "junta" in s:  # V8.9 D8: el detector de un cilindro lee su junta, no un rayo
+            continue
         alcance = s.get("alcance_mm")
         if alcance is None:
             ficha = por_des[des].modelo
@@ -146,7 +148,7 @@ def _compilar_programas(programas, me) -> list:
 def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     """El `CosimSnapshot` del documento para `escenario` (dict de D12). `ServiceError(400)`."""
     from apolo.cosim.agenda import validar
-    from apolo.cosim.datos import AcopleMotor, AcopleSensor, CosimSnapshot, DispositivoCosim
+    from apolo.cosim.datos import AcopleMotor, AcopleSensor, CosimSnapshot
     from apolo.cosim.escenario import EscenarioInvalido, leer_escenario
     from apolo.cosim.modelos import ModeloIncompleto, de_extension
     from apolo.cosim.red import EntradaInvalida
@@ -156,6 +158,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
 
     from apolo.cosim.tipos import revisar, valores_iniciales
 
+    from . import cosim_aire
     from .cosim_bandas import bandas_quietas, prever
     from .cosim_red import entrada_red, largos_calculados
     from .electrico import ajustes_faltantes, modelo, texto_ajustes_faltantes
@@ -173,12 +176,12 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
         raise ServiceError(400, " | ".join(texto_ajustes_faltantes(d, f) for d, f in faltan))
     hipotesis = [f"{d.designacion}: {k} = {d.ajustes[k]:g}, {origen}"
                  for d in me.dispositivos for k, origen in d.deducidos.items()]
-    dispositivos = [DispositivoCosim(d.designacion, d.ref, _plano(d.modelo or {}), _plano(d.ajustes or {}),
-                                     int(d.cantidad or 1), d.pieza or None, _color(d.ref))
-                    for d in me.dispositivos]
+    cosim_aire.exigir_acoples(doc, me, esc)  # V8.9 D8: antes de armar los modelos
+    aire = cosim_aire.red_aire(me, esc)
+    dispositivos = cosim_aire.dispositivos(doc, me, esc.cilindros)
     red = _plano(entrada_red(me, largos=largos_calculados(doc, me)))  # V8.5 F5b: los calculados
     try:
-        tab = Tablero(red, dispositivos)
+        tab = Tablero(red, dispositivos, aire or None)
     except (ModeloIncompleto, EntradaInvalida) as exc:
         raise ServiceError(400, str(exc)) from exc
     por_des = {d.designacion: d for d in me.dispositivos}
@@ -186,6 +189,10 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     peticion = {**esc.mecanica, "duracion_s": esc.duracion_s, "fps": esc.mecanica.get("fps", 10),
                 "motores": _motores(esc, me, tab.modelos), "sensores": sensores,
                 "productos": [dict(p) for p in esc.productos]}
+    if aire:  # V8.9 D4: el <motor> de fuerza de cada cilindro y su fricción y masa en la junta
+        mot_aire, juntas_aire = cosim_aire.peticion(doc, me, esc, tab)
+        peticion["motores"] = peticion["motores"] + mot_aire
+        peticion["juntas"] = {**(esc.mecanica.get("juntas") or {}), **juntas_aire}
     progs = _programas(programas, me)
     errores, _ = revisar(esc.aserciones, valores_iniciales(dispositivos, progs))
     if errores:  # F6b: antes de simular, no tras el veredicto
@@ -206,7 +213,8 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     avisos += [f"mecánica: {a}" for a in dyn.avisos]  # F6: los de la dinámica, todos
     motores = [AcopleMotor(des, a["junta"], md.nombre, math.copysign(1.0, md.consigna))
                for (des, a), md in zip(esc.motores.items(), dyn.motores)]
-    acoples_s = [AcopleSensor(des, _nombre_rayo(des)) for des in esc.sensores]
+    acoples_s = [AcopleSensor(des, _nombre_rayo(des)) for des, s in esc.sensores.items() if "junta" not in s]
+    cilindros, reeds = cosim_aire.acoples(esc, dyn, len(esc.motores))
     try:
         validar(esc, tab, set(dyn.juntas))
     except EscenarioInvalido as exc:
@@ -215,4 +223,5 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
     return CosimSnapshot(dinamica=dyn, red=red, dispositivos=dispositivos, programas=progs,
                          motores=motores, sensores=acoples_s, escenario=esc,
                          hipotesis=hipotesis, avisos=avisos,
-                         modelos_extension=clases, extensiones=extensiones)
+                         modelos_extension=clases, extensiones=extensiones,
+                         aire=aire, cilindros=cilindros, reeds=reeds)

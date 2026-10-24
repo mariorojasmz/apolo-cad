@@ -25,7 +25,9 @@ import pytest
 RAIZ_REPO = Path(__file__).resolve().parents[1]
 COSIM = RAIZ_REPO / "core" / "apolo" / "cosim"
 #: paquete → lo único de `apolo` que puede importar.
-PAQUETES = {"modelos": ("cosim", "modelos"), "red": ("cosim", "red")}
+#: V8.9 F3: el aire usa la base de los modelos (`Modelo`, `Parametros`) y la electroválvula.
+PAQUETES = {"modelos": ("cosim", "modelos"), "red": ("cosim", "red"),
+            "neumatica": (("cosim", "neumatica"), ("cosim", "modelos"))}
 
 #: Terceros que delatan física, geometría, render o transporte.
 PROHIBIDOS_EXTERNOS = {"mujoco", "OCP", "build123d", "vtk", "vtkmodules", "fastapi", "starlette"}
@@ -52,7 +54,8 @@ def _imports(tree: ast.AST, archivo: Path) -> list[tuple[int, str]]:
     return out
 
 
-def violaciones(archivo: Path, permitido: tuple[str, str] = PAQUETES["modelos"]) -> list[str]:
+def violaciones(archivo: Path, permitido: tuple = PAQUETES["modelos"]) -> list[str]:
+    permitidos = permitido if isinstance(permitido[0], tuple) else (permitido,)
     tree = ast.parse(archivo.read_text(encoding="utf-8"))
     rel = archivo.relative_to(RAIZ_REPO).as_posix()
     errores: list[str] = []
@@ -60,8 +63,9 @@ def violaciones(archivo: Path, permitido: tuple[str, str] = PAQUETES["modelos"])
         partes = mod.split(".")
         if partes[0] in PROHIBIDOS_EXTERNOS:
             errores.append(f"{rel}:{linea}: importa `{mod}`")
-        elif partes[0] == "apolo" and tuple(partes[1:3]) != permitido:
-            errores.append(f"{rel}:{linea}: importa `{mod}` (fuera de {'.'.join(permitido)})")
+        elif partes[0] == "apolo" and tuple(partes[1:3]) not in permitidos:
+            fuera = " o ".join(".".join(p) for p in permitidos)
+            errores.append(f"{rel}:{linea}: importa `{mod}` (fuera de {fuera})")
     for n in ast.walk(tree):
         if isinstance(n, ast.Name) and n.id in NOMBRES_PROHIBIDOS:
             errores.append(f"{rel}:{n.lineno}: nombra `{n.id}`")
@@ -75,6 +79,8 @@ def test_existen_los_paquetes():
             "alimentacion.py", "plc_es.py", "mandos.py"} <= {p.name for p in modulos("modelos")}
     assert {"__init__.py", "entrada.py", "topologia.py", "mna.py", "nodal.py", "mando.py", "potencia.py",
             "conductores.py", "fasores.py"} <= {p.name for p in modulos("red")}
+    assert {"__init__.py", "orificio.py", "camara.py", "cilindro.py", "valvula.py", "componentes.py",
+            "red.py"} <= {p.name for p in modulos("neumatica")}
 
 
 @pytest.mark.parametrize("paquete", sorted(PAQUETES))
@@ -88,7 +94,8 @@ def test_cada_modulo_se_importa_solo(paquete):
     """Un proceso por módulo: importar un modelo o una red no carga OCCT, MuJoCo, el catálogo ni
     el doc (y las redes tampoco los modelos de F2: no los necesitan)."""
     pesados = ["OCP", "build123d", "mujoco", "apolo.library", "apolo.doc", "apolo.kernel", "apolo.state",
-               "apolo.physics", "apolo.api"] + (["apolo.cosim.modelos"] if paquete == "red" else [])
+               "apolo.physics", "apolo.api"] + (["apolo.cosim.modelos"] if paquete == "red" else []) + (
+        ["apolo.cosim.red", "apolo.cosim.tablero"] if paquete == "neumatica" else [])
     for archivo in modulos(paquete):
         nombre = ".".join(archivo.relative_to(RAIZ_REPO / "core").with_suffix("").parts)
         nombre = nombre.removesuffix(".__init__")

@@ -11,9 +11,14 @@ category: valvulas_neumaticas
 # caudal ISO 6358 como C y b o como Qn de 6 a 5 bar, que la ficha convierte (D3).
 # Ficha eléctrica (V8.9 F1b, `library/neumatica/bobinas.py`): cada bobina es una carga `bobina`
 # del mando, como la de un contactor (la red eléctrica la ve): una sola, bornes A1/A2; dos,
-# 14A1/14A2 y 12A1/12A2. Montaje de campo (fuera del tablero, D6). Sin `modelo` eléctrico
-# todavía: la potencia de la bobina y su modelo de co-simulación son de F3 (sin ellos la red de
-# la co-simulación no la carga y lo dice como hipótesis).
+# 14A1/14A2 y 12A1/12A2. Montaje de campo (fuera del tablero, D6). `modelo` eléctrico (V8.9 F3,
+# `cosim/modelos/electrovalvula.py`): cada bobina es la de un relé —
+#   · `bobina_W` = 1 W a 24 VDC de [V1] (Festo VUVG); para las G1/4 se toma el de la misma
+#     línea VUVG, a confirmar con la ficha del reemplazo (SMC VF y Airtac 4V publican el suyo);
+#   · `U_cierre_pct` = 90: la ficha garantiza la conmutación con −10 % de la nominal ([V1]: 24 V
+#     ±10 %), criterio de diseño; `U_caida_pct` = 40: criterio de diseño (el del contactor del
+#     catálogo, 122_maniobra_control.yaml) hasta leer la tensión de retorno del fabricante;
+#   · los tiempos de conmutación son los `t_on_ms` / `t_off_ms` de la ficha neumática.
 # Fuentes (lo que no tiene fuente va en `a_confirmar`):
 #  [V1] Festo VUVG-L14-M52-AT-G18 (576256), 5/2 monoestable G1/8: Qn 680–730 L/min, 2,5–8 bar,
 #       conmutación 14 ms / 22 ms, 24 VDC 1 W, accionamiento manual (hoja del distribuidor
@@ -57,12 +62,14 @@ _ele_1bobina: &ele_1bobina
   montaje: campo
   bornes: [{id: A1, rol: bobina}, {id: A2, rol: bobina}]
   cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina}]
+  modelo: &modelo_bobina {tipo: electrovalvula, Uc_V: 24, Uc: DC, U_cierre_pct: 90, U_caida_pct: 40, bobina_W: 1.0}
 _ele_2bobinas: &ele_2bobinas
   funcion: Q
   simbolo: bobinas_electrovalvula
   montaje: campo
   bornes: [{id: 14A1, rol: bobina}, {id: 14A2, rol: bobina}, {id: 12A1, rol: bobina}, {id: 12A2, rol: bobina}]
   cargas: [{bornes: [14A1, 14A2], tension: "24 VDC", tipo: bobina}, {bornes: [12A1, 12A2], tension: "24 VDC", tipo: bobina}]
+  modelo: *modelo_bobina
 components:
   # ── 5/2 G1/8 ──────────────────────────────────────────────────────────────────────────────
   - ref: VAL-52-MONO-G18

@@ -101,19 +101,24 @@ class Corrida:
         self.snap = snap
         self.esc = esc = snap.escenario
         self.integ = Integrador(snap.dinamica)
-        self.tab = Tablero(snap.red, snap.dispositivos)
+        self.tab = Tablero(snap.red, snap.dispositivos, getattr(snap, "aire", None) or None)
+        self.aire = self.tab.aire
         self.plcs: dict = {}
         for p in snap.programas:
             plc = PLC(p.compilado, ciclo_ms=p.ciclo_ms, ciclos=p.ciclos or None)
             plc.cortar()  # sin tensión hasta que su fuente levante (lo decide su hardware)
             self.plcs[p.plc] = plc
-        self.acople = AcopleMecanico(self.integ, snap.motores, snap.sensores)
+        self.acople = AcopleMecanico(self.integ, snap.motores, snap.sensores,
+                                     getattr(snap, "cilindros", ()), getattr(snap, "reeds", ()))
         self.agenda = Agenda(esc, self.tab, self.acople)
         self.dt = self.integ.dt_int
         self.paso_ms = _paso_ms(self.dt)
         self.extra = set(esc.senales_extra)
         self.signos = _signos_banda(snap)
         self.costo = {"tablero": 0.0, "plc": 0.0, "fisica": 0.0, "trazas": 0.0}
+        if self.aire is not None:  # V8.9 D4: la red de aire, con su costo aparte
+            self.costo["aire"] = 0.0
+        self._xv: dict = {}
 
     def fuentes(self) -> list:
         """Las salidas de cada modelo y de cada PLC: [(prefijo, {nombre corto: valor})]."""
@@ -130,6 +135,11 @@ class Corrida:
         a = time.perf_counter()
         tab = self.tab
         tab.mec, tab.detecta = self.acople.leer()
+        if self.aire is not None:  # la posición del vástago al empezar el intercambio (D7)
+            self._xv = self.acople.lecturas()
+            for des, (x, v) in self._xv.items():
+                cil = tab.modelos[des]
+                cil.x, cil.v = x, v
         tab.paso(self.dt)
         b = time.perf_counter()
         for des, plc in self.plcs.items():
@@ -144,5 +154,11 @@ class Corrida:
         costo["trazas"] += e - c
         if ultimo:
             return
-        self.integ.intercambio(control=self.acople.control(tab.comandos))
+        fuerzas = None
+        if self.aire is not None:  # V8.9 D4: las cámaras en sub-pasos, la fuerza media a MuJoCo
+            fuerzas = self.aire.paso(self.dt, self._xv)
+            f = time.perf_counter()
+            costo["aire"] += f - e
+            e = f
+        self.integ.intercambio(control=self.acople.control(tab.comandos, fuerzas))
         costo["fisica"] += time.perf_counter() - e

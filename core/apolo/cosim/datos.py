@@ -50,6 +50,24 @@ class AcopleSensor:
     rayo: str                    # nombre de la fotocelda de V8.2
 
 
+@dataclass(frozen=True)
+class AcopleCilindro:
+    """V8.9 D4/D8: el cilindro del tablero ↔ la junta prismática de su vástago."""
+    designacion: str             # «-MM1»
+    junta: str                   # «<cmd>_vastago»
+    actuador: str                # nombre MJCF del `<motor>` que recibe la fuerza media
+
+
+@dataclass(frozen=True)
+class AcopleReed:
+    """V8.9 D8: un `Sensor` del tablero que lee la posición de una junta (el detector magnético
+    del cilindro): detecta mientras la junta está a ± `ventana_mm` de `en_mm`."""
+    designacion: str
+    junta: str
+    en_mm: float
+    ventana_mm: float
+
+
 @dataclass
 class CosimSnapshot:
     dinamica: object             # apolo.physics.dinamica_datos.DynamicsSnapshot
@@ -66,3 +84,8 @@ class CosimSnapshot:
     # {extensión: versión}, que el resultado guardado anota. Vacíos sin extensiones.
     modelos_extension: dict = field(default_factory=dict)
     extensiones: dict = field(default_factory=dict)
+    # V8.9 F3: el circuito de aire ({presion_red_bar, tubos}: `services/cosim_aire.py`) y sus
+    # acoples (cilindro ↔ junta, detector ↔ junta). Vacíos sin aire: la corrida de siempre.
+    aire: dict = field(default_factory=dict)
+    cilindros: list = field(default_factory=list)
+    reeds: list = field(default_factory=list)

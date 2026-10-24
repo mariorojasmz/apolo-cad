@@ -14,13 +14,18 @@ cada fotocelda. Co-simular exige motor POR PLACA: con la fuente ideal de V8.2 el
 El `atasco` es fricción seca en la junta (`dof_frictionloss`, implícita en MuJoCo), no un par
 explícito en `qfrc_applied`: retenido un intercambio, un par que se opone a ω cambia de signo
 cerca de ω = 0 y la junta vibra en vez de trabarse.
+
+Cilindros (V8.9 D4): la posición y la velocidad de su junta prismática van a la red de aire
+(`lecturas`) y su fuerza MEDIA vuelve al `<motor>` de la junta; la fricción de los sellos ya está
+en el MJCF (`frictionloss` de la junta, la pone el snapshot). Un detector magnético (D8) es un
+`Sensor` que detecta con la junta a ± ventana de su punto.
 """
 
 from __future__ import annotations
 
 
 class AcopleMecanico:
-    def __init__(self, integ, motores: list, sensores: list):
+    def __init__(self, integ, motores: list, sensores: list, cilindros=(), reeds=()):
         mj, m = integ.mujoco, integ.m
         self.integ = integ
         act = mj.mjtObj.mjOBJ_ACTUATOR
@@ -30,6 +35,10 @@ class AcopleMecanico:
         self.atasco: dict[int, float] = {}
         nombres = [s.nombre for s in (integ.snap.sensores or [])]
         self.sensores = [(s.designacion, nombres.index(s.rayo)) for s in sensores]
+        self.cilindros = [(c.designacion, mj.mj_name2id(m, act, c.actuador), *integ.juntas[c.junta])
+                          for c in cilindros]
+        self.reeds = [(r.designacion, integ.juntas[r.junta][0], r.en_mm / 1000.0, r.ventana_mm / 1000.0)
+                      for r in reeds]
 
     def dof(self, junta: str) -> int:
         return self.integ.juntas[junta][1]
@@ -42,14 +51,24 @@ class AcopleMecanico:
                for des, _a, dof, s in self.motores}
         fotos = self.integ.fotos
         det = {des: bool(fotos.estado[k]) for des, k in self.sensores} if fotos else {}
+        for des, qa, en, ventana in self.reeds:
+            det[des] = abs(float(d.qpos[qa]) - en) <= ventana + 1e-9
         return mec, det
 
-    def control(self, comandos: dict):
+    def lecturas(self) -> dict:
+        """{cilindro: (x, v)} de su junta (m, m/s), para la red de aire (D4)."""
+        d = self.integ.d
+        return {des: (float(d.qpos[qa]), float(d.qvel[dof])) for des, _a, qa, dof in self.cilindros}
+
+    def control(self, comandos: dict, fuerzas: dict | None = None):
         """El `control(d, t)` del `Integrador` para este intercambio."""
         m = self.integ.m
         motores, base, atasco = self.motores, self.base, self.atasco
+        cilindros = self.cilindros if fuerzas else ()
 
         def aplicar(d, _t):
+            for des, a, _qa, _dof in cilindros:
+                d.ctrl[a] = fuerzas[des]
             con_motor = set()
             for des, a, dof, signo in motores:
                 c = comandos[des]

@@ -18,6 +18,7 @@ Puro: de `apolo` importa `cosim` y `plc`, como el planificador.
 from __future__ import annotations
 
 from .modelos import MODELOS, Fusible, RecolectorAjustes
+from .neumatica import MODELOS_AIRE
 from .veredicto import Lector, tipo_incompatible
 
 
@@ -28,10 +29,13 @@ def valores_iniciales(dispositivos, programas=()) -> dict:
 
     out: dict = {}
     for d in dispositivos:
-        clase = MODELOS.get((d.modelo or {}).get("tipo"))
+        modelo = d.modelo or {}
+        clase = MODELOS.get(modelo.get("tipo"))
+        if clase is None and isinstance(modelo.get("aire"), dict):  # V8.9: cilindro, FRL, corte
+            clase, modelo = MODELOS_AIRE.get(modelo["aire"].get("tipo")), modelo["aire"]
         if clase is None:
             continue
-        p = RecolectorAjustes(d.designacion, d.ref, d.modelo, d.ajustes)
+        p = RecolectorAjustes(d.designacion, d.ref, modelo, d.ajustes)
         try:
             m = clase(p, int(d.cantidad or 1)) if clase is Fusible else clase(p)
             out.update(m.senales())

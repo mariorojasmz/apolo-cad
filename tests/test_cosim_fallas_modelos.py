@@ -287,3 +287,41 @@ def test_variador_con_falla_interna_no_se_rearma_mientras_dura():
     malo.reparar("falla_interna")
     malo.accionar("rearmar")
     assert correr(malo, 0.1, MARCHA)["falla"] == ""
+
+
+# ── electroválvula (V8.9 F3, D8) ─────────────────────────────────────────────────────────────
+
+
+def _valvula(ref: str):
+    from apolo.services.cosim_aire import ficha_plana
+
+    c = CATALOG[ref]
+    return crear_modelo("-QM1", ref, {**c.electrico.modelo, "aire": ficha_plana(c.neumatico)})
+
+
+def test_valvula_pegada_no_se_mueve_y_su_gemela_si():
+    sano, malo = _valvula("VAL-52-MONO-G18"), _valvula("VAL-52-MONO-G18")
+    assert malo.FALLAS == {"pegada": "posicion?", "bobina_cortada": ""}  # una bobina: nada que elegir
+    assert malo.fallar("pegada") == "pegada 12"
+    assert correr(sano, 0.05, {"U_14": 24.0})["posicion"] == "14"
+    correr(malo, 0.05, {"U_14": 24.0})
+    assert malo.publicadas() == {"posicion": "12", "bobina14": True, "averia": "pegada 12"}
+    malo.reparar("pegada")
+    assert correr(malo, 0.05, {"U_14": 24.0})["posicion"] == "14" and malo.averia == ""
+    with pytest.raises(ValueError, match="14, 12"):
+        malo.fallar("pegada", "0")
+
+
+def test_bobina_cortada_no_conmuta_ni_consume_y_su_gemela_si():
+    sano, malo = _valvula("VAL-52-BI-G18"), _valvula("VAL-52-BI-G18")
+    assert malo.FALLAS["bobina_cortada"] == "canal"
+    malo.fallar("bobina_cortada", "14")
+    assert malo.abre_bobina("14") and not malo.abre_bobina("12") and not sano.abre_bobina("14")
+    assert correr(sano, 0.05, {"U_14": 24.0})["posicion"] == "14"
+    s = correr(malo, 0.05, {"U_14": 24.0})
+    assert s["posicion"] == "12" and s["bobina14"] is False
+    assert correr(malo, 0.05, {"U_12": 24.0})["posicion"] == "12"   # la 12 sigue sana
+    with pytest.raises(ValueError, match="pide la bobina"):
+        malo.fallar("bobina_cortada")
+    malo.reparar("bobina_cortada", "14")
+    assert correr(malo, 0.05, {"U_14": 24.0})["posicion"] == "14"

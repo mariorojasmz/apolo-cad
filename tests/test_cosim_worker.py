@@ -39,7 +39,8 @@ DEL_WORKER = [CORE / "cosim" / n for n in ("acople.py", "agenda.py", "aserciones
                                            "escenario.py", "planificador.py", "proceso.py", "proceso_vivo.py",
                                            "tablero.py", "trazas.py", "vivo.py", "vivo_fotograma.py",
                                            "worker.py", "worker_vivo.py", "__init__.py")] + [
-    CORE / (m.replace(".", "/") + ".py") for m in FISICA_PURA]
+    CORE / (m.replace(".", "/") + ".py") for m in FISICA_PURA] + sorted(
+    (CORE / "cosim" / "neumatica").glob("*.py"))  # V8.9 F3 (D15): el aire corre en el worker
 
 
 @pytest.fixture(scope="module")
@@ -138,7 +139,8 @@ def test_el_gate_caza_un_import_de_la_geometria(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("modulo", ["apolo.cosim.worker", "apolo.cosim.planificador", "apolo.cosim.proceso",
                                     "apolo.physics.dinamica_integrador", "apolo.cosim.datos",
-                                    "apolo.cosim.worker_vivo", "apolo.cosim.proceso_vivo"])
+                                    "apolo.cosim.worker_vivo", "apolo.cosim.proceso_vivo",
+                                    "apolo.cosim.neumatica.red"])
 def test_cada_modulo_del_worker_se_importa_sin_occt(modulo):
     codigo = ("import sys, importlib\n"
               f"importlib.import_module('{modulo}')\n"

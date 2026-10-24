@@ -25,6 +25,10 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
      "aserciones": ["-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1", …],   (F5, `aserciones.py`)
      "descripcion": "marcha y conteo"}
 
+El AIRE (V8.9 D3, D8): `condiciones.presion_red_bar` (la toma, manométrica; obligatoria si hay
+circuito de aire), `acoples.cilindros: {"-MM1": {"junta": "<cmd>_vastago"}}`, el detector de un
+cilindro como sensor `{"junta", "en_mm", "ventana_mm"}`, la acción `accionar_manual` (valor
+«14», «12» o «0») y los eventos `corte_de_aire`, `presion_de_red` {bar} y `fuga` {puerto, C, b?}.
 Los productos son los de V8.2 (`t` es su `desde_s`). Un evento con `duracion_s` se deshace solo
 al terminar. Una `falla` (plan cosim-fallas D4) es de un aparato (`dispositivo` + la falla que su
 modelo toma), de una rama (`rama` + `abierto` | `pegado`) o un `corto` entre `a` y `b`; `valor`
@@ -42,9 +46,13 @@ from dataclasses import dataclass, field
 from .aserciones import AsercionInvalida, leer_aserciones
 
 DURACION_MAX_S = 300.0
-ACCIONES = ("pulsar", "soltar", "presionar", "liberar", "girar", "rearmar", "abrir", "cerrar", "reponer")
+ACCIONES = ("pulsar", "soltar", "presionar", "liberar", "girar", "rearmar", "abrir", "cerrar", "reponer",
+            "accionar_manual")
 TIPOS_EVENTO = ("atasco", "corte_de_fase", "caida_de_red", "cable_cortado", "sensor_pegado", "falla",
-                "producto")
+                "producto", "corte_de_aire", "presion_de_red", "fuga")
+#: Presión manométrica máxima que se acepta en `presion_red_bar` (16 bar: la red de planta usual
+#: va de 6 a 10; criterio de diseño para atajar un error de unidades, kPa o psi).
+PRESION_RED_MAX_BAR = 16.0
 #: Claves de la petición de V8.2 que el escenario pasa tal cual (`mecanica`). Motores, productos,
 #: sensores y duración los arma la co-simulación desde el tablero y el escenario.
 CLAVES_MECANICA = ("bandas", "auto_bandas", "juntas", "fps", "timestep", "nstep", "gravedad",
@@ -89,6 +97,9 @@ class Escenario:
     mecanica: dict = field(default_factory=dict)
     motores: dict = field(default_factory=dict)        # designación → {junta, direccion_transporte?}
     sensores: dict = field(default_factory=dict)       # designación → {origen, direccion, alcance_mm?}
+    #                                                    o {junta, en_mm, ventana_mm} (V8.9 D8)
+    cilindros: dict = field(default_factory=dict)      # designación → {junta} (V8.9 D8)
+    presion_red_bar: float | None = None               # la toma de aire, manométrica (V8.9 D3)
     analogicas_hz: float = ANALOGICAS_HZ
     senales_extra: list = field(default_factory=list)
     aserciones: list = field(default_factory=list)     # normalizadas (`aserciones.py`), dicts
@@ -177,6 +188,9 @@ def _accion_en(a: dict, t: float, donde: str) -> Accion:
         raise EscenarioInvalido(f"{donde}: «durante_s» es de «pulsar» (un pulsador que vuelve por resorte)")
     if accion == "girar" and a.get("valor") is None:
         raise EscenarioInvalido(f"{donde}: «girar» pide «valor» (la posición del selector o 0–1 del potenciómetro)")
+    if accion == "accionar_manual" and a.get("valor") is None:
+        raise EscenarioInvalido(f"{donde}: «accionar_manual» pide «valor»: el lado de la válvula («14», «12») "
+                                "o «0» para soltarlo")
     return Accion(t, accion, _texto(a, "dispositivo", donde), a.get("valor"), durante, a.get("actuador"))
 
 
@@ -186,6 +200,10 @@ _CLAVES_EVENTO = {
     "caida_de_red": ({"factor", "red"}, ()),
     "cable_cortado": ({"rama"}, ("rama",)),
     "sensor_pegado": ({"dispositivo", "valor"}, ("dispositivo",)),
+    # V8.9 D8: el aire de la máquina (por la red de aire del tablero)
+    "corte_de_aire": (set(), ()),
+    "presion_de_red": ({"bar"}, ("bar",)),
+    "fuga": ({"puerto", "C", "b", "quitar"}, ("puerto",)),
 }
 
 
@@ -273,7 +291,32 @@ def _evento(e, k: int, duracion: float) -> Evento | dict:
         datos["valor"] = v
     elif tipo == "corte_de_fase":
         datos["fase"] = _texto(e, "fase", donde, ("L1", "L2", "L3"))
+    elif tipo == "presion_de_red":
+        datos["bar"] = _num(e, "bar", donde, minimo=0.0, maximo=PRESION_RED_MAX_BAR)
+    elif tipo == "fuga":
+        datos.update(_fuga(e, donde))
     return Evento(t, tipo, datos, _num(e, "duracion_s", donde, minimo=0.0))
+
+
+def _fuga(e: dict, donde: str) -> dict:
+    """{puerto, C, b?, quitar?} de una fuga: un orificio a la atmósfera con su C de ISO 6358."""
+    puerto = _texto(e, "puerto", donde)
+    if ":" not in puerto:
+        raise EscenarioInvalido(f"{donde}: «puerto» es «designación:puerto» (p. ej. «-MM1:A»)")
+    out: dict = {"puerto": puerto}
+    if "quitar" in e:
+        if not isinstance(e["quitar"], bool):
+            raise EscenarioInvalido(f"{donde}: «quitar» es true o false (true tapa la fuga)")
+        out["quitar"] = e["quitar"]
+    if not e.get("quitar"):
+        C = _num(e, "C", donde, minimo=0.0)
+        if not C:
+            raise EscenarioInvalido(f"{donde}: la fuga pide «C» (dm³/(s·bar), ISO 6358) > 0: el orificio "
+                                    "a la atmósfera (p. ej. 0,05, un racor flojo)")
+        out["C"] = C
+        if e.get("b") is not None:
+            out["b"] = _num(e, "b", donde, minimo=0.0, maximo=0.99)
+    return out
 
 
 def _vec3(v, donde: str, *, unitario: bool = False) -> None:
@@ -304,9 +347,9 @@ def _sumideros(mecanica: dict) -> None:
         _vec3(s["normal"], f"{donde}.normal", unitario=True)
 
 
-def _acoples(a) -> tuple[dict, dict]:
-    a = _claves(a, {"motores", "sensores"}, "acoples")
-    motores, sensores = {}, {}
+def _acoples(a) -> tuple[dict, dict, dict]:
+    a = _claves(a, {"motores", "sensores", "cilindros"}, "acoples")
+    motores, sensores, cilindros = {}, {}, {}
     for des, m in _claves(a.get("motores"), set(a.get("motores") or {}), "acoples.motores").items():
         donde = f"acoples.motores.{des}"
         m = _claves(m, {"junta", "direccion_transporte"}, donde)
@@ -314,12 +357,26 @@ def _acoples(a) -> tuple[dict, dict]:
             {"direccion_transporte": m["direccion_transporte"]} if m.get("direccion_transporte") else {})}
     for des, s in _claves(a.get("sensores"), set(a.get("sensores") or {}), "acoples.sensores").items():
         donde = f"acoples.sensores.{des}"
+        if isinstance(s, dict) and "junta" in s:  # V8.9 D8: el detector magnético de un cilindro
+            s = _claves(s, {"junta", "en_mm", "ventana_mm"}, donde)
+            sensores[str(des)] = {"junta": _texto(s, "junta", donde),
+                                  "en_mm": _num(s, "en_mm", donde, 0.0),
+                                  "ventana_mm": _num(s, "ventana_mm", donde, minimo=0.0)}
+            if sensores[str(des)]["ventana_mm"] is None:
+                raise EscenarioInvalido(f"{donde}: falta «ventana_mm» (detecta a ± esa distancia de «en_mm»; "
+                                        "la zona de conmutación de la ficha del detector)")
+            continue
         s = _claves(s, {"origen", "direccion", "alcance_mm"}, donde)
         for c in ("origen", "direccion"):
             if s.get(c) is None:
-                raise EscenarioInvalido(f"{donde}: falta «{c}» [x, y, z] (mm; el rayo del sensor en la máquina)")
+                raise EscenarioInvalido(f"{donde}: falta «{c}» [x, y, z] (mm; el rayo del sensor en la máquina) "
+                                        "— o, para un detector de cilindro, {\"junta\", \"en_mm\", \"ventana_mm\"}")
         sensores[str(des)] = dict(s)
-    return motores, sensores
+    for des, c in _claves(a.get("cilindros"), set(a.get("cilindros") or {}), "acoples.cilindros").items():
+        donde = f"acoples.cilindros.{des}"
+        c = _claves(c, {"junta"}, donde)
+        cilindros[str(des)] = {"junta": _texto(c, "junta", donde)}
+    return motores, sensores, cilindros
 
 
 def leer_escenario(d) -> Escenario:
@@ -330,8 +387,9 @@ def leer_escenario(d) -> Escenario:
     duracion = _num(d, "duracion_s", "escenario", minimo=0.0, maximo=DURACION_MAX_S)
     if not duracion:
         raise EscenarioInvalido(f"escenario: falta «duracion_s» (s, > 0 y ≤ {DURACION_MAX_S:g})")
-    c = _claves(d.get("condiciones"), {"red_conectada", "selectores", "setas_retenidas", "plc_run"},
-                "condiciones")
+    c = _claves(d.get("condiciones"), {"red_conectada", "selectores", "setas_retenidas", "plc_run",
+                                       "presion_red_bar"}, "condiciones")
+    presion = _num(c, "presion_red_bar", "condiciones", minimo=0.0, maximo=PRESION_RED_MAX_BAR)
     for clave in ("red_conectada", "plc_run"):
         if clave in c and not isinstance(c[clave], bool):
             raise EscenarioInvalido(f"condiciones: «{clave}» es true o false")
@@ -345,7 +403,7 @@ def leer_escenario(d) -> Escenario:
         (productos if isinstance(x, dict) else eventos).append(x)
     mecanica = dict(_claves(d.get("mecanica"), set(CLAVES_MECANICA), "mecanica"))
     _sumideros(mecanica)
-    motores, sensores = _acoples(d.get("acoples"))
+    motores, sensores, cilindros = _acoples(d.get("acoples"))
     tr = _claves(d.get("trazas"), {"analogicas_hz", "senales"}, "trazas")
     try:
         aserciones = leer_aserciones(d.get("aserciones"), duracion, acciones, eventos)
@@ -362,6 +420,7 @@ def leer_escenario(d) -> Escenario:
         plc_run=c.get("plc_run", True),
         acciones=sorted(acciones, key=lambda a: a.t), eventos=sorted(eventos, key=lambda e: e.t),
         productos=productos, mecanica=mecanica, motores=motores, sensores=sensores,
+        cilindros=cilindros, presion_red_bar=presion,
         analogicas_hz=_num(tr, "analogicas_hz", "trazas", ANALOGICAS_HZ, minimo=0.1, maximo=500.0),
         senales_extra=[str(s) for s in _lista(tr, "senales", "trazas")],
     )

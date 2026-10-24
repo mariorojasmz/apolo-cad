@@ -42,7 +42,10 @@ from .modelos import (
     Variador,
     crear_modelo,
 )
+from .modelos.electrovalvula import Electrovalvula
 from .modelos.mandos import _Mando
+from .neumatica import crear_modelo_aire
+from .neumatica.red import RedAire
 from .red import armar, fasores_nominales
 from .red.mna import R_OFF
 
@@ -64,17 +67,22 @@ TOL_POTENCIA = 1e-3
 
 
 class Tablero:
-    def __init__(self, red: dict, dispositivos: list):
+    def __init__(self, red: dict, dispositivos: list, aire: dict | None = None):
         self.entrada = red
         self.redes = armar(red)
         self.mando_red, self.pot_red = self.redes.mando, self.redes.potencia
         self.modelos: dict = {}
         for d in dispositivos:
             m = crear_modelo(d.designacion, d.ref, d.modelo, d.ajustes, cantidad=d.cantidad)
+            if m is None and (d.modelo or {}).get("aire"):  # V8.9: cilindro, FRL, corte (por su ficha de aire)
+                m = crear_modelo_aire(d.designacion, d.ref, d.modelo["aire"], d.ajustes)
             if m is not None:
                 self.modelos[d.designacion] = m
+        #: el circuito de aire (V8.9 D3): None sin aire, y así el tablero de siempre
+        self.aire = RedAire(aire, dispositivos, self.modelos) if aire else None
         self.hipotesis = list(self.redes.hipotesis) + [
-            f"{des}: {h}" for des, m in self.modelos.items() for h in m.hipotesis]
+            f"{des}: {h}" for des, m in self.modelos.items() for h in m.hipotesis] + (
+            [f"aire: {h}" for h in self.aire.hipotesis] if self.aire else [])
         self.avisos = list(self.redes.avisos)
         self._indexar()
         self.mec: dict = {}            # motor → (ω_salida rad/s, par en la salida N·m)
@@ -114,7 +122,7 @@ class Tablero:
             fuentes.setdefault(f.get("dispositivo"), []).append(f["id"])
         self.contactores, self.pilotos, self.protecciones, self.mandos = [], [], [], []
         self.fuentes_dc, self.redes_ac, self.plcs, self.sensores, self.variadores = [], [], [], [], []
-        self.motores, self.logicos = [], []
+        self.motores, self.logicos, self.valvulas = [], [], []
         for des, m in self.modelos.items():
             fs = fuentes.get(des, [])
             if isinstance(m, Contactor):
@@ -141,6 +149,9 @@ class Tablero:
                                         ac[0] if ac else None, (dc[0]["id"], float(dc[0]["U_V"])) if dc else None))
             elif isinstance(m, Motor):
                 self.motores.append((des, m, self._carga(des, "motor")))
+            elif isinstance(m, Electrovalvula):  # V8.9 D6: una o dos bobinas, sin rama propia
+                self.valvulas.append((des, m, {lado: self._carga(des, "bobina", borne)
+                                               for lado, borne in m.BOBINAS.items()}))
             elif getattr(m, "BORNES_ENTRADA", None):  # lee entradas y mueve contactos (relé de seguridad)
                 bornes = {b: self._carga(des, "entrada", b) for b in m.BORNES_ENTRADA}
                 self.logicos.append((des, m, bornes, self._carga(des, "alimentacion")))
@@ -172,9 +183,12 @@ class Tablero:
         self._k_vfd = [(f"{des}.rele_falla", m) for des, m, *_ in self.variadores]
         self._k_mando = [(f"{des}.", f"{des}.potenciometro", m) for des, m in self.mandos] + [
             (f"{des}.", None, m) for des, m, *_ in self.logicos]
-        # las cargas que un modelo con falla saca de la red (bobina cortada, lámpara fundida)
-        self._con_carga = [(m, cid) for _d, m, cid, _p in self.contactores if cid] + [
-            (m, cid) for _d, m, cid in self.pilotos if cid]
+        # las cargas que un modelo con falla saca de la red (bobina cortada, lámpara fundida):
+        # (¿abre ahora?, carga, en la potencia también); una electroválvula, por bobina
+        self._con_carga = [(lambda m=m: m.abre_su_carga, cid, False) for _d, m, cid, _p in self.contactores if cid] + [
+            (lambda m=m: m.abre_su_carga, cid, True) for _d, m, cid in self.pilotos if cid] + [
+            (lambda m=m, lado=lado: m.abre_bobina(lado), cid, True)
+            for _d, m, cids in self.valvulas for lado, cid in cids.items() if cid]
         self._abiertas: set = set()
         self._cargas_mando: dict = {}
 
@@ -292,15 +306,15 @@ class Tablero:
         """Una bobina cortada o una lámpara fundida (cosim-fallas D2) sale de la red: en el mando,
         R_off en su lugar; en la potencia, con su próxima carga (`_aparatos`). Al repararse vuelve
         la de la entrada (un override vacío es la carga original)."""
-        for m, cid in self._con_carga:
-            abre = m.abre_su_carga
+        for abre_ahora, cid, en_pot in self._con_carga:
+            abre = abre_ahora()
             if abre == (cid in self._abiertas):
                 continue
             (self._abiertas.add if abre else self._abiertas.discard)(cid)
             ov = {"R_ohm": R_OFF} if abre else {}
             if self._donde.get(cid) == "m":
                 self._cargas_mando[cid] = ov
-            elif self._donde.get(cid) == "p" and not isinstance(m, Contactor):
+            elif self._donde.get(cid) == "p" and en_pot:  # el contactor lo pone `_aparatos`
                 self.cargas_pot[cid] = ov
 
     def _firma_potencia(self, est: dict, fuentes: dict) -> tuple:
@@ -343,6 +357,8 @@ class Tablero:
                                         **({"R_ohm": R_OFF} if m.abre_su_carga else {})}
         for _des, m, cid in self.pilotos:
             m.paso(dt, {"U_V": abs(self.U(cid))})
+        for _des, m, cids in self.valvulas:
+            m.paso(dt, {f"U_{lado}": abs(self.U(cid)) for lado, cid in cids.items()})
         for _des, m, ramas in self.protecciones:
             m.paso(dt, {"I_A": [self._corriente(p, rid) for p, rid in ramas]})
         for _des, m in self.mandos:

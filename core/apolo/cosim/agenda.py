@@ -16,6 +16,7 @@ import difflib
 
 from . import fallas
 from .escenario import Accion, EscenarioInvalido, Evento
+from .neumatica.orificio import P_ATM_PA
 
 EPS_T = 1e-9
 
@@ -155,6 +156,22 @@ class Agenda:
             self._modelo(d["dispositivo"]).accionar("forzar", None if reverso else d["valor"])
         elif e.tipo == "falla":  # cosim-fallas D4: el reverso o `quitar` la reparan
             for h in fallas.aplicar(self.tab, d, reverso or bool(d.get("quitar"))):
+                if h not in self.tab.hipotesis:
+                    self.tab.hipotesis.append(h)
+        elif e.tipo in ("corte_de_aire", "presion_de_red", "fuga"):  # V8.9 D8: la red de aire
+            self._aire(e, reverso)
+
+    def _aire(self, e: Evento, reverso: bool) -> None:
+        aire, d = self.tab.aire, e.datos
+        if aire is None:
+            raise ValueError(f"{e.tipo}: el documento no tiene circuito de aire (add_device de un FRL, "
+                             "válvulas y cilindros con sus add_tubo)")
+        if e.tipo == "corte_de_aire":
+            aire.p_red = aire.p_red_condicion if reverso else P_ATM_PA
+        elif e.tipo == "presion_de_red":
+            aire.p_red = aire.p_red_condicion if reverso else float(d["bar"]) * 1e5 + P_ATM_PA
+        else:
+            for h in aire.fuga(d["puerto"], d.get("C"), d.get("b"), reverso or bool(d.get("quitar"))):
                 if h not in self.tab.hipotesis:
                     self.tab.hipotesis.append(h)
 

@@ -44,6 +44,7 @@ ARCHIVOS = (
     "physics/hull.py",
     "physics/sensores.py",
     "physics/sim.py",
+    "services/cosim_aire.py",
     "services/cosim_bandas.py",
     "services/cosim_red.py",
     "services/cosim_snapshot.py",
@@ -74,7 +75,14 @@ ARCHIVOS = (
 #: `por`) de lo que no declara `largo_m`; con todo declarado, o sin tablero armado ni `por` (el
 #: banco y la 77 original), la entrada de la red es idéntica. Lo que sí cambia (un documento con
 #: largos calculados y un resultado de antes) lo vence la firma v1 (`services/escenarios`).
-HUELLA: tuple[int, str] = (4, "27242a7bc19d3c1d")
+#: V8.9 F3 (sin subir, D14): la co-simulación del aire (`cosim/neumatica`, la electroválvula, el
+#: acople del cilindro, los eventos del aire, `services/cosim_aire.py`) sólo actúa con un circuito
+#: de aire; el tablero cambió cómo saca de la red una carga con falla (por bobina) y suma el índice
+#: de las válvulas, sin efecto sin ellas: 9 escenarios del banco (marcha, seta, atasco parcial,
+#: contactor soldado y no_cierra, piloto fundido, corte de fase, cajas con seta y sensor pegado)
+#: dan la MISMA huella que en 06d44ac. Un documento con válvulas cambia de firma por su ficha
+#: eléctrica (el `modelo` nuevo de la bobina): sus resultados de antes quedan vencidos solos.
+HUELLA: tuple[int, str] = (4, "b4458dd2d236bde7")
 
 
 def archivos() -> list[Path]:
