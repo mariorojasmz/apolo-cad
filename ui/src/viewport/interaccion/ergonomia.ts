@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { useStore } from "../../state/store";
-import { cajaDe, destinoEncuadre, idsDelEncuadre } from "../camara";
+import { cajaConContexto, cajaDe, destinoEncuadre, idsDelEncuadre } from "../camara";
 import { installGltfExport } from "../exportGltf";
 import { opcionesDelEncuadre } from "../pedirEncuadre";
 import { crearVueloCamara } from "../vuelo";
@@ -51,8 +51,9 @@ export function instalarErgonomia(ctx: CtxInteraccion): () => void {
       else fitTo();
       return;
     }
-    // el mismo destino que el salto: las piezas, si no la selección, si no el modelo entero
-    const caja = box ?? cajaDe(ctx.meshes, useStore.getState().selection) ?? new THREE.Box3().setFromObject(group);
+    // las piezas (con contexto: una pieza chica no llena la vista), si no la selección, si no el modelo
+    const modelo = new THREE.Box3().setFromObject(group);
+    const caja = box ? cajaConContexto(box, modelo) : cajaDe(ctx.meshes, useStore.getState().selection) ?? modelo;
     const destino = destinoEncuadre(camera.position, controls.target, caja);
     if (destino) vuelo.volar(destino);
   };

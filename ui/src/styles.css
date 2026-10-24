@@ -39,6 +39,7 @@
   --fw-nota: 400;
   --fs-cifra: 20px;
   --fw-cifra: 600;
+  --fw-medio: 500; /* una cifra dentro de una fila: se distingue sin ganarle al veredicto */
   --lh-ajustado: 1.25;
   --lh-cuerpo: 1.45;
 

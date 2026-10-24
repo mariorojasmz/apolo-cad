@@ -31,7 +31,7 @@
 }
 .ia-fila {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center;
-  column-gap: var(--sp-2); width: 100%; padding: var(--sp-2);
+  column-gap: var(--sp-3); width: 100%; padding: var(--sp-2);
   border: none; border-radius: var(--radius); background: transparent; color: var(--text);
   font: inherit; font-size: var(--fs-cuerpo); line-height: var(--lh-ajustado); text-align: left;
   transition: background-color var(--mov-rapido) var(--curva-suave);
@@ -39,9 +39,11 @@
 div.ia-fila { grid-template-columns: auto minmax(0, 1fr) auto; }
 button.ia-fila:hover:not(:disabled) { background: var(--panel2); }
 button.ia-fila:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* el ícono de la fila ocupa el mismo ancho que el del veredicto: las frases arrancan en el mismo borde */
+.ia-fila .icono-severidad { width: 20px; justify-content: center; }
 .ia-frase { min-width: 0; }
 .ia-cifra {
-  color: var(--text); font-weight: var(--fw-cifra); white-space: nowrap;
+  color: var(--text); font-weight: var(--fw-medio); white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .ia-ir { color: var(--muted); opacity: 0.55; transition: opacity var(--mov-rapido) var(--curva-suave); }
@@ -53,6 +55,7 @@ button.ia-fila:hover .ia-ir, button.ia-fila:focus-visible .ia-ir { opacity: 1; }
   gap: var(--sp-2); max-width: 300px; margin: 0 auto; padding: var(--sp-8) var(--sp-4);
 }
 .ev-icono { color: var(--muted); opacity: 0.8; line-height: 0; margin-bottom: var(--sp-1); }
+.ev-titulo, .ev-texto { text-wrap: balance; } /* sin una palabra sola en la última línea */
 .ev-titulo {
   margin: 0; color: var(--text);
   font-size: var(--fs-subtitulo); font-weight: var(--fw-subtitulo); line-height: var(--lh-ajustado);
@@ -65,6 +68,8 @@ button.ia-fila:hover .ia-ir, button.ia-fila:focus-visible .ia-ir { opacity: 1; }
 
 /* ----------------------------------------------------------- deslizador */
 .deslizador { display: flex; flex-direction: column; gap: var(--sp-1); }
+/* un control no es un ítem más: tras el veredicto o la lista, un corte que se note */
+.veredicto + .deslizador, .items-atencion + .deslizador { margin-top: var(--sp-4); }
 .deslizador.compacto { display: inline-flex; flex-direction: row; align-items: center; }
 .ds-cabeza { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
 .ds-cabeza label { color: var(--text); font-size: var(--fs-cuerpo); }

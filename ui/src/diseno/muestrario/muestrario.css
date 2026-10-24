@@ -2,7 +2,7 @@
 html, body, #root { height: auto; }
 body { overflow: auto; }
 .muestrario {
-  display: grid; grid-template-columns: 320px 320px minmax(0, 1fr); align-items: start;
+  display: grid; grid-template-columns: 320px 320px minmax(0, 1fr); align-items: start; align-content: start;
   gap: var(--sp-4); padding: var(--sp-4); min-height: 100vh;
 }
 .mu-columna { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -21,3 +21,6 @@ body { overflow: auto; }
   .muestrario { grid-template-columns: minmax(0, 1fr); }
   .mu-visor { height: 340px; }
 }
+/* `?ancho=420`: todo en una columna de ese ancho (un panel angosto), sea cual sea la ventana */
+.muestrario.angosto { grid-template-columns: minmax(0, 1fr); }
+.muestrario.angosto .mu-visor { height: 340px; }

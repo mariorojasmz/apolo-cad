@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { destinoEncuadre } from "./camara";
+import { cajaConContexto, destinoEncuadre } from "./camara";
 import { opcionesDelEncuadre } from "./pedirEncuadre";
 import { crearVueloCamara, poseEn, type ControlesVuelo } from "./vuelo";
 
@@ -33,6 +33,24 @@ describe("destinoEncuadre", () => {
   });
   it("con la caja vacía, nada", () => {
     expect(destinoEncuadre(v(0, -1, 0), v(0, 0, 0), new THREE.Box3())).toBeNull();
+  });
+});
+
+describe("cajaConContexto", () => {
+  const modelo = new THREE.Box3(v(0, 0, 0), v(500, 200, 600));
+  const diag = (b: THREE.Box3) => b.getSize(new THREE.Vector3()).length();
+
+  it("una pieza chica crece alrededor de su centro hasta ver dónde está", () => {
+    const chica = new THREE.Box3(v(250, -42, 56), v(274, -18, 84));
+    const c = cajaConContexto(chica, modelo);
+    expect(diag(c)).toBeGreaterThan(0.38 * diag(modelo));
+    expect(c.getCenter(new THREE.Vector3()).distanceTo(chica.getCenter(new THREE.Vector3()))).toBeLessThan(1e-9);
+    expect(chica.max.x).toBe(274); // no muta la caja que recibe
+  });
+
+  it("una pieza grande queda igual", () => {
+    const grande = new THREE.Box3(v(0, 0, 0), v(400, 100, 500));
+    expect(cajaConContexto(grande, modelo).equals(grande)).toBe(true);
   });
 });
 

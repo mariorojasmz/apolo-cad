@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { cajaDe, destinoEncuadre, encuadrar } from "../../viewport/camara";
+import { cajaConContexto, cajaDe, destinoEncuadre, encuadrar } from "../../viewport/camara";
 import { crearPipeline } from "../../viewport/pipeline";
 import { crearVueloCamara, poseEn } from "../../viewport/vuelo";
 import { suave } from "../movimiento";
@@ -50,8 +50,8 @@ export default function VueloDemo({ alListo }: { alListo: (d: Demo) => void }) {
     for (let i = 0; i < 6; i++) agregar(caja(`aparato-${i}`, MATERIAL.aparato, [45, 70, 85], [-150 + i * 60, 52, 410]));
     agregar(caja("variador", MATERIAL.aparato, [120, 90, 200], [-120, 42, 250]));
     const prensa = new THREE.Mesh(new THREE.CylinderGeometry(14, 14, 24, 32), MATERIAL.aparato);
-    prensa.position.set(150, 0, -12);
-    prensa.rotation.x = Math.PI / 2;
+    prensa.position.set(262, -30, 70); // en el lateral derecho, abajo
+    prensa.rotation.z = Math.PI / 2;
     prensa.userData.featureId = "prensaestopas";
     agregar(prensa);
     const bisagra = new THREE.Group(); // la puerta gira sobre el canto izquierdo del frente
@@ -70,8 +70,9 @@ export default function VueloDemo({ alListo }: { alListo: (d: Demo) => void }) {
     pipe.arrancar();
 
     const destinoDe = (pieza: string) => {
-      const box = cajaDe(meshes, [pieza]);
-      return box ? destinoEncuadre(camera.position, controls.target, box.expandByScalar(60)) : null;
+      const box = cajaDe(meshes, [pieza]); // el mismo encuadre que `apolo:fit` con `animar`
+      const modelo = new THREE.Box3().setFromObject(group);
+      return box ? destinoEncuadre(camera.position, controls.target, cajaConContexto(box, modelo)) : null;
     };
     const ir = (pieza: string) => {
       seleccion.splice(0, seleccion.length, pieza);

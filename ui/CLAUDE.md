@@ -22,6 +22,12 @@ que poder verse ahí. Un panel nuevo:
 - se cierra con una revisión de diseño A CIEGAS: capturas en claro y oscuro, ancho y angosto, que
   juzga un subagente sin contexto con la rúbrica del plan. [V8.5](../docs/plans/V8.5-tablero-3d.md) D13–D14
 
+Las piezas viven en `src/diseno/` (`<Veredicto>`, `<ItemsAtencion>`, `<EstadoVacio>`, `<Deslizador>`,
+`cifra()`, `movimiento.ts`) y los tokens en `styles.css` `:root` (`--fs-*`/`--fw-*` con nombre, `--sp-*`
+de 4 px, `--mov-*` y `--curva-suave`, a 0 con movimiento reducido); `diseno/tokens.test.ts` rebota un
+color, tamaño o duración suelto en su CSS. Las capturas salen del muestrario (`ui/muestrario.html`,
+sólo con `npm run dev`; `?ancho=420` para angosto). Hoy sólo hay tema oscuro (A12 de V8.5).
+
 ## Texto y ayuda: la pantalla se explica sola
 
 **Nunca un texto para tapar una interfaz confusa**: si hay que explicar cómo funciona la
@@ -44,8 +50,8 @@ vez en un panel la cubre `<EstadoVacio>` (qué va a aparecer + la acción), no u
 
 Existen `<Pista>`, `<Ayuda>` (ⓘ `type="button"`, abre en el flujo), `<VerDetalle>` (`<details>`
 nativo) y `textoTecnico` (backticks → `<code>`) en `src/ui/`, y `forms/Campo.tsx` (rótulo +
-unidad + ⓘ + pista de campo) ([plan](../docs/plans/texto-agente-vs-persona.md)). `<EstadoVacio>` y
-`useConfirmar` todavía NO existen: se proponen en un plan antes de crearlas.
+unidad + ⓘ + pista de campo) ([plan](../docs/plans/texto-agente-vs-persona.md)). `<EstadoVacio>`
+está en `src/diseno/`; `useConfirmar` todavía NO existe: se propone en un plan antes de crearla.
 
 - **Presupuesto**: sin contar datos ni rótulos, el texto de ayuda visible por defecto de un
   panel o diálogo no pasa de ~40 palabras. **Una explicación, un lugar**: si el panel lo dice,
@@ -196,7 +202,9 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   [plan](../docs/plans/nucleo-abierto-extensiones-privadas.md) (D4, D5)
 - Feedback de carga global: `guard`/`runTracked` + `BUSY_TEXT` (store).
 - Otros paneles accionan el viewport por `CustomEvent` (`"apolo:fit"` con `{id}` o `{ids}`,
-  `"apolo:export-gltf"`) para no acoplar el store a three.js. El glTF se exporta en el cliente
+  `"apolo:export-gltf"`) para no acoplar el store a three.js. Un panel que SEÑALA una pieza usa
+  `viewport/pedirEncuadre.ts` con `animar` (vuela, `vuelo.ts`, con contexto alrededor de una pieza
+  chica) y `seleccionar` (contorno); sin ellos, `apolo:fit` salta como siempre. El glTF se exporta en el cliente
   (`viewport/exportGltf.ts`); STEP/STL, por endpoint.
 
 ### Layout

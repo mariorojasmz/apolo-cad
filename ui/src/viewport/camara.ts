@@ -42,6 +42,18 @@ export function cajaDe(meshes: ReadonlyMap<string, THREE.Object3D>, ids: Iterabl
   return alguna ? caja : null;
 }
 
+/** Para el vuelo que SEÑALA una pieza (plan V8.5 D13): si la pieza es chica frente al modelo, la
+   caja crece alrededor de su centro hasta `fraccion` de la diagonal del modelo, para que se vea
+   DÓNDE está (una esquina del gabinete, no «una pared con un cilindro»). Puro: no muta `box`. */
+export function cajaConContexto(box: THREE.Box3, modelo: THREE.Box3, fraccion = 0.4): THREE.Box3 {
+  const caja = box.clone();
+  if (box.isEmpty() || modelo.isEmpty()) return caja;
+  const diag = box.getSize(new THREE.Vector3()).length();
+  const minima = modelo.getSize(new THREE.Vector3()).length() * fraccion;
+  if (diag >= minima) return caja;
+  return caja.expandByScalar((minima - diag) / (2 * Math.sqrt(3))); // la diagonal crece √3 por lado
+}
+
 /** Vistas fijas de la barra del visor y los atajos: dirección desde el objetivo a la cámara. */
 export const VIEWS: Record<string, [number, number, number]> = {
   ISO: [1, -1, 0.8],

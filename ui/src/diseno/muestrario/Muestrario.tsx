@@ -16,15 +16,16 @@ import "./muestrario.css";
 
 export default function Muestrario() {
   const demo = useRef<Demo | null>(null);
-  const [puerta, setPuerta] = useState(0);
+  const [puerta, setPuerta] = useState(() => Number(new URLSearchParams(window.location.search).get("puerta") ?? 0));
   const items = useMemo(() => itemsTablero((pieza) => demo.current?.ir(pieza)), []);
   const v = veredictoDe(items, "El tablero cumple");
   const bien = items.filter((it) => it.severidad === "bien");
   const moverPuerta = (g: number) => { setPuerta(g); demo.current?.puerta(g); };
+  const ancho = Number(new URLSearchParams(window.location.search).get("ancho")) || 0;
   return (
-    <main className="muestrario">
+    <main className={`muestrario${ancho ? " angosto" : ""}`} style={ancho ? { width: ancho } : undefined}>
       <Marco rotulo="Tablero · con cosas por atender">
-        <Veredicto severidad={v.severidad} frase={v.frase} nota="Revisamos 14 reglas del tablero" />
+        <Veredicto severidad={v.severidad} frase={v.frase} nota="Revisamos 13 de 14 reglas" />
         <ItemsAtencion items={queAtender(items)} rotulo="Lo que pide atención en el tablero" />
         <Deslizador rotulo="Puerta" valor={puerta} min={0} max={110} unidad="°" onCambio={moverPuerta} />
         <div className="mu-detalle">
