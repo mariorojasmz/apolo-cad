@@ -54,6 +54,11 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
 - `add_cable.por` (V8.5 F4) es carril: el evaluador resuelve sus piezas (`modelo.Paso`) y el
   recorrido del cable de campo NO es geometría de escena: lo calcula al leer
   `services/cables_campo.py` (por qué, en el plan). [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
+- El aire va en el MISMO carril (V8.9 D1): `add_device` acepta refs neumáticas (designación de
+  dos letras de su ficha `neumatico`, que gana a la eléctrica en una electroválvula) y `add_tubo`
+  une PUERTOS; los evalúa `neumatica_eval.py` (un borne no es un puerto, ni al revés: se nombra
+  el medio). `servicio` (sólo cilindros) alimenta el ERC neumático. Params en
+  `models_neumatica.py`. [V8.9](../../../docs/plans/V8.9-neumatica.md)
 
 ## Modelado y colocación
 

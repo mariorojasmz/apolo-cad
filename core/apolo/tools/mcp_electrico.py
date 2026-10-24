@@ -27,7 +27,9 @@ def registrar(mcp, api) -> None:
         y cables. `designacion` («-Q1», «=Faja1») filtra a esos dispositivos y lo que los toca
         (lee la designación asignada sola); una ubicación («+TAB1») da lo que está en ella y un
         cable («-W4»), sus hilos y los aparatos que tocan. `tablero=true` suma `tableros`: lo que la persona ve
-        del tablero armado en el visor (veredicto, ítems, largos, llenado). Read-only."""
+        del tablero armado en el visor (veredicto, ítems, largos, llenado). Con circuito de AIRE
+        (add_device neumático + add_tubo) suma `neumatica` {lineas con su presión, tubos} y los
+        `puertos` de cada aparato de aire. Read-only."""
         params = {"designacion": designacion} if designacion else {}
         if tablero:
             params["tablero"] = "true"
@@ -40,7 +42,9 @@ def registrar(mcp, api) -> None:
         220 VAC), motores sin protección, puesta a tierra, bornes sueltos, colores IEC 60204-1 y
         parada de emergencia, cada regla con su norma; con tablero armado y cables de campo, sus
         reglas (canaletas, largos, lo que gira), las piezas de seguridad sin circuito y la altura
-        de los mandos. Devuelve {estado ok|aviso|error|sin_carril, errores, avisos, reglas,
+        de los mandos; con circuito de aire, el ERC neumático (`medio: "aire"`: válvula de corte con
+        escape ISO 4414, puertos libres, presión de trabajo, caudal, pandeo e impacto del cilindro).
+        Devuelve {estado ok|aviso|error|sin_carril, errores, avisos, reglas,
         revisadas}: `revisadas` = las reglas que corrieron sin hallazgos (no salen en `reglas`).
         delivery_check lo incluye y, en un lote, el contrato
         {"erc": "sin_errores"} lo exige antes de aceptar el cableado. Read-only."""

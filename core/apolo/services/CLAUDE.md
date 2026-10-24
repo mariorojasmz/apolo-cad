@@ -165,6 +165,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   regla del ERC que sólo da filas con hallazgo entra en `electrico.REVISA` para salir en
   `revisadas` cuando pasa. (F5b)
 
+- El circuito de AIRE (V8.9) sale en la MISMA salida que lo eléctrico: `neumatica.py` arma la
+  sección `neumatica` de `circuito`, los `puertos` de cada aparato de aire y suma el ERC
+  neumático (filas `medio: "aire"`) AL FINAL de `_erc_completo`; sin aire no suma nada (la
+  salida de siempre, que congela `tests/data/carril_v81_golden.json`).
+  [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y
   `monto_en_riesgo_usd` sólo si hay (sin ellos, el dict de siempre): dispositivo sin ligar a su

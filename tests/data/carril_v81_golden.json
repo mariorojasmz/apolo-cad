@@ -1,0 +1,1818 @@
+{
+ "bom": [
+  {
+   "cantidad": 2,
+   "categoria": "conexion_electrica",
+   "descripcion": "Borne de tierra 4 mm²",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.03,
+   "peso_unitario_kg": 0.015,
+   "ref": "BORNE-PE-4"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "maniobra_control",
+   "descripcion": "Contactor 9 A AC-3 bobina 24 VDC",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.42,
+   "peso_unitario_kg": 0.42,
+   "ref": "CONT-9A-24VDC"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "maniobra_control",
+   "descripcion": "Bloque auxiliar 1NA+1NC de contactor",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.05,
+   "peso_unitario_kg": 0.05,
+   "ref": "CONT-AUX-1NA1NC"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "mandos",
+   "descripcion": "Paro de emergencia Ø40",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "ISO 13850",
+   "origen": "electrico",
+   "peso_total_kg": 0.15,
+   "peso_unitario_kg": 0.15,
+   "ref": "ESTOP-40"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "alimentacion_electrica",
+   "descripcion": "Fuente 24 VDC 2,5 A (riel DIN)",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.2,
+   "peso_unitario_kg": 0.2,
+   "ref": "FUENTE-24VDC-2.5A"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "tableros",
+   "descripcion": "Gabinete 600x400x200",
+   "longitud_mm": null,
+   "material": "acero pintado",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 16.0,
+   "peso_unitario_kg": 16.0,
+   "ref": "GAB-6040"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "proteccion_electrica",
+   "descripcion": "Guardamotor 2,5-4 A clase 10",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.26,
+   "peso_unitario_kg": 0.26,
+   "ref": "GM-2.5-4A"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "proteccion_electrica",
+   "descripcion": "ITM 2P C2",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.25,
+   "peso_unitario_kg": 0.25,
+   "ref": "ITM-C2-2P"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "motorreductores",
+   "descripcion": "Motorreductor 0.75 kW",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 16.0,
+   "peso_unitario_kg": 16.0,
+   "ref": "MOTOR-075"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "mandos",
+   "descripcion": "Piloto LED Ø22 verde 24 V",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.03,
+   "peso_unitario_kg": 0.03,
+   "ref": "PILOTO-24V-VERDE"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "mandos",
+   "descripcion": "Pulsador Ø22 rojo 1NC",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.04,
+   "peso_unitario_kg": 0.04,
+   "ref": "PULS-22-ROJO-NC"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "mandos",
+   "descripcion": "Pulsador Ø22 verde 1NA",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.04,
+   "peso_unitario_kg": 0.04,
+   "ref": "PULS-22-VERDE-NA"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "proteccion_electrica",
+   "descripcion": "Seccionador rotativo 3P 25 A",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.25,
+   "peso_unitario_kg": 0.25,
+   "ref": "SECC-25A-3P"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "conexion_electrica",
+   "descripcion": "Cable flexible 4G1,5 — 6 m",
+   "longitud_mm": 6000.0,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": 0.72,
+   "peso_unitario_kg": 0.72,
+   "ref": "CABLE-4G1.5"
+  },
+  {
+   "cantidad": 1,
+   "categoria": "conexion_electrica",
+   "descripcion": "Conductor flexible H07V-K 2,5 mm² — 13.5 m",
+   "longitud_mm": 13500.0,
+   "material": "",
+   "norma": "EN 50525-2-31 (H07V-K)",
+   "origen": "electrico",
+   "peso_total_kg": 0.418,
+   "peso_unitario_kg": 0.418,
+   "ref": "COND-H07VK-2.5"
+  },
+  {
+   "aviso": "14 conductor(es) sin tipo: declara el conductor del catálogo (p. ej. COND-H07VK-1.5) para comprarlo y costearlo",
+   "cantidad": 14,
+   "categoria": "conexion_electrica",
+   "descripcion": "Conductor sin tipo de catálogo",
+   "longitud_mm": null,
+   "material": "",
+   "norma": "",
+   "origen": "electrico",
+   "peso_total_kg": null,
+   "peso_unitario_kg": null,
+   "ref": "CONDUCTOR-SIN-TIPO",
+   "sin_largo": true
+  }
+ ],
+ "chequeo": {
+  "avisos": 0,
+  "errores": 0,
+  "estado": "ok",
+  "n_cables": 1,
+  "n_conductores": 30,
+  "n_dispositivos": 14,
+  "reglas": [
+   {
+    "detalle": "Las referencias de los 30 conductores resuelven.",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "criterio de diseño",
+    "regla": "referencias"
+   },
+   {
+    "detalle": "Las 14 designaciones son únicas.",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "IEC 81346-1 (designación de referencia unívoca)",
+    "regla": "designación duplicada"
+   },
+   {
+    "detalle": "Ninguna red recibe dos potenciales distintos, aun con todos los contactos cerrados.",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "criterio de diseño",
+    "regla": "cortocircuito"
+   },
+   {
+    "detalle": "Las 4 cargas reciben su tensión nominal (o no están alimentadas).",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "IEC 60204-1 §4.3 (tensión de régimen 0,9–1,1 de la nominal)",
+    "regla": "tensión cruzada"
+   },
+   {
+    "detalle": "1 motor(es): todos alimentados a través de una protección de motor.",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "IEC 60204-1 §7.3 (obligatoria sobre 0,5 kW; por debajo, criterio de diseño)",
+    "regla": "protección del motor"
+   },
+   {
+    "detalle": "Los 6 bornes de tierra están unidos a la red PE.",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "IEC 60364-4-41 §411.3.1.1 · IEC 60364-5-54 · IEC 60204-1 §8.2",
+    "regla": "puesta a tierra"
+   },
+   {
+    "detalle": "Ninguna carga ni borne obligatorio queda suelto.",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "criterio de diseño",
+    "regla": "borne suelto"
+   },
+   {
+    "detalle": "Los colores de los conductores siguen IEC 60204-1 §13.2.",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "IEC 60204-1 §13.2",
+    "regla": "color del conductor"
+   },
+   {
+    "detalle": "Paradas de emergencia: -S0.",
+    "elementos": [
+     "-S0"
+    ],
+    "estado": "ok",
+    "norma": "ISO 13850 · IEC 60204-1 §10.7",
+    "regla": "parada de emergencia"
+   }
+  ],
+  "revisadas": [
+   {
+    "regla": "ajustes para simular",
+    "revisa": "los ajustes obligatorios de la co-simulación de cada dispositivo"
+   },
+   {
+    "regla": "pieza sin ligar",
+    "revisa": "que ningún dispositivo con la ref de una pieza 3D quede sin ligarla"
+   },
+   {
+    "regla": "cable 3D sin cobrar",
+    "revisa": "que todo cable modelado en 3D lo cubra un add_cable"
+   },
+   {
+    "regla": "pieza de seguridad sin circuito",
+    "revisa": "que toda seta, interruptor de resguardo o relé de seguridad de la escena esté en el circuito"
+   }
+  ]
+ },
+ "circuito": {
+  "cables": [
+   {
+    "comando": "c17",
+    "desde": "+TAB1",
+    "designacion": "-W1",
+    "hasta": "-M1",
+    "hilos": {
+     "1": "BK",
+     "2": "BK",
+     "3": "BK",
+     "PE": "GNYE"
+    },
+    "largo_m": 6.0,
+    "ref": "CABLE-4G1.5"
+   }
+  ],
+  "conductores": [
+   {
+    "color": "BK",
+    "comando": "c18",
+    "largo_m": 1.0,
+    "puntos": [
+     "-G1:L1",
+     "-Q1:1"
+    ],
+    "red": "N1",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c19",
+    "largo_m": 1.0,
+    "puntos": [
+     "-G1:L2",
+     "-Q1:3"
+    ],
+    "red": "N2",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c20",
+    "largo_m": 1.0,
+    "puntos": [
+     "-G1:L3",
+     "-Q1:5"
+    ],
+    "red": "N3",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c21",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:2",
+     "-Q2:1"
+    ],
+    "red": "N5",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c22",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:4",
+     "-Q2:3"
+    ],
+    "red": "N6",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c23",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:6",
+     "-Q2:5"
+    ],
+    "red": "N7",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c24",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q2:2",
+     "-Q3:1"
+    ],
+    "red": "N8",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c25",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q2:4",
+     "-Q3:3"
+    ],
+    "red": "N9",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c26",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q2:6",
+     "-Q3:5"
+    ],
+    "red": "N10",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "cable": "-W1",
+    "color": "BK",
+    "comando": "c27",
+    "hilo": "1",
+    "puntos": [
+     "-Q3:2",
+     "-M1:U1"
+    ],
+    "red": "N11",
+    "seccion_mm2": 1.5
+   },
+   {
+    "cable": "-W1",
+    "color": "BK",
+    "comando": "c28",
+    "hilo": "2",
+    "puntos": [
+     "-Q3:4",
+     "-M1:V1"
+    ],
+    "red": "N12",
+    "seccion_mm2": 1.5
+   },
+   {
+    "cable": "-W1",
+    "color": "BK",
+    "comando": "c29",
+    "hilo": "3",
+    "puntos": [
+     "-Q3:6",
+     "-M1:W1"
+    ],
+    "red": "N13",
+    "seccion_mm2": 1.5
+   },
+   {
+    "cable": "-W1",
+    "color": "GNYE",
+    "comando": "c30",
+    "hilo": "PE",
+    "puntos": [
+     "-X0:2",
+     "-M1:PE"
+    ],
+    "red": "N4",
+    "seccion_mm2": 1.5
+   },
+   {
+    "color": "GNYE",
+    "comando": "c31",
+    "puntos": [
+     "-G1:PE",
+     "-X0:1"
+    ],
+    "red": "N4",
+    "seccion_mm2": 4.0
+   },
+   {
+    "color": "GNYE",
+    "comando": "c32",
+    "puntos": [
+     "-X0:1",
+     "-X0:2"
+    ],
+    "red": "N4"
+   },
+   {
+    "color": "GNYE",
+    "comando": "c33",
+    "puntos": [
+     "-X0:1",
+     "-T1:PE"
+    ],
+    "red": "N4"
+   },
+   {
+    "color": "GNYE",
+    "comando": "c34",
+    "puntos": [
+     "-X0:1",
+     "-U1:PE"
+    ],
+    "red": "N4"
+   },
+   {
+    "color": "BK",
+    "comando": "c35",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:2",
+     "-F1:1"
+    ],
+    "red": "N5",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c36",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:4",
+     "-F1:3"
+    ],
+    "red": "N6",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   },
+   {
+    "color": "BK",
+    "comando": "c37",
+    "puntos": [
+     "-F1:2",
+     "-T1:L"
+    ],
+    "red": "N22"
+   },
+   {
+    "color": "BK",
+    "comando": "c38",
+    "puntos": [
+     "-F1:4",
+     "-T1:N"
+    ],
+    "red": "N23"
+   },
+   {
+    "color": "GNYE",
+    "comando": "c39",
+    "puntos": [
+     "-T1:M",
+     "-X0:1"
+    ],
+    "red": "N4"
+   },
+   {
+    "color": "BU",
+    "comando": "c40",
+    "largo_m": 1.0,
+    "puntos": [
+     "-T1:L+",
+     "-S0:11",
+     "-Q3A:53"
+    ],
+    "red": "N18",
+    "seccion_mm2": 0.75
+   },
+   {
+    "color": "BU",
+    "comando": "c41",
+    "largo_m": 1.0,
+    "puntos": [
+     "-S0:12",
+     "-S1:11"
+    ],
+    "red": "N24",
+    "seccion_mm2": 0.75
+   },
+   {
+    "color": "BU",
+    "comando": "c42",
+    "largo_m": 1.0,
+    "puntos": [
+     "-S1:12",
+     "-S2:13",
+     "-Q3:13"
+    ],
+    "red": "N15",
+    "seccion_mm2": 0.75
+   },
+   {
+    "color": "BU",
+    "comando": "c43",
+    "largo_m": 1.0,
+    "puntos": [
+     "-S2:14",
+     "-Q3:14",
+     "-Q3:A1"
+    ],
+    "red": "N14",
+    "seccion_mm2": 0.75
+   },
+   {
+    "color": "BU",
+    "comando": "c44",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q3:A2",
+     "-T1:M"
+    ],
+    "red": "N4",
+    "seccion_mm2": 0.75
+   },
+   {
+    "color": "BU",
+    "comando": "c45",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q3A:54",
+     "-P1:X1"
+    ],
+    "red": "N19",
+    "seccion_mm2": 0.75
+   },
+   {
+    "color": "BU",
+    "comando": "c46",
+    "largo_m": 1.0,
+    "puntos": [
+     "-P1:X2",
+     "-T1:M"
+    ],
+    "red": "N4",
+    "seccion_mm2": 0.75
+   },
+   {
+    "color": "BK",
+    "comando": "c47",
+    "largo_m": 2.5,
+    "puntos": [
+     "-Q1:2",
+     "-Q2:1"
+    ],
+    "red": "N5",
+    "seccion_mm2": 2.5,
+    "tipo": "COND-H07VK-2.5"
+   }
+  ],
+  "dispositivos": [
+   {
+    "bornes": [
+     {
+      "id": "L1",
+      "red": "N1",
+      "rol": "potencia"
+     },
+     {
+      "id": "L2",
+      "red": "N2",
+      "rol": "potencia"
+     },
+     {
+      "id": "L3",
+      "red": "N3",
+      "rol": "potencia"
+     },
+     {
+      "id": "PE",
+      "red": "N4",
+      "rol": "tierra"
+     }
+    ],
+    "comando": "c3",
+    "designacion": "-G1",
+    "funcion": "G",
+    "ref": "RED-3F-220V-60HZ",
+    "ubicacion": "+RED"
+   },
+   {
+    "bornes": [
+     {
+      "id": "1",
+      "red": "N1",
+      "rol": "potencia"
+     },
+     {
+      "id": "2",
+      "red": "N5",
+      "rol": "potencia"
+     },
+     {
+      "id": "3",
+      "red": "N2",
+      "rol": "potencia"
+     },
+     {
+      "id": "4",
+      "red": "N6",
+      "rol": "potencia"
+     },
+     {
+      "id": "5",
+      "red": "N3",
+      "rol": "potencia"
+     },
+     {
+      "id": "6",
+      "red": "N7",
+      "rol": "potencia"
+     }
+    ],
+    "comando": "c4",
+    "designacion": "-Q1",
+    "funcion": "Q",
+    "ref": "SECC-25A-3P",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "ajustes": {
+     "Ir_A": 3.2
+    },
+    "bornes": [
+     {
+      "id": "1",
+      "red": "N5",
+      "rol": "potencia"
+     },
+     {
+      "id": "2",
+      "red": "N8",
+      "rol": "potencia"
+     },
+     {
+      "id": "3",
+      "red": "N6",
+      "rol": "potencia"
+     },
+     {
+      "id": "4",
+      "red": "N9",
+      "rol": "potencia"
+     },
+     {
+      "id": "5",
+      "red": "N7",
+      "rol": "potencia"
+     },
+     {
+      "id": "6",
+      "red": "N10",
+      "rol": "potencia"
+     }
+    ],
+    "comando": "c5",
+    "designacion": "-Q2",
+    "funcion": "Q",
+    "ref": "GM-2.5-4A",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "1",
+      "red": "N8",
+      "rol": "potencia"
+     },
+     {
+      "id": "2",
+      "red": "N11",
+      "rol": "potencia"
+     },
+     {
+      "id": "3",
+      "red": "N9",
+      "rol": "potencia"
+     },
+     {
+      "id": "4",
+      "red": "N12",
+      "rol": "potencia"
+     },
+     {
+      "id": "5",
+      "red": "N10",
+      "rol": "potencia"
+     },
+     {
+      "id": "6",
+      "red": "N13",
+      "rol": "potencia"
+     },
+     {
+      "id": "A1",
+      "red": "N14",
+      "rol": "bobina"
+     },
+     {
+      "id": "A2",
+      "red": "N4",
+      "rol": "bobina"
+     },
+     {
+      "id": "13",
+      "red": "N15",
+      "rol": "contacto"
+     },
+     {
+      "id": "14",
+      "red": "N14",
+      "rol": "contacto"
+     },
+     {
+      "conectado": false,
+      "id": "21",
+      "red": "N16",
+      "rol": "contacto"
+     },
+     {
+      "conectado": false,
+      "id": "22",
+      "red": "N17",
+      "rol": "contacto"
+     }
+    ],
+    "comando": "c6",
+    "designacion": "-Q3",
+    "funcion": "Q",
+    "ref": "CONT-9A-24VDC",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "53",
+      "red": "N18",
+      "rol": "contacto"
+     },
+     {
+      "id": "54",
+      "red": "N19",
+      "rol": "contacto"
+     },
+     {
+      "conectado": false,
+      "id": "61",
+      "red": "N20",
+      "rol": "contacto"
+     },
+     {
+      "conectado": false,
+      "id": "62",
+      "red": "N21",
+      "rol": "contacto"
+     }
+    ],
+    "comando": "c7",
+    "designacion": "-Q3A",
+    "funcion": "Q",
+    "ref": "CONT-AUX-1NA1NC",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "ajustes": {
+     "conexion": "triangulo"
+    },
+    "bornes": [
+     {
+      "id": "U1",
+      "red": "N11",
+      "rol": "potencia"
+     },
+     {
+      "id": "V1",
+      "red": "N12",
+      "rol": "potencia"
+     },
+     {
+      "id": "W1",
+      "red": "N13",
+      "rol": "potencia"
+     },
+     {
+      "id": "PE",
+      "red": "N4",
+      "rol": "tierra"
+     }
+    ],
+    "comando": "c8",
+    "designacion": "-M1",
+    "funcion": "M",
+    "ref": "MOTOR-075",
+    "ubicacion": "+CAMPO"
+   },
+   {
+    "bornes": [
+     {
+      "id": "1",
+      "red": "N5",
+      "rol": "potencia"
+     },
+     {
+      "id": "2",
+      "red": "N22",
+      "rol": "potencia"
+     },
+     {
+      "id": "3",
+      "red": "N6",
+      "rol": "potencia"
+     },
+     {
+      "id": "4",
+      "red": "N23",
+      "rol": "potencia"
+     }
+    ],
+    "comando": "c9",
+    "designacion": "-F1",
+    "funcion": "F",
+    "ref": "ITM-C2-2P",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "L",
+      "red": "N22",
+      "rol": "potencia"
+     },
+     {
+      "id": "N",
+      "red": "N23",
+      "rol": "potencia"
+     },
+     {
+      "id": "PE",
+      "red": "N4",
+      "rol": "tierra"
+     },
+     {
+      "id": "L+",
+      "red": "N18",
+      "rol": "mando"
+     },
+     {
+      "id": "M",
+      "red": "N4",
+      "rol": "mando"
+     }
+    ],
+    "comando": "c10",
+    "designacion": "-T1",
+    "funcion": "T",
+    "ref": "FUENTE-24VDC-2.5A",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "11",
+      "red": "N18",
+      "rol": "contacto"
+     },
+     {
+      "id": "12",
+      "red": "N24",
+      "rol": "contacto"
+     }
+    ],
+    "comando": "c11",
+    "designacion": "-S0",
+    "funcion": "S",
+    "ref": "ESTOP-40",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "11",
+      "red": "N24",
+      "rol": "contacto"
+     },
+     {
+      "id": "12",
+      "red": "N15",
+      "rol": "contacto"
+     }
+    ],
+    "comando": "c12",
+    "designacion": "-S1",
+    "funcion": "S",
+    "ref": "PULS-22-ROJO-NC",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "13",
+      "red": "N15",
+      "rol": "contacto"
+     },
+     {
+      "id": "14",
+      "red": "N14",
+      "rol": "contacto"
+     }
+    ],
+    "comando": "c13",
+    "designacion": "-S2",
+    "funcion": "S",
+    "ref": "PULS-22-VERDE-NA",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "X1",
+      "red": "N19",
+      "rol": "mando"
+     },
+     {
+      "id": "X2",
+      "red": "N4",
+      "rol": "mando"
+     }
+    ],
+    "comando": "c14",
+    "designacion": "-P1",
+    "funcion": "P",
+    "ref": "PILOTO-24V-VERDE",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "1",
+      "red": "N4",
+      "rol": "tierra"
+     },
+     {
+      "id": "2",
+      "red": "N4",
+      "rol": "tierra"
+     }
+    ],
+    "comando": "c15",
+    "designacion": "-X0",
+    "funcion": "X",
+    "ref": "BORNE-PE-4",
+    "ubicacion": "+TAB1"
+   },
+   {
+    "bornes": [
+     {
+      "id": "PE",
+      "red": "N4",
+      "rol": "tierra"
+     }
+    ],
+    "comando": "c16",
+    "designacion": "-U1",
+    "funcion": "U",
+    "ref": "GAB-6040",
+    "ubicacion": "+TAB1"
+   }
+  ],
+  "redes": [
+   {
+    "id": "N1",
+    "puntos": [
+     "-G1:L1",
+     "-Q1:1"
+    ],
+    "tension": "-G1:L1 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N2",
+    "puntos": [
+     "-G1:L2",
+     "-Q1:3"
+    ],
+    "tension": "-G1:L2 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N3",
+    "puntos": [
+     "-G1:L3",
+     "-Q1:5"
+    ],
+    "tension": "-G1:L3 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N4",
+    "puntos": [
+     "-G1:PE",
+     "-Q3:A2",
+     "-M1:PE",
+     "-T1:PE",
+     "-T1:M",
+     "-P1:X2",
+     "-X0:1",
+     "-X0:2",
+     "-U1:PE"
+    ],
+    "tension": "-G1:PE · 220 VAC 3F 60 Hz / -T1:- · 24 VDC"
+   },
+   {
+    "id": "N5",
+    "puntos": [
+     "-Q1:2",
+     "-Q2:1",
+     "-F1:1"
+    ],
+    "tension": "-G1:L1 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N6",
+    "puntos": [
+     "-Q1:4",
+     "-Q2:3",
+     "-F1:3"
+    ],
+    "tension": "-G1:L2 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N7",
+    "puntos": [
+     "-Q1:6",
+     "-Q2:5"
+    ],
+    "tension": "-G1:L3 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N8",
+    "puntos": [
+     "-Q2:2",
+     "-Q3:1"
+    ],
+    "tension": "-G1:L1 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N9",
+    "puntos": [
+     "-Q2:4",
+     "-Q3:3"
+    ],
+    "tension": "-G1:L2 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N10",
+    "puntos": [
+     "-Q2:6",
+     "-Q3:5"
+    ],
+    "tension": "-G1:L3 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N11",
+    "puntos": [
+     "-Q3:2",
+     "-M1:U1"
+    ],
+    "tension": "-G1:L1 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N12",
+    "puntos": [
+     "-Q3:4",
+     "-M1:V1"
+    ],
+    "tension": "-G1:L2 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N13",
+    "puntos": [
+     "-Q3:6",
+     "-M1:W1"
+    ],
+    "tension": "-G1:L3 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N14",
+    "puntos": [
+     "-Q3:A1",
+     "-Q3:14",
+     "-S2:14"
+    ],
+    "tension": "-T1:+ · 24 VDC"
+   },
+   {
+    "id": "N15",
+    "puntos": [
+     "-Q3:13",
+     "-S1:12",
+     "-S2:13"
+    ],
+    "tension": "-T1:+ · 24 VDC"
+   },
+   {
+    "id": "N16",
+    "puntos": [
+     "-Q3:21"
+    ]
+   },
+   {
+    "id": "N17",
+    "puntos": [
+     "-Q3:22"
+    ]
+   },
+   {
+    "id": "N18",
+    "puntos": [
+     "-Q3A:53",
+     "-T1:L+",
+     "-S0:11"
+    ],
+    "tension": "-T1:+ · 24 VDC"
+   },
+   {
+    "id": "N19",
+    "puntos": [
+     "-Q3A:54",
+     "-P1:X1"
+    ],
+    "tension": "-T1:+ · 24 VDC"
+   },
+   {
+    "id": "N20",
+    "puntos": [
+     "-Q3A:61"
+    ]
+   },
+   {
+    "id": "N21",
+    "puntos": [
+     "-Q3A:62"
+    ]
+   },
+   {
+    "id": "N22",
+    "puntos": [
+     "-F1:2",
+     "-T1:L"
+    ],
+    "tension": "-G1:L1 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N23",
+    "puntos": [
+     "-F1:4",
+     "-T1:N"
+    ],
+    "tension": "-G1:L2 · 220 VAC 3F 60 Hz"
+   },
+   {
+    "id": "N24",
+    "puntos": [
+     "-S0:12",
+     "-S1:11"
+    ],
+    "tension": "-T1:+ · 24 VDC"
+   }
+  ],
+  "resumen": {
+   "n_cables": 1,
+   "n_conductores": 30,
+   "n_dispositivos": 14,
+   "n_redes": 24
+  }
+ },
+ "comandos": [
+  {
+   "id": "c1",
+   "params": {
+    "expression": "2.5",
+    "name": "L"
+   },
+   "type": "set_variable"
+  },
+  {
+   "id": "c2",
+   "params": {
+    "depth": 80,
+    "height": 80,
+    "name": "Motor",
+    "position": {
+     "x": 0,
+     "y": 0,
+     "z": 40
+    },
+    "width": 100
+   },
+   "type": "create_box"
+  },
+  {
+   "id": "c3",
+   "params": {
+    "designacion": "-G1",
+    "ref": "RED-3F-220V-60HZ",
+    "ubicacion": "+RED"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c4",
+   "params": {
+    "designacion": "-Q1",
+    "ref": "SECC-25A-3P",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c5",
+   "params": {
+    "ajustes": {
+     "Ir_A": 3.2
+    },
+    "designacion": "-Q2",
+    "ref": "GM-2.5-4A",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c6",
+   "params": {
+    "designacion": "-Q3",
+    "ref": "CONT-9A-24VDC",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c7",
+   "params": {
+    "designacion": "-Q3A",
+    "ref": "CONT-AUX-1NA1NC",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c8",
+   "params": {
+    "ajustes": {
+     "conexion": "triangulo"
+    },
+    "designacion": "-M1",
+    "ref": "MOTOR-075",
+    "ubicacion": "+CAMPO"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c9",
+   "params": {
+    "designacion": "-F1",
+    "ref": "ITM-C2-2P",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c10",
+   "params": {
+    "designacion": "-T1",
+    "ref": "FUENTE-24VDC-2.5A",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c11",
+   "params": {
+    "designacion": "-S0",
+    "ref": "ESTOP-40",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c12",
+   "params": {
+    "designacion": "-S1",
+    "ref": "PULS-22-ROJO-NC",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c13",
+   "params": {
+    "designacion": "-S2",
+    "ref": "PULS-22-VERDE-NA",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c14",
+   "params": {
+    "designacion": "-P1",
+    "ref": "PILOTO-24V-VERDE",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c15",
+   "params": {
+    "cantidad": 2,
+    "designacion": "-X0",
+    "ref": "BORNE-PE-4",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c16",
+   "params": {
+    "designacion": "-U1",
+    "ref": "GAB-6040",
+    "ubicacion": "+TAB1"
+   },
+   "type": "add_device"
+  },
+  {
+   "id": "c17",
+   "params": {
+    "desde": "+TAB1",
+    "designacion": "-W1",
+    "hasta": "-M1",
+    "largo_m": 6.0,
+    "ref": "CABLE-4G1.5"
+   },
+   "type": "add_cable"
+  },
+  {
+   "id": "c18",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-G1:L1",
+     "-Q1:1"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c19",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-G1:L2",
+     "-Q1:3"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c20",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-G1:L3",
+     "-Q1:5"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c21",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:2",
+     "-Q2:1"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c22",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:4",
+     "-Q2:3"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c23",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:6",
+     "-Q2:5"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c24",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q2:2",
+     "-Q3:1"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c25",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q2:4",
+     "-Q3:3"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c26",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q2:6",
+     "-Q3:5"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c27",
+   "params": {
+    "cable": "-W1",
+    "hilo": "1",
+    "puntos": [
+     "-Q3:2",
+     "-M1:U1"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c28",
+   "params": {
+    "cable": "-W1",
+    "hilo": "2",
+    "puntos": [
+     "-Q3:4",
+     "-M1:V1"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c29",
+   "params": {
+    "cable": "-W1",
+    "hilo": "3",
+    "puntos": [
+     "-Q3:6",
+     "-M1:W1"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c30",
+   "params": {
+    "cable": "-W1",
+    "hilo": "PE",
+    "puntos": [
+     "-X0:2",
+     "-M1:PE"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c31",
+   "params": {
+    "color": "GNYE",
+    "puntos": [
+     "-G1:PE",
+     "-X0:1"
+    ],
+    "seccion_mm2": 4
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c32",
+   "params": {
+    "color": "GNYE",
+    "puntos": [
+     "-X0:1",
+     "-X0:2"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c33",
+   "params": {
+    "color": "GNYE",
+    "puntos": [
+     "-X0:1",
+     "-T1:PE"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c34",
+   "params": {
+    "color": "GNYE",
+    "puntos": [
+     "-X0:1",
+     "-U1:PE"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c35",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:2",
+     "-F1:1"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c36",
+   "params": {
+    "color": "BK",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q1:4",
+     "-F1:3"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c37",
+   "params": {
+    "color": "BK",
+    "puntos": [
+     "-F1:2",
+     "-T1:L"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c38",
+   "params": {
+    "color": "BK",
+    "puntos": [
+     "-F1:4",
+     "-T1:N"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c39",
+   "params": {
+    "color": "GNYE",
+    "puntos": [
+     "-T1:M",
+     "-X0:1"
+    ]
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c40",
+   "params": {
+    "color": "BU",
+    "largo_m": 1.0,
+    "puntos": [
+     "-T1:L+",
+     "-S0:11",
+     "-Q3A:53"
+    ],
+    "seccion_mm2": "0.75"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c41",
+   "params": {
+    "color": "BU",
+    "largo_m": 1.0,
+    "puntos": [
+     "-S0:12",
+     "-S1:11"
+    ],
+    "seccion_mm2": "0.75"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c42",
+   "params": {
+    "color": "BU",
+    "largo_m": 1.0,
+    "puntos": [
+     "-S1:12",
+     "-S2:13",
+     "-Q3:13"
+    ],
+    "seccion_mm2": "0.75"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c43",
+   "params": {
+    "color": "BU",
+    "largo_m": 1.0,
+    "puntos": [
+     "-S2:14",
+     "-Q3:14",
+     "-Q3:A1"
+    ],
+    "seccion_mm2": "0.75"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c44",
+   "params": {
+    "color": "BU",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q3:A2",
+     "-T1:M"
+    ],
+    "seccion_mm2": "0.75"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c45",
+   "params": {
+    "color": "BU",
+    "largo_m": 1.0,
+    "puntos": [
+     "-Q3A:54",
+     "-P1:X1"
+    ],
+    "seccion_mm2": "0.75"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c46",
+   "params": {
+    "color": "BU",
+    "largo_m": 1.0,
+    "puntos": [
+     "-P1:X2",
+     "-T1:M"
+    ],
+    "seccion_mm2": "0.75"
+   },
+   "type": "add_wire"
+  },
+  {
+   "id": "c47",
+   "params": {
+    "color": "BK",
+    "largo_m": "=L",
+    "puntos": [
+     "-Q1:2",
+     "-Q2:1"
+    ],
+    "tipo": "COND-H07VK-2.5"
+   },
+   "type": "add_wire"
+  }
+ ],
+ "firmas": [
+  "e636a21f06383d1b4d9e1031d5f767062179f2e5",
+  "43a0dfafc47d59e6c175d579c3b617bd7624735e"
+ ]
+}

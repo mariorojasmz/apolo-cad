@@ -14,8 +14,9 @@ está mal cableado):
   - ERC (`library/electrico/erc.py`, a pedido): cortocircuitos, tensiones cruzadas, motores
     sin protección, tierra, bornes sueltos, colores, seta.
 
-Orden: dispositivos, cables, conductores y después programas (V8.3 D3, `electrico_programa`),
-cada grupo en el orden del log. Un conductor o un programa puede nombrar un dispositivo
+Orden: dispositivos, cables, conductores, programas (V8.3 D3, `electrico_programa`) y tubos de
+aire (V8.9 D1, `neumatica_eval`, que también arma los dispositivos neumáticos), cada grupo en
+el orden del log. Un conductor o un programa puede nombrar un dispositivo
 declarado más ADELANTE en el log: el carril se evalúa entero.
 """
 
@@ -39,6 +40,7 @@ from apolo.library.electrico.referencias import (
     sufijo_sugerencia,
 )
 
+from . import neumatica_eval
 from .electrico_programa import programa
 
 PUENTE = "puente"
@@ -89,6 +91,12 @@ def _dispositivo(entrada: dict, escena: dict, catalogo) -> Dispositivo:
     if comp is None:
         raise ValueError(f"la ref {p.ref} no está en el catálogo."
                          f"{_sugerir_ref(p.ref, catalogo, lambda e: e.conductor is None)}")
+    if neumatica_eval.es_neumatico(comp):  # V8.9 D1: el aire en el mismo carril
+        return neumatica_eval.dispositivo(entrada, comp, _pieza(p.pieza, p.ref, escena) if p.pieza else None)
+    if comp.neumatico is not None:
+        raise ValueError(f"{p.ref} es un tubo de aire: decláralo con add_tubo (desde/hasta por puerto)")
+    if getattr(p, "servicio", None) is not None:
+        raise ValueError(f"`servicio` sólo va en un cilindro; {p.ref} es eléctrico: quítalo")
     ficha = comp.electrico
     if ficha is None:
         raise ValueError(f"{p.ref} es una pieza mecánica, sin ficha eléctrica: elige una ref con "
@@ -235,7 +243,7 @@ def evaluar_carril(entradas: list[dict], escena: dict, variables: dict, fallo) -
     eléctrico evaluado. Cada problema va por `fallo` y la entrada queda fuera."""
     catalogo = _catalogo()
     por_tipo: dict[str, list[dict]] = {"add_device": [], "add_cable": [], "add_wire": [],
-                                       "add_program": []}
+                                       "add_program": [], "add_tubo": []}
     for e in entradas:
         if e["type"] in por_tipo:
             por_tipo[e["type"]].append(e)
@@ -295,5 +303,11 @@ def evaluar_carril(entradas: list[dict], escena: dict, variables: dict, fallo) -
             continue
         ya[prog.plc] = e["id"]
         programas.append(prog)
+    tubos = []  # V8.9 D1: el circuito de aire, al final (nombra dispositivos de todo el carril)
+    for e in por_tipo["add_tubo"]:
+        try:
+            tubos.append(neumatica_eval.tubo(e, dispositivos, catalogo))
+        except ValueError as exc:
+            fallo(e, str(exc))
     return ModeloElectrico(tuple(dispositivos.values()), tuple(conductores),
-                           tuple(cables.values()), tuple(programas))
+                           tuple(cables.values()), tuple(programas), tuple(tubos))

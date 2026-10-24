@@ -51,6 +51,10 @@ def aparatos_desde_catalogo(dispositivos: list[Mapping], catalogo: Mapping, *,
     for d in dispositivos:
         des, ref = str(d.get("designacion") or ""), str(d.get("ref") or "")
         comp = catalogo.get(ref)
+        if comp is not None and getattr(comp, "neumatico", None) is not None:  # V8.9 D6
+            raise ColocacionError(f"{des} ({ref}) es neumático: las válvulas y el aire no van dentro del "
+                                  "tablero eléctrico (mezclaría aire y electricidad en el gabinete); van en la "
+                                  "máquina o en un panel neumático propio: cámbiale la `ubicacion`")
         if comp is None or comp.electrico is None:
             electricos = [r for r, c in catalogo.items() if c.electrico is not None]
             raise ColocacionError(f"{des}: «{ref}» no es una ref eléctrica del catálogo."

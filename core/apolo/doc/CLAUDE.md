@@ -45,7 +45,8 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
 - **Carril** (`carril.py`, `kind="electrico"`): sus comandos no entran a `_cmd_sig` y no ocupan
   índice. Firmas y checkpoints se cuentan sobre los comandos de ESCENA: quien los lea usa
   `carril.n_escena` o `len(_regen_sigs)`, nunca `len(commands)` ni `k-1`. Un problema del
-  evaluador va por `fallo(entrada, msg)`, nunca un `raise` propio.
+  evaluador va por `fallo(entrada, msg)`, nunca un `raise` propio. El aire (V8.9: `add_tubo`,
+  `add_device` neumático) es el MISMO `kind`: no hay un carril por medio.
   [V8.1](../../../docs/plans/V8.1-modelo-electrico.md)
 - **Un comando de escena que LEE el carril** (`CommandSpec.lee_carril`, V8.5 D1): las firmas
   salen de `carril.firmas(escena, carril)` (`cmd_sig` = la `_cmd_sig` histórica, re-exportada);

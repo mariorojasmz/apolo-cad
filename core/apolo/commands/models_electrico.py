@@ -24,13 +24,19 @@ from apolo.library.electrico.referencias import (
     sufijo_sugerencia,
 )
 
+from .models_neumatica import ServicioCilindro
+
 _UBICACION = r"^\+?[A-Za-z0-9_.]*$"
 
 
 def _refs_dispositivo() -> list[str]:
+    """Las refs que se declaran con add_device: las eléctricas que no son conductor y, desde
+    V8.9 D1, las neumáticas que no son tubo (cilindros, válvulas, FRL, corte)."""
     from apolo.library.catalog import CATALOG
 
-    return [r for r, c in CATALOG.items() if c.electrico is not None and c.electrico.conductor is None]
+    return [r for r, c in CATALOG.items()
+            if (c.electrico is not None and c.electrico.conductor is None)
+            or (c.neumatico is not None and c.neumatico.tubo is None)]
 
 
 def _refs_cable() -> list[str]:
@@ -84,7 +90,19 @@ class AddDeviceParams(BaseModel):
       ({"conexion": "triangulo"}).
     - `cantidad`: sólo en una bornera: cuántos bornes (quedan «1»…«N»).
     La red de suministro también es un dispositivo (RED-3F-220V-60HZ, designación «-G1»): es la
-    fuente de L1/L2/L3/PE y la BOM no la compra. Revisa con electrical_check."""
+    fuente de L1/L2/L3/PE y la BOM no la compra. Revisa con electrical_check.
+
+    El circuito de AIRE va en el mismo carril (V8.9): cilindros, electroválvulas, la unidad de
+    mantenimiento (FRL) y la válvula de corte con escape también son add_device (categorías
+    cilindros_neumaticos, valvulas_neumaticas, aire_comprimido; sus puertos en get_catalog →
+    `neumatico.puertos`), con designación de DOS letras: -MM cilindro, -QM válvula, -AZ FRL.
+    Sus puertos se unen con add_tubo; una electroválvula además tiene sus bobinas como bornes
+    (A1/A2 con una bobina; 14A1/14A2 y 12A1/12A2 con dos), que se cablean con add_wire.
+    - `ajustes` del aire: la presión regulada del FRL ({"p_regulada_bar": 6}), dentro del rango
+      de su ficha.
+    - `servicio`: sólo en un cilindro, lo que tiene que hacer: {carrera_mm, velocidad_m_s,
+      masa_kg, fuerza_N, caso_euler, largo_libre_mm}; con él el ERC revisa el pandeo del
+      vástago, la energía al fin de carrera y si el caudal de la válvula da la velocidad."""
 
     ref: str = Field(
         ..., title="Referencia",
@@ -109,6 +127,10 @@ class AddDeviceParams(BaseModel):
     cantidad: int | None = Field(
         None, ge=1, le=500, title="Cantidad de bornes",
         description="sólo en una bornera: cuántos bornes lleva",
+    )
+    servicio: ServicioCilindro | None = Field(
+        None, title="Servicio del cilindro",
+        description="sólo en un cilindro (V8.9): carrera, velocidad, masa y montaje que el ERC revisa",
     )
 
     _v_designacion = field_validator("designacion")(_designacion)

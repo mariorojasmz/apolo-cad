@@ -96,9 +96,19 @@ class Dispositivo:
     #: ajustes que no declaró el `add_device` y salieron de la pieza ligada (V8.3 F6), con su
     #: origen: {clave: «del nombre de la pieza c682 (…)»}. Ya están en `ajustes`.
     deducidos: dict = field(default_factory=dict)
+    #: V8.9 D1: el lado de AIRE del mismo dispositivo (un cilindro, un FRL, una electroválvula,
+    #: que además tiene sus bornes A1/A2): los puertos de su ficha (`neumatica.ficha.Puerto`), la
+    #: ficha neumática entera (`FichaNeumatica`, copiada: el ERC no consulta el catálogo) y lo que
+    #: el `add_device.servicio` declara del trabajo de un cilindro. Vacíos en lo eléctrico puro.
+    puertos: tuple = ()
+    neumatico: object = None
+    servicio: dict = field(default_factory=dict)
 
     def borne(self, borne_id: str) -> Borne | None:
         return next((b for b in self.bornes if b.id == borne_id), None)
+
+    def puerto(self, puerto_id: str):
+        return next((p for p in self.puertos if p.id == puerto_id), None)
 
     @property
     def ids_bornes(self) -> tuple[str, ...]:
@@ -174,11 +184,33 @@ class Programa:
 
 
 @dataclass(frozen=True)
+class Tubo:
+    """Un tubo de aire (`add_tubo`, V8.9 D1) entre dos PUERTOS, en la forma canónica
+    «<designación>:<puerto>» («-QM1:4» → «-MM1:A»), con los Ø de su ficha y el largo DECLARADO
+    (la BOM compra por metro; sin él, la fila sale sin largo)."""
+
+    desde: str
+    hasta: str
+    ref: str
+    D_ext_mm: float | None = None
+    D_int_mm: float | None = None
+    largo_m: float | None = None
+    id: str | None = None
+    p_max_bar: float | None = None  # de la ficha del tubo (manométrica, a 20 °C)
+
+    @property
+    def etiqueta(self) -> str:
+        return f"{self.desde} → {self.hasta}"
+
+
+@dataclass(frozen=True)
 class ModeloElectrico:
     dispositivos: tuple[Dispositivo, ...] = ()
     conductores: tuple[Conductor, ...] = ()
     cables: tuple[Cable, ...] = ()
     programas: tuple[Programa, ...] = ()
+    #: V8.9 D1: los tubos del circuito de aire, en el MISMO carril (una numeración IEC 81346)
+    tubos: tuple[Tubo, ...] = ()
 
 
 @dataclass(frozen=True)
