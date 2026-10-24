@@ -4,16 +4,17 @@ import IconoSeveridad from "../diseno/IconoSeveridad";
 import ItemsAtencion from "../diseno/ItemsAtencion";
 import { cifra } from "../diseno/cifra";
 import VerDetalle from "../ui/VerDetalle";
-import type { ConductorTablero, PanelTableroOut } from "./tipos";
+import type { CableTablero, ConductorTablero, PanelTableroOut } from "./tipos";
 import {
-  conductoresListados, itemsDeAtencion, largoConductor, perdidasDeclaradas, puntosDe, rotuloConductor, type AccionesTablero,
+  cablesListados, conductoresListados, itemsDeAtencion, largoCable, largoConductor, partesCable, perdidasDeclaradas,
+  puntosDe, rotuloConductor, supuestosDe, type AccionesTablero,
 } from "./vista";
 
 /* El «Detalle» del panel «Tablero» (plan V8.5 D13): lo que está bien, los conductores con su largo
    (clic → su recorrido en el 3D), las canaletas con su llenado, los aparatos y el calentamiento,
    que sigue sin evaluar. Sólo se ve a pedido; cada fila que señala algo encuadra su pieza. */
 
-/** Cuántos conductores se ven antes de «Ver los N». */
+/** Cuántos conductores se ven antes de «Ver N más». */
 const VISIBLES = 8;
 
 interface Props {
@@ -28,6 +29,7 @@ interface Props {
 export default function DetalleTablero({ panel, acciones, conductor, filtro, quitarFiltro }: Props) {
   const d = panel.detalle;
   if (!d) return null;
+  const supuestos = supuestosDe(panel);
   return (
     <div className="tb-detalle">
       {d.bien.length > 0 && (
@@ -36,6 +38,7 @@ export default function DetalleTablero({ panel, acciones, conductor, filtro, qui
         </Seccion>
       )}
       <Conductores panel={panel} acciones={acciones} conductor={conductor} filtro={filtro} quitarFiltro={quitarFiltro} />
+      <Cables panel={panel} acciones={acciones} conductor={conductor} filtro={filtro} quitarFiltro={quitarFiltro} />
       <Seccion titulo="Canaletas">
         <ul className="tb-filas">
           {d.canaletas.map((k, i) => (
@@ -63,25 +66,29 @@ export default function DetalleTablero({ panel, acciones, conductor, filtro, qui
         </p>
         <p className="tb-nota">{perdidasDeclaradas(d.calentamiento.perdidas_W, d.calentamiento.sin_dato)}</p>
       </Seccion>
-      {d.supuestos.length > 0 && (
+      {supuestos.length > 0 && (
         <VerDetalle resumen="Supuestos del recorrido">
-          <ul>{d.supuestos.map((s) => <li key={s}>{s}</li>)}</ul>
+          <ul>{supuestos.map((s) => <li key={s}>{s}</li>)}</ul>
         </VerDetalle>
       )}
     </div>
   );
 }
 
-function Conductores({ panel, acciones, conductor, filtro, quitarFiltro }: Omit<Props, "panel"> & { panel: PanelTableroOut }) {
+/** Elegir una fila con recorrido: lo dibuja y el encuadre lo muestra entero; otra vez, lo quita. */
+function alternar(acciones: AccionesTablero, conductor: string | null, c: ConductorTablero | CableTablero) {
+  const otro = conductor === c.id ? null : c.id;
+  acciones.dibujar(otro);
+  if (otro) acciones.encuadrar(c.piezas, puntosDe(c.recorrido));
+}
+
+function Conductores({ panel, acciones, conductor, filtro, quitarFiltro }: Props) {
   const [todos, setTodos] = useState(false);
   const lista = conductoresListados(panel, filtro);
   const total = panel.detalle?.conductores.length ?? 0;
   const vistos = todos || filtro ? lista : lista.slice(0, VISIBLES);
-  const elegir = (c: ConductorTablero) => {
-    const otro = conductor === c.id ? null : c.id;
-    acciones.dibujar(otro);
-    if (otro) acciones.encuadrar(c.piezas, puntosDe(c.recorrido));
-  };
+  if (filtro && !lista.length) return null; // el ítem elegido sólo toca cables de campo
+  const elegir = (c: ConductorTablero) => alternar(acciones, conductor, c);
   return (
     <Seccion titulo={filtro ? `Conductores · ${lista.length} de ${total}` : `Conductores · ${total}`}>
       <ul className="tb-filas">
@@ -96,7 +103,32 @@ function Conductores({ panel, acciones, conductor, filtro, quitarFiltro }: Omit<
         <button type="button" className="tb-enlace" onClick={quitarFiltro}>Ver los {total} conductores</button>
       )}
       {!filtro && !todos && lista.length > VISIBLES && (
-        <button type="button" className="tb-enlace" onClick={() => setTodos(true)}>Ver los {lista.length}</button>
+        <button type="button" className="tb-enlace" onClick={() => setTodos(true)}>Ver {lista.length - VISIBLES} más</button>
+      )}
+    </Seccion>
+  );
+}
+
+/** Los cables de campo que salen del tablero: su largo (dentro + afuera + reserva); clic → su
+   recorrido en el 3D, entero en el encuadre. */
+function Cables({ panel, acciones, conductor, filtro, quitarFiltro }: Props) {
+  const total = panel.detalle?.cables?.length ?? 0;
+  const lista = cablesListados(panel, filtro);
+  if (!total || (filtro && !lista.length)) return null;
+  const sinConductores = !!filtro && !conductoresListados(panel, filtro).length;
+  return (
+    <Seccion titulo={filtro && lista.length < total ? `Cables de campo · ${lista.length} de ${total}` : `Cables de campo · ${total}`}>
+      <ul className="tb-filas">
+        {lista.map((c) => (
+          <li key={c.id}>
+            <Fila principal={c.designacion} secundario={c.nombre} bajo={partesCable(c) || undefined}
+              cifra={largoCable(c)} elegida={conductor === c.id}
+              onClick={c.recorrido?.length || c.piezas.length ? () => alternar(acciones, conductor, c) : undefined} />
+          </li>
+        ))}
+      </ul>
+      {sinConductores && lista.length < total && (
+        <button type="button" className="tb-enlace" onClick={quitarFiltro}>Ver los {total} cables</button>
       )}
     </Seccion>
   );

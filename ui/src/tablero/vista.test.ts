@@ -114,8 +114,8 @@ describe("la vista del panel", () => {
 
   it("arriba el veredicto, los ítems como botones, la puerta y el detalle plegado", () => {
     const html = renderToStaticMarkup(h(VistaTablero, { ...props, panel: PANEL_CON_FALLAS, puerta }));
-    expect(html).toContain("1 cosa por corregir y 3 por revisar");
-    expect(html).toContain("Gabinete de 500 × 400 mm");
+    expect(html).toContain("1 cosa por corregir y 4 por revisar");
+    expect(html).toContain("Caja de 500 × 400 mm");
     expect(html.match(/class="ia-fila"/g)).toHaveLength(PANEL_CON_FALLAS.items.length);
     expect(html).toContain("112 %");
     expect(html).toContain(">Abrir<");

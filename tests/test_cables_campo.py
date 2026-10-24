@@ -9,6 +9,8 @@ aparato, su largo en la BOM y que no toque lo que gira.
 - El ERC: el cable que toca el tambor es error; el declarado que difiere, aviso (la regla de F2);
   el extremo sin pieza, aviso.
 - D12: el recorrido se calcula al LEER: editar `por` no re-ejecuta el layout.
+- F4b: el panel «Tablero» lista el cable con su largo y avisa lo que toca lo que gira o quedó
+  incompleto, leyendo la misma `vista`.
 """
 
 from __future__ import annotations
@@ -192,8 +194,49 @@ def test_el_circuito_y_el_visor_publican_el_recorrido(piloto):
     assert v["extremos"][0]["tipo"] == "tablero" and v["extremos"][1]["designacion"] == "-M1"
 
 
+def test_el_panel_del_tablero_lista_el_cable_con_su_largo(piloto):
+    """F4b: el panel lee `vista` (no recalcula): el largo y sus partes, el recorrido como UN tramo
+    y, sin choques, «no tocan lo que gira» en lo que cumple; sin recorridos (get_circuit), sin él."""
+    from apolo.services.cables_campo import vista
+    from apolo.services.tablero_panel import panel, paneles
+
+    (v,) = vista(piloto)
+    p = panel(piloto, "+TAB1")
+    (w1,) = p["detalle"]["cables"]
+    assert w1["id"] == v["comando"] and w1["designacion"] == "-W1" and w1["largo_m"] == v["largo_m"]
+    assert sum(w1["partes_m"].values()) == pytest.approx(w1["largo_m"], abs=2e-3)
+    assert w1["partes_m"]["reserva"] == 0.3 and w1["recorrido"] == [v["puntos"]] and w1["piezas"] == []
+    assert not any(it["clave"].startswith("cable") for it in p["items"])
+    giro = next(it for it in p["detalle"]["bien"] if it["clave"] == "cables-giro")
+    assert giro["conductores"] == [v["comando"]] and "10 mm" in giro["detalle"]
+    assert p["veredicto"]["frase"] == "2 cosas por revisar"  # lo de la piloto, sin sumar nada
+    (sin,) = paneles(piloto)
+    assert "recorrido" not in sin["detalle"]["cables"][0]
+
+
+def test_el_panel_avisa_el_cable_que_toca_o_roza_lo_que_gira():
+    """Un ítem por cable, con las piezas que gira (la cámara vuela) y el cable como conductor (se
+    dibuja); la frase es para la persona y el texto del ERC va en `tecnico`."""
+    from apolo.services.tablero_panel import panel
+
+    p = panel(_doc(por=["c1", "c2", EJE_TAMBOR]), "+TAB1")
+    it = next(x for x in p["items"] if x["clave"].startswith("cable-giro-"))
+    assert it["severidad"] == "falla" and it["frase"] == "El cable -W1 toca una pieza que gira"
+    assert it["piezas"] == ["c3"] and it["conductores"] == [p["detalle"]["cables"][0]["id"]]
+    assert "valor" not in it and "edit_command" in it["tecnico"] and "edit_command" not in it["detalle"]
+    assert p["detalle"]["cables"][0]["piezas"] == ["c3"]
+    assert p["veredicto"]["severidad"] == "falla" and p["items"][0] is it
+    z = 800 + 50 + 4.9 + 6
+    p = panel(_doc(por=["c1", "c2", {"x": 3600, "y": -200, "z": z}, {"x": 3950, "y": -200, "z": z}]), "+TAB1")
+    it = next(x for x in p["items"] if x["clave"].startswith("cable-giro-"))
+    assert it["severidad"] == "aviso" and (it["valor"], it["unidad"]) == (6.0, "mm")
+    assert "Pasa a 6 mm de «Tambor motriz»" in it["detalle"]
+    assert not any(x["clave"] == "cables-giro" for x in p["detalle"]["bien"])
+
+
 def test_un_extremo_sin_pieza_termina_en_el_ultimo_paso_y_avisa():
     from apolo.services.electrico import reglas_erc
+    from apolo.services.tablero_panel import panel
 
     d = _doc(por=["c1", "c2"], pieza_motor=False)
     c = _w1(d)
@@ -201,6 +244,29 @@ def test_un_extremo_sin_pieza_termina_en_el_ultimo_paso_y_avisa():
     assert any("termina en el paso" in s for s in c.supuestos)
     (fila,) = [r for r in reglas_erc(d) if r["regla"] == "cable de campo incompleto"]
     assert "-M1 no está ligado a una pieza" in fila["detalle"]
+    # el panel: UN ítem con la cuenta, el mismo texto del ERC en `tecnico`
+    p = panel(d, "+TAB1")
+    it = next(x for x in p["items"] if x["clave"] == "cables-incompletos")
+    assert it["valor"] == 1 and it["conductores"] == [c.id] and it["tecnico"] == fila["detalle"]
+    assert "add_device" not in it["frase"] + it["detalle"]
+    assert p["detalle"]["cables"][0]["incompleto"]
+
+
+def test_el_panel_cuenta_solo_los_cables_de_su_tablero():
+    from apolo.services.tablero_cables import del_tablero, filas_detalle, items
+
+    filas = [{"comando": "c9", "designacion": "-W9", "ref": "CABLE-5G1", "calculado": False, "motivo": "interno",
+              "extremos": [{"lado": "desde", "tipo": "tablero", "ubicacion": "+TAB1"}]},
+             {"comando": "c8", "designacion": "-W8", "ref": "CABLE-5G1", "calculado": False, "motivo": "x",
+              "extremos": [{"lado": "desde", "tipo": "aparato", "designacion": "-B1"}]}]
+    (f,) = del_tablero(filas, "+TAB1")
+    assert f["comando"] == "c9" and del_tablero(filas, "+TAB2") == []
+    atender, bien = items([f])
+    assert [x["clave"] for x in atender] == ["cables-incompletos"] and bien == []
+    (fila,) = filas_detalle([f], recorridos=True)
+    assert fila.pop("nombre")  # el nombre de catálogo, para la persona
+    assert fila == {"id": "c9", "designacion": "-W9", "ref": "CABLE-5G1", "calculado": False, "piezas": [],
+                    "incompleto": True}
 
 
 def test_un_cable_interno_no_se_calcula():
@@ -213,6 +279,7 @@ def test_un_cable_interno_no_se_calcula():
     d.execute_many(acc)
     (c,) = recorridos(d)
     assert not c.calculado and "cable interno" in c.motivo
+    assert [e["ubicacion"] for e in c.extremos] == ["+TAB1", "+TAB1"]  # el panel de su tablero lo ve
 
 
 # ── sin `por`, lo de siempre; D12; el carril ────────────────────────────────────────────

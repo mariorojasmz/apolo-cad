@@ -1,13 +1,15 @@
-import type { ConductorTablero, ItemTablero, PanelTableroOut } from "../../tablero/tipos";
+import type { CableTablero, ConductorTablero, ItemTablero, PanelTableroOut } from "../../tablero/tipos";
 
 /* Datos de EJEMPLO del panel «Tablero» (plan V8.5 F3b) con la forma exacta de
    `GET /api/tablero/{ubicacion}`, para el muestrario (revisión a ciegas, D14) y los tests de
    `tablero/`. Las cifras imitan la faja piloto (TABLERO-5040), recortada a 6 aparatos y 12
-   conductores para que el ejemplo sea coherente consigo mismo; las piezas son las del visor de ejemplo (`VueloDemo.tsx`: mm de su mundo, la puerta en −Y). */
+   conductores (y dos cables de campo, F4b) para que el ejemplo sea coherente consigo mismo; las piezas son las del visor de ejemplo (`VueloDemo.tsx`: mm de su mundo, la puerta en −Y). */
 
 const PIEZA = { canaletaArriba: "canaleta-h", canaletaAbajo: "canaleta-b", puerta: "puerta", gabinete: "fondo",
   variador: "variador", prensa: "prensaestopas", seta: "seta" } as const;
 const aparato = (i: number) => `aparato-${i}`;
+/** Lo que gira junto al larguero del visor de ejemplo. */
+const PIEZA_TAMBOR = "tambor";
 
 /** Un conductor de ejemplo: del borne de arriba de un aparato de la fila, por la canaleta de
    arriba, hasta el variador (en la columna de la izquierda). */
@@ -36,12 +38,36 @@ const CONDUCTORES: ConductorTablero[] = [
   conductor("c53", ["-K1:Q0.3", "-T2:DI3"], 5, 0.526),
 ];
 
+/** El largo de una polilínea (m). */
+const largoDe = (pts: number[][]) => pts.slice(1).reduce((s, p, i) => s + Math.hypot(...p.map((x, k) => x - pts[i][k])), 0) / 1000;
+
+/** Un cable de campo de ejemplo (F4b): sale por el prensaestopas del lateral derecho, baja por la
+   pata, corre por el larguero y llega a su aparato (la estructura del visor de ejemplo). */
+function cable(id: string, designacion: string, ref: string, nombre: string, adentro: number, puntos: number[][],
+  extra: Partial<CableTablero> = {}): CableTablero {
+  const afuera = Math.round(largoDe(puntos) * 1000) / 1000;
+  const reserva = 0.3;
+  return { id, designacion, ref, nombre, calculado: true, largo_m: Math.round((adentro + afuera + reserva) * 1000) / 1000,
+    partes_m: { adentro, afuera, reserva }, piezas: [], recorrido: [puntos], ...extra };
+}
+
+/** -W1, al motor: sano (a más de 10 mm de lo que gira). */
+const W1 = cable("c19", "-W1", "CABLE-4G2.5", "Cable flexible 4G2,5", 0.379, [
+  [246, -30, 70], [300, -30, 70], [670, -30, 80], [670, -30, 880], [700, -25, 900], [2650, -25, 900], [2700, -200, 950],
+]);
+
+/** -W2, al sensor del tambor: pasa sobre el tambor a 4 mm de su cara. */
+const W2 = cable("c20", "-W2", "CABLE-3X0.75", "Cable de sensor 3x0,75", 0.412, [
+  [246, -10, 70], [300, -10, 70], [670, -10, 80], [670, 25, 880], [700, 25, 1000], [2650, 25, 1000],
+  [2690, 25, 1016.5], [2810, 25, 1016.5], [2850, 25, 1016.5],
+], { piezas: [PIEZA_TAMBOR] });
+
 const it = (p: Partial<ItemTablero> & Pick<ItemTablero, "clave" | "severidad" | "frase">): ItemTablero =>
   ({ piezas: [], conductores: [], ...p });
 
 const CALOR = it({ clave: "calentamiento", severidad: "sin_evaluar", frase: "Falta evaluar el calentamiento",
   piezas: [PIEZA.gabinete],
-  detalle: "Todavía no lo calculamos: falta la norma IEC/TR 60890. No damos una cifra estimada." });
+  detalle: "Todavía no calculamos la temperatura dentro del tablero (IEC/TR 60890). No damos una cifra estimada." });
 
 /** Lo que miden los conductores del ejemplo dentro del tablero (m). */
 const TOTAL_M = CONDUCTORES.reduce((s, c) => s + c.ruteado_m, 0);
@@ -73,12 +99,12 @@ const BASE = {
   puerta: { junta: "c55_puerta", pieza: PIEZA.puerta, min_deg: 0, max_deg: 110, bisagra: "izquierda" },
 };
 
-const NOTA = "Gabinete de 500 × 400 mm · 6 aparatos · 12 conductores";
+const NOTA = "Caja de 500 × 400 mm · 6 aparatos · 12 conductores";
 
 /** Con cosas por atender: una canaleta que no da, otra llena, largos a mano y un conductor suelto. */
 export const PANEL_CON_FALLAS: PanelTableroOut = {
   ...BASE,
-  veredicto: { severidad: "falla", frase: "1 cosa por corregir y 3 por revisar", nota: NOTA },
+  veredicto: { severidad: "falla", frase: "1 cosa por corregir y 4 por revisar", nota: NOTA },
   items: [
     it({ clave: "canaleta-1", severidad: "falla", frase: "Los conductores no entran en la canaleta de abajo", valor: 112,
       unidad: "%", piezas: [PIEZA.canaletaAbajo], conductores: ["c41", "c42", "c51", "c52", "c53"],
@@ -93,10 +119,15 @@ export const PANEL_CON_FALLAS: PanelTableroOut = {
     it({ clave: "sin-cable", severidad: "aviso", frase: "Conductor que sale del tablero sin ir dentro de un cable", valor: 1,
       piezas: [aparato(0), PIEZA.prensa], conductores: ["c22"],
       detalle: "Afuera del tablero un conductor suelto no está protegido: pídele al agente que lo lleve dentro de un cable." }),
+    it({ clave: "cable-giro-c20", severidad: "aviso", frase: "El cable -W2 pasa muy cerca de una pieza que gira", valor: 4,
+      unidad: "mm", piezas: [PIEZA_TAMBOR], conductores: [W2.id],
+      detalle: "Pasa a 4 mm de «Tambor motriz»; pedimos al menos 10 mm. Pídele al agente que lo lleve por la estructura, lejos de lo que gira.",
+      tecnico: "-W2 (CABLE-3X0.75, Ø5) pasa a 4 mm de «Tambor motriz» (tambor), que gira o se mueve, en el tramo 7 de su recorrido; la holgura mínima es 10 mm." }),
     CALOR,
   ],
   detalle: {
     ...DETALLE,
+    cables: [W1, W2],
     bien: BIEN,
     canaletas: [
       { nombre: "Canaleta de arriba", pieza: PIEZA.canaletaArriba, orientacion: "h", llenado: 0.64, ocupado_mm2: 484, util_mm2: 756, conductores: 4 },
@@ -113,8 +144,11 @@ export const PANEL_EN_ORDEN: PanelTableroOut = {
   detalle: {
     ...DETALLE,
     conductores: CONDUCTORES.map((c) => ({ ...c, origen: "ruteo" as const, largo_m: c.ruteado_m, declarado_m: undefined, sale: undefined })),
+    cables: [W1],
     bien: [...BIEN, it({ clave: "canaletas", severidad: "bien", frase: "La canaleta más llena", valor: 13, unidad: "%",
-      piezas: [PIEZA.canaletaArriba], detalle: "Es la canaleta de arriba; el tope es 50 %." })],
+      piezas: [PIEZA.canaletaArriba], detalle: "Es la canaleta de arriba; el tope es 50 %." }),
+    it({ clave: "cables-giro", severidad: "bien", frase: "Los cables de campo no tocan lo que gira", conductores: [W1.id],
+      detalle: "Ninguno pasa a menos de 10 mm de una pieza que gira." })],
     canaletas: [
       { nombre: "Canaleta de arriba", pieza: PIEZA.canaletaArriba, orientacion: "h", llenado: 0.135, ocupado_mm2: 102, util_mm2: 756, conductores: 12 },
       { nombre: "Canaleta de abajo", pieza: PIEZA.canaletaAbajo, orientacion: "h", llenado: 0.036, ocupado_mm2: 27, util_mm2: 756, conductores: 2 },

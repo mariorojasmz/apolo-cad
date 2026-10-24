@@ -19,17 +19,20 @@ DÓNDE (los ids de las piezas que encuadra la cámara).
   largo y, con `recorridos`, su recorrido en coordenadas de MUNDO (mm; una polilínea por tramo,
   con la puerta cerrada); el calentamiento SIN EVALUAR (F3 espera las curvas de IEC/TR 60890:
   nunca un número inventado) con las pérdidas declaradas, que sí son dato.
+- Los cables de CAMPO que salen del tablero (F4b): sus ítems, lo que cumple y su fila del detalle
+  (`cables`) salen de `cables_campo.vista` contados por `tablero_cables.py`; aquí no se recalculan.
 """
 
 from __future__ import annotations
 
+from . import tablero_cables
 from .errors import ServiceError
 from .tablero import LAYOUT, layouts, pieza_canaleta, ruteos
 
 FRASE_BIEN = "El tablero cumple"
 #: lo único que queda es «sin evaluar» (el calentamiento, hasta F3): cumple lo que se revisó
 FRASE_PARCIAL = "El tablero cumple lo que revisamos"
-MOTIVO_CALOR = "Todavía no lo calculamos: falta la norma IEC/TR 60890. No damos una cifra estimada."
+MOTIVO_CALOR = "Todavía no calculamos la temperatura dentro del tablero (IEC/TR 60890). No damos una cifra estimada."
 NBSP = " "  # entre una cifra y su unidad: la línea no los separa
 PESO = {"falla": 0, "aviso": 1, "sin_evaluar": 2, "bien": 3}
 
@@ -126,7 +129,7 @@ def _a_mundo(t):
 # ── el panel ──────────────────────────────────────────────────────────────────────────────
 
 
-def _item(clave, severidad, frase, *, valor=None, unidad="", decimales=0, piezas=(), conductores=(),
+def item(clave, severidad, frase, *, valor=None, unidad="", decimales=0, piezas=(), conductores=(),
           detalle=None, tecnico=None) -> dict:
     """`detalle`: una frase para la persona; `tecnico`: el texto crudo (va plegado en la UI)."""
     return {"clave": clave, "severidad": severidad, "frase": frase,
@@ -144,15 +147,15 @@ def _items(doc, t, piezas: dict[str, str]) -> tuple[list[dict], list[dict]]:
     rec = (doc.joints.get(f"{cid}_puerta") or {}).get("recorrido") or {}
     puerta = [f"{cid}_puerta"]
     if rec.get("choques"):
-        atender.append(_item("puerta", "falla", "La puerta choca al abrir", valor=rec["choques"], piezas=puerta))
+        atender.append(item("puerta", "falla", "La puerta choca al abrir", valor=rec["choques"], piezas=puerta))
     else:
-        bien.append(_item("puerta", "bien", "La puerta abre sin chocar", valor=rec.get("a_deg", 110.0),
+        bien.append(item("puerta", "bien", "La puerta abre sin chocar", valor=rec.get("a_deg", 110.0),
                           unidad="°", piezas=puerta,
                           detalle=f"Revisamos {rec.get('angulos_revisados', 0)} ángulos de su recorrido."))
     for ll in llenas(t):
         nombre = nombre_canaleta(t.layout, ll.canaleta)
         no_entran = ll.fraccion > 1.0
-        atender.append(_item(
+        atender.append(item(
             f"canaleta-{ll.canaleta}", "falla" if no_entran else "aviso",
             f"Los conductores no entran en la {nombre}" if no_entran else f"La {nombre} va muy llena",
             valor=round(ll.fraccion * 100), unidad="%", piezas=[t.canaletas.get(ll.canaleta)] if
@@ -161,13 +164,13 @@ def _items(doc, t, piezas: dict[str, str]) -> tuple[list[dict], list[dict]]:
                      f"conductores; el tope es {tope * 100:.0f} %.")))
     if t.ruteo.llenados and not llenas(t):
         peor = max(t.ruteo.llenados, key=lambda x: x.fraccion)
-        bien.append(_item("canaletas", "bien", "La canaleta más llena", valor=round(peor.fraccion * 100),
+        bien.append(item("canaletas", "bien", "La canaleta más llena", valor=round(peor.fraccion * 100),
                           unidad="%", piezas=[t.canaletas[peor.canaleta]] if t.canaletas.get(peor.canaleta) else [],
                           detalle=f"Es la {nombre_canaleta(t.layout, peor.canaleta)}; el tope es {tope * 100:.0f} %."))
     malos = declarados_que_no_cuadran(t)
     if malos:
         rutas = [r for r, _ in malos]
-        atender.append(_item(
+        atender.append(item(
             "largos", "aviso", _plural(len(rutas), "Conductor con un largo puesto a mano que no cuadra con su recorrido",
                                        "Conductores con un largo puesto a mano que no cuadra con su recorrido"),
             valor=len(rutas),
@@ -175,18 +178,18 @@ def _items(doc, t, piezas: dict[str, str]) -> tuple[list[dict], list[dict]]:
             detalle="La BOM compra el largo puesto a mano. Si nadie lo midió, pídele al agente que lo quite."))
     sueltos = salen_sin_cable(t)
     if sueltos:
-        atender.append(_item(
+        atender.append(item(
             "sin-cable", "aviso", _plural(len(sueltos), "Conductor que sale del tablero sin ir dentro de un cable",
                                           "Conductores que salen del tablero sin ir dentro de un cable"),
             valor=len(sueltos),
             piezas=sorted({f for r in sueltos for f in _extremos(r, piezas)}), conductores=[r.id for r in sueltos],
             detalle="Afuera del tablero un conductor suelto no está protegido: pídele al agente que lo lleve "
                     "dentro de un cable."))
-    atender.append(_item("calentamiento", "sin_evaluar", "Falta evaluar el calentamiento", detalle=MOTIVO_CALOR,
+    atender.append(item("calentamiento", "sin_evaluar", "Falta evaluar el calentamiento", detalle=MOTIVO_CALOR,
                          piezas=[f"{cid}_gabinete"]))
     total = sum(r.largo_mm for r in t.ruteo.rutas) / 1000.0
     if t.ruteo.rutas:
-        bien.append(_item("largo", "bien", "Conductores dentro del tablero", valor=round(total, 1), unidad="m",
+        bien.append(item("largo", "bien", "Conductores dentro del tablero", valor=round(total, 1), unidad="m",
                           decimales=1, detalle=f"{len(t.ruteo.rutas)} conductores con su recorrido por las canaletas."))
     return atender, bien
 
@@ -247,7 +250,7 @@ def _canaletas(t) -> list[dict]:
 def _sin_armar(doc, u: str, cid: str) -> dict:
     motivo = next((s.get("error") for s in getattr(doc, "regen_suppressed", []) or []
                    if s.get("command_id") == cid), None)
-    items = [_item("armado", "falla", "El tablero no se pudo armar",
+    items = [item("armado", "falla", "El tablero no se pudo armar",
                    detalle="Pídele al agente que revise el armado del tablero.", tecnico=motivo or None)]
     v = {"severidad": "falla", "frase": "No se pudo armar el tablero",
          "nota": "Pídele al agente que lo revise; el motivo está en el detalle técnico."}
@@ -270,15 +273,20 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
     if not fila["armado"]:
         return _sin_armar(doc, u, fila["comando"])
     m = modelo(doc)
-    t = next(x for x in ruteos(doc, m) if x.cid == fila["comando"])
+    todos = ruteos(doc, m)
+    t = next(x for x in todos if x.cid == fila["comando"])
     piezas = {d.designacion: d.pieza for d in m.dispositivos if d.ubicacion == u and d.pieza}
     piezas.update({k: v for k, v in dibujados(doc, m).items() if k not in piezas})
     atender, bien = _items(doc, t, piezas)
+    cables, sup_cables = _cables(doc, m, todos, u)
+    atender_c, bien_c = tablero_cables.items(cables)
+    atender += atender_c  # el orden por severidad (abajo) deja el calentamiento sin evaluar al final
+    bien += bien_c
     i = t.armado.interior
     comp = CATALOG.get(t.layout.gabinete)
     mundo = _a_mundo(t) if recorridos else None
     v = veredicto(atender)
-    v["nota"] = (f"Gabinete de {i.ancho:g}{NBSP}×{NBSP}{i.alto:g}{NBSP}mm · {len(t.layout.aparatos)}{NBSP}aparatos · "
+    v["nota"] = (f"Caja de {i.ancho:g}{NBSP}×{NBSP}{i.alto:g}{NBSP}mm · {len(t.layout.aparatos)}{NBSP}aparatos · "
                  f"{len(t.ruteo.rutas)}{NBSP}conductores")
     rec = (doc.joints.get(f"{t.cid}_puerta") or {})
     return {
@@ -298,10 +306,24 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
                          for a in t.layout.aparatos],
             "canaletas": _canaletas(t),
             "conductores": [_conductor(r, piezas, mundo) for r in t.ruteo.rutas],
+            "cables": tablero_cables.filas_detalle(cables, recorridos=recorridos),
             "calentamiento": _calentamiento(m, u),
-            "supuestos": list(t.supuestos) + list(t.ruteo.avisos),
+            "supuestos": list(t.supuestos) + list(t.ruteo.avisos) + sup_cables,
         },
     }
+
+
+def _cables(doc, m, todos, u: str) -> tuple[list[dict], list[str]]:
+    """(Las filas de `cables_campo.vista` de los cables que salen de `u`, supuestos). Un error del
+    cálculo no tumba el panel: queda dicho en los supuestos (el ERC lo da entero)."""
+    from apolo.commands.errors import CommandError
+
+    from .cables_campo import vista
+
+    try:
+        return tablero_cables.del_tablero(vista(doc, m, todos), u), []
+    except (CommandError, ValueError) as exc:
+        return [], [f"No pudimos calcular el recorrido de los cables de campo: {exc}"]
 
 
 def paneles(doc, *, recorridos: bool = False) -> list[dict]:

@@ -22,6 +22,7 @@
 .vd-nota {
   margin: 2px 0 0; color: var(--muted);
   font-size: var(--fs-nota); font-weight: var(--fw-nota); line-height: var(--lh-cuerpo);
+  text-wrap: balance; /* sin un renglón huérfano («12 conductores» solo) */
 }
 
 /* ------------------------------------------------------ ítems de atención */

@@ -36,6 +36,27 @@ export interface ConductorTablero {
   recorrido?: number[][][];
 }
 
+/** Un cable de CAMPO que sale del tablero (F4b): `services/tablero_cables.py` sobre
+   `cables_campo.vista`. Sin recorrido completo, `incompleto` (y sin largo si no se calculó). */
+export interface CableTablero {
+  /** El comando del cable: el mismo espacio de ids que los conductores (se dibuja igual). */
+  id: string;
+  designacion: string;
+  ref: string;
+  nombre?: string;
+  calculado: boolean;
+  /** Dentro + afuera + reserva. */
+  largo_m?: number;
+  partes_m?: { adentro: number; afuera: number; reserva: number };
+  declarado_m?: number;
+  supuestos?: string[];
+  incompleto?: boolean;
+  /** Lo que gira y toca o roza (la cámara las encuadra). */
+  piezas: string[];
+  /** UN tramo: la polilínea en mm de mundo, del tablero al aparato. */
+  recorrido?: number[][][];
+}
+
 export interface CanaletaTablero {
   nombre: string;
   pieza: string | null;
@@ -76,6 +97,8 @@ export interface PanelTableroOut {
     aparatos: AparatoTablero[];
     canaletas: CanaletaTablero[];
     conductores: ConductorTablero[];
+    /** Los cables de campo que salen de él (vacía sin `por`). */
+    cables?: CableTablero[];
     calentamiento: CalentamientoTablero;
     supuestos: string[];
   };

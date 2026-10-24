@@ -47,7 +47,8 @@ export async function cargarTablero(ubicacion?: string): Promise<void> {
     const panel = u ? await api.tablero(u) : null;
     if (n !== pedido) return;
     const conductor = useTablero.getState().conductor;
-    const sigue = !!conductor && !!panel?.detalle?.conductores.some((c) => c.id === conductor);
+    const d = panel?.detalle;
+    const sigue = !!conductor && !!(d?.conductores.some((c) => c.id === conductor) || d?.cables?.some((c) => c.id === conductor));
     useTablero.getState().set({ ubicaciones, ubicacion: u, panel, cargando: false, leido: true, error: null,
       conductor: sigue ? conductor : null });
   } catch (e) {

@@ -2,15 +2,27 @@ import * as THREE from "three";
 import { useTablero } from "./estado";
 import { recorridoDe } from "./vista";
 
-/* El recorrido de UN conductor en el 3D (plan V8.5 D13): un tubo fino por las canaletas, sólo
-   mientras está elegido en el panel «Tablero». Va en la escena, fuera del grupo de piezas: no se
+/* El recorrido de UN conductor (por las canaletas) o de UN cable de campo (del prensaestopas al
+   aparato, F4b) en el 3D (plan V8.5 D13): un tubo fino, sólo mientras está elegido en el panel
+   «Tablero». Va en la escena, fuera del grupo de piezas: no se
    elige con el clic, no oscurece la oclusión ambiental ni entra a la sombra. Se ve a través de la
    canaleta (sin prueba de profundidad): el 3D señala DÓNDE pasa; el estado vive en el panel, así
    que el color es el acento del tema, nunca uno de estado. */
 
-/** El grosor del tubo y de los extremos, en mm (un conductor de 1,5 mm² mide ≈ 3 mm). */
+/** El grosor mínimo del tubo, en mm (un conductor de 1,5 mm² mide ≈ 3 mm); los extremos, el doble. */
 const RADIO_MM = 1.6;
-const EXTREMO_MM = 3.2;
+/** Fracción de la diagonal del recorrido: un cable de campo de 4 m, encuadrado entero, se sigue
+   viendo como una línea fina en la pantalla (≈ 6 mm de radio) y no como un hilo de un píxel. */
+const RADIO_POR_DIAGONAL = 0.0015;
+
+/** El radio del tubo de un recorrido: fino en la pantalla sea cual sea su largo. */
+export function radioDelRecorrido(tramos: readonly (readonly (readonly number[])[])[]): number {
+  const pts = tramos.flat();
+  if (!pts.length) return RADIO_MM;
+  const lo = [0, 1, 2].map((i) => Math.min(...pts.map((p) => p[i])));
+  const hi = [0, 1, 2].map((i) => Math.max(...pts.map((p) => p[i])));
+  return Math.max(RADIO_MM, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) * RADIO_POR_DIAGONAL);
+}
 
 /** Un color del tema (`--accent`), leído del CSS; sin DOM, el respaldo. */
 export function colorDelTema(nombre: string, respaldo: string): string {
@@ -30,6 +42,7 @@ export function tuboDeRecorrido(tramos: readonly (readonly number[])[][], color:
   g.renderOrder = 10;
   const material = new THREE.MeshBasicMaterial({ color, depthTest: false, depthWrite: false, transparent: true, opacity: 0.95 });
   const sinRayo = () => {}; // el clic atraviesa el recorrido hasta la pieza
+  const radio = radioDelRecorrido(tramos);
   for (const tramo of tramos) {
     const pts = tramo.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
     const camino = new THREE.CurvePath<THREE.Vector3>();
@@ -37,12 +50,12 @@ export function tuboDeRecorrido(tramos: readonly (readonly number[])[][], color:
       if (pts[i].distanceTo(pts[i + 1]) > 1e-3) camino.add(new THREE.LineCurve3(pts[i], pts[i + 1]));
     }
     if (!camino.curves.length) continue;
-    const tubo = new THREE.Mesh(new THREE.TubeGeometry(camino, Math.max(8, camino.curves.length * 4), RADIO_MM, 8, false), material);
+    const tubo = new THREE.Mesh(new THREE.TubeGeometry(camino, Math.max(8, camino.curves.length * 4), radio, 8, false), material);
     tubo.raycast = sinRayo;
     tubo.renderOrder = 10;
     g.add(tubo);
     for (const p of [pts[0], pts[pts.length - 1]]) {
-      const bola = new THREE.Mesh(new THREE.SphereGeometry(EXTREMO_MM, 16, 12), material);
+      const bola = new THREE.Mesh(new THREE.SphereGeometry(radio * 2, 16, 12), material);
       bola.position.copy(p);
       bola.raycast = sinRayo;
       bola.renderOrder = 10;

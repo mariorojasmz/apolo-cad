@@ -70,17 +70,29 @@ export default function VueloDemo({ alListo, puntosIniciales }: {
     seta.userData.featureId = "seta";
     agregar(seta, bisagra);
     group.updateMatrixWorld(true);
+    // el tablero solo: el encuadre inicial y el contexto del vuelo (las capturas de antes no cambian)
+    const cajaTablero = new THREE.Box3().setFromObject(group);
+    // la estructura por la que van los cables de campo (F4b): pata, larguero, tambor que gira,
+    // el motor y el sensor del tambor (mm, a la derecha del tablero)
+    agregar(caja("pata", MATERIAL.canaleta, [60, 60, 900], [700, 0, 450]));
+    agregar(caja("larguero", MATERIAL.canaleta, [2000, 50, 100], [1700, 0, 950]));
+    const tambor = new THREE.Mesh(new THREE.CylinderGeometry(60, 60, 400, 48), MATERIAL.placa);
+    tambor.position.set(2750, 0, 950); // eje en Y
+    tambor.userData.featureId = "tambor";
+    agregar(tambor);
+    agregar(caja("motor", MATERIAL.aparato, [150, 200, 150], [2750, -300, 950]));
+    agregar(caja("sensor", MATERIAL.aparato, [50, 50, 50], [2875, 25, 1015]));
+    group.updateMatrixWorld(true);
 
     const vuelo = crearVueloCamara(camera, controls);
     pipe.antesDeComponer(vuelo.tick);
-    encuadrar(camera, controls, new THREE.Box3().setFromObject(group), [0.9, -1, 0.55]);
+    encuadrar(camera, controls, cajaTablero, [0.9, -1, 0.55]);
     pipe.arrancar();
 
     const destinoDe = (piezas: readonly string[], puntos: readonly (readonly number[])[] = []) => {
       let box = cajaDe(meshes, [...piezas]); // el mismo encuadre que `apolo:fit` con `animar`
       for (const [x, y, z] of puntos) box = (box ?? new THREE.Box3()).expandByPoint(new THREE.Vector3(x, y, z));
-      const modelo = new THREE.Box3().setFromObject(group);
-      return box ? destinoEncuadre(camera.position, controls.target, cajaConContexto(box, modelo)) : null;
+      return box ? destinoEncuadre(camera.position, controls.target, cajaConContexto(box, cajaTablero)) : null;
     };
     const ir = (piezas: readonly string[], puntos?: readonly (readonly number[])[]) => {
       seleccion.splice(0, seleccion.length, ...piezas);

@@ -67,7 +67,7 @@ def test_el_panel_de_la_piloto(piloto):
     assert p["armado"] and p["ubicacion"] == "+TAB1"
     assert p["veredicto"]["severidad"] == "aviso"
     assert p["veredicto"]["frase"] == "2 cosas por revisar"
-    assert p["veredicto"]["nota"] == "Gabinete de 500 × 400 mm · 12 aparatos · 33 conductores".replace(
+    assert p["veredicto"]["nota"] == "Caja de 500 × 400 mm · 12 aparatos · 33 conductores".replace(
         " × ", " × ").replace(" mm", " mm").replace("2 ap", "2 ap").replace("3 co", "3 co")
     assert [it["clave"] for it in p["items"]] == ["largos", "sin-cable", "calentamiento"]
     largos, sueltos, calor = p["items"]

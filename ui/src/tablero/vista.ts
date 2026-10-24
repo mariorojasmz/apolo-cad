@@ -1,7 +1,7 @@
 import type { ItemAtencion } from "../diseno/atencion";
 import { cifra } from "../diseno/cifra";
 import { MOV_NORMAL_MS, suave } from "../diseno/movimiento";
-import type { ConductorTablero, ItemTablero, PanelTableroOut } from "./tipos";
+import type { CableTablero, ConductorTablero, ItemTablero, PanelTableroOut } from "./tipos";
 
 /* La lógica pura del panel «Tablero» (plan V8.5 D13): de lo que manda el servidor a lo que se
    dibuja. Ninguna regla de ingeniería vive aquí (las decide `services/tablero_panel.py`): sólo
@@ -69,11 +69,46 @@ export function largoConductor(c: ConductorTablero): string {
   return cifra(c.largo_m, 2, "m");
 }
 
-/** El recorrido de un conductor para dibujarlo, o null (sin recorrido o sin conductor). */
+/** El recorrido de un conductor o de un cable de campo para dibujarlo (comparten los ids: son
+   comandos), o null (sin recorrido o sin elegido). */
 export function recorridoDe(panel: PanelTableroOut | null, id: string | null): number[][][] | null {
   if (!panel || !id) return null;
-  const c = panel.detalle?.conductores.find((x) => x.id === id);
+  const c = panel.detalle?.conductores.find((x) => x.id === id) ?? panel.detalle?.cables?.find((x) => x.id === id);
   return c?.recorrido?.length ? c.recorrido : null;
+}
+
+/** Los cables de campo del detalle: todos, o sólo los del ítem elegido. */
+export function cablesListados(panel: PanelTableroOut, filtro: readonly string[] | null): CableTablero[] {
+  const todos = panel.detalle?.cables ?? [];
+  if (!filtro || !filtro.length) return todos;
+  const quiero = new Set(filtro);
+  return todos.filter((c) => quiero.has(c.id));
+}
+
+/** El largo de un cable de campo («4,57 m»), o nada si no se calculó. */
+export function largoCable(c: CableTablero): string | undefined {
+  return c.largo_m === undefined ? undefined : cifra(c.largo_m, 2, "m");
+}
+
+/** La segunda línea de un cable: de qué sale su largo, el puesto a mano o que está incompleto. */
+export function partesCable(c: CableTablero): string {
+  const partes: string[] = [];
+  if (c.incompleto) partes.push("Recorrido incompleto");
+  if (c.partes_m) {
+    const p = c.partes_m;
+    partes.push(`Dentro ${cifra(p.adentro, 2, "m")} · afuera ${cifra(p.afuera, 2, "m")} · reserva ${cifra(p.reserva, 2, "m")}`);
+  }
+  if (c.declarado_m !== undefined) partes.push(`Puesto a mano: ${cifra(c.declarado_m, 2, "m")}`);
+  return partes.join(" · ");
+}
+
+/** Los supuestos del recorrido: los del tablero y, con su designación, los de cada cable. */
+export function supuestosDe(panel: PanelTableroOut): string[] {
+  const d = panel.detalle;
+  if (!d) return [];
+  const cables = (d.cables ?? []).flatMap((c) =>
+    (c.supuestos ?? []).map((s) => (s.startsWith(c.designacion) ? s : `${c.designacion}: ${s}`)));
+  return [...new Set([...d.supuestos, ...cables])];
 }
 
 /** El valor de la puerta en la fracción `f` del tiempo de su animación, con la curva suave. */

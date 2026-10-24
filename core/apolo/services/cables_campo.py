@@ -22,7 +22,7 @@ todavía no tiene prensaestopas, y con la estructura a la que va sujeto).
   la banda…), sin la puerta del tablero.
 - `reglas`: el ERC («cable de campo contra lo que gira», «largo declarado vs ruteado» con la misma
   regla de F2, «cable de campo incompleto»: un extremo sin resolver o un cable interno).
-- `vista`: lo que el panel del tablero (F3b/F5) dibuja: el tubo y sus cifras.
+- `vista`: lo que el panel del tablero dibuja (`tablero_cables.py`, F4b): el tubo y sus cifras.
 """
 
 from __future__ import annotations
@@ -204,8 +204,9 @@ def _uno(doc, m, tabs, c, crit) -> CableCampo:
             medio.append(Caja(caja, paso.pieza or ""))
     ends = [_extremo(doc, m, tabs, c.desde), _extremo(doc, m, tabs, c.hasta)]
     if ends[0][0] == ends[1][0] == "tablero" and ends[0][1] == ends[1][1]:
-        return CableCampo(**base, motivo=f"los dos extremos están en {ends[0][1]}: es un cable "
-                                         "interno (lo cuenta el ruteo del tablero)")
+        desc = tuple({"lado": lado, "tipo": "tablero", "ubicacion": ends[0][1]} for lado in ("desde", "hasta"))
+        return CableCampo(**base, extremos=desc, motivo=f"los dos extremos están en {ends[0][1]}: es un cable "
+                                                        "interno (lo cuenta el ruteo del tablero)")
     sup, sin, desc = [], [], []
     adentro = reserva = 0.0
     items = list(medio)
@@ -330,15 +331,30 @@ def choques(doc, cables: list[CableCampo], crit=None, ids: list[str] | None = No
 # ── ERC y visor ──────────────────────────────────────────────────────────────────────────
 
 
+def detalle_choque(cable: dict, x: dict, holgura: float) -> str:
+    """El texto del ERC (para el agente) de un choque `x` de `choques`; `cable` = una fila de
+    `vista` (comando, designacion, ref, diametro_mm). El panel lo pliega en `tecnico`."""
+    que = "toca o atraviesa" if x["distancia_mm"] <= 0.0 else f"pasa a {x['distancia_mm']:g} mm de"
+    return (f"{cable['designacion']} ({cable['ref']}, Ø{cable['diametro_mm']:g}) {que} «{x['nombre']}» "
+            f"({x['pieza']}), que gira o se mueve, en el tramo {x['tramo']} de su recorrido; la holgura mínima "
+            f"es {holgura:g} mm. Cambia el recorrido: edit_command('{cable['comando']}', {{\"por\": [...]}}) "
+            "con un punto de paso o una pieza de la estructura que lo aleje")
+
+
+def detalle_incompleto(designacion: str, ref: str, sin_extremo, motivo: str | None) -> str:
+    """El texto del ERC de un cable incompleto (un extremo sin resolver o sin calcular)."""
+    return (f"{designacion} ({ref}): " + "; ".join(sin_extremo or (motivo,))
+            + (f" — {motivo}" if motivo and sin_extremo else "")
+            + ". Liga el aparato a su pieza (add_device.pieza) o arma el tablero "
+              "(layout_tablero) para que el largo salga completo")
+
+
 def _fila_choque(c: CableCampo, x: dict, holgura: float) -> dict:
     toca = x["distancia_mm"] <= 0.0
-    que = "toca o atraviesa" if toca else f"pasa a {x['distancia_mm']:g} mm de"
+    fila = {"comando": c.id, "designacion": c.designacion, "ref": c.ref, "diametro_mm": c.diametro_mm}
     return {
         "regla": "cable de campo contra lo que gira", "estado": "error" if toca else "aviso",
-        "detalle": (f"{c.designacion} ({c.ref}, Ø{c.diametro_mm:g}) {que} «{x['nombre']}» ({x['pieza']}), "
-                    f"que gira o se mueve, en el tramo {x['tramo']} de su recorrido; la holgura mínima es "
-                    f"{holgura:g} mm. Cambia el recorrido: edit_command('{c.id}', {{\"por\": [...]}}) con un "
-                    "punto de paso o una pieza de la estructura que lo aleje"),
+        "detalle": detalle_choque(fila, x, holgura),
         "recomendacion": "Un cable de campo va sujeto a la estructura y lejos de lo que gira (rodillos, "
                          "tambores, ejes, la banda): lo engancha, lo roza y lo corta.",
         "norma": NORMA, "elementos": [c.designacion, x["pieza"]]}
@@ -364,10 +380,7 @@ def reglas(doc, m=None) -> list[dict]:
         if not c.calculado or c.sin_extremo:
             filas.append({
                 "regla": "cable de campo incompleto", "estado": "aviso",
-                "detalle": (f"{c.designacion} ({c.ref}): " + "; ".join(c.sin_extremo or (c.motivo,))
-                            + (f" — {c.motivo}" if c.motivo and c.sin_extremo else "")
-                            + ". Liga el aparato a su pieza (add_device.pieza) o arma el tablero "
-                              "(layout_tablero) para que el largo salga completo"),
+                "detalle": detalle_incompleto(c.designacion, c.ref, c.sin_extremo, c.motivo),
                 "recomendacion": "Un cable con recorrido (`por`) va de un tablero armado o un aparato "
                                  "ligado a su pieza a otro.",
                 "norma": NORMA, "elementos": [c.designacion]})
@@ -382,18 +395,20 @@ def reglas(doc, m=None) -> list[dict]:
     return filas
 
 
-def vista(doc, m=None) -> list[dict]:
-    """Lo que el visor dibuja de cada cable de campo (F3b/F5 lo conecta): el tubo (polilínea en
-    el mundo + Ø), sus largos y lo que toca."""
+def vista(doc, m=None, tableros=None) -> list[dict]:
+    """Lo que el visor dibuja de cada cable de campo (el panel «Tablero» la lee:
+    `tablero_cables.py`): el tubo (polilínea en el mundo + Ø), sus largos, lo que toca y los
+    extremos que no se resolvieron. `tableros` = los de `tablero.ruteos` si el llamador ya los tiene."""
     from apolo.library.electrico.cable_campo import CriterioCampo
 
-    cables = recorridos(doc, m)
+    cables = recorridos(doc, m, tableros)
     crit = CriterioCampo()
     ch = choques(doc, cables, crit) if cables else {}
     out = []
     for c in cables:
         fila = {"comando": c.id, "designacion": c.designacion, "ref": c.ref, "diametro_mm": c.diametro_mm,
-                "calculado": c.calculado, "extremos": list(c.extremos)}
+                "calculado": c.calculado, "extremos": list(c.extremos),
+                **({"sin_extremo": list(c.sin_extremo)} if c.sin_extremo else {})}
         if not c.calculado:
             out.append({**fila, "motivo": c.motivo})
             continue
