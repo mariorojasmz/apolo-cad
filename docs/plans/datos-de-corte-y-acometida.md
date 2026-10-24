@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1a implementada (bitácora), pendiente de revisión y merge; siguen F1b (diferencial) y F1c (acometida en la co-simulación)
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a mergeada (bloque `electrico.datos` con completitud, poder de corte de 3 ITM, 5 guardamotores y 2 seccionadores con su ficha, `T_max_C` en 34 de 53 refs de tablero, el resto en `a_confirmar`); sigue F1b (diferencial; toca `cosim/tablero.py`, espera a que entre V8.9 F3) y luego F1c
 descripcion: cada protección del catálogo dice cuánto corta y a qué temperatura trabaja, con su fuente; la acometida dice su esquema de tierra; el interruptor diferencial entra al catálogo y dispara en la prueba virtual
 ---
 
