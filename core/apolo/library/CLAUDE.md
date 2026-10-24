@@ -6,6 +6,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 
 ## Catálogo y builders
 
+- **Una ref de catálogo es un EJEMPLO, no una orden de compra** (Mario, 2026-10-24): quien fabrica
+  la reemplaza por la equivalente que consiga con su proveedor local. Al elegir o sumar una ref:
+  marcas que CUMPLEN la norma y se consiguen fácil (comunes, no exóticas) y un diseño fácil de
+  construir; la ficha dice lo que hay que respetar para reemplazarla (función, norma, cota de
+  interfaz, rating: In, Icu, B10d, Ø, presión…) y `specs.linea_referencia` sólo cita «del orden de».
 - Bloque `electrico.modelo` (V8.3 D7): `tipo` elige el modelo de la co-simulación y cada cifra
   cita su norma o dice «criterio de diseño» en el comentario del YAML; un rango [mín, máx] de lo
   que fija el instalador es un AJUSTE obligatorio. Reglas: [cosim](../cosim/CLAUDE.md).
