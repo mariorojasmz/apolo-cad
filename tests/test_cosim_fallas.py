@@ -95,6 +95,18 @@ def test_una_falla_mal_escrita_dice_que_corregir(malo, texto):
     assert texto in str(e.value)
 
 
+def test_set_scenario_acepta_la_falla_y_tipa_la_averia_al_declarar(directo):
+    from apolo.services import escenarios as E
+
+    esc = escenario_directo(1.0, eventos=[{"t": 0.5, "tipo": "falla", "dispositivo": "-Q3", "falla": "soldado"}])
+    E.poner(directo, "soldado", {**esc, "aserciones": ["-Q3.averia == soldado dentro_de 0,1 s desde falla -Q3"]})
+    assert "soldado" in directo.escenarios
+    with pytest.raises(ServiceError) as e:
+        E.poner(directo, "malo", {**esc, "aserciones": ["-Q3.averia == true al_final"]})
+    assert "«-Q3.averia» es un texto" in e.value.detail
+    E.quitar(directo, "soldado")
+
+
 def test_el_ancla_falla_fin_pide_duracion():
     with pytest.raises(EscenarioInvalido, match="no tiene «falla.fin»"):
         leer_escenario({"duracion_s": 2, "eventos": [{"t": 1, "tipo": "falla", "dispositivo": "-K1",
@@ -165,6 +177,13 @@ def test_un_corto_que_puentea_la_seta_y_otro_que_tumba_la_fuente(directo):
     res = _directo(directo, corto, acciones=(), dur=1.6)
     assert not _gira(res) and "-T1.limitando" in res["trazas"]["discretas"]
     assert any(v for _, v in res["trazas"]["discretas"]["-T1.limitando"])
+
+
+def test_un_corto_entre_fases_en_la_potencia_dispara_el_magnetico(directo):
+    corto = {"t": 0.8, "tipo": "falla", "falla": "corto", "a": "-Q3:2", "b": "-Q3:4"}
+    res = _directo(directo, corto, acciones=(), dur=1.0)
+    assert res["final"]["-Q2.disparado"] and res["final"]["-Q2.causa"] == "magnético"
+    assert not _gira(res)
 
 
 # ── PLC y STO (la faja por variador) ─────────────────────────────────────────────────────────

@@ -108,7 +108,15 @@ def registrar(mcp, api, esperar) -> None:
                      reponer, dispositivo, valor?, durante_s?, actuador?}],
          eventos: [{t, tipo: atasco (junta, par_Nm) | corte_de_fase (fase) | caida_de_red
                     (factor) | cable_cortado (rama «-W3») | sensor_pegado (dispositivo) |
-                    producto (como en simulate), duracion_s?}],
+                    falla | producto (como en simulate), duracion_s?}],
+           ↑ falla = un aparato que falla A PROPÓSITO, para ver si la máquina para igual:
+             {dispositivo, falla, valor?} con la que su modelo toma (contactor soldado |
+             no_cierra; seta/pulsador/selector/seccionador trabado; sensor pegado | sin_salida;
+             ITM/guardamotor/relé térmico/fusible no_dispara | abierto; PLC entrada_pegada |
+             salida_pegada {borne, valor} | detenido; variador canal_sto_pegado (S1|S2) |
+             falla_interna; fuente sin_salida; piloto fundido), {rama «-K1:13-14», falla: pegado,
+             valor: true|false} (UN contacto) o abierto, o {falla: corto, a «-X1:1», b «-X1:PE»,
+             R_ohm?}; quitar: true la repara. Ancla «desde falla -K1»; publica «-K1.averia».
          acoples: {motores: {"-M1": {junta, direccion_transporte}}, sensores: {"-B1": {origen,
                    direccion, alcance_mm?}}},   ← qué junta mueve cada motor y dónde mira cada
                                                   sensor: obligatorio para los motores

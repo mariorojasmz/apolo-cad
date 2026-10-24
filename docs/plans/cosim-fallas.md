@@ -156,10 +156,13 @@ Rutas relativas a `core/apolo/`, medidas sobre `93bcd73`.
 
 ## Bitácora
 
-### F1a (2026-10-23) — en curso
+### F1a (2026-10-23) — hecha, sin mergear
 
-Backend (D1–D6, D8–D10) sobre `0a61be6`. Falta: el docstring de `set_scenario` con su golden
-(D9) y la suite completa.
+Backend (D1–D6, D8–D10) sobre `0a61be6`. Suite completa verde en el escritorio (4837 pasan,
+10 saltan; `-m "not torture"`) y `ruff` limpio. Queda la revisión y el merge; después, F1b (UI).
+- **D9**: el docstring de `set_scenario` documenta `falla` (formas, la lista por aparato,
+  `quitar`, el ancla y `averia`); el golden cambia sólo en esa descripción
+  (`list_tools.json`), revisado y re-congelado.
 
 - **Fallas por modelo** (`Modelo.FALLAS`, `fallar`/`reparar`, `_falla_<n>`/`_reparar_<n>`; `pide`
   sale de `modelos/base.PIDE`, un vocabulario corto que la UI lee: `""`, `bool`, `bool?`,
@@ -191,6 +194,11 @@ Backend (D1–D6, D8–D10) sobre `0a61be6`. Falta: el docstring de `set_scenari
   la MISMA huella antes y después; sólo se actualizó la `HUELLA` de `test_cosim_epoch.py`. La 77
   no se midió aquí (el brief prohíbe tocar `data/`): va en F3, sobre su copia.
 - Tests: `tests/test_cosim_fallas_modelos.py` (24: cada falla con su gemelo sano) y
-  `tests/test_cosim_fallas.py` (30: lote y vivo con la faja del banco, contacto pegado en mando
-  y en potencia, cortos, `quitar`, la grabación vuelta escenario con la misma huella, el
-  rechazo en el snapshot con su pista, la huella determinista).
+  `tests/test_cosim_fallas.py` (32: lote y vivo con la faja del banco, contacto pegado en mando
+  y en potencia, cortos en el mando y entre fases —dispara el magnético—, `quitar`, la grabación
+  vuelta escenario con la misma huella, el rechazo en el snapshot con su pista, la avería tipada
+  al declarar, la huella determinista).
+- Para F1b: la UI lee del `inicio` `fallas` (con `pide` y `opciones`) y `ramas`; manda
+  `{"evento": {"tipo": "falla", …}}` y `{…, "quitar": true}`; la falla activa llega como texto
+  en `<des>.averia` por `textos` («» al quitarla). Sin conductores con largo, `ramas` trae sólo
+  contactos (los hilos ideales no se cortan).
