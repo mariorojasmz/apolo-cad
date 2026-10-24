@@ -38,6 +38,19 @@
 }
 div.ia-fila { grid-template-columns: auto minmax(0, 1fr) auto; }
 button.ia-fila:hover:not(:disabled) { background: var(--panel2); }
+button.ia-fila.elegida { background: var(--accent-soft); }
+.ia-cifra:empty { display: block; }
+/* lo que abrió el clic de la fila elegida: alineado con su frase (ícono de 20 px + su espacio) */
+.ia-debajo {
+  padding: var(--sp-1) var(--sp-2) var(--sp-2) calc(var(--sp-2) + 20px + var(--sp-3));
+  color: var(--muted); font-size: var(--fs-nota); line-height: var(--lh-cuerpo);
+  animation: ia-aparece var(--mov-normal) var(--curva-suave);
+}
+.ia-debajo p { margin: 0; }
+@keyframes ia-aparece {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
 button.ia-fila:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* el ícono de la fila ocupa el mismo ancho que el del veredicto: las frases arrancan en el mismo borde */
 .ia-fila .icono-severidad { width: 20px; justify-content: center; }

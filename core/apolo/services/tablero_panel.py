@@ -27,8 +27,10 @@ from .errors import ServiceError
 from .tablero import LAYOUT, layouts, pieza_canaleta, ruteos
 
 FRASE_BIEN = "El tablero cumple"
-MOTIVO_CALOR = ("Para calcularlo hacen falta las curvas de la norma IEC/TR 60890; mientras no "
-                "estén, no damos una cifra estimada.")
+#: lo único que queda es «sin evaluar» (el calentamiento, hasta F3): cumple lo que se revisó
+FRASE_PARCIAL = "El tablero cumple lo que revisamos"
+MOTIVO_CALOR = "Todavía no lo calculamos: falta la norma IEC/TR 60890. No damos una cifra estimada."
+NBSP = " "  # entre una cifra y su unidad: la línea no los separa
 PESO = {"falla": 0, "aviso": 1, "sin_evaluar": 2, "bien": 3}
 
 
@@ -37,24 +39,25 @@ def _u(texto) -> str:
     return f"+{t}" if t and not t.startswith("+") else t
 
 
-def veredicto(items: list[dict], frase_bien: str = FRASE_BIEN) -> dict:
-    """La misma regla que `veredictoDe` (atencion.ts): la severidad es la del ítem más grave."""
+def veredicto(items: list[dict], frase_bien: str = FRASE_BIEN, frase_parcial: str = FRASE_PARCIAL) -> dict:
+    """La misma regla que `veredictoDe` (atencion.ts): la severidad es la del ítem más grave; lo
+    sin evaluar no cuenta, y si es lo único, cumple lo que se revisó (no «cumple» a secas)."""
     atender = sorted((it for it in items if it["severidad"] != "bien"), key=lambda it: PESO[it["severidad"]])
     if not atender:
         return {"severidad": "bien", "frase": frase_bien}
+    if all(it["severidad"] == "sin_evaluar" for it in atender):
+        return {"severidad": "bien", "frase": frase_parcial}
 
     def cosas(n: int) -> str:
         return f"{n} {'cosa' if n == 1 else 'cosas'}"
 
-    f, a, s = (sum(1 for it in atender if it["severidad"] == k) for k in ("falla", "aviso", "sin_evaluar"))
+    f, a = (sum(1 for it in atender if it["severidad"] == k) for k in ("falla", "aviso"))
     sev = atender[0]["severidad"]
     if f and a:
         return {"severidad": sev, "frase": f"{cosas(f)} por corregir y {a} por revisar"}
     if f:
         return {"severidad": sev, "frase": f"{cosas(f)} por corregir"}
-    if a:
-        return {"severidad": sev, "frase": f"{cosas(a)} por revisar"}
-    return {"severidad": sev, "frase": f"{cosas(s)} sin evaluar"}
+    return {"severidad": sev, "frase": f"{cosas(a)} por revisar"}
 
 
 def tableros(doc) -> list[dict]:
@@ -141,8 +144,7 @@ def _items(doc, t, piezas: dict[str, str]) -> tuple[list[dict], list[dict]]:
     rec = (doc.joints.get(f"{cid}_puerta") or {}).get("recorrido") or {}
     puerta = [f"{cid}_puerta"]
     if rec.get("choques"):
-        atender.append(_item("puerta", "falla", "La puerta choca al abrir", valor=rec["choques"],
-                             unidad=_plural(rec["choques"], "choque", "choques"), piezas=puerta))
+        atender.append(_item("puerta", "falla", "La puerta choca al abrir", valor=rec["choques"], piezas=puerta))
     else:
         bien.append(_item("puerta", "bien", "La puerta abre sin chocar", valor=rec.get("a_deg", 110.0),
                           unidad="°", piezas=puerta,
@@ -166,15 +168,17 @@ def _items(doc, t, piezas: dict[str, str]) -> tuple[list[dict], list[dict]]:
     if malos:
         rutas = [r for r, _ in malos]
         atender.append(_item(
-            "largos", "aviso", "Hay largos escritos a mano que no cuadran con el recorrido",
-            valor=len(rutas), unidad=_plural(len(rutas), "conductor", "conductores"),
+            "largos", "aviso", _plural(len(rutas), "Conductor con un largo puesto a mano que no cuadra con su recorrido",
+                                       "Conductores con un largo puesto a mano que no cuadra con su recorrido"),
+            valor=len(rutas),
             piezas=sorted({f for r in rutas for f in _extremos(r, piezas)}), conductores=[r.id for r in rutas],
-            detalle="La BOM compra el largo escrito a mano. Si nadie lo midió, pídele al agente que lo quite."))
+            detalle="La BOM compra el largo puesto a mano. Si nadie lo midió, pídele al agente que lo quite."))
     sueltos = salen_sin_cable(t)
     if sueltos:
         atender.append(_item(
-            "sin-cable", "aviso", "Hay conductores que salen del tablero sin cable",
-            valor=len(sueltos), unidad=_plural(len(sueltos), "conductor", "conductores"),
+            "sin-cable", "aviso", _plural(len(sueltos), "Conductor que sale del tablero sin ir dentro de un cable",
+                                          "Conductores que salen del tablero sin ir dentro de un cable"),
+            valor=len(sueltos),
             piezas=sorted({f for r in sueltos for f in _extremos(r, piezas)}), conductores=[r.id for r in sueltos],
             detalle="Afuera del tablero un conductor suelto no está protegido: pídele al agente que lo lleve "
                     "dentro de un cable."))
@@ -245,7 +249,9 @@ def _sin_armar(doc, u: str, cid: str) -> dict:
                    if s.get("command_id") == cid), None)
     items = [_item("armado", "falla", "El tablero no se pudo armar",
                    detalle="Pídele al agente que revise el armado del tablero.", tecnico=motivo or None)]
-    return {"ubicacion": u, "comando": cid, "armado": False, "veredicto": veredicto(items), "items": items}
+    v = {"severidad": "falla", "frase": "No se pudo armar el tablero",
+         "nota": "Pídele al agente que lo revise; el motivo está en el detalle técnico."}
+    return {"ubicacion": u, "comando": cid, "armado": False, "veredicto": v, "items": items}
 
 
 def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
@@ -272,8 +278,8 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
     comp = CATALOG.get(t.layout.gabinete)
     mundo = _a_mundo(t) if recorridos else None
     v = veredicto(atender)
-    v["nota"] = (f"Gabinete de {i.ancho:g} × {i.alto:g} mm · {len(t.layout.aparatos)} aparatos · "
-                 f"{len(t.ruteo.rutas)} conductores")
+    v["nota"] = (f"Gabinete de {i.ancho:g}{NBSP}×{NBSP}{i.alto:g}{NBSP}mm · {len(t.layout.aparatos)}{NBSP}aparatos · "
+                 f"{len(t.ruteo.rutas)}{NBSP}conductores")
     rec = (doc.joints.get(f"{t.cid}_puerta") or {})
     return {
         "ubicacion": u, "comando": t.cid, "armado": True,

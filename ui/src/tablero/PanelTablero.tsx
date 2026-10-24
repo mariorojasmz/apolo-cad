@@ -38,7 +38,8 @@ export default function PanelTablero() {
     return <section className="history"><VacioTablero /></section>;
   }
 
-  const encuadrar = (piezas: readonly string[]) => pedirEncuadre(piezas, { animar: true, seleccionar: true });
+  const encuadrar = (piezas: readonly string[], puntos?: readonly (readonly number[])[]) =>
+    pedirEncuadre(piezas, { animar: true, seleccionar: true, puntos });
   const gabinete = panel.gabinete?.pieza;
   const mover = (v: number) => {
     // abrir desde cerrada: la cámara encuadra el gabinete para ver el interior

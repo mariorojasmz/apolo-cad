@@ -67,11 +67,13 @@ def test_el_panel_de_la_piloto(piloto):
     assert p["armado"] and p["ubicacion"] == "+TAB1"
     assert p["veredicto"]["severidad"] == "aviso"
     assert p["veredicto"]["frase"] == "2 cosas por revisar"
-    assert p["veredicto"]["nota"] == "Gabinete de 500 × 400 mm · 12 aparatos · 33 conductores"
+    assert p["veredicto"]["nota"] == "Gabinete de 500 × 400 mm · 12 aparatos · 33 conductores".replace(
+        " × ", " × ").replace(" mm", " mm").replace("2 ap", "2 ap").replace("3 co", "3 co")
     assert [it["clave"] for it in p["items"]] == ["largos", "sin-cable", "calentamiento"]
     largos, sueltos, calor = p["items"]
     # los mismos hallazgos que el ERC (F2): 10 largos a mano y los 4 hilos sueltos de la red
-    assert largos["valor"] == 10 and largos["unidad"] == "conductores" and len(largos["conductores"]) == 10
+    assert largos["valor"] == 10 and largos["unidad"] == "" and len(largos["conductores"]) == 10
+    assert largos["frase"].startswith("Conductores con un largo puesto a mano")
     assert sueltos["valor"] == 4 and len(sueltos["conductores"]) == 4
     assert all(f.startswith(p["comando"] + "_") for f in largos["piezas"] + sueltos["piezas"])
     assert calor["severidad"] == "sin_evaluar" and "valor" not in calor  # nunca un número inventado
@@ -156,7 +158,7 @@ def test_la_regla_del_veredicto_es_la_de_la_ui():
     assert veredicto(it("aviso", "falla", "aviso")) == {"severidad": "falla", "frase": "1 cosa por corregir y 2 por revisar"}
     assert veredicto(it("falla", "falla")) == {"severidad": "falla", "frase": "2 cosas por corregir"}
     assert veredicto(it("sin_evaluar", "aviso")) == {"severidad": "aviso", "frase": "1 cosa por revisar"}
-    assert veredicto(it("sin_evaluar")) == {"severidad": "sin_evaluar", "frase": "1 cosa sin evaluar"}
+    assert veredicto(it("sin_evaluar")) == {"severidad": "bien", "frase": "El tablero cumple lo que revisamos"}
 
 
 def test_un_layout_suprimido_se_ve_sin_armar():
@@ -165,7 +167,7 @@ def test_un_layout_suprimido_se_ve_sin_armar():
                           regen_suppressed=[{"command_id": "c9", "type": "layout_tablero", "error": "no entra"}])
     assert tableros(doc) == [{"ubicacion": "+TAB2", "comando": "c9", "armado": False}]
     p = panel(doc, "TAB2")
-    assert p["armado"] is False and p["veredicto"] == {"severidad": "falla", "frase": "1 cosa por corregir"}
+    assert p["armado"] is False and p["veredicto"]["frase"] == "No se pudo armar el tablero"
     assert p["items"][0]["tecnico"] == "no entra"
 
 

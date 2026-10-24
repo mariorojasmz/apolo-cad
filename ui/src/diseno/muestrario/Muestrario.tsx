@@ -15,7 +15,8 @@ import "./muestrario.css";
    recorrido de un conductor. Es la base de la revisión de diseño a ciegas (D14). Abajo,
    «Mandos» (con el resguardo y el relé de seguridad), «Simular falla» y la barra de la sesión
    viva con datos de ejemplo (planes cosim-fallas D7 y mandos-de-seguridad).
-   `?ancho=420` = una columna angosta; `?puerta=90` abre la puerta; `?conductor=c26` lo dibuja. */
+   `?ancho=420` = una columna angosta; `?puerta=90` abre la puerta; `?conductor=c26` lo dibuja;
+   `?detalle=1&item=largos` abre el detalle con ese ítem elegido (en el panel con fallas). */
 
 const q = () => new URLSearchParams(window.location.search);
 
@@ -38,9 +39,10 @@ export default function Muestrario() {
     demo.current?.recorrido(recorridoDe(p, id));
   };
   const ancho = Number(q().get("ancho")) || 0;
+  const inicial = { detalle: q().get("detalle") === "1", item: q().get("item") ?? undefined };
   const vista = (p: PanelTableroOut) => (
-    <VistaTablero panel={p} conductor={conductor} onConductor={dibujar(p)}
-      onEncuadrar={(piezas) => demo.current?.ir(piezas)}
+    <VistaTablero panel={p} conductor={conductor} onConductor={dibujar(p)} inicial={p === PANEL_CON_FALLAS ? inicial : undefined}
+      onEncuadrar={(piezas, puntos) => demo.current?.ir(piezas, puntos)}
       puerta={p.puerta ? { valor: puerta, min: p.puerta.min_deg, max: p.puerta.max_deg, onCambio: moverPuerta,
         onAnimar: animarPuerta } : undefined} />
   );
@@ -53,7 +55,7 @@ export default function Muestrario() {
         <Marco rotulo="Tablero · sin armar"><VacioTablero /></Marco>
       </div>
       <Marco rotulo="Visor · clic en un ítem para volar" ancho>
-        <VueloDemo alListo={(d) => {
+        <VueloDemo puntosIniciales={recorridoDe(PANEL_CON_FALLAS, q().get("conductor"))?.flat()} alListo={(d) => {
           demo.current = d;
           const c = q().get("conductor");
           if (c) d.recorrido(recorridoDe(PANEL_CON_FALLAS, c));

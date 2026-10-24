@@ -50,15 +50,18 @@ const cosas = (n: number) => `${n} ${n === 1 ? "cosa" : "cosas"}`;
 
 /** «El tablero cumple» (la frase del panel) sin nada que atender; si no, cuántas cosas hay que
    corregir y cuántas revisar («1 cosa por corregir y 2 por revisar»), con la severidad de la
-   más grave. Lo que queda sin evaluar se lista, pero sólo da la frase si no hay nada más. */
-export function veredictoDe(items: readonly { severidad: Severidad }[], fraseBien: string): VeredictoCalculado {
+   más grave. Lo que queda sin evaluar se lista pero no cuenta: si es lo único, cumple lo que se
+   revisó (`fraseParcial`, «El tablero cumple lo que revisamos»), sin decir que cumple todo
+   (F3b: el calentamiento sin norma no puede tapar la respuesta del panel). */
+export function veredictoDe(items: readonly { severidad: Severidad }[], fraseBien: string,
+  fraseParcial = "Cumple lo que revisamos"): VeredictoCalculado {
   const atender = queAtender(items);
   if (!atender.length) return { severidad: "bien", frase: fraseBien };
+  if (atender.every((it) => it.severidad === "sin_evaluar")) return { severidad: "bien", frase: fraseParcial };
   const cuenta = (s: Severidad) => atender.filter((it) => it.severidad === s).length;
-  const f = cuenta("falla"), a = cuenta("aviso"), s = cuenta("sin_evaluar");
+  const f = cuenta("falla"), a = cuenta("aviso");
   const severidad = atender[0].severidad;
   if (f && a) return { severidad, frase: `${cosas(f)} por corregir y ${a} por revisar` };
   if (f) return { severidad, frase: `${cosas(f)} por corregir` };
-  if (a) return { severidad, frase: `${cosas(a)} por revisar` };
-  return { severidad, frase: `${cosas(s)} sin evaluar` };
+  return { severidad, frase: `${cosas(a)} por revisar` };
 }

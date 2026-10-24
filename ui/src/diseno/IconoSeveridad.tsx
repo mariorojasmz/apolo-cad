@@ -1,11 +1,12 @@
-import { CircleAlert, CircleCheck, CircleDashed, TriangleAlert } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleMinus, TriangleAlert } from "lucide-react";
 import { ROTULO_SEVERIDAD, type Severidad } from "./atencion";
 import "./diseno.css";
 
 /* El ícono de una severidad (plan V8.5 D14): forma Y color del tema, nunca sólo color, y su
-   rótulo para el lector de pantalla. Vive en el PANEL; el 3D no lleva tintes de estado. */
+   rótulo para el lector de pantalla. Vive en el PANEL; el 3D no lleva tintes de estado. «Sin
+   evaluar» es un círculo con raya, no punteado (se leía como «cargando»: revisión a ciegas F3b). */
 
-const ICONO = { falla: CircleAlert, aviso: TriangleAlert, sin_evaluar: CircleDashed, bien: CircleCheck };
+const ICONO = { falla: CircleAlert, aviso: TriangleAlert, sin_evaluar: CircleMinus, bien: CircleCheck };
 
 export default function IconoSeveridad({ severidad, tamano = 16 }: { severidad: Severidad; tamano?: number }) {
   const Icono = ICONO[severidad];

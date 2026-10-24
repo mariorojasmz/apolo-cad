@@ -2,8 +2,8 @@ import type { ConductorTablero, ItemTablero, PanelTableroOut } from "../../table
 
 /* Datos de EJEMPLO del panel «Tablero» (plan V8.5 F3b) con la forma exacta de
    `GET /api/tablero/{ubicacion}`, para el muestrario (revisión a ciegas, D14) y los tests de
-   `tablero/`. Las cifras imitan la faja piloto (TABLERO-5040, 12 aparatos, 33 conductores); las
-   piezas son las del visor de ejemplo (`VueloDemo.tsx`: mm de su mundo, la puerta en −Y). */
+   `tablero/`. Las cifras imitan la faja piloto (TABLERO-5040), recortada a 6 aparatos y 12
+   conductores para que el ejemplo sea coherente consigo mismo; las piezas son las del visor de ejemplo (`VueloDemo.tsx`: mm de su mundo, la puerta en −Y). */
 
 const PIEZA = { canaletaArriba: "canaleta-h", canaletaAbajo: "canaleta-b", puerta: "puerta", gabinete: "fondo",
   variador: "variador", prensa: "prensaestopas", seta: "seta" } as const;
@@ -41,13 +41,16 @@ const it = (p: Partial<ItemTablero> & Pick<ItemTablero, "clave" | "severidad" | 
 
 const CALOR = it({ clave: "calentamiento", severidad: "sin_evaluar", frase: "Falta evaluar el calentamiento",
   piezas: [PIEZA.gabinete],
-  detalle: "Para calcularlo hacen falta las curvas de la norma IEC/TR 60890; mientras no estén, no damos una cifra estimada." });
+  detalle: "Todavía no lo calculamos: falta la norma IEC/TR 60890. No damos una cifra estimada." });
+
+/** Lo que miden los conductores del ejemplo dentro del tablero (m). */
+const TOTAL_M = CONDUCTORES.reduce((s, c) => s + c.ruteado_m, 0);
 
 const BIEN: ItemTablero[] = [
   it({ clave: "puerta", severidad: "bien", frase: "La puerta abre sin chocar", valor: 110, unidad: "°", piezas: [PIEZA.puerta],
     detalle: "Revisamos 111 ángulos de su recorrido." }),
-  it({ clave: "largo", severidad: "bien", frase: "Conductores dentro del tablero", valor: 28.3, unidad: "m", decimales: 1,
-    detalle: "33 conductores con su recorrido por las canaletas." }),
+  it({ clave: "largo", severidad: "bien", frase: "Conductores dentro del tablero", valor: Math.round(TOTAL_M * 10) / 10,
+    unidad: "m", decimales: 1, detalle: `${CONDUCTORES.length} conductores con su recorrido por las canaletas.` }),
 ];
 
 const DETALLE = {
@@ -70,7 +73,7 @@ const BASE = {
   puerta: { junta: "c55_puerta", pieza: PIEZA.puerta, min_deg: 0, max_deg: 110, bisagra: "izquierda" },
 };
 
-const NOTA = "Gabinete de 500 × 400 mm · 12 aparatos · 33 conductores";
+const NOTA = "Gabinete de 500 × 400 mm · 6 aparatos · 12 conductores";
 
 /** Con cosas por atender: una canaleta que no da, otra llena, largos a mano y un conductor suelto. */
 export const PANEL_CON_FALLAS: PanelTableroOut = {
@@ -79,16 +82,16 @@ export const PANEL_CON_FALLAS: PanelTableroOut = {
   items: [
     it({ clave: "canaleta-1", severidad: "falla", frase: "Los conductores no entran en la canaleta de abajo", valor: 112,
       unidad: "%", piezas: [PIEZA.canaletaAbajo], conductores: ["c41", "c42", "c51", "c52", "c53"],
-      detalle: "847 de 756 mm² con 21 conductores; el tope es 50 %." }),
+      detalle: "847 de 756 mm² con 5 conductores; el tope es 50 %." }),
     it({ clave: "canaleta-0", severidad: "aviso", frase: "La canaleta de arriba va muy llena", valor: 64, unidad: "%",
       piezas: [PIEZA.canaletaArriba], conductores: ["c26", "c27", "c28", "c33"],
-      detalle: "484 de 756 mm² con 12 conductores; el tope es 50 %." }),
-    it({ clave: "largos", severidad: "aviso", frase: "Hay largos escritos a mano que no cuadran con el recorrido", valor: 6,
-      unidad: "conductores", piezas: [aparato(0), aparato(1), aparato(2), aparato(3), PIEZA.variador],
+      detalle: "484 de 756 mm² con 4 conductores; el tope es 50 %." }),
+    it({ clave: "largos", severidad: "aviso", frase: "Conductores con un largo puesto a mano que no cuadra con su recorrido",
+      valor: 6, piezas: [aparato(0), aparato(1), aparato(2), aparato(3), PIEZA.variador],
       conductores: ["c26", "c33", "c39", "c40", "c41", "c42"],
-      detalle: "La BOM compra el largo escrito a mano. Si nadie lo midió, pídele al agente que lo quite." }),
-    it({ clave: "sin-cable", severidad: "aviso", frase: "Hay conductores que salen del tablero sin cable", valor: 1,
-      unidad: "conductor", piezas: [aparato(0), PIEZA.prensa], conductores: ["c22"],
+      detalle: "La BOM compra el largo puesto a mano. Si nadie lo midió, pídele al agente que lo quite." }),
+    it({ clave: "sin-cable", severidad: "aviso", frase: "Conductor que sale del tablero sin ir dentro de un cable", valor: 1,
+      piezas: [aparato(0), PIEZA.prensa], conductores: ["c22"],
       detalle: "Afuera del tablero un conductor suelto no está protegido: pídele al agente que lo lleve dentro de un cable." }),
     CALOR,
   ],
@@ -96,8 +99,8 @@ export const PANEL_CON_FALLAS: PanelTableroOut = {
     ...DETALLE,
     bien: BIEN,
     canaletas: [
-      { nombre: "Canaleta de arriba", pieza: PIEZA.canaletaArriba, orientacion: "h", llenado: 0.64, ocupado_mm2: 484, util_mm2: 756, conductores: 12 },
-      { nombre: "Canaleta de abajo", pieza: PIEZA.canaletaAbajo, orientacion: "h", llenado: 1.12, ocupado_mm2: 847, util_mm2: 756, conductores: 21 },
+      { nombre: "Canaleta de arriba", pieza: PIEZA.canaletaArriba, orientacion: "h", llenado: 0.64, ocupado_mm2: 484, util_mm2: 756, conductores: 4 },
+      { nombre: "Canaleta de abajo", pieza: PIEZA.canaletaAbajo, orientacion: "h", llenado: 1.12, ocupado_mm2: 847, util_mm2: 756, conductores: 5 },
     ],
   },
 };
@@ -105,7 +108,7 @@ export const PANEL_CON_FALLAS: PanelTableroOut = {
 /** Sin fallas: sólo el calentamiento queda sin evaluar (F3 espera la norma). */
 export const PANEL_EN_ORDEN: PanelTableroOut = {
   ...BASE,
-  veredicto: { severidad: "sin_evaluar", frase: "1 cosa sin evaluar", nota: NOTA },
+  veredicto: { severidad: "bien", frase: "El tablero cumple lo que revisamos", nota: NOTA },
   items: [CALOR],
   detalle: {
     ...DETALLE,
@@ -122,7 +125,8 @@ export const PANEL_EN_ORDEN: PanelTableroOut = {
 /** Un tablero que una carga tolerante no pudo armar. */
 export const PANEL_SIN_ARMAR: PanelTableroOut = {
   ubicacion: "+TAB1", comando: "c55", armado: false,
-  veredicto: { severidad: "falla", frase: "1 cosa por corregir" },
+  veredicto: { severidad: "falla", frase: "No se pudo armar el tablero",
+    nota: "Pídele al agente que lo revise; el motivo está en el detalle técnico." },
   items: [it({ clave: "armado", severidad: "falla", frase: "El tablero no se pudo armar",
     detalle: "Pídele al agente que revise el armado del tablero.",
     tecnico: "Tablero +TAB1: en el TABLERO-5040 no entra: faltan 168 mm de alto; con «auto» entra en el GAB-6040." })],

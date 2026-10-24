@@ -15,31 +15,39 @@ export function cifraDe(it: Pick<ItemTablero, "valor" | "unidad" | "decimales">)
 
 /** Lo que hace el clic en un ítem. */
 export interface AccionesTablero {
-  /** La cámara vuela a esas piezas y las selecciona. */
-  encuadrar: (piezas: readonly string[]) => void;
+  /** La cámara vuela a esas piezas (y a esos puntos, si los hay) y selecciona las piezas. */
+  encuadrar: (piezas: readonly string[], puntos?: readonly (readonly number[])[]) => void;
   /** El ítem queda elegido: su frase de detalle aparece, y sus conductores se listan. */
   elegir: (it: ItemTablero) => void;
   /** Dibuja el recorrido de UN conductor en el 3D (null: ninguno). */
   dibujar: (conductor: string | null) => void;
 }
 
-/** Qué pasa al hacer clic en un ítem: encuadra lo que señala; un solo conductor se dibuja;
-   varios se listan en el detalle (no hay maraña de hilos en el 3D, D13). */
-export function alElegir(it: ItemTablero, a: AccionesTablero): void {
+/** Los vértices de un recorrido: lo que el encuadre tiene que mostrar entero. */
+export function puntosDe(recorrido: number[][][] | null | undefined): number[][] {
+  return (recorrido ?? []).flat();
+}
+
+/** Qué pasa al hacer clic en un ítem: encuadra lo que señala; un solo conductor se dibuja (y el
+   encuadre lo muestra entero); varios se listan en el detalle (sin maraña de hilos, D13). */
+export function alElegir(it: ItemTablero, a: AccionesTablero, panel?: PanelTableroOut | null): void {
   a.elegir(it);
-  a.dibujar(it.conductores.length === 1 ? it.conductores[0] : null);
-  if (it.piezas.length) a.encuadrar(it.piezas);
+  const uno = it.conductores.length === 1 ? it.conductores[0] : null;
+  a.dibujar(uno);
+  const puntos = puntosDe(recorridoDe(panel ?? null, uno));
+  if (it.piezas.length || puntos.length) a.encuadrar(it.piezas, puntos.length ? puntos : undefined);
 }
 
 /** Los ítems del servidor como filas de `<ItemsAtencion>`: con acción si señalan algo o tienen
    algo más que decir. */
-export function itemsDeAtencion(items: readonly ItemTablero[], a: AccionesTablero): ItemAtencion[] {
+export function itemsDeAtencion(items: readonly ItemTablero[], a: AccionesTablero,
+  panel?: PanelTableroOut | null): ItemAtencion[] {
   return items.map((it) => ({
     clave: it.clave,
     severidad: it.severidad,
     frase: it.frase,
     cifra: cifraDe(it),
-    accion: it.piezas.length || it.conductores.length || it.detalle ? () => alElegir(it, a) : undefined,
+    accion: it.piezas.length || it.conductores.length || it.detalle ? () => alElegir(it, a, panel) : undefined,
   }));
 }
 

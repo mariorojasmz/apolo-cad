@@ -39,8 +39,9 @@ export function instalarErgonomia(ctx: CtxInteraccion): () => void {
   const onFitEvent = (ev: Event) => { // detail.id (una pieza) o detail.ids (varias, «Ver» del aviso)
     const detail = (ev as CustomEvent).detail;
     const ids = idsDelEncuadre(detail);
-    const { animar, seleccionar } = opcionesDelEncuadre(detail);
-    const box = cajaDe(ctx.meshes, ids);
+    const { animar, seleccionar, puntos } = opcionesDelEncuadre(detail);
+    let box = cajaDe(ctx.meshes, ids);
+    for (const [x, y, z] of puntos) box = (box ?? new THREE.Box3()).expandByPoint(new THREE.Vector3(x, y, z));
     if (seleccionar) {
       const aLaVista = ids.filter((id) => ctx.meshes.has(id));
       if (aLaVista.length) useStore.getState().select(aLaVista);

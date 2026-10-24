@@ -13,7 +13,7 @@ import { suave } from "../movimiento";
    capturas, `?vuelo=0.4&a=canaleta-h` congela el vuelo en esa fracción del tiempo. */
 
 export interface Demo {
-  ir: (piezas: readonly string[]) => void;
+  ir: (piezas: readonly string[], puntos?: readonly (readonly number[])[]) => void;
   puerta: (grados: number) => void;
   recorrido: (tramos: number[][][] | null) => void;
 }
@@ -34,7 +34,11 @@ function caja(id: string, mat: THREE.Material, dims: [number, number, number], p
   return m;
 }
 
-export default function VueloDemo({ alListo }: { alListo: (d: Demo) => void }) {
+export default function VueloDemo({ alListo, puntosIniciales }: {
+  alListo: (d: Demo) => void;
+  /** Lo que el fotograma congelado (`?vuelo=`) también encuadra: el recorrido de `?conductor=`. */
+  puntosIniciales?: readonly (readonly number[])[];
+}) {
   const mountRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const seleccion: string[] = [];
@@ -72,14 +76,15 @@ export default function VueloDemo({ alListo }: { alListo: (d: Demo) => void }) {
     encuadrar(camera, controls, new THREE.Box3().setFromObject(group), [0.9, -1, 0.55]);
     pipe.arrancar();
 
-    const destinoDe = (piezas: readonly string[]) => {
-      const box = cajaDe(meshes, [...piezas]); // el mismo encuadre que `apolo:fit` con `animar`
+    const destinoDe = (piezas: readonly string[], puntos: readonly (readonly number[])[] = []) => {
+      let box = cajaDe(meshes, [...piezas]); // el mismo encuadre que `apolo:fit` con `animar`
+      for (const [x, y, z] of puntos) box = (box ?? new THREE.Box3()).expandByPoint(new THREE.Vector3(x, y, z));
       const modelo = new THREE.Box3().setFromObject(group);
       return box ? destinoEncuadre(camera.position, controls.target, cajaConContexto(box, modelo)) : null;
     };
-    const ir = (piezas: readonly string[]) => {
+    const ir = (piezas: readonly string[], puntos?: readonly (readonly number[])[]) => {
       seleccion.splice(0, seleccion.length, ...piezas);
-      const d = destinoDe(piezas);
+      const d = destinoDe(piezas, puntos);
       if (d) vuelo.volar(d);
     };
     let tubo: THREE.Group | null = null;
@@ -97,7 +102,7 @@ export default function VueloDemo({ alListo }: { alListo: (d: Demo) => void }) {
     const k = q.get("vuelo"), a = q.get("a");
     if (k !== null && a) { // fotograma congelado del vuelo, para las capturas
       seleccion.splice(0, seleccion.length, ...a.split(","));
-      const d = destinoDe(a.split(","));
+      const d = destinoDe(a.split(","), puntosIniciales);
       if (d) {
         const p = poseEn({ posicion: camera.position.clone(), objetivo: controls.target.clone() }, d, suave(Number(k)));
         camera.position.copy(p.posicion);

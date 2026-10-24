@@ -44,7 +44,9 @@ describe("veredicto e ítems de atención", () => {
     const mixto = veredictoDe([it_("a", "aviso"), it_("b", "falla"), it_("c", "aviso")], "x");
     expect(mixto).toEqual({ severidad: "falla", frase: "1 cosa por corregir y 2 por revisar" });
     expect(veredictoDe([it_("a", "falla"), it_("b", "sin_evaluar")], "x").frase).toBe("1 cosa por corregir");
-    expect(veredictoDe([it_("a", "sin_evaluar")], "x")).toEqual({ severidad: "sin_evaluar", frase: "1 cosa sin evaluar" });
+    // sólo lo sin evaluar: cumple lo revisado, sin decir que cumple todo (V8.5 F3b)
+    expect(veredictoDe([it_("a", "sin_evaluar")], "x")).toEqual({ severidad: "bien", frase: "Cumple lo que revisamos" });
+    expect(veredictoDe([it_("a", "sin_evaluar")], "x", "y").frase).toBe("y");
   });
 
   it("lo más grave primero, estable a igual severidad; lo que cumple no pide atención", () => {

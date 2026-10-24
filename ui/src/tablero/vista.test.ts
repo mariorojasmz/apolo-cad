@@ -26,7 +26,7 @@ describe("panel Tablero", () => {
     expect(cifraDe({ valor: 64, unidad: "%" })).toBe("64 %");
     expect(cifraDe({ valor: 28.32, unidad: "m", decimales: 1 })).toBe("28,3 m");
     expect(cifraDe({ valor: 110, unidad: "°" })).toBe("110°");
-    expect(cifraDe({ valor: 10, unidad: "conductores" })).toBe("10 conductores");
+    expect(cifraDe({ valor: 10 })).toBe("10");
     expect(cifraDe({})).toBeUndefined();
   });
 
@@ -34,7 +34,12 @@ describe("panel Tablero", () => {
     const a = acciones();
     alElegir(item({ piezas: ["c1_d_F1"], conductores: ["c9"] }), a);
     expect(a.dibujar).toHaveBeenCalledWith("c9");
-    expect(a.encuadrar).toHaveBeenCalledWith(["c1_d_F1"]);
+    expect(a.encuadrar).toHaveBeenCalledWith(["c1_d_F1"], undefined);
+    // con el panel, el encuadre también muestra el recorrido entero del conductor
+    const c = PANEL_CON_FALLAS.detalle!.conductores[0];
+    const con = acciones();
+    alElegir(item({ piezas: ["x"], conductores: [c.id] }), con, PANEL_CON_FALLAS);
+    expect(con.encuadrar).toHaveBeenCalledWith(["x"], c.recorrido!.flat());
     const b = acciones();
     alElegir(item({ piezas: ["p1", "p2"], conductores: ["c9", "c10"] }), b);
     expect(b.dibujar).toHaveBeenCalledWith(null);
@@ -51,8 +56,8 @@ describe("panel Tablero", () => {
   });
 
   it("el veredicto del servidor es el que daría la UI con los mismos ítems", () => {
-    for (const p of [PANEL_CON_FALLAS, PANEL_EN_ORDEN, PANEL_SIN_ARMAR]) {
-      const v = veredictoDe(p.items, "El tablero cumple");
+    for (const p of [PANEL_CON_FALLAS, PANEL_EN_ORDEN]) { // sin armar: el servidor lo dice con su frase
+      const v = veredictoDe(p.items, "El tablero cumple", "El tablero cumple lo que revisamos");
       expect({ severidad: p.veredicto.severidad, frase: p.veredicto.frase }).toEqual(v);
     }
   });
@@ -110,7 +115,7 @@ describe("la vista del panel", () => {
   it("arriba el veredicto, los ítems como botones, la puerta y el detalle plegado", () => {
     const html = renderToStaticMarkup(h(VistaTablero, { ...props, panel: PANEL_CON_FALLAS, puerta }));
     expect(html).toContain("1 cosa por corregir y 3 por revisar");
-    expect(html).toContain("Gabinete de 500 × 400 mm");
+    expect(html).toContain("Gabinete de 500 × 400 mm");
     expect(html.match(/class="ia-fila"/g)).toHaveLength(PANEL_CON_FALLAS.items.length);
     expect(html).toContain("112 %");
     expect(html).toContain(">Abrir<");
@@ -119,9 +124,11 @@ describe("la vista del panel", () => {
     expect(html.indexOf("items-atencion")).toBeLessThan(html.indexOf("tb-puerta"));
   });
 
-  it("un tablero que no se pudo armar: sin puerta ni detalle", () => {
-    const html = renderToStaticMarkup(h(VistaTablero, { ...props, panel: PANEL_SIN_ARMAR }));
-    expect(html).toContain("El tablero no se pudo armar");
+  it("un tablero que no se pudo armar: el veredicto, qué hacer y el motivo plegado; sin puerta ni detalle", () => {
+    const html = renderToStaticMarkup(h(VistaTablero, { ...props, panel: PANEL_SIN_ARMAR, puerta }));
+    expect(html).toContain("No se pudo armar el tablero");
+    expect(html).toContain("Detalle técnico");
+    expect(html).not.toContain("ia-fila");
     expect(html).not.toContain("tb-puerta");
     expect(html).not.toContain("tb-plegable");
   });

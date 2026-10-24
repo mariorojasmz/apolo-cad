@@ -134,9 +134,15 @@ describe("crearVueloCamara", () => {
 
 describe("opcionesDelEncuadre", () => {
   it("por defecto salta y no selecciona (lo de siempre); sólo un true explícito las prende", () => {
-    expect(opcionesDelEncuadre({ id: "c1" })).toEqual({ animar: false, seleccionar: false });
-    expect(opcionesDelEncuadre(undefined)).toEqual({ animar: false, seleccionar: false });
-    expect(opcionesDelEncuadre({ ids: ["a"], animar: true, seleccionar: true })).toEqual({ animar: true, seleccionar: true });
-    expect(opcionesDelEncuadre({ animar: "si", seleccionar: 1 })).toEqual({ animar: false, seleccionar: false });
+    const nada = { animar: false, seleccionar: false, puntos: [] };
+    expect(opcionesDelEncuadre({ id: "c1" })).toEqual(nada);
+    expect(opcionesDelEncuadre(undefined)).toEqual(nada);
+    expect(opcionesDelEncuadre({ ids: ["a"], animar: true, seleccionar: true })).toEqual({ ...nada, animar: true, seleccionar: true });
+    expect(opcionesDelEncuadre({ animar: "si", seleccionar: 1 })).toEqual(nada);
+  });
+  it("los puntos que el encuadre también muestra: sólo los [x, y, z] finitos (V8.5 F3b)", () => {
+    const p = opcionesDelEncuadre({ puntos: [[1, 2, 3], [1, 2], [0, Number.NaN, 0], "x", [4, 5, 6]] }).puntos;
+    expect(p).toEqual([[1, 2, 3], [4, 5, 6]]);
+    expect(opcionesDelEncuadre({ puntos: "no" }).puntos).toEqual([]);
   });
 });
