@@ -1,56 +1,63 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
-import { PanelsTopLeft } from "lucide-react";
-import VerDetalle from "../../ui/VerDetalle";
-import { queAtender, veredictoDe } from "../atencion";
-import Deslizador from "../Deslizador";
-import EstadoVacio from "../EstadoVacio";
-import ItemsAtencion from "../ItemsAtencion";
-import Veredicto from "../Veredicto";
-import { itemsTablero } from "./datos";
+import { useRef, useState, type ReactNode } from "react";
+import { suave } from "../movimiento";
+import VacioTablero from "../../tablero/VacioTablero";
+import VistaTablero from "../../tablero/VistaTablero";
+import type { PanelTableroOut } from "../../tablero/tipos";
+import { recorridoDe } from "../../tablero/vista";
+import { PANEL_CON_FALLAS, PANEL_EN_ORDEN, PANEL_SIN_ARMAR } from "./datosTablero";
 import { BarraFallasDemo, PanelFallasDemo, PanelMandosDemo } from "./FallasDemo";
 import VueloDemo, { type Demo } from "./VueloDemo";
 import "./muestrario.css";
 
-/* Muestrario de diseño (plan V8.5 F3b-0): las piezas comunes con los datos de ejemplo del panel
-   «Tablero», al ancho de un panel de Dockview, junto a un visor de ejemplo con el vuelo de
-   cámara. Es la base de la revisión de diseño a ciegas (D14); F3b arma el panel real. Abajo,
+/* Muestrario de diseño (plan V8.5 F3b-0, F3b): el panel «Tablero» REAL (`tablero/VistaTablero`)
+   con datos de ejemplo (`datosTablero.ts`, la forma de la API) en sus cuatro estados, al ancho de
+   un panel de Dockview, junto a un visor de ejemplo con el vuelo de cámara, la puerta y el
+   recorrido de un conductor. Es la base de la revisión de diseño a ciegas (D14). Abajo,
    «Mandos» (con el resguardo y el relé de seguridad), «Simular falla» y la barra de la sesión
-   viva con datos de ejemplo (planes cosim-fallas D7 y mandos-de-seguridad). */
+   viva con datos de ejemplo (planes cosim-fallas D7 y mandos-de-seguridad).
+   `?ancho=420` = una columna angosta; `?puerta=90` abre la puerta; `?conductor=c26` lo dibuja. */
+
+const q = () => new URLSearchParams(window.location.search);
 
 export default function Muestrario() {
   const demo = useRef<Demo | null>(null);
-  const [puerta, setPuerta] = useState(() => Number(new URLSearchParams(window.location.search).get("puerta") ?? 0));
-  const items = useMemo(() => itemsTablero((pieza) => demo.current?.ir(pieza)), []);
-  const v = veredictoDe(items, "El tablero cumple");
-  const bien = items.filter((it) => it.severidad === "bien");
+  const [puerta, setPuerta] = useState(() => Number(q().get("puerta") ?? 0));
+  const [conductor, setConductor] = useState<string | null>(() => q().get("conductor"));
   const moverPuerta = (g: number) => { setPuerta(g); demo.current?.puerta(g); };
-  const ancho = Number(new URLSearchParams(window.location.search).get("ancho")) || 0;
+  const animarPuerta = (destino: number) => { // como el panel real: ≈ 320 ms con la curva suave
+    const desde = puerta, t0 = performance.now();
+    const paso = (ahora: number) => {
+      const f = Math.min(1, (ahora - t0) / 320);
+      moverPuerta(desde + (destino - desde) * suave(f));
+      if (f < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+  };
+  const dibujar = (p: PanelTableroOut) => (id: string | null) => {
+    setConductor(id);
+    demo.current?.recorrido(recorridoDe(p, id));
+  };
+  const ancho = Number(q().get("ancho")) || 0;
+  const vista = (p: PanelTableroOut) => (
+    <VistaTablero panel={p} conductor={conductor} onConductor={dibujar(p)}
+      onEncuadrar={(piezas) => demo.current?.ir(piezas)}
+      puerta={p.puerta ? { valor: puerta, min: p.puerta.min_deg, max: p.puerta.max_deg, onCambio: moverPuerta,
+        onAnimar: animarPuerta } : undefined} />
+  );
   return (
     <main className={`muestrario${ancho ? " angosto" : ""}`} style={ancho ? { width: ancho } : undefined}>
-      <Marco rotulo="Tablero · con cosas por atender">
-        <Veredicto severidad={v.severidad} frase={v.frase} nota="Revisamos 13 de 14 reglas" />
-        <ItemsAtencion items={queAtender(items)} rotulo="Lo que pide atención en el tablero" />
-        <Deslizador rotulo="Puerta" valor={puerta} min={0} max={110} unidad="°" onCambio={moverPuerta} />
-        <div className="mu-detalle">
-          <VerDetalle resumen="Detalle">
-            <ul>{bien.map((it) => <li key={it.clave}>{it.frase}: {it.cifra}</li>)}</ul>
-          </VerDetalle>
-        </div>
-      </Marco>
+      <Marco rotulo="Tablero · con cosas por atender">{vista(PANEL_CON_FALLAS)}</Marco>
       <div className="mu-columna">
-        <Marco rotulo="Tablero · todo en orden">
-          <Veredicto severidad="bien" frase="El tablero cumple" nota="Revisamos 14 reglas del tablero" />
-          <Deslizador rotulo="Puerta" valor={puerta} min={0} max={110} unidad="°" onCambio={moverPuerta} />
-        </Marco>
-        <Marco rotulo="Tablero · sin armar">
-          <EstadoVacio icono={<PanelsTopLeft size={28} strokeWidth={1.5} />} titulo="Aquí vas a ver el tablero armado"
-            accion={{ rotulo: "Copiar el pedido", onClick: () => {} }}>
-            Pídele al agente que arme el tablero desde el circuito.
-          </EstadoVacio>
-        </Marco>
+        <Marco rotulo="Tablero · sin fallas">{vista(PANEL_EN_ORDEN)}</Marco>
+        <Marco rotulo="Tablero · no se pudo armar">{vista(PANEL_SIN_ARMAR)}</Marco>
+        <Marco rotulo="Tablero · sin armar"><VacioTablero /></Marco>
       </div>
       <Marco rotulo="Visor · clic en un ítem para volar" ancho>
-        <VueloDemo alListo={(d) => { demo.current = d; }} />
+        <VueloDemo alListo={(d) => {
+          demo.current = d;
+          const c = q().get("conductor");
+          if (c) d.recorrido(recorridoDe(PANEL_CON_FALLAS, c));
+        }} />
       </Marco>
       <Marco rotulo="Mandos · resguardo y relé de seguridad">
         <PanelMandosDemo />

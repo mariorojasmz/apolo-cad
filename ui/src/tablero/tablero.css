@@ -1,0 +1,76 @@
+/* El panel «Tablero» (plan V8.5 D14): sólo tokens de styles.css. La jerarquía va por tamaño y
+   peso del texto; ni cajas, ni bordes, ni colores nuevos. Lo vigila `diseno/tokens.test.ts`. */
+
+.panel-tablero { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.tablero { display: flex; flex-direction: column; }
+
+/* la frase del ítem elegido: alineada con las frases de la lista (ícono de 20 px + su espacio) */
+.tb-explica {
+  margin: calc(-1 * var(--sp-2)) 0 var(--sp-3); padding-left: calc(20px + var(--sp-3));
+  color: var(--muted); font-size: var(--fs-nota); line-height: var(--lh-cuerpo);
+  animation: tb-aparece var(--mov-normal) var(--curva-suave);
+}
+
+/* la puerta: el deslizador y su botón, separados de la lista como un control */
+.tb-puerta {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: var(--sp-3);
+  margin: var(--sp-2) 0 var(--sp-4);
+}
+.tb-boton, .tb-enlace {
+  border: none; background: transparent; color: var(--accent); cursor: pointer;
+  font: inherit; font-size: var(--fs-cuerpo); font-weight: var(--fw-medio);
+  padding: var(--sp-1) var(--sp-2); border-radius: var(--radius);
+  transition: background-color var(--mov-rapido) var(--curva-suave);
+}
+.tb-boton:hover, .tb-enlace:hover { background: var(--accent-soft); }
+.tb-boton:focus-visible, .tb-enlace:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tb-enlace { align-self: flex-start; margin: var(--sp-1) 0 0 calc(-1 * var(--sp-2)); }
+
+/* el detalle, a pedido */
+.tb-plegable > summary {
+  cursor: pointer; user-select: none; list-style-position: inside;
+  color: var(--muted); font-size: var(--fs-cuerpo); font-weight: var(--fw-medio);
+  padding: var(--sp-1) 0;
+  transition: color var(--mov-rapido) var(--curva-suave);
+}
+.tb-plegable > summary:hover { color: var(--text); }
+.tb-plegable > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.tb-detalle { display: flex; flex-direction: column; gap: var(--sp-4); padding-top: var(--sp-3);
+  animation: tb-aparece var(--mov-normal) var(--curva-suave); }
+.tb-detalle .items-atencion { margin-bottom: 0; }
+
+.tb-seccion { display: flex; flex-direction: column; }
+.tb-titulo {
+  margin: 0 0 var(--sp-1); color: var(--muted);
+  font-size: var(--fs-nota); font-weight: var(--fw-subtitulo); line-height: var(--lh-ajustado);
+}
+.tb-filas { list-style: none; margin: 0 calc(-1 * var(--sp-2)); padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.tb-fila {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; column-gap: var(--sp-2);
+  width: 100%; padding: var(--sp-2);
+  border: none; border-radius: var(--radius); background: transparent; color: var(--text);
+  font: inherit; font-size: var(--fs-cuerpo); line-height: var(--lh-ajustado); text-align: left;
+  transition: background-color var(--mov-rapido) var(--curva-suave);
+}
+button.tb-fila { cursor: pointer; }
+button.tb-fila:hover { background: var(--panel2); }
+button.tb-fila:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+button.tb-fila.elegida { background: var(--accent-soft); }
+.tb-principal { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tb-secundario { min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-cifra { grid-column: 3; color: var(--text); font-weight: var(--fw-medio); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.tb-calor {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: var(--sp-3); align-items: start;
+  margin: 0; color: var(--text); font-size: var(--fs-cuerpo); line-height: var(--lh-cuerpo);
+}
+.tb-calor .icono-severidad { justify-content: center; margin-top: 1px; }
+.tb-nota {
+  margin: var(--sp-1) 0 0; padding-left: calc(20px + var(--sp-3));
+  color: var(--muted); font-size: var(--fs-nota); line-height: var(--lh-cuerpo);
+}
+
+@keyframes tb-aparece {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}

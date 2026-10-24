@@ -25,6 +25,7 @@ import { aplicarVcb, instalarGizmo } from "./interaccion/gizmo";
 import { instalarSeleccion } from "./interaccion/seleccion";
 import { instalarManipulacion } from "./interaccion/manipular";
 import { instalarErgonomia } from "./interaccion/ergonomia";
+import { instalarRecorrido } from "../tablero/recorrido3d";
 import type { Reproductor } from "./marcha/reproductor";
 import { useMarchaEnVista } from "./marcha/enVista";
 import BarraMarcha from "./marcha/BarraMarcha";
@@ -151,7 +152,7 @@ export default function Viewport() {
       isDraggingObjRef.current || isGizmoDraggingRef.current || useStore.getState().gravityPlaying));
     pipe.arrancar();
 
-    limpiezas.push(instalarSeleccion(ci), instalarManipulacion(ci), instalarErgonomia(ci));
+    limpiezas.push(instalarSeleccion(ci), instalarManipulacion(ci), instalarErgonomia(ci), instalarRecorrido(ci));
     return () => {
       pipe.detener();
       for (const limpiar of limpiezas) limpiar();

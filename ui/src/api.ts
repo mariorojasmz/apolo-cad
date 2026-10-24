@@ -5,6 +5,7 @@ import type {
 } from "./types";
 import { mensajeWs, publicarJob, publicarReconexion } from "./state/eventosWs";
 import type { SerieMarcha } from "./viewport/marcha/serie";
+import type { PanelTableroOut, TablerosOut } from "./tablero/tipos";
 
 /** El `detail` de una respuesta fallida de la API (el motivo, ya escrito para la persona), o
  *  `undefined` si el cuerpo no es JSON o no trae un texto (p. ej. la lista de un 422). Lee el cuerpo. */
@@ -190,6 +191,10 @@ export const api = {
   marcha: () => fetch("/api/physics/dynamics/serie").then((r) => json<SerieMarcha>(r)),
   // los escenarios guardados (co-simulación): la sesión viva elige uno de base (V8.4)
   escenarios: () => fetch("/api/escenarios").then((r) => json<{ escenarios: { nombre: string }[] }>(r)),
+  // el tablero armado que muestra el panel «Tablero» (V8.5 D13): la lista y el de una ubicación
+  tableros: () => fetch("/api/tablero").then((r) => json<TablerosOut>(r)),
+  tablero: (ubicacion: string) =>
+    fetch(`/api/tablero/${encodeURIComponent(ubicacion)}`).then((r) => json<PanelTableroOut>(r)),
 
   soundness: (withAutodetect: boolean) =>
     fetch("/api/assembly/soundness", {

@@ -124,10 +124,12 @@ def _a_mundo(t):
 
 
 def _item(clave, severidad, frase, *, valor=None, unidad="", decimales=0, piezas=(), conductores=(),
-          detalle=None) -> dict:
+          detalle=None, tecnico=None) -> dict:
+    """`detalle`: una frase para la persona; `tecnico`: el texto crudo (va plegado en la UI)."""
     return {"clave": clave, "severidad": severidad, "frase": frase,
             **({"valor": valor, "unidad": unidad, "decimales": decimales} if valor is not None else {}),
-            "piezas": list(piezas), "conductores": list(conductores), **({"detalle": detalle} if detalle else {})}
+            "piezas": list(piezas), "conductores": list(conductores), **({"detalle": detalle} if detalle else {}),
+            **({"tecnico": tecnico} if tecnico else {})}
 
 
 def _items(doc, t, piezas: dict[str, str]) -> tuple[list[dict], list[dict]]:
@@ -241,7 +243,8 @@ def _canaletas(t) -> list[dict]:
 def _sin_armar(doc, u: str, cid: str) -> dict:
     motivo = next((s.get("error") for s in getattr(doc, "regen_suppressed", []) or []
                    if s.get("command_id") == cid), None)
-    items = [_item("armado", "falla", "El tablero no se pudo armar", detalle=motivo or None)]
+    items = [_item("armado", "falla", "El tablero no se pudo armar",
+                   detalle="Pídele al agente que revise el armado del tablero.", tecnico=motivo or None)]
     return {"ubicacion": u, "comando": cid, "armado": False, "veredicto": veredicto(items), "items": items}
 
 

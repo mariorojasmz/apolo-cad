@@ -166,7 +166,7 @@ def test_un_layout_suprimido_se_ve_sin_armar():
     assert tableros(doc) == [{"ubicacion": "+TAB2", "comando": "c9", "armado": False}]
     p = panel(doc, "TAB2")
     assert p["armado"] is False and p["veredicto"] == {"severidad": "falla", "frase": "1 cosa por corregir"}
-    assert p["items"][0]["detalle"] == "no entra"
+    assert p["items"][0]["tecnico"] == "no entra"
 
 
 def test_sin_tablero_404_con_las_validas(piloto):
