@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Axis3d, Box, Ruler, Scan, Scissors, Sparkles, ZoomIn, ZoomOut } from "lucide-react";
+import Deslizador from "../diseno/Deslizador";
 import type { Shading } from "./meshes";
 import { useCalidad } from "./calidad";
 import BotonGrabar from "./grabacion/BotonGrabar";
@@ -109,13 +110,8 @@ export default function BarraVista(p: Props) {
         Sección{sectionAxis ? ` ${sectionAxis.toUpperCase()}` : ""}
       </button>
       {sectionAxis && (
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={p.sectionPos}
-          onChange={(e) => p.setSectionPos(Number(e.target.value))}
-        />
+        <Deslizador compacto rotulo="Posición del corte" valor={p.sectionPos} min={0} max={100}
+          unidad="%" onCambio={p.setSectionPos} />
       )}
     </div>
   );
@@ -164,14 +160,8 @@ function VistaVisor(p: Props) {
           {sectionAxis && <span className="rb-eje">{sectionAxis.toUpperCase()}</span>}
         </Redondo>
         {sectionAxis && (
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={p.sectionPos}
-            aria-label="Posición del corte"
-            onChange={(e) => p.setSectionPos(Number(e.target.value))}
-          />
+          <Deslizador compacto rotulo="Posición del corte" valor={p.sectionPos} min={0} max={100}
+            unidad="%" onCambio={p.setSectionPos} />
         )}
       </div>
       <Redondo nombre="Alambre" on={p.shading === "wire"} onClick={() => p.setShading(p.shading === "solid" ? "wire" : "solid")}>

@@ -1,0 +1,23 @@
+/* El marco del muestrario: columnas al ancho de un panel de Dockview y el visor de ejemplo. */
+html, body, #root { height: auto; }
+body { overflow: auto; }
+.muestrario {
+  display: grid; grid-template-columns: 320px 320px minmax(0, 1fr); align-items: start;
+  gap: var(--sp-4); padding: var(--sp-4); min-height: 100vh;
+}
+.mu-columna { display: flex; flex-direction: column; gap: var(--sp-4); }
+.mu-marco { min-width: 0; }
+.mu-rotulo {
+  margin: 0 0 var(--sp-1); color: var(--muted);
+  font-size: var(--fs-nota); font-weight: var(--fw-nota);
+}
+.mu-panel { background: var(--panel); border-radius: var(--radius-lg); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.mu-marco.ancho .mu-panel { padding: 0; overflow: hidden; }
+.mu-detalle { margin-top: var(--sp-4); }
+.mu-visor { position: relative; height: 560px; }
+.mu-visor canvas { display: block; }
+
+@media (max-width: 760px) {
+  .muestrario { grid-template-columns: minmax(0, 1fr); }
+  .mu-visor { height: 340px; }
+}

@@ -50,19 +50,35 @@ export const VIEWS: Record<string, [number, number, number]> = {
   Planta: [0, 0, 1],
 };
 
-/** Encuadra una caja: mantiene la dirección actual de la cámara salvo que se dé `dir`. Salió de
-   Viewport.tsx sin cambiar la lógica (plan piso-con-sombra, F1). */
-export function encuadrar(
-  camera: THREE.PerspectiveCamera, controls: { target: THREE.Vector3; update: () => unknown },
-  box: THREE.Box3, dir?: [number, number, number],
-): void {
-  if (box.isEmpty()) return;
+/** Dónde queda la cámara (y su objetivo) al encuadrar una caja. */
+export interface PoseCamara {
+  posicion: THREE.Vector3;
+  objetivo: THREE.Vector3;
+}
+
+/** La pose que encuadra `box` desde la cámara en `posicion` mirando a `objetivo`: mantiene la
+   dirección de la vista salvo que se dé `dir`. null con la caja vacía. Puro (no mueve nada). */
+export function destinoEncuadre(
+  posicion: THREE.Vector3, objetivo: THREE.Vector3, box: THREE.Box3, dir?: [number, number, number],
+): PoseCamara | null {
+  if (box.isEmpty()) return null;
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3()).length() || 1200;
   const v = dir
     ? new THREE.Vector3(...dir).normalize().multiplyScalar(size * 1.4)
-    : camera.position.clone().sub(controls.target).normalize().multiplyScalar(size * 1.4);
-  camera.position.copy(center.clone().add(v));
-  controls.target.copy(center);
+    : posicion.clone().sub(objetivo).normalize().multiplyScalar(size * 1.4);
+  return { posicion: center.clone().add(v), objetivo: center };
+}
+
+/** Encuadra una caja de un salto: mantiene la dirección actual de la cámara salvo que se dé
+   `dir`. El vuelo animado es `vuelo.ts` (plan V8.5, F3b-0). */
+export function encuadrar(
+  camera: THREE.PerspectiveCamera, controls: { target: THREE.Vector3; update: () => unknown },
+  box: THREE.Box3, dir?: [number, number, number],
+): void {
+  const destino = destinoEncuadre(camera.position, controls.target, box, dir);
+  if (!destino) return;
+  camera.position.copy(destino.posicion);
+  controls.target.copy(destino.objetivo);
   controls.update();
 }

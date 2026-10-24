@@ -3,6 +3,8 @@
    osciloscopio. Los nombres son los de la co-simulación (D10 de V8.3): la magnitud va al final,
    tras un «_» (`I_A`, `f_Hz`, `termico_pct`) o sola (`rpm`). Puro. */
 
+import { cifra } from "../diseno/cifra";
+
 export interface Medida {
   unidad: string;
   decimales: number;
@@ -53,9 +55,5 @@ export function medidaDe(senal: string, tipoPlc?: string): Medida {
 export function leerValor(valor: number | undefined, m: Medida): string {
   if (valor === undefined || !Number.isFinite(valor)) return "—";
   if (m.booleana) return valor >= 0.5 ? "Sí" : "No";
-  const [ent, dec] = Math.abs(valor).toFixed(m.decimales).split(".");
-  const miles = ent.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-  const signo = valor < 0 && Number(Math.abs(valor).toFixed(m.decimales)) !== 0 ? "−" : "";
-  const num = `${signo}${miles}${dec ? `,${dec}` : ""}`;
-  return m.unidad ? `${num} ${m.unidad}` : num;
+  return cifra(valor, m.decimales, m.unidad);
 }

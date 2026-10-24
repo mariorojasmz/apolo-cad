@@ -22,6 +22,32 @@
   --sp-2: 8px;
   --sp-3: 12px;
   --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --radius-pill: 999px;
+
+  /* Tipografía con nombre (V8.5 F3b-0): la jerarquía va por tamaño y peso, no por cajas. Un
+     panel nuevo usa estos y no un `font-size` suelto (ui/CLAUDE.md § Calidad visual). */
+  --fs-titulo: 15px;
+  --fw-titulo: 600;
+  --fs-subtitulo: 13px;
+  --fw-subtitulo: 600;
+  --fs-cuerpo: 12px;
+  --fw-cuerpo: 400;
+  --fs-nota: 11px;
+  --fw-nota: 400;
+  --fs-cifra: 20px;
+  --fw-cifra: 600;
+  --lh-ajustado: 1.25;
+  --lh-cuerpo: 1.45;
+
+  /* Movimiento: sólo lo que orienta (abrir, plegar, encuadrar). `--curva-suave` es la misma
+     curva que `diseno/movimiento.ts` usa en el vuelo de la cámara. Con movimiento reducido,
+     las duraciones van a 0 (abajo). */
+  --mov-rapido: 160ms;
+  --mov-normal: 320ms;
+  --curva-suave: cubic-bezier(0.4, 0, 0.2, 1);
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25);
   --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.35);
   --shadow-modal: 0 18px 50px rgba(0, 0, 0, 0.55);
@@ -783,4 +809,5 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   .spinner, .topprogress::before, .skeleton { animation: none; }
+  :root { --mov-rapido: 0ms; --mov-normal: 0ms; } /* lo que anima con los tokens, salta */
 }

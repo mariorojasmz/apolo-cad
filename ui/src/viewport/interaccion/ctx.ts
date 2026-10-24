@@ -48,4 +48,6 @@ export interface CtxInteraccion extends VistaCtx {
   setViewDir: (d: [number, number, number]) => void;
   frameBox: (box: THREE.Box3) => void;
   fitTo: () => void;
+  /** Registra una tarea por cuadro del bucle de render (`pipeline.antesDeComponer`). */
+  antesDeComponer: (tarea: (ahora: number) => void) => void;
 }

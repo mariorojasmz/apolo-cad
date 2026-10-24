@@ -135,7 +135,7 @@ export default function Viewport() {
     const ci: CtxInteraccion = {
       ...ctx, mount, viewCube: pipe.viewCube, raycaster: new THREE.Raycaster(), boxRef, liveAngleRef,
       featuresRef, blockedRef, lastAxisRef, isGizmoDraggingRef, isBoxSelectingRef, isDraggingObjRef,
-      ocultarTiradores: { current: false }, setVcb, setViewDir, frameBox, fitTo,
+      ocultarTiradores: { current: false }, setVcb, setViewDir, frameBox, fitTo, antesDeComponer: pipe.antesDeComponer,
     };
     const limpiezas = [instalarGizmo(ci), registrarGrabador(grabarSesion), registrarFoto(fotoRealista)];
 
