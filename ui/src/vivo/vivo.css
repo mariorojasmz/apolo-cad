@@ -22,7 +22,7 @@
 }
 .selector-mando { display: flex; gap: 2px; }
 .valor-lectura { font-variant-numeric: tabular-nums; font-size: 13px; white-space: nowrap; }
-.falla-lectura { flex-basis: 100%; font-size: 11px; }
+.falla-lectura, .nota-lectura { flex-basis: 100%; font-size: 11px; }
 .estado-piloto { color: var(--muted); font-size: 12px; }
 
 /* tapa del mando con su color físico; la seta, roja sobre su fondo amarillo */
@@ -32,7 +32,7 @@
   box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25);
 }
 .tapa-mando.tapa-seta { box-shadow: 0 0 0 4px var(--fondo-tapa); width: 18px; height: 18px; margin: 2px; }
-.tapa-mando.tapa-selector, .tapa-mando.tapa-seccionador { border-radius: 4px; }
+.tapa-mando.tapa-selector, .tapa-mando.tapa-seccionador, .tapa-mando.tapa-resguardo { border-radius: 4px; }
 .tapa-mando.accionada { transform: scale(0.86); box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.4); }
 .tapa-mando.tapa-seta.accionada { box-shadow: 0 0 0 4px var(--fondo-tapa), inset 0 2px 3px rgba(0, 0, 0, 0.4); }
 

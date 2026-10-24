@@ -41,8 +41,9 @@ from .fallas import catalogo
 FORMATO = 1
 CABECERA = 8
 NAN = float("nan")
-#: tipos de modelo que se aprietan (D4) y su forma de mando
-MANDOS = ("pulsador", "seta", "selector", "seccionador")
+#: tipos de modelo que se aprietan (D4) y su forma de mando; el resguardo (mandos-de-seguridad D2)
+#: se abre y se cierra como el seccionador (`abrir`/`cerrar`, señal `<des>.cerrado`)
+MANDOS = ("pulsador", "seta", "selector", "seccionador", "resguardo")
 #: ISO 13850: la seta es roja sobre fondo amarillo (su ficha no trae `color`)
 COLOR_SETA = ("rojo", "amarillo")
 

@@ -4,12 +4,14 @@ import { segundos } from "../../viewport/marcha/serie";
 import { rotuloFase, textoFactor } from "../../vivo/barra";
 import FallasActivas from "../../vivo/FallasActivas";
 import FallasVivas from "../../vivo/FallasVivas";
-import { prepararSesionDemo, simularLocal } from "./datosVivo";
+import { AccionarMando, Lecturas, ListaMandos } from "../../vivo/PanelMandos";
+import { accionarLocal, prepararSesionDemo, simularLocal } from "./datosVivo";
 import "../../viewport/marcha/marcha.css";
 
-/* «Simular falla» y las fallas activas de la barra (plan cosim-fallas D7) en el muestrario, con
-   una sesión viva de ejemplo (`datosVivo.ts`): simular y quitar cambian la barra como lo haría
-   el servidor. `?fallas=0|1|3` (por defecto 1) y `?lista=1` (la lista de la barra abierta). */
+/* «Mandos», «Simular falla» y las fallas activas de la barra (planes cosim-fallas D7 y
+   mandos-de-seguridad) en el muestrario, con una sesión viva de ejemplo (`datosVivo.ts`): los
+   mandos, simular y quitar cambian lo que se ve como lo haría el servidor. `?fallas=0|1|3` (por
+   defecto 1) y `?lista=1` (la lista de la barra abierta). */
 
 const q = () => new URLSearchParams(window.location.search);
 
@@ -20,6 +22,19 @@ function useSesionDemo(): void {
     prepararSesionDemo(Number.isFinite(n) ? Math.max(0, Math.min(3, n)) : 1);
     return true;
   });
+}
+
+/** La seta, el resguardo y el rearme, con lo que leen el relé de seguridad y el motor. */
+export function PanelMandosDemo() {
+  useSesionDemo();
+  return (
+    <div className="panel-mandos">
+      <AccionarMando.Provider value={accionarLocal}>
+        <ListaMandos quieto={false} />
+      </AccionarMando.Provider>
+      <Lecturas />
+    </div>
+  );
 }
 
 export function PanelFallasDemo() {

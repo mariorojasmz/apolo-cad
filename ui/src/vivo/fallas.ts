@@ -47,6 +47,7 @@ const TIPOS: Record<string, string> = {
   selector: "Selector", seccionador: "Seccionador", sensor: "Sensor", piloto: "Piloto",
   itm: "Interruptor termomagnético", guardamotor: "Guardamotor", rele_termico: "Relé térmico",
   fusible: "Fusible", plc: "PLC", variador: "Variador", fuente: "Fuente",
+  resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
   contacto: "Contacto", conductor: "Cable",
 };
 
@@ -75,7 +76,7 @@ function nombreDe(falla: string, tipo: string, clase: Objetivo["clase"]): Nombre
     case "no_cierra":
       return { rotulo: "No cierra", frase: () => "bobina que no cierra" };
     case "trabado":
-      return { rotulo: "Mecanismo trabado", frase: () => "mando trabado" };
+      return { rotulo: "Mecanismo trabado", frase: () => (tipo === "resguardo" ? "interruptor trabado" : "mando trabado") };
     case "pegado":
       return { rotulo: "Detección pegada", frase: () => "sensor pegado" };
     case "sin_salida":
@@ -92,9 +93,13 @@ function nombreDe(falla: string, tipo: string, clase: Objetivo["clase"]): Nombre
     case "entrada_pegada":
       return { rotulo: "Entrada pegada", frase: (b) => (b ? `entrada ${b} pegada` : "entrada pegada") };
     case "salida_pegada":
+      if (tipo === "rele_seguridad") {
+        return { rotulo: "Salida de seguridad soldada",
+          frase: (s) => (s ? `salida de seguridad ${s} soldada` : "salida de seguridad soldada") };
+      }
       return { rotulo: "Salida pegada", frase: (b) => (b ? `salida ${b} pegada` : "salida pegada") };
     case "detenido":
-      return { rotulo: "Detenido, con las salidas en cero", frase: () => "PLC detenido" };
+      return { rotulo: "Detenido, con las salidas en cero", frase: () => (tipo === "rele_seguridad" ? "relé detenido" : "PLC detenido") };
     case "canal_sto_pegado":
       return { rotulo: "Canal del STO pegado", frase: (c) => (c ? `canal ${c} del STO pegado` : "canal del STO pegado") };
     case "falla_interna":
@@ -139,6 +144,8 @@ function estadosMando(tipo: string): [string, string] {
       return ["Presionada", "Liberada"];
     case "seccionador":
       return ["Cerrado", "Abierto"];
+    case "resguardo": // el valor es cómo quedan sus contactos (`cosim/modelos/seguridad.py`)
+      return ["Contactos cerrados", "Contactos abiertos"];
     default:
       return ["Apretado", "Suelto"];
   }
@@ -167,6 +174,8 @@ export function camposDe(o: Objetivo, f: FallaCatalogo, elegido: Elegido = {}): 
         { clave: "", rotulo: "Todas" }, ...ops.map((u) => ({ clave: u, rotulo: `Unidad ${u}` }))] }];
     case "canal":
       return [{ id: "valor", rotulo: "Canal", tipo: "lista", opciones: ops.map((c) => ({ clave: c, rotulo: c })) }];
+    case "salida": // un NA de seguridad del relé, por sus bornes («13-14»)
+      return [{ id: "valor", rotulo: "Salida", tipo: "lista", opciones: ops.map((s) => ({ clave: s, rotulo: `Bornes ${s}` })) }];
     case "borne,valor": {
       const borne = elegido.borne ?? ops[0] ?? "";
       const campos: Campo[] = [{ id: "borne", rotulo: "Borne", tipo: "lista", opciones: ops.map((b) => ({ clave: b, rotulo: b })) }];
@@ -198,6 +207,7 @@ export function valorDe(o: Objetivo, f: FallaCatalogo, elegido: Elegido): unknow
       return e.valor === "" ? undefined : e.valor === "1";
     case "posicion?":
     case "canal":
+    case "salida":
       return e.valor === "" ? undefined : e.valor;
     case "unidad?":
       return e.valor === "" ? undefined : Number(e.valor);
@@ -237,8 +247,9 @@ export interface FallaActiva {
 }
 
 /** El valor que identifica una de varias fallas del mismo nombre al quitarla (su etiqueta). */
-function valorParaQuitar(falla: string, arg: string | undefined): unknown {
+function valorParaQuitar(falla: string, arg: string | undefined, tipo: string): unknown {
   if (!arg) return undefined;
+  if (falla === "salida_pegada" && tipo === "rele_seguridad") return arg; // la salida, «13-14»
   if (falla === "entrada_pegada" || falla === "salida_pegada") return { borne: arg };
   if (falla === "canal_sto_pegado") return arg;
   if (falla === "abierto" && /^\d+$/.test(arg)) return Number(arg);
@@ -264,7 +275,7 @@ export function activasDe(
       if (!falla) continue;
       const arg = resto.join(" ") || undefined;
       const quitar: EventoFalla = { tipo: "falla", dispositivo: des, falla, quitar: true };
-      const v = valorParaQuitar(falla, arg);
+      const v = valorParaQuitar(falla, arg, tipo);
       if (v !== undefined) quitar.valor = v;
       const que = nombreDe(falla, tipo, "dispositivo").frase(arg);
       out.push({ clave: `${des}|${etiqueta}`, frase: `${que} en ${des}`, que, donde: des, quitar });
@@ -294,11 +305,11 @@ export function conAckDeRama(ramas: readonly EventoFalla[], evento: unknown): re
   return [...otras, nueva];
 }
 
-/** Lo que distingue una de varias fallas del mismo nombre en un aparato: el borne, el canal o
- *  la unidad (undefined si no hay nada que distinguir). */
+/** Lo que distingue una de varias fallas del mismo nombre en un aparato: el borne, el canal, la
+ *  salida del relé o la unidad (undefined si no hay nada que distinguir). */
 function identidad(falla: string, valor: unknown): string | undefined {
   if (valor && typeof valor === "object" && "borne" in valor) return String((valor as { borne: unknown }).borne);
-  if (falla === "canal_sto_pegado" && typeof valor === "string") return valor;
+  if ((falla === "canal_sto_pegado" || falla === "salida_pegada") && typeof valor === "string") return valor;
   if (falla === "abierto" && typeof valor === "number") return String(valor);
   return undefined;
 }

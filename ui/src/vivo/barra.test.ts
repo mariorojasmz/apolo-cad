@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { controlesBarra, rotuloFase, textoFactor } from "./barra";
-import { formatear, lecturasDe, senalContador } from "./lecturas";
+import { formatear, lecturasDe, senalContador, textoLectura } from "./lecturas";
 import { avanzarReloj, crearReloj, RETRASO_S } from "./reloj";
 
 /* La barra de la sesión viva (fase, factor, botones), las lecturas del panel y las etiquetas, y
@@ -52,6 +52,23 @@ describe("lecturas", () => {
     expect(formatear(7, { unidad: "", decimales: 0 })).toBe("7");
     expect(formatear(undefined, { unidad: "Hz", decimales: 1 })).toBe("—");
     expect(formatear(-0.01, { unidad: "Hz", decimales: 1 })).toBe("0,0 Hz");
+  });
+
+  it("relé de seguridad: sus salidas en palabras y, si espera el ciclo, por qué no rearma", () => {
+    const rele = { dispositivos: [{ designacion: "-K2", tipo: "rele_seguridad", ref: "RS-2C-24VDC" }] };
+    const [l] = lecturasDe(rele, ["-K2.salidas", "-K2.canal1", "-K2.espera_ciclo"]);
+    expect(l.rotulo).toBe("Relé de seguridad");
+    expect(l.lineas.map((x) => x.senal)).toEqual(["-K2.salidas", "-K2.espera_ciclo"]);
+    const valores: Record<string, number> = { "-K2.salidas": 1, "-K2.espera_ciclo": 0, "-K2.canal1": 1, "-K2.canal2": 1 };
+    expect(textoLectura(l, (s) => valores[s])).toBe("Salidas cerradas");
+    Object.assign(valores, { "-K2.salidas": 0, "-K2.espera_ciclo": 1, "-K2.canal2": 0 });
+    const v = (s: string) => valores[s];
+    expect([textoLectura(l, v), textoLectura(l, v, true)]).toEqual(["Salidas abiertas", ""]); // abierto: espera, pero no es la razón
+    valores["-K2.canal2"] = 1; // cerrado otra vez y un canal no abrió: por eso no rearma
+    expect(textoLectura(l, v)).toBe("Salidas abiertas"); // la etiqueta 3D, sólo el valor
+    expect(textoLectura(l, v, true)).toBe("No rearma hasta que abran y cierren los dos canales.");
+    expect(textoLectura(l, () => undefined)).toBe("—"); // sin valores todavía
+    expect(textoLectura(l, () => undefined, true)).toBe("");
   });
 });
 

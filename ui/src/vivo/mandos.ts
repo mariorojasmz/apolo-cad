@@ -5,8 +5,8 @@ import type { MandoVivo } from "./protocolo";
    - pulsador con resorte: bajar el mouse = `pulsar` (sin `durante_s`), soltarlo = `soltar`;
      el mantenido alterna con cada pulsación y al soltar no pasa nada;
    - seta: `presionar` la deja RETENIDA; otro clic la `libera` (ISO 13850);
-   - seccionador: `abrir` / `cerrar`; selector: `girar` a una posición; potenciómetro: `girar`
-     con 0–1.
+   - seccionador y resguardo: `abrir` / `cerrar`; selector: `girar` a una posición;
+     potenciómetro: `girar` con 0–1.
    Puro: lo usan el panel «Mandos» y el clic en la pieza 3D. */
 
 export type Accion = Record<string, string | number>;
@@ -15,7 +15,7 @@ export type Accion = Record<string, string | number>;
 export interface EstadoMando {
   /** La seta está retenida (`<des>.accionado`). */
   retenida?: boolean;
-  /** El seccionador está cerrado (`<des>.cerrado`). */
+  /** El seccionador (o el resguardo) está cerrado (`<des>.cerrado`). */
   cerrado?: boolean;
   /** El actuador de un pulsador con varios (`marcha`, `paro`). */
   actuador?: string;
@@ -35,6 +35,7 @@ export function alApretar(m: MandoVivo, e: EstadoMando = {}): Accion | null {
     case "seta":
       return base(e.retenida ? "liberar" : "presionar", m);
     case "seccionador":
+    case "resguardo":
       return base(e.cerrado === false ? "cerrar" : "abrir", m);
     default:
       return null;
@@ -63,11 +64,20 @@ const NOMBRES: Record<string, string> = {
   seta: "Seta de emergencia",
   selector: "Selector",
   seccionador: "Seccionador",
+  resguardo: "Resguardo",
 };
 
 /** Cómo se llama el tipo de mando en pantalla. */
 export function nombreTipo(m: MandoVivo): string {
   return NOMBRES[m.tipo] ?? "Mando";
+}
+
+/** El tipo con su estado, para los que se abren y se cierran: «Resguardo abierto»; sin señal
+ *  todavía, o en los demás mandos, sólo el tipo. */
+export function nombreConEstado(m: MandoVivo, e: EstadoMando = {}): string {
+  const tipo = nombreTipo(m);
+  if ((m.tipo !== "seccionador" && m.tipo !== "resguardo") || e.cerrado === undefined) return tipo;
+  return `${tipo} ${e.cerrado ? "cerrado" : "abierto"}`;
 }
 
 /** El rótulo del botón según lo que va a hacer. */
@@ -78,6 +88,7 @@ export function rotuloAccion(m: MandoVivo, e: EstadoMando = {}): string {
     case "seta":
       return e.retenida ? "Liberar" : "Presionar";
     case "seccionador":
+    case "resguardo":
       return e.cerrado === false ? "Cerrar" : "Abrir";
     default:
       return "Accionar";

@@ -116,6 +116,27 @@ def test_un_nc_del_resguardo_pegado_para_igual_y_el_rele_no_rearma(con_rele):
     assert not f["-K2.salidas"] and f["-K2.espera_ciclo"] and _para(malo)  # el canal pegado se nota
 
 
+def test_en_vivo_el_resguardo_es_un_mando_y_el_rele_ofrece_sus_salidas(con_rele):
+    """F1b: la sesión viva abre y cierra el resguardo (`MANDOS`) y ofrece la salida pegada del relé
+    con la lista de sus NA de seguridad (`pide` «salida»)."""
+    from apolo.cosim.vivo import Vivo, escenario_vivo
+
+    v = Vivo(snapshot_cosim(con_rele, escenario_vivo(escenario_variador(1.0)), programas=PROGRAMAS))
+    tabla = v.fot.tabla()
+    mandos = {m["designacion"]: m for m in tabla["mandos"]}
+    assert mandos["-B2"]["tipo"] == "resguardo" and mandos["-B2"]["acciones"] == ["abrir", "cerrar"]
+    assert mandos["-B2"]["senales"] == ["-B2.cerrado"]
+    assert "-K2" not in mandos  # el relé no se aprieta: se lee
+    fallas = {f["designacion"]: {x["falla"]: x for x in f["fallas"]} for f in tabla["fallas"]}
+    assert fallas["-K2"]["salida_pegada"] == {"falla": "salida_pegada", "pide": "salida",
+                                              "opciones": ["13-14", "23-24", "33-34"]}
+    assert fallas["-B2"]["trabado"]["pide"] == "bool?"
+    assert v.recibir({"accion": "abrir", "dispositivo": "-B2", "id": "a"}) is None
+    v.avanzar(10)
+    resp = {r["id"]: r for r in v.respuestas() if r.get("id")}
+    assert resp["a"]["tipo"] == "ack" and not v.c.tab.modelos["-B2"].cerrado
+
+
 def test_un_na_del_rele_soldado_el_otro_canal_del_sto_corta(con_rele):
     soldada = {"t": 1.0, "tipo": "falla", "dispositivo": "-K2", "falla": "salida_pegada", "valor": "13-14"}
     res = _correr(con_rele, soldada, acciones=(REARME, ABRE))

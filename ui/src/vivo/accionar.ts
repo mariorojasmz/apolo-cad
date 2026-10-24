@@ -5,9 +5,14 @@ import type { MandoVivo } from "./protocolo";
 /* El estado de un mando para el panel y para su pieza 3D: lo que dicen las señales, con lo
    recién pedido encima hasta que la señal lo muestre. Puro (el envío es `sesion.accionar`). */
 
+/** El seccionador y el resguardo se abren y se cierran (`abrir`/`cerrar`, `<des>.cerrado`). */
+export function abreYCierra(m: Pick<MandoVivo, "tipo">): boolean {
+  return m.tipo === "seccionador" || m.tipo === "resguardo";
+}
+
 /** La señal que muestra el estado de un mando de una sola posición, o null. */
 export function senalDeEstado(m: MandoVivo): string | null {
-  if (m.tipo === "seccionador") return `${m.designacion}.cerrado`;
+  if (abreYCierra(m)) return `${m.designacion}.cerrado`;
   if ((m.tipo === "seta" || m.tipo === "pulsador") && m.senales.includes(`${m.designacion}.accionado`)) {
     return `${m.designacion}.accionado`;
   }
@@ -27,7 +32,7 @@ export function estadoDeMando(m: MandoVivo, st: Pick<EstadoVivo, "lecturas" | "e
 /** El estado de un mando desde el valor de su señal de estado (`senalDeEstado`). */
 export function estadoDesdeValor(m: MandoVivo, v: number | undefined): EstadoMando {
   if (m.tipo === "seta") return { retenida: v !== undefined && v >= 0.5 };
-  if (m.tipo === "seccionador") return { cerrado: v === undefined ? undefined : v >= 0.5 };
+  if (abreYCierra(m)) return { cerrado: v === undefined ? undefined : v >= 0.5 };
   return {};
 }
 

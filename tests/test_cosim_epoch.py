@@ -68,7 +68,9 @@ ARCHIVOS = (
 #: tablero lee los que declaran `BORNES_ENTRADA` y el vocabulario `pide` suma «salida»; sin esos
 #: aparatos nada cambia: 11 escenarios del banco (los 9 de arriba, la seta por variador y el NC de
 #: la seta pegado) dan la MISMA huella que en bf69175 (bitácora del plan).
-HUELLA: tuple[int, str] = (4, "5b3d0ebe9d443a19")
+#: mandos-de-seguridad F1b (sin subir): `vivo_fotograma.MANDOS` suma `resguardo`; sólo cambia lo
+#: que la tabla del `inicio` ofrece en vivo, no el paso ni ninguna traza.
+HUELLA: tuple[int, str] = (4, "5281fbc909253972")
 
 
 def archivos() -> list[Path]:

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { formatear, type Lectura } from "./lecturas";
+import { textoLectura, type Lectura } from "./lecturas";
 import "./vivo.css";
 
 /* Datos vivos sobre el 3D (plan V8.4 D5): una etiqueta HTML (`CSS2DRenderer`) sobre la pieza de
@@ -61,7 +61,7 @@ export function crearEtiquetas(
   let alto = 0;
   const escribir = () => {
     for (const { lectura, valor: span } of etiquetas) {
-      span.textContent = lectura.lineas.map((ln) => formatear(valor(ln.senal), ln)).join(" · ");
+      span.textContent = textoLectura(lectura, valor);
     }
   };
   escribir();

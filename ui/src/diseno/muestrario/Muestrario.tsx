@@ -7,14 +7,15 @@ import EstadoVacio from "../EstadoVacio";
 import ItemsAtencion from "../ItemsAtencion";
 import Veredicto from "../Veredicto";
 import { itemsTablero } from "./datos";
-import { BarraFallasDemo, PanelFallasDemo } from "./FallasDemo";
+import { BarraFallasDemo, PanelFallasDemo, PanelMandosDemo } from "./FallasDemo";
 import VueloDemo, { type Demo } from "./VueloDemo";
 import "./muestrario.css";
 
 /* Muestrario de diseño (plan V8.5 F3b-0): las piezas comunes con los datos de ejemplo del panel
    «Tablero», al ancho de un panel de Dockview, junto a un visor de ejemplo con el vuelo de
    cámara. Es la base de la revisión de diseño a ciegas (D14); F3b arma el panel real. Abajo,
-   «Simular falla» y la barra de la sesión viva con datos de ejemplo (plan cosim-fallas D7). */
+   «Mandos» (con el resguardo y el relé de seguridad), «Simular falla» y la barra de la sesión
+   viva con datos de ejemplo (planes cosim-fallas D7 y mandos-de-seguridad). */
 
 export default function Muestrario() {
   const demo = useRef<Demo | null>(null);
@@ -50,6 +51,9 @@ export default function Muestrario() {
       </div>
       <Marco rotulo="Visor · clic en un ítem para volar" ancho>
         <VueloDemo alListo={(d) => { demo.current = d; }} />
+      </Marco>
+      <Marco rotulo="Mandos · resguardo y relé de seguridad">
+        <PanelMandosDemo />
       </Marco>
       <Marco rotulo="Mandos · simular falla">
         <PanelFallasDemo />

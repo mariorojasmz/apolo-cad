@@ -5,7 +5,8 @@ import type { CadenaSerie, FajaSerie } from "../viewport/marcha/serie";
    los JSON cortos y del fotograma binario, y el texto para la persona de cada cierre. Puro: sin
    WebSocket ni three.js (se prueba en node). */
 
-/** Un mando del tablero (pulsador, seta, selector, seccionador) como lo publica el `inicio`. */
+/** Un mando del tablero (pulsador, seta, selector, seccionador, resguardo) como lo publica el
+ *  `inicio`. */
 export interface MandoVivo {
   designacion: string;
   tipo: string;
@@ -40,7 +41,8 @@ export interface DispositivoVivo {
 }
 
 /** Una falla que un aparato sabe tomar (plan cosim-fallas D6): `pide` dice qué valor lleva
- *  (`""`, `bool`, `bool?`, `posicion?`, `unidad?`, `borne,valor`, `canal`; `modelos/base.PIDE`). */
+ *  (`""`, `bool`, `bool?`, `posicion?`, `unidad?`, `borne,valor`, `canal`, `salida`;
+ *  `modelos/base.PIDE`). */
 export interface FallaCatalogo {
   falla: string;
   pide: string;

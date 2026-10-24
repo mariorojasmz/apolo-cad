@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api } from "../api";
 import VerDetalle from "../ui/VerDetalle";
-import { estadoDeMando, estadoDesdeValor, senalDeEstado, valorVisto } from "./accionar";
+import { abreYCierra, estadoDeMando, estadoDesdeValor, senalDeEstado, valorVisto } from "./accionar";
 import { useVivo } from "./estado";
-import { formatear, lecturasDe } from "./lecturas";
-import { alApretar, alSoltar, colorFisico, encendido, esMomentaneo, girar, nombreTipo, rotuloAccion } from "./mandos";
+import { lecturasDe, textoLectura } from "./lecturas";
+import { alApretar, alSoltar, colorFisico, encendido, esMomentaneo, girar, nombreConEstado, rotuloAccion, type Accion } from "./mandos";
 import type { MandoVivo, PilotoVivo } from "./protocolo";
 import { abrirSesion, accionar, reiniciarSesion } from "./sesion";
 import { abrirPanel } from "./abrirPanel";
@@ -16,7 +16,11 @@ import "./vivo.css";
    máquina, tenga o no la botonera modelada. Sin sesión: elegir el escenario y abrirla. Con
    sesión: cada mando del tablero con su color físico (pulsador = mientras lo mantienes
    apretado; seta = queda retenida hasta liberarla), los pilotos encendidos en su color y las
-   lecturas del motor, el variador y el contador; «Provocar atasco» y el paso a «Señales» y «PLC». */
+   lecturas del motor, el variador, el contador y el relé de seguridad; «Provocar atasco» y el paso
+   a «Señales» y «PLC». */
+
+/** Cómo se manda la acción de un mando: por el WebSocket; el muestrario la simula. */
+export const AccionarMando = createContext<(a: Accion, m: MandoVivo) => void>(accionar);
 
 export default function PanelMandos() {
   const fase = useVivo((s) => s.fase);
@@ -102,14 +106,7 @@ function Tablero() {
   return (
     <>
       {rechazo && <p className="estado-aviso">{rechazo}</p>}
-      <h3>Mandos</h3>
-      {inicio.mandos.length ? (
-        <ul className="lista-mandos">
-          {inicio.mandos.map((m) => <FilaMando key={m.designacion} m={m} quieto={quieto} />)}
-        </ul>
-      ) : (
-        <p className="hint">El tablero no tiene mandos que se aprieten.</p>
-      )}
+      <ListaMandos quieto={quieto} />
       {inicio.pilotos.length > 0 && (
         <>
           <h3>Pilotos</h3>
@@ -130,6 +127,24 @@ function Tablero() {
   );
 }
 
+/** «Mandos»: cada mando del tablero con su control. */
+export function ListaMandos({ quieto }: { quieto: boolean }) {
+  const mandos = useVivo((s) => s.inicio?.mandos);
+  if (!mandos) return null;
+  return (
+    <>
+      <h3>Mandos</h3>
+      {mandos.length ? (
+        <ul className="lista-mandos">
+          {mandos.map((m) => <FilaMando key={m.designacion} m={m} quieto={quieto} />)}
+        </ul>
+      ) : (
+        <p className="hint">El tablero no tiene mandos que se aprieten.</p>
+      )}
+    </>
+  );
+}
+
 /** El color físico como variables CSS de la tapa (y el fondo amarillo de la seta). */
 function tapa(color: string | null, fondo?: string): CSSProperties {
   return {
@@ -143,13 +158,13 @@ function FilaMando({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
   const senal = senalDeEstado(m);
   const v = useVivo((s) => (senal ? valorVisto(s, senal) : undefined));
   const estado = estadoDesdeValor(m, v);
-  const accionado = v !== undefined && v >= 0.5 && m.tipo !== "seccionador";
+  const accionado = v !== undefined && v >= 0.5 && !abreYCierra(m);
   return (
     <li className="fila-mando">
       <span className={`tapa-mando tapa-${m.tipo}${accionado ? " accionada" : ""}`} style={tapa(m.color, m.fondo)} aria-hidden />
       <div className="fila-mando-nombre">
         <strong>{m.designacion}</strong>
-        <span className="hint">{nombreTipo(m)}{m.pieza ? " · también con clic en el 3D" : ""}</span>
+        <span className="hint">{nombreConEstado(m, estado)}{m.pieza ? " · también con clic en el 3D" : ""}</span>
       </div>
       <div className="fila-mando-control">
         {m.tipo === "selector" ? (
@@ -163,7 +178,7 @@ function FilaMando({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
           </>
         ) : (
           <BotonMando m={m} rotulo={rotuloAccion(m, estado)} quieto={quieto}
-            activo={m.tipo === "seta" ? estado.retenida : m.tipo === "seccionador" ? estado.cerrado === false : undefined} />
+            activo={m.tipo === "seta" ? estado.retenida : abreYCierra(m) ? estado.cerrado === false : undefined} />
         )}
       </div>
     </li>
@@ -174,6 +189,7 @@ function FilaMando({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
 function BotonMando({ m, rotulo, actuador, quieto, activo }: {
   m: MandoVivo; rotulo: string; actuador?: string; quieto: boolean; activo?: boolean;
 }) {
+  const accionar = useContext(AccionarMando);
   const [abajo, setAbajo] = useState(false);
   const abajoRef = useRef(false); // el soltar puede llegar dos veces antes del re-render
   const apretar = () => {
@@ -223,6 +239,7 @@ function BotonMando({ m, rotulo, actuador, quieto, activo }: {
 }
 
 function Selector({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
+  const accionar = useContext(AccionarMando);
   const [pos, setPos] = useState<string | null>(null);
   return (
     <div className="selector-mando" role="group" aria-label={`Posiciones de ${m.designacion}`}>
@@ -240,6 +257,7 @@ function Selector({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
 }
 
 function Potenciometro({ m, quieto }: { m: MandoVivo; quieto: boolean }) {
+  const accionar = useContext(AccionarMando);
   const valor = useVivo((s) => s.lecturas[`${m.designacion}.potenciometro`]);
   return (
     <input type="range" min={0} max={1} step={0.01} disabled={quieto} value={valor ?? 0}
@@ -262,7 +280,8 @@ function FilaPiloto({ p }: { p: PilotoVivo }) {
   );
 }
 
-function Lecturas() {
+/** «Lecturas»: lo que mide cada aparato (`lecturas.ts`) y su falla, si el aparato la publica. */
+export function Lecturas() {
   const inicio = useVivo((s) => s.inicio);
   const lecturas = useVivo((s) => s.lecturas);
   const textos = useVivo((s) => s.textos);
@@ -275,6 +294,7 @@ function Lecturas() {
       <ul className="lista-mandos">
         {filas.map((l) => {
           const falla = textos[`${l.designacion}.falla`];
+          const nota = textoLectura(l, (s) => lecturas[s], true);
           return (
             <li key={l.designacion} className="fila-mando">
               <div className="fila-mando-nombre">
@@ -282,8 +302,9 @@ function Lecturas() {
                 <span className="hint">{l.rotulo}</span>
               </div>
               <span className="valor-lectura">
-                {l.lineas.map((ln) => formatear(lecturas[ln.senal], ln)).join(" · ")}
+                {textoLectura(l, (s) => lecturas[s])}
               </span>
+              {nota && <span className="hint nota-lectura">{nota}</span>}
               {falla && <span className="estado-aviso falla-lectura">Falla: {falla}</span>}
             </li>
           );

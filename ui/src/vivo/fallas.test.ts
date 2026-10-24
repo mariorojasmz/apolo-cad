@@ -22,6 +22,9 @@ const INICIO: Pick<InicioVivo, "fallas" | "ramas"> = {
     { designacion: "-T1", tipo: "variador", fallas: [
       { falla: "canal_sto_pegado", pide: "canal", opciones: ["S1", "S2"] }, { falla: "falla_interna", pide: "" }] },
     { designacion: "-F2", tipo: "fusible", fallas: [{ falla: "no_dispara", pide: "" }, { falla: "abierto", pide: "unidad?", opciones: [1, 2, 3] }] },
+    { designacion: "-B2", tipo: "resguardo", fallas: [{ falla: "trabado", pide: "bool?" }] },
+    { designacion: "-K2", tipo: "rele_seguridad", fallas: [
+      { falla: "salida_pegada", pide: "salida", opciones: ["13-14", "23-24", "33-34"] }, { falla: "detenido", pide: "" }] },
   ],
   ramas: [
     { id: "-K1:13-14", tipo: "contacto", red: "mando", dispositivo: "-K1" },
@@ -35,7 +38,7 @@ const falla = (o: Objetivo, n: string) => o.fallas.find((f) => f.falla === n)!;
 
 describe("objetivosDe", () => {
   it("aparatos y ramas en el orden del inicio; un contacto se pega o se abre, un cable sólo se corta", () => {
-    expect(objetivos.map((o) => o.clave)).toEqual(["d:-K1", "d:-S0", "d:-S5", "d:-B1", "d:-A1", "d:-T1", "d:-F2", "r:-K1:13-14", "r:-W3"]);
+    expect(objetivos.map((o) => o.clave)).toEqual(["d:-K1", "d:-S0", "d:-S5", "d:-B1", "d:-A1", "d:-T1", "d:-F2", "d:-B2", "d:-K2", "r:-K1:13-14", "r:-W3"]);
     expect(de("r:-K1:13-14").fallas.map((f) => f.falla)).toEqual(["pegado", "abierto"]);
     expect(de("r:-W3").fallas.map((f) => f.falla)).toEqual(["abierto"]);
   });
@@ -94,6 +97,27 @@ describe("el evento", () => {
     expect(armarFalla(f2, falla(f2, "abierto"), { valor: "2" }).valor).toBe(2);
   });
 
+  it("relé de seguridad: la salida soldada pide cuál, de las que publica el inicio (mandos-de-seguridad D3)", () => {
+    const k2 = de("d:-K2");
+    const f = falla(k2, "salida_pegada");
+    const [campo] = camposDe(k2, f);
+    expect(campo).toMatchObject({ id: "valor", rotulo: "Salida", tipo: "lista" });
+    expect(campo.tipo === "lista" && campo.opciones).toEqual([
+      { clave: "13-14", rotulo: "Bornes 13-14" }, { clave: "23-24", rotulo: "Bornes 23-24" }, { clave: "33-34", rotulo: "Bornes 33-34" }]);
+    // la forma que acepta `ReleSeguridad._salida`: el texto de los bornes, nunca sin valor
+    expect(armarFalla(k2, f)).toEqual({ tipo: "falla", dispositivo: "-K2", falla: "salida_pegada", valor: "13-14" });
+    expect(armarFalla(k2, f, { valor: "23-24" }).valor).toBe("23-24");
+    expect(rotuloFalla(k2, "salida_pegada")).toBe("Salida de seguridad soldada");
+    expect(armarFalla(k2, falla(k2, "detenido"))).toEqual({ tipo: "falla", dispositivo: "-K2", falla: "detenido" });
+  });
+
+  it("resguardo trabado: los contactos quedan como están, cerrados o abiertos", () => {
+    const b2 = de("d:-B2");
+    const [campo] = camposDe(b2, falla(b2, "trabado"));
+    expect(campo.tipo === "lista" && campo.opciones.map((o) => o.rotulo)).toEqual(["Como está ahora", "Contactos cerrados", "Contactos abiertos"]);
+    expect(armarFalla(b2, falla(b2, "trabado"), { valor: "0" }).valor).toBe(false);
+  });
+
   it("rama: el contacto pegado lleva cerrado (true) o abierto (false); el cable cortado, nada", () => {
     const k = de("r:-K1:13-14");
     expect(armarFalla(k, falla(k, "pegado"))).toEqual({ tipo: "falla", rama: "-K1:13-14", falla: "pegado", valor: true });
@@ -114,6 +138,16 @@ describe("las activas", () => {
     expect(a[1].quitar).toEqual({ tipo: "falla", dispositivo: "-A1", falla: "entrada_pegada", valor: { borne: "I0.0" }, quitar: true });
     expect(a[3].quitar.valor).toBe(2);
     expect(a[0].quitar).toEqual({ tipo: "falla", dispositivo: "-K1", falla: "soldado", quitar: true });
+  });
+
+  it("la salida soldada del relé se quita con su salida, no con un borne del PLC", () => {
+    const a = activasDe({ "-K2.averia": "salida_pegada 13-14, detenido" }, INICIO);
+    expect(a.map((x) => x.frase)).toEqual(["salida de seguridad 13-14 soldada en -K2", "relé detenido en -K2"]);
+    expect(a[0].quitar).toEqual({ tipo: "falla", dispositivo: "-K2", falla: "salida_pegada", valor: "13-14", quitar: true });
+    const k2 = de("d:-K2");
+    const f = falla(k2, "salida_pegada");
+    expect(activaIgual(a, armarFalla(k2, f))?.clave).toBe("-K2|salida_pegada 13-14");
+    expect(activaIgual(a, armarFalla(k2, f, { valor: "23-24" }))).toBeUndefined();
   });
 
   it("la barra dice la falla con una y la cuenta con varias", () => {
