@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) en `main` (`1f13862`); F1 (MCP → tools/) implementada sobre `1f13862`, pendiente de revisión y merge; siguen F3 → F4 → F5 → F6
+nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) en `main` (`1f13862`); F1 (MCP → tools/) en `main` (`985ea53`); F3 (registry I: escena + exec_basicos/colocacion/modificar) implementada sobre `c11bca8`, pendiente de revisión y merge; siguen F4 → F5 → F6
 descripcion: por fuera nada cambia —mismos comandos, mismas tools MCP, mismos proyectos y la misma caché de geometría—; por dentro los cuatro archivos más tocados del núcleo quedan en módulos de ≤ 500 líneas y dos sesiones ya no chocan en el mismo archivo
 ---
 
@@ -410,3 +410,54 @@ La sesión principal re-corre todo antes de integrar.
   `registrar` las tools se separan con una línea en blanco, no dos (no son parte de su fuente).
   (4) El docstring de `tools/catalogo.py`, que enumera los módulos viejos, no se tocó (fuera del
   alcance).
+
+### F3 — `registry.py` I: base y modelado (2026-10-25, base `c11bca8`)
+
+- **Corte** (script por NOMBRE sobre el AST: cada bloque con sus comentarios pegados, byte a byte
+  y en su orden original; dos bloques contiguos en el original conservan su hueco, los demás se
+  separan con dos líneas en blanco; en `registry.py` se borra cada bloque movido con sus líneas
+  en blanco de detrás):
+
+  | módulo | nombres | líneas |
+  |---|---:|---:|
+  | `escena.py` | 12 | 128 |
+  | `exec_basicos.py` | 13 | 210 |
+  | `exec_colocacion.py` | 16 | 290 |
+  | `exec_modificar.py` | 10 | 303 |
+  | `registry.py` | — | 1 122 (era 1 912; `EXCEPCIONES` baja en el mismo commit) |
+
+- **Fuentes y huellas**: `{tipo: huella}` de los 62 comandos, el orden del `REGISTRY` y las
+  versiones, idénticos a la foto «antes»; `inspect.getsource` de las 87 definiciones de nivel
+  superior que tenía `registry.py`, idéntico (0 distintas, 0 perdidas). Las constantes, mismo
+  `repr`, salvo `Scene`: el alias `dict[str, Feature]` imprime el módulo de `Feature`, que ahora
+  es `escena` (el texto es el mismo). `tests/test_contrato_comandos.py`, `tests/data/mcp_golden`
+  y `geomcache.py` sin diff contra `main`.
+- **Schemas**: `command_schemas()` (221 827 B), `command_schemas_agente()` (214 584 B) y
+  `command_schemas_persona()` (189 805 B), idénticos byte a byte (sha256) a la foto «antes».
+- **`golden_regen.py`** sobre una copia congelada de `data/apolo.db` (`C:\t\partir-f3\copia.db`,
+  34 proyectos, 119 revisiones): base contra F3, «Sin diferencias» en los 34 proyectos (4 513
+  comandos, 89 s; la última firma incluida) y también con `--revisions`: 153 documentos, 34 235
+  comandos, 325 s (base 339 s), «Sin diferencias». Toda la base cabe holgada en el tope de ~15
+  min.
+- **Open caliente con un blob del código VIEJO**: los blobs de la tabla `geom_cache` de la copia
+  son de un epoch anterior (0 de 17 pasan `unpack`), así que el código de la base (extraído con
+  `git archive c11bca8`) abrió los proyectos 38, 28 y 53 desde la copia y escribió su
+  `geomcache.pack` (nombran `apolo.commands.registry.Feature`). Con el código de la F3,
+  `from_apolo_bytes(warm=unpack(blob))`: CERO llamadas a `execute_command` en los tres (450, 320
+  y 17 comandos), las `Feature` cargadas son las de `escena`, y la escena y las firmas son las de
+  un open en frío.
+- **Gate D11**: `test_rutas_viejas.py` suma la sección `registry`: lista CERRADA de los 51
+  nombres movidos por casa, cada uno el MISMO objeto en `registry` y nacido en su casa; los 23
+  executors movidos que despacha el `REGISTRY` son los de su casa; un pickle de `Feature` con la
+  ruta `apolo.commands.registry` carga; dos tests prueban que el gate caza un nombre que falta y
+  una copia.
+- **Suite**: completa en el escritorio (carril A, `-n auto`, sobre `ae0cfc5`): EXIT 0, sin FAILED
+  ni ERROR; `-m torture` (27): EXIT 0; ruff limpio. En la laptop: `test_contrato_comandos`,
+  `test_despacho_unico`, `test_rutas_viejas`, `test_tamano_archivos`, `test_claude_md`,
+  `test_mejoras_mcp` y cada módulo nuevo importado solo en un subproceso, verdes.
+- **Desvíos de D7**: ninguno en el reparto. (1) `exec_modificar` importa `_planar_face_frame` de
+  `exec_colocacion` (el taladro por cara usa el frame de la cara): una arista `exec_*` →
+  `exec_*`, sin ciclo; ningún `exec_*` importa `registry`. (2) Líneas de import (D1 d): `registry`
+  deja de importar `dataclass`, `Any` y seis funciones del kernel que ya no usa (nadie las
+  importaba de ahí); su docstring suma una línea con el mapa. (3) `registry.py` mide 1 122 y no
+  ≈ 1 100: el shim es de un nombre por línea.
