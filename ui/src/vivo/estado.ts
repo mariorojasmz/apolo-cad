@@ -31,6 +31,9 @@ export interface EstadoVivo {
   /** El último rechazo de una acción, ya en palabras. */
   rechazo: string | null;
   problema: ProblemaVivo | null;
+  /** Por qué está en pausa, si no la pidió la persona: `lazo` (se cortó el enlace con el PLC
+   *  externo, plc-en-el-lazo D8) con el `mensaje` del núcleo. null en una pausa manual. */
+  pausa: { motivo: string; mensaje?: string } | null;
   /** Por qué terminó (texto) y en qué instante. */
   fin: { texto: string; t: number } | null;
   set: (p: Partial<EstadoVivo>) => void;
@@ -49,6 +52,7 @@ export const INICIAL = {
   ramasEnFalla: [] as readonly EventoFalla[],
   rechazo: null,
   problema: null,
+  pausa: null,
   fin: null,
 } satisfies Omit<EstadoVivo, "set">;
 

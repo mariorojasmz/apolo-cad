@@ -29,6 +29,21 @@ export function rotuloFase(fase: FaseVivo): string {
   }
 }
 
+/** Qué dice la barra de una pausa que no pidió la persona (`pausa.motivo`), o null (la pausa
+ *  manual dice «En pausa» y nada más). `lazo`: se cortó el enlace con el PLC externo y
+ *  «Reanudar» lo reintenta (plc-en-el-lazo D8); el `mensaje` del núcleo va al detalle. */
+export function avisoPausa(pausa: { motivo: string; mensaje?: string } | null):
+  { fase: string; texto: string; detalle?: string } | null {
+  if (!pausa) return null;
+  if (pausa.motivo === "lazo")
+    return {
+      fase: "En pausa · se cortó el enlace con el PLC",
+      texto: "Revisa que el PLC externo esté encendido y en la red, y reanuda para reintentar.",
+      detalle: pausa.mensaje || undefined,
+    };
+  return { fase: "En pausa", texto: "La simulación se pausó sola.", detalle: pausa.mensaje || undefined };
+}
+
 export interface ControlesBarra {
   pausar: boolean;
   reanudar: boolean;

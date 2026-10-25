@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { controlesBarra, rotuloFase, textoFactor } from "./barra";
+import { avisoPausa, controlesBarra, rotuloFase, textoFactor } from "./barra";
 import { formatear, lecturasDe, senalContador, textoLectura } from "./lecturas";
 import { avanzarReloj, crearReloj, RETRASO_S } from "./reloj";
 
@@ -22,6 +22,17 @@ describe("barra de la sesión viva", () => {
     expect(controlesBarra("fin")).toEqual({ pausar: false, reanudar: false, parar: false, reiniciar: true });
     expect(controlesBarra("error").reiniciar).toBe(true);
     expect(controlesBarra("abriendo")).toEqual({ pausar: false, reanudar: false, parar: false, reiniciar: false });
+  });
+});
+
+describe("la pausa que no pidió la persona (plc-en-el-lazo D8)", () => {
+  it("lazo: dice qué pasó y qué hacer, con el mensaje del núcleo al detalle; la manual, nada", () => {
+    const a = avisoPausa({ motivo: "lazo", mensaje: "lazo cortado en t = 1.204 s: conexión rechazada" })!;
+    expect(a.fase).toBe("En pausa · se cortó el enlace con el PLC");
+    expect(a.texto).toMatch(/reanuda para reintentar/);
+    expect(a.detalle).toBe("lazo cortado en t = 1.204 s: conexión rechazada");
+    expect(avisoPausa({ motivo: "lazo" })!.detalle).toBeUndefined();
+    expect(avisoPausa(null)).toBeNull();
   });
 });
 

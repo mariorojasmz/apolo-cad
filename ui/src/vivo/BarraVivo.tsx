@@ -1,6 +1,7 @@
 import { Pause, Play, RotateCcw, Square, X } from "lucide-react";
 import { segundos } from "../viewport/marcha/serie";
-import { controlesBarra, rotuloFase, textoFactor } from "./barra";
+import { avisoPausa, controlesBarra, rotuloFase, textoFactor } from "./barra";
+import VerDetalle from "../ui/VerDetalle";
 import { useVivo } from "./estado";
 import Instrumentos from "./Instrumentos";
 import FallasActivas from "./FallasActivas";
@@ -37,15 +38,17 @@ export default function BarraVivo({ extensiones = EXTENSIONES }: { extensiones?:
   const factor = useVivo((s) => s.factor);
   const vieja = useVivo((s) => s.vieja);
   const fin = useVivo((s) => s.fin);
+  const pausa = useVivo((s) => s.pausa);
   const cajon = useVisor((s) => (s.modo === "visor" ? s.cajonDer : null));
   const f = textoFactor(factor);
   const c = controlesBarra(fase);
+  const aviso = fase === "pausa" ? avisoPausa(pausa) : null; // una pausa que no pidió la persona
   return (
     <>
       <Instrumentos />
       <div className="barra-marcha barra-vivo" role="toolbar" aria-label="Máquina viva">
         <FallasActivas />
-        <span className={`bv-fase bv-${fase}`}>{rotuloFase(fase)}</span>
+        <span className={`bv-fase bv-${fase}`}>{aviso ? aviso.fase : rotuloFase(fase)}</span>
         <span className="bm-tiempo">{segundos(t)}</span>
         {(fase === "corriendo" || fase === "pausa") && (
           <span className={`bv-factor${f.lento ? " lento" : ""}`} aria-label={`Factor de tiempo real ${f.texto}`}>
@@ -55,6 +58,12 @@ export default function BarraVivo({ extensiones = EXTENSIONES }: { extensiones?:
         <ChipsVivo extensiones={extensiones} />
         <AireVivo />
         {fase === "fin" && fin && <span className="bv-mensaje">{fin.texto}</span>}
+        {aviso && (
+          <span className="bv-mensaje bv-aviso-pausa" role="status">
+            {aviso.texto}
+            {aviso.detalle && <VerDetalle resumen="Detalle técnico">{aviso.detalle}</VerDetalle>}
+          </span>
+        )}
         {vieja && fase !== "fin" && (
           <>
             <span className="bv-mensaje bv-vieja">El modelo cambió: ves el de antes.</span>
@@ -75,7 +84,8 @@ export default function BarraVivo({ extensiones = EXTENSIONES }: { extensiones?:
           </button>
         )}
         {c.reanudar && (
-          <button type="button" className="primary" onClick={() => controlar("reanudar")} aria-label="Reanudar" title="Reanudar">
+          <button type="button" className="primary" onClick={() => controlar("reanudar")}
+            aria-label={aviso ? "Reanudar y reintentar el enlace" : "Reanudar"} title={aviso ? "Reanudar y reintentar el enlace" : "Reanudar"}>
             <Play size={15} />
           </button>
         )}

@@ -148,7 +148,7 @@ export type MensajeVivo =
   | { tipo: "rechazo"; id: string | null; motivo: string }
   | { tipo: "factor"; lento: boolean; factor: number }
   | { tipo: "sesion_vieja"; vieja: boolean; mensaje?: string }
-  | { tipo: "pausa"; t: number }
+  | { tipo: "pausa"; t: number; motivo?: string; mensaje?: string }
   | { tipo: "reanudar"; t: number }
   | { tipo: "fin"; motivo: string; t?: number; mensaje?: string }
   | { tipo: "error"; codigo: string; motivo: string };

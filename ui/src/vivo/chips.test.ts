@@ -51,3 +51,19 @@ describe("chips de la barra viva", () => {
     expect(barra([EXTENSION_PRUEBA])).toContain('data-chip="prueba.consigna"></span>');
   });
 });
+
+describe("la barra en pausa", () => {
+  it("una pausa manual dice «En pausa» como siempre; la del lazo, por qué y qué hacer", () => {
+    sesion({ ...INICIAL, fase: "pausa", t: 3, factor: 1, pausa: null });
+    const manual = barra([]);
+    expect(manual).toContain('<span class="bv-fase bv-pausa">En pausa</span>');
+    expect(manual).not.toContain("bv-aviso-pausa");
+    expect(manual).toContain('aria-label="Reanudar"');
+    sesion({ pausa: { motivo: "lazo", mensaje: "lazo cortado en t = 3.002 s: el PLC no contesta" } });
+    const lazo = barra([]);
+    expect(lazo).toContain('<span class="bv-fase bv-pausa">En pausa · se cortó el enlace con el PLC</span>');
+    expect(lazo).toContain("reanuda para reintentar");
+    expect(lazo).toMatch(/<details class="ver-detalle"><summary>Detalle técnico<\/summary>.*el PLC no contesta/);
+    expect(lazo).toContain('aria-label="Reanudar y reintentar el enlace"');
+  });
+});

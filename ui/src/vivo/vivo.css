@@ -153,3 +153,5 @@
   display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap;
   font-size: var(--fs-nota); font-weight: var(--fw-nota); font-variant-numeric: tabular-nums; color: var(--muted);
 }
+/* una pausa que no pidió la persona (el lazo con el PLC externo): el qué hacer y su detalle */
+.barra-vivo .bv-aviso-pausa { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); color: var(--text); }

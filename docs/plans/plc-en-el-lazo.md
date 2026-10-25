@@ -1,6 +1,6 @@
 ---
 estado: implementado
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9); las siete fases mergeadas o en revisión (F1d2, puntos de UI: chips de la barra viva, pantallas 3D y la API viva de las extensiones). Queda: la barra dice «En pausa» sin el motivo cuando se corta el lazo (el `mensaje` de la pausa no se muestra) y el carril no sabe que un cable de red une dos PUERTOS (plan de la red de datos)
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9); las siete fases mergeadas o en revisión (F1d2, puntos de UI: chips de la barra viva, pantallas 3D y la API viva de las extensiones). Queda: el carril no sabe que un cable de red une dos PUERTOS (plan de la red de datos)
 descripcion: un PLC de verdad (o el simulador de su fabricante) mueve la máquina virtual en vivo o en una corrida a la pared, y se dice que esa corrida no es determinista; una pantalla de operador o un SCADA escriben variables del programa y siguen la sesión viva; el catálogo trae un panel de operador de 7″ para la puerta del tablero
 ---
 
@@ -674,7 +674,12 @@ pedir; `urlSesion` quedó exportada y pura (recibe `location`). `enviarVivo` pas
 `protocolo.problemaDeMensaje` (objeto con `accion` o `evento`, uno solo; nunca `control` ni `id`
 propio; ≤ 4096 bytes), lleva id `x<n>` y su rechazo llega como el de cualquier acción. El `inicio`
 tipa `plc_externo` y `determinista`; el cierre **4502** y el `fin` con motivo `lazo` tienen texto
-para la persona (sin eso, abrir con un PLC que no contesta decía «se perdió la conexión»).
+para la persona (sin eso, abrir con un PLC que no contesta decía «se perdió la conexión»). La pausa
+con `motivo: "lazo"` (D8) la dice la barra: «En pausa · se cortó el enlace con el PLC», qué hacer
+(«reanuda para reintentar»: `reanudar` llama a `reconectar()`) y el `mensaje` del núcleo en
+«Detalle técnico»; el botón dice «Reanudar y reintentar el enlace». `useVivo.pausa` la guarda y
+`reanudar` la limpia; `barra.avisoPausa` es puro. La pausa manual dice lo de siempre (vitest en
+`barra.test.ts` y `chips.test.ts`).
 
 **Registro.** `extensiones/puntosVivo.ts` valida (lo llama `registro.ts`, todo junto en un
 mensaje): listas, id con el prefijo de la extensión, componente del chip, `tipo` en minúsculas,
@@ -690,7 +695,7 @@ tocar manda `{accion: "escribir", dispositivo: "-K1", variable: "Main.consigna",
 panel, derecho, y tocar «+10» lleva la pantalla y el chip a 60 % sin seleccionar ni girar la
 cámara. Capturas en `C:\t\lazo-f1d2\` (fuera del repo).
 
-**Lo que se verificó.** `npm test` 565 (antes 542: `pantallas.test.ts` 15 —la cara del panel
+**Lo que se verificó.** `npm test` 567 (con la pausa del lazo) (antes 542: `pantallas.test.ts` 15 —la cara del panel
 suelto, en la puerta con el tablero a 0°, 25°, 90°, 180° y −137°, la malla ya en el mundo e
 inclinada, la placa lisa, una cara horizontal, la matriz del plano, el rectángulo, uv → px, qué
 dispositivo lleva pantalla, el tema, el toque y el pintado de la pantalla de prueba, los mensajes y

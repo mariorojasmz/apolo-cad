@@ -270,10 +270,10 @@ function alMensaje(m: MensajeVivo): void {
       st.set({ vieja: m.vieja });
       return;
     case "pausa":
-      st.set({ fase: "pausa" });
+      st.set({ fase: "pausa", pausa: m.motivo ? { motivo: m.motivo, mensaje: m.mensaje } : null });
       return;
     case "reanudar":
-      st.set({ fase: "corriendo" });
+      st.set({ fase: "corriendo", pausa: null });
       return;
     case "fin":
       st.set({ fase: "fin", fin: { texto: textoFin(m.motivo), t: m.t ?? st.t } });
