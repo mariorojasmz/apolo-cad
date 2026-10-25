@@ -87,7 +87,8 @@ class AddDeviceParams(BaseModel):
       ref). Un dispositivo ligado ya cuenta en la BOM por su pieza: no se duplica.
     - `ajustes`: lo que el instalador fija, validado contra el `modelo` de la ficha: el Ir del
       guardamotor dentro de su rango ({"Ir_A": 3.2}), la conexión del motor
-      ({"conexion": "triangulo"}).
+      ({"conexion": "triangulo"}); en un variador con STO, la categoría ISO 13849-1 que pide su
+      lazo ({"STO_categoria": 3}: con 3 o 4, sus canales no pueden ir unidos).
     - `cantidad`: sólo en una bornera: cuántos bornes (quedan «1»…«N»).
     La red de suministro también es un dispositivo (RED-3F-220V-60HZ, designación «-G1»): es la
     fuente de L1/L2/L3/PE y la BOM no la compra. Revisa con electrical_check.

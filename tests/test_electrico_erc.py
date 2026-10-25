@@ -106,7 +106,7 @@ def arranque_variador() -> ModeloElectrico:
         disp("-G1", "RED-3F-220V-60HZ", ubicacion="+RED"),
         disp("-Q1", "SECC-25A-3P"),
         disp("-F1", "ITM-C16-3P"),
-        disp("-T2", "VFD-2K2-220"),
+        disp("-T2", "VFD-2K2-220", ajustes={"STO_categoria": 1}),  # la seta de un NC: categoría 1
         disp("-M1", "NMRV-090", ubicacion="+CAMPO", ajustes={"conexion": "triangulo"}),
         disp("-F2", "ITM-C2-2P"),
         disp("-T1", "FUENTE-24VDC-5A"),
@@ -130,7 +130,9 @@ def arranque_variador() -> ModeloElectrico:
         w("-T2:W", "-M1:W1", cable="-W1", hilo="3"), w("-T2:PE", "-M1:PE", cable="-W1", hilo="PE"),
         # tierra
         w("-G1:PE", "-X0:1", color="GNYE", seccion=4),
-        w("-X0:1", "-T2:PE", "-T1:PE", "-K1:PE", "-U1:PE", color="GNYE"),
+        # en estrella: cada aparato con su conductor PE hasta la bornera (IEC 60204-1 §8.2.3)
+        w("-X0:1", "-T2:PE", color="GNYE"), w("-X0:1", "-T1:PE", color="GNYE"),
+        w("-X0:1", "-K1:PE", color="GNYE"), w("-X0:1", "-U1:PE", color="GNYE"),
         # fuente de 24 VDC por el ITM 2P
         w("-Q1:2", "-F2:1", **pot), w("-Q1:4", "-F2:3", **pot),
         w("-F2:2", "-T1:L", color="BK"), w("-F2:4", "-T1:N", color="BK"),
@@ -158,17 +160,18 @@ def arranque_variador() -> ModeloElectrico:
     return ModeloElectrico(dispositivos, conductores, cables)
 
 
-@pytest.mark.parametrize("armar", [arranque_directo, arranque_variador])
-def test_tableros_bien_cableados_quedan_verdes(armar):
+@pytest.mark.parametrize("armar, sto", [(arranque_directo, []), (arranque_variador, ["canales del STO"])])
+def test_tableros_bien_cableados_quedan_verdes(armar, sto):
     reglas = erc(armar())
     malas = [r for r in reglas if r["estado"] != "ok"]
     assert not malas, "\n".join(f"{r['regla']}: {r['detalle']}" for r in malas)
     assert resumen(reglas) == {"estado": "ok", "errores": 0, "avisos": 0}
-    # una entrada por regla de D7, cada una con su norma o «criterio de diseño»
+    # una entrada por regla de D7, cada una con su norma o «criterio de diseño»; la del STO,
+    # sólo con un variador que lo tiene
     assert [r["regla"] for r in reglas] == [
         "referencias", "designación duplicada", "cortocircuito", "tensión cruzada",
-        "protección del motor", "puesta a tierra", "borne suelto", "color del conductor",
-        "parada de emergencia"]
+        "protección del motor", "puesta a tierra", "PE en cadena", "borne suelto",
+        "color del conductor", "parada de emergencia", *sto]
     assert all(r["norma"] for r in reglas)
 
 

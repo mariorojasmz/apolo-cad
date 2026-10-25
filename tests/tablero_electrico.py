@@ -92,7 +92,9 @@ def arranque_variador_plc(pieza_motor: str | None = None, *, ajustes_motor: dict
     motor = {"ajustes": {"conexion": "triangulo", "i": 30, "eta_reductor": 0.75, **(ajustes_motor or {})}}
     if pieza_motor:
         motor["pieza"] = pieza_motor
-    vfd = {"ajustes": ajustes_variador} if ajustes_variador else {}
+    # la seta de un NC en los dos canales del STO: un lazo de categoría 1, declarado (regla
+    # «canales del STO» del ERC); las variantes de dos canales declaran la 3
+    vfd = {"ajustes": {"STO_categoria": 1, **(ajustes_variador or {})}}
     pot = {"color": "BK", "seccion_mm2": 2.5}
     bu = {"color": "BU", "seccion_mm2": 0.75}
     pe = {"color": "GNYE"}
@@ -112,7 +114,9 @@ def arranque_variador_plc(pieza_motor: str | None = None, *, ajustes_motor: dict
         wire("-T2:U", "-M1:U1", cable="-W1", hilo="1"), wire("-T2:V", "-M1:V1", cable="-W1", hilo="2"),
         wire("-T2:W", "-M1:W1", cable="-W1", hilo="3"), wire("-T2:PE", "-M1:PE", cable="-W1", hilo="PE"),
         wire("-G1:PE", "-X0:1", seccion_mm2=4, **pe),
-        wire("-X0:1", "-T2:PE", "-T1:PE", "-K1:PE", "-U1:PE", **pe),
+        # en estrella: cada aparato con su conductor PE hasta la bornera (IEC 60204-1 §8.2.3)
+        wire("-X0:1", "-T2:PE", **pe), wire("-X0:1", "-T1:PE", **pe),
+        wire("-X0:1", "-K1:PE", **pe), wire("-X0:1", "-U1:PE", **pe),
         wire("-Q1:2", "-F2:1", **pot), wire("-Q1:4", "-F2:3", **pot),
         wire("-F2:2", "-T1:L", color="BK"), wire("-F2:4", "-T1:N", color="BK"),
         wire("-T1:M", "-X0:1", **pe),
@@ -145,11 +149,19 @@ def _con_ref(cmds: list[dict], designacion: str, ref: str) -> list[dict]:
     return cmds
 
 
+def _categoria_3(cmds: list[dict]) -> list[dict]:
+    """El variador -T2 con su lazo STO de categoría 3 declarado (`STO_categoria`)."""
+    for c in cmds:
+        if c["type"] == "add_device" and c["params"]["designacion"] == "-T2":
+            c["params"]["ajustes"] = {**c["params"].get("ajustes", {}), "STO_categoria": 3}
+    return cmds
+
+
 def arranque_variador_plc_cat3(**kw) -> list[dict]:
     """El tablero (b) con la seta de DOS NC por canal (plan mandos-de-seguridad D6): 11-12 a S1
     del STO (y a la I0.1 del PLC) y 21-22 a S2, sin el paralelo de un solo NC."""
     bu = {"color": "BU", "seccion_mm2": 0.75}
-    cmds = _con_ref(arranque_variador_plc(**kw), "-S0", "ESTOP-40-2NC")
+    cmds = _categoria_3(_con_ref(arranque_variador_plc(**kw), "-S0", "ESTOP-40-2NC"))
     cmds = _sin_conductor(cmds, "-S0:12", "-T2:S1", "-T2:S2", "-K1:I0.1")
     return cmds + [wire("-S0:12", "-T2:S1", "-K1:I0.1", **bu),
                    wire("-T1:L+", "-S0:21", **bu), wire("-S0:22", "-T2:S2", **bu)]
@@ -161,7 +173,7 @@ def arranque_variador_rele_seguridad(**kw) -> list[dict]:
     rearme -S3 (azul) en S33-S34, los NA 13-14 y 23-24 a S1 y S2 del STO y el 33-34 a la I0.1 del
     PLC («seguridad ok»)."""
     bu = {"color": "BU", "seccion_mm2": 0.75}
-    cmds = _con_ref(arranque_variador_plc(**kw), "-S0", "ESTOP-40-2NC")
+    cmds = _categoria_3(_con_ref(arranque_variador_plc(**kw), "-S0", "ESTOP-40-2NC"))
     cmds = _sin_conductor(cmds, "-S0:12", "-T2:S1", "-T2:S2", "-K1:I0.1")
     cmds = _sin_conductor(cmds, "-T1:L+", "-S0:11")
     return cmds + [

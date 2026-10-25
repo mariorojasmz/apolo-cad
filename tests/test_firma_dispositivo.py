@@ -143,12 +143,15 @@ def test_la_firma_lleva_exactamente_los_campos_en_firma():
 
 
 #: Las firmas de los cuatro tableros, medidas en ec4ac9b (antes de `simbolo` y `acoplado_a`):
-#: si cambian, todo resultado guardado de un documento con tablero queda vencido.
+#: si cambian, todo resultado guardado de un documento con tablero queda vencido. Las tres del
+#: variador se re-midieron al cambiar su LOG (sobre aa88ee5: PE en estrella y `STO_categoria`, reglas
+#: «PE en cadena» y «canales del STO»); con el log de antes dan las de antes (`STO_canales` de
+#: la ficha no entra: `test_sto_canales_no_entra_a_la_firma`).
 FIRMAS = {
     "arranque_directo": (arranque_directo, "2:7feece8fd5f7af21a86c"),
-    "arranque_variador_plc": (arranque_variador_plc, "2:35a1fea017fa5555cdfd"),
-    "arranque_variador_plc_cat3": (arranque_variador_plc_cat3, "2:5a114e456250b9cde6cb"),
-    "arranque_variador_rele_seguridad": (arranque_variador_rele_seguridad, "2:da2c40a92238644b4b83"),
+    "arranque_variador_plc": (arranque_variador_plc, "2:76116a74eca53a6fb0a3"),
+    "arranque_variador_plc_cat3": (arranque_variador_plc_cat3, "2:7c7b1ce05dbd21c3ddbb"),
+    "arranque_variador_rele_seguridad": (arranque_variador_rele_seguridad, "2:62856d21257f95c61187"),
 }
 
 
@@ -156,3 +159,13 @@ FIRMAS = {
 def test_la_firma_de_los_cuatro_tableros_no_se_mueve(nombre):
     cmds, firma = FIRMAS[nombre]
     assert firma_documento(_doc(cmds(), nombre)) == firma
+
+
+def test_sto_canales_no_entra_a_la_firma(monkeypatch):
+    """La lista de canales del STO la lee el ERC, no la co-simulación (`FUERA_DE_FIRMA_MODELO`):
+    sumarla al YAML no vence los resultados guardados de un tablero con variador."""
+    con = firma_documento(_doc(arranque_variador_plc(), "sto"))
+    modelo = CATALOG["VFD-2K2-220"].electrico.modelo
+    assert modelo["STO_canales"] == ["S1", "S2"]
+    monkeypatch.delitem(modelo, "STO_canales")
+    assert firma_documento(_doc(arranque_variador_plc(), "sto")) == con

@@ -258,8 +258,10 @@ CONGELADO = {
              "162f5598762e33f1"),
     "directo": ("846066ca50189fba", "fba44f51fa802ecb", "463b09e7efa8a7ef", "cbabb7842ceb898f",
                 "7415f138299ba4b2"),
-    "vfd": ("e1530b6e92366c4b", "08025d72d650b20f", "91022a15b4252336", "aadd38917ac84e24",
-            "266c4eb86021f9cd"),
+    # re-congelado sobre aa88ee5: el tablero (b) lleva el PE en estrella (31 → 34 conductores sin
+    # tipo en su fila); precios y hoja de resumen, iguales
+    "vfd": ("9f96e6125d640e39", "08025d72d650b20f", "35f6a6d4f5aff4bc", "aadd38917ac84e24",
+            "8de1452692c5cdda"),
 }
 
 

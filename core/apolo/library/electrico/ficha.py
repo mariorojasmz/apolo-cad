@@ -12,7 +12,8 @@ corregir. Lo que valida:
   - `conductor` (conductores y cables): sección > 0, hilos con id único y color IEC 60757;
   - `modelo` (V8.3 D7): `tipo` conocido, rangos [mín, máx] ordenados, la `clase` de disparo en
     UNA forma («10», «10A»), curvas válidas y el `sistema` de una red coherente con su fuente,
-    su `esquema` de tierra en la lista de `acometida.py` y `RA_ohm` sólo con TT;
+    su `esquema` de tierra en la lista de `acometida.py` y `RA_ohm` sólo con TT; los
+    `STO_canales` de un STO (bornes de la ficha, uno por canal);
   - `datos`, `fuente` y `a_confirmar` (plan datos-de-corte-y-acometida, D1–D5): los datos de
     ficha que lee quien verifica, fuera de `modelo`, con su COMPLETITUD (`ficha_datos.py`);
   - `direcciones` (plan plc-en-el-lazo, D3): cómo llama el fabricante a cada E/S, completo y
@@ -331,6 +332,22 @@ def _modelo(err: _Err, crudo, fuentes: tuple[Fuente, ...]) -> dict:
     return modelo
 
 
+def _canales_sto(err: _Err, modelo: dict, ids: tuple[str, ...]) -> None:
+    """`STO_canales`: los bornes de cada canal de la entrada de seguridad (≥ 2, distintos y de la
+    ficha). Lo lee la regla «canales del STO» del ERC (`erc_seguridad.py`). Opcional al cargar (el
+    YAML de una extensión de antes sigue cargando); que toda ref del núcleo con `STO: true` lo
+    traiga lo exige `tests/test_erc_seguridad.py`."""
+    canales = modelo.get("STO_canales")
+    if canales is None:
+        return
+    if not isinstance(canales, list) or len(canales) < 2:
+        raise err("modelo.STO_canales", f"se espera la lista de ≥ 2 bornes, uno por canal (llegó {canales!r})")
+    vistos = [_borne_existe(err, "modelo.STO_canales", b, ids) for b in canales]
+    if len(set(vistos)) != len(vistos):
+        raise err("modelo.STO_canales", f"un borne por canal, sin repetir (llegó {vistos})")
+    modelo["STO_canales"] = vistos
+
+
 def parse_ficha(crudo, ref: str) -> FichaElectrica | None:
     """Bloque `electrico:` del YAML → `FichaElectrica` validada (None si no hay bloque)."""
     if crudo is None:
@@ -353,6 +370,7 @@ def parse_ficha(crudo, ref: str) -> FichaElectrica | None:
     if any(c.accion == "bobina" for c in caminos) and not any(c.tipo == "bobina" for c in cargas):
         raise err("caminos", "hay contactos movidos por `bobina` pero ninguna carga de tipo bobina")
     modelo = _modelo(err, crudo.get("modelo"), fuentes)
+    _canales_sto(err, modelo, ids)
     perdidas = crudo.get("perdidas_W")
     if perdidas is not None:
         try:

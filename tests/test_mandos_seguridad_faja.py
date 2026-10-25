@@ -62,6 +62,7 @@ def _para(res) -> bool:
 
 
 def test_los_tableros_de_prueba_quedan_como_el_de_un_nc_en_el_erc(un_nc, cat3, con_rele):
+    # el de un NC declara categoría 1 (STO puenteado aceptado); los de dos canales, la 3
     base = no_ok(erc(un_nc.electrico))
     assert no_ok(erc(cat3.electrico)) == base
     assert no_ok(erc(con_rele.electrico)) == base

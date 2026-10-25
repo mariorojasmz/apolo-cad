@@ -35,6 +35,12 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   las de los accesorios ISO 15552 de `neumatica/montajes.py` (tablas transcritas): nunca una cota
   de interfaz en el builder. El vástago viene con su ref: `incluidas.py` lo saca de la BOM y de la
   lista de corte por la escena sola. [V8.9](../../../docs/plans/V8.9-neumatica.md)
+- ERC del camino de la protección (`electrico/erc_seguridad.py`, reglas en su docstring): «PE en
+  cadena» por el grafo de conductores (un aparato es PASO si sacar su PE deja a otro sin tierra) y
+  «canales del STO» por `modelo.STO_canales` de la ficha (toda ref con `STO: true` lo trae; fuera
+  de la firma de escenarios: `services/escenarios.FUERA_DE_FIRMA_MODELO`). La categoría del lazo
+  es de la OBRA, ajuste opcional `STO_categoria` del variador (`ajustes.OPCIONALES`): sin ella,
+  aviso; con 3 o 4, error.
 - Bloque `electrico.datos` + `fuente` + `a_confirmar` (`electrico/ficha_datos.py`, puro): lo que
   lee quien VERIFICA (poder de corte por tensión `{U_V: kA}` con la clave = tope del rango de la
   ficha, `T_max_C`), FUERA de `modelo` (no vence firmas ni es ajuste). COMPLETITUD al cargar con

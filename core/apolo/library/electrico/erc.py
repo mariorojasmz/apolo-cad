@@ -6,8 +6,9 @@ hallazgos da UN «ok»; con hallazgos, un dict por hallazgo. Una regla que sólo
 («tipo de diferencial») no da fila sin él: el ERC de un tablero sin diferencial es el de siempre. Las redes y el peor caso salen de
 `redes.analizar` (contactos y protecciones cerrados).
 
-Cada regla cita su norma o dice «criterio de diseño». Fuera de alcance (V8.6): sección del
-conductor frente a la protección, caída de tensión, cortocircuito calculado.
+Las que miran el camino de la protección (PE en cadena, canales del STO) están en
+`erc_seguridad.py`. Cada regla cita su norma o dice «criterio de diseño». Fuera de alcance
+(V8.6): sección del conductor frente a la protección, caída de tensión, cortocircuito calculado.
 
 Puro: recibe un `ModeloElectrico`, nunca un documento.
 """
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 from itertools import islice, product
 
+from .erc_seguridad import canales_sto, pe_en_cadena
 from .modelo import Carga, Dispositivo, ModeloElectrico
 from .redes import Analisis, Llegada, Potencial, analizar, compatibles
 from .referencias import ReferenciaError, parse_designacion
@@ -415,7 +417,8 @@ def _tipo_diferencial(a: Analisis) -> list[dict]:
 
 
 _REGLAS = (_referencias, _duplicadas, _cortocircuitos, _tensiones, _proteccion_motor, _tierra,
-           _sueltos, _colores, _parada_emergencia, _tipo_diferencial)
+           pe_en_cadena, _sueltos, _colores, _parada_emergencia, canales_sto,
+           _tipo_diferencial)
 
 
 def erc(modelo: ModeloElectrico, analisis: Analisis | None = None) -> list[dict]:

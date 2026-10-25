@@ -43,6 +43,11 @@ EPOCH_SIN_DATO = 1
 #: de `library/electrico/acoples.py`). Un campo nuevo de `Dispositivo` va a la firma o aquí: lo
 #: exige `tests/test_firma_dispositivo.py` (si entra, vence todo resultado con tablero).
 FUERA_DE_FIRMA = ("simbolo", "acoplado_a")
+#: Claves del `modelo` de la ficha que tampoco entran: las lee sólo el ERC (que no se guarda como
+#: resultado), no la co-simulación. `STO_canales` (los bornes de cada canal del STO, regla «canales
+#: del STO»): la co-simulación del variador lee S1 y S2 por su cuenta. Si un modelo de `cosim/`
+#: pasa a leer una de éstas, sale de aquí (y vence lo guardado).
+FUERA_DE_FIRMA_MODELO = ("STO_canales",)
 
 
 def _fichas_electricas(doc) -> list:
@@ -61,6 +66,8 @@ def _fichas_electricas(doc) -> list:
         out = plano(d)
         for campo in FUERA_DE_FIRMA:
             out.pop(campo, None)
+        if any(k in out.get("modelo", {}) for k in FUERA_DE_FIRMA_MODELO):
+            out["modelo"] = {k: v for k, v in out["modelo"].items() if k not in FUERA_DE_FIRMA_MODELO}
         return out
 
     m = modelo(doc)

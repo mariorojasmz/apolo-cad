@@ -30,7 +30,10 @@ category: variadores
 #  - STO de dos canales (S1, S2): sin 24 V en cualquiera de ellos, el par se corta en
 #    `STO_reaccion_ms` = 10 (orden de la ficha; IEC 61800-5-2 define la función, no el tiempo) y
 #    no rearranca sin una orden de marcha NUEVA (IEC 60204-1: reponer una parada no rearranca
-#    la máquina por sí solo);
+#    la máquina por sí solo); `STO_canales` = los bornes de cada canal (los lee el ERC: los dos
+#    canales en el mismo potencial pierden la redundancia; regla «canales del STO»). La categoría
+#    ISO 13849-1 que pide el lazo es de la obra, no de la ficha: va como ajuste opcional
+#    `STO_categoria` del add_device;
 #  - `I_entrada_A` a potencia nominal (orden de la ficha: rectificador de 6 pulsos sin reactancia);
 #    falla `subtension` si la red cae bajo `U_min_pct` = 70 % de U_V más de `t_retencion_ms` = 20
 #    con el motor girando, y `perdida_fase` si una tensión de línea cae bajo la mitad de las
@@ -124,7 +127,7 @@ components:
       caminos: *vfd_caminos
       cargas: *vfd_cargas
       fuentes: *vfd_fuentes
-      modelo: {<<: *vfd_mando, P_kW: 1.5, I_salida_A: 8.5, I_entrada_A: 10, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}
+      modelo: {<<: *vfd_mando, P_kW: 1.5, I_salida_A: 8.5, I_entrada_A: 10, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true, STO_canales: [S1, S2]}
       a_confirmar: [T_max_C]
       fuente: &fuente_vfd "sin ficha verificada de la línea de referencia (SINAMICS V20 / Delta MS300): la temperatura de funcionamiento y su desclasificación, a confirmar con el variador que se compre"
   # Para el NMRV-090 (motor 2.2 kW) de la faja 38: el de 1.5 kW quedaba corto. Envolvente
@@ -148,6 +151,6 @@ components:
       caminos: *vfd_caminos
       cargas: *vfd_cargas
       fuentes: *vfd_fuentes
-      modelo: {<<: *vfd_mando, P_kW: 2.2, I_salida_A: 11.0, I_entrada_A: 13, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true}
+      modelo: {<<: *vfd_mando, P_kW: 2.2, I_salida_A: 11.0, I_entrada_A: 13, sobrecarga_pct: 150, sobrecarga_s: 60, control: "V/f o vectorial sensorless", STO: true, STO_canales: [S1, S2]}
       a_confirmar: [T_max_C]
       fuente: *fuente_vfd

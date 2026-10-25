@@ -13,7 +13,8 @@ lo que la ficha declara en `modelo`, y con el tipo que la ficha le da:
 Una clave que la ficha no declara es error con «¿quisiste decir…?» y la lista de las válidas,
 salvo los AJUSTES OPCIONALES de su `tipo` (`OPCIONALES`, de `acometida.py`): el `esquema` de
 tierra y el `RA_ohm` de una red se aceptan aunque la ficha no los traiga, con su propia
-validación (la lista de esquemas, «TN» heredado incluido; `RA_ohm` sólo con TT).
+validación (la lista de esquemas, «TN» heredado incluido; `RA_ohm` sólo con TT); la
+`STO_categoria` de un variador con STO (B, 1–4: la categoría ISO 13849-1 que pide su lazo).
 
 `deducir_de_la_pieza` (V8.3 F6): un motorreductor cuya ficha da la relación `i` y el rendimiento
 `eta_reductor` como RANGO (el sinfín NMRV: dependen de la unidad que se compre) los toma del
@@ -30,8 +31,13 @@ import re
 from . import acometida
 from .referencias import sufijo_sugerencia
 
-#: Ajustes que un `tipo` acepta aunque su ficha no los declare (plan datos-de-corte-y-acometida, D6).
-OPCIONALES = acometida.OPCIONALES
+#: Categorías de ISO 13849-1 (§6.2) que un lazo de seguridad puede pedir.
+CATEGORIAS_STO = ("B", 1, 2, 3, 4)
+#: Ajustes que un `tipo` acepta aunque su ficha no los declare (plan datos-de-corte-y-acometida,
+#: D6). El del variador es de la OBRA (la evaluación de riesgos fija la categoría del lazo que
+#: actúa por su STO); lo lee la regla «canales del STO» del ERC y la co-simulación no lo ve.
+OPCIONALES = {**acometida.OPCIONALES,
+              "variador": {"STO_categoria": "categoría ISO 13849-1 que pide el lazo del STO: B, 1, 2, 3 o 4"}}
 
 _NUM = r"(\d+(?:[.,]\d+)?|[.,]\d+)"
 #: Lo que un nombre de pieza puede decir de su reductor: clave → [(patrón, escala)].
@@ -66,9 +72,13 @@ def validar_ajustes(ajustes: dict, modelo: dict, ref: str) -> dict:
                   and not (isinstance(v, (list, tuple)) and not _es_rango(v))}
     if not ajustables and not opcionales:
         raise ValueError(f"{ref} no tiene ajustes: su ficha no declara parámetros en `modelo`")
-    de_acometida = acometida.validar_ajustes(ajustes, modelo or {}, ref) if opcionales else {}
+    de_acometida = (acometida.validar_ajustes(ajustes, modelo or {}, ref)
+                    if (modelo or {}).get("tipo") in acometida.OPCIONALES else {})
     out: dict = {}
     for clave, valor in ajustes.items():
+        if clave == "STO_categoria" and clave in opcionales:
+            out[clave] = _categoria_sto(valor, modelo or {}, ref)
+            continue
         if clave in opcionales:
             out[clave] = de_acometida[clave]
             continue
@@ -95,6 +105,20 @@ def validar_ajustes(ajustes: dict, modelo: dict, ref: str) -> dict:
             raise ValueError(f"el ajuste {clave} de {ref} es un texto (recibí {valor!r})")
         out[clave] = valor
     return out
+
+
+def _categoria_sto(valor, modelo: dict, ref: str):
+    """La categoría del lazo del STO (`CATEGORIAS_STO`, «b» vale «B»), sólo en un variador con
+    STO; o `ValueError` con qué corregir."""
+    if modelo.get("STO") is not True:
+        raise ValueError(f"{ref} no tiene entrada STO: STO_categoria no aplica")
+    v = valor.strip().upper() if isinstance(valor, str) else valor
+    if isinstance(v, str) and v.isdigit():
+        v = int(v)
+    if isinstance(v, bool) or v not in CATEGORIAS_STO:
+        raise ValueError(f"STO_categoria de {ref} es una categoría de ISO 13849-1: B, 1, 2, 3 o 4 "
+                         f"(llegó {valor!r})")
+    return int(v) if isinstance(v, float) else v
 
 
 def deducir_de_la_pieza(nombre: str | None, pieza: str, modelo: dict, ajustes: dict) -> dict:

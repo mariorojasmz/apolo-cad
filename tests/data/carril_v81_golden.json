@@ -246,6 +246,13 @@
     "regla": "puesta a tierra"
    },
    {
+    "detalle": "Los 4 aparatos con borne de tierra llegan al PE por su propio conductor: ninguno es paso de la tierra de otro.",
+    "elementos": [],
+    "estado": "ok",
+    "norma": "IEC 60204-1 §8.2.3 (retirar una parte no interrumpe el circuito de protección de las demás)",
+    "regla": "PE en cadena"
+   },
+   {
     "detalle": "Ninguna carga ni borne obligatorio queda suelto.",
     "elementos": [],
     "estado": "ok",
