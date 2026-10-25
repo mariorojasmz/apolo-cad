@@ -29,6 +29,7 @@ RAIZ = Path(__file__).resolve().parents[1] / "core" / "apolo"
 #: Lo que decide el resultado de una co-simulación dado el documento y el escenario.
 ARCHIVOS = (
     "cosim/**/*.py",
+    "library/electrico/acoples.py",
     "plc/**/*.py",
     "physics/banda.py",
     "physics/dinamica.py",
@@ -127,7 +128,14 @@ ARCHIVOS = (
 #: sigue desde el PLC que cortó (`Corrida._reanudar`) sólo actúan con `externos`; sin ellos el
 #: vivo y el lote son los de antes: 6 escenarios del banco y una sesión viva cerrada como lote
 #: dan la MISMA huella, claves y eventos que en 489af7d (bitácora).
-HUELLA: tuple[int, str] = (6, "5878df434dc6a50c")
+#: pedidos-de-extensiones F2 (sin subir, D4): la regla de quién mueve un bloque auxiliar sale de
+#: `services/cosim_red.py` a `library/electrico/acoples.py` (suma a `ARCHIVOS`), el carril la deja
+#: en `Dispositivo.acoplado_a` y la red la LEE; la regla es la misma, byte a byte en su resultado:
+#: la entrada de red de los cuatro tableros de `tablero_electrico.py` es idéntica (ramas,
+#: actuadores, avisos) y 7 escenarios del banco (marcha, seta, caída de red y atasco parcial en
+#: directo; seta, corte de fase y cajas con seta por variador) dan la MISMA huella, claves y
+#: eventos que en ec4ac9b (bitácora del plan).
+HUELLA: tuple[int, str] = (6, "da527a5307f6c246")
 
 
 def archivos() -> list[Path]:

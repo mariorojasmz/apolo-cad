@@ -103,6 +103,12 @@ class Dispositivo:
     puertos: tuple = ()
     neumatico: object = None
     servicio: dict = field(default_factory=dict)
+    #: pedidos-de-extensiones D3: el símbolo IEC 60617 de su ficha eléctrica (o el ISO 1219-1 de
+    #: la neumática, si no tiene eléctrica). D4: el aparato que MUEVE un bloque auxiliar
+    #: (`acoples.py`, lo pone el carril al cerrar el modelo); `None` en el resto. Ninguno es
+    #: física: la firma del documento no los ve (`services/escenarios.FUERA_DE_FIRMA`).
+    simbolo: str = ""
+    acoplado_a: str | None = None
 
     def borne(self, borne_id: str) -> Borne | None:
         return next((b for b in self.bornes if b.id == borne_id), None)
@@ -267,4 +273,5 @@ def dispositivo_desde_ficha(designacion: str, ref: str, ficha, *, ubicacion: str
         modelo=dict(ficha.modelo), protege_motor=ficha.protege_motor,
         parada_emergencia=ficha.parada_emergencia, bornera=ficha.bornera, id=id,
         cantidad=int(cantidad or 1) if ficha.bornera else 1, deducidos=dict(deducidos or {}),
+        simbolo=ficha.simbolo,
     )

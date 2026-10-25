@@ -10,8 +10,9 @@ Lo que traduce:
   - camino `fijo` → rama `union`; `NA`/`NC` → `contacto` movido por «<designación>.<actuador>»
     (`Camino.actuador`: el `grupo` o la acción); `proteccion` → `contacto` «<designación>.cerrado»
     («-F3.2.cerrado» en la unidad 2 de un portafusible). Un contacto `acople` (bloque auxiliar
-    «-Q3A») sigue al aparato cuya designación es la suya sin el sufijo de letras («-Q3»): a su
-    bobina, a su protección o a su manija;
+    «-Q3A») sigue al aparato que dice su `acoplado_a` («-Q3»: la regla de
+    `library/electrico/acoples.py`, que el carril aplica al cerrar el modelo; aquí sólo se LEE):
+    a su bobina, a su protección o a su manija;
   - fuentes de la ficha → fuentes DC o AC (la red, `tipo: red`, va detrás de su impedancia; el
     resto es ideal); un aparato con varias fuentes las nombra «-T1.1», «-T1.2» (como el ERC);
   - cargas: bobina (su potencia de placa a Uc), piloto (Un/I), entrada (IEC 61131-2: ver
@@ -26,16 +27,11 @@ Lo que no se puede emular sin inventar va en `hipotesis` (lo que se supuso) o `a
 
 from __future__ import annotations
 
-import re
-
 #: Entrada digital tipo 1 (IEC 61131-2): en ON debe tomar ≥ 2 mA a 15 V, es decir R ≤ 7,5 kΩ.
 #: Se toma ese BORDE de la norma (criterio de diseño: la ficha no da la corriente de entrada).
 R_ENTRADA_DIGITAL_OHM = 7500.0
 #: Entrada analógica de tensión (IEC 61131-2): impedancia de entrada ≥ 10 kΩ; se toma el borde.
 R_ENTRADA_ANALOGICA_OHM = 10000.0
-
-_SUFIJO = re.compile(r"^(.*\d)[A-Za-z]+$")
-
 
 def _punto(des: str, borne: str) -> str:
     return f"{des}:{borne}"
@@ -47,27 +43,13 @@ def _sistema_ac(t) -> str:
     return "2F" if t.fases == 2 else "1F+N"
 
 
-def _maestro(des: str, dispositivos: dict) -> str | None:
-    m = _SUFIJO.match(des)
-    return m.group(1) if m and m.group(1) in dispositivos else None
-
-
-def _actuador_maestro(d) -> str | None:
-    acciones = {(c.tipo, c.accion) for c in d.caminos}
-    if any(a == "bobina" for _, a in acciones):
-        return "bobina"
-    if any(t == "proteccion" for t, _ in acciones):
-        return "cerrado"
-    if any(a == "mano" for _, a in acciones):
-        return "mano"
-    return None
-
-
 class _Armado:
     def __init__(self, modelo, temperatura_C, largos=None):
+        from apolo.library.electrico import acoples
         from apolo.library.electrico.redes import resolver
 
         self._resolver = resolver
+        self._acoples = acoples
         self.modelo = modelo
         self.temperatura_C = temperatura_C
         self.largos = largos or {}
@@ -104,10 +86,11 @@ class _Armado:
                 act = f"{des}.{unidad}.cerrado" if unidad else f"{des}.cerrado"
                 self.actuadores.setdefault(act, True)
             elif c.accion == "acople":
-                maestro = _maestro(des, self.dispositivos)
-                que = _actuador_maestro(self.dispositivos[maestro]) if maestro else None
+                maestro = d.acoplado_a  # D4: lo puso el carril (`acoples.cerrar_acoples`)
+                aparato = self.dispositivos.get(maestro) if maestro else None
+                que = self._acoples.actuador_maestro(aparato) if aparato is not None else None
                 if que is None:
-                    buscado = _SUFIJO.sub(r"\1", des)
+                    buscado = self._acoples.maestro_buscado(des)
                     self.avisos.append(f"{des}: contacto auxiliar sin aparato que lo mueva (se busca "
                                        f"«{buscado}»); queda en reposo")
                     act = f"{des}.acople"

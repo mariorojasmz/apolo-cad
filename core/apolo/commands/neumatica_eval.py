@@ -80,9 +80,10 @@ def dispositivo(entrada: dict, comp, pieza: str | None) -> Dispositivo:
     if ele is not None:
         d = dispositivo_desde_ficha(p.designacion, p.ref, ele, ubicacion=p.ubicacion, ajustes=ajustes,
                                     pieza=pieza, id=entrada["id"])
-        base.update(bornes=d.bornes, caminos=d.caminos, cargas=d.cargas, fuentes=d.fuentes, modelo=d.modelo)
-    else:
-        base.update(bornes=())
+        base.update(bornes=d.bornes, caminos=d.caminos, cargas=d.cargas, fuentes=d.fuentes, modelo=d.modelo,
+                    simbolo=d.simbolo)
+    else:  # sólo de aire: el símbolo ISO 1219-1 de su ficha neumática (pedidos-de-extensiones D3)
+        base.update(bornes=(), simbolo=neu.simbolo)
     return Dispositivo(**base, puertos=neu.puertos, neumatico=neu, servicio=servicio)
 
 

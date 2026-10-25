@@ -17,11 +17,13 @@ está mal cableado):
 Orden: dispositivos, cables, conductores, programas (V8.3 D3, `electrico_programa`) y tubos de
 aire (V8.9 D1, `neumatica_eval`, que también arma los dispositivos neumáticos), cada grupo en
 el orden del log. Un conductor o un programa puede nombrar un dispositivo
-declarado más ADELANTE en el log: el carril se evalúa entero.
+declarado más ADELANTE en el log: el carril se evalúa entero. Al cerrar, cada bloque auxiliar
+recibe su `acoplado_a` (`library/electrico/acoples.py`).
 """
 
 from __future__ import annotations
 
+from apolo.library.electrico.acoples import cerrar_acoples
 from apolo.library.electrico.ajustes import deducir_de_la_pieza, validar_ajustes
 from apolo.library.electrico.modelo import (
     Cable,
@@ -309,5 +311,7 @@ def evaluar_carril(entradas: list[dict], escena: dict, variables: dict, fallo) -
             tubos.append(neumatica_eval.tubo(e, dispositivos, catalogo))
         except ValueError as exc:
             fallo(e, str(exc))
-    return ModeloElectrico(tuple(dispositivos.values()), tuple(conductores),
+    # pedidos-de-extensiones D4: cada bloque auxiliar dice qué aparato lo mueve (la regla de la
+    # co-simulación, `acoples.py`), con el carril entero ya evaluado
+    return ModeloElectrico(cerrar_acoples(dispositivos.values()), tuple(conductores),
                            tuple(cables.values()), tuple(programas), tuple(tubos))

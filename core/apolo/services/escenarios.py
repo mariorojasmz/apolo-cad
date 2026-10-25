@@ -36,17 +36,34 @@ _NOMBRE = re.compile(r"^[^/\\?#%]{1,60}$")
 EPOCH_SIN_DATO = 1
 
 
+#: Campos de `Dispositivo` que NO entran a la firma (pedidos-de-extensiones D5): `simbolo` no es
+#: física (el dibujo del esquema) y `acoplado_a` se deriva de lo que el log ya firma (la regla
+#: de `library/electrico/acoples.py`). Un campo nuevo de `Dispositivo` va a la firma o aquí: lo
+#: exige `tests/test_firma_dispositivo.py` (si entra, vence todo resultado con tablero).
+FUERA_DE_FIRMA = ("simbolo", "acoplado_a")
+
+
 def _fichas_electricas(doc) -> list:
     """El tablero ya ARMADO (dispositivos, conductores y cables con su ficha del catálogo y los
     ajustes deducidos): cambiar el `electrico.modelo` de una ref en el YAML cambia la máquina
-    aunque el log sea el mismo (F6b). Los programas no: su fuente ya está en el log."""
+    aunque el log sea el mismo (F6b). Los programas no: su fuente ya está en el log. De cada
+    dispositivo sale lo de `FUERA_DE_FIRMA`."""
     from dataclasses import asdict, is_dataclass
 
     from .electrico import modelo
 
+    def plano(x):
+        return asdict(x) if is_dataclass(x) else x
+
+    def dispositivo(d):
+        out = plano(d)
+        for campo in FUERA_DE_FIRMA:
+            out.pop(campo, None)
+        return out
+
     m = modelo(doc)
-    return [[asdict(x) if is_dataclass(x) else x for x in grupo]
-            for grupo in (m.dispositivos, m.conductores, m.cables)]
+    return [[dispositivo(d) for d in m.dispositivos], [plano(x) for x in m.conductores],
+            [plano(x) for x in m.cables]]
 
 
 #: Versión de la firma (V8.5 F5b). La 2 no firma los `create_group` (agrupar no cambia la física

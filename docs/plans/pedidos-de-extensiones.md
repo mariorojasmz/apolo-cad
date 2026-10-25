@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; dos carriles F1 ∥ F2 → F3 ∥ F4 → F5 ∥ F6; sigue F1 ∥ F2
+nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; dos carriles F1 ∥ F2 → F3 ∥ F4 → F5 ∥ F6; F2 implementada en su rama (sin mergear; `simbolo`, `acoplado_a`, `FUERA_DE_FIRMA`); sigue F1 y después F3 ∥ F4
 descripcion: una extensión lee el circuito, la prueba virtual y la sesión viva por el contrato declarado (con las cifras eléctricas medidas, los tipos de las variables del PLC y la sesión ya abierta), entrega sus archivos lentos como job y suma notas a la cotización
 ---
 
@@ -261,3 +261,43 @@ Al cerrar cada fase: una línea en el CLAUDE.md que toque y la `nota:`. Las cifr
 | Archivos cerca del tope (`cosim_vivo.py` 428, `colocacion.py` 412, `extensiones_puntos.py` 375) | módulos nuevos; ninguno pasa de 500 |
 
 ## Bitácora
+
+### F2 — El dispositivo dice su símbolo y quién lo mueve
+
+**D3.** `Dispositivo.simbolo` (`""` por defecto, al final de los campos: ningún constructor
+posicional cambia) lo copia `dispositivo_desde_ficha` de `FichaElectrica.simbolo`; un aparato sólo
+de aire (el FRL) toma el de su ficha neumática y una electroválvula, el de su ficha eléctrica, como
+todo aparato con bornes (`commands/neumatica_eval.py`).
+
+**D4.** `library/electrico/acoples.py` (65 líneas, puro) es la regla: `es_bloque_auxiliar`,
+`maestro_buscado`, `actuador_maestro` (bobina > protección > manija), `acoplado_a` y
+`cerrar_acoples`, que el carril aplica al devolver el `ModeloElectrico`
+(`commands/electrico_eval.py`). `services/cosim_red.py` lee `d.acoplado_a` y pide a la misma regla
+qué actuador del maestro nombrar y la designación buscada del aviso; ya no tiene su `_SUFIJO`,
+`_maestro` ni `_actuador_maestro`. Si el `acoplado_a` nombra un aparato que no está en el modelo
+(un modelo armado a mano y recortado), la red da el aviso de siempre en vez de un `KeyError`. La
+colocación (`colocacion.resolver_acoples`) no se tocó. `tests/test_electrico_erc.py` arma sus dos
+tableros A MANO: ahora los cierra con `cerrar_acoples`, como el carril (sin eso, -Q3A quedaba en
+reposo en `test_cosim_red_adaptador`/`_mando`, que lo usan).
+
+**D5.** `escenarios.FUERA_DE_FIRMA = ("simbolo", "acoplado_a")`, que `_fichas_electricas` saca de
+cada dispositivo. El trinquete (`tests/test_firma_dispositivo.py`): `EN_FIRMA` (los 20 campos que
+firman) ∪ `FUERA_DE_FIRMA` = los campos de `Dispositivo`, disjuntos, y un dispositivo firmado trae
+exactamente `EN_FIRMA`.
+
+**Vigencia (D14), medida** contra `ec4ac9b` exportado con `git archive`, con un banco ad hoc (la
+misma salida byte a byte en los dos árboles):
+- las firmas de los cuatro tableros de `tablero_electrico.py` iguales y congeladas en el test:
+  directo `2:7feece8f…`, variador con PLC `2:35a1fea0…`, cat. 3 `2:5a114e45…`, relé de seguridad
+  `2:da2c40a9…`;
+- `entrada_red_documento` de los cuatro, idéntica (hash del JSON entero, de `ramas`, de
+  `actuadores` y los `avisos`);
+- 7 escenarios del banco con la MISMA huella, claves del resultado y del `resumen` y `eventos`:
+  en directo marcha `47d4dc2b…`, seta `9eece16b…`, caída de red `7d30cac0…`, atasco parcial
+  `790b11bd…`; por variador seta `c64baeaa…`, corte de fase `057ccaee…` y cajas con seta `39d34fb5…`.
+
+`COSIM_EPOCH` sigue en 6: `acoples.py` entra a `ARCHIVOS` de `test_cosim_epoch.py` (decide el
+resultado) y sólo cambia la huella (`5878df434dc6a50c` → `da527a5307f6c246`).
+`tests/data/carril_v81_golden.json` sin cambios; sin bump de `GEOM_CACHE_EPOCH` ni de versiones de
+comandos (el carril no es un executor de escena); ninguna tool MCP nueva. Sin aviso del ERC que
+compare con la regla de la colocación (fuera, decisión de la revisión).

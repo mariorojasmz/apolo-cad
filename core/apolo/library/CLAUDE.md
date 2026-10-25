@@ -55,6 +55,12 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   una caja entera chocaría con la chapa). En la puerta, lo que pasa de una celda toma
   ⌈ancho/paso⌉ × ⌈alto/paso⌉ contiguas y va PRIMERO (`colocacion_puerta.bloque`).
   [plan](../../../docs/plans/plc-en-el-lazo.md) (D12)
+- **Un campo nuevo de `Dispositivo`** (`electrico/modelo.py`) obliga a decidir: entra a la firma
+  de los escenarios (`EN_FIRMA` de `tests/test_firma_dispositivo.py`: vence todo resultado con
+  tablero) o va a `services/escenarios.FUERA_DE_FIRMA` (no es física o sale de lo que el log ya
+  firma: `simbolo`, `acoplado_a`). Quién mueve un bloque auxiliar es UNA regla,
+  `electrico/acoples.py` (la de la co-simulación, que la lee; la colocación conserva su regla de
+  montaje). [plan](../../../docs/plans/pedidos-de-extensiones.md) (F2)
 - Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
   canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva

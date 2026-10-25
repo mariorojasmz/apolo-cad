@@ -15,6 +15,7 @@ import dataclasses
 import pytest
 
 from apolo.library.catalog import CATALOG
+from apolo.library.electrico.acoples import cerrar_acoples
 from apolo.library.electrico.erc import erc, resumen
 from apolo.library.electrico.modelo import (
     Cable,
@@ -93,7 +94,8 @@ def arranque_directo() -> ModeloElectrico:
         w("-Q3A:54", "-P1:X1", color="BU", seccion=0.75),
         w("-P1:X2", "-T1:M", color="BU", seccion=0.75),
     )
-    return ModeloElectrico(dispositivos, conductores, (cable("-W1", "CABLE-4G1.5"),))
+    # como el carril al cerrar el modelo: -Q3A dice que lo mueve -Q3 (pedidos-de-extensiones D4)
+    return ModeloElectrico(cerrar_acoples(dispositivos), conductores, (cable("-W1", "CABLE-4G1.5"),))
 
 
 # ── (b) arranque por variador con PLC ─────────────────────────────────────────────────────
