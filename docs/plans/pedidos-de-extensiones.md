@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1 (superficie), F2 (dispositivo: símbolo y acople fuera de la firma), F3 (entregable como job: `entregable_documento`), F4 (cifras eléctricas medidas: ΔU de motores, disparos; el diferencial por su residual) y F6 (el bus repite la sesión abierta a quien llega tarde; `plcs` en el `inicio`) mergeadas; F7 (la pieza de lo que dibuja el layout en la tabla del `inicio`: `tablero.piezas_3d`) implementada, en revisión; sólo falta F5 (notas de cotización)
+estado: implementado
+nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1–F7 mergeadas (superficie y fotograma como contrato, símbolo y acople del dispositivo fuera de la firma, entregable de una extensión como job, cifras eléctricas medidas, notas de cotización, bus con la sesión ya abierta y variables del PLC en el `inicio`, la pieza de lo que dibuja el layout en el vivo); sin pendientes
 descripcion: una extensión lee el circuito, la prueba virtual y la sesión viva por el contrato declarado (con las cifras eléctricas medidas, los tipos de las variables del PLC y la sesión ya abierta), entrega sus archivos lentos como job y suma notas a la cotización
 ---
 
@@ -509,3 +509,52 @@ ninguna; el worker sigue sin ver piezas. Una `pieza` explícita en el variador (
 cuatro tableros de `tablero_electrico.py` iguales (`test_firma_dispositivo.py` sin tocar, verde);
 la huella de `test_cosim_epoch.py` sin cambios (`COSIM_EPOCH` sigue en 6); sin cambio de
 geometría ni de `version` de `layout_tablero` (`test_contrato_comandos.py` verde sin tocar).
+
+### F5 — Notas de la cotización y margen de «Fuente»
+
+**D9.** `FuenteCosteo.nota: str | None = None` (al final: `FuenteCosteo(id, filas)` sigue igual;
+`CONTRATO_EXTENSIONES` sigue en 1). `costeo_extension.motivo_nota` la valida y
+`extensiones_puntos.sumar_costeo` la rechaza ANTES de tocar el registro (vacía o de espacios, con
+cualquier salto —`splitlines() != [nota]`, también `\r` y U+2028—, > `NOTA_MAX` = 300 caracteres
+o que no es texto): la extensión no carga y `extensiones.cargar` deshace todo lo suyo, como con
+cualquier otro rechazo. `costeo_extension.notas(filas)` da `[{texto, fuente, origen}]` de las
+fuentes con nota que cobraron al menos una fila VÁLIDA (la fila descartada con aviso no cuenta),
+en el orden de carga; `cobros.costeo` suma `notas` sólo si hay (va también en
+`/api/costing.json`). En el PDF (`drawing/notas_cotizacion.py`, 89 líneas): tras las del núcleo
+(que no se tocan: `_notas_nucleo` es la lista de siempre, partida a 60 caracteres), numeradas a
+continuación y partidas por el ANCHO medido (`tabla.partir`, de x = 18 al borde del cajetín menos
+3 mm: 86 mm en A4) con base ≥ 13 mm (el marco está en 10): caben 20 líneas; el núcleo usa 7 y,
+con avisos y tipo de cambio, 13 (en el peor caso quedan 7: la primera nota de 300 caracteres en
+mayúsculas, 5 líneas, y el aviso de continuación; la segunda sigue en la hoja 3).
+Si no caben todas, las que no entran ENTERAS (en orden: una que no cabe no deja pasar a la
+siguiente) van a «NOTAS (continuación)» y la última línea del resumen dice «Notas 7 a 8: siguen
+en la hoja 3.». Decisión a vetar: la continuación va DESPUÉS de los avisos y antes del detalle,
+no como hoja 2 —el núcleo nombra «AVISOS DE COBRO (hoja 2)» en dos textos—; se pagina por altura
+sobre el cajetín y su tabla de revisiones (`piso_tabla`) y cada cajetín cuenta las hojas.
+
+**D13 del costeo.** Las dos fuentes de la extensión falsa traen nota (la del conexionado no sale
+en una mesa sin tablero: no cobró); `COSTEO_NOTAS_LARGAS` las cambia por dos de 300 caracteres en
+mayúsculas (el peor caso) y `NOTA_VACIA`, `NOTA_DOS_LINEAS`, `NOTA_LARGA` (301) y `NOTA_NO_TEXTO`
+no cargan. `tests/test_cotizacion_notas.py`: la nota tras las del núcleo sólo si su fuente cobró;
+las malas con el registro (costeo, puerta, entrega, comandos) vacío; el peor caso —el tablero con
+el VFD sin ligar (aviso de cobro) + PEN a 3,7 + las dos notas largas— deja el núcleo intacto, las
+notas del resumen renderizadas a 96 y 600 ppp a la izquierda del cajetín (≤ x0 − 1 mm) y sobre el
+marco, la nota 8 en la hoja 3 sobre el cajetín, el detalle en la 4 y cada nota entera.
+
+**D10, medida** (`_textos_fuera_de_su_celda` con la resolución como parámetro, sobre el detalle
+de `_doc_largo` de `test_cotizacion_f4c.py` con cada «Fuente» alargada por cinco textos de 85–95
+caracteres, uno de mayúsculas «MMMM…WWWW»; matplotlib 3.10.9, el rasterizador Agg con hinting —en
+la máquina no hay otro: ni MuPDF, ni Poppler, ni Ghostscript—): ninguna caja sale de su celda a
+ninguna resolución. El texto que más se acerca al lado libre de su celda queda a **1,861 mm a
+96 ppp**, 1,850 mm a 100 ppp, 1,909 mm a 600 ppp y 1,905 mm a 720 ppp: el hinting de pocos ppp
+lo ensancha ≤ 0,06 mm, contra 1,4 mm de relleno (`PAD_X`) más la holgura del 2 %. **Se descarta**:
+`partir` y `tabla.py` no se tocan (sin `HOLGURA_TRAMA_MM`). Lo que la extensión vio «rozar el
+borde» a 100 ppp está dentro del relleno.
+
+**Vigencia (D14), medida** contra `f3b36bd` exportado con `git archive`, sin extensiones, con
+`SOURCE_DATE_EPOCH=0`: el costeo (JSON), las hojas (`asdict` de cada `SheetModel`) y los bytes del
+PDF de la cotización en USD y en PEN a 3,7 de tres documentos —una mesa, el arranque directo y el
+tablero con variador y aviso de cobro— son IDÉNTICOS. El test congela costeo y hojas (sha de los
+valores redondeados a 1e-4; el PDF lleva la versión de matplotlib en sus bytes). Sin bumps de
+`GEOM_CACHE_EPOCH` ni de comandos; `COSIM_EPOCH` no se toca; ninguna tool MCP nueva; golden sin
+cambios.

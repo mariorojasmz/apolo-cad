@@ -166,7 +166,8 @@ def costeo(doc) -> dict:
     """El costeo del documento (escena + tablero + las filas de las extensiones, al final) con sus
     avisos de cobro. Sin avisos, el dict de siempre (`rows`, `totales`); con ellos, además `avisos`
     y `monto_en_riesgo_usd`; con extensiones de costeo cargadas, `extensiones`
-    ({nombre: version_costeo})."""
+    ({nombre: version_costeo}); con fuentes que traen `nota` y cobraron, `notas`
+    ([{texto, fuente, origen}], las que la cotización suma a las del núcleo)."""
     from apolo.library import costeo_extension
     from apolo.library.costing import scene_costing
 
@@ -180,6 +181,8 @@ def costeo(doc) -> dict:
                          incluidas(doc) or None)
     if costeo_extension.DE_EXTENSION:
         data["extensiones"] = costeo_extension.versiones()
+        if notas := costeo_extension.notas(de_ext):
+            data["notas"] = notas
     avisos = avisos_cobro(doc, cables) + avisos_ext
     if avisos:
         data["avisos"] = avisos

@@ -20,7 +20,8 @@ de extensión del núcleo con lo mínimo, sin instalarse (se carga con
 - (pedidos-de-extensiones D13) la lectura por el contrato (`contrato.py`): bornes con la regla
   del carril, pilotaje a trazos, DWG, la FAT del núcleo y un fotograma del vivo; y (D6) un
   entregable en archivo por `entregable_documento`, en directo o como job (`rutas.py`), que su
-  tool `prueba_informe` pide con `pedir_entregable` (`tools.py`).
+  tool `prueba_informe` pide con `pedir_entregable` (`tools.py`); (D9) sus dos fuentes de costeo
+  llevan nota para la cotización (`costeo.py`).
 
 Los campos pesados van PEREZOSOS (funciones): así lo hace una extensión real para que el MCP no
 cargue OCCT al leerla. Abajo, las variantes que el núcleo debe RECHAZAR (`test_extensiones.py`).
@@ -147,6 +148,12 @@ COSTEO_NO_LLAMABLE = replace(EXTENSION, costeo=_de("costeo", "no_llamable"))
 COSTEO_VERSION_MALA = replace(EXTENSION, version_costeo=0)
 COSTEO_CON_FALLAS = replace(EXTENSION, costeo=_de("costeo", "con_fallas"))
 COSTEO_V3 = replace(EXTENSION, version_costeo=3)
+# notas de la cotización (plan pedidos-de-extensiones, D9 y D13)
+COSTEO_NOTAS_LARGAS = replace(EXTENSION, costeo=_de("costeo", "notas_largas"))
+NOTA_VACIA = replace(EXTENSION, costeo=_de("costeo", "nota_vacia"))
+NOTA_DOS_LINEAS = replace(EXTENSION, costeo=_de("costeo", "nota_dos_lineas"))
+NOTA_LARGA = replace(EXTENSION, costeo=_de("costeo", "nota_larga"))
+NOTA_NO_TEXTO = replace(EXTENSION, costeo=_de("costeo", "nota_no_texto"))
 ENTREGA_SIN_PREFIJO = replace(EXTENSION, entrega=_de("entrega", "sin_prefijo"))
 ENTREGA_REPETIDA = replace(EXTENSION, entrega=_de("entrega", "repetida"))
 ENTREGA_SIN_TITULO = replace(EXTENSION, entrega=_de("entrega", "sin_titulo"))

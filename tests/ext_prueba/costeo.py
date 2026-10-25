@@ -29,12 +29,47 @@ def _conexionado(doc) -> list[dict]:
              "categoria": "mano de obra"}]
 
 
-REVISION = FuenteCosteo("prueba.revision", _revision)
-CONEXIONADO = FuenteCosteo("prueba.conexionado", _conexionado)
+#: las notas de la cotización (pedidos-de-extensiones D9): salen sólo si su fuente cobró
+NOTA_REVISION = "La revisión de prueba no incluye visitas a obra."
+NOTA_CONEXIONADO = "El conexionado de prueba se cobra por conductor del tablero."
+REVISION = FuenteCosteo("prueba.revision", _revision, NOTA_REVISION)
+CONEXIONADO = FuenteCosteo("prueba.conexionado", _conexionado, NOTA_CONEXIONADO)
 
 
 def fuentes() -> list:
     return [REVISION, CONEXIONADO]
+
+
+def _larga(tema: str) -> str:
+    """Una nota de 300 caracteres justos, ancha (mayúsculas): el peor caso del resumen."""
+    base = f"NOTA LARGA DE {tema}: ALCANCE, EXCLUSIONES Y CONDICIONES DEL SERVICIO COTIZADO "
+    return (base * 10)[:299] + "."
+
+
+LARGA_REVISION, LARGA_CONEXIONADO = _larga("REVISIÓN"), _larga("CONEXIONADO")
+
+
+def notas_largas() -> list:
+    """Las dos fuentes con notas de 300 caracteres (el peor caso de D9)."""
+    return [FuenteCosteo("prueba.revision", _revision, LARGA_REVISION),
+            FuenteCosteo("prueba.conexionado", _conexionado, LARGA_CONEXIONADO)]
+
+
+# ── notas que no cargan (D9: no vacía, una línea, ≤ 300 caracteres) ─────────────────────────
+def nota_vacia() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, "   ")]
+
+
+def nota_dos_lineas() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, "Primera línea.\nSegunda línea.")]
+
+
+def nota_larga() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, "x" * 301)]
+
+
+def nota_no_texto() -> list:
+    return [REVISION, FuenteCosteo("prueba.conexionado", _conexionado, 42)]
 
 
 # ── lo que no carga ──────────────────────────────────────────────────────────────────────────

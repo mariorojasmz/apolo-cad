@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from . import notas_cotizacion as NC
 from .assembly_manual import SHEETS, _wrap
 from .sheet import Label, Line, SheetModel
 from .tabla import hojas_tabla
@@ -45,7 +46,8 @@ def _categorias(por_categoria: dict, y0: float, *, con_top: bool) -> list[tuple[
 def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
                   totals: dict, margin_pct: float, tax_pct: float, currency: str,
                   n_rows: int, base_meta: dict, fx_note: str | None = None,
-                  avisos: list[dict] | None = None, riesgo: float | None = None) -> SheetModel:
+                  avisos: list[dict] | None = None, riesgo: float | None = None,
+                  mas_notas: list[str] = ()) -> SheetModel:
     m = SheetModel(W, H)
     m.rect(10, 10, W - 20, H - 20, "frame")
     m.labels.append(Label(16, H - 24, "COTIZACIÓN", 8.0, anchor="start"))
@@ -117,6 +119,18 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     ny = _NOTAS_Y
     m.labels.append(Label(16, ny, "NOTAS", 3.2, anchor="start"))
     ny -= 5
+    for ln in _lineas_nucleo(n_rows, fx_note, avisos):
+        m.labels.append(Label(18, ny, ln, 2.5, anchor="start"))
+        ny -= 3.8
+    for ln in mas_notas:  # las de las extensiones, ya partidas (notas_cotizacion.repartir)
+        m.labels.append(Label(18, ny, ln, 2.5, anchor="start"))
+        ny -= 3.8
+    draw_title_block(m, {**base_meta, "sheet_no": 1})
+    return m
+
+
+def _notas_nucleo(n_rows: int, fx_note: str | None, avisos: list[dict] | None) -> list[str]:
+    """Las notas comerciales del núcleo (honestidad + condiciones): una extensión no las quita."""
     notas = [
         "Precios de catálogo REFERENCIALES y fabricación estimada por peso×material×factor — "
         "confirmar con proveedores antes de comprometer.",
@@ -129,16 +143,14 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     if avisos:
         notas.insert(0, f"Hay {len(avisos)} aviso(s) de cobro en la hoja 2: el precio NO los "
                         "descuenta; liga o declara en el modelo lo que indica cada uno.")
-    # wrap a 60 chars: las notas quedan a la izquierda de la tabla de revisiones
-    # del cajetín (x ≥ 107) — sin solaparse aunque el proyecto tenga muchas revisiones
-    idx = 1
-    for nota in notas:
-        for ln in _wrap(f"{idx}. {nota}", 60):
-            m.labels.append(Label(18, ny, ln, 2.5, anchor="start"))
-            ny -= 3.8
-        idx += 1
-    draw_title_block(m, {**base_meta, "sheet_no": 1})
-    return m
+    return notas
+
+
+def _lineas_nucleo(n_rows: int, fx_note: str | None, avisos: list[dict] | None) -> list[str]:
+    """Las líneas de las notas del núcleo. Wrap a 60 chars: quedan a la izquierda de la tabla de
+    revisiones del cajetín (x ≥ 107), sin solaparse aunque el proyecto tenga muchas revisiones."""
+    return [ln for idx, nota in enumerate(_notas_nucleo(n_rows, fx_note, avisos), start=1)
+            for ln in _wrap(f"{idx}. {nota}", 60)]
 
 
 def _peso(scene: dict, meta: dict | None) -> float:
@@ -156,11 +168,12 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
                     meta: dict | None = None, sheet: str = "A4",
                     extra_rows: list[dict] | None = None,
                     costeo: dict | None = None) -> list[SheetModel]:
-    """Cotización multipágina: [resumen económico + avisos de cobro (si hay) + N hojas de
-    detalle de partidas]. `fx` = tipo de cambio sobre USD (solo PRESENTACIÓN: los costos se
-    almacenan en USD; con fx≠1 la conversión se declara en las notas). `extra_rows` = partidas
-    que la escena no tiene (el tablero eléctrico, V8.1 D10). `costeo` = el de
-    `services/cobros.costeo` (filas, totales y `avisos`, V8.1 F4c); sin él se costea aquí."""
+    """Cotización multipágina: [resumen económico + avisos de cobro (si hay) + notas que no
+    cupieron en el resumen (si hay) + N hojas de detalle de partidas]. `fx` = tipo de cambio sobre
+    USD (solo PRESENTACIÓN: los costos se almacenan en USD; con fx≠1 la conversión se declara en
+    las notas). `extra_rows` = partidas que la escena no tiene (el tablero eléctrico, V8.1 D10).
+    `costeo` = el de `services/cobros.costeo` (filas, totales, `avisos` —V8.1 F4c— y `notas` de
+    las extensiones —pedidos-de-extensiones D9—); sin él se costea aquí."""
     from apolo.library.costing import scene_costing
 
     W, H = SHEETS.get(sheet, SHEETS["A4"])
@@ -203,18 +216,31 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
                      a.get("arreglo", "")] for a in avisos]
     cab_avisos = ["Aviso", "Qué pasa", "Monto en riesgo", "Cómo se arregla"]
 
-    def _tablas(meta_de) -> tuple[list[SheetModel], list[SheetModel]]:
+    fx_note = (f"Montos convertidos de USD a {currency} a tipo de cambio {fx:g} "
+               "(los costos base se mantienen en USD)." if fx != 1.0 else None)
+    # notas de extensiones (pedidos-de-extensiones D9): tras las del núcleo; lo que no cabe a la
+    # izquierda del cajetín sigue en «NOTAS (continuación)», tras los avisos y antes del detalle
+    de_ext = [n["texto"] for n in data.get("notas") or ()]
+    n_nucleo = len(_notas_nucleo(len(rows), fx_note, avisos))
+    y_libre = _NOTAS_Y - 5 - 3.8 * len(_lineas_nucleo(len(rows), fx_note, avisos))
+    mas_notas, resto = (NC.repartir(y_libre, W, de_ext, n_nucleo + 1, 2 + (1 if avisos else 0))
+                        if de_ext else ([], []))
+
+    def _tablas(meta_de) -> tuple[list[SheetModel], list[SheetModel], list[SheetModel]]:
         hojas_av = (hojas_tabla("AVISOS DE COBRO (no se descuentan solos)", cab_avisos, tabla_avisos,
                                 W=W, H=H, flexibles={0, 1, 3}, derecha={2},
                                 meta_hoja=lambda k, n: meta_de(1 + k))
                     if avisos else [])
+        hojas_notas = NC.hojas_continuacion(resto, W=W, H=H,
+                                            meta_hoja=lambda k, n: meta_de(1 + len(hojas_av) + k))
+        antes = 1 + len(hojas_av) + len(hojas_notas)
         hojas_det = hojas_tabla("DETALLE DE PARTIDAS", headers, detail, W=W, H=H,
                                 flexibles={0, 1, 5}, derecha={2, 3, 4},
-                                meta_hoja=lambda k, n: meta_de(1 + len(hojas_av) + k))
-        return hojas_av, hojas_det
+                                meta_hoja=lambda k, n: meta_de(antes + k))
+        return hojas_av, hojas_notas, hojas_det
 
-    av0, det0 = _tablas(lambda k: {"revisions": (meta or {}).get("revisions", [])})
-    n_pages = 1 + len(av0) + len(det0)
+    av0, notas0, det0 = _tablas(lambda k: {"revisions": (meta or {}).get("revisions", [])})
+    n_pages = 1 + len(av0) + len(notas0) + len(det0)
     base_meta = {
         "project": project_name,
         "drawing_no": (meta or {}).get("drawing_no", "COT-001"),
@@ -226,8 +252,6 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
         "revisions": (meta or {}).get("revisions", []),
         "n_sheets": n_pages,
     }
-    fx_note = (f"Montos convertidos de USD a {currency} a tipo de cambio {fx:g} "
-               "(los costos base se mantienen en USD)." if fx != 1.0 else None)
     riesgo = None
     if avisos:
         riesgo = round(sum(a.get("monto_en_riesgo_usd") or 0.0 for a in avisos) * fx, 2)
@@ -235,6 +259,6 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
                            requirements=requirements or {}, totals=totals,
                            margin_pct=margin_pct, tax_pct=tax_pct, currency=currency,
                            n_rows=len(rows), base_meta=base_meta, fx_note=fx_note,
-                           avisos=avisos, riesgo=riesgo)]
-    av, det = _tablas(lambda k: {**base_meta, "sheet_no": k})
-    return pages + av + det
+                           avisos=avisos, riesgo=riesgo, mas_notas=mas_notas)]
+    av, notas, det = _tablas(lambda k: {**base_meta, "sheet_no": k})
+    return pages + av + notas + det

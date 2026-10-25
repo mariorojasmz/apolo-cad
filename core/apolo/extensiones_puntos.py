@@ -241,8 +241,9 @@ def _sumar_ids(ext, entradas: list, tipo: type, que: str, registro: dict, valida
 
 def sumar_costeo(ext) -> list[str]:
     """Las `FuenteCosteo` del costeo y la cotización (`library/costeo_extension`): id
-    «prefijo.x», `filas` llamable, nada repetido. Van a `DE_EXTENSION` con su `version_costeo`;
-    sus filas se validan al costear (`costeo_extension.fila`)."""
+    «prefijo.x», `filas` llamable, `nota` válida (pedidos-de-extensiones D9), nada repetido. Van a
+    `DE_EXTENSION` con su `version_costeo`; sus filas se validan al costear
+    (`costeo_extension.fila`)."""
     entradas = list(valor(ext.costeo) or ())
     if not entradas:
         return []
@@ -251,6 +252,8 @@ def sumar_costeo(ext) -> list[str]:
     def validar(e) -> None:
         if not callable(e.filas):
             raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: `filas` es una función (doc)")
+        if (motivo := C.motivo_nota(e.nota)) is not None:
+            raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: {motivo}")
 
     nuevos = _sumar_ids(ext, entradas, C.FuenteCosteo, "costeo", C.DE_EXTENSION, validar)
     C.DE_EXTENSION[ext.nombre] = (ext.version_costeo, tuple(entradas))

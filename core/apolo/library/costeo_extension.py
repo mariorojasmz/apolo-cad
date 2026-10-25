@@ -5,6 +5,11 @@ puntos-de-extension-entregables, D2). Puro: guarda lo declarado y valida las fil
 Una fila de extensión llega YA COSTEADA (la extensión sabe su precio y la `fuente` lo declara):
 `costing.costed_bom` no la re-costea y `costing_totals` la suma a `extensiones_usd`, ni comprada
 ni fabricada. Sin extensiones con costeo, `DE_EXTENSION` está vacío y nada cambia.
+
+Una fuente puede traer una `nota` (plan pedidos-de-extensiones, D9): UNA línea de ≤ `NOTA_MAX`
+caracteres que aclara lo que cobra; se valida al cargar (`motivo_nota`) y sale en la cotización
+sólo si la fuente cobró al menos una fila, DESPUÉS de las notas del núcleo (que no se quitan).
+Cambiar la nota es cambiar el costeo: la extensión sube su `version_costeo`.
 """
 
 from __future__ import annotations
@@ -18,15 +23,18 @@ ORIGEN = "extension:"
 #: Las claves de una fila (más `categoria`, opcional); ninguna otra.
 CAMPOS = ("descripcion", "cantidad", "unidad", "costo_unit", "fuente")
 CATEGORIA = "servicios"  # la de una fila que no declara la suya
+NOTA_MAX = 300  # caracteres de la nota de una fuente
 
 
 @dataclass(frozen=True)
 class FuenteCosteo:
-    """Una fuente de filas del costeo: `id` «prefijo.x» (la ref de sus filas) y `filas(doc)` →
-    iterable de `{descripcion, cantidad, unidad, costo_unit, fuente[, categoria]}`."""
+    """Una fuente de filas del costeo: `id` «prefijo.x» (la ref de sus filas), `filas(doc)` →
+    iterable de `{descripcion, cantidad, unidad, costo_unit, fuente[, categoria]}` y, opcional,
+    `nota`: una línea para las notas de la cotización (sale sólo si la fuente cobró)."""
 
     id: str
     filas: Callable
+    nota: str | None = None
 
 
 #: nombre de la extensión → (version_costeo, (FuenteCosteo, …)); lo llena `extensiones.cargar`.
@@ -84,3 +92,25 @@ def fila(nombre: str, fuente: FuenteCosteo, d) -> dict:
 
 def es_de_extension(row: dict) -> bool:
     return str(row.get("origen") or "").startswith(ORIGEN)
+
+
+def motivo_nota(nota) -> str | None:
+    """Por qué la `nota` de una fuente no vale (la extensión no carga), o `None` si vale (o no
+    hay): un texto no vacío, de UNA línea y de ≤ `NOTA_MAX` caracteres."""
+    if nota is None:
+        return None
+    if not _texto(nota):
+        return f"`nota` es un texto no vacío, no {nota!r}"[:200]
+    if nota.splitlines() != [nota]:
+        return "`nota` es de una sola línea (sin saltos)"
+    if len(nota) > NOTA_MAX:
+        return f"`nota` tiene {len(nota)} caracteres (máximo {NOTA_MAX})"
+    return None
+
+
+def notas(filas: list[dict]) -> list[dict]:
+    """`[{texto, fuente, origen}]` de las fuentes con nota que cobraron al menos una de `filas`
+    (las ya costeadas), en el orden de carga."""
+    cobraron = {(r["ref"], r["origen"]) for r in filas}
+    return [{"texto": f.nota.strip(), "fuente": f.id, "origen": ORIGEN + nombre}
+            for nombre, f in vigentes() if f.nota and (f.id, ORIGEN + nombre) in cobraron]
