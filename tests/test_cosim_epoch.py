@@ -110,7 +110,7 @@ ARCHIVOS = (
 #: pasan una lista; los tokens no cambian: 154 programas (los de `test_plc_*`, el del banco y el
 #: sintético) compilan idénticos y 6 escenarios del banco (marcha y seta por variador, seta, caída
 #: de red, corte de fase, cajas con seta, atasco) dan la MISMA huella que en 833ce8e (bitácora).
-HUELLA: tuple[int, str] = (6, "RECALCULAR")
+HUELLA: tuple[int, str] = (6, "0da6c7ab1e440113")
 
 
 def archivos() -> list[Path]:
