@@ -21,60 +21,47 @@ los comandos exactos al terminar.
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 # Las cifras públicas son las del NÚCLEO: una extensión privada instalada en el mismo .venv
 # escribiría en los README sus comandos y tools (fuga; A3 del plan
-# nucleo-abierto-extensiones-privadas). Antes de importar `apolo`, también para el `pytest`
-# que lanza `--tests` (hereda el entorno).
+# nucleo-abierto-extensiones-privadas). Antes de importar `apolo` (conteos.py lo fija también).
 os.environ["APOLO_EXTENSIONES"] = "0"
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+import conteos  # noqa: E402 — después de apagar las extensiones y de poner scripts/ en el path
 PYPROJECT = ROOT / "core" / "pyproject.toml"
 SERVER_JSON = ROOT / "server.json"
 READMES = [ROOT / "README.md", ROOT / "README.es.md", ROOT / "core" / "README.md"]
 
 
 # --------------------------------------------------------------------- cifras
+# La fuente única de las cifras es `scripts/conteos.py` (también la de «Estado actual»).
+# Las tools son las de `list_tools()`, no los `@mcp.tool` de `mcp_server.py` (el regex daba 76
+# con 90 tools reales).
 def count_tools() -> int:
-    """Las tools que ve un cliente MCP (`list_tools()`), no los `@mcp.tool` de `mcp_server.py`:
-    las de `tools/*.py` también cuentan (el regex daba 76 con 90 tools reales)."""
-    sys.path.insert(0, str(ROOT / "core"))
-    from apolo.mcp_server import mcp
-
-    return len(asyncio.run(mcp.list_tools()))
+    return conteos.tools()
 
 
 def count_commands() -> int:
-    sys.path.insert(0, str(ROOT / "core"))
-    from apolo.commands import command_schemas
-
-    return len(command_schemas())
+    return conteos.comandos()
 
 
 def count_catalog() -> int:
-    sys.path.insert(0, str(ROOT / "core"))
-    from apolo.library import catalog_payload
-
-    payload = catalog_payload()
-    items = payload.get("components", payload) if isinstance(payload, dict) else payload
-    return len(items)
+    return conteos.refs()
 
 
 def count_tests() -> int | None:
-    """Cuenta REAL vía pytest (tarda ~1 min). None si no se puede determinar."""
-    out = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests", "--collect-only"],
-        cwd=ROOT, capture_output=True, text=True,
-    )
-    m = re.search(r"(\d+)(?:/\d+)? tests collected", out.stdout)
-    return int(m.group(1)) if m else None
+    """Recolecta `tests/` sin correrlos (~35 s). None si la recolección falla."""
+    try:
+        return conteos.tests()[0]
+    except RuntimeError:
+        return None
 
 
 # ---------------------------------------------------------------- escrituras
@@ -136,7 +123,7 @@ def set_counts(tools: int, commands: int, catalog: int, tests: int | None) -> li
 def main() -> int:
     ap = argparse.ArgumentParser(description="Sincroniza versión y cifras para una release.")
     ap.add_argument("--version", help="versión nueva, p. ej. 0.2.0")
-    ap.add_argument("--tests", action="store_true", help="recuenta los tests (lento, ~1 min)")
+    ap.add_argument("--tests", action="store_true", help="recuenta los tests (~35 s)")
     ap.add_argument("--check", action="store_true", help="solo informa; no escribe nada")
     args = ap.parse_args()
 

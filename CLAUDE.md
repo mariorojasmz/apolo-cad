@@ -57,7 +57,7 @@ baja); partir un archivo grande se hace con un plan.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # conteo en «Estado actual» (tortura: -m torture)
+.\.venv\Scripts\python.exe -m pytest tests -q     # tortura: -m torture · cifras: scripts/conteos.py
 cd ui ; npm test                  # vitest: gates de texto y de tamaño
 npm run build                     # bundle de la UI (tsc + vite)
 ```
@@ -85,10 +85,12 @@ Repo **github.com/mariorojasmz/apolo-cad** (MIT) · paquete **PyPI `apolo-cad`**
 los datos van a `APOLO_HOME` (~/.apolo) y la UI sale del paquete (`apolo/webui`, la stagea
 `scripts/stage_ui.py`). Publicar: § Publicación.
 
-### Estado actual (2026-10-24)
+### Estado actual
 
-5518 tests (+27 de tortura vía `-m torture`) · 539 tests vitest · 90 tools MCP · 62 comandos ·
-catálogo 428 refs. Hojas de ruta V1–V7 cerradas ([roadmap](docs/roadmap.md)); en curso:
+Miles de tests de pytest (más los de tortura), cientos de vitest y de refs del catálogo, decenas
+de comandos y de tools MCP. **Las cifras exactas no se escriben aquí: se miden** con
+`python scripts/conteos.py` (`--rapido`: sin recolectar pytest). Hojas de ruta V1–V7 cerradas
+([roadmap](docs/roadmap.md)); en curso:
 [V8 — la máquina viva](docs/plans/V8-maquina-viva.md) (tablero eléctrico real, co-simulación y
 placas; cada V8.x con su contrato). Lo que falta de cada plan, en la `nota:` de su frontmatter.
 Proyectos de referencia: `faja-paqueteria-4m` (id 38, testigo del benchmark, 100 %
@@ -136,8 +138,9 @@ merece persistirse y actualiza el archivo que corresponde sin que se lo pidan.
   Nada entra con historia.
 - **Una línea = qué hacer + link al porqué.** La historia (fecha, qué se rompió, quién lo
   reportó, la verificación E2E) vive en el plan que la parió, en el commit o en
-  `docs/devlog.md`; aquí se cita, no se repite. Al cerrar trabajo, actualizar los conteos de
-  «Estado actual».
+  `docs/devlog.md`; aquí se cita, no se repite. Ninguna cifra que cambie por fase (conteos,
+  fechas de «Estado actual») se escribe aquí: chocaba en cada rebase. Quien necesite el conteo
+  del momento (la `nota:` de un plan, la bitácora) lo copia de `python scripts/conteos.py`.
 - **Nivel más específico gana; podar > acumular.** Lo de un paquete va en su CLAUDE.md (índice
   arriba); lo transversal, aquí. Una explicación, un lugar: el otro archivo enlaza, no repite.
   Lo obsoleto se corrige o se borra en el momento. Sólo lo **no derivable del código**:
