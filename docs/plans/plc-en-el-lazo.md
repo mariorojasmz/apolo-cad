@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9); F1a, F1b1, F1c1, F1b2 y F1d1 mergeadas (superficie y comentarios del PLC, PLC externo en el lote y en vivo con ritmo de pared, escribir variables, panel de operador de 7″ con puertos RJ45); siguen F1c2 (bus de la sesión viva) y F1d2 (puntos de UI)
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9); F1a, F1b1, F1c1, F1b2, F1d1 y F1c2 mergeadas (superficie y comentarios del PLC, PLC externo en el lote y en vivo con ritmo de pared, escribir variables, panel de operador de 7″ con puertos RJ45, bus de la sesión viva); sigue F1d2 (puntos de UI)
 descripcion: un PLC de verdad (o el simulador de su fabricante) mueve la máquina virtual en vivo o en una corrida a la pared, y se dice que esa corrida no es determinista; una pantalla de operador o un SCADA escriben variables del programa y siguen la sesión viva; el catálogo trae un panel de operador de 7″ para la puerta del tablero
 ---
 
@@ -582,3 +582,48 @@ todas las piezas, ids de la escena y firma del documento (directo `2:c5a76b7b…
 `test_contrato_comandos` no pidió nada (la colocación no está en la huella de
 `_exec_layout_tablero`): sin versión de `layout_tablero`, sin `GEOM_CACHE_EPOCH`, ninguna tool MCP
 nueva (el golden no cambia). Catálogo 448 → 450.
+
+### F1c2 — Bus de la sesión viva
+
+**D11.** `api/vivo_bus.py` (245 líneas, hoja: sólo stdlib; `common` lo re-exporta a
+`cosim_vivo`, `CAPAS_API` lo suma): `suscribir(nombre, max_fotogramas=60) -> Suscripcion` y
+`enviar_vivo(nombre, msg) -> bool`, con `Suscripcion` en `SUPERFICIE` (`CONTRATO_EXTENSIONES`
+sigue en 1). La copia vive en `SesionViva._poner` (en el loop): ahí se arma ahora lo que ve el
+cliente —la tabla vuelta `inicio`, el `fin` con lo de volverla escenario, los errores `E`/`L` y el
+`fin` del worker muerto— y se pone, en el mismo orden, en la cola de la persona y en cada
+suscripción; `reenviar` sólo manda. Así la suscripción recibe lo mismo que el WS aunque la persona
+vaya lenta (su descarte no le llega). `validar_texto` es la validación ÚNICA del WS y del bus.
+`cosim_vivo.py` queda en 428 líneas. Decisiones propias (para vetar):
+- **La suscripción vive más que la sesión**: sigue la abierta y las que vengan hasta `cerrar()`
+  (una pantalla se suscribe una vez y espera el `inicio`); un nombre suscrito dos veces es
+  `ValueError` (los acks irían a una sola) y lleva el prefijo de la extensión («prueba.scada», sin
+  «:»: el `:` separa el prefijo del id).
+- **La cola es una `deque` con su `Condition`, no una `queue.Queue`**: descartar el fotograma más
+  VIEJO sin perder el orden con el JSON lo pide. Fotogramas: pasados `max_fotogramas` sale el más
+  viejo (`descartados`; 0 = sólo JSON). JSON: pasados `MAX_JSON` = 1000 se descarta el nuevo
+  (`json_descartados`), NUNCA `inicio`, `senales` ni `fin` (sin ellos los fotogramas no se leen ni
+  se sabe que terminó). `recibir(timeout)` da un dict propio (el texto se parsea en el hilo del
+  lector, no en el loop) o los `bytes` del fotograma.
+- **La suscripción ve también los acks de la persona** (lo mismo que el WS: un SCADA sabe qué se
+  pulsó); los de una acción del bus van SÓLO a su suscripción, ni a la persona ni a otra. El ruteo
+  es por ids EN VUELO (`<nombre>:<id>`, sin `id` uno correlativo), no por el prefijo solo: un ack
+  de una suscripción ya cerrada no se filtra a la persona. El ack lleva el id con prefijo.
+- **Lo que no pasa** (control, > 4096, no JSON, no objeto) es `False` y su rechazo va a la
+  suscripción, sin llegar al worker; sin sesión abierta, `False` sin rechazo.
+- **El `fin` de una sesión que cerró la persona ahora también se procesa** (antes la tarea que
+  enviaba ya estaba cancelada): la suscripción se entera de que terminó y la sesión queda en
+  `SESIONES_GRABADAS` como cualquier otra.
+
+**D15.** `tests/ext_prueba/suscriptor.py`: `SuscriptorPrueba` («prueba.scada») sigue la sesión
+desde su hilo sólo con `apolo.extensiones_api` y escribe con `enviar_vivo`.
+`tests/test_vivo_bus.py` (8 casos): el nombre; orden y descarte del fotograma viejo; el JSON de más
+sin perder `inicio`/`senales`/`fin`; la validación del WS; cada rechazo sin llegar a la sesión; el
+ack sólo a su suscripción; `STATE_LOCK` parchado para fallar y el AST de imports; y de punta a
+punta con el worker: el suscriptor recibe la MISMA secuencia que el WS (50 mensajes, 45
+fotogramas), uno que nunca lee descarta y cuenta (`descartados` = fotogramas del WS − 5) mientras
+el WS recibe todos, `enviar_vivo` con `STATE_LOCK` tomado por otro hilo aplica el `pulsar`, su ack
+no llega al WS, la grabación trae `girar` (persona) y `pulsar` (bus) sin ids, un `parar` del bus se
+rechaza y con la sesión cerrada `enviar_vivo` es `False`.
+
+**Vigencia (D14).** Nada de `cosim/` ni `plc/`: la huella de `test_cosim_epoch.py` no cambia;
+`COSIM_EPOCH`, `GEOM_CACHE_EPOCH` y versiones de comandos igual; ninguna tool MCP nueva.
