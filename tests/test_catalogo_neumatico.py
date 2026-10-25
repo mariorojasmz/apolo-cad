@@ -32,10 +32,33 @@ ISO6432 = {  # [F5] Hydraquip TS10287: vástago, rosca, nariz, puertos
 }
 
 
+#: V8.9 F7b (defecto 12): reguladores de caudal en línea, silenciadores y racores (sólo BOM)
+F7B = ["REG-CAUDAL-L-6", "REG-CAUDAL-L-8", "REG-CAUDAL-L-10", "SIL-G18", "SIL-G14", "SIL-G12"]
+RACORES = ["RACOR-M5-4", "RACOR-G18-4", "RACOR-M5-6", "RACOR-G18-6", "RACOR-G14-6", "RACOR-G18-8",
+           "RACOR-G14-8", "RACOR-G38-8", "RACOR-G14-10", "RACOR-G38-10", "RACOR-G12-10"]
+
+
 def test_categorias_al_final_con_sus_refs():
     assert CATEGORIES[-3:] == list(NUEVAS)  # al final: no reordenan la UI
     for categoria, refs in NUEVAS.items():
-        assert sorted(refs_in_category(categoria)) == sorted(refs)
+        extra = F7B + RACORES if categoria == "aire_comprimido" else []
+        assert sorted(refs_in_category(categoria)) == sorted(refs + extra)
+
+
+@pytest.mark.parametrize("ref", F7B)
+def test_los_accesorios_de_f7b_cargan_con_su_ficha(ref):
+    f = CATALOG[ref].neumatico
+    assert f is not None and f.fuente.strip() and f.funcion == "RZ" and f.caudal.C > 0
+    assert f.a_confirmar  # sin ficha de proveedor leída: todo a confirmar
+    assert CATALOG[ref].specs["cost"] > 0
+
+
+@pytest.mark.parametrize("ref", RACORES)
+def test_cada_racor_declara_su_rosca_y_su_tubo(ref):
+    s = CATALOG[ref].specs
+    _, rosca, tubo = ref.split("-")
+    assert s["racor_rosca"] == {"M5": "M5", "G18": "G1/8", "G14": "G1/4", "G38": "G3/8", "G12": "G1/2"}[rosca]
+    assert s["racor_tubo_mm"] == float(tubo) and s["cost"] > 0 and CATALOG[ref].neumatico is None
 
 
 @pytest.mark.parametrize("ref", TODAS)

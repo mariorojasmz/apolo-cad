@@ -48,12 +48,15 @@ def _fila(regla: str, des: str, r: dict, detalle: str, *, hip: list[str] | None 
 
 
 def _velocidad(cil, sim: dict | None) -> tuple[float | None, list[str]]:
-    """(velocidad para el caudal y el impacto, hipótesis de dónde sale)."""
+    """(velocidad para el caudal y el impacto, hipótesis de dónde sale). La medida es el PICO de
+    todos los escenarios vigentes (`sim["pico"]`, también uno de falla: el peor caso); un `sim`
+    plano (sin `pico`) se lee como antes."""
     v_dec = cil.servicio.get("velocidad_m_s")
-    v_sim = (sim or {}).get("v_max_m_s")
+    pico = (sim or {}).get("pico") or sim or {}
+    v_sim = pico.get("v_max_m_s")
     if v_sim and (not v_dec or v_sim > v_dec):
-        extra = f", sobre los {v_dec:g} m/s declarados" if v_dec else ""
-        return v_sim, [f"velocidad máxima medida en el escenario «{sim['escenario']}»: {v_sim:g} m/s{extra} "
+        extra = f", sobre los {v_dec:g} m/s de régimen declarados" if v_dec else ""
+        return v_sim, [f"velocidad máxima medida en el escenario «{pico['escenario']}»: {v_sim:g} m/s{extra} "
                        "(muestreada: el pico real puede ser algo mayor)"]
     if v_dec:
         return v_dec, [f"velocidad declarada en el servicio: {v_dec:g} m/s"]

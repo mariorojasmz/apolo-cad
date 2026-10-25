@@ -77,26 +77,82 @@ def reglas(m) -> list[dict]:
     return erc(m, disponibles=disponibles())
 
 
+#: Eventos de un escenario que no son una falla provocada: el que sólo trae productos es «sano».
+EVENTOS_SANOS = frozenset({"producto"})
+#: mm: una carrera medida a menos de esto del mayor recorrido de todos los escenarios es completa.
+TOL_CARRERA_MM = 2.0
+
+
+def _sano(ent: dict) -> bool:
+    eventos = (ent.get("escenario") or {}).get("eventos") or []
+    return all(isinstance(e, dict) and e.get("tipo") in EVENTOS_SANOS for e in eventos)
+
+
+def _nominal(filas: list[tuple[str, dict, bool]]) -> tuple[str, dict] | None:
+    """El escenario NOMINAL de un cilindro (V8.9 F7b, defecto 1): de los que lo llevaron por su
+    carrera COMPLETA (el mayor recorrido de todos, ± `TOL_CARRERA_MM`), los sanos (sin una falla
+    provocada) antes que los de falla, y de ellos el de avance más LENTO (la cota conservadora del
+    tiempo de ciclo); empate por nombre. Una seta o una bobina cortada que corta la carrera no es
+    el tiempo de carrera del cilindro."""
+    medidas = [(n, f, s) for n, f, s in filas if f.get("t_avance_s") is not None]
+    if not medidas:
+        movidos = [(n, f, s) for n, f, s in filas if (f.get("x_max_mm") or 0.0) > 0.5]
+        if not movidos:
+            return None
+        n, f, _s = max(movidos, key=lambda x: (x[1]["x_max_mm"], x[0]))
+        return n, f
+    xref = max(f.get("x_max_mm") or 0.0 for _n, f, _s in medidas)
+    completas = [(n, f, s) for n, f, s in medidas if (f.get("x_max_mm") or 0.0) >= xref - TOL_CARRERA_MM]
+    sanas = [x for x in completas if x[2]] or completas
+    n, f, _s = max(sanas, key=lambda x: (x[1]["t_avance_s"], x[0]))
+    return n, f
+
+
 def cosim_vigente(doc) -> dict:
     """{cilindro: lo medido} de los escenarios VIGENTES con aire (`resultado["aire"]`, que guarda
-    `escenarios.resultado_compacto`): por cilindro, el del escenario en que fue MÁS RÁPIDO (el peor
-    caso para el impacto y el caudal), con su nombre. Un vencido o sin correr no cuenta."""
+    `escenarios.resultado_compacto`), elegido por `lecturas` (un vencido o sin correr no cuenta)."""
     from . import escenarios as E
 
-    out: dict = {}
     if not doc.escenarios:
-        return out
+        return {}
     firma, cache = E.firma_documento(doc), {}
-    for nombre, ent in doc.escenarios.items():
+    vigentes = {nombre: ent for nombre, ent in doc.escenarios.items()
+                if (ent.get("resultado") or {}).get("aire")
+                and E.estado(doc, nombre, firma, cache)["estado"] not in (E.SIN_CORRER, E.VENCIDO)}
+    return lecturas(vigentes)
+
+
+def lecturas(escenarios: dict) -> dict:
+    """{cilindro: lo medido} de `escenarios` ({nombre: {escenario, resultado}}, ya filtrados por
+    vigencia). Por cilindro, dos lecturas DISTINTAS (V8.9 F7b, defecto 1):
+      - el tiempo de carrera y hasta dónde llegó (`x_max_mm`, `t_avance_s`, `t_retroceso_s`,
+        `escenario`, `medicion`) salen del escenario NOMINAL (`_nominal`: carrera completa, sin
+        falla);
+      - `pico` = {v_max_m_s, escenario}: la mayor velocidad de TODOS (también uno de falla: el
+        peor caso para el impacto y el caudal).
+    Puro."""
+    out: dict = {}
+    por_cil: dict[str, list] = {}
+    medicion: dict[str, str] = {}
+    for nombre, ent in escenarios.items():
         aire = (ent.get("resultado") or {}).get("aire")
-        if not aire or E.estado(doc, nombre, firma, cache)["estado"] in (E.SIN_CORRER, E.VENCIDO):
+        if not aire:
             continue
+        medicion[nombre] = aire.get("medicion", "")
         for des, fila in (aire.get("cilindros") or {}).items():
             if fila.get("t_avance_s") is None and not fila.get("v_max_m_s"):
                 continue  # no se movió en ese escenario
-            previo = out.get(des)
-            if previo is None or fila.get("v_max_m_s", 0) > previo.get("v_max_m_s", 0):
-                out[des] = {**fila, "escenario": nombre, "medicion": aire.get("medicion", "")}
+            por_cil.setdefault(des, []).append((nombre, fila, _sano(ent)))
+    for des, filas in por_cil.items():
+        filas.sort(key=lambda x: x[0])
+        nom = _nominal(filas)
+        pn, pf, _s = max(filas, key=lambda x: (x[1].get("v_max_m_s") or 0.0, x[0]))
+        pico = {"v_max_m_s": pf.get("v_max_m_s") or 0.0, "escenario": pn}
+        if nom is None:  # sólo ruido de muestreo: ninguna carrera que medir
+            out[des] = {"escenario": pn, "medicion": medicion.get(pn, ""), "pico": pico}
+            continue
+        n, f = nom
+        out[des] = {**f, "escenario": n, "medicion": medicion.get(n, ""), "pico": pico}
     return out
 
 

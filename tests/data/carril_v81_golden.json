@@ -196,9 +196,9 @@
   }
  ],
  "chequeo": {
-  "avisos": 0,
+  "avisos": 2,
   "errores": 0,
-  "estado": "ok",
+  "estado": "aviso",
   "n_cables": 1,
   "n_conductores": 30,
   "n_dispositivos": 14,
@@ -267,6 +267,26 @@
     "estado": "ok",
     "norma": "ISO 13850 · IEC 60204-1 §10.7",
     "regla": "parada de emergencia"
+   },
+   {
+    "detalle": "-M1 (MOTOR-075) va en la máquina y no tiene pieza 3D: sin ella no se revisa si choca, si se sujeta ni si se alcanza, ni sale en los planos",
+    "elementos": [
+     "-M1"
+    ],
+    "estado": "aviso",
+    "norma": "criterio de diseño",
+    "recomendacion": "Insértalo donde va (insert_component ref=MOTOR-075), sujétalo y lígalo: edit_command('c8', {\"pieza\": \"<id de la pieza>\"}).",
+    "regla": "aparato de campo sin pieza"
+   },
+   {
+    "detalle": "-U1 (GAB-6040) va en la máquina y no tiene pieza 3D: sin ella no se revisa si choca, si se sujeta ni si se alcanza, ni sale en los planos",
+    "elementos": [
+     "-U1"
+    ],
+    "estado": "aviso",
+    "norma": "criterio de diseño",
+    "recomendacion": "Insértalo donde va (insert_component ref=GAB-6040), sujétalo y lígalo: edit_command('c16', {\"pieza\": \"<id de la pieza>\"}).",
+    "regla": "aparato de campo sin pieza"
    }
   ],
   "revisadas": [

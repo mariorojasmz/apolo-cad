@@ -28,8 +28,12 @@ class ServicioCilindro(BaseModel):
 
     carrera_mm: float = Field(..., gt=0, le=5000, title="Carrera",
                               description="mm, dentro del rango de la ficha (acepta =expr)")
-    velocidad_m_s: float | None = Field(None, gt=0, le=10, title="Velocidad pedida",
-                                        description="m/s del vástago (sin ella no se revisan caudal ni impacto)")
+    velocidad_m_s: float | None = Field(
+        None, gt=0, le=10, title="Velocidad de régimen",
+        description="m/s del vástago en RÉGIMEN, la que el ciclo necesita (≈ carrera / tiempo de avance), "
+                    "NO el pico transitorio de un escenario: el ERC la compara con la cota de régimen del "
+                    "escape y la memoria toma el pico de la co-simulación por su cuenta (sin ella no se "
+                    "revisan caudal ni impacto)")
     masa_kg: float | None = Field(None, ge=0, le=10000, title="Masa movida",
                                   description="kg de la carga que arrastra el vástago (además de la suya)")
     fuerza_N: float | None = Field(None, ge=0, le=1e6, title="Fuerza a vencer",
@@ -54,7 +58,11 @@ class AddTuboParams(BaseModel):
       es error: los bornes se cablean con add_wire.
     - `ref`: el tubo del catálogo (TUBO-PU-4, -6, -8, -10: Ø exterior × interior en su ficha).
     - `largo_m`: opcional y DECLARADO: la BOM compra el tubo por metro con él; sin largo, la fila
-      sale «sin largo» y sin costo (no se inventa).
+      sale «sin largo» y sin costo (no se inventa). La BOM suma sola un RACOR recto macho por cada
+      extremo en un puerto roscado (rosca × Ø del tubo).
+    - Un SILENCIADOR (SIL-G18…) va roscado al escape: únelo con add_tubo SIN largo («-QM2:3» →
+      «-RZ1:1»), que la BOM lee como roscado directo (ni tubo ni racor). Un regulador de caudal en
+      línea (REG-CAUDAL-L-6…) va entre dos tubos con su puerto 2 hacia el cilindro (regula el escape).
     Revisa el circuito de aire con electrical_check (sección neumática) y míralo con get_circuit."""
 
     desde: str = Field(..., max_length=60, title="Desde", description="puerto, p. ej. «-QM1:4»")

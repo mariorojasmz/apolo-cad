@@ -8,10 +8,11 @@ cámara). El llamador sostiene `STATE_LOCK`.
 - `veredicto`: UNO, con la regla de `tablero_panel.veredicto` (= `ui/src/diseno/atencion.ts`).
 - `items`: lo que pide atención, cada uno con su frase y sus cifras escritas, las piezas del
   aparato y el texto crudo del cálculo en `tecnico`. Las reglas que la memoria repite por
-  cilindro con la velocidad MEDIDA en la co-simulación vigente (pandeo, energía al fin de carrera,
+  cilindro con la velocidad MEDIDA (el pico de los escenarios vigentes) (pandeo, energía al fin de carrera,
   relación de carga) salen de la memoria y no se duplican desde el ERC.
 - `detalle.cilindros`: fuerza, consumo por ciclo y por minuto y tiempo de carrera de cada
-  cilindro (medido en el escenario vigente más rápido o, sin él, la cota a mano), de las cifras de
+  cilindro (medido en el escenario vigente NOMINAL —carrera completa, sin falla: F7b— o, sin él,
+  la cota a mano), de las cifras de
   las filas de la memoria (`valor`); `detalle.maquina`: la demanda de aire.
 - `esquema`: la lámina ISO 1219 para dibujar en línea (`neumatica_vista.esquema`).
 Sin aire en el documento: `{"hay_aire": false}` (el panel muestra su estado vacío).

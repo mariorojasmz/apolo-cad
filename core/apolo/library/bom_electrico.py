@@ -15,7 +15,10 @@ suman lo que el tablero compra y la escena no tiene, sin duplicar:
     sin `largo_m`, con el CALCULADO por su recorrido de campo (`add_cable.por`, V8.5 F4);
   - los tubos de aire (`add_tubo`, V8.9 D1) por METRO y por ref con su `largo_m` declarado; los
     que no lo tienen, en una fila «sin largo» con aviso, como los conductores. Un dispositivo de
-    aire sin pieza (cilindro, válvula, FRL) entra como cualquier dispositivo.
+    aire sin pieza (cilindro, válvula, FRL) entra como cualquier dispositivo;
+  - V8.9 F7b: un tubo SIN largo hacia un silenciador es el silenciador ROSCADO directo al puerto
+    (no se compra tubo); cada extremo de tubo en un puerto roscado suma su RACOR recto macho
+    (rosca del puerto × Ø del tubo, `_racores`).
 
 Cada fila lleva `origen: "electrico"`; `sin_largo: True` le dice al costeo que no la estime.
 Recibe el `ModeloElectrico` (puro), nunca un documento.
@@ -75,6 +78,49 @@ def _por_metro(ref: str, largos: list[float | None], que: str,
     return filas
 
 
+def _roscados_directos(modelo) -> set[int]:
+    """id() de los tubos SIN largo con un extremo en un silenciador: el silenciador va roscado
+    directo al puerto de la otra punta (V8.9 F7b): ni tubo ni racor que comprar."""
+    sil = {d.designacion for d in modelo.dispositivos
+           if getattr(getattr(d, "neumatico", None), "tipo", None) == "silenciador"}
+    return {id(t) for t in getattr(modelo, "tubos", ()) if not t.largo_m
+            and any(e.rpartition(":")[0] in sil for e in (t.desde, t.hasta))}
+
+
+def _racores(modelo, directos: set[int]) -> list[dict]:
+    """Un racor recto macho instantáneo por cada extremo de tubo en un puerto ROSCADO (V8.9 F7b,
+    defecto 12: la BOM del aire no servía para comprar), por rosca del puerto × Ø exterior del
+    tubo, con la ref del catálogo que los declara (`specs.racor_rosca`/`racor_tubo_mm`); sin ref,
+    una fila sin costo con su aviso (no se inventa). Un puerto «Ø6» ya es instantáneo: nada."""
+    roscas = {(d.designacion, p.id): p.rosca for d in modelo.dispositivos for p in getattr(d, "puertos", ())}
+    cuenta: dict[tuple[str, float], int] = {}
+    for t in getattr(modelo, "tubos", ()):
+        if id(t) in directos or not t.D_ext_mm:
+            continue
+        for extremo in (t.desde, t.hasta):
+            des, _, pid = extremo.rpartition(":")
+            rosca = roscas.get((des, pid))
+            if rosca and not rosca.startswith("Ø"):
+                clave = (rosca, float(t.D_ext_mm))
+                cuenta[clave] = cuenta.get(clave, 0) + 1
+    refs = {(str(c.specs["racor_rosca"]), float(c.specs["racor_tubo_mm"])): c for c in CATALOG.values()
+            if (c.specs or {}).get("racor_rosca") and (c.specs or {}).get("racor_tubo_mm")}
+    filas = []
+    for (rosca, d), n in sorted(cuenta.items()):
+        comp = refs.get((rosca, d))
+        if comp is not None:
+            filas.append(_fila(comp, n))
+            continue
+        filas.append({
+            "ref": "RACOR-SIN-REF", "descripcion": f"Racor recto macho {rosca} × tubo Ø{d:g}",
+            "categoria": "aire_comprimido", "material": "", "norma": "", "cantidad": n,
+            "longitud_mm": None, "peso_unitario_kg": None, "peso_total_kg": None,
+            "origen": ORIGEN, "sin_largo": True,
+            "aviso": f"{n} racor(es) {rosca} × Ø{d:g} sin ref en el catálogo: cotízalos con el proveedor",
+        })
+    return filas
+
+
 def filas_electricas(modelo, dibujados: frozenset = frozenset(),
                      ruteados: dict | None = None, cables_calculados: dict | None = None) -> list[dict]:
     """Las filas de BOM del `ModeloElectrico` (vacía si no hay carril), en orden estable:
@@ -122,10 +168,13 @@ def filas_electricas(modelo, dibujados: frozenset = frozenset(),
     for ref, largos in sorted(conductores.items()):
         filas += _por_metro(ref, largos, "conductor(es)", por_ruteo.get(ref))
     tubos: dict[str, list] = {}  # V8.9 D1: el tubo de aire, por metro (el largo declarado manda)
+    directos = _roscados_directos(modelo)
     for t in getattr(modelo, "tubos", ()):
-        tubos.setdefault(t.ref, []).append(t.largo_m)
+        if id(t) not in directos:
+            tubos.setdefault(t.ref, []).append(t.largo_m)
     for ref, largos in sorted(tubos.items()):
         filas += _por_metro(ref, largos, "tubo(s) de aire")
+    filas += _racores(modelo, directos)
     if sin_tipo:
         filas.append({
             "ref": "CONDUCTOR-SIN-TIPO", "descripcion": "Conductor sin tipo de catálogo",

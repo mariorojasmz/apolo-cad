@@ -1,0 +1,132 @@
+category: aire_comprimido
+# Accesorios del circuito de aire (plan V8.9 D16, F7b: los huecos que encontró la verificación por
+# MCP, F7 § 5 defecto 12). Cada ref es un EJEMPLO por FUNCIÓN: quien fabrica la reemplaza por la
+# equivalente de su proveedor que dé la misma conexión (rosca del puerto, Ø del tubo) y un caudal
+# no menor. Líneas de referencia (P1 de V8.9, provisoria): Festo y SMC como gama alta, Airtac como
+# económica; `linea_referencia` sólo cita «del orden de».
+#
+#  - Regulador de caudal unidireccional EN LÍNEA (tubo a tubo, racor instantáneo en las dos
+#    puntas): el modelo del carril lo pone entre dos tubos (`add_tubo` a sus puertos 1 y 2); el
+#    sentido REGULADO va de 2 a 1, así que el puerto 2 mira al cilindro y regula el ESCAPE (la
+#    regla «regulación de velocidad» de la F4). El ajuste `C_regulado` lo fija el instalador.
+#  - Silenciador de bronce sinterizado roscado al escape de una válvula: en el carril se une al
+#    escape con un `add_tubo` SIN `largo_m`, que la BOM lee como roscado DIRECTO al puerto (ni
+#    tubo ni racor que comprar: `library/bom_electrico.py`).
+#  - Racor recto macho instantáneo (rosca del puerto × Ø exterior del tubo): la BOM los cuenta
+#    solos, uno por cada extremo de tubo en un puerto ROSCADO (un puerto «Ø6» ya es instantáneo).
+# Fuentes y a confirmar: ninguna ficha de proveedor se leyó en la F7b. Caudal, presión, área
+# efectiva, peso y envolvente son el ORDEN de las líneas citadas y van TODOS en `a_confirmar`
+# (criterio de diseño hasta leer la ficha del proveedor). El C del regulador sale del Qn con la
+# fórmula de ISO 6358 en su punto (6 → 5 bar), como el de las válvulas. El área efectiva S del
+# silenciador entra convertida (tobera ideal, C ≈ 0,199·S: `neumatica/iso6358.py`).
+# cost = USD REFERENCIAL (mercado de Lima, aprox.): actualizar con el proveedor.
+components:
+  # ── regulador de caudal unidireccional en línea ───────────────────────────────────────────
+  - ref: REG-CAUDAL-L-6
+    name: Regulador de caudal unidireccional en línea Ø6
+    description: Regulador de caudal unidireccional en línea para tubo Ø6 (racor instantáneo en las dos puntas), con antirretorno; libre de 1 a 2, regulado de 2 a 1. Con el puerto 2 hacia el cilindro regula el escape (la velocidad del vástago). Verificar con el proveedor.
+    builder: box
+    params: {width: 14, depth: 50, height: 22}
+    weight: 0.02
+    specs: {tubo_D_ext_mm: 6, linea_referencia: "orden de SMC AS1002F-06 / Festo GRLA-QS-6 en línea / Airtac PSL-6", a_confirmar: "caudal libre y regulado, presión, envolvente y peso", cotas_verificadas: false, cost: 9}
+    neumatico:
+      funcion: RZ
+      simbolo: regulador_caudal
+      fuente: "orden de las líneas citadas (sin ficha leída en la F7b): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: Ø6}
+        - {id: "2", rol: salida, rosca: Ø6}
+      modelo: {tipo: regulador_caudal, p_max_bar: 10, C_regulado: [0.02, 0.9], caudal: {Qn_l_min: 230, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [p_max_bar, C_regulado, caudal.Qn_l_min, caudal.referencia, caudal.b]
+  - ref: REG-CAUDAL-L-8
+    name: Regulador de caudal unidireccional en línea Ø8
+    description: Regulador de caudal unidireccional en línea para tubo Ø8 (racor instantáneo en las dos puntas), con antirretorno; libre de 1 a 2, regulado de 2 a 1. Con el puerto 2 hacia el cilindro regula el escape (la velocidad del vástago). Verificar con el proveedor.
+    builder: box
+    params: {width: 17, depth: 60, height: 26}
+    weight: 0.03
+    specs: {tubo_D_ext_mm: 8, linea_referencia: "orden de SMC AS2002F-08 / Festo GRLA-QS-8 en línea / Airtac PSL-8", a_confirmar: "caudal libre y regulado, presión, envolvente y peso", cotas_verificadas: false, cost: 11}
+    neumatico:
+      funcion: RZ
+      simbolo: regulador_caudal
+      fuente: "orden de las líneas citadas (sin ficha leída en la F7b): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: Ø8}
+        - {id: "2", rol: salida, rosca: Ø8}
+      modelo: {tipo: regulador_caudal, p_max_bar: 10, C_regulado: [0.04, 1.8], caudal: {Qn_l_min: 460, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [p_max_bar, C_regulado, caudal.Qn_l_min, caudal.referencia, caudal.b]
+  - ref: REG-CAUDAL-L-10
+    name: Regulador de caudal unidireccional en línea Ø10
+    description: Regulador de caudal unidireccional en línea para tubo Ø10 (racor instantáneo en las dos puntas), con antirretorno; libre de 1 a 2, regulado de 2 a 1. Con el puerto 2 hacia el cilindro regula el escape (la velocidad del vástago). Verificar con el proveedor.
+    builder: box
+    params: {width: 20, depth: 70, height: 30}
+    weight: 0.05
+    specs: {tubo_D_ext_mm: 10, linea_referencia: "orden de SMC AS3002F-10 / Festo GRLA-QS-10 en línea / Airtac PSL-10", a_confirmar: "caudal libre y regulado, presión, envolvente y peso", cotas_verificadas: false, cost: 14}
+    neumatico:
+      funcion: RZ
+      simbolo: regulador_caudal
+      fuente: "orden de las líneas citadas (sin ficha leída en la F7b): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: Ø10}
+        - {id: "2", rol: salida, rosca: Ø10}
+      modelo: {tipo: regulador_caudal, p_max_bar: 10, C_regulado: [0.08, 3.5], caudal: {Qn_l_min: 900, referencia: ANR, p1_bar: 6, p2_bar: 5, b: 0.3}}
+      a_confirmar: [p_max_bar, C_regulado, caudal.Qn_l_min, caudal.referencia, caudal.b]
+  # ── silenciador de escape (bronce sinterizado, roscado al puerto) ─────────────────────────
+  - ref: SIL-G18
+    name: Silenciador de escape G1/8
+    description: Silenciador de bronce sinterizado G1/8, roscado al escape de una válvula (3 o 5); baja el ruido de la descarga. Únelo al escape con add_tubo SIN largo (roscado directo). Verificar con el proveedor.
+    builder: box
+    params: {width: 12, depth: 12, height: 25}
+    weight: 0.01
+    specs: {rosca: G1/8, linea_referencia: "orden de SMC AN110-01 / Festo U-1/8 / Airtac BSL-01", a_confirmar: "área efectiva, envolvente y peso", cotas_verificadas: false, cost: 3}
+    neumatico:
+      funcion: RZ
+      simbolo: silenciador
+      fuente: "orden de las líneas citadas (sin ficha leída en la F7b): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: G1/8}
+      modelo: {tipo: silenciador, caudal: {S_mm2: 35, b: 0.3}}
+      a_confirmar: [caudal.S_mm2, caudal.b]
+  - ref: SIL-G14
+    name: Silenciador de escape G1/4
+    description: Silenciador de bronce sinterizado G1/4, roscado al escape de una válvula o de la válvula de corte; baja el ruido de la descarga. Únelo al escape con add_tubo SIN largo (roscado directo). Verificar con el proveedor.
+    builder: box
+    params: {width: 16, depth: 16, height: 32}
+    weight: 0.02
+    specs: {rosca: G1/4, linea_referencia: "orden de SMC AN200-02 / Festo U-1/4 / Airtac BSL-02", a_confirmar: "área efectiva, envolvente y peso", cotas_verificadas: false, cost: 4}
+    neumatico:
+      funcion: RZ
+      simbolo: silenciador
+      fuente: "orden de las líneas citadas (sin ficha leída en la F7b): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: G1/4}
+      modelo: {tipo: silenciador, caudal: {S_mm2: 60, b: 0.3}}
+      a_confirmar: [caudal.S_mm2, caudal.b]
+  - ref: SIL-G12
+    name: Silenciador de escape G1/2
+    description: Silenciador de bronce sinterizado G1/2, roscado al escape de la válvula de corte G1/2; baja el ruido de la descarga. Únelo al escape con add_tubo SIN largo (roscado directo). Verificar con el proveedor.
+    builder: box
+    params: {width: 24, depth: 24, height: 50}
+    weight: 0.06
+    specs: {rosca: G1/2, linea_referencia: "orden de SMC AN400-04 / Festo U-1/2 / Airtac BSL-04", a_confirmar: "área efectiva, envolvente y peso", cotas_verificadas: false, cost: 7}
+    neumatico:
+      funcion: RZ
+      simbolo: silenciador
+      fuente: "orden de las líneas citadas (sin ficha leída en la F7b): todo en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: G1/2}
+      modelo: {tipo: silenciador, caudal: {S_mm2: 150, b: 0.3}}
+      a_confirmar: [caudal.S_mm2, caudal.b]
+  # ── racor recto macho instantáneo (rosca del puerto × Ø exterior del tubo) ────────────────
+  # Sólo para la BOM (no son dispositivos del carril): `racor_rosca` y `racor_tubo_mm` son la
+  # clave con que la BOM los busca. Peso, envolvente y costo, del orden de las líneas (a confirmar).
+  - {ref: RACOR-M5-4, name: "Racor recto macho M5 × tubo Ø4", description: "Racor instantáneo recto macho M5 para tubo Ø4. Verificar con el proveedor.", builder: box, params: {width: 9, depth: 9, height: 18}, weight: 0.005, specs: {racor_rosca: M5, racor_tubo_mm: 4, linea_referencia: "orden de Festo QS-M5-4 / SMC KQ2H04-M5 / Airtac PC4-M5", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 1.5}}
+  - {ref: RACOR-G18-4, name: "Racor recto macho G1/8 × tubo Ø4", description: "Racor instantáneo recto macho G1/8 para tubo Ø4. Verificar con el proveedor.", builder: box, params: {width: 10, depth: 10, height: 20}, weight: 0.006, specs: {racor_rosca: G1/8, racor_tubo_mm: 4, linea_referencia: "orden de Festo QS-G1/8-4 / SMC KQ2H04-G01 / Airtac PC4-G01", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 1.5}}
+  - {ref: RACOR-M5-6, name: "Racor recto macho M5 × tubo Ø6", description: "Racor instantáneo recto macho M5 para tubo Ø6. Verificar con el proveedor.", builder: box, params: {width: 12, depth: 12, height: 20}, weight: 0.007, specs: {racor_rosca: M5, racor_tubo_mm: 6, linea_referencia: "orden de Festo QS-M5-6 / SMC KQ2H06-M5 / Airtac PC6-M5", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 1.8}}
+  - {ref: RACOR-G18-6, name: "Racor recto macho G1/8 × tubo Ø6", description: "Racor instantáneo recto macho G1/8 para tubo Ø6. Verificar con el proveedor.", builder: box, params: {width: 12, depth: 12, height: 22}, weight: 0.008, specs: {racor_rosca: G1/8, racor_tubo_mm: 6, linea_referencia: "orden de Festo QS-G1/8-6 / SMC KQ2H06-G01 / Airtac PC6-G01", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 1.8}}
+  - {ref: RACOR-G14-6, name: "Racor recto macho G1/4 × tubo Ø6", description: "Racor instantáneo recto macho G1/4 para tubo Ø6. Verificar con el proveedor.", builder: box, params: {width: 14, depth: 14, height: 24}, weight: 0.012, specs: {racor_rosca: G1/4, racor_tubo_mm: 6, linea_referencia: "orden de Festo QS-G1/4-6 / SMC KQ2H06-G02 / Airtac PC6-G02", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 2.0}}
+  - {ref: RACOR-G18-8, name: "Racor recto macho G1/8 × tubo Ø8", description: "Racor instantáneo recto macho G1/8 para tubo Ø8. Verificar con el proveedor.", builder: box, params: {width: 14, depth: 14, height: 24}, weight: 0.011, specs: {racor_rosca: G1/8, racor_tubo_mm: 8, linea_referencia: "orden de Festo QS-G1/8-8 / SMC KQ2H08-G01 / Airtac PC8-G01", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 2.2}}
+  - {ref: RACOR-G14-8, name: "Racor recto macho G1/4 × tubo Ø8", description: "Racor instantáneo recto macho G1/4 para tubo Ø8. Verificar con el proveedor.", builder: box, params: {width: 15, depth: 15, height: 26}, weight: 0.014, specs: {racor_rosca: G1/4, racor_tubo_mm: 8, linea_referencia: "orden de Festo QS-G1/4-8 / SMC KQ2H08-G02 / Airtac PC8-G02", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 2.4}}
+  - {ref: RACOR-G38-8, name: "Racor recto macho G3/8 × tubo Ø8", description: "Racor instantáneo recto macho G3/8 para tubo Ø8. Verificar con el proveedor.", builder: box, params: {width: 19, depth: 19, height: 28}, weight: 0.02, specs: {racor_rosca: G3/8, racor_tubo_mm: 8, linea_referencia: "orden de Festo QS-G3/8-8 / SMC KQ2H08-G03 / Airtac PC8-G03", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 2.8}}
+  - {ref: RACOR-G14-10, name: "Racor recto macho G1/4 × tubo Ø10", description: "Racor instantáneo recto macho G1/4 para tubo Ø10. Verificar con el proveedor.", builder: box, params: {width: 18, depth: 18, height: 28}, weight: 0.018, specs: {racor_rosca: G1/4, racor_tubo_mm: 10, linea_referencia: "orden de Festo QS-G1/4-10 / SMC KQ2H10-G02 / Airtac PC10-G02", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 2.8}}
+  - {ref: RACOR-G38-10, name: "Racor recto macho G3/8 × tubo Ø10", description: "Racor instantáneo recto macho G3/8 para tubo Ø10. Verificar con el proveedor.", builder: box, params: {width: 19, depth: 19, height: 30}, weight: 0.022, specs: {racor_rosca: G3/8, racor_tubo_mm: 10, linea_referencia: "orden de Festo QS-G3/8-10 / SMC KQ2H10-G03 / Airtac PC10-G03", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 3.2}}
+  - {ref: RACOR-G12-10, name: "Racor recto macho G1/2 × tubo Ø10", description: "Racor instantáneo recto macho G1/2 para tubo Ø10. Verificar con el proveedor.", builder: box, params: {width: 24, depth: 24, height: 32}, weight: 0.035, specs: {racor_rosca: G1/2, racor_tubo_mm: 10, linea_referencia: "orden de Festo QS-G1/2-10 / SMC KQ2H10-G04 / Airtac PC10-G04", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 4.0}}

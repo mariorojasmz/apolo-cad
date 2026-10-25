@@ -247,9 +247,10 @@ TODO = frozenset({"silenciador", "regulador_caudal"})
 def test_sin_refs_en_el_catalogo_no_hay_avisos_de_silenciador_ni_regulacion():
     from apolo.services.neumatica import disponibles
 
-    reglas = erc(verde())  # el catálogo de hoy no trae silenciadores ni reguladores (D16)
+    reglas = erc(verde())  # `disponibles` vacío: un catálogo sin silenciadores ni reguladores
     assert not por_regla(reglas, "escape sin silenciador") and not por_regla(reglas, "regulación de velocidad")
-    assert "silenciador" not in disponibles() and "regulador_caudal" not in disponibles()
+    # desde V8.9 F7b el catálogo los trae (D16): las dos reglas corren en todo circuito
+    assert {"silenciador", "regulador_caudal"} <= disponibles()
 
 
 def test_escape_sin_silenciador_avisa_si_el_catalogo_los_trae():

@@ -20,7 +20,10 @@ Reglas (cada una con su norma o «criterio de diseño»):
   - **servicio del cilindro** (aviso): un cilindro sin `servicio` no se puede revisar;
   - **caudal de la válvula** (error): la velocidad pedida supera la cota de régimen con el
     escape de su válvula en bloqueo sónico, v = C·p_ANR / A_escape (D3: es una cota OPTIMISTA,
-    sin tubos ni carga: si ni así llega, no llega);
+    sin tubos ni carga: si ni así llega, no llega). `servicio.velocidad_m_s` es la velocidad de
+    RÉGIMEN que el ciclo necesita (≈ carrera / tiempo de avance), no el pico transitorio de una
+    carrera con masa, que la supera por física (V8.9 F7b, defecto 2: 1,15 contra 0,95 m/s): el
+    pico lo toma la memoria del escenario vigente (`memoria._velocidad`);
   - **pandeo del vástago** (error): Euler/Johnson con la fuerza teórica de avance (el vástago
     bloqueado recibe toda la fuerza del pistón) y FS ≥ 3;
   - **energía al fin de carrera** (error): ½·m·v² contra la admisible de la amortiguación;
@@ -240,7 +243,7 @@ def _caudal(c: Circuito) -> list[dict]:
             vmax = r["valor"]["v_m_s"]
             if s["velocidad_m_s"] > vmax:
                 out.append(_r("caudal de la válvula", "error",
-                              f"{_quien(cil)} pide {s['velocidad_m_s']:g} m/s y el escape de {v.designacion} "
+                              f"{_quien(cil)} pide {s['velocidad_m_s']:g} m/s de régimen y el escape de {v.designacion} "
                               f"(C = {C:.2f}) da a lo sumo {vmax:.2f} m/s en el {sentido}.",
                               "Usa una válvula de más caudal (C), un cilindro de menos Ø o pide menos velocidad.",
                               [cil.designacion, v.designacion], calc=r["calc"]))

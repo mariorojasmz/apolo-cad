@@ -50,6 +50,8 @@ DIFERENCIALES = [f"DIF-{p}-{i}-{s}-{c}" for p, i in (("2P", "25A"), ("4P", "40A"
                  for c in ("A", "B") for s in ("30MA", "300MA")]
 #: las electroválvulas (plan V8.9 F1b): sus bobinas son cargas del mando (`neumatica/bobinas.py`)
 ELECTROVALVULAS = refs_in_category("valvulas_neumaticas")
+#: V8.9 F7b (defecto 12): detector magnético de cilindro y fotocélula réflex polarizada
+SENSORES_F7B = ["SENS-MAG-RANURA-PNP", "FOTO-M18-REFLEX"]
 EXISTENTES = ["VFD-1K5-220", "VFD-2K2-220", "ESTOP-40", "BOTONERA-2", "FOTO-M18", "TABLERO-5040",
               "MOTOR-037", "MOTOR-075", "MOTOR-150", "MOTOR-150-EH"] + refs_in_category("motorreductores_sinfin")
 MARCAS = ("SCHNEIDER", "SIEMENS", "ABB", "PHOENIX", "WEIDMULLER", "OMRON", "SICK", "LAPP",
@@ -73,7 +75,8 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     # + 4 pernos de cuello cuadrado DIN 603 (F6) + 10 del armado del tablero (V8.5 F1a)
     # + 5 de mandos-de-seguridad (las 4 de SEGURIDAD y RESG-LENGUETA)
     # + 27 del catálogo neumático (V8.9 F1a) + 8 diferenciales (datos-de-corte-y-acometida F1b)
-    assert len(CATALOG) == 428
+    # + 20 de V8.9 F7b (accesorios de aire, detector magnético, fotocélula réflex y reflector)
+    assert len(CATALOG) == 448
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS + DIFERENCIALES)
@@ -225,7 +228,7 @@ def test_placa_del_motor(ref):
 def test_toda_ficha_nombra_sus_propios_bornes():
     fichas = {ref: c.electrico for ref, c in CATALOG.items() if c.electrico is not None}
     assert len(fichas) == (len(TODAS_NUEVAS) + len(EXISTENTES) + len(SETAS) + len(ELECTROVALVULAS)
-                           + len(DIFERENCIALES))
+                           + len(DIFERENCIALES) + len(SENSORES_F7B))
     for ref, f in fichas.items():
         ids = f.ids_bornes
         assert len(ids) == len(set(ids)), ref

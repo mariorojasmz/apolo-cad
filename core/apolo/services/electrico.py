@@ -114,11 +114,54 @@ def _regla_piezas(doc, m) -> list[dict]:
     return filas
 
 
+def es_de_campo(ref: str) -> bool:
+    """¿La ref es un aparato que va EN LA MÁQUINA (montaje `campo` de su ficha eléctrica, o un
+    aparato de aire que no es tubo)? El punto de suministro (`specs.suministro`) no: es la red."""
+    from apolo.library.catalog import CATALOG
+
+    c = CATALOG.get(ref)
+    if c is None or (c.specs or {}).get("suministro"):
+        return False
+    if c.neumatico is not None:
+        return c.neumatico.tubo is None
+    return getattr(getattr(c, "electrico", None), "montaje", None) == "campo"
+
+
+def campo_sin_pieza(doc, m) -> list:
+    """Los dispositivos de CAMPO sin pieza 3D (V8.9 F7b, defecto 8): ni `pieza`, ni dibujados por
+    un layout, ni ya avisados por «pieza sin ligar» (una pieza con su ref que no liga). Sólo si
+    el proyecto modela la máquina (una escena con piezas): un tablero solo, sin 3D, no se avisa."""
+    from .tablero import dibujados
+
+    if not any(not getattr(f, "is_guide", False) for f in doc.scene.values()):
+        return []
+    ya = {d.designacion for d, _f in piezas_sin_ligar(doc, m)} | set(dibujados(doc, m))
+    return [d for d in m.dispositivos if not d.pieza and d.designacion not in ya and es_de_campo(d.ref)]
+
+
+def _regla_campo(doc, m) -> list[dict]:
+    """Avisos del ERC: el aparato que va en la máquina y no está en el modelo 3D. Sin pieza, la
+    puerta no ve si choca, si se sujeta ni si se alcanza, y no sale en los planos (en la F7, -B2,
+    -AZ1, -QM1 y -QM2 pasaban `electrical_check` y la puerta sin un aviso). Sin hallazgos, nada."""
+    import json
+
+    return [{"regla": CAMPO_SIN_PIEZA, "estado": "aviso",
+             "detalle": (f"{d.designacion} ({d.ref}) va en la máquina y no tiene pieza 3D: sin ella no se "
+                         "revisa si choca, si se sujeta ni si se alcanza, ni sale en los planos"),
+             "recomendacion": (f"Insértalo donde va (insert_component ref={d.ref}), sujétalo y lígalo: "
+                               f"edit_command('{d.id}', {json.dumps({'pieza': '<id de la pieza>'})})."),
+             "norma": "criterio de diseño", "elementos": [d.designacion]}
+            for d in campo_sin_pieza(doc, m)]
+
+
+CAMPO_SIN_PIEZA = "aparato de campo sin pieza"
+
 #: Lo que revisa cada regla del ERC que sólo suma filas con hallazgo (las de `library/electrico/
 #: erc.py` ya dan su fila «ok»): sale en `revisadas` cuando corrió y no encontró nada (F5b).
 REVISA = {
     "ajustes para simular": "los ajustes obligatorios de la co-simulación de cada dispositivo",
     "pieza sin ligar": "que ningún dispositivo con la ref de una pieza 3D quede sin ligarla",
+    CAMPO_SIN_PIEZA: "que todo aparato de campo (sensor, válvula, cilindro, unidad de aire) tenga su pieza 3D",
     "cable 3D sin cobrar": "que todo cable modelado en 3D lo cubra un add_cable",
     "pieza de seguridad sin circuito": "que toda seta, interruptor de resguardo o relé de seguridad de "
                                        "la escena esté en el circuito",
@@ -136,7 +179,8 @@ def _corridas(doc, m, supuesto_altura) -> list[str]:
     """Las reglas de `REVISA` que aplicaron a este documento (corrieron)."""
     from .tablero import LAYOUT, layouts
 
-    out = ["ajustes para simular", "pieza sin ligar", "cable 3D sin cobrar", "pieza de seguridad sin circuito"]
+    out = ["ajustes para simular", "pieza sin ligar", CAMPO_SIN_PIEZA, "cable 3D sin cobrar",
+           "pieza de seguridad sin circuito"]
     if any(c.get("type") == LAYOUT for c in doc.commands):
         out.append("layout del tablero al final")
     vivos = bool(layouts(doc))
@@ -165,7 +209,7 @@ def _erc_completo(doc) -> tuple[list[dict], list[dict]] | None:
 
     m = modelo(doc)
     alturas, supuesto = erc_escena.regla_alturas(doc, m)
-    reglas = (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + regla_cables(doc, m)
+    reglas = (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + _regla_campo(doc, m) + regla_cables(doc, m)
               + erc_escena.regla_seguridad(doc, m) + alturas
               + regla_orden(doc) + tablero_reglas.reglas(doc, m) + reglas_campo(doc, m)
               + neumatica.reglas(m))  # V8.9 D9: el aire, al final (sin aire, nada)

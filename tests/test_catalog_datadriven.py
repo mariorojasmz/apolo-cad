@@ -143,7 +143,10 @@ def test_all_new_families_present():
     # +4 pernos de cuello cuadrado DIN 603 (F6 de la puerta de publicación)
     # +10 del armado del tablero (V8.5 F1a)
     # +5 de mandos-de-seguridad (2 setas 2NC, resguardo, lengüeta, relé)
-    assert len(CATALOG) == 428  # +27 del catálogo neumático (V8.9 F1a) +8 diferenciales (F1b de datos-de-corte)
+    # +27 del catálogo neumático (V8.9 F1a) +8 diferenciales (F1b de datos-de-corte)
+    # +20 de V8.9 F7b (3 reguladores de caudal, 3 silenciadores, 11 racores, detector magnético,
+    # fotocélula réflex y su reflector)
+    assert len(CATALOG) == 448
 
 
 def test_door_sliding_hardware():

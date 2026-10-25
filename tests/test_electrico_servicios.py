@@ -157,7 +157,10 @@ def test_la_asercion_erc_en_verify(cliente):
     out = c.post("/api/verify", json={"checks": [
         {"tipo": "existe", "name": "Motorreductor"}, {"erc": "sin_errores"},
         {"erc": "sin_avisos", "nombre": "tablero limpio"}, {"erc": "verde"}]}).json()
-    assert [r["ok"] for r in out["resultados"]] == [True, True, True, False]
+    # V8.9 F7b: con la máquina en 3D (el motor), el gabinete -U1 sin pieza es un aviso
+    assert [r["ok"] for r in out["resultados"]] == [True, True, False, False]
+    sin_gab = c.post("/api/verify", json={"checks": [{"erc": "sin_avisos"}]}).json()["resultados"][0]
+    assert "-U1" in str(sin_gab)
     assert out["resultados"][2]["check"] == "tablero limpio"
     assert "espera «sin_errores» o «sin_avisos»" in out["resultados"][3]["error"]
 
@@ -174,7 +177,8 @@ def test_circuito_y_chequeo_por_la_api(cliente):
     falta = c.get("/api/electrico/circuito", params={"designacion": "-Q9"})
     assert falta.status_code == 404 and "¿Quisiste decir" in falta.json()["detail"]
     chequeo = c.get("/api/electrico/check").json()
-    assert chequeo["estado"] == "ok" and chequeo["n_dispositivos"] == 14
+    assert chequeo["estado"] == "aviso" and chequeo["n_dispositivos"] == 14  # -U1 sin pieza (F7b)
+    assert [r["elementos"] for r in chequeo["reglas"] if r["estado"] != "ok"] == [["-U1"]]
     vacio = cliente(Document("vacío")).get("/api/electrico/check").json()
     assert vacio["estado"] == "sin_carril" and vacio["reglas"] == []
 

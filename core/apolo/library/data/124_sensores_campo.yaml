@@ -25,3 +25,58 @@ components:
       caminos: [{de: BN, a: BK, tipo: NA, accion: señal}]
       cargas: [{bornes: [BN, BU], tension: "10-30 VDC", tipo: alimentacion, polar: true}]
       modelo: {tipo: sensor, salida: PNP, contacto: NA, Sn_mm: 5, I_salida_mA: 200, t_respuesta_ms: 1, U_alim_min_V: 10}
+  # ── V8.9 F7b (defecto 12): lo que la verificación por MCP no encontró en el catálogo ──────
+  # Detector magnético de cilindro: va en la ranura en T del perfil ISO 15552 y lee el imán del
+  # pistón (las fichas de 130_cilindros_neumaticos.yaml traen `iman: true`). En la co-simulación es
+  # el `Sensor` de siempre con la junta del vástago como fuente (`acoples.sensores: {"-B5":
+  # {"junta": "<cmd>_vastago", "en_mm": 0, "ventana_mm": 3}}`, V8.9 D8). Fotocelda RÉFLEX
+  # polarizada: emisor y receptor del mismo lado contra un reflector (un objeto que corta el haz la
+  # activa: ve una caja pegada al otro lado de la banda, que la difusa de 400 mm no ve); en la
+  # co-simulación es el rayo de siempre con `alcance_mm` = la distancia al reflector. Tiempos,
+  # corriente, alcance y envolventes: el ORDEN de las líneas citadas (sin ficha leída en la F7b),
+  # en `a_confirmar` de `specs`.
+  - ref: SENS-MAG-RANURA-PNP
+    name: Detector magnético de cilindro para ranura en T, PNP NA
+    description: Detector magnético (magnetorresistivo) para la ranura en T de un cilindro ISO 15552 con pistón magnético; 3 hilos 10-30 VDC, salida PNP NA (BK), con cable; marca el fin de carrera del vástago. Verificar con el proveedor.
+    builder: box
+    params: {width: 30, depth: 5, height: 6}
+    weight: 0.02
+    specs: {montaje_sensor: "ranura en T", salida: PNP, contacto: NA, tension: "10-30 VDC", linea_referencia: "orden de Festo SMT-8M-A / SMC D-M9P / Airtac CMSG-020", a_confirmar: "tiempo de respuesta, corriente de salida, histéresis y envolvente", cotas_verificadas: false, cost: 18}
+    electrico:
+      funcion: B
+      simbolo: sensor_pnp_na
+      montaje: campo
+      perdidas_W: 0.2
+      bornes:
+        - {id: BN, rol: señal}
+        - {id: BU, rol: señal}
+        - {id: BK, rol: señal}
+      caminos: [{de: BN, a: BK, tipo: NA, accion: señal}]
+      cargas: [{bornes: [BN, BU], tension: "10-30 VDC", tipo: alimentacion, polar: true}]
+      modelo: {tipo: sensor, salida: PNP, contacto: NA, I_salida_mA: 100, t_respuesta_ms: 1, U_alim_min_V: 10}
+  - ref: FOTO-M18-REFLEX
+    name: Fotocélula réflex polarizada M18
+    description: Sensor fotoeléctrico M18 réflex polarizado (emisor y receptor del mismo lado contra un reflector), alcance hasta ~3 m con su reflector, 3 hilos 10-30 VDC, salida PNP NA (BK); ve una caja en todo el ancho de la banda. Se compra con su reflector (REFLECTOR-50). Verificar con el proveedor.
+    builder: sensor
+    params: {}
+    weight: 0.08
+    specs: {rosca: M18, alcance_mm: 3000, principio: "réflex polarizado", salida: PNP, contacto: NA, tension: "10-30 VDC", linea_referencia: "orden de Sick GL6 / Omron E3F2-R2 / Autonics BR3M-MDT (réflex polarizada M18 PNP)", a_confirmar: "alcance con el reflector, tiempo de respuesta, corriente de salida", cotas_verificadas: false, cost: 35}
+    electrico:
+      funcion: B
+      simbolo: sensor_pnp_na
+      montaje: campo
+      perdidas_W: 0.5
+      bornes:
+        - {id: BN, rol: señal}
+        - {id: BU, rol: señal}
+        - {id: BK, rol: señal}
+      caminos: [{de: BN, a: BK, tipo: NA, accion: señal}]
+      cargas: [{bornes: [BN, BU], tension: "10-30 VDC", tipo: alimentacion, polar: true}]
+      modelo: {tipo: sensor, salida: PNP, contacto: NA, alcance_mm: 3000, I_salida_mA: 100, t_respuesta_ms: 1, U_alim_min_V: 10}
+  - ref: REFLECTOR-50
+    name: Reflector prismático 50 × 50 para fotocélula réflex
+    description: Reflector prismático de 50 × 50 mm con agujeros de fijación, enfrentado a una fotocélula réflex polarizada (FOTO-M18-REFLEX) al otro lado de la banda. Verificar con el proveedor.
+    builder: box
+    params: {width: 50, depth: 8, height: 50}
+    weight: 0.02
+    specs: {linea_referencia: "orden de Sick PL50A / Omron E39-R1 / Autonics MS-2", a_confirmar: "tamaño útil con el alcance pedido y envolvente", cotas_verificadas: false, cost: 6}
