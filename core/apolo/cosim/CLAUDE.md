@@ -63,6 +63,12 @@ backend: [core/apolo](../CLAUDE.md).
   `Agenda.inyectar` en el PRÓXIMO intercambio y su error es rechazo de esa acción (la corrida
   sigue). El vivo no guarda historia (`Integrador.podar`); su grabación es la lista de acciones
   con hora (`vivo.py`, `worker_vivo.py`). [V8.4](../../../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F1)
+- **PLC de afuera**: la corrida usa la cara `puerto_plc.PuertoPLC` (13 miembros, `apolo.plc.PLC`
+  la cumple); un conector de extensión entra SÓLO por `snap.externos` (lo elige el pedido, nunca
+  el documento), el lote va con `ritmo.RitmoPared` y un `LazoCortado` sale con su hora (frame `L`
+  del worker, sin resultado parcial). La ida y vuelta la mide el núcleo (`externo.Medido`), nunca
+  el conector. Sin externo, nada de eso corre: el bucle de siempre (la huella lo exige).
+  [plc-en-el-lazo](../../../docs/plans/plc-en-el-lazo.md) (F1b1)
 - Motor = placa SIEMPRE (el snapshot la arma; sin `forcelimited` no se escribe el tope). El
   atasco es `dof_frictionloss`, no `qfrc_applied` (un par explícito vibra en ω = 0).
 - La potencia se re-resuelve sólo si algo cambió más de `TOL_POTENCIA`; un dato nuevo que la

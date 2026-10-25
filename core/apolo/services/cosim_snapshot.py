@@ -27,7 +27,9 @@ después sobre la dinámica real, que manda.
 
 Todo error es `ServiceError(400, texto)`. Sin locks: el llamador sostiene STATE_LOCK. Los
 programas salen del carril (`add_program`, F5, ya compilados en el regenerate); `programas=`
-pone otros ENCIMA, por PLC, sin guardarlos (`test_plc`).
+pone otros ENCIMA, por PLC, sin guardarlos (`test_plc`). `plc_externo=` (el PEDIDO de la corrida,
+plan plc-en-el-lazo D6) cambia el PLC de esas designaciones por el conector de una extensión
+(`services/cosim_externo.py` lo valida; sin él, `externos` vacío y el snapshot de siempre).
 """
 
 from __future__ import annotations
@@ -145,7 +147,7 @@ def _compilar_programas(programas, me) -> list:
     return out
 
 
-def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
+def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_externo: dict | None = None):
     """El `CosimSnapshot` del documento para `escenario` (dict de D12). `ServiceError(400)`."""
     from apolo.cosim.agenda import validar
     from apolo.cosim.datos import AcopleMotor, AcopleSensor, CosimSnapshot
@@ -158,7 +160,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
 
     from apolo.cosim.tipos import revisar, valores_iniciales
 
-    from . import cosim_aire
+    from . import cosim_aire, cosim_externo
     from .cosim_bandas import bandas_quietas, prever
     from .cosim_red import entrada_red, largos_calculados
     from .electrico import ajustes_faltantes, modelo, texto_ajustes_faltantes
@@ -194,6 +196,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
         peticion["motores"] = peticion["motores"] + mot_aire
         peticion["juntas"] = {**(esc.mecanica.get("juntas") or {}), **juntas_aire}
     progs = _programas(programas, me)
+    externos = cosim_externo.leer(plc_externo, me, progs)  # plc-en-el-lazo D6: antes de la dinámica
     errores, _ = revisar(esc.aserciones, valores_iniciales(dispositivos, progs))
     if errores:  # F6b: antes de simular, no tras el veredicto
         raise ServiceError(400, "aserciones: " + " | ".join(errores))
@@ -224,4 +227,4 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None):
                          motores=motores, sensores=acoples_s, escenario=esc,
                          hipotesis=hipotesis, avisos=avisos,
                          modelos_extension=clases, extensiones=extensiones,
-                         aire=aire, cilindros=cilindros, reeds=reeds)
+                         aire=aire, cilindros=cilindros, reeds=reeds, externos=externos)

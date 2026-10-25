@@ -30,6 +30,11 @@ class CosimError(Exception):
     """El worker no devolvió un resultado: el texto dice por qué."""
 
 
+class LazoCortadoError(CosimError):
+    """El lazo con un PLC externo se cortó o no se abrió (plan plc-en-el-lazo D8): no es una
+    falla del núcleo sino del PLC de afuera o de su red; el texto trae la hora."""
+
+
 def _cuerpo_frame(body: bytes) -> bytes:
     import struct
 
@@ -68,6 +73,8 @@ def correr_en_proceso(snap, *, timeout_s: float | None = None) -> dict:
     etiqueta, resto = partes[1][:1], partes[1][1:]
     if etiqueta == b"E":
         raise CosimError(f"la co-simulación falló:\n{resto.decode('utf-8', 'replace')}")
+    if etiqueta == b"L":
+        raise LazoCortadoError(resto.decode("utf-8", "replace"))
     if etiqueta != b"K":
         raise CosimError(f"el worker respondió algo inesperado ({etiqueta!r})")
     res = json.loads(resto.decode("utf-8"))

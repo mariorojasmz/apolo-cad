@@ -75,6 +75,26 @@ def sumar_modelos(ext) -> list[str]:
     return sorted(modelos)
 
 
+def sumar_conectores_plc(ext) -> list[str]:
+    """Los conectores a un PLC de afuera (plan plc-en-el-lazo, D5): prefijo, los 13 miembros de
+    `cosim.puerto_plc.PuertoPLC` declarados, `validar_config` llamable, opcionales llamables y
+    sin repetir uno que ya existe. A `CONECTORES` con su origen (lo anota el resultado, D7)."""
+    conectores = dict(valor(ext.conectores_plc) or {})
+    if not conectores:
+        return []
+    from apolo.cosim import puerto_plc
+
+    for nombre, clase in conectores.items():
+        con_prefijo(nombre, ext.prefijo, "el conector de PLC")
+        if nombre in puerto_plc.CONECTORES:
+            raise ExtensionRechazada(f"el conector de PLC «{nombre}» ya existe")
+        problemas = puerto_plc.problemas_de_clase(clase)
+        if problemas:
+            raise ExtensionRechazada(f"el conector de PLC «{nombre}»: {'; '.join(problemas)}")
+    puerto_plc.registrar_conectores(conectores, origen=(ext.nombre, ext.version))
+    return sorted(conectores)
+
+
 def sumar_catalogo(ext) -> list[str]:
     """Las carpetas YAML de la extensión: refs «prefijo.x» nuevas (un choque no carga), sus
     categorías al final del orden de la UI y su `epoch_catalogo` a la firma (A4)."""

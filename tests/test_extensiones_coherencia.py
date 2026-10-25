@@ -75,7 +75,7 @@ def test_detalle_sale_de_la_extension_y_lo_sirve_la_api(extensiones_aisladas, mo
                   "rutas": ["GET /api/prueba/hola", "POST /api/prueba/caja",
                             "GET /api/prueba/piezas", "GET /api/prueba/nota",
                             "PUT /api/prueba/nota"], "refs": ["prueba.caja"],
-                  "modelos_cosim": ["prueba.lampara"], "builders": [],
+                  "modelos_cosim": ["prueba.lampara"], "conectores_plc": ["prueba.tcp"], "builders": [],
                   "puerta": ["prueba.nota_ok", "prueba.siempre"],
                   "costeo": ["prueba.conexionado", "prueba.revision"],
                   "entrega": ["prueba.nota_entrega", "prueba.tablero"], "ui": False}

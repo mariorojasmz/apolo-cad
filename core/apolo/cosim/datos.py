@@ -89,3 +89,7 @@ class CosimSnapshot:
     aire: dict = field(default_factory=dict)
     cilindros: list = field(default_factory=list)
     reeds: list = field(default_factory=list)
+    # plc-en-el-lazo D6: los PLC de AFUERA que pidió la corrida ({designación: (clase del
+    # conector, config)}; la clase viaja por pickle como `modelos_extension`). Vacío sin externo:
+    # la corrida de siempre. Nunca sale del documento: lo elige el pedido.
+    externos: dict = field(default_factory=dict)

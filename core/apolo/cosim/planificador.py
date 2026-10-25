@@ -6,7 +6,9 @@ Tres tasas sobre UN reloj entero de intercambios (k):
     (redes + modelos, D8) → PLC → comandos de los motores hacia MuJoCo → física → trazas;
   - PLC: cada `ciclo_ms` de su tarea, con t_ms = k·Δt en ms ENTEROS (nunca el reloj de pared).
 El mismo snapshot da trazas idénticas bit a bit (`trazas.huella`). El tiempo de pared sólo se
-mide para el resumen y no entra en la huella.
+mide para el resumen y no entra en la huella. Con un PLC de AFUERA (plan plc-en-el-lazo, D7–D9)
+el lote va a ritmo de pared (`externo.correr_a_la_pared`) y el resultado dice que no es
+determinista; sin él, el bucle de siempre.
 
 El intercambio vive en `corrida.Corrida` (V8.4 F1): el lote (`correr`) y la sesión en vivo
 (`vivo.Vivo`) usan el MISMO paso, así una sesión grabada da las mismas trazas por lote.
@@ -27,6 +29,7 @@ from .corrida import (  # noqa: F401 — los ayudantes del paso, re-exportados (
     _plc,
     _signos_banda,
 )
+from .externo import anotar, correr_a_la_pared
 from .trazas import Trazas, huella
 
 AVISO = ("simulación a nivel sistema; no reemplaza la puesta en marcha real ni la firma de un "
@@ -42,14 +45,18 @@ def correr(snap) -> dict:
     t_arm = time.perf_counter() - t_ini
     t0 = time.perf_counter()
     n = c.integ.n_int
-    for k in range(n + 1):
-        c.intercambio(k, trazas, ultimo=k == n)
+    ritmo = None
+    if c.externos:  # plc-en-el-lazo D9: con un PLC de afuera, a ritmo de pared (y D8: su hora)
+        ritmo = correr_a_la_pared(c, trazas, n)
+    else:
+        for k in range(n + 1):
+            c.intercambio(k, trazas, ultimo=k == n)
     pared = time.perf_counter() - t0
     final = trazas.cerrar()
     salida_trazas = trazas.salida()
     eventos = c.agenda.eventos
     dur = n * dt
-    return {
+    res = {
         "aviso": AVISO,
         "resumen": {
             "duracion_s": round(dur, 6), "intercambio_s": dt, "intercambios": n,
@@ -71,3 +78,4 @@ def correr(snap) -> dict:
         "hipotesis": list(snap.hipotesis) + c.tab.hipotesis,
         "avisos": list(snap.avisos) + c.tab.avisos,
     }
+    return anotar(res, c, ritmo) if ritmo is not None else res

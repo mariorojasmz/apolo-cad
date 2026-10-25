@@ -10,6 +10,8 @@ PROTOCOLO, binario (frame = largo en 4 bytes big-endian + cuerpo, el del sandbox
   padre → hijo  pickle         el `CosimSnapshot` (lo hornea el propio proceso de la API)
   hijo → padre  `K` + JSON     el resultado de `planificador.correr` + `proceso`
                 `E` + texto    el error, con las últimas líneas de la traza
+                `L` + texto    el lazo con un PLC externo se cortó o no se abrió (plan
+                               plc-en-el-lazo D8), con su hora: sin resultado parcial
 Modo VIVO (V8.4 D1): si el primer frame del padre es `V` + JSON (la configuración: `ritmo`,
 `max_s`), el segundo es el snapshot y la sesión sigue con el protocolo de `worker_vivo.py`
 (acciones `A` que entran; tabla, acks y fin `J` y fotogramas `F` que salen) hasta EOF o «parar».
@@ -114,6 +116,7 @@ def main() -> int:
     import apolo
     from apolo.cosim import planificador
     from apolo.cosim.modelos import registrar_modelos
+    from apolo.cosim.puerto_plc import LazoCortado
 
     import_s = time.perf_counter() - t0
     write_frame(salida, b"R" + json.dumps({"pid": os.getpid(), "apolo": apolo.__file__,
@@ -141,6 +144,8 @@ def main() -> int:
                           "modulos_pesados": pesados_cargados(),
                           "blas_hilos": os.environ.get("OPENBLAS_NUM_THREADS")}
         write_frame(salida, b"K" + json.dumps(res, default=_json).encode("utf-8"))
+    except LazoCortado as exc:  # plc-en-el-lazo D8: el lazo con el PLC de afuera, con su hora
+        write_frame(salida, b"L" + str(exc).encode("utf-8"))
     except BaseException as exc:  # noqa: BLE001 — todo error vuelve como texto
         traza = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         lineas = [x for x in traza.splitlines() if x.strip()][-8:]

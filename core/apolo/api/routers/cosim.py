@@ -21,6 +21,7 @@ from __future__ import annotations
 import threading
 import time
 import uuid
+from typing import Any
 from collections import OrderedDict
 
 from fastapi import APIRouter, HTTPException, Query
@@ -71,13 +72,16 @@ class Simulaciones:
 SIMULACIONES = Simulaciones()
 
 
-def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=None) -> dict:
+def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=None,
+            plc_externo=None) -> dict:
     from apolo.cosim.consulta import compacto, hipotesis_id
-    from apolo.cosim.proceso import CosimError, correr_en_proceso
+    from apolo.cosim.proceso import CosimError, LazoCortadoError, correr_en_proceso
     from apolo.cosim.veredicto import evaluar
+    from apolo.services import cosim_externo
     from apolo.services import escenarios as E
     from apolo.services.cosim_snapshot import snapshot_cosim
 
+    pedir_guardar, guardar = guardar, guardar and not plc_externo  # D7: con externo, nunca
     with STATE_LOCK:  # (a) el snapshot, en una adquisición
         if proyecto is not None and S.project_id != proyecto:
             raise HTTPException(status_code=409, detail=(
@@ -89,14 +93,20 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
             if nombre and guardar:
                 _verificar_documento()  # va a escribir su resultado en ESTE documento
             firma, h = E.firma_documento(doc), E.hash_escenario(esc)
-            snap = snapshot_cosim(doc, esc, programas=programas)
+            snap = snapshot_cosim(doc, esc, programas=programas, plc_externo=plc_externo)
         except ServiceError as exc:
             raise _http_error(exc) from exc
     try:  # (b) fuera de todo lock
         res = correr_en_proceso(snap)
+    except LazoCortadoError as exc:  # plc-en-el-lazo D8: el PLC de afuera o su red, no el núcleo
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except CosimError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    ver = evaluar(snap.escenario.aserciones, res)  # (c)
+    if snap.externos:  # D7: sin veredicto, con el conector que se usó
+        res["plc_externo"] = cosim_externo.resultado(plc_externo)
+        ver = cosim_externo.veredicto_nulo()
+    else:
+        ver = evaluar(snap.escenario.aserciones, res)  # (c)
     sim_id = "s" + uuid.uuid4().hex[:8]
     hid = hipotesis_id(res.get("hipotesis") or [])
     previa = SIMULACIONES.con_hipotesis(pid, hid)  # F6b: las mismas ya salieron → sólo el id
@@ -108,6 +118,8 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
                           "prueba_plc": programas is not None, "res": res, "base": base,
                           "hipotesis_id": hid})
     out = dict(base)
+    if nombre and pedir_guardar and not guardar:
+        out.update(guardado=False, aviso_guardado=cosim_externo.MOTIVO)
     if nombre and guardar:  # (d)
         with STATE_LOCK:
             if S.project_id != pid or S.doc is not doc:
@@ -180,14 +192,18 @@ def delete_escenario(nombre: str) -> dict:
 class CorrerIn(BaseModel):
     escenario: str | dict
     guardar: bool = True  # sólo un escenario con nombre guarda su resultado
+    plc_externo: Any = None  # {"-K1": {"conector", "config"}}: lo valida el servicio (400)
 
 
 @router.post("/api/cosim/run", response_model=dict)
 def cosim_run(body: CorrerIn, async_: bool = Query(False, alias="async")):
     """Corre la máquina entera con un escenario (D11) y evalúa sus aserciones (D12). Un escenario
-    con nombre guarda su resultado con su vigencia (lo lee la puerta de entrega, D14)."""
+    con nombre guarda su resultado con su vigencia (lo lee la puerta de entrega, D14). Con
+    `plc_externo` (plan plc-en-el-lazo D6–D8) esos PLC son los de afuera, a ritmo de pared: el
+    resultado no es determinista, no tiene veredicto ni se guarda; un lazo cortado es 502."""
     return _job_cosim("cosim", lambda proyecto: _correr(body.escenario, guardar=body.guardar,
-                                                        proyecto=proyecto), async_)
+                                                        proyecto=proyecto,
+                                                        plc_externo=body.plc_externo), async_)
 
 
 class PruebaPlcIn(BaseModel):

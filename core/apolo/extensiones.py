@@ -32,8 +32,11 @@ Contrato (lo que una extensión usa; `CONTRATO_EXTENSIONES` sube sólo si cambia
 - `costeo` suma filas al costeo y la cotización (`library/costeo_extension`, `services/cobros`) y
   `entrega`, reglas a la puerta de entrega (`library/entrega_extension`, `delivery_inputs`); cada
   uno con su versión (plan puntos-de-extension-entregables).
-- Los campos pesados (`comandos`, `routers`, `modelos_cosim`, `builders`, `anclas`, `puerta`,
-  `costeo`, `entrega`) aceptan el
+- `conectores_plc` (plan plc-en-el-lazo, D5) suma conectores a un PLC de afuera
+  (`cosim/puerto_plc.py`: los 13 miembros, `validar_config`); los elige el pedido de una corrida,
+  viajan al worker por pickle y su módulo importa la red al conectar, nunca al importarse.
+- Los campos pesados (`comandos`, `routers`, `modelos_cosim`, `conectores_plc`, `builders`,
+  `anclas`, `puerta`, `costeo`, `entrega`) aceptan el
   valor o una función sin argumentos que lo devuelve: el MCP resuelve sólo las tools y no carga
   OCCT por ellos.
 - D12/A4: cada comando lleva su `CommandSpec.version`; `epoch_catalogo` entra a la firma de los
@@ -87,6 +90,7 @@ class Extension:
     builders: Any = field(default_factory=dict)  # builder «prefijo.x» → fábrica, o una función
     anclas: Any = field(default_factory=dict)  # anclas por familia de SUS builders
     modelos_cosim: Any = field(default_factory=dict)  # tipo «prefijo.x» → clase de cosim.Modelo
+    conectores_plc: Any = field(default_factory=dict)  # «prefijo.x» → conector (cosim.puerto_plc)
     epoch_catalogo: int = 1  # súbelo si cambia la geometría de sus refs con los mismos params
     puerta: Any = ()  # Entrada/Fuente de la puerta de publicación (ids «prefijo.x»), o una función
     version_puerta: int = 1  # súbelo si cambia un ítem, umbral o `aplica_si` suyo (F1d)
@@ -195,6 +199,7 @@ def _aplicar(ext: Extension, reservados: set[str]) -> tuple[list, list, dict]:
     _cabecera(ext, _R.cargadas)
     builders = _P.sumar_builders(ext)
     modelos = _P.sumar_modelos(ext)  # antes del catálogo: su YAML nombra los tipos de modelo
+    conectores = _P.sumar_conectores_plc(ext)
     refs = _P.sumar_catalogo(ext)
     comandos = _P.sumar_comandos(ext)
     puerta = _P.sumar_puerta(ext)
@@ -206,7 +211,7 @@ def _aplicar(ext: Extension, reservados: set[str]) -> tuple[list, list, dict]:
              for m in sorted(getattr(r, "methods", None) or {"WS"})]
     return routers_ext, tools, {"comandos": comandos, "tools": [t[0] for t in tools],
                                 "rutas": rutas, "refs": refs, "modelos_cosim": modelos,
-                                "builders": builders, "puerta": puerta, "costeo": costeo,
+                                "conectores_plc": conectores, "builders": builders, "puerta": puerta, "costeo": costeo,
                                 "entrega": entrega}
 
 
@@ -214,7 +219,7 @@ def _registros() -> list:
     """Cada registro mutable que una extensión toca (para deshacer y para aislar tests)."""
     from apolo.commands import pistas, spec
     from apolo.commands.registry import REGISTRY
-    from apolo.cosim import modelos
+    from apolo.cosim import modelos, puerto_plc
     from apolo.library import catalog, costeo_extension, entrega_extension, loader
     from apolo.library.calidad import registro
     from apolo.library.electrico import ficha
@@ -222,7 +227,8 @@ def _registros() -> list:
 
     return [REGISTRY, pistas.PESTANAS, pistas.PISTAS, pistas.PISTAS_CAMPO, spec.REFS_DE_EXTENSION,
             loader.BUILDERS, loader.ANCLAS, catalog.CATALOG, catalog.CATEGORIES, ficha.TIPOS_MODELO,
-            modelos.MODELOS, modelos.DE_EXTENSION, catalogo.CHAT, catalogo.FUERA_DEL_CHAT,
+            modelos.MODELOS, modelos.DE_EXTENSION, puerto_plc.CONECTORES, puerto_plc.DE_EXTENSION,
+            catalogo.CHAT, catalogo.FUERA_DEL_CHAT,
             catalogo.DE_EXTENSION, registro.DE_EXTENSION, costeo_extension.DE_EXTENSION,
             entrega_extension.DE_EXTENSION]
 
@@ -292,7 +298,7 @@ def estado() -> list[dict]:
 
 def detalle() -> list[dict]:
     """`estado()` más, por cada cargada, lo que sumó al núcleo: `comandos`, `tools`, `rutas`
-    («MÉTODO /api/x/…»), `refs`, `modelos_cosim`, `builders`, `puerta`, `costeo`, `entrega` y si
+    («MÉTODO /api/x/…»), `refs`, `modelos_cosim`, `conectores_plc`, `builders`, `puerta`, `costeo`, `entrega` y si
     se sirve su `ui`
     (`GET /api/extensiones`). Sale de la `Extension` al cargarla (las tools, grabadas con un
     `mcp` de mentira): la API lo sabe sin el proceso del MCP."""

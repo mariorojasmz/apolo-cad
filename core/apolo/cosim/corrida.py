@@ -24,6 +24,8 @@ from apolo.plc import PLC, RUN, SIN_TENSION
 
 from .acople import AcopleMecanico
 from .agenda import Agenda
+from .externo import conectar
+from .puerto_plc import cerrar
 from .tablero import Tablero
 
 
@@ -107,7 +109,14 @@ class Corrida:
         self.tab = Tablero(snap.red, snap.dispositivos, getattr(snap, "aire", None) or None)
         self.aire = self.tab.aire
         self.plcs: dict = {}
+        externos = getattr(snap, "externos", None) or {}  # plc-en-el-lazo D6: los elige el pedido
+        self.externos: dict = {}
         for p in snap.programas:
+            if p.plc in externos:  # D4: la misma cara, de afuera (conectado y sin tensión)
+                plc = self.externos[p.plc] = conectar(p, *externos[p.plc],
+                                                      abiertos=list(self.externos.values()))
+                self.plcs[p.plc] = plc
+                continue
             plc = PLC(p.compilado, ciclo_ms=p.ciclo_ms, ciclos=p.ciclos or None)
             plc.cortar()  # sin tensión hasta que su fuente levante (lo decide su hardware)
             self.plcs[p.plc] = plc
@@ -122,6 +131,11 @@ class Corrida:
         if self.aire is not None:  # V8.9 D4: la red de aire, con su costo aparte
             self.costo["aire"] = 0.0
         self._xv: dict = {}
+
+    def cerrar(self) -> None:
+        """Cierra los conectores de los PLC externos (sin ellos, nada)."""
+        for plc in self.externos.values():
+            cerrar(plc)
 
     def fuentes(self) -> list:
         """Las salidas de cada modelo y de cada PLC: [(prefijo, {nombre corto: valor})]."""

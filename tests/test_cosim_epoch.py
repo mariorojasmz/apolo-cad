@@ -110,7 +110,13 @@ ARCHIVOS = (
 #: pasan una lista; los tokens no cambian: 154 programas (los de `test_plc_*`, el del banco y el
 #: sintético) compilan idénticos y 6 escenarios del banco (marcha y seta por variador, seta, caída
 #: de red, corte de fase, cajas con seta, atasco) dan la MISMA huella que en 833ce8e (bitácora).
-HUELLA: tuple[int, str] = (6, "0da6c7ab1e440113")
+#: plc-en-el-lazo F1b1 (sin subir, D14): la corrida usa una CARA del PLC (`cosim/puerto_plc.py`) y
+#: el PLC de AFUERA (`cosim/externo.py`, `cosim/ritmo.py`) entra sólo si el PEDIDO lo trae
+#: (`externos` del snapshot); con externo la corrida no es determinista ni se guarda (no es
+#: vigente). Sin externo, `Corrida`, el bucle y el resultado son los de antes: 6 escenarios del
+#: banco (marcha y seta por variador, seta en directo, caída de red, corte de fase, cajas con seta,
+#: atasco) dan la MISMA huella y las mismas claves del resultado y del compacto que en 4f669f0.
+HUELLA: tuple[int, str] = (6, "d0326bbc9bff2491")
 
 
 def archivos() -> list[Path]:

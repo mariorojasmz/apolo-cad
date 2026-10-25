@@ -154,6 +154,10 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   esperando a las mutaciones; `GET /api/jobs/{id}` mira las dos. Su closure toma sus locks (snapshot
   bajo `STATE_LOCK`, worker fuera) y guarda el resultado sólo si `S.doc` sigue siendo el del
   snapshot. [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D11)
+- `POST /api/cosim/run` con `plc_externo`: lo valida `services/cosim_externo.leer` dentro del
+  snapshot, ANTES del worker (400 con todo junto); con externo no hay veredicto ni se guarda el
+  resultado (tampoco `_verificar_documento`) y un `LazoCortadoError` del worker es 502: falló el
+  PLC de afuera o su red, no el núcleo. [plc-en-el-lazo](../../../docs/plans/plc-en-el-lazo.md) (F1b1)
 - `POST /api/puerta-publicacion` (`?async=true`) también va en `COSIM_JOBS`: gravedad y marcha
   bajo `PHYSICS_LOCK`, insumos bajo `STATE_LOCK` (`services/puerta_publicacion.py`), y 409 si la
   firma del modelo cambia entre las tomas: un veredicto no mezcla dos modelos.

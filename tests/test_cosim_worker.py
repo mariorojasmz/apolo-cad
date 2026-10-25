@@ -36,6 +36,7 @@ FISICA_PURA = ("physics.dinamica_integrador", "physics.dinamica_arrastre", "phys
                "physics.dinamica_datos", "physics.dinamica_nacimiento", "physics.dinamica_serie",
                "physics.sensores", "physics.sim")
 DEL_WORKER = [CORE / "cosim" / n for n in ("acople.py", "agenda.py", "aserciones.py", "corrida.py", "datos.py",
+                                           "externo.py", "puerto_plc.py", "ritmo.py",
                                            "escenario.py", "planificador.py", "proceso.py", "proceso_vivo.py",
                                            "tablero.py", "trazas.py", "vivo.py", "vivo_fotograma.py",
                                            "worker.py", "worker_vivo.py", "__init__.py")] + [
@@ -140,7 +141,7 @@ def test_el_gate_caza_un_import_de_la_geometria(tmp_path, monkeypatch):
 @pytest.mark.parametrize("modulo", ["apolo.cosim.worker", "apolo.cosim.planificador", "apolo.cosim.proceso",
                                     "apolo.physics.dinamica_integrador", "apolo.cosim.datos",
                                     "apolo.cosim.worker_vivo", "apolo.cosim.proceso_vivo",
-                                    "apolo.cosim.neumatica.red"])
+                                    "apolo.cosim.neumatica.red", "apolo.cosim.externo"])
 def test_cada_modulo_del_worker_se_importa_sin_occt(modulo):
     codigo = ("import sys, importlib\n"
               f"importlib.import_module('{modulo}')\n"

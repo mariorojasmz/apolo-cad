@@ -55,9 +55,12 @@ def compacto(res: dict, ver: dict, *, simulacion: str, escenario: str | None,
         "simulacion": simulacion, "escenario": escenario,
         "veredicto": ver["veredicto"], "n_fallidas": ver["n_fallidas"], "aserciones": ver["aserciones"],
         "resumen": {k: r[k] for k in ("duracion_s", "intercambios", "factor_tiempo_real", "t_pared_s",
-                                      "huella", "senales") if k in r},
+                                      "huella", "senales", "determinista") if k in r},
         "eventos": eventos[:EVENTOS_COMPACTO], "n_eventos": len(eventos),
         "plc": res.get("plc") or {},
+        # plc-en-el-lazo D7: sólo con un PLC externo (sin él, el compacto de siempre)
+        **{k: res[k] for k in ("plc_externo", "lazo") if k in res},
+        **({"veredicto_motivo": ver["motivo"]} if "motivo" in ver else {}),
         "avisos": res.get("avisos") or [], **_hipotesis(res, hipotesis_vistas_en),
         "aviso": res.get("aviso"),
         **({"proceso": {k: v for k, v in res["proceso"].items() if k in ("arranque_s", "total_s")}}

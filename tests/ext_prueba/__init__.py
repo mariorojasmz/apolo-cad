@@ -12,6 +12,9 @@ de extensión del núcleo con lo mínimo, sin instalarse (se carga con
   con el motor de planos (`laminas.py`);
 - (puntos-de-extension-entregables) la lectura eléctrica por `MODULOS` (`electrico.py`), dos
   fuentes de filas del costeo (`costeo.py`) y dos reglas de la puerta de entrega (`entrega.py`).
+- (plc-en-el-lazo F1b1) un conector a un PLC de afuera, `prueba.tcp` (`conector_plc.py`: JSON
+  por línea sobre TCP, su red en `red_plc.py`), contra un PLC falso en otro proceso
+  (`plc_falso.py`).
 
 Los campos pesados van PEREZOSOS (funciones): así lo hace una extensión real para que el MCP no
 cargue OCCT al leerla. Abajo, las variantes que el núcleo debe RECHAZAR (`test_extensiones.py`).
@@ -47,6 +50,15 @@ def _modelos():
     return {"prueba.lampara": Lampara}
 
 
+def _conectores(variante: str = "ConectorTCP", nombre: str = "prueba.tcp"):
+    def cargar():
+        from . import conector_plc
+
+        return {nombre: getattr(conector_plc, variante)}
+
+    return cargar
+
+
 def _puerta(variante: str = "entradas"):
     def cargar():
         from . import puerta
@@ -78,6 +90,7 @@ EXTENSION = Extension(
     tools_mcp=registrar,
     catalogo=(str(CATALOGO),),
     modelos_cosim=_modelos,
+    conectores_plc=_conectores(),
     epoch_catalogo=1,
     puerta=_puerta(),
     version_puerta=1,
@@ -113,7 +126,7 @@ ELECTRICA = replace(EXTENSION, comandos=_electrico)
 TOOL_CON_PUNTO = replace(EXTENSION, tools_mcp=registrar_con_punto)
 DUPLICADA = replace(EXTENSION, nombre="ext-prueba-2")  # mismo prefijo que EXTENSION
 EN_RUTAS_DEL_NUCLEO = replace(EXTENSION, nombre="ext-fea", prefijo="fea", comandos=(), pistas={},
-                              pestanas={}, catalogo=(), modelos_cosim={}, tools_mcp=None,
+                              pestanas={}, catalogo=(), modelos_cosim={}, conectores_plc={}, tools_mcp=None,
                               puerta=(), costeo=(), entrega=(), routers=_routers_fea)
 PUERTA_SIN_PREFIJO = replace(EXTENSION, puerta=_puerta("sin_prefijo"))
 PUERTA_FAMILIA = replace(EXTENSION, puerta=_puerta("familia_inventada"))
@@ -135,4 +148,10 @@ ENTREGA_NO_REGLA = replace(EXTENSION, entrega=_de("entrega", "no_es_regla"))
 ENTREGA_VERSION_MALA = replace(EXTENSION, version_entrega=True)
 ENTREGA_ROTA = replace(EXTENSION, entrega=_de("entrega", "rotas"))
 ENTREGA_V2 = replace(EXTENSION, version_entrega=2)
+# conectores a un PLC de afuera (plan plc-en-el-lazo, D5)
+CONECTOR_SIN_PREFIJO = replace(EXTENSION, conectores_plc=_conectores(nombre="tcp"))
+CONECTOR_INCOMPLETO = replace(EXTENSION, conectores_plc=_conectores("SinPaso"))
+CONECTOR_SIN_VALIDAR = replace(EXTENSION, conectores_plc=_conectores("SinValidar"))
+CONECTOR_OPCIONAL_MALO = replace(EXTENSION, conectores_plc=_conectores("CerrarNoLlamable"))
+CONECTOR_NO_CLASE = replace(EXTENSION, conectores_plc={"prueba.tcp": "no es una clase"})
 NO_ES_EXTENSION = "una cadena no es una extensión"
