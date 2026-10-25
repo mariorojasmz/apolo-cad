@@ -106,7 +106,9 @@ def registrar(mcp, api, esperar) -> None:
          condiciones?: {red_conectada, selectores {"-S5": "I"}, setas_retenidas [], plc_run,
                         presion_red_bar (la toma de aire, manométrica: obligatoria con aire)},
          acciones: [{t, accion: pulsar|soltar|presionar|liberar|girar|rearmar|abrir|cerrar|
-                     reponer|accionar_manual (válvula: valor «14»|«12», «0» lo suelta),
+                     reponer|accionar_manual (válvula: valor «14»|«12», «0» lo suelta)|
+                     escribir (como una pantalla: una variable del programa del PLC, t > 0;
+                     {t, accion: escribir, dispositivo «-K1», variable «Main.consigna», valor}),
                      dispositivo, valor?, durante_s?, actuador?}],
          eventos: [{t, tipo: atasco (junta, par_Nm) | corte_de_fase (fase) | caida_de_red
                     (factor) | cable_cortado (rama «-W3») | sensor_pegado (dispositivo) |

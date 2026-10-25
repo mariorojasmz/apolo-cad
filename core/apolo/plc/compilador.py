@@ -24,6 +24,7 @@ from .compilador_sent import Emisor, Sentencias
 from .errores import ErrorCompilacion, ErrorSintaxis, ErrorST, sugerir
 from .parser import parsear
 from .simbolos import Campo, InfoPOU, Var
+from .simbolos import tabla as tabla_simbolos
 from .tipos import (DEFECTO, ELEMENTALES, ERROR, FB_ESTANDAR, FUNCIONES_ESTANDAR, INT, DINT,
                     LIT_INT, RANGO, REAL, Arreglo, InterfazFB, nombre)
 from .verificador import verificar
@@ -53,6 +54,7 @@ class Compilado:
     salidas: list[tuple[str, str]]                   # (borne, tipo) que escribe
     mapa_lineas: list[int]                           # línea Python - 1 → línea ST
     pous_py: dict[str, str]                          # función generada → POU de ST
+    simbolos: dict[str, tuple[str, bool]] = field(default_factory=dict)  # ruta → (tipo, escribible)
     _codigo: object = field(default=None, repr=False, compare=False)
 
     @property
@@ -431,6 +433,7 @@ class _Unidad:
             salidas=[(d.borne, d.tipo) for d in sal],
             mapa_lineas=mapa,
             pous_py={i.py: i.nombre for i in self.pous.values()},
+            simbolos=tabla_simbolos(self.globales, self.pous),
         )
 
     def _rutas(self) -> dict[str, dict[str, tuple]]:

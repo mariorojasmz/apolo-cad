@@ -8,7 +8,9 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
                      "plc_run": true},
      "acciones": [{"t": 1.0, "accion": "pulsar", "dispositivo": "-S1", "durante_s": 0.2},
                   {"t": 0, "accion": "girar", "dispositivo": "-S1", "valor": 1.0},
-                  {"t": 4.0, "accion": "presionar", "dispositivo": "-S0"}],
+                  {"t": 4.0, "accion": "presionar", "dispositivo": "-S0"},
+                  {"t": 2, "accion": "escribir", "dispositivo": "-K1", "variable": "Main.consigna",
+                   "valor": 50}],     (una pantalla o un SCADA: plan plc-en-el-lazo D10)
      "eventos": [{"t": 3, "tipo": "atasco", "junta": "j_tambor", "par_Nm": 400},
                  {"t": 5, "tipo": "corte_de_fase", "fase": "L3", "duracion_s": 2},
                  {"t": 6, "tipo": "caida_de_red", "factor": 0.0, "duracion_s": 0.05},
@@ -47,7 +49,7 @@ from .aserciones import AsercionInvalida, leer_aserciones
 
 DURACION_MAX_S = 300.0
 ACCIONES = ("pulsar", "soltar", "presionar", "liberar", "girar", "rearmar", "abrir", "cerrar", "reponer",
-            "accionar_manual")
+            "accionar_manual", "escribir")
 TIPOS_EVENTO = ("atasco", "corte_de_fase", "caida_de_red", "cable_cortado", "sensor_pegado", "falla",
                 "producto", "corte_de_aire", "presion_de_red", "fuga")
 #: Presión manométrica máxima que se acepta en `presion_red_bar` (16 bar: la red de planta usual
@@ -74,6 +76,7 @@ class Accion:
     valor: object = None
     durante_s: float | None = None
     actuador: str | None = None
+    variable: str | None = None        # la de `escribir` (plc-en-el-lazo D10)
 
 
 @dataclass(frozen=True)
@@ -153,17 +156,20 @@ def _lista(obj: dict, k: str, donde: str) -> list:
 
 def _accion(a, k: int, duracion: float) -> Accion:
     donde = f"acciones[{k}]"
-    a = _claves(a, {"t", "accion", "dispositivo", "valor", "durante_s", "actuador"}, donde)
+    a = _claves(a, {"t", "accion", "dispositivo", "valor", "durante_s", "actuador", "variable"}, donde)
     t = _num(a, "t", donde, minimo=0.0, maximo=duracion)
     if t is None:
         raise EscenarioInvalido(f"{donde}: falta «t» (s, la hora de la acción)")
+    if a.get("accion") == "escribir" and t == 0:
+        raise EscenarioInvalido(f"{donde}: «escribir» en t = 0 no llega: el PLC arranca en el primer "
+                                "intercambio y sin tensión no atiende la red; escribe desde t > 0 (p. ej. 0.01)")
     return _accion_en(a, t, donde)
 
 
 def leer_accion_viva(a, t: float) -> Accion:
     """Una acción del operador SIN hora (la sesión en vivo, V8.4 D1): la misma validación que en
     un escenario, con t = el intercambio en que llega (lo pone el que la recibe)."""
-    a = _claves(a, {"accion", "dispositivo", "valor", "durante_s", "actuador"}, "acción")
+    a = _claves(a, {"accion", "dispositivo", "valor", "durante_s", "actuador", "variable"}, "acción")
     return _accion_en(a, t, "acción")
 
 
@@ -191,7 +197,26 @@ def _accion_en(a: dict, t: float, donde: str) -> Accion:
     if accion == "accionar_manual" and a.get("valor") is None:
         raise EscenarioInvalido(f"{donde}: «accionar_manual» pide «valor»: el lado de la válvula («14», «12») "
                                 "o «0» para soltarlo")
-    return Accion(t, accion, _texto(a, "dispositivo", donde), a.get("valor"), durante, a.get("actuador"))
+    if accion == "escribir":
+        _escribir(a, donde)
+    elif a.get("variable") is not None:
+        raise EscenarioInvalido(f"{donde}: «variable» es de «escribir» (una variable del programa del PLC)")
+    return Accion(t, accion, _texto(a, "dispositivo", donde), a.get("valor"), durante, a.get("actuador"),
+                  a.get("variable"))
+
+
+def _escribir(a: dict, donde: str) -> None:
+    """La forma de `escribir` (plc-en-el-lazo D10): la ruta y el tipo del valor los valida la agenda
+    contra el programa del PLC (`agenda.validar`)."""
+    v = a.get("variable")
+    if not isinstance(v, str) or not v:
+        raise EscenarioInvalido(f"{donde}: «escribir» pide «variable»: su ruta en el programa del PLC "
+                                "(«Main.consigna», «x», «Main.tabla[2]»)")
+    valor = a.get("valor")
+    if not isinstance(valor, (bool, int, float)) or isinstance(valor, float) and not math.isfinite(valor):
+        raise EscenarioInvalido(f"{donde}: «escribir» pide «valor»: true/false o un número finito, llegó {valor!r}")
+    if a.get("actuador") is not None:
+        raise EscenarioInvalido(f"{donde}: «actuador» es de un mando, no de «escribir»")
 
 
 _CLAVES_EVENTO = {

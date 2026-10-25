@@ -122,7 +122,7 @@ class Corrida:
             self.plcs[p.plc] = plc
         self.acople = AcopleMecanico(self.integ, snap.motores, snap.sensores,
                                      getattr(snap, "cilindros", ()), getattr(snap, "reeds", ()))
-        self.agenda = Agenda(esc, self.tab, self.acople)
+        self.agenda = Agenda(esc, self.tab, self.acople, plcs=self.plcs)  # `escribir` (plc-en-el-lazo D10)
         self.dt = self.integ.dt_int
         self.paso_ms = _paso_ms(self.dt)
         self.extra = set(esc.senales_extra)

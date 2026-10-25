@@ -116,7 +116,12 @@ ARCHIVOS = (
 #: vigente). Sin externo, `Corrida`, el bucle y el resultado son los de antes: 6 escenarios del
 #: banco (marcha y seta por variador, seta en directo, caída de red, corte de fase, cajas con seta,
 #: atasco) dan la MISMA huella y las mismas claves del resultado y del compacto que en 4f669f0.
-HUELLA: tuple[int, str] = (6, "d0326bbc9bff2491")
+#: plc-en-el-lazo F1c1 (sin subir, D10, D14): la acción `escribir` (la tabla de símbolos del
+#: `Compilado`, `PLC.escribir`, la agenda con los PLC de la corrida) sólo actúa si el escenario la
+#: trae; `leer` resuelve igual (y ahora también un elemento de un ARRAY global). Sin `escribir`:
+#: 6 escenarios del banco (marcha y seta por variador, seta en directo, caída de red, corte de
+#: fase, cajas con seta, atasco) dan la MISMA huella, claves y eventos que en fc734ea (bitácora).
+HUELLA: tuple[int, str] = (6, "5343e02e81995d98")
 
 
 def archivos() -> list[Path]:

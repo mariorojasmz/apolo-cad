@@ -16,18 +16,18 @@ a STOP con la falla registrada y la línea ST donde ocurrió.
 
 from __future__ import annotations
 
-import re
 import time
 from dataclasses import dataclass
 
 from . import direcciones as D
+from . import simbolos as S
 from .ayudas import AYUDAS, ITER_POR_MS, Watchdog
 from .bloques import BLOQUES
 from .compilador import ARCHIVO_PY, Compilado
 from .errores import FallaPLC
 
 RUN, STOP, SIN_TENSION = "RUN", "STOP", "SIN_TENSION"
-_RE_SEGMENTO = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(-?\d+)\])?$")
+_RE_SEGMENTO = S.RE_SEGMENTO
 
 
 @dataclass
@@ -214,24 +214,29 @@ class PLC:
             if isinstance(d, str) or not hasattr(self.G, d.ident):
                 raise KeyError(f"el programa no usa la dirección «{ruta}»")
             return getattr(self.G, d.ident)
-        rutas = self.compilado.rutas
-        partes = ruta.split(".")
-        k0 = partes[0].lower()
-        if k0 in rutas["<global>"]:
-            ambito, obj = "<global>", self.G
-        elif k0 in {t.clave for t in self.tareas} and len(partes) > 1:
-            ambito = k0
-            obj = next(t.instancia for t in self.tareas if t.clave == k0)
-            partes = partes[1:]
+        ambito, partes = S.ambito_de(self.compilado.rutas, self.compilado.programas, ruta)
+        return self._navegar(ambito, self._memoria(ambito), partes, ruta)
+
+    def _memoria(self, ambito: str):
+        if ambito == S.GLOBAL:
+            return self.G
+        return next(t.instancia for t in self.tareas if t.clave == ambito)
+
+    # ── escritura (una pantalla o un SCADA, plan plc-en-el-lazo D10) ──────
+    def escribir(self, ruta: str, valor) -> None:
+        """Escribe una variable de memoria con la resolución de `leer`: elementales y elementos de
+        ARRAY de las globales y de cada PROGRAM (nunca CONSTANT, `AT %I…`/`%Q…` ni miembros de un
+        bloque). Entra antes del próximo scan y el programa puede pisarla. `KeyError` si la ruta
+        no existe; `ValueError` si no es escribible, el valor no es de su tipo
+        (`simbolos.valor_para`) o el PLC está sin tensión (no atiende la red)."""
+        d, v = S.escritura(self.compilado, ruta, valor)
+        if self.estado == SIN_TENSION:
+            raise ValueError(f"el PLC está sin tensión: no atiende la escritura de «{ruta}»")
+        obj = self._memoria(d.ambito)
+        if d.indice is None:
+            setattr(obj, d.attr, v)
         else:
-            duenos = [t for t in self.tareas if _RE_SEGMENTO.match(partes[0])
-                      and _RE_SEGMENTO.match(partes[0]).group(1).lower() in rutas[t.clave]]
-            if len(duenos) != 1:
-                otros = " o ".join(f"«{t.nombre}.{partes[0]}»" for t in duenos)
-                raise KeyError(f"no existe la variable «{ruta}»" if not duenos
-                               else f"«{ruta}» es ambigua: usa {otros}")
-            ambito, obj = duenos[0].clave, duenos[0].instancia
-        return self._navegar(ambito, obj, partes, ruta)
+            getattr(obj, d.attr)[d.indice] = v
 
     def _navegar(self, ambito: str, obj, partes: list[str], ruta: str):
         valor = None

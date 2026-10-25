@@ -12,8 +12,9 @@
   - el formato plano de las redes (`cosim_red.entrada_red`) y los dispositivos con su `modelo` y
     sus `ajustes` (un `modelo` incompleto es error ANTES de simular, D7);
   - el ST de cada PLC compilado contra los bornes de SU ficha (D4).
-Por último corre la agenda del escenario en seco sobre un tablero desechable: un dispositivo,
-una acción o una rama que no existen salen aquí, con su corrección.
+Por último corre la agenda del escenario en seco sobre un tablero y unos PLC desechables: un
+dispositivo, una acción, una rama o una variable a `escribir` que no existen (o no se escriben)
+salen aquí, con su corrección.
 
 F6: los ajustes obligatorios que faltan salen TODOS juntos (`electrico.ajustes_faltantes`), una
 banda que no avanza con cajas encima o con aserciones es error (`cosim_bandas.bandas_quietas`),
@@ -149,7 +150,7 @@ def _compilar_programas(programas, me) -> list:
 
 def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_externo: dict | None = None):
     """El `CosimSnapshot` del documento para `escenario` (dict de D12). `ServiceError(400)`."""
-    from apolo.cosim.agenda import validar
+    from apolo.cosim.agenda import plcs_de_prueba, validar
     from apolo.cosim.datos import AcopleMotor, AcopleSensor, CosimSnapshot
     from apolo.cosim.escenario import EscenarioInvalido, leer_escenario
     from apolo.cosim.modelos import ModeloIncompleto, de_extension
@@ -219,7 +220,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     acoples_s = [AcopleSensor(des, _nombre_rayo(des)) for des, s in esc.sensores.items() if "junta" not in s]
     cilindros, reeds = cosim_aire.acoples(esc, dyn, len(esc.motores))
     try:
-        validar(esc, tab, set(dyn.juntas))
+        validar(esc, tab, set(dyn.juntas), plcs_de_prueba(progs, externos))
     except EscenarioInvalido as exc:
         raise ServiceError(400, str(exc)) from exc
     clases, extensiones = de_extension((d.modelo or {}).get("tipo") for d in dispositivos)

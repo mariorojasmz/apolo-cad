@@ -23,5 +23,10 @@ bornes válidos los pasa quien compila (`compilar(fuente, bornes=…)`): aquí n
   `Compilado` es el mismo con y sin juntarlos: `test_plc_comentarios.py`). Lo que una extensión
   importa de `plc` está en `extensiones_api.MODULOS`: quitar o renombrar sube
   `CONTRATO_EXTENSIONES`. [plc-en-el-lazo](../../../docs/plans/plc-en-el-lazo.md) (D1, D2)
+- **Escribir** (una pantalla, un SCADA): la regla es UNA, `simbolos.escritura` (ruta como `leer`
+  con `ambito_de`, escribible según `Compilado.simbolos`, tipo con `valor_para`); la usan
+  `PLC.escribir` y la agenda de la co-simulación antes de pasarle la escritura a un PLC de afuera.
+  `simbolos` se rearma al compilar: nunca se persiste. Sin tensión, rechazo (en el lote queda en
+  `eventos` como `rechazo`, sin ser ancla). [plc-en-el-lazo](../../../docs/plans/plc-en-el-lazo.md) (D10)
 - Rendimiento: ≤ 50 µs por scan con ~500 líneas (`test_plc_rendimiento.py`, `-m torture`).
   Las ayudas en línea (índice, `/` y `MOD` por constante) son por eso: no las saques.

@@ -8,11 +8,21 @@ anclas de las aserciones «dentro_de Δ desde <acción o evento>» (F5).
 `validar` corre la agenda entera sobre un tablero DESECHABLE antes de simular: un dispositivo
 que no existe, una acción que no admite o una rama que no se puede cortar es error accionable en
 el snapshot, no a mitad de la co-simulación.
+
+`escribir` (plan plc-en-el-lazo D10) va a la memoria del programa de un PLC de la corrida
+(`plcs`, los de `Corrida` o, en `validar`, los de `plcs_de_prueba`): la ruta y el tipo del valor
+se validan contra su `Compilado` (también con un PLC de afuera, antes de pasársela a su
+conector, que la recibe sólo si trae `escribir`). Un PLC SIN TENSIÓN no la atiende: en el lote
+queda en `eventos` como `{"rechazo": "escribir", …, "motivo"}` (sin `accion`: no es ancla) y la
+corrida sigue; en vivo es el rechazo de esa acción.
 """
 
 from __future__ import annotations
 
 import difflib
+
+from apolo.plc import PLC, SIN_TENSION
+from apolo.plc.simbolos import escritura
 
 from . import fallas
 from .escenario import Accion, EscenarioInvalido, Evento
@@ -22,9 +32,10 @@ EPS_T = 1e-9
 
 
 class Agenda:
-    def __init__(self, esc, tablero, acople=None, *, juntas: set | None = None):
+    def __init__(self, esc, tablero, acople=None, *, juntas: set | None = None, plcs: dict | None = None):
         self.esc, self.tab, self.acople = esc, tablero, acople
         self.juntas = juntas
+        self.plcs = plcs or {}
         items: list = []
         for a in esc.acciones:
             items.append((a.t, len(items), a, False))
@@ -86,10 +97,10 @@ class Agenda:
                 self._aplicar_inyectada(t, t_prog, seq, x)
                 continue
             if isinstance(x, Accion):
-                self._accion(x)
-                reg = {"accion": x.accion, "dispositivo": x.dispositivo}
-                if x.valor is not None:
-                    reg["valor"] = x.valor
+                motivo = self._accion(x)
+                reg = _registro(x)
+                if motivo:  # escribir a un PLC sin tensión: rechazo grabado, la corrida sigue
+                    reg = {"rechazo": reg.pop("accion"), **reg, "motivo": motivo}
             else:
                 self._evento(x, reverso)
                 reg = {"evento": x.tipo + (".fin" if reverso else ""), **x.datos}
@@ -99,10 +110,10 @@ class Agenda:
         ident = self._inyectadas.pop(seq)
         try:
             if isinstance(x, Accion):
-                self._accion(x)
-                reg = {"accion": x.accion, "dispositivo": x.dispositivo}
-                if x.valor is not None:
-                    reg["valor"] = x.valor
+                motivo = self._accion(x)
+                if motivo:
+                    raise ValueError(motivo)
+                reg = _registro(x)
             else:
                 self._evento(x, False)
                 reg = {"evento": x.tipo, **x.datos}
@@ -116,7 +127,10 @@ class Agenda:
 
     # ── acciones del operador ───────────────────────────────────────────────────────────────
 
-    def _accion(self, a: Accion) -> None:
+    def _accion(self, a: Accion) -> str | None:
+        """Aplica la acción; el motivo si un PLC sin tensión no atiende un `escribir`."""
+        if a.accion == "escribir":
+            return self._escribir(a)
         m = self._modelo(a.dispositivo)
         valor = a.valor
         if a.accion in ("pulsar", "soltar") and (a.actuador or a.durante_s is not None):
@@ -125,6 +139,22 @@ class Agenda:
             raise ValueError(f"{a.dispositivo} ({m.ref}, {m.tipo}) no admite «{a.accion}»; "
                              f"acciones: {', '.join(m.ACCIONES) or '(ninguna)'}")
         m.accionar(a.accion, valor)
+        return None
+
+    def _escribir(self, a: Accion) -> str | None:
+        plc = self.plcs.get(a.dispositivo)
+        if plc is None:
+            raise ValueError(f"«{a.dispositivo}» no es un PLC con programa: «escribir» va a una variable de su "
+                             f"programa; PLC: {', '.join(sorted(self.plcs)) or 'ninguno'}")
+        fn = getattr(plc, "escribir", None)
+        if not callable(fn):
+            raise ValueError(f"el PLC externo {a.dispositivo} no admite «escribir»: su conector no trae "
+                             "escribir(ruta, valor)")
+        _, valor = escritura(plc.compilado, a.variable, a.valor)  # también antes de un PLC de afuera
+        if plc.estado == SIN_TENSION:
+            return f"{a.dispositivo} está sin tensión: no atiende la escritura de «{a.variable}»"
+        fn(a.variable, valor)
+        return None
 
     # ── eventos del mundo ───────────────────────────────────────────────────────────────────
 
@@ -176,10 +206,40 @@ class Agenda:
                     self.tab.hipotesis.append(h)
 
 
-def validar(esc, tablero, juntas: set) -> None:
-    """Corre la agenda entera sobre `tablero` (desechable): `EscenarioInvalido` con el motivo."""
+def _registro(a: Accion) -> dict:
+    reg = {"accion": a.accion, "dispositivo": a.dispositivo}
+    if a.variable is not None:
+        reg["variable"] = a.variable
+    if a.valor is not None:
+        reg["valor"] = a.valor
+    return reg
+
+
+class _SinEscribir:
+    """En `validar`, el PLC externo cuyo conector no trae `escribir`."""
+
+
+def plcs_de_prueba(programas, externos: dict | None = None) -> dict:
+    """Los PLC de `validar`: uno desechable por programa (con un PLC de afuera, el MISMO programa:
+    la ruta y el tipo se validan igual) y, si el conector no trae `escribir`, uno que no escribe."""
+    out: dict = {}
+    for p in programas:
+        clase = (externos or {}).get(p.plc, (None,))[0]
+        if clase is not None and not callable(getattr(clase, "escribir", None)):
+            out[p.plc] = _SinEscribir()
+            continue
+        try:
+            out[p.plc] = PLC(p.compilado, ciclo_ms=p.ciclo_ms, ciclos=p.ciclos or None)
+        except (KeyError, ValueError):  # los ciclos los rechaza la corrida; aquí sólo la memoria
+            out[p.plc] = PLC(p.compilado)
+    return out
+
+
+def validar(esc, tablero, juntas: set, plcs: dict | None = None) -> None:
+    """Corre la agenda entera sobre `tablero` y `plcs` (desechables): `EscenarioInvalido` con el
+    motivo."""
     try:
-        ag = Agenda(esc, tablero, None, juntas=juntas)
+        ag = Agenda(esc, tablero, None, juntas=juntas, plcs=plcs)
         ag.aplicar(float("inf"))
     except (ValueError, KeyError) as exc:
         if isinstance(exc, EscenarioInvalido):
