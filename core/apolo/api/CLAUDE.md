@@ -247,6 +247,10 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   El bus en proceso (`vivo_bus.py`, hoja: `suscribir`/`enviar_vivo`) NUNCA toma `STATE_LOCK`:
   `SesionViva._poner` (en el loop) arma lo que ve el cliente y lo copia en su orden a la persona
   y a cada suscripción (colas propias acotadas); lo que el WS gane va AHÍ, no en `reenviar`. (F1c2)
+  Quien se suscribe a mitad recibe primero `inicio` (`tarde: true`), las `senales` y los `textos`
+  acumulados: el bus los guarda en `difundir_json` CON la sesión que los emite (su `inicio` llega
+  antes que `abrir`) y los olvida con el `fin`, otra sesión o `cerrar`. Un mensaje nuevo que haga
+  falta para leer los fotogramas entra a esa memoria. [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (D11)
 - La grabación del visor (`/api/video/grabacion…`) no toma `STATE_LOCK`: es E/S pura y su lock
   (`media/grabacion.py`) es HOJA. Las sesiones viven en memoria (un reinicio las pierde; los
   cuadros quedan en `data/grabaciones/`); el cierre codifica dentro de la request, y si falla los

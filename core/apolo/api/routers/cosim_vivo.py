@@ -21,8 +21,10 @@ acción que llega por el bus la contesta sólo a su suscripción.
 MENSAJES servidor → cliente (JSON salvo el fotograma):
   inicio        la tabla (`cosim/vivo_fotograma.py`: cuerpos, productos, juntas, bandas, señales,
                 mandos, pilotos, dispositivos) + firma, proyecto, escenario, dt_s, ventana_s,
-                max_s, ritmo, fajas, cadenas, avisos, hipotesis (con PLC externo, además
-                `plc_externo` {designación: {conector, extension, version}} y `determinista: false`)
+                max_s, ritmo, fajas, cadenas, avisos, hipotesis, `plcs` si hay PLC
+                ([{designacion, variables: [{ruta, tipo, escribible}]}], `services/variables_plc.py`)
+                (con PLC externo, además `plc_externo` {designación: {conector, extension,
+                version}} y `determinista: false`); a una extensión que llega tarde, con `tarde: true`
   binario       un fotograma float32 cada 1/30 s (formato en `cosim/vivo_fotograma.py`)
   ack/rechazo   la respuesta a cada acción, con su `id` y la hora virtual en que entró
   senales       señales nuevas para la tabla (antes del fotograma que las trae)
@@ -172,7 +174,7 @@ class SesionViva:
         """Un mensaje JSON al cliente (en el loop); la respuesta a una acción del bus va sólo a
         su suscripción."""
         texto = json.dumps(msg, ensure_ascii=False, separators=(",", ":"))
-        if not VIVO_BUS.difundir_json(msg, texto):
+        if not VIVO_BUS.difundir_json(msg, texto, self):
             self.cola.put_nowait((b"J", texto))
 
     def enviar(self, msg: dict) -> bool:
@@ -274,15 +276,19 @@ def _firma_ahora(doc) -> str | None:
 
 
 def _inicio(prep: dict, tabla: dict, config: dict, pid) -> dict:
+    from apolo.services.variables_plc import plcs as variables_plc
+
     snap = prep["snap"]
     estatico = {"avisos": list(snap.avisos)}
     _sumar_visual(estatico, prep["vis"], {"cuerpos": snap.dinamica.cuerpos, "juntas": {}})
+    plcs = variables_plc(getattr(snap, "programas", ()))   # pedidos-de-extensiones D12
     return {"tipo": "inicio", "version": 1, "proyecto": prep["proyecto"], "escenario": prep["nombre"],
             "firma": prep["firma"], "ventana_s": 1.0 / 30.0, "max_s": config["max_s"],
             "ritmo": config["ritmo"], "pid": pid,
             **{k: v for k, v in tabla.items() if k != "tipo"},
             "fajas": estatico["fajas"], "cadenas": estatico["cadenas"], "avisos": estatico["avisos"],
             "hipotesis": list(snap.hipotesis),
+            **({"plcs": plcs} if plcs else {}),
             **({"plc_externo": prep["externo"], "determinista": False} if prep.get("externo") else {})}
 
 

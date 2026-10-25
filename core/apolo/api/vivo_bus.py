@@ -4,7 +4,11 @@ que abrió la persona y le manda acciones, sin abrir otra (V8.4 D10) ni un segun
 - `suscribir(nombre, max_fotogramas=60) -> Suscripcion`: desde ese momento la suscripción recibe
   LO MISMO que el WebSocket y en su orden (`inicio`, fotogramas, `senales`, `textos`, acks y
   rechazos, `pausa`/`reanudar`, `fin`…), de la sesión abierta y de las que se abran después,
-  hasta `cerrar()`. `recibir(timeout)` da un dict (JSON) o `bytes` (un fotograma, formato de
+  hasta `cerrar()`. Quien llega con una sesión ya abierta (pedidos-de-extensiones D11) recibe
+  PRIMERO, en orden, el `inicio` de esa sesión con `tarde: true`, cada `senales` que salió y un
+  `textos` (también con `tarde: true`) con el último valor de cada texto; después, lo que siga:
+  los fotogramas se leen con esa tabla. Lo guardado se olvida con el `fin`, al abrir otra sesión
+  y al `cerrar` la suya; sin sesión abierta no hay nada que repetir. `recibir(timeout)` da un dict (JSON) o `bytes` (un fotograma, formato de
   `cosim/vivo_fotograma.py`). Cada suscripción tiene su cola ACOTADA: pasados `max_fotogramas`
   sin leer se descarta el fotograma más VIEJO (`descartados`) y pasados `MAX_JSON` mensajes, el
   JSON nuevo (`json_descartados`), salvo `inicio`, `senales` y `fin`, sin los que los fotogramas
@@ -18,10 +22,13 @@ que abrió la persona y le manda acciones, sin abrir otra (V8.4 D10) ni un segun
   distingue de dónde vino la acción.
 
 Coreografía: `SesionViva._poner` (router `cosim_vivo`, en el loop) llama `BUS.difundir_json` /
-`BUS.difundir_fotograma` con cada mensaje ya en la forma del WebSocket, y registra la sesión con
-`BUS.abrir`/`BUS.cerrar`. Los locks de aquí son HOJA (el del bus y uno por suscripción, nunca
-anidados): copiar a una suscripción es un `append`, así que un suscriptor que no lee no frena a la
-persona. Nada aquí toma `STATE_LOCK` ni importa `apolo.state` (lo vigila `tests/test_vivo_bus.py`).
+`BUS.difundir_fotograma` con cada mensaje ya en la forma del WebSocket (el JSON con la sesión que
+lo emitió: su `inicio` puede llegar antes que `BUS.abrir`), y registra la sesión con
+`BUS.abrir`/`BUS.cerrar`. Los locks de aquí son HOJA (el del bus y uno por suscripción): copiar a
+una suscripción es un `append`, así que un suscriptor que no lee no frena a la persona. El único
+anidado es el de `suscribir`, que llena bajo el lock del bus la cola de una suscripción NUEVA
+(todavía de nadie: su lock no puede estar tomado), para que ningún mensaje se adelante a la
+repetición. Nada aquí toma `STATE_LOCK` ni importa `apolo.state` (lo vigila `tests/test_vivo_bus.py`).
 """
 
 from __future__ import annotations
@@ -134,6 +141,7 @@ class Bus:
         self._sesion = None                # lo que registró `abrir`: `.enviar(msg) -> bool`
         self._en_vuelo: collections.Counter = collections.Counter()   # ids con prefijo sin respuesta
         self._n = 0
+        self._memoria: _Memoria | None = None   # D11: la sesión abierta, para quien llega tarde
 
     # ── lo que usa una extensión ─────────────────────────────────────────────────────────────
     def suscribir(self, nombre: str, max_fotogramas: int = 60) -> Suscripcion:
@@ -146,7 +154,11 @@ class Bus:
             if nombre in self._subs:
                 raise ValueError(f"ya hay una suscripción «{nombre}»: ciérrala antes (sus acks irían "
                                  "a una sola)")
-            sub = self._subs[nombre] = Suscripcion(nombre, max_fotogramas, self)
+            sub = Suscripcion(nombre, max_fotogramas, self)
+            if self._memoria is not None:   # D11: la sesión ya abierta, antes que nada
+                for texto, tipo in self._memoria.repeticion():
+                    sub._poner(texto, tipo)
+            self._subs[nombre] = sub
         return sub
 
     def enviar(self, nombre: str, msg) -> bool:
@@ -188,16 +200,23 @@ class Bus:
         with self._lock:
             self._sesion = sesion
             self._en_vuelo.clear()   # lo que quedó sin respuesta de la sesión anterior
+            if self._memoria is not None and self._memoria.sesion is not sesion:
+                self._memoria = None   # la de otra sesión (la suya pudo llegar antes que `abrir`)
 
     def cerrar(self, sesion) -> None:
         with self._lock:
             if self._sesion is sesion:
                 self._sesion = None
+            if self._memoria is not None and self._memoria.sesion is sesion:
+                self._memoria = None
 
-    def difundir_json(self, msg: dict, texto: str) -> bool:
+    def difundir_json(self, msg: dict, texto: str, sesion=None) -> bool:
         """`texto` (el JSON que va al WebSocket) a cada suscripción. True si es la respuesta a una
-        acción del bus: va SÓLO a su suscripción (o a nadie, si ya cerró) y no a la persona."""
+        acción del bus: va SÓLO a su suscripción (o a nadie, si ya cerró) y no a la persona.
+        `sesion`, la que lo emitió: su `inicio`, sus `senales` y sus `textos` quedan guardados
+        para quien se suscriba tarde (D11), aunque ahora no haya ninguna suscripción."""
         with self._lock:
+            self._recordar(msg, texto, sesion)
             if not self._subs and not self._en_vuelo:
                 return False
             ident = msg.get("id")
@@ -219,6 +238,23 @@ class Bus:
             sub._poner(cuerpo)
 
     # ── interno ──────────────────────────────────────────────────────────────────────────────
+    def _recordar(self, msg: dict, texto: str, sesion) -> None:
+        """Bajo `_lock` (el que elige los destinos): lo de la sesión que verá quien llegue tarde."""
+        tipo = msg.get("tipo")
+        if tipo == "inicio":
+            self._memoria = _Memoria(sesion, texto)
+            return
+        mem = self._memoria
+        if mem is None or mem.sesion is not sesion:   # otra sesión (una reemplazada que se apaga)
+            return
+        if tipo == "fin":
+            self._memoria = None
+        elif tipo == "senales":
+            mem.senales.append(texto)
+        elif tipo == "textos" and isinstance(msg.get("valores"), dict):
+            mem.textos.update(msg["valores"])
+            mem.t = msg.get("t")
+
     def _olvidar(self, ident: str) -> None:
         self._en_vuelo[ident] -= 1
         if self._en_vuelo[ident] <= 0:
@@ -228,6 +264,27 @@ class Bus:
         with self._lock:
             if self._subs.get(sub.nombre) is sub:
                 del self._subs[sub.nombre]
+
+
+class _Memoria:
+    """Lo que recibe primero quien llega tarde a una sesión (D11): el texto de su `inicio`, cada
+    `senales` en orden y el último valor de cada texto."""
+
+    def __init__(self, sesion, inicio: str):
+        self.sesion = sesion
+        # el mismo JSON con `tarde: true` al final (el `inicio` es siempre un objeto no vacío)
+        self.inicio = inicio.rstrip()[:-1] + ',"tarde":true}'
+        self.senales: list[str] = []
+        self.textos: dict = {}
+        self.t = None
+
+    def repeticion(self) -> list[tuple[str, str]]:
+        """[(texto JSON, tipo)] en el orden en que los recibe la suscripción nueva."""
+        out = [(self.inicio, "inicio"), *((s, "senales") for s in self.senales)]
+        if self.textos:
+            out.append((json.dumps({"tipo": "textos", "t": self.t, "valores": self.textos, "tarde": True},
+                                   ensure_ascii=False, separators=(",", ":")), "textos"))
+        return out
 
 
 BUS = Bus()

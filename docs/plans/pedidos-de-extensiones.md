@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1 (superficie), F2 (dispositivo: símbolo y acople fuera de la firma) y F4 (cifras eléctricas medidas: ΔU de motores, disparos; el diferencial por su residual) mergeadas; F3 (entregable como job: `entregable_documento`) implementada, en revisión; siguen F5 (notas de cotización), F6 (bus con la sesión abierta) y F7 (la pieza de lo que dibuja el layout)
+nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1 (superficie), F2 (dispositivo: símbolo y acople fuera de la firma) y F4 (cifras eléctricas medidas: ΔU de motores, disparos; el diferencial por su residual) mergeadas; F3 (entregable como job: `entregable_documento`) implementada, en revisión; F6 (el bus repite la sesión abierta a quien llega tarde; `plcs` en el `inicio`) implementada, en revisión; siguen F5 (notas de cotización) y F7 (la pieza de lo que dibuja el layout)
 descripcion: una extensión lee el circuito, la prueba virtual y la sesión viva por el contrato declarado (con las cifras eléctricas medidas, los tipos de las variables del PLC y la sesión ya abierta), entrega sus archivos lentos como job y suma notas a la cotización
 ---
 
@@ -430,3 +430,48 @@ con el 4P), rearmados a 0,24 s, dan las mismas señales paso a paso sin `I_resid
 no entra a `ARCHIVOS` (como `aire_resultado.py`: no decide el resultado ni el veredicto, sólo lo
 que se guarda de él). `test_cosim_vivo.py` verde (vivo y lote con la misma huella). La UI lee la
 unidad por sufijo (`_V`, `_A`): sin cambios, sin `npm test`.
+
+### F6 — El bus entrega la sesión abierta y el `inicio` dice las variables
+
+**D11.** `vivo_bus.Bus` guarda una `_Memoria` de la sesión: el texto de su `inicio` (ya con
+`,"tarde":true}` al final, sin re-serializar), cada `senales` en orden y el último valor de cada
+texto con la `t` del último `textos`. La escribe `difundir_json` bajo el MISMO lock que elige los
+destinos, antes de ver si hay suscriptores. `suscribir` llena la cola de la suscripción nueva con la
+repetición (`inicio`, `senales`, y un `textos` sólo si hay alguno) bajo el lock del bus y
+registra la suscripción en esa misma sección crítica: un fotograma o un JSON que el loop difunde
+después cae detrás. Es el único anidado bus → suscripción, y la suscripción todavía no es de nadie.
+Decisión de la implementación: `difundir_json(msg, texto, sesion=None)` recibe la sesión que
+emite (`SesionViva.json` pasa `self`). El `inicio` sale del worker mientras la API todavía espera
+a `ProcesoVivo` y `BUS.abrir` llega después, así que la memoria no puede atarse a `abrir`. La
+memoria es de la sesión que la escribió: un `inicio` la reemplaza; el `fin`, las `senales` o los
+`textos` de OTRA sesión (la reemplazada que se apaga después de que la nueva mandó su tabla) no la
+tocan; `abrir` de otra sesión y `cerrar` de la suya la olvidan. El `textos` sintetizado lleva
+también `tarde: true` (lo distingue del vivo; agregar claves no sube `version`). La cola de la
+persona no cambia (mismo `put_nowait`). `vivo_bus.py` sigue sin importar `apolo.state`.
+
+**D12.** `services/variables_plc.py` (puro, sin documento ni locks): `rutas_de_senal(compilado)`
+replica `PLC.variables()` sin correr el PLC (las entradas sin bloque de `rutas["<global>"]` y de
+cada PROGRAM como `Prog.x`, en su orden). Cada ruta lleva `tipo` y `escribible` de
+`Compilado.simbolos`, que es la tabla de `simbolos.escritura`; con eso `plcs(programas)` arma
+`[{designacion, variables}]`, un PLC por designación (el último, como `Corrida`). `_inicio` la suma
+como `plcs` sólo si hay alguna. Decisión: un bloque (`Main.t1`) y sus miembros NO salen, porque no
+son señal del fotograma (D12 dice «la misma escritura que la señal»). Un ARRAY sale con su tipo
+`ARRAY[a..b] OF T` y `escribible` por elemento; su señal viaja en `textos` (lista). Con un PLC
+externo la tabla sale del programa que el núcleo compiló, el mismo con que la agenda valida lo que
+se le escribe. `cosim/**` y `plc/**` no se tocaron: la huella de `test_cosim_epoch.py` no cambia.
+
+**D13 del bus.** `tests/ext_prueba/suscriptor.py` arma la tabla con lo que recibe (`senales`,
+`textos`, `variables` de `plcs`, `tarde`) y lee cada fotograma con la tabla de ese momento con
+`leer_fotograma` (`leidos`; `desfasados` si el número de señales no coincide).
+`tests/test_vivo_bus_tarde.py`, sin worker: el orden de la repetición y lo guardado sin nadie
+suscrito; la sesión reemplazada no borra la nueva; tras el `fin` o el `cerrar`, nada; 40
+suscriptores que llegan mientras otro hilo publica `senales` y fotogramas que dicen cuántas señales
+traen, y ninguno ve un fotograma antes que su tabla; la cola de `SesionViva` igual con y sin
+suscriptor tardío; con `STATE_LOCK` parchado para fallar. Con el worker (faja con variador y PLC):
+el suscriptor llega tras 10 fotogramas y un `textos`, recibe el `inicio` de la persona más
+`tarde`, ningún fotograma desfasado, la tabla y los textos finales iguales a los del WebSocket y,
+tras la repetición, el mismo final (JSON y fotogramas); `plcs` de -K1 con `Main.cuenta` escribible,
+`foto` (`AT %IX0.0`) no y sin `Main.flanco`; tras el `fin` nada, y la sesión siguiente repite sólo
+la suya. `tests/test_variables_plc.py`: rutas = `PLC.variables()`; globales, ARRAY, `AT %IX`/`%QX`,
+CONSTANT global y del PROGRAM, dos PROGRAM y un FB propio y uno estándar; `escribible` = lo que
+acepta `PLC.escribir`; sin PLC, sin clave.
