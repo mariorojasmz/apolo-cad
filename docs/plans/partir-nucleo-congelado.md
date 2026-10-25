@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; sigue F2 (models), luego F1 (MCP, después de que entre V8.9 F6) → F3 → F4 → F5 → F6
+nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) implementada sobre `553b208`, pendiente de revisión y merge; luego F1 (MCP, después de que entre V8.9 F6) → F3 → F4 → F5 → F6
 descripcion: por fuera nada cambia —mismos comandos, mismas tools MCP, mismos proyectos y la misma caché de geometría—; por dentro los cuatro archivos más tocados del núcleo quedan en módulos de ≤ 500 líneas y dos sesiones ya no chocan en el mismo archivo
 ---
 
@@ -332,3 +332,40 @@ La sesión principal re-corre todo antes de integrar.
 - **Pickle**: sólo `geomcache.pack` persiste instancias de `Feature`.
 - **Sorpresa**: `core/tests/test_mejoras_mcp.py` está versionado pero cae fuera de
   `testpaths = tests` (no corre en el CI).
+
+### F2 — `models.py` → familias (2026-10-25, base `553b208`)
+
+- **Corte** (script por NOMBRE sobre el AST, bloques byte a byte en su orden original; cada
+  familia = docstring + imports + bloques separados por dos líneas en blanco):
+
+  | módulo | nombres | líneas |
+  |---|---:|---:|
+  | `models_base.py` | 6 | 61 |
+  | `models_basicos.py` | 15 | 230 |
+  | `models_maquinas.py` | 5 | 167 |
+  | `models_chapa.py` | 7 | 123 |
+  | `models_modificar.py` | 11 | 228 |
+  | `models_croquis.py` | 14 | 220 |
+  | `models_ensamblaje.py` | 11 | 221 |
+  | `models.py` (fachada) | — | 112 (era 1 183; sale de `EXCEPCIONES`) |
+
+- **Fuentes**: `inspect.getsource` de las 61 clases y funciones movidas, idéntico antes y
+  después (0 distintas, 0 perdidas); las 8 constantes (`ANCHOR_NAMES`, `SheetSide`, `DRILL_AXES`,
+  `SKETCH_DOC`, `JOINT_TYPES`, `MATE_TYPES`, `CONSTRAINT_TYPES`, `JOINERY_TYPES`), con el mismo
+  `repr`.
+- **Schemas**: el JSON de `command_schemas()` (278 163 B), `command_schemas_agente()`
+  (268 114 B) y `command_schemas_persona()` (250 047 B) idéntico byte a byte a la foto «antes»;
+  `rutas(REGISTRY)` idéntico (y `CAMPOS` sin editar, verde). `test_contrato_comandos.py`,
+  `tests/data/mcp_golden` y `geomcache.py` sin diff.
+- **Gate D11**: `tests/test_rutas_viejas.py` nace con su sección `models`: lista CERRADA de las 69
+  definiciones (+ los 5 re-exports que la fachada ya tenía: `EdgeSelector`, `SlideUV`,
+  `JoinBoltedParams` y, perezosos, `InsertComponentParams`, `OrientacionPerfil`), cada una el MISMO
+  objeto que en su casa y nacida en ella; dos tests prueban que el gate caza un nombre que falta y
+  una copia.
+- **Desvíos de D6**: ninguno en el reparto. (1) «70 nombres» de F0 = medido 69 definiciones más
+  `__getattr__`, que se queda en la fachada. (2) La fachada no re-exporta lo que `models.py` sólo
+  IMPORTABA (`Any`, `Literal`, `BaseModel`, `Field`, `field_validator`, `model_validator`): no son
+  definiciones (D2) y nadie los importa de ahí (búsqueda en `core`, `tests`, `scripts`). (3) La
+  fachada mide 112 y no ≈ 85: re-exports explícitos de uno por línea. Las familias importan
+  `Vec3`/`Rot3` de `.models_base` (no de `.models`): sin ciclo; las referencias adelantadas
+  (`'SlideUV'`, `'FlapSpec'`) resuelven en su familia sin tocar el texto.

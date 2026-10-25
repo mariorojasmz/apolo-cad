@@ -1,7 +1,7 @@
 # Comandos (`core/apolo/commands/`)
 
-El registro schema-driven: `models.py` (params pydantic = schema de UI, diálogos y tools del
-agente), `registry.py` (executors + `REGISTRY`), `spec.py` (`CommandSpec` + `run_executor`, el
+El registro schema-driven: `models.py` (fachada de los params pydantic = schema de UI, diálogos
+y tools del agente; viven en `models_*.py` por familia), `registry.py` (executors + `REGISTRY`), `spec.py` (`CommandSpec` + `run_executor`, el
 despacho), `state.py` (`RegenState`, el estado con nombre que `execute_command` muta y el
 regenerate guarda como checkpoint; `ExecContext`, lo que recibe un executor), `strict.py` (la
 entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (motor de `=expr`). Lo transversal (locks, log, regenerate, cirugía de modelos) está en el
@@ -24,9 +24,19 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `tests/test_contrato_comandos.py`); si lo NUEVO debe nacer con otro valor, el sello de entrada
   (`CommandSpec.al_crear`) se lo pone sólo al comando que nace (`join_bolted.criterio`,
   `create_belt_conveyor.cierres`).
-- `models.py` y `registry.py` están congelados por el trinquete de tamaño: un modelo que crece
-  sale a su módulo por familia con sus listas de catálogo (`models_rodillos.py`) y `registry.py`
-  lo importa de ahí.
+- **`models.py` es FACHADA** ([partir-nucleo-congelado](../../../docs/plans/partir-nucleo-congelado.md)
+  F2): los params viven por familia —`models_base` (`Vec3`, `Rot3`, `_floor_to_int`, listas de
+  catálogo), `models_basicos` (primitivas, patrones, colocación, `set_variable`),
+  `models_maquinas` (conveyor, weldment, frame, script, brazo), `models_chapa`,
+  `models_modificar` (caras, taladro, circular, espejo, ebanistería), `models_croquis` (croquis,
+  barrido, loft, superficies) y `models_ensamblaje` (juntas, mates, restricciones, grupos,
+  `insert_project`, ground)— y la fachada sólo re-exporta por IDENTIDAD, para siempre
+  (`tests/test_rutas_viejas.py`, lista cerrada). Un modelo nuevo va a su familia (o a un
+  `models_<tema>.py` nuevo, como `models_rodillos.py`) y se re-exporta en la fachada; una familia
+  importa `Vec3`/`Rot3` de `.models_base`, nunca de `.models` (ciclo). `registry.py` sigue
+  congelado por el trinquete de tamaño.
+- Los imports perezosos `from .registry import …` DENTRO de executors ajenos (`cilindro.py`,
+  `exec_faja.py`, `tablero.py`…) no se tocan: son parte de su huella D11.
 - La `description` del modelo es para el AGENTE (larga a propósito, con nombres de params); la
   persona lee la PISTA de `pistas.py` (vista `?vista=persona`, `vista_persona.py`): un comando
   nuevo sin pista rompe `tests/test_pistas.py` ([ui](../../../ui/CLAUDE.md)). Un super-comando reutilizable
