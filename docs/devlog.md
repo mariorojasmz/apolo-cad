@@ -4423,3 +4423,50 @@ con monkeypatch.
 **`core/tests/test_mejoras_mcp.py`** estaba fuera de `testpaths`: sus 14 pruebas pasan y cubren
 cosas que nada más cubre (`_orient_axis`, `infer_from_solids`, el colapso de sufijos de patrón
 en la BOM, el `=` inicial de una expresión) → pasó a `tests/`.
+
+## 2026-10-25 — Salud de la suite con carga: pid reciclados y tests de reloj de pared
+
+Arreglo acotado (sin plan), dos commits: `fix(flota)` y `test:`.
+
+**`flota.parar` daba por vivo un proceso ajeno.** `test_parar_mata_el_arbol_y_suelta_los_candados`
+fallaba de a ratos con `{'ok': False, 'procesos_vivos': [<pid>]}` cuando otra suite corría en la
+misma máquina. Causa: `parar` miraba si los pid del árbol seguían en la tabla de procesos, y
+Windows le da el pid de un proceso recién muerto al próximo que nace. Medido con un diagnóstico
+(arrancar + parar con la hora de creación de cada pid): en la laptop, con la suite `-n auto` a la
+vez, en 1 de 40 paradas dos pid del árbol ya eran de otros procesos (`conhost.exe`, `docker.exe`)
+a los ~6 s; si eso pasa antes de que `parar` vea el árbol muerto, espera 20 s a uno de vida larga
+y devuelve «QUEDA ALGO». El árbol SÍ moría (`taskkill /T`; el lanzador del venv además lleva a
+su hijo en un job que lo mata en 0,09 s): no era un huérfano, era un falso positivo que un usuario
+también veía. Arreglo: identidad = pid + hora de creación (`flota_so.creado`: `GetProcessTimes`
+en Windows, `starttime` de `/proc` en Linux); `parar` toma la firma ANTES de matar y espera por
+ella. Con la misma idea, `arbol()` no adopta en Windows un «hijo» que nació antes que su padre
+(ppid viejo de un huérfano apuntando a un pid reciclado: matarlo sería matar algo ajeno; no se
+vio en 52 paradas medidas, es la misma trampa). El test compara firmas, no pid.
+
+**Tests de tiempo de pared.** Con `-n auto` en la laptop fallaban por tiempo (y pasaban solos).
+Un `xdist_group` NO lo arregla: junta los tests en un worker, pero los otros N−1 siguen cargando
+la CPU. Cada test pasó a medir su propiedad:
+
+| test | antes | ahora |
+|---|---|---|
+| `test_plc_rendimiento` (gate holgado y el de 50 µs de tortura) | mejor lote, pared | CPU del proceso (`process_time`), total de 2000/4000 scans |
+| `test_neumatica_cosim::test_costo…` | pared | CPU del proceso |
+| `test_cadena::test_medicion_30_lazos…` | pared (el orden simple < eslabones se invertía si la carga cambiaba entre medidas) | CPU del proceso |
+| tortura: open caliente < 0,5× frío | pared | CPU del proceso |
+| tortura: render / gravedad no bloquean mutaciones | mutación < 1 s | `Event`: la fase larga dura hasta que la mutación avisa |
+| `test_cosim_vivo_ws` (PLC externo) | llegadas al test ≥ 0,9× virtual y 0,02–0,1 s entre fotogramas | `factor` que mide el worker ≤ 1,25 |
+| `test_validation::…cache` | regenerate < 1 s | replay en frío que no vuelve al sandbox |
+| `test_jobs` long-poll, `test_sqlite` lector | < 5 s / < 2 s | < 20 s (contra 25) / < 10 s (contra 30 del busy timeout) |
+
+`process_time` en Windows avanza de a 15,6 ms (medido: 32 valores distintos en 0,5 s): por eso
+el total y no el mejor lote de ~10 ms. El PLC midió 19,5 µs de CPU por scan sin carga (18 µs de
+pared) y 39 µs con la laptop cargada por otra sesión: el gate de 50 µs de tortura sigue siendo
+de máquina. `test_cosim_vivo_ws` se reprodujo 5 de 6 veces con carga: 0,66–0,82 s entre el
+primer fotograma recibido y el `fin` para 0,97 s virtuales (los fotogramas se encolan y el
+primero llega tarde; el worker sí iba a la pared: `factor` 0,81–1,07). El de `test_validation`
+medía otra cosa: el regenerate incremental ni re-ejecuta el script, con o sin caché. Regla en
+el CLAUDE.md raíz § Ejecutar y probar.
+
+**Verificado.** Escritorio (carril C): `test_flota.py` 20/20 mientras corrían tres suites
+completas `-n auto` seguidas (verdes: 492, 475 y 296 s). Laptop: suite `-n auto` verde dos veces
+con otra sesión corriendo sus tests a la vez (5846 tests, 741 y 757 s); la tortura tocada, verde.
