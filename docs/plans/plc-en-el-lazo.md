@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; sigue F1a
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; F1a hecha (D1–D3, por revisar y mergear); sigue F1b1 ∥ F1c1
 descripcion: un PLC de verdad (o el simulador de su fabricante) mueve la máquina virtual en vivo o en una corrida a la pared, y se dice que esa corrida no es determinista; una pantalla de operador o un SCADA escriben variables del programa y siguen la sesión viva; el catálogo trae un panel de operador de 7″ para la puerta del tablero
 ---
 
@@ -296,3 +296,56 @@ Al cerrar cada fase: una línea en el CLAUDE.md que toque (`plc/`, `cosim/`, `ap
 | Una extensión vieja contra el núcleo nuevo | sólo se agrega; `CONTRATO_EXTENSIONES` sigue en 1 |
 
 ## Bitácora
+
+### F1a — Superficie, comentarios y direcciones
+
+**D1.** `extensiones_api.MODULOS` suma `apolo.plc` (`compilar`, `PLC`, `Compilado`,
+`ErrorCompilacion`, `ErrorST`, `FallaPLC`, `RUN`, `STOP`, `SIN_TENSION`), `apolo.plc.parser`
+(`parsear`), `apolo.plc.ast_st` (los 26 nodos de hoy más `Comentario`), `apolo.plc.tipos`
+(`FB_ESTANDAR`, `ELEMENTALES`, `CONVERSIONES`, `FUNCIONES_ESTANDAR`, `DEFECTO`, `RANGO`) y
+`apolo.plc.direcciones` (`parsear`, `Direccion`, `ESCALA_AI`). Todos los nombres del plan existían
+con ese nombre: ninguno se cambió. `CONTRATO_EXTENSIONES` sigue en 1.
+
+**D2.** `tokenizar(fuente, comentarios=None)`: con una lista le agrega
+`Comentario(texto, linea, col, linea_fin, estilo)` en el orden de la fuente; `parsear` siempre los
+junta en `Unidad.comentarios` (vacío por defecto). Decisiones propias (para vetar): `texto` es lo
+de ADENTRO, sin delimitadores (crudo, con sus espacios y saltos), y en `//` sin el `\r` de un fin
+de línea de Windows; `estilo` es el delimitador que abre (`(*`, `/*`, `//`), así quien imprime lo
+re-emite tal cual; un comentario sin cerrar no se junta y da el error de siempre (línea, columna,
+«falta «*)»»). Los tokens son los mismos juntando o no (todos los programas literales de
+`test_plc_*`, el banco y el sintético) y el `Compilado` también (`test_plc_comentarios.py` compila
+el mismo corpus juntando y sin juntar).
+
+**D3.** `electrico.direcciones` lo valida `library/electrico/ficha_direcciones.py` (85 líneas);
+`ficha.py` (424) sólo lo engancha y `ficha_payload` lo publica. Decisiones propias (para vetar):
+- **E/S de una ref = los bornes que el ST alcanza por dirección** (`I<byte>.<bit>`,
+  `Q<byte>.<bit>`, `AI<n>`, `AQ<n>`: la correspondencia de V8.3 D4). Así «cubre TODAS las E/S» se
+  verifica sin leer `modelo`; una ref sin ninguna rechaza el bloque y no puede nombrarlo en
+  `a_confirmar`. Si un aparato con otros nombres de E/S (un variador con `DI1`) quiere
+  direcciones, se amplía ahí.
+- **`a_confirmar` puede nombrar `direcciones`** por un keyword nuevo de
+  `ficha_datos.parse_datos(extra_a_confirmar=…)` (con default; `parse_datos` no está en
+  `MODULOS`); con mapa y en `a_confirmar` a la vez es error (lo que se confirma va SIN valor).
+- **Una sola `fuente` por ficha**, como hoy: la del PLC queda «T_max_C: …; direcciones: …».
+
+**El PLC del catálogo.** Direcciones de fábrica de la CPU 1214C DC/DC/DC leídas (≈ 10 min) en el
+manual de sistema «S7-1200 Programmable controller» V20 (Siemens, 11/2024, edición en línea en
+docs.tia.siemens.cloud, sin números de página), § Data storage, memory areas, I/O and addressing ›
+Addressing the local and expansion I/O: su figura 1 (la vista de dispositivo de una CPU 1214C) da
+DI14/DQ10 en las direcciones I 0…1 y Q 0…1 y AI2 en I 64…67; el texto de la misma sección dice
+que las digitales van de a 8 puntos por byte y que cada analógica ocupa 2 bytes → `%I0.0`…`%I1.5`,
+`%Q0.0`…`%Q1.1`, `%IW64` y `%IW66`; el «%» delante, de § Using absolute addressing to access CPU
+data. Citado en la `fuente` de la ref; nada a confirmar. El PDF del manual no se pudo leer (pasa
+de 10 MB): se leyó la edición en línea.
+
+**Vigencia (D14), medida.** `COSIM_EPOCH` sigue en 5: sólo la huella de `test_cosim_epoch.py`
+(`969969f993739c1e` → `2228ab30576e23a1`: lexer, parser y árbol están en `plc/**`). Contra
+`833ce8e` (exportado limpio con `git archive`): 154 programas (los que compilan los `test_plc_*`,
+capturados al correrlos, más el del banco y el sintético) dan el MISMO `fuente_py`,
+`mapa_lineas`, `tags`, `programas`, `rutas`, `entradas`, `salidas`, `pous_py` y disposiciones (o
+el mismo error); 6 escenarios del banco dan la MISMA huella (marcha y seta por variador
+`91332d0a…`, seta en directo `79e6df72…`, caída de red `739e1c05…`, corte de fase `359435ee…`,
+cajas con seta `175c33b4…`, atasco `2271fefb…`) y las firmas de los 4 tableros de
+`tests/tablero_electrico.py` son idénticas (directo `2:7feece8f…`, variador+PLC `2:35a1fea0…`,
+cat. 3 `2:5a114e45…`, relé de seguridad `2:da2c40a9…`); un test lo vigila quitando las
+direcciones de todas las fichas. Sin bump de `GEOM_CACHE_EPOCH` ni de versiones de comandos.
