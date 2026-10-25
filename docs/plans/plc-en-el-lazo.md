@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; F1a, F1b1 y F1c1 mergeadas; F1b2 hecha (D6 en el WS, D8 y D9 en vivo; por revisar y mergear) ∥ F1d1; después F1c2 ∥ F1d2 (`abrirSesion` con `plcExterno` queda para F1d2, D13 c)
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9); F1a, F1b1, F1c1, F1b2 y F1d1 mergeadas (superficie y comentarios del PLC, PLC externo en el lote y en vivo con ritmo de pared, escribir variables, panel de operador de 7″ con puertos RJ45); siguen F1c2 (bus de la sesión viva) y F1d2 (puntos de UI)
 descripcion: un PLC de verdad (o el simulador de su fabricante) mueve la máquina virtual en vivo o en una corrida a la pared, y se dice que esa corrida no es determinista; una pantalla de operador o un SCADA escriben variables del programa y siguen la sesión viva; el catálogo trae un panel de operador de 7″ para la puerta del tablero
 ---
 
@@ -518,3 +518,67 @@ y seta por variador `98728ceb…`, seta en directo `56560dfe…`, caída de red 
 fase `9d2321b3…`, cajas con seta `20d75121…`, atasco `c871063f…`) y una sesión viva sin externo
 cerrada como lote, la misma huella y grabación (`20d75121…`); `test_cosim_vivo.py` (determinismo)
 intacto. Sin bump de `GEOM_CACHE_EPOCH` ni de versiones de comandos; ninguna tool MCP nueva.
+
+### F1d1 — Panel de operador, puertos y cable
+
+**El panel.** `HMI-7IN-24VDC` en `maniobra_control` (P, puerta, `L+`/`M`/`PE`, carga 24 VDC,
+`cotas_verificadas: false`, `cost` 380 referencial) con línea de referencia «orden de Weintek
+cMT2078X» (el MT8071iE, primer candidato, está discontinuado). Cifras leídas (≈ 15 min) en su hoja
+de datos `cMT2078X_Datasheet_ENG_20240514` (copia del distribuidor Damen CNC): 800 × 480,
+24 VDC ± 20 % (→ `U_min_V` 19,2), 820 mA (→ `perdidas_W` 19,7, cota superior), frente
+200,3 × 146,3 × 35, recorte 192 × 138, del plano 7,4 mm delante, 27,6 detrás y cuerpo
+189,6 × 135,6, 0…55 °C (`T_max_C` 55) y LAN 1/LAN 2 10/100 Base-T. Nada a confirmar. Ocupa
+⌈200,3/70⌉ × ⌈146,3/80⌉ = 3 × 2 celdas.
+
+**Puertos.** `electrico.puertos: [{id, tipo}]` lo valida `library/electrico/ficha_puertos.py`
+(`ficha.py` sólo engancha y `ficha_payload` lo publica): lista no vacía, claves `id`/`tipo`, id sin
+espacios ni «:», único y distinto de todo borne, `tipo` en `TIPOS` (`rj45`) y `fuente` obligatoria.
+El carril no los copia (`Dispositivo.puertos` es el del aire). El panel trae `LAN1`/`LAN2`; el PLC
+gana `PN1`, leído en la hoja de datos 6ES7214-1AG40-0XB0 (Siemens, 18/02/2022, § «1. Interface»:
+PROFINET, «RJ 45 (Ethernet) Yes», «Number of ports 1»). Los variadores, ninguno.
+
+**Colocación y armado.** `colocacion_puerta.bloque(a, reglas)` = ⌈ancho/paso⌉ × ⌈alto/paso⌉; un
+bloque se centra en sus celdas contiguas y lo de varias celdas va PRIMERO (arriba, lejos de la
+bisagra); lo de una celda recorre las mismas celdas en el mismo orden que antes. El hueco sale de
+`tablero.puerta.recorte_mm` (`ficha_tablero.py`, menor que el frente y no menor que el cuerpo):
+`commands/tablero_geom.huecos_por_ref` da `("rect", ancho, alto)` y `armado.py` lo centra en la
+caja del aparato. Holgura de detrás y recorrido de la puerta, como cualquier mando
+(`tests/test_panel_operador.py`, 33 casos: verde, rojo con «faltan 21 mm de fondo» y el poste que
+el recorrido ve chocar con el marco a 0°).
+
+**Decisiones propias (para vetar):**
+- **Builder `panel_puerta`** (`library/builders_tablero.py`, archivo fuera de la lista de la fase):
+  con la caja entera el cuerpo atravesaba la chapa por un recorte menor y la interferencia del
+  tablero dejaba de ser cero; el marco va delante y el cuerpo de la ficha pasa el recorte con
+  1,2 mm por lado. Ref nueva: sin bump de `GEOM_CACHE_EPOCH`.
+- **«Lo de varias celdas primero» es general**, no del tipo `hmi`: cualquier aparato de puerta más
+  grande que una celda (antes, error «dale una `posicion`») toma su bloque antes que los demás.
+- **`cosim/tablero.py` suma `SOLO_ALIMENTACION`** (fuera de la lista de la fase): sin rama, un
+  modelo que no es de ninguna familia nunca avanza; la regla quedó en `cosim/CLAUDE.md`.
+- **La resolución va en `modelo` como `ancho_px`/`alto_px`**: `[800, 480]` lo rechaza la ficha
+  como rango [mín, máx] al revés. El modelo la publica como `pantalla_px` (y la UI la tipa en
+  `DispositivoVivo`).
+- **El consumo no carga la red de mando**, como la alimentación del PLC (`modo: ninguna`, hipótesis
+  declarada).
+
+**El cable de red, medido.** `CABLE-RJ45-CAT6` (orden de LAPP ETHERLINE LAN Cat.6 U/UTP
+4x2xAWG24, art. 2170955, ficha en línea: Ø 6 mm, 48 V rms, 60 kg/km; 0,205 mm² de la tabla AWG)
+entra por `add_cable` tal cual: el enum de `add_cable` pide hilos, así que la ficha declara los 8
+pines del RJ45 SIN color (los bicolores de TIA-568 no son un código de IEC 60757) y nadie los
+cablea con `add_wire`. Con `largo_m` la BOM lo compra por metro; el ERC no da ninguna fila del
+panel ni del cable. Sin ampliar ningún comando. Queda como pendiente que el carril no sabe que
+`-W3` une dos PUERTOS (el `desde`/`hasta` son dispositivos): eso es del plan de la red de datos,
+fuera de este (§ Lo que este plan NO hace).
+
+**Vigencia (D14), medida.** `COSIM_EPOCH` sigue en 6: sólo la huella de `test_cosim_epoch.py`
+(`5343e02e81995d98` → `9584749c555b2d38`: `modelos/hmi.py`, el registro y el gancho del tablero).
+Contra `489af7d` (exportado con `git archive`), 6 escenarios del banco dan la MISMA huella y las
+mismas claves del resultado y del `resumen` (marcha y seta por variador `6217c74d…`, seta en
+directo `82649515…`, caída de red `eb62a184…`, corte de fase `057ccaee…`, cajas con seta
+`c67fb25d…`, atasco `9cd125aa…`), y los 4 tableros de `tests/tablero_electrico.py` armados con
+`layout_tablero` dan IDÉNTICOS gabinete, aparatos (zona, posición, caja, fila), huecos, cajas de
+todas las piezas, ids de la escena y firma del documento (directo `2:c5a76b7b…`, variador+PLC
+`2:33401c66…`, cat. 3 `2:1c73aef9…`, relé de seguridad `2:89ea81ea…`; el PLC ya con su `PN1`).
+`test_contrato_comandos` no pidió nada (la colocación no está en la huella de
+`_exec_layout_tablero`): sin versión de `layout_tablero`, sin `GEOM_CACHE_EPOCH`, ninguna tool MCP
+nueva (el golden no cambia). Catálogo 448 → 450.
