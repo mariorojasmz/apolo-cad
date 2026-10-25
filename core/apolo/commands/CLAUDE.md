@@ -188,8 +188,8 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   la rama `cierres=False` cambia los logs v4 guardados.
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)
 - `layout_tablero` (`tablero.py`, V8.5 D1) es de ESCENA, lee el carril (`lee_carril`) y es
-  COMPUESTO (corre `fasten`/`add_joint`); su spec va en `SPECS_ELECTRICO` porque `registry.py`
-  está congelado. Las cajas salen de `library/electrico/armado.py` y la geometría de
+  COMPUESTO (corre `fasten`/`add_joint`); su spec va en `SPECS_ELECTRICO`, junto al carril que
+  lee, no en `registry.py`. Las cajas salen de `library/electrico/armado.py` y la geometría de
   `tablero_geom.py`: la huella D11 no las ve (cambiar su geometría = subir su `version`). La
   puerta es junta giratoria + una `fija` por mando (la FK no arrastra); D5 se verifica en el
   executor (cajas cada 1° + vecinos con OCCT) y un choque es `CommandError` con la cifra.
