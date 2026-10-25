@@ -96,12 +96,11 @@ ARCHIVOS = (
 #: variador) dan la MISMA huella que en 1f01d0a (bitácora del plan).
 #: V8.9 F6 (sin subir): `vivo_fotograma.tabla` suma `valvulas` (las electroválvulas y su
 #: accionamiento manual, sólo si hay); sólo cambia lo que el `inicio` ofrece en vivo, no el paso
-#: ni ninguna traza (como la F1b de mandos-de-seguridad).
 #: ni ninguna traza (como la F1b de mandos-de-seguridad). La electroválvula con manual publica
 #: `manual` (el lado enclavado, texto): sólo existe con válvulas; un escenario sin aire no cambia.
 #: El FRL publica `p_red_bar` y la tabla del `inicio` lleva la carrera de cada cilindro: sólo con
 #: aire, ninguna traza sin él.
-HUELLA: tuple[int, str] = (5, "RECALCULAR")
+HUELLA: tuple[int, str] = (5, "969969f993739c1e")
 
 
 def archivos() -> list[Path]:
