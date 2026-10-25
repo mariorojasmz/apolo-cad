@@ -156,6 +156,16 @@ Rutas relativas a `core/apolo/`, medidas sobre `97d93c3`.
   `CONTRATO_EXTENSIONES` sigue en 1; ninguna tool MCP nueva; `.apolo`, log y SQLite iguales salvo
   la clave opcional `electrico` en el resultado guardado de un escenario (metadato).
 
+- **D15 — Lo que dibuja `layout_tablero` lleva su `pieza` en el modelo vivo** (pedido posterior al
+  contrato, de la extensión que dibuja una pantalla sobre el panel de la puerta): hoy un aparato
+  colocado por el layout no figura como `pieza` en la tabla del `inicio` del vivo, así que nada se
+  puede pegar a él (ni la pantalla 3D de `pantallas3d`, ni abrirlo desde un clic en la pieza). Si
+  el layout ya da a cada caja un id estable (`{cmd}_d_<designación>` o el que sea), la tabla del
+  vivo lo publica como `pieza` del dispositivo; si un dispositivo tiene `pieza` explícita
+  (`add_device pieza`), gana la explícita. Sin cambio de firma (la pieza no es física del
+  circuito: va a `FUERA_DE_FIRMA` si toca `Dispositivo`) ni de geometría; `COSIM_EPOCH` sólo si la
+  huella lo pide, con el banco igual.
+
 **Se descarta:** el informe de FAT de otra extensión por API del núcleo (la FAT del núcleo son los
 escenarios, ya declarados en D1); que una extensión reemplace las notas de honestidad comercial
 del núcleo (sólo aclara, D9); los puntos resueltos de cada conductor dentro de `Analisis` (D1
@@ -228,6 +238,11 @@ F3 → F5; carril B: F2 → F4 → F6). Ningún par simultáneo toca los mismos 
   repite la vieja; tras el `fin`, nada que repetir; el WebSocket de la persona recibe lo de
   siempre; el bus nunca toma `STATE_LOCK`; `plcs` con globales, PROGRAM, CONSTANT, `AT` y FB con la
   misma escritura que las señales; sin PLC, sin clave; la huella sin cambios.
+
+- **F7 — La pieza de lo que dibuja el layout** (S · ≈ 40 min · después de F2; independiente del
+  resto): D15. **Se verifica:** un tablero armado con `layout_tablero` y un panel de operador: la
+  tabla del `inicio` trae la `pieza` de cada aparato dibujado; una `pieza` explícita gana; las
+  firmas de los cuatro tableros iguales; la huella sin subir.
 
 Al cerrar cada fase: una línea en el CLAUDE.md que toque y la `nota:`. Las cifras se miden con
 `python scripts/conteos.py`.
