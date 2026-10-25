@@ -1,7 +1,7 @@
 """`scripts/flota.py`: varias APIs a la vez, una máquina por proceso (plan
 `docs/plans/varias-maquinas-a-la-vez.md`, F3).
 
-Los de `flota_viva` levantan DOS uvicorn reales en puertos libres desde ≥ 8150 (uno ocupado a
+Los de `flota_viva` levantan DOS uvicorn reales en puertos libres desde `BASE_PUERTOS` (uno ocupado a
 propósito, para ver que lo salta), sobre una base NUEVA en tmp (nunca `data/apolo.db` ni el
 `:8000`), con el worker del sandbox apagado para no pagar su RAM dos veces. Arrancan una vez por
 módulo (~1 min, casi todo el import de cada proceso) y el último test los PARA: va al final y
@@ -25,6 +25,19 @@ from apolo.doc import Document
 from apolo.projects import ProjectStore
 
 RAIZ = Path(__file__).resolve().parents[1]
+
+# Con pytest-xdist, el módulo entero en UN worker y en su orden (`--dist loadgroup`, lo fija el
+# conftest): repartido, cada worker armaría su `flota_viva` y dos `puertos_libres(1, 8150)` a la
+# vez devuelven el mismo puerto (el `bind` del tapón o el uvicorn del otro revienta); y
+# `test_parar…` tiene que correr después de los que usan la flota.
+pytestmark = pytest.mark.xdist_group("flota")
+
+#: Base de los puertos de ESTE proceso de pytest. Con una base fija (8150), dos suites a la vez en
+#: la misma máquina (dos sesiones, dos carriles) buscaban en el mismo tramo: entre que una ve un
+#: puerto libre y su uvicorn lo enlaza, el de la otra se lo gana («puerto 8152: abrió maquina-b,
+#: no el 1»). Por pid caen en tramos distintos de 20000–27996, fuera del efímero de Windows
+#: (49152+) y del de Linux (32768+); `puertos_libres` igual salta lo ocupado.
+BASE_PUERTOS = 20000 + (os.getpid() % 2000) * 4
 
 
 def _cargar_flota():
@@ -144,7 +157,7 @@ def flota_viva(tmp_path_factory):
     db = carpeta / "apolo.db"
     st = ProjectStore(db)
     ids = [st.create(Document(n)) for n in ("maquina-a", "maquina-b", "maquina-c")]
-    ocupado = flota.puertos_libres(1, 8150)[0]
+    ocupado = flota.puertos_libres(1, BASE_PUERTOS)[0]
     tapon = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tapon.bind(("127.0.0.1", ocupado))
     tapon.listen(1)
@@ -264,7 +277,7 @@ def test_si_uno_no_arranca_no_queda_ninguno(tmp_path):
     antes = so.arbol(os.getpid())
     try:
         with pytest.raises(flota.FlotaError, match=f"El proyecto {tomado} está abierto"):
-            flota.arrancar([libre, tomado], puerto_base=8150, db=str(db), d=tmp_path,
+            flota.arrancar([libre, tomado], puerto_base=BASE_PUERTOS, db=str(db), d=tmp_path,
                            forzar=True, timeout_s=240,
                            entorno={"APOLO_SANDBOX_PREWARM": "0",
                                     "APOLO_LOGS": str(tmp_path / "logs")})

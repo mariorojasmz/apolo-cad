@@ -27,6 +27,28 @@ os.environ["APOLO_EXTENSIONES_INSTALADAS"] = "0"
 pytest_plugins = ["apolo.pruebas"]
 
 
+def pytest_configure(config):
+    """Con pytest-xdist (`-n N`), reparto `loadgroup` en vez de `load`: los módulos marcados con
+    `xdist_group` (`test_flota.py`) corren juntos en un worker y en orden. Sin `-n` no cambia
+    nada; así nadie tiene que recordar `--dist loadgroup` (uno explícito se respeta).
+
+    Dos mitades: el controlador elige el planificador por `option.dist`; cada worker re-parsea
+    los argumentos de la línea de comandos (no recibe las opciones del controlador) y sólo suma
+    el sufijo `@grupo` al nodeid si `option.loadgroup` → se lo pasa `workerinput`."""
+    if hasattr(config, "workerinput"):
+        if config.workerinput.get("apolo_dist") == "loadgroup":
+            config.option.loadgroup = True
+    elif getattr(config.option, "dist", "no") == "load" and getattr(config.option,
+                                                                      "numprocesses", None):
+        config.option.dist = "loadgroup"
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node):
+    """Hook de pytest-xdist (en el controlador, por worker): le avisa el reparto elegido."""
+    node.workerinput["apolo_dist"] = node.config.option.dist
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _tienda_por_defecto():
     """El cierre del video (`media/cierre.py`) toma su dominio de `APOLO_TIENDA_URL`: una de la
