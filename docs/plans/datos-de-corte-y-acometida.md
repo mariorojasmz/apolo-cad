@@ -489,3 +489,72 @@ pasan y 10 se saltan, EXIT 0 (antes 5388: +18 de `test_cosim_diferencial.py`, +2
 parametrizados por ref del catálogo con las 8 nuevas). `ruff check core tests scripts` limpio
 (laptop y escritorio). vitest 520 → 521 y `npm run build` limpio. Refs del catálogo: 420 → 428
 (61 de tablero: 34 con `T_max_C` de ficha, 27 a confirmar). Búsqueda de fichas: ≈ 17 min.
+
+### F1c — La acometida en la co-simulación (2026-10-24)
+
+**Qué se hizo.**
+- `library/electrico/acometida.py` (nuevo, puro: sólo `referencias`): `ESQUEMAS` (TN-S, TN-C-S, TT,
+  IT), `HEREDADO` «TN», `PE_ES_TIERRA`, `OPCIONALES = {"red": {esquema, RA_ohm}}`,
+  `normalizar_esquema` (mayúsculas; «TN-C» explica que el tablero recibe el PE aparte),
+  `chequear_ra` (> 0 y sólo con TT), `esquema_de`/`ra_de` (ajuste primero, luego ficha),
+  `validar_ajustes` y `validar_modelo` (la ficha), y `HIPOTESIS_RA`.
+- `ajustes.py`: `OPCIONALES = acometida.OPCIONALES`; un opcional de su tipo se valida en
+  `acometida` y no necesita estar en la ficha (la red de 220 V 3F sin esquema acepta `esquema` y
+  `RA_ohm`). `ficha.py`: el `esquema` y el `RA_ohm` del `modelo` de una red, con la misma lista.
+- `services/cosim_red._tierra`: TN/TN-S/TN-C-S → `pe_a_neutro`; TT con RA → `R_tierra_ohm` + la
+  hipótesis «RA + RB, con sólo RA es optimista»; TT sin RA → aviso en la entrada; IT → el PE fuera.
+  Con esquema la fuente suma `esquema` (sólo informa los mensajes); sin esquema, ninguna clave
+  nueva.
+- `cosim/red`: `FuenteRed.esquema` y `R_tierra_ohm` opcionales (`FORMATO` sigue en 1; `R_tierra_ohm`
+  con `pe_a_neutro` o en continua es `EntradaInvalida`); `topologia` siembra el PE con
+  `R_tierra_ohm`; `potencia` lo une a tierra (la estrella de la fuente) con una estampa fija de 1/R.
+- `cosim/fallas._por_que_fuera`: el corto a un punto unido (todo cerrado) al PE de una red TT sin
+  RA o IT se rechaza con su motivo («en TT declara RA_ohm», «en IT el primer defecto a masa no da
+  corriente de falla»); si no, el genérico, que ahora nombra también el TT con RA.
+- `cosim/modelos/alimentacion.Red`: con `Icc_kA` ajustado la hipótesis dice «declarada en los
+  ajustes de la red (X/R = …, también ajustada | la del catálogo)», no «SUPUESTA».
+- `COSIM_EPOCH` 4 → 5, con su motivo en `cosim/__init__.py` y en `tests/test_cosim_epoch.py`
+  (`83fa80d88fa87064`).
+- Tests: `tests/test_acometida.py` (21): Icc/X_R ajustados (Zk y hipótesis), la lista y la
+  normalización, cada rechazo con qué corregir, la ficha, el log con «TN» y «tt» reabierto en
+  carga tolerante sin suprimir nada, TN-S y TN-C-S con la misma traza que TN, TT + RA 100 Ω + corto
+  franco (residual ≈ 2,2 A: dispara el de 30 mA en 0,02 s, el ITM C6 con 3,2 A no), TT en la red
+  sin esquema (el PE sube a 127 V con 50 Ω), IT y TT sin RA rechazan el corto a PE, la entrada sin
+  esquema y el formato plano.
+
+**Vigencia (D11), medida.** Sin esquema la entrada de la red es idéntica: el hash de la entrada de
+los dos tableros del banco (`faja_directo` `d5f56b26…`, `faja_variador` `55288a7b…`) y la huella de
+5 escenarios (marcha `84c15fe7…`, seta `7d26207f…`, caída de red `6e65388e…`, corto entre fases
+`91e85e7a…`, variador `dff9ce41…`) son los mismos en `1f01d0a` y en esta rama. El TN-S da la misma
+traza que el TN (test). `COSIM_EPOCH` sube igual (D11): un `esquema` ajustado que antes se ignoraba
+ahora se lee. Firma del documento: no se mueve (el catálogo de redes no cambió su `modelo`); quien
+pone un ajuste nuevo cambia su log. Sin bump de `GEOM_CACHE_EPOCH` ni de versiones de comandos
+(`add_device` no cambia geometría; `test_contrato_comandos` no lo pidió).
+
+**Documentos con `esquema` (plan § Riesgos).** Ninguno trae otro valor que la lista: la copia de
+lectura de la base de la laptop (`data/apolo.db`: 34 proyectos y 119 revisiones, todos los
+`commands.json`/`manifest.json`) no tiene ni `esquema` ni `RA_ohm` en ningún lado; los 4 testigos
+`.apolo` de `tests/data/testigos/` tampoco, y el banco (`tests/tablero_electrico.py`) usa
+`RED-3F-220V-60HZ` sin esquema. En el catálogo sólo hay «TN» (2 redes), que sigue valiendo.
+
+**Decisiones propias (para vetar).**
+- **No se unificó con `ficha_datos.MODELO_SIN_VALOR`**: `a_confirmar` nombra lo que una FICHA
+  debería traer y no trae (el esquema de una red); `RA_ohm` es de la obra (se mide en sitio) y el
+  test de F1a que lo rechaza en `a_confirmar` sigue valiendo. Las dos listas tienen semánticas
+  distintas.
+- **`RA_ohm` sin esquema declarado es error** («el esquema es sin declarar: declara también esquema
+  «TT»»), no un TT implícito.
+- **«TN-C» se rechaza con su explicación** (el tablero recibe el PE separado: TN-C-S), en vez de
+  sólo la lista.
+- **La tierra de la red de potencia es la estrella de la fuente**: en TT la estampa de 1/RA va del
+  PE a ella, así que RA hace de lazo RA + RB (la hipótesis lo dice).
+- **El motivo del rechazo mira la conexión del punto al PE** (todo cerrado, por las ramas), no el
+  nombre del borne: un `-X1:PE` cableado al PE de la red da el mismo motivo.
+- **TT sin RA avisa en la entrada** (`avisos`): el PE queda fuera y una falla a masa no se simula.
+- **La hipótesis de Icc ajustada no se calla**: se declara de dónde viene (los ajustes) y si la X/R
+  también lo es.
+
+**Conteos medidos.** Suite completa en el escritorio (carril C, `1019094`): 5509 pasan y 10 se
+saltan, EXIT 0 (antes 5488: +21 de `test_acometida.py`). `ruff check core tests scripts` limpio
+(laptop y escritorio). Sin cambios en la UI ni en el catálogo (428 refs). En la laptop, los tests de
+extensiones fallan por una extensión privada instalada en su venv (ajeno a esta fase).
