@@ -122,3 +122,113 @@ def test_el_gate_caza_una_copia_en_vez_del_mismo_objeto(monkeypatch):
     assert faltantes("apolo.commands.models", MODELS) == [
         "apolo.commands.models.CreateBoxParams: no es el objeto de apolo.commands.models_basicos"
     ]
+
+
+# ── mcp_server (F1) ───────────────────────────────────────────────────────────
+
+#: Casa de cada tool que `apolo.mcp_server` definía en línea en `1f13862` (76), en el orden de
+#: `list_tools()`. Las de `tools/` nacen DENTRO de `registrar` (no son atributos de su módulo):
+#: su casa se prueba por `__module__` y su identidad contra la tool registrada en `mcp`.
+MCP: dict[str, tuple[str, ...]] = {
+    "apolo.tools.consulta": (
+        "get_scene", "get_command_schemas", "get_catalog", "get_bom", "get_costing",
+        "set_material", "set_color", "set_vertical", "get_kinematics", "get_design_guidelines",
+    ),
+    "apolo.mcp_server": (
+        "run_command", "run_batch", "edit_command", "edit_batch", "get_job", "undo",
+        "set_variable",
+    ),
+    "apolo.tools.validacion": ("check_interference", "engineering_check", "render_view", "preview"),
+    "apolo.tools.proyectos": (
+        "list_projects", "open_project", "create_project", "save_revision", "save_configuration",
+        "apply_configuration", "export_step", "export_stl", "export_flat_pattern", "drop_test",
+    ),
+    "apolo.tools.introspeccion": (
+        "get_command", "find_commands", "test_sketch", "test_script", "redo", "get_mates",
+        "get_dof", "check_assembly", "autodetect_connections", "get_connections",
+        "delete_connection", "delivery_check", "gravity_test", "get_motion", "set_motion",
+        "scan_motion", "motion_gif", "get_stackup", "set_stackup", "list_revisions",
+        "restore_revision",
+    ),
+    "apolo.tools.topologia": (
+        "get_topology", "get_requirements", "set_requirements", "auto_group", "get_groups",
+        "get_mass_properties", "measure", "near", "verify", "pick_point",
+    ),
+    "apolo.tools.fabricacion": (
+        "cut_list", "nesting", "drawing_set", "calc_report", "quotation", "assembly_manual",
+        "drawing",
+    ),
+    "apolo.tools.visibilidad": ("set_visibility", "set_visibility_bulk"),
+    "apolo.tools.calculo": (
+        "resolve_expression", "get_expression_grammar", "get_fit", "fea_static", "fea_assembly",
+    ),
+}
+
+#: Lo que `mcp_server` conserva además de las tools (D2): los tests lo parchean o lo importan.
+MCP_INFRA = ("_api", "_reject", "_submit_and_wait", "_mutacion", "_paso", "APOLO_URL",
+             "APOLO_MCP_WAIT_S", "_scene_brief", "_one_or_many", "_job_receipt", "_job_result")
+
+TOOLS_EN_LINEA_MCP = 76
+
+
+def faltantes_mcp() -> list[str]:
+    """Tools que `apolo.mcp_server` ya no sirve como atributo invocable, que no son la función
+    registrada en su `mcp` o que no nacieron en su casa; y la infraestructura que falta."""
+    pytest.importorskip("mcp")
+    srv = importlib.import_module("apolo.mcp_server")
+    malos: list[str] = []
+    for casa, nombres in MCP.items():
+        for nombre in nombres:
+            fn = getattr(srv, nombre, None)
+            if not callable(fn):
+                malos.append(f"apolo.mcp_server.{nombre}: ya no existe")
+                continue
+            tool = srv.mcp._tool_manager.get_tool(nombre)
+            if tool is None or tool.fn is not fn:
+                malos.append(f"apolo.mcp_server.{nombre}: no es la tool registrada en mcp")
+            elif fn.__module__ != casa:
+                malos.append(f"apolo.mcp_server.{nombre}: nace en {fn.__module__}, no en {casa}")
+    return malos + [f"apolo.mcp_server.{n}: ya no existe" for n in MCP_INFRA
+                    if not hasattr(srv, n)]
+
+
+def test_mcp_server_sirve_cada_tool_por_identidad():
+    assert faltantes_mcp() == []
+
+
+def test_mcp_lista_cerrada():
+    nombres = [n for ns in MCP.values() for n in ns]
+    assert len(nombres) == len(set(nombres)) == TOOLS_EN_LINEA_MCP
+
+
+def test_el_gate_mcp_caza_una_tool_que_falta(monkeypatch):
+    pytest.importorskip("mcp")
+    import apolo.mcp_server as srv
+
+    monkeypatch.delattr(srv, "get_scene")
+    assert faltantes_mcp() == ["apolo.mcp_server.get_scene: ya no existe"]
+
+
+def test_el_gate_mcp_caza_una_copia(monkeypatch):
+    pytest.importorskip("mcp")
+    import apolo.mcp_server as srv
+
+    def verify(checks):  # mismo nombre, otra función
+        return ""
+
+    monkeypatch.setattr(srv, "verify", verify)
+    assert faltantes_mcp() == ["apolo.mcp_server.verify: no es la tool registrada en mcp"]
+
+
+def test_las_tools_movidas_ven_el_api_parcheado(monkeypatch):
+    """Las tools de `tools/` reciben `_api` como lambda tardía: parchear `mcp_server._api` llega."""
+    pytest.importorskip("mcp")
+    import apolo.mcp_server as srv
+
+    class _Resp:
+        def json(self):
+            return {"ok": "parcheado"}
+
+    monkeypatch.setattr(srv, "_api", lambda *a, **k: _Resp())
+    assert srv.get_kinematics() == '{"ok": "parcheado"}'
+    assert srv.resolve_expression("=1") == '{"ok": "parcheado"}'

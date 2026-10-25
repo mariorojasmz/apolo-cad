@@ -20,12 +20,15 @@ backend: se mantiene ≤ 10 KB.
 ## MCP (`mcp_server.py`): cliente fino
 
 - Sólo habla HTTP con la API: sin lógica de dominio ni imports de `doc`/`kernel`. Una tool nueva
-  = endpoint en `api/` + wrapper (`mcp_server.py` está en el trinquete de tamaño: va a
-  `tools/<tema>.py` con un `registrar(mcp, api)` que `mcp_server` llama al final, como
-  `tools/mcp_electrico.py`, `tools/simulacion.py` y `tools/calidad.py` (`publication_gate`); una mutación recibe `_mutacion` en vez de `_api`,
-  como `tools/cirugia.py`, y lo que corre como job sin ser mutación, `_submit_and_wait`
-  (`tools/cosim.py`); ese módulo NUNCA importa `apolo.mcp_server`: con `-m` el servidor es
-  `__main__` y la tool caería en otra copia) + su caso en `scripts/golden_mcp_casos.py` + su lugar
+  = endpoint en `api/` + wrapper en `tools/<tema>.py`, nunca en línea en `mcp_server.py` (sólo
+  guarda la infraestructura, el bloque «modelado» y los registradores): va al módulo de su tema y
+  se registra EN SU LUGAR (el orden de `list_tools()` es el del golden). Los bloques partidos
+  (`consulta`, `validacion`, `proyectos`, `introspeccion`, `topologia`, `fabricacion`,
+  `visibilidad`, `calculo`) devuelven sus tools y `mcp_server` las re-exporta con
+  `globals().update(<tema>.registrar(...))` ([partir-nucleo-congelado](../../docs/plans/partir-nucleo-congelado.md)
+  D5). `registrar` recibe `_api` como lambda TARDÍA (una mutación, `_mutacion`: `tools/cirugia.py`;
+  un job que no muta, `_submit_and_wait`: `tools/cosim.py`) y NUNCA importa `apolo.mcp_server`:
+  con `-m` el servidor es `__main__` y la tool caería en otra copia) + su caso en `scripts/golden_mcp_casos.py` + su lugar
   en `tools/catalogo.py` (`CHAT` o `FUERA_DEL_CHAT` con el motivo; lo exige
   `tests/test_catalogo_chat.py`, donde una lectura nueva del chat lleva su muestra). El host MCP
   se reinicia para verla.
