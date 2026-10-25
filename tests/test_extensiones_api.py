@@ -81,6 +81,78 @@ def test_la_extension_falsa_importa_del_nucleo_solo_por_la_superficie():
     assert not otros, "\n".join(otros)
 
 
+#: plan pedidos-de-extensiones, D1: lo que ya existía y una extensión leía por fuera, declarado con
+#: los nombres de hoy (agregar no sube el contrato)
+PEDIDOS_MODULOS = {
+    "apolo.drawing.esquema": ("PILOTAJE", "pilotaje", "trazos_mm", "TRAZO_X_GROSOR",
+                              "HUECO_X_GROSOR"),
+    "apolo.library.electrico.redes": ("resolver",),
+    "apolo.drawing.dwg": ("DwgError", "disponible", "sheet_to_dwg"),
+    "apolo.services.escenarios": ("listar", "estado", "firma_documento", "SIN_CORRER", "VENCIDO"),
+    "apolo.cosim.vivo_fotograma": ("FORMATO", "CABECERA", "leer_fotograma"),
+}
+
+
+@pytest.mark.parametrize("modulo,nombre", [(m, n) for m, ns in PEDIDOS_MODULOS.items() for n in ns])
+def test_lo_de_pedidos_de_extensiones_esta_declarado(modulo, nombre):
+    assert nombre in extensiones_api.MODULOS.get(modulo, ()), f"{modulo}.{nombre} no está en MODULOS"
+    assert hasattr(importlib.import_module(modulo), nombre)
+
+
+def test_pedir_entregable_esta_en_la_superficie_sin_subir_el_contrato():
+    from apolo.tools import entregable
+
+    assert extensiones_api.SUPERFICIE["pedir_entregable"] == "apolo.tools.entregable:pedir"
+    assert extensiones_api.pedir_entregable is entregable.pedir
+    assert extensiones.CONTRATO_EXTENSIONES == extensiones_api.CONTRATO_EXTENSIONES == 1
+
+
+def test_la_extension_falsa_lee_por_el_contrato(monkeypatch):
+    """D13 de lectura: la extensión resuelve bornes, dibuja el pilotaje, sabe si hay DWG, lee la
+    FAT del núcleo y un fotograma del vivo, todo con los nombres de D1 (`ext_prueba/contrato.py`)."""
+    import struct
+
+    from ext_prueba import contrato
+    from tablero_electrico import arranque_directo
+
+    from apolo.doc import Document
+    from apolo.drawing import dwg as D
+    from apolo.drawing.esquema import PILOTAJE
+    from apolo.drawing.sheet import SheetModel
+    from apolo.services import escenarios as E
+
+    d = Document("tablero")
+    d.execute_many(arranque_directo())
+    b = contrato.bornes(d, ["-Q3:A1", "-K9:A1", "-Q3:Z9"])
+    assert b["-Q3:A1"] == ["-Q3", "A1"]
+    assert "no existe" in b["-K9:A1"] and "no tiene el borne Z9" in b["-Q3:Z9"]
+
+    m = SheetModel(297, 210)
+    assert contrato.envolvente(m, 10, 10, 60, 40) == pytest.approx((4.2, 1.05))
+    assert [ln.kind for ln in m.lines] == [PILOTAJE] * 4
+
+    monkeypatch.setattr(D, "_discover", lambda *a, **k: False)
+    assert contrato.dwg(m) == {"dwg": None, "aviso": D.SIN_ODA}
+
+    assert contrato.fat(d) == {"firma": E.firma_documento(d), "escenarios": []}
+    E.poner(d, "corto", {"duracion_s": 1})
+    E.poner(d, "corrido", {"duracion_s": 1})
+    ver = {"veredicto": "pasa", "aserciones": [], "n_fallidas": 0}
+    comp = E.resultado_compacto(ver, {"resumen": {}}, firma=E.firma_documento(d),
+                                hash_esc=E.hash_escenario(d.escenarios["corrido"]["escenario"]),
+                                simulacion="s1")
+    assert E.guardar_resultado(d, "corrido", comp)
+    filas = {f["nombre"]: f for f in contrato.fat(d)["escenarios"]}
+    assert filas["corto"] == {"nombre": "corto", "estado": E.SIN_CORRER, "vigente": False}
+    assert filas["corrido"] == {"nombre": "corrido", "estado": "pasa", "vigente": True}
+
+    plano = [1, 0.5, 1.0, 0, 0, 0, 0, 2, 3.0, float("nan")]
+    f = contrato.fotograma(struct.pack("<10f", *plano), ["-M1.rpm", "-Q3.cerrado"])
+    assert f == {"t": 0.5, "factor": 1.0, "valores": {"-M1.rpm": 3.0}}
+    with pytest.raises(ValueError, match="formato 2"):
+        contrato.fotograma(struct.pack("<8f", 2, 0, 1, 0, 0, 0, 0, 0), [])
+
+
 def test_el_motor_de_laminas_esta_declarado_y_la_extension_falsa_lo_usa():
     """F1d: `drawing.sheet`, `tabla`, `titleblock` y `pdf` en `MODULOS`, y una extensión arma con
     ellos un PDF de varias hojas con su cajetín (`tests/ext_prueba/laminas.py`)."""

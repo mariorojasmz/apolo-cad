@@ -76,6 +76,10 @@ backend: [core/apolo](../CLAUDE.md).
   intercambio por vez y un corte PAUSA la sesión (nunca sigue con salidas viejas); al reanudar,
   `Corrida.intercambio` sigue desde el PLC que cortó (`_reanudar`): agenda y tablero NO se
   vuelven a correr (integrarían ese Δt dos veces). Lo que lance el conector en vivo es `LazoCortado`. (F1b2)
+- **El fotograma y el `inicio` del vivo son contrato de extensiones** (`vivo_fotograma` en
+  `extensiones_api.MODULOS`): cambiar la cabecera, el orden de los bloques o el tipo (float32 LE)
+  sube `FORMATO`; quitar o renombrar una clave del `inicio` sube su `version` (agregar, no). Lo
+  congela `tests/test_fotograma_contrato.py`. [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (D2)
 - Motor = placa SIEMPRE (el snapshot la arma; sin `forcelimited` no se escribe el tope). El
   atasco es `dof_frictionloss`, no `qfrc_applied` (un par explícito vibra en ω = 0).
 - La potencia se re-resuelve sólo si algo cambió más de `TOL_POTENCIA`; un dato nuevo que la

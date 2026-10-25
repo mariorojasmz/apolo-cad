@@ -82,6 +82,9 @@ SUPERFICIE: dict[str, str] = {
     # filas del costeo y reglas de la puerta de entrega (plan puntos-de-extension-entregables)
     "FuenteCosteo": "apolo.library.costeo_extension:FuenteCosteo",
     "ReglaEntrega": "apolo.library.entrega_extension:ReglaEntrega",
+    # la tool de un entregable lento (plan pedidos-de-extensiones, D1): lo pide como job y guarda
+    # el archivo en `path`, o devuelve el recibo que `get_job` recoge
+    "pedir_entregable": "apolo.tools.entregable:pedir",
 }
 
 #: módulo → nombres que una extensión de dominio usa de él (medido sobre `publicacion/` en la F0 y
@@ -105,10 +108,15 @@ MODULOS: dict[str, tuple[str, ...]] = {
     "apolo.drawing.pdf": ("sheet_to_pdf", "sheets_to_pdf"),
     # los trazos de esquema (plan puntos-de-extension-entregables, D6) y los otros dos
     # exportadores: una extensión que dibuja esquemas los entrega en SVG (su panel) y DXF
-    "apolo.drawing.esquema": ("D_UNION_MM", "ESTILOS", "GROSOR_SIMBOLO_MM", "LLENO", "NEGRO",
-                              "SIMBOLO", "circulo", "conductor", "poligono", "punto_union"),
+    # (pedidos-de-extensiones D1: la línea a trazos de pilotaje y su medida)
+    "apolo.drawing.esquema": ("D_UNION_MM", "ESTILOS", "GROSOR_SIMBOLO_MM", "HUECO_X_GROSOR",
+                              "LLENO", "NEGRO", "PILOTAJE", "SIMBOLO", "TRAZO_X_GROSOR",
+                              "circulo", "conductor", "pilotaje", "poligono", "punto_union",
+                              "trazos_mm"),
     "apolo.drawing.svg": ("sheet_to_svg",),
     "apolo.drawing.dxf": ("sheet_to_dxf",),
+    # el DWG (pedidos-de-extensiones D1): si hay conversor y una lámina a DWG
+    "apolo.drawing.dwg": ("DwgError", "disponible", "sheet_to_dwg"),
     "apolo.doc.prefijos": ("iter_prefijos",),
     "apolo.kernel.glb": ("PiezaGlb", "TOPE_TRIANGULOS", "ZonaGlb", "a_glb", "escribir_glb"),
     "apolo.kernel.glb_resumen": ("resumen",),
@@ -140,7 +148,8 @@ MODULOS: dict[str, tuple[str, ...]] = {
     # D1): el modelo y su chequeo, las redes, el tablero armado y ruteado, los cables de campo, la
     # R y la X de un conductor (las de la co-simulación) y el catálogo
     "apolo.services.electrico": ("chequeo", "modelo"),
-    "apolo.library.electrico.redes": ("Analisis", "analizar"),
+    # (pedidos-de-extensiones D1: `resolver`, la MISMA regla de «-K1:A1» → (designación, borne))
+    "apolo.library.electrico.redes": ("Analisis", "analizar", "resolver"),
     "apolo.library.electrico.modelo": ("Borne", "Cable", "Camino", "Carga", "Conductor",
                                        "Dispositivo", "Fuente", "Hilo", "ModeloElectrico", "Paso",
                                        "Programa", "Red"),
@@ -166,6 +175,11 @@ MODULOS: dict[str, tuple[str, ...]] = {
     "apolo.plc.tipos": ("CONVERSIONES", "DEFECTO", "ELEMENTALES", "FB_ESTANDAR",
                         "FUNCIONES_ESTANDAR", "RANGO"),
     "apolo.plc.direcciones": ("Direccion", "ESCALA_AI", "parsear"),
+    # la prueba virtual y la sesión viva (plan pedidos-de-extensiones, D1/D2): los escenarios con
+    # su estado y vigencia (la FAT del núcleo) y el formato del fotograma binario del vivo, cuya
+    # disposición es contrato (cambiarla sube `FORMATO`)
+    "apolo.services.escenarios": ("SIN_CORRER", "VENCIDO", "estado", "firma_documento", "listar"),
+    "apolo.cosim.vivo_fotograma": ("CABECERA", "FORMATO", "leer_fotograma"),
 }
 
 def resolver(origen: str):

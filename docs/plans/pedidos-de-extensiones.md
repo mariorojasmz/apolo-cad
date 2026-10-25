@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; dos carriles F1 ∥ F2 → F3 ∥ F4 → F5 ∥ F6; F2 implementada en su rama (sin mergear; `simbolo`, `acoplado_a`, `FUERA_DE_FIRMA`); sigue F1 y después F3 ∥ F4
+nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; dos carriles F1 ∥ F2 → F3 ∥ F4 → F5 ∥ F6; F2 mergeada (`simbolo`, `acoplado_a`, `FUERA_DE_FIRMA`); F1 implementada en su rama (sin mergear; `MODULOS` + `pedir_entregable`, fotograma congelado, `ext_prueba/contrato.py`); sigue F3 ∥ F4
 descripcion: una extensión lee el circuito, la prueba virtual y la sesión viva por el contrato declarado (con las cifras eléctricas medidas, los tipos de las variables del PLC y la sesión ya abierta), entrega sus archivos lentos como job y suma notas a la cotización
 ---
 
@@ -276,6 +276,31 @@ Al cerrar cada fase: una línea en el CLAUDE.md que toque y la `nota:`. Las cifr
 | Archivos cerca del tope (`cosim_vivo.py` 428, `colocacion.py` 412, `extensiones_puntos.py` 375) | módulos nuevos; ninguno pasa de 500 |
 
 ## Bitácora
+
+### F1 — Superficie de lo que ya existe
+
+**D1.** Todos los nombres del plan existen hoy con ese nombre (ninguno se cambió). `MODULOS` suma
+a `apolo.drawing.esquema` `PILOTAJE`, `pilotaje`, `trazos_mm`, `TRAZO_X_GROSOR` y `HUECO_X_GROSOR`;
+a `apolo.library.electrico.redes`, `resolver`; y entran `apolo.drawing.dwg` (`DwgError`,
+`disponible`, `sheet_to_dwg`), `apolo.services.escenarios` (`listar`, `estado`, `firma_documento`,
+`SIN_CORRER`, `VENCIDO`) y `apolo.cosim.vivo_fotograma` (`FORMATO`, `CABECERA`, `leer_fotograma`).
+`SUPERFICIE` suma `pedir_entregable` → `apolo.tools.entregable:pedir` (perezoso: importar la
+superficie sigue sin cargar OCCT). `tests/test_extensiones_api.py` lleva un caso por módulo y
+nombre nuevos (`PEDIDOS_MODULOS`) y el de `pedir_entregable` por identidad;
+`CONTRATO_EXTENSIONES` sigue en 1.
+
+**D2.** `tests/test_fotograma_contrato.py` (sin MuJoCo): congela `FORMATO = 1`, `CABECERA = 8` y
+la línea de la cabecera del docstring; lee un fotograma SINTÉTICO armado con `struct` en `<f`
+(no con el empacador: una regresión de uno no la tapa el otro), bloque por bloque, con un producto
+sin nacer (NaN) y una señal sin valor; y llama `_inicio` con un `prep` mínimo para fijar
+`version: 1` y sus claves. La regla, en `cosim/CLAUDE.md` (al final de «Planificador y worker»).
+`vivo_fotograma.py` no se tocó: la huella de `test_cosim_epoch.py` no cambia.
+
+**D13 de lectura.** `tests/ext_prueba/contrato.py` lee sólo con esos nombres (el gate de imports
+la acepta): `bornes` con `resolver` sobre los dispositivos del modelo, `envolvente` con
+`pilotaje`/`trazos_mm` (4,2 / 1,05 mm), `dwg` con `disponible`/`sheet_to_dwg`/`DwgError` (sin ODA,
+el aviso del núcleo), `fat` con `listar`/`estado`/`firma_documento` (vigente = ni `SIN_CORRER` ni
+`VENCIDO`) y `fotograma` con `leer_fotograma` y los nombres de la tabla (rechaza otro `FORMATO`).
 
 ### F2 — El dispositivo dice su símbolo y quién lo mueve
 
