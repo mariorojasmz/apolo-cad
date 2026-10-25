@@ -244,11 +244,22 @@ def _sha(x) -> str:
                           .encode()).hexdigest()[:16]
 
 
-#: (costeo, hojas en USD, hojas en PEN a 3.7), medidas sobre `f3b36bd` y sobre F5: iguales
+def _firma(paginas) -> tuple[str, str]:
+    """(la hoja de resumen entera, el texto de las demás sin espacios). Las tablas se congelan
+    por su TEXTO: sus anchos y cortes salen de la fuente de matplotlib, que cambia entre versiones
+    (3.10 y 3.11 dan otras coordenadas); su geometría la vigila `test_cotizacion_f4c.py`."""
+    resto = "".join(lb.text for p in paginas[1:] for lb in p.labels).replace(" ", "")
+    return _sha(asdict(paginas[0])), hashlib.sha256(resto.encode()).hexdigest()[:16]
+
+
+#: (costeo, resumen y resto en USD, resumen y resto en PEN a 3.7); iguales sobre `f3b36bd`
 CONGELADO = {
-    "mesa": ("02d6203896ab7622", "52cf0f915b236071", "a0fffdaa61c335d7"),
-    "directo": ("846066ca50189fba", "27bc5b30c36023ee", "7737bb2f098b013c"),
-    "vfd": ("e1530b6e92366c4b", "d6d668c481aa5463", "7ab91095241808bc"),
+    "mesa": ("02d6203896ab7622", "097db94cb7e41ded", "3adf73876b16a5f4", "5980d794e691ff56",
+             "162f5598762e33f1"),
+    "directo": ("846066ca50189fba", "fba44f51fa802ecb", "463b09e7efa8a7ef", "cbabb7842ceb898f",
+                "7415f138299ba4b2"),
+    "vfd": ("e1530b6e92366c4b", "08025d72d650b20f", "91022a15b4252336", "aadd38917ac84e24",
+            "266c4eb86021f9cd"),
 }
 
 
@@ -261,6 +272,5 @@ def test_sin_extensiones_costeo_y_cotizacion_congelados(nombre):
     d = {"mesa": _mesa, "directo": _directo, "vfd": _vfd}[nombre]()
     data = costeo(d)
     assert "notas" not in data and "extensiones" not in data
-    usd = [asdict(p) for p in _paginas(d)]
-    pen = [asdict(p) for p in _paginas(d, fx=3.7, currency="PEN")]
-    assert (_sha(data), _sha(usd), _sha(pen)) == CONGELADO[nombre]
+    firma = (_sha(data), *_firma(_paginas(d)), *_firma(_paginas(d, fx=3.7, currency="PEN")))
+    assert firma == CONGELADO[nombre]

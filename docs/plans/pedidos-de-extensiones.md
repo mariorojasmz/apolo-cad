@@ -554,7 +554,9 @@ borde» a 100 ppp está dentro del relleno.
 **Vigencia (D14), medida** contra `f3b36bd` exportado con `git archive`, sin extensiones, con
 `SOURCE_DATE_EPOCH=0`: el costeo (JSON), las hojas (`asdict` de cada `SheetModel`) y los bytes del
 PDF de la cotización en USD y en PEN a 3,7 de tres documentos —una mesa, el arranque directo y el
-tablero con variador y aviso de cobro— son IDÉNTICOS. El test congela costeo y hojas (sha de los
-valores redondeados a 1e-4; el PDF lleva la versión de matplotlib en sus bytes). Sin bumps de
+tablero con variador y aviso de cobro— son IDÉNTICOS. El test congela el costeo, la hoja de
+resumen entera y el TEXTO de las demás: las coordenadas de una tabla salen de la fuente de
+matplotlib y cambian entre versiones (3.10.9 en la laptop y 3.11.2 en el escritorio dan otras
+hojas de detalle con el mismo código; el PDF, además, lleva la versión en sus bytes). Sin bumps de
 `GEOM_CACHE_EPOCH` ni de comandos; `COSIM_EPOCH` no se toca; ninguna tool MCP nueva; golden sin
 cambios.
