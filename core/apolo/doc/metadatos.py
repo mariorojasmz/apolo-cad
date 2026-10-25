@@ -1,0 +1,227 @@
+"""Mixin de METADATOS de manifest del documento: variantes, color, material, vertical,
+movimiento, cadenas de cotas, FEA, requisitos, visibilidad y boceto-guía.
+
+Sale de `document.py` (plan partir-nucleo-congelado, F5): `Document` hereda los métodos tal cual.
+Viven fuera del log y de los checkpoints (por qué: CLAUDE.md raíz, «Metadato ≠ comando»); sólo
+`apply_configuration` muta el log, por `Document._mutate`.
+"""
+
+from __future__ import annotations
+
+from apolo.doc import variantes
+from apolo.doc.errors import DocumentError
+
+
+class MetadatosDocumento:
+    # ------------------------------------------------------- configuraciones
+    # Variantes = tabla de diseño: cada una guarda sólo sus COLUMNAS. Lógica en `variantes.py`;
+    # aquí se delega y se traduce `VarianteError` → `DocumentError`. No tocan el log ni la
+    # geometría, salvo `apply_configuration`.
+    def _tabla(self, fn, *args) -> dict:
+        try:
+            return fn(*args)
+        except variantes.VarianteError as exc:
+            raise DocumentError(str(exc)) from None
+
+    def save_configuration(self, name: str, variables: list[str] | None = None) -> None:
+        """Variante con el valor ACTUAL de las columnas ∪ `variables` (columnas nuevas)."""
+        self.configurations = self._tabla(
+            variantes.guardar, self.configurations, name, self.variables_raw, variables)
+
+    def set_configuration(self, name: str, values: dict[str, str]) -> None:
+        """Edita {variable: expresión} SIN aplicar; un nombre nuevo parte de las columnas."""
+        self.configurations = self._tabla(
+            variantes.editar, self.configurations, name, values, self.variables_raw)
+
+    def delete_configuration_column(self, variable: str) -> None:
+        """Quita la columna de TODAS las variantes; la variable sigue en el proyecto."""
+        self.configurations = self._tabla(variantes.quitar_columna, self.configurations, variable)
+
+    def apply_configuration(self, name: str) -> dict:
+        """Reescribe los set_variable de SUS columnas y regenera (un solo undo). Devuelve
+        {"cambios": [{variable, antes, despues}], "aviso": str | None}, medido ANTES."""
+        config = self.configurations.get(name)
+        if config is None:
+            raise DocumentError(f"No existe la variante '{name}'")
+        resultado = variantes.al_aplicar(config, self.variables_raw)
+
+        def apply():
+            for cmd in self.commands:
+                var = cmd["params"].get("name") if cmd["type"] == "set_variable" else None
+                if var in config:
+                    cmd["params"] = {"name": var, "expression": str(config[var])}
+
+        self._mutate(apply, intencion=f"Aplicar variante «{name}»")  # D1: se entiende mejor
+        return resultado
+
+    def delete_configuration(self, name: str) -> None:
+        if name not in self.configurations:
+            raise DocumentError(f"No existe la variante '{name}'")
+        del self.configurations[name]
+
+    def set_color(self, feature_id: str, color: str | None) -> None:
+        if feature_id not in self.scene:
+            raise DocumentError(f"No existe el sólido '{feature_id}'")
+        if color:
+            self.colors[feature_id] = color
+        else:
+            self.colors.pop(feature_id, None)
+
+    def set_material(self, feature_id: str, material: str | None) -> None:
+        if feature_id not in self.scene:
+            raise DocumentError(f"No existe el sólido '{feature_id}'")
+        if material:
+            self.materials[feature_id] = material
+            self.scene[feature_id].material = material
+        else:
+            self.materials.pop(feature_id, None)
+            self.scene[feature_id].material = None
+
+    def set_vertical(self, vertical: str) -> None:
+        if vertical not in ("metalmecanica", "carpinteria"):
+            raise DocumentError("vertical debe ser 'metalmecanica' o 'carpinteria'")
+        self.vertical = vertical
+
+    def default_material(self) -> str:
+        """Material por defecto de piezas a-medida no reconocidas (según vertical)."""
+        return "madera" if self.vertical == "carpinteria" else "acero"
+
+    def set_motion(self, name: str, keyframes: list[dict]) -> None:
+        """Define los fotogramas clave de un estudio de movimiento CON NOMBRE (metadato, no
+        geometría). Lista vacía → borra el estudio. Pueden coexistir varios estudios.
+        Formato de fotograma: {"t": segundos, "values": {junta: valor}} — los valores de
+        junta van ANIDADOS en "values"; claves sueltas al nivel superior se RECHAZAN
+        (aceptarlas en silencio producía estudios que "reproducían" sin mover nada)."""
+        name = str(name).strip()
+        if not name:
+            raise DocumentError("El estudio de movimiento necesita un nombre")
+        clean: list[dict] = []
+        for kf in keyframes:
+            if not isinstance(kf, dict):
+                raise DocumentError(
+                    'Cada fotograma debe ser un dict {"t": segundos, "values": {junta: valor}}'
+                )
+            extras = sorted(set(map(str, kf)) - {"t", "values"})
+            if extras:
+                raise DocumentError(
+                    f"Claves desconocidas en el fotograma: {', '.join(extras)} — los valores "
+                    'de junta van ANIDADOS: {"t": segundos, "values": {junta: valor}}'
+                )
+            try:
+                t = float(kf["t"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise DocumentError("Cada fotograma necesita un tiempo 't' numérico") from exc
+            if t < 0:
+                raise DocumentError("El tiempo del fotograma no puede ser negativo")
+            values = kf.get("values") or {}
+            if not isinstance(values, dict):
+                raise DocumentError("Los valores del fotograma deben ser {junta: valor}")
+            desconocidas = sorted(set(map(str, values)) - set(self.joints))
+            if desconocidas:
+                validas = ", ".join(sorted(self.joints)) or "ninguna declarada"
+                raise DocumentError(
+                    f"Juntas desconocidas en el fotograma: {', '.join(desconocidas)} "
+                    f"(válidas: {validas})"
+                )
+            try:
+                vals = {str(n): float(v) for n, v in values.items()}
+            except (TypeError, ValueError) as exc:
+                raise DocumentError("Cada valor de junta debe ser numérico") from exc
+            clean.append({"t": t, "values": vals})
+        if clean and not any(k["values"] for k in clean):
+            raise DocumentError(
+                "El estudio no mueve ninguna junta: todos los fotogramas tienen 'values' vacío"
+            )
+        if clean:
+            self.motion[name] = sorted(clean, key=lambda k: k["t"])
+        else:
+            self.motion.pop(name, None)
+
+    def delete_motion(self, name: str) -> None:
+        """Elimina un estudio de movimiento por nombre (no falla si no existe)."""
+        self.motion.pop(str(name).strip(), None)
+
+    def set_stackup(self, name: str, eslabones: list[dict], requisito: dict | None = None) -> None:
+        """Declara una CADENA DE COTAS con nombre (metadato de manifest, como motion: NO
+        entra al log ni a los checkpoints). Cada eslabón: {nombre, nominal_mm (número o
+        '=expr'), sentido:±1, tol}; o {id, eje} para medir el bbox vivo de una pieza. La
+        evaluación (resolver nominales/ids + peor caso/RSS) la hace la capa API. Lista de
+        eslabones vacía → borra la cadena."""
+        name = str(name).strip()
+        if not name:
+            raise DocumentError("La cadena de cotas necesita un nombre")
+        if not eslabones:
+            self.stackups.pop(name, None)
+            return
+        clean: list[dict] = []
+        for e in eslabones:
+            if not isinstance(e, dict):
+                raise DocumentError("Cada eslabón debe ser un objeto")
+            if e.get("id"):  # eslabón medido del bbox vivo de una pieza
+                clean.append({
+                    "id": str(e["id"]), "eje": str(e.get("eje", "x")),
+                    "sentido": 1 if int(e.get("sentido", 1)) >= 0 else -1,
+                    "tol": e.get("tol"), "nombre": e.get("nombre"),
+                })
+            elif "nominal_mm" in e:
+                clean.append({
+                    "nombre": str(e.get("nombre", "eslabón")),
+                    "nominal_mm": e["nominal_mm"],  # número o "=expr" (lo resuelve la API)
+                    "sentido": 1 if int(e.get("sentido", 1)) >= 0 else -1,
+                    "tol": e.get("tol") or {"pm": 0.0},
+                })
+            else:
+                raise DocumentError("Cada eslabón necesita 'nominal_mm' o 'id' (pieza)")
+        self.stackups[name] = {"eslabones": clean, "requisito": requisito or {}}
+
+    def delete_stackup(self, name: str) -> None:
+        """Elimina una cadena de cotas por nombre (no falla si no existe)."""
+        self.stackups.pop(str(name).strip(), None)
+
+    def set_fea_result(self, feature_id: str, summary: dict | None) -> None:
+        """Guarda (o borra con None) el resumen del último FEA de una pieza.
+        Metadato de manifest (como motion/requirements): NO entra al log ni a los
+        checkpoints; la memoria de cálculo lo consume con chequeo de vigencia."""
+        fid = str(feature_id).strip()
+        if not fid:
+            raise DocumentError("El resultado FEA necesita el id de la pieza")
+        if summary is None:
+            self.fea.pop(fid, None)
+        else:
+            self.fea[fid] = dict(summary)
+
+    def set_requirements(self, fields: dict) -> None:
+        """Define las BASES DE DISEÑO del proyecto (metadato, como motion): contra qué se
+        valida la máquina. Reemplaza el dict completo; `{}` las borra. Validación y ficha del
+        encargo (con su marca `asumido`): `library/requisitos.py`."""
+        from apolo.library.requisitos import normalizar_requisitos
+
+        try:
+            self.requirements = normalizar_requisitos(fields)
+        except ValueError as exc:
+            raise DocumentError(str(exc)) from exc
+
+    def set_visibility(self, feature_id: str, visible: bool) -> None:
+        if feature_id not in self.scene:
+            raise DocumentError(f"No existe el sólido '{feature_id}'")
+        if visible:
+            self.hidden.discard(feature_id)
+        else:
+            self.hidden.add(feature_id)
+        self.scene[feature_id].visible = visible
+
+    def set_sketch_guide(self, feature_id: str, guide: bool) -> None:
+        """Marca/desmarca el sólido (y TODAS las piezas de su comando) como boceto-guía
+        (blockout): geometría de INTENCIÓN excluida de BOM/masa/interferencia/FEA. Metadato
+        de manifest (como colors/materials): no entra al log ni a los checkpoints."""
+        feat = self.scene.get(feature_id)
+        if feat is None:
+            raise DocumentError(f"No existe el sólido '{feature_id}'")
+        cmd_id = feat.command_id
+        if guide:
+            self.sketch_guides.add(cmd_id)
+        else:
+            self.sketch_guides.discard(cmd_id)
+        for f in self.scene.values():  # un comando puede emitir varias piezas (create_frame)
+            if f.command_id == cmd_id:
+                f.is_guide = guide

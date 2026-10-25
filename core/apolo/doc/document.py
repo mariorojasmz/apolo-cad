@@ -3,28 +3,32 @@
 El documento ES el log de comandos. La escena (sólidos B-rep) se obtiene
 siempre reproduciendo el log completo, lo que hace triviales el undo/redo,
 la edición paramétrica de cualquier comando pasado y la persistencia.
+
+`Document` se arma con cuatro mixins (plan partir-nucleo-congelado, F5): `edicion.py`,
+`metadatos.py`, `integridad.py` y `persistencia.py`. Aquí se queda lo que lee un global que
+los tests REASIGNAN en este módulo (`execute_command`, `resolve_all`, `_STRICT`): el estado,
+`regenerate`, el modo estricto, las mutaciones, deshacer y `preview` (construye `Document`).
 """
 
 from __future__ import annotations
 
 import copy
-import hashlib
-import io
-import json
 import os
-import re
-import zipfile
-from pathlib import Path
 
 from apolo.commands.expressions import ExpressionError, resolve_all
-from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_command, validate_params
+from apolo.commands.registry import REGISTRY, CommandError, Scene, execute_command
 from apolo.commands.state import RegenState
-from apolo.commands.strict import reject_unknown
-from apolo.doc import carril, ext_manifest, sello, solo_lectura, variantes
+from apolo.doc import carril, sello, solo_lectura
 from apolo.doc import pasos as _pasos
+from apolo.doc.edicion import EdicionDocumento
 from apolo.doc.errors import ContractError, DocumentError  # noqa: F401 — se re-exportan
-
-FORMAT_VERSION = 2  # v2 añade attachments/ (archivos STEP importados); abre v1 sin cambios
+from apolo.doc.integridad import IntegridadDocumento
+from apolo.doc.metadatos import MetadatosDocumento
+from apolo.doc.persistencia import (  # noqa: F401 — se re-exportan (casa: persistencia)
+    _CID_RE,
+    FORMAT_VERSION,
+    PersistenciaDocumento,
+)
 
 # Modo ESTRICTO (V6.1): tras cada mutación exitosa, si hay violaciones de integridad
 # el documento revierte en vez de quedar a medias. Off por defecto (la carga tolerante
@@ -32,9 +36,6 @@ FORMAT_VERSION = 2  # v2 añade attachments/ (archivos STEP importados); abre v1
 # activa por monkeypatch del ATRIBUTO ``document._STRICT`` — por eso se lee como global
 # del módulo en cada _check_strict (no se captura en un local).
 _STRICT = os.environ.get("APOLO_STRICT") == "1"
-
-# id de comando c-numérico (para la guardia de seq y check_integrity)
-_CID_RE = re.compile(r"^c(\d+)$")
 
 
 # --------- regeneración incremental: firma por comando + snapshot de estado ---------
@@ -45,7 +46,7 @@ _CID_RE = re.compile(r"^c(\d+)$")
 _cmd_sig = carril.cmd_sig  # el nombre histórico (lo importan los tests)
 
 
-class Document:
+class Document(EdicionDocumento, MetadatosDocumento, IntegridadDocumento, PersistenciaDocumento):
     def __init__(self, name: str = "Sin título"):
         self.name = name
         self.commands: list[dict] = []
@@ -276,148 +277,6 @@ class Document:
         self._regen_sigs = sigs
         self._regen_ckpts = new_ckpts
 
-    def _try_warm(self, warm) -> None:
-        """Siembra la caché de regeneración desde un blob de geomcache YA deserializado
-        (V6.2a): ``warm = (cached_sigs, state: RegenState, definitions)``. Si ``cached_sigs`` es
-        PREFIJO (o igual) de las firmas del log cargado, re-registra las definiciones
-        canónicas y siembra ``_regen_sigs``/``_regen_ckpts`` con el estado del último
-        comando cacheado → el siguiente ``regenerate()`` reanuda de ese checkpoint (replay
-        de solo la cola). NUNCA lanza: ante cualquier duda deja el doc virgen (replay
-        completo). El caller valida integridad tras regenerar y descarta si algo huele mal."""
-        try:
-            cached_sigs, state, definitions = warm
-        except Exception:
-            return
-        if not cached_sigs or not isinstance(cached_sigs, list) or not isinstance(state, RegenState):
-            return
-        sigs = carril.firmas(*carril.separar(self.commands)[:2])  # las del log realmente cargado
-        # las firmas cacheadas deben ser PREFIJO (o iguales) de las del log (el log pudo
-        # crecer desde la última caché; si en cambio DIVERGE o es más largo → descartar)
-        n = len(cached_sigs)
-        if n > len(sigs) or sigs[:n] != list(cached_sigs):
-            return
-        # re-registrar las definiciones canónicas: sin esto los mesh_key de la escena
-        # restaurada cuelgan (instancing perdido → payload explota; check_integrity lo
-        # marcaría 'degradado'). El camino feliz NO debe caer ahí.
-        try:
-            from apolo.commands.registry import register_definition
-
-            for key, shape in definitions.items():
-                register_definition(key, shape)
-        except Exception:
-            return
-        # sembrar: el estado del último comando cacheado como checkpoint en n-1
-        self._regen_sigs = list(cached_sigs)
-        self._regen_ckpts = {n - 1: state}
-
-    # ------------------------------------------------- contrato de integridad (V6.1)
-    def check_integrity(self) -> list[str]:
-        """Verifica los INVARIANTES del documento y devuelve una lista de violaciones,
-        cada una un string ACCIONABLE (lista vacía = íntegro). Es READ-ONLY PURO: no
-        muta el documento ni ninguna caché, y NUNCA lanza (cualquier fallo interno se
-        reporta como violación). Una entrada con prefijo ``"degradado: "`` NO es un
-        error de corrección: solo señala pérdida de instancing (definición desalojada
-        de DEFINITIONS) que el fallback de render ya cubre — el modo estricto la ignora."""
-        from apolo.commands.registry import DEFINITIONS
-
-        issues: list[str] = []
-        log_ids = {c["id"] for c in self.commands}
-
-        def _cmd_alive(cid: str) -> bool:
-            # command_id directo del log, o sintético '{cmd}_{orig}' de insert_project
-            # cuyo prefijo (el comando anfitrión) sigue vivo
-            return cid in log_ids or cid.split("_", 1)[0] in log_ids
-
-        # features: id coherente, comando vivo, contrato de instancia (mesh_key⇔matrix)
-        for fid, feat in self.scene.items():
-            if feat.id != fid:
-                issues.append(f"la feature '{fid}' guarda id interno '{feat.id}' (deben coincidir)")
-            if not _cmd_alive(feat.command_id):
-                issues.append(
-                    f"la feature '{fid}' apunta al comando '{feat.command_id}', ausente del log"
-                )
-            if (feat.mesh_key is None) != (feat.matrix is None):
-                issues.append(
-                    f"la feature '{fid}' tiene instancia a medias "
-                    f"(mesh_key={feat.mesh_key!r}, matrix={'set' if feat.matrix else None})"
-                )
-            elif feat.mesh_key is not None and feat.mesh_key not in DEFINITIONS:
-                issues.append(
-                    f"degradado: la feature '{fid}' referencia la definición '{feat.mesh_key}', "
-                    "desalojada de DEFINITIONS (el render usa el shape mundial: solo se pierde instancing)"
-                )
-
-        # conectividad: toda referencia a una feature/junta debe existir
-        for jname, j in self.joints.items():
-            for ref in (j.get("parent"), j.get("child")):
-                if ref not in self.scene:
-                    issues.append(f"la junta '{jname}' referencia el sólido '{ref}', ausente de la escena")
-        for mname, m in self.mates.items():
-            for ref in (m.get("feature_a"), m.get("feature_b")):
-                if ref not in self.scene:
-                    issues.append(f"el mate '{mname}' referencia el sólido '{ref}', ausente de la escena")
-        for cname, con in self.constraints.items():
-            if con.get("joint") not in self.joints:
-                issues.append(f"la restricción '{cname}' referencia la junta '{con.get('joint')}', ausente")
-        for fname, f in self.fasteners.items():
-            for ref in (f.get("a"), f.get("b")):
-                if ref not in self.scene:
-                    issues.append(f"el fijador '{fname}' referencia el sólido '{ref}', ausente de la escena")
-        for gname, g in self.grounds.items():
-            if g.get("feature") not in self.scene:
-                issues.append(f"el anclaje '{gname}' referencia el sólido '{g.get('feature')}', ausente")
-
-        # grupos: parent declarado + sin ciclos. La membresía es TOLERANTE por diseño
-        # (un member cuyo comando se borró se reporta vía missing_members, no aquí).
-        for gname, g in self.groups.items():
-            parent = g.get("parent")
-            if parent is not None and parent not in self.groups:
-                issues.append(f"el grupo '{gname}' cuelga del padre '{parent}', que no existe")
-            seen: set[str] = set()
-            cur = gname
-            while cur is not None:
-                if cur in seen:
-                    issues.append(f"el grupo '{gname}' forma un ciclo de parents")
-                    break
-                seen.add(cur)
-                nxt = self.groups.get(cur)
-                cur = nxt.get("parent") if nxt else None
-
-        # caché de regeneración incremental (blindaje del fix B), indexada sobre la ESCENA
-        n = carril.n_escena(self.commands)
-        if len(self._regen_sigs) != n:
-            issues.append(f"_regen_sigs tiene {len(self._regen_sigs)} firmas para {n} comandos")
-        for k, st in self._regen_ckpts.items():
-            if not isinstance(k, int) or not (0 <= k < n):
-                issues.append(f"checkpoint con clave inválida {k!r} (fuera de [0,{n}))")
-            elif not (isinstance(st, RegenState) and isinstance(st.scene, dict)):
-                issues.append(f"checkpoint {k} mal formado (se esperaba un RegenState con escena dict)")
-
-        # seq monótono: nunca por debajo del mayor id c-numérico del log (evita colisiones)
-        max_suffix = 0
-        for cid in log_ids:
-            mo = _CID_RE.match(cid)
-            if mo:
-                max_suffix = max(max_suffix, int(mo.group(1)))
-        if self._seq < max_suffix:
-            issues.append(f"_seq={self._seq} es menor que el mayor id del log (c{max_suffix})")
-
-        # variables resueltas coherentes con las crudas
-        try:
-            expected = resolve_all(self.variables_raw)
-        except Exception as exc:  # variables circulares/inválidas: ES una violación
-            issues.append(f"las variables del proyecto no resuelven: {exc}")
-        else:
-            if expected != self.variables_resolved:
-                issues.append("variables_resolved no coincide con resolve_all(variables_raw)")
-
-        # dedup conservando orden (varias referencias pueden apuntar a lo mismo)
-        out: list[str] = []
-        for msg in issues:
-            if msg not in out:
-                out.append(msg)
-        return out
-
     def _check_strict(self) -> None:
         """En modo estricto, lanza si la integridad quedó violada (excluyendo los
         'degradado', que el fallback de render cubre). El caller (_mutate/execute_many/
@@ -487,87 +346,6 @@ class Document:
             self.commands.append(record)
         return cmd_id
 
-    def execute(self, cmd_type: str, params: dict) -> str:
-        validate_params(cmd_type, params, self.variables_raw, strict=True)
-        holder: dict[str, str] = {}
-
-        def apply():
-            holder["id"] = self._append_record(cmd_type, params)
-
-        self._mutate(apply)
-        return holder["id"]
-
-    def execute_many(self, actions: list[dict], verify=None) -> list[str]:
-        """Lote ATÓMICO: UN regenerate y UN paso de undo; '$k' (1-based) = cmd_id de la
-        k-ésima acción. Una clave que el comando no declara rechaza el lote ANTES de tocar
-        nada (entrada estricta: sólo mira claves, no valores). Los valores NO se pre-validan:
-        el regenerate final valida en orden con las variables en construcción (set_variable
-        + su uso en el mismo lote); si él o '$k' fallan, revierte TODO el lote.
-
-        `verify` (V6.5b) = contrato opcional ``(scene, created) -> results`` tras el
-        regenerate; una aserción falsa revierte todo y lanza ContractError. Corre DENTRO del
-        try: el snapshot se CONSUME sin entrada de undo fantasma."""
-        from apolo.batch import resolve_refs  # perezoso: evita ciclo document<->batch
-
-        if not actions:
-            return []
-        for action in actions:
-            reject_unknown(REGISTRY.get(action.get("type")), action.get("params") or {})
-        snap, escena = self._snapshot(), self.scene
-        created: list[str | None] = []
-        try:
-            for action in actions:
-                params = resolve_refs(action.get("params") or {}, created)
-                created.append(self._append_record(action["type"], params))
-            self.regenerate()
-            self._check_strict()
-            if verify is not None:
-                results = verify(self.scene, [c for c in created if c is not None])
-                if any(not r.get("ok") for r in results):
-                    raise ContractError(results)
-        except Exception:
-            self._restore(snap)
-            raise
-        self._push_undo(snap, escena)
-        return [c for c in created if c is not None]
-
-    def edit_many(self, edits: list[dict], merge: bool = False, verify=None) -> list[str]:
-        """Edita VARIOS comandos en UN lote atómico: un solo regenerate y un solo paso de undo.
-        edits = [{"command_id": "...", "params": {...}}, ...]. Como execute_many, sólo las claves
-        son estrictas (una NUEVA que el comando no declara revierte el lote; una guardada pasa) y
-        los valores los valida el regenerate final. merge=True: PATCH superficial, como edit.
-
-        `verify` (V6.5b) = contrato del lote, igual que en execute_many (recibe los
-        command_ids TOCADOS como `created` → `$k` referencia el k-ésimo editado)."""
-        if not edits:
-            return []
-        snap, escena = self._snapshot(), self.scene
-        touched: list[str] = []
-        try:
-            for e in edits:
-                cid = e["command_id"]
-                cmd = next((c for c in self.commands if c["id"] == cid), None)
-                if cmd is None:
-                    raise DocumentError(f"No existe el comando '{cid}'")
-                params = e.get("params") or {}
-                if merge:
-                    params = {**cmd["params"], **params}
-                reject_unknown(REGISTRY.get(cmd["type"]), params, previous=cmd["params"])
-                params = sello.al_editar(cmd["type"], params, cmd["params"])
-                cmd["params"] = carril.materializar(self.commands, cmd["type"], params, cid)
-                touched.append(cid)
-            self.regenerate()
-            self._check_strict()
-            if verify is not None:
-                results = verify(self.scene, touched)
-                if any(not r.get("ok") for r in results):
-                    raise ContractError(results)
-        except Exception:
-            self._restore(snap)
-            raise
-        self._push_undo(snap, escena)
-        return touched
-
     def preview(self, actions: list[dict]) -> tuple[dict, list[str]]:
         """Aplica `actions` (formato execute_many: [{type, params}, ...]) sobre una COPIA
         del documento y devuelve (scene_resultante, nuevos_command_ids) SIN mutar este
@@ -592,261 +370,6 @@ class Document:
             clone.regenerate()
             new_ids = []
         return clone.scene, new_ids
-
-    def edit(
-        self, command_id: str, params: dict, coalesce: bool = False, merge: bool = False
-    ) -> str:
-        """Edita los params de un comando: REEMPLAZA (lo omitido vuelve a su default) o, con
-        `merge=True`, PATCH superficial (un sub-objeto se reemplaza entero). Estricta: rechaza
-        una clave NUEVA que el comando no declara (una ya guardada pasa); luego, `al_editar`."""
-        cmd = next((c for c in self.commands if c["id"] == command_id), None)
-        if cmd is None:
-            raise DocumentError(f"No existe el comando '{command_id}'")
-        if merge:
-            params = {**cmd["params"], **params}
-        validate_params(cmd["type"], params, self.variables_raw, strict=True,
-                        previous=cmd["params"])
-        params = sello.al_editar(cmd["type"], params, cmd["params"])
-
-        def apply():
-            cmd["params"] = carril.materializar(self.commands, cmd["type"], params, command_id)
-
-        self._mutate(apply, f"edit:{command_id}" if coalesce else None, foco=command_id)
-        return command_id
-
-    def remove_commands(self, command_ids: list[str], ediciones: dict | None = None) -> None:
-        """Elimina comandos del log y regenera; revierte si algo queda roto. `ediciones` {id:
-        params} REEMPLAZA los de otros comandos en el MISMO cambio (1 undo; plan cirugia-liviana
-        D2: un grupo pierde al miembro borrado). Sus claves no se revisan: son params ya guardados."""
-        ed, vivos = ediciones or {}, {c["id"] for c in self.commands}
-        missing = [cid for cid in [*command_ids, *ed] if cid not in vivos]
-        if missing:
-            raise DocumentError(f"No existe el comando '{missing[0]}'")
-
-        def apply():
-            self.commands = [c if c["id"] not in ed else {**c, "params": ed[c["id"]]}
-                             for c in self.commands if c["id"] not in set(command_ids)]
-
-        self._mutate(apply)
-
-    def add_attachment(self, data: bytes) -> str:
-        """Guarda un archivo en el documento y devuelve su hash (id de adjunto)."""
-        digest = hashlib.sha256(data).hexdigest()[:16]
-        self.attachments[digest] = data
-        return digest
-
-    # ------------------------------------------------------- configuraciones
-    # Variantes = tabla de diseño: cada una guarda sólo sus COLUMNAS. Lógica en `variantes.py`;
-    # aquí se delega y se traduce `VarianteError` → `DocumentError`. No tocan el log ni la
-    # geometría, salvo `apply_configuration`.
-    def _tabla(self, fn, *args) -> dict:
-        try:
-            return fn(*args)
-        except variantes.VarianteError as exc:
-            raise DocumentError(str(exc)) from None
-
-    def save_configuration(self, name: str, variables: list[str] | None = None) -> None:
-        """Variante con el valor ACTUAL de las columnas ∪ `variables` (columnas nuevas)."""
-        self.configurations = self._tabla(
-            variantes.guardar, self.configurations, name, self.variables_raw, variables)
-
-    def set_configuration(self, name: str, values: dict[str, str]) -> None:
-        """Edita {variable: expresión} SIN aplicar; un nombre nuevo parte de las columnas."""
-        self.configurations = self._tabla(
-            variantes.editar, self.configurations, name, values, self.variables_raw)
-
-    def delete_configuration_column(self, variable: str) -> None:
-        """Quita la columna de TODAS las variantes; la variable sigue en el proyecto."""
-        self.configurations = self._tabla(variantes.quitar_columna, self.configurations, variable)
-
-    def apply_configuration(self, name: str) -> dict:
-        """Reescribe los set_variable de SUS columnas y regenera (un solo undo). Devuelve
-        {"cambios": [{variable, antes, despues}], "aviso": str | None}, medido ANTES."""
-        config = self.configurations.get(name)
-        if config is None:
-            raise DocumentError(f"No existe la variante '{name}'")
-        resultado = variantes.al_aplicar(config, self.variables_raw)
-
-        def apply():
-            for cmd in self.commands:
-                var = cmd["params"].get("name") if cmd["type"] == "set_variable" else None
-                if var in config:
-                    cmd["params"] = {"name": var, "expression": str(config[var])}
-
-        self._mutate(apply, intencion=f"Aplicar variante «{name}»")  # D1: se entiende mejor
-        return resultado
-
-    def delete_configuration(self, name: str) -> None:
-        if name not in self.configurations:
-            raise DocumentError(f"No existe la variante '{name}'")
-        del self.configurations[name]
-
-    def set_color(self, feature_id: str, color: str | None) -> None:
-        if feature_id not in self.scene:
-            raise DocumentError(f"No existe el sólido '{feature_id}'")
-        if color:
-            self.colors[feature_id] = color
-        else:
-            self.colors.pop(feature_id, None)
-
-    def set_material(self, feature_id: str, material: str | None) -> None:
-        if feature_id not in self.scene:
-            raise DocumentError(f"No existe el sólido '{feature_id}'")
-        if material:
-            self.materials[feature_id] = material
-            self.scene[feature_id].material = material
-        else:
-            self.materials.pop(feature_id, None)
-            self.scene[feature_id].material = None
-
-    def set_vertical(self, vertical: str) -> None:
-        if vertical not in ("metalmecanica", "carpinteria"):
-            raise DocumentError("vertical debe ser 'metalmecanica' o 'carpinteria'")
-        self.vertical = vertical
-
-    def default_material(self) -> str:
-        """Material por defecto de piezas a-medida no reconocidas (según vertical)."""
-        return "madera" if self.vertical == "carpinteria" else "acero"
-
-    def set_motion(self, name: str, keyframes: list[dict]) -> None:
-        """Define los fotogramas clave de un estudio de movimiento CON NOMBRE (metadato, no
-        geometría). Lista vacía → borra el estudio. Pueden coexistir varios estudios.
-        Formato de fotograma: {"t": segundos, "values": {junta: valor}} — los valores de
-        junta van ANIDADOS en "values"; claves sueltas al nivel superior se RECHAZAN
-        (aceptarlas en silencio producía estudios que "reproducían" sin mover nada)."""
-        name = str(name).strip()
-        if not name:
-            raise DocumentError("El estudio de movimiento necesita un nombre")
-        clean: list[dict] = []
-        for kf in keyframes:
-            if not isinstance(kf, dict):
-                raise DocumentError(
-                    'Cada fotograma debe ser un dict {"t": segundos, "values": {junta: valor}}'
-                )
-            extras = sorted(set(map(str, kf)) - {"t", "values"})
-            if extras:
-                raise DocumentError(
-                    f"Claves desconocidas en el fotograma: {', '.join(extras)} — los valores "
-                    'de junta van ANIDADOS: {"t": segundos, "values": {junta: valor}}'
-                )
-            try:
-                t = float(kf["t"])
-            except (KeyError, TypeError, ValueError) as exc:
-                raise DocumentError("Cada fotograma necesita un tiempo 't' numérico") from exc
-            if t < 0:
-                raise DocumentError("El tiempo del fotograma no puede ser negativo")
-            values = kf.get("values") or {}
-            if not isinstance(values, dict):
-                raise DocumentError("Los valores del fotograma deben ser {junta: valor}")
-            desconocidas = sorted(set(map(str, values)) - set(self.joints))
-            if desconocidas:
-                validas = ", ".join(sorted(self.joints)) or "ninguna declarada"
-                raise DocumentError(
-                    f"Juntas desconocidas en el fotograma: {', '.join(desconocidas)} "
-                    f"(válidas: {validas})"
-                )
-            try:
-                vals = {str(n): float(v) for n, v in values.items()}
-            except (TypeError, ValueError) as exc:
-                raise DocumentError("Cada valor de junta debe ser numérico") from exc
-            clean.append({"t": t, "values": vals})
-        if clean and not any(k["values"] for k in clean):
-            raise DocumentError(
-                "El estudio no mueve ninguna junta: todos los fotogramas tienen 'values' vacío"
-            )
-        if clean:
-            self.motion[name] = sorted(clean, key=lambda k: k["t"])
-        else:
-            self.motion.pop(name, None)
-
-    def delete_motion(self, name: str) -> None:
-        """Elimina un estudio de movimiento por nombre (no falla si no existe)."""
-        self.motion.pop(str(name).strip(), None)
-
-    def set_stackup(self, name: str, eslabones: list[dict], requisito: dict | None = None) -> None:
-        """Declara una CADENA DE COTAS con nombre (metadato de manifest, como motion: NO
-        entra al log ni a los checkpoints). Cada eslabón: {nombre, nominal_mm (número o
-        '=expr'), sentido:±1, tol}; o {id, eje} para medir el bbox vivo de una pieza. La
-        evaluación (resolver nominales/ids + peor caso/RSS) la hace la capa API. Lista de
-        eslabones vacía → borra la cadena."""
-        name = str(name).strip()
-        if not name:
-            raise DocumentError("La cadena de cotas necesita un nombre")
-        if not eslabones:
-            self.stackups.pop(name, None)
-            return
-        clean: list[dict] = []
-        for e in eslabones:
-            if not isinstance(e, dict):
-                raise DocumentError("Cada eslabón debe ser un objeto")
-            if e.get("id"):  # eslabón medido del bbox vivo de una pieza
-                clean.append({
-                    "id": str(e["id"]), "eje": str(e.get("eje", "x")),
-                    "sentido": 1 if int(e.get("sentido", 1)) >= 0 else -1,
-                    "tol": e.get("tol"), "nombre": e.get("nombre"),
-                })
-            elif "nominal_mm" in e:
-                clean.append({
-                    "nombre": str(e.get("nombre", "eslabón")),
-                    "nominal_mm": e["nominal_mm"],  # número o "=expr" (lo resuelve la API)
-                    "sentido": 1 if int(e.get("sentido", 1)) >= 0 else -1,
-                    "tol": e.get("tol") or {"pm": 0.0},
-                })
-            else:
-                raise DocumentError("Cada eslabón necesita 'nominal_mm' o 'id' (pieza)")
-        self.stackups[name] = {"eslabones": clean, "requisito": requisito or {}}
-
-    def delete_stackup(self, name: str) -> None:
-        """Elimina una cadena de cotas por nombre (no falla si no existe)."""
-        self.stackups.pop(str(name).strip(), None)
-
-    def set_fea_result(self, feature_id: str, summary: dict | None) -> None:
-        """Guarda (o borra con None) el resumen del último FEA de una pieza.
-        Metadato de manifest (como motion/requirements): NO entra al log ni a los
-        checkpoints; la memoria de cálculo lo consume con chequeo de vigencia."""
-        fid = str(feature_id).strip()
-        if not fid:
-            raise DocumentError("El resultado FEA necesita el id de la pieza")
-        if summary is None:
-            self.fea.pop(fid, None)
-        else:
-            self.fea[fid] = dict(summary)
-
-    def set_requirements(self, fields: dict) -> None:
-        """Define las BASES DE DISEÑO del proyecto (metadato, como motion): contra qué se
-        valida la máquina. Reemplaza el dict completo; `{}` las borra. Validación y ficha del
-        encargo (con su marca `asumido`): `library/requisitos.py`."""
-        from apolo.library.requisitos import normalizar_requisitos
-
-        try:
-            self.requirements = normalizar_requisitos(fields)
-        except ValueError as exc:
-            raise DocumentError(str(exc)) from exc
-
-    def set_visibility(self, feature_id: str, visible: bool) -> None:
-        if feature_id not in self.scene:
-            raise DocumentError(f"No existe el sólido '{feature_id}'")
-        if visible:
-            self.hidden.discard(feature_id)
-        else:
-            self.hidden.add(feature_id)
-        self.scene[feature_id].visible = visible
-
-    def set_sketch_guide(self, feature_id: str, guide: bool) -> None:
-        """Marca/desmarca el sólido (y TODAS las piezas de su comando) como boceto-guía
-        (blockout): geometría de INTENCIÓN excluida de BOM/masa/interferencia/FEA. Metadato
-        de manifest (como colors/materials): no entra al log ni a los checkpoints."""
-        feat = self.scene.get(feature_id)
-        if feat is None:
-            raise DocumentError(f"No existe el sólido '{feature_id}'")
-        cmd_id = feat.command_id
-        if guide:
-            self.sketch_guides.add(cmd_id)
-        else:
-            self.sketch_guides.discard(cmd_id)
-        for f in self.scene.values():  # un comando puede emitir varias piezas (create_frame)
-            if f.command_id == cmd_id:
-                f.is_guide = guide
 
     # --------------------------------------------------------- undo / redo
     can_undo = property(lambda self: bool(self._undo))
@@ -879,131 +402,3 @@ class Document:
             raise
         origen[:], destino[:] = _pasos.trasladar(origen, destino, pasos, actual, self._UNDO_CAP)
         self._coalesce_key = None
-
-    # --------------------------------------------------------- persistencia
-    def to_apolo_bytes(self) -> bytes:
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr(
-                "manifest.json",
-                json.dumps(
-                    {
-                        "app": "genix-apolo-cad",
-                        "version": FORMAT_VERSION,
-                        "name": self.name,
-                        "units": "mm",
-                        "hidden": sorted(self.hidden),
-                        "seq": self._seq,
-                        "configurations": self.configurations,
-                        "configurations_format": variantes.FORMATO,  # tabla de columnas
-                        "colors": self.colors,
-                        "materials": self.materials,
-                        "sketch_guides": sorted(self.sketch_guides),
-                        "vertical": self.vertical,
-                        "motion": self.motion,
-                        "requirements": self.requirements,
-                        "fea": self.fea,
-                        "stackups": self.stackups,
-                        "escenarios": self.escenarios, **({"tensores": self.tensores} if self.tensores else {}), **({"funciones": self.funciones} if self.funciones else {}), **ext_manifest.al_manifest(self),
-                        "agent_notes": self.agent_notes,
-                    },
-                    indent=2,
-                ),
-            )
-            zf.writestr("commands.json", json.dumps(self.commands, indent=2))
-            for digest, data in self.attachments.items():
-                zf.writestr(f"attachments/{digest}.bin", data)
-        return buf.getvalue()
-
-    def save(self, path: str | Path) -> None:
-        Path(path).write_bytes(self.to_apolo_bytes())
-
-    @classmethod
-    def from_apolo_bytes(
-        cls, data: bytes, *, regenerate: bool = True, tolerant: bool = False, warm=None
-    ) -> "Document":
-        """Con ``regenerate=False`` devuelve el documento SIN reproducir el log —
-        para editarlo antes del primer replay (sandbox de insert_project). Con
-        ``tolerant=True`` (SOLO en rutas de CARGA: arranque, open, restore) un comando
-        que revienta se SUPRIME en vez de abortar la apertura — reportado en
-        ``regen_suppressed``, con el LOG intacto. Las mutaciones cargan estrictas.
-
-        ``warm`` (V6.2a): tupla de geomcache YA deserializada ``(sigs, state,
-        definitions)`` que evita el replay del log si sus firmas son prefijo del log
-        cargado (open caliente). Cinturón y tirantes: tras regenerar de la caché se
-        verifica la integridad y, si hay violaciones NO-degradadas, se descarta la caché
-        y se replaya en frío. La caché NUNCA es autoritativa (el .apolo lo es)."""
-        try:
-            with zipfile.ZipFile(io.BytesIO(data)) as zf:
-                manifest = json.loads(zf.read("manifest.json"))
-                commands = json.loads(zf.read("commands.json"))
-                attachments = {
-                    Path(name).stem: zf.read(name)
-                    for name in zf.namelist()
-                    if name.startswith("attachments/")
-                }
-        except (zipfile.BadZipFile, KeyError, json.JSONDecodeError) as exc:
-            raise DocumentError(f"Archivo .apolo inválido: {exc}") from exc
-        if manifest.get("version", 0) > FORMAT_VERSION:
-            raise DocumentError("El archivo fue creado con una versión más reciente de Apolo")
-        doc = cls(manifest.get("name", "Sin título"))
-        doc.commands = commands
-        doc.hidden = set(manifest.get("hidden", []))
-        doc.attachments = attachments
-        doc.configurations = variantes.cargar(manifest, commands)  # sin bandera: migra fotos
-        doc.colors = manifest.get("colors", {})
-        doc.materials = manifest.get("materials", {})
-        # sketch_guides (command_ids) poda las huérfanas de cirugías SOLO en la carga: el metadato
-        # no viaja en los snapshots de undo y podarlo al mutar lo perdería al deshacer. Criterio de
-        # _cmd_alive: id del log o sintético '{cmd}_{orig}' de insert_project con prefijo vivo.
-        _log_ids = {c["id"] for c in commands}
-        doc.sketch_guides = {
-            cid
-            for cid in manifest.get("sketch_guides", [])
-            if cid in _log_ids or cid.split("_", 1)[0] in _log_ids
-        }
-        doc.vertical = manifest.get("vertical", "metalmecanica")
-        _m = manifest.get("motion", {})
-        # migración: proyectos viejos guardaban el motion como UNA lista de fotogramas
-        doc.motion = ({"Estudio 1": _m} if _m else {}) if isinstance(_m, list) else dict(_m)
-        doc.requirements = manifest.get("requirements", {})
-        doc.fea = manifest.get("fea", {})
-        doc.stackups = manifest.get("stackups", {})  # cadenas de cotas (V7.3)
-        doc.escenarios = manifest.get("escenarios", {})  # pruebas de la máquina (V8.3 D12)
-        doc.tensores, doc.funciones, doc.agent_notes = (manifest.get(k, []) for k in ("tensores", "funciones", "agent_notes"))
-        doc.ext = ext_manifest.de_manifest(manifest)  # la de toda extensión, instalada o no (F1d)
-        # guardia de seq: el próximo cmd_id nunca debe colisionar con uno del log aunque
-        # el manifest venga sin `seq` o con un `seq` menor que el mayor c-id vivo (un log
-        # con removes deja huecos: len(commands) < max(sufijo)).
-        max_suffix = 0
-        for c in commands:
-            mo = _CID_RE.match(str(c.get("id", "")))
-            if mo:
-                max_suffix = max(max_suffix, int(mo.group(1)))
-        doc._seq = max(int(manifest.get("seq", 0) or 0), len(commands), max_suffix)
-        if regenerate:
-            tolerant = solo_lectura.marcar(doc) or tolerant  # D4: con extensión ausente, ver sí
-            if warm is not None:
-                doc._try_warm(warm)  # siembra la caché de regen si la firma es prefijo
-                # cinturón y tirantes: el regenerate SEMBRADO no debe (a) LANZAR ni (b) dejar
-                # violaciones no-degradadas → descartar la caché y replay FRÍO. (a) cubre una excepción
-                # de OCCT en la cola / un DocumentError de resolve_all / un ckpt corrupto (V6.2e Fix 5).
-                cold_needed = False
-                try:
-                    doc.regenerate(tolerant=tolerant)
-                except Exception:  # noqa: BLE001 — el regenerate con la caché sembrada reventó
-                    cold_needed = True
-                else:
-                    cold_needed = any(
-                        not i.startswith("degradado") for i in doc.check_integrity()
-                    )
-                if cold_needed:
-                    doc._regen_sigs, doc._regen_ckpts = [], {}
-                    doc.regenerate(tolerant=tolerant)  # frío: si ESTE lanza, el doc sí está roto
-            else:
-                doc.regenerate(tolerant=tolerant)
-        return doc
-
-    @classmethod
-    def load(cls, path: str | Path) -> "Document":
-        return cls.from_apolo_bytes(Path(path).read_bytes())

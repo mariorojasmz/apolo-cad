@@ -425,3 +425,160 @@ def test_el_gate_registry_f4_caza_una_copia(monkeypatch):
     assert faltantes("apolo.commands.registry", REGISTRY_F4) == [
         "apolo.commands.registry._register_joint: no es el objeto de apolo.commands.exec_ensamblaje"
     ]
+
+
+# ── document (F5) ─────────────────────────────────────────────────────────────
+
+#: Mixin que define cada método que `Document` tenía en `fc734ea` y salió en la F5 (30), en el
+#: orden del archivo original. `Document` los hereda: `Document.x` sigue existiendo para cada x.
+DOCUMENT_MIXINS: dict[str, tuple[str, ...]] = {
+    "apolo.doc.edicion:EdicionDocumento": (
+        "execute", "execute_many", "edit_many", "edit", "remove_commands", "add_attachment",
+    ),
+    "apolo.doc.metadatos:MetadatosDocumento": (
+        "_tabla", "save_configuration", "set_configuration", "delete_configuration_column",
+        "apply_configuration", "delete_configuration", "set_color", "set_material",
+        "set_vertical", "default_material", "set_motion", "delete_motion", "set_stackup",
+        "delete_stackup", "set_fea_result", "set_requirements", "set_visibility",
+        "set_sketch_guide",
+    ),
+    "apolo.doc.integridad:IntegridadDocumento": ("check_integrity",),
+    "apolo.doc.persistencia:PersistenciaDocumento": (
+        "_try_warm", "to_apolo_bytes", "save", "from_apolo_bytes", "load",
+    ),
+}
+
+#: Lo que `Document` DEFINE tras la F5 (D2, D8): lo que lee un global que los tests reasignan en
+#: `apolo.doc.document` (`execute_command`, `resolve_all`, `_STRICT`), deshacer y `preview`.
+PROPIOS_DOCUMENT = (
+    "__init__", "_UNDO_CAP", "_snapshot", "_restore", "_REGEN_STRIDE", "_ckpts_ok",
+    "_prune_or_raise", "regenerate", "_check_strict", "_push_undo", "_mutate", "_vars_block_end",
+    "_append_record", "preview", "can_undo", "can_redo", "undo_labels", "redo_labels", "undo",
+    "redo", "_mover",
+)
+
+#: Los nombres de nivel superior de `apolo.doc.document` que vienen de otra casa (D2): las
+#: constantes que se mudaron con la persistencia y lo que los tests importan o parchean ahí.
+DOCUMENT_MODULO: dict[str, tuple[str, ...]] = {
+    "apolo.doc.persistencia": ("FORMAT_VERSION", "_CID_RE"),
+    "apolo.doc.errors": ("DocumentError", "ContractError"),
+    "apolo.commands.registry": ("execute_command", "REGISTRY", "CommandError", "Scene"),
+    "apolo.commands.expressions": ("resolve_all", "ExpressionError"),
+}
+
+METODOS_MOVIDOS_DOCUMENT = 30
+
+
+def _clase(ref: str) -> type:
+    modulo, nombre = ref.split(":")
+    return getattr(importlib.import_module(modulo), nombre)
+
+
+def faltantes_document() -> list[str]:
+    """Métodos de `Document` que ya no existen, que no son el MISMO objeto del mixin que lo
+    define o que `Document` volvió a definir encima; y lo propio que ya no define."""
+    from apolo.doc.document import Document
+
+    malos: list[str] = []
+    for ref, nombres in DOCUMENT_MIXINS.items():
+        mixin = _clase(ref)
+        if mixin not in Document.__mro__:
+            malos.append(f"Document no hereda de {ref}")
+            continue
+        for nombre in nombres:
+            if nombre not in vars(mixin):
+                malos.append(f"Document.{nombre}: {ref} ya no lo define")
+            elif nombre in vars(Document):
+                malos.append(f"Document.{nombre}: Document lo redefine encima de {ref}")
+            elif inspect.getattr_static(Document, nombre) is not vars(mixin)[nombre]:
+                malos.append(f"Document.{nombre}: no es el de {ref}")
+    malos += [f"Document.{n}: Document ya no lo define" for n in PROPIOS_DOCUMENT
+              if n not in vars(Document)]
+    return malos
+
+
+def test_document_hereda_cada_metodo_movido_por_identidad():
+    assert faltantes_document() == []
+
+
+def test_document_lista_cerrada_y_dir_igual_al_de_antes():
+    """`dir(Document)` sin dunders (que cambian con la versión de Python) es el de `fc734ea`."""
+    from apolo.doc.document import Document
+
+    movidos = [n for ns in DOCUMENT_MIXINS.values() for n in ns]
+    assert len(movidos) == len(set(movidos)) == METODOS_MOVIDOS_DOCUMENT
+    propios = sorted(n for n in vars(Document) if not n.startswith("__") or n == "__init__")
+    assert propios == sorted(PROPIOS_DOCUMENT)
+    publicos = sorted(n for n in dir(Document) if not n.startswith("__"))
+    assert publicos == sorted([*movidos, *(n for n in PROPIOS_DOCUMENT if n != "__init__")])
+
+
+@pytest.mark.parametrize("ref", sorted(DOCUMENT_MIXINS))
+def test_cada_mixin_define_lo_suyo_y_nace_en_su_modulo(ref):
+    mixin = _clase(ref)
+    assert mixin.__module__ == ref.split(":")[0]
+    propios = [n for n in vars(mixin) if not n.startswith("__")]
+    assert propios == list(DOCUMENT_MIXINS[ref])
+
+
+def test_document_sirve_cada_nombre_de_modulo_por_identidad():
+    import apolo.doc.carril as carril
+    import apolo.doc.document as document
+
+    assert faltantes("apolo.doc.document", DOCUMENT_MODULO) == []
+    assert document._cmd_sig is carril.cmd_sig
+    assert isinstance(document._STRICT, bool)
+    assert document.Document.__module__ == "apolo.doc.document"
+
+
+def test_extensiones_siguen_resolviendo_document():
+    """`SUPERFICIE` y `MODULOS` de `extensiones_api` nombran `apolo.doc.document:Document`."""
+    from apolo.doc.document import Document
+    from apolo.extensiones_api import MODULOS, SUPERFICIE, resolver
+
+    assert SUPERFICIE["Document"] == "apolo.doc.document:Document"
+    assert resolver(SUPERFICIE["Document"]) is Document
+    assert MODULOS["apolo.doc.document"] == ("Document",)
+
+
+def test_check_integrity_lee_resolve_all_del_modulo_document(monkeypatch):
+    """D2 y la excepción (b) de D1: `check_integrity` vive en `integridad.py` pero lee
+    `apolo.doc.document.resolve_all` en cada llamada, así que el parche de los tests llega."""
+    import apolo.doc.document as document
+    from apolo.commands.expressions import ExpressionError
+
+    doc = document.Document("parche")
+    assert doc.check_integrity() == []
+
+    def boom(_vars):
+        raise ExpressionError("parcheado")
+
+    monkeypatch.setattr(document, "resolve_all", boom)
+    assert doc.check_integrity() == ["las variables del proyecto no resuelven: parcheado"]
+
+
+def test_el_gate_document_caza_un_metodo_que_falta(monkeypatch):
+    from apolo.doc.metadatos import MetadatosDocumento
+
+    monkeypatch.delattr(MetadatosDocumento, "set_motion")
+    assert faltantes_document() == [
+        "Document.set_motion: apolo.doc.metadatos:MetadatosDocumento ya no lo define"
+    ]
+
+
+def test_el_gate_document_caza_una_redefinicion(monkeypatch):
+    from apolo.doc.document import Document
+
+    monkeypatch.setattr(Document, "save", lambda self, path: None, raising=False)
+    assert faltantes_document() == [
+        "Document.save: Document lo redefine encima de apolo.doc.persistencia:PersistenciaDocumento"
+    ]
+
+
+def test_el_gate_document_caza_un_nombre_de_modulo_que_falta(monkeypatch):
+    import apolo.doc.document as document
+
+    monkeypatch.delattr(document, "FORMAT_VERSION")
+    assert faltantes("apolo.doc.document", DOCUMENT_MODULO) == [
+        "apolo.doc.document.FORMAT_VERSION: ya no existe"
+    ]

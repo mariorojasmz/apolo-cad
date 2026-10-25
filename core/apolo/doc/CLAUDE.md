@@ -1,8 +1,21 @@
 # Documento (`core/apolo/doc/`)
 
-El documento event-sourced: `document.py` (log, regenerate, undo, metadatos de manifest,
-integridad), `variantes.py` (tabla de variantes), `geomcache.py` (caché de geometría) y
+El documento event-sourced: `document.py` (estado, regenerate, modo estricto, mutaciones,
+undo), `variantes.py` (tabla de variantes), `geomcache.py` (caché de geometría) y
 `subproject.py` (replay de `insert_project`).
+
+- **`Document` = cuatro mixins** ([partir-nucleo-congelado](../../../docs/plans/partir-nucleo-congelado.md)
+  D8): `edicion.py` (`execute`, `execute_many`, `edit_many`, `edit`, `remove_commands`,
+  `add_attachment`), `metadatos.py` (variantes, color, material, vertical, motion, stackup, fea,
+  requisitos, visibilidad, boceto-guía), `integridad.py` (`check_integrity`) y `persistencia.py`
+  (`FORMAT_VERSION`, `_CID_RE`, `_try_warm`, `.apolo`). Un método nuevo va al mixin de su tema.
+- **Se queda en `document.py` lo que lee un global que los tests REASIGNAN ahí**
+  (`docmod.execute_command`, `docmod.resolve_all`, `docmod._STRICT`): `regenerate`,
+  `_check_strict`, las mutaciones (`_mutate`, `_push_undo`, `_append_record`), undo/redo y
+  `preview` (construye `Document` por nombre). Un mixin que necesite uno lo importa DENTRO del
+  método desde `apolo.doc.document` (así `check_integrity` lee `resolve_all`): una copia
+  importada arriba no vería el parche y el test pasaría en falso. `document` re-exporta por
+  identidad lo que se mudó (gate: `tests/test_rutas_viejas.py`, que fija `dir(Document)`).
 Lo transversal (invariantes del log, regenerate incremental y atómico, locks) está en el
 [CLAUDE.md raíz](../../../CLAUDE.md); lo común del backend, en [core/apolo](../CLAUDE.md).
 
@@ -60,7 +73,7 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
 ## Metadatos de manifest
 
 - `motion`, `requirements`, `stackups`, `configurations`, `fea`, `escenarios` (V8.3: su setter y
-  su vigencia, en `services/escenarios.py`: `document.py` está en el trinquete), `tensores`
+  su vigencia, en `services/escenarios.py`), `tensores`
   (puerta de publicación: setter en `services/calidad_tensores.poner_tensores`), `funciones`
   (D15: `services/puerta_publicacion.poner_funciones`; las dos se escriben sólo si hay), colores,
   materiales, ocultos y notas del agente viven en el manifest, FUERA del log y de los checkpoints
