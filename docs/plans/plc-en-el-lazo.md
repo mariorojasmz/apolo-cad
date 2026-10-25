@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; F1a hecha (D1–D3, por revisar y mergear); sigue F1b1 ∥ F1c1
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; F1a mergeada; F1b1 hecha (D4–D9 del lote, D15 del lote; por revisar y mergear); falta F1c1 (en paralelo) y después F1b2 ∥ F1d1
 descripcion: un PLC de verdad (o el simulador de su fabricante) mueve la máquina virtual en vivo o en una corrida a la pared, y se dice que esa corrida no es determinista; una pantalla de operador o un SCADA escriben variables del programa y siguen la sesión viva; el catálogo trae un panel de operador de 7″ para la puerta del tablero
 ---
 
@@ -349,3 +349,67 @@ cajas con seta `175c33b4…`, atasco `2271fefb…`) y las firmas de los 4 tabler
 `tests/tablero_electrico.py` son idénticas (directo `2:7feece8f…`, variador+PLC `2:35a1fea0…`,
 cat. 3 `2:5a114e45…`, relé de seguridad `2:da2c40a9…`); un test lo vigila quitando las
 direcciones de todas las fichas. Sin bump de `GEOM_CACHE_EPOCH` ni de versiones de comandos.
+
+### F1b1 — PLC externo en el lote y ritmo de pared
+
+**D4.** `cosim/puerto_plc.py` (puro): `PuertoPLC` (`Protocol` `runtime_checkable` con los 13
+miembros; `isinstance(PLC(…), PuertoPLC)` es verdadero), `MIEMBROS`/`OPCIONALES`, `LazoCortado(motivo,
+t_s=None)` (picklable; con hora dice «lazo cortado en t = … s: …»), `CONECTORES` y `DE_EXTENSION`
+(«prefijo.x» → (extensión, versión)), `problemas_de_clase` y `cerrar`. `SUPERFICIE` suma
+`PuertoPLC` y `LazoCortado`. `Corrida` arma el conector en vez de `PLC` sólo para las designaciones
+de `snap.externos`; el resto del `__init__` y el intercambio no cambian. Decisión propia (para
+vetar): los DATOS de la cara (`compilado`, `estado`, `salidas`, `falla`, `fallas`, `scans`) se piden
+DECLARADOS en la clase (atributo, propiedad o anotación), así se validan al cargar sin conectar.
+
+**D5.** `Extension.conectores_plc` (valor o función perezosa) lo valida
+`extensiones_puntos.sumar_conectores_plc`: prefijo, los 13 miembros, `validar_config` llamable,
+opcionales llamables, sin pisar uno existente; `CONECTORES` y `DE_EXTENSION` entran a
+`_registros()` (el rechazo deshace todo, también el modelo que entró antes) y `GET
+/api/extensiones` lista `conectores_plc`. `CONTRATO_EXTENSIONES` sigue en 1.
+
+**D6.** `POST /api/cosim/run` acepta `plc_externo` (tipo libre en el modelo: la forma la valida el
+servicio con 400 y no FastAPI con 422). `services/cosim_externo.leer` corre dentro de
+`snapshot_cosim`, justo después de juntar los programas y ANTES de las aserciones y la dinámica:
+es un PLC del tablero, tiene programa (carril o encima), el conector está cargado y su
+`validar_config` no se queja; todos los problemas juntos. `CosimSnapshot.externos` va vacío sin
+externo. Sin tope de 1 KB en el POST (decisión para vetar: el tope del plan es de la query del WS,
+F1b2; una config con mapa de etiquetas lo pasaría).
+
+**D7.** El planificador suma `resumen.determinista: false`, `lazo` (`intercambios`, `atrasados`,
+`atraso_max_ms`, `rebases` y `ida_y_vuelta` por designación: `n`, `mediana_ms`, `p99_ms`, `max_ms`,
+medida por el núcleo envolviendo `paso()` en `externo.Medido`) y un aviso al frente de `avisos`;
+la API suma `plc_externo` ({conector, extension, version}) y un veredicto nulo con
+`veredicto_motivo`. Decisiones propias (para vetar): con externo las aserciones NO se evalúan
+(`aserciones: []`: una fila «pasa/falla» sería un veredicto de hecho) y un escenario con nombre
+devuelve `guardado: false` con el motivo, sin `_verificar_documento` (no escribe).
+
+**D8 y D9 en el lote.** `cosim/ritmo.py`: `RitmoPared(dt, reloj, dormir, rebase_s)` duerme en
+tajadas de ≤ 10 ms mientras falte más de 1,5 ms y espera en activo el resto; un atrasado no espera
+y los que siguen se ponen al día; una deuda > `REBASE_S` = 100 ms (criterio: 50 intercambios de
+2 ms; para vetar) corre t₀. `cosim/externo.correr_a_la_pared` es el bucle del lote con externo:
+`LazoCortado` sale con la hora del intercambio y los conectores se cierran siempre; conectar mal
+(cualquier excepción del conector) es «no se pudo conectar el PLC externo -K1: …» y la corrida no
+arranca. El worker lo devuelve en un frame nuevo `L` y `proceso.LazoCortadoError` (subclase de
+`CosimError`) es **502** en la API (decisión para vetar: no es una falla del núcleo).
+
+**D15 del lote.** `tests/ext_prueba/`: `conector_plc.ConectorTCP` (`prueba.tcp`; un pedido por
+miembro que cambia el PLC; `paso` lleva las entradas y trae salidas, estado, falla, scans y
+variables, UNA ida y vuelta), `red_plc.py` (la «red», importada al conectar: un test lo vigila en
+un proceso aparte), `plc_falso.py` (`apolo.plc.PLC` con reloj de pared tras un servidor TCP; sale
+al cerrarse su stdin) y cinco variantes que no cargan. `tests/test_cosim_plc_externo.py` (16
+casos) cubre todo lo de «Se verifica»; el gate de imports del worker suma `externo.py`,
+`puerto_plc.py` y `ritmo.py`.
+
+**Lazo medido** (laptop, worker real, PLC falso en otro proceso, 3 s = 1501 intercambios de 2 ms,
+tres corridas): ida y vuelta de `paso()` mediana 0,20–0,24 ms, p99 0,39–0,62 ms, máx. 0,95–2,3 ms;
+5–17 atrasados con atraso máximo 3,2–4,1 ms, 0 rebases, factor de tiempo real 1,0; el PLC de afuera
+enclavó la marcha y el motor llegó a 1800 rpm; `modulos_pesados` vacío. Con este programa (ciclo de
+10 ms, pulsación de 0,2 s) las tres huellas salieron iguales: la corrida se DECLARA no determinista
+(D7) por construcción, no porque cada corrida difiera.
+
+**Vigencia (D14), medida.** `COSIM_EPOCH` sigue en 6: sólo la huella de `test_cosim_epoch.py`
+(`0da6c7ab1e440113` → `d0326bbc9bff2491`). Contra `4f669f0`, 6 escenarios del banco dan la MISMA
+huella (marcha y seta por variador `6217c74d…`, seta en directo `82649515…`, caída de red
+`7d30cac0…`, corte de fase `057ccaee…`, cajas con seta `aafe1f53…`, atasco `622a61f2…`) y las MISMAS
+claves del resultado, de su `resumen`, del compacto y de su `resumen`. Sin bump de
+`GEOM_CACHE_EPOCH` ni de versiones de comandos; ninguna tool MCP nueva (el golden no cambia).
