@@ -3,7 +3,7 @@
 El registro schema-driven: `models.py` (fachada de los params pydantic = schema de UI, diálogos
 y tools del agente; viven en `models_*.py` por familia), `escena.py` (`Feature`, `DEFINITIONS`,
 `_require`/`_instanced`…: la capa de abajo), `exec_*.py` (executors por familia), `registry.py`
-(`REGISTRY` + los executors que aún no se mudaron), `spec.py` (`CommandSpec` + `run_executor`, el
+(el shim, el `REGISTRY`, el despacho y los schemas), `spec.py` (`CommandSpec` + `run_executor`, el
 despacho), `state.py` (`RegenState`, el estado con nombre que `execute_command` muta y el
 regenerate guarda como checkpoint; `ExecContext`, lo que recibe un executor), `strict.py` (la
 entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (motor de `=expr`). Lo transversal (locks, log, regenerate, cirugía de modelos) está en el
@@ -36,14 +36,22 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   (`tests/test_rutas_viejas.py`, lista cerrada). Un modelo nuevo va a su familia (o a un
   `models_<tema>.py` nuevo, como `models_rodillos.py`) y se re-exporta en la fachada; una familia
   importa `Vec3`/`Rot3` de `.models_base`, nunca de `.models` (ciclo).
-- **`registry.py` se parte igual** (mismo plan, F3; F4 muda el resto): capas `escena` ←
-  `exec_*` ← `registry`. `escena` (`Feature`, `DEFINITIONS`, `_require`, `_instanced`,
-  `_orient_axis`, `_resolve_sel`), `exec_basicos` (primitivas, booleana, patrones, espejo,
-  borrar, duplicar, `set_variable`), `exec_colocacion` (`_world_move`/`_world_place`, transform,
-  center_in, distribute, attach, snap_to, `_planar_face_frame`) y `exec_modificar` (caras,
-  fillet/chamfer/shell, `_drill_tool`, drill_hole, add_joinery). Un `exec_*` nunca importa
-  `registry` (params de la fachada `.models`); `registry` re-exporta cada nombre movido por
-  IDENTIDAD, para siempre (`tests/test_rutas_viejas.py`; los blobs viejos de la caché nombran
+- **`registry.py` se partió igual** (mismo plan, F3 y F4): capas `escena` ← `exec_*` ←
+  `registry`. `escena` (`Feature`, `DEFINITIONS`, `_require`, `_instanced`, `_orient_axis`,
+  `_resolve_sel`), `exec_basicos` (primitivas, booleana, patrones, espejo, borrar, duplicar,
+  `set_variable`), `exec_colocacion` (`_world_move`/`_world_place`, transform, center_in,
+  distribute, attach, snap_to, `_planar_face_frame`), `exec_modificar` (caras,
+  fillet/chamfer/shell, `_drill_tool`, drill_hole, add_joinery), `exec_croquis` (sketch_*,
+  barrido, loft, superficies, thicken, revolve, extrude_poly, import_step), `exec_ensamblaje`
+  (`_register_joint`, `_joint_drag`, juntas, mates, restricciones, ground, grupos,
+  `_transform_point`/`_transform_dir`, transform_group), `exec_insertar` (`insert_project` y su
+  precheck) y `exec_biblioteca` (run_script, brazo, conveyor + `_publish_axis_anchor`,
+  weldment/frame + `_emit_weldment_parts`, chapa). Un `exec_*` puede importar de otro `exec_*`
+  (sin ciclos) pero nunca de `registry` (params de la fachada `.models`). `registry.py` sólo
+  DEFINE `REGISTRY`, `_validate_model`, `validate_params`, `execute_command`, `_schema_entry` y
+  `command_schemas` (lo exige `tests/test_rutas_viejas.py`): un executor nuevo va a su `exec_*`
+  y aquí sólo se importa. `registry` re-exporta cada nombre movido por IDENTIDAD, para siempre
+  (lista cerrada en `tests/test_rutas_viejas.py`; los blobs viejos de la caché nombran
   `apolo.commands.registry.Feature`). `run_executor`/`execute_command`/`validate_params` se
   quedan en `registry` (los tests parchean `registry_mod.run_executor`). Mover un executor byte a
   byte deja su huella igual: nunca se actualiza `VERSIONES` por un corte.

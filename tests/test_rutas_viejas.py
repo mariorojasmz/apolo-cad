@@ -237,8 +237,7 @@ def test_las_tools_movidas_ven_el_api_parcheado(monkeypatch):
 # ── registry (F3) ─────────────────────────────────────────────────────────────
 
 #: Casa nueva de cada nombre que `apolo.commands.registry` definía en `c11bca8` y salió en la F3
-#: (51), en el orden del archivo original por módulo. Los que aún viven en `registry` (F4) no
-#: están aquí: siguen siendo suyos.
+#: (51), en el orden del archivo original por módulo. Los que salieron en la F4, en `REGISTRY_F4`.
 REGISTRY_F3: dict[str, tuple[str, ...]] = {
     "apolo.commands.escena": (
         "Feature", "DEFINITIONS", "_DEFINITIONS_CAP", "register_definition", "touch_definition",
@@ -328,4 +327,101 @@ def test_el_gate_registry_caza_una_copia(monkeypatch):
     monkeypatch.setattr(registry, "_require", _require)
     assert faltantes("apolo.commands.registry", REGISTRY_F3) == [
         "apolo.commands.registry._require: no es el objeto de apolo.commands.escena"
+    ]
+
+
+# ── registry (F4) ─────────────────────────────────────────────────────────────
+
+#: Casa nueva de cada nombre que `apolo.commands.registry` definía en `ad26ad5` y salió en la F4
+#: (31), en el orden del archivo original por módulo.
+REGISTRY_F4: dict[str, tuple[str, ...]] = {
+    "apolo.commands.exec_croquis": (
+        "_exec_sketch_sweep", "_exec_sketch_loft", "_exec_boundary_surface",
+        "_exec_fill_surface", "_exec_thicken", "_exec_create_revolve",
+        "_exec_create_extrude_poly", "_exec_sketch_extrude", "_exec_sketch_revolve",
+        "_exec_import_step",
+    ),
+    "apolo.commands.exec_ensamblaje": (
+        "_register_joint", "_joint_drag", "_exec_add_joint", "_exec_add_mate",
+        "_exec_add_rail_constraint", "_exec_add_constraint", "_exec_ground",
+        "_exec_create_group", "_transform_point", "_transform_dir", "_exec_transform_group",
+    ),
+    "apolo.commands.exec_insertar": ("_insert_project_precheck", "_exec_insert_project"),
+    "apolo.commands.exec_biblioteca": (
+        "_exec_create_robot_arm", "_exec_run_script", "_publish_axis_anchor",
+        "_exec_create_conveyor", "_emit_weldment_parts", "_exec_create_weldment",
+        "_exec_create_frame", "_exec_create_sheet_metal",
+    ),
+}
+
+MOVIDOS_REGISTRY_F4 = 31
+
+#: Lo único que `registry` DEFINE tras la F4 (D7): el registro, el despacho y los schemas. Un
+#: executor nuevo va a su `exec_*.py`; aquí sólo se re-exporta.
+PROPIOS_REGISTRY = ("REGISTRY", "_validate_model", "validate_params", "execute_command",
+                    "_schema_entry", "command_schemas")
+
+
+def test_registry_sirve_cada_nombre_movido_en_la_f4_por_identidad():
+    assert faltantes("apolo.commands.registry", REGISTRY_F4) == []
+
+
+def test_registry_f4_lista_cerrada():
+    nombres = [n for ns in REGISTRY_F4.values() for n in ns]
+    assert len(nombres) == len(set(nombres)) == MOVIDOS_REGISTRY_F4
+    assert not set(nombres) & {n for ns in REGISTRY_F3.values() for n in ns}
+
+
+@pytest.mark.parametrize("casa", sorted(REGISTRY_F4))
+def test_cada_casa_nueva_de_registry_f4_define_lo_suyo(casa):
+    mod = importlib.import_module(casa)
+    for nombre in REGISTRY_F4[casa]:
+        obj = getattr(mod, nombre)
+        if isinstance(obj, type) or inspect.isfunction(obj):
+            assert obj.__module__ == casa, f"{nombre} nace en {obj.__module__}, no en {casa}"
+
+
+def test_los_executors_movidos_en_la_f4_son_los_de_su_casa():
+    """El `REGISTRY` despacha el MISMO objeto que vive en la casa nueva (sin copias)."""
+    from apolo.commands.registry import REGISTRY
+
+    casas = {n: casa for casa, ns in REGISTRY_F4.items() for n in ns}
+    movidos = [s for s in REGISTRY.values() if s.executor.__name__ in casas]
+    assert len(movidos) == 24
+    for spec in movidos:
+        casa = importlib.import_module(casas[spec.executor.__name__])
+        assert spec.executor is getattr(casa, spec.executor.__name__), spec.type
+
+
+def test_registry_solo_define_registro_despacho_y_schemas():
+    """Toda función o clase que `registry` expone nace fuera, salvo las de `PROPIOS_REGISTRY`."""
+    import apolo.commands.registry as registry
+
+    propias = sorted(
+        n for n, obj in vars(registry).items()
+        if (inspect.isfunction(obj) or isinstance(obj, type))
+        and obj.__module__ == registry.__name__
+    )
+    assert propias == sorted(n for n in PROPIOS_REGISTRY if n != "REGISTRY")
+    assert isinstance(registry.REGISTRY, dict)
+
+
+def test_el_gate_registry_f4_caza_un_nombre_que_falta(monkeypatch):
+    import apolo.commands.registry as registry
+
+    monkeypatch.delattr(registry, "_emit_weldment_parts")
+    assert faltantes("apolo.commands.registry", REGISTRY_F4) == [
+        "apolo.commands.registry._emit_weldment_parts: ya no existe"
+    ]
+
+
+def test_el_gate_registry_f4_caza_una_copia(monkeypatch):
+    import apolo.commands.registry as registry
+
+    def _register_joint(scene, joints, cmd_id, spec):  # mismo nombre, otra función
+        return None
+
+    monkeypatch.setattr(registry, "_register_joint", _register_joint)
+    assert faltantes("apolo.commands.registry", REGISTRY_F4) == [
+        "apolo.commands.registry._register_joint: no es el objeto de apolo.commands.exec_ensamblaje"
     ]
