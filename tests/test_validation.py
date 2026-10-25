@@ -36,16 +36,18 @@ def test_sandbox_reports_runtime_error():
         run_script_to_shape("result = (")
 
 
-def test_run_script_command_and_cache():
+def test_run_script_command_and_cache(monkeypatch):
+    import apolo.sandbox as sb
+
     doc = Document()
     fid = doc.execute("run_script", {"name": "Pieza", "code": SCRIPT_OK})
     assert doc.scene[fid].shape.volume == pytest.approx(100000, rel=1e-6)
-    # la regeneración (undo/redo, edición) usa la caché: debe ser casi instantánea
-    import time
-
-    t0 = time.time()
-    doc.regenerate()
-    assert time.time() - t0 < 1.0
+    # un replay completo (abrir en frío; el regenerate incremental ni lo re-ejecuta) toma el
+    # script de la caché: NO vuelve al sandbox. Antes medía < 1 s de pared, que con la suite en
+    # paralelo daba rojos falsos (y el regenerate incremental lo saltaba igual).
+    monkeypatch.setattr(sb, "_ejecutar", lambda *a: pytest.fail("volvió a correr el script"))
+    otro = Document.from_apolo_bytes(doc.to_apolo_bytes())
+    assert otro.scene[fid].shape.volume == pytest.approx(100000, rel=1e-6)
 
 
 # --------------------------------------------------------------------- reglas

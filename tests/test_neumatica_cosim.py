@@ -85,12 +85,12 @@ def test_costo_de_las_camaras_por_intercambio():
     cil = cilindro(c)
     cA, cB = caminos(c, Toma())
     n = 2000
-    t = time.perf_counter()
+    t = time.process_time()  # CPU, no pared: otro worker de la suite no lo infla (≥ 80 ms: el tic de Windows es 15,6)
     for k in range(n):
         cil.intercambio(DT, 0.1 + 1e-6 * k, 0.5, cA, cB)
-    us = (time.perf_counter() - t) / n * 1e6
-    print(f"cámaras de un cilindro: {us:.1f} µs por intercambio")
-    assert us < 1000.0  # F0: 41 µs; holgado para una máquina cargada
+    us = (time.process_time() - t) / n * 1e6
+    print(f"cámaras de un cilindro: {us:.1f} µs de CPU por intercambio")
+    assert us < 1000.0  # F0: 41 µs; sólo atrapa un desastre
 
 
 # ── la electroválvula (D6) ───────────────────────────────────────────────────────────────────

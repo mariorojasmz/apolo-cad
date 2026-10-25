@@ -1066,13 +1066,14 @@ def test_torture_geomcache_open_caliente_faster():
     warm = unpack(pack(doc))
     assert warm is not None
 
-    t0 = time.perf_counter()
+    # CPU del proceso, no pared: la carga de otro worker entre las dos medidas no mueve la razón
+    t0 = time.process_time()
     Document.from_apolo_bytes(apolo)  # frío: replay completo
-    cold = time.perf_counter() - t0
-    t1 = time.perf_counter()
+    cold = time.process_time() - t0
+    t1 = time.process_time()
     hot_doc = Document.from_apolo_bytes(apolo, warm=warm)  # caliente: reanuda del checkpoint
-    hot = time.perf_counter() - t1
-    print(f"\n[torture] open frío {cold:.2f}s vs caliente {hot:.2f}s ({hot / cold:.0%})")
+    hot = time.process_time() - t1
+    print(f"\n[torture] open frío {cold:.2f}s vs caliente {hot:.2f}s de CPU ({hot / cold:.0%})")
     assert hot_doc.check_integrity() == []
     assert hot < cold * 0.5
 
@@ -1083,8 +1084,9 @@ def test_torture_geomcache_open_caliente_faster():
 @pytest.mark.torture
 def test_torture_gravity_does_not_block_mutations():
     """Una gravedad de varios segundos corre FUERA de STATE_LOCK (V6.2c): una mutación
-    lanzada MIENTRAS la sim está en su fase larga entra al lock casi al instante (< 1 s),
-    no espera a que termine. El Event garantiza el solape (sin sleeps ciegos)."""
+    lanzada MIENTRAS la sim está en su fase larga termina ANTES que la sim. Sin reloj de pared:
+    la fase larga dura hasta que la mutación avisa (o 30 s, la red); si la sim tuviera el lock,
+    la mutación esperaría esos 30 s y la sim terminaría sin el aviso."""
     import threading
 
     import apolo.api.main as api
@@ -1096,12 +1098,13 @@ def test_torture_gravity_does_not_block_mutations():
         api.DOC = doc
         api.STORE = None
         api.PROJECT_ID = None
-        started = threading.Event()
+        started, mutated = threading.Event(), threading.Event()
+        durante: dict = {}
         orig = stab.simulate_stability
 
         def slow(snap):
             started.set()
-            time.sleep(2.0)   # fase "larga" de la sim, FUERA de STATE_LOCK
+            durante["mutó"] = mutated.wait(30)   # fase "larga" de la sim, FUERA de STATE_LOCK
             return orig(snap)
 
         stab.simulate_stability = slow
@@ -1116,14 +1119,12 @@ def test_torture_gravity_does_not_block_mutations():
         t = threading.Thread(target=run)
         t.start()
         assert started.wait(15), "la simulación no arrancó"
-        t0 = time.perf_counter()
         with api.STATE_LOCK:
             api.DOC.execute("create_box", {"width": 33})
-        dt = time.perf_counter() - t0
-        t.join(20)
+        mutated.set()
+        t.join(60)
         assert not errbox, errbox
-        print(f"\n[torture] mutación durante gravity: {dt * 1000:.0f} ms")
-        assert dt < 1.0, f"la mutación esperó {dt:.2f}s (STATE_LOCK bloqueado por la sim)"
+        assert durante["mutó"], "la mutación esperó a la sim (STATE_LOCK bloqueado por la sim)"
     finally:
         api.DOC, api.STORE, api.PROJECT_ID, stab.simulate_stability = old
 
@@ -1131,9 +1132,10 @@ def test_torture_gravity_does_not_block_mutations():
 @pytest.mark.torture
 def test_torture_render_does_not_block_mutations(api_client):
     """Un render VTK lento (depth-peeling) corre FUERA de STATE_LOCK (V6.2c): una mutación
-    durante el render entra al lock casi al instante. Además, la mutación INVALIDA los
-    shapes mientras el render corre con SU snapshot → el render termina 200 sin excepción
-    (carrera de regenerate: el snapshot son datos puros, no refs a shapes vivos)."""
+    durante el render termina ANTES que el render (sin reloj de pared: el render dura hasta que
+    la mutación avisa, o 30 s de red). Además, la mutación INVALIDA los shapes mientras el
+    render corre con SU snapshot → el render termina 200 sin excepción (carrera de regenerate:
+    el snapshot son datos puros, no refs a shapes vivos)."""
     import threading
 
     import apolo.kernel.render_vtk as rvtk
@@ -1143,31 +1145,28 @@ def test_torture_render_does_not_block_mutations(api_client):
     api.DOC = doc
     api.STORE = None
     api.PROJECT_ID = None
-    started = threading.Event()
+    started, mutated = threading.Event(), threading.Event()
+    holder: dict = {}
     orig = rvtk.render_snapshot_vtk
 
     def slow(snap):
         started.set()
-        time.sleep(2.0)              # "render" largo, sin OpenGL real
+        holder["mutó"] = mutated.wait(30)   # "render" largo, sin OpenGL real
         return b"\x89PNG-fake"
 
     rvtk.render_snapshot_vtk = slow
     try:
-        holder: dict = {}
-
         def render():
             holder["r"] = client.get("/api/render.png?vtk_only=true&shade=true")
 
         t = threading.Thread(target=render)
         t.start()
         assert started.wait(15), "el render no arrancó"
-        t0 = time.perf_counter()
         m = client.post("/api/commands", json={"type": "create_box", "params": {"width": 40}})
-        dt = time.perf_counter() - t0
-        t.join(20)
+        mutated.set()
+        t.join(60)
         assert m.status_code == 200
         assert holder["r"].status_code == 200  # el render terminó pese a la mutación concurrente
-        print(f"\n[torture] mutación durante render: {dt * 1000:.0f} ms")
-        assert dt < 1.0, f"la mutación esperó {dt:.2f}s (STATE_LOCK bloqueado por el render)"
+        assert holder["mutó"], "la mutación esperó al render (STATE_LOCK bloqueado por el render)"
     finally:
         rvtk.render_snapshot_vtk = orig

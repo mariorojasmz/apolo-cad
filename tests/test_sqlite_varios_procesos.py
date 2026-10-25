@@ -93,7 +93,8 @@ def test_un_lector_no_espera_a_un_escritor_con_la_transaccion_abierta(tmp_path):
         t0 = time.perf_counter()
         assert st.list_projects()[0]["name"] == "leible"
         assert st.load_bytes(pid)
-        assert time.perf_counter() - t0 < 2.0
+        # bloqueado esperaría BUSY_TIMEOUT_S (30 s): la cota, lejos de eso y de la carga
+        assert time.perf_counter() - t0 < BUSY_TIMEOUT_S / 3
     finally:
         otro.execute("ROLLBACK")
         otro.close()

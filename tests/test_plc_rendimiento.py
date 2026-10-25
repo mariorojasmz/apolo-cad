@@ -3,8 +3,8 @@
 El programa imita al de la medición de V8.0/F0 (≈ 500 líneas, 60–80 bloques estándar, 25 E/S):
 20 instancias de un FUNCTION_BLOCK de motor con TON, TOF, R_TRIG y CTU cada una, una FUNCTION
 de escalado, lógica de IF/CASE y un FOR sobre un ARRAY. La cota estricta (50 µs) va marcada
-`torture` (depende de la máquina); la suite normal exige una cota holgada (×4) para que no
-sea frágil en CI, y las dos toman el mejor de varios lotes.
+`torture` (depende de la máquina); la suite normal exige una cota holgada para que no sea
+frágil en CI. Las dos miden CPU del proceso, no pared (ver `medir_us_por_scan`).
 """
 
 from __future__ import annotations
@@ -93,19 +93,20 @@ END_FUNCTION
 
 
 def medir_us_por_scan(lotes: int = 5, scans: int = 400) -> tuple[float, int]:
+    """µs de CPU por scan (media de `lotes × scans`). CPU del proceso y no reloj de pared: con la
+    suite en paralelo (`-n auto`) los otros workers inflan la pared, no el costo del scan. En
+    Windows `process_time` avanza de a 15,6 ms: por eso el total, no el mejor lote (~10 ms)."""
     fuente = programa_sintetico()
     plc = PLC(compilar(fuente), ciclo_ms=10)
     t = 0
-    mejor = float("inf")
-    for _ in range(lotes):
-        t0 = time.perf_counter()
-        for n in range(scans):
-            plc.escribir_entrada(f"I{(n % 14) // 8}.{(n % 14) % 8}", n % 3 == 0)
-            plc.scan(t)
-            t += 10
-        mejor = min(mejor, (time.perf_counter() - t0) / scans * 1e6)
+    c0 = time.process_time()
+    for n in range(lotes * scans):
+        plc.escribir_entrada(f"I{(n % 14) // 8}.{(n % 14) % 8}", n % 3 == 0)
+        plc.scan(t)
+        t += 10
+    us = (time.process_time() - c0) / (lotes * scans) * 1e6
     assert plc.estado == "RUN", plc.falla
-    return mejor, len(fuente.splitlines())
+    return us, len(fuente.splitlines())
 
 
 def test_el_programa_sintetico_es_del_tamano_del_gate():

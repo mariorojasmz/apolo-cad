@@ -307,19 +307,20 @@ def test_medicion_30_lazos_eslabones_contra_simple():
         for k in [k for k in DEFINITIONS if k.startswith("cadena|")]:
             DEFINITIONS.pop(k)
         sc._DEF_MESH_CACHE.clear()
-        t0 = time.perf_counter()
+        t0 = time.process_time()  # CPU del proceso: otro worker de la suite no infla la cuenta
         ids = doc.execute_many([{"type": "create_chain", "params": {
             "name": f"Lazo {i}", "pinon_a": pins[i], "pinon_b": pins[i + 1], "detalle": detalle,
             "hilera_a": 1 + i % 2, "hilera_b": 1 + i % 2}} for i in range(30)])
-        t1 = time.perf_counter()
+        t1 = time.process_time()
         for cid in ids:
             sc._definition_mesh(doc.scene[cid].mesh_key)
             sc._cached_render(doc.scene[cid].shape, want_mesh=False)
-        tiempos[detalle] = (t1 - t0, time.perf_counter() - t1)
+        tiempos[detalle] = (t1 - t0, time.process_time() - t1)
         assert len({doc.scene[cid].mesh_key for cid in ids}) == 1  # se construye y tesela UNA vez
         doc.undo()
-    print("\n30 lazos (regenerate s, teselado s):", {k: tuple(round(x, 2) for x in v)
-                                                   for k, v in tiempos.items()})
-    # Tope holgado: con la PC cargada por otras suites el detallado midió 31 s (2026-10-21) y 30
-    # daba rojos falsos; lo que importa es el orden simple < eslabones y no un desastre.
+    print("\n30 lazos (s de CPU: regenerate, teselado):", {k: tuple(round(x, 2) for x in v)
+                                                         for k, v in tiempos.items()})
+    # Lo que importa es el orden simple < eslabones y no un desastre. Con reloj de pared, la PC
+    # cargada por otras suites midió 31 s (2026-10-21) y, si la carga cambiaba entre las dos
+    # medidas, el orden podía invertirse: por eso CPU del proceso.
     assert sum(tiempos["simple"]) < sum(tiempos["eslabones"]) < 90.0

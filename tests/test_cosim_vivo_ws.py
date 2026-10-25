@@ -247,30 +247,33 @@ def test_con_plc_externo_un_intercambio_por_vez_y_un_fotograma_cada_1_30_s(cx, t
                                                   "version": "0.1.0"}}
             ws.send_json({"girar": "-S1", "valor": 1.0, "id": 1})
             ws.send_json({"pulsar": "-S1", "actuador": "marcha", "durante_s": 0.2, "id": 2})
-            ts, llegadas, acks = [], [], []
+            fotos, acks = [], []
             while True:
                 m = ws.receive()
                 if m.get("bytes") is not None:
-                    ts.append(leer_fotograma(m["bytes"])["t"])
-                    llegadas.append(time.perf_counter())
+                    fotos.append(leer_fotograma(m["bytes"]))
                     continue
                 msg = json.loads(m["text"])
                 acks += [msg["id"]] if msg["tipo"] == "ack" else []
                 if msg["tipo"] == "fin":
                     break
-            pared = time.perf_counter() - llegadas[0]  # del primer fotograma al fin
         ses = R.SESIONES.ultima
+    ts = [f["t"] for f in fotos]
     assert acks == [1, 2] and msg["motivo"] == "tope" and msg["determinista"] is False
     assert "aviso_externo" not in msg  # sin pausa
     lazo = msg["lazo"]
     # D9: cada intercambio esperó su hora de pared, uno por vez
     assert lazo["intercambios"] == msg["intercambios"] == 500
     assert lazo["ida_y_vuelta"]["-K1"]["n"] > 100  # el núcleo midió el paso() del PLC de afuera
-    assert pared >= 0.9 * (msg["t"] - ts[0])  # a ritmo de pared, no de golpe
-    # un fotograma cada 1/30 s virtual (17 o 16 intercambios de 2 ms), a ~30 por segundo de pared
+    # A ritmo de pared, no de golpe: lo mide el WORKER (virtual/pared de su último ~1 s, en el
+    # fotograma). La pared de LLEGADA al test no sirve: con la suite en paralelo los fotogramas se
+    # encolan y el primero llega tarde (medido: 0,66–0,82 s de llegadas para 0,97 s virtuales).
+    # Hasta ×1,25 es ponerse al día tras una deuda (< 100 ms, `ritmo.REBASE_S`); de golpe, ×N.
+    # Más lento que la pared depende de la carga de la máquina: no se afirma.
+    assert fotos[-1]["factor"] <= 1.25, [round(f["factor"], 2) for f in fotos]
+    # un fotograma cada 1/30 s virtual (17 o 16 intercambios de 2 ms)
     assert 28 <= len(ts) <= 31
     assert all(abs((b - a) - 1 / 30) <= 0.0021 for a, b in zip(ts, ts[1:], strict=False))
-    assert 0.02 <= (llegadas[-1] - llegadas[0]) / (len(llegadas) - 1) <= 0.1  # holgado: la suite va en paralelo
     _sin_worker(ses)
 
 

@@ -71,6 +71,10 @@ npm run build                     # bundle de la UI (tsc + vite)
   reparto (procesos en puertos, fixtures de módulo con orden) lleva `xdist_group` (como
   `test_flota.py`); `conftest.py` pone solo `--dist loadgroup`. Dos suites a la vez con el mismo
   usuario chocan al limpiar `pytest-of-<usuario>`: cada una con su `--basetemp`.
+- **El reloj de pared, sólo como red gruesa** (con `-n auto` los otros workers lo inflan, y
+  `xdist_group` no lo evita: sólo junta tests en un worker): un costo se mide con
+  `time.process_time()` (en Windows avanza de a 15,6 ms: ≥ 100 ms de trabajo), «no espera» con
+  `Event`s, un ritmo con lo que mide el productor, nunca con la llegada al test (devlog 2026-10-25).
 - Tortura: los casos extendidos llevan `@pytest.mark.torture` y `pytest.ini` los excluye por
   defecto. Baseline de rendimiento: `docs/perf_baseline.json` (`scripts/perf_baseline.py`,
   depende de la máquina).

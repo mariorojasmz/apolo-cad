@@ -125,7 +125,8 @@ def test_long_poll_wakes_before_deadline():
     t0 = time.monotonic()
     job = store.get(jid, wait_s=25)
     assert job["estado"] == "ok" and job["resultado"] == {"ok": 1}
-    assert time.monotonic() - t0 < 5  # despertó al terminar, no a los 25 s
+    # despertó al terminar, no a los 25 s (la cota lejos de 25 y de 0: la suite va en paralelo)
+    assert time.monotonic() - t0 < 20
 
 
 def test_long_poll_returns_running_when_budget_expires():
