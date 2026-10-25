@@ -7,8 +7,15 @@ import { lecturasDe } from "./lecturas";
 import { instalarMandos3D } from "./mandos3d";
 import { estadoDeMando } from "./accionar";
 import { avanzarReloj, crearReloj } from "./reloj";
-import { accionar, sesionViva } from "./sesion";
+import { accionar, enviarMensaje, sesionViva } from "./sesion";
+import { instalarPantallas3D } from "./pantallas3d";
+import { temaDe } from "./pantallas";
 import { useStore } from "../state/store";
+import { EXTENSIONES } from "../extensiones/registro";
+import { pantallasDe } from "../extensiones/puntosVivo";
+import type { VivoPantalla } from "../extensiones/tipos";
+import type { DispositivoVivo, InicioVivo } from "./protocolo";
+import { movimientoReducido } from "../diseno/movimiento";
 
 /** La pieza (o una del MISMO comando: el vástago o el empujador de un cilindro) está
  *  seleccionada en el 3D. */
@@ -26,7 +33,8 @@ function piezaElegida(pieza: string): boolean {
 /* El reproductor de la marcha en modo vivo (plan V8.4, F2): el MISMO de «Ver la marcha»
    (`viewport/marcha/reproductor.ts`) siguiendo el reloj de la sesión viva (`reloj.ts`) sobre una
    serie que crece, más lo que sólo tiene la máquina viva: las etiquetas de datos sobre las
-   piezas (D5), el clic en los mandos con pieza y los pilotos con pieza (D4). Lo arma
+   piezas (D5), el clic en los mandos con pieza y los pilotos con pieza (D4), y las pantallas 3D
+   de las extensiones (plan plc-en-el-lazo, D13 b). Lo arma
    `marcha/enVista.ts` cuando la serie cargada es viva; así `Viewport.tsx` no cambia. */
 
 export function crearReproductorVivo(serie: SerieMarcha, ctx: VistaCtx, avisos: AvisosReproductor): Reproductor {
@@ -49,17 +57,44 @@ export function crearReproductorVivo(serie: SerieMarcha, ctx: VistaCtx, avisos: 
     estado: (m) => estadoDeMando(m, useVivo.getState()),
     enviar: accionar,
   });
+  const pantallas = instalarPantallas3D({
+    contenedor,
+    canvas: ctx.renderer.domElement,
+    camara: () => ctx.camera,
+    meshes: ctx.meshes,
+    grupo: ctx.group,
+    dispositivos: ini.dispositivos,
+    pantallas: pantallasDe(EXTENSIONES),
+    vivo: vivoDeLaSesion(ini),
+  });
   return {
     tiempo: base.tiempo,
     tick: (nowMs) => {
       base.tick(nowMs);
       etiquetas.tick(nowMs, ctx.camera);
       mandos3d.tick(nowMs);
+      pantallas.tick(nowMs);
     },
     restaurar: () => {
+      pantallas.quitar();
       mandos3d.quitar();
       etiquetas.quitar();
       base.restaurar();
     },
   };
+}
+
+/** Lo que ve una pantalla 3D de la sesión abierta: sus señales, el tema (tokens leídos una vez) y
+ *  el envío de la sesión. */
+function vivoDeLaSesion(inicio: InicioVivo): (d: DispositivoVivo, ancho: number, alto: number) => VivoPantalla {
+  const raiz = getComputedStyle(document.documentElement);
+  const tema = temaDe((t) => raiz.getPropertyValue(t), getComputedStyle(document.body).fontFamily);
+  const reducido = movimientoReducido();
+  return (dispositivo, ancho, alto) => ({
+    dispositivo, inicio, ancho, alto, tema, movimientoReducido: reducido,
+    t: sesionViva.tUltimo() ?? 0,
+    valor: sesionViva.valor,
+    texto: (senal) => useVivo.getState().textos[senal],
+    enviar: enviarMensaje,
+  });
 }

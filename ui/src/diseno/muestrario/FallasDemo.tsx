@@ -6,12 +6,15 @@ import FallasActivas from "../../vivo/FallasActivas";
 import FallasVivas from "../../vivo/FallasVivas";
 import { AccionarMando, Lecturas, ListaMandos } from "../../vivo/PanelMandos";
 import { accionarLocal, prepararSesionDemo, simularLocal } from "./datosVivo";
+import ChipsVivo from "../../vivo/ChipsVivo";
+import { EXTENSION_PRUEBA } from "./extensionPrueba";
 import "../../viewport/marcha/marcha.css";
 
 /* «Mandos», «Simular falla» y las fallas activas de la barra (planes cosim-fallas D7 y
    mandos-de-seguridad) en el muestrario, con una sesión viva de ejemplo (`datosVivo.ts`): los
-   mandos, simular y quitar cambian lo que se ve como lo haría el servidor. `?fallas=0|1|3` (por
-   defecto 1) y `?lista=1` (la lista de la barra abierta). */
+   mandos, simular y quitar cambian lo que se ve como lo haría el servidor. La barra lleva el chip
+   de la extensión de prueba (plan plc-en-el-lazo D13). `?fallas=0|1|3` (por defecto 1) y
+   `?lista=1` (la lista de la barra abierta). */
 
 const q = () => new URLSearchParams(window.location.search);
 
@@ -56,6 +59,7 @@ export function BarraFallasDemo() {
         <span className="bv-fase bv-corriendo">{rotuloFase("corriendo")}</span>
         <span className="bm-tiempo">{segundos(12.4)}</span>
         <span className="bv-factor">{f.texto}</span>
+        <ChipsVivo extensiones={[EXTENSION_PRUEBA]} />
         <span className="bv-espacio" />
         <span className="bv-paneles" role="group" aria-label="Paneles de la máquina viva">
           <button type="button" aria-pressed="true">Mandos</button>

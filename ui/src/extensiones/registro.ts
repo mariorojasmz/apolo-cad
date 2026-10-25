@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { ANCHOS_PANEL, type Extension } from "./tipos";
+import { choquesPuntosVivo, problemasPuntosVivo } from "./puntosVivo";
 
 /* Registro de las extensiones de la UI (plan núcleo-abierto-extensiones-privadas, D5). El núcleo
    lo publica VACÍO: no trae ninguna carpeta dentro de `src/extensiones/` (el `.gitignore` de `ui/`
@@ -27,9 +28,9 @@ function problemasDe(carpeta: string, ext: unknown): string[] {
   const { nombre, paneles } = ext as Partial<Extension>;
   if (nombre !== carpeta) return [`${carpeta}: el nombre (${String(nombre)}) tiene que ser el de su carpeta`];
   if (!NOMBRE.test(carpeta)) return [`${carpeta}: el nombre va en minúsculas, sin espacios ni puntos`];
-  if (paneles === undefined) return [];
-  if (!Array.isArray(paneles)) return [`${carpeta}: «paneles» tiene que ser una lista`];
-  const out: string[] = [];
+  const out = problemasPuntosVivo(carpeta, ext as Record<string, unknown>); // chips y pantallas (D13)
+  if (paneles === undefined) return out;
+  if (!Array.isArray(paneles)) return [...out, `${carpeta}: «paneles» tiene que ser una lista`];
   for (const p of paneles as unknown[]) {
     const panel = (p ?? {}) as Record<string, unknown>;
     const id = String(panel.id);
@@ -63,6 +64,7 @@ export function validarExtensiones(modulos: Modulos): Extension[] {
     }
     extensiones.push(ext);
   }
+  problemas.push(...choquesPuntosVivo(extensiones));
   if (problemas.length) throw new Error(`Extensiones de la UI mal formadas:\n${problemas.join("\n")}`);
   return extensiones.sort((a, b) => a.nombre.localeCompare(b.nombre));
 }

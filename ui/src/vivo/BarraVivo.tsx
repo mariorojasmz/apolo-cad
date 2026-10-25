@@ -8,6 +8,9 @@ import AireVivo from "../neumatica/AireVivo";
 import { cerrarSesion, controlar, reiniciarSesion } from "./sesion";
 import { abrirPanel, type PanelVivo } from "./abrirPanel";
 import { useVisor } from "../visor/estado";
+import ChipsVivo from "./ChipsVivo";
+import { EXTENSIONES } from "../extensiones/registro";
+import type { Extension } from "../extensiones/tipos";
 import "../viewport/marcha/marcha.css";
 import "./vivo.css";
 
@@ -18,7 +21,9 @@ import "./vivo.css";
    Los paneles «Mandos», «Señales» y «PLC» se abren desde aquí: en el visor comparten UN cajón y,
    sin estos botones, cerrar «Señales» o «PLC» dejaba la sesión sin camino de vuelta a los mandos.
    Arriba de los controles, las fallas activas con «Quitar» (plan cosim-fallas D7). Con circuito
-   de aire, el que consume la máquina (`neumatica/AireVivo.tsx`, plan V8.9 D12). */
+   de aire, el que consume la máquina (`neumatica/AireVivo.tsx`, plan V8.9 D12). Tras la fase y el
+   factor, los chips de las extensiones (`ChipsVivo.tsx`, plan plc-en-el-lazo D13 a; sin
+   extensiones, nada). */
 
 const PANELES: { id: PanelVivo; rotulo: string }[] = [
   { id: "mandos", rotulo: "Mandos" },
@@ -26,7 +31,7 @@ const PANELES: { id: PanelVivo; rotulo: string }[] = [
   { id: "plc", rotulo: "PLC" },
 ];
 
-export default function BarraVivo() {
+export default function BarraVivo({ extensiones = EXTENSIONES }: { extensiones?: readonly Extension[] }) {
   const fase = useVivo((s) => s.fase);
   const t = useVivo((s) => s.t);
   const factor = useVivo((s) => s.factor);
@@ -47,6 +52,7 @@ export default function BarraVivo() {
             {f.texto}
           </span>
         )}
+        <ChipsVivo extensiones={extensiones} />
         <AireVivo />
         {fase === "fin" && fin && <span className="bv-mensaje">{fin.texto}</span>}
         {vieja && fase !== "fin" && (

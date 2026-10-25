@@ -209,7 +209,13 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   la recoge con `import.meta.glob` y la valida: no se edita ningún archivo del núcleo y los gates la
   recorren. Lo que crezca entra como campo OPCIONAL de `Extension` (hoy, `ancho: "lamina"` de un
   panel: el cajón del visor abre al ancho de una lámina; el muestrario lo arma con
-  `visor/MarcoCajon.tsx`). Un proyecto en sólo lectura
+  `visor/MarcoCajon.tsx`). La sesión viva le da `chipsVivo` (en la barra tras el factor; sin chips,
+  la barra idéntica) y `pantallas3d` (`{id, tipo, dibujar, tocar?}`: un `CanvasTexture` sobre la
+  cara frontal de la pieza de cada dispositivo de ese `tipo`; la cara y uv → px, puros en
+  `vivo/pantallas.ts`; el toque, por `capturarToques` de `mandos3d.ts`). Una extensión lee y manda
+  a la sesión SÓLO por `extensiones/vivo.ts` (nunca `vivo/` por ruta relativa; se agrega, no se
+  cambia), nunca un control; un PLC de afuera entra por `abrirSesionViva(esc, {plcExterno})`.
+  [plc-en-el-lazo](../docs/plans/plc-en-el-lazo.md) D13. Un proyecto en sólo lectura
   (falta una extensión) se lee con `state/soloLectura.ts`.
   [plan](../docs/plans/nucleo-abierto-extensiones-privadas.md) (D4, D5)
 - Feedback de carga global: `guard`/`runTracked` + `BUSY_TEXT` (store).

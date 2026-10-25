@@ -9,6 +9,7 @@ import { BarraFallasDemo, PanelFallasDemo, PanelMandosDemo } from "./FallasDemo"
 import VueloDemo, { type Demo } from "./VueloDemo";
 import MarcoCajon from "../../visor/MarcoCajon";
 import { EXTENSION_PRUEBA } from "./extensionPrueba";
+import PantallaDemo from "./PantallaDemo";
 import "./muestrario.css";
 
 /* Muestrario de diseño (plan V8.5 F3b-0, F3b): el panel «Tablero» REAL (`tablero/VistaTablero`)
@@ -18,7 +19,8 @@ import "./muestrario.css";
    «Mandos» (con el resguardo y el relé de seguridad), «Simular falla» y la barra de la sesión
    viva con datos de ejemplo (planes cosim-fallas D7 y mandos-de-seguridad). Al final, el cajón
    del visor con un panel de extensión de prueba que pide el ancho de una lámina
-   (`extensionPrueba.tsx`, plan puntos-de-extension-entregables D7).
+   (`extensionPrueba.tsx`, plan puntos-de-extension-entregables D7), y su chip en la barra y su
+   pantalla sobre un panel de operador girado (plan plc-en-el-lazo D13).
    `?ancho=420` = una columna angosta; `?puerta=90` abre la puerta; `?conductor=c26` lo dibuja;
    `?detalle=1&item=largos` abre el detalle con ese ítem elegido (en el panel con fallas). */
 
@@ -71,8 +73,11 @@ export default function Muestrario() {
       <Marco rotulo="Mandos · simular falla">
         <PanelFallasDemo />
       </Marco>
-      <Marco rotulo="Barra de la sesión viva · fallas activas" doble>
+      <Marco rotulo="Barra de la sesión viva · fallas activas y chip de extensión" doble>
         <BarraFallasDemo />
+      </Marco>
+      <Marco rotulo="Visor · pantalla de extensión en el panel de operador" ancho>
+        <PantallaDemo />
       </Marco>
       <Marco rotulo="Visor · panel de extensión al ancho de una lámina" ancho entero>
         <CajonDeExtension />

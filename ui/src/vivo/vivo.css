@@ -148,3 +148,8 @@
   font-variant-numeric: tabular-nums;
 }
 .st-valor.verdadero { background: var(--accent-soft); color: var(--text); outline: 1px solid var(--accent); }
+/* los chips de las extensiones (plan plc-en-el-lazo D13 a): la letra del factor, sin caja propia */
+.barra-vivo .bv-chip {
+  display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap;
+  font-size: var(--fs-nota); font-weight: var(--fw-nota); font-variant-numeric: tabular-nums; color: var(--muted);
+}

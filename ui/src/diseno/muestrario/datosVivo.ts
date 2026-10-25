@@ -26,6 +26,9 @@ export const INICIO_DEMO: InicioVivo = {
   dispositivos: [
     { designacion: "-K2", tipo: "rele_seguridad", ref: "RS-2C-24VDC" },
     { designacion: "-M1", tipo: "motor", ref: "NMRV-090" },
+    // el PLC y el panel de operador de la pantalla 3D de prueba (plan plc-en-el-lazo D13)
+    { designacion: "-K1", tipo: "plc", ref: "PLC-1214C-DC" },
+    { designacion: "-P1", tipo: "hmi", ref: "HMI-7IN-24VDC", pieza: "panel-operador", pantalla_px: [800, 480] },
   ],
   fajas: [], cadenas: [], avisos: [],
   fallas: [
@@ -69,7 +72,7 @@ function etiqueta(ev: EventoFalla): string {
    -S3 con los dos canales cerrados, si los dos abrieron y cerraron y no tiene una falla. */
 const LECTURAS_DEMO: Record<string, number> = {
   "-S0.accionado": 0, "-B2.cerrado": 1, "-S3.accionado": 0, "-M1.rpm": 1799, "-M1.I_A": 3.8,
-  "-K2.salidas": 1, "-K2.canal1": 1, "-K2.canal2": 1, "-K2.espera_ciclo": 0,
+  "-K2.salidas": 1, "-K2.canal1": 1, "-K2.canal2": 1, "-K2.espera_ciclo": 0, "-K1.Main.consigna": 50,
 };
 
 function pegada(rama: string): boolean {

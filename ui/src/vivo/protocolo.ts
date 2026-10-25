@@ -105,6 +105,38 @@ export interface InicioVivo {
   /** Lo que se puede hacer fallar (cosim-fallas D6); un servidor anterior no lo trae. */
   fallas?: AparatoFallas[];
   ramas?: RamaVivo[];
+  /** Con un PLC de afuera (plc-en-el-lazo D6/D7): cuál por designación, y la sesión no es
+   *  determinista. Sin externo no vienen. */
+  plc_externo?: Record<string, { conector: string; extension?: string; version?: string }>;
+  determinista?: boolean;
+}
+
+/** El PLC externo que se pide al abrir la sesión (`?plc_externo=`, plc-en-el-lazo D6): por
+ *  designación del PLC del tablero, el conector de una extensión («prefijo.x») y su config. */
+export type PlcExterno = Record<string, { conector: string; config?: Record<string, unknown> }>;
+
+/** Lo más que mide un mensaje al WebSocket (lo mismo que valida el servidor). */
+export const MAX_MENSAJE = 4096;
+
+/** Por qué un mensaje de una extensión no se puede mandar a la sesión viva, o null si vale: un
+ *  objeto con `accion` (texto) o `evento` (objeto), nunca un `control` ni su propio `id`, y de
+ *  ≤ 4096 bytes. */
+export function problemaDeMensaje(m: unknown): string | null {
+  if (!m || typeof m !== "object" || Array.isArray(m)) return "el mensaje tiene que ser un objeto";
+  const o = m as Record<string, unknown>;
+  if ("control" in o) return "pausar, reanudar y parar son de la persona: una extensión no los manda";
+  if ("id" in o) return "el id lo pone el núcleo";
+  const accion = typeof o.accion === "string" && o.accion !== "";
+  const evento = !!o.evento && typeof o.evento === "object" && !Array.isArray(o.evento);
+  if (accion === evento) return "el mensaje lleva una «accion» o un «evento», uno solo";
+  let texto: string;
+  try {
+    texto = JSON.stringify(o);
+  } catch {
+    return "el mensaje no se puede pasar a JSON";
+  }
+  if (new TextEncoder().encode(texto).length > MAX_MENSAJE - 32) return `el mensaje pasa de ${MAX_MENSAJE} bytes`;
+  return null;
 }
 
 /** Los JSON cortos que llegan después del `inicio` (los que la UI usa). */
@@ -233,6 +265,8 @@ export function problemaDeCierre(codigo: number, motivo?: string, escenario?: st
       };
     case 4500:
       return { texto: "La simulación se detuvo por un error. Abre la sesión de nuevo.", detalle };
+    case 4502:
+      return { texto: "No pudimos conectar con el PLC externo. Revisa que esté encendido y en la red, y abre la sesión de nuevo.", detalle };
     default:
       return { texto: "Se perdió la conexión con el servidor. Revisa que Apolo siga abierto y abre la sesión de nuevo.", detalle };
   }
@@ -249,6 +283,8 @@ export function textoFin(motivo: string | undefined): string {
       return "Se abrió otra sesión viva y esta se cerró.";
     case "cerrada":
       return "La sesión se cerró.";
+    case "lazo":
+      return "Se cortó el lazo con el PLC externo.";
     default:
       return "La simulación terminó por un error.";
   }

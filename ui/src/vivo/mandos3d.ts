@@ -52,22 +52,46 @@ export function mandoBajoPuntero(
   return null;
 }
 
+/** Toma el botón izquierdo en CAPTURA sobre el contenedor del canvas, antes que la selección y
+ *  la órbita: si `alApretar` dice que el toque es suyo (un mando, una pantalla 3D), el evento no
+ *  sigue y su `click` se traga; `alSoltar` llega con cualquier pointerup. Devuelve cómo quitarlo. */
+export function capturarToques(contenedor: HTMLElement, alApretar: (ev: PointerEvent) => boolean,
+  alSoltar?: () => void): () => void {
+  let tragarClic = false;
+  const onDown = (ev: PointerEvent) => {
+    if (ev.button !== 0 || !alApretar(ev)) return;
+    ev.stopPropagation(); // ni selección ni órbita: es de la máquina
+    ev.preventDefault();
+    tragarClic = true;
+  };
+  const onUp = () => alSoltar?.();
+  const onClick = (ev: MouseEvent) => {
+    if (!tragarClic) return;
+    tragarClic = false;
+    ev.stopPropagation();
+  };
+  contenedor.addEventListener("pointerdown", onDown, true);
+  contenedor.addEventListener("click", onClick, true);
+  window.addEventListener("pointerup", onUp, true);
+  return () => {
+    contenedor.removeEventListener("pointerdown", onDown, true);
+    contenedor.removeEventListener("click", onClick, true);
+    window.removeEventListener("pointerup", onUp, true);
+  };
+}
+
 export function instalarMandos3D(o: OpcionesMandos3D): Mandos3D {
   const porPieza = new Map<string, MandoVivo>();
   for (const m of o.mandos) if (m.pieza && o.meshes.has(m.pieza)) porPieza.set(m.pieza, m);
   let apretado: MandoVivo | null = null;
-  let tragarClic = false;
 
-  const onDown = (ev: PointerEvent) => {
-    if (ev.button !== 0 || !porPieza.size) return;
+  const onDown = (ev: PointerEvent): boolean => {
     const m = mandoBajoPuntero(ev, o.canvas, o.camara(), o.meshes, porPieza);
-    if (!m) return;
-    ev.stopPropagation(); // ni selección ni órbita: es un botón de la máquina
-    ev.preventDefault();
-    tragarClic = true;
+    if (!m) return false;
     const a = alApretar(m, o.estado(m));
     if (a) o.enviar(a, m);
     apretado = m;
+    return true;
   };
   const onUp = () => {
     if (!apretado) return;
@@ -75,16 +99,7 @@ export function instalarMandos3D(o: OpcionesMandos3D): Mandos3D {
     if (a) o.enviar(a, apretado);
     apretado = null;
   };
-  const onClick = (ev: MouseEvent) => {
-    if (!tragarClic) return;
-    tragarClic = false;
-    ev.stopPropagation();
-  };
-  if (porPieza.size) {
-    o.contenedor.addEventListener("pointerdown", onDown, true);
-    o.contenedor.addEventListener("click", onClick, true);
-    window.addEventListener("pointerup", onUp, true);
-  }
+  const soltarCaptura = porPieza.size ? capturarToques(o.contenedor, onDown, onUp) : () => {};
 
   // pilotos con pieza: una copia del material para encenderla en su color
   const pilotos: { p: PilotoVivo; mesh: THREE.Mesh; original: THREE.Material | THREE.Material[]; copias: THREE.MeshStandardMaterial[]; color: THREE.Color }[] = [];
@@ -112,9 +127,7 @@ export function instalarMandos3D(o: OpcionesMandos3D): Mandos3D {
       }
     },
     quitar: () => {
-      o.contenedor.removeEventListener("pointerdown", onDown, true);
-      o.contenedor.removeEventListener("click", onClick, true);
-      window.removeEventListener("pointerup", onUp, true);
+      soltarCaptura();
       onUp();
       for (const { mesh, original, copias } of pilotos) {
         mesh.material = original;

@@ -83,6 +83,59 @@ describe("registro de extensiones de la UI", () => {
     expect(html).toContain('fill="none" stroke="#16181d" stroke-width="0.35"'); // un símbolo
   });
 
+  describe("chips de la barra viva y pantallas 3D (plan plc-en-el-lazo, D13)", () => {
+    const dibujar = () => {};
+    const con = (extra: Record<string, unknown>, nombre = "hola") => ({
+      [`./${nombre}/index.ts`]: { default: { nombre, ...extra } },
+    });
+
+    it("acepta chips y pantallas con su prefijo; los campos son opcionales", () => {
+      const tocar = () => {};
+      const [ext] = validarExtensiones(con({
+        chipsVivo: [{ id: "hola.lazo", Componente }],
+        pantallas3d: [{ id: "hola.hmi", tipo: "hmi", dibujar, tocar }, { id: "hola.vfd", tipo: "variador", dibujar }],
+      }));
+      expect(ext.chipsVivo?.map((c) => c.id)).toEqual(["hola.lazo"]);
+      expect(ext.pantallas3d?.map((p) => p.tipo)).toEqual(["hmi", "variador"]);
+      expect(validarExtensiones(con({ chipsVivo: [], pantallas3d: [] }))).toHaveLength(1);
+    });
+
+    it("rechaza un chip sin el prefijo de su extensión o sin componente", () => {
+      for (const id of ["lazo", "otra.lazo", "hola.", "hola.Lazo"])
+        expect(() => validarExtensiones(con({ chipsVivo: [{ id, Componente }] })), id)
+          .toThrow(/el chip «.*» tiene que llamarse «hola\.<chip>»/);
+      expect(() => validarExtensiones(con({ chipsVivo: [{ id: "hola.lazo" }] }))).toThrow(/al chip «hola\.lazo» le falta el componente/);
+      expect(() => validarExtensiones(con({ chipsVivo: { id: "hola.lazo", Componente } }))).toThrow(/«chipsVivo» tiene que ser una lista/);
+    });
+
+    it("rechaza una pantalla sin prefijo, sin tipo, con `dibujar` que no es función o un `tocar` malo", () => {
+      const p = (extra: Record<string, unknown>) => con({ pantallas3d: [{ id: "hola.hmi", tipo: "hmi", dibujar, ...extra }] });
+      expect(() => validarExtensiones(p({ id: "hmi" }))).toThrow(/la pantalla «hmi» tiene que llamarse «hola\.<pantalla>»/);
+      for (const tipo of [undefined, "", "HMI", "hmi panel", 3])
+        expect(() => validarExtensiones(p({ tipo })), String(tipo)).toThrow(/necesita el tipo de dispositivo/);
+      for (const malo of [undefined, "pintar", {}])
+        expect(() => validarExtensiones(p({ dibujar: malo })), String(malo)).toThrow(/le falta «dibujar» \(una función\)/);
+      expect(() => validarExtensiones(p({ tocar: "sí" }))).toThrow(/«tocar» de la pantalla «hola\.hmi» tiene que ser una función/);
+      expect(() => validarExtensiones(con({ pantallas3d: "hmi" }))).toThrow(/«pantallas3d» tiene que ser una lista/);
+    });
+
+    it("rechaza ids repetidos y dos pantallas para el mismo tipo, también entre extensiones", () => {
+      expect(() => validarExtensiones(con({ chipsVivo: [{ id: "hola.a", Componente }, { id: "hola.a", Componente }] })))
+        .toThrow(/el chip «hola\.a» está repetido/);
+      expect(() => validarExtensiones(con({ pantallas3d: [{ id: "hola.a", tipo: "hmi", dibujar }, { id: "hola.a", tipo: "plc", dibujar }] })))
+        .toThrow(/la pantalla «hola\.a» está repetida/);
+      const dos = { ...con({ pantallas3d: [{ id: "hola.hmi", tipo: "hmi", dibujar }] }),
+        ...con({ pantallas3d: [{ id: "zeta.hmi", tipo: "hmi", dibujar }] }, "zeta") };
+      expect(() => validarExtensiones(dos)).toThrow(/zeta: el tipo «hmi» ya lo pinta la pantalla «hola\.hmi»/);
+    });
+
+    it("la extensión de prueba del muestrario trae un chip y una pantalla para el panel de operador", () => {
+      const [ext] = validarExtensiones({ "./prueba/index.tsx": { default: EXTENSION_PRUEBA } });
+      expect(ext.chipsVivo?.map((c) => c.id)).toEqual(["prueba.consigna"]);
+      expect(ext.pantallas3d?.map((p) => [p.id, p.tipo, typeof p.tocar])).toEqual([["prueba.consigna", "hmi", "function"]]);
+    });
+  });
+
   it("rechaza un id de panel repetido y junta todos los problemas en un mensaje", () => {
     const m = {
       "./hola/index.ts": { default: { nombre: "hola", paneles: [panel("hola.a"), panel("hola.a")] } },

@@ -5,8 +5,8 @@ import { esperaDe } from "./accionar";
 import { conAckDeRama, type EventoFalla } from "./fallas";
 import type { Accion } from "./mandos";
 import {
-  decodificarFotograma, leerMensaje, problemaDeCierre, textoFin,
-  type Fotograma, type InicioVivo, type MandoVivo, type MensajeVivo,
+  decodificarFotograma, leerMensaje, problemaDeCierre, problemaDeMensaje, textoFin,
+  type Fotograma, type InicioVivo, type MandoVivo, type MensajeVivo, type PlcExterno,
 } from "./protocolo";
 import { empujar, serieDesdeInicio, type SerieViva } from "./serieViva";
 import { registrarMuestra, reiniciarHistoria } from "./medicion";
@@ -39,11 +39,13 @@ interface Interno {
   esperas: Map<string, string>;
   /** Las fallas con que se abrió la sesión: se mandan al llegar el `inicio` (y al reiniciar). */
   fallasAlAbrir: EventoFalla[];
+  /** El PLC externo con que se abrió (plc-en-el-lazo D6): reiniciar lo vuelve a pedir. */
+  plcExterno: PlcExterno | null;
 }
 
 const s: Interno = {
   ws: null, viva: null, inicio: null, nombres: [], valores: new Map(), ultimo: null, publicadoEn: 0,
-  error: null, escenario: null, ids: 0, esperas: new Map(), fallasAlAbrir: [],
+  error: null, escenario: null, ids: 0, esperas: new Map(), fallasAlAbrir: [], plcExterno: null,
 };
 
 export interface OpcionesSesion {
@@ -51,6 +53,8 @@ export interface OpcionesSesion {
   reemplazar?: boolean;
   /** Fallas ya puestas al empezar (plan cosim-fallas D7): «Probar en vivo» desde otro panel. */
   fallas?: EventoFalla[];
+  /** Un PLC de afuera en el lazo (plc-en-el-lazo D6): la sesión no es determinista. */
+  plcExterno?: PlcExterno;
 }
 
 /** Lo que lee el 3D en cada cuadro (sin pasar por React). */
@@ -83,17 +87,21 @@ function soltar(): void {
   useVivo.getState().set({ ...INICIAL });
 }
 
-function urlSesion(documento: string, escenario: string, reemplazar: boolean): string {
-  const proto = location.protocol === "https:" ? "wss" : "ws";
+/** La URL del WebSocket (`lugar` = `location`); con un PLC externo, `plc_externo` en JSON (el
+ *  servidor la valida: ≤ 1 KB, conector cargado, PLC con programa). */
+export function urlSesion(documento: string, escenario: string, reemplazar: boolean,
+  plcExterno: PlcExterno | null = null, lugar: { protocol: string; host: string } = location): string {
+  const proto = lugar.protocol === "https:" ? "wss" : "ws";
   const q = new URLSearchParams({ documento, escenario });
   if (reemplazar) q.set("reemplazar", "1");
-  return `${proto}://${location.host}/api/cosim/vivo?${q}`;
+  if (plcExterno && Object.keys(plcExterno).length) q.set("plc_externo", JSON.stringify(plcExterno));
+  return `${proto}://${lugar.host}/api/cosim/vivo?${q}`;
 }
 
 /** Abre la sesión viva sobre el escenario `escenario` (con `reemplazar`, cierra la que haya;
- *  con `fallas`, las pone en cuanto llega el `inicio`). */
+ *  con `fallas`, las pone en cuanto llega el `inicio`; con `plcExterno`, un PLC de afuera). */
 export async function abrirSesion(escenario: string, opciones: OpcionesSesion = {}): Promise<void> {
-  const { reemplazar = false, fallas = [] } = opciones;
+  const { reemplazar = false, fallas = [], plcExterno = null } = opciones;
   vigilarMarcha();
   const previa = s.ws;
   s.ws = null;
@@ -101,6 +109,7 @@ export async function abrirSesion(escenario: string, opciones: OpcionesSesion = 
   s.error = null;
   s.escenario = escenario;
   s.fallasAlAbrir = [...fallas];
+  s.plcExterno = plcExterno;
   const st = useVivo.getState();
   st.set({ ...INICIAL, fase: "abriendo", escenario });
   let documento: string;
@@ -112,7 +121,7 @@ export async function abrirSesion(escenario: string, opciones: OpcionesSesion = 
     st.set({ fase: "error", problema: problemaDeCierre(1006) });
     return;
   }
-  const ws = new WebSocket(urlSesion(documento, escenario, reemplazar));
+  const ws = new WebSocket(urlSesion(documento, escenario, reemplazar, plcExterno));
   ws.binaryType = "arraybuffer";
   s.ws = ws;
   ws.onmessage = (ev) => {
@@ -141,7 +150,8 @@ export async function abrirSesion(escenario: string, opciones: OpcionesSesion = 
  *  fallas con que se abrió; las que se pusieron después no vuelven. Sin `reemplazar` (abrir de
  *  nuevo tras un error), no toca la sesión de otra pestaña. */
 export function reiniciarSesion(reemplazar = true): Promise<void> {
-  return abrirSesion(s.escenario ?? useVivo.getState().escenario ?? "", { reemplazar, fallas: s.fallasAlAbrir });
+  return abrirSesion(s.escenario ?? useVivo.getState().escenario ?? "", { reemplazar, fallas: s.fallasAlAbrir,
+    plcExterno: s.plcExterno ?? undefined });
 }
 
 /** Cierra la sesión y quita la máquina en movimiento del 3D. */
@@ -193,6 +203,21 @@ export function enviarEvento(evento: Record<string, unknown> | EventoFalla): voi
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({ evento, id: `e${++s.ids}` }));
   useVivo.getState().set({ rechazo: null });
+}
+
+/** Manda el mensaje de una extensión (una acción o un evento, `problemaDeMensaje`); `false` si no
+ *  hay sesión abierta o el mensaje no vale. Su rechazo llega como el de cualquier acción. */
+export function enviarMensaje(mensaje: unknown): boolean {
+  const ws = s.ws;
+  const problema = problemaDeMensaje(mensaje);
+  if (problema) {
+    console.warn(`Mensaje de extensión a la sesión viva descartado: ${problema}`);
+    return false;
+  }
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  ws.send(JSON.stringify({ ...(mensaje as object), id: `x${++s.ids}` }));
+  useVivo.getState().set({ rechazo: null });
+  return true;
 }
 
 export function controlar(c: "pausa" | "reanudar" | "parar"): void {
