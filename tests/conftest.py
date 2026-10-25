@@ -17,6 +17,12 @@ import pytest
 # procesos que lanzan los tests (uvicorn, el MCP por stdio, el worker): por eso `os.environ` y
 # no monkeypatch, y ANTES de importar `apolo`. `test_extensiones.py` la prende a propósito.
 os.environ["APOLO_EXTENSIONES"] = "0"
+# Y los tests que la prenden (`extensiones_aisladas` quita la de arriba, `APOLO_EXTENSIONES_EXTRA`
+# pide la falsa de `tests/ext_prueba`) tampoco ven las INSTALADAS por entry point: con una real en
+# el venv, `cargar()` devolvía [real, ext-prueba]. Los procesos hijos lo heredan. Un test que
+# quiera los entry points quita ésta con `monkeypatch.delenv`. El plugin `apolo.pruebas` no la fija:
+# la suite de una extensión SÍ se carga por su entry point.
+os.environ["APOLO_EXTENSIONES_INSTALADAS"] = "0"
 
 pytest_plugins = ["apolo.pruebas"]
 

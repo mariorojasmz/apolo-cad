@@ -54,7 +54,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   prefijo de extensión no puede ser un tramo `/api/<x>/` suyo) e incluye los routers de las
   extensiones DESPUÉS de los del núcleo y antes de la UI. Nada se carga al importar `apolo` y la
   suite corre con `APOLO_EXTENSIONES=0` (lo fija `tests/conftest.py` antes de importar):
-  `test_extensiones.py` la prende con `extensiones_aisladas` (`apolo.pruebas`). Todo lo que nombra
+  `test_extensiones.py` la prende con `extensiones_aisladas` (`apolo.pruebas`). El conftest fija
+  además `APOLO_EXTENSIONES_INSTALADAS=0` (sin entry points: una extensión instalada en el venv no
+  se suma a la falsa); el plugin no, porque la suite de una extensión se carga por el suyo. Todo lo que nombra
   una extensión lleva su prefijo (`x.algo`, tool `x_algo`, `/api/x/…`) y un registro mutable NUEVO
   que una extensión toque entra a `extensiones._registros()`, o su rechazo no se deshace.
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1a)

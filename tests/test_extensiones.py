@@ -75,6 +75,23 @@ def test_apagadas_el_nucleo_queda_identico(extensiones_aisladas, monkeypatch):
     assert extensiones_aisladas.routers() == [] and extensiones_aisladas.webui() is None
 
 
+def test_las_instaladas_no_se_cuelan_salvo_que_el_test_las_pida(extensiones_aisladas, monkeypatch):
+    """Una extensión instalada en el venv (entry point) no aparece junto a la falsa: la suite
+    fija `APOLO_EXTENSIONES_INSTALADAS=0` (conftest). Quitándola, el entry point vuelve."""
+    import importlib.metadata as md
+
+    ep = md.EntryPoint("instalada", "ext_prueba:DUPLICADA", extensiones.GRUPO)
+    monkeypatch.setattr(md, "entry_points", lambda group=None: [ep] if group == extensiones.GRUPO
+                        else [])
+    monkeypatch.setenv(EXTRA, "ext_prueba:EXTENSION")
+    assert os.environ["APOLO_EXTENSIONES_INSTALADAS"] == "0"
+    assert [o for o, _e, _err in extensiones_aisladas.descubrir()] == ["ext_prueba:EXTENSION"]
+    with extensiones.aislado():
+        monkeypatch.delenv("APOLO_EXTENSIONES_INSTALADAS")
+        assert [o for o, _e, _err in extensiones.descubrir()] == [
+            "instalada (ext_prueba:DUPLICADA)", "ext_prueba:EXTENSION"]
+
+
 def test_health_publica_las_extensiones_vacias_sin_ninguna():
     from fastapi.testclient import TestClient
 

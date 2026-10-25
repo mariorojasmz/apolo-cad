@@ -7,6 +7,9 @@ Contrato (lo que una extensión usa; `CONTRATO_EXTENSIONES` sube sólo si cambia
   (`[project.entry-points."apolo.extensiones"] nombre = "modulo:EXTENSION"`). En desarrollo,
   `APOLO_EXTENSIONES_EXTRA=modulo:objeto[,modulo:objeto]` carga además sin instalar nada, y
   `APOLO_EXTENSIONES=0` las apaga todas (la suite, `release.py` y `golden_mcp.py`, A3).
+  `APOLO_EXTENSIONES_INSTALADAS=0` ignora sólo los entry points y deja `..._EXTRA`: la suite del
+  núcleo lo fija para que una extensión instalada en el mismo venv no se cuele en los tests que
+  cargan la falsa (ni en sus procesos hijos).
 - NADA se carga al importar `apolo` (A3). `cargar()` es explícito e idempotente: lo llama
   `api/main.py` antes de `include_router`; el final de `mcp_server.py` sólo registra las tools
   (`registrar_tools`); el worker de la co-simulación recibe en el snapshot las clases de los
@@ -113,6 +116,10 @@ def apagadas() -> bool:
     return os.environ.get("APOLO_EXTENSIONES", "").strip() == "0"
 
 
+def _instaladas_apagadas() -> bool:
+    return os.environ.get("APOLO_EXTENSIONES_INSTALADAS", "").strip() == "0"
+
+
 # ── descubrir ───────────────────────────────────────────────────────────────────────────────
 
 def _objeto(spec: str):
@@ -139,13 +146,15 @@ def _importar(origen: str, cargador: Callable[[], Any]) -> tuple:
 
 def descubrir() -> list[tuple]:
     """Las extensiones instaladas (entry points, por nombre) y las de `APOLO_EXTENSIONES_EXTRA`
-    (en su orden), importadas una vez por proceso: `[(origen, Extension | None, error)]`."""
+    (en su orden), importadas una vez por proceso: `[(origen, Extension | None, error)]`.
+    `APOLO_EXTENSIONES_INSTALADAS=0` salta los entry points."""
     if _R.descubiertas is None:
         out: list[tuple] = []
         if not apagadas():
             from importlib.metadata import entry_points
 
-            for ep in sorted(entry_points(group=GRUPO), key=lambda e: e.name):
+            instaladas = [] if _instaladas_apagadas() else entry_points(group=GRUPO)
+            for ep in sorted(instaladas, key=lambda e: e.name):
                 out.append(_importar(f"{ep.name} ({ep.value})", ep.load))
             for spec in os.environ.get("APOLO_EXTENSIONES_EXTRA", "").split(","):
                 if spec.strip():
