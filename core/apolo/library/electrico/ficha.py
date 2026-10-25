@@ -11,7 +11,8 @@ corregir. Lo que valida:
     de tipo bobina;
   - `conductor` (conductores y cables): sección > 0, hilos con id único y color IEC 60757;
   - `modelo` (V8.3 D7): `tipo` conocido, rangos [mín, máx] ordenados, la `clase` de disparo en
-    UNA forma («10», «10A»), curvas válidas y el `sistema` de una red coherente con su fuente;
+    UNA forma («10», «10A»), curvas válidas y el `sistema` de una red coherente con su fuente,
+    su `esquema` de tierra en la lista de `acometida.py` y `RA_ohm` sólo con TT;
   - `datos`, `fuente` y `a_confirmar` (plan datos-de-corte-y-acometida, D1–D5): los datos de
     ficha que lee quien verifica, fuera de `modelo`, con su COMPLETITUD (`ficha_datos.py`).
 
@@ -22,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import ficha_datos
+from . import acometida, ficha_datos
 from .modelo import Borne, Camino, Carga, Fuente, Hilo
 from .referencias import sugerir
 from .tension import Tension, parse_tension, polos_obligatorios, polos_validos
@@ -316,6 +317,9 @@ def _modelo(err: _Err, crudo, fuentes: tuple[Fuente, ...]) -> dict:
         for f in fuentes:
             if f.tension.tipo == "AC" and (f.tension.fases, f.tension.neutro) != (fases, neutro):
                 raise err("modelo.sistema", f"«{sistema}» no es el de su fuente «{f.tension}»")
+        problema = acometida.validar_modelo(modelo)  # el esquema de tierra y el RA (D6)
+        if problema:
+            raise err(f"modelo.{problema[0]}", problema[1])
     return modelo
 
 

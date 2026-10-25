@@ -32,6 +32,12 @@ backend: [core/apolo](../CLAUDE.md).
   tablero lo indexa aparte (`diferenciales`) y las demás protecciones siguen con módulos
   (`_corriente` = |`_fasor`|). Sano no da 0 exacto: la conductancia mínima por nodo deja ~22 µA.
   [plan](../../../docs/plans/datos-de-corte-y-acometida.md) (F1b)
+- **El esquema de tierra** se lee del AJUSTE de la red y luego de su ficha
+  (`library/electrico/acometida.esquema_de`, en `services/cosim_red`): TN/TN-S/TN-C-S → el PE es
+  la tierra (`pe_a_neutro`); TT con `RA_ohm` → el PE es un nodo unido a tierra (la estrella de la
+  fuente) por 1/RA (`FuenteRed.R_tierra_ohm`, el lazo RA + RB); TT sin RA o IT → el PE fuera y el
+  corto a PE se rechaza con su motivo (`fallas._por_que_fuera`). Sin esquema la entrada no lleva
+  claves nuevas: un dato nuevo de la red entra sólo cuando se declara. (F1c)
 - **El aire** (`neumatica/`, puro; puede importar `modelos`): cilindro, FRL y corte se arman por
   `modelo["aire"]` (la ficha plana de `services/cosim_aire.py`, `MODELOS_AIRE`) y viven en
   `Tablero.modelos`; la electroválvula es un modelo ELÉCTRICO (`modelos/electrovalvula.py`, por

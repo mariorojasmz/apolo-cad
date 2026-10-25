@@ -88,7 +88,13 @@ ARCHIVOS = (
 #: escenarios del banco (marcha, seta, atasco parcial, contactor soldado y no_cierra, piloto
 #: fundido, corte de fase, corto entre fases, cajas con seta y sensor pegado) dan la MISMA huella
 #: que en 194e119 (bitácora del plan).
-HUELLA: tuple[int, str] = (4, "c6581877e1b42fcd")
+#: 5 — datos-de-corte-y-acometida F1c (D7, D11): el esquema de tierra se lee del AJUSTE de la red
+#: (antes se ignoraba) y la red entiende TN-S, TN-C-S, TT (con `RA_ohm`: el PE unido a tierra por
+#: 1/RA, `FuenteRed.R_tierra_ohm`) e IT; con `Icc_kA` ajustado la hipótesis ya no dice «SUPUESTA».
+#: Un documento con esos ajustes cambia de resultado con el MISMO log. Sin esquema la entrada de la
+#: red es idéntica: 5 escenarios del banco (marcha, seta, caída de red, corto entre fases y el
+#: variador) dan la MISMA huella que en 1f01d0a (bitácora del plan).
+HUELLA: tuple[int, str] = (5, "83fa80d88fa87064")
 
 
 def archivos() -> list[Path]:

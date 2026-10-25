@@ -141,11 +141,31 @@ class _Armado:
                "ideal": d.modelo.get("tipo") != "red"}
         if t.tipo == "AC":
             out["sistema"] = _sistema_ac(t)
-            out["pe_a_neutro"] = d.modelo.get("esquema") == "TN"
+            self._tierra(d, fid, out)
             f_hz = t.frecuencia_hz[0] if t.frecuencia_hz else d.modelo.get("f_Hz")
             if f_hz:
                 out["f_Hz"] = float(f_hz)
         self.fuentes.append(out)
+
+    def _tierra(self, d, fid: str, out: dict) -> None:
+        """El PE de una fuente de alterna según el esquema de tierra, del AJUSTE primero y luego
+        de la ficha (plan datos-de-corte-y-acometida, D7): TN/TN-S/TN-C-S → el PE es la tierra
+        (`pe_a_neutro`); TT con `RA_ohm` → el PE unido a tierra por 1/RA (`R_tierra_ohm`); TT sin
+        RA o IT → fuera de la potencia. Sin esquema, lo de siempre (sin claves nuevas)."""
+        from apolo.library.electrico.acometida import HIPOTESIS_RA, PE_ES_TIERRA, esquema_de, ra_de
+
+        esquema = esquema_de(d.modelo, d.ajustes) if d.modelo.get("tipo") == "red" else None
+        out["pe_a_neutro"] = esquema in PE_ES_TIERRA
+        if esquema is None:
+            return
+        out["esquema"] = esquema
+        ra = ra_de(d.modelo, d.ajustes)
+        if esquema == "TT" and ra is not None:
+            out["R_tierra_ohm"] = float(ra)
+            self.hipotesis.append(f"{fid}: TT con RA_ohm = {ra:g} Ω; {HIPOTESIS_RA}")
+        elif esquema == "TT":
+            self.avisos.append(f"{fid}: red TT sin RA_ohm: el PE queda fuera de la potencia y una falla "
+                               "a masa no se simula (declara RA_ohm en add_device.ajustes)")
 
     def _carga(self, d, c) -> None:
         des, m = d.designacion, d.modelo

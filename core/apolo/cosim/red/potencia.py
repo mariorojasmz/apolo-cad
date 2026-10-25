@@ -9,7 +9,9 @@ mismo MNA complejo que el mando (`mna.py`). Así salen solas, sin fórmulas por 
 
 Fuentes: la red (`ideal: false`) es un Norton por polo, E detrás de su Zk (las dos llegan en cada
 paso de `Red.salidas()`: `fasores` y `Z_ohm`); la salida del variador es ideal (`fasores`, p. ej.
-`fasores_nominales("3F", U, sentido)`). Un polo que falta en `fasores` está perdido.
+`fasores_nominales("3F", U, sentido)`). Un polo que falta en `fasores` está perdido. La tierra
+(índice −1) es la estrella de la fuente: en TN el PE ES la tierra; en TT (`R_tierra_ohm`) el PE se
+une a ella por una estampa fija de 1/R (el lazo RA + RB, plan datos-de-corte-y-acometida D7).
 
 Cargas:
   - `impedancia` (bobina de 220 VAC, piloto, motor DETENIDO): admitancia en la matriz,
@@ -72,6 +74,9 @@ class RedPotencia(RedNodal):
         for fi, f in enumerate(self._fuentes):
             for punto, polo in f.polos:
                 if polo == "PE":
+                    i = dom.puntos.get(punto, -1)
+                    if f.R_tierra_ohm is not None and i >= 0:  # TT: el lazo de tierra (D7)
+                        self._estampa(i, -1, 1.0 / f.R_tierra_ohm)
                     continue
                 i = dom.idx(punto)
                 if i < 0:

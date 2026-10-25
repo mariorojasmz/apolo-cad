@@ -9,7 +9,9 @@
      - **potencia** = lo que alcanza una fuente de ALTERNA (la red, la salida del variador). La
        alterna de MANDO (una bobina de 220 VAC entre fases, sus pulsadores) cae aquí: está unida
        galvánicamente a la red y sólo la fasorial la resuelve con su fase.
-   El PE no siembra la potencia salvo en TN (`pe_a_neutro`): sin neutro su tensión no se infiere.
+   El PE no siembra la potencia salvo en TN (`pe_a_neutro`, donde es la tierra de la red) o en
+   TT con su lazo de tierra (`R_tierra_ohm`, donde es un nodo más que la red de potencia une a
+   tierra por 1/R): sin eso su tensión no se infiere (TT sin RA, IT).
    Un nodo puede estar en las dos (la barra de PE unida al 0 V): cada red lo modela por su lado,
    y entre ellas no circula corriente (la fuente aísla).
 3. Una carga entra a la red de TODOS sus bornes; con un borne sin alcanzar queda «sin cablear»
@@ -113,7 +115,7 @@ class Topologia:
                     self.ady[nb].append(na)
         semillas_dc = [self.nodo_de[p] for f in e.fuentes if f.tipo == "DC" for p, _ in f.polos]
         semillas_ac = [self.nodo_de[p] for f in e.fuentes if f.tipo == "AC" for p, q in f.polos
-                       if q != "PE" or f.pe_a_neutro]
+                       if q != "PE" or f.pe_a_neutro or f.R_tierra_ohm is not None]
         self.dc = self._alcanza(semillas_dc)
         self.ac = self._alcanza(semillas_ac)
 

@@ -10,7 +10,10 @@ lo que la ficha declara en `modelo`, y con el tipo que la ficha le da:
   - un dict de la ficha (`bobina_VA`), una lista que no es rango (`posiciones` de un selector)
     y el `tipo` del modelo (V8.3 D7) no se ajustan: son dato de placa.
 
-Una clave que la ficha no declara es error con «¿quisiste decir…?» y la lista de las válidas.
+Una clave que la ficha no declara es error con «¿quisiste decir…?» y la lista de las válidas,
+salvo los AJUSTES OPCIONALES de su `tipo` (`OPCIONALES`, de `acometida.py`): el `esquema` de
+tierra y el `RA_ohm` de una red se aceptan aunque la ficha no los traiga, con su propia
+validación (la lista de esquemas, «TN» heredado incluido; `RA_ohm` sólo con TT).
 
 `deducir_de_la_pieza` (V8.3 F6): un motorreductor cuya ficha da la relación `i` y el rendimiento
 `eta_reductor` como RANGO (el sinfín NMRV: dependen de la unidad que se compre) los toma del
@@ -24,7 +27,11 @@ from __future__ import annotations
 
 import re
 
+from . import acometida
 from .referencias import sufijo_sugerencia
+
+#: Ajustes que un `tipo` acepta aunque su ficha no los declare (plan datos-de-corte-y-acometida, D6).
+OPCIONALES = acometida.OPCIONALES
 
 _NUM = r"(\d+(?:[.,]\d+)?|[.,]\d+)"
 #: Lo que un nombre de pieza puede decir de su reductor: clave → [(patrón, escala)].
@@ -53,17 +60,22 @@ def validar_ajustes(ajustes: dict, modelo: dict, ref: str) -> dict:
         return {}
     if not isinstance(ajustes, dict):
         raise ValueError(f"los ajustes de {ref} van como un objeto {{clave: valor}}")
+    opcionales = OPCIONALES.get((modelo or {}).get("tipo") or "", {})
     ajustables = {k: v for k, v in (modelo or {}).items()
-                  if k != "tipo" and not isinstance(v, dict)
+                  if k != "tipo" and k not in opcionales and not isinstance(v, dict)
                   and not (isinstance(v, (list, tuple)) and not _es_rango(v))}
-    if not ajustables:
+    if not ajustables and not opcionales:
         raise ValueError(f"{ref} no tiene ajustes: su ficha no declara parámetros en `modelo`")
+    de_acometida = acometida.validar_ajustes(ajustes, modelo or {}, ref) if opcionales else {}
     out: dict = {}
     for clave, valor in ajustes.items():
+        if clave in opcionales:
+            out[clave] = de_acometida[clave]
+            continue
         if clave not in ajustables:
-            validas = ", ".join(sorted(ajustables))
-            raise ValueError(f"{ref} no tiene el ajuste «{clave}»; ajustes: {validas}."
-                             f"{sufijo_sugerencia(clave, ajustables)}")
+            todas = [*ajustables, *opcionales]
+            raise ValueError(f"{ref} no tiene el ajuste «{clave}»; ajustes: {', '.join(sorted(todas))}."
+                             f"{sufijo_sugerencia(clave, todas)}")
         ficha = ajustables[clave]
         if _es_rango(ficha):
             lo, hi = sorted(float(x) for x in ficha)

@@ -6,7 +6,9 @@ decide los polos y sus fasores (D15):
   - 2F: L1 L2 de una red trifásica sin neutro (L1–L2 = U);
   - 1F+N: L a U y 0°, N en 0.
 Zk = Un/(√3·Icc) por fase en los sistemas de fases (IEC 60909-0 con c = 1); en 1F+N la del
-lazo U/Icc se reparte mitad en L y mitad en N. R y X salen de `X_R`. Los eventos del mundo
+lazo U/Icc se reparte mitad en L y mitad en N. R y X salen de `X_R`. `Icc_kA` y `X_R` son
+ajustes de la red: con el `Icc_kA` ajustado la hipótesis ya no dice «SUPUESTA en el catálogo»
+sino «declarada en los ajustes». Los eventos del mundo
 (D12) son acciones: `cortar`, `reconectar`, `perder_fase` / `reponer_fase` (un polo), `caida`
 (factor de tensión) y `restaurar`.
 
@@ -51,7 +53,10 @@ class Red(Modelo):
             z = self.Un / (math.sqrt(3) * icc)
         r = z / math.sqrt(1.0 + xr * xr)
         self.Z = complex(r, r * xr)
-        if p.modelo.get("Icc_supuesta"):
+        if "Icc_kA" in p.ajustes:  # la declaró quien instala (plan datos-de-corte-y-acometida, D6)
+            de_xr = "también ajustada" if "X_R" in p.ajustes else "la del catálogo"
+            p.hipotesis.append(f"Icc = {icc / 1000:g} kA declarada en los ajustes de la red (X/R = {xr:g}, {de_xr})")
+        elif p.modelo.get("Icc_supuesta"):
             p.hipotesis.append(f"Icc = {icc / 1000:g} kA SUPUESTA en el catálogo: verificar con la distribuidora")
         self.polos = SISTEMAS[self.sistema]
         self.conectada = True

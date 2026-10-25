@@ -20,6 +20,9 @@ Un PUNTO es «designación:borne» («-K1:A1»). Por tipo de rama:
   - `resistencia`: `R_ohm` fija.
 Una fuente `ideal` (la salida del variador, la de 24 VDC) impone su tensión; la red de
 suministro (`ideal: false`) va detrás de su impedancia, que llega en cada paso desde su modelo.
+El PE de una fuente de alterna: con `pe_a_neutro` (TN) es la tierra de la red; con `R_tierra_ohm`
+(TT, plan datos-de-corte-y-acometida D7, campo opcional del formato 1) es un nodo unido a tierra
+por 1/R; sin ninguno queda fuera de la potencia. `esquema` (opcional) sólo informa los mensajes.
 Una carga en `impedancia` da `R_ohm`, o `S_VA` con `fp` a su `Un_V`; en `potencia` toma la
 potencia que le dé el llamador en cada paso (motor, entrada de una fuente o de un variador).
 """
@@ -69,6 +72,10 @@ class FuenteRed:
     ideal: bool = True
     pe_a_neutro: bool = False
     dispositivo: str | None = None
+    #: el esquema de tierra declarado (TN, TN-S, TN-C-S, TT, IT); sólo informa los mensajes
+    esquema: str | None = None
+    #: TT con su lazo de tierra: el PE entra a la potencia unido a tierra por 1/R
+    R_tierra_ohm: float | None = None
 
     def punto_de(self, polo: str) -> str | None:
         return next((p for p, q in self.polos if q == polo), None)
@@ -178,10 +185,18 @@ def _fuente(d: dict) -> FuenteRed:
             raise EntradaInvalida(f"{donde}: el polo «{q}» no existe en {sistema or 'DC'} ({', '.join(validos)})")
     if tipo == "DC" and {q for _, q in polos} != {"+", "-"}:
         raise EntradaInvalida(f"{donde}: una fuente de continua mapea sus dos polos, «+» y «-»")
+    pe_a_neutro = bool(d.get("pe_a_neutro", False))
+    R_tierra = _num(d, "R_tierra_ohm", donde, positivo=True)
+    if R_tierra is not None and (tipo != "AC" or pe_a_neutro):
+        raise EntradaInvalida(f"{donde}: «R_tierra_ohm» es el lazo de tierra de una red TT (alterna, "
+                              "sin «pe_a_neutro»)")
+    esquema = d.get("esquema")
+    if esquema is not None and not isinstance(esquema, str):
+        raise EntradaInvalida(f"{donde}: «esquema» es un texto (TN-S, TN-C-S, TT, IT), llegó {esquema!r}")
     return FuenteRed(fid, tipo, polos, _num(d, "U_V", donde, positivo=True, opcional=False),
                      sistema=sistema if tipo == "AC" else None, f_Hz=_num(d, "f_Hz", donde),
-                     ideal=bool(d.get("ideal", tipo == "DC")), pe_a_neutro=bool(d.get("pe_a_neutro", False)),
-                     dispositivo=d.get("dispositivo"))
+                     ideal=bool(d.get("ideal", tipo == "DC")), pe_a_neutro=pe_a_neutro,
+                     dispositivo=d.get("dispositivo"), esquema=esquema, R_tierra_ohm=R_tierra)
 
 
 def _carga(d: dict) -> CargaRed:

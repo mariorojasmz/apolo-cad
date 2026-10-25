@@ -9,7 +9,8 @@ en sus claves por `escenario.py`:
     `cable_cortado`: `RedNodal.cortar`);
   - un CORTO entre dos puntos: {"falla": "corto", "a": "-X1:1", "b": "-X1:PE", "R_ohm"?} sobre
     `RedNodal.cortocircuito` (los dos puntos en la MISMA red; el PE sólo está en la potencia de
-    un esquema TN o en el mando unido a su 0 V).
+    un esquema TN, de un TT con `RA_ohm`, o en el mando unido a su 0 V: el rechazo de un corto a
+    PE en TT sin RA o en IT dice por qué, plan datos-de-corte-y-acometida D7).
 `aplicar(tab, datos, reparar)` la pone o la quita; `catalogo(tab)` es lo que el `inicio` de la
 sesión en vivo ofrece (D6): las fallas de cada aparato y las ramas que se pueden pegar o cortar.
 Puro: sólo `cosim`. Determinista: sin azar ni reloj (D10).
@@ -63,10 +64,42 @@ def _red_de_puntos(tab, a: str, b: str):
     sueltos = [p for p in (a, b) if not any(red is not None and p in red.dom.puntos
                                             for red in (tab.mando_red, tab.pot_red))]
     if sueltos:
-        raise ValueError(f"falla corto: «{sueltos[0]}» no es un punto de las redes (un PE sólo entra en "
-                         "la potencia de un esquema TN o en el mando unido a su 0 V)")
+        raise ValueError(f"falla corto: «{sueltos[0]}» no es un punto de las redes"
+                         f"{_por_que_fuera(tab, sueltos[0])}")
     raise ValueError(f"falla corto: «{a}» y «{b}» están en redes distintas (mando y potencia): un corto "
                      "va entre dos puntos de la misma red")
+
+
+#: Por qué el PE de una red con este esquema no está en la potencia (plan
+#: datos-de-corte-y-acometida, D7).
+_PE_FUERA = {
+    "TT": ": el PE de una red TT entra a la potencia sólo con su lazo de tierra; en TT declara "
+          "RA_ohm (add_device.ajustes de la red, p. ej. {\"RA_ohm\": 100})",
+    "IT": ": en IT el primer defecto a masa no da corriente de falla (la estrella de la red está "
+          "aislada): el PE queda fuera de la potencia y no hay corto que simular",
+}
+_GENERICO = (" (un PE sólo entra en la potencia de un esquema TN, o TT con RA_ohm, o en el mando "
+             "unido a su 0 V)")
+
+
+def _por_que_fuera(tab, punto: str) -> str:
+    """El motivo de que `punto` no esté en ninguna red: si está unido (todo cerrado) al PE de una
+    red TT sin RA o IT, el de su esquema; si no, el genérico."""
+    fuentes = [f for f in tab.entrada.get("fuentes", ())
+               if f.get("esquema") in _PE_FUERA and f.get("R_tierra_ohm") is None]
+    if not fuentes:
+        return _GENERICO
+    from .red.entrada import leer_entrada
+    from .red.topologia import Topologia
+
+    topo = Topologia(leer_entrada(tab.entrada))
+    if punto not in topo.nodo_de:
+        return _GENERICO
+    for f in fuentes:
+        pe = next((p for p, q in f["polos"].items() if q == "PE"), None)
+        if pe is not None and topo.nodo_de[punto] in topo._alcanza([topo.nodo_de[pe]]):
+            return _PE_FUERA[f["esquema"]]
+    return _GENERICO
 
 
 def id_corto(a: str, b: str) -> str:
