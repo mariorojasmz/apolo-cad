@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a (datos de ficha, completitud, `T_max_C`) y F1b (el diferencial: modelo por fasores, 8 refs con sus cifras en `a_confirmar` porque las fichas no se pudieron leer, regla del ERC como criterio de diseño) mergeadas; sigue F1c (la acometida: esquema TN/TT/IT y `RA_ohm` en la co-simulación, COSIM_EPOCH 4 → 5)
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a, F1b y F1c mergeadas (datos de ficha con completitud, el diferencial por fasores, la acometida TN/TT/IT con `RA_ohm` en la co-simulación; COSIM_EPOCH 4 → 5); pendiente sólo de datos: las cifras de los 8 diferenciales, 5 ITM, el cartucho 5x20 y 19 `T_max_C` siguen en `a_confirmar` (las fichas de fabricante no se pudieron leer)
 descripcion: cada protección del catálogo dice cuánto corta y a qué temperatura trabaja, con su fuente; la acometida dice su esquema de tierra; el interruptor diferencial entra al catálogo y dispara en la prueba virtual
 ---
 
