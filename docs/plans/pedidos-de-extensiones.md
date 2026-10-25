@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1 (superficie), F2 (dispositivo: símbolo y acople fuera de la firma) y F4 (cifras eléctricas medidas: ΔU de motores, disparos; el diferencial por su residual) mergeadas; siguen F3 (entregable como job), F5 (notas de cotización), F6 (bus con la sesión abierta) y F7 (la pieza de lo que dibuja el layout)
+nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1 (superficie), F2 (dispositivo: símbolo y acople fuera de la firma) y F4 (cifras eléctricas medidas: ΔU de motores, disparos; el diferencial por su residual) mergeadas; F3 (entregable como job: `entregable_documento`) implementada, en revisión; siguen F5 (notas de cotización), F6 (bus con la sesión abierta) y F7 (la pieza de lo que dibuja el layout)
 descripcion: una extensión lee el circuito, la prueba virtual y la sesión viva por el contrato declarado (con las cifras eléctricas medidas, los tipos de las variables del PLC y la sesión ya abierta), entrega sus archivos lentos como job y suma notas a la cotización
 ---
 
@@ -341,6 +341,35 @@ resultado) y sólo cambia la huella (`5878df434dc6a50c` → `da527a5307f6c246`).
 `tests/data/carril_v81_golden.json` sin cambios; sin bump de `GEOM_CACHE_EPOCH` ni de versiones de
 comandos (el carril no es un executor de escena); ninguna tool MCP nueva. Sin aviso del ERC que
 compare con la regla de la colocación (fuera, decisión de la revisión).
+
+### F3 — El entregable de una extensión como job
+
+**D6.** `fachada.entregable_documento(extraer, componer, *, tipo, asincrono=False)`, en
+`SUPERFICIE` (agregar: `CONTRATO_EXTENSIONES` sigue en 1). Es `_job_entregable` con un `trabajo`
+de dos fases: bajo `STATE_LOCK`, `_mismo_proyecto` y `extraer(doc)`; fuera de todo lock,
+`componer(datos) -> (bytes, media_type, nombre)` y la `Response` con `Content-Disposition:
+attachment; filename="<nombre>"` (la forma de las rutas del núcleo, que `_job_entregable` lee para
+el `nombre` del recibo). Sin cola nueva ni nada de `common` abierto a las extensiones.
+`CommandError`/`DocumentError` de CUALQUIERA de las dos fases → 400 con su texto (en el job,
+`http_status` 400 y el mismo texto); una `HTTPException` propia pasa tal cual. Decisión a vetar: un
+`nombre` que no cabe en la cabecera (vacío, con comillas o saltos, fuera de latin-1) es error de la
+extensión (`ValueError`, 500), no se recorta: el recibo diría otro nombre que el pedido. La guardia
+del documento no aplica (es una lectura, como las del núcleo).
+
+**D13 del job.** La extensión falsa suma `GET /api/prueba/informe.txt` (extrae los nombres de las
+piezas, compone un texto; modelo vacío → `CommandError`) y la tool `prueba_informe(path)` con
+`pedir_entregable`. Sube lo que la extensión publica: `test_extensiones.py` (92 tools por stdio, las
+dos al final) y `test_extensiones_coherencia.py` (la tool y la ruta en `/api/extensiones`).
+`tests/test_extensiones_entregable_job.py`: en directo el archivo con su nombre; con `?async=true`,
+202, `GET /api/jobs/{id}` con `{archivo, bytes, tipo, nombre}` y el archivo se baja igual; otro
+proyecto abierto mientras espera → 409 sin llamar a `extraer` ni `componer`; `componer` con
+`STATE_LOCK` libre en directo y como job (el lock de la fachada parcheado por un vigía que cuenta,
+más otro hilo que lo toma sin esperar) y `extraer` bajo el lock; error de dominio 400 al extraer y
+al componer; una `HTTPException` 422 pasa en directo y en el job; la tool guarda el archivo cuando
+el job llega a tiempo y, con `APOLO_MCP_WAIT_S = 0`, da el recibo y `get_job` lo guarda en el
+`path` pedido. Trampa: el test importa `apolo.mcp_server` ANTES de cargar la extensión (al
+importarse registra en su `mcp` las tools de las cargadas y las dejaría para el golden). Golden
+MCP sin cambios; `api/` no está en ninguna huella de época.
 
 ### F4 — Cifras eléctricas en el resultado
 

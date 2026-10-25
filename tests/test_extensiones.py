@@ -195,8 +195,8 @@ def test_la_tool_se_registra_con_su_lugar_en_el_chat(con_prueba):
     llamadas = []
     servidor = {"_api": None, "_submit_and_wait": None,
                 "_mutacion": lambda *a, **k: llamadas.append(a) or "hecho"}
-    assert con_prueba.registrar_tools(mcp, servidor) == ["prueba_hola"]
-    assert [t.name for t in asyncio.run(mcp.list_tools())] == ["prueba_hola"]
+    assert con_prueba.registrar_tools(mcp, servidor) == ["prueba_hola", "prueba_informe"]
+    assert [t.name for t in asyncio.run(mcp.list_tools())] == ["prueba_hola", "prueba_informe"]
     assert "prueba_hola" in catalogo.FUERA_DEL_CHAT and catalogo.DE_EXTENSION["prueba_hola"] == "ext-prueba"
     out = asyncio.run(mcp.call_tool("prueba_hola", {"lado": 12}))
     assert "hecho" in json.dumps(out[0][0].text if isinstance(out, tuple) else out[0].text)
@@ -401,7 +401,7 @@ def test_el_mcp_por_stdio_registra_la_tool_al_final_sin_cargar_occt():
         out = _mcp_hijo(url)
     assert out.returncode == 0, out.stderr[-3000:]
     res = json.loads(out.stdout.strip().splitlines()[-1])
-    assert res["n"] == 91 and res["nombres"][-1] == "prueba_hola"
+    assert res["n"] == 92 and res["nombres"][-2:] == ["prueba_hola", "prueba_informe"]
     assert res["salida"] == 'mutacion {"type": "prueba.hola", "params": {"lado": 7.0}}'
     assert res["fuera"] and res["pesados"] == []  # los comandos perezosos no se resolvieron
 

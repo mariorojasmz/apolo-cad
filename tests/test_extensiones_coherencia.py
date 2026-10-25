@@ -71,10 +71,11 @@ def test_detalle_sale_de_la_extension_y_lo_sirve_la_api(extensiones_aisladas, mo
     extensiones_aisladas.cargar()
     assert "prueba_hola" not in catalogo.DE_EXTENSION  # nadie registró tools en este proceso
     ok, vieja = TestClient(api.app).get("/api/extensiones").json()
-    assert ok == {**CARGADA, "comandos": ["prueba.hola"], "tools": ["prueba_hola"],
+    assert ok == {**CARGADA, "comandos": ["prueba.hola"], "tools": ["prueba_hola", "prueba_informe"],
                   "rutas": ["GET /api/prueba/hola", "POST /api/prueba/caja",
                             "GET /api/prueba/piezas", "GET /api/prueba/nota",
-                            "PUT /api/prueba/nota"], "refs": ["prueba.caja"],
+                            "PUT /api/prueba/nota", "GET /api/prueba/informe.txt"],
+                  "refs": ["prueba.caja"],
                   "modelos_cosim": ["prueba.lampara"], "conectores_plc": ["prueba.tcp"], "builders": [],
                   "puerta": ["prueba.nota_ok", "prueba.siempre"],
                   "costeo": ["prueba.conexionado", "prueba.revision"],
@@ -113,7 +114,7 @@ def _servidor(responde):
 
 
 @pytest.mark.parametrize(("responde", "registradas", "dice"), [
-    ([CARGADA], ["prueba_hola"], None),
+    ([CARGADA], ["prueba_hola", "prueba_informe"], None),
     ([{**CARGADA, "version": "0.0.9"}], [], "la API tiene la versión 0.0.9"),
     ([{**CARGADA, "cargada": False, "motivo": "x"}], [], "la API no la tiene cargada"),
     ([], [], "la API no la tiene cargada"),

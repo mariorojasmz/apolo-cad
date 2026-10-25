@@ -18,7 +18,9 @@ de extensión del núcleo con lo mínimo, sin instalarse (se carga con
 - (plc-en-el-lazo F1c2) un suscriptor del bus de la sesión viva, `prueba.scada`
   (`suscriptor.py`: la sigue en su hilo con `suscribir` y le manda acciones con `enviar_vivo`).
 - (pedidos-de-extensiones D13) la lectura por el contrato (`contrato.py`): bornes con la regla
-  del carril, pilotaje a trazos, DWG, la FAT del núcleo y un fotograma del vivo.
+  del carril, pilotaje a trazos, DWG, la FAT del núcleo y un fotograma del vivo; y (D6) un
+  entregable en archivo por `entregable_documento`, en directo o como job (`rutas.py`), que su
+  tool `prueba_informe` pide con `pedir_entregable` (`tools.py`).
 
 Los campos pesados van PEREZOSOS (funciones): así lo hace una extensión real para que el MCP no
 cargue OCCT al leerla. Abajo, las variantes que el núcleo debe RECHAZAR (`test_extensiones.py`).

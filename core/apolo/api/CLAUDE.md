@@ -70,6 +70,9 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   `mutar_documento` = `_sync_or_job` + `_state_or_error`, `leer_documento` bajo `STATE_LOCK`,
   `leer_ext`/`poner_ext` (clave `ext`). Un cambio del embudo de mutación lo hereda sola; lo que
   le falte a una extensión se suma ahí, no se le abre `common`. (F1d)
+  Su archivo lento va por `entregable_documento(extraer, componer)`: `extraer` bajo `STATE_LOCK`
+  con `_mismo_proyecto`, `componer` fuera de todo lock, y con `?async` es `_job_entregable` (la
+  cola de entregables, sin cola nueva). [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (D6)
 
 ## Estado de sesión (`session.S`)
 

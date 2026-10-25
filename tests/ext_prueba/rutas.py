@@ -2,13 +2,22 @@
 
 Las que tocan el documento usan SÓLO la fachada de `apolo.extensiones_api` (F1d): mutar con
 undo, autosave y la guardia (`/caja`, también como job con `?async=true`), leer (`/piezas`) y
-sus datos en el manifest (`/nota`, la clave `ext`)."""
+sus datos en el manifest (`/nota`, la clave `ext`). Su entregable en archivo (`/informe.txt`,
+pedidos-de-extensiones D6) va por `entregable_documento`: extrae bajo el lock, compone fuera, en
+directo o como job con `?async=true`."""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
-from apolo.extensiones_api import leer_documento, leer_ext, mutar_documento, poner_ext
+from apolo.extensiones_api import (
+    CommandError,
+    entregable_documento,
+    leer_documento,
+    leer_ext,
+    mutar_documento,
+    poner_ext,
+)
 
 NOMBRE = "ext-prueba"  # su `Extension.nombre`: la clave de sus datos en el manifest
 
@@ -41,6 +50,24 @@ def prueba_nota() -> dict:
 @router.put("/api/prueba/nota")
 def prueba_poner_nota(nota: dict | None = None) -> dict:
     return {"nota": poner_ext(NOMBRE, nota)}
+
+
+def _extraer(doc) -> dict:
+    """Bajo `STATE_LOCK`: sólo datos puros (nombres), nada del shape vivo."""
+    if not doc.scene:
+        raise CommandError("No hay piezas que informar: el modelo está vacío.")
+    return {"proyecto": doc.name or "proyecto", "piezas": sorted(f.name for f in doc.scene.values())}
+
+
+def _componer(datos: dict) -> tuple[bytes, str, str]:
+    """Fuera de todo lock: aquí iría lo lento (un PDF, un ZIP de láminas, un DWG)."""
+    texto = "".join(f"{linea}\n" for linea in [f"Informe de {datos['proyecto']}", *datos["piezas"]])
+    return texto.encode("utf-8"), "text/plain", f"{datos['proyecto']}-informe.txt"
+
+
+@router.get("/api/prueba/informe.txt")
+def prueba_informe(async_: bool = Query(False, alias="async")):
+    return entregable_documento(_extraer, _componer, tipo="prueba.informe", asincrono=async_)
 
 
 router_fea = APIRouter()

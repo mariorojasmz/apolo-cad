@@ -65,6 +65,9 @@ SUPERFICIE: dict[str, str] = {
     "leer_ext": "apolo.api.fachada:leer_ext",
     "poner_ext": "apolo.api.fachada:poner_ext",
     "proyecto_activo": "apolo.api.fachada:proyecto_activo",
+    # su entregable en archivo (plan pedidos-de-extensiones, D6): extraer bajo el lock, componer
+    # fuera; en directo o como job en la cola de entregables del núcleo
+    "entregable_documento": "apolo.api.fachada:entregable_documento",
     "datos_ext": "apolo.doc.ext_manifest:leer",  # (doc, nombre): para quien ya tiene el `doc`
     # la puerta de publicación (F1d, `Extension.puerta`): sus entradas, el ítem y sus estados
     "Entrada": "apolo.library.calidad.registro:Entrada",
