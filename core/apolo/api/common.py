@@ -46,6 +46,9 @@ from .guardia_documento import esperado, esperando, solo_lectura, token, verific
 from .jobs import JOB_UNKNOWN, Archivos, JobStore  # noqa: F401 — JOB_UNKNOWN: kit de los routers
 from .scene import scene_payload
 from .session import S
+from .vivo_bus import BUS as VIVO_BUS  # noqa: F401 — kit de `cosim_vivo`: el bus de la sesión viva (D11)
+from .vivo_bus import MAX_MENSAJE as MAX_MENSAJE_VIVO  # noqa: F401
+from .vivo_bus import validar_texto as validar_mensaje_vivo  # noqa: F401
 from .ws import WS
 
 

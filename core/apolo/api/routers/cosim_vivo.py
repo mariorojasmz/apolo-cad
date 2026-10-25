@@ -14,6 +14,9 @@ Coreografía (regla de dos locks): (a) bajo `STATE_LOCK`, la guardia del token, 
 la sesión, la firma, el snapshot y lo que dibuja la faja y las cadenas (`sims._extraer_visual`);
 (b) el worker en su proceso (`cosim.proceso_vivo`) — desde ahí nada toma `STATE_LOCK` ni
 `PHYSICS_LOCK`, salvo la vigilancia de la firma cada `VIGILAR_FIRMA_S` (una lectura corta).
+Lo que ve el cliente se copia, en el loop y en su orden, al bus EN PROCESO de las extensiones
+(plan plc-en-el-lazo D11, `api/vivo_bus.py`: sin `STATE_LOCK`, colas acotadas propias); una
+acción que llega por el bus la contesta sólo a su suscripción.
 
 MENSAJES servidor → cliente (JSON salvo el fotograma):
   inicio        la tabla (`cosim/vivo_fotograma.py`: cuerpos, productos, juntas, bandas, señales,
@@ -55,16 +58,16 @@ from starlette.concurrency import run_in_threadpool
 from apolo.services.errors import ServiceError
 from apolo.state import STATE_LOCK
 
-from ..common import _token_documento
+from ..common import VIVO_BUS, MAX_MENSAJE_VIVO, _token_documento, validar_mensaje_vivo
 from ..session import S
 from ..sims import SESIONES_GRABADAS, _extraer_visual, _sumar_visual
 
 router = APIRouter()
 
 LOOPBACK = {"localhost", "127.0.0.1", "::1"}
-MAX_MENSAJE = 4096
+MAX_MENSAJE = MAX_MENSAJE_VIVO    # 4096 (`api/vivo_bus.py`: la misma validación para el bus)
 VIGILAR_FIRMA_S = 2.0
-COLA_MAX_FOTOGRAMAS = 60          # ~2 s de fotogramas sin enviar: los más viejos se descartan
+COLA_MAX_FOTOGRAMAS = 60          # ~2 s de fotogramas sin enviar: los que llegan después se descartan
 MAX_RITMO = 4.0
 
 
@@ -97,7 +100,10 @@ class _Rechazo(Exception):
 
 
 class SesionViva:
-    """Una sesión: su cola hacia el WebSocket (sólo `_reenviar` envía) y su worker."""
+    """Una sesión: su worker y su cola hacia el WebSocket (sólo `reenviar` envía). `_poner` (en
+    el loop) deja cada frame del worker en la forma que ve el cliente —la tabla vuelta `inicio`,
+    el `fin` con lo de volverla escenario, los errores— y lo copia, en el mismo orden, a la cola
+    de la persona y al bus de las extensiones (plan plc-en-el-lazo D11, `api/vivo_bus.py`)."""
 
     def __init__(self, loop, proyecto):
         self.loop = loop
@@ -106,6 +112,10 @@ class SesionViva:
         self.proyecto = proyecto
         self.desde = time.strftime("%H:%M:%S")
         self.motivo: str | None = None   # «reemplazada» lo pone otra sesión
+        self.prep: dict | None = None    # los pone `cosim_vivo` antes de lanzar el worker
+        self.config: dict | None = None
+        self.inicio = self.fin = False
+        self.codigo = 1000               # el cierre del WebSocket si termina el worker
         self._fotogramas = 0
         self.descartados = 0
 
@@ -115,11 +125,41 @@ class SesionViva:
 
     def _poner(self, etiqueta, cuerpo) -> None:
         if etiqueta == b"F":
+            if not self.inicio:   # nada antes de la tabla
+                return
+            VIVO_BUS.difundir_fotograma(cuerpo)
             if self._fotogramas >= COLA_MAX_FOTOGRAMAS:
                 self.descartados += 1
                 return
             self._fotogramas += 1
-        self.cola.put_nowait((etiqueta, cuerpo))
+            self.cola.put_nowait((etiqueta, cuerpo))
+            return
+        if etiqueta is None:  # el worker terminó
+            if not self.fin:
+                motivo = self.motivo or "worker"
+                falla = cuerpo not in (0, None) and motivo != "reemplazada"
+                cola = self.proc.cola_stderr() if self.proc is not None else ""
+                self.json({"tipo": "fin", "motivo": motivo,
+                           **({"mensaje": f"el worker salió con código {cuerpo}:\n{cola}"} if falla else {})})
+                if falla:
+                    self.codigo = 4500
+            self.cola.put_nowait((None, cuerpo))
+            return
+        if etiqueta == b"E":
+            msg = {"tipo": "error", "codigo": "worker", "motivo": cuerpo.decode("utf-8", "replace")}
+            self.codigo = 4500
+        elif etiqueta == b"L":  # plc-en-el-lazo D6: el PLC externo no se pudo conectar
+            msg = {"tipo": "error", "codigo": "lazo", "motivo": cuerpo.decode("utf-8", "replace")}
+            self.codigo, self.motivo = 4502, self.motivo or "lazo"
+        else:
+            msg = json.loads(cuerpo.decode("utf-8"))
+            if msg.get("tipo") == "tabla":
+                msg = _inicio(self.prep, msg, self.config, self.proc.pid if self.proc else None)
+                self.inicio = True
+            elif msg.get("tipo") == "fin":
+                msg = _fin(self.prep, msg, self.motivo)
+                self.fin = True
+        self.json(msg)
 
     def al_mensaje(self, etiqueta, cuerpo) -> None:
         """Desde el hilo lector del worker: al loop del WebSocket."""
@@ -129,7 +169,16 @@ class SesionViva:
             pass
 
     def json(self, msg: dict) -> None:
-        self._poner(b"J", json.dumps(msg, ensure_ascii=False).encode("utf-8"))
+        """Un mensaje JSON al cliente (en el loop); la respuesta a una acción del bus va sólo a
+        su suscripción."""
+        texto = json.dumps(msg, ensure_ascii=False, separators=(",", ":"))
+        if not VIVO_BUS.difundir_json(msg, texto):
+            self.cola.put_nowait((b"J", texto))
+
+    def enviar(self, msg: dict) -> bool:
+        """Una acción del bus al worker (desde cualquier hilo). False si no hay worker."""
+        proc = self.proc
+        return proc is not None and proc.enviar(msg)
 
     def reemplazar(self) -> None:
         self.motivo = "reemplazada"
@@ -303,6 +352,7 @@ async def cosim_vivo(ws: WebSocket) -> None:
         config = _config(q)
         if prep["externo"]:  # D9: al ritmo de la pared (otro ritmo ya fue 4400)
             config["ritmo"] = 1.0
+        ses.prep, ses.config = prep, config   # antes del worker: `_poner` los usa con la tabla
         try:
             ses.proc = await run_in_threadpool(ProcesoVivo, prep["snap"], config, ses.al_mensaje)
         except CosimError as exc:
@@ -310,50 +360,26 @@ async def cosim_vivo(ws: WebSocket) -> None:
             return
         if ses.motivo == "reemplazada":
             ses.proc.matar()
-        await _sesion(ws, ses, prep, config)
+        VIVO_BUS.abrir(ses)   # D11: desde aquí `enviar_vivo` llega a este worker
+        await _sesion(ws, ses, prep)
     finally:  # sin await: si el loop canceló la tarea, un await aquí no correría
+        VIVO_BUS.cerrar(ses)
         SESIONES.soltar(ses)
         if ses.proc is not None:
             ses.proc.cerrar_en_hilo()
 
 
-async def _sesion(ws: WebSocket, ses: SesionViva, prep: dict, config: dict) -> None:
-    estado = {"codigo": 1000, "inicio": False, "fin": False}
-
+async def _sesion(ws: WebSocket, ses: SesionViva, prep: dict) -> None:
     async def reenviar() -> None:
         while True:
             etiqueta, cuerpo = await ses.cola.get()
-            if etiqueta is None:  # el worker terminó
-                if not estado["fin"]:
-                    motivo = ses.motivo or "worker"
-                    falla = cuerpo not in (0, None) and motivo != "reemplazada"
-                    await ws.send_json({"tipo": "fin", "motivo": motivo, **(
-                        {"mensaje": f"el worker salió con código {cuerpo}:\n{ses.proc.cola_stderr()}"}
-                        if falla else {})})
-                    if falla:
-                        estado["codigo"] = 4500
+            if etiqueta is None:  # el worker terminó (su `fin` ya salió)
                 return
             if etiqueta == b"F":
                 ses._fotogramas -= 1
-                if estado["inicio"]:
-                    await ws.send_bytes(cuerpo)
-                continue
-            if etiqueta == b"E":
-                await ws.send_json({"tipo": "error", "codigo": "worker", "motivo": cuerpo.decode("utf-8", "replace")})
-                estado["codigo"] = 4500
-                continue
-            if etiqueta == b"L":  # plc-en-el-lazo D6: el PLC externo no se pudo conectar
-                await ws.send_json({"tipo": "error", "codigo": "lazo", "motivo": cuerpo.decode("utf-8", "replace")})
-                estado["codigo"], ses.motivo = 4502, ses.motivo or "lazo"
-                continue
-            msg = json.loads(cuerpo.decode("utf-8"))
-            if msg.get("tipo") == "tabla":
-                msg = _inicio(prep, msg, config, ses.proc.pid if ses.proc else None)
-                estado["inicio"] = True
-            elif msg.get("tipo") == "fin":
-                msg = _fin(prep, msg, ses.motivo)
-                estado["fin"] = True
-            await ws.send_json(msg)
+                await ws.send_bytes(cuerpo)
+            else:
+                await ws.send_text(cuerpo)
 
     async def recibir() -> None:
         while True:
@@ -364,16 +390,9 @@ async def _sesion(ws: WebSocket, ses: SesionViva, prep: dict, config: dict) -> N
             if texto is None:
                 ses.json({"tipo": "rechazo", "id": None, "motivo": "las acciones van como texto JSON"})
                 continue
-            if len(texto) > MAX_MENSAJE:
-                ses.json({"tipo": "rechazo", "id": None, "motivo": f"mensaje de más de {MAX_MENSAJE} bytes"})
-                continue
-            try:
-                msg = json.loads(texto)
-            except ValueError:
-                ses.json({"tipo": "rechazo", "id": None, "motivo": "el mensaje no es JSON"})
-                continue
-            if not isinstance(msg, dict):
-                ses.json({"tipo": "rechazo", "id": None, "motivo": "se espera un objeto: {\"pulsar\": \"-S1\"}"})
+            msg, motivo = validar_mensaje_vivo(texto)
+            if motivo is not None:
+                ses.json({"tipo": "rechazo", "id": None, "motivo": motivo})
                 continue
             if not ses.proc.enviar(msg):
                 return
@@ -404,6 +423,6 @@ async def _sesion(ws: WebSocket, ses: SesionViva, prep: dict, config: dict) -> N
         tg.start_soon(vigilar)
     if termino[:1] == ["worker"]:
         try:
-            await ws.close(code=estado["codigo"])
+            await ws.close(code=ses.codigo)
         except RuntimeError:
             pass

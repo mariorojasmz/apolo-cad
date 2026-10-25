@@ -52,6 +52,10 @@ SUPERFICIE: dict[str, str] = {
     # el PLC de afuera (plan plc-en-el-lazo D4): la cara que cumple un conector y su corte
     "PuertoPLC": "apolo.cosim.puerto_plc:PuertoPLC",
     "LazoCortado": "apolo.cosim.puerto_plc:LazoCortado",
+    # el bus de la sesión viva (plan plc-en-el-lazo D11): seguirla y mandarle acciones en proceso
+    "suscribir": "apolo.api.vivo_bus:suscribir",
+    "enviar_vivo": "apolo.api.vivo_bus:enviar_vivo",
+    "Suscripcion": "apolo.api.vivo_bus:Suscripcion",
     # el documento
     "Document": "apolo.doc.document:Document",
     # la fachada del documento activo para las rutas de una extensión (F1d): lock, sesión,

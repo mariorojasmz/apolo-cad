@@ -182,7 +182,8 @@ CAPAS_API = {
     "session": {"errorlog", "candado"},
     "autosave": {"session", "ws", "errorlog", "candado"},
     "scene": {"session"},
-    "common": {"session", "scene", "autosave", "ws", "jobs", "guardia_documento", "candado"},
+    "vivo_bus": set(),  # el bus de la sesión viva: hoja, sin `S` ni `STATE_LOCK` (plc-en-el-lazo D11)
+    "common": {"session", "scene", "autosave", "ws", "jobs", "guardia_documento", "candado", "vivo_bus"},
     "sims": {"session", "common"},
     "fea_runs": {"session", "autosave", "guardia_documento"},
     "fachada": {"common", "session"},  # el documento para las rutas de una extensión (F1d)
