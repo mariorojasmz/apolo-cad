@@ -123,6 +123,67 @@ def test_un_hijo_mas_viejo_que_su_padre_no_es_del_arbol(monkeypatch):
     assert so.arbol(1, {1: 0, 2: 1, 3: 2, 4: 2}) == {1, 2, 3}
 
 
+def test_deshacer_espera_que_muera_el_arbol_y_suelta_cada_candado(monkeypatch, tmp_path):
+    """El «nada» de `arrancar`: `taskkill` vuelve con el árbol aún terminando, así que espera por
+    la firma; y suelta el candado de CUALQUIER pid del árbol (sin preguntarle a un health que,
+    con la máquina cargada, no contesta a tiempo), ya con el árbol muerto."""
+    db = tmp_path / "base.db"
+    st = ProjectStore(db)
+    a, b = st.create(Document("a")), st.create(Document("b"))
+    assert st.tomar_candado(a, "host:41:8101") is None  # la API (nieto del lanzador 4)
+    assert st.tomar_candado(b, "host:77:8101") is None  # otro proceso, mismo puerto: no se toca
+    monkeypatch.setattr(so, "padres", lambda: {4: 1, 40: 4, 41: 40})
+    monkeypatch.setattr(so, "creado", lambda pid: 1000 + pid)
+    muertos: list[int] = []
+    vueltas = iter([[40, 41], [41], []])  # tarda dos miradas en irse
+
+    def siguen_vivos(firma):
+        assert firma == {4: 1004, 40: 1040, 41: 1041}  # firma tomada ANTES de matar
+        vivos = next(vueltas)
+        if vivos:  # mientras agoniza, su candado sigue ahí: se suelta después
+            assert st.candado(a) is not None
+        return vivos
+
+    monkeypatch.setattr(so, "siguen_vivos", siguen_vivos)
+    monkeypatch.setattr(so, "matar_arbol", lambda raiz, gracia_s=0.0: muertos.append(raiz))
+    assert flota._deshacer([(8101, 4)], str(db)) == []
+    assert muertos == [4]
+    assert st.candado(a) is None and st.candado(b)[0] == "host:77:8101"
+
+
+def test_deshacer_devuelve_lo_que_no_murio(monkeypatch, tmp_path):
+    monkeypatch.setattr(so, "padres", lambda: {4: 1, 40: 4})
+    monkeypatch.setattr(so, "matar_arbol", lambda raiz, gracia_s=0.0: None)
+    monkeypatch.setattr(so, "siguen_vivos", lambda firma: [40])
+    assert flota._deshacer([(8101, 4)], str(tmp_path / "x.db"), espera_s=0.0) == [40]
+
+
+def test_estado_no_confunde_un_pid_reciclado_con_un_colgado(tmp_path):
+    """Una entrada cuyo pid hoy es de OTRO proceso (otra hora de creación) está caída, no
+    colgada; y `parar` no lo cuenta ni lo mata."""
+    import subprocess
+
+    ajeno = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+    try:
+        hora = so.creado(ajeno.pid)
+        libre = flota.puertos_libres(1, BASE_PUERTOS + 2)[0]  # nadie contesta su health
+        entrada = {"puerto": libre, "url": f"http://127.0.0.1:{libre}", "proyecto": {"id": 1},
+                   "pid": ajeno.pid, "lanzador": ajeno.pid, "creado": hora - 1,
+                   "creado_lanzador": hora - 1, "db": str(tmp_path / "x.db"),
+                   "mcp": str(tmp_path / "mcp.json")}
+        flota._escribir(tmp_path, [entrada])
+        assert flota.estado(tmp_path)[0]["estado"] == "caído"
+        flota._escribir(tmp_path, [{**entrada, "creado": hora}])
+        assert flota.estado(tmp_path)[0]["estado"] == "colgado"  # el mismo, sin health
+        flota._escribir(tmp_path, [entrada])
+        (r,) = flota.parar(tmp_path, espera_s=0.0)
+        assert r["ok"] and r["procesos_vivos"] == [] and flota.leer(tmp_path) == []
+        assert ajeno.poll() is None  # el que heredó el pid sigue vivo: no era de la flota
+    finally:
+        so.matar_arbol(ajeno.pid)
+        ajeno.wait(30)
+
+
 def test_arrancar_rechaza_un_proyecto_inexistente_sin_lanzar(tmp_path):
     db = tmp_path / "base.db"
     pid = ProjectStore(db).create(Document("unico"))
@@ -274,12 +335,29 @@ def test_parar_mata_el_arbol_y_suelta_los_candados(flota_viva):
     assert not any(Path(e["mcp"]).exists() for e in entradas)
 
 
-def test_si_uno_no_arranca_no_queda_ninguno(tmp_path):
+def test_si_uno_no_arranca_no_queda_ninguno(tmp_path, monkeypatch):
     """Todo o nada: el segundo encuentra su proyecto tomado por un dueño vivo (este proceso de
     pytest) y arranca con `startup_error`; la flota mata a los dos y no anota nada. El dueño
     LATE mientras tanto: un arranque de más de 30 s (la suite completa carga la máquina) lo
-    daría por muerto y el hijo tomaría el candado con todo derecho."""
+    daría por muerto y el hijo tomaría el candado con todo derecho.
+
+    «No queda ninguno» se mide sobre lo que la flota lanzó y mató (pid + hora de creación de
+    cada árbol, tomada justo antes de matarlo), no sobre todos los hijos de este proceso: en la
+    suite completa, otro hilo de este worker puede lanzar su propio proceso a mitad del test."""
     import threading
+
+    lanzados: list = []
+    lanzar = flota._lanzar
+    monkeypatch.setattr(flota, "_lanzar",
+                        lambda *a, **kw: lanzados.append(lanzar(*a, **kw)) or lanzados[-1])
+    matados: dict[int, int | None] = {}
+    matar = so.matar_arbol
+
+    def matar_espiando(raiz, **kw):
+        matados.update(so.firmas(so.arbol(raiz)))
+        return matar(raiz, **kw)
+
+    monkeypatch.setattr(so, "matar_arbol", matar_espiando)
 
     db = tmp_path / "apolo.db"
     st = ProjectStore(db)
@@ -294,7 +372,6 @@ def test_si_uno_no_arranca_no_queda_ninguno(tmp_path):
 
     latido = threading.Thread(target=latir, daemon=True)
     latido.start()
-    antes = so.arbol(os.getpid())
     try:
         with pytest.raises(flota.FlotaError, match=f"El proyecto {tomado} está abierto"):
             flota.arrancar([libre, tomado], puerto_base=BASE_PUERTOS, db=str(db), d=tmp_path,
@@ -307,7 +384,10 @@ def test_si_uno_no_arranca_no_queda_ninguno(tmp_path):
         if (tmp_path / "flota.json").exists():  # arrancó lo que no debía: que no quede vivo
             flota.parar(tmp_path)
     assert not (tmp_path / "flota.json").exists()
-    assert so.arbol(os.getpid()) <= antes  # ningún hijo de la flota quedó vivo
+    # arrancar volvió con TODO lo suyo muerto: los dos lanzadores y sus árboles (la API real)
+    assert len(lanzados) == 2 and all(p.poll() is not None for p in lanzados)
+    assert {p.pid for p in lanzados} < set(matados)
+    assert so.siguen_vivos(matados) == [], {p: so.creado(p) for p in so.siguen_vivos(matados)}
     assert st.candado(libre) is None and st.candado(tomado)[0] == dueno
     assert not list(tmp_path.glob("mcp-*.json"))
 

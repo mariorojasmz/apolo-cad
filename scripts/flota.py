@@ -12,7 +12,8 @@
   ese pid cuelgue del que lanzó (el `python.exe` de un venv en Windows es un lanzador con otro
   pid: F2); si no, es la trampa del zombie-socket (raíz § Windows) y no lo da por bueno. Escribe
   `data/flota/mcp-<puerto>.json` para `claude -p --mcp-config … --strict-mcp-config`. Si uno
-  falla, para los que lanzó en esa llamada: todo o nada.
+  falla, para los que lanzó en esa llamada, espera que mueran y suelta sus candados antes de
+  devolver el error: todo o nada.
 - **Tope (D8)**: `min(núcleos lógicos / 2 − los ya vivos, RAM libre / 0,9 GB)`; `--forzar` lo
   salta. 0,9 GB es el árbol medido en F0 (API + worker del sandbox + lanzadores).
 - **parar** mata el árbol de cada proceso (también el worker del sandbox), espera que suelte el
@@ -259,6 +260,46 @@ def _esperar(proc: subprocess.Popen, proyecto: int, puerto: int, log: Path,
                      f"{_cola(log)}")
 
 
+def _es_el_mismo(pid: int, creado: int | None) -> bool:
+    """¿Sigue vivo ESE proceso? pid + hora de creación: el pid de uno muerto lo recicla otro.
+    Una entrada anterior a la hora (`creado` None) vale por el pid solo."""
+    return bool(so.siguen_vivos({pid: creado}))
+
+
+def _esperar_que_mueran(firma: dict[int, int | None], limite: float, *,
+                        puerto: int | None = None, pid: int | None = None) -> list[int]:
+    """Espera (hasta `limite`, reloj monotónico) que no quede vivo ninguno de `firma` ni `pid`
+    escuchando en `puerto`; devuelve los que siguen vivos. `taskkill` y SIGKILL vuelven con el
+    árbol todavía terminando (con la máquina cargada, el proceso sigue en la tabla un rato)."""
+    while True:
+        vivos = so.siguen_vivos(firma)
+        escucha = pid is not None and pid in so.escuchas().get(puerto, set())
+        if (not vivos and not escucha) or time.monotonic() >= limite:
+            return vivos
+        time.sleep(0.1)
+
+
+def _deshacer(lanzados: list[tuple[int, int]], db: str, *, espera_s: float = 20.0
+              ) -> list[int]:
+    """El «nada» de `arrancar`: mata el árbol de cada `(puerto, lanzador)`, ESPERA a que muera
+    de verdad y suelta los candados que alcanzó a tomar; devuelve los que siguen vivos.
+
+    El árbol y su firma se toman ANTES de matar (después está vacío). Los candados se buscan por
+    cada pid del árbol (dueño `host:pid:puerto`), no por el pid que diga un `/api/health`: con la
+    máquina cargada ese health no contesta a tiempo y el candado del muerto quedaba tomado. Y se
+    sueltan con el árbol ya muerto: uno que agoniza no vuelve a escribir."""
+    padres = so.padres()
+    arboles = [(puerto, so.arbol(lanzador, padres)) for puerto, lanzador in lanzados]
+    firma = so.firmas(set().union(*(a for _p, a in arboles)))
+    for _puerto, lanzador in lanzados:
+        so.matar_arbol(lanzador, gracia_s=5.0)
+    vivos = _esperar_que_mueran(firma, time.monotonic() + espera_s)
+    for puerto, arbol in arboles:
+        for pid in arbol:
+            soltar_candados(db, pid, puerto)
+    return vivos
+
+
 # ── comandos ─────────────────────────────────────────────────────────────────
 
 def arrancar(proyectos: list[int], *, puerto_base: int = PUERTO_BASE, db: str | None = None,
@@ -271,7 +312,7 @@ def arrancar(proyectos: list[int], *, puerto_base: int = PUERTO_BASE, db: str | 
     if len(set(proyectos)) != len(proyectos):
         raise FlotaError("Un proyecto por proceso: hay ids repetidos (el candado lo impediría)")
     previas = leer(d)
-    vivos = sum(1 for e in previas if so.vivo(e["pid"]))
+    vivos = sum(1 for e in previas if _es_el_mismo(e["pid"], e.get("creado")))
     cabe, porque = tope(vivos=vivos)
     if len(proyectos) > cabe and not forzar:
         raise TopeExcedido(f"Tope de la flota (D8): caben {cabe} procesos más y pides "
@@ -301,19 +342,17 @@ def arrancar(proyectos: list[int], *, puerto_base: int = PUERTO_BASE, db: str | 
             nuevas.append({
                 "puerto": puerto, "url": f"http://127.0.0.1:{puerto}",
                 "proyecto": {"id": proyecto, "nombre": nombres[proyecto]},
-                "pid": h["pid"], "lanzador": proc.pid, "db": db, "mcp": str(mcp),
+                "pid": h["pid"], "lanzador": proc.pid,
+                # la identidad completa (pid + hora de creación): `estado` y `parar` no confunden
+                # con ellos a un proceso que heredó el pid
+                "creado": so.creado(h["pid"]), "creado_lanzador": so.creado(proc.pid),
+                "db": db, "mcp": str(mcp),
                 "log": str(log), "arrancado": datetime.now().isoformat(timespec="seconds"),
             })
-    except BaseException:
-        for _proyecto, puerto, proc, _log in lanzados:
-            h = health(puerto, timeout=1.0)
-            pid = h.get("pid") if h else None
-            nuestro = so.arbol(proc.pid)  # ANTES de matar: después el árbol está vacío
-            so.matar_arbol(proc.pid, gracia_s=5.0)
-            if isinstance(pid, int) and pid in nuestro:  # un zombie ajeno no se toca
-                if so.vivo(pid):
-                    so.matar_arbol(pid)
-                soltar_candados(db, pid, puerto)
+    except BaseException as exc:
+        vivos = _deshacer([(puerto, proc.pid) for _proyecto, puerto, proc, _log in lanzados], db)
+        if vivos:
+            exc.add_note(f"flota: quedaron vivos los pid {vivos} de este arranque; mátalos a mano")
         raise
     for n in nuevas:  # sólo cuando arrancaron TODOS: un mcp suelto apuntaría a un muerto
         Path(n["mcp"]).write_text(json.dumps(mcp_config(n["puerto"], python), indent=2),
@@ -332,7 +371,8 @@ def estado(d: str | Path | None = None) -> list[dict]:
         h = health(e["puerto"], timeout=3.0)
         fila = dict(e)
         if h is None:
-            fila["estado"] = "colgado" if e["pid"] in padres else "caído"
+            vive = e["pid"] in padres and _es_el_mismo(e["pid"], e.get("creado"))
+            fila["estado"] = "colgado" if vive else "caído"
         else:
             fila["proyecto"] = h.get("proyecto") or e["proyecto"]
             fila["autosave_failed"] = h.get("autosave_failed")
@@ -361,13 +401,16 @@ def parar(d: str | Path | None = None, puertos: list[int] | None = None,
     resultados = []
     for e in elegidas:
         # sólo se mata lo que sigue siendo nuestro: un pid muerto pudo reciclarse en un
-        # proceso ajeno. El lanzador vale si la API cuelga de él; la API, si cuelga del
-        # lanzador o escucha su puerto (el lanzador murió y ella quedó huérfana).
+        # proceso ajeno (por eso la hora de creación que anotó `arrancar`). El lanzador vale si
+        # la API cuelga de él; la API, si cuelga del lanzador o escucha su puerto (el lanzador
+        # murió y ella quedó huérfana).
         padres = so.padres()
-        del_lanzador = so.arbol(e["lanzador"], padres)
+        del_lanzador = (so.arbol(e["lanzador"], padres)
+                        if _es_el_mismo(e["lanzador"], e.get("creado_lanzador")) else set())
         nuestros = set(del_lanzador) if e["pid"] in del_lanzador else set()
-        if e["pid"] in padres and (e["pid"] in del_lanzador
-                                   or e["pid"] in so.escuchas().get(e["puerto"], set())):
+        if (e["pid"] in padres and _es_el_mismo(e["pid"], e.get("creado"))
+                and (e["pid"] in del_lanzador
+                     or e["pid"] in so.escuchas().get(e["puerto"], set()))):
             nuestros |= so.arbol(e["pid"], padres)
         # identidad = pid + hora de creación, tomada ANTES de matar: el pid de uno recién muerto
         # lo recicla enseguida otro proceso y, por pid solo, contaba como «vivo» (devolvía
@@ -376,13 +419,8 @@ def parar(d: str | Path | None = None, puertos: list[int] | None = None,
         for raiz in (e["lanzador"], e["pid"]):
             if raiz in nuestros:
                 so.matar_arbol(raiz, gracia_s=5.0)
-        limite = time.monotonic() + espera_s
-        while time.monotonic() < limite:
-            if (not so.siguen_vivos(firma)
-                    and e["pid"] not in so.escuchas().get(e["puerto"], set())):
-                break
-            time.sleep(0.3)
-        vivos = so.siguen_vivos(firma)
+        vivos = _esperar_que_mueran(firma, time.monotonic() + espera_s, puerto=e["puerto"],
+                                    pid=e["pid"])
         sueltos = soltar_candados(e["db"], e["pid"], e["puerto"])
         quedan = candados_de(e["db"], e["pid"], e["puerto"])
         ok = not vivos and not quedan
@@ -452,6 +490,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if all(r["ok"] for r in res) else 1
     except FlotaError as err:
         print(f"flota: {err}", file=sys.stderr)
+        for nota in getattr(err, "__notes__", ()):
+            print(nota, file=sys.stderr)
         return 2 if isinstance(err, TopeExcedido) else 1
     return 0
 
