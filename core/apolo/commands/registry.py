@@ -3,24 +3,17 @@
 Cada comando declara su modelo de parámetros (pydantic) y un ejecutor que
 muta la escena. El documento reproduce el log de comandos en orden para
 regenerar la escena completa.
+
+La base de la escena (`Feature`, definiciones) está en `escena.py` y los executors, por
+familia, en `exec_*.py`; aquí quedan los que aún no se mudaron, el `REGISTRY`, el despacho
+y los schemas.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
-
 from pydantic import BaseModel, ValidationError
 
-from apolo.kernel import (
-    boolean_op,
-    linear_copy,
-    make_box,
-    make_cylinder,
-    make_structural_profile,
-    move_rotated_about_center,
-    place,
-)
+from apolo.kernel import place
 
 from .expressions import ExpressionError, resolve_all, resolve_params
 from .models import (
@@ -91,656 +84,69 @@ from .spec import CommandSpec, run_executor
 from .state import ExecContext, RegenState
 from .strict import reject_unknown
 
-
-@dataclass
-class Feature:
-    id: str
-    name: str
-    shape: Any
-    command_id: str
-    visible: bool = True
-    component: str | None = None  # referencia de catálogo (BOM)
-    cut_length: float | None = None  # longitud de corte si el componente es cortable
-    miter: tuple | None = None  # (α1, α2) grados de inglete por extremo (V5.8); None = recto
-    # Instancias: si mesh_key no es None, la geometría canónica (compartida) está
-    # en DEFINITIONS[mesh_key] y matrix la coloca en el mundo. El shape sigue
-    # siendo el sólido mundial (booleanas, STEP, medidas): la instancia solo
-    # optimiza teselado y payload.
-    mesh_key: str | None = None
-    matrix: list | None = None  # 4x4 por filas (kernel.matrix)
-    material: str | None = None  # override explícito de material (set_material)
-    group: str | None = None  # DERIVADO: sub-ensamblaje al que pertenece (por command_id)
-    is_guide: bool = False  # DERIVADO: boceto-guía (blockout) — fuera de BOM/masa/interferencia/FEA
-    # Anclas de conexión con nombre (V6.3b): {name: {"origin":[x,y,z], "axis":[x,y,z]}} en
-    # coords MUNDO. Las publican los executors al colocar el componente (chumacera→"centro",
-    # NMRV→"bore", faja→"eje_motriz"/"eje_cola"); TODO camino que mueva el shape después
-    # (mates, transform_group, insert_project) las transforma. REEMPLAZAR el dict, jamás
-    # mutarlo in-place (los checkpoints comparten la referencia por el shallow copy).
-    anchors: dict | None = None
-
-    def make_unique(self) -> None:
-        """La geometría dejó de ser la canónica (fillet, taladro…)."""
-        self.mesh_key = None
-        self.matrix = None
-
-
-# Geometrías canónicas compartidas (centradas en su origen), por clave de contenido.
-# Caché LRU (V6.1, Fix A): la evicción saca la MENOS recientemente usada, y un HIT
-# (registro o teselado) la "toca" reinsertándola al final. Así una definición con
-# instancias VIVAS que se sigue renderizando no la desaloja un registro nuevo (antes
-# era FIFO ciego → se perdía el instancing de piezas en uso). El fallback de
-# scene_payload cubre igualmente cualquier desalojo (tesela el shape mundial).
-DEFINITIONS: dict[str, Any] = {}
-_DEFINITIONS_CAP = 256
-
-
-def register_definition(key: str, shape: Any) -> None:
-    if key in DEFINITIONS:
-        DEFINITIONS.pop(key)  # touch: reinsertar al final (más recientemente usada)
-    elif len(DEFINITIONS) >= _DEFINITIONS_CAP:
-        DEFINITIONS.pop(next(iter(DEFINITIONS)))  # evicta la LRU (la primera)
-    DEFINITIONS[key] = shape
-
-
-def touch_definition(key: str) -> None:
-    """Marca una definición como recién usada (la reinserta al final). La llama el
-    render en cada HIT para que las definiciones EN USO sobrevivan a la evicción LRU."""
-    if key in DEFINITIONS:
-        DEFINITIONS[key] = DEFINITIONS.pop(key)
-
-
-Scene = dict[str, Feature]
-Joints = dict[str, dict]
-
-
-def _ancestors(joints: Joints, link: str):
-    seen = set()
-    current = link
-    while True:
-        joint = next((j for j in joints.values() if j["child"] == current), None)
-        if joint is None or joint["parent"] in seen:
-            return seen
-        seen.add(joint["parent"])
-        current = joint["parent"]
-
-
-def _require(scene: Scene, feature_id: str) -> Feature:
-    if feature_id not in scene:
-        raise CommandError(f"No existe el sólido '{feature_id}' en la escena")
-    return scene[feature_id]
-
-
-def _instanced(scene: Scene, cmd_id: str, name: str, base, key: str, position, rotation, **extra) -> None:
-    from apolo.kernel.matrix import compose_place
-
-    register_definition(key, base)
-    shape = place(base, position, rotation)
-    scene[cmd_id] = Feature(
-        cmd_id, name, shape, cmd_id,
-        mesh_key=key, matrix=compose_place(position, rotation), **extra,
-    )
-
-
-def _orient_axis(base, axis: str):
-    """Reorienta una primitiva creada con eje Z para que su eje quede en X o Y."""
-    if axis == "x":
-        from build123d import Rotation
-        return Rotation(0, 90, 0) * base
-    if axis == "y":
-        from build123d import Rotation
-        return Rotation(-90, 0, 0) * base
-    return base
-
-
-def _exec_create_box(ctx: ExecContext, cmd_id: str, p: CreateBoxParams) -> None:
-    key = f"box|{p.width:g}|{p.depth:g}|{p.height:g}"
-    _instanced(ctx.scene, cmd_id, p.name, make_box(p.width, p.depth, p.height), key,
-               p.position.tuple(), p.rotation.tuple())
-
-
-def _exec_create_cylinder(ctx: ExecContext, cmd_id: str, p: CreateCylinderParams) -> None:
-    key = f"cyl|{p.radius:g}|{p.height:g}|{p.axis}"
-    _instanced(ctx.scene, cmd_id, p.name, _orient_axis(make_cylinder(p.radius, p.height), p.axis),
-               key, p.position.tuple(), p.rotation.tuple())
-
-
-def _exec_create_profile(ctx: ExecContext, cmd_id: str, p: CreateStructuralProfileParams) -> None:
-    try:
-        base = make_structural_profile(p.profile, p.length)
-    except ValueError as exc:
-        raise CommandError(str(exc)) from exc
-    key = f"prof|{p.profile}|{p.length:g}"
-    _instanced(ctx.scene, cmd_id, p.name, base, key, p.position.tuple(), p.rotation.tuple())
-
-
-def _exec_boolean(ctx: ExecContext, cmd_id: str, p: BooleanOpParams) -> None:
-    target = _require(ctx.scene, p.target)
-    tools = [_require(ctx.scene, t) for t in p.tools]
-    if p.target in p.tools:
-        raise CommandError("El objetivo no puede ser también herramienta")
-    result = boolean_op(p.operation, target.shape, [t.shape for t in tools])
-    if result is None or (hasattr(result, "volume") and result.volume <= 0):
-        raise CommandError("La operación booleana produjo un sólido vacío")
-    del ctx.scene[p.target]
-    for t in p.tools:
-        del ctx.scene[t]
-    ctx.scene[cmd_id] = Feature(cmd_id, p.name, result, cmd_id)
-
-
-def _world_move(feat: Feature, translate, rotate) -> None:
-    """Aplica la transformación mundial `W = T·T(c)·R·T(-c)` (c = centro del bbox = el mismo
-    que usa move_rotated_about_center) al shape y compone la MISMA rígida en la matriz de
-    instancia y en las anclas (V6.3d Fix 1: los conectores por ancla deben viajar con el shape;
-    lo usan transform/center_in/distribute/attach). REEMPLAZA los dicts, jamás los muta."""
-    if feat.matrix is not None or feat.anchors:
-        from apolo.kernel.matrix import (
-            multiply, rotation_about_center, transform_anchors, translation,
-        )
-
-        bb = feat.shape.bounding_box()
-        center = ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
-        w = translation(*translate)
-        if any(rotate):
-            w = multiply(w, rotation_about_center(center, rotate))
-        if feat.matrix is not None:
-            feat.matrix = multiply(w, feat.matrix)
-        if feat.anchors:
-            feat.anchors = transform_anchors(w, feat.anchors)
-    feat.shape = move_rotated_about_center(feat.shape, translate, rotate)
-
-
-def _world_place(feat: Feature, translate, axis, angle_deg: float, center) -> None:
-    """Espejo de `_world_move` con rotación por EJE ARBITRARIO (axis-angle, mano
-    derecha — la misma convención de gp_Trsf/Shape.rotate): W = T · R(eje, θ sobre
-    `center`). Compone la MISMA rígida en la matriz de instancia y las anclas
-    (V6.8-E: el snap cara-a-cara la necesita — euler no expresa un eje inclinado)."""
-    rotating = abs(angle_deg) > 1e-9
-    if feat.matrix is not None or feat.anchors:
-        from apolo.kernel.matrix import (
-            multiply, rotation_axis_angle_about, transform_anchors, translation,
-        )
-
-        w = translation(*translate)
-        if rotating:
-            w = multiply(w, rotation_axis_angle_about(center, axis, angle_deg))
-        if feat.matrix is not None:
-            feat.matrix = multiply(w, feat.matrix)
-        if feat.anchors:
-            feat.anchors = transform_anchors(w, feat.anchors)
-    from build123d import Axis, Pos
-
-    shape = feat.shape
-    if rotating:
-        shape = shape.rotate(Axis(center, axis), angle_deg)
-    if any(translate):
-        shape = Pos(*translate) * shape
-    feat.shape = shape
-
-
-def _exec_transform(ctx: ExecContext, cmd_id: str, p: TransformParams) -> None:
-    feat = _require(ctx.scene, p.feature)
-    _world_move(feat, p.translate.tuple(), p.rotate.tuple())
-
-
-def _bbox_center(shape):
-    bb = shape.bounding_box()
-    return ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
-
-
-def _exec_center_in(ctx: ExecContext, cmd_id: str, p: CenterInParams) -> None:
-    """Centra `feature` dentro de `into` en los ejes pedidos (mueve en sitio). Se reevalúa
-    al regenerar → si `into` cambia, el sólido se recentra solo."""
-    if p.feature == p.into:
-        raise CommandError("Un sólido no puede centrarse dentro de sí mismo")
-    feat = _require(ctx.scene, p.feature)
-    cont = _require(ctx.scene, p.into)
-    fc = _bbox_center(feat.shape)
-    cc = _bbox_center(cont.shape)
-    idx = {"x": 0, "y": 1, "z": 2}
-    t = [0.0, 0.0, 0.0]
-    for ax in p.axes:
-        i = idx[ax]
-        t[i] = cc[i] - fc[i]
-    _world_move(feat, tuple(t), (0, 0, 0))
-
-
-def _exec_distribute(ctx: ExecContext, cmd_id: str, p: DistributeParams) -> None:
-    """Reparte los `features` con centros equiespaciados de `start` a `end` en `axis`
-    (mueve cada uno en sitio). Colocación por intención, no por coordenadas calculadas."""
-    feats = [_require(ctx.scene, fid) for fid in p.features]
-    n = len(feats)
-    if n < 2:
-        raise CommandError("distribute necesita al menos 2 sólidos")
-    i_ax = {"x": 0, "y": 1, "z": 2}[p.axis]
-    span = p.end - p.start
-    for i, feat in enumerate(feats):
-        target = p.start + span * i / (n - 1)
-        c = _bbox_center(feat.shape)[i_ax]
-        t = [0.0, 0.0, 0.0]
-        t[i_ax] = target - c
-        _world_move(feat, tuple(t), (0, 0, 0))
-
-
-def _exec_pattern(ctx: ExecContext, cmd_id: str, p: PatternLinearParams) -> None:
-    from apolo.kernel.matrix import multiply, transform_anchors, translation
-
-    feat = _require(ctx.scene, p.feature)
-    if p.spacing.tuple() == (0, 0, 0):
-        raise CommandError("La separación del patrón no puede ser cero")
-    sx, sy, sz = p.spacing.tuple()
-    for i in range(1, p.count):
-        copy = linear_copy(feat.shape, i, p.spacing.tuple())
-        fid = f"{cmd_id}_{i}"
-        off = translation(sx * i, sy * i, sz * i)
-        matrix = multiply(off, feat.matrix) if feat.matrix is not None else None
-        ctx.scene[fid] = Feature(
-            fid, f"{feat.name} ({i + 1})", copy, cmd_id,
-            component=feat.component, cut_length=feat.cut_length,
-            mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
-            anchors=transform_anchors(off, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
-        )
-
-
-_PATTERN_GROUP_MAX = 2000  # tope de sólidos generados por pattern_group (protege OCCT)
-
-
-def _exec_pattern_group(ctx: ExecContext, cmd_id: str, p: PatternGroupParams) -> None:
-    """Arraya todas las features del comando `source` en línea (count/spacing) y opcional
-    rejilla (count2/spacing2). Bloquea si la fuente está referenciada por juntas/mates."""
-    from apolo.kernel.matrix import multiply, transform_anchors, translation
-
-    scene, joints, mates = ctx.scene, ctx.joints, ctx.mates
-    src = [f for f in scene.values() if f.command_id == p.source]
-    if not src:
-        raise CommandError(f"El comando '{p.source}' no creó ninguna geometría que arrayar")
-    src_ids = {f.id for f in src}
-    for jt in joints.values():
-        if jt["parent"] in src_ids or jt["child"] in src_ids:
-            raise CommandError(
-                f"pattern_group no puede arrayar '{p.source}': la junta '{jt['name']}' lo "
-                "referencia. Arraya solo geometría (sin juntas/mates en la fuente)."
-            )
-    for mt in mates.values():
-        if mt["feature_a"] in src_ids or mt["feature_b"] in src_ids:
-            raise CommandError(
-                f"pattern_group no puede arrayar '{p.source}': el mate '{mt['name']}' lo "
-                "referencia. Arraya solo geometría (sin juntas/mates en la fuente)."
-            )
-    s1, s2 = p.spacing.tuple(), p.spacing2.tuple()
-    if p.count > 1 and s1 == (0, 0, 0):
-        raise CommandError("La separación (eje 1) del patrón no puede ser cero")
-    if p.count2 > 1 and s2 == (0, 0, 0):
-        raise CommandError("La separación (eje 2) del patrón no puede ser cero")
-    total = (p.count * p.count2 - 1) * len(src)
-    if total > _PATTERN_GROUP_MAX:
-        raise CommandError(
-            f"pattern_group generaría {total} sólidos (tope {_PATTERN_GROUP_MAX}); "
-            "reduce count/count2 o usa una fuente más pequeña"
-        )
-    for i in range(p.count):
-        for k in range(p.count2):
-            if i == 0 and k == 0:
-                continue  # la instancia original ya existe en la escena
-            off = (s1[0] * i + s2[0] * k, s1[1] * i + s2[1] * k, s1[2] * i + s2[2] * k)
-            for feat in src:
-                copy = linear_copy(feat.shape, 1, off)
-                suffix = (
-                    feat.id[len(p.source) + 1:] if feat.id.startswith(p.source + "_") else feat.id
-                )
-                fid = f"{cmd_id}_{i}_{k}_{suffix}"
-                off_m = translation(*off)
-                matrix = multiply(off_m, feat.matrix) if feat.matrix is not None else None
-                scene[fid] = Feature(
-                    fid, f"{feat.name} ({i + 1},{k + 1})", copy, cmd_id,
-                    component=feat.component, cut_length=feat.cut_length,
-                    mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
-                    anchors=transform_anchors(off_m, feat.anchors),  # V6.3d Fix 2: copia hereda anclas
-                )
-
-
-def _exec_delete(ctx: ExecContext, cmd_id: str, p: DeleteParams) -> None:
-    _require(ctx.scene, p.feature)
-    del ctx.scene[p.feature]
-
-
-def _exec_duplicate(ctx: ExecContext, cmd_id: str, p: DuplicateParams) -> None:
-    from apolo.kernel.matrix import multiply, transform_anchors, translation
-
-    feat = _require(ctx.scene, p.feature)
-    off = p.offset.tuple()
-    copy = linear_copy(feat.shape, 1, off)  # clona y traslada por el desfase
-    off_m = translation(*off)
-    matrix = multiply(off_m, feat.matrix) if feat.matrix is not None else None
-    ctx.scene[cmd_id] = Feature(
-        cmd_id, f"{feat.name} (copia)", copy, cmd_id,
-        component=feat.component, cut_length=feat.cut_length,
-        mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
-        anchors=transform_anchors(off_m, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
-    )
-
-
-def _exec_set_variable(ctx: ExecContext, cmd_id: str, p: SetVariableParams) -> None:
-    ctx.variables[p.name] = p.expression
-
-
-def _resolve_sel(shape, selector, kind: str):
-    from apolo.kernel.selectors import SelectorError, resolve_edges, resolve_faces
-
-    try:
-        if kind == "edge":
-            return resolve_edges(shape, selector.model_dump(exclude_none=True))
-        return resolve_faces(shape, selector.model_dump(exclude_none=True))
-    except SelectorError as exc:
-        raise CommandError(str(exc)) from exc
-
-
-def _exec_delete_faces(ctx: ExecContext, cmd_id: str, p: DeleteFacesParams) -> None:
-    """Modelado directo (V5.3): borra caras y cura el hueco. Muta EN SITIO
-    (conserva feature_id — mates/juntas sobreviven)."""
-    from apolo.kernel.direct import DirectError, expand_tangent, remove_faces
-
-    feat = _require(ctx.scene, p.feature)
-    if p.faces.mode == "todas":
-        raise CommandError(
-            "Borrar TODAS las caras destruiría el sólido: usa delete_feature, o un "
-            "selector acotado (cerca/cara/direccion)"
-        )
-    faces = _resolve_sel(feat.shape, p.faces, "face")
-    try:
-        if p.tangentes:
-            faces = expand_tangent(feat.shape, faces)
-        result = remove_faces(feat.shape, faces)
-    except DirectError as exc:
-        raise CommandError(
-            f"No se pudo curar el hueco de {len(faces)} cara(s): {exc}"
-        ) from exc
-    feat.shape = result
-    feat.make_unique()
-
-
-def _exec_push_face(ctx: ExecContext, cmd_id: str, p: PushFaceParams) -> None:
-    """Modelado directo (V5.3): empuja/jala una cara plana. Muta EN SITIO."""
-    from apolo.kernel.direct import DirectError, push_pull
-
-    feat = _require(ctx.scene, p.feature)
-    faces = _resolve_sel(feat.shape, p.face, "face")
-    if len(faces) != 1:
-        raise CommandError(
-            f"push_face necesita EXACTAMENTE una cara y tu selector devolvió "
-            f"{len(faces)}: usa cerca con count=1 o cara del bbox"
-        )
-    try:
-        result = push_pull(feat.shape, faces[0], p.distance)
-    except DirectError as exc:
-        raise CommandError(str(exc)) from exc
-    feat.shape = result
-    feat.make_unique()
-
-
-def _shortest_edge_mm(edges) -> float | None:
-    """Longitud de la arista más corta de la selección (None si no se puede medir).
-    Da el TOPE accionable de un radio/distancia cuando OCCT rechaza la operación."""
-    try:
-        return min(e.length for e in edges)
-    except Exception:
-        return None
-
-
-def _exec_fillet(ctx: ExecContext, cmd_id: str, p: FilletParams) -> None:
-    from build123d import fillet
-
-    feat = _require(ctx.scene, p.feature)
-    edges = _resolve_sel(feat.shape, p.edges, "edge")
-    try:
-        result = fillet(edges, radius=p.radius)
-    except Exception as exc:
-        # Fix H (V6.1): mensaje accionable con el tope real en vez del crudo C++
-        short = _shortest_edge_mm(edges)
-        tope = (f" La arista más corta seleccionada mide {short:.1f} mm; el radio debe ser "
-                f"bastante menor que eso.") if short else ""
-        raise CommandError(
-            f"Redondeo imposible (radio {p.radius:g} mm en {len(edges)} aristas): prueba un radio "
-            f"menor o menos aristas.{tope}"
-        ) from exc
-    feat.shape = result
-    feat.make_unique()
-
-
-def _exec_chamfer(ctx: ExecContext, cmd_id: str, p: ChamferParams) -> None:
-    from build123d import chamfer
-
-    feat = _require(ctx.scene, p.feature)
-    edges = _resolve_sel(feat.shape, p.edges, "edge")
-    try:
-        result = chamfer(edges, length=p.distance)
-    except Exception as exc:
-        short = _shortest_edge_mm(edges)
-        tope = (f" La arista más corta seleccionada mide {short:.1f} mm; la distancia debe ser "
-                f"menor.") if short else ""
-        raise CommandError(
-            f"Chaflán imposible (distancia {p.distance:g} mm en {len(edges)} aristas): prueba una "
-            f"distancia menor.{tope}"
-        ) from exc
-    feat.shape = result
-    feat.make_unique()
-
-
-def _exec_shell(ctx: ExecContext, cmd_id: str, p: ShellParams) -> None:
-    from build123d import offset
-
-    feat = _require(ctx.scene, p.feature)
-    # Fix H (V6.1): pre-check barato — un espesor que se come más de la mitad de la
-    # dimensión MENOR deja la pieza sin cavidad (condición NECESARIA, sin falsos
-    # positivos: solo rechaza lo que igual saldría vacío). Mensaje limpio antes de OCCT.
-    bb = feat.shape.bounding_box()
-    min_dim = min(bb.max.X - bb.min.X, bb.max.Y - bb.min.Y, bb.max.Z - bb.min.Z)
-    if 2 * p.thickness >= min_dim:
-        raise CommandError(
-            f"Vaciado imposible: un espesor de {p.thickness:g} mm no cabe en la pieza "
-            f"(su dimensión menor es {min_dim:.1f} mm; el espesor debe ser < {min_dim / 2:.1f} mm)"
-        )
-    openings = _resolve_sel(feat.shape, p.openings, "face")
-    try:
-        result = offset(feat.shape, amount=-p.thickness, openings=openings)
-    except Exception as exc:
-        raise CommandError(
-            f"Vaciado imposible con espesor {p.thickness:g} mm: prueba un espesor menor. Detalle: {exc}"
-        ) from exc
-    if result.volume <= 0:
-        raise CommandError("El vaciado produjo un sólido vacío")
-    feat.shape = result
-    feat.make_unique()
-
-
-def _v_sub(a, b):
-    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
-
-
-def _v_dot(a, b):
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-
-
-def _v_cross(a, b):
-    return (
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    )
-
-
-def _v_unit(a):
-    import math
-
-    n = math.sqrt(_v_dot(a, a))
-    if n < 1e-12:
-        raise CommandError("Vector nulo al construir el frame de la cara")
-    return (a[0] / n, a[1] / n, a[2] / n)
-
-
-def _planar_face_frame(feat, selector: dict | None, *, quien: str):
-    """(cara, origen, normal, u, v) de una cara PLANA elegida con el selector
-    declarativo (V6.8-E). u = eje de MAYOR extensión de la cara («eje mayor»), con
-    el signo hacia su componente mundial dominante positiva; v = normal × u (terna
-    derecha). Cara no plana → CommandError claro (las cilíndricas son territorio
-    de los mates, no se duplican aquí)."""
-    from apolo.kernel.selectors import SelectorError, resolve_faces
-
-    try:
-        faces = resolve_faces(feat.shape, selector or {"mode": "todas"})
-    except SelectorError as exc:
-        raise CommandError(f"Selector de {quien} inválido: {exc}") from exc
-    face = faces[0]
-    gt = str(getattr(face, "geom_type", "")).upper()
-    if "PLANE" not in gt:
-        raise CommandError(
-            f"La {quien} debe ser PLANA (es {gt.lower() or 'desconocida'}); "
-            "para caras cilíndricas usa add_mate concéntrico"
-        )
-    c = face.center()
-    o = (float(c.X), float(c.Y), float(c.Z))
-    nv = face.normal_at()
-    n = _v_unit((float(nv.X), float(nv.Y), float(nv.Z)))
-    ref = min(
-        ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
-        key=lambda w: abs(_v_dot(w, n)),
-    )
-    x0 = _v_unit(_v_cross(ref, n))
-    y0 = _v_cross(n, x0)
-    pts = [(float(v.X), float(v.Y), float(v.Z)) for v in face.vertices()]
-
-    def _spread(ax):
-        d = [_v_dot(_v_sub(pt, o), ax) for pt in pts]
-        return (max(d) - min(d)) if d else 0.0
-
-    u = x0 if _spread(x0) >= _spread(y0) else y0
-    dom = max(range(3), key=lambda i: abs(u[i]))
-    if u[dom] < 0:  # signo determinista: hacia la componente mundial dominante +
-        u = (-u[0], -u[1], -u[2])
-    v = _v_cross(n, u)
-    return face, o, n, u, v
-
-
-_DRILL_DIRS = {
-    "x": (1, 0, 0), "-x": (-1, 0, 0),
-    "y": (0, 1, 0), "-y": (0, -1, 0),
-    "z": (0, 0, 1), "-z": (0, 0, -1),
-}
-
-
-def _drill_tool(diameter: float, length: float, entry, direction):
-    from build123d import Cylinder, Pos, Rotation
-
-    cyl = Cylinder(diameter / 2.0, length)
-    dx, dy, dz = (abs(direction[0]), abs(direction[1]), abs(direction[2]))
-    if dx > 1e-9 and dy < 1e-9 and dz < 1e-9:
-        cyl = Rotation(0, 90, 0) * cyl
-    elif dy > 1e-9 and dx < 1e-9 and dz < 1e-9:
-        cyl = Rotation(90, 0, 0) * cyl
-    elif dx > 1e-9 or dy > 1e-9:  # dirección ARBITRARIA (V6.8-E: drill por cara rotada)
-        from apolo.kernel.matrix import direction_to_euler
-
-        cyl = Rotation(*direction_to_euler(direction)) * cyl
-    center = tuple(entry[i] + direction[i] * length / 2.0 for i in range(3))
-    return Pos(*center) * cyl
-
-
-def _exec_drill_hole(ctx: ExecContext, cmd_id: str, p: DrillHoleParams) -> None:
-    feat = _require(ctx.scene, p.feature)
-    bb = feat.shape.bounding_box()
-    through = (
-        abs(bb.max.X - bb.min.X) + abs(bb.max.Y - bb.min.Y) + abs(bb.max.Z - bb.min.Z) + 10
-    )
-    if p.cara is not None:  # entrada DECLARATIVA por cara (V6.8-E)
-        face, o, n, u, v = _planar_face_frame(
-            feat, p.cara.model_dump(exclude_none=True), quien="cara del taladro"
-        )
-        du, dv = p.en_cara.u, p.en_cara.v
-        entry = tuple(o[i] + u[i] * du + v[i] * dv for i in range(3))
-        from build123d import Vertex
-
-        from apolo.kernel.measure import measure_distance
-
-        fuera = measure_distance(Vertex(*entry), face)["dist_mm"]
-        if fuera > 1e-6:
-            raise CommandError(
-                f"en_cara (u={du}, v={dv}) cae FUERA de la cara (a {round(fuera, 3)} mm "
-                "de su borde) — el taladro entraría al aire; u/v se miden desde el "
-                "CENTRO de la cara (u = eje mayor)"
-            )
-        # −normal = perpendicular a la cara; un `axis` EXPLÍCITO gana
-        if "axis" in p.model_fields_set:
-            direction = _DRILL_DIRS[p.axis]
-        else:
-            direction = (-n[0], -n[1], -n[2])
-    else:
-        entry = p.position.tuple()
-        direction = _DRILL_DIRS[p.axis]
-    depth = p.depth if p.depth > 0 else through
-    if p.thread:  # roscado: el 3D lleva la BROCA de machuelado (diameter se ignora)
-        from apolo.library.engineering.threads import thread_spec
-
-        dia = thread_spec(p.thread)["broca_mm"]
-    else:
-        dia = p.diameter
-    tools = [_drill_tool(dia, depth + 0.01, entry, direction)]
-    if p.counterbore_d and p.counterbore_depth:
-        if p.counterbore_d <= dia:
-            raise CommandError("El caladrillo debe ser mayor que el diámetro del taladro")
-        tools.append(_drill_tool(p.counterbore_d, p.counterbore_depth, entry, direction))
-    result = feat.shape
-    for tool in tools:
-        result = result - tool
-    if result is None or result.volume <= 0:
-        raise CommandError("El taladro eliminó todo el material del sólido")
-    if abs(result.volume - feat.shape.volume) < 1e-6:
-        raise CommandError("El taladro no toca el sólido: revisa el punto de entrada y el eje")
-    feat.shape = result
-    feat.make_unique()
-
-
-def _exec_pattern_circular(ctx: ExecContext, cmd_id: str, p: PatternCircularParams) -> None:
-    from build123d import Pos, Rotation
-
-    from apolo.kernel.matrix import axis_rotation_about_point, multiply, transform_anchors
-
-    feat = _require(ctx.scene, p.feature)
-    ap = p.axis_point.tuple()
-    full = abs(p.total_angle - 360.0) < 1e-9
-    steps = p.count if full else p.count - 1
-    for i in range(1, p.count):
-        angle = p.total_angle * i / max(1, steps)
-        rot = {
-            "x": Rotation(angle, 0, 0),
-            "y": Rotation(0, angle, 0),
-            "z": Rotation(0, 0, angle),
-        }[p.axis_dir]
-        copy = Pos(*ap) * rot * Pos(-ap[0], -ap[1], -ap[2]) * feat.shape
-        fid = f"{cmd_id}_{i}"
-        off = axis_rotation_about_point(ap, p.axis_dir, angle)
-        matrix = multiply(off, feat.matrix) if feat.matrix is not None else None
-        ctx.scene[fid] = Feature(
-            fid, f"{feat.name} ({i + 1})", copy, cmd_id,
-            component=feat.component, cut_length=feat.cut_length,
-            mesh_key=feat.mesh_key if matrix is not None else None, matrix=matrix,
-            anchors=transform_anchors(off, feat.anchors),  # V6.3d Fix 2: la copia hereda anclas
-        )
-
-
-_MIRROR_PLANES = {"xy": "XY", "xz": "XZ", "yz": "YZ"}
-
-
-def _exec_mirror(ctx: ExecContext, cmd_id: str, p: MirrorParams) -> None:
-    from build123d import Plane, mirror
-
-    feat = _require(ctx.scene, p.feature)
-    plane = getattr(Plane, _MIRROR_PLANES[p.plane])
-    if p.offset:
-        plane = plane.offset(p.offset)
-    copy = mirror(feat.shape, about=plane)
-    ctx.scene[cmd_id] = Feature(
-        cmd_id, f"{feat.name} (espejo)", copy, cmd_id,
-        component=feat.component, cut_length=feat.cut_length,
-    )
+# La base de la escena y los executors de modelado viven en `escena` y `exec_*` (plan
+# partir-nucleo-congelado, F3); aquí se re-exportan por IDENTIDAD, para siempre
+# (`tests/test_rutas_viejas.py`): los imports perezosos de executors ajenos y los blobs de la
+# caché de geometría (`apolo.commands.registry.Feature`) los buscan en esta ruta.
+from .escena import (  # noqa: F401
+    Feature,
+    DEFINITIONS,
+    _DEFINITIONS_CAP,
+    register_definition,
+    touch_definition,
+    Scene,
+    Joints,
+    _ancestors,
+    _require,
+    _instanced,
+    _orient_axis,
+    _resolve_sel,
+)
+from .exec_basicos import (  # noqa: F401
+    _exec_create_box,
+    _exec_create_cylinder,
+    _exec_create_profile,
+    _exec_boolean,
+    _exec_pattern,
+    _PATTERN_GROUP_MAX,
+    _exec_pattern_group,
+    _exec_delete,
+    _exec_duplicate,
+    _exec_set_variable,
+    _exec_pattern_circular,
+    _MIRROR_PLANES,
+    _exec_mirror,
+)
+from .exec_colocacion import (  # noqa: F401
+    _world_move,
+    _world_place,
+    _exec_transform,
+    _bbox_center,
+    _exec_center_in,
+    _exec_distribute,
+    _v_sub,
+    _v_dot,
+    _v_cross,
+    _v_unit,
+    _planar_face_frame,
+    _ANCHOR_FNS,
+    _anchor_point,
+    _exec_attach,
+    _exec_snap_face,
+    _exec_snap_to,
+)
+from .exec_modificar import (  # noqa: F401
+    _exec_delete_faces,
+    _exec_push_face,
+    _shortest_edge_mm,
+    _exec_fillet,
+    _exec_chamfer,
+    _exec_shell,
+    _DRILL_DIRS,
+    _drill_tool,
+    _exec_drill_hole,
+    _exec_add_joinery,
+)
 
 
 def _exec_sketch_sweep(ctx: ExecContext, cmd_id: str, p: SketchSweepParams) -> None:
@@ -1401,90 +807,6 @@ def _exec_insert_project(ctx: ExecContext, cmd_id: str, p: InsertProjectParams) 
         raise CommandError(str(exc)) from exc
 
 
-def _exec_add_joinery(ctx: ExecContext, cmd_id: str, p: AddJoineryParams) -> None:
-    from build123d import Box, Cylinder, Pos, Rotation
-
-    if p.feature_a == p.feature_b:
-        raise CommandError("Una unión no puede ser de una pieza consigo misma")
-    a = _require(ctx.scene, p.feature_a)
-    b = _require(ctx.scene, p.feature_b)
-    ax = p.axis.tuple()
-    m = max(abs(ax[0]), abs(ax[1]), abs(ax[2]))
-    if m < 1e-9:
-        raise CommandError("El eje de inserción no puede ser el vector nulo")
-    if abs(ax[0]) == m:
-        char, au = "x", (1.0 if ax[0] > 0 else -1.0, 0.0, 0.0)
-    elif abs(ax[1]) == m:
-        char, au = "y", (0.0, 1.0 if ax[1] > 0 else -1.0, 0.0)
-    else:
-        char, au = "z", (0.0, 0.0, 1.0 if ax[2] > 0 else -1.0)
-    pos = p.position.tuple()
-
-    def obox(u, v, d):  # caja: u,v perpendiculares; d a lo largo del eje
-        return {"x": lambda: Box(d, u, v), "y": lambda: Box(u, d, v), "z": lambda: Box(u, v, d)}[char]()
-
-    def cyl_axis(r, length, c):  # cilindro a lo largo del eje, centrado en c
-        cy = Cylinder(r, length)
-        if char == "y":
-            cy = Rotation(90, 0, 0) * cy
-        elif char == "x":
-            cy = Rotation(0, 90, 0) * cy
-        return Pos(*c) * cy
-
-    def center(sh):
-        bb = sh.bounding_box()
-        return ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
-
-    def toward_b():  # dirección de A hacia B a lo largo del eje
-        ca, cb = center(a.shape), center(b.shape)
-        d = sum((cb[i] - ca[i]) * au[i] for i in range(3))
-        s = 1.0 if d >= 0 else -1.0
-        return (au[0] * s, au[1] * s, au[2] * s)
-
-    try:
-        if p.type == "espiga_mortaja":
-            tw = toward_b()
-            tc = tuple(pos[i] + tw[i] * p.depth / 2 for i in range(3))
-            tenon = Pos(*tc) * obox(p.width, p.height, p.depth)
-            mort = Pos(*tc) * obox(p.width + 2 * p.clearance, p.height + 2 * p.clearance, p.depth + p.clearance)
-            a.shape = a.shape + tenon
-            b.shape = b.shape - mort
-            a.make_unique()
-            b.make_unique()
-        elif p.type == "dado":
-            tw = toward_b()
-            gc = tuple(pos[i] + tw[i] * p.depth / 2 for i in range(3))
-            groove = Pos(*gc) * obox(p.width, p.height, p.depth)
-            b.shape = b.shape - groove
-            b.make_unique()
-        elif p.type == "dowel":
-            perp = (0.0, 0.0, 1.0) if char in ("x", "y") else (1.0, 0.0, 0.0)
-            n = max(1, int(p.count))
-            for i in range(n):
-                off = (i - (n - 1) / 2.0) * p.spacing
-                c = tuple(pos[k] + perp[k] * off for k in range(3))
-                hole = cyl_axis(p.width / 2.0, p.depth, c)
-                a.shape = a.shape - hole
-                b.shape = b.shape - hole
-                pin = cyl_axis(max(0.5, p.width / 2.0 - p.clearance), p.depth * 0.95, c)
-                fid = f"{cmd_id}_pin{i + 1}"
-                ctx.scene[fid] = Feature(fid, f"{p.name} clavija {i + 1}", pin, cmd_id)
-            a.make_unique()
-            b.make_unique()
-        elif p.type == "rebaje":
-            # corte de caja EN SITIO en B (galce de vidrio): X=width, Y=height, Z=depth.
-            cut = Pos(*pos) * Box(p.width, p.height, p.depth)
-            b.shape = b.shape - cut
-            b.make_unique()
-    except CommandError:
-        raise
-    except Exception as exc:
-        raise CommandError(f"Unión '{p.type}' imposible: {exc}") from exc
-    for feat in (a, b):
-        if getattr(feat.shape, "volume", 1.0) <= 0:
-            raise CommandError("La unión dejó una pieza vacía: revisa posición/medidas")
-
-
 def _exec_create_robot_arm(ctx: ExecContext, cmd_id: str, p: CreateRobotArmParams) -> None:
     from apolo.robotics.arm import robot_arm_parts
 
@@ -1511,118 +833,6 @@ def _exec_run_script(ctx: ExecContext, cmd_id: str, p: RunScriptParams) -> None:
         raise CommandError("El script produjo geometría sin volumen")
     shape = place(base, p.position.tuple(), p.rotation.tuple())
     ctx.scene[cmd_id] = Feature(cmd_id, p.name, shape, cmd_id)
-
-
-_ANCHOR_FNS = {
-    "centro": lambda bb, c: c,
-    "base": lambda bb, c: (c[0], c[1], bb.min.Z),
-    "tope": lambda bb, c: (c[0], c[1], bb.max.Z),
-    "min_x": lambda bb, c: (bb.min.X, c[1], c[2]),
-    "max_x": lambda bb, c: (bb.max.X, c[1], c[2]),
-    "min_y": lambda bb, c: (c[0], bb.min.Y, c[2]),
-    "max_y": lambda bb, c: (c[0], bb.max.Y, c[2]),
-}
-
-
-def _anchor_point(shape, anchor: str) -> tuple[float, float, float]:
-    bb = shape.bounding_box()
-    center = ((bb.min.X + bb.max.X) / 2, (bb.min.Y + bb.max.Y) / 2, (bb.min.Z + bb.max.Z) / 2)
-    return _ANCHOR_FNS[anchor](bb, center)
-
-
-def _exec_attach(ctx: ExecContext, cmd_id: str, p: AttachParams) -> None:
-    feat = _require(ctx.scene, p.feature)
-    target = _require(ctx.scene, p.target)
-    if p.feature == p.target:
-        raise CommandError("Un sólido no puede ensamblarse consigo mismo")
-
-    # 1 · orientación: girar sobre su centro para alinear ejes
-    if p.align_my and p.align_to and p.align_my != p.align_to:
-        from apolo.kernel.matrix import euler_between_axes
-
-        _world_move(feat, (0, 0, 0), euler_between_axes(p.align_my, p.align_to))
-
-    # 2 · traslación: ancla a ancla (con el bbox ya reorientado)
-    src = _anchor_point(feat.shape, p.anchor)
-    dst = _anchor_point(target.shape, p.target_anchor)
-    delta = (
-        dst[0] - src[0] + p.offset.x,
-        dst[1] - src[1] + p.offset.y,
-        dst[2] - src[2] + p.offset.z,
-    )
-    _world_move(feat, delta, (0, 0, 0))
-
-
-def _exec_snap_face(scene: Scene, p: SnapToParams) -> None:
-    """Modo CARA-A-CARA (V6.8-E): apoya la cara PLANA de la pieza contra la cara
-    PLANA del target — normales anti-paralelas a `gap` mm, centros de cara alineados
-    + `deslizar` {u,v} en el plano del target. Colocación CERRADA (sin solver) con
-    rotación MÍNIMA: la orientación de la pieza se conserva todo lo posible (el
-    listón sobre el larguero inclinado se inclina con él, no gira alrededor de la
-    normal). Relacional: se reevalúa al regenerar como el modo bbox."""
-    import math
-
-    feat = _require(scene, p.feature)
-    target = _require(scene, p.target)
-    _f, oA, nA, _uA, _vA = _planar_face_frame(
-        feat, p.cara.model_dump(exclude_none=True), quien="cara de la pieza"
-    )
-    _f, oB, nB, uB, vB = _planar_face_frame(
-        target, p.cara_target.model_dump(exclude_none=True), quien="cara del target"
-    )
-    d = (-nB[0], -nB[1], -nB[2])  # la normal de la pieza debe terminar mirando al target
-    dot = max(-1.0, min(1.0, _v_dot(nA, d)))
-    center = _bbox_center(feat.shape)
-    if dot > 1.0 - 1e-12:
-        axis, angle = (0.0, 0.0, 1.0), 0.0
-    elif dot < -1.0 + 1e-12:
-        axis, angle = uB, 180.0  # anti-paralelas: media vuelta sobre un eje del plano
-    else:
-        axis = _v_unit(_v_cross(nA, d))
-        angle = math.degrees(math.acos(dot))
-    if angle:  # centro de la cara A tras la rotación (sobre el centro del bbox)
-        from apolo.kernel.matrix import rotation_axis_angle_about
-
-        m = rotation_axis_angle_about(center, axis, angle)
-        oA = tuple(
-            m[i][0] * oA[0] + m[i][1] * oA[1] + m[i][2] * oA[2] + m[i][3] for i in range(3)
-        )
-    du, dv = p.deslizar.u, p.deslizar.v
-    destino = tuple(oB[i] + nB[i] * p.gap + uB[i] * du + vB[i] * dv for i in range(3))
-    _world_place(feat, _v_sub(destino, oA), axis, angle, center)
-
-
-def _exec_snap_to(ctx: ExecContext, cmd_id: str, p: SnapToParams) -> None:
-    """Pega `feature` contra el `lado` del bbox de `target` a `gap` mm, opcionalmente
-    centrando en los ejes de `alinear`. Relacional: se reevalúa al regenerar (mueve en
-    sitio con la MISMA rígida que center_in/attach → conserva matrix/anclas).
-    Con `cara`+`cara_target` despacha al modo cara-a-cara (V6.8-E)."""
-    if p.feature == p.target:
-        raise CommandError("Un sólido no puede colocarse junto a sí mismo")
-    if p.cara is not None:  # ambos-o-ninguno lo garantiza el modelo
-        return _exec_snap_face(ctx.scene, p)
-    feat = _require(ctx.scene, p.feature)
-    target = _require(ctx.scene, p.target)
-    fb = feat.shape.bounding_box()
-    tb = target.shape.bounding_box()
-    fmin = [fb.min.X, fb.min.Y, fb.min.Z]
-    fmax = [fb.max.X, fb.max.Y, fb.max.Z]
-    tmin = [tb.min.X, tb.min.Y, tb.min.Z]
-    tmax = [tb.max.X, tb.max.Y, tb.max.Z]
-    sign, axis = p.lado[0], p.lado[1]
-    i = {"x": 0, "y": 1, "z": 2}[axis]
-    t = [0.0, 0.0, 0.0]
-    if sign == "+":  # pieza en el lado +eje: su cara min queda a gap del max del target
-        t[i] = (tmax[i] + p.gap) - fmin[i]
-    else:            # pieza en el lado -eje: su cara max queda a gap del min del target
-        t[i] = (tmin[i] - p.gap) - fmax[i]
-    fc = _bbox_center(feat.shape)
-    tc = _bbox_center(target.shape)
-    for ax in p.alinear:
-        j = {"x": 0, "y": 1, "z": 2}[ax]
-        if j != i:  # no tocar el eje del snap
-            t[j] = tc[j] - fc[j]
-    _world_move(feat, tuple(t), (0, 0, 0))
 
 
 def _publish_axis_anchor(scene: Scene, fid: str, name: str) -> None:

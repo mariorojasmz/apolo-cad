@@ -232,3 +232,100 @@ def test_las_tools_movidas_ven_el_api_parcheado(monkeypatch):
     monkeypatch.setattr(srv, "_api", lambda *a, **k: _Resp())
     assert srv.get_kinematics() == '{"ok": "parcheado"}'
     assert srv.resolve_expression("=1") == '{"ok": "parcheado"}'
+
+
+# ── registry (F3) ─────────────────────────────────────────────────────────────
+
+#: Casa nueva de cada nombre que `apolo.commands.registry` definía en `c11bca8` y salió en la F3
+#: (51), en el orden del archivo original por módulo. Los que aún viven en `registry` (F4) no
+#: están aquí: siguen siendo suyos.
+REGISTRY_F3: dict[str, tuple[str, ...]] = {
+    "apolo.commands.escena": (
+        "Feature", "DEFINITIONS", "_DEFINITIONS_CAP", "register_definition", "touch_definition",
+        "Scene", "Joints", "_ancestors", "_require", "_instanced", "_orient_axis", "_resolve_sel",
+    ),
+    "apolo.commands.exec_basicos": (
+        "_exec_create_box", "_exec_create_cylinder", "_exec_create_profile", "_exec_boolean",
+        "_exec_pattern", "_PATTERN_GROUP_MAX", "_exec_pattern_group", "_exec_delete",
+        "_exec_duplicate", "_exec_set_variable", "_exec_pattern_circular", "_MIRROR_PLANES",
+        "_exec_mirror",
+    ),
+    "apolo.commands.exec_colocacion": (
+        "_world_move", "_world_place", "_exec_transform", "_bbox_center", "_exec_center_in",
+        "_exec_distribute", "_v_sub", "_v_dot", "_v_cross", "_v_unit", "_planar_face_frame",
+        "_ANCHOR_FNS", "_anchor_point", "_exec_attach", "_exec_snap_face", "_exec_snap_to",
+    ),
+    "apolo.commands.exec_modificar": (
+        "_exec_delete_faces", "_exec_push_face", "_shortest_edge_mm", "_exec_fillet",
+        "_exec_chamfer", "_exec_shell", "_DRILL_DIRS", "_drill_tool", "_exec_drill_hole",
+        "_exec_add_joinery",
+    ),
+}
+
+MOVIDOS_REGISTRY_F3 = 51
+
+
+def test_registry_sirve_cada_nombre_movido_por_identidad():
+    assert faltantes("apolo.commands.registry", REGISTRY_F3) == []
+
+
+def test_registry_lista_cerrada():
+    nombres = [n for ns in REGISTRY_F3.values() for n in ns]
+    assert len(nombres) == len(set(nombres)) == MOVIDOS_REGISTRY_F3
+
+
+@pytest.mark.parametrize("casa", sorted(REGISTRY_F3))
+def test_cada_casa_nueva_de_registry_define_lo_suyo(casa):
+    mod = importlib.import_module(casa)
+    for nombre in REGISTRY_F3[casa]:
+        obj = getattr(mod, nombre)
+        if isinstance(obj, type) or inspect.isfunction(obj):
+            assert obj.__module__ == casa, f"{nombre} nace en {obj.__module__}, no en {casa}"
+
+
+def test_los_executors_movidos_del_registro_son_los_de_su_casa():
+    """El `REGISTRY` despacha el MISMO objeto que vive en la casa nueva (sin copias)."""
+    from apolo.commands.registry import REGISTRY
+
+    casas = {n: casa for casa, ns in REGISTRY_F3.items() for n in ns}
+    movidos = [s for s in REGISTRY.values() if s.executor.__name__ in casas]
+    assert len(movidos) == 23
+    for spec in movidos:
+        casa = importlib.import_module(casas[spec.executor.__name__])
+        assert spec.executor is getattr(casa, spec.executor.__name__), spec.type
+
+
+def test_un_blob_viejo_con_la_ruta_de_registry_carga():
+    """La caché de geometría picklea `Feature`: los blobs escritos antes de la F3 nombran
+    `apolo.commands.registry.Feature` y siguen cargando por el re-export (D3)."""
+    import pickle
+
+    from apolo.commands.escena import Feature
+
+    nuevo = pickle.dumps(Feature("c1", "Caja", None, "c1", mesh_key="box|1|1|1"), protocol=0)
+    assert b"apolo.commands.escena" in nuevo
+    viejo = nuevo.replace(b"apolo.commands.escena", b"apolo.commands.registry")
+    feat = pickle.loads(viejo)
+    assert type(feat) is Feature
+    assert (feat.id, feat.name, feat.mesh_key) == ("c1", "Caja", "box|1|1|1")
+
+
+def test_el_gate_registry_caza_un_nombre_que_falta(monkeypatch):
+    import apolo.commands.registry as registry
+
+    monkeypatch.delattr(registry, "_drill_tool")
+    assert faltantes("apolo.commands.registry", REGISTRY_F3) == [
+        "apolo.commands.registry._drill_tool: ya no existe"
+    ]
+
+
+def test_el_gate_registry_caza_una_copia(monkeypatch):
+    import apolo.commands.registry as registry
+
+    def _require(scene, feature_id):  # mismo nombre, otra función
+        return scene[feature_id]
+
+    monkeypatch.setattr(registry, "_require", _require)
+    assert faltantes("apolo.commands.registry", REGISTRY_F3) == [
+        "apolo.commands.registry._require: no es el objeto de apolo.commands.escena"
+    ]
