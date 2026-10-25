@@ -39,7 +39,7 @@ from apolo.physics.dinamica_datos import DynamicsSnapshot
 from apolo.physics.dinamica_integrador import Integrador
 from apolo.physics.dinamica_motores import inercia_minima, resolver_motores
 from apolo.physics.dinamica_peticion import MAX_PRODUCTOS, instancias_producto, parse_peticion
-from apolo.physics.hull import hull_vertices
+from apolo.physics.hull import cascos
 from apolo.physics.sensores import SensorDatos
 from apolo.physics.sim import MM, PhysicsError
 
@@ -83,9 +83,19 @@ def _geoms_pieza(fid: str, pm) -> list:
             return [dm.GeomMJ("capsule", nombre, desde=tuple(a * MM), hasta=tuple(b * MM), radio=r * MM)]
         a, b = mid - e * max(medio, 0.5), mid + e * max(medio, 0.5)
         return [dm.GeomMJ("cylinder", nombre, desde=tuple(a * MM), hasta=tuple(b * MM), radio=r * MM)]
-    if len(pm.vertices) < 4:
-        return []
-    return [dm.GeomMJ("mesh", nombre, vertices=[tuple(c * MM for c in v) for v in pm.vertices])]
+    return _geoms_cascos(nombre, pm.cascos if pm.cascos is not None else [pm.vertices])
+
+
+def _geoms_cascos(nombre: str, cascos_mm: list) -> list:
+    """Una malla convexa por SÓLIDO (`hull.cascos`, V8.9 F7b): la primera con el nombre de la
+    pieza (con un sólido, el MJCF de siempre) y las demás con «__k»."""
+    out = []
+    for k, verts in enumerate(cascos_mm):
+        if len(verts) < 4:
+            continue
+        out.append(dm.GeomMJ("mesh", nombre if not out else f"{nombre}__{k}",
+                             vertices=[tuple(c * MM for c in v) for v in verts]))
+    return out
 
 
 def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = None, *,
@@ -125,14 +135,13 @@ def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = N
     padres_estaticos = {todas[n]["parent"] for n in cls.orden if cls.padre_cuerpo[n] is None} - {None}
     sostenes: set[str] = set()   # piezas estáticas con cuerpo propio (padres de junta)
     for fid in sorted(cls.estaticas):
-        verts = hull_vertices(scene[fid].shape)
-        if len(verts) < 4:
+        geoms = _geoms_cascos(dm.nombre_mj("e", fid), cascos(scene[fid].shape))
+        if not geoms:
             continue
-        g = dm.GeomMJ("mesh", dm.nombre_mj("e", fid), vertices=[tuple(c * MM for c in v) for v in verts])
         propio = fid in padres_estaticos
         if propio:
             sostenes.add(fid)
-        mod.estaticos.append(dm.EstaticoMJ(fid, [g], dm.nombre_mj("s", fid) if propio else None))
+        mod.estaticos.append(dm.EstaticoMJ(fid, geoms, dm.nombre_mj("s", fid) if propio else None))
 
     cuerpo_mj = {n: dm.nombre_mj("b", n) for n in cls.orden}
     radio_por_junta, inercia_por_junta = {}, {}

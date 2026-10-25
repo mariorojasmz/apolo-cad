@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from apolo.physics.hull import hull_vertices
+from apolo.physics.hull import cascos, hull_vertices
 from apolo.robotics.model import _link_physics
 
 MOVILES = ("giratoria", "continua", "prismatica")
@@ -153,6 +153,7 @@ class PiezaMovil:
     inercia: np.ndarray         # kg·mm² sobre el COM, ejes del mundo (3×3)
     vertices: list              # casco convexo (mm, mundo)
     giro: dict | None = None    # {centro, eje, radio, s0, s1} si gira sobre su eje (mm)
+    cascos: list | None = None  # un casco por SÓLIDO para la colisión (V8.9 F7b; None = `vertices`)
 
 
 def _masa_occt(shape):
@@ -274,7 +275,7 @@ def geometria_movil(feat, junta: dict | None) -> PiezaMovil:
         inercia = tensor * (masa / vol)
     giro = detectar_giro(feat, junta)
     return PiezaMovil(feat.id if hasattr(feat, "id") else "", float(masa), np.asarray(com, float),
-                      inercia, verts, giro)
+                      inercia, verts, giro, cascos(feat.shape))
 
 
 def combinar_inercia(piezas: list[PiezaMovil]) -> tuple[float, np.ndarray, np.ndarray]:

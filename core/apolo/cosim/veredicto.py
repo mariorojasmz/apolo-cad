@@ -211,7 +211,7 @@ def evaluar_una(a: dict, lec: Lector) -> dict:
     if n is None:
         return {**out, "detalle": motivo}
     out["senal"] = n
-    a, error = concretar(a, lec.tipo(n)[0])  # F6b: la forma sin comparación, según el tipo
+    a, error = concretar(a, *lec.tipo(n))  # F6b: la forma sin comparación, según el tipo
     if error:
         return {**out, "detalle": error}
     tipo = tipo_incompatible(n, a["valor"], lec)

@@ -70,9 +70,9 @@ def revisar(aserciones: list[dict], valores: dict) -> tuple[list[str], list[str]
         if n is None:
             avisos.append(f"«{a['texto']}»: {motivo}")
             continue
-        tipo, _ = lec.tipo(n)
+        tipo, ejemplo = lec.tipo(n)
         reposo = valores.get(n)
-        a2, error = concretar(a, tipo)
+        a2, error = concretar(a, tipo, ejemplo)
         if not error and a.get("implicita") and tipo == "texto" and reposo:
             error = (f"«{n}» es un texto que en reposo ya vale «{reposo}»: la forma sin comparación "
                      f"(«no vacío») se cumpliría sin que pase nada; compárala con el texto que "

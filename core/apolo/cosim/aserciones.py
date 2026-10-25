@@ -299,9 +299,20 @@ def texto(a: dict) -> str:
     return " ".join(partes)
 
 
-def concretar(a: dict, tipo: str | None) -> tuple[dict, str | None]:
+def concretar(a: dict, tipo: str | None, ejemplo=None) -> tuple[dict, str | None]:
     """La forma sin comparación según el tipo de su señal (F6b): (aserción a evaluar, error).
-    Booleana o tipo desconocido → «== true»; texto → «!= ""» (no vacío); numérica → error."""
+    Booleana o tipo desconocido → «== true»; texto → «!= ""» (no vacío); numérica → error.
+
+    Un número con `==`/`!=` contra una señal de TEXTO cuyos valores son NÚMEROS escritos
+    (`ejemplo`: un valor de la señal, p. ej. el de reposo) se compara como su texto (V8.9 F7b,
+    defecto 7): la posición de una válvula es «14», «12» o «0» (D7) y el valor de la aserción
+    pierde sus comillas al leerse, así que «-QM2.posicion == 14» y «== "14"» valen «14». Contra
+    un texto que no es un número («-T2.falla == 1») sigue siendo error de tipo (F6)."""
+    v = a.get("valor")
+    if (tipo == "texto" and not a.get("implicita") and a.get("op") in ("==", "!=")
+            and isinstance(v, float) and not isinstance(v, bool) and math.isfinite(v)
+            and isinstance(ejemplo, str) and _NUM.match(ejemplo.strip())):
+        return {**a, "valor": f"{v:g}"}, None
     if not a.get("implicita") or tipo in (None, "bool"):
         return a, None
     if tipo == "texto":

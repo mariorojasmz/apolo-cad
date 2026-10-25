@@ -80,7 +80,8 @@ def _signos_banda(snap) -> list[float]:
 
 
 def _mecanica(integ, signos: list) -> dict:
-    """`<pieza>.v_m_s` de cada banda y `<producto>.x_mm` de cada producto en la máquina (D10)."""
+    """`<pieza>.v_m_s` de cada banda y `<producto>.x_mm`, `.y_mm` y `.z_mm` de cada producto en la
+    máquina (D10; `y_mm`/`z_mm` desde V8.9 F7b, defecto 5: un desvío lateral se afirma por la y)."""
     out: dict = {}
     if integ.arrastre is not None:
         for k, b in enumerate(integ.snap.bandas):
@@ -89,7 +90,9 @@ def _mecanica(integ, signos: list) -> dict:
     for k, p in enumerate(integ.snap.productos):
         if integ.activo[k]:
             nombre = p["name"][2:] if p["name"].startswith("p_") else p["name"]
-            out[f"{nombre}.x_mm"] = float(d.xpos[integ.bid_prod[k]][0]) * 1000.0
+            pos = d.xpos[integ.bid_prod[k]]
+            for eje, c in (("x", 0), ("y", 1), ("z", 2)):
+                out[f"{nombre}.{eje}_mm"] = float(pos[c]) * 1000.0
     return out
 
 

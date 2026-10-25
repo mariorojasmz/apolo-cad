@@ -53,3 +53,31 @@ def hull_vertices(shape) -> list[tuple[float, float, float]]:
         _HULL_CACHE.clear()
     _HULL_CACHE[key] = (shape, hull)
     return hull
+
+
+# id(shape) -> (shape, [vértices por sólido]): misma regla de identidad que `_HULL_CACHE`.
+_CASCOS_CACHE: dict[int, tuple] = {}
+
+
+def cascos(shape) -> list[list[tuple[float, float, float]]]:
+    """Un casco convexo POR SÓLIDO de la pieza (V8.9 F7b, defecto 6): un `run_script` que
+    devuelve un túnel en U como tres sólidos (techo y dos laterales) es UNA pieza, y su casco
+    único tapaba la boca del túnel (la caja quedaba contra ella). Con un solo sólido es
+    exactamente `[hull_vertices(shape)]`. Un sólido CÓNCAVO sigue siendo un casco (la
+    descomposición convexa queda fuera)."""
+    key = id(shape)
+    cached = _CASCOS_CACHE.get(key)
+    if cached is not None and cached[0] is shape:
+        return cached[1]
+    try:
+        solidos = list(shape.solids())
+    except Exception:  # noqa: BLE001
+        solidos = []
+    if len(solidos) <= 1:
+        out = [hull_vertices(shape)]
+    else:
+        out = [hull_vertices(s) for s in solidos]
+    if len(_CASCOS_CACHE) > _HULL_CAP:
+        _CASCOS_CACHE.clear()
+    _CASCOS_CACHE[key] = (shape, out)
+    return out

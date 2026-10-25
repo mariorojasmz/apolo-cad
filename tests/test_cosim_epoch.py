@@ -100,7 +100,11 @@ ARCHIVOS = (
 #: `manual` (el lado enclavado, texto): sólo existe con válvulas; un escenario sin aire no cambia.
 #: El FRL publica `p_red_bar` y la tabla del `inicio` lleva la carrera de cada cilindro: sólo con
 #: aire, ninguna traza sin él.
-HUELLA: tuple[int, str] = (5, "969969f993739c1e")
+#: 6 — V8.9 F7b (defectos 5, 6 y 7): el producto publica `y_mm`/`z_mm` (trazas nuevas en todo
+#: escenario con productos); la colisión de la dinámica lleva un casco convexo por SÓLIDO
+#: (`physics/hull.cascos`: una pieza de varios sólidos cambia de MJCF; con un sólido, el de antes);
+#: «== 14» contra un texto numérico («-QM2.posicion») se compara como texto (antes, error de tipo).
+HUELLA: tuple[int, str] = (6, "8f0c0b6abf1f4c47")
 
 
 def archivos() -> list[Path]:

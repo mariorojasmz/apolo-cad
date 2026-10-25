@@ -22,4 +22,8 @@ Este `__init__` no importa nada: el worker importa sólo lo que usa, sin OCCT.
 #: del AJUSTE primero (antes lo ignoraba) y entiende TN-S, TN-C-S, TT (con `RA_ohm`, el PE unido a
 #: tierra por 1/RA) e IT; la hipótesis de Icc ajustada ya no dice «SUPUESTA». Con el MISMO
 #: documento un esquema ajustado cambia el resultado: todo resultado guardado queda vencido.
-COSIM_EPOCH = 5
+#: 6 (V8.9 F7b, defectos 5, 6 y 7): cada producto publica también `y_mm` y `z_mm` (trazas nuevas);
+#: la colisión lleva un casco convexo por SÓLIDO de cada pieza (una pieza de varios sólidos cambia de
+#: MJCF y de resultado); una aserción `==`/`!=` con un número contra un texto numérico («-QM2.posicion
+#: == 14») se compara como texto en vez de dar error de tipo (otro veredicto con el MISMO documento).
+COSIM_EPOCH = 6
