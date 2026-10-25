@@ -27,6 +27,10 @@ export interface SimboloEsquema {
   caja: number[];
   /** Las piezas del aparato en el 3D (la ligada primero); vacía si no está ligado. */
   piezas: string[];
+  /** Lo que es, para la persona: «Cilindro Ø32 mm, vástago 12 mm, carrera 200 mm». */
+  rotulo?: string;
+  /** A qué borne del tablero llega cada bobina («A1: +TAB1-S2:14»). */
+  bornes?: string[];
 }
 
 export interface LineaEsquema {
@@ -55,7 +59,9 @@ export interface EsquemaNeumatico {
   /** [x, y, r, lleno]. */
   circulos: number[][];
   poligonos: { puntos: number[][]; lleno: boolean }[];
-  textos: { x: number; y: number; texto: string; alto: number; anclaje: "start" | "middle" | "end" }[];
+  /** `rotulo`: las designaciones (van en el SVG, con un piso de tamaño); `detalle`: lo que la lámina
+   *  escribe a 2 mm (se lee al elegir el aparato). */
+  textos: { x: number; y: number; texto: string; alto: number; anclaje: "start" | "middle" | "end"; clase?: "rotulo" | "detalle" }[];
   simbolos: SimboloEsquema[];
   lineas: LineaEsquema[];
   valvulas: ValvulaEsquema[];

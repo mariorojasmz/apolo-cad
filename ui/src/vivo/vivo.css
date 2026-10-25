@@ -1,7 +1,8 @@
 /* La máquina viva (plan V8.4, F2): panel «Mandos», barra de la sesión y etiquetas del 3D.
    Excepción acotada de color (ui/CLAUDE.md): la tapa de un mando y la lámpara de un piloto
    llevan su color FÍSICO (`--tapa`, de `mandos.ts::colorFisico`); nada aquí es un color de
-   estado salvo el ámbar del factor lento (`--warn`, el de los avisos). */
+   estado: el factor lento se marca por PESO, en la tinta del tema (V8.9 F6, revisión a ciegas:
+   el ámbar sin explicación alarmaba). */
 
 /* ── panel ─────────────────────────────────────────────────────────────────────────────── */
 .panel-mandos h3 { margin: 10px 0 4px; }
@@ -49,7 +50,7 @@
 .barra-marcha.barra-vivo { width: auto; max-width: calc(100% - 32px); flex-wrap: wrap; }
 .barra-vivo .bv-fase { font-size: 12px; font-weight: 600; white-space: nowrap; }
 .barra-vivo .bv-factor { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
-.barra-vivo .bv-factor.lento { color: var(--warn); font-weight: 600; }
+.barra-vivo .bv-factor.lento { color: var(--text); font-weight: 600; }
 .barra-vivo .bv-mensaje { font-size: 11px; color: var(--muted); }
 .barra-vivo .bv-vieja { color: var(--warn); }
 .barra-vivo .bv-espacio { flex: 1; min-width: 4px; }

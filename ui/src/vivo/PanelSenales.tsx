@@ -7,6 +7,8 @@ import { alternarMultimetro, alternarOsciloscopio, useInstrumentos } from "./med
 import { colorDato } from "./paleta";
 import { useTiposPlc } from "./tiposPlc";
 import { leerValor, magnitud, medidaDe } from "./unidades";
+import { manualPersona, posicionPersona } from "../neumatica/manual";
+import { rotuloAire } from "../neumatica/senales";
 import "./vivo.css";
 
 /* Panel «Señales» de la máquina viva (plan V8.4 D7): el árbol del tablero, dispositivo →
@@ -55,6 +57,8 @@ function Arbol() {
 function Rama({ r, abierta, tipos, deTexto }: {
   r: RamaSenales; abierta: boolean; tipos: Map<string, string>; deTexto: ReadonlySet<string>;
 }) {
+  const valvulas = useVivo((s) => s.inicio?.valvulas);
+  const lados = (senal: string) => valvulas?.find((v) => senal.startsWith(`${v.designacion}.`))?.lados ?? [];
   return (
     <details className="rama-senales" open={abierta || undefined}>
       <summary>
@@ -64,20 +68,23 @@ function Rama({ r, abierta, tipos, deTexto }: {
       </summary>
       <ul className="lista-senales">
         {r.senales.map((s) => deTexto.has(s)
-          ? <FilaTexto key={s} senal={s} />
+          ? <FilaTexto key={s} senal={s} lados={lados(s)} />
           : <FilaSenal key={s} senal={s} agrupada={r.clave.startsWith("#")} tipo={tipos.get(s)} />)}
       </ul>
     </details>
   );
 }
 
-/** Una señal de texto (la posición de una válvula): su valor, sin multímetro ni osciloscopio. */
-function FilaTexto({ senal }: { senal: string }) {
+/** Una señal de texto (la posición de una válvula, su accionamiento manual): su valor en
+ *  palabras, sin multímetro ni osciloscopio. */
+function FilaTexto({ senal, lados }: { senal: string; lados: readonly string[] }) {
   const v = useVivo((s) => s.textos[senal]);
+  const m = magnitud(senal);
+  const valor = m === "manual" ? manualPersona(v) : m === "posicion" ? posicionPersona(v, lados) : v ?? "—";
   return (
     <li className="fila-senal">
-      <span className="nombre-senal" title={senal}>{magnitud(senal)}</span>
-      <span className="valor-senal">{v ?? "—"}</span>
+      <span className="nombre-senal" title={senal}>{rotuloAire(m) ?? m}</span>
+      <span className="valor-senal">{valor}</span>
     </li>
   );
 }
@@ -89,7 +96,7 @@ function FilaSenal({ senal, agrupada, tipo }: { senal: string; agrupada: boolean
   const m = medidaDe(senal, tipo);
   return (
     <li className="fila-senal">
-      <span className="nombre-senal" title={senal}>{agrupada ? senal : magnitud(senal)}</span>
+      <span className="nombre-senal" title={senal}>{agrupada ? senal : rotuloAire(magnitud(senal)) ?? magnitud(senal)}</span>
       <span className="valor-senal">{leerValor(v, m)}</span>
       <button type="button" className={`inst-icono${enMultimetro ? " apretado" : ""}`} aria-pressed={enMultimetro}
         aria-label={`${enMultimetro ? "Soltar" : "Anclar"} ${senal} ${enMultimetro ? "del" : "al"} multímetro`}

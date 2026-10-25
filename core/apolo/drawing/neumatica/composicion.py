@@ -35,6 +35,7 @@ class Resultado:
     #: {línea «P1»: índices de sus tramos en `m.lines`} (lo que el visor tiñe por presión)
     trazos: dict[str, list[int]] = field(default_factory=dict)
     fuente: tuple | None = None  # la caja del símbolo de la toma de aire (no es un aparato)
+    toma: tuple | None = None  # (índice en `m.lines` del tramo toma → entrada, «des:1»)
 
 
 def ancho_necesario(plan: Plan) -> float:
@@ -71,6 +72,7 @@ def _suministro(m: SheetModel, plan: Plan, r: Resultado, puertos: dict) -> float
         y1 = max(p.y for p in s.puertos.values() if p.dir == "arriba") + GAP
     toma = plan.suministro[0]
     p1 = puertos[f"{toma.designacion}:1"]
+    r.toma = (len(m.lines), f"{toma.designacion}:1")
     m.lines.append(_linea(f.puertos["2"].x, f.puertos["2"].y, p1.x, p1.y))
     return y1 - GAP
 

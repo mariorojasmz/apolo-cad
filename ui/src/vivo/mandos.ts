@@ -123,6 +123,12 @@ export function encendido(valor: number | undefined): boolean {
   return valor !== undefined && Number.isFinite(valor) && valor >= 0.5;
 }
 
+/** «Provocar atasco» frena una junta MOTRIZ con un par: sólo si la máquina tiene un motor o una
+ *  banda (un cilindro neumático no se atasca con un par: V8.9 F6). */
+export function hayAtasco(ini: { bandas: unknown[]; dispositivos: { tipo: string }[] }): boolean {
+  return ini.bandas.length > 0 || ini.dispositivos.some((d) => d.tipo === "motor");
+}
+
 /** La junta que frena «Provocar atasco»: la que mueve la banda (la primera), o la primera junta. */
 export function juntaMotriz(ini: { bandas: { junta: string }[]; juntas: { name: string }[] }): string | null {
   return ini.bandas[0]?.junta ?? ini.juntas[0]?.name ?? null;

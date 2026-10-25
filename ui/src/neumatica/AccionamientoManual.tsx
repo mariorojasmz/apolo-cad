@@ -2,7 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { useVivo } from "../vivo/estado";
 import type { ValvulaVivo } from "../vivo/protocolo";
 import { enviar } from "../vivo/sesion";
-import { alternarManual, ladosManual } from "./manual";
+import { alternarManual, ladosManual, posicionPersona } from "./manual";
 import "./neumatica.css";
 
 /* «Accionamiento manual» en el panel «Mandos» (plan V8.9 D12): el botón de la propia válvula, que
@@ -16,11 +16,10 @@ export default function AccionamientoManual({ quieto }: { quieto: boolean }) {
   const conManual = (valvulas ?? []).filter((v) => v.manual);
   if (!conManual.length) return null;
   return (
-    <details className="rama-senales nm-manual">
+    <details className="nm-manual">
       <summary>
         <ChevronRight className="nm-plegado" size={14} aria-hidden="true" />
-        <strong>Accionamiento manual</strong>
-        <span className="hint cuenta-senales">{conManual.length}</span>
+        <h3>Accionamiento manual</h3>
       </summary>
       <ul className="lista-mandos">
         {conManual.map((v) => <FilaValvula key={v.designacion} v={v} quieto={quieto} />)}
@@ -36,20 +35,23 @@ function FilaValvula({ v, quieto }: { v: ValvulaVivo; quieto: boolean }) {
   const alternar = (lado: string) => {
     for (const a of alternarManual(v.designacion, enclavados, lado)) enviar(a);
   };
+  const uno = v.lados.length === 1;
   return (
     <li className="fila-mando">
       <div className="fila-mando-nombre">
         <strong>{v.designacion}</strong>
-        <span className="hint">{posicion ? `Electroválvula en ${posicion}` : "Electroválvula"}</span>
+        <span className="hint">
+          {enclavados.length ? "Activado a mano" : "Sin accionar"} · posición {posicionPersona(posicion, v.lados)}
+        </span>
       </div>
-      <div className="fila-mando-control selector-mando" role="group" aria-label={`Accionamiento manual de ${v.designacion}`}>
+      <div className="fila-mando-control" role="group" aria-label={`Accionamiento manual de ${v.designacion}`}>
         {v.lados.map((lado) => {
           const puesto = enclavados.includes(lado);
+          const verbo = puesto ? "Soltar" : "Accionar a mano";
           return (
-            <button key={lado} type="button" disabled={quieto} aria-pressed={puesto} className={puesto ? "apretado" : ""}
-              aria-label={`${puesto ? "Soltar" : "Accionar"} a mano el lado ${lado} de ${v.designacion}`}
-              onClick={() => alternar(lado)}>
-              {lado}
+            <button key={lado} type="button" disabled={quieto} aria-pressed={puesto} className={`boton-mando${puesto ? " apretado" : ""}`}
+              aria-label={`${verbo} el lado ${lado} de ${v.designacion}`} onClick={() => alternar(lado)}>
+              {uno ? verbo : `${verbo} · ${lado}`}
             </button>
           );
         })}

@@ -62,6 +62,7 @@ def lamina_neumatica(c: CircuitoAire, *, proyecto: str = "Sin título", hoja: st
         "lineas": {f"P{i + 1}": {"puertos": list(miembros), "tramos": r.trazos.get(f"P{i + 1}", [])}
                    for i, miembros in enumerate(plan.lineas)},
         "fuente": list(r.fuente) if r.fuente else None,
+        "toma": {"tramo": r.toma[0], "puerto": r.toma[1]} if r.toma else None,
         "posiciones": {d: {k.split(":", 1)[1]: list(v) for k, v in s.marcas.items() if k.startswith("caja:")}
                        for d, s in r.simbolos.items() if any(k.startswith("caja:") for k in s.marcas)},
     }

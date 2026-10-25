@@ -8,8 +8,10 @@ import { cifra } from "../diseno/cifra";
 export interface Medida {
   unidad: string;
   decimales: number;
-  /** 0/1: se lee «Sí»/«No» y su escala es fija. */
+  /** 0/1: se lee «Sí»/«No» (o `si`/`no`) y su escala es fija. */
   booleana: boolean;
+  si?: string;
+  no?: string;
 }
 
 const SUFIJOS: [RegExp, string, number][] = [
@@ -23,6 +25,17 @@ const SUFIJOS: [RegExp, string, number][] = [
   [/_pct$/, "%", 1],
   [/_mm$/, "mm", 0],
   [/_ohm$/, "Ω", 3],
+  // el aire (V8.9 D7)
+  [/_bar$/, "bar", 2],
+  [/_Nl_min$/, "NL/min", 1],
+  [/_NL$/, "NL", 2],
+  [/_N$/, "N", 0],
+];
+
+/** Lo que es sí o no y tiene sus palabras: la bobina de una válvula, la válvula de corte (V8.9). */
+const PALABRAS: [RegExp, string, string][] = [
+  [/^bobina\d*$/i, "Encendida", "Apagada"],
+  [/^abierta$/i, "Abierta", "Cerrada"],
 ];
 
 /** Lo que es sí o no: estados de contactos, protecciones, pilotos, entradas y salidas. */
@@ -46,6 +59,7 @@ export function medidaDe(senal: string, tipoPlc?: string): Medida {
   }
   const m = magnitud(senal);
   const ultima = m.slice(m.lastIndexOf(".") + 1);
+  for (const [re, si, no] of PALABRAS) if (re.test(ultima)) return { unidad: "", decimales: 0, booleana: true, si, no };
   if (BOOLEANAS.test(ultima) || BIT_PLC.test(m)) return { unidad: "", decimales: 0, booleana: true };
   for (const [re, unidad, decimales] of SUFIJOS) if (re.test(m)) return { unidad, decimales, booleana: false };
   return { unidad: "", decimales: 2, booleana: false };
@@ -54,6 +68,6 @@ export function medidaDe(senal: string, tipoPlc?: string): Medida {
 /** «1 799 rpm», «3,81 A», «Sí» / «No», «—» sin valor. Coma decimal y espacio fino de miles. */
 export function leerValor(valor: number | undefined, m: Medida): string {
   if (valor === undefined || !Number.isFinite(valor)) return "—";
-  if (m.booleana) return valor >= 0.5 ? "Sí" : "No";
+  if (m.booleana) return valor >= 0.5 ? m.si ?? "Sí" : m.no ?? "No";
   return cifra(valor, m.decimales, m.unidad);
 }

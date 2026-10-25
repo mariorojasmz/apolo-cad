@@ -76,8 +76,9 @@ class Frl(Modelo):
         return min(self.p_red, self.p_regulada)
 
     def salidas(self) -> dict:
+        # `p_red_bar` (V8.9 F6): la presión en su entrada, la de la toma (el visor tiñe ese tramo)
         return {"p_bar": (self.p_salida - P_ATM_PA) / _BAR, "Q_Nl_min": float(self.toma.Q_Nl_min),
-                "consumo_NL": anr_l(self.toma.total)}
+                "consumo_NL": anr_l(self.toma.total), "p_red_bar": (self.p_red - P_ATM_PA) / _BAR}
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
         return self.salidas()

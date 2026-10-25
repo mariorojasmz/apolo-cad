@@ -150,7 +150,7 @@ def _frase_memoria(f: dict) -> tuple[str, str | None]:
                 f"{n(100 * v['tope'], 0, '%')})", "Un cilindro de más diámetro o más presión le da margen.")
     if regla == "caudal pico de la válvula" and "q_pico_NL_min" in v:
         return (f"{v.get('valvula', 'La válvula')} pasa {n(v['q_disponible_NL_min'], 0, 'NL/min')} y {des} pide "
-                f"{n(v['q_pico_NL_min'], 0, 'NL/min')}",
+                f"{n(v['q_pico_NL_min'], 0, 'NL/min')} de pico",
                 "Una válvula de más caudal, menos velocidad o tubos y racores más grandes.")
     if regla == "tiempo de carrera":
         med = v.get("medido") or {}

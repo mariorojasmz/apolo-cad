@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useVivo } from "./estado";
-import { juntaMotriz } from "./mandos";
+import { hayAtasco, juntaMotriz } from "./mandos";
 import { enviarEvento } from "./sesion";
 
 /* «Provocar atasco» en la sesión viva (plan V8.4, F3): frena la junta motriz con un par
@@ -12,7 +12,7 @@ export default function EventosVivos({ quieto }: { quieto: boolean }) {
   const [par, setPar] = useState(1000);
   const [duracion, setDuracion] = useState(3);
   const [junta, setJunta] = useState<string | null>(null);
-  if (!inicio || !inicio.juntas.length) return null;
+  if (!inicio || !inicio.juntas.length || !hayAtasco(inicio)) return null;
   const elegida = junta ?? juntaMotriz(inicio);
   return (
     <>

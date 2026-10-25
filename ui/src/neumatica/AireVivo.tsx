@@ -14,7 +14,7 @@ export default function AireVivo() {
   if (nl === undefined) return null;
   return (
     <span className="bv-aire" aria-label={`Aire: ${textoAire(nl)}, media de los últimos ${VENTANA_S} segundos`}>
-      <span>Aire: </span>{textoAire(nl)}
+      <span>Aire (media de {VENTANA_S} s): </span>{textoAire(nl)}
     </span>
   );
 }

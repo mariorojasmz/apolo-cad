@@ -6,14 +6,17 @@ colores del tema (no un `<img>`: el clic elige un aparato y las líneas se tiñe
   - `trazos` [[x1, y1, x2, y2, a_trazos]], `circulos` [[x, y, r, lleno]], `poligonos`
     [{puntos, lleno}] y `textos` [{x, y, texto, alto, anclaje}]: la tinta de la lámina, sin el
     marco, el cajetín ni las notas;
-  - `simbolos`: la caja de cada aparato ([x, y, ancho, alto]) y sus piezas 3D (el clic las elige);
+  - `simbolos`: la caja de cada aparato ([x, y, ancho, alto]), sus piezas 3D (el clic las elige),
+    su `rotulo` para la persona («Ø32 mm, vástago 12 mm, carrera 200 mm») y los `bornes` de sus
+    bobinas o su salida; en el SVG quedan sólo las designaciones (`clase: "rotulo"`): los rótulos
+    de detalle de la lámina (`clase: "detalle"`, de 2 mm) se leen al elegir el aparato;
   - `lineas`: los tramos de cada línea del circuito y de qué señal sale su presión en la sesión
     viva (D7): {"senal": "-MM1.pA_bar"} (la línea de una cámara), {"senal": "-AZ1.p_bar"} (la
     salida del FRL), {..., "si": "-QM1.abierta"} (tras la válvula de corte: sin aire si está
     cerrada), {"valvula": "-QM2", "tabla": {posición: "1" | "3" | "5" | None}, "alimentacion":
     {...}} (una vía de trabajo que no llega directo a una cámara: con la vía 1, la presión de la
     alimentación; con un escape, la atmósfera; cerrada, sin dato), {"atmosfera": true} (un
-    escape) o {} (sin señal);
+    escape) o {} (sin señal); la línea `toma` (fuente → entrada del FRL) va con `p_red_bar`;
   - `valvulas`: la caja de cada posición y la señal que dice en cuál está (`posicion` de la
     electroválvula, `abierta` de la válvula de corte);
   - `escala_bar`: el tope de la escala de colores (la presión regulada más alta).
@@ -80,6 +83,31 @@ def _presion(puertos: list[str], linea_de: dict, lineas: dict, aparatos: dict, v
     return {}
 
 
+def _n(v) -> str:
+    return f"{v:g}".replace(".", ",")
+
+
+def rotulo_persona(d) -> str:
+    """Lo que el aparato es, en palabras de la persona (con unidades: no «Ø32/12 c200»)."""
+    from .neumatica_esquema import MANDOS
+
+    n = d.neumatico
+    m = n.modelo
+    if n.tipo == "cilindro":
+        carrera = (d.servicio or {}).get("carrera_mm")
+        base = f"Cilindro Ø{_n(m.get('D_mm', 0))} mm, vástago {_n(m.get('d_mm', 0))} mm"
+        return base + (f", carrera {_n(carrera)} mm" if isinstance(carrera, (int, float)) and carrera else "")
+    if n.tipo == "valvula":
+        return f"Válvula {m.get('vias')}/{m.get('posiciones')} {MANDOS.get(m.get('mando'), m.get('mando', ''))}".strip()
+    if n.tipo == "frl":
+        p = d.ajustes.get("p_regulada_bar")
+        return f"Filtro-regulador a {_n(p)} bar" if isinstance(p, (int, float)) else "Filtro-regulador sin presión declarada"
+    if n.tipo == "valvula_corte":
+        return "Válvula de corte " + ("con escape" if m.get("con_escape") else "sin escape")
+    return {"regulador_caudal": "Regulador de caudal", "silenciador": "Silenciador",
+            "presostato": "Presostato"}.get(n.tipo, n.tipo or "")
+
+
 def _escala(m) -> float:
     ps = [d.ajustes.get("p_regulada_bar") for d in m.dispositivos if _tipo(d) == "frl"]
     ps = [p for p in ps if isinstance(p, (int, float)) and p > 0]
@@ -101,7 +129,8 @@ def esquema(doc, m, piezas: dict[str, list[str]]) -> dict:
     meta = hoja.meta["esquema_neumatico"]
     alto = hoja.height
     lineas = meta["lineas"]
-    tramos = {i for ln in lineas.values() for i in ln["tramos"]}
+    toma = meta.get("toma") or None
+    tramos = {i for ln in lineas.values() for i in ln["tramos"]} | ({toma["tramo"]} if toma else set())
     xs, ys = [], []
     for x0, y0, x1, y1 in [*meta["simbolos"].values(), *([meta["fuente"]] if meta.get("fuente") else [])]:
         xs += [x0, x1]
@@ -130,6 +159,7 @@ def esquema(doc, m, piezas: dict[str, list[str]]) -> dict:
     poligonos = [{"puntos": [[r2(x), sy(y)] for x, y in p.rings[0]], "lleno": p.kind == LLENO}
                  for p in hoja.polygons if p.rings and all(dentro(x, y) for x, y in p.rings[0])]
     textos, bx0, bx1, by0, by1 = [], X0, X1, Y0, Y1
+    designaciones = set(meta["simbolos"]) | {"Toma de aire"}
     for lab in hoja.labels:
         if not dentro(lab.x, lab.y, ALCANCE_TEXTO_MM):
             continue
@@ -138,11 +168,15 @@ def esquema(doc, m, piezas: dict[str, list[str]]) -> dict:
         bx0, bx1 = min(bx0, lab.x - a * ancho), max(bx1, lab.x + (1 - a) * ancho)
         by0, by1 = min(by0, lab.y - 0.3 * lab.size), max(by1, lab.y + lab.size)
         textos.append({"x": r2(lab.x), "y": sy(lab.y), "texto": lab.text, "alto": lab.size,
-                       "anclaje": lab.anchor if lab.anchor in ("start", "end") else "middle"})
+                       "anclaje": lab.anchor if lab.anchor in ("start", "end") else "middle",
+                       "clase": "rotulo" if lab.text in designaciones else "detalle"})
     aparatos = {d.designacion: d for d in m.dispositivos if _tipo(d) is not None}
     linea_de = {p: k for k, ln in lineas.items() for p in ln["puertos"]}
+    bornes = _bornes(doc)
     simbolos = [{"designacion": des, "tipo": _tipo(aparatos[des]) if des in aparatos else "detector",
-                 "caja": [r2(x0), sy(y1), r2(x1 - x0), r2(y1 - y0)], "piezas": piezas.get(des, [])}
+                 "caja": [r2(x0), sy(y1), r2(x1 - x0), r2(y1 - y0)], "piezas": piezas.get(des, []),
+                 "rotulo": rotulo_persona(aparatos[des]) if des in aparatos else "Detector de fin de carrera",
+                 "bornes": bornes.get(des, [])}
                 for des, (x0, y0, x1, y1) in meta["simbolos"].items()]
     valvulas = []
     for des, cajas in meta["posiciones"].items():
@@ -159,8 +193,32 @@ def esquema(doc, m, piezas: dict[str, list[str]]) -> dict:
                     "tramos": [[r2(hoja.lines[i].x1), sy(hoja.lines[i].y1), r2(hoja.lines[i].x2), sy(hoja.lines[i].y2)]
                                for i in ln["tramos"]],
                     "presion": _presion(ln["puertos"], linea_de, lineas, aparatos, frozenset({k}))}
-                   for k, ln in lineas.items() if ln["tramos"]],
+                   for k, ln in lineas.items() if ln["tramos"]] + _toma(hoja, toma, aparatos, sy, r2),
         "valvulas": valvulas,
         "escala_bar": _escala(m),
         "avisos": list(meta.get("avisos") or []),
     }
+
+
+def _bornes(doc) -> dict[str, list[str]]:
+    """{designación: [«A1: +TAB1-S2:14», …]}: a qué borne del tablero llega cada bobina (los de la
+    lámina, `neumatica_esquema.circuito`)."""
+    from .neumatica_esquema import circuito
+
+    try:
+        c = circuito(doc)
+    except ServiceError:
+        return {}
+    return {a.designacion: [v for _lado, v in sorted(a.bobinas.items())] for a in c.aparatos if a.bobinas}
+
+
+def _toma(hoja, toma, aparatos: dict, sy, r2) -> list[dict]:
+    """La línea de la toma de aire (fuente → entrada del primer aparato), con la presión de la red
+    que ve el FRL (`p_red_bar`); sin FRL a la entrada, sin señal."""
+    if not toma:
+        return []
+    ln = hoja.lines[toma["tramo"]]
+    des = toma["puerto"].rpartition(":")[0]
+    presion = {"senal": f"{des}.p_red_bar"} if des in aparatos and _tipo(aparatos[des]) == "frl" else {}
+    return [{"id": "toma", "puertos": [toma["puerto"]], "tramos": [[r2(ln.x1), sy(ln.y1), r2(ln.x2), sy(ln.y2)]],
+             "presion": presion}]

@@ -99,6 +99,8 @@ ARCHIVOS = (
 #: ni ninguna traza (como la F1b de mandos-de-seguridad).
 #: ni ninguna traza (como la F1b de mandos-de-seguridad). La electroválvula con manual publica
 #: `manual` (el lado enclavado, texto): sólo existe con válvulas; un escenario sin aire no cambia.
+#: El FRL publica `p_red_bar` y la tabla del `inicio` lleva la carrera de cada cilindro: sólo con
+#: aire, ninguna traza sin él.
 HUELLA: tuple[int, str] = (5, "RECALCULAR")
 
 

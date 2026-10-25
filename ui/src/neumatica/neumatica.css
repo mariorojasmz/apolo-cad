@@ -6,16 +6,21 @@
 .nm-nota { margin: 0; color: var(--muted); font-size: var(--fs-nota); line-height: var(--lh-cuerpo); }
 
 /* el esquema: la tinta del tema; más angosto que lo legible, se desplaza en vez de achicarse */
-.nm-cabecera { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
-.nm-cabecera .tb-enlace { margin: 0 calc(-1 * var(--sp-2)) 0 0; }
+.nm-cabecera { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  margin-bottom: var(--sp-1); }
+.nm-cabecera .tb-titulo { margin: 0; }
+.nm-cabecera .tb-enlace { margin: 0 calc(-1 * var(--sp-2)) 0 0; line-height: var(--lh-ajustado); }
+.nm-elegido { margin: var(--sp-2) 0 0; color: var(--text); font-size: var(--fs-cuerpo); line-height: var(--lh-cuerpo); }
 .nm-esquema { overflow: auto hidden; max-width: 100%; color: var(--text); }
 .nm-esquema svg { display: block; margin: 0 auto; }
 .nm-tinta { stroke: currentColor; }
 .nm-tinta .lleno { fill: currentColor; }
 .nm-textos text { fill: currentColor; }
 .nm-esquema svg.vivo .nm-tinta, .nm-esquema svg.vivo .nm-textos { color: var(--muted); }
-.nm-posiciones rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 0.5;
-  transition: x var(--mov-rapido) var(--curva-suave); }
+/* la posición en que está cada válvula: fondo y trazo NEUTROS (el azul es la presión; el acento,
+   lo elegido) */
+.nm-posiciones-fondo rect { fill: var(--panel3); }
+.nm-posiciones rect { fill: none; stroke: var(--text); stroke-width: 0.7; }
 .nm-hit { fill: transparent; stroke: transparent; stroke-width: 0.5; cursor: pointer;
   transition: stroke var(--mov-rapido) var(--curva-suave); }
 .nm-hit:hover { stroke: var(--muted); stroke-dasharray: 1.2 0.8; }
@@ -32,6 +37,7 @@
 .nm-leyenda-titulo { grid-row: 1; }
 .nm-rampa { display: flex; gap: 2px; height: var(--sp-2); }
 .nm-rampa span { flex: 1; border-radius: var(--radius-sm); }
+.nm-rampa .nm-sin-aire { flex: 0.6; margin-right: var(--sp-1); }
 .nm-leyenda-cifras { grid-column: 2; display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
 
 /* el detalle de cada cilindro */
@@ -51,7 +57,9 @@
 .bv-aire span { color: var(--muted); }
 
 /* el grupo plegado «Accionamiento manual» de «Mandos»: se ve que se despliega */
-.nm-manual > summary { list-style: none; align-items: center; }
+.nm-manual > summary { list-style: none; display: flex; align-items: center; gap: var(--sp-1); cursor: pointer;
+  margin: var(--sp-3) 0 var(--sp-1); }
+.nm-manual > summary h3 { margin: 0; }
 .nm-manual > summary::-webkit-details-marker { display: none; }
 .nm-plegado { flex: none; color: var(--muted); transition: transform var(--mov-rapido) var(--curva-suave); }
 .nm-manual[open] .nm-plegado { transform: rotate(90deg); }

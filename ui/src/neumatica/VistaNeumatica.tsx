@@ -110,7 +110,7 @@ function MaquinaAire({ nl, sinFugas }: { nl: number; sinFugas?: number }) {
         <dt>Demanda de aire</dt>
         <dd>
           {cifra(nl, 1, "NL/min")}
-          <span className="nm-origen">{conFugas ? "con las fugas declaradas" : "sin contar fugas"}</span>
+          <span className="nm-origen">{conFugas ? "en promedio, con las fugas declaradas" : "en promedio, sin contar fugas"}</span>
         </dd>
       </dl>
     </div>

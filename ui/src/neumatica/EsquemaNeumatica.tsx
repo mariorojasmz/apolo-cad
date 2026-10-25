@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { bordesLeyenda, colorPresion, convieneAmpliar, escalaEsquema, posicionDe, presionDe, RAMPA_PRESION, type Lector } from "./esquema";
+import {
+  altoTexto, colorPresion, convieneAmpliar, escalaEsquema, posicionDe, presionDe, RAMPA_PRESION, rotuloSimbolo,
+  SIN_PRESION, topeLeyenda, type Lector,
+} from "./esquema";
 import type { EsquemaNeumatico, SimboloEsquema } from "./tipos";
 
 /* El esquema ISO 1219 del circuito de aire, EN LÍNEA (plan V8.9 D12): la lámina de la F5 en
    primitivas, con la tinta del tema. Cada símbolo es un botón (clic → el aparato se elige y la
-   cámara vuela a su pieza); un aparato elegido en el 3D se marca aquí. Con `lector` (la sesión
-   viva) cada línea se tiñe por su presión, con su escala, y la caja de la posición en que está
-   cada válvula queda marcada: se ve conmutar. Recibe todo por props. */
+   cámara vuela a su pieza); un aparato elegido en el 3D se marca aquí y debajo se lee qué es (los
+   rótulos de 2 mm de la lámina no van en el SVG: ilegibles en un panel). Las designaciones tienen
+   un piso de tamaño (`altoTexto`). Con `lector` (la sesión viva) cada línea se tiñe por su presión,
+   con su escala, y la caja de la posición en que está cada válvula se marca con un fondo y un
+   trazo NEUTROS (el azul es de la presión; el acento, de lo elegido): se ve conmutar. */
 
 interface Props {
   esquema: EsquemaNeumatico;
@@ -38,6 +43,12 @@ export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegi
   const [ampliado, setAmpliado] = useState(false);
   const [vx, vy, vw, vh] = e.vista;
   const k = escalaEsquema(ancho, vw, ampliado);
+  const activas: [string, number[]][] = lector ? e.valvulas.flatMap((v) => {
+    const pos = posicionDe(v, lector);
+    const c = pos !== undefined ? v.cajas[pos] : undefined;
+    return c ? [[v.designacion, c] as [string, number[]]] : [];
+  }) : [];
+  const elegidosSim = e.simbolos.filter((s) => elegidos.has(s.designacion));
   const tecla = (ev: KeyboardEvent, s: SimboloEsquema) => {
     if (ev.key !== "Enter" && ev.key !== " ") return;
     ev.preventDefault();
@@ -56,6 +67,11 @@ export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegi
       <div className="nm-esquema" ref={caja}>
         <svg viewBox={`${vx} ${vy} ${vw} ${vh}`} width={vw * k} height={vh * k} role="group"
           aria-label="Esquema neumático ISO 1219" className={lector ? "vivo" : undefined}>
+          {activas.length > 0 && (
+            <g className="nm-posiciones-fondo">
+              {activas.map(([d, c]) => <rect key={d} x={c[0]} y={c[1]} width={c[2]} height={c[3]} />)}
+            </g>
+          )}
           <g className="nm-tinta" strokeWidth={TINTA_MM} strokeLinecap="round" fill="none">
             {e.trazos.map(([x1, y1, x2, y2, t], i) => (
               <line key={`t${i}`} x1={x1} y1={y1} x2={x2} y2={y2} strokeDasharray={t ? "2.4 0.9" : undefined} />
@@ -78,18 +94,14 @@ export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegi
               );
             })}
           </g>
-          {lector && (
+          {activas.length > 0 && (
             <g className="nm-posiciones">
-              {e.valvulas.map((v) => {
-                const pos = posicionDe(v, lector);
-                const c = pos !== undefined ? v.cajas[pos] : undefined;
-                return c ? <rect key={v.designacion} x={c[0]} y={c[1]} width={c[2]} height={c[3]} /> : null;
-              })}
+              {activas.map(([d, c]) => <rect key={d} x={c[0]} y={c[1]} width={c[2]} height={c[3]} />)}
             </g>
           )}
           <g className="nm-textos">
-            {e.textos.map((t, i) => (
-              <text key={i} x={t.x} y={t.y} fontSize={t.alto} textAnchor={t.anclaje}>{t.texto}</text>
+            {e.textos.filter((t) => t.clase !== "detalle").map((t, i) => (
+              <text key={i} x={t.x} y={t.y} fontSize={altoTexto(t.alto, k)} textAnchor={t.anclaje}>{t.texto}</text>
             ))}
           </g>
           <g className="nm-simbolos">
@@ -107,6 +119,7 @@ export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegi
           </g>
         </svg>
       </div>
+      {elegidosSim.map((s) => <p key={s.designacion} className="nm-elegido" aria-live="polite">{rotuloSimbolo(s)}</p>)}
       {lector && <Leyenda escala={e.escala_bar} />}
     </>
   );
@@ -114,16 +127,17 @@ export default function EsquemaNeumatica({ esquema: e, lector, elegidos, onElegi
 
 /** La escala de la presión con su leyenda (la excepción de color por dato lleva siempre la suya). */
 export function Leyenda({ escala }: { escala: number }) {
-  const bordes = bordesLeyenda(escala);
+  const tope = topeLeyenda(escala);
   return (
-    <div className="nm-leyenda" role="img" aria-label={`Presión de las líneas: de 0 a ${bordes[bordes.length - 1]} bar`}>
+    <div className="nm-leyenda" role="img" aria-label={`Presión de las líneas: gris sin aire; de azul oscuro a claro, hasta ${tope}`}>
       <span className="nm-leyenda-titulo">Presión</span>
       <span className="nm-rampa" aria-hidden="true">
+        <span className="nm-sin-aire" style={{ background: SIN_PRESION }} />
         {RAMPA_PRESION.map((c) => <span key={c} style={{ background: c }} />)}
       </span>
       <span className="nm-leyenda-cifras" aria-hidden="true">
-        <span>{bordes[0]}</span>
-        <span>{bordes[bordes.length - 1]} bar</span>
+        <span>sin aire</span>
+        <span>{tope}</span>
       </span>
     </div>
   );

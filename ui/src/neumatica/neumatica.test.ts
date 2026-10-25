@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import { Historia } from "../vivo/historia";
 import { textosDelArbol, arbolDeSenales } from "../vivo/arbolSenales";
 import { lecturasDe, textoLectura } from "../vivo/lecturas";
+import { hayAtasco } from "../vivo/mandos";
+import { leerValor, medidaDe } from "../vivo/unidades";
+import { rotuloAire } from "./senales";
 import { aireMedio, senalesDeAire, textoAire } from "./aire";
 import {
-  AMPLIADO_PX_MM, bordesLeyenda, colorPresion, convieneAmpliar, elegidosPor, escalaEsquema, MIN_PX_MM, pasoDe, posicionDe, presionDe, RAMPA_PRESION,
-  rotuloCilindro, textoConsumo, textoFuerza, textoTiempo, type Lector,
+  altoTexto, AMPLIADO_PX_MM, colorPresion, convieneAmpliar, elegidosPor, escalaEsquema, MIN_PX_MM, MIN_TEXTO_PX, pasoDe,
+  posicionDe, presionDe, RAMPA_PRESION, rotuloCilindro, rotuloSimbolo, SIN_PRESION, textoConsumo, textoFuerza, textoTiempo,
+  topeLeyenda, type Lector,
 } from "./esquema";
-import { accionManual, alternarManual, ladosManual } from "./manual";
+import { accionManual, alternarManual, ladosManual, manualPersona, posicionPersona } from "./manual";
 import type { PresionLinea, ValvulaEsquema } from "./tipos";
 
 /* El panel «Neumática» (plan V8.9 D12): la presión de cada línea con las señales vivas, su color y
@@ -45,9 +49,11 @@ describe("la presión de una línea", () => {
 });
 
 describe("la escala de la presión", () => {
-  it("cinco pasos de un solo tono, del oscuro (sin presión) al claro (la regulada)", () => {
+  it("sin aire en gris neutro; con aire, cinco pasos de un solo tono hasta la regulada", () => {
     expect(RAMPA_PRESION).toHaveLength(5);
-    expect(pasoDe(0, 6)).toBe(0);
+    expect(pasoDe(0, 6)).toBe(-2);
+    expect(colorPresion(0.02, 6)).toBe(SIN_PRESION);
+    expect(pasoDe(0.3, 6)).toBe(0);
     expect(pasoDe(6, 6)).toBe(4);
     expect(pasoDe(9, 6)).toBe(4);
     expect(pasoDe(3, 6)).toBe(2);
@@ -55,8 +61,9 @@ describe("la escala de la presión", () => {
     expect(colorPresion(6, 6)).toBe(RAMPA_PRESION[4]);
   });
 
-  it("la leyenda dice sus bordes con coma decimal", () => {
-    expect(bordesLeyenda(6)).toEqual(["0", "1,2", "2,4", "3,6", "4,8", "6"]);
+  it("la leyenda dice su tope con unidad", () => {
+    expect(topeLeyenda(6)).toBe("6 bar");
+    expect(topeLeyenda(6.5)).toBe("6,5 bar");
   });
 });
 
@@ -78,6 +85,14 @@ describe("el esquema", () => {
     expect(elegidosPor(simbolos, []).size).toBe(0);
   });
 
+  it("las designaciones nunca bajan de 11 px; lo elegido se lee con su rótulo y sus bornes", () => {
+    expect(altoTexto(3, 2)).toBe(MIN_TEXTO_PX / 2);
+    expect(altoTexto(3, 5)).toBe(3);
+    expect(rotuloSimbolo({ designacion: "-QM2", rotulo: "Válvula 5/2 monoestable", bornes: ["A1: +TAB1-S2:14"] }))
+      .toBe("-QM2 · Válvula 5/2 monoestable · bobina A1 → +TAB1-S2:14");
+    expect(rotuloSimbolo({ designacion: "-MM1" })).toBe("-MM1");
+  });
+
   it("se ajusta al ancho y, a pedido, se amplía a lo que se lee cómodo", () => {
     expect(escalaEsquema(600, 150)).toBe(4);
     expect(escalaEsquema(150, 150)).toBe(MIN_PX_MM);
@@ -92,7 +107,7 @@ describe("el esquema", () => {
 describe("el detalle de un cilindro", () => {
   it("escribe sus cifras como la UI", () => {
     expect(rotuloCilindro({ designacion: "-MM1", ref: "x", piezas: [], diametro_mm: 32, vastago_mm: 12, carrera_mm: 200 }))
-      .toBe("Ø32/12 · carrera 200 mm");
+      .toBe("Ø32 mm, vástago 12 mm · carrera 200 mm");
     expect(textoFuerza({ F_avance_N: 482.5, F_avance_ef_N: 434.3, F_retroceso_N: 414.7, F_retroceso_ef_N: 373.2, p_bar: 6 }))
       .toEqual(["Avance 483 N (434 N efectivos)", "Retroceso 415 N (373 N efectivos)"]);
     expect(textoConsumo({ ciclo_NL: 2.2933, NL_min: 45.87, ciclos_min: 20 })).toBe("2,29 NL por ciclo · 45,9 NL/min a 20 ciclos/min");
@@ -120,7 +135,8 @@ describe("el aire de la barra", () => {
 
 describe("la sesión viva con aire", () => {
   const ini = {
-    dispositivos: [{ designacion: "-QM2", tipo: "electrovalvula", ref: "V" }, { designacion: "-MM1", tipo: "cilindro", ref: "C", pieza: "c1_cuerpo" },
+    dispositivos: [{ designacion: "-QM2", tipo: "electrovalvula", ref: "V" },
+      { designacion: "-MM1", tipo: "cilindro", ref: "C", pieza: "c1_cuerpo", carrera_mm: 200 },
       { designacion: "-AZ1", tipo: "frl", ref: "F" }],
   };
 
@@ -128,6 +144,34 @@ describe("la sesión viva con aire", () => {
     expect(accionManual("-QM2", "14")).toEqual({ accion: "accionar_manual", dispositivo: "-QM2", valor: "14" });
     expect(alternarManual("-QM2", [], "14")).toEqual([accionManual("-QM2", "14")]);
     expect(alternarManual("-QM2", ["14", "12"], "14")).toEqual([accionManual("-QM2", "0"), accionManual("-QM2", "12")]);
+  });
+
+  it("la posición y el manual en palabras, con el número de puerto entre paréntesis", () => {
+    expect(posicionPersona("12", ["14"])).toBe("reposo (12)");
+    expect(posicionPersona("14", ["14"])).toBe("accionada (14)");
+    expect(posicionPersona("0", ["14", "12"])).toBe("centro (0)");
+    expect(posicionPersona("12", ["14", "12"])).toBe("lado 12");
+    expect(posicionPersona(undefined, ["14"])).toBe("—");
+    expect(manualPersona("0")).toBe("no");
+    expect(manualPersona("14+12")).toBe("lado 14 y 12");
+  });
+
+  it("las señales del aire se leen con su nombre, su unidad y sus palabras", () => {
+    expect(rotuloAire("bobina14")).toBe("Bobina 14");
+    expect(rotuloAire("pA_bar")).toBe("Presión de avance");
+    expect(rotuloAire("rpm")).toBeUndefined();
+    expect(leerValor(0, medidaDe("-QM2.bobina14"))).toBe("Apagada");
+    expect(leerValor(1, medidaDe("-QM2.bobina14"))).toBe("Encendida");
+    expect(leerValor(1, medidaDe("-QM1.abierta"))).toBe("Abierta");
+    expect(leerValor(5.94, medidaDe("-MM1.pA_bar"))).toBe("5,94 bar");
+    expect(leerValor(12.34, medidaDe("-AZ1.Q_Nl_min"))).toBe("12,3 NL/min");
+    expect(leerValor(482.6, medidaDe("-MM1.F_N"))).toBe("483 N");
+  });
+
+  it("«Provocar atasco» sólo con un motor o una banda", () => {
+    expect(hayAtasco({ bandas: [], dispositivos: [{ tipo: "cilindro" }, { tipo: "electrovalvula" }] })).toBe(false);
+    expect(hayAtasco({ bandas: [], dispositivos: [{ tipo: "motor" }] })).toBe(true);
+    expect(hayAtasco({ bandas: [{}], dispositivos: [] })).toBe(true);
   });
 
   it("lo enclavado se lee de la señal de la válvula (una fuente: también lo que puso el agente)", () => {
@@ -152,8 +196,10 @@ describe("la sesión viva con aire", () => {
     expect(l.rotulo).toBe("Cilindro");
     expect(l.soloElegida).toBe(true);
     const v: Record<string, number> = { "-MM1.x_mm": 199.6, "-MM1.pA_bar": 6, "-MM1.pB_bar": 0.04 };
-    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 200 mm · A 6,0 bar · B 0,0 bar");
+    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 200 mm · avance 6,0 bar · retroceso 0,0 bar");
     v["-MM1.x_mm"] = -0.8; // el tope blando de la junta lo pasa una fracción de mm
-    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 0 mm · A 6,0 bar · B 0,0 bar");
+    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 0 mm · avance 6,0 bar · retroceso 0,0 bar");
+    v["-MM1.x_mm"] = 201.3; // y del otro lado, nunca más que la nominal
+    expect(textoLectura(l, (s) => v[s])).toBe("Carrera 200 mm · avance 6,0 bar · retroceso 0,0 bar");
   });
 });

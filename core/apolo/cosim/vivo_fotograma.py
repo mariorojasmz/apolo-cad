@@ -108,7 +108,9 @@ class Fotograma:
                 pilotos.append({"designacion": des, "ref": m.ref, "color": x.color if x else None,
                                 **({"pieza": x.pieza} if x and x.pieza else {}), "senal": f"{des}.encendido"})
         dispositivos = [{"designacion": des, "tipo": m.tipo, "ref": m.ref,
-                         **({"pieza": por_des[des].pieza} if des in por_des and por_des[des].pieza else {})}
+                         **({"pieza": por_des[des].pieza} if des in por_des and por_des[des].pieza else {}),
+                         # V8.9 F6: la carrera nominal (la lectura no la pasa por el tope blando)
+                         **({"carrera_mm": round(m.carrera * 1000.0, 3)} if m.tipo == "cilindro" else {})}
                         for des, m in modelos.items()]
         # V8.9 F6: las electroválvulas con su accionamiento manual (el grupo plegado de «Mandos»);
         # sin válvulas no va la clave (la tabla de siempre)

@@ -98,6 +98,11 @@ def test_el_esquema_recortado_con_simbolos_valvulas_y_lineas(panel, banco):
     assert any(c[1] > y + 0.8 * h for c in e["circulos"])   # el círculo de la fuente, abajo de todo
     sim = {s["designacion"]: s for s in e["simbolos"]}
     assert sim["-MM1"]["piezas"][0] == f"{cid}_cuerpo" and sim["-QM2"]["piezas"] == []
+    # lo que es cada aparato, con unidades; los rótulos de 2 mm de la lámina quedan como detalle
+    assert sim["-MM1"]["rotulo"] == "Cilindro Ø32 mm, vástago 12 mm, carrera 200 mm"
+    assert sim["-QM2"]["rotulo"] == "Válvula 5/2 monoestable" and sim["-QM2"]["bornes"] == ["A1: +TAB1-S2:14"]
+    clases = {t["texto"]: t["clase"] for t in e["textos"]}
+    assert clases["-MM1"] == clases["Toma de aire"] == "rotulo" and clases["5/2 monoestable"] == "detalle"
     x, y, w, h = e["vista"]
     for s in sim.values():   # cada símbolo cae dentro de lo que se ve
         sx, sy, sw, sh = s["caja"]
@@ -113,6 +118,8 @@ def test_el_esquema_recortado_con_simbolos_valvulas_y_lineas(panel, banco):
     assert pres[("-AZ1:2", "-QM1:1")] == {"senal": "-AZ1.p_bar"}
     assert pres[("-QM1:2", "-QM2:1")] == {"senal": "-AZ1.p_bar", "si": "-QM1.abierta"}
     assert all(ln["tramos"] for ln in e["lineas"]) and e["escala_bar"] == 6.0
+    toma = next(ln for ln in e["lineas"] if ln["id"] == "toma")   # la toma, a la presión de la red
+    assert toma["presion"] == {"senal": "-AZ1.p_red_bar"} and toma["puertos"] == ["-AZ1:1"]
 
 
 def _ap(tipo: str, **modelo):
@@ -149,8 +156,11 @@ def test_la_sesion_viva_ofrece_las_valvulas_y_su_accionamiento_manual(banco):
     v = Vivo(snapshot_cosim(d, escenario_vivo(escenario(cid, pulsar_s=0))))
     tabla = v.fot.tabla()
     assert tabla["valvulas"] == [{"designacion": "-QM2", "ref": "VAL-52-MONO-G18", "lados": ["14"], "manual": True}]
+    cil = next(x for x in tabla["dispositivos"] if x["designacion"] == "-MM1")
+    assert cil["carrera_mm"] == 200.0   # la nominal: la lectura no pasa del tope blando
     v.recibir({"accion": "accionar_manual", "dispositivo": "-QM2", "valor": "14"})
     v.avanzar(30)
-    v.fot.reunir()
+    _nuevas, valores = v.fot.reunir()
+    assert valores["-AZ1.p_red_bar"] == pytest.approx(6.0)   # la red en la entrada del FRL
     textos = v.fot.textos_cambiados()
     assert textos.get("-QM2.posicion") == "14" and textos.get("-QM2.manual") == "14"   # una fuente

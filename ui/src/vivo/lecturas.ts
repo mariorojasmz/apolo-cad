@@ -4,7 +4,8 @@ import type { InicioVivo } from "./protocolo";
    el panel «Mandos» y, si tiene pieza 3D, en una etiqueta sobre ella. Motor: rpm e I; variador:
    frecuencia; PLC: su contador, si el programa tiene una variable que se llame así; relé de
    seguridad: sus salidas y, si no rearma por eso, que espera el ciclo de los dos canales
-   (mandos-de-seguridad D3); cilindro: su carrera y las presiones de sus cámaras, con la etiqueta
+   (mandos-de-seguridad D3); cilindro: su carrera (entre 0 y la nominal: el tope blando de la junta
+   la pasa una fracción de mm) y las presiones de avance y retroceso, con la etiqueta
    3D sólo si está elegido (V8.9 D12). Un dispositivo de otro tipo, o sin esas señales, no muestra
    nada. Puro. */
 
@@ -24,6 +25,8 @@ export interface LineaLectura {
   /** Lo menos que se muestra: la carrera no baja de 0 (el tope blando de la junta la pasa
    *  una fracción de mm). */
   piso?: number;
+  /** Lo más que se muestra: la carrera nominal. */
+  techo?: number;
 }
 
 export interface Lectura {
@@ -81,9 +84,10 @@ export function lecturasDe(ini: Pick<InicioVivo, "dispositivos">, nombres: reado
     } else if (d.tipo === "cilindro") {
       rotulo = "Cilindro";
       lineas = [
-        { senal: `${d.designacion}.x_mm`, unidad: "mm", decimales: 0, prefijo: "Carrera", piso: 0 },
-        { senal: `${d.designacion}.pA_bar`, unidad: "bar", decimales: 1, prefijo: "A" },
-        { senal: `${d.designacion}.pB_bar`, unidad: "bar", decimales: 1, prefijo: "B" },
+        { senal: `${d.designacion}.x_mm`, unidad: "mm", decimales: 0, prefijo: "Carrera", piso: 0,
+          ...(d.carrera_mm ? { techo: d.carrera_mm } : {}) },
+        { senal: `${d.designacion}.pA_bar`, unidad: "bar", decimales: 1, prefijo: "avance" },
+        { senal: `${d.designacion}.pB_bar`, unidad: "bar", decimales: 1, prefijo: "retroceso" },
       ];
     }
     lineas = lineas.filter((l) => hay.has(l.senal));
@@ -103,7 +107,8 @@ export function textoLectura(l: Pick<Lectura, "lineas">, valor: (senal: string) 
     .filter((ln) => !ln.cuando || ln.cuando.every((s) => encendida(valor(s))))
     .map((ln) => {
       const v = valor(ln.senal);
-      const t = formatear(v !== undefined && ln.piso !== undefined ? Math.max(ln.piso, v) : v, ln);
+      const acotado = v === undefined ? v : Math.min(ln.techo ?? Infinity, Math.max(ln.piso ?? -Infinity, v));
+      const t = formatear(acotado, ln);
       return t && ln.prefijo ? `${ln.prefijo} ${t}` : t;
     }).filter(Boolean).join(notas ? " " : " · ");
 }

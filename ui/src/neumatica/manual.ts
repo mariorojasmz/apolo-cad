@@ -23,3 +23,18 @@ export function alternarManual(designacion: string, puestos: readonly string[], 
   }
   return [accionManual(designacion, lado)];
 }
+
+/** La posición de una electroválvula en palabras («reposo (12)», «accionada (14)», «centro (0)»,
+   «lado 12» en una biestable), con el número de ISO 5599-3 entre paréntesis. `lados`: los de sus
+   bobinas (el `inicio` de la sesión). */
+export function posicionPersona(pos: string | undefined, lados: readonly string[]): string {
+  if (pos === undefined) return "—";
+  if (lados.length > 1) return pos === "0" ? "centro (0)" : `lado ${pos}`;
+  return lados.includes(pos) ? `accionada (${pos})` : `reposo (${pos})`;
+}
+
+/** Lo enclavado a mano, en palabras: «no» o «lado 14». */
+export function manualPersona(senal: string | undefined): string {
+  const lados = ladosManual(senal);
+  return lados.length ? `lado ${lados.join(" y ")}` : "no";
+}
