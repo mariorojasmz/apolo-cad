@@ -45,8 +45,10 @@ jobs:
   tests:
     name: pytest (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
-    # La suite (1391 tests) tarda ~20 min en la máquina de desarrollo; los runners de 4 vCPU
-    # pueden tardar más.
+    # La suite corre en paralelo con pytest-xdist (`-n auto` = 4 workers en los runners de 4 vCPU
+    # y 16 GB; cada worker importa OCCT/VTK, ~0,8 GB). En la laptop de desarrollo, -n 4 bajó la
+    # suite de ~28 a ~14 min (docs/devlog.md, 2026-10-24). El reparto `loadgroup` (test_flota en
+    # un solo worker) lo fija tests/conftest.py. Sin `-n`, la suite pasa igual.
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -100,11 +102,11 @@ jobs:
 
       - name: pytest (Linux, bajo Xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" python -m pytest tests -q
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" python -m pytest tests -q -n auto
 
       - name: pytest (Windows)
         if: runner.os == 'Windows'
-        run: python -m pytest tests -q
+        run: python -m pytest tests -q -n auto
 
   ui:
     name: UI (vitest + build)

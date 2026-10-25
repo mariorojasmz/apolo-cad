@@ -87,8 +87,9 @@ dependencies = [
 [project.optional-dependencies]
 # Lo que corre la suite y el CI. `pypdf` lo usa test_memoria_universal (lee el texto de la
 # memoria). Ruff cambia reglas entre versiones menores: se fija el minor para que el CI no
-# se ponga rojo solo con un upgrade.
-dev = ["pytest>=8", "httpx>=0.27", "pypdf>=6", "ruff>=0.16,<0.17"]
+# se ponga rojo solo con un upgrade. pytest-xdist: la suite en paralelo (`-n auto`; el reparto
+# `loadgroup` lo fija tests/conftest.py); el piso es la versión con que se midió (3.8.0).
+dev = ["pytest>=8", "pytest-xdist>=3.8", "httpx>=0.27", "pypdf>=6", "ruff>=0.16,<0.17"]
 # Solver PlaneGCS allí donde no hay wheel (compila desde el sdist: requiere toolchain C++).
 sketch = ["planegcs>=0.8"]
 # Física de cuerpos rígidos (drop-test, gravedad). MuJoCo (Apache) en vez de PyBullet:

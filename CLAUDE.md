@@ -57,7 +57,7 @@ baja); partir un archivo grande se hace con un plan.
 
 ```powershell
 .\start-apolo.ps1                 # API+UI en http://127.0.0.1:8000 (-OpenBrowser, -Reload, -Port)
-.\.venv\Scripts\python.exe -m pytest tests -q     # tortura: -m torture · cifras: scripts/conteos.py
+.\.venv\Scripts\python.exe -m pytest tests -q -n auto   # tortura: -m torture · cifras: scripts/conteos.py
 cd ui ; npm test                  # vitest: gates de texto y de tamaño
 npm run build                     # bundle de la UI (tsc + vite)
 ```
@@ -66,6 +66,11 @@ npm run build                     # bundle de la UI (tsc + vite)
   Windows 3.13, vitest + build de la UI, build + `twine check` del paquete y
   `ruff check core tests scripts` (reglas en `[tool.ruff]` de `core/pyproject.toml`; ruff viene
   en el extra `dev`).
+- **En paralelo** (pytest-xdist, extra `dev`): `-n auto` corta la suite ~2× en la laptop (16 GB: `-n 4`
+  rinde igual con menos RAM) y ~4× en el escritorio (devlog 2026-10-24); sin `-n` pasa igual. Un módulo que no aguanta
+  reparto (procesos en puertos, fixtures de módulo con orden) lleva `xdist_group` (como
+  `test_flota.py`); `conftest.py` pone solo `--dist loadgroup`. Dos suites a la vez con el mismo
+  usuario chocan al limpiar `pytest-of-<usuario>`: cada una con su `--basetemp`.
 - Tortura: los casos extendidos llevan `@pytest.mark.torture` y `pytest.ini` los excluye por
   defecto. Baseline de rendimiento: `docs/perf_baseline.json` (`scripts/perf_baseline.py`,
   depende de la máquina).

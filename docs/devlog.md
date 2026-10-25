@@ -4371,3 +4371,55 @@ resuelve a CAUCHO (8,6 kg en su BOM): las palabras de goma ganan al rol «tambor
 `_frame_from_scene` (carga sobre el bastidor) aún suma toda pieza con «faja/banda» en el nombre:
 en la piloto carga 495 kg, patas y motor incluidos. Cambian números del testigo: van aparte,
 medidos sobre el 38 real.
+
+## 2026-10-24 — Salud del repo: conteos medidos, suite en paralelo, extensiones instaladas
+
+Arreglo acotado de tooling y tests (sin plan; un commit por punto).
+
+**Conteos de «Estado actual».** La línea de cifras del CLAUDE.md raíz se editaba en cada fase y
+chocaba en cada rebase (7 de 7 en la última tanda). `scripts/conteos.py` las mide: tests que
+`pytest tests` recolecta por defecto (sin tortura, cada caso parametrizado cuenta; recolectados
+en proceso, sin correrlos) y los de `@pytest.mark.torture`; vitest con `vitest list --json` si
+hay `ui/node_modules` (18 s) o por regex de `it(`/`test(` (521 = 521); tools = `list_tools()`;
+comandos = `len(REGISTRY)`; refs = `len(CATALOG)`. Completo ≈ 34 s, `--rapido` ≈ 10 s. El
+CLAUDE.md sólo da órdenes de magnitud y el comando; `release.py` toma sus cifras de ahí. Al
+medir: 5516 tests + 27 de tortura, 521 vitest, 90 tools, 62 comandos, 428 refs.
+
+**Suite en paralelo (pytest-xdist 3.8).** Medido con la suite completa, todas verdes:
+
+| máquina | secuencial | `-n auto` | `-n 4` |
+|---|---|---|---|
+| laptop (10 núcleos / 12 hilos, 16 GB) | 1670 s | 848 s · 1102 s* · 860 s* | 853 s |
+| escritorio (8 núcleos, 32 GB) | 1126 s | 270 s · 272 s · 273 s | 379 s |
+
+\* con otra suite corriendo a la vez en la misma máquina. En la laptop `-n auto` (12 workers)
+no gana a `-n 4`: la RAM se agota (0,8 GB libres, ~9 GB en python); en el escritorio escala casi
+lineal. Auditoría de seguridad en paralelo (puertos fijos, fixtures de módulo con orden,
+escrituras fuera de `tmp_path`, SQLite, `data/`): el único módulo inseguro es `test_flota.py`
+(dos uvicorn desde el puerto 8150 en un fixture de módulo que el último test para). Lleva
+`xdist_group("flota")` y `conftest.py` pasa a `--dist loadgroup` solo con `-n` (el worker
+re-parsea la línea de comandos: el modo le llega por `workerinput`). Su base de puertos pasó a
+ser por pid (20000–27996): con 8150 fijo chocaba también entre DOS suites a la vez sin xdist
+(«puerto 8152: abrió maquina-b, no el 1», visto por otra sesión). El resto ya usaba `tmp_path`,
+puertos 0 o transportes falsos. Adoptado: `pytest-xdist` en el extra `dev`, `-n auto` en el
+comando del CLAUDE.md y en el CI (runners de 4 vCPU y 16 GB: el equivalente al `-n 4` de la
+laptop, ≈ 2×; no se pudo medir en GitHub sin abrir un PR). La suite sin `-n` pasa igual.
+
+Trampa ajena a xdist, vista en el escritorio con los carriles A/B/C a la vez: todos los tests
+pasan y pytest sale con 1 porque la limpieza de `pytest-of-Mario\pytest-current` (compartido por
+usuario) da `PermissionError` cuando otra sesión lo está cambiando. Remedio: `--basetemp` propio
+por carril.
+
+**Extensiones instaladas.** Con una extensión real en el venv (`apolo-pro`), ~44 tests de
+`test_extensiones*`/`test_solo_lectura` fallaban: `extensiones_aisladas` quita
+`APOLO_EXTENSIONES=0` para cargar la falsa y `descubrir()` sumaba el entry point instalado.
+`APOLO_EXTENSIONES_INSTALADAS=0` (aditiva: producción sin cambios) salta sólo los entry points;
+la fija `tests/conftest.py` (la heredan los procesos hijos) y no el plugin `apolo.pruebas`,
+porque la suite de una extensión se carga por su propio entry point. Verificado con una extensión
+mínima instalada por entry point: la base (7d138d9) da 42 fallos en esos módulos, el arreglo 0, y
+la suite completa en paralelo pasa con ella instalada; queda un test que simula el entry point
+con monkeypatch.
+
+**`core/tests/test_mejoras_mcp.py`** estaba fuera de `testpaths`: sus 14 pruebas pasan y cubren
+cosas que nada más cubre (`_orient_axis`, `infer_from_solids`, el colapso de sufijos de patrón
+en la BOM, el `=` inicial de una expresión) → pasó a `tests/`.
