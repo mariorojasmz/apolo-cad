@@ -49,6 +49,7 @@ const TIPOS: Record<string, string> = {
   fusible: "Fusible", plc: "PLC", variador: "Variador", fuente: "Fuente",
   resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
   diferencial: "Interruptor diferencial",
+  electrovalvula: "Electroválvula", cilindro: "Cilindro", frl: "Filtro-regulador", valvula_corte: "Válvula de corte",
   contacto: "Contacto", conductor: "Cable",
 };
 
@@ -107,6 +108,10 @@ function nombreDe(falla: string, tipo: string, clase: Objetivo["clase"]): Nombre
       return { rotulo: "Falla interna", frase: () => "falla interna" };
     case "fundido":
       return { rotulo: "Lámpara fundida", frase: () => "lámpara fundida" };
+    case "pegada": // la electroválvula (V8.9 D8): el carrete no se mueve
+      return { rotulo: "Carrete pegado", frase: (p) => (p ? `válvula pegada en ${p}` : "válvula pegada") };
+    case "bobina_cortada":
+      return { rotulo: "Bobina cortada", frase: (b) => (b ? `bobina ${b} cortada` : "bobina cortada") };
     default: {
       // una falla que la UI todavía no nombra: su nombre interno, legible
       const t = falla.replace(/_/g, " ");

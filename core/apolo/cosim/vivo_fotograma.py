@@ -11,7 +11,9 @@ TABLA (va UNA vez, en el primer mensaje del WebSocket; los índices ordenan el f
     en `{"tipo": "textos", "t", "valores"}` sólo cuando cambian;
   - `mandos`: [{designacion, tipo, ref, acciones, color, pieza?, retorno?, actuadores?,
     potenciometro?, posiciones?, senales}] · `pilotos`: [{designacion, ref, color, pieza?, senal}]
-    · `dispositivos`: [{designacion, tipo, ref, pieza?}] (las etiquetas de D5: motor, variador…);
+    · `dispositivos`: [{designacion, tipo, ref, pieza?}] (las etiquetas de D5: motor, variador…)
+    · `valvulas` (V8.9 F6, sólo si hay): [{designacion, ref, lados, manual, pieza?}] — las
+    electroválvulas y su accionamiento manual (`accionar_manual`, que el WebSocket ya acepta);
   - `fallas`: [{designacion, tipo, fallas: [{falla, pide, opciones?}]}] y `ramas`: [{id, tipo:
     contacto | conductor, red, dispositivo?}] — lo que se puede hacer fallar (cosim-fallas D6,
     `fallas.catalogo`); la UI ofrece sólo eso. Una falla activa viaja en `<des>.averia` (texto).
@@ -108,6 +110,11 @@ class Fotograma:
         dispositivos = [{"designacion": des, "tipo": m.tipo, "ref": m.ref,
                          **({"pieza": por_des[des].pieza} if des in por_des and por_des[des].pieza else {})}
                         for des, m in modelos.items()]
+        # V8.9 F6: las electroválvulas con su accionamiento manual (el grupo plegado de «Mandos»);
+        # sin válvulas no va la clave (la tabla de siempre)
+        valvulas = [{"designacion": des, "ref": m.ref, "lados": list(m.lados), "manual": bool(m.manual),
+                     **({"pieza": por_des[des].pieza} if des in por_des and por_des[des].pieza else {})}
+                    for des, m in modelos.items() if m.tipo == "electrovalvula"]
         giro = c.integ.giro
         return {
             "formato": FORMATO, "dt_s": c.dt,
@@ -121,6 +128,7 @@ class Fotograma:
                         "direccion": [round(float(x), 6) for x in b.e]} for b in dyn.bandas],
             "senales": list(self.senales),
             "mandos": mandos, "pilotos": pilotos, "dispositivos": dispositivos,
+            **({"valvulas": valvulas} if valvulas else {}),
             **catalogo(c.tab),
         }
 

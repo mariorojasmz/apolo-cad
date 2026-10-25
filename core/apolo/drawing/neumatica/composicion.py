@@ -32,6 +32,9 @@ class Resultado:
     simbolos: dict[str, Simbolo] = field(default_factory=dict)
     avisos: list[str] = field(default_factory=list)
     alto: float = 0.0  # la y más alta dibujada
+    #: {línea «P1»: índices de sus tramos en `m.lines`} (lo que el visor tiñe por presión)
+    trazos: dict[str, list[int]] = field(default_factory=dict)
+    fuente: tuple | None = None  # la caja del símbolo de la toma de aire (no es un aparato)
 
 
 def ancho_necesario(plan: Plan) -> float:
@@ -51,6 +54,7 @@ def _suministro(m: SheetModel, plan: Plan, r: Resultado, puertos: dict) -> float
     if not plan.suministro:
         return y_sal
     f = E.fuente(m, x, Y_FUENTE)
+    r.fuente = f.caja
     m.labels.append(Label(x + 4.5, Y_FUENTE - 1.0, "Toma de aire", T_ROT, anchor="start"))
     y1 = y_sal + GAP
     for a in plan.suministro:
@@ -148,7 +152,7 @@ def dibujar(m: SheetModel, c: CircuitoAire, plan: Plan) -> Resultado:
     techo = max(s.caja[3] for s in r.simbolos.values()) + 12.0 if r.simbolos else 200.0
     lineas = [(f"P{i + 1}", [puertos[x] for x in miembros if x in puertos])
               for i, miembros in enumerate(plan.lineas)]
-    r.avisos += rutear(m, lineas, techo=techo)
+    r.avisos += rutear(m, lineas, techo=techo, trazos=r.trazos)
     r.alto = max([techo] + [lab.y for lab in m.labels])
     return r
 

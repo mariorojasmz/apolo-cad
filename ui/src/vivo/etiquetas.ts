@@ -7,7 +7,9 @@ import "./vivo.css";
    cada dispositivo que la tenga —motor: rpm e I; variador: Hz; el contador del PLC— con su
    designación y su valor, actualizada a ~10 Hz. Las etiquetas viven en una escena PROPIA (no
    en la del modelo: el GTAO y la grabación no las ven) y su capa no recibe clics. Un
-   dispositivo sin pieza no tiene etiqueta: su lectura está en el panel «Mandos». */
+   dispositivo sin pieza no tiene etiqueta: su lectura está en el panel «Mandos». Una lectura
+   `soloElegida` (el cilindro, V8.9 D12) se ve sólo mientras `elegida` lo diga (su pieza
+   seleccionada). */
 
 const CADA_MS = 100;
 /** Cuánto por encima de la pieza va la etiqueta (mm). */
@@ -21,6 +23,7 @@ export interface EtiquetasVivas {
 interface Etiqueta {
   lectura: Lectura;
   valor: HTMLSpanElement;
+  obj: CSS2DObject;
 }
 
 const _caja = new THREE.Box3();
@@ -30,6 +33,7 @@ export function crearEtiquetas(
   meshes: Map<string, THREE.Mesh>,
   lecturas: Lectura[],
   valor: (senal: string) => number | undefined,
+  elegida: (l: Lectura) => boolean = () => true,
 ): EtiquetasVivas {
   const escena = new THREE.Scene();
   const render = new CSS2DRenderer();
@@ -54,14 +58,15 @@ export function crearEtiquetas(
     obj.position.set(c.x, c.y, _caja.max.z + ALTO_MM);
     obj.center.set(0.5, 1);
     escena.add(obj);
-    etiquetas.push({ lectura: l, valor: val });
+    etiquetas.push({ lectura: l, valor: val, obj });
   }
   let escritoEn = -Infinity;
   let ancho = 0;
   let alto = 0;
   const escribir = () => {
-    for (const { lectura, valor: span } of etiquetas) {
-      span.textContent = textoLectura(lectura, valor);
+    for (const { lectura, valor: span, obj } of etiquetas) {
+      if (lectura.soloElegida) obj.visible = elegida(lectura);
+      if (obj.visible) span.textContent = textoLectura(lectura, valor);
     }
   };
   escribir();

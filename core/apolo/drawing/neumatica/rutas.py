@@ -50,9 +50,11 @@ def _unicos(puertos: list[Puerto]) -> list[Puerto]:
     return out
 
 
-def rutear(m: SheetModel, lineas: list[tuple[str, list[Puerto]]], *, techo: float) -> list[str]:
+def rutear(m: SheetModel, lineas: list[tuple[str, list[Puerto]]], *, techo: float,
+           trazos: dict | None = None) -> list[str]:
     """Dibuja cada línea (nombre, puertos). `techo`: la y por encima de todos los símbolos (para
-    una ruta forzada). Devuelve los avisos."""
+    una ruta forzada). Devuelve los avisos. `trazos`, si se pasa, recibe {nombre: índices en
+    `m.lines` de sus tramos}: el panel del visor tiñe cada línea por su presión (V8.9 F6)."""
     avisos: list[str] = []
     ocupados: list[tuple[float, float, float]] = []
     pendientes = []
@@ -79,7 +81,10 @@ def rutear(m: SheetModel, lineas: list[tuple[str, list[Puerto]]], *, techo: floa
                 y += PASO_CARRIL
             avisos.append(f"la línea {nombre} no cabe en la franja entre sus aparatos: va por encima")
         ocupados.append((y, xa, xb))
+        n0 = len(m.lines)
         _dibujar(m, pts, y, xa, xb)
+        if trazos is not None:
+            trazos[nombre] = list(range(n0, len(m.lines)))
     return avisos
 
 

@@ -78,12 +78,16 @@ def _contenido(lz: Lapiz, vias: int, x0: float, y0: float, cosas) -> None:
 
 def valvula(m: SheetModel, cx: float, y0: float, *, vias: int, posiciones: int,
             mando: str | None = None, reposo: str = "NC", izquierda=(), derecha=(),
-            lados=("14", "12"), stub_1: float = STUB, tipo: str = "valvula") -> Simbolo:
+            lados=("14", "12"), stub_1: float = STUB, tipo: str = "valvula",
+            nombres: tuple | None = None) -> Simbolo:
     """Válvula con el centro de la caja de reposo en `cx` y el borde inferior de las cajas en
     `y0`. `izquierda`/`derecha`: mandos de cada costado (del más cercano al más lejano);
-    `lados`: el número de mando de cada costado (para la marca de su bobina)."""
+    `lados`: el número de mando de cada costado (para la marca de su bobina); `nombres`: cómo se
+    llama la posición de cada caja, de izquierda a derecha (la marca `caja:<nombre>` es su esquina
+    inferior izquierda: el panel del visor marca la caja de la posición en que está, V8.9 F6)."""
     contenido = cajas(vias, posiciones, mando, reposo)
     n = len(contenido)
+    nombres = nombres or nombres_posiciones(vias, n)
     r = 1  # caja de reposo: la derecha de dos, la del medio de tres
     lz = Lapiz(m, 0.0, 0.0)
     izq = cx + (0 - r - 0.5) * S
@@ -105,11 +109,22 @@ def valvula(m: SheetModel, cx: float, y0: float, *, vias: int, posiciones: int,
         mk = M.dibujar(lz, lista, borde, lado, y0, H)
         if "bobina" in mk:
             marcas[f"bobina:{nombre}"] = mk["bobina"]
+    for i, nombre in enumerate(nombres[:n]):
+        marcas[f"caja:{nombre}"] = lz.marca(izq + i * S, y0)
     marcas["borde_izq"] = lz.marca(izq, y0)
     marcas["borde_der"] = lz.marca(izq + n * S, y0)
     marcas["izquierda"] = lz.marca(izq - M.ancho(izquierda), y0 + H / 2)
     marcas["derecha"] = lz.marca(izq + n * S + M.ancho(derecha), y0 + H / 2)
     return lz.simbolo(tipo, puertos, marcas)
+
+
+def nombres_posiciones(vias: int, posiciones: int) -> tuple:
+    """La posición de cada caja, de izquierda a derecha, con los nombres de la señal `posicion` de
+    la co-simulación (`cosim/modelos/electrovalvula.py`): 5/2 «14» «12»; 5/3 «14» «0» «12»; 3/2 y
+    2/2 «12» (la caja del mando) y «0» (la de reposo)."""
+    if vias == 5:
+        return ("14", "0", "12") if posiciones == 3 else ("14", "12")
+    return ("12", "0")
 
 
 def mandos_de(modelo: dict) -> tuple[tuple, tuple, tuple]:
@@ -147,7 +162,8 @@ def corte_con_escape(m: SheetModel, cx: float, y0: float, *, con_escape: bool = 
     escape, 2/2. Mandos a confirmar con ISO 1219-1."""
     vias = 3 if con_escape else 2
     return valvula(m, cx, y0, vias=vias, posiciones=2, reposo="NC", izquierda=("palanca",),
-                   derecha=("retencion",), lados=("", ""), tipo="valvula_corte")
+                   derecha=("retencion",), lados=("", ""), tipo="valvula_corte",
+                   nombres=("abierta", "cerrada"))
 
 
 def offset_puerto_1(vias: int) -> float:

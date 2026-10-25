@@ -94,7 +94,10 @@ ARCHIVOS = (
 #: Un documento con esos ajustes cambia de resultado con el MISMO log. Sin esquema la entrada de la
 #: red es idéntica: 5 escenarios del banco (marcha, seta, caída de red, corto entre fases y el
 #: variador) dan la MISMA huella que en 1f01d0a (bitácora del plan).
-HUELLA: tuple[int, str] = (5, "83fa80d88fa87064")
+#: V8.9 F6 (sin subir): `vivo_fotograma.tabla` suma `valvulas` (las electroválvulas y su
+#: accionamiento manual, sólo si hay); sólo cambia lo que el `inicio` ofrece en vivo, no el paso
+#: ni ninguna traza (como la F1b de mandos-de-seguridad).
+HUELLA: tuple[int, str] = (5, "RECALCULAR")
 
 
 def archivos() -> list[Path]:

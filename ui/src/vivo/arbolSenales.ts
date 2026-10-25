@@ -22,7 +22,16 @@ const TIPOS: Record<string, string> = {
   rele_termico: "Relé térmico", fusible: "Fusible", fuente: "Fuente", red: "Red",
   resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
   diferencial: "Interruptor diferencial",
+  electrovalvula: "Electroválvula", cilindro: "Cilindro", frl: "Filtro-regulador", valvula_corte: "Válvula de corte",
 };
+
+/** Las señales de TEXTO que van en el árbol (V8.9 D12): la posición de cada electroválvula
+ *  («14», «12», «0»), junto a sus bobinas. Las demás de texto (estado del PLC, falla) tienen su
+ *  lugar en «Mandos» y «PLC». */
+export function textosDelArbol(ini: Pick<InicioVivo, "dispositivos">, textos: Iterable<string>): string[] {
+  const valvulas = new Set(ini.dispositivos.filter((d) => d.tipo === "electrovalvula").map((d) => d.designacion));
+  return [...textos].filter((n) => n.endsWith(".posicion") && valvulas.has(designacionDe(n) ?? ""));
+}
 
 /** La designación de una señal de tablero (`-M1`, `=F1-Q1`, `+TAB1-K1`), o null. */
 export function designacionDe(senal: string): string | null {

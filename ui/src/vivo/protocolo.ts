@@ -40,6 +40,16 @@ export interface DispositivoVivo {
   pieza?: string;
 }
 
+/** Una electroválvula (V8.9 D6): sus lados con bobina («14», «12») y si trae accionamiento
+ *  manual (`accionar_manual` con el lado; «0» lo suelta). */
+export interface ValvulaVivo {
+  designacion: string;
+  ref: string;
+  lados: string[];
+  manual: boolean;
+  pieza?: string;
+}
+
 /** Una falla que un aparato sabe tomar (plan cosim-fallas D6): `pide` dice qué valor lleva
  *  (`""`, `bool`, `bool?`, `posicion?`, `unidad?`, `borne,valor`, `canal`, `salida`;
  *  `modelos/base.PIDE`). */
@@ -86,6 +96,8 @@ export interface InicioVivo {
   fajas: FajaSerie[];
   cadenas: CadenaSerie[];
   avisos: string[];
+  /** Las electroválvulas y su accionamiento manual (V8.9 F6); sólo si las hay. */
+  valvulas?: ValvulaVivo[];
   /** Lo que se puede hacer fallar (cosim-fallas D6); un servidor anterior no lo trae. */
   fallas?: AparatoFallas[];
   ramas?: RamaVivo[];

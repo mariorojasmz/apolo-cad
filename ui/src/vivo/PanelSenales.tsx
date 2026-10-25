@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChartLine, Gauge } from "lucide-react";
 import { abrirPanel } from "./abrirPanel";
-import { arbolDeSenales, filtrarArbol, type RamaSenales } from "./arbolSenales";
+import { arbolDeSenales, filtrarArbol, textosDelArbol, type RamaSenales } from "./arbolSenales";
 import { useVivo } from "./estado";
 import { alternarMultimetro, alternarOsciloscopio, useInstrumentos } from "./medicion";
 import { colorDato } from "./paleta";
@@ -31,11 +31,15 @@ export default function PanelSenales() {
 function Arbol() {
   const inicio = useVivo((s) => s.inicio);
   const n = useVivo((s) => Object.keys(s.lecturas).length); // primitivo: llegan señales nuevas
+  const nt = useVivo((s) => Object.keys(s.textos).length);
   const [filtro, setFiltro] = useState("");
-  const ramas = useMemo(() => {
-    if (!inicio) return [];
-    return arbolDeSenales(inicio, [...inicio.senales, ...Object.keys(useVivo.getState().lecturas)]);
-  }, [inicio, n]); // `n`: el árbol crece con las señales que llegan después
+  const { ramas, deTexto } = useMemo(() => {
+    if (!inicio) return { ramas: [], deTexto: new Set<string>() };
+    const st = useVivo.getState();
+    const textos = textosDelArbol(inicio, Object.keys(st.textos)); // la posición de las válvulas (V8.9)
+    return { ramas: arbolDeSenales(inicio, [...inicio.senales, ...Object.keys(st.lecturas), ...textos]),
+      deTexto: new Set(textos) };
+  }, [inicio, n, nt]); // `n`, `nt`: el árbol crece con las señales que llegan después
   const vistas = filtrarArbol(ramas, filtro);
   const tipos = useTiposPlc();
   return (
@@ -43,12 +47,14 @@ function Arbol() {
       <input type="search" value={filtro} onChange={(e) => setFiltro(e.target.value)}
         placeholder="Ejemplo: -M1 o rpm" aria-label="Buscar una señal" />
       {!vistas.length && <p className="hint">Ninguna señal coincide con «{filtro}».</p>}
-      {vistas.map((r) => <Rama key={r.clave} r={r} abierta={!!filtro.trim()} tipos={tipos} />)}
+      {vistas.map((r) => <Rama key={r.clave} r={r} abierta={!!filtro.trim()} tipos={tipos} deTexto={deTexto} />)}
     </section>
   );
 }
 
-function Rama({ r, abierta, tipos }: { r: RamaSenales; abierta: boolean; tipos: Map<string, string> }) {
+function Rama({ r, abierta, tipos, deTexto }: {
+  r: RamaSenales; abierta: boolean; tipos: Map<string, string>; deTexto: ReadonlySet<string>;
+}) {
   return (
     <details className="rama-senales" open={abierta || undefined}>
       <summary>
@@ -57,9 +63,22 @@ function Rama({ r, abierta, tipos }: { r: RamaSenales; abierta: boolean; tipos: 
         <span className="hint cuenta-senales">{r.senales.length}</span>
       </summary>
       <ul className="lista-senales">
-        {r.senales.map((s) => <FilaSenal key={s} senal={s} agrupada={r.clave.startsWith("#")} tipo={tipos.get(s)} />)}
+        {r.senales.map((s) => deTexto.has(s)
+          ? <FilaTexto key={s} senal={s} />
+          : <FilaSenal key={s} senal={s} agrupada={r.clave.startsWith("#")} tipo={tipos.get(s)} />)}
       </ul>
     </details>
+  );
+}
+
+/** Una señal de texto (la posición de una válvula): su valor, sin multímetro ni osciloscopio. */
+function FilaTexto({ senal }: { senal: string }) {
+  const v = useVivo((s) => s.textos[senal]);
+  return (
+    <li className="fila-senal">
+      <span className="nombre-senal" title={senal}>{magnitud(senal)}</span>
+      <span className="valor-senal">{v ?? "—"}</span>
+    </li>
   );
 }
 

@@ -1,6 +1,7 @@
 """Rutas del tablero eléctrico (plan V8.1, D8): el circuito y su chequeo (ERC); y el tablero ARMADO
 que lee el panel «Tablero» del visor (plan V8.5 D13, D15: `services/tablero_panel.py`, la misma
-fuente que `get_circuit tablero=true`).
+fuente que `get_circuit tablero=true`); y el panel «Neumática» del circuito de aire del MISMO carril
+(plan V8.9 D12: `services/neumatica_panel.py`, sobre el ERC y la memoria del aire).
 
 Lecturas: bajo `STATE_LOCK` se lee el `ModeloElectrico` que dejó el último regenerate y se
 analiza (datos puros, ~1 ms en la faja piloto). El dominio es de `services/electrico.py`; los
@@ -14,6 +15,7 @@ from fastapi import APIRouter
 
 from apolo.services.electrico import chequeo, circuito
 from apolo.services.errors import ServiceError
+from apolo.services.neumatica_panel import panel as panel_neumatica
 from apolo.services.tablero_panel import panel, paneles, tableros
 from apolo.state import STATE_LOCK
 
@@ -66,3 +68,13 @@ def get_tablero(ubicacion: str) -> dict:
             return panel(S.doc, ubicacion)
         except ServiceError as exc:
             raise _http_error(exc) from exc
+
+
+@router.get("/api/neumatica")
+def get_neumatica() -> dict:
+    """El panel «Neumática» del circuito de aire: veredicto, ítems con las piezas que señalan, el
+    detalle por cilindro (fuerza, consumo, tiempo de carrera) y el esquema ISO 1219 en primitivas
+    para dibujarlo en línea, con la señal de presión de cada línea. Sin aire: `{"hay_aire": false}`.
+    Read-only (lee el ERC y la memoria del aire; ~decenas de ms)."""
+    with STATE_LOCK:
+        return panel_neumatica(S.doc)

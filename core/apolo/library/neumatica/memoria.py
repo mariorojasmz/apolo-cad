@@ -29,7 +29,11 @@ ALCANCE = "alcance de la memoria del aire"
 
 
 def _fila(regla: str, des: str, r: dict, detalle: str, *, hip: list[str] | None = None,
-          recomendacion: str | None = None, elementos: list[str] | None = None) -> dict:
+          recomendacion: str | None = None, elementos: list[str] | None = None,
+          valor: dict | None = None) -> dict:
+    """Una verificación de la memoria. `valor`: las cifras con que se escribió (por defecto las del
+    cálculo): el panel «Neumática» del visor las escribe para la persona (V8.9 F6) sin rehacer
+    la cuenta."""
     calc = dict(r["calc"])
     calc["titulo"] = f"{des} · {calc['titulo']}" if des else calc["titulo"]
     out = {"regla": regla, "estado": r["estado"], "detalle": detalle}
@@ -37,6 +41,9 @@ def _fila(regla: str, des: str, r: dict, detalle: str, *, hip: list[str] | None 
         out["recomendacion"] = recomendacion
     out.update({"elementos": list(elementos if elementos is not None else ([des] if des else [])),
                 "medio": "aire", "calc": calc, "hipotesis": list(hip if hip is not None else r["hipotesis"])})
+    v = valor if valor is not None else r.get("valor")
+    if v is not None:
+        out["valor"] = dict(v)
     return out
 
 
@@ -60,7 +67,7 @@ def _fuerza(c, cil) -> list[dict]:
     out = [_fila("fuerza del cilindro", cil.designacion, r,
                  f"{cil.designacion} empuja {v['F_avance_N']:.0f} N ({v['F_avance_ef_N']:.0f} N efectivos) y tira "
                  f"{v['F_retroceso_N']:.0f} N ({v['F_retroceso_ef_N']:.0f} N efectivos) a {p:g} bar.",
-                 hip=hip + r["hipotesis"])]
+                 hip=hip + r["hipotesis"], valor={**v, "p_bar": p})]
     rc = Z.relacion(c, cil)
     if rc is not None:
         e = rc["valor"]
@@ -111,7 +118,8 @@ def _caudal_pico(c, cil, vel, hip_v) -> tuple[list[dict], float]:
                   f"{d['q_disponible_NL_min']:.0f} NL/min con Δp = {K.DP_CAUDAL_BAR:g} bar.", hip=h,
                   recomendacion=None if r["estado"] == "ok" else
                   "Una válvula de más caudal (C), menos velocidad (regulador por el escape) o tubos y racores "
-                  "más grandes.", elementos=[cil.designacion, v.designacion])], q
+                  "más grandes.", elementos=[cil.designacion, v.designacion],
+                  valor={**d, "valvula": v.designacion, "v_m_s": vel})], q
 
 
 def _tiempo(c, cil, sim) -> list[dict]:
@@ -150,8 +158,13 @@ def _tiempo(c, cil, sim) -> list[dict]:
         hip.append("sin escenario vigente que mueva el cilindro: sólo la cota a mano (corre uno con simulate)")
     calc["resultado"] = res
     r["calc"] = calc
+    valor = {"carrera_mm": s["carrera_mm"], "t_avance_s": av["valor"]["t_s"], "t_retroceso_s": rt["valor"]["t_s"],
+             "v_avance_m_s": av["valor"]["v_m_s"], "v_retroceso_m_s": rt["valor"]["v_m_s"]}
+    if sim and sim.get("t_avance_s") is not None:
+        valor["medido"] = {k: sim[k] for k in ("escenario", "t_avance_s", "t_retroceso_s", "x_max_mm", "v_max_m_s")
+                           if sim.get(k) is not None}
     return [_fila("tiempo de carrera", cil.designacion, r, detalle + ".", hip=hip,
-                  elementos=[cil.designacion, vB.designacion])]
+                  elementos=[cil.designacion, vB.designacion], valor=valor)]
 
 
 def _pandeo(c, cil) -> dict:
@@ -160,6 +173,7 @@ def _pandeo(c, cil) -> dict:
     return _fila("pandeo del vástago", cil.designacion, r,
                  f"{cil.designacion}: el vástago Ø{cil.neumatico.modelo['d_mm']:g} con {largo:g} mm libres admite "
                  f"{v['F_adm_N']:.0f} N y el pistón empuja {F:.0f} N a {p:g} bar (FS = {v['fs']:.2f}).", hip=hip,
+                 valor={**v, "F_N": F, "p_bar": p, "largo_mm": largo},
                  recomendacion=None if r["estado"] == "ok" else
                  "Un cilindro de vástago mayor, menos carrera libre, un montaje más rígido o una guía.")
 
@@ -175,7 +189,7 @@ def _impacto(cil, vel, hip_v) -> dict:
     d = r["valor"]
     return _fila("energía al fin de carrera", cil.designacion, r,
                  f"{cil.designacion} llega con {d['E_J']:.2f} J ({masa:.2f} kg a {vel:g} m/s); su amortiguación "
-                 f"admite {d['E_adm_J']:g} J.", hip=hip,
+                 f"admite {d['E_adm_J']:g} J.", hip=hip, valor={**d, "v_m_s": vel, "masa_kg": masa},
                  recomendacion=None if r["estado"] == "ok" else
                  "Regulador de caudal por el escape (menos velocidad), un amortiguador externo o un cilindro mayor.")
 

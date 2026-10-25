@@ -1,0 +1,57 @@
+/* El panel «Neumática» (plan V8.9 D12): sólo tokens de styles.css, como el del tablero (lo vigila
+   `diseno/tokens.test.ts`). Los colores de la presión son DATO (la rampa de `esquema.ts`, con su
+   leyenda): van en el SVG, no aquí. */
+
+.nm-seccion { margin: var(--sp-1) 0 var(--sp-4); }
+.nm-nota { margin: 0; color: var(--muted); font-size: var(--fs-nota); line-height: var(--lh-cuerpo); }
+
+/* el esquema: la tinta del tema; más angosto que lo legible, se desplaza en vez de achicarse */
+.nm-cabecera { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.nm-cabecera .tb-enlace { margin: 0 calc(-1 * var(--sp-2)) 0 0; }
+.nm-esquema { overflow: auto hidden; max-width: 100%; color: var(--text); }
+.nm-esquema svg { display: block; margin: 0 auto; }
+.nm-tinta { stroke: currentColor; }
+.nm-tinta .lleno { fill: currentColor; }
+.nm-textos text { fill: currentColor; }
+.nm-esquema svg.vivo .nm-tinta, .nm-esquema svg.vivo .nm-textos { color: var(--muted); }
+.nm-posiciones rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 0.5;
+  transition: x var(--mov-rapido) var(--curva-suave); }
+.nm-hit { fill: transparent; stroke: transparent; stroke-width: 0.5; cursor: pointer;
+  transition: stroke var(--mov-rapido) var(--curva-suave); }
+.nm-hit:hover { stroke: var(--muted); stroke-dasharray: 1.2 0.8; }
+.nm-hit.elegido { stroke: var(--accent); stroke-dasharray: none; }
+.nm-hit:focus { outline: none; }
+.nm-hit:focus-visible { stroke: var(--accent); stroke-width: 0.8; }
+
+/* la escala de la presión: el título, la rampa y sus extremos debajo */
+.nm-leyenda {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--sp-3); row-gap: 2px;
+  align-items: center; margin-top: var(--sp-2); max-width: calc(var(--sp-8) * 9);
+  color: var(--muted); font-size: var(--fs-nota); line-height: var(--lh-ajustado);
+}
+.nm-leyenda-titulo { grid-row: 1; }
+.nm-rampa { display: flex; gap: 2px; height: var(--sp-2); }
+.nm-rampa span { flex: 1; border-radius: var(--radius-sm); }
+.nm-leyenda-cifras { grid-column: 2; display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+
+/* el detalle de cada cilindro */
+.nm-cabeza { margin: 0 calc(-1 * var(--sp-2)); width: calc(100% + 2 * var(--sp-2)); }
+.nm-cifras {
+  display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); column-gap: var(--sp-3); row-gap: var(--sp-1);
+  margin: var(--sp-1) 0 0; font-size: var(--fs-cuerpo); line-height: var(--lh-cuerpo);
+}
+.nm-cifras dt { color: var(--muted); }
+.nm-cifras dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; }
+.nm-linea { display: block; }
+.nm-origen { display: block; color: var(--muted); font-size: var(--fs-nota); }
+.nm-tecnico { margin: 0; padding-left: var(--sp-4); color: var(--muted); font-size: var(--fs-nota); line-height: var(--lh-cuerpo); }
+
+/* la barra de la sesión viva: el aire que consume (mismo peso que el tiempo) */
+.bv-aire { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bv-aire span { color: var(--muted); }
+
+/* el grupo plegado «Accionamiento manual» de «Mandos»: se ve que se despliega */
+.nm-manual > summary { list-style: none; align-items: center; }
+.nm-manual > summary::-webkit-details-marker { display: none; }
+.nm-plegado { flex: none; color: var(--muted); transition: transform var(--mov-rapido) var(--curva-suave); }
+.nm-manual[open] .nm-plegado { transform: rotate(90deg); }

@@ -10,14 +10,15 @@ import { abrirSesion, accionar, reiniciarSesion } from "./sesion";
 import { abrirPanel } from "./abrirPanel";
 import EventosVivos from "./EventosVivos";
 import FallasVivas from "./FallasVivas";
+import AccionamientoManual from "../neumatica/AccionamientoManual";
 import "./vivo.css";
 
 /* Panel «Mandos» de la máquina viva (plan V8.4 D4): el camino PRINCIPAL para manejar la
    máquina, tenga o no la botonera modelada. Sin sesión: elegir el escenario y abrirla. Con
    sesión: cada mando del tablero con su color físico (pulsador = mientras lo mantienes
    apretado; seta = queda retenida hasta liberarla), los pilotos encendidos en su color y las
-   lecturas del motor, el variador, el contador y el relé de seguridad; «Provocar atasco» y el paso
-   a «Señales» y «PLC». */
+   lecturas del motor, el variador, el contador y el relé de seguridad; «Provocar atasco», el
+   accionamiento manual de las electroválvulas (plegado, V8.9 D12) y el paso a «Señales» y «PLC». */
 
 /** Cómo se manda la acción de un mando: por el WebSocket; el muestrario la simula. */
 export const AccionarMando = createContext<(a: Accion, m: MandoVivo) => void>(accionar);
@@ -118,6 +119,7 @@ function Tablero() {
       <Lecturas />
       <EventosVivos quieto={quieto} />
       <FallasVivas quieto={quieto} />
+      <AccionamientoManual quieto={quieto} />
       <h3>Medir</h3>
       <div className="kin-actions">
         <button onClick={() => void abrirPanel("senales")}>Ver las señales</button>

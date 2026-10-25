@@ -8,6 +8,20 @@ import { instalarMandos3D } from "./mandos3d";
 import { estadoDeMando } from "./accionar";
 import { avanzarReloj, crearReloj } from "./reloj";
 import { accionar, sesionViva } from "./sesion";
+import { useStore } from "../state/store";
+
+/** La pieza (o una del MISMO comando: el vástago o el empujador de un cilindro) está
+ *  seleccionada en el 3D. */
+function piezaElegida(pieza: string): boolean {
+  const st = useStore.getState();
+  if (!st.selection.length) return false;
+  if (st.selection.includes(pieza)) return true;
+  const feats = st.scene?.features ?? [];
+  const cid = feats.find((f) => f.id === pieza)?.command_id;
+  if (!cid) return false;
+  const sel = new Set(st.selection);
+  return feats.some((f) => f.command_id === cid && sel.has(f.id));
+}
 
 /* El reproductor de la marcha en modo vivo (plan V8.4, F2): el MISMO de «Ver la marcha»
    (`viewport/marcha/reproductor.ts`) siguiendo el reloj de la sesión viva (`reloj.ts`) sobre una
@@ -22,7 +36,8 @@ export function crearReproductorVivo(serie: SerieMarcha, ctx: VistaCtx, avisos: 
   const ini = sesionViva.inicio();
   const contenedor = ctx.renderer.domElement.parentElement;
   if (!ini || !contenedor) return base;
-  const etiquetas = crearEtiquetas(contenedor, ctx.meshes, lecturasDe(ini, ini.senales), sesionViva.valor);
+  const etiquetas = crearEtiquetas(contenedor, ctx.meshes, lecturasDe(ini, ini.senales), sesionViva.valor,
+    (l) => !!l.pieza && piezaElegida(l.pieza));
   const mandos3d = instalarMandos3D({
     contenedor,
     canvas: ctx.renderer.domElement,

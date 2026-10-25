@@ -4,7 +4,9 @@ import type { InicioVivo } from "./protocolo";
    el panel «Mandos» y, si tiene pieza 3D, en una etiqueta sobre ella. Motor: rpm e I; variador:
    frecuencia; PLC: su contador, si el programa tiene una variable que se llame así; relé de
    seguridad: sus salidas y, si no rearma por eso, que espera el ciclo de los dos canales
-   (mandos-de-seguridad D3). Un dispositivo de otro tipo, o sin esas señales, no muestra nada. Puro. */
+   (mandos-de-seguridad D3); cilindro: su carrera y las presiones de sus cámaras, con la etiqueta
+   3D sólo si está elegido (V8.9 D12). Un dispositivo de otro tipo, o sin esas señales, no muestra
+   nada. Puro. */
 
 export interface LineaLectura {
   senal: string;
@@ -17,6 +19,11 @@ export interface LineaLectura {
   cuando?: string[];
   /** Una frase, no un valor: va en una nota bajo la fila del panel (no en la etiqueta 3D). */
   nota?: boolean;
+  /** Lo que se lee antes del valor: «A 6,0 bar». */
+  prefijo?: string;
+  /** Lo menos que se muestra: la carrera no baja de 0 (el tope blando de la junta la pasa
+   *  una fracción de mm). */
+  piso?: number;
 }
 
 export interface Lectura {
@@ -26,6 +33,8 @@ export interface Lectura {
   rotulo: string;
   pieza?: string;
   lineas: LineaLectura[];
+  /** Su etiqueta 3D sólo con la pieza elegida (el cilindro, V8.9 D12: con varios, una maraña). */
+  soloElegida?: boolean;
 }
 
 /** Una variable de un programa del PLC que cuenta: `-K1.Main.cuenta`, `-K1.P1.contador`. */
@@ -69,9 +78,19 @@ export function lecturasDe(ini: Pick<InicioVivo, "dispositivos">, nombres: reado
           si: "No rearma hasta que abran y cierren los dos canales.", no: "", nota: true,
           cuando: [`${d.designacion}.canal1`, `${d.designacion}.canal2`] },
       ];
+    } else if (d.tipo === "cilindro") {
+      rotulo = "Cilindro";
+      lineas = [
+        { senal: `${d.designacion}.x_mm`, unidad: "mm", decimales: 0, prefijo: "Carrera", piso: 0 },
+        { senal: `${d.designacion}.pA_bar`, unidad: "bar", decimales: 1, prefijo: "A" },
+        { senal: `${d.designacion}.pB_bar`, unidad: "bar", decimales: 1, prefijo: "B" },
+      ];
     }
     lineas = lineas.filter((l) => hay.has(l.senal));
-    if (lineas.length) out.push({ designacion: d.designacion, tipo: d.tipo, rotulo, pieza: d.pieza, lineas });
+    if (lineas.length) {
+      out.push({ designacion: d.designacion, tipo: d.tipo, rotulo, pieza: d.pieza, lineas,
+        ...(d.tipo === "cilindro" ? { soloElegida: true } : {}) });
+    }
   }
   return out;
 }
@@ -82,7 +101,11 @@ export function textoLectura(l: Pick<Lectura, "lineas">, valor: (senal: string) 
   return l.lineas
     .filter((ln) => !!ln.nota === notas)
     .filter((ln) => !ln.cuando || ln.cuando.every((s) => encendida(valor(s))))
-    .map((ln) => formatear(valor(ln.senal), ln)).filter(Boolean).join(notas ? " " : " · ");
+    .map((ln) => {
+      const v = valor(ln.senal);
+      const t = formatear(v !== undefined && ln.piso !== undefined ? Math.max(ln.piso, v) : v, ln);
+      return t && ln.prefijo ? `${ln.prefijo} ${t}` : t;
+    }).filter(Boolean).join(notas ? " " : " · ");
 }
 
 function encendida(v: number | undefined): boolean {

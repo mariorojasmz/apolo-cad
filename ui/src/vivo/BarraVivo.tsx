@@ -4,6 +4,7 @@ import { controlesBarra, rotuloFase, textoFactor } from "./barra";
 import { useVivo } from "./estado";
 import Instrumentos from "./Instrumentos";
 import FallasActivas from "./FallasActivas";
+import AireVivo from "../neumatica/AireVivo";
 import { cerrarSesion, controlar, reiniciarSesion } from "./sesion";
 import { abrirPanel, type PanelVivo } from "./abrirPanel";
 import { useVisor } from "../visor/estado";
@@ -16,7 +17,8 @@ import "./vivo.css";
    reanudar, parar, reiniciar y cerrar. Encima, los instrumentos (multímetro y osciloscopio, F3).
    Los paneles «Mandos», «Señales» y «PLC» se abren desde aquí: en el visor comparten UN cajón y,
    sin estos botones, cerrar «Señales» o «PLC» dejaba la sesión sin camino de vuelta a los mandos.
-   Arriba de los controles, las fallas activas con «Quitar» (plan cosim-fallas D7). */
+   Arriba de los controles, las fallas activas con «Quitar» (plan cosim-fallas D7). Con circuito
+   de aire, el que consume la máquina (`neumatica/AireVivo.tsx`, plan V8.9 D12). */
 
 const PANELES: { id: PanelVivo; rotulo: string }[] = [
   { id: "mandos", rotulo: "Mandos" },
@@ -45,6 +47,7 @@ export default function BarraVivo() {
             {f.texto}
           </span>
         )}
+        <AireVivo />
         {fase === "fin" && fin && <span className="bv-mensaje">{fin.texto}</span>}
         {vieja && fase !== "fin" && (
           <>

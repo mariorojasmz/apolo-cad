@@ -1,6 +1,6 @@
 import {
   Activity, Anchor, Atom, Blocks, Boxes, CircuitBoard, ClipboardList, Cpu, Gauge, History, ListChecks, ListTree, Power,
-  ShieldCheck, SlidersHorizontal, Sparkles,
+  ShieldCheck, SlidersHorizontal, Sparkles, Wind,
 } from "lucide-react";
 
 import Tree from "../panels/Tree";
@@ -19,6 +19,7 @@ import PanelMandos from "../vivo/PanelMandos";
 import PanelSenales from "../vivo/PanelSenales";
 import PanelPlc from "../vivo/PanelPlc";
 import PanelTablero from "../tablero/PanelTablero";
+import PanelNeumatica from "../neumatica/PanelNeumatica";
 import { EXTENSIONES } from "../extensiones/registro";
 import type { IdPanelExtension } from "../extensiones/tipos";
 import { componerPaneles, type PanelDef } from "./componerPaneles";
@@ -47,6 +48,7 @@ const NUCLEO = {
   ensamblaje: { titulo: "Montaje", rotulo: "Montaje", Componente: AssemblyPanel, icono: Anchor },
   boceto: { titulo: "Boceto de masas", rotulo: "Boceto", Componente: SketchBlockPanel, icono: Blocks },
   tablero: { titulo: "Tablero", rotulo: "Tablero", Componente: PanelTablero, icono: CircuitBoard },
+  neumatica: { titulo: "Neumática", rotulo: "Neumática", Componente: PanelNeumatica, icono: Wind },
   mandos: { titulo: "Mandos", rotulo: "Mandos", Componente: PanelMandos, icono: Power },
   senales: { titulo: "Señales", rotulo: "Señales", Componente: PanelSenales, icono: Gauge },
   plc: { titulo: "PLC", rotulo: "PLC", Componente: PanelPlc, icono: Cpu },
@@ -64,7 +66,7 @@ export type PanelId = PanelNucleo | IdPanelExtension;
    de paneles), en el orden en que se muestran. Árbol, Propiedades y Asistente IA (sólo con el
    chat prendido, `chat/activo.ts`) forman el layout por defecto de Completo y no se listan. */
 const HERRAMIENTAS_NUCLEO: PanelNucleo[] = [
-  "history", "reqs", "bom", "checks", "kin", "mates", "fisica", "ensamblaje", "boceto", "tablero", "mandos", "senales", "plc",
+  "history", "reqs", "bom", "checks", "kin", "mates", "fisica", "ensamblaje", "boceto", "tablero", "neumatica", "mandos", "senales", "plc",
 ];
 
 const COMPUESTO = componerPaneles(NUCLEO, HERRAMIENTAS_NUCLEO, EXTENSIONES);

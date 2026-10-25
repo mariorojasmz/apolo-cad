@@ -6,6 +6,7 @@ import type {
 import { mensajeWs, publicarJob, publicarReconexion } from "./state/eventosWs";
 import type { SerieMarcha } from "./viewport/marcha/serie";
 import type { PanelTableroOut, TablerosOut } from "./tablero/tipos";
+import type { PanelNeumaticaOut } from "./neumatica/tipos";
 
 /** El `detail` de una respuesta fallida de la API (el motivo, ya escrito para la persona), o
  *  `undefined` si el cuerpo no es JSON o no trae un texto (p. ej. la lista de un 422). Lee el cuerpo. */
@@ -195,6 +196,8 @@ export const api = {
   tableros: () => fetch("/api/tablero").then((r) => json<TablerosOut>(r)),
   tablero: (ubicacion: string) =>
     fetch(`/api/tablero/${encodeURIComponent(ubicacion)}`).then((r) => json<PanelTableroOut>(r)),
+  // el circuito de aire que muestra el panel «Neumática» (V8.9 D12)
+  neumatica: () => fetch("/api/neumatica").then((r) => json<PanelNeumaticaOut>(r)),
 
   soundness: (withAutodetect: boolean) =>
     fetch("/api/assembly/soundness", {
