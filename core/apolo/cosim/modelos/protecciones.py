@@ -92,11 +92,14 @@ class ImagenTermica:
 
 
 class CorrienteDeDisparo:
-    """`I_disparo_A` de una protección (D7): None hasta el primer disparo (sin la señal), la
-    corriente del disparo mientras dura y 0.0 al rearmarla. Mezcla de los modelos que disparan."""
+    """La corriente con que disparó una protección (D7): None hasta el primer disparo (sin la
+    señal), la del disparo mientras dura y 0.0 al rearmarla. Mezcla de los modelos que disparan.
+    `SENAL` es su nombre: `I_disparo_A` (la mayor de sus polos) salvo en el diferencial, que
+    dispara por la RESIDUAL y publica `I_residual_disparo_mA`."""
 
+    SENAL = "I_disparo_A"
     I_disparo: float | None = None
-    _I_ultima: float = 0.0  # la mayor corriente del último paso (la que corta una avería)
+    _I_ultima: float = 0.0  # la del último paso, en la unidad de `SENAL` (la que corta una avería)
 
     def _retener(self, I_A: float) -> None:
         self.I_disparo = float(I_A)
@@ -107,7 +110,7 @@ class CorrienteDeDisparo:
 
     def _con_disparo(self, out: dict) -> dict:
         if self.I_disparo is not None:
-            out["I_disparo_A"] = self.I_disparo
+            out[self.SENAL] = self.I_disparo
         return out
 
 

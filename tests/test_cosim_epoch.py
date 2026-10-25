@@ -136,12 +136,15 @@ ARCHIVOS = (
 #: directo; seta, corte de fase y cajas con seta por variador) dan la MISMA huella, claves y
 #: eventos que en ec4ac9b (bitácora del plan).
 #: pedidos-de-extensiones F4 (sin subir, D8): el motor publica `U_V` (la tensión que ya usaba su
-#: paso) y cada protección `I_disparo_A` SÓLO tras disparar (como `averia`); `tipos.py` la tipa.
-#: Ningún valor que ya se publicaba cambia: 8 escenarios del banco (marcha, seta, caída de red,
-#: atasco que dispara y atasco parcial en directo; seta, corte de fase y cajas con seta por
-#: variador) dan trazas SIN las señales nuevas, eventos, finales, claves y veredicto por aserción
-#: IDÉNTICOS a 1ff0679; la huella de cada uno cambia sólo por la traza nueva (bitácora del plan).
-HUELLA: tuple[int, str] = (6, "ebb2c0024244aea9")
+#: paso) y cada protección `I_disparo_A` SÓLO tras disparar (como `averia`; el diferencial,
+#: `I_residual_disparo_mA`: dispara por la residual); `tipos.py` las tipa. Ningún valor que ya se
+#: publicaba cambia: 11 escenarios del banco (marcha, seta, caída de red, atasco que dispara,
+#: atasco parcial, cortos en el motor y en la fuente de 24 V y guardamotor `abierto` en directo;
+#: seta, corte de fase y cajas con seta por variador) dan trazas SIN las señales nuevas, eventos,
+#: finales, claves y veredicto por aserción IDÉNTICOS a 1ff0679, y los dos tableros de
+#: `test_cosim_diferencial.py` con su corto a PE, las mismas señales paso a paso; la huella de
+#: cada escenario cambia sólo por la traza nueva (bitácora del plan).
+HUELLA: tuple[int, str] = (6, "ae1f815f83441ea9")
 
 
 def archivos() -> list[Path]:

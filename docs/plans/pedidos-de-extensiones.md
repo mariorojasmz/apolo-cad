@@ -346,12 +346,15 @@ compare con la regla de la colocación (fuera, decisión de la revisión).
 
 **D7, modelos.** `Motor` publica `U_V`: la U que recibe su `paso` (la media de las tensiones de
 línea vivas en sus bornes; 0 con menos de dos fases; tras un variador, la de su salida). Las
-protecciones (`Itm`, `Guardamotor`, `ReleTermico`, `Fusible` y también el `Diferencial`, que es
-protección del mismo tablero) comparten `protecciones.CorrienteDeDisparo`: `I_disparo_A` NO existe
-hasta el primer disparo; en el paso del disparo vale la mayor corriente de sus polos (en el
-diferencial, la de sus polos y no la residual: lo que cortó), se retiene, y al rearmar (o reponer
-todos los cartuchos) queda en 0.0 sin desaparecer, como `averia` queda en «». Con la falla
-`abierto` es la del último paso cerrado. `cosim/tipos.py` la tipa (número) para `set_scenario`.
+protecciones (`Itm`, `Guardamotor`, `ReleTermico`, `Fusible`) comparten
+`protecciones.CorrienteDeDisparo`: `I_disparo_A` NO existe hasta el primer disparo; en el paso del
+disparo vale la mayor corriente de sus polos, se retiene, y al rearmar (o reponer todos los
+cartuchos) queda en 0.0 sin desaparecer, como `averia` queda en «». Con la falla `abierto` es la
+del último paso cerrado. El `Diferencial` usa la misma mezcla con otra señal,
+`I_residual_disparo_mA` (la RESIDUAL con que disparó), y su disparo sale en `electrico` con
+`I_residual_mA` (revisión de la sesión principal: un RCCB dispara por la residual; publicar la de
+fase haría decir a una memoria que un 30 mA disparó con 3,2 A). `cosim/tipos.py` tipa las dos
+(número) para `set_scenario`.
 
 **D7, medida.** `services/medidas_electricas.py` (216 líneas): `referencias(doc)` (la U nominal de
 la red que alimenta cada motor, su In en su conexión y `tras_variador`, con las llegadas de
@@ -390,8 +393,11 @@ corto en el motor, corto en la fuente de 24 V y guardamotor `abierto`; por varia
 fase y cajas con seta— dan trazas discretas y analógicas SIN `-M1.U_V` ni `*.I_disparo_A`,
 eventos, finales, claves del resultado y del `resumen` y veredicto aserción por aserción
 IDÉNTICOS; cada huella cambia sólo por las trazas nuevas (corte de fase `057ccaee` → `f7557715`,
-marcha en directo `dc083266` → `060499a1`). `COSIM_EPOCH` sigue en 6: la huella de
-`test_cosim_epoch.py` pasa de `da527a5307f6c246` a `ebb2c0024244aea9`. `medidas_electricas.py`
+marcha en directo `dc083266` → `060499a1`). Con el cambio del diferencial (revisión), los dos
+tableros de `test_cosim_diferencial.py` con su corto de 1 kΩ a PE (1F con el de 30 mA y 3F+N
+con el 4P), rearmados a 0,24 s, dan las mismas señales paso a paso sin `I_residual_disparo_mA`
+(que retiene 220,0 y 219,3 mA y vuelve a 0.0 al rearmar). `COSIM_EPOCH` sigue en 6: la huella de
+`test_cosim_epoch.py` pasa de `da527a5307f6c246` a `ae1f815f83441ea9`. `medidas_electricas.py`
 no entra a `ARCHIVOS` (como `aire_resultado.py`: no decide el resultado ni el veredicto, sólo lo
 que se guarda de él). `test_cosim_vivo.py` verde (vivo y lote con la misma huella). La UI lee la
 unidad por sufijo (`_V`, `_A`): sin cambios, sin `npm test`.

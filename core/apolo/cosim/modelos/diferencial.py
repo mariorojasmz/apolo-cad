@@ -18,8 +18,10 @@ componente continua lisa que ciega a un tipo A no se simula; el ERC lo señala, 
 natural o capacitiva (filtros EMC, cables largos) no se simula: ve sólo las fallas declaradas.
 
 Señales: `-F1.cerrado`, `-F1.disparado`, `-F1.I_residual_mA`, `-F1.causa` («diferencial»; con la
-falla `abierto`, «avería») y, tras el primer disparo, `-F1.I_disparo_A`: la mayor corriente de sus
-polos en ese paso (lo que cortó, no la residual), como las protecciones de `protecciones.py`. Acciones: `rearmar`, `abrir`, `cerrar` (rearmar con la falla de
+falla `abierto`, «avería») y, tras el primer disparo, `-F1.I_residual_disparo_mA`: la RESIDUAL
+con que disparó (con `abierto`, la del último paso cerrado), retenida hasta rearmar y 0.0 después.
+No publica `I_disparo_A`: dispara por la residual, no por la corriente de fase (plan
+pedidos-de-extensiones D7, revisión de F4). Acciones: `rearmar`, `abrir`, `cerrar` (rearmar con la falla de
 aislamiento presente vuelve a disparar en su tiempo de disparo: el aparato es de disparo libre).
 Fallas (cosim-fallas D2): `no_dispara` (la residual se mide pero no abre) y `abierto` (dispara
 solo; mientras dura no se rearma; reparada, queda disparado hasta que alguien lo rearme).
@@ -62,6 +64,7 @@ def residual(fasores) -> float:
 
 class Diferencial(CorrienteDeDisparo, Modelo):
     tipo = "diferencial"
+    SENAL = "I_residual_disparo_mA"
     ACCIONES = ("rearmar", "abrir", "cerrar")
     FALLAS = {"no_dispara": "", "abierto": ""}
 
@@ -95,9 +98,8 @@ class Diferencial(CorrienteDeDisparo, Modelo):
         return self.manija and not self.disparado
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
-        fasores = (entradas or {}).get("I_fasores") or ()
-        self.I_res = residual(fasores) if self.cerrado else 0.0
-        self._I_ultima = max((abs(complex(i)) for i in fasores), default=0.0) if self.cerrado else 0.0
+        self.I_res = residual((entradas or {}).get("I_fasores")) if self.cerrado else 0.0
+        self._I_ultima = self.I_res * 1000.0  # mA, la unidad de `SENAL`
         t = t_disparo(self.I_res / self.IDn) if self.cerrado else None
         if t is None:
             self._t = 0.0

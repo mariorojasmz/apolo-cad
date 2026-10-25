@@ -5,7 +5,8 @@ tras 17 s de simulación. Aquí se arma la tabla {señal D10: valor en reposo} d
   - cada modelo (`modelos/`) armado con su ficha y sus ajustes (un ajuste obligatorio que falta
     toma el punto medio, como `ajustes_faltantes`: sólo importa el TIPO) da sus `senales()`, y
     el que toma fallas, su «averia» (texto, «» sin falla: cosim-fallas D5), y una protección su
-    «I_disparo_A» (número: sólo existe tras disparar, plan pedidos-de-extensiones D7);
+    «I_disparo_A» (el diferencial, «I_residual_disparo_mA»; número: sólo existe tras disparar, plan
+    pedidos-de-extensiones D7);
   - cada PLC con programa da sus variables («-K1.Main.cuenta») y «estado»/«falla» (textos), como
     las publica el planificador (`_fuentes_plc`).
 `revisar(aserciones, valores)` cruza las aserciones con esa tabla, con las mismas reglas que el
@@ -44,7 +45,7 @@ def valores_iniciales(dispositivos, programas=()) -> dict:
             if m.FALLAS:  # la avería (cosim-fallas D5) es texto: «» sin falla
                 out[f"{d.designacion}.averia"] = ""
             if isinstance(m, CorrienteDeDisparo):  # D7: un número que aparece al disparar
-                out[f"{d.designacion}.I_disparo_A"] = 0.0
+                out[f"{d.designacion}.{m.SENAL}"] = 0.0
         except Exception:  # noqa: BLE001 — un modelo incompleto lo dice el snapshot; aquí no hay tipos
             continue
     for prog in programas:

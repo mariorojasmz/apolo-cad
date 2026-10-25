@@ -91,14 +91,37 @@ def test_el_fusible_retiene_la_del_primer_cartucho_y_la_suelta_al_reponerlos_tod
     assert f.salidas()["I_disparo_A"] == 0.0
 
 
-def test_el_diferencial_retiene_la_mayor_corriente_de_sus_polos_no_la_residual():
-    d = Diferencial(Parametros("-F6", "DIF", {"tipo": "diferencial", "In_A": 25, "IDn_mA": 30,
-                                              "clase_residual": "A", "polos": 2}))
+def _diferencial():
+    return Diferencial(Parametros("-F6", "DIF", {"tipo": "diferencial", "In_A": 25, "IDn_mA": 30,
+                                                 "clase_residual": "A", "polos": 2}))
+
+
+def test_el_diferencial_retiene_la_residual_con_que_disparo_no_la_corriente_de_fase():
+    d = _diferencial()
+    assert "I_residual_disparo_mA" not in d.paso(DT, {"I_fasores": [complex(3.2, 0.0), complex(-3.2, 0.0)]})
     while not d.disparado:
-        d.paso(DT, {"I_fasores": [complex(2.0, 0.0), complex(-1.9, 0.0)]})  # 100 mA a tierra
-    assert d.salidas()["causa"] == "diferencial" and d.salidas()["I_disparo_A"] == 2.0
+        d.paso(DT, {"I_fasores": [complex(3.2, 0.0), complex(-3.1, 0.0)]})  # 100 mA a tierra
+    s = d.salidas()
+    assert s["causa"] == "diferencial" and s["I_residual_disparo_mA"] == pytest.approx(100.0)
+    assert "I_disparo_A" not in s  # un 30 mA no «dispara con 3,2 A»
+    assert d.paso(DT, {"I_fasores": []})["I_residual_disparo_mA"] == pytest.approx(100.0)  # retenida
     d.accionar("rearmar")
-    assert d.salidas()["I_disparo_A"] == 0.0
+    assert d.salidas()["I_residual_disparo_mA"] == 0.0
+
+
+def test_la_averia_del_diferencial_retiene_la_residual_del_ultimo_paso():
+    d = _diferencial()
+    d.paso(DT, {"I_fasores": [complex(3.2, 0.0), complex(-3.19, 0.0)]})  # 10 mA: no dispara
+    d.fallar("abierto")
+    assert d.publicadas()["I_residual_disparo_mA"] == pytest.approx(10.0) and d.salidas()["causa"] == "avería"
+
+
+def test_el_disparo_de_un_diferencial_sale_con_su_residual():
+    t = [0.0, 0.02, 0.04]
+    res = _res(t, {"-F6.I_residual_mA": [0.0, 0.0, 0.0], "-F6.I_residual_disparo_mA": [None, 100.0, 100.0]},
+               {"-F6.disparado": [[0.0, False], [0.016, True]], "-F6.causa": [[0.0, ""], [0.016, "diferencial"]]})
+    assert resumen_electrico(res, {})["disparos"] == [
+        {"dispositivo": "-F6", "t_s": 0.016, "I_residual_mA": 100.0, "causa": "diferencial"}]
 
 
 # ── el resumen, sintético ─────────────────────────────────────────────────────────────────
