@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) en `main` (`1f13862`); F1 (MCP → tools/) en `main` (`985ea53`); F3 (registry I: escena + exec_basicos/colocacion/modificar) en `main` (`4de021b`); F4 (registry II: exec_croquis/ensamblaje/insertar/biblioteca; `registry.py` 366, fuera de `EXCEPCIONES`) en `main` (`3eef906`); F5 (document → mixins edicion/metadatos/integridad/persistencia; `document.py` 404, fuera de `EXCEPCIONES`) implementada sobre `fc734ea`, pendiente de revisión y merge; sigue F6 (cierre E2E)
+estado: implementado
+nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F1–F5 en `main` (último corte `7886fb6`): `registry.py` 366, `mcp_server.py` 273, `models.py` 112 y `document.py` 404, los cuatro fuera de `EXCEPCIONES`; F6 (cierre) hecha: E2E MCP por stdio 27/27 contra la API del worktree sobre una copia de la base, y el 1.er open del 38 con una caché escrita por `1f01d0a` ya es caliente (4,5 s contra 9,8 s en frío); sin pendientes. Los otros cuatro archivos sobre el tope (`sheet.py`, `builders.py`, `rules.py`, `report.py`) quedan para un plan aparte
 descripcion: por fuera nada cambia —mismos comandos, mismas tools MCP, mismos proyectos y la misma caché de geometría—; por dentro los cuatro archivos más tocados del núcleo quedan en módulos de ≤ 500 líneas y dos sesiones ya no chocan en el mismo archivo
 ---
 
@@ -563,3 +563,39 @@ La sesión principal re-corre todo antes de integrar.
   `zipfile`, `Path`, `validate_params`, `reject_unknown`, `ext_manifest` y `variantes` (nadie
   los importaba de ahí) y su docstring suma el mapa. (3) `document.py` mide 404 y no ≈ 410.
   (4) En `doc/CLAUDE.md` se borró «`document.py` está en el trinquete», que ya no es cierto.
+
+### F6 — cierre y punta a punta (2026-10-25, base `9a2dda6`)
+
+- **API del worktree** sin `--reload`, en :8126, sobre una copia de `data/apolo.db` hecha con la
+  API de backup de sqlite (`C:\t\partir-f6\copia.db`, 34 proyectos; `APOLO_DB`, `APOLO_LOGS` y
+  `APOLO_HOME` apuntando a `C:\t\partir-f6\`, `APOLO_PROJECT=46` para que el arranque no gaste
+  el open del 38). El `data/` del repo no se tocó (misma fecha de escritura antes y después) y el
+  `errors.log` de la copia sólo trae los dos 404 que el guion provoca a propósito.
+- **E2E** (`python -B scripts/e2e_mcp.py --puerto 8126 --proyecto 38`): 27 de 27 pasos ok en
+  28 s, EXIT 0 (90 tools por stdio; lote con contrato revertido; `set_variable` 4000 → 4400 y
+  `undo` dejan el resumen y los 450 comandos como estaban). El guion traía `--tools` con 87 fijo
+  por defecto y la orden del plan salía con 1 en el paso 1 sin que nada estuviera roto: ahora sin
+  `--tools` sólo exige que el servidor publique tools (con `--tools 90`, también verde).
+- **Open del 38, dos veces por HTTP** (`POST /api/projects/38/open`, proceso nuevo cada ronda):
+
+  | caché del 38 en la copia | 1.º open | 2.º open |
+  |---|---:|---:|
+  | la de la copia (2026-10-06, epoch anterior: `unpack` → `None`) | 9,80 s (frío) | 3,73 s |
+  | escrita por la base `1f01d0a` (`git archive`, antes del primer corte; nombra `apolo.commands.registry.Feature`) | 4,46 s (caliente) | 4,52 s |
+
+  La caché de la copia no servía (de un epoch anterior, como ya vieron F3–F5), así que se midió
+  con una escrita por el código de `1f01d0a` (`GEOM_CACHE_EPOCH` 7 en los dos, `VERSIONES` sin
+  cambios desde entonces). Con ella el 1.er open ya es caliente: el blob no se re-empaca (sigue
+  nombrando la ruta vieja tras los dos opens) y, fuera de la API, el mismo open con el código de
+  la F6 termina con CERO llamadas a `execute_command` (450 comandos; las `Feature` cargadas son
+  las de `escena`). Lo que queda de los ~4,5 s es armar el payload y el briefing.
+- **Trinquete**: `EXCEPCIONES` sólo nombra `drawing/sheet.py` (882), `library/builders.py`
+  (847), `library/engineering/report.py` (555) y `library/rules.py` (903). Los cuatro miden
+  `registry.py` 366, `mcp_server.py` 273, `models.py` 112 y `document.py` 404; el mayor módulo
+  nuevo, `exec_ensamblaje.py` 316.
+- **CLAUDE.md**: ninguno dice ya que los cuatro estén congelados (`core/apolo`, `commands`,
+  `doc`; lo de `library/builders.py` sigue cierto). Se corrigió `commands/CLAUDE.md`: decía que
+  `run_executor` «se queda en `registry`», pero vive en `spec.py`; lo que cuenta es que
+  `execute_command` lo lee por el módulo `registry`, donde lo parchean los tests.
+- **Conteos** (`scripts/conteos.py`): 5 766 tests (+27 de tortura) · 539 vitest · 90 tools MCP ·
+  62 comandos · catálogo 448 refs.

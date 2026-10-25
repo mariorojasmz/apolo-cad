@@ -52,8 +52,9 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
   `command_schemas` (lo exige `tests/test_rutas_viejas.py`): un executor nuevo va a su `exec_*`
   y aquí sólo se importa. `registry` re-exporta cada nombre movido por IDENTIDAD, para siempre
   (lista cerrada en `tests/test_rutas_viejas.py`; los blobs viejos de la caché nombran
-  `apolo.commands.registry.Feature`). `run_executor`/`execute_command`/`validate_params` se
-  quedan en `registry` (los tests parchean `registry_mod.run_executor`). Mover un executor byte a
+  `apolo.commands.registry.Feature`). `execute_command`/`validate_params` se quedan en
+  `registry` y `execute_command` lee `run_executor` (de `spec`) por el módulo `registry`: los
+  tests parchean `registry_mod.run_executor`. Mover un executor byte a
   byte deja su huella igual: nunca se actualiza `VERSIONES` por un corte.
 - Los imports perezosos `from .registry import …` DENTRO de executors ajenos (`cilindro.py`,
   `exec_faja.py`, `tablero.py`…) no se tocan: son parte de su huella D11.
