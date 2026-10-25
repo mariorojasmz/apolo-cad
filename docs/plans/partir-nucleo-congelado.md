@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) en `main` (`1f13862`); F1 (MCP → tools/) en `main` (`985ea53`); F3 (registry I: escena + exec_basicos/colocacion/modificar) implementada sobre `c11bca8`, pendiente de revisión y merge; siguen F4 → F5 → F6
+nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) en `main` (`1f13862`); F1 (MCP → tools/) en `main` (`985ea53`); F3 (registry I: escena + exec_basicos/colocacion/modificar) en `main` (`4de021b`); F4 (registry II: exec_croquis/ensamblaje/insertar/biblioteca; `registry.py` 366, fuera de `EXCEPCIONES`) implementada sobre `ad26ad5`, pendiente de revisión y merge; siguen F5 → F6
 descripcion: por fuera nada cambia —mismos comandos, mismas tools MCP, mismos proyectos y la misma caché de geometría—; por dentro los cuatro archivos más tocados del núcleo quedan en módulos de ≤ 500 líneas y dos sesiones ya no chocan en el mismo archivo
 ---
 
@@ -461,3 +461,51 @@ La sesión principal re-corre todo antes de integrar.
   deja de importar `dataclass`, `Any` y seis funciones del kernel que ya no usa (nadie las
   importaba de ahí); su docstring suma una línea con el mapa. (3) `registry.py` mide 1 122 y no
   ≈ 1 100: el shim es de un nombre por línea.
+
+### F4 — `registry.py` II: croquis, ensamblaje, insertar y biblioteca (2026-10-25, base `ad26ad5`)
+
+- **Corte** (el mismo script de la F3, con las cuatro casas que faltaban; falla si queda una
+  definición sin casa fuera de lo que D7 deja en `registry`):
+
+  | módulo | nombres | líneas |
+  |---|---:|---:|
+  | `exec_croquis.py` | 10 | 198 |
+  | `exec_ensamblaje.py` | 11 | 316 |
+  | `exec_insertar.py` | 2 | 212 |
+  | `exec_biblioteca.py` | 8 | 160 |
+  | `registry.py` | 6 propios | 366 (era 1 122; sale de `EXCEPCIONES` en el mismo commit) |
+
+- **Fuentes y huellas**: `{tipo: huella}` de los 62 comandos, el orden del `REGISTRY` y las
+  versiones, idénticos a la foto «antes»; `inspect.getsource` de las 36 definiciones que tenía
+  `registry.py` en la base, idéntico (0 distintas, 0 perdidas). `tests/test_contrato_comandos.py`,
+  `tests/data/mcp_golden` y `geomcache.py` sin diff contra `main`.
+- **Schemas**: `command_schemas()` (221 827 B), `command_schemas_agente()` (214 584 B) y
+  `command_schemas_persona()` (189 805 B), idénticos byte a byte (sha256) a la foto «antes».
+- **`golden_regen.py`** sobre una copia nueva de `data/apolo.db` (`C:\t\partir-f4\copia.db`, 34
+  proyectos, 119 revisiones), base (`git archive ad26ad5`) contra F4: «Sin diferencias» en los 34
+  proyectos (4 513 comandos; base 112 s, F4 92 s; la última firma incluida) y con `--revisions`
+  en los 153 documentos (34 235 comandos; base 323 s, F4 311 s).
+- **Open caliente**: el código de la base abrió los proyectos 38, 28 y 53 desde la copia y
+  escribió su `geomcache.pack` (ya nombran `apolo.commands.escena.Feature`); con el código de la
+  F4, `from_apolo_bytes(warm=unpack(blob))` termina con CERO llamadas a `execute_command` en los
+  tres (450, 320 y 17 comandos), con la escena y las firmas de un open en frío. Los blobs que dejó
+  la F3 con el código de `c11bca8` (nombran `apolo.commands.registry.Feature`) también abren con
+  cero llamadas. Los 17 blobs de la tabla `geom_cache` de la copia son de un epoch anterior (0
+  vigentes).
+- **Gate D11**: `test_rutas_viejas.py` suma la sección F4: lista CERRADA de los 31 nombres movidos
+  por casa, cada uno el MISMO objeto en `registry` y nacido en su casa; los 24 executors movidos
+  que despacha el `REGISTRY` son los de su casa; `registry` sólo DEFINE `REGISTRY`,
+  `_validate_model`, `validate_params`, `execute_command`, `_schema_entry` y `command_schemas`
+  (un executor nuevo no puede volver a nacer ahí); dos tests prueban que el gate caza un nombre
+  que falta y una copia.
+- **Suite**: completa en el escritorio (carril A, `-n auto`, sobre `4074192`): EXIT 0, sin FAILED
+  ni ERROR; `-m torture` (27): EXIT 0; ruff limpio. En la laptop: `test_contrato_comandos`,
+  `test_despacho_unico`, `test_rutas_viejas`, `test_tamano_archivos`, `test_claude_md`,
+  `test_mejoras_mcp` y cada módulo nuevo (y los de la F3) importado solo en un subproceso, verdes.
+- **Desvíos de D7**: ninguno en el reparto. (1) Aristas `exec_*` → `exec_*`, sin ciclo:
+  `exec_insertar` importa `_register_joint`, `_transform_point` y `_transform_dir` de
+  `exec_ensamblaje`, y `exec_biblioteca` `_register_joint` (el brazo registra sus juntas); ningún
+  `exec_*` importa `registry`. (2) `exec_biblioteca` sigue el orden ORIGINAL (brazo antes que
+  script), no el de la tabla de D7. (3) Líneas de import (D1 d): `registry` deja de importar
+  `place` (nadie lo importaba de ahí); el comentario del shim y el docstring dicen ya «F3 y F4».
+  (4) `registry.py` mide 366 y no ≈ 310: el shim es de un nombre por línea (82 nombres).
