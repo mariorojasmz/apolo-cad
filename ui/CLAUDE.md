@@ -34,9 +34,9 @@ son comandos) se dibuja con `recorrido3d.ts` (instalado en el visor, fuera de `g
 (`ItemsAtencion` `elegida`/`debajo`), nunca al final de la lista. [V8.5](../docs/plans/V8.5-tablero-3d.md) F3b
 El panel «Neumática» (`src/neumatica/`) es el mismo patrón sobre `services/neumatica_panel.py`; su
 esquema ISO 1219 llega en PRIMITIVAS y se dibuja en línea con la tinta del tema (nunca el SVG de la
-lámina en un `<img>`: el clic elige y las líneas se tiñen en vivo). Lo que la co-simulación no
-publica como señal (el manual ENCLAVADO de una válvula) se lleva en una store fuera del panel
-(`neumatica/manual.ts`): cerrar el cajón desmonta el componente. [V8.9](../docs/plans/V8.9-neumatica.md) F6
+lámina en un `<img>`: el clic elige y las líneas se tiñen en vivo). Un estado de la máquina (el
+manual ENCLAVADO de una válvula) se LEE de su señal (`<des>.manual`), nunca se guarda en la UI:
+otra pestaña o el agente verían otro. [V8.9](../docs/plans/V8.9-neumatica.md) F6
 
 ## Texto y ayuda: la pantalla se explica sola
 

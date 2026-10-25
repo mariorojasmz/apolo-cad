@@ -152,4 +152,5 @@ def test_la_sesion_viva_ofrece_las_valvulas_y_su_accionamiento_manual(banco):
     v.recibir({"accion": "accionar_manual", "dispositivo": "-QM2", "valor": "14"})
     v.avanzar(30)
     v.fot.reunir()
-    assert v.fot.textos_cambiados().get("-QM2.posicion") == "14"
+    textos = v.fot.textos_cambiados()
+    assert textos.get("-QM2.posicion") == "14" and textos.get("-QM2.manual") == "14"   # una fuente

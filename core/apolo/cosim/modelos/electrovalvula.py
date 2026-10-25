@@ -19,7 +19,9 @@ Conmuta de UNA vez al cumplirse `t_on_ms` (hacia el lado de una bobina energizad
 El tablero indexa las bobinas por `BOBINAS` ({lado: primer borne}: «A1» con una bobina, «14A1» y
 «12A1» con dos), sin rama propia (el patrón de `BORNES_ENTRADA` del relé de seguridad).
 
-Señales (D7): `-QM1.posicion` («14», «12» o «0»), `-QM1.bobina14`, `-QM1.bobina12` (las que tiene).
+Señales (D7): `-QM1.posicion` («14», «12» o «0»), `-QM1.bobina14`, `-QM1.bobina12` (las que tiene)
+y, si la ficha trae accionamiento manual, `-QM1.manual`: el lado enclavado a mano («14», «12»,
+«14+12» con los dos) o «0» (V8.9 F6: UNA fuente para el visor y el agente; la UI lo lee de aquí).
 Acción: `accionar_manual` con el lado («14», «12») — el accionamiento manual auxiliar ENCLAVADO
 (se queda hasta `accionar_manual` «0») — sólo si la ficha lo trae (`manual: true`).
 Fallas (cosim-fallas D2): `pegada` (el carrete no se mueve; en la posición pedida o en la que
@@ -168,4 +170,7 @@ class Electrovalvula(Modelo):
         return f"bobina_cortada {lado}"
 
     def salidas(self) -> dict:
-        return {"posicion": self.posicion, **{f"bobina{lado}": self.energizada[lado] for lado in self.lados}}
+        out = {"posicion": self.posicion, **{f"bobina{lado}": self.energizada[lado] for lado in self.lados}}
+        if self.manual:
+            out["manual"] = "+".join(lado for lado in self.lados if lado in self.manuales) or "0"
+        return out

@@ -329,7 +329,7 @@ def test_valvula_pegada_no_se_mueve_y_su_gemela_si():
     assert malo.fallar("pegada") == "pegada 12"
     assert correr(sano, 0.05, {"U_14": 24.0})["posicion"] == "14"
     correr(malo, 0.05, {"U_14": 24.0})
-    assert malo.publicadas() == {"posicion": "12", "bobina14": True, "averia": "pegada 12"}
+    assert malo.publicadas() == {"posicion": "12", "bobina14": True, "manual": "0", "averia": "pegada 12"}
     malo.reparar("pegada")
     assert correr(malo, 0.05, {"U_14": 24.0})["posicion"] == "14" and malo.averia == ""
     with pytest.raises(ValueError, match="14, 12"):

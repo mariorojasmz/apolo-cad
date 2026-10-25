@@ -112,7 +112,7 @@ def test_monoestable_conmuta_con_sus_tiempos_y_su_histeresis():
     v = valvula("VAL-52-MONO-G18")
     assert v.BOBINAS == {"14": "A1"} and v.posicion == "12"
     assert correr(v, 0.012, b14=24.0)["posicion"] == "12"       # t_on = 14 ms
-    assert correr(v, 0.002, b14=24.0) == {"posicion": "14", "bobina14": True}
+    assert correr(v, 0.002, b14=24.0) == {"posicion": "14", "bobina14": True, "manual": "0"}
     assert correr(v, 0.1, b14=12.0)["posicion"] == "14"         # 50 % de Uc: no suelta (40 %)
     assert correr(v, 0.020, b14=0.0)["posicion"] == "14"        # t_off = 22 ms
     assert correr(v, 0.002, b14=0.0)["posicion"] == "12"
@@ -132,10 +132,16 @@ def test_biestable_conserva_y_la_5_3_se_centra():
 
 def test_accionamiento_manual_y_sus_errores():
     v = valvula("VAL-52-MONO-G18")
+    assert v.salidas()["manual"] == "0"
     v.accionar("accionar_manual", "14")
     assert correr(v, 0.05)["posicion"] == "14" and v.salidas()["bobina14"] is False
+    assert v.salidas()["manual"] == "14"   # V8.9 F6: el enclavamiento es una señal (una fuente)
     v.accionar("accionar_manual", "0")
-    assert correr(v, 0.05)["posicion"] == "12"
+    assert correr(v, 0.05)["posicion"] == "12" and v.salidas()["manual"] == "0"
+    b = valvula("VAL-52-BI-G18")
+    b.accionar("accionar_manual", "12")
+    b.accionar("accionar_manual", "14")
+    assert b.salidas()["manual"] == "14+12"
     with pytest.raises(ValueError, match="pide el lado"):
         v.accionar("accionar_manual", "12")
     with pytest.raises(ModeloIncompleto, match="aire"):

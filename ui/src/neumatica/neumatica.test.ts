@@ -7,7 +7,7 @@ import {
   AMPLIADO_PX_MM, bordesLeyenda, colorPresion, convieneAmpliar, elegidosPor, escalaEsquema, MIN_PX_MM, pasoDe, posicionDe, presionDe, RAMPA_PRESION,
   rotuloCilindro, textoConsumo, textoFuerza, textoTiempo, type Lector,
 } from "./esquema";
-import { accionManual, alternarManual, ponerPuestos, puestosDe, useManual } from "./manual";
+import { accionManual, alternarManual, ladosManual } from "./manual";
 import type { PresionLinea, ValvulaEsquema } from "./tipos";
 
 /* El panel «Neumática» (plan V8.9 D12): la presión de cada línea con las señales vivas, su color y
@@ -126,27 +126,24 @@ describe("la sesión viva con aire", () => {
 
   it("el accionamiento manual lleva el lado o «0»; soltar uno vuelve a poner los demás", () => {
     expect(accionManual("-QM2", "14")).toEqual({ accion: "accionar_manual", dispositivo: "-QM2", valor: "14" });
-    expect(alternarManual("-QM2", [], "14")).toEqual({ quedan: ["14"], acciones: [accionManual("-QM2", "14")] });
-    expect(alternarManual("-QM2", ["14", "12"], "14"))
-      .toEqual({ quedan: ["12"], acciones: [accionManual("-QM2", "0"), accionManual("-QM2", "12")] });
+    expect(alternarManual("-QM2", [], "14")).toEqual([accionManual("-QM2", "14")]);
+    expect(alternarManual("-QM2", ["14", "12"], "14")).toEqual([accionManual("-QM2", "0"), accionManual("-QM2", "12")]);
   });
 
-  it("lo puesto a mano sobrevive a cerrar el panel, no a otra sesión", () => {
-    const s1 = {}, s2 = {};
-    ponerPuestos(s1, "-QM2", ["14"]);
-    expect(puestosDe(useManual.getState(), s1, "-QM2")).toEqual(["14"]);
-    expect(puestosDe(useManual.getState(), s2, "-QM2")).toEqual([]);
-    ponerPuestos(s2, "-QM3", ["12"]);
-    expect(puestosDe(useManual.getState(), s2, "-QM2")).toEqual([]);
+  it("lo enclavado se lee de la señal de la válvula (una fuente: también lo que puso el agente)", () => {
+    expect(ladosManual(undefined)).toEqual([]);
+    expect(ladosManual("0")).toEqual([]);
+    expect(ladosManual("14")).toEqual(["14"]);
+    expect(ladosManual("14+12")).toEqual(["14", "12"]);
   });
 
   it("la válvula aparece en Señales con su bobina y su posición", () => {
-    const textos = textosDelArbol(ini, ["-QM2.posicion", "-K1.estado", "-QM2.averia"]);
-    expect(textos).toEqual(["-QM2.posicion"]);
+    const textos = textosDelArbol(ini, ["-QM2.posicion", "-K1.estado", "-QM2.averia", "-QM2.manual"]);
+    expect(textos).toEqual(["-QM2.posicion", "-QM2.manual"]);
     const ramas = arbolDeSenales(ini, ["-QM2.bobina14", ...textos, "-MM1.x_mm"]);
     const qm2 = ramas.find((r) => r.clave === "-QM2")!;
     expect(qm2.rotulo).toBe("Electroválvula");
-    expect(qm2.senales).toEqual(["-QM2.bobina14", "-QM2.posicion"]);
+    expect(qm2.senales).toEqual(["-QM2.bobina14", "-QM2.posicion", "-QM2.manual"]);
     expect(ramas.find((r) => r.clave === "-MM1")!.rotulo).toBe("Cilindro");
   });
 

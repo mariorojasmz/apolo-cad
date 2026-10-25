@@ -2,13 +2,14 @@ import { ChevronRight } from "lucide-react";
 import { useVivo } from "../vivo/estado";
 import type { ValvulaVivo } from "../vivo/protocolo";
 import { enviar } from "../vivo/sesion";
-import { alternarManual, ponerPuestos, puestosDe, useManual } from "./manual";
+import { alternarManual, ladosManual } from "./manual";
 import "./neumatica.css";
 
 /* «Accionamiento manual» en el panel «Mandos» (plan V8.9 D12): el botón de la propia válvula, que
    prueba el cilindro sin el PLC. No es un mando del operador: va en un grupo PLEGADO, al final.
    Es ENCLAVADO, como el real (`cosim/modelos/electrovalvula.py`): queda accionado hasta soltarlo.
-   La posición de la válvula se lee de su señal (`<des>.posicion`). */
+   Lo enclavado y la posición se LEEN de sus señales (`<des>.manual`, `<des>.posicion`): lo que
+   ponga el agente u otra pestaña se ve igual aquí. */
 
 export default function AccionamientoManual({ quieto }: { quieto: boolean }) {
   const valvulas = useVivo((s) => s.inicio?.valvulas);
@@ -30,13 +31,10 @@ export default function AccionamientoManual({ quieto }: { quieto: boolean }) {
 
 function FilaValvula({ v, quieto }: { v: ValvulaVivo; quieto: boolean }) {
   const posicion = useVivo((s) => s.textos[`${v.designacion}.posicion`]);
-  const sesion = useVivo((s) => s.inicio);
-  const clave = useManual((st) => puestosDe(st, sesion, v.designacion).join(",")); // primitivo
-  const enclavados = clave ? clave.split(",") : [];
+  const manual = useVivo((s) => s.textos[`${v.designacion}.manual`]);
+  const enclavados = ladosManual(manual);
   const alternar = (lado: string) => {
-    const { quedan, acciones } = alternarManual(v.designacion, enclavados, lado);
-    for (const a of acciones) enviar(a);
-    ponerPuestos(sesion, v.designacion, quedan);
+    for (const a of alternarManual(v.designacion, enclavados, lado)) enviar(a);
   };
   return (
     <li className="fila-mando">
