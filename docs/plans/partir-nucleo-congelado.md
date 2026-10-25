@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) en `main` (`1f13862`); F1 (MCP → tools/) en `main` (`985ea53`); F3 (registry I: escena + exec_basicos/colocacion/modificar) en `main` (`4de021b`); F4 (registry II: exec_croquis/ensamblaje/insertar/biblioteca; `registry.py` 366, fuera de `EXCEPCIONES`) implementada sobre `ad26ad5`, pendiente de revisión y merge; siguen F5 → F6
+nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) en `main` (`1f13862`); F1 (MCP → tools/) en `main` (`985ea53`); F3 (registry I: escena + exec_basicos/colocacion/modificar) en `main` (`4de021b`); F4 (registry II: exec_croquis/ensamblaje/insertar/biblioteca; `registry.py` 366, fuera de `EXCEPCIONES`) en `main` (`3eef906`); F5 (document → mixins edicion/metadatos/integridad/persistencia; `document.py` 404, fuera de `EXCEPCIONES`) implementada sobre `fc734ea`, pendiente de revisión y merge; sigue F6 (cierre E2E)
 descripcion: por fuera nada cambia —mismos comandos, mismas tools MCP, mismos proyectos y la misma caché de geometría—; por dentro los cuatro archivos más tocados del núcleo quedan en módulos de ≤ 500 líneas y dos sesiones ya no chocan en el mismo archivo
 ---
 
@@ -509,3 +509,57 @@ La sesión principal re-corre todo antes de integrar.
   script), no el de la tabla de D7. (3) Líneas de import (D1 d): `registry` deja de importar
   `place` (nadie lo importaba de ahí); el comentario del shim y el docstring dicen ya «F3 y F4».
   (4) `registry.py` mide 366 y no ≈ 310: el shim es de un nombre por línea (82 nombres).
+
+### F5 — `document.py` → mixins (2026-10-25, base `fc734ea`)
+
+- **Corte** (script por NOMBRE sobre el AST de la clase: cada método con sus decoradores y los
+  comentarios pegados encima, byte a byte, en su orden original y con su sangría; las dos
+  constantes de módulo, igual):
+
+  | módulo | contenido | líneas |
+  |---|---|---:|
+  | `doc/edicion.py` | `EdicionDocumento`: 6 métodos | 140 |
+  | `doc/metadatos.py` | `MetadatosDocumento`: 18 métodos | 227 |
+  | `doc/integridad.py` | `IntegridadDocumento`: `check_integrity` | 123 |
+  | `doc/persistencia.py` | `FORMAT_VERSION`, `_CID_RE`, `PersistenciaDocumento`: 5 métodos | 191 |
+  | `document.py` | `__init__` + 20 atributos propios | 404 (era 1 009; sale de `EXCEPCIONES` en el mismo commit) |
+
+- **Fuentes**: `dir(Document)` idéntico a la foto «antes» (79 nombres); `inspect.getsource` de
+  los 51 atributos con fuente (métodos, propiedades, `classmethod`; `_UNDO_CAP`/`_REGEN_STRIDE`
+  por `repr`), idéntico salvo `check_integrity`, que suma UNA línea (excepción (b) de D1):
+  `from apolo.doc.document import resolve_all` dentro del método, junto al import perezoso de
+  `DEFINITIONS` (el cuerpo no cambia). `tests/test_contrato_comandos.py`,
+  `tests/data/mcp_golden` y `geomcache.py` sin diff contra `main`.
+- **Lo que se queda** (D2, medido con grep sobre `tests/`, `core/` y `scripts/`): en
+  `apolo.doc.document` sólo se reasignan `execute_command`, `resolve_all` y `_STRICT`, más
+  `Document._restore` sobre la clase (con mixins llega igual). Ningún método movido lee
+  `execute_command` ni `_STRICT`; sólo `check_integrity` lee `resolve_all`. Lo que se queda es
+  exactamente la lista del contrato.
+- **`golden_regen.py`** sobre una copia nueva de `data/apolo.db` (`C:\t\partir-f5\copia.db`, 34
+  proyectos, 119 revisiones), base (`git archive fc734ea`) contra F5: «Sin diferencias» en los
+  34 proyectos (4 513 comandos; 110 s cada lado; la última firma incluida).
+- **`to_apolo_bytes`** de los proyectos 38, 28 y 53 abiertos desde la copia, base contra F5:
+  idénticos miembro a miembro (`manifest.json`, `commands.json` y el adjunto del 53; 7 de 7 por
+  sha256).
+- **Gate D11**: `test_rutas_viejas.py` suma la sección `document`: lista CERRADA de los 30
+  métodos movidos por mixin (`Document` hereda el MISMO objeto y no lo redefine encima), los 21
+  que `Document` sigue definiendo, `dir(Document)` sin dunders (cambian con la versión de
+  Python), los nombres del módulo por identidad (`FORMAT_VERSION`, `_CID_RE`, `execute_command`,
+  `resolve_all`, los errores; `_cmd_sig is carril.cmd_sig`), `SUPERFICIE`/`MODULOS` de
+  `extensiones_api` resolviendo `apolo.doc.document:Document`, que parchear
+  `document.resolve_all` llega a `check_integrity`, y tres tests de que el gate caza un método
+  que falta, una redefinición y un nombre de módulo que falta.
+- **Suite**: completa en el escritorio (carril A, `-n auto`, sobre `7886fb6`): EXIT 0, sin
+  FAILED ni ERROR; `-m torture`: EXIT 0; ruff limpio. En la laptop: `test_rutas_viejas`,
+  `test_tamano_archivos`, `test_claude_md`, `test_extensiones_api`, `test_geomcache*`,
+  `test_prefijos`, `test_deshacer_pasos`, `test_contract_expect`, `test_version_comandos`,
+  `test_contrato_comandos`, `test_solo_lectura`, `test_regen_state` y `test_torture -m torture`
+  en serie, verdes, y cada módulo nuevo importado solo en un subproceso. (En la laptop con
+  `-n auto`, `test_plc_rendimiento` y `test_torture_render_does_not_block_mutations` fallan por
+  tiempo bajo carga y pasan solos: ajenos al corte.)
+- **Desvíos de D8**: ninguno en el reparto. (1) `integridad` importa `_CID_RE` de
+  `persistencia` (arista mixin → mixin, sin ciclo; ningún mixin importa `document` arriba). (2)
+  Líneas de import (D1 d): `document` deja de importar `hashlib`, `io`, `json`, `re`,
+  `zipfile`, `Path`, `validate_params`, `reject_unknown`, `ext_manifest` y `variantes` (nadie
+  los importaba de ahí) y su docstring suma el mapa. (3) `document.py` mide 404 y no ≈ 410.
+  (4) En `doc/CLAUDE.md` se borró «`document.py` está en el trinquete», que ya no es cierto.
