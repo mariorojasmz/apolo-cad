@@ -483,9 +483,14 @@ otra vez, la misma pausa con el `id` del reanudar; la pausa manual llama a `paus
 del conector. El `fin` suma `determinista: false`, `lazo` (el de `externo.lazo`) y, si hubo pausa,
 `aviso_externo` («siguió corriendo con su propio reloj»). `correr_vivo` cierra los conectores
 siempre (`Corrida.cerrar` en un `finally`). Decisiones propias (para vetar):
-- **El intercambio cortado se REPITE entero al reanudar** (`vivo.k` no avanza): la agenda no
-  re-aplica lo ya aplicado, pero el tablero integra ese Δt otra vez. Retomarlo a mitad pediría
-  partir `Corrida.intercambio`; con un PLC de afuera la sesión ya no es determinista.
+- **El intercambio cortado SIGUE desde el PLC que cortó** (corrección de la revisión: repetirlo
+  entero integraba el tablero dos veces —temporizadores, térmicos y relés de tiempo 2 ms de más
+  por corte—). `Corrida.intercambio` guarda `_reanudar = (k, índice del PLC)` al ver un
+  `LazoCortado` en la etapa de los PLC y, llamado otra vez con el MISMO k, salta agenda, lectura
+  de MuJoCo y `tablero.paso` y los PLC ya hechos; un corte en la agenda (un `escribir`) no deja
+  marca: la agenda sigue desde su índice. Sin externo el `try` nunca salta (la huella del banco,
+  igual). `test_cosim_vivo.py`: una sesión con un PLC de afuera determinista (el virtual detrás
+  de la cara) que corta dos veces y reanuda da la MISMA huella que sin cortes.
 - **Una acción inyectada que corta el lazo** (un `escribir` cuyo conector lanza) responde rechazo
   «el lazo con el PLC externo se cortó al aplicarla» y re-lanza (`agenda._aplicar_inyectada`): sin
   eso quedaba sin respuesta.
@@ -507,7 +512,7 @@ ahí, la pausa manual llega al PLC falso y el `fin` trae `aviso_externo`; ni el 
 falsos quedan vivos. El gate de imports del worker suma `vivo_lazo.py`.
 
 **Vigencia (D14), medida.** `COSIM_EPOCH` sigue en 6: sólo la huella de `test_cosim_epoch.py`
-(`5343e02e81995d98` → `16990665b0266fef`). Contra `489af7d` (exportado con `git archive`), 6
+(`5343e02e81995d98` → `cc635ede096a7399`, ya con la corrección del intercambio). Contra `489af7d` (exportado con `git archive`), 6
 escenarios del banco dan la MISMA huella, claves del resultado y del `resumen` y `eventos` (marcha
 y seta por variador `98728ceb…`, seta en directo `56560dfe…`, caída de red `7d30cac0…`, corte de
 fase `9d2321b3…`, cajas con seta `20d75121…`, atasco `c871063f…`) y una sesión viva sin externo

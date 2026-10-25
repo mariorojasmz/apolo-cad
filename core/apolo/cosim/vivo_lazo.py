@@ -6,10 +6,11 @@ sobra, como siempre. Con uno (los `externos` de la `Corrida`, que eligió el ped
   - D9: UN intercambio por vez a ritmo de pared (`RitmoPared`: el intercambio k en t₀ + k·Δt) y
     el fotograma cada 1/30 s VIRTUAL; el sueño de la ventana lo pone el ritmo, no el worker;
   - D8: un `LazoCortado` de cualquier miembro PAUSA la sesión (`{"tipo": "pausa", "motivo":
-    "lazo", "mensaje"}`) y la máquina virtual no avanza más con las salidas viejas. El
-    intercambio cortado se REPITE entero al reanudar (el tablero integra ese Δt otra vez: con
-    un PLC de afuera la sesión ya no es determinista). `reanudar` llama a `reconectar()` del
-    conector si lo tiene; si corta otra vez, vuelve a la pausa con el motivo nuevo;
+    "lazo", "mensaje"}`) y la máquina virtual no avanza más con las salidas viejas. Al
+    reanudar, el intercambio cortado SIGUE desde el PLC que cortó (`Corrida.intercambio` lo
+    recuerda): ni la agenda ni el tablero se vuelven a correr, así ningún Δt se integra dos
+    veces. `reanudar` llama a `reconectar()` del conector si lo tiene; si corta otra vez,
+    vuelve a la pausa con el motivo nuevo;
   - la pausa manual llama a `pausar()`/`reanudar()` del conector si los tiene, y el `fin` dice
     que el PLC de afuera siguió con su reloj durante la pausa (una máquina virtual se detiene;
     un PLC de verdad, no);

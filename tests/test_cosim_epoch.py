@@ -123,10 +123,11 @@ ARCHIVOS = (
 #: fase, cajas con seta, atasco) dan la MISMA huella, claves y eventos que en fc734ea (bitácora).
 #: plc-en-el-lazo F1b2 (sin subir, D8, D9, D14): la sesión EN VIVO con un PLC de afuera
 #: (`cosim/vivo_lazo.py`: un intercambio por vez a ritmo de pared, la pausa por lazo cortado) y
-#: la respuesta de una acción inyectada que corta el lazo (`agenda.py`) sólo actúan con
-#: `externos`; sin ellos el vivo y el lote son los de antes: 6 escenarios del banco y una sesión
-#: viva cerrada como lote dan la MISMA huella, claves y eventos que en 489af7d (bitácora).
-HUELLA: tuple[int, str] = (6, "16990665b0266fef")
+#: la respuesta de una acción inyectada que corta el lazo (`agenda.py`) y el intercambio que
+#: sigue desde el PLC que cortó (`Corrida._reanudar`) sólo actúan con `externos`; sin ellos el
+#: vivo y el lote son los de antes: 6 escenarios del banco y una sesión viva cerrada como lote
+#: dan la MISMA huella, claves y eventos que en 489af7d (bitácora).
+HUELLA: tuple[int, str] = (6, "cc635ede096a7399")
 
 
 def archivos() -> list[Path]:

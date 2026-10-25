@@ -25,7 +25,7 @@ from apolo.plc import PLC, RUN, SIN_TENSION
 from .acople import AcopleMecanico
 from .agenda import Agenda
 from .externo import conectar
-from .puerto_plc import cerrar
+from .puerto_plc import LazoCortado, cerrar
 from .tablero import Tablero
 
 
@@ -131,6 +131,8 @@ class Corrida:
         if self.aire is not None:  # V8.9 D4: la red de aire, con su costo aparte
             self.costo["aire"] = 0.0
         self._xv: dict = {}
+        #: (k, índice del PLC) del intercambio que un PLC de afuera cortó a mitad (D8)
+        self._reanudar: tuple[int, int] | None = None
 
     def cerrar(self) -> None:
         """Cierra los conectores de los PLC externos (sin ellos, nada)."""
@@ -146,21 +148,37 @@ class Corrida:
         return {**self.tab.senales_red(self.extra), **_mecanica(self.integ, self.signos)}
 
     def intercambio(self, k: int, trazas=None, *, ultimo: bool = False) -> None:
-        """El intercambio k (t = k·Δt). Con `ultimo` no avanza la física (el cierre del lote)."""
+        """El intercambio k (t = k·Δt). Con `ultimo` no avanza la física (el cierre del lote).
+
+        Si un PLC de afuera corta el lazo en su etapa (plc-en-el-lazo D8), la corrida recuerda
+        dónde: volver a llamar con el MISMO k sigue desde ese PLC, sin re-aplicar la agenda ni
+        volver a integrar el tablero (la sesión viva pausada que reanuda)."""
         t = k * self.dt
-        self.agenda.aplicar(t)
-        a = time.perf_counter()
         tab = self.tab
-        tab.mec, tab.detecta = self.acople.leer()
-        if self.aire is not None:  # la posición del vástago al empezar el intercambio (D7)
-            self._xv = self.acople.lecturas()
-            for des, (x, v) in self._xv.items():
-                cil = tab.modelos[des]
-                cil.x, cil.v = x, v
-        tab.paso(self.dt)
+        sigue, self._reanudar = self._reanudar, None
+        if sigue is not None and sigue[0] == k:
+            desde = sigue[1]
+            a = time.perf_counter()
+        else:
+            desde = 0
+            self.agenda.aplicar(t)
+            a = time.perf_counter()
+            tab.mec, tab.detecta = self.acople.leer()
+            if self.aire is not None:  # la posición del vástago al empezar el intercambio (D7)
+                self._xv = self.acople.lecturas()
+                for des, (x, v) in self._xv.items():
+                    cil = tab.modelos[des]
+                    cil.x, cil.v = x, v
+            tab.paso(self.dt)
         b = time.perf_counter()
-        for des, plc in self.plcs.items():
-            _plc(des, plc, tab, k * self.paso_ms, self.esc.plc_run)
+        for i, (des, plc) in enumerate(self.plcs.items()):
+            if i < desde:
+                continue
+            try:
+                _plc(des, plc, tab, k * self.paso_ms, self.esc.plc_run)
+            except LazoCortado:  # sin externo nunca pasa: el PLC virtual no lo lanza
+                self._reanudar = (k, i)
+                raise
         c = time.perf_counter()
         if trazas is not None:
             trazas.registrar(k, t, self.fuentes(), self.analogicas_extra, forzar=ultimo)

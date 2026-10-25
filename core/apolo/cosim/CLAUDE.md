@@ -69,8 +69,9 @@ backend: [core/apolo](../CLAUDE.md).
   del worker, sin resultado parcial). La ida y vuelta la mide el núcleo (`externo.Medido`), nunca
   el conector. Sin externo, nada de eso corre: el bucle de siempre (la huella lo exige).
   [plc-en-el-lazo](../../../docs/plans/plc-en-el-lazo.md) (F1b1) En vivo, `vivo_lazo.py`: un
-  intercambio por vez y un corte PAUSA la sesión (nunca sigue con salidas viejas: el intercambio
-  cortado se repite al reanudar); lo que el conector lance en vivo se trata como `LazoCortado`. (F1b2)
+  intercambio por vez y un corte PAUSA la sesión (nunca sigue con salidas viejas); al reanudar,
+  `Corrida.intercambio` sigue desde el PLC que cortó (`_reanudar`): agenda y tablero NO se
+  vuelven a correr (integrarían ese Δt dos veces). Lo que lance el conector en vivo es `LazoCortado`. (F1b2)
 - Motor = placa SIEMPRE (el snapshot la arma; sin `forcelimited` no se escribe el tope). El
   atasco es `dof_frictionloss`, no `qfrc_applied` (un par explícito vibra en ω = 0).
 - La potencia se re-resuelve sólo si algo cambió más de `TOL_POTENCIA`; un dato nuevo que la

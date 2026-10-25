@@ -140,6 +140,52 @@ def test_las_acciones_sin_hora_dan_la_huella_del_lote_y_la_grabacion_tambien(doc
     assert correr(snapshot_cosim(doc, grabado, programas=PROGRAMAS))["resumen"]["huella"] == h
 
 
+class _PLCQueCorta:
+    """Un PLC «de afuera» DETERMINISTA: el virtual detrás de la cara, que corta el lazo una vez en
+    cada `cortes_ms` de su config, ANTES de correr ese paso."""
+
+    def __init__(self, programa, config):
+        self._plc = PLC(programa.compilado, ciclo_ms=programa.ciclo_ms, ciclos=programa.ciclos or None)
+        self._cortes = set(config["cortes_ms"])
+        self.cortes = 0
+
+    def paso(self, t_ms):
+        from apolo.cosim.puerto_plc import LazoCortado
+
+        if t_ms in self._cortes:
+            self._cortes.discard(t_ms)
+            self.cortes += 1
+            raise LazoCortado("corte de prueba")
+        return self._plc.paso(t_ms)
+
+    def __getattr__(self, nombre):
+        return getattr(self._plc, nombre)
+
+
+def test_un_corte_del_lazo_reanuda_sin_integrar_el_intercambio_dos_veces(snap_vivo, lote):
+    """plc-en-el-lazo F1b2 (D8): al reanudar, el intercambio cortado sigue desde el PLC, sin
+    volver a correr la agenda ni el tablero: con un PLC de afuera determinista, la sesión con
+    cortes da la MISMA huella que sin ellos (repetir el tablero adelantaba rampa y relojes)."""
+    import copy
+
+    from apolo.cosim.puerto_plc import LazoCortado
+
+    snap = copy.copy(snap_vivo)
+    snap.externos = {"-K1": (_PLCQueCorta, {"cortes_ms": [800, 2400]})}  # en marcha, con la rampa
+    v = Vivo(snap, trazas=True)
+    n, cortados = round(DUR / v.dt), []
+    while v.k < n:
+        for msg in PLAN.get(v.k, []):
+            v.recibir(msg)
+        try:
+            v.avanzar(min([k for k in PLAN if k > v.k] + [n]) - v.k)
+        except LazoCortado:
+            cortados.append(v.k)  # la sesión viva pausa aquí; reanudar = volver a avanzar
+        v.respuestas()
+    assert cortados == [400, 1200] and v.c.externos["-K1"].cortes == 2
+    assert v.cerrar_lote() == lote["resumen"]["huella"]
+
+
 def test_otra_hora_otra_huella(snap_vivo, lote):
     plan = {**PLAN, 1000: [], 980: [{"presionar": "-S0"}]}
     v, _ = _sesion(snap_vivo, plan)
