@@ -27,7 +27,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   válvula a través de sus reguladores, C del escape, pandeo, relación de carga) es UNA cuenta,
   `neumatica/cilindros.py`, para el ERC y la memoria (`neumatica/memoria.py`); una regla que pide
   una ref que el catálogo aún no trae corre sólo si su tipo está en `disponibles` (si no, avisaría
-  en todo circuito sin arreglo). La geometría del cilindro
+  en todo circuito sin arreglo; desde F7b hay silenciadores y reguladores). La BOM del aire
+  (`bom_electrico._racores`) suma un racor por extremo de tubo en un puerto ROSCADO (rosca × Ø,
+  `specs.racor_rosca`/`racor_tubo_mm`) y lee un tubo SIN largo hacia un silenciador como roscado
+  directo (ni tubo ni racor). La geometría del cilindro
   (`builders_neumatica.py`) lee las cotas de los `params` de la ref (con su fuente en el YAML) y
   las de los accesorios ISO 15552 de `neumatica/montajes.py` (tablas transcritas): nunca una cota
   de interfaz en el builder. El vástago viene con su ref: `incluidas.py` lo saca de la BOM y de la

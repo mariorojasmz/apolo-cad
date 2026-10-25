@@ -14,7 +14,9 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   toca); el de la dinámica es por segundo simulado.
 - El casco convexo de un perno no cabe en su barreno: MuJoCo lo expulsa. Las puertas (entrega
   con gravedad y publicación) pasan la tornillería en `asentadas` (estática, como su sujeción
-  declarada); `gravity_test` no. [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F5)
+  declarada); `gravity_test` pasa sólo la de un `join_bolted` declarado en `sujetas` (estática si
+  una de sus dos piezas lo es). [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md) (F5) ·
+  [V8.9](../../../docs/plans/V8.9-neumatica.md) (F7b)
 
 ## Dinámica (`dinamica*.py`, `banda.py`, `sensores.py`)
 
@@ -32,7 +34,9 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   lo fijado por `fasten` a una pieza móvil sin junta queda FUERA y el aviso pide `arrastrar`.
 - La inercia sale del SÓLIDO (GProp de OCCT, escalada a la masa: catálogo si hay ficha, si no
   `_link_physics`), nunca de la colisión: el casco de un tubo es macizo y la cápsula suma
-  casquetes. La colisión simplifica libre: cápsula para rodillos/tambores, casco el resto.
+  casquetes. La colisión simplifica libre: cápsula para rodillos/tambores, casco el resto, UNO
+  POR SÓLIDO (`hull.cascos`: un túnel de tres sólidos en una pieza no tapa su boca; un sólido
+  cóncavo sigue siendo un casco). [V8.9](../../../docs/plans/V8.9-neumatica.md) (F7b)
 - Grupos: máquina y bastidor NO chocan salvo `colisiones_maquina` (las piezas montadas se
   solapan: ejes en largueros, lagging sobre la banda); entonces cada padre–hijo lleva
   `<exclude>` y la pieza padre estática va en un cuerpo soldado propio para poder nombrarla.

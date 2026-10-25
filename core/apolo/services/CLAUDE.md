@@ -163,14 +163,17 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   (`cosim_red.largos_calculados`): el declarado manda, nunca otra cuenta. El ERC que mira la
   escena (pieza de seguridad sin circuito, altura de los mandos) está en `erc_escena.py`; una
   regla del ERC que sólo da filas con hallazgo entra en `electrico.REVISA` para salir en
-  `revisadas` cuando pasa. (F5b)
+  `revisadas` cuando pasa. (F5b) «Aparato de campo sin pieza» (`electrico.campo_sin_pieza`,
+  V8.9 F7b) avisa lo de montaje `campo` (y lo de aire que no es tubo) sin pieza 3D, SÓLO si la
+  escena tiene piezas: un tablero solo, sin máquina en 3D, no es un modelo a medias.
 
 - El circuito de AIRE (V8.9) sale en la MISMA salida que lo eléctrico: `neumatica.py` arma la
   sección `neumatica` de `circuito`, los `puertos` de cada aparato de aire y suma el ERC
   neumático (filas `medio: "aire"`) AL FINAL de `_erc_completo`; sin aire no suma nada (la
   salida de siempre, que congela `tests/data/carril_v81_golden.json`). La memoria del aire
-  (`neumatica.memoria`) usa la velocidad MEDIDA del escenario vigente más rápido si pasa la
-  declarada (`resultado["aire"]` de `aire_resultado.py`, sin trazas); un vencido no cuenta.
+  (`neumatica.memoria`) lee de `neumatica.lecturas` el tiempo de carrera del escenario NOMINAL
+  (carrera completa, sin falla) y la velocidad del PICO de todos, si pasa la declarada (que es la
+  de RÉGIMEN): una seta que corta la carrera no es el tiempo del cilindro (F7b). Sólo vigentes.
   Lo que VE la persona (panel «Neumática», `GET /api/neumatica`) es `neumatica_panel.panel` sobre
   ese MISMO ERC y esa memoria (las cifras de cada fila de la memoria van en `valor`: el panel no
   rehace cuentas); el esquema, la lámina de F5 en primitivas (`neumatica_vista.py`).

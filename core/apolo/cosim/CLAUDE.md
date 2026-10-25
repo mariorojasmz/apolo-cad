@@ -79,6 +79,9 @@ backend: [core/apolo](../CLAUDE.md).
   (`services/cosim_bandas.py`). Un ajuste obligatorio se lee con `p.ajustado` (así
   `ajustes_faltantes` los junta todos para el ERC y el snapshot), nunca con un `try` propio
   (F6 § Bitácora).
+- Un número con `==`/`!=` contra una señal de TEXTO cuyos valores son números escritos (la
+  posición «14» de una válvula) se compara como texto (`concretar(a, tipo, ejemplo)`, en los dos
+  lados); contra un texto que no es número sigue siendo error de tipo. [V8.9](../../../docs/plans/V8.9-neumatica.md) (F7b)
 - **`COSIM_EPOCH`** (`cosim/__init__.py`) entra a la vigencia de un resultado: súbelo cuando un
   cambio pueda cambiar el resultado o el veredicto de un escenario con el MISMO documento
   (modelos, redes, planificador, PLC, dinámica, snapshot, lectura o evaluación de aserciones); un
