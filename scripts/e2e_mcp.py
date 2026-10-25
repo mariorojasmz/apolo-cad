@@ -232,8 +232,11 @@ def _variable(pedida: str | None, variables: list[dict]) -> tuple[str, str, str]
 async def recorrer(g: Guion, a) -> None:
     t0 = time.perf_counter()
     nombres = [t.name for t in (await g.sesion.list_tools()).tools]
-    g.registra("list_tools", len(nombres) == a.tools, t0,
-               f"{len(nombres)} tools (esperadas {a.tools})")
+    if a.tools is None:  # sin --tools: basta con que el servidor publique tools
+        g.registra("list_tools", bool(nombres), t0, f"{len(nombres)} tools")
+    else:
+        g.registra("list_tools", len(nombres) == a.tools, t0,
+                   f"{len(nombres)} tools (esperadas {a.tools})")
 
     def proyectos(res):
         lista = _json(res)
@@ -465,7 +468,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--puerto", type=int, default=8012, help="puerto de la API (def. 8012)")
     ap.add_argument("--proyecto", type=int, default=38, help="id del proyecto (def. 38)")
     ap.add_argument("--variable", help="NOMBRE=EXPR para set_variable (def. la 1.ª × 1.1)")
-    ap.add_argument("--tools", type=int, default=87, help="nº de tools esperado (def. 87)")
+    ap.add_argument("--tools", type=int,
+                    help="nº de tools esperado (sin él no se exige: un número fijo caducaba "
+                         "con cada tool nueva; el conteo, en scripts/conteos.py)")
     ap.add_argument("--espera", type=float, default=300.0,
                     help="segundos que el cliente espera cada tool (def. 300)")
     ap.add_argument("--md", action="store_true", help="repite la tabla en Markdown")
