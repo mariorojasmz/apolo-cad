@@ -145,5 +145,9 @@ class Parser(ParserBase):
 
 
 def parsear(fuente: str) -> A.Unidad:
-    """La unidad de la fuente. Lanza `ErrorSintaxis` en el primer error."""
-    return Parser(tokenizar(fuente)).unidad()
+    """La unidad de la fuente, con sus comentarios en `Unidad.comentarios` (plan plc-en-el-lazo,
+    D2: los tokens son los mismos que sin juntarlos). Lanza `ErrorSintaxis` en el primer error."""
+    comentarios: list[A.Comentario] = []
+    u = Parser(tokenizar(fuente, comentarios)).unidad()
+    u.comentarios = comentarios
+    return u

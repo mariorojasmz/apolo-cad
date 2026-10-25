@@ -4,6 +4,9 @@ ST no distingue mayúsculas: las palabras clave se normalizan a MAYÚSCULAS y lo
 identificadores guardan su escritura original (para los mensajes y la tabla de tags);
 quien los compara usa `.lower()`. Un identificador con `__` se rechaza aquí (la norma
 no lo permite y así nada del programa puede nombrar un atributo dunder de Python, D6).
+
+Los comentarios no son tokens: si quien llama pasa una lista en `comentarios`, se juntan ahí como
+`ast_st.Comentario` (plan plc-en-el-lazo, D2) y los tokens salen IDÉNTICOS a los de sin juntar.
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ import re
 from dataclasses import dataclass
 from fractions import Fraction
 
+from .ast_st import Comentario
 from .errores import ErrorST, ErrorSintaxis
 
 PALABRAS = frozenset("""
@@ -79,8 +83,9 @@ def _tiempo_ms(texto: str, linea: int, col: int) -> int:
     return valor
 
 
-def tokenizar(fuente: str) -> list[Token]:
-    """Los tokens de la fuente, terminados en FIN. Corta en el primer error."""
+def tokenizar(fuente: str, comentarios: list[Comentario] | None = None) -> list[Token]:
+    """Los tokens de la fuente, terminados en FIN. Corta en el primer error. Con `comentarios`
+    (una lista), le agrega cada comentario en el orden de la fuente; los tokens no cambian."""
     tokens: list[Token] = []
     i, linea, ini_linea, n = 0, 1, 0, len(fuente)
     while i < n:
@@ -98,6 +103,9 @@ def tokenizar(fuente: str) -> list[Token]:
             if fin < 0:
                 raise _error(linea, col, f"comentario sin cerrar: falta «{cierre}»")
             trozo = fuente[i:fin + 2]
+            if comentarios is not None:
+                comentarios.append(Comentario(trozo[2:-2], linea, col, linea + trozo.count("\n"),
+                                              fuente[i:i + 2]))
             if trozo.count("\n"):
                 linea += trozo.count("\n")
                 ini_linea = i + trozo.rfind("\n") + 1
@@ -105,6 +113,9 @@ def tokenizar(fuente: str) -> list[Token]:
             continue
         if fuente.startswith("//", i):
             fin = fuente.find("\n", i)
+            if comentarios is not None:  # sin el «\r» de un fin de línea de Windows
+                texto = fuente[i + 2:n if fin < 0 else fin].removesuffix("\r")
+                comentarios.append(Comentario(texto, linea, col, linea, "//"))
             i = n if fin < 0 else fin
             continue
         if c.isalpha() and not c.isascii():

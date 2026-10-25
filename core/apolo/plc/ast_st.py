@@ -225,6 +225,22 @@ class POU:
 
 
 @dataclass
+class Comentario:
+    """Un comentario de la fuente (plan plc-en-el-lazo, D2). No es parte del programa: el
+    compilador no lo mira. `texto` es lo de adentro, sin los delimitadores ni el «\\r» final;
+    `estilo` es el delimitador que lo abre: «(*», «/*» o «//». `linea_fin` es la línea del
+    cierre (la misma en «//»). Los nodos sólo llevan su línea de inicio: quien imprime el
+    programa intercala los comentarios por línea."""
+    texto: str
+    linea: int
+    col: int
+    linea_fin: int
+    estilo: str
+
+
+@dataclass
 class Unidad:
     globales: list[BloqueVar] = field(default_factory=list)
     pous: list[POU] = field(default_factory=list)
+    #: los comentarios de la fuente, en orden (D2); vacío si quien parsea no los juntó
+    comentarios: list[Comentario] = field(default_factory=list)

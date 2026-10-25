@@ -18,5 +18,10 @@ bornes válidos los pasa quien compila (`compilar(fuente, bornes=…)`): aquí n
 - Un bloque estándar nuevo: clase con `__slots__` + `INICIAL` + función `(inst, t)` en
   `bloques.py`, y su interfaz en `tipos.FB_ESTANDAR`.
 - `Compilado` es picklable: el código objeto se rearma y RE-verifica al pedirlo.
+- Los comentarios no son tokens: `tokenizar(fuente, comentarios=lista)` los junta como
+  `ast_st.Comentario` y `parsear` los deja en `Unidad.comentarios`; el compilador NO los mira (el
+  `Compilado` es el mismo con y sin juntarlos: `test_plc_comentarios.py`). Lo que una extensión
+  importa de `plc` está en `extensiones_api.MODULOS`: quitar o renombrar sube
+  `CONTRATO_EXTENSIONES`. [plc-en-el-lazo](../../../docs/plans/plc-en-el-lazo.md) (D1, D2)
 - Rendimiento: ≤ 50 µs por scan con ~500 líneas (`test_plc_rendimiento.py`, `-m torture`).
   Las ayudas en línea (índice, `/` y `MOD` por constante) son por eso: no las saques.

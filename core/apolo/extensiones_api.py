@@ -145,6 +145,20 @@ MODULOS: dict[str, tuple[str, ...]] = {
     # los datos de ficha (plan datos-de-corte-y-acometida, D12): qué pide cada tipo y el valor de
     # un mapa por tensión, leídos por el contrato y no por fuera
     "apolo.library.electrico.ficha_datos": ("REQUERIDOS", "a_tension", "requeridos"),
+    # el PLC virtual (plan plc-en-el-lazo, D1): compilar y correr un programa, su árbol con los
+    # comentarios (D2), los tipos y bloques del subconjunto de ST y las direcciones IEC de Apolo;
+    # la lectura del programa del documento ya es `services.electrico.modelo` → `Programa`
+    "apolo.plc": ("PLC", "RUN", "SIN_TENSION", "STOP", "Compilado", "ErrorCompilacion",
+                  "ErrorST", "FallaPLC", "compilar"),
+    "apolo.plc.parser": ("parsear",),
+    "apolo.plc.ast_st": ("Arg", "Asignacion", "Binaria", "BloqueVar", "Caso", "Comentario",
+                         "Decl", "DirExpr", "Etiqueta", "Indice", "InicialArreglo", "Literal",
+                         "Llamada", "LlamadaSent", "Miembro", "Mientras", "Nombre", "POU", "Para",
+                         "Repetir", "Retornar", "Salir", "Si", "TipoArreglo", "TipoRef", "Unaria",
+                         "Unidad"),
+    "apolo.plc.tipos": ("CONVERSIONES", "DEFECTO", "ELEMENTALES", "FB_ESTANDAR",
+                        "FUNCIONES_ESTANDAR", "RANGO"),
+    "apolo.plc.direcciones": ("Direccion", "ESCALA_AI", "parsear"),
 }
 
 def resolver(origen: str):

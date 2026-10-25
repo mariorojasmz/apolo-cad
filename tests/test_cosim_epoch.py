@@ -106,7 +106,11 @@ ARCHIVOS = (
 #: «== 14» contra un texto numérico («-QM2.posicion») se compara como texto (antes, error de tipo).
 #: Las analógicas de la mecánica guardan 0.0 en vez de -0.0 (`trazas.py`: la y de un producto
 #: centrado cambiaba de signo de cero entre el vivo y el worker).
-HUELLA: tuple[int, str] = (6, "94baff4fbdce3c37")
+#: plc-en-el-lazo F1a (sin subir, D14): el lexer junta los comentarios en el árbol SÓLO si le
+#: pasan una lista; los tokens no cambian: 154 programas (los de `test_plc_*`, el del banco y el
+#: sintético) compilan idénticos y 6 escenarios del banco (marcha y seta por variador, seta, caída
+#: de red, corte de fase, cajas con seta, atasco) dan la MISMA huella que en 833ce8e (bitácora).
+HUELLA: tuple[int, str] = (6, "RECALCULAR")
 
 
 def archivos() -> list[Path]:
