@@ -171,6 +171,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   salida de siempre, que congela `tests/data/carril_v81_golden.json`). La memoria del aire
   (`neumatica.memoria`) usa la velocidad MEDIDA del escenario vigente más rápido si pasa la
   declarada (`resultado["aire"]` de `aire_resultado.py`, sin trazas); un vencido no cuenta.
+  Lo que VE la persona (panel «Neumática», `GET /api/neumatica`) es `neumatica_panel.panel` sobre
+  ese MISMO ERC y esa memoria (las cifras de cada fila de la memoria van en `valor`: el panel no
+  rehace cuentas); el esquema, la lámina de F5 en primitivas (`neumatica_vista.py`).
   [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y

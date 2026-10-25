@@ -32,6 +32,11 @@ sin reglas propias (veredicto, ítems, cifras como `valor`+`unidad`); `VistaTabl
 (la montan el panel y el muestrario) y un conductor o un cable de campo elegido (comparten ids:
 son comandos) se dibuja con `recorrido3d.ts` (instalado en el visor, fuera de `group`). Una fila elegida abre lo suyo DEBAJO de ella
 (`ItemsAtencion` `elegida`/`debajo`), nunca al final de la lista. [V8.5](../docs/plans/V8.5-tablero-3d.md) F3b
+El panel «Neumática» (`src/neumatica/`) es el mismo patrón sobre `services/neumatica_panel.py`; su
+esquema ISO 1219 llega en PRIMITIVAS y se dibuja en línea con la tinta del tema (nunca el SVG de la
+lámina en un `<img>`: el clic elige y las líneas se tiñen en vivo). Lo que la co-simulación no
+publica como señal (el manual ENCLAVADO de una válvula) se lleva en una store fuera del panel
+(`neumatica/manual.ts`): cerrar el cajón desmonta el componente. [V8.9](../docs/plans/V8.9-neumatica.md) F6
 
 ## Texto y ayuda: la pantalla se explica sola
 
@@ -322,7 +327,8 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).
 - **Excepción acotada de color**: el color FÍSICO de un mando o un piloto (`vivo/mandos.ts::colorFisico`,
   del `specs.color` del catálogo; el emisivo de un piloto con pieza) y el color por dato con su
-  leyenda (el osciloscopio, `vivo/paleta.ts`). Nunca un rojizo ni un verde de ESTADO. [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) D9
+  leyenda (el osciloscopio, `vivo/paleta.ts`; la presión del esquema vivo, `neumatica/esquema.ts`,
+  una rampa de UN tono validada con `--ordinal`). Nunca un rojizo ni un verde de ESTADO. [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) D9
 - La máquina viva (`ui/src/vivo/`, nunca en `Viewport.tsx`): `sesion.ts` lee el `WS /api/cosim/vivo`
   y carga en `useMarcha` una serie `vivo: true` que CRECE EN SITIO (`serieViva.ts`, anillo de 60 s;
   jamás `cargar` por fotograma: rehace el reproductor); `enVista.ts` la arma con
