@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9); F1a, F1b1, F1c1, F1b2, F1d1 y F1c2 mergeadas (superficie y comentarios del PLC, PLC externo en el lote y en vivo con ritmo de pared, escribir variables, panel de operador de 7″ con puertos RJ45, bus de la sesión viva); sigue F1d2 (puntos de UI)
+estado: implementado
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9); las siete fases mergeadas o en revisión (F1d2, puntos de UI: chips de la barra viva, pantallas 3D y la API viva de las extensiones). Queda: la barra dice «En pausa» sin el motivo cuando se corta el lazo (el `mensaje` de la pausa no se muestra) y el carril no sabe que un cable de red une dos PUERTOS (plan de la red de datos)
 descripcion: un PLC de verdad (o el simulador de su fabricante) mueve la máquina virtual en vivo o en una corrida a la pared, y se dice que esa corrida no es determinista; una pantalla de operador o un SCADA escriben variables del programa y siguen la sesión viva; el catálogo trae un panel de operador de 7″ para la puerta del tablero
 ---
 
@@ -627,3 +627,73 @@ rechaza y con la sesión cerrada `enviar_vivo` es `False`.
 
 **Vigencia (D14).** Nada de `cosim/` ni `plc/`: la huella de `test_cosim_epoch.py` no cambia;
 `COSIM_EPOCH`, `GEOM_CACHE_EPOCH` y versiones de comandos igual; ninguna tool MCP nueva.
+
+### F1d2 — Puntos de UI
+
+**D13 a.** `Extension.chipsVivo: [{id, Componente}]` lo pinta `vivo/ChipsVivo.tsx` en `BarraVivo`
+justo tras la fase y el factor (antes del aire), cada uno en un `<span class="bv-chip">` con su
+límite de errores (un chip que revienta se quita y la barra sigue). Sin chips, `ChipsVivo` no
+pinta nada: la barra se comparó contra la de `752a663` (el `BarraVivo.tsx` de ese commit
+renderizado en el mismo test) en corriendo, pausa, fin y cerrada, byte por byte igual;
+`vivo/chips.test.ts` lo deja vigilado (sin chips = sin extensiones; con un chip, quitar su `span`
+devuelve la barra de antes y va tras `bv-factor`). `BarraVivo` toma `extensiones` opcional (por
+defecto `EXTENSIONES`) para eso y para el muestrario.
+
+**D13 b.** `Extension.pantallas3d: [{id, tipo, dibujar(ctx, vivo), tocar?(x, y, vivo)}]` lo instala
+`vivo/pantallas3d.ts` desde `reproductorVivo.ts`: por cada dispositivo del `inicio` con ese `tipo`
+y pieza en el 3D, un plano con `CanvasTexture` (`MeshBasicMaterial`, sin tonemapeo) en `ctx.group`
+(`raycast` no-op), que sigue a su pieza en cada cuadro (`matrixWorld`: también si la puerta gira),
+se repinta cada 100 ms y se libera al restaurar. La resolución es `pantalla_px` del dispositivo
+(F1d1); el plano tiene su proporción dentro del 82 % de la cara (el vidrio dentro del marco). El
+toque usa la MISMA captura que los mandos: `mandos3d.ts` exporta ahora `capturarToques(contenedor,
+alApretar, alSoltar?)` y los mandos la usan (mismo comportamiento); el plano cuenta si el rayo lo
+toca antes que cualquier pieza visible, uv → px y `tocar`; sin `tocar`, el clic pasa al visor.
+Lo puro, en `vivo/pantallas.ts`: `caraFrontal`, `matrizDeCara`, `rectanguloPantalla`, `uvAPx`,
+`pantallasDeLaSesion` y `temaDe`. Decisiones propias (para vetar):
+- **La cara frontal sale de la GEOMETRÍA, sin convención de ejes**: entre las caras planas
+  extremas de la pieza (triángulos agrupados por normal, el plano más afuera en ese sentido), la de
+  más área. El panel de 7″ tiene el marco (200,3 × 146,3) delante y el cuerpo menor detrás, así
+  que gana el frente con cualquier giro, con matriz de instancia o con la malla ya en el mundo. Si
+  empatan (una placa lisa) gana la que mira más a −Y del mundo (la vista «frente», la puerta de un
+  tablero sin girar). `v` es el eje de la cara que más sube en el mundo (cara horizontal: el que
+  más va a +Y) y `u = v × n`: la pantalla nunca sale espejada ni de costado. No hizo falta backend.
+- **`vivo` lo arma quien instala** (`VivoPantalla`: dispositivo, `inicio`, ancho y alto en px, `t`,
+  `valor`, `texto`, `enviar`, `tema`, `movimientoReducido`): la extensión pinta sólo con los tokens
+  del tema que le llegan (`--bg`, `--panel`, `--text`, `--muted`, `--accent`, `--border` y la letra
+  del `body`, leídos una vez) y sabe de `prefers-reduced-motion`; el muestrario le pasa una sesión
+  de ejemplo. Una pantalla que lanza al pintar se avisa una vez y deja de pintarse.
+- **Dos pantallas para el mismo `tipo` se rechazan al cargar** (pintarían el mismo plano), como
+  un id repetido.
+
+**D13 c.** `ui/src/extensiones/vivo.ts`: `useFaseVivo`, `useValorVivo(señal)` (no estaba en la
+lista: un chip necesita re-pintar con la señal; ≤ 10 Hz como el panel), `valorVivo`, `inicioVivo`
+(lee `useVivo.inicio`, que la sesión pone al llegar el `inicio`), `enviarVivo(mensaje) -> boolean`
+y `abrirSesionViva(escenario, {plcExterno})`, más los tipos. `abrirSesion(…, {plcExterno})` manda
+`?plc_externo=` en JSON (lo valida el servidor: ≤ 1 KB, conector, programa) y reiniciar lo vuelve a
+pedir; `urlSesion` quedó exportada y pura (recibe `location`). `enviarVivo` pasa por
+`protocolo.problemaDeMensaje` (objeto con `accion` o `evento`, uno solo; nunca `control` ni `id`
+propio; ≤ 4096 bytes), lleva id `x<n>` y su rechazo llega como el de cualquier acción. El `inicio`
+tipa `plc_externo` y `determinista`; el cierre **4502** y el `fin` con motivo `lazo` tienen texto
+para la persona (sin eso, abrir con un PLC que no contesta decía «se perdió la conexión»).
+
+**Registro.** `extensiones/puntosVivo.ts` valida (lo llama `registro.ts`, todo junto en un
+mensaje): listas, id con el prefijo de la extensión, componente del chip, `tipo` en minúsculas,
+`dibujar` función, `tocar` función si viene; entre extensiones, ids repetidos y un tipo con dos
+pantallas. Todo campo nuevo es opcional; `registro.test.ts` suma 5 casos.
+
+**Muestrario.** La extensión de prueba (`extensionPrueba.tsx`) suma el chip «Consigna 50 %» (lee
+`-K1.Main.consigna` con la API viva) y una pantalla `hmi` que pinta la consigna con «−10» y «+10»;
+tocar manda `{accion: "escribir", dispositivo: "-K1", variable: "Main.consigna", valor}`.
+`PantallaDemo.tsx` la instala con `instalarPantallas3D` sobre un panel con la forma de
+`panel_puerta` en la puerta de un tablero girado 25° (`?giro=`); la sesión de ejemplo aplica el
+`escribir` y el chip de la barra lo ve. Verificado en el navegador: el plano sobre el frente del
+panel, derecho, y tocar «+10» lleva la pantalla y el chip a 60 % sin seleccionar ni girar la
+cámara. Capturas en `C:\t\lazo-f1d2\` (fuera del repo).
+
+**Lo que se verificó.** `npm test` 565 (antes 542: `pantallas.test.ts` 15 —la cara del panel
+suelto, en la puerta con el tablero a 0°, 25°, 90°, 180° y −137°, la malla ya en el mundo e
+inclinada, la placa lisa, una cara horizontal, la matriz del plano, el rectángulo, uv → px, qué
+dispositivo lleva pantalla, el tema, el toque y el pintado de la pantalla de prueba, los mensajes y
+la query `plc_externo`—, `chips.test.ts` 3 y `registro.test.ts` +5), `npm run build` y los
+trinquetes de texto, tuteo y tamaño (el archivo más largo tocado: `sesion.ts`, 319 líneas). Nada de
+backend ni de Python: sin huella, epochs, versiones ni tools.
