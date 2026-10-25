@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) implementada sobre `553b208`, pendiente de revisión y merge; luego F1 (MCP, después de que entre V8.9 F6) → F3 → F4 → F5 → F6
+nota: contrato de Claude con el aval del titular (2026-10-24: «aborda los puntos débiles … procede según tu criterio»); F0 medida sobre `1f01d0a`; F2 (models → familias) en `main` (`1f13862`); F1 (MCP → tools/) implementada sobre `1f13862`, pendiente de revisión y merge; siguen F3 → F4 → F5 → F6
 descripcion: por fuera nada cambia —mismos comandos, mismas tools MCP, mismos proyectos y la misma caché de geometría—; por dentro los cuatro archivos más tocados del núcleo quedan en módulos de ≤ 500 líneas y dos sesiones ya no chocan en el mismo archivo
 ---
 
@@ -369,3 +369,44 @@ La sesión principal re-corre todo antes de integrar.
   fachada mide 112 y no ≈ 85: re-exports explícitos de uno por línea. Las familias importan
   `Vec3`/`Rot3` de `.models_base` (no de `.models`): sin ciclo; las referencias adelantadas
   (`'SlideUV'`, `'FlapSpec'`) resuelven en su familia sin tocar el texto.
+
+### F1 — `mcp_server.py` → `tools/` (2026-10-25, base `1f13862`)
+
+- **Corte** (script por NOMBRE sobre el AST: cada bloque, del comentario de sección a la última
+  tool, se reemplaza por ese comentario + `globals().update(<tema>.registrar(mcp, lambda …))`;
+  cada tool se copia línea a línea con 4 espacios más, las vacías siguen vacías):
+
+  | módulo | tools | líneas |
+  |---|---:|---:|
+  | `tools/consulta.py` | 10 | 152 |
+  | *(en línea, modelado)* | 7 | — |
+  | `tools/validacion.py` | 4 | 182 |
+  | `tools/proyectos.py` | 10 | 134 |
+  | `tools/introspeccion.py` (recibe `_paso`) | 21 | 284 |
+  | `tools/topologia.py` | 10 | 198 |
+  | `tools/fabricacion.py` (recibe `_submit_and_wait`) | 7 | 145 |
+  | `tools/visibilidad.py` | 2 | 36 |
+  | `tools/calculo.py` | 5 | 136 |
+  | `mcp_server.py` | — | 273 (era 1 366; sale de `EXCEPCIONES`) |
+
+- **Fuentes**: las 76 tools de la foto «antes» contra las de después (`mcp_server` + `tools/`):
+  0 distintas por `cleandoc` del docstring + `ast.dump` del resto (args, decoradores, retorno,
+  cuerpo), 0 perdidas; además, texto: cada línea movida = 4 espacios + la original (0 distintas).
+- **Golden**: `test_mcp_golden` verde SIN `--congelar` (instructions, las 90 de `list_tools()` en
+  el mismo orden, las llamadas). `tests/test_contrato_comandos.py`, `tests/data/mcp_golden` y
+  `geomcache.py` sin diff contra `main`. `test_mcp_registro` (sonda `-m`: las ocho nuevas en el
+  `mcp` que corre, sin segunda copia), `test_docstrings_limpios`, ruff y cada módulo nuevo
+  importado solo en un subproceso, verdes. Suite completa en el escritorio (carril C, `-n auto`,
+  sobre `985ea53`): EXIT 0, sin FAILED ni ERROR; ruff limpio.
+- **Gate D11**: `test_rutas_viejas.py` suma la sección MCP: lista CERRADA de las 76 por casa
+  (`__module__` de la función: las de `tools/` nacen dentro de `registrar`), cada una el MISMO
+  objeto que la tool registrada en `mcp`, más la infraestructura de D2; dos tests prueban que caza
+  una tool que falta y una copia, y otro que parchear `mcp_server._api` llega a las movidas
+  (lambda tardía).
+- **Desvíos de D5**: ninguno en el reparto. (1) `mcp_server.py` mide 273 y no ≈ 260: los ocho
+  comentarios de sección se quedan sobre su `registrar` y dos llamadas ocupan dos líneas. (2)
+  Líneas de import (D1 d): sale `Image` de `mcp_server` (ya no la usa y nadie la importa de ahí);
+  `_scene_brief`/`_one_or_many` se quedan con `# noqa: F401` (re-export de D2). (3) Dentro de
+  `registrar` las tools se separan con una línea en blanco, no dos (no son parte de su fuente).
+  (4) El docstring de `tools/catalogo.py`, que enumera los módulos viejos, no se tocó (fuera del
+  alcance).
