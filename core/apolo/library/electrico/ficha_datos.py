@@ -144,10 +144,11 @@ def _falta(err, ruta: str, que: str):
 
 
 def parse_datos(err, crudo_datos, crudo_fuente, crudo_a_confirmar, *, tipo: str | None,
-                montaje: str | None, modelo: dict) -> DatosFicha:
+                montaje: str | None, modelo: dict, extra_a_confirmar: tuple[str, ...] = ()) -> DatosFicha:
     """`datos`, `fuente` y `a_confirmar` de un bloque `electrico:` → `DatosFicha` validados.
     `err(ruta, msg)` arma el ValueError con la ref (el de `ficha.py`); `tipo`, `montaje` y
-    `modelo` son los de la ficha ya validada."""
+    `modelo` son los de la ficha ya validada; `extra_a_confirmar`, otras claves de la ficha que
+    `a_confirmar` puede nombrar (las `direcciones` de un PLC, `ficha_direcciones.py`)."""
     perm = permitidas(tipo)
     datos: dict = {}
     if crudo_datos is not None:
@@ -174,7 +175,7 @@ def parse_datos(err, crudo_datos, crudo_fuente, crudo_a_confirmar, *, tipo: str 
         if cifra in datos and texto not in datos:
             raise err(f"datos.{texto}", f"con `{cifra}` va la protección con que se ensayó "
                                         f"({perm[texto][1]})")
-    a_confirmar = _a_confirmar(err, crudo_a_confirmar, perm, tipo, modelo)
+    a_confirmar = _a_confirmar(err, crudo_a_confirmar, perm, tipo, modelo, extra_a_confirmar)
     fuente = "" if crudo_fuente is None else crudo_fuente
     if not isinstance(fuente, str):
         raise err("fuente", f"se espera un texto (el documento del fabricante o la norma), llegó {fuente!r}")
@@ -188,12 +189,14 @@ def parse_datos(err, crudo_datos, crudo_fuente, crudo_a_confirmar, *, tipo: str 
     return DatosFicha(datos, fuente, a_confirmar)
 
 
-def _a_confirmar(err, crudo, perm: dict, tipo: str | None, modelo: dict) -> tuple[str, ...]:
+def _a_confirmar(err, crudo, perm: dict, tipo: str | None, modelo: dict,
+                 extra: tuple[str, ...] = ()) -> tuple[str, ...]:
     if crudo is None:
         return ()
     if not isinstance(crudo, list) or not all(isinstance(x, str) for x in crudo):
         raise err("a_confirmar", f"se espera una lista de claves (`Icu_kA`, `T_max_C`), llegó {crudo!r}")
-    validas = set(perm) | {k for k in modelo if k != "tipo"} | set(MODELO_SIN_VALOR.get(tipo or "", ()))
+    validas = (set(perm) | {k for k in modelo if k != "tipo"} | set(MODELO_SIN_VALOR.get(tipo or "", ()))
+               | set(extra))
     for k in crudo:
         if k not in validas:
             hit = sugerir(k, sorted(validas), 1)

@@ -41,6 +41,11 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   error (`REQUERIDOS` por tipo + `T_max_C` en toda ref de tablero): la cifra con su documento en
   `fuente`, o la clave en `a_confirmar` SIN valor; nunca de memoria.
   [plan](../../../docs/plans/datos-de-corte-y-acometida.md)
+- Bloque `electrico.direcciones` (`electrico/ficha_direcciones.py`, puro): cómo llama el
+  FABRICANTE a cada E/S (`{I0.0: "%I0.0", AI0: "%IW64"}`), fuera de `modelo` (no vence firmas).
+  Opcional pero COMPLETO (E/S = bornes que el ST alcanza por dirección), con `fuente` leída en el
+  manual, o «direcciones» en `a_confirmar` sin mapa. El ST de Apolo sigue con `%IX`/`%IW0`.
+  [plan](../../../docs/plans/plc-en-el-lazo.md) (D3)
 - Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
   canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva

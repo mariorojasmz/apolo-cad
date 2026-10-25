@@ -14,7 +14,9 @@ corregir. Lo que valida:
     UNA forma («10», «10A»), curvas válidas y el `sistema` de una red coherente con su fuente,
     su `esquema` de tierra en la lista de `acometida.py` y `RA_ohm` sólo con TT;
   - `datos`, `fuente` y `a_confirmar` (plan datos-de-corte-y-acometida, D1–D5): los datos de
-    ficha que lee quien verifica, fuera de `modelo`, con su COMPLETITUD (`ficha_datos.py`).
+    ficha que lee quien verifica, fuera de `modelo`, con su COMPLETITUD (`ficha_datos.py`);
+  - `direcciones` (plan plc-en-el-lazo, D3): cómo llama el fabricante a cada E/S, completo y
+    con `fuente` (`ficha_direcciones.py`).
 
 Puro: no importa el catálogo ni la geometría.
 """
@@ -23,7 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import acometida, ficha_datos
+from . import acometida, ficha_datos, ficha_direcciones
 from .modelo import Borne, Camino, Carga, Fuente, Hilo
 from .referencias import sugerir
 from .tension import Tension, parse_tension, polos_obligatorios, polos_validos
@@ -62,7 +64,7 @@ SISTEMAS = {"1F+N": (1, False), "2F": (2, False), "3F": (3, False), "3F+N": (3, 
 
 _CLAVES = ("funcion", "simbolo", "montaje", "perdidas_W", "bornes", "caminos", "cargas",
            "fuentes", "modelo", "protege_motor", "parada_emergencia", "bornera", "conductor", "nota",
-           "datos", "fuente", "a_confirmar")
+           "datos", "fuente", "a_confirmar", "direcciones")
 _CLAVES_BORNE = ("id", "rol", "lado", "obligatorio")
 _CLAVES_CAMINO = ("de", "a", "tipo", "accion", "grupo")
 _CLAVES_CARGA = ("bornes", "tension", "tipo", "obligatoria", "polar")
@@ -98,6 +100,8 @@ class FichaElectrica:
     datos: dict = field(default_factory=dict)
     fuente: str = ""
     a_confirmar: tuple[str, ...] = ()
+    #: {borne de E/S: dirección del fabricante} (`ficha_direcciones.py`); fuera de `modelo`
+    direcciones: dict = field(default_factory=dict)
 
     @property
     def ids_bornes(self) -> tuple[str, ...]:
@@ -356,15 +360,19 @@ def parse_ficha(crudo, ref: str) -> FichaElectrica | None:
     bornera = _bool(err, "", crudo, "bornera", False)
     if bornera and (cargas or fuentes):
         raise err("bornera", "una bornera no tiene cargas ni fuentes: sólo bornes y caminos")
+    con_es = (ficha_direcciones.CLAVE,) if ficha_direcciones.entradas_salidas(ids) else ()
     d = ficha_datos.parse_datos(err, crudo.get("datos"), crudo.get("fuente"), crudo.get("a_confirmar"),
-                                tipo=modelo.get("tipo"), montaje=montaje, modelo=modelo)
+                                tipo=modelo.get("tipo"), montaje=montaje, modelo=modelo,
+                                extra_a_confirmar=con_es)
+    direcciones = ficha_direcciones.parse_direcciones(err, crudo.get("direcciones"), ids=ids,
+                                                      fuente=d.fuente, a_confirmar=d.a_confirmar)
     return FichaElectrica(
         funcion=funcion, simbolo=str(crudo["simbolo"]).strip(), montaje=montaje, bornes=bornes,
         caminos=caminos, cargas=cargas, fuentes=fuentes, modelo=dict(modelo), perdidas_W=perdidas,
         protege_motor=_bool(err, "", crudo, "protege_motor", False),
         parada_emergencia=_bool(err, "", crudo, "parada_emergencia", False), bornera=bornera,
         conductor=conductor, nota=str(crudo.get("nota") or "").strip(),
-        datos=d.datos, fuente=d.fuente, a_confirmar=d.a_confirmar,
+        datos=d.datos, fuente=d.fuente, a_confirmar=d.a_confirmar, direcciones=direcciones,
     )
 
 
@@ -410,5 +418,7 @@ def ficha_payload(ficha: FichaElectrica) -> dict:
                             **({"hilos": {h.id: h.color for h in c.hilos}} if c.hilos else {})}
     if ficha.modelo:
         out["modelo"] = dict(ficha.modelo)
+    if ficha.direcciones:
+        out["direcciones"] = dict(ficha.direcciones)
     out.update(ficha_datos.payload(ficha_datos.DatosFicha(ficha.datos, ficha.fuente, ficha.a_confirmar)))
     return out
