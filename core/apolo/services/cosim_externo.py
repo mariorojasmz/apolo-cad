@@ -9,8 +9,9 @@ log, a la firma ni al `.apolo`. `leer` lo valida contra el tablero y los program
     `conectores_plc`) y su `validar_config` no tiene problemas.
 Todo lo que falla sale junto, como `ServiceError(400)` con qué corregir. Sin `plc_externo`, `{}`.
 
+`de_query` lee el de la sesión en vivo (`?plc_externo=` JSON ≤ 1 KB, sin `ritmo` ≠ 1; F1b2),
 `resultado` arma el `plc_externo` del resultado y `veredicto_nulo` el veredicto que no se da
-(D7). Sin locks: el llamador sostiene `STATE_LOCK` (lee el tablero).
+(D7). Sin locks: el llamador sostiene `STATE_LOCK` (lee el tablero); `de_query` no lee nada.
 """
 
 from __future__ import annotations
@@ -77,6 +78,36 @@ def leer(pedido, me, programas) -> dict:
     if problemas:
         raise ServiceError(400, " | ".join(problemas))
     return out
+
+
+MAX_QUERY = 1024  # bytes del JSON de `?plc_externo=` (D6: una URL no es un cuerpo)
+
+
+def de_query(texto: str | None, ritmo: str | None) -> dict | None:
+    """El `plc_externo` de la query de `WS /api/cosim/vivo` (D6, D9), aún sin validar contra el
+    tablero (eso lo hace `leer` en el snapshot): JSON ≤ `MAX_QUERY` bytes con un objeto, y la
+    sesión al ritmo de la pared (`ritmo` ausente o 1). None sin `plc_externo`;
+    `ServiceError(400)` con qué corregir."""
+    if texto is None or not texto.strip():
+        return None
+    if len(texto.encode("utf-8")) > MAX_QUERY:
+        raise ServiceError(400, f"`plc_externo` pasa de {MAX_QUERY} bytes: en la query va sólo la "
+                                f"conexión ({FORMA}); lo demás, en la configuración del conector")
+    try:
+        pedido = json.loads(texto)
+    except ValueError as exc:
+        raise ServiceError(400, f"`plc_externo` no es JSON ({exc}): {FORMA}, codificado en la URL") from exc
+    if not isinstance(pedido, dict) or not pedido:
+        raise ServiceError(400, f"`plc_externo` es {FORMA}")
+    if ritmo is not None:
+        try:
+            r = float(ritmo)
+        except ValueError:
+            r = None
+        if r != 1.0:
+            raise ServiceError(400, f"con un PLC externo la sesión va al ritmo de la pared (el PLC de "
+                                    f"afuera vive en tiempo real): quita ?ritmo o pon ritmo=1, no «{ritmo}»")
+    return pedido
 
 
 def resultado(pedido: dict) -> dict:

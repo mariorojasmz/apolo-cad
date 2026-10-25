@@ -38,7 +38,7 @@ FISICA_PURA = ("physics.dinamica_integrador", "physics.dinamica_arrastre", "phys
 DEL_WORKER = [CORE / "cosim" / n for n in ("acople.py", "agenda.py", "aserciones.py", "corrida.py", "datos.py",
                                            "externo.py", "puerto_plc.py", "ritmo.py",
                                            "escenario.py", "planificador.py", "proceso.py", "proceso_vivo.py",
-                                           "tablero.py", "trazas.py", "vivo.py", "vivo_fotograma.py",
+                                           "tablero.py", "trazas.py", "vivo.py", "vivo_fotograma.py", "vivo_lazo.py",
                                            "worker.py", "worker_vivo.py", "__init__.py")] + [
     CORE / (m.replace(".", "/") + ".py") for m in FISICA_PURA] + sorted(
     (CORE / "cosim" / "neumatica").glob("*.py"))  # V8.9 F3 (D15): el aire corre en el worker

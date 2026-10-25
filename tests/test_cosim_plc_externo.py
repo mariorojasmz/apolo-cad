@@ -18,20 +18,19 @@ Los PLC falsos se apagan solos al terminar cada test (y si el test muere: cierra
 from __future__ import annotations
 
 import copy
-import os
 import re
 import subprocess
 import sys
 import threading
-from contextlib import contextmanager
-from pathlib import Path
 
 import pytest
+from lazo_externo import entorno as _entorno
+from lazo_externo import pedido as _pedido
+from lazo_externo import plc_falso
 
 from apolo.cosim import puerto_plc
 from apolo.cosim.ritmo import ACTIVA_S, RitmoPared
 
-RAIZ = Path(__file__).resolve().parents[1]
 EXTRA = "APOLO_EXTENSIONES_EXTRA"
 CLAVES_RES = {"aviso", "avisos", "eventos", "final", "hipotesis", "mecanica", "plc", "resumen", "trazas"}
 CLAVES_RESUMEN = {"costo_us_por_intercambio", "duracion_s", "factor_tiempo_real", "huella", "intercambio_s",
@@ -172,44 +171,7 @@ def test_el_modulo_del_conector_no_carga_su_red_hasta_conectar(tmp_path):
     assert res.returncode == 0, res.stderr[-2000:]
 
 
-# ── el PLC falso en otro proceso ─────────────────────────────────────────────────────────────
-
-def _entorno() -> dict:
-    env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join(
-        p for p in (str(RAIZ / "core"), str(RAIZ / "tests"), os.environ.get("PYTHONPATH")) if p)
-    return env
-
-
-@contextmanager
-def plc_falso(tmp_path, *, avisar: int = 0):
-    """El PLC falso escuchando: (proceso, puerto). Se apaga al salir (y solo si el test muere)."""
-    from cosim_lazo_banco import PROGRAMA
-
-    fuente = tmp_path / "main.st"
-    fuente.write_text(PROGRAMA, encoding="utf-8")
-    cmd = [sys.executable, "-B", "-m", "ext_prueba.plc_falso", str(fuente), "--avisar", str(avisar)]
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            text=True, env=_entorno())
-    try:
-        linea = proc.stdout.readline()
-        assert linea.startswith("PUERTO "), (linea, proc.stderr.read() if proc.poll() is not None else "")
-        yield proc, int(linea.split()[1])
-    finally:
-        for x in (proc.stdin,):
-            try:
-                x.close()
-            except OSError:
-                pass
-        proc.kill()
-        proc.wait(timeout=30)
-        proc.stdout.close()
-        proc.stderr.close()
-
-
-def _pedido(puerto: int) -> dict:
-    return {"-K1": {"conector": "prueba.tcp", "config": {"host": "127.0.0.1", "puerto": puerto}}}
-
+# ── el PLC falso en otro proceso (`lazo_externo.py`) ─────────────────────────────────────────
 
 ESCENARIO = {"duracion_s": 1.2, "mecanica": None, "acoples": None,
              "acciones": [{"t": 0.0, "accion": "girar", "dispositivo": "-S1", "valor": 1.0},

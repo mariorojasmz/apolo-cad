@@ -11,6 +11,10 @@ Si no alcanza, sigue más lento: el factor medido viaja en cada fotograma y un a
 cruzar el umbral; una deuda de más de `REBASE_S` se perdona (no corre a recuperarla a saltos).
 Con `ritmo = 0` no duerme (los tests y la medición del factor sin dormir).
 
+Con un PLC de AFUERA (plan plc-en-el-lazo, D8 y D9; `vivo_lazo.py`) el paso 2 avanza UN
+intercambio por vez a ritmo de pared y el 4 no duerme (el ritmo ya esperó); un lazo cortado
+pausa la sesión con `motivo: "lazo"` y el `fin` dice que la corrida no fue determinista.
+
 PROTOCOLO (además del `R` de listo de `worker.py`):
   padre → hijo  `A` + JSON   una acción, un evento o un control (`vivo.leer_mensaje`); EOF = parar
   hijo → padre  `J` + JSON   {"tipo": "tabla", …} una vez, antes del primer fotograma
@@ -28,7 +32,9 @@ import queue
 import threading
 import time
 
+from .puerto_plc import LazoCortado
 from .vivo import VENTANA_S, Vivo, leer_mensaje
+from .vivo_lazo import LazoVivo
 from .worker import read_frame, write_frame
 
 TAJADA_S = 0.004                 # dormir de a 4 ms (time.sleep de 2 ms dura 2,2 en Windows, F0)
@@ -77,17 +83,28 @@ class _Salida:
     def bytes(self, etiqueta: bytes, datos: bytes) -> None:
         write_frame(self.s, etiqueta + datos)
 
+    def tabla(self, vivo) -> None:
+        """La tabla, si todavía no salió (antes de un mensaje que no puede esperar)."""
+        if not self.abierta:
+            self.abrir({"tipo": "tabla", **vivo.fot.tabla()})
+
 
 def correr_vivo(snap, config: dict, entrada, salida_stream) -> None:
-    ritmo = float(config.get("ritmo", 1.0))
-    sal = _Salida(salida_stream)
-    vivo = Vivo(snap, max_s=float(config.get("max_s") or 1800.0))
+    vivo = Vivo(snap, max_s=float(config.get("max_s") or 1800.0))  # con externo, esto conecta
+    try:
+        _correr(vivo, float(config.get("ritmo", 1.0)), _Salida(salida_stream), entrada)
+    finally:
+        vivo.c.cerrar()  # los conectores de los PLC de afuera, siempre
+
+
+def _correr(vivo: Vivo, ritmo: float, sal: _Salida, entrada) -> None:
+    lazo = LazoVivo(vivo) if vivo.c.externos else None  # plc-en-el-lazo D9: sólo con externo
     cola: queue.Queue = queue.Queue()
     threading.Thread(target=_lector, args=(entrada, cola), daemon=True).start()
     paso_v = VENTANA_S * (ritmo if ritmo > 0 else 1.0)    # tiempo virtual por ventana
     historia: collections.deque = collections.deque(maxlen=VENTANAS_FACTOR)
     w_ref, v_ref, j = time.perf_counter(), 0.0, 0
-    pausado, lento, motivo = False, False, None
+    pausado, cortado, lento, motivo = False, False, False, None
     while motivo is None:
         # 1. lo que llegó
         while True:
@@ -111,7 +128,21 @@ def correr_vivo(snap, config: dict, entrada, salida_stream) -> None:
                 if control == "pausa" and not pausado:
                     pausado = True
                     sal.json({"tipo": "pausa", "id": msg.get("id"), "t": round(vivo.t, 6)})
+                    if lazo is not None:  # D8: el conector se entera (si sabe)
+                        try:
+                            lazo.pausar()
+                        except LazoCortado as exc:
+                            cortado = True
+                            sal.json(lazo.pausa(exc))
                 elif control == "reanudar" and pausado:
+                    if lazo is not None:  # D8: reconectar tras un corte; si corta otra vez, pausa
+                        try:
+                            lazo.reanudar(tras_corte=cortado)
+                        except LazoCortado as exc:
+                            cortado = True
+                            sal.json(lazo.pausa(exc, msg.get("id")))
+                            continue
+                        cortado = False
                     pausado = False
                     w_ref, v_ref, j = time.perf_counter(), vivo.t, 0
                     historia.clear()
@@ -128,7 +159,19 @@ def correr_vivo(snap, config: dict, entrada, salida_stream) -> None:
         # 2. avanzar hasta el objetivo de la ventana
         j += 1
         objetivo = v_ref + j * paso_v
-        vivo.avanzar(max(0, int(round(objetivo / vivo.dt)) - vivo.k))
+        n = max(0, int(round(objetivo / vivo.dt)) - vivo.k)
+        if lazo is None:
+            vivo.avanzar(n)
+        else:  # D9: uno por vez, a su hora de pared; D8: un corte pausa, sin salidas viejas
+            try:
+                lazo.avanzar(n)
+            except LazoCortado as exc:
+                pausado = cortado = True
+                sal.tabla(vivo)
+                for r in vivo.respuestas():
+                    sal.json(r)
+                sal.json(lazo.pausa(exc))
+                continue
         # 3. publicar (la tabla, siempre lo primero)
         nuevas, valores = vivo.fot.reunir()
         if not sal.abierta:
@@ -160,7 +203,7 @@ def correr_vivo(snap, config: dict, entrada, salida_stream) -> None:
             motivo = "tope"
             break
         # 4. dormir lo que sobre (reloj absoluto; una deuda grande se perdona)
-        if ritmo <= 0:
+        if ritmo <= 0 or lazo is not None:  # con externo ya esperó el ritmo de cada intercambio
             continue
         limite = w_ref + j * VENTANA_S
         if time.perf_counter() - limite > REBASE_S:
@@ -171,11 +214,11 @@ def correr_vivo(snap, config: dict, entrada, salida_stream) -> None:
             if falta <= 0:
                 break
             time.sleep(min(TAJADA_S, falta))
-    if not sal.abierta:  # paró antes de la primera ventana (la tabla, sin señales)
-        sal.abrir({"tipo": "tabla", **vivo.fot.tabla()})
+    sal.tabla(vivo)  # paró antes de la primera ventana (la tabla, sin señales)
     for r in vivo.respuestas():
         sal.json(r)
     sal.json({"tipo": "fin", "motivo": motivo, "t": round(vivo.t, 6), "intercambios": vivo.k,
               "grabacion": vivo.grabacion,
               **({"mensaje": f"la sesión llegó a su tope de {vivo.max_s:g} s virtuales"}
-                 if motivo == "tope" else {})})
+                 if motivo == "tope" else {}),
+              **(lazo.fin() if lazo is not None else {})})

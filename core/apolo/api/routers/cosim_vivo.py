@@ -4,8 +4,11 @@ Abrir: `ws://<api>/api/cosim/vivo?documento=<token>&escenario=<nombre>` — `doc
 `GET /api/health` (el navegador no deja poner cabeceras en un WebSocket) y `escenario` uno
 guardado que da los acoples, las condiciones, la mecánica y la cola de productos (si el
 documento tiene uno solo, puede omitirse). Opcionales: `reemplazar=1` (cierra la sesión que
-haya), `ritmo` (1 = tiempo real; 0 = sin dormir, para pruebas) y `max_s` (tope virtual, ≤
-`APOLO_VIVO_MAX_S`, 1800 s por defecto).
+haya), `ritmo` (1 = tiempo real; 0 = sin dormir, para pruebas), `max_s` (tope virtual, ≤
+`APOLO_VIVO_MAX_S`, 1800 s por defecto) y `plc_externo` (plan plc-en-el-lazo D6: JSON ≤ 1 KB,
+`{"-K1": {"conector": "x.y", "config": {…}}}`, validado ANTES del worker como en el lote; con él
+la sesión va al ritmo de la pared —`ritmo` ≠ 1 es 4400—, un intercambio por vez, y un lazo
+cortado la PAUSA: `cosim/vivo_lazo.py`).
 
 Coreografía (regla de dos locks): (a) bajo `STATE_LOCK`, la guardia del token, el escenario de
 la sesión, la firma, el snapshot y lo que dibuja la faja y las cadenas (`sims._extraer_visual`);
@@ -15,7 +18,8 @@ la sesión, la firma, el snapshot y lo que dibuja la faja y las cadenas (`sims._
 MENSAJES servidor → cliente (JSON salvo el fotograma):
   inicio        la tabla (`cosim/vivo_fotograma.py`: cuerpos, productos, juntas, bandas, señales,
                 mandos, pilotos, dispositivos) + firma, proyecto, escenario, dt_s, ventana_s,
-                max_s, ritmo, fajas, cadenas, avisos, hipotesis
+                max_s, ritmo, fajas, cadenas, avisos, hipotesis (con PLC externo, además
+                `plc_externo` {designación: {conector, extension, version}} y `determinista: false`)
   binario       un fotograma float32 cada 1/30 s (formato en `cosim/vivo_fotograma.py`)
   ack/rechazo   la respuesta a cada acción, con su `id` y la hora virtual en que entró
   senales       señales nuevas para la tabla (antes del fotograma que las trae)
@@ -24,10 +28,14 @@ MENSAJES servidor → cliente (JSON salvo el fotograma):
   sesion_vieja  {vieja: true|false} cuando la firma del documento cambia (D3: la sesión sigue)
   pausa/reanudar, error (con `codigo`) y fin {motivo, t, grabacion, y si avanzó: sesion, base,
                 firma, hash_base, duracion_s y `escenario` (o `aviso_escenario`)} — lo que pide
-                `POST /api/cosim/vivo/escenario` para volverla prueba (F4)
+                `POST /api/cosim/vivo/escenario` para volverla prueba (F4). Con PLC externo: la
+                pausa por lazo cortado lleva `motivo: "lazo"` y `mensaje`, y el fin suma
+                `determinista: false`, `lazo` (lo medido por el núcleo) y, si hubo pausa,
+                `aviso_externo` (el PLC de afuera siguió corriendo)
 Cliente → servidor: las acciones de `cosim/vivo.py` («{"pulsar": "-S1"}», «{"control": "pausa"}»).
 Códigos de cierre: 1000 fin, 4400 escenario que no corre, 4401 sin token, 4403 origen (sin
-aceptar), 4409 token de otro documento, 4423 ya hay una sesión viva, 4500 el worker falló.
+aceptar), 4409 token de otro documento, 4423 ya hay una sesión viva, 4500 el worker falló,
+4502 el PLC externo no se pudo conectar (falló el PLC de afuera o su red, no el núcleo).
 """
 
 from __future__ import annotations
@@ -164,9 +172,12 @@ class Sesiones:
 SESIONES = Sesiones()
 
 
-def _preparar(token: str | None, nombre: str | None) -> dict:
-    """(a) Bajo STATE_LOCK: guardia, escenario de la sesión, firma, snapshot y la faja."""
+def _preparar(token: str | None, nombre: str | None, q_externo: str | None = None,
+              q_ritmo: str | None = None) -> dict:
+    """(a) Bajo STATE_LOCK: guardia, escenario de la sesión, firma, snapshot y la faja; con
+    `?plc_externo=`, su forma y su ritmo antes del snapshot, que lo valida contra el tablero."""
     from apolo.cosim.vivo import escenario_vivo
+    from apolo.services import cosim_externo
     from apolo.services import escenarios as E
     from apolo.services.cosim_snapshot import snapshot_cosim
 
@@ -188,16 +199,21 @@ def _preparar(token: str | None, nombre: str | None) -> dict:
                     f"{', '.join(guardados) or 'ninguno (declara uno con set_scenario)'}"))
             nombre = guardados[0]
         try:
+            externo = cosim_externo.de_query(q_externo, q_ritmo)
+        except ServiceError as exc:
+            raise _Rechazo(4400, "plc_externo", exc.detail) from exc
+        try:
             nombre, base = E.resolver(doc, nombre)
             esc = escenario_vivo(base)
             hash_base = E.hash_escenario(base)
             firma = E.firma_documento(doc)
-            snap = snapshot_cosim(doc, esc)
+            snap = snapshot_cosim(doc, esc, plc_externo=externo)
         except ServiceError as exc:
             raise _Rechazo(4400, "escenario", f"escenario «{nombre}»: {exc.detail}") from exc
         vis = _extraer_visual(doc, snap.dinamica)
         return {"doc": doc, "proyecto": S.project_id, "nombre": nombre, "esc": esc, "firma": firma,
-                "hash_base": hash_base, "snap": snap, "vis": vis}
+                "hash_base": hash_base, "snap": snap, "vis": vis,
+                "externo": cosim_externo.resultado(externo) if externo else None}
 
 
 def _firma_ahora(doc) -> str | None:
@@ -217,7 +233,8 @@ def _inicio(prep: dict, tabla: dict, config: dict, pid) -> dict:
             "ritmo": config["ritmo"], "pid": pid,
             **{k: v for k, v in tabla.items() if k != "tipo"},
             "fajas": estatico["fajas"], "cadenas": estatico["cadenas"], "avisos": estatico["avisos"],
-            "hipotesis": list(snap.hipotesis)}
+            "hipotesis": list(snap.hipotesis),
+            **({"plc_externo": prep["externo"], "determinista": False} if prep.get("externo") else {})}
 
 
 def _fin(prep: dict, msg: dict, motivo: str | None) -> dict:
@@ -278,11 +295,14 @@ async def cosim_vivo(ws: WebSocket) -> None:
         return
     try:
         try:
-            prep = await run_in_threadpool(_preparar, q.get("documento"), q.get("escenario"))
+            prep = await run_in_threadpool(_preparar, q.get("documento"), q.get("escenario"),
+                                           q.get("plc_externo"), q.get("ritmo"))
         except _Rechazo as r:
             await _rechazar(ws, r.codigo, r.clave, r.motivo)
             return
         config = _config(q)
+        if prep["externo"]:  # D9: al ritmo de la pared (otro ritmo ya fue 4400)
+            config["ritmo"] = 1.0
         try:
             ses.proc = await run_in_threadpool(ProcesoVivo, prep["snap"], config, ses.al_mensaje)
         except CosimError as exc:
@@ -321,6 +341,10 @@ async def _sesion(ws: WebSocket, ses: SesionViva, prep: dict, config: dict) -> N
             if etiqueta == b"E":
                 await ws.send_json({"tipo": "error", "codigo": "worker", "motivo": cuerpo.decode("utf-8", "replace")})
                 estado["codigo"] = 4500
+                continue
+            if etiqueta == b"L":  # plc-en-el-lazo D6: el PLC externo no se pudo conectar
+                await ws.send_json({"tipo": "error", "codigo": "lazo", "motivo": cuerpo.decode("utf-8", "replace")})
+                estado["codigo"], ses.motivo = 4502, ses.motivo or "lazo"
                 continue
             msg = json.loads(cuerpo.decode("utf-8"))
             if msg.get("tipo") == "tabla":

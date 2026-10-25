@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; F1a y F1b1 mergeadas; F1c1 hecha (D10; por revisar y mergear); falta F1b2 ∥ F1d1 y después F1c2 ∥ F1d2
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; F1a, F1b1 y F1c1 mergeadas; F1b2 hecha (D6 en el WS, D8 y D9 en vivo; por revisar y mergear) ∥ F1d1; después F1c2 ∥ F1d2 (`abrirSesion` con `plcExterno` queda para F1d2, D13 c)
 descripcion: un PLC de verdad (o el simulador de su fabricante) mueve la máquina virtual en vivo o en una corrida a la pared, y se dice que esa corrida no es determinista; una pantalla de operador o un SCADA escriben variables del programa y siguen la sesión viva; el catálogo trae un panel de operador de 7″ para la puerta del tablero
 ---
 
@@ -462,3 +462,54 @@ escenarios del banco dan la MISMA huella, claves del resultado y del `resumen` y
 y seta por variador `79ea55d0…`, seta en directo `56560dfe…`, caída de red `e7f23f08…`, corte de
 fase `e03b5efc…`, cajas con seta `2446792f…`, atasco `790b11bd…`). Sin bump de `GEOM_CACHE_EPOCH`
 ni de versiones de comandos; ninguna tool MCP nueva.
+
+### F1b2 — PLC externo en la sesión viva
+
+**D6 en el WS.** `?plc_externo=` lo lee `services/cosim_externo.de_query` DENTRO de `_preparar`
+(tras la guardia del token, antes del snapshot): JSON ≤ 1024 bytes con un objeto y sin `ritmo` ≠ 1
+(también `ritmo=0`), o 4400 con clave `plc_externo`; lo demás (PLC del tablero, programa,
+conector cargado, `validar_config`) lo valida `leer` en el snapshot, como en el lote (4400 clave
+`escenario`, con el texto del 400). El `inicio` suma `plc_externo` ({conector, extension,
+version}) y `determinista: false`. Un PLC que no conecta (el frame `L` del worker) es
+`{"tipo": "error", "codigo": "lazo"}`, `fin` con motivo «lazo» y cierre **4502** (decisión para
+vetar: el 502 del lote, en código de WS).
+
+**D9 y D8 en vivo.** `cosim/vivo_lazo.py` (85 líneas; `worker_vivo.py` sólo lo engancha: 203):
+con `externos` el paso 2 de la ventana avanza UN intercambio por vez con `RitmoPared` y el 4 no
+duerme (ya esperó el ritmo); el fotograma sale cada 1/30 s virtual. `LazoCortado` de cualquier
+miembro (y cualquier excepción de `pausar`/`reanudar`/`reconectar`, envuelta) pausa con `{"tipo":
+"pausa", "id", "motivo": "lazo", "t", "mensaje"}`; `reanudar` llama a `reconectar()` y, si corta
+otra vez, la misma pausa con el `id` del reanudar; la pausa manual llama a `pausar()`/`reanudar()`
+del conector. El `fin` suma `determinista: false`, `lazo` (el de `externo.lazo`) y, si hubo pausa,
+`aviso_externo` («siguió corriendo con su propio reloj»). `correr_vivo` cierra los conectores
+siempre (`Corrida.cerrar` en un `finally`). Decisiones propias (para vetar):
+- **El intercambio cortado se REPITE entero al reanudar** (`vivo.k` no avanza): la agenda no
+  re-aplica lo ya aplicado, pero el tablero integra ese Δt otra vez. Retomarlo a mitad pediría
+  partir `Corrida.intercambio`; con un PLC de afuera la sesión ya no es determinista.
+- **Una acción inyectada que corta el lazo** (un `escribir` cuyo conector lanza) responde rechazo
+  «el lazo con el PLC externo se cortó al aplicarla» y re-lanza (`agenda._aplicar_inyectada`): sin
+  eso quedaba sin respuesta.
+- **La ida y vuelta en vivo guarda los últimos 30 000 intercambios** (60 s, `IDAS_MAX`): una sesión
+  de 30 min entera serían ~30 MB.
+- Las acciones se siguen leyendo una vez por ventana (≤ 33 ms de espera), como sin externo.
+- `abrirSesion(…, {plcExterno})` de la UI NO entra: el plan lo pone en D13 c (F1d2).
+
+**D15 en vivo.** `ConectorTCP` suma `pausar`/`reanudar` (el PLC falso imprime `OP pausar` /
+`OP reanudar`) y `reconectar` (abre de nuevo al mismo PLC); `plc_falso.py` acepta `--puerto` (el
+PLC «vuelve» al puerto del que se lo mató). El lanzador del PLC falso pasó de
+`test_cosim_plc_externo.py` a `tests/lazo_externo.py` (lo usan el lote y el vivo).
+`test_cosim_vivo_ws.py` suma 8 casos: un intercambio por vez (`lazo.intercambios ==
+intercambios == 500` en 1 s virtual), 28–31 fotogramas separados 1/30 s ± Δt y a ritmo de pared;
+`ritmo=2`, `ritmo=0`, JSON roto, más de 1 KB y un conector no cargado son 4400 sin llegar al
+worker; un PLC que no contesta es 4502; matar el PLC falso pausa con «lazo cortado en t = …»,
+reanudar sin él vuelve a pausar en la MISMA t, con el PLC de vuelta en el mismo puerto sigue desde
+ahí, la pausa manual llega al PLC falso y el `fin` trae `aviso_externo`; ni el worker ni los PLC
+falsos quedan vivos. El gate de imports del worker suma `vivo_lazo.py`.
+
+**Vigencia (D14), medida.** `COSIM_EPOCH` sigue en 6: sólo la huella de `test_cosim_epoch.py`
+(`5343e02e81995d98` → `16990665b0266fef`). Contra `489af7d` (exportado con `git archive`), 6
+escenarios del banco dan la MISMA huella, claves del resultado y del `resumen` y `eventos` (marcha
+y seta por variador `98728ceb…`, seta en directo `56560dfe…`, caída de red `7d30cac0…`, corte de
+fase `9d2321b3…`, cajas con seta `20d75121…`, atasco `c871063f…`) y una sesión viva sin externo
+cerrada como lote, la misma huella y grabación (`20d75121…`); `test_cosim_vivo.py` (determinismo)
+intacto. Sin bump de `GEOM_CACHE_EPOCH` ni de versiones de comandos; ninguna tool MCP nueva.

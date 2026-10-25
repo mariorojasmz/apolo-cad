@@ -8,7 +8,13 @@
     fotogramas binarios, ack y rechazo, sesión vieja al cambiar el documento (D3), fin con la
     grabación y el escenario para el lote;
   - UNA sesión por API: la segunda recibe 4423; con `reemplazar=1` la primera termina
-    «reemplazada»; cerrar el WebSocket mata al worker (sin huérfanos).
+    «reemplazada»; cerrar el WebSocket mata al worker (sin huérfanos);
+  - con un PLC de AFUERA (plan plc-en-el-lazo F1b2, D6, D8, D9; el PLC falso de
+    `lazo_externo.py` en otro proceso): un intercambio por vez a ritmo de pared y un fotograma
+    cada 1/30 s; otro ritmo o un pedido malo son 4400 antes del worker; un PLC que no contesta
+    no arranca la sesión (4502); matarlo pausa con motivo «lazo», reanudar sin él vuelve a pausar
+    y con él de vuelta sigue; la pausa manual se la avisa al conector y el `fin` dice que el PLC
+    de afuera siguió corriendo. Ningún proceso queda vivo.
 """
 
 from __future__ import annotations
@@ -16,9 +22,11 @@ from __future__ import annotations
 import json
 import threading
 import time
+from urllib.parse import quote
 
 import pytest
 from fastapi.testclient import TestClient
+from lazo_externo import entorno, pedido, plc_falso
 from starlette.websockets import WebSocketDisconnect
 
 pytest.importorskip("mujoco")
@@ -194,3 +202,160 @@ def test_una_sesion_por_api_y_cerrar_mata_al_worker(c):
             time.sleep(0.05)
         assert not ultima.proc.vivo  # cerrar el WebSocket terminó su worker
     assert not pid_primera.proc.vivo and R.SESIONES.actual is None
+
+
+# ── con un PLC de afuera (plc-en-el-lazo F1b2) ──────────────────────────────────────────────
+
+@pytest.fixture
+def cx(c, extensiones_aisladas, monkeypatch):
+    """`c` con la extensión falsa cargada (su conector `prueba.tcp`) y el worker importando
+    `ext_prueba` (la clase del conector viaja por pickle)."""
+    monkeypatch.setenv("APOLO_EXTENSIONES_EXTRA", "ext_prueba:EXTENSION")
+    assert extensiones_aisladas.cargar()[0]["cargada"]
+    monkeypatch.setenv("PYTHONPATH", entorno()["PYTHONPATH"])
+    return c
+
+
+def _ext(puerto: int) -> str:
+    return quote(json.dumps(pedido(puerto)))
+
+
+def _fotogramas(ws, n: int) -> list[float]:
+    """Las horas virtuales de los próximos n fotogramas (los JSON intermedios se saltan)."""
+    ts = []
+    while len(ts) < n:
+        m = ws.receive()
+        assert m["type"] != "websocket.close", m
+        if m.get("bytes") is not None:
+            ts.append(leer_fotograma(m["bytes"])["t"])
+    return ts
+
+
+def _sin_worker(ses) -> None:
+    hasta = time.monotonic() + 10
+    while ses.proc.vivo and time.monotonic() < hasta:
+        time.sleep(0.05)
+    assert not ses.proc.vivo
+
+
+def test_con_plc_externo_un_intercambio_por_vez_y_un_fotograma_cada_1_30_s(cx, tmp_path):
+    with plc_falso(tmp_path) as (_proc, puerto):
+        with cx.websocket_connect(_url(cx, max_s=1.0, plc_externo=_ext(puerto))) as ws:
+            ini = ws.receive_json()
+            assert ini["tipo"] == "inicio" and ini["determinista"] is False and ini["ritmo"] == 1.0
+            assert ini["plc_externo"] == {"-K1": {"conector": "prueba.tcp", "extension": "ext-prueba",
+                                                  "version": "0.1.0"}}
+            ws.send_json({"girar": "-S1", "valor": 1.0, "id": 1})
+            ws.send_json({"pulsar": "-S1", "actuador": "marcha", "durante_s": 0.2, "id": 2})
+            ts, llegadas, acks = [], [], []
+            while True:
+                m = ws.receive()
+                if m.get("bytes") is not None:
+                    ts.append(leer_fotograma(m["bytes"])["t"])
+                    llegadas.append(time.perf_counter())
+                    continue
+                msg = json.loads(m["text"])
+                acks += [msg["id"]] if msg["tipo"] == "ack" else []
+                if msg["tipo"] == "fin":
+                    break
+            pared = time.perf_counter() - llegadas[0]  # del primer fotograma al fin
+        ses = R.SESIONES.ultima
+    assert acks == [1, 2] and msg["motivo"] == "tope" and msg["determinista"] is False
+    assert "aviso_externo" not in msg  # sin pausa
+    lazo = msg["lazo"]
+    # D9: cada intercambio esperó su hora de pared, uno por vez
+    assert lazo["intercambios"] == msg["intercambios"] == 500
+    assert lazo["ida_y_vuelta"]["-K1"]["n"] > 100  # el núcleo midió el paso() del PLC de afuera
+    assert pared >= 0.9 * (msg["t"] - ts[0])  # a ritmo de pared, no de golpe
+    # un fotograma cada 1/30 s virtual (17 o 16 intercambios de 2 ms), a ~30 por segundo de pared
+    assert 28 <= len(ts) <= 31
+    assert all(abs((b - a) - 1 / 30) <= 0.0021 for a, b in zip(ts, ts[1:], strict=False))
+    assert 0.02 <= (llegadas[-1] - llegadas[0]) / (len(llegadas) - 1) <= 0.1  # holgado: la suite va en paralelo
+    _sin_worker(ses)
+
+
+@pytest.mark.parametrize("q,texto", [
+    ({"ritmo": 2}, "al ritmo de la pared"),
+    ({"ritmo": 0}, "quita ?ritmo o pon ritmo=1"),
+    ({"plc_externo": "{no-json"}, "no es JSON"),
+    ({"plc_externo": quote(json.dumps({"-K1": {"conector": "prueba.tcp", "config": {"x": "y" * 1100}}}))},
+     "pasa de 1024 bytes"),
+])
+def test_con_plc_externo_otro_ritmo_o_un_pedido_malo_es_4400(cx, monkeypatch, q, texto):
+    import apolo.cosim.proceso_vivo as pv
+
+    monkeypatch.setattr(pv, "ProcesoVivo", lambda *a, **k: pytest.fail("llegó al worker"))
+    q = {"plc_externo": _ext(5), **q}
+    with cx.websocket_connect(_url(cx, **q)) as ws:
+        msg = ws.receive_json()
+        assert msg["tipo"] == "error" and msg["codigo"] == "plc_externo" and texto in msg["motivo"], msg
+        with pytest.raises(WebSocketDisconnect) as exc:
+            ws.receive_json()
+    assert exc.value.code == 4400
+
+
+def test_con_plc_externo_lo_que_valida_el_snapshot_es_4400(cx, monkeypatch):
+    import apolo.cosim.proceso_vivo as pv
+
+    monkeypatch.setattr(pv, "ProcesoVivo", lambda *a, **k: pytest.fail("llegó al worker"))
+    malo = quote(json.dumps({"-K1": {"conector": "prueba.otro", "config": {}}}))
+    with cx.websocket_connect(_url(cx, plc_externo=malo)) as ws:
+        msg = ws.receive_json()
+        assert "plc_externo.-K1: el conector «prueba.otro» no está cargado; conectores: prueba.tcp" in msg["motivo"]
+        with pytest.raises(WebSocketDisconnect) as exc:
+            ws.receive_json()
+    assert exc.value.code == 4400
+
+
+def test_un_plc_externo_que_no_contesta_no_arranca_la_sesion(cx):
+    ext = quote(json.dumps({"-K1": {"conector": "prueba.tcp", "config": {"host": "127.0.0.1", "puerto": 9,
+                                                                          "timeout_s": 1.0}}}))
+    with cx.websocket_connect(_url(cx, plc_externo=ext)) as ws:
+        msg = ws.receive_json()
+        assert msg["tipo"] == "error" and msg["codigo"] == "lazo", msg
+        assert "no se pudo conectar el PLC externo -K1: 127.0.0.1:9 no contesta" in msg["motivo"]
+        fin = ws.receive_json()
+        assert fin["tipo"] == "fin" and fin["motivo"] == "lazo"
+        with pytest.raises(WebSocketDisconnect) as exc:
+            ws.receive_json()
+    assert exc.value.code == 4502
+    _sin_worker(R.SESIONES.ultima)
+
+
+def test_matar_el_plc_externo_pausa_y_con_el_plc_de_vuelta_sigue(cx, tmp_path):
+    def control(ws):
+        return _hasta(ws, lambda m: m["tipo"] in ("pausa", "reanudar", "fin"))[0]
+
+    with plc_falso(tmp_path) as (primero, puerto):
+        with cx.websocket_connect(_url(cx, max_s=60, plc_externo=_ext(puerto))) as ws:
+            assert ws.receive_json()["tipo"] == "inicio"
+            _fotogramas(ws, 5)
+            primero.kill()  # D8: el lazo se corta
+            p = control(ws)
+            assert p["motivo"] == "lazo" and p["mensaje"].startswith("lazo cortado en t = "), p
+            t_corte = p["t"]
+            ws.send_json({"control": "reanudar", "id": "r1"})  # sin PLC: reconectar falla, sigue en pausa
+            p = control(ws)
+            assert p["tipo"] == "pausa" and p["motivo"] == "lazo" and p["id"] == "r1", p
+            assert "no contesta" in p["mensaje"] and p["t"] == t_corte  # no avanzó con salidas viejas
+            with plc_falso(tmp_path, puerto=puerto) as (segundo, _):  # el PLC vuelve al mismo puerto
+                ws.send_json({"control": "reanudar", "id": "r2"})
+                assert control(ws) == {"tipo": "reanudar", "id": "r2", "t": t_corte}
+                assert min(_fotogramas(ws, 5)) > t_corte  # sigue desde donde se cortó
+                ws.send_json({"control": "pausa", "id": "p"})  # la manual se la avisa al conector
+                p = control(ws)
+                assert p["tipo"] == "pausa" and "motivo" not in p
+                ws.send_json({"control": "reanudar"})
+                assert control(ws)["tipo"] == "reanudar"
+                ws.send_json({"control": "parar"})
+                fin, _ = _hasta(ws, lambda m: m["tipo"] == "fin")
+                segundo.kill()
+                segundo.wait(timeout=30)
+                salida = segundo.stdout.read()
+        ses = R.SESIONES.ultima
+    assert "OP pausar" in salida and "OP reanudar" in salida
+    assert fin["motivo"] == "parada" and fin["determinista"] is False
+    assert "siguió corriendo" in fin["aviso_externo"]
+    assert fin["t"] > t_corte and fin["lazo"]["ida_y_vuelta"]["-K1"]["n"] > 0
+    _sin_worker(ses)
+    assert primero.poll() is not None and segundo.poll() is not None

@@ -239,6 +239,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   una sesión por API (`SESIONES`). Todo lo que sale va por UNA cola y UNA tarea que envía; las
   tareas van en un task group de anyio y la limpieza del `finally` NO hace `await` (con la tarea
   cancelada no correría: el worker quedaba huérfano). [V8.4](../../../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F1)
+  `?plc_externo=` se valida DENTRO de `_preparar`, antes del worker (4400, como el 400 del lote);
+  un PLC que no conecta es 4502. [plc-en-el-lazo](../../../docs/plans/plc-en-el-lazo.md) (F1b2)
 - La grabación del visor (`/api/video/grabacion…`) no toma `STATE_LOCK`: es E/S pura y su lock
   (`media/grabacion.py`) es HOJA. Las sesiones viven en memoria (un reinicio las pierde; los
   cuadros quedan en `data/grabaciones/`); el cierre codifica dentro de la request, y si falla los

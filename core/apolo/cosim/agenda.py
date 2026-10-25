@@ -27,6 +27,7 @@ from apolo.plc.simbolos import escritura
 from . import fallas
 from .escenario import Accion, EscenarioInvalido, Evento
 from .neumatica.orificio import P_ATM_PA
+from .puerto_plc import LazoCortado
 
 EPS_T = 1e-9
 
@@ -122,6 +123,10 @@ class Agenda:
                 self.items = [it for it in self.items if not (it[2] is x and it[3])]
             self.respuestas.append({"id": ident, "ok": False, "motivo": str(exc).strip("'\"")})
             return
+        except LazoCortado as exc:  # plc-en-el-lazo D8: la acción no se pierde sin respuesta
+            self.respuestas.append({"id": ident, "ok": False,
+                                    "motivo": f"el lazo con el PLC externo se cortó al aplicarla: {exc.motivo}"})
+            raise
         self.eventos.append({"t": round(t, 6), "programado_s": round(t_prog, 6), **reg})
         self.respuestas.append({"id": ident, "ok": True, "t": round(t, 6)})
 
