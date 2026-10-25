@@ -102,7 +102,7 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except CosimError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    if snap.externos:  # D7: sin veredicto, con el conector que se usó
+    if getattr(snap, "externos", None):  # D7: sin veredicto, con el conector que se usó
         res["plc_externo"] = cosim_externo.resultado(plc_externo)
         ver = cosim_externo.veredicto_nulo()
     else:
