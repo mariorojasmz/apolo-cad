@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; F1a mergeada; F1b1 hecha (D4–D9 del lote, D15 del lote; por revisar y mergear); falta F1c1 (en paralelo) y después F1b2 ∥ F1d1
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A1–A9), medido sobre `833ce8e`; partido en siete fases F1a → F1b1 ∥ F1c1 → F1b2 ∥ F1d1 → F1c2 ∥ F1d2; F1a y F1b1 mergeadas; F1c1 hecha (D10; por revisar y mergear); falta F1b2 ∥ F1d1 y después F1c2 ∥ F1d2
 descripcion: un PLC de verdad (o el simulador de su fabricante) mueve la máquina virtual en vivo o en una corrida a la pared, y se dice que esa corrida no es determinista; una pantalla de operador o un SCADA escriben variables del programa y siguen la sesión viva; el catálogo trae un panel de operador de 7″ para la puerta del tablero
 ---
 
@@ -413,3 +413,52 @@ huella (marcha y seta por variador `6217c74d…`, seta en directo `82649515…`,
 `7d30cac0…`, corte de fase `057ccaee…`, cajas con seta `aafe1f53…`, atasco `622a61f2…`) y las MISMAS
 claves del resultado, de su `resumen`, del compacto y de su `resumen`. Sin bump de
 `GEOM_CACHE_EPOCH` ni de versiones de comandos; ninguna tool MCP nueva (el golden no cambia).
+
+### F1c1 — Escribir una variable
+
+**La tabla y la regla.** `plc/simbolos.py` (217 líneas; `compilador.py` sólo engancha: 476):
+`tabla` arma `Compilado.simbolos` = {ruta: (tipo, escribible)} con las MISMAS rutas que
+`PLC.variables()` (la global en minúsculas, `Main.x` con el nombre del PROGRAM), más cada
+instancia de bloque y sus miembros (`Main.a1`, `Main.a1.t.q`), nunca escribibles; un ARRAY entra
+con su tipo (`ARRAY[1..3] OF DINT`) y se escribe por elemento. `ambito_de` es la resolución de
+`leer` (sacada de `runtime.py`, que la usa igual) y `escritura(compilado, ruta, valor)` la regla
+única: `KeyError` si la ruta no existe (con «¿quisiste decir…?») o el índice no va; `ValueError`
+con su motivo para CONSTANT, AT de entrada («su valor lo da el borne») y de salida («la maneja el
+programa»), una dirección `%…`, un bloque o su miembro, un ARRAY sin índice y un valor de otro
+tipo. `PLC.escribir` la aplica a la memoria (entra antes del próximo scan y el programa la pisa)
+y, sin tensión, rechaza. La agenda la corre ANTES de pasarle la escritura a un PLC de afuera, que
+la recibe ya en su tipo.
+
+**La acción.** `{"accion": "escribir", "dispositivo", "variable", "valor"}` en el escenario y en
+vivo (`Accion.variable`, también la forma corta `{"escribir": "-K1", …}`); la `Agenda` recibe
+`plcs` (los de la `Corrida`); `agenda.validar` corre sobre `plcs_de_prueba` (un PLC desechable por
+programa, el mismo con un externo) y el snapshot da 400 al declarar. Se graba con su hora
+(`variable` antes de `valor`) y la grabación vuelta escenario da la misma huella
+(`tests/test_cosim_escribir.py`, 22 casos; `tests/test_plc_escribir.py`, 46).
+
+**Decisiones propias (para vetar):**
+- **Sin tensión no se atiende**: un PLC apagado no contesta la red. En el lote queda en `eventos`
+  como `{"rechazo": "escribir", …, "motivo"}` SIN `accion` (no es ancla de una aserción) y la
+  corrida sigue; en vivo, rechazo de esa acción. En STOP sí se atiende (la memoria responde).
+- **`escribir` en t = 0 es 400**: el PLC arranca en el primer intercambio (la agenda se aplica
+  antes), así que siempre se perdería; el texto pide t > 0.
+- **Valores**: un entero escrito como `50.0` vale en INT/DINT/TIME (un SCADA manda REAL); `true`
+  en un numérico no; en BOOL sólo `true`/`false`, `0`/`1` (no `1.0`).
+- **`leer("g[2]")`** de un ARRAY GLOBAL ahora resuelve (antes, «no existe»): la misma resolución
+  sirve a los dos. Ningún resultado del banco lo usa (las trazas salen de `variables()`).
+- La extensión falsa NO suma `escribir` a su conector: el rechazo de un externo sin `escribir` se
+  prueba con `ConectorTCP` en el snapshot (sin conectar) y el camino con `escribir`, con un puerto
+  falso en la agenda (llega validado y en su tipo).
+
+**Lo que se verificó.** `simbolos` con globales, PROGRAM, FB estándar y del usuario, ARRAY,
+CONSTANT y AT; cada rechazo con su motivo y la memoria intacta tras él; el golden: la ÚNICA línea
+que cambia es la descripción de `set_scenario`; `test_plc_rendimiento` (torture) verde.
+`Compilado.simbolos` no se persiste: ni en las entradas del `.apolo` (`add_program` en un tablero),
+ni en el blob de `geomcache.pack`, ni en la SQLite tras `ProjectStore.create` + `load` (un test).
+
+**Vigencia (D14), medida.** `COSIM_EPOCH` sigue en 6: sólo la huella de `test_cosim_epoch.py`
+(`d0326bbc9bff2491` → `5343e02e81995d98`). Contra `fc734ea` (exportado con `git archive`), 6
+escenarios del banco dan la MISMA huella, claves del resultado y del `resumen` y `eventos` (marcha
+y seta por variador `79ea55d0…`, seta en directo `56560dfe…`, caída de red `e7f23f08…`, corte de
+fase `e03b5efc…`, cajas con seta `2446792f…`, atasco `790b11bd…`). Sin bump de `GEOM_CACHE_EPOCH`
+ni de versiones de comandos; ninguna tool MCP nueva.
