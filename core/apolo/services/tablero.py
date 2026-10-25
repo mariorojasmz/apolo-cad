@@ -5,6 +5,8 @@ leído desde el `Document`. El llamador sostiene `STATE_LOCK`.
   en la escena con su ref: la BOM del carril (`bom_electrico.filas_electricas`) y el aviso
   «pieza sin ligar» del ERC no los cuentan otra vez (F1b: sin esto el variador se cobraba dos
   veces, 280 + 280 USD, como un dispositivo sin ligar).
+- `piezas_3d`: la pieza 3D de cada aparato (la explícita gana; si no, la dibujada), la del panel
+  y la de la tabla del vivo, que `piezas_en_tabla` suma al `inicio` (pedidos-de-extensiones D15).
 - `regla_orden` (el lint de D1/A15): la firma del layout cambia con cada aparato de su
   ubicación, y lo que venga después se re-ejecuta al editar uno. Después de él sólo caben el
   carril, otro layout y las uniones que sujetan el gabinete (`fasten`, `ground`,
@@ -72,6 +74,50 @@ def dibujados(doc, m=None) -> dict[str, str]:
                 if fid in doc.scene:
                     out[d.designacion] = fid
                     break
+    return out
+
+
+def piezas_3d(doc, m=None, ubicacion: str | None = None) -> dict[str, str]:
+    """{designación: id de su pieza 3D}: la `pieza` explícita (`add_device pieza`) gana; si no, el
+    cuerpo que dibujó su layout (`dibujados`). Con `ubicacion`, las explícitas sólo de esa (el
+    panel de un tablero). La leen el panel y la tabla del vivo (pedidos-de-extensiones D15)."""
+    from .electrico import modelo
+
+    m = m if m is not None else modelo(doc)
+    out = {d.designacion: d.pieza for d in m.dispositivos
+           if d.pieza and (ubicacion is None or d.ubicacion == ubicacion)}
+    out.update({k: v for k, v in dibujados(doc, m).items() if k not in out})
+    return out
+
+
+#: las listas de la tabla del vivo cuyas filas llevan `pieza?` y tras qué claves va (la forma de
+#: `cosim/vivo_fotograma.py`: tras la ref; en un mando y un piloto, tras su color)
+_CON_PIEZA = {"mandos": ("ref", "color", "fondo"), "pilotos": ("ref", "color"),
+              "dispositivos": ("ref",), "valvulas": ("ref",)}
+
+
+def piezas_en_tabla(tabla: dict, piezas: dict[str, str]) -> dict:
+    """La tabla del vivo con la `pieza` de cada aparato que no la trae (lo que dibujó un layout:
+    el worker sólo ve la explícita del `Dispositivo`, que se queda). Pura: no toca la física ni la
+    firma; sin piezas que sumar, la tabla tal cual (D15)."""
+    if not piezas:
+        return tabla
+    out = dict(tabla)
+    for lista, despues in _CON_PIEZA.items():
+        filas = tabla.get(lista)
+        if not filas:
+            continue
+        nuevas = []
+        for f in filas:
+            pz = piezas.get(f.get("designacion"))
+            if f.get("pieza") or not pz:
+                nuevas.append(f)
+                continue
+            items = list(f.items())
+            claves = [k for k, _ in items]
+            i = max((claves.index(k) + 1 for k in despues if k in f), default=len(items))
+            nuevas.append(dict(items[:i] + [("pieza", pz)] + items[i:]))
+        out[lista] = nuevas
     return out
 
 

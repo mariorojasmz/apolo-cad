@@ -262,7 +262,7 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
     from apolo.library.catalog import CATALOG
 
     from .electrico import modelo
-    from .tablero import dibujados
+    from .tablero import piezas_3d
 
     u = _u(ubicacion)
     lista = tableros(doc)
@@ -275,8 +275,7 @@ def panel(doc, ubicacion: str, *, recorridos: bool = True) -> dict:
     m = modelo(doc)
     todos = ruteos(doc, m)
     t = next(x for x in todos if x.cid == fila["comando"])
-    piezas = {d.designacion: d.pieza for d in m.dispositivos if d.ubicacion == u and d.pieza}
-    piezas.update({k: v for k, v in dibujados(doc, m).items() if k not in piezas})
+    piezas = piezas_3d(doc, m, u)
     atender, bien = _items(doc, t, piezas)
     cables, sup_cables = _cables(doc, m, todos, u)
     atender_c, bien_c = tablero_cables.items(cables)

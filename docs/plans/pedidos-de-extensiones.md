@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1 (superficie), F2 (dispositivo: símbolo y acople fuera de la firma) y F4 (cifras eléctricas medidas: ΔU de motores, disparos; el diferencial por su residual) mergeadas; F3 (entregable como job: `entregable_documento`) implementada, en revisión; F6 (el bus repite la sesión abierta a quien llega tarde; `plcs` en el `inicio`) implementada, en revisión; siguen F5 (notas de cotización) y F7 (la pieza de lo que dibuja el layout)
+nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1 (superficie), F2 (dispositivo: símbolo y acople fuera de la firma), F3 (entregable como job: `entregable_documento`), F4 (cifras eléctricas medidas: ΔU de motores, disparos; el diferencial por su residual) y F6 (el bus repite la sesión abierta a quien llega tarde; `plcs` en el `inicio`) mergeadas; F7 (la pieza de lo que dibuja el layout en la tabla del `inicio`: `tablero.piezas_3d`) implementada, en revisión; sólo falta F5 (notas de cotización)
 descripcion: una extensión lee el circuito, la prueba virtual y la sesión viva por el contrato declarado (con las cifras eléctricas medidas, los tipos de las variables del PLC y la sesión ya abierta), entrega sus archivos lentos como job y suma notas a la cotización
 ---
 
@@ -475,3 +475,37 @@ tras la repetición, el mismo final (JSON y fotogramas); `plcs` de -K1 con `Main
 la suya. `tests/test_variables_plc.py`: rutas = `PLC.variables()`; globales, ARRAY, `AT %IX`/`%QX`,
 CONSTANT global y del PROGRAM, dos PROGRAM y un FB propio y uno estándar; `escribible` = lo que
 acepta `PLC.escribir`; sin PLC, sin clave.
+
+### F7 — La pieza de lo que dibuja el layout
+
+**D15, dónde.** Se resuelve al armar el `inicio` en la API, no en el carril. El `Dispositivo` ya
+firma `pieza` (es de `EN_FIRMA`): llenarla con la caja del layout movería la firma de todo
+documento con tablero, y un campo nuevo en `FUERA_DE_FIRMA` cargaría en el carril un dato que sale
+de la ESCENA (el layout corre después del carril y su id sólo existe si su comando no se suprimió).
+La regla ya existía para el panel del tablero y para la BOM (`services/tablero.dibujados`: el
+cuerpo `{cmd}_d_<designación>` de cada layout vivo, sin los ligados por A9); queda UNA:
+`tablero.piezas_3d(doc, m=None, ubicacion=None)` = la explícita gana, si no la dibujada.
+`tablero_panel.panel` la usa en vez de su copia en dos líneas (el mismo dict: con `ubicacion`,
+las explícitas sólo de ese tablero, como antes). `_preparar` la toma bajo `STATE_LOCK` junto al
+snapshot (`prep["piezas"]`) y `_inicio` llama `tablero.piezas_en_tabla(tabla, piezas)` (pura):
+suma `pieza` a cada fila de `mandos`, `pilotos`, `dispositivos` y `valvulas` que no la trae, en el
+lugar en que la pone el worker (tras `ref`; en un mando, tras `color`/`fondo`; en un piloto, tras
+`color`), nunca pisa la que viene (la explícita, que el worker ya publica) y sin piezas devuelve
+la tabla tal cual. Una bornera no sale: no es modelo del vivo. El worker, el snapshot y
+`cosim/**` no se tocaron.
+
+**Efecto en la UI, sin cambios de código:** con la `pieza`, un mando del layout se aprieta con
+clic en su caja (`mandos3d.ts`), un piloto se enciende en su color, un aparato lleva su etiqueta 3D
+y un panel de operador recibe la pantalla (`pantallas3d.ts`: `pantallasDeLaSesion` pide `pieza`
+y la malla en la escena, y la caja del layout es una pieza de la escena como cualquier otra).
+
+**Verificación.** `tests/test_pieza_layout_vivo.py`: el tablero con variador, PLC y el panel
+`HMI-7IN-24VDC` armado con `layout_tablero`: la tabla del worker (con los `DispositivoCosim` de
+`cosim_aire.dispositivos`, los del snapshot) vuelta `inicio` trae `-P2` con `pieza: {cmd}_d_P2`
+(la `HMI-7IN-24VDC` de la escena, del comando del layout) y su `pantalla_px`; cada fila cuyo
+aparato dibujó el layout lleva ESA pieza (-P2, -T2, -K1, -S0, -P1, -Q1 entre ellas) y las de campo,
+ninguna; el worker sigue sin ver piezas. Una `pieza` explícita en el variador (A9, un
+`insert_component` en el lugar de su caja) gana en `piezas_3d` y en la tabla. Las firmas de los
+cuatro tableros de `tablero_electrico.py` iguales (`test_firma_dispositivo.py` sin tocar, verde);
+la huella de `test_cosim_epoch.py` sin cambios (`COSIM_EPOCH` sigue en 6); sin cambio de
+geometría ni de `version` de `layout_tablero` (`test_contrato_comandos.py` verde sin tocar).

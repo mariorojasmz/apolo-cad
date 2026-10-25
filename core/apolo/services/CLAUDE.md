@@ -147,7 +147,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
 - Lo que dibujó un `layout_tablero` (`tablero.dibujados`: cuerpo `{cmd}_d_<designación>`) cuenta
   en la ESCENA con su ref, como una `pieza`: la BOM del carril y «pieza sin ligar» lo saltan. Un
   consumidor nuevo del carril que cobre o cuente dispositivos usa esa misma función.
-  [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
+  [V8.5](../../../docs/plans/V8.5-tablero-3d.md) La pieza 3D de un aparato (la explícita gana; si
+  no, la dibujada) es `tablero.piezas_3d`, para el panel y la tabla del `inicio` del vivo: la API
+  la suma al armarlo (`piezas_en_tabla`), así que ni el worker ni la firma la ven.
+  [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (D15)
 - El ruteo del tablero NO se cachea (D12): `tablero.ruteos(doc)` recalcula `plan` del executor
   con las variables y la `lectura` del carril y rutea; largos (BOM, `circuito`) y reglas del ERC
   (`tablero_reglas.py`) salen de ahí, nunca de otra cuenta. La puerta (y la placa con
