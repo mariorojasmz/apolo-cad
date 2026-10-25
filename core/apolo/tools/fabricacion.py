@@ -81,9 +81,11 @@ def registrar(mcp, _api, _submit_and_wait) -> dict[str, Callable]:
         """Genera la COTIZACIÓN (PDF multipágina) y la guarda en `path` (.pdf): resumen económico
         (catálogo vs fabricación, desglose por categoría, margen %, impuesto % opcional, PRECIO DE
         VENTA, notas) + detalle de partidas con la FUENTE de cada precio. Complemento comercial de
-        calc_report. Si algo se cobra dos veces (dispositivo sin ligar a su pieza 3D) o no se cobra
-        (cable 3D sin add_cable), devuelve `avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo;
-        el PDF los lista en su hoja 2. Precios referenciales: confirmar con proveedor."""
+        calc_report. Devuelve `precio` (moneda, costo_directo, margen, impuesto si hay,
+        precio_venta: las cifras del resumen) junto al path, sin leer el PDF. Si algo se cobra dos
+        veces (dispositivo sin ligar a su pieza 3D) o no se cobra (cable 3D sin add_cable), devuelve
+        `avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo; el PDF los lista en su hoja 2.
+        Precios referenciales: confirmar con proveedor."""
         params: dict = {"margin_pct": margin_pct, "tax_pct": tax_pct}
         if currency:
             params["currency"] = currency
@@ -92,7 +94,8 @@ def registrar(mcp, _api, _submit_and_wait) -> dict[str, Callable]:
         resp = _api("GET", "/api/quote.pdf", params=params)
         entregable.escribir(path, resp.content)
         return json.dumps({"ok": True, "path": path, "bytes": len(resp.content),
-                           **entregable.avisos_de_cobro(resp)}, ensure_ascii=False)
+                           **entregable.precio_de(resp), **entregable.avisos_de_cobro(resp)},
+                          ensure_ascii=False)
 
     @mcp.tool()
     def assembly_manual(path: str, sheet: str = "A3", isolate: list[str] | None = None,

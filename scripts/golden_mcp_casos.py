@@ -19,8 +19,8 @@ def J(obj, status: int = 200) -> dict:
     return {"json": obj, "status": status}
 
 
-def B(data: bytes, tipo: str = "application/octet-stream") -> dict:
-    return {"bytes": data, "tipo": tipo}
+def B(data: bytes, tipo: str = "application/octet-stream", cabeceras: dict | None = None) -> dict:
+    return {"bytes": data, "tipo": tipo, **({"cabeceras": cabeceras} if cabeceras else {})}
 
 
 def _feat(fid, nombre, cmd, **extra):
@@ -403,7 +403,9 @@ RUTAS = [
     ("GET", r"/api/pick", J({"feature": "c1", "punto": [0, 0, 0]})),
     ("GET", r"/api/cutlist\.json", J({"piezas": []})),
     ("GET", r"/api/nesting\.json", J({"planchas": 1, "desperdicio_pct": 12.0})),
-    ("GET", r"/api/quote\.pdf", B(PDF, "application/pdf")),
+    ("GET", r"/api/quote\.pdf", B(PDF, "application/pdf", {"X-Apolo-Precio": json.dumps(
+        {"moneda": "PEN", "tipo_cambio": 3.7, "costo_directo": 456.58, "margen_pct": 25.0,
+         "margen": 114.15, "precio_venta": 570.73})})),
     ("GET", r"/api/drawingset\.pdf", _encolado("jjp")),
     ("GET", r"/api/calc-report\.pdf", _encolado("jmc")),
     ("GET", r"/api/assembly-manual\.pdf", _encolado("jma")),
@@ -469,6 +471,7 @@ CASOS = [
     caso("bom", "get_bom"),
     caso("bom por grupo", "get_bom", {"by_group": True}),
     caso("costeo", "get_costing"),
+    caso("costeo resumido de una categoría", "get_costing", {"resumen": True, "categoria": "electrico"}),
     caso("material uno", "set_material", {"feature": "c1", "material": "acero"}),
     caso("material lote", "set_material", {"features": ["c1", "c3"]}),
     caso("material ambos → error", "set_material", {"feature": "c1", "features": ["c3"]}),

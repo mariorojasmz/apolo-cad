@@ -176,9 +176,27 @@
  },
  {
   "name": "get_costing",
-  "description": "BOM COSTEADO en USD: cada fila con costo_ud/costo_total y su FUENTE (catálogo\nreferencial / hardware peso×material×3 / a medida peso×material×2.5) + totales por categoría,\ncatálogo vs fabricación y el ÍTEM MÁS COSTOSO: para optimizar costos y como base de la\ncotización. Si algo se cobra dos veces o no se cobra, trae `avisos` con su\n`monto_en_riesgo_usd` y la llamada que lo arregla (no se descuentan solos). Precios\nreferenciales: confirmar con proveedor. Read-only.",
+  "description": "BOM COSTEADO en USD: cada fila con costo_ud/costo_total y su FUENTE (catálogo\nreferencial / hardware peso×material×3 / a medida peso×material×2.5) + totales por categoría,\ncatálogo vs fabricación y el ÍTEM MÁS COSTOSO: para optimizar costos y como base de la\ncotización. Si algo se cobra dos veces o no se cobra, trae `avisos` con su\n`monto_en_riesgo_usd` y la llamada que lo arregla (no se descuentan solos). Una máquina\nentera pesa decenas de kB: `resumen=true` trae sólo totales y avisos (+ `n_filas`) y\n`categoria` (una clave de `totales.por_categoria`) sólo esas filas (+ `filtro` con su\nsuma). Precios referenciales: confirmar con proveedor. Read-only.",
   "inputSchema": {
-   "properties": {},
+   "properties": {
+    "resumen": {
+     "default": false,
+     "title": "Resumen",
+     "type": "boolean"
+    },
+    "categoria": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Categoria"
+    }
+   },
    "title": "get_costingArguments",
    "type": "object"
   },
@@ -2970,7 +2988,7 @@
  },
  {
   "name": "quotation",
-  "description": "Genera la COTIZACIÓN (PDF multipágina) y la guarda en `path` (.pdf): resumen económico\n(catálogo vs fabricación, desglose por categoría, margen %, impuesto % opcional, PRECIO DE\nVENTA, notas) + detalle de partidas con la FUENTE de cada precio. Complemento comercial de\ncalc_report. Si algo se cobra dos veces (dispositivo sin ligar a su pieza 3D) o no se cobra\n(cable 3D sin add_cable), devuelve `avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo;\nel PDF los lista en su hoja 2. Precios referenciales: confirmar con proveedor.",
+  "description": "Genera la COTIZACIÓN (PDF multipágina) y la guarda en `path` (.pdf): resumen económico\n(catálogo vs fabricación, desglose por categoría, margen %, impuesto % opcional, PRECIO DE\nVENTA, notas) + detalle de partidas con la FUENTE de cada precio. Complemento comercial de\ncalc_report. Devuelve `precio` (moneda, costo_directo, margen, impuesto si hay,\nprecio_venta: las cifras del resumen) junto al path, sin leer el PDF. Si algo se cobra dos\nveces (dispositivo sin ligar a su pieza 3D) o no se cobra (cable 3D sin add_cable), devuelve\n`avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo; el PDF los lista en su hoja 2.\nPrecios referenciales: confirmar con proveedor.",
   "inputSchema": {
    "properties": {
     "path": {

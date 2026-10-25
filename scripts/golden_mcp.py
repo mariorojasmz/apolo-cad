@@ -75,7 +75,8 @@ def _respuesta(spec, req: httpx.Request) -> httpx.Response:
     if "json" in spec:
         return httpx.Response(spec.get("status", 200), json=spec["json"])
     return httpx.Response(spec.get("status", 200), content=spec["bytes"],
-                          headers={"content-type": spec.get("tipo", "application/octet-stream")})
+                          headers={"content-type": spec.get("tipo", "application/octet-stream"),
+                                   **spec.get("cabeceras", {})})
 
 
 def _buscar(metodo: str, ruta: str, tabla):

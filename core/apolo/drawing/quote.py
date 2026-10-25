@@ -43,6 +43,35 @@ def _categorias(por_categoria: dict, y0: float, *, con_top: bool) -> list[tuple[
     return filas[:caben - 1] + [(f"otras ({len(resto)} categorías)", round(sum(v for _, v in resto), 2))]
 
 
+def precio_de_venta(directo: float, margin_pct: float, tax_pct: float) -> dict:
+    """Costo directo → margen → impuesto → PRECIO DE VENTA, sin redondear (la hoja de resumen
+    rotula estas cifras y la cotización las devuelve al agente: una sola cuenta)."""
+    margen = directo * margin_pct / 100.0
+    impuesto = (directo + margen) * tax_pct / 100.0
+    return {"costo_directo": directo, "margen": margen, "impuesto": impuesto,
+            "precio_venta": directo + margen + impuesto}
+
+
+def _fx(fx) -> float:
+    return float(fx) if fx and fx > 0 else 1.0
+
+
+def resumen_precio(costeo: dict, *, margin_pct: float, tax_pct: float, currency: str = "USD",
+                   fx: float = 1.0) -> dict:
+    """Lo que dice el RESUMEN ECONÓMICO de la cotización, en la moneda presentada (con `fx` ≠ 1,
+    el costo directo convertido como en la hoja): para la respuesta corta de la tool."""
+    fx = _fx(fx)
+    total = costeo["totales"]["total_usd"]
+    p = precio_de_venta(round(total * fx, 2) if fx != 1.0 else total, margin_pct, tax_pct)
+    out = {"moneda": currency, **({"tipo_cambio": fx} if fx != 1.0 else {}),
+           "costo_directo": round(p["costo_directo"], 2), "margen_pct": margin_pct,
+           "margen": round(p["margen"], 2)}
+    if tax_pct:
+        out.update(impuesto_pct=tax_pct, impuesto=round(p["impuesto"], 2))
+    out["precio_venta"] = round(p["precio_venta"], 2)
+    return out
+
+
 def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
                   totals: dict, margin_pct: float, tax_pct: float, currency: str,
                   n_rows: int, base_meta: dict, fx_note: str | None = None,
@@ -81,11 +110,8 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     yy = H - 48
     m.labels.append(Label(rx, yy, "RESUMEN ECONÓMICO", 3.4, anchor="start"))
     yy -= 7
-    directo = totals.get("total_usd", 0.0)
-    margen = directo * margin_pct / 100.0
-    base = directo + margen
-    impuesto = base * tax_pct / 100.0
-    venta = base + impuesto
+    p = precio_de_venta(totals.get("total_usd", 0.0), margin_pct, tax_pct)
+    directo, margen, impuesto, venta = p["costo_directo"], p["margen"], p["impuesto"], p["precio_venta"]
     filas = [
         ("Componentes comprados", totals.get("catalogo_usd")),  # catálogo + comerciales a mano
         ("Fabricación a medida", totals.get("fabricacion_usd")),
@@ -179,7 +205,7 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
     W, H = SHEETS.get(sheet, SHEETS["A4"])
     data = costeo if costeo is not None else scene_costing(scene, extra=extra_rows)
     rows, totals, avisos = data["rows"], data["totales"], data.get("avisos")
-    fx = float(fx) if fx and fx > 0 else 1.0
+    fx = _fx(fx)
     if fx != 1.0:
         rows = [
             {**r,

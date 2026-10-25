@@ -88,14 +88,22 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         return json.dumps(_api("GET", "/api/bom", params=params).json(), ensure_ascii=False)
 
     @mcp.tool()
-    def get_costing() -> str:
+    def get_costing(resumen: bool = False, categoria: str | None = None) -> str:
         """BOM COSTEADO en USD: cada fila con costo_ud/costo_total y su FUENTE (catálogo
         referencial / hardware peso×material×3 / a medida peso×material×2.5) + totales por categoría,
         catálogo vs fabricación y el ÍTEM MÁS COSTOSO: para optimizar costos y como base de la
         cotización. Si algo se cobra dos veces o no se cobra, trae `avisos` con su
-        `monto_en_riesgo_usd` y la llamada que lo arregla (no se descuentan solos). Precios
-        referenciales: confirmar con proveedor. Read-only."""
-        return json.dumps(_api("GET", "/api/costing.json").json(), ensure_ascii=False)
+        `monto_en_riesgo_usd` y la llamada que lo arregla (no se descuentan solos). Una máquina
+        entera pesa decenas de kB: `resumen=true` trae sólo totales y avisos (+ `n_filas`) y
+        `categoria` (una clave de `totales.por_categoria`) sólo esas filas (+ `filtro` con su
+        suma). Precios referenciales: confirmar con proveedor. Read-only."""
+        params: dict = {}
+        if resumen:
+            params["resumen"] = "true"
+        if categoria:
+            params["categoria"] = categoria
+        resp = _api("GET", "/api/costing.json", params=params) if params else _api("GET", "/api/costing.json")
+        return json.dumps(resp.json(), ensure_ascii=False)
 
     @mcp.tool()
     def set_material(

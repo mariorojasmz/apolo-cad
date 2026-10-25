@@ -38,6 +38,13 @@ def avisos_de_cobro(resp) -> dict:
     return json.loads(crudo) if crudo else {}
 
 
+def precio_de(resp) -> dict:
+    """`{precio: {...}}` de la cabecera `X-Apolo-Precio` de la cotización (el resumen económico:
+    costo directo, margen, impuesto, precio de venta); {} si la API no la manda."""
+    crudo = (getattr(resp, "headers", None) or {}).get("X-Apolo-Precio")
+    return {"precio": json.loads(crudo)} if crudo else {}
+
+
 def escribir(path: str, data: bytes) -> pathlib.Path:
     """Escribe `data` en `path` creando sus carpetas (los exports del MCP); devuelve la ruta."""
     target = pathlib.Path(path)

@@ -188,7 +188,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - Lo dudoso se dice DONDE se cobra: `costeo(doc)` es la fuente única de `/api/costing.json` y de
   la cotización (PDF y cabecera `X-Apolo-Avisos` que lee la tool `quotation`). Suma `avisos` y
-  `monto_en_riesgo_usd` sólo si hay (sin ellos, el dict de siempre): dispositivo sin ligar a su
+  `monto_en_riesgo_usd` sólo si hay (sin ellos, el dict de siempre). La lectura acotada
+  (`?resumen`, `?categoria`) es `costeo_corto.acotar` sobre ese dict y el precio que devuelve la
+  tool (`X-Apolo-Precio`), `drawing/quote.resumen_precio`, la cuenta de la hoja. Avisos: dispositivo sin ligar a su
   pieza 3D (monto = mín(dispositivos, piezas) × precio de la ref) y cable 3D que ningún add_cable
   cubre (lo liga con `piezas` o tiene los mismos hilos × sección en el nombre). Nunca descuenta:
   ligar es del modelo. El ERC suma el mismo «cable 3D sin cobrar» (`regla_cables`).

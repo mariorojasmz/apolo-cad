@@ -50,17 +50,25 @@ def get_bom(by_group: bool = False) -> list[dict]:
 
 
 @router.get("/api/costing.json")
-def get_costing() -> dict:
+def get_costing(resumen: bool = False, categoria: str | None = None) -> dict:
     """BOM COSTEADO (misma agrupación del BOM + costo_ud/costo_total USD por fila con su
     fuente: catálogo referencial / estimación hardware / fabricación) + totales por
     categoría, catálogo vs fabricación e ítem más costoso; con tablero eléctrico, sus
     dispositivos, cables y conductores (V8.1 D10). Si algo se cobraría dos veces o no se cobra
     (un dispositivo sin ligar a su pieza 3D, un cable 3D sin add_cable), suma `avisos` y
-    `monto_en_riesgo_usd` (V8.1 F4c); si no, el dict de siempre. Read-only."""
+    `monto_en_riesgo_usd` (V8.1 F4c); si no, el dict de siempre. `resumen=true` deja todo menos
+    las filas (+ `n_filas`); `categoria` deja sólo las filas de esa categoría (+ `filtro`): sin
+    ellos, byte-idéntico (`services/costeo_corto.py`). Read-only."""
     from apolo.services.cobros import costeo
+    from apolo.services.costeo_corto import acotar
+    from apolo.services.errors import ServiceError
 
     with STATE_LOCK:
-        return costeo(S.doc)
+        data = costeo(S.doc)
+    try:
+        return acotar(data, resumen=resumen, categoria=categoria)
+    except ServiceError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
 
 
 @router.get("/api/bom.csv")
@@ -264,11 +272,13 @@ def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
 
     Los avisos de cobro (V8.1 F4c: doble cobro, cable 3D sin cobrar) van en el PDF (resumen +
     hoja «AVISOS DE COBRO») y, para el agente, en la cabecera `X-Apolo-Avisos` (JSON ASCII:
-    `{avisos, monto_en_riesgo_usd}`; sólo si hay)."""
+    `{avisos, monto_en_riesgo_usd}`; sólo si hay). El resumen económico (costo directo, margen,
+    impuesto, precio de venta, en la moneda presentada) va siempre en `X-Apolo-Precio` (JSON
+    ASCII, `quote.resumen_precio`): la tool `quotation` lo devuelve sin leer el PDF."""
     import json
 
     from apolo.drawing import sheets_to_pdf
-    from apolo.drawing.quote import quotation_pages
+    from apolo.drawing.quote import quotation_pages, resumen_precio
     from apolo.services.cobros import costeo
 
     with STATE_LOCK:
@@ -281,7 +291,9 @@ def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
             requirements=S.doc.requirements, margin_pct=margin_pct, tax_pct=tax_pct,
             currency=cur, fx=fx_eff, meta=_drawing_meta(), costeo=data,
         )
-    headers = {"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-cotizacion.pdf"'}
+    precio = resumen_precio(data, margin_pct=margin_pct, tax_pct=tax_pct, currency=cur, fx=fx_eff)
+    headers = {"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-cotizacion.pdf"',
+               "X-Apolo-Precio": json.dumps(precio)}
     if data.get("avisos"):
         headers["X-Apolo-Avisos"] = json.dumps(
             {"avisos": data["avisos"], "monto_en_riesgo_usd": data["monto_en_riesgo_usd"]})

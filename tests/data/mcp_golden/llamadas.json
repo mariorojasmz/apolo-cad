@@ -323,6 +323,46 @@
   ]
  },
  {
+  "caso": "costeo resumido de una categoría",
+  "tool": "get_costing",
+  "args": {
+   "resumen": true,
+   "categoria": "electrico"
+  },
+  "salida": [
+   {
+    "texto": "{\"total_usd\": 123.4, \"filas\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/costing.json",
+    "query": [
+     [
+      "resumen",
+      "true"
+     ],
+     [
+      "categoria",
+      "electrico"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "material uno",
   "tool": "set_material",
   "args": {
@@ -6270,7 +6310,7 @@
   },
   "salida": [
    {
-    "texto": "{\"ok\": true, \"path\": \"cot.pdf\", \"bytes\": 19}"
+    "texto": "{\"ok\": true, \"path\": \"cot.pdf\", \"bytes\": 19, \"precio\": {\"moneda\": \"PEN\", \"tipo_cambio\": 3.7, \"costo_directo\": 456.58, \"margen_pct\": 25.0, \"margen\": 114.15, \"precio_venta\": 570.73}}"
    }
   ],
   "estructurado": "= {result: texto}",
