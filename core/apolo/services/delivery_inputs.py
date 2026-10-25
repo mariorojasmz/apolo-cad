@@ -37,10 +37,18 @@ def declarada_por_join_bolted(doc) -> set[str]:
     """Las piezas que insertó un `join_bolted` cuyo fijador quedó declarado: su tornillería
     está cubierta por ESA unión, aunque no sea nodo del grafo. Por el TIPO del comando que
     creó el fijador, no por el nombre `jb_*` (como las cadenas auto de `stackup_eval`)."""
+    return set(tornilleria_join_bolted(doc))
+
+
+def tornilleria_join_bolted(doc) -> dict[str, tuple[str, str]]:
+    """{pieza insertada por un `join_bolted` con su fijador declarado: (a, b) de esa unión}. Lo
+    usa `gravity_test` (V8.9 F7b, defecto 4): la tornillería sigue a las piezas que une (estática
+    si una de ellas lo es), en vez de caer como un cuerpo suelto (las tuercas caían 510 mm)."""
     tipo = {c["id"]: c.get("type") for c in doc.commands}
-    jb = {f.get("command_id") for f in doc.fasteners.values()
+    jb = {f.get("command_id"): (f["a"], f["b"]) for f in doc.fasteners.values()
           if tipo.get(f.get("command_id")) == "join_bolted"}
-    return {fid for fid, f in doc.scene.items() if getattr(f, "command_id", None) in jb}
+    return {fid: jb[cid] for fid, f in doc.scene.items()
+            if (cid := getattr(f, "command_id", None)) in jb and fid not in jb[cid]}
 
 
 def reglas_de_extensiones(doc) -> dict | None:

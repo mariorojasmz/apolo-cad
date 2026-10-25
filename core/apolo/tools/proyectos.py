@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 
-from apolo.brief import _scene_brief
+from apolo.brief import _scene_brief, brief_apertura
 
 from . import entregable
 
@@ -34,12 +34,10 @@ def registrar(mcp, _api) -> dict[str, Callable]:
         """Abre un proyecto por id. Devuelve además un `briefing` compacto (V6.5b) para arrancar la
         sesión en UNA llamada: resumen por GRUPO (n_piezas/masa/bbox) + variables + requisitos +
         notas del agente + salud (ok/suprimidos) + variantes de diseño. Ya NO hace falta encadenar
-        get_scene(summary)+get_requirements+get_agent_notes al abrir."""
+        get_scene(summary)+get_requirements+get_agent_notes al abrir. Con más de 40 sólidos no los
+        lista uno a uno: el resumen por grupo va en el briefing."""
         payload = _api("POST", f"/api/projects/{project_id}/open").json()
-        out = _scene_brief(payload)
-        if "briefing" in payload:
-            out["briefing"] = payload["briefing"]
-        return json.dumps(out, ensure_ascii=False)
+        return json.dumps(brief_apertura(payload), ensure_ascii=False)
 
     @mcp.tool()
     def create_project(name: str, template: str | None = None) -> str:

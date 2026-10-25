@@ -142,6 +142,25 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
     return out
 
 
+def brief_apertura(payload: dict) -> dict:
+    """Lo que devuelve `open_project` (V8.9 F7b, defecto 11: abrir la faja del desviador, 208
+    sólidos, devolvía 63 kB y la regla de lectura es < 10 KB): la cabecera de `_scene_brief` +
+    el `briefing` (resumen por GRUPO, variables, requisitos, notas). Con más de `MAX_SOLIDOS`
+    sólidos no los lista uno a uno (`solidos_omitidos` + cómo seguir), y las variables van una
+    sola vez (en `briefing.resumen`)."""
+    out = _scene_brief(payload)
+    if "briefing" in payload:
+        out["briefing"] = payload["briefing"]
+        if "variables" in (payload["briefing"].get("resumen") or {}):
+            out.pop("variables", None)
+    if len(out.get("solidos") or []) > MAX_SOLIDOS:
+        out["solidos_omitidos"] = len(out.pop("solidos"))
+        out.pop("solidos_mostrados", None)
+        out["seguir"] = ("el resumen por grupo va en `briefing.resumen`; lista piezas con "
+                         "get_scene(name=…) o get_scene(ids=[grupo])")
+    return out
+
+
 #: El cambio que se acaba de deshacer encabeza la pila de rehacer, y viceversa.
 _PILA_DEL_PASO = {"deshecho": "redo_labels", "rehecho": "undo_labels"}
 

@@ -147,7 +147,7 @@ def test_d4_tablero_de_madera_lleva_tornillo_din_571_sin_tuerca(como):
         doc.set_material(w, "madera copaiba")
     cid = doc.execute("join_bolted", {"a": p, "b": w, "size": "M6", "count": 2})
     params = next(c for c in doc.commands if c["id"] == cid)["params"]
-    assert w in params["madera"] and params["criterio"] == 5  # vigente (F6: canto real)
+    assert w in params["madera"] and params["criterio"] == 6  # vigente (V8.9 F7b: agujeros previos)
     piezas = _de(doc, cid)
     assert sorted(piezas) == [f"{cid}_tornillo1", f"{cid}_tornillo2"]  # sin tuerca
     t = piezas[f"{cid}_tornillo1"]

@@ -38,6 +38,10 @@ class JoinBoltedParams(BaseModel):
     cada pieza (EN 1993-1-8: una muesca o un extremo que la huella no ve es error), patrón centrado en la HUELLA de solape
     (paramétrico: si una pieza crece, el patrón se recentra al regenerar). La tornillería es
     herraje (fuera de interferencias y lista de corte).
+    AGUJEROS DE FÁBRICA: si una de las piezas YA trae sus agujeros en la huella (los pies MS1 y
+    la brida de create_pneumatic_cylinder: anclas `*_agujero_k`), la unión va por ESOS agujeros,
+    con esa pieza del lado de la cabeza: `size` = la métrica de su paso (Ø9 → M8) y sin
+    `patron`/`spacing`.
 
     MONTAJE: la cara de contacto se detecta por el solape de las cajas (caras PLANAS paralelas
     a un plano principal, en contacto). Para caras inclinadas/arbitrarias o piezas separadas,
@@ -64,7 +68,7 @@ class JoinBoltedParams(BaseModel):
     )
     norma: str = Field("DIN 933", max_length=20, title="Norma del perno")
     # Fuera del schema: los pone el sello de entrada (docstring del módulo).
-    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=5)
+    criterio: SkipJsonSchema[int] = Field(1, ge=1, le=6)
     madera: SkipJsonSchema[list[str]] = Field(default_factory=list, max_length=2)
 
     @field_validator("patron")

@@ -66,7 +66,7 @@ def _grounded_set(scene, joints, mates, fasteners, grounds, with_autodetect, exc
 def prepare_stability(
     scene, joints, mates, fasteners, grounds, *,
     seconds: float = 2.0, gravity: float = 9.81, fps: int = 12,
-    with_autodetect: bool = False, exclude=None, asentadas=None,
+    with_autodetect: bool = False, exclude=None, asentadas=None, sujetas=None,
 ) -> StabilitySnapshot:
     """FASE OCCT (bajo STATE_LOCK): grafo de sujeción + cascos convexos + masa/volumen
     por pieza → un XML de MuJoCo con la geometría horneada. NO corre la simulación.
@@ -75,13 +75,17 @@ def prepare_stability(
     `asentadas`: piezas que se modelan ESTÁTICAS aunque el grafo no las sujete — la
     tornillería, que las puertas tratan como asentada (la representa su `fasten`): su casco
     CONVEXO no cabe en su barreno y MuJoCo la expulsaba (un perno de `join_bolted` «caía»
-    38 mm). Las de `exclude` siguen dinámicas."""
+    38 mm). Las de `exclude` siguen dinámicas.
+    `sujetas`: {pieza: (a, b)} — la tornillería de una unión DECLARADA (la de `join_bolted`):
+    estática si a o b lo son (V8.9 F7b, defecto 4: `gravity_test` dejaba caer sus tuercas)."""
     from apolo.physics.hull import hull_vertices
 
     seconds = max(0.1, min(float(seconds), 30.0))
     fps = max(2, min(int(fps), 60))
     grounded = _grounded_set(scene, joints, mates, fasteners, grounds, with_autodetect, exclude)
     grounded |= set(asentadas or ()) - set(exclude or ())
+    grounded |= {fid for fid, (a, b) in (sujetas or {}).items()
+                 if a in grounded or b in grounded} - set(exclude or ())
 
     assets: list[str] = []
     statics: list[str] = []
@@ -187,7 +191,7 @@ def simulate_stability(snap: StabilitySnapshot) -> dict:
 def stability_test(
     scene, joints, mates, fasteners, grounds, *,
     seconds: float = 2.0, gravity: float = 9.81, fps: int = 12,
-    with_autodetect: bool = False, exclude=None, asentadas=None,
+    with_autodetect: bool = False, exclude=None, asentadas=None, sujetas=None,
 ) -> dict:
     """Simula la gravedad sobre la máquina. Devuelve {fell, estables, products,
     frames, settled, n_grounded, n_dynamic}. `products`/`frames` tienen el formato
@@ -197,4 +201,5 @@ def stability_test(
     return simulate_stability(prepare_stability(
         scene, joints, mates, fasteners, grounds, seconds=seconds, gravity=gravity,
         fps=fps, with_autodetect=with_autodetect, exclude=exclude, asentadas=asentadas,
+        sujetas=sujetas,
     ))

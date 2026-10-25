@@ -54,7 +54,7 @@ def test_join_bolted_pasa_los_tres_controles():
     items = _items(doc)
     assert {i.estado for i in items.values()} == {OK}, items
     assert items["agarre.retencion"].evidencia["evaluados"] == 2
-    assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == CRITERIO_VIGENTE == 5  # vigente (F6: canto real)
+    assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == CRITERIO_VIGENTE == 6  # vigente (V8.9 F7b: agujeros previos)
 
 
 def test_sin_tornilleria_no_aplica():

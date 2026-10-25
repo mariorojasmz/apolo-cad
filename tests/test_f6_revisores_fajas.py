@@ -115,7 +115,7 @@ def test_ala_de_upn_lleva_perno_y_tuerca():
     doc = Document("f6-upn")
     u, p = _upn_con_resguardo(doc)
     cid = doc.execute("join_bolted", {"a": u, "b": p, "size": "M8", "count": 2})
-    assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == 5  # vigente (F6: canto real)
+    assert next(c for c in doc.commands if c["id"] == cid)["params"]["criterio"] == 6  # vigente (V8.9 F7b: agujeros previos)
     piezas = _de(doc, cid)
     assert sorted(piezas) == [f"{cid}_perno1", f"{cid}_perno2", f"{cid}_tuerca1", f"{cid}_tuerca2"]
     assert piezas[f"{cid}_perno1"].name == "Perno M8×20 DIN 933"  # ala 8,5 + chapa 2

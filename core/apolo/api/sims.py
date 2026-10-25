@@ -39,22 +39,21 @@ def _stability(body: StabilityIn, *, tornilleria_asentada: bool = False) -> dict
     convexos) → snapshot PURO; (b) PHYSICS_LOCK corre el bucle MuJoCo FUERA del lock del
     doc → una gravedad de varios segundos no congela las mutaciones/lecturas del server.
     `tornilleria_asentada` (las puertas de entrega y de publicación): la tornillería es
-    estática, como en su sujeción declarada (`delivery_inputs.exclusiones_declaradas`)."""
+    estática, como en su sujeción declarada (`delivery_inputs.exclusiones_declaradas`). Sin
+    ella (`gravity_test`), la de un `join_bolted` declarado sigue a las piezas que une
+    (`delivery_inputs.tornilleria_join_bolted`, V8.9 F7b)."""
     from apolo.physics import PhysicsError
     from apolo.physics.stability import prepare_stability, simulate_stability
+    from apolo.services.delivery_inputs import exclusiones_declaradas, tornilleria_join_bolted
 
     try:
         with STATE_LOCK:
-            asentadas = None
-            if tornilleria_asentada:
-                from apolo.services.delivery_inputs import exclusiones_declaradas
-
-                asentadas = exclusiones_declaradas(S.doc)[1]
+            asentadas = exclusiones_declaradas(S.doc)[1] if tornilleria_asentada else None
             snap = prepare_stability(
                 S.doc.scene, S.doc.joints, S.doc.mates, S.doc.fasteners, S.doc.grounds,
                 seconds=body.seconds, gravity=body.gravity, fps=body.fps,
                 with_autodetect=body.with_autodetect, exclude=body.exclude,
-                asentadas=asentadas,
+                asentadas=asentadas, sujetas=tornilleria_join_bolted(S.doc),
             )
         with PHYSICS_LOCK:
             return simulate_stability(snap)

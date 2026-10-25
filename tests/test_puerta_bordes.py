@@ -217,7 +217,7 @@ def test_join_bolted_criterio_5_no_taladra_bajo_el_minimo():
     a2 = ok.execute("create_box", {"width": 120, "depth": 80, "height": 8, "position": {"z": 4}})
     b2 = ok.execute("create_box", {"width": 120, "depth": 80, "height": 6, "position": {"z": 11}})
     cid = ok.execute("join_bolted", {"a": a2, "b": b2, "size": "M10", "count": 2})
-    assert next(c for c in ok.commands if c["id"] == cid)["params"]["criterio"] == 5
+    assert next(c for c in ok.commands if c["id"] == cid)["params"]["criterio"] == 6  # V8.9 F7b
 
 
 def test_la_puerta_ve_el_agujero_de_un_log_viejo():

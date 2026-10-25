@@ -1141,7 +1141,7 @@
  },
  {
   "name": "open_project",
-  "description": "Abre un proyecto por id. Devuelve además un `briefing` compacto (V6.5b) para arrancar la\nsesión en UNA llamada: resumen por GRUPO (n_piezas/masa/bbox) + variables + requisitos +\nnotas del agente + salud (ok/suprimidos) + variantes de diseño. Ya NO hace falta encadenar\nget_scene(summary)+get_requirements+get_agent_notes al abrir.",
+  "description": "Abre un proyecto por id. Devuelve además un `briefing` compacto (V6.5b) para arrancar la\nsesión en UNA llamada: resumen por GRUPO (n_piezas/masa/bbox) + variables + requisitos +\nnotas del agente + salud (ok/suprimidos) + variantes de diseño. Ya NO hace falta encadenar\nget_scene(summary)+get_requirements+get_agent_notes al abrir. Con más de 40 sólidos no los\nlista uno a uno: el resumen por grupo va en el briefing.",
   "inputSchema": {
    "properties": {
     "project_id": {

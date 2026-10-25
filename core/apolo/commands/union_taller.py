@@ -6,7 +6,9 @@ hueco se abre al costado: `_abierto_al_costado`); el 5, el de todo comando nuevo
 puerta), es el 4 que, ya taladrado, mide la distancia al canto de cada agujero en la geometría
 REAL de las dos piezas (`library/borde_agujero.py`, la misma medida de la puerta: EN 1993-1-8,
 e ≥ 1,2·d0) y rechaza el que queda bajo el mínimo. El patrón por la huella de las cajas no ve
-el canto de una muesca, una ranura o el extremo de una pieza más corta que su caja.
+el canto de una muesca, una ranura o el extremo de una pieza más corta que su caja. El 6 (V8.9
+F7b) es el 5 que, si una pieza YA trae sus agujeros en la huella (anclas «*agujero*»: los pies
+y la brida del cilindro), atornilla por ellos (`union_agujeros.py`).
 
 Por cada punto del patrón se tira un RAYO por el eje del taladro (`kernel/rayo.py`) y se mide
 lo que el perno atraviesa de verdad:
@@ -32,6 +34,7 @@ from .errors import CommandError
 from .exec_union import exigir_asiento, huella, patron, rotacion_hacia, terminar
 from .models_union import JoinBoltedParams
 from .state import ExecContext
+from .union_agujeros import agujeros_previos, exigir_compatibles, puntos_de_medida
 
 _TOL_CONTACTO = 0.6  # mm: la pared de la base empieza donde termina la pieza agregada
 _MARGEN = 5.0        # mm: el taladro arranca fuera de la cara de la cabeza
@@ -111,6 +114,19 @@ def _medir(h: dict, base, anadida, pt: list[float], otros: list, acceso: float,
         "t_add": sa[1] - sa[0], "t_base": sb[1] - sb[0],
         "cerrado": cerrado, "libre": libre, "sin_acceso": cerrado or libre < acceso,
     }
+
+
+def _medir_al_costado(h: dict, base, anadida, centro: list[float], d: float, otros: list,
+                      acceso: float, criterio: int) -> dict:
+    """Criterio 6: el eje de un agujero PREVIO se mide un radio + 1 mm al costado (por el agujero
+    el rayo no cruza la pieza que lo trae); el primer costado con material de las dos gana."""
+    error = None
+    for q in puntos_de_medida(h, centro, d):
+        try:
+            return _medir(h, base, anadida, q, otros, acceso, criterio)
+        except CommandError as exc:
+            error = exc
+    raise error
 
 
 def _en_camino(scene, excluir: set, h: dict, us, vs, u, v, alcance: float) -> list:
@@ -226,16 +242,28 @@ def criterio_taller(ctx: ExecContext, cmd_id: str, p: JoinBoltedParams, a, b) ->
     exigir_asiento(b.shape, h, h["bmin"][st] if a_abajo else h["bmax"][st], "contacto")
     grueso = {f.id: f.shape.bounding_box().size.to_tuple()[st] for f in (a, b)}
     base, anadida = (b, a) if grueso[b.id] > grueso[a.id] + 1e-6 else (a, b)
-    u, v, us, vs = patron(h, p)
     acceso = nut_m + 3.0 * paso_grueso(size) + LARGO_LIBRE_COPA_MM
-    otros = _en_camino(ctx.scene, {a.id, b.id}, h, us, vs, u, v, acceso)
-    puntos = []
-    for pu in us:
-        for pv in vs:
-            pt = [0.0, 0.0, 0.0]
-            pt[u], pt[v] = pu, pv
-            puntos.append(pt)
-    medidas = [_medir(h, base, anadida, pt, otros, acceso, p.criterio) for pt in puntos]
+    previos = agujeros_previos(h, a, b) if p.criterio >= 6 else None
+    if previos is not None:  # criterio 6: los agujeros que la pieza ya trae (`union_agujeros.py`)
+        pieza, agujeros = previos
+        exigir_compatibles(p, h, pieza, agujeros)
+        anadida, base = pieza, (b if pieza is a else a)
+        u, v = h["inplane"]
+        puntos = [[c if k != st else 0.0 for k, c in enumerate(o)] for o, _d in agujeros]
+        us, vs = [pt[u] for pt in puntos], [pt[v] for pt in puntos]
+        otros = _en_camino(ctx.scene, {a.id, b.id}, h, us, vs, u, v, acceso)
+        medidas = [_medir_al_costado(h, base, anadida, pt, d, otros, acceso, p.criterio)
+                   for pt, (_o, d) in zip(puntos, agujeros, strict=True)]
+    else:
+        u, v, us, vs = patron(h, p)
+        otros = _en_camino(ctx.scene, {a.id, b.id}, h, us, vs, u, v, acceso)
+        puntos = []
+        for pu in us:
+            for pv in vs:
+                pt = [0.0, 0.0, 0.0]
+                pt[u], pt[v] = pu, pv
+                puntos.append(pt)
+        medidas = [_medir(h, base, anadida, pt, otros, acceso, p.criterio) for pt in puntos]
     fij = _elegir(p, h, base, anadida, medidas)
     for ref in (fij.ref, fij.tuerca):
         if ref is not None and ref not in CATALOG:
