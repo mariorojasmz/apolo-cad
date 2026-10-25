@@ -220,7 +220,9 @@ Medido sobre `1f01d0a`.
 tools (otro cliente o script podría llamar cualquiera); `check_integrity` se muda leyendo
 `resolve_all` por el módulo `document`; el orden de fases arranca por F2 (`models`, nada en curso
 lo toca) y F1 (MCP) espera a que V8.9 F6 esté en `main` por si suma tools; `core/tests/test_mejoras_mcp.py`
-(fuera de `testpaths`, no corre en el CI) se resuelve en una fase de salud aparte.
+(fuera de `testpaths`, no corre en el CI) se resuelve en una fase de salud aparte (hecho: pasó a
+`tests/test_mejoras_mcp.py`; importa `_orient_axis` y `Feature` de `registry`, así que F3 los
+re-exporta).
 
 ## Alternativas descartadas
 

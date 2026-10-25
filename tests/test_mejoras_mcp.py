@@ -1,7 +1,8 @@
-# -*- coding: utf-8 -*-
 """Regresión de las 6 mejoras al MCP/servidor de Apolo (set_variable '=', materiales,
 BOM con peso/agrupación, filtro de catálogo, engineering_check de primitivas, eje de
-conveniencia). Ejecuta: PYTHONPATH=core python -m pytest core/tests/test_mejoras_mcp.py
+conveniencia). Vivía en `core/tests/`, fuera de `testpaths`: no corría en el CI. Lo que sólo
+cubre este archivo: `_orient_axis`, `rules.infer_from_solids`, el colapso de sufijos de patrón
+en la BOM y el `=` inicial de una expresión.
 """
 from build123d import Box, Cylinder
 
