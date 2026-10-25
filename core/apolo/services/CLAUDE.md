@@ -130,6 +130,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `hash_escenario` + `COSIM_EPOCH` (regla en [cosim](../cosim/CLAUDE.md); sin el dato = versión 1);
   vencido = AMARILLO en la puerta, nunca rojo ni verde. El snapshot toma los programas del carril y `programas=` los pisa por PLC (`test_plc`).
   [V8.3](../../../docs/plans/V8.3-prueba-virtual.md) (D12, D14)
+- `resultado_compacto` guarda `electrico` (ΔU de cada motor y disparos, `medidas_electricas.py`)
+  sólo con motores o un disparo; sus referencias (`referencias(doc)`: U de la red, In, tras
+  variador) las arma la API en la toma del snapshot, nunca el worker. Un resultado sin
+  `electrico` sigue vigente: quien lo lee usa `cifras` (aviso «córrelo de nuevo»).
+  [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (F4)
 - Una sesión en vivo vuelta escenario (`sesion_viva.py`) tiene que dar por lote la huella de la
   sesión: la cola de productos queda con las instancias que tuvo la SESIÓN (`fijar_cola`: su pool
   sale de la duración de la BASE), más de 60 s se guarda por tramo inicial (`hasta_s`), y otra

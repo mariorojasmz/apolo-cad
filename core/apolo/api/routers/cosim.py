@@ -79,9 +79,11 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
     from apolo.cosim.veredicto import evaluar
     from apolo.services import cosim_externo
     from apolo.services import escenarios as E
+    from apolo.services import medidas_electricas as ME
     from apolo.services.cosim_snapshot import snapshot_cosim
 
     pedir_guardar, guardar = guardar, guardar and not plc_externo  # D7: con externo, nunca
+    refs = None
     with STATE_LOCK:  # (a) el snapshot, en una adquisición
         if proyecto is not None and S.project_id != proyecto:
             raise HTTPException(status_code=409, detail=(
@@ -94,6 +96,8 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
                 _verificar_documento()  # va a escribir su resultado en ESTE documento
             firma, h = E.firma_documento(doc), E.hash_escenario(esc)
             snap = snapshot_cosim(doc, esc, programas=programas, plc_externo=plc_externo)
+            if nombre and guardar:  # pedidos-de-extensiones D7: las referencias, del documento
+                refs = ME.referencias(doc)
         except ServiceError as exc:
             raise _http_error(exc) from exc
     try:  # (b) fuera de todo lock
@@ -130,7 +134,7 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
             else:
                 out["guardado"] = E.guardar_resultado(doc, nombre, E.resultado_compacto(
                     ver, res, firma=firma, hash_esc=h, simulacion=sim_id,
-                    extensiones=getattr(snap, "extensiones", None)))
+                    extensiones=getattr(snap, "extensiones", None), referencias_electricas=refs))
                 if out["guardado"]:
                     _autosave()
                 out["estado"] = E.estado(doc, nombre)["estado"] if nombre in doc.escenarios else None
@@ -319,6 +323,7 @@ def _guardar_sesion(body: SesionIn, proyecto) -> dict:
     from apolo.cosim.proceso import CosimError, correr_en_proceso
     from apolo.cosim.veredicto import evaluar
     from apolo.services import escenarios as E
+    from apolo.services import medidas_electricas as ME
     from apolo.services import sesion_viva as SV
     from apolo.services.cosim_snapshot import snapshot_cosim
 
@@ -335,6 +340,7 @@ def _guardar_sesion(body: SesionIn, proyecto) -> dict:
             esc, nombre = prep["escenario"], prep["nombre"]
             firma, h = E.firma_documento(doc), E.hash_escenario(esc)
             snap = snapshot_cosim(doc, esc)
+            refs = ME.referencias(doc)
         except ServiceError as exc:
             raise _http_error(exc) from exc
     try:  # (b)
@@ -373,7 +379,8 @@ def _guardar_sesion(body: SesionIn, proyecto) -> dict:
             raise _http_error(exc) from exc
         E.guardar_resultado(doc, nombre, E.resultado_compacto(ver, res, firma=firma, hash_esc=h,
                                                               simulacion=sim_id,
-                                                              extensiones=getattr(snap, "extensiones", None)))
+                                                              extensiones=getattr(snap, "extensiones", None),
+                                                              referencias_electricas=refs))
         _autosave()
         out.update(guardado=True, estado=E.estado(doc, nombre)["estado"])
         out["avisos"] += puesto["avisos"]

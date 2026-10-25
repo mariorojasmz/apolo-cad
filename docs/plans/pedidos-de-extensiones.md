@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; dos carriles F1 ∥ F2 → F3 ∥ F4 → F5 ∥ F6; F2 mergeada (`simbolo`, `acoplado_a`, `FUERA_DE_FIRMA`); F1 implementada en su rama (sin mergear; `MODULOS` + `pedir_entregable`, fotograma congelado, `ext_prueba/contrato.py`); sigue F3 ∥ F4
+nota: contrato de Claude derivado de pedidos de extensiones, con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `97d93c3`; F1 (superficie), F2 (dispositivo: símbolo y acople fuera de la firma) y F4 (cifras eléctricas medidas: ΔU de motores, disparos; el diferencial por su residual) mergeadas; siguen F3 (entregable como job), F5 (notas de cotización), F6 (bus con la sesión abierta) y F7 (la pieza de lo que dibuja el layout)
 descripcion: una extensión lee el circuito, la prueba virtual y la sesión viva por el contrato declarado (con las cifras eléctricas medidas, los tipos de las variables del PLC y la sesión ya abierta), entrega sus archivos lentos como job y suma notas a la cotización
 ---
 
@@ -341,3 +341,57 @@ resultado) y sólo cambia la huella (`5878df434dc6a50c` → `da527a5307f6c246`).
 `tests/data/carril_v81_golden.json` sin cambios; sin bump de `GEOM_CACHE_EPOCH` ni de versiones de
 comandos (el carril no es un executor de escena); ninguna tool MCP nueva. Sin aviso del ERC que
 compare con la regla de la colocación (fuera, decisión de la revisión).
+
+### F4 — Cifras eléctricas en el resultado
+
+**D7, modelos.** `Motor` publica `U_V`: la U que recibe su `paso` (la media de las tensiones de
+línea vivas en sus bornes; 0 con menos de dos fases; tras un variador, la de su salida). Las
+protecciones (`Itm`, `Guardamotor`, `ReleTermico`, `Fusible` y también el `Diferencial`, que es
+protección del mismo tablero) comparten `protecciones.CorrienteDeDisparo`: `I_disparo_A` NO existe
+hasta el primer disparo; en el paso del disparo vale la mayor corriente de sus polos (en el
+diferencial, la de sus polos y no la residual: lo que cortó), se retiene, y al rearmar (o reponer
+todos los cartuchos) queda en 0.0 sin desaparecer, como `averia` queda en «». Con la falla
+`abierto` es la del último paso cerrado. `cosim/tipos.py` la tipa (número) para `set_scenario`.
+
+**D7, medida.** `services/medidas_electricas.py` (216 líneas): `referencias(doc)` (la U nominal de
+la red que alimenta cada motor, su In en su conexión y `tras_variador`, con las llegadas de
+`redes.analizar`) y `resumen_electrico(res, refs)`, puro. La API arma las referencias en la toma
+del snapshot (`_correr` y la sesión viva vuelta escenario) y `resultado_compacto` guarda
+`electrico` sólo con motores o un disparo. `cifras(resultado, motores)` es la lectura: sin
+`electrico` y con motores devuelve el aviso «córrelo de nuevo» (D8). Decisiones de la medida, a
+vetar: el régimen es la mediana del último 0,5 s alimentado **con I < 1,5·In** (si no, un motor
+trabado antes de que dispare su protección contaba como régimen); un motor que nunca recibió
+tensión lleva `alimentado: false`; `tras_variador` si ALGUNA fase le llega de un variador (un
+bypass mixto no da ΔU); la causa de un fusible, que no publica `causa`, es «fusión» o «avería».
+
+**Cuenta a mano** (arranque directo del banco, `faja_directo`, red 220 V 60 Hz, Icc 10 kA, X/R 1,5;
+`test_la_caida_del_arranque_directo_contra_la_cuenta_a_mano`). Por fase: la red, 0,0070456 + j
+0,0105685 Ω; tres tramos de 2,5 mm² × 1 m a 70 °C, 3 × 0,00954807 Ω (7,98 Ω/km · 1,1965) y
+3 × j 0,00008 Ω; tres contactos cerrados, 3 × R_ON = 0,03 Ω; el hilo de -W1, 1,5 mm² × 6 m,
+0,0954807 + j 0,00048 Ω. Total **Z = 0,1611705 + j 0,0112885 Ω**.
+
+| | a mano | simulación (500 Hz) | ΔU |
+|---|---|---|---|
+| rotor bloqueado (1.er paso): S = √3·230·5,5·3,18 = 6967,5 VA a FP 0,4, estampada a 220 V (Z_Y = 220²/S*) | 217,611 V | 217,610 V | 1,09 % |
+| mínimo del arranque (girando: potencia constante con la U·I del paso anterior, cos φ 0,76) | 216,373 V | 216,373 V | **1,65 %** |
+| régimen (I = 1,844 A, cos φ 0,76) | 219,585 V | 219,585 V | **0,19 %** |
+
+Las diferencias son < 0,5 mV (la carga de la fuente de 24 V en L1–L2). A 50 Hz, lo de siempre,
+el arranque de este motor (~70 ms) cae entre muestras: `U_min_arranque_V` = 217,185 V (1,28 %),
+del lado alto; `medicion` declara la resolución y con `trazas.analogicas_hz: 500` se ve cada paso.
+Disparos: atasco de 500 N·m, -Q2 a 15,468 s con 16,135 A (la del hilo -W1.1; el modelo del motor
+dice 16,150) y «térmico»; corto en bornes del motor, -Q2 a 1,0 s, 679,8 A, «magnético»; corto en
+la entrada de la fuente de 24 V, -F1, 2298 A, «magnético»; -Q2 `abierto`, 1,844 A, «avería». Por
+variador: `{"tras_variador": true}`, sin ΔU.
+
+**D8, evidencia** (la condición de la revisión), contra `1ff0679` exportado aparte, con un banco
+ad hoc: 11 escenarios —en directo marcha, seta, caída de red, atasco que dispara, atasco parcial,
+corto en el motor, corto en la fuente de 24 V y guardamotor `abierto`; por variador seta, corte de
+fase y cajas con seta— dan trazas discretas y analógicas SIN `-M1.U_V` ni `*.I_disparo_A`,
+eventos, finales, claves del resultado y del `resumen` y veredicto aserción por aserción
+IDÉNTICOS; cada huella cambia sólo por las trazas nuevas (corte de fase `057ccaee` → `f7557715`,
+marcha en directo `dc083266` → `060499a1`). `COSIM_EPOCH` sigue en 6: la huella de
+`test_cosim_epoch.py` pasa de `da527a5307f6c246` a `ebb2c0024244aea9`. `medidas_electricas.py`
+no entra a `ARCHIVOS` (como `aire_resultado.py`: no decide el resultado ni el veredicto, sólo lo
+que se guarda de él). `test_cosim_vivo.py` verde (vivo y lote con la misma huella). La UI lee la
+unidad por sufijo (`_V`, `_A`): sin cambios, sin `npm test`.

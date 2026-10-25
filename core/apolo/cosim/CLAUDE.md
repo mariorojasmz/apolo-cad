@@ -52,6 +52,11 @@ backend: [core/apolo](../CLAUDE.md).
 - PUROS sin OCCT (`test_capas_cosim.py`): ni `apolo.library` (su `__init__` carga OCP). Las
   redes leen el formato plano de `red/entrada.py` (lo arma `services/cosim_red.py`); la alterna
   de mando va en la de potencia. `pedidas()` ANTES de `paso`.
+- Una señal nueva que no cambie lo publicado va como `averia`: el motor publica `U_V` (la de su
+  `paso`) y una protección `I_disparo_A` sólo tras disparar (`CorrienteDeDisparo`, 0.0 al
+  rearmar); la huella sube sin la época si el banco da IGUAL todo lo demás y el veredicto. Lo que
+  se MIDE de ellas va en `services/medidas_electricas.py`, no aquí.
+  [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (F4)
 
 ## Planificador y worker (raíz)
 

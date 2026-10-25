@@ -15,7 +15,9 @@ checkpoints, como `motion` o `fea`) con la forma `{nombre: {"escenario": {...}, 
     modelos de una extensión, su versión (`extensiones`); si cualquiera cambió, «vencido»;
   - `resultado_compacto` + `guardar_resultado`: lo que queda del último run (veredicto y cada
     aserción, sin las trazas, que van a la memoria de la API; con cilindros, `aire`: sus carreras
-    medidas, que lee la memoria de cálculo, `aire_resultado.py`, V8.9 F4);
+    medidas, que lee la memoria de cálculo, `aire_resultado.py`, V8.9 F4; con motores o un disparo,
+    `electrico`: la caída de tensión y los disparos medidos, `medidas_electricas.py`,
+    pedidos-de-extensiones D7);
   - `reglas_escenarios`: la regla «escenarios» de la puerta de entrega (D14).
 """
 
@@ -301,23 +303,29 @@ def extensiones_usadas(doc, previas: dict | None = None) -> dict:
 
 
 def resultado_compacto(veredicto: dict, res: dict, *, firma: str, hash_esc: str,
-                       simulacion: str | None, extensiones: dict | None = None) -> dict:
+                       simulacion: str | None, extensiones: dict | None = None,
+                       referencias_electricas: dict | None = None) -> dict:
     """Lo que se guarda en el manifest del último run: sin trazas (pesan cientos de KB). Con la
     versión del motor que lo produjo (`cosim_epoch`, F6b) y, sólo si el tablero usó modelos de
-    una extensión, sus versiones (`extensiones`, A4)."""
+    una extensión, sus versiones (`extensiones`, A4). `referencias_electricas` (las arma la API
+    del documento: `medidas_electricas.referencias`) dice qué es motor y contra qué se mide su
+    caída; sin motores ni disparos no hay `electrico` (D7)."""
     from apolo.cosim import COSIM_EPOCH
 
     from .aire_resultado import resumen_aire
+    from .medidas_electricas import resumen_electrico
 
     r = res.get("resumen") or {}
     aire = resumen_aire(res)  # V8.9 F4: carreras y consumo del aire para la memoria (sin aire, nada)
+    electrico = resumen_electrico(res, referencias_electricas)  # D7: sin motores ni disparos, nada
     return {"veredicto": veredicto["veredicto"], "aserciones": veredicto["aserciones"],
             "firma_documento": firma, "hash_escenario": hash_esc, "cosim_epoch": COSIM_EPOCH,
             "fecha": time.strftime("%Y-%m-%dT%H:%M:%S"), "huella": r.get("huella"),
             "duracion_s": r.get("duracion_s"), "factor_tiempo_real": r.get("factor_tiempo_real"),
             **({"simulacion": simulacion} if simulacion else {}),
             **({"extensiones": dict(extensiones)} if extensiones else {}),
-            **({"aire": aire} if aire else {})}
+            **({"aire": aire} if aire else {}),
+            **({"electrico": electrico} if electrico else {})}
 
 
 def guardar_resultado(doc, nombre: str, compacto: dict) -> bool:

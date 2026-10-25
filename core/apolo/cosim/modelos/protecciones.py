@@ -11,7 +11,11 @@ que en su cuantización. τ se elige para que t(x) caiga en la banda de la norma
 están abajo, con su norma; el punto dentro de la banda es criterio de diseño), y el magnético
 es un umbral instantáneo: dispara en el mismo paso.
 
-Señales (D10): `-Q1.disparado`, `-Q1.termico_pct` (θ/k² en %), `-Q1.cerrado`.
+Señales (D10): `-Q1.disparado`, `-Q1.termico_pct` (θ/k² en %), `-Q1.cerrado`. Tras el PRIMER
+disparo, además, `-Q1.I_disparo_A`: la mayor corriente de sus polos en el paso del disparo (con
+la falla `abierto`, la del último paso cerrado), retenida hasta rearmar o reponer, y 0.0 después.
+Antes de disparar no existe: las salidas son las de siempre, como `averia` (plan
+pedidos-de-extensiones D7).
 
 Fallas (cosim-fallas D2): `no_dispara` (el bimetal calienta pero ni el térmico ni el magnético
 abren) y `abierto` (dispara o funde SOLO, con causa «avería»: mientras dura no se rearma ni se
@@ -87,7 +91,27 @@ class ImagenTermica:
         return self.tau * math.log((x * x - theta0) / (x * x - self.k2))
 
 
-class _Proteccion(Modelo):
+class CorrienteDeDisparo:
+    """`I_disparo_A` de una protección (D7): None hasta el primer disparo (sin la señal), la
+    corriente del disparo mientras dura y 0.0 al rearmarla. Mezcla de los modelos que disparan."""
+
+    I_disparo: float | None = None
+    _I_ultima: float = 0.0  # la mayor corriente del último paso (la que corta una avería)
+
+    def _retener(self, I_A: float) -> None:
+        self.I_disparo = float(I_A)
+
+    def _soltar(self) -> None:
+        if self.I_disparo is not None:
+            self.I_disparo = 0.0
+
+    def _con_disparo(self, out: dict) -> dict:
+        if self.I_disparo is not None:
+            out["I_disparo_A"] = self.I_disparo
+        return out
+
+
+class _Proteccion(CorrienteDeDisparo, Modelo):
     """Estado común: cerrada (la manija), disparada (la protección abrió sola)."""
 
     ACCIONES = ("rearmar", "abrir", "cerrar")
@@ -108,6 +132,7 @@ class _Proteccion(Modelo):
         corrientes = por_polo((entradas or {}).get("I_A", 0.0), self.polos)
         if not self.cerrado:
             corrientes = [0.0] * self.polos
+        self._I_ultima = max(corrientes)
         termico = self.termico.paso(dt, [i / self.nominal for i in corrientes])
         if self.cerrado:
             if self.magnetico_A is not None and max(corrientes) >= self.magnetico_A:
@@ -119,6 +144,11 @@ class _Proteccion(Modelo):
     def _disparar(self, causa: str) -> None:
         if not self.no_dispara:
             self.disparado, self.causa = True, causa
+            self._retener(self._I_ultima)
+
+    def _rearmado(self) -> None:
+        self.disparado, self.causa = False, ""
+        self._soltar()
 
     def _falla_no_dispara(self, _v=None) -> None:
         self.no_dispara = True
@@ -128,6 +158,8 @@ class _Proteccion(Modelo):
 
     def _falla_abierto(self, _v=None) -> None:
         self.abierto = True
+        if not self.disparado:
+            self._retener(self._I_ultima)
         self.disparado, self.causa = True, "avería"
 
     def _reparar_abierto(self, _v=None) -> None:
@@ -138,8 +170,8 @@ class _Proteccion(Modelo):
         return self.manija and not self.disparado
 
     def salidas(self) -> dict:
-        return {"cerrado": self.cerrado, "disparado": self.disparado,
-                "termico_pct": round(self.termico.pct, 6), "causa": self.causa}
+        return self._con_disparo({"cerrado": self.cerrado, "disparado": self.disparado,
+                                  "termico_pct": round(self.termico.pct, 6), "causa": self.causa})
 
     def _puede_rearmar(self) -> bool:
         # el bimetal tiene que enfriarse hasta su régimen nominal (θ ≤ 1): criterio de diseño
@@ -147,7 +179,7 @@ class _Proteccion(Modelo):
 
     def _accion_rearmar(self, _valor=None) -> None:
         if self.disparado and self._puede_rearmar():
-            self.disparado, self.causa = False, ""
+            self._rearmado()
 
     def _accion_abrir(self, _valor=None) -> None:
         self.manija = False
@@ -216,16 +248,19 @@ class ReleTermico(_Proteccion):
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
         corrientes = por_polo((entradas or {}).get("I_A", 0.0), self.polos)
+        self._I_ultima = max(corrientes)
         if self.termico.paso(dt, [i / self.nominal for i in corrientes]) and not self.disparado:
             self._disparar("térmico")
         if self.disparado and self.rearme == "automatico" and self._puede_rearmar():
-            self.disparado, self.causa = False, ""
+            self._rearmado()
         return self.salidas()
 
 
-class Fusible(Modelo):
+class Fusible(CorrienteDeDisparo, Modelo):
     """Cartucho 5×20 (IEC 60127-2) en cada unidad de un portafusible (bornera de `cantidad`
-    unidades, cada una con su cartucho). Fundido queda fundido: se repone con `reponer`."""
+    unidades, cada una con su cartucho). Fundido queda fundido: se repone con `reponer`.
+    `I_disparo_A` es la del primer cartucho que funde con todos sanos (la mayor de los que funden
+    en ese paso), hasta reponerlos todos."""
 
     tipo = "fusible"
     ACCIONES = ("reponer",)
@@ -245,26 +280,33 @@ class Fusible(Modelo):
         self.termico = ImagenTermica(FUSIBLE_TAU_S[self.curva], FUSIBLE_K, self.unidades)
         self.fundido = [False] * self.unidades
         self.abiertas: set[int] = set()  # unidades con la falla `abierto` (0-indexadas)
+        self._I_unidades = [0.0] * self.unidades  # la corriente de cada unidad en el último paso
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
         corrientes = por_polo((entradas or {}).get("I_A", 0.0), self.unidades)
         corrientes = [0.0 if f else i for f, i in zip(self.fundido, corrientes)]
+        self._I_unidades = corrientes
         self.termico.paso(dt, [i / self.nominal for i in corrientes])
         if not self.no_dispara:
+            antes = list(self.fundido)
             self.fundido = [f or th >= self.termico.k2 for f, th in zip(self.fundido, self.termico.theta)]
+            if not any(antes) and any(self.fundido):
+                self._retener(max(i for i, a, f in zip(corrientes, antes, self.fundido) if f and not a))
         return self.salidas()
 
     def salidas(self) -> dict:
         out = {"disparado": any(self.fundido), "termico_pct": round(self.termico.pct, 6)}
         if self.unidades > 1:
             out.update({f"{k + 1}.disparado": f for k, f in enumerate(self.fundido)})
-        return out
+        return self._con_disparo(out)
 
     def _accion_reponer(self, unidad=None) -> None:
         for k in range(self.unidades):
             if unidad in (None, k + 1) and k not in self.abiertas:
                 self.fundido[k] = False
                 self.termico.theta[k] = 0.0
+        if not any(self.fundido):
+            self._soltar()
 
     def _unidades(self, unidad) -> list[int]:
         if unidad is None:
@@ -283,7 +325,10 @@ class Fusible(Modelo):
         self.no_dispara = False
 
     def _falla_abierto(self, unidad=None) -> str:
-        for k in self._unidades(unidad):
+        ks = self._unidades(unidad)
+        if not any(self.fundido):
+            self._retener(max(self._I_unidades[k] for k in ks))
+        for k in ks:
             self.abiertas.add(k)
             self.fundido[k] = True
         return self._etiqueta(unidad)

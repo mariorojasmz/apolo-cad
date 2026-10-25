@@ -135,7 +135,13 @@ ARCHIVOS = (
 #: actuadores, avisos) y 7 escenarios del banco (marcha, seta, caída de red y atasco parcial en
 #: directo; seta, corte de fase y cajas con seta por variador) dan la MISMA huella, claves y
 #: eventos que en ec4ac9b (bitácora del plan).
-HUELLA: tuple[int, str] = (6, "da527a5307f6c246")
+#: pedidos-de-extensiones F4 (sin subir, D8): el motor publica `U_V` (la tensión que ya usaba su
+#: paso) y cada protección `I_disparo_A` SÓLO tras disparar (como `averia`); `tipos.py` la tipa.
+#: Ningún valor que ya se publicaba cambia: 8 escenarios del banco (marcha, seta, caída de red,
+#: atasco que dispara y atasco parcial en directo; seta, corte de fase y cajas con seta por
+#: variador) dan trazas SIN las señales nuevas, eventos, finales, claves y veredicto por aserción
+#: IDÉNTICOS a 1ff0679; la huella de cada uno cambia sólo por la traza nueva (bitácora del plan).
+HUELLA: tuple[int, str] = (6, "ebb2c0024244aea9")
 
 
 def archivos() -> list[Path]:

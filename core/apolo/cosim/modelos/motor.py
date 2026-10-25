@@ -20,7 +20,9 @@ y el tope ±Tk·k·i·η de la rama estable linealizada, más la fricción del r
 y en la zona inestable (arranque) interpola hasta Ia·φ a rotor bloqueado.
 
 Señales (D10): `-M1.rpm` y `-M1.par_Nm` (eje del MOTOR), `-M1.I_A`, más `rpm_salida`,
-`par_salida_Nm` y `k`.
+`par_salida_Nm`, `k` y `U_V`: la tensión de línea en sus bornes, la MISMA que usa `paso` (0 con
+menos de dos fases; tras un variador, la de su salida). La lee la caída de tensión del resultado
+(`services/medidas_electricas.py`, plan pedidos-de-extensiones D7).
 """
 
 from __future__ import annotations
@@ -101,7 +103,7 @@ class Motor(Modelo):
         p.hipotesis.append(f"fricción del reductor sin tensión {self.friccion_Nm:.3g} N·m en la salida: "
                            f"{FRICCION_VACIO:.0%} de su pérdida a plena carga (criterio de diseño)")
         self._salidas = {"rpm": 0.0, "par_Nm": 0.0, "I_A": 0.0, "rpm_salida": 0.0,
-                         "par_salida_Nm": 0.0, "k": 0.0}
+                         "par_salida_Nm": 0.0, "k": 0.0, "U_V": 0.0}
 
     # ── curva y flujo ────────────────────────────────────────────────────────────────────────
 
@@ -169,7 +171,7 @@ class Motor(Modelo):
             # arranca, y eso lo da `actuador_fases`
             I *= math.sqrt(3)
         self._salidas = {"rpm": rpm, "par_Nm": T, "I_A": I, "rpm_salida": w_out * 60.0 / (2.0 * math.pi),
-                         "par_salida_Nm": T_out, "k": self.flujo(U, f) ** 2}
+                         "par_salida_Nm": T_out, "k": self.flujo(U, f) ** 2, "U_V": U}
         return self.salidas()
 
     def actuador_fases(self, U: float, f: float, fases: int, omega_salida_rad_s: float) -> dict:

@@ -18,7 +18,8 @@ componente continua lisa que ciega a un tipo A no se simula; el ERC lo señala, 
 natural o capacitiva (filtros EMC, cables largos) no se simula: ve sólo las fallas declaradas.
 
 Señales: `-F1.cerrado`, `-F1.disparado`, `-F1.I_residual_mA`, `-F1.causa` («diferencial»; con la
-falla `abierto`, «avería»). Acciones: `rearmar`, `abrir`, `cerrar` (rearmar con la falla de
+falla `abierto`, «avería») y, tras el primer disparo, `-F1.I_disparo_A`: la mayor corriente de sus
+polos en ese paso (lo que cortó, no la residual), como las protecciones de `protecciones.py`. Acciones: `rearmar`, `abrir`, `cerrar` (rearmar con la falla de
 aislamiento presente vuelve a disparar en su tiempo de disparo: el aparato es de disparo libre).
 Fallas (cosim-fallas D2): `no_dispara` (la residual se mide pero no abre) y `abierto` (dispara
 solo; mientras dura no se rearma; reparada, queda disparado hasta que alguien lo rearme).
@@ -27,6 +28,7 @@ solo; mientras dura no se rearma; reparada, queda disparado hasta que alguien lo
 from __future__ import annotations
 
 from .base import EPS_T, Modelo, ModeloIncompleto, Parametros
+from .protecciones import CorrienteDeDisparo
 
 #: Clases de corriente residual de IEC 61008-1 / IEC 62423 (el YAML las valida como `curva`).
 CLASES_RESIDUAL = ("AC", "A", "F", "B")
@@ -58,7 +60,7 @@ def residual(fasores) -> float:
     return abs(sum((complex(i) for i in fasores or ()), 0j))
 
 
-class Diferencial(Modelo):
+class Diferencial(CorrienteDeDisparo, Modelo):
     tipo = "diferencial"
     ACCIONES = ("rearmar", "abrir", "cerrar")
     FALLAS = {"no_dispara": "", "abierto": ""}
@@ -93,7 +95,9 @@ class Diferencial(Modelo):
         return self.manija and not self.disparado
 
     def paso(self, dt: float, entradas: dict | None = None) -> dict:
-        self.I_res = residual((entradas or {}).get("I_fasores")) if self.cerrado else 0.0
+        fasores = (entradas or {}).get("I_fasores") or ()
+        self.I_res = residual(fasores) if self.cerrado else 0.0
+        self._I_ultima = max((abs(complex(i)) for i in fasores), default=0.0) if self.cerrado else 0.0
         t = t_disparo(self.I_res / self.IDn) if self.cerrado else None
         if t is None:
             self._t = 0.0
@@ -101,17 +105,19 @@ class Diferencial(Modelo):
             self._t += dt
             if self._t >= t - EPS_T and not self.no_dispara:
                 self.disparado, self.causa, self._t = True, "diferencial", 0.0
+                self._retener(self._I_ultima)
         return self.salidas()
 
     def salidas(self) -> dict:
-        return {"cerrado": self.cerrado, "disparado": self.disparado,
-                "I_residual_mA": round(self.I_res * 1000.0, 6), "causa": self.causa}
+        return self._con_disparo({"cerrado": self.cerrado, "disparado": self.disparado,
+                                  "I_residual_mA": round(self.I_res * 1000.0, 6), "causa": self.causa})
 
     # ── acciones y fallas ────────────────────────────────────────────────────────────────────
 
     def _accion_rearmar(self, _valor=None) -> None:
         if self.disparado and not self.abierto:
             self.disparado, self.causa, self._t = False, "", 0.0
+            self._soltar()
 
     def _accion_abrir(self, _valor=None) -> None:
         self.manija = False
@@ -127,6 +133,8 @@ class Diferencial(Modelo):
 
     def _falla_abierto(self, _v=None) -> None:
         self.abierto = True
+        if not self.disparado:
+            self._retener(self._I_ultima)
         self.disparado, self.causa = True, "avería"
 
     def _reparar_abierto(self, _v=None) -> None:
