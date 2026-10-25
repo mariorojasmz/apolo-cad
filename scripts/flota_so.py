@@ -179,8 +179,63 @@ def padres() -> dict[int, int]:
     return _padres_windows() if _ES_WINDOWS else _padres_posix()
 
 
+# ── identidad: pid + hora de creación ────────────────────────────────────────
+# El SO RECICLA los pid: en Windows el de un proceso recién muerto lo toma enseguida el próximo
+# que nace (con otra suite lanzando procesos, a veces uno de vida larga). Un pid solo no dice si
+# «sigue vivo» el MISMO proceso: con la hora de creación, sí.
+
+def _creado_windows(pid: int) -> int | None:
+    import ctypes
+    from ctypes import wintypes
+
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    k32.GetProcessTimes.argtypes = (wintypes.HANDLE,) + (ctypes.POINTER(wintypes.FILETIME),) * 4
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return None
+    try:
+        t = [wintypes.FILETIME() for _ in range(4)]
+        if not k32.GetProcessTimes(h, *(ctypes.byref(x) for x in t)):
+            return None
+        return (t[0].dwHighDateTime << 32) | t[0].dwLowDateTime
+    finally:
+        k32.CloseHandle(h)
+
+
+def creado(pid: int) -> int | None:
+    """La hora de creación del proceso `pid` en la unidad del SO (comparable sólo entre sí), o
+    `None` si no existe o no se puede leer. Linux: `starttime` de `/proc/<pid>/stat`."""
+    if pid <= 0:
+        return None
+    if _ES_WINDOWS:
+        return _creado_windows(pid)
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8", errors="replace") as f:
+            stat = f.read()
+        return int(stat[stat.rfind(")") + 2:].split()[19])
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def firmas(pids) -> dict[int, int | None]:
+    """{pid: hora de creación}: la identidad de esos procesos AHORA, para preguntar después."""
+    return {p: creado(p) for p in pids}
+
+
+def siguen_vivos(firma: dict[int, int | None]) -> list[int]:
+    """Los procesos de `firma` que siguen vivos: el mismo pid Y la misma hora de creación (uno
+    reciclado no cuenta). Sin hora (el SO no la dio), vale el pid solo."""
+    mapa = padres()
+    return sorted(p for p, c in firma.items() if p in mapa and (c is None or creado(p) == c))
+
+
 def arbol(raiz: int, mapa: dict[int, int] | None = None) -> set[int]:
-    """`raiz` y todos sus descendientes vivos (vacío si `raiz` murió)."""
+    """`raiz` y todos sus descendientes vivos (vacío si `raiz` murió). En Windows el pid del
+    padre de un huérfano queda viejo y puede apuntar a un pid RECICLADO: un «hijo» que nació
+    antes que su padre no es suyo y no entra."""
     mapa = padres() if mapa is None else mapa
     if raiz not in mapa:
         return set()
@@ -188,10 +243,24 @@ def arbol(raiz: int, mapa: dict[int, int] | None = None) -> set[int]:
     for pid, padre in mapa.items():
         if pid != padre:
             hijos.setdefault(padre, []).append(pid)
+    horas: dict[int, int | None] = {}
+
+    def hora(p: int) -> int | None:
+        if p not in horas:
+            horas[p] = creado(p)
+        return horas[p]
+
+    def suyo(hijo: int, padre: int) -> bool:
+        if not _ES_WINDOWS:  # en POSIX el huérfano pasa a init: el ppid no queda viejo
+            return True
+        h, p = hora(hijo), hora(padre)
+        return h is None or p is None or h >= p
+
     vistos, pendientes = {raiz}, [raiz]
     while pendientes:
-        for hijo in hijos.get(pendientes.pop(), []):
-            if hijo not in vistos:
+        padre = pendientes.pop()
+        for hijo in hijos.get(padre, []):
+            if hijo not in vistos and suyo(hijo, padre):
                 vistos.add(hijo)
                 pendientes.append(hijo)
     return vistos

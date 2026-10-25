@@ -369,16 +369,20 @@ def parar(d: str | Path | None = None, puertos: list[int] | None = None,
         if e["pid"] in padres and (e["pid"] in del_lanzador
                                    or e["pid"] in so.escuchas().get(e["puerto"], set())):
             nuestros |= so.arbol(e["pid"], padres)
+        # identidad = pid + hora de creación, tomada ANTES de matar: el pid de uno recién muerto
+        # lo recicla enseguida otro proceso y, por pid solo, contaba como «vivo» (devolvía
+        # ok=False con un proceso ajeno).
+        firma = so.firmas(nuestros)
         for raiz in (e["lanzador"], e["pid"]):
             if raiz in nuestros:
                 so.matar_arbol(raiz, gracia_s=5.0)
         limite = time.monotonic() + espera_s
         while time.monotonic() < limite:
-            vivos = nuestros & set(so.padres())
-            if not vivos and e["pid"] not in so.escuchas().get(e["puerto"], set()):
+            if (not so.siguen_vivos(firma)
+                    and e["pid"] not in so.escuchas().get(e["puerto"], set())):
                 break
             time.sleep(0.3)
-        vivos = sorted(nuestros & set(so.padres()))
+        vivos = so.siguen_vivos(firma)
         sueltos = soltar_candados(e["db"], e["pid"], e["puerto"])
         quedan = candados_de(e["db"], e["pid"], e["puerto"])
         ok = not vivos and not quedan

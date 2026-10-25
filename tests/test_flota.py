@@ -104,6 +104,25 @@ def test_el_arbol_de_este_proceso_lo_contiene():
     assert so.arbol(-5) == set()
 
 
+def test_un_pid_reciclado_no_sigue_vivo():
+    """La identidad es pid + hora de creación: el MISMO pid con otra hora es otro proceso (el SO
+    recicló el pid del muerto) y `parar` no debe darlo por vivo."""
+    yo = os.getpid()
+    firma = so.firmas([yo])
+    assert firma[yo] is not None and so.siguen_vivos(firma) == [yo]
+    assert so.siguen_vivos({yo: firma[yo] - 1}) == []  # nació en otra hora: no es el de la firma
+    assert so.siguen_vivos({-5: None}) == []
+
+
+def test_un_hijo_mas_viejo_que_su_padre_no_es_del_arbol(monkeypatch):
+    """Windows deja el ppid VIEJO en un huérfano: si ese pid se recicla, el «hijo» nació antes
+    que su supuesto padre y no es suyo (matarlo sería matar un proceso ajeno)."""
+    monkeypatch.setattr(so, "_ES_WINDOWS", True)
+    horas = {1: 100, 2: 200, 3: 300, 4: 50}  # 4 nació antes que 2: su ppid=2 es un pid reciclado
+    monkeypatch.setattr(so, "creado", horas.get)
+    assert so.arbol(1, {1: 0, 2: 1, 3: 2, 4: 2}) == {1, 2, 3}
+
+
 def test_arrancar_rechaza_un_proyecto_inexistente_sin_lanzar(tmp_path):
     db = tmp_path / "base.db"
     pid = ProjectStore(db).create(Document("unico"))
@@ -242,9 +261,10 @@ def test_parar_mata_el_arbol_y_suelta_los_candados(flota_viva):
     padres = so.padres()
     arbol = set().union(*(so.arbol(e["lanzador"], padres) for e in entradas))
     assert {e["pid"] for e in entradas} <= arbol
+    firma = so.firmas(arbol)  # pid + hora de creación: el pid solo lo recicla otro proceso
     res = flota.parar(flota_viva["d"])
     assert all(r["ok"] for r in res), res
-    assert not arbol & set(so.padres())
+    assert so.siguen_vivos(firma) == []
     escuchas = so.escuchas()
     assert not any(e["puerto"] in escuchas for e in entradas)
     st = ProjectStore(flota_viva["db"])
