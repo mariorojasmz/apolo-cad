@@ -58,7 +58,9 @@ class Trazas:
         if not muestra:
             return
         if analogicas_extra is not None:
-            fila.update({n: round(float(v), 6) for n, v in analogicas_extra().items()})
+            # `+ 0.0` vuelve -0.0 en 0.0: una posición en ~0 (la y de un producto centrado) redondea
+            # su ruido a ±0.0 y el signo del cero cambiaba la huella entre procesos (V8.9 F7b)
+            fila.update({n: round(float(v), 6) + 0.0 for n, v in analogicas_extra().items()})
         j = len(self.t)
         self.t.append(tt)
         for n, v in fila.items():
