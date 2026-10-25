@@ -77,3 +77,11 @@ describe("atasco provocado", () => {
     expect(juntaMotriz({ bandas: [], juntas: [] })).toBeNull();
   });
 });
+
+describe("el panel de operador en el árbol (plc-en-el-lazo D12)", () => {
+  it("va bajo su designación con el rótulo de su tipo", () => {
+    const a = arbolDeSenales({ dispositivos: [{ designacion: "-P2", tipo: "hmi", ref: "HMI-7IN-24VDC", pantalla_px: [800, 480] }] },
+      ["-P2.encendida"]);
+    expect(a).toEqual([{ clave: "-P2", titulo: "-P2", rotulo: "Panel de operador", senales: ["-P2.encendida"] }]);
+  });
+});

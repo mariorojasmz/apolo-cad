@@ -24,7 +24,10 @@ Bloques (todas las cotas en mm):
   de la placa), `espesor_mm` del cuerpo, `espesor_puerta_mm`, `bisagra` (izquierda | derecha,
   vista de frente), `pasacables` {cara, ancho_mm, fondo_mm}, `linea_referencia` y
   `cotas_verificadas` (estas cotas son del interior, no de la caja: se declaran aparte);
-- `puerta`: {delante_mm, detras_mm};
+- `puerta`: {delante_mm, detras_mm, recorte_mm?}: `recorte_mm` [ancho, alto] es el hueco
+  RECTANGULAR que pide su ficha en la chapa (un panel de operador: su marco lo tapa, así que es
+  menor que su frente); sin él, la puerta se recorta con la huella de su caja (o el Ø de la
+  seta). Plan plc-en-el-lazo, D12;
 - `acopla_a`: {simbolos, cara, orden}: el accesorio va PEGADO a un aparato de esos símbolos
   (`electrico.simbolo`) por esa cara (frente | abajo | arriba | izquierda | derecha), no ocupa
   riel propio; `orden` = 1 el más cercano al aparato (A4);
@@ -45,7 +48,9 @@ from .referencias import sugerir
 EJES = ("+X", "-X", "+Y", "-Y", "+Z", "-Z")
 #: La cara de apoyo por familia (builder): la convención del catálogo eléctrico (A3).
 APOYO_POR_FAMILIA = {"box": "-Y", "seta_emergencia": "-Z", "din_rail": "-Y", "canaleta": "-Y",
-                     "interruptor_resguardo": "-Z"}
+                     "interruptor_resguardo": "-Z", "panel_puerta": "-Y"}
+#: Familias cuya caja es `width` × `depth` × `height` (lo que se valida contra `tablero.puerta`).
+FAMILIAS_CAJA = ("box", "panel_puerta")
 BISAGRAS = ("izquierda", "derecha")
 CARAS_PASACABLES = ("inferior", "superior")
 CARAS_ACOPLE = ("frente", "abajo", "arriba", "izquierda", "derecha")
@@ -86,6 +91,7 @@ class InteriorGabinete:
 class MarcoPuerta:
     delante_mm: float
     detras_mm: float
+    recorte_mm: tuple[float, float] | None = None  # (ancho, alto) del hueco de la ficha
 
 
 @dataclass(frozen=True)
@@ -223,15 +229,36 @@ def _gabinete(err: _Err, crudo, params: dict) -> InteriorGabinete:
 
 
 def _puerta(err: _Err, crudo, params: dict, familia: str | None) -> MarcoPuerta:
-    _claves(err, "puerta", crudo, ("delante_mm", "detras_mm"))
+    _claves(err, "puerta", crudo, ("delante_mm", "detras_mm", "recorte_mm"))
     _faltan(err, "puerta", crudo, ("delante_mm", "detras_mm"))
     delante = _mm(err, "puerta.delante_mm", crudo["delante_mm"])
     detras = _mm(err, "puerta.detras_mm", crudo["detras_mm"])
     fondo = params.get("depth")
-    if familia == "box" and isinstance(fondo, (int, float)) and abs(delante + detras - fondo) > TOL_FONDO_MM:
+    if familia in FAMILIAS_CAJA and isinstance(fondo, (int, float)) and abs(delante + detras - fondo) > TOL_FONDO_MM:
         raise err("puerta", f"delante_mm {delante:g} + detras_mm {detras:g} = {delante + detras:g} "
                             f"no es el fondo de la caja ({fondo:g} mm)")
-    return MarcoPuerta(delante, detras)
+    return MarcoPuerta(delante, detras, _recorte(err, crudo.get("recorte_mm"), params, familia))
+
+
+def _recorte(err: _Err, crudo, params: dict, familia: str | None) -> tuple[float, float] | None:
+    """`puerta.recorte_mm` [ancho, alto]: el hueco de la ficha; en una caja, MENOR que su frente
+    (width × height), que es lo que lo tapa, y en un `panel_puerta` no menor que su cuerpo (que lo
+    atraviesa)."""
+    if crudo is None:
+        return None
+    if not (isinstance(crudo, list) and len(crudo) == 2):
+        raise err("puerta.recorte_mm", f"se espera [ancho, alto] en mm, llegó {crudo!r}")
+    ancho = _mm(err, "puerta.recorte_mm[0]", crudo[0])
+    alto = _mm(err, "puerta.recorte_mm[1]", crudo[1])
+    w, h = params.get("width"), params.get("height")
+    if familia in FAMILIAS_CAJA and all(isinstance(x, (int, float)) for x in (w, h)) and (ancho >= w or alto >= h):
+        raise err("puerta.recorte_mm", f"el hueco {ancho:g}×{alto:g} no es menor que el frente de la "
+                                       f"caja ({w:g}×{h:g}): su marco no lo taparía")
+    cw, ch = params.get("cuerpo_ancho"), params.get("cuerpo_alto")
+    if familia == "panel_puerta" and all(isinstance(x, (int, float)) for x in (cw, ch)) and (ancho < cw or alto < ch):
+        raise err("puerta.recorte_mm", f"el hueco {ancho:g}×{alto:g} es menor que el cuerpo {cw:g}×{ch:g} "
+                                       "que lo atraviesa")
+    return (ancho, alto)
 
 
 def _acople(err: _Err, crudo) -> Acople:

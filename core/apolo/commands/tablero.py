@@ -85,6 +85,8 @@ def plan(p: LayoutTableroParams, devs: list):
     )
     from apolo.library.electrico.ficha_tablero import apoyo_de
 
+    from .tablero_geom import huecos_por_ref
+
     u = p.ubicacion
     gabs_decl = [(cid, d) for cid, d in devs
                  if CATALOG.get(d.ref) is not None and CATALOG[d.ref].electrico is not None
@@ -127,7 +129,7 @@ def plan(p: LayoutTableroParams, devs: list):
                         gi.espesor_mm, gi.espesor_puerta_mm, p.bisagra or gi.bisagra)
     refs = {a.ref for a in aparatos}
     apoyos = {r: apoyo_de(CATALOG[r].familia, CATALOG[r].tablero) for r in refs}
-    huecos = {r: ("circulo", AGUJERO_D) for r in refs if CATALOG[r].familia == "seta_emergencia"}
+    huecos = huecos_por_ref(refs, CATALOG, AGUJERO_D)
     tapa = CATALOG.get(REF_TAPA)
     para = tuple(x.strip() for x in str((tapa.specs or {}).get("para", "")).split(",")) if tapa else ()
     cantidad = {d.designacion: int(d.cantidad or 1) for _, d in devs}

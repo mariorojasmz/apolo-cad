@@ -193,3 +193,23 @@ describe("el diferencial (plan datos-de-corte-y-acometida D8)", () => {
     expect(b.frase).toBe("protección que no dispara en -F1");
   });
 });
+
+describe("el panel de operador (plc-en-el-lazo D12)", () => {
+  const ini: Pick<InicioVivo, "fallas" | "ramas"> = {
+    fallas: [{ designacion: "-P2", tipo: "hmi", fallas: [{ falla: "apagada", pide: "" }] }],
+  };
+  const panel = objetivosDe(ini)[0];
+
+  it("tiene nombre de tipo y de falla; no pide valor", () => {
+    expect(nombreTipoFalla("hmi")).toBe("Panel de operador");
+    expect(rotuloFalla(panel, "apagada")).toBe("Pantalla apagada");
+    expect(camposDe(panel, panel.fallas[0])).toEqual([]);
+    expect(armarFalla(panel, panel.fallas[0])).toEqual({ tipo: "falla", dispositivo: "-P2", falla: "apagada" });
+  });
+
+  it("la activa se lee de su `averia` y se quita con su evento", () => {
+    const [a] = activasDe({ "-P2.averia": "apagada" }, ini);
+    expect(a.frase).toBe("pantalla apagada en -P2");
+    expect(a.quitar).toEqual({ tipo: "falla", dispositivo: "-P2", falla: "apagada", quitar: true });
+  });
+});

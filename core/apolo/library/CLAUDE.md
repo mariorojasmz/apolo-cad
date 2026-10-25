@@ -46,6 +46,15 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   Opcional pero COMPLETO (E/S = bornes que el ST alcanza por dirección), con `fuente` leída en el
   manual, o «direcciones» en `a_confirmar` sin mapa. El ST de Apolo sigue con `%IX`/`%IW0`.
   [plan](../../../docs/plans/plc-en-el-lazo.md) (D3)
+- Bloque `electrico.puertos` (`electrico/ficha_puertos.py`, puro): los conectores de DATOS de serie
+  (`rj45`), fuera de `bornes` y de `modelo`: ni la red, ni el ERC, ni la firma los ven (el
+  `Dispositivo` del carril no los copia; su `puertos` es el del aire). Con `fuente`: una ref gana
+  puerto sólo si su línea de referencia lo trae de serie. Un aparato de puerta que va en un
+  RECORTE declara `tablero.puerta.recorte_mm` [ancho, alto] (el hueco de la chapa; sin él, la
+  huella de su caja) y usa el builder `panel_puerta` (marco delante, cuerpo menor que el recorte:
+  una caja entera chocaría con la chapa). En la puerta, lo que pasa de una celda toma
+  ⌈ancho/paso⌉ × ⌈alto/paso⌉ contiguas y va PRIMERO (`colocacion_puerta.bloque`).
+  [plan](../../../docs/plans/plc-en-el-lazo.md) (D12)
 - Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
   (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
   canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva

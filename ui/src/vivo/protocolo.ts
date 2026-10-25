@@ -40,6 +40,8 @@ export interface DispositivoVivo {
   pieza?: string;
   /** La carrera nominal de un cilindro (V8.9 F6). */
   carrera_mm?: number;
+  /** La resolución [ancho, alto] de un panel de operador, en píxeles (plc-en-el-lazo D12). */
+  pantalla_px?: [number, number];
 }
 
 /** Una electroválvula (V8.9 D6): sus lados con bobina («14», «12») y si trae accionamiento

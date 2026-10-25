@@ -10,6 +10,11 @@ X»), con la sección en XY centrada en su caja: X = ancho, Y = alto (lo que sal
   Sin los agujeros alargados del perforado (no cambian ningún entregable).
 - `canaleta`: canaleta de PVC con su tapa puesta, como tubo rectangular de pared `pared`; las
   ranuras de los dedos no se modelan (el llenado usa `tablero.canaleta.seccion_util_mm2`).
+- `panel_puerta` (plan plc-en-el-lazo, D12): un aparato de PUERTA que va en un recorte, como el
+  panel de operador: el MARCO (`width` × `height`, `marco` de espesor) queda delante de la puerta
+  y el CUERPO (`cuerpo_ancho` × `cuerpo_alto`), menor que el recorte, atraviesa la chapa. Marco
+  de la caja del catálogo eléctrico (X ancho, Y fondo, Z alto, centrada): −Y apoya en la puerta
+  (lo de detrás) y el marco va en +Y, hacia el operador. No es cortable.
 """
 
 from __future__ import annotations
@@ -60,4 +65,20 @@ def canaleta(ancho: float, alto: float, pared: float = 1.5):
     return build
 
 
-BUILDERS = {"din_rail": din_rail, "canaleta": canaleta}
+def panel_puerta(width: float, depth: float, height: float, cuerpo_ancho: float, cuerpo_alto: float,
+                 marco: float):
+    """Marco `width` × `height` × `marco` en +Y y cuerpo `cuerpo_ancho` × `cuerpo_alto` hasta −Y,
+    centrado en su caja `width` × `depth` × `height` (un solo sólido: solapan `_SOLAPE`)."""
+    if not (0 < cuerpo_ancho < width and 0 < cuerpo_alto < height):
+        raise ValueError(f"Panel de puerta: el cuerpo {cuerpo_ancho}×{cuerpo_alto} tiene que ser menor que "
+                         f"el marco {width}×{height}")
+    if not 0 < marco < depth:
+        raise ValueError(f"Panel de puerta: el marco de {marco} mm no cabe en el fondo de {depth} mm")
+    largo = depth - marco + _SOLAPE
+    frente = Pos(0, depth / 2.0 - marco / 2.0, 0) * Box(width, marco, height)
+    cuerpo = Pos(0, -depth / 2.0 + largo / 2.0, 0) * Box(cuerpo_ancho, largo, cuerpo_alto)
+    pieza = frente + cuerpo
+    return lambda _length=None: pieza
+
+
+BUILDERS = {"din_rail": din_rail, "canaleta": canaleta, "panel_puerta": panel_puerta}

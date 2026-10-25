@@ -27,6 +27,10 @@ backend: [core/apolo](../CLAUDE.md).
   seguridad) declara `BORNES_ENTRADA` (cargas `entrada` de cada borne) y `actuadores()`: el
   tablero lo indexa sin rama propia. Un mando de dos canales lleva un NC POR CANAL (rama propia:
   `pegado` pega uno). [mandos-de-seguridad](../../../docs/plans/mandos-de-seguridad.md)
+- Un modelo que sólo lee la tensión de su alimentación (el panel de operador, `modelos/hmi.py`)
+  declara `SOLO_ALIMENTACION`: el tablero le pasa `U_alim_V` de su carga `alimentacion`, sin rama
+  propia. Uno con `pantalla_px` la publica en `dispositivos` del `inicio` del vivo
+  (`vivo_fotograma.py`). [plc-en-el-lazo](../../../docs/plans/plc-en-el-lazo.md) (F1d1)
 - **El diferencial** (`modelos/diferencial.py`) suma los FASORES de sus caminos `proteccion`
   (`I_fasores`, de `de` = lado LÍNEA a CARGA, el N incluido: un test del catálogo lo exige); el
   tablero lo indexa aparte (`diferenciales`) y las demás protecciones siguen con módulos

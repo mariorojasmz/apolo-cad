@@ -145,8 +145,8 @@ def test_all_new_families_present():
     # +5 de mandos-de-seguridad (2 setas 2NC, resguardo, lengüeta, relé)
     # +27 del catálogo neumático (V8.9 F1a) +8 diferenciales (F1b de datos-de-corte)
     # +20 de V8.9 F7b (3 reguladores de caudal, 3 silenciadores, 11 racores, detector magnético,
-    # fotocélula réflex y su reflector)
-    assert len(CATALOG) == 448
+    # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
+    assert len(CATALOG) == 450
 
 
 def test_door_sliding_hardware():

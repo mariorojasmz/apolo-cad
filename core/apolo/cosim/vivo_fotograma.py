@@ -11,7 +11,8 @@ TABLA (va UNA vez, en el primer mensaje del WebSocket; los índices ordenan el f
     en `{"tipo": "textos", "t", "valores"}` sólo cuando cambian;
   - `mandos`: [{designacion, tipo, ref, acciones, color, pieza?, retorno?, actuadores?,
     potenciometro?, posiciones?, senales}] · `pilotos`: [{designacion, ref, color, pieza?, senal}]
-    · `dispositivos`: [{designacion, tipo, ref, pieza?}] (las etiquetas de D5: motor, variador…)
+    · `dispositivos`: [{designacion, tipo, ref, pieza?, pantalla_px?}] (las etiquetas de D5:
+    motor, variador…; `pantalla_px` [ancho, alto] el de un panel de operador, plc-en-el-lazo D12)
     · `valvulas` (V8.9 F6, sólo si hay): [{designacion, ref, lados, manual, pieza?}] — las
     electroválvulas y su accionamiento manual (`accionar_manual`, que el WebSocket ya acepta);
   - `fallas`: [{designacion, tipo, fallas: [{falla, pide, opciones?}]}] y `ramas`: [{id, tipo:
@@ -110,7 +111,9 @@ class Fotograma:
         dispositivos = [{"designacion": des, "tipo": m.tipo, "ref": m.ref,
                          **({"pieza": por_des[des].pieza} if des in por_des and por_des[des].pieza else {}),
                          # V8.9 F6: la carrera nominal (la lectura no la pasa por el tope blando)
-                         **({"carrera_mm": round(m.carrera * 1000.0, 3)} if m.tipo == "cilindro" else {})}
+                         **({"carrera_mm": round(m.carrera * 1000.0, 3)} if m.tipo == "cilindro" else {}),
+                         # plc-en-el-lazo D12: la resolución de un panel de operador (su textura en la UI)
+                         **({"pantalla_px": list(m.pantalla_px)} if getattr(m, "pantalla_px", None) else {})}
                         for des, m in modelos.items()]
         # V8.9 F6: las electroválvulas con su accionamiento manual (el grupo plegado de «Mandos»);
         # sin válvulas no va la clave (la tabla de siempre)

@@ -318,6 +318,41 @@ components:
         - {bornes: [AI1, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
       modelo: {DI: 14, DO: 10, AI: 2, DI_tipo: "sumidero, IEC 61131-2 tipo 1", DO_tipo: "transistor fuente (PNP)", DO_A: 0.5, AI_V: [0, 10], tipo: plc, DI_filtro_ms: 6.4, DO_retardo_ms: 0.003, U_alim_min_V: 20.4, AI_escala: 27648}
       a_confirmar: [T_max_C]
-      fuente: "T_max_C: sin ficha verificada de la línea de referencia (Siemens S7-1200 CPU 1214C): la temperatura de funcionamiento (depende de si va horizontal o vertical), a confirmar con el PLC que se compre; direcciones: las que STEP 7 asigna por defecto a la CPU 1214C DC/DC/DC, leídas en el manual de sistema «S7-1200 Programmable controller» V20 (Siemens, 11/2024, edición en línea docs.tia.siemens.cloud, sin páginas), § PLC concepts > Data storage, memory areas, I/O and addressing > Addressing the local and expansion I/O, figura 1 (DI14/DQ10 en los bytes I 0…1 y Q 0…1, de a 8 puntos por byte; AI2 en I 64…67, 2 bytes por canal) y § Using absolute addressing to access CPU data (el «%» delante); el ST de Apolo sigue con %IX/%IW0 (V8.3 D4)"
+      fuente: "T_max_C: sin ficha verificada de la línea de referencia (Siemens S7-1200 CPU 1214C): la temperatura de funcionamiento (depende de si va horizontal o vertical), a confirmar con el PLC que se compre; direcciones: las que STEP 7 asigna por defecto a la CPU 1214C DC/DC/DC, leídas en el manual de sistema «S7-1200 Programmable controller» V20 (Siemens, 11/2024, edición en línea docs.tia.siemens.cloud, sin páginas), § PLC concepts > Data storage, memory areas, I/O and addressing > Addressing the local and expansion I/O, figura 1 (DI14/DQ10 en los bytes I 0…1 y Q 0…1, de a 8 puntos por byte; AI2 en I 64…67, 2 bytes por canal) y § Using absolute addressing to access CPU data (el «%» delante); el ST de Apolo sigue con %IX/%IW0 (V8.3 D4); puertos: una interfaz PROFINET con 1 puerto RJ45 de serie, leída en la hoja de datos 6ES7214-1AG40-0XB0 (Siemens, 18/02/2022, firmware V4.5), § «1. Interface»: «Interface type PROFINET», «RJ 45 (Ethernet) Yes», «Number of ports 1», «integrated switch No»"
       # nombre de cada E/S en la CPU de la línea de referencia (plan plc-en-el-lazo, D3); el ST de Apolo no las usa
       direcciones: {I0.0: "%I0.0", I0.1: "%I0.1", I0.2: "%I0.2", I0.3: "%I0.3", I0.4: "%I0.4", I0.5: "%I0.5", I0.6: "%I0.6", I0.7: "%I0.7", I1.0: "%I1.0", I1.1: "%I1.1", I1.2: "%I1.2", I1.3: "%I1.3", I1.4: "%I1.4", I1.5: "%I1.5", Q0.0: "%Q0.0", Q0.1: "%Q0.1", Q0.2: "%Q0.2", Q0.3: "%Q0.3", Q0.4: "%Q0.4", Q0.5: "%Q0.5", Q0.6: "%Q0.6", Q0.7: "%Q0.7", Q1.0: "%Q1.0", Q1.1: "%Q1.1", AI0: "%IW64", AI1: "%IW66"}
+      # el conector de datos de serie (plan plc-en-el-lazo, D12): no es un borne; ni la red de mando ni el ERC lo ven
+      puertos: [{id: PN1, tipo: rj45}]
+  # ── panel de operador (plan plc-en-el-lazo, D12) ────────────────────────────────────────
+  # Pantalla táctil de 7″ para la PUERTA del tablero, del orden de Weintek cMT2078X. Cotas de su
+  # ficha (fuente): frente 200,3 × 146,3, recorte de la puerta 192 × 138, fondo 35 mm, de los que
+  # 7,4 asoman delante de la puerta (el marco) y 27,6 quedan detrás con el cuerpo de
+  # 189,6 × 135,6 que atraviesa el recorte (vistas lateral y trasera del plano de la ficha). `modelo` (`cosim/modelos/hmi.py`): enciende desde U_min_V = 19,2 (24 VDC − 20 %:
+  # «Input Power 24±20%VDC» de la ficha) y la resolución 800 × 480 de la ficha. `perdidas_W` =
+  # 24 V × 820 mA («Power Consumption 820mA@24VDC»): cota superior, toda la potencia de entrada
+  # se disipa en el aparato (criterio de diseño). Su carga de 24 VDC no declara consumo para la
+  # co-simulación (como la del PLC: no carga la red de mando, hipótesis declarada).
+  - ref: HMI-7IN-24VDC
+    name: Panel de operador táctil 7″ 24 VDC
+    description: Pantalla táctil de 7″ (800 × 480) para la puerta del tablero, alimentada a 24 VDC (L+, M, PE), con 2 puertos Ethernet RJ45 para el PLC o un SCADA. Va en un recorte rectangular de la puerta, sujeta con sus grapas por detrás; el marco tapa el recorte. Verificar con el proveedor.
+    builder: panel_puerta
+    params: {width: 200.3, depth: 35, height: 146.3, cuerpo_ancho: 189.6, cuerpo_alto: 135.6, marco: 7.4}
+    weight: 0.6
+    tablero: {puerta: {delante_mm: 7.4, detras_mm: 27.6, recorte_mm: [192, 138]}}
+    specs: {pantalla: "7″ TFT 800 × 480 táctil", alimentacion: "24 VDC ±20 %", consumo_mA: 820, recorte_mm: "192 × 138", frente: "IP66 / NEMA 4", linea_referencia: "orden de Weintek cMT2078X", cotas_verificadas: false, cost: 380}
+    electrico:
+      funcion: P
+      simbolo: panel_operador
+      montaje: puerta
+      perdidas_W: 19.7
+      bornes:
+        - {id: L+, rol: mando}
+        - {id: M, rol: mando}
+        - {id: PE, rol: tierra}
+      cargas:
+        - {bornes: [L+, M], tension: "24 VDC", tipo: alimentacion, polar: true}
+      modelo: {tipo: hmi, U_min_V: 19.2, ancho_px: 800, alto_px: 480}
+      datos: {T_max_C: 55}
+      fuente: "Weintek, hoja de datos cMT2078X (cMT2078X_Datasheet_ENG_20240514, 2 páginas; copia del distribuidor Damen CNC, 2026-10-25): «Resolution 800 x 480», «Input Power 24±20%VDC», «Power Consumption 820mA@24VDC», «Dimensions WxHxD 200.3 x 146.3 x 35.0 mm», «Panel Cutout 192 x 138 mm», plano de la página 2: 7,4 mm delante y 27,6 mm detrás (vista lateral) y cuerpo de 189,6 × 135,6 mm (vista trasera), «Operating Temperature 0° ~ 55°C»; puertos: «Ethernet LAN 1: 10/100 Base-T x 1, LAN 2: 10/100 Base-T x 1» (el conector de 10/100 Base-T es el RJ45, 8P8C de IEC 60603-7)"
+      # los conectores de datos de serie (plan plc-en-el-lazo, D12): no son bornes; ni la red de mando ni el ERC los ven
+      puertos: [{id: LAN1, tipo: rj45}, {id: LAN2, tipo: rj45}]

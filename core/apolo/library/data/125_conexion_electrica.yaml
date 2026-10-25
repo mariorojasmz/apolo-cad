@@ -268,3 +268,28 @@ components:
         tension_aislamiento: "300/500 V"
         temperatura_C: 70
         hilos: [{id: BN, color: BN}, {id: BU, color: BU}, {id: BK, color: BK}]
+  # ── cable de red (plan plc-en-el-lazo, D12) ────────────────────────────────────────────
+  # Del panel de operador al PLC (o a un switch), del orden de LAPP ETHERLINE LAN Cat.6 U/UTP
+  # 4x2xAWG24: 4 pares de cobre macizo AWG 24 (0,205 mm² por la tabla AWG, ASTM B258), Ø 6 mm,
+  # 60 kg/km, 48 V rms nominal. Se declara con add_cable SIN add_wire: sus 8 hilos van al conector
+  # RJ45 (puerto de datos, no borne) y no son de la red de mando; los ids son los pines del 8P8C y
+  # los colores de pares de TIA-568 (bicolores) no son un código de IEC 60757: van sin color.
+  - ref: CABLE-RJ45-CAT6
+    name: Cable de red Cat.6 U/UTP 4 pares
+    description: Cable de red Cat.6 U/UTP de 4 pares trenzados AWG 24, por metro, para unir el panel de operador con el PLC por sus puertos RJ45 (se conecta con dos fichas RJ45 o se compra como cable armado de la medida). Verificar con el proveedor.
+    builder: cylinder
+    params: {diameter: 6.0}
+    cuttable: true
+    default_length: 1000
+    weight: 0.06
+    specs: {categoria: "Cat.6 (ISO/IEC 11801)", pares: "4x2xAWG24 U/UTP", conector: "RJ45 (8P8C), aparte", tension_nominal: "48 V rms", linea_referencia: "orden de LAPP ETHERLINE LAN Cat.6 U/UTP 4x2xAWG24 (2170955)", cotas_verificadas: false, cost_por_m: 0.8}
+    electrico:
+      funcion: W
+      simbolo: cable_red
+      montaje: campo
+      conductor:
+        seccion_mm2: 0.205
+        tension_aislamiento: "48 V rms (nominal, IEC); 50 V rms entre hilos"
+        temperatura_C: 60
+        hilos: [{id: "1"}, {id: "2"}, {id: "3"}, {id: "4"}, {id: "5"}, {id: "6"}, {id: "7"}, {id: "8"}]
+      fuente: "LAPP, ficha de producto ETHERLINE LAN Cat.6 U/UTP 4x2xAWG24 LSZH, art. 2170955 (vn.lapp.com, 2026-10-25): 4x2x24/1 AWG cobre macizo, Ø exterior 6 mm (5,7–6,3), 48 V rms nominal y 50 V rms entre hilos, −20…60 °C de temperatura del conductor en instalación fija, 60 kg/km; la sección 0,205 mm² del AWG 24 es de la tabla AWG (ASTM B258)"

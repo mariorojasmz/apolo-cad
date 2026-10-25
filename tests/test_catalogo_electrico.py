@@ -52,6 +52,8 @@ DIFERENCIALES = [f"DIF-{p}-{i}-{s}-{c}" for p, i in (("2P", "25A"), ("4P", "40A"
 ELECTROVALVULAS = refs_in_category("valvulas_neumaticas")
 #: V8.9 F7b (defecto 12): detector magnético de cilindro y fotocélula réflex polarizada
 SENSORES_F7B = ["SENS-MAG-RANURA-PNP", "FOTO-M18-REFLEX"]
+#: plan plc-en-el-lazo F1d1 (D12): el panel de operador y el cable de red
+PANEL_Y_RED = {"maniobra_control": ["HMI-7IN-24VDC"], "conexion_electrica": ["CABLE-RJ45-CAT6"]}
 EXISTENTES = ["VFD-1K5-220", "VFD-2K2-220", "ESTOP-40", "BOTONERA-2", "FOTO-M18", "TABLERO-5040",
               "MOTOR-037", "MOTOR-075", "MOTOR-150", "MOTOR-150-EH"] + refs_in_category("motorreductores_sinfin")
 MARCAS = ("SCHNEIDER", "SIEMENS", "ABB", "PHOENIX", "WEIDMULLER", "OMRON", "SICK", "LAPP",
@@ -70,13 +72,15 @@ def test_las_61_refs_nuevas_cargan_en_su_categoria():
     for categoria in NUEVAS_CATEGORIAS:
         extra = {"maniobra_control": ["RS-2C-24VDC"],  # mandos-de-seguridad D3
                  "proteccion_electrica": DIFERENCIALES}.get(categoria, [])  # datos-de-corte D9
+        extra = extra + PANEL_Y_RED.get(categoria, [])
         assert sorted(refs_in_category(categoria)) == sorted(NUEVAS[categoria] + extra)
     # + ESTOP-40-CAJA (seta D4) + 8 de union-en-perfil-hueco + 3 UCT + TAMBOR-102-RET (faja v4)
     # + 4 pernos de cuello cuadrado DIN 603 (F6) + 10 del armado del tablero (V8.5 F1a)
     # + 5 de mandos-de-seguridad (las 4 de SEGURIDAD y RESG-LENGUETA)
     # + 27 del catálogo neumático (V8.9 F1a) + 8 diferenciales (datos-de-corte-y-acometida F1b)
     # + 20 de V8.9 F7b (accesorios de aire, detector magnético, fotocélula réflex y reflector)
-    assert len(CATALOG) == 448
+    # + 2 de plc-en-el-lazo F1d1 (el panel de operador y el cable de red)
+    assert len(CATALOG) == 450
 
 
 @pytest.mark.parametrize("ref", TODAS_NUEVAS + SETAS + DIFERENCIALES)
@@ -228,7 +232,7 @@ def test_placa_del_motor(ref):
 def test_toda_ficha_nombra_sus_propios_bornes():
     fichas = {ref: c.electrico for ref, c in CATALOG.items() if c.electrico is not None}
     assert len(fichas) == (len(TODAS_NUEVAS) + len(EXISTENTES) + len(SETAS) + len(ELECTROVALVULAS)
-                           + len(DIFERENCIALES) + len(SENSORES_F7B))
+                           + len(DIFERENCIALES) + len(SENSORES_F7B) + sum(map(len, PANEL_Y_RED.values())))
     for ref, f in fichas.items():
         ids = f.ids_bornes
         assert len(ids) == len(set(ids)), ref

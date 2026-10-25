@@ -172,13 +172,13 @@ def _tablero():
             if c.electrico is not None and c.electrico.montaje in FD.TABLERO}
 
 
-def test_las_61_refs_de_tablero_dicen_su_t_max_o_la_dejan_a_confirmar():
+def test_las_62_refs_de_tablero_dicen_su_t_max_o_la_dejan_a_confirmar():
     tab = _tablero()
-    assert len(tab) == 61  # 53 de la F1a + los 8 diferenciales de la F1b (T_max_C a confirmar)
+    assert len(tab) == 62  # 53 de la F1a + los 8 diferenciales de la F1b + el panel de operador (plc-en-el-lazo)
     sin = [r for r, f in tab.items() if "T_max_C" not in f.datos and "T_max_C" not in f.a_confirmar]
     assert not sin, sin
     con = {r for r, f in tab.items() if "T_max_C" in f.datos}
-    assert len(con) == 34  # el resto (19 + 8) a confirmar: sin ficha verificada (bitácoras F1a, F1b)
+    assert len(con) == 35  # el resto (19 + 8) a confirmar: sin ficha verificada (bitácoras F1a, F1b)
     assert all(40 <= tab[r].datos["T_max_C"] <= 70 for r in con)
 
 

@@ -21,7 +21,7 @@ const TIPOS: Record<string, string> = {
   contactor: "Contactor", rele: "Relé", guardamotor: "Guardamotor", itm: "Interruptor termomagnético",
   rele_termico: "Relé térmico", fusible: "Fusible", fuente: "Fuente", red: "Red",
   resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
-  diferencial: "Interruptor diferencial",
+  diferencial: "Interruptor diferencial", hmi: "Panel de operador",
   electrovalvula: "Electroválvula", cilindro: "Cilindro", frl: "Filtro-regulador", valvula_corte: "Válvula de corte",
 };
 

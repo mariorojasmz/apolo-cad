@@ -16,7 +16,9 @@ corregir. Lo que valida:
   - `datos`, `fuente` y `a_confirmar` (plan datos-de-corte-y-acometida, D1–D5): los datos de
     ficha que lee quien verifica, fuera de `modelo`, con su COMPLETITUD (`ficha_datos.py`);
   - `direcciones` (plan plc-en-el-lazo, D3): cómo llama el fabricante a cada E/S, completo y
-    con `fuente` (`ficha_direcciones.py`).
+    con `fuente` (`ficha_direcciones.py`);
+  - `puertos` (plan plc-en-el-lazo, D12): los conectores de datos de serie (RJ45), fuera de
+    `bornes` y de `modelo`, con `fuente` (`ficha_puertos.py`).
 
 Puro: no importa el catálogo ni la geometría.
 """
@@ -25,7 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import acometida, ficha_datos, ficha_direcciones
+from . import acometida, ficha_datos, ficha_direcciones, ficha_puertos
 from .modelo import Borne, Camino, Carga, Fuente, Hilo
 from .referencias import sugerir
 from .tension import Tension, parse_tension, polos_obligatorios, polos_validos
@@ -49,7 +51,7 @@ COLORES = ("BK", "BN", "RD", "OG", "YE", "GN", "BU", "LBU", "VT", "GY", "WH", "P
 #: (`apolo/extensiones.py`, plan nucleo-abierto-extensiones-privadas).
 TIPOS_MODELO = ["red", "fuente", "seccionador", "itm", "guardamotor", "rele_termico", "fusible",
                 "contactor", "rele", "plc", "variador", "motor", "pulsador", "seta", "selector",
-                "piloto", "sensor", "resguardo", "rele_seguridad", "electrovalvula", "diferencial"]
+                "piloto", "sensor", "resguardo", "rele_seguridad", "electrovalvula", "diferencial", "hmi"]
 #: Clases de disparo de un relé de sobrecarga (IEC 60947-4-1): la banda de cada una, en el modelo.
 CLASES_DISPARO = ("10A", "10", "20", "30")
 #: Curvas de un ITM (IEC 60898-1) y de un cartucho de fusible 5×20 (IEC 60127-2: F rápido,
@@ -64,7 +66,7 @@ SISTEMAS = {"1F+N": (1, False), "2F": (2, False), "3F": (3, False), "3F+N": (3, 
 
 _CLAVES = ("funcion", "simbolo", "montaje", "perdidas_W", "bornes", "caminos", "cargas",
            "fuentes", "modelo", "protege_motor", "parada_emergencia", "bornera", "conductor", "nota",
-           "datos", "fuente", "a_confirmar", "direcciones")
+           "datos", "fuente", "a_confirmar", "direcciones", "puertos")
 _CLAVES_BORNE = ("id", "rol", "lado", "obligatorio")
 _CLAVES_CAMINO = ("de", "a", "tipo", "accion", "grupo")
 _CLAVES_CARGA = ("bornes", "tension", "tipo", "obligatoria", "polar")
@@ -102,6 +104,8 @@ class FichaElectrica:
     a_confirmar: tuple[str, ...] = ()
     #: {borne de E/S: dirección del fabricante} (`ficha_direcciones.py`); fuera de `modelo`
     direcciones: dict = field(default_factory=dict)
+    #: conectores de datos de serie (`ficha_puertos.py`): no son bornes ni entran a `modelo`
+    puertos: tuple[ficha_puertos.Puerto, ...] = ()
 
     @property
     def ids_bornes(self) -> tuple[str, ...]:
@@ -366,6 +370,7 @@ def parse_ficha(crudo, ref: str) -> FichaElectrica | None:
                                 extra_a_confirmar=con_es)
     direcciones = ficha_direcciones.parse_direcciones(err, crudo.get("direcciones"), ids=ids,
                                                       fuente=d.fuente, a_confirmar=d.a_confirmar)
+    puertos = ficha_puertos.parse_puertos(err, crudo.get("puertos"), ids_bornes=ids, fuente=d.fuente)
     return FichaElectrica(
         funcion=funcion, simbolo=str(crudo["simbolo"]).strip(), montaje=montaje, bornes=bornes,
         caminos=caminos, cargas=cargas, fuentes=fuentes, modelo=dict(modelo), perdidas_W=perdidas,
@@ -373,6 +378,7 @@ def parse_ficha(crudo, ref: str) -> FichaElectrica | None:
         parada_emergencia=_bool(err, "", crudo, "parada_emergencia", False), bornera=bornera,
         conductor=conductor, nota=str(crudo.get("nota") or "").strip(),
         datos=d.datos, fuente=d.fuente, a_confirmar=d.a_confirmar, direcciones=direcciones,
+        puertos=puertos,
     )
 
 
@@ -420,5 +426,7 @@ def ficha_payload(ficha: FichaElectrica) -> dict:
         out["modelo"] = dict(ficha.modelo)
     if ficha.direcciones:
         out["direcciones"] = dict(ficha.direcciones)
+    if ficha.puertos:
+        out["puertos"] = ficha_puertos.payload(ficha.puertos)
     out.update(ficha_datos.payload(ficha_datos.DatosFicha(ficha.datos, ficha.fuente, ficha.a_confirmar)))
     return out

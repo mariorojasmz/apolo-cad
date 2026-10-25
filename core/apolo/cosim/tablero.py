@@ -10,7 +10,8 @@ avanza el lado eléctrico UN intercambio (2 ms), en este orden:
   4. cada modelo con sus tensiones y corrientes: bobinas, pilotos, protecciones (la corriente de
      sus contactos en las dos redes; el diferencial, los FASORES para sumarlos), mandos, E/S del PLC, sensores, los modelos con
      `BORNES_ENTRADA` (el relé de seguridad: lee esas entradas y mueve sus contactos con
-     `actuadores()`), variadores y motores;
+     `actuadores()`), los que sólo leen su alimentación (`SOLO_ALIMENTACION`: el panel de
+     operador), variadores y motores;
   5. lo que queda para el paso que viene: la carga de cada motor (D8: EN MARCHA = potencia que
      sale de su curva; DETENIDO en la red = impedancia de rotor bloqueado, F3), la de la entrada
      de cada fuente y variador, y el COMANDO de cada motor hacia MuJoCo (`comandos`).
@@ -124,6 +125,7 @@ class Tablero:
         self.contactores, self.pilotos, self.protecciones, self.mandos = [], [], [], []
         self.fuentes_dc, self.redes_ac, self.plcs, self.sensores, self.variadores = [], [], [], [], []
         self.motores, self.logicos, self.valvulas, self.diferenciales = [], [], [], []
+        self.alimentados = []  # sólo leen la tensión de su alimentación (el panel de operador)
         for des, m in self.modelos.items():
             fs = fuentes.get(des, [])
             if isinstance(m, Contactor):
@@ -160,6 +162,8 @@ class Tablero:
                 self.logicos.append((des, m, bornes, self._carga(des, "alimentacion")))
             elif isinstance(m, _Mando):
                 self.mandos.append((des, m))
+            elif getattr(m, "SOLO_ALIMENTACION", False):
+                self.alimentados.append((des, m, self._carga(des, "alimentacion")))
         self._red_ids = {fid: m for _, m, fid in self.redes_ac}
         self._donde: dict = {}
         for c in self.entrada.get("cargas", ()):
@@ -381,6 +385,8 @@ class Tablero:
             m.paso(dt, {"detecta": self.detecta.get(des, False), "U_alim_V": self.U(alim)})
         for _des, m, bornes, alim in self.logicos:
             m.paso(dt, {**{b: self.U(cid) for b, cid in bornes.items()}, "U_alim_V": self.U(alim)})
+        for _des, m, alim in self.alimentados:
+            m.paso(dt, {"U_alim_V": self.U(alim)})
         for des, m, ent, alim, _fid, _dc in self.variadores:
             e = {b: self.U(cid) for b, cid in ent.items()}
             motor = self._motor_de.get(des)  # el que alimentó en el paso anterior

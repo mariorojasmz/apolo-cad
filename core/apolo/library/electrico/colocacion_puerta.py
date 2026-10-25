@@ -5,14 +5,21 @@ primer centro a `borde_puerta_mm` de ese lado y de arriba), recorrida por filas.
 la primera celda libre donde lo de DETRÁS de la puerta (`Aparato.fondo`) deja ≥
 `holgura_puerta_mm` sobre todo lo de la placa que cae en su huella (aparatos y canaletas): en
 `w`, la cara exterior de la puerta está en `fondo_util + espesor_puerta`, así que su trasera
-queda en esa cota menos lo de detrás. Orden: Q (el seccionador), S (mandos), P
-(señalización), el resto; dentro, por designación; un `orden` del override manda. Un mando con
-`posicion` fija se valida igual (dentro de la placa, sin pisar otro mando, con holgura).
+queda en esa cota menos lo de detrás. Orden: lo que ocupa VARIAS celdas primero (el panel de
+operador: plan plc-en-el-lazo, D12), después Q (el seccionador), S (mandos), P (señalización),
+el resto; dentro, por designación; un `orden` del override manda. Un mando con `posicion` fija
+se valida igual (dentro de la placa, sin pisar otro mando, con holgura).
+
+Lo más grande que una celda toma ⌈ancho/paso⌉ × ⌈alto/paso⌉ celdas contiguas y se centra en el
+bloque; como va primero, toma el bloque de arriba lejos de la bisagra. Lo que cabe en una celda
+se coloca exactamente como antes (un tablero sin panel se arma idéntico).
 
 Puro (marco y tipos en `colocacion_modelo.py`); devuelve (colocados, problemas).
 """
 
 from __future__ import annotations
+
+import math
 
 from .colocacion_modelo import Aparato, Colocado, Gabinete, Reglas, orden_natural, ordenar
 
@@ -22,8 +29,17 @@ _RANGO_FUNCION = {"Q": 0, "S": 1, "P": 2}
 Obstaculo = tuple[float, float, float, float, float, str]
 
 
-def _clave(a: Aparato) -> tuple:
-    return (_RANGO_FUNCION.get(a.funcion, 3), orden_natural(a.designacion))
+def bloque(a: Aparato, r: Reglas) -> tuple[int, int]:
+    """Las celdas (columnas, filas) que ocupa un aparato de puerta: ⌈ancho/paso⌉ × ⌈alto/paso⌉."""
+    pu, pv = r.paso_puerta_mm
+    return max(1, math.ceil(a.ancho / pu - 1e-9)), max(1, math.ceil(a.alto / pv - 1e-9))
+
+
+def _clave_con(r: Reglas):
+    def clave(a: Aparato) -> tuple:
+        nx, ny = bloque(a, r)
+        return (0 if nx * ny > 1 else 1, _RANGO_FUNCION.get(a.funcion, 3), orden_natural(a.designacion))
+    return clave
 
 
 def _falta(u0, v0, u1, v1, trasera: float, obstaculos: list[Obstaculo], holgura: float):
@@ -37,7 +53,9 @@ def _falta(u0, v0, u1, v1, trasera: float, obstaculos: list[Obstaculo], holgura:
     return peor, contra
 
 
-def _celdas(gab: Gabinete, r: Reglas) -> list[tuple[float, float]]:
+def _ejes(gab: Gabinete, r: Reglas) -> tuple[list[float], list[float]]:
+    """Los centros de las columnas (desde el lado opuesto a la bisagra) y de las filas (desde
+    arriba) de la cuadrícula de la puerta."""
     pu, pv = r.paso_puerta_mm
     bu, bv = r.borde_puerta_mm
     W, H = gab.placa_ancho, gab.placa_alto
@@ -52,7 +70,13 @@ def _celdas(gab: Gabinete, r: Reglas) -> list[tuple[float, float]]:
     while H - bv - k * pv >= 0:
         vs.append(H - bv - k * pv)
         k += 1
-    return [(u, v) for v in vs for u in us]
+    return us, vs
+
+
+def _centros(us: list[float], vs: list[float], nx: int, ny: int) -> list[tuple[float, float]]:
+    """Los centros de cada bloque de nx × ny celdas contiguas, por filas (una celda: la celda)."""
+    return [(sum(us[i:i + nx]) / nx, sum(vs[j:j + ny]) / ny)
+            for j in range(len(vs) - ny + 1) for i in range(len(us) - nx + 1)]
 
 
 def colocar_puerta(aps: list[Aparato], gab: Gabinete, r: Reglas, overrides: dict,
@@ -87,11 +111,15 @@ def colocar_puerta(aps: list[Aparato], gab: Gabinete, r: Reglas, overrides: dict
                              f"fondo (holgura {h:g})")
         puestos.append(nuevo(a, u0, v0, "fija"))
     pu, pv = r.paso_puerta_mm
-    celdas = _celdas(gab, r)
-    for a in ordenar([a for a in aps if a not in fijos], overrides, clave=_clave):
-        if a.ancho > pu or a.alto > pv:
-            problemas.append(f"{a.designacion} ({a.ref}, {a.ancho:g}×{a.alto:g}) no cabe en una celda "
-                             f"de la puerta de {pu:g}×{pv:g}: dale una `posicion` en overrides")
+    us, vs = _ejes(gab, r)
+    n_celdas = len(us) * len(vs)
+    for a in ordenar([a for a in aps if a not in fijos], overrides, clave=_clave_con(r)):
+        nx, ny = bloque(a, r)
+        celdas = _centros(us, vs, nx, ny)
+        if not celdas:
+            problemas.append(f"{a.designacion} ({a.ref}, {a.ancho:g}×{a.alto:g}) pide {nx}×{ny} celdas "
+                             f"de {pu:g}×{pv:g} y la puerta tiene {len(us)}×{len(vs)}: dale una "
+                             "`posicion` en overrides o un gabinete más grande")
             continue
         mejor = None  # (falta, contra) de la celda menos mala, para el mensaje
         for uc, vc in celdas:
@@ -107,8 +135,9 @@ def colocar_puerta(aps: list[Aparato], gab: Gabinete, r: Reglas, overrides: dict
                 mejor = (falta, contra)
         else:
             if mejor is None:
+                pide = f", pide {nx}×{ny} contiguas" if nx * ny > 1 else ""
                 problemas.append(f"{a.designacion}: no queda celda libre en la puerta "
-                                 f"({len(celdas)} de {pu:g}×{pv:g} en {W:g}×{H:g})")
+                                 f"({n_celdas} de {pu:g}×{pv:g} en {W:g}×{H:g}{pide})")
             else:
                 problemas.append(f"{a.designacion}: no hay lugar en la puerta sin chocar con lo de "
                                  f"la placa; la mejor celda deja lo de detrás ({a.fondo:g} mm) sobre "

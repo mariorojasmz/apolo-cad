@@ -1,7 +1,7 @@
 """La geometría del tablero (plan V8.5 F1b): las formas OCCT de lo que `library/electrico/armado.py`
 describe en cajas. Sólo arma formas NUEVAS (ningún shape se muta en sitio): el cuerpo hueco del
-gabinete con sus espárragos, la puerta con sus huecos, la placa, y la matriz que lleva una ref
-del catálogo (centrada en su caja) a su caja del armado.
+gabinete con sus espárragos, la puerta con sus huecos (la forma de cada uno, `huecos_por_ref`), la
+placa, y la matriz que lleva una ref del catálogo (centrada en su caja) a su caja del armado.
 """
 
 from __future__ import annotations
@@ -11,6 +11,21 @@ from apolo.library.electrico.armado import Armado, Caja, Pieza
 from .errors import CommandError
 
 _SOLAPE = 0.5  # lo que una herramienta de corte sobresale (regla de library/CLAUDE.md)
+
+
+def huecos_por_ref(refs, catalogo, agujero_seta: float) -> dict[str, tuple]:
+    """Lo que la puerta NO recorta con la huella de la caja de una ref: la seta, el Ø de su serie
+    («circulo», d); un mando con `tablero.puerta.recorte_mm` (el panel de operador), su recorte
+    («rect», ancho, alto). Las demás refs no van: su hueco es su caja."""
+    out: dict[str, tuple] = {}
+    for r in sorted(refs):
+        comp = catalogo[r]
+        marco = comp.tablero.puerta if comp.tablero is not None else None
+        if comp.familia == "seta_emergencia":
+            out[r] = ("circulo", agujero_seta)
+        elif marco is not None and marco.recorte_mm is not None:
+            out[r] = ("rect", *marco.recorte_mm)
+    return out
 
 
 def _caja_solida(c: Caja):

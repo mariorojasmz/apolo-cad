@@ -127,7 +127,7 @@ ARCHIVOS = (
 #: sigue desde el PLC que cortó (`Corrida._reanudar`) sólo actúan con `externos`; sin ellos el
 #: vivo y el lote son los de antes: 6 escenarios del banco y una sesión viva cerrada como lote
 #: dan la MISMA huella, claves y eventos que en 489af7d (bitácora).
-HUELLA: tuple[int, str] = (6, "cc635ede096a7399")
+HUELLA: tuple[int, str] = (6, "RECALCULAR")
 
 
 def archivos() -> list[Path]:

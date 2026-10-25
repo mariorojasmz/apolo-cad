@@ -17,7 +17,8 @@ Lo que se arma (cada cifra que no es del catálogo, en `supuestos`):
   queda donde dice `fondo_util` (lo que verificó la colocación) y los espárragos crecen: se
   declara en `supuestos`;
 - la PUERTA (chapa del frente entero) con un hueco por mando: la huella de su caja de
-  catálogo o, en una seta, el Ø22,5 de la serie Ø22; la bisagra va en su arista exterior del
+  catálogo o, en una seta, el Ø22,5 de la serie Ø22, o el RECORTE rectangular que pide su ficha
+  (un panel de operador, centrado en su caja: plan plc-en-el-lazo, D12); la bisagra va en su arista exterior del
   lado de `bisagra` (eje vertical: −Z a la izquierda, +Z a la derecha, para que el valor
   positivo de la junta ABRA hacia afuera);
 - la PLACA de montaje (la placa útil, `placa_mm` de espesor);
@@ -254,7 +255,8 @@ def armar(lay: Layout, gab: Interior, r: Reglas, apoyos: dict[str, str],
           huecos_por_ref: dict[str, tuple] | None = None,
           tapa_para: tuple[str, ...] = (), unidades: dict[str, int] | None = None) -> Armado:
     """Las piezas del tablero en G. `apoyos` = ref → cara de apoyo (la de su familia o su
-    ficha); `huecos_por_ref` = ref → («circulo», d) para lo que no pasa la puerta por su caja;
+    ficha); `huecos_por_ref` = ref → («circulo», d) o («rect», ancho, alto) para lo que no pasa
+    la puerta por su caja (la seta, el recorte de un panel);
     `tapa_para` = las refs de borne que cierra la tapa final; `unidades` = designación → bornes
     de una bornera (el `Layout` sólo trae su ancho total)."""
     W, D, H = gab.ancho, gab.fondo, gab.alto
@@ -329,6 +331,12 @@ def armar(lay: Layout, gab: Interior, r: Reglas, apoyos: dict[str, str],
         if forma and forma[0] == "circulo":
             huecos.append(Hueco(slug(a.designacion), "circulo",
                                 ((c.x0 + c.x1) / 2, (c.z0 + c.z1) / 2, float(forma[1]))))
+        elif forma and forma[0] == "rect":
+            xc, zc, aw, ah = (c.x0 + c.x1) / 2, (c.z0 + c.z1) / 2, float(forma[1]), float(forma[2])
+            if aw > c.x1 - c.x0 + 1e-6 or ah > c.z1 - c.z0 + 1e-6:
+                raise ArmadoError(f"{a.designacion} ({a.ref}): el recorte {aw:g}×{ah:g} es mayor que "
+                                  f"su frente {c.x1 - c.x0:g}×{c.z1 - c.z0:g}")
+            huecos.append(Hueco(slug(a.designacion), "rect", (xc - aw / 2, xc + aw / 2, zc - ah / 2, zc + ah / 2)))
         else:
             huecos.append(Hueco(slug(a.designacion), "rect", (c.x0, c.x1, c.z0, c.z1)))
     lado = gab.bisagra

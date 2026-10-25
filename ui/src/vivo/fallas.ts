@@ -48,7 +48,7 @@ const TIPOS: Record<string, string> = {
   itm: "Interruptor termomagnético", guardamotor: "Guardamotor", rele_termico: "Relé térmico",
   fusible: "Fusible", plc: "PLC", variador: "Variador", fuente: "Fuente",
   resguardo: "Interruptor de resguardo", rele_seguridad: "Relé de seguridad",
-  diferencial: "Interruptor diferencial",
+  diferencial: "Interruptor diferencial", hmi: "Panel de operador",
   electrovalvula: "Electroválvula", cilindro: "Cilindro", frl: "Filtro-regulador", valvula_corte: "Válvula de corte",
   contacto: "Contacto", conductor: "Cable",
 };
@@ -108,6 +108,8 @@ function nombreDe(falla: string, tipo: string, clase: Objetivo["clase"]): Nombre
       return { rotulo: "Falla interna", frase: () => "falla interna" };
     case "fundido":
       return { rotulo: "Lámpara fundida", frase: () => "lámpara fundida" };
+    case "apagada": // el panel de operador (plc-en-el-lazo D12): no enciende aunque tenga tensión
+      return { rotulo: "Pantalla apagada", frase: () => "pantalla apagada" };
     case "pegada": // la electroválvula (V8.9 D8): el carrete no se mueve
       return { rotulo: "Carrete pegado", frase: (p) => (p ? `válvula pegada en ${p}` : "válvula pegada") };
     case "bobina_cortada":
