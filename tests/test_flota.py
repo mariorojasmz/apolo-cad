@@ -386,7 +386,9 @@ def test_si_uno_no_arranca_no_queda_ninguno(tmp_path, monkeypatch):
     assert not (tmp_path / "flota.json").exists()
     # arrancar volvió con TODO lo suyo muerto: los dos lanzadores y sus árboles (la API real)
     assert len(lanzados) == 2 and all(p.poll() is not None for p in lanzados)
-    assert {p.pid for p in lanzados} < set(matados)
+    # <= y no <: en Windows el python.exe del venv es un lanzador que abre al intérprete real
+    # (el árbol suma un hijo); en Linux el lanzado ES la API y el árbol es él solo (CI).
+    assert {p.pid for p in lanzados} <= set(matados)
     assert so.siguen_vivos(matados) == [], {p: so.creado(p) for p in so.siguen_vivos(matados)}
     assert st.candado(libre) is None and st.candado(tomado)[0] == dueno
     assert not list(tmp_path.glob("mcp-*.json"))
