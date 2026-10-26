@@ -64,6 +64,9 @@ reglas están en [services](../services/CLAUDE.md).
 - **El SVG escribe la letra del PDF**: `font-size` = `tabla.em_mm(size)` (el em de los `size ×
   2,45 pt` de `pdf.py`) con DejaVu Sans (Verdana de respaldo); `tests/test_letra_svg.py` mide el
   ancho en los dos. [V8.9](../../../docs/plans/V8.9-neumatica.md) (letra del SVG)
+- **El DXF también**: su `height` es altura de MAYÚSCULA, no em → `tabla.mayuscula_mm(size)`;
+  estilo `APOLO` con DejaVu Sans y el anclaje del `Label` (`set_placement`). `tests/test_letra_dxf.py`
+  dibuja cada TEXT con `text2path` contra el PDF. [V8.9](../../../docs/plans/V8.9-neumatica.md) (letra del DXF)
 - **Trazos de esquema** (`esquema.py`, para una extensión que dibuja esquemas): `kind`
   `simbolo` (negro sin relleno) y `simbolo_lleno` (punto de unión, flecha) en `Line`, `Circle` y
   `Polygon`, con un solo grosor (0,35 mm, criterio declarado); en DXF, capa `ESQUEMA` sólo si se
