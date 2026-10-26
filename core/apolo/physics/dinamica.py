@@ -131,6 +131,9 @@ def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = N
                             modelo_banda=pet.modelo_banda,
                             sumideros=[(tuple(c * MM for c in z.punto_mm), tuple(z.normal))
                                        for z in pet.sumideros])
+    if pet.flujo is not None:  # balance-de-producto D3: cada salida con su nombre
+        snap.flujo = {**pet.flujo, "sumideros": [z.nombre or f"sumidero_{k + 1}"
+                                                 for k, z in enumerate(pet.sumideros)]}
     mod = dm.ModeloMJ(timestep=pet.timestep, gravedad=pet.gravedad,
                       colisiones_maquina=pet.colisiones_maquina)
     padres_estaticos = {todas[n]["parent"] for n in cls.orden if cls.padre_cuerpo[n] is None} - {None}

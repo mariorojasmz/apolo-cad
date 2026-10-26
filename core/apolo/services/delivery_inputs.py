@@ -134,6 +134,10 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
 
     with _cronometro(tiempos, "escenarios"):
         escenarios = reglas_escenarios(doc)  # V8.3 D14: sólo con escenarios declarados
+    from .flujo_producto import regla_entrega
+
+    with _cronometro(tiempos, "flujo"):
+        flujo = regla_entrega(doc)  # balance-de-producto D10: con escenarios y producto
     with _cronometro(tiempos, "integridad"):
         integridad = doc.check_integrity()
     with _cronometro(tiempos, "poses"):
@@ -148,6 +152,7 @@ def delivery_inputs(doc, *, expand, tiempos: dict | None = None) -> dict:
         **({"extensiones": de_ext} if de_ext is not None else {}),
         **({"electrico": erc} if erc is not None else {}),
         **({"escenarios": escenarios} if escenarios is not None else {}),
+        **({"flujo": flujo} if flujo is not None else {}),
         **({"acceso_herramienta": acceso} if acceso is not None else {}),
         n_solidos=len(doc.scene),
         interferencias=rep_inter["interferencias"],

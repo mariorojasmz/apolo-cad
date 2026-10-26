@@ -7,7 +7,10 @@ Lee el JSON que devuelve `planificador.correr` (en proceso o desde el worker):
   - analógicas: muestras a `analogicas_hz` alineadas con `t` → se miran las muestras de la ventana
     (un pico más corto que el muestreo no se ve: la ventana lleva tolerancia explícita, D12);
   - `final`, para `al_final`, y `eventos` (con la hora REAL de cada acción y evento), para las
-    anclas de «dentro_de Δ desde …» y de «siempre/nunca desde …».
+    anclas de «dentro_de Δ desde …» y de «siempre/nunca desde …»;
+  - las señales `flujo.*` del balance de producto (`mecanica.flujo.senales`, plan
+    balance-de-producto D1), discretas como las del tablero; una aserción `flujo.*` que falla
+    suma al detalle el producto, el lugar y la hora de lo que rompió el balance (D13).
 Determinista y puro (stdlib): el mismo resultado da el mismo veredicto.
 """
 
@@ -16,6 +19,7 @@ from __future__ import annotations
 import difflib
 
 from .aserciones import EPS_T, FIN, TOL, concretar, texto_ancla
+from .flujo import PREFIJO, incidencias
 
 PASA, FALLA, SIN_ASERCIONES = "pasa", "falla", "sin_aserciones"
 #: Una violación de «siempre/nunca desde X» a menos de esto del ancla, sin margen, sugiere el
@@ -55,6 +59,12 @@ class Lector:
         self.t: list = an.get("t") or []
         self.an: dict = an.get("senales") or {}
         self.final: dict = res.get("final") or {}
+        self.flujo: dict = (res.get("mecanica") or {}).get("flujo") or {}
+        if self.flujo.get("senales"):  # balance-de-producto D1: copias (el resultado no cambia)
+            self.disc, self.final = dict(self.disc), dict(self.final)
+            for n, cambios in self.flujo["senales"].items():
+                self.disc[n] = cambios
+                self.final[n] = cambios[-1][1] if cambios else None
         self.eventos: list = res.get("eventos") or []
         self.dur = float((res.get("resumen") or {}).get("duracion_s") or (self.t[-1] if self.t else 0.0))
 
@@ -276,6 +286,10 @@ def evaluar(aserciones: list[dict], res: dict) -> dict:
     """`{veredicto, aserciones: [{asercion, pasa, detalle, senal?, t?}], n_fallidas}`."""
     lec = Lector(res)
     filas = [evaluar_una(a, lec) for a in aserciones]
+    extra = incidencias(lec.flujo)
+    for f in filas:
+        if not f["pasa"] and f.get("senal", "").startswith(PREFIJO) and extra:
+            f["detalle"] += f" — {extra}"
     fallidas = sum(1 for f in filas if not f["pasa"])
     veredicto = SIN_ASERCIONES if not filas else (FALLA if fallidas else PASA)
     return {"veredicto": veredicto, "aserciones": filas, "n_fallidas": fallidas}

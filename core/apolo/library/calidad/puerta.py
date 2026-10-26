@@ -176,6 +176,22 @@ def escenarios(ins: dict) -> dict:
     return _r(OK, f"{len(filas)} escenario(s) pasan y están vigentes", {"escenarios": len(filas)})
 
 
+def flujo_de_producto(ins: dict) -> dict:
+    """El balance de producto al ritmo nominal (plan balance-de-producto, D9): lo que entra sale
+    por sus salidas, sin perdidos, trabados ni retenidos. El margen sobre el nominal es evidencia,
+    nunca veredicto (D8)."""
+    f = ins.get("flujo") or {}
+    ev = {k: f[k] for k in ("nominal", "escenarios", "margen") if f.get(k) is not None}
+    estado = f.get("estado")
+    if estado == "falla":
+        return _r(FALLA, f.get("detalle", ""), ev)
+    if estado == "ok":
+        return _r(OK, f.get("detalle", ""), ev)
+    if estado == "falta":
+        return _r(SIN_EVALUAR, f"{f.get('detalle', '')} → {f.get('accion', '')}", ev)
+    return _r(SIN_EVALUAR, f"el balance de producto no se evaluó ({f.get('detalle') or 'sin insumo'})", ev)
+
+
 def soluciones_por_funcion(ins: dict) -> dict:
     """D15: cada familia de función que el modelo tiene (transmisión flexible, apoyo rotativo,
     accionamiento, resguardo, estructura de una máquina con partes móviles) cubierta por una

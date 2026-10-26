@@ -26,6 +26,7 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
      "trazas": {"analogicas_hz": 50, "senales": ["-K1:A1.U_V"]},
      "aserciones": ["-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1", …],   (F5, `aserciones.py`)
      "ajustes": {"-T2": {"sobrecarga_s": 5}},   (de PRUEBA: sólo esta corrida, el documento no cambia)
+     "flujo": {"plazo_s": 12, "ritmo_por_min": 30},   (el balance de producto: `flujo.py`)
      "descripcion": "marcha y conteo"}
 
 El AIRE (V8.9 D3, D8): `condiciones.presion_red_bar` (la toma, manométrica; obligatoria si hay
@@ -47,6 +48,7 @@ import math
 from dataclasses import dataclass, field
 
 from .aserciones import AsercionInvalida, leer_aserciones
+from .flujo import FlujoInvalido, leer_flujo, revisar_aserciones, validar_nombre_sumidero
 
 DURACION_MAX_S = 300.0
 ACCIONES = ("pulsar", "soltar", "presionar", "liberar", "girar", "rearmar", "abrir", "cerrar", "reponer",
@@ -62,7 +64,7 @@ CLAVES_MECANICA = ("bandas", "auto_bandas", "juntas", "fps", "timestep", "nstep"
                    "con_autodeteccion", "colisiones_maquina", "modelo_banda", "sumideros")
 ANALOGICAS_HZ = 50.0
 CLAVES = {"duracion_s", "descripcion", "condiciones", "acciones", "eventos", "mecanica", "acoples",
-          "trazas", "aserciones", "ajustes"}
+          "trazas", "aserciones", "ajustes", "flujo"}
 
 
 class EscenarioInvalido(ValueError):
@@ -112,6 +114,8 @@ class Escenario:
     #: cotizacion-identificada-y-ajustes-por-escenario D5); los valida contra el tablero
     #: `services/escenario_ajustes.py` (aquí, sólo la forma)
     ajustes: dict = field(default_factory=dict)
+    #: el balance de producto (plan balance-de-producto, `flujo.py`): None sin el bloque
+    flujo: dict | None = None
 
 
 def _claves(obj, validas, donde: str) -> dict:
@@ -359,8 +363,9 @@ def _vec3(v, donde: str, *, unitario: bool = False) -> None:
 
 def _sumideros(mecanica: dict) -> None:
     """`mecanica.sumideros` (los de la petición de V8.2, F6 de puerta-de-publicacion): planos
-    {punto_mm, normal} que RETIRAN el producto que los pasa. Se validan al declarar el escenario,
-    no a mitad de la preparación de la dinámica."""
+    {punto_mm, normal, nombre?} que RETIRAN el producto que los pasa (el nombre: la salida que
+    cuenta el balance, plan balance-de-producto D3). Se validan al declarar el escenario, no a
+    mitad de la preparación de la dinámica."""
     lista = mecanica.get("sumideros")
     if lista is None:
         return
@@ -368,13 +373,18 @@ def _sumideros(mecanica: dict) -> None:
         raise EscenarioInvalido("mecanica: «sumideros» es una lista de {punto_mm: [x, y, z], normal: [x, y, z]}")
     for k, s in enumerate(lista):
         donde = f"mecanica.sumideros[{k}]"
-        s = _claves(s, {"punto_mm", "normal"}, donde)
+        s = _claves(s, {"punto_mm", "normal", "nombre"}, donde)
         for c in ("punto_mm", "normal"):
             if s.get(c) is None:
                 raise EscenarioInvalido(f"{donde}: falta «{c}» [x, y, z] (el plano que retira el producto "
                                         "que lo pasa: punto en mm y normal hacia el lado que retira)")
         _vec3(s["punto_mm"], f"{donde}.punto_mm")
         _vec3(s["normal"], f"{donde}.normal", unitario=True)
+        if s.get("nombre") is not None:
+            try:
+                validar_nombre_sumidero(s["nombre"], donde)
+            except FlujoInvalido as exc:
+                raise EscenarioInvalido(str(exc)) from None
 
 
 def _acoples(a) -> tuple[dict, dict, dict]:
@@ -454,6 +464,14 @@ def leer_escenario(d) -> Escenario:
     descripcion = d.get("descripcion") or ""
     if not isinstance(descripcion, str):
         raise EscenarioInvalido("escenario: «descripcion» es texto")
+    flujo = None
+    if d.get("flujo") is not None:  # balance-de-producto: copias (el dict del agente no cambia)
+        mecanica["sumideros"] = [dict(s) for s in mecanica.get("sumideros") or []]
+    try:
+        flujo = leer_flujo(d.get("flujo"), productos, mecanica.get("sumideros") or [])
+        revisar_aserciones(aserciones, flujo)
+    except FlujoInvalido as exc:
+        raise EscenarioInvalido(str(exc)) from None
     return Escenario(
         aserciones=aserciones, descripcion=descripcion,
         duracion_s=duracion, red_conectada=c.get("red_conectada", True),
@@ -465,5 +483,5 @@ def leer_escenario(d) -> Escenario:
         cilindros=cilindros, presion_red_bar=presion,
         analogicas_hz=_num(tr, "analogicas_hz", "trazas", ANALOGICAS_HZ, minimo=0.1, maximo=500.0),
         senales_extra=[str(s) for s in _lista(tr, "senales", "trazas")],
-        ajustes=_ajustes(d.get("ajustes")),
+        ajustes=_ajustes(d.get("ajustes")), flujo=flujo,
     )

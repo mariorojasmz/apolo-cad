@@ -24,6 +24,7 @@ import numpy as np
 
 from apolo.physics.dinamica_arrastre import ArrastreBanda, eje_texto
 from apolo.physics.dinamica_control import ControlMotores
+from apolo.physics.dinamica_flujo import Flujo
 from apolo.physics.dinamica_nacimiento import Nacimientos
 from apolo.physics.sensores import Fotoceldas
 from apolo.physics.sim import MM, PhysicsError, _pose_matrix, _require_mujoco
@@ -87,6 +88,14 @@ class Integrador:
                           for p, n in getattr(snap, "sumideros", None) or []]
         self.retirados: list[int] = []
         self.retiro: dict[int, dict] = {}
+        # el balance de producto (plan balance-de-producto D5): sólo con `flujo`; sin él, nada
+        conf = getattr(snap, "flujo", None)
+        self.flujo = Flujo(conf, prods) if conf else None
+        self._bid = np.asarray(self.bid_prod, dtype=int)
+        if self.flujo:
+            for k, p in enumerate(prods):
+                if self.activo[k]:
+                    self.flujo.nacio(k, 0.0, (p["x"], p["y"], p["z"]))
         # una caja de la cola nace sólo con su lugar de entrada libre (V8.4): si no, espera
         self.nac = Nacimientos(mujoco, m, self.bid_prod, [p["name"] for p in prods])
         self._estacion: dict = {}
@@ -183,6 +192,8 @@ class Integrador:
                                "revisa productos que nacen dentro de la máquina o solapados")
         if self.sumideros:
             self._retirar(d)
+        if self.flujo:
+            self.flujo.medir(float(d.time), np.asarray(d.xpos[self._bid], float) / MM)
         if self.fotos:
             self.fotos.medir(d, d.time)
         if d.time >= self._prox - 1e-9:
@@ -212,6 +223,8 @@ class Integrador:
             self.activo[k] = True
             nacieron = True
             nac.nacio(k, p["aparece_s"], t)
+            if self.flujo:
+                self.flujo.nacio(k, t, (p["x"], p["y"], p["z"]))
             q, v = self.qadr[k], self.vadr[k]
             d.qpos[q: q + 3] = pos
             d.qpos[q + 3: q + 7] = p["quat"]
@@ -227,11 +240,14 @@ class Integrador:
             if not self.activo[k]:
                 continue
             c = np.asarray(d.xpos[b], float)
-            if any(float((c - p) @ n) > 0.0 for p, n in self.sumideros):
+            i = next((i for i, (p, n) in enumerate(self.sumideros) if float((c - p) @ n) > 0.0), None)
+            if i is not None:
                 self.activo[k] = False
                 self.retiro[k] = {"t": round(float(d.time), 4),
                                   "pos": [round(float(x) / MM, 1) for x in c]}
                 nuevos.append(k)
+                if self.flujo:
+                    self.flujo.retirado(k, float(d.time), i)
         if nuevos:
             self.retirados += nuevos
             self._rehacer_estacion()
@@ -261,16 +277,19 @@ class Integrador:
         return salida_dinamica(self.snap, self.d, self.frames, self.trazas, self.en_limite,
                                self.fotos, self.arrastre, self.juntas, self.giro, self.activo,
                                self.bid_prod, self.vadr, pared, retiro=self.retiro,
-                               nacimientos=(self.nac, self.pendientes))
+                               nacimientos=(self.nac, self.pendientes),
+                               flujo=(self.flujo.salida(float(self.d.time), self.pendientes, self.nac)
+                                      if self.flujo else None))
 
 
 def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas, giro, activo,
-                    bid_prod, vadr, pared, retiro=None, nacimientos=None) -> dict:
+                    bid_prod, vadr, pared, retiro=None, nacimientos=None, flujo=None) -> dict:
     """La salida D9 de V8.2 (formato del animador de gravedad y de caída, trazas por junta).
     Un producto RETIRADO por un sumidero sale con la posición en que se retiró y `retirado_s`;
     `resumen.productos_retirados` sólo existe si alguno se retiró. Uno que nació TARDE porque su
     lugar de entrada estaba ocupado lleva `nacio_s`; los que no llegaron a nacer por eso van en
-    `resumen.productos_sin_nacer`, con su aviso (sólo si los hay: sin espera, la salida de V8.2)."""
+    `resumen.productos_sin_nacer`, con su aviso (sólo si los hay: sin espera, la salida de V8.2).
+    Con el balance de producto (`flujo`, plan balance-de-producto) va en `flujo`; sin él, nada."""
     prods = snap.productos
     res_prod, caidos = {}, []
     retiro = retiro or {}
@@ -332,4 +351,5 @@ def salida_dinamica(snap, d, frames, trazas, en_limite, fotos, arrastre, juntas,
             **({"productos_sin_nacer": sin_nacer} if sin_nacer else {}),
         },
         "avisos": avisos,
+        **({"flujo": flujo} if flujo is not None else {}),
     }

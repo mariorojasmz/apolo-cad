@@ -33,10 +33,10 @@ RAIZ = Path(__file__).resolve().parents[1]
 CORE = RAIZ / "core" / "apolo"
 #: Lo que pueden importar de `apolo` los módulos que corren en el worker.
 FISICA_PURA = ("physics.dinamica_integrador", "physics.dinamica_arrastre", "physics.dinamica_control",
-               "physics.dinamica_datos", "physics.dinamica_nacimiento", "physics.dinamica_serie",
-               "physics.sensores", "physics.sim")
+               "physics.dinamica_datos", "physics.dinamica_flujo", "physics.dinamica_nacimiento",
+               "physics.dinamica_serie", "physics.sensores", "physics.sim")
 DEL_WORKER = [CORE / "cosim" / n for n in ("acople.py", "agenda.py", "aserciones.py", "corrida.py", "datos.py",
-                                           "externo.py", "puerto_plc.py", "ritmo.py",
+                                           "externo.py", "flujo.py", "puerto_plc.py", "ritmo.py",
                                            "escenario.py", "planificador.py", "proceso.py", "proceso_vivo.py",
                                            "tablero.py", "trazas.py", "vivo.py", "vivo_fotograma.py", "vivo_lazo.py",
                                            "worker.py", "worker_vivo.py", "__init__.py")] + [

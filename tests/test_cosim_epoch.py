@@ -37,6 +37,7 @@ ARCHIVOS = (
     "physics/dinamica_control.py",
     "physics/dinamica_cuerpos.py",
     "physics/dinamica_datos.py",
+    "physics/dinamica_flujo.py",
     "physics/dinamica_integrador.py",
     "physics/dinamica_modelo.py",
     "physics/dinamica_motores.py",
@@ -188,7 +189,13 @@ ARCHIVOS = (
 #: suma la masa en carrera 0 como armadura. El empujador de aire (sano) cambia de huella y de
 #: final (x_mm del vástago −0,520 → −0,551 en reposo); los 7 escenarios eléctricos de la F2 dan la
 #: MISMA huella y finales que en 9d3bb26.
-HUELLA: tuple[int, str] = (7, "df88d381662f985c")
+#: balance-de-producto F1–F2 (sin subir, D12; sobre la 7 de pedidos-iii): el bloque `flujo` del escenario (`cosim/flujo.py`),
+#: el rastreo del producto en el `Integrador` (`physics/dinamica_flujo.py`), los sumideros con
+#: nombre y las señales `flujo.*` del veredicto sólo actúan con el bloque, que antes era 400 (clave
+#: desconocida): ningún resultado guardado lo trae. Sin él, `_retirar` retira igual (sólo anota
+#: cuál sumidero): 3 escenarios del banco (seta con cajas por variador, cajas con sumidero por
+#: variador y en directo) dan la MISMA huella y la misma salida `mecanica` que en b9d774f.
+HUELLA: tuple[int, str] = (7, "9fd3b83f351a59d2")
 
 
 def archivos() -> list[Path]:

@@ -207,6 +207,9 @@ def poner(doc, nombre: str, esc: dict) -> dict:
     if not isinstance(esc, dict):
         raise ServiceError(400, "el escenario es un objeto {duracion_s, acciones, eventos, "
                                 "aserciones, acoples, …}")
+    from .flujo_producto import resolver_ritmo
+
+    esc = resolver_ritmo(doc, esc)  # balance-de-producto D7: se GUARDA el número, no «nominal»
     e = leer(esc)
     if e.ajustes:  # D5: contra el tablero si ya está (si no, al correrlo: como los dispositivos)
         from .electrico import modelo
@@ -224,6 +227,8 @@ def poner(doc, nombre: str, esc: dict) -> dict:
                               **({"resultado": previo["resultado"]} if previo.get("resultado") else {})}
     return {"nombre": nombre, "estado": estado(doc, nombre)["estado"],
             "n_aserciones": len(e.aserciones), "aserciones": [a["texto"] for a in e.aserciones],
+            **({"flujo": {"ritmo_por_min": e.flujo["ritmo_por_min"], "sumideros": e.flujo["sumideros"]}}
+               if e.flujo else {}),
             "avisos": _avisos_tablero(doc, e) + avisos_tipos}
 
 
@@ -303,6 +308,8 @@ def listar(doc, nombre: str | None = None) -> dict:
             fallidas = [a["asercion"] for a in res.get("aserciones", []) if not a.get("pasa")]
             if fallidas:
                 fila["fallidas"] = fallidas
+            if (res.get("flujo") or {}).get("balance"):  # balance-de-producto D11
+                fila["balance"] = res["flujo"]["balance"]
         filas.append(fila)
     return {"escenarios": filas, "firma_documento": firma}
 
@@ -333,10 +340,13 @@ def resultado_compacto(veredicto: dict, res: dict, *, firma: str, hash_esc: str,
     cifras de este resultado sabe que no son las del proyecto."""
     from apolo.cosim import COSIM_EPOCH
 
+    from apolo.cosim.flujo import resumen as resumen_flujo
+
     from .aire_resultado import resumen_aire
     from .medidas_electricas import resumen_electrico
 
     r = res.get("resumen") or {}
+    flujo = resumen_flujo((res.get("mecanica") or {}).get("flujo"))  # balance-de-producto D11
     aire = resumen_aire(res)  # V8.9 F4: carreras y consumo del aire para la memoria (sin aire, nada)
     electrico = resumen_electrico(res, referencias_electricas)  # D7: sin motores ni disparos, nada
     return {"veredicto": veredicto["veredicto"], "aserciones": veredicto["aserciones"],
@@ -347,7 +357,8 @@ def resultado_compacto(veredicto: dict, res: dict, *, firma: str, hash_esc: str,
             **({"extensiones": dict(extensiones)} if extensiones else {}),
             **({"aire": aire} if aire else {}),
             **({"electrico": electrico} if electrico else {}),
-            **({"ajustes_de_prueba": [dict(a) for a in ajustes]} if ajustes else {})}
+            **({"ajustes_de_prueba": [dict(a) for a in ajustes]} if ajustes else {}),
+            **({"flujo": flujo} if flujo else {})}
 
 
 def guardar_resultado(doc, nombre: str, compacto: dict) -> bool:

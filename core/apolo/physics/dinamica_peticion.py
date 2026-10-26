@@ -79,6 +79,7 @@ class SumideroPeticion:
     sin esto las cajas descargadas se acumulan, frenan la fila y se enciman)."""
     punto_mm: tuple
     normal: tuple
+    nombre: str | None = None      # la salida que cuenta el balance (plan balance-de-producto D3)
 
 
 @dataclass
@@ -105,6 +106,8 @@ class Peticion:
     colisiones_maquina: bool = False
     modelo_banda: str = "contacto"
     sumideros: list = field(default_factory=list)
+    #: el balance de producto (plan balance-de-producto D2, D5): {plazo_s, quieto_s, zonas_espera}
+    flujo: dict | None = None
 
 
 def _claves(obj, validas: set, donde: str) -> dict:
@@ -259,12 +262,34 @@ def _sensor(s, k: int) -> SensorPeticion:
 
 def _sumidero(s, k: int) -> SumideroPeticion:
     donde = f"sumideros[{k}]"
-    s = _claves(s, {"punto_mm", "normal"}, donde)
+    s = _claves(s, {"punto_mm", "normal", "nombre"}, donde)
     punto, normal = _vec(s, "punto_mm", donde), _vec(s, "normal", donde, unitario=True)
     if punto is None or normal is None:
         raise PhysicsError(f"{donde}: pide 'punto_mm' [x, y, z] y 'normal' [x, y, z] (el lado "
                            "que retira)")
-    return SumideroPeticion(punto_mm=punto, normal=normal)
+    return SumideroPeticion(punto_mm=punto, normal=normal,
+                            nombre=str(s["nombre"]) if s.get("nombre") else None)
+
+
+def _flujo(f) -> dict | None:
+    """El balance de producto (plan balance-de-producto D2): plazo, quieto y zonas de espera en mm.
+    La lectura con sus correcciones para el agente es la del escenario (`cosim/flujo.py`)."""
+    if f is None:
+        return None
+    f = _claves(f, {"plazo_s", "quieto_s", "zonas_espera"}, "flujo")
+    plazo = _f(f, "plazo_s", "flujo", minimo=0.0, abierto=True)
+    if plazo is None:
+        raise PhysicsError("flujo: pide 'plazo_s' (s): el tránsito máximo de un producto")
+    zonas = []
+    for k, z in enumerate(f.get("zonas_espera") or []):
+        z = _claves(z, {"nombre", "min_mm", "max_mm"}, f"flujo.zonas_espera[{k}]")
+        lo, hi = (_vec(z, c, f"flujo.zonas_espera[{k}]") for c in ("min_mm", "max_mm"))
+        if lo is None or hi is None:
+            raise PhysicsError(f"flujo.zonas_espera[{k}]: pide 'min_mm' y 'max_mm' [x, y, z]")
+        zonas.append({"nombre": str(z.get("nombre") or f"zona_{k + 1}"), "min_mm": list(lo),
+                      "max_mm": list(hi)})
+    return {"plazo_s": plazo, "quieto_s": _f(f, "quieto_s", "flujo", 2.0, minimo=0.0, abierto=True),
+            "zonas_espera": zonas}
 
 
 def _lista(obj, k: str) -> list:
@@ -280,7 +305,7 @@ def parse_peticion(req: dict | None) -> Peticion:
     req = _claves(req or {}, {
         "motores", "bandas", "auto_bandas", "productos", "sensores", "juntas", "duracion_s", "fps",
         "timestep", "nstep", "gravedad", "con_autodeteccion", "colisiones_maquina", "modelo_banda",
-        "sumideros",
+        "sumideros", "flujo",
     }, "petición")
     pet = Peticion(
         duracion_s=_f(req, "duracion_s", "petición", 3.0, minimo=0.0, maximo=DURACION_MAX_S, abierto=True),
@@ -304,6 +329,9 @@ def parse_peticion(req: dict | None) -> Peticion:
     pet.productos = [_producto(p, k) for k, p in enumerate(_lista(req, "productos"))]
     pet.sensores = [_sensor(s, k) for k, s in enumerate(_lista(req, "sensores"))]
     pet.sumideros = [_sumidero(s, k) for k, s in enumerate(_lista(req, "sumideros"))]
+    pet.flujo = _flujo(req.get("flujo"))
+    if pet.flujo is not None and not pet.sumideros:
+        raise PhysicsError("flujo: hace falta al menos un sumidero (la salida del producto)")
     juntas = _claves(req.get("juntas"), set(req.get("juntas") or {}), "juntas")
     for nombre, op in juntas.items():
         op = _claves(op, {"amortiguamiento", "friccion", "armadura"}, f"juntas.{nombre}")

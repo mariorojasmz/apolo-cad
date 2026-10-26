@@ -183,6 +183,24 @@ def escenario_que_falla(d):  # su último run, vigente, no llegó a las rpm
         firma=E.firma_documento(d), hash_esc=E.hash_escenario(esc), simulacion=None))
 
 
+def balance_que_no_cuadra(d):  # plan balance-de-producto: al ritmo nominal una caja se traba
+    d.set_requirements({**d.requirements, "paquetes_por_minuto": 20})
+    esc = {"duracion_s": 10, "flujo": {"ritmo_por_min": "nominal", "plazo_s": 8},
+           "mecanica": {"sumideros": [{"nombre": "fin", "punto_mm": [1400, 0, 0], "normal": [1, 0, 0]}]},
+           "eventos": [{"tipo": "producto", "nombre": "caja", "dims_mm": [150, 120, 100],
+                        "posicion_mm": [-500, 0, 850]}],
+           "aserciones": ["flujo.cuadra al_final"]}
+    E.poner(d, "flujo", esc)
+    esc = d.escenarios["flujo"]["escenario"]
+    fl = {"plazo_s": 8.0, "sumideros": ["fin"], "entraron": 3, "salieron": 1, "por_sumidero": {"fin": 1},
+          "perdidos": [], "retenidos": [], "sin_entrar": [], "cuadra": False,
+          "trabados": [{"producto": "p_caja_1", "desde_s": 4.2, "t": 6.2, "pos_mm": [612.0, 0.0, 850.0]}]}
+    filas = [{"asercion": "flujo.cuadra == true al_final", "pasa": False, "detalle": "al final vale false"}]
+    E.guardar_resultado(d, "flujo", E.resultado_compacto(
+        {"veredicto": "falla", "aserciones": filas}, {"resumen": {}, "mecanica": {"flujo": fl}},
+        firma=E.firma_documento(d), hash_esc=E.hash_escenario(esc), simulacion=None))
+
+
 # ------------------------------------------------------------------ mutaciones de la faja
 def motor_movido(d):  # el motorreductor corrido 100 mm: choca dentro de la plantilla
     d.execute("transform", {"feature": _id(d, "Faja de banda · Motorreductor"),
@@ -279,6 +297,8 @@ DEFECTOS = (
     Defecto("motor_sin_tierra", "mensula", motor_sin_tierra, {"riesgos.electrico": FALLA}),
     Defecto("escenario_que_falla", "mensula", escenario_que_falla,
             {"funcion.escenarios": FALLA}),
+    Defecto("balance_que_no_cuadra", "faja", balance_que_no_cuadra,
+            {"funcion.flujo_de_producto": FALLA}),
     Defecto("motor_movido", "faja", motor_movido, {"montaje.interferencia_interna": FALLA}),
     Defecto("tensor_sin_carrera", "faja", tensor_sin_carrera,
             {"transmision_flexible.tension": FALLA}),

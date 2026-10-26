@@ -24,7 +24,7 @@ VERDE, AMARILLO, ROJO = "VERDE", "AMARILLO", "ROJO"
 #: La versión de la batería del núcleo: súbela si cambia un chequeo o su umbral. Sólo se publica
 #: con reglas de extensión (`version_bateria` = «1+nombre.version_entrega»); sin ellas, el
 #: resultado es el de siempre (plan puntos-de-extension-entregables, D3).
-VERSION_BATERIA = 1
+VERSION_BATERIA = 2  # 2: el balance de producto (plan balance-de-producto, D10)
 
 # Umbral de sujeción (compartido con la alarma ambiental de la capa API): bajo esto
 # —un croquis de 2-3 piezas— exigir anclajes sería ruido. Conservador a propósito:
@@ -102,6 +102,7 @@ def delivery_report(
     acceso_herramienta: dict | None = None,
     escenarios: list[dict] | None = None,
     extensiones: dict | None = None,
+    flujo: dict | None = None,
 ) -> dict:
     """Agrega los chequeos de cierre en un SEMÁFORO. Entradas (todas computadas por
     el llamador — aquí no corre ningún motor):
@@ -137,6 +138,10 @@ def delivery_report(
         (`services/delivery_inputs`); cada regla `{id, regla, origen, hallazgos | error}`. Un
         hallazgo `error` bloquea, un `aviso` (o una regla que no corrió) da AMARILLO; None = no
         hay: la puerta da EXACTAMENTE lo de siempre, sin `version_bateria`.
+      - `flujo`: el balance de producto (`services/flujo_producto.regla_entrega`, plan
+        balance-de-producto D10) `{estado ok|aviso|error, detalle}`; None = sin escenarios o la
+        máquina no mueve producto: lo de siempre. Un balance vigente que no cuadra bloquea (ROJO);
+        sin escenario de flujo al ritmo nominal (o sin capacidad declarada), AMARILLO.
     Veredicto: ROJO si hay bloqueantes, AMARILLO si solo avisos, VERDE si nada.
     """
     nombre_de = nombre_de or (lambda fid: str(fid))
@@ -313,6 +318,12 @@ def delivery_report(
                     "detalle": r.get("detalle", "")})
         if escenarios and all(r["estado"] == "ok" for r in escenarios):
             ok.append(f"escenarios ({len(escenarios)}, vigentes)")
+    if flujo is not None:  # balance-de-producto D10
+        if flujo["estado"] in ("error", "aviso"):
+            (bloqueantes if flujo["estado"] == "error" else avisos).append({
+                "regla": "balance de producto", "piezas": [], "detalle": flujo.get("detalle", "")})
+        else:
+            ok.append("balance de producto al ritmo nominal")
 
     # 10 · reglas de las extensiones (sólo si hay alguna cargada) ------------------------------
     if extensiones is not None:

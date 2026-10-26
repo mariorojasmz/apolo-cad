@@ -16,7 +16,8 @@ Ids estables (familia):
 - `montaje.interferencia_interna` (montaje: choques dentro de un super-comando, D13b);
 - `transmision_flexible.tension` (función: todo lazo — banda, cadena, correa, cable — con un
   tensado reconocido y carrera suficiente); `transmision.capacidad`, `elementos_rodantes.l10`,
-  `accionamiento.factor_servicio`, `ingenieria.reglas` y `funcion.escenarios` (función);
+  `accionamiento.factor_servicio`, `ingenieria.reglas`, `funcion.escenarios` y
+  `funcion.flujo_de_producto` (función);
 - `estructura.vuelco`, `estructura.flecha`, `estructura.pandeo`, `union.distancia_al_borde`
   (estructura; F6: EN 1993-1-8 tabla 3.3 sobre cada agujero de perno modelado);
 - `fabricabilidad` y `memoria.veredicto` y `diseno.soluciones_por_funcion` (proceso);
@@ -52,7 +53,7 @@ Reglas del agregador (`evaluar`):
 - `aprobado` = todo ítem aplicable OK (SIN_EVALUAR bloquea como FALLA; `item.aprobado`).
 
 Una extensión suma sus `Entrada`/`Fuente` (ids «prefijo.x») con `Extension.puerta`: van en
-`DE_EXTENSION`, `vigente()` las pone al final y `version()` las firma («5+nombre.v»).
+`DE_EXTENSION`, `vigente()` las pone al final y `version()` las firma («6+nombre.v»).
 
 `VERSION_REGISTRO` sube cuando cambia un ítem, un umbral o un `aplica_si`: viaja en `calidad.json`
 junto a la firma del modelo (`services/puerta_publicacion.firma_modelo`), que la fábrica compara
@@ -66,7 +67,9 @@ geometría de cada pieza del taller que cruza un perno: `services/calidad_bordes
 cuadrada atravesada: tramo del perno t ≥ 1,5·d0 y sección W ≤ 1,25·t, `library/borde_agujero.py`)
 sale de la tabla 3.3 («no_juzgados: barra») y, si es roscada, se juzga su rosca enganchada
 (≥ k·d, VDI 2230). El eje Ø25 «roscado p/ perno» del tensor daba un falso FALLA (e = 12 < 15,6):
-ahí el perno tira según su eje y no aplasta una pared de chapa.
+ahí el perno tira según su eje y no aplasta una pared de chapa. v6 (balance-de-producto D9):
+entra `funcion.flujo_de_producto`: una máquina que mueve producto (productos en sus escenarios, o
+bandas con tablero) prueba su balance al ritmo nominal en un escenario de flujo.
 """
 
 from __future__ import annotations
@@ -77,7 +80,7 @@ from typing import Callable
 from . import puerta as p
 from .item import FALLA, NO_APLICA, OK, SIN_EVALUAR, Item, aprobado, peor
 
-VERSION_REGISTRO = "5"
+VERSION_REGISTRO = "6"
 FAMILIAS = ("estructura", "función", "montaje", "seguridad", "publicado", "proceso")
 
 Predicado = Callable[[dict], "tuple[bool, str]"]
@@ -266,6 +269,15 @@ REGISTRO: tuple = (
             "la máquina no hace lo que su escenario de prueba exige (o nadie lo volvió a correr)",
             "criterio de diseño (prueba virtual, V8.3 D14)", "función",
             hecho("escenarios", "sin escenarios de prueba declarados"), p.escenarios),
+    Entrada("funcion.flujo_de_producto", "Lo que entra sale por sus salidas al ritmo nominal, sin "
+            "perdidos, trabados ni retenidos",
+            "el producto llega más rápido de lo que la máquina lo despeja: se traba, se cae o se "
+            "queda adentro (una caja contra la placa del desviador)",
+            "criterio de diseño (balance de producto en la co-simulación)", "función",
+            hecho("mueve_producto", "sin productos en sus escenarios ni bandas con tablero: el "
+                                    "flujo se prueba en la co-simulación, que necesita el tablero "
+                                    "que mueve la máquina"),
+            p.flujo_de_producto),
     Entrada("publicado.sustitutos_fieles", "Lo que el video dibuja en lugar de un sólido es fiel "
             "al modelo", "el video muestra una banda que atraviesa piezas: lo publicado no es lo "
             "validado", "criterio de diseño (D13 de fabrica-de-publicaciones)", "publicado",

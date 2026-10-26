@@ -11,7 +11,8 @@ tiene el modelo, por tipo general y clase concreta, para que cada ítem general 
   aquí su clase** (p. ej. `transmisiones_flexibles["correa"]`), nunca un ítem al registro;
 - `familias_funcion`: {familia D15: [piezas]} (sólo las que el modelo tiene);
 - banderas: `pocos_solidos`, `sin_estudios`, `sin_poses`, `carril`, `escenarios`,
-  `memoria_aplica`.
+  `memoria_aplica`, `mueve_producto` (productos en los escenarios o bandas con tablero:
+  `flujo_producto.mueve_producto`, plan balance-de-producto D9).
 
 Cada detector usa el MISMO criterio que el control que lo evalúa (la tornillería:
 `calidad_pernos.tipo_de_tornilleria`; los lazos: `calidad_tensores`; la banda animada:
@@ -80,6 +81,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
     from .calidad_pernos import tipo_de_tornilleria
     from .calidad_tensores import lazos_banda
     from .electrico import tiene_carril
+    from .flujo_producto import mueve_producto
 
     solidos = {f: x for f, x in doc.scene.items() if not getattr(x, "is_guide", False)}
     comps = {f: CATALOG.get(getattr(x, "component", None) or "") for f, x in solidos.items()}
@@ -151,6 +153,7 @@ def hechos(doc, entrega_kwargs: dict, contexto=None) -> dict:
         "sin_poses": entrega_kwargs.get("poses") == [],
         "carril": tiene_carril(doc),
         "escenarios": bool(doc.escenarios),
+        "mueve_producto": mueve_producto(doc, len(bandas)),
         "memoria_aplica": bool(mecanismo or elementos["uniones"] or doc.requirements
                                or doc.grounds),
         "elementos": elementos,

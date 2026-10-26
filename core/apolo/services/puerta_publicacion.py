@@ -12,6 +12,8 @@ lock con el suyo (patrón dos locks): aquí sólo `preparar_marcha` (OCCT) y `co
   insumos crudos de acceso de herramienta, ERC y escenarios;
 - `interna`: los choques DENTRO de cada super-comando, sin `same_command_pairs` (D13b);
 - `memoria`: el veredicto de la memoria de cálculo sin el PDF;
+- `flujo`: el balance de producto al ritmo nominal (`flujo_producto.evaluar`, plan
+  balance-de-producto D9);
 - `fuentes`: lo que da cada `Fuente` del registro (F2: función mecánica; F3: seguridad y
   reparabilidad, con la tabla de riesgos), cada una UNA vez;
 - `firma`: `firma_modelo` del documento (la misma que calcula la publicación del `.apolo`).
@@ -180,6 +182,10 @@ def reunir(doc, *, expand, gravedad: dict, registro=None, tiempos: dict | None =
     tiempos.update({f"entrega.{k}": v for k, v in por_regla.items()})
     with _cronometro(tiempos, "hechos"):
         h = hechos(doc, kw, contexto)
+    with _cronometro(tiempos, "flujo"):
+        from .flujo_producto import evaluar as evaluar_flujo
+
+        flujo = evaluar_flujo(doc, mueve=h["mueve_producto"])  # balance-de-producto D9
     with _cronometro(tiempos, "interferencia_interna"):
         interna = interferencia_interna(doc)
     with _cronometro(tiempos, "memoria"):
@@ -194,7 +200,7 @@ def reunir(doc, *, expand, gravedad: dict, registro=None, tiempos: dict | None =
     return {"firma": firma(doc), "hechos": h, "entrega": entrega, "gravedad": gravedad,
             "acceso": kw.get("acceso_herramienta"), "electrico": kw.get("electrico"),
             "escenarios": kw.get("escenarios"), "interna": interna, "memoria": memoria,
-            "fuentes": fuentes, "fabricacion": fab,
+            "fuentes": fuentes, "fabricacion": fab, "flujo": flujo,
             "funciones": list(getattr(doc, "funciones", None) or []), "tiempos": tiempos}
 
 

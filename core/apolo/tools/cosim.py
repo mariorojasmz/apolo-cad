@@ -136,6 +136,12 @@ def registrar(mcp, api, esperar) -> None:
          ajustes?: {"-T2": {"sobrecarga_s": 5}},   ← ajustes de PRUEBA sólo de este escenario
                    (validados como en add_device): el proyecto, el manual y la memoria siguen con
                    los de add_device; el resultado los lista en ajustes_de_prueba,
+         flujo?: {plazo_s, ritmo_por_min: N | "nominal", quieto_s?, zonas_espera?},   ← el
+                 BALANCE de producto: sus salidas son mecanica.sumideros [{nombre, punto_mm,
+                 normal}]; «nominal» = requirements.paquetes_por_minuto; señales flujo.entraron,
+                 salieron, <sumidero>, perdidos, trabados, retenidos, sin_entrar,
+                 transito_max_s y cuadra («flujo.cuadra al_final» = nada perdido, trabado ni
+                 retenido),
          aserciones: ["-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1",
                       "-M1.par_Nm == 0 dentro_de 0,5 s desde presionar -S0",
                       "-Q2.disparado dentro_de 10 s desde atasco", "-K1.cuenta == 10 al_final",

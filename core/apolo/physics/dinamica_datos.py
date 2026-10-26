@@ -28,3 +28,6 @@ class DynamicsSnapshot:
     avisos: list = field(default_factory=list)
     early: dict | None = None
     sumideros: list = field(default_factory=list)   # [(punto_m, normal)]: retiran productos
+    #: el balance de producto (plan balance-de-producto D5): {plazo_s, quieto_s, zonas_espera,
+    #: sumideros: [nombres]}; None = no se rastrea (la salida de siempre)
+    flujo: dict | None = None

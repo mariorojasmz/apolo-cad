@@ -165,9 +165,10 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     from .cosim_bandas import bandas_quietas, prever
     from .cosim_red import entrada_red, largos_calculados
     from .electrico import ajustes_faltantes, modelo, texto_ajustes_faltantes
+    from .flujo_producto import resolver_ritmo
 
     try:
-        esc = leer_escenario(escenario)
+        esc = leer_escenario(resolver_ritmo(doc, escenario))  # balance-de-producto D7: «nominal»
     except EscenarioInvalido as exc:
         raise ServiceError(400, str(exc)) from exc
     me = modelo(doc)
@@ -197,6 +198,8 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     peticion = {**esc.mecanica, "duracion_s": esc.duracion_s, "fps": esc.mecanica.get("fps", 10),
                 "motores": _motores(esc, me, tab.modelos), "sensores": sensores,
                 "productos": [dict(p) for p in esc.productos]}
+    if esc.flujo is not None:  # balance-de-producto D5: el rastreo, sólo con el bloque
+        peticion["flujo"] = {k: esc.flujo[k] for k in ("plazo_s", "quieto_s", "zonas_espera")}
     if aire:  # V8.9 D4: el <motor> de fuerza de cada cilindro y su fricción y masa en la junta
         mot_aire, juntas_aire = cosim_aire.peticion(doc, me, esc, tab)
         peticion["motores"] = peticion["motores"] + mot_aire

@@ -22,6 +22,7 @@ import fnmatch
 import hashlib
 import json
 
+from .flujo import resumen as resumen_flujo
 from .veredicto import Lector
 
 EVENTOS_COMPACTO = 30
@@ -61,6 +62,8 @@ def compacto(res: dict, ver: dict, *, simulacion: str, escenario: str | None,
         # plc-en-el-lazo D7: sólo con un PLC externo (sin él, el compacto de siempre)
         **{k: res[k] for k in ("plc_externo", "lazo") if k in res},
         **({"veredicto_motivo": ver["motivo"]} if "motivo" in ver else {}),
+        # balance-de-producto D11: sólo con el bloque `flujo` (sin él, el compacto de siempre)
+        **({"flujo": f} if (f := resumen_flujo((res.get("mecanica") or {}).get("flujo"))) else {}),
         "avisos": res.get("avisos") or [], **_hipotesis(res, hipotesis_vistas_en),
         "aviso": res.get("aviso"),
         **({"proceso": {k: v for k, v in res["proceso"].items() if k in ("arranque_s", "total_s")}}
