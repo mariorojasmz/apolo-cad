@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito con el criterio delegado por Mario (D1–D13 vetables); F1–F3 implementadas en la rama wip/balance-de-producto, sin mergear; falta F4 (la faja del desviador usa el balance) y que Mario vete o confirme D9 (sin tablero, NO_APLICA)
+nota: F1–F3 implementadas y verdes en la rama wip/balance-de-producto, SIN mergear (falta revisión y merge de la sesión principal); falta F4 (el escenario desvio_en_serie declara su flujo) y que Mario vete o confirme D9 (faja sin tablero = NO_APLICA)
 descripcion: un escenario de la co-simulación cuenta el producto que entra y el que sale por cada salida, avisa del que se traba o se cae, y la puerta exige ese balance al ritmo nominal en toda máquina que mueve producto
 ---
 
@@ -199,3 +199,12 @@ Rutas relativas a `core/apolo/`, medidas sobre `b9d774f`.
   `version_registro` 6 y `funcion.flujo_de_producto` NO_APLICA en los cuatro (ninguno tiene
   tablero ni productos en escenarios); la faja sigue aprobando entera.
 - Defecto sembrado `balance_que_no_cuadra` sobre la faja: FALLA con el producto trabado.
+
+### F3 (verificación) — 2026-10-26
+
+- Suite completa del núcleo (`-n auto`, en esta máquina, con el `.venv` de pruebas): en `b9d774f`
+  6212 pasan, 10 saltados, 0 fallan, exit 0; en la rama, 6247 pasan, 10 saltados, 0 fallan,
+  exit 0 (+35: los tres `test_flujo_*` y el defecto sembrado). `ruff check core tests scripts`
+  limpio. Sin cambios en `ui/` (no hay vista de resultados de escenarios: D11).
+- Golden del MCP re-congelado: sólo cambia el docstring de `set_scenario` (documenta `flujo`).
+
