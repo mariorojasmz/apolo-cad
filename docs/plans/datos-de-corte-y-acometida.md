@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a, F1b y F1c mergeadas (datos de ficha con completitud, el diferencial por fasores, la acometida TN/TT/IT con `RA_ohm` en la co-simulación; COSIM_EPOCH 4 → 5); pendiente sólo de datos: las cifras de los 8 diferenciales, 5 ITM, el cartucho 5x20 y 19 `T_max_C` siguen en `a_confirmar` (las fichas de fabricante no se pudieron leer)
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a, F1b y F1c mergeadas (datos de ficha con completitud, el diferencial por fasores, la acometida TN/TT/IT con `RA_ohm` en la co-simulación; COSIM_EPOCH 4 → 5); cifras de fichas oficiales cargadas el 2026-10-26 (8 diferenciales, 5 ITM, el cartucho 5x20 y 17 `T_max_C`: bitácora «Cifras de fichas y líneas corregidas»); queda a confirmar el `T_max_C` a plena carga de las 2 fuentes de 24 VDC (D-b), «apto a 60 Hz» de los 4 diferenciales clase B (D-a) y, de las redes, Icc, X/R y esquema (dato del sitio)
 descripcion: cada protección del catálogo dice cuánto corta y a qué temperatura trabaja, con su fuente; la acometida dice su esquema de tierra; el interruptor diferencial entra al catálogo y dispara en la prueba virtual
 ---
 
@@ -558,3 +558,76 @@ lectura de la base de la laptop (`data/apolo.db`: 34 proyectos y 119 revisiones,
 saltan, EXIT 0 (antes 5488: +21 de `test_acometida.py`). `ruff check core tests scripts` limpio
 (laptop y escritorio). Sin cambios en la UI ni en el catálogo (428 refs). En la laptop, los tests de
 extensiones fallan por una extensión privada instalada en su venv (ajeno a esta fase).
+
+### Cifras de fichas y líneas corregidas (2026-10-26)
+
+Lo que la F1a y la F1b dejaron en `a_confirmar` porque las fichas no se pudieron leer. Dos
+investigaciones de sólo lectura bajaron las fichas oficiales (dominio del fabricante; nada que
+pidiera registro o aceptar términos) y dejaron por cifra su origen (ficha o típico) y la página;
+aquí se pasaron al YAML, cada una con su `fuente` (documento, URL oficial, página, fecha de
+consulta). Las correcciones de líneas de los mandos de seguridad y de los variadores están en la
+bitácora homónima de [mandos-de-seguridad](mandos-de-seguridad.md).
+
+**Qué se cargó** (64 cifras en 32 refs; 59 de ficha y 5 típicas de norma):
+
+| refs | cifras | ficha (página) |
+|---|---|---|
+| ITM-C6-3P, C16-3P, C20-3P | Icu {240: 20, 415: 10} kA, Ics {240: 15, 415: 7,5} kA | Schneider A9F74306 / 16 / 20, download.se.com (pág. 1; temperatura pág. 2) |
+| ITM-C2-1PN | Icu = Ics {240: 50} kA | A9F74602 (pág. 1): 1P+N sólo tiene rating hasta 220…240 V (fase-neutro) |
+| ITM-C6-1PN | Icu {240: 10} kA, Ics {240: 7,5} kA | A9F74606 (pág. 1) |
+| 8 diferenciales | Inc 10 kA, Im 1500 A, `T_max_C` 60, `Inc_con` «iC60N aguas arriba o fusible gG ≤ 63 A (2P) / ≤ 80 A (4P)» | Schneider iID A9R21225/24225/21440/24440 (clase A) y A9Z61225/64225/61440/64440 (B-SI), pág. 1 y 2; `Inc_con`: catálogo Acti 9 CA909006E pág. 5 + calibre de Siemens 5SV3312-6 / 5SV3344-6 |
+| BORNE-FUS-5X20 | cartucho 250 VAC, Icn 35 A, Icn 10·In; `T_max_C` 105 | Schurter FST 5x20 (IEC 60127-2 hoja 3; pág. 1 y 4) + Siemens 8WH1000-1GG08 (pág. 2) |
+| GM-AUX-1NA1NC | `T_max_C` 60 | Siemens 3RV2901-1E (pág. 1) |
+| RELE-INT-24VDC / -230V | `T_max_C` 70 / 55 (bobina ≤ 60 V / > 60 V) | Finder S38EN, 38.51 (pág. 5) |
+| RS-2C-24VDC | `T_max_C` 60 | Siemens 3SK1111-1AB30 (pág. 2) |
+| PLC-14DI-10DO-24VDC | `T_max_C` 55 | Siemens 6ES7214-1AG40-0XB0 (pág. 6) |
+| VFD-1K5-220, VFD-2K2-220 | `T_max_C` 50 | Delta MS300, catálogo DELTA_IA-MDS_MS300_C_EN_20210714 (pág. 20 del PDF) |
+| 4 bornes de paso y PE | `T_max_C` 105 | Siemens 8WH1000-0AF00 / 0AG00 / 0CF07 / 0CG07 (pág. 2) |
+| 5 conductores H05V-K / H07V-K | `T_max_C` 60, **típico** | IEC 60364-5-52 tabla B.52.14 (k1 del PVC hasta 60 °C), citada de Schneider *Electrical Installation Guide* Fig. G12 |
+
+**Decisiones (para vetar).**
+- **D-a, diferenciales clase B a 60 Hz**: la ficha B-SI de Schneider es de 50 Hz (las clase A,
+  50/60 Hz) y Lima es 60 Hz. Las cifras se cargan; la ref declara la frecuencia de la ficha leída
+  (`specs.frecuencia_ficha`, en las 8) y las 4 de clase B dejan «apto a 60 Hz» en
+  `specs.a_confirmar` (la convención de texto de `124_sensores_campo.yaml`). No va en
+  `electrico.a_confirmar`: ese sólo nombra claves de `datos` o `modelo`, y sumar una frecuencia a
+  `ficha_datos.REQUERIDOS` cambiaría el contrato de extensiones por un dato que no lee nadie. Nunca
+  se afirma lo que la ficha no dice.
+- **D-b, fuentes Mean Well**: `T_max_C` es el tope SIN desclasificar (precedente F1a). La ficha da
+  «−30…+70 / −20…+60 °C (Refer to Derating Curve)», el tope CON desclasificación; la rodilla a
+  plena carga sólo está en la curva (pág. 3) y no sale como número del texto. Queda en
+  `a_confirmar`, con la ficha leída en `fuente` (no se usa el tope con desclasificación).
+  `FUENTE-24VDC-5A` deja de heredar del ancla: tiene su `a_confirmar` y su `fuente` (EDR-120).
+- **D-c, bornes 105 °C y la errata del portafusible**: la ficha 8WH da «ambient temperature
+  during operation −60…105 °C»: es el tope del borne con su autocalentamiento, el valor que da
+  toda ficha de bornes, y se carga tal cual (como aire alrededor no limita). La 8WH1000-1GG08
+  imprime también «minimum 105 °C»: errata del mínimo, anotada en la `fuente`; el máximo coincide
+  con el de la serie. Como Phoenix y Weidmüller no se pudieron leer (403), su `linea_referencia`
+  suma el Siemens 8WH cuya ficha sí se leyó. El test del rango de `T_max_C` (40–70) pasa a separar
+  los bornes (105).
+- **D-d, sin herencias de `a_confirmar`**: ITM-C16-3P y C20-3P heredaban `a_confirmar` del ancla
+  `*itm_3p`; ahora cada ITM y cada diferencial trae su `datos` y su `fuente` (la de SU ficha) y las
+  anclas no llevan `a_confirmar`. El `a_confirmar: []` de ITM-C10-3P sobraba y salió.
+- **D-e, una cifra por condición de la ref**: el relé de 230 V toma 55 (bobina > 60 V), no 70; el
+  PLC toma 55 (las 14 DI / 10 DO a la vez, horizontal), no los 60 que la ficha da con 7 DI / 5 DO.
+- **D-f, conductores con el típico de norma**: la ficha LAPP no se leyó; 60 °C sale de la tabla
+  B.52.14 y la `fuente` lo dice («típico de …, no de la ficha», citado de la guía de Schneider). La
+  corrección k1 de la corriente admisible la aplica quien verifica, no el dato.
+
+**Queda a confirmar.** `T_max_C` de las dos fuentes de 24 VDC (D-b); «apto a 60 Hz» de los 4
+diferenciales clase B (D-a); `I_entrada_A` de los dos variadores (el catálogo del MS300 no la
+publica: [mandos-de-seguridad](mandos-de-seguridad.md)); de las redes, `Icc_kA`, `X_R` y `esquema`
+(dato del sitio, fuera de esta tanda). Sin ficha oficial leída: Phoenix Contact, Weidmüller, Pilz y
+Littelfuse (403), y el manual de usuario del MS300 (pide aceptar términos de uso: no se aceptaron).
+
+**Vigencia.** Ninguna medida ni builder cambió: sin `GEOM_CACHE_EPOCH` ni versión de comando
+(`test_contrato_comandos` verde). `datos`, `fuente`, `a_confirmar` y `specs` no entran a la firma
+del documento (`test_los_datos_de_ficha_no_entran_a_la_firma_del_documento`): ninguna de estas
+cifras vence escenarios. Sin `COSIM_EPOCH` (no se tocó código de la co-simulación).
+
+**Conteos medidos.** Suite completa en el worktree de la laptop (`PYTHONPATH` al `core/` propio,
+`-B`, `-n auto`): EXIT 0, sin `FAILED` (6189 tests según `scripts/conteos.py`; +45 de
+`tests/test_cifras_de_fichas.py`). `ruff check core tests scripts` limpio. Catálogo: 451 refs, sin
+cambio. De las 62 refs de tablero, 60 con `T_max_C` (antes 35); las 15 protecciones (8 ITM, 5
+guardamotores, 2 seccionadores) con poder de corte de ficha, los 8 diferenciales con su Inc e Im y
+el portafusible con su cartucho.

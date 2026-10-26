@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato escrito por Claude el 2026-10-23 como la parte pública del ajuste A7 de un plan de seguridad funcional fuera del núcleo (aprobado por Mario; las alternativas de ingeniería las decide Claude, vetables); F1 mergeada (ESTOP-40-2NC y su caja, RESG-2NC con lengüeta, RS-2C-24VDC; modelos resguardo y rele_seguridad; pareja verde/roja de categoría 3 en los tests; sin bump de epoch); F1b mergeada (la máquina viva abre y cierra el resguardo, muestra el relé y su «no rearma», y la falla del relé pide su salida); revisión de diseño a ciegas hecha; falta F2 (verifica con Mario)
+nota: contrato escrito por Claude el 2026-10-23 como la parte pública del ajuste A7 de un plan de seguridad funcional fuera del núcleo (aprobado por Mario; las alternativas de ingeniería las decide Claude, vetables); F1 mergeada (ESTOP-40-2NC y su caja, RESG-2NC con lengüeta, RS-2C-24VDC; modelos resguardo y rele_seguridad; pareja verde/roja de categoría 3 en los tests; sin bump de epoch); F1b mergeada (la máquina viva abre y cierra el resguardo, muestra el relé y su «no rearma», y la falla del relé pide su salida); revisión de diseño a ciegas hecha; líneas de referencia corregidas el 2026-10-26 (setas de 1 y 2 NC, resguardo de 2 NC, relé de seguridad → Siemens 3SK1, variadores → Delta MS300 con STO; `VFD-1K5-220` a 7,5 A: bitácora «Cifras de fichas y líneas corregidas»); falta F2 (verifica con Mario)
 descripcion: mandos para funciones de seguridad de dos canales en el catálogo y en la co-simulación: seta de dos NC, interruptor de resguardo con actuador separado y relé de seguridad
 ---
 
@@ -195,3 +195,61 @@ opciones y abrir en vivo) y `ruff` limpio.
   «Apretar» el pulsador) → «Presionar»; las lecturas iban en la caja de los mandos y parecían botones
   → fila plana. Queda, de toda la app: el encabezado en mayúsculas espaciadas («MANDOS») frente a los
   del tablero, y el peso de las cifras de las lecturas.
+
+### Cifras de fichas y líneas corregidas (2026-10-26)
+
+Una investigación de sólo lectura de las fichas oficiales (fiabilidad ISO 13849-1 de los aparatos
+de seguridad del catálogo, para fuera del núcleo) encontró líneas de referencia que NO cumplen la
+ref que las cita. Una ref es un ejemplo ([library](../../core/apolo/library/CLAUDE.md) § Catálogo):
+la línea citada tiene que cumplir lo que la ref define. Las cifras de ficha que entraron en la misma
+tanda están en la bitácora homónima de [datos-de-corte-y-acometida](datos-de-corte-y-acometida.md).
+Los datos de fiabilidad (B10d, PFHd) siguen fuera del núcleo (D4).
+
+**Qué se corrigió** (`specs.linea_referencia`; las fichas leídas son todas de dominio del
+fabricante, y la cita exacta va en la `fuente` de cada ref):
+
+| ref | citaba | la ficha dice | ahora cita |
+|---|---|---|---|
+| ESTOP-40, ESTOP-40-CAJA (1 NC) | XB5AS8445 | 1 NO + 1 NC | XB5AS8442 (1 NC) |
+| ESTOP-40-2NC, ESTOP-40-CAJA-2NC | XB5AS8442 | 1 NC | XB5AS8444 (2 NC) |
+| RESG-2NC | Schneider Preventa XCSPA592 | 1 NC + 1 NO | Telemecanique Sensors XCSPA792 (2 NC; la marca XCS ya no es de se.com) |
+| RESG-LENGUETA | Schneider Preventa XCSZ11 | — | Telemecanique Sensors XCSZ11 |
+| RS-2C-24VDC | Pilz PNOZ X2.8P / Schneider XPSAC5121 | el PNOZ X2.8P sólo arranca automático o manual; el XPSAC5121 está descatalogado (28-dic-2023) | Siemens SIRIUS 3SK1111-1AB30 («monitored start-up Yes», 3 NA + 1 NC, 24 V AC/DC) |
+| GM-AUX-1NA1NC | TeSys GVAN11 / Siemens 3RV2901-1E | GVAN11 es de montaje LATERAL; la ref es un bloque frontal | TeSys GVAE11 («front mounting») / Siemens 3RV2901-1E (transversal) |
+| VFD-1K5-220, VFD-2K2-220 | SINAMICS V20 / Delta MS300 (en comentarios y `fuente`) | el V20 de 1,5–2,2 kW a 230 V es de entrada MONOFÁSICA y no tiene STO | Delta MS300 VFD7A5MS23ANSAA / VFD11AMS23ANSAA (230 V 3F, «S: Integrated STO», Cat 3 PL d) / Siemens G120 CU240E-2 + PM240-2 200 V 3AC |
+
+La `fuente` de la temperatura de las setas suma las fichas XB5AS8442 y XB5AS8444 (−40…70 °C, la
+misma). Sin cambio de bornes, `modelo` ni geometría en setas, resguardo y auxiliar.
+
+**Decisiones (para vetar).**
+- **D-g, la corriente del variador es la de servicio PESADO de la ficha**: el modelo dispara por
+  sobrecarga a 150 % durante 60 s, que es la sobrecarga HD del MS300 (la ND es 120 % / 60 s).
+  `VFD-1K5-220` pasa de 8,5 A (no era de ninguna ficha: MS300 da 7,5 HD / 8 ND; el V20, 7,8) a
+  **7,5 A** en `modelo.I_salida_A` y `specs.corriente_A`; `VFD-2K2-220` ya tenía 11 A, la HD del
+  VFD11AMS23ANSAA. `I_entrada_A` (10 y 13) no está en el catálogo del MS300 (el manual pide aceptar
+  términos de uso): sigue como estimación y entra a `a_confirmar`.
+- **D-h, vigencia del cambio de `modelo`**: `I_salida_A` está en `electrico.modelo`, que entra a la
+  firma del documento (`EN_FIRMA`: `modelo`). Se cambia igual, sin `COSIM_EPOCH` (no cambió
+  código): un documento con `VFD-1K5-220` cambia de firma y sus resultados de escenario guardados
+  quedan vencidos, que es lo correcto (su límite de corriente y su sobrecarga ahora disparan a
+  otra corriente). Las 4 firmas del banco (`tests/test_firma_dispositivo.py`) usan el
+  `VFD-2K2-220`, cuyo `modelo` no cambió: no se mueven. `a_confirmar` no entra a la firma.
+- **D-i, lo que no se tocó del variador**: la envolvente (`params`; el MS300 de 2,2 kW es el frame C
+  de 87 × 157 × 152 mm) y las caras de sus bornes (orden del V20 FSB): cambiarlas mueve la
+  geometría (epoch) y el ruteo de la piloto. Quedan anotadas como pendientes en el YAML hasta
+  leer el manual de la línea nueva.
+- **D-j, el relé de seguridad cita sólo el 3SK1**: el PNOZ X2.8P no tiene rearme vigilado (la ref
+  sí) y el reemplazo de Schneider (XPSBAC14AP, según su buscador) no se leyó. Su `modelo` no
+  cambia: `U_min_pct` 85 coincide con el 3SK1 (0,85 Un); `t_conexion_ms` 50 y `t_desconexion_ms` 20
+  son más lentos que los del 3SK1 (arranque vigilado 15 típ. / 20 máx.; caída 10 típ.), del lado
+  seguro para la prueba virtual, y cambiarlos movería la firma del tablero con relé de seguridad
+  del banco. Los bornes siguen genéricos (familia PNOZ/XPSAC; el 3SK1 los nombra distinto) y la
+  caja (22,5 × 114 × 99) no se tocó (el 3SK1 mide 22,5 × 100 × 121,6): `cotas_verificadas: false`.
+- **D-k, el auxiliar del guardamotor**: la descripción y el acople (`cara: frente`) ya decían
+  frontal; lo incoherente era la línea. Se corrige la línea, no la ref.
+
+**Queda a confirmar.** El PFHd del STO del MS300 (en su manual de usuario, no leído); las caras de
+bornes y la envolvente de los variadores con la línea nueva; `I_entrada_A`; los bornes del 3SK1.
+
+**Vigencia.** Sin `GEOM_CACHE_EPOCH`, versión de comando ni `COSIM_EPOCH`. Sólo la firma de los
+documentos que usan `VFD-1K5-220` (D-h).
