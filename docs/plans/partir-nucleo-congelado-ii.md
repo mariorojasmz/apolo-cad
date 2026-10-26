@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: contrato de Claude con criterio delegado (2026-10-25), vetable por número; F0 medida en la escritura del contrato (base `4920db6`); F1 (`builders.py` 847 → 82), F2 (`report.py` 555 → 79) y F3 (`rules.py` 903 → 93, `conveyor_engineering_check` por extracción con corpus de 56 casos y cobertura 351/351 líneas, 172/172 ramas) en `main`; siguen F4 (`sheet.py`) → F5 cierre
+estado: implementado
+nota: F1–F5 en `main` (`builders.py` 847 → 82, `report.py` 555 → 79, `rules.py` 903 → 93, `sheet.py` 882 → 110; `EXCEPCIONES` vacío; E2E MCP 27/27 y open caliente del 38 con caché de antes de F1, 0 comandos re-ejecutados); la suite de la extensión del titular contra F4 la corrió quien mergeó (verde, fuera de este repo); sin pendientes
 descripcion: por fuera nada cambia —mismos comandos, mismas piezas de catálogo, mismas láminas y la misma memoria—; por dentro los cuatro archivos que quedaban sobre las 500 líneas se parten y salen del trinquete
 ---
 
@@ -356,3 +356,43 @@ Tiempos de la tabla medida (S/M 40–65 min, L 90–100; revisión ~35 min por l
 - **Suite**: completa con xdist, exit 0 y ningún `FAILED` (también la de la base, con el plugin
   del corpus); `ruff check core tests scripts` limpio; `test_claude_md.py` verde (drawing 11.9 KB
   de 35). Falta, como dice F4, la suite de la extensión privada contra la rama (quien mergea).
+
+### F5 — cierre (2026-10-25, base `369438c`)
+
+- **Base de datos**: copia de `apolo-cad-pruebas/data/apolo.db` con la API de backup de sqlite
+  (abierta `mode=ro`) en `C:\t\partir2-f5\apolo.db`, 34 proyectos; `APOLO_DB`, `APOLO_LOGS` y
+  `APOLO_HOME` en `C:\t\partir2-f5\`, `APOLO_PROJECT=46` (el arranque no gasta el open del 38),
+  API sin `--reload` en :8199 con el venv de `apolo-cad-pruebas` y `PYTHONPATH` al `core/` probado
+  (verificado: `apolo.__file__` y las líneas de `builders.py`, 847 en la base y 82 en `main`).
+  El original no se escribió (`apolo.db` 2026-10-21, `-wal` 2026-10-24; el backup de lectura sólo
+  tocó el `-shm`). Tras cada ronda, :8199 libre y sin procesos.
+- **E2E** (`python -B scripts/e2e_mcp.py --puerto 8199 --proyecto 38`, código de `main`): **27 de
+  27 pasos ok en 41 s, EXIT 0** (90 tools por stdio; lote con contrato revertido; `set_variable`
+  `largo_total` 4000 → 4400 y `undo` dejan el resumen y los 452 comandos como estaban). Pasa por
+  lo partido: `engineering_check` (reglas de la faja de F3 y estructura de F2), `drawing` (F4) y
+  el catálogo (F1). El `errors.log` de la copia sólo trae los inicios de sesión, el 404 que el
+  guion provoca a propósito y un «candado tomado de un proceso muerto» (la ronda anterior se
+  paró con `terminate`, sin shutdown: esperado).
+- **Open caliente del 38** (`POST /api/projects/38/open`, proceso nuevo por ronda):
+
+  | ronda | código | 1.er open | caché del 38 después |
+  |---|---|---:|---|
+  | la de la copia | — | — | epoch 6 (2026-10-21): `unpack` → `None`, no sirve |
+  | 1 | base `5a3d6e4` (`git archive` de `core/`, antes de F1) | **9,68 s (frío)** | epoch 7, 452 firmas, escrita por esa ronda |
+  | 2 | `main` (`369438c`) | **4,32 s (caliente)** | la MISMA (no se re-empaca: `updated_at` igual) |
+  | 3 | `main`, otro proceso | 4,27 s (caliente) | la misma |
+
+  Fuera de la API, `ProjectStore.load(38)` con el código de `main` sobre esa caché: 0,07 s y
+  **CERO llamadas a `execute_command`** de 452 comandos (132 sólidos, integridad ok); el control
+  con `APOLO_GEOM_CACHE=0` da 6,60 s y 452 llamadas. → D8 se cumple: las firmas que escribe el
+  código de antes del primer corte son las de hoy y ninguna caché quedó vencida. Lo que queda de
+  los ~4,3 s del open caliente es el payload y el briefing, como en el plan I (F6).
+- **Salida igual a la de la base** (extra, sobre el 38 abierto en cada código): `POST /api/checks`
+  con `resumen: false` (ingeniería + estructura, 51,7 KB) idéntico; `POST /api/delivery-check`
+  idéntico salvo `tiempos_s`. Su ROJO (1 bloqueante: cuatro tuercas de eje de los rodillos de
+  retorno sin acceso de llave por las guardas) sale igual en la base: es del 38 de esta copia, no
+  de este plan.
+- **Trinquete**: `EXCEPCIONES` vacío; `test_tamano_archivos.py` verde; ningún `.py` de `core/`
+  pasa de 500 (el mayor, `library/transmision.py` con 479). Las cuatro fachadas: `builders.py`
+  82, `report.py` 79, `rules.py` 93, `sheet.py` 110.
+- **Fuera del núcleo**: la suite de la extensión del titular contra la rama de F4 la corrió la sesión que mergeó, antes del merge: verde.
