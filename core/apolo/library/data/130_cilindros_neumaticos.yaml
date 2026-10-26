@@ -18,8 +18,8 @@ category: cilindros_neumaticos
 #       1000 mm (catálogo SMC C96, https://content2.smcetech.com/pdf/C96.pdf, pág. PDF 5, leído
 #       2026-10-26); Ø40–63, 1900.
 #  [F3] AVENTICS, catálogo «ISO 15552 Series CCL» (Emerson 6907744), tabla de dimensiones, leída
-#       por extracto (a confirmar contra el PDF): vástago Ø16 y Ø20, rosca M12×1,25 y M16×1,5,
-#       puertos G1/4 para Ø40 y Ø50.
+#       por extracto: vástago Ø16 y Ø20, rosca M12×1,25 y M16×1,5, puertos G1/4 para Ø40 y Ø50
+#       (confirmado por [F9]).
 #  [F4] Flowtech, hoja «ISO15552 Cylinders» (TS3016/TS3017), tabla de montajes: distancia entre
 #       tirantes TG (T) 32,5 / 38 / 46,5 / 56,5 mm, largo del cuerpo en carrera 0 (C) 94 / 105 /
 #       106 / 121 mm y total con el extremo del vástago (A) 142 / 159 / 175 / 190 mm. Sus tablas
@@ -42,6 +42,14 @@ category: cilindros_neumaticos
 #  [F8] Festo DSNU-<Ø>-50-P-A (ISO 6432, amortiguación elástica), ficha web del artículo, la
 #       misma pestaña y fecha: pesos y masa móvil como [F7] y la energía de impacto admisible.
 #       Artículos: Ø16 19201, Ø20 19210, Ø25 19221.
+#  [F9] SMC, catálogo C96 (https://content2.smcetech.com/pdf/C96.pdf, leído 2026-10-26; plan
+#       pedidos-de-extensiones-iii D12): tabla de dimensiones «Basic» (pág. PDF 8), por Ø 32 / 40 /
+#       50 / 63: A (= AM) 22 / 24 / 32 / 32, ØD (vástago) 12 / 16 / 20 / 20, E 47 / 54 / 66 / 77,
+#       EE G1/8 · G1/4 · G1/4 · G3/8, KK M10×1,25 · M12×1,25 · M16×1,5 · M16×1,5, L8 (= C) 94 /
+#       105 / 106 / 121, R (= TG) 32,5 / 38 / 46,5 / 56,5, RT (rosca de las tapas) M6 · M6 · M8 ·
+#       M8 y WH 26 / 30 / 37 / 37; estándar de carreras (pág. PDF 5): máxima 1000 (Ø32) y 1900
+#       (Ø40–63). E no es cota de interfaz de ISO 15552 y cambia por marca: el 45 del Ø32 (y el
+#       64 / 75 del Ø50 / Ø63, del Festo) se quedan.
 # PESO por carrera (V8.9, pendiente 9): masa = `weight` (carrera 0) + `specs.peso_por_mm_kg` ×
 # carrera, la fórmula de la ficha ([F7]/[F8]; SMC publica la misma por 50 mm). Ese peso es el del
 # cilindro ENTERO (cuerpo + pistón + vástago): la masa móvil de la ficha por 10 mm es un vástago
@@ -56,9 +64,9 @@ category: cilindros_neumaticos
 #    super-comando `create_pneumatic_cylinder` los separa con su junta). `params`: D, d, E (lado
 #    del cuerpo cuadrado de ISO 15552 o Ø de la camisa de ISO 6432), C, WH, AM, KK (Ø nominal de
 #    la rosca del vástago), puerto, TG, tapa (rosca de los 4 tornillos de cada tapa), XC, nariz,
-#    nariz_l, CD, EW. E de Ø50 y Ø63 (64 y 75 mm) de los listados del Festo DSBC, los de Ø32 y Ø40
-#    a confirmar; WH = A − C − AM con el AM de memoria y la rosca de las tapas (M6 Ø32/40, M8
-#    Ø50/63), a confirmar.
+#    nariz_l, CD, EW. E de Ø50 y Ø63 (64 y 75 mm) de los listados del Festo DSBC, el de Ø40 (54)
+#    confirmado por [F9] y el de Ø32 a confirmar; AM, WH y la rosca de las tapas (M6 Ø32/40, M8
+#    Ø50/63), de [F9].
 _puertos_g18: &puertos_g18
   - {id: A, rol: trabajo, rosca: G1/8}
   - {id: B, rol: trabajo, rosca: G1/8}
@@ -73,11 +81,11 @@ components:
     builder: cilindro_iso15552
     params: {D: 32, d: 12, E: 45, C: 94, WH: 26, AM: 22, KK: 10, puerto: G1/8, TG: 32.5, tapa: M6}
     weight: 0.465
-    specs: {norma: "ISO 15552", D_mm: 32, d_mm: 12, rosca_vastago: "M10x1.25", rosca_puertos: G1/8, TG_mm: 32.5, largo_cuerpo_mm: 94, largo_total_mm: 142, peso_por_mm_kg: 0.0027, linea_referencia: "orden de Festo DSBC-32 / SMC C96 Ø32 / Airtac SE32", fuente: "[F1] [F2] [F4] [F7] (peso: 465 g + 27 g/10 mm)", a_confirmar: "lado E del cuerpo, largo AM de la rosca del vástago (WH = A − C − AM) y rosca de las tapas", cotas_verificadas: false, cost: 60}
+    specs: {norma: "ISO 15552", D_mm: 32, d_mm: 12, rosca_vastago: "M10x1.25", rosca_puertos: G1/8, TG_mm: 32.5, largo_cuerpo_mm: 94, largo_total_mm: 142, peso_por_mm_kg: 0.0027, linea_referencia: "orden de Festo DSBC-32 / SMC C96 Ø32 / Airtac SE32", fuente: "[F1] [F2] [F4] [F7] [F9] (peso: 465 g + 27 g/10 mm)", a_confirmar: "lado E del cuerpo (45; el SMC C96 da 47: no es cota de interfaz y cambia por marca)", cotas_verificadas: false, cost: 60}
     neumatico:
       funcion: MM
       simbolo: cilindro_doble_efecto
-      fuente: "SMC C96*-OM0001Q (presión, E admisible), hojas SMC C96SDB32-100C (vástago, rosca, puertos), catálogo SMC C96 pág. PDF 5 (carrera máxima 1000 mm), Flowtech TS3017 (TG, largos), Festo DSBC-32-50-PPVA-N3 1376424 (masa móvil 110 g + 9 g/10 mm)"
+      fuente: "SMC C96*-OM0001Q (presión, E admisible), hojas SMC C96SDB32-100C (vástago, rosca, puertos), catálogo SMC C96 pág. PDF 5 (carrera máxima 1000 mm) y pág. PDF 8 (vástago, rosca, AM, WH, tapas), Flowtech TS3017 (TG, largos), Festo DSBC-32-50-PPVA-N3 1376424 (masa móvil 110 g + 9 g/10 mm)"
       puertos: *puertos_g18
       modelo: {tipo: cilindro, norma: "ISO 15552", efecto: doble, D_mm: 32, d_mm: 12, carrera_min_mm: 10, carrera_max_mm: 1000, V_muerto_A_cm3: 4.0, V_muerto_B_cm3: 3.5, masa_movil_base_kg: 0.110, masa_movil_por_mm_kg: 0.0009, friccion_pct: 10, amortiguacion: neumatica, E_amortiguacion_J: 2.3, p_min_bar: 0.5, p_max_bar: 10, iman: true, v_min_m_s: 0.05, v_max_m_s: 1.0}
       a_confirmar: [carrera_min_mm, V_muerto_A_cm3, V_muerto_B_cm3, friccion_pct]
@@ -87,39 +95,39 @@ components:
     builder: cilindro_iso15552
     params: {D: 40, d: 16, E: 54, C: 105, WH: 30, AM: 24, KK: 12, puerto: G1/4, TG: 38, tapa: M6}
     weight: 0.740
-    specs: {norma: "ISO 15552", D_mm: 40, d_mm: 16, rosca_vastago: "M12x1.25", rosca_puertos: G1/4, TG_mm: 38, largo_cuerpo_mm: 105, largo_total_mm: 159, peso_por_mm_kg: 0.0037, linea_referencia: "orden de Festo DSBC-40 / SMC C96 Ø40 / Airtac SE40", fuente: "[F1] [F3] [F4] [F7] (peso: 740 g + 37 g/10 mm)", a_confirmar: "Ø de vástago y rosca (extracto de [F3]), lado E del cuerpo, largo AM de la rosca del vástago (WH = A − C − AM) y rosca de las tapas", cotas_verificadas: false, cost: 75}
+    specs: {norma: "ISO 15552", D_mm: 40, d_mm: 16, rosca_vastago: "M12x1.25", rosca_puertos: G1/4, TG_mm: 38, largo_cuerpo_mm: 105, largo_total_mm: 159, peso_por_mm_kg: 0.0037, linea_referencia: "orden de Festo DSBC-40 / SMC C96 Ø40 / Airtac SE40", fuente: "[F1] [F3] [F4] [F7] [F9] (peso: 740 g + 37 g/10 mm)", a_confirmar: "ninguna cota de ISO 15552 ([F9] confirma vástago, rosca, AM, WH, tapas y E): las demás, con el proveedor", cotas_verificadas: false, cost: 75}
     neumatico:
       funcion: MM
       simbolo: cilindro_doble_efecto
-      fuente: "SMC C96*-OM0001Q (presión, E admisible), AVENTICS 6907744 por extracto (vástago, rosca, puertos), Flowtech TS3017 (TG, largos), Festo DSBC-40-50-PPVA-N3 1376658 (masa móvil 205 g + 16 g/10 mm)"
+      fuente: "SMC C96*-OM0001Q (presión, E admisible), catálogo SMC C96 pág. PDF 8 (vástago, rosca, puertos) y pág. PDF 5 (carrera máxima 1900 mm), Flowtech TS3017 (TG, largos), Festo DSBC-40-50-PPVA-N3 1376658 (masa móvil 205 g + 16 g/10 mm)"
       puertos: *puertos_g14
       modelo: {tipo: cilindro, norma: "ISO 15552", efecto: doble, D_mm: 40, d_mm: 16, carrera_min_mm: 10, carrera_max_mm: 1900, V_muerto_A_cm3: 6.3, V_muerto_B_cm3: 5.3, masa_movil_base_kg: 0.205, masa_movil_por_mm_kg: 0.0016, friccion_pct: 10, amortiguacion: neumatica, E_amortiguacion_J: 3.6, p_min_bar: 0.5, p_max_bar: 10, iman: true, v_min_m_s: 0.05, v_max_m_s: 1.0}
-      a_confirmar: [d_mm, carrera_min_mm, carrera_max_mm, V_muerto_A_cm3, V_muerto_B_cm3, friccion_pct]
+      a_confirmar: [carrera_min_mm, V_muerto_A_cm3, V_muerto_B_cm3, friccion_pct]
   - ref: CIL-ISO15552-50
     name: Cilindro ISO 15552 Ø50 doble efecto
     description: Cilindro neumático ISO 15552 Ø50, vástago Ø20 M16×1,5, doble efecto con amortiguación neumática regulable y pistón magnético; la carrera se pide al colocarlo. Reemplazable por cualquier ISO 15552 Ø50 con la carrera y la energía de amortiguación de su ficha. Verificar con el proveedor.
     builder: cilindro_iso15552
     params: {D: 50, d: 20, E: 64, C: 106, WH: 37, AM: 32, KK: 16, puerto: G1/4, TG: 46.5, tapa: M8}
     weight: 1.190
-    specs: {norma: "ISO 15552", D_mm: 50, d_mm: 20, rosca_vastago: "M16x1.5", rosca_puertos: G1/4, TG_mm: 46.5, largo_cuerpo_mm: 106, largo_total_mm: 175, peso_por_mm_kg: 0.0056, linea_referencia: "orden de Festo DSBC-50 / SMC C96 Ø50 / Airtac SE50", fuente: "[F1] [F3] [F4] [F7] (peso: 1190 g + 56 g/10 mm)", a_confirmar: "Ø de vástago y rosca (extracto de [F3]), largo AM de la rosca del vástago (WH = A − C − AM) y rosca de las tapas", cotas_verificadas: false, cost: 95}
+    specs: {norma: "ISO 15552", D_mm: 50, d_mm: 20, rosca_vastago: "M16x1.5", rosca_puertos: G1/4, TG_mm: 46.5, largo_cuerpo_mm: 106, largo_total_mm: 175, peso_por_mm_kg: 0.0056, linea_referencia: "orden de Festo DSBC-50 / SMC C96 Ø50 / Airtac SE50", fuente: "[F1] [F3] [F4] [F7] [F9] (peso: 1190 g + 56 g/10 mm)", a_confirmar: "lado E del cuerpo (64, Festo; el SMC C96 da 66: no es cota de interfaz y cambia por marca)", cotas_verificadas: false, cost: 95}
     neumatico:
       funcion: MM
       simbolo: cilindro_doble_efecto
-      fuente: "SMC C96*-OM0001Q (presión, E admisible), AVENTICS 6907744 por extracto (vástago, rosca, puertos), Flowtech TS3017 (TG, largos), Festo DSBC-50-50-PPVA-N3 1366950 (masa móvil 365 g + 25 g/10 mm)"
+      fuente: "SMC C96*-OM0001Q (presión, E admisible), catálogo SMC C96 pág. PDF 8 (vástago, rosca, puertos) y pág. PDF 5 (carrera máxima 1900 mm), Flowtech TS3017 (TG, largos), Festo DSBC-50-50-PPVA-N3 1366950 (masa móvil 365 g + 25 g/10 mm)"
       puertos: *puertos_g14
       modelo: {tipo: cilindro, norma: "ISO 15552", efecto: doble, D_mm: 50, d_mm: 20, carrera_min_mm: 10, carrera_max_mm: 1900, V_muerto_A_cm3: 9.8, V_muerto_B_cm3: 8.2, masa_movil_base_kg: 0.365, masa_movil_por_mm_kg: 0.0025, friccion_pct: 10, amortiguacion: neumatica, E_amortiguacion_J: 6.1, p_min_bar: 0.5, p_max_bar: 10, iman: true, v_min_m_s: 0.05, v_max_m_s: 1.0}
-      a_confirmar: [d_mm, carrera_min_mm, carrera_max_mm, V_muerto_A_cm3, V_muerto_B_cm3, friccion_pct]
+      a_confirmar: [carrera_min_mm, V_muerto_A_cm3, V_muerto_B_cm3, friccion_pct]
   - ref: CIL-ISO15552-63
     name: Cilindro ISO 15552 Ø63 doble efecto
     description: Cilindro neumático ISO 15552 Ø63, vástago Ø20 M16×1,5, doble efecto con amortiguación neumática regulable y pistón magnético; la carrera se pide al colocarlo. Reemplazable por cualquier ISO 15552 Ø63 con la carrera y la energía de amortiguación de su ficha. Verificar con el proveedor.
     builder: cilindro_iso15552
     params: {D: 63, d: 20, E: 75, C: 121, WH: 37, AM: 32, KK: 16, puerto: G3/8, TG: 56.5, tapa: M8}
     weight: 1.740
-    specs: {norma: "ISO 15552", D_mm: 63, d_mm: 20, rosca_vastago: "M16x1.5", rosca_puertos: G3/8, TG_mm: 56.5, largo_cuerpo_mm: 121, largo_total_mm: 190, peso_por_mm_kg: 0.0062, linea_referencia: "orden de Festo DSBC-63 / SMC CP96 Ø63 / Airtac SE63", fuente: "[F1] [F2] [F4] [F7] (peso: 1740 g + 62 g/10 mm)", a_confirmar: "largo AM de la rosca del vástago (WH = A − C − AM) y rosca de las tapas", cotas_verificadas: false, cost: 120}
+    specs: {norma: "ISO 15552", D_mm: 63, d_mm: 20, rosca_vastago: "M16x1.5", rosca_puertos: G3/8, TG_mm: 56.5, largo_cuerpo_mm: 121, largo_total_mm: 190, peso_por_mm_kg: 0.0062, linea_referencia: "orden de Festo DSBC-63 / SMC CP96 Ø63 / Airtac SE63", fuente: "[F1] [F2] [F4] [F7] [F9] (peso: 1740 g + 62 g/10 mm)", a_confirmar: "lado E del cuerpo (75, Festo; el SMC C96 da 77: no es cota de interfaz y cambia por marca)", cotas_verificadas: false, cost: 120}
     neumatico:
       funcion: MM
       simbolo: cilindro_doble_efecto
-      fuente: "SMC C96*-OM0001Q (presión, E admisible), hoja SMC CP96SDB63-60C (vástago, rosca, puertos), Flowtech TS3017 (TG, largos), Festo DSBC-63-50-PPVA-N3 1383580 (masa móvil 430 g + 25 g/10 mm)"
+      fuente: "SMC C96*-OM0001Q (presión, E admisible), hoja SMC CP96SDB63-60C (vástago, rosca, puertos), catálogo SMC C96 pág. PDF 8 (AM, WH, tapas), Flowtech TS3017 (TG, largos), Festo DSBC-63-50-PPVA-N3 1383580 (masa móvil 430 g + 25 g/10 mm)"
       puertos:
         - {id: A, rol: trabajo, rosca: G3/8}
         - {id: B, rol: trabajo, rosca: G3/8}

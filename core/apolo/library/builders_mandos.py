@@ -26,7 +26,8 @@ MARCO CANÓNICO (`seta_emergencia`), el que fija `position` en `insert_component
   puerta, en su cara de apoyo; en la caja, en la tapa. La caja agrega `fijacion_1/2`, los ejes
   de sus agujeros de fijación en la cara de apoyo.
 
-Cotas típicas de la línea Harmony XB5AS8445 + ZBY9140 / Siemens SIRIUS ACT 3SU1, sin verificar
+Cotas típicas de la línea Harmony XB5AS8442 (1 NC) / XB5AS8444 (2 NC) + ZBY9140 / Siemens SIRIUS
+ACT 3SU1 (las de `93_mandos.yaml`), sin verificar
 (`cotas_verificadas: false` en el YAML). Las partes solapan 0.5–1 mm (regla de
 `library/CLAUDE.md`).
 """

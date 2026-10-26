@@ -16,7 +16,9 @@ suman lo que el tablero compra y la escena no tiene, sin duplicar:
   - el PRENSAESTOPAS de cada cable que sale de un tablero armado (V8.5 F3, D7), por pieza;
   - los tubos de aire (`add_tubo`, V8.9 D1) por METRO y por ref con su `largo_m` declarado; los
     que no lo tienen, en una fila «sin largo» con aviso, como los conductores. Un dispositivo de
-    aire sin pieza (cilindro, válvula, FRL) entra como cualquier dispositivo;
+    aire sin pieza (cilindro, válvula, FRL) entra como cualquier dispositivo; un cilindro con
+    `servicio.carrera_mm`, por ref Y carrera, «carrera N mm» y el peso de su ficha con esa carrera
+    (`peso_de_ficha`, plan pedidos-de-extensiones-iii D10);
   - V8.9 F7b: un tubo SIN largo hacia un silenciador es el silenciador ROSCADO directo al puerto
     (no se compra tubo); cada extremo de tubo en un puerto roscado suma su RACOR recto macho
     (rosca del puerto × Ø del tubo, `_racores`).
@@ -28,14 +30,29 @@ Recibe el `ModeloElectrico` (puro), nunca un documento.
 from __future__ import annotations
 
 from .catalog import CATALOG
+from .peso_ficha import peso_de_ficha
 
 ORIGEN = "electrico"
 PUENTE = "puente"
 
 
-def _fila(comp, cantidad: int, largo_mm: float | None = None, aviso: str | None = None) -> dict:
+def _carrera(d, comp) -> float | None:
+    """La carrera de un cilindro SIN pieza 3D, de su `servicio` (pedidos-de-extensiones-iii D10):
+    sólo si su ficha da el peso por carrera; si no la declara, None (la fila de siempre)."""
+    if not (comp.specs or {}).get("peso_por_mm_kg"):
+        return None
+    c = (getattr(d, "servicio", None) or {}).get("carrera_mm")
+    return float(c) if c else None
+
+
+def _fila(comp, cantidad: int, largo_mm: float | None = None, aviso: str | None = None,
+          carrera_mm: float | None = None) -> dict:
     specs = comp.specs or {}
-    if comp.cuttable and largo_mm:
+    if carrera_mm:  # un cilindro: se pide con su carrera y pesa con ella (como en la escena)
+        peso_ud = peso_de_ficha(comp, carrera_mm)
+        desc = f"{comp.name} carrera {carrera_mm:g} mm"
+        largo_mm = carrera_mm
+    elif comp.cuttable and largo_mm:
         peso_ud = comp.weight * largo_mm / 1000.0
         desc = f"{comp.name} — {largo_mm / 1000.0:g} m"
     else:
@@ -136,16 +153,18 @@ def filas_electricas(modelo, dibujados: frozenset = frozenset(),
     if modelo is None:
         return []
     filas: list[dict] = []
-    por_ref: dict[str, int] = {}
+    por_ref: dict[tuple[str, float | None], int] = {}
     for d in modelo.dispositivos:
         comp = CATALOG.get(d.ref)
         if d.pieza or d.designacion in dibujados or comp is None or (comp.specs or {}).get("suministro"):
             continue
-        por_ref[d.ref] = por_ref.get(d.ref, 0) + (d.cantidad if d.bornera else 1)
+        clave = (d.ref, _carrera(d, comp))
+        por_ref[clave] = por_ref.get(clave, 0) + (d.cantidad if d.bornera else 1)
     for ref, n in (prensaestopas or {}).items():
         if CATALOG.get(ref) is not None:
-            por_ref[ref] = por_ref.get(ref, 0) + n
-    filas += [_fila(CATALOG[ref], n) for ref, n in sorted(por_ref.items())]
+            por_ref[(ref, None)] = por_ref.get((ref, None), 0) + n
+    filas += [_fila(CATALOG[ref], n, carrera_mm=c)
+              for (ref, c), n in sorted(por_ref.items(), key=lambda kv: (kv[0][0], kv[0][1] or 0.0))]
     cables: dict[str, list] = {}
     cables_ruteo: dict[str, list] = {}
     calculados = cables_calculados or {}
