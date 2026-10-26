@@ -14,6 +14,7 @@ import importlib.util
 import json
 import os
 import socket
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -335,6 +336,15 @@ def test_parar_mata_el_arbol_y_suelta_los_candados(flota_viva):
     assert not any(Path(e["mcp"]).exists() for e in entradas)
 
 
+def _termina(p, plazo_s: float = 10.0) -> bool:
+    """Que el proceso `p` terminó (o termina dentro del plazo)."""
+    try:
+        p.wait(timeout=plazo_s)
+    except subprocess.TimeoutExpired:
+        return False
+    return True
+
+
 def test_si_uno_no_arranca_no_queda_ninguno(tmp_path, monkeypatch):
     """Todo o nada: el segundo encuentra su proyecto tomado por un dueño vivo (este proceso de
     pytest) y arranca con `startup_error`; la flota mata a los dos y no anota nada. El dueño
@@ -385,7 +395,9 @@ def test_si_uno_no_arranca_no_queda_ninguno(tmp_path, monkeypatch):
             flota.parar(tmp_path)
     assert not (tmp_path / "flota.json").exists()
     # arrancar volvió con TODO lo suyo muerto: los dos lanzadores y sus árboles (la API real)
-    assert len(lanzados) == 2 and all(p.poll() is not None for p in lanzados)
+    # `wait` con plazo y no `poll`: matado el árbol, el proceso puede tardar unos ms en terminar de
+    # morir (en Linux, poll() justo después del kill lo vio vivo una vez en el CI)
+    assert len(lanzados) == 2 and all(_termina(p) for p in lanzados)
     # <= y no <: en Windows el python.exe del venv es un lanzador que abre al intérprete real
     # (el árbol suma un hijo); en Linux el lanzado ES la API y el árbol es él solo (CI).
     assert {p.pid for p in lanzados} <= set(matados)

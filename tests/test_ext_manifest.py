@@ -28,6 +28,14 @@ def _manifest(data: bytes) -> dict:
         return json.loads(z.read("manifest.json"))
 
 
+def _contenido(data: bytes) -> dict[str, bytes]:
+    """Lo que guarda el .apolo, entrada por entrada: los bytes del ZIP llevan además la HORA de
+    cada entrada (resolución de 2 s), y dos escrituras iguales a un lado y otro de ese borde
+    difieren sin que cambie nada (falló así en el CI)."""
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        return {n: z.read(n) for n in z.namelist()}
+
+
 def _con_ext(nombre: str = "Con ext") -> Document:
     d = Document(nombre)
     d.execute("create_box", {"name": "Base", "width": 100, "depth": 100, "height": 10})
@@ -46,7 +54,7 @@ def test_sin_datos_el_manifest_es_el_de_siempre_y_un_apolo_viejo_abre():
     assert Document.from_apolo_bytes(data).ext == {}
     ext_manifest.poner(d, "ext-prueba", DATOS)
     ext_manifest.poner(d, "ext-prueba", None)  # borrar deja el manifest como antes
-    assert d.to_apolo_bytes() == data
+    assert _contenido(d.to_apolo_bytes()) == _contenido(data)
 
 
 def test_ida_y_vuelta_conserva_todas_las_extensiones():
