@@ -4,7 +4,9 @@ F1: D1–D4), con la extensión FALSA de `tests/ext_prueba/`:
 - D1: el metadato `comercial` (titulo, cliente, numero, revision) del manifest: se valida al poner,
   viaja en el `.apolo` (sólo si hay) y la cotización lo usa en el título, el bloque «Cliente / Nº /
   Rev.» y el número; sin él, el nombre del proyecto sin «(copia)» y sin bloque;
-- D2: una `IdentificacionCosteo` de extensión cuando el proyecto no la trae; la fuente al pie;
+- D2: una `IdentificacionCosteo` de extensión cuando el proyecto no la trae; la fuente al pie,
+  con su rótulo legible (`rotulo`; sin él, el id; el del proyecto: «datos comerciales del
+  proyecto»);
 - D3: `acota` reemplaza `nucleo.alcance` o `nucleo.validez` en su lugar; acotar una de honestidad,
   sin nota, una inventada o dos veces la misma no carga la extensión;
 - D4: con filas de pruebas o puesta en marcha el alcance deja de decir «ni puesta en marcha».
@@ -135,8 +137,9 @@ def test_con_identificacion_del_proyecto_titulo_bloque_numero_y_fuente():
     assert "Faja de paquetería 4 m" in textos and "faja 4m" not in textos
     assert "Cliente: ACME S.A.C." in textos and "Nº COT-2026-014 · Rev. B" in textos
     assert "N° COT-2026-014" in textos  # el número de la cotización, también en el cajetín
-    assert "identificación: proyecto" in textos
-    pie = next(lb for lb in paginas[0].labels if lb.text == "identificación: proyecto")
+    pie_txt = "identificación: datos comerciales del proyecto"
+    assert pie_txt in textos and "identificación: proyecto" not in textos
+    pie = next(lb for lb in paginas[0].labels if lb.text == pie_txt)
     assert pie.y < 10  # bajo el marco, fuera de las notas y del cajetín
     # el desglose baja: el bloque no pisa el rótulo
     ys = {lb.text: lb.y for lb in paginas[0].labels}
@@ -162,7 +165,8 @@ def test_la_api_pone_y_lee_la_identificacion(monkeypatch):
     r = c.put("/api/project/comercial", json={"cliente": "ACME", "numero": "N-1"})
     assert r.status_code == 200 and r.json()["comercial"] == {"cliente": "ACME", "numero": "N-1"}
     js = c.get("/api/project/comercial").json()
-    assert js["efectiva"] == {"cliente": "ACME", "numero": "N-1", "fuente": "proyecto"}
+    assert js["efectiva"] == {"cliente": "ACME", "numero": "N-1", "fuente": "proyecto",
+                              "fuente_rotulo": "datos comerciales del proyecto"}
     r = c.put("/api/project/comercial", json={"cliente": "ACME", "ruc": "1"})
     assert r.status_code == 400 and "ruc" in r.json()["detail"]
     assert d.comercial == {"cliente": "ACME", "numero": "N-1"}  # el 400 no tocó nada
@@ -208,14 +212,29 @@ def test_la_identificacion_de_la_extension_y_su_precedencia(cargar):
     assert e["cargada"], e
     d = _doc()
     assert identificacion(d) == {"cliente": "Cliente de la extensión", "numero": "EXT-0007",
-                                 "fuente": "prueba.cliente"}
+                                 "fuente": "prueba.cliente", "fuente_rotulo": "prueba.cliente"}
     textos = _textos(_paginas(d)[0])
     assert "faja 4m" in textos  # la extensión no trae título: el nombre limpio
     assert "Cliente: Cliente de la extensión" in textos and "N° EXT-0007" in textos
-    assert "identificación: prueba.cliente" in textos
+    assert "identificación: prueba.cliente" in textos  # sin `rotulo`, el id como antes
     poner_comercial(d, {"cliente": "ACME"})  # gana el proyecto, entero
-    assert identificacion(d) == {"cliente": "ACME", "fuente": "proyecto"}
+    assert identificacion(d) == {"cliente": "ACME", "fuente": "proyecto",
+                                 "fuente_rotulo": "datos comerciales del proyecto"}
     assert identificacion(_doc("mesa")) == {"fuente": "nombre"}  # la extensión no tiene: None
+
+
+def test_el_pie_dice_el_rotulo_de_la_extension(cargar):
+    from apolo.services.identificacion import identificacion
+    from ext_prueba.costeo import ROTULO
+
+    (e,) = cargar("COSTEO_IDENTIFICADA_CON_ROTULO")
+    assert e["cargada"], e
+    d = _doc()
+    ident = identificacion(d)
+    assert ident["fuente"] == "prueba.cliente" and ident["fuente_rotulo"] == ROTULO
+    textos = _textos(_paginas(d)[0])
+    assert f"identificación: {ROTULO}" in textos
+    assert not any("prueba.cliente" in t for t in textos)  # el id crudo no sale en el papel
 
 
 def test_una_identificacion_que_lanza_o_no_valida_se_salta(cargar):
@@ -287,6 +306,9 @@ def test_acotar_el_alcance_gana_al_calculado(cargar):
     ("ACOTA_DOBLE", "la nota «nucleo.validez» ya la acota otra fuente suya"),
     ("INCLUYE_MALO", "`incluye` nombra 'viaticos'"),
     ("IDENTIFICACION_NO_LLAMABLE", "`de_documento` es una función"),
+    ("ROTULO_DOS_LINEAS", "`rotulo` es de una sola línea"),
+    ("ROTULO_LARGO", "`rotulo` tiene 61 caracteres (máximo 60)"),
+    ("ROTULO_VACIO", "`rotulo` es un texto no vacío"),
 ])
 def test_lo_que_no_carga(cargar, variante, motivo):
     from apolo.commands.registry import REGISTRY

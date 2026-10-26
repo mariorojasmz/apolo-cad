@@ -243,9 +243,9 @@ def _sumar_ids(ext, entradas: list, tipo, que: str, registro: dict, validar) -> 
 
 def sumar_costeo(ext) -> list[str]:
     """Las `FuenteCosteo` e `IdentificacionCosteo` del costeo y la cotización
-    (`library/costeo_extension`): id «prefijo.x», `filas`/`de_documento` llamables, `nota` válida
-    (pedidos-de-extensiones D9), `acota` acotable y con un solo dueño, `incluye` de `ALCANCES`
-    (cotizacion-identificada D2–D4), nada repetido. Van a `DE_EXTENSION` con su
+    (`library/costeo_extension`): id «prefijo.x», `filas`/`de_documento` llamables, `nota`
+    (pedidos-de-extensiones D9) y `rotulo` válidos, `acota` acotable y con un solo dueño,
+    `incluye` de `ALCANCES` (cotizacion-identificada D2–D4), nada repetido. Van a `DE_EXTENSION` con su
     `version_costeo`; sus filas se validan al costear (`costeo_extension.fila`)."""
     entradas = list(valor(ext.costeo) or ())
     if not entradas:
@@ -259,6 +259,9 @@ def sumar_costeo(ext) -> list[str]:
             if not callable(e.de_documento):
                 raise ExtensionRechazada(f"la identificación «{e.id}»: `de_documento` es una "
                                          "función (doc)")
+            motivo = C.motivo_rotulo(e.rotulo)
+            if motivo is not None:
+                raise ExtensionRechazada(f"la identificación «{e.id}»: {motivo}")
             return
         if not callable(e.filas):
             raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: `filas` es una función (doc)")

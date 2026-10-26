@@ -164,6 +164,10 @@ ACOTA_INVENTADA = replace(EXTENSION, costeo=_de("costeo", "acota_inventada"))
 ACOTA_DOBLE = replace(EXTENSION, costeo=_de("costeo", "acota_doble"))
 INCLUYE_MALO = replace(EXTENSION, costeo=_de("costeo", "incluye_malo"))
 IDENTIFICACION_NO_LLAMABLE = replace(EXTENSION, costeo=_de("costeo", "identificacion_no_llamable"))
+COSTEO_IDENTIFICADA_CON_ROTULO = replace(EXTENSION, costeo=_de("costeo", "identificada_con_rotulo"))
+ROTULO_DOS_LINEAS = replace(EXTENSION, costeo=_de("costeo", "rotulo_dos_lineas"))
+ROTULO_LARGO = replace(EXTENSION, costeo=_de("costeo", "rotulo_largo"))
+ROTULO_VACIO = replace(EXTENSION, costeo=_de("costeo", "rotulo_vacio"))
 #: otra extensión (sólo costeo) que acota la misma nota que COSTEO_IDENTIFICADA: no carga
 OTRA_VALIDEZ = Extension(nombre="ext-otra", prefijo="otra", version="0.1.0",
                          costeo=_de("costeo", "otra_validez"))

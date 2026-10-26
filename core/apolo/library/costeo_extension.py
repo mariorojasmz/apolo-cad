@@ -20,7 +20,9 @@ Plan cotizacion-identificada-y-ajustes-por-escenario (F1):
 - D4: `incluye` (de `ALCANCES`) declara qué cubren sus filas; si cobró, el alcance del núcleo deja
   de excluirlo (`costeo["incluye"]`), aunque nadie lo acote.
 - D2: `IdentificacionCosteo` aporta la identificación comercial de la cotización cuando el
-  proyecto no la trae (`services/identificacion.py`).
+  proyecto no la trae (`services/identificacion.py`). Su `rotulo` (opcional, una línea de
+  ≤ `ROTULO_MAX`, `motivo_rotulo`) es lo que dice el pie de la hoja («identificación: <rótulo>»);
+  sin él, el id. El del proyecto es `ROTULO_PROYECTO`.
 """
 
 from __future__ import annotations
@@ -35,6 +37,9 @@ ORIGEN = "extension:"
 CAMPOS = ("descripcion", "cantidad", "unidad", "costo_unit", "fuente")
 CATEGORIA = "servicios"  # la de una fila que no declara la suya
 NOTA_MAX = 300  # caracteres de la nota de una fuente
+ROTULO_MAX = 60  # caracteres del rótulo de una identificación (el pie de la cotización)
+#: El rótulo del pie cuando la identificación es la del proyecto (`doc.comercial`).
+ROTULO_PROYECTO = "datos comerciales del proyecto"
 #: Las notas del núcleo de la cotización, por id, en su orden (`drawing/quote._notas_nucleo`).
 NOTAS_NUCLEO = ("nucleo.avisos", "nucleo.referenciales", "nucleo.cambio", "nucleo.detalle",
                 "nucleo.alcance", "nucleo.validez")
@@ -63,13 +68,15 @@ class FuenteCosteo:
 
 @dataclass(frozen=True)
 class IdentificacionCosteo:
-    """La identificación comercial que aporta una extensión (D2): `id` «prefijo.x» (sale en el pie
-    de la cotización) y `de_documento(doc)` → `{titulo, cliente, numero, revision}` (todos
-    opcionales; `library/comercial.normalizar`) o `None` si no tiene para ese documento. Gana la
-    del proyecto; luego la primera extensión que devuelva algo."""
+    """La identificación comercial que aporta una extensión (D2): `id` «prefijo.x»,
+    `de_documento(doc)` → `{titulo, cliente, numero, revision}` (todos opcionales;
+    `library/comercial.normalizar`) o `None` si no tiene para ese documento y, opcional, `rotulo`:
+    el texto corto y legible que dice el pie de la cotización («ficha del encargo»; sin él, el
+    `id`). Gana la del proyecto; luego la primera extensión que devuelva algo."""
 
     id: str
     de_documento: Callable
+    rotulo: str | None = None
 
 
 #: nombre de la extensión → (version_costeo, (FuenteCosteo, …)); lo llena `extensiones.cargar`.
@@ -148,6 +155,25 @@ def motivo_nota(nota) -> str | None:
     if len(nota) > NOTA_MAX:
         return f"`nota` tiene {len(nota)} caracteres (máximo {NOTA_MAX})"
     return None
+
+
+def motivo_rotulo(rotulo) -> str | None:
+    """Por qué el `rotulo` de una identificación no vale (la extensión no carga), o `None` si vale
+    (o no hay): un texto no vacío, de UNA línea y de ≤ `ROTULO_MAX` caracteres."""
+    if rotulo is None:
+        return None
+    if not _texto(rotulo):
+        return f"`rotulo` es un texto no vacío, no {rotulo!r}"[:200]
+    if rotulo.splitlines() != [rotulo]:
+        return "`rotulo` es de una sola línea (sin saltos)"
+    if len(rotulo) > ROTULO_MAX:
+        return f"`rotulo` tiene {len(rotulo)} caracteres (máximo {ROTULO_MAX})"
+    return None
+
+
+def rotulo_de(ident: IdentificacionCosteo) -> str:
+    """Lo que dice el pie de la cotización de esta identificación: su `rotulo` o, sin él, su id."""
+    return ident.rotulo.strip() if ident.rotulo else ident.id
 
 
 def motivo_acota(acota, nota) -> str | None:

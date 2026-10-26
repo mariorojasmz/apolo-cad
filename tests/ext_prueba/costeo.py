@@ -183,6 +183,26 @@ def identificacion_no_llamable() -> list:
     return [IdentificacionCosteo("prueba.cliente", {"cliente": "fijo"})]
 
 
+#: El rótulo legible del pie de la cotización (en vez del id «prueba.cliente»).
+ROTULO = "ficha comercial de prueba"
+
+
+def identificada_con_rotulo() -> list:
+    return [IdentificacionCosteo("prueba.cliente", _cliente, rotulo=ROTULO)]
+
+
+def rotulo_dos_lineas() -> list:
+    return [IdentificacionCosteo("prueba.cliente", _cliente, rotulo="ficha\ncomercial")]
+
+
+def rotulo_largo() -> list:
+    return [IdentificacionCosteo("prueba.cliente", _cliente, rotulo="x" * 61)]
+
+
+def rotulo_vacio() -> list:
+    return [IdentificacionCosteo("prueba.cliente", _cliente, rotulo="  ")]
+
+
 def otra_validez() -> list:
     """La de la extensión «ext-otra» (prefijo «otra»): acota lo mismo que `VALIDEZ`."""
     return [FuenteCosteo("otra.validez", _gestion, "Validez: 7 días.", acota="nucleo.validez")]

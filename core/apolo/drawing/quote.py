@@ -187,7 +187,8 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
         m.labels.append(Label(18, ny, ln, 2.5, anchor="start"))
         ny -= 3.8
     if ident.get("fuente") not in (None, "nombre"):  # D2: de dónde salió la identificación
-        m.labels.append(Label(16, 6.0, f"identificación: {ident['fuente']}", 2.2, anchor="start"))
+        rotulo = ident.get("fuente_rotulo") or ident["fuente"]  # legible; sin rótulo, el id
+        m.labels.append(Label(16, 6.0, f"identificación: {rotulo}", 2.2, anchor="start"))
     draw_title_block(m, {**base_meta, "sheet_no": 1})
     return m
 
