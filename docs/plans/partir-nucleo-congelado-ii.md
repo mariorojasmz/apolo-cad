@@ -207,3 +207,70 @@ Tiempos de la tabla medida (S/M 40–65 min, L 90–100; revisión ~35 min por l
 - **Gate D7**: `test_rutas_viejas.py` suma la sección `report`: lista CERRADA de las 11
   definiciones, cada una el MISMO objeto que en su casa y nacida en ella; un test del regex vivo
   (antes y después de compilar) y dos que prueban que el gate caza un nombre que falta y una copia.
+
+### F3 — rules.py (2026-10-25, base `698a5a7`)
+
+- **Corte** (script re-ejecutable sobre el original: D1 por NOMBRE, cada definición con los
+  comentarios pegados encima; D4 por RANGO de líneas, cada bloque verbatim como cuerpo):
+
+  | módulo (`library/`) | contenido | líneas |
+  |---|---|---:|
+  | `rules_comun.py` | las 14 constantes y regex + `_f`, `_parse_power_kw`, `_parse_wall`, `_parse_diam`, `_vol_safe`, `_check`, `_name`, `_bbox_safe` | 100 |
+  | `rules_calculo.py` | `required_force_n`, `required_power_kw`, `band_speed_m_s`, `recommend_motor_kw`, `recommend_motor`, `recommend_roller` | 51 |
+  | `rules_enriquecer.py` | `_frame_from_scene`, `_enrich_conveyor` | 179 |
+  | `rules_deteccion.py` | `detect_conveyor`, `_detect_by_name`, `infer_from_solids` | 152 |
+  | `rules_faja_contexto.py` | `ContextoFaja` (dataclass) | 42 |
+  | `rules_faja_transporte.py` | bloques 0 (velocidad de banda), 1 (apoyo), 2 (capacidad de rodillo), 3 (ancho útil), 6 (velocidad del rodillo), 7 (geometría) | 141 |
+  | `rules_faja_motor.py` | bloque 4: arrastre y motorización | 151 |
+  | `rules_faja_tambor.py` | 5 + 5b (par de régimen y de arranque), 5c (adherencia) | 131 |
+  | `rules_faja_estructura.py` | 8 (flecha del bastidor), 9 (flexión del eje) | 98 |
+  | `rules.py` | docstring + mapa, re-exports y el orquestador (50 líneas) | 93 (era 903; sale de `EXCEPCIONES`) |
+
+- **D1**: `inspect.getsource` de las 19 funciones idéntico al del original (0 distintas); las 14
+  constantes y regex, el MISMO objeto en `rules` y en `rules_comun`.
+- **D4**: el orquestador conserva verbatim el preámbulo (despacho a la plantilla de rodillos de
+  cadena y a `a_mano`, los locales, `v_real`/`v_eff`) y llama a 12 funciones en el orden de
+  siempre. Lo único nuevo en cada bloque: la `def`, el desempaque `x = ctx.x` de los locales que
+  LEE (calculado con `symtable` sobre el texto del bloque) y el `return` de lo que un bloque
+  posterior lee (`support_count`; `soporte, metodo_norma, pull_n, p_req`; `frame`), que el
+  orquestador vuelve a poner en `ctx`. Ningún bloque reasigna un nombre que llegue de fuera sin
+  asignarlo antes (`det`, `material`, `allow`, `sugerido` se recalculan en su bloque).
+- **Corpus (D5 a)**: un plugin de pytest (scratchpad) envolvió la función durante la suite
+  completa en la base (exit 0) y grabó los argumentos deep-copiados, las reglas y el dict
+  `conveyor` DESPUÉS (la adherencia le escribe `pull_n` y `bearing_radial_n`): 81 llamadas, 49
+  únicas, 0 inconsistentes (testigo 38 por sus tests, banda sobre cama y sobre rodillos, rodillos
+  de catálogo, a mano y de cadena). Sin `coverage` en el venv: líneas con `sys.settrace` y ramas
+  con una COPIA de la función instrumentada por AST (`if`, `x if c else y`, cada operando de
+  `and`/`or`; la copia da las mismas 49 salidas). Sobre lo grabado: 341/351 líneas y 153/172
+  ramas; 7 casos sintéticos (paso 0, motor «documento» sin potencia, velocidad negativa, carga 0,
+  banda inclinada con tambor engomado y bastidor mínimo, ISO de ≥ 80 m, arrastre negativo, eje
+  flaco en error) → **56 casos, 351/351 líneas y 172/172 ramas**.
+- **Después del corte**: las 56 salidas idénticas TEXTO A TEXTO (JSON con `sort_keys` de las
+  reglas y del `conveyor` mutado) y, por caso, el MISMO conjunto de líneas del original
+  ejecutadas (las del corte mapeadas al original; el script verifica antes que cada cuerpo sea
+  el del original línea a línea): 351/351.
+- **D6**: `grep monkeypatch` sobre `rules` en `tests/`: ningún test reasigna un nombre de
+  `rules` → nada se queda por esa razón. Los imports de `_check`, `_BANDA_RE`, `_parse_*`,
+  `_LEG_RE`, `_SECTION_RE` desde `.rules` (lints, rodillos a mano y de cadena, `report_*`,
+  `viga_bastidor`, `cadena`) siguen sirviendo por el re-export, sin tocarlos.
+- **Gate D7**: sección `rules` en `test_rutas_viejas.py` (lista CERRADA de los 34 nombres con su
+  casa, la fachada sólo define la orquestadora y ésta llama a los 12 bloques en su orden, el gate
+  caza una copia) y `tests/test_reglas_faja_congeladas.py`: los 3 casos que más líneas cubren
+  juntos (310/351: banda sobre rodillos ISO con eje y bastidor, banda sobre cama tipo 38 con
+  tensor y 300 kg, rodillos sin motor que dejan caer el paquete), congelados texto a texto en
+  `tests/data/reglas_faja_congeladas.json`, también el `conveyor` después.
+- **Desvíos de D4** (decididos con criterio): (1) el bloque «4 · motorización» (125 líneas) son
+  DOS funciones, `verificar_arrastre` (método y norma por construcción) y
+  `verificar_motorizacion`: dos verificaciones con su propio `calc`. (2) 5 y 5b van en una
+  función: el par de arranque está anidado en el `if` del par. (3) Los módulos agrupan por tema,
+  no por orden de llamada (`transporte` tiene 0–3 y 6–7). (4) `rules_enriquecer` va aparte de
+  `rules_deteccion`: juntos pasaban de 300. (5) `_name` y `_bbox_safe` van a `rules_comun` (los
+  usan los dos de detección). (6) Las funciones de bloque no llevan docstring: D4 sólo permite
+  locales, `return` e imports; el comentario numerado del original encabeza cada cuerpo. (7) Como
+  en F1/F2, `rules` no re-exporta lo que sólo IMPORTABA (`math`, `re`, `Counter`,
+  `resolve_material`…): nadie lo importa de ahí (búsqueda en `core`, `tests`, `scripts` y en la
+  extensión privada). El docstring de `rules.py` suma el mapa; el de la función no cambia.
+- **D8**: `test_contrato_comandos.py`, `geomcache.py` y toda `CommandSpec.version` sin diff.
+- **Suite**: completa con xdist, exit 0 y ningún `FAILED` (también la de la base, con el plugin
+  del corpus); `ruff check core tests scripts` limpio; `test_claude_md.py` verde (library 33.8 KB
+  de 35).
