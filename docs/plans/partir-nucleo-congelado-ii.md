@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con criterio delegado (2026-10-25), vetable por número; F0 medida en la escritura del contrato (base `4920db6`); F1 (`builders.py` 847 → 82) y F2 (`report.py` 555 → 79) en `main` (`4795d83`); siguen F3 (`rules.py`) ∥ F4 (`sheet.py`) → F5 cierre
+nota: contrato de Claude con criterio delegado (2026-10-25), vetable por número; F0 medida en la escritura del contrato (base `4920db6`); F1 (`builders.py` 847 → 82), F2 (`report.py` 555 → 79) y F3 (`rules.py` 903 → 93, `conveyor_engineering_check` por extracción con corpus de 56 casos y cobertura 351/351 líneas, 172/172 ramas) en `main`; siguen F4 (`sheet.py`) → F5 cierre
 descripcion: por fuera nada cambia —mismos comandos, mismas piezas de catálogo, mismas láminas y la misma memoria—; por dentro los cuatro archivos que quedaban sobre las 500 líneas se parten y salen del trinquete
 ---
 
