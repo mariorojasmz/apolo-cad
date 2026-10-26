@@ -146,12 +146,20 @@ def test_la_firma_lleva_exactamente_los_campos_en_firma():
 #: si cambian, todo resultado guardado de un documento con tablero queda vencido. Las tres del
 #: variador se re-midieron al cambiar su LOG (sobre aa88ee5: PE en estrella y `STO_categoria`, reglas
 #: «PE en cadena» y «canales del STO»); con el log de antes dan las de antes (`STO_canales` de
-#: la ficha no entra: `test_sto_canales_no_entra_a_la_firma`).
+#: la ficha no entra: `test_sto_canales_no_entra_a_la_firma`). Las cuatro se re-midieron cuando la red
+#: de 220 V de Lima declaró `esquema: IT` en su `modelo` (plan datos-de-corte-y-acometida § «Red de
+#: 220 V de Lima: IT»): lo que la co-simulación lee de la ficha entra a la firma, así que todo resultado
+#: guardado con esa red queda vencido (re-correrlo es barato); sin el esquema dan las de antes
+#: (`test_la_firma_sin_el_it_de_la_red_es_la_de_antes`).
+FIRMAS_SIN_IT = {"arranque_directo": "2:7feece8fd5f7af21a86c",
+                 "arranque_variador_plc": "2:76116a74eca53a6fb0a3",
+                 "arranque_variador_plc_cat3": "2:7c7b1ce05dbd21c3ddbb",
+                 "arranque_variador_rele_seguridad": "2:62856d21257f95c61187"}
 FIRMAS = {
-    "arranque_directo": (arranque_directo, "2:7feece8fd5f7af21a86c"),
-    "arranque_variador_plc": (arranque_variador_plc, "2:76116a74eca53a6fb0a3"),
-    "arranque_variador_plc_cat3": (arranque_variador_plc_cat3, "2:7c7b1ce05dbd21c3ddbb"),
-    "arranque_variador_rele_seguridad": (arranque_variador_rele_seguridad, "2:62856d21257f95c61187"),
+    "arranque_directo": (arranque_directo, "2:28769e6dfe42c7388ca3"),
+    "arranque_variador_plc": (arranque_variador_plc, "2:5171b7878826a436170d"),
+    "arranque_variador_plc_cat3": (arranque_variador_plc_cat3, "2:e3dd3c514ac2f5006cd0"),
+    "arranque_variador_rele_seguridad": (arranque_variador_rele_seguridad, "2:c726c9f8ede629298f74"),
 }
 
 
@@ -159,6 +167,18 @@ FIRMAS = {
 def test_la_firma_de_los_cuatro_tableros_no_se_mueve(nombre):
     cmds, firma = FIRMAS[nombre]
     assert firma_documento(_doc(cmds(), nombre)) == firma
+
+
+def test_la_firma_sin_el_it_de_la_red_es_la_de_antes(monkeypatch):
+    """Lo ÚNICO que movió las cuatro firmas es el `esquema: IT` de la red de Lima (los `datos` de la
+    norma del lugar no entran: `test_los_datos_de_ficha_no_entran_a_la_firma_del_documento`)."""
+    for ref in ("RED-3F-220V-60HZ", "RED-2F-220V-60HZ"):
+        c = CATALOG[ref]
+        modelo = {k: v for k, v in c.electrico.modelo.items() if k != "esquema"}
+        monkeypatch.setitem(CATALOG, ref, dataclasses.replace(
+            c, electrico=dataclasses.replace(c.electrico, modelo=modelo)))
+    for nombre, (cmds, _firma) in FIRMAS.items():
+        assert firma_documento(_doc(cmds(), nombre)) == FIRMAS_SIN_IT[nombre], nombre
 
 
 def test_sto_canales_no_entra_a_la_firma(monkeypatch):

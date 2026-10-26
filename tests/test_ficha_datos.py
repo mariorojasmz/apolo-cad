@@ -207,9 +207,31 @@ def test_poder_de_corte_de_las_refs_verificadas():
     for gm in ("GM-1-1.6A", "GM-1.6-2.5A", "GM-2.5-4A", "GM-4-6.3A", "GM-6-10A"):
         assert d[gm]["Icu_kA"] == d[gm]["Ics_kA"] == {240: 100.0, 415: 100.0}
     assert (d["SECC-25A-3P"]["Icw_kA"], d["SECC-40A-3P"]["Icw_kA"]) == (0.384, 0.48)
-    for red in ("RED-3F-220V-60HZ", "RED-2F-220V-60HZ"):  # sin esquema de tierra: a confirmar
+    for red in ("RED-3F-220V-60HZ", "RED-2F-220V-60HZ"):  # la red de 220 V de Lima: IT con su CNE
         f = CATALOG[red].electrico
-        assert "esquema" not in f.modelo and "esquema" in f.a_confirmar
+        assert f.modelo["esquema"] == "IT" and "esquema" not in f.a_confirmar
+        assert f.a_confirmar == ("Icc_kA", "X_R")  # las distribuidoras no los publican
+        assert f.datos == {"RA_max_ohm": 25.0, "diferencial_max_mA": 30.0, "tolerancia_U_pct": 5.0,
+                           "tolerancia_f_pct": 0.6}
+        for cita in ("Regla 017.B", "Regla 020-500(2)", "Anexo A-3", "Regla 060-712", "Regla 020-132",
+                     "RM 175-2008-MEM/DM", "numeral 5.1.2", "numeral 5.2.3", "DEDUCIDA"):
+            assert cita in f.fuente, (red, cita)
+
+
+def test_la_norma_del_lugar_es_dato_opcional_solo_de_una_red():
+    assert set(FD.DATOS_OPCIONALES["red"]) == {"RA_max_ohm", "diferencial_max_mA", "tolerancia_U_pct",
+                                              "tolerancia_f_pct"}
+    assert FD.requeridos("red", "campo") == ()  # opcional: las otras redes no la dan
+    err = (lambda ruta, msg: ValueError(f"{ruta}: {msg}"))
+    d = FD.parse_datos(err, {"RA_max_ohm": 25}, "CNE-U 060-712", None, tipo="red", montaje="campo",
+                       modelo={})
+    assert d.datos == {"RA_max_ohm": 25.0}
+    with pytest.raises(ValueError, match="«RA_max_ohm» que un «itm» no pide"):
+        FD.parse_datos(err, {"RA_max_ohm": 25}, "x", None, tipo="itm", montaje="campo", modelo={})
+    with pytest.raises(ValueError, match="número > 0"):
+        FD.parse_datos(err, {"RA_max_ohm": 0}, "x", None, tipo="red", montaje="campo", modelo={})
+    with pytest.raises(ValueError, match=r"¿Quisiste decir «RA_max_ohm»\?"):
+        FD.parse_datos(err, {"RA_max_ohms": 25}, "x", None, tipo="red", montaje="campo", modelo={})
 
 
 def test_el_payload_del_catalogo_publica_datos_fuente_y_a_confirmar():

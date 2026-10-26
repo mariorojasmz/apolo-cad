@@ -13,7 +13,8 @@ Lo de catálogo y BOM en general: [library](../CLAUDE.md); los modelos de la co-
   (AJUSTE obligatorio). Reglas: [cosim](../../cosim/CLAUDE.md).
 - `electrico.datos` (`ficha_datos.py`): lo que lee quien VERIFICA (poder de corte `{U_V: kA}` con
   la clave = tope del rango de la ficha, `T_max_C`), FUERA de `modelo`: no vence firmas ni es
-  ajuste. `REQUERIDOS` por tipo + `T_max_C` en toda ref de tablero.
+  ajuste. `REQUERIDOS` por tipo + `T_max_C` en toda ref de tablero; `DATOS_OPCIONALES`, lo que un
+  tipo admite sin pedirlo (de una red, la norma del LUGAR: RA máx., diferencial, tolerancias).
   [plan](../../../../docs/plans/datos-de-corte-y-acometida.md)
 - `electrico.direcciones` (`ficha_direcciones.py`): cómo llama el FABRICANTE a cada E/S, fuera de
   `modelo`. Opcional pero COMPLETO (todo borne que el ST alcanza por dirección), con `fuente` del

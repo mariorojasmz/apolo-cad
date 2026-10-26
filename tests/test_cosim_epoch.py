@@ -171,7 +171,12 @@ ARCHIVOS = (
 #: punto que no resuelve nombra el conductor con `redes.nombre_conductor` (sus puntos y
 #: `[hilo, red]`), no por su índice. Sólo cambia el TEXTO de ese aviso, que sale únicamente en un
 #: circuito con una referencia rota; ningún valor, traza, evento ni veredicto se toca.
-HUELLA: tuple[int, str] = (6, "da1b52aef5f3a0ab")
+#: datos-de-corte-y-acometida, red de 220 V de Lima IT (sin subir): sólo el TEXTO del rechazo de un
+#: corto a PE en IT (`fallas._PE_FUERA`: «la fuente no tiene punto a tierra», no «la estrella»): un
+#: error de la petición, no un resultado. Que la red de Lima pase a IT de ficha cambia la ENTRADA de
+#: la red (clave `esquema`, el PE sigue fuera como sin esquema) y lo vence la firma del documento
+#: (su `modelo` entra a ella), no la época.
+HUELLA: tuple[int, str] = (6, "3de0279c7b70bbd4")
 
 
 def archivos() -> list[Path]:

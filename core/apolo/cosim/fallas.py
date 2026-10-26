@@ -75,8 +75,9 @@ def _red_de_puntos(tab, a: str, b: str):
 _PE_FUERA = {
     "TT": ": el PE de una red TT entra a la potencia sólo con su lazo de tierra; en TT declara "
           "RA_ohm (add_device.ajustes de la red, p. ej. {\"RA_ohm\": 100})",
-    "IT": ": en IT el primer defecto a masa no da corriente de falla (la estrella de la red está "
-          "aislada): el PE queda fuera de la potencia y no hay corto que simular",
+    "IT": ": en IT el primer defecto a masa no da corriente de falla que dispare (la fuente no "
+          "tiene punto a tierra: sólo circula la corriente capacitiva de la red, en mA): el PE "
+          "queda fuera de la potencia y no hay corto que simular",
 }
 _GENERICO = (" (un PE sólo entra en la potencia de un esquema TN, o TT con RA_ohm, o en el mando "
              "unido a su 0 V)")

@@ -6,7 +6,9 @@
     `esquema` de una ficha se valida con la misma lista; un log con «TN» regenera igual;
   - en el tablero: TN-S da la misma traza que TN; TT con RA = 100 Ω y un corto franco L → PE
     dispara el diferencial de 30 mA y no el ITM C6; IT y TT sin RA rechazan el corto a PE con su
-    motivo; sin esquema, la entrada de la red es la de siempre.
+    motivo; sin esquema, la entrada de la red es la de siempre;
+  - la red de 220 V sin neutro de Lima es IT DE FICHA (§ «Red de 220 V de Lima: IT»): rechaza el
+    `RA_ohm` (es de TT) y un TT ajustado la pisa.
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ from apolo.library.electrico.modelo import Conductor, ModeloElectrico, dispositi
 from apolo.services.cosim_red import entrada_red
 
 DT = 0.002
-RED_1F, RED_3F = "RED-1F-220V-60HZ", "RED-3F-220V-60HZ"  # con esquema TN / sin esquema
+RED_1F, RED_3F = "RED-1F-220V-60HZ", "RED-3F-220V-60HZ"  # con esquema TN / IT (la red de Lima)
 
 
 def _modelo(ref: str) -> dict:
@@ -66,7 +68,7 @@ def test_el_esquema_se_normaliza_y_vale_tambien_en_la_red_que_no_lo_trae():
     assert validar_ajustes({"esquema": "tt", "RA_ohm": 100}, _modelo(RED_3F), RED_3F) == {
         "esquema": "TT", "RA_ohm": 100.0}
     assert esquema_de(_modelo(RED_1F), {}) == "TN" and esquema_de(_modelo(RED_1F), {"esquema": "IT"}) == "IT"
-    assert esquema_de(_modelo(RED_3F), {}) is None and ra_de(_modelo(RED_3F), {}) is None
+    assert esquema_de(_modelo(RED_3F), {}) == "IT" and ra_de(_modelo(RED_3F), {}) is None
 
 
 @pytest.mark.parametrize("ajustes,mensaje", [
@@ -86,6 +88,8 @@ def test_esquema_fuera_de_la_lista_y_ra_sin_tt_son_error_con_que_corregir(ajuste
 
 def test_ra_sin_esquema_y_el_esquema_en_otra_cosa_que_una_red():
     with pytest.raises(ValueError, match="esquema es sin declarar"):
+        validar_ajustes({"RA_ohm": 50}, _ficha_3f().modelo, "X")
+    with pytest.raises(ValueError, match="esquema es IT"):  # la red de Lima: IT de ficha
         validar_ajustes({"RA_ohm": 50}, _modelo(RED_3F), RED_3F)
     with pytest.raises(ValueError, match="no tiene el ajuste «esquema»"):
         validar_ajustes({"esquema": "TT"}, _modelo("ITM-C6-2P"), "ITM-C6-2P")
@@ -101,6 +105,16 @@ def _ficha_red(**modelo):
             "modelo": {"tipo": "red", "sistema": "1F+N", "U_V": 220, "f_Hz": 60, "Icc_kA": 6, "X_R": 1.5, **modelo}}
 
 
+def _ficha_3f(**modelo):
+    """Una red 3F de 220 V SIN esquema (como era la de Lima antes de declarar IT)."""
+    return parse_ficha({
+        "funcion": "G", "simbolo": "red_3f", "montaje": "campo",
+        "bornes": [{"id": b, "rol": "potencia"} for b in ("L1", "L2", "L3")] + [{"id": "PE", "rol": "tierra"}],
+        "fuentes": [{"polos": {"L1": "L1", "L2": "L2", "L3": "L3", "PE": "PE"}, "tension": "220 VAC 3F 60 Hz"}],
+        "modelo": {"tipo": "red", "sistema": "3F", "U_V": 220, "f_Hz": 60, "Icc_kA": 10, "neutro": False,
+                   "X_R": 1.5, **modelo}}, "RED-SIN-ESQUEMA")
+
+
 def test_el_esquema_de_una_ficha_se_valida_con_la_misma_lista():
     assert parse_ficha(_ficha_red(esquema="tn-c-s"), "X").modelo["esquema"] == "TN-C-S"
     assert parse_ficha(_ficha_red(esquema="TN"), "X").modelo["esquema"] == "TN"  # heredado
@@ -109,9 +123,9 @@ def test_el_esquema_de_una_ficha_se_valida_con_la_misma_lista():
         parse_ficha(_ficha_red(esquema="TN-C"), "X")
     with pytest.raises(ValueError, match=r"modelo\.RA_ohm: .*el esquema es TN-S"):
         parse_ficha(_ficha_red(esquema="TN-S", RA_ohm=30), "X")
-    for ref, c in CATALOG.items():  # el catálogo no cambia su `modelo`: el «TN» queda «TN»
+    for ref, c in CATALOG.items():  # el «TN» heredado queda «TN»; la red de 220 V de Lima, IT
         if c.electrico is not None and c.electrico.modelo.get("tipo") == "red":
-            assert c.electrico.modelo.get("esquema") in (None, "TN"), ref
+            assert c.electrico.modelo.get("esquema") in (None, "TN", "IT"), ref
 
 
 def test_un_log_con_tn_heredado_o_en_minusculas_regenera_igual():
@@ -193,7 +207,7 @@ def test_tt_con_ra_100_y_un_corto_franco_l_a_pe_dispara_el_diferencial_y_no_el_i
     assert not s["-Q1.disparado"] and s["-Q1.cerrado"]  # 3,2 A no mueven un C6
 
 
-def test_tt_en_la_red_sin_esquema_de_catalogo():
+def test_tt_ajustado_manda_sobre_el_it_de_la_ficha():
     m = ModeloElectrico((_d("-G1", RED_3F, ajustes={"esquema": "TT", "RA_ohm": 50}),), ())
     e = entrada_red(m)
     assert e["fuentes"][0]["R_tierra_ohm"] == 50.0 and leer_entrada(e).fuentes[0].R_tierra_ohm == 50.0
@@ -224,8 +238,19 @@ def test_tt_sin_ra_avisa_en_la_entrada():
     assert any("red TT sin RA_ohm" in a for a in e["avisos"])
 
 
-def test_sin_esquema_la_entrada_de_la_red_es_la_de_siempre():
+def test_la_red_de_lima_es_it_de_ficha_y_rechaza_el_corto_a_pe_con_su_motivo():
     e = entrada_red(ModeloElectrico((_d("-G1", RED_3F),), ()))
+    f = e["fuentes"][0]
+    assert (f["esquema"], f["pe_a_neutro"]) == ("IT", False) and "R_tierra_ohm" not in f
+    assert not e["avisos"]  # IT no avisa: no le falta nada (TT sin RA, sí)
+    with pytest.raises(ValueError, match="en IT el primer defecto a masa no da corriente de falla que "
+                                         r"dispare \(la fuente no tiene punto a tierra"):
+        aplicar(Tablero(e, []), {"falla": "corto", "a": "-G1:L1", "b": "-G1:PE"})
+
+
+def test_sin_esquema_la_entrada_de_la_red_es_la_de_siempre():
+    sin = dispositivo_desde_ficha("-G1", "RED-SIN-ESQUEMA", _ficha_3f(), ubicacion="+TAB1")
+    e = entrada_red(ModeloElectrico((sin,), ()))
     assert set(e["fuentes"][0]) == {"id", "tipo", "polos", "U_V", "dispositivo", "ideal", "sistema",
                                     "pe_a_neutro", "f_Hz"}
     assert e["fuentes"][0]["pe_a_neutro"] is False and not e["avisos"]

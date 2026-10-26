@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a, F1b y F1c mergeadas (datos de ficha con completitud, el diferencial por fasores, la acometida TN/TT/IT con `RA_ohm` en la co-simulación; COSIM_EPOCH 4 → 5); cifras de fichas oficiales cargadas el 2026-10-26 (8 diferenciales, 5 ITM, el cartucho 5x20 y 17 `T_max_C`: bitácora «Cifras de fichas y líneas corregidas»); queda a confirmar el `T_max_C` a plena carga de las 2 fuentes de 24 VDC (D-b), «apto a 60 Hz» de los 4 diferenciales clase B (D-a) y, de las redes, Icc, X/R y esquema (dato del sitio)
+nota: contrato derivado de un plan aprobado por el titular el 2026-10-24 (A5–A6); F1a, F1b y F1c mergeadas (datos de ficha con completitud, el diferencial por fasores, la acometida TN/TT/IT con `RA_ohm` en la co-simulación; COSIM_EPOCH 4 → 5); cifras de fichas oficiales cargadas el 2026-10-26 (8 diferenciales, 5 ITM, el cartucho 5x20 y 17 `T_max_C`: bitácora «Cifras de fichas y líneas corregidas»); queda a confirmar el `T_max_C` a plena carga de las 2 fuentes de 24 VDC (D-b), «apto a 60 Hz» de los 4 diferenciales clase B (D-a) y, de las redes, Icc y X/R (dato del sitio); la red de 220 V de Lima es IT con la norma del lugar en `datos` (bitácora «Red de 220 V de Lima: IT», rama sin mergear: vence los escenarios guardados con esa red)
 descripcion: cada protección del catálogo dice cuánto corta y a qué temperatura trabaja, con su fuente; la acometida dice su esquema de tierra; el interruptor diferencial entra al catálogo y dispara en la prueba virtual
 ---
 
@@ -631,3 +631,65 @@ cifras vence escenarios. Sin `COSIM_EPOCH` (no se tocó código de la co-simulac
 cambio. De las 62 refs de tablero, 60 con `T_max_C` (antes 35); las 15 protecciones (8 ITM, 5
 guardamotores, 2 seccionadores) con poder de corte de ficha, los 8 diferenciales con su Inc e Im y
 el portafusible con su cartucho.
+
+### Red de 220 V de Lima: IT (2026-10-26)
+
+El esquema de tierra de las redes de 220 V SIN neutro (`RED-3F-220V-60HZ` y `RED-2F-220V-60HZ`)
+estaba «a confirmar». Una investigación de sólo lectura en fuentes oficiales gratuitas del Perú
+(textos leídos en los PDF de gob.pe y osinergmin.gob.pe, cada cifra vuelta a buscar en su texto)
+lo resolvió, y el titular decidió tomar IT como esquema de esa red.
+
+**Fuentes** (consultadas el 2026-10-26):
+
+| dato | valor | fuente |
+|---|---|---|
+| esquema | IT (DEDUCIDO: ninguna regla lo nombra así) | CNE-Suministro 2011 (RM 214-2011-MEM/DM) Regla 017.B y su Nota 1 («sistemas con neutro no puesto a tierra»), definición de conductor neutro (delta no puesto a tierra); CNE-Utilización 2006 (RM 037-2006-MEM/DM) Regla 020-500(2) («sistemas aislados de 220 V») y Anexo A-3 (I = partes activas aisladas de tierra; T = masas a tierra; esquema IT con las masas a una tierra independiente) |
+| RA máx. de la puesta a tierra | 25 Ω | CNE-U Regla 060-712 «Resistencia de Electrodos» |
+| diferencial | obligatorio en toda instalación; ≤ 30 mA donde usan el equipo personas no calificadas | CNE-U Regla 020-132, texto de la RM 175-2008-MEM/DM (no dice en qué tablero va) |
+| tolerancia de tensión | ± 5 % en el punto de entrega | NTCSE (DS 020-97-EM) numeral 5.1.2; CNE-S Regla 017.D |
+| tolerancia de frecuencia | ± 0,6 % (variaciones sostenidas) | NTCSE numeral 5.2.3 |
+| Icc, X/R | siguen supuestos (10 kA, 1,5) | las distribuidoras no los publican: van en la factibilidad de cada obra |
+
+**Qué cambió.**
+- `120_alimentacion_electrica.yaml`: las dos redes de 220 V sin neutro declaran `esquema: IT` en su
+  `modelo` (salió de `a_confirmar`, que queda con `Icc_kA` y `X_R`) con la `fuente` de arriba, y
+  traen la norma del lugar en `datos`: `RA_max_ohm` 25, `diferencial_max_mA` 30,
+  `tolerancia_U_pct` 5 y `tolerancia_f_pct` 0,6. La `nota` de la trifásica dice qué pasa en IT
+  (sin punto a tierra; con una primera falla las fases sanas suben a la tensión entre fases: guía
+  de instalación de Schneider 2018, PDF 190). Las redes con neutro (TN supuesto) no cambian.
+- `ficha_datos.DATOS_OPCIONALES`: lo que un `modelo.tipo` admite en `datos` sin pedirlo. De una red,
+  esas cuatro claves; no entran a `requeridos` (las otras redes no las dan) ni al contrato de
+  extensiones.
+- `cosim/fallas.py`: el motivo de rechazar un corto a PE en IT ya no habla de «la estrella de la
+  red» (una red en delta no la tiene): la fuente no tiene punto a tierra y sólo circula la
+  corriente capacitiva de la red.
+- La acometida (`acometida.py`) ya aceptaba IT: `RA_ohm` sigue siendo sólo de TT (el lazo RA + RB),
+  así que la red de Lima lo rechaza con su motivo («el esquema es IT»); un `esquema: TT` en los
+  ajustes la pisa como antes. El ERC no lee el esquema: nada falla con la red de Lima.
+
+**Decisiones (para vetar).**
+- D-g. **La norma del lugar va en `datos`, no en `modelo`**: la RA máxima, el diferencial y las
+  tolerancias no son física de la red (la co-simulación no los lee) sino lo que verifica quien
+  revisa la instalación; en `datos` no entran a la firma ni vencen escenarios. La RA máxima de la
+  norma NO es el `RA_ohm` del lazo TT (la co-simulación lo usaría como resistencia): son dos datos.
+- D-h. **La red de dos fases también es IT**: son dos fases de la misma red de 220 V sin neutro.
+- D-i. **Los escenarios guardados con esa red quedan vencidos** (firma, sin `COSIM_EPOCH`): la
+  co-simulación lee el `esquema` de la ficha (`services/cosim_red`), así que entra a la firma del
+  documento y no puede ir a `FUERA_DE_FIRMA_MODELO`. El resultado sería el mismo que sin esquema
+  (en IT el PE queda fuera de la potencia, igual que sin declarar), pero la entrada de la red suma
+  la clave `esquema` y re-correr un escenario es barato: no se hace una excepción. Las cuatro
+  firmas congeladas de `tests/test_firma_dispositivo.py` se re-midieron y un test nuevo prueba que
+  sin el `esquema` de la red dan las de antes (lo único que las movió). `COSIM_EPOCH` no sube: el
+  único código del motor que cambió es el texto de un error de la petición (sólo la huella de
+  `tests/test_cosim_epoch.py`).
+
+**Vigencia.** Sin `GEOM_CACHE_EPOCH` ni versión de comando (ninguna geometría cambió). Firma del
+documento: vence lo guardado con `RED-3F-220V-60HZ` o `RED-2F-220V-60HZ` (D-i). `COSIM_EPOCH` igual.
+
+**Tests.** `test_acometida.py`: la red de Lima es IT de ficha (entrada con `esquema: IT`, sin avisos,
+el corto a PE rechazado con el motivo nuevo; `RA_ohm` rechazado «el esquema es IT»); lo «sin
+esquema» se prueba con una ficha propia sin `esquema`. `test_ficha_datos.py`: las dos redes con su
+IT, sus cuatro datos y cada cita en la `fuente`; `DATOS_OPCIONALES` sólo de una red, número > 0 y la
+clave parecida. `test_firma_dispositivo.py`: firmas re-medidas y la prueba de que sólo las movió el
+`esquema`. Suite completa en el worktree (`PYTHONPATH` al `core/` propio, `-B`, `-n auto`): EXIT 0,
+sin `FAILED`; 6201 → 6204 tests (`scripts/conteos.py`); `ruff check core tests scripts` limpio.

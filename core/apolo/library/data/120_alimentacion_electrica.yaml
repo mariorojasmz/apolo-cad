@@ -36,6 +36,14 @@ category: alimentacion_electrica
 # nominal, no el peor caso de cortocircuito), repartida en R y X con X_R = 1,5 (criterio de
 # diseño: red de BT alimentada por un transformador de distribución más su acometida).
 #
+# La red de 220 V SIN neutro de Lima (3F y 2F) es IT (plan datos-de-corte-y-acometida § «Red de
+# 220 V de Lima: IT»): la fuente no tiene punto a tierra y las masas van a un electrodo propio. Sus
+# `datos` son la norma DEL LUGAR (`ficha_datos.DATOS_OPCIONALES` de `red`), fuera de `modelo`: la RA
+# máxima de la puesta a tierra, el diferencial que exige el CNE y las tolerancias de tensión y
+# frecuencia en el punto de entrega. Textos leídos el 2026-10-26 en los PDF oficiales (gob.pe,
+# osinergmin.gob.pe): CNE-Utilización 2006 (RM 037-2006-MEM/DM), su modificación RM 175-2008-MEM/DM,
+# CNE-Suministro 2011 (RM 214-2011-MEM/DM) y la NTCSE (DS 020-97-EM).
+#
 # Fuente 24 VDC (`tipo: fuente`): limita a corriente CONSTANTE y se recupera sola (la línea de
 # referencia); I_limite_pct = 130 (criterio de diseño: dentro de la banda de sobrecarga de
 # 105–160 % de su ficha); t_retencion_ms = 20 a plena carga (orden de la ficha; IEC 61000-4-11
@@ -44,7 +52,7 @@ category: alimentacion_electrica
 components:
   - ref: RED-3F-220V-60HZ
     name: Red trifásica 220 V 60 Hz sin neutro
-    description: Punto de suministro de la red trifásica de 220 V 60 Hz SIN neutro, la de uso común en Lima (el mando va a 220 V entre fases o a 24 VDC desde una fuente). La corriente de cortocircuito presunta es SUPUESTA (10 kA en bornes) y DECLARADA, no medida - verificar con la distribuidora. No es un artículo de compra.
+    description: Punto de suministro de la red trifásica de 220 V 60 Hz SIN neutro, la de uso común en Lima (el mando va a 220 V entre fases o a 24 VDC desde una fuente). Esquema de tierra IT (sistema aislado de 220 V del CNE; las masas a un electrodo propio de 25 Ω como máximo). La corriente de cortocircuito presunta es SUPUESTA (10 kA en bornes) y DECLARADA, no medida - verificar con la distribuidora. No es un artículo de compra.
     builder: box
     params: {width: 120, depth: 60, height: 120}
     weight: 0.0
@@ -60,10 +68,11 @@ components:
         - {id: PE, rol: tierra}
       fuentes:
         - {polos: {L1: L1, L2: L2, L3: L3, PE: PE}, tension: "220 VAC 3F 60 Hz"}
-      modelo: {tipo: red, sistema: 3F, U_V: 220, f_Hz: 60, Icc_kA: 10, Icc_supuesta: true, neutro: false, X_R: 1.5}
-      a_confirmar: [Icc_kA, X_R, esquema]
-      fuente: &fuente_red "criterio de diseño: Icc presunta SUPUESTA en bornes y X/R = 1,5 de una red de BT alimentada por un transformador de distribución (cabecera de este archivo); el esquema de tierra (TN supuesto, o sin declarar) lo confirma la distribuidora"
-      nota: "Sin neutro la tensión fase-tierra depende del esquema de la red y no se infiere."
+      modelo: {tipo: red, sistema: 3F, U_V: 220, f_Hz: 60, Icc_kA: 10, Icc_supuesta: true, neutro: false, esquema: IT, X_R: 1.5}
+      datos: &datos_lima {RA_max_ohm: 25, diferencial_max_mA: 30, tolerancia_U_pct: 5, tolerancia_f_pct: 0.6}
+      a_confirmar: [Icc_kA, X_R]
+      fuente: &fuente_lima "esquema IT, clasificación DEDUCIDA de las definiciones (ninguna regla lo nombra así): CNE-Suministro 2011, Regla 017.B y su Nota 1 («sistemas con neutro no puesto a tierra») y la definición de conductor neutro (delta no puesto a tierra); CNE-Utilización 2006, Regla 020-500(2) («trifásico de 220 V- 3 hilos (para los sistemas aislados de 220 V)») y Anexo A-3 (I = partes activas aisladas de tierra; T = masas unidas directamente a tierra; esquema IT, masas a una tierra independiente). 60 Hz: CNE-U Regla 020-502. RA_max_ohm: CNE-U Regla 060-712 «Resistencia de Electrodos» («no debe ser mayor a 25 Ω»). diferencial_max_mA: CNE-U Regla 020-132 en el texto de la RM 175-2008-MEM/DM («Toda instalación eléctrica debe estar protegida con interruptor diferencial», de no más de 30 mA donde usan el equipo personas no calificadas; no dice en qué tablero va). tolerancia_U_pct: NTCSE (DS 020-97-EM) numeral 5.1.2 (± 5,0 % en el punto de entrega; ± 7,5 % en redes urbano-rurales y rurales) y CNE-S Regla 017.D. tolerancia_f_pct: NTCSE numeral 5.2.3 (variaciones sostenidas ± 0,6 %). Leídos el 2026-10-26 en cdn.www.gob.pe y osinergmin.gob.pe. Icc presunta SUPUESTA en bornes y X/R = 1,5: criterio de diseño (cabecera de este archivo); las distribuidoras de Lima no los publican: vienen en la factibilidad de suministro de cada obra"
+      nota: "Red IT: la tensión fase-tierra no la fija la red (la fuente no tiene punto a tierra). Con una primera falla a masa las fases sanas quedan a la tensión entre fases (Schneider Electric, Electrical installation guide 2018, PDF 190)."
   - ref: RED-3F-380-220V-60HZ
     name: Red trifásica 380/220 V 60 Hz con neutro
     description: Punto de suministro de una red trifásica 380/220 V 60 Hz CON neutro (redes industriales; esquema TN supuesto y declarado). Corriente de cortocircuito presunta SUPUESTA de 10 kA en bornes, declarada - verificar con la distribuidora. No es un artículo de compra.
@@ -85,10 +94,10 @@ components:
         - {polos: {L1: L1, L2: L2, L3: L3, N: N, PE: PE}, tension: "380/220 VAC 3F+N 60 Hz"}
       modelo: {tipo: red, sistema: 3F+N, U_V: 380, U_fase_V: 220, f_Hz: 60, Icc_kA: 10, Icc_supuesta: true, neutro: true, esquema: TN, X_R: 1.5}
       a_confirmar: [Icc_kA, X_R, esquema]
-      fuente: *fuente_red
+      fuente: &fuente_red "criterio de diseño: Icc presunta SUPUESTA en bornes y X/R = 1,5 de una red de BT alimentada por un transformador de distribución (cabecera de este archivo); el esquema de tierra (TN supuesto, o sin declarar) lo confirma la distribuidora"
   - ref: RED-2F-220V-60HZ
     name: Red de dos fases 220 V 60 Hz
-    description: Punto de suministro MONOFÁSICO de 220 V 60 Hz tomado entre DOS FASES de la red trifásica de 220 V sin neutro (la monofásica habitual en Lima; los dos conductores son fases). Corriente de cortocircuito presunta SUPUESTA de 10 kA en bornes, declarada - verificar con la distribuidora. No es un artículo de compra.
+    description: Punto de suministro MONOFÁSICO de 220 V 60 Hz tomado entre DOS FASES de la red trifásica de 220 V sin neutro (la monofásica habitual en Lima; los dos conductores son fases). Esquema de tierra IT, como la red trifásica de la que sale. Corriente de cortocircuito presunta SUPUESTA de 10 kA en bornes, declarada - verificar con la distribuidora. No es un artículo de compra.
     builder: box
     params: {width: 120, depth: 60, height: 120}
     weight: 0.0
@@ -103,10 +112,11 @@ components:
         - {id: PE, rol: tierra}
       fuentes:
         - {polos: {L1: L1, L2: L2, PE: PE}, tension: "220 VAC 2F 60 Hz"}
-      modelo: {tipo: red, sistema: 2F, U_V: 220, f_Hz: 60, Icc_kA: 10, Icc_supuesta: true, neutro: false, X_R: 1.5}
-      a_confirmar: [Icc_kA, X_R, esquema]
-      fuente: *fuente_red
-      nota: "Los dos conductores son FASES: el polo de un ITM va en cada uno (2P), no hay neutro que dejar sin proteger."
+      modelo: {tipo: red, sistema: 2F, U_V: 220, f_Hz: 60, Icc_kA: 10, Icc_supuesta: true, neutro: false, esquema: IT, X_R: 1.5}
+      datos: *datos_lima
+      a_confirmar: [Icc_kA, X_R]
+      fuente: *fuente_lima
+      nota: "Los dos conductores son FASES: el polo de un ITM va en cada uno (2P), no hay neutro que dejar sin proteger. Es la misma red IT de 220 V: dos de sus tres fases."
   - ref: RED-1F-220V-60HZ
     name: Red monofásica 220 V 60 Hz fase-neutro
     description: Punto de suministro MONOFÁSICO de 220 V 60 Hz fase-neutro, tomado de una red 380/220 V con neutro (esquema TN supuesto y declarado). Corriente de cortocircuito presunta SUPUESTA de 6 kA en bornes (la de un ITM residencial), declarada - verificar con la distribuidora. No es un artículo de compra.

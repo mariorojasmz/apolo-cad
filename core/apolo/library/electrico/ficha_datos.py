@@ -7,8 +7,9 @@ trabaja un aparato. Va FUERA de `modelo` a propósito: no entra a la firma del d
 escenarios guardados) ni es un ajuste de `add_device`.
 
 Lo que valida (al cargar el catálogo; un bloque mal escrito o incompleto no carga):
-  - las claves que pide el `modelo.tipo` (`REQUERIDOS`) más `T_max_C`, que vale en toda ref; una
-    clave que el tipo no pide es error, con la parecida;
+  - las claves que pide el `modelo.tipo` (`REQUERIDOS`), las que admite sin pedirlas
+    (`DATOS_OPCIONALES`: la norma del lugar de una red) y `T_max_C`, que vale en toda ref; una clave que
+    el tipo no admite es error, con la parecida;
   - lo que depende de la tensión es un mapa `{U_V: valor}` con las tensiones que da la ficha (la
     clave es el TOPE del rango que publica: «220…240 V» → 240); números > 0; `Ics ≤ Icu` a la
     misma tensión; `Iq_con`/`Inc_con` con su cifra;
@@ -58,6 +59,20 @@ REQUERIDOS: dict[str, dict[str, tuple[str, str]]] = {
         "Im_A": ("+", "poder de cierre y corte asignado en A, IEC 61008-1"),
     },
 }
+#: `modelo.tipo` → datos que su ficha PUEDE dar sin que se le pidan (misma forma que `REQUERIDOS`).
+#: Una red, lo que la norma del LUGAR exige a la instalación que alimenta (plan
+#: datos-de-corte-y-acometida § «Red de 220 V de Lima: IT»): no es física de la red (no va en
+#: `modelo` ni vence escenarios) sino lo que leen quienes verifican la instalación.
+DATOS_OPCIONALES: dict[str, dict[str, tuple[str, str]]] = {
+    "red": {
+        "RA_max_ohm": ("+", "resistencia máxima de la puesta a tierra de las masas que exige la "
+                            "norma del lugar, Ω"),
+        "diferencial_max_mA": ("+", "umbral máximo del interruptor diferencial que exige la norma "
+                                    "del lugar donde usan el equipo personas no calificadas, mA"),
+        "tolerancia_U_pct": ("+", "tolerancia de la tensión en el punto de entrega, ± %"),
+        "tolerancia_f_pct": ("+", "tolerancia de las variaciones sostenidas de la frecuencia, ± %"),
+    },
+}
 #: Vale en TODA ref (obligatoria dentro del tablero): la temperatura máxima del aire alrededor
 #: del aparato en servicio, según su ficha (D5). La desclasificación la decide V8.5 F3.
 T_MAX = ("T_max_C", ("+", "temperatura máxima del aire alrededor del aparato en servicio, °C"))
@@ -79,8 +94,10 @@ class DatosFicha:
 
 
 def permitidas(tipo: str | None) -> dict[str, tuple[str, str]]:
-    """Las claves de `datos` que admite una ref de este `modelo.tipo`: las suyas y `T_max_C`."""
-    return {**REQUERIDOS.get(tipo or "", {}), T_MAX[0]: T_MAX[1]}
+    """Las claves de `datos` que admite una ref de este `modelo.tipo`: las que pide, las opcionales
+    y `T_max_C`."""
+    t = tipo or ""
+    return {**REQUERIDOS.get(t, {}), **DATOS_OPCIONALES.get(t, {}), T_MAX[0]: T_MAX[1]}
 
 
 def requeridos(tipo: str | None, montaje: str | None) -> tuple[str, ...]:
