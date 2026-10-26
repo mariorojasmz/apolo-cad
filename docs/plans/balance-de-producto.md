@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1–F3 mergeadas (2026-10-26) y las trabas T1–T3 de la primera corrida real también (tope de duración coherente en 300 s, la caja retirada conserva su posición, el ritmo declarado tal cual; COSIM_EPOCH 8); F4 hecha fuera del árbol: la faja con desviador declara 15 cajas/min y su escenario de flujo cuadra (12 de 12 a la rampa, margen ≈ 0,05 s por ciclo); falta que Mario vete o confirme D9 (faja sin tablero = NO_APLICA)
+nota: F1–F3 mergeadas (2026-10-26) y las trabas T1–T3 de la primera corrida real también (tope de duración coherente en 300 s, la caja retirada conserva su posición, el ritmo declarado tal cual; COSIM_EPOCH 8); F4 hecha fuera del árbol: la faja con desviador declara 15 cajas/min y su escenario de flujo cuadra (12 de 12 a la rampa, margen ≈ 0,05 s por ciclo); D9 (faja sin tablero = NO_APLICA) aceptada por Mario el 2026-10-26: se venden también diseños sólo mecánicos y el tablero lo pone el cliente
 descripcion: un escenario de la co-simulación cuenta el producto que entra y el que sale por cada salida, avisa del que se traba o se cae, y la puerta exige ese balance al ritmo nominal en toda máquina que mueve producto
 ---
 
