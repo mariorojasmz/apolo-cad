@@ -167,7 +167,11 @@ ARCHIVOS = (
 #: el empujador de aire, su corte de aire y la biestable con detector) dan la MISMA huella,
 #: hipótesis, finales, claves del resultado, hash de escenario y firma del documento que en
 #: 0afb41c (bitácora del plan).
-HUELLA: tuple[int, str] = (6, "fb466607c5caa20e")
+#: pedidos-de-extensiones-ii, D-f de la F2 (sin subir): el aviso de `services/cosim_red.py` por un
+#: punto que no resuelve nombra el conductor con `redes.nombre_conductor` (sus puntos y
+#: `[hilo, red]`), no por su índice. Sólo cambia el TEXTO de ese aviso, que sale únicamente en un
+#: circuito con una referencia rota; ningún valor, traza, evento ni veredicto se toca.
+HUELLA: tuple[int, str] = (6, "da1b52aef5f3a0ab")
 
 
 def archivos() -> list[Path]:

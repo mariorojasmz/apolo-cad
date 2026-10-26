@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `7d28ae5`; F1 mergeada (la serie Ø22 con `specs.agujero` de ficha leída, builder `mando_22` con cuello, la puerta corta redondo, epoch 8, `layout_tablero` v2) y F2 mergeada (`get_circuit(tablero=true)` resumido 29 → 2 KB en la piloto, `completo=true` para el panel entero; `comandos` en el resumen de `run_batch`; el ERC nombra el conductor por sus puntos); pendientes chicos: los acabados de color de los mandos Ø22 (D-a de F1) y el aviso de la co-simulación en `services/cosim_red.py` que aún dice «conductor N» (D-f de F2)
+nota: contrato de Claude con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `7d28ae5`; F1 mergeada (la serie Ø22 con `specs.agujero` de ficha leída, builder `mando_22` con cuello, la puerta corta redondo, epoch 8, `layout_tablero` v2) y F2 mergeada (`get_circuit(tablero=true)` resumido 29 → 2 KB en la piloto, `completo=true` para el panel entero; `comandos` en el resumen de `run_batch`; el ERC nombra el conductor por sus puntos); el aviso de la co-simulación también nombra el conductor por sus puntos (D-f de F2); pendiente chico: los acabados de color de los mandos Ø22 (D-a de F1)
 descripcion: los pulsadores, pilotos y selectores Ø22 dicen su agujero y la puerta 3D los corta redondos; get_circuit con tablero pesa poco, run_batch resumido devuelve los ids creados y el ERC nombra cada conductor por sus extremos
 ---
 

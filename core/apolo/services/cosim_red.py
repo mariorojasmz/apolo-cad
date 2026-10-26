@@ -46,9 +46,10 @@ def _sistema_ac(t) -> str:
 class _Armado:
     def __init__(self, modelo, temperatura_C, largos=None):
         from apolo.library.electrico import acoples
-        from apolo.library.electrico.redes import resolver
+        from apolo.library.electrico.redes import nombre_conductor, resolver
 
         self._resolver = resolver
+        self._nombre = nombre_conductor
         self._acoples = acoples
         self.modelo = modelo
         self.temperatura_C = temperatura_C
@@ -212,7 +213,7 @@ class _Armado:
             for p in cond.puntos:
                 r, motivo = self._resolver(p, self.dispositivos)
                 if r is None:
-                    self.avisos.append(f"conductor {i + 1} ({cond.etiqueta}): {motivo}")
+                    self.avisos.append(f"conductor {self._nombre(cond)}: {motivo}")  # nunca su índice
                 else:
                     pts.append(_punto(*r))
             if len(pts) < 2:
