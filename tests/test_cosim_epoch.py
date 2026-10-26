@@ -158,7 +158,16 @@ ARCHIVOS = (
 #: `services/escenario_ajustes.py` la llama con los rangos y el `modelo` en vez de fichas falsas;
 #: es el mismo código, línea a línea: mismos valores validados y mismos errores (los tests de
 #: neumática y de ajustes por escenario pasan sin tocar sus expectativas). Ningún resultado cambia.
-HUELLA: tuple[int, str] = (6, "492124150b56e395")
+#: V8.9 F8 (sin subir, D14): modelo NUEVO (`presostato`, `cosim/modelos/presostato.py`) que el
+#: tablero indexa por `LEE_PRESION` (su contacto es el actuador «señal», como el de un sensor) y
+#: la red de aire le da la presión de su línea (`RedAire.presion_bar`); el puerto de un
+#: presostato no cuenta en la cadena de una cámara; su falla `pegado` sólo actúa con un evento
+#: `falla`. Sin presostato nada de eso corre: 7 escenarios
+#: del banco (marcha y atasco parcial en directo; marcha con cajas y atasco parcial por variador;
+#: el empujador de aire, su corte de aire y la biestable con detector) dan la MISMA huella,
+#: hipótesis, finales, claves del resultado, hash de escenario y firma del documento que en
+#: 0afb41c (bitácora del plan).
+HUELLA: tuple[int, str] = (6, "fb466607c5caa20e")
 
 
 def archivos() -> list[Path]:

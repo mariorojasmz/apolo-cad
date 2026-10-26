@@ -131,7 +131,9 @@ def validar_ajustes_neumaticos(ajustes: dict, rangos: dict, modelo_e: dict | Non
             raise ValueError(f"el ajuste {clave} de {ref} va entre {lo:g} y {hi:g} (recibí {valor!r})")
         out[clave] = float(valor)
     if resto:
-        modelo_e = modelo_e or {}
+        # un `modelo` eléctrico con sólo su `tipo` (el presostato, V8.9 F8) no ajusta nada: los
+        # ajustes de ese aparato son los de su ficha neumática
+        modelo_e = {} if set(modelo_e or {}) <= {"tipo"} else modelo_e
         if not rangos and not modelo_e:
             raise ValueError(f"{ref} no tiene ajustes: su ficha no declara nada que fije el instalador")
         if not modelo_e:

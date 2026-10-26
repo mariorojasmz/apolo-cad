@@ -6,7 +6,8 @@ Lee el carril (`services/electrico.modelo`) y arma los datos puros que dibuja
   - los aparatos con ficha neumática (no los tubos), con un rótulo corto de su ficha;
   - el borne del tablero al que llega cada bobina: el otro extremo de la RED eléctrica de su
     borne A1 (`library/electrico/redes`), prefiriendo una bornera y, si no, un aparato en otra
-    ubicación que la válvula; sin conductor, «sin cablear»;
+    ubicación que la válvula; sin conductor, «sin cablear». El de un presostato, igual desde el
+    borne de su NA (V8.9 F8);
   - `opciones` de quien la pide (tool `drawing`, spec `neumatica`): `ciclo` (el orden de los
     cilindros, de izquierda a derecha) y `detectores` ({"-BG1": {"cilindro": "-MM1", "en":
     "atras"}}), que el carril no declara. Cada error dice qué corregir.
@@ -72,6 +73,15 @@ def _bobinas(an, d) -> dict:
     return {lado: f"{a1}: {_borne_tablero(an, d, a1)}" for lado, (a1, _a2) in bornes_bobina(lados).items()}
 
 
+def _contacto(an, d) -> str:
+    """El NA de un presostato y el borne del tablero que lo lee («14: +TAB1-K1:I0.0»; V8.9 F8):
+    el extremo de su contacto `señal` NA que no es el común. Sin contacto, «»."""
+    if d.neumatico.tipo != "presostato":
+        return ""
+    na = next((c for c in d.caminos if c.accion == "señal" and c.tipo == "NA"), None)
+    return f"{na.a}: {_borne_tablero(an, d, na.a)}" if na is not None else ""
+
+
 def _salida_detector(d) -> str | None:
     """El borne de SALIDA de un sensor (el extremo de su contacto de señal: BK en uno de 3 hilos)."""
     for c in d.caminos:
@@ -131,7 +141,7 @@ def circuito(doc, opciones: dict | None = None):
         if n is None or n.tipo is None:
             continue  # lo eléctrico y los tubos
         aparatos.append(Aparato(d.designacion, n.tipo, dict(n.modelo), tuple(p.id for p in d.puertos),
-                                _rotulo(d), _bobinas(an, d)))
+                                _rotulo(d), _bobinas(an, d), _contacto(an, d)))
     cilindros = {a.designacion for a in aparatos if a.tipo == "cilindro"}
     ciclo = opciones.get("ciclo") or []
     if not isinstance(ciclo, list) or not all(isinstance(x, str) for x in ciclo):

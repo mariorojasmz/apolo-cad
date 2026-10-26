@@ -175,6 +175,30 @@ def test_sensor_pegado_y_sin_salida():
     assert correr(sano, 0.1, ve)["activo"] and not correr(muda, 0.1, ve)["activo"]
 
 
+def test_presostato_pegado():
+    """V8.9 F8: el microrruptor soldado o el fuelle trabado; el presostato lleva su ficha de aire
+    (el ajuste vive ahí) como en el snapshot."""
+    from apolo.services.cosim_aire import ficha_plana
+
+    c = CATALOG["PRESOSTATO-1-10BAR"]
+    m = {**c.electrico.modelo, "aire": ficha_plana(c.neumatico)}
+    sano, malo = (crear_modelo("-BP1", "PRESOSTATO-1-10BAR", m, {"p_conmuta_bar": 4.0}) for _ in range(2))
+    for x in (sano, malo):
+        x.iniciar(6.0)
+    malo.fallar("pegado")                       # sin valor: queda como está (cerrado)
+    sin_aire = {"p_bar": 0.0}
+    assert not correr(sano, 0.1, sin_aire)["activo"]
+    s = correr(malo, 0.1, sin_aire)
+    assert s["activo"] and s["p_bar"] == 0.0 and malo.publicadas()["averia"] == "pegado"
+    assert "averia" not in sano.publicadas()
+    malo.reparar("pegado")
+    assert not correr(malo, 0.1, sin_aire)["activo"]
+    malo.fallar("pegado", False)                # abierto con aire
+    assert not correr(malo, 0.1, {"p_bar": 6.0})["activo"] and correr(sano, 0.1, {"p_bar": 6.0})["activo"]
+    with pytest.raises(ValueError, match="true o false"):
+        malo.fallar("pegado", "si")
+
+
 def test_fuente_sin_salida_cae_a_cero_con_la_entrada_bien():
     sano, malo = gemelos("FUENTE-24VDC-5A")
     e = {"U_entrada_V": 220.0, "I_carga_A": 1.0}

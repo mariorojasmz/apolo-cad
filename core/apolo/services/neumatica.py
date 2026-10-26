@@ -71,10 +71,20 @@ def disponibles() -> frozenset:
 
 
 def reglas(m) -> list[dict]:
-    """El ERC neumático del modelo (`[]` sin aire)."""
+    """El ERC neumático del modelo (`[]` sin aire). La regla del presostato (V8.9 F8) sabe si su
+    contacto está cableado por la red eléctrica del carril (`library/electrico/redes`), que se
+    analiza sólo si la pide."""
+    from apolo.library.electrico.redes import analizar as redes
     from apolo.library.neumatica.erc import erc
 
-    return erc(m, disponibles=disponibles())
+    an: list = []
+
+    def cableado(des: str, borne: str) -> bool:
+        if not an:
+            an.append(redes(m))
+        return an[0].conectado(des, borne)
+
+    return erc(m, disponibles=disponibles(), cableado=cableado)
 
 
 #: Eventos de un escenario que no son una falla provocada: el que sólo trae productos es «sano».

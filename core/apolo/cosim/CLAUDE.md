@@ -48,7 +48,10 @@ backend: [core/apolo](../CLAUDE.md).
   `BOBINAS`). Las cámaras avanzan en `RedAire.paso` dentro de `Corrida.intercambio` (sub-pasos +
   fuerza MEDIA al `<motor>`, D4: nunca la rigidez al actuador ni Euler de 2 ms); la fricción de los
   sellos y la masa del pistón van al MJCF por el snapshot; cada simplificación, en `hipotesis`.
-  [V8.9](../../../docs/plans/V8.9-neumatica.md) (F3)
+  [V8.9](../../../docs/plans/V8.9-neumatica.md) (F3) El presostato también es ELÉCTRICO
+  (`modelos/presostato.py`, `LEE_PRESION`: su contacto es el actuador «señal»; su ajuste, en la
+  ficha de aire): lee `RedAire.presion_bar` de SU línea al empezar el intercambio y su puerto no
+  cuenta en la cadena de una cámara. (F8)
 - PUROS sin OCCT (`test_capas_cosim.py`): ni `apolo.library` (su `__init__` carga OCP). Las
   redes leen el formato plano de `red/entrada.py` (lo arma `services/cosim_red.py`); la alterna
   de mando va en la de potencia. `pedidas()` ANTES de `paso`.

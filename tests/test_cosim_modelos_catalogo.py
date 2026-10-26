@@ -46,7 +46,9 @@ def _modelo_cosim(ref: str, f) -> dict:
 def test_toda_ref_activa_se_emula_con_su_catalogo():
     pasivas = []
     for ref, f in fichas().items():
-        m = crear_modelo("-X1", ref, _modelo_cosim(ref, f), ajustes_minimos(f.modelo))
+        modelo = _modelo_cosim(ref, f)
+        # el presostato (V8.9 F8) tiene su ajuste en la ficha de AIRE: lo pone quien lo instala
+        m = crear_modelo("-X1", ref, modelo, {**ajustes_minimos(f.modelo), **ajustes_minimos(modelo.get("aire", {}))})
         if m is None:
             pasivas.append(ref)
             continue

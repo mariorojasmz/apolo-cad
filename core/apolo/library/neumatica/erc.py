@@ -32,7 +32,12 @@ Reglas (cada una con su norma o «criterio de diseño»):
     la carga pasa la fuerza EFECTIVA (con la fricción): el vástago no la mueve;
   - **escape sin silenciador** y **regulación de velocidad** (F4; aviso): SÓLO si el catálogo
     ofrece silenciadores / reguladores de caudal (`disponibles`): sin refs darían un aviso en
-    todo circuito que nadie puede resolver (D16 los trae).
+    todo circuito que nadie puede resolver (D16 los trae);
+  - **presostato** (F8; aviso, sólo si hay presostatos): sin línea de aire (su puerto 1 sin tubo:
+    lee la atmósfera, su NA nunca cierra; por eso no es «puerto libre»), sin su contacto cableado
+    (ningún contacto `señal` con sus dos bornes en un conductor: nadie lo lee; sólo con
+    `cableado`, que da quien tiene la red eléctrica), sin el ajuste `p_conmuta_bar`, o una
+    conmutación sobre la presión regulada que le llega (el NA no cerraría nunca).
 
 Las cuentas de cada cilindro (presión, válvula a través de sus reguladores, C del escape,
 pandeo) son las de `cilindros.py`, las mismas que usa la memoria (`memoria.py`).
@@ -60,6 +65,7 @@ NORMAS = {
     "relación de carga": f"{CRITERIO} (tope de la ficha o η ≤ {K.RELACION_CARGA_MAX:g})",
     "escape sin silenciador": f"{CRITERIO} (ruido de la descarga)",
     "regulación de velocidad": f"{CRITERIO} (regulación por el escape en doble efecto)",
+    "presostato": f"{CRITERIO} (un presostato que no ve su línea o que nadie lee no vigila nada)",
 }
 #: Roles de puerto que pueden quedar sin tubo (a la atmósfera o sin pilotaje externo).
 LIBRES = ("escape", "pilotaje")
@@ -144,7 +150,7 @@ def _libres(c: Circuito) -> list[dict]:
     out, n = [], 0
     for d in c.dispositivos.values():
         for p in d.puertos:
-            if p.rol in LIBRES:
+            if p.rol in LIBRES or tipo(d) == "presostato":  # el presostato sin tubo: su regla (aviso)
                 continue
             toma = (tipo(d) == "frl" and p.id == "1") or (tipo(d) == "valvula_corte" and p.id == "1" and not hay_frl)
             n += 1
@@ -352,18 +358,63 @@ def _regulacion(c: Circuito) -> list[dict]:
     return out or [_r("regulación de velocidad", "ok", "Cada cilindro regula su velocidad por el escape.")]
 
 
+def _presostatos(c: Circuito, cableado=None) -> list[dict]:
+    """Un presostato que no vigila nada (aviso; reglas en el docstring del módulo). Sin
+    presostatos no da filas (el ERC de antes)."""
+    pres = _de_tipo(c, "presostato")
+    if not pres:
+        return []
+    out = []
+    for d in pres:
+        quien = _quien(d)
+        puertos = [p.id for p in d.puertos]
+        if not any((d.designacion, p) in c.conectados for p in puertos):
+            out.append(_r("presostato", "aviso",
+                          f"{quien}: su puerto {', '.join(puertos)} no tiene tubo: lee la atmósfera y su NA no "
+                          "cierra nunca.",
+                          "Únelo con add_tubo a la línea que vigila (la de alimentación, aguas abajo de la "
+                          "válvula de corte con escape, para «hay aire en la máquina»).", [d.designacion]))
+        señal = [(k.de, k.a) for k in getattr(d, "caminos", ()) if k.accion == "señal"]
+        if cableado is not None and señal and not any(cableado(d.designacion, a) and cableado(d.designacion, b)
+                                                      for a, b in señal):
+            out.append(_r("presostato", "aviso",
+                          f"{quien}: su contacto no está cableado ({', '.join(f'{a}-{b}' for a, b in señal)}): "
+                          "nadie lee la presión.",
+                          f"Cablea el contacto con add_wire a una entrada del PLC (p. ej. {señal[0][0]} a la "
+                          f"alimentación de 24 V y {señal[0][1]} a la entrada).", [d.designacion]))
+        rango = d.neumatico.ajustes.get("p_conmuta_bar")
+        p_on = d.ajustes.get("p_conmuta_bar")
+        if p_on is None and rango is not None:
+            lo, hi = rango
+            out.append(_r("presostato", "aviso",
+                          f"{quien}: la presión de conmutación no está declarada (rango {lo:g}–{hi:g} bar).",
+                          'Declárala en add_device.ajustes ({"p_conmuta_bar": 4}): la fija el instalador con '
+                          "el tornillo del muelle.", [d.designacion]))
+        pr = c.presion_de(d)
+        if p_on is not None and pr is not None and p_on > pr[0]:
+            out.append(_r("presostato", "aviso",
+                          f"{quien} conmuta a {p_on:g} bar y su línea recibe {pr[0]:g} bar de "
+                          f"{', '.join(pr[2])}: el NA no cerraría nunca.",
+                          "Baja p_conmuta_bar bajo la presión regulada (con margen para la caída de la línea).",
+                          [d.designacion, *pr[2]]))
+    return out or [_r("presostato", "ok", f"Los {len(pres)} presostato(s) leen su línea y su contacto está "
+                                          "cableado.", elementos=[d.designacion for d in pres])]
+
+
 _REGLAS = (_aislamiento, _tubos, _libres, _presion, _servicio, _caudal, _pandeo, _impacto, _relacion)
 #: Las reglas que piden una ref que el catálogo puede no tener (D16): sólo corren si el catálogo
 #: ofrece ese tipo; si no, darían un aviso en TODO circuito sin forma de resolverlo.
 _CON_CATALOGO = (("silenciador", _silenciadores), ("regulador_caudal", _regulacion))
 
 
-def erc(modelo, circuito: Circuito | None = None, *, disponibles=frozenset()) -> list[dict]:
+def erc(modelo, circuito: Circuito | None = None, *, disponibles=frozenset(), cableado=None) -> list[dict]:
     """Las reglas de D9 sobre el circuito de aire del modelo; `[]` si no tiene aire. `disponibles`:
     los `modelo.tipo` neumáticos que ofrece el catálogo (`services/neumatica.py` los pasa): las
-    reglas de silenciador y de regulación corren sólo si hay con qué cumplirlas."""
+    reglas de silenciador y de regulación corren sólo si hay con qué cumplirlas. `cableado(des,
+    borne) -> bool` (de la red eléctrica, `services/neumatica.py`): si llega un conductor al borne;
+    sin él, la regla del presostato no revisa su contacto."""
     if not hay_aire(modelo):
         return []
     c = circuito or analizar(modelo)
     reglas = list(_REGLAS) + [f for t, f in _CON_CATALOGO if t in disponibles]
-    return [r for regla in reglas for r in regla(c)]
+    return [r for regla in reglas for r in regla(c)] + _presostatos(c, cableado)

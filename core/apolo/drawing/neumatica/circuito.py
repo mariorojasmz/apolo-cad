@@ -3,7 +3,8 @@ composición por reglas de ISO 1219-2, sin dibujar nada.
 
 Datos puros (los arma `services/neumatica_esquema.py` desde el carril del documento):
   - `Aparato`: designación, `modelo.tipo` de su ficha neumática, el `modelo`, sus puertos, un
-    rótulo corto y, en una electroválvula, el borne del tablero al que llega cada bobina;
+    rótulo corto y, en una electroválvula, el borne del tablero al que llega cada bobina (en un
+    presostato, el de su contacto NA: V8.9 F8);
   - `Detector`: un detector de fin de carrera puesto sobre un cilindro, atrás o adelante;
   - `CircuitoAire`: aparatos, tubos («-QM1:4», «-MM1:A»), el orden del ciclo y los detectores.
 
@@ -35,6 +36,7 @@ class Aparato:
     puertos: tuple[str, ...] = ()
     rotulo: str = ""
     bobinas: dict = field(default_factory=dict)  # lado («14») → «14A1: +TAB1-X1:3»
+    contacto: str = ""  # un presostato: su NA y el borne del tablero que lo lee («14: +TAB1-K1:I0.0»)
 
 
 @dataclass(frozen=True)

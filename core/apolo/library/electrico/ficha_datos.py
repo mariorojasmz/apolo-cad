@@ -66,8 +66,9 @@ CONDICION_DE = {"Iq_con": "Iq_kA", "Inc_con": "Inc_kA"}
 #: Pares (servicio, último) que se comparan tensión a tensión: servicio ≤ último.
 SERVICIO_ULTIMO = (("Ics_kA", "Icu_kA"),)
 #: Claves de `modelo` que `a_confirmar` puede nombrar SIN valor (el dato falta en la ficha):
-#: el esquema de tierra de una red que no lo trae (plan § D6).
-MODELO_SIN_VALOR: dict[str, tuple[str, ...]] = {"red": ("esquema",)}
+#: el esquema de tierra de una red que no lo trae (plan § D6); el rating del contacto de un
+#: presostato (las claves del relé: `contacto_A`, `contacto_V`) sin ficha leída (V8.9 F8).
+MODELO_SIN_VALOR: dict[str, tuple[str, ...]] = {"red": ("esquema",), "presostato": ("contacto_A", "contacto_V")}
 
 
 @dataclass(frozen=True)

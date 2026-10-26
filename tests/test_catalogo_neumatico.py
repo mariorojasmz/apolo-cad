@@ -36,12 +36,14 @@ ISO6432 = {  # [F5] Hydraquip TS10287: vástago, rosca, nariz, puertos
 F7B = ["REG-CAUDAL-L-6", "REG-CAUDAL-L-8", "REG-CAUDAL-L-10", "SIL-G18", "SIL-G14", "SIL-G12"]
 RACORES = ["RACOR-M5-4", "RACOR-G18-4", "RACOR-M5-6", "RACOR-G18-6", "RACOR-G14-6", "RACOR-G18-8",
            "RACOR-G14-8", "RACOR-G38-8", "RACOR-G14-10", "RACOR-G38-10", "RACOR-G12-10"]
+#: V8.9 F8: el presostato (`tests/test_v89_f8_presostato.py` revisa sus dos fichas)
+F8 = ["PRESOSTATO-1-10BAR"]
 
 
 def test_categorias_al_final_con_sus_refs():
     assert CATEGORIES[-3:] == list(NUEVAS)  # al final: no reordenan la UI
     for categoria, refs in NUEVAS.items():
-        extra = F7B + RACORES if categoria == "aire_comprimido" else []
+        extra = F7B + RACORES + F8 if categoria == "aire_comprimido" else []
         assert sorted(refs_in_category(categoria)) == sorted(refs + extra)
 
 

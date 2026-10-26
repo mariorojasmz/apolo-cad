@@ -184,7 +184,10 @@ def _suelto(m: SheetModel, a, xc: float, y_v: float, y_r1: float, r: Resultado, 
         lz.rect(-6.0, 0.0, 12.0, 10.0)
         s = lz.simbolo(a.tipo, {})
     _alta(r, a, s, puertos)
-    _rotular(m, s.caja[2] + 1.5, (s.caja[1] + s.caja[3]) / 2, a, "start")
+    y = (s.caja[1] + s.caja[3]) / 2
+    _rotular(m, s.caja[2] + 1.5, y, a, "start")
+    if a.contacto:  # el presostato: su NA y el borne que lo lee (V8.9 F8), bajo el rótulo
+        m.labels.append(Label(s.caja[2] + 1.5, y - 7.0, a.contacto, T_BORNE, anchor="start"))
 
 
 def _escapes(m: SheetModel, plan: Plan, ap: dict, puertos: dict) -> None:

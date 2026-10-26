@@ -11,7 +11,8 @@ avanza el lado eléctrico UN intercambio (2 ms), en este orden:
      sus contactos en las dos redes; el diferencial, los FASORES para sumarlos), mandos, E/S del PLC, sensores, los modelos con
      `BORNES_ENTRADA` (el relé de seguridad: lee esas entradas y mueve sus contactos con
      `actuadores()`), los que sólo leen su alimentación (`SOLO_ALIMENTACION`: el panel de
-     operador), variadores y motores;
+     operador), los que leen la presión de su línea de aire (`LEE_PRESION`: el presostato, V8.9
+     F8; su contacto es el actuador «señal», como el de un sensor), variadores y motores;
   5. lo que queda para el paso que viene: la carga de cada motor (D8: EN MARCHA = potencia que
      sale de su curva; DETENIDO en la red = impedancia de rotor bloqueado, F3), la de la entrada
      de cada fuente y variador, y el COMANDO de cada motor hacia MuJoCo (`comandos`).
@@ -87,6 +88,8 @@ class Tablero:
             [f"aire: {h}" for h in self.aire.hipotesis] if self.aire else [])
         self.avisos = list(self.redes.avisos)
         self._indexar()
+        for des, m in self.presostatos:  # V8.9 F8: la máquina ya con aire, como sus cámaras
+            m.iniciar(self._presion(des))
         self.mec: dict = {}            # motor → (ω_salida rad/s, par en la salida N·m)
         self.detecta: dict = {}        # sensor → bool (el rayo de MuJoCo)
         self.plc_salidas: dict = {des: {} for des, *_ in self.plcs}
@@ -126,6 +129,7 @@ class Tablero:
         self.fuentes_dc, self.redes_ac, self.plcs, self.sensores, self.variadores = [], [], [], [], []
         self.motores, self.logicos, self.valvulas, self.diferenciales = [], [], [], []
         self.alimentados = []  # sólo leen la tensión de su alimentación (el panel de operador)
+        self.presostatos = []  # leen la presión de su línea de aire (V8.9 F8)
         for des, m in self.modelos.items():
             fs = fuentes.get(des, [])
             if isinstance(m, Contactor):
@@ -164,6 +168,8 @@ class Tablero:
                 self.mandos.append((des, m))
             elif getattr(m, "SOLO_ALIMENTACION", False):
                 self.alimentados.append((des, m, self._carga(des, "alimentacion")))
+            elif getattr(m, "LEE_PRESION", False):
+                self.presostatos.append((des, m))
         self._red_ids = {fid: m for _, m, fid in self.redes_ac}
         self._donde: dict = {}
         for c in self.entrada.get("cargas", ()):
@@ -186,7 +192,8 @@ class Tablero:
         self._k_bobina = [(f"{des}.bobina", m) for des, m, *_ in self.contactores]
         self._k_prot = [(des, f"{des}.", m) for des, m, _ in self.protecciones + self.diferenciales]
         self._k_plc = [(m, [(b, f"{des}.{b}") for b in m.DO]) for des, m, *_ in self.plcs]
-        self._k_sensor = [(f"{des}.señal", m) for des, m, _ in self.sensores]
+        self._k_sensor = [(f"{des}.señal", m) for des, m, _ in self.sensores] + [
+            (f"{des}.señal", m) for des, m in self.presostatos]
         self._k_vfd = [(f"{des}.rele_falla", m) for des, m, *_ in self.variadores]
         self._k_mando = [(f"{des}.", f"{des}.potenciometro", m) for des, m in self.mandos] + [
             (f"{des}.", None, m) for des, m, *_ in self.logicos]
@@ -198,6 +205,10 @@ class Tablero:
             for _d, m, cids in self.valvulas for lado, cid in cids.items() if cid]
         self._abiertas: set = set()
         self._cargas_mando: dict = {}
+
+    def _presion(self, des: str) -> float:
+        """La presión manométrica (bar) de la línea de un presostato; sin circuito de aire, 0."""
+        return self.aire.presion_bar(des) if self.aire is not None else 0.0
 
     def _en_potencia(self, cid: str | None) -> bool:
         return bool(cid and self.pot_red is not None and cid in self.pot_red._carga_idx)
@@ -387,6 +398,8 @@ class Tablero:
             m.paso(dt, {**{b: self.U(cid) for b, cid in bornes.items()}, "U_alim_V": self.U(alim)})
         for _des, m, alim in self.alimentados:
             m.paso(dt, {"U_alim_V": self.U(alim)})
+        for des, m in self.presostatos:
+            m.paso(dt, {"p_bar": self._presion(des)})
         for des, m, ent, alim, _fid, _dc in self.variadores:
             e = {b: self.U(cid) for b, cid in ent.items()}
             motor = self._motor_de.get(des)  # el que alimentó en el paso anterior

@@ -21,6 +21,7 @@ from .maniobra import Contactor, Rele
 from .mandos import Piloto, Pulsador, Selector, Seccionador, Sensor, Seta
 from .motor import Motor, placa_v82
 from .plc_es import PlcES, direccion_iec
+from .presostato import Presostato
 from .protecciones import Fusible, Guardamotor, Itm, ReleTermico
 from .seguridad import ReleSeguridad, Resguardo
 from .variador import Variador
@@ -29,7 +30,7 @@ from .variador import Variador
 MODELOS: dict[str, type[Modelo]] = {m.tipo: m for m in (
     Red, Fuente, Seccionador, Itm, Guardamotor, ReleTermico, Fusible, Contactor, Rele, PlcES,
     Variador, Motor, Pulsador, Seta, Selector, Piloto, Sensor, Resguardo, ReleSeguridad, Electrovalvula,
-    Diferencial, Hmi)}
+    Diferencial, Hmi, Presostato)}
 
 #: tipo → (extensión, versión) de los modelos que sumó una extensión (plan
 #: nucleo-abierto-extensiones-privadas, A4): el resultado guardado de un escenario anota las
@@ -88,7 +89,7 @@ def ajustes_faltantes(designacion: str, ref: str, modelo: dict | None, ajustes: 
 
 
 __all__ = ["DE_EXTENSION", "MODELOS", "Contactor", "Diferencial", "Electrovalvula", "Fuente", "Fusible", "Guardamotor", "Hmi", "Itm", "Modelo",
-           "ModeloIncompleto", "Motor", "Parametros", "Piloto", "PlcES", "Pulsador", "Red", "Rele",
+           "ModeloIncompleto", "Motor", "Parametros", "Piloto", "PlcES", "Presostato", "Pulsador", "Red", "Rele",
            "ReleSeguridad", "ReleTermico", "Resguardo", "Seccionador", "Selector", "Sensor", "Seta",
            "Variador", "ajustes_faltantes", "crear_modelo", "de_extension", "direccion_iec", "entrada_tipo1", "placa_v82",
            "registrar_modelos"]

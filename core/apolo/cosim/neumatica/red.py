@@ -19,6 +19,15 @@ ondas de presión y la temperatura del aire (D3, «Lo que este plan NO hace»).
 Eventos (D8, por la agenda): `corte_de_aire` (la toma a la presión atmosférica), `presion_de_red`
 (otra presión desde t) y `fuga` (un orificio a la atmósfera en un puerto de una cámara).
 
+Presostatos (V8.9 F8): su puerto 1 no pasa aire (no cuenta en la cadena de una cámara: un tubo
+en T hacia él suma su volumen a la línea) y `presion_bar(des)` da la presión de SU línea:
+  - en la línea de una CÁMARA (entre la válvula y el cilindro): la de esa cámara;
+  - en la de ALIMENTACIÓN (aguas abajo del FRL o del corte, hasta la vía 1 de las válvulas): la
+    que entrega lo de aguas arriba en este instante (sin volumen propio, `HIPOTESIS_LINEA`): el
+    corte cerrado con escape la descarga, sin escape la deja atrapada (conserva la última);
+  - en la TOMA (la entrada del FRL o del corte): la presión de red;
+  - sin tubo: la atmósfera (y lo dice la hipótesis). Otra línea es `ModeloIncompleto`.
+
 Puro: `cosim.modelos` y `cosim.neumatica`.
 """
 
@@ -109,6 +118,8 @@ class RedAire:
         self._arriba: dict = {}
         self._escapes: dict = {}
         self.cilindros = [(des, m) for des, m in modelos.items() if isinstance(m, Cilindro)]
+        #: los puertos de los presostatos (V8.9 F8): leen su línea, no pasan aire
+        self._de_presostato = {f"{des}:1": des for des, f in self.fichas.items() if f.get("tipo") == "presostato"}
         self.camaras: dict = {}
         for des, cil in self.cilindros:
             for lado in ("A", "B"):
@@ -130,6 +141,8 @@ class RedAire:
             cil.friccion_junta_N = cil.sellos_N(trabajo)
             cil.pA = p0[0].p if p0[0] is not None else P_ATM_PA
             cil.pB = p0[1].p if p0[1] is not None else P_ATM_PA
+        self._lee = {des: self._donde_lee(des) for des in self._de_presostato.values()}
+        self._atrapada: dict = {}
 
     # ── topología ────────────────────────────────────────────────────────────────────────────
 
@@ -143,7 +156,7 @@ class RedAire:
         while True:
             cam.puertos.add(actual)
             cam.volumen += self.lineas.volumen_de(actual)   # cada línea de la cadena, una vez
-            otros = [p for p in self.lineas.otros(actual) if p not in visto]
+            otros = [p for p in self.lineas.otros(actual) if p not in visto and p not in self._de_presostato]
             if not otros:
                 raise ModeloIncompleto(f"{actual}: la cámara {lado} de {des} no llega a ninguna válvula por tubos "
                                        f"(add_tubo desde un puerto de trabajo de la válvula hasta {puerto})")
@@ -289,6 +302,60 @@ class RedAire:
             m.toma.cerrar(dt)
         self.toma_directa.cerrar(dt)
         return out
+
+    # ── presostatos (V8.9 F8) ────────────────────────────────────────────────────────────────
+
+    def _donde_lee(self, des: str) -> tuple:
+        """Qué línea lee el presostato `des` (una vez: la topología no cambia en la corrida)."""
+        puerto = f"{des}:1"
+        otros = [p for p in self.lineas.otros(puerto) if p not in self._de_presostato]
+        if not otros:
+            self.hipotesis.append(f"{des}: el presostato no tiene tubo (add_tubo a su puerto 1): lee la atmósfera")
+            return ("atmosfera", None)
+        raiz = self.lineas._raiz(puerto)
+        for cam in self.camaras.values():
+            if any(self.lineas._raiz(p) == raiz for p in cam.puertos):
+                self.hipotesis.append(f"{des}: lee la presión de la cámara {cam.lado} de {cam.cil}")
+                return ("camara", cam)
+        cortes, frl = self._buscar_arriba(puerto)
+        if cortes or frl is not None:
+            self.hipotesis.append(f"{des}: lee la línea de alimentación ({HIPOTESIS_LINEA}): ve un corte en el "
+                                  "mismo intercambio")
+            return ("alimentacion", (cortes, frl))
+        for o in otros:
+            odes, op = o.rsplit(":", 1)
+            if op == "1" and isinstance(self.modelos.get(odes), (Frl, ValvulaCorte, Electrovalvula)):
+                return ("toma", None)
+        raise ModeloIncompleto(f"{puerto}: la línea del presostato une {', '.join(otros)}; la co-simulación lee un "
+                               "presostato en la línea de alimentación (aguas abajo del FRL o del corte), en la "
+                               "toma o en la de la cámara de un cilindro")
+
+    def presion_bar(self, des: str) -> float:
+        """La presión manométrica (bar) de la línea del presostato `des` en este instante."""
+        donde, que = self._lee[des]
+        if donde == "camara":
+            cil = self.modelos[que.cil]
+            p = cil.pA if que.lado == "A" else cil.pB
+        elif donde == "alimentacion":
+            p = self._p_alimentacion(des, *que)
+        elif donde == "toma":
+            p = self.p_red
+        else:
+            p = P_ATM_PA
+        return (p - P_ATM_PA) / _BAR + 0.0  # sin «-0.0» en las trazas
+
+    def _p_alimentacion(self, des: str, cortes: list, frl) -> float:
+        for c in cortes:
+            if not c.abierta:
+                # con escape la descarga; sin escape el aire queda atrapado (sin fugas): la última
+                return P_ATM_PA if c.con_escape else self._atrapada.get(des, P_ATM_PA)
+        if frl is not None:
+            frl.p_red = self.p_red
+            p = frl.p_salida
+        else:
+            p = self.p_red
+        self._atrapada[des] = p
+        return p
 
     # ── eventos (D8) ─────────────────────────────────────────────────────────────────────────
 

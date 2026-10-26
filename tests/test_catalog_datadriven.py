@@ -146,7 +146,8 @@ def test_all_new_families_present():
     # +27 del catálogo neumático (V8.9 F1a) +8 diferenciales (F1b de datos-de-corte)
     # +20 de V8.9 F7b (3 reguladores de caudal, 3 silenciadores, 11 racores, detector magnético,
     # fotocélula réflex y su reflector); +2 de plc-en-el-lazo F1d1 (panel de operador y cable de red)
-    assert len(CATALOG) == 450
+    # +1 de V8.9 F8 (el presostato PRESOSTATO-1-10BAR)
+    assert len(CATALOG) == 451
 
 
 def test_door_sliding_hardware():

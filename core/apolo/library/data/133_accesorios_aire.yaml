@@ -130,3 +130,51 @@ components:
   - {ref: RACOR-G14-10, name: "Racor recto macho G1/4 × tubo Ø10", description: "Racor instantáneo recto macho G1/4 para tubo Ø10. Verificar con el proveedor.", builder: box, params: {width: 18, depth: 18, height: 28}, weight: 0.018, specs: {racor_rosca: G1/4, racor_tubo_mm: 10, linea_referencia: "orden de Festo QS-G1/4-10 / SMC KQ2H10-G02 / Airtac PC10-G02", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 2.8}}
   - {ref: RACOR-G38-10, name: "Racor recto macho G3/8 × tubo Ø10", description: "Racor instantáneo recto macho G3/8 para tubo Ø10. Verificar con el proveedor.", builder: box, params: {width: 19, depth: 19, height: 30}, weight: 0.022, specs: {racor_rosca: G3/8, racor_tubo_mm: 10, linea_referencia: "orden de Festo QS-G3/8-10 / SMC KQ2H10-G03 / Airtac PC10-G03", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 3.2}}
   - {ref: RACOR-G12-10, name: "Racor recto macho G1/2 × tubo Ø10", description: "Racor instantáneo recto macho G1/2 para tubo Ø10. Verificar con el proveedor.", builder: box, params: {width: 24, depth: 24, height: 32}, weight: 0.035, specs: {racor_rosca: G1/2, racor_tubo_mm: 10, linea_referencia: "orden de Festo QS-G1/2-10 / SMC KQ2H10-G04 / Airtac PC10-G04", a_confirmar: "peso, envolvente y costo", cotas_verificadas: false, cost: 4.0}}
+  # ── presostato (plan V8.9 F8: el presostato deja de ser un aparato mudo) ────────────────────
+  # Presostato ELECTROMECÁNICO ajustable: un fuelle o un pistón contra un muelle regulable mueve un
+  # microrruptor CONMUTADO. Va roscado (o con su racor) a la línea que vigila, casi siempre la de
+  # alimentación aguas abajo de la válvula de corte con escape («hay aire en la máquina»); su
+  # contacto es una entrada más del PLC. Ficha por FUNCIÓN para reemplazarlo: rango que cubra la
+  # presión de conmutación que se ajusta, contacto conmutado libre de potencial con el rating de la
+  # carga que maneja (una entrada de PLC a 24 VDC pide poco) y la rosca del puerto.
+  #  - Lado de aire (`neumatico:`): el puerto 1 (entrada, rosca G1/4); `p_conmuta_bar` es el AJUSTE
+  #    del instalador (el tornillo del muelle), dentro del rango de la ficha; `histeresis_bar` es la
+  #    diferencia FIJA entre conmutar (al subir) y reponer (al bajar).
+  #  - Lado eléctrico (`electrico:`): el contacto conmutado 11 común, 12 NC, 14 NA (el marcado del
+  #    contacto conmutado del relé RELE-INT-24VDC del catálogo); el NA cierra con la presión sobre
+  #    `p_conmuta_bar` y abre al bajar de `p_conmuta_bar − histeresis_bar`: sin aire, abierto.
+  #    `modelo.tipo: presostato` (la co-simulación: `cosim/modelos/presostato.py`).
+  # Fuentes y a confirmar: ninguna ficha de proveedor se leyó en la F8. El rango 1–10 bar, la rosca
+  # G1/4 y el contacto conmutado son la FUNCIÓN que se pide (del orden de las líneas citadas); la
+  # histéresis (0,5 bar: criterio de diseño, la co-simulación la usa), la presión máxima (la del
+  # tope del rango, 10 bar), el rating del contacto, la temperatura, la envolvente y el peso
+  # van TODOS en `a_confirmar` (criterio de diseño hasta leer la ficha del proveedor).
+  - ref: PRESOSTATO-1-10BAR
+    name: Presostato electromecánico ajustable 1-10 bar, contacto conmutado
+    description: Presostato electromecánico ajustable de 1 a 10 bar con microrruptor conmutado libre de potencial (11 común, 12 NC, 14 NA) para 24 VDC / 230 VAC, rosca G1/4; el NA cierra al subir la presión sobre la de conmutación ajustada y abre al bajar de ella menos la histéresis. Vigila que haya aire en la máquina (su contacto, a una entrada del PLC). Verificar con el proveedor.
+    builder: box
+    params: {width: 35, depth: 35, height: 70}
+    weight: 0.2
+    specs: {rosca: G1/4, rango_bar: "1-10", contacto: "1 conmutado (1 NA + 1 NC), libre de potencial", tension_contacto: "24 VDC / 230 VAC", linea_referencia: "orden de Festo PEV-1/4-B / SMC IS10 (presostato con contacto conmutado)", a_confirmar: "histéresis, presión máxima, rating del contacto, temperatura, envolvente y peso", cotas_verificadas: false, cost: 35}
+    neumatico:
+      funcion: BP
+      simbolo: presostato
+      fuente: "función pedida (rango 1-10 bar, G1/4, contacto conmutado) del orden de las líneas citadas; sin ficha leída en la F8: lo numérico, en a_confirmar"
+      puertos:
+        - {id: "1", rol: entrada, rosca: G1/4}
+      modelo: {tipo: presostato, p_conmuta_bar: [1, 10], histeresis_bar: 0.5, p_max_bar: 10}
+      a_confirmar: [histeresis_bar, p_max_bar]
+    electrico:
+      funcion: B
+      simbolo: presostato_conmutado
+      montaje: campo
+      bornes:
+        - {id: "11", rol: contacto}
+        - {id: "12", rol: contacto}
+        - {id: "14", rol: contacto}
+      caminos:
+        - {de: "11", a: "14", tipo: NA, accion: señal}
+        - {de: "11", a: "12", tipo: NC, accion: señal}
+      modelo: {tipo: presostato}
+      a_confirmar: [contacto_A, contacto_V, T_max_C]
+      fuente: "sin ficha leída de la línea de referencia (Festo PEV / SMC IS): el rating del contacto (corriente y tensión) y la temperatura de servicio, a confirmar con el presostato que se compre"
