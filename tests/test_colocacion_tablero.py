@@ -311,10 +311,12 @@ def test_un_mando_de_puerta_sin_su_fondo_partido_no_se_coloca():
 
     cat = dict(CATALOG)
     cat["PULS-22-VERDE-NA"] = replace(CATALOG["PULS-22-VERDE-NA"], tablero=None)
+    # el `mando_22` no es una caja: su medida es el bbox del catálogo (la huella de 30 × 30 × 50)
     with pytest.raises(ColocacionError, match=r"sin cotas para colocar \(1\): PULS-22-VERDE-NA;.*"
                                               r"`tablero\.puerta`"):
         aparatos_desde_catalogo([{"designacion": "-S1", "ref": "PULS-22-VERDE-NA"},
-                                 {"designacion": "-S2", "ref": "PULS-22-ROJO-NC"}], cat)
+                                 {"designacion": "-S2", "ref": "PULS-22-ROJO-NC"}], cat,
+                                medir=lambda _ref: (30.0, 30.0, 50.0))
 
 
 def test_los_gabinetes_del_catalogo_van_de_menor_a_mayor():

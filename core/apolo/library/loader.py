@@ -31,7 +31,7 @@ from .builders_transmision import ANCLAS as _ANCLAS_TRANSMISION
 from .builders_transmision import BUILDERS as _BUILDERS_TRANSMISION
 from .electrico.ficha import fusionar as _fusionar_electrico
 from .electrico.ficha import parse_ficha
-from .electrico.ficha_tablero import parse_tablero
+from .electrico.ficha_tablero import parse_tablero, verificar_agujero
 from .electrico.tension import parse_tension
 from .neumatica.bobinas import verificar as verificar_bobinas
 from .neumatica.ficha import fusionar as _fusionar_neumatico
@@ -132,6 +132,7 @@ def _component_from_item(item: dict, category: str):
     tablero = parse_tablero(item.get("tablero"), ref, familia=builder_name, params=params,
                             montaje=electrico.montaje if electrico is not None else None,
                             bornes=electrico.ids_bornes if electrico is not None else None)
+    verificar_agujero(specs, builder_name, tablero, ref)  # plan pedidos-de-extensiones-ii D1
     neumatico = parse_ficha_neumatica(item.get("neumatico"), ref)  # plan V8.9 D2: incompleto, no carga
     if neumatico is not None:  # V8.9 F1b: las bobinas de una electroválvula, en las dos fichas
         verificar_bobinas(neumatico, electrico, ref, lambda t: str(parse_tension(t)))

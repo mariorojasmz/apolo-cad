@@ -1,6 +1,7 @@
 """Builders de MANDOS del catálogo: la seta de parada de emergencia (plan seta-de-emergencia,
-D4–D5; la de dos bloques NC, plan mandos-de-seguridad D1) y el interruptor de resguardo con su
-lengüeta (mandos-de-seguridad D2, marco junto a su builder).
+D4–D5; la de dos bloques NC, plan mandos-de-seguridad D1), el interruptor de resguardo con su
+lengüeta (mandos-de-seguridad D2) y el pulsador, selector o piloto de puerta Ø22
+(pedidos-de-extensiones-ii D2); el marco de los dos últimos, junto a su builder.
 
 Módulo propio porque `builders.py` está congelado por el trinquete de tamaño; `loader.py` une
 este registro con los demás. Mismo contrato de factory `(**params) -> ((length|None) -> …)`,
@@ -42,7 +43,9 @@ MONTAJES_SETA = ("puerta", "caja")
 ZONAS_SETA = {"puerta": ("seta", "collar", "leyenda", "cuerpo"),
               "caja": ("seta", "collar", "leyenda", "caja", "prensaestopa")}
 
-AGUJERO_D = 22.5       # agujero de montaje de la serie Ø22 (IEC 60947-5-1, orden de catálogo)
+#: el agujero que pide el cuello Ø22 (default de referencia: el dato que corta la puerta es
+#: `specs.agujero` de cada ficha, plan pedidos-de-extensiones-ii D1)
+AGUJERO_D = 22.5
 CUELLO_D = 22.0
 COLLAR_D = 30.0
 COLLAR_ALTO = 13.0
@@ -234,7 +237,76 @@ def anclas_resguardo(parte: str = "cuerpo") -> dict:
     return out
 
 
-BUILDERS = {"seta_emergencia": seta_emergencia, "interruptor_resguardo": interruptor_resguardo}
-ANCLAS = {"seta_emergencia": anclas_seta, "interruptor_resguardo": anclas_resguardo}
+# ── mando de puerta de la serie Ø22 (plan pedidos-de-extensiones-ii, D2) ─────────────────────
+#
+# MARCO (`mando_22`), el de la seta de puerta: ORIGEN en el centro de la CARA DE APOYO (el frente
+# de la puerta donde asienta el bisel), +Z hacia el operador, +Y arriba. Delante (z ∈ [0,
+# `delante`]): el bisel Ø`BISEL_D` × `BISEL_ALTO` y, sobre él, lo que se acciona o se ve según
+# `tipo` (el botón y la lente Ø`FRENTE_D`; la maneta del selector, `MANETA`). Detrás: el cuello
+# Ø22 que pasa por el agujero de la puerta (`specs.agujero` de la ficha) y el portacontactos
+# `width` × `height` que aprieta contra su cara trasera (z = −`panel_mm`) hasta z = −`detras`.
+# `delante`/`detras` son los de `tablero.puerta` (el loader exige que coincidan): la caja de la
+# pieza es la huella `width` × `height` × (`delante` + `detras`) que mide la colocación.
+# Anclas: `montaje` y `agujero` en el origen, eje −Z (las de la seta de puerta).
+# Cotas del orden de Schneider Harmony XB5 (ficha XB5AA31: 30 mm de ancho; chapa de 1 a 6 mm),
+# sin verificar (`cotas_verificadas: false` en el YAML). Sin zonas de acabado: el verde, el azul
+# y el ámbar no están en `apariencia.ACABADOS` (la pieza se ve de un acabado, como la caja).
+TIPOS_MANDO_22 = ("pulsador", "selector", "piloto")
+BISEL_D = 30.0
+BISEL_ALTO = 8.0
+FRENTE_D = 24.0              # botón del pulsador y lente del piloto
+MANETA = (8.0, 24.0)         # maneta del selector (X × Y), en la posición «0»
+PANEL_MANDO_22 = (1.0, 6.0)  # «clamping thickness: 1 to 6 mm» de la ficha XB5AA31
+
+
+def _validar_mando_22(tipo, width, height, delante, detras, panel_mm) -> None:
+    if tipo not in TIPOS_MANDO_22:
+        raise ValueError(f"Mando Ø22: tipo «{tipo}» desconocido; usa {', '.join(TIPOS_MANDO_22)}")
+    if width < BISEL_D or height < BISEL_D:
+        raise ValueError(f"Mando Ø22: la huella {width:g}×{height:g} no cubre el bisel Ø{BISEL_D:g}")
+    if not PANEL_MANDO_22[0] <= panel_mm <= PANEL_MANDO_22[1]:
+        raise ValueError(f"Mando Ø22: panel_mm {panel_mm} fuera de {PANEL_MANDO_22[0]:g}–"
+                         f"{PANEL_MANDO_22[1]:g} mm (la chapa que aprieta)")
+    if delante < BISEL_ALTO + 2:
+        raise ValueError(f"Mando Ø22: delante {delante:g} no deja frente sobre el bisel de "
+                         f"{BISEL_ALTO:g} mm")
+    if detras < panel_mm + 10:
+        raise ValueError(f"Mando Ø22: detras {detras:g} no deja portacontactos tras la chapa de "
+                         f"{panel_mm:g} mm")
+
+
+def mando_22(tipo: str = "pulsador", width: float = 30, height: float = 30, delante: float = 12,
+             detras: float = 38, panel_mm: float = 2.0):
+    """Pulsador, selector o piloto de puerta de la serie Ø22 con su cuello por el agujero de la
+    chapa (marco en el comentario de arriba): un sólido."""
+    _validar_mando_22(tipo, width, height, delante, detras, panel_mm)
+
+    def build(_length):
+        bisel = Pos(0, 0, BISEL_ALTO / 2) * Cylinder(BISEL_D / 2, BISEL_ALTO)
+        z0, alto = BISEL_ALTO - _SOLAPE, delante - BISEL_ALTO + _SOLAPE
+        if tipo == "selector":
+            frente = Pos(0, 0, z0 + alto / 2) * Box(MANETA[0], MANETA[1], alto)
+        else:
+            frente = Pos(0, 0, z0 + alto / 2) * Cylinder(FRENTE_D / 2, alto)
+        # cuello: de 1 mm dentro del portacontactos a 1 mm dentro del bisel (como la seta)
+        cuello = Pos(0, 0, -panel_mm / 2) * Cylinder(CUELLO_D / 2, panel_mm + 2.0)
+        fondo = detras - panel_mm
+        portacontactos = Pos(0, 0, -panel_mm - fondo / 2) * Box(width, height, fondo)
+        return portacontactos + cuello + bisel + frente
+
+    return build
+
+
+def anclas_mando_22(**_params) -> dict:
+    """Anclas LOCALES del mando Ø22: las de la seta de puerta."""
+    abajo = [0.0, 0.0, -1.0]
+    return {"montaje": {"origin": [0.0, 0.0, 0.0], "axis": abajo},
+            "agujero": {"origin": [0.0, 0.0, 0.0], "axis": abajo}}
+
+
+BUILDERS = {"seta_emergencia": seta_emergencia, "interruptor_resguardo": interruptor_resguardo,
+            "mando_22": mando_22}
+ANCLAS = {"seta_emergencia": anclas_seta, "interruptor_resguardo": anclas_resguardo,
+          "mando_22": anclas_mando_22}
 #: Builders que devuelven `{zona: forma}` (el YAML que los nombra declara `zonas:`).
 ZONADOS = frozenset({"seta_emergencia"})

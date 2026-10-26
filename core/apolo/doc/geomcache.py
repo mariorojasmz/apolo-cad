@@ -68,7 +68,12 @@ from apolo.commands.state import RegenState
 #    envolvente provisoria de la F1a de V8.9 por sus builders propios (`cilindro_iso15552`,
 #    `cilindro_iso6432`) con los MISMOS params de `insert_component`: como v6, builder + YAML del
 #    catálogo no se acota a un executor.
-GEOM_CACHE_EPOCH = 7
+#  v8 (2026-10-25): los 8 pulsadores, selectores y pilotos Ø22 (`PULS-22-*`, `SEL-22-*`,
+#    `PILOTO-24V-*`) dejan la caja de 30 × 30 por el builder `mando_22` (bisel, cuello Ø22 y
+#    portacontactos, plan pedidos-de-extensiones-ii D2–D3) con los MISMOS params de
+#    `insert_component`; la puerta de `layout_tablero` (v2) los corta redondos por su
+#    `specs.agujero`. Builder + YAML del catálogo = no se acota a un executor.
+GEOM_CACHE_EPOCH = 8
 
 
 def _apolo_version() -> str:

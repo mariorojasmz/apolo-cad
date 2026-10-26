@@ -75,7 +75,6 @@ def _medir(cache: dict):
 def plan(p: LayoutTableroParams, devs: list):
     """(Layout, Armado, avisos) de unos params y sus dispositivos validados. Puro salvo la medida
     de las refs que no son cajas (bbox del catálogo). CommandError accionable si no entra."""
-    from apolo.library.builders_mandos import AGUJERO_D
     from apolo.library.catalog import CATALOG
     from apolo.library.electrico.armado import REF_TAPA, ArmadoError, Interior, armar
     from apolo.library.electrico.colocacion import ColocacionError, Reglas, colocar
@@ -129,7 +128,7 @@ def plan(p: LayoutTableroParams, devs: list):
                         gi.espesor_mm, gi.espesor_puerta_mm, p.bisagra or gi.bisagra)
     refs = {a.ref for a in aparatos}
     apoyos = {r: apoyo_de(CATALOG[r].familia, CATALOG[r].tablero) for r in refs}
-    huecos = huecos_por_ref(refs, CATALOG, AGUJERO_D)
+    huecos = huecos_por_ref(refs, CATALOG)  # el Ø sale de cada ficha (pedidos-de-extensiones-ii D1)
     tapa = CATALOG.get(REF_TAPA)
     para = tuple(x.strip() for x in str((tapa.specs or {}).get("para", "")).split(",")) if tapa else ()
     cantidad = {d.designacion: int(d.cantidad or 1) for _, d in devs}
@@ -216,6 +215,7 @@ def _exec_layout_tablero(ctx: ExecContext, cmd_id: str, p: LayoutTableroParams) 
 
 
 SPECS_TABLERO = [
+    # v2 (pedidos-de-extensiones-ii D3): la puerta corta redondo toda ref con `specs.agujero`
     CommandSpec("layout_tablero", "Tablero armado", "electrico", LayoutTableroParams,
-                _exec_layout_tablero, lee_carril=True, composite=True),  # corre fasten/add_joint
+                _exec_layout_tablero, version=2, lee_carril=True, composite=True),  # corre fasten/add_joint
 ]

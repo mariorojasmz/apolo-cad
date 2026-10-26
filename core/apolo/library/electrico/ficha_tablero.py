@@ -10,13 +10,17 @@ Marco local del sólido de catálogo (el del builder, centrado salvo la seta):
   puerta), hacia el soporte; lo que sale hacia el operador va por −apoyo. Por FAMILIA
   (`APOYO_POR_FAMILIA`): la caja (`box`, convención del catálogo eléctrico: ancho a lo largo
   del riel = X, lo que sale de la placa = Y, alto = Z) apoya por −Y; la seta
-  (`seta_emergencia`) por −Z, con el origen en el frente de la puerta, y el interruptor de
+  (`seta_emergencia`) y el mando Ø22 (`mando_22`) por −Z, con el origen en el frente de la
+  puerta, y el interruptor de
   resguardo (`interruptor_resguardo`, de campo) por −Z, en su cara de apoyo. Una ref lo pisa con
   `tablero.apoyo`.
 - Un mando de PUERTA (`electrico.montaje: puerta`) separa lo que asoma delante de la cara
   EXTERIOR de la puerta (`delante_mm`) de lo que queda detrás de ella, chapa incluida
   (`detras_mm`): lo de detrás es lo que choca con lo montado en la placa (A7). En una caja
-  `delante + detras = depth` (±0,5 mm).
+  `delante + detras = depth` (±0,5 mm); en un `mando_22`, son sus params `delante`/`detras`.
+- `specs.agujero` («Ø22,5»: el Ø del agujero de montaje que da la FICHA del fabricante, plan
+  pedidos-de-extensiones-ii D1): la puerta lo corta redondo (`agujero_mm`). Lo que lo lleva
+  pasa la chapa por un cuello: una caja (`FAMILIAS_CAJA`) la cruzaría (`verificar_agujero`).
 
 Bloques (todas las cotas en mm):
 - `gabinete`: `placa_util_mm` [ancho, alto] de la placa de montaje, `fondo_util_mm` (del frente
@@ -26,8 +30,8 @@ Bloques (todas las cotas en mm):
   `cotas_verificadas` (estas cotas son del interior, no de la caja: se declaran aparte);
 - `puerta`: {delante_mm, detras_mm, recorte_mm?}: `recorte_mm` [ancho, alto] es el hueco
   RECTANGULAR que pide su ficha en la chapa (un panel de operador: su marco lo tapa, así que es
-  menor que su frente); sin él, la puerta se recorta con la huella de su caja (o el Ø de la
-  seta). Plan plc-en-el-lazo, D12;
+  menor que su frente); sin él, la puerta se recorta con la huella de su caja (o el Ø de
+  `specs.agujero`). Plan plc-en-el-lazo, D12;
 - `acopla_a`: {simbolos, cara, orden}: el accesorio va PEGADO a un aparato de esos símbolos
   (`electrico.simbolo`) por esa cara (frente | abajo | arriba | izquierda | derecha), no ocupa
   riel propio; `orden` = 1 el más cercano al aparato (A4);
@@ -48,7 +52,8 @@ from .referencias import sugerir
 EJES = ("+X", "-X", "+Y", "-Y", "+Z", "-Z")
 #: La cara de apoyo por familia (builder): la convención del catálogo eléctrico (A3).
 APOYO_POR_FAMILIA = {"box": "-Y", "seta_emergencia": "-Z", "din_rail": "-Y", "canaleta": "-Y",
-                     "interruptor_resguardo": "-Z", "panel_puerta": "-Y"}
+                     "interruptor_resguardo": "-Z", "panel_puerta": "-Y",
+                     "mando_22": "-Z"}
 #: Familias cuya caja es `width` × `depth` × `height` (lo que se valida contra `tablero.puerta`).
 FAMILIAS_CAJA = ("box", "panel_puerta")
 BISAGRAS = ("izquierda", "derecha")
@@ -233,6 +238,11 @@ def _puerta(err: _Err, crudo, params: dict, familia: str | None) -> MarcoPuerta:
     _faltan(err, "puerta", crudo, ("delante_mm", "detras_mm"))
     delante = _mm(err, "puerta.delante_mm", crudo["delante_mm"])
     detras = _mm(err, "puerta.detras_mm", crudo["detras_mm"])
+    if familia == "mando_22":  # el builder parte su sólido con los mismos números
+        for clave, valor in (("delante", delante), ("detras", detras)):
+            if params.get(clave) != valor:
+                raise err(f"puerta.{clave}_mm", f"{valor:g} no es el param `{clave}` del builder "
+                                                f"({params.get(clave)!r}): pon el mismo número en los dos")
     fondo = params.get("depth")
     if familia in FAMILIAS_CAJA and isinstance(fondo, (int, float)) and abs(delante + detras - fondo) > TOL_FONDO_MM:
         raise err("puerta", f"delante_mm {delante:g} + detras_mm {detras:g} = {delante + detras:g} "
@@ -259,6 +269,35 @@ def _recorte(err: _Err, crudo, params: dict, familia: str | None) -> tuple[float
         raise err("puerta.recorte_mm", f"el hueco {ancho:g}×{alto:g} es menor que el cuerpo {cw:g}×{ch:g} "
                                        "que lo atraviesa")
     return (ancho, alto)
+
+
+def agujero_mm(specs: dict | None, ref: str = "?") -> float | None:
+    """El Ø en mm de `specs.agujero` («Ø22,5» o «Ø22.5»; None si la ficha no lo da). Mal
+    escrito → ValueError con lo que se espera."""
+    crudo = (specs or {}).get("agujero")
+    if crudo is None:
+        return None
+    texto = str(crudo).strip().lstrip("Øø⌀").strip().replace(",", ".")
+    try:
+        d = float(texto)
+    except ValueError:
+        d = 0.0
+    if not d > 0:
+        raise ValueError(f"Componente '{ref}': specs.agujero «{crudo}»: se espera el Ø del agujero de "
+                         "montaje en mm, como «Ø22,5»")
+    return d
+
+
+def verificar_agujero(specs: dict | None, familia: str | None, tablero: FichaTablero | None,
+                      ref: str) -> None:
+    """Al cargar: `specs.agujero` se lee y, en un mando de puerta, su builder tiene cuello (una
+    caja de `FAMILIAS_CAJA` cruzaría la chapa del corte redondo: interferencia)."""
+    if agujero_mm(specs, ref) is None or tablero is None or tablero.puerta is None:
+        return
+    if familia in FAMILIAS_CAJA:
+        raise ValueError(f"Componente '{ref}': specs.agujero «{specs['agujero']}» con builder «{familia}»: "
+                         "la puerta corta el agujero redondo y la caja cruzaría la chapa; usa un "
+                         "builder con cuello (`mando_22`, `seta_emergencia`)")
 
 
 def _acople(err: _Err, crudo) -> Acople:

@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `7d28ae5`; F1 (la serie Ø22 con su agujero y su corte redondo) y F2 (lecturas livianas y el ERC que nombra el conductor) por implementar
+nota: contrato de Claude con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `7d28ae5`; F1 hecha (la serie Ø22 con `specs.agujero` de ficha leída, builder `mando_22` con cuello, la puerta corta redondo, epoch 8 y `layout_tablero` v2; queda: los acabados de color de los mandos, D-a); F2 (lecturas livianas y el ERC que nombra el conductor) por implementar
 descripcion: los pulsadores, pilotos y selectores Ø22 dicen su agujero y la puerta 3D los corta redondos; get_circuit con tablero pesa poco, run_batch resumido devuelve los ids creados y el ERC nombra cada conductor por sus extremos
 ---
 
@@ -113,3 +113,57 @@ F1 y F2 no comparten archivos: van en paralelo.
 - **Un agente que lee `conductor N` como clave**: D4 deja el índice en un campo estructurado.
 
 ## Bitácora
+
+### F1 — La serie Ø22 con su agujero y su corte redondo
+
+**D1.** Las 8 refs Ø22 de `123_mandos_puerta.yaml` (3 pulsadores, 2 selectores, 3 pilotos) llevan
+`specs.agujero: "Ø22,5"`. El dato es de una ficha LEÍDA, no de la seta: las fichas de producto
+Harmony XB5AA31, XB5AD21 y XB5AVB3 (schneider-electric.cn, bajadas el 2026-10-25) dan «安装直径
+22.5 mm» (diámetro de montaje) y su hoja de recorte, que vale para «Pushbuttons, Switches and Pilot
+Lights», «Ø22.5 mm recommended (Ø22.3 0+0.4)» y chapa de 1 a 6 mm. Va en la `fuente` compartida de
+la serie (`&fuente_xb5`), con las fichas que se leyeron; las cotas siguen `cotas_verificadas: false`.
+`huecos_por_ref(refs, catalogo)` corta un círculo para TODA ref con `specs.agujero`, con el Ø de
+su ficha (`ficha_tablero.agujero_mm`, acepta coma o punto); se borró el caso por familia y
+`commands/tablero.py` ya no pasa `AGUJERO_D` (queda en `builders_mandos` como default de
+referencia).
+
+**D2.** Builder `mando_22` en `builders_mandos.py` (312 líneas): marco de la seta de puerta
+(origen en la cara de apoyo, +Z al operador, apoyo −Z en `APOYO_POR_FAMILIA`), bisel Ø30 × 8 y
+delante el botón o la lente Ø24 o la maneta 8 × 24 hasta `delante`; cuello Ø22 por la chapa;
+portacontactos `width` × `height` de z = −`panel_mm` (2, como la seta) a −`detras`. Anclas
+`montaje` y `agujero` = las de la seta. La huella medida es la de la caja de antes (30 × 30 ×
+(delante + detras): 50, 55 o 45), así que la colocación no cambia (`test_el_catalogo_da_lo_mismo_
+que_el_fixture` sigue verde con el fixture congelado sin tocar). Volúmenes medidos: pulsador
+40 625 mm³, selector 40 543, piloto 37 020 (la caja era 45 000 / 49 500 / 40 500).
+
+**D3.** `GEOM_CACHE_EPOCH` 7 → 8 (motivo en `geomcache.py`) y `layout_tablero` v2 (su huella D11
+no cambia: el cambio vive en `tablero_geom.py`).
+
+- **D-a (vetable): el `mando_22` NO es ZONADO.** El verde, el azul y el ámbar no están en
+  `apariencia.ACABADOS`, y sumarlos obliga a regenerar `ui/src/viewport/acabados.json` (fuera
+  del alcance de la F1); un botón verde pintado de otro acabado engañaría. La pieza se ve de un
+  acabado, como la caja de antes. Pendiente: los acabados de color de los mandos y sus `zonas`.
+- **D-b: el loader verifica lo que el builder repite.** `delante`/`detras` son params del builder
+  (lo parten) y también `tablero.puerta`: `ficha_tablero._puerta` rechaza que difieran. Y
+  `verificar_agujero` rechaza al cargar una ref de puerta con `specs.agujero` y builder caja
+  (`FAMILIAS_CAJA`): cruzaría la chapa del corte redondo. Regla en `library/CLAUDE.md`.
+- **D-c: `panel_mm` 1–6 mm** (la «clamping thickness» de la ficha), no el 0,5–6 de la seta.
+- **D-d: la seta no se tocó.** Su `specs.agujero` ya estaba; su ficha (XB5AS8445) no se releyó
+  en esta fase. La misma hoja de recorte nombra las setas en su nota (2).
+- **D-e: la v2 de `layout_tablero` entra en la firma de TODO compuesto** (`insert_project`,
+  `create_belt_conveyor`, `create_roller_conveyor` llevan las versiones ≠ 1): con el bump del
+  epoch el costo es el mismo (un replay frío por proyecto). `test_sin_el_comando_las_firmas_de_
+  siempre` se ajustó a eso: la firma de un compuesto suma `layout_tablero@2` y nada más.
+
+Tests: `tests/test_mando_22.py` (nuevo): toda ref con `specs.agujero` sale círculo con su Ø; el
+agujero mal escrito no carga; una caja con agujero no carga; huella, origen y anclas de las 8
+refs; por una chapa de 1,5 mm pasa sólo el cuello Ø22; en la piloto la puerta tiene 5 agujeros
+redondos (S0, S1, S2, H1, H2; Q1 sigue en su recorte por la huella), ningún mando se mete en la
+chapa (volumen común < 0,001 mm³) y el gabinete sigue siendo el TABLERO-5040. Cambiados:
+`test_contrato_comandos.py` (layout_tablero v2, misma huella), `test_layout_tablero.py` (D-e) y
+`test_colocacion_tablero.py::test_un_mando_de_puerta_sin_su_fondo_partido_no_se_coloca` (el
+`mando_22` no es caja: sin `medir` no tiene cotas; el test le pasa la huella para seguir
+probando lo mismo). Listas cerradas que suman lo nuevo: `test_catalog_cadenas.py` (las anclas por
+familia suman `mando_22`) y `test_version_comandos.py` (la firma de `insert_project` suma
+`layout_tablero@2`). Ningún test congelado de volúmenes cambió. Suite completa (`-n auto`, en el
+worktree) exit 0; `ruff check core tests scripts` limpio.

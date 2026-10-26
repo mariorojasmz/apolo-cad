@@ -7,22 +7,25 @@ placa, y la matriz que lleva una ref del catálogo (centrada en su caja) a su ca
 from __future__ import annotations
 
 from apolo.library.electrico.armado import Armado, Caja, Pieza
+from apolo.library.electrico.ficha_tablero import agujero_mm
 
 from .errors import CommandError
 
 _SOLAPE = 0.5  # lo que una herramienta de corte sobresale (regla de library/CLAUDE.md)
 
 
-def huecos_por_ref(refs, catalogo, agujero_seta: float) -> dict[str, tuple]:
-    """Lo que la puerta NO recorta con la huella de la caja de una ref: la seta, el Ø de su serie
-    («circulo», d); un mando con `tablero.puerta.recorte_mm` (el panel de operador), su recorte
-    («rect», ancho, alto). Las demás refs no van: su hueco es su caja."""
+def huecos_por_ref(refs, catalogo) -> dict[str, tuple]:
+    """Lo que la puerta NO recorta con la huella de la caja de una ref: la que da su agujero de
+    montaje en la ficha (`specs.agujero`: la seta y la serie Ø22), ese Ø («circulo», d); un mando
+    con `tablero.puerta.recorte_mm` (el panel de operador), su recorte («rect», ancho, alto). Las
+    demás refs no van: su hueco es su caja (plan pedidos-de-extensiones-ii D1)."""
     out: dict[str, tuple] = {}
     for r in sorted(refs):
         comp = catalogo[r]
         marco = comp.tablero.puerta if comp.tablero is not None else None
-        if comp.familia == "seta_emergencia":
-            out[r] = ("circulo", agujero_seta)
+        d = agujero_mm(comp.specs, r)
+        if d is not None:
+            out[r] = ("circulo", d)
         elif marco is not None and marco.recorte_mm is not None:
             out[r] = ("rect", *marco.recorte_mm)
     return out
@@ -52,7 +55,8 @@ def cuerpo(a: Armado):
 
 
 def puerta(a: Armado):
-    """La chapa de la puerta con un hueco por mando (la huella de su caja o el Ø de su serie)."""
+    """La chapa de la puerta con un hueco por mando (la huella de su caja, su recorte o el Ø de su
+    ficha)."""
     from build123d import Box, Cylinder, Pos, Rotation
 
     c = a.pieza("puerta").caja

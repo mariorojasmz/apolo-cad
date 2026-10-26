@@ -224,10 +224,13 @@ def test_girado_en_z_la_puerta_sigue_abriendo():
 
 # ── D12: vigencia y firma ───────────────────────────────────────────────────────────────────
 def test_sin_el_comando_las_firmas_de_siempre():
+    """Un compuesto lleva TODAS las versiones ≠ 1: desde la v2 del layout (pedidos-de-extensiones-ii
+    D3, junto al bump de GEOM_CACHE_EPOCH) suma `layout_tablero@2` y nada más."""
     sin = {k: v for k, v in REGISTRY.items() if k != "layout_tablero"}
     for tipo in ("insert_project", "create_belt_conveyor", "create_roller_conveyor"):
-        assert version_tag(REGISTRY, tipo) == version_tag(sin, tipo)
-    assert REGISTRY["layout_tablero"].version == 1 and REGISTRY["layout_tablero"].lee_carril
+        con = version_tag(REGISTRY, tipo)
+        assert "layout_tablero@2" in con and con.replace("layout_tablero@2,", "") == version_tag(sin, tipo)
+    assert REGISTRY["layout_tablero"].version == 2 and REGISTRY["layout_tablero"].lee_carril
 
 
 @pytest.fixture

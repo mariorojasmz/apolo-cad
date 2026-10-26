@@ -28,8 +28,10 @@ Lo de catálogo y BOM en general: [library](../CLAUDE.md); los modelos de la co-
   bump. Una ref de puerta nueva lo trae o la colocación la rechaza. Un aparato que va en un
   RECORTE de la puerta declara `tablero.puerta.recorte_mm` [ancho, alto] (sin él, la huella de su
   caja) y usa el builder `panel_puerta` (marco delante, cuerpo menor que el recorte: una caja entera chocaría con la
-  chapa).
-  [V8.5](../../../../docs/plans/V8.5-tablero-3d.md)
+  chapa). El que va en un AGUJERO redondo declara `specs.agujero` («Ø22,5», de la ficha leída: la
+  puerta corta ese Ø, `ficha_tablero.agujero_mm`) y un builder con cuello (`mando_22`,
+  `seta_emergencia`; una caja no carga). [V8.5](../../../../docs/plans/V8.5-tablero-3d.md) ·
+  [pedidos-ii](../../../../docs/plans/pedidos-de-extensiones-ii.md) (D1)
 
 ## Modelo y ERC
 

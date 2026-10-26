@@ -17,7 +17,7 @@ Lo que se arma (cada cifra que no es del catálogo, en `supuestos`):
   queda donde dice `fondo_util` (lo que verificó la colocación) y los espárragos crecen: se
   declara en `supuestos`;
 - la PUERTA (chapa del frente entero) con un hueco por mando: la huella de su caja de
-  catálogo o, en una seta, el Ø22,5 de la serie Ø22, o el RECORTE rectangular que pide su ficha
+  catálogo o, si su ficha da `specs.agujero` (la seta, la serie Ø22), ese Ø, o el RECORTE que pide su ficha
   (un panel de operador, centrado en su caja: plan plc-en-el-lazo, D12); la bisagra va en su arista exterior del
   lado de `bisagra` (eje vertical: −Z a la izquierda, +Z a la derecha, para que el valor
   positivo de la junta ABRA hacia afuera);
