@@ -218,4 +218,4 @@ class GroundParams(BaseModel):
 
     name: str = Field(..., pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=40, title="Nombre")
     feature: str = Field(..., title="Sólido anclado", description="id de feature")
-    nota: str = Field("", max_length=120, title="Nota")
+    nota: str = Field("", max_length=500, title="Nota")

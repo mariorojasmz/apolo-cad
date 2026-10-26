@@ -28,7 +28,8 @@ HOLGURA_MM = 5.0
 
 
 def prever(scene: dict, joints: dict, fasteners: dict, grounds: dict, peticion: dict, *,
-           mates=None, duracion_max_s: float | None = None) -> SimpleNamespace | None:
+           mates=None, duracion_max_s: float | None = None,
+           sujetas=None) -> SimpleNamespace | None:
     """Lo que `prepare_dynamics` hará con las bandas (cuáles simula, qué cuerpos arma, qué queda
     fuera y por qué) con su MISMA lógica pura (`detectar_bandas`, `clasificar`), sin cascos.
     Toma TODAS las piezas no guía (la preparación descarta además las de volumen nulo): sus
@@ -49,7 +50,7 @@ def prever(scene: dict, joints: dict, fasteners: dict, grounds: dict, peticion: 
     except PhysicsError:
         return None
     cls = clasificar(set(escena), {**joints, **virtuales}, fasteners, grounds, mates,
-                     quitar={b[0] for b in req})
+                     quitar={b[0] for b in req}, sujetas=sujetas)
     avisos = avisos + cls.avisos + [f"'{fid}' queda FUERA de la simulación: {m}"
                                     for fid, m in sorted(cls.fuera.items())]
     avisos += [f"La banda '{b[0]}' no se simula: su junta motriz '{b[1]}' quedó fuera"

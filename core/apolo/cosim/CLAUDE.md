@@ -99,6 +99,8 @@ backend: [core/apolo](../CLAUDE.md).
   API sobre el JSON del worker (`veredicto.py`, puro): el worker no las ve. Un ancla nueva o una
   ventana nueva va en los dos módulos con su caso verde y rojo (`test_cosim_aserciones.py`).
   Los acoples motor ↔ junta y sensor ↔ rayo siguen en el escenario, no en el carril (F5 § Bitácora).
+  `siempre`/`nunca` se acotan con «hasta <ancla> [+ N s]» (`hasta`, `hasta_tras_ms`); un ancla
+  de `hasta` que no ocurrió FALLA, como la de `desde`. [trabas-de-modelado](../../../docs/plans/trabas-de-modelado.md) (D4)
 - Un escenario no puede dar verde TRIVIAL: lo que la preparación de la dinámica avisa llega al
   resultado («mecánica: …») y una banda que no avanza con productos o aserciones encima es 400
   (`services/cosim_bandas.py`). Un ajuste obligatorio se lee con `p.ajustado` (así

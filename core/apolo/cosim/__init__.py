@@ -32,4 +32,9 @@ Este `__init__` no importa nada: el worker importa sólo lo que usa, sin OCCT.
 #: 8 (balance-de-producto, trabas de flujo): el producto RETIRADO por un sumidero se queda con la
 #: posición en que se retiró (`<producto>.x_mm/y_mm/z_mm`, antes sin valor tras salir): un
 #: escenario sano con sumideros cambia de trazas y «caja.x_mm >= … al_final» pasa de falla a pasa.
-COSIM_EPOCH = 8
+#: 9 (trabas-de-modelado D2b): la tornillería de un `join_bolted` declarado entra a la dinámica
+#: (estática con su pieza estática o en el cuerpo de su pieza móvil) en vez de quedar FUERA: el
+#: MJCF de toda máquina con `join_bolted` cambia (sus cabezas y tuercas chocan con el producto).
+#: Y las aserciones `siempre`/`nunca` aceptan «hasta <ancla> [+ N s]» (D4; ningún escenario
+#: guardado la usa).
+COSIM_EPOCH = 9

@@ -137,9 +137,37 @@ def _scene_brief(payload: dict, detail: str = "diff") -> dict:
     include_vars = detail == "full" or not affected or bool(affected & var_ids)
     if include_vars:
         out["variables"] = doc.get("variables")
+        # trabas-de-modelado D5 (~6 kB por set_variable); sin `command_id` no se sabe cuáles
+        if detail != "full" and affected and any("command_id" in v for v in out["variables"] or []):
+            tocadas = variables_tocadas(out["variables"] or [], affected)
+            omitidas = len(out["variables"] or []) - len(tocadas)
+            if omitidas:
+                out["variables"] = tocadas
+                out["variables_omitidas"] = omitidas
     if payload.get("aviso_estructura"):  # alarma ambiental (V6.9-B): 0 anclajes declarados
         out["aviso_estructura"] = payload["aviso_estructura"]
     return out
+
+
+def _nombres(expr: str) -> set:
+    """Los identificadores de una expresión (sin `re`: este módulo no importa nada)."""
+    limpio = "".join(c if c.isalnum() or c == "_" else " " for c in expr)
+    return {t for t in limpio.split() if not t[0].isdigit()}
+
+
+def variables_tocadas(variables: list, afectados: set) -> list:
+    """Las variables de los `set_variable` afectados y las que dependen de ellas (las que las
+    nombran en su expresión, en cadena), en el orden del documento (plan trabas-de-modelado, D5:
+    lo que cambió y lo que arrastró, sin las ~30 que no se movieron)."""
+    nombres = {v.get("name") for v in variables if v.get("command_id") in afectados}
+    cambio = True
+    while cambio:
+        cambio = False
+        for v in variables:
+            if v.get("name") not in nombres and nombres & _nombres(str(v.get("expression", ""))):
+                nombres.add(v.get("name"))
+                cambio = True
+    return [v for v in variables if v.get("name") in nombres]
 
 
 def brief_apertura(payload: dict) -> dict:

@@ -126,9 +126,10 @@ def test_brief_omits_variables_on_geometry_edit():
 
 
 def test_brief_includes_variables_when_var_changed():
-    """Si el afectado es un set_variable, SÍ se incluyen las variables."""
-    p = _payload_cmds([_feat("c1", "c1")], ["v1"], _CMDS, [{"name": "R"}])
-    assert _scene_brief(p, "diff").get("variables") == [{"name": "R"}]
+    """Si el afectado es un set_variable, SÍ se incluyen las variables (las suyas y las que
+    dependen de ellas: trabas-de-modelado D5, `tests/test_trabas_de_modelado.py`)."""
+    p = _payload_cmds([_feat("c1", "c1")], ["v1"], _CMDS, [{"name": "R", "command_id": "v1"}])
+    assert _scene_brief(p, "diff").get("variables") == [{"name": "R", "command_id": "v1"}]
 
 
 def test_brief_includes_variables_on_full():

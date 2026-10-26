@@ -257,8 +257,19 @@ def evaluar_una(a: dict, lec: Lector) -> dict:
         ultimo = pts[-1][1] if pts else None
         return {**out, "detalle": f"no se cumple en [{t0:g}, {t1:g}] s{corte}: termina en "
                                   f"{_fmt(ultimo)}{_extremo(pts, op)}"}
-    pts = lec.puntos(n, t0, lec.dur)
+    t_fin = lec.dur
+    if "hasta" in a:  # trabas-de-modelado D4: la ventana termina en el ancla `hasta` (+ margen)
+        th = lec.ancla(a["hasta"])
+        if th is None:
+            return {**out, "detalle": f"«{texto_ancla(a['hasta'])}» no ocurrió en la corrida"}
+        t_fin = min(lec.dur, th + a.get("hasta_tras_ms", 0.0) / 1000.0)
+        if t_fin < t0 - EPS_T:
+            return {**out, "detalle": f"la ventana termina (t = {t_fin:g} s) antes de empezar "
+                                      f"(t = {t0:g} s): revisa el orden de «desde» y «hasta»"}
+    pts = lec.puntos(n, t0, t_fin)
     desde = f" desde t = {t0:g} s" if "desde" in a else ""
+    if "hasta" in a:
+        desde += f" hasta t = {t_fin:g} s"
 
     def margen(t: float) -> str:
         """Sin margen y a pocos ms del ancla: probablemente el tiempo de reacción del tablero."""

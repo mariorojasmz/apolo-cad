@@ -351,11 +351,12 @@ def preparar_prueba(doc, escenario: dict):
     usa la serie del visor). Devuelve (snap, visual); `SinMarcha` si no hay nada que simular."""
     from apolo.physics.dinamica import prepare_dynamics
     from apolo.physics.sim import PhysicsError
+    from apolo.services.delivery_inputs import tornilleria_join_bolted
     from apolo.services.marcha_visual import bandas_de_snap, extraer_marcha_visual
 
     try:
         snap = prepare_dynamics(doc.scene, doc.joints, doc.fasteners, doc.grounds, escenario,
-                                mates=doc.mates)
+                                mates=doc.mates, sujetas=tornilleria_join_bolted(doc))
     except PhysicsError as exc:
         raise SinMarcha(f"la simulación falló: {exc}") from None
     if snap.early is not None:

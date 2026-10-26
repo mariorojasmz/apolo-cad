@@ -10,8 +10,12 @@ Unidades: N, MPa, mm².
 
 from __future__ import annotations
 
-# Área resistente a tracción As (mm²) por métrica — ISO 898-1, paso grueso.
+# Área resistente a tracción As (mm²) por métrica — ISO 898-1, paso grueso. M3–M5 (plan
+# trabas-de-modelado D3): tornillería chica de rieles, patines y detectores que `fasten` declara.
 TENSILE_AREA_MM2 = {
+    "M3": 5.03,
+    "M4": 8.78,
+    "M5": 14.2,
     "M6": 20.1,
     "M8": 36.6,
     "M10": 58.0,

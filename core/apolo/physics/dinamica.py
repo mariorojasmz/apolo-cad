@@ -100,10 +100,12 @@ def _geoms_cascos(nombre: str, cascos_mm: list) -> list:
 
 
 def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = None, *,
-                     mates=None, duracion_max_s: float | None = None) -> DynamicsSnapshot:
+                     mates=None, duracion_max_s: float | None = None,
+                     sujetas=None) -> DynamicsSnapshot:
     """FASE OCCT (bajo STATE_LOCK). `request` es la petición D3–D8 (ver `dinamica_peticion`).
     `duracion_max_s`: el tope de quien corre (la co-simulación pasa el de su escenario; None, el
-    de la dinámica suelta). Lanza `PhysicsError` con un mensaje accionable si algo no sirve."""
+    de la dinámica suelta). `sujetas`: la tornillería de las uniones declaradas
+    (`dinamica_cuerpos.clasificar`). Lanza `PhysicsError` con un mensaje accionable si algo no sirve."""
     pet = parse_peticion(request, duracion_max_s=duracion_max_s)
     avisos: list[str] = []
     ids = _elegibles(scene)
@@ -119,7 +121,7 @@ def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = N
         extra_edges = [(c["a"], c["b"]) for c in det["fasteners"]]
         extra_grounds = [g["feature"] for g in det["grounds"]]
     cls = clasificar(ids, todas, fasteners, grounds, mates, extra_edges, extra_grounds,
-                     quitar={b[0] for b in bandas_req})
+                     quitar={b[0] for b in bandas_req}, sujetas=sujetas)
     avisos += cls.avisos
     fuera = sorted(cls.fuera.items())
     for fid, motivo in fuera[:20]:

@@ -211,3 +211,7 @@ entrada estricta de params), `errors.py` (`CommandError`) y `expressions.py` (mo
 - `=expr` acepta ternario `a if c else b` (PEREZOSO: la rama no tomada no se evalúa),
   comparadores encadenados y `and`/`or` (colapsan a 1.0/0.0); sin strings, listas, `in`, `is` ni
   lambda. [V6.4](../../../docs/plans/V6.4-parametrico-profundo.md)
+- `sin/cos/tan` toman GRADOS desde siempre: no se cambia (rompe logs). `avisos_expresion` avisa el
+  argumento con `…pi/180` (`resolve_expression` → `aviso`, `POST /api/variables` →
+  `avisos_expresion`); un aviso nuevo de «se evalúa pero dice otra cosa» va ahí.
+  [trabas-de-modelado](../../../docs/plans/trabas-de-modelado.md) (D1)

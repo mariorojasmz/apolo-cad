@@ -173,6 +173,48 @@ def resolve_all(raw_variables: dict[str, Any]) -> dict[str, float]:
     return resolved
 
 
+_TRIG = ("sin", "cos", "tan")
+#: Lo que la gramática dice de los ángulos (plan trabas-de-modelado, D1).
+ANGULOS = ("sin/cos/tan toman GRADOS: tan(30) = 0,577. No conviertas a radianes con pi/180: "
+           "tan(a*pi/180) es la tangente de a·π/180 GRADOS (≈ 0).")
+
+
+def _lleva_pi(nodo: ast.AST) -> bool:
+    return any(isinstance(n, ast.Name) and n.id == "pi" for n in ast.walk(nodo))
+
+
+def _es_180(nodo: ast.AST) -> bool:
+    return isinstance(nodo, ast.Constant) and nodo.value in (180, 180.0)
+
+
+def avisos_expresion(expr: str) -> list[str]:
+    """Avisos (no errores) de una expresión que se evalúa bien pero casi seguro dice otra cosa:
+    un argumento de sin/cos/tan que divide por 180 algo que lleva `pi` (`tan(a*pi/180)`) es un
+    ángulo convertido a RADIANES, y las trigonométricas toman GRADOS (plan trabas-de-modelado,
+    D1: el modelador obtuvo 0,0009 en vez de 0,052). Una expresión mal escrita no avisa: su error
+    es el de la evaluación."""
+    texto = str(expr).strip()
+    if texto.startswith(EXPR_PREFIX):
+        texto = texto[1:]
+    try:
+        arbol = ast.parse(texto, mode="eval")
+    except SyntaxError:
+        return []
+    out = []
+    for nodo in ast.walk(arbol):
+        if not (isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Name)
+                and nodo.func.id in _TRIG):
+            continue
+        for arg in nodo.args:
+            if any(isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div) and _es_180(n.right)
+                   and _lleva_pi(n.left) for n in ast.walk(arg)):
+                out.append(f"{nodo.func.id}() toma GRADOS: «{ast.unparse(arg)}» convierte a radianes "
+                           f"con pi/180 y da el {nodo.func.id} de un ángulo casi nulo; pasa el ángulo "
+                           "en grados tal cual (tan(30) = 0,577)")
+                break
+    return out
+
+
 def resolve_params(value: Any, resolved_vars: dict[str, float],
                    literales: tuple[str, ...] = ()) -> Any:
     """Sustituye recursivamente las cadenas '=expr' por su valor numérico. `literales` = claves

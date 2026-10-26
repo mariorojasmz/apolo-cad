@@ -22,7 +22,9 @@ def registrar(mcp, _api) -> dict[str, Callable]:
     @mcp.tool()
     def resolve_expression(expression: str) -> str:
         """Evalúa una expresión (=expr) contra las variables del proyecto SIN modificar nada;
-        devuelve {ok, value} o {ok:false, error}. Para comprobar una fórmula antes de usarla."""
+        devuelve {ok, value} o {ok:false, error}, con `aviso` si casi seguro dice otra cosa
+        (sin/cos/tan toman GRADOS: tan(30) = 0,577; no conviertas con pi/180). Para comprobar
+        una fórmula antes de usarla."""
         return json.dumps(
             _api("GET", "/api/resolve-expression", params={"expr": expression}).json(),
             ensure_ascii=False,

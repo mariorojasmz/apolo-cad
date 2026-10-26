@@ -372,8 +372,17 @@ def set_variable(body: VariableIn, async_: bool = Query(False, alias="async")):
                          and c["params"].get("name") == body.name), None)
         return S.doc.edit(existing, params) if existing else S.doc.execute("set_variable", params)
 
+    def con_avisos() -> dict:  # trabas-de-modelado D1: sólo con aviso (si no, byte-idéntico)
+        from apolo.commands.expressions import avisos_expresion
+
+        out = _state_or_error(run)
+        avisos = avisos_expresion(body.expression)
+        if avisos and isinstance(out, dict):
+            out["avisos_expresion"] = avisos
+        return out
+
     # una variable en la cabecera replaya TODO el log: es la mutación que más tarda (D8)
-    return _sync_or_job("set_variable", lambda: _state_or_error(run), async_)
+    return _sync_or_job("set_variable", con_avisos, async_)
 
 
 @router.delete("/api/variables/{name}")

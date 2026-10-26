@@ -365,13 +365,17 @@ def test_script_endpoint(body: ScriptTestIn) -> dict:
 @router.get("/api/resolve-expression")
 def resolve_expression_endpoint(expr: str) -> dict:
     """Evalúa una expresión aritmética contra las variables del proyecto. No muta nada."""
-    from apolo.commands.expressions import ExpressionError, eval_expression
+    from apolo.commands.expressions import ExpressionError, avisos_expresion, eval_expression
 
     with STATE_LOCK:
         variables = dict(S.doc.variables_resolved)
     try:
         value = eval_expression(expr, variables)
-        return {"ok": True, "value": round(float(value), 9), "expression": expr}
+        out = {"ok": True, "value": round(float(value), 9), "expression": expr}
+        avisos = avisos_expresion(expr)  # trabas-de-modelado D1: grados, no radianes
+        if avisos:
+            out["aviso"] = "; ".join(avisos)
+        return out
     except ExpressionError as exc:
         return {"ok": False, "error": str(exc), "expression": expr}
 
@@ -380,11 +384,12 @@ def resolve_expression_endpoint(expr: str) -> dict:
 def expression_grammar() -> dict:
     """Gramática permitida en campos '=expr': funciones, constantes, operadores y
     las variables del proyecto disponibles."""
-    from apolo.commands.expressions import ALLOWED_CONSTANTS, ALLOWED_FUNCS
+    from apolo.commands.expressions import ALLOWED_CONSTANTS, ALLOWED_FUNCS, ANGULOS
 
     with STATE_LOCK:
         project_vars = sorted(S.doc.variables_resolved)
     return {
+        "angulos": ANGULOS,
         "functions": sorted(ALLOWED_FUNCS),
         "constants": sorted(ALLOWED_CONSTANTS),
         "operators": ["+", "-", "*", "/", "//", "%", "**"],

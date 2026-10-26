@@ -148,8 +148,9 @@ def registrar(mcp, api, esperar) -> None:
                       "-T2.f_Hz <= 61 siempre", "-K1.Main.en_marcha nunca desde liberar -S0",
                       "-M1.rpm > 100 en 2,5 s"]}
         Ventanas: al_final, en t, dentro_de Δ desde <acción o evento> [y se mantiene D s] (sin
-        «y se mantiene» basta TOCAR el valor), siempre/nunca [desde … [+ 50 ms]] (sin margen
-        miran también el instante del ancla: el filtro de entrada, el scan y el STO tardan ms).
+        «y se mantiene» basta TOCAR el valor), siempre/nunca [desde … [+ 50 ms]] [hasta … [+ 6 s]]
+        (sin margen miran también el instante del ancla: el filtro de entrada, el scan y el STO
+        tardan ms; «hasta» corta la ventana en ese ancla más el margen).
         La comparación tipa: un texto con una señal de texto, true/false con una booleana; sin
         comparación, una booleana es «== true» y un texto «no vacío» (una numérica pide su
         umbral). Los tipos se revisan AL DECLARAR (400 con la forma correcta). Córrelo con simulate(escenario="<nombre>"): el resultado queda guardado con su vigencia."""

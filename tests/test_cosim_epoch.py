@@ -203,7 +203,11 @@ ARCHIVOS = (
 #: co-simulación toma el tope del ESCENARIO (300 s; antes un escenario de más de 60 s era 400 al
 #: correr: ningún resultado guardado) y `flujo.ritmo_por_min` es el declarado (no entra al
 #: snapshot).
-HUELLA: tuple[int, str] = (8, "6d7524f32865d796")
+#: 9 — trabas-de-modelado D2b: la tornillería de un `join_bolted` declarado entra a la dinámica
+#: (`clasificar(sujetas=)`, desde `cosim_snapshot` y `cosim_bandas.prever`) en vez de quedar FUERA:
+#: cambia el MJCF de toda máquina con `join_bolted`. En el mismo cambio, D4: `hasta <ancla>` en
+#: `siempre`/`nunca` (aserciones.py, veredicto.py), que antes era 400 al declarar.
+HUELLA: tuple[int, str] = (9, "9ac07c32249bb479")
 
 
 def archivos() -> list[Path]:

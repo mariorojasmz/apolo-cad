@@ -50,7 +50,8 @@ backend: se mantiene ≤ 10 KB.
   ahí. `tests/test_mcp_brief.py` exige el mismo texto. Con `detail="diff"` lista sólo los sólidos de
   `affected_command_ids`, también por PREFIJO (las piezas de un `insert_project` llevan
   command_id sintético `{cmd}_{orig}`); `variables` viaja sólo si la operación tocó un
-  `set_variable`. Pasa al agente `contrato` y `aviso_estructura` ([api](api/CLAUDE.md)).
+  `set_variable`, y sólo las tocadas y las que dependen de ellas (`variables_omitidas`,
+  [trabas-de-modelado](../../docs/plans/trabas-de-modelado.md) D5). Pasa al agente `contrato` y `aviso_estructura` ([api](api/CLAUDE.md)).
 - Toda mutación que regenera (`run_command`, `edit_command`, `set_variable`, `run_batch`,
   `edit_batch`, `remove_commands`) SIEMPRE encola como job (`_mutacion` → `_submit_and_wait`) y espera
   `APOLO_MCP_WAIT_S` (90 s: bajo los 120 de httpx y los ~180 del host). Si no llega, devuelve un

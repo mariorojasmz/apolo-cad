@@ -32,6 +32,9 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
 - Sujeción SIN cruzar juntas móviles: lo móvil sale del grafo antes de buscar tierra (un
   tambor fijado a su chumacera sigue girando). Un cuerpo = hijo + juntas `fija`, como la FK;
   lo fijado por `fasten` a una pieza móvil sin junta queda FUERA y el aviso pide `arrastrar`.
+  La tornillería de un `join_bolted` declarado entra por `sujetas` (estática con su pieza
+  estática, o en el cuerpo de su pieza móvil): todo llamador de `prepare_dynamics` pasa
+  `delivery_inputs.tornilleria_join_bolted(doc)`. [trabas-de-modelado](../../../docs/plans/trabas-de-modelado.md) (D2)
 - La inercia sale del SÓLIDO (GProp de OCCT, escalada a la masa: catálogo si hay ficha; el cuerpo
   y el vástago de un cilindro, `masas_de_ficha` —la co-sim ya no le suma armadura—,
   [pedidos-iii](../../../docs/plans/pedidos-de-extensiones-iii.md) D11; si no `_link_physics`),

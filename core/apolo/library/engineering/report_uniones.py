@@ -55,7 +55,7 @@ def _fastener_checks(scene, graph, masses, fasteners, catalog) -> list[dict]:
             if size.upper() not in TENSILE_AREA_MM2:
                 checks.append(_check(
                     f"unión apernada · {f.get('name')}", "aviso",
-                    f"{label}: métrica '{size}' fuera de tabla (M6–M24).",
+                    f"{label}: métrica '{size}' fuera de tabla (M3–M24).",
                 ))
                 continue
             if load_kg is None:

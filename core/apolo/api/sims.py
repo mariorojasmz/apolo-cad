@@ -102,6 +102,7 @@ def _dynamics(body: DynamicsIn, *, con_escena: bool = False):
     from apolo.physics.gif_dinamica import extraer_gif_dinamica
     from apolo.services.apariencia import apariencias_documento
     from apolo.services.definiciones import definiciones_de
+    from apolo.services.delivery_inputs import tornilleria_join_bolted
 
     peticion = dict(body.model_extra or {})
     escena = None
@@ -109,7 +110,8 @@ def _dynamics(body: DynamicsIn, *, con_escena: bool = False):
         with STATE_LOCK:
             d = S.doc
             proyecto = S.project_id
-            snap = prepare_dynamics(d.scene, d.joints, d.fasteners, d.grounds, peticion, mates=d.mates)
+            snap = prepare_dynamics(d.scene, d.joints, d.fasteners, d.grounds, peticion, mates=d.mates,
+                                    sujetas=tornilleria_join_bolted(d))
             if con_escena and snap.early is None:   # colores: los del viewport
                 escena = extraer_gif_dinamica(d.scene, snap.piezas, d.colors,
                                               apariencias=apariencias_documento(d),
@@ -265,6 +267,7 @@ def _serie_dinamica(peticion: dict) -> dict:
     from apolo.physics import PhysicsError
     from apolo.physics.dinamica import prepare_dynamics, simulate_dynamics
     from apolo.physics.dinamica_serie import hz_para, serie_reproduccion
+    from apolo.services.delivery_inputs import tornilleria_join_bolted
 
     peticion = {**peticion, "fps": HZ_SERIE}
     try:
@@ -275,7 +278,7 @@ def _serie_dinamica(peticion: dict) -> dict:
             hecha = MARCHAS.serie(clave)
             if hecha is None:
                 snap = prepare_dynamics(d.scene, d.joints, d.fasteners, d.grounds, peticion,
-                                        mates=d.mates)
+                                        mates=d.mates, sujetas=tornilleria_join_bolted(d))
                 vis = _extraer_visual(d, snap)   # misma adquisición: el mismo documento
         if hecha is not None:
             MARCHAS.recordar_escenario(proyecto, peticion)

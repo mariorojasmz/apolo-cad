@@ -28,7 +28,7 @@ def job_result(payload: dict, detail: str) -> dict:
     out = _scene_brief(payload, detail) if "features" in payload else dict(payload)
     if detail == "summary" and "features" in payload and payload.get("affected_command_ids"):
         out["comandos"] = list(payload["affected_command_ids"])
-    for clave in ("contrato", "uniones_expandidas"):
+    for clave in ("contrato", "uniones_expandidas", "avisos_expresion"):
         if clave in payload:
             out[clave] = payload[clave]
     return out

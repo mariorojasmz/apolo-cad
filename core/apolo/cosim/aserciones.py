@@ -28,6 +28,9 @@ Dos modificadores (V8.3 F6):
   - `dentro_de Δ desde <ancla> y se mantiene [D s]` (`mantener_s`, número o «fin»): no basta
     con TOCAR el valor; desde el primer instante t* ≤ t0 + Δ en que se cumple tiene que seguir
     cumpliéndose D segundos (sin D, hasta el final de la corrida).
+Y el fin de la ventana (plan trabas-de-modelado, D4): `siempre`/`nunca [desde A [+ m]] hasta B
+[+ N s|ms]` (`hasta`, `hasta_tras_ms`) mira sólo hasta t(B) + N: «caja_1.x_mm > 2495 nunca hasta
+pulsar -S1 + 6 s». Un `hasta` que no ocurrió falla con su motivo, como un `desde`.
 
 Sin comparación (F6b) la aserción pide que la señal SALGA DE SU REPOSO, según su tipo (lo
 resuelve `concretar` cuando se conoce): una booleana «== true»; un texto «no vacío» («!= ""»:
@@ -183,9 +186,23 @@ def _de_texto(s: str, donde: str) -> dict:
         d["delta_s"] = resto.pop(0)
         if resto[:1] == ["s"]:
             resto.pop(0)
+    if resto and re.search(r"\by\s+antes\s*$", " ".join(resto)):
+        raise AsercionInvalida(f"{donde}: «… y antes» no existe: para acotar la ventana HASTA un "
+                               "instante escribe «… nunca hasta pulsar -S1 + 6 s» (o «… desde A hasta "
+                               "B + 6 s»)")
+    if resto and "hasta" in resto:  # trabas-de-modelado D4: «… hasta <ancla> [+ N s|ms]»
+        k = resto.index("hasta")
+        cola_h = " ".join(resto[k + 1:])
+        m = _MARGEN.search(cola_h)
+        if m:
+            x = float(m.group(1).replace(",", "."))
+            d["hasta_tras_ms"] = x if m.group(2) == "ms" else x * 1000.0
+            cola_h = cola_h[:m.start()]
+        d["hasta"] = cola_h.strip()
+        resto = resto[:k]
     if resto:
         if resto[0] != "desde":
-            raise AsercionInvalida(f"{donde}: sobra «{' '.join(resto)}» (¿falta «desde»?)")
+            raise AsercionInvalida(f"{donde}: sobra «{' '.join(resto)}» (¿falta «desde» o «hasta»?)")
         cola = " ".join(resto[1:])
         m = _MANTIENE.search(cola)
         if m:
@@ -203,7 +220,8 @@ def _de_texto(s: str, donde: str) -> dict:
     return d
 
 
-_CLAVES = {"senal", "op", "valor", "ventana", "t", "delta_s", "desde", "tol", "tras_ms", "mantener_s"}
+_CLAVES = {"senal", "op", "valor", "ventana", "t", "delta_s", "desde", "tol", "tras_ms", "mantener_s",
+           "hasta", "hasta_tras_ms"}
 
 
 def leer_asercion(a, k: int, duracion: float, acciones=(), eventos=()) -> dict:
@@ -260,6 +278,19 @@ def leer_asercion(a, k: int, duracion: float, acciones=(), eventos=()) -> dict:
         if tras < 0:
             raise AsercionInvalida(f"{donde}: tras_ms = {tras:g}; tiene que ser ≥ 0 (ms después del ancla)")
         out["tras_ms"] = tras
+    if d.get("hasta"):  # D4 de trabas-de-modelado: el fin de la ventana de siempre/nunca
+        if ventana not in ("siempre", "nunca"):
+            raise AsercionInvalida(f"{donde}: «hasta» va con siempre o nunca: «caja.x_mm > 2495 nunca "
+                                   "hasta pulsar -S1 + 6 s» (dentro_de ya tiene su Δ)")
+        out["hasta"] = _ancla(d["hasta"], donde, acciones, eventos)
+        if d.get("hasta_tras_ms") is not None:
+            ht = _numero(d["hasta_tras_ms"], donde, "«hasta_tras_ms»")
+            if ht < 0:
+                raise AsercionInvalida(f"{donde}: hasta_tras_ms = {ht:g}; tiene que ser ≥ 0 (ms después "
+                                       "del ancla)")
+            out["hasta_tras_ms"] = ht
+    elif d.get("hasta_tras_ms") is not None:
+        raise AsercionInvalida(f"{donde}: «hasta_tras_ms» pide «hasta <ancla>»")
     if d.get("mantener_s") is not None:
         if ventana != "dentro_de":
             raise AsercionInvalida(f"{donde}: «y se mantiene» (`mantener_s`) va con dentro_de: "
@@ -292,6 +323,11 @@ def texto(a: dict) -> str:
         partes += ["desde", texto_ancla(a["desde"])]
     if "tras_ms" in a:
         partes += ["+", f"{a['tras_ms']:g}", "ms"]
+    if "hasta" in a:
+        partes += ["hasta", texto_ancla(a["hasta"])]
+        if "hasta_tras_ms" in a:
+            ms = a["hasta_tras_ms"]
+            partes += ["+", f"{ms / 1000:g}", "s"] if ms % 1000 == 0 else ["+", f"{ms:g}", "ms"]
     if "mantener_s" in a:
         partes += ["y se mantiene"] + ([] if a["mantener_s"] == FIN else [f"{a['mantener_s']:g}", "s"])
     if "tol" in a:

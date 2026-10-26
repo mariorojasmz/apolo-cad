@@ -42,11 +42,18 @@ class Clasificacion:
 
 
 def clasificar(ids, joints: dict, fasteners: dict, grounds: dict, mates: dict | None = None,
-               extra_edges=(), extra_grounds=(), quitar=()) -> Clasificacion:
+               extra_edges=(), extra_grounds=(), quitar=(), sujetas=None) -> Clasificacion:
     """Reparte las piezas `ids` entre estáticas, cuerpos móviles y fuera. `quitar` son las
     piezas que ya tienen otro rol (la banda: superficie, no cuerpo). Una junta con
-    `parent=None` cuelga del mundo (las virtuales de `banda.detectar_bandas`)."""
+    `parent=None` cuelga del mundo (las virtuales de `banda.detectar_bandas`).
+
+    `sujetas`: {pieza: (a, b)} — la tornillería de una unión DECLARADA (la de `join_bolted`,
+    `delivery_inputs.tornilleria_join_bolted`): estática si a o b lo es y, si no, del cuerpo
+    móvil de a o de b (los pernos del empujador van con el vástago). Sin ella quedaba FUERA
+    (plan trabas-de-modelado, D2b; la misma regla que `gravity_test`, V8.9 F7b)."""
     ids = set(ids) - set(quitar)
+    sujetas = {p: ab for p, ab in (sujetas or {}).items() if p in ids}
+    extra_edges = list(extra_edges) + [(p, x) for p, ab in sujetas.items() for x in ab]
     out = Clasificacion()
     juntas = {n: j for n, j in joints.items()
               if (j["parent"] in ids or (j["parent"] is None and j["type"] in MOVILES))
@@ -127,6 +134,13 @@ def clasificar(ids, joints: dict, fasteners: dict, grounds: dict, mates: dict | 
                 out.avisos.append(f"La junta '{n}' cuelga de un cuerpo excluido: queda fuera")
             break
 
+    de_cuerpo = {p: n for n, ps in out.cuerpos.items() for p in ps}
+    for p, ab in sorted(sujetas.items()):  # D2b: la tornillería viaja con la pieza que se mueve
+        if p in out.estaticas or p in de_cuerpo or p in pieza_cuerpo:
+            continue
+        n = next((de_cuerpo[x] for x in ab if x in de_cuerpo), None)
+        if n is not None:
+            out.cuerpos[n].append(p)
     en_cuerpo = {p for ps in out.cuerpos.values() for p in ps}
     vecinos_fijador: dict[str, set] = {}
     for f in fasteners.values():

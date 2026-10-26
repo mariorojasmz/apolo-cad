@@ -404,6 +404,26 @@ def colocar(aparatos: list[Aparato], gabinete: str, gabinetes: list[Gabinete],
                           + "; reparte los aparatos en dos ubicaciones o suma un gabinete mayor")
 
 
+#: Las reservas que se prueban, de mayor a menor, cuando el tablero no entra (trabas-de-modelado D7).
+RESERVAS_A_PROBAR = (0.15, 0.10, 0.05, 0.0)
+
+
+def reserva_que_entra(aparatos: list[Aparato], gabinete: str, gabinetes: list[Gabinete],
+                      overrides: dict | None, reglas: Reglas) -> float | None:
+    """La MAYOR reserva de `RESERVAS_A_PROBAR` (menor que la de `reglas`) con la que `colocar`
+    entra, o None. Sólo para el mensaje de error: la reserva es criterio de diseño (A13) y no se
+    baja sola (plan trabas-de-modelado, D7)."""
+    for r in RESERVAS_A_PROBAR:
+        if r >= reglas.reserva:
+            continue
+        try:
+            colocar(aparatos, gabinete, gabinetes, overrides, replace(reglas, reserva=r))
+        except ColocacionError:
+            continue
+        return r
+    return None
+
+
 def _entra(aparatos, gab, r, overrides, acoples) -> bool:
     try:
         _en(aparatos, gab, r, overrides, acoples)

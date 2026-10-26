@@ -98,7 +98,7 @@ def thread_spec(size: str) -> dict:
 
     area = None
     if not fino:
-        try:  # fuente única: tabla ISO 898-1 de bolts (métricas gruesas M6-M24)
+        try:  # fuente única: tabla ISO 898-1 de bolts (métricas gruesas M3-M24)
             from .bolts import TENSILE_AREA_MM2
 
             area = TENSILE_AREA_MM2.get(metric)

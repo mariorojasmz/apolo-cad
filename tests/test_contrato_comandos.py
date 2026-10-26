@@ -308,8 +308,9 @@ VERSIONES: dict[str, tuple[int, str]] = {
     "insert_project": (1, "01664975967281c6"),
     "join_bolted": (1, "24fbb11752560dc0"),  # criterio 2 (union-en-perfil-hueco): un log viejo trae 1 → misma geometría y firma
     # V8.5 F1b: comando nuevo; v2 (pedidos-de-extensiones-ii D3): corta redondo toda ref con
-    # `specs.agujero` (el cambio vive en tablero_geom.py, que la huella no ve)
-    "layout_tablero": (2, "bd337fa48c4d3f52"),
+    # `specs.agujero` (el cambio vive en tablero_geom.py, que la huella no ve); sólo huella
+    # (trabas-de-modelado D7): pasa su cmd_id a `plan` para el mensaje de la reserva, misma geometría
+    "layout_tablero": (2, "a7f115456010adaf"),
     "mirror_feature": (1, "6973b59545d49469"),
     "pattern_circular": (1, "608d05fdba3297c0"),
     "pattern_group": (1, "cb174b5f27cebde8"),

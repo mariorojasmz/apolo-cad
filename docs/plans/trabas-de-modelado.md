@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F1 (D1–D7) implementada en la rama wip/trabas-de-modelado, sin mergear; quedan F2 (D8, velocidad de llegada del vástago), F3 (D9, sensores por designación) y F4 (D10, casco de un sólido cóncavo), cada una con su F0 de medida
+nota: F1 (D1–D7) hecha y verificada con su suite, sin mergear (COSIM_EPOCH 9: los escenarios guardados quedan vencidos al mergear); quedan F2 (D8, velocidad de llegada del vástago), F3 (D9, sensores por designación) y F4 (D10, casco de un sólido cóncavo), cada una con su F0 de medida
 descripcion: el agente que modela por MCP tropieza menos: avisos y errores que dicen la llamada que arregla, uniones que se encuentran por su comando, aserciones acotadas «hasta» un instante y respuestas cortas al cambiar una variable
 ---
 
@@ -178,4 +178,54 @@ Cada traba con su reproducción, leída del transcript del modelador y repetida 
 
 ## Bitácora
 
-(Se completa al cerrar F1.)
+### F1 (D1–D7) — 2026-10-26
+
+Hecho (base `7141104`), un test por traba con su reproducción (`tests/test_trabas_de_modelado.py`,
+`tests/test_cosim_aserciones_hasta.py`):
+
+- **D1.** `expressions.avisos_expresion` + `ANGULOS`; `resolve_expression` suma `aviso`,
+  `/api/expression-grammar` la clave `angulos` y `POST /api/variables` `avisos_expresion` (el
+  brief del MCP lo pasa: `tools/recibo.job_result`). Sólo con aviso: sin él, byte-idéntico.
+- **D2.** (a) `conexiones.filtrar` casa el fijador también por el command_id del token o de una
+  pieza pedida. Medido sobre la faja con desviador v2: `get_connections(ids=["c1959"])` trae
+  `jb_c1959` (y los cuatro `torn_jb_c1959[k]` que el modelador declaró a mano para esquivarlo).
+  (b) `clasificar(sujetas=)` y los cuatro llamadores de `prepare_dynamics` (`api/sims.py` ×2,
+  `services/cosim_snapshot.py` con su `prever`, `services/marcha_ejemplo.py`). Medido sobre la
+  misma máquina, SIN los `fasten` de contacto a mano: 21 piezas fuera de la simulación antes (20
+  pernos y tuercas de seis `join_bolted` + `c119`), 1 después (`c119`, que no es tornillería); los
+  pernos de la placa de la guía (`c1859`) viajan con el cuerpo del vástago.
+- **D3.** `TENSILE_AREA_MM2` suma M3 5,03 · M4 8,78 · M5 14,2 (ISO 898-1); el schema de
+  `fasten.size` dice «M3–M24» y el aviso de `report_uniones`, «fuera de tabla (M3–M24)». La nota
+  de `fasten` y de `ground` admite 500 caracteres. **Lo que el F0 encontró**: `fasten(size="M5")`
+  no da 400 en el comando (M3, M4, M5 y M6 se aceptan; el patrón es `^M\d{1,2}$`) y en los
+  transcripts no hay ninguna llamada con `size="M5"`: el modelador leyó «M6–M24» en el schema y
+  escribió la métrica en la nota. Lo que sí faltaba era la tabla (el cortante «fuera de tabla»).
+  El 400 real de esa corrección fue la nota de 150 caracteres.
+- **D4.** «hasta» en `aserciones._de_texto`/`leer_asercion` y en `veredicto.evaluar_una`; «… y
+  antes» es error que da la forma correcta. Texto canónico: el margen de `hasta` en s si es
+  entero («+ 6 s»), si no en ms.
+- **D5.** `brief.variables_tocadas` (cierre por los nombres de la expresión, sin `re`: `brief.py` no importa nada, `test_mcp_destino.py`) y `variables_omitidas`.
+  Sólo filtra si las variables traen `command_id` (el payload real siempre; el falso del golden
+  no, y queda igual). Medido con las 60 variables de la faja con desviador v2: `set_variable` de
+  `paso_rod` 5 709 B → 311 B; de `largo_total` (arrastra 8) 5 709 → 1 163 B.
+- **D6.** `electrico_eval._pieza(…, cmd_id)` (lo pasan los dos llamadores del carril; el del
+  tablero no): el 400 suma «cambia también la ref del dispositivo c1680 EN EL MISMO LOTE:
+  edit_batch([<tu cambio de c1756>, {"command_id": "c1680", "params": {"ref": "…G14"}}])». El
+  campo de la pieza depende de su comando (`component` en `insert_component`, `ref` en el
+  cilindro): por eso el primer elemento queda como «tu cambio».
+- **D7.** `colocacion.reserva_que_entra` (pura) y `tablero.plan(…, cmd_id)`: el error suma la
+  mayor reserva de 0,15/0,10/0,05/0 que entra, con el `edit_batch` (si el cambio es una edición) o
+  el `edit_command` previo (si se agrega un dispositivo: `run_batch` no admite ediciones, lo
+  probó el modelador con «Comando desconocido: edit_command»). `colocar` no cambia su texto (un
+  test lo ancla con `$`).
+
+Vigencia: **`COSIM_EPOCH` 9** (D2b cambia el MJCF de toda máquina con `join_bolted`; D4 entra en
+el mismo salto) con su huella. `layout_tablero` sigue en v2 y sólo cambia su huella D11 (pasa
+`cmd_id` a `plan`, misma geometría). Ningún executor de geometría cambió: sin `version` ni
+`GEOM_CACHE_EPOCH`. Un log viejo regenera igual (notas ≤ 120 validan con el tope nuevo; nada se
+agrega al log). Golden del MCP re-congelado: cambian sólo las descripciones de `run_command`,
+`set_variable`, `resolve_expression` y `set_scenario`; ninguna salida de llamada.
+
+Suite completa (`-n 4`, en el worktree): antes 6 280 pasan, 10 saltadas, exit 0; después 6 310
+pasan, 11 saltadas, exit 0 (el primer intento dio 1 falla: `brief.py` importaba `re` y su gate de
+pureza lo prohíbe). `ruff check core tests scripts` limpio.

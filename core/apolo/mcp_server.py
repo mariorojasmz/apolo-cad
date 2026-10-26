@@ -114,7 +114,8 @@ def run_command(type: str, params: dict, detail: str = "diff") -> str:
     solo los sólidos nuevos + `total_solidos`; "full" toda la escena; "summary" solo
     id/nombre de lo nuevo y `comandos` (el id del comando; con más de 40 sólidos, "diff" y
     "summary" resumen `por_comando`). El bloque
-    `variables` solo aparece si la operación tocó alguna (o detail="full"); usa get_scene para
+    `variables` solo aparece si la operación tocó alguna (o detail="full"), y sólo con las tocadas
+    y las que dependen de ellas (`variables_omitidas` cuenta el resto); usa get_scene para
     verlas siempre. Si tarda, recibes un RECIBO {"job": id}: recógelo con get_job(id) y NO
     reenvíes el comando."""
     return _mutacion("POST", "/api/commands", {"type": type, "params": params}, detail)
@@ -221,7 +222,9 @@ def undo(detail: str = "diff") -> str:
 @mcp.tool()
 def set_variable(name: str, expression: str) -> str:
     """Define o actualiza una variable de proyecto (p. ej. L = 2000). Cambiarla
-    regenera todo lo que la usa. Si tarda, recibes un RECIBO {"job": id}: recógelo con
+    regenera todo lo que la usa. Devuelve sólo esa variable y las que dependen de ellas (con
+    su valor nuevo) y `avisos_expresion` si la expresión casi seguro dice otra cosa (sin/cos/tan
+    toman GRADOS: no conviertas con pi/180). Si tarda, recibes un RECIBO {"job": id}: recógelo con
     get_job(id) y NO la reenvíes."""
     return _mutacion("POST", "/api/variables", {"name": name, "expression": expression}, "diff")
 

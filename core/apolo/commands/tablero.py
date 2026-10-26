@@ -72,12 +72,13 @@ def _medir(cache: dict):
     return medir
 
 
-def plan(p: LayoutTableroParams, devs: list):
+def plan(p: LayoutTableroParams, devs: list, cmd_id: str | None = None):
     """(Layout, Armado, avisos) de unos params y sus dispositivos validados. Puro salvo la medida
-    de las refs que no son cajas (bbox del catálogo). CommandError accionable si no entra."""
+    de las refs que no son cajas (bbox del catálogo). CommandError accionable si no entra (con
+    `cmd_id`, el del layout, sugiere la reserva que sí entra: trabas-de-modelado D7)."""
     from apolo.library.catalog import CATALOG
     from apolo.library.electrico.armado import REF_TAPA, ArmadoError, Interior, armar
-    from apolo.library.electrico.colocacion import ColocacionError, Reglas, colocar
+    from apolo.library.electrico.colocacion import ColocacionError, Reglas, colocar, reserva_que_entra
     from apolo.library.electrico.colocacion_catalogo import (
         aparatos_desde_catalogo,
         gabinetes_del_catalogo,
@@ -118,7 +119,18 @@ def plan(p: LayoutTableroParams, devs: list):
         if gab_ref != "auto" and gab_ref not in {g.ref for g in gabinetes}:
             raise ColocacionError(f"el gabinete {gab_ref} no tiene su interior en el catálogo "
                                   "(`tablero.gabinete`): elige otro o «auto»")
-        lay = colocar(aparatos, gab_ref, gabinetes, p.overrides, reglas)
+        try:
+            lay = colocar(aparatos, gab_ref, gabinetes, p.overrides, reglas)
+        except ColocacionError as exc:
+            r = reserva_que_entra(aparatos, gab_ref, gabinetes, p.overrides, reglas) if cmd_id else None
+            if r is None:
+                raise
+            raise ColocacionError(
+                f"{exc} — con `reserva` {r:g} (hoy {p.reserva:g}) SÍ entra: si tu cambio es una edición, "
+                f"bájala en el MISMO lote: edit_batch([<tu cambio>, {{\"command_id\": \"{cmd_id}\", "
+                f"\"params\": {{\"reserva\": {r:g}}}}}]); si agregas un dispositivo, bájala antes "
+                f"(edit_command(\"{cmd_id}\", {{\"reserva\": {r:g}}})) y repite el cambio. La reserva "
+                "es el riel libre para ampliaciones (A13): con menos, el tablero queda justo") from None
     except ColocacionError as exc:
         raise CommandError(f"Tablero {u}: {exc}") from None
     comp = CATALOG[lay.gabinete]
@@ -156,7 +168,7 @@ def _exec_layout_tablero(ctx: ExecContext, cmd_id: str, p: LayoutTableroParams) 
     from .registry import REGISTRY, Feature, register_definition
 
     previas = dict(ctx.scene)  # lo que ya estaba: los vecinos de la puerta y las piezas de A9
-    lay, arm, _avisos = plan(p, dispositivos(ctx, p.ubicacion))
+    lay, arm, _avisos = plan(p, dispositivos(ctx, p.ubicacion), cmd_id)
     m_gab = compose_place(p.position.tuple(), p.rotation.tuple())
     bisagra = chequeos.bisagra_mundo(arm, m_gab, p)
     fid = {}  # clave → id de la pieza en la escena (la de A9, si está ligada)

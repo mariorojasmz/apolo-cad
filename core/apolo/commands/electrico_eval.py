@@ -59,9 +59,10 @@ def _sugerir_ref(ref: str, catalogo, cond) -> str:
                                    if c.electrico is not None and cond(c.electrico)])
 
 
-def _pieza(pieza: str, ref: str, escena: dict) -> str:
+def _pieza(pieza: str, ref: str, escena: dict, cmd_id: str | None = None) -> str:
     """El id del sólido que ES el dispositivo: el id dado, o la pieza de ese command_id cuyo
-    componente es `ref` (o su única pieza)."""
+    componente es `ref` (o su única pieza). `cmd_id` = el `add_device` que la liga: con él, el
+    error de componente distinto da la llamada que lo arregla (plan trabas-de-modelado, D6)."""
     def comp(fid):
         return getattr(escena[fid], "component", None)
 
@@ -70,8 +71,15 @@ def _pieza(pieza: str, ref: str, escena: dict) -> str:
 
     if pieza in escena:
         if comp(pieza) and comp(pieza) != ref:
-            raise ValueError(f"la pieza {pieza} ({nombre(pieza)}) es el componente {comp(pieza)}, "
-                             f"no {ref}: liga el dispositivo a la pieza que lo representa")
+            msg = (f"la pieza {pieza} ({nombre(pieza)}) es el componente {comp(pieza)}, "
+                   f"no {ref}: liga el dispositivo a la pieza que lo representa")
+            if cmd_id:  # D6: no se religa solo (la ref decide bornes, puertos y modelo)
+                origen = getattr(escena[pieza], "command_id", None) or pieza
+                msg += (f"; si cambiaste el componente de la pieza a propósito, cambia también la ref "
+                        f"del dispositivo {cmd_id} EN EL MISMO LOTE: edit_batch([<tu cambio de "
+                        f"{origen}>, {{\"command_id\": \"{cmd_id}\", \"params\": {{\"ref\": "
+                        f"\"{comp(pieza)}\"}}}}])")
+            raise ValueError(msg)
         return pieza
     hijas = [fid for fid, f in escena.items() if getattr(f, "command_id", None) == pieza]
     if not hijas:
@@ -94,7 +102,8 @@ def _dispositivo(entrada: dict, escena: dict, catalogo) -> Dispositivo:
         raise ValueError(f"la ref {p.ref} no está en el catálogo."
                          f"{_sugerir_ref(p.ref, catalogo, lambda e: e.conductor is None)}")
     if neumatica_eval.es_neumatico(comp):  # V8.9 D1: el aire en el mismo carril
-        return neumatica_eval.dispositivo(entrada, comp, _pieza(p.pieza, p.ref, escena) if p.pieza else None)
+        return neumatica_eval.dispositivo(entrada, comp, _pieza(p.pieza, p.ref, escena, entrada["id"])
+                                          if p.pieza else None)
     if comp.neumatico is not None:
         raise ValueError(f"{p.ref} es un tubo de aire: decláralo con add_tubo (desde/hasta por puerto)")
     if getattr(p, "servicio", None) is not None:
@@ -110,7 +119,7 @@ def _dispositivo(entrada: dict, escena: dict, catalogo) -> Dispositivo:
         raise ValueError(f"{p.ref} no tiene designación: dale una («-{ficha.funcion}1») o déjala "
                          "vacía al ejecutar el comando para que se asigne sola")
     ajustes = validar_ajustes(p.ajustes, ficha.modelo, p.ref)
-    pieza = _pieza(p.pieza, p.ref, escena) if p.pieza else None
+    pieza = _pieza(p.pieza, p.ref, escena, entrada["id"]) if p.pieza else None
     # V8.3 F6: la relación y el η del reductor que dice el nombre de la pieza ligada
     deducidos = (deducir_de_la_pieza(getattr(escena[pieza], "name", None), pieza, ficha.modelo, ajustes)
                  if pieza else {})

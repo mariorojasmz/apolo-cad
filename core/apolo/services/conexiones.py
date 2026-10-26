@@ -67,7 +67,14 @@ def filtrar(doc, ids: list[str] | None = None, kind: str | None = None,
     anclajes = list(doc.grounds.values())
     if ids:
         piezas = piezas_pedidas(doc, ids, expand)
-        fijadores = [f for f in fijadores if f.get("a") in piezas or f.get("b") in piezas]
+        # trabas-de-modelado D2a: una unión se encuentra también por el COMANDO que la declaró
+        # (el token, o el command_id de una pieza pedida): el `jb_<cmd>` de un join_bolted une
+        # otras dos piezas, y su comando resuelve a SU tornillería. Los fijadores de plantilla
+        # llevan command_id sintético y los de `fasten` el suyo: ninguno es el de una pieza.
+        comandos = set(ids) | {getattr(doc.scene[p], "command_id", None) for p in piezas
+                               if p in doc.scene}
+        fijadores = [f for f in fijadores if f.get("a") in piezas or f.get("b") in piezas
+                     or f.get("command_id") in comandos]
         anclajes = [g for g in anclajes if g.get("feature") in piezas]
     if kind == "anclaje":
         fijadores = []

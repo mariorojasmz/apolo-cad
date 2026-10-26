@@ -165,6 +165,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     from . import cosim_aire, cosim_externo, escenario_ajustes
     from .cosim_bandas import bandas_quietas, prever
     from .cosim_red import entrada_red, largos_calculados
+    from .delivery_inputs import tornilleria_join_bolted
     from .electrico import ajustes_faltantes, modelo, texto_ajustes_faltantes
     from .flujo_producto import resolver_ritmo
 
@@ -212,14 +213,15 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
         raise ServiceError(400, "aserciones: " + " | ".join(errores))
     # el tope de la duración es el del ESCENARIO (corre en su proceso, sin PHYSICS_LOCK), no el de
     # la dinámica suelta: lo que `set_scenario` acepta, corre (balance-de-producto, trabas de flujo)
+    sujetas = tornilleria_join_bolted(doc)  # trabas-de-modelado D2b: la tornillería con su unión
     prevision = prever(doc.scene, doc.joints, doc.fasteners, doc.grounds, peticion, mates=doc.mates,
-                       duracion_max_s=DURACION_ESCENARIO_MAX_S)
+                       duracion_max_s=DURACION_ESCENARIO_MAX_S, sujetas=sujetas)
     error = bandas_quietas(doc.scene, esc, prevision) if prevision is not None else None
     if error:  # F6b: el rechazo no espera los cascos
         raise ServiceError(400, error)
     try:
         dyn = prepare_dynamics(doc.scene, doc.joints, doc.fasteners, doc.grounds, peticion, mates=doc.mates,
-                               duracion_max_s=DURACION_ESCENARIO_MAX_S)
+                               duracion_max_s=DURACION_ESCENARIO_MAX_S, sujetas=sujetas)
     except PhysicsError as exc:
         raise ServiceError(400, f"mecánica: {exc}") from exc
     if dyn.early is not None:

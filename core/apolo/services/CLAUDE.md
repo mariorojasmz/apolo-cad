@@ -278,7 +278,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   sus piezas (`conexiones.patron_de`: sin los tramos de la máquina ni paréntesis), no por su
   nombre (`auto_f_*` mezclaba 163 contactos): el `resumen` de `get_connections` y, con
   `clave_de_reglas`, las reglas de cada unión (D9, D12). En corto lo «ok» va sin detalle salvo
-  con `grupo`.
+  con `grupo`. `filtrar` encuentra una unión también por el COMANDO que la declaró (el token o
+  el command_id de una pieza pedida: el `jb_<cmd>` por su join_bolted o su tornillería).
+  [trabas-de-modelado](../../../docs/plans/trabas-de-modelado.md) (D2)
 - Un recorte o un error dice cómo seguir (D4): la interferencia truncada suma `como_acotar`
   (`interferencias.py`: la llamada de la página siguiente, `desde`, y zonas que NO son lo ya
   pedido: D10), un `fasten` por conjuntos se cuenta en `conexiones.expandidas` y la puerta anota
