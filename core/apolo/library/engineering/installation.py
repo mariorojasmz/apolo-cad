@@ -83,7 +83,9 @@ def anchor_loads(supports: list[dict], weight_n: float,
 def installation_rows(data: dict) -> list[list[str]]:
     """Filas [concepto, valor, nota] de la tabla de DATOS DE INSTALACIÓN. `data` lo arma
     la capa API (masa, cargas, huella, alturas, holguras, suministro); aquí solo se
-    formatea para la lámina — sin unidades inventadas ni ceros de relleno."""
+    formatea para la lámina — sin unidades inventadas ni ceros de relleno. Los textos van
+    ENTEROS (nombres de pieza incluidos): encajarlos es del papel, que los mide
+    (`drawing/texto_medido.celda_fila`); un corte aquí llegaba ya mutilado a la lámina."""
     rows: list[list[str]] = []
 
     def add(concepto, valor, nota=""):
@@ -97,7 +99,7 @@ def installation_rows(data: dict) -> list[list[str]]:
     if al:
         add("Apoyos anclados", f"{al['n_apoyos']}", "ver huella acotada")
         add("Carga máx. por apoyo", f"{al['carga_max_kg']:g} kg",
-            f"en «{str(al['gobernante'])[:22]}»")
+            f"en «{al['gobernante']}»")
         if al.get("hay_traccion"):
             add("AVISO", "un apoyo a TRACCIÓN", "el anclaje debe resistir arranque")
     hu = data.get("huella_mm") or {}
@@ -109,7 +111,7 @@ def installation_rows(data: dict) -> list[list[str]]:
     if data.get("altura_total_mm"):
         add("Altura total", f"{data['altura_total_mm']:g} mm", "punto más alto")
     for s in (data.get("servicio") or []):
-        add(f"Holgura de servicio · {s['pieza'][:20]}", f"{s['holgura_mm']:g} mm",
+        add(f"Holgura de servicio · {s['pieza']}", f"{s['holgura_mm']:g} mm",
             "extracción lateral")
     for e in (data.get("suministro") or []):
         add(e["concepto"], e["valor"], e.get("nota", ""))

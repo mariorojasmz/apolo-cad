@@ -95,7 +95,7 @@ def installation_data(doc) -> tuple[dict, dict]:
             pot, unidad = low.get("potencia_hp") or low.get("hp"), "HP"
         if pot:
             suministro.append({"concepto": "Suministro eléctrico", "valor": f"{pot} {unidad}",
-                               "nota": str(specs.get("tipo", ""))[:28]})
+                               "nota": str(specs.get("tipo", ""))})  # entera: la encaja el papel
         break
 
     datos = {

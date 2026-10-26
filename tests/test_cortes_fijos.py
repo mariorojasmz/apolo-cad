@@ -100,6 +100,29 @@ def test_la_tabla_de_instalacion_no_corta_sus_celdas():
             assert lb.size >= TAM_MIN
 
 
+def test_los_datos_de_instalacion_llegan_enteros_al_papel():
+    """`installation_rows` cortaba la pieza a 20 y el apoyo gobernante a 22 ANTES del papel
+    («Holgura de servicio · Faja de banda · Tamb»): ahora la capa de datos da el nombre entero y
+    la celda lo encaja (los nombres son los del testigo de rodillos)."""
+    from apolo.drawing.installation import installation_sheet
+    from apolo.library.engineering.installation import installation_rows
+
+    gob = "Transportador de rodillos · Placa de piso (+Y, motriz)"
+    pieza = "Transportador de rodillos · Base del motor"
+    datos = {"masa_kg": 120.0, "anclaje": {"n_apoyos": 4, "carga_max_kg": 45.7, "gobernante": gob,
+                                           "apoyos": [], "hipotesis": "reparto elástico"},
+             "servicio": [{"pieza": pieza, "holgura_mm": 424.0}]}
+    filas = installation_rows(datos)
+    assert ["Carga máx. por apoyo", "45.7 kg", f"en «{gob}»"] in filas
+    assert [f"Holgura de servicio · {pieza}", "424 mm", "extracción lateral"] in filas
+    m = installation_sheet({}, datos, project_name="Rodillos", sheet="A3", meta=META)
+    x0, top, row_h = m.width * 0.55, m.height - 40.0, 5.6
+    tabla = [lb for lb in m.labels if lb.x >= x0 and top - len(filas) * row_h < lb.y < top]
+    texto = _junto(tabla)
+    assert f"en «{gob}»" in texto and f"Holgura de servicio · {pieza}" in texto
+    assert "…" not in texto and all(lb.size >= TAM_MIN for lb in tabla)
+
+
 def test_las_notas_de_instalacion_salen_enteras_sobre_el_cajetin():
     """La hipótesis del reparto (que va SIEMPRE) se cortaba a 60 caracteres."""
     larga = "Nivelar los apoyos antes de anclar; " * 3 + "el reparto supone piso rígido."
