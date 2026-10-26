@@ -16,6 +16,10 @@ from dataclasses import dataclass, field
 
 from apolo.physics.sim import PhysicsError
 
+#: Tope de la dinámica SUELTA (`simulate` sin escenario, `POST /api/physics/dynamics`): corre en
+#: el proceso de la API con `PHYSICS_LOCK` tomado (V8.2, riesgos) y su serie del visor crece con
+#: productos × duración (visor-realista F2). La co-simulación corre en su propio proceso, sin ese
+#: lock, y pasa su tope (`cosim.escenario.DURACION_MAX_S`) con `duracion_max_s`.
 DURACION_MAX_S = 60.0
 FPS_MAX = 120
 MAX_PRODUCTOS = 200
@@ -299,16 +303,18 @@ def _lista(obj, k: str) -> list:
     return v
 
 
-def parse_peticion(req: dict | None) -> Peticion:
+def parse_peticion(req: dict | None, *, duracion_max_s: float | None = None) -> Peticion:
     """Valida la petición y devuelve una `Peticion`. `PhysicsError` con un mensaje accionable
-    ante cualquier dato que no sirva."""
+    ante cualquier dato que no sirva. `duracion_max_s` = el tope de quien corre (None: el de la
+    dinámica suelta, `DURACION_MAX_S`)."""
+    tope = DURACION_MAX_S if duracion_max_s is None else float(duracion_max_s)
     req = _claves(req or {}, {
         "motores", "bandas", "auto_bandas", "productos", "sensores", "juntas", "duracion_s", "fps",
         "timestep", "nstep", "gravedad", "con_autodeteccion", "colisiones_maquina", "modelo_banda",
         "sumideros", "flujo",
     }, "petición")
     pet = Peticion(
-        duracion_s=_f(req, "duracion_s", "petición", 3.0, minimo=0.0, maximo=DURACION_MAX_S, abierto=True),
+        duracion_s=_f(req, "duracion_s", "petición", 3.0, minimo=0.0, maximo=tope, abierto=True),
         timestep=_f(req, "timestep", "petición", 0.001, minimo=0.0001, maximo=0.01),
         gravedad=_f(req, "gravedad", "petición", 9.81, minimo=0.0),
         auto_bandas=bool(req.get("auto_bandas", True)),

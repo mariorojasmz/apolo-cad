@@ -83,18 +83,25 @@ def _signos_banda(snap) -> list[float]:
 
 def _mecanica(integ, signos: list) -> dict:
     """`<pieza>.v_m_s` de cada banda y `<producto>.x_mm`, `.y_mm` y `.z_mm` de cada producto en la
-    máquina (D10; `y_mm`/`z_mm` desde V8.9 F7b, defecto 5: un desvío lateral se afirma por la y)."""
+    máquina (D10; `y_mm`/`z_mm` desde V8.9 F7b, defecto 5: un desvío lateral se afirma por la y).
+    Uno RETIRADO por un sumidero se queda con la posición en que se retiró, la misma
+    `posicion_final_mm` de la salida de la dinámica (balance-de-producto, bitácora de las trabas
+    de flujo): «caja_3.x_mm >= 3500 al_final» dice si llegó, no «la señal no tiene valor»."""
     out: dict = {}
     if integ.arrastre is not None:
         for k, b in enumerate(integ.snap.bandas):
             out[f"{b.pieza}.v_m_s"] = signos[k] * integ.arrastre.v_banda(k)
-    d = integ.d
+    d, retiro = integ.d, integ.retiro
     for k, p in enumerate(integ.snap.productos):
         if integ.activo[k]:
-            nombre = p["name"][2:] if p["name"].startswith("p_") else p["name"]
-            pos = d.xpos[integ.bid_prod[k]]
-            for eje, c in (("x", 0), ("y", 1), ("z", 2)):
-                out[f"{nombre}.{eje}_mm"] = float(pos[c]) * 1000.0
+            pos = [float(c) * 1000.0 for c in d.xpos[integ.bid_prod[k]]]
+        elif k in retiro:
+            pos = retiro[k]["pos"]
+        else:
+            continue
+        nombre = p["name"][2:] if p["name"].startswith("p_") else p["name"]
+        for eje, c in (("x", 0), ("y", 1), ("z", 2)):
+            out[f"{nombre}.{eje}_mm"] = float(pos[c])
     return out
 
 

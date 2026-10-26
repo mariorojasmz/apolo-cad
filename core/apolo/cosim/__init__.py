@@ -29,4 +29,7 @@ Este `__init__` no importa nada: el worker importa sólo lo que usa, sin OCCT.
 #: 7 (pedidos-de-extensiones-iii F4, D11): el vástago de `create_pneumatic_cylinder` se mueve con la
 #: masa MÓVIL de su ficha (`partes_de_cilindros`) y la armadura de la masa en carrera 0 ya no se
 #: suma (el Ø63 × 800 pasa de 2,77 a 2,43 kg): un escenario SANO con aire cambia de resultado.
-COSIM_EPOCH = 7
+#: 8 (balance-de-producto, trabas de flujo): el producto RETIRADO por un sumidero se queda con la
+#: posición en que se retiró (`<producto>.x_mm/y_mm/z_mm`, antes sin valor tras salir): un
+#: escenario sano con sumideros cambia de trazas y «caja.x_mm >= … al_final» pasa de falla a pasa.
+COSIM_EPOCH = 8

@@ -50,6 +50,11 @@ from dataclasses import dataclass, field
 from .aserciones import AsercionInvalida, leer_aserciones
 from .flujo import FlujoInvalido, leer_flujo, revisar_aserciones, validar_nombre_sumidero
 
+#: Tope de un escenario (s). Es el de la corrida ENTERA: el snapshot lo pasa a la dinámica (cuyo
+#: tope propio, 60 s, es de `simulate` sin escenario, bajo `PHYSICS_LOCK` en la API). Medido
+#: (balance-de-producto, trabas de flujo): ~0,25–0,31 s de CPU por segundo simulado en la faja del
+#: banco, lineal; 300 s a 15 cajas/min = 83 s de CPU en el worker (su límite: 1800 s) y 28 MB de
+#: JSON (56 MB en memoria; la API guarda 8 corridas).
 DURACION_MAX_S = 300.0
 ACCIONES = ("pulsar", "soltar", "presionar", "liberar", "girar", "rearmar", "abrir", "cerrar", "reponer",
             "accionar_manual", "escribir")

@@ -174,7 +174,7 @@ def registrar(mcp, api, esperar) -> None:
         escenario; acepta las que quieras con set_scenario(nombre, {…el `escenario` devuelto,
         aserciones: […]}). `sesion` = el id del `fin` de la sesión (sin él, la última terminada
         del proyecto; viven en memoria); `hasta_s` guarda sólo el tramo inicial (obligatorio si
-        duró más de 60 s). Un nombre ya usado pide reemplazar=true. Si tarda, RECIBO {"job"}:
+        duró más de 300 s, el tope de un escenario). Un nombre ya usado pide reemplazar=true. Si tarda, RECIBO {"job"}:
         get_job."""
         body: dict = {"nombre": nombre, "reemplazar": reemplazar}
         if sesion:

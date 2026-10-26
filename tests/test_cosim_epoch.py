@@ -195,7 +195,15 @@ ARCHIVOS = (
 #: desconocida): ningún resultado guardado lo trae. Sin él, `_retirar` retira igual (sólo anota
 #: cuál sumidero): 3 escenarios del banco (seta con cajas por variador, cajas con sumidero por
 #: variador y en directo) dan la MISMA huella y la misma salida `mecanica` que en b9d774f.
-HUELLA: tuple[int, str] = (7, "9fd3b83f351a59d2")
+#: 8 — balance-de-producto, trabas de flujo: el producto retirado por un sumidero conserva la
+#: posición en que se retiró (`cosim/corrida._mecanica`). Sin sumidero, 2 escenarios del banco
+#: (cajas por variador, marcha en directo) dan la MISMA huella, finales y eventos que en c826389;
+#: con sumidero (cajas por variador y en directo) cambian sólo la huella y los finales `*_mm` de
+#: las cajas que salieron. En el mismo cambio, sin efecto en ningún resultado: la dinámica de la
+#: co-simulación toma el tope del ESCENARIO (300 s; antes un escenario de más de 60 s era 400 al
+#: correr: ningún resultado guardado) y `flujo.ritmo_por_min` es el declarado (no entra al
+#: snapshot).
+HUELLA: tuple[int, str] = (8, "6d7524f32865d796")
 
 
 def archivos() -> list[Path]:

@@ -7,7 +7,7 @@
   - las aserciones sugeridas pasan sobre su propia corrida y, aceptadas con `PUT
     /api/escenarios`, dan «pasa» por lote;
   - errores: otra firma del documento, escenario de base borrado o cambiado, nombre ocupado,
-    sesión que no está en memoria, más de 60 s sin `hasta_s`;
+    sesión que no está en memoria, más que el tope de un escenario sin `hasta_s`;
   - de punta a punta: el `fin` del WebSocket trae la `sesion` y guardarla sin más da la huella
     de la sesión.
 """
@@ -74,7 +74,7 @@ def test_el_escenario_de_la_sesion_recorta_y_dice_por_que_no():
     tramo = escenario_de_sesion(vivo, grab, 3.0, base="marcha", hasta_s=1.0)
     assert tramo["recortada"] and tramo["n_acciones"] == 1 and tramo["escenario"]["duracion_s"] == 1.0
     with pytest.raises(ServiceError, match="hasta_s"):
-        escenario_de_sesion(vivo, grab, 75.0, base="marcha")
+        escenario_de_sesion(vivo, grab, 375.0, base="marcha")  # más que el tope de un escenario
     with pytest.raises(ServiceError, match="no avanzó"):
         escenario_de_sesion(vivo, [], 0.0, base="marcha")
     with pytest.raises(ServiceError, match="dispositivo"):  # lo valida la lectura del escenario
@@ -204,7 +204,7 @@ def test_lo_que_ya_no_reproduce_se_rechaza(c, maquina):
     assert r.status_code == 409 and "cambió desde la sesión" in r.json()["detail"]
     r = guardar(nombre="base")
     assert r.status_code == 409 and "reemplazar" in r.json()["detail"]
-    r = guardar(duracion_s=90.0)
+    r = guardar(duracion_s=400.0)  # más que el tope de un escenario por lote (300 s)
     assert r.status_code == 400 and "hasta_s" in r.json()["detail"]
     assert set(maquina.escenarios) == {"base"}  # nada se guardó
     r = c.post("/api/cosim/vivo/escenario", json={"nombre": "x", "sesion": "vnohay"})

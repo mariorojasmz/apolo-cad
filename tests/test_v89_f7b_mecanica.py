@@ -108,9 +108,17 @@ def test_el_producto_publica_su_posicion_en_los_tres_ejes():
 
     integ = SimpleNamespace(arrastre=None, d=SimpleNamespace(xpos=[[1.5, -0.25, 0.9]]),
                             snap=SimpleNamespace(productos=[{"name": "p_caja"}], bandas=[]),
-                            activo=[True], bid_prod=[0])
+                            activo=[True], bid_prod=[0], retiro={})
     out = _mecanica(integ, [])
     assert out == {"caja.x_mm": 1500.0, "caja.y_mm": -250.0, "caja.z_mm": 900.0}
+    # balance-de-producto, trabas de flujo: la retirada se queda donde salió; la que no nació, nada
+    integ = SimpleNamespace(arrastre=None, d=SimpleNamespace(xpos=[[9.0, 9.0, 9.0], [9.0, 9.0, 9.0]]),
+                            snap=SimpleNamespace(productos=[{"name": "p_caja_0"}, {"name": "p_caja_1"}],
+                                                 bandas=[]),
+                            activo=[False, False], bid_prod=[0, 1],
+                            retiro={0: {"t": 6.2, "pos": [1400.3, -1.2, 850.4]}})
+    out = _mecanica(integ, [])
+    assert out == {"caja_0.x_mm": 1400.3, "caja_0.y_mm": -1.2, "caja_0.z_mm": 850.4}
 
 
 # ── 11. open_project no vuelca la escena ─────────────────────────────────────────────────────

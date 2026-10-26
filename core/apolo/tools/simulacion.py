@@ -81,7 +81,7 @@ def registrar(mcp, api, esperar) -> None:
           defecto sólo lo DECLARADO, como gravity_test.
         - opciones: fps, timestep (1 ms), nstep (2), gravedad, modelo_banda ('contacto' |
           'rapido'), colisiones_maquina, auto_bandas, sumideros.
-        duracion_s ≤ 60. Devuelve resumen (velocidades finales de juntas, bandas y productos,
+        duracion_s ≤ 60 (con escenario, la del escenario: ≤ 300). Devuelve resumen (velocidades finales de juntas, bandas y productos,
         productos caídos, juntas en su límite, factor de tiempo real), motores (consigna, kv,
         tope), sensores, cuerpos y avisos. Con `path` escribe además un GIF de la marcha a tiempo
         real (corre la simulación otra vez). Read-only: NO modifica el modelo.

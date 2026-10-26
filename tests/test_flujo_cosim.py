@@ -83,6 +83,61 @@ def test_las_puertas_lo_cuentan(doc, corrida, c):
     assert r["estado"] == "ok" and r["nominal"] == 20.0, r
 
 
+def test_el_producto_retirado_se_queda_donde_salio(corrida):
+    """Trabas de flujo (bitácora del plan): una caja que sale por un sumidero conserva la posición
+    en que se retiró (la `posicion_final_mm` de la dinámica), así «caja.x_mm >= … al_final» dice
+    si llegó en vez de fallar por una señal sin valor."""
+    from apolo.api.routers.cosim import SIMULACIONES
+    from apolo.cosim.aserciones import leer_aserciones
+    from apolo.cosim.veredicto import evaluar
+
+    res = SIMULACIONES.get(corrida["run"]["simulacion"])["res"]
+    prods = res["mecanica"]["resumen"]["productos"]
+    salidos = sorted(n for n, p in prods.items() if "retirado_s" in p)
+    assert salidos, prods
+    nombre = salidos[0]
+    corto = nombre[2:] if nombre.startswith("p_") else nombre
+    pos = prods[nombre]["posicion_final_mm"]
+    assert pos[0] >= 1400
+    senales = res["trazas"]["analogicas"]["senales"]
+    for eje, c in (("x", 0), ("y", 1), ("z", 2)):
+        assert senales[f"{corto}.{eje}_mm"][-1] == pos[c]
+        assert res["final"][f"{corto}.{eje}_mm"] == pos[c]
+    ver = evaluar(leer_aserciones([f"{corto}.x_mm >= 1400 al_final"], FLUJO["duracion_s"]), res)
+    assert ver["veredicto"] == "pasa", ver
+
+
+def test_lo_que_el_escenario_acepta_corre(doc):
+    """Trabas de flujo: a 15/min, 20 cajas piden más de 60 s. El tope de la corrida es el del
+    escenario (300 s, al declarar), no el de `simulate` suelto (60 s): el snapshot de 100 s se
+    arma; 301 s se rechaza al leer el escenario, antes de la dinámica."""
+    from apolo.cosim.escenario import DURACION_MAX_S
+    from apolo.physics.dinamica_peticion import DURACION_MAX_S as SUELTA
+    from apolo.services.cosim_snapshot import snapshot_cosim
+    from apolo.services.errors import ServiceError
+    from apolo.services.sesion_viva import duracion_lote_max_s
+
+    assert (DURACION_MAX_S, SUELTA, duracion_lote_max_s()) == (300.0, 60.0, 300.0)
+    esc = {**FLUJO, "duracion_s": 100.0, "flujo": {"ritmo_por_min": 15, "plazo_s": 8.0}}
+    snap = snapshot_cosim(doc, esc)
+    assert snap.dinamica.duracion_s == 100.0
+    with pytest.raises(ServiceError, match="duracion_s"):
+        snapshot_cosim(doc, {**esc, "duracion_s": 301.0})
+
+
+def test_el_ritmo_declarado_sale_tal_cual(doc, c):
+    """Trabas de flujo: 18/min reparte `cada_s` = 3,333333 s; la evidencia dice 18, no 18,000002."""
+    esc = {**FLUJO, "flujo": {"ritmo_por_min": 18, "plazo_s": 8.0}}
+    put = c.put("/api/escenarios/flujo_18", json={"escenario": esc})
+    try:
+        assert put.status_code == 200, put.text
+        assert put.json()["flujo"]["ritmo_por_min"] == 18.0
+        fila = next(f for f in FP.evaluar(doc)["escenarios"] if f["escenario"] == "flujo_18")
+        assert fila["ritmo_por_min"] == 18.0
+    finally:
+        c.delete("/api/escenarios/flujo_18")
+
+
 def test_subir_la_capacidad_deja_el_escenario_por_debajo(doc, corrida):
     previo = dict(doc.requirements)
     try:

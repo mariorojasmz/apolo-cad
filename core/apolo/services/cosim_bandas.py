@@ -28,7 +28,7 @@ HOLGURA_MM = 5.0
 
 
 def prever(scene: dict, joints: dict, fasteners: dict, grounds: dict, peticion: dict, *,
-           mates=None) -> SimpleNamespace | None:
+           mates=None, duracion_max_s: float | None = None) -> SimpleNamespace | None:
     """Lo que `prepare_dynamics` hará con las bandas (cuáles simula, qué cuerpos arma, qué queda
     fuera y por qué) con su MISMA lógica pura (`detectar_bandas`, `clasificar`), sin cascos.
     Toma TODAS las piezas no guía (la preparación descarta además las de volumen nulo): sus
@@ -41,7 +41,7 @@ def prever(scene: dict, joints: dict, fasteners: dict, grounds: dict, peticion: 
     from apolo.physics.sim import PhysicsError
 
     try:
-        pet = parse_peticion(peticion)
+        pet = parse_peticion(peticion, duracion_max_s=duracion_max_s)
         if pet.con_autodeteccion:
             return None
         escena = {fid: f for fid, f in scene.items() if not getattr(f, "is_guide", False)}

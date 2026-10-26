@@ -88,10 +88,11 @@ def _zonas(lista) -> list[dict]:
 
 
 def ritmo_de(productos: list[dict]) -> float | None:
-    """El ritmo de alimentación (productos/min) de las series: Σ 60/`cada_s` (D7); None sin serie."""
+    """El ritmo de alimentación (productos/min) de las series: Σ 60/`cada_s` (D7); None sin serie.
+    A la milésima: un `cada_s` de 3,333333 s es 18/min, no 18,000002 (lo que se muestra)."""
     periodos = [p["cada_s"] for p in productos if isinstance(p.get("cada_s"), (int, float))
                 and not isinstance(p.get("cada_s"), bool) and p["cada_s"] > 0]
-    return round(sum(60.0 / c for c in periodos), 6) if periodos else None
+    return round(sum(60.0 / c for c in periodos), 3) if periodos else None
 
 
 def _alimentar(productos: list[dict], ritmo: float) -> None:
@@ -143,10 +144,12 @@ def leer_flujo(f, productos: list[dict], sumideros: list[dict]) -> dict | None:
         raise FlujoInvalido("flujo: «ritmo_por_min»: «nominal» lo resuelve el documento (la capacidad "
                             "requirements.paquetes_por_minuto) al declarar el escenario con set_scenario "
                             "o al correrlo; aquí llegó sin resolver")
-    if ritmo is not None:
-        _alimentar(productos, _num(f, "ritmo_por_min", "flujo"))
+    if ritmo is not None:  # el declarado ES Σ 60/cada_s, sin el redondeo de cada `cada_s`
+        ritmo = _num(f, "ritmo_por_min", "flujo")
+        _alimentar(productos, ritmo)
     return {"plazo_s": plazo, "quieto_s": quieto if quieto is not None else QUIETO_S,
-            "zonas_espera": _zonas(f.get("zonas_espera")), "ritmo_por_min": ritmo_de(productos),
+            "zonas_espera": _zonas(f.get("zonas_espera")),
+            "ritmo_por_min": ritmo if ritmo is not None else ritmo_de(productos),
             "sumideros": nombres}
 
 

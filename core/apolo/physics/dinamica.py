@@ -100,10 +100,11 @@ def _geoms_cascos(nombre: str, cascos_mm: list) -> list:
 
 
 def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = None, *,
-                     mates=None) -> DynamicsSnapshot:
+                     mates=None, duracion_max_s: float | None = None) -> DynamicsSnapshot:
     """FASE OCCT (bajo STATE_LOCK). `request` es la petición D3–D8 (ver `dinamica_peticion`).
-    Lanza `PhysicsError` con un mensaje accionable si algo no sirve."""
-    pet = parse_peticion(request)
+    `duracion_max_s`: el tope de quien corre (la co-simulación pasa el de su escenario; None, el
+    de la dinámica suelta). Lanza `PhysicsError` con un mensaje accionable si algo no sirve."""
+    pet = parse_peticion(request, duracion_max_s=duracion_max_s)
     avisos: list[str] = []
     ids = _elegibles(scene)
     escena = {fid: scene[fid] for fid in ids}

@@ -152,6 +152,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     """El `CosimSnapshot` del documento para `escenario` (dict de D12). `ServiceError(400)`."""
     from apolo.cosim.agenda import plcs_de_prueba, validar
     from apolo.cosim.datos import AcopleMotor, AcopleSensor, CosimSnapshot
+    from apolo.cosim.escenario import DURACION_MAX_S as DURACION_ESCENARIO_MAX_S
     from apolo.cosim.escenario import EscenarioInvalido, leer_escenario
     from apolo.cosim.modelos import ModeloIncompleto, de_extension
     from apolo.cosim.red import EntradaInvalida
@@ -209,12 +210,16 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     errores, _ = revisar(esc.aserciones, valores_iniciales(dispositivos, progs))
     if errores:  # F6b: antes de simular, no tras el veredicto
         raise ServiceError(400, "aserciones: " + " | ".join(errores))
-    prevision = prever(doc.scene, doc.joints, doc.fasteners, doc.grounds, peticion, mates=doc.mates)
+    # el tope de la duración es el del ESCENARIO (corre en su proceso, sin PHYSICS_LOCK), no el de
+    # la dinámica suelta: lo que `set_scenario` acepta, corre (balance-de-producto, trabas de flujo)
+    prevision = prever(doc.scene, doc.joints, doc.fasteners, doc.grounds, peticion, mates=doc.mates,
+                       duracion_max_s=DURACION_ESCENARIO_MAX_S)
     error = bandas_quietas(doc.scene, esc, prevision) if prevision is not None else None
     if error:  # F6b: el rechazo no espera los cascos
         raise ServiceError(400, error)
     try:
-        dyn = prepare_dynamics(doc.scene, doc.joints, doc.fasteners, doc.grounds, peticion, mates=doc.mates)
+        dyn = prepare_dynamics(doc.scene, doc.joints, doc.fasteners, doc.grounds, peticion, mates=doc.mates,
+                               duracion_max_s=DURACION_ESCENARIO_MAX_S)
     except PhysicsError as exc:
         raise ServiceError(400, f"mecánica: {exc}") from exc
     if dyn.early is not None:

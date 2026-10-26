@@ -12,8 +12,9 @@ lote, da las MISMAS trazas que la sesión (el paso es el mismo, `cosim/corrida.p
     una sesión más larga que la base, el lote metería cajas que nunca nacieron en vivo) y sale
     si no tuvo ninguna. Recortar no cambia nada: una caja estacionada que no llega a nacer no
     toca la física (medido en F4: la misma huella con 9 y con 6 en el pool);
-  - más de 60 s (la dinámica por lote) no se reproduce de una: `hasta_s` guarda el TRAMO
-    inicial, que es exacto (lo que pasa después no cambia lo de antes);
+  - más que el tope de un escenario por lote (`cosim.escenario.DURACION_MAX_S`) no se reproduce
+    de una: `hasta_s` guarda el TRAMO inicial, que es exacto (lo que pasa después no cambia lo
+    de antes);
   - se rechaza lo que ya no reproduciría: otra firma del documento (409), el escenario de base
     borrado (404) o cambiado (409).
 Sin locks: el llamador sostiene `STATE_LOCK`.
@@ -30,7 +31,9 @@ MAX_GRABACION = 2000   # acciones y eventos de una sesión (clics de una persona
 
 
 def duracion_lote_max_s() -> float:
-    from apolo.physics.dinamica_peticion import DURACION_MAX_S
+    """El tope de un escenario por lote: lo que la sesión vuelve escenario tiene que poder correr
+    (la co-simulación pasa ese mismo tope a la dinámica)."""
+    from apolo.cosim.escenario import DURACION_MAX_S
 
     return DURACION_MAX_S
 

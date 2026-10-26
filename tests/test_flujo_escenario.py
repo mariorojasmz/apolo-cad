@@ -51,6 +51,18 @@ def test_sin_ritmo_el_ritmo_sale_de_las_series():
     assert e.flujo["ritmo_por_min"] == 20.0  # sólo la serie con cada_s; la otra es una caja suelta
 
 
+def test_el_ritmo_no_arrastra_el_redondeo_de_cada_s():
+    """Trabas de flujo: 18/min da `cada_s` = 3,333333 s; el ritmo es el declarado (18), y sin él,
+    Σ 60/`cada_s` a la milésima (18,0, no 18,000002)."""
+    esc = _esc(ritmo=18)
+    esc["eventos"] = esc["eventos"][:1]
+    e = leer_escenario(esc)
+    assert e.productos[0]["cada_s"] == 3.333333 and e.flujo["ritmo_por_min"] == 18.0
+    esc = _esc(ritmo=None)
+    esc["eventos"][0]["cada_s"] = 3.333333
+    assert leer_escenario(esc).flujo["ritmo_por_min"] == 18.0
+
+
 def test_un_escenario_sin_flujo_se_lee_igual():
     esc = _esc()
     del esc["flujo"]
