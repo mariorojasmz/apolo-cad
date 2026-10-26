@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `7d28ae5`; F1 mergeada (la serie Ø22 con `specs.agujero` de ficha leída, builder `mando_22` con cuello, la puerta corta redondo, epoch 8, `layout_tablero` v2) y F2 mergeada (`get_circuit(tablero=true)` resumido 29 → 2 KB en la piloto, `completo=true` para el panel entero; `comandos` en el resumen de `run_batch`; el ERC nombra el conductor por sus puntos); el aviso de la co-simulación también nombra el conductor por sus puntos (D-f de F2); pendiente chico: los acabados de color de los mandos Ø22 (D-a de F1)
+nota: contrato de Claude con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `7d28ae5`; F1 mergeada (la serie Ø22 con `specs.agujero` de ficha leída, builder `mando_22` con cuello, la puerta corta redondo, epoch 8, `layout_tablero` v2) y F2 mergeada (`get_circuit(tablero=true)` resumido 29 → 2 KB en la piloto, `completo=true` para el panel entero; `comandos` en el resumen de `run_batch`; el ERC nombra el conductor por sus puntos); el aviso de la co-simulación también nombra el conductor por sus puntos (D-f de F2); los mandos Ø22 se ven de su color (D-a de F1: `mando_22` por zonas, frente del acabado de su `specs.color`, epoch 9); pendiente chico, fuera del contrato: en la sesión viva el piloto encendido brilla entero y no sólo su lente (§ D-a)
 descripcion: los pulsadores, pilotos y selectores Ø22 dicen su agujero y la puerta 3D los corta redondos; get_circuit con tablero pesa poco, run_batch resumido devuelve los ids creados y el ERC nombra cada conductor por sus extremos
 ---
 
@@ -142,7 +142,7 @@ no cambia: el cambio vive en `tablero_geom.py`).
 - **D-a (vetable): el `mando_22` NO es ZONADO.** El verde, el azul y el ámbar no están en
   `apariencia.ACABADOS`, y sumarlos obliga a regenerar `ui/src/viewport/acabados.json` (fuera
   del alcance de la F1); un botón verde pintado de otro acabado engañaría. La pieza se ve de un
-  acabado, como la caja de antes. Pendiente: los acabados de color de los mandos y sus `zonas`.
+  acabado, como la caja de antes. Cerrado en § D-a — Acabados de color de la serie Ø22.
 - **D-b: el loader verifica lo que el builder repite.** `delante`/`detras` son params del builder
   (lo parten) y también `tablero.puerta`: `ficha_tablero._puerta` rechaza que difieran. Y
   `verificar_agujero` rechaza al cargar una ref de puerta con `specs.agujero` y builder caja
@@ -241,3 +241,59 @@ El ERC de la piloto ya no dice «conductor N»: las tres filas de «PE en cadena
 Tests: `tests/test_lecturas_livianas.py` (nuevo: nombre, color, hilo de cable, referencia rota,
 PE en cadena, piloto, `get_circuit` resumido/completo/sin tablero por la tool real contra la API
 en proceso, `run_batch` y `edit_batch` con `summary` y sin él). Ningún test existente cambió.
+
+### D-a — Acabados de color de la serie Ø22
+
+Hecho (base `86ee115`), el pendiente D-a de la F1:
+
+- **Acabados.** `apariencia.ACABADOS` suma `plastico_verde`, `plastico_azul`, `plastico_ambar` y
+  `plastico_blanco` (pintables, como los de la seta; los protege la zona `fijo`); el rojo de PARO
+  reusa `plastico_rojo_seguridad`. Qué color lleva cada función lo fija IEC 60204-1 §10.2.1
+  (pulsadores: MARCHA verde, PARO rojo, REARME azul), leído en la FAQ FAQ000283554 de Schneider
+  Electric, que cita la edición 2021; la tabla de pilotos (§10.3: rojo emergencia, amarillo
+  anormal, verde normal) se leyó en una cita de segunda mano y no se confirmó azul ni blanco. La
+  norma no da tonos: el sRGB es el de la familia «de tráfico» de RAL según la «List of RAL
+  colours» de Wikipedia (verde RAL 6024 #008754, azul RAL 5017 #0e518d, blanco RAL 9016
+  #f7fbf5); el ámbar, RAL 2000 #dd7907. Origen en el comentario de la tabla.
+  `ui/src/viewport/acabados.json` regenerado con `scripts/acabados_ui.py --escribir`.
+- **Zonas.** `mando_22` pasa a `ZONADOS` y devuelve `frente` (botón, lente o maneta), `bisel` y
+  `cuerpo` (cuello + portacontactos). Las 8 refs de `123_mandos_puerta.yaml` declaran `zonas:`:
+  frente del acabado de su `specs.color` y `fijo`, bisel `plastico_negro`, cuerpo `plastico_gris`.
+- **El loader lo exige** (`zonas.verificar_color_de_ficha`, con la zona de color por builder en
+  `builders_mandos.ZONA_DE_COLOR`): un `specs.color` sin acabado en `apariencia.ACABADO_DE_COLOR`
+  no carga («specs.color «fucsia» no tiene acabado (hay: …)»), y tampoco un frente de otro
+  acabado o sin `fijo`. Acepta tildes y mayúsculas («Ámbar»).
+- **Epoch 8 → 9.** Medido contra el sólido de la F1 (las mismas partes unidas con `+`): mismo
+  volumen (pulsador 40 624,69 mm³, selector 40 543,13, piloto 37 019,91) y mismas caras; en el
+  pulsador y el piloto, en el mismo orden; en los dos selectores la unión por zonas cambia de
+  lugar 4 caras de la maneta (índices 10–13). Las zonas por índice coincidirían igual (las 4 son
+  del frente), así que una caché v8 se vería bien; pero un open caliente y uno frío darían otro
+  índice de cara (lo que leen `get_topology`, el pick y un selector por cara) y la caché nunca es
+  autoritativa. Es builder + YAML: no se acota a la `version` de un comando. Costo: un replay
+  frío por proyecto; la v8 no salió en PyPI.
+
+Decisiones propias (vetables):
+
+- **D-a1. Las zonas van escritas en el YAML y el loader verifica el color**, no se derivan de
+  `specs.color` en el loader: es el mismo mecanismo de la seta (`ZONADOS` exige `zonas:`) y la
+  ficha dice a la vista de qué se ve cada parte; la verificación evita que diverjan (patrón D-b).
+- **D-a2. El frente de color es `fijo`**: el verde de MARCHA es del aparato, `set_color` sobre la
+  pieza no lo repinta (bisel y cuerpo son de plástico moldeado no pintable: la pieza entera
+  ignora el color asignado).
+- **D-a3. El selector, sin `specs.color`, lleva la maneta `plastico_negro` sin `fijo`** (criterio
+  de diseño, la ficha no da color), y bisel negro y cuerpo gris son criterio de diseño, como la
+  seta. Una ref Ø22 sin color de ficha no falla.
+- **D-a4. `ACABADO_DE_COLOR` cubre también amarillo, negro y gris** (los acabados ya existían)
+  para que un mando de esos colores no pida tocar la tabla.
+- **D-a5. No se tocó la sesión viva**: `vivo/mandos3d.ts` enciende el piloto haciendo emisivas
+  TODAS las zonas de la pieza (antes era una sola: no hay regresión), así que encendido brilla
+  entero. Que brille sólo la lente pide que `ZonaOut` diga el nombre de la zona; y
+  `vivo/mandos.ts::colorFisico` tiene su propia tabla de tonos (otra fuente del mismo color).
+  Pendiente chico, fuera de este contrato.
+
+Tests: `tests/test_mando_22.py` suma cada ref con la zona de su color (zonas, acabado, `fijo`,
+volumen de la F1, caras del frente delante del bisel y del cuerpo detrás de la cara de apoyo), la
+piloto con los mandos pintados (`apariencias_render`: el frente sigue de su color), el color sin
+acabado / frente equivocado / sin `fijo` / sin `zonas:` no cargan, la tilde, y la caché v8 (mismas
+zonas por índice, 4 caras movidas en los selectores, el epoch la descarta).
+`tests/test_apariencia.py`: los 4 acabados nuevos en `PINTABLES`. Ningún otro test cambió.

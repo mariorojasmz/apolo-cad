@@ -22,7 +22,7 @@ from .builders import BUILDERS as _BUILDERS_BASE
 from .builders_fijacion import BUILDERS as _BUILDERS_FIJACION
 from .builders_mandos import ANCLAS as _ANCLAS_MANDOS
 from .builders_mandos import BUILDERS as _BUILDERS_MANDOS
-from .builders_mandos import ZONADOS
+from .builders_mandos import ZONA_DE_COLOR, ZONADOS
 from .builders_neumatica import ANCLAS as _ANCLAS_NEUMATICA
 from .builders_neumatica import BUILDERS as _BUILDERS_NEUMATICA
 from .builders_rodaje import BUILDERS as _BUILDERS_RODAJE
@@ -37,7 +37,7 @@ from .neumatica.bobinas import verificar as verificar_bobinas
 from .neumatica.ficha import fusionar as _fusionar_neumatico
 from .neumatica.ficha import parse_ficha_neumatica
 from .perfiles_abiertos import ANCLAS as _ANCLAS_PERFILES
-from .zonas import parse_zonas, unir_zonas
+from .zonas import parse_zonas, unir_zonas, verificar_color_de_ficha
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -121,6 +121,8 @@ def _component_from_item(item: dict, category: str):
 
     specs = item.get("specs", {})
     validar_acuerdo(specs, ref)  # r1/r2/pendiente_ala de norma (plan perfiles-con-acuerdo D1)
+    # el botón verde se ve verde (plan pedidos-de-extensiones-ii D-a)
+    verificar_color_de_ficha(specs, zonas, ZONA_DE_COLOR.get(builder_name), ref)
     if "weight" in item and item["weight"] is not None:
         weight = float(item["weight"])
     elif "weight_formula" in item:

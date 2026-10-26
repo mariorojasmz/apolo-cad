@@ -249,9 +249,11 @@ def anclas_resguardo(parte: str = "cuerpo") -> dict:
 # pieza es la huella `width` × `height` × (`delante` + `detras`) que mide la colocación.
 # Anclas: `montaje` y `agujero` en el origen, eje −Z (las de la seta de puerta).
 # Cotas del orden de Schneider Harmony XB5 (ficha XB5AA31: 30 mm de ancho; chapa de 1 a 6 mm),
-# sin verificar (`cotas_verificadas: false` en el YAML). Sin zonas de acabado: el verde, el azul
-# y el ámbar no están en `apariencia.ACABADOS` (la pieza se ve de un acabado, como la caja).
+# sin verificar (`cotas_verificadas: false` en el YAML). Zonas (D-a): `frente` (el botón, la
+# lente o la maneta: el acabado de `specs.color`, lo exige el loader), `bisel` y `cuerpo` (cuello
+# + portacontactos), en ese orden.
 TIPOS_MANDO_22 = ("pulsador", "selector", "piloto")
+ZONAS_MANDO_22 = ("frente", "bisel", "cuerpo")
 BISEL_D = 30.0
 BISEL_ALTO = 8.0
 FRENTE_D = 24.0              # botón del pulsador y lente del piloto
@@ -278,7 +280,7 @@ def _validar_mando_22(tipo, width, height, delante, detras, panel_mm) -> None:
 def mando_22(tipo: str = "pulsador", width: float = 30, height: float = 30, delante: float = 12,
              detras: float = 38, panel_mm: float = 2.0):
     """Pulsador, selector o piloto de puerta de la serie Ø22 con su cuello por el agujero de la
-    chapa (marco en el comentario de arriba): un sólido."""
+    chapa (marco en el comentario de arriba), en las zonas `ZONAS_MANDO_22`."""
     _validar_mando_22(tipo, width, height, delante, detras, panel_mm)
 
     def build(_length):
@@ -292,7 +294,7 @@ def mando_22(tipo: str = "pulsador", width: float = 30, height: float = 30, dela
         cuello = Pos(0, 0, -panel_mm / 2) * Cylinder(CUELLO_D / 2, panel_mm + 2.0)
         fondo = detras - panel_mm
         portacontactos = Pos(0, 0, -panel_mm - fondo / 2) * Box(width, height, fondo)
-        return portacontactos + cuello + bisel + frente
+        return {"frente": frente, "bisel": bisel, "cuerpo": portacontactos + cuello}
 
     return build
 
@@ -309,4 +311,7 @@ BUILDERS = {"seta_emergencia": seta_emergencia, "interruptor_resguardo": interru
 ANCLAS = {"seta_emergencia": anclas_seta, "interruptor_resguardo": anclas_resguardo,
           "mando_22": anclas_mando_22}
 #: Builders que devuelven `{zona: forma}` (el YAML que los nombra declara `zonas:`).
-ZONADOS = frozenset({"seta_emergencia"})
+ZONADOS = frozenset({"seta_emergencia", "mando_22"})
+#: La zona de un builder por zonas que lleva el color de la ficha (`specs.color`): el loader
+#: exige que su acabado sea el de ese color y que sea `fijo` (`zonas.verificar_color_de_ficha`).
+ZONA_DE_COLOR = {"mando_22": "frente"}

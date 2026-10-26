@@ -145,7 +145,30 @@ ACABADOS: dict[str, Acabado] = {
                                            0.45, pintable=True),
     "plastico_negro": Acabado("Plástico negro", "#1c1d20", 0.0, 0.5),
     "plastico_gris": Acabado("Plástico gris", "#8e9298", 0.0, 0.6),
+    # botón o lente de color de los mandos y pilotos Ø22 (plan pedidos-de-extensiones-ii, D-a).
+    # QUÉ color lleva cada función lo fija IEC 60204-1 §10.2.1 (pulsadores: MARCHA verde, PARO
+    # rojo, REARME azul; leído en la FAQ FAQ000283554 de Schneider Electric, que cita la edición
+    # 2021) y su tabla de pilotos (§10.3: rojo emergencia, amarillo anormal, verde normal; leída en
+    # una cita de segunda mano). Ninguna de las dos da un TONO: el sRGB es el aproximado de la
+    # familia «de tráfico» de RAL (la de señalización) según la «List of RAL colours» de Wikipedia
+    # (leída el 2026-10-25): verde RAL 6024, azul RAL 5017, blanco RAL 9016. El ámbar de una lente
+    # es un amarillo anaranjado (RAL 2000, misma lista): la norma lo cuenta como amarillo, y el
+    # tono se aparta del RAL 1003 del fondo de la seta para no confundirse con él (criterio de
+    # diseño). El rojo de PARO reusa `plastico_rojo_seguridad`. Pintables como los de la seta: la
+    # zona `fijo` del YAML los protege del color de la pieza.
+    "plastico_verde": Acabado("Plástico verde", "#008754", 0.0, 0.35, pintable=True),
+    "plastico_azul": Acabado("Plástico azul", "#0e518d", 0.0, 0.35, pintable=True),
+    "plastico_ambar": Acabado("Plástico ámbar", "#dd7907", 0.0, 0.35, pintable=True),
+    "plastico_blanco": Acabado("Plástico blanco", "#f7fbf5", 0.0, 0.35, pintable=True),
 }
+
+#: El acabado de cada `specs.color` de ficha (sin tildes, en minúscula) de un mando o piloto de
+#: color (D-a de pedidos-de-extensiones-ii). Un color que no está aquí no carga: la ref no se ve
+#: de un color que no es el suyo (`zonas.verificar_color_de_ficha`).
+ACABADO_DE_COLOR = {"verde": "plastico_verde", "rojo": "plastico_rojo_seguridad",
+                    "azul": "plastico_azul", "ambar": "plastico_ambar",
+                    "blanco": "plastico_blanco", "amarillo": "plastico_amarillo_seguridad",
+                    "negro": "plastico_negro", "gris": "plastico_gris"}
 
 #: Acabado de lo que no se reconoce (el material por defecto es acero estructural).
 POR_DEFECTO = "acero_pintado"

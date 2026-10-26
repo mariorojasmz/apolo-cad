@@ -312,6 +312,46 @@
       "relieve": null,
       "pintable": false,
       "textura": null
+    },
+    "plastico_verde": {
+      "nombre": "Plástico verde",
+      "color": "#008754",
+      "metalness": 0.0,
+      "roughness": 0.35,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": true,
+      "textura": null
+    },
+    "plastico_azul": {
+      "nombre": "Plástico azul",
+      "color": "#0e518d",
+      "metalness": 0.0,
+      "roughness": 0.35,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": true,
+      "textura": null
+    },
+    "plastico_ambar": {
+      "nombre": "Plástico ámbar",
+      "color": "#dd7907",
+      "metalness": 0.0,
+      "roughness": 0.35,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": true,
+      "textura": null
+    },
+    "plastico_blanco": {
+      "nombre": "Plástico blanco",
+      "color": "#f7fbf5",
+      "metalness": 0.0,
+      "roughness": 0.35,
+      "opacidad": 1.0,
+      "relieve": null,
+      "pintable": true,
+      "textura": null
     }
   }
 }

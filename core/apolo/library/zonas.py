@@ -66,6 +66,31 @@ def parse_zonas(crudo, ref: str) -> tuple[Zona, ...] | None:
     return tuple(zonas)
 
 
+def verificar_color_de_ficha(specs: dict | None, zonas: tuple[Zona, ...] | None,
+                             zona_color: str | None, ref: str) -> None:
+    """La zona que lleva el color de la ficha (`zona_color`, la de su builder:
+    `builders_mandos.ZONA_DE_COLOR`) es del acabado de `specs.color` y `fijo` (el verde de MARCHA
+    es del aparato: `set_color` no lo repinta). Sin `specs.color` (el selector de maneta negra),
+    la zona lleva el acabado que diga el YAML. Un color sin acabado en
+    `apariencia.ACABADO_DE_COLOR` no carga (plan pedidos-de-extensiones-ii, D-a)."""
+    if zona_color is None or zonas is None:
+        return
+    color = (specs or {}).get("color")
+    if color is None:
+        return
+    from .apariencia import ACABADO_DE_COLOR, _sin_tildes
+
+    acabado = ACABADO_DE_COLOR.get(_sin_tildes(str(color)).strip())
+    if acabado is None:
+        raise ValueError(f"Componente '{ref}': specs.color «{color}» no tiene acabado (hay: "
+                         f"{', '.join(sorted(ACABADO_DE_COLOR))}); súmalo a "
+                         f"`apariencia.ACABADO_DE_COLOR` con su origen")
+    zona = next((z for z in zonas if z.nombre == zona_color), None)
+    if zona is None or zona.acabado != acabado or not zona.fijo:
+        raise ValueError(f"Componente '{ref}': specs.color «{color}» pide zonas.{zona_color}: "
+                         f"{{acabado: {acabado}, fijo: true}}")
+
+
 def unir_zonas(builder_fn, zonas: tuple[Zona, ...], ref: str):
     """Envuelve un builder que devuelve `{zona: forma}` en uno que devuelve el SÓLIDO (lo que
     espera `build_component`) y deja la huella de sus caras. Las partes deben ser exactamente

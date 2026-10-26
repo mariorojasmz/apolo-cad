@@ -18,6 +18,10 @@ category: mandos
 # botón, maneta o lente delante; cuello Ø22 por la chapa; portacontactos detrás, marco en
 # `library/builders_mandos.py`) con la misma huella de 30 × 30 y los `delante`/`detras` de
 # `tablero.puerta` (el loader exige que coincidan): una caja cruzaría la chapa del corte redondo.
+# ZONAS (D-a): el `frente` (botón o lente) lleva el acabado de su `specs.color`, `fijo` (el verde
+# de MARCHA es del aparato: el loader lo exige, tabla y origen de los tonos en
+# `library/apariencia.py`); el selector, sin color de ficha, su maneta negra. Bisel negro y cuerpo
+# gris (cuello + portacontactos): criterio de diseño, como la seta.
 _contacto_na: &contacto_na
   - {id: "13", rol: contacto}
   - {id: "14", rol: contacto}
@@ -33,6 +37,7 @@ components:
     tablero: {puerta: {delante_mm: 12, detras_mm: 38}}
     weight: 0.04
     specs: {diametro: "Ø22", agujero: "Ø22,5", color: verde, contactos: "1NA", linea_referencia: "orden de Schneider Harmony XB5AA31 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
+    zonas: {frente: {acabado: plastico_verde, fijo: true}, bisel: plastico_negro, cuerpo: plastico_gris}
     electrico:
       funcion: S
       simbolo: pulsador_na
@@ -52,6 +57,7 @@ components:
     tablero: {puerta: {delante_mm: 12, detras_mm: 38}}
     weight: 0.04
     specs: {diametro: "Ø22", agujero: "Ø22,5", color: rojo, contactos: "1NC", linea_referencia: "orden de Schneider Harmony XB5AA42 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
+    zonas: {frente: {acabado: plastico_rojo_seguridad, fijo: true}, bisel: plastico_negro, cuerpo: plastico_gris}
     electrico:
       funcion: S
       simbolo: pulsador_nc
@@ -71,6 +77,7 @@ components:
     tablero: {puerta: {delante_mm: 12, detras_mm: 38}}
     weight: 0.04
     specs: {diametro: "Ø22", agujero: "Ø22,5", color: azul, contactos: "1NA", linea_referencia: "orden de Schneider Harmony XB5AA61 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
+    zonas: {frente: {acabado: plastico_azul, fijo: true}, bisel: plastico_negro, cuerpo: plastico_gris}
     electrico:
       funcion: S
       simbolo: pulsador_na
@@ -88,6 +95,7 @@ components:
     tablero: {puerta: {delante_mm: 17, detras_mm: 38}}
     weight: 0.05
     specs: {diametro: "Ø22", agujero: "Ø22,5", posiciones: 2, contactos: "1NA", linea_referencia: "orden de Schneider Harmony XB5AD21 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 8}
+    zonas: {frente: plastico_negro, bisel: plastico_negro, cuerpo: plastico_gris}
     electrico:
       funcion: S
       simbolo: selector_2p
@@ -105,6 +113,7 @@ components:
     tablero: {puerta: {delante_mm: 17, detras_mm: 38}}
     weight: 0.06
     specs: {diametro: "Ø22", agujero: "Ø22,5", posiciones: 3, contactos: "2NA", linea_referencia: "orden de Schneider Harmony XB5AD33 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 10}
+    zonas: {frente: plastico_negro, bisel: plastico_negro, cuerpo: plastico_gris}
     electrico:
       funcion: S
       simbolo: selector_3p
@@ -128,6 +137,7 @@ components:
     tablero: {puerta: {delante_mm: 10, detras_mm: 35}}
     weight: 0.03
     specs: {diametro: "Ø22", agujero: "Ø22,5", color: verde, tension: "24 V AC/DC", linea_referencia: "orden de Schneider Harmony XB5AVB3 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
+    zonas: {frente: {acabado: plastico_verde, fijo: true}, bisel: plastico_negro, cuerpo: plastico_gris}
     electrico: &piloto_24
       funcion: P
       simbolo: piloto
@@ -146,6 +156,7 @@ components:
     tablero: {puerta: {delante_mm: 10, detras_mm: 35}}
     weight: 0.03
     specs: {diametro: "Ø22", agujero: "Ø22,5", color: rojo, tension: "24 V AC/DC", linea_referencia: "orden de Schneider Harmony XB5AVB4 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
+    zonas: {frente: {acabado: plastico_rojo_seguridad, fijo: true}, bisel: plastico_negro, cuerpo: plastico_gris}
     electrico: *piloto_24
   - ref: PILOTO-24V-AMBAR
     name: Piloto LED Ø22 ámbar 24 V
@@ -155,4 +166,5 @@ components:
     tablero: {puerta: {delante_mm: 10, detras_mm: 35}}
     weight: 0.03
     specs: {diametro: "Ø22", agujero: "Ø22,5", color: ambar, tension: "24 V AC/DC", linea_referencia: "orden de Schneider Harmony XB5AVB5 / Siemens SIRIUS ACT 3SU1", cotas_verificadas: false, cost: 5}
+    zonas: {frente: {acabado: plastico_ambar, fijo: true}, bisel: plastico_negro, cuerpo: plastico_gris}
     electrico: *piloto_24

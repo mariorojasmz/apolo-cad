@@ -63,7 +63,10 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   la zona de cada cara por ÍNDICE de `faces()` (`kernel/zonas.py`): la caché de geometría pierde
   el TShape y conserva el orden. `zona_por_cara` la valida por n.º de caras y volumen (taladrada
   → sin zonas). `fijo` = color de norma que `set_color` no pinta.
-  [plan](../../../docs/plans/seta-de-emergencia.md)
+  [plan](../../../docs/plans/seta-de-emergencia.md). La zona de color de un builder
+  (`builders_mandos.ZONA_DE_COLOR`: el `frente` del `mando_22`) lleva el acabado de su
+  `specs.color` (`apariencia.ACABADO_DE_COLOR`, con el origen de cada tono) y `fijo`, o la ref no
+  carga; un color nuevo entra en esa tabla. [pedidos-ii](../../../docs/plans/pedidos-de-extensiones-ii.md) (D-a)
 - Un param nuevo de un builder existente entra con el default que reproduce la geometría de
   antes (la seta `bloques=1`) y un test que la congela (volumen, caras, bbox): así no es bump.
   El interruptor de resguardo y su lengüeta son DOS refs (se compran aparte) del mismo builder.

@@ -73,7 +73,12 @@ from apolo.commands.state import RegenState
 #    portacontactos, plan pedidos-de-extensiones-ii D2–D3) con los MISMOS params de
 #    `insert_component`; la puerta de `layout_tablero` (v2) los corta redondos por su
 #    `specs.agujero`. Builder + YAML del catálogo = no se acota a un executor.
-GEOM_CACHE_EPOCH = 8
+#  v9 (2026-10-25): el `mando_22` pasa a ZONAS (frente de su color, bisel, cuerpo; D-a de
+#    pedidos-de-extensiones-ii): mismo volumen y mismas caras, pero la unión por zonas ordena
+#    distinto 4 caras de la maneta del selector (índices 10–13): un open caliente y uno frío
+#    darían otro índice de cara (lo que leen `get_topology`, el pick y un selector por cara). Las
+#    zonas por índice coincidirían igual (medido: todas dentro de `frente`). Builder + YAML.
+GEOM_CACHE_EPOCH = 9
 
 
 def _apolo_version() -> str:

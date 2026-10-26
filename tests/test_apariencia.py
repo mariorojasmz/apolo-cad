@@ -206,9 +206,11 @@ def test_color_asignado_gana_luego_el_propio_y_al_final_la_paleta():
 
 #: Lo que se puede pintar o teñir; el resto es metal, vidrio o plástico moldeado en su color y
 #: se ve como es. Los plásticos de seguridad son de color (pintables); la zona `fijo` de la seta
-#: los protege del color de la pieza (plan seta-de-emergencia, D3).
+#: los protege del color de la pieza (plan seta-de-emergencia, D3); igual los de los mandos Ø22
+#: (pedidos-de-extensiones-ii, D-a).
 PINTABLES = {"acero_pintado", "caucho", "pvc_banda", "madera", "carton",
-             "plastico_rojo_seguridad", "plastico_amarillo_seguridad"}
+             "plastico_rojo_seguridad", "plastico_amarillo_seguridad", "plastico_verde",
+             "plastico_azul", "plastico_ambar", "plastico_blanco"}
 
 
 def test_pintable_es_atributo_de_la_tabla():
