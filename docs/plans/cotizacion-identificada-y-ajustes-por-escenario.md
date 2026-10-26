@@ -1,6 +1,6 @@
 ---
-estado: en curso
-nota: contrato de Claude con criterio delegado (2026-10-25), vetable por número; F1 (cotización identificada, notas con id acotables, alcance calculado) y F2 (ajustes de aparato por escenario, dentro del dict del escenario; sin bump de `COSIM_EPOCH`, medido) en `main`; decisiones F1-a…F1-j y F2-a…F2-g en la bitácora; sigue F3 (la extensión del titular adopta D1–D3 y D5); deuda chica: `services/escenario_ajustes` usa el privado `commands/neumatica_eval._ajustes` (hacerlo público o mudarlo a `library`)
+estado: implementado
+nota: F1 (cotización identificada, notas con id acotables, alcance calculado) y F2 (ajustes de aparato por escenario; sin bump de `COSIM_EPOCH`, medido) en `main`; F3: la extensión del titular ya los adoptó; pendientes chicos: un rótulo legible para la fuente de la identificación (hoy el pie imprime el id) y que `services/escenario_ajustes` deje de usar el privado `commands/neumatica_eval._ajustes`
 descripcion: la cotización dice a quién va, con qué número y qué incluye de verdad; un escenario de prueba puede cambiar un ajuste de un aparato sin dejarlo cambiado en el proyecto
 ---
 
