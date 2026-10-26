@@ -15,7 +15,7 @@ es sólo de aire (cilindro, FRL, corte) y con los de su ficha eléctrica si es u
 
 from __future__ import annotations
 
-from apolo.library.electrico.ajustes import validar_ajustes
+from apolo.library.electrico.ajustes import validar_ajustes_neumaticos
 from apolo.library.electrico.modelo import Dispositivo, Tubo, dispositivo_desde_ficha
 from apolo.library.electrico.referencias import ReferenciaError, parse_referencia, sufijo_sugerencia
 
@@ -23,32 +23,6 @@ from apolo.library.electrico.referencias import ReferenciaError, parse_referenci
 def es_neumatico(comp) -> bool:
     """¿La ref es un dispositivo de aire (no un tubo)?"""
     return comp is not None and comp.neumatico is not None and comp.neumatico.tubo is None
-
-
-def _ajustes(ajustes: dict, ficha_n, ficha_e, ref: str) -> dict:
-    """Los ajustes del aire (rangos de la ficha neumática: `p_regulada_bar` del FRL) y los del
-    lado eléctrico (contra su `modelo`), cada uno contra su ficha."""
-    rangos = ficha_n.ajustes
-    out: dict = {}
-    resto = {}
-    for clave, valor in (ajustes or {}).items():
-        if clave not in rangos:
-            resto[clave] = valor
-            continue
-        lo, hi = rangos[clave]
-        if not isinstance(valor, (int, float)) or isinstance(valor, bool) or not lo <= valor <= hi:
-            raise ValueError(f"el ajuste {clave} de {ref} va entre {lo:g} y {hi:g} (recibí {valor!r})")
-        out[clave] = float(valor)
-    if resto:
-        modelo_e = ficha_e.modelo if ficha_e is not None else {}
-        if not rangos and not modelo_e:
-            raise ValueError(f"{ref} no tiene ajustes: su ficha no declara nada que fije el instalador")
-        if not modelo_e:
-            claves = ", ".join(sorted(rangos)) or "(ninguno)"
-            raise ValueError(f"{ref} no tiene el ajuste «{next(iter(resto))}»; ajustes: {claves}."
-                             f"{sufijo_sugerencia(next(iter(resto)), rangos)}")
-        out.update(validar_ajustes(resto, modelo_e, ref))
-    return out
 
 
 def _servicio(p, ficha_n, ref: str) -> dict:
@@ -73,7 +47,8 @@ def dispositivo(entrada: dict, comp, pieza: str | None) -> Dispositivo:
                          "al ejecutar el comando para que se asigne sola")
     if p.cantidad not in (None, 1):
         raise ValueError(f"{p.designacion} ({p.ref}): `cantidad` sólo vale en una bornera")
-    ajustes = _ajustes(p.ajustes, neu, ele, p.ref)
+    ajustes = validar_ajustes_neumaticos(p.ajustes, neu.ajustes, ele.modelo if ele is not None else None,
+                                         p.ref)
     servicio = _servicio(p, neu, p.ref)
     base = dict(designacion=p.designacion, ref=p.ref, funcion=neu.funcion, ubicacion=p.ubicacion or "",
                 ajustes=ajustes, pieza=pieza, id=entrada["id"])

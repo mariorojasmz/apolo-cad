@@ -21,6 +21,14 @@ validación (la lista de esquemas, «TN» heredado incluido; `RA_ohm` sólo con 
 NOMBRE de la pieza ligada («Motorreductor NMRV-090 (eje hueco, i=30)», «… 1:30», «η=0,7») si
 no vienen en los ajustes y caen dentro del rango. Lo deducido se declara (`Dispositivo.deducidos`),
 nunca se inventa: sin dato en el nombre, el ajuste sigue faltando y el ERC lo pide.
+
+`validar_ajustes_neumaticos` (V8.9 D1): los de un dispositivo de AIRE, cada uno contra su ficha:
+los rangos de la ficha neumática (`p_regulada_bar` del FRL) y el resto, el lado eléctrico de una
+electroválvula, con `validar_ajustes` contra su `modelo`. La usan `add_device`
+(`commands/neumatica_eval`) y los ajustes de prueba de un escenario
+(`services/escenario_ajustes`): una sola regla. Vive aquí y no en `library/neumatica/` (que sólo
+usa la biblioteca estándar y no importa el resto de `apolo.library`): recibe los rangos ya
+leídos, como un dict, sin importar la ficha neumática.
 Puro: recibe la ficha ya cargada, nunca el catálogo.
 """
 
@@ -104,6 +112,33 @@ def validar_ajustes(ajustes: dict, modelo: dict, ref: str) -> dict:
         elif isinstance(ficha, str) and not isinstance(valor, str):
             raise ValueError(f"el ajuste {clave} de {ref} es un texto (recibí {valor!r})")
         out[clave] = valor
+    return out
+
+
+def validar_ajustes_neumaticos(ajustes: dict, rangos: dict, modelo_e: dict | None, ref: str) -> dict:
+    """Los `ajustes` de un dispositivo de aire validados (una copia), o `ValueError` con qué
+    corregir: una clave de `rangos` (los `ajustes` de su ficha neumática, `{clave: (mín, máx)}`)
+    es un número dentro del rango (sale `float`); el resto va contra `modelo_e`, el `modelo` de su
+    ficha eléctrica (`None` o `{}` si es sólo de aire)."""
+    out: dict = {}
+    resto = {}
+    for clave, valor in (ajustes or {}).items():
+        if clave not in rangos:
+            resto[clave] = valor
+            continue
+        lo, hi = rangos[clave]
+        if not isinstance(valor, (int, float)) or isinstance(valor, bool) or not lo <= valor <= hi:
+            raise ValueError(f"el ajuste {clave} de {ref} va entre {lo:g} y {hi:g} (recibí {valor!r})")
+        out[clave] = float(valor)
+    if resto:
+        modelo_e = modelo_e or {}
+        if not rangos and not modelo_e:
+            raise ValueError(f"{ref} no tiene ajustes: su ficha no declara nada que fije el instalador")
+        if not modelo_e:
+            claves = ", ".join(sorted(rangos)) or "(ninguno)"
+            raise ValueError(f"{ref} no tiene el ajuste «{next(iter(resto))}»; ajustes: {claves}."
+                             f"{sufijo_sugerencia(next(iter(resto)), rangos)}")
+        out.update(validar_ajustes(resto, modelo_e, ref))
     return out
 
 

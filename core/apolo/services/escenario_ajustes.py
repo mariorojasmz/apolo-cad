@@ -5,8 +5,9 @@ variador a 1 s para provocar el disparo en un atasco corto, cuando la placa dice
 dentro de la co-simulación de ese escenario:
   - `validar(me, ajustes)`: contra el tablero armado, igual que `add_device` (la ficha `modelo`
     de cada aparato con `library/electrico/ajustes.validar_ajustes` y, en uno de aire, los rangos
-    de su ficha neumática con `commands/neumatica_eval._ajustes`): una designación que el tablero
-    no tiene o un campo que su ficha no declara es `ServiceError(400)` con la corrección;
+    de su ficha neumática con `validar_ajustes_neumaticos` del mismo módulo, la regla de
+    `add_device`): una designación que el tablero no tiene o un campo que su ficha no declara es
+    `ServiceError(400)` con la corrección;
   - `aplicar(me, ajustes)`: un `ModeloElectrico` NUEVO con los ajustes encima de los del
     `add_device` (el modelo del documento es inmutable y no se toca) y la lista de lo que se usó,
     con el valor del proyecto al lado (`proyecto`: el del `add_device`, o el de la ficha si el
@@ -22,20 +23,16 @@ llamador sostiene STATE_LOCK.
 from __future__ import annotations
 
 from dataclasses import replace
-from types import SimpleNamespace
 
 from .errors import ServiceError
 
 
 def _validar_uno(d, campos: dict) -> dict:
-    from apolo.library.electrico.ajustes import validar_ajustes
+    from apolo.library.electrico.ajustes import validar_ajustes, validar_ajustes_neumaticos
 
     ref = f"{d.designacion} ({d.ref})"
-    if d.neumatico is not None:  # como `neumatica_eval.dispositivo`: aire y lado eléctrico
-        from apolo.commands.neumatica_eval import _ajustes
-
-        ficha_e = SimpleNamespace(modelo=d.modelo) if d.modelo else None
-        return _ajustes(campos, d.neumatico, ficha_e, ref)
+    if d.neumatico is not None:  # como `add_device` (`neumatica_eval.dispositivo`): aire y eléctrico
+        return validar_ajustes_neumaticos(campos, d.neumatico.ajustes, d.modelo, ref)
     return validar_ajustes(campos, d.modelo, ref)
 
 

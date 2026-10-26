@@ -152,7 +152,13 @@ ARCHIVOS = (
 #: ellos, 5 escenarios del banco (marcha con cajas, seta y atasco parcial por variador; marcha y
 #: atasco parcial en directo) dan la MISMA huella, hipótesis, finales, claves del resultado y del
 #: compacto, hash de escenario y firma del documento que en 712a9bd (bitácora del plan).
-HUELLA: tuple[int, str] = (6, "b46038422b964733")
+#: cotizacion-identificada-y-ajustes-por-escenario, pendientes de cierre (sin subir): la validación
+#: de los ajustes de un aparato de aire sale del privado `commands/neumatica_eval._ajustes` a
+#: `library/electrico/ajustes.validar_ajustes_neumaticos` (pública, pura) y
+#: `services/escenario_ajustes.py` la llama con los rangos y el `modelo` en vez de fichas falsas;
+#: es el mismo código, línea a línea: mismos valores validados y mismos errores (los tests de
+#: neumática y de ajustes por escenario pasan sin tocar sus expectativas). Ningún resultado cambia.
+HUELLA: tuple[int, str] = (6, "492124150b56e395")
 
 
 def archivos() -> list[Path]:
