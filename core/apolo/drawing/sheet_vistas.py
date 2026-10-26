@@ -57,8 +57,11 @@ def preparar_lamina(ctx: LaminaEnCurso) -> tuple:
     # el cuadrante iso (abajo-derecha) comparte sitio con el cajetín (180×40) + bloque de
     # revisiones: acotar su banda vertical POR ENCIMA de ellos para que la iso/explosión/detalle
     # no se solapen con el texto del cajetín ni la tabla de revisiones.
-    _n_revs = min(len((meta or {}).get("revisions") or []), 6)
-    tb_top = (51.0 + (_n_revs + 1) * 4.5 + 4.0) if _n_revs else 54.0  # borde superior cajetín+revisiones
+    from .titleblock import TITLE_H as ALTO_CAJETIN  # 40 (el TITLE_H de sheet_primitivas es otro)
+    from .titleblock import alto_revisiones
+
+    # borde superior cajetín+revisiones (una descripción larga hace crecer su fila)
+    tb_top = MARGIN + ALTO_CAJETIN + alto_revisiones((meta or {}).get("revisions")) + 4.0
     iso_band_top = ay0 + ah * 0.52
     iso_cell_h = max(iso_band_top - tb_top, 28.0)
     centers["iso"] = (ax0 + aw * 0.75, (tb_top + iso_band_top) / 2)

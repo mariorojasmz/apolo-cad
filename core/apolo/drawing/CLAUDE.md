@@ -40,15 +40,19 @@ reglas están en [services](../services/CLAUDE.md).
   dueño por nota; las de honestidad nunca) y el alcance sin acotar sale de lo que `incluye` lo
   cobrado. Título y bloque de cliente: `services/identificacion.py` (proyecto → extensión →
   nombre sin «(copia)»; la fuente al pie). Nada interno al papel: la «Ref» de una fila de
-  extensión es su `rotulo` (sin él, el id), el cajetín de la cotización pasa `numero_rotulo` y
-  `titulo_dos_renglones` a `draw_title_block` (los planos no: «Plano», corte a 34) y el producto
-  sale por `requisitos.producto_legible`.
+  extensión es su `rotulo` (sin él, el id), el cajetín de la cotización pasa `numero_rotulo`
+  (los planos no: «Plano») y el producto sale por `requisitos.producto_legible`.
   [cotizacion-identificada](../../../docs/plans/cotizacion-identificada-y-ajustes-por-escenario.md)
   Las de una extensión (`costeo["notas"]`) van detrás, partidas por ancho medido y
   ENTERAS, por `notas_cotizacion.py`: lo que no cabe a la izquierda del cajetín sigue en «NOTAS
   (continuación)», tras los avisos (que el núcleo nombra «hoja 2») y antes del detalle.
   `tests/test_cotizacion_notas.py` congela costeo y hojas sin extensiones.
   [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (F5)
+- **Cajetín común** (`titleblock.py`): ningún texto se corta a N caracteres; se mide
+  (`titleblock.encajar`: renglones o tamaño, nunca bajo `TAM_MIN`; «…» sólo de último recurso) y
+  quien apoya algo encima lee la tabla de revisiones de `alto_revisiones` (una descripción larga
+  hace crecer su fila). `tests/test_cajetin.py` exige que nada se pise ni cruce una línea.
+  [V8.9](../../../docs/plans/V8.9-neumatica.md) (pendiente 10)
 - **Trazos de esquema** (`esquema.py`, para una extensión que dibuja esquemas): `kind`
   `simbolo` (negro sin relleno) y `simbolo_lleno` (punto de unión, flecha) en `Line`, `Circle` y
   `Polygon`, con un solo grosor (0,35 mm, criterio declarado); en DXF, capa `ESQUEMA` sólo si se
@@ -96,9 +100,8 @@ reglas están en [services](../services/CLAUDE.md).
 - La Feature SINTÉTICA de cada lámina (`{"P": feat}`) lleva `material=` de la fila: sin él, el peso
   del cajetín re-resuelve por NOMBRE (una placa de acero «larguero» pesaba como madera).
   [V7.5](../../../docs/plans/V7.5-e22-datum-funcional.md)
-- Varias láminas con el mismo nombre llevan sufijo «(k/n)»; el cajetín corta a 34 caracteres, así
-  que se recorta el NOMBRE para que el sufijo sobreviva (la local de ese bloque no puede llamarse
-  `base`: pisa la de `page_meta`). La columna «Hoja» del despiece mapea por FILA `(_rep, dims)`:
+- Varias láminas con el mismo nombre llevan sufijo «(k/n)» pegado al nombre (en `sheet_set`, una
+  local no puede llamarse `base`: pisa la de `page_meta`). La columna «Hoja» del despiece mapea por FILA `(_rep, dims)`:
   un comando multi-sólido comparte `_rep`. [V7.2c](../../../docs/plans/V7.2c-fixes-re-auditoria.md)
 
 ## Proceso y acabado (`process.py`)

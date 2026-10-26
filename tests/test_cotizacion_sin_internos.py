@@ -126,7 +126,9 @@ def test_un_titulo_largo_va_en_dos_renglones_sin_cortarse_ni_pisar_el_numero():
         assert renglones[0].y - renglones[1].y >= 3.4  # no se montan
 
 
-def test_el_cajetin_de_un_plano_no_cambia():
+def test_el_cajetin_de_un_plano_dice_plano_y_mide_su_titulo():
+    """V8.9 pendiente 10: el plano ya no corta su título a 34 (se comía la cantidad y el material
+    del título de una lámina por pieza): lo mide como la cotización."""
     from apolo.drawing.sheet import SheetModel
     from apolo.drawing.titleblock import draw_title_block
 
@@ -134,7 +136,9 @@ def test_el_cajetin_de_un_plano_no_cambia():
     largo = "Transportador de banda para paquetería con tablero y variador"
     draw_title_block(m, {"project": largo, "drawing_no": "P-12"})
     textos = _textos(m)
-    assert "Plano P-12" in textos and largo[:34] in textos  # como siempre: un renglón a 34
+    assert "Plano P-12" in textos and largo in textos  # cabe en un renglón: entero, a 4
+    (titulo,) = _cajetin_titulo(m)
+    assert titulo.size == 4.0
 
 
 # ── el producto, legible ────────────────────────────────────────────────────────────────────

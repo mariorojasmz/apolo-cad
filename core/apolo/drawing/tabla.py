@@ -114,11 +114,9 @@ def anchos_columnas(headers: list[str], filas: list[list[str]], disponible: floa
 
 def piso_tabla(meta: dict) -> float:
     """y (mm) bajo la cual la tabla no baja: el cajetín y su tabla de revisiones."""
-    from .titleblock import REV_ROW_H, TITLE_H
+    from .titleblock import TITLE_H, alto_revisiones
 
-    revs = list(meta.get("revisions") or [])[-6:]
-    tope = 10.0 + TITLE_H + (1.0 + (len(revs) + 1) * REV_ROW_H if revs else 0.0)
-    return tope + 4.0
+    return 10.0 + TITLE_H + alto_revisiones(meta.get("revisions")) + 4.0
 
 
 def hojas_tabla(titulo: str, headers: list[str], filas: list[list], *, W: float, H: float,

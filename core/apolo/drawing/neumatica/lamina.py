@@ -20,7 +20,7 @@ NOTAS = (  # notes_block corta a 60 caracteres
     "Designación IEC 81346-2; vías de válvula ISO 5599-3.",
     "Bobinas y detectores: referidos a su borne del tablero.",
 )
-SUFIJO = " · ESQUEMA ISO 1219"  # el cajetín corta el título a 34 caracteres
+SUFIJO = " · ESQUEMA ISO 1219"  # el cajetín mide el título y lo parte: sale entero
 
 
 def _formato(pedido: str, ancho: float) -> str:
@@ -47,8 +47,7 @@ def lamina_neumatica(c: CircuitoAire, *, proyecto: str = "Sin título", hoja: st
     notes_block(m, W - MARGIN - 150.0, H - 22.0, todas, title="NOTAS")
     base = dict(meta or {})
     base.setdefault("material", "—")
-    nombre = proyecto[: 34 - len(SUFIJO)]
-    draw_title_block(m, {**base, "project": f"{nombre}{SUFIJO}", "scale": "s/e", "sheet": formato,
+    draw_title_block(m, {**base, "project": f"{proyecto}{SUFIJO}", "scale": "s/e", "sheet": formato,
                          "units": "—", "tolerance": "—", "finish": "—"})
     m.meta["esquema_neumatico"] = {
         "formato": formato,

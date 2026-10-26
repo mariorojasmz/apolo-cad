@@ -256,14 +256,17 @@ def _firma(paginas) -> tuple[str, str]:
 #: Re-congelado sobre 0afb41c (cotización sin internos): el cajetín de TODAS las hojas dice
 #: «Cotización <nº>» en vez de «Plano <nº>» (el número es de la oferta). El costeo es el mismo y,
 #: con el cajetín de antes, las cuatro firmas de hojas dan las de antes (medido): sólo cambió eso.
+#: Re-congelado sobre 87e9d38 (V8.9, pendiente 10: el cajetín común): cambia sólo la hoja de
+#: resumen; comparadas hoja por hoja, las primitivas difieren sólo en el divisor de la fila 2, el
+#: diedro y «Genix Apolo CAD». Costeo y texto del resto, iguales.
 CONGELADO = {
-    "mesa": ("02d6203896ab7622", "96edda0ab6aa68db", "a3c506d759920e4b", "4beec1974c0859e0",
+    "mesa": ("02d6203896ab7622", "77c7697d27ae8052", "a3c506d759920e4b", "45e23b1c05f0a787",
              "4f12f6d6e01da90f"),
-    "directo": ("846066ca50189fba", "cd3233d1236f88cd", "8fb16ca271802f7c", "0c28854377631ede",
+    "directo": ("846066ca50189fba", "ca27642a0d1ed258", "8fb16ca271802f7c", "78b62346f5c1e8c5",
                 "a0525af72a30c84f"),
     # re-congelado sobre aa88ee5: el tablero (b) lleva el PE en estrella (31 → 34 conductores sin
     # tipo en su fila); precios y hoja de resumen, iguales
-    "vfd": ("9f96e6125d640e39", "573664eb534ea9c0", "347f6df5a9b8a562", "cc6dc08f13a17512",
+    "vfd": ("9f96e6125d640e39", "7cd928e7542086ef", "347f6df5a9b8a562", "2b4066d0aa380ecf",
             "056906d39d42d608"),
 }
 
