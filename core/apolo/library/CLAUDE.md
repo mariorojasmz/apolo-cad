@@ -195,7 +195,7 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   van con `include_hidden=True`; la puerta de entrega y la BOM aún filtran
   ([backlog](../../../docs/backlog.md) § Validación).
 - Toda verificación cuantitativa lleva bloque `calc` {titulo, entradas, formula, sustitucion,
-  resultado, criterio, fs, norma}. Las 16 con norma (10 en `rules.py`, 6 en `report_*.py`) citan la
+  resultado, criterio, fs, norma}. Las 16 con norma (10 en `rules_faja_*.py`, 6 en `report_*.py`) citan la
   norma real; sin norma aplicable se escribe «criterio de diseño», nunca una cita inventada. Eje:
   σ_adm = 0.5·σy (más estricto que ASME B106.1M); flecha L/240 (AISC).
   [V7.2b](../../../docs/plans/V7.2b-barrida-residuos.md) · [V7.2c](../../../docs/plans/V7.2c-fixes-re-auditoria.md)
@@ -258,6 +258,13 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 
 ## Reglas de conveyor (`rules.py`) y requisitos
 
+- Módulos: `rules.py` = orquestador de `conveyor_engineering_check` + ruta vieja (re-exporta por
+  identidad, `tests/test_rutas_viejas.py`); `rules_comun` (constantes, regex, `_check`, parseo),
+  `rules_calculo`, `rules_deteccion` + `rules_enriquecer` (`detect_conveyor`); un bloque de
+  verificación por función en `rules_faja_transporte`/`_motor`/`_tambor`/`_estructura`, con el
+  estado en `ContextoFaja` (lo que un bloque produce vuelve por `return`). Una regla nueva va a
+  su `rules_faja_*` y se llama en su lugar; `tests/test_reglas_faja_congeladas.py` congela tres
+  salidas texto a texto. [plan](../../../docs/plans/partir-nucleo-congelado-ii.md) (F3)
 - `detect_conveyor` se enriquece con VARIABLES, nombres y specs de catálogo (reconoce
   `motorreductores_sinfin`: η = 0.75 sinfín vs 0.85 helicoidal). Un transportador de rodillos a
   mano (tubo redondo de catálogo con eje, bastidor de ángulo) lo reconoce `rodillos_a_mano.py`

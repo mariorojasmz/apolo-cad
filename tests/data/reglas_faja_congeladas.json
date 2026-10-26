@@ -1,0 +1,609 @@
+[
+ {
+  "argumentos": {
+   "ancho_paquete_mm": 400,
+   "carga_kg": 75,
+   "largo_paquete_mm": 600,
+   "velocidad_m_s": 0.35
+  },
+  "conveyor": {
+   "altura": 848.0,
+   "ancho": 700.0,
+   "ancho_banda_mm": 700.0,
+   "banda_kg": 15.29,
+   "eje_d": 35.0,
+   "frame": {
+    "carried_kg": 216.25,
+    "depth": 80.0,
+    "length_mm": 4000.0,
+    "material": "acero",
+    "n_largueros": 2,
+    "span_mm": 1500.0,
+    "wall": 3.0,
+    "width": 40.0
+   },
+   "largo": 4007.0,
+   "motor": "documento",
+   "motor_kW": 1.119,
+   "n_rodillos": 1,
+   "paso": null,
+   "rodillo": "RODILLO-50",
+   "rpm_motor": 58.33,
+   "soporte": "rodillos",
+   "tambor_d": 114.0,
+   "tambor_engomado": false,
+   "tipo": "banda",
+   "torque_Nm": 155.7
+  },
+  "conveyor_despues": {
+   "altura": 848.0,
+   "ancho": 700.0,
+   "ancho_banda_mm": 700.0,
+   "banda_kg": 15.29,
+   "bearing_radial_n": 283.9,
+   "eje_d": 35.0,
+   "frame": {
+    "carried_kg": 216.25,
+    "depth": 80.0,
+    "length_mm": 4000.0,
+    "material": "acero",
+    "n_largueros": 2,
+    "span_mm": 1500.0,
+    "wall": 3.0,
+    "width": 40.0
+   },
+   "largo": 4007.0,
+   "motor": "documento",
+   "motor_kW": 1.119,
+   "n_rodillos": 1,
+   "paso": null,
+   "pull_n": 212.2,
+   "rodillo": "RODILLO-50",
+   "rpm_motor": 58.33,
+   "soporte": "rodillos",
+   "tambor_d": 114.0,
+   "tambor_engomado": false,
+   "tipo": "banda",
+   "torque_Nm": 155.7
+  },
+  "origen": "banda sobre rodillos (ISO 5048), motor del documento, eje y bastidor",
+  "reglas": [
+   {
+    "calc": {
+     "criterio": "v ≥ 0.9 × objetivo = 0.315 m/s",
+     "entradas": {
+      "objetivo": "0.35 m/s",
+      "rpm de salida": "58.33 rpm",
+      "Ø tambor": "114 mm"
+     },
+     "formula": "v = n·π·Ø / 60000",
+     "fs": 0.99,
+     "norma": "CEMA (velocidad de banda / unit handling)",
+     "resultado": "v = 0.348 m/s (20.9 m/min)",
+     "sustitucion": "v = 58.33·π·114 / 60000",
+     "titulo": "Velocidad de banda"
+    },
+    "detalle": "El accionamiento (58.33 rpm × Ø114) da 0.348 m/s (20.9 m/min).",
+    "estado": "ok",
+    "regla": "velocidad de banda"
+   },
+   {
+    "detalle": "Soporte continuo por la banda/mesa (no aplica el paso de rodillos).",
+    "estado": "ok",
+    "regla": "apoyo del paquete"
+   },
+   {
+    "calc": {
+     "criterio": "P ≤ 35 kg (capacidad de catálogo)",
+     "entradas": {
+      "apoyos": "1",
+      "carga por paquete": "75 kg",
+      "rodillo": "RODILLO-50 (35 kg/ud)"
+     },
+     "formula": "P = carga / n_apoyos",
+     "fs": 0.47,
+     "norma": "CEMA (clasificación de carga de rodillos/idlers) — ficha de fabricante",
+     "resultado": "P = 75.0 kg/rodillo",
+     "sustitucion": "P = 75 / 1",
+     "titulo": "Capacidad de rodillo"
+    },
+    "detalle": "75.0 kg/rodillo supera los 35 kg del RODILLO-50.",
+    "estado": "error",
+    "recomendacion": "Usa RODILLO-50 o añade más rodillos.",
+    "regla": "capacidad de rodillo"
+   },
+   {
+    "detalle": "700 mm útiles (banda de 700 mm) para paquete de 400 mm.",
+    "estado": "ok",
+    "regla": "ancho útil"
+   },
+   {
+    "calc": {
+     "criterio": "informativo (alimenta potencia y par)",
+     "entradas": {
+      "C(L)": "4.50 (L=4.007 m; <80 m: interpolado, referencial)",
+      "f": "0.02 (rodadura idlers)",
+      "inclinación": "0°",
+      "q_B banda": "1.91 kg/m",
+      "q_G carga": "56.15 kg/m",
+      "q_RO giratorias": "0.00 kg/m"
+     },
+     "formula": "F_U = C(L)·f·L·g·(q_RO + (2·q_B + q_G)·cos δ) + q_G·H·g",
+     "fs": null,
+     "norma": "ISO 5048 / DIN 22101",
+     "resultado": "F_U = 212.2 N",
+     "sustitucion": "F_U = 4.50·0.02·4.007·9.81·(0.00 + (2·1.91 + 56.15)·cos 0°) + elevación",
+     "titulo": "Tensión efectiva (banda sobre rodillos)"
+    },
+    "detalle": "Tensión efectiva 212.2 N (banda sobre rodillos, método ISO 5048: f=0.02, C(L)=4.50).",
+    "estado": "ok",
+    "regla": "arrastre de banda"
+   },
+   {
+    "calc": {
+     "criterio": "P motor ≥ P requerida",
+     "entradas": {
+      "arrastre F": "212.2 N",
+      "margen": "1.3x",
+      "velocidad": "0.35 m/s",
+      "η": "0.85",
+      "μ": "ISO 5048 f=0.02"
+     },
+     "formula": "P = F·v / η · margen",
+     "fs": 9.85,
+     "norma": "ISO 5048 / DIN 22101",
+     "resultado": "P requerida = 0.11 kW",
+     "sustitucion": "P = 212.2·0.35 / 0.85 · 1.3",
+     "titulo": "Motorización"
+    },
+    "detalle": "El motor del documento (1.119 kW) ≥ 0.11 kW requeridos (margen 1.3x incluido).",
+    "estado": "ok",
+    "regla": "motorización"
+   },
+   {
+    "calc": {
+     "criterio": "T motor ≥ T requerido",
+     "entradas": {
+      "arrastre F": "212.2 N",
+      "par disponible": "155.7 N·m",
+      "Ø tambor": "114 mm"
+     },
+     "formula": "T = F·r",
+     "fs": 12.88,
+     "norma": "criterio de diseño: par en el tambor T = F·r",
+     "resultado": "T requerido = 12.1 N·m",
+     "sustitucion": "T = 212.2·0.0570",
+     "titulo": "Par en el tambor motriz"
+    },
+    "detalle": "Par disponible 155.7 N·m ≥ 12.1 N·m requeridos en el tambor Ø114.",
+    "estado": "ok",
+    "regla": "par del motor"
+   },
+   {
+    "calc": {
+     "criterio": "T motor ≥ T_arr",
+     "entradas": {
+      "T régimen": "12.1 N·m",
+      "factor de arranque": "1.6",
+      "par disponible": "155.7 N·m"
+     },
+     "formula": "T_arr = F·r · 1.6",
+     "fs": 8.05,
+     "norma": "factor 1.6 — práctica industrial 1.5–2.0, coherente con DIN 22101 (arranque)",
+     "resultado": "T_arr = 19.3 N·m",
+     "sustitucion": "T_arr = 12.1 · 1.6",
+     "titulo": "Par de arranque"
+    },
+    "detalle": "Par disponible 155.7 N·m ≥ 19.3 N·m de arranque (factor 1.6).",
+    "estado": "ok",
+    "regla": "par de arranque"
+   },
+   {
+    "calc": {
+     "criterio": "el tensor debe garantizar T2 ≥ T2_min (si no, la banda patina)",
+     "entradas": {
+      "F_U (arrastre)": "212.2 N",
+      "e^(μα)": "2.19",
+      "α abrace": "180°",
+      "μ tambor": "0.25 (acero liso)"
+     },
+     "formula": "T2_min = F_U / (e^(μα) − 1)",
+     "fs": null,
+     "norma": "Euler-Eytelwein (ISO 5048 · DIN 22101 · CEMA)",
+     "resultado": "T2_min = 177.8 N",
+     "sustitucion": "T2_min = 212.2 / (2.19 − 1)",
+     "titulo": "Adherencia del tambor motriz (Euler-Eytelwein)"
+    },
+    "detalle": "Sin tensor reconocido: la banda necesita T2 ≥ 177.8 N en el ramal flojo para no patinar (tambor liso, μ=0.25).",
+    "estado": "aviso",
+    "recomendacion": "Añade un tensor reconocible (create_take_up, una unidad UCT de catálogo o el metadato `tensores` con su carrera) o verifica la tensión de montaje.",
+    "regla": "adherencia del tambor motriz"
+   },
+   {
+    "detalle": "0.35 m/s requiere 134 rpm en rodillo Ø50 (ajustable con la transmisión).",
+    "estado": "ok",
+    "regla": "velocidad"
+   },
+   {
+    "detalle": "Altura de trabajo 848 mm; largo 4007 mm.",
+    "estado": "ok",
+    "regla": "geometría"
+   },
+   {
+    "calc": {
+     "criterio": "δ ≤ L/240 = 6.25 mm",
+     "entradas": {
+      "E": "200000 MPa (acero)",
+      "I": "5.59e+05 mm⁴",
+      "carga": "291 kg / 2 larguero(s)",
+      "sección": "40×80×3 mm",
+      "vano L": "1500 mm"
+     },
+     "formula": "δ = 5·w·L⁴ / (384·E·I)",
+     "fs": 29.66,
+     "norma": "criterio de serviciabilidad L/240 (AISC, carga total)",
+     "resultado": "δ = 0.21 mm",
+     "sustitucion": "δ = 5·0.357·1500⁴ / (384·200000·5.59e+05)",
+     "titulo": "Flecha del bastidor"
+    },
+    "detalle": "Flecha ≈ 0.21 mm en un vano de 1500 mm (admisible L/240 = 6.25 mm; acero, sección 40×80×3, 291 kg sobre 2 larguero(s)).",
+    "estado": "ok",
+    "regla": "flecha del bastidor"
+   },
+   {
+    "calc": {
+     "criterio": "σ ≤ σy/2 = 125 MPa",
+     "entradas": {
+      "carga radial": "424.3 N (≈2×arrastre)",
+      "luz entre apoyos": "700 mm",
+      "Ø eje": "35 mm",
+      "σy": "250 MPa (acero)"
+     },
+     "formula": "σ = 32·(F·L/4) / (π·d³)",
+     "fs": 7.09,
+     "norma": "criterio conservador σ_adm = 0.5·σy (más estricto que ASME B106.1M — ejes)",
+     "resultado": "σ = 17.6 MPa",
+     "sustitucion": "σ = 32·(424.3·700/4) / (π·35³)",
+     "titulo": "Flexión del eje del tambor"
+    },
+    "detalle": "Eje Ø35 a flexión ≈ 18 MPa entre apoyos de 700 mm (admisible σy/2 = 125 MPa, acero). Estimación.",
+    "estado": "ok",
+    "regla": "flexión del eje"
+   }
+  ]
+ },
+ {
+  "argumentos": {
+   "ancho_paquete_mm": 300.0,
+   "carga_kg": 300.0,
+   "largo_paquete_mm": 400.0,
+   "velocidad_m_s": 0.3
+  },
+  "conveyor": {
+   "altura": 905.0,
+   "ancho": 960.8,
+   "ancho_banda_mm": 600.0,
+   "banda_kg": 28.06,
+   "eje_d": null,
+   "frame": {
+    "carried_kg": 616.37,
+    "depth": 101.6,
+    "length_mm": 4274.3,
+    "material": "acero ASTM A500 Gr.B",
+    "n_largueros": 2,
+    "span_mm": 3806.1,
+    "wall": 3.0,
+    "width": 50.8
+   },
+   "largo": 4280.3,
+   "luz_guias_mm": 606.0,
+   "motor": "documento",
+   "motor_kW": 1.5,
+   "n_rodillos": 0,
+   "paso": null,
+   "rodillo": "RODILLO-50",
+   "rpm_motor": 188,
+   "soporte": "cama",
+   "tambor_d": 113.6,
+   "tambor_engomado": false,
+   "tiene_tensor": true,
+   "tipo": "banda",
+   "torque_Nm": 64.8
+  },
+  "conveyor_despues": {
+   "altura": 905.0,
+   "ancho": 960.8,
+   "ancho_banda_mm": 600.0,
+   "banda_kg": 28.06,
+   "bearing_radial_n": 6618.9,
+   "eje_d": null,
+   "frame": {
+    "carried_kg": 616.37,
+    "depth": 101.6,
+    "length_mm": 4274.3,
+    "material": "acero ASTM A500 Gr.B",
+    "n_largueros": 2,
+    "span_mm": 3806.1,
+    "wall": 3.0,
+    "width": 50.8
+   },
+   "largo": 4280.3,
+   "luz_guias_mm": 606.0,
+   "motor": "documento",
+   "motor_kW": 1.5,
+   "n_rodillos": 0,
+   "paso": null,
+   "pull_n": 4946.8,
+   "rodillo": "RODILLO-50",
+   "rpm_motor": 188,
+   "soporte": "cama",
+   "tambor_d": 113.6,
+   "tambor_engomado": false,
+   "tiene_tensor": true,
+   "tipo": "banda",
+   "torque_Nm": 64.8
+  },
+  "origen": "banda sobre cama como la del testigo 38, con tensor reconocido y 300 kg",
+  "reglas": [
+   {
+    "calc": {
+     "criterio": "v ≥ 0.9 × objetivo = 0.270 m/s",
+     "entradas": {
+      "objetivo": "0.3 m/s",
+      "rpm de salida": "188 rpm",
+      "Ø tambor": "113.6 mm"
+     },
+     "formula": "v = n·π·Ø / 60000",
+     "fs": 3.73,
+     "norma": "CEMA (velocidad de banda / unit handling)",
+     "resultado": "v = 1.118 m/s (67.1 m/min)",
+     "sustitucion": "v = 188·π·113.6 / 60000",
+     "titulo": "Velocidad de banda"
+    },
+    "detalle": "El accionamiento (188 rpm × Ø113.6) da 1.118 m/s (67.1 m/min).",
+    "estado": "ok",
+    "regla": "velocidad de banda"
+   },
+   {
+    "detalle": "Soporte continuo por la banda/mesa (no aplica el paso de rodillos).",
+    "estado": "ok",
+    "regla": "apoyo del paquete"
+   },
+   {
+    "calc": {
+     "criterio": "P ≤ 35 kg (capacidad de catálogo)",
+     "entradas": {
+      "apoyos": "2",
+      "carga por paquete": "300 kg",
+      "rodillo": "RODILLO-50 (35 kg/ud)"
+     },
+     "formula": "P = carga / n_apoyos",
+     "fs": 0.23,
+     "norma": "CEMA (clasificación de carga de rodillos/idlers) — ficha de fabricante",
+     "resultado": "P = 150.0 kg/rodillo",
+     "sustitucion": "P = 300 / 2",
+     "titulo": "Capacidad de rodillo"
+    },
+    "detalle": "150.0 kg/rodillo supera los 35 kg del RODILLO-50.",
+    "estado": "error",
+    "recomendacion": "Usa RODILLO-80 o añade más rodillos.",
+    "regla": "capacidad de rodillo"
+   },
+   {
+    "detalle": "600 mm útiles (banda de 600 mm, luz entre guías 606 mm) para paquete de 300 mm.",
+    "estado": "ok",
+    "regla": "ancho útil"
+   },
+   {
+    "calc": {
+     "criterio": "informativo (alimenta potencia y par)",
+     "entradas": {
+      "carga simultánea": "5 paq × 300 kg",
+      "inclinación": "0°",
+      "peso de banda": "28.1 kg",
+      "μ banda-cama": "0.33 (PVC/acero, CEMA slider bed 0.30–0.35)"
+     },
+     "formula": "F = g·(μ·(m_carga + m_banda) + m_carga·sen θ)",
+     "fs": null,
+     "norma": "CEMA (unit handling) — slider bed, μ = 0.30–0.35",
+     "resultado": "F = 4946.8 N",
+     "sustitucion": "F = 9.81·(0.33·(1500 + 28.1) + 1500·sen 0°)",
+     "titulo": "Arrastre de banda sobre cama (método CEMA slider-bed)"
+    },
+    "detalle": "Fuerza de arrastre efectiva 4946.8 N (banda sobre cama, μ=0.33, 5 paquete(s) + 28.1 kg de banda).",
+    "estado": "ok",
+    "regla": "arrastre de banda"
+   },
+   {
+    "calc": {
+     "criterio": "P motor ≥ P requerida",
+     "entradas": {
+      "arrastre F": "4946.8 N",
+      "margen": "1.3x",
+      "velocidad": "0.3 m/s",
+      "η": "0.85",
+      "μ": "0.33 banda-cama (CEMA)"
+     },
+     "formula": "P = F·v / η · margen",
+     "fs": 0.66,
+     "norma": "CEMA (unit handling) — slider bed",
+     "resultado": "P requerida = 2.27 kW",
+     "sustitucion": "P = 4946.8·0.3 / 0.85 · 1.3",
+     "titulo": "Motorización"
+    },
+    "detalle": "El motor del documento (1.5 kW) insuficiente: se requieren 2.27 kW.",
+    "estado": "error",
+    "recomendacion": "Usa MOTOR-150-EH.",
+    "regla": "motorización"
+   },
+   {
+    "calc": {
+     "criterio": "T motor ≥ T requerido",
+     "entradas": {
+      "arrastre F": "4946.8 N",
+      "par disponible": "64.8 N·m",
+      "Ø tambor": "113.6 mm"
+     },
+     "formula": "T = F·r",
+     "fs": 0.23,
+     "norma": "criterio de diseño: par en el tambor T = F·r",
+     "resultado": "T requerido = 281.0 N·m",
+     "sustitucion": "T = 4946.8·0.0568",
+     "titulo": "Par en el tambor motriz"
+    },
+    "detalle": "Par del motor 64.8 N·m < 281.0 N·m requeridos en el tambor Ø113.6.",
+    "estado": "error",
+    "recomendacion": "Usa un motorreductor de mayor par o un tambor de menor Ø.",
+    "regla": "par del motor"
+   },
+   {
+    "calc": {
+     "criterio": "T motor ≥ T_arr",
+     "entradas": {
+      "T régimen": "281.0 N·m",
+      "factor de arranque": "1.6",
+      "par disponible": "64.8 N·m"
+     },
+     "formula": "T_arr = F·r · 1.6",
+     "fs": 0.14,
+     "norma": "factor 1.6 — práctica industrial 1.5–2.0, coherente con DIN 22101 (arranque)",
+     "resultado": "T_arr = 449.6 N·m",
+     "sustitucion": "T_arr = 281.0 · 1.6",
+     "titulo": "Par de arranque"
+    },
+    "detalle": "Par 64.8 N·m < 449.6 N·m de arranque (factor 1.6): puede costarle arrancar a plena carga.",
+    "estado": "aviso",
+    "recomendacion": "Sube un tamaño de motorreductor o arranca en vacío.",
+    "regla": "par de arranque"
+   },
+   {
+    "calc": {
+     "criterio": "el tensor debe garantizar T2 ≥ T2_min (si no, la banda patina)",
+     "entradas": {
+      "F_U (arrastre)": "4946.8 N",
+      "e^(μα)": "2.19",
+      "α abrace": "180°",
+      "μ tambor": "0.25 (acero liso)"
+     },
+     "formula": "T2_min = F_U / (e^(μα) − 1)",
+     "fs": null,
+     "norma": "Euler-Eytelwein (ISO 5048 · DIN 22101 · CEMA)",
+     "resultado": "T2_min = 4145.5 N",
+     "sustitucion": "T2_min = 4946.8 / (2.19 − 1)",
+     "titulo": "Adherencia del tambor motriz (Euler-Eytelwein)"
+    },
+    "detalle": "Tambor liso (μ=0.25, α=180°): el tensor debe garantizar T2 ≥ 4145.5 N para transmitir 4946.8 N sin patinar (hay un tensor reconocido en el modelo).",
+    "estado": "ok",
+    "regla": "adherencia del tambor motriz"
+   },
+   {
+    "detalle": "0.3 m/s requiere 115 rpm en rodillo Ø50 (ajustable con la transmisión).",
+    "estado": "ok",
+    "regla": "velocidad"
+   },
+   {
+    "detalle": "Altura de trabajo 905 mm; largo 4280 mm.",
+    "estado": "ok",
+    "regla": "geometría"
+   },
+   {
+    "calc": {
+     "criterio": "δ ≤ L/240 = 15.86 mm",
+     "entradas": {
+      "E": "200000 MPa (acero ASTM A500 Gr.B)",
+      "I": "1.18e+06 mm⁴",
+      "carga": "916 kg / 2 larguero(s)",
+      "sección": "51×102×3 mm",
+      "vano L": "3806 mm"
+     },
+     "formula": "δ = 5·w·L⁴ / (384·E·I)",
+     "fs": 1.3,
+     "norma": "criterio de serviciabilidad L/240 (AISC, carga total)",
+     "resultado": "δ = 12.20 mm",
+     "sustitucion": "δ = 5·1.05·3806⁴ / (384·200000·1.18e+06)",
+     "titulo": "Flecha del bastidor"
+    },
+    "detalle": "Flecha ≈ 12.20 mm en un vano de 3806 mm (admisible L/240 = 15.86 mm; acero ASTM A500 Gr.B, sección 51×102×3, 916 kg sobre 2 larguero(s)).",
+    "estado": "ok",
+    "regla": "flecha del bastidor"
+   }
+  ]
+ },
+ {
+  "argumentos": {
+   "carga_kg": 200,
+   "largo_paquete_mm": 400,
+   "velocidad_m_s": 0.5
+  },
+  "conveyor": {
+   "ancho": 600,
+   "largo": 2000,
+   "motor": "ninguno",
+   "paso": 250,
+   "rodillo": "RODILLO-50"
+  },
+  "conveyor_despues": {
+   "ancho": 600,
+   "largo": 2000,
+   "motor": "ninguno",
+   "paso": 250,
+   "rodillo": "RODILLO-50"
+  },
+  "origen": "rodillos sin motor ni tipo, con paso que deja caer el paquete",
+  "reglas": [
+   {
+    "detalle": "Con paso 250 mm el paquete de 400 mm puede caer entre rodillos.",
+    "estado": "error",
+    "recomendacion": "Usa un paso ≤ 133 mm.",
+    "regla": "apoyo del paquete"
+   },
+   {
+    "calc": {
+     "criterio": "P ≤ 35 kg (capacidad de catálogo)",
+     "entradas": {
+      "apoyos": "1",
+      "carga por paquete": "200 kg",
+      "rodillo": "RODILLO-50 (35 kg/ud)"
+     },
+     "formula": "P = carga / n_apoyos",
+     "fs": 0.17,
+     "norma": "CEMA (clasificación de carga de rodillos/idlers) — ficha de fabricante",
+     "resultado": "P = 200.0 kg/rodillo",
+     "sustitucion": "P = 200 / 1",
+     "titulo": "Capacidad de rodillo"
+    },
+    "detalle": "200.0 kg/rodillo supera los 35 kg del RODILLO-50.",
+    "estado": "error",
+    "recomendacion": "Usa RODILLO-80 o añade más rodillos.",
+    "regla": "capacidad de rodillo"
+   },
+   {
+    "calc": {
+     "criterio": "P motor ≥ P requerida",
+     "entradas": {
+      "arrastre F": "235.4 N",
+      "margen": "1.3x",
+      "velocidad": "0.5 m/s",
+      "η": "0.85",
+      "μ": "0.06 rodadura"
+     },
+     "formula": "P = F·v / η · margen",
+     "fs": null,
+     "norma": "criterio de diseño: P = F·v/η con margen de servicio",
+     "resultado": "P requerida = 0.18 kW",
+     "sustitucion": "P = 235.4·0.5 / 0.85 · 1.3",
+     "titulo": "Motorización"
+    },
+    "detalle": "Transportador sin motor; para 0.5 m/s se necesitan ≥ 0.18 kW.",
+    "estado": "aviso",
+    "recomendacion": "Añade MOTOR-037 (0.37 kW).",
+    "regla": "motorización"
+   },
+   {
+    "detalle": "0.5 m/s requiere 191 rpm en rodillo Ø50 (ajustable con la transmisión).",
+    "estado": "ok",
+    "regla": "velocidad"
+   }
+  ]
+ }
+]

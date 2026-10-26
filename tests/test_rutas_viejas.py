@@ -736,3 +736,89 @@ def test_el_gate_report_caza_una_copia(monkeypatch):
         "apolo.library.engineering.report._bearing_checks: no es el objeto de "
         "apolo.library.engineering.report_estructura"
     ]
+
+
+# ── rules (II F3) ─────────────────────────────────────────────────────────────
+
+#: Casa nueva de cada nombre que `apolo.library.rules` definía en `698a5a7` (34 definiciones de
+#: nivel superior: 14 constantes y regex, 19 funciones y la orquestadora; plan
+#: partir-nucleo-congelado-ii, D4 y D6).
+RULES: dict[str, tuple[str, ...]] = {
+    "apolo.library.rules_comun": (
+        "FRICTION_COEFF", "EFFICIENCY", "POWER_MARGIN", "RAIL_W", "DEFLECTION_RATIO",
+        "SHAFT_SAFETY", "_HP_RE", "_KW_RE", "_SECTION_RE", "_DIAM_RE", "_LEG_RE", "_LARG_RE",
+        "_EJE_RE", "_BANDA_RE", "_f", "_parse_power_kw", "_parse_wall", "_parse_diam", "_vol_safe",
+        "_check", "_name", "_bbox_safe",
+    ),
+    "apolo.library.rules_calculo": (
+        "required_force_n", "required_power_kw", "band_speed_m_s", "recommend_motor_kw",
+        "recommend_motor", "recommend_roller",
+    ),
+    "apolo.library.rules_enriquecer": ("_frame_from_scene", "_enrich_conveyor"),
+    "apolo.library.rules_deteccion": ("detect_conveyor", "_detect_by_name", "infer_from_solids"),
+    "apolo.library.rules": ("conveyor_engineering_check",),
+}
+
+DEFINICIONES_RULES = 34
+
+#: Los bloques de `conveyor_engineering_check` (D4), en el orden en que la orquestadora los llama.
+BLOQUES_FAJA = (
+    ("apolo.library.rules_faja_transporte", "verificar_velocidad_de_banda"),
+    ("apolo.library.rules_faja_transporte", "verificar_apoyo_del_paquete"),
+    ("apolo.library.rules_faja_transporte", "verificar_capacidad_de_rodillo"),
+    ("apolo.library.rules_faja_transporte", "verificar_ancho_util"),
+    ("apolo.library.rules_faja_motor", "verificar_arrastre"),
+    ("apolo.library.rules_faja_motor", "verificar_motorizacion"),
+    ("apolo.library.rules_faja_tambor", "verificar_par_del_motor"),
+    ("apolo.library.rules_faja_tambor", "verificar_adherencia_del_tambor"),
+    ("apolo.library.rules_faja_transporte", "verificar_velocidad_del_rodillo"),
+    ("apolo.library.rules_faja_transporte", "verificar_geometria"),
+    ("apolo.library.rules_faja_estructura", "verificar_flecha_del_bastidor"),
+    ("apolo.library.rules_faja_estructura", "verificar_flexion_del_eje"),
+)
+
+
+def test_rules_sirve_cada_nombre_viejo_por_identidad():
+    assert faltantes("apolo.library.rules", RULES) == []
+
+
+def test_rules_lista_cerrada():
+    nombres = [n for ns in RULES.values() for n in ns]
+    assert len(nombres) == len(set(nombres)) == DEFINICIONES_RULES
+
+
+@pytest.mark.parametrize("casa", sorted(RULES))
+def test_cada_casa_nueva_de_rules_define_lo_suyo(casa):
+    mod = importlib.import_module(casa)
+    for nombre in RULES[casa]:
+        obj = getattr(mod, nombre)
+        if inspect.isfunction(obj):
+            assert obj.__module__ == casa, f"{nombre} nace en {obj.__module__}, no en {casa}"
+
+
+def test_rules_solo_define_la_orquestadora():
+    """Una regla nueva va a su `rules_faja_*` (o a `rules_comun`/`_calculo`/`_deteccion`), no a
+    la fachada; la orquestadora llama a los bloques en el orden de `BLOQUES_FAJA`."""
+    import ast
+
+    import apolo.library.rules as rules
+
+    propias = [n for n, obj in vars(rules).items()
+               if inspect.isfunction(obj) and obj.__module__ == rules.__name__]
+    assert propias == ["conveyor_engineering_check"]
+    arbol = ast.parse(inspect.getsource(rules.conveyor_engineering_check))
+    llamadas = [n.func.id for n in ast.walk(arbol)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and n.func.id.startswith("verificar_")]
+    assert llamadas == [nombre for _, nombre in BLOQUES_FAJA]
+    for casa, nombre in BLOQUES_FAJA:
+        assert getattr(rules, nombre) is getattr(importlib.import_module(casa), nombre)
+
+
+def test_el_gate_rules_caza_una_copia(monkeypatch):
+    import apolo.library.rules as rules
+
+    monkeypatch.setattr(rules, "_check", lambda *a, **k: {})
+    assert faltantes("apolo.library.rules", RULES) == [
+        "apolo.library.rules._check: no es el objeto de apolo.library.rules_comun"
+    ]
