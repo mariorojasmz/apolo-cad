@@ -226,6 +226,6 @@ el mismo salto) con su huella. `layout_tablero` sigue en v2 y sólo cambia su hu
 agrega al log). Golden del MCP re-congelado: cambian sólo las descripciones de `run_command`,
 `set_variable`, `resolve_expression` y `set_scenario`; ninguna salida de llamada.
 
-Suite completa (`-n 4`, en el worktree): antes 6 280 pasan, 10 saltadas, exit 0; después 6 310
+Suite completa (`-n 4`, en el worktree): antes 6 280 pasan, 10 saltadas, exit 0; después 6 311
 pasan, 11 saltadas, exit 0 (el primer intento dio 1 falla: `brief.py` importaba `re` y su gate de
 pureza lo prohíbe). `ruff check core tests scripts` limpio.
