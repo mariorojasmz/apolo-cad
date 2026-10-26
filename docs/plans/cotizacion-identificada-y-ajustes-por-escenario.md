@@ -1,6 +1,6 @@
 ---
 estado: implementado
-nota: F1 (cotización identificada, notas con id acotables, alcance calculado) y F2 (ajustes de aparato por escenario; sin bump de `COSIM_EPOCH`, medido) en `main`; F3: la extensión del titular ya los adoptó; pendientes chicos: un rótulo legible para la fuente de la identificación (hoy el pie imprime el id) y que `services/escenario_ajustes` deje de usar el privado `commands/neumatica_eval._ajustes`
+nota: F1 (cotización identificada, notas con id acotables, alcance calculado) y F2 (ajustes de aparato por escenario; sin bump de `COSIM_EPOCH`, medido) en `main`; F3: la extensión del titular ya los adoptó; los dos pendientes chicos (rótulo legible de la identificación, validación neumática pública en `library`) cerrados (§ Pendientes de cierre); sin pendientes
 descripcion: la cotización dice a quién va, con qué número y qué incluye de verdad; un escenario de prueba puede cambiar un ajuste de un aparato sin dejarlo cambiado en el proyecto
 ---
 
@@ -232,3 +232,47 @@ respuesta y en el guardado, `add_device`, modelo, circuito y firma intactos);
 `tests/test_cosim_epoch.py` (huella + `ARCHIVOS`); golden MCP re-congelado tras revisar el diff
 (sólo el docstring de `set_scenario`) y el caso «escenario con ajustes de prueba» en
 `scripts/golden_mcp_casos.py`.
+
+### Pendientes de cierre (2026-10-25, base 036504c)
+
+Hecho: los dos pendientes chicos de la nota.
+
+1. **Rótulo legible de la identificación.** `IdentificacionCosteo` gana `rotulo: str | None =
+   None` (al final: una extensión que no lo declara carga igual y su pie sigue diciendo el id).
+   Se valida al cargar como la `nota` (`costeo_extension.motivo_rotulo`: texto no vacío, una
+   línea, ≤ `ROTULO_MAX` = 60 caracteres; si no, `ExtensionRechazada`). `identificacion(doc)`
+   suma `fuente_rotulo` (salvo con fuente «nombre»): `ROTULO_PROYECTO` («datos comerciales del
+   proyecto»), el `rotulo` de la extensión o su id; el pie de la hoja imprime ese rótulo.
+   - **P-a — El rótulo viaja en el dict de `identificacion`, no lo busca `drawing/quote`**: la
+     hoja no lee el registro de extensiones (sigue recibiendo todo por parámetro) y el
+     `GET /api/project/comercial` lo publica en `efectiva` (clave nueva: sólo agrega). `fuente`
+     no cambia (sigue siendo el id, lo que se compara).
+   - **P-b — Sin bump de `CONTRATO_EXTENSIONES`**: un campo opcional nuevo de una clase ya
+     exportada en `SUPERFICIE` es agregar, no romper (regla de `extensiones_api.py`).
+2. **`services/escenario_ajustes` sin el privado de `commands`.** La validación de los ajustes de
+   un aparato de aire sale de `commands/neumatica_eval._ajustes` a
+   `library/electrico/ajustes.validar_ajustes_neumaticos(ajustes, rangos, modelo_e, ref)`
+   (pública y pura); `neumatica_eval.dispositivo` y `escenario_ajustes._validar_uno` la llaman
+   (el servicio ya no arma una ficha eléctrica falsa con `SimpleNamespace`).
+   - **P-c — Vive en `library/electrico/ajustes.py`, no en `library/neumatica/`**: el paquete
+     `neumatica` es puro de biblioteca estándar y no importa el resto de `apolo.library` (su
+     docstring), y la función compone `validar_ajustes` (eléctrico) para el lado de la bobina.
+     Recibe los rangos de la ficha neumática ya leídos (un dict): no importa nada de
+     `neumatica`, así que ninguno de los dos paquetes gana una dependencia.
+   - **P-d — Vigencia: nada sube.** `add_device` no cambia de `version`: su executor (el del
+     carril, huella `d824d9f16db621b8`) no se tocó y `tests/test_contrato_comandos.py` no pide
+     decidir; tampoco es geometría (nada a la caché, ni `GEOM_CACHE_EPOCH`). La huella del motor
+     de la co-simulación sí cambia (`services/escenario_ajustes.py` está en sus `ARCHIVOS`): se
+     actualiza SÓLO la huella, sin `COSIM_EPOCH`, con su motivo en `tests/test_cosim_epoch.py`.
+     Evidencia de comportamiento idéntico: el `_ajustes` de la base y la función nueva, sobre
+     las 29 refs de aire del catálogo × 1480 casos de ajustes (claves de la ficha neumática y de
+     la eléctrica, una inventada, valores en y fuera de rango, de otro tipo, vacíos y pares; y
+     con la ficha eléctrica «falsa» que armaba el servicio), dan el mismo resultado o el mismo
+     error, texto a texto. `library/electrico/ajustes.py` no entra a `ARCHIVOS` (como antes, la
+     validación de ajustes no estaba en la huella).
+
+Tests: `tests/test_cotizacion_identificada.py` (el pie con el rótulo del proyecto y el de la
+extensión, el id crudo cuando no lo declara, `fuente_rotulo` en `identificacion` y en
+`efectiva`, tres rótulos que no cargan: dos líneas, 61 caracteres, vacío); variantes nuevas en
+`tests/ext_prueba/` (`costeo.py`, `__init__.py`). Los de neumática y de ajustes por escenario,
+sin tocar sus expectativas. Golden MCP sin cambios (ni docstrings ni schemas).
