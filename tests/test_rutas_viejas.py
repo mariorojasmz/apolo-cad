@@ -582,3 +582,89 @@ def test_el_gate_document_caza_un_nombre_de_modulo_que_falta(monkeypatch):
     assert faltantes("apolo.doc.document", DOCUMENT_MODULO) == [
         "apolo.doc.document.FORMAT_VERSION: ya no existe"
     ]
+
+# ── builders (plan II, F1) ────────────────────────────────────────────────────
+
+#: Casa nueva de cada nombre que `apolo.library.builders` definía en `5a3d6e4` (44), en el orden
+#: del archivo original por familia (plan partir-nucleo-congelado-ii, D2).
+BUILDERS_CASAS: dict[str, tuple[str, ...]] = {
+    "apolo.library.builders_estructura": (
+        "profile", "rect_tube", "cylinder", "box", "leg", "guard", "leveling_foot", "round_tube",
+        "angle", "channel", "i_beam",
+    ),
+    "apolo.library.builders_accionamiento": (
+        "roller", "drum", "motor", "worm_gearmotor", "pulley", "v_pulley", "tensioner", "take_up",
+    ),
+    "apolo.library.builders_rodamientos": (
+        "sensor", "bearing", "linear_rail", "linear_block", "pillow_block", "flange_bearing",
+        "endstop",
+    ),
+    "apolo.library.builders_tornilleria": (
+        "screw", "_hex_prism", "hex_bolt", "hex_nut", "socket_cap", "wood_screw",
+    ),
+    "apolo.library.builders_carpinteria": (
+        "butt_hinge", "piano_hinge", "euro_hinge", "pull_handle", "knob", "butt_hinge_half",
+        "spring_hinge", "mortise_lock", "magnetic_catch", "door_rail", "door_carriage",
+        "drawer_slide",
+    ),
+}
+
+DEFINICIONES_BUILDERS = 44
+
+#: Claves de `BUILDERS` en `5a3d6e4`, en su orden (D7): el catálogo las nombra en el YAML.
+CLAVES_BUILDERS = (
+    "profile", "rect_tube", "cylinder", "roller", "drum", "box", "motor", "worm_gearmotor", "leg",
+    "guard", "sensor", "bearing", "screw", "linear_rail", "linear_block", "pulley", "v_pulley",
+    "pillow_block", "flange_bearing", "endstop", "leveling_foot", "tensioner", "take_up",
+    "hex_bolt", "hex_nut", "socket_cap", "round_tube", "angle", "channel", "i_beam", "butt_hinge",
+    "butt_hinge_half", "spring_hinge", "mortise_lock", "magnetic_catch", "piano_hinge",
+    "euro_hinge", "pull_handle", "knob", "wood_screw", "drawer_slide", "door_rail",
+    "door_carriage",
+)
+
+
+def test_builders_sirve_cada_nombre_viejo_por_identidad():
+    assert faltantes("apolo.library.builders", BUILDERS_CASAS) == []
+
+
+def test_builders_lista_cerrada():
+    nombres = [n for ns in BUILDERS_CASAS.values() for n in ns]
+    assert len(nombres) == len(set(nombres)) == DEFINICIONES_BUILDERS
+
+
+@pytest.mark.parametrize("casa", sorted(BUILDERS_CASAS))
+def test_cada_casa_nueva_de_builders_define_lo_suyo(casa):
+    mod = importlib.import_module(casa)
+    for nombre in BUILDERS_CASAS[casa]:
+        assert getattr(mod, nombre).__module__ == casa, nombre
+
+
+def test_builders_solo_define_el_registro():
+    """La fachada no define funciones: todo builder nace en su familia (o en un módulo propio)."""
+    import apolo.library.builders as builders
+
+    propias = [n for n, obj in vars(builders).items()
+               if inspect.isfunction(obj) and obj.__module__ == builders.__name__]
+    assert propias == []
+
+
+def test_builders_conserva_claves_orden_y_objetos():
+    """`BUILDERS` empieza con las claves de antes del corte, en su orden (lo nuevo va al final), y
+    cada valor es el MISMO objeto que la fachada re-exporta con ese nombre."""
+    import apolo.library.builders as builders
+
+    assert tuple(builders.BUILDERS)[: len(CLAVES_BUILDERS)] == CLAVES_BUILDERS
+    for clave, factory in builders.BUILDERS.items():
+        assert factory is getattr(builders, factory.__name__), clave
+
+
+def test_el_gate_builders_caza_una_copia(monkeypatch):
+    import apolo.library.builders as builders
+
+    def drum(diameter):  # mismo nombre, otra función
+        return None
+
+    monkeypatch.setattr(builders, "drum", drum)
+    assert faltantes("apolo.library.builders", BUILDERS_CASAS) == [
+        "apolo.library.builders.drum: no es el objeto de apolo.library.builders_accionamiento"
+    ]

@@ -139,3 +139,40 @@ Tiempos de la tabla medida (S/M 40–65 min, L 90–100; revisión ~35 min por l
   justo antes de mergear y re-ejecuta su corte si hay conflicto (D9).
 
 ## Bitácora
+
+### F1 — builders.py por familias (2026-10-25, base `5a3d6e4`)
+
+- **Corte** (script por NOMBRE sobre el AST, re-ejecutable: cada `def` byte a byte en su orden
+  original; cada familia = docstring + imports + bloques separados por dos líneas en blanco):
+
+  | módulo | nombres | líneas |
+  |---|---:|---:|
+  | `builders_estructura.py` | 11 (`profile`, `rect_tube`, `cylinder`, `box`, `leg`, `guard`, `leveling_foot`, `round_tube`, `angle`, `channel`, `i_beam`) | 112 |
+  | `builders_accionamiento.py` | 8 (`roller`, `drum`, `motor`, `worm_gearmotor`, `pulley`, `v_pulley`, `tensioner`, `take_up`) | 226 |
+  | `builders_rodamientos.py` | 7 (`sensor`, `bearing`, `linear_rail`, `linear_block`, `pillow_block`, `flange_bearing`, `endstop`) | 182 |
+  | `builders_tornilleria.py` | 6 (`screw`, `_hex_prism`, `hex_bolt`, `hex_nut`, `socket_cap`, `wood_screw`) | 102 |
+  | `builders_carpinteria.py` | 12 (bisagras, tirador, pomo, cerradura, imán, riel y carro de puerta, corredera) | 228 |
+  | `builders.py` (fachada) | — | 82 (era 847; sale de `EXCEPCIONES`) |
+
+- **Fuentes**: `inspect.getsource` de las 44 definiciones, idéntico antes y después (0 distintas,
+  0 perdidas); cada una nace en su familia y la fachada sirve el MISMO objeto. `BUILDERS`: el
+  bloque de texto es idéntico (46 líneas) y sus 43 claves, orden y objetos, iguales; el registro
+  unido de `loader.BUILDERS` (57 claves), igual y en el mismo orden. Cada familia importa sola
+  en un subproceso. Sólo cambiaron líneas de import.
+- **Gate D7**: `test_rutas_viejas.py` suma la sección `builders`: lista CERRADA de las 44 por
+  casa, «la fachada no define funciones», `BUILDERS` empieza con las 43 claves de hoy en su
+  orden (lo nuevo va al final) y un test que prueba que el gate caza una copia.
+- **D6**: `grep monkeypatch` sobre `builders` en `tests/`: ningún test reasigna un nombre de
+  `builders` → nada se queda por esa razón.
+- **Desvíos de D2**: (1) `builders_transmision.py` YA EXISTÍA (cadena y piñones, 275 líneas, con
+  registro propio): la familia de D2 se llama `builders_accionamiento.py` (juntas pasarían de
+  300 y mezclarían dos registros). (2) `cylinder`, `box` y `guard`, que D2 no nombraba, van a
+  estructura; `screw` (DIN 912 liso), a tornillería. (3) El comentario de sección
+  «carpintería / herraje» no es definición y no viaja: lo dice el docstring de la familia.
+  (4) La fachada no re-exporta lo que `builders.py` sólo IMPORTABA (`math`, `Box`, `Cylinder`,
+  `Pos`, `Rotation`, `make_*`): nadie lo importa de ahí (búsqueda en `core`, `tests`,
+  `scripts`). (5) `builders_fijacion.py` sigue importando `_hex_prism` de `.builders` (sirve por
+  el re-export; sin tocar). (6) La fachada mide 82 y no ≈ 70: docstring + re-exports agrupados.
+- **D8**: `test_contrato_comandos.py`, `geomcache.py` y toda `CommandSpec.version` sin diff.
+- **Suite**: completa con xdist, exit 0 y ningún `FAILED`; `ruff check core tests scripts`
+  limpio; `test_claude_md.py` verde (library 32 KB de 35).

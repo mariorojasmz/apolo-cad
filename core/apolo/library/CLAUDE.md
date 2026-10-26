@@ -89,8 +89,15 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 - Para agregar partes: editar/crear YAML en `data/` (el prefijo numérico ordena); builder nuevo
   sólo si la geometría no existe. `param_keys` lee del VARIANT (no de `specs_common`); el loader
   vuelca cualquier clave extra del variant a `specs`. Editar sólo YAML no recarga el worker (raíz).
-- Builder nuevo → módulo propio (`builders_rodaje.py`): `builders.py` está congelado por el
-  trinquete; `loader.py` une los registros y rechaza nombres repetidos.
+- Builders por familia: `builders_estructura` (perfiles, tubos, L, U, I, pata, nivelador),
+  `builders_accionamiento` (rodillo, tambor, motores, poleas, tensores), `builders_rodamientos`
+  (chumaceras, lineal, tope, sensor), `builders_tornilleria`, `builders_carpinteria`; y con su
+  propio registro `builders_rodaje`, `_transmision` (cadena), `_mandos`, `_fijacion`, `_tablero`,
+  `_neumatica`. `builders.py` es FACHADA: re-exporta por identidad y guarda `BUILDERS` (orden
+  fijo, `tests/test_rutas_viejas.py`: sólo se agrega al final). Un builder nuevo va a su familia
+  (+ su entrada en `BUILDERS`) o a un módulo con registro propio, que `loader.py` une rechazando
+  nombres repetidos.
+  [partir-nucleo-congelado-ii](../../../docs/plans/partir-nucleo-congelado-ii.md)
 - Biblioteca paramétrica > STEP de fabricante (sólo para la compra puntual). `cost`,
   `cost_por_m` y `COST_PER_KG_USD` son REFERENCIALES: actualizar con proveedor para cotizar firme.
   Una ref ELÉCTRICA lleva siempre `cost` (sin él sale «sin precio», nunca estimada por peso:
