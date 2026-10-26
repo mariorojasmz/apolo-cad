@@ -209,3 +209,88 @@ F1–F4 no comparten archivos salvo `test_cosim_epoch.py` (F2 y F4) y la bitáco
   verde y el de categoría 3 dirá «detectada». Se le avisa en el informe.
 
 ## Bitácora
+
+### F1–F4 (2026-10-26, base `b9d774f`)
+
+Hecho en una rama, una fase por commit:
+
+- **F1 (D1–D4, D8).** `services/corrida_escenario.py`: `preparar_corrida(doc, escenario,
+  programas=)` resuelve el escenario (`escenarios.resolver`: nombre o dict) y toma el snapshot;
+  `correr_corrida(preparada, timeout_s=)` corre el worker. `EscenarioRechazado` lleva el `detail` y
+  el `status_code` del `ServiceError` (400 de lo que el snapshot no toma, 404 de un nombre que no
+  existe); `CorridaFallida`, el texto de `CosimError`; los dos son `CorridaError` con `motivo`.
+  `CorridaPreparada` es un dataclass congelado (`nombre`, `escenario`, `snapshot` opaco). Los seis
+  nombres entran a `extensiones_api.SUPERFICIE` (`CONTRATO_EXTENSIONES` sigue en 1: sólo se
+  agrega). El banco carga a `tablero_electrico` por su ruta (`_vecino`): reusa el módulo si ya
+  está importado desde ese archivo; si no, lo carga y lo registra con su nombre (otro importador
+  recibe el mismo). Medido: la huella de la corrida por la API = la del planificador en proceso.
+- **F2 (D5–D7).** `cosim/modelos/variador.py`: `_vigilar_discrepancia` en el paso 5 y la
+  marca re-aplicada tras el rearme (como `falla_interna`); un corte de red (`sin_red`) la acusa.
+  `STO_discrepancia_ms: 500` en `_vfd_mando` de `91_variadores.yaml` con su fuente. La hipótesis
+  de una falla `canal_sto_pegado` dice ahora de qué línea es la reacción modelada.
+- **F3 (D9, D10, D12).** Docstring de `builders_mandos.py`; `bom_electrico._carrera` y la clave
+  (ref, carrera); [F9] y los `a_confirmar` cerrados en `130_cilindros_neumaticos.yaml`. Releído el
+  PDF del C96 con `pdftotext` antes de tocar el YAML: la tabla coincide con los `params` de las
+  cuatro refs (AM, d, KK, WH, tapa, puerto, TG, C), así que no se movió ninguna cota.
+- **F4 (D11).** `physics/dinamica_cuerpos.masas_de_ficha` (= `partes_de_cilindros`) entra a
+  `geometria_movil(masa=)` desde `prepare_dynamics`; `services/cosim_aire.peticion` suma la
+  armadura sólo si el hijo de la junta no pesa por ficha. Medido: el Ø63 × 800 suelto, cuerpo móvil
+  2,43 kg (antes 2,34 por volumen + 0,43 de armadura en la co-simulación); el empujador del banco
+  de aire (Ø32 × 200), armadura 0 y masa = 0,29 + la placa.
+
+**Huellas de los escenarios sanos** (en proceso, `planificador.correr`, antes = `9d3bb26`):
+
+| escenario | F2 vs antes | F4 vs antes |
+|---|---|---|
+| marcha por variador | igual | igual |
+| seta por variador | igual | igual |
+| seta y liberar por variador | igual | igual |
+| seta de dos NC (`arranque_variador_plc_cat3`) | igual | igual |
+| relé de seguridad, abre el resguardo | igual | igual |
+| relé de seguridad, la seta | igual | igual |
+| marcha en directo | igual | igual |
+| empujador de aire (Ø32 × 200) | igual | CAMBIA (x_mm final −0,520 → −0,551) |
+
+«Igual» = misma huella, mismos finales y mismas hipótesis. Por eso F2 no sube `COSIM_EPOCH` (D7)
+y F4 lo sube a 7 (D11).
+
+Decisiones propias (vetables):
+
+- **D-a. `CorridaPreparada` lleva el escenario resuelto y el nombre**, no la firma ni el hash: la
+  extensión tiene su propia clave de caché y calcular la firma por corrida (la FAT prepara varias)
+  sería trabajo bajo el lock que nadie pidió. Se suma si una extensión lo pide.
+- **D-b. El rearme no se bloquea: la falla se RE-APLICA** mientras la marca siga sin acusar (el
+  patrón de `falla_interna`). Así el rearme sigue borrando otra falla, y la de discrepancia vuelve
+  en el mismo paso.
+- **D-c. El corte de red acusa la marca pero no borra la falla**: el modelo nunca borró una falla
+  por un corte (ninguna otra lo hace); después hace falta el rearme, como tras una subtensión.
+- **D-d. La hipótesis va sólo con la falla inyectada** (como antes): las hipótesis de un modelo se
+  juntan al armar el tablero, y una que apareciera recién al detectar no llegaría al resultado. En
+  un circuito sano no hay hipótesis nueva (la huella y las hipótesis de los 7 eléctricos, iguales).
+- **D-e. El banco registra a su vecino con su nombre** en `sys.modules` cuando nadie lo tenía: lo
+  que hace un `import`, y así el mismo módulo sirve a quien lo importe después. No mete `tests/`
+  en el `sys.path`.
+- **D-f. El lado E queda «a confirmar» donde difiere por marca** (Ø32 45/47, Ø50 64/66, Ø63 75/77
+  Festo/SMC) y el del Ø40 sale (54 en los dos); el texto de `specs.a_confirmar` del Ø40 dice que
+  ninguna cota de ISO 15552 queda abierta (el campo es obligatorio para los tests de la masa).
+- **D-g. `masas_de_ficha` también pesa el CUERPO** de un cilindro que se mueve (montado en un carro):
+  ficha − masa móvil, como en `scene_mass_properties`; antes contaba el vástago dos veces.
+
+Tests nuevos: `tests/test_corrida_escenario.py` (superficie por identidad, rechazo con el texto
+exacto y su 404, la huella por el worker = la del planificador, el worker que se cae, el banco
+cargado por su ruta en otro proceso), `tests/test_sto_discrepancia.py` (la ficha, discrepancia
+breve tolerada, larga en falla sin acusar, acuse por los dos canales y por corte de red, canal
+pegado que no se acusa; en el banco con el relé de seguridad: VERDE sana rearranca, ROJO con S1
+pegado la seta corta igual y no rearranca, la falla a 1,5–1,6 s; el tiempo en la firma),
+`tests/test_pedidos_iii_remates.py` (la fila del Ø63 × 800 = 6,70 kg, agrupada por carrera, sin
+servicio la de siempre; las cuatro fichas contra la tabla del C96; el docstring) y
+`tests/test_masa_vastago_dinamica.py` (el Ø63 × 800 a 2,43 kg, el empujador sin armadura, un
+vástago sin ficha con ella). Cambiados: `tests/cosim_lazo_banco.py` (el vecino por su ruta) y la
+`HUELLA` de `tests/test_cosim_epoch.py` (F2 sin subir, F4 a 7, con su porqué). Ningún test
+existente cambió de expectativa.
+
+Vigencia: `COSIM_EPOCH` 6 → 7 (F4); `GEOM_CACHE_EPOCH` igual (ningún `params` ni builder: el
+docstring es texto, `specs`/`neumatico`/`modelo` no tocan la geometría); ninguna `version` de
+comando (ningún executor cambió); firmas: los documentos con un VFD-1K5/2K2-220 (el `modelo` gana
+`STO_discrepancia_ms`) o con un ISO 15552 (su `neumatico` cambia de `fuente` y `a_confirmar`)
+cambian de firma y sus resultados quedan vencidos solos; con el epoch 7, todos.
