@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0, F1 y F1b (la frecuencia máxima) hechas en la rama wip/amortiguador-externo (sin mergear; la suite completa y ruff en verde, § Bitácora; a 15 ciclos/min sólo el M20 entra en los dos extremos, con el empuje al 95 % a 6 bar); quedan F2 (la faja con desviador arma sus dos amortiguadores por MCP y mide las 15 cajas/min), F3 sólo si F2 la pide (simular el frenado) y F4 (una segunda ficha que publique la energía por hora y el dibujo de las cotas)
+nota: F0, F1, F1b mergeadas (2026-10-26) y F2 hecha por MCP sobre la faja con desviador: dos AMORT-HID-M20-15-T en un bloque macizo atornillado, red a 5 bar, 34 de 58,8 J por golpe y 15 de 25 golpes/min; 16 escenarios en verde y 15 cajas/min cuadra (12 de 12). NO subió la capacidad: el límite pasó a ser el retroceso del vástago en la parada de emergencia (válvula 5/2 monoestable, 0,95 de 1,0 m/s). Mario decidió quedarse en 15 cajas/min (2026-10-26); 18/min pediría una 5/3 de centro cerrado o un cilindro de más de 1 m/s. F3 no hace falta; F4 (segunda ficha con energía por hora y cotas) sigue
 descripcion: el cilindro que llega rápido frena en un amortiguador hidráulico de catálogo al final de su carrera; el ERC y la memoria revisan su energía por ciclo y por hora con la fórmula de su ficha, en vez de obligar a estrangular la velocidad
 ---
 
@@ -240,3 +240,27 @@ descripcion: el cilindro que llega rápido frena en un amortiguador hidráulico 
     sólo da margen de energía.
   - Para no depender del margen de empuje haría falta una ref de más empuje y ≥ 15 ciclos/min
     (el catálogo no la tiene: F4 puede sumarla con su ficha).
+
+### F2 — la faja con desviador por MCP (2026-10-26)
+
+Modelador `claude -p` + revisor a ciegas + una corrección (38 min de sesiones, 12 USD). Medido por la
+API de la flota:
+
+| | avance | retroceso |
+|---|---|---|
+| amortiguador | AMORT-HID-M20-15-T | AMORT-HID-M20-15-T |
+| E/ciclo (choque 2·v̄ = 0,84 m/s) | 33,7 / 58,8 J | 31,3 / 58,8 J |
+| empuje a 5 bar | 1559 / 1961 N | 1402 / 1961 N |
+| golpes/min | 15 / 25 | 15 / 25 |
+| E/hora | 30 294 / 88 200 J/h | 28 173 / 88 200 J/h |
+
+- La red baja a 5 bar (a 6 bar el empuje del M20 quedaba al 95 %); la caja de 15 kg pasa con su
+  escenario propio.
+- El ciclo NO bajó (3,44 s antes y después): abrir los reguladores de escape saca de ficha al
+  vástago en `seta_desvio`, donde la 5/2 monoestable lo hace volver a 0,92–0,95 m/s (máx. 1,0 del
+  cilindro). A 18/min el flujo no cuadra (5 trabados). Mario: «nos quedamos en 15 cajas por minuto».
+- El revisor confirmó una ALTA (escuadras soldadas de 10 mm sin cartela, FS 1,16 a fatiga): la
+  corrección puso un bloque macizo A36 con 2 pernos M10 (σ ≈ 3 MPa).
+- Pendiente del ERC (backlog): la velocidad de choque usa 2·v̄ aunque haya un escenario corrido
+  con el pico medido (0,867 m/s → 34,3 J, igual en ficha); D4 dice «la medida primero».
+
