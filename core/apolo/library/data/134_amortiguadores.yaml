@@ -1,0 +1,59 @@
+category: amortiguadores
+# Amortiguadores hidráulicos de fin de carrera, cuerpo roscado (plan amortiguador-externo D1). Van
+# AFUERA del cilindro, donde llega la carga, cuando la energía pasa la que admite su amortiguación
+# interna: la carga llega rápido y el amortiguador la frena en su carrera. Cada ref es un EJEMPLO
+# por FUNCIÓN: quien fabrica la reemplaza por cualquier amortiguador hidráulico autocompensado con
+# la MISMA rosca de montaje, una carrera igual o mayor y una energía por ciclo, por hora y una
+# fuerza admisible iguales o mayores (las de su ficha); `linea_referencia` sólo cita «del orden de».
+#
+# Ficha (`library/neumatica/amortiguador.py`, la completitud se valida al cargar): carrera_mm,
+# E_max_J, E_max_hora_J, n_max_ciclos_min, F_max_N, v_min_m_s, v_max_m_s, rosca y fuente.
+# Fuente de las cifras:
+#  [R1] SMC, catálogo «Shock Absorber RB Series» (EMC-RB-01A-UK, https://content2.smcetech.com/pdf/RB.pdf,
+#       leído 2026-10-26), págs. 5.1-2 a 5.1-6:
+#       - «Specifications» (pág. 5.1-2), RB1412 / RB2015 / RB2725: energía máxima absorbida 19,6 /
+#         58,8 / 147 J; rosca M14×1,5 / M20×1,5 / M27×1,5; carrera 12 / 15 / 25 mm; velocidad de
+#         choque 0,05 a 5,0 m/s; frecuencia máxima 45 / 25 / 10 ciclos/min; empuje máximo
+#         admisible 814 / 1961 / 2942 N; fuerza del resorte extendido 6,86 / 8,34 / 8,83 N y
+#         comprimido 15,98 / 20,50 / 20,01 N; peso del tipo básico 65 / 150 / 350 g. Las cifras se
+#         midieron a 20–25 °C (nota de la tabla).
+#       - «Model Selection» (pág. 5.1-3/5.1-4): E = E1 + E2, E1 = ½·m·v² y, en carrera de cilindro
+#         horizontal, E2 = F1·S (empuje del cilindro × carrera del amortiguador); Me = 2·E/v². Nota 1:
+#         la velocidad de choque es 2·v̄ si v̄ se calcula del tiempo de carrera del cilindro.
+#       - «Dimensions» (pág. 5.1-5), tipo básico RB1412 / RB2015 / RB2725, letras leídas SIN su
+#         dibujo (a confirmar): D (Ø del vástago) 5 / 6 / 8, L (largo del cuerpo) 58,8 / 62,2 / 86,
+#         LL (largo total) 79,3 / 88,2 / 124; tuerca hexagonal (2 de serie) B (entrecaras) 19 / 27 /
+#         36, C (entre vértices) 21,9 / 31,2 / 41,6, h 6. Contratuerca de tope (opción «S»,
+#         RB14S / RB20S / RB27S) B igual a la tuerca y h1 11 / 16 / 22 (a confirmar: su peso no se
+#         publica, el `weight` es el del tipo básico).
+#       - «Precautions» (pág. 5.1-6): par de apriete de la tuerca 10,8 / 23,5 / 62,8 N·m; agujero
+#         roscado previo Ø12,7 / 18,7 / 25,7 (+0,1); el impacto perpendicular al eje (≤ 3°); la
+#         energía máxima sólo se aprovecha con la carrera ENTERA; fuerza sobre el soporte ≈ 2·E/S
+#         (el operador entre «N» y «2·E/S» no sale en el texto extraído: a confirmar).
+#       - La serie RBL (pág. 5.1-7), con las MISMAS energías y frecuencias, dice, bajo la frecuencia
+#         máxima (dada a energía máxima por ciclo): «Max. operation cycle/min can increase in
+#         proportion to energy absorption». De ahí la energía máxima por HORA = E_max_J × n_max × 60 (52 920 / 88 200 /
+#         88 200 J/h): derivada, en `a_confirmar` hasta leerla en una ficha que la publique.
+# Builder `amortiguador_hidraulico` (`library/builders_amortiguador.py`): cuerpo roscado liso del
+# Ø nominal, vástago extendido, dos tuercas con 10 mm de chapa entre ellas (criterio de modelo) y
+# la contratuerca de tope en las refs «-T».
+families:
+  - family: "AMORT-HID"
+    name_tpl: "Amortiguador hidráulico {rosca} carrera {carrera_mm} mm{sufijo}"
+    description_tpl: "Amortiguador hidráulico autocompensado de fin de carrera, cuerpo roscado {rosca}, carrera {carrera_mm} mm, {E_max_J} J por ciclo, {E_max_hora_J} J/h, empuje máximo {F_max_N} N, choque de {v_min_m_s} a {v_max_m_s} m/s; dos tuercas de montaje{sufijo}. Reemplazable por cualquier amortiguador con la misma rosca y capacidades iguales o mayores. Verificar con el proveedor."
+    builder: amortiguador_hidraulico
+    param_keys: [rosca_d, L, LL, D, carrera_mm, B, h, h_tope, tope]
+    specs_common:
+      tipo: amortiguador hidraulico
+      v_min_m_s: 0.05
+      v_max_m_s: 5.0
+      fuente: "[R1] SMC RB (EMC-RB-01A-UK): Specifications, Model Selection, Dimensions y Precautions; E máx por hora derivada de la nota de la serie RBL"
+      a_confirmar: [E_max_hora_J, "cotas L, LL, D y h_tope (leídas sin su dibujo)", "fuerza sobre el soporte 2·E/S"]
+      cotas_verificadas: false
+    variants:
+      - {ref: AMORT-HID-M14-12, rosca: "M14x1.5", rosca_d: 14, L: 58.8, LL: 79.3, D: 5, carrera_mm: 12, B: 19, h: 6, h_tope: 11, tope: false, sufijo: "", E_max_J: 19.6, E_max_hora_J: 52920, n_max_ciclos_min: 45, F_max_N: 814, resorte_extendido_N: 6.86, resorte_comprimido_N: 15.98, par_tuerca_Nm: 10.8, agujero_roscado_mm: 12.7, linea_referencia: "orden de SMC RB1412", weight: 0.065}
+      - {ref: AMORT-HID-M14-12-T, rosca: "M14x1.5", rosca_d: 14, L: 58.8, LL: 79.3, D: 5, carrera_mm: 12, B: 19, h: 6, h_tope: 11, tope: true, sufijo: " y contratuerca de tope", E_max_J: 19.6, E_max_hora_J: 52920, n_max_ciclos_min: 45, F_max_N: 814, resorte_extendido_N: 6.86, resorte_comprimido_N: 15.98, par_tuerca_Nm: 10.8, agujero_roscado_mm: 12.7, linea_referencia: "orden de SMC RB1412 con opción S", weight: 0.065}
+      - {ref: AMORT-HID-M20-15, rosca: "M20x1.5", rosca_d: 20, L: 62.2, LL: 88.2, D: 6, carrera_mm: 15, B: 27, h: 6, h_tope: 16, tope: false, sufijo: "", E_max_J: 58.8, E_max_hora_J: 88200, n_max_ciclos_min: 25, F_max_N: 1961, resorte_extendido_N: 8.34, resorte_comprimido_N: 20.50, par_tuerca_Nm: 23.5, agujero_roscado_mm: 18.7, linea_referencia: "orden de SMC RB2015", weight: 0.150}
+      - {ref: AMORT-HID-M20-15-T, rosca: "M20x1.5", rosca_d: 20, L: 62.2, LL: 88.2, D: 6, carrera_mm: 15, B: 27, h: 6, h_tope: 16, tope: true, sufijo: " y contratuerca de tope", E_max_J: 58.8, E_max_hora_J: 88200, n_max_ciclos_min: 25, F_max_N: 1961, resorte_extendido_N: 8.34, resorte_comprimido_N: 20.50, par_tuerca_Nm: 23.5, agujero_roscado_mm: 18.7, linea_referencia: "orden de SMC RB2015 con opción S", weight: 0.150}
+      - {ref: AMORT-HID-M27-25, rosca: "M27x1.5", rosca_d: 27, L: 86, LL: 124, D: 8, carrera_mm: 25, B: 36, h: 6, h_tope: 22, tope: false, sufijo: "", E_max_J: 147, E_max_hora_J: 88200, n_max_ciclos_min: 10, F_max_N: 2942, resorte_extendido_N: 8.83, resorte_comprimido_N: 20.01, par_tuerca_Nm: 62.8, agujero_roscado_mm: 25.7, linea_referencia: "orden de SMC RB2725", weight: 0.350}
+      - {ref: AMORT-HID-M27-25-T, rosca: "M27x1.5", rosca_d: 27, L: 86, LL: 124, D: 8, carrera_mm: 25, B: 36, h: 6, h_tope: 22, tope: true, sufijo: " y contratuerca de tope", E_max_J: 147, E_max_hora_J: 88200, n_max_ciclos_min: 10, F_max_N: 2942, resorte_extendido_N: 8.83, resorte_comprimido_N: 20.01, par_tuerca_Nm: 62.8, agujero_roscado_mm: 25.7, linea_referencia: "orden de SMC RB2725 con opción S", weight: 0.350}

@@ -18,6 +18,8 @@ import os
 import yaml
 
 from .acuerdos import validar_acuerdo
+from .builders_amortiguador import ANCLAS as _ANCLAS_AMORTIGUADOR
+from .builders_amortiguador import BUILDERS as _BUILDERS_AMORTIGUADOR
 from .builders import BUILDERS as _BUILDERS_BASE
 from .builders_fijacion import BUILDERS as _BUILDERS_FIJACION
 from .builders_mandos import ANCLAS as _ANCLAS_MANDOS
@@ -35,6 +37,8 @@ from .electrico.ficha_tablero import parse_tablero, verificar_agujero
 from .electrico.tension import parse_tension
 from .neumatica.bobinas import verificar as verificar_bobinas
 from .neumatica.ficha import fusionar as _fusionar_neumatico
+from .neumatica.amortiguador import FAMILIA as _FAMILIA_AMORTIGUADOR
+from .neumatica.amortiguador import parse_ficha as _parse_amortiguador
 from .neumatica.ficha import parse_ficha_neumatica
 from .perfiles_abiertos import ANCLAS as _ANCLAS_PERFILES
 from .zonas import parse_zonas, unir_zonas, verificar_color_de_ficha
@@ -68,9 +72,9 @@ def merge_anclas(builders: dict, *registros: dict) -> dict:
 
 BUILDERS = merge_builders(_BUILDERS_BASE, _BUILDERS_RODAJE, _BUILDERS_TRANSMISION,
                           _BUILDERS_MANDOS, _BUILDERS_FIJACION, _BUILDERS_TABLERO,
-                          _BUILDERS_NEUMATICA)
+                          _BUILDERS_NEUMATICA, _BUILDERS_AMORTIGUADOR)
 ANCLAS = merge_anclas(BUILDERS, _ANCLAS_TRANSMISION, _ANCLAS_PERFILES, _ANCLAS_MANDOS,
-                      _ANCLAS_NEUMATICA)
+                      _ANCLAS_NEUMATICA, _ANCLAS_AMORTIGUADOR)
 
 
 def _zonas_de(item: dict, builder_name: str, ref: str):
@@ -138,6 +142,8 @@ def _component_from_item(item: dict, category: str):
     neumatico = parse_ficha_neumatica(item.get("neumatico"), ref)  # plan V8.9 D2: incompleto, no carga
     if neumatico is not None:  # V8.9 F1b: las bobinas de una electroválvula, en las dos fichas
         verificar_bobinas(neumatico, electrico, ref, lambda t: str(parse_tension(t)))
+    if builder_name == _FAMILIA_AMORTIGUADOR:  # plan amortiguador-externo D1: incompleta, no carga
+        _parse_amortiguador(specs, ref)
 
     return Component(
         ref=ref,

@@ -5,7 +5,7 @@ Lee el `ModeloElectrico` del carril (`services/electrico.modelo`): los dispositi
 neumática y los tubos. Sin aire en el modelo no suma nada (la salida de siempre):
   - `puertos(c, d)`: los puertos de un dispositivo con su línea y si quedan libres;
   - `seccion(m, elegidos)`: `{lineas, tubos, resumen}` (la clave `neumatica` del circuito);
-  - `reglas(m)`: el ERC neumático (`library/neumatica/erc.py`), filas con `medio: "aire"`.
+  - `reglas(m, doc)`: el ERC neumático (`library/neumatica/erc.py`), filas con `medio: "aire"`.
 Una sola fuente para el agente y, en F6, el panel «Neumática». El llamador sostiene STATE_LOCK.
 """
 
@@ -70,10 +70,36 @@ def disponibles() -> frozenset:
                      if c.neumatico is not None and c.neumatico.tipo)
 
 
-def reglas(m) -> list[dict]:
+def amortiguadores() -> dict:
+    """{ref: FichaAmortiguador} de los amortiguadores hidráulicos del catálogo (plan
+    amortiguador-externo D1): la regla de energía de un extremo con amortiguador externo."""
+    from apolo.library.catalog import CATALOG
+    from apolo.library.neumatica.amortiguador import FAMILIA, parse_ficha
+
+    return {r: parse_ficha(c.specs, r) for r, c in CATALOG.items() if c.familia == FAMILIA}
+
+
+def paquetes_min(doc) -> float | None:
+    """La capacidad nominal (`requirements.paquetes_por_minuto`), o None: los ciclos por hora del
+    amortiguador externo cuando el cilindro no declara su cadencia (plan amortiguador-externo D5)."""
+    v = ((getattr(doc, "requirements", None) or {}) if doc is not None else {}).get("paquetes_por_minuto")
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else None
+
+
+def refs_escena(doc) -> frozenset | None:
+    """Las refs de catálogo que hay en 3D, o None si la escena no tiene piezas (un circuito sin
+    máquina en 3D no es un modelo a medias: la regla de `campo_sin_pieza`)."""
+    escena = (getattr(doc, "scene", None) or {}) if doc is not None else {}
+    if not escena:
+        return None
+    return frozenset(f.component for f in escena.values() if getattr(f, "component", None))
+
+
+def reglas(m, doc=None) -> list[dict]:
     """El ERC neumático del modelo (`[]` sin aire). La regla del presostato (V8.9 F8) sabe si su
     contacto está cableado por la red eléctrica del carril (`library/electrico/redes`), que se
-    analiza sólo si la pide."""
+    analiza sólo si la pide. Con `doc`, la regla del amortiguador externo ve la capacidad nominal
+    y las refs de la escena."""
     from apolo.library.electrico.redes import analizar as redes
     from apolo.library.neumatica.erc import erc
 
@@ -84,7 +110,8 @@ def reglas(m) -> list[dict]:
             an.append(redes(m))
         return an[0].conectado(des, borne)
 
-    return erc(m, disponibles=disponibles(), cableado=cableado)
+    return erc(m, disponibles=disponibles(), cableado=cableado, amortiguadores=amortiguadores(),
+               paquetes_min=paquetes_min(doc), refs_escena=refs_escena(doc))
 
 
 #: Eventos de un escenario que no son una falla provocada: el que sólo trae productos es «sano».
@@ -184,4 +211,5 @@ def memoria(doc) -> list[dict]:
         return []
     fugas = (doc.requirements or {}).get("fugas_aire_pct")
     return reglas_memoria(analizar(m), cosim=cosim_vigente(doc),
-                          fugas_pct=float(fugas) if isinstance(fugas, (int, float)) else None)
+                          fugas_pct=float(fugas) if isinstance(fugas, (int, float)) else None,
+                          amortiguadores=amortiguadores(), paquetes_min=paquetes_min(doc))

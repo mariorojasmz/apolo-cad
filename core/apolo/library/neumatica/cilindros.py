@@ -11,13 +11,16 @@ distintas del mismo vástago.
   - `volumen_tubos`: el volumen de los tubos de la línea de un puerto (se llena en cada carrera);
   - `relacion`: la relación de carga con `servicio.fuerza_N` (contra la teórica y la efectiva);
   - `pandeo`: el vástago con la fuerza teórica de avance, el caso de Euler y el largo libre del
-    servicio (lo que falta, como hipótesis).
+    servicio (lo que falta, como hipótesis);
+  - `choques`: el amortiguador externo de cada extremo (plan amortiguador-externo): velocidad de
+    choque (`v_choque`), fuerza del cilindro (`fuerza_extremo`) y ciclos por hora (`ritmo`).
 
 Puro (biblioteca estándar), sobre el `Circuito` de `lineas.py`.
 """
 
 from __future__ import annotations
 
+from . import amortiguador as A
 from . import calculo as K
 from .iso6358 import c_serie
 from .lineas import Circuito, tipo
@@ -134,3 +137,72 @@ def pandeo(c: Circuito, cil) -> tuple[dict, list[str], float, float, float]:
     if not s.get("largo_libre_mm"):
         hip.append("largo libre = la carrera (a confirmar: el vástago fuera de la tapa suma)")
     return r, hip, F, p, largo
+
+
+# ── amortiguador externo (plan amortiguador-externo D2–D5) ─────────────────────────────────
+
+
+def amortiguadores(cil) -> dict[str, str]:
+    """{extremo: ref} de los amortiguadores externos que declara el servicio (vacío: ninguno)."""
+    s = cil.servicio or {}
+    return {e: s[f"amortiguador_{e}"] for e in A.EXTREMOS if s.get(f"amortiguador_{e}")}
+
+
+def v_choque(servicio: dict, v_medida: float | None = None) -> tuple[float | None, list[str]]:
+    """(velocidad con que la carga llega al amortiguador, hipótesis) — D4: la MEDIDA (el pico de la
+    co-simulación vigente) si la hay; si no, la de llegada declarada (`velocidad_llegada_m_s`,
+    trabas-de-modelado D8, cuando exista) y, con sólo la de régimen, 2·v̄ como pide la ficha (SMC
+    RB, nota 1 de «Type of Impact»: la de régimen es carrera / tiempo, una media)."""
+    if v_medida:
+        return v_medida, [f"velocidad de choque = la máxima medida en la co-simulación: {v_medida:g} m/s"]
+    if servicio.get("velocidad_llegada_m_s"):
+        v = servicio["velocidad_llegada_m_s"]
+        return v, [f"velocidad de choque = la de llegada declarada: {v:g} m/s"]
+    if servicio.get("velocidad_m_s"):
+        v = servicio["velocidad_m_s"]
+        return 2.0 * v, [f"velocidad de choque = 2·{v:g} m/s: la ficha pide 2·v̄ cuando v̄ sale del tiempo de "
+                         "carrera (la de régimen declarada lo es); una medida en un escenario la reemplaza"]
+    return None, []
+
+
+def fuerza_extremo(c: Circuito, cil, extremo: str) -> tuple[float, list[str]]:
+    """(fuerza teórica con que el cilindro empuja la carga contra el amortiguador, hipótesis): p·A
+    al avance, p·A anular al retroceso, con la presión que le llega (la ficha: E2 = F1·S)."""
+    m = cil.neumatico.modelo
+    p, hip = p_trabajo(c, cil)
+    A_, Ab, _a = K.areas(m["D_mm"], m["d_mm"])
+    area = A_ if extremo == "avance" else Ab
+    return p * 0.1 * area, hip + [f"F = p·{'A' if extremo == 'avance' else 'A anular'} teórica a {p:g} bar "
+                                  "(la ficha: el empuje del cilindro durante la carrera del amortiguador)"]
+
+
+def ritmo(cil, paquetes_min: float | None) -> tuple[float | None, str]:
+    """(ciclos/min del cilindro, de dónde salen) para la energía por hora — D5: la cadencia del
+    servicio si la declara; si no, la capacidad nominal (un ciclo por paquete); si no, None."""
+    s = cil.servicio or {}
+    if s.get("ciclos_min"):
+        return float(s["ciclos_min"]), "la cadencia del servicio (servicio.ciclos_min)"
+    if paquetes_min:
+        return float(paquetes_min), "la capacidad nominal (requirements.paquetes_por_minuto, un ciclo por paquete)"
+    return None, ""
+
+
+def choques(c: Circuito, cil, fichas: dict | None, v: float, hip_v: list[str],
+            paquetes_min: float | None) -> list[tuple[str, str, dict | None, dict | None]]:
+    """[(extremo, ref, resultado por ciclo, resultado por hora)] de cada amortiguador declarado; sin
+    la ficha de la ref (quien llama no la pasó), los resultados son None."""
+    s, m = cil.servicio, cil.neumatico.modelo
+    masa = K.masa_movil_kg(m, s["carrera_mm"], s.get("masa_kg") or 0.0)
+    out = []
+    for extremo, ref in amortiguadores(cil).items():
+        f = (fichas or {}).get(ref)
+        if f is None:
+            out.append((extremo, ref, None, None))
+            continue
+        F, hip_f = fuerza_extremo(c, cil, extremo)
+        r = A.choque(masa, v, F, f, extremo=extremo)
+        r["hipotesis"] = hip_v + hip_f + [f"masa móvil de la ficha + carga declarada: {masa:g} kg"] + r["hipotesis"]
+        r["calc"]["hipotesis"] = r["hipotesis"]
+        n, origen = ritmo(cil, paquetes_min)
+        out.append((extremo, ref, r, A.por_hora(r["valor"]["E_J"], n, f, extremo=extremo, origen=origen)))
+    return out

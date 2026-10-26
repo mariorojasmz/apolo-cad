@@ -217,7 +217,7 @@ def _erc_completo(doc) -> tuple[list[dict], list[dict]] | None:
     reglas = (erc(m) + _regla_ajustes(m) + _regla_piezas(doc, m) + _regla_campo(doc, m) + regla_cables(doc, m)
               + erc_escena.regla_seguridad(doc, m) + alturas
               + regla_orden(doc) + tablero_reglas.reglas(doc, m) + reglas_campo(doc, m)
-              + neumatica.reglas(m))  # V8.9 D9: el aire, al final (sin aire, nada)
+              + neumatica.reglas(m, doc))  # V8.9 D9: el aire, al final (sin aire, nada)
     con_filas = {r["regla"] for r in reglas}
     revisadas = [{"regla": n, "revisa": REVISA[n],
                   **({"supuesto": supuesto} if n == erc_escena.ALTURA else {})}

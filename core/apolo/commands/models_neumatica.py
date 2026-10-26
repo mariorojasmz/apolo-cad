@@ -45,6 +45,15 @@ class ServicioCilindro(BaseModel):
     ciclos_min: float | None = Field(None, gt=0, le=600, title="Cadencia",
                                      description="ciclos dobles por minuto: el consumo por minuto y la "
                                                  "demanda de aire de la memoria")
+    amortiguador_avance: str | None = Field(
+        None, max_length=60, title="Amortiguador externo al avance",
+        description="ref de catálogo (AMORT-HID-…) del amortiguador hidráulico que frena la carga al FINAL "
+                    "del avance (vástago afuera): ese extremo se revisa con la energía de SU ficha (por ciclo "
+                    "y por hora) en vez de la amortiguación del cilindro. Vacío = la del cilindro")
+    amortiguador_retroceso: str | None = Field(
+        None, max_length=60, title="Amortiguador externo al retroceso",
+        description="ref del amortiguador que frena la carga al final del retroceso (vástago adentro); "
+                    "vacío = la amortiguación del cilindro")
 
 
 class AddTuboParams(BaseModel):

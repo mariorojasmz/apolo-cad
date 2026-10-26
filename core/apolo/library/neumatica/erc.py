@@ -26,7 +26,10 @@ Reglas (cada una con su norma o «criterio de diseño»):
     pico lo toma la memoria del escenario vigente (`memoria._velocidad`);
   - **pandeo del vástago** (error): Euler/Johnson con la fuerza teórica de avance (el vástago
     bloqueado recibe toda la fuerza del pistón) y FS ≥ 3;
-  - **energía al fin de carrera** (error): ½·m·v² contra la admisible de la amortiguación;
+  - **energía al fin de carrera** (error): ½·m·v² contra la admisible de la amortiguación, en
+    los extremos SIN amortiguador externo;
+  - **amortiguador externo** (error / aviso; sólo si un servicio lo declara: plan
+    amortiguador-externo): E = ½·m·v² + F·S por ciclo y E·ciclos/h contra su ficha (`cilindros.choques`);
   - **relación de carga** (F4; aviso / error): η = `servicio.fuerza_N` / fuerza teórica de avance
     sobre el tope de la ficha (`relacion_carga_max`) o, sin él, el criterio de diseño; error si
     la carga pasa la fuerza EFECTIVA (con la fricción): el vástago no la mueve;
@@ -49,6 +52,8 @@ from __future__ import annotations
 
 from . import calculo as K
 from . import cilindros as Z
+from .amortiguador import EXTREMOS
+from .amortiguador import NORMA as NORMA_AMORTIGUADOR
 from .lineas import Circuito, analizar, aguas_abajo, tipo
 
 CRITERIO = "criterio de diseño"
@@ -66,6 +71,8 @@ NORMAS = {
     "escape sin silenciador": f"{CRITERIO} (ruido de la descarga)",
     "regulación de velocidad": f"{CRITERIO} (regulación por el escape en doble efecto)",
     "presostato": f"{CRITERIO} (un presostato que no ve su línea o que nadie lee no vigila nada)",
+    "amortiguador externo": NORMA_AMORTIGUADOR,
+    "amortiguador sin pieza": f"{CRITERIO} (lo que no está en 3D no se compra ni se monta)",
 }
 #: Roles de puerto que pueden quedar sin tubo (a la atmósfera o sin pilotaje externo).
 LIBRES = ("escape", "pilotaje")
@@ -299,10 +306,14 @@ def _relacion(c: Circuito) -> list[dict]:
 
 
 def _impacto(c: Circuito) -> list[dict]:
-    out, n = [], 0
+    out, n, afuera = [], 0, 0
     for cil in _de_tipo(c, "cilindro"):
         s, m = cil.servicio, cil.neumatico.modelo
+        ext = Z.amortiguadores(cil)  # los extremos con amortiguador externo van por su regla
         if not s.get("velocidad_m_s"):
+            continue
+        if len(ext) == len(EXTREMOS):
+            afuera += 1
             continue
         n += 1
         masa = K.masa_movil_kg(m, s["carrera_mm"], s.get("masa_kg") or 0.0)
@@ -310,11 +321,15 @@ def _impacto(c: Circuito) -> list[dict]:
         if r["estado"] != "ok":
             v = r["valor"]
             hip = ["llega a la velocidad pedida (la amortiguación no se simula: V8.9 D3)"]
+            donde = f" al {next(e for e in EXTREMOS if e not in ext)}" if ext else ""
             out.append(_r("energía al fin de carrera", "error",
-                          f"{_quien(cil)} llega con {v['E_J']:.2f} J ({masa:.2f} kg a {s['velocidad_m_s']:g} m/s) y "
+                          f"{_quien(cil)} llega{donde} con {v['E_J']:.2f} J ({masa:.2f} kg a {s['velocidad_m_s']:g} m/s) y "
                           f"su amortiguación admite {v['E_adm_J']:g} J.",
                           "Menos velocidad (regulador por el escape), un amortiguador externo o un cilindro "
                           "mayor.", [cil.designacion], calc={**r["calc"], "hipotesis": hip}))
+    if not out and afuera and not n:
+        return [_r("energía al fin de carrera", "ok", f"Los {afuera} cilindro(s) con velocidad frenan en "
+                                                      "amortiguadores externos (su regla).")]
     return out or [_r("energía al fin de carrera", "ok",
                       f"Los {n} cilindro(s) con velocidad llegan bajo la energía admisible."
                       if n else "Ningún cilindro declara su velocidad.")]
@@ -401,20 +416,68 @@ def _presostatos(c: Circuito, cableado=None) -> list[dict]:
                                           "cableado.", elementos=[d.designacion for d in pres])]
 
 
+def _amortiguador(c: Circuito, fichas: dict | None, paquetes_min: float | None,
+                  refs_escena: frozenset | None) -> list[dict]:
+    """Un hallazgo por extremo con amortiguador externo (plan amortiguador-externo D3–D5); sin
+    amortiguadores declarados, ninguna fila (el ERC de antes)."""
+    out, regla = [], "amortiguador externo"
+    rec = "Un amortiguador de más capacidad (otro AMORT-HID-…), menos velocidad (regulador por el escape) o menos presión."
+    for cil in _de_tipo(c, "cilindro"):
+        if not Z.amortiguadores(cil):
+            continue
+        quien = _quien(cil)
+        v, hip_v = Z.v_choque(cil.servicio)
+        if v is None:
+            out.append(_r(regla, "aviso", f"{quien}: declara amortiguador externo y no su velocidad: no se revisa.",
+                          'Declara servicio.velocidad_m_s (la de régimen) o corre un escenario que lo mueva.',
+                          [cil.designacion]))
+            continue
+        for extremo, ref, r, h in Z.choques(c, cil, fichas, v, hip_v, paquetes_min):
+            if r is None:
+                out.append(_r(regla, "aviso", f"{quien}: sin la ficha de {ref}, el {extremo} no se revisa.",
+                              None, [cil.designacion]))
+                continue
+            d = r["valor"]
+            txt = (f"{quien} al {extremo}: {ref} absorbe {d['E_J']:.1f} J por ciclo ({d['E1_J']:.1f} J a {v:.2f} m/s + "
+                   f"{d['E2_J']:.1f} J del empuje de {d['F_N']:.0f} N) de {d['E_max_J']:g} J")
+            estado, calc = r["estado"], {**r["calc"], "hipotesis": r["hipotesis"]}
+            if h["estado"] == "sin_evaluar":
+                txt += ("; la energía por hora queda SIN EVALUAR: falta la cadencia (servicio.ciclos_min) o la "
+                        "capacidad nominal (requirements.paquetes_por_minuto)")
+            else:
+                txt += f"; {h['valor']['E_h_J']:.0f} J/h de {h['valor']['E_max_hora_J']:g} J/h"
+                if h["estado"] == "error":
+                    estado, calc = "error", {**h["calc"], "hipotesis": h["hipotesis"]}
+            motivos = d["motivos"] + (["la energía por hora pasa la de la ficha"] if h["estado"] == "error" else [])
+            txt += f" — {'; '.join(motivos)}." if motivos else "."
+            out.append(_r(regla, estado, txt, None if estado == "ok" else rec, [cil.designacion], calc=calc))
+            if refs_escena is not None and ref not in refs_escena:
+                out.append(_r("amortiguador sin pieza", "aviso", f"{quien}: {ref} está declarado al {extremo} y no está en la escena: "
+                              "no se compra ni se monta.",
+                              f"Insértalo (insert_component ref «{ref}») donde la carga llega al {extremo}.",
+                              [cil.designacion]))
+    return out
+
+
 _REGLAS = (_aislamiento, _tubos, _libres, _presion, _servicio, _caudal, _pandeo, _impacto, _relacion)
 #: Las reglas que piden una ref que el catálogo puede no tener (D16): sólo corren si el catálogo
 #: ofrece ese tipo; si no, darían un aviso en TODO circuito sin forma de resolverlo.
 _CON_CATALOGO = (("silenciador", _silenciadores), ("regulador_caudal", _regulacion))
 
 
-def erc(modelo, circuito: Circuito | None = None, *, disponibles=frozenset(), cableado=None) -> list[dict]:
+def erc(modelo, circuito: Circuito | None = None, *, disponibles=frozenset(), cableado=None,
+        amortiguadores: dict | None = None, paquetes_min: float | None = None,
+        refs_escena: frozenset | None = None) -> list[dict]:
     """Las reglas de D9 sobre el circuito de aire del modelo; `[]` si no tiene aire. `disponibles`:
     los `modelo.tipo` neumáticos que ofrece el catálogo (`services/neumatica.py` los pasa): las
     reglas de silenciador y de regulación corren sólo si hay con qué cumplirlas. `cableado(des,
     borne) -> bool` (de la red eléctrica, `services/neumatica.py`): si llega un conductor al borne;
-    sin él, la regla del presostato no revisa su contacto."""
+    sin él, la regla del presostato no revisa su contacto. `amortiguadores` ({ref: ficha}),
+    `paquetes_min` (la capacidad nominal) y `refs_escena` (las refs en 3D; None = no se mira): la
+    regla del amortiguador externo, que sólo da filas si algún cilindro lo declara."""
     if not hay_aire(modelo):
         return []
     c = circuito or analizar(modelo)
     reglas = list(_REGLAS) + [f for t, f in _CON_CATALOGO if t in disponibles]
-    return [r for regla in reglas for r in regla(c)] + _presostatos(c, cableado)
+    return ([r for regla in reglas for r in regla(c)] + _presostatos(c, cableado)
+            + _amortiguador(c, amortiguadores, paquetes_min, refs_escena))

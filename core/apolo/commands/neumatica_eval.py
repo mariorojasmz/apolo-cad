@@ -35,7 +35,23 @@ def _servicio(p, ficha_n, ref: str) -> dict:
     if not m["carrera_min_mm"] <= s.carrera_mm <= m["carrera_max_mm"]:
         raise ValueError(f"la carrera de {ref} va entre {m['carrera_min_mm']:g} y {m['carrera_max_mm']:g} mm "
                          f"(ficha; recibí {s.carrera_mm:g})")
+    for extremo in ("avance", "retroceso"):
+        _amortiguador(getattr(s, f"amortiguador_{extremo}", None), extremo)
     return {k: v for k, v in s.model_dump().items() if v is not None}
+
+
+def _amortiguador(ref: str | None, extremo: str) -> None:
+    """El amortiguador externo de un extremo (plan amortiguador-externo D2): una ref de la familia
+    `amortiguador_hidraulico` del catálogo, o `ValueError` con las que hay."""
+    if ref is None:
+        return
+    from apolo.library.catalog import CATALOG
+    from apolo.library.neumatica.amortiguador import FAMILIA
+
+    refs = [r for r, c in CATALOG.items() if c.familia == FAMILIA]
+    if ref not in refs:
+        raise ValueError(f"servicio.amortiguador_{extremo}: «{ref}» no es un amortiguador hidráulico del "
+                         f"catálogo.{sufijo_sugerencia(ref, refs)} Hay: {', '.join(refs)}")
 
 
 def dispositivo(entrada: dict, comp, pieza: str | None) -> Dispositivo:

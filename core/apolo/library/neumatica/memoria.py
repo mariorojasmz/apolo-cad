@@ -9,7 +9,8 @@ cálculo, en la forma de las reglas de la memoria (`services/memoria_reglas.py` 
   - **caudal pico** que pide a su velocidad contra lo que pasa su válvula con Δp = 1 bar;
   - **tiempo de carrera**: la cota de régimen a mano (escape sónico, v = C·p_ANR / A_escape) y,
     con un escenario VIGENTE que lo movió, el medido en la co-simulación;
-  - **pandeo** del vástago y **energía** al fin de carrera;
+  - **pandeo** del vástago y **energía** al fin de carrera (en el extremo con amortiguador externo,
+    la de SU ficha por ciclo y por hora: plan amortiguador-externo);
 y de la máquina: el **caudal del FRL** (todos los picos a la vez) y la **demanda de aire** con el
 % de fugas que se declare (el dato para el compresor).
 
@@ -23,6 +24,7 @@ from __future__ import annotations
 
 from . import calculo as K
 from . import cilindros as Z
+from .amortiguador import EXTREMOS
 from .lineas import Circuito, tipo
 
 ALCANCE = "alcance de la memoria del aire"
@@ -181,8 +183,40 @@ def _pandeo(c, cil) -> dict:
                  "Un cilindro de vástago mayor, menos carrera libre, un montaje más rígido o una guía.")
 
 
-def _impacto(cil, vel, hip_v) -> dict:
+def _amortiguadores(c, cil, sim, fichas, paquetes_min) -> tuple[list[dict], bool]:
+    """(filas del amortiguador externo de cada extremo, ¿quedó la energía por hora sin evaluar?)
+    (plan amortiguador-externo D3–D5). La velocidad de choque: el pico medido o 2·v̄ (D4)."""
+    pico = (sim or {}).get("pico") or sim or {}
+    v, hip_v = Z.v_choque(cil.servicio, pico.get("v_max_m_s"))
+    if v is None:
+        return [], False
+    out, sin_ritmo = [], False
+    for extremo, ref, r, h in Z.choques(c, cil, fichas, v, hip_v, paquetes_min):
+        if r is None:
+            continue  # sin la ficha (quien llama no la pasó): lo dice el ERC
+        d = r["valor"]
+        rec = None if r["estado"] == "ok" else \
+            "Un amortiguador de más capacidad, menos velocidad (regulador por el escape) o menos presión."
+        out.append(_fila("amortiguador externo", cil.designacion, r,
+                         f"{cil.designacion} al {extremo}: {ref} absorbe {d['E_J']:.1f} J por ciclo ({d['E1_J']:.1f} J "
+                         f"a {v:.2f} m/s + {d['E2_J']:.1f} J del empuje) de {d['E_max_J']:g} J.",
+                         recomendacion=rec))
+        if h["estado"] == "sin_evaluar":
+            sin_ritmo = True
+            continue
+        e = h["valor"]
+        out.append(_fila("amortiguador externo", cil.designacion, h,
+                         f"{cil.designacion} al {extremo}: {ref} absorbe {e['E_h_J']:.0f} J por hora de "
+                         f"{e['E_max_hora_J']:g} J/h.", recomendacion=None if h["estado"] == "ok" else
+                         "Un amortiguador de más energía por hora o menos ciclos."))
+    return out, sin_ritmo
+
+
+def _impacto(cil, vel, hip_v) -> dict | None:
     s, m = cil.servicio, cil.neumatico.modelo
+    ext = Z.amortiguadores(cil)  # los extremos con amortiguador externo van por su fila
+    if len(ext) == len(EXTREMOS):
+        return None
     masa = K.masa_movil_kg(m, s["carrera_mm"], s.get("masa_kg") or 0.0)
     r = K.energia_impacto(masa, vel, m["E_amortiguacion_J"])
     hip = hip_v + [f"masa móvil de la ficha ({m['masa_movil_base_kg']:g} kg + {m['masa_movil_por_mm_kg']:g} kg/mm) "
@@ -190,8 +224,9 @@ def _impacto(cil, vel, hip_v) -> dict:
                    "llega a esa velocidad: la amortiguación no se simula, se verifica (V8.9 D3)"]
     hip += [f"{k} de la ficha a confirmar" for k in cil.neumatico.a_confirmar if k.startswith(("E_amort", "masa"))]
     d = r["valor"]
+    donde = f" al {next(e for e in EXTREMOS if e not in ext)}" if ext else ""
     return _fila("energía al fin de carrera", cil.designacion, r,
-                 f"{cil.designacion} llega con {d['E_J']:.2f} J ({masa:.2f} kg a {vel:g} m/s); su amortiguación "
+                 f"{cil.designacion} llega{donde} con {d['E_J']:.2f} J ({masa:.2f} kg a {vel:g} m/s); su amortiguación "
                  f"admite {d['E_adm_J']:g} J.", hip=hip, valor={**d, "v_m_s": vel, "masa_kg": masa},
                  recomendacion=None if r["estado"] == "ok" else
                  "Regulador de caudal por el escape (menos velocidad), un amortiguador externo o un cilindro mayor.")
@@ -233,7 +268,8 @@ def _demanda(consumos: list[tuple[str, float, float]], fugas_pct: float | None) 
                   elementos=[n for n, _v, _c in consumos])]
 
 
-def _alcance(sin_servicio: list[str], sin_vel: list[str], sin_cadencia: list[str]) -> list[dict]:
+def _alcance(sin_servicio: list[str], sin_vel: list[str], sin_cadencia: list[str],
+             sin_ritmo: list[str] | None = None) -> list[dict]:
     partes = []
     if sin_servicio:
         partes.append(f"{', '.join(sin_servicio)} sin `servicio`: se omiten consumo, caudal, tiempo, pandeo e impacto")
@@ -242,22 +278,27 @@ def _alcance(sin_servicio: list[str], sin_vel: list[str], sin_cadencia: list[str
                       "caudal pico y la energía al fin de carrera")
     if sin_cadencia:
         partes.append(f"{', '.join(sin_cadencia)} sin cadencia (servicio.ciclos_min): fuera de la demanda de aire")
+    if sin_ritmo:
+        partes.append(f"{', '.join(sin_ritmo)} con amortiguador externo y sin cadencia ni capacidad nominal "
+                      "(requirements.paquetes_por_minuto): su energía por hora queda sin evaluar")
     if not partes:
         return []
     return [{"regla": ALCANCE, "estado": "aviso", "detalle": "; ".join(partes) + ".",
              "recomendacion": "Declara add_device.servicio {carrera_mm, velocidad_m_s, masa_kg, caso_euler, "
                               "ciclos_min} o corre un escenario que mueva el cilindro.",
-             "elementos": sin_servicio + sin_vel + sin_cadencia, "medio": "aire"}]
+             "elementos": sin_servicio + sin_vel + sin_cadencia + list(sin_ritmo or ()), "medio": "aire"}]
 
 
-def reglas(c: Circuito, *, cosim: dict | None = None, fugas_pct: float | None = None) -> list[dict]:
+def reglas(c: Circuito, *, cosim: dict | None = None, fugas_pct: float | None = None,
+           amortiguadores: dict | None = None, paquetes_min: float | None = None) -> list[dict]:
     """Las verificaciones del aire para la memoria (`[]` sin cilindros). `cosim`: {designación:
     {escenario, x_max_mm, t_avance_s?, t_retroceso_s?, v_max_m_s?, medicion}} de la co-simulación
-    vigente; `fugas_pct`: el % de fugas declarado (requisito `fugas_aire_pct`)."""
+    vigente; `fugas_pct`: el % de fugas declarado (requisito `fugas_aire_pct`); `amortiguadores`
+    ({ref: ficha}) y `paquetes_min` (capacidad nominal): el amortiguador externo de cada extremo."""
     cosim = cosim or {}
     out: list[dict] = []
     picos, consumos = [], []
-    sin_servicio, sin_vel, sin_cadencia = [], [], []
+    sin_servicio, sin_vel, sin_cadencia, sin_ritmo = [], [], [], []
     for cil in [d for d in c.dispositivos.values() if tipo(d) == "cilindro"]:
         out += _fuerza(c, cil)
         if not cil.servicio:
@@ -280,6 +321,11 @@ def reglas(c: Circuito, *, cosim: dict | None = None, fugas_pct: float | None = 
         out += _tiempo(c, cil, sim)
         out.append(_pandeo(c, cil))
         if vel is not None:
-            out.append(_impacto(cil, vel, hip_v))
-    out += _frl(c, picos) + _demanda(consumos, fugas_pct) + _alcance(sin_servicio, sin_vel, sin_cadencia)
+            out += [f for f in (_impacto(cil, vel, hip_v),) if f is not None]
+            filas, sin_h = _amortiguadores(c, cil, sim, amortiguadores, paquetes_min)
+            out += filas
+            if sin_h:
+                sin_ritmo.append(cil.designacion)
+    out += (_frl(c, picos) + _demanda(consumos, fugas_pct)
+            + _alcance(sin_servicio, sin_vel, sin_cadencia, sin_ritmo))
     return out

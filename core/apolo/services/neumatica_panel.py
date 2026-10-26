@@ -28,7 +28,7 @@ FRASE_BIEN = "El circuito de aire cumple"
 FRASE_PARCIAL = "El circuito de aire cumple lo que revisamos"
 SEVERIDAD = {"error": "falla", "aviso": "aviso"}
 #: reglas del ERC que la memoria repite por cilindro con la velocidad medida: el panel dice la suya
-DE_LA_MEMORIA = {"pandeo del vástago", "energía al fin de carrera", "relación de carga"}
+DE_LA_MEMORIA = {"pandeo del vástago", "energía al fin de carrera", "relación de carga", "amortiguador externo"}
 #: reglas del ERC que se juntan en un ítem con la cuenta (un hallazgo por puerto o por tubo)
 SE_JUNTAN = {"aislamiento del aire", "tubo sin puerto", "puerto libre", "escape sin silenciador"}
 
@@ -198,7 +198,8 @@ def items(erc: list[dict], mem: list[dict], m, piezas: dict[str, list[str]]) -> 
         out.append(item(f"memoria-{i}", SEVERIDAD[f["estado"]], frase, piezas=donde(f.get("elementos")),
                         detalle=detalle, tecnico=_tecnico([f])))
     # lo que la memoria no pudo revisar por falta de velocidad (ni declarada ni medida): sin evaluar
-    con_golpe = {(f.get("elementos") or [""])[0] for f in mem if f["regla"] == "energía al fin de carrera"}
+    con_golpe = {(f.get("elementos") or [""])[0] for f in mem
+                 if f["regla"] in ("energía al fin de carrera", "amortiguador externo")}
     for d in m.dispositivos:
         if getattr(d, "neumatico", None) is not None and d.neumatico.tipo == "cilindro" and d.servicio \
                 and d.designacion not in con_golpe:
@@ -206,6 +207,14 @@ def items(erc: list[dict], mem: list[dict], m, piezas: dict[str, list[str]]) -> 
                             f"Sin la velocidad de {d.designacion} no revisamos el golpe al final ni el caudal",
                             piezas=piezas.get(d.designacion, []),
                             detalle="Corre un escenario que lo mueva, o pídele al agente que declare su velocidad."))
+    # el amortiguador externo sin cadencia ni capacidad: su energía por hora, sin evaluar
+    for f in erc:
+        if f["regla"] == "amortiguador externo" and "SIN EVALUAR" in f["detalle"]:
+            des = (f.get("elementos") or [""])[0]
+            out.append(item(f"sin-ritmo-{des}-{len(out)}", "sin_evaluar",
+                            f"Sin la cadencia de {des} no revisamos la energía por hora de su amortiguador",
+                            piezas=piezas.get(des, []),
+                            detalle="Pídele al agente que declare la cadencia del cilindro o la capacidad de la máquina."))
     return out
 
 
@@ -252,7 +261,7 @@ def panel(doc) -> dict:
     m = modelo(doc)
     if not hay_aire(m):
         return {"hay_aire": False}
-    erc, mem = reglas(m), memoria(doc)
+    erc, mem = reglas(m, doc), memoria(doc)
     piezas = piezas_de(doc, m)
     its = items(erc, mem, m, piezas)
     v = veredicto(its, FRASE_BIEN, FRASE_PARCIAL)

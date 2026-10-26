@@ -51,7 +51,8 @@ CAMPOS: dict[str, str] = {
     "add_device": (
         "ref designacion ubicacion pieza ajustes cantidad servicio servicio.carrera_mm "
         "servicio.velocidad_m_s servicio.masa_kg servicio.fuerza_N servicio.caso_euler "
-        "servicio.largo_libre_mm servicio.ciclos_min"
+        "servicio.largo_libre_mm servicio.ciclos_min servicio.amortiguador_avance "
+        "servicio.amortiguador_retroceso"
     ),
     "add_joinery": (
         "name type feature_a feature_b position position.x position.y position.z axis axis.x "

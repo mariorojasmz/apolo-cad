@@ -244,10 +244,10 @@ def test_insert_component_lleva_las_anclas_del_pinon_a_mundo():
 def test_loader_une_builders_y_anclas_sin_repetir():
     assert {"sprocket", "roller_chain", "caster", "pulley"} <= set(BUILDERS)
     # + perfiles abiertos (D4) + la seta de emergencia (seta-de-emergencia D5) + cilindros (V8.9 F2)
-    # + el mando Ø22 de puerta (pedidos-de-extensiones-ii D2)
+    # + el mando Ø22 de puerta (pedidos-de-extensiones-ii D2) + el amortiguador (amortiguador-externo)
     assert set(ANCLAS) == {"sprocket", "channel", "i_beam", "angle", "seta_emergencia",
                            "interruptor_resguardo", "cilindro_iso15552", "cilindro_iso6432",
-                           "mando_22"}
+                           "mando_22", "amortiguador_hidraulico"}
     with pytest.raises(ValueError, match="sprocket"):
         merge_builders(BUILDERS, {"sprocket": object()})
     with pytest.raises(ValueError, match="noexiste"):
