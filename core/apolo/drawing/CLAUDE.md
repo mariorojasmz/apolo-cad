@@ -59,7 +59,11 @@ reglas están en [services](../services/CLAUDE.md).
   `Parrafo` + `columna` hasta el `piso` (`tabla.piso_tabla`: el cajetín y sus revisiones); lo que
   no entra en la hoja sigue en otra o dice «… y N más». Un texto que cabe sale tal cual (`partir`
   junta los espacios dobles). `tests/test_cortes_fijos.py`. [V8.9](../../../docs/plans/V8.9-neumatica.md)
-  (cortes fijos)
+  (cortes fijos). Tampoco lo corta quien da el dato (`library/`, `services/`: `installation_rows`,
+  el título de `montaje.secuencia`): va entero y cada papel o el video lo encaja.
+- **El SVG escribe la letra del PDF**: `font-size` = `tabla.em_mm(size)` (el em de los `size ×
+  2,45 pt` de `pdf.py`) con DejaVu Sans (Verdana de respaldo); `tests/test_letra_svg.py` mide el
+  ancho en los dos. [V8.9](../../../docs/plans/V8.9-neumatica.md) (letra del SVG)
 - **Trazos de esquema** (`esquema.py`, para una extensión que dibuja esquemas): `kind`
   `simbolo` (negro sin relleno) y `simbolo_lleno` (punto de unión, flecha) en `Line`, `Circle` y
   `Polygon`, con un solo grosor (0,35 mm, criterio declarado); en DXF, capa `ESQUEMA` sólo si se
