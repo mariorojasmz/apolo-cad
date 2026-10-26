@@ -8,6 +8,7 @@ from __future__ import annotations
 from .dimensions import weld_symbol
 from .projection import world_to_view
 from .sheet_primitivas import Circle, Label, Line, SheetModel
+from .texto_medido import celda_fila
 
 
 def _draw_table_with_balloons(
@@ -19,7 +20,8 @@ def _draw_table_with_balloons(
 ) -> float:
     """Tabla (BOM/DESPIECE/CÉDULA) en el cuadrante del perfil + globos numerados enlazados a
     `anchor_view`. `columns`=[(cabecera, ancho)...]; `cell_values(i, row)` devuelve la tupla de
-    celdas. `top_y` = borde superior (para apilar tablas); devuelve el borde INFERIOR de la tabla.
+    celdas, ENTERAS: cada una se mide en su columna (un renglón, o dos más chicos; «…» de último
+    recurso) y la fila no crece. `top_y` = borde superior (para apilar tablas); devuelve el borde INFERIOR de la tabla.
     Reutilizado por `bom` (anchor planta), `cutlist` (anchor alzado) y la cédula de herraje (sin globos)."""
     headers = [h for h, _ in columns]
     col_w = [w for _, w in columns]
@@ -40,8 +42,9 @@ def _draw_table_with_balloons(
     for i, row in enumerate(rows[:n_shown]):
         yr = tyb - (i + 2) * row_h + 1.8
         model.lines.append(Line(tx0b, tyb - (i + 2) * row_h, tx0b + tw, tyb - (i + 2) * row_h, "frame"))
-        for j, val in enumerate(cell_values(i, row)):
-            model.labels.append(Label(xcols[j] + 1.5, yr, str(val), 2.6, anchor="start"))
+        for j, val in enumerate(cell_values(i, row)):  # medida en su celda (V8.9, cortes fijos)
+            celda_fila(model, xcols[j] + 1.5, yr, col_w[j] - 3.0, 2.6, val,
+                       fila_abajo=tyb - (i + 2) * row_h, alto_fila=row_h)
     if len(rows) > n_shown:
         model.labels.append(Label(tx0b, tyb - (n_shown + 1) * row_h - 3.5, f"… y {len(rows) - n_shown} más", 2.6, anchor="start"))
     model.labels.append(Label(tx0b, tyb + 2.2, title, 3.2, anchor="start"))

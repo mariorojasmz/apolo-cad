@@ -6,18 +6,24 @@ CON cálculo (`calc` de la regla: entradas → fórmula → sustitución → res
 criterio → factor de seguridad → estado). Las reglas sin `calc` van juntas en una
 tabla final de verificaciones cualitativas.
 
-Espejo estructural de `assembly_manual.py` (reusa `_embed`/`_wrap`/`SHEETS`,
+Espejo estructural de `assembly_manual.py` (reusa `_embed`/`SHEETS`,
 `draw_title_block` y `sheets_to_pdf`). Consume el resultado de
 `conveyor_engineering_check` + `structure_engineering_check` — no calcula nada
 por su cuenta: la memoria REPORTA lo que el motor de reglas verificó.
+
+Ningún texto se corta a N caracteres ni a N renglones (plan V8.9, cortes fijos fuera del cajetín):
+cada columna se MIDE (`texto_medido.columna`) hasta el cajetín y las verificaciones cualitativas
+siguen en tantas hojas como pidan.
 """
 
 from __future__ import annotations
 
 from datetime import date
 
-from .assembly_manual import SHEETS, _embed, _wrap
+from .assembly_manual import SHEETS, _embed
 from .sheet import Label, Line, SheetModel
+from .tabla import alto_linea_mm, ancho_mm, partir, piso_tabla
+from .texto_medido import Parrafo, celda, columna, encajar
 from .titleblock import draw_title_block
 
 # etiquetas amistosas de las claves de requisitos en la tabla BASES DE DISEÑO
@@ -87,13 +93,19 @@ def _req_rows(requirements: dict) -> list[str]:
     return rows
 
 
+#: lo más chico que queda la foto de la portada (mm de alto, desde y = 58): las bases de diseño y
+#: las normas bajan hasta ahí y, si no entran, bajan de escala (V8.9, cortes fijos)
+_FOTO_MIN = 40.0
+
+
 def _cover(W: float, H: float, *, project_name: str, png: bytes | None,
            requirements: dict, sections: list[dict], misc: list[dict],
-           rules: list[dict], base_meta: dict) -> SheetModel:
+           rules: list[dict], base_meta: dict, hojas_misc: int = 1) -> SheetModel:
     m = SheetModel(W, H)
     m.rect(10, 10, W - 20, H - 20, "frame")
     m.labels.append(Label(16, H - 24, "MEMORIA DE CÁLCULO", 8.0, anchor="start"))
-    m.labels.append(Label(16, H - 34, str(project_name)[:54], 4.6, anchor="start"))
+    size, (nombre,) = encajar(str(project_name), W - 32.0, 4.6)  # medido (antes, cortado a 54)
+    m.labels.append(Label(16, H - 34, nombre, size, anchor="start"))
     m.lines.append(Line(14, H - 39, W - 14, H - 39, "frame"))
 
     # columna izquierda: bases de diseño + render
@@ -101,34 +113,42 @@ def _cover(W: float, H: float, *, project_name: str, png: bytes | None,
     m.labels.append(Label(16, y, "BASES DE DISEÑO", 3.6, anchor="start"))
     y -= 6
     reqs = _req_rows(requirements) or ["(sin requisitos declarados — parámetros de la llamada)"]
-    for row in reqs[:10]:
-        m.labels.append(Label(18, y, row[:60], 2.7, anchor="start"))
-        y -= 4.4
     # normas aplicadas por las verificaciones (V5.10) — memoria NORMATIVA
     normas = sorted({str(r.get("calc", {}).get("norma", "")).split(" — ")[0].split(",")[0]
                      for r in rules if r.get("calc", {}).get("norma")})
+    # todos los requisitos y todas las normas, ENTEROS (antes: 10 requisitos cortados a 60 y las
+    # normas a 62): partidos en la columna, sobre la foto
+    parrafos = [Parrafo(row, 2.7, 4.4) for row in reqs]
     if normas:
-        m.labels.append(Label(18, y, ("Normas aplicadas: " + " · ".join(normas))[:62],
-                              2.7, anchor="start"))
-        y -= 4.4
+        parrafos.append(Parrafo("Normas aplicadas: " + " · ".join(normas), 2.7, 4.4))
+    y = columna(m, 18, y, parrafos, W * 0.52 - 4 - 18, piso=58 + _FOTO_MIN + 4)
     if png:
-        _embed(m, png, (16, 58, 118, max(y - 62, 40)))
+        _embed(m, png, (16, 58, 118, max(y - 62, _FOTO_MIN)))
 
     # columna derecha: índice de verificaciones con estado
     rx = W * 0.52
     m.labels.append(Label(rx, H - 48, "ÍNDICE DE VERIFICACIONES", 3.6, anchor="start"))
     yy = H - 54
+    # veredicto y resultado SOBRE la tabla de revisiones (antes, fijos en y = 58 y 66: la tabla
+    # de revisiones de la memoria los pisaba); el índice baja hasta donde el «… y N más» y la
+    # línea de las cualitativas no pisan el «Resultado» (antes el corte en y < 70 los encimaba)
+    y_veredicto = max(58.0, piso_tabla(base_meta) + 1.2)
+    y_resultado = y_veredicto + 8.0
+    limite = y_resultado + 8.0 + (6.5 if misc else 0.0)
     for i, sec in enumerate(sections, start=1):
+        if yy < limite and i < len(sections):
+            m.labels.append(Label(rx, yy, f"… y {len(sections) - i + 1} más", 2.6, anchor="start"))
+            yy -= 4.2
+            break
         estado = _ESTADO.get(sec.get("estado"), "?")
         titulo = sec.get("calc", {}).get("titulo") or sec.get("regla", "")
-        m.labels.append(Label(rx, yy, f"{i}. {str(titulo)[:38]}", 2.7, anchor="start"))
+        # medido hasta el estado (antes, cortado a 38)
+        celda(m, rx, yy, W - 18 - ancho_mm(estado, 2.7) - 3.0 - rx, 2.7, f"{i}. {titulo}")
         m.labels.append(Label(W - 18, yy, estado, 2.7, anchor="end"))
         yy -= 4.2
-        if yy < 70:
-            m.labels.append(Label(rx, yy, f"… y {len(sections) - i} más", 2.6, anchor="start"))
-            break
     if misc:
-        m.labels.append(Label(rx, yy - 2, f"+ {len(misc)} verificación(es) cualitativas (última hoja)",
+        donde = "última hoja" if hojas_misc == 1 else f"últimas {hojas_misc} hojas"
+        m.labels.append(Label(rx, yy - 2, f"+ {len(misc)} verificación(es) cualitativas ({donde})",
                               2.6, anchor="start"))
         yy -= 6.5
 
@@ -136,11 +156,52 @@ def _cover(W: float, H: float, *, project_name: str, png: bytes | None,
     n_ok = sum(1 for r in rules if r.get("estado") == "ok")
     n_av = sum(1 for r in rules if r.get("estado") == "aviso")
     n_er = sum(1 for r in rules if r.get("estado") == "error")
-    m.labels.append(Label(rx, 66, f"Resultado: {n_ok} OK · {n_av} avisos · {n_er} errores",
+    m.labels.append(Label(rx, y_resultado, f"Resultado: {n_ok} OK · {n_av} avisos · {n_er} errores",
                           3.0, anchor="start"))
-    m.labels.append(Label(rx, 58, f"VEREDICTO: {_verdict(rules)}", 4.4, anchor="start"))
+    m.labels.append(Label(rx, y_veredicto, f"VEREDICTO: {_verdict(rules)}", 4.4, anchor="start"))
     draw_title_block(m, {**base_meta, "sheet_no": 1})
     return m
+
+
+def _izquierda(rule: dict, calc: dict) -> list[Parrafo]:
+    """La columna izquierda de una verificación: datos de entrada, verificación, recomendación,
+    resultado por pieza e hipótesis, como párrafos ENTEROS (antes: 6 renglones de 58 caracteres de
+    verificación, 4 de recomendación, 12 filas de 64, 2 renglones por hipótesis y 18 en total)."""
+    out = [Parrafo("DATOS DE ENTRADA", 3.2, 5.5)]
+    out += [Parrafo(f"{k}: {v}", 2.7, 4.2, sangria=2) for k, v in (calc.get("entradas") or {}).items()]
+    out.append(Parrafo("VERIFICACIÓN", 3.2, 5.5, antes=3))
+    if str(rule.get("detalle", "")).strip():
+        out.append(Parrafo(str(rule["detalle"]), 2.7, 4.2, sangria=2))
+    if rule.get("recomendacion"):
+        out.append(Parrafo("Recomendación: " + str(rule["recomendacion"]), 2.7, 4.2, sangria=2, antes=2))
+    # tabla por pieza (FEA de ensamblaje: σ_vm / FS por pieza) — bajo la verificación
+    if rule.get("tabla"):
+        out.append(Parrafo("RESULTADO POR PIEZA", 3.2, 5.5, antes=3))
+        out += [Parrafo(str(row), 2.6, 4.0, sangria=2) for row in rule["tabla"]]
+    # hipótesis y alcance (FEA: lo que un ingeniero lee ANTES de firmar — bonded/lineal,
+    # exclusiones con su peso, alcance acotado, nota del analista; el alcance y la nota van al
+    # final: si la hoja no alcanza, la columna baja de escala antes que cortarlos)
+    if rule.get("hipotesis"):
+        out.append(Parrafo("HIPÓTESIS Y ALCANCE", 3.2, 5.5, antes=3))
+        out += [Parrafo("· " + str(h), 2.4, 3.8, sangria=2, sangria_sig=4) for h in rule["hipotesis"]]
+    return out
+
+
+def _derecha(calc: dict) -> list[Parrafo]:
+    """El cálculo: fórmula → sustitución → resultado → criterio → norma → FS, cada uno ENTERO
+    (antes, 3 renglones de 46 caracteres: el resultado de una viga perdía su σ)."""
+    out: list[Parrafo] = []
+    for header, key in (("FÓRMULA", "formula"), ("SUSTITUCIÓN", "sustitucion"),
+                        ("RESULTADO", "resultado"), ("CRITERIO DE ACEPTACIÓN", "criterio"),
+                        ("NORMA DE REFERENCIA", "norma")):
+        if not calc.get(key):
+            continue
+        out.append(Parrafo(header, 3.2, 5.5, antes=2.5 if out else 0.0))
+        out.append(Parrafo(str(calc[key]), 3.0, 4.6, sangria=2))
+    if calc.get("fs") is not None:
+        out.append(Parrafo("FACTOR DE SEGURIDAD", 3.2, 6.0, antes=2.5 if out else 0.0))
+        out.append(Parrafo(f"FS = {calc['fs']:g}", 4.6, 4.6, sangria=2))
+    return out
 
 
 def _section_page(W: float, H: float, *, idx: int, n_sections: int, page_no: int,
@@ -149,95 +210,59 @@ def _section_page(W: float, H: float, *, idx: int, n_sections: int, page_no: int
     m = SheetModel(W, H)
     m.rect(10, 10, W - 20, H - 20, "frame")
     titulo = calc.get("titulo") or rule.get("regla", "")
-    m.labels.append(Label(16, H - 24, f"{idx}. {str(titulo)[:48].upper()}", 5.6, anchor="start"))
-    m.labels.append(Label(W - 16, H - 24, _ESTADO.get(rule.get("estado"), "?"), 5.6, anchor="end"))
+    estado = _ESTADO.get(rule.get("estado"), "?")
+    # el título ENTERO (antes, cortado a 48): un renglón a 5,6 si cabe; si no, dos sobre la raya
+    size, lineas = encajar(f"{idx}. {titulo}".upper(), W - 32 - ancho_mm(estado, 5.6) - 4.0, 5.6, 2)
+    for k, ln in enumerate(lineas):
+        m.labels.append(Label(16, H - 24 + (len(lineas) - 1 - k) * alto_linea_mm(size), ln, size,
+                              anchor="start"))
+    m.labels.append(Label(W - 16, H - 24, estado, 5.6, anchor="end"))
     m.lines.append(Line(14, H - 30, W - 14, H - 30, "frame"))
-
-    # columna izquierda: datos de entrada
-    y = H - 40
-    m.labels.append(Label(16, y, "DATOS DE ENTRADA", 3.2, anchor="start"))
-    y -= 5.5
-    for k, v in (calc.get("entradas") or {}).items():
-        for ln in _wrap(f"{k}: {v}", 52):
-            m.labels.append(Label(18, y, ln, 2.7, anchor="start"))
-            y -= 4.2
-    # detalle (veredicto en prosa)
-    y -= 3
-    m.labels.append(Label(16, y, "VERIFICACIÓN", 3.2, anchor="start"))
-    y -= 5.5
-    for ln in _wrap(str(rule.get("detalle", "")), 58)[:6]:
-        m.labels.append(Label(18, y, ln, 2.7, anchor="start"))
-        y -= 4.2
-    if rule.get("recomendacion"):
-        y -= 2
-        for ln in _wrap("Recomendación: " + str(rule["recomendacion"]), 58)[:4]:
-            m.labels.append(Label(18, y, ln, 2.7, anchor="start"))
-            y -= 4.2
-    # tabla por pieza (FEA de ensamblaje: σ_vm / FS por pieza) — bajo la verificación
-    if rule.get("tabla"):
-        y -= 3
-        m.labels.append(Label(16, y, "RESULTADO POR PIEZA", 3.2, anchor="start"))
-        y -= 5.5
-        for row in rule["tabla"][:12]:
-            m.labels.append(Label(18, y, str(row)[:64], 2.6, anchor="start"))
-            y -= 4.0
-    # hipótesis y alcance (FEA: lo que un ingeniero lee ANTES de firmar — bonded/lineal,
-    # exclusiones con su peso, alcance acotado, nota del analista)
-    if rule.get("hipotesis"):
-        y -= 3
-        m.labels.append(Label(16, y, "HIPÓTESIS Y ALCANCE", 3.2, anchor="start"))
-        y -= 5.5
-        flat: list[str] = []
-        for h in rule["hipotesis"]:
-            lns = _wrap("· " + str(h), 64)
-            flat.extend(lns[:2])
-        # tope 18: el ALCANCE y la nota del analista van al final de la lista y son
-        # justo lo que un revisor necesita leer — no pueden morir en el corte
-        for ln in flat[:18]:
-            m.labels.append(Label(18, y, ln, 2.4, anchor="start"))
-            y -= 3.8
-        if len(flat) > 18:
-            m.labels.append(Label(18, y, "…", 2.4, anchor="start"))
-            y -= 3.8
-
-    # columna derecha: el cálculo (fórmula → sustitución → resultado → criterio → FS)
+    piso = piso_tabla(base_meta)
     rx = W * 0.55
-    yy = H - 40
-    for header, key in (("FÓRMULA", "formula"), ("SUSTITUCIÓN", "sustitucion"),
-                        ("RESULTADO", "resultado"), ("CRITERIO DE ACEPTACIÓN", "criterio"),
-                        ("NORMA DE REFERENCIA", "norma")):
-        if not calc.get(key):
-            continue
-        m.labels.append(Label(rx, yy, header, 3.2, anchor="start"))
-        yy -= 5.5
-        for ln in _wrap(str(calc[key]), 46)[:3]:
-            m.labels.append(Label(rx + 2, yy, ln, 3.0, anchor="start"))
-            yy -= 4.6
-        yy -= 2.5
-    fs = calc.get("fs")
-    if fs is not None:
-        m.labels.append(Label(rx, yy, "FACTOR DE SEGURIDAD", 3.2, anchor="start"))
-        yy -= 6
-        m.labels.append(Label(rx + 2, yy, f"FS = {fs:g}", 4.6, anchor="start"))
+    # columna izquierda: datos de entrada, verificación, tabla e hipótesis; derecha: el cálculo
+    columna(m, 16, H - 40, _izquierda(rule, calc), rx - 4 - 16, piso)
+    columna(m, rx, H - 40, _derecha(calc), W - 16 - rx, piso)
     draw_title_block(m, {**base_meta, "sheet_no": page_no})
     return m
 
 
+def _bloque_misc(r: dict, W: float) -> tuple[str, list[str]]:
+    """(estado, renglones del detalle) de una verificación cualitativa, medidos en la hoja."""
+    detalle = str(r.get("detalle", ""))
+    return (_ESTADO.get(r.get("estado"), "?"),
+            partir(detalle, W - 16 - 20, 2.6) if detalle.strip() else [])
+
+
+def _hojas_misc(misc: list[dict], W: float, H: float, piso: float) -> list[list[int]]:
+    """Las verificaciones cualitativas repartidas en hojas por ALTURA (antes: una sola hoja con 3
+    renglones de 92 caracteres por regla y, lo que no entraba, «… y N verificaciones en total»)."""
+    hojas: list[list[int]] = [[]]
+    y = H - 40
+    for i, r in enumerate(misc):
+        n = len(_bloque_misc(r, W)[1])
+        if hojas[-1] and y - 4.8 - max(n - 1, 0) * 4.0 < piso:
+            hojas.append([])
+            y = H - 40
+        hojas[-1].append(i)
+        y -= 4.8 + n * 4.0 + 2.5
+    return hojas
+
+
 def _misc_page(W: float, H: float, *, misc: list[dict], page_no: int,
-               base_meta: dict) -> SheetModel:
+               base_meta: dict, hoja: int = 1, n_hojas: int = 1) -> SheetModel:
     m = SheetModel(W, H)
     m.rect(10, 10, W - 20, H - 20, "frame")
-    m.labels.append(Label(16, H - 24, "VERIFICACIONES CUALITATIVAS", 5.6, anchor="start"))
+    titulo = "VERIFICACIONES CUALITATIVAS" + (f" ({hoja}/{n_hojas})" if n_hojas > 1 else "")
+    m.labels.append(Label(16, H - 24, titulo, 5.6, anchor="start"))
     m.lines.append(Line(14, H - 30, W - 14, H - 30, "frame"))
     y = H - 40
     for r in misc:
-        if y < 62:
-            m.labels.append(Label(16, y, f"… y {len(misc)} verificaciones en total", 2.6, anchor="start"))
-            break
-        m.labels.append(Label(16, y, f"· {str(r.get('regla', ''))[:40]}", 3.0, anchor="start"))
-        m.labels.append(Label(W - 16, y, _ESTADO.get(r.get("estado"), "?"), 3.0, anchor="end"))
+        estado, lineas = _bloque_misc(r, W)
+        celda(m, 16, y, W - 32 - ancho_mm(estado, 3.0) - 4.0, 3.0, f"· {r.get('regla', '')}")
+        m.labels.append(Label(W - 16, y, estado, 3.0, anchor="end"))
         y -= 4.8
-        for ln in _wrap(str(r.get("detalle", "")), 92)[:3]:
+        for ln in lineas:
             m.labels.append(Label(20, y, ln, 2.6, anchor="start"))
             y -= 4.0
         y -= 2.5
@@ -272,7 +297,9 @@ def calc_report(scene: dict | None, *, rules: list[dict], requirements: dict,
     W, H = SHEETS.get(sheet, SHEETS["A4"])
     sections = [r for r in rules if r.get("calc")]
     misc = [r for r in rules if not r.get("calc")]
-    n_pages = 1 + len(sections) + (1 if misc else 0)
+    piso = piso_tabla({"revisions": (meta or {}).get("revisions", [])})
+    hojas_misc = _hojas_misc(misc, W, H, piso) if misc else []
+    n_pages = 1 + len(sections) + len(hojas_misc)
     peso = (meta or {}).get("weight_kg")
     if peso is None:
         peso = peso_memoria(scene)
@@ -288,10 +315,12 @@ def calc_report(scene: dict | None, *, rules: list[dict], requirements: dict,
         "n_sheets": n_pages,
     }
     pages = [_cover(W, H, project_name=project_name, png=png, requirements=requirements,
-                    sections=sections, misc=misc, rules=rules, base_meta=base_meta)]
+                    sections=sections, misc=misc, rules=rules, base_meta=base_meta,
+                    hojas_misc=max(1, len(hojas_misc)))]
     for i, rule in enumerate(sections, start=1):
         pages.append(_section_page(W, H, idx=i, n_sections=len(sections),
                                    page_no=i + 1, rule=rule, base_meta=base_meta))
-    if misc:
-        pages.append(_misc_page(W, H, misc=misc, page_no=n_pages, base_meta=base_meta))
+    for k, idx in enumerate(hojas_misc, start=1):
+        pages.append(_misc_page(W, H, misc=[misc[i] for i in idx], page_no=1 + len(sections) + k,
+                                base_meta=base_meta, hoja=k, n_hojas=len(hojas_misc)))
     return pages

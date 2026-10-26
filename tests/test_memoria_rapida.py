@@ -33,29 +33,33 @@ def _tb(hoja: str) -> list[str]:
 
 
 #: Los textos y las imágenes de cada página con el código de main (matplotlib bajo STATE_LOCK).
+#: Re-congelados en los cortes fijos fuera del cajetín (plan V8.9): comparados contra los de antes,
+#: las hojas 2 y 3 dicen las MISMAS palabras (sólo cambia dónde se parte cada renglón: se mide en
+#: la columna en vez de cortar a 46-58 caracteres) y la portada suma lo que se cortaba a 62 de las
+#: normas («… cortant» → «… cortante del perno) · criterio de diseño: equilibrio estático …»).
 PAGINAS_DE_MAIN = [
     (["MEMORIA DE CÁLCULO", "mueble", "BASES DE DISEÑO", "Carga por paquete:  50 kg",
       "Largo de paquete:  300 mm",
-      "Normas aplicadas: EN 1993-1-8 · ISO 898-1 (capacidad a cortant",
+      "Normas aplicadas: EN 1993-1-8 · ISO 898-1 (capacidad a cortante del perno) · criterio de "
+      "diseño: equilibrio", "estático (COG dentro de la huella de apoyo)",
       "ÍNDICE DE VERIFICACIONES", "1. Unión apernada u1", "OK", "2. Estabilidad al vuelco",
       "OK", "Resultado: 2 OK · 0 avisos · 0 errores", "VEREDICTO: APROBADO", *_tb("1/3")], 1),
     (["1. UNIÓN APERNADA U1", "OK", "DATOS DE ENTRADA",
       "masa colgante: 50.2 kg (grafo de conectividad)", "carga: 493 N", "pernos: 4× M8 8.8",
       "capacidad/ud: 14054 N (0.6·Rm·As/1.25, EN 1993-1-8)", "VERIFICACIÓN",
-      "u1 (Base madera ↔ Tapa madera): 50.2 kg cuelgan de 4× M8 →",
-      "utilización 1% a cortante.", "FÓRMULA", "u = F / (n · Fv)", "SUSTITUCIÓN",
+      "u1 (Base madera ↔ Tapa madera): 50.2 kg cuelgan de 4× M8 → utilización 1% a cortante.",
+      "FÓRMULA", "u = F / (n · Fv)", "SUSTITUCIÓN",
       "u = 493 / (4·14054)", "RESULTADO", "u = 0.01 (1% de la capacidad a cortante)",
-      "CRITERIO DE ACEPTACIÓN", "u ≤ 0.7 holgado · 0.7–1.0 justo · >1.0", "sobrecargada",
-      "NORMA DE REFERENCIA", "EN 1993-1-8 · ISO 898-1 (capacidad a cortante", "del perno)",
+      "CRITERIO DE ACEPTACIÓN", "u ≤ 0.7 holgado · 0.7–1.0 justo · >1.0 sobrecargada",
+      "NORMA DE REFERENCIA", "EN 1993-1-8 · ISO 898-1 (capacidad a cortante del perno)",
       "FACTOR DE SEGURIDAD", "FS = 114.07", *_tb("2/3")], 0),
     (["2. ESTABILIDAD AL VUELCO", "OK", "DATOS DE ENTRADA", "masa total: 100.48 kg (sin producto)",
       "COG: (0, 0, 255) mm", "base de apoyo: 4 vértices, dim. menor 400 mm", "VERIFICACIÓN",
-      "COG a 200 mm del borde de la base de apoyo (mínimo",
-      "requerido 40 mm; producto no incluido).", "FÓRMULA",
-      "margen = dist(COG_xy, borde de la base de", "apoyo)", "SUSTITUCIÓN",
-      "margen(0, 0) sobre el casco convexo de los", "apoyos", "RESULTADO", "margen = 200 mm",
+      "COG a 200 mm del borde de la base de apoyo (mínimo requerido 40 mm; producto no incluido).",
+      "FÓRMULA", "margen = dist(COG_xy, borde de la base de apoyo)", "SUSTITUCIÓN",
+      "margen(0, 0) sobre el casco convexo de los apoyos", "RESULTADO", "margen = 200 mm",
       "CRITERIO DE ACEPTACIÓN", "≥ 10% de la base menor = 40 mm", "NORMA DE REFERENCIA",
-      "criterio de diseño: equilibrio estático (COG", "dentro de la huella de apoyo)",
+      "criterio de diseño: equilibrio estático (COG dentro de la huella de apoyo)",
       "FACTOR DE SEGURIDAD", "FS = 5", *_tb("3/3")], 0),
 ]
 

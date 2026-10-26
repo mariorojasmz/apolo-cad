@@ -12,11 +12,15 @@ cabe en su celda, se parte en renglones o baja de tamaño hasta `TAM_MIN`; «…
 
 from __future__ import annotations
 
+# el criterio de medir (renglones o tamaño, nunca bajo TAM_MIN; «…» de último recurso) es de todos
+# los papeles: vive en `texto_medido` y aquí se re-exporta (lo importan los tests y otros papeles)
+from .texto_medido import TAM_MIN, celda, encajar  # noqa: F401
+from .texto_medido import con_puntos as _con_puntos
+from .texto_medido import em as _em
+
 TITLE_W, TITLE_H = 180.0, 40.0     # cajetín
 REV_ROW_H = 4.5                    # alto de una fila de revisión de UN renglón
 REV_W = 90.0
-#: la letra más chica del cajetín (la de las filas de revisiones): ningún texto baja de aquí
-TAM_MIN = 2.2
 _TAM_REV = 2.2
 _MAX_RENGLONES_REV = 3
 _COLS_REV = (0.0, 12.0, 34.0, REV_W)   # Rev | Fecha | Descripción (desde el borde izquierdo)
@@ -52,65 +56,6 @@ def projection_symbol(model, x: float, y: float, s: float = 7.0,
 def _peso(kg) -> str:
     """«12.5 kg», o «— kg» si nadie lo dio (una cotización sin peso decía «None kg», V8.1 F4)."""
     return f"{kg} kg" if kg is not None else "— kg"
-
-
-def _em(size: float) -> float:
-    """Alto del em (mm) de una etiqueta de tamaño `size` en el PDF."""
-    from .tabla import MM_POR_PT, PT_POR_MM_ETIQUETA
-
-    return size * PT_POR_MM_ETIQUETA * MM_POR_PT
-
-
-def _con_puntos(texto: str, ancho: float, size: float) -> str:
-    """El último recurso: `texto` recortado por la derecha hasta que quepa con «…»."""
-    from .tabla import ancho_mm
-
-    resto = texto
-    while resto and ancho_mm(resto + "…", size) > ancho:
-        resto = resto[:-1]
-    return resto.rstrip() + "…"
-
-
-def encajar(texto: str, ancho: float, size: float, max_renglones: int = 1,
-            alto: float | None = None) -> tuple[float, list[str]]:
-    """(tamaño, renglones) con que `texto` cabe en `ancho` mm: al tamaño pedido en un renglón si
-    cabe; si no, partido en hasta `max_renglones` (que entren en `alto` mm, si se da) al primer
-    tamaño que alcance, bajando de a 0,1 hasta `TAM_MIN`; si ni así, el último renglón a
-    `TAM_MIN` termina en «…»."""
-    from .tabla import alto_linea_mm, ancho_mm, partir
-
-    texto = str(texto)
-    if ancho_mm(texto, size) <= ancho:
-        return size, [texto]
-    s = size
-    while s >= TAM_MIN - 1e-9:
-        lineas = partir(texto, ancho, s)
-        if len(lineas) <= max_renglones and (alto is None or len(lineas) * alto_linea_mm(s) <= alto):
-            return s, lineas
-        s = round(s - 0.1, 2)
-    s = min(size, TAM_MIN)
-    lineas = partir(texto, ancho, s)
-    caben = max_renglones if alto is None else max(1, min(max_renglones, int(alto // alto_linea_mm(s))))
-    return s, lineas[:caben - 1] + [_con_puntos(" ".join(lineas[caben - 1:]), ancho, s)]
-
-
-def _celda(model, x: float, y_base: float, ancho: float, size: float, texto,
-           max_renglones: int = 1, alto: float | None = None, y_centro: float | None = None) -> None:
-    """Escribe `texto` desde `x`. Si cabe al tamaño pedido en un renglón, en `y_base` como
-    siempre; si no, sus renglones centrados en `y_centro` (o desde `y_base` hacia abajo)."""
-    from .tabla import alto_linea_mm
-
-    s, lineas = encajar(texto, ancho, size, max_renglones, alto)
-    if len(lineas) == 1 and s == size:
-        _txt(model, x, y_base, s, lineas[0])
-        return
-    lh = alto_linea_mm(s)
-    if y_centro is None:
-        y0 = y_base
-    else:  # el em de cada renglón centrado: el del medio del bloque en y_centro
-        y0 = y_centro + (len(lineas) - 1) * lh / 2 - 0.26 * _em(s)
-    for k, ln in enumerate(lineas):
-        _txt(model, x, y0 - k * lh, s, ln)
 
 
 #: El título: el tamaño de siempre si cabe en un renglón; si no, dos renglones al primer tamaño
@@ -242,9 +187,9 @@ def draw_title_block(model, fields: dict) -> None:
     _txt(model, x0 + TITLE_W - 2, y0 + TITLE_H * 0.84, 3.4, numero, anchor="end")
     # fila 2: dibujó/revisó/aprobó | empresa a la izquierda y el diedro a la derecha de su celda
     izq = cdiv - x0 - 4.0
-    _celda(model, x0 + 2, y0 + TITLE_H * 0.66, izq, 2.3,
+    celda(model, x0 + 2, y0 + TITLE_H * 0.66, izq, 2.3,
            f"Dib. {f.get('drawn_by', '')}  {str(f.get('date', ''))[:10]}")
-    _celda(model, x0 + 2, y0 + TITLE_H * 0.56, izq, 2.3,
+    celda(model, x0 + 2, y0 + TITLE_H * 0.56, izq, 2.3,
            f"Rev. {f.get('checked_by', '')}   Apr. {f.get('approved_by', '')}")
     s_diedro = 5.5
     medio = y0 + TITLE_H * 0.625
@@ -254,14 +199,14 @@ def draw_title_block(model, fields: dict) -> None:
     # de 10 mm (hasta dos renglones)
     valor = dict(alto=TITLE_H * 0.25 - 1.0, max_renglones=2, y_centro=y0 + TITLE_H * 0.125)
     _txt(model, x0 + 2, y0 + TITLE_H * 0.34, 2.3, "Material")
-    _celda(model, x0 + 2, y0 + TITLE_H * 0.10, c1 - x0 - 4.0, 3.0, f.get("material", "—"), **valor)
+    celda(model, x0 + 2, y0 + TITLE_H * 0.10, c1 - x0 - 4.0, 3.0, f.get("material", "—"), **valor)
     _txt(model, c1 + 2, y0 + TITLE_H * 0.34, 2.3, "Acabado / Peso")
-    _celda(model, c1 + 2, y0 + TITLE_H * 0.10, c2 - c1 - 4.0, 2.6,
+    celda(model, c1 + 2, y0 + TITLE_H * 0.10, c2 - c1 - 4.0, 2.6,
            f"{f.get('finish', '—')} · {_peso(f.get('weight_kg'))}", **valor)
     _txt(model, c2 + 2, y0 + TITLE_H * 0.34, 2.3, "Tol. gral / Unid.")
-    _celda(model, c2 + 2, y0 + TITLE_H * 0.10, c3 - c2 - 4.0, 2.6,
+    celda(model, c2 + 2, y0 + TITLE_H * 0.10, c3 - c2 - 4.0, 2.6,
            f"{f.get('tolerance', 'ISO 2768-mK')} · {f.get('units', 'mm')}", **valor)
     _txt(model, c3 + 2, y0 + TITLE_H * 0.34, 2.3, "Escala / Hoja")
-    _celda(model, c3 + 2, y0 + TITLE_H * 0.10, x0 + TITLE_W - c3 - 4.0, 2.6,
+    celda(model, c3 + 2, y0 + TITLE_H * 0.10, x0 + TITLE_W - c3 - 4.0, 2.6,
            f"{f.get('scale', '')} · {f.get('sheet_no', 1)}/{f.get('n_sheets', 1)} {f.get('sheet', '')}",
            **valor)

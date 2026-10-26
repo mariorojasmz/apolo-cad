@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from .dimensions import center_mark, linear_dim, notes_block
 from .sheet import SHEETS, Label, Line, SheetModel
+from .tabla import piso_tabla
+from .texto_medido import celda_fila
 from .titleblock import draw_title_block
 
 
@@ -100,8 +102,9 @@ def installation_sheet(scene: dict, data: dict, *, project_name: str = "Sin tít
             yr = top - (i + 1) * row_h + 1.7
             m.lines.append(Line(x0, top - (i + 1) * row_h, x0 + sum(col_w),
                                 top - (i + 1) * row_h, "frame"))
-            for j, val in enumerate(row):
-                m.labels.append(Label(xcols[j] + 1.4, yr, str(val)[:34], 2.5, anchor="start"))
+            for j, val in enumerate(row):  # entero en su celda (antes, cortado a 34)
+                celda_fila(m, xcols[j] + 1.4, yr, col_w[j] - 2.8, 2.5, val,
+                           fila_abajo=top - (i + 1) * row_h, alto_fila=row_h)
 
     # --- notas de obra: la hipótesis del reparto va SIEMPRE (nunca implícita)
     notas = []
@@ -110,10 +113,10 @@ def installation_sheet(scene: dict, data: dict, *, project_name: str = "Sin tít
     if anclaje.get("hay_traccion"):
         notas.append("Algún apoyo trabaja a TRACCIÓN: el anclaje debe resistir arranque.")
     notas += list(data.get("notas") or [])
-    if notas:
-        notes_block(m, x0, top - n * row_h - 10.0, notas, title="NOTAS DE INSTALACIÓN")
-
     base = dict(meta or {})
+    if notas:  # enteras, partidas hasta el borde y sobre el cajetín (antes, cortadas a 60)
+        notes_block(m, x0, top - n * row_h - 10.0, notas, title="NOTAS DE INSTALACIÓN",
+                    ancho=W - 16.0 - x0, piso=piso_tabla(base))
     base.setdefault("material", "—")
     draw_title_block(m, {**base, "project": f"{project_name} · INSTALACIÓN",
                          "scale": "", "sheet": sheet, "units": "mm"})

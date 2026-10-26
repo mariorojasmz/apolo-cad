@@ -24,6 +24,8 @@ import re
 import struct
 
 from .sheet import Image, Label, Line, SheetModel
+from .tabla import alto_linea_mm, piso_tabla
+from .texto_medido import Parrafo, columna, encajar
 from .titleblock import draw_title_block
 
 SHEETS = {"A3": (420.0, 297.0), "A4": (297.0, 210.0)}
@@ -331,7 +333,7 @@ def _step_rows(stage_scene: dict) -> list[str]:
     for r in bom_from_scene(stage_scene):
         norma = f" · {r['norma']}" if r.get("norma") else ""
         rows.append((orden.get(r.get("_rep"), 1 << 20),
-                     f"{r['cantidad']}x  {str(r['descripcion'])[:30]}{norma}"))
+                     f"{r['cantidad']}x  {r['descripcion']}{norma}"))  # entera: la lámina la parte
     return [txt for _k, txt in sorted(rows, key=lambda t: t[0])]
 
 
@@ -378,17 +380,18 @@ def _cover_page(W: float, H: float, *, project_name: str, png: bytes, stages: li
     m = SheetModel(W, H)
     m.rect(10, 10, W - 20, H - 20, "frame")
     m.labels.append(Label(16, H - 26, "MANUAL DE ENSAMBLAJE", 9.0, anchor="start"))
-    m.labels.append(Label(16, H - 38, str(project_name)[:54], 5.0, anchor="start"))
+    size, (titulo,) = encajar(str(project_name), W - 32.0, 5.0)  # medido (antes, cortado a 54)
+    m.labels.append(Label(16, H - 38, titulo, size, anchor="start"))
     _embed(m, png, (16, 56, (W - 20) * 0.55, H - 108))
     rx = 16 + (W - 20) * 0.55 + 12
     m.labels.append(Label(rx, H - 52, "SECUENCIA DE MONTAJE", 4.2, anchor="start"))
-    y = H - 62
-    for i, s in enumerate(stages):
-        m.labels.append(Label(rx, y, f"Paso {i + 1}.  {s['label']}  ({len(s['ids'])} pza)", 3.0, anchor="start"))
-        y -= 5.4
-    y -= 4
-    m.labels.append(Label(rx, y, f"Total: {totals['piezas']} piezas · {totals['herraje']} de herraje"
-                                  f" · {len(stages)} pasos", 3.0, anchor="start"))
+    # la secuencia y el total, medidos y SOBRE el cajetín (antes, un manual largo en A4 bajaba
+    # hasta la tabla de revisiones): si no entran, la columna baja de escala
+    pasos = [Parrafo(f"Paso {i + 1}.  {s['label']}  ({len(s['ids'])} pza)", 3.0, 5.4)
+             for i, s in enumerate(stages)]
+    pasos.append(Parrafo(f"Total: {totals['piezas']} piezas · {totals['herraje']} de herraje"
+                         f" · {len(stages)} pasos", 3.0, 5.4, antes=4))
+    columna(m, rx, H - 62, pasos, W - 14 - rx, piso_tabla(base_meta))
     draw_title_block(m, {**base_meta, "sheet_no": 1, "n_sheets": len(stages) + 1})
     return m
 
@@ -401,7 +404,13 @@ def _step_page(W: float, H: float, *, step_no: int, n_steps: int, page_no: int, 
     _embed(m, png, (16, 54, (W - 20) * 0.58, H - 70))
     rx = 16 + (W - 20) * 0.58 + 10
     m.labels.append(Label(rx, H - 28, f"PASO {step_no} DE {n_steps}", 6.5, anchor="start"))
-    m.labels.append(Label(rx, H - 39, str(stage["label"])[:34], 5.0, anchor="start"))
+    ancho = W - 14 - rx
+    # el rótulo de la etapa, MEDIDO (antes, cortado a 34): un renglón a 5 si cabe; si no, dos
+    # renglones entre «PASO N DE M» y la raya
+    size, lineas = encajar(str(stage["label"]), ancho, 5.0, 2, alto=2 * alto_linea_mm(4.5))
+    for k, ln in enumerate(lineas):
+        m.labels.append(Label(rx, H - 39 + (len(lineas) - 1 - k) * alto_linea_mm(size), ln, size,
+                              anchor="start"))
     m.lines.append(Line(rx, H - 43, W - 14, H - 43, "frame"))
     y = H - 52
     for ln in _wrap(instruction, 42):
@@ -410,13 +419,34 @@ def _step_page(W: float, H: float, *, step_no: int, n_steps: int, page_no: int, 
     y -= 3
     m.labels.append(Label(rx, y, "PIEZAS DE ESTE PASO", 3.4, anchor="start"))
     y -= 6
-    for r in rows[:14]:
-        m.labels.append(Label(rx, y, r, 2.7, anchor="start"))
-        y -= 4.6
-    if len(rows) > 14:
-        m.labels.append(Label(rx, y, f"… y {len(rows) - 14} más", 2.6, anchor="start"))
+    _filas_del_paso(m, rx, y, ancho, rows, piso_tabla(base_meta))
     draw_title_block(m, {**base_meta, "sheet_no": page_no, "n_sheets": n_pages})
     return m
+
+
+def _filas_del_paso(m: SheetModel, x: float, y: float, ancho: float, rows: list[str],
+                    piso: float, tope: int = 14) -> None:
+    """Las filas «N×  descripción · norma» del paso, ENTERAS: partidas por ancho medido (lo que
+    sigue, bajo la descripción) y, hasta `tope`, mientras entren sobre el cajetín; lo que no,
+    «… y N más» (antes cada descripción se cortaba a 30 y la lista a 14 sin mirar el piso)."""
+    from .tabla import ancho_mm, partir
+
+    paso, aviso = 4.6, 2.6
+    puestas = 0
+    for r in rows[:tope]:
+        cab = r.split("  ", 1)[0] + "  " if "  " in r else ""
+        primera = [r] if ancho_mm(r, 2.7) <= ancho else partir(r, ancho, 2.7)  # cabe: tal cual
+        lineas = primera[:1] + (partir(" ".join(primera[1:]), ancho - ancho_mm(cab, 2.7), 2.7)
+                                if len(primera) > 1 else [])
+        resto = len(rows) - puestas - 1
+        if y - (len(lineas) - 1) * paso - (paso if resto else 0.0) < piso:
+            break
+        for k, ln in enumerate(lineas):
+            m.labels.append(Label(x + (ancho_mm(cab, 2.7) if k else 0.0), y, ln, 2.7, anchor="start"))
+            y -= paso
+        puestas += 1
+    if len(rows) > puestas:
+        m.labels.append(Label(x, y, f"… y {len(rows) - puestas} más", aviso, anchor="start"))
 
 
 def assembly_manual(scene: dict, *, commands: list[dict], project_name: str = "Sin título",

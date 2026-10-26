@@ -40,12 +40,11 @@ def reunir_notas_de_taller(ctx: LaminaEnCurso) -> tuple[str | None, list[str]]:
         for letra, lado, motivo in datum_frame[:3]:
             cara = f"cara {lado[0]}{_EJE.get(lado[1].lower(), lado[1])}"
             _auto_notes.append(f"Datum {letra}: {cara} — {motivo}.")
-        # OJO: notes_block trunca a 60 chars por línea — la nota debe caber entera
         _auto_notes.append("Posición: máx. material (M); tol. = holgura de paso.")
     # V7.6 B: la cota rotulada con ±t no es un número suelto — remite a la cadena que la
     # justifica, que el revisor puede reproducir en la memoria (tolerancia JUSTIFICADA)
     for _cn in _chain_notes[:2]:
-        _auto_notes.append(f"Cota crítica: cadena «{str(_cn)[:28]}» (ver memoria).")
+        _auto_notes.append(f"Cota crítica: cadena «{_cn}» (ver memoria).")  # entera: notes_block la parte
     _wn_drawn, _wn_groups, _wn_sincota, _wn_total = _weld_stats
     if _wn_total:  # honestidad: declara agrupación y cordones sin dimensionar
         _auto_notes.append("Soldadura: símbolos ISO 2553 · a = garganta de filete (mm).")
@@ -67,11 +66,11 @@ def dibujar_notas(ctx: LaminaEnCurso) -> None:
     notes_y = ay0 + ah * 0.50
     _general = list(notes or []) + _auto_notes
     if _general:
-        notes_y = notes_block(model, MARGIN + 6, notes_y, _general) - 4.0
+        notes_y = notes_block(model, MARGIN + 6, notes_y, _general, piso=MARGIN + 3.0) - 4.0
     if assembly_notes is not None:
         am = list(assembly_notes) if assembly_notes else _assembly_notes_auto(visible_scene)
         if am:
-            notes_block(model, MARGIN + 6, notes_y, am, title="NOTAS DE MONTAJE")
+            notes_block(model, MARGIN + 6, notes_y, am, title="NOTAS DE MONTAJE", piso=MARGIN + 3.0)
 
 
 def dibujar_cajetin(ctx: LaminaEnCurso) -> None:

@@ -15,7 +15,7 @@ from .circuito import CircuitoAire, planear
 from .composicion import ancho_necesario, dibujar
 
 FORMATOS = ("A4", "A3", "A2", "A1", "A0")
-NOTAS = (  # notes_block corta a 60 caracteres
+NOTAS = (
     "Posición de reposo: sin energía ni aire (ISO 1219-2).",
     "Designación IEC 81346-2; vías de válvula ISO 5599-3.",
     "Bobinas y detectores: referidos a su borne del tablero.",
@@ -44,7 +44,7 @@ def lamina_neumatica(c: CircuitoAire, *, proyecto: str = "Sin título", hoja: st
     m.labels.append(Label(MARGIN + 6, H - 22, "ESQUEMA NEUMÁTICO (ISO 1219)", 5.0, anchor="start"))
     r = dibujar(m, c, plan)
     todas = list(NOTAS) + [str(n) for n in notas] + [f"Revisar: {a}." for a in r.avisos]
-    notes_block(m, W - MARGIN - 150.0, H - 22.0, todas, title="NOTAS")
+    notes_block(m, W - MARGIN - 150.0, H - 22.0, todas, title="NOTAS", ancho=144.0)  # su franja
     base = dict(meta or {})
     base.setdefault("material", "—")
     draw_title_block(m, {**base, "project": f"{proyecto}{SUFIJO}", "scale": "s/e", "sheet": formato,

@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import date
 
 from .sheet import SheetModel, compose_sheet
+from .texto_medido import celda_fila
 from .titleblock import draw_title_block
 
 SHEETS = {"A3": (420.0, 297.0), "A4": (297.0, 210.0)}
@@ -82,8 +83,9 @@ def _table_sheet(title: str, headers: list[str], rows: list[list], col_w: list[f
     for i, row in enumerate(rows[:n]):
         yr = top - (i + 2) * row_h + 1.8
         m.lines.append(Line(x0, top - (i + 2) * row_h, x0 + tw, top - (i + 2) * row_h, "frame"))
-        for j, val in enumerate(row):
-            m.labels.append(Label(xcols[j] + 1.5, yr, str(val)[:40], 2.6, anchor="start"))
+        for j, val in enumerate(row):  # entero en su celda (antes, cortado a 40)
+            celda_fila(m, xcols[j] + 1.5, yr, col_w[j] - 3.0, 2.6, val,
+                       fila_abajo=top - (i + 2) * row_h, alto_fila=row_h)
     if len(rows) > n:
         m.labels.append(Label(x0, top - (n + 1) * row_h - 3.5, f"… y {len(rows) - n} más", 2.6, anchor="start"))
     draw_title_block(m, meta)
@@ -243,7 +245,7 @@ def sheet_set(scene: dict, project_name: str = "Sin título", *, template: str =
     fin = " · ".join(f"{k}:{v['area_m2']}m²" for k, v in totals.items()) or "—"
     pages.append(_table_sheet("LISTA DE CORTE", ["Material", "L×An×Esp (mm)", "Cant", "Pieza"],
                               cl_rows, [30, 48, 14, 78], sheet=sheet,
-                              meta={**page_meta(len(pages) + 1), "finish": fin[:24],
+                              meta={**page_meta(len(pages) + 1), "finish": fin,  # el cajetín lo mide
                                     "project": f"{project_name} · LISTA DE CORTE"}))
     # CÉDULA DE HERRAJE (catálogo no cortable: bisagras/tornillos/correderas…) — página propia
     if want_hw:

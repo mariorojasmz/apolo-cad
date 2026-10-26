@@ -25,7 +25,7 @@ def dibujar_tablas(ctx: LaminaEnCurso) -> dict:
             title="LISTA DE MATERIALES",
             columns=[("N.º", 10), ("Ref", 34), ("Descripción", 102), ("Cant", 14)],
             rows=bom_from_scene(visible_scene, (meta or {}).get("material_vertical")),
-            cell_values=lambda i, row: (str(i + 1), row["ref"], row["descripcion"][:44], str(row["cantidad"])),
+            cell_values=lambda i, row: (str(i + 1), row["ref"], row["descripcion"], str(row["cantidad"])),
             planta_dim_rows=planta_dim_rows, anchor_view="planta",
         )
     elif cutlist:
@@ -35,7 +35,7 @@ def dibujar_tablas(ctx: LaminaEnCurso) -> dict:
             _cl_cols = [("N.º", 8), ("Pieza", 36), ("Material", 30), ("L×A×E (mm)", 58),
                         ("Hoja", 14), ("Cant", 14)]
             _cl_cells = lambda i, row: (
-                str(i + 1), str(row["nombre"])[:16], str(row["material"])[:13],
+                str(i + 1), str(row["nombre"]), str(row["material"]),
                 f"{row['largo_mm']:g}×{row['ancho_mm']:g}×{row['espesor_mm']:g}",
                 # clave por FILA (multi-sólido comparte _rep); fallback compat al _rep pelado
                 str(sheet_refs.get((row["_rep"], row["largo_mm"], row["ancho_mm"],
@@ -45,7 +45,7 @@ def dibujar_tablas(ctx: LaminaEnCurso) -> dict:
         else:
             _cl_cols = [("N.º", 8), ("Pieza", 40), ("Material", 34), ("L×A×E (mm)", 64), ("Cant", 14)]
             _cl_cells = lambda i, row: (
-                str(i + 1), str(row["nombre"])[:18], str(row["material"])[:15],
+                str(i + 1), str(row["nombre"]), str(row["material"]),
                 f"{row['largo_mm']:g}×{row['ancho_mm']:g}×{row['espesor_mm']:g}", str(row["cantidad"]),
             )
         table_bottom = _draw_table_with_balloons(
@@ -66,7 +66,7 @@ def dibujar_tablas(ctx: LaminaEnCurso) -> dict:
                     columns=[("Ref", 24), ("Descripción", 46), ("Norma", 24), ("Cant", 12), ("Peso", 14)],
                     rows=hw,
                     cell_values=lambda i, row: (
-                        str(row["ref"])[:12], str(row["nombre"])[:24], str(row.get("norma", ""))[:14],
+                        str(row["ref"]), str(row["nombre"]), str(row.get("norma", "")),
                         str(row["cantidad"]), f"{row['peso_total_kg']:g}kg",
                     ),
                     anchor_view="none", top_y=table_bottom - 5.0, max_rows=8,

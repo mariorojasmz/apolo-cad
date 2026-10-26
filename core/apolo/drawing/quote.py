@@ -30,7 +30,8 @@ from apolo.library.requisitos import producto_legible
 from . import notas_cotizacion as NC
 from .assembly_manual import SHEETS, _wrap
 from .sheet import Label, Line, SheetModel
-from .tabla import hojas_tabla
+from .tabla import ancho_mm, hojas_tabla
+from .texto_medido import celda, encajar
 from .titleblock import draw_title_block
 
 #: Altura (mm) del rótulo «NOTAS» del resumen: la columna izquierda (desglose + ítem más
@@ -85,14 +86,17 @@ def resumen_precio(costeo: dict, *, margin_pct: float, tax_pct: float, currency:
     return out
 
 
-def _titulo(m: SheetModel, H: float, titulo: str) -> None:
+def _titulo(m: SheetModel, W: float, H: float, titulo: str, fecha: str) -> None:
     """El título del resumen: hasta 54 caracteres a 4.6 mm (lo de siempre); uno más largo (un
-    `comercial.titulo`, ≤ 80) baja a 3.4 mm en vez de recortarse."""
+    `comercial.titulo`) baja a 3.4 mm y, si ni así cabe a la izquierda de la fecha, se MIDE
+    (`encajar`: más chico hasta `TAM_MIN`, «…» de último recurso) en vez de cortarse a 80."""
     texto = str(titulo)
     if len(texto) <= 54:
         m.labels.append(Label(16, H - 34, texto, 4.6, anchor="start"))
-    else:
-        m.labels.append(Label(16, H - 34, texto[:80], 3.4, anchor="start"))
+        return
+    ancho = W - 16 - ancho_mm(fecha, 3.0) - 4.0 - 16
+    size, (linea,) = encajar(texto, ancho, 3.4)
+    m.labels.append(Label(16, H - 34, linea, size, anchor="start"))
 
 
 def _bloque_cliente(m: SheetModel, y: float, ident: dict) -> float:
@@ -120,7 +124,7 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     m = SheetModel(W, H)
     m.rect(10, 10, W - 20, H - 20, "frame")
     m.labels.append(Label(16, H - 24, "COTIZACIÓN", 8.0, anchor="start"))
-    _titulo(m, H, project_name)
+    _titulo(m, W, H, project_name, str(base_meta.get("date", "")))
     m.labels.append(Label(W - 16, H - 24, f"N° {base_meta.get('drawing_no', '—')}", 4.0, anchor="end"))
     m.labels.append(Label(W - 16, H - 31, str(base_meta.get("date", "")), 3.0, anchor="end"))
     m.lines.append(Line(14, H - 39, W - 14, H - 39, "frame"))
@@ -139,15 +143,17 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     y -= 6
     top = totals.get("item_mas_costoso")
     for cat, val in _categorias(totals.get("por_categoria", {}), y, con_top=bool(top)):
-        m.labels.append(Label(18, y, str(cat)[:34], 2.7, anchor="start"))
-        m.labels.append(Label(120, y, _money(val, currency), 2.7, anchor="end"))
+        monto = _money(val, currency)  # la categoría, MEDIDA hasta el monto (antes, cortada a 34)
+        celda(m, 18, y, 120 - ancho_mm(monto, 2.7) - 3.0 - 18, 2.7, cat)
+        m.labels.append(Label(120, y, monto, 2.7, anchor="end"))
         y -= _PASO_CAT
     if top:
         y -= 3
         m.labels.append(Label(16, y, "Ítem más costoso:", 3.0, anchor="start"))
         y -= 4.6
-        m.labels.append(Label(18, y, f"{top['descripcion'][:44]} — {_money(top['costo_total_usd'], currency)}",
-                              2.7, anchor="start"))
+        # entero hasta la columna del resumen económico (antes, la descripción cortada a 44)
+        celda(m, 18, y, W * 0.55 - 4.0 - 18,
+              2.7, f"{top['descripcion']} — {_money(top['costo_total_usd'], currency)}")
 
     # columna derecha: totales → precio de venta
     rx = W * 0.55

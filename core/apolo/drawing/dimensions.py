@@ -118,20 +118,33 @@ def center_mark(model: "SheetModel", cx: float, cy: float, r: float, extend: flo
 
 
 # ----------------------------------------------------------------- anotaciones / GD&T (Fase 5)
+#: El ancho (mm) de las notas de una lámina: el que ocupaban sus 60 caracteres de antes a 2,4.
+ANCHO_NOTAS = 75.0
+
+
 def notes_block(model: "SheetModel", x: float, y_top: float, lines: list[str],
-                *, title: str = "NOTAS", size: float = 2.4) -> float:
-    """Bloque de notas generales (título + lista numerada). Devuelve la `y` del borde inferior."""
+                *, title: str = "NOTAS", size: float = 2.4, ancho: float = ANCHO_NOTAS,
+                piso: float | None = None) -> float:
+    """Bloque de notas generales (título + lista numerada). Devuelve la `y` del borde inferior.
+    Cada nota sale ENTERA (plan V8.9, cortes fijos): partida por ancho MEDIDO en `ancho` mm (los
+    renglones siguientes, bajo el texto y no bajo el número) y el bloque crece hacia abajo; con
+    `piso` (la base más baja permitida), si no entra baja de escala hasta `TAM_MIN` y sólo como
+    último recurso corta con «…»."""
     from .sheet import Label
+    from .tabla import ancho_mm
+    from .texto_medido import Parrafo, columna
 
     row = size * 1.9
     model.labels.append(Label(x, y_top, title, size + 0.8, anchor="start"))
     y = y_top - row * 1.2
     # tope 10 (V7.6: la leyenda de datums añade hasta 4 líneas a las de taller; verificado
     # sin solapes con scripts/_check_overlaps.py en el testigo del 38)
+    parrafos = []
     for i, ln in enumerate(lines[:10]):
-        model.labels.append(Label(x, y, f"{i + 1}. {str(ln)[:60]}", size, anchor="start"))
-        y -= row
-    return y
+        texto = f"{i + 1}. {ln}"
+        sangria = ancho_mm(f"{i + 1}. ", size)
+        parrafos.append(Parrafo(texto, size, row, sangria_sig=sangria))
+    return columna(model, x, y, parrafos, ancho, piso if piso is not None else -1e9)
 
 
 def surface_finish(model: "SheetModel", x: float, y: float, ra: float | str = "", *, size: float = 4.0) -> None:
