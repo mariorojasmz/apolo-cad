@@ -44,6 +44,26 @@ COMO_FICHA = (
 )
 
 
+#: `producto` es texto libre; estas son las formas «de clave» (sin tildes, con `_` o `-`) que un
+#: agente escribe a veces, con su texto para el cliente (la cotización lo imprime). Se buscan
+#: sin mayúsculas, tildes ni separadores; lo que no está aquí se imprime tal cual.
+ETIQUETAS_PRODUCTO: dict[str, str] = {
+    "paqueteria": "paquetería",
+    "carton": "cartón",
+    "cajas de carton": "cajas de cartón",
+    "granel": "material a granel",
+}
+
+
+def producto_legible(valor) -> str:
+    """El texto de `requirements["producto"]` para un papel del cliente: la etiqueta de
+    `ETIQUETAS_PRODUCTO` si el valor es una de sus claves (sin mayúsculas, tildes ni `_`/`-`); si
+    no, el valor tal cual (sin espacios a los lados)."""
+    texto = str(valor).strip()
+    clave = " ".join(_sin_tildes(texto).lower().replace("_", " ").replace("-", " ").split())
+    return ETIQUETAS_PRODUCTO.get(clave, texto)
+
+
 def _sin_tildes(texto: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", texto)
                    if unicodedata.category(c) != "Mn")

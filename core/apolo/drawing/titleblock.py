@@ -41,10 +41,40 @@ def _peso(kg) -> str:
     return f"{kg} kg" if kg is not None else "— kg"
 
 
+#: El título partido (`titulo_dos_renglones`): el tamaño de siempre si cabe en un renglón; si
+#: no, dos renglones al primer tamaño que alcance (y, si ni así, el segundo termina en «…»).
+_TAM_TITULO, _TAMS_PARTIDO, _GAP_NUMERO = 4.0, (3.0, 2.5), 3.0
+
+
+def _titulo_partido(model, x0: float, y0: float, titulo: str, numero: str) -> None:
+    """El título del cajetín a la izquierda del número, MEDIDO con la fuente del PDF: en un
+    renglón a 4 mm si cabe (como siempre), si no en dos más chicos (la cotización: su título
+    comercial llega a 80 caracteres y cortarlo a 34 se comía el nombre de la máquina)."""
+    from .tabla import ancho_mm, partir
+
+    ancho = max(30.0, TITLE_W - 4.0 - ancho_mm(numero, 3.4) - _GAP_NUMERO)
+    if ancho_mm(titulo, _TAM_TITULO) <= ancho:
+        _txt(model, x0 + 2, y0 + TITLE_H * 0.84, _TAM_TITULO, titulo)
+        return
+    for size in _TAMS_PARTIDO:
+        lineas = partir(titulo, ancho, size)
+        if len(lineas) <= 2:
+            break
+    else:
+        resto = " ".join(lineas[1:])
+        while resto and ancho_mm(resto + "…", size) > ancho:
+            resto = resto[:-1]
+        lineas = [lineas[0], resto.rstrip() + "…"]
+    for k, ln in enumerate(lineas):
+        _txt(model, x0 + 2, y0 + TITLE_H * (0.89 if len(lineas) == 2 else 0.84) - 4.0 * k, size, ln)
+
+
 def draw_title_block(model, fields: dict) -> None:
     """Cajetín 180×40 mm abajo-derecha + tabla de revisiones encima. `fields`:
     project, drawing_no, scale, sheet, sheet_no, n_sheets, material, finish, tolerance,
-    weight_kg, drawn_by, checked_by, approved_by, date, units, revisions[{rev,date,note}]."""
+    weight_kg, drawn_by, checked_by, approved_by, date, units, revisions[{rev,date,note}].
+    Opcionales (la cotización): `numero_rotulo` (lo que precede al número: «Plano» si no viene)
+    y `titulo_dos_renglones` (el título se parte en dos renglones antes que cortarse a 34)."""
     from .sheet import Line
 
     W = model.width
@@ -89,9 +119,13 @@ def draw_title_block(model, fields: dict) -> None:
     cdiv = x0 + TITLE_W * 0.62
     model.lines.append(Line(cdiv, y0 + TITLE_H * 0.5, cdiv, y0 + TITLE_H, "frame"))
 
-    # fila 1 (arriba): título + nº de plano
-    _txt(model, x0 + 2, y0 + TITLE_H * 0.84, 4.0, str(f.get("project", "Sin título"))[:34])
-    _txt(model, x0 + TITLE_W - 2, y0 + TITLE_H * 0.84, 3.4, f"Plano {f.get('drawing_no', '—')}", anchor="end")
+    # fila 1 (arriba): título + nº de plano (o del documento que diga `numero_rotulo`)
+    numero = f"{f.get('numero_rotulo') or 'Plano'} {f.get('drawing_no', '—')}"
+    if f.get("titulo_dos_renglones"):
+        _titulo_partido(model, x0, y0, str(f.get("project", "Sin título")), numero)
+    else:
+        _txt(model, x0 + 2, y0 + TITLE_H * 0.84, 4.0, str(f.get("project", "Sin título"))[:34])
+    _txt(model, x0 + TITLE_W - 2, y0 + TITLE_H * 0.84, 3.4, numero, anchor="end")
     # fila 2: dibujó/revisó/aprobó | empresa + símbolo de diedro
     _txt(model, x0 + 2, y0 + TITLE_H * 0.66, 2.3, f"Dib. {f.get('drawn_by', '')}  {str(f.get('date', ''))[:10]}")
     _txt(model, x0 + 2, y0 + TITLE_H * 0.56, 2.3, f"Rev. {f.get('checked_by', '')}   Apr. {f.get('approved_by', '')}")

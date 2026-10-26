@@ -252,16 +252,19 @@ def _firma(paginas) -> tuple[str, str]:
     return _sha(asdict(paginas[0])), hashlib.sha256(resto.encode()).hexdigest()[:16]
 
 
-#: (costeo, resumen y resto en USD, resumen y resto en PEN a 3.7); iguales sobre `f3b36bd`
+#: (costeo, resumen y resto en USD, resumen y resto en PEN a 3.7); iguales sobre `f3b36bd`.
+#: Re-congelado sobre 0afb41c (cotización sin internos): el cajetín de TODAS las hojas dice
+#: «Cotización <nº>» en vez de «Plano <nº>» (el número es de la oferta). El costeo es el mismo y,
+#: con el cajetín de antes, las cuatro firmas de hojas dan las de antes (medido): sólo cambió eso.
 CONGELADO = {
-    "mesa": ("02d6203896ab7622", "097db94cb7e41ded", "3adf73876b16a5f4", "5980d794e691ff56",
-             "162f5598762e33f1"),
-    "directo": ("846066ca50189fba", "fba44f51fa802ecb", "463b09e7efa8a7ef", "cbabb7842ceb898f",
-                "7415f138299ba4b2"),
+    "mesa": ("02d6203896ab7622", "96edda0ab6aa68db", "a3c506d759920e4b", "4beec1974c0859e0",
+             "4f12f6d6e01da90f"),
+    "directo": ("846066ca50189fba", "cd3233d1236f88cd", "8fb16ca271802f7c", "0c28854377631ede",
+                "a0525af72a30c84f"),
     # re-congelado sobre aa88ee5: el tablero (b) lleva el PE en estrella (31 → 34 conductores sin
     # tipo en su fila); precios y hoja de resumen, iguales
-    "vfd": ("9f96e6125d640e39", "08025d72d650b20f", "35f6a6d4f5aff4bc", "aadd38917ac84e24",
-            "8de1452692c5cdda"),
+    "vfd": ("9f96e6125d640e39", "573664eb534ea9c0", "347f6df5a9b8a562", "cc6dc08f13a17512",
+            "056906d39d42d608"),
 }
 
 

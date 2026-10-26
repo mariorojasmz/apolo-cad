@@ -23,6 +23,9 @@ Plan cotizacion-identificada-y-ajustes-por-escenario (F1):
   proyecto no la trae (`services/identificacion.py`). Su `rotulo` (opcional, una línea de
   ≤ `ROTULO_MAX`, `motivo_rotulo`) es lo que dice el pie de la hoja («identificación: <rótulo>»);
   sin él, el id. El del proyecto es `ROTULO_PROYECTO`.
+- Cotización sin internos: el `rotulo` de una `FuenteCosteo` (mismo tope y validación) es lo que
+  dice la columna «Ref» de sus filas en la cotización (la fila lo lleva en `rotulo`, sólo si hay);
+  sin él, el id, como antes. El `ref` de la fila sigue siendo el id (con él se cuenta quién cobró).
 """
 
 from __future__ import annotations
@@ -57,13 +60,15 @@ class FuenteCosteo:
     iterable de `{descripcion, cantidad, unidad, costo_unit, fuente[, categoria]}` y, opcional,
     `nota`: una línea para las notas de la cotización (sale sólo si la fuente cobró); `acota`: el
     id de la nota del núcleo que esa `nota` reemplaza (`ACOTABLES`); `incluye`: lo que cubren sus
-    filas (`ALCANCES`)."""
+    filas (`ALCANCES`); `rotulo`: lo que dice la columna «Ref» de sus filas en la cotización
+    (sin él, el `id`)."""
 
     id: str
     filas: Callable
     nota: str | None = None
     acota: str | None = None
     incluye: tuple = ()
+    rotulo: str | None = None
 
 
 @dataclass(frozen=True)
@@ -136,6 +141,7 @@ def fila(nombre: str, fuente: FuenteCosteo, d) -> dict:
         "peso_total_kg": None, "origen": ORIGEN + nombre,
         "costo_ud_usd": round(costo, 2), "costo_total_usd": round(costo * cantidad, 2),
         "costo_fuente": d["fuente"].strip(),
+        **({"rotulo": fuente.rotulo.strip()} if fuente.rotulo else {}),
     }
 
 
@@ -158,8 +164,8 @@ def motivo_nota(nota) -> str | None:
 
 
 def motivo_rotulo(rotulo) -> str | None:
-    """Por qué el `rotulo` de una identificación no vale (la extensión no carga), o `None` si vale
-    (o no hay): un texto no vacío, de UNA línea y de ≤ `ROTULO_MAX` caracteres."""
+    """Por qué el `rotulo` de una identificación o de una fuente no vale (la extensión no carga),
+    o `None` si vale (o no hay): un texto no vacío, de UNA línea y de ≤ `ROTULO_MAX` caracteres."""
     if rotulo is None:
         return None
     if not _texto(rotulo):

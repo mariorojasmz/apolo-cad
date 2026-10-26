@@ -203,6 +203,28 @@ def rotulo_vacio() -> list:
     return [IdentificacionCosteo("prueba.cliente", _cliente, rotulo="  ")]
 
 
+#: El rótulo de la columna «Ref» de las filas de una fuente (en vez del id «prueba.revision»).
+ROTULO_FUENTE = "Revisión técnica"
+
+
+def fuente_con_rotulo() -> list:
+    """«prueba.revision» con rótulo y «prueba.marcha» sin él (cae a su id)."""
+    return [FuenteCosteo("prueba.revision", _revision, NOTA_REVISION, rotulo=ROTULO_FUENTE),
+            FuenteCosteo("prueba.marcha", _marcha)]
+
+
+def fuente_rotulo_dos_lineas() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, rotulo="Revisión\ntécnica")]
+
+
+def fuente_rotulo_largo() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, rotulo="x" * 61)]
+
+
+def fuente_rotulo_vacio() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, rotulo="  ")]
+
+
 def otra_validez() -> list:
     """La de la extensión «ext-otra» (prefijo «otra»): acota lo mismo que `VALIDEZ`."""
     return [FuenteCosteo("otra.validez", _gestion, "Validez: 7 días.", acota="nucleo.validez")]

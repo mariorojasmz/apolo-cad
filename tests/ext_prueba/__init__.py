@@ -168,6 +168,11 @@ COSTEO_IDENTIFICADA_CON_ROTULO = replace(EXTENSION, costeo=_de("costeo", "identi
 ROTULO_DOS_LINEAS = replace(EXTENSION, costeo=_de("costeo", "rotulo_dos_lineas"))
 ROTULO_LARGO = replace(EXTENSION, costeo=_de("costeo", "rotulo_largo"))
 ROTULO_VACIO = replace(EXTENSION, costeo=_de("costeo", "rotulo_vacio"))
+# el rótulo de la «Ref» de una fuente (cotización sin internos)
+COSTEO_FUENTE_CON_ROTULO = replace(EXTENSION, costeo=_de("costeo", "fuente_con_rotulo"))
+FUENTE_ROTULO_DOS_LINEAS = replace(EXTENSION, costeo=_de("costeo", "fuente_rotulo_dos_lineas"))
+FUENTE_ROTULO_LARGO = replace(EXTENSION, costeo=_de("costeo", "fuente_rotulo_largo"))
+FUENTE_ROTULO_VACIO = replace(EXTENSION, costeo=_de("costeo", "fuente_rotulo_vacio"))
 #: otra extensión (sólo costeo) que acota la misma nota que COSTEO_IDENTIFICADA: no carga
 OTRA_VALIDEZ = Extension(nombre="ext-otra", prefijo="otra", version="0.1.0",
                          costeo=_de("costeo", "otra_validez"))

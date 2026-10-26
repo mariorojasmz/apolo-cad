@@ -266,7 +266,7 @@ def sumar_costeo(ext) -> list[str]:
         if not callable(e.filas):
             raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: `filas` es una función (doc)")
         for motivo in (C.motivo_nota(e.nota), C.motivo_acota(e.acota, e.nota),
-                       C.motivo_incluye(e.incluye)):
+                       C.motivo_incluye(e.incluye), C.motivo_rotulo(e.rotulo)):
             if motivo is not None:
                 raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: {motivo}")
         if e.acota:

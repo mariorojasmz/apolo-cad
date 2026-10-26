@@ -39,7 +39,10 @@ reglas están en [services](../services/CLAUDE.md).
   cambian de partición; una fuente sólo ACOTA `nucleo.alcance`/`nucleo.validez` (en su lugar, un
   dueño por nota; las de honestidad nunca) y el alcance sin acotar sale de lo que `incluye` lo
   cobrado. Título y bloque de cliente: `services/identificacion.py` (proyecto → extensión →
-  nombre sin «(copia)»; la fuente al pie).
+  nombre sin «(copia)»; la fuente al pie). Nada interno al papel: la «Ref» de una fila de
+  extensión es su `rotulo` (sin él, el id), el cajetín de la cotización pasa `numero_rotulo` y
+  `titulo_dos_renglones` a `draw_title_block` (los planos no: «Plano», corte a 34) y el producto
+  sale por `requisitos.producto_legible`.
   [cotizacion-identificada](../../../docs/plans/cotizacion-identificada-y-ajustes-por-escenario.md)
   Las de una extensión (`costeo["notas"]`) van detrás, partidas por ancho medido y
   ENTERAS, por `notas_cotizacion.py`: lo que no cabe a la izquierda del cajetín sigue en «NOTAS

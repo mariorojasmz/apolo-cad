@@ -14,6 +14,10 @@ Identificada (plan cotizacion-identificada-y-ajustes-por-escenario, F1): el tít
 extensión o, sin ninguna, el nombre del proyecto sin «(copia)» y sin bloque); su fuente va al pie.
 Las notas del núcleo tienen id (`costeo_extension.NOTAS_NUCLEO`): una extensión acota sólo
 `nucleo.alcance` y `nucleo.validez` (D3) y el alcance se calcula con lo que cubren las filas (D4).
+
+Sin internos: la «Ref» de una fila de extensión es el `rotulo` de su fuente (sin él, su id); el
+cajetín dice «Cotización <nº>» (no «Plano») con el título en dos renglones antes que cortado; el
+producto de los requisitos sale legible (`requisitos.producto_legible`).
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from __future__ import annotations
 from datetime import date
 
 from apolo.library.comercial import titulo_limpio
+from apolo.library.requisitos import producto_legible
 
 from . import notas_cotizacion as NC
 from .assembly_manual import SHEETS, _wrap
@@ -123,9 +128,13 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     # columna izquierda: cliente (si hay) + alcance + desglose por categoría
     y = _bloque_cliente(m, H - 48, ident)
     producto = requirements.get("producto")
-    if producto:
-        m.labels.append(Label(16, y, f"Alcance: {str(producto)[:50]}", 3.0, anchor="start"))
-        y -= 6
+    if producto not in (None, "") and str(producto).strip():
+        lineas = _wrap(f"Producto: {producto_legible(producto)}", 62)
+        if len(lineas) > 2:  # texto libre: dos renglones como mucho (el desglose va debajo)
+            lineas = [lineas[0], lineas[1][:61] + "…"]
+        for k, ln in enumerate(lineas):
+            m.labels.append(Label(16 if k == 0 else 18, y, ln, 3.0, anchor="start"))
+            y -= 4.6 if k < len(lineas) - 1 else 6
     m.labels.append(Label(16, y, "DESGLOSE POR CATEGORÍA", 3.4, anchor="start"))
     y -= 6
     top = totals.get("item_mas_costoso")
@@ -306,7 +315,7 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
         }
 
     detail = [
-        [r["ref"], str(r["descripcion"]),
+        [r.get("rotulo") or r["ref"], str(r["descripcion"]),  # una extensión: su rótulo, no su id
          f"{r['cantidad']:g} {r['unidad']}" if r.get("unidad") else r["cantidad"],
          _money(r.get("costo_ud_usd"), ""), _money(r.get("costo_total_usd"), ""),
          str(r.get("costo_fuente", ""))]
@@ -361,6 +370,8 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
         "date": (meta or {}).get("date", date.today().isoformat()),
         "revisions": (meta or {}).get("revisions", []),
         "n_sheets": n_pages,
+        # el número es de la OFERTA, no de un plano; el título comercial no se corta a 34
+        "numero_rotulo": "Cotización", "titulo_dos_renglones": True,
     }
     riesgo = None
     if avisos:
