@@ -305,10 +305,13 @@ def apariencias_de_zonas(zonas, asignado: str | None, color_paleta: str) -> dict
 
 
 def tabla_ui() -> dict:
-    """La tabla tal como la lee el visor (`ui/src/viewport/acabados.json`)."""
+    """La tabla tal como la lee el visor (`ui/src/viewport/acabados.json`). `acabado_de_color`
+    es `ACABADO_DE_COLOR`: de ahí saca la sesión viva el color físico de un mando o un piloto
+    (`vivo/mandos.ts::colorFisico`), sin tabla de tonos propia."""
     return {"por_defecto": POR_DEFECTO, "tipos_relieve": list(TIPOS_RELIEVE),
             "tipos_textura": list(TIPOS_TEXTURA),
-            "acabados": {k: asdict(a) for k, a in ACABADOS.items()}}
+            "acabados": {k: asdict(a) for k, a in ACABADOS.items()},
+            "acabado_de_color": dict(ACABADO_DE_COLOR)}
 
 
 def json_ui() -> str:

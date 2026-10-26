@@ -121,14 +121,24 @@ def _sin_zonas(mesh: dict) -> dict:
     return {k: v for k, v in mesh.items() if k != "zonas"}
 
 
-def _zonas_pieza(rangos: list[dict] | None, aps: dict[str, dict] | None) -> list[dict] | None:
+def _zonas_pieza(rangos: list[dict] | None, aps: dict[str, dict] | None,
+                 zona_color: str | None = None) -> list[dict] | None:
     """`zonas` de la entrada de una pieza (seta-de-emergencia D2): `[{acabado, albedo, desde,
-    hasta}]` en índices de TRIÁNGULO de su malla (o de la de su definición), contiguos y
-    cubriendo todos. None si la malla no se partió o la pieza no tiene apariencias de zona."""
+    hasta, zona}]` en índices de TRIÁNGULO de su malla (o de la de su definición), contiguos y
+    cubriendo todos; `zona` = su nombre en el YAML. La zona que lleva el color de la ficha
+    (`zona_color`, `library.zonas.zona_de_color`: la lente de un piloto) suma `de_color: true`:
+    la sesión viva enciende sólo ésa (pedidos-de-extensiones-ii, pendientes de la D-a). None si
+    la malla no se partió o la pieza no tiene apariencias de zona."""
     if not rangos or not aps or any(r["zona"] not in aps for r in rangos):
         return None
-    return [{"acabado": aps[r["zona"]]["acabado"], "albedo": aps[r["zona"]]["color"],
-             "desde": r["desde"], "hasta": r["hasta"]} for r in rangos]
+    out = []
+    for r in rangos:
+        z = {"acabado": aps[r["zona"]]["acabado"], "albedo": aps[r["zona"]]["color"],
+             "desde": r["desde"], "hasta": r["hasta"], "zona": r["zona"]}
+        if r["zona"] == zona_color:
+            z["de_color"] = True
+        out.append(z)
+    return out
 
 
 def _rangos_de(feat) -> list[dict] | None:
@@ -197,6 +207,7 @@ def scene_payload(known: dict | None = None) -> dict:
     tocar geometría) y las definiciones ya conocidas se omiten. ``known=None`` (default) =
     payload COMPLETO idéntico al de siempre + el campo ``rev`` por feature (aditivo)."""
     from apolo.kernel.matrix import to_column_major16
+    from apolo.library.zonas import zona_de_color
     from apolo.services.apariencia import apariencias_documento, zonas_documento
 
     known_revs = (known or {}).get("revs") or {}
@@ -231,7 +242,8 @@ def scene_payload(known: dict | None = None) -> dict:
                 "acabado": ap["acabado"], "albedo": ap["color"],
             }
             if con_zonas:
-                zonas = _zonas_pieza(_rangos_de(feat), aps_zonas[feat.id])
+                zonas = _zonas_pieza(_rangos_de(feat), aps_zonas[feat.id],
+                                     zona_de_color(feat.component))
                 if zonas is not None:
                     entry["zonas"] = zonas
             features.append(entry)
@@ -269,7 +281,8 @@ def scene_payload(known: dict | None = None) -> dict:
             malla = rd["mesh"]
             entry["mesh"] = _sin_zonas(malla)
         if con_zonas:
-            zonas = _zonas_pieza(malla.get("zonas"), aps_zonas[feat.id])
+            zonas = _zonas_pieza(malla.get("zonas"), aps_zonas[feat.id],
+                                 zona_de_color(feat.component))
             if zonas is not None:
                 entry["zonas"] = zonas
         features.append(entry)

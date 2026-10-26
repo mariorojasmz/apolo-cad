@@ -1,6 +1,6 @@
 """Las zonas de acabado en el payload de escena (plan seta-de-emergencia, F2: D2 y D3).
 
-- Una pieza de un componente con zonas lleva `zonas: [{acabado, albedo, desde, hasta}]` en
+- Una pieza de un componente con zonas lleva `zonas: [{acabado, albedo, desde, hasta, zona}]` en
   índices de triángulo de la malla que recibe el visor (la propia o la de su definición):
   rangos contiguos que cubren todos los triángulos.
 - Una pieza sin zonas va byte a byte como antes (sin `zonas` ni reordenar su malla).
@@ -80,7 +80,8 @@ def test_la_seta_lleva_sus_zonas_y_cubren_la_malla(doc):
             malla = _malla(p, f)
             assert "zonas" not in malla  # los rangos con nombre no viajan en la malla
             assert _cubre(f["zonas"], len(malla["indices"]) // 3)
-            assert all(set(z) == {"acabado", "albedo", "desde", "hasta"} for z in f["zonas"])
+            # `zona` = su nombre; la seta no tiene zona de color (`de_color`, la del Ø22)
+            assert all(set(z) == {"acabado", "albedo", "desde", "hasta", "zona"} for z in f["zonas"])
             assert {z["acabado"] for z in f["zonas"]} <= set(ACABADOS)
     # la seta de puerta: rojo y amarillo de norma, cada uno con su albedo de la tabla
     rojo = ACABADOS["plastico_rojo_seguridad"].color

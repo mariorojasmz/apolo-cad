@@ -1,3 +1,5 @@
+import type { ZonaOut } from "../types";
+import { ACABADOS, acabadoDeColor } from "../viewport/acabados";
 import type { MandoVivo } from "./protocolo";
 
 /* Cada mando del tablero → el mensaje de acción del WebSocket (plan V8.4 D4; Bitácora de F0
@@ -98,24 +100,37 @@ export function rotuloAccion(m: MandoVivo, e: EstadoMando = {}): string {
 }
 
 /* Color FÍSICO de un mando o un piloto (excepción acotada de color, ui/CLAUDE.md): el del
-   aparato real según su ficha de catálogo (`specs.color`). Nunca un color de estado. */
-const COLORES: Record<string, string> = {
-  verde: "#2fa84f",
-  rojo: "#d43a2f",
-  amarillo: "#f2c230",
-  ambar: "#f29a1f",
-  "ámbar": "#f29a1f",
-  naranja: "#f07f1f",
-  azul: "#2f6fd4",
-  blanco: "#f2f2ef",
-  negro: "#26282b",
-  gris: "#8a8f98",
-};
+   aparato real según su ficha de catálogo (`specs.color`). Nunca un color de estado. Sale del
+   ACABADO de ese color (`apariencia.ACABADO_DE_COLOR` → su albedo en `acabados.json`): el mismo
+   tono con que el visor pinta la lente o el botón, sin tabla de tonos propia. */
 
-/** El color CSS de un color físico del catálogo; null si no tiene o no lo conocemos. */
+/** El color CSS de un color físico del catálogo (el albedo de su acabado); null si no tiene o
+ *  la tabla de acabados no lo conoce. */
 export function colorFisico(nombre: string | null | undefined): string | null {
-  if (!nombre) return null;
-  return COLORES[nombre.trim().toLowerCase()] ?? null;
+  const clave = acabadoDeColor(nombre);
+  return clave ? ACABADOS[clave].color : null;
+}
+
+/* El piloto ENCENDIDO en el 3D, regla escrita (y la única que cambia el tono del acabado):
+   emite el MISMO albedo del acabado de su color con intensidad `EMISION_PILOTO`, y sólo en su
+   zona de color (la lente: la zona `de_color` que marca el servidor). Apagado no emite: se ve
+   el acabado tal cual. Un piloto sin color conocido brilla en el blanco (`plastico_blanco`). */
+export const EMISION_PILOTO = 1.6;
+
+/** El tono con que brilla un piloto encendido: el de su color físico o, si no se conoce, el blanco. */
+export function tonoEncendido(color: string | null | undefined): string {
+  return colorFisico(color) ?? colorFisico("blanco")!; // «blanco» está en la tabla (mandos.test.ts)
+}
+
+/** Qué materiales de la pieza de un piloto se encienden (índices en su arreglo de materiales,
+ *  el de las zonas: uno por zona, en su orden). Sólo los de la zona de color si la malla está
+ *  partida por esas zonas y alguna lo es; si no (sin zonas, taladrada, servidor anterior sin
+ *  `de_color`), todos: la pieza entera, como antes. */
+export function materialesQueBrillan(zonas: readonly ZonaOut[] | undefined, nMateriales: number): number[] {
+  const todos = Array.from({ length: nMateriales }, (_, i) => i);
+  if (!zonas || zonas.length !== nMateriales) return todos;
+  const deColor = zonas.flatMap((z, i) => (z.de_color ? [i] : []));
+  return deColor.length ? deColor : todos;
 }
 
 /** Un piloto está encendido con su señal ≥ 0,5 (las booleanas llegan como 0/1). */

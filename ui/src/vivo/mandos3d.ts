@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { materialesDe } from "../viewport/zonas";
-import { alApretar, alSoltar, colorFisico, encendido, type Accion, type EstadoMando } from "./mandos";
+import type { ZonaOut } from "../types";
+import { alApretar, alSoltar, EMISION_PILOTO, encendido, materialesQueBrillan, tonoEncendido, type Accion,
+  type EstadoMando } from "./mandos";
 import type { MandoVivo, PilotoVivo } from "./protocolo";
 
 /* Los mandos y pilotos que tienen pieza 3D (plan V8.4 D4 y D5; Bitácora de F0 § 3):
@@ -8,8 +10,9 @@ import type { MandoVivo, PilotoVivo } from "./protocolo";
      cuenta sólo si es la primera que toca el rayo). El clic no selecciona ni gira la cámara:
      se toma en captura sobre el contenedor del canvas antes que la selección y la órbita;
    - un piloto ligado se enciende en su color FÍSICO (emisivo sobre una copia de su material;
-     al terminar vuelve el original). Ningún proyecto de referencia tiene pilotos con pieza
-     todavía: en la 77 los pilotos se ven en el panel. */
+     al terminar vuelve el original), sólo en su zona de color —la lente— si su pieza viene
+     partida por zonas (regla en `mandos.ts`, `EMISION_PILOTO`). Ningún proyecto de referencia
+     tiene pilotos con pieza todavía: en la 77 los pilotos se ven en el panel. */
 
 export interface Mandos3D {
   tick: (nowMs: number) => void;
@@ -27,6 +30,8 @@ export interface OpcionesMandos3D {
   /** Estado del mando para decidir el mensaje (la seta retenida, el seccionador cerrado). */
   estado: (m: MandoVivo) => EstadoMando;
   enviar: (a: Accion, m: MandoVivo) => void;
+  /** Las zonas de acabado de una pieza (las de la escena): un piloto enciende sólo su lente. */
+  zonas?: (pieza: string) => readonly ZonaOut[] | undefined;
 }
 
 const _ndc = new THREE.Vector2();
@@ -102,7 +107,8 @@ export function instalarMandos3D(o: OpcionesMandos3D): Mandos3D {
   const soltarCaptura = porPieza.size ? capturarToques(o.contenedor, onDown, onUp) : () => {};
 
   // pilotos con pieza: una copia del material para encenderla en su color
-  const pilotos: { p: PilotoVivo; mesh: THREE.Mesh; original: THREE.Material | THREE.Material[]; copias: THREE.MeshStandardMaterial[]; color: THREE.Color }[] = [];
+  const pilotos: { p: PilotoVivo; mesh: THREE.Mesh; original: THREE.Material | THREE.Material[];
+    copias: THREE.MeshStandardMaterial[]; brillan: THREE.MeshStandardMaterial[]; color: THREE.Color }[] = [];
   for (const p of o.pilotos) {
     const mesh = p.pieza ? o.meshes.get(p.pieza) : undefined;
     if (!mesh) continue;
@@ -110,7 +116,9 @@ export function instalarMandos3D(o: OpcionesMandos3D): Mandos3D {
     const copias = materialesDe(original).map((mat) =>
       mat instanceof THREE.MeshStandardMaterial ? mat.clone() : new THREE.MeshStandardMaterial({ color: "#888" }));
     mesh.material = Array.isArray(original) ? copias : copias[0];
-    pilotos.push({ p, mesh, original, copias, color: new THREE.Color(colorFisico(p.color) ?? "#f2f2ef") });
+    const brillan = materialesQueBrillan(Array.isArray(original) ? o.zonas?.(p.pieza!) : undefined, copias.length)
+      .map((i) => copias[i]);
+    pilotos.push({ p, mesh, original, copias, brillan, color: new THREE.Color(tonoEncendido(p.color)) });
   }
   let pintadoEn = -Infinity;
 
@@ -118,11 +126,11 @@ export function instalarMandos3D(o: OpcionesMandos3D): Mandos3D {
     tick: (nowMs) => {
       if (!pilotos.length || nowMs - pintadoEn < CADA_MS) return;
       pintadoEn = nowMs;
-      for (const { p, copias, color } of pilotos) {
+      for (const { p, brillan, color } of pilotos) {
         const on = encendido(o.valor(p.senal));
-        for (const c of copias) {
+        for (const c of brillan) {
           c.emissive.copy(on ? color : _negro);
-          c.emissiveIntensity = on ? 1.6 : 0;
+          c.emissiveIntensity = on ? EMISION_PILOTO : 0;
         }
       }
     },

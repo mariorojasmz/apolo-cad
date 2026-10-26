@@ -56,6 +56,7 @@ export function crearReproductorVivo(serie: SerieMarcha, ctx: VistaCtx, avisos: 
     valor: sesionViva.valor,
     estado: (m) => estadoDeMando(m, useVivo.getState()),
     enviar: accionar,
+    zonas: (pieza) => useStore.getState().scene?.features.find((f) => f.id === pieza)?.zonas,
   });
   const pantallas = instalarPantallas3D({
     contenedor,

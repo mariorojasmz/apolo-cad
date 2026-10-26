@@ -34,6 +34,11 @@ export interface ZonaOut {
   albedo: string;
   desde: number;
   hasta: number;
+  /** El nombre de la zona en la ficha («frente», «bisel»…); un servidor anterior no lo manda. */
+  zona?: string;
+  /** La zona que lleva el color de la ficha (la lente de un piloto, el botón de un pulsador):
+   *  sólo ella se enciende en la sesión viva (pedidos-de-extensiones-ii, pendientes de la D-a). */
+  de_color?: boolean;
 }
 
 /* Masa de una pieza (`GET /api/mass-properties?ids=`): una de catálogo pesa por su ficha

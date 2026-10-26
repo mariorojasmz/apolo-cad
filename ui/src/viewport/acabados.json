@@ -353,5 +353,15 @@
       "pintable": true,
       "textura": null
     }
+  },
+  "acabado_de_color": {
+    "verde": "plastico_verde",
+    "rojo": "plastico_rojo_seguridad",
+    "azul": "plastico_azul",
+    "ambar": "plastico_ambar",
+    "blanco": "plastico_blanco",
+    "amarillo": "plastico_amarillo_seguridad",
+    "negro": "plastico_negro",
+    "gris": "plastico_gris"
   }
 }

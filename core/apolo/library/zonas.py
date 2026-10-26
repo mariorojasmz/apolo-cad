@@ -91,6 +91,20 @@ def verificar_color_de_ficha(specs: dict | None, zonas: tuple[Zona, ...] | None,
                          f"{{acabado: {acabado}, fijo: true}}")
 
 
+def zona_de_color(ref: str | None) -> str | None:
+    """El NOMBRE de la zona que lleva el color de la ficha en el componente `ref` (la de su
+    builder, `builders_mandos.ZONA_DE_COLOR`: el `frente` de un mando o piloto Ø22), o None si
+    el componente no tiene zonas o su builder no tiene zona de color (la seta). La lee el
+    payload de escena para marcarla: la sesión viva enciende un piloto sólo en ella."""
+    from .builders_mandos import ZONA_DE_COLOR
+    from .catalog import CATALOG
+
+    comp = CATALOG.get(ref) if ref else None
+    if comp is None or not comp.zonas:
+        return None
+    return ZONA_DE_COLOR.get(comp.familia)
+
+
 def unir_zonas(builder_fn, zonas: tuple[Zona, ...], ref: str):
     """Envuelve un builder que devuelve `{zona: forma}` en uno que devuelve el SÓLIDO (lo que
     espera `build_component`) y deja la huella de sus caras. Las partes deben ser exactamente

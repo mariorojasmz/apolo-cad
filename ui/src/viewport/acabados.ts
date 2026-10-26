@@ -38,6 +38,18 @@ export const ACABADOS: Record<string, Acabado> = tabla.acabados as Record<string
 export const ACABADO_POR_DEFECTO: string = tabla.por_defecto;
 export const TIPOS_RELIEVE: readonly string[] = tabla.tipos_relieve;
 export const TIPOS_TEXTURA: readonly string[] = tabla.tipos_textura;
+/** El acabado de cada color de ficha (`specs.color`, sin tildes y en minúscula) de un mando o
+ * piloto: copia de `apariencia.ACABADO_DE_COLOR` (pedidos-de-extensiones-ii, D-a). */
+export const ACABADO_DE_COLOR: Readonly<Record<string, string>> = tabla.acabado_de_color;
+
+/** La clave del acabado de un color de ficha («Ámbar», «verde »), o null si la tabla no lo
+ * tiene: la misma normalización que el loader (sin tildes, minúscula, sin espacios a los lados). */
+export function acabadoDeColor(nombre: string | null | undefined): string | null {
+  if (!nombre) return null;
+  const k = nombre.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().trim();
+  const clave = ACABADO_DE_COLOR[k];
+  return clave && clave in ACABADOS ? clave : null;
+}
 
 /** Clave del acabado de la pieza: la que manda el servidor o, si no llega o no se conoce,
  * el de por defecto (acero pintado). */

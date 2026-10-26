@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { esperaDe, estadoDeMando } from "./accionar";
-import { alApretar, alSoltar, colorFisico, encendido, girar, nombreConEstado, rotuloAccion } from "./mandos";
+import { readFileSync } from "node:fs";
+import { ACABADO_DE_COLOR, ACABADOS } from "../viewport/acabados";
+import type { ZonaOut } from "../types";
+import { alApretar, alSoltar, colorFisico, EMISION_PILOTO, encendido, girar, materialesQueBrillan, nombreConEstado,
+  rotuloAccion, tonoEncendido } from "./mandos";
 import type { MandoVivo } from "./protocolo";
 
 /* Mando → mensaje del WebSocket (plan V8.4 D4): el pulsador vuelve al soltar, la seta queda
@@ -95,6 +99,42 @@ describe("color físico y pilotos", () => {
     expect(colorFisico("Ámbar")).toBe(colorFisico("ambar"));
     expect(colorFisico(null)).toBeNull();
     expect(colorFisico("fucsia")).toBeNull();
+  });
+
+  it("el color físico es el albedo del acabado de su color: una sola tabla de tonos", () => {
+    expect(colorFisico("verde")).toBe(ACABADOS.plastico_verde.color);
+    expect(colorFisico("rojo")).toBe(ACABADOS.plastico_rojo_seguridad.color);
+    expect(colorFisico(" Ámbar ")).toBe(ACABADOS.plastico_ambar.color);
+    expect(colorFisico("amarillo")).toBe(ACABADOS.plastico_amarillo_seguridad.color); // el fondo de la seta
+    for (const [nombre, acabado] of Object.entries(ACABADO_DE_COLOR)) {
+      expect(colorFisico(nombre), nombre).toBe(ACABADOS[acabado].color);
+    }
+    // un color sin acabado no tiene tono inventado
+    expect(colorFisico("naranja")).toBeNull();
+  });
+
+  it("mandos.ts no guarda tonos propios (ni un #rrggbb)", () => {
+    const fuente = readFileSync(new URL("./mandos.ts", import.meta.url), "utf8");
+    expect(fuente.match(/#[0-9a-f]{3,8}\b/gi) ?? []).toEqual([]);
+  });
+
+  it("el piloto encendido brilla en el tono de su acabado; sin color, en el blanco", () => {
+    expect(tonoEncendido("verde")).toBe(ACABADOS.plastico_verde.color);
+    expect(tonoEncendido(null)).toBe(ACABADOS.plastico_blanco.color);
+    expect(tonoEncendido("fucsia")).toBe(ACABADOS.plastico_blanco.color);
+    expect(EMISION_PILOTO).toBeGreaterThan(0);
+  });
+
+  it("sólo la zona de color se enciende; sin zonas de color, la pieza entera", () => {
+    const z = (zona: string, de_color?: boolean): ZonaOut => ({
+      acabado: "plastico_negro", albedo: "#000000", desde: 0, hasta: 1, zona, ...(de_color ? { de_color } : {}),
+    });
+    expect(materialesQueBrillan([z("frente", true), z("bisel"), z("cuerpo")], 3)).toEqual([0]);
+    expect(materialesQueBrillan([z("bisel"), z("frente", true), z("cuerpo")], 3)).toEqual([1]);
+    // servidor anterior (sin `de_color`), sin zonas o con otra partición: todo, como antes
+    expect(materialesQueBrillan([z("frente"), z("bisel"), z("cuerpo")], 3)).toEqual([0, 1, 2]);
+    expect(materialesQueBrillan(undefined, 1)).toEqual([0]);
+    expect(materialesQueBrillan([z("frente", true), z("bisel")], 1)).toEqual([0]);
   });
 
   it("un piloto está encendido con su señal en 1", () => {
