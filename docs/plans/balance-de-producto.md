@@ -208,3 +208,50 @@ Rutas relativas a `core/apolo/`, medidas sobre `b9d774f`.
   limpio. Sin cambios en `ui/` (no hay vista de resultados de escenarios: D11).
 - Golden del MCP re-congelado: sólo cambia el docstring de `set_scenario` (documenta `flujo`).
 
+### Trabas de flujo (fix acotado) — 2026-10-26
+
+Tres trabas medidas al correr un escenario de flujo a 15 cajas/min. Decisiones:
+
+- **T1. El tope de la corrida es el del escenario (300 s), en los dos lados.** `set_scenario`
+  aceptaba hasta 300 s (`cosim/escenario.py`) y la dinámica cortaba en 60
+  (`physics/dinamica_peticion.py`): un escenario de 100 s se guardaba y después era 400 al
+  correr. A 15/min, 20 cajas no caben en 60 s. Medido con `time.process_time` sobre la faja del
+  banco (`cosim_lazo_banco`, flujo a 15/min con sumidero, corrida en proceso):
+
+  | banco | 60 s | 120 s | 180 s | 300 s |
+  |---|---|---|---|---|
+  | directo, CPU | 14,2 s | 28,7 s | 45,6 s | 83,2 s |
+  | variador + PLC, CPU | — | 34,9 s | 54,8 s | — |
+  | JSON del resultado (directo) | 2,4 MB | 6,4 MB | 12,1 MB | 28,2 MB (56 MB en memoria) |
+
+  Lineal en CPU (0,24–0,31 s por segundo simulado). El tope de 60 s protege la dinámica SUELTA
+  (`simulate` sin escenario): corre en el proceso de la API con `PHYSICS_LOCK` tomado (riesgo de
+  V8.2) y su serie del visor crece con productos × duración. La co-simulación corre en su
+  proceso (límite 1800 s), sin ese lock, como job con recibo. Por eso: los 60 s se quedan para
+  `simulate` suelto, con la razón escrita; el snapshot de la co-simulación pasa el tope del
+  escenario (`parse_peticion(…, duracion_max_s=)`, también a `cosim_bandas.prever`, que con un
+  escenario de más de 60 s se callaba y la banda quieta no se rechazaba temprano). El JSON crece
+  con cajas × duración (28 MB a 300 s y 75 cajas; la API guarda 8 corridas): se acepta, no hay
+  un tope menor que lo justifique. La sesión en vivo vuelta escenario usa el mismo tope
+  (`sesion_viva.duracion_lote_max_s`).
+- **T2. El producto retirado conserva la posición en que salió.** `<producto>.x_mm/y_mm/z_mm` se
+  dejaba de publicar al retirarlo y «caja_3.x_mm >= 3500 al_final» fallaba con la señal sin
+  valor. Se eligió conservar la posición del retiro, no rechazar la aserción: es la misma
+  `posicion_final_mm` que la dinámica ya daba (con `retirado_s`), así las dos salidas dicen lo
+  mismo, y la aserción responde lo que pregunta (si la caja llegó). Rechazarla al declarar no se
+  puede bien (no se sabe de antemano qué caja saldrá) y cambiaría la pregunta del agente por
+  otra (`flujo.<sumidero>` cuenta, no nombra la caja).
+- **T3. El ritmo que se muestra es el declarado.** `ritmo_por_min` salía de Σ 60/`cada_s` con
+  `cada_s` redondeado a 6 decimales (18 → 18,000002). Con `ritmo_por_min` declarado, el bloque
+  normalizado guarda ese número; sin él, Σ 60/`cada_s` se redondea a la milésima. La
+  comparación con el nominal tiene ±1 %: ningún veredicto cambia.
+- **Vigencia**: `COSIM_EPOCH` 7 → 8 por T2. Contra `c826389` (el `core/` de la base exportado):
+  sin sumidero (cajas por variador, marcha en directo) la MISMA huella, finales y eventos; con
+  sumidero (cajas por variador y en directo) cambian sólo la huella y los finales `*_mm` de las
+  cajas que salieron. T1 y T3 no cambian ningún resultado guardado (un escenario de más de 60 s
+  era 400; el ritmo no entra al snapshot).
+- Verificación: suite completa del núcleo (`-n 4`, el `.venv` de pruebas) 6280 pasan, 10
+  saltados, 0 fallan, exit 0; `ruff check core tests scripts` limpio. Golden del MCP re-congelado:
+  sólo cambian los docstrings de `simulate` y de la tool que vuelve escenario una sesión viva (el
+  tope de duración).
+

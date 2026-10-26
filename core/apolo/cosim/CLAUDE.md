@@ -118,7 +118,12 @@ backend: [core/apolo](../CLAUDE.md).
   `Lector` suma a las discretas: una señal nueva va en `flujo.FIJAS` (lectura) y en
   `Flujo.salida` (cuenta). Sin el bloque no corre nada. «nominal» lo resuelve
   `services/flujo_producto.resolver_ritmo` ANTES de leer (el lector es puro) y se guarda el
-  número. [balance-de-producto](../../../docs/plans/balance-de-producto.md)
+  número. Un producto retirado por un sumidero conserva en `<producto>.x_mm/y_mm/z_mm` la
+  posición en que salió (la `posicion_final_mm` de la dinámica). [balance-de-producto](../../../docs/plans/balance-de-producto.md)
+- **Lo que `set_scenario` acepta, corre**: el tope de duración es `escenario.DURACION_MAX_S` y el
+  snapshot lo pasa a la dinámica (`duracion_max_s`); los 60 s de `physics/dinamica_peticion` son
+  de `simulate` sin escenario (corre bajo `PHYSICS_LOCK` en la API). Un tope nuevo de la corrida
+  se valida AL DECLARAR, nunca sólo al correr.
 - Lo barato va ANTES de preparar la dinámica: los tipos de las aserciones contra la tabla de
   reposo del tablero (`tipos.py`, la misma que usa `set_scenario`) y la previsión de bandas
   (`services/cosim_bandas.prever`). La forma sin comparación se concreta por tipo
