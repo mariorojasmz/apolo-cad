@@ -141,6 +141,11 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   resultado los lista (`ajustes_de_prueba`). Un lector de resultados que publica cifras «del
   proyecto» trata ese escenario como uno de falla (`neumatica._sano`).
   [plan](../../../docs/plans/cotizacion-identificada-y-ajustes-por-escenario.md) (D5–D7)
+- El balance de producto (`flujo_producto.py`) es UNA regla para las dos puertas: `evaluar`
+  (publicación, `funcion.flujo_de_producto`) y `regla_entrega` (entrega, sólo con escenarios).
+  El ritmo nominal es `requirements.paquetes_por_minuto`; «nominal» se GUARDA como número al
+  declarar (`poner`) y nunca se lee del requisito al correr: subir la capacidad deja el escenario
+  por debajo, no lo cambia. [balance-de-producto](../../../docs/plans/balance-de-producto.md)
 - Una sesión en vivo vuelta escenario (`sesion_viva.py`) tiene que dar por lote la huella de la
   sesión: la cola de productos queda con las instancias que tuvo la SESIÓN (`fijar_cola`: su pool
   sale de la duración de la BASE), más de 60 s se guarda por tramo inicial (`hasta_s`), y otra

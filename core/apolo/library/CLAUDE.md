@@ -232,7 +232,7 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   ítem, umbral o `aplica_si` sube `VERSION_REGISTRO`. Los controles de lo existente: `puerta.py`.
   Una extensión suma los suyos (`Extension.puerta`, ids «prefijo.x») en `DE_EXTENSION`: quien
   corre la puerta entera pasa `vigente()` a `reunir` y a `evaluar`, y `version(registro)` los
-  firma («5+nombre.v»); `evaluar(registro=None)` sigue siendo sólo el núcleo (testigos).
+  firma («6+nombre.v»); `evaluar(registro=None)` sigue siendo sólo el núcleo (testigos).
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1d)
 - La banda de `create_belt_conveyor` abraza el radio EXTERIOR de cada tambor (`diametro_mm/2 +
   lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano). Un choque DENTRO de
@@ -290,7 +290,7 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   gravedad opt-in. ERC, acceso de herramienta y escenarios de prueba (V8.3 D14) entran SÓLO si existen: sin ellos,
   la puerta da lo de siempre. Las reglas de una extensión (`Extension.entrega`,
   `entrega_extension.py`) van al final con `id` y `origen`; sólo con ellas sale `version_bateria`
-  («1+nombre.v»: `VERSION_BATERIA` sube si cambia un chequeo del núcleo).
+  («2+nombre.v»: `VERSION_BATERIA` sube si cambia un chequeo del núcleo).
   [plan](../../../docs/plans/puntos-de-extension-entregables.md)
 - Lo que no puede correr va en `no_aplica`: jamás cuenta verde. Un asiento ≤ `EXCESS_TOL_MM3`
   (`checks.py`) se tolera y se DECLARA (`contactos_tolerados`). Tornillería flotante = AVISO, no

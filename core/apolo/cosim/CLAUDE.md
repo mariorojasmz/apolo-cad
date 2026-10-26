@@ -113,6 +113,12 @@ backend: [core/apolo](../CLAUDE.md).
   refactor sin efecto sólo actualiza la huella de `tests/test_cosim_epoch.py`, que obliga a decidir
   (sus `ARCHIVOS`: un módulo nuevo que decida el resultado va ahí). Un YAML eléctrico no: sus
   fichas entran a la firma del documento (F6b § Bitácora).
+- **Balance de producto** (`flujo.py`): con el bloque `flujo` el `Integrador` cuenta el producto
+  (`physics/dinamica_flujo.py`) y sus señales `flujo.*` llegan en `mecanica.flujo.senales`, que el
+  `Lector` suma a las discretas: una señal nueva va en `flujo.FIJAS` (lectura) y en
+  `Flujo.salida` (cuenta). Sin el bloque no corre nada. «nominal» lo resuelve
+  `services/flujo_producto.resolver_ritmo` ANTES de leer (el lector es puro) y se guarda el
+  número. [balance-de-producto](../../../docs/plans/balance-de-producto.md)
 - Lo barato va ANTES de preparar la dinámica: los tipos de las aserciones contra la tabla de
   reposo del tablero (`tipos.py`, la misma que usa `set_scenario`) y la previsión de bandas
   (`services/cosim_bandas.prever`). La forma sin comparación se concreta por tipo

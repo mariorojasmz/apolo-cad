@@ -62,6 +62,10 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
   para contar con la fotocelda, alimenta en serie (`cada_s`); para una marcha larga, `sumideros`
   (el producto que pasa el plano sale del mundo: vuelve a su estacionamiento, deja los fotogramas
   y su serie se acaba ahí; sin ellos, todo igual). [F3](../../../docs/plans/V8.2-maquina-se-mueve.md)
+- El balance de producto (`dinamica_flujo.py`) corre sólo con `snap.flujo` y decide con el estado
+  simulado de cada intercambio (nunca con fotogramas): cruzar un sumidero es SALIR (cuenta, el
+  primero de la lista), bajar al piso (z = 0) es PERDERSE y quedar quieto fuera de una zona de
+  espera, TRABARSE. [balance-de-producto](../../../docs/plans/balance-de-producto.md)
 - La marcha de la banda = la arista recta SUPERIOR del contorno del lazo (`_direccion_tramo`),
   nunca la recta entre ejes ni el eje largo del casco: con tambores de distinto Ø (motriz
   engomado) salen inclinados y la tolerancia de 0,5 mm del tramo plano deja fuera el ramal
