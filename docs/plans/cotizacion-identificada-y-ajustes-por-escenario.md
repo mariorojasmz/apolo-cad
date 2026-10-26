@@ -1,6 +1,6 @@
 ---
 estado: implementado
-nota: F1 (cotización identificada, notas con id acotables, alcance calculado) y F2 (ajustes de aparato por escenario; sin bump de `COSIM_EPOCH`, medido) en `main`; F3: la extensión del titular ya los adoptó; los dos pendientes chicos (rótulo legible de la identificación, validación neumática pública en `library`) cerrados (§ Pendientes de cierre); sin pendientes
+nota: F1 (cotización identificada, notas con id acotables, alcance calculado) y F2 (ajustes de aparato por escenario; sin bump de `COSIM_EPOCH`, medido) en `main`; F3: la extensión del titular ya los adoptó; los dos pendientes chicos (rótulo legible de la identificación, validación neumática pública en `library`) cerrados (§ Pendientes de cierre); el papel sin internos (rótulo de la «Ref», cajetín «Cotización», producto legible: § Cotización sin internos); sin pendientes
 descripcion: la cotización dice a quién va, con qué número y qué incluye de verdad; un escenario de prueba puede cambiar un ajuste de un aparato sin dejarlo cambiado en el proyecto
 ---
 
@@ -276,3 +276,55 @@ extensión, el id crudo cuando no lo declara, `fuente_rotulo` en `identificacion
 `efectiva`, tres rótulos que no cargan: dos líneas, 61 caracteres, vacío); variantes nuevas en
 `tests/ext_prueba/` (`costeo.py`, `__init__.py`). Los de neumática y de ajustes por escenario,
 sin tocar sus expectativas. Golden MCP sin cambios (ni docstrings ni schemas).
+
+### Cotización sin internos (2026-10-25, base 0afb41c)
+
+Una cotización real generada con una extensión imprimía tres internos. Hecho:
+
+1. **«Ref» = el rótulo de la fuente.** `FuenteCosteo` gana `rotulo: str | None = None` (al
+   final: una extensión que no lo declara carga igual), validado al cargar con el MISMO
+   `motivo_rotulo` que el de `IdentificacionCosteo` (una línea, ≤ `ROTULO_MAX` = 60; si no,
+   `ExtensionRechazada` «la fuente de costeo «id»: …»). La fila costeada lo lleva en `rotulo`
+   (sólo si hay) y la columna «Ref» del detalle imprime `rotulo or ref`.
+   - **S-a — `ref` sigue siendo el id**: con `(ref, origen)` se cuenta qué fuente cobró (notas,
+     `acota`, `incluye`); el rótulo va en otra clave en vez de pisarlo. El
+     costeo de `/api/costing.json` suma `rotulo` sólo en esas filas (sin rótulo, byte-igual).
+     Sin bump de `CONTRATO_EXTENSIONES` (campo opcional de una clase ya exportada, P-b); cambiar
+     el rótulo cambia el costeo de esa extensión: sube su `version_costeo`.
+2. **El cajetín dice «Cotización <nº>».** `draw_title_block` gana dos campos opcionales:
+   `numero_rotulo` (lo que precede al número; sin él, «Plano») y `titulo_dos_renglones` (el título
+   MEDIDO con la fuente del PDF, `tabla.ancho_mm`, a la izquierda del número: a 4 mm en un
+   renglón si cabe, como siempre; si no, en uno o dos renglones a 3 o 2,5 mm; sólo si ni así cabe,
+   el segundo termina en «…»). `quotation_pages` los pone en el `base_meta` de TODAS sus hojas
+   (resumen, avisos, notas de continuación y detalle). Los planos de taller, la memoria, el
+   manual y la instalación no los pasan: su cajetín es byte-igual.
+   - **S-b — «Cotización», no «Oferta»**: es la palabra de la cabecera de la hoja
+     («COTIZACIÓN»), del entregable y del `numero` de `comercial` (F1-e); «Oferta» sólo aparece en
+     la nota de validez, que habla de la vigencia.
+   - **S-c — Opt-in por campo, no por tipo de documento**: el cajetín no sabe qué entregable lo
+     dibuja; dos campos explícitos dejan cada otro llamador exactamente como estaba.
+3. **El producto, legible.** `library/requisitos.producto_legible(valor)`: `producto` es texto
+   libre (no hay vocabulario en el núcleo; el panel de la UI lo pide como texto), así que una
+   tabla chica `ETIQUETAS_PRODUCTO` traduce las formas «de clave» que un agente escribe
+   (`paqueteria` → «paquetería», `cajas_de_carton` → «cajas de cartón», `granel` → «material a
+   granel»), buscando sin mayúsculas, tildes ni `_`/`-`; lo demás sale tal cual. Sin `producto`
+   (o vacío), la línea no sale.
+   - **S-d — La línea dice «Producto:», no «Alcance:»** (vetable, una palabra): en una cotización
+     «alcance» es lo que se suministra —y ya es la nota `nucleo.alcance`, que dice qué NO incluye—;
+     el requisito es el producto que maneja la máquina (el panel y la memoria lo rotulan
+     «Producto»). Antes cortaba a 50 caracteres; ahora se parte a 62 en dos renglones como mucho
+     (el segundo con «…» si sobra: es texto libre y el desglose va debajo).
+
+Vigencia: sin extensiones, sin `comercial` y sin `producto`, el costeo es el mismo y las hojas
+cambian SÓLO en el cajetín («Plano COT-001» → «Cotización COT-001»): `tests/test_cotizacion_notas.py`
+se re-congeló con ese motivo, y con el cajetín de antes (los dos campos quitados) las cuatro
+firmas de hojas de cada caso dan las congeladas de antes (medido). Nada entra al log ni a la
+geometría: sin `version` de comandos ni `GEOM_CACHE_EPOCH`. Golden MCP sin cambios.
+
+Tests: `tests/test_cotizacion_sin_internos.py` (nuevo: la «Ref» con rótulo y la caída al id, la
+fila con `rotulo` y su nota que sigue saliendo, tres rótulos de fuente que no cargan, el cajetín
+«Cotización» en todas las hojas, el título corto en un renglón a 4 mm, el largo en dos renglones
+sin recortar ni pisar el número, el cajetín de un plano igual que siempre, `producto_legible`, la
+línea legible y sin producto ninguna, el producto largo en dos renglones); variantes nuevas en
+`tests/ext_prueba/` (`costeo.py`, `__init__.py`); `tests/test_cotizacion_notas.py` re-congelado
+(arriba).
