@@ -10,7 +10,12 @@ que siguen sus rampas, y lo que manda es su programación (el `modelo` de la ref
      `sobrecorriente` en el acto; la imagen I²t de la sobrecarga de placa → falla `sobrecarga`;
   4. rearme (flanco de la DI `rearme` o la acción) borra la falla;
   5. STO: sin 24 V en S1 o S2 durante `STO_reaccion_ms` → sin par (salida a 0, el motor gira
-     libre); al volver hace falta una orden de marcha NUEVA (flanco), igual tras una falla;
+     libre); al volver hace falta una orden de marcha NUEVA (flanco), igual tras una falla.
+     DISCREPANCIA (plan pedidos-de-extensiones-iii D5): S1 ≠ S2 durante `STO_discrepancia_ms` →
+     falla `sto_discrepancia`; la marca se acusa sólo con los dos canales iguales, bajando los
+     dos y subiendo los dos (seleccionar y deseleccionar el STO) o cortando la red; recién
+     entonces el rearme borra la falla. Es la reacción de SINAMICS G120 (Function Manual Safety
+     Integrated 04/2018, § 5.10 `p9650` y § 6.3.3 caso 1): un canal pegado no deja rearrancar;
   6. consigna: frecuencia fija por los bits de las DI, o AI1 escalada a f_min–f_max, o `fija`;
   7. rampa hacia la consigna (o hacia 0 sin marcha) con `acel_s`/`decel_s` de 0 a f_max; con
      I ≥ I_límite la frecuencia BAJA con la rampa de deceleración (no sube);
@@ -20,8 +25,8 @@ Señales (D10): `-T1.f_Hz` (con signo: negativa = atrás), `-T1.estado`, `-T1.fa
 `U_V`, `par_habilitado`, `sto`, `rele_falla`, `limitando`, `I_entrada_A`, `termico_pct`.
 
 Fallas (cosim-fallas D2; `falla` es la señal del variador, la avería del modelo es `averia`):
-  - `canal_sto_pegado` {canal: S1 | S2}: ese canal lee 24 V aunque no los tenga. El modelo NO
-    detecta la discrepancia entre canales (D10: no se inventa; queda como hipótesis);
+  - `canal_sto_pegado` {canal: S1 | S2}: ese canal lee 24 V aunque no los tenga; cuando el otro
+    abre, la discrepancia lo delata (paso 5);
   - `falla_interna`: el variador pasa a falla «interna» y no se rearma mientras dura.
 """
 
@@ -76,6 +81,8 @@ class Variador(Modelo):
         self.tau_sc = t / math.log((x * x - 1.0) / (x * x - _SOBRECARGA_K2))
         self.tiene_sto = p.booleano("STO", "entrada de seguridad STO")
         self.t_sto = n("STO_reaccion_ms", "tiempo de reacción del STO", minimo=0) / 1000 if self.tiene_sto else 0.0
+        self.t_disc_max = (n("STO_discrepancia_ms", "tiempo de discrepancia tolerado entre S1 y S2",
+                             positivo=True) / 1000 if self.tiene_sto else 0.0)
         self.U_min = n("U_min_pct", "subtensión de red en % de U_V", positivo=True) / 100 * self.Un
         self.t_ret = n("t_retencion_ms", "retención ante un hueco de red", minimo=0) / 1000
         self.t_fase = n("t_perdida_fase_s", "tiempo para la falla por pérdida de fase", minimo=0)
@@ -96,6 +103,9 @@ class Variador(Modelo):
         self.I_entrada = 0.0
         self.sin_red = False
         self.sto_pegados: set[str] = set()  # canales que leen 24 V sin tenerlos
+        self.t_disc = 0.0             # cuánto lleva S1 ≠ S2
+        self.discrepancia = False     # la marca de la discrepancia, sin acusar
+        self.acuse_bajo = False       # con la marca puesta, se vio a los dos canales bajos
 
     # ── helpers ──────────────────────────────────────────────────────────────────────────────
 
@@ -145,6 +155,8 @@ class Variador(Modelo):
         else:
             self.t_sin_red = 0.0
         self.sin_red = U_red < self.U_min and self.t_sin_red >= self.t_ret - EPS_T
+        if self.sin_red:  # cortar la alimentación acusa la discrepancia (§ 6.3.3)
+            self.discrepancia = self.acuse_bajo = False
         if len(lineas) == 3 and girando and min(lineas) < 0.5 * U_red:
             self.t_desbalance += dt
             if self.t_desbalance >= self.t_fase - EPS_T:
@@ -166,10 +178,13 @@ class Variador(Modelo):
         self.rearme_previo = rearme
         if self.falla_interna:
             self._fallar("interna")
+        if self.discrepancia:  # sin acusar, el rearme no la borra
+            self._fallar("sto_discrepancia")
         # 5. STO
         if self.tiene_sto:
             self.s = [c in self.sto_pegados or entrada_tipo1(float(e.get(c, 0.0)), prev)
                       for c, prev in zip(("S1", "S2"), self.s)]
+            self._vigilar_discrepancia(dt)
             if all(self.s):
                 self.t_sto_abierto = 0.0
                 self.sto = False
@@ -211,6 +226,24 @@ class Variador(Modelo):
         self.I_entrada = self.I_entrada_n * (self.U * I) / (self.Un * self.In) if self.par_habilitado else 0.0
         return self.salidas()
 
+    def _vigilar_discrepancia(self, dt: float) -> None:
+        """S1 ≠ S2 más de `STO_discrepancia_ms` marca la discrepancia y falla; con los canales
+        iguales, la marca se acusa al verlos bajos y después altos (selección y deselección del
+        STO). Un canal pegado nunca deja verlos bajos juntos."""
+        s1, s2 = self.s
+        if s1 != s2:
+            self.t_disc += dt
+            if self.t_disc >= self.t_disc_max - EPS_T:
+                self.discrepancia, self.acuse_bajo = True, False
+                self._fallar("sto_discrepancia")
+            return
+        self.t_disc = 0.0
+        if self.discrepancia:
+            if not s1:
+                self.acuse_bajo = True
+            elif self.acuse_bajo:
+                self.discrepancia = self.acuse_bajo = False
+
     @property
     def estado(self) -> str:
         if self.falla:
@@ -248,9 +281,11 @@ class Variador(Modelo):
         c = self._canal(valor)
         self.sto_pegados.add(c)
         if not any("discrepancia" in h for h in self.hipotesis):
-            self.hipotesis.append("el modelo del variador no detecta la discrepancia entre los dos "
-                                  "canales del STO (cosim-fallas D10): un canal pegado sólo se ve "
-                                  "porque el otro sigue cortando")
+            self.hipotesis.append(
+                f"la discrepancia entre S1 y S2 del STO se detecta como en SINAMICS G120 (falla tras "
+                f"STO_discrepancia_ms = {self.t_disc_max * 1000:g}; se acusa seleccionando y "
+                "deseleccionando el STO o cortando la red, y después el rearme): otra línea de "
+                "variador puede reaccionar distinto")
         return f"canal_sto_pegado {c}"
 
     def _reparar_canal_sto_pegado(self, valor=None) -> list[str]:

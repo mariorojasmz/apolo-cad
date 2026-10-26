@@ -176,7 +176,14 @@ ARCHIVOS = (
 #: error de la petición, no un resultado. Que la red de Lima pase a IT de ficha cambia la ENTRADA de
 #: la red (clave `esquema`, el PE sigue fuera como sin esquema) y lo vence la firma del documento
 #: (su `modelo` entra a ella), no la época.
-HUELLA: tuple[int, str] = (6, "3de0279c7b70bbd4")
+#: pedidos-de-extensiones-iii F2 (sin subir, D7): el variador detecta la DISCREPANCIA entre S1 y
+#: S2 del STO (`STO_discrepancia_ms`, falla `sto_discrepancia` que se acusa con los dos canales o
+#: cortando la red, como SINAMICS G120). Con S1 = S2 no actúa: 8 escenarios sanos (marcha, seta y
+#: seta liberada por variador; la seta de dos NC; el relé de seguridad con el resguardo y con la
+#: seta; la marcha en directo; el empujador de aire) dan la MISMA huella, finales e hipótesis que en
+#: 9d3bb26. Lo que sí cambia (un canal pegado, un cableado de un solo canal) lo vence la firma: la
+#: ficha del variador gana `STO_discrepancia_ms` y su `modelo` entra a ella.
+HUELLA: tuple[int, str] = (6, "4f22cabb6c152e47")
 
 
 def archivos() -> list[Path]:

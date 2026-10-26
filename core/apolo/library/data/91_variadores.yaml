@@ -38,7 +38,13 @@ category: variadores
 #    la máquina por sí solo); `STO_canales` = los bornes de cada canal (los lee el ERC: los dos
 #    canales en el mismo potencial pierden la redundancia; regla «canales del STO»). La categoría
 #    ISO 13849-1 que pide el lazo es de la obra, no de la ficha: va como ajuste opcional
-#    `STO_categoria` del add_device;
+#    `STO_categoria` del add_device. DISCREPANCIA entre canales (plan pedidos-de-extensiones-iii
+#    D5–D6): S1 ≠ S2 más de `STO_discrepancia_ms` = 500 → falla `sto_discrepancia`, que se acusa
+#    con los dos canales iguales (seleccionar y deseleccionar el STO, o cortar la red) y después
+#    el rearme. Es el `p9650` de fábrica («F-DI switchover discrepancy time», 500 ms) y la
+#    reacción de § 6.3.3 caso 1 de Siemens, «Safety Integrated — SINAMICS G110M, G120, G120C,
+#    G120D and SIMATIC ET 200pro FC-2», Function Manual 04/2018 (A5E34261271B AF), § 5.10
+#    (leído 2026-10-26); el catálogo del Delta MS300 no publica el tiempo ni la reacción;
 #  - `I_entrada_A` a potencia nominal (orden de la ficha: rectificador de 6 pulsos sin reactancia);
 #    falla `subtension` si la red cae bajo `U_min_pct` = 70 % de U_V más de `t_retencion_ms` = 20
 #    con el motor girando, y `perdida_fase` si una tensión de línea cae bajo la mitad de las
@@ -64,6 +70,7 @@ _vfd_mando: &vfd_mando
   I_limite_pct: 150
   I_sobrecorriente_pct: 200
   STO_reaccion_ms: 10
+  STO_discrepancia_ms: 500
   U_min_pct: 70
   t_retencion_ms: 20
   t_perdida_fase_s: 1
