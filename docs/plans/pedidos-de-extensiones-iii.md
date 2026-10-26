@@ -286,8 +286,12 @@ pegado la seta corta igual y no rearranca, la falla a 1,5–1,6 s; el tiempo en 
 servicio la de siempre; las cuatro fichas contra la tabla del C96; el docstring) y
 `tests/test_masa_vastago_dinamica.py` (el Ø63 × 800 a 2,43 kg, el empujador sin armadura, un
 vástago sin ficha con ella). Cambiados: `tests/cosim_lazo_banco.py` (el vecino por su ruta) y la
-`HUELLA` de `tests/test_cosim_epoch.py` (F2 sin subir, F4 a 7, con su porqué). Ningún test
-existente cambió de expectativa.
+`HUELLA` de `tests/test_cosim_epoch.py` (F2 sin subir, F4 a 7, con su porqué). Re-congelado a
+propósito: `tests/test_firma_dispositivo.py`, las firmas de los tres tableros con variador (la
+primera corrida de la suite entera lo cazó: es D7 medido) — `arranque_variador_plc` 5171b78… →
+69e6eea…, `_cat3` e3dd3c5… → aee944e…, `_rele_seguridad` c726c9f… → 0e62a99…; sin el `esquema` IT
+ni `STO_discrepancia_ms` dan exactamente las de antes (el test lo comprueba quitando las dos
+claves). Ningún otro test cambió de expectativa.
 
 Vigencia: `COSIM_EPOCH` 6 → 7 (F4); `GEOM_CACHE_EPOCH` igual (ningún `params` ni builder: el
 docstring es texto, `specs`/`neumatico`/`modelo` no tocan la geometría); ninguna `version` de

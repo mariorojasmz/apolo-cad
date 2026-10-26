@@ -150,16 +150,19 @@ def test_la_firma_lleva_exactamente_los_campos_en_firma():
 #: de 220 V de Lima declaró `esquema: IT` en su `modelo` (plan datos-de-corte-y-acometida § «Red de
 #: 220 V de Lima: IT»): lo que la co-simulación lee de la ficha entra a la firma, así que todo resultado
 #: guardado con esa red queda vencido (re-correrlo es barato); sin el esquema dan las de antes
-#: (`test_la_firma_sin_el_it_de_la_red_es_la_de_antes`).
+#: (`test_la_firma_sin_el_it_de_la_red_es_la_de_antes`). Las tres del variador se re-midieron cuando su
+#: ficha ganó `STO_discrepancia_ms` (plan pedidos-de-extensiones-iii D7: la discrepancia de los
+#: canales del STO es física de la co-simulación, así que vence lo guardado con ese variador); sin
+#: el esquema IT ni ese tiempo dan las de antes (el mismo test).
 FIRMAS_SIN_IT = {"arranque_directo": "2:7feece8fd5f7af21a86c",
                  "arranque_variador_plc": "2:76116a74eca53a6fb0a3",
                  "arranque_variador_plc_cat3": "2:7c7b1ce05dbd21c3ddbb",
                  "arranque_variador_rele_seguridad": "2:62856d21257f95c61187"}
 FIRMAS = {
     "arranque_directo": (arranque_directo, "2:28769e6dfe42c7388ca3"),
-    "arranque_variador_plc": (arranque_variador_plc, "2:5171b7878826a436170d"),
-    "arranque_variador_plc_cat3": (arranque_variador_plc_cat3, "2:e3dd3c514ac2f5006cd0"),
-    "arranque_variador_rele_seguridad": (arranque_variador_rele_seguridad, "2:c726c9f8ede629298f74"),
+    "arranque_variador_plc": (arranque_variador_plc, "2:69e6eea431266cb7b0a8"),
+    "arranque_variador_plc_cat3": (arranque_variador_plc_cat3, "2:aee944e9e68af88b600a"),
+    "arranque_variador_rele_seguridad": (arranque_variador_rele_seguridad, "2:0e62a99e2bb014868264"),
 }
 
 
@@ -171,10 +174,12 @@ def test_la_firma_de_los_cuatro_tableros_no_se_mueve(nombre):
 
 def test_la_firma_sin_el_it_de_la_red_es_la_de_antes(monkeypatch):
     """Lo ÚNICO que movió las cuatro firmas es el `esquema: IT` de la red de Lima (los `datos` de la
-    norma del lugar no entran: `test_los_datos_de_ficha_no_entran_a_la_firma_del_documento`)."""
-    for ref in ("RED-3F-220V-60HZ", "RED-2F-220V-60HZ"):
+    norma del lugar no entran: `test_los_datos_de_ficha_no_entran_a_la_firma_del_documento`) y, en las
+    del variador, su `STO_discrepancia_ms` (pedidos-de-extensiones-iii D7)."""
+    for ref, clave in (("RED-3F-220V-60HZ", "esquema"), ("RED-2F-220V-60HZ", "esquema"),
+                       ("VFD-1K5-220", "STO_discrepancia_ms"), ("VFD-2K2-220", "STO_discrepancia_ms")):
         c = CATALOG[ref]
-        modelo = {k: v for k, v in c.electrico.modelo.items() if k != "esquema"}
+        modelo = {k: v for k, v in c.electrico.modelo.items() if k != clave}
         monkeypatch.setitem(CATALOG, ref, dataclasses.replace(
             c, electrico=dataclasses.replace(c.electrico, modelo=modelo)))
     for nombre, (cmds, _firma) in FIRMAS.items():
