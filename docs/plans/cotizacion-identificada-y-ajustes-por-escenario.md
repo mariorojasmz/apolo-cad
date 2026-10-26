@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con criterio delegado (2026-10-25), vetable por número; siguen F1 (cotización identificada y nota acotable) ∥ F2 (ajustes de aparato por escenario)
+nota: contrato de Claude con criterio delegado (2026-10-25), vetable por número; F1 (cotización identificada, notas con id acotables, alcance calculado) en `main` (`712a9bd`; decisiones F1-a…F1-j en su bitácora); sigue F2 (ajustes de aparato por escenario), luego la extensión del titular adopta D1–D3 y D5
 descripcion: la cotización dice a quién va, con qué número y qué incluye de verdad; un escenario de prueba puede cambiar un ajuste de un aparato sin dejarlo cambiado en el proyecto
 ---
 
