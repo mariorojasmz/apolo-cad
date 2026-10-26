@@ -52,6 +52,14 @@ SUPERFICIE: dict[str, str] = {
     # el PLC de afuera (plan plc-en-el-lazo D4): la cara que cumple un conector y su corte
     "PuertoPLC": "apolo.cosim.puerto_plc:PuertoPLC",
     "LazoCortado": "apolo.cosim.puerto_plc:LazoCortado",
+    # correr un escenario sobre un documento (pedidos-de-extensiones-iii D1–D4): preparar bajo el
+    # STATE_LOCK de `leer_documento`, correr fuera de todo lock; el JSON del worker tal cual
+    "preparar_corrida": "apolo.services.corrida_escenario:preparar_corrida",
+    "correr_corrida": "apolo.services.corrida_escenario:correr_corrida",
+    "CorridaPreparada": "apolo.services.corrida_escenario:CorridaPreparada",
+    "CorridaError": "apolo.services.corrida_escenario:CorridaError",
+    "EscenarioRechazado": "apolo.services.corrida_escenario:EscenarioRechazado",
+    "CorridaFallida": "apolo.services.corrida_escenario:CorridaFallida",
     # el bus de la sesión viva (plan plc-en-el-lazo D11): seguirla y mandarle acciones en proceso
     "suscribir": "apolo.api.vivo_bus:suscribir",
     "enviar_vivo": "apolo.api.vivo_bus:enviar_vivo",

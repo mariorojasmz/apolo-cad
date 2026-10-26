@@ -147,6 +147,10 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   firma o una base borrada o cambiada se rechazan. Las aserciones se SUGIEREN (sólo las que pasan
   sobre esa corrida, `cosim/sugeridas.py`), nunca se guardan solas.
   [V8.4](../../../docs/plans/V8.4-maquina-viva-en-pantalla.md) (F4)
+- Una extensión corre un escenario por `corrida_escenario.py` (en `extensiones_api.SUPERFICIE`):
+  `preparar_corrida` bajo el lock del llamador, `correr_corrida` fuera; sus errores llevan el
+  texto del núcleo. Un paso nuevo de la corrida de la API que también deba ver la extensión va en
+  los dos. [pedidos-iii](../../../docs/plans/pedidos-de-extensiones-iii.md) (D1)
 
 ## Cobros dudosos (`cobros.py`)
 

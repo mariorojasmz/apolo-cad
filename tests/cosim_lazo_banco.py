@@ -16,8 +16,37 @@ Más lectores de las trazas: `cambios`, `primer_cambio`, `serie`, `en`.
 
 from __future__ import annotations
 
+import importlib.util
+import sys
+from pathlib import Path
+
 from apolo.doc.document import Document
-from tablero_electrico import arranque_directo, arranque_variador_plc
+
+
+def _vecino(nombre: str):
+    """El módulo `tests/<nombre>.py` de al lado, por su RUTA (plan pedidos-de-extensiones-iii D8):
+    el banco también se carga desde fuera de la suite (una extensión lo lee por su ruta, sin
+    `tests/` en `sys.path`). Si ya está importado desde ese archivo, el mismo; dentro de la suite,
+    el de siempre."""
+    ruta = Path(__file__).resolve().with_name(f"{nombre}.py")
+    ya = sys.modules.get(nombre)
+    if ya is not None and Path(getattr(ya, "__file__", "") or "").resolve() == ruta:
+        return ya
+    spec = importlib.util.spec_from_file_location(nombre, ruta)
+    modulo = importlib.util.module_from_spec(spec)
+    if ya is None:
+        sys.modules[nombre] = modulo  # el que importe el nombre después recibe este mismo
+    try:
+        spec.loader.exec_module(modulo)
+    except BaseException:
+        if sys.modules.get(nombre) is modulo:
+            del sys.modules[nombre]
+        raise
+    return modulo
+
+
+_te = _vecino("tablero_electrico")
+arranque_directo, arranque_variador_plc = _te.arranque_directo, _te.arranque_variador_plc
 
 JUNTA = "c1_eje_motriz"
 MOTOR = {"-M1": {"junta": JUNTA, "direccion_transporte": [1, 0, 0]}}
