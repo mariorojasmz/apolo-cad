@@ -22,6 +22,7 @@ from .designacion_comercial import (
 )
 from .incluidas import vastagos_incluidos
 from .materials import resolve_material
+from .peso_ficha import partes_de_cilindros, peso_de_ficha
 
 # Pieza COMERCIAL a-medida: se COMPRA, no se corta ni mecaniza — no le corresponde lámina de
 # fabricación ni fila de lista de corte. Rol de compra (lo que sigue al último " · ": "Tensor de
@@ -122,13 +123,17 @@ def hardware_schedule(scene: dict) -> list[dict]:
         ref = getattr(f, "component", None)
         comp = CATALOG.get(ref or "")
         if comp is not None and not comp.cuttable:
-            g = groups.get(ref)
+            # una ref que pesa por carrera (cilindro, V8.9) va por ref + carrera, como en la BOM
+            cut = getattr(f, "cut_length", None) if (comp.specs or {}).get("peso_por_mm_kg") else None
+            key_ref = f"{ref}|{cut:g}" if cut else ref
+            g = groups.get(key_ref)
             if g is None:
-                g = groups[ref] = {
-                    "ref": comp.ref, "nombre": comp.name, "categoria": comp.category,
+                g = groups[key_ref] = {
+                    "ref": comp.ref, "nombre": comp.name + (f" carrera {cut:g} mm" if cut else ""),
+                    "categoria": comp.category,
                     "material": (comp.specs or {}).get("material", ""),
                     "norma": (comp.specs or {}).get("norma", ""),
-                    "cantidad": 0, "peso_ud_kg": round(comp.weight, 3), "_rep": sid,
+                    "cantidad": 0, "peso_ud_kg": round(peso_de_ficha(comp, cut), 3), "_rep": sid,
                 }
             g["cantidad"] += 1
         elif _is_purchased_custom(f):
@@ -166,13 +171,15 @@ def scene_weight_kg(scene: dict, include_hidden: bool = False) -> float:
     from .materials import density, resolve_material
 
     total = 0.0
-    for f in scene.values():
+    partes = partes_de_cilindros(scene)  # V8.9: el vástago de un cilindro no pesa dos veces
+    for fid, f in scene.items():
         if not include_hidden and not getattr(f, "visible", True):
             continue
         comp = CATALOG.get(getattr(f, "component", None) or "")
-        if comp is not None:
-            cut = getattr(f, "cut_length", None)
-            total += comp.weight * (cut / 1000.0) if (comp.cuttable and cut) else comp.weight
+        if fid in partes:
+            total += partes[fid]
+        elif comp is not None:
+            total += peso_de_ficha(comp, getattr(f, "cut_length", None))
         else:
             try:
                 total += float(f.shape.volume) * density(resolve_material(f, CATALOG))

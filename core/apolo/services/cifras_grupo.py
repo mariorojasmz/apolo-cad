@@ -152,6 +152,7 @@ def cifras_grupos(doc, ids, *, datos=None) -> list[CifraGrupo]:
     (reglas en el docstring del módulo). `datos`: los de `datos_rotulos(doc)` si ya están."""
     from apolo.library.catalog import CATALOG
     from apolo.library.engineering.mass import feature_mass
+    from apolo.library.peso_ficha import partes_de_cilindros
     from apolo.services.datos_rotulos import datos_rotulos
 
     por_grupo: dict[str, list] = {}
@@ -164,8 +165,11 @@ def cifras_grupos(doc, ids, *, datos=None) -> list[CifraGrupo]:
     datos = datos if datos is not None else datos_rotulos(doc)
     material = doc.default_material()
     por_instancia: dict[tuple, float] = {}  # las instancias de un `mesh_key` pesan lo mismo
+    partes = partes_de_cilindros(doc.scene)  # el vástago de un cilindro no pesa dos veces (V8.9)
 
-    def masa(feat) -> float:
+    def masa(fid, feat) -> float:
+        if fid in partes:
+            return float(feature_mass(feat, CATALOG, material, partes[fid])["masa_kg"])
         clave = (feat.mesh_key, feat.component, feat.cut_length, feat.material)
         if feat.mesh_key is None:
             return float(feature_mass(feat, CATALOG, material)["masa_kg"])
@@ -173,6 +177,6 @@ def cifras_grupos(doc, ids, *, datos=None) -> list[CifraGrupo]:
             por_instancia[clave] = float(feature_mass(feat, CATALOG, material)["masa_kg"])
         return por_instancia[clave]
 
-    masas = {f: masa(doc.scene[f]) for fids in por_grupo.values() for f in fids}
+    masas = {f: masa(f, doc.scene[f]) for fids in por_grupo.values() for f in fids}
     out = [_cifra_grupo(g, fids, doc, datos, masas) for g, fids in por_grupo.items()]
     return [c for c in out if c is not None]

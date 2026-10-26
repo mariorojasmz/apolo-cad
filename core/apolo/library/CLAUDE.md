@@ -47,7 +47,10 @@ tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire
   silenciador como roscado directo (ni tubo ni racor). El cilindro (`builders_neumatica.py`) lee
   las cotas de los `params` de la ref (con su fuente en el YAML) y las de los accesorios ISO 15552
   de `neumatica/montajes.py`: nunca una cota de interfaz en el builder. El vástago viene con su
-  ref: `incluidas.py` lo saca de la BOM y de la lista de corte por la escena sola.
+  ref: `incluidas.py` lo saca de la BOM y de la lista de corte por la escena sola. El peso de una
+  ref es `peso_ficha.peso_de_ficha` (cilindro: `weight` + `peso_por_mm_kg` × carrera, el cilindro
+  ENTERO); quien SUMA piezas pasa `partes_de_cilindros` (vástago = masa móvil de la ficha, cuerpo
+  = el resto) o cuenta el vástago dos veces.
   [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
   `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara

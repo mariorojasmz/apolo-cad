@@ -194,7 +194,7 @@ def test_el_vastago_que_pandea_es_rojo():
 def test_la_energia_al_fin_de_carrera_sobre_la_admisible_es_roja():
     m = verde(_MM1=disp("-MM1", "CIL-ISO15552-32", servicio={**SERVICIO, "velocidad_m_s": 2, "masa_kg": 10}))
     (r,) = malas(erc(m), "energía al fin de carrera")
-    masa = 0.12 + 0.000888 * 200 + 10
+    masa = 0.110 + 0.0009 * 200 + 10  # masa móvil de la ficha Festo DSBC-32 + la carga
     assert r["calc"]["sustitucion"] == f"E = ½·{masa:g}·2² = {0.5 * masa * 4:.3f} J"
     assert r["estado"] == "error" and "2.3 J" in r["detalle"]
 

@@ -139,31 +139,44 @@ components:
   # carga que maneja (una entrada de PLC a 24 VDC pide poco) y la rosca del puerto.
   #  - Lado de aire (`neumatico:`): el puerto 1 (entrada, rosca G1/4); `p_conmuta_bar` es el AJUSTE
   #    del instalador (el tornillo del muelle), dentro del rango de la ficha; `histeresis_bar` es la
-  #    diferencia FIJA entre conmutar (al subir) y reponer (al bajar).
+  #    diferencia entre conmutar (al subir) y reponer (al bajar), fija en la co-simulación (la
+  #    típica de [P2]; en el PEV se ajusta en obra).
   #  - Lado eléctrico (`electrico:`): el contacto conmutado 11 común, 12 NC, 14 NA (el marcado del
   #    contacto conmutado del relé RELE-INT-24VDC del catálogo); el NA cierra con la presión sobre
   #    `p_conmuta_bar` y abre al bajar de `p_conmuta_bar − histeresis_bar`: sin aire, abierto.
   #    `modelo.tipo: presostato` (la co-simulación: `cosim/modelos/presostato.py`).
-  # Fuentes y a confirmar: ninguna ficha de proveedor se leyó en la F8. El rango 1–10 bar, la rosca
-  # G1/4 y el contacto conmutado son la FUNCIÓN que se pide (del orden de las líneas citadas); la
-  # histéresis (0,5 bar: criterio de diseño, la co-simulación la usa), la presión máxima (la del
-  # tope del rango, 10 bar), el rating del contacto, la temperatura, la envolvente y el peso
-  # van TODOS en `a_confirmar` (criterio de diseño hasta leer la ficha del proveedor).
+  # Fuentes (leídas el 2026-10-26, V8.9 § Presostato y masa por carrera con ficha):
+  #  [P1] Festo PEV-1/4-B (pieza 10773), ficha web del artículo, pestaña «Technical data»
+  #       (https://www.festo.com/us/en/a/10773?tab=TECHNICAL_DATA) y catálogo «Pressure and vacuum
+  #       switches PEV/VPEV» 2025/05 (https://www.festo.com/media/catalog/204910_documentation.pdf,
+  #       págs. 5–7 y 10): ajuste 1…12 bar, presión de trabajo máxima 12 bar, contacto conmutado
+  #       (1 NA + 1 NC, conector EN 175301-803 tipo A) de 250 VAC / 125 VDC y 5 A (AC-12/DC-12
+  #       resistiva; AC-14/DC-13 inductiva; mínimo 1 mA a 24 V), −20…80 °C (ambiente y medio),
+  #       IP65 con el conector montado, 194 g con su conector, rosca G1/4, cuerpo de aluminio. La
+  #       histéresis del PEV es AJUSTABLE (tuerca bajo la tapa) y el texto no da su cifra.
+  #  [P2] SMC IS3000 (https://content2.smcetech.com/pdf/IS3000.pdf, pág. 1): presostato de
+  #       microrruptor conmutado con histéresis FIJA «0.05 MPa or less». De ahí sale la histéresis
+  #       TÍPICA de 0,5 bar que usa la co-simulación (en el PEV se ajusta en obra).
+  # El SMC IS10 ya no es línea de referencia: ajusta 0,1–0,4 MPa, su contacto es sólo NA (reed),
+  # Rc1/8 e IP40 (https://content2.smcetech.com/pdf/IS10.pdf, pág. 1); no cumple la función.
+  # El ajuste del modelo sigue en 1–10 bar: es la FUNCIÓN de la ref (su nombre) y lo que tiene que
+  # cubrir quien la reemplace; el PEV lo cubre (ajusta hasta 12). La presión de sobrecarga (o de
+  # prueba) del PEV-1/4-B no está publicada (sí la del PEV-W, otro producto): a confirmar.
   - ref: PRESOSTATO-1-10BAR
     name: Presostato electromecánico ajustable 1-10 bar, contacto conmutado
-    description: Presostato electromecánico ajustable de 1 a 10 bar con microrruptor conmutado libre de potencial (11 común, 12 NC, 14 NA) para 24 VDC / 230 VAC, rosca G1/4; el NA cierra al subir la presión sobre la de conmutación ajustada y abre al bajar de ella menos la histéresis. Vigila que haya aire en la máquina (su contacto, a una entrada del PLC). Verificar con el proveedor.
+    description: Presostato electromecánico ajustable que cubra de 1 a 10 bar, con microrruptor conmutado libre de potencial (11 común, 12 NC, 14 NA) de 250 VAC / 125 VDC y 5 A, rosca G1/4, IP65; el NA cierra al subir la presión sobre la de conmutación ajustada y abre al bajar de ella menos la histéresis. Vigila que haya aire en la máquina (su contacto, a una entrada del PLC). Verificar con el proveedor.
     builder: box
     params: {width: 35, depth: 35, height: 70}
-    weight: 0.2
-    specs: {rosca: G1/4, rango_bar: "1-10", contacto: "1 conmutado (1 NA + 1 NC), libre de potencial", tension_contacto: "24 VDC / 230 VAC", linea_referencia: "orden de Festo PEV-1/4-B / SMC IS10 (presostato con contacto conmutado)", a_confirmar: "histéresis, presión máxima, rating del contacto, temperatura, envolvente y peso", cotas_verificadas: false, cost: 35}
+    weight: 0.194
+    specs: {rosca: G1/4, rango_bar: "1-10", rango_ficha_bar: "1-12", contacto: "1 conmutado (1 NA + 1 NC), libre de potencial, conector EN 175301-803 tipo A", tension_contacto: "250 VAC / 125 VDC", corriente_contacto_A: 5, T_servicio_C: "-20…80", envolvente: IP65, linea_referencia: "orden de Festo PEV-1/4-B (presostato con contacto conmutado)", fuente: "[P1] Festo PEV-1/4-B 10773 (ficha web y catálogo PEV/VPEV 2025/05); histéresis típica de [P2] SMC IS3000", a_confirmar: "presión de sobrecarga (no publicada para el PEV-1/4-B) y cotas de la caja", cotas_verificadas: false, cost: 35}
     neumatico:
       funcion: BP
       simbolo: presostato
-      fuente: "función pedida (rango 1-10 bar, G1/4, contacto conmutado) del orden de las líneas citadas; sin ficha leída en la F8: lo numérico, en a_confirmar"
+      fuente: "Festo PEV-1/4-B 10773, ficha web (Technical data) y catálogo PEV/VPEV 2025/05 págs. 5-7: ajuste 1-12 bar (la ref pide 1-10), presión máxima de trabajo 12 bar, G1/4; histéresis TÍPICA 0,5 bar de SMC IS3000 pág. 1 («0.05 MPa or less»; en el PEV es ajustable)"
+      nota: "la histéresis del PEV se ajusta en obra (tuerca bajo la tapa): la de 0,5 bar es la típica de un presostato de microrruptor conmutado"
       puertos:
         - {id: "1", rol: entrada, rosca: G1/4}
-      modelo: {tipo: presostato, p_conmuta_bar: [1, 10], histeresis_bar: 0.5, p_max_bar: 10}
-      a_confirmar: [histeresis_bar, p_max_bar]
+      modelo: {tipo: presostato, p_conmuta_bar: [1, 10], histeresis_bar: 0.5, p_max_bar: 12}
     electrico:
       funcion: B
       simbolo: presostato_conmutado
@@ -175,6 +188,6 @@ components:
       caminos:
         - {de: "11", a: "14", tipo: NA, accion: señal}
         - {de: "11", a: "12", tipo: NC, accion: señal}
-      modelo: {tipo: presostato}
-      a_confirmar: [contacto_A, contacto_V, T_max_C]
-      fuente: "sin ficha leída de la línea de referencia (Festo PEV / SMC IS): el rating del contacto (corriente y tensión) y la temperatura de servicio, a confirmar con el presostato que se compre"
+      modelo: {tipo: presostato, contacto_A: 5, contacto_V: 250}
+      datos: {T_max_C: 80}
+      fuente: "Festo PEV-1/4-B 10773, ficha web (Technical data): contacto conmutado 250 VAC / 125 VDC (contacto_V = la de alterna, como en el relé), 5 A (AC-12/DC-12), −20…80 °C"

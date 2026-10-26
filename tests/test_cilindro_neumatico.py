@@ -127,7 +127,7 @@ def test_iso6432_por_la_nariz():
 
 def test_errores_accionables():
     with pytest.raises(ERRORES, match="fuera del rango de su ficha"):
-        _doc(carrera=2500)  # Ø32: 10–1900
+        _doc(carrera=1200)  # Ø32: 10–1000 (SMC C96, pág. PDF 5)
     with pytest.raises(ERRORES, match="perpendicular"):
         _doc(eje="+X", puertos="-X")
     with pytest.raises(ERRORES, match="buje roscado"):

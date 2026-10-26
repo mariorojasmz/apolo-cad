@@ -55,9 +55,11 @@ def test_la_caja_sale_empujada_y_el_vastago_vuelve(base):
     assert en(r, "-MM1.F_N", 1.0) == pytest.approx(482.5, abs=1.0)     # p·A − p_atm·a (6 bar, Ø32/12)
     caja = r["mecanica"]["resumen"]["productos"]["p_caja"]
     # empujada más allá de la carrera, casi derecho (a ~4 m/s sale despedida de la mesa: el vuelo
-    # y la caída son caóticos, el desvío lateral exacto cambia de una máquina a otra)
+    # y la caída son caóticos, el desvío lateral exacto cambia de una máquina a otra). Medido al
+    # cargar la masa móvil de la ficha (V8.9, 2026-10-26): con 0,100…0,130 kg de a 5 g, |y|/x va de
+    # 0,001 a 0,117 sin orden (0,057 con los 0,110 de la ficha); el 5 % de antes pasaba por suerte
     assert caja["posicion_final_mm"][0] > CAJA_X + CARRERA
-    assert abs(caja["posicion_final_mm"][1]) < 0.05 * caja["posicion_final_mm"][0]
+    assert abs(caja["posicion_final_mm"][1]) < 0.15 * caja["posicion_final_mm"][0]
     assert en(r, "caja.x_mm", 0.2) == pytest.approx(CAJA_X, abs=0.5)   # quieta hasta que la toca
     # el aire del ciclo: avance + retroceso, contado una vez (en reposo no hay caudal)
     consumo = r["final"]["-AZ1.consumo_NL"]

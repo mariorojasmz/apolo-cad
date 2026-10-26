@@ -58,13 +58,13 @@ def test_pandeo_a_mano_euler():
 
 
 def test_energia_de_impacto_a_mano():
-    """Ø32 ISO 15552 (ficha: 0,12 kg + 0,000888 kg/mm de masa móvil, 2,3 J admisibles de la
-    amortiguación, manual SMC C96) con 200 mm y 2 kg de carga a 0,5 m/s:
-    m = 0,12 + 0,1776 + 2 = 2,2976 kg · E = ½·m·v² = 0,2872 J ≤ 2,3 J. A 1,5 m/s: 2,585 J > 2,3 J."""
-    m = 0.12 + 0.000888 * 200 + 2.0
-    assert K.energia_impacto(m, 0.5, 2.3)["valor"]["E_J"] == pytest.approx(0.2872, abs=1e-4)
+    """Ø32 ISO 15552 (ficha Festo DSBC-32: 0,110 kg + 0,0009 kg/mm de masa móvil; 2,3 J admisibles
+    de la amortiguación, manual SMC C96) con 200 mm y 2 kg de carga a 0,5 m/s:
+    m = 0,110 + 0,18 + 2 = 2,29 kg · E = ½·m·v² = 0,2863 J ≤ 2,3 J. A 1,5 m/s: 2,576 J > 2,3 J."""
+    m = 0.110 + 0.0009 * 200 + 2.0
+    assert K.energia_impacto(m, 0.5, 2.3)["valor"]["E_J"] == pytest.approx(0.2863, abs=1e-4)
     assert K.energia_impacto(m, 1.5, 2.3)["estado"] == "error"
-    assert 0.5 * m * 1.5 ** 2 == pytest.approx(2.5848, abs=1e-4)
+    assert 0.5 * m * 1.5 ** 2 == pytest.approx(2.5763, abs=1e-4)
 
 
 def test_consumo_a_mano_isoterma():
@@ -125,7 +125,7 @@ def test_la_memoria_del_empujador_con_sus_cifras(canonico):
     (p,) = a["pandeo del vástago"]
     assert p["calc"]["fs"] == pytest.approx(27.3, abs=0.1)  # Ø12, 200 mm, caso 1: Pcr = 13 185 N
     (e,) = a["energía al fin de carrera"]
-    assert e["calc"]["sustitucion"] == "E = ½·2.2976·0.5² = 0.287 J"
+    assert e["calc"]["sustitucion"] == "E = ½·2.29·0.5² = 0.286 J"  # masa móvil de la ficha Festo DSBC-32
     (dm,) = a["demanda de aire"]
     assert dm["calc"]["resultado"].startswith("50.5 NL/min") and "fugas = 10 %" in dm["hipotesis"][0]
 
@@ -180,7 +180,7 @@ def test_con_escenario_vigente_la_memoria_usa_lo_medido(canonico):
         # la velocidad medida pasa la declarada (0,5 m/s): la memoria toma la medida y la amortiguación
         # de 2,3 J no alcanza → NO CONFORME (la regla que la F3 anunció)
         assert e["estado"] == "error" and any("medida en el escenario «empuja»" in h for h in e["hipotesis"])
-        assert e["calc"]["sustitucion"].startswith(f"E = ½·2.2976·{mm1['v_max_m_s']:g}²")
+        assert e["calc"]["sustitucion"].startswith(f"E = ½·2.29·{mm1['v_max_m_s']:g}²")
         ver = veredicto_memoria(d)
         assert ver["veredicto"] == "NO CONFORME" and any(x["regla"] == "energía al fin de carrera" for x in ver["errores"])
         # vencido (otro escenario con el mismo nombre): ya no cuenta

@@ -96,7 +96,8 @@ def test_iso15552_transcrito_de_su_fuente(D):
     assert (c.params["D"], c.params["d"], c.params["TG"]) == (D, d, tg)
     assert {p.rosca for p in c.neumatico.puertos} == {puerto}
     assert (m["p_min_bar"], m["p_max_bar"]) == (0.5, 10)  # SMC C96: 0,05–1,0 MPa
-    assert m["masa_movil_por_mm_kg"] == pytest.approx(3.14159 * d ** 2 / 4 * 7.85e-6, rel=1e-3)
+    # la masa móvil por mm de la ficha (Festo, redondeada a 1 g/10 mm) es un vástago macizo de acero
+    assert m["masa_movil_por_mm_kg"] == pytest.approx(3.14159 * d ** 2 / 4 * 7.85e-6, rel=0.03)
 
 
 @pytest.mark.parametrize("D", sorted(ISO6432))

@@ -126,15 +126,15 @@ def test_pandeo_corto_pasa_a_johnson_con_fy():
 def test_energia_de_impacto_contra_la_amortiguacion_de_la_ficha():
     m = CATALOG["CIL-ISO15552-32"].neumatico.modelo
     assert m["E_amortiguacion_J"] == 2.3  # SMC C96*-OM0001Q, tabla 1
-    # masa al llegar: 0,12 + 0,000888·300 + 3 kg de carga = 3,3864 kg
+    # masa al llegar (masa móvil de la ficha Festo DSBC-32): 0,110 + 0,0009·300 + 3 kg de carga = 3,38 kg
     masa = K.masa_movil_kg(m, 300, 3.0)
-    assert masa == pytest.approx(3.3864, rel=1e-9)
-    # a 1,155 m/s: E = ½·3,3864·1,155² = 2,2588 J ≤ 2,3: ok
+    assert masa == pytest.approx(3.38, rel=1e-9)
+    # a 1,155 m/s: E = ½·3,38·1,155² = 2,2545 J ≤ 2,3: ok
     r = K.energia_impacto(masa, 1.155, m["E_amortiguacion_J"])
-    assert r["valor"]["E_J"] == pytest.approx(2.2588, rel=1e-4) and r["estado"] == "ok"
-    # a 1,2 m/s: E = ½·3,3864·1,44 = 2,4382 J > 2,3: error
+    assert r["valor"]["E_J"] == pytest.approx(2.2545, rel=1e-4) and r["estado"] == "ok"
+    # a 1,2 m/s: E = ½·3,38·1,44 = 2,4336 J > 2,3: error
     r = K.energia_impacto(masa, 1.2, m["E_amortiguacion_J"])
-    assert r["valor"]["E_J"] == pytest.approx(2.4382, rel=1e-4) and r["estado"] == "error"
+    assert r["valor"]["E_J"] == pytest.approx(2.4336, rel=1e-4) and r["estado"] == "error"
 
 
 def test_demanda_de_aire_con_fugas_declaradas():

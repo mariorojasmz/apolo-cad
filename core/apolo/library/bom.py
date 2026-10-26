@@ -27,6 +27,7 @@ from .designacion_comercial import (
 from .incluidas import vastagos_incluidos
 from .largo_tornilleria import largo_de_compra_con_aviso, largo_nominal_a_medida
 from .materials import CABLE, density, resolve_material
+from .peso_ficha import peso_de_ficha
 from .piezas_electricas import recorrido_mm
 
 # sufijos de instancia que añaden los patrones/espejos/copias: " (2)", " (1,2)",
@@ -97,9 +98,7 @@ def bom_from_scene(scene: dict, default_material: str | None = None,
             key = (component, round(largo, 1) if largo else None, mtr, grp) if by_group else (
                 component, round(largo, 1) if largo else None, mtr)
             if key not in rows:
-                unit_weight = (
-                    comp.weight * (cut / 1000.0) if comp.cuttable and cut else comp.weight
-                )
+                unit_weight = peso_de_ficha(comp, cut)  # un cilindro: + por_mm × carrera (V8.9)
                 angs = ""
                 if mtr:  # α None en un extremo = ese lado recto (0°)
                     angs = " ∠" + "/".join(f"{a:g}°" if a is not None else "0°" for a in mtr)

@@ -1,8 +1,8 @@
 """El presostato deja de ser un aparato mudo (plan V8.9 F8).
 
 - La ref `PRESOSTATO-1-10BAR` con sus dos fichas: `neumatico:` (puerto 1, rango del ajuste,
-  histéresis) y `electrico:` (contacto conmutado 11-12-14 movido por «señal», el rating «a
-  confirmar»); se designa -BP1.
+  histéresis) y `electrico:` (contacto conmutado 11-12-14 movido por «señal», con el rating de la
+  ficha Festo PEV-1/4-B leída después: `tests/test_v89_presostato_masa_ficha.py`); se designa -BP1.
 - El ajuste `p_conmuta_bar`: dentro del rango de la ficha en `add_device` y como ajuste de PRUEBA
   de un escenario (`library/electrico/ajustes.validar_ajustes_neumaticos`, una sola regla).
 - El modelo (`cosim/modelos/presostato.py`): cierra el NA al llegar a `p_conmuta_bar`, abre al
@@ -42,15 +42,15 @@ def test_la_ref_trae_sus_dos_fichas():
     c = CATALOG[REF]
     n, e = c.neumatico, c.electrico
     assert n.tipo == "presostato" and [(p.id, p.rol, p.rosca) for p in n.puertos] == [("1", "entrada", "G1/4")]
+    # el ajuste es la FUNCIÓN de la ref (1–10 bar); la ficha leída (Festo PEV-1/4-B) da 12 de
+    # máxima y la histéresis típica de un microrruptor conmutado (SMC IS3000): ya no a confirmar
     assert n.ajustes == {"p_conmuta_bar": (1.0, 10.0)}
-    assert n.modelo["histeresis_bar"] == 0.5 and n.modelo["p_max_bar"] == 10.0
-    assert set(n.a_confirmar) == {"histeresis_bar", "p_max_bar"}   # ninguna ficha leída: a confirmar
-    assert e.montaje == "campo" and e.modelo == {"tipo": "presostato"}
+    assert n.modelo["histeresis_bar"] == 0.5 and n.modelo["p_max_bar"] == 12.0
+    assert n.a_confirmar == () and "PEV-1/4-B" in n.fuente and "IS3000" in n.fuente
+    assert e.montaje == "campo" and e.modelo == {"tipo": "presostato", "contacto_A": 5, "contacto_V": 250}
     assert [(k.de, k.a, k.tipo, k.accion) for k in e.caminos] == [("11", "14", "NA", "señal"),
                                                                    ("11", "12", "NC", "señal")]
-    # el rating del contacto, SIN valor: a confirmar con el que se compre (nunca de memoria)
-    assert set(e.a_confirmar) == {"contacto_A", "contacto_V", "T_max_C"}
-    assert "contacto_A" not in e.modelo and e.fuente
+    assert e.a_confirmar == () and "PEV-1/4-B" in e.fuente
 
 
 def _carril(p_conmuta=4.0, *, tubo_bp=True, cableado=True, p_regulada=6) -> Document:

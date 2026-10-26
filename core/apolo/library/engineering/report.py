@@ -23,6 +23,7 @@ from __future__ import annotations
 
 # Cada verificación vive en su módulo (partir-nucleo-congelado-ii, D3); esta ruta las
 # re-exporta por IDENTIDAD (D6, `tests/test_rutas_viejas.py`).
+from ..peso_ficha import partes_de_cilindros
 from .mass import feature_mass
 from .report_ajustes import _fit_checks  # noqa: F401
 from .report_comun import _BEARING_CATS, G, _name  # noqa: F401
@@ -66,8 +67,9 @@ def structure_engineering_check(
     if not scene:
         return []
     graph = build_graph(scene, joints, mates, fasteners, grounds)
+    partes = partes_de_cilindros(scene)  # el vástago de un cilindro no pesa dos veces (V8.9)
     masses = {
-        fid: feature_mass(f, catalog, default_material)["masa_kg"]
+        fid: feature_mass(f, catalog, default_material, partes.get(fid))["masa_kg"]
         for fid, f in scene.items()
     }
     checks: list[dict] = []

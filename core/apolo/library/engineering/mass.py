@@ -18,6 +18,8 @@ from apolo.kernel.shapes import is_surface
 
 from ..catalog import CATALOG
 from ..materials import density, resolve_material
+from ..peso_ficha import FUENTE as PARTE_FUENTE
+from ..peso_ficha import partes_de_cilindros, peso_de_ficha
 
 
 def _shape_com(shape) -> list[float] | None:
@@ -39,9 +41,13 @@ def _bbox(shape) -> tuple[list[float], list[float]]:
     )
 
 
-def feature_mass(feat, catalog: dict | None = None, default_material: str | None = None) -> dict:
+def feature_mass(feat, catalog: dict | None = None, default_material: str | None = None,
+                 parte: float | None = None) -> dict:
     """Propiedades de masa de UNA pieza: masa (catálogo o volumen×densidad),
-    material resuelto, COM real y bbox."""
+    material resuelto, COM real y bbox. `parte` = la de la pieza en
+    `peso_ficha.partes_de_cilindros(escena)`: el cuerpo y el vástago de un cilindro neumático
+    pesan su parte de la ficha (sin ella, el cuerpo pesa el cilindro entero y el vástago su
+    volumen; quien SUMA piezas la pasa, o contaría el vástago dos veces)."""
     catalog = catalog if catalog is not None else CATALOG
     material = resolve_material(feat, catalog, default=default_material)
     try:
@@ -50,9 +56,10 @@ def feature_mass(feat, catalog: dict | None = None, default_material: str | None
         volume = 0.0
 
     comp = catalog.get(getattr(feat, "component", None) or "")
-    if comp is not None:
-        cut = getattr(feat, "cut_length", None)
-        masa = comp.weight * (cut / 1000.0) if (comp.cuttable and cut) else comp.weight
+    if parte is not None:
+        masa, fuente = parte, PARTE_FUENTE
+    elif comp is not None:
+        masa = peso_de_ficha(comp, getattr(feat, "cut_length", None))
         fuente = "catálogo"
     else:
         masa = volume * density(material)
@@ -100,8 +107,9 @@ def scene_mass_properties(
     cx = cy = cz = 0.0
     gmin = [float("inf")] * 3
     gmax = [float("-inf")] * 3
+    partes = partes_de_cilindros(scene)
     for fid, feat in items:
-        row = {"id": fid, **feature_mass(feat, catalog, default_material)}
+        row = {"id": fid, **feature_mass(feat, catalog, default_material, partes.get(fid))}
         piezas.append(row)
         m = row["masa_kg"]
         total_m += m
