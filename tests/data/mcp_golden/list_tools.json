@@ -414,7 +414,7 @@
  },
  {
   "name": "run_command",
-  "description": "Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos\naceptan '=expresión' con variables del proyecto. `detail`: \"diff\" (def.) devuelve\nsolo los sólidos nuevos + `total_solidos`; \"full\" toda la escena; \"summary\" solo\nid/nombre de lo nuevo (con más de 40, \"diff\" y \"summary\" resumen `por_comando`). El bloque\n`variables` solo aparece si la operación tocó alguna (o detail=\"full\"); usa get_scene para\nverlas siempre. Si tarda, recibes un RECIBO {\"job\": id}: recógelo con get_job(id) y NO\nreenvíes el comando.",
+  "description": "Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos\naceptan '=expresión' con variables del proyecto. `detail`: \"diff\" (def.) devuelve\nsolo los sólidos nuevos + `total_solidos`; \"full\" toda la escena; \"summary\" solo\nid/nombre de lo nuevo y `comandos` (el id del comando; con más de 40 sólidos, \"diff\" y\n\"summary\" resumen `por_comando`). El bloque\n`variables` solo aparece si la operación tocó alguna (o detail=\"full\"); usa get_scene para\nverlas siempre. Si tarda, recibes un RECIBO {\"job\": id}: recógelo con get_job(id) y NO\nreenvíes el comando.",
   "inputSchema": {
    "properties": {
     "type": {
@@ -455,7 +455,7 @@
  },
  {
   "name": "run_batch",
-  "description": "Ejecuta un lote ordenado de comandos [{type, params}, …]. Usa '$k' en los\ncampos de id de feature para referenciar el sólido creado por la k-ésima\nacción del lote. `detail`: \"diff\" (def.) devuelve solo los sólidos creados por el\nlote + `total_solidos`; \"full\" toda la escena; \"summary\" solo id/nombre. Un `fasten` por\nconjuntos suma `uniones_expandidas` (cuántas uniones declaró cada uno).\n`expect` (CONTRATO, V6.5b) = lista de ASERCIONES estilo verify (distancia/volumen/bbox/\nsin_interferencia/existe) que DEBEN cumplirse tras el lote; si alguna falla, el lote se\nrevierte POR COMPLETO (el documento queda intacto, sin escombro) y el error lista lo\nfallido (medido vs esperado). Los `$k` valen también en las aserciones (referencian lo\nrecién creado). EN POSE (V6.8-C): `distancia`/`sin_interferencia` aceptan `joint_values`\n{junta: valor} por aserción — «este lote no puede romper ninguna pose declarada» (costo ≈\nun check_interference posado por pose distinta). Muta con contrato cuando el resultado deba\ncumplir una condición y ahórrate el ciclo mutar→leer→verificar→undo.\nEl lote se ejecuta como JOB: si tarda más que el presupuesto de espera, en vez de un error\nde timeout recibes un RECIBO {\"job\": id} y lo recoges con get_job(id) — el resultado nunca\nse pierde, solo se difiere. NO reenvíes el lote al recibir un recibo (lo duplicarías).",
+  "description": "Ejecuta un lote ordenado de comandos [{type, params}, …]. Usa '$k' en los\ncampos de id de feature para referenciar el sólido creado por la k-ésima\nacción del lote. `detail`: \"diff\" (def.) devuelve solo los sólidos creados por el\nlote + `total_solidos`; \"full\" toda la escena; \"summary\" solo id/nombre y `comandos`: el id\nde comando de cada acción EN ORDEN (`$k` = `comandos[k-1]`, también de lo que no crea\nsólidos: add_device, add_wire, fasten). Un `fasten` por conjuntos suma `uniones_expandidas`\n(cuántas uniones declaró cada uno).\n`expect` (CONTRATO, V6.5b) = lista de ASERCIONES estilo verify (distancia/volumen/bbox/\nsin_interferencia/existe) que DEBEN cumplirse tras el lote; si alguna falla, el lote se\nrevierte POR COMPLETO (el documento queda intacto, sin escombro) y el error lista lo\nfallido (medido vs esperado). Los `$k` valen también en las aserciones (referencian lo\nrecién creado). EN POSE (V6.8-C): `distancia`/`sin_interferencia` aceptan `joint_values`\n{junta: valor} por aserción — «este lote no puede romper ninguna pose declarada» (costo ≈\nun check_interference posado por pose distinta). Muta con contrato cuando el resultado deba\ncumplir una condición y ahórrate el ciclo mutar→leer→verificar→undo.\nEl lote se ejecuta como JOB: si tarda más que el presupuesto de espera, en vez de un error\nde timeout recibes un RECIBO {\"job\": id} y lo recoges con get_job(id) — el resultado nunca\nse pierde, solo se difiere. NO reenvíes el lote al recibir un recibo (lo duplicarías).",
   "inputSchema": {
    "properties": {
     "actions": {
@@ -3536,7 +3536,7 @@
  },
  {
   "name": "get_circuit",
-  "description": "Circuito del TABLERO ELÉCTRICO declarado (add_device/add_wire/add_cable): dispositivos\ncon la RED de cada borne, redes con su tensión inferida (contactos cerrados), conductores\ny cables. `designacion` («-Q1», «=Faja1») filtra a esos dispositivos y lo que los toca\n(lee la designación asignada sola); una ubicación («+TAB1») da lo que está en ella y un\ncable («-W4»), sus hilos y los aparatos que tocan. `tablero=true` suma `tableros`: lo que la persona ve\ndel tablero armado en el visor (veredicto, ítems, largos, llenado). Con circuito de AIRE\n(add_device neumático + add_tubo) suma `neumatica` {lineas con su presión, tubos} y los\n`puertos` de cada aparato de aire. Read-only.",
+  "description": "Circuito del TABLERO ELÉCTRICO declarado (add_device/add_wire/add_cable): dispositivos\ncon la RED de cada borne, redes con su tensión inferida (contactos cerrados), conductores\ny cables. `designacion` («-Q1», «=Faja1») filtra a esos dispositivos y lo que los toca\n(lee la designación asignada sola); una ubicación («+TAB1») da lo que está en ella y un\ncable («-W4»), sus hilos y los aparatos que tocan. `tablero=true` da, EN VEZ del circuito,\nun RESUMEN de cada tablero armado (veredicto, cuentas, lo que pide atención con su motivo\ny los `conductores` que toca, lo que cumple) más el `resumen` del circuito; `completo=true`\nda el circuito entero y el panel entero de cada tablero, como lo ve la persona en el visor\n(canaletas con su llenado, cada conductor con su largo: pesa decenas de KB). Con circuito\nde AIRE (add_device neumático + add_tubo) el circuito suma `neumatica` {lineas con su\npresión, tubos} y los `puertos` de cada aparato de aire. Read-only.",
   "inputSchema": {
    "properties": {
     "designacion": {
@@ -3554,6 +3554,11 @@
     "tablero": {
      "default": false,
      "title": "Tablero",
+     "type": "boolean"
+    },
+    "completo": {
+     "default": false,
+     "title": "Completo",
      "type": "boolean"
     }
    },

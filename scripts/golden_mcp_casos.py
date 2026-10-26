@@ -167,6 +167,21 @@ ESCENARIOS = {"escenarios": [
     {"nombre": "seta", "estado": "vencido", "motivo": "la máquina cambió desde que se corrió",
      "ultimo": "pasa", "duracion_s": 3.0, "n_aserciones": 3}], "firma_documento": "abc123"}
 
+#: el panel de un tablero armado (`services/tablero_panel.panel`), recortado
+_PANEL = {"ubicacion": "+TAB1", "comando": "c9", "armado": True,
+          "gabinete": {"ref": "TABLERO-5040", "nombre": "Tablero 500x400", "pieza": "c9_gabinete",
+                       "medidas_mm": [500.0, 200.0, 400.0]},
+          "veredicto": {"severidad": "aviso", "frase": "1 cosa por revisar"},
+          "items": [{"clave": "largos", "severidad": "aviso", "frase": "Largo puesto a mano", "valor": 2,
+                     "unidad": "", "decimales": 0, "piezas": ["c9_d_Q1"], "conductores": ["c5", "c6"],
+                     "detalle": "La BOM compra el largo puesto a mano."}],
+          "puerta": {"junta": "c9_puerta", "min_deg": 0.0, "max_deg": 110.0},
+          "detalle": {"bien": [{"clave": "puerta", "severidad": "bien", "frase": "La puerta abre",
+                                "valor": 110.0, "unidad": "°", "decimales": 0, "piezas": ["c9_puerta"],
+                                "conductores": []}],
+                      "aparatos": [{"designacion": "-Q1"}], "canaletas": [{"nombre": "Canaleta"}],
+                      "conductores": [{"id": "c5"}, {"id": "c6"}], "cables": []}}
+
 
 def _encolado(job_id: str) -> dict:
     return J({"job_id": job_id, "estado": "encolado"}, 202)
@@ -715,6 +730,13 @@ CASOS = [
     caso("circuito de un dispositivo", "get_circuit", {"designacion": "-Q1"}),
     caso("circuito de una ubicación", "get_circuit", {"designacion": "+TAB1"}),  # V8.5 F5b
     caso("circuito con el tablero armado", "get_circuit", {"tablero": True}),  # V8.5 F3b
+    # pedidos-de-extensiones-ii D5: el resumen elige claves del panel; `completo` lo da entero
+    caso("circuito con el tablero resumido", "get_circuit", {"tablero": True}, rutas={
+        ("GET", r"/api/electrico/circuito"): J({"dispositivos": [], "redes": [], "conductores": [],
+                                                "cables": [], "resumen": {"n_dispositivos": 2},
+                                                "tableros": [_PANEL, {"ubicacion": "+TAB2", "armado": False}]})}),
+    caso("circuito con el tablero completo", "get_circuit", {"tablero": True, "completo": True}, rutas={
+        ("GET", r"/api/electrico/circuito"): J({"resumen": {}, "tableros": [_PANEL]})}),
     caso("chequeo eléctrico", "electrical_check"),
     # V8.3 D13: la prueba virtual
     caso("simulación con escenario", "simulate", {"escenario": "seta"}),

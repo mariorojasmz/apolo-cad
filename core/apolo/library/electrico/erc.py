@@ -19,7 +19,7 @@ from itertools import islice, product
 
 from .erc_seguridad import canales_sto, pe_en_cadena
 from .modelo import Carga, Dispositivo, ModeloElectrico
-from .redes import Analisis, Llegada, Potencial, analizar, compatibles
+from .redes import Analisis, Llegada, Potencial, analizar, compatibles, nombre_conductor
 from .referencias import ReferenciaError, parse_designacion
 from .tension import admite, formato_valor, tension_entre
 
@@ -45,12 +45,17 @@ TOPE_COMBINACIONES = 2000
 
 
 def _r(regla: str, estado: str, detalle: str, recomendacion: str | None = None,
-       elementos: list[str] | None = None, norma: str | None = None) -> dict:
+       elementos: list[str] | None = None, norma: str | None = None,
+       conductores: list[int] | None = None) -> dict:
+    """`conductores`: los números (1-based, orden de `modelo.conductores`) de los conductores del
+    hallazgo; el texto los nombra por sus extremos (`redes.nombre_conductor`)."""
     out = {"regla": regla, "estado": estado, "detalle": detalle}
     if recomendacion:
         out["recomendacion"] = recomendacion
     out["norma"] = norma or NORMAS[regla]
     out["elementos"] = list(elementos or [])
+    if conductores:
+        out["conductores"] = list(conductores)
     return out
 
 
@@ -69,7 +74,7 @@ def _lista(pts, n: int = 4) -> str:
 def _referencias(a: Analisis) -> list[dict]:
     out = [_r("referencias", "error", p.detalle,
               "Corrige la referencia con la forma «-K1:A1» y un borne que exista en la ficha.",
-              p.elementos) for p in a.problemas]
+              p.elementos, conductores=[p.conductor] if p.conductor else None) for p in a.problemas]
     for d in a.modelo.dispositivos:
         try:
             parse_designacion(d.designacion)
@@ -358,10 +363,10 @@ def _colores(a: Analisis) -> list[dict]:
         else:
             motivo = porque
         out.append(_r("color del conductor", "aviso",
-                      f"conductor {i + 1} ({cond.etiqueta}) es {color}: la red {motivo}.",
+                      f"conductor {nombre_conductor(cond)} es {color}: la red {motivo}.",
                       f"Usa {' o '.join(sorted(c for c in colores if c != 'OG'))} (naranja sólo en "
                       "circuitos que siguen energizados con el seccionador abierto).",
-                      list(cond.puntos)))
+                      list(cond.puntos), conductores=[i + 1]))
     return out or [_r("color del conductor", "ok", "Los colores de los conductores siguen IEC 60204-1 §13.2.")]
 
 

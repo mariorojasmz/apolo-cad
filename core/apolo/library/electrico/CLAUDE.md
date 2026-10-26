@@ -40,6 +40,9 @@ Lo de catálogo y BOM en general: [library](../CLAUDE.md); los modelos de la co-
   o va a `services/escenarios.FUERA_DE_FIRMA` (no es física o sale de lo que el log ya firma).
   Quién mueve un bloque auxiliar es UNA regla, `acoples.py` (la lee la co-simulación; la
   colocación conserva su regla de montaje). [plan](../../../../docs/plans/pedidos-de-extensiones.md) (F2)
+- Un texto del ERC nombra el conductor con `redes.nombre_conductor` (sus puntos y `[hilo, red]`),
+  nunca por su índice: el número va en `conductores` de la fila.
+  [pedidos-ii](../../../../docs/plans/pedidos-de-extensiones-ii.md) (D4)
 - ERC del camino de la protección (`erc_seguridad.py`, reglas en su docstring): «PE en cadena»
   por el grafo de conductores (un aparato es PASO si sacar su PE deja a otro sin tierra) y
   «canales del STO» por `modelo.STO_canales` (toda ref con `STO: true` lo trae; fuera de la firma:

@@ -905,7 +905,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"comando\": \"c2_c1\"}], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 2, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}, {\"id\": \"c2_c1\", \"nombre\": \"Rodillo\", \"comando\": \"c2_c1\"}], \"comandos\": [\"c1\", \"c2\"], \"contrato\": {\"n_aserciones\": 1, \"ok\": true}}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1047,7 +1047,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 44, \"solidos_afectados\": 41, \"por_comando\": [{\"comando\": \"c7\", \"n\": 41, \"ejemplo\": {\"id\": \"c7_r0\", \"nombre\": \"Rodillo 0\"}, \"grupos\": {\"Rodillos\": 41}}], \"seguir\": \"lista sus piezas con get_scene(name=…) o get_scene(ids=[grupo]); detail='full' trae la escena entera\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 44, \"solidos_afectados\": 41, \"por_comando\": [{\"comando\": \"c7\", \"n\": 41, \"ejemplo\": {\"id\": \"c7_r0\", \"nombre\": \"Rodillo 0\"}, \"grupos\": {\"Rodillos\": 41}}], \"seguir\": \"lista sus piezas con get_scene(name=…) o get_scene(ids=[grupo]); detail='full' trae la escena entera\", \"comandos\": [\"c7\"]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -1420,7 +1420,7 @@
   },
   "salida": [
    {
-    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\"}"
+    "texto": "{\"proyecto\": \"golden\", \"configuraciones\": [\"4m\", \"3.2m\"], \"puede_deshacer\": true, \"puede_rehacer\": false, \"total_solidos\": 3, \"solidos_mostrados\": 1, \"solidos\": [{\"id\": \"c1\", \"nombre\": \"Base\", \"comando\": \"c1\"}], \"aviso_estructura\": \"0 anclajes declarados (golden)\", \"comandos\": [\"c1\"]}"
    }
   ],
   "estructurado": "= {result: texto}",
@@ -7423,7 +7423,78 @@
   },
   "salida": [
    {
-    "texto": "{\"dispositivos\": [{\"designacion\": \"-Q1\", \"ref\": \"GM-2.5-4A\", \"funcion\": \"Q\", \"bornes\": [{\"id\": \"1\", \"rol\": \"potencia\", \"red\": \"N1\"}]}], \"redes\": [{\"id\": \"N1\", \"puntos\": [\"-G1:L1\", \"-Q1:1\"], \"tension\": \"-G1:L1 · 220 VAC\"}], \"conductores\": [{\"comando\": \"c5\", \"puntos\": [\"-G1:L1\", \"-Q1:1\"], \"color\": \"BK\"}], \"cables\": [], \"resumen\": {\"n_dispositivos\": 2, \"n_conductores\": 1}}"
+    "texto": "{\"tableros\": [], \"resumen\": {\"n_dispositivos\": 2, \"n_conductores\": 1}, \"seguir\": \"get_circuit() da el circuito (dispositivos, redes, conductores); get_circuit(tablero=true, completo=true), el panel entero de cada tablero\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/electrico/circuito",
+    "query": [
+     [
+      "tablero",
+      "true"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "circuito con el tablero resumido",
+  "tool": "get_circuit",
+  "args": {
+   "tablero": true
+  },
+  "salida": [
+   {
+    "texto": "{\"tableros\": [{\"ubicacion\": \"+TAB1\", \"comando\": \"c9\", \"armado\": true, \"gabinete\": {\"ref\": \"TABLERO-5040\", \"medidas_mm\": [500.0, 200.0, 400.0]}, \"veredicto\": {\"severidad\": \"aviso\", \"frase\": \"1 cosa por revisar\"}, \"cuentas\": {\"aparatos\": 1, \"conductores\": 2, \"canaletas\": 1, \"cables_de_campo\": 0}, \"items\": [{\"clave\": \"largos\", \"severidad\": \"aviso\", \"frase\": \"Largo puesto a mano\", \"valor\": 2, \"conductores\": [\"c5\", \"c6\"], \"detalle\": \"La BOM compra el largo puesto a mano.\"}], \"bien\": [{\"clave\": \"puerta\", \"severidad\": \"bien\", \"frase\": \"La puerta abre\", \"valor\": 110.0, \"unidad\": \"°\"}]}, {\"ubicacion\": \"+TAB2\", \"armado\": false}], \"resumen\": {\"n_dispositivos\": 2}, \"seguir\": \"get_circuit() da el circuito (dispositivos, redes, conductores); get_circuit(tablero=true, completo=true), el panel entero de cada tablero\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "GET",
+    "url": "http://127.0.0.1:8000/api/electrico/circuito",
+    "query": [
+     [
+      "tablero",
+      "true"
+     ]
+    ],
+    "cuerpo": null,
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "circuito con el tablero completo",
+  "tool": "get_circuit",
+  "args": {
+   "tablero": true,
+   "completo": true
+  },
+  "salida": [
+   {
+    "texto": "{\"resumen\": {}, \"tableros\": [{\"ubicacion\": \"+TAB1\", \"comando\": \"c9\", \"armado\": true, \"gabinete\": {\"ref\": \"TABLERO-5040\", \"nombre\": \"Tablero 500x400\", \"pieza\": \"c9_gabinete\", \"medidas_mm\": [500.0, 200.0, 400.0]}, \"veredicto\": {\"severidad\": \"aviso\", \"frase\": \"1 cosa por revisar\"}, \"items\": [{\"clave\": \"largos\", \"severidad\": \"aviso\", \"frase\": \"Largo puesto a mano\", \"valor\": 2, \"unidad\": \"\", \"decimales\": 0, \"piezas\": [\"c9_d_Q1\"], \"conductores\": [\"c5\", \"c6\"], \"detalle\": \"La BOM compra el largo puesto a mano.\"}], \"puerta\": {\"junta\": \"c9_puerta\", \"min_deg\": 0.0, \"max_deg\": 110.0}, \"detalle\": {\"bien\": [{\"clave\": \"puerta\", \"severidad\": \"bien\", \"frase\": \"La puerta abre\", \"valor\": 110.0, \"unidad\": \"°\", \"decimales\": 0, \"piezas\": [\"c9_puerta\"], \"conductores\": []}], \"aparatos\": [{\"designacion\": \"-Q1\"}], \"canaletas\": [{\"nombre\": \"Canaleta\"}], \"conductores\": [{\"id\": \"c5\"}, {\"id\": \"c6\"}], \"cables\": []}}]}"
    }
   ],
   "estructurado": "= {result: texto}",

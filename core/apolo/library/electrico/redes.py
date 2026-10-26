@@ -58,10 +58,25 @@ class Llegada:
 
 @dataclass
 class Problema:
-    """Una referencia que no resuelve (lo reporta el ERC como «referencias»)."""
+    """Una referencia que no resuelve (lo reporta el ERC como «referencias»). `conductor`: el
+    número (1-based, el orden de `modelo.conductores`) del conductor que la tiene, si es de uno:
+    el texto lo nombra por sus extremos (`nombre_conductor`), la clave queda aquí."""
 
     detalle: str
     elementos: list[str] = field(default_factory=list)
+    conductor: int | None = None
+
+
+def nombre_conductor(cond) -> str:
+    """Cómo se lee un conductor en el esquema: sus puntos en el orden de cableado («-T2:V →
+    -M1:V1») y, si la tiene, su etiqueta entre corchetes: el hilo del cable («-W1.3») y el nombre
+    de su red («L1»): «-T2:V → -M1:V1 [-W1.2]». Nunca su índice en el modelo (va en un campo
+    aparte: `Problema.conductor`, la clave `conductores` de una fila del ERC)."""
+    extras = [f"{cond.cable}.{cond.hilo}" if cond.hilo else cond.cable] if cond.cable else []
+    if cond.potencial:
+        extras.append(cond.potencial)
+    base = cond.etiqueta or "sin puntos"
+    return f"{base} [{', '.join(extras)}]" if extras else base
 
 
 @dataclass
@@ -160,27 +175,27 @@ def _resolver_conductores(modelo, dispositivos, cables_por_nombre, problemas):
     """Puntos resueltos de cada conductor (o problemas si no resuelven)."""
     resueltos: dict[int, list[tuple[str, str]]] = {}
     for i, cond in enumerate(modelo.conductores):
+        nombre, n = nombre_conductor(cond), i + 1
         if len(cond.puntos) < 2:
-            problemas.append(Problema(f"el conductor {i + 1} ({cond.etiqueta or 'sin puntos'}) une menos de dos puntos",
-                                      list(cond.puntos)))
+            problemas.append(Problema(f"el conductor {nombre} une menos de dos puntos", list(cond.puntos), n))
         pts: list[tuple[str, str]] = []
         for p in cond.puntos:
             r, motivo = resolver(p, dispositivos)
             if r is None:
-                problemas.append(Problema(f"conductor {i + 1} ({cond.etiqueta}): {motivo}", [p]))
+                problemas.append(Problema(f"conductor {nombre}: {motivo}", [p], n))
             else:
                 pts.append(r)
         if cond.cable:
             cable = cables_por_nombre.get(cond.cable)
             if cable is None:
                 problemas.append(Problema(
-                    f"conductor {i + 1} ({cond.etiqueta}): el cable {cond.cable} no existe."
-                    f"{sufijo_sugerencia(cond.cable, cables_por_nombre)}", [cond.cable]))
+                    f"conductor {nombre}: el cable {cond.cable} no existe."
+                    f"{sufijo_sugerencia(cond.cable, cables_por_nombre)}", [cond.cable], n))
             elif cond.hilo is None or cable.hilo(cond.hilo) is None:
                 ids = [h.id for h in cable.hilos]
                 problemas.append(Problema(
-                    f"conductor {i + 1} ({cond.etiqueta}): el cable {cond.cable} ({cable.ref}) no tiene el hilo "
-                    f"{cond.hilo}; hilos: {', '.join(ids)}.{sufijo_sugerencia(str(cond.hilo), ids)}", [cond.cable]))
+                    f"conductor {nombre}: el cable {cond.cable} ({cable.ref}) no tiene el hilo "
+                    f"{cond.hilo}; hilos: {', '.join(ids)}.{sufijo_sugerencia(str(cond.hilo), ids)}", [cond.cable], n))
         resueltos[i] = pts
     return resueltos
 

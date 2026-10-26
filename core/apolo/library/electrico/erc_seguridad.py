@@ -24,7 +24,7 @@ from __future__ import annotations
 from collections import deque
 
 from .modelo import Dispositivo
-from .redes import Analisis, resolver
+from .redes import Analisis, nombre_conductor, resolver
 
 NORMA_PE = "IEC 60204-1 §8.2.3 (retirar una parte no interrumpe el circuito de protección de las demás)"
 NORMA_STO = "ISO 13849-1 §6.2.6–6.2.7 (categorías 3 y 4: una sola falla no pierde la función) · IEC 61800-5-2 (STO)"
@@ -33,12 +33,14 @@ Punto = tuple[str, str]
 
 
 def _fila(regla: str, estado: str, detalle: str, norma: str, recomendacion: str | None = None,
-          elementos: list[str] | None = None) -> dict:
+          elementos: list[str] | None = None, conductores: list[int] | None = None) -> dict:
     out = {"regla": regla, "estado": estado, "detalle": detalle}
     if recomendacion:
         out["recomendacion"] = recomendacion
     out["norma"] = norma
     out["elementos"] = list(elementos or [])
+    if conductores:
+        out["conductores"] = list(conductores)  # 1-based, como en `erc._r`
     return out
 
 
@@ -123,9 +125,9 @@ def pe_en_cadena(a: Analisis) -> list[dict]:
         if not colgados:
             continue
         aparatos = list(dict.fromkeys(p[0] for p in colgados))
-        via = [f"conductor {i + 1} ({a.modelo.conductores[i].etiqueta})"
-               for i, pts in enumerate(por_conductor) if propias & set(pts)
-               and (propias & set(pts[1:-1]) or {q[0] for q in pts} & set(aparatos))]
+        via_i = [i for i, pts in enumerate(por_conductor) if propias & set(pts)
+                 and (propias & set(pts[1:-1]) or {q[0] for q in pts} & set(aparatos))]
+        via = [f"conductor {nombre_conductor(a.modelo.conductores[i])}" for i in via_i]
         out.append(_fila(
             regla, "error",
             f"{_quien(d)}: su borne de tierra {', '.join(_txt(p) for p in sorted(propias))} es paso de la "
@@ -133,7 +135,7 @@ def pe_en_cadena(a: Analisis) -> list[dict]:
             NORMA_PE,
             "Lleva cada aparato con su propio conductor PE hasta la barra o bornera de tierra (en "
             "estrella), sin pasar por el borne PE de otro aparato.",
-            [_txt(p) for p in sorted(propias)] + [_txt(p) for p in colgados]))
+            [_txt(p) for p in sorted(propias)] + [_txt(p) for p in colgados], [i + 1 for i in via_i]))
     return out or [_fila(regla, "ok",
                          f"Los {len(con_tierra)} aparatos con borne de tierra llegan al PE por su propio "
                          "conductor: ninguno es paso de la tierra de otro.", NORMA_PE)]

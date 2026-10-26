@@ -112,7 +112,8 @@ def run_command(type: str, params: dict, detail: str = "diff") -> str:
     """Ejecuta un comando CAD (ver get_command_schemas). Los campos numéricos
     aceptan '=expresión' con variables del proyecto. `detail`: "diff" (def.) devuelve
     solo los sólidos nuevos + `total_solidos`; "full" toda la escena; "summary" solo
-    id/nombre de lo nuevo (con más de 40, "diff" y "summary" resumen `por_comando`). El bloque
+    id/nombre de lo nuevo y `comandos` (el id del comando; con más de 40 sólidos, "diff" y
+    "summary" resumen `por_comando`). El bloque
     `variables` solo aparece si la operación tocó alguna (o detail="full"); usa get_scene para
     verlas siempre. Si tarda, recibes un RECIBO {"job": id}: recógelo con get_job(id) y NO
     reenvíes el comando."""
@@ -124,8 +125,10 @@ def run_batch(actions: list[dict], detail: str = "diff", expect: list[dict] | No
     """Ejecuta un lote ordenado de comandos [{type, params}, …]. Usa '$k' en los
     campos de id de feature para referenciar el sólido creado por la k-ésima
     acción del lote. `detail`: "diff" (def.) devuelve solo los sólidos creados por el
-    lote + `total_solidos`; "full" toda la escena; "summary" solo id/nombre. Un `fasten` por
-    conjuntos suma `uniones_expandidas` (cuántas uniones declaró cada uno).
+    lote + `total_solidos`; "full" toda la escena; "summary" solo id/nombre y `comandos`: el id
+    de comando de cada acción EN ORDEN (`$k` = `comandos[k-1]`, también de lo que no crea
+    sólidos: add_device, add_wire, fasten). Un `fasten` por conjuntos suma `uniones_expandidas`
+    (cuántas uniones declaró cada uno).
     `expect` (CONTRATO, V6.5b) = lista de ASERCIONES estilo verify (distancia/volumen/bbox/
     sin_interferencia/existe) que DEBEN cumplirse tras el lote; si alguna falla, el lote se
     revierte POR COMPLETO (el documento queda intacto, sin escombro) y el error lista lo

@@ -20,8 +20,14 @@ def job_receipt(job_id: str, estado: str = "corriendo") -> str:
 
 def job_result(payload: dict, detail: str) -> dict:
     """Brief de un job = el de la vía síncrona; sin `features` (ya liviano) pasa tal cual. El
-    contrato y las uniones que expandió cada fasten por conjuntos (mcp-sin-friccion D4) pasan."""
+    contrato y las uniones que expandió cada fasten por conjuntos (mcp-sin-friccion D4) pasan.
+    Con `detail="summary"` suma `comandos`: el id de comando de cada acción, EN ORDEN (los
+    `affected_command_ids` del API: en un lote, `$k` = `comandos[k-1]`; en edit_batch, los
+    editados), también de lo que no crea sólidos (add_device, fasten, set_variable)
+    ([pedidos-de-extensiones-ii](../../../docs/plans/pedidos-de-extensiones-ii.md) D6)."""
     out = _scene_brief(payload, detail) if "features" in payload else dict(payload)
+    if detail == "summary" and "features" in payload and payload.get("affected_command_ids"):
+        out["comandos"] = list(payload["affected_command_ids"])
     for clave in ("contrato", "uniones_expandidas"):
         if clave in payload:
             out[clave] = payload[clave]
