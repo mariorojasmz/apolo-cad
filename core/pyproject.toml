@@ -1,6 +1,6 @@
 [project]
 name = "apolo-cad"
-version = "0.1.0"
+version = "0.2.0"
 description = "CAD paramétrico 3D agente-nativo para maquinaria industrial, conducible por un agente de IA vía MCP"
 readme = "README.md"
 requires-python = ">=3.11"

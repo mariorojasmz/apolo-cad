@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.mariorojasmz/apolo-cad",
   "description": "Agent-native parametric 3D CAD: model machines, validate them and emit shop drawings",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "repository": {
     "url": "https://github.com/mariorojasmz/apolo-cad",
     "source": "github"
@@ -12,8 +12,10 @@
     {
       "registryType": "pypi",
       "identifier": "apolo-cad",
-      "version": "0.1.0",
-      "transport": { "type": "stdio" },
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
       "environmentVariables": [
         {
           "name": "APOLO_URL",

@@ -34,7 +34,7 @@ apolo --open          # API + web UI on http://127.0.0.1:8000
 
 ## Use it from an AI agent (MCP)
 
-Apolo exposes **79 MCP tools**, so any MCP-compatible client (Claude Code, Claude Desktop, …) can
+Apolo exposes **90 MCP tools**, so any MCP-compatible client (Claude Code, Claude Desktop, …) can
 design machines. Keep `apolo` running, then register the stdio server:
 
 ```jsonc
@@ -64,7 +64,7 @@ BOMs, assembly manuals). Everything lives in the command log: editable, undoable
   sheet metal with flat-pattern DXF/SVG, constrained 2D sketching, STEP import.
 - **Assembly & kinematics** — persistent face mates, joints, rail/N-DOF constraints, motion
   studies with collision scanning.
-- **Library & BOM** — a 231-reference catalog from real standards (ISO/ASTM/DIN/EN) + machine
+- **Library & BOM** — a 462-reference catalog from real standards (ISO/ASTM/DIN/EN) + machine
   super-commands (belt conveyor, weldment, frame, sheet metal, robot arm).
 - **Validation** — engineering rules, OCCT interference booleans, and gravity-based assembly
   validation (simulates *what falls*).
