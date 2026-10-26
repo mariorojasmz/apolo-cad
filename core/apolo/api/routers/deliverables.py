@@ -274,12 +274,15 @@ def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
     hoja «AVISOS DE COBRO») y, para el agente, en la cabecera `X-Apolo-Avisos` (JSON ASCII:
     `{avisos, monto_en_riesgo_usd}`; sólo si hay). El resumen económico (costo directo, margen,
     impuesto, precio de venta, en la moneda presentada) va siempre en `X-Apolo-Precio` (JSON
-    ASCII, `quote.resumen_precio`): la tool `quotation` lo devuelve sin leer el PDF."""
+    ASCII, `quote.resumen_precio`): la tool `quotation` lo devuelve sin leer el PDF. Título y
+    bloque «Cliente / Nº / Rev.»: `services/identificacion.py` (el proyecto, una extensión o el
+    nombre limpio)."""
     import json
 
     from apolo.drawing import sheets_to_pdf
     from apolo.drawing.quote import quotation_pages, resumen_precio
     from apolo.services.cobros import costeo
+    from apolo.services.identificacion import identificacion
 
     with STATE_LOCK:
         req = S.doc.requirements or {}
@@ -290,6 +293,7 @@ def quote_pdf(margin_pct: float = 25.0, tax_pct: float = 0.0,
             S.doc.scene, project_name=S.doc.name or "Sin título",
             requirements=S.doc.requirements, margin_pct=margin_pct, tax_pct=tax_pct,
             currency=cur, fx=fx_eff, meta=_drawing_meta(), costeo=data,
+            identificacion=identificacion(S.doc),
         )
     precio = resumen_precio(data, margin_pct=margin_pct, tax_pct=tax_pct, currency=cur, fx=fx_eff)
     headers = {"Content-Disposition": f'attachment; filename="{S.doc.name or "proyecto"}-cotizacion.pdf"',

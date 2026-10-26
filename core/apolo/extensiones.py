@@ -31,7 +31,9 @@ Contrato (lo que una extensión usa; `CONTRATO_EXTENSIONES` sube sólo si cambia
   datos de cada extensión en el `.apolo` (`doc/ext_manifest.py`, escrita por la fachada).
 - `costeo` suma filas al costeo y la cotización (`library/costeo_extension`, `services/cobros`) y
   `entrega`, reglas a la puerta de entrega (`library/entrega_extension`, `delivery_inputs`); cada
-  uno con su versión (plan puntos-de-extension-entregables).
+  uno con su versión (plan puntos-de-extension-entregables). En `costeo` también va una
+  `IdentificacionCosteo` (a quién va la cotización) y una fuente puede acotar `nucleo.alcance` o
+  `nucleo.validez` y declarar lo que `incluye` (plan cotizacion-identificada-y-ajustes-por-escenario).
 - `conectores_plc` (plan plc-en-el-lazo, D5) suma conectores a un PLC de afuera
   (`cosim/puerto_plc.py`: los 13 miembros, `validar_config`); los elige el pedido de una corrida,
   viajan al worker por pickle y su módulo importa la red al conectar, nunca al importarse.

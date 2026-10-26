@@ -8,11 +8,19 @@ PARTIDAS (el BOM costeado completo, paginado). Consume `library/costing.py`
 
 Honestidad comercial: los precios de catálogo son REFERENCIALES y las piezas a
 medida se estiman por peso×material×factor — las notas lo declaran siempre.
+
+Identificada (plan cotizacion-identificada-y-ajustes-por-escenario, F1): el título y el bloque
+«Cliente / Nº / Rev.» salen de `identificacion` (`services/identificacion.py`: el proyecto, una
+extensión o, sin ninguna, el nombre del proyecto sin «(copia)» y sin bloque); su fuente va al pie.
+Las notas del núcleo tienen id (`costeo_extension.NOTAS_NUCLEO`): una extensión acota sólo
+`nucleo.alcance` y `nucleo.validez` (D3) y el alcance se calcula con lo que cubren las filas (D4).
 """
 
 from __future__ import annotations
 
 from datetime import date
+
+from apolo.library.comercial import titulo_limpio
 
 from . import notas_cotizacion as NC
 from .assembly_manual import SHEETS, _wrap
@@ -72,21 +80,48 @@ def resumen_precio(costeo: dict, *, margin_pct: float, tax_pct: float, currency:
     return out
 
 
+def _titulo(m: SheetModel, H: float, titulo: str) -> None:
+    """El título del resumen: hasta 54 caracteres a 4.6 mm (lo de siempre); uno más largo (un
+    `comercial.titulo`, ≤ 80) baja a 3.4 mm en vez de recortarse."""
+    texto = str(titulo)
+    if len(texto) <= 54:
+        m.labels.append(Label(16, H - 34, texto, 4.6, anchor="start"))
+    else:
+        m.labels.append(Label(16, H - 34, texto[:80], 3.4, anchor="start"))
+
+
+def _bloque_cliente(m: SheetModel, y: float, ident: dict) -> float:
+    """El bloque «Cliente / Nº / Rev.» (D1) desde `y`, sólo con lo que hay; devuelve la y libre."""
+    y0 = y
+    if ident.get("cliente"):
+        for k, ln in enumerate(_wrap(f"Cliente: {ident['cliente']}", 62)):
+            m.labels.append(Label(16 if k == 0 else 18, y, ln, 3.0, anchor="start"))
+            y -= 4.6
+    nro = " · ".join(t for t in (ident.get("numero") and f"Nº {ident['numero']}",
+                                 ident.get("revision") and f"Rev. {ident['revision']}") if t)
+    if nro:
+        m.labels.append(Label(16, y, nro, 3.0, anchor="start"))
+        y -= 4.6
+    return y - 1.4 if y != y0 else y
+
+
 def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
                   totals: dict, margin_pct: float, tax_pct: float, currency: str,
                   n_rows: int, base_meta: dict, fx_note: str | None = None,
                   avisos: list[dict] | None = None, riesgo: float | None = None,
-                  mas_notas: list[str] = ()) -> SheetModel:
+                  mas_notas: list[str] = (), identificacion: dict | None = None,
+                  acotadas: dict | None = None, incluye=()) -> SheetModel:
+    ident = identificacion or {}
     m = SheetModel(W, H)
     m.rect(10, 10, W - 20, H - 20, "frame")
     m.labels.append(Label(16, H - 24, "COTIZACIÓN", 8.0, anchor="start"))
-    m.labels.append(Label(16, H - 34, str(project_name)[:54], 4.6, anchor="start"))
+    _titulo(m, H, project_name)
     m.labels.append(Label(W - 16, H - 24, f"N° {base_meta.get('drawing_no', '—')}", 4.0, anchor="end"))
     m.labels.append(Label(W - 16, H - 31, str(base_meta.get("date", "")), 3.0, anchor="end"))
     m.lines.append(Line(14, H - 39, W - 14, H - 39, "frame"))
 
-    # columna izquierda: alcance + desglose por categoría
-    y = H - 48
+    # columna izquierda: cliente (si hay) + alcance + desglose por categoría
+    y = _bloque_cliente(m, H - 48, ident)
     producto = requirements.get("producto")
     if producto:
         m.labels.append(Label(16, y, f"Alcance: {str(producto)[:50]}", 3.0, anchor="start"))
@@ -145,37 +180,76 @@ def _summary_page(W: float, H: float, *, project_name: str, requirements: dict,
     ny = _NOTAS_Y
     m.labels.append(Label(16, ny, "NOTAS", 3.2, anchor="start"))
     ny -= 5
-    for ln in _lineas_nucleo(n_rows, fx_note, avisos):
+    for ln in _lineas_nucleo(n_rows, fx_note, avisos, acotadas, incluye):
         m.labels.append(Label(18, ny, ln, 2.5, anchor="start"))
         ny -= 3.8
     for ln in mas_notas:  # las de las extensiones, ya partidas (notas_cotizacion.repartir)
         m.labels.append(Label(18, ny, ln, 2.5, anchor="start"))
         ny -= 3.8
+    if ident.get("fuente") not in (None, "nombre"):  # D2: de dónde salió la identificación
+        m.labels.append(Label(16, 6.0, f"identificación: {ident['fuente']}", 2.2, anchor="start"))
     draw_title_block(m, {**base_meta, "sheet_no": 1})
     return m
 
 
-def _notas_nucleo(n_rows: int, fx_note: str | None, avisos: list[dict] | None) -> list[str]:
-    """Las notas comerciales del núcleo (honestidad + condiciones): una extensión no las quita."""
+#: Lo que el alcance del núcleo excluye salvo que una fila lo cubra (D4), en su orden:
+#: (clave de `costeo_extension.ALCANCES`, en «No incluye…», en «En las partidas…»).
+_ALCANCE = (("transporte", "transporte", "el transporte"),
+            ("instalacion", "instalación", "la instalación"),
+            ("puesta_en_marcha", "puesta en marcha", "la puesta en marcha"))
+
+
+def _y(cosas: list[str], conj: str) -> str:
+    return cosas[0] if len(cosas) == 1 else f"{', '.join(cosas[:-1])} {conj} {cosas[-1]}"
+
+
+def texto_alcance(incluye=()) -> str:
+    """La nota `nucleo.alcance` (D4): sin nada incluido, la de siempre; lo que una fila cubre
+    (`incluye`, de `costeo_extension.ALCANCES`) deja de excluirse y se dice que va en las
+    partidas. Unas «pruebas» de marcha bastan para no decir «ni puesta en marcha»."""
+    inc = set(incluye)
+    fuera = [corto for k, corto, _ in _ALCANCE if k not in inc
+             and not (k == "puesta_en_marcha" and "pruebas" in inc)]
+    dentro = [largo for k, _, largo in _ALCANCE if k in inc]
+    if "pruebas" in inc and "puesta_en_marcha" not in inc:
+        dentro.append("las pruebas de marcha")
+    if not dentro:
+        return "No incluye transporte, instalación ni puesta en marcha, salvo pacto expreso."
+    en = f"En las partidas: {_y(dentro, 'y')}."
+    return f"No incluye {_y(fuera, 'ni')}, salvo pacto expreso. {en}" if fuera else en
+
+
+def _notas_nucleo(n_rows: int, fx_note: str | None, avisos: list[dict] | None,
+                  acotadas: dict | None = None, incluye=()) -> list[tuple[str, str]]:
+    """Las notas comerciales del núcleo, `[(id, texto)]` en su orden (honestidad + condiciones).
+    Una extensión no las quita: sólo `acota` (D3) `nucleo.alcance` o `nucleo.validez`
+    (`acotadas`: id → texto, que va EN SU LUGAR); el alcance sin acotar se calcula (D4)."""
+    acotadas = acotadas or {}
     notas = [
-        "Precios de catálogo REFERENCIALES y fabricación estimada por peso×material×factor — "
-        "confirmar con proveedores antes de comprometer.",
-        f"Detalle de las {n_rows} partidas en las hojas siguientes (con la fuente de cada precio).",
-        "No incluye transporte, instalación ni puesta en marcha, salvo pacto expreso.",
-        "Validez de la oferta: 15 días calendario.",
+        ("nucleo.referenciales",
+         "Precios de catálogo REFERENCIALES y fabricación estimada por peso×material×factor — "
+         "confirmar con proveedores antes de comprometer."),
+        ("nucleo.detalle",
+         f"Detalle de las {n_rows} partidas en las hojas siguientes (con la fuente de cada precio)."),
+        ("nucleo.alcance", acotadas.get("nucleo.alcance") or texto_alcance(incluye)),
+        ("nucleo.validez",
+         acotadas.get("nucleo.validez") or "Validez de la oferta: 15 días calendario."),
     ]
     if fx_note:
-        notas.insert(1, fx_note)
+        notas.insert(1, ("nucleo.cambio", fx_note))
     if avisos:
-        notas.insert(0, f"Hay {len(avisos)} aviso(s) de cobro en la hoja 2: el precio NO los "
-                        "descuenta; liga o declara en el modelo lo que indica cada uno.")
+        notas.insert(0, ("nucleo.avisos",
+                         f"Hay {len(avisos)} aviso(s) de cobro en la hoja 2: el precio NO los "
+                         "descuenta; liga o declara en el modelo lo que indica cada uno."))
     return notas
 
 
-def _lineas_nucleo(n_rows: int, fx_note: str | None, avisos: list[dict] | None) -> list[str]:
+def _lineas_nucleo(n_rows: int, fx_note: str | None, avisos: list[dict] | None,
+                   acotadas: dict | None = None, incluye=()) -> list[str]:
     """Las líneas de las notas del núcleo. Wrap a 60 chars: quedan a la izquierda de la tabla de
     revisiones del cajetín (x ≥ 107), sin solaparse aunque el proyecto tenga muchas revisiones."""
-    return [ln for idx, nota in enumerate(_notas_nucleo(n_rows, fx_note, avisos), start=1)
+    notas = _notas_nucleo(n_rows, fx_note, avisos, acotadas, incluye)
+    return [ln for idx, (_id, nota) in enumerate(notas, start=1)
             for ln in _wrap(f"{idx}. {nota}", 60)]
 
 
@@ -193,13 +267,16 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
                     tax_pct: float = 0.0, currency: str = "USD", fx: float = 1.0,
                     meta: dict | None = None, sheet: str = "A4",
                     extra_rows: list[dict] | None = None,
-                    costeo: dict | None = None) -> list[SheetModel]:
+                    costeo: dict | None = None,
+                    identificacion: dict | None = None) -> list[SheetModel]:
     """Cotización multipágina: [resumen económico + avisos de cobro (si hay) + notas que no
     cupieron en el resumen (si hay) + N hojas de detalle de partidas]. `fx` = tipo de cambio sobre
     USD (solo PRESENTACIÓN: los costos se almacenan en USD; con fx≠1 la conversión se declara en
     las notas). `extra_rows` = partidas que la escena no tiene (el tablero eléctrico, V8.1 D10).
     `costeo` = el de `services/cobros.costeo` (filas, totales, `avisos` —V8.1 F4c— y `notas` de
-    las extensiones —pedidos-de-extensiones D9—); sin él se costea aquí."""
+    las extensiones —pedidos-de-extensiones D9—); sin él se costea aquí. `identificacion` = la de
+    `services/identificacion.py` (título, cliente, número, revisión y su `fuente`); sin ella, el
+    título es `project_name` sin «(copia)» y no hay bloque de cliente."""
     from apolo.library.costing import scene_costing
 
     W, H = SHEETS.get(sheet, SHEETS["A4"])
@@ -246,9 +323,15 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
                "(los costos base se mantienen en USD)." if fx != 1.0 else None)
     # notas de extensiones (pedidos-de-extensiones D9): tras las del núcleo; lo que no cabe a la
     # izquierda del cajetín sigue en «NOTAS (continuación)», tras los avisos y antes del detalle
-    de_ext = [n["texto"] for n in data.get("notas") or ()]
-    n_nucleo = len(_notas_nucleo(len(rows), fx_note, avisos))
-    y_libre = _NOTAS_Y - 5 - 3.8 * len(_lineas_nucleo(len(rows), fx_note, avisos))
+    ident = dict(identificacion or {})
+    titulo = ident.get("titulo") or titulo_limpio(project_name)
+    # D3: una nota con `acota` va en lugar de la del núcleo (un solo dueño: lo valida la carga)
+    acotadas = {n["acota"]: n["texto"] for n in data.get("notas") or () if n.get("acota")}
+    incluye = tuple(data.get("incluye") or ())
+    de_ext = [n["texto"] for n in data.get("notas") or () if not n.get("acota")]
+    lineas = _lineas_nucleo(len(rows), fx_note, avisos, acotadas, incluye)
+    n_nucleo = len(_notas_nucleo(len(rows), fx_note, avisos, acotadas, incluye))
+    y_libre = _NOTAS_Y - 5 - 3.8 * len(lineas)
     mas_notas, resto = (NC.repartir(y_libre, W, de_ext, n_nucleo + 1, 2 + (1 if avisos else 0))
                         if de_ext else ([], []))
 
@@ -268,8 +351,8 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
     av0, notas0, det0 = _tablas(lambda k: {"revisions": (meta or {}).get("revisions", [])})
     n_pages = 1 + len(av0) + len(notas0) + len(det0)
     base_meta = {
-        "project": project_name,
-        "drawing_no": (meta or {}).get("drawing_no", "COT-001"),
+        "project": titulo,
+        "drawing_no": ident.get("numero") or (meta or {}).get("drawing_no", "COT-001"),
         "scale": "—", "sheet": sheet, "material": "—", "finish": "—",
         "weight_kg": _peso(scene, meta), "tolerance": "—", "units": "mm",
         "drawn_by": (meta or {}).get("drawn_by", "Apolo · agente IA"),
@@ -281,10 +364,11 @@ def quotation_pages(scene: dict, *, project_name: str = "Sin título",
     riesgo = None
     if avisos:
         riesgo = round(sum(a.get("monto_en_riesgo_usd") or 0.0 for a in avisos) * fx, 2)
-    pages = [_summary_page(W, H, project_name=project_name,
+    pages = [_summary_page(W, H, project_name=titulo,
                            requirements=requirements or {}, totals=totals,
                            margin_pct=margin_pct, tax_pct=tax_pct, currency=currency,
                            n_rows=len(rows), base_meta=base_meta, fx_note=fx_note,
-                           avisos=avisos, riesgo=riesgo, mas_notas=mas_notas)]
+                           avisos=avisos, riesgo=riesgo, mas_notas=mas_notas,
+                           identificacion=ident, acotadas=acotadas, incluye=incluye)]
     av, notas, det = _tablas(lambda k: {**base_meta, "sheet_no": k})
     return pages + av + notas + det

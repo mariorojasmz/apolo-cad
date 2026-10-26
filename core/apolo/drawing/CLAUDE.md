@@ -28,8 +28,13 @@ reglas están en [services](../services/CLAUDE.md).
   cotización la usa (detalle y «AVISOS DE COBRO», con el costeo de `services/cobros.py`); su test
   renderiza cada hoja y exige que ningún texto salga de su celda.
   [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4c)
-- **Notas de la cotización**: las del núcleo (`quote._notas_nucleo`) no se quitan ni cambian de
-  partición; las de una extensión (`costeo["notas"]`) van detrás, partidas por ancho medido y
+- **Notas de la cotización**: las del núcleo (`quote._notas_nucleo`, con id) no se quitan ni
+  cambian de partición; una fuente sólo ACOTA `nucleo.alcance`/`nucleo.validez` (en su lugar, un
+  dueño por nota; las de honestidad nunca) y el alcance sin acotar sale de lo que `incluye` lo
+  cobrado. Título y bloque de cliente: `services/identificacion.py` (proyecto → extensión →
+  nombre sin «(copia)»; la fuente al pie).
+  [cotizacion-identificada](../../../docs/plans/cotizacion-identificada-y-ajustes-por-escenario.md)
+  Las de una extensión (`costeo["notas"]`) van detrás, partidas por ancho medido y
   ENTERAS, por `notas_cotizacion.py`: lo que no cabe a la izquierda del cajetín sigue en «NOTAS
   (continuación)», tras los avisos (que el núcleo nombra «hoja 2») y antes del detalle.
   `tests/test_cotizacion_notas.py` congela costeo y hojas sin extensiones.

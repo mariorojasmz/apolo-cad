@@ -85,7 +85,8 @@ def registrar(mcp, _api, _submit_and_wait) -> dict[str, Callable]:
         precio_venta: las cifras del resumen) junto al path, sin leer el PDF. Si algo se cobra dos
         veces (dispositivo sin ligar a su pieza 3D) o no se cobra (cable 3D sin add_cable), devuelve
         `avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo; el PDF los lista en su hoja 2.
-        Precios referenciales: confirmar con proveedor."""
+        Título, cliente, Nº y Rev. salen de set_requirements(comercial=…) (sin ella, el nombre
+        del proyecto). Precios referenciales: confirmar con proveedor."""
         params: dict = {"margin_pct": margin_pct, "tax_pct": tax_pct}
         if currency:
             params["currency"] = currency

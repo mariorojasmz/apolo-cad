@@ -112,3 +112,67 @@ descripcion: la cotización dice a quién va, con qué número y qué incluye de
 - **Una extensión vieja con `nota` sin `acota`** sigue igual: `acota` es opcional.
 
 ## Bitácora
+
+### F1 (2026-10-25, base 83c3d11)
+
+Hecho: D1–D4 y la parte de `set_requirements` de D8. Sin extensiones ni `comercial`, el costeo,
+las hojas y el PDF quedan como estaban (`tests/test_cotizacion_notas.py` congela costeo y hojas y
+pasa sin re-congelar): el título limpio de «mesa», «tablero» y «cot-f4c» es el mismo, y el bloque
+de cliente y el pie sólo salen con identificación.
+
+Decisiones tomadas al implementar (vetables):
+
+- **F1-a — El setter vive en `services/identificacion.poner_comercial`, no en `Document`.** El
+  `dir(Document)` está congelado (`tests/test_rutas_viejas.py`) y `funciones`/`tensores` ya siguen
+  ese patrón. `Document.comercial` (atributo) se guarda en el manifest SÓLO si hay (un manifest sin
+  identificación queda byte-igual) y la carga no valida (como `requirements`):
+  `identificacion()` re-valida al leer y, si no vale, sigue como si no hubiera.
+- **F1-b — `set_requirements(fields=None, comercial=None)`.** La llamada vieja manda el MISMO
+  cuerpo (el golden de «guardar requisitos» no cambió); con `comercial` sola, los requisitos no se
+  tocan (en el REST: `fields` ausente del cuerpo); sin nada, la tool devuelve un error y no llama
+  (antes `fields` era obligatorio: llamar sin nada no podía borrar los requisitos, y así sigue).
+  `PUT /api/requirements` valida `comercial` antes de tocar nada (un 400 no deja medio cambio).
+  `GET /api/requirements` suma `comercial` sólo si hay; `GET /api/project/comercial` da además la
+  `efectiva` (lo que usará la cotización, con su `fuente`). Las rutas van en el router
+  `validation`, junto a los requisitos.
+- **F1-c — Precedencia por diccionario ENTERO, no campo a campo**: si el proyecto trae
+  `comercial`, gana completo (aunque le falte el número que la extensión sí tenía). Mezclar
+  fuentes en un mismo papel haría imposible decir de dónde salió cada dato en el pie.
+- **F1-d — «Sin los sufijos (copia) repetidos» = sin ninguno** (`library/comercial.titulo_limpio`,
+  sin distinguir mayúsculas): una copia de proyecto es interna; el cliente no la ve.
+- **F1-e — El `numero` reemplaza el «N°» de la cabecera y el `drawing_no` del cajetín de TODAS
+  las hojas** (antes, el id del proyecto o «COT-001»); la `revision` va sólo en el bloque (la
+  tabla de revisiones del cajetín sigue siendo la de las revisiones guardadas del proyecto).
+- **F1-f — Título largo**: cada campo ≤ 80 caracteres (`TEXTO_MAX`); un título de más de 54 baja
+  de 4,6 a 3,4 mm en vez de recortarse (antes se cortaba a 54 en silencio). El cliente se parte en
+  líneas, nunca se recorta. El pie («identificación: proyecto | <id>») va bajo el marco (y = 6
+  mm): no compite con las notas ni con el cajetín; sin identificación (fuente «nombre») no sale.
+- **F1-g — `acota` exige `nota` y se aplica sólo si la fuente cobró** (como la nota de D9). Una
+  nota del núcleo tiene UN dueño: una segunda fuente que la acota (de la misma extensión o de otra
+  ya cargada) no carga, con el motivo en `/api/health`. Se prefirió rechazar al cargar sobre
+  «gana la primera y la otra se pierde» (silencioso) o «la otra se suma como nota» (el papel diría
+  dos validez distintas).
+- **F1-h — D4 con `FuenteCosteo.incluye`** (de `ALCANCES`: transporte, instalacion,
+  puesta_en_marcha, pruebas), contado sólo si la fuente cobró; el costeo publica `incluye` sólo si
+  hay. «pruebas» basta para no decir «ni puesta en marcha», pero el texto dice «las pruebas de
+  marcha», no «la puesta en marcha» (no se afirma más de lo que se cobra). La nota acotada gana a
+  la calculada.
+- **F1-i — Una `IdentificacionCosteo` que lanza o devuelve algo inválido se SALTA** (motivo a
+  stderr) y se prueba la siguiente: la cotización nunca se cae por la extensión. `de_documento` no
+  llamable sí rechaza la carga.
+- **F1-j — Sin bumps**: no sube `CONTRATO_EXTENSIONES` (sólo se agregan `IdentificacionCosteo` a
+  `SUPERFICIE` y dos campos opcionales a `FuenteCosteo`), ni versiones de comandos ni
+  `GEOM_CACHE_EPOCH` (nada entra al log).
+
+Tests: `tests/test_cotizacion_identificada.py` (nuevo: título limpio, validación, viaje en el
+`.apolo` y `.apolo` viejo, hoja con y sin identificación, título largo, API, tool, identificación
+de extensión y su precedencia, una que lanza, notas con id, validez acotada en su lugar, alcance
+calculado, acotar el alcance, seis variantes que no cargan y el dueño único entre dos
+extensiones); variantes nuevas en `tests/ext_prueba/` (`costeo.py`, `__init__.py`);
+`tests/test_rutas_api.py` (GET/PUT de `/api/project/comercial`); golden MCP re-congelado tras
+revisar el diff (docstrings de `get_requirements`, `set_requirements` y `quotation`, el schema de
+`set_requirements` y dos casos nuevos en `scripts/golden_mcp_casos.py`: «identificación
+comercial» y «requisitos sin nada»).
+
+Suite completa (`-n auto`): exit 0, 0 fallas. `ruff check core tests scripts`: exit 0. Sin cambios
+en `ui/`.

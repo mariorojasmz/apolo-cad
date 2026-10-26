@@ -10,6 +10,17 @@ Una fuente puede traer una `nota` (plan pedidos-de-extensiones, D9): UNA línea 
 caracteres que aclara lo que cobra; se valida al cargar (`motivo_nota`) y sale en la cotización
 sólo si la fuente cobró al menos una fila, DESPUÉS de las notas del núcleo (que no se quitan).
 Cambiar la nota es cambiar el costeo: la extensión sube su `version_costeo`.
+
+Plan cotizacion-identificada-y-ajustes-por-escenario (F1):
+
+- D3: una fuente con `acota` («nucleo.alcance» o «nucleo.validez», `ACOTABLES`) pone su `nota` EN
+  LUGAR de esa nota del núcleo (si cobró). Las de honestidad (`HONESTIDAD`) no se acotan nunca:
+  la carga rechaza la extensión. Una nota del núcleo tiene un solo dueño: dos fuentes que acotan
+  la misma (de una extensión o de dos) → la segunda no carga.
+- D4: `incluye` (de `ALCANCES`) declara qué cubren sus filas; si cobró, el alcance del núcleo deja
+  de excluirlo (`costeo["incluye"]`), aunque nadie lo acote.
+- D2: `IdentificacionCosteo` aporta la identificación comercial de la cotización cuando el
+  proyecto no la trae (`services/identificacion.py`).
 """
 
 from __future__ import annotations
@@ -24,17 +35,41 @@ ORIGEN = "extension:"
 CAMPOS = ("descripcion", "cantidad", "unidad", "costo_unit", "fuente")
 CATEGORIA = "servicios"  # la de una fila que no declara la suya
 NOTA_MAX = 300  # caracteres de la nota de una fuente
+#: Las notas del núcleo de la cotización, por id, en su orden (`drawing/quote._notas_nucleo`).
+NOTAS_NUCLEO = ("nucleo.avisos", "nucleo.referenciales", "nucleo.cambio", "nucleo.detalle",
+                "nucleo.alcance", "nucleo.validez")
+#: Las que una fuente puede reemplazar (D3); las demás son de HONESTIDAD.
+ACOTABLES = ("nucleo.alcance", "nucleo.validez")
+HONESTIDAD = tuple(n for n in NOTAS_NUCLEO if n not in ACOTABLES)
+#: Lo que una fuente puede declarar que cubren sus filas (D4). «pruebas» (de marcha) basta para
+#: que el alcance deje de excluir la puesta en marcha.
+ALCANCES = ("transporte", "instalacion", "puesta_en_marcha", "pruebas")
 
 
 @dataclass(frozen=True)
 class FuenteCosteo:
     """Una fuente de filas del costeo: `id` «prefijo.x» (la ref de sus filas), `filas(doc)` →
     iterable de `{descripcion, cantidad, unidad, costo_unit, fuente[, categoria]}` y, opcional,
-    `nota`: una línea para las notas de la cotización (sale sólo si la fuente cobró)."""
+    `nota`: una línea para las notas de la cotización (sale sólo si la fuente cobró); `acota`: el
+    id de la nota del núcleo que esa `nota` reemplaza (`ACOTABLES`); `incluye`: lo que cubren sus
+    filas (`ALCANCES`)."""
 
     id: str
     filas: Callable
     nota: str | None = None
+    acota: str | None = None
+    incluye: tuple = ()
+
+
+@dataclass(frozen=True)
+class IdentificacionCosteo:
+    """La identificación comercial que aporta una extensión (D2): `id` «prefijo.x» (sale en el pie
+    de la cotización) y `de_documento(doc)` → `{titulo, cliente, numero, revision}` (todos
+    opcionales; `library/comercial.normalizar`) o `None` si no tiene para ese documento. Gana la
+    del proyecto; luego la primera extensión que devuelva algo."""
+
+    id: str
+    de_documento: Callable
 
 
 #: nombre de la extensión → (version_costeo, (FuenteCosteo, …)); lo llena `extensiones.cargar`.
@@ -42,8 +77,15 @@ DE_EXTENSION: dict[str, tuple[int, tuple[FuenteCosteo, ...]]] = {}
 
 
 def vigentes() -> list[tuple[str, FuenteCosteo]]:
-    """(nombre de la extensión, fuente) de cada fuente cargada, en el orden de carga."""
-    return [(nombre, f) for nombre, (_v, fuentes) in DE_EXTENSION.items() for f in fuentes]
+    """(nombre de la extensión, fuente) de cada fuente de filas cargada, en el orden de carga."""
+    return [(nombre, f) for nombre, (_v, fuentes) in DE_EXTENSION.items() for f in fuentes
+            if isinstance(f, FuenteCosteo)]
+
+
+def identificaciones() -> list[tuple[str, IdentificacionCosteo]]:
+    """(nombre de la extensión, identificación) de cada `IdentificacionCosteo` cargada, en orden."""
+    return [(nombre, f) for nombre, (_v, fuentes) in DE_EXTENSION.items() for f in fuentes
+            if isinstance(f, IdentificacionCosteo)]
 
 
 def versiones() -> dict[str, int]:
@@ -108,9 +150,46 @@ def motivo_nota(nota) -> str | None:
     return None
 
 
+def motivo_acota(acota, nota) -> str | None:
+    """Por qué el `acota` de una fuente no vale (D3), o `None`: una de `ACOTABLES` y con `nota`
+    (el texto que la reemplaza). Acotar una de honestidad se rechaza con el motivo."""
+    if acota is None:
+        return None
+    if acota in HONESTIDAD:
+        return (f"`acota` «{acota}»: es una nota de honestidad del núcleo y no se acota nunca "
+                f"(sólo {' y '.join(ACOTABLES)})")
+    if acota not in ACOTABLES:
+        return f"`acota` {acota!r} no es una nota acotable del núcleo ({' o '.join(ACOTABLES)})"[:200]
+    if nota is None:
+        return f"`acota` «{acota}» sin `nota`: la nota es el texto que la reemplaza"
+    return None
+
+
+def motivo_incluye(incluye) -> str | None:
+    """Por qué el `incluye` de una fuente no vale (D4), o `None`: una tupla o lista de `ALCANCES`."""
+    if not isinstance(incluye, (tuple, list)):
+        return f"`incluye` es una tupla de {', '.join(ALCANCES)}, no {incluye!r}"[:200]
+    malos = [x for x in incluye if x not in ALCANCES]
+    if malos:
+        return (f"`incluye` nombra {', '.join(map(repr, malos))}: cada uno es de "
+                f"{', '.join(ALCANCES)}")[:200]
+    return None
+
+
+def _cobraron(filas: list[dict]) -> list[FuenteCosteo]:
+    hay = {(r["ref"], r["origen"]) for r in filas}
+    return [f for nombre, f in vigentes() if (f.id, ORIGEN + nombre) in hay]
+
+
 def notas(filas: list[dict]) -> list[dict]:
-    """`[{texto, fuente, origen}]` de las fuentes con nota que cobraron al menos una de `filas`
-    (las ya costeadas), en el orden de carga."""
+    """`[{texto, fuente, origen[, acota]}]` de las fuentes con nota que cobraron al menos una de
+    `filas` (las ya costeadas), en el orden de carga; `acota` = la nota del núcleo que reemplaza."""
     cobraron = {(r["ref"], r["origen"]) for r in filas}
-    return [{"texto": f.nota.strip(), "fuente": f.id, "origen": ORIGEN + nombre}
+    return [{"texto": f.nota.strip(), "fuente": f.id, "origen": ORIGEN + nombre,
+             **({"acota": f.acota} if f.acota else {})}
             for nombre, f in vigentes() if f.nota and (f.id, ORIGEN + nombre) in cobraron]
+
+
+def incluye(filas: list[dict]) -> list[str]:
+    """Lo que cubren las fuentes que cobraron al menos una de `filas` (D4), ordenado."""
+    return sorted({x for f in _cobraron(filas) for x in f.incluye})

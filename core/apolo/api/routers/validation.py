@@ -1,5 +1,6 @@
 """Rutas de validación: chequeos, aserciones `verify`, puerta de entrega, puerta de publicación,
-requisitos, stack-up y los tensores declarados (metadato de la puerta de publicación).
+requisitos (y la identificación comercial del proyecto, que viaja con ellos), stack-up y los
+tensores declarados (metadato de la puerta de publicación).
 
 Router de la API (F6c del plan `docs/plans/partir-api-main.md`): movidas tal cual desde
 `main.py`. El dominio (aserciones, insumos de la puerta, reglas de ingeniería, evaluación de
@@ -281,24 +282,65 @@ def _puerta_publicacion(proyecto) -> dict:
 
 class RequirementsIn(BaseModel):
     fields: dict = {}
+    # la identificación comercial (cotizacion-identificada D1); sin ella no se toca, y con ella
+    # sola (sin `fields`) los requisitos tampoco
+    comercial: dict | None = None
 
 
 @router.get("/api/requirements")
 def get_requirements() -> dict:
     with STATE_LOCK:
-        return {"requirements": S.doc.requirements}
+        out = {"requirements": S.doc.requirements}
+        if S.doc.comercial:  # sólo si hay: sin ella, la respuesta de siempre
+            out["comercial"] = S.doc.comercial
+        return out
 
 
 @router.put("/api/requirements")
 def put_requirements(body: RequirementsIn) -> dict:
+    from apolo.library.comercial import normalizar
+    from apolo.services.identificacion import poner_comercial
+
     with STATE_LOCK:
         _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
         try:
-            S.doc.set_requirements(body.fields)
-        except DocumentError as exc:
+            comercial = None if body.comercial is None else normalizar(body.comercial)
+            if body.comercial is None or "fields" in body.model_fields_set:
+                S.doc.set_requirements(body.fields)
+            if comercial is not None:  # validada antes de tocar nada
+                poner_comercial(S.doc, comercial)
+        except (DocumentError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         _autosave()
-        return {"ok": True, "requirements": S.doc.requirements}
+        out = {"ok": True, "requirements": S.doc.requirements}
+        if comercial is not None:
+            out["comercial"] = S.doc.comercial
+        return out
+
+
+@router.get("/api/project/comercial")
+def get_comercial() -> dict:
+    """La identificación comercial del proyecto (D1: titulo, cliente, numero, revision) y la que
+    usará la cotización (`efectiva`, con su `fuente`: proyecto, una extensión o el nombre)."""
+    from apolo.services.identificacion import identificacion
+
+    with STATE_LOCK:
+        return {"comercial": S.doc.comercial, "efectiva": identificacion(S.doc)}
+
+
+@router.put("/api/project/comercial")
+def put_comercial(body: dict) -> dict:
+    """Reemplaza la identificación comercial (`{}` la borra); un campo desconocido → 400."""
+    from apolo.services.identificacion import poner_comercial
+
+    with STATE_LOCK:
+        _verificar_documento()  # mutación fuera de _state_or_error: guardia a mano
+        try:
+            poner_comercial(S.doc, body)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _autosave()
+        return {"ok": True, "comercial": S.doc.comercial}
 
 
 class TensoresIn(BaseModel):

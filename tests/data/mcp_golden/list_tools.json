@@ -2333,7 +2333,7 @@
  },
  {
   "name": "get_requirements",
-  "description": "BASES DE DISEÑO del proyecto (requisitos guardados: carga_kg, largo/ancho/\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, producto, entorno, normativa…).\nengineering_check y la memoria de cálculo los usan como defaults. Read-only.",
+  "description": "BASES DE DISEÑO del proyecto (requisitos guardados: carga_kg, largo/ancho/\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, producto, entorno, normativa…).\nengineering_check y la memoria de cálculo los usan como defaults. Trae también\n`comercial` (titulo, cliente, numero, revision de la cotización) si hay. Read-only.",
   "inputSchema": {
    "properties": {},
    "title": "get_requirementsArguments",
@@ -2355,18 +2355,36 @@
  },
  {
   "name": "set_requirements",
-  "description": "Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).\nClaves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:\nproducto, entorno, normativa, notas. Con esto `engineering_check()` y `calc_report()`\nfuncionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.",
+  "description": "Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).\nClaves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,\nalto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:\nproducto, entorno, normativa, notas. Con esto `engineering_check()` y `calc_report()`\nfuncionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.\n`comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;\nreemplaza el dict, {} borra); sin `fields`, los requisitos no se tocan.",
   "inputSchema": {
    "properties": {
     "fields": {
-     "additionalProperties": true,
-     "title": "Fields",
-     "type": "object"
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fields"
+    },
+    "comercial": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Comercial"
     }
    },
-   "required": [
-    "fields"
-   ],
    "title": "set_requirementsArguments",
    "type": "object"
   },
@@ -2988,7 +3006,7 @@
  },
  {
   "name": "quotation",
-  "description": "Genera la COTIZACIÓN (PDF multipágina) y la guarda en `path` (.pdf): resumen económico\n(catálogo vs fabricación, desglose por categoría, margen %, impuesto % opcional, PRECIO DE\nVENTA, notas) + detalle de partidas con la FUENTE de cada precio. Complemento comercial de\ncalc_report. Devuelve `precio` (moneda, costo_directo, margen, impuesto si hay,\nprecio_venta: las cifras del resumen) junto al path, sin leer el PDF. Si algo se cobra dos\nveces (dispositivo sin ligar a su pieza 3D) o no se cobra (cable 3D sin add_cable), devuelve\n`avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo; el PDF los lista en su hoja 2.\nPrecios referenciales: confirmar con proveedor.",
+  "description": "Genera la COTIZACIÓN (PDF multipágina) y la guarda en `path` (.pdf): resumen económico\n(catálogo vs fabricación, desglose por categoría, margen %, impuesto % opcional, PRECIO DE\nVENTA, notas) + detalle de partidas con la FUENTE de cada precio. Complemento comercial de\ncalc_report. Devuelve `precio` (moneda, costo_directo, margen, impuesto si hay,\nprecio_venta: las cifras del resumen) junto al path, sin leer el PDF. Si algo se cobra dos\nveces (dispositivo sin ligar a su pieza 3D) o no se cobra (cable 3D sin add_cable), devuelve\n`avisos` con su `monto_en_riesgo_usd` y cómo arreglarlo; el PDF los lista en su hoja 2.\nTítulo, cliente, Nº y Rev. salen de set_requirements(comercial=…) (sin ella, el nombre\ndel proyecto). Precios referenciales: confirmar con proveedor.",
   "inputSchema": {
    "properties": {
     "path": {

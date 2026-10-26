@@ -75,7 +75,8 @@ Lo transversal (invariantes del log, regenerate incremental y atómico, locks) e
 - `motion`, `requirements`, `stackups`, `configurations`, `fea`, `escenarios` (V8.3: su setter y
   su vigencia, en `services/escenarios.py`), `tensores`
   (puerta de publicación: setter en `services/calidad_tensores.poner_tensores`), `funciones`
-  (D15: `services/puerta_publicacion.poner_funciones`; las dos se escriben sólo si hay), colores,
+  (D15: `services/puerta_publicacion.poner_funciones`), `comercial` (a quién va la cotización:
+  `services/identificacion.poner_comercial`; las tres se escriben sólo si hay), colores,
   materiales, ocultos y notas del agente viven en el manifest, FUERA del log y de los checkpoints
   (por qué: raíz). Un metadato nuevo sigue el patrón de `motion` (setter que valida + endpoint),
   no un comando.

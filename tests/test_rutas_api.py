@@ -52,6 +52,7 @@ METODOS_EN_ORDEN = {
     "/api/projects": ["GET", "POST"],
     "/api/revisions": ["POST", "GET"],
     "/api/requirements": ["GET", "PUT"],
+    "/api/project/comercial": ["GET", "PUT"],  # identificación comercial (cotizacion-identificada D1)
     "/api/tensores": ["GET", "PUT"],  # tensores declarados (puerta-de-publicacion D3)
     "/api/funciones": ["GET", "PUT"],  # solución declarada por función (D15)
     "/api/stackup": ["GET", "PUT", "DELETE"],

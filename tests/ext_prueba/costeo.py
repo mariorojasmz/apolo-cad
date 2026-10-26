@@ -10,7 +10,7 @@ Y las variantes que el núcleo rechaza al cargar o descarta al costear (`test_ex
 
 from __future__ import annotations
 
-from apolo.extensiones_api import FuenteCosteo
+from apolo.extensiones_api import FuenteCosteo, IdentificacionCosteo
 
 from .electrico import resumen
 
@@ -109,3 +109,80 @@ def _lanza(_doc):
 
 def con_fallas() -> list:
     return [FuenteCosteo("prueba.malas", _malas), FuenteCosteo("prueba.lanza", _lanza)]
+
+
+# ── la cotización identificada (plan cotizacion-identificada-y-ajustes-por-escenario, F1) ────
+def _marcha(_doc) -> list[dict]:
+    return [{"descripcion": "Prueba de marcha", "cantidad": 4, "unidad": "h", "costo_unit": 25,
+             "fuente": "criterio de prueba (25 USD/h)", "categoria": "puesta en marcha"}]
+
+
+def _gestion(_doc) -> list[dict]:
+    return [{"descripcion": "Gestión de la oferta", "cantidad": 1, "unidad": "u", "costo_unit": 0,
+             "fuente": "criterio de prueba"}]
+
+
+def _cliente(doc):
+    """La identificación de la extensión: sólo para los documentos «faja…» (los demás: None)."""
+    if not str(doc.name).startswith("faja"):
+        return None
+    return {"cliente": "Cliente de la extensión", "numero": "EXT-0007"}
+
+
+NOTA_VALIDEZ = "Validez de la oferta: 30 días calendario desde su emisión."
+NOTA_ALCANCE = "Incluye transporte a obra en la ciudad; no incluye la instalación eléctrica."
+MARCHA = FuenteCosteo("prueba.marcha", _marcha, incluye=("pruebas",))
+VALIDEZ = FuenteCosteo("prueba.validez", _gestion, NOTA_VALIDEZ, acota="nucleo.validez")
+CLIENTE = IdentificacionCosteo("prueba.cliente", _cliente)
+
+
+def identificada() -> list:
+    """Revisión con nota + la prueba de marcha (`incluye`) + la validez acotada + la identidad."""
+    return [REVISION, MARCHA, VALIDEZ, CLIENTE]
+
+
+def acota_alcance() -> list:
+    return [FuenteCosteo("prueba.alcance", _gestion, NOTA_ALCANCE, acota="nucleo.alcance"), MARCHA]
+
+
+def _identidad_que_lanza(_doc):
+    raise RuntimeError("la identificación de prueba se rompió")
+
+
+def identificacion_rota() -> list:
+    """Una que lanza y una que no valida se saltan: gana la tercera."""
+    return [IdentificacionCosteo("prueba.rota", _identidad_que_lanza),
+            IdentificacionCosteo("prueba.mala", lambda _d: {"cliente": "X", "descuento": 5}),
+            CLIENTE]
+
+
+# ── lo que no carga (D3: honestidad, sin nota, inventada, doble dueño; D4: incluye; D2) ──────
+def acota_honestidad() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, "Precios firmes.",
+                         acota="nucleo.referenciales")]
+
+
+def acota_sin_nota() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, acota="nucleo.validez")]
+
+
+def acota_inventada() -> list:
+    return [FuenteCosteo("prueba.revision", _revision, "x", acota="nucleo.garantia")]
+
+
+def acota_doble() -> list:
+    return [VALIDEZ, FuenteCosteo("prueba.otra", _gestion, "Validez: 60 días.",
+                                  acota="nucleo.validez")]
+
+
+def incluye_malo() -> list:
+    return [FuenteCosteo("prueba.marcha", _marcha, incluye=("viaticos",))]
+
+
+def identificacion_no_llamable() -> list:
+    return [IdentificacionCosteo("prueba.cliente", {"cliente": "fijo"})]
+
+
+def otra_validez() -> list:
+    """La de la extensión «ext-otra» (prefijo «otra»): acota lo mismo que `VALIDEZ`."""
+    return [FuenteCosteo("otra.validez", _gestion, "Validez: 7 días.", acota="nucleo.validez")]

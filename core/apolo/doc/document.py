@@ -68,6 +68,7 @@ class Document(EdicionDocumento, MetadatosDocumento, IntegridadDocumento, Persis
         self.vertical: str = "metalmecanica"  # default de material para piezas no reconocidas
         self.motion: dict[str, list[dict]] = {}  # estudios con nombre → fotogramas [{t, values:{junta:valor}}]
         self.requirements: dict = {}  # bases de diseño del proyecto (carga, velocidad, producto…)
+        self.comercial: dict = {}  # a quién va la cotización: titulo, cliente, numero, revision (library/comercial)
         self.fea: dict[str, dict] = {}  # feature_id → resumen del último FEA (metadato)
         self.stackups: dict[str, dict] = {}  # cadenas de cotas con nombre (V7.3) → {eslabones, requisito}
         self.escenarios: dict[str, dict] = {}  # V8.3 D12: nombre → {escenario, resultado?} (services/escenarios)

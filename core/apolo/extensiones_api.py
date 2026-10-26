@@ -84,6 +84,8 @@ SUPERFICIE: dict[str, str] = {
     "NO_APLICA": "apolo.library.calidad.item:NO_APLICA",
     # filas del costeo y reglas de la puerta de entrega (plan puntos-de-extension-entregables)
     "FuenteCosteo": "apolo.library.costeo_extension:FuenteCosteo",
+    # la identificación comercial de la cotización (cotizacion-identificada D2)
+    "IdentificacionCosteo": "apolo.library.costeo_extension:IdentificacionCosteo",
     "ReglaEntrega": "apolo.library.entrega_extension:ReglaEntrega",
     # la tool de un entregable lento (plan pedidos-de-extensiones, D1): lo pide como job y guarda
     # el archivo en `path`, o devuelve el recibo que `get_job` recoge

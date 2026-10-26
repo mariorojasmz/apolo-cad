@@ -222,15 +222,17 @@ def sumar_puerta(ext) -> list[str]:
     return sorted(i for e in entradas for i in ([e.id] if isinstance(e, R.Entrada) else e.mapa))
 
 
-def _sumar_ids(ext, entradas: list, tipo: type, que: str, registro: dict, validar) -> list[str]:
-    """Lo común de `costeo` y `entrega`: cada entrada es `tipo`, su id lleva «prefijo.», nada se
-    repite (en la extensión ni con otra ya cargada) y `validar(e)` revisa lo demás. Valida TODO
-    antes de tocar `registro`."""
+def _sumar_ids(ext, entradas: list, tipo, que: str, registro: dict, validar) -> list[str]:
+    """Lo común de `costeo` y `entrega`: cada entrada es `tipo` (o uno de la tupla), su id lleva
+    «prefijo.», nada se repite (en la extensión ni con otra ya cargada) y `validar(e)` revisa lo
+    demás. Valida TODO antes de tocar `registro`."""
     tomados = {e.id for _v, es in registro.values() for e in es}
     nuevos: list[str] = []
+    tipos = tipo if isinstance(tipo, tuple) else (tipo,)
     for e in entradas:
-        if not isinstance(e, tipo):
-            raise ExtensionRechazada(f"una entrada de {que} no es un {tipo.__name__}: {e!r}"[:300])
+        if not isinstance(e, tipos):
+            nombres = " ni ".join(t.__name__ for t in tipos)
+            raise ExtensionRechazada(f"una entrada de {que} no es un {nombres}: {e!r}"[:300])
         con_prefijo(e.id, ext.prefijo, f"el id de {que}")
         if e.id in tomados or e.id in nuevos:
             raise ExtensionRechazada(f"el id «{e.id}» de {que} ya existe")
@@ -240,22 +242,41 @@ def _sumar_ids(ext, entradas: list, tipo: type, que: str, registro: dict, valida
 
 
 def sumar_costeo(ext) -> list[str]:
-    """Las `FuenteCosteo` del costeo y la cotización (`library/costeo_extension`): id
-    «prefijo.x», `filas` llamable, `nota` válida (pedidos-de-extensiones D9), nada repetido. Van a
-    `DE_EXTENSION` con su `version_costeo`; sus filas se validan al costear
-    (`costeo_extension.fila`)."""
+    """Las `FuenteCosteo` e `IdentificacionCosteo` del costeo y la cotización
+    (`library/costeo_extension`): id «prefijo.x», `filas`/`de_documento` llamables, `nota` válida
+    (pedidos-de-extensiones D9), `acota` acotable y con un solo dueño, `incluye` de `ALCANCES`
+    (cotizacion-identificada D2–D4), nada repetido. Van a `DE_EXTENSION` con su
+    `version_costeo`; sus filas se validan al costear (`costeo_extension.fila`)."""
     entradas = list(valor(ext.costeo) or ())
     if not entradas:
         return []
     from apolo.library import costeo_extension as C
 
+    acotadas = {f.acota: nombre for nombre, f in C.vigentes() if f.acota}
+
     def validar(e) -> None:
+        if isinstance(e, C.IdentificacionCosteo):
+            if not callable(e.de_documento):
+                raise ExtensionRechazada(f"la identificación «{e.id}»: `de_documento` es una "
+                                         "función (doc)")
+            return
         if not callable(e.filas):
             raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: `filas` es una función (doc)")
-        if (motivo := C.motivo_nota(e.nota)) is not None:
-            raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: {motivo}")
+        for motivo in (C.motivo_nota(e.nota), C.motivo_acota(e.acota, e.nota),
+                       C.motivo_incluye(e.incluye)):
+            if motivo is not None:
+                raise ExtensionRechazada(f"la fuente de costeo «{e.id}»: {motivo}")
+        if e.acota:
+            if e.acota in acotadas:
+                dueno = acotadas[e.acota]
+                raise ExtensionRechazada(
+                    f"la fuente de costeo «{e.id}»: la nota «{e.acota}» ya la acota "
+                    + (f"la extensión «{dueno}»" if dueno != ext.nombre else "otra fuente suya")
+                    + " (una nota del núcleo tiene un solo dueño)")
+            acotadas[e.acota] = ext.nombre
 
-    nuevos = _sumar_ids(ext, entradas, C.FuenteCosteo, "costeo", C.DE_EXTENSION, validar)
+    nuevos = _sumar_ids(ext, entradas, (C.FuenteCosteo, C.IdentificacionCosteo), "costeo",
+                        C.DE_EXTENSION, validar)
     C.DE_EXTENSION[ext.nombre] = (ext.version_costeo, tuple(entradas))
     return sorted(nuevos)
 

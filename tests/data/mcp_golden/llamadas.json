@@ -5361,6 +5361,57 @@
   ]
  },
  {
+  "caso": "identificación comercial",
+  "tool": "set_requirements",
+  "args": {
+   "comercial": {
+    "cliente": "ACME",
+    "numero": "COT-1"
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"requirements\": {\"carga_kg\": 15}}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/requirements",
+    "query": [],
+    "cuerpo": {
+     "comercial": {
+      "cliente": "ACME",
+      "numero": "COT-1"
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
+  "caso": "requisitos sin nada",
+  "tool": "set_requirements",
+  "args": {},
+  "salida": [
+   {
+    "texto": "{\"error\": \"pasa `fields` (requisitos) o `comercial` (identificación de la cotización)\"}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": []
+ },
+ {
   "caso": "auto-grupo",
   "tool": "auto_group",
   "args": {},

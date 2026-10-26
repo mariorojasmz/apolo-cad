@@ -46,19 +46,28 @@ def registrar(mcp, _api) -> dict[str, Callable]:
     def get_requirements() -> str:
         """BASES DE DISEÑO del proyecto (requisitos guardados: carga_kg, largo/ancho/
         alto_paquete_mm, velocidad_m_s, inclinacion_deg, producto, entorno, normativa…).
-        engineering_check y la memoria de cálculo los usan como defaults. Read-only."""
+        engineering_check y la memoria de cálculo los usan como defaults. Trae también
+        `comercial` (titulo, cliente, numero, revision de la cotización) si hay. Read-only."""
         return json.dumps(_api("GET", "/api/requirements").json(), ensure_ascii=False)
 
     @mcp.tool()
-    def set_requirements(fields: dict) -> str:
+    def set_requirements(fields: dict | None = None, comercial: dict | None = None) -> str:
         """Guarda las BASES DE DISEÑO del proyecto (reemplaza el dict completo; {} borra).
         Claves numéricas de convención: carga_kg, largo_paquete_mm, ancho_paquete_mm,
         alto_paquete_mm, velocidad_m_s, inclinacion_deg, temperatura_c. Texto libre:
         producto, entorno, normativa, notas. Con esto `engineering_check()` y `calc_report()`
-        funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto."""
-        return json.dumps(
-            _api("PUT", "/api/requirements", json={"fields": fields}).json(), ensure_ascii=False
-        )
+        funcionan SIN argumentos y validan contra LO PEDIDO. Se persisten con el proyecto.
+        `comercial` = a quién va la COTIZACIÓN: {titulo, cliente, numero, revision} (texto;
+        reemplaza el dict, {} borra); sin `fields`, los requisitos no se tocan."""
+        if fields is None and comercial is None:
+            return json.dumps({"error": "pasa `fields` (requisitos) o `comercial` "
+                                        "(identificación de la cotización)"}, ensure_ascii=False)
+        body: dict = {}
+        if fields is not None:
+            body["fields"] = fields
+        if comercial is not None:
+            body["comercial"] = comercial
+        return json.dumps(_api("PUT", "/api/requirements", json=body).json(), ensure_ascii=False)
 
     @mcp.tool()
     def auto_group(dry_run: bool = False) -> str:

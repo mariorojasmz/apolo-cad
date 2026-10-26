@@ -84,6 +84,7 @@ class PersistenciaDocumento:
                         "vertical": self.vertical,
                         "motion": self.motion,
                         "requirements": self.requirements,
+                        **({"comercial": self.comercial} if self.comercial else {}),
                         "fea": self.fea,
                         "stackups": self.stackups,
                         "escenarios": self.escenarios, **({"tensores": self.tensores} if self.tensores else {}), **({"funciones": self.funciones} if self.funciones else {}), **ext_manifest.al_manifest(self),
@@ -149,6 +150,8 @@ class PersistenciaDocumento:
         # migración: proyectos viejos guardaban el motion como UNA lista de fotogramas
         doc.motion = ({"Estudio 1": _m} if _m else {}) if isinstance(_m, list) else dict(_m)
         doc.requirements = manifest.get("requirements", {})
+        _c = manifest.get("comercial")  # sin el campo (un .apolo viejo): sin identificación
+        doc.comercial = dict(_c) if isinstance(_c, dict) else {}
         doc.fea = manifest.get("fea", {})
         doc.stackups = manifest.get("stackups", {})  # cadenas de cotas (V7.3)
         doc.escenarios = manifest.get("escenarios", {})  # pruebas de la máquina (V8.3 D12)
