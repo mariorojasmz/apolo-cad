@@ -5,10 +5,11 @@ import VacioTablero from "./VacioTablero";
 import VistaTablero from "./VistaTablero";
 import { veredictoDe } from "../diseno/atencion";
 import { PANEL_CON_FALLAS, PANEL_EN_ORDEN, PANEL_SIN_ARMAR } from "../diseno/muestrario/datosTablero";
+import { cifra } from "../diseno/cifra";
 import type { ItemTablero } from "./tipos";
 import {
-  accionPuerta, alElegir, cifraDe, conductoresListados, duracionPuerta, itemsDeAtencion, largoConductor,
-  perdidasDeclaradas, recorridoDe, rotuloConductor, valorPuertaEn,
+  accionPuerta, alElegir, cifraDe, conductoresListados, duracionPuerta, filasCalor, itemsDeAtencion, largoConductor,
+  perdidasCalor, perdidasDeclaradas, recorridoDe, rotuloConductor, valorPuertaEn,
 } from "./vista";
 
 /* La lógica pura del panel «Tablero» (plan V8.5 F3b): cifras, qué hace cada clic, qué conductores
@@ -106,6 +107,19 @@ describe("panel Tablero", () => {
     expect(perdidasDeclaradas(128, ["-S1"])).toBe("Pérdidas declaradas de los aparatos: 128 W (1 aparato no trae el dato)");
     expect(perdidasDeclaradas(1280, ["-S1", "-S2"])).toContain("1 280 W (2 aparatos no traen el dato)");
   });
+
+  it("el calentamiento evaluado: temperaturas, la más justa, el ambiente y de dónde salen las pérdidas (F3)", () => {
+    const c = PANEL_CON_FALLAS.detalle!.calentamiento;
+    const filas = filasCalor(c);
+    expect(filas.map(([r]) => r)).toEqual(["A media altura", "Arriba", "Admite -Q1", "Ambiente"]);
+    expect(filas[1][1]).toBe(cifra(98.5, 0, "°C"));
+    expect(perdidasCalor(c)).toContain("los aparatos y");
+    expect(perdidasCalor(c)).toContain("(4 aparatos no traen el dato)");
+    const ventilado = PANEL_EN_ORDEN.detalle!.calentamiento;
+    expect(filasCalor(ventilado).map(([r]) => r)).toContain("Ventilador");
+    expect(filasCalor({ estado: "sin_evaluar", motivo: "x", perdidas_W: 10, sin_dato: [] })).toEqual([]);
+    expect(perdidasCalor({ estado: "sin_evaluar", perdidas_W: 128, sin_dato: [] })).toBe("Pérdidas declaradas de los aparatos: 128 W");
+  });
 });
 
 describe("la vista del panel", () => {
@@ -114,7 +128,7 @@ describe("la vista del panel", () => {
 
   it("arriba el veredicto, los ítems como botones, la puerta y el detalle plegado", () => {
     const html = renderToStaticMarkup(h(VistaTablero, { ...props, panel: PANEL_CON_FALLAS, puerta }));
-    expect(html).toContain("1 cosa por corregir y 4 por revisar");
+    expect(html).toContain("2 cosas por corregir y 4 por revisar");
     expect(html).toContain("Caja de 500 × 400 mm");
     expect(html.match(/class="ia-fila"/g)).toHaveLength(PANEL_CON_FALLAS.items.length);
     expect(html).toContain("112 %");

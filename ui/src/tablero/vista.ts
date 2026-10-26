@@ -1,7 +1,7 @@
 import type { ItemAtencion } from "../diseno/atencion";
 import { cifra } from "../diseno/cifra";
 import { MOV_NORMAL_MS, suave } from "../diseno/movimiento";
-import type { CableTablero, ConductorTablero, ItemTablero, PanelTableroOut } from "./tipos";
+import type { CableTablero, CalentamientoTablero, ConductorTablero, ItemTablero, PanelTableroOut } from "./tipos";
 
 /* La lógica pura del panel «Tablero» (plan V8.5 D13): de lo que manda el servidor a lo que se
    dibuja. Ninguna regla de ingeniería vive aquí (las decide `services/tablero_panel.py`): sólo
@@ -126,9 +126,30 @@ export function accionPuerta(valor: number, max: number): { rotulo: string; dest
   return valor < max / 2 ? { rotulo: "Abrir", destino: max } : { rotulo: "Cerrar", destino: 0 };
 }
 
-/** Las pérdidas declaradas, en una frase con su cifra (el calentamiento sigue sin evaluar). */
+/** Las pérdidas declaradas, en una frase con su cifra. */
 export function perdidasDeclaradas(perdidas: number, sinDato: readonly string[]): string {
   const base = `Pérdidas declaradas de los aparatos: ${cifra(perdidas, 0, "W")}`;
   if (!sinDato.length) return base;
   return `${base} (${sinDato.length} ${sinDato.length === 1 ? "aparato no trae" : "aparatos no traen"} el dato)`;
+}
+
+/** Las filas del calentamiento evaluado (rótulo, cifra); vacía si quedó sin evaluar. */
+export function filasCalor(c: CalentamientoTablero): [string, string][] {
+  if (c.estado === "sin_evaluar" || c.T_arriba_C === undefined) return [];
+  const filas: [string, string][] = [];
+  if (c.T_media_C !== undefined) filas.push(["A media altura", cifra(c.T_media_C, 0, "°C")]);
+  filas.push(["Arriba", cifra(c.T_arriba_C, 0, "°C")]);
+  if (c.peor) filas.push([`Admite ${c.peor.designacion}`, cifra(c.peor.T_max_C, 0, "°C")]);
+  if (c.ambiente_C !== undefined) filas.push(["Ambiente", cifra(c.ambiente_C, 0, "°C")]);
+  if (c.ventilacion_m3h) filas.push(["Ventilador", cifra(c.ventilacion_m3h, 0, "m³/h")]);
+  return filas;
+}
+
+/** Las pérdidas del calentamiento: total y de dónde salen (aparatos y conductores). */
+export function perdidasCalor(c: CalentamientoTablero): string {
+  if (!c.perdidas) return perdidasDeclaradas(c.perdidas_W, c.sin_dato);
+  const base = `Pierde ${cifra(c.perdidas_W, 0, "W")}: ${cifra(c.perdidas.aparatos_W, 0, "W")} los aparatos y `
+    + `${cifra(c.perdidas.conductores_W, 0, "W")} los conductores`;
+  if (!c.sin_dato.length) return base;
+  return `${base} (${c.sin_dato.length} ${c.sin_dato.length === 1 ? "aparato no trae" : "aparatos no traen"} el dato)`;
 }

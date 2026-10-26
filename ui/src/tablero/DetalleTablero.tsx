@@ -6,13 +6,14 @@ import { cifra } from "../diseno/cifra";
 import VerDetalle from "../ui/VerDetalle";
 import type { CableTablero, ConductorTablero, PanelTableroOut } from "./tipos";
 import {
-  cablesListados, conductoresListados, itemsDeAtencion, largoCable, largoConductor, partesCable, perdidasDeclaradas,
-  puntosDe, rotuloConductor, supuestosDe, type AccionesTablero,
+  cablesListados, conductoresListados, filasCalor, itemsDeAtencion, largoCable, largoConductor, partesCable,
+  perdidasCalor, puntosDe, rotuloConductor, supuestosDe, type AccionesTablero,
 } from "./vista";
 
 /* El «Detalle» del panel «Tablero» (plan V8.5 D13): lo que está bien, los conductores con su largo
-   (clic → su recorrido en el 3D), las canaletas con su llenado, los aparatos y el calentamiento,
-   que sigue sin evaluar. Sólo se ve a pedido; cada fila que señala algo encuadra su pieza. */
+   (clic → su recorrido en el 3D), las canaletas con su llenado, los aparatos, el calentamiento
+   (IEC 60890: la temperatura a media altura y arriba, o por qué no se evaluó) y los prensaestopas
+   de los cables que salen. Sólo se ve a pedido; cada fila que señala algo encuadra su pieza. */
 
 /** Cuántos conductores se ven antes de «Ver N más». */
 const VISIBLES = 8;
@@ -60,12 +61,32 @@ export default function DetalleTablero({ panel, acciones, conductor, filtro, qui
         </ul>
       </Seccion>
       <Seccion titulo="Calentamiento">
-        <p className="tb-calor">
-          <IconoSeveridad severidad="sin_evaluar" tamano={15} />
-          <span>{d.calentamiento.motivo}</span>
-        </p>
-        <p className="tb-nota">{perdidasDeclaradas(d.calentamiento.perdidas_W, d.calentamiento.sin_dato)}</p>
+        {d.calentamiento.estado === "sin_evaluar" ? (
+          <p className="tb-calor">
+            <IconoSeveridad severidad="sin_evaluar" tamano={15} />
+            <span>{d.calentamiento.motivo}</span>
+          </p>
+        ) : (
+          <ul className="tb-filas">
+            {filasCalor(d.calentamiento).map(([rotulo, valor]) => (
+              <li key={rotulo}><Fila principal={rotulo} cifra={valor} /></li>
+            ))}
+          </ul>
+        )}
+        <p className="tb-nota">{perdidasCalor(d.calentamiento)}</p>
       </Seccion>
+      {(d.prensaestopas?.prensas.length ?? 0) > 0 && (
+        <Seccion titulo="Prensaestopas">
+          <ul className="tb-filas">
+            {d.prensaestopas!.prensas.map((p) => (
+              <li key={p.cable}>
+                <Fila principal={p.designacion} secundario={p.ref ? p.nombre : "Ningún prensaestopas lo sujeta"}
+                  cifra={p.diametro_mm !== undefined ? `Ø${cifra(p.diametro_mm, 1, "mm")}` : undefined} />
+              </li>
+            ))}
+          </ul>
+        </Seccion>
+      )}
       {supuestos.length > 0 && (
         <VerDetalle resumen="Supuestos del recorrido">
           <ul>{supuestos.map((s) => <li key={s}>{s}</li>)}</ul>

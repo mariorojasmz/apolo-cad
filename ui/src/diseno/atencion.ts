@@ -52,7 +52,7 @@ const cosas = (n: number) => `${n} ${n === 1 ? "cosa" : "cosas"}`;
    corregir y cuántas revisar («1 cosa por corregir y 2 por revisar»), con la severidad de la
    más grave. Lo que queda sin evaluar se lista pero no cuenta: si es lo único, cumple lo que se
    revisó (`fraseParcial`, «El tablero cumple lo que revisamos»), sin decir que cumple todo
-   (F3b: el calentamiento sin norma no puede tapar la respuesta del panel). */
+   (F3b: lo que no se pudo evaluar —un calentamiento fuera del método— no tapa la respuesta). */
 export function veredictoDe(items: readonly { severidad: Severidad }[], fraseBien: string,
   fraseParcial = "Cumple lo que revisamos"): VeredictoCalculado {
   const atender = queAtender(items);

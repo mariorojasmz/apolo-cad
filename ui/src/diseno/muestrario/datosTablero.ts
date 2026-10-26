@@ -1,4 +1,6 @@
-import type { CableTablero, ConductorTablero, ItemTablero, PanelTableroOut } from "../../tablero/tipos";
+import type {
+  CableTablero, CalentamientoTablero, ConductorTablero, ItemTablero, PanelTableroOut,
+} from "../../tablero/tipos";
 
 /* Datos de EJEMPLO del panel «Tablero» (plan V8.5 F3b) con la forma exacta de
    `GET /api/tablero/{ubicacion}`, para el muestrario (revisión a ciegas, D14) y los tests de
@@ -65,9 +67,32 @@ const W2 = cable("c20", "-W2", "CABLE-3X0.75", "Cable de sensor 3x0,75", 0.412, 
 const it = (p: Partial<ItemTablero> & Pick<ItemTablero, "clave" | "severidad" | "frase">): ItemTablero =>
   ({ piezas: [], conductores: [], ...p });
 
-const CALOR = it({ clave: "calentamiento", severidad: "sin_evaluar", frase: "Falta evaluar el calentamiento",
-  piezas: [PIEZA.gabinete],
-  detalle: "Todavía no calculamos la temperatura dentro del tablero (IEC/TR 60890). No damos una cifra estimada." });
+/** El calentamiento de la piloto (V8.5 F3): 157 W en la caja de 500 × 400 sin ventilar. */
+const CALOR = it({ clave: "calentamiento", severidad: "falla", frase: "El tablero se calienta de más",
+  valor: 98, unidad: "°C", piezas: [PIEZA.gabinete, PIEZA.variador],
+  detalle: "Arriba llega a 98 °C y -Q1 admite 50 °C. Ventílalo con al menos 33 m³/h.",
+  tecnico: "+TAB1 pierde 156.9 W en Ae = 0.564 m²: el aire llega a 90 °C a media altura y 98 °C arriba (ambiente 35 °C)." });
+
+const CALOR_DETALLE = {
+  estado: "falla" as const, perdidas_W: 156.9, perdidas: { aparatos_W: 128, conductores_W: 28.9 },
+  sin_dato: ["-S1", "-S2", "-S0", "-X0"], ambiente_C: 35, T_media_C: 89.9, T_arriba_C: 98.5,
+  peor: { designacion: "-Q1", T_C: 98.5, T_max_C: 50 }, sugerencia: { caudal_m3h: 32.7 },
+};
+
+/** Con el ventilador de 33 m³/h declarado: cumple. */
+const CALOR_VENTILADO = {
+  estado: "bien" as const, perdidas_W: 156.9, perdidas: { aparatos_W: 128, conductores_W: 28.9 },
+  sin_dato: ["-S1", "-S2", "-S0", "-X0"], ambiente_C: 35, T_media_C: 49.6, T_arriba_C: 49.6,
+  ventilacion_m3h: 33, peor: { designacion: "-Q1", T_C: 49.6, T_max_C: 50 },
+};
+
+const PRENSAS = {
+  cara: "inferior",
+  prensas: [
+    { cable: "c19", designacion: "-W1", diametro_mm: 9.8, ref: "PRENSA-M16", rosca: "M16x1,5", nombre: "Prensaestopas M16×1,5 (cable Ø4–10)" },
+    { cable: "c20", designacion: "-W2", diametro_mm: 6, ref: "PRENSA-M16", rosca: "M16x1,5", nombre: "Prensaestopas M16×1,5 (cable Ø4–10)" },
+  ],
+};
 
 /** Lo que miden los conductores del ejemplo dentro del tablero (m). */
 const TOTAL_M = CONDUCTORES.reduce((s, c) => s + c.ruteado_m, 0);
@@ -89,7 +114,8 @@ const DETALLE = {
     { designacion: "-T2", ref: "VFD-2K2-220", nombre: "Variador 2.2 kW 220V 3F", zona: "placa", fila: "columna", pieza: PIEZA.variador },
   ],
   conductores: CONDUCTORES,
-  calentamiento: { estado: "sin_evaluar" as const, motivo: CALOR.detalle!, perdidas_W: 128, sin_dato: ["-S1", "-S2", "-S0", "-X0"] },
+  calentamiento: CALOR_DETALLE as CalentamientoTablero,
+  prensaestopas: PRENSAS,
   supuestos: ["Ø de un hilo de cable = el del conductor suelto de su sección"],
 };
 
@@ -104,11 +130,12 @@ const NOTA = "Caja de 500 × 400 mm · 6 aparatos · 12 conductores";
 /** Con cosas por atender: una canaleta que no da, otra llena, largos a mano y un conductor suelto. */
 export const PANEL_CON_FALLAS: PanelTableroOut = {
   ...BASE,
-  veredicto: { severidad: "falla", frase: "1 cosa por corregir y 4 por revisar", nota: NOTA },
+  veredicto: { severidad: "falla", frase: "2 cosas por corregir y 4 por revisar", nota: NOTA },
   items: [
     it({ clave: "canaleta-1", severidad: "falla", frase: "Los conductores no entran en la canaleta de abajo", valor: 112,
       unidad: "%", piezas: [PIEZA.canaletaAbajo], conductores: ["c41", "c42", "c51", "c52", "c53"],
       detalle: "847 de 756 mm² con 5 conductores; el tope es 50 %." }),
+    CALOR,
     it({ clave: "canaleta-0", severidad: "aviso", frase: "La canaleta de arriba va muy llena", valor: 64, unidad: "%",
       piezas: [PIEZA.canaletaArriba], conductores: ["c26", "c27", "c28", "c33"],
       detalle: "484 de 756 mm² con 4 conductores; el tope es 50 %." }),
@@ -123,7 +150,6 @@ export const PANEL_CON_FALLAS: PanelTableroOut = {
       unidad: "mm", piezas: [PIEZA_TAMBOR], conductores: [W2.id],
       detalle: "Pasa a 4 mm de «Tambor motriz»; pedimos al menos 10 mm. Pídele al agente que lo lleve por la estructura, lejos de lo que gira.",
       tecnico: "-W2 (CABLE-3X0.75, Ø5) pasa a 4 mm de «Tambor motriz» (tambor), que gira o se mueve, en el tramo 7 de su recorrido; la holgura mínima es 10 mm." }),
-    CALOR,
   ],
   detalle: {
     ...DETALLE,
@@ -136,19 +162,24 @@ export const PANEL_CON_FALLAS: PanelTableroOut = {
   },
 };
 
-/** Sin fallas: sólo el calentamiento queda sin evaluar (F3 espera la norma). */
+/** Sin fallas: con el ventilador declarado, el calentamiento también cumple (F3). */
 export const PANEL_EN_ORDEN: PanelTableroOut = {
   ...BASE,
-  veredicto: { severidad: "bien", frase: "El tablero cumple lo que revisamos", nota: NOTA },
-  items: [CALOR],
+  veredicto: { severidad: "bien", frase: "El tablero cumple", nota: NOTA },
+  items: [],
   detalle: {
     ...DETALLE,
+    calentamiento: CALOR_VENTILADO as CalentamientoTablero,
     conductores: CONDUCTORES.map((c) => ({ ...c, origen: "ruteo" as const, largo_m: c.ruteado_m, declarado_m: undefined, sale: undefined })),
     cables: [W1],
     bien: [...BIEN, it({ clave: "canaletas", severidad: "bien", frase: "La canaleta más llena", valor: 13, unidad: "%",
       piezas: [PIEZA.canaletaArriba], detalle: "Es la canaleta de arriba; el tope es 50 %." }),
     it({ clave: "cables-giro", severidad: "bien", frase: "Los cables de campo no tocan lo que gira", conductores: [W1.id],
-      detalle: "Ninguno pasa a menos de 10 mm de una pieza que gira." })],
+      detalle: "Ninguno pasa a menos de 10 mm de una pieza que gira." }),
+    it({ clave: "calentamiento", severidad: "bien", frase: "Temperatura arriba en el tablero", valor: 50, unidad: "°C",
+      piezas: [PIEZA.gabinete], detalle: "El más justo es -Q1: 50 de 50 °C admisibles." }),
+    it({ clave: "prensaestopas", severidad: "bien", frase: "Prensaestopas", valor: 2, piezas: [PIEZA.gabinete],
+      detalle: "Uno por cable que sale, en la cara de abajo: 2 M16." })],
     canaletas: [
       { nombre: "Canaleta de arriba", pieza: PIEZA.canaletaArriba, orientacion: "h", llenado: 0.135, ocupado_mm2: 102, util_mm2: 756, conductores: 12 },
       { nombre: "Canaleta de abajo", pieza: PIEZA.canaletaAbajo, orientacion: "h", llenado: 0.036, ocupado_mm2: 27, util_mm2: 756, conductores: 2 },

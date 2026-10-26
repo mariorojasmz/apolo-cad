@@ -77,11 +77,31 @@ export interface AparatoTablero {
   pieza?: string;
 }
 
+/** El calentamiento por IEC 60890 (V8.5 F3): `bien`/`falla` con las temperaturas, o `sin_evaluar`
+   con su `motivo` (fuera del método o sin temperaturas máximas). */
 export interface CalentamientoTablero {
-  estado: "sin_evaluar";
-  motivo: string;
+  estado: "bien" | "falla" | "sin_evaluar";
+  motivo?: string;
   perdidas_W: number;
+  perdidas?: { aparatos_W: number; conductores_W: number };
   sin_dato: string[];
+  ambiente_C?: number;
+  ventilacion_m3h?: number;
+  T_media_C?: number;
+  T_arriba_C?: number;
+  peor?: { designacion: string; T_C: number; T_max_C: number };
+  sugerencia?: { caudal_m3h?: number; refrigeracion?: boolean };
+}
+
+/** El prensaestopas de un cable que sale (V8.5 F3, D7): su ref, o el motivo si ninguno lo sujeta. */
+export interface PrensaTablero {
+  cable: string;
+  designacion: string;
+  diametro_mm?: number;
+  ref?: string;
+  rosca?: string;
+  nombre?: string;
+  motivo?: string;
 }
 
 export interface PanelTableroOut {
@@ -100,6 +120,7 @@ export interface PanelTableroOut {
     /** Los cables de campo que salen de él (vacía sin `por`). */
     cables?: CableTablero[];
     calentamiento: CalentamientoTablero;
+    prensaestopas?: { cara: string; prensas: PrensaTablero[] };
     supuestos: string[];
   };
 }
