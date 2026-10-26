@@ -5,8 +5,8 @@ Dos partes:
   ESTÁTICAS (como en `gravity_test`, pero el grafo de sujeción NO cruza una junta móvil); cada
   junta móvil arma un CUERPO con su hijo más todo lo colgado de él por juntas `fija` (incluidas
   las `jf_*` de `arrastrar`); lo que no es ni una cosa ni la otra queda FUERA, con aviso.
-- `geometria_movil` (OCCT, bajo `STATE_LOCK`): masa (peso de catálogo si lo hay; si no,
-  `_link_physics`), centro de masas e inercia del sólido REAL (GProp de OCCT, escalado a esa
+- `geometria_movil` (OCCT, bajo `STATE_LOCK`): masa (peso de catálogo si lo hay; el vástago de
+  un cilindro, la masa móvil de su ficha, `masas_de_ficha`; si no, `_link_physics`), centro de masas e inercia del sólido REAL (GProp de OCCT, escalado a esa
   masa) y la colisión: CÁPSULA para lo
   que gira sobre su eje (rodillos y tambores del catálogo primero; si no, un sólido con una
   cara cilíndrica coaxial a la junta) y casco convexo para el resto.
@@ -256,10 +256,21 @@ def masa_pieza(feat) -> float:
     return float(_link_physics(feat)[0])
 
 
-def geometria_movil(feat, junta: dict | None) -> PiezaMovil:
+def masas_de_ficha(scene: dict) -> dict[str, float]:
+    """{id: kg} de las piezas que pesan por su FICHA y no por su volumen aunque no lleven ref: el
+    vástago de un cilindro pesa la masa MÓVIL (pistón + vástago) y su cuerpo el resto
+    (`library/peso_ficha.partes_de_cilindros`, la misma cuenta de `scene_mass_properties`; plan
+    pedidos-de-extensiones-iii D11). Sin cilindros, vacío."""
+    from apolo.library.peso_ficha import partes_de_cilindros
+
+    return partes_de_cilindros(scene)
+
+
+def geometria_movil(feat, junta: dict | None, masa: float | None = None) -> PiezaMovil:
     """Masa, centro de masas, inercia y colisión de una pieza que se mueve. La inercia es la
-    del sólido real con densidad uniforme escalada a la masa de `masa_pieza`."""
-    masa = masa_pieza(feat)
+    del sólido real con densidad uniforme escalada a la masa de `masa_pieza`, o a `masa` si el
+    llamador la sabe mejor (el vástago de un cilindro: la masa móvil de su ficha)."""
+    masa = masa_pieza(feat) if masa is None else float(masa)
     verts = hull_vertices(feat.shape)
     try:
         vol, com, tensor = _masa_occt(feat.shape)

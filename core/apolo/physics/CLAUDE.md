@@ -32,8 +32,10 @@ MuJoCo para gravedad, caída y la dinámica de la máquina. Lo común del backen
 - Sujeción SIN cruzar juntas móviles: lo móvil sale del grafo antes de buscar tierra (un
   tambor fijado a su chumacera sigue girando). Un cuerpo = hijo + juntas `fija`, como la FK;
   lo fijado por `fasten` a una pieza móvil sin junta queda FUERA y el aviso pide `arrastrar`.
-- La inercia sale del SÓLIDO (GProp de OCCT, escalada a la masa: catálogo si hay ficha, si no
-  `_link_physics`), nunca de la colisión: el casco de un tubo es macizo y la cápsula suma
+- La inercia sale del SÓLIDO (GProp de OCCT, escalada a la masa: catálogo si hay ficha; el cuerpo
+  y el vástago de un cilindro, `masas_de_ficha` —la co-sim ya no le suma armadura—,
+  [pedidos-iii](../../../docs/plans/pedidos-de-extensiones-iii.md) D11; si no `_link_physics`),
+  nunca de la colisión: el casco de un tubo es macizo y la cápsula suma
   casquetes. La colisión simplifica libre: cápsula para rodillos/tambores, casco el resto, UNO
   POR SÓLIDO (`hull.cascos`: un túnel de tres sólidos en una pieza no tapa su boca; un sólido
   cóncavo sigue siendo un casco). [V8.9](../../../docs/plans/V8.9-neumatica.md) (F7b)

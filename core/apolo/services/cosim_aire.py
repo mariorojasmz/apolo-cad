@@ -11,8 +11,10 @@ eléctrico en `cosim_red.py`:
     aire y sin `condiciones.presion_red_bar` es 400 con el ejemplo (D3: la toma es una fuente a la
     presión que se DECLARA, nunca un default);
   - `peticion(doc, esc, tab)`: el `<motor>` de FUERZA de cada cilindro sobre su junta prismática y
-    sus opciones de junta (la fricción de los sellos como `frictionloss` y la masa móvil en carrera
-    0 de la ficha como armadura: el pistón no está en 3D), validando `acoples.cilindros` (un
+    sus opciones de junta (la fricción de los sellos como `frictionloss` y, sólo si el vástago no
+    pesa ya la masa móvil de su ficha —el de `create_pneumatic_cylinder` la pesa entera, plan
+    pedidos-de-extensiones-iii D11—, la masa móvil en carrera 0 como armadura: el pistón no está
+    en 3D), validando `acoples.cilindros` (un
     cilindro sin acople es 400 con el ejemplo listo para copiar, D8);
   - `acoples(esc, dyn, n_motores)`: `AcopleCilindro` y `AcopleReed` contra la dinámica preparada.
 Todo error es `ServiceError(400, texto)`. Sin locks: el llamador sostiene STATE_LOCK.
@@ -124,7 +126,10 @@ def exigir_acoples(doc, me, esc) -> None:
 def peticion(doc, me, esc, tab) -> tuple[list[dict], dict]:
     """([motor de fuerza de cada cilindro], {junta: opciones}) para la petición de la dinámica
     (los acoples ya pasaron `exigir_acoples`)."""
+    from apolo.physics.dinamica_cuerpos import masas_de_ficha
+
     motores, juntas = [], {}
+    con_ficha = masas_de_ficha(doc.scene) if esc.cilindros else {}
     for des, a in esc.cilindros.items():
         m = tab.modelos[des]
         j = doc.joints[a["junta"]]
@@ -132,7 +137,8 @@ def peticion(doc, me, esc, tab) -> tuple[list[dict], dict]:
                         "direccion_transporte": [float(c) for c in j["axis"]]})
         op = dict((esc.mecanica.get("juntas") or {}).get(a["junta"]) or {})
         op["friccion"] = float(op.get("friccion", 0.0)) + float(m.friccion_junta_N)
-        op["armadura"] = float(op.get("armadura", 0.0)) + float(m.masa_base)
+        if j.get("child") not in con_ficha:  # pedidos-iii D11: si no, el vástago ya la pesa
+            op["armadura"] = float(op.get("armadura", 0.0)) + float(m.masa_base)
         juntas[a["junta"]] = op
     return motores, juntas
 

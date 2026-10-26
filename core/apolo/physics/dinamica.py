@@ -34,6 +34,7 @@ from apolo.physics.dinamica_cuerpos import (
     combinar_inercia,
     geometria_movil,
     inercia_eje,
+    masas_de_ficha,
 )
 from apolo.physics.dinamica_datos import DynamicsSnapshot
 from apolo.physics.dinamica_integrador import Integrador
@@ -145,10 +146,11 @@ def prepare_dynamics(scene, joints, fasteners, grounds, request: dict | None = N
 
     cuerpo_mj = {n: dm.nombre_mj("b", n) for n in cls.orden}
     radio_por_junta, inercia_por_junta = {}, {}
+    masas = masas_de_ficha(scene) if cls.orden else {}
     for n in cls.orden:
         j = todas[n]
         piezas = cls.cuerpos[n]
-        pms = [geometria_movil(scene[p], j) for p in piezas]
+        pms = [geometria_movil(scene[p], j, masas.get(p)) for p in piezas]
         masa, com, inercia = combinar_inercia(pms)
         giro_hijo = pms[0].giro
         if j["type"] in GIRATORIAS and giro_hijo is not None:

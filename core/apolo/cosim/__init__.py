@@ -26,4 +26,7 @@ Este `__init__` no importa nada: el worker importa sólo lo que usa, sin OCCT.
 #: la colisión lleva un casco convexo por SÓLIDO de cada pieza (una pieza de varios sólidos cambia de
 #: MJCF y de resultado); una aserción `==`/`!=` con un número contra un texto numérico («-QM2.posicion
 #: == 14») se compara como texto en vez de dar error de tipo (otro veredicto con el MISMO documento).
-COSIM_EPOCH = 6
+#: 7 (pedidos-de-extensiones-iii F4, D11): el vástago de `create_pneumatic_cylinder` se mueve con la
+#: masa MÓVIL de su ficha (`partes_de_cilindros`) y la armadura de la masa en carrera 0 ya no se
+#: suma (el Ø63 × 800 pasa de 2,77 a 2,43 kg): un escenario SANO con aire cambia de resultado.
+COSIM_EPOCH = 7

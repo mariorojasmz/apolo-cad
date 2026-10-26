@@ -183,7 +183,12 @@ ARCHIVOS = (
 #: seta; la marcha en directo; el empujador de aire) dan la MISMA huella, finales e hipótesis que en
 #: 9d3bb26. Lo que sí cambia (un canal pegado, un cableado de un solo canal) lo vence la firma: la
 #: ficha del variador gana `STO_discrepancia_ms` y su `modelo` entra a ella.
-HUELLA: tuple[int, str] = (6, "4f22cabb6c152e47")
+#: 7 — pedidos-de-extensiones-iii F4 (D11): el vástago de un cilindro se mueve con la masa MÓVIL
+#: de su ficha (`physics/dinamica_cuerpos.masas_de_ficha`) y `services/cosim_aire.py` ya no le
+#: suma la masa en carrera 0 como armadura. El empujador de aire (sano) cambia de huella y de
+#: final (x_mm del vástago −0,520 → −0,551 en reposo); los 7 escenarios eléctricos de la F2 dan la
+#: MISMA huella y finales que en 9d3bb26.
+HUELLA: tuple[int, str] = (7, "df88d381662f985c")
 
 
 def archivos() -> list[Path]:
