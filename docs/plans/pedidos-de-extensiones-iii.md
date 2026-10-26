@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular («procede según tu criterio»); medido sobre `b9d774f`; falta implementar F1–F4
+nota: contrato de Claude con el aval del titular («procede según tu criterio»); medido sobre `b9d774f`; F1–F4 hechas en la rama `wip/pedidos-ext-iii` (sin mergear; suite completa exit 0, COSIM_EPOCH 7); falta la revisión y el merge, y que la extensión adopte `preparar_corrida`/`correr_corrida` y re-mida sus casos de STO (su categoría 4 pasa a verde)
 descripcion: una extensión corre un escenario de la co-simulación por la API declarada; el variador detecta la discrepancia entre los dos canales del STO y queda en falla; el banco de la co-simulación se carga desde fuera de la suite; un cilindro sin pieza pesa con su carrera y su vástago se mueve con la masa de su ficha
 ---
 
@@ -298,3 +298,13 @@ docstring es texto, `specs`/`neumatico`/`modelo` no tocan la geometría); ningun
 comando (ningún executor cambió); firmas: los documentos con un VFD-1K5/2K2-220 (el `modelo` gana
 `STO_discrepancia_ms`) o con un ISO 15552 (su `neumatico` cambia de `fuente` y `a_confirmar`)
 cambian de firma y sus resultados quedan vencidos solos; con el epoch 7, todos.
+
+**Suite completa** (`-n auto`, `PYTHONPATH` al `core/` de cada árbol, una a la vez):
+
+| árbol | tests elegidos | exit |
+|---|---|---|
+| base `b9d774f` (worktree aparte) | 6222 | 0 |
+| rama, primera corrida | 6251 | 1 (4 FAILED de `test_firma_dispositivo.py`: las firmas con variador, D7) |
+| rama, tras re-congelar esas firmas | 6251 | 0 |
+
+`ruff check core tests scripts` limpio. No se tocó `ui/`.
