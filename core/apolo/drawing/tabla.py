@@ -58,6 +58,18 @@ def em_mm(size: float) -> float:
     return size * PT_POR_MM_ETIQUETA * MM_POR_PT
 
 
+# alto de la mayúscula / em de DejaVu Sans (la fuente del PDF): la «H» mide 1493 de 2048 unidades
+# (medido en el TTF de matplotlib; `tests/test_letra_dxf.py` lo vuelve a medir)
+MAYUSCULA_EM = 1493 / 2048
+FUENTE_DXF = "DejaVuSans.ttf"  # la del PDF; donde no está, el visor la sustituye (Arial, simplex)
+
+
+def mayuscula_mm(size: float) -> float:
+    """El alto de la mayúscula (mm) con que el PDF escribe una etiqueta de tamaño `size`: el
+    `height` de un TEXT de DXF, que es altura de mayúscula, no em."""
+    return em_mm(size) * MAYUSCULA_EM
+
+
 def alto_linea_mm(size: float) -> float:
     return em_mm(size) * INTERLINEA
 

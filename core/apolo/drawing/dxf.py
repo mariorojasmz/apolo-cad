@@ -1,4 +1,10 @@
-"""Exportador DXF de la lámina (ezdxf, R2010)."""
+"""Exportador DXF de la lámina (ezdxf, R2010).
+
+La letra es la del PDF (plan V8.9, «Letra del DXF»): el `height` de un TEXT es la altura de la
+MAYÚSCULA, no el em, así que va `tabla.mayuscula_mm(size)` (escribir `size` daba una letra 1,59×
+la del PDF); la fuente, DejaVu Sans (la del PDF), en el estilo `APOLO`; y el anclaje
+start/middle/end sobre la línea base, como el PDF y el SVG (antes todo salía alineado a la
+izquierda: un texto centrado en su celda se corría medio ancho)."""
 
 from __future__ import annotations
 
@@ -7,6 +13,12 @@ import io
 from ..library.materials import hatch_pattern
 from .esquema import CAPA_DXF, ESTILOS, LINEWEIGHT_DXF, LLENO, PILOTAJE, TIPO_LINEA_DXF, trazos_mm
 from .sheet import SheetModel
+from .tabla import FUENTE_DXF, mayuscula_mm
+
+# el `height` de un TEXT es la altura de la MAYÚSCULA (no el em del PDF): `mayuscula_mm`; el
+# anclaje es el del PDF y el SVG (start/middle/end sobre la línea base)
+ESTILO_TEXTO = "APOLO"
+ALINEACION = {"start": "LEFT", "middle": "CENTER", "end": "RIGHT"}  # `TextEntityAlignment`
 
 # rayado ANSI31 con escala/color por material (ANSI31 existe siempre en ezdxf)
 HATCH_SCALE = {"ansi31": 1.0, "madera": 2.5, "vidrio": 0.6}
@@ -40,6 +52,7 @@ def _lleno(msp, borde: list[tuple[float, float]]) -> None:
 
 def sheet_to_dxf(model: SheetModel) -> bytes:
     import ezdxf
+    from ezdxf.enums import TextEntityAlignment
 
     doc = ezdxf.new("R2010", setup=True)  # setup=True carga los tipos de línea estándar
     doc.header["$LWDISPLAY"] = 1  # mostrar grosores de línea
@@ -91,16 +104,15 @@ def sheet_to_dxf(model: SheetModel) -> bytes:
         layer = LAYERS.get(a.kind, LAYERS["thread"])[0]
         msp.add_arc((a.x, a.y), a.r, a.a1, a.a2, dxfattribs={"layer": layer})
 
+    if model.labels:  # la letra del PDF: su fuente, su mayúscula y su anclaje (V8.9, letra del DXF)
+        doc.styles.add(ESTILO_TEXTO, font=FUENTE_DXF)
     for lab in model.labels:
         msp.add_text(
             lab.text,
-            dxfattribs={
-                "layer": "COTAS",
-                "height": lab.size,
-                "rotation": lab.rotation,
-                "insert": (lab.x, lab.y),
-            },
-        )
+            height=mayuscula_mm(lab.size),
+            rotation=lab.rotation,
+            dxfattribs={"layer": "COTAS", "style": ESTILO_TEXTO},
+        ).set_placement((lab.x, lab.y), align=TextEntityAlignment[ALINEACION.get(lab.anchor, "CENTER")])
 
     buf = io.StringIO()
     doc.write(buf)
