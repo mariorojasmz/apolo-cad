@@ -59,6 +59,13 @@ dataclass de criterio (sale en el resultado). Una regla nueva va ahí con su cas
 | `colocacion*.py` (D2/D8) | `Reglas` → `Layout.supuestos` | `test_colocacion_tablero.py` | la piloto (`tests/data/tablero_piloto.json`) entra en el 500 × 400 |
 | `ruteo.py` (D3/A8), `bornes_pos.py` (D4) | `Criterio` → `Ruteo.criterio` | `test_ruteo_tablero.py` | largos de placa de la piloto a ±5 % del ruteo a mano (`A_MANO`) |
 | `cable_campo.py` (F4) | `CriterioCampo` | `test_cables_campo.py` | el cable del motor de la piloto, punto a punto contra el armado a mano |
+| `iec60890.py`, `calentamiento.py` (F3, D6) | las tablas de ABB (T4–T12) con su página; reglas en el docstring | `test_iec60890.py`, `test_tablero_calor.py` | el ejemplo resuelto de la guía (23,8 / 29,8 K) y la piloto que se pasa y cumple ventilada |
+| `prensaestopas.py` (F3, D7) | `CriterioPrensa` | `test_iec60890.py` | la piloto: 3 M16 + 1 M20 |
+
+- El calentamiento es IEC 60890:**1987** tabulado por ABB (fuente gratuita): una curva nueva o un
+  valor corregido va con su tabla y página, y la edición vigente (TR 60890:2022) no se verificó.
+  Lo que el método no cubre (rama chica con aberturas, fuera de tabla) es `FueraDeDominio`, nunca
+  una extrapolación. [V8.5](../../../../docs/plans/V8.5-tablero-3d.md) § F3
 
 - La cara de cada borne sale de la familia por `modelo.tipo` o de `tablero.bornes` de la ref,
   con su `fuente`.

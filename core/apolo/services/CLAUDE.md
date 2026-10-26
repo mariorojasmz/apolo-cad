@@ -167,7 +167,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   `completo=true`) es UNA función, `tablero_panel.panel`: los hallazgos salen
   de los selectores de `tablero_reglas.py` (los del ERC) y el veredicto, con la regla de
   `ui/src/diseno/atencion.ts::veredictoDe` (cambiar una es cambiar las dos). Sus textos son para
-  la persona (sin comandos ni parámetros): el crudo va en `tecnico`. (F3b)
+  la persona (sin comandos ni parámetros): el crudo va en `tecnico`. (F3b) El calentamiento
+  (`tablero_calor.evaluacion`) y los prensaestopas (`tablero_prensas.del_tablero`) son la ÚNICA
+  cuenta del panel, el ERC y la BOM; sus ítems los redacta `tablero_atencion.py`. (F3)
 - Los cables de campo (`cables_campo.py`, F4) tampoco se cachean: `recorridos(doc, m, tableros)`
   es la ÚNICA cuenta de su recorrido y su largo (BOM, `circuito`, ERC y `vista`, lo que dibuja el
   visor); sólo con `por`. Lo que gira sale de `calidad_seguridad.analisis` (sin el layout): no
