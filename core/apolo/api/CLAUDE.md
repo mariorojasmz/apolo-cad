@@ -218,7 +218,8 @@ Lo transversal (`STATE_LOCK`, log, regenerate, Windows) está en el
   (id/rev/name/color/visible/group/is_guide/acabado/albedo) de lo que el cliente ya tiene (`POST /api/scene/delta`).
   Un metadato nuevo que el viewport deba ver va también en la entrada `same`: no sube el rev.
 - Zonas de acabado: la pieza de un componente con zonas lleva `zonas: [{acabado, albedo, desde,
-  hasta}]` (triángulos de SU malla o de la de su definición; también en `same`); las cachés
+  hasta, zona}]` (triángulos de SU malla o de la de su definición; también en `same`; la zona de
+  color de la ficha, `library.zonas.zona_de_color`, suma `de_color: true`); las cachés
   teselan con `componente` y `_sin_zonas` saca los rangos con nombre de la malla. Sin zonas,
   byte-idéntico (`tests/test_seta_payload.py`). [seta-de-emergencia](../../../docs/plans/seta-de-emergencia.md)
 - `SCENE_EPOCH` (uuid por proceso): si el cliente trae otro, se manda el payload COMPLETO (tras un

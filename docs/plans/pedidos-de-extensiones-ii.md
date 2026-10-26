@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: contrato de Claude con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `7d28ae5`; F1 mergeada (la serie Ø22 con `specs.agujero` de ficha leída, builder `mando_22` con cuello, la puerta corta redondo, epoch 8, `layout_tablero` v2) y F2 mergeada (`get_circuit(tablero=true)` resumido 29 → 2 KB en la piloto, `completo=true` para el panel entero; `comandos` en el resumen de `run_batch`; el ERC nombra el conductor por sus puntos); el aviso de la co-simulación también nombra el conductor por sus puntos (D-f de F2); los mandos Ø22 se ven de su color (D-a de F1: `mando_22` por zonas, frente del acabado de su `specs.color`, epoch 9); pendiente chico, fuera del contrato: en la sesión viva el piloto encendido brilla entero y no sólo su lente (§ D-a)
+nota: contrato de Claude con el aval del titular (2026-10-24: «procede según tu criterio»); medido sobre `7d28ae5`; F1 mergeada (la serie Ø22 con `specs.agujero` de ficha leída, builder `mando_22` con cuello, la puerta corta redondo, epoch 8, `layout_tablero` v2) y F2 mergeada (`get_circuit(tablero=true)` resumido 29 → 2 KB en la piloto, `completo=true` para el panel entero; `comandos` en el resumen de `run_batch`; el ERC nombra el conductor por sus puntos); el aviso de la co-simulación también nombra el conductor por sus puntos (D-f de F2); los mandos Ø22 se ven de su color (D-a de F1: `mando_22` por zonas, frente del acabado de su `specs.color`, epoch 9); cerrados los dos pendientes chicos de la D-a: en la sesión viva el piloto encendido brilla sólo su lente (las zonas del payload dicen su `zona` y marcan `de_color`) y el color físico de un mando sale de su acabado (`acabado_de_color` en `acabados.json`), sin tabla de tonos propia (§ Pendientes de la D-a)
 descripcion: los pulsadores, pilotos y selectores Ø22 dicen su agujero y la puerta 3D los corta redondos; get_circuit con tablero pesa poco, run_batch resumido devuelve los ids creados y el ERC nombra cada conductor por sus extremos
 ---
 
@@ -289,7 +289,7 @@ Decisiones propias (vetables):
   TODAS las zonas de la pieza (antes era una sola: no hay regresión), así que encendido brilla
   entero. Que brille sólo la lente pide que `ZonaOut` diga el nombre de la zona; y
   `vivo/mandos.ts::colorFisico` tiene su propia tabla de tonos (otra fuente del mismo color).
-  Pendiente chico, fuera de este contrato.
+  Pendiente chico, fuera de este contrato. (Cerrados: § Pendientes de la D-a.)
 
 Tests: `tests/test_mando_22.py` suma cada ref con la zona de su color (zonas, acabado, `fijo`,
 volumen de la F1, caras del frente delante del bisel y del cuerpo detrás de la cara de apoyo), la
@@ -297,3 +297,60 @@ piloto con los mandos pintados (`apariencias_render`: el frente sigue de su colo
 acabado / frente equivocado / sin `fijo` / sin `zonas:` no cargan, la tilde, y la caché v8 (mismas
 zonas por índice, 4 caras movidas en los selectores, el epoch la descarta).
 `tests/test_apariencia.py`: los 4 acabados nuevos en `PINTABLES`. Ningún otro test cambió.
+
+### Pendientes de la D-a: piloto encendido y una sola tabla de tonos
+
+Hecho (base `5592b27`), los dos pendientes de D-a5:
+
+- **Por dónde viajan las zonas.** `kernel/mesh.py` parte la malla en rangos `{zona, desde, hasta}`
+  con el NOMBRE de la zona; `api/scene.py::_zonas_pieza` los cruza con la apariencia de cada zona y
+  mandaba `{acabado, albedo, desde, hasta}`, sin el nombre (`_sin_zonas` lo saca de la malla). En
+  el visor, `viewport/zonas.ts` vuelve cada zona un grupo de la geometría y un material del
+  arreglo, en el orden de las zonas; `vivo/mandos3d.ts` copiaba TODOS esos materiales y los hacía
+  emisivos.
+- **El piloto enciende sólo su lente.** Cada zona del payload suma `zona` (su nombre) y la zona de
+  color de la ficha suma `de_color: true`; cuál es la dice `library/zonas.py::zona_de_color(ref)`
+  desde `builders_mandos.ZONA_DE_COLOR` (el `frente` del `mando_22`; la seta no tiene). Las dos
+  claves son NUEVAS: las de antes no cambian (sólo `tests/test_seta_payload.py` comparaba el
+  conjunto exacto de claves y suma `zona`) y viajan también en la entrada `same` del delta
+  (`zonasDelDelta` copia la zona entera). El visor (`vivo/mandos.ts::materialesQueBrillan`)
+  enciende los materiales de las zonas `de_color` si la malla está partida por esas zonas; si no
+  (sin zonas, taladrada, servidor anterior sin la marca), la pieza entera, como antes.
+  `reproductorVivo.ts` le pasa a `instalarMandos3D` las zonas de la escena.
+- **Una sola tabla de tonos.** `apariencia.tabla_ui()` publica `acabado_de_color` (=
+  `ACABADO_DE_COLOR`) en `ui/src/viewport/acabados.json` (regenerado con `scripts/acabados_ui.py
+  --escribir`); `viewport/acabados.ts::acabadoDeColor` lo lee con la normalización del loader (sin
+  tildes, minúscula, sin espacios a los lados) y `colorFisico` devuelve el albedo de ese acabado.
+  La tabla `COLORES` de `vivo/mandos.ts` se borró: el panel «Mandos» (la tapa, la lámpara y el
+  fondo amarillo de la seta) y el 3D pintan con el mismo tono que el visor da a la lente.
+- **La regla del encendido**, escrita en `vivo/mandos.ts`: encendido = emisivo con el MISMO albedo
+  del acabado de su color, intensidad `EMISION_PILOTO` (1,6, la de antes), sólo en la zona de
+  color; apagado no emite (se ve el acabado tal cual); un piloto sin color conocido brilla en el
+  blanco de `plastico_blanco`. La lámpara del panel sigue con su regla de CSS (apagada = su color
+  al 22 %, encendida = su color con halo).
+
+Decisiones propias (vetables):
+
+- **P1. Dos claves y no sólo el nombre**: con `zona` el visor tendría que saber que la lente se
+  llama `frente` (una copia de `ZONA_DE_COLOR` en la UI); `de_color` la marca el servidor desde la
+  fuente única. `zona` va igual: es el dato que faltaba y lo puede leer quien necesite otra zona.
+- **P2. `naranja` deja de tener tono** (estaba en la tabla vieja y no en `ACABADO_DE_COLOR`):
+  ninguna ficha lo usa (las Ø22 son verde, rojo, azul y ámbar) y un `specs.color` sin acabado en un
+  Ø22 no carga; uno así se ve del gris del tema en el panel. Un color nuevo entra en
+  `ACABADO_DE_COLOR` con su origen, como dice la D-a.
+- **P3. Los tonos cambian** a los del acabado (verde `#2fa84f` → RAL 6024 `#008754`, rojo `#d43a2f`
+  → `#b3191e`, ámbar `#f29a1f` → RAL 2000 `#dd7907`, amarillo `#f2c230` → `#f2b100`, azul,
+  blanco, negro y gris también): es el objetivo, el panel y el 3D ya no difieren del visor.
+- **P4. No es bump**: no cambia geometría ni caché (`GEOM_CACHE_EPOCH` y las `version` siguen); el
+  golden MCP no cambia (ninguna tool devuelve las zonas).
+
+Tests: `tests/test_piloto_zona_de_color.py` (nuevo: `zona_de_color` por ref, cada zona con su
+nombre en el orden de la malla y sólo el `frente` `de_color` con el acabado de su color, la seta
+sin `de_color`, la entrada `same` igual, `acabado_de_color` en la tabla del visor);
+`tests/test_seta_payload.py` suma `zona` al conjunto de claves. Vitest: `vivo/mandos.test.ts`
+(el color físico es el albedo del acabado para cada color de la tabla, `naranja` sin tono,
+`mandos.ts` sin un solo `#rrggbb`, el tono encendido y su respaldo blanco, `materialesQueBrillan`)
+y `vivo/mandos3d.test.ts` (nuevo: brilla la lente y no el bisel ni el cuerpo, en el tono del
+ámbar; apaga; al quitar vuelve el material original; sin `de_color` o de un solo material, la
+pieza entera). Rojos contra el código anterior: el de la lente en `mandos3d.test.ts` y el de las
+zonas con nombre en pytest fallan con la base.

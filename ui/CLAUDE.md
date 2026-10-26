@@ -331,8 +331,9 @@ escondido. El estándar es el criterio, no la lista: la lista envejece con la pr
 - Sin glow de hover ni tinte `emissive` de selección: el contorno basta. El tinte rojizo es SÓLO
   para guardado FALLIDO (`applyBlockedTint`, piezas en `blockedRef`); no hay tinte de
   «guardando» (en modelos grandes prendía en cada edición y parecía un spinner permanente).
-- **Excepción acotada de color**: el color FÍSICO de un mando o un piloto (`vivo/mandos.ts::colorFisico`,
-  del `specs.color` del catálogo; el emisivo de un piloto con pieza) y el color por dato con su
+- **Excepción acotada de color**: el color FÍSICO de un mando o un piloto (`vivo/mandos.ts::colorFisico`:
+  el albedo del acabado de su `specs.color`, `acabados.json` → `acabado_de_color`, nunca una tabla de
+  tonos propia; el piloto con pieza emite ese tono sólo en su zona `de_color`, la lente) y el color por dato con su
   leyenda (el osciloscopio, `vivo/paleta.ts`; la presión del esquema vivo, `neumatica/esquema.ts`,
   una rampa de UN tono validada con `--ordinal`). Nunca un rojizo ni un verde de ESTADO. [V8.4](../docs/plans/V8.4-maquina-viva-en-pantalla.md) D9
 - La máquina viva (`ui/src/vivo/`, nunca en `Viewport.tsx`): `sesion.ts` lee el `WS /api/cosim/vivo`
