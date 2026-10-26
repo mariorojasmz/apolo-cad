@@ -176,3 +176,34 @@ Tiempos de la tabla medida (S/M 40–65 min, L 90–100; revisión ~35 min por l
 - **D8**: `test_contrato_comandos.py`, `geomcache.py` y toda `CommandSpec.version` sin diff.
 - **Suite**: completa con xdist, exit 0 y ningún `FAILED`; `ruff check core tests scripts`
   limpio; `test_claude_md.py` verde (library 32 KB de 35).
+
+### F2 — report.py partido (2026-10-25, base `5a3d6e4`)
+
+- **Corte** (script por NOMBRE sobre el AST: cada bloque = los comentarios pegados encima + la
+  definición, byte a byte y en su orden; cada módulo = docstring + imports + bloques):
+
+  | módulo (`library/engineering/`) | nombres | líneas |
+  |---|---|---:|
+  | `report_comun.py` | `G`, `_BEARING_CATS`, `_name` | 19 |
+  | `report_uniones.py` | `_weaker_yield`, `_fastener_checks` | 164 |
+  | `report_estructura.py` | `_bearing_checks`, `_buckling_checks`, `_tipping_check` | 200 |
+  | `report_ajustes.py` | `_SHAFT_FIT_NAME_RE`, `_fit_checks` | 157 |
+  | `report.py` | docstring, re-exports, `__getattr__`, `structure_engineering_check` | 79 (era 555; sale de `EXCEPCIONES`) |
+
+- **Fuentes**: `inspect.getsource` de las 8 funciones idéntico antes y después (y cada una nace en
+  su casa); `G` y `_BEARING_CATS` iguales por valor; 0 distintas. `VERSIONES`/`CAMPOS` sin editar
+  y verdes; ninguna epoch ni `version` tocada (D8).
+- **Desvíos de D3** (decididos con criterio): (1) **`report_comun.py`** nuevo con `G`,
+  `_BEARING_CATS` y `_name`: los usan dos o tres de los módulos nuevos y, dejados en `report.py`,
+  cada módulo tendría que importar `report`, que los importa a ellos (ciclo). `report.py` los
+  re-exporta. (2) **`_SHAFT_FIT_NAME_RE`** (el regex que `_fit_checks` compila perezoso con
+  `global`) viaja con su función a `report_ajustes` y `report` lo sirve EN VIVO por un
+  `__getattr__` de módulo, no por valor: re-exportado, `report` se quedaba con el `None` de antes
+  de compilarlo. (3) Como en el plan I (F2, desvío 2), `report.py` no re-exporta lo que sólo
+  IMPORTABA (`math`, `_check`, `resolve_material`…): nadie lo importa de ahí (búsqueda en `core`,
+  `tests`, `scripts`: sólo `structure_engineering_check`).
+- **D6**: `grep monkeypatch` sobre `report` en `tests/`: ningún test reasigna un nombre de
+  `report`; no hubo nada que dejar en su sitio.
+- **Gate D7**: `test_rutas_viejas.py` suma la sección `report`: lista CERRADA de las 11
+  definiciones, cada una el MISMO objeto que en su casa y nacida en ella; un test del regex vivo
+  (antes y después de compilar) y dos que prueban que el gate caza un nombre que falta y una copia.

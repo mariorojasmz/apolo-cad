@@ -195,7 +195,7 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   van con `include_hidden=True`; la puerta de entrega y la BOM aún filtran
   ([backlog](../../../docs/backlog.md) § Validación).
 - Toda verificación cuantitativa lleva bloque `calc` {titulo, entradas, formula, sustitucion,
-  resultado, criterio, fs, norma}. Las 16 con norma (10 en `rules.py`, 6 en `report.py`) citan la
+  resultado, criterio, fs, norma}. Las 16 con norma (10 en `rules.py`, 6 en `report_*.py`) citan la
   norma real; sin norma aplicable se escribe «criterio de diseño», nunca una cita inventada. Eje:
   σ_adm = 0.5·σy (más estricto que ASME B106.1M); flecha L/240 (AISC).
   [V7.2b](../../../docs/plans/V7.2b-barrida-residuos.md) · [V7.2c](../../../docs/plans/V7.2c-fixes-re-auditoria.md)
@@ -225,7 +225,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   redundante → None. `mass`: catálogo pesa por FICHA, a medida volumen × densidad.
 - `report.structure_engineering_check` (universal: pernos, soldaduras, L10, pandeo, vuelco): las
   uniones sin dimensionar se AGREGAN en una regla-resumen; redundante + dimensionada = ok con
-  nota (la redundancia es favorable y no accionable).
+  nota (la redundancia es favorable y no accionable). Módulos: `report.py` (orquestador y ruta
+  vieja: re-exporta por identidad), `report_uniones` (pernos, soldadura), `report_estructura`
+  (L10, pandeo, vuelco), `report_ajustes` (ISO 286), `report_comun` (`G`, `_name`); una
+  verificación nueva va a su módulo, no a `report.py` ([plan](../../../docs/plans/partir-nucleo-congelado-ii.md) D3).
 - Viga continua (`viga_continua.py`, Hermite con cargas consistentes = exacta, no aproximada):
   cargas y flechas + hacia ABAJO, reacciones + hacia ARRIBA (negativa = tracción, no se
   recorta). Secciones (`secciones.py`) en ejes LOCALES del builder (`i_x` = canto en Y): tabla

@@ -668,3 +668,71 @@ def test_el_gate_builders_caza_una_copia(monkeypatch):
     assert faltantes("apolo.library.builders", BUILDERS_CASAS) == [
         "apolo.library.builders.drum: no es el objeto de apolo.library.builders_accionamiento"
     ]
+
+
+# ── report (II F2) ────────────────────────────────────────────────────────────
+
+#: Casa nueva de cada nombre que `apolo.library.engineering.report` definía en `5a3d6e4` (11
+#: definiciones de nivel superior; plan partir-nucleo-congelado-ii, D3 y D6).
+REPORT: dict[str, tuple[str, ...]] = {
+    "apolo.library.engineering.report_comun": ("G", "_BEARING_CATS", "_name"),
+    "apolo.library.engineering.report_uniones": ("_weaker_yield", "_fastener_checks"),
+    "apolo.library.engineering.report_estructura": (
+        "_bearing_checks", "_buckling_checks", "_tipping_check",
+    ),
+    "apolo.library.engineering.report_ajustes": ("_SHAFT_FIT_NAME_RE", "_fit_checks"),
+    "apolo.library.engineering.report": ("structure_engineering_check",),
+}
+
+DEFINICIONES_REPORT = 11
+
+
+def test_report_sirve_cada_nombre_viejo_por_identidad():
+    assert faltantes("apolo.library.engineering.report", REPORT) == []
+
+
+def test_report_lista_cerrada():
+    nombres = [n for ns in REPORT.values() for n in ns]
+    assert len(nombres) == len(set(nombres)) == DEFINICIONES_REPORT
+
+
+@pytest.mark.parametrize("casa", sorted(REPORT))
+def test_cada_casa_nueva_de_report_define_lo_suyo(casa):
+    mod = importlib.import_module(casa)
+    for nombre in REPORT[casa]:
+        obj = getattr(mod, nombre)
+        if inspect.isfunction(obj):
+            assert obj.__module__ == casa, f"{nombre} nace en {obj.__module__}, no en {casa}"
+
+
+def test_report_sirve_el_regex_perezoso_en_vivo():
+    """`_fit_checks` compila `_SHAFT_FIT_NAME_RE` con `global` en `report_ajustes`; `report` lo
+    sirve por su `__getattr__`, así que antes y después de compilarlo es el mismo objeto."""
+    import apolo.library.engineering.report as report
+    import apolo.library.engineering.report_ajustes as ajustes
+
+    assert "_SHAFT_FIT_NAME_RE" not in vars(report)  # nunca por valor
+    ajustes._fit_checks({}, {}, {}, {}, {})
+    assert ajustes._SHAFT_FIT_NAME_RE is not None
+    assert report._SHAFT_FIT_NAME_RE is ajustes._SHAFT_FIT_NAME_RE
+    with pytest.raises(AttributeError):
+        report.no_existe  # noqa: B018
+
+
+def test_el_gate_report_caza_un_nombre_que_falta(monkeypatch):
+    import apolo.library.engineering.report as report
+
+    monkeypatch.delattr(report, "_fit_checks")
+    assert faltantes("apolo.library.engineering.report", REPORT) == [
+        "apolo.library.engineering.report._fit_checks: ya no existe"
+    ]
+
+
+def test_el_gate_report_caza_una_copia(monkeypatch):
+    import apolo.library.engineering.report as report
+
+    monkeypatch.setattr(report, "_bearing_checks", lambda *a, **k: [])
+    assert faltantes("apolo.library.engineering.report", REPORT) == [
+        "apolo.library.engineering.report._bearing_checks: no es el objeto de "
+        "apolo.library.engineering.report_estructura"
+    ]
