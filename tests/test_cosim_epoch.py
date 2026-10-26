@@ -49,6 +49,7 @@ ARCHIVOS = (
     "services/cosim_bandas.py",
     "services/cosim_red.py",
     "services/cosim_snapshot.py",
+    "services/escenario_ajustes.py",
 )
 
 #: V8.4 F1 (sin subir): el paso compartido lote/vivo da la MISMA huella de trazas (la 77 en sus
@@ -144,7 +145,14 @@ ARCHIVOS = (
 #: finales, claves y veredicto por aserción IDÉNTICOS a 1ff0679, y los dos tableros de
 #: `test_cosim_diferencial.py` con su corto a PE, las mismas señales paso a paso; la huella de
 #: cada escenario cambia sólo por la traza nueva (bitácora del plan).
-HUELLA: tuple[int, str] = (6, "ae1f815f83441ea9")
+#: cotizacion-identificada-y-ajustes-por-escenario F2 (sin subir, D5–D6): el escenario acepta
+#: `ajustes` de PRUEBA (`cosim/escenario.py` lee la forma, `services/escenario_ajustes.py` —suma a
+#: `ARCHIVOS`— los valida y los pone encima en una COPIA del modelo del tablero, el snapshot los
+#: lista en `CosimSnapshot.ajustes`). Sólo actúan si el escenario los trae y entran a SU hash: sin
+#: ellos, 5 escenarios del banco (marcha con cajas, seta y atasco parcial por variador; marcha y
+#: atasco parcial en directo) dan la MISMA huella, hipótesis, finales, claves del resultado y del
+#: compacto, hash de escenario y firma del documento que en 712a9bd (bitácora del plan).
+HUELLA: tuple[int, str] = (6, "b46038422b964733")
 
 
 def archivos() -> list[Path]:

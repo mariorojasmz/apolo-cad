@@ -19,6 +19,10 @@ checkpoints, como `motion` o `fea`) con la forma `{nombre: {"escenario": {...}, 
     `electrico`: la caída de tensión y los disparos medidos, `medidas_electricas.py`,
     pedidos-de-extensiones D7);
   - `reglas_escenarios`: la regla «escenarios» de la puerta de entrega (D14).
+Los `ajustes` de PRUEBA de un escenario (cotizacion-identificada-y-ajustes-por-escenario D5–D6,
+`escenario_ajustes.py`) viven en su dict: entran a SU `hash_escenario` (cambiar uno vence sólo
+ese resultado), nunca a `firma_documento`, y sin ellos el dict y el hash son los de siempre.
+`poner` los valida contra el tablero si ya existe (400); si no, se validan al correrlo.
 """
 
 from __future__ import annotations
@@ -204,6 +208,13 @@ def poner(doc, nombre: str, esc: dict) -> dict:
         raise ServiceError(400, "el escenario es un objeto {duracion_s, acciones, eventos, "
                                 "aserciones, acoples, …}")
     e = leer(esc)
+    if e.ajustes:  # D5: contra el tablero si ya está (si no, al correrlo: como los dispositivos)
+        from .electrico import modelo
+        from .escenario_ajustes import validar as validar_ajustes
+
+        me = modelo(doc)
+        if me.dispositivos:
+            validar_ajustes(me, e.ajustes)
     errores, avisos_tipos = _revisar_tipos(doc, e)
     if errores:
         raise ServiceError(400, "aserciones: " + " | ".join(errores))
@@ -311,12 +322,15 @@ def extensiones_usadas(doc, previas: dict | None = None) -> dict:
 
 def resultado_compacto(veredicto: dict, res: dict, *, firma: str, hash_esc: str,
                        simulacion: str | None, extensiones: dict | None = None,
-                       referencias_electricas: dict | None = None) -> dict:
+                       referencias_electricas: dict | None = None,
+                       ajustes: list | None = None) -> dict:
     """Lo que se guarda en el manifest del último run: sin trazas (pesan cientos de KB). Con la
     versión del motor que lo produjo (`cosim_epoch`, F6b) y, sólo si el tablero usó modelos de
     una extensión, sus versiones (`extensiones`, A4). `referencias_electricas` (las arma la API
     del documento: `medidas_electricas.referencias`) dice qué es motor y contra qué se mide su
-    caída; sin motores ni disparos no hay `electrico` (D7)."""
+    caída; sin motores ni disparos no hay `electrico` (D7). `ajustes` (los de PRUEBA del
+    escenario, `CosimSnapshot.ajustes`) va como `ajustes_de_prueba` sólo si hubo: quien lee las
+    cifras de este resultado sabe que no son las del proyecto."""
     from apolo.cosim import COSIM_EPOCH
 
     from .aire_resultado import resumen_aire
@@ -332,7 +346,8 @@ def resultado_compacto(veredicto: dict, res: dict, *, firma: str, hash_esc: str,
             **({"simulacion": simulacion} if simulacion else {}),
             **({"extensiones": dict(extensiones)} if extensiones else {}),
             **({"aire": aire} if aire else {}),
-            **({"electrico": electrico} if electrico else {})}
+            **({"electrico": electrico} if electrico else {}),
+            **({"ajustes_de_prueba": [dict(a) for a in ajustes]} if ajustes else {})}
 
 
 def guardar_resultado(doc, nombre: str, compacto: dict) -> bool:

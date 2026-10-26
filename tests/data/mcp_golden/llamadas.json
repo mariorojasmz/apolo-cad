@@ -8075,6 +8075,90 @@
   ]
  },
  {
+  "caso": "escenario con ajustes de prueba",
+  "tool": "set_scenario",
+  "args": {
+   "nombre": "atasco",
+   "escenario": {
+    "duracion_s": 8,
+    "eventos": [
+     {
+      "t": 1.5,
+      "tipo": "atasco",
+      "junta": "c1_eje_motriz",
+      "par_Nm": 650
+     }
+    ],
+    "acoples": {
+     "motores": {
+      "-M1": {
+       "junta": "c1_eje_motriz"
+      }
+     }
+    },
+    "ajustes": {
+     "-T2": {
+      "sobrecarga_s": 1
+     }
+    },
+    "aserciones": [
+     "-T2.falla == sobrecarga dentro_de 6,4 s desde atasco"
+    ]
+   }
+  },
+  "salida": [
+   {
+    "texto": "{\"nombre\": \"seta\", \"estado\": \"vencido\", \"n_aserciones\": 1, \"aserciones\": [\"-M1.par_Nm == 0 dentro_de 0.5 s desde presionar -S0\"], \"avisos\": []}"
+   }
+  ],
+  "estructurado": "= {result: texto}",
+  "peticiones": [
+   {
+    "metodo": "PUT",
+    "url": "http://127.0.0.1:8000/api/escenarios/atasco",
+    "query": [],
+    "cuerpo": {
+     "escenario": {
+      "duracion_s": 8,
+      "eventos": [
+       {
+        "t": 1.5,
+        "tipo": "atasco",
+        "junta": "c1_eje_motriz",
+        "par_Nm": 650
+       }
+      ],
+      "acoples": {
+       "motores": {
+        "-M1": {
+         "junta": "c1_eje_motriz"
+        }
+       }
+      },
+      "ajustes": {
+       "-T2": {
+        "sobrecarga_s": 1
+       }
+      },
+      "aserciones": [
+       "-T2.falla == sobrecarga dentro_de 6,4 s desde atasco"
+      ]
+     }
+    },
+    "cabeceras": {
+     "accept": "*/*",
+     "connection": "keep-alive",
+     "content-type": "application/json",
+     "host": "127.0.0.1:8000"
+    },
+    "cliente": {
+     "base_url": "http://127.0.0.1:8000",
+     "timeout": 120
+    }
+   }
+  ]
+ },
+ {
   "caso": "borrar escenario",
   "tool": "set_scenario",
   "args": {

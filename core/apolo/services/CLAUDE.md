@@ -135,6 +135,12 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   variador) las arma la API en la toma del snapshot, nunca el worker. Un resultado sin
   `electrico` sigue vigente: quien lo lee usa `cifras` (aviso «córrelo de nuevo»).
   [pedidos-de-extensiones](../../../docs/plans/pedidos-de-extensiones.md) (F4)
+- Los `ajustes` de PRUEBA de un escenario (`escenario_ajustes.py`) se validan como en `add_device`
+  y se aplican en una COPIA del modelo del tablero dentro del snapshot: nunca a `doc.electrico`
+  (lo que leen manual y memoria) ni a `firma_documento`; entran sólo al hash de SU escenario y el
+  resultado los lista (`ajustes_de_prueba`). Un lector de resultados que publica cifras «del
+  proyecto» trata ese escenario como uno de falla (`neumatica._sano`).
+  [plan](../../../docs/plans/cotizacion-identificada-y-ajustes-por-escenario.md) (D5–D7)
 - Una sesión en vivo vuelta escenario (`sesion_viva.py`) tiene que dar por lote la huella de la
   sesión: la cola de productos queda con las instancias que tuvo la SESIÓN (`fijar_cola`: su pool
   sale de la duración de la BASE), más de 60 s se guarda por tramo inicial (`hasta_s`), y otra

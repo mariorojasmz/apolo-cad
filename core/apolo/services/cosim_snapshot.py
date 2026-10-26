@@ -161,7 +161,7 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
 
     from apolo.cosim.tipos import revisar, valores_iniciales
 
-    from . import cosim_aire, cosim_externo
+    from . import cosim_aire, cosim_externo, escenario_ajustes
     from .cosim_bandas import bandas_quietas, prever
     from .cosim_red import entrada_red, largos_calculados
     from .electrico import ajustes_faltantes, modelo, texto_ajustes_faltantes
@@ -177,8 +177,13 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
     faltan = ajustes_faltantes(me)  # F6: todos juntos, no el primero de uno solo
     if faltan:
         raise ServiceError(400, " | ".join(texto_ajustes_faltantes(d, f) for d, f in faltan))
+    # D5 (cotizacion-identificada-y-ajustes-por-escenario): los ajustes de PRUEBA del escenario,
+    # encima de los del proyecto en una COPIA del modelo (el del documento no cambia); sin ellos,
+    # el mismo `me`
+    me, usados = escenario_ajustes.aplicar(me, esc.ajustes)
     hipotesis = [f"{d.designacion}: {k} = {d.ajustes[k]:g}, {origen}"
                  for d in me.dispositivos for k, origen in d.deducidos.items()]
+    hipotesis += escenario_ajustes.hipotesis(usados)
     cosim_aire.exigir_acoples(doc, me, esc)  # V8.9 D8: antes de armar los modelos
     aire = cosim_aire.red_aire(me, esc)
     dispositivos = cosim_aire.dispositivos(doc, me, esc.cilindros)
@@ -228,4 +233,5 @@ def snapshot_cosim(doc, escenario, *, programas: list[dict] | None = None, plc_e
                          motores=motores, sensores=acoples_s, escenario=esc,
                          hipotesis=hipotesis, avisos=avisos,
                          modelos_extension=clases, extensiones=extensiones,
-                         aire=aire, cilindros=cilindros, reeds=reeds, externos=externos)
+                         aire=aire, cilindros=cilindros, reeds=reeds, externos=externos,
+                         ajustes=usados)

@@ -133,6 +133,9 @@ def registrar(mcp, api, esperar) -> None:
                     MANO va en bandas [{pieza, junta_motriz}]: sin ella no avanza y un escenario
                     con cajas encima o aserciones sobre ella es error,
          trazas?: {analogicas_hz, senales},
+         ajustes?: {"-T2": {"sobrecarga_s": 5}},   ← ajustes de PRUEBA sólo de este escenario
+                   (validados como en add_device): el proyecto, el manual y la memoria siguen con
+                   los de add_device; el resultado los lista en ajustes_de_prueba,
          aserciones: ["-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1",
                       "-M1.par_Nm == 0 dentro_de 0,5 s desde presionar -S0",
                       "-Q2.disparado dentro_de 10 s desde atasco", "-K1.cuenta == 10 al_final",

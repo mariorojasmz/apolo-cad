@@ -745,6 +745,11 @@ CASOS = [
         "duracion_s": 3, "acciones": [{"t": 2.2, "accion": "presionar", "dispositivo": "-S0"}],
         "acoples": {"motores": {"-M1": {"junta": "c1_eje_motriz"}}},
         "aserciones": ["-M1.par_Nm == 0 dentro_de 0,5 s desde presionar -S0"]}}),
+    caso("escenario con ajustes de prueba", "set_scenario", {"nombre": "atasco", "escenario": {
+        "duracion_s": 8, "eventos": [{"t": 1.5, "tipo": "atasco", "junta": "c1_eje_motriz", "par_Nm": 650}],
+        "acoples": {"motores": {"-M1": {"junta": "c1_eje_motriz"}}},
+        "ajustes": {"-T2": {"sobrecarga_s": 1}},
+        "aserciones": ["-T2.falla == sobrecarga dentro_de 6,4 s desde atasco"]}}),
     caso("borrar escenario", "set_scenario", {"nombre": "viejo"}),
     caso("guardar sesión en vivo", "save_live_session", {"nombre": "arranque-vivo"}),
     caso("guardar el tramo de una sesión", "save_live_session", {

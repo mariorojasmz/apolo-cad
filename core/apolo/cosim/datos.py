@@ -93,3 +93,7 @@ class CosimSnapshot:
     # conector, config)}; la clase viaja por pickle como `modelos_extension`). Vacío sin externo:
     # la corrida de siempre. Nunca sale del documento: lo elige el pedido.
     externos: dict = field(default_factory=dict)
+    # D5 de cotizacion-identificada-y-ajustes-por-escenario: los ajustes de PRUEBA que el
+    # escenario puso encima de los del proyecto ([{dispositivo, ajuste, valor, proyecto}]: ya
+    # están en `dispositivos`; esto es lo que el resultado lista). Vacío sin `ajustes`.
+    ajustes: list = field(default_factory=list)

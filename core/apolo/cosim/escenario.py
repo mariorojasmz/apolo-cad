@@ -25,6 +25,7 @@ Un escenario es una PRUEBA: dict → `Escenario` validado, con errores accionabl
                  "sensores": {"-B1": {"origen": […], "direccion": […], "alcance_mm": 800}}},
      "trazas": {"analogicas_hz": 50, "senales": ["-K1:A1.U_V"]},
      "aserciones": ["-M1.rpm >= 1700 dentro_de 3 s desde pulsar -S1", …],   (F5, `aserciones.py`)
+     "ajustes": {"-T2": {"sobrecarga_s": 5}},   (de PRUEBA: sólo esta corrida, el documento no cambia)
      "descripcion": "marcha y conteo"}
 
 El AIRE (V8.9 D3, D8): `condiciones.presion_red_bar` (la toma, manométrica; obligatoria si hay
@@ -61,7 +62,7 @@ CLAVES_MECANICA = ("bandas", "auto_bandas", "juntas", "fps", "timestep", "nstep"
                    "con_autodeteccion", "colisiones_maquina", "modelo_banda", "sumideros")
 ANALOGICAS_HZ = 50.0
 CLAVES = {"duracion_s", "descripcion", "condiciones", "acciones", "eventos", "mecanica", "acoples",
-          "trazas", "aserciones"}
+          "trazas", "aserciones", "ajustes"}
 
 
 class EscenarioInvalido(ValueError):
@@ -107,6 +108,10 @@ class Escenario:
     senales_extra: list = field(default_factory=list)
     aserciones: list = field(default_factory=list)     # normalizadas (`aserciones.py`), dicts
     descripcion: str = ""
+    #: designación → {campo: valor}: ajustes de PRUEBA sólo de esta corrida (plan
+    #: cotizacion-identificada-y-ajustes-por-escenario D5); los valida contra el tablero
+    #: `services/escenario_ajustes.py` (aquí, sólo la forma)
+    ajustes: dict = field(default_factory=dict)
 
 
 def _claves(obj, validas, donde: str) -> dict:
@@ -404,6 +409,18 @@ def _acoples(a) -> tuple[dict, dict, dict]:
     return motores, sensores, cilindros
 
 
+def _ajustes(a) -> dict:
+    """`ajustes` = {designación: {campo: valor}} (D5): aquí sólo la forma; los campos y sus
+    valores, contra la ficha de cada aparato (`services/escenario_ajustes.py`)."""
+    out = {}
+    for des, campos in _claves(a, set(a or {}), "ajustes").items():
+        if not isinstance(campos, dict) or not campos:
+            raise EscenarioInvalido(f"ajustes.{des}: se espera {{campo: valor}} con al menos un "
+                                    f"ajuste (p. ej. {{\"sobrecarga_s\": 5}})")
+        out[str(des)] = {str(k): v for k, v in campos.items()}
+    return out
+
+
 def leer_escenario(d) -> Escenario:
     """dict (o un `Escenario` ya leído) → `Escenario` validado."""
     if isinstance(d, Escenario):
@@ -448,4 +465,5 @@ def leer_escenario(d) -> Escenario:
         cilindros=cilindros, presion_red_bar=presion,
         analogicas_hz=_num(tr, "analogicas_hz", "trazas", ANALOGICAS_HZ, minimo=0.1, maximo=500.0),
         senales_extra=[str(s) for s in _lista(tr, "senales", "trazas")],
+        ajustes=_ajustes(d.get("ajustes")),
     )

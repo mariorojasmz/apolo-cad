@@ -84,7 +84,12 @@ TOL_CARRERA_MM = 2.0
 
 
 def _sano(ent: dict) -> bool:
-    eventos = (ent.get("escenario") or {}).get("eventos") or []
+    """Sin falla provocada ni ajustes de PRUEBA (D7 de cotizacion-identificada-y-ajustes-por-
+    escenario: un escenario con `ajustes` no mide la máquina del proyecto)."""
+    esc = ent.get("escenario") or {}
+    if esc.get("ajustes"):
+        return False
+    eventos = esc.get("eventos") or []
     return all(isinstance(e, dict) and e.get("tipo") in EVENTOS_SANOS for e in eventos)
 
 

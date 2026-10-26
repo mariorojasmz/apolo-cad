@@ -115,6 +115,8 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
     hid = hipotesis_id(res.get("hipotesis") or [])
     previa = SIMULACIONES.con_hipotesis(pid, hid)  # F6b: las mismas ya salieron → sólo el id
     base = compacto(res, ver, simulacion=sim_id, escenario=nombre, hipotesis_vistas_en=previa)
+    if getattr(snap, "ajustes", None):  # D5: los de PRUEBA que usó, con el valor del proyecto
+        base["ajustes_de_prueba"] = [dict(a) for a in snap.ajustes]
     if extra:
         base.update(extra)
     SIMULACIONES.guardar({"id": sim_id, "proyecto": pid, "escenario": nombre,
@@ -134,7 +136,8 @@ def _correr(escenario, *, programas=None, guardar=True, proyecto=None, extra=Non
             else:
                 out["guardado"] = E.guardar_resultado(doc, nombre, E.resultado_compacto(
                     ver, res, firma=firma, hash_esc=h, simulacion=sim_id,
-                    extensiones=getattr(snap, "extensiones", None), referencias_electricas=refs))
+                    extensiones=getattr(snap, "extensiones", None), referencias_electricas=refs,
+                    ajustes=getattr(snap, "ajustes", None)))
                 if out["guardado"]:
                     _autosave()
                 out["estado"] = E.estado(doc, nombre)["estado"] if nombre in doc.escenarios else None
@@ -351,6 +354,8 @@ def _guardar_sesion(body: SesionIn, proyecto) -> dict:
     sugeridas = SV.sugerir(esc, res)
     sim_id = "s" + uuid.uuid4().hex[:8]
     base = compacto(res, ver, simulacion=sim_id, escenario=nombre)
+    if getattr(snap, "ajustes", None):  # D5: la base los trae (escenario_vivo los conserva)
+        base["ajustes_de_prueba"] = [dict(a) for a in snap.ajustes]
     SIMULACIONES.guardar({"id": sim_id, "proyecto": pid, "escenario": nombre, "veredicto": ver["veredicto"],
                           "creado": time.strftime("%H:%M:%S"), "prueba_plc": False, "res": res,
                           "base": base, "hipotesis_id": base.get("hipotesis_id")})
@@ -380,7 +385,8 @@ def _guardar_sesion(body: SesionIn, proyecto) -> dict:
         E.guardar_resultado(doc, nombre, E.resultado_compacto(ver, res, firma=firma, hash_esc=h,
                                                               simulacion=sim_id,
                                                               extensiones=getattr(snap, "extensiones", None),
-                                                              referencias_electricas=refs))
+                                                              referencias_electricas=refs,
+                                                              ajustes=getattr(snap, "ajustes", None)))
         _autosave()
         out.update(guardado=True, estado=E.estado(doc, nombre)["estado"])
         out["avisos"] += puesto["avisos"]
