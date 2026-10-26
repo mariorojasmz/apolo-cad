@@ -822,3 +822,93 @@ def test_el_gate_rules_caza_una_copia(monkeypatch):
     assert faltantes("apolo.library.rules", RULES) == [
         "apolo.library.rules._check: no es el objeto de apolo.library.rules_comun"
     ]
+
+
+# ── sheet (II F4) ─────────────────────────────────────────────────────────────
+
+#: Casa nueva de cada nombre que `apolo.drawing.sheet` definía en `fac06a5` (30 definiciones de
+#: nivel superior; plan partir-nucleo-congelado-ii, D4 y D6). La extensión privada del titular
+#: importa de aquí las primitivas (`Line`, `Label`, `SheetModel`, `MARGIN`, `SHEETS`…).
+SHEET: dict[str, tuple[str, ...]] = {
+    "apolo.drawing.sheet_primitivas": (
+        "SHEETS", "MARGIN", "TITLE_W", "TITLE_H", "CELL_PAD", "STANDARD_SCALES", "VIEW_DIMS",
+        "VIEW_TITLES", "Line", "Label", "Circle", "Arc", "Polygon", "Image", "SheetModel",
+    ),
+    "apolo.drawing.sheet_auxiliares": (
+        "_pick_scale", "_place_view", "_fit_for_dia", "_hole_callouts", "_dim_h_at", "_dim_h",
+        "_dim_v", "_zone_grid", "_scale_bar",
+    ),
+    "apolo.drawing.sheet_anotaciones": (
+        "_draw_table_with_balloons", "_assembly_notes_auto", "_bbox_vol", "_weld_anchor",
+        "_place_weld_symbols",
+    ),
+    "apolo.drawing.sheet": ("compose_sheet",),
+}
+
+DEFINICIONES_SHEET = 30
+
+#: Lo que `sheet` sólo IMPORTABA en `fac06a5`: también sigue sirviendo, el mismo objeto.
+SHEET_IMPORTADOS: dict[str, tuple[str, ...]] = {
+    "dataclasses": ("dataclass", "field"),
+    "datetime": ("date",),
+    "apolo.drawing.dimensions": (
+        "baseline_dims", "center_mark", "linear_dim", "notes_block", "weld_symbol",
+    ),
+    "apolo.drawing.projection": (
+        "ViewProjection", "detail_view", "project_views", "real_dims", "section_projection",
+        "view_center", "world_to_view",
+    ),
+}
+
+#: Los bloques de `compose_sheet`, en el orden en que los llama (D4: el orden de las primitivas
+#: del SVG es el de estas llamadas).
+BLOQUES_COMPOSE = (
+    "preparar_lamina", "dibujar_vistas", "acotar_solidos", "acotar_desde_datum",
+    "dibujar_simbolos_de_soldadura", "dibujar_cuadrante_iso", "dibujar_tablas",
+    "dibujar_detalle_de_pieza", "reunir_notas_de_taller", "dibujar_notas", "dibujar_cajetin",
+)
+
+
+def test_sheet_sirve_cada_nombre_viejo_por_identidad():
+    assert faltantes("apolo.drawing.sheet", SHEET) == []
+    assert faltantes("apolo.drawing.sheet", SHEET_IMPORTADOS) == []
+
+
+def test_sheet_lista_cerrada():
+    nombres = [n for ns in SHEET.values() for n in ns]
+    assert len(nombres) == len(set(nombres)) == DEFINICIONES_SHEET
+
+
+@pytest.mark.parametrize("casa", sorted(SHEET))
+def test_cada_casa_nueva_de_sheet_define_lo_suyo(casa):
+    mod = importlib.import_module(casa)
+    for nombre in SHEET[casa]:
+        obj = getattr(mod, nombre)
+        if isinstance(obj, type) or inspect.isfunction(obj):
+            assert obj.__module__ == casa, f"{nombre} nace en {obj.__module__}, no en {casa}"
+
+
+def test_sheet_solo_define_el_orquestador_y_llama_a_los_bloques_en_orden():
+    import ast
+
+    import apolo.drawing.sheet as sheet
+
+    propias = [n for n, obj in vars(sheet).items()
+               if inspect.isfunction(obj) and obj.__module__ == sheet.__name__]
+    assert propias == ["compose_sheet"]
+    cuerpo = ast.parse(inspect.getsource(sheet.compose_sheet)).body[0].body
+    llamadas = [s.value.func.id for s in cuerpo
+                if isinstance(s, (ast.Assign, ast.Expr)) and isinstance(s.value, ast.Call)]
+    assert llamadas == ["LaminaEnCurso", *BLOQUES_COMPOSE]
+
+
+def test_el_gate_sheet_caza_una_copia(monkeypatch):
+    import apolo.drawing.sheet as sheet
+
+    class Label:  # mismo nombre, otra clase
+        pass
+
+    monkeypatch.setattr(sheet, "Label", Label)
+    assert faltantes("apolo.drawing.sheet", SHEET) == [
+        "apolo.drawing.sheet.Label: no es el objeto de apolo.drawing.sheet_primitivas"
+    ]

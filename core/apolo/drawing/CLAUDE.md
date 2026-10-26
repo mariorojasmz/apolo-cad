@@ -11,6 +11,13 @@ reglas están en [services](../services/CLAUDE.md).
 
 ## Mapa
 
+- **`sheet.py` es fachada + orquestador** ([partir-nucleo-congelado-ii](../../../docs/plans/partir-nucleo-congelado-ii.md)
+  F4): primitivas y constantes en `sheet_primitivas`, auxiliares en `sheet_auxiliares` /
+  `sheet_anotaciones`; `compose_sheet` llama EN ORDEN a bloques de `sheet_vistas`, `sheet_cotas`,
+  `sheet_tablas` y `sheet_cajetin`, con el estado en `LaminaEnCurso` (`sheet_lamina`). Lo nuevo
+  va a su bloque (un local que lee otro bloque = campo + `return`); el orden de las primitivas
+  es parte del contrato (`tests/test_laminas_congeladas.py`). `apolo.drawing.sheet` sirve por
+  identidad todo nombre de antes (`tests/test_rutas_viejas.py`: lo importa la extensión privada).
 - `sheet.py::compose_sheet` (una lámina), `sheetset.py::sheet_set` (juego: conjunto con DESPIECE
   + globos + cédula de herraje + una lámina por pieza + lista de corte), `assembly_manual.py`,
   `calc_report.py` (memoria A4), `quote.py` (cotización), `installation.py`, `dwg.py`,
