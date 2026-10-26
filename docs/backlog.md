@@ -90,6 +90,21 @@ sensores del escenario por designación; F4: casco de un sólido cóncavo). Qued
 - Las cajas en cola se llaman `caja_0…`, no desde 1 (convención de la dinámica: cambiarla vence
   todos los escenarios que las nombran).
 
+Del montaje de los amortiguadores (amortiguador-externo F2, 2026-10-26):
+
+- El ERC del amortiguador toma la velocidad de choque como 2·v̄ aunque haya un escenario vigente
+  con el pico medido (D4 dice «la medida primero»): `electrical_check()` tras
+  `simulate(escenario="seta_desvio")`.
+- `drill_hole` con `thread:"M20x1.5"` dibuja el Ø de broca (18,5) y choca con el amortiguador
+  roscado (`expect: sin_interferencia` lo rechaza); el modelador lo dibujó a Ø20 y el plano pierde
+  el rótulo de la rosca. Una rosca interior con su macho de catálogo es contacto INTENCIONAL.
+- `remove_commands` deja las piezas borradas listadas en su grupo.
+- `engineering_check(grupo="unión apernada")` no considera la fuerza del choque de un amortiguador;
+  con `detail="full"` devuelve ~72 KB.
+- `join_bolted` centra siempre los pernos (no hay desplazamiento).
+- «Barreno sin perno» en un agujero que sí tenía `fasten` (`delivery_check`).
+- `get_simulation` de una sesión anterior da 404.
+
 ## Rendimiento y concurrencia
 
 Origen: revisión de [V6.2e](plans/V6.2e-fixes-revision.md) (§ Bajas).
