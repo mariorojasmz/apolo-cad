@@ -162,6 +162,13 @@ def _frase_memoria(f: dict) -> tuple[str, str | None]:
     if regla == "caudal de la unidad de mantenimiento" and "q_pico_NL_min" in v:
         return (f"{des} pasa {n(v['q_disponible_NL_min'], 0, 'NL/min')} y la máquina pide "
                 f"{n(v['q_pico_NL_min'], 0, 'NL/min')} de pico", "Una unidad de mantenimiento de más caudal.")
+    if regla == "amortiguador externo" and "n_max_ciclos_min" in v and "ciclos_min" in v:
+        entran = (f["recomendacion"].split("Entra con estas cifras: ", 1)[1].rstrip(".")
+                  if "Entra con estas cifras: " in (f.get("recomendacion") or "") else "")
+        return (f"El amortiguador de {des} al {v.get('extremo', '')} recibe {n(v['ciclos_min'], 0)} golpes por minuto "
+                f"y admite {n(v['n_max_ciclos_min'], 0)}",
+                f"Entra uno de este tamaño: {entran}." if entran else
+                "Ninguno del catálogo entra: menos ciclos, menos velocidad o menos presión.")
     if regla == "demanda de aire":
         sin = v.get("sin_fugas_NL_min", v.get("NL_min"))
         return ("Faltan las fugas de la red de aire",
@@ -212,7 +219,7 @@ def items(erc: list[dict], mem: list[dict], m, piezas: dict[str, list[str]]) -> 
         if f["regla"] == "amortiguador externo" and "SIN EVALUAR" in f["detalle"]:
             des = (f.get("elementos") or [""])[0]
             out.append(item(f"sin-ritmo-{des}-{len(out)}", "sin_evaluar",
-                            f"Sin la cadencia de {des} no revisamos la energía por hora de su amortiguador",
+                            f"Sin la cadencia de {des} no revisamos los golpes por minuto ni la energía por hora de su amortiguador",
                             piezas=piezas.get(des, []),
                             detalle="Pídele al agente que declare la cadencia del cilindro o la capacidad de la máquina."))
     return out

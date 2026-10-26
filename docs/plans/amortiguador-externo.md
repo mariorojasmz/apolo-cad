@@ -1,6 +1,6 @@
 ---
 estado: en curso
-nota: F0 y F1 hechas en la rama wip/amortiguador-externo (sin mergear; la suite completa y ruff en verde, § Bitácora); quedan F2 (la faja con desviador arma sus dos amortiguadores por MCP y mide las 15 cajas/min), F3 sólo si F2 la pide (simular el frenado) y F4 (una segunda ficha que publique la energía por hora y el dibujo de las cotas)
+nota: F0, F1 y F1b (la frecuencia máxima) hechas en la rama wip/amortiguador-externo (sin mergear; la suite completa y ruff en verde, § Bitácora; a 15 ciclos/min sólo el M20 entra en los dos extremos, con el empuje al 95 % a 6 bar); quedan F2 (la faja con desviador arma sus dos amortiguadores por MCP y mide las 15 cajas/min), F3 sólo si F2 la pide (simular el frenado) y F4 (una segunda ficha que publique la energía por hora y el dibujo de las cotas)
 descripcion: el cilindro que llega rápido frena en un amortiguador hidráulico de catálogo al final de su carrera; el ERC y la memoria revisan su energía por ciclo y por hora con la fórmula de su ficha, en vez de obligar a estrangular la velocidad
 ---
 
@@ -94,8 +94,13 @@ descripcion: el cilindro que llega rápido frena en un amortiguador hidráulico 
   de llegada declarada cuando exista (`velocidad_llegada_m_s`, trabas-de-modelado D8) y, con sólo
   la de régimen (que el schema define como carrera / tiempo de avance), **2·v̄** como pide la
   nota 1 de la ficha. Un solo punto: `cilindros.v_choque`.
-- **D5. Por hora: E·n·60 ≤ E máx por hora, con los ciclos que el modelo tenga.** Un choque por
-  extremo y por ciclo. n = `servicio.ciclos_min` si el cilindro declara su cadencia (el dato más
+- **D5. Frecuencia y por hora, con los ciclos que el modelo tenga.** Un choque por extremo y por
+  ciclo. n ≤ la frecuencia máxima de la ficha, TAL CUAL (error encima): así la compara el
+  ejemplo de selección de SMC RB («n = 20 < 25» con 11,7 J de 58,8), aunque la nota de la serie
+  RBL diga que puede crecer al bajar la energía. Y E·n·60 ≤ E máx por hora (derivada = E máx ·
+  n máx · 60: con las dos anteriores en verde nunca pasa sola; queda como dato para una ficha que
+  la publique aparte, F4). Un error en cualquiera sugiere las refs del catálogo que SÍ entran con
+  esas cifras (`amortiguador.entran`, una por capacidad), o dice que ninguna. n = `servicio.ciclos_min` si el cilindro declara su cadencia (el dato más
   propio, el mismo de la demanda de aire); si no, `requirements.paquetes_por_minuto` (un ciclo por
   paquete, declarado); sin ninguno, SIN EVALUAR: el ERC lo dice en el detalle de la fila del ciclo
   (no cuenta como aviso: un dato que falta no es un defecto, como «ningún cilindro declara su
@@ -119,6 +124,9 @@ descripcion: el cilindro que llega rápido frena en un amortiguador hidráulico 
   frágil para un dato que el diseñador SABE; queda la regla que avisa si falta la pieza.
 - D4: la velocidad de régimen tal cual (como la regla de la amortiguación del cilindro) — la
   ficha pide 2·v̄ cuando la velocidad sale del tiempo de carrera; un escenario la reemplaza.
+- D5: escalar la frecuencia máxima con la energía (n_máx · E_máx / E, la nota de la serie RBL) —
+  la ficha del RB no lo dice y su ejemplo de selección compara n con n máx sin escalar; F4 lo
+  puede abrir con una ficha que lo publique.
 - D5: sólo `paquetes_por_minuto` — ignoraría la cadencia que el cilindro ya declara (un desviador
   que actúa en una de cada tres cajas cicla menos que la capacidad).
 - D6: simular el frenado (una fuerza del amortiguador en sus últimos S mm de la junta) — cambia
@@ -185,6 +193,50 @@ descripcion: el cilindro que llega rápido frena en un amortiguador hidráulico 
 - La primera corrida de la suite dio 5 rojos esperados: los conteos del catálogo (456 → 462 refs:
   `test_catalogo_electrico`, `test_catalog_datadriven`, dos de `test_extensiones`) y el conjunto de
   anclas por familia (`test_catalog_cadenas`). Actualizados a propósito con su comentario.
-- Suite de F1 (laptop, `-n 4`, `PYTHONPATH` del worktree, `--basetemp C:\t\bt-amort`): exit 0, sin
+- Suite de F1, primera entrega (laptop, `-n 4`, `PYTHONPATH` del worktree, `--basetemp C:\t\bt-amort`): exit 0, sin
   FAILED. `ruff check core tests scripts`: limpio. Ningún archivo pasa de 500 líneas (`erc.py`
   483).
+
+### F1b — la frecuencia máxima (revisión de la sesión principal, 2026-10-26)
+
+- La revisión encontró el hueco: la energía por hora se derivaba de la frecuencia máxima, pero no
+  se verificaba que la cadencia la respetara. Con la faja a 15 ciclos/min, el M27 al avance (10
+  ciclos/min) salía VERDE y la F0 lo recomendaba. Causa raíz: se tomó E_h,máx como el límite
+  completo, y con E ≤ E máx y n ≤ n máx esa cuenta queda implicada: el límite que manda es la
+  frecuencia.
+- Hecho: `amortiguador.frecuencia` (n ≤ n máx tal cual, D5) en el ERC (la fila del extremo dice
+  «n de n máx ciclos/min» y, en rojo, las refs que entran), la memoria (una fila más por extremo:
+  ciclo, frecuencia, hora) y el panel («recibe 15 golpes por minuto y admite 10», con la ref que
+  entra); sin ciclos, SIN EVALUAR como la energía por hora. Tests: verde en el límite y rojo
+  encima en la función, el ERC, la memoria y el panel.
+- **La faja recalculada a 15 ciclos/min (dato para la F2; no se elige por la persona).** Ø63 ×
+  800, 25,43 kg (0,43 + 0,0025·800 + 23), choque 1,4 m/s (2·0,7 de régimen, D4), F = p·A al avance
+  (3117,2 mm²) y p·A anular al retroceso (2803,1 mm²):
+
+  | p (bar) | extremo | ref | E por ciclo (J) | empuje (N) | frecuencia | E por hora (J/h) | resultado | choque máx. por energía (régimen ×½) |
+  |---|---|---|---|---|---|---|---|---|
+  | 6 | avance | M14-12 | 47,4 / 19,6 | 1870 / 814 (230 %) | 15 / 45 | 42 629 / 52 920 | rojo: energía y empuje | — |
+  | 6 | avance | **M20-15** | 53,0 / 58,8 (90 %) | 1870 / 1961 (**95,4 %**) | 15 / 25 | 47 679 / 88 200 | verde | 1,55 m/s (0,78) |
+  | 6 | avance | M27-25 | 71,7 / 147 | 1870 / 2942 (64 %) | **15 / 10** | 64 512 / 88 200 | rojo: frecuencia | 2,81 m/s (1,40) |
+  | 6 | retroceso | M14-12 | 45,1 / 19,6 | 1682 / 814 | 15 / 45 | — | rojo: energía y empuje | — |
+  | 6 | retroceso | **M20-15** | 50,1 / 58,8 (85 %) | 1682 / 1961 (85,8 %) | 15 / 25 | 45 134 / 88 200 | verde | 1,62 m/s (0,81) |
+  | 6 | retroceso | M27-25 | 67,0 / 147 | 1682 / 2942 | **15 / 10** | 60 271 / 88 200 | rojo: frecuencia | 2,87 m/s (1,44) |
+  | 5 | avance | **M20-15** | 48,3 / 58,8 (82 %) | 1559 / 1961 (79,5 %) | 15 / 25 | 43 471 / 88 200 | verde | 1,67 m/s (0,83) |
+  | 5 | retroceso | **M20-15** | 45,9 / 58,8 (78 %) | 1402 / 1961 (71,5 %) | 15 / 25 | 41 350 / 88 200 | verde | 1,72 m/s (0,86) |
+  | 4 | avance | **M20-15** | 43,6 / 58,8 (74 %) | 1247 / 1961 (63,6 %) | 15 / 25 | 39 262 / 88 200 | verde | 1,78 m/s (0,89) |
+  | 4 | retroceso | **M20-15** | 41,7 / 58,8 (71 %) | 1121 / 1961 (57,2 %) | 15 / 25 | 37 566 / 88 200 | verde | 1,82 m/s (0,91) |
+
+  Lectura de las cifras:
+  - A 15 ciclos/min, del catálogo de hoy sólo el **M20-15 entra en los dos extremos**, y a 6, 5 y
+    4 bar. El M27 queda fuera por frecuencia a cualquier presión; el M14, por energía y empuje.
+  - A 6 bar el M20 al avance entra con el empuje al 95,4 % de su máximo: el límite del empuje es
+    1961 / 311,7 = **6,29 bar**. Una deriva del regulador de +0,3 bar lo saca de ficha. Su energía
+    queda al 90 %, con choque máximo 1,55 m/s (0,78 m/s de régimen con la regla 2·v̄; la medida
+    de un escenario puede dar más margen, D4).
+  - Bajar la presión a 5 bar deja el empuje al 79,5 % y sube el choque admisible a 1,67 m/s; a
+    4 bar, 63,6 % y 1,78 m/s. Pero también baja la fuerza y la velocidad que da el cilindro (la
+    relación de carga y el tiempo de ciclo los revisa la F2 con su escenario).
+  - Bajar la velocidad sin bajar la presión no mejora el empuje (95,4 % a 6 bar con cualquier v):
+    sólo da margen de energía.
+  - Para no depender del margen de empuje haría falta una ref de más empuje y ≥ 15 ciclos/min
+    (el catálogo no la tiene: F4 puede sumarla con su ficha).

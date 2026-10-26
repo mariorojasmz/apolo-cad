@@ -14,7 +14,6 @@ import pytest
 from apolo.doc.document import Document, DocumentError
 from apolo.library.catalog import CATALOG
 from apolo.library.neumatica import amortiguador as A
-from apolo.library.neumatica import cilindros as Z
 from apolo.library.neumatica.erc import erc
 from apolo.library.neumatica.lineas import analizar
 from apolo.library.neumatica.memoria import reglas as memoria
@@ -135,14 +134,14 @@ def test_el_extremo_con_amortiguador_deja_la_amortiguacion_del_cilindro():
 def test_el_erc_usa_la_formula_de_la_ficha():
     m = _cil(velocidad_m_s=0.7, masa_kg=23, amortiguador_avance="AMORT-HID-M27-25",
              amortiguador_retroceso="AMORT-HID-M20-15")
-    av, rt = por_regla(erc(m, amortiguadores=FICHAS, paquetes_min=15), "amortiguador externo")
+    av, rt = por_regla(erc(m, amortiguadores=FICHAS, paquetes_min=10), "amortiguador externo")
     masa = 0.430 + 0.0025 * 200 + 23          # masa móvil de la ficha del Ø63 + la carga
     F_av = 6 * 0.1 * 3.14159265 * 63 ** 2 / 4  # p·A a 6 bar
     E = 0.5 * masa * 1.4 ** 2 + F_av * 0.025   # v de choque = 2·0,7 (la ficha: 2·v̄)
     assert av["calc"]["sustitucion"].endswith(f"= {E:.2f} J") and av["estado"] == "ok"
     assert "al avance" in av["detalle"] and "al retroceso" in rt["detalle"] and rt["estado"] == "ok"
     assert any("2·v̄" in h for h in av["calc"]["hipotesis"])
-    assert f"{E * 15 * 60:.0f} J/h de 88200 J/h" in av["detalle"]
+    assert f"10 de 10 ciclos/min; {E * 10 * 60:.0f} J/h de 88200 J/h" in av["detalle"]
 
 
 def test_por_encima_de_la_ficha_es_rojo():
@@ -155,21 +154,48 @@ def test_por_encima_de_la_ficha_es_rojo():
     assert r["estado"] == "error" and "814 N admisibles" in r["detalle"]
 
 
-def test_la_energia_por_hora_en_el_erc():
+def test_la_frecuencia_en_el_erc():
+    """El RB2015 admite 25 ciclos/min (la ficha): en el límite verde, encima rojo con la ref que
+    entra; la cadencia del cilindro manda sobre la capacidad nominal (D5)."""
     base = dict(velocidad_m_s=0.5, masa_kg=5, amortiguador_retroceso="AMORT-HID-M20-15")
-    E = Z.choques(analizar(_cil(**base)), next(d for d in _cil(**base).dispositivos if d.designacion == "-MM1"),
-                  FICHAS, 1.0, [], None)[0][2]["valor"]["E_J"]
-    tope = 88200 / 60 / E  # ciclos/min en el límite
-    ok = erc(_cil(**base), amortiguadores=FICHAS, paquetes_min=tope * 0.99)
-    assert not malas(ok, "amortiguador externo")
-    (r,) = malas(erc(_cil(**base), amortiguadores=FICHAS, paquetes_min=tope * 1.01), "amortiguador externo")
-    assert r["estado"] == "error" and r["calc"]["titulo"].endswith("energía por hora")
-    # la cadencia del cilindro manda sobre la capacidad nominal (D5)
-    assert not malas(erc(_cil(**base, ciclos_min=tope * 0.99), amortiguadores=FICHAS, paquetes_min=tope * 2),
+    assert not malas(erc(_cil(**base), amortiguadores=FICHAS, paquetes_min=25), "amortiguador externo")
+    (r,) = malas(erc(_cil(**base), amortiguadores=FICHAS, paquetes_min=26), "amortiguador externo")
+    assert r["estado"] == "error" and r["calc"]["titulo"].endswith("frecuencia")
+    assert "26 ciclos/min pasan la frecuencia máxima de la ficha (25)" in r["detalle"]
+    # ninguno del catálogo entra: el M14 no aguanta el empuje y el M27 admite 10 ciclos/min
+    assert r["recomendacion"].endswith("Ningún amortiguador del catálogo entra con estas cifras.")
+    assert not malas(erc(_cil(**base, ciclos_min=25), amortiguadores=FICHAS, paquetes_min=50),
                      "amortiguador externo")
-    # sin ninguna de las dos: por hora SIN EVALUAR (el ciclo sí se revisa)
+    # sin ninguna de las dos: frecuencia y energía por hora SIN EVALUAR (el ciclo sí se revisa)
     (r,) = por_regla(erc(_cil(**base), amortiguadores=FICHAS), "amortiguador externo")
-    assert r["estado"] == "ok" and "SIN EVALUAR" in r["detalle"]
+    assert r["estado"] == "ok" and "frecuencia y la energía por hora quedan SIN EVALUAR" in r["detalle"]
+
+
+def test_el_m27_a_15_ciclos_sale_de_ficha_y_sugiere_el_que_entra():
+    """La faja a 15 cajas/min: el M27 al avance pasa la energía pero no la frecuencia (10/min); el
+    que entra con estas cifras es el M20 (sin repetir su variante con tope)."""
+    m = _cil(velocidad_m_s=0.7, masa_kg=23, carrera_mm=800, amortiguador_avance="AMORT-HID-M27-25")
+    (r,) = malas(erc(m, amortiguadores=FICHAS, paquetes_min=15), "amortiguador externo")
+    assert r["estado"] == "error" and "15 ciclos/min pasan la frecuencia máxima de la ficha (10)" in r["detalle"]
+    assert r["recomendacion"].endswith("Entra con estas cifras: AMORT-HID-M20-15.")
+    assert not malas(erc(m, amortiguadores=FICHAS, paquetes_min=10), "amortiguador externo")
+
+
+def test_con_frecuencia_y_ciclo_en_ficha_la_hora_tambien():
+    """E_h,máx = E máx · n máx · 60 (derivada): con E ≤ E máx y n ≤ n máx la energía por hora
+    nunca pasa; su fila queda como dato para cuando una ficha la publique aparte (F4)."""
+    for f in FICHAS.values():
+        assert A.por_hora(f.E_max_J, f.n_max_ciclos_min, f, extremo="avance")["estado"] == "ok"
+
+
+def test_la_frecuencia():
+    f = FICHAS["AMORT-HID-M27-25"]
+    assert A.frecuencia(10, f, extremo="avance")["estado"] == "ok"
+    r = A.frecuencia(10.5, f, extremo="avance")
+    assert r["estado"] == "error" and r["calc"]["sustitucion"] == "n = 10.5 contra 10 ciclos/min"
+    assert A.frecuencia(None, f, extremo="avance")["estado"] == "sin_evaluar"
+    entran = A.entran(25.43, 1.4, 1870, 15, FICHAS, extremo="avance")
+    assert [x.ref for x in entran] == ["AMORT-HID-M20-15"]
 
 
 def test_sin_ficha_ni_pieza_avisa():
@@ -186,14 +212,19 @@ def test_la_memoria_usa_la_velocidad_medida():
     m = _cil(velocidad_m_s=0.7, masa_kg=23, amortiguador_avance="AMORT-HID-M27-25")
     c = analizar(m)
     sim = {"-MM1": {"escenario": "nominal", "pico": {"v_max_m_s": 1.1, "escenario": "nominal"}}}
-    filas = [f for f in memoria(c, cosim=sim, amortiguadores=FICHAS, paquetes_min=15)
+    filas = [f for f in memoria(c, cosim=sim, amortiguadores=FICHAS, paquetes_min=10)
              if f["regla"] == "amortiguador externo"]
-    assert [f["calc"]["titulo"] for f in filas] == ["-MM1 · Amortiguador AMORT-HID-M27-25 al avance",
-                                                    "-MM1 · Amortiguador AMORT-HID-M27-25 al avance: energía por hora"]
+    t = "-MM1 · Amortiguador AMORT-HID-M27-25 al avance"
+    assert [f["calc"]["titulo"] for f in filas] == [t, f"{t}: frecuencia", f"{t}: energía por hora"]
     assert filas[0]["valor"]["v_m_s"] == 1.1  # la medida, no 2·v̄
+    assert [f["estado"] for f in filas] == ["ok", "ok", "ok"]  # 10 ciclos/min: el límite de la ficha
+    rojo = [f for f in memoria(c, cosim=sim, amortiguadores=FICHAS, paquetes_min=11)
+            if f["regla"] == "amortiguador externo"]
+    assert [f["estado"] for f in rojo] == ["ok", "error", "ok"]
+    assert rojo[1]["recomendacion"].endswith("Entra con estas cifras: AMORT-HID-M20-15.")
     sin = memoria(c, amortiguadores=FICHAS)
     (alc,) = [f for f in sin if f["regla"] == "alcance de la memoria del aire"]
-    assert "energía por hora queda sin evaluar" in alc["detalle"]
+    assert "su frecuencia y su energía por hora quedan sin evaluar" in alc["detalle"]
     # el retroceso, sin amortiguador, sigue con la amortiguación del cilindro
     (imp,) = [f for f in sin if f["regla"] == "energía al fin de carrera"]
     assert "llega al retroceso" in imp["detalle"]
@@ -239,13 +270,28 @@ def test_de_punta_a_punta_con_editar_el_servicio():
     assert not [r for r in reglas_erc(d) if r["regla"].startswith("amortiguador")]
     cid = next(c["id"] for c in d.commands if c["params"].get("ref") == "CIL-ISO15552-63")
     servicio = {**d.commands[[c["id"] for c in d.commands].index(cid)]["params"]["servicio"],
-                "amortiguador_avance": "AMORT-HID-M27-25", "amortiguador_retroceso": "AMORT-HID-M20-15"}
+                "amortiguador_avance": "AMORT-HID-M20-15", "amortiguador_retroceso": "AMORT-HID-M20-15"}
     d.edit(cid, {"servicio": servicio}, merge=True)  # lo que hace edit_command (PATCH superficial)
     filas = [r for r in reglas_erc(d) if r["regla"] == "amortiguador externo"]
-    assert [r["estado"] for r in filas] == ["ok", "ok"] and all("J/h de" in r["detalle"] for r in filas)
+    assert [r["estado"] for r in filas] == ["ok", "ok"] and all("15 de 25 ciclos/min" in r["detalle"] for r in filas)
     mem = [f for f in SN.memoria(d) if f["regla"] == "amortiguador externo"]
-    assert len(mem) == 4  # por ciclo y por hora, en los dos extremos
+    assert len(mem) == 6  # por ciclo, frecuencia y hora, en los dos extremos
     p = panel(d)
     assert not [i for i in p["items"] if i["clave"].startswith(("sin-velocidad", "sin-ritmo"))]
     sin_ritmo = _doc({**servicio, "carrera_mm": 800})  # sin capacidad nominal ni cadencia
-    assert [i["severidad"] for i in panel(sin_ritmo)["items"] if i["clave"].startswith("sin-ritmo")] ==         ["sin_evaluar", "sin_evaluar"]
+    assert [i["severidad"] for i in panel(sin_ritmo)["items"] if i["clave"].startswith("sin-ritmo")] == [
+        "sin_evaluar", "sin_evaluar"]
+
+
+def test_el_panel_dice_la_frecuencia():
+    from apolo.services.neumatica_panel import panel
+
+    servicio = {"carrera_mm": 800, "velocidad_m_s": 0.7, "masa_kg": 23, "amortiguador_avance": "AMORT-HID-M27-25"}
+
+    def golpes(ppm):
+        return [i for i in panel(_doc(servicio, {"paquetes_por_minuto": ppm}))["items"] if "golpes por minuto" in i["frase"]]
+
+    assert not golpes(10)  # en el límite de la ficha
+    (i,) = golpes(15)
+    assert i["severidad"] == "falla" and "recibe 15 golpes por minuto y admite 10" in i["frase"]
+    assert i["detalle"] == "Entra uno de este tamaño: AMORT-HID-M20-15."

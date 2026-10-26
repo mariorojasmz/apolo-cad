@@ -191,24 +191,35 @@ def _amortiguadores(c, cil, sim, fichas, paquetes_min) -> tuple[list[dict], bool
     if v is None:
         return [], False
     out, sin_ritmo = [], False
-    for extremo, ref, r, h in Z.choques(c, cil, fichas, v, hip_v, paquetes_min):
+    for x in Z.choques(c, cil, fichas, v, hip_v, paquetes_min):
+        extremo, ref, r, fr, h = x["extremo"], x["ref"], x["ciclo"], x["frecuencia"], x["hora"]
         if r is None:
             continue  # sin la ficha (quien llama no la pasó): lo dice el ERC
+        sug = f" Entra con estas cifras: {', '.join(x['entran'])}." if x["entran"] else \
+            " Ningún amortiguador del catálogo entra con estas cifras."
+
+        def rec(res, base, sug=sug):
+            return None if res["estado"] == "ok" else base + (sug if res["estado"] == "error" else "")
+
         d = r["valor"]
-        rec = None if r["estado"] == "ok" else \
-            "Un amortiguador de más capacidad, menos velocidad (regulador por el escape) o menos presión."
         out.append(_fila("amortiguador externo", cil.designacion, r,
                          f"{cil.designacion} al {extremo}: {ref} absorbe {d['E_J']:.1f} J por ciclo ({d['E1_J']:.1f} J "
                          f"a {v:.2f} m/s + {d['E2_J']:.1f} J del empuje) de {d['E_max_J']:g} J.",
-                         recomendacion=rec))
+                         recomendacion=rec(r, "Un amortiguador de más capacidad, menos velocidad (regulador por el "
+                                              "escape) o menos presión.")))
         if h["estado"] == "sin_evaluar":
             sin_ritmo = True
             continue
+        f = fr["valor"]
+        out.append(_fila("amortiguador externo", cil.designacion, fr,
+                         f"{cil.designacion} al {extremo}: {ref} recibe {f['ciclos_min']:g} choques por minuto de "
+                         f"{f['n_max_ciclos_min']:g} que admite.",
+                         recomendacion=rec(fr, "Un amortiguador de más frecuencia o menos ciclos.")))
         e = h["valor"]
         out.append(_fila("amortiguador externo", cil.designacion, h,
                          f"{cil.designacion} al {extremo}: {ref} absorbe {e['E_h_J']:.0f} J por hora de "
-                         f"{e['E_max_hora_J']:g} J/h.", recomendacion=None if h["estado"] == "ok" else
-                         "Un amortiguador de más energía por hora o menos ciclos."))
+                         f"{e['E_max_hora_J']:g} J/h.",
+                         recomendacion=rec(h, "Un amortiguador de más energía por hora o menos ciclos.")))
     return out, sin_ritmo
 
 
@@ -280,7 +291,7 @@ def _alcance(sin_servicio: list[str], sin_vel: list[str], sin_cadencia: list[str
         partes.append(f"{', '.join(sin_cadencia)} sin cadencia (servicio.ciclos_min): fuera de la demanda de aire")
     if sin_ritmo:
         partes.append(f"{', '.join(sin_ritmo)} con amortiguador externo y sin cadencia ni capacidad nominal "
-                      "(requirements.paquetes_por_minuto): su energía por hora queda sin evaluar")
+                      "(requirements.paquetes_por_minuto): su frecuencia y su energía por hora quedan sin evaluar")
     if not partes:
         return []
     return [{"regla": ALCANCE, "estado": "aviso", "detalle": "; ".join(partes) + ".",

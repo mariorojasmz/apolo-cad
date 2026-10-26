@@ -29,7 +29,8 @@ Reglas (cada una con su norma o «criterio de diseño»):
   - **energía al fin de carrera** (error): ½·m·v² contra la admisible de la amortiguación, en
     los extremos SIN amortiguador externo;
   - **amortiguador externo** (error / aviso; sólo si un servicio lo declara: plan
-    amortiguador-externo): E = ½·m·v² + F·S por ciclo y E·ciclos/h contra su ficha (`cilindros.choques`);
+    amortiguador-externo): E = ½·m·v² + F·S por ciclo, ciclos/min ≤ la frecuencia máxima y
+    E·ciclos/h contra su ficha (`cilindros.choques`), con las refs que sí entran;
   - **relación de carga** (F4; aviso / error): η = `servicio.fuerza_N` / fuerza teórica de avance
     sobre el tope de la ficha (`relacion_carga_max`) o, sin él, el criterio de diseño; error si
     la carga pasa la fuerza EFECTIVA (con la fricción): el vástago no la mueve;
@@ -432,7 +433,8 @@ def _amortiguador(c: Circuito, fichas: dict | None, paquetes_min: float | None,
                           'Declara servicio.velocidad_m_s (la de régimen) o corre un escenario que lo mueva.',
                           [cil.designacion]))
             continue
-        for extremo, ref, r, h in Z.choques(c, cil, fichas, v, hip_v, paquetes_min):
+        for x in Z.choques(c, cil, fichas, v, hip_v, paquetes_min):
+            extremo, ref, r, fr, h = x["extremo"], x["ref"], x["ciclo"], x["frecuencia"], x["hora"]
             if r is None:
                 out.append(_r(regla, "aviso", f"{quien}: sin la ficha de {ref}, el {extremo} no se revisa.",
                               None, [cil.designacion]))
@@ -440,17 +442,24 @@ def _amortiguador(c: Circuito, fichas: dict | None, paquetes_min: float | None,
             d = r["valor"]
             txt = (f"{quien} al {extremo}: {ref} absorbe {d['E_J']:.1f} J por ciclo ({d['E1_J']:.1f} J a {v:.2f} m/s + "
                    f"{d['E2_J']:.1f} J del empuje de {d['F_N']:.0f} N) de {d['E_max_J']:g} J")
-            estado, calc = r["estado"], {**r["calc"], "hipotesis": r["hipotesis"]}
+            motivos = list(d["motivos"])
             if h["estado"] == "sin_evaluar":
-                txt += ("; la energía por hora queda SIN EVALUAR: falta la cadencia (servicio.ciclos_min) o la "
-                        "capacidad nominal (requirements.paquetes_por_minuto)")
+                txt += ("; la frecuencia y la energía por hora quedan SIN EVALUAR: falta la cadencia "
+                        "(servicio.ciclos_min) o la capacidad nominal (requirements.paquetes_por_minuto)")
             else:
-                txt += f"; {h['valor']['E_h_J']:.0f} J/h de {h['valor']['E_max_hora_J']:g} J/h"
-                if h["estado"] == "error":
-                    estado, calc = "error", {**h["calc"], "hipotesis": h["hipotesis"]}
-            motivos = d["motivos"] + (["la energía por hora pasa la de la ficha"] if h["estado"] == "error" else [])
+                txt += (f"; {fr['valor']['ciclos_min']:g} de {fr['valor']['n_max_ciclos_min']:g} ciclos/min; "
+                        f"{h['valor']['E_h_J']:.0f} J/h de {h['valor']['E_max_hora_J']:g} J/h")
+                motivos += [m for m, e in ((f"{fr['valor']['ciclos_min']:g} ciclos/min pasan la frecuencia máxima "
+                                            f"de la ficha ({fr['valor']['n_max_ciclos_min']:g})", fr),
+                                           ("la energía por hora pasa la de la ficha", h)) if e["estado"] == "error"]
+            # el cálculo que se muestra es el primero que falla (ciclo, frecuencia, hora)
+            malo = next((k for k in (r, fr, h) if k["estado"] == "error"), r)
+            estado = "error" if malo["estado"] == "error" else r["estado"]
             txt += f" — {'; '.join(motivos)}." if motivos else "."
-            out.append(_r(regla, estado, txt, None if estado == "ok" else rec, [cil.designacion], calc=calc))
+            sug = (f" Entra{'n' if len(x['entran']) > 1 else ''} con estas cifras: {', '.join(x['entran'])}."
+                   if x["entran"] else " Ningún amortiguador del catálogo entra con estas cifras.")
+            out.append(_r(regla, estado, txt, None if estado == "ok" else rec + (sug if estado == "error" else ""),
+                          [cil.designacion], calc={**malo["calc"], "hipotesis": malo["hipotesis"]}))
             if refs_escena is not None and ref not in refs_escena:
                 out.append(_r("amortiguador sin pieza", "aviso", f"{quien}: {ref} está declarado al {extremo} y no está en la escena: "
                               "no se compra ni se monta.",

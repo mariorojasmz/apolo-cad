@@ -188,21 +188,26 @@ def ritmo(cil, paquetes_min: float | None) -> tuple[float | None, str]:
 
 
 def choques(c: Circuito, cil, fichas: dict | None, v: float, hip_v: list[str],
-            paquetes_min: float | None) -> list[tuple[str, str, dict | None, dict | None]]:
-    """[(extremo, ref, resultado por ciclo, resultado por hora)] de cada amortiguador declarado; sin
-    la ficha de la ref (quien llama no la pasó), los resultados son None."""
+            paquetes_min: float | None) -> list[dict]:
+    """Por amortiguador declarado: {extremo, ref, ciclo, frecuencia, hora, entran}: los resultados
+    de `amortiguador.choque`, `.frecuencia` y `.por_hora` (None sin la ficha de la ref: quien llama
+    no la pasó) y, si alguno da error, las refs del catálogo que sí entran (`amortiguador.entran`)."""
     s, m = cil.servicio, cil.neumatico.modelo
     masa = K.masa_movil_kg(m, s["carrera_mm"], s.get("masa_kg") or 0.0)
     out = []
     for extremo, ref in amortiguadores(cil).items():
         f = (fichas or {}).get(ref)
         if f is None:
-            out.append((extremo, ref, None, None))
+            out.append({"extremo": extremo, "ref": ref, "ciclo": None, "frecuencia": None, "hora": None, "entran": []})
             continue
         F, hip_f = fuerza_extremo(c, cil, extremo)
         r = A.choque(masa, v, F, f, extremo=extremo)
         r["hipotesis"] = hip_v + hip_f + [f"masa móvil de la ficha + carga declarada: {masa:g} kg"] + r["hipotesis"]
         r["calc"]["hipotesis"] = r["hipotesis"]
         n, origen = ritmo(cil, paquetes_min)
-        out.append((extremo, ref, r, A.por_hora(r["valor"]["E_J"], n, f, extremo=extremo, origen=origen)))
+        fr = A.frecuencia(n, f, extremo=extremo, origen=origen)
+        h = A.por_hora(r["valor"]["E_J"], n, f, extremo=extremo, origen=origen)
+        malo = "error" in (r["estado"], fr["estado"], h["estado"])
+        out.append({"extremo": extremo, "ref": ref, "ciclo": r, "frecuencia": fr, "hora": h,
+                    "entran": [x.ref for x in A.entran(masa, v, F, n, fichas, extremo=extremo)] if malo else []})
     return out

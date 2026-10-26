@@ -9,8 +9,10 @@ Puro (biblioteca estándar), como el resto de `neumatica/`:
     Selection», carrera de cilindro con carga horizontal): E = E1 + E2, E1 = ½·m·v² (cinética),
     E2 = F·S (el trabajo de la fuerza del cilindro durante la carrera S del amortiguador), contra
     la energía máxima por ciclo, la fuerza máxima admisible y el rango de velocidad de choque.
+  - `frecuencia`: la cadencia contra la frecuencia máxima de la ficha (n ≤ n máx, tal cual);
   - `por_hora`: E·ciclos/h contra la energía máxima por hora (la ficha da la frecuencia máxima a
-    energía máxima: E_h,máx = E_máx · n_máx · 60).
+    energía máxima: E_h,máx = E_máx · n_máx · 60);
+  - `entran`: las refs de un catálogo de fichas que pasan las tres para el mismo choque.
 
 Estados como en el ERC: «ok», «aviso», «error»; `por_hora` sin ciclos da «sin_evaluar» (quien lo
 llama decide cómo lo dice: D5).
@@ -126,6 +128,29 @@ def choque(m_kg: float, v_m_s: float, F_N: float, ficha: FichaAmortiguador, *, e
         fs=round(ficha.E_max_J / E, 2) if E > 0 else None, norma=NORMA)
 
 
+def frecuencia(ciclos_min: float | None, ficha: FichaAmortiguador, *, extremo: str, origen: str = "") -> dict:
+    """La cadencia contra la frecuencia máxima de la ficha, tal cual (n ≤ n máx): así la compara
+    el ejemplo de selección de SMC RB («n = 20 < 25»), aunque la energía sea mucho menor que la
+    máxima. Sin ciclos: «sin_evaluar»."""
+    titulo = f"Amortiguador {ficha.ref} al {extremo}: frecuencia"
+    nmax = ficha.n_max_ciclos_min
+    if not ciclos_min:
+        return _res(titulo, {"n_max_ciclos_min": nmax, "extremo": extremo, "ref": ficha.ref}, "sin_evaluar",
+                    ["sin cadencia del cilindro ni capacidad nominal: no se evalúa"], entradas={}, formula="n ≤ n máx",
+                    sustitucion="", resultado="sin evaluar", criterio="n ≤ frecuencia máxima de la ficha", fs=None,
+                    norma=NORMA)
+    estado = "ok" if ciclos_min <= nmax * (1 + _REL) else "error"
+    hip = [f"ciclos de {origen}" if origen else "un choque por ciclo del cilindro",
+           "la frecuencia máxima de la ficha se compara tal cual, como en su ejemplo de selección (la nota de la "
+           "serie RBL que la deja crecer al bajar la energía no se aplica)"]
+    return _res(
+        titulo, {"ciclos_min": ciclos_min, "n_max_ciclos_min": nmax, "extremo": extremo, "ref": ficha.ref},
+        estado, hip, entradas={"ciclos": f"{ciclos_min:g}/min", "ficha": f"{nmax:g} ciclos/min máx"},
+        formula="n ≤ n máx", sustitucion=f"n = {ciclos_min:g} contra {nmax:g} ciclos/min",
+        resultado=f"{ciclos_min:g} de {nmax:g} ciclos/min", criterio="n ≤ frecuencia máxima de la ficha",
+        fs=round(nmax / ciclos_min, 2), norma=NORMA)
+
+
 def por_hora(E_J: float, ciclos_min: float | None, ficha: FichaAmortiguador, *, extremo: str,
              origen: str = "") -> dict:
     """Energía por hora en un extremo: un choque por ciclo, E_h = E·ciclos/min·60 ≤ E máx por hora.
@@ -151,3 +176,22 @@ def por_hora(E_J: float, ciclos_min: float | None, ficha: FichaAmortiguador, *, 
         formula="E_h = E · n · 60", sustitucion=f"E_h = {E_J:.2f}·{ciclos_min:g}·60 = {Eh:.0f} J/h",
         resultado=f"{Eh:.0f} J/h contra {ficha.E_max_hora_J:g} J/h",
         criterio="E_h ≤ E máx por hora", fs=round(ficha.E_max_hora_J / Eh, 2) if Eh > 0 else None, norma=NORMA)
+
+
+def entran(m_kg: float, v_m_s: float, F_N: float, ciclos_min: float | None, fichas: dict, *,
+           extremo: str) -> list[FichaAmortiguador]:
+    """Las fichas que pasan el choque, la frecuencia y la energía por hora (sin error) para ese
+    choque, de menor a mayor energía; una por capacidad (la ref sin tope antes que la «-T»). Sin
+    ciclos, sólo el choque."""
+    out, vistas = [], set()
+    for f in sorted(fichas.values(), key=lambda f: (f.E_max_J, f.ref)):
+        clave = (f.carrera_mm, f.E_max_J, f.n_max_ciclos_min, f.F_max_N)
+        r = choque(m_kg, v_m_s, F_N, f, extremo=extremo)
+        if clave in vistas or r["estado"] == "error":
+            continue
+        if ciclos_min and "error" in (frecuencia(ciclos_min, f, extremo=extremo)["estado"],
+                                      por_hora(r["valor"]["E_J"], ciclos_min, f, extremo=extremo)["estado"]):
+            continue
+        vistas.add(clave)
+        out.append(f)
+    return out

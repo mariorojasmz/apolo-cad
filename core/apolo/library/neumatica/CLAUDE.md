@@ -22,6 +22,6 @@ biblioteca estándar. La geometría, la BOM del aire y el vástago (archivos de 
 - Amortiguador EXTERNO (`amortiguador.py`): ref de la familia `amortiguador_hidraulico` (ficha en
   `specs`, validada al cargar) declarada por extremo en `servicio.amortiguador_avance|_retroceso`;
   ese extremo deja la energía de la amortiguación del cilindro y se juzga con la fórmula de SU
-  ficha (½·m·v² + F·S, por ciclo y por hora). Sin ninguno declarado, ERC y memoria dan lo de antes
-  (no suman filas). La velocidad de choque sale SÓLO de `cilindros.v_choque`.
+  ficha (½·m·v² + F·S por ciclo, n ≤ n máx TAL CUAL y la energía por hora). Sin ninguno
+  declarado, ERC y memoria dan lo de antes (no suman filas). La velocidad de choque sale SÓLO de `cilindros.v_choque`.
   [amortiguador-externo](../../../../docs/plans/amortiguador-externo.md)
