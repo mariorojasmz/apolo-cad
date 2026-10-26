@@ -80,6 +80,32 @@ Origen de todos: revisión de [V6.5](plans/V6.5-mcp-a-escala.md) y de
   a media regeneración de forma segura) ni se persisten (son recibos, no datos), y no hay
   porcentaje de progreso (el regenerate no tiene uno honesto que medir).
 
+## Tools del agente al modelar (trabas medidas el 2026-10-26)
+
+Las reportaron los modeladores por MCP al corregir la faja con desviador neumático (V8.9 F7,
+correcciones 3 y 4); cada una con la llamada que la reproduce. Ninguna bloqueó: se esquivaron.
+
+- `resolve_expression("tan(a*pi/180)")` da 0,0009: las trigonométricas toman GRADOS (la convención
+  del proyecto) y el agente las usó en radianes. Decirlo en `get_expression_grammar` o avisar
+  cuando el argumento lleva `pi/180`.
+- `join_bolted` sobre agujeros de fábrica no declara su tornillería: `get_connections(ids=[…])`
+  vacío y `simulate` no la incluye.
+- `fasten(size="M5")` → 400; la nota de `fasten` admite ≤ 120 caracteres.
+- Una aserción no se acota «hasta» un instante: el ancla «pulsar -S1 + 6 s y antes» → 400.
+- `set_variable` devuelve ~6 kB por llamada (pesa en el contexto del agente).
+- `servicio.velocidad_m_s` del cilindro sirve a la vez al caudal de la válvula y a la energía de
+  impacto: con el pico falla «caudal de la válvula» y la energía se aprueba con la de régimen.
+  Separar la velocidad de régimen de la de llegada a la tapa; tampoco hay aserción para la
+  velocidad del vástago AL LLEGAR a la tapa (sólo «siempre»).
+- `edit_command(<cilindro>, {"component": …})` → 400 si no se religa el dispositivo en el mismo lote.
+- Los escenarios guardan coordenadas fijas de los sensores: mover la variable de posición de una
+  fotocelda obligó a reescribir 13 escenarios. Acoplar por designación del sensor.
+- Las cajas en cola se llaman `caja_0…`, no desde 1.
+- Un túnel de tres sólidos en UN comando frena la caja en la boca (casco convexo por sólido del
+  comando: `hull.cascos`); el agente lo esquivó con una pieza por comando.
+- `add_device` al tablero falla con «faltan N mm de placa» si no se baja la reserva en el mismo
+  lote: el error podría sugerirlo.
+
 ## Rendimiento y concurrencia
 
 Origen: revisión de [V6.2e](plans/V6.2e-fixes-revision.md) (§ Bajas).
