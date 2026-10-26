@@ -300,3 +300,55 @@ worktrees, se sacó de «Estado actual» la lista de planes (la fuente es la `no
 y se quitaron tres frases de historia. Raíz: 29,2 → 26,5 KB con la regla nueva incluida.
 Próxima poda candidata: «Criterio de diseño» (~1,7 KB) a la capa 2 de `design/guidelines.py`,
 donde también la vería el chat de la app.
+**2026-10-25 — Mantenimiento: `library/CLAUDE.md` llegó a 33,8 de 35 KB.** La regla siguiente ya
+no entraba. Pasa de 33,8 a **26,0 KB** (34 657 → 26 653 bytes UTF-8 con LF) y nacen dos anidados
+de subpaquete, que cargan al leer un archivo de su carpeta (y con ellos el de `library/`):
+[electrico](../../core/apolo/library/electrico/CLAUDE.md) (4,5 KB: los bloques `electrico.*` y
+`tablero:` de la ficha, `Dispositivo` y su firma, `acoples.py`, el ERC de seguridad y el tablero
+3D, con la colocación, el ruteo y el cable de campo en una tabla módulo → cifras → test) y
+[neumatica](../../core/apolo/library/neumatica/CLAUDE.md) (1,5 KB: la ficha `neumatico:`, la
+electroválvula, el ERC del aire, `disponibles` y `cilindros.py`). Raíz: 28,6 → 28,9 KB (dos filas
+del índice). Lo del aire que se cambia en archivos de `library/` (`builders_neumatica.py`,
+`bom_electrico._racores`, `incluidas.py`) se queda en `library/` («la regla va donde se hace el
+CAMBIO»). Como quien escribe una ref edita un YAML de `library/data/` y no carga el anidado, la
+regla nueva de `library/` dice: antes de escribir una ref con esos bloques, leer con `Read` su
+`ficha*.py`.
+
+Qué salió, sin pérdida de reglas:
+- **Historia** (ya tenía casa: [defectos](../defectos.md), § F6 de
+  [puerta-de-publicacion](puerta-de-publicacion.md), [backlog](../backlog.md) § Validación, el
+  plan V8.1 D-c5 y los commits): la fecha y autoría de «una ref es un ejemplo» (`5a78cc9`), la
+  banda en el piso hasta la v3 (`Polygon` sin `align=None`), ocultar la banda del 38 borraba la
+  faja de la memoria, la guarda que daba Ø120, la máquina de 20 rodillos AMARILLA por el tope de
+  400 parejas, el falso ROJO de los hexágonos fundidos, la v5 que cerró lo del brazo doblado. Nada
+  fue al devlog: no había historia sin casa.
+- **Mapas derivables**: la lista de `builders_*` por familia, los módulos de `report_*` y de
+  `rules_*`, los de `belt_conveyor_*`, los nombres de anclas de `perfiles_abiertos.py`, las
+  medidas de los fantasmas de herramienta, el conteo «16 con norma (10 + 6)» (se desactualiza), el
+  orden de fuentes del largo de tornillería (está en el docstring de `largo_tornilleria.py`), los
+  números de `tope_global` (en `checks.py`).
+- **Repetido en otro CLAUDE.md**: «stackups son metadato, no comando» (raíz § Metadato ≠ comando,
+  queda el link); la cifra que cita su norma y el rango = ajuste de `electrico.modelo` (cosim, queda
+  una línea con link); los criterios 2–5 de `join_bolted` (commands, queda el link).
+- **Deriva corregida**: la regla «asiento ISO 286» vive en `engineering/report_ajustes.py`, no en
+  `report.py`.
+
+**Control** (método de la poda anterior): antes de editar se extrajeron las reglas del archivo
+(cada viñeta u oración imperativa) a una tabla con una clave de búsqueda y su destino; un script
+comprobó que cada clave sigue en su CLAUDE.md de destino y cada fila se revisó a mano contra el
+texto nuevo. 157 reglas + 1 nueva, ninguna perdida:
+
+| sección de origen | reglas | destino |
+|---|---:|---|
+| Catálogo y builders (ref = ejemplo, YAML, fachada `BUILDERS`, costo, BOM de compra, el aire en `library/`, origen y builders, zonas, params nuevos, anclas, ingletes) | 33 | `library` |
+| Catálogo › bloques `electrico.*` / `tablero:`, `Dispositivo`, `acoples`, ERC de seguridad, colocación, ruteo, cable de campo | 19 | `library/electrico` |
+| Catálogo › bloque `neumatico:`, electroválvula, ERC del aire, `disponibles`, cilindros, stdlib | 8 | `library/neumatica` |
+| Materiales | 14 | `library` |
+| Chapa | 3 | `library` |
+| Ingeniería | 24 | `library` |
+| Stack-up | 3 | `library` (+ link a la raíz) |
+| Reglas de conveyor, puerta de publicación y requisitos | 24 | `library` |
+| Validación: interferencias, lints, puerta de entrega, acceso, seguridad, borde | 29 | `library` |
+| Nueva: leer `ficha*.py` antes de escribir una ref eléctrica o neumática | 1 | `library` |
+
+Gate: `tests/test_claude_md.py` y `tests/test_negocio_fuera.py` en verde (10 tests).

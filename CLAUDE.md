@@ -123,6 +123,8 @@ también a quien sólo busca o trabaja por MCP.
 | [doc](core/apolo/doc/CLAUDE.md) | integridad y undo, metadatos de manifest, variantes, caché de geometría, `insert_project` |
 | [assembly](core/apolo/assembly/CLAUDE.md) | mates y anclas, DOF, grupos, conectividad |
 | [library](core/apolo/library/CLAUDE.md) | catálogo y builders, materiales, chapa, ingletes, ingeniería y normas, stack-up, reglas de conveyor, interferencias, lints, puerta de entrega |
+| [library/electrico](core/apolo/library/electrico/CLAUDE.md) | ficha eléctrica de una ref (`modelo`, `datos`, `direcciones`, `puertos`, `tablero:`), `Dispositivo` y su firma, ERC de seguridad, tablero 3D (colocación, ruteo, cable de campo) |
+| [library/neumatica](core/apolo/library/neumatica/CLAUDE.md) | ficha `neumatico:`, electroválvula, ERC del aire, la cuenta de cada cilindro |
 | [drawing](core/apolo/drawing/CLAUDE.md) | planos y entregables: último kilómetro (soldadura, tolerancias, Ra, datum, GD&T), proceso, manual, instalación, DWG |
 | [fea](core/apolo/fea/CLAUDE.md) | FEA estático de pieza y bonded de ensamblaje |
 | [physics](core/apolo/physics/CLAUDE.md) | MuJoCo: gravedad, caída y dinámica (juntas, motores, banda, sensores) |

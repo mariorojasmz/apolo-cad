@@ -3,100 +3,26 @@
 Catálogo, builders, materiales, chapa, bastidores y cálculo de ingeniería (`engineering/`). Lo
 transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 [CLAUDE.md raíz](../../../CLAUDE.md); lo común del backend, en [core/apolo](../CLAUDE.md).
+Subpaquetes con CLAUDE.md propio: [electrico](electrico/CLAUDE.md) (ficha eléctrica, ERC,
+tablero 3D) y [neumatica](neumatica/CLAUDE.md) (ficha `neumatico:`, ERC del aire, cilindros).
 
 ## Catálogo y builders
 
-- **Una ref de catálogo es un EJEMPLO, no una orden de compra** (Mario, 2026-10-24): quien fabrica
-  la reemplaza por la equivalente que consiga con su proveedor local. Al elegir o sumar una ref:
-  marcas que CUMPLEN la norma y se consiguen fácil (comunes, no exóticas) y un diseño fácil de
-  construir; la ficha dice lo que hay que respetar para reemplazarla (función, norma, cota de
-  interfaz, rating: In, Icu, B10d, Ø, presión…) y `specs.linea_referencia` sólo cita «del orden de».
-- Bloque `electrico.modelo` (V8.3 D7): `tipo` elige el modelo de la co-simulación y cada cifra
-  cita su norma o dice «criterio de diseño» en el comentario del YAML; un rango [mín, máx] de lo
-  que fija el instalador es un AJUSTE obligatorio. Reglas: [cosim](../cosim/CLAUDE.md).
-- Bloque `neumatico:` (V8.9 D2, `neumatica/ficha.py`): a diferencia de `electrico.modelo`, la
-  COMPLETITUD se valida al cargar (`neumatica/ficha_tipos.REQUERIDOS` por `modelo.tipo`; un ajuste
-  es rango [mín, máx]); `fuente` obligatoria y lo que no tiene fuente va en `a_confirmar`. Caudal
-  = (C, b) de ISO 6358-1; Qn, S, Kv y Cv sólo como entrada convertida con su punto. El paquete
-  `neumatica/` usa sólo la biblioteca estándar. Una electroválvula lleva ADEMÁS su `electrico:`
-  (montaje campo): una bobina = A1/A2, dos = 14A1/14A2 y 12A1/12A2, con la tensión de
-  `tension_bobina`; el loader lo exige (`neumatica/bobinas.py`); su `modelo` es `electrovalvula`
-  (la bobina en la co-simulación; los tiempos salen de la ficha neumática, no se repiten). El ERC neumático
-  (`neumatica/erc.py`, sobre `lineas.py`) recibe el modelo del carril por atributos: cada regla
-  nueva, con su caso verde y rojo en `tests/test_neumatica_erc.py`. Lo de cada cilindro (presión,
-  válvula a través de sus reguladores, C del escape, pandeo, relación de carga) es UNA cuenta,
-  `neumatica/cilindros.py`, para el ERC y la memoria (`neumatica/memoria.py`); una regla que pide
-  una ref que el catálogo aún no trae corre sólo si su tipo está en `disponibles` (si no, avisaría
-  en todo circuito sin arreglo; desde F7b hay silenciadores y reguladores). La BOM del aire
-  (`bom_electrico._racores`) suma un racor por extremo de tubo en un puerto ROSCADO (rosca × Ø,
-  `specs.racor_rosca`/`racor_tubo_mm`) y lee un tubo SIN largo hacia un silenciador como roscado
-  directo (ni tubo ni racor). La geometría del cilindro
-  (`builders_neumatica.py`) lee las cotas de los `params` de la ref (con su fuente en el YAML) y
-  las de los accesorios ISO 15552 de `neumatica/montajes.py` (tablas transcritas): nunca una cota
-  de interfaz en el builder. El vástago viene con su ref: `incluidas.py` lo saca de la BOM y de la
-  lista de corte por la escena sola. [V8.9](../../../docs/plans/V8.9-neumatica.md)
-- ERC del camino de la protección (`electrico/erc_seguridad.py`, reglas en su docstring): «PE en
-  cadena» por el grafo de conductores (un aparato es PASO si sacar su PE deja a otro sin tierra) y
-  «canales del STO» por `modelo.STO_canales` de la ficha (toda ref con `STO: true` lo trae; fuera
-  de la firma de escenarios: `services/escenarios.FUERA_DE_FIRMA_MODELO`). La categoría del lazo
-  es de la OBRA, ajuste opcional `STO_categoria` del variador (`ajustes.OPCIONALES`): sin ella,
-  aviso; con 3 o 4, error.
-- Bloque `electrico.datos` + `fuente` + `a_confirmar` (`electrico/ficha_datos.py`, puro): lo que
-  lee quien VERIFICA (poder de corte por tensión `{U_V: kA}` con la clave = tope del rango de la
-  ficha, `T_max_C`), FUERA de `modelo` (no vence firmas ni es ajuste). COMPLETITUD al cargar con
-  error (`REQUERIDOS` por tipo + `T_max_C` en toda ref de tablero): la cifra con su documento en
-  `fuente`, o la clave en `a_confirmar` SIN valor; nunca de memoria.
-  [plan](../../../docs/plans/datos-de-corte-y-acometida.md)
-- Bloque `electrico.direcciones` (`electrico/ficha_direcciones.py`, puro): cómo llama el
-  FABRICANTE a cada E/S (`{I0.0: "%I0.0", AI0: "%IW64"}`), fuera de `modelo` (no vence firmas).
-  Opcional pero COMPLETO (E/S = bornes que el ST alcanza por dirección), con `fuente` leída en el
-  manual, o «direcciones» en `a_confirmar` sin mapa. El ST de Apolo sigue con `%IX`/`%IW0`.
-  [plan](../../../docs/plans/plc-en-el-lazo.md) (D3)
-- Bloque `electrico.puertos` (`electrico/ficha_puertos.py`, puro): los conectores de DATOS de serie
-  (`rj45`), fuera de `bornes` y de `modelo`: ni la red, ni el ERC, ni la firma los ven (el
-  `Dispositivo` del carril no los copia; su `puertos` es el del aire). Con `fuente`: una ref gana
-  puerto sólo si su línea de referencia lo trae de serie. Un aparato de puerta que va en un
-  RECORTE declara `tablero.puerta.recorte_mm` [ancho, alto] (el hueco de la chapa; sin él, la
-  huella de su caja) y usa el builder `panel_puerta` (marco delante, cuerpo menor que el recorte:
-  una caja entera chocaría con la chapa). En la puerta, lo que pasa de una celda toma
-  ⌈ancho/paso⌉ × ⌈alto/paso⌉ contiguas y va PRIMERO (`colocacion_puerta.bloque`).
-  [plan](../../../docs/plans/plc-en-el-lazo.md) (D12)
-- **Un campo nuevo de `Dispositivo`** (`electrico/modelo.py`) obliga a decidir: entra a la firma
-  de los escenarios (`EN_FIRMA` de `tests/test_firma_dispositivo.py`: vence todo resultado con
-  tablero) o va a `services/escenarios.FUERA_DE_FIRMA` (no es física o sale de lo que el log ya
-  firma: `simbolo`, `acoplado_a`). Quién mueve un bloque auxiliar es UNA regla,
-  `electrico/acoples.py` (la de la co-simulación, que la lee; la colocación conserva su regla de
-  montaje). [plan](../../../docs/plans/pedidos-de-extensiones.md) (F2)
-- Bloque `tablero:` (V8.5 A2–A4, `electrico/ficha_tablero.py`): cómo se MONTA en el gabinete
-  (interior del gabinete, cara de apoyo por familia, `puerta` delante/detrás, `acopla_a`, riel,
-  canaleta, `bornes`). Lo leen la colocación y el ruteo, no el builder: agregarlo no es bump. Una ref de puerta nueva
-  lo trae o la colocación la rechaza. [V8.5](../../../docs/plans/V8.5-tablero-3d.md)
-- Colocación del tablero (`electrico/colocacion*.py`, D2/D8): PURA y determinista; las reglas
-  en el docstring de `colocacion.py`, cada cifra en `Reglas` (sale en `Layout.supuestos`). Una
-  regla nueva va ahí con su caso en `tests/test_colocacion_tablero.py`; la piloto
-  (`tests/data/tablero_piloto.json`) tiene que seguir entrando en el 500 × 400. Del `Layout` a
-  cajas en el marco del gabinete (puerta en −Y): `electrico/armado.py`; el recorrido de la puerta
-  (D5, ejes separadores, puro): `electrico/recorrido_puerta.py`. Todo lo del tablero es caja
-  alineada: una pieza nueva del armado entra ahí como `Caja`, o el recorrido no la ve.
-- Ruteo del tablero (`electrico/ruteo.py`, D3/A8) y cara de cada borne (`electrico/bornes_pos.py`,
-  D4: familia por `modelo.tipo` o `tablero.bornes` de la ref, con su `fuente`): PUROS, reglas en
-  su docstring y cada cifra en `Criterio` (sale en `Ruteo.criterio`). Una regla nueva va con su
-  caso en `tests/test_ruteo_tablero.py`, donde los largos de placa de la piloto tienen que seguir
-  a ±5 % del ruteo a mano (`A_MANO`). [V8.5](../../../docs/plans/V8.5-tablero-3d.md) (F2)
-- Recorrido del cable de campo (`electrico/cable_campo.py`, F4): PURO, reglas en su docstring y
-  cada cifra en `CriterioCampo`; una regla nueva va con su caso en `tests/test_cables_campo.py`,
-  donde el cable del motor de la piloto se compara punto a punto con el armado a mano. (F4)
+- **Una ref de catálogo es un EJEMPLO, no una orden de compra**: quien fabrica la reemplaza por
+  la equivalente que consiga con su proveedor local. Al elegir o sumar una ref: marcas que CUMPLEN
+  la norma y se consiguen fácil (comunes, no exóticas) y un diseño fácil de construir; la ficha
+  dice lo que hay que respetar para reemplazarla (función, norma, cota de interfaz, rating: In,
+  Icu, B10d, Ø, presión…) y `specs.linea_referencia` sólo cita «del orden de».
+- **Una ref con bloques `electrico.*`, `tablero:` o `neumatico:`**: antes de escribirla, lee con
+  `Read` su `electrico/ficha*.py` o `neumatica/ficha.py` (así carga el CLAUDE.md del subpaquete,
+  con las reglas de cada bloque); el loader rechaza la ficha incompleta.
 - Para agregar partes: editar/crear YAML en `data/` (el prefijo numérico ordena); builder nuevo
   sólo si la geometría no existe. `param_keys` lee del VARIANT (no de `specs_common`); el loader
   vuelca cualquier clave extra del variant a `specs`. Editar sólo YAML no recarga el worker (raíz).
-- Builders por familia: `builders_estructura` (perfiles, tubos, L, U, I, pata, nivelador),
-  `builders_accionamiento` (rodillo, tambor, motores, poleas, tensores), `builders_rodamientos`
-  (chumaceras, lineal, tope, sensor), `builders_tornilleria`, `builders_carpinteria`; y con su
-  propio registro `builders_rodaje`, `_transmision` (cadena), `_mandos`, `_fijacion`, `_tablero`,
-  `_neumatica`. `builders.py` es FACHADA: re-exporta por identidad y guarda `BUILDERS` (orden
-  fijo, `tests/test_rutas_viejas.py`: sólo se agrega al final). Un builder nuevo va a su familia
-  (+ su entrada en `BUILDERS`) o a un módulo con registro propio, que `loader.py` une rechazando
-  nombres repetidos.
+- `builders.py` es FACHADA: re-exporta por identidad y guarda `BUILDERS` (orden fijo,
+  `tests/test_rutas_viejas.py`: sólo se agrega al final). Un builder nuevo va a su familia
+  `builders_<familia>.py` (+ su entrada en `BUILDERS`) o a un módulo con registro propio, que
+  `loader.py` une rechazando nombres repetidos.
   [partir-nucleo-congelado-ii](../../../docs/plans/partir-nucleo-congelado-ii.md)
 - Biblioteca paramétrica > STEP de fabricante (sólo para la compra puntual). `cost`,
   `cost_por_m` y `COST_PER_KG_USD` son REFERENCIALES: actualizar con proveedor para cotizar firme.
@@ -106,37 +32,42 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   toma de fuerza) también. Un cable modelado en 3D es material `cable`, no se cobra (lo cobra su
   `add_cable`) y su largo en la BOM es el RECORRIDO (volumen / sección, `recorrido_mm`), no el
   bbox. [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4, F4c)
-- La BOM es para COMPRAR: la banda (rol) cerrada sale por su LAZO (`banda_lazo.py`, la medida de
-  la puerta) y la tornillería de largo a medida con su largo NOMINAL (`largo_tornilleria.py`:
-  `cut_length` del param → ficha fija → nombre → geometría, que fuera de serie se pide por el
-  inmediato superior con `aviso`), una fila por largo. La comercial modelada A MANO
-  (`designacion_comercial.es_comercial`: rol de compra o norma con designación en la CABEZA del
-  rol, nunca una de plano/perfil ni en un rol que se fabrica —«Eje … (con anillos DIN 471)»—) es
-  ref `COMPRA` en la categoría de compra del catálogo, en BOM, costeo y cédula (una fuente: el
-  mismo módulo), con su norma y sin medida de corte salvo largo nominal o lazo; con norma, UNA
-  fila por designación + largo + material y sus `ubicaciones` (nunca por pieza de origen).
-  Lo que una unión `perno` DECLARA y nadie modeló lo suma `tornilleria_declarada.py` (por la
-  `nota`, sin duplicar lo modelado: reglas en su docstring). [defectos](../../../docs/defectos.md) (F6)
+- La BOM es para COMPRAR: la banda (rol) cerrada sale por su LAZO (`banda_lazo.py`) y la
+  tornillería de largo a medida con su largo NOMINAL (`largo_tornilleria.py`, orden de fuentes en
+  su docstring; fuera de serie se pide el inmediato superior con `aviso`), una fila por largo. La
+  comercial modelada A MANO (`designacion_comercial.es_comercial`: rol de compra o norma con
+  designación en la CABEZA del rol, nunca una de plano/perfil ni en un rol que se fabrica —«Eje …
+  (con anillos DIN 471)»—) es ref `COMPRA` en la categoría de compra del catálogo, en BOM, costeo
+  y cédula (una fuente: el mismo módulo), con su norma y sin medida de corte salvo largo nominal o
+  lazo; con norma, UNA fila por designación + largo + material y sus `ubicaciones` (nunca por
+  pieza de origen). Lo que una unión `perno` DECLARA y nadie modeló lo suma
+  `tornilleria_declarada.py` (sin duplicar lo modelado). [defectos](../../../docs/defectos.md) (F6)
+- El aire en `library/`: la BOM (`bom_electrico._racores`) suma un racor por extremo de tubo en un
+  puerto ROSCADO (rosca × Ø, `specs.racor_rosca`/`racor_tubo_mm`) y lee un tubo SIN largo hacia un
+  silenciador como roscado directo (ni tubo ni racor). El cilindro (`builders_neumatica.py`) lee
+  las cotas de los `params` de la ref (con su fuente en el YAML) y las de los accesorios ISO 15552
+  de `neumatica/montajes.py`: nunca una cota de interfaz en el builder. El vástago viene con su
+  ref: `incluidas.py` lo saca de la BOM y de la lista de corte por la escena sola.
+  [V8.9](../../../docs/plans/V8.9-neumatica.md)
 - `position` = centro del bbox; un builder con origen propio coloca su ORIGEN LOCAL en
   `position` (p. ej. el barreno del NMRV, builder `worm_gearmotor`; la garrucha `caster`, la cara
   de montaje de la placa: [plan](../../../docs/plans/garruchas-catalogo.md)). Los perfiles se
   extruyen en Z (rotar 90° sobre Y → larguero en X).
-- Builders: `Polygon(*pts)` CENTRA sus puntos (pasa `align=None` para coordenadas absolutas: los
-  tramos de la banda de `create_belt_conveyor` quedaron en el piso hasta su v3). Todo término
-  empieza con `Pos(...) *` (un `Rotation(...) * shape` pelado da
+- Builders: `Polygon(*pts)` CENTRA sus puntos (pasa `align=None` para coordenadas absolutas). Todo
+  término empieza con `Pos(...) *` (un `Rotation(...) * shape` pelado da
   `ValueError: other must be a list of Locations`); las partes de un mismo sólido SOLAPAN
   0.5–8 mm (tangentes → Compound; disjuntas → ShapeList sin `.volume`); `build_component(ref, L)`
   ignora `L` si el componente no es `cuttable`.
 - **Zonas de acabado** (`zonas.py`; builders de `builders_mandos.ZONADOS`): el builder da
   `{zona: forma}` y el loader las une en UN sólido (una Feature, una línea de BOM, una masa) con
-  la zona de cada cara por ÍNDICE de `faces()` (historia de la fusión, `kernel/zonas.py`): la
-  caché de geometría pierde el TShape y conserva el orden. `zona_por_cara` la valida por n.º de
-  caras y volumen (taladrada → sin zonas). `fijo` = color de norma que `set_color` no pinta.
+  la zona de cada cara por ÍNDICE de `faces()` (`kernel/zonas.py`): la caché de geometría pierde
+  el TShape y conserva el orden. `zona_por_cara` la valida por n.º de caras y volumen (taladrada
+  → sin zonas). `fijo` = color de norma que `set_color` no pinta.
   [plan](../../../docs/plans/seta-de-emergencia.md)
 - Un param nuevo de un builder existente entra con el default que reproduce la geometría de
   antes (la seta `bloques=1`) y un test que la congela (volumen, caras, bbox): así no es bump.
-  El interruptor de resguardo y su lengüeta son DOS refs (se compran aparte) del mismo builder
-  (`interruptor_resguardo`, anclas `ranura`/`punta`). [mandos-de-seguridad](../../../docs/plans/mandos-de-seguridad.md)
+  El interruptor de resguardo y su lengüeta son DOS refs (se compran aparte) del mismo builder.
+  [mandos-de-seguridad](../../../docs/plans/mandos-de-seguridad.md)
 - Anclas que dependen de los params de cada ref (un piñón: `eje`, `hilera_k`, `fase`) van POR
   FAMILIA (`loader.ANCLAS` → `Component.anchors`); `_CATEGORY_ANCHORS` es sólo para las fijas
   por categoría. ASA (ANSI) 40 y BS 08B son de 1/2″ pero NO intercambiables: la serie va en
@@ -171,10 +102,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   scripts/acabados_ui.py --escribir` regenera la copia del visor. La palabra de carpintería sólo
   pinta madera en el vertical madera (la guarda de `resolve_material`). El color asignado
   (`Document.colors`) define el albedo SÓLO en un acabado `pintable` (pintado, caucho, PVC,
-  madera, cartón); en un metal manda el albedo de la tabla y el asignado queda en el manifest
-  sin pintar. Acero liso por rol: cadena → pavonado, eje/piñón → mecanizado, rodillo/tambor (y
-  su tubo) → galvanizado. La `textura` (color/brillo/anisotropía procedurales) es SÓLO del
-  visor: `apariencia()` no la pasa a VTK. [visor-realista](../../../docs/plans/visor-realista.md)
+  madera, cartón); en un metal manda el albedo de la tabla. Acero liso por rol: cadena →
+  pavonado, eje/piñón → mecanizado, rodillo/tambor (y su tubo) → galvanizado. La `textura` es
+  SÓLO del visor: `apariencia()` no la pasa a VTK. [visor-realista](../../../docs/plans/visor-realista.md)
 
 ## Chapa (`sheetmetal.py`)
 
@@ -191,32 +121,31 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
 ## Ingeniería (`engineering/`)
 
 - **Un cálculo NO filtra por `visible`**: ocultar es estado de vista (`Document.hidden`), no saca
-  la pieza de la máquina (ocultar banda + tambor del 38 borraba la faja de la memoria). Las masas
-  van con `include_hidden=True`; la puerta de entrega y la BOM aún filtran
-  ([backlog](../../../docs/backlog.md) § Validación).
+  la pieza de la máquina. Las masas van con `include_hidden=True`; la puerta de entrega y la BOM
+  aún filtran ([backlog](../../../docs/backlog.md) § Validación).
 - Toda verificación cuantitativa lleva bloque `calc` {titulo, entradas, formula, sustitucion,
-  resultado, criterio, fs, norma}. Las 16 con norma (10 en `rules_faja_*.py`, 6 en `report_*.py`) citan la
-  norma real; sin norma aplicable se escribe «criterio de diseño», nunca una cita inventada. Eje:
-  σ_adm = 0.5·σy (más estricto que ASME B106.1M); flecha L/240 (AISC).
+  resultado, criterio, fs, norma}. Las que tienen norma citan la norma real; sin norma aplicable
+  se escribe «criterio de diseño», nunca una cita inventada. Eje: σ_adm = 0.5·σy (más estricto que
+  ASME B106.1M); flecha L/240 (AISC).
   [V7.2b](../../../docs/plans/V7.2b-barrida-residuos.md) · [V7.2c](../../../docs/plans/V7.2c-fixes-re-auditoria.md)
 - Fits ISO 286 (`fits.py`): tablas IT5-11 y desviaciones de eje 1–500 mm; agujeros por las reglas
   de la norma; K-P sólo grados 6-7; el bore de rodamiento es ISO 492, no 286.
   `SEAT_RECOMMENDATIONS` por montaje: inserto UC → eje h7 que DESLIZA; anillo giratorio
   prensado → k6; eje FIJO (anillo interior estacionario, p. ej. el tensor) → g6/h6. La regla
-  «asiento ISO 286» (`report.py`) detecta pares eje ↔ rodamiento (fastener/junta/mate concéntrico
-  + Ø coincidente): sin fit → aviso; k6 en inserto UC → ERROR. [devlog § V5.4](../../../docs/devlog.md)
+  «asiento ISO 286» (`report_ajustes.py`) detecta pares eje ↔ rodamiento (fastener/junta/mate
+  concéntrico + Ø coincidente): sin fit → aviso; k6 en inserto UC → ERROR. [devlog § V5.4](../../../docs/devlog.md)
 - El fit del EJE va en el NOMBRE («Eje motriz Ø35 h7») y el del taladro en `drill_hole.fit`; los
   planos los rotulan solos (mapas por pieza en [services](../services/CLAUDE.md)).
 - Roscas (`threads.py`): `drill_hole.thread` taladra a la broca de machuelado PUBLICADA (M8 →
   Ø6.8; `diameter` se ignora); fit y thread son excluyentes (la rosca interior es 6H fija). Las
   roscas exteriores, fuera de alcance (por nombre, como los fits). [devlog § V5.7](../../../docs/devlog.md)
-- Fijación de taller (`fijacion.py`, puro; la usa `join_bolted` criterio 2/3): perno DIN 933 con
-  L ≥ agarre + tuerca + 2 pasos (criterio 3: el largo de catálogo o error, sin respaldo a 200); sin acceso por detrás (el ala de un
-  perfil abierto SÍ lo tiene: criterio 4, [commands](../commands/CLAUDE.md)) → remache ciego DIN 7337 (M6→Ø4.8,
-  M8→Ø6.4; más grande = error, no hay ciega de catálogo); base de madera → DIN 571 con ≥ 2/3
-  dentro y la punta ≥ 2 mm antes de la cara de atrás. Sus tablas son espejo de
-  `112_fijacion_ciega.yaml`/`113_tirafondos_hex.yaml`. Madera = `materials.es_madera` sobre
-  `resolve_material_vertical` (la guarda del vertical, también de la apariencia).
+- Fijación de taller (`fijacion.py`, puro; criterios de `join_bolted` en
+  [commands](../commands/CLAUDE.md)): perno DIN 933 con L ≥ agarre + tuerca + 2 pasos (el largo de
+  catálogo o error, sin respaldo a 200); sin acceso por detrás (el ala de un perfil abierto SÍ lo
+  tiene) → remache ciego DIN 7337 (M6→Ø4.8, M8→Ø6.4; más grande = error, no hay ciega de
+  catálogo); base de madera → DIN 571 con ≥ 2/3 dentro y la punta ≥ 2 mm antes de la cara de
+  atrás. Sus tablas son espejo de `112_fijacion_ciega.yaml`/`113_tirafondos_hex.yaml`. Madera =
+  `materials.es_madera` sobre `resolve_material_vertical` (la guarda del vertical).
   [union-en-perfil-hueco](../../../docs/plans/union-en-perfil-hueco.md)
 - Pernos (`bolts.py`): broca de paso ISO 273 serie media (M12 → Ø13.5). Par de apriete
   `tightening_torque_nm` = K·d·(0.7·A_s·R_y) con `TORQUE_K` por condición (seco/zincado/lubricado)
@@ -225,19 +154,18 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   redundante → None. `mass`: catálogo pesa por FICHA, a medida volumen × densidad.
 - `report.structure_engineering_check` (universal: pernos, soldaduras, L10, pandeo, vuelco): las
   uniones sin dimensionar se AGREGAN en una regla-resumen; redundante + dimensionada = ok con
-  nota (la redundancia es favorable y no accionable). Módulos: `report.py` (orquestador y ruta
-  vieja: re-exporta por identidad), `report_uniones` (pernos, soldadura), `report_estructura`
-  (L10, pandeo, vuelco), `report_ajustes` (ISO 286), `report_comun` (`G`, `_name`); una
-  verificación nueva va a su módulo, no a `report.py` ([plan](../../../docs/plans/partir-nucleo-congelado-ii.md) D3).
+  nota (la redundancia es favorable y no accionable). `report.py` es orquestador y ruta vieja
+  (re-exporta por identidad): una verificación nueva va a su módulo `report_*`, no a `report.py`
+  ([plan](../../../docs/plans/partir-nucleo-congelado-ii.md) D3).
 - Viga continua (`viga_continua.py`, Hermite con cargas consistentes = exacta, no aproximada):
   cargas y flechas + hacia ABAJO, reacciones + hacia ARRIBA (negativa = tracción, no se
   recorta). Secciones (`secciones.py`) en ejes LOCALES del builder (`i_x` = canto en Y): tabla
   de norma si los params calzan; HSS A500 con t = 0.93·t_nom y r = 2t (AISC; el `rect_tube_*`
   de `structural.py` es arista viva y nominal); perfil ranurado → `None` (`SIN_SECCION`), jamás
-  la inercia del modelo macizo. La sección se busca por `Component.familia`/`params` (builder y
-  params del YAML). Un ángulo L flecta LIBRE por sus ejes principales (`angulo_libre`; el eje
-  geométrico va de referencia en la hipótesis); criterio en `viga_bastidor.py` (vano L/240,
-  voladizo 2·Lv/240, σ ≤ 0.6·fy). [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
+  la inercia del modelo macizo. La sección se busca por `Component.familia`/`params`. Un ángulo L
+  flecta LIBRE por sus ejes principales (`angulo_libre`; el eje geométrico va de referencia en la
+  hipótesis); criterio en `viga_bastidor.py` (vano L/240, voladizo 2·Lv/240, σ ≤ 0.6·fy).
+  [flecha-de-bastidor](../../../docs/plans/flecha-de-bastidor.md)
 - Instalación (`installation.anchor_loads`): reparto ELÁSTICO de grupo por apoyo; con N > 3 es
   hiperestático y la hipótesis se DECLARA; un R_i negativo se publica como TRACCIÓN, jamás se
   recorta a cero. [V7.6](../../../docs/plans/V7.6-e2-fino.md)
@@ -248,23 +176,20 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   `{pm}`, `{fit: "h7"}` (banda ISO 286 asimétrica vía `fit_limits`), `{iso2768: "m"}` o
   `{lim: [lo, hi]}`; veredicto contra `{min_mm | max_mm | entre}`. `iso2768_linear` es la tabla
   ISO 2768-1 (el número del «ISO 2768-mK» del cajetín).
-- Las cadenas DECLARADAS son metadato (`Document.stackups`) con endpoint, NO comando: meterlas al
-  log rompería la invariante de checkpoints (raíz). Un eslabón `{id, eje}` mide el bbox VIVO;
-  `nominal_mm: "=expr"` sigue las variables. Evaluación y cadenas auto de pernos:
-  [services](../services/CLAUDE.md); el rollback del PUT, [api](../api/CLAUDE.md).
-  [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)
+- Las cadenas DECLARADAS son metadato (`Document.stackups`, raíz § Metadato ≠ comando). Un
+  eslabón `{id, eje}` mide el bbox VIVO; `nominal_mm: "=expr"` sigue las variables. Evaluación y
+  cadenas auto de pernos: [services](../services/CLAUDE.md); el rollback del PUT,
+  [api](../api/CLAUDE.md). [V7.3](../../../docs/plans/V7.3-stackup-cadenas-cotas.md)
 - `bolt_pattern_budget(flotante=)`: perno + TUERCA (pasante) → holgura completa; perno fijo →
   la mitad. Declarar flotante sin tuerca sería optimista.
 
 ## Reglas de conveyor (`rules.py`) y requisitos
 
-- Módulos: `rules.py` = orquestador de `conveyor_engineering_check` + ruta vieja (re-exporta por
-  identidad, `tests/test_rutas_viejas.py`); `rules_comun` (constantes, regex, `_check`, parseo),
-  `rules_calculo`, `rules_deteccion` + `rules_enriquecer` (`detect_conveyor`); un bloque de
-  verificación por función en `rules_faja_transporte`/`_motor`/`_tambor`/`_estructura`, con el
-  estado en `ContextoFaja` (lo que un bloque produce vuelve por `return`). Una regla nueva va a
-  su `rules_faja_*` y se llama en su lugar; `tests/test_reglas_faja_congeladas.py` congela tres
-  salidas texto a texto. [plan](../../../docs/plans/partir-nucleo-congelado-ii.md) (F3)
+- `rules.py` es orquestador de `conveyor_engineering_check` y ruta vieja (re-exporta por
+  identidad, `tests/test_rutas_viejas.py`). Una regla nueva va a su bloque `rules_faja_*` y se
+  llama en su lugar, con el estado en `ContextoFaja` (lo que un bloque produce vuelve por
+  `return`); `tests/test_reglas_faja_congeladas.py` congela tres salidas texto a texto.
+  [plan](../../../docs/plans/partir-nucleo-congelado-ii.md) (F3)
 - `detect_conveyor` se enriquece con VARIABLES, nombres y specs de catálogo (reconoce
   `motorreductores_sinfin`: η = 0.75 sinfín vs 0.85 helicoidal). Un transportador de rodillos a
   mano (tubo redondo de catálogo con eje, bastidor de ángulo) lo reconoce `rodillos_a_mano.py`
@@ -277,10 +202,10 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   el motivo, nunca una capacidad inventada. [defectos](../../../docs/defectos.md) (F6)
 - El Ø del tambor de una faja a mano (velocidad, par) es el MEDIDO de lo redondo y largo
   (`diametro_tambor.py`: lo motriz primero, sin ejes, tapas ni guardas por rol), nunca el lado
-  menor de la caja de lo que se llame «tambor» (la guarda daba Ø120). (F6)
+  menor de la caja de lo que se llame «tambor». (F6)
 - «Ancho útil» (`ancho_util.py`): rodillos = ancho − 2 largueros; BANDA = el ancho MEDIDO de la
-  banda (rol) y, si es menor, la luz entre guías laterales que suben sobre ella. Los largueros de
-  una faja de banda van por fuera: restarlos daba holguras falsas.
+  banda (rol) y, si es menor, la luz entre guías laterales que suben sobre ella (los largueros de
+  una faja de banda van por fuera: no se restan).
 - Método de arrastre POR CONSTRUCCIÓN (`soporte` derivado del modelo): cama/mesa → CEMA
   slider-bed μ = 0.33 + par de arranque 1.6× (`engineering/belt.py`); rodillos portantes → ISO
   5048/DIN 22101 (`iso5048.py`, C(L); L < 80 m es interpolación referencial). El μ = 0.06 de
@@ -289,9 +214,9 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   tambor; FS sólo con `t2_n` declarado (no se inventa la tensión del tensor). `tiene_tensor` NO
   sale del nombre: lo pone `services/engineering_rules.inherit_tensor` con el tensor RECONOCIDO.
   [devlog § V5.10](../../../docs/devlog.md)
-- **Puerta de publicación** (`calidad/`, puro): cada control devuelve `item.Item` (OK | FALLA |
-  SIN_EVALUAR | NO_APLICA, con evidencia): agarre de perno, tensor y vida útil; sus insumos los
-  miden `services/calidad_*.py`. Largos de perno: `largos_perno.py` (serie ISO + rango del YAML).
+- **Puerta de publicación** (`calidad/`, puro; insumos en [services](../services/CLAUDE.md)): cada
+  control devuelve `item.Item` (OK | FALLA | SIN_EVALUAR | NO_APLICA, con evidencia). Largos de
+  perno: `largos_perno.py` (serie ISO + rango del YAML).
   [puerta-de-publicacion](../../../docs/plans/puerta-de-publicacion.md)
 - `calidad/registro.py` es LA regla (D1, D14): ítems GENERALES por modo de falla
   (`transmision_flexible.tension`, `union.agarre`…), nunca de un mecanismo; una máquina nueva suma
@@ -304,14 +229,12 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   firma («5+nombre.v»); `evaluar(registro=None)` sigue siendo sólo el núcleo (testigos).
   [plan](../../../docs/plans/nucleo-abierto-extensiones-privadas.md) (F1d)
 - La banda de `create_belt_conveyor` abraza el radio EXTERIOR de cada tambor (`diametro_mm/2 +
-  lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano): el motriz engomado
-  va 6 mm más abajo que la cola. Un choque DENTRO de un super-comando no lo ve
-  `interference_report(exclude_pairs=same_command_pairs)`: el super-comando lo prueba él mismo
-  SIN exclusiones (`tests/test_belt_conveyor.py`) y la puerta de publicación lo mira (D13b). La
-  v4 (`belt_conveyor_*.py`: cotas, plan, bastidor, tambores, guardas) declara cada unión que
-  toca y ancla los pies: una pieza nueva entra con su `Plan.union`, y el bastidor lleva el
-  material de ficha (`Feature.material`: «larguero» sería madera por el nombre). La v5
-  (`Cotas.cierres`) cierra lo que el brazo doblado alcanzaba: toda pieza o cota nueva de un
+  lagging_mm`) y cada eje baja lo que crece su tambor (ramal de carga plano). Un choque DENTRO de
+  un super-comando no lo ve `interference_report(exclude_pairs=same_command_pairs)`: el
+  super-comando lo prueba él mismo SIN exclusiones (`tests/test_belt_conveyor.py`) y la puerta de
+  publicación lo mira (D13b). Toda pieza nueva de `belt_conveyor_*.py` entra con su `Plan.union`
+  (declara cada unión que toca y ancla los pies), y el bastidor lleva el material de ficha
+  (`Feature.material`: «larguero» sería madera por el nombre). Toda pieza o cota nueva de un
   resguardo se mide con la puerta en varias variantes, también una GRANDE (> 12 M voxeles: el
   voxel crece y aparecen ventanas que el de 10 mm no ve). Una placa que cierra un tubo es
   «Placa de cierre…» (estructura, soldada); «Tapa…» sería guarda y pediría pernos.
@@ -320,23 +243,21 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   sólido de la banda (el casco de `ruta_faja.py`, sólo sin lazo cerrado) y `fidelidad_faja.py` la
   prueba siempre contra el modelo (desvío ≤ comba CEMA hacia afuera; no entra en una pieza más que
   el sólido + 1 mm): una que falla no se publica. Comba = mín(CEMA 2 %, w·l²/8T de la tracción
-  MEDIDA, holgura con lo de abajo) sólo en tramos rectos del retorno (detalle fuera del núcleo).
+  MEDIDA, holgura con lo de abajo) sólo en tramos rectos del retorno.
 - `Document.requirements` (metadato): `/api/checks`, la memoria y la cotización CAEN a ellos (un
-  param explícito gana) → `engineering_check()` funciona sin argumentos.
-- Se validan en `requisitos.py` (`Document.set_requirements` delega; la CARGA no valida: un
-  manifest viejo abre tal cual). Ficha del encargo: lo ASUMIDO entra `{"valor", "asumido"}` y se
-  guarda PLANO + lista `asumidos`: todo lector de `requirements[k]` sigue viendo un escalar.
+  param explícito gana) → `engineering_check()` funciona sin argumentos. Se validan en
+  `requisitos.py` (`Document.set_requirements` delega; la CARGA no valida: un manifest viejo abre
+  tal cual). Ficha del encargo: lo ASUMIDO entra `{"valor", "asumido"}` y se guarda PLANO + lista
+  `asumidos`: todo lector de `requirements[k]` sigue viendo un escalar.
   [revision-de-taller](../../../docs/plans/revision-de-taller.md) (D1)
 
 ## Validación: interferencias, lints y puerta de entrega
 
 - `interference_report`: candidata = pareja que PUEDE interferir según el prefiltro EXACTO de
-  `interferencias_filtro.py` (barrido por cajas; caja común ≤ `MIN_VOLUME_MM3`; ninguna cara de
-  una en la zona común y ningún sólido de la otra dentro): un descarte nuevo ahí tiene que ser
-  exacto y entra con su caso en `tests/test_interferencias_escala.py` (contra la fuerza bruta).
-  `check_interference` pagina de a `MAX_PAIRS`; el chequeo GLOBAL (puerta de entrega, `verify`)
-  pasa `tope=tope_global(scene)` (10 por sólido, mín. 400): con 400 fijos una máquina de 20
-  rodillos quedaba AMARILLA. [defectos](../../../docs/defectos.md) (F6)
+  `interferencias_filtro.py` (reglas en su docstring): un descarte nuevo ahí tiene que ser exacto
+  y entra con su caso en `tests/test_interferencias_escala.py` (contra la fuerza bruta). El
+  chequeo GLOBAL (puerta de entrega, `verify`) pasa `tope=tope_global(scene)`, no el `MAX_PAIRS`
+  fijo. [defectos](../../../docs/defectos.md) (F6)
 - `check_interference` (booleanas OCCT) excluye pares de junta, `same_command_pairs` y el herraje
   `HARDWARE_CATS`; `interpenetration_report` mide el EXCESO sobre la pose de diseño en pares con
   junta. `HARDWARE_CATS` NO se amplía (semántica de interferencia, lista de corte y lints): el FEA
@@ -354,46 +275,44 @@ transversal (fronteras de paquete, locks, disciplina paramétrica) está en el
   geometría sigue prismática → sin bump); `acuerdos.py` deriva la zona plana y el lint
   «asiento fuera de la zona plana» (`lint_asiento.py`) lee los taladros de la GEOMETRÍA, no de
   los comandos (`join_bolted` corta sin `drill_hole`). Su marco sale de las ANCLAS por familia
-  (`perfiles_abiertos.py`: `cara_alma_interior`, `zona_plana_1/2`, `talon`…; sobreviven al
-  taladro) y, sin ellas, del bbox. Una función de anclas que declara `specs` los recibe del
-  loader (las zonas planas dependen de r1, que el builder no lee). [plan](../../../docs/plans/perfiles-con-acuerdo.md)
+  (`perfiles_abiertos.py`, sobreviven al taladro) y, sin ellas, del bbox. Una función de anclas
+  que declara `specs` los recibe del loader (las zonas planas dependen de r1, que el builder no
+  lee). [plan](../../../docs/plans/perfiles-con-acuerdo.md)
 - `delivery.py` es un agregador PURO → semáforo VERDE/AMARILLO/ROJO: interferencias en diseño +
-  sujeción DECLARADA (soundness sin autodetect) + lints + integridad/suprimidos + colisión EN POSE
-  en los fotogramas de REPOSO de los estudios (extremos + dwells; el tránsito lo valida
-  `scan_motion`) + gravedad opt-in + ERC, acceso de herramienta y escenarios de prueba (V8.3 D14)
-  SÓLO si existen: sin ellos, la puerta da lo de siempre. Las reglas de una extensión
-  (`Extension.entrega`, `entrega_extension.py`) van al final con `id` y `origen`; sólo con ellas
-  sale `version_bateria` («1+nombre.v»: `VERSION_BATERIA` sube si cambia un chequeo del núcleo).
+  sujeción DECLARADA (sin autodetect) + lints + integridad/suprimidos + colisión en las poses de
+  REPOSO (el tránsito lo valida `scan_motion`; insumos: [services](../services/CLAUDE.md)) +
+  gravedad opt-in. ERC, acceso de herramienta y escenarios de prueba (V8.3 D14) entran SÓLO si existen: sin ellos,
+  la puerta da lo de siempre. Las reglas de una extensión (`Extension.entrega`,
+  `entrega_extension.py`) van al final con `id` y `origen`; sólo con ellas sale `version_bateria`
+  («1+nombre.v»: `VERSION_BATERIA` sube si cambia un chequeo del núcleo).
   [plan](../../../docs/plans/puntos-de-extension-entregables.md)
 - Lo que no puede correr va en `no_aplica`: jamás cuenta verde. Un asiento ≤ `EXCESS_TOL_MM3`
   (`checks.py`) se tolera y se DECLARA (`contactos_tolerados`). Tornillería flotante = AVISO, no
   ROJO (no es nodo estructural).
 - Exclusiones UNIFICADAS diseño + pose: par con fasten declarado = contacto firmado; tornillería
-  a medida = asentada. Sin unificar, un solape declarado reaparecía como «colisión nueva» en pose.
+  a medida = asentada (si no, un solape declarado reaparece en pose).
 - **¿Entra la llave?** (`acceso_herramienta.py`): la tuerca/cabeza se reconoce por GEOMETRÍA
-  (`fijadores_geom.py`: 3 pares de caras a 60°), no por catálogo; sus fantasmas (copa, anillo,
-  boca y mango que barren ±15°, Allen: `fantasmas_herramienta.py`, medidas en `herramientas.py`)
-  se cruzan con los vecinos. La pieza de asiento NO se excluye entera (el ala que estorba suele
-  ser de ella): los fantasmas arrancan a 1 mm del asiento. Ninguna libre = ROJO en la puerta,
-  sólo boca = aviso, sin hexágono = no evaluado. Un sólido con VARIOS hexágonos coaxiales (perno
-  + tuerca fundidos) son varios fijadores (`reconocer_fijadores`): leídos como uno daban un falso
-  ROJO ([V8.1](../../../docs/plans/V8.1-modelo-electrico.md) F4c, D-c5). Sin hexágono: un
-  remache de catálogo (`herramienta: remachadora`) se lee por su cilindro mayor y se le cruza la
-  remachadora coaxial; un DIN 571 (`llave: true`) entra como tornillería de llave.
-  [plan](../../../docs/plans/acceso-de-herramienta.md)
+  (`fijadores_geom.py`: 3 pares de caras a 60°), no por catálogo; sus fantasmas
+  (`fantasmas_herramienta.py`, medidas en `herramientas.py`) se cruzan con los vecinos. La pieza
+  de asiento NO se excluye entera (el ala que estorba suele ser de ella): los fantasmas arrancan
+  a 1 mm del asiento. Ninguna libre = ROJO en la puerta, sólo boca = aviso, sin hexágono = no
+  evaluado. Un sólido con VARIOS hexágonos coaxiales (perno + tuerca fundidos) son varios
+  fijadores (`reconocer_fijadores`). Sin hexágono: un remache de catálogo (`herramienta:
+  remachadora`) se lee por su cilindro mayor y se le cruza la remachadora coaxial; un DIN 571
+  (`llave: true`) entra como tornillería de llave. [plan](../../../docs/plans/acceso-de-herramienta.md)
 - `MIN_SOLIDOS_SUJECION` también dispara la alarma ambiental `aviso_estructura` de toda mutación
   ([api](../api/CLAUDE.md)). [V6.9](../../../docs/plans/V6.9-puerta-de-entrega.md)
 - **Puerta de publicación — seguridad y reparabilidad** (`seguridad/`, `reparabilidad.py`; OCCT en
   `services/calidad_*.py`): peligros ISO 12100 derivados del modelo, sondas ISO 13857 (la banda no
   es peligro ni se atraviesa; el rodillo portante liso no es peligro), guarda atornillada, desgaste
   sin soldar y desmontable, banda montable. Entran por la fuente «seguridad» (`seguridad.electrico`
-  se descarta: es `riesgos.electrico`); umbrales y calibración en el
-  [plan](../../../docs/plans/puerta-de-publicacion.md) § F3. Las sondas rectas no ven lo que se
-  alcanza doblando el brazo: `alcance.py` (campo de la muñeca, brazo + antebrazo rectos) +
-  `services/calidad_codo.py` (la mano ≤ 230 mm, juzgada por `sondas.veredicto`). § F6.
+  se descarta: es `riesgos.electrico`). Las sondas rectas no ven lo que se alcanza doblando el
+  brazo: `alcance.py` + `services/calidad_codo.py` (la mano ≤ 230 mm, juzgada por
+  `sondas.veredicto`). Umbrales y calibración: [plan](../../../docs/plans/puerta-de-publicacion.md)
+  § F3 y § F6.
 - **Distancia al borde de un agujero de perno** (`borde_agujero.py`, EN 1993-1-8 tabla 3.3): la
   MISMA medida para la puerta (`calidad/bordes.py`) y `join_bolted` criterio 5. Canto = donde la
   pieza tiene el espesor de la chapa (no la esquina de un tubo, el talón de un ángulo ni un eje);
   el agujero de otro perno es paso. La tabla es de CHAPAS: una barra maciza (eje, barra cuadrada:
-  t ≥ 1,5·d0 y W ≤ 1,25·t) sale como `barra` y, roscada, se juzga por su rosca enganchada (v5).
-  Medir sobre la geometría, nunca sobre la huella de cajas. § F6.
+  t ≥ 1,5·d0 y W ≤ 1,25·t) sale como `barra` y, roscada, se juzga por su rosca enganchada. Medir
+  sobre la geometría, nunca sobre la huella de cajas. § F6.
