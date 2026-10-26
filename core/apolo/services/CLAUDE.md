@@ -317,7 +317,9 @@ fronteras) está en el [CLAUDE.md raíz](../../../CLAUDE.md); lo común del back
   tapa al final, se termina lo empezado) están en el docstring: una regla nueva va ahí con su
   caso en `tests/test_montaje.py`. El acceso de herramienta NO impone orden (si la llave entra
   con la máquina terminada, entra con menos piezas).
-  [video-montaje-pulido](../../../docs/plans/video-montaje-pulido.md) (F1b)
+  [video-montaje-pulido](../../../docs/plans/video-montaje-pulido.md) (F1b). El título del paso va
+  ENTERO (el manual lo mide; el video titula la etapa a `MAX_TITULO_GENERADO`): un tope aquí
+  igualaba pasos distintos. [V8.9](../../../docs/plans/V8.9-neumatica.md) (últimos cortes)
 - La `marcha` del guion (opcional) cuenta en `duracion_total` y en los capítulos, pero sólo la
   graba el navegador: todo render que no la anime usa `sin_marcha(g)`.
 - La marcha de EJEMPLO de un transportador (`marcha_ejemplo.py`, la que arma la fábrica) sale de

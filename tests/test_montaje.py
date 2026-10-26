@@ -246,6 +246,31 @@ def test_una_parte_acotada_se_ordena_sola(piloto):
     assert {f for p in pasos for f in p.ids} == set(parte)
 
 
+def test_el_titulo_del_paso_sale_entero_y_cada_consumidor_lo_encaja():
+    """El título se cortaba a 40 con «…»: en el testigo de rodillos, seis conjuntos soldados de
+    grupos distintos salían todos «Conjunto soldado · Transportador de rod…» (V8.9, «Últimos
+    cortes y letra del SVG»). Ahora va entero; el video titula la etapa a su medida."""
+    d = Document("grupos largos")
+    patas = [_caja(d, f"Pata ({s}Y)", (40, 40, 600), (0, y, 300)) for s, y in (("-", -200), ("+", 200))]
+    placas = [_caja(d, f"Placa base ({s}Y)", (100, 100, 10), (0, y, -5)) for s, y in (("-", -200), ("+", 200))]
+    guarda = _caja(d, "Guarda de la transmisión", (200, 4, 200), (0, 230, 400))
+    soporte = _caja(d, "Soporte de la guarda", (20, 20, 20), (0, 215, 400))
+    for k, (pata, placa) in enumerate(zip(patas, placas)):
+        d.execute("fasten", {"name": f"s{k}", "a": placa, "b": pata, "kind": "soldadura"})
+        d.execute("ground", {"name": f"piso{k}", "feature": placa})
+    d.execute("fasten", {"name": "s2", "a": soporte, "b": patas[1], "kind": "soldadura"})
+    d.execute("fasten", {"name": "g", "a": guarda, "b": soporte, "kind": "perno", "size": "M6"})
+    for grupo, miembros in (("Transportador de rodillos/Patas", [*patas, *placas, soporte]),
+                            ("Transportador de rodillos/Guardas", [guarda])):
+        d.execute("create_group", {"name": grupo, "members": miembros})
+    pasos = secuencia(d)
+    assert [p.titulo for p in pasos] == ["Conjunto soldado · Transportador de rodillos/Patas",
+                                         "Guarda de la transmisión"]
+    assert [e["label"] for e in pasos_manual(d)] == [p.titulo for p in pasos]
+    es = etapas_montaje(d, 75)
+    assert es and all(len(e.titulo) <= MAX_TITULO_GENERADO for e in es)  # el video, a su medida
+
+
 # ------------------------------------------------------------------ el manual (D8)
 def test_el_manual_usa_la_secuencia_de_montaje(piloto):
     from apolo.drawing import assembly_manual

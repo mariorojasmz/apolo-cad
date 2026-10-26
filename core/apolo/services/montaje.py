@@ -40,7 +40,6 @@ from dataclasses import dataclass
 
 from apolo.services.rotulos import (
     base,
-    corta,
     familia,
     lista_y,
     minuscula,
@@ -57,7 +56,6 @@ DESMONTABLES = ("perno", "contacto")
 PLANA = 0.3
 #: Fracción de la proyección de otra pieza que una plana debe cubrir para «taparla».
 CUBRE = 0.5
-MAX_TITULO = 40
 MAX_DESTINOS = 3
 
 
@@ -350,19 +348,27 @@ def _union(piezas: list[str], i: int, nivel: dict, uniones, puesto: dict, pos: i
     return "base" if (i in nivel and nivel[i] == 0) or set(piezas) & anclados else "suelto"
 
 
+def _una_linea(texto: str) -> str:
+    return " ".join(str(texto).split())
+
+
 def _titulo(scene: dict, ids: tuple, union: str, grupo: str | None) -> str:
+    """El título ENTERO del paso: cada consumidor lo encaja a su medida (el manual lo mide en su
+    rótulo de dos renglones; el video titula la etapa con el grupo, a `MAX_TITULO_GENERADO`). Un
+    tope aquí cortaba lo que distingue los pasos: «Conjunto soldado · Transportador de rod…»
+    eran seis pasos distintos (Patas, Bastidor, Rodillos, Guardas) con el mismo título."""
     if union == "soldado":
-        return corta(f"Conjunto soldado · {grupo}" if grupo else "Conjunto soldado", MAX_TITULO)
+        return _una_linea(f"Conjunto soldado · {grupo}" if grupo else "Conjunto soldado")
     todas = [base(rol(scene[p].name, p)) for p in ids]
     bases = list(dict.fromkeys(todas))
     if len(bases) == 1:
-        return corta(bases[0], MAX_TITULO)
+        return _una_linea(bases[0])
     if grupo:
-        return corta(grupo, MAX_TITULO)
+        return _una_linea(grupo)
     # sin grupo, las dos bases con más piezas, en su orden: nunca «Pata y 3 más»
     dos = sorted(sorted(bases, key=lambda b: (-todas.count(b), bases.index(b)))[:2],
                  key=bases.index)
-    return corta(f"{dos[0]} y {minuscula(dos[1])}", MAX_TITULO)
+    return _una_linea(f"{dos[0]} y {minuscula(dos[1])}")
 
 
 def _destinos(scene: dict, fids: list[str]) -> str:
