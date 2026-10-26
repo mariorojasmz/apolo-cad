@@ -274,3 +274,85 @@ Tiempos de la tabla medida (S/M 40–65 min, L 90–100; revisión ~35 min por l
 - **Suite**: completa con xdist, exit 0 y ningún `FAILED` (también la de la base, con el plugin
   del corpus); `ruff check core tests scripts` limpio; `test_claude_md.py` verde (library 33.8 KB
   de 35).
+
+### F4 — sheet.py (2026-10-25, base `fac06a5`)
+
+- **Corte** (script re-ejecutable sobre el original: D1 por NOMBRE, byte a byte; D4 por RANGO de
+  líneas, cada bloque verbatim como cuerpo):
+
+  | módulo (`drawing/`) | contenido | líneas |
+  |---|---|---:|
+  | `sheet_primitivas.py` | las 8 constantes (el bloque de texto tal cual) + `Line`, `Label`, `Circle`, `Arc`, `Polygon`, `Image`, `SheetModel` | 107 |
+  | `sheet_auxiliares.py` | `_pick_scale`, `_place_view`, `_fit_for_dia`, `_hole_callouts`, `_dim_h_at`, `_dim_h`, `_dim_v`, `_zone_grid`, `_scale_bar` | 176 |
+  | `sheet_anotaciones.py` | `_draw_table_with_balloons`, `_assembly_notes_auto`, `_bbox_vol`, `_weld_anchor`, `_place_weld_symbols` | 164 |
+  | `sheet_lamina.py` | `LaminaEnCurso` (dataclass: los 31 argumentos + los 22 locales que un bloque pasa a otro, con su nombre) | 71 |
+  | `sheet_vistas.py` | `preparar_lamina`, `dibujar_vistas`, `dibujar_cuadrante_iso` | 232 |
+  | `sheet_cotas.py` | `acotar_solidos`, `acotar_desde_datum`, `dibujar_simbolos_de_soldadura`, `dibujar_detalle_de_pieza` | 114 |
+  | `sheet_tablas.py` | `dibujar_tablas` (BOM, despiece con «Hoja», cédula de herraje) | 74 |
+  | `sheet_cajetin.py` | `reunir_notas_de_taller`, `dibujar_notas`, `dibujar_cajetin` | 108 |
+  | `sheet.py` | docstring + mapa, re-exports y el orquestador (61 líneas: la firma de 33 es la de siempre) | 110 (era 882; sale de `EXCEPCIONES`) |
+
+- **D1**: `inspect.getsource` de las 21 clases y funciones idéntico al del original (0 distintas);
+  el bloque de las 8 constantes, el mismo texto, y cada una el MISMO objeto en `sheet` y en
+  `sheet_primitivas`.
+- **D4**: el orquestador arma `LaminaEnCurso` con los argumentos y llama a 11 bloques en el orden
+  del original. Lo único nuevo en cada bloque: la `def`, el desempaque `x = ctx.x` de lo que LEE
+  de fuera (`symtable`, también lo que leen sus lambdas) y el `return` de lo que un bloque
+  posterior lee, que el orquestador vuelve a poner en `ctx`. Los nombres que un bloque asigna y
+  lee y que ya existían antes (`rect`, `tx`, `feat`, `bb`, `cx`, `entries`, `dscale`…) se
+  revisaron uno a uno: el bloque los asigna antes de leerlos, en todo camino.
+- **Corpus (D5 b)**: un plugin de pytest (scratchpad) envolvió `compose_sheet` durante la suite
+  completa de la base (exit 0) y grabó los argumentos picklados y la huella del modelo: 169
+  llamadas. La suite NO compone el juego del 38: un script aparte lo compuso (plantilla
+  genérica, sombreada diferida, con los mapas de `sheet_set_maps`) desde una COPIA de la base de
+  `apolo-cad-pruebas`: 42 llamadas más. 211, **183 únicas**, 0 inconsistentes. Re-correr lo
+  grabado da la MISMA huella que en la suite en las 183. Para el gate, la fecha de `date.today()`
+  va fijada (2026-01-02) y el DXF se normaliza en lo que es reloj: las variables de cabecera
+  `$TDCREATE`… y los GUID, y el sello «versión @ hora» que ezdxf escribe en sus metadatos.
+- **Cobertura** (sin `coverage` en el venv: líneas con `sys.settrace`, ramas con una COPIA de la
+  función instrumentada por AST: `if`, `x if c else y`, cada operando de `and`/`or` y, además de
+  F3, «el `for` no itera»; la copia da las mismas salidas). Lo grabado: 316/318 líneas y
+  198/235 ramas. Con 16 sintéticos (las tres láminas del test permanente y 13 chicos: cotas por
+  sólido con id inexistente y tope de 3, corte que no toca la pieza, detalle fuera de la pieza,
+  explosionada con oculta y de chapas planas, sombreada con ocultas, detalle de pieza ausente,
+  sin nombre con escala, plano y vacío, notas de taller de una pieza de catálogo…) → **199
+  casos, 317/318 líneas y 220/235 ramas**. Lo que falta es inalcanzable: la línea 673 y su rama
+  (`explode_scene` sólo devuelve piezas visibles); «el `for` no itera» sobre tuplas literales
+  (`517`, `532`, `630`) o sobre listas que el `if` de arriba ya exige no vacías (`576`, `593`,
+  `824`); `ev`/`mv` `None` (`project_views` devuelve toda vista pedida o levanta «Escena
+  vacía»); `exp` vacía en `671`/`681` (levanta antes); `mfeat` `None` con forma (`773`, `774`);
+  `dscale` 0 (`786`); y el «—» del material en `866` (sin pieza visible, la proyección levanta
+  antes).
+- **Después del corte**: los 199 casos dan el modelo, el SVG y el DXF idénticos TEXTO A TEXTO
+  (597 archivos) y, por caso, el MISMO conjunto de líneas del original ejecutadas (las del corte
+  mapeadas al original; el script verifica antes que cada cuerpo sea el del original línea a
+  línea y que entre bloques sólo haya líneas en blanco): 199/199.
+- **D6**: `grep monkeypatch` sobre `sheet` en `tests/`: ningún test reasigna un nombre de `sheet`
+  (sólo `drawing.sheets_to_pdf`/`sheet_to_pdf` del paquete). `sheet` re-exporta los 46 nombres de
+  nivel superior de antes, también los que sólo importaba.
+- **Gate D7**: sección `sheet` en `test_rutas_viejas.py` (lista CERRADA de las 30 definiciones con
+  su casa, los 15 importados, la fachada sólo define el orquestador y éste llama a los 11 bloques
+  en su orden, el gate caza una copia) y `tests/test_laminas_congeladas.py`: tres láminas armadas
+  en el test (conjunto soldado con corte, despiece y cédula; pieza de taller con ajuste, rosca,
+  GD&T, datum por lista y detalle; explosionada con BOM y detalle de pieza) congeladas primitiva a
+  primitiva y en su orden en `tests/data/laminas_congeladas.json` (51 KB), generado con el código
+  de ANTES del corte.
+- **Desvíos de D4** (decididos con criterio): (1) el orquestador se queda en `sheet.py`, no en un
+  `sheet_compose.py` (como F3 en `rules.py`): `compose_sheet` conserva su casa y la ruta vieja no
+  depende de un re-export. (2) El corte por bloques: `sheet_vistas`, `sheet_cotas` (también la
+  soldadura y el detalle de pieza, que acotan sobre las vistas), `sheet_tablas` y
+  `sheet_cajetin` (notas de taller, notas y cajetín); el contexto en su propio `sheet_lamina.py`.
+  (3) Las auxiliares son DOS módulos (`sheet_auxiliares` + `sheet_anotaciones`): juntas pasaban
+  de 300. (4) A diferencia de F1–F3, `sheet` re-exporta también lo que sólo IMPORTABA (`date`,
+  `dataclass`, `world_to_view`…): la extensión privada importa de aquí y el contrato pedía «todo
+  nombre de nivel superior». (5) `return model` pasa a `return ctx.model`. (6) El test permanente
+  compara el MODELO (cada primitiva y `meta`, floats a 4 decimales), no el SVG: el HLR de OCCT
+  puede variar en el último bit entre Windows y el Linux del CI, y los exportadores son funciones
+  puras del modelo. (7) Las funciones de bloque no llevan docstring (D4 sólo permite locales,
+  `return` e imports); el comentario del original encabeza cada cuerpo. (8) El pickle de
+  build123d guarda las mallas y 32 formas del 38 no se vuelven a leer (`BinTools`
+  «PointRepresentation = 29»): el juego se grabó con `brep_io.serialize_robust` sin mallas.
+- **D8**: `test_contrato_comandos.py`, `geomcache.py` y toda `CommandSpec.version` sin diff.
+- **Suite**: completa con xdist, exit 0 y ningún `FAILED` (también la de la base, con el plugin
+  del corpus); `ruff check core tests scripts` limpio; `test_claude_md.py` verde (drawing 11.9 KB
+  de 35). Falta, como dice F4, la suite de la extensión privada contra la rama (quien mergea).
