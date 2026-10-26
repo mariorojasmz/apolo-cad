@@ -171,8 +171,9 @@ components:
         - {de: "11", a: "12", tipo: NC, accion: bobina}
       cargas: [{bornes: [A1, A2], tension: "24 VDC", tipo: bobina, polar: true}]
       modelo: {tipo: rele, contacto_A: 6, contacto_V: 250, Uc_V: 24, Uc: DC, U_cierre_pct: 80, U_caida_pct: 25, bobina_W: 0.2, cierre_ms: [5, 8], apertura_ms: [3, 6]}
-      a_confirmar: [T_max_C]
-      fuente: "sin ficha verificada de la línea de referencia (Phoenix Contact PLC-RSC / Finder 38.51): la temperatura de funcionamiento, a confirmar con el relé que se compre"
+      # bobina ≤ 60 V: −40…+70 °C (Finder 38.51)
+      datos: {T_max_C: 70}
+      fuente: "Finder, «38 Series — Relay interface modules» (S38EN, ed. I-2026), https://cdn.findernet.com/app/uploads/S38EN.pdf (consultada 2026-10-26), pág. 5, 38.51 EMR: «Ambient temperature range (UN ≤ 60 V / > 60 V) −40…+70 / −40…+55 °C». Phoenix Contact PLC-RSC sin ficha leída (su web responde 403)"
   - ref: RELE-INT-230V
     name: Relé de interfaz 1 conmutado 230 V AC/DC
     description: Relé de interfaz enchufable de 6,2 mm, bobina 230 V AC/DC (admite los 220 VAC de Lima), 1 contacto conmutado 6 A 250 VAC (11 común, 12 NC, 14 NA). Verificar con el proveedor.
@@ -185,8 +186,16 @@ components:
       perdidas_W: 0.8
       cargas: [{bornes: [A1, A2], tension: "230 VAC/DC", tipo: bobina}]
       modelo: {tipo: rele, contacto_A: 6, contacto_V: 250, Uc_V: 230, Uc: UC, U_cierre_pct: 80, U_caida_pct: 25, bobina_W: 0.5, cierre_ms: [8, 15], apertura_ms: [10, 25]}
+      # bobina > 60 V: −40…+55 °C (Finder 38.51)
+      datos: {T_max_C: 55}
+      fuente: "Finder, «38 Series — Relay interface modules» (S38EN, ed. I-2026), https://cdn.findernet.com/app/uploads/S38EN.pdf (consultada 2026-10-26), pág. 5, 38.51 EMR: «Ambient temperature range (UN ≤ 60 V / > 60 V) −40…+70 / −40…+55 °C»: con bobina de 230 V, 55 °C. Phoenix Contact PLC-RSC sin ficha leída (su web responde 403)"
   # ── relé de seguridad (plan mandos-de-seguridad D3) ─────────────────────────────────────
-  # Dos canales con rearme vigilado, del orden de Pilz PNOZ X2.8P / Schneider Preventa XPSAC:
+  # Dos canales con rearme vigilado, del orden de Siemens SIRIUS 3SK1111-1AB30 (3 NA de seguridad
+  # + 1 NC de señal, «monitored start-up», 24 V AC/DC, 22,5 mm). La línea citada antes (Pilz PNOZ
+  # X2.8P / Schneider XPSAC5121) se cambió: el PNOZ X2.8P sólo arranca automático o manual (no
+  # vigilado) y el XPSAC5121 está descatalogado desde el 28-dic-2023 (bitácora «Cifras de fichas
+  # y líneas corregidas» del plan mandos-de-seguridad). Los bornes son GENÉRICOS (los del orden
+  # de la familia PNOZ/XPSAC; el 3SK1 los nombra distinto: ver su manual).
   # S11, S21 y S33 salen de A1 por dentro (criterio de diseño: la vigilancia de cruces entre
   # canales no se modela) y vuelven por el contacto externo a S12, S22 (canales) y S34 (rearme:
   # actúa al SOLTAR el pulsador). Tres NA de seguridad (13-14, 23-24, 33-34) y un NC de señal
@@ -200,7 +209,7 @@ components:
     builder: box
     params: {width: 22.5, depth: 114, height: 99}
     weight: 0.2
-    specs: {canales: 2, rearme: vigilado, salidas: "3NA de seguridad + 1NC de señal", alimentacion: "24 VDC", ancho_mm: 22.5, linea_referencia: "orden de Pilz PNOZ X2.8P / Schneider Preventa XPSAC5121", cotas_verificadas: false, cost: 160}
+    specs: {canales: 2, rearme: vigilado, salidas: "3NA de seguridad + 1NC de señal", alimentacion: "24 VDC", ancho_mm: 22.5, linea_referencia: "orden de Siemens SIRIUS 3SK1111-1AB30 (rearme vigilado)", cotas_verificadas: false, cost: 160}
     electrico:
       funcion: K
       simbolo: rele_seguridad
@@ -237,8 +246,8 @@ components:
         - {bornes: [S22, A2], tension: "24 VDC", tipo: entrada, polar: true}
         - {bornes: [S34, A2], tension: "24 VDC", tipo: entrada, polar: true}
       modelo: {tipo: rele_seguridad, Un_V: 24, U_min_pct: 85, rearme: vigilado, salidas: ["13-14", "23-24", "33-34"], t_conexion_ms: 50, t_desconexion_ms: 20}
-      a_confirmar: [T_max_C]
-      fuente: "sin ficha verificada de la línea de referencia (Pilz PNOZ X2.8P / Schneider Preventa XPSAC5121): la temperatura de funcionamiento, a confirmar con el relé que se compre"
+      datos: {T_max_C: 60}
+      fuente: "Siemens, hoja de datos 3SK1111-1AB30 (SIRIUS 3SK1, «Relay enabling circuits 3 NO contacts plus Relay signaling circuit 1 NC contact Us = 24 V AC/DC»; mall.industry.siemens.com, consultada 2026-10-19), pág. 1: «monitored start-up Yes»; pág. 2: temperatura ambiente de funcionamiento −25…+60 °C; pág. 4: rango de alimentación 0,85…1,2 Un en DC (el U_min_pct 85 del modelo)"
   # ── PLC compacto ────────────────────────────────────────────────────────────────────────
   - ref: PLC-14DI-10DO-24VDC
     name: PLC compacto 14 DI / 10 DO / 2 AI 24 VDC
@@ -317,8 +326,9 @@ components:
         - {bornes: [AI0, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
         - {bornes: [AI1, 2M], tension: "0-10 VDC", tipo: entrada, obligatoria: false, polar: true}
       modelo: {DI: 14, DO: 10, AI: 2, DI_tipo: "sumidero, IEC 61131-2 tipo 1", DO_tipo: "transistor fuente (PNP)", DO_A: 0.5, AI_V: [0, 10], tipo: plc, DI_filtro_ms: 6.4, DO_retardo_ms: 0.003, U_alim_min_V: 20.4, AI_escala: 27648}
-      a_confirmar: [T_max_C]
-      fuente: "T_max_C: sin ficha verificada de la línea de referencia (Siemens S7-1200 CPU 1214C): la temperatura de funcionamiento (depende de si va horizontal o vertical), a confirmar con el PLC que se compre; direcciones: las que STEP 7 asigna por defecto a la CPU 1214C DC/DC/DC, leídas en el manual de sistema «S7-1200 Programmable controller» V20 (Siemens, 11/2024, edición en línea docs.tia.siemens.cloud, sin páginas), § PLC concepts > Data storage, memory areas, I/O and addressing > Addressing the local and expansion I/O, figura 1 (DI14/DQ10 en los bytes I 0…1 y Q 0…1, de a 8 puntos por byte; AI2 en I 64…67, 2 bytes por canal) y § Using absolute addressing to access CPU data (el «%» delante); el ST de Apolo sigue con %IX/%IW0 (V8.3 D4); puertos: una interfaz PROFINET con 1 puerto RJ45 de serie, leída en la hoja de datos 6ES7214-1AG40-0XB0 (Siemens, 18/02/2022, firmware V4.5), § «1. Interface»: «Interface type PROFINET», «RJ 45 (Ethernet) Yes», «Number of ports 1», «integrated switch No»"
+      # 55 °C: montaje horizontal con las 14 DI / 10 DO activas (45 vertical; 60 sólo con 7 DI / 5 DO)
+      datos: {T_max_C: 55}
+      fuente: "T_max_C: Siemens, hoja de datos 6ES7214-1AG40-0XB0 (CPU 1214C DC/DC/DC; mall.industry.siemens.com, consultada 2026-10-19), pág. 6: −20…60 °C, con «Number of simultaneously activated inputs or outputs 7 or 5 (no adjacent points) at 60 °C horizontal or 50 °C vertical, 14 or 10 at 55 °C horizontal or 45 °C vertical»: se toma 55 (todas las E/S, horizontal); direcciones: las que STEP 7 asigna por defecto a la CPU 1214C DC/DC/DC, leídas en el manual de sistema «S7-1200 Programmable controller» V20 (Siemens, 11/2024, edición en línea docs.tia.siemens.cloud, sin páginas), § PLC concepts > Data storage, memory areas, I/O and addressing > Addressing the local and expansion I/O, figura 1 (DI14/DQ10 en los bytes I 0…1 y Q 0…1, de a 8 puntos por byte; AI2 en I 64…67, 2 bytes por canal) y § Using absolute addressing to access CPU data (el «%» delante); el ST de Apolo sigue con %IX/%IW0 (V8.3 D4); puertos: una interfaz PROFINET con 1 puerto RJ45 de serie, leída en la hoja de datos 6ES7214-1AG40-0XB0 (Siemens, 18/02/2022, firmware V4.5), § «1. Interface»: «Interface type PROFINET», «RJ 45 (Ethernet) Yes», «Number of ports 1», «integrated switch No»"
       # nombre de cada E/S en la CPU de la línea de referencia (plan plc-en-el-lazo, D3); el ST de Apolo no las usa
       direcciones: {I0.0: "%I0.0", I0.1: "%I0.1", I0.2: "%I0.2", I0.3: "%I0.3", I0.4: "%I0.4", I0.5: "%I0.5", I0.6: "%I0.6", I0.7: "%I0.7", I1.0: "%I1.0", I1.1: "%I1.1", I1.2: "%I1.2", I1.3: "%I1.3", I1.4: "%I1.4", I1.5: "%I1.5", Q0.0: "%Q0.0", Q0.1: "%Q0.1", Q0.2: "%Q0.2", Q0.3: "%Q0.3", Q0.4: "%Q0.4", Q0.5: "%Q0.5", Q0.6: "%Q0.6", Q0.7: "%Q0.7", Q1.0: "%Q1.0", Q1.1: "%Q1.1", AI0: "%IW64", AI1: "%IW66"}
       # el conector de datos de serie (plan plc-en-el-lazo, D12): no es un borne; ni la red de mando ni el ERC lo ven

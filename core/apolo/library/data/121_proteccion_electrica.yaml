@@ -104,9 +104,9 @@ components:
       bornes: *polos_3p
       caminos: *proteccion_3p
       modelo: {tipo: itm, In_A: 6, curva: C, Icn_kA: 6, polos: 3}
-      datos: *datos_itm
-      a_confirmar: [Icu_kA, Ics_kA]
-      fuente: &fuente_itm "Schneider Electric, fichas de producto Acti9 iC60N A9F04202, A9F04206 y A9F04310 (schneider-electric.cn, 2026-10-24): temperatura de funcionamiento −35…70 °C, la misma en la serie. Icu/Ics de ESTA ref sin ficha verificada (cambian con In y con los polos): a confirmar"
+      # Icu 20 kA a 220…240 V y 10 kA a 380…415 V; Ics = 75 % de Icu (IEC 60947-2)
+      datos: {<<: *datos_itm, Icu_kA: {240: 20, 415: 10}, Ics_kA: {240: 15, 415: 7.5}}
+      fuente: "Schneider Electric, Product data sheet A9F74306 (iC60N 3P C6), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9F74306_DATASHEET&p_File_Name=A9F74306_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: Icu 20 kA a 220…240 V AC y 10 kA a 380…415 V AC, Ics 75 % de Icu (IEC 60947-2), Icn 6000 A a 400 V (IEC 60898-1); pág. 2: temperatura de funcionamiento −35…70 °C"
   - ref: ITM-C10-3P
     name: ITM 3P C10
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 10 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
@@ -120,7 +120,6 @@ components:
       modelo: {tipo: itm, In_A: 10, curva: C, Icn_kA: 6, polos: 3}
       # Icu 20 kA a 220…240 V y 10 kA a 380…415 V; Ics = 75 % de Icu (IEC 60947-2)
       datos: {<<: *datos_itm, Icu_kA: {240: 20, 415: 10}, Ics_kA: {240: 15, 415: 7.5}}
-      a_confirmar: []
       fuente: "Schneider Electric, ficha de producto Acti9 iC60N A9F04310 (3P C10; schneider-electric.cn, 2026-10-24)"
   - ref: ITM-C16-3P
     name: ITM 3P C16
@@ -133,6 +132,9 @@ components:
       <<: *itm_3p
       perdidas_W: 7.5
       modelo: {tipo: itm, In_A: 16, curva: C, Icn_kA: 6, polos: 3}
+      # Icu 20 kA a 220…240 V y 10 kA a 380…415 V; Ics = 75 % de Icu (IEC 60947-2)
+      datos: {<<: *datos_itm, Icu_kA: {240: 20, 415: 10}, Ics_kA: {240: 15, 415: 7.5}}
+      fuente: "Schneider Electric, Product data sheet A9F74316 (iC60N 3P C16), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9F74316_DATASHEET&p_File_Name=A9F74316_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: Icu 20 kA a 220…240 V AC y 10 kA a 380…415 V AC, Ics 75 % de Icu (IEC 60947-2); pág. 2: temperatura de funcionamiento −35…70 °C"
   - ref: ITM-C20-3P
     name: ITM 3P C20
     description: Interruptor termomagnético (ITM) de 3 polos, curva C, 20 A, 6 kA (IEC 60898-1), riel DIN. Verificar con el proveedor.
@@ -144,6 +146,9 @@ components:
       <<: *itm_3p
       perdidas_W: 9
       modelo: {tipo: itm, In_A: 20, curva: C, Icn_kA: 6, polos: 3}
+      # Icu 20 kA a 220…240 V y 10 kA a 380…415 V; Ics = 75 % de Icu (IEC 60947-2)
+      datos: {<<: *datos_itm, Icu_kA: {240: 20, 415: 10}, Ics_kA: {240: 15, 415: 7.5}}
+      fuente: "Schneider Electric, Product data sheet A9F74320 (iC60N 3P C20), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9F74320_DATASHEET&p_File_Name=A9F74320_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: Icu 20 kA a 220…240 V AC y 10 kA a 380…415 V AC, Ics 75 % de Icu (IEC 60947-2); pág. 2: temperatura de funcionamiento −35…70 °C"
   - ref: ITM-C2-2P
     name: ITM 2P C2
     description: Interruptor termomagnético (ITM) de 2 polos, curva C, 2 A, 6 kA (IEC 60898-1), para el mando a 220 V entre dos fases en la red sin neutro (p. ej. la entrada de la fuente de 24 VDC). Verificar con el proveedor.
@@ -203,9 +208,9 @@ components:
         - {de: "1", a: "2", tipo: proteccion}
         - {de: N1, a: N2, tipo: NA, accion: mano}
       modelo: {tipo: itm, In_A: 2, curva: C, Icn_kA: 6, polos: "1P+N"}
-      datos: *datos_itm
-      a_confirmar: [Icu_kA, Ics_kA]
-      fuente: *fuente_itm
+      # Icu 50 kA a 220…240 V, Ics = 100 % (IEC 60947-2); sin rating a 380…415 V (fase-neutro)
+      datos: {<<: *datos_itm, Icu_kA: {240: 50}, Ics_kA: {240: 50}}
+      fuente: "Schneider Electric, Product data sheet A9F74602 (iC60N 1P+N C2), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9F74602_DATASHEET&p_File_Name=A9F74602_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: Icu 50 kA a 220…240 V AC, Ics 100 % de Icu (IEC 60947-2), Icn 6000 A a 230 V (IEC 60898-1); sin rating a 380…415 V (aparato fase-neutro); pág. 2: temperatura de funcionamiento −35…70 °C"
       nota: "N1/N2 = polo de neutro (marcado N en el aparato), lado línea y lado carga."
   - ref: ITM-C6-1PN
     name: ITM 1P+N C6
@@ -218,18 +223,27 @@ components:
       <<: *itm_1pn
       perdidas_W: 2
       modelo: {tipo: itm, In_A: 6, curva: C, Icn_kA: 6, polos: "1P+N"}
+      # Icu 10 kA a 220…240 V, Ics = 75 % de Icu (IEC 60947-2); sin rating a 380…415 V
+      datos: {<<: *datos_itm, Icu_kA: {240: 10}, Ics_kA: {240: 7.5}}
+      fuente: "Schneider Electric, Product data sheet A9F74606 (iC60N 1P+N C6), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9F74606_DATASHEET&p_File_Name=A9F74606_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: Icu 10 kA a 220…240 V AC, Ics 75 % de Icu (IEC 60947-2); sin rating a 380…415 V (aparato fase-neutro); pág. 2: temperatura de funcionamiento −35…70 °C"
   # ── interruptores diferenciales (RCCB, IEC 61008-1) ─────────────────────────────────────
-  # Las cifras de ficha (Inc con su protección, Im y la temperatura de funcionamiento) NO se
-  # verificaron: las fichas de las líneas de referencia no se pudieron descargar (2026-10-24), y
-  # van en `a_confirmar` SIN valor. In, IΔn, clase y polos son lo que DEFINE la ref (lo que hay
-  # que respetar al reemplazarla por la local).
+  # Las cifras de ficha (Inc con su protección, Im y la temperatura de funcionamiento) salen de
+  # las fichas Schneider Acti9 iID de cada ref (consultadas 2026-10-26; bitácora «Cifras de fichas
+  # y líneas corregidas» del plan datos-de-corte-y-acometida). In, IΔn, clase y polos son lo que
+  # DEFINE la ref (lo que hay que respetar al reemplazarla por la local). `specs.frecuencia_ficha`
+  # es la frecuencia de la ficha leída: la de clase B (B-SI) es de 50 Hz y la red de Lima es de
+  # 60 Hz, así que «apto a 60 Hz» queda en `specs.a_confirmar` (decisión D-a: la cifra se carga,
+  # nunca se afirma lo que la ficha no dice).
+  #  Inc_con: la ficha no nombra la protección; el catálogo Acti 9 da «con iC60N/H/L: igual al
+  #  poder de corte del iC60; con fusible: 10 000 A» sin calibre, y el calibre máximo del fusible
+  #  es el de la ficha Siemens 5SV3 equivalente (63 A en 2P 25 A, 80 A en 4P 40 A).
   - ref: DIF-2P-25A-30MA-A
     name: Diferencial 2P 25 A 30 mA clase A
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 30 mA, clase A (IEC 61008-1), riel DIN; protección de personas contra contactos. Se compone con un ITM. Verificar con el proveedor.
     builder: box
     params: {width: 36, depth: 75, height: 90}
     weight: 0.2
-    specs: {In_A: 25, IDn_mA: 30, clase_residual: A, polos: 2, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (2P, clase A)", cotas_verificadas: false, cost: 45}
+    specs: {In_A: 25, IDn_mA: 30, clase_residual: A, polos: 2, modulos_DIN: 2, frecuencia_ficha: "50/60 Hz", linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (2P, clase A)", cotas_verificadas: false, cost: 45}
     electrico: &diferencial_2p
       funcion: F
       simbolo: diferencial_2p
@@ -243,8 +257,9 @@ components:
         - {de: "1", a: "2", tipo: proteccion}
         - {de: N1, a: N2, tipo: proteccion}
       modelo: {tipo: diferencial, In_A: 25, IDn_mA: 30, clase_residual: A, polos: 2}
-      a_confirmar: &a_confirmar_dif [Inc_kA, Inc_con, Im_A, T_max_C]
-      fuente: &fuente_dif "sin ficha verificada: las de Schneider Acti9 iID, ABB F200, Siemens 5SV3 y Eaton xEffect FRCmM no se pudieron descargar (2026-10-24); Inc con su protección, Im y la temperatura de funcionamiento, a confirmar con la ficha del aparato que se compre"
+      # Inc 10 kA, Im 1500 A (IEC 61008-1); −25…60 °C; la protección de la Inc, en la cabecera del bloque
+      datos: {T_max_C: 60, Inc_kA: 10, Inc_con: "iC60N aguas arriba (Inc = Icu del iC60N) o fusible gG de 63 A como máximo", Im_A: 1500}
+      fuente: "Schneider Electric, Product data sheet A9R21225 (iID 2P 25 A clase A 30 mA, 230…240 V 50/60 Hz), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9R21225_DATASHEET&p_File_Name=A9R21225_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: «Rated breaking and making capacity Im 1500 A», «Rated conditional short-circuit current 10 kA»; pág. 2: temperatura de funcionamiento −25…60 °C. Inc_con: Schneider, catálogo «Acti 9 — The efficiency you deserve» CA909006E v1.0 (02/08/2017), https://download.schneider-electric.com/files?p_Doc_Ref=CA909006NL&p_File_Ext=.PDF, pág. 5 (con iC60N/H/L, igual al poder de corte del iC60; con fusible, 10 000 A, sin calibre); calibre máximo del fusible: Siemens, hoja de datos 5SV3312-6 (2P 25 A clase A; mall.industry.siemens.com, consultada 2026-10-25), pág. 1: 63 A"
       nota: "N1/N2 = polo de neutro (marcado N en el aparato), lado línea y lado carga; pasa por el toroide y se abre con el disparo. En la red 2F (220 V entre dos fases, sin neutro) el polo N lleva la segunda fase."
   - ref: DIF-2P-25A-300MA-A
     name: Diferencial 2P 25 A 300 mA clase A
@@ -252,37 +267,40 @@ components:
     builder: box
     params: {width: 36, depth: 75, height: 90}
     weight: 0.2
-    specs: {In_A: 25, IDn_mA: 300, clase_residual: A, polos: 2, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (2P, clase A)", cotas_verificadas: false, cost: 50}
+    specs: {In_A: 25, IDn_mA: 300, clase_residual: A, polos: 2, modulos_DIN: 2, frecuencia_ficha: "50/60 Hz", linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (2P, clase A)", cotas_verificadas: false, cost: 50}
     electrico:
       <<: *diferencial_2p
       modelo: {tipo: diferencial, In_A: 25, IDn_mA: 300, clase_residual: A, polos: 2}
+      fuente: "Schneider Electric, Product data sheet A9R24225 (iID 2P 25 A clase A 300 mA, 230…240 V 50/60 Hz), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9R24225_DATASHEET&p_File_Name=A9R24225_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: «Rated breaking and making capacity Im 1500 A», «Rated conditional short-circuit current 10 kA»; pág. 2: temperatura de funcionamiento −25…60 °C. Inc_con: Schneider, catálogo «Acti 9 — The efficiency you deserve» CA909006E v1.0 (02/08/2017), https://download.schneider-electric.com/files?p_Doc_Ref=CA909006NL&p_File_Ext=.PDF, pág. 5 (con iC60N/H/L, igual al poder de corte del iC60; con fusible, 10 000 A, sin calibre); calibre máximo del fusible: Siemens, hoja de datos 5SV3312-6 (2P 25 A clase A; mall.industry.siemens.com, consultada 2026-10-25), pág. 1: 63 A"
   - ref: DIF-2P-25A-30MA-B
     name: Diferencial 2P 25 A 30 mA clase B
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 30 mA, clase B (IEC 61008-1 / IEC 62423, detecta también la corriente de falla continua lisa de un variador), riel DIN. Se compone con un ITM. Verificar con el proveedor.
     builder: box
     params: {width: 36, depth: 75, height: 90}
     weight: 0.25
-    specs: {In_A: 25, IDn_mA: 30, clase_residual: B, polos: 2, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (2P)", cotas_verificadas: false, cost: 220}
+    specs: {In_A: 25, IDn_mA: 30, clase_residual: B, polos: 2, modulos_DIN: 2, frecuencia_ficha: "50 Hz", a_confirmar: "apto a 60 Hz: la ficha leída (Schneider iID B-SI) es de 50 Hz y la red de Lima es de 60 Hz; pedir al proveedor un clase B con ficha a 60 Hz", linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (2P)", cotas_verificadas: false, cost: 220}
     electrico:
       <<: *diferencial_2p
       modelo: {tipo: diferencial, In_A: 25, IDn_mA: 30, clase_residual: B, polos: 2}
+      fuente: "Schneider Electric, Product data sheet A9Z61225 (iID 2P 25 A clase B-SI 30 mA, 230 V 50 Hz), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9Z61225_DATASHEET&p_File_Name=A9Z61225_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: «Rated breaking and making capacity Im 1500 A», «Rated conditional short-circuit current 10 kA»; pág. 2: temperatura de funcionamiento −25…60 °C. Inc_con: Schneider, catálogo «Acti 9 — The efficiency you deserve» CA909006E v1.0 (02/08/2017), https://download.schneider-electric.com/files?p_Doc_Ref=CA909006NL&p_File_Ext=.PDF, pág. 5 (con iC60N/H/L, igual al poder de corte del iC60; con fusible, 10 000 A, sin calibre); calibre máximo del fusible: Siemens, hoja de datos 5SV3312-6 (2P 25 A clase A; mall.industry.siemens.com, consultada 2026-10-25), pág. 1: 63 A"
   - ref: DIF-2P-25A-300MA-B
     name: Diferencial 2P 25 A 300 mA clase B
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 2 polos, 25 A, 300 mA, clase B (IEC 61008-1 / IEC 62423), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
     builder: box
     params: {width: 36, depth: 75, height: 90}
     weight: 0.25
-    specs: {In_A: 25, IDn_mA: 300, clase_residual: B, polos: 2, modulos_DIN: 2, linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (2P)", cotas_verificadas: false, cost: 230}
+    specs: {In_A: 25, IDn_mA: 300, clase_residual: B, polos: 2, modulos_DIN: 2, frecuencia_ficha: "50 Hz", a_confirmar: "apto a 60 Hz: la ficha leída (Schneider iID B-SI) es de 50 Hz y la red de Lima es de 60 Hz; pedir al proveedor un clase B con ficha a 60 Hz", linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (2P)", cotas_verificadas: false, cost: 230}
     electrico:
       <<: *diferencial_2p
       modelo: {tipo: diferencial, In_A: 25, IDn_mA: 300, clase_residual: B, polos: 2}
+      fuente: "Schneider Electric, Product data sheet A9Z64225 (iID 2P 25 A clase B-SI 300 mA, 230 V 50 Hz), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9Z64225_DATASHEET&p_File_Name=A9Z64225_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: «Rated breaking and making capacity Im 1500 A», «Rated conditional short-circuit current 10 kA»; pág. 2: temperatura de funcionamiento −25…60 °C. Inc_con: Schneider, catálogo «Acti 9 — The efficiency you deserve» CA909006E v1.0 (02/08/2017), https://download.schneider-electric.com/files?p_Doc_Ref=CA909006NL&p_File_Ext=.PDF, pág. 5 (con iC60N/H/L, igual al poder de corte del iC60; con fusible, 10 000 A, sin calibre); calibre máximo del fusible: Siemens, hoja de datos 5SV3312-6 (2P 25 A clase A; mall.industry.siemens.com, consultada 2026-10-25), pág. 1: 63 A"
   - ref: DIF-4P-40A-30MA-A
     name: Diferencial 4P 40 A 30 mA clase A
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 30 mA, clase A (IEC 61008-1), riel DIN, para una red 380/220 V con neutro. Se compone con un ITM. Verificar con el proveedor.
     builder: box
     params: {width: 72, depth: 75, height: 90}
     weight: 0.4
-    specs: {In_A: 40, IDn_mA: 30, clase_residual: A, polos: 4, modulos_DIN: 4, linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (4P, clase A)", cotas_verificadas: false, cost: 85}
+    specs: {In_A: 40, IDn_mA: 30, clase_residual: A, polos: 4, modulos_DIN: 4, frecuencia_ficha: "50/60 Hz", linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (4P, clase A)", cotas_verificadas: false, cost: 85}
     electrico: &diferencial_4p
       funcion: F
       simbolo: diferencial_4p
@@ -302,8 +320,9 @@ components:
         - {de: "5", a: "6", tipo: proteccion}
         - {de: N1, a: N2, tipo: proteccion}
       modelo: {tipo: diferencial, In_A: 40, IDn_mA: 30, clase_residual: A, polos: 4}
-      a_confirmar: *a_confirmar_dif
-      fuente: *fuente_dif
+      # Inc 10 kA, Im 1500 A (IEC 61008-1); −25…60 °C; la protección de la Inc, en la cabecera del bloque
+      datos: {T_max_C: 60, Inc_kA: 10, Inc_con: "iC60N aguas arriba (Inc = Icu del iC60N) o fusible gG de 80 A como máximo", Im_A: 1500}
+      fuente: "Schneider Electric, Product data sheet A9R21440 (iID 4P 40 A clase A 30 mA, 400…415 V 50/60 Hz), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9R21440_DATASHEET&p_File_Name=A9R21440_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: «Rated breaking and making capacity Im 1500 A», «Rated conditional short-circuit current 10 kA»; pág. 2: temperatura de funcionamiento −25…60 °C. Inc_con: Schneider, catálogo «Acti 9 — The efficiency you deserve» CA909006E v1.0 (02/08/2017), https://download.schneider-electric.com/files?p_Doc_Ref=CA909006NL&p_File_Ext=.PDF, pág. 5 (con iC60N/H/L, igual al poder de corte del iC60; con fusible, 10 000 A, sin calibre); calibre máximo del fusible: Siemens, hoja de datos 5SV3344-6 (4P 40 A clase A; mall.industry.siemens.com, consultada 2026-10-23), pág. 1: 80 A"
       nota: "N1/N2 = polo de neutro, lado línea y lado carga. En la red 3F sin neutro el polo N queda sin cablear (no entra a la residual): verificar con la ficha que el aparato que se compre funcione sin neutro (el circuito de prueba puede ir entre fase y N)."
   - ref: DIF-4P-40A-300MA-A
     name: Diferencial 4P 40 A 300 mA clase A
@@ -311,30 +330,33 @@ components:
     builder: box
     params: {width: 72, depth: 75, height: 90}
     weight: 0.4
-    specs: {In_A: 40, IDn_mA: 300, clase_residual: A, polos: 4, modulos_DIN: 4, linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (4P, clase A)", cotas_verificadas: false, cost: 90}
+    specs: {In_A: 40, IDn_mA: 300, clase_residual: A, polos: 4, modulos_DIN: 4, frecuencia_ficha: "50/60 Hz", linea_referencia: "orden de Schneider Acti9 iID / ABB F200 / Siemens 5SV3 (4P, clase A)", cotas_verificadas: false, cost: 90}
     electrico:
       <<: *diferencial_4p
       modelo: {tipo: diferencial, In_A: 40, IDn_mA: 300, clase_residual: A, polos: 4}
+      fuente: "Schneider Electric, Product data sheet A9R24440 (iID 4P 40 A clase A 300 mA, 400…415 V 50/60 Hz), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9R24440_DATASHEET&p_File_Name=A9R24440_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: «Rated breaking and making capacity Im 1500 A», «Rated conditional short-circuit current 10 kA»; pág. 2: temperatura de funcionamiento −25…60 °C. Inc_con: Schneider, catálogo «Acti 9 — The efficiency you deserve» CA909006E v1.0 (02/08/2017), https://download.schneider-electric.com/files?p_Doc_Ref=CA909006NL&p_File_Ext=.PDF, pág. 5 (con iC60N/H/L, igual al poder de corte del iC60; con fusible, 10 000 A, sin calibre); calibre máximo del fusible: Siemens, hoja de datos 5SV3344-6 (4P 40 A clase A; mall.industry.siemens.com, consultada 2026-10-23), pág. 1: 80 A"
   - ref: DIF-4P-40A-30MA-B
     name: Diferencial 4P 40 A 30 mA clase B
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 30 mA, clase B (IEC 61008-1 / IEC 62423, detecta también la corriente de falla continua lisa de un variador trifásico), riel DIN. Se compone con un ITM. Verificar con el proveedor.
     builder: box
     params: {width: 72, depth: 75, height: 90}
     weight: 0.45
-    specs: {In_A: 40, IDn_mA: 30, clase_residual: B, polos: 4, modulos_DIN: 4, linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (4P)", cotas_verificadas: false, cost: 380}
+    specs: {In_A: 40, IDn_mA: 30, clase_residual: B, polos: 4, modulos_DIN: 4, frecuencia_ficha: "50 Hz", a_confirmar: "apto a 60 Hz: la ficha leída (Schneider iID B-SI) es de 50 Hz y la red de Lima es de 60 Hz; pedir al proveedor un clase B con ficha a 60 Hz", linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (4P)", cotas_verificadas: false, cost: 380}
     electrico:
       <<: *diferencial_4p
       modelo: {tipo: diferencial, In_A: 40, IDn_mA: 30, clase_residual: B, polos: 4}
+      fuente: "Schneider Electric, Product data sheet A9Z61440 (iID 4P 40 A clase B-SI 30 mA, 400 V 50 Hz), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9Z61440_DATASHEET&p_File_Name=A9Z61440_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: «Rated breaking and making capacity Im 1500 A», «Rated conditional short-circuit current 10 kA»; pág. 2: temperatura de funcionamiento −25…60 °C. Inc_con: Schneider, catálogo «Acti 9 — The efficiency you deserve» CA909006E v1.0 (02/08/2017), https://download.schneider-electric.com/files?p_Doc_Ref=CA909006NL&p_File_Ext=.PDF, pág. 5 (con iC60N/H/L, igual al poder de corte del iC60; con fusible, 10 000 A, sin calibre); calibre máximo del fusible: Siemens, hoja de datos 5SV3344-6 (4P 40 A clase A; mall.industry.siemens.com, consultada 2026-10-23), pág. 1: 80 A"
   - ref: DIF-4P-40A-300MA-B
     name: Diferencial 4P 40 A 300 mA clase B
     description: Interruptor diferencial (RCCB, sin protección de sobrecorriente) de 4 polos (3 fases + neutro), 40 A, 300 mA, clase B (IEC 61008-1 / IEC 62423), riel DIN; protección contra incendio por fuga a tierra, no de personas. Se compone con un ITM. Verificar con el proveedor.
     builder: box
     params: {width: 72, depth: 75, height: 90}
     weight: 0.45
-    specs: {In_A: 40, IDn_mA: 300, clase_residual: B, polos: 4, modulos_DIN: 4, linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (4P)", cotas_verificadas: false, cost: 390}
+    specs: {In_A: 40, IDn_mA: 300, clase_residual: B, polos: 4, modulos_DIN: 4, frecuencia_ficha: "50 Hz", a_confirmar: "apto a 60 Hz: la ficha leída (Schneider iID B-SI) es de 50 Hz y la red de Lima es de 60 Hz; pedir al proveedor un clase B con ficha a 60 Hz", linea_referencia: "orden de Schneider Acti9 iID tipo B / ABB F200 B / Siemens 5SV3 tipo B (4P)", cotas_verificadas: false, cost: 390}
     electrico:
       <<: *diferencial_4p
       modelo: {tipo: diferencial, In_A: 40, IDn_mA: 300, clase_residual: B, polos: 4}
+      fuente: "Schneider Electric, Product data sheet A9Z64440 (iID 4P 40 A clase B-SI 300 mA, 400 V 50 Hz), centro de descargas oficial https://download.se.com/files?p_Doc_Ref=A9Z64440_DATASHEET&p_File_Name=A9Z64440_DATASHEET_WW_en-GB.pdf&p_enDocType=Product+Data+Sheet (consultada 2026-10-26), pág. 1: «Rated breaking and making capacity Im 1500 A», «Rated conditional short-circuit current 10 kA»; pág. 2: temperatura de funcionamiento −25…60 °C. Inc_con: Schneider, catálogo «Acti 9 — The efficiency you deserve» CA909006E v1.0 (02/08/2017), https://download.schneider-electric.com/files?p_Doc_Ref=CA909006NL&p_File_Ext=.PDF, pág. 5 (con iC60N/H/L, igual al poder de corte del iC60; con fusible, 10 000 A, sin calibre); calibre máximo del fusible: Siemens, hoja de datos 5SV3344-6 (4P 40 A clase A; mall.industry.siemens.com, consultada 2026-10-23), pág. 1: 80 A"
   # ── guardamotores de clase 10 (1–10 A sin huecos) ───────────────────────────────────────
   - ref: GM-1-1.6A
     name: Guardamotor 1-1,6 A clase 10
@@ -402,7 +424,7 @@ components:
     params: {width: 45, depth: 20, height: 40}
     tablero: {acopla_a: {simbolos: [guardamotor_3p], cara: frente}}
     weight: 0.03
-    specs: {contactos: "1NA+1NC", linea_referencia: "orden de Schneider TeSys GVAN11 / Siemens 3RV2901-1E", cotas_verificadas: false, cost: 12}
+    specs: {contactos: "1NA+1NC", linea_referencia: "orden de Schneider TeSys GVAE11 / Siemens SIRIUS 3RV2901-1E (bloque frontal)", cotas_verificadas: false, cost: 12}
     electrico:
       funcion: Q
       simbolo: contactos_aux
@@ -415,8 +437,8 @@ components:
       caminos:
         - {de: "13", a: "14", tipo: NA, accion: acople}
         - {de: "21", a: "22", tipo: NC, accion: acople}
-      a_confirmar: [T_max_C]
-      fuente: "ficha de producto TeSys GVAN11 (schneider-electric.cn, 2026-10-24) sin temperatura de funcionamiento: a confirmar con la del aparato que se compre"
+      datos: {T_max_C: 60}
+      fuente: "Siemens, hoja de datos 3RV2901-1E («Auxiliary switch transverse 1 NO+1 NC screw terminal for circuit breaker 3RV2»: el bloque frontal; mall.industry.siemens.com, consultada 2026-09-28), pág. 1: temperatura ambiente de funcionamiento −20…+60 °C. Schneider, Product data sheet GVAE11 («front mounting», 1 NO + 1 NC; download.se.com, consultada 2026-10-26) sin temperatura de funcionamiento"
   # ── relés térmicos (bajo el contactor) ──────────────────────────────────────────────────
   - ref: RT-2.5-4A
     name: Relé térmico 2,5-4 A clase 10A

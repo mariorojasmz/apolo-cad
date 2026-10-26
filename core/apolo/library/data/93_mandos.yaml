@@ -35,7 +35,7 @@ components:
       norma: "ISO 13850"
       agujero: "Ø22,5"
       leyenda: "Ø60 amarilla"
-      linea_referencia: "orden de Schneider Harmony XB5AS8445 + ZBY9140 / Siemens SIRIUS ACT 3SU1"
+      linea_referencia: "orden de Schneider Harmony XB5AS8442 (1 NC) + ZBY9140 / Siemens SIRIUS ACT 3SU1"
       cotas_verificadas: false
       cost: 30
     zonas:
@@ -54,7 +54,7 @@ components:
       caminos: [{de: "11", a: "12", tipo: NC, accion: mano}]
       modelo: {tipo: seta, retorno: retenido}
       datos: &datos_seta {T_max_C: 70}
-      fuente: &fuente_seta "Schneider Electric, fichas de producto Harmony XB5AS8445 y XB5AS8442 (schneider-electric.cn, 2026-10-24): temperatura de funcionamiento −40…70 °C"
+      fuente: &fuente_seta "Schneider Electric, fichas de producto Harmony XB5AS8445 y XB5AS8442 (schneider-electric.cn, 2026-10-24) y Product datasheets XB5AS8442 (1 NC) y XB5AS8444 (2 NC) (https://www.se.com/uk/en/product/download-pdf/XB5AS8442 y …/XB5AS8444, consultadas 2026-10-26), pág. 2: temperatura de funcionamiento −40…70 °C"
   - ref: ESTOP-40-CAJA
     name: Paro de emergencia Ø40 en caja
     description: >-
@@ -73,7 +73,7 @@ components:
       fijacion: "2 × M5"
       prensaestopa: M20
       leyenda: "Ø60 amarilla"
-      linea_referencia: "orden de Schneider Harmony XAPJ / XALK + XB5AS8445 / Siemens SIRIUS ACT 3SU1801"
+      linea_referencia: "orden de Schneider Harmony XAPJ / XALK + XB5AS8442 (1 NC) / Siemens SIRIUS ACT 3SU1801"
       cotas_verificadas: false
       cost: 45
     zonas:
@@ -108,7 +108,7 @@ components:
       norma: "ISO 13850"
       agujero: "Ø22,5"
       leyenda: "Ø60 amarilla"
-      linea_referencia: "orden de Schneider Harmony XB5AS8442 + ZBY9140 / Siemens SIRIUS ACT 3SU1 con dos bloques 1NC"
+      linea_referencia: "orden de Schneider Harmony XB5AS8444 (2 NC) + ZBY9140 / Siemens SIRIUS ACT 3SU1 con dos bloques 1NC"
       cotas_verificadas: false
       cost: 36
     zonas:
@@ -150,7 +150,7 @@ components:
       fijacion: "2 × M5"
       prensaestopa: M20
       leyenda: "Ø60 amarilla"
-      linea_referencia: "orden de Schneider Harmony XAPJ / XALK + XB5AS8442 / Siemens SIRIUS ACT 3SU1801 con dos bloques 1NC"
+      linea_referencia: "orden de Schneider Harmony XAPJ / XALK + XB5AS8444 (2 NC) / Siemens SIRIUS ACT 3SU1801 con dos bloques 1NC"
       cotas_verificadas: false
       cost: 52
     zonas:
@@ -186,7 +186,7 @@ components:
       fijacion: "2 × M5"
       prensaestopa: M20
       actuador: RESG-LENGUETA
-      linea_referencia: "orden de Schneider Preventa XCSPA592 / Siemens SIRIUS 3SE5112 con actuador aparte"
+      linea_referencia: "orden de Telemecanique Sensors XCSPA792 (2 NC; ex Schneider Preventa) / Siemens SIRIUS 3SE5112 con actuador aparte"
       cotas_verificadas: false
       cost: 40
     electrico:
@@ -213,7 +213,7 @@ components:
     specs:
       para: RESG-2NC
       fijacion: "2 × M4"
-      linea_referencia: "orden de Schneider Preventa XCSZ11 / Siemens SIRIUS 3SE5000-0AV01"
+      linea_referencia: "orden de Telemecanique Sensors XCSZ11 (ex Schneider Preventa) / Siemens SIRIUS 3SE5000-0AV01"
       cotas_verificadas: false
       cost: 10
   - ref: BOTONERA-2

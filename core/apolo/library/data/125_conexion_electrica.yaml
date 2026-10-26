@@ -17,7 +17,7 @@ components:
     builder: box
     params: {width: 5.2, depth: 47, height: 42.5}
     weight: 0.007
-    specs: {seccion_mm2: 2.5, ancho_mm: 5.2, linea_referencia: "orden de Phoenix Contact UT 2,5 / Weidmüller WDU 2.5", cotas_verificadas: false, cost: 0.8}
+    specs: {seccion_mm2: 2.5, ancho_mm: 5.2, linea_referencia: "orden de Phoenix Contact UT 2,5 / Weidmüller WDU 2.5 / Siemens 8WH1000-0AF00", cotas_verificadas: false, cost: 0.8}
     electrico:
       funcion: X
       simbolo: borne_paso
@@ -25,15 +25,15 @@ components:
       bornera: true
       bornes: [{id: "1", rol: potencia}]
       modelo: {seccion_mm2: 2.5}
-      a_confirmar: [T_max_C]
-      fuente: &fuente_borne "sin ficha verificada de la línea de referencia (Phoenix Contact UT / Weidmüller WDU, WPE): la temperatura de servicio, a confirmar con el borne que se compre"
+      datos: {T_max_C: 105}
+      fuente: "Siemens, hoja de datos 8WH1000-0AF00 (borne de paso de tornillo 2,5 mm²: equivalente de la línea; mall.industry.siemens.com, consultada 2026-10-23), pág. 2: «ambient temperature during operation» −60…105 °C. Es el tope del borne con su autocalentamiento (lo que da toda ficha de bornes): como aire alrededor no limita. Phoenix Contact y Weidmüller sin ficha leída (sus webs responden 403)"
   - ref: BORNE-PASO-4
     name: Borne de paso 4 mm²
     description: Borne de paso de tornillo para riel DIN, 4 mm², gris, ancho 6,2 mm. Verificar con el proveedor.
     builder: box
     params: {width: 6.2, depth: 47, height: 42.5}
     weight: 0.009
-    specs: {seccion_mm2: 4, ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact UT 4 / Weidmüller WDU 4", cotas_verificadas: false, cost: 1.0}
+    specs: {seccion_mm2: 4, ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact UT 4 / Weidmüller WDU 4 / Siemens 8WH1000-0AG00", cotas_verificadas: false, cost: 1.0}
     electrico:
       funcion: X
       simbolo: borne_paso
@@ -41,15 +41,15 @@ components:
       bornera: true
       bornes: [{id: "1", rol: potencia}]
       modelo: {seccion_mm2: 4}
-      a_confirmar: [T_max_C]
-      fuente: *fuente_borne
+      datos: {T_max_C: 105}
+      fuente: "Siemens, hoja de datos 8WH1000-0AG00 (borne de paso de tornillo 4 mm²: equivalente de la línea; mall.industry.siemens.com, consultada 2026-10-23), pág. 2: «ambient temperature during operation» −60…105 °C. Es el tope del borne con su autocalentamiento (lo que da toda ficha de bornes): como aire alrededor no limita. Phoenix Contact y Weidmüller sin ficha leída (sus webs responden 403)"
   - ref: BORNE-PE-2.5
     name: Borne de tierra 2,5 mm²
     description: Borne de protección (PE) verde-amarillo de tornillo, 2,5 mm², ancho 5,2 mm; hace contacto con el riel DIN, que a su vez se une a la placa y al gabinete. Verificar con el proveedor.
     builder: box
     params: {width: 5.2, depth: 47, height: 42.5}
     weight: 0.012
-    specs: {seccion_mm2: 2.5, ancho_mm: 5.2, linea_referencia: "orden de Phoenix Contact UT 2,5-PE / Weidmüller WPE 2.5", cotas_verificadas: false, cost: 2.0}
+    specs: {seccion_mm2: 2.5, ancho_mm: 5.2, linea_referencia: "orden de Phoenix Contact UT 2,5-PE / Weidmüller WPE 2.5 / Siemens 8WH1000-0CF07", cotas_verificadas: false, cost: 2.0}
     electrico:
       funcion: X
       simbolo: borne_pe
@@ -57,15 +57,15 @@ components:
       bornera: true
       bornes: [{id: "1", rol: tierra}]
       modelo: {seccion_mm2: 2.5}
-      a_confirmar: [T_max_C]
-      fuente: *fuente_borne
+      datos: {T_max_C: 105}
+      fuente: "Siemens, hoja de datos 8WH1000-0CF07 (borne PE de tornillo 2,5 mm²: equivalente de la línea; mall.industry.siemens.com, consultada 2026-10-23), pág. 2: «ambient temperature during operation» −60…105 °C. Es el tope del borne con su autocalentamiento (lo que da toda ficha de bornes): como aire alrededor no limita. Phoenix Contact y Weidmüller sin ficha leída (sus webs responden 403)"
   - ref: BORNE-PE-4
     name: Borne de tierra 4 mm²
     description: Borne de protección (PE) verde-amarillo de tornillo, 4 mm², ancho 6,2 mm; hace contacto con el riel DIN. Verificar con el proveedor.
     builder: box
     params: {width: 6.2, depth: 47, height: 42.5}
     weight: 0.015
-    specs: {seccion_mm2: 4, ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact UT 4-PE / Weidmüller WPE 4", cotas_verificadas: false, cost: 2.5}
+    specs: {seccion_mm2: 4, ancho_mm: 6.2, linea_referencia: "orden de Phoenix Contact UT 4-PE / Weidmüller WPE 4 / Siemens 8WH1000-0CG07", cotas_verificadas: false, cost: 2.5}
     electrico:
       funcion: X
       simbolo: borne_pe
@@ -73,8 +73,8 @@ components:
       bornera: true
       bornes: [{id: "1", rol: tierra}]
       modelo: {seccion_mm2: 4}
-      a_confirmar: [T_max_C]
-      fuente: *fuente_borne
+      datos: {T_max_C: 105}
+      fuente: "Siemens, hoja de datos 8WH1000-0CG07 (borne PE de tornillo 4 mm²: equivalente de la línea; mall.industry.siemens.com, consultada 2026-10-23), pág. 2: «ambient temperature during operation» −60…105 °C. Es el tope del borne con su autocalentamiento (lo que da toda ficha de bornes): como aire alrededor no limita. Phoenix Contact y Weidmüller sin ficha leída (sus webs responden 403)"
   # `modelo` (plan V8.3 D7): el cartucho 5x20 es un AJUSTE de add_device (`cartucho_In_A`
   # dentro de lo que admite el portafusible; `cartucho_curva` F rápido o T temporizado, T por
   # defecto: criterio de diseño, el de un mando con bobinas y fuentes que piden corriente al
@@ -85,7 +85,7 @@ components:
     builder: box
     params: {width: 8.2, depth: 60, height: 62}
     weight: 0.02
-    specs: {fusible: "5x20 mm", In_max_A: 6.3, ancho_mm: 8.2, linea_referencia: "orden de Phoenix Contact UT 4-HESI (5X20) / Weidmüller WSI 4", cotas_verificadas: false, cost: 3.5}
+    specs: {fusible: "5x20 mm", In_max_A: 6.3, ancho_mm: 8.2, linea_referencia: "orden de Phoenix Contact UT 4-HESI (5X20) / Weidmüller WSI 4 / Siemens 8WH1000-1GG08; cartucho del orden de Schurter FST 5x20 (T, IEC 60127-2 hoja 3)", cotas_verificadas: false, cost: 3.5}
     electrico:
       funcion: F
       simbolo: borne_fusible
@@ -96,8 +96,9 @@ components:
         - {id: "2", rol: potencia, lado: carga}
       caminos: [{de: "1", a: "2", tipo: proteccion}]
       modelo: {tipo: fusible, fusible: "5x20 mm", In_max_A: 6.3, cartucho_In_A: [0.05, 6.3], cartucho_curva: T}
-      a_confirmar: [cartucho_U_V, cartucho_Icn_A, cartucho_Icn_x_In, T_max_C]
-      fuente: "sin ficha verificada del cartucho 5x20 ni del portafusible (Phoenix Contact UT 4-HESI / Weidmüller WSI 4): el poder de corte y la tensión del cartucho (IEC 60127-2, según su hoja de norma: F o T, de bajo o alto poder de corte) y la temperatura de servicio, a confirmar"
+      # cartucho T de bajo poder de corte 250 VAC, Icn = máx(35 A, 10·In); portafusible hasta 105 °C
+      datos: {cartucho_U_V: 250, cartucho_Icn_A: 35, cartucho_Icn_x_In: 10, T_max_C: 105}
+      fuente: "cartucho: Schurter, «FST 5x20 — Miniature Fuse, 5 x 20 mm, Time-Lag T, L, 250 VAC» (IEC 60127-2 hoja 3: T, bajo poder de corte, vidrio; edición 21.07.2026), https://www.schurter.com/en/datasheet/typ_FST_5x20.pdf (consultada 2026-10-26), pág. 1: 250 VAC, −55…125 °C; pág. 4, notas «1) 35 A @ 250 VAC» y «2) 10 x In @ 250 VAC» (Icn = máx(35 A, 10·In): 35 A hasta ~3,15 A, 10·In de 4 A en adelante). Portafusible: Siemens, hoja de datos 8WH1000-1GG08 («fuse terminal for G fuse, 4 mm²»: equivalente de la línea; mall.industry.siemens.com, consultada 2026-10-24), pág. 2: «ambient temperature during operation» máximo 105 °C (la ficha imprime también «minimum 105 °C»: errata del mínimo; el máximo es el de toda la serie 8WH, −60…105 °C). Phoenix Contact, Weidmüller y Littelfuse sin ficha leída (sus webs responden 403)"
   # ── conductores sueltos (por metro) ─────────────────────────────────────────────────────
   - ref: COND-H05VK-0.75
     name: Conductor flexible H05V-K 0,75 mm²
@@ -113,8 +114,9 @@ components:
       simbolo: conductor
       montaje: placa
       conductor: {seccion_mm2: 0.75, tension_aislamiento: "300/500 V", temperatura_C: 70}
-      a_confirmar: [T_max_C]
-      fuente: "EN 50525-2-31: 70 °C es la temperatura máxima del CONDUCTOR (`conductor.temperatura_C`), no la del aire alrededor; la del aire y su corrección de corriente admisible la fija la instalación (IEC 60364-5-52): a confirmar"
+      # típico de norma, no de la ficha: el aire alrededor de un PVC 70 °C llega hasta 60 °C (k1 = 0,50)
+      datos: {T_max_C: 60}
+      fuente: "T_max_C típico de IEC 60364-5-52 tabla B.52.14, no de la ficha (la de LAPP no se leyó), citado de Schneider Electric, Electrical Installation Guide, «General method for cable sizing», Fig. G12, https://www.electrical-installation.org/enwiki/General_method_for_cable_sizing (consultada 2026-10-26): el factor k1 por temperatura del aire (referencia 30 °C) para aislamiento PVC llega hasta 60 °C (k1 = 0,50; a 65 °C sin valor). Arriba de 30 °C la corriente admisible se multiplica por k1: lo aplica quien verifica, no el dato. EN 50525-2-31: 70 °C es la temperatura máxima del CONDUCTOR (`conductor.temperatura_C`), no la del aire"
   - ref: COND-H05VK-1
     name: Conductor flexible H05V-K 1 mm²
     description: Conductor de cobre flexible clase 5 con aislamiento de PVC, 1 mm², 300/500 V, por metro, para el mando. En Perú se cotiza como cable flexible de tablero - verificar con el proveedor la tensión y la clase.

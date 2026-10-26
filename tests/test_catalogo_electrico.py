@@ -176,12 +176,18 @@ def test_categorias_nuevas_al_final_y_en_su_subsistema():
 
 
 def test_refs_fijadas_conservan_specs_y_geometria():
+    # corriente_A: la de servicio pesado del Delta MS300 230 V 3F con STO (la línea citada desde
+    # 2026-10-26; la 8,5 A de antes no era de ninguna ficha) + su linea_referencia
     assert CATALOG["VFD-1K5-220"].specs == {
-        "potencia_kW": 1.5, "potencia_HP": 2, "tension": "220V 3F", "corriente_A": 8.5,
-        "control": "vectorial sensorless", "proteccion": "STO", "cost": 240}  # cost: V8.1 F4
+        "potencia_kW": 1.5, "potencia_HP": 2, "tension": "220V 3F", "corriente_A": 7.5,
+        "control": "vectorial sensorless", "proteccion": "STO", "cost": 240,  # cost: V8.1 F4
+        "linea_referencia": "orden de Delta MS300 VFD7A5MS23ANSAA (230 V 3F, STO integrado) / Siemens "
+                            "SINAMICS G120 CU240E-2 + PM240-2 200 V 3AC"}
     assert CATALOG["VFD-2K2-220"].specs == {
         "potencia_kW": 2.2, "potencia_HP": 3, "tension": "220V 3F", "corriente_A": 11.0,
-        "control": "vectorial sensorless", "proteccion": "STO", "cost": 280}
+        "control": "vectorial sensorless", "proteccion": "STO", "cost": 280,
+        "linea_referencia": "orden de Delta MS300 VFD11AMS23ANSAA (230 V 3F, STO integrado) / Siemens "
+                            "SINAMICS G120 CU240E-2 + PM240-2 200 V 3AC"}
     # la seta ganó cotas y geometría propias (seta-de-emergencia D4/D6) y conserva las de siempre
     estop = CATALOG["ESTOP-40"].specs
     assert {k: estop[k] for k in ("tipo", "contacto", "norma")} == {

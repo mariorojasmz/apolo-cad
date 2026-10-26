@@ -154,8 +154,10 @@ components:
       fuentes:
         - {polos: {L+: "+", M: "-"}, tension: "24 VDC"}
       modelo: {tipo: fuente, U_salida_V: 24, I_salida_A: 2.5, P_W: 60, eta: 0.88, I_limite_pct: 130, modo_limite: corriente_constante, t_retencion_ms: 20, U_entrada_min_V: 85}
+      # T_max_C es el tope SIN desclasificar (a plena carga): la ficha sólo da el tope con
+      # desclasificación y la rodilla está en la gráfica, no en el texto (decisión D-b)
       a_confirmar: [T_max_C]
-      fuente: "sin ficha verificada de la línea de referencia (Mean Well HDR / Phoenix Contact UNO): la temperatura de funcionamiento y su desclasificación, a confirmar con la fuente que se compre"
+      fuente: "Mean Well, HDR-60-SPEC (2026-10-09), https://www.meanwell.com/Upload/PDF/HDR-60/HDR-60-SPEC.PDF (consultada 2026-10-26), pág. 1: «WORKING TEMP. −30 ~ +70 °C (Refer to Derating Curve)»: 70 °C es el tope CON desclasificación; la temperatura a plena carga sólo está en la curva de desclasificación (pág. 3) y no se lee como número del texto: a confirmar. Phoenix Contact UNO POWER sin ficha leída (su web responde 403)"
       nota: "Los bornes L y N son los de la ENTRADA: en una red sin neutro van a dos fases."
   - ref: FUENTE-24VDC-5A
     name: Fuente 24 VDC 5 A (riel DIN)
@@ -169,3 +171,5 @@ components:
       <<: *fuente_24
       perdidas_W: 14
       modelo: {tipo: fuente, U_salida_V: 24, I_salida_A: 5, P_W: 120, eta: 0.89, I_limite_pct: 130, modo_limite: corriente_constante, t_retencion_ms: 20, U_entrada_min_V: 85}
+      a_confirmar: [T_max_C]
+      fuente: "Mean Well, EDR-120-SPEC (2026-03-31), https://www.meanwell.com/Upload/PDF/EDR-120/EDR-120-SPEC.PDF (consultada 2026-10-26), pág. 2: «WORKING TEMP. −20 ~ +60 °C (Refer to Derating Curve)»: 60 °C es el tope CON desclasificación; la temperatura a plena carga sólo está en la curva de desclasificación (pág. 3) y no se lee como número del texto: a confirmar. Phoenix Contact UNO POWER sin ficha leída (su web responde 403)"

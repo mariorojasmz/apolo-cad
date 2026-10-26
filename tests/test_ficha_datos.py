@@ -178,8 +178,15 @@ def test_las_62_refs_de_tablero_dicen_su_t_max_o_la_dejan_a_confirmar():
     sin = [r for r, f in tab.items() if "T_max_C" not in f.datos and "T_max_C" not in f.a_confirmar]
     assert not sin, sin
     con = {r for r, f in tab.items() if "T_max_C" in f.datos}
-    assert len(con) == 35  # el resto (19 + 8) a confirmar: sin ficha verificada (bitácoras F1a, F1b)
-    assert all(40 <= tab[r].datos["T_max_C"] <= 70 for r in con)
+    # 35 de las F1a/F1b + 25 de las fichas de 2026-10-26; a confirmar sólo las dos fuentes de 24 VDC
+    # (su ficha da el tope CON desclasificación: decisión D-b de la bitácora)
+    assert len(con) == 60
+    assert {r for r in tab if r not in con} == {"FUENTE-24VDC-2.5A", "FUENTE-24VDC-5A"}
+    # el aire alrededor de un aparato: 40–70 °C; un borne da su tope con autocalentamiento (105 °C)
+    bornes = {r for r in con if tab[r].simbolo in ("borne_paso", "borne_pe", "borne_fusible")}
+    assert bornes == {"BORNE-PASO-2.5", "BORNE-PASO-4", "BORNE-PE-2.5", "BORNE-PE-4", "BORNE-FUS-5X20"}
+    assert all(tab[r].datos["T_max_C"] == 105 for r in bornes)
+    assert all(40 <= tab[r].datos["T_max_C"] <= 70 for r in con - bornes)
 
 
 def test_cada_cifra_del_catalogo_trae_su_fuente_y_es_honesta():
@@ -200,9 +207,6 @@ def test_poder_de_corte_de_las_refs_verificadas():
     for gm in ("GM-1-1.6A", "GM-1.6-2.5A", "GM-2.5-4A", "GM-4-6.3A", "GM-6-10A"):
         assert d[gm]["Icu_kA"] == d[gm]["Ics_kA"] == {240: 100.0, 415: 100.0}
     assert (d["SECC-25A-3P"]["Icw_kA"], d["SECC-40A-3P"]["Icw_kA"]) == (0.384, 0.48)
-    for itm in ("ITM-C6-3P", "ITM-C16-3P", "ITM-C20-3P", "ITM-C2-1PN", "ITM-C6-1PN"):
-        assert set(CATALOG[itm].electrico.a_confirmar) == {"Icu_kA", "Ics_kA"}, itm
-    assert {"cartucho_U_V", "cartucho_Icn_A", "cartucho_Icn_x_In"} <= set(CATALOG["BORNE-FUS-5X20"].electrico.a_confirmar)
     for red in ("RED-3F-220V-60HZ", "RED-2F-220V-60HZ"):  # sin esquema de tierra: a confirmar
         f = CATALOG[red].electrico
         assert "esquema" not in f.modelo and "esquema" in f.a_confirmar
@@ -212,8 +216,8 @@ def test_el_payload_del_catalogo_publica_datos_fuente_y_a_confirmar():
     p = ficha_payload(CATALOG["ITM-C10-3P"].electrico)
     assert p["datos"]["Icu_kA"] == {"240": 20.0, "415": 10.0} and p["fuente"].startswith("Schneider")
     assert "a_confirmar" not in p
-    q = ficha_payload(CATALOG["ITM-C6-3P"].electrico)
-    assert q["a_confirmar"] == ["Icu_kA", "Ics_kA"] and q["datos"] == {"T_max_C": 70.0}
+    q = ficha_payload(CATALOG["FUENTE-24VDC-5A"].electrico)
+    assert q["a_confirmar"] == ["T_max_C"] and "datos" not in q and "EDR-120" in q["fuente"]
     import json
 
     json.dumps(catalog_payload())  # las claves de tensión salen como texto: JSON válido
