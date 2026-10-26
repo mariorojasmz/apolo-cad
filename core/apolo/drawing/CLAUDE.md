@@ -27,11 +27,12 @@ reglas están en [services](../services/CLAUDE.md).
   sin componer el PDF: «NO CONFORME» bloquea la publicación; las reglas, de `services/memoria_reglas.py`.
 - Entregables honestos: la memoria trae fórmula, sustitución, FS y norma por verificación; el
   costeo (`library/costing.py`) declara la fuente de cada fila (specs.cost / estimación peso ×
-  material × 3 / fabricación × 2.5). En el bloque «HIPÓTESIS Y ALCANCE» (tope 18 líneas) el
-  alcance y la nota del analista van al FINAL para que el corte no los mate.
+  material × 3 / fabricación × 2.5). En el bloque «HIPÓTESIS Y ALCANCE» el alcance y la nota
+  del analista van al FINAL: si la columna no entra, baja de escala antes que cortarlos.
 - **Una tabla nueva de un entregable va por `tabla.py`** (`hojas_tabla`), no por `_table_sheet`
-  (anchos fijos, recorta a N caracteres): ancho de columna por CONTENIDO medido con la fuente del
-  PDF, texto partido en líneas (nunca recortado) y paginación por altura sobre el cajetín. La
+  (anchos y filas fijos: la celda que no cabe va en dos renglones más chicos): ancho de columna
+  por CONTENIDO medido con la fuente del PDF, texto partido en líneas (nunca recortado) y
+  paginación por altura sobre el cajetín. La
   cotización la usa (detalle y «AVISOS DE COBRO», con el costeo de `services/cobros.py`); su test
   renderiza cada hoja y exige que ningún texto salga de su celda.
   [V8.1](../../../docs/plans/V8.1-modelo-electrico.md) (F4c)
@@ -53,6 +54,12 @@ reglas están en [services](../services/CLAUDE.md).
   quien apoya algo encima lee la tabla de revisiones de `alto_revisiones` (una descripción larga
   hace crecer su fila). `tests/test_cajetin.py` exige que nada se pise ni cruce una línea.
   [V8.9](../../../docs/plans/V8.9-neumatica.md) (pendiente 10)
+- **Ningún `[:N]` sobre texto visible en un papel** (`texto_medido.py`): celda de alto fijo →
+  `celda`/`celda_fila` (un renglón o dos más chicos; la fila no crece); texto corrido →
+  `Parrafo` + `columna` hasta el `piso` (`tabla.piso_tabla`: el cajetín y sus revisiones); lo que
+  no entra en la hoja sigue en otra o dice «… y N más». Un texto que cabe sale tal cual (`partir`
+  junta los espacios dobles). `tests/test_cortes_fijos.py`. [V8.9](../../../docs/plans/V8.9-neumatica.md)
+  (cortes fijos)
 - **Trazos de esquema** (`esquema.py`, para una extensión que dibuja esquemas): `kind`
   `simbolo` (negro sin relleno) y `simbolo_lleno` (punto de unión, flecha) en `Line`, `Circle` y
   `Polygon`, con un solo grosor (0,35 mm, criterio declarado); en DXF, capa `ESQUEMA` sólo si se
